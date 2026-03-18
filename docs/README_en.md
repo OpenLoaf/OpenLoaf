@@ -102,6 +102,10 @@ Three-level memory hierarchy:
 
 Skills follow the same pattern - global skills plus project-specific skills, all discoverable by AI agents at runtime.
 
+Skills are reusable Markdown workflows defined by a `SKILL.md` file. Put them in `~/.agents/skills/` for global reuse or in `<projectPath>/.agents/skills/` for project-specific behavior, and agents can load the instructions plus related tool dependencies on demand.
+
+OpenLoaf also supports **MCP (Model Context Protocol)** servers. You can connect external tools over `stdio`, `http`, or `sse`, configure them globally in `~/.openloaf/mcp-servers.json` or per project in `<projectPath>/.openloaf/mcp-servers.json`, and import JSON configs from clients like Claude Desktop, Cursor, VS Code, Cline, or Windsurf to expose GitHub, databases, filesystems, Slack, and more to your agents.
+
 ### AI Chat
 
 Multi-model AI chat supporting **OpenAI**, **Anthropic Claude**, **Google Gemini**, **DeepSeek**, **Qwen**, **xAI Grok**, and local models via **Ollama**. AI is aware of your project's full context - file structure, document content, conversation history. Built-in memory lets AI retain knowledge across conversations.

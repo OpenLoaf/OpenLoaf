@@ -355,7 +355,7 @@
     "thinkingStreaming": "Thinking...",
     "thinkingDone": "Thought",
     "thinkingDuration": "Thought for {{duration}}s",
-    "thinkingAnalyzing": "Analyzing context and generating plan, please wait...",
+    "thinkingAnalyzing": "Thinking...",
     "sourcesTitle": "Sources",
     "revisedPrompt": "Revised prompt",
     "needsApproval": "Approval required:",

@@ -116,7 +116,7 @@ export const TOOL_REGISTRY: ToolRegistryEntry[] = [
   { match: 'video-download', component: VideoDownloadTool as ComponentType<ToolComponentProps> },
   { match: ['browser-snapshot', 'browser-observe'], component: BrowserSnapshotTool as ComponentType<ToolComponentProps> },
   { match: 'browser-screenshot', component: BrowserScreenshotTool as ComponentType<ToolComponentProps> },
-  { match: ['task-manage', 'create-task', 'task-status'], component: TaskTool as ComponentType<ToolComponentProps> },
+  { match: ['task-manage', 'create-task'], component: TaskTool as ComponentType<ToolComponentProps> },
   { match: 'project-mutate', component: ProjectTool as ComponentType<ToolComponentProps> },
 ]
 

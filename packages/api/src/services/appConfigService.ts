@@ -124,3 +124,18 @@ export function getDefaultTempStoragePath(): string {
   // Linux and others.
   return path.join(homedir(), "OpenLoaf", "Temp");
 }
+
+/** Runtime override for the resolved temp storage directory. */
+let tempStorageDirOverride: string | null = null;
+
+/** Set the resolved temp storage dir (called by server on startup / settings update). */
+export function setResolvedTempStorageDir(dir: string | null): void {
+  tempStorageDirOverride = dir;
+}
+
+/** Get the effective temp storage directory (user setting → platform default). */
+export function getResolvedTempStorageDir(): string {
+  const v = tempStorageDirOverride?.trim();
+  if (v) return v;
+  return getDefaultTempStoragePath();
+}

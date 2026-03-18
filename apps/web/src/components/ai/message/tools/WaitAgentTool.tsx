@@ -169,7 +169,7 @@ export default function WaitAgentTool({
   return (
     <div
       className={cn(
-        'mb-2 min-w-0 rounded-lg border bg-card text-xs',
+        'min-w-0 rounded-lg border bg-card text-xs',
         className,
       )}
     >

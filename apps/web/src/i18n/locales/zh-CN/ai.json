@@ -355,7 +355,7 @@
     "thinkingStreaming": "深度思考中...",
     "thinkingDone": "深度思考",
     "thinkingDuration": "深度思考耗时 {{duration}}s",
-    "thinkingAnalyzing": "正在分析上下文并生成计划，请稍候...",
+    "thinkingAnalyzing": "正在思考中...",
     "sourcesTitle": "引用来源",
     "revisedPrompt": "改写提示词",
     "needsApproval": "需要审批：",

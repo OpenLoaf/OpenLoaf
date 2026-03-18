@@ -30,7 +30,7 @@ export default function ToolCardShell({
   width = 'full',
 }: ToolCardShellProps) {
   return (
-    <div className={cn('mb-2 min-w-0', WIDTH_CLASSES[width], className)}>
+    <div className={cn('min-w-0', WIDTH_CLASSES[width], className)}>
       {children}
     </div>
   )

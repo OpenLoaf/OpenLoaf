@@ -14,11 +14,11 @@ const UNKNOWN_VALUE = 'unknown'
 /** Build skills summary section for a session preface. */
 export function buildSkillsSummarySection(
   summaries: PromptContext['skillSummaries'],
+  title = '# Skills',
 ): string {
   const lines = [
-    '# Skills',
-    '仅注入摘要。需要完整说明时，调用 load-skill 工具加载技能（传入技能 name）。',
-    '优先级：builtin（内置，核心指南）> project（项目级）> global（全局）。同名技能高优先级覆盖低优先级。',
+    title,
+    '需要完整说明时，用 tool-search(names: "技能name") 加载。',
   ]
 
   if (summaries.length === 0) {
@@ -28,7 +28,7 @@ export function buildSkillsSummarySection(
 
   for (const summary of summaries) {
     lines.push(
-      `- ${summary.originalName} [${summary.scope}] ${summary.description}`,
+      `- ${summary.originalName}: ${summary.description}`,
     )
   }
   return lines.join('\n')
@@ -83,6 +83,7 @@ function isUnknown(value: string): boolean {
 export function buildSessionContextSection(
   sessionId: string,
   context: PromptContext,
+  chatHistoryDir?: string,
 ): string {
   const isTempChat = isUnknown(context.project.id) || isUnknown(context.project.name)
   const lines = [
@@ -95,6 +96,10 @@ export function buildSessionContextSection(
     lines.push(`- project: ${context.project.name} (${context.project.id})`)
     lines.push(`- projectRootPath: ${context.project.rootPath}`)
   }
+  if (chatHistoryDir) {
+    lines.push(`- chatHistoryDir: ${chatHistoryDir}`)
+    lines.push(`- assetDir: ${chatHistoryDir}/asset（对话产生的资源文件存放于此）`)
+  }
   lines.push(`- platform: ${context.platform}`)
   if (context.python.installed) {
     const version = context.python.version ?? 'unknown'
@@ -102,8 +107,12 @@ export function buildSessionContextSection(
     lines.push(`- python: ${version} (${pyPath})`)
   }
   lines.push(`- date: ${context.date} | timezone: ${context.timezone}`)
+  lines.push(`- language: ${context.responseLanguage}`)
   if (context.account.id !== '未登录' && context.account.name !== '未登录') {
-    lines.push(`- account: ${context.account.name} (${context.account.email})`)
+    const email = context.account.email
+    // Hide internal @wechat.local addresses
+    const showEmail = email && !email.endsWith('@wechat.local')
+    lines.push(`- account: ${context.account.name}${showEmail ? ` (${email})` : ''}`)
   } else {
     lines.push('- account: 未登录')
   }

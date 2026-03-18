@@ -51,7 +51,7 @@ export function assembleMemoryBlocks(
   })
 
   return blocks.map((block) => {
-    const header = `# 记忆（${block.label}）\n来源: ${block.filePath}`
+    const header = `# 记忆（${block.label}）\n来源: ${block.filePath}\n需要保存/更新/删除记忆时，加载 memory-ops 技能。`
     return `<system-reminder>\n${header}\n\n${block.content}\n</system-reminder>`
   })
 }

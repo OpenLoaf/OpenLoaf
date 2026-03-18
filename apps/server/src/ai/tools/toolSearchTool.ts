@@ -7,6 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
+import path from 'node:path'
 import { tool, zodSchema } from 'ai'
 import { toolSearchToolDef } from '@openloaf/api/types/tools/toolSearch'
 import {
@@ -15,11 +16,16 @@ import {
   type ToolCatalogExtendedItem,
 } from '@openloaf/api/types/tools/toolCatalog'
 import type { ActivatedToolSet } from './toolSearchState'
+import { SkillSelector } from '@/ai/tools/SkillSelector'
+import { getProjectId } from '@/ai/shared/context/requestContext'
+import { getProjectRootPath } from '@openloaf/api/services/vfsService'
+import { getOpenLoafRootDir } from '@openloaf/config'
+import { resolveParentProjectRootPaths } from '@/ai/shared/util'
 
 /** Schema resolver function type — maps tool IDs to their JSON schemas. */
 export type SchemaResolver = (toolIds: string[]) => Record<string, object>
 
-/** Merge native static catalog with dynamic MCP catalog (MCP entries appended). */
+/** Merge native static catalog with dynamic MCP catalog. */
 function getCombinedCatalog(): ToolCatalogExtendedItem[] {
   const mcpEntries = getMcpCatalogEntries()
   return mcpEntries.length > 0
@@ -35,110 +41,114 @@ export function createToolSearchTool(
   return tool({
     description: toolSearchToolDef.description,
     inputSchema: zodSchema(toolSearchToolDef.parameters),
-    execute: async ({ query, maxResults = 5 }) => {
-      if (query.startsWith('select:')) {
-        return handleDirectSelect(query.slice(7), activatedSet, availableToolIds, getSchemas)
+    execute: async ({ names }) => {
+      const requestedNames = names
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
+
+      const catalog = getCombinedCatalog()
+      const loadedTools: { id: string; name: string; description: string }[] = []
+      const loadedSkills: { name: string; scope: string; basePath: string; content: string }[] = []
+      const notFound: string[] = []
+
+      // Collect tool IDs auto-activated by skills (for schema resolution)
+      const autoActivatedToolIds: string[] = []
+
+      for (const name of requestedNames) {
+        // 1. Try as tool ID
+        if (availableToolIds.has(name)) {
+          activatedSet.activate([name])
+          const entry = catalog.find((e) => e.id === name)
+          loadedTools.push({
+            id: name,
+            name: entry?.label ?? name,
+            description: entry?.description ?? '',
+          })
+          continue
+        }
+
+        // 2. Try as skill name
+        const skill = await resolveSkill(name)
+        if (skill) {
+          loadedSkills.push(skill)
+          // Auto-activate tools declared by the skill
+          if (skill.tools && skill.tools.length > 0) {
+            const validToolIds = skill.tools.filter((id) => availableToolIds.has(id))
+            activatedSet.activate(validToolIds)
+            for (const id of validToolIds) {
+              // Avoid duplicates if tool was already explicitly loaded
+              if (!loadedTools.some((t) => t.id === id)) {
+                const entry = catalog.find((e) => e.id === id)
+                loadedTools.push({
+                  id,
+                  name: entry?.label ?? id,
+                  description: entry?.description ?? '',
+                })
+                autoActivatedToolIds.push(id)
+              }
+            }
+          }
+          continue
+        }
+
+        notFound.push(name)
       }
-      return handleKeywordSearch(query, maxResults, activatedSet, availableToolIds, getSchemas)
+
+      // Resolve parameter schemas for all loaded tools (explicit + auto-activated)
+      const schemas = getSchemas ? getSchemas(loadedTools.map((t) => t.id)) : {}
+
+      const parts: string[] = []
+      if (loadedTools.length > 0) {
+        parts.push(`Loaded ${loadedTools.length} tool(s): ${loadedTools.map((t) => t.id).join(', ')}`)
+      }
+      if (loadedSkills.length > 0) {
+        parts.push(`Loaded ${loadedSkills.length} skill(s): ${loadedSkills.map((s) => s.name).join(', ')}`)
+      }
+      if (notFound.length > 0) {
+        parts.push(`Not found: ${notFound.join(', ')}`)
+      }
+
+      return {
+        tools: loadedTools.map((t) => ({
+          ...t,
+          ...(schemas[t.id] ? { parameters: schemas[t.id] } : {}),
+        })),
+        skills: loadedSkills,
+        notFound,
+        message: parts.length > 0 ? parts.join('. ') + '.' : 'No matching tools or skills found.',
+      }
     },
   })
 }
 
-function handleDirectSelect(
-  idsStr: string,
-  activatedSet: ActivatedToolSet,
-  availableToolIds: ReadonlySet<string>,
-  getSchemas?: SchemaResolver,
-) {
-  const catalog = getCombinedCatalog()
-  const requestedIds = idsStr
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean)
-  const loaded: { id: string; name: string; description: string }[] = []
-  const notFound: string[] = []
+/** Resolve a skill by name, returning its content, metadata, and declared tool dependencies. */
+async function resolveSkill(
+  skillName: string,
+): Promise<{ name: string; scope: string; basePath: string; content: string; tools?: string[] } | null> {
+  try {
+    const projectId = getProjectId()
+    const projectRoot = projectId ? getProjectRootPath(projectId) ?? undefined : undefined
+    const globalRoot = getOpenLoafRootDir()
+    const parentRoots = await resolveParentProjectRootPaths(projectId)
 
-  for (const id of requestedIds) {
-    if (availableToolIds.has(id)) {
-      activatedSet.activate([id])
-      const entry = catalog.find((e) => e.id === id)
-      loaded.push({
-        id,
-        name: entry?.label ?? id,
-        description: entry?.description ?? '',
-      })
-    } else {
-      notFound.push(id)
+    const match = await SkillSelector.resolveSkillByName(skillName, {
+      projectRoot,
+      parentRoots,
+      globalRoot,
+    })
+
+    if (!match) return null
+
+    const basePath = path.dirname(match.path)
+    return {
+      name: match.name,
+      scope: match.scope,
+      basePath,
+      content: match.content,
+      tools: match.tools,
     }
+  } catch {
+    return null
   }
-
-  // Resolve parameter schemas for loaded tools
-  const schemas = getSchemas ? getSchemas(loaded.map((t) => t.id)) : {}
-
-  return {
-    tools: loaded.map((t) => ({
-      ...t,
-      ...(schemas[t.id] ? { parameters: schemas[t.id] } : {}),
-    })),
-    notFound,
-    message: loaded.length
-      ? `Loaded ${loaded.length} tool(s): ${loaded.map((t) => t.id).join(', ')}. You can now call them directly.`
-      : 'No matching tools found.',
-  }
-}
-
-function handleKeywordSearch(
-  query: string,
-  maxResults: number,
-  activatedSet: ActivatedToolSet,
-  availableToolIds: ReadonlySet<string>,
-  getSchemas?: SchemaResolver,
-) {
-  const catalog = getCombinedCatalog()
-  const queryTokens = query
-    .toLowerCase()
-    .split(/[\s,]+/)
-    .filter(Boolean)
-
-  const scored = catalog
-    .filter((e) => availableToolIds.has(e.id) && !activatedSet.isActive(e.id))
-    .map((entry) => ({ entry, score: computeScore(entry, queryTokens) }))
-    .filter(({ score }) => score > 0)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, maxResults)
-
-  const matchedIds = scored.map((s) => s.entry.id)
-  activatedSet.activate(matchedIds)
-
-  // Resolve parameter schemas for matched tools
-  const schemas = getSchemas ? getSchemas(matchedIds) : {}
-
-  return {
-    tools: scored.map(({ entry }) => ({
-      id: entry.id,
-      name: entry.label,
-      description: entry.description,
-      group: entry.group,
-      ...(schemas[entry.id] ? { parameters: schemas[entry.id] } : {}),
-    })),
-    message: matchedIds.length
-      ? `Loaded ${matchedIds.length} tool(s): ${matchedIds.join(', ')}. You can now call them directly.`
-      : 'No matching tools found. Try different keywords.',
-  }
-}
-
-function computeScore(
-  entry: { id: string; keywords: string[]; group: string; label: string; description: string },
-  queryTokens: string[],
-): number {
-  let score = 0
-  for (const token of queryTokens) {
-    if (entry.id === token) score += 10
-    if (entry.id.includes(token)) score += 6
-    if (entry.keywords.some((k) => k.includes(token))) score += 5
-    if (entry.group === token) score += 4
-    if (entry.label.toLowerCase().includes(token)) score += 3
-    if (entry.description.toLowerCase().includes(token)) score += 1
-  }
-  return score
 }

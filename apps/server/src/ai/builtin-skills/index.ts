@@ -24,6 +24,7 @@ import multiAgentRoutingMd from './multi-agent-routing/SKILL.md'
 import systemAgentArchitectureMd from './system-agent-architecture/SKILL.md'
 import browserAutomationGuideMd from './browser-automation-guide/SKILL.md'
 import officeDocumentGuideMd from './office-document-guide/SKILL.md'
+import memoryOpsMd from './memory-ops/SKILL.md'
 
 const FRONT_MATTER_DELIMITER = '---'
 
@@ -51,6 +52,7 @@ export const BUILTIN_SKILLS: BuiltinSkill[] = [
     content: stripFrontMatter(openloafBasicsMd),
     icon: '📚',
     colorIndex: 0,
+    // 通用指南，不绑定具体工具
   },
   {
     name: 'file-ops',
@@ -59,6 +61,7 @@ export const BUILTIN_SKILLS: BuiltinSkill[] = [
     content: stripFrontMatter(fileOpsMd),
     icon: '📄',
     colorIndex: 1,
+    tools: ['read-file', 'list-dir', 'grep-files', 'apply-patch', 'file-info', 'edit-document'],
   },
   {
     name: 'email-ops',
@@ -67,6 +70,7 @@ export const BUILTIN_SKILLS: BuiltinSkill[] = [
     content: stripFrontMatter(emailOpsMd),
     icon: '📧',
     colorIndex: 2,
+    tools: ['email-query', 'email-mutate'],
   },
   {
     name: 'calendar-ops',
@@ -75,6 +79,7 @@ export const BUILTIN_SKILLS: BuiltinSkill[] = [
     content: stripFrontMatter(calendarOpsMd),
     icon: '📅',
     colorIndex: 3,
+    tools: ['calendar-query', 'calendar-mutate'],
   },
   {
     name: 'task-ops',
@@ -83,6 +88,7 @@ export const BUILTIN_SKILLS: BuiltinSkill[] = [
     content: stripFrontMatter(taskOpsMd),
     icon: '✅',
     colorIndex: 4,
+    tools: ['task-manage', 'task-status'],
   },
   {
     name: 'canvas-ops',
@@ -91,6 +97,7 @@ export const BUILTIN_SKILLS: BuiltinSkill[] = [
     content: stripFrontMatter(canvasOpsMd),
     icon: '🎨',
     colorIndex: 5,
+    tools: ['board-query', 'board-mutate'],
   },
   {
     name: 'project-ops',
@@ -99,6 +106,7 @@ export const BUILTIN_SKILLS: BuiltinSkill[] = [
     content: stripFrontMatter(projectOpsMd),
     icon: '📁',
     colorIndex: 6,
+    tools: ['project-query', 'project-mutate'],
   },
   {
     name: 'workbench-ops',
@@ -107,6 +115,7 @@ export const BUILTIN_SKILLS: BuiltinSkill[] = [
     content: stripFrontMatter(workbenchOpsMd),
     icon: '🧩',
     colorIndex: 7,
+    tools: ['widget-init', 'widget-list', 'widget-get', 'widget-check', 'read-file', 'apply-patch'],
   },
   {
     name: 'settings-guide',
@@ -115,6 +124,7 @@ export const BUILTIN_SKILLS: BuiltinSkill[] = [
     content: stripFrontMatter(settingsGuideMd),
     icon: '⚙️',
     colorIndex: 0,
+    // 纯引导型，无直接工具
   },
   {
     name: 'multi-agent-routing',
@@ -123,6 +133,7 @@ export const BUILTIN_SKILLS: BuiltinSkill[] = [
     content: stripFrontMatter(multiAgentRoutingMd),
     icon: '🔀',
     colorIndex: 1,
+    tools: ['spawn-agent', 'send-input', 'wait-agent', 'abort-agent', 'task-manage', 'task-status'],
   },
   {
     name: 'system-agent-architecture',
@@ -131,6 +142,7 @@ export const BUILTIN_SKILLS: BuiltinSkill[] = [
     content: stripFrontMatter(systemAgentArchitectureMd),
     icon: '🏗️',
     colorIndex: 2,
+    // 架构认知层，无直接工具
   },
   {
     name: 'browser-automation-guide',
@@ -139,6 +151,7 @@ export const BUILTIN_SKILLS: BuiltinSkill[] = [
     content: stripFrontMatter(browserAutomationGuideMd),
     icon: '🌐',
     colorIndex: 3,
+    tools: ['open-url', 'web-search', 'web-fetch', 'browser-snapshot', 'browser-act', 'browser-wait', 'browser-extract', 'browser-screenshot', 'browser-download-image'],
   },
   {
     name: 'office-document-guide',
@@ -147,5 +160,15 @@ export const BUILTIN_SKILLS: BuiltinSkill[] = [
     content: stripFrontMatter(officeDocumentGuideMd),
     icon: '📊',
     colorIndex: 4,
+    tools: ['excel-query', 'excel-mutate', 'word-query', 'word-mutate', 'pptx-query', 'pptx-mutate', 'pdf-query', 'pdf-mutate', 'doc-convert'],
+  },
+  {
+    name: 'memory-ops',
+    description:
+      '记忆管理——当用户说"记住"、"别忘了"、表达个人偏好/习惯（"我不爱吃..."、"我喜欢..."、"我习惯..."等），或要求忘记/更新某条记忆，或需要回忆之前保存的信息时激活。',
+    content: stripFrontMatter(memoryOpsMd),
+    icon: '🧠',
+    colorIndex: 5,
+    tools: ['memory-save', 'memory-search', 'memory-get'],
   },
 ]

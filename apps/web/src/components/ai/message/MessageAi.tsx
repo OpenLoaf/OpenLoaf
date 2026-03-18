@@ -45,9 +45,9 @@ export default React.memo(function MessageAi({ message, className, isAnimating, 
   const showStatusBar = Boolean(tabId) && Boolean(isAnimating || isLastAiMessage);
 
   return (
-    <Message from="assistant" className={cn("min-w-0 w-full", className)}>
+    <Message from="assistant" className={cn("min-w-0 w-full", !isAnimating && "has-[>[data-content]:empty]:hidden", className)}>
       {showHeader && <AssistantMessageHeader message={message} />}
-      <MessageContent className="min-w-0 w-full space-y-2">
+      <MessageContent data-content className="min-w-0 w-full space-y-1 empty:hidden">
         <MessagePlan metadata={message.metadata} parts={message.parts as unknown[]} />
         <MessageParts parts={messageParts} options={{ isAnimating, messageId: message.id, showAllToolResults }} />
         {showStatusBar && tabId && <ClaudeCodeStatusBar tabId={tabId} />}

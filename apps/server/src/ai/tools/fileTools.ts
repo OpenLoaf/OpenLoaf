@@ -388,16 +388,16 @@ export const readFileTool = tool({
     if (hasBlockedBinaryExtension(absPath)) {
       const ext = path.extname(absPath).toLowerCase()
       if (ext === '.xlsx' || ext === '.xls') {
-        throw new Error("This file is in Excel format. Use tool-search(query: \"select:excel-query\") to load the excel-query tool, then use it to read this file.")
+        throw new Error("This file is in Excel format. Use tool-search(names: \"excel-query\") to load the excel-query tool, then use it to read this file.")
       }
       if (ext === '.docx' || ext === '.doc') {
-        throw new Error("This file is in Word format. Use tool-search(query: \"select:word-query\") to load the word-query tool, then use it to read this file.")
+        throw new Error("This file is in Word format. Use tool-search(names: \"word-query\") to load the word-query tool, then use it to read this file.")
       }
       if (ext === '.pdf') {
-        throw new Error("This file is in PDF format. Use tool-search(query: \"select:pdf-query\") to load the pdf-query tool, then use it to read this file.")
+        throw new Error("This file is in PDF format. Use tool-search(names: \"pdf-query\") to load the pdf-query tool, then use it to read this file.")
       }
       if (ext === '.pptx' || ext === '.ppt') {
-        throw new Error("This file is in PowerPoint format. Use tool-search(query: \"select:pptx-query\") to load the pptx-query tool, then use it to read this file.")
+        throw new Error("This file is in PowerPoint format. Use tool-search(names: \"pptx-query\") to load the pptx-query tool, then use it to read this file.")
       }
       throw new Error("Only text files are supported; binary file extensions are not allowed.");
     }

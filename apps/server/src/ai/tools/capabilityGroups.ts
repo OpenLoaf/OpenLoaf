@@ -156,9 +156,8 @@ const RAW_CAPABILITY_GROUPS = [
   {
     id: 'system',
     label: '系统工具',
-    description: '时间查询、计划更新等',
+    description: '计划更新等',
     toolIds: [
-      'time-now',
       'update-plan',
       'jsx-create',
     ],

@@ -124,32 +124,32 @@ export default function MessageError({ error }: MessageErrorProps) {
       transition={{ duration: 0.16, ease: "easeOut" }}
       className="my-0.5 px-2 pr-5"
     >
-      <div className="overflow-hidden rounded-xl bg-ol-red-bg">
+      <div className="overflow-hidden rounded-xl bg-ol-red-bg dark:bg-red-950/60">
         {/* 第一行：红绿灯（左） + 标题（右对齐） */}
         <div className="flex items-center justify-between px-3.5 py-2">
           <div className="flex shrink-0 items-center gap-[5px]">
-            <span className="size-[10px] rounded-full bg-[#ff5f57] dark:bg-[#ff5f57]" />
-            <span className="size-[10px] rounded-full bg-[#febc2e] dark:bg-[#febc2e]" />
-            <span className="size-[10px] rounded-full bg-[#28c840] dark:bg-[#28c840]" />
+            <span className="size-[10px] rounded-full bg-[#ff5f57]" />
+            <span className="size-[10px] rounded-full bg-[#febc2e]" />
+            <span className="size-[10px] rounded-full bg-[#28c840]" />
           </div>
-          <span className="text-[11px] font-medium text-ol-red/60">
+          <span className="text-[11px] font-medium text-ol-red/60 dark:text-red-400/70">
             {parsed.title}
           </span>
         </div>
 
         {/* 第二行：错误信息（始终显示） */}
         <div className="px-3.5 pb-2.5">
-          <p className="whitespace-pre-wrap break-words text-[12px] leading-relaxed text-ol-red">
+          <p className="whitespace-pre-wrap break-words text-[12px] leading-relaxed text-ol-red dark:text-red-300">
             {parsed.message}
           </p>
         </div>
 
         {/* 第三行：操作按钮 */}
-        <div className="flex items-center justify-end gap-1.5 border-t border-ol-red/10 px-3.5 py-2">
+        <div className="flex items-center justify-end gap-1.5 border-t border-ol-red/10 dark:border-red-400/15 px-3.5 py-2">
           <button
             type="button"
             onClick={handleCopy}
-            className="inline-flex h-7 items-center gap-1.5 rounded-md border border-ol-red/20 bg-white/60 px-3 text-[11px] font-medium text-ol-red transition-colors duration-150 hover:bg-ol-red-bg dark:bg-ol-red-bg"
+            className="inline-flex h-7 items-center gap-1.5 rounded-md border border-ol-red/20 bg-white/60 px-3 text-[11px] font-medium text-ol-red transition-colors duration-150 hover:bg-ol-red-bg dark:border-red-400/20 dark:bg-red-900/40 dark:text-red-300 dark:hover:bg-red-900/60"
           >
             {copied ? <CheckIcon className="size-3" /> : <CopyIcon className="size-3" />}
             {copied ? t('error.copied') : t('error.copyLog')}

@@ -11,6 +11,7 @@ import { promises as fs } from 'node:fs'
 import fsSync from 'node:fs'
 import path from 'node:path'
 import { resolveOpenLoafPath, resolveScopedOpenLoafPath } from '@openloaf/config'
+import { getResolvedTempStorageDir } from '@openloaf/api/services/appConfigService'
 import {
   getProjectRootPath,
 } from '@openloaf/api/services/vfsService'
@@ -149,7 +150,7 @@ function touchSessionDirCache(sessionId: string) {
  * 解析 session 的 chat-history 根目录：
  * - 有 boardId → <scopeRoot>/.openloaf/boards/<boardId>/chat-history/
  * - 有 projectId → <projectRoot>/.openloaf/chat-history/
- * - 都没有 → ~/.openloaf/chat-history/ (fallback)
+ * - 都没有 → <tempStorageDir>/chat-history/ (fallback)
  */
 function resolveChatHistoryRoot(
   projectId?: string | null,
@@ -165,6 +166,8 @@ function resolveChatHistoryRoot(
     if (scopeRoot) {
       return resolveScopedOpenLoafPath(scopeRoot, 'boards')
     }
+    // 无项目的画布聊天：fallback 到临时存储路径
+    return path.join(getResolvedTempStorageDir(), 'boards')
   }
   if (projectId) {
     const projectRoot = getProjectRootPath(projectId)
@@ -172,7 +175,7 @@ function resolveChatHistoryRoot(
       return resolveScopedOpenLoafPath(projectRoot, CHAT_HISTORY_DIR)
     }
   }
-  return resolveOpenLoafPath(CHAT_HISTORY_DIR)
+  return path.join(getResolvedTempStorageDir(), CHAT_HISTORY_DIR)
 }
 
 async function resolveSessionDir(sessionId: string): Promise<string> {
@@ -190,22 +193,27 @@ async function resolveSessionDir(sessionId: string): Promise<string> {
   const root = resolveChatHistoryRoot(session?.projectId, session?.boardId)
   const dir = path.join(root, sessionId)
 
-  // 防御：项目路径下 messages.jsonl 不存在时，回退到全局路径
+  // 防御：项目路径下 messages.jsonl 不存在时，回退到临时存储路径或旧全局路径
   // （常见于项目删除或迁移未完成等场景）。
   if (session?.projectId) {
-    const globalRoot = resolveOpenLoafPath(CHAT_HISTORY_DIR)
-    const globalDir = path.join(globalRoot, sessionId)
-    if (dir !== globalDir) {
+    const tempRoot = path.join(getResolvedTempStorageDir(), CHAT_HISTORY_DIR)
+    const legacyRoot = resolveOpenLoafPath(CHAT_HISTORY_DIR)
+    const candidates = [
+      path.join(tempRoot, sessionId),
+      path.join(legacyRoot, sessionId),
+    ].filter(d => d !== dir)
+    if (candidates.length > 0) {
       try {
         await fs.stat(path.join(dir, MESSAGES_FILE))
       } catch {
-        // 项目路径下没有文件，尝试全局路径
-        try {
-          await fs.stat(path.join(globalDir, MESSAGES_FILE))
-          sessionDirCache.set(sessionId, globalDir)
-          touchSessionDirCache(sessionId)
-          return globalDir
-        } catch { /* 都没有，用原路径 */ }
+        for (const candidate of candidates) {
+          try {
+            await fs.stat(path.join(candidate, MESSAGES_FILE))
+            sessionDirCache.set(sessionId, candidate)
+            touchSessionDirCache(sessionId)
+            return candidate
+          } catch { /* continue */ }
+        }
       }
     }
   }

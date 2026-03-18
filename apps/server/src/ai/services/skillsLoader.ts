@@ -32,6 +32,8 @@ type SkillSummary = {
   hasMeta?: boolean;
   /** Emoji icon for the skill (from openloaf.json). */
   icon?: string;
+  /** Tool IDs that this skill depends on (auto-activated when skill is loaded). */
+  tools?: string[];
 };
 
 type SkillSource = {
@@ -46,6 +48,8 @@ type SkillFrontMatter = {
   name?: string;
   /** Skill description. */
   description?: string;
+  /** Tool IDs this skill depends on (comma-separated or YAML array). */
+  tools?: string[];
 };
 
 const AGENTS_META_DIR = ".agents";
@@ -75,12 +79,14 @@ export function loadSkillSummaries(input: {
       colorIndex: builtin.colorIndex,
       hasMeta: true,
       icon: builtin.icon,
+      ...(builtin.tools?.length ? { tools: builtin.tools } : {}),
     };
     orderedNames.push(summary.originalName);
     summaryByName.set(summary.originalName, summary);
   }
 
-  // 1. 全局 skills → 2. 父项目 skills → 3. 项目 skills（后者覆盖前者）
+  // 1. 全局 skills → 2. 父项目 skills → 3. 项目 skills
+  // 同名去重：builtin 不可被覆盖；其余后来者覆盖前者（project > parent > global）。
   for (const source of sources) {
     // 全局技能目录直接就是 skills 根目录，无需拼接 .agents/skills。
     const skillsRootPath =
@@ -95,8 +101,9 @@ export function loadSkillSummaries(input: {
       if (!summaryByName.has(summary.originalName)) {
         orderedNames.push(summary.originalName);
       }
-      // 逻辑：项目级 skills 覆盖全局级。
-      if (source.scope === "project" || !summaryByName.has(summary.originalName)) {
+      const existing = summaryByName.get(summary.originalName);
+      // builtin 技能不可被覆盖；其余同名技能后来者覆盖前者。
+      if (!existing || existing.scope !== "builtin") {
         summaryByName.set(summary.originalName, summary);
       }
     }
@@ -254,6 +261,7 @@ export function readSkillSummaryFromPath(filePath: string, scope: SkillScope): S
       colorIndex,
       hasMeta,
       icon,
+      ...(frontMatter.tools?.length ? { tools: frontMatter.tools } : {}),
     };
   } catch {
     return null;
@@ -338,7 +346,7 @@ function stripSkillFrontMatter(content: string): string {
   return "";
 }
 
-/** Parse YAML front matter for name/description only. */
+/** Parse YAML front matter for name/description/tools. */
 function parseFrontMatter(content: string): SkillFrontMatter {
   const lines = content.split(/\r?\n/u);
   if (lines.length === 0) return {};
@@ -349,6 +357,8 @@ function parseFrontMatter(content: string): SkillFrontMatter {
   let currentKey: "name" | "description" | null = null;
   let blockMode: "literal" | "folded" | null = null;
   let buffer: string[] = [];
+  let toolsBuffer: string[] = [];
+  let inToolsList = false;
 
   const flushBlock = () => {
     if (!currentKey) return;
@@ -362,12 +372,33 @@ function parseFrontMatter(content: string): SkillFrontMatter {
     buffer = [];
   };
 
+  const flushTools = () => {
+    if (toolsBuffer.length > 0) {
+      result.tools = toolsBuffer;
+      toolsBuffer = [];
+    }
+    inToolsList = false;
+  };
+
   // 逻辑：仅解析文件起始 front matter，避免读取正文。
   for (let index = 1; index < lines.length; index += 1) {
     const line = lines[index] ?? "";
     if (line.trim() === FRONT_MATTER_DELIMITER) {
       flushBlock();
+      flushTools();
       break;
+    }
+
+    // Handle YAML list items for tools (e.g. "  - calendar-query")
+    if (inToolsList) {
+      const listItem = /^\s+-\s+(.+)$/u.exec(line);
+      if (listItem) {
+        const id = (listItem[1] ?? '').trim();
+        if (id) toolsBuffer.push(id);
+        continue;
+      }
+      // Not a list item → end of tools list
+      flushTools();
     }
 
     if (currentKey && (line.startsWith(" ") || line.startsWith("\t") || line.trim() === "")) {
@@ -383,6 +414,21 @@ function parseFrontMatter(content: string): SkillFrontMatter {
     if (!match) continue;
     const key = match[1];
     const rawValue = (match[2] ?? "").trim();
+
+    // Handle tools field: inline array or YAML list
+    if (key === "tools") {
+      if (rawValue) {
+        // Inline format: tools: calendar-query, calendar-mutate, time-now
+        // or bracket format: tools: [calendar-query, calendar-mutate]
+        const cleaned = rawValue.replace(/^\[|\]$/g, "");
+        result.tools = cleaned.split(",").map((s) => s.trim()).filter(Boolean);
+      } else {
+        // YAML list format (items on following lines)
+        inToolsList = true;
+      }
+      continue;
+    }
+
     if (key !== "name" && key !== "description") continue;
 
     if (rawValue === "|" || rawValue === ">") {

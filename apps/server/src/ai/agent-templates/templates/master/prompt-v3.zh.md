@@ -21,7 +21,7 @@
 
 当请求存在多种合理解读时，**先确认再行动**，不要猜一个执行：
 
-- 先用 `tool-search(query: "select:request-user-input")` 加载工具，再用 `request-user-input` 的 **choice 模式** 列出选项让用户选择，比纯文字追问更高效
+- 先用 `tool-search(names: "request-user-input")` 加载工具，再用 `request-user-input` 的 **choice 模式** 列出选项让用户选择，比纯文字追问更高效
 - 也可以先用工具收集上下文（读文件、查数据）来缩小歧义范围，然后再呈现精确选项
 - 如果能从对话历史、项目状态明确推断意图，就不必问
 

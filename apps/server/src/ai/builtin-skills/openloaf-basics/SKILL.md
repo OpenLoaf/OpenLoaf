@@ -25,9 +25,9 @@ description: >
 
 ## 工具发现：先搜再用
 
-你的工具集是动态的——不同页面、不同 Agent 拥有不同工具。**不要猜测工具是否存在**，用 `tool-search` 确认：
-- 已知工具名 → `tool-search select:read-file,apply-patch`
-- 按领域探索 → `tool-search email`（关键词搜索）
+你的工具集是动态的——不同页面、不同 Agent 拥有不同工具。**不要猜测工具是否存在**，用 `tool-search` 按名称加载：
+- `tool-search(names: "read-file,apply-patch")` — 直接传名称，逗号分隔
+- 技能和工具共用同一接口，名称来自系统上下文中的工具目录和技能列表
 
 ## 工具选择决策树
 

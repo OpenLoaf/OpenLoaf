@@ -55,9 +55,19 @@ export default function AssistantMessageHeader({
     [message, t]
   );
   const avatarUrl = React.useMemo(() => resolveAssistantAvatarUrl(message), [message]);
+  const timeStr = React.useMemo(() => {
+    const raw = (message as any)?.createdAt
+      ?? (message as any)?.metadata?.openloaf?.assistantStartedAt;
+    if (!raw) return "";
+    const d = raw instanceof Date ? raw : new Date(raw);
+    if (Number.isNaN(d.getTime())) return "";
+    const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const time = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}:${String(d.getSeconds()).padStart(2, "0")}`;
+    return `${date} ${time}`;
+  }, [message]);
 
   return (
-    <div className={cn("flex items-center gap-2 px-1", className)}>
+    <div className={cn("flex items-center gap-2", className)}>
       <Avatar className="size-6 ring-1 ring-border/60">
         {avatarUrl ? <AvatarImage src={avatarUrl} alt={displayName} /> : null}
         <AvatarFallback className="bg-ol-purple/10 text-ol-purple">
@@ -67,6 +77,9 @@ export default function AssistantMessageHeader({
       <span className="truncate text-[11px] font-medium text-muted-foreground">
         {displayName}
       </span>
+      {timeStr ? (
+        <span className="text-[10px] text-muted-foreground/40 tabular-nums">{timeStr}</span>
+      ) : null}
     </div>
   );
 }

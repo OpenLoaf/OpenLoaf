@@ -15,6 +15,7 @@ import { resolveScopedOpenLoafPath } from "@openloaf/config";
 import { t, shieldedProcedure } from "../../generated/routers/helpers/createRouter";
 import { createBoardId } from "../common/boardId";
 import { recordEntityVisit } from "../services/entityVisitRecordService";
+import { getResolvedTempStorageDir } from "../services/appConfigService";
 import { resolveScopedRootPath } from "../services/vfsService";
 
 const BOARD_THUMBNAIL_FILE_NAME = "index.png";
@@ -178,6 +179,15 @@ function extractBoardTitle(folderName: string): string {
   return "画布";
 }
 
+/** Resolve the boards directory: project-scoped or temp storage fallback. */
+function resolveBoardsBaseDir(projectId?: string): string {
+  if (projectId) {
+    const rootPath = resolveScopedRootPath({ projectId });
+    return resolveScopedOpenLoafPath(rootPath, "boards");
+  }
+  return path.join(getResolvedTempStorageDir(), "boards");
+}
+
 /**
  * Scan .openloaf/boards/ on disk and create DB records for folders
  * that have no matching record yet. Returns newly synced boards.
@@ -186,15 +196,13 @@ async function syncBoardsFromDisk(
   prisma: any,
   input: { projectId?: string },
 ): Promise<void> {
-  let rootPath: string;
+  let boardsDir: string;
   try {
-    rootPath = resolveScopedRootPath(input);
+    boardsDir = resolveBoardsBaseDir(input.projectId);
   } catch (err) {
-    console.warn("[syncBoardsFromDisk] resolveScopedRootPath failed:", err);
+    console.warn("[syncBoardsFromDisk] resolveBoardsBaseDir failed:", err);
     return;
   }
-
-  const boardsDir = resolveScopedOpenLoafPath(rootPath, "boards");
   let entries: string[];
   try {
     entries = await fs.readdir(boardsDir);
@@ -279,15 +287,21 @@ async function hardDeleteBoardResources(
   });
 
   try {
-    const rootPath = resolveScopedRootPath({
-      projectId: board.projectId ?? undefined,
-    });
-    // 逻辑：硬删除必须按 folderUri 反解目录名，兼容历史 tnboard_* 目录。
-    const boardDir = resolveScopedOpenLoafPath(
-      rootPath,
-      "boards",
-      resolveBoardFolderName(board.folderUri),
-    );
+    let boardDir: string;
+    if (board.projectId) {
+      const rootPath = resolveScopedRootPath({ projectId: board.projectId });
+      boardDir = resolveScopedOpenLoafPath(
+        rootPath,
+        "boards",
+        resolveBoardFolderName(board.folderUri),
+      );
+    } else {
+      boardDir = path.join(
+        getResolvedTempStorageDir(),
+        "boards",
+        resolveBoardFolderName(board.folderUri),
+      );
+    }
     await fs.rm(boardDir, { recursive: true, force: true });
   } catch (error) {
     console.warn("[board.hardDelete] failed to delete folder", error);
@@ -417,7 +431,9 @@ export const boardRouter = t.router({
     .query(async ({ ctx, input }) => {
       let rootPath: string;
       try {
-        rootPath = resolveScopedRootPath(input);
+        rootPath = input.projectId
+          ? resolveScopedRootPath(input)
+          : getResolvedTempStorageDir();
       } catch {
         return { items: {} as Record<string, string> };
       }

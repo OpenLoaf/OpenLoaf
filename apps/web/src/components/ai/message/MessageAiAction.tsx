@@ -150,13 +150,8 @@ function extractCreditsConsumed(metadata: unknown): number | undefined {
  */
 function formatDurationMs(value?: number): string {
   if (typeof value !== "number" || !Number.isFinite(value)) return "-";
-  const seconds = value / 1000;
-  if (seconds >= 60) {
-    const minutes = Math.floor(seconds / 60);
-    const restSeconds = seconds - minutes * 60;
-    return `${minutes}m ${restSeconds.toFixed(1)}s`;
-  }
-  return `${seconds.toFixed(1)}s`;
+  const seconds = Math.round(value / 1000);
+  return `${seconds}s`;
 }
 
 /**
@@ -476,7 +471,7 @@ export default function MessageAiAction({
       {typeof creditsConsumed === "number" ? (
         <span className="ml-1 inline-flex select-none items-center gap-1 text-xs text-muted-foreground/60 tabular-nums opacity-0 transition-opacity group-hover:opacity-100">
           <Sparkles className="size-3" />
-          {creditsConsumed % 1 === 0 ? creditsConsumed : creditsConsumed.toFixed(2)}
+          {Math.floor(creditsConsumed)}
         </span>
       ) : null}
     </MessageActions>

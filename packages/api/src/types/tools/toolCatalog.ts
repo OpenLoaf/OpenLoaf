@@ -166,7 +166,6 @@ export function resolveToolCatalogItem(id: string): ToolCatalogItem {
 /** Extended tool catalog with keywords and groups for ToolSearch. */
 const TOOL_KEYWORDS: Record<string, { keywords: string[]; group: string }> = {
   'tool-search': { keywords: ['search', 'find', 'discover', 'load', 'tool'], group: 'core' },
-  'time-now': { keywords: ['time', 'now', 'date', 'clock', 'current', 'timezone'], group: 'core' },
   'update-plan': { keywords: ['plan', 'step', 'progress', 'update', 'track'], group: 'core' },
   'request-user-input': { keywords: ['ask', 'input', 'confirm', 'choice', 'question', 'user', 'approval'], group: 'core' },
   'jsx-create': { keywords: ['jsx', 'component', 'ui', 'render', 'display', 'card', 'layout'], group: 'ui' },

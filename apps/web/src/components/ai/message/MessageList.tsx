@@ -179,11 +179,11 @@ export default function MessageList({ className, projectId }: MessageListProps) 
             {shouldShowThinking ? (
               <motion.div
                 key="thinking"
-                className="my-0.5 px-2"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.12 }}
+                className="my-0.5 px-2 overflow-hidden"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.25, ease: "easeInOut" }}
               >
                 <MessageThinking showHeader={!lastMessageIsAssistant} streamingMessage={streamingMessage} />
               </motion.div>

@@ -12,25 +12,17 @@ import { z } from 'zod'
 export const toolSearchToolDef = {
   id: 'tool-search',
   name: 'Tool Search',
-  description: `Search and load available tools.
-CRITICAL: You start with ZERO tools available. Every tool MUST be loaded through this function before it can be called. Calling an unloaded tool will fail with a parameter validation error.
+  description: `Load tools and skills by name. You start with ZERO tools. Every tool/skill MUST be loaded through this function first.
 
-Query modes:
-1. Direct selection (preferred): "select:open-url,browser-act,browser-wait" — loads specified tools by ID, supports multiple comma-separated IDs
-2. Keyword search: "email", "file read" — returns and loads the most relevant tools
+Pass one or more comma-separated names. Names come from the tool catalog and skill list in the system context.
+- Tool names: "shell-command,read-file" → activates tools, returns parameter schemas
+- Skill names: "jd-scraper,email-ops" → loads skill content with full instructions
 
-Loaded tools become immediately callable. Always use "select:" when you know the tool IDs from the catalog.`,
+Workflow: identify the right skill first → load it → read its guidance → load the tools it recommends → execute.`,
   parameters: z.object({
-    query: z.string().min(1).describe(
-      'Search query. Enter keywords for search; use "select:tool-id-1,tool-id-2" for direct selection',
+    names: z.string().min(1).describe(
+      'Comma-separated tool/skill names to load. Example: "shell-command,read-file" or "jd-scraper"',
     ),
-    maxResults: z
-      .number()
-      .int()
-      .min(1)
-      .max(10)
-      .optional()
-      .describe('Max results to return, default 5'),
   }),
   component: null,
 } as const

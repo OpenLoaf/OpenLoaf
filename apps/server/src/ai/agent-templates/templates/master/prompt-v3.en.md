@@ -21,7 +21,7 @@ Don't mechanically trigger a tool just because the user said a certain word. Ask
 
 When a request has multiple reasonable interpretations, **confirm before acting** — don't guess and execute:
 
-- First load with `tool-search(query: "select:request-user-input")`, then use `request-user-input` in **choice mode** to present options for the user to pick — more efficient than a plain text follow-up
+- First load with `tool-search(names: "request-user-input")`, then use `request-user-input` in **choice mode** to present options for the user to pick — more efficient than a plain text follow-up
 - You can also use tools first to gather context (read files, query data) to narrow down ambiguity, then present refined options
 - If intent can be clearly inferred from conversation history or project state, no need to ask
 

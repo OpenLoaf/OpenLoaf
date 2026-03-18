@@ -102,6 +102,10 @@ OpenLoaf 采用三级记忆结构：
 
 技能遵循同样的组织方式：全局技能 + 项目专属技能，运行时由 AI 代理自动发现并加载。
 
+`SKILL` 本质上是一个以 `SKILL.md` 为入口的可复用 Markdown 工作流。你可以把它放在 `~/.agents/skills/` 里作为全局技能，也可以放在 `<projectPath>/.agents/skills/` 里作为项目专属技能，让代理按需加载说明和相关工具依赖。
+
+OpenLoaf 也支持 **MCP（Model Context Protocol）** 服务。你可以通过 `stdio`、`http`、`sse` 接入外部工具，按全局写入 `~/.openloaf/mcp-servers.json` 或按项目写入 `<projectPath>/.openloaf/mcp-servers.json`，也可以直接导入 Claude Desktop、Cursor、VS Code、Cline、Windsurf 等客户端的 JSON 配置，把 GitHub、数据库、文件系统、Slack 等能力暴露给 AI 代理。
+
 ### AI 对话
 
 内置多模型 AI 对话，支持 **OpenAI**、**Anthropic Claude**、**Google Gemini**、**DeepSeek**、**Qwen**、**xAI Grok** 以及通过 **Ollama** 接入的本地模型。AI 能感知项目的完整上下文，包括文件结构、文档内容和对话历史，并通过内置记忆机制跨会话保留知识。

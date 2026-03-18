@@ -18,8 +18,6 @@ import { getStandardPrompt } from '../master'
 export const PM_AGENT_TOOL_IDS = [
   // system
   'tool-search',
-  'load-skill',
-  'time-now',
   'update-plan',
   // agent collaboration (PM's core capability)
   'spawn-agent',
@@ -31,8 +29,7 @@ export const PM_AGENT_TOOL_IDS = [
   'list-dir',
   'grep-files',
   'apply-patch',
-  // shell
-  'shell-command',
+  // shell-command is a core tool (always available)
   // web
   'open-url',
   'web-search',

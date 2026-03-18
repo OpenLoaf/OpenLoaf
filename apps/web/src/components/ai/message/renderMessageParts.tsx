@@ -17,6 +17,8 @@ import { markdownComponents } from "./markdown/MarkdownComponents";
 import MessageTool from "./tools/MessageTool";
 import MessageFile from "./tools/MessageFile";
 import { isHiddenToolPart, isToolPart, isToolPartError } from "@/lib/chat/message-parts";
+import { findToolEntry } from "./tools/tool-registry";
+import { getToolKind } from "./tools/shared/tool-utils";
 import type React from "react";
 import { MessageResponse } from "@/components/ai-elements/message";
 import {
@@ -137,7 +139,7 @@ function wrapPart(
   motionProps?: React.ComponentProps<typeof motion.div>,
 ): React.ReactNode {
   return (
-    <motion.div key={key} className={className} {...(motionProps ?? {})}>
+    <motion.div key={key} className={cn("empty:hidden", className)} {...(motionProps ?? {})}>
       {children}
     </motion.div>
   );
@@ -353,6 +355,20 @@ export function renderMessageParts(
       if (shouldHide(part)) continue;
       if (!renderTools) continue;
       const toolPart = part as any;
+      // 预过滤：没有专用 UI 且已成功完成的工具，跳过 wrapPart 避免空 motion.div 占据布局空间。
+      // 与 MessageTool 的 return null 逻辑保持一致。
+      if (!showAllToolResults) {
+        const toolState = toolPart.state;
+        const isCompleted = toolState === 'output-available' || toolState === 'output-error' || toolState === 'output-denied';
+        const hasError = toolState === 'output-error' || toolState === 'output-denied';
+        if (isCompleted && !hasError) {
+          const kind = getToolKind(toolPart).toLowerCase();
+          const providerExecuted = !!toolPart.providerExecuted;
+          const hasEntry = findToolEntry(kind, providerExecuted, toolPart)
+            || (providerExecuted && findToolEntry(kind, false, toolPart));
+          if (!hasEntry) continue;
+        }
+      }
       nodes.push(
         wrapPart(
           toolPart.toolCallId ?? `${toolPart.type}-${index}`,

@@ -212,6 +212,8 @@ export default function UnifiedTool({
 
   const inputPayload = part.input ?? part.rawInput;
   const toolType = part.type === "dynamic-tool" ? "dynamic-tool" : part.type;
+  const derivedName = toolType === "dynamic-tool" ? toolKind : (toolType ?? "").split("-").slice(1).join("-");
+  const toolId = title && derivedName && title !== derivedName ? derivedName : undefined;
 
   return (
     <Tool
@@ -219,7 +221,7 @@ export default function UnifiedTool({
       onOpenChange={(open) => {
         if (open) void fetchToolOutput();
       }}
-      className={cn("mb-2 min-w-0 text-xs", className)}
+      className={cn("min-w-0 text-xs", className)}
     >
       {toolType === "dynamic-tool" ? (
         <ToolHeader
@@ -228,7 +230,7 @@ export default function UnifiedTool({
           toolName={toolKind}
           state={part.state as any}
           icon={toolIcon}
-          className="p-2 gap-2 [&_span]:text-xs [&_svg]:size-3.5"
+          className="px-2 py-1 gap-1.5 [&_span]:text-xs [&_svg]:size-3"
         />
       ) : (
         <ToolHeader
@@ -236,11 +238,11 @@ export default function UnifiedTool({
           type={toolType as any}
           state={part.state as any}
           icon={toolIcon}
-          className="p-2 gap-2 [&_span]:text-xs [&_svg]:size-3.5"
+          className="px-2 py-1 gap-1.5 [&_span]:text-xs [&_svg]:size-3"
         />
       )}
       <ToolContent className="space-y-2 p-2 text-xs">
-        <ToolInput input={stripActionName(inputPayload) as any} />
+        <ToolInput input={stripActionName(inputPayload) as any} toolId={toolId} />
         {isApprovalRequested && approvalId ? (
           <Confirmation approval={part.approval as any} state={part.state as any}>
             <ConfirmationTitle>{t('tool.approvalRequest')}</ConfirmationTitle>

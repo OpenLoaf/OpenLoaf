@@ -116,7 +116,7 @@ export default function SpawnAgentTool({
   return (
     <div
       className={cn(
-        'group mb-2 min-w-0 cursor-pointer rounded-lg border bg-card text-xs transition-colors hover:border-primary/30 hover:bg-accent/50',
+        'group min-w-0 cursor-pointer rounded-lg border bg-card text-xs transition-colors hover:border-primary/30 hover:bg-accent/50',
         className,
       )}
       onClick={handleClick}

@@ -30,7 +30,7 @@
         不应返回文件系统目录结构。
         不应说"没有项目"或"无法获取"（工具可能返回空列表，但应正常展示结果）。
 
-- description: "e2e-002: 时间查询应使用 time-now"
+- description: "e2e-002: 时间查询应使用 shell-command"
   vars:
     prompt: "现在几点了？"
   assert:
@@ -39,19 +39,9 @@
       metric: tool_selection
       value: |
         const tools = context.providerResponse?.metadata?.toolNames || [];
-        return tools.includes('time-now')
-          ? { pass: true, score: 1, reason: '正确调用了 time-now' }
-          : { pass: false, score: 0, reason: `未调用 time-now，实际: [${tools}]` };
-    - type: javascript
-      weight: 2
-      metric: tool_selection
-      value: |
-        const tools = context.providerResponse?.metadata?.toolNames || [];
-        const forbidden = ['shell-command', 'js-repl'];
-        const used = forbidden.filter(t => tools.includes(t));
-        return used.length === 0
-          ? { pass: true, score: 1, reason: '未使用禁止工具' }
-          : { pass: false, score: 0, reason: `不应使用 ${used.join(', ')}` };
+        return tools.includes('shell-command')
+          ? { pass: true, score: 1, reason: '正确调用了 shell-command' }
+          : { pass: false, score: 0, reason: `未调用 shell-command，实际: [${tools}]` };
 
 - description: "e2e-003: 任务创建应使用 task-manage"
   vars:
@@ -158,9 +148,9 @@
       metric: tool_selection
       value: |
         const tools = context.providerResponse?.metadata?.toolNames || [];
-        return tools.includes('time-now')
-          ? { pass: true, score: 1, reason: '第一轮正确调用了 time-now' }
-          : { pass: false, score: 0, reason: `未调用 time-now，实际: [${tools}]` };
+        return tools.includes('shell-command')
+          ? { pass: true, score: 1, reason: '第一轮正确调用了 shell-command' }
+          : { pass: false, score: 0, reason: `未调用 shell-command，实际: [${tools}]` };
     - type: llm-rubric
       weight: 1
       metric: output_quality

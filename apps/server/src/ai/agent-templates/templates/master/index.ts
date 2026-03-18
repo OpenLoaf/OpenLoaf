@@ -10,8 +10,8 @@
 import type { AgentTemplate } from '../../types'
 import MASTER_IDENTITY_ZH from './identity.zh.md'
 import MASTER_IDENTITY_EN from './identity.en.md'
-import STANDARD_PROMPT_ZH from './prompt-v3.zh.md'
-import STANDARD_PROMPT_EN from './prompt-v3.en.md'
+import STANDARD_PROMPT_ZH from './prompt-v4.zh.md'
+import STANDARD_PROMPT_EN from './prompt-v4.en.md'
 
 /** Combine identity + standard prompt. */
 function combine(identity: string, prompt: string): string {
@@ -25,11 +25,9 @@ export const masterTemplate: AgentTemplate = {
   icon: 'sparkles',
   toolIds: [
     'tool-search',
-    'load-skill',
   ],
   deferredToolIds: [
     // system
-    'time-now',
     'update-plan',
     'jsx-create',
     'request-user-input',
@@ -44,8 +42,7 @@ export const masterTemplate: AgentTemplate = {
     'grep-files',
     'apply-patch',
     'file-info',
-    // shell
-    'shell-command',
+    // shell-command is now a core tool (always available)
     // web
     'open-url',
     'web-search',

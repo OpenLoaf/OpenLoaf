@@ -474,6 +474,9 @@ export async function setBasicConfigFromWeb(update: BasicConfigUpdate): Promise<
     chatShowAllToolResults,
   };
   writeBasicConf(normalized);
+  // Sync temp storage dir override to packages/api layer.
+  const { setResolvedTempStorageDir } = await import("@openloaf/api/services/appConfigService");
+  setResolvedTempStorageDir(normalized.appTempStorageDir || null);
   // Ensure the temp storage directory exists when changed.
   if (normalized.appTempStorageDir) {
     mkdirSync(normalized.appTempStorageDir, { recursive: true });
