@@ -217,6 +217,9 @@
     "importCount": "匯入 {{count}} 個伺服器",
     "importSuccess": "成功匯入 {{count}} 個 MCP 伺服器",
     "importPartialFail": "{{count}} 個伺服器匯入失敗",
+    "reconnectAll": "重新連線所有伺服器",
+    "reconnectSuccess": "{{count}} 個伺服器已重新連線",
+    "reconnectFail": "{{count}} 個伺服器連線失敗",
     "searchProject": "搜尋專案...",
     "noProjectFound": "未找到專案",
     "projects": "專案"

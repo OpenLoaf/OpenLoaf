@@ -35,6 +35,7 @@ import {
   X,
   Plug,
   PlugZap,
+  Loader2,
 } from "lucide-react"
 import { AddMCPServerDialog } from "./AddMCPServerDialog"
 
@@ -94,6 +95,7 @@ export function MCPSettingsPanel() {
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all")
   const [showAddDialog, setShowAddDialog] = useState(false)
+  const [reconnecting, setReconnecting] = useState(false)
 
   // --- Data queries ---
   const serversQuery = useQuery(
@@ -154,6 +156,25 @@ export function MCPSettingsPanel() {
       onError: (err) => toast.error(err.message),
     }),
   )
+
+  // --- Reconnect all enabled servers ---
+  async function handleReconnectAll() {
+    const enabled = servers.filter((s) => s.enabled)
+    if (enabled.length === 0) return
+    setReconnecting(true)
+    let ok = 0
+    let fail = 0
+    for (const s of enabled) {
+      try {
+        const res = await testMutation.mutateAsync({ id: s.id })
+        if (res.ok) ok++; else fail++
+      } catch { fail++ }
+    }
+    setReconnecting(false)
+    invalidate()
+    if (ok > 0) toast.success(t("settings:mcp.reconnectSuccess", { count: ok }))
+    if (fail > 0) toast.error(t("settings:mcp.reconnectFail", { count: fail }))
+  }
 
   // --- Filtering ---
   const filtered = useMemo(() => {
@@ -246,6 +267,22 @@ export function MCPSettingsPanel() {
               </Button>
             ))}
           </div>
+
+          {/* Reconnect all */}
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 w-7 rounded-full p-0 shadow-none transition-colors duration-150"
+            disabled={reconnecting || servers.filter((s) => s.enabled).length === 0}
+            onClick={handleReconnectAll}
+            title={t("settings:mcp.reconnectAll")}
+          >
+            {reconnecting ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-ol-text-auxiliary" />
+            ) : (
+              <RefreshCw className="h-3.5 w-3.5 text-ol-text-auxiliary" />
+            )}
+          </Button>
 
           {/* Add button */}
           <Button

@@ -217,6 +217,9 @@
     "importCount": "导入 {{count}} 个服务器",
     "importSuccess": "成功导入 {{count}} 个 MCP 服务器",
     "importPartialFail": "{{count}} 个服务器导入失败",
+    "reconnectAll": "重新连接所有服务器",
+    "reconnectSuccess": "{{count}} 个服务器已重新连接",
+    "reconnectFail": "{{count}} 个服务器连接失败",
     "searchProject": "搜索项目...",
     "noProjectFound": "未找到项目",
     "projects": "项目"
