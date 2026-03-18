@@ -89,6 +89,9 @@ type Props = {
  *
  * 4. Windsurf HTTP:
  *    { "mcpServers": { "name": { "serverUrl": "https://..." } } }
+ *
+ * 5. Bare name-keyed (no wrapper):
+ *    { "context7": { "command": "npx", "args": [...] } }
  */
 function parseMcpJson(text: string): ParsedServer[] {
   const json = JSON.parse(text)
@@ -110,7 +113,23 @@ function parseMcpJson(text: string): ParsedServer[] {
     return [parseSingleServer('imported-server', json)]
   }
 
+  // Case: bare name-keyed object — { "serverName": { "command": ... } }
+  // Heuristic: all values are objects containing command/url/serverUrl
+  const entries = Object.entries(json)
+  if (entries.length > 0 && entries.every(([, v]) => looksLikeServerConfig(v))) {
+    return entries.map(([name, cfg]) =>
+      parseSingleServer(name, cfg as Record<string, any>),
+    )
+  }
+
   throw new Error('Unrecognized MCP config format')
+}
+
+/** Check if a value looks like an MCP server config object. */
+function looksLikeServerConfig(v: unknown): boolean {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return false
+  const obj = v as Record<string, unknown>
+  return !!(obj.command || obj.url || obj.serverUrl)
 }
 
 function parseSingleServer(name: string, cfg: Record<string, any>): ParsedServer {
