@@ -67,6 +67,9 @@ const { app } = startServer();
 
 // 响应 SIGINT/SIGTERM，退出前先刷盘画布文档，防止热重载丢失未持久化的 Yjs 数据。
 async function gracefulShutdown() {
+  // Shutdown MCP connections (kills stdio child processes)
+  const { mcpClientManager } = await import("@/ai/services/mcpClientManager");
+  await mcpClientManager.shutdownAll();
   await flushBoardDocuments();
   process.exit(0);
 }
