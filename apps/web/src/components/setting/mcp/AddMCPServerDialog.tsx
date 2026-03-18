@@ -355,7 +355,7 @@ export function AddMCPServerDialog({ open, onOpenChange, onSuccess }: Props) {
         </div>
 
         {/* Scrollable body */}
-        <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+        <div className="min-h-0 flex-1 overflow-y-auto show-scrollbar pr-1">
         {mode === "json" ? (
           /* ================================================================
            * JSON Paste Mode
