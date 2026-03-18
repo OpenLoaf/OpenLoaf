@@ -241,3 +241,50 @@ export const TOOL_CATALOG_EXTENDED: ToolCatalogExtendedItem[] = TOOL_CATALOG.map
     };
   },
 );
+
+// ---------------------------------------------------------------------------
+// MCP Dynamic Catalog — runtime-extensible catalog for MCP tools
+// ---------------------------------------------------------------------------
+
+/**
+ * Runtime-mutable catalog for MCP tools.
+ * Entries are added when MCP servers connect and removed on disconnect.
+ * toolSearchTool unions this with TOOL_CATALOG_EXTENDED during search.
+ */
+const MCP_TOOL_CATALOG = new Map<string, ToolCatalogExtendedItem>();
+
+/** Register an MCP tool catalog entry (called by MCPClientManager on connect). */
+export function registerMcpCatalogEntry(entry: ToolCatalogExtendedItem): void {
+  MCP_TOOL_CATALOG.set(entry.id, entry);
+}
+
+/** Unregister an MCP tool catalog entry. */
+export function unregisterMcpCatalogEntry(toolId: string): void {
+  MCP_TOOL_CATALOG.delete(toolId);
+}
+
+/** Unregister all MCP catalog entries for a given server (prefix match). */
+export function unregisterMcpCatalogEntriesByServer(serverName: string): void {
+  const prefix = `mcp__${serverName}__`;
+  for (const id of MCP_TOOL_CATALOG.keys()) {
+    if (id.startsWith(prefix)) MCP_TOOL_CATALOG.delete(id);
+  }
+}
+
+/** Get all currently registered MCP catalog entries. */
+export function getMcpCatalogEntries(): ToolCatalogExtendedItem[] {
+  return [...MCP_TOOL_CATALOG.values()];
+}
+
+/**
+ * Build keywords from an MCP tool description (simple tokenization).
+ * Used when MCP server doesn't provide explicit keyword metadata.
+ */
+export function extractKeywordsFromDescription(description: string): string[] {
+  return description
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter((w) => w.length > 2)
+    .slice(0, 10);
+}

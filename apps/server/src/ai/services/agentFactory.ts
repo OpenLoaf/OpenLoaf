@@ -29,7 +29,7 @@ import type {
 } from '@ai-sdk/provider'
 import type { PrepareStepFunction, StopCondition } from 'ai'
 import { getRequestContext, getSessionId, type AgentFrame } from '@/ai/shared/context/requestContext'
-import { buildToolset, getToolJsonSchemas } from '@/ai/tools/toolRegistry'
+import { buildToolset, getToolJsonSchemas, getMcpToolIds } from '@/ai/tools/toolRegistry'
 import { filterToolIdsByPlatform } from '@/ai/tools/toolPlatformFilter'
 import { createToolCallRepair } from '@/ai/shared/repairToolCall'
 import { ActivatedToolSet } from '@/ai/tools/toolSearchState'
@@ -283,7 +283,10 @@ export function createMasterAgent(input: CreateMasterAgentInput) {
   if (!isWebSearchConfigured()) {
     filteredDeferredToolIds = filteredDeferredToolIds.filter((id) => id !== 'web-search')
   }
-  const allToolIds = [...new Set([...coreToolIds, ...filteredDeferredToolIds])]
+
+  // Inject MCP tool IDs (dynamically registered by MCPClientManager)
+  const mcpToolIds = getMcpToolIds()
+  const allToolIds = [...new Set([...coreToolIds, ...filteredDeferredToolIds, ...mcpToolIds])]
 
   // Build full toolset (all tools registered, but only core visible via activeTools)
   const tools = buildToolset(allToolIds)
@@ -292,12 +295,14 @@ export function createMasterAgent(input: CreateMasterAgentInput) {
   const activatedSet = new ActivatedToolSet(coreToolIds)
 
   // Rehydrate previously activated tools from message history (fixes approval flow state loss)
+  // Pass allToolIds to skip tools from disconnected MCP servers
+  const allToolIdSet = new Set(allToolIds)
   if (input.messages && input.messages.length > 0) {
-    ActivatedToolSet.rehydrateFromMessages(activatedSet, input.messages)
+    ActivatedToolSet.rehydrateFromMessages(activatedSet, input.messages, allToolIdSet)
   }
 
   // Inject tool-search (dynamically created, closes over activatedSet)
-  tools['tool-search'] = createToolSearchTool(activatedSet, new Set(allToolIds), getToolJsonSchemas)
+  tools['tool-search'] = createToolSearchTool(activatedSet, allToolIdSet, getToolJsonSchemas)
 
   // ★ Activation guard — block unloaded tool calls with clear error
   applyActivationGuard(tools, activatedSet, coreToolIds)
@@ -376,7 +381,10 @@ export function createPMAgent(input: CreatePMAgentInput) {
   if (!isWebSearchConfigured()) {
     deferredToolIds = deferredToolIds.filter((id) => id !== 'web-search')
   }
-  const allToolIds = [...new Set([...coreToolIds, ...deferredToolIds])]
+
+  // Inject MCP tool IDs
+  const mcpToolIds = getMcpToolIds()
+  const allToolIds = [...new Set([...coreToolIds, ...deferredToolIds, ...mcpToolIds])]
 
   const tools = buildToolset(allToolIds)
   const activatedSet = new ActivatedToolSet(coreToolIds)
@@ -478,7 +486,10 @@ function createGeneralPurposeSubAgent(model: LanguageModelV3): ToolLoopAgent {
   if (!isWebSearchConfigured()) {
     deferredToolIds = deferredToolIds.filter((id) => id !== 'web-search')
   }
-  const allToolIds = [...new Set([...coreToolIds, ...deferredToolIds])]
+
+  // Inject MCP tool IDs
+  const mcpToolIds = getMcpToolIds()
+  const allToolIds = [...new Set([...coreToolIds, ...deferredToolIds, ...mcpToolIds])]
 
   const tools = buildToolset(allToolIds)
   const activatedSet = new ActivatedToolSet(coreToolIds)

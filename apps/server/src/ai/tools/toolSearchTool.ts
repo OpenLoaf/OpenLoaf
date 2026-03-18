@@ -9,11 +9,23 @@
  */
 import { tool, zodSchema } from 'ai'
 import { toolSearchToolDef } from '@openloaf/api/types/tools/toolSearch'
-import { TOOL_CATALOG_EXTENDED } from '@openloaf/api/types/tools/toolCatalog'
+import {
+  TOOL_CATALOG_EXTENDED,
+  getMcpCatalogEntries,
+  type ToolCatalogExtendedItem,
+} from '@openloaf/api/types/tools/toolCatalog'
 import type { ActivatedToolSet } from './toolSearchState'
 
 /** Schema resolver function type — maps tool IDs to their JSON schemas. */
 export type SchemaResolver = (toolIds: string[]) => Record<string, object>
+
+/** Merge native static catalog with dynamic MCP catalog (MCP entries appended). */
+function getCombinedCatalog(): ToolCatalogExtendedItem[] {
+  const mcpEntries = getMcpCatalogEntries()
+  return mcpEntries.length > 0
+    ? [...TOOL_CATALOG_EXTENDED, ...mcpEntries]
+    : TOOL_CATALOG_EXTENDED
+}
 
 export function createToolSearchTool(
   activatedSet: ActivatedToolSet,
@@ -38,6 +50,7 @@ function handleDirectSelect(
   availableToolIds: ReadonlySet<string>,
   getSchemas?: SchemaResolver,
 ) {
+  const catalog = getCombinedCatalog()
   const requestedIds = idsStr
     .split(',')
     .map((s) => s.trim())
@@ -48,7 +61,7 @@ function handleDirectSelect(
   for (const id of requestedIds) {
     if (availableToolIds.has(id)) {
       activatedSet.activate([id])
-      const entry = TOOL_CATALOG_EXTENDED.find((e) => e.id === id)
+      const entry = catalog.find((e) => e.id === id)
       loaded.push({
         id,
         name: entry?.label ?? id,
@@ -81,12 +94,13 @@ function handleKeywordSearch(
   availableToolIds: ReadonlySet<string>,
   getSchemas?: SchemaResolver,
 ) {
+  const catalog = getCombinedCatalog()
   const queryTokens = query
     .toLowerCase()
     .split(/[\s,]+/)
     .filter(Boolean)
 
-  const scored = TOOL_CATALOG_EXTENDED
+  const scored = catalog
     .filter((e) => availableToolIds.has(e.id) && !activatedSet.isActive(e.id))
     .map((entry) => ({ entry, score: computeScore(entry, queryTokens) }))
     .filter(({ score }) => score > 0)

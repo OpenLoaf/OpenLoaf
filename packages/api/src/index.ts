@@ -53,6 +53,11 @@ import {
 } from "./routers/absScheduledTask";
 import { boardRouter } from "./routers/board";
 import { visitRouter } from "./routers/visit";
+import {
+  mcpRouter,
+  BaseMcpRouter,
+  mcpSchemas,
+} from "./routers/mcp";
 
 export const appRouterDefine = {
   ...internalAppRouter._def.procedures,
@@ -72,6 +77,7 @@ export const appRouterDefine = {
   scheduledTask: scheduledTaskRouter,
   board: boardRouter,
   visit: visitRouter,
+  mcp: mcpRouter,
 };
 
 export const appRouter = t.router({
@@ -138,6 +144,9 @@ export { BaseDynamicWidgetRouter, dynamicWidgetSchemas };
 
 // Export scheduled task router components
 export { BaseScheduledTaskRouter, scheduledTaskSchemas };
+
+// Export MCP router components
+export { BaseMcpRouter, mcpSchemas };
 
 // export const t = initTRPC.context<Context>().create({
 // });

@@ -30,6 +30,7 @@ import {
   Database,
   Sparkles,
   Terminal,
+  Blocks,
 } from "lucide-react";
 import { useGlobalOverlay } from "@/lib/globalShortcuts";
 import { Button } from "@openloaf/ui/button";
@@ -48,6 +49,7 @@ import { GlobalSettings } from "./menus/GlobalSettings";
 import TestSetting from "./menus/TestSetting";
 import { ThirdPartyTools } from "./menus/ThirdPartyTools";
 import { MemorySettings } from "./menus/MemorySettings";
+import { MCPSettingsPanel } from "./mcp/MCPSettingsPanel";
 import { OpenLoafSettingsLayout } from "@openloaf/ui/openloaf/OpenLoafSettingsLayout";
 import {
   OpenLoafSettingsMenu,
@@ -62,6 +64,7 @@ type SettingsMenuKey =
   | "auxiliaryModel"
   | "global"
   | "memory"
+  | "mcp"
   | "thirdPartyTools"
   | "shortcuts"
   | "projectTest";
@@ -73,6 +76,7 @@ const SETTINGS_MENU_ICON_COLOR = {
   keys: "text-ol-purple",
   auxiliaryModel: "text-ol-blue",
   memory: "text-ol-green",
+  mcp: "text-ol-purple",
   thirdPartyTools: "text-ol-text-auxiliary",
   storage: "text-ol-green",
   projectTest: "text-ol-amber",
@@ -144,6 +148,12 @@ function buildMenu(t: (key: string) => string): Array<{
       Icon: createMenuIcon(Brain, SETTINGS_MENU_ICON_COLOR.memory),
       Component: MemorySettings,
     },
+    {
+      key: "mcp",
+      label: t('settings:menu.mcp'),
+      Icon: createMenuIcon(Blocks, SETTINGS_MENU_ICON_COLOR.mcp),
+      Component: MCPSettingsPanel,
+    },
     // Group 3: Services (in general group)
     {
       key: "thirdPartyTools",
@@ -162,7 +172,7 @@ function buildMenu(t: (key: string) => string): Array<{
 }
 
 const ALL_MENU_KEYS: SettingsMenuKey[] = [
-  'basic', 'global', 'shortcuts', 'thirdPartyTools', 'storage', 'keys', 'auxiliaryModel', 'memory', 'projectTest',
+  'basic', 'global', 'shortcuts', 'thirdPartyTools', 'storage', 'keys', 'auxiliaryModel', 'memory', 'mcp', 'projectTest',
 ];
 const MENU_KEY_SET = new Set<SettingsMenuKey>(ALL_MENU_KEYS);
 const HIDDEN_MENU_KEYS = new Set<SettingsMenuKey>([]);
@@ -316,6 +326,7 @@ export default function SettingsPage({
       byKey.get("keys"),
       byKey.get("auxiliaryModel"),
       byKey.get("memory"),
+      byKey.get("mcp"),
     ].filter(filterVisible);
     return [general, ai].filter((group) => group.length > 0) as OpenLoafSettingsMenuItem[][];
   }, [MENU]);

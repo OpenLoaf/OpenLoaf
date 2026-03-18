@@ -33,6 +33,18 @@ export class ActivatedToolSet {
     return this.coreToolIds.has(toolId) || this.activatedIds.has(toolId)
   }
 
+  /** Deactivate a specific tool (e.g. when its MCP server disconnects). */
+  deactivate(toolId: string): void {
+    this.activatedIds.delete(toolId)
+  }
+
+  /** Deactivate all tools matching a prefix (e.g. "mcp__serverName__"). */
+  deactivateByPrefix(prefix: string): void {
+    for (const id of this.activatedIds) {
+      if (id.startsWith(prefix)) this.activatedIds.delete(id)
+    }
+  }
+
   /**
    * Rehydrate activated tool IDs from message history.
    *
@@ -44,10 +56,14 @@ export class ActivatedToolSet {
    * Handles two message formats:
    * - AI SDK format: part.toolName === 'tool-search'
    * - Stored/JSONL format: part.type === 'tool-tool-search' (toolName derived from type)
+   *
+   * @param availableToolIds - If provided, only rehydrate IDs that are still
+   *   available (prevents rehydrating tools from disconnected MCP servers).
    */
   static rehydrateFromMessages(
     set: ActivatedToolSet,
     messages: { role: string; parts?: unknown[] }[],
+    availableToolIds?: ReadonlySet<string>,
   ): void {
     const ids: string[] = []
     for (const msg of messages) {
@@ -75,7 +91,10 @@ export class ActivatedToolSet {
           const tools = Array.isArray(output.tools) ? output.tools : []
           for (const t of tools) {
             if (t && typeof t === 'object' && typeof (t as any).id === 'string') {
-              ids.push((t as any).id)
+              const toolId = (t as any).id as string
+              // Skip tools that are no longer available (e.g. MCP server disconnected)
+              if (availableToolIds && !availableToolIds.has(toolId)) continue
+              ids.push(toolId)
             }
           }
         }

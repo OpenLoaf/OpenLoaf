@@ -143,6 +143,49 @@ type ToolEntry = {
   tool: any;
 };
 
+// ---------------------------------------------------------------------------
+// MCP Dynamic Tool Registry
+// ---------------------------------------------------------------------------
+
+/**
+ * Runtime-mutable registry for MCP tools.
+ * Native tools remain in the static TOOL_REGISTRY; MCP tools live here so
+ * they can be registered / unregistered as MCP servers connect & disconnect.
+ */
+const MCP_TOOL_REGISTRY = new Map<string, ToolEntry>()
+
+/** Register an MCP tool at runtime (called by MCPClientManager on connect). */
+export function registerMcpTool(toolId: string, toolInstance: any): void {
+  MCP_TOOL_REGISTRY.set(toolId, { tool: toolInstance })
+}
+
+/** Unregister an MCP tool at runtime (called on MCP server disconnect). */
+export function unregisterMcpTool(toolId: string): void {
+  MCP_TOOL_REGISTRY.delete(toolId)
+}
+
+/** Unregister all MCP tools for a given server (prefix match). */
+export function unregisterMcpToolsByServer(serverName: string): void {
+  const prefix = `mcp__${serverName}__`
+  for (const id of MCP_TOOL_REGISTRY.keys()) {
+    if (id.startsWith(prefix)) MCP_TOOL_REGISTRY.delete(id)
+  }
+}
+
+/** Get all currently registered MCP tool IDs. */
+export function getMcpToolIds(): string[] {
+  return [...MCP_TOOL_REGISTRY.keys()]
+}
+
+/** Check if a tool ID belongs to the MCP registry. */
+export function isMcpTool(toolId: string): boolean {
+  return toolId.startsWith('mcp__')
+}
+
+// ---------------------------------------------------------------------------
+// Static Native Tool Registry
+// ---------------------------------------------------------------------------
+
 const TOOL_REGISTRY: Record<string, ToolEntry> = {
   [timeNowToolDef.id]: { tool: timeNowTool },
   [openUrlToolDef.id]: {
@@ -447,10 +490,11 @@ function wrapToolWithAutoApproval(toolId: string, tool: any): any {
 }
 
 /**
- * Returns the tool instance by ToolDef.id (MVP).
+ * Returns the tool instance by ToolDef.id.
+ * Checks the static native registry first, then the dynamic MCP registry.
  */
 function getToolById(toolId: string): ToolEntry | undefined {
-  return TOOL_REGISTRY[toolId];
+  return TOOL_REGISTRY[toolId] ?? MCP_TOOL_REGISTRY.get(toolId);
 }
 
 /**
@@ -466,7 +510,15 @@ export function buildToolset(toolIds: readonly string[] = []) {
   for (const toolId of toolIds) {
     const entry = getToolById(toolId);
     if (!entry) continue;
-    const withAutoApproval = wrapToolWithAutoApproval(toolId, entry.tool);
+
+    let toolInstance = entry.tool
+
+    // MCP tools default to needsApproval: true for safety
+    if (isMcpTool(toolId) && toolInstance.needsApproval === undefined) {
+      toolInstance = { ...toolInstance, needsApproval: true }
+    }
+
+    const withAutoApproval = wrapToolWithAutoApproval(toolId, toolInstance);
     const withInputValidation = wrapToolWithInputValidation(toolId, withAutoApproval);
     const withTimeout = wrapToolWithTimeout(toolId, withInputValidation);
     const withErrorEnhancer = wrapToolWithErrorEnhancer(toolId, withTimeout);
