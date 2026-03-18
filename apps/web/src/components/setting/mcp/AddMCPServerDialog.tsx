@@ -9,7 +9,7 @@
  */
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { useTranslation } from "react-i18next"
 import { useMutation } from "@tanstack/react-query"
 import { trpc } from "@/utils/trpc"
@@ -39,6 +39,10 @@ import {
   TerminalSquare,
   Globe,
   Radio,
+  ClipboardPaste,
+  FormInput,
+  CheckCircle2,
+  AlertCircle,
 } from "lucide-react"
 
 // ---------------------------------------------------------------------------
@@ -46,13 +50,100 @@ import {
 // ---------------------------------------------------------------------------
 type Transport = "stdio" | "http" | "sse"
 type Scope = "global" | "project"
+type Mode = "form" | "json"
 
 type EnvEntry = { key: string; value: string }
+
+type ParsedServer = {
+  name: string
+  transport: Transport
+  command?: string
+  args?: string[]
+  env?: Record<string, string>
+  cwd?: string
+  url?: string
+  headers?: Record<string, string>
+}
 
 type Props = {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSuccess: () => void
+}
+
+// ---------------------------------------------------------------------------
+// JSON parser — supports Claude Desktop, Cursor, VS Code, Cline, Windsurf
+// ---------------------------------------------------------------------------
+
+/**
+ * Parse MCP server configs from various JSON formats:
+ *
+ * 1. Claude Desktop / Cursor / Cline / Windsurf:
+ *    { "mcpServers": { "name": { "command": "...", "args": [...] } } }
+ *
+ * 2. VS Code:
+ *    { "servers": { "name": { "type": "stdio", "command": "..." } } }
+ *
+ * 3. Single server (no wrapper):
+ *    { "command": "npx", "args": [...] }
+ *
+ * 4. Windsurf HTTP:
+ *    { "mcpServers": { "name": { "serverUrl": "https://..." } } }
+ */
+function parseMcpJson(text: string): ParsedServer[] {
+  const json = JSON.parse(text)
+  if (!json || typeof json !== 'object') throw new Error('Invalid JSON')
+
+  // Detect root key
+  const serversObj: Record<string, any> =
+    json.mcpServers ?? json.servers ?? null
+
+  // Case: wrapped format (mcpServers or servers)
+  if (serversObj && typeof serversObj === 'object' && !Array.isArray(serversObj)) {
+    return Object.entries(serversObj).map(([name, cfg]) =>
+      parseSingleServer(name, cfg as Record<string, any>),
+    )
+  }
+
+  // Case: single server object (has command or url or serverUrl)
+  if (json.command || json.url || json.serverUrl) {
+    return [parseSingleServer('imported-server', json)]
+  }
+
+  throw new Error('Unrecognized MCP config format')
+}
+
+function parseSingleServer(name: string, cfg: Record<string, any>): ParsedServer {
+  // Detect transport
+  let transport: Transport = 'stdio'
+  if (cfg.type === 'http' || cfg.type === 'sse') {
+    transport = cfg.type
+  } else if (cfg.serverUrl || cfg.url) {
+    transport = 'http'
+  }
+
+  const result: ParsedServer = { name, transport }
+
+  // stdio fields
+  if (typeof cfg.command === 'string') result.command = cfg.command
+  if (Array.isArray(cfg.args)) result.args = cfg.args.map(String)
+  if (cfg.env && typeof cfg.env === 'object') {
+    result.env = Object.fromEntries(
+      Object.entries(cfg.env).map(([k, v]) => [k, String(v)]),
+    )
+  }
+  if (typeof cfg.cwd === 'string') result.cwd = cfg.cwd
+
+  // http/sse fields
+  const urlValue = cfg.url ?? cfg.serverUrl
+  if (typeof urlValue === 'string') result.url = urlValue
+  if (cfg.headers && typeof cfg.headers === 'object') {
+    result.headers = Object.fromEntries(
+      Object.entries(cfg.headers).map(([k, v]) => [k, String(v)]),
+    )
+  }
+
+  return result
 }
 
 // ---------------------------------------------------------------------------
@@ -69,31 +160,40 @@ const TRANSPORT_TABS: { value: Transport; label: string; Icon: typeof TerminalSq
 // ---------------------------------------------------------------------------
 export function AddMCPServerDialog({ open, onOpenChange, onSuccess }: Props) {
   const { t } = useTranslation(["settings"])
+  const [mode, setMode] = useState<Mode>("json") // default to JSON paste
 
   // --- Form state ---
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
   const [transport, setTransport] = useState<Transport>("stdio")
   const [scope, setScope] = useState<Scope>("global")
-
-  // stdio
   const [command, setCommand] = useState("")
   const [args, setArgs] = useState("")
   const [envEntries, setEnvEntries] = useState<EnvEntry[]>([])
   const [cwd, setCwd] = useState("")
-
-  // http/sse
   const [url, setUrl] = useState("")
   const [headerEntries, setHeaderEntries] = useState<EnvEntry[]>([])
+
+  // --- JSON paste state ---
+  const [jsonText, setJsonText] = useState("")
+  const [importing, setImporting] = useState(false)
+
+  // Live parse preview
+  const parseResult = useMemo(() => {
+    if (!jsonText.trim()) return null
+    try {
+      const servers = parseMcpJson(jsonText)
+      return { ok: true as const, servers }
+    } catch (err: any) {
+      return { ok: false as const, error: err.message as string }
+    }
+  }, [jsonText])
 
   // --- Mutations ---
   const addMutation = useMutation(
     trpc.mcp.addMcpServer.mutationOptions({
       onSuccess: () => {
-        toast.success(t("settings:mcp.addSuccess"))
         onSuccess()
-        resetForm()
-        onOpenChange(false)
       },
       onError: (err) => toast.error(err.message),
     }),
@@ -110,14 +210,15 @@ export function AddMCPServerDialog({ open, onOpenChange, onSuccess }: Props) {
     setCwd("")
     setUrl("")
     setHeaderEntries([])
+    setJsonText("")
   }
 
-  function handleSubmit() {
+  // --- Form submit ---
+  function handleFormSubmit() {
     if (!name.trim()) {
       toast.error(t("settings:mcp.nameRequired"))
       return
     }
-
     const envObj =
       envEntries.length > 0
         ? Object.fromEntries(envEntries.filter((e) => e.key.trim()).map((e) => [e.key, e.value]))
@@ -133,7 +234,6 @@ export function AddMCPServerDialog({ open, onOpenChange, onSuccess }: Props) {
       transport,
       scope,
       enabled: true,
-      // stdio fields
       ...(transport === "stdio"
         ? {
             command: command.trim() || undefined,
@@ -141,18 +241,62 @@ export function AddMCPServerDialog({ open, onOpenChange, onSuccess }: Props) {
             env: envObj,
             cwd: cwd.trim() || undefined,
           }
-        : {}),
-      // http/sse fields
-      ...(transport !== "stdio"
-        ? {
+        : {
             url: url.trim() || undefined,
             headers: headersObj,
-          }
-        : {}),
+          }),
+    }, {
+      onSuccess: () => {
+        toast.success(t("settings:mcp.addSuccess"))
+        resetForm()
+        onOpenChange(false)
+      },
     })
   }
 
-  // --- Key-value pair helpers ---
+  // --- JSON batch import ---
+  async function handleJsonImport() {
+    if (!parseResult?.ok) return
+    const servers = parseResult.servers
+    setImporting(true)
+
+    let successCount = 0
+    let failCount = 0
+
+    for (const server of servers) {
+      try {
+        await addMutation.mutateAsync({
+          name: server.name,
+          transport: server.transport,
+          scope,
+          enabled: true,
+          command: server.command,
+          args: server.args,
+          env: server.env,
+          cwd: server.cwd,
+          url: server.url,
+          headers: server.headers,
+        })
+        successCount++
+      } catch {
+        failCount++
+      }
+    }
+
+    setImporting(false)
+
+    if (successCount > 0) {
+      toast.success(t("settings:mcp.importSuccess", { count: successCount }))
+      onSuccess()
+      resetForm()
+      onOpenChange(false)
+    }
+    if (failCount > 0) {
+      toast.error(t("settings:mcp.importPartialFail", { count: failCount }))
+    }
+  }
+
+  // --- KV helpers ---
   function addEnvEntry() {
     setEnvEntries((prev) => [...prev, { key: "", value: "" }])
   }
@@ -160,11 +304,8 @@ export function AddMCPServerDialog({ open, onOpenChange, onSuccess }: Props) {
     setEnvEntries((prev) => prev.filter((_, i) => i !== idx))
   }
   function updateEnvEntry(idx: number, field: "key" | "value", val: string) {
-    setEnvEntries((prev) =>
-      prev.map((e, i) => (i === idx ? { ...e, [field]: val } : e)),
-    )
+    setEnvEntries((prev) => prev.map((e, i) => (i === idx ? { ...e, [field]: val } : e)))
   }
-
   function addHeaderEntry() {
     setHeaderEntries((prev) => [...prev, { key: "", value: "" }])
   }
@@ -172,9 +313,7 @@ export function AddMCPServerDialog({ open, onOpenChange, onSuccess }: Props) {
     setHeaderEntries((prev) => prev.filter((_, i) => i !== idx))
   }
   function updateHeaderEntry(idx: number, field: "key" | "value", val: string) {
-    setHeaderEntries((prev) =>
-      prev.map((e, i) => (i === idx ? { ...e, [field]: val } : e)),
-    )
+    setHeaderEntries((prev) => prev.map((e, i) => (i === idx ? { ...e, [field]: val } : e)))
   }
 
   return (
@@ -185,214 +324,233 @@ export function AddMCPServerDialog({ open, onOpenChange, onSuccess }: Props) {
           <DialogDescription>{t("settings:mcp.addServerDesc")}</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
-          {/* Name */}
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">{t("settings:mcp.serverName")}</label>
-            <Input
-              placeholder={t("settings:mcp.serverNamePlaceholder")}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </div>
+        {/* Mode toggle */}
+        <div className="flex items-center gap-1 rounded-md bg-muted/40 p-1">
+          <button
+            type="button"
+            onClick={() => setMode("json")}
+            className={cn(
+              "flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+              mode === "json"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <ClipboardPaste className="h-3.5 w-3.5" />
+            {t("settings:mcp.modeJsonPaste")}
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode("form")}
+            className={cn(
+              "flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+              mode === "form"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <FormInput className="h-3.5 w-3.5" />
+            {t("settings:mcp.modeForm")}
+          </button>
+        </div>
 
-          {/* Description */}
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">{t("settings:mcp.description")}</label>
-            <Input
-              placeholder={t("settings:mcp.descriptionPlaceholder")}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
+        {mode === "json" ? (
+          /* ================================================================
+           * JSON Paste Mode
+           * ================================================================ */
+          <div className="space-y-3">
+            <textarea
+              className="h-48 w-full rounded-md border border-border bg-muted/30 p-3 font-mono text-xs text-foreground placeholder:text-muted-foreground/50 focus:border-ol-purple/50 focus:outline-none focus:ring-1 focus:ring-ol-purple/30"
+              placeholder={`${t("settings:mcp.jsonPlaceholder")}\n\n{\n  "mcpServers": {\n    "server-name": {\n      "command": "npx",\n      "args": ["-y", "package-name"],\n      "env": { "API_KEY": "..." }\n    }\n  }\n}`}
+              value={jsonText}
+              onChange={(e) => setJsonText(e.target.value)}
             />
-          </div>
 
-          {/* Transport tabs */}
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">{t("settings:mcp.transport")}</label>
-            <div className="flex items-center gap-1 rounded-md bg-muted/40 p-1">
-              {TRANSPORT_TABS.map((tab) => (
-                <button
-                  key={tab.value}
-                  type="button"
-                  onClick={() => setTransport(tab.value)}
-                  className={cn(
-                    "flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
-                    transport === tab.value
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  <tab.Icon className="h-3.5 w-3.5" />
-                  {tab.label}
-                </button>
-              ))}
+            {/* Parse preview */}
+            {parseResult ? (
+              parseResult.ok ? (
+                <div className="rounded-md border border-emerald-200 bg-emerald-50 p-2.5 dark:border-emerald-800 dark:bg-emerald-950/30">
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-700 dark:text-emerald-400">
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    {t("settings:mcp.jsonParsed", { count: parseResult.servers.length })}
+                  </div>
+                  <div className="mt-1.5 space-y-1">
+                    {parseResult.servers.map((s) => (
+                      <div key={s.name} className="flex items-center gap-2 text-[11px] text-emerald-600 dark:text-emerald-400/80">
+                        <span className="font-medium">{s.name}</span>
+                        <span className="rounded bg-emerald-100 px-1 py-0.5 text-[10px] dark:bg-emerald-900/50">
+                          {s.transport}
+                        </span>
+                        {s.command ? (
+                          <span className="truncate text-emerald-500/70 dark:text-emerald-500/50">
+                            {s.command} {s.args?.join(" ")}
+                          </span>
+                        ) : s.url ? (
+                          <span className="truncate text-emerald-500/70 dark:text-emerald-500/50">{s.url}</span>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5 rounded-md border border-red-200 bg-red-50 p-2.5 text-xs text-red-600 dark:border-red-800 dark:bg-red-950/30 dark:text-red-400">
+                  <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                  {parseResult.error}
+                </div>
+              )
+            ) : null}
+
+            <p className="text-[10px] text-muted-foreground/60">
+              {t("settings:mcp.jsonHint")}
+            </p>
+
+            {/* Scope selector */}
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">{t("settings:mcp.scope")}</label>
+              <Select value={scope} onValueChange={(v) => setScope(v as Scope)}>
+                <SelectTrigger className="h-8">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="global">{t("settings:mcp.scopeGlobal")}</SelectItem>
+                  <SelectItem value="project">{t("settings:mcp.scopeProject")}</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
-
-          {/* Transport-specific fields */}
-          {transport === "stdio" ? (
-            <>
-              {/* Command */}
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">{t("settings:mcp.command")}</label>
-                <Input
-                  placeholder="npx, node, uvx, python..."
-                  value={command}
-                  onChange={(e) => setCommand(e.target.value)}
-                />
-              </div>
-
-              {/* Args */}
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">{t("settings:mcp.args")}</label>
-                <Input
-                  placeholder="-y @modelcontextprotocol/server-github"
-                  value={args}
-                  onChange={(e) => setArgs(e.target.value)}
-                />
-                <p className="text-[10px] text-muted-foreground/60">
-                  {t("settings:mcp.argsHint")}
-                </p>
-              </div>
-
-              {/* Env vars */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium">{t("settings:mcp.envVars")}</label>
-                  <Button
+        ) : (
+          /* ================================================================
+           * Form Mode (original)
+           * ================================================================ */
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">{t("settings:mcp.serverName")}</label>
+              <Input
+                placeholder={t("settings:mcp.serverNamePlaceholder")}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">{t("settings:mcp.description")}</label>
+              <Input
+                placeholder={t("settings:mcp.descriptionPlaceholder")}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">{t("settings:mcp.transport")}</label>
+              <div className="flex items-center gap-1 rounded-md bg-muted/40 p-1">
+                {TRANSPORT_TABS.map((tab) => (
+                  <button
+                    key={tab.value}
                     type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 gap-1 text-xs"
-                    onClick={addEnvEntry}
+                    onClick={() => setTransport(tab.value)}
+                    className={cn(
+                      "flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                      transport === tab.value
+                        ? "bg-background text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
                   >
-                    <Plus className="h-3 w-3" />
-                    {t("settings:mcp.addEnvVar")}
-                  </Button>
-                </div>
-                {envEntries.map((entry, idx) => (
-                  <div key={idx} className="flex items-center gap-2">
-                    <Input
-                      className="h-8 flex-1 text-xs"
-                      placeholder="KEY"
-                      value={entry.key}
-                      onChange={(e) => updateEnvEntry(idx, "key", e.target.value)}
-                    />
-                    <span className="text-xs text-muted-foreground">=</span>
-                    <Input
-                      className="h-8 flex-1 text-xs"
-                      placeholder="value"
-                      value={entry.value}
-                      onChange={(e) => updateEnvEntry(idx, "value", e.target.value)}
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 shrink-0"
-                      onClick={() => removeEnvEntry(idx)}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
+                    <tab.Icon className="h-3.5 w-3.5" />
+                    {tab.label}
+                  </button>
                 ))}
               </div>
+            </div>
 
-              {/* Working directory */}
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">{t("settings:mcp.cwd")}</label>
-                <Input
-                  placeholder={t("settings:mcp.cwdPlaceholder")}
-                  value={cwd}
-                  onChange={(e) => setCwd(e.target.value)}
-                />
-              </div>
-            </>
-          ) : (
-            <>
-              {/* URL */}
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">{t("settings:mcp.url")}</label>
-                <Input
-                  placeholder="http://localhost:3000/mcp"
-                  value={url}
-                  onChange={(e) => setUrl(e.target.value)}
-                />
-              </div>
-
-              {/* Headers */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium">{t("settings:mcp.headers")}</label>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 gap-1 text-xs"
-                    onClick={addHeaderEntry}
-                  >
-                    <Plus className="h-3 w-3" />
-                    {t("settings:mcp.addHeader")}
-                  </Button>
+            {transport === "stdio" ? (
+              <>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">{t("settings:mcp.command")}</label>
+                  <Input placeholder="npx, node, uvx, python..." value={command} onChange={(e) => setCommand(e.target.value)} />
                 </div>
-                {headerEntries.map((entry, idx) => (
-                  <div key={idx} className="flex items-center gap-2">
-                    <Input
-                      className="h-8 flex-1 text-xs"
-                      placeholder="Authorization"
-                      value={entry.key}
-                      onChange={(e) => updateHeaderEntry(idx, "key", e.target.value)}
-                    />
-                    <span className="text-xs text-muted-foreground">:</span>
-                    <Input
-                      className="h-8 flex-1 text-xs"
-                      placeholder="Bearer token..."
-                      value={entry.value}
-                      onChange={(e) => updateHeaderEntry(idx, "value", e.target.value)}
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 shrink-0"
-                      onClick={() => removeHeaderEntry(idx)}
-                    >
-                      <Trash2 className="h-3 w-3" />
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">{t("settings:mcp.args")}</label>
+                  <Input placeholder="-y @modelcontextprotocol/server-github" value={args} onChange={(e) => setArgs(e.target.value)} />
+                  <p className="text-[10px] text-muted-foreground/60">{t("settings:mcp.argsHint")}</p>
+                </div>
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium">{t("settings:mcp.envVars")}</label>
+                    <Button type="button" variant="ghost" size="sm" className="h-6 gap-1 text-xs" onClick={addEnvEntry}>
+                      <Plus className="h-3 w-3" />{t("settings:mcp.addEnvVar")}
                     </Button>
                   </div>
-                ))}
-              </div>
-            </>
-          )}
+                  {envEntries.map((entry, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <Input className="h-8 flex-1 text-xs" placeholder="KEY" value={entry.key} onChange={(e) => updateEnvEntry(idx, "key", e.target.value)} />
+                      <span className="text-xs text-muted-foreground">=</span>
+                      <Input className="h-8 flex-1 text-xs" placeholder="value" value={entry.value} onChange={(e) => updateEnvEntry(idx, "value", e.target.value)} />
+                      <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => removeEnvEntry(idx)}><Trash2 className="h-3 w-3" /></Button>
+                    </div>
+                  ))}
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">{t("settings:mcp.cwd")}</label>
+                  <Input placeholder={t("settings:mcp.cwdPlaceholder")} value={cwd} onChange={(e) => setCwd(e.target.value)} />
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">{t("settings:mcp.url")}</label>
+                  <Input placeholder="http://localhost:3000/mcp" value={url} onChange={(e) => setUrl(e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium">{t("settings:mcp.headers")}</label>
+                    <Button type="button" variant="ghost" size="sm" className="h-6 gap-1 text-xs" onClick={addHeaderEntry}>
+                      <Plus className="h-3 w-3" />{t("settings:mcp.addHeader")}
+                    </Button>
+                  </div>
+                  {headerEntries.map((entry, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <Input className="h-8 flex-1 text-xs" placeholder="Authorization" value={entry.key} onChange={(e) => updateHeaderEntry(idx, "key", e.target.value)} />
+                      <span className="text-xs text-muted-foreground">:</span>
+                      <Input className="h-8 flex-1 text-xs" placeholder="Bearer token..." value={entry.value} onChange={(e) => updateHeaderEntry(idx, "value", e.target.value)} />
+                      <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => removeHeaderEntry(idx)}><Trash2 className="h-3 w-3" /></Button>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
 
-          {/* Scope */}
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">{t("settings:mcp.scope")}</label>
-            <Select value={scope} onValueChange={(v) => setScope(v as Scope)}>
-              <SelectTrigger className="h-8">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="global">{t("settings:mcp.scopeGlobal")}</SelectItem>
-                <SelectItem value="project">{t("settings:mcp.scopeProject")}</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">{t("settings:mcp.scope")}</label>
+              <Select value={scope} onValueChange={(v) => setScope(v as Scope)}>
+                <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="global">{t("settings:mcp.scopeGlobal")}</SelectItem>
+                  <SelectItem value="project">{t("settings:mcp.scopeProject")}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-        </div>
+        )}
 
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             {t("settings:mcp.cancel")}
           </Button>
-          <Button
-            onClick={handleSubmit}
-            disabled={addMutation.isPending}
-          >
-            {addMutation.isPending ? (
-              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-            ) : null}
-            {t("settings:mcp.save")}
-          </Button>
+          {mode === "json" ? (
+            <Button
+              onClick={handleJsonImport}
+              disabled={!parseResult?.ok || importing}
+            >
+              {importing ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
+              {parseResult?.ok
+                ? t("settings:mcp.importCount", { count: parseResult.servers.length })
+                : t("settings:mcp.save")}
+            </Button>
+          ) : (
+            <Button onClick={handleFormSubmit} disabled={addMutation.isPending}>
+              {addMutation.isPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
+              {t("settings:mcp.save")}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

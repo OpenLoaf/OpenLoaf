@@ -207,7 +207,15 @@
     "scope": "Scope",
     "nameRequired": "Server name is required",
     "cancel": "Cancel",
-    "save": "Add"
+    "save": "Add",
+    "modeJsonPaste": "Paste JSON",
+    "modeForm": "Manual",
+    "jsonPlaceholder": "Paste MCP config JSON from Claude Desktop, Cursor, VS Code, etc...",
+    "jsonParsed": "Parsed successfully, found {{count}} server(s)",
+    "jsonHint": "Supports Claude Desktop, Cursor, VS Code, Cline, Windsurf config formats",
+    "importCount": "Import {{count}} server(s)",
+    "importSuccess": "Successfully imported {{count}} MCP server(s)",
+    "importPartialFail": "{{count}} server(s) failed to import"
   },
   "memory": {
     "title": "AI Memory",

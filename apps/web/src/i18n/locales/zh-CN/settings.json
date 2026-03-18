@@ -207,7 +207,15 @@
     "scope": "作用范围",
     "nameRequired": "请输入服务器名称",
     "cancel": "取消",
-    "save": "添加"
+    "save": "添加",
+    "modeJsonPaste": "粘贴 JSON",
+    "modeForm": "手动填写",
+    "jsonPlaceholder": "粘贴 Claude Desktop、Cursor、VS Code 等工具的 MCP 配置 JSON...",
+    "jsonParsed": "解析成功，发现 {{count}} 个服务器",
+    "jsonHint": "支持 Claude Desktop、Cursor、VS Code、Cline、Windsurf 等工具的配置格式",
+    "importCount": "导入 {{count}} 个服务器",
+    "importSuccess": "成功导入 {{count}} 个 MCP 服务器",
+    "importPartialFail": "{{count}} 个服务器导入失败"
   },
   "memory": {
     "title": "AI 记忆",

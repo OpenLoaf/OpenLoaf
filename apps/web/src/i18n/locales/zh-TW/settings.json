@@ -207,7 +207,15 @@
     "scope": "作用範圍",
     "nameRequired": "請輸入伺服器名稱",
     "cancel": "取消",
-    "save": "新增"
+    "save": "新增",
+    "modeJsonPaste": "貼上 JSON",
+    "modeForm": "手動填寫",
+    "jsonPlaceholder": "貼上 Claude Desktop、Cursor、VS Code 等工具的 MCP 設定 JSON...",
+    "jsonParsed": "解析成功，發現 {{count}} 個伺服器",
+    "jsonHint": "支援 Claude Desktop、Cursor、VS Code、Cline、Windsurf 等工具的設定格式",
+    "importCount": "匯入 {{count}} 個伺服器",
+    "importSuccess": "成功匯入 {{count}} 個 MCP 伺服器",
+    "importPartialFail": "{{count}} 個伺服器匯入失敗"
   },
   "memory": {
     "title": "AI 記憶",
