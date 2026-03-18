@@ -35,38 +35,18 @@ import {
   X,
   Plug,
   PlugZap,
-  Settings2,
-  Loader2,
-  Wifi,
-  WifiOff,
-  TerminalSquare,
-  ExternalLink,
 } from "lucide-react"
 import { AddMCPServerDialog } from "./AddMCPServerDialog"
 
 // ---------------------------------------------------------------------------
-// Card gradients (match Skills panel style)
+// Card accent styles — using ol-* design tokens (no hardcoded Tailwind colors)
 // ---------------------------------------------------------------------------
-const CARD_GRADIENTS = [
-  "from-indigo-100 to-blue-50 dark:from-indigo-900/40 dark:to-blue-900/30",
-  "from-teal-100 to-cyan-50 dark:from-teal-900/40 dark:to-cyan-900/30",
-  "from-violet-100 to-fuchsia-50 dark:from-violet-900/40 dark:to-fuchsia-900/30",
-  "from-amber-100 to-orange-50 dark:from-amber-900/40 dark:to-orange-900/30",
-  "from-rose-100 to-pink-50 dark:from-rose-900/40 dark:to-pink-900/30",
-  "from-emerald-100 to-green-50 dark:from-emerald-900/40 dark:to-green-900/30",
-  "from-sky-100 to-cyan-50 dark:from-sky-900/40 dark:to-cyan-900/30",
-  "from-lime-100 to-yellow-50 dark:from-lime-900/40 dark:to-yellow-900/30",
-] as const
-
-const ACCENT_BORDER_COLORS = [
-  "border-l-indigo-300 dark:border-l-indigo-600",
-  "border-l-teal-300 dark:border-l-teal-600",
-  "border-l-violet-300 dark:border-l-violet-600",
-  "border-l-amber-300 dark:border-l-amber-600",
-  "border-l-rose-300 dark:border-l-rose-600",
-  "border-l-emerald-300 dark:border-l-emerald-600",
-  "border-l-sky-300 dark:border-l-sky-600",
-  "border-l-lime-300 dark:border-l-lime-600",
+const CARD_ACCENT_STYLES = [
+  { bg: "bg-ol-blue-bg", border: "border-l-ol-blue" },
+  { bg: "bg-ol-green-bg", border: "border-l-ol-green" },
+  { bg: "bg-ol-purple-bg", border: "border-l-ol-purple" },
+  { bg: "bg-ol-amber-bg", border: "border-l-ol-amber" },
+  { bg: "bg-ol-red-bg", border: "border-l-ol-red" },
 ] as const
 
 function hashCode(str: string): number {
@@ -83,19 +63,19 @@ function hashCode(str: string): number {
 function StatusDot({ status }: { status: string }) {
   const color =
     status === "connected"
-      ? "bg-emerald-500"
+      ? "bg-ol-green"
       : status === "connecting"
-        ? "bg-amber-500 animate-pulse"
+        ? "bg-ol-amber animate-pulse"
         : status === "error"
-          ? "bg-red-500"
-          : "bg-gray-400"
+          ? "bg-ol-red"
+          : "bg-ol-text-auxiliary/40"
   return <span className={cn("inline-block h-2 w-2 rounded-full", color)} />
 }
 
 // Transport badge
 function TransportBadge({ transport }: { transport: string }) {
   return (
-    <span className="inline-flex items-center rounded-md border border-border/60 bg-muted/50 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+    <span className="inline-flex items-center rounded-full border border-border/40 bg-ol-surface-muted px-1.5 py-0.5 text-[10px] text-ol-text-auxiliary shadow-none">
       {transport}
     </span>
   )
@@ -233,7 +213,7 @@ export function MCPSettingsPanel() {
             placeholder={t("settings:mcp.searchPlaceholder")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-8 rounded-md border-transparent bg-muted/40 pl-8 pr-7 text-sm focus:border-border"
+            className="h-8 rounded-md border-transparent bg-ol-surface-input pl-8 pr-7 text-sm shadow-none focus-visible:ring-0 focus-visible:shadow-none focus-visible:border-border/70"
           />
           {searchQuery ? (
             <button
@@ -256,9 +236,9 @@ export function MCPSettingsPanel() {
                 size="sm"
                 variant={statusFilter === value ? "secondary" : "ghost"}
                 className={cn(
-                  "h-7 rounded-md px-2.5 text-xs",
+                  "h-7 rounded-full px-2.5 text-xs shadow-none transition-colors duration-150",
                   statusFilter === value &&
-                    "bg-ol-purple/10 text-ol-purple hover:bg-ol-purple/20",
+                    "bg-ol-purple-bg text-ol-purple hover:bg-ol-purple-bg-hover",
                 )}
                 onClick={() => setStatusFilter(value)}
               >
@@ -270,7 +250,7 @@ export function MCPSettingsPanel() {
           {/* Add button */}
           <Button
             size="sm"
-            className="h-7 gap-1 rounded-md bg-ol-purple/10 px-2.5 text-xs text-ol-purple hover:bg-ol-purple/20"
+            className="h-7 gap-1 rounded-full bg-ol-purple-bg px-2.5 text-xs text-ol-purple shadow-none hover:bg-ol-purple-bg-hover transition-colors duration-150"
             onClick={() => setShowAddDialog(true)}
           >
             <Plus className="h-3.5 w-3.5" />
@@ -292,7 +272,7 @@ export function MCPSettingsPanel() {
             </div>
             <Button
               size="sm"
-              className="mt-2 gap-1 rounded-full bg-ol-purple/10 px-4 text-xs text-ol-purple hover:bg-ol-purple/20"
+              className="mt-2 gap-1 rounded-full bg-ol-purple-bg px-4 text-xs text-ol-purple shadow-none hover:bg-ol-purple-bg-hover transition-colors duration-150"
               onClick={() => setShowAddDialog(true)}
             >
               <Plus className="h-3.5 w-3.5" />
@@ -316,7 +296,8 @@ export function MCPSettingsPanel() {
               {/* Card grid */}
               <div className="grid grid-cols-[repeat(auto-fill,minmax(248px,1fr))] gap-3.5">
                 {group.servers.map((server) => {
-                  const colorIdx = hashCode(server.id) % 8
+                  const colorIdx = hashCode(server.id) % CARD_ACCENT_STYLES.length
+                  const accent = CARD_ACCENT_STYLES[colorIdx]!
                   const info = statusMap.get(server.id)
                   const status = info?.status ?? "disconnected"
                   const toolCount = info?.toolCount ?? 0
@@ -326,15 +307,15 @@ export function MCPSettingsPanel() {
                       <ContextMenuTrigger asChild>
                         <div
                           className={cn(
-                            "group relative flex flex-col overflow-hidden rounded-2xl border-l-[3px] border border-border/70 shadow-none transition-all duration-200 hover:shadow-sm",
-                            ACCENT_BORDER_COLORS[colorIdx],
+                            "group relative flex flex-col overflow-hidden rounded-xl border-l-[3px] border border-border/40 shadow-none transition-colors duration-200",
+                            accent.border,
                           )}
                         >
-                          {/* Gradient header */}
+                          {/* Header */}
                           <div
                             className={cn(
-                              "flex items-center justify-between px-3.5 pt-3 pb-2 bg-gradient-to-r",
-                              CARD_GRADIENTS[colorIdx],
+                              "flex items-center justify-between px-3.5 pt-3 pb-2",
+                              accent.bg,
                             )}
                           >
                             <div className="flex items-center gap-2 min-w-0">
@@ -386,7 +367,7 @@ export function MCPSettingsPanel() {
 
                             {/* Error message */}
                             {info?.error ? (
-                              <p className="line-clamp-1 text-[10px] text-red-500">
+                              <p className="line-clamp-1 text-[10px] text-ol-red">
                                 {info.error}
                               </p>
                             ) : null}
