@@ -230,14 +230,27 @@ export function setMcpServerEnabled(
 
 /** Mark a project-scoped server as trusted by the user. */
 export function trustMcpServer(serverId: string, projectRoot?: string): boolean {
-  const server = getMcpServerById(serverId, projectRoot)
-  if (!server) return false
-  const result = updateMcpServer({
-    id: serverId,
-    trusted: true,
-    configHash: computeConfigHash(server),
-  }, projectRoot)
-  return result !== null
+  // Directly update the config file to set trusted + current hash,
+  // bypassing updateMcpServer's hash-change detection (which would
+  // revoke trust if scope was rewritten during merging).
+  for (const scope of ['project', 'global'] as const) {
+    const filePath =
+      scope === 'project' && projectRoot
+        ? getProjectConfigPath(projectRoot)
+        : getGlobalConfigPath()
+
+    const file = readConfigFile(filePath)
+    const idx = file.servers.findIndex((s) => s.id === serverId)
+    if (idx === -1) continue
+
+    const server = file.servers[idx]!
+    server.trusted = true
+    server.configHash = computeConfigHash(server)
+    file.servers[idx] = server
+    writeConfigFile(filePath, file)
+    return true
+  }
+  return false
 }
 
 /**
