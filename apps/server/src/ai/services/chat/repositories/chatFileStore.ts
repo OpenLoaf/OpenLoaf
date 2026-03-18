@@ -556,7 +556,7 @@ function isRenderable(msg: StoredMessage): boolean {
   if (kind === 'compact_prompt') return false
   if (kind === 'compact_summary') return true
   if (msg.role === 'subagent') return false
-  if (msg.role === 'user') return true
+  if (msg.role === 'user' || msg.role === 'task-report') return true
   return Array.isArray(msg.parts) && msg.parts.length > 0
 }
 
@@ -925,43 +925,43 @@ export async function getMessageCount(sessionId: string): Promise<number> {
   const tree = await loadMessageTree(sessionId)
   let count = 0
   for (const msg of tree.byId.values()) {
-    if (msg.role !== 'subagent') count++
+    if (msg.role === 'subagent' || msg.role === 'task-report') continue
+    if (msg.messageKind === 'compact_prompt') continue
+    count++
   }
   return count
 }
 
 // ---------------------------------------------------------------------------
-// task-report → assistant 映射（供 model context 使用，前端 UI 仍用原始 role）
+// task-report → assistant 映射（仅供 LLM model context 使用）
 // ---------------------------------------------------------------------------
+
+type NormalizableMessage = {
+  id: string
+  role: string
+  parentMessageId: string | null
+  parts: unknown[]
+  metadata?: unknown
+  messageKind?: string
+}
 
 /**
  * 将 task-report 消息转换为 assistant 消息，使 LLM 能正常处理。
- * task-ref part 格式化为纯文本，text part 保留。
+ * 仅用于构建发送给模型的上下文链（loadMessageChainFromFile），
+ * 不影响前端 UI 渲染（getChatViewFromFile 返回原始 role）。
+ *
+ * task-ref part 格式化为纯文本，其他 part 保留。
  */
-export function normalizeTaskReportForModel(msg: {
-  id: string
-  role: string
-  parentMessageId: string | null
-  parts: unknown[]
-  metadata?: unknown
-  messageKind?: string
-}): {
-  id: string
-  role: string
-  parentMessageId: string | null
-  parts: unknown[]
-  metadata?: unknown
-  messageKind?: string
-} {
+export function normalizeTaskReportForModel(msg: NormalizableMessage): NormalizableMessage {
   if (msg.role !== 'task-report') return msg
 
   const normalizedParts: unknown[] = []
   for (const part of msg.parts) {
-    const p = part as any
+    const p = part as Record<string, unknown> | null
     if (p?.type === 'task-ref') {
       normalizedParts.push({
         type: 'text',
-        text: `[任务报告: ${p.title ?? '未知任务'} — 状态: ${p.status ?? 'unknown'}]`,
+        text: `[任务报告: ${String(p.title ?? '未知任务')} — 状态: ${String(p.status ?? 'unknown')}]`,
       })
     } else {
       normalizedParts.push(part)
