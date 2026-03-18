@@ -216,7 +216,10 @@
     "jsonHint": "Supports Claude Desktop, Cursor, VS Code, Cline, Windsurf config formats",
     "importCount": "Import {{count}} server(s)",
     "importSuccess": "Successfully imported {{count}} MCP server(s)",
-    "importPartialFail": "{{count}} server(s) failed to import"
+    "importPartialFail": "{{count}} server(s) failed to import",
+    "searchProject": "Search projects...",
+    "noProjectFound": "No projects found",
+    "projects": "Projects"
   },
   "memory": {
     "title": "AI Memory",

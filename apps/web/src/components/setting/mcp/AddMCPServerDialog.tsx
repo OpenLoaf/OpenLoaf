@@ -26,12 +26,18 @@ import {
   DialogTitle,
 } from "@openloaf/ui/dialog"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@openloaf/ui/select"
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@openloaf/ui/popover"
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@openloaf/ui/command"
 import {
   Loader2,
   Plus,
@@ -43,14 +49,31 @@ import {
   FormInput,
   CheckCircle2,
   AlertCircle,
+  Layers,
+  FolderOpen,
+  ChevronDown,
+  Check,
 } from "lucide-react"
 import { useProjects } from "@/hooks/use-projects"
+import type { ProjectNode } from "@openloaf/api/services/projectTreeService"
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 type Transport = "stdio" | "http" | "sse"
 type Mode = "form" | "json"
+
+/** Flatten a project tree into a flat list (depth-first). */
+function flattenProjects(nodes: ProjectNode[], depth = 0): Array<ProjectNode & { depth: number }> {
+  const result: Array<ProjectNode & { depth: number }> = []
+  for (const node of nodes) {
+    result.push({ ...node, depth })
+    if (node.children?.length) {
+      result.push(...flattenProjects(node.children, depth + 1))
+    }
+  }
+  return result
+}
 
 type EnvEntry = { key: string; value: string }
 
@@ -193,6 +216,8 @@ export function AddMCPServerDialog({ open, onOpenChange, onSuccess }: Props) {
   const [mode, setMode] = useState<Mode>("json") // default to JSON paste
   const projectsQuery = useProjects()
   const projects = projectsQuery.data ?? []
+  const flatProjects = useMemo(() => flattenProjects(projects), [projects])
+  const [scopeOpen, setScopeOpen] = useState(false)
 
   // --- Form state ---
   const [name, setName] = useState("")
@@ -250,6 +275,10 @@ export function AddMCPServerDialog({ open, onOpenChange, onSuccess }: Props) {
   const isGlobal = scopeValue === "global"
   const resolvedScope = isGlobal ? "global" as const : "project" as const
   const resolvedProjectId = isGlobal ? undefined : scopeValue
+  const selectedProject = flatProjects.find((p) => p.rootUri === scopeValue)
+  const scopeDisplayLabel = isGlobal
+    ? t("settings:mcp.scopeGlobalLabel")
+    : selectedProject?.title ?? scopeValue
 
   // --- Form submit ---
   function handleFormSubmit() {
@@ -447,22 +476,16 @@ export function AddMCPServerDialog({ open, onOpenChange, onSuccess }: Props) {
             </p>
 
             {/* Scope selector */}
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">{t("settings:mcp.scope")}</label>
-              <Select value={scopeValue} onValueChange={setScopeValue}>
-                <SelectTrigger className="h-8">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="global">{t("settings:mcp.scopeGlobalLabel")}</SelectItem>
-                  {projects.map((p) => (
-                    <SelectItem key={p.projectId} value={p.rootUri}>
-                      {p.icon ? `${p.icon} ` : ""}{p.title}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <ScopeSelector
+              scopeValue={scopeValue}
+              onScopeChange={setScopeValue}
+              scopeOpen={scopeOpen}
+              onScopeOpenChange={setScopeOpen}
+              scopeDisplayLabel={scopeDisplayLabel}
+              selectedProject={selectedProject}
+              flatProjects={flatProjects}
+              t={t}
+            />
           </div>
         ) : (
           /* ================================================================
@@ -564,20 +587,16 @@ export function AddMCPServerDialog({ open, onOpenChange, onSuccess }: Props) {
               </>
             )}
 
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">{t("settings:mcp.scope")}</label>
-              <Select value={scopeValue} onValueChange={setScopeValue}>
-                <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="global">{t("settings:mcp.scopeGlobalLabel")}</SelectItem>
-                  {projects.map((p) => (
-                    <SelectItem key={p.projectId} value={p.rootUri}>
-                      {p.icon ? `${p.icon} ` : ""}{p.title}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <ScopeSelector
+              scopeValue={scopeValue}
+              onScopeChange={setScopeValue}
+              scopeOpen={scopeOpen}
+              onScopeOpenChange={setScopeOpen}
+              scopeDisplayLabel={scopeDisplayLabel}
+              selectedProject={selectedProject}
+              flatProjects={flatProjects}
+              t={t}
+            />
           </div>
         )}
         </div>
@@ -610,5 +629,98 @@ export function AddMCPServerDialog({ open, onOpenChange, onSuccess }: Props) {
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// ScopeSelector — Popover+Command project picker (matches ChatProjectSelector)
+// ---------------------------------------------------------------------------
+function ScopeSelector({
+  scopeValue,
+  onScopeChange,
+  scopeOpen,
+  onScopeOpenChange,
+  scopeDisplayLabel,
+  selectedProject,
+  flatProjects,
+  t,
+}: {
+  scopeValue: string
+  onScopeChange: (v: string) => void
+  scopeOpen: boolean
+  onScopeOpenChange: (open: boolean) => void
+  scopeDisplayLabel: string
+  selectedProject: (ProjectNode & { depth: number }) | undefined
+  flatProjects: Array<ProjectNode & { depth: number }>
+  t: (key: string) => string
+}) {
+  return (
+    <div className="space-y-1.5">
+      <label className="text-sm font-medium">{t("settings:mcp.scope")}</label>
+      <Popover open={scopeOpen} onOpenChange={onScopeOpenChange}>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className="flex h-8 w-full items-center justify-between gap-2 rounded-md border border-border/40 bg-ol-surface-input px-3 text-xs shadow-none transition-colors hover:border-border/70"
+          >
+            <span className="flex items-center gap-1.5 min-w-0">
+              {scopeValue === "global" ? (
+                <Layers className="h-3.5 w-3.5 shrink-0 text-ol-text-auxiliary" />
+              ) : selectedProject?.icon ? (
+                <span className="text-[13px] leading-none shrink-0">{selectedProject.icon}</span>
+              ) : (
+                <FolderOpen className="h-3.5 w-3.5 shrink-0 text-ol-text-auxiliary" />
+              )}
+              <span className="truncate">{scopeDisplayLabel}</span>
+            </span>
+            <ChevronDown className="h-3.5 w-3.5 shrink-0 text-ol-text-auxiliary" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start" sideOffset={4}>
+          <Command>
+            <CommandInput placeholder={t("settings:mcp.searchProject")} className="h-8 text-xs" />
+            <CommandList>
+              <CommandEmpty className="py-3 text-center text-xs text-muted-foreground">
+                {t("settings:mcp.noProjectFound")}
+              </CommandEmpty>
+
+              <CommandGroup>
+                <CommandItem
+                  value="global"
+                  onSelect={() => { onScopeChange("global"); onScopeOpenChange(false) }}
+                  className="text-xs gap-2"
+                >
+                  <Layers className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">{t("settings:mcp.scopeGlobalLabel")}</span>
+                  {scopeValue === "global" && <Check className="ml-auto h-3.5 w-3.5 shrink-0 text-ol-green" />}
+                </CommandItem>
+              </CommandGroup>
+
+              {flatProjects.length > 0 && (
+                <CommandGroup heading={t("settings:mcp.projects")}>
+                  {flatProjects.map((p) => (
+                    <CommandItem
+                      key={p.projectId}
+                      value={`${p.projectId}:${p.title}`}
+                      onSelect={() => { onScopeChange(p.rootUri); onScopeOpenChange(false) }}
+                      className="text-xs gap-2"
+                      style={{ paddingLeft: p.depth > 0 ? `${8 + p.depth * 12}px` : undefined }}
+                    >
+                      {p.icon ? (
+                        <span className="text-[13px] leading-none shrink-0">{p.icon}</span>
+                      ) : (
+                        <FolderOpen className="h-3.5 w-3.5 shrink-0" />
+                      )}
+                      <span className="truncate">{p.title}</span>
+                      {p.rootUri === scopeValue && <Check className="ml-auto h-3.5 w-3.5 shrink-0 text-ol-green" />}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              )}
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+    </div>
   )
 }

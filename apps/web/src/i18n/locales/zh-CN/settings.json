@@ -216,7 +216,10 @@
     "jsonHint": "支持 Claude Desktop、Cursor、VS Code、Cline、Windsurf 等工具的配置格式",
     "importCount": "导入 {{count}} 个服务器",
     "importSuccess": "成功导入 {{count}} 个 MCP 服务器",
-    "importPartialFail": "{{count}} 个服务器导入失败"
+    "importPartialFail": "{{count}} 个服务器导入失败",
+    "searchProject": "搜索项目...",
+    "noProjectFound": "未找到项目",
+    "projects": "项目"
   },
   "memory": {
     "title": "AI 记忆",
