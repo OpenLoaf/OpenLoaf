@@ -179,6 +179,7 @@
     "addServerTitle": "Add MCP Server",
     "addServerDesc": "Configure a new MCP (Model Context Protocol) server to extend AI tool capabilities.",
     "scopeGlobal": "Global MCP Servers",
+    "scopeGlobalLabel": "Global (shared across all projects)",
     "scopeProject": "Project MCP Servers",
     "emptyTitle": "No MCP servers yet",
     "emptyDescription": "Add MCP servers to extend AI capabilities with tools like GitHub, databases, filesystems, and more.",

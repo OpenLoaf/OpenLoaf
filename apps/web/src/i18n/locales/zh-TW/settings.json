@@ -179,6 +179,7 @@
     "addServerTitle": "新增 MCP 伺服器",
     "addServerDesc": "設定一個新的 MCP (Model Context Protocol) 伺服器以擴充 AI 工具能力。",
     "scopeGlobal": "全域 MCP 伺服器",
+    "scopeGlobalLabel": "全域（所有專案共用）",
     "scopeProject": "專案 MCP 伺服器",
     "emptyTitle": "尚無 MCP 伺服器",
     "emptyDescription": "新增 MCP 伺服器以擴充 AI 的工具能力，如 GitHub、資料庫、檔案系統等。",

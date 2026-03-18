@@ -44,12 +44,12 @@ import {
   CheckCircle2,
   AlertCircle,
 } from "lucide-react"
+import { useProjects } from "@/hooks/use-projects"
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 type Transport = "stdio" | "http" | "sse"
-type Scope = "global" | "project"
 type Mode = "form" | "json"
 
 type EnvEntry = { key: string; value: string }
@@ -191,12 +191,15 @@ const TRANSPORT_TABS: { value: Transport; label: string; Icon: typeof TerminalSq
 export function AddMCPServerDialog({ open, onOpenChange, onSuccess }: Props) {
   const { t } = useTranslation(["settings"])
   const [mode, setMode] = useState<Mode>("json") // default to JSON paste
+  const projectsQuery = useProjects()
+  const projects = projectsQuery.data ?? []
 
   // --- Form state ---
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
   const [transport, setTransport] = useState<Transport>("stdio")
-  const [scope, setScope] = useState<Scope>("global")
+  // "global" or a project rootUri
+  const [scopeValue, setScopeValue] = useState("global")
   const [command, setCommand] = useState("")
   const [args, setArgs] = useState("")
   const [envEntries, setEnvEntries] = useState<EnvEntry[]>([])
@@ -233,7 +236,7 @@ export function AddMCPServerDialog({ open, onOpenChange, onSuccess }: Props) {
     setName("")
     setDescription("")
     setTransport("stdio")
-    setScope("global")
+    setScopeValue("global")
     setCommand("")
     setArgs("")
     setEnvEntries([])
@@ -242,6 +245,11 @@ export function AddMCPServerDialog({ open, onOpenChange, onSuccess }: Props) {
     setHeaderEntries([])
     setJsonText("")
   }
+
+  // Derive scope and projectId from scopeValue
+  const isGlobal = scopeValue === "global"
+  const resolvedScope = isGlobal ? "global" as const : "project" as const
+  const resolvedProjectId = isGlobal ? undefined : scopeValue
 
   // --- Form submit ---
   function handleFormSubmit() {
@@ -262,7 +270,8 @@ export function AddMCPServerDialog({ open, onOpenChange, onSuccess }: Props) {
       name: name.trim(),
       description: description.trim() || undefined,
       transport,
-      scope,
+      scope: resolvedScope,
+      projectId: resolvedProjectId,
       enabled: true,
       ...(transport === "stdio"
         ? {
@@ -298,7 +307,8 @@ export function AddMCPServerDialog({ open, onOpenChange, onSuccess }: Props) {
         await addMutation.mutateAsync({
           name: server.name,
           transport: server.transport,
-          scope,
+          scope: resolvedScope,
+          projectId: resolvedProjectId,
           enabled: true,
           command: server.command,
           args: server.args,
@@ -439,13 +449,17 @@ export function AddMCPServerDialog({ open, onOpenChange, onSuccess }: Props) {
             {/* Scope selector */}
             <div className="space-y-1.5">
               <label className="text-sm font-medium">{t("settings:mcp.scope")}</label>
-              <Select value={scope} onValueChange={(v) => setScope(v as Scope)}>
+              <Select value={scopeValue} onValueChange={setScopeValue}>
                 <SelectTrigger className="h-8">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="global">{t("settings:mcp.scopeGlobal")}</SelectItem>
-                  <SelectItem value="project">{t("settings:mcp.scopeProject")}</SelectItem>
+                  <SelectItem value="global">{t("settings:mcp.scopeGlobalLabel")}</SelectItem>
+                  {projects.map((p) => (
+                    <SelectItem key={p.projectId} value={p.rootUri}>
+                      {p.icon ? `${p.icon} ` : ""}{p.title}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -552,11 +566,15 @@ export function AddMCPServerDialog({ open, onOpenChange, onSuccess }: Props) {
 
             <div className="space-y-1.5">
               <label className="text-sm font-medium">{t("settings:mcp.scope")}</label>
-              <Select value={scope} onValueChange={(v) => setScope(v as Scope)}>
+              <Select value={scopeValue} onValueChange={setScopeValue}>
                 <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="global">{t("settings:mcp.scopeGlobal")}</SelectItem>
-                  <SelectItem value="project">{t("settings:mcp.scopeProject")}</SelectItem>
+                  <SelectItem value="global">{t("settings:mcp.scopeGlobalLabel")}</SelectItem>
+                  {projects.map((p) => (
+                    <SelectItem key={p.projectId} value={p.rootUri}>
+                      {p.icon ? `${p.icon} ` : ""}{p.title}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
