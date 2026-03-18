@@ -55,7 +55,7 @@ function MessageItem({
   const { t } = useTranslation('ai')
   const { resendUserMessage, clearError } = useChatActions();
   const { status } = useChatState();
-  const { branchMessageIds, siblingNav, projectId, tabId } = useChatSession();
+  const { siblingNav, projectId, tabId } = useChatSession();
   const { toolParts } = useChatTools();
   const [isEditing, setIsEditing] = React.useState(false);
   const [draft, setDraft] = React.useState("");
@@ -110,14 +110,14 @@ function MessageItem({
     hasPendingApprovalInMessage ||
     (isLastAiMessage && toolPartsInMessage.length === 0 && hasPendingApprovalInTab);
 
-  // 当消息本身没有可见内容时，如果它是“分支节点”，仍然要显示分支切换（否则切到边界会“消失”）。
+  // Only depend on siblingNav; do NOT gate on branchMessageIds
+  // (it may not yet contain the new message ID during async refresh).
   const shouldShowBranchNav = React.useMemo(() => {
-    const id = String((message as any)?.id ?? "");
+    const id = String((message as any)?.id ?? '');
     if (!id) return false;
-    if (!branchMessageIds.includes(id)) return false;
     const nav = siblingNav?.[id];
     return Boolean(nav && nav.siblingTotal > 1);
-  }, [message, branchMessageIds, siblingNav]);
+  }, [message, siblingNav]);
 
   const toggleEdit = React.useCallback(() => {
     setIsEditing((prev) => {

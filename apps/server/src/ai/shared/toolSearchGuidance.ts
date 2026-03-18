@@ -87,14 +87,6 @@ export function buildToolSearchGuidance(
     if (meta) intents.push(`${meta.label} → \`${meta.hint}\``)
   }
 
-  // 工具列表 — 每个 tool 一行，格式 "- id：label"
-  const lines: string[] = []
-  for (const [, tools] of grouped) {
-    for (const t of tools) {
-      lines.push(`- ${t.id}：${t.label}`)
-    }
-  }
-
   return `# 工具目录
 **重要：你初始没有任何可用工具。必须先调用 tool-search 加载工具后才能使用。直接调用未加载的工具会报错。**
 
@@ -102,10 +94,7 @@ export function buildToolSearchGuidance(
 - 直接选择（推荐）：tool-search(query: "select:open-url,browser-act") — 按 ID 精确加载，一次可加载多个
 - 关键词搜索：tool-search(query: "file read") — 返回最匹配的工具并立即加载
 
-工作流程：查看下方目录 → 确定所需工具 ID → 调用 tool-search 加载 → 然后才能调用已加载的工具。
+工作流程：根据意图速查确定关键词 → 调用 tool-search 搜索并加载 → 然后才能调用已加载的工具。
 
-意图速查：${intents.join(' | ')}
-
-可用工具：
-${lines.join('\n')}`
+意图速查：${intents.join(' | ')}`
 }

@@ -1,9 +1,0 @@
-{
-  "name": "系统代理架构",
-  "description": "设计和实现用于协调多个智能体或组件的系统架构，以支持复杂任务的自动化与协作。",
-  "version": "2.0.0",
-  "icon": "🔧",
-  "sourceLanguage": "en",
-  "targetLanguage": "zh-CN",
-  "translatedAt": "2026-03-16T09:28:37.511Z"
-}

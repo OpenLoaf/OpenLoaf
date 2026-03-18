@@ -78,8 +78,8 @@ export const taskManageToolDef = {
     skipPlanConfirm: z
       .boolean()
       .optional()
-      .default(false)
-      .describe('是否跳过计划确认直接执行（仅 create 一次性任务有效）'),
+      .default(true)
+      .describe('是否跳过计划确认直接执行（默认 true，设为 false 启用两阶段计划确认）'),
     agentName: z
       .string()
       .optional()

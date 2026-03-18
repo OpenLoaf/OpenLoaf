@@ -52,6 +52,7 @@ import {
   handleTempProjectDataPart,
 } from "./utils/chat-data-handlers";
 import { isSaasUnauthorizedErrorMessage } from "./utils/message-predicates";
+import { taskStatusCache } from "@/lib/chat/task-status-cache";
 
 // 提供稳定的空对象，避免 useSyncExternalStore 报错。
 const EMPTY_TOOL_PARTS: Record<string, ToolPartSnapshot> = {};
@@ -527,6 +528,11 @@ export default function ChatCoreProvider({
       { sessionId },
       {
         onData(event) {
+          if (event.type === 'task-status-change') {
+            // 更新 task status → TaskTool 卡片通过 useSyncExternalStore 监听
+            taskStatusCache.set(event.taskId, event.status)
+            return
+          }
           if (event.type === 'task-report') {
             trpcClient.chat.getMessageParts.query({
               sessionId,

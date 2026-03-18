@@ -23,6 +23,9 @@ import { appendRunLog } from './taskRunLogService'
 import {
   appendMessage,
   appendMessageAtLeaf,
+  loadMessageTree,
+  resolveRightmostLeaf,
+  resolveChainFromLeaf,
 } from '@/ai/services/chat/repositories/chatFileStore'
 
 type RunningTask = {
@@ -154,10 +157,11 @@ class TaskExecutor {
           // Report completion to source chat session
           const latestTask = getTask(taskId, globalRoot, projectRoot ?? undefined)
           if (latestTask) {
+            const agentSummary = await this.extractLastAssistantText(sessionId)
             await this.reportToSourceSession(
               latestTask,
               'completed',
-              latestTask.executionSummary?.lastAgentMessage,
+              agentSummary,
             )
           }
 
@@ -238,10 +242,11 @@ class TaskExecutor {
           if (nextStatus === 'done') {
             const latestTask = getTask(taskId, globalRoot, projectRoot ?? undefined)
             if (latestTask) {
+              const agentSummary = await this.extractLastAssistantText(sessionId)
               await this.reportToSourceSession(
                 latestTask,
                 'completed',
-                latestTask.executionSummary?.lastAgentMessage,
+                agentSummary,
               )
             }
           }
@@ -445,6 +450,35 @@ class TaskExecutor {
   }
 
   /**
+   * Extract the last text part from the final assistant message in a task session.
+   * This gives a meaningful summary of what the agent actually produced.
+   */
+  private async extractLastAssistantText(sessionId: string): Promise<string | undefined> {
+    try {
+      const tree = await loadMessageTree(sessionId)
+      const leafId = resolveRightmostLeaf(tree)
+      if (!leafId) return undefined
+      const chain = resolveChainFromLeaf(tree, leafId)
+      // 从后往前找最后一条 assistant 消息
+      for (let i = chain.length - 1; i >= 0; i--) {
+        const msg = chain[i]!
+        if (msg.role !== 'assistant') continue
+        // 从后往前找最后一个 text part
+        const parts = Array.isArray(msg.parts) ? msg.parts : []
+        for (let j = parts.length - 1; j >= 0; j--) {
+          const part = parts[j] as any
+          if (part?.type === 'text' && typeof part.text === 'string' && part.text.trim()) {
+            return part.text.trim()
+          }
+        }
+      }
+    } catch {
+      // 非关键路径，失败不阻断
+    }
+    return undefined
+  }
+
+  /**
    * Report task completion/failure back to the originating chat session.
    * Appends a task-report message to the source session's messages.jsonl.
    */
@@ -568,7 +602,8 @@ class TaskExecutor {
           // After handling the follow-up, report back to source session
           const latestTask = getTask(taskId, globalRoot, projectRoot ?? undefined)
           if (latestTask) {
-            await this.reportToSourceSession(latestTask, 'completed', latestTask.executionSummary?.lastAgentMessage)
+            const agentSummary = await this.extractLastAssistantText(entry.sessionId)
+            await this.reportToSourceSession(latestTask, 'completed', agentSummary)
           }
         }).catch((err) => {
           logger.error({ taskId, err }, '[task-executor] Follow-up agent phase failed')
@@ -630,6 +665,7 @@ class TaskExecutor {
       reviewType: (patch as any)?.reviewType,
       title: task.name,
       updatedAt: new Date().toISOString(),
+      sourceSessionId: task.sourceSessionId,
     })
   }
 }

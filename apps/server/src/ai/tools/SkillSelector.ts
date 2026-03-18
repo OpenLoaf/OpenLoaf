@@ -14,12 +14,13 @@ import {
   readSkillContentFromPath,
   readSkillSummaryFromPath,
 } from "@/ai/services/skillsLoader";
+import { BUILTIN_SKILLS } from "@/ai/builtin-skills";
 
 const AGENTS_META_DIR = ".agents";
 const SKILLS_DIR_NAME = "skills";
 const SKILL_FILE_NAME = "SKILL.md";
 
-export type SkillScope = "project" | "parent" | "global";
+export type SkillScope = "builtin" | "project" | "parent" | "global";
 
 export type SkillMatch = {
   /** Skill name. */
@@ -86,6 +87,19 @@ export class SkillSelector {
           content,
         };
       }
+    }
+
+    // 回退到内置 skills
+    const builtin = BUILTIN_SKILLS.find(
+      (s) => normalizeSkillName(s.name) === normalizedName,
+    );
+    if (builtin) {
+      return {
+        name: builtin.name,
+        path: `builtin://${builtin.name}`,
+        scope: "builtin",
+        content: builtin.content,
+      };
     }
 
     return null;

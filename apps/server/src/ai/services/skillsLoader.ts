@@ -9,8 +9,9 @@
  */
 import path from "node:path";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { BUILTIN_SKILLS } from "@/ai/builtin-skills";
 
-type SkillScope = "project" | "global";
+type SkillScope = "builtin" | "project" | "global";
 
 type SkillSummary = {
   /** Skill display name (may be translated via openloaf.json). */
@@ -62,6 +63,24 @@ export function loadSkillSummaries(input: {
   const summaryByName = new Map<string, SkillSummary>();
   const orderedNames: string[] = [];
 
+  // 0. 内置 skills（最低优先级）
+  for (const builtin of BUILTIN_SKILLS) {
+    const summary: SkillSummary = {
+      name: builtin.name,
+      originalName: builtin.name,
+      description: builtin.description,
+      path: `builtin://${builtin.name}`,
+      folderName: builtin.name,
+      scope: "builtin",
+      colorIndex: builtin.colorIndex,
+      hasMeta: true,
+      icon: builtin.icon,
+    };
+    orderedNames.push(summary.originalName);
+    summaryByName.set(summary.originalName, summary);
+  }
+
+  // 1. 全局 skills → 2. 父项目 skills → 3. 项目 skills（后者覆盖前者）
   for (const source of sources) {
     // 全局技能目录直接就是 skills 根目录，无需拼接 .agents/skills。
     const skillsRootPath =
@@ -185,6 +204,23 @@ function findSkillFiles(rootPath: string): string[] {
 
 /** Read a single skill summary from SKILL.md front matter. */
 export function readSkillSummaryFromPath(filePath: string, scope: SkillScope): SkillSummary | null {
+  // 内置 skill 的虚拟路径不需要文件系统读取
+  if (filePath.startsWith("builtin://")) {
+    const name = filePath.replace("builtin://", "");
+    const builtin = BUILTIN_SKILLS.find((s) => s.name === name);
+    if (!builtin) return null;
+    return {
+      name: builtin.name,
+      originalName: builtin.name,
+      description: builtin.description,
+      path: filePath,
+      folderName: builtin.name,
+      scope: "builtin",
+      colorIndex: builtin.colorIndex,
+      hasMeta: true,
+      icon: builtin.icon,
+    };
+  }
   if (!existsSync(filePath)) return null;
   try {
     const content = readFileSync(filePath, "utf8");
@@ -257,6 +293,13 @@ function readOpenLoafMeta(folderPath: string): {
  * If `preferredLanguage` is provided, checks `{skillFolder}/{lang}/SKILL.md` first.
  */
 export function readSkillContentFromPath(filePath: string, preferredLanguage?: string): string {
+  // 处理内置 skill 的虚拟路径
+  if (filePath.startsWith("builtin://")) {
+    const name = filePath.replace("builtin://", "");
+    const builtin = BUILTIN_SKILLS.find((s) => s.name === name);
+    return builtin?.content ?? "";
+  }
+
   if (preferredLanguage) {
     const skillFolder = path.dirname(filePath)
     const fileName = path.basename(filePath)

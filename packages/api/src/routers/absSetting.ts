@@ -63,8 +63,11 @@ const cliModelSchema = z.object({
   tags: z.array(z.string()).optional(),
 });
 
-/** Skill / Agent scope enum. */
-const skillScopeSchema = z.enum(["project", "global"]);
+/** Skill / Agent scope enum (includes builtin for read-only display). */
+const skillScopeSchema = z.enum(["builtin", "project", "global"]);
+
+/** Mutable scope enum for write operations (no builtin). */
+const mutableScopeSchema = z.enum(["project", "global"]);
 
 /** Skill summary payload. */
 const skillSummarySchema = z.object({
@@ -181,7 +184,7 @@ export const settingSchemas = {
   /** Toggle skill enabled state for global or project scope. */
   setSkillEnabled: {
     input: z.object({
-      scope: skillScopeSchema,
+      scope: mutableScopeSchema,
       projectId: z.string().optional(),
       ignoreKey: z.string(),
       enabled: z.boolean(),
@@ -191,7 +194,7 @@ export const settingSchemas = {
   /** Delete a skill folder. */
   deleteSkill: {
     input: z.object({
-      scope: skillScopeSchema,
+      scope: mutableScopeSchema,
       projectId: z.string().optional(),
       ignoreKey: z.string(),
       skillPath: z.string(),
@@ -246,7 +249,7 @@ export const settingSchemas = {
   /** Toggle agent enabled state. */
   setAgentEnabled: {
     input: z.object({
-      scope: skillScopeSchema,
+      scope: mutableScopeSchema,
       projectId: z.string().optional(),
       ignoreKey: z.string(),
       enabled: z.boolean(),
@@ -256,7 +259,7 @@ export const settingSchemas = {
   /** Delete an agent folder. */
   deleteAgent: {
     input: z.object({
-      scope: skillScopeSchema,
+      scope: mutableScopeSchema,
       projectId: z.string().optional(),
       ignoreKey: z.string(),
       agentPath: z.string(),
@@ -271,7 +274,7 @@ export const settingSchemas = {
   getAgentDetail: {
     input: z.object({
       agentPath: z.string(),
-      scope: skillScopeSchema,
+      scope: mutableScopeSchema,
     }),
     output: z.object({
       name: z.string(),
@@ -307,7 +310,7 @@ export const settingSchemas = {
   /** Save (create or update) an agent. */
   saveAgent: {
     input: z.object({
-      scope: skillScopeSchema,
+      scope: mutableScopeSchema,
       projectId: z.string().optional(),
       /** Existing agent path for update, empty for create. */
       agentPath: z.string().optional(),
@@ -627,7 +630,7 @@ export const settingSchemas = {
   importSkill: {
     input: z.object({
       sourcePath: z.string(),
-      scope: skillScopeSchema,
+      scope: mutableScopeSchema,
       projectId: z.string().optional(),
     }),
     output: z.object({
@@ -644,7 +647,7 @@ export const settingSchemas = {
       /** Operation mode. */
       mode: z.enum(['copy', 'move']),
       /** Target scope. */
-      targetScope: skillScopeSchema,
+      targetScope: mutableScopeSchema,
       /** Target project id (required when targetScope is 'project'). */
       targetProjectId: z.string().optional(),
     }),
@@ -660,7 +663,7 @@ export const settingSchemas = {
     input: z.object({
       contentBase64: z.string(),
       fileName: z.string(),
-      scope: skillScopeSchema,
+      scope: mutableScopeSchema,
       projectId: z.string().optional(),
     }),
     output: z.object({

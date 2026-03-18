@@ -17,6 +17,7 @@ export type TaskStatusChangeEvent = {
   reviewType?: ReviewType
   title: string
   updatedAt: string
+  sourceSessionId?: string
 }
 
 export type TaskSummaryUpdateEvent = {

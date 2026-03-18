@@ -794,7 +794,7 @@ export async function deleteMessageSubtree(input: {
   sessionId: string
   messageId: string
 }): Promise<{ deletedCount: number; parentMessageId: string | null }> {
-  return withSessionLock(input.sessionId, async () => {
+  const result = await withSessionLock(input.sessionId, async () => {
     const tree = await loadMessageTree(input.sessionId)
     const target = tree.byId.get(input.messageId)
     if (!target) return { deletedCount: 0, parentMessageId: null }
@@ -811,6 +811,22 @@ export async function deleteMessageSubtree(input: {
       parentMessageId: target.parentMessageId,
     }
   })
+
+  // 同步更新 messageCount（DB + session.json）
+  if (result.deletedCount > 0) {
+    try {
+      const newCount = await getMessageCount(input.sessionId)
+      await prisma.chatSession.update({
+        where: { id: input.sessionId },
+        data: { messageCount: newCount },
+      })
+      await writeSessionJson(input.sessionId, { messageCount: newCount })
+    } catch {
+      // messageCount 同步为非关键操作，不阻断删除结果
+    }
+  }
+
+  return result
 }
 
 // ---------------------------------------------------------------------------
@@ -877,17 +893,19 @@ export async function writeSessionJson(
   sessionId: string,
   data: Partial<SessionJson>,
 ): Promise<void> {
-  await ensureSessionDir(sessionId)
-  const filePath = await sessionJsonPath(sessionId)
-  let existing: Partial<SessionJson> = {}
-  try {
-    const content = await fs.readFile(filePath, 'utf8')
-    existing = JSON.parse(content)
-  } catch {
-    // 文件不存在或解析失败，使用空对象
-  }
-  const merged = { ...existing, ...data, id: sessionId }
-  await fs.writeFile(filePath, JSON.stringify(merged, null, 2), 'utf8')
+  return withSessionLock(sessionId, async () => {
+    await ensureSessionDir(sessionId)
+    const filePath = await sessionJsonPath(sessionId)
+    let existing: Partial<SessionJson> = {}
+    try {
+      const content = await fs.readFile(filePath, 'utf8')
+      existing = JSON.parse(content)
+    } catch {
+      // 文件不存在或解析失败，使用空对象
+    }
+    const merged = { ...existing, ...data, id: sessionId }
+    await fs.writeFile(filePath, JSON.stringify(merged, null, 2), 'utf8')
+  })
 }
 
 export async function readSessionJson(sessionId: string): Promise<SessionJson | null> {

@@ -9,7 +9,7 @@
  */
 'use client'
 
-import { useCallback, useMemo } from 'react'
+import { useCallback, useMemo, useSyncExternalStore } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Badge } from '@openloaf/ui/badge'
 import { Button } from '@openloaf/ui/button'
@@ -32,6 +32,7 @@ import { useLayoutState } from '@/hooks/use-layout-state'
 import { useOptionalChatSession } from '@/components/ai/context/ChatSessionContext'
 import type { AnyToolPart } from './shared/tool-utils'
 import { getToolName, normalizeToolInput, isToolStreaming } from './shared/tool-utils'
+import { taskStatusCache } from '@/lib/chat/task-status-cache'
 
 // ─── Types ────────────────────────────────────────────────────────────
 
@@ -279,8 +280,14 @@ export default function TaskTool({
     title = output?.task?.name ?? input.taskId ?? actionLabel
   }
 
-  // Determine status for badge
-  const taskStatus = output?.task?.status ?? output?.newStatus as TaskStatus | undefined
+  // Determine status for badge — 优先使用实时推送的状态
+  const taskId = output?.task?.id ?? output?.taskId
+  const liveStatus = useSyncExternalStore(
+    taskStatusCache.subscribe,
+    () => taskId ? taskStatusCache.get(taskId) : undefined,
+    () => undefined,
+  )
+  const taskStatus = (liveStatus ?? output?.task?.status ?? output?.newStatus) as TaskStatus | undefined
   const StatusIcon = taskStatus ? STATUS_ICONS[taskStatus] : Circle
 
   // Schedule label (create only)

@@ -222,40 +222,23 @@ function dynamicStepLimit(): StopCondition<Record<string, never>> {
 // ---------------------------------------------------------------------------
 
 /**
- * 原生支持 reasoning 的 provider 前缀列表。
- * 这些 provider 有自己的 reasoning 输出机制，不需要通过 <think> 标签提取。
- * 对它们施加 extractReasoningMiddleware(startWithReasoning: true) 会导致
- * 正常 text 内容被错误归入 reasoning 通道，前端显示为空。
- */
-const NATIVE_REASONING_PROVIDERS = [
-  'openai.responses', // OpenAI Responses API（GPT-5、o1/o3/o4 系列）
-  'openai.chat',      // OpenAI Chat Completions（o1/o3 系列）
-  'anthropic.',       // Anthropic Claude（原生 extended thinking）
-]
-
-/** 判断模型是否原生支持 reasoning（不需要 <think> 提取）。 */
-function hasNativeReasoning(model: LanguageModelV3): boolean {
-  const provider = model.provider ?? ''
-  return NATIVE_REASONING_PROVIDERS.some(prefix => provider.startsWith(prefix))
-}
-
-/**
  * 包装模型以启用中间件：
  * 1. addToolInputExamplesMiddleware — 工具输入示例（Anthropic Best Practice）
- * 2. extractReasoningMiddleware — 提取 <think> 标签为 reasoning 部分
- *    仅适用于 DeepSeek R1/V3、MiniMax、Qwen QwQ、Kimi 等使用 <think> 标签的模型。
- *    对原生支持 reasoning 的模型（Claude、OpenAI Responses API）跳过此 middleware。
+ * 2. extractReasoningMiddleware — 提取 <think>...</think> 标签为 reasoning 部分
+ *
+ * 使用 startWithReasoning: false，仅提取显式 <think> 标签包裹的内容。
+ * 这样对所有模型都安全：
+ * - 使用 <think> 标签的模型（DeepSeek R1、QwQ、Kimi）→ 正确提取
+ * - 原生 reasoning 的模型（Claude、GPT-o 系列、Qwen 3.5）→ 无 <think> 标签，文本不受影响
+ * - 无 reasoning 的模型 → 文本不受影响
  */
 function wrapModelWithExamples(model: LanguageModelV3): LanguageModelV3 {
-  const middleware = hasNativeReasoning(model)
-    ? [addToolInputExamplesMiddleware()]
-    : [
-        extractReasoningMiddleware({ tagName: 'think', startWithReasoning: true }),
-        addToolInputExamplesMiddleware(),
-      ]
   return wrapLanguageModel({
     model,
-    middleware,
+    middleware: [
+      extractReasoningMiddleware({ tagName: 'think', startWithReasoning: false }),
+      addToolInputExamplesMiddleware(),
+    ],
   }) as unknown as LanguageModelV3
 }
 

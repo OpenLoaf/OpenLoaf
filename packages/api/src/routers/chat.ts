@@ -33,7 +33,7 @@ import type { ChatMessageKind } from '../types/message'
  */
 export type ChatUIMessage = {
   id: string
-  role: 'system' | 'user' | 'assistant' | 'subagent'
+  role: 'system' | 'user' | 'assistant' | 'subagent' | 'task-report'
   /** 消息树：父消息 ID（根节点为 null） */
   parentMessageId: string | null
   parts: any[]
@@ -154,14 +154,22 @@ const getSubAgentHistoryInputSchema = z.object({
 })
 
 /** Session update event yielded by onSessionUpdate subscription. */
-export type SessionUpdateEvent = {
-  type: 'task-report'
-  messageId: string
-  taskId: string
-  status: 'completed' | 'failed'
-  title: string
-  summary: string
-}
+export type SessionUpdateEvent =
+  | {
+      type: 'task-report'
+      messageId: string
+      taskId: string
+      status: 'completed' | 'failed'
+      title: string
+      summary: string
+    }
+  | {
+      type: 'task-status-change'
+      taskId: string
+      status: string
+      previousStatus: string
+      title: string
+    }
 
 export const chatRouter = t.router({
   /**
@@ -354,7 +362,7 @@ export const chatRouter = t.router({
     .input(z.object({
       sessionId: z.string().min(1),
       messageId: z.string().min(1),
-      parts: z.any(),
+      parts: z.array(z.record(z.unknown())).or(z.array(z.unknown())),
     }))
     .mutation(async (): Promise<boolean> => {
       throw new Error('Not implemented: override in server chat router.')
@@ -367,7 +375,7 @@ export const chatRouter = t.router({
     .input(z.object({
       sessionId: z.string().min(1),
       messageId: z.string().min(1),
-      metadata: z.any(),
+      metadata: z.record(z.unknown()),
     }))
     .mutation(async (): Promise<{ metadata: Record<string, unknown> | null }> => {
       throw new Error('Not implemented: override in server chat router.')

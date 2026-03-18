@@ -18,6 +18,7 @@ export function buildSkillsSummarySection(
   const lines = [
     '# Skills',
     '仅注入摘要。需要完整说明时，调用 load-skill 工具加载技能（传入技能 name）。',
+    '优先级：builtin（内置，核心指南）> project（项目级）> global（全局）。同名技能高优先级覆盖低优先级。',
   ]
 
   if (summaries.length === 0) {

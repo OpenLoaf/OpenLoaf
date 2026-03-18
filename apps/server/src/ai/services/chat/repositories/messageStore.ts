@@ -17,6 +17,7 @@ import {
 } from '@/common/chatTitle'
 import { getBoardId, getProjectId } from '@/ai/shared/context/requestContext'
 import { toNumberOrUndefined, isRecord } from '@/ai/shared/util'
+import { logger } from '@/common/logger'
 import {
   appendMessage,
   updateMessage,
@@ -158,16 +159,11 @@ export async function saveMessage(input: SaveMessageInput): Promise<SaveMessageR
     boardId,
   })
   if (title) {
+    // ensureSession 已写入 session.json，这里只更新 DB 中的默认标题
     await prisma.chatSession.updateMany({
       where: { id: input.sessionId, isUserRename: false, title: '新对话' },
       data: { title },
     })
-    // 逻辑：title 更新后，ensureSession 已写过完整 session.json，这里只需补写 title
-    try {
-      await writeSessionJson(input.sessionId, { title })
-    } catch {
-      // 非关键操作
-    }
   }
 
   // 检查是否已存在（last-write-wins 更新）
@@ -254,6 +250,9 @@ export async function appendMessagePart(input: {
 function normalizeRole(role: unknown): 'user' | 'assistant' | 'system' | 'subagent' | 'task-report' {
   if (role === 'assistant' || role === 'system' || role === 'user' || role === 'subagent' || role === 'task-report') {
     return role
+  }
+  if (role != null && role !== '') {
+    logger.warn({ role }, '[messageStore] unknown role, falling back to "user"')
   }
   return 'user'
 }

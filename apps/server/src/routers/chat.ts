@@ -537,7 +537,7 @@ class ChatRouterImpl extends BaseChatRouter {
           const queue: SessionUpdateEvent[] = []
           let resolve: (() => void) | null = null
 
-          const cleanup = taskEventBus.onTaskReport((event) => {
+          const cleanupReport = taskEventBus.onTaskReport((event) => {
             if (event.sourceSessionId !== input.sessionId) return
             queue.push({
               type: 'task-report',
@@ -546,6 +546,18 @@ class ChatRouterImpl extends BaseChatRouter {
               status: event.status,
               title: event.title,
               summary: event.summary,
+            })
+            resolve?.()
+          })
+
+          const cleanupStatus = taskEventBus.onStatusChange((event) => {
+            if (event.sourceSessionId !== input.sessionId) return
+            queue.push({
+              type: 'task-status-change',
+              taskId: event.taskId,
+              status: event.status,
+              previousStatus: event.previousStatus,
+              title: event.title,
             })
             resolve?.()
           })
@@ -562,7 +574,8 @@ class ChatRouterImpl extends BaseChatRouter {
               }
             }
           } finally {
-            cleanup()
+            cleanupReport()
+            cleanupStatus()
           }
         }),
 

@@ -19,7 +19,6 @@ import { Badge } from '@openloaf/ui/badge'
 import { cn } from '@/lib/utils'
 import {
   CheckCircle2,
-  Clock,
   Loader2,
   XCircle,
   ScrollText,
@@ -39,7 +38,6 @@ import MessageList from '@/components/ai/message/MessageList'
 
 type TaskStatus = 'todo' | 'running' | 'review' | 'done' | 'cancelled'
 type ReviewType = 'plan' | 'completion'
-type Priority = 'urgent' | 'high' | 'medium' | 'low'
 
 type ActivityLogEntry = {
   timestamp: string
@@ -54,13 +52,6 @@ type Tab = 'output' | 'runs' | 'activity'
 
 // ─── Helpers ──────────────────────────────────────────────────────────
 
-const PRIORITY_COLORS: Record<Priority, string> = {
-  urgent: 'bg-ol-red/15 text-ol-red border-ol-red/20',
-  high: 'bg-ol-amber/15 text-ol-amber border-ol-amber/20',
-  medium: 'bg-ol-blue/15 text-ol-blue border-ol-blue/20',
-  low: 'bg-ol-text-auxiliary/15 text-ol-text-auxiliary border-ol-text-auxiliary/20',
-}
-
 const STATUS_COLORS: Record<TaskStatus, string> = {
   todo: 'bg-ol-blue/15 text-ol-blue',
   running: 'bg-ol-amber/15 text-ol-amber',
@@ -68,13 +59,6 @@ const STATUS_COLORS: Record<TaskStatus, string> = {
   done: 'bg-ol-green/15 text-ol-green',
   cancelled: 'bg-ol-text-auxiliary/15 text-ol-text-auxiliary',
 }
-
-const getPriorityLabels = (t: (key: string) => string): Record<Priority, string> => ({
-  urgent: t('priority.urgent'),
-  high: t('priority.high'),
-  medium: t('priority.medium'),
-  low: t('priority.low'),
-})
 
 const getStatusLabels = (t: (key: string) => string): Record<TaskStatus, string> => ({
   todo: t('status.todo'),
@@ -363,7 +347,6 @@ export const TaskDetailPanel = memo(function TaskDetailPanel({
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<Tab>('output')
 
-  const priorityLabels = useMemo(() => getPriorityLabels(t), [t])
   const statusLabels = useMemo(() => getStatusLabels(t), [t])
   const actorLabels = useMemo(() => getActorLabels(t), [t])
 
@@ -441,7 +424,6 @@ export const TaskDetailPanel = memo(function TaskDetailPanel({
   }
 
   const status = (task.status ?? 'todo') as TaskStatus
-  const priority = (task.priority ?? 'medium') as Priority
   const reviewType = task.reviewType as ReviewType | undefined
   const activityLog = (task.activityLog ?? []) as ActivityLogEntry[]
   const summary = task.executionSummary as {
@@ -455,59 +437,23 @@ export const TaskDetailPanel = memo(function TaskDetailPanel({
   const agentSessionId = (task as any).sessionId
     || (runLogs.length > 0 ? (runLogs[0] as any)?.agentSessionId : undefined)
 
-  // Description or payload message
-  const description = (task.description as string)
-    || ((task as any).payload?.message as string)
-    || ''
-
   return (
     <div className="flex h-full w-full flex-col overflow-hidden">
-      {/* Header */}
-      <div className="border-b px-4 py-3">
-        <div className="flex items-start justify-between gap-2">
-          <h3 className="text-sm font-semibold leading-tight">{task.name}</h3>
-          <div className="flex shrink-0 items-center gap-1.5">
-            <Badge variant="outline" className={cn('text-[10px]', STATUS_COLORS[status])}>
-              {statusLabels[status]}
-            </Badge>
-            <Badge variant="outline" className={cn('text-[10px]', PRIORITY_COLORS[priority])}>
-              {priorityLabels[priority]}
-            </Badge>
+      {/* Progress bar for running tasks */}
+      {status === 'running' && summary?.totalSteps && summary.completedSteps !== undefined && (
+        <div className="border-b px-4 py-2">
+          <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+            <span>{summary.currentStep ?? t('messages.executingRunning')}</span>
+            <span>{summary.completedSteps}/{summary.totalSteps}</span>
+          </div>
+          <div className="mt-1 h-1.5 w-full rounded-full bg-secondary">
+            <div
+              className="h-full rounded-full bg-primary transition-all"
+              style={{ width: `${(summary.completedSteps / summary.totalSteps) * 100}%` }}
+            />
           </div>
         </div>
-        {description && (
-          <p className="mt-1 text-xs text-muted-foreground line-clamp-3">{description}</p>
-        )}
-        <div className="mt-2 flex flex-wrap items-center gap-3 text-[10px] text-muted-foreground">
-          <span>{t('detail.created')}: {formatDateTime(task.createdAt as string)}</span>
-          {task.agentName && <span>{t('detail.agent')}: {task.agentName as string}</span>}
-          {(task as any).runCount > 0 && (
-            <span>#{(task as any).runCount}</span>
-          )}
-          {(task as any).lastRunAt && (
-            <span>
-              <Clock className="mr-0.5 inline h-2.5 w-2.5" />
-              {formatDateTime((task as any).lastRunAt)}
-            </span>
-          )}
-        </div>
-
-        {/* Progress bar for running tasks */}
-        {status === 'running' && summary?.totalSteps && summary.completedSteps !== undefined && (
-          <div className="mt-2">
-            <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-              <span>{summary.currentStep ?? t('messages.executingRunning')}</span>
-              <span>{summary.completedSteps}/{summary.totalSteps}</span>
-            </div>
-            <div className="mt-1 h-1.5 w-full rounded-full bg-secondary">
-              <div
-                className="h-full rounded-full bg-primary transition-all"
-                style={{ width: `${(summary.completedSteps / summary.totalSteps) * 100}%` }}
-              />
-            </div>
-          </div>
-        )}
-      </div>
+      )}
 
       {/* Tabs */}
       <div className="flex border-b">
@@ -532,7 +478,7 @@ export const TaskDetailPanel = memo(function TaskDetailPanel({
       {/* Tab content */}
       <div className={cn(
         'flex-1 overflow-hidden',
-        activeTab !== 'output' && 'overflow-auto p-4',
+        activeTab === 'output' ? 'flex flex-col' : 'overflow-auto p-4',
       )}>
         {activeTab === 'output' && (
           <AgentOutputTab

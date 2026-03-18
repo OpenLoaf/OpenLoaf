@@ -229,6 +229,7 @@ Examples (must pass complete schedule object):
 - When processing user requests, prioritize matching if corresponding skill exists; if found must load and follow.
 - Even if uncertain whether applicable, should load and verify first, avoid bypassing available skill processes.
 - When multiple skills coexist, priority order: process/diagnostic class → implementation class → verification and wrap-up class.
+- Skill source priority: builtin > project > global. Same-name skills at higher priority override lower ones. Builtin skills are system-provided core operation guides and must be followed first.
 - If skill steps conflict with project rules, project rules take precedence.
 
 # Research Execution

@@ -391,6 +391,10 @@ class SettingRouterImpl extends BaseSettingRouter {
               projectCandidates.push({ rootPath: entry.rootPath, projectId: parentId });
             }
             const items = summaries.map((summary) => {
+              if (summary.scope === "builtin") {
+                const ignoreKey = `builtin:${summary.folderName}`;
+                return { ...summary, ignoreKey, isEnabled: true, isDeletable: false };
+              }
               const ownerProjectId = summary.scope === "project"
                 ? resolveOwnerProjectId({ skillPath: summary.path, candidates: projectCandidates })
                 : null;
@@ -413,6 +417,12 @@ class SettingRouterImpl extends BaseSettingRouter {
           const globalSummaries = loadSkillSummaries({
             globalSkillsPath: resolveGlobalSkillsPath(),
           });
+          const builtinItems = globalSummaries
+            .filter((s) => s.scope === "builtin")
+            .map((summary) => {
+              const ignoreKey = `builtin:${summary.folderName}`;
+              return { ...summary, ignoreKey, isEnabled: true, isDeletable: false };
+            });
           const globalItems = globalSummaries
             .filter((s) => s.scope === "global")
             .map((summary) => {
@@ -457,7 +467,7 @@ class SettingRouterImpl extends BaseSettingRouter {
             }
           }
 
-          return [...globalItems, ...projectItems];
+          return [...builtinItems, ...globalItems, ...projectItems];
         }),
       setSkillEnabled: shieldedProcedure
         .input(settingSchemas.setSkillEnabled.input)
