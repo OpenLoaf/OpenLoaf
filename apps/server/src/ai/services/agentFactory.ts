@@ -292,9 +292,7 @@ export function createMasterAgent(input: CreateMasterAgentInput) {
   const tools = buildToolset(allToolIds)
 
   // Create per-session ActivatedToolSet
-  // MCP tools are pre-activated (no tool-search needed) — they are external
-  // services the user explicitly configured, so they should be immediately usable.
-  const activatedSet = new ActivatedToolSet([...coreToolIds, ...mcpToolIds])
+  const activatedSet = new ActivatedToolSet(coreToolIds)
 
   // Rehydrate previously activated tools from message history (fixes approval flow state loss)
   // Pass allToolIds to skip tools from disconnected MCP servers
@@ -389,7 +387,7 @@ export function createPMAgent(input: CreatePMAgentInput) {
   const allToolIds = [...new Set([...coreToolIds, ...deferredToolIds, ...mcpToolIds])]
 
   const tools = buildToolset(allToolIds)
-  const activatedSet = new ActivatedToolSet([...coreToolIds, ...mcpToolIds])
+  const activatedSet = new ActivatedToolSet(coreToolIds)
   tools['tool-search'] = createToolSearchTool(activatedSet, new Set(allToolIds), getToolJsonSchemas)
   applyActivationGuard(tools, activatedSet, coreToolIds)
 
@@ -494,7 +492,7 @@ function createGeneralPurposeSubAgent(model: LanguageModelV3): ToolLoopAgent {
   const allToolIds = [...new Set([...coreToolIds, ...deferredToolIds, ...mcpToolIds])]
 
   const tools = buildToolset(allToolIds)
-  const activatedSet = new ActivatedToolSet([...coreToolIds, ...mcpToolIds])
+  const activatedSet = new ActivatedToolSet(coreToolIds)
   tools['tool-search'] = createToolSearchTool(activatedSet, new Set(allToolIds), getToolJsonSchemas)
   applyActivationGuard(tools, activatedSet, coreToolIds)
 
