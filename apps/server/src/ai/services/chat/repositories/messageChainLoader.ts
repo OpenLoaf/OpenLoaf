@@ -36,11 +36,11 @@ export async function loadMessageChain(input: {
 
   return rows.map((row) => ({
     id: row.id,
-    role: row.role as any,
+    role: row.role as OpenLoafUIMessage['role'],
     parentMessageId: row.parentMessageId ?? null,
-    parts: (row.parts as any) ?? [],
-    metadata: (row.metadata as any) ?? undefined,
-    messageKind: (row as any).messageKind ?? 'normal',
+    parts: (row.parts ?? []) as OpenLoafUIMessage['parts'],
+    metadata: row.metadata ?? undefined,
+    messageKind: row.messageKind ?? 'normal',
   }))
 }
 
@@ -64,11 +64,18 @@ export async function loadMessageChainByIds(input: {
       id: msg.id,
       role: msg.role,
       parentMessageId: msg.parentMessageId ?? null,
-      parts: (msg.parts as any) ?? [],
-      metadata: (msg.metadata as any) ?? undefined,
-      messageKind: (msg as any).messageKind ?? 'normal',
+      parts: msg.parts ?? [],
+      metadata: msg.metadata ?? undefined,
+      messageKind: msg.messageKind ?? 'normal',
     })
-    result.push(normalized as OpenLoafUIMessage)
+    result.push({
+      id: normalized.id,
+      role: normalized.role as OpenLoafUIMessage['role'],
+      parentMessageId: normalized.parentMessageId,
+      parts: normalized.parts as OpenLoafUIMessage['parts'],
+      metadata: normalized.metadata,
+      messageKind: normalized.messageKind,
+    } as OpenLoafUIMessage)
   }
 
   return result

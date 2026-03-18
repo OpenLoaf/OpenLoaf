@@ -17,6 +17,8 @@
 
 type Listener = () => void
 
+const MAX_CACHE_SIZE = 500
+
 const statusMap = new Map<string, string>()
 const listeners = new Set<Listener>()
 
@@ -30,6 +32,11 @@ export const taskStatusCache = {
   },
 
   set(taskId: string, status: string) {
+    // LRU 淘汰：超出上限时删除最早的条目
+    if (!statusMap.has(taskId) && statusMap.size >= MAX_CACHE_SIZE) {
+      const firstKey = statusMap.keys().next().value
+      if (firstKey !== undefined) statusMap.delete(firstKey)
+    }
     statusMap.set(taskId, status)
     notify()
   },
