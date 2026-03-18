@@ -175,6 +175,28 @@ class MCPClientManagerImpl {
     return [...this.entries.values()].some((e) => e.status === 'connected')
   }
 
+  /**
+   * Ensure all enabled MCP servers are connected.
+   * Called before preface/agent creation to make MCP tools discoverable.
+   * Skips servers already connected or connecting.
+   */
+  async ensureEnabledServersConnected(projectRoot?: string): Promise<void> {
+    // Lazy import to avoid circular dependency
+    const { getEnabledMcpServers } = await import('@/services/mcpConfigService')
+    const servers = getEnabledMcpServers(projectRoot)
+    if (servers.length === 0) return
+
+    const promises = servers.map((config) => {
+      const existing = this.entries.get(config.id)
+      if (existing?.status === 'connected' || existing?.connectPromise) return
+      return this.connect(config).catch((err) => {
+        logger.warn({ serverId: config.id, error: String(err) }, '[mcp-manager] Auto-connect failed')
+      })
+    })
+
+    await Promise.allSettled(promises.filter(Boolean))
+  }
+
   // -----------------------------------------------------------------------
   // Connection logic
   // -----------------------------------------------------------------------

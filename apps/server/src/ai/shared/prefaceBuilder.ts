@@ -30,6 +30,7 @@ import {
 import { assembleMemoryBlocks } from "@/ai/shared/agentPromptAssembler";
 import { getMcpToolIds } from "@/ai/tools/toolRegistry";
 import { getMcpCatalogEntries } from "@openloaf/api/types/tools/toolCatalog";
+import { mcpClientManager } from "@/ai/services/mcpClientManager";
 import { collectAvailableAgents, buildSubAgentListSection } from "@/ai/shared/subAgentPrefaceBuilder";
 
 /** Unknown value fallback. */
@@ -432,6 +433,12 @@ export async function buildSessionPrefaceText(input: {
   timezone?: string;
   clientPlatform?: ClientPlatform;
 }): Promise<string> {
+  // Ensure MCP servers are connected so getMcpToolIds() returns tools
+  const projectRoot = input.projectId
+    ? getProjectRootPath(input.projectId) ?? undefined
+    : undefined
+  await mcpClientManager.ensureEnabledServersConnected(projectRoot)
+
   const context = await resolvePromptContext({
     projectId: input.projectId,
     parentProjectRootPaths: input.parentProjectRootPaths,

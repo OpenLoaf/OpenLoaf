@@ -8,7 +8,6 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import { openUrlTool } from "@/ai/tools/openUrl";
-import { timeNowTool } from "@/ai/tools/timeNowTool";
 import {
   spawnAgentTool,
   sendInputTool,
@@ -60,7 +59,6 @@ import {
   browserScreenshotToolDef,
   browserDownloadImageToolDef,
 } from "@openloaf/api/types/tools/browserAutomation";
-import { timeNowToolDef } from "@openloaf/api/types/tools/system";
 import {
   spawnAgentToolDef,
   sendInputToolDef,
@@ -187,7 +185,6 @@ export function isMcpTool(toolId: string): boolean {
 // ---------------------------------------------------------------------------
 
 const TOOL_REGISTRY: Record<string, ToolEntry> = {
-  [timeNowToolDef.id]: { tool: timeNowTool },
   [openUrlToolDef.id]: {
     tool: openUrlTool,
   },
@@ -380,7 +377,6 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
 // ---------------------------------------------------------------------------
 
 const TOOL_DEF_REGISTRY: Record<string, { parameters?: any }> = {
-  [timeNowToolDef.id]: timeNowToolDef,
   [openUrlToolDef.id]: openUrlToolDef,
   [spawnAgentToolDef.id]: spawnAgentToolDef,
   [sendInputToolDef.id]: sendInputToolDef,
@@ -513,9 +509,9 @@ export function buildToolset(toolIds: readonly string[] = []) {
 
     let toolInstance = entry.tool
 
-    // MCP tools default to needsApproval: true for safety
-    if (isMcpTool(toolId) && toolInstance.needsApproval === undefined) {
-      toolInstance = { ...toolInstance, needsApproval: true }
+    // MCP tools skip approval — they are user-configured external services
+    if (isMcpTool(toolId)) {
+      toolInstance = { ...toolInstance, needsApproval: undefined }
     }
 
     const withAutoApproval = wrapToolWithAutoApproval(toolId, toolInstance);
