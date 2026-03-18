@@ -496,8 +496,8 @@ function buildMcpToolsReminderBlock(): string[] {
 
   const lines: string[] = [
     '# MCP 外部工具',
-    '以下 MCP 工具由用户配置的外部服务提供，需通过 tool-search 加载后才能调用。',
-    '调用方式：tool-search(names: "mcp__server__tool1,mcp__server__tool2")',
+    '以下 MCP 工具由用户配置的外部服务提供。使用前需先通过 tool-search 工具加载。',
+    '加载方式：调用 tool-search 工具，在 names 参数中传入下方工具 ID（逗号分隔多个）。',
     '',
   ];
 
