@@ -318,13 +318,13 @@ export function AddMCPServerDialog({ open, onOpenChange, onSuccess }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
+      <DialogContent className="max-w-lg max-h-[85vh] flex flex-col">
+        <DialogHeader className="shrink-0">
           <DialogTitle>{t("settings:mcp.addServerTitle")}</DialogTitle>
           <DialogDescription>{t("settings:mcp.addServerDesc")}</DialogDescription>
         </DialogHeader>
 
-        {/* Mode toggle */}
+        {/* Mode toggle — fixed at top */}
         <div className="flex items-center gap-1 rounded-md bg-muted/40 p-1">
           <button
             type="button"
@@ -354,6 +354,8 @@ export function AddMCPServerDialog({ open, onOpenChange, onSuccess }: Props) {
           </button>
         </div>
 
+        {/* Scrollable body */}
+        <div className="min-h-0 flex-1 overflow-y-auto pr-1">
         {mode === "json" ? (
           /* ================================================================
            * JSON Paste Mode
@@ -530,8 +532,9 @@ export function AddMCPServerDialog({ open, onOpenChange, onSuccess }: Props) {
             </div>
           </div>
         )}
+        </div>
 
-        <DialogFooter>
+        <DialogFooter className="shrink-0">
           <Button variant="outline" className="rounded-full shadow-none" onClick={() => onOpenChange(false)}>
             {t("settings:mcp.cancel")}
           </Button>
