@@ -8,7 +8,7 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import type { OpenLoafUIMessage } from '@openloaf/api/types/message'
-import { loadMessageChainFromFile, loadMessageTree } from './chatFileStore'
+import { loadMessageChainFromFile, loadMessageTree, normalizeTaskReportForModel } from './chatFileStore'
 
 /** Default max messages in a chain. */
 const DEFAULT_MAX_MESSAGES = 80
@@ -60,14 +60,15 @@ export async function loadMessageChainByIds(input: {
     const msg = tree.byId.get(id)
     if (!msg) continue
     if (msg.role === 'subagent') continue
-    result.push({
+    const normalized = normalizeTaskReportForModel({
       id: msg.id,
-      role: msg.role as any,
+      role: msg.role,
       parentMessageId: msg.parentMessageId ?? null,
       parts: (msg.parts as any) ?? [],
       metadata: (msg.metadata as any) ?? undefined,
       messageKind: (msg as any).messageKind ?? 'normal',
     })
+    result.push(normalized as OpenLoafUIMessage)
   }
 
   return result

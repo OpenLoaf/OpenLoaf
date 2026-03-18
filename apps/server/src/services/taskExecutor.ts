@@ -22,8 +22,7 @@ import { taskEventBus } from './taskEventBus'
 import { appendRunLog } from './taskRunLogService'
 import {
   appendMessage,
-  loadMessageTree,
-  resolveRightmostLeaf,
+  appendMessageAtLeaf,
 } from '@/ai/services/chat/repositories/chatFileStore'
 
 type RunningTask = {
@@ -458,9 +457,6 @@ class TaskExecutor {
     if (!sourceSessionId) return
 
     try {
-      const tree = await loadMessageTree(sourceSessionId)
-      const parentId = resolveRightmostLeaf(tree)
-
       const summaryText = summary || (status === 'completed'
         ? `任务「${task.name}」已完成。`
         : `任务「${task.name}」执行失败：${task.lastError || '未知错误'}`)
@@ -472,42 +468,41 @@ class TaskExecutor {
           ? 'secretary' as const
           : 'specialist' as const
 
-      const reportMessage = {
-        id: randomUUID(),
-        parentMessageId: parentId,
-        role: 'task-report' as const,
-        messageKind: 'normal' as const,
-        parts: [
-          {
-            type: 'text' as const,
-            text: summaryText,
-          },
-          {
-            type: 'task-ref' as const,
-            taskId: task.id,
-            title: task.name,
-            agentType: task.agentName || 'general',
-            status,
-          },
-        ],
-        metadata: {
-          taskId: task.id,
-          agentType: task.agentName || 'general',
-          displayName: task.agentName || '任务助手',
-          projectId: task.projectId,
-          agentIdentity: {
-            type: agentIdentityType,
-            name: task.agentName || '任务助手',
-            projectId: task.projectId,
-            taskId: task.id,
-          },
-        },
-        createdAt: new Date().toISOString(),
-      }
-
-      await appendMessage({
+      // 原子操作：在锁内 resolveRightmostLeaf + append，消除并发竞态
+      const reportMessage = await appendMessageAtLeaf({
         sessionId: sourceSessionId,
-        message: reportMessage,
+        buildMessage: (parentId) => ({
+          id: randomUUID(),
+          parentMessageId: parentId,
+          role: 'task-report' as const,
+          messageKind: 'normal' as const,
+          parts: [
+            {
+              type: 'text' as const,
+              text: summaryText,
+            },
+            {
+              type: 'task-ref' as const,
+              taskId: task.id,
+              title: task.name,
+              agentType: task.agentName || 'general',
+              status,
+            },
+          ],
+          metadata: {
+            taskId: task.id,
+            agentType: task.agentName || 'general',
+            displayName: task.agentName || '任务助手',
+            projectId: task.projectId,
+            agentIdentity: {
+              type: agentIdentityType,
+              name: task.agentName || '任务助手',
+              projectId: task.projectId,
+              taskId: task.id,
+            },
+          },
+          createdAt: new Date().toISOString(),
+        }),
       })
 
       taskEventBus.emitTaskReport({

@@ -23,8 +23,12 @@ export async function buildModelMessages(
   options?: { modelId?: string },
 ) {
   // 过滤被中止的空 assistant 消息，避免 AI_TypeValidationError
+  // 最终防线：过滤掉非标准 role（如 task-report），防止 LLM 400 错误
+  const VALID_ROLES = new Set(["system", "user", "assistant"]);
   const sanitized = messages.filter(
-    (m) => m.role === "user" || (Array.isArray(m.parts) && m.parts.length > 0),
+    (m) =>
+      VALID_ROLES.has(m.role) &&
+      (m.role === "user" || (Array.isArray(m.parts) && m.parts.length > 0)),
   );
   validateUIMessages({ messages: sanitized as any });
   const modelMessages = await convertToModelMessages(sanitized as any, {

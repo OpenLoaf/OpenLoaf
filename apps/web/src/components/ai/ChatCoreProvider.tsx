@@ -238,6 +238,18 @@ export default function ChatCoreProvider({
         autoTitleMutation.mutate({ sessionId, saasAccessToken: getCachedAccessToken() ?? undefined } as any);
       }
       setStepThinking(false);
+
+      // Flush 缓冲的 task-report 消息（streaming 期间被缓冲以避免竞态）
+      if (pendingTaskReportsRef.current.length > 0) {
+        const pending = pendingTaskReportsRef.current.splice(0);
+        if (setMessagesRef.current) {
+          setMessagesRef.current((prev: any[]) => {
+            const existingIds = new Set(prev.map((m: any) => m.id));
+            const newMessages = pending.filter((m) => !existingIds.has(m.id));
+            return newMessages.length > 0 ? [...prev, ...newMessages] : prev;
+          });
+        }
+      }
     },
     [autoTitleMutation, queryClient, sessionId, setStepThinking, patchSnapshot, refreshBranchMeta]
   );
@@ -504,7 +516,11 @@ export default function ChatCoreProvider({
     }
   }, [branchQueryData, applyServerSnapshotToChat, applySnapshot, chat.messages.length]);
 
-  // ── Background agent subscription ──
+  // ── Background agent subscription (with buffering during streaming) ──
+  const pendingTaskReportsRef = React.useRef<UIMessage[]>([]);
+  const chatStatusRef = React.useRef(chat.status);
+  chatStatusRef.current = chat.status;
+
   React.useEffect(() => {
     if (!sessionId) return;
     const subscription = trpcClient.chat.onSessionUpdate.subscribe(
@@ -523,10 +539,16 @@ export default function ChatCoreProvider({
                 parts: msg.parts ?? [],
                 metadata: msg.metadata,
               };
-              chat.setMessages((prev) => {
-                if (prev.some((m) => m.id === msg.id)) return prev;
-                return [...prev, newMessage];
-              });
+              const currentStatus = chatStatusRef.current;
+              if (currentStatus === 'streaming' || currentStatus === 'submitted') {
+                // 缓冲：streaming 期间 setMessages 会被 useChat 内部更新覆盖
+                pendingTaskReportsRef.current.push(newMessage);
+              } else {
+                chat.setMessages((prev) => {
+                  if (prev.some((m) => m.id === msg.id)) return prev;
+                  return [...prev, newMessage];
+                });
+              }
             }).catch(() => {});
           }
         },

@@ -102,6 +102,9 @@ export const masterTemplate: AgentTemplate = {
     'memory-save',
     'memory-search',
     'memory-get',
+    // task
+    'task-manage',
+    'task-status',
   ],
   allowSubAgents: true,
   maxDepth: 2,

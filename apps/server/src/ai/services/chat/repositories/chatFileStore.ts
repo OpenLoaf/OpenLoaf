@@ -440,6 +440,25 @@ export async function appendMessage(input: {
   })
 }
 
+/**
+ * Atomically resolve the rightmost leaf and append a message as its child.
+ * loadMessageTree + resolveRightmostLeaf + appendJsonlLine are all inside
+ * the same session lock, eliminating the race window that causes sibling branches.
+ */
+export async function appendMessageAtLeaf(input: {
+  sessionId: string
+  buildMessage: (parentMessageId: string | null) => StoredMessage
+}): Promise<StoredMessage> {
+  return withSessionLock(input.sessionId, async () => {
+    const tree = await loadMessageTree(input.sessionId)
+    const parentId = resolveRightmostLeaf(tree)
+    const message = input.buildMessage(parentId)
+    await appendJsonlLine(input.sessionId, message)
+    invalidateCache(input.sessionId)
+    return message
+  })
+}
+
 /** Update an existing message in-place (replace by id, or append if new). */
 export async function updateMessage(input: {
   sessionId: string
@@ -894,6 +913,51 @@ export async function getMessageCount(sessionId: string): Promise<number> {
 }
 
 // ---------------------------------------------------------------------------
+// task-report → assistant 映射（供 model context 使用，前端 UI 仍用原始 role）
+// ---------------------------------------------------------------------------
+
+/**
+ * 将 task-report 消息转换为 assistant 消息，使 LLM 能正常处理。
+ * task-ref part 格式化为纯文本，text part 保留。
+ */
+export function normalizeTaskReportForModel(msg: {
+  id: string
+  role: string
+  parentMessageId: string | null
+  parts: unknown[]
+  metadata?: unknown
+  messageKind?: string
+}): {
+  id: string
+  role: string
+  parentMessageId: string | null
+  parts: unknown[]
+  metadata?: unknown
+  messageKind?: string
+} {
+  if (msg.role !== 'task-report') return msg
+
+  const normalizedParts: unknown[] = []
+  for (const part of msg.parts) {
+    const p = part as any
+    if (p?.type === 'task-ref') {
+      normalizedParts.push({
+        type: 'text',
+        text: `[任务报告: ${p.title ?? '未知任务'} — 状态: ${p.status ?? 'unknown'}]`,
+      })
+    } else {
+      normalizedParts.push(part)
+    }
+  }
+
+  return {
+    ...msg,
+    role: 'assistant',
+    parts: normalizedParts,
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Load message chain for model context (replaces messageChainLoader)
 // ---------------------------------------------------------------------------
 
@@ -920,7 +984,7 @@ export async function loadMessageChainFromFile(input: {
 
   return limited
     .filter((msg) => msg.role !== 'subagent')
-    .map((msg) => ({
+    .map((msg) => normalizeTaskReportForModel({
       id: msg.id,
       role: msg.role,
       parentMessageId: msg.parentMessageId,
