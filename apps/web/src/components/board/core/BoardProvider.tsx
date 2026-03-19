@@ -33,6 +33,8 @@ export type BoardContextValue = {
   actions: BoardActions;
   /** File scope metadata for board nodes. */
   fileContext?: BoardFileContext;
+  /** Portal target for expanded node panels (rendered above stroke layer). */
+  panelOverlayRef?: React.RefObject<HTMLDivElement | null>;
 };
 
 // 逻辑：节点事件由节点自身处理，跨层 UI 通过 actions 统一触发，避免画布层特判。
@@ -46,6 +48,8 @@ export type BoardProviderProps = {
   actions: BoardActions;
   /** File scope metadata for board nodes. */
   fileContext?: BoardFileContext;
+  /** Portal target for expanded node panels. */
+  panelOverlayRef?: React.RefObject<HTMLDivElement | null>;
   /** Children rendered within the provider. */
   children: ReactNode;
 };
@@ -55,10 +59,11 @@ export function BoardProvider({
   engine,
   actions,
   fileContext,
+  panelOverlayRef,
   children,
 }: BoardProviderProps) {
   return (
-    <BoardContext.Provider value={{ engine, actions, fileContext }}>
+    <BoardContext.Provider value={{ engine, actions, fileContext, panelOverlayRef }}>
       {children}
     </BoardContext.Provider>
   );

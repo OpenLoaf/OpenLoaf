@@ -9,7 +9,7 @@
  */
 'use client'
 
-import { useEffect, useRef, useCallback } from 'react'
+import { createContext, useContext, useEffect, useRef, useCallback } from 'react'
 import { Application, Container } from 'pixi.js'
 import type { CanvasEngine } from '../../engine/CanvasEngine'
 import type { CanvasSnapshot } from '../../engine/types'
@@ -57,9 +57,53 @@ export type PixiApplicationProps = {
  *
  * 这样画笔/荧光笔始终覆盖在节点上方，连线始终在节点下方。
  */
+
+/**
+ * Panel overlay layer — follows the same viewport transform as DomNodeLayer,
+ * but renders above the Pixi stroke layer so expanded panels aren't occluded.
+ */
+function PanelOverlayLayer({ engine, panelOverlayRef }: {
+  engine: CanvasEngine
+  panelOverlayRef: React.RefObject<HTMLDivElement | null>
+}) {
+  useEffect(() => {
+    const sync = () => {
+      const layer = panelOverlayRef.current
+      if (!layer) return
+      const { zoom, offset } = engine.viewport.getState()
+      layer.style.transform = `translate(${offset[0]}px, ${offset[1]}px) scale(${zoom})`
+    }
+    sync()
+    const unsub = engine.subscribeView(sync)
+    return unsub
+  }, [engine, panelOverlayRef])
+
+  const { zoom, offset } = engine.viewport.getState()
+
+  return (
+    <div
+      ref={panelOverlayRef}
+      className="pointer-events-none absolute inset-0 origin-top-left"
+      data-panel-overlay
+      style={{
+        transform: `translate(${offset[0]}px, ${offset[1]}px) scale(${zoom})`,
+      }}
+    />
+  )
+}
+
+/** Context for the panel overlay portal target (rendered above stroke layer). */
+const PanelOverlayContext = createContext<React.RefObject<HTMLDivElement | null>>({ current: null })
+
+/** Access the panel overlay portal target. Returns null if not inside PixiCanvas. */
+export function usePanelOverlay(): HTMLDivElement | null {
+  return useContext(PanelOverlayContext).current
+}
+
 export function PixiCanvas({ engine, snapshot }: PixiApplicationProps) {
   const bottomRef = useRef<HTMLDivElement>(null)
   const topRef = useRef<HTMLDivElement>(null)
+  const panelOverlayRef = useRef<HTMLDivElement>(null)
   const cleanupRef = useRef<(() => void) | null>(null)
   // 逻辑：防止异步 init 在组件卸载后继续执行，避免访问已销毁的 PixiJS 对象。
   const disposedRef = useRef(false)
@@ -166,7 +210,7 @@ export function PixiCanvas({ engine, snapshot }: PixiApplicationProps) {
   }, [init])
 
   return (
-    <>
+    <PanelOverlayContext.Provider value={panelOverlayRef}>
       {/* 1. 底层 PixiJS：连线（在节点下方） */}
       <div
         ref={bottomRef}
@@ -181,6 +225,8 @@ export function PixiCanvas({ engine, snapshot }: PixiApplicationProps) {
         className="pointer-events-none absolute inset-0"
         style={{ touchAction: 'none' }}
       />
-    </>
+      {/* 4. 面板覆盖层：展开的 AI 参数面板通过 Portal 渲染到此层，在笔画上方 */}
+      <PanelOverlayLayer engine={engine} panelOverlayRef={panelOverlayRef} />
+    </PanelOverlayContext.Provider>
   )
 }

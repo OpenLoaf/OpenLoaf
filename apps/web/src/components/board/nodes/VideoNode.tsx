@@ -35,8 +35,10 @@ import {
 } from "../core/boardFilePath";
 import { resolveServerUrl } from "@/utils/server-url";
 import { NodeFrame } from "./NodeFrame";
+import { createPortal } from "react-dom";
 import { VideoAiPanel } from "../panels/VideoAiPanel";
 import { useUpstreamData } from "../hooks/useUpstreamData";
+import { usePanelOverlay } from "../render/pixi/PixiApplication";
 
 export type VideoNodeProps = {
   /** Project-relative path for the video. */
@@ -282,10 +284,12 @@ export function VideoNodeView({
 }: CanvasNodeViewProps<VideoNodeProps>) {
   const { fileContext, engine } = useBoardContext();
   const upstream = useUpstreamData(engine, expanded ? element.id : null);
+  const panelOverlay = usePanelOverlay();
   const panelRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   // 逻辑：通过 subscribeView 直接操作 DOM 同步面板缩放，避免 React 渲染延迟。
+  // 面板通过 Portal 渲染到 panelOverlay 层（笔画上方），用 scale(1/zoom) 保持固定屏幕大小。
   useEffect(() => {
     if (!expanded) return;
     const syncPanelScale = () => {
@@ -293,7 +297,6 @@ export function VideoNodeView({
       if (!panel) return;
       const zoom = engine.viewport.getState().zoom;
       panel.style.transform = `translateX(-50%) scale(${1 / zoom})`;
-      panel.style.marginTop = `${8 / zoom}px`;
     };
     syncPanelScale();
     const unsub = engine.subscribeView(syncPanelScale);
@@ -577,13 +580,14 @@ export function VideoNodeView({
           </div>
         )}
       </div>
-      {expanded ? (
+      {expanded && panelOverlay ? createPortal(
         <div
           ref={panelRef}
-          className="absolute top-full z-10"
+          className="pointer-events-auto absolute"
           data-board-editor
           style={{
-            left: '50%',
+            left: element.xywh[0] + element.xywh[2] / 2,
+            top: element.xywh[1] + element.xywh[3] + 8,
             transformOrigin: 'top center',
           }}
           onPointerDown={event => {
@@ -596,7 +600,8 @@ export function VideoNodeView({
             upstreamText={upstream?.textList.join('\n')}
             upstreamImages={upstream?.imageList}
           />
-        </div>
+        </div>,
+        panelOverlay,
       ) : null}
     </NodeFrame>
   );

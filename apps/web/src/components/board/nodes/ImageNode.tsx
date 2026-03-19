@@ -43,8 +43,10 @@ import {
   BOARD_TOOLBAR_ITEM_BLUE,
   BOARD_TOOLBAR_ITEM_GREEN,
 } from "../ui/board-style-system";
+import { createPortal } from "react-dom";
 import { ImageAiPanel } from "../panels/ImageAiPanel";
 import { useUpstreamData } from "../hooks/useUpstreamData";
+import { usePanelOverlay } from "../render/pixi/PixiApplication";
 
 /** Max bytes for image node preview fetches. */
 const IMAGE_NODE_PREVIEW_MAX_BYTES = 100 * 1024;
@@ -197,9 +199,11 @@ export function ImageNodeView({
   const hydrationRef = useRef<string | null>(null);
   const { actions, engine, fileContext } = useBoardContext();
   const upstream = useUpstreamData(engine, expanded ? element.id : null);
+  const panelOverlay = usePanelOverlay();
   const panelRef = useRef<HTMLDivElement>(null);
 
   // 逻辑：通过 subscribeView 直接操作 DOM 同步面板缩放，避免 React 渲染延迟。
+  // 面板通过 Portal 渲染到 panelOverlay 层（笔画上方），用 scale(1/zoom) 保持固定屏幕大小。
   useEffect(() => {
     if (!expanded) return;
     const syncPanelScale = () => {
@@ -207,7 +211,6 @@ export function ImageNodeView({
       if (!panel) return;
       const zoom = engine.viewport.getState().zoom;
       panel.style.transform = `translateX(-50%) scale(${1 / zoom})`;
-      panel.style.marginTop = `${8 / zoom}px`;
     };
     syncPanelScale();
     const unsub = engine.subscribeView(syncPanelScale);
@@ -531,13 +534,17 @@ export function ImageNodeView({
           />
         </div>
       ) : null}
-      {expanded ? (
+      {expanded && panelOverlay ? createPortal(
         <div
           ref={panelRef}
-          className="absolute top-full z-10"
+          className="pointer-events-auto absolute"
           data-board-editor
           style={{
-            left: '50%',
+            // 逻辑：面板在 panelOverlay 层（与 DomNodeLayer 同坐标系），
+            // 用节点 xywh 定位在节点正下方居中。
+            // subscribeView 会实时更新 transform 的 scale(1/zoom) 保持固定屏幕大小。
+            left: element.xywh[0] + element.xywh[2] / 2,
+            top: element.xywh[1] + element.xywh[3] + 8,
             transformOrigin: 'top center',
           }}
           onPointerDown={event => {
@@ -550,7 +557,8 @@ export function ImageNodeView({
             upstreamText={upstream?.textList.join('\n')}
             upstreamImages={upstream?.imageList}
           />
-        </div>
+        </div>,
+        panelOverlay,
       ) : null}
       <ProjectFilePickerDialog
         open={replacePickerOpen}
