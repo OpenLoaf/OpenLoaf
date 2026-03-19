@@ -56,6 +56,7 @@ import {
   BOARD_TOOLBAR_ITEM_PURPLE,
 } from "../ui/board-style-system";
 import { useBoardContext } from "../core/BoardProvider";
+import { deriveNode } from "../utils/derive-node";
 import { MINDMAP_META } from "../engine/mindmap-layout";
 import { HueSlider, buildColorSwatches, DEFAULT_COLOR_PRESETS } from "../ui/HueSlider";
 import { BoardTextEditorKit } from "./text-editor-kit";
@@ -645,14 +646,18 @@ function createTextToolbarItems(ctx: CanvasToolbarContext<TextNodeProps>) {
       label: t('board:aiToolbar.generateImage'),
       icon: <ImagePlus size={14} />,
       className: BOARD_TOOLBAR_ITEM_BLUE,
-      onSelect: () => {},
+      onSelect: () => {
+        deriveNode({ engine: ctx.engine, sourceNodeId: ctx.element.id, targetType: 'image' })
+      },
     },
     {
       id: 'ai-generate-video',
       label: t('board:aiToolbar.generateVideo'),
       icon: <Video size={14} />,
       className: BOARD_TOOLBAR_ITEM_PURPLE,
-      onSelect: () => {},
+      onSelect: () => {
+        deriveNode({ engine: ctx.engine, sourceNodeId: ctx.element.id, targetType: 'video' })
+      },
     },
     // ---- Node-level: Font size ----
     {

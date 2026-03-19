@@ -48,9 +48,14 @@ import {
   BOARD_TOOLBAR_ITEM_PURPLE,
 } from "../ui/board-style-system";
 import { createPortal } from "react-dom";
-import { ImageAiPanel } from "../panels/ImageAiPanel";
+import { ImageAiPanel, type ImageGenerateParams } from "../panels/ImageAiPanel";
 import { useUpstreamData } from "../hooks/useUpstreamData";
 import { usePanelOverlay } from "../render/pixi/PixiApplication";
+import { deriveNode } from "../utils/derive-node";
+import { submitImageGenerate } from "../services/image-generate";
+import { DEFAULT_NODE_SIZE } from "../engine/constants";
+import { BOARD_ASSETS_DIR_NAME } from "@/lib/file-name";
+import { resolveDirectionalStackPlacement } from "../utils/output-placement";
 
 /** Max bytes for image node preview fetches. */
 const IMAGE_NODE_PREVIEW_MAX_BYTES = 100 * 1024;
@@ -182,14 +187,18 @@ function createImageToolbarItems(ctx: CanvasToolbarContext<ImageNodeProps>) {
       label: i18next.t('board:aiToolbar.generateVideo'),
       icon: <Video size={14} />,
       className: BOARD_TOOLBAR_ITEM_PURPLE,
-      onSelect: () => {},
+      onSelect: () => {
+        deriveNode({ engine: ctx.engine, sourceNodeId: ctx.element.id, targetType: 'video' })
+      },
     },
     {
       id: "ai-upscale",
       label: i18next.t('board:aiToolbar.upscale'),
       icon: <ZoomIn size={14} />,
       className: BOARD_TOOLBAR_ITEM_BLUE,
-      onSelect: () => {},
+      onSelect: () => {
+        deriveNode({ engine: ctx.engine, sourceNodeId: ctx.element.id, targetType: 'image', targetProps: { origin: 'ai-generate' } })
+      },
     },
     ...(origin === 'ai-generate'
       ? [
@@ -283,6 +292,96 @@ export function ImageNodeView({
   );
   /** Whether the node or canvas is locked. */
   const isLocked = engine.isLocked() || element.locked === true;
+
+  /** Handle image generation: submit task and create a LoadingNode to the right. */
+  const handleGenerate = useCallback(
+    async (params: ImageGenerateParams) => {
+      try {
+        const result = await submitImageGenerate(
+          {
+            prompt: params.prompt,
+            negativePrompt: params.negativePrompt,
+            modelId: params.modelId !== 'auto' ? params.modelId : undefined,
+            aspectRatio: params.aspectRatio,
+            resolution: params.resolution,
+            referenceImageSrc: params.referenceImageSrc,
+          },
+          {
+            projectId: fileContext?.projectId,
+            saveDir: fileContext?.boardFolderUri
+              ? `${fileContext.boardFolderUri}/${BOARD_ASSETS_DIR_NAME}`
+              : undefined,
+            sourceNodeId: element.id,
+          },
+        )
+
+        // 逻辑：计算 LoadingNode 放置位置 — 源节点右侧堆叠。
+        const [loadingW, loadingH] = DEFAULT_NODE_SIZE
+        const existingOutputs = engine.doc
+          .getElements()
+          .filter((el: any) => el.kind === 'connector')
+          .reduce<Array<[number, number, number, number]>>((rects, connector: any) => {
+            if (
+              !('elementId' in connector.source) ||
+              connector.source.elementId !== element.id
+            ) {
+              return rects
+            }
+            if (!('elementId' in connector.target)) return rects
+            const targetEl = engine.doc.getElementById(connector.target.elementId)
+            if (!targetEl || targetEl.kind !== 'node') return rects
+            return [...rects, targetEl.xywh]
+          }, [])
+
+        const placement = resolveDirectionalStackPlacement(
+          element.xywh,
+          existingOutputs,
+          {
+            direction: 'right',
+            sideGap: 60,
+            stackGap: 16,
+            outputSize: [loadingW, loadingH],
+          },
+        )
+        const x = placement
+          ? placement.x
+          : element.xywh[0] + element.xywh[2] + 60
+        const y = placement ? placement.y : element.xywh[1]
+
+        const loadingNodeId = engine.addNodeElement(
+          'loading',
+          {
+            taskId: result.taskId,
+            taskType: 'image_generate',
+            sourceNodeId: element.id,
+            promptText: params.prompt,
+            chatModelId: params.modelId,
+            projectId: fileContext?.projectId ?? '',
+            saveDir: fileContext?.boardFolderUri
+              ? `${fileContext.boardFolderUri}/${BOARD_ASSETS_DIR_NAME}`
+              : '',
+          },
+          [x, y, loadingW, loadingH],
+        )
+
+        // 逻辑：创建从源节点到 LoadingNode 的连线。
+        if (loadingNodeId) {
+          engine.addConnectorElement(
+            {
+              source: { elementId: element.id },
+              target: { elementId: loadingNodeId },
+              style: engine.getConnectorStyle(),
+            },
+            { skipHistory: true, select: false },
+          )
+        }
+      } catch (error) {
+        console.error('[ImageNode] image generation failed:', error)
+      }
+    },
+    [engine, element.id, element.xywh, fileContext],
+  )
+
   /** Request opening the image preview on the canvas. */
   const requestPreview = useCallback(() => {
     const originalSrc = resolvedOriginal;
@@ -593,6 +692,7 @@ export function ImageNodeView({
             onUpdate={onUpdate}
             upstreamText={upstream?.textList.join('\n')}
             upstreamImages={upstream?.imageList}
+            onGenerate={handleGenerate}
           />
         </div>,
         panelOverlay,

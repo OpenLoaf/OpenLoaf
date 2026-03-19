@@ -39,8 +39,12 @@ import { resolveServerUrl } from "@/utils/server-url";
 import { NodeFrame } from "./NodeFrame";
 import { createPortal } from "react-dom";
 import { VideoAiPanel } from "../panels/VideoAiPanel";
+import type { VideoGenerateParams } from "../panels/VideoAiPanel";
 import { useUpstreamData } from "../hooks/useUpstreamData";
 import { usePanelOverlay } from "../render/pixi/PixiApplication";
+import { deriveNode } from "../utils/derive-node";
+import { submitVideoGenerate } from "../services/video-generate";
+import { BOARD_ASSETS_DIR_NAME } from "@/lib/file-name";
 
 export type VideoNodeProps = {
   /** Project-relative path for the video. */
@@ -186,7 +190,9 @@ function createVideoToolbarItems(ctx: CanvasToolbarContext<VideoNodeProps>) {
       label: i18next.t('board:aiToolbar.upscaleVideo'),
       icon: <ZoomIn size={14} />,
       className: BOARD_TOOLBAR_ITEM_PURPLE,
-      onSelect: () => {},
+      onSelect: () => {
+        deriveNode({ engine: ctx.engine, sourceNodeId: ctx.element.id, targetType: 'video', targetProps: { origin: 'ai-generate' } })
+      },
     },
   ];
 
@@ -542,6 +548,52 @@ export function VideoNodeView({
     };
   }, []);
 
+  const handleGenerate = useCallback(
+    async (params: VideoGenerateParams) => {
+      try {
+        const saveDir = fileContext?.boardFolderUri
+          ? `${fileContext.boardFolderUri}/${BOARD_ASSETS_DIR_NAME}`
+          : undefined
+        const result = await submitVideoGenerate(
+          {
+            prompt: params.prompt,
+            modelId: params.modelId === 'auto' ? undefined : params.modelId,
+            aspectRatio: params.aspectRatio,
+            duration: params.duration,
+            firstFrameImageSrc: params.firstFrameImageSrc,
+          },
+          {
+            projectId: fileContext?.projectId,
+            saveDir,
+            sourceNodeId: element.id,
+          },
+        )
+        const [x, y, w, h] = element.xywh
+        engine.addNodeElement(
+          'loading',
+          {
+            taskId: result.taskId,
+            taskType: 'video_generate',
+            sourceNodeId: element.id,
+            promptText: params.prompt,
+            projectId: fileContext?.projectId ?? '',
+            saveDir: saveDir ?? '',
+          },
+          [x + w + 120, y, 320, 180],
+        )
+      } catch (err) {
+        console.error('[VideoNode] submitVideoGenerate failed:', err)
+        onUpdate({
+          aiConfig: {
+            ...(element.props.aiConfig ?? { modelId: params.modelId, prompt: params.prompt }),
+            taskId: undefined,
+          },
+        })
+      }
+    },
+    [engine, element.id, element.xywh, element.props.aiConfig, fileContext, onUpdate],
+  )
+
   return (
     <NodeFrame>
       <div
@@ -665,6 +717,7 @@ export function VideoNodeView({
           <VideoAiPanel
             element={element}
             onUpdate={onUpdate}
+            onGenerate={handleGenerate}
             upstreamText={upstream?.textList.join('\n')}
             upstreamImages={upstream?.imageList}
           />

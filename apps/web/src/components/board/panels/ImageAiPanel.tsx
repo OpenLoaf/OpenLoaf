@@ -33,11 +33,24 @@ const MODEL_OPTIONS = [
   { id: 'midjourney-v6', label: 'Midjourney v6' },
 ] as const
 
+/** Parameters passed to the onGenerate callback. */
+export type ImageGenerateParams = {
+  prompt: string
+  negativePrompt?: string
+  modelId: string
+  aspectRatio: string
+  resolution: string
+  mode: GenerateMode
+  referenceImageSrc?: string
+}
+
 export type ImageAiPanelProps = {
   element: CanvasNodeElement<ImageNodeProps>
   onUpdate: (patch: Partial<ImageNodeProps>) => void
   upstreamText?: string
   upstreamImages?: string[]
+  /** Callback to trigger actual image generation via LoadingNode. */
+  onGenerate?: (params: ImageGenerateParams) => void
 }
 
 /** AI image generation parameter panel displayed below image nodes. */
@@ -46,6 +59,7 @@ export function ImageAiPanel({
   onUpdate,
   upstreamText,
   upstreamImages,
+  onGenerate,
 }: ImageAiPanelProps) {
   const { t } = useTranslation('board')
   const aiConfig = element.props.aiConfig
@@ -74,10 +88,23 @@ export function ImageAiPanel({
       origin: 'ai-generate',
       aiConfig: config,
     })
-    // TODO: wire up actual generation API call
-    // For now just persist the config. Generation integration comes in a later phase.
-    setTimeout(() => setIsGenerating(false), 300)
-  }, [isGenerating, modelId, prompt, aspectRatio, onUpdate])
+
+    if (onGenerate) {
+      const params: ImageGenerateParams = {
+        prompt,
+        modelId,
+        aspectRatio: aspectRatio ?? '1:1',
+        resolution,
+        mode,
+        referenceImageSrc:
+          mode === 'img2img' ? upstreamImages?.[0] : undefined,
+      }
+      onGenerate(params)
+    }
+    // 逻辑：isGenerating 状态由外部 LoadingNode 接管后不再需要客户端重置，
+    // 但仍设置一个短超时以防 onGenerate 未提供时 UI 不会卡住。
+    setTimeout(() => setIsGenerating(false), 600)
+  }, [isGenerating, modelId, prompt, aspectRatio, resolution, mode, upstreamImages, onUpdate, onGenerate])
 
   return (
     <div className="flex w-[420px] flex-col gap-3 rounded-xl border border-border bg-card p-4 shadow-lg">

@@ -30,9 +30,18 @@ const MODEL_OPTIONS = [
   { id: 'pika-v2', label: 'Pika v2' },
 ] as const
 
+export type VideoGenerateParams = {
+  prompt: string
+  modelId: string
+  aspectRatio: string
+  duration: number
+  firstFrameImageSrc?: string
+}
+
 export type VideoAiPanelProps = {
   element: CanvasNodeElement<VideoNodeProps>
   onUpdate: (patch: Partial<VideoNodeProps>) => void
+  onGenerate?: (params: VideoGenerateParams) => void
   upstreamText?: string
   upstreamImages?: string[]
 }
@@ -41,6 +50,7 @@ export type VideoAiPanelProps = {
 export function VideoAiPanel({
   element,
   onUpdate,
+  onGenerate,
   upstreamText,
   upstreamImages,
 }: VideoAiPanelProps) {
@@ -67,10 +77,15 @@ export function VideoAiPanel({
       origin: 'ai-generate',
       aiConfig: config,
     })
-    // TODO: wire up actual video generation API call
-    // For now just persist the config. Generation integration comes in a later phase.
+
+    const firstFrameImageSrc = upstreamImages?.[0]
+    if (onGenerate) {
+      onGenerate({ prompt, modelId, aspectRatio: aspectRatio ?? '16:9', duration, firstFrameImageSrc })
+    }
+
+    // Reset generating state after a short delay (actual task tracking is done by LoadingNode).
     setTimeout(() => setIsGenerating(false), 300)
-  }, [isGenerating, modelId, prompt, aspectRatio, onUpdate])
+  }, [isGenerating, modelId, prompt, aspectRatio, duration, upstreamImages, onUpdate, onGenerate])
 
   const hasUpstreamImages = upstreamImages && upstreamImages.length > 0
 
