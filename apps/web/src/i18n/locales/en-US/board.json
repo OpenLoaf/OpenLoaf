@@ -562,5 +562,32 @@
     "toolbar": {
       "color": "Color"
     }
+  },
+  "videoPanel": {
+    "prompt": "Prompt",
+    "promptPlaceholder": "Describe video content and camera movements...",
+    "firstFrame": "First Frame",
+    "firstFrameAuto": "Auto-read from upstream node",
+    "firstFrameUpload": "Click to upload",
+    "model": "Model",
+    "autoRecommend": "Auto Recommend",
+    "aspectRatio": "Aspect Ratio",
+    "duration": "Duration",
+    "generate": "Generate",
+    "generating": "Generating..."
+  },
+  "imagePanel": {
+    "textToImage": "Text to Image",
+    "imageToImage": "Image to Image",
+    "prompt": "Prompt",
+    "promptPlaceholder": "Describe the image you want...",
+    "model": "Model",
+    "autoRecommend": "Auto Recommend",
+    "aspectRatio": "Aspect Ratio",
+    "resolution": "Resolution",
+    "advancedSettings": "Advanced Settings",
+    "advancedSettingsPlaceholder": "More settings coming soon...",
+    "generate": "Generate",
+    "generating": "Generating..."
   }
 }

@@ -562,5 +562,32 @@
     "toolbar": {
       "color": "顏色"
     }
+  },
+  "videoPanel": {
+    "prompt": "提示詞",
+    "promptPlaceholder": "描述視訊內容和運鏡效果...",
+    "firstFrame": "首幀圖片",
+    "firstFrameAuto": "從上游節點自動讀取",
+    "firstFrameUpload": "點擊上傳",
+    "model": "模型",
+    "autoRecommend": "自動推薦",
+    "aspectRatio": "比例",
+    "duration": "時長",
+    "generate": "生成",
+    "generating": "生成中..."
+  },
+  "imagePanel": {
+    "textToImage": "文生圖",
+    "imageToImage": "圖生圖",
+    "prompt": "提示詞",
+    "promptPlaceholder": "描述你想要的畫面...",
+    "model": "模型",
+    "autoRecommend": "自動推薦",
+    "aspectRatio": "比例",
+    "resolution": "解析度",
+    "advancedSettings": "進階設定",
+    "advancedSettingsPlaceholder": "更多參數設定即將推出...",
+    "generate": "生成",
+    "generating": "生成中..."
   }
 }

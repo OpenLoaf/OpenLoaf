@@ -566,5 +566,32 @@
     "toolbar": {
       "color": "颜色"
     }
+  },
+  "videoPanel": {
+    "prompt": "提示词",
+    "promptPlaceholder": "描述视频内容和运镜效果...",
+    "firstFrame": "首帧图片",
+    "firstFrameAuto": "从上游节点自动读取",
+    "firstFrameUpload": "点击上传",
+    "model": "模型",
+    "autoRecommend": "自动推荐",
+    "aspectRatio": "比例",
+    "duration": "时长",
+    "generate": "生成",
+    "generating": "生成中..."
+  },
+  "imagePanel": {
+    "textToImage": "文生图",
+    "imageToImage": "图生图",
+    "prompt": "提示词",
+    "promptPlaceholder": "描述你想要的画面...",
+    "model": "模型",
+    "autoRecommend": "自动推荐",
+    "aspectRatio": "比例",
+    "resolution": "分辨率",
+    "advancedSettings": "高级设置",
+    "advancedSettingsPlaceholder": "更多参数设置即将推出...",
+    "generate": "生成",
+    "generating": "生成中..."
   }
 }

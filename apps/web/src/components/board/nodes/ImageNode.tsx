@@ -43,6 +43,7 @@ import {
   BOARD_TOOLBAR_ITEM_BLUE,
   BOARD_TOOLBAR_ITEM_GREEN,
 } from "../ui/board-style-system";
+import { ImageAiPanel } from "../panels/ImageAiPanel";
 
 /** Max bytes for image node preview fetches. */
 const IMAGE_NODE_PREVIEW_MAX_BYTES = 100 * 1024;
@@ -188,6 +189,8 @@ function createImageToolbarItems(ctx: CanvasToolbarContext<ImageNodeProps>) {
 export function ImageNodeView({
   element,
   selected,
+  expanded,
+  onUpdate,
 }: CanvasNodeViewProps<ImageNodeProps>) {
   /** Guard against repeated hydration requests. */
   const hydrationRef = useRef<string | null>(null);
@@ -510,6 +513,21 @@ export function ImageNodeView({
           />
         </div>
       ) : null}
+      {expanded ? (
+        <div
+          className="absolute left-0 top-full mt-2 z-10"
+          data-board-editor
+          onPointerDown={event => {
+            // 逻辑：阻止画布接管面板区域的拖拽与选择。
+            event.stopPropagation();
+          }}
+        >
+          <ImageAiPanel
+            element={element}
+            onUpdate={onUpdate}
+          />
+        </div>
+      ) : null}
       <ProjectFilePickerDialog
         open={replacePickerOpen}
         onOpenChange={setReplacePickerOpen}
@@ -580,6 +598,7 @@ export const ImageNodeDefinition: CanvasNodeDefinition<ImageNodeProps> = {
     minSize: IMAGE_NODE_MIN_SIZE,
     maxSize: IMAGE_NODE_MAX_SIZE,
   },
+  inlinePanel: { width: 420, height: 480 },
   connectorTemplates: () => [],
   toolbar: () => [],
 };

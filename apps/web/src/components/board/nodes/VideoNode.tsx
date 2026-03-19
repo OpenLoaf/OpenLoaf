@@ -35,6 +35,7 @@ import {
 } from "../core/boardFilePath";
 import { resolveServerUrl } from "@/utils/server-url";
 import { NodeFrame } from "./NodeFrame";
+import { VideoAiPanel } from "../panels/VideoAiPanel";
 
 export type VideoNodeProps = {
   /** Project-relative path for the video. */
@@ -275,6 +276,7 @@ function buildHlsQualityUrl(
 /** Render a video node card with inline HLS playback. */
 export function VideoNodeView({
   element,
+  expanded,
   onUpdate,
 }: CanvasNodeViewProps<VideoNodeProps>) {
   const { fileContext } = useBoardContext();
@@ -557,6 +559,21 @@ export function VideoNodeView({
           </div>
         )}
       </div>
+      {expanded ? (
+        <div
+          className="absolute left-0 top-full mt-2 z-10"
+          data-board-editor
+          onPointerDown={event => {
+            // 逻辑：阻止画布接管面板区域的拖拽与选择。
+            event.stopPropagation();
+          }}
+        >
+          <VideoAiPanel
+            element={element}
+            onUpdate={onUpdate}
+          />
+        </div>
+      ) : null}
     </NodeFrame>
   );
 }
@@ -599,6 +616,7 @@ export const VideoNodeDefinition: CanvasNodeDefinition<VideoNodeProps> = {
     minSize: { w: 200, h: 112 },
     maxSize: { w: 1280, h: 720 },
   },
+  inlinePanel: { width: 420, height: 360 },
   connectorTemplates: () => [],
   toolbar: (ctx) => createVideoToolbarItems(ctx),
 };
