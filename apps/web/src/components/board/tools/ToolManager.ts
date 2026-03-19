@@ -12,6 +12,7 @@ import type { CanvasPoint } from "../engine/types";
 import { DEFAULT_NODE_SIZE } from "../engine/constants";
 import { isBoardUiTarget } from "../utils/dom";
 import { IMAGE_NODE_STACK_OFFSET } from "../utils/image-insert";
+import { PlacementTool } from "./PlacementTool";
 
 type PendingInsertStackItem = {
   type: string;
@@ -21,8 +22,13 @@ type PendingInsertStackItem = {
 
 /** Tool switch shortcuts keyed by lowercase key. */
 const TOOL_SHORTCUTS: Record<string, string> = {
+  v: "select",
   a: "select",
+  h: "hand",
   w: "hand",
+  t: "text",
+  n: "sticky",
+  r: "shape",
   p: "pen",
   k: "highlighter",
   e: "eraser",
@@ -61,6 +67,11 @@ export class ToolManager {
       throw new Error(`Unknown tool: ${toolId}`);
     }
     this.activeToolId = toolId;
+    // Activate PlacementTool instances to set pending insert.
+    const tool = this.tools.get(toolId);
+    if (tool instanceof PlacementTool) {
+      tool.activate(this.engine);
+    }
   }
 
   /** Return the current active tool id. */
@@ -303,7 +314,7 @@ export class ToolManager {
     const key = event.key.toLowerCase();
     const toolId = TOOL_SHORTCUTS[key];
     if (!toolId) return false;
-    const isLockedTool = toolId === "pen" || toolId === "highlighter" || toolId === "eraser";
+    const isLockedTool = toolId === "pen" || toolId === "highlighter" || toolId === "eraser" || toolId === "text" || toolId === "sticky" || toolId === "shape";
     if (this.engine.isLocked() && isLockedTool) {
       event.preventDefault();
       return true;

@@ -15,6 +15,7 @@ import { GroupNodeDefinition, ImageGroupNodeDefinition } from "../nodes/GroupNod
 import { ImageNodeDefinition } from "../nodes/ImageNode";
 import { VideoNodeDefinition } from "../nodes/VideoNode";
 import { LinkNodeDefinition } from "../nodes/LinkNode";
+import { ShapeNodeDefinition } from "../nodes/ShapeNode";
 import { StrokeNodeDefinition } from "../nodes/StrokeNode";
 import { TextNodeDefinition } from "../nodes/TextNode";
 import { LoadingNodeDefinition } from "../nodes/LoadingNode";
@@ -29,6 +30,7 @@ export const BOARD_NODE_DEFINITIONS = [
   LinkNodeDefinition,
   StrokeNodeDefinition,
   TextNodeDefinition,
+  ShapeNodeDefinition,
   LoadingNodeDefinition,
   GroupNodeDefinition,
   ImageGroupNodeDefinition,

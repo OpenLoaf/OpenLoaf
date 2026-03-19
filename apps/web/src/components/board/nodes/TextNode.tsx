@@ -68,6 +68,22 @@ export type TextNodeValue = string | Value;
 /** Supported text alignment for text nodes. */
 export type TextNodeTextAlign = "left" | "center" | "right";
 
+/** Visual style variant for text nodes. */
+export type TextNodeStyle = "plain" | "sticky";
+
+/** Preset sticky note colors. */
+export type StickyColor = "yellow" | "blue" | "green" | "pink" | "purple" | "orange";
+
+/** Sticky note color definitions (light + dark background/text). */
+export const STICKY_COLORS: Record<StickyColor, { bg: string; darkBg: string }> = {
+  yellow:  { bg: "bg-amber-100",  darkBg: "dark:bg-amber-900/60" },
+  blue:    { bg: "bg-blue-100",   darkBg: "dark:bg-blue-900/60" },
+  green:   { bg: "bg-emerald-100", darkBg: "dark:bg-emerald-900/60" },
+  pink:    { bg: "bg-pink-100",   darkBg: "dark:bg-pink-900/60" },
+  purple:  { bg: "bg-purple-100", darkBg: "dark:bg-purple-900/60" },
+  orange:  { bg: "bg-orange-100", darkBg: "dark:bg-orange-900/60" },
+};
+
 export type TextNodeProps = {
   /** Text content stored on the node. */
   value: TextNodeValue;
@@ -93,6 +109,10 @@ export type TextNodeProps = {
   readOnlyProjection?: boolean;
   /** Markdown text shown in read-only chat projection mode. */
   markdownText?: string;
+  /** Visual style variant: 'plain' (default) or 'sticky' (colored note). */
+  style?: TextNodeStyle;
+  /** Sticky note color preset. Only used when style is 'sticky'. */
+  stickyColor?: StickyColor;
 };
 
 // ---------------------------------------------------------------------------
@@ -1080,13 +1100,28 @@ function EditableTextNodeView({
 
   // ---- Render ----
 
-  const containerStyle = backgroundColor ? { backgroundColor } : undefined;
-  const defaultBg = backgroundColor ? "" : "bg-ol-surface-muted";
+  const isSticky = element.props.style === "sticky";
+  const stickyColorDef = isSticky
+    ? STICKY_COLORS[element.props.stickyColor ?? "yellow"]
+    : null;
+
+  const containerStyle = backgroundColor && !isSticky ? { backgroundColor } : undefined;
+  const defaultBg = isSticky
+    ? ""
+    : backgroundColor
+      ? ""
+      : "bg-ol-surface-muted";
+  const stickyBg = stickyColorDef
+    ? `${stickyColorDef.bg} ${stickyColorDef.darkBg}`
+    : "";
   const containerClasses = [
-    "relative h-full w-full box-border rounded-lg p-2.5",
-    isEditing && !backgroundColor
-      ? "bg-background"
-      : defaultBg,
+    "relative h-full w-full box-border p-2.5",
+    isSticky ? "rounded-sm shadow-sm" : "rounded-lg",
+    isSticky
+      ? stickyBg
+      : isEditing && !backgroundColor
+        ? "bg-background"
+        : defaultBg,
     "text-ol-text-primary",
     "overflow-y-auto board-text-scrollbar",
     isEditing ? "cursor-text" : "cursor-default",
@@ -1194,6 +1229,8 @@ export const TextNodeDefinition: CanvasNodeDefinition<TextNodeProps> = {
     backgroundColor: z.string().optional(),
     readOnlyProjection: z.boolean().optional(),
     markdownText: z.string().optional(),
+    style: z.enum(["plain", "sticky"]).optional(),
+    stickyColor: z.enum(["yellow", "blue", "green", "pink", "purple", "orange"]).optional(),
   }) as z.ZodType<TextNodeProps>,
   defaultProps: {
     value: DEFAULT_TEXT_VALUE,

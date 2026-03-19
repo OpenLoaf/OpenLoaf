@@ -550,5 +550,10 @@
   "fallbackNode": {
     "deprecated": "此节点类型 ({{type}}) 已停用",
     "delete": "删除"
+  },
+  "shapeNode": {
+    "toolbar": {
+      "color": "颜色"
+    }
   }
 }

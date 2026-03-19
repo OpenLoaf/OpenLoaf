@@ -546,5 +546,10 @@
   "fallbackNode": {
     "deprecated": "This node type ({{type}}) has been deprecated",
     "delete": "Delete"
+  },
+  "shapeNode": {
+    "toolbar": {
+      "color": "Color"
+    }
   }
 }
