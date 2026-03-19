@@ -43,7 +43,6 @@ import {
   jsReplToolDef,
   jsReplResetToolDef,
 } from "./runtime";
-import { timeNowToolDef } from "./system";
 import { requestUserInputToolDef } from "./userInput";
 import { jsxCreateToolDef } from "./jsxCreate";
 import { chartRenderToolDef } from "./chart";
@@ -126,7 +125,6 @@ const TOOL_DEFS: ToolDefLike[] = [
   abortAgentToolDef,
   jsReplToolDef,
   jsReplResetToolDef,
-  timeNowToolDef,
   updatePlanToolDef,
   requestUserInputToolDef,
   jsxCreateToolDef,

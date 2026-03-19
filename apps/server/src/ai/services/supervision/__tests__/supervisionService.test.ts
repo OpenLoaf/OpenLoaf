@@ -77,7 +77,7 @@ async function main() {
   console.log('\n--- A: Read-only tools auto-approve ---')
 
   const readOnlyTools = [
-    'read-file', 'list-dir', 'grep-files', 'time-now',
+    'read-file', 'list-dir', 'grep-files',
     'browser-snapshot', 'browser-observe', 'browser-extract',
     'project-query', 'calendar-query', 'email-query',
     'wait-agent', 'task-status',
