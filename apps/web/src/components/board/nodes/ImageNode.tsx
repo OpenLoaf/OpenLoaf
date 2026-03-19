@@ -197,6 +197,7 @@ export function ImageNodeView({
   const hydrationRef = useRef<string | null>(null);
   const { actions, engine, fileContext } = useBoardContext();
   const upstream = useUpstreamData(engine, expanded ? element.id : null);
+  const currentZoom = engine.viewport.getState().zoom;
   const previewSrc =
     element.props.previewSrc ||
     resolveImageSource(element.props.originalSrc, fileContext);
@@ -517,10 +518,15 @@ export function ImageNodeView({
       ) : null}
       {expanded ? (
         <div
-          className="absolute left-0 top-full mt-2 z-10"
+          className="absolute left-0 top-full z-10"
           data-board-editor
+          style={{
+            // 逻辑：反向缩放抵消画布 zoom，面板保持固定屏幕像素大小。
+            transform: `scale(${1 / currentZoom})`,
+            transformOrigin: 'top left',
+            marginTop: 8 / currentZoom,
+          }}
           onPointerDown={event => {
-            // 逻辑：阻止画布接管面板区域的拖拽与选择。
             event.stopPropagation();
           }}
         >

@@ -282,6 +282,7 @@ export function VideoNodeView({
 }: CanvasNodeViewProps<VideoNodeProps>) {
   const { fileContext, engine } = useBoardContext();
   const upstream = useUpstreamData(engine, expanded ? element.id : null);
+  const currentZoom = engine.viewport.getState().zoom;
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
   const [playing, setPlaying] = useState(false);
@@ -563,10 +564,14 @@ export function VideoNodeView({
       </div>
       {expanded ? (
         <div
-          className="absolute left-0 top-full mt-2 z-10"
+          className="absolute left-0 top-full z-10"
           data-board-editor
+          style={{
+            transform: `scale(${1 / currentZoom})`,
+            transformOrigin: 'top left',
+            marginTop: 8 / currentZoom,
+          }}
           onPointerDown={event => {
-            // 逻辑：阻止画布接管面板区域的拖拽与选择。
             event.stopPropagation();
           }}
         >
