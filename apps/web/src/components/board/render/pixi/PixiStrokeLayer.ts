@@ -34,8 +34,6 @@ export class PixiStrokeLayer {
   private theme: PixiThemeResolver
   private strokes = new Map<string, StrokeState>()
   private lastRevision = -1
-  private pendingFilterDestroy = new Set<AlphaFilter>()
-  private pendingFilterDestroyFrame: number | null = null
   private destroyed = false
 
   constructor(
@@ -195,45 +193,30 @@ export class PixiStrokeLayer {
     }
   }
 
-  /** Detach and release a stroke filter after the current frame finishes. */
+  /**
+   * Detach a filter from a Graphics without calling filter.destroy().
+   *
+   * 不能显式 destroy AlphaFilter：PixiJS v8 的 FilterSystem 持有一个共享的
+   * _globalFilterBindGroup 单例。filter.destroy() 会销毁内部 texture，
+   * texture 的 "change" 事件传播到 BindGroup.onResourceChange，
+   * 如果 resource.destroyed === true 则触发 BindGroup.destroy()，
+   * 将 resources 置为 null，导致后续所有 filter 渲染崩溃
+   * (BindGroup.setResource → "Cannot read properties of null (reading '2')").
+   *
+   * 正确做法：仅从 Graphics 上解绑 filter，让 JS GC 自然回收实例。
+   */
   private releaseFilter(
     filter: AlphaFilter | null,
     target: Graphics,
   ): void {
     target.filters = []
-    if (!filter) return
-
-    // 逻辑：先从 Graphics 上解绑 filter，再延后一帧销毁。
-    // 这样可以避开 PixiJS 当前帧仍在消费旧 filter 资源时的 BindGroup 空引用崩溃。
-    this.pendingFilterDestroy.add(filter)
-    if (this.pendingFilterDestroyFrame !== null || typeof window === 'undefined') {
-      if (typeof window === 'undefined') {
-        this.flushPendingFilterDestroy()
-      }
-      return
-    }
-
-    this.pendingFilterDestroyFrame = window.requestAnimationFrame(() => {
-      this.pendingFilterDestroyFrame = null
-      this.flushPendingFilterDestroy()
-    })
+    // 不显式 destroy filter，让 GC 回收
   }
 
   /** Detach any filter from a stroke state before removing its graphics. */
   private detachFilter(state: StrokeState): void {
-    const filter = state.alphaFilter
     state.alphaFilter = null
-    this.releaseFilter(filter, state.graphics)
-  }
-
-  /** Destroy all deferred filters immediately. */
-  private flushPendingFilterDestroy(): void {
-    if (this.pendingFilterDestroy.size === 0) return
-
-    for (const filter of this.pendingFilterDestroy) {
-      filter.destroy()
-    }
-    this.pendingFilterDestroy.clear()
+    state.graphics.filters = []
   }
 
   /** 应用节点位置和旋转 */
@@ -311,15 +294,10 @@ export class PixiStrokeLayer {
 
   destroy(): void {
     this.destroyed = true
-    if (this.pendingFilterDestroyFrame !== null && typeof window !== 'undefined') {
-      window.cancelAnimationFrame(this.pendingFilterDestroyFrame)
-      this.pendingFilterDestroyFrame = null
-    }
     for (const [, state] of this.strokes) {
       this.detachFilter(state)
       state.graphics.destroy()
     }
     this.strokes.clear()
-    this.flushPendingFilterDestroy()
   }
 }
