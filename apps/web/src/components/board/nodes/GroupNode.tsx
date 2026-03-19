@@ -13,8 +13,9 @@ import type {
   CanvasNodeViewProps,
 } from "../engine/types";
 import { z } from "zod";
-import { Layers, LayoutGrid, LogIn, Maximize2 } from "lucide-react";
+import { Film, Layers, LayoutGrid, LogIn, Maximize2 } from "lucide-react";
 import { cn } from "@udecode/cn";
+import { useCallback, useEffect, useRef, useState } from "react";
 import i18next from "i18next";
 import {
   BOARD_GENERATE_NODE_BASE_IMAGE,
@@ -38,13 +39,124 @@ export type GroupNodeProps = {
   title?: string;
 };
 
-/** Render a transparent group container. */
-function GroupNodeView(_props: CanvasNodeViewProps<GroupNodeProps>) {
+/** Render a transparent group container with optional title bar. */
+function GroupNodeView({ element, onUpdate }: CanvasNodeViewProps<GroupNodeProps>) {
+  const t = (k: string) => i18next.t(k);
+  const { title, groupRole } = element.props;
+  const isStoryboard = groupRole === 'storyboard';
+  const showTitleBar = title != null || isStoryboard;
+
+  /* ── Title editing state ── */
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [draft, setDraft] = useState(title ?? '');
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  // Sync draft when external title changes while not editing
+  useEffect(() => {
+    if (!editingTitle) {
+      setDraft(title ?? '');
+    }
+  }, [title, editingTitle]);
+
+  // Focus input when entering edit mode
+  useEffect(() => {
+    if (editingTitle) {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }
+  }, [editingTitle]);
+
+  const commitTitle = useCallback(() => {
+    setEditingTitle(false);
+    const trimmed = draft.trim();
+    if (trimmed !== (title ?? '')) {
+      onUpdate({ title: trimmed || undefined } as Partial<GroupNodeProps>);
+    }
+  }, [draft, title, onUpdate]);
+
+  const handleDoubleClick = useCallback(() => {
+    setEditingTitle(true);
+  }, []);
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        commitTitle();
+      } else if (e.key === 'Escape') {
+        setEditingTitle(false);
+        setDraft(title ?? '');
+      }
+    },
+    [commitTitle, title],
+  );
+
+  const borderColor = isStoryboard
+    ? 'border-ol-purple/40'
+    : 'border-border/60';
+  const titleBg = isStoryboard
+    ? 'bg-ol-purple/5'
+    : 'bg-muted/30';
+  const titleText = isStoryboard
+    ? 'text-ol-purple'
+    : 'text-muted-foreground';
+
   return (
     <NodeFrame>
       <div
-        className="pointer-events-none absolute inset-0 rounded-lg border border-border/60"
+        className={cn(
+          'pointer-events-none absolute inset-0 rounded-lg border',
+          borderColor,
+        )}
       />
+
+      {showTitleBar && (
+        <div
+          className={cn(
+            'pointer-events-auto absolute inset-x-0 top-0 flex h-8 items-center gap-1.5 rounded-t-lg border-b px-2',
+            borderColor,
+            titleBg,
+          )}
+          onDoubleClick={handleDoubleClick}
+        >
+          {isStoryboard && (
+            <Film size={12} className={cn('shrink-0', titleText)} />
+          )}
+
+          {editingTitle ? (
+            <input
+              ref={inputRef}
+              className={cn(
+                'h-5 flex-1 rounded border-none bg-transparent px-0.5 text-xs outline-none focus:ring-1 focus:ring-ol-purple/40',
+                titleText,
+              )}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onBlur={commitTitle}
+              onKeyDown={handleKeyDown}
+              placeholder={
+                isStoryboard
+                  ? t('board:groupNode.storyboard')
+                  : t('board:groupNode.untitled')
+              }
+            />
+          ) : (
+            <span
+              className={cn(
+                'truncate text-xs select-none',
+                titleText,
+                !title && 'opacity-50',
+              )}
+              title={t('board:groupNode.editTitle')}
+            >
+              {title ||
+                (isStoryboard
+                  ? t('board:groupNode.storyboard')
+                  : t('board:groupNode.untitled'))}
+            </span>
+          )}
+        </div>
+      )}
     </NodeFrame>
   );
 }

@@ -96,26 +96,14 @@
     "fileHint": "支持所有文件类型"
   },
   "emptyGuide": {
-    "heading": "从模板开始创作",
-    "subheading": "选择一个模板，点击画布放置",
-    "tpl": {
-      "imageGen": {
-        "label": "AI 图片生成",
-        "desc": "输入提示词，AI 生成图片"
-      },
-      "imagePrompt": {
-        "label": "AI 图片理解",
-        "desc": "上传图片，AI 分析内容"
-      },
-      "videoGen": {
-        "label": "AI 视频生成",
-        "desc": "AI 生成短视频片段"
-      },
-      "text": {
-        "label": "文本笔记",
-        "desc": "添加文字到画布"
-      }
-    }
+    "title": "开始创作",
+    "subtitle": "选择一个方式开始",
+    "createSticky": "创建便签",
+    "aiImage": "AI 图片",
+    "aiVideo": "AI 视频",
+    "importFile": "导入文件",
+    "hint": "双击空白处也可以创建文本",
+    "shortcuts": "快捷键: V 选择 · H 拖拽 · T 文本 · C 连线"
   },
   "contextMenu": {
     "exitFullscreen": "退出全屏",
@@ -236,6 +224,9 @@
     "dissolve": "解散",
     "uniformSize": "统一大小",
     "enter": "进入",
+    "untitled": "未命名分组",
+    "storyboard": "分镜",
+    "editTitle": "编辑标题",
     "groupDialog": {
       "title": "组成员",
       "editTitle": "编辑组",
@@ -412,6 +403,7 @@
   "videoNode": {
     "toolbar": {
       "play": "播放",
+      "download": "下载",
       "trim": "剪辑",
       "exportClip": "导出片段",
       "detail": "详情"

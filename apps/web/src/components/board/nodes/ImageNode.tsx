@@ -496,6 +496,8 @@ export function ImageNodeView({
         }}
         onDoubleClick={event => {
           event.stopPropagation();
+          // 逻辑：展开态不触发预览，因为此时双击可能是编辑面板内的操作。
+          if (expanded) return;
           if (isImageError || (!hasPreview && !isPreviewLoading && !isTranscoding)) {
             requestReplaceImage();
           } else {

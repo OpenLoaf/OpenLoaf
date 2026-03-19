@@ -9,17 +9,19 @@
  */
 "use client";
 
-import { memo, useCallback, useMemo } from "react";
-import type { ComponentType } from "react";
-import type { IconProps } from "@phosphor-icons/react";
+import { memo, useCallback } from "react";
 import {
-  TextAa as PhTextAa,
-} from "@phosphor-icons/react";
+  StickyNote,
+  ImagePlus,
+  Video,
+  FolderOpen,
+} from "lucide-react";
 import { cn } from "@udecode/cn";
 import { useTranslation } from "react-i18next";
 
 import type { CanvasEngine } from "../engine/CanvasEngine";
-import { TEXT_NODE_DEFAULT_HEIGHT } from "../nodes/TextNode";
+import { DEFAULT_NODE_SIZE } from "../engine/constants";
+import { toolbarSurfaceClassName } from "../ui/ToolbarParts";
 import {
   BOARD_TEXT_PRIMARY,
   BOARD_TEXT_AUXILIARY,
@@ -31,30 +33,12 @@ interface BoardEmptyGuideProps {
   activeToolId: string | null;
 }
 
-type TemplateItem = {
-  id: string;
-  icon: ComponentType<IconProps>;
-  label: string;
-  desc: string;
-  /** Semantic dot class for the accent indicator. */
-  dotClass: string;
-  /** Background tint for the card. */
-  bgClass: string;
-  /** Border tint on hover. */
-  hoverBorderClass: string;
-  /** Icon color class. */
-  iconClass: string;
-  /** Node type to insert, or null for special actions. */
-  nodeType: string;
-  /** Default node size [w, h]. */
-  size: [number, number];
-};
-
 /**
  * Empty canvas guide overlay.
  *
- * Shows inline toolbar annotations and a central template selector
- * when the canvas has no elements.
+ * Shows a centered card with quick-action buttons, a hint and
+ * keyboard shortcuts when the canvas has no elements.
+ * Automatically fades when the user starts creating / panning.
  */
 const BoardEmptyGuide = memo(function BoardEmptyGuide({
   engine,
@@ -64,35 +48,113 @@ const BoardEmptyGuide = memo(function BoardEmptyGuide({
   const { t } = useTranslation('board');
   const isSelectTool = activeToolId === "select";
 
-  const templates = useMemo<TemplateItem[]>(() => [
-    {
-      id: 'tpl-text',
-      icon: PhTextAa,
-      label: t('emptyGuide.tpl.text.label'),
-      desc: t('emptyGuide.tpl.text.desc'),
-      dotClass: 'bg-ol-text-primary',
-      bgClass: 'bg-ol-surface-muted/60',
-      hoverBorderClass: 'hover:border-ol-text-auxiliary/40',
-      iconClass: 'text-ol-text-auxiliary',
-      nodeType: 'text',
-      size: [280, TEXT_NODE_DEFAULT_HEIGHT],
-    },
-  ], [t]);
+  /** Create a sticky note at the viewport center. */
+  const handleCreateSticky = useCallback(() => {
+    engine.getContainer()?.focus();
+    const center = engine.getViewportCenterWorld();
+    const w = 200;
+    const h = 200;
+    engine.addNodeElement(
+      "text",
+      { style: "sticky", stickyColor: "yellow", autoFocus: true },
+      [center[0] - w / 2, center[1] - h / 2, w, h],
+    );
+  }, [engine]);
 
-  const handleTemplate = useCallback(
-    (tpl: TemplateItem) => {
-      engine.getContainer()?.focus();
-      const [w, h] = tpl.size;
-      const center = engine.getViewportCenterWorld();
-      engine.addNodeElement(tpl.nodeType, {}, [
-        center[0] - w / 2,
-        center[1] - h / 2,
-        w,
-        h,
-      ]);
+  /** Create an AI image generation node at the viewport center. */
+  const handleAiImage = useCallback(() => {
+    engine.getContainer()?.focus();
+    const viewport = engine.viewport.getState();
+    const centerWorld = engine.screenToWorld([
+      viewport.size[0] / 2,
+      viewport.size[1] / 2,
+    ]);
+    const [w, h] = DEFAULT_NODE_SIZE;
+    const nodeId = engine.addNodeElement(
+      "image",
+      {
+        previewSrc: "",
+        originalSrc: "",
+        mimeType: "image/png",
+        fileName: "ai-generated.png",
+        naturalWidth: w,
+        naturalHeight: h,
+        origin: "ai-generate",
+      },
+      [centerWorld[0] - w / 2, centerWorld[1] - h / 2, w, h],
+    );
+    if (nodeId) {
+      engine.selection.setSelection([nodeId]);
+    }
+  }, [engine]);
+
+  /** Create an AI video generation node at the viewport center. */
+  const handleAiVideo = useCallback(() => {
+    engine.getContainer()?.focus();
+    const viewport = engine.viewport.getState();
+    const centerWorld = engine.screenToWorld([
+      viewport.size[0] / 2,
+      viewport.size[1] / 2,
+    ]);
+    const [w, h] = DEFAULT_NODE_SIZE;
+    const nodeId = engine.addNodeElement(
+      "video",
+      {
+        sourcePath: "",
+        fileName: "ai-generated.mp4",
+        origin: "ai-generate",
+      },
+      [centerWorld[0] - w / 2, centerWorld[1] - h / 2, w, h],
+    );
+    if (nodeId) {
+      engine.selection.setSelection([nodeId]);
+    }
+  }, [engine]);
+
+  /** Open the project file picker via custom event. */
+  const handleImportFile = useCallback(() => {
+    engine.getContainer()?.focus();
+    const container = engine.getContainer();
+    if (!container) return;
+    container.dispatchEvent(
+      new CustomEvent("openloaf:board-open-file-picker", { bubbles: true }),
+    );
+  }, [engine]);
+
+  const actions = [
+    {
+      id: "sticky",
+      icon: StickyNote,
+      label: t("emptyGuide.createSticky"),
+      iconClass: "text-ol-amber",
+      bgClass: "bg-ol-amber-bg hover:bg-ol-amber-bg-hover",
+      handler: handleCreateSticky,
     },
-    [engine],
-  );
+    {
+      id: "ai-image",
+      icon: ImagePlus,
+      label: t("emptyGuide.aiImage"),
+      iconClass: "text-ol-blue",
+      bgClass: "bg-ol-blue-bg hover:bg-ol-blue-bg-hover",
+      handler: handleAiImage,
+    },
+    {
+      id: "ai-video",
+      icon: Video,
+      label: t("emptyGuide.aiVideo"),
+      iconClass: "text-ol-purple",
+      bgClass: "bg-ol-purple-bg hover:bg-ol-purple-bg-hover",
+      handler: handleAiVideo,
+    },
+    {
+      id: "import-file",
+      icon: FolderOpen,
+      label: t("emptyGuide.importFile"),
+      iconClass: "text-ol-green",
+      bgClass: "bg-ol-green-bg hover:bg-ol-green-bg-hover",
+      handler: handleImportFile,
+    },
+  ] as const;
 
   return (
     <div
@@ -101,78 +163,94 @@ const BoardEmptyGuide = memo(function BoardEmptyGuide({
         visible ? (isSelectTool ? "opacity-100" : "opacity-30") : "opacity-0 invisible",
       )}
     >
-      {/* ── Center: template selector ── */}
-      <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center -mt-28">
-        {/* Heading */}
-        <div className="flex flex-col items-center gap-1.5 select-none mb-6">
-          <img
-            src="/logo_nobody.png"
-            alt="OpenLoaf"
-            className="mb-2 h-24 w-24"
-          />
-          <p className={cn(BOARD_TEXT_PRIMARY, "text-2xl font-medium")}>
-            {t('emptyGuide.heading')}
-          </p>
-          <p className={cn(BOARD_TEXT_AUXILIARY, "text-sm")}>
-            {t('emptyGuide.subheading')}
-          </p>
-        </div>
-
-        {/* Template cards grid */}
+      {/* ── Center card ── */}
+      <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center -mt-16">
+        {/* Card container */}
         <div
           data-canvas-toolbar
           onPointerDown={(e) => e.stopPropagation()}
           className={cn(
-            "flex w-[50%] justify-center gap-[2%]",
+            "flex flex-col items-center gap-5 rounded-2xl px-10 py-8",
+            toolbarSurfaceClassName,
             isSelectTool ? "pointer-events-auto" : "pointer-events-none",
           )}
         >
-            {templates.map((tpl) => {
-              const Icon = tpl.icon;
+          {/* Logo + heading */}
+          <div className="flex flex-col items-center gap-1.5 select-none">
+            <img
+              src="/logo_nobody.png"
+              alt="OpenLoaf"
+              className="mb-1 h-16 w-16"
+            />
+            <p className={cn(BOARD_TEXT_PRIMARY, "text-xl font-semibold")}>
+              {t("emptyGuide.title")}
+            </p>
+            <p className={cn(BOARD_TEXT_AUXILIARY, "text-xs")}>
+              {t("emptyGuide.subtitle")}
+            </p>
+          </div>
+
+          {/* Quick action buttons row */}
+          <div className="flex items-center gap-3">
+            {actions.map((action) => {
+              const Icon = action.icon;
               return (
                 <button
-                  key={tpl.id}
+                  key={action.id}
                   type="button"
-                  onPointerDown={() => handleTemplate(tpl)}
+                  onPointerDown={(e) => {
+                    e.stopPropagation();
+                    action.handler();
+                  }}
                   className={cn(
-                    "group flex w-full flex-col items-center gap-3 rounded-lg border border-transparent px-[8%] py-[16%]",
-                    "transition-all duration-150 cursor-pointer select-none",
-                    tpl.bgClass,
-                    tpl.hoverBorderClass,
-                    "hover:shadow-sm",
+                    "flex items-center gap-2 rounded-full px-4 py-2",
+                    "text-sm font-medium select-none cursor-pointer",
+                    "transition-colors duration-150",
+                    action.bgClass,
                   )}
                 >
-                  <div className="relative">
-                    <Icon
-                      size={40}
-                      weight="duotone"
-                      className={cn(
-                        tpl.iconClass,
-                        "transition-transform duration-150 group-hover:scale-110",
-                      )}
-                    />
-                  </div>
-                  <div className="flex flex-col items-center gap-1">
-                    <span
-                      className={cn(
-                        BOARD_TEXT_PRIMARY,
-                        "text-sm font-medium whitespace-nowrap",
-                      )}
-                    >
-                      {tpl.label}
-                    </span>
-                    <span
-                      className={cn(
-                        BOARD_TEXT_AUXILIARY,
-                        "text-xs leading-tight text-center",
-                      )}
-                    >
-                      {tpl.desc}
-                    </span>
-                  </div>
+                  <Icon size={16} className={action.iconClass} />
+                  <span className={action.iconClass}>{action.label}</span>
                 </button>
               );
             })}
+          </div>
+
+          {/* Hint text */}
+          <p className={cn(BOARD_TEXT_AUXILIARY, "text-xs select-none")}>
+            {t("emptyGuide.hint")}
+          </p>
+
+          {/* Keyboard shortcuts */}
+          <div className="flex items-center gap-2 select-none">
+            {[
+              { key: "V", label: t("tools.select") },
+              { key: "H", label: t("tools.hand") },
+              { key: "T", label: t("insertTools.text") },
+              { key: "C", label: t("tools.connector") },
+            ].map((shortcut, i) => (
+              <span key={shortcut.key} className="flex items-center gap-1">
+                {i > 0 && (
+                  <span className={cn(BOARD_TEXT_AUXILIARY, "text-xs mx-0.5")}>
+                    ·
+                  </span>
+                )}
+                <kbd
+                  className={cn(
+                    "inline-flex h-5 min-w-5 items-center justify-center rounded px-1",
+                    "text-[10px] font-mono font-medium",
+                    "bg-foreground/8 text-ol-text-secondary",
+                    "dark:bg-foreground/12",
+                  )}
+                >
+                  {shortcut.key}
+                </kbd>
+                <span className={cn(BOARD_TEXT_AUXILIARY, "text-[11px]")}>
+                  {shortcut.label}
+                </span>
+              </span>
+            ))}
+          </div>
         </div>
       </div>
     </div>

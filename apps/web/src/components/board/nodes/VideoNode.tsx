@@ -34,6 +34,7 @@ import {
   resolveBoardFolderScope,
   resolveProjectPathFromBoardUri,
 } from "../core/boardFilePath";
+import { getPreviewEndpoint } from "@/lib/image/uri";
 import { resolveServerUrl } from "@/utils/server-url";
 import { NodeFrame } from "./NodeFrame";
 import { createPortal } from "react-dom";
@@ -109,6 +110,52 @@ async function openVideoPreview(props: VideoNodeProps, fileContext?: BoardFileCo
   });
 }
 
+/** Trigger a download for the original video file. */
+async function downloadVideo(props: VideoNodeProps, fileContext?: BoardFileContext) {
+  const sourcePath = (props.sourcePath ?? "").trim();
+  if (!sourcePath) return;
+  const scope = resolveBoardFolderScope(fileContext);
+  const projectPath = resolveProjectPathFromBoardUri({
+    uri: sourcePath,
+    boardFolderScope: scope,
+    currentProjectId: fileContext?.projectId,
+    rootUri: fileContext?.rootUri,
+  });
+  const href = projectPath
+    ? getPreviewEndpoint(projectPath, { projectId: fileContext?.projectId })
+    : sourcePath;
+  if (!href) return;
+  const fileName = props.fileName || sourcePath.split("/").pop() || "video.mp4";
+  const saveFile = window.openloafElectron?.saveFile;
+  if (saveFile) {
+    try {
+      const response = await fetch(href);
+      if (!response.ok) throw new Error("download failed");
+      const buffer = await response.arrayBuffer();
+      const bytes = new Uint8Array(buffer);
+      let binary = "";
+      for (let i = 0; i < bytes.length; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      const contentBase64 = btoa(binary);
+      const extension = fileName.split(".").pop() || "mp4";
+      const result = await saveFile({
+        contentBase64,
+        suggestedName: fileName,
+        filters: [{ name: "Video", extensions: [extension] }],
+      });
+      if (result?.ok || result?.canceled) return;
+    } catch {
+      // 逻辑：桌面保存失败时回退到浏览器下载方式。
+    }
+  }
+  const link = document.createElement("a");
+  link.href = href;
+  link.download = fileName;
+  link.rel = "noreferrer";
+  link.click();
+}
+
 /** Compute HLS path for the video node (reused by toolbar and view). */
 function computeHlsPath(sourcePath: string, resolvedPath: string): string {
   if (isBoardRelativePath(sourcePath)) return sourcePath;
@@ -150,6 +197,13 @@ function createVideoToolbarItems(ctx: CanvasToolbarContext<VideoNodeProps>) {
       icon: <Play size={14} />,
       className: BOARD_TOOLBAR_ITEM_GREEN,
       onSelect: () => void openVideoPreview(ctx.element.props, ctx.fileContext),
+    },
+    {
+      id: 'download',
+      label: i18next.t('board:videoNode.toolbar.download', { defaultValue: 'Download' }),
+      icon: <Download size={14} />,
+      className: BOARD_TOOLBAR_ITEM_GREEN,
+      onSelect: () => void downloadVideo(ctx.element.props, ctx.fileContext),
     },
     {
       id: 'trim',
@@ -497,6 +551,8 @@ export function VideoNodeView({
         ].join(" ")}
         onDoubleClick={(event) => {
           event.stopPropagation();
+          // 逻辑：展开态不触发预览，因为此时双击可能是编辑面板内的操作。
+          if (expanded) return;
           if (playing) handleStop();
           void openVideoPreview(element.props, fileContext);
         }}

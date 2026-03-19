@@ -96,26 +96,14 @@
     "fileHint": "支援所有檔案類型"
   },
   "emptyGuide": {
-    "heading": "從範本開始創作",
-    "subheading": "選擇一個範本，點擊畫布放置",
-    "tpl": {
-      "imageGen": {
-        "label": "AI 圖片生成",
-        "desc": "輸入提示詞，AI 生成圖片"
-      },
-      "imagePrompt": {
-        "label": "AI 圖片理解",
-        "desc": "上傳圖片，AI 分析內容"
-      },
-      "videoGen": {
-        "label": "AI 影片生成",
-        "desc": "AI 生成短影片片段"
-      },
-      "text": {
-        "label": "文字筆記",
-        "desc": "新增文字到畫布"
-      }
-    }
+    "title": "開始創作",
+    "subtitle": "選擇一個方式開始",
+    "createSticky": "建立便利貼",
+    "aiImage": "AI 圖片",
+    "aiVideo": "AI 影片",
+    "importFile": "匯入檔案",
+    "hint": "雙擊空白處也可以建立文字",
+    "shortcuts": "快捷鍵: V 選取 · H 拖曳 · T 文字 · C 連線"
   },
   "contextMenu": {
     "exitFullscreen": "退出全螢幕",
@@ -236,6 +224,9 @@
     "dissolve": "解散",
     "uniformSize": "統一大小",
     "enter": "進入",
+    "untitled": "未命名分組",
+    "storyboard": "分鏡",
+    "editTitle": "編輯標題",
     "groupDialog": {
       "title": "組成員",
       "editTitle": "編輯組",
@@ -408,6 +399,7 @@
   "videoNode": {
     "toolbar": {
       "play": "播放",
+      "download": "下載",
       "trim": "剪輯",
       "exportClip": "匯出片段",
       "detail": "詳情"

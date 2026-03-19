@@ -96,26 +96,14 @@
     "fileHint": "All file types supported"
   },
   "emptyGuide": {
-    "heading": "Start from a Template",
-    "subheading": "Choose a template and click to place on canvas",
-    "tpl": {
-      "imageGen": {
-        "label": "AI Image Generation",
-        "desc": "Enter a prompt, AI generates image"
-      },
-      "imagePrompt": {
-        "label": "AI Image Analysis",
-        "desc": "Upload image, AI analyzes content"
-      },
-      "videoGen": {
-        "label": "AI Video Generation",
-        "desc": "AI generates short video clips"
-      },
-      "text": {
-        "label": "Text Note",
-        "desc": "Add text to canvas"
-      }
-    }
+    "title": "Start Creating",
+    "subtitle": "Choose a way to begin",
+    "createSticky": "Sticky Note",
+    "aiImage": "AI Image",
+    "aiVideo": "AI Video",
+    "importFile": "Import File",
+    "hint": "Double-click on empty space to create text",
+    "shortcuts": "Shortcuts: V Select · H Hand · T Text · C Connector"
   },
   "contextMenu": {
     "exitFullscreen": "Exit Fullscreen",
@@ -236,6 +224,9 @@
     "dissolve": "Dissolve",
     "uniformSize": "Uniform Size",
     "enter": "Enter",
+    "untitled": "Untitled Group",
+    "storyboard": "Storyboard",
+    "editTitle": "Edit Title",
     "groupDialog": {
       "title": "Group Members",
       "editTitle": "Edit Group",
@@ -408,6 +399,7 @@
   "videoNode": {
     "toolbar": {
       "play": "Play",
+      "download": "Download",
       "trim": "Trim",
       "exportClip": "Export Clip",
       "detail": "Details"
