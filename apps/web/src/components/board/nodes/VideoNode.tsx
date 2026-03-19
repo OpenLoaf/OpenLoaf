@@ -282,8 +282,23 @@ export function VideoNodeView({
 }: CanvasNodeViewProps<VideoNodeProps>) {
   const { fileContext, engine } = useBoardContext();
   const upstream = useUpstreamData(engine, expanded ? element.id : null);
-  const currentZoom = engine.viewport.getState().zoom;
+  const panelRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  // 逻辑：通过 subscribeView 直接操作 DOM 同步面板缩放，避免 React 渲染延迟。
+  useEffect(() => {
+    if (!expanded) return;
+    const syncPanelScale = () => {
+      const panel = panelRef.current;
+      if (!panel) return;
+      const zoom = engine.viewport.getState().zoom;
+      panel.style.transform = `translateX(-50%) scale(${1 / zoom})`;
+      panel.style.marginTop = `${8 / zoom}px`;
+    };
+    syncPanelScale();
+    const unsub = engine.subscribeView(syncPanelScale);
+    return unsub;
+  }, [engine, expanded]);
   const hlsRef = useRef<Hls | null>(null);
   const [playing, setPlaying] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -564,13 +579,12 @@ export function VideoNodeView({
       </div>
       {expanded ? (
         <div
+          ref={panelRef}
           className="absolute top-full z-10"
           data-board-editor
           style={{
             left: '50%',
-            transform: `translateX(-50%) scale(${1 / currentZoom})`,
             transformOrigin: 'top center',
-            marginTop: 8 / currentZoom,
           }}
           onPointerDown={event => {
             event.stopPropagation();

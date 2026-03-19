@@ -197,7 +197,22 @@ export function ImageNodeView({
   const hydrationRef = useRef<string | null>(null);
   const { actions, engine, fileContext } = useBoardContext();
   const upstream = useUpstreamData(engine, expanded ? element.id : null);
-  const currentZoom = engine.viewport.getState().zoom;
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  // 逻辑：通过 subscribeView 直接操作 DOM 同步面板缩放，避免 React 渲染延迟。
+  useEffect(() => {
+    if (!expanded) return;
+    const syncPanelScale = () => {
+      const panel = panelRef.current;
+      if (!panel) return;
+      const zoom = engine.viewport.getState().zoom;
+      panel.style.transform = `translateX(-50%) scale(${1 / zoom})`;
+      panel.style.marginTop = `${8 / zoom}px`;
+    };
+    syncPanelScale();
+    const unsub = engine.subscribeView(syncPanelScale);
+    return unsub;
+  }, [engine, expanded]);
   const previewSrc =
     element.props.previewSrc ||
     resolveImageSource(element.props.originalSrc, fileContext);
@@ -518,14 +533,12 @@ export function ImageNodeView({
       ) : null}
       {expanded ? (
         <div
+          ref={panelRef}
           className="absolute top-full z-10"
           data-board-editor
           style={{
-            // 逻辑：left:50% + translateX(-50%) 居中面板；scale(1/zoom) 抵消画布缩放。
             left: '50%',
-            transform: `translateX(-50%) scale(${1 / currentZoom})`,
             transformOrigin: 'top center',
-            marginTop: 8 / currentZoom,
           }}
           onPointerDown={event => {
             event.stopPropagation();
