@@ -69,7 +69,7 @@ export type TextNodeValue = string | Value;
 export type TextNodeTextAlign = "left" | "center" | "right";
 
 /** Visual style variant for text nodes. */
-export type TextNodeStyle = "plain" | "sticky";
+export type TextNodeStyle = "plain" | "sticky" | "shape";
 
 /** Preset sticky note colors. */
 export type StickyColor = "yellow" | "blue" | "green" | "pink" | "purple" | "orange";
@@ -83,6 +83,29 @@ export const STICKY_COLORS: Record<StickyColor, { bg: string; darkBg: string }> 
   purple:  { bg: "bg-purple-100", darkBg: "dark:bg-purple-900/60" },
   orange:  { bg: "bg-orange-100", darkBg: "dark:bg-orange-900/60" },
 };
+
+/** Shape sub-types for style='shape'. */
+export type ShapeType = "rectangle" | "rounded_rectangle" | "ellipse" | "diamond" | "triangle";
+
+/** CSS clip-path for each shape. "none" means use border-radius instead. */
+const SHAPE_CLIP_PATHS: Record<ShapeType, string | null> = {
+  rectangle: null,
+  rounded_rectangle: null,
+  ellipse: "ellipse(50% 50% at 50% 50%)",
+  diamond: "polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)",
+  triangle: "polygon(50% 0%, 100% 100%, 0% 100%)",
+};
+
+/** Compute contrast text color for a hex fill. */
+function getShapeTextColor(hex: string): string {
+  const cleaned = hex.replace("#", "");
+  if (cleaned.length < 6) return "#ffffff";
+  const r = Number.parseInt(cleaned.slice(0, 2), 16);
+  const g = Number.parseInt(cleaned.slice(2, 4), 16);
+  const b = Number.parseInt(cleaned.slice(4, 6), 16);
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.5 ? "#000000" : "#ffffff";
+}
 
 export type TextNodeProps = {
   /** Text content stored on the node. */
@@ -109,10 +132,18 @@ export type TextNodeProps = {
   readOnlyProjection?: boolean;
   /** Markdown text shown in read-only chat projection mode. */
   markdownText?: string;
-  /** Visual style variant: 'plain' (default) or 'sticky' (colored note). */
+  /** Visual style variant: 'plain' (default), 'sticky' (colored note), or 'shape'. */
   style?: TextNodeStyle;
   /** Sticky note color preset. Only used when style is 'sticky'. */
   stickyColor?: StickyColor;
+  /** Shape sub-type. Only used when style is 'shape'. */
+  shapeType?: ShapeType;
+  /** Shape fill color. Only used when style is 'shape'. */
+  shapeFill?: string;
+  /** Shape stroke color. Only used when style is 'shape'. */
+  shapeStroke?: string;
+  /** Shape stroke width in px. Only used when style is 'shape'. */
+  shapeStrokeWidth?: number;
 };
 
 // ---------------------------------------------------------------------------
@@ -1100,13 +1131,34 @@ function EditableTextNodeView({
 
   // ---- Render ----
 
-  const isSticky = element.props.style === "sticky";
+  const nodeStyle = element.props.style ?? "plain";
+  const isSticky = nodeStyle === "sticky";
+  const isShape = nodeStyle === "shape";
   const stickyColorDef = isSticky
     ? STICKY_COLORS[element.props.stickyColor ?? "yellow"]
     : null;
 
-  const containerStyle = backgroundColor && !isSticky ? { backgroundColor } : undefined;
-  const defaultBg = isSticky
+  // Shape styling
+  const shapeType = element.props.shapeType ?? "rectangle";
+  const shapeFill = element.props.shapeFill ?? "#3b82f6";
+  const shapeStroke = element.props.shapeStroke ?? "#2563eb";
+  const shapeStrokeWidth = element.props.shapeStrokeWidth ?? 2;
+  const shapeClipPath = isShape ? SHAPE_CLIP_PATHS[shapeType] : null;
+  const hasClipPath = Boolean(shapeClipPath);
+
+  const containerStyle: React.CSSProperties | undefined = isShape
+    ? {
+        backgroundColor: shapeFill,
+        border: `${shapeStrokeWidth}px solid ${shapeStroke}`,
+        clipPath: shapeClipPath ?? undefined,
+        borderRadius: shapeType === "rounded_rectangle" ? 12 : shapeType === "rectangle" ? 4 : 0,
+        color: getShapeTextColor(shapeFill),
+      }
+    : backgroundColor && !isSticky
+      ? { backgroundColor }
+      : undefined;
+
+  const defaultBg = isSticky || isShape
     ? ""
     : backgroundColor
       ? ""
@@ -1115,14 +1167,17 @@ function EditableTextNodeView({
     ? `${stickyColorDef.bg} ${stickyColorDef.darkBg}`
     : "";
   const containerClasses = [
-    "relative h-full w-full box-border p-2.5",
-    isSticky ? "rounded-sm shadow-sm" : "rounded-lg",
+    "relative h-full w-full box-border",
+    isShape ? (hasClipPath ? "p-[15%]" : "p-2.5") : "p-2.5",
+    isSticky ? "rounded-sm shadow-sm" : isShape ? "" : "rounded-lg",
     isSticky
       ? stickyBg
-      : isEditing && !backgroundColor
-        ? "bg-background"
-        : defaultBg,
-    "text-ol-text-primary",
+      : isShape
+        ? ""
+        : isEditing && !backgroundColor
+          ? "bg-background"
+          : defaultBg,
+    isShape ? "" : "text-ol-text-primary",
     "overflow-y-auto board-text-scrollbar",
     isEditing ? "cursor-text" : "cursor-default",
   ].join(" ");
@@ -1229,8 +1284,12 @@ export const TextNodeDefinition: CanvasNodeDefinition<TextNodeProps> = {
     backgroundColor: z.string().optional(),
     readOnlyProjection: z.boolean().optional(),
     markdownText: z.string().optional(),
-    style: z.enum(["plain", "sticky"]).optional(),
+    style: z.enum(["plain", "sticky", "shape"]).optional(),
     stickyColor: z.enum(["yellow", "blue", "green", "pink", "purple", "orange"]).optional(),
+    shapeType: z.enum(["rectangle", "rounded_rectangle", "ellipse", "diamond", "triangle"]).optional(),
+    shapeFill: z.string().optional(),
+    shapeStroke: z.string().optional(),
+    shapeStrokeWidth: z.number().optional(),
   }) as z.ZodType<TextNodeProps>,
   defaultProps: {
     value: DEFAULT_TEXT_VALUE,

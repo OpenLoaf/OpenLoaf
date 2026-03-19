@@ -9,21 +9,22 @@
  */
 import { PlacementTool } from "./PlacementTool";
 
-/** Quick-create tool for shape nodes. */
+/** Quick-create tool for shape-styled text nodes. */
 export class ShapePlacementTool extends PlacementTool {
   readonly id = "shape";
 
   getNodeType(): string {
-    return "shape";
+    return "text";
   }
 
   getDefaultProps(): Record<string, unknown> {
     return {
-      shape: "rectangle",
-      fill: "#3b82f6",
-      stroke: "#2563eb",
-      strokeWidth: 2,
-      text: "",
+      autoFocus: true,
+      style: "shape",
+      shapeType: "rectangle",
+      shapeFill: "#3b82f6",
+      shapeStroke: "#2563eb",
+      shapeStrokeWidth: 2,
     };
   }
 
