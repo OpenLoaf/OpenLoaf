@@ -546,5 +546,9 @@
     "fantasy": "奇幻风",
     "ink": "水墨风",
     "lowpoly": "低多边形"
+  },
+  "fallbackNode": {
+    "deprecated": "此节点类型 ({{type}}) 已停用",
+    "delete": "删除"
   }
 }

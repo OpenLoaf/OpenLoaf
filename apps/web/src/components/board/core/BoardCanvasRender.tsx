@@ -15,7 +15,6 @@ import type { CanvasEngine } from "../engine/CanvasEngine";
 import type { CanvasElement, CanvasSnapshot } from "../engine/types";
 import { MINIMAP_HIDE_DELAY } from "../engine/constants";
 import BoardControls from "../controls/BoardControls";
-import AIGenerateToolbar from "../toolbar/AIGenerateToolbar";
 import BoardToolbar from "../toolbar/BoardToolbar";
 import { ConnectorActionPanel, NodeInspectorPanel } from "../ui/CanvasPanels";
 import dynamic from "next/dynamic";
@@ -157,11 +156,6 @@ export function BoardCanvasRender({
         </div>
       ) : null}
       {showUi && !minimal ? (
-        <div className={cn("pointer-events-none absolute inset-0 z-20 transition-all duration-500 ease-out", toolbarsReady ? "opacity-100 translate-x-0" : "opacity-0 translate-x-4")}>
-          <AIGenerateToolbar engine={engine} snapshot={snapshot} />
-        </div>
-      ) : null}
-      {showUi && !minimal ? (
         <BoardEmptyGuide engine={engine} visible={snapshot.docRevision > 0 && snapshot.elements.length === 0 && !snapshot.pendingInsert && toolbarsReady} activeToolId={snapshot.activeToolId} />
       ) : null}
       {showUi && selectedConnector ? (
@@ -173,7 +167,7 @@ export function BoardCanvasRender({
         />
       ) : null}
       {showUi && !snapshot.draggingId ? <MultiSelectionOutline snapshot={snapshot} engine={engine} /> : null}
-      {showUi && selectedNode && selectedNode.type !== "image_generate" && selectedNode.type !== "image_prompt_generate" && selectedNode.type !== "video_generate" && selectedNode.type !== "chat_input" && selectedNode.type !== "chat_message" && selectedNode.type !== "stroke" ? (
+      {showUi && selectedNode && selectedNode.type !== "stroke" ? (
         <SingleSelectionOutline snapshot={snapshot} engine={engine} element={selectedNode} hidden={!!snapshot.draggingId} />
       ) : null}
       {showUi && !snapshot.draggingId && selectedNode && selectedNode.type !== "stroke" ? (

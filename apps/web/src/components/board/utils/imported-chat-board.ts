@@ -9,17 +9,7 @@
  */
 import type { ChatUIMessage } from "@openloaf/api";
 import type { CanvasConnectorElement, CanvasElement, CanvasNodeElement } from "../engine/types";
-import { GROUP_NODE_TYPE } from "../engine/grouping";
 import { generateElementId } from "../engine/id";
-import { CHAT_INPUT_NODE_TYPE } from "../nodes/chatInput/types";
-import {
-  BOARD_CHAT_MESSAGE_META_KEY,
-  BOARD_CHAT_PART_META_KEY,
-} from "./board-chat-message";
-import {
-  buildBoardChatProjectionDescriptors,
-  buildBoardChatProjectionParts,
-} from "./board-chat-projection";
 
 type ImportedBoardMessage = ChatUIMessage & {
   /** Imported creation time for deterministic ordering. */
@@ -37,16 +27,11 @@ type MessageVisualSpec = {
   createElements: (x: number, y: number) => CanvasElement[];
 };
 
-const ROOT_PARENT_KEY = "__root__";
 const HORIZONTAL_GAP = 520;
 const VERTICAL_GAP = 56;
-const PART_GAP = 12;
-const MESSAGE_MIN_WIDTH = 280;
-const MESSAGE_MIN_HEIGHT = 48;
-const USER_MESSAGE_WIDTH = 400;
-const USER_MESSAGE_HEIGHT = 88;
-const CONTINUATION_INPUT_WIDTH = 360;
-const CONTINUATION_INPUT_HEIGHT = 200;
+const MESSAGE_WIDTH = 400;
+const MESSAGE_HEIGHT = 88;
+const ROOT_PARENT_KEY = "__root__";
 
 /** Build an initial board snapshot from imported chat history. */
 export async function buildImportedChatBoardElements(input: {
@@ -58,7 +43,7 @@ export async function buildImportedChatBoardElements(input: {
   const renderableMessages = orderedMessages.filter(isRenderableMessage);
 
   if (renderableMessages.length === 0) {
-    return createContinuationInput({ x: 0, y: 0 });
+    return [];
   }
 
   const childrenOf = new Map<string, string[]>();
@@ -74,16 +59,10 @@ export async function buildImportedChatBoardElements(input: {
     childrenOf.set(parentKey, nextChildren);
   }
 
-  const specEntries = await Promise.all(
-    renderableMessages.map(async (message) => {
-      const spec = await buildMessageVisualSpec({
-        message,
-        projectId: input.projectId,
-        visualParentId: visualParentById.get(message.id) ?? null,
-      });
-      return [message.id, spec] as const;
-    }),
-  );
+  const specEntries = renderableMessages.map((message) => {
+    const spec = buildMessageVisualSpec(message);
+    return [message.id, spec] as const;
+  });
   const specsById = new Map(specEntries);
 
   const elements: CanvasElement[] = [];
@@ -105,24 +84,30 @@ export async function buildImportedChatBoardElements(input: {
     cursorY += VERTICAL_GAP;
   }
 
-  const latestLeafId = resolveLatestRenderableLeafId(renderableMessages, childrenOf);
-  const latestLeafSpec = latestLeafId ? specsById.get(latestLeafId) ?? null : null;
-  const latestLeafElements = latestLeafSpec
-    ? elements.filter((element) => element.id === latestLeafSpec.anchorId)
-    : [];
-  if (latestLeafSpec && latestLeafElements.length > 0) {
-    const latestAnchor = latestLeafElements[0] as CanvasNodeElement;
-    const continuationX = latestAnchor.xywh[0] + HORIZONTAL_GAP;
-    const continuationY = latestAnchor.xywh[1];
-    const continuation = createContinuationInput({
-      x: continuationX,
-      y: continuationY,
-      parentElementId: latestLeafSpec.anchorId,
-    });
-    elements.push(...continuation);
-  }
-
   return elements;
+}
+
+/** Build a visual spec that creates a simple text node for the message. */
+function buildMessageVisualSpec(message: ImportedBoardMessage): MessageVisualSpec {
+  const nodeId = generateElementId(`import-${message.role}`);
+  const text = extractTextFromParts(message.parts);
+  return {
+    anchorId: nodeId,
+    width: MESSAGE_WIDTH,
+    height: MESSAGE_HEIGHT,
+    createElements: (x, y) => [
+      {
+        id: nodeId,
+        kind: "node",
+        type: "text",
+        xywh: [x, y, MESSAGE_WIDTH, MESSAGE_HEIGHT],
+        props: {
+          readOnlyProjection: true,
+          markdownText: text || " ",
+        },
+      } satisfies CanvasNodeElement<Record<string, unknown>>,
+    ],
+  };
 }
 
 /** Build a renderable parent id by walking ancestors until another renderable message is found. */
@@ -140,147 +125,6 @@ function resolveRenderableParentId(
     parentId = parent.parentMessageId;
   }
   return null;
-}
-
-/** Build a visual spec for a renderable imported message. */
-async function buildMessageVisualSpec(input: {
-  message: ImportedBoardMessage;
-  projectId?: string;
-  visualParentId: string | null;
-}): Promise<MessageVisualSpec> {
-  if (input.message.role === "user") {
-    const nodeId = generateElementId("import-user");
-    const text = extractTextFromParts(input.message.parts);
-    return {
-      anchorId: nodeId,
-      width: USER_MESSAGE_WIDTH,
-      height: USER_MESSAGE_HEIGHT,
-      createElements: (x, y) => [
-        {
-          id: nodeId,
-          kind: "node",
-          type: "text",
-          xywh: [x, y, USER_MESSAGE_WIDTH, USER_MESSAGE_HEIGHT],
-          props: {
-            readOnlyProjection: true,
-            markdownText: text || " ",
-          },
-          meta: {
-            [BOARD_CHAT_MESSAGE_META_KEY]: {
-              messageId: input.message.id,
-              status: "complete",
-            },
-          },
-        } satisfies CanvasNodeElement<Record<string, unknown>>,
-      ],
-    };
-  }
-
-  const descriptors = await buildBoardChatProjectionDescriptors({
-    parts: buildBoardChatProjectionParts(Array.isArray(input.message.parts) ? input.message.parts : []),
-    projectId: input.projectId,
-  });
-
-  if (descriptors.length <= 1) {
-    const descriptor =
-      descriptors[0] ??
-      ({
-        key: "fallback-text",
-        projectionKind: "text",
-        nodeType: "text",
-        props: {
-          readOnlyProjection: true,
-          markdownText: extractTextFromParts(input.message.parts) || " ",
-        },
-        size: [USER_MESSAGE_WIDTH, USER_MESSAGE_HEIGHT],
-      } as const);
-    const nodeId = generateElementId("import-assistant");
-    return {
-      anchorId: nodeId,
-      width: descriptor.size[0],
-      height: descriptor.size[1],
-      createElements: (x, y) => [
-        {
-          id: nodeId,
-          kind: "node",
-          type: descriptor.nodeType,
-          xywh: [x, y, descriptor.size[0], descriptor.size[1]],
-          props: descriptor.props,
-          meta: {
-            [BOARD_CHAT_MESSAGE_META_KEY]: {
-              messageId: input.message.id,
-              status: "complete",
-              ...(input.visualParentId ? { userMessageId: input.visualParentId } : null),
-            },
-          },
-        } satisfies CanvasNodeElement<Record<string, unknown>>,
-      ],
-    };
-  }
-
-  const groupId = generateElementId("import-group");
-  const childEntries = descriptors.map((descriptor) => ({
-    descriptor,
-    id: generateElementId(`import-${descriptor.nodeType}`),
-  }));
-  const width = Math.max(
-    MESSAGE_MIN_WIDTH,
-    ...childEntries.map((entry) => entry.descriptor.size[0]),
-  );
-  const height = Math.max(
-    MESSAGE_MIN_HEIGHT,
-    childEntries.reduce((total, entry, index) => {
-      return total + entry.descriptor.size[1] + (index > 0 ? PART_GAP : 0);
-    }, 0),
-  );
-
-  return {
-    anchorId: groupId,
-    width,
-    height,
-    createElements: (x, y) => {
-      let cursorY = y;
-      const childIds: string[] = [];
-      const childElements = childEntries.map((entry) => {
-        const childId = entry.id;
-        childIds.push(childId);
-        const element: CanvasNodeElement<Record<string, unknown>> = {
-          id: childId,
-          kind: "node",
-          type: entry.descriptor.nodeType,
-          xywh: [x, cursorY, entry.descriptor.size[0], entry.descriptor.size[1]],
-          props: entry.descriptor.props,
-          meta: {
-            groupId,
-            [BOARD_CHAT_PART_META_KEY]: {
-              messageGroupId: groupId,
-              partKey: entry.descriptor.key,
-              projectionKind: entry.descriptor.projectionKind,
-            },
-          },
-        };
-        cursorY += entry.descriptor.size[1] + PART_GAP;
-        return element;
-      });
-
-      const groupElement: CanvasNodeElement<{ childIds: string[] }> = {
-        id: groupId,
-        kind: "node",
-        type: GROUP_NODE_TYPE,
-        xywh: [x, y, width, height],
-        props: { childIds },
-        meta: {
-          [BOARD_CHAT_MESSAGE_META_KEY]: {
-            messageId: input.message.id,
-            status: "complete",
-            ...(input.visualParentId ? { userMessageId: input.visualParentId } : null),
-          },
-        },
-      };
-
-      return [groupElement, ...childElements];
-    },
-  };
 }
 
 /** Layout a message subtree and append elements in DFS order. */
@@ -323,49 +167,6 @@ function layoutMessageTree(input: {
   }
 
   return cursorY;
-}
-
-/** Resolve the latest renderable leaf from the imported message list. */
-function resolveLatestRenderableLeafId(
-  messages: ImportedBoardMessage[],
-  childrenOf: Map<string, string[]>,
-): string | null {
-  for (let index = messages.length - 1; index >= 0; index -= 1) {
-    const message = messages[index];
-    const children = childrenOf.get(message.id) ?? [];
-    if (children.length === 0) return message.id;
-  }
-  return null;
-}
-
-/** Create the continuation input node and optional connector. */
-function createContinuationInput(input: {
-  x: number;
-  y: number;
-  parentElementId?: string;
-}): CanvasElement[] {
-  const inputId = generateElementId("import-input");
-  const elements: CanvasElement[] = [
-    {
-      id: inputId,
-      kind: "node",
-      type: CHAT_INPUT_NODE_TYPE,
-      xywh: [input.x, input.y, CONTINUATION_INPUT_WIDTH, CONTINUATION_INPUT_HEIGHT],
-      props: {
-        autoFocus: true,
-        status: "idle",
-      },
-    } satisfies CanvasNodeElement<Record<string, unknown>>,
-  ];
-  if (input.parentElementId) {
-    elements.push(
-      createChainConnector({
-        sourceElementId: input.parentElementId,
-        targetElementId: inputId,
-      }),
-    );
-  }
-  return elements;
 }
 
 /** Create a connector between two imported chain nodes. */

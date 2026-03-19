@@ -13,25 +13,16 @@ import { memo, useCallback, useMemo } from "react";
 import type { ComponentType } from "react";
 import type { IconProps } from "@phosphor-icons/react";
 import {
-  Scan as PhScan,
-  Sparkle as PhSparkle,
-  FilmSlate as PhFilmSlate,
   TextAa as PhTextAa,
 } from "@phosphor-icons/react";
 import { cn } from "@udecode/cn";
 import { useTranslation } from "react-i18next";
 
 import type { CanvasEngine } from "../engine/CanvasEngine";
-import { IMAGE_PROMPT_GENERATE_NODE_TYPE } from "../nodes/imagePromptGenerate";
-import { IMAGE_GENERATE_NODE_TYPE } from "../nodes/imageGenerate";
-import { VIDEO_GENERATE_NODE_TYPE } from "../nodes/videoGenerate";
 import { TEXT_NODE_DEFAULT_HEIGHT } from "../nodes/TextNode";
 import {
   BOARD_TEXT_PRIMARY,
   BOARD_TEXT_AUXILIARY,
-  BOARD_GENERATE_DOT_PROMPT,
-  BOARD_GENERATE_DOT_IMAGE,
-  BOARD_GENERATE_DOT_VIDEO,
 } from "../ui/board-style-system";
 
 interface BoardEmptyGuideProps {
@@ -74,42 +65,6 @@ const BoardEmptyGuide = memo(function BoardEmptyGuide({
   const isSelectTool = activeToolId === "select";
 
   const templates = useMemo<TemplateItem[]>(() => [
-    {
-      id: 'tpl-image-gen',
-      icon: PhSparkle,
-      label: t('emptyGuide.tpl.imageGen.label'),
-      desc: t('emptyGuide.tpl.imageGen.desc'),
-      dotClass: BOARD_GENERATE_DOT_IMAGE,
-      bgClass: 'bg-ol-blue-bg/60',
-      hoverBorderClass: 'hover:border-ol-blue/40',
-      iconClass: 'text-ol-blue',
-      nodeType: IMAGE_GENERATE_NODE_TYPE,
-      size: [320, 260],
-    },
-    {
-      id: 'tpl-image-prompt',
-      icon: PhScan,
-      label: t('emptyGuide.tpl.imagePrompt.label'),
-      desc: t('emptyGuide.tpl.imagePrompt.desc'),
-      dotClass: BOARD_GENERATE_DOT_PROMPT,
-      bgClass: 'bg-ol-amber-bg/60',
-      hoverBorderClass: 'hover:border-ol-amber/40',
-      iconClass: 'text-ol-amber',
-      nodeType: IMAGE_PROMPT_GENERATE_NODE_TYPE,
-      size: [320, 220],
-    },
-    {
-      id: 'tpl-video-gen',
-      icon: PhFilmSlate,
-      label: t('emptyGuide.tpl.videoGen.label'),
-      desc: t('emptyGuide.tpl.videoGen.desc'),
-      dotClass: BOARD_GENERATE_DOT_VIDEO,
-      bgClass: 'bg-ol-purple-bg/50',
-      hoverBorderClass: 'hover:border-ol-purple/40',
-      iconClass: 'text-ol-purple',
-      nodeType: VIDEO_GENERATE_NODE_TYPE,
-      size: [360, 280],
-    },
     {
       id: 'tpl-text',
       icon: PhTextAa,
@@ -168,7 +123,7 @@ const BoardEmptyGuide = memo(function BoardEmptyGuide({
           data-canvas-toolbar
           onPointerDown={(e) => e.stopPropagation()}
           className={cn(
-            "grid w-[50%] grid-cols-4 gap-[2%]",
+            "flex w-[50%] justify-center gap-[2%]",
             isSelectTool ? "pointer-events-auto" : "pointer-events-none",
           )}
         >

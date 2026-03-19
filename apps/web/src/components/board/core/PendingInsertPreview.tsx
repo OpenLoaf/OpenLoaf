@@ -9,100 +9,16 @@
  */
 import { memo, useCallback, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { ImagePlus, Film, ScanEye, Sparkles, FileText, Type } from "lucide-react";
+import { FileText, Type } from "lucide-react";
 import type { CanvasEngine } from "../engine/CanvasEngine";
 import type { CanvasInsertRequest, CanvasPoint } from "../engine/types";
-import { IMAGE_GENERATE_NODE_TYPE } from "../nodes/imageGenerate/constants";
-import { VIDEO_GENERATE_NODE_TYPE } from "../nodes/videoGenerate/constants";
-import { IMAGE_PROMPT_GENERATE_NODE_TYPE } from "../nodes/imagePromptGenerate/constants";
-import { CHAT_INPUT_NODE_TYPE } from "../nodes/chatInput";
-import {
-  BOARD_GENERATE_NODE_BASE_IMAGE,
-  BOARD_GENERATE_NODE_BASE_VIDEO,
-  BOARD_GENERATE_NODE_BASE_PROMPT,
-  BOARD_GENERATE_NODE_BASE_CHAT,
-  BOARD_GENERATE_BORDER_IMAGE,
-  BOARD_GENERATE_BORDER_VIDEO,
-  BOARD_GENERATE_BORDER_PROMPT,
-  BOARD_GENERATE_BORDER_CHAT,
-  BOARD_GENERATE_BTN_IMAGE,
-  BOARD_GENERATE_BTN_VIDEO,
-  BOARD_GENERATE_BTN_PROMPT,
-  BOARD_GENERATE_BTN_CHAT,
-  BOARD_GENERATE_PILL_IMAGE,
-  BOARD_GENERATE_PILL_VIDEO,
-} from "../ui/board-style-system";
 
 /** Node types that have a DOM-based pending insert preview. */
 export const PENDING_INSERT_DOM_TYPES = new Set([
-  IMAGE_GENERATE_NODE_TYPE,
-  VIDEO_GENERATE_NODE_TYPE,
-  IMAGE_PROMPT_GENERATE_NODE_TYPE,
-  CHAT_INPUT_NODE_TYPE,
   "text",
   "file-attachment",
   "audio",
 ]);
-
-type NodePreviewConfig = {
-  base: string;
-  border: string;
-  btnClass: string;
-  pillClass?: string;
-  iconColor: string;
-  icon: typeof ImagePlus;
-  titleKey: string;
-  pillKey?: string;
-  btnKey: string;
-  showPrompt: boolean;
-};
-
-const NODE_PREVIEW_MAP: Record<string, NodePreviewConfig> = {
-  [IMAGE_GENERATE_NODE_TYPE]: {
-    base: BOARD_GENERATE_NODE_BASE_IMAGE,
-    border: BOARD_GENERATE_BORDER_IMAGE,
-    btnClass: BOARD_GENERATE_BTN_IMAGE,
-    pillClass: BOARD_GENERATE_PILL_IMAGE,
-    iconColor: "text-ol-blue",
-    icon: ImagePlus,
-    titleKey: "imageGenerate.title",
-    pillKey: "imageGenerate.mode.textToImage",
-    btnKey: "imageGenerate.generate",
-    showPrompt: true,
-  },
-  [VIDEO_GENERATE_NODE_TYPE]: {
-    base: BOARD_GENERATE_NODE_BASE_VIDEO,
-    border: BOARD_GENERATE_BORDER_VIDEO,
-    btnClass: BOARD_GENERATE_BTN_VIDEO,
-    pillClass: BOARD_GENERATE_PILL_VIDEO,
-    iconColor: "text-ol-purple",
-    icon: Film,
-    titleKey: "videoGenerate.title",
-    pillKey: "videoGenerate.status.idle",
-    btnKey: "videoGenerate.generate",
-    showPrompt: true,
-  },
-  [IMAGE_PROMPT_GENERATE_NODE_TYPE]: {
-    base: BOARD_GENERATE_NODE_BASE_PROMPT,
-    border: BOARD_GENERATE_BORDER_PROMPT,
-    btnClass: BOARD_GENERATE_BTN_PROMPT,
-    iconColor: "text-ol-amber",
-    icon: ScanEye,
-    titleKey: "imagePromptGenerate.title",
-    btnKey: "imagePromptGenerate.run",
-    showPrompt: false,
-  },
-  [CHAT_INPUT_NODE_TYPE]: {
-    base: BOARD_GENERATE_NODE_BASE_CHAT,
-    border: BOARD_GENERATE_BORDER_CHAT,
-    btnClass: BOARD_GENERATE_BTN_CHAT,
-    iconColor: "text-ol-green",
-    icon: Sparkles,
-    titleKey: "aiToolbar.aiAssistant",
-    btnKey: "imagePromptGenerate.run",
-    showPrompt: true,
-  },
-};
 
 /** Extension badge color mapping (matches FileAttachmentNode). */
 function getExtBadgeColor(ext?: string): string {
@@ -242,74 +158,7 @@ function PendingInsertPreviewBase({
     );
   }
 
-  // AI node previews
-  const config = NODE_PREVIEW_MAP[pendingInsert.type];
-  if (!config) return null;
-
-  const previewH = config.showPrompt ? h : undefined;
-  const adjustedY = pendingInsertPoint[1] - (previewH ?? h) / 2;
-  const Icon = config.icon;
-
-  return (
-    <div
-      ref={layerRef}
-      className="pointer-events-none absolute inset-0 origin-top-left"
-    >
-      <div
-        className="absolute"
-        style={{ left: x, top: adjustedY, width: w, height: previewH, opacity: 0.82 }}
-      >
-        <div
-          className={[
-            "relative flex w-full flex-col gap-3 rounded-lg border p-3 text-ol-text-primary",
-            previewH ? "h-full" : "",
-            config.base,
-            config.border,
-          ].join(" ")}
-        >
-          {/* Header */}
-          <div className="flex items-center gap-2">
-            <Icon size={16} className={`shrink-0 ${config.iconColor}`} />
-            <div className="text-[13px] font-semibold leading-5">
-              {t(config.titleKey)}
-            </div>
-            {config.pillClass && config.pillKey ? (
-              <span
-                className={`rounded-md px-2 py-0.5 text-[10px] leading-3 ${config.pillClass}`}
-              >
-                {t(config.pillKey)}
-              </span>
-            ) : null}
-            <div className="flex-1" />
-            <span
-              className={`inline-flex h-7 items-center justify-center rounded-md px-3 text-[12px] leading-none ${config.btnClass}`}
-            >
-              <Sparkles size={14} className="mr-1" />
-              {t(config.btnKey)}
-            </span>
-          </div>
-
-          {/* Model skeleton */}
-          <div className="flex items-center gap-3">
-            <div className="text-[12px] text-ol-text-auxiliary">
-              {t("imageGenerate.model")}
-            </div>
-            <div className="h-7 flex-1 rounded-lg bg-black/[0.04] dark:bg-foreground/[0.06]" />
-          </div>
-
-          {/* Prompt skeleton (only for image/video generate) */}
-          {config.showPrompt ? (
-            <div className="flex flex-1 flex-col gap-2">
-              <div className="text-[12px] text-ol-text-auxiliary">
-                {t("imageGenerate.prompt")}
-              </div>
-              <div className="flex-1 rounded-lg bg-black/[0.04] dark:bg-foreground/[0.06]" />
-            </div>
-          ) : null}
-        </div>
-      </div>
-    </div>
-  );
+  return null;
 }
 
 export const PendingInsertPreview = memo(PendingInsertPreviewBase);

@@ -29,8 +29,6 @@ import {
 import { parseScopedProjectPath } from "@/components/project/filesystem/utils/file-system-utils";
 import { NodeFrame } from "./NodeFrame";
 import { resolveViewerType } from "../utils/board-asset";
-import { getBoardChatMessageMeta } from "../utils/board-chat-message";
-import { createBoardChatMessageToolbarItems } from "../utils/board-chat-toolbar";
 
 export type FileAttachmentNodeProps = {
   /** Board-relative path. */
@@ -106,12 +104,7 @@ function createFileAttachmentToolbarItems(
       onSelect: () => ctx.openInspector(ctx.element.id),
     },
   ];
-  const messageMeta = getBoardChatMessageMeta(ctx.element);
-  if (!messageMeta) return baseItems;
-  const chatItems = createBoardChatMessageToolbarItems(ctx, messageMeta);
-  return (messageMeta.status ?? "streaming") === "complete"
-    ? [...chatItems, ...baseItems]
-    : chatItems;
+  return baseItems;
 }
 
 /** Render a file attachment node card. */

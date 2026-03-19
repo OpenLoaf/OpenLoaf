@@ -36,8 +36,6 @@ import {
   MessageSquare,
   Palette,
   PaintBucket,
-  Play,
-  Sparkles,
   Strikethrough,
   Type,
   Underline,
@@ -56,17 +54,9 @@ import {
   BOARD_TOOLBAR_ITEM_PURPLE,
 } from "../ui/board-style-system";
 import { useBoardContext } from "../core/BoardProvider";
-import { VIDEO_GENERATE_NODE_TYPE } from "./videoGenerate";
-import { IMAGE_GENERATE_NODE_TYPE } from "./imageGenerate/constants";
 import { MINDMAP_META } from "../engine/mindmap-layout";
 import { HueSlider, buildColorSwatches, DEFAULT_COLOR_PRESETS } from "../ui/HueSlider";
 import { BoardTextEditorKit } from "./text-editor-kit";
-import {
-  getBoardChatMessageMeta,
-  getBoardChatPartMeta,
-  layoutBoardChatMessageGroup,
-} from "../utils/board-chat-message";
-import { createBoardChatMessageToolbarItems } from "../utils/board-chat-toolbar";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -177,28 +167,6 @@ const getTextNodeConnectorTemplates = (): CanvasConnectorTemplateDefinition[] =>
     icon: <Type size={14} />,
     createNode: () => ({
       type: "text",
-      props: {},
-    }),
-  },
-  {
-    id: IMAGE_GENERATE_NODE_TYPE,
-    label: i18next.t('board:connector.imageGenerate'),
-    description: i18next.t('board:connector.imageGenerateDesc'),
-    size: [320, 260],
-    icon: <Sparkles size={14} />,
-    createNode: () => ({
-      type: IMAGE_GENERATE_NODE_TYPE,
-      props: {},
-    }),
-  },
-  {
-    id: VIDEO_GENERATE_NODE_TYPE,
-    label: i18next.t('board:connector.videoGenerate'),
-    description: i18next.t('board:connector.videoGenerateDesc'),
-    size: [360, 280],
-    icon: <Play size={14} />,
-    createNode: () => ({
-      type: VIDEO_GENERATE_NODE_TYPE,
       props: {},
     }),
   },
@@ -351,14 +319,7 @@ function ReadOnlyMarkdownProjection(props: {
 }) {
   const { engine } = useBoardContext();
   const contentRef = useRef<HTMLDivElement | null>(null);
-  const element = engine.doc.getElementById(props.elementId);
-  const partMeta = getBoardChatPartMeta(element);
-  const messageGroupMeta =
-    getBoardChatMessageMeta(element)
-    ?? (partMeta
-      ? getBoardChatMessageMeta(engine.doc.getElementById(partMeta.messageGroupId))
-      : null);
-  const isAnimating = messageGroupMeta?.status === "streaming";
+  const isAnimating = false;
 
   useEffect(() => {
     const content = contentRef.current;
@@ -373,8 +334,6 @@ function ReadOnlyMarkdownProjection(props: {
       const [, , width, currentHeight] = node.xywh;
       // 逻辑：只允许增高不允许缩小，避免 Markdown 异步渲染期间 scrollHeight 暂时偏小导致节点高度跳动。
       if (nextHeight <= currentHeight) return;
-      const partMeta = getBoardChatPartMeta(node);
-      // 逻辑：只读聊天文本高度变化时，同时同步消息组内垂直布局，避免后续节点重叠。
       engine.batch(() => {
         engine.doc.transact(() => {
           engine.doc.updateElement(props.elementId, {
@@ -382,9 +341,6 @@ function ReadOnlyMarkdownProjection(props: {
           });
         });
       });
-      if (partMeta?.messageGroupId) {
-        layoutBoardChatMessageGroup(engine, partMeta.messageGroupId);
-      }
     });
     observer.observe(content);
     return () => observer.disconnect();
@@ -1264,8 +1220,7 @@ export const TextNodeDefinition: CanvasNodeDefinition<TextNodeProps> = {
   connectorTemplates: () => getTextNodeConnectorTemplates(),
   toolbar: (ctx) => {
     if (ctx.element.props.readOnlyProjection) {
-      const messageMeta = getBoardChatMessageMeta(ctx.element);
-      return messageMeta ? createBoardChatMessageToolbarItems(ctx, messageMeta) : [];
+      return [];
     }
     return createTextToolbarItems(ctx);
   },

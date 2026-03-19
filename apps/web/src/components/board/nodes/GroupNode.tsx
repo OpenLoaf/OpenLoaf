@@ -25,10 +25,6 @@ import {
 } from "../ui/board-style-system";
 import { GROUP_NODE_TYPE, IMAGE_GROUP_NODE_TYPE } from "../engine/grouping";
 import { NodeFrame } from "./NodeFrame";
-import {
-  getBoardChatMessageMeta,
-} from "../utils/board-chat-message";
-import { createBoardChatMessageToolbarItems } from "../utils/board-chat-toolbar";
 
 export type GroupNodeProps = {
   /** Child node ids stored for grouping semantics. */
@@ -61,23 +57,6 @@ const UNIFORM_SIZE_TYPES = new Set(["image", "video"]);
 function createGroupToolbarItems(ctx: CanvasToolbarContext<GroupNodeProps>) {
   const t = (k: string) => i18next.t(k);
   const groupId = ctx.element.id;
-  const boardChatMeta = getBoardChatMessageMeta(ctx.element);
-  if (boardChatMeta) {
-    const chatItems = createBoardChatMessageToolbarItems(ctx, boardChatMeta);
-    if ((boardChatMeta.status ?? "streaming") !== "complete") {
-      return chatItems;
-    }
-    return [
-      ...chatItems,
-      {
-        id: "ungroup",
-        label: t("board:groupNode.dissolve"),
-        icon: <Layers size={14} />,
-        className: BOARD_TOOLBAR_ITEM_RED,
-        onSelect: () => ctx.ungroupSelection(),
-      },
-    ];
-  }
 
   const memberIds = ctx.engine.getGroupMemberIds(groupId);
   const memberTypes = memberIds.map((id: string) => {

@@ -10,18 +10,14 @@
 import { AudioNodeDefinition } from "../nodes/AudioNode";
 import { CalendarNodeDefinition } from "../nodes/CalendarNode";
 import { FileAttachmentNodeDefinition } from "../nodes/FileAttachmentNode";
+import { createFallbackNodeDefinition, DEPRECATED_NODE_TYPES } from "../nodes/FallbackNode";
 import { GroupNodeDefinition, ImageGroupNodeDefinition } from "../nodes/GroupNode";
-import { ImageGenerateNodeDefinition } from "../nodes/imageGenerate";
-import { VideoGenerateNodeDefinition } from "../nodes/videoGenerate";
 import { ImageNodeDefinition } from "../nodes/ImageNode";
 import { VideoNodeDefinition } from "../nodes/VideoNode";
-import { ImagePromptGenerateNodeDefinition } from "../nodes/imagePromptGenerate";
 import { LinkNodeDefinition } from "../nodes/LinkNode";
 import { StrokeNodeDefinition } from "../nodes/StrokeNode";
 import { TextNodeDefinition } from "../nodes/TextNode";
 import { LoadingNodeDefinition } from "../nodes/LoadingNode";
-import { ChatInputNodeDefinition } from "../nodes/chatInput";
-import { ChatMessageNodeDefinition } from "../nodes/chatMessage";
 
 /** Default node definitions registered for board canvases. */
 export const BOARD_NODE_DEFINITIONS = [
@@ -33,12 +29,8 @@ export const BOARD_NODE_DEFINITIONS = [
   LinkNodeDefinition,
   StrokeNodeDefinition,
   TextNodeDefinition,
-  ImagePromptGenerateNodeDefinition,
-  ImageGenerateNodeDefinition,
-  VideoGenerateNodeDefinition,
   LoadingNodeDefinition,
-  ChatInputNodeDefinition,
-  ChatMessageNodeDefinition,
   GroupNodeDefinition,
   ImageGroupNodeDefinition,
+  ...DEPRECATED_NODE_TYPES.map(createFallbackNodeDefinition),
 ];

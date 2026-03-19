@@ -16,7 +16,7 @@ import type {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 import Hls from "hls.js";
-import { Download, Info, Loader2, Pause, Play, Scissors, Sparkles } from "lucide-react";
+import { Download, Info, Loader2, Pause, Play, Scissors } from "lucide-react";
 import i18next from "i18next";
 import { openVideoTrimDialog } from "../dialogs/video-trim/VideoTrimDialog";
 import {
@@ -24,9 +24,6 @@ import {
   BOARD_TOOLBAR_ITEM_BLUE,
   BOARD_TOOLBAR_ITEM_GREEN,
 } from "../ui/board-style-system";
-import { IMAGE_PROMPT_GENERATE_NODE_TYPE } from "./imagePromptGenerate";
-import { getBoardChatMessageMeta } from "../utils/board-chat-message";
-import { createBoardChatMessageToolbarItems } from "../utils/board-chat-toolbar";
 import { openFilePreview } from "@/components/file/lib/file-preview-store";
 import { fetchVideoMetadata } from "@/components/file/lib/video-metadata";
 import { parseScopedProjectPath } from "@/components/project/filesystem/utils/file-system-utils";
@@ -177,12 +174,7 @@ function createVideoToolbarItems(ctx: CanvasToolbarContext<VideoNodeProps>) {
       onSelect: () => ctx.openInspector(ctx.element.id),
     },
   ];
-  const messageMeta = getBoardChatMessageMeta(ctx.element);
-  if (!messageMeta) return baseItems;
-  const chatItems = createBoardChatMessageToolbarItems(ctx, messageMeta);
-  return (messageMeta.status ?? "streaming") === "complete"
-    ? [...chatItems, ...baseItems]
-    : chatItems;
+  return baseItems;
 }
 
 /** Export the clipped segment via server-side ffmpeg. */
@@ -565,20 +557,6 @@ export function VideoNodeView({
   );
 }
 
-/** Connector templates offered by the video node – resolved at render time. */
-const getVideoNodeConnectorTemplates = (): CanvasConnectorTemplateDefinition[] => [
-  {
-    id: IMAGE_PROMPT_GENERATE_NODE_TYPE,
-    label: i18next.t('board:connector.imagePromptGenerate'),
-    description: i18next.t('board:connector.imagePromptGenerateDesc'),
-    size: [320, 220],
-    icon: <Sparkles size={14} />,
-    createNode: () => ({
-      type: IMAGE_PROMPT_GENERATE_NODE_TYPE,
-      props: {},
-    }),
-  },
-];
 
 /** Definition for the video node. */
 export const VideoNodeDefinition: CanvasNodeDefinition<VideoNodeProps> = {
@@ -606,6 +584,6 @@ export const VideoNodeDefinition: CanvasNodeDefinition<VideoNodeProps> = {
     minSize: { w: 200, h: 112 },
     maxSize: { w: 1280, h: 720 },
   },
-  connectorTemplates: () => getVideoNodeConnectorTemplates(),
+  connectorTemplates: () => [],
   toolbar: (ctx) => createVideoToolbarItems(ctx),
 };

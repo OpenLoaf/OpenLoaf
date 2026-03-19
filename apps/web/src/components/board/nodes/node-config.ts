@@ -20,9 +20,9 @@ export const IMAGE_NODE_MIN_SIZE = { w: 120, h: 90 };
 /** ImageNode 最大尺寸。 */
 export const IMAGE_NODE_MAX_SIZE = { w: 960, h: 720 };
 
-/** Node type identifier for image generation. */
+/** @deprecated Node type removed in canvas redesign. Kept for reference only. */
 export const IMAGE_GENERATE_NODE_TYPE = "image_generate";
-/** Node type identifier for video generation. */
+/** @deprecated Node type removed in canvas redesign. Kept for reference only. */
 export const VIDEO_GENERATE_NODE_TYPE = "video_generate";
 
 /** Gap between generated image nodes. */

@@ -15,9 +15,7 @@ import {
   Clipboard,
   Copy,
   Download,
-  Film,
   FileText,
-  ImagePlus,
   LayoutGrid,
   Lock,
   Maximize2,
@@ -64,10 +62,6 @@ export type BoardContextMenuProps = {
   onInsertText?: () => void;
   /** Insert file handler. */
   onInsertFile?: () => void;
-  /** Insert AI image generate node handler. */
-  onInsertImageGenerate?: () => void;
-  /** Insert AI video generate node handler. */
-  onInsertVideoGenerate?: () => void;
   /** Whether insert actions are disabled (e.g. locked). */
   insertDisabled?: boolean;
   /** Context menu trigger handler. */
@@ -97,8 +91,6 @@ export function BoardContextMenu({
   pasteDisabled = false,
   onInsertText,
   onInsertFile,
-  onInsertImageGenerate,
-  onInsertVideoGenerate,
   insertDisabled = false,
   isFullscreen,
   onContextMenu,
@@ -194,27 +186,6 @@ export function BoardContextMenu({
             >
               {t('contextMenu.insertFile')}
             </ContextMenuItem>
-            <ContextMenuItem
-              icon={ImagePlus}
-              disabled={insertDisabled}
-              onSelect={() => {
-                if (insertDisabled) return;
-                onInsertImageGenerate?.();
-              }}
-            >
-              {t('contextMenu.aiImageGenerate')}
-            </ContextMenuItem>
-            <ContextMenuItem
-              icon={Film}
-              disabled={insertDisabled}
-              onSelect={() => {
-                if (insertDisabled) return;
-                onInsertVideoGenerate?.();
-              }}
-            >
-              {t('contextMenu.aiVideoGenerate')}
-            </ContextMenuItem>
-
             <ContextMenuSeparator />
 
             <ContextMenuItem

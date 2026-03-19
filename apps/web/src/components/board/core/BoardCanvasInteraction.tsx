@@ -84,10 +84,6 @@ import {
   emitSidebarOpenRequest,
   getLeftSidebarOpen,
 } from "@/lib/sidebar-state";
-import {
-  IMAGE_GENERATE_NODE_TYPE,
-  VIDEO_GENERATE_NODE_TYPE,
-} from "../nodes/node-config";
 import { TEXT_NODE_DEFAULT_HEIGHT } from "../nodes/TextNode";
 import { isGroupNodeType } from "../engine/grouping";
 import {
@@ -100,8 +96,6 @@ import {
 
 const EDITABLE_NODE_TYPES = new Set([
   "text",
-  "image-generate",
-  "image-prompt-generate",
 ]);
 const DEFAULT_VIDEO_WIDTH = 16;
 const DEFAULT_VIDEO_HEIGHT = 9;
@@ -909,30 +903,6 @@ export function BoardCanvasInteraction({
     );
   }, [engine]);
 
-  /** Enter pending insert mode for an AI image generation node. */
-  const handleInsertImageGenerateFromContextMenu = useCallback(() => {
-    if (engine.isLocked()) return;
-    engine.getContainer()?.focus();
-    engine.setPendingInsert({
-      id: IMAGE_GENERATE_NODE_TYPE,
-      type: IMAGE_GENERATE_NODE_TYPE,
-      props: {},
-      size: [320, 260],
-    });
-  }, [engine]);
-
-  /** Enter pending insert mode for an AI video generation node. */
-  const handleInsertVideoGenerateFromContextMenu = useCallback(() => {
-    if (engine.isLocked()) return;
-    engine.getContainer()?.focus();
-    engine.setPendingInsert({
-      id: VIDEO_GENERATE_NODE_TYPE,
-      type: VIDEO_GENERATE_NODE_TYPE,
-      props: {},
-      size: [360, 280],
-    });
-  }, [engine]);
-
   const handleCanvasDragOver = (event: DragEvent<HTMLDivElement>) => {
     const types = event.dataTransfer?.types;
     if (!types) return;
@@ -1406,8 +1376,6 @@ export function BoardCanvasInteraction({
         pasteDisabled={engine.isLocked()}
         onInsertText={handleInsertTextFromContextMenu}
         onInsertFile={handleInsertFileFromContextMenu}
-        onInsertImageGenerate={handleInsertImageGenerateFromContextMenu}
-        onInsertVideoGenerate={handleInsertVideoGenerateFromContextMenu}
         insertDisabled={engine.isLocked()}
         contextNode={contextNode}
         onNodeDelete={(nodeId) => {

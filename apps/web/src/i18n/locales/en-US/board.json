@@ -542,5 +542,9 @@
     "fantasy": "Fantasy",
     "ink": "Ink Wash",
     "lowpoly": "Low Poly"
+  },
+  "fallbackNode": {
+    "deprecated": "This node type ({{type}}) has been deprecated",
+    "delete": "Delete"
   }
 }

@@ -8,7 +8,6 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import type {
-  CanvasConnectorTemplateDefinition,
   CanvasNodeDefinition,
   CanvasNodeViewProps,
   CanvasToolbarContext,
@@ -19,15 +18,10 @@ import {
   Download,
   ImageOff,
   Info,
-  Play,
-  Sparkles,
 } from "lucide-react";
 import { useBoardContext } from "../core/BoardProvider";
 import { buildImageNodePayloadFromUri } from "../utils/image";
 import { ImageNodeDetail } from "./ImageNodeDetail";
-import { IMAGE_PROMPT_GENERATE_NODE_TYPE } from "./imagePromptGenerate";
-import { IMAGE_GENERATE_NODE_TYPE } from "./imageGenerate";
-import { VIDEO_GENERATE_NODE_TYPE } from "./videoGenerate";
 import { NodeFrame } from "./NodeFrame";
 import type { BoardFileContext } from "../core/BoardProvider";
 import {
@@ -49,8 +43,6 @@ import {
   BOARD_TOOLBAR_ITEM_BLUE,
   BOARD_TOOLBAR_ITEM_GREEN,
 } from "../ui/board-style-system";
-import { getBoardChatMessageMeta } from "../utils/board-chat-message";
-import { createBoardChatMessageToolbarItems } from "../utils/board-chat-toolbar";
 
 /** Max bytes for image node preview fetches. */
 const IMAGE_NODE_PREVIEW_MAX_BYTES = 100 * 1024;
@@ -185,51 +177,7 @@ function createImageToolbarItems(ctx: CanvasToolbarContext<ImageNodeProps>) {
       onSelect: () => ctx.openInspector(ctx.element.id),
     },
   ];
-  const messageMeta = getBoardChatMessageMeta(ctx.element);
-  if (!messageMeta) return baseItems;
-  const chatItems = createBoardChatMessageToolbarItems(ctx, messageMeta);
-  return (messageMeta.status ?? "streaming") === "complete"
-    ? [...chatItems, ...baseItems]
-    : chatItems;
-}
-
-/** Connector templates offered by the image node. */
-function getImageNodeConnectorTemplates(): CanvasConnectorTemplateDefinition[] {
-  return [
-    {
-      id: IMAGE_PROMPT_GENERATE_NODE_TYPE,
-      label: i18next.t('board:connector.imagePromptGenerate'),
-      description: i18next.t('board:connector.imagePromptGenerateDesc'),
-      size: [320, 220],
-      icon: <Sparkles size={14} />,
-      createNode: () => ({
-        type: IMAGE_PROMPT_GENERATE_NODE_TYPE,
-        props: {},
-      }),
-    },
-    {
-      id: IMAGE_GENERATE_NODE_TYPE,
-      label: i18next.t('board:connector.imageGenerate'),
-      description: i18next.t('board:connector.imageGenerateDesc'),
-      size: [320, 260],
-      icon: <Sparkles size={14} />,
-      createNode: () => ({
-        type: IMAGE_GENERATE_NODE_TYPE,
-        props: {},
-      }),
-    },
-    {
-      id: VIDEO_GENERATE_NODE_TYPE,
-      label: i18next.t('board:connector.videoGenerate'),
-      description: i18next.t('board:connector.videoGenerateDesc'),
-      size: [360, 280],
-      icon: <Play size={14} />,
-      createNode: () => ({
-        type: VIDEO_GENERATE_NODE_TYPE,
-        props: {},
-      }),
-    },
-  ];
+  return baseItems;
 }
 
 /** Render an image node using a compressed preview bitmap. */
@@ -617,6 +565,6 @@ export const ImageNodeDefinition: CanvasNodeDefinition<ImageNodeProps> = {
     minSize: IMAGE_NODE_MIN_SIZE,
     maxSize: IMAGE_NODE_MAX_SIZE,
   },
-  connectorTemplates: () => getImageNodeConnectorTemplates(),
+  connectorTemplates: () => [],
   toolbar: () => [],
 };
