@@ -36,6 +36,7 @@ import {
 import { resolveServerUrl } from "@/utils/server-url";
 import { NodeFrame } from "./NodeFrame";
 import { VideoAiPanel } from "../panels/VideoAiPanel";
+import { useUpstreamData } from "../hooks/useUpstreamData";
 
 export type VideoNodeProps = {
   /** Project-relative path for the video. */
@@ -279,7 +280,8 @@ export function VideoNodeView({
   expanded,
   onUpdate,
 }: CanvasNodeViewProps<VideoNodeProps>) {
-  const { fileContext } = useBoardContext();
+  const { fileContext, engine } = useBoardContext();
+  const upstream = useUpstreamData(engine, expanded ? element.id : null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
   const [playing, setPlaying] = useState(false);
@@ -571,6 +573,8 @@ export function VideoNodeView({
           <VideoAiPanel
             element={element}
             onUpdate={onUpdate}
+            upstreamText={upstream?.textList.join('\n')}
+            upstreamImages={upstream?.imageList}
           />
         </div>
       ) : null}

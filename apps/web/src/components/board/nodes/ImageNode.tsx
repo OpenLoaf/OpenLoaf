@@ -44,6 +44,7 @@ import {
   BOARD_TOOLBAR_ITEM_GREEN,
 } from "../ui/board-style-system";
 import { ImageAiPanel } from "../panels/ImageAiPanel";
+import { useUpstreamData } from "../hooks/useUpstreamData";
 
 /** Max bytes for image node preview fetches. */
 const IMAGE_NODE_PREVIEW_MAX_BYTES = 100 * 1024;
@@ -195,6 +196,7 @@ export function ImageNodeView({
   /** Guard against repeated hydration requests. */
   const hydrationRef = useRef<string | null>(null);
   const { actions, engine, fileContext } = useBoardContext();
+  const upstream = useUpstreamData(engine, expanded ? element.id : null);
   const previewSrc =
     element.props.previewSrc ||
     resolveImageSource(element.props.originalSrc, fileContext);
@@ -525,6 +527,8 @@ export function ImageNodeView({
           <ImageAiPanel
             element={element}
             onUpdate={onUpdate}
+            upstreamText={upstream?.textList.join('\n')}
+            upstreamImages={upstream?.imageList}
           />
         </div>
       ) : null}
@@ -600,5 +604,5 @@ export const ImageNodeDefinition: CanvasNodeDefinition<ImageNodeProps> = {
   },
   inlinePanel: { width: 420, height: 480 },
   connectorTemplates: () => [],
-  toolbar: () => [],
+  toolbar: (ctx) => createImageToolbarItems(ctx),
 };
