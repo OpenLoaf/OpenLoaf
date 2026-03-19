@@ -1644,18 +1644,17 @@ export function BoardCanvasInteraction({
             if (hitElement?.kind === "node") {
               handleNodeDoubleClick(hitElement);
             } else if (!hitElement) {
-              // 逻辑：双击空白区域时创建文本节点并自动进入编辑模式。
+              // 逻辑：双击空白区域时打开左工具栏的插入面板。
               if (snapshot.activeToolId !== "select") {
                 engine.setActiveTool("select");
               }
-              const w = 200;
-              const h = TEXT_NODE_DEFAULT_HEIGHT;
-              engine.addNodeElement("text", { autoFocus: true }, [
-                worldPoint[0],
-                worldPoint[1],
-                w,
-                h,
-              ]);
+              engine
+                .getContainer()
+                ?.dispatchEvent(
+                  new CustomEvent("openloaf:board-open-insert-panel", {
+                    bubbles: true,
+                  }),
+                );
             }
           }}
         >

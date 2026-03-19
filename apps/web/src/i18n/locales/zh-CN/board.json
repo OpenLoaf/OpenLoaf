@@ -49,12 +49,22 @@
   "insertTools": {
     "note": "便签",
     "text": "文本",
+    "textDesc": "输入提示词、脚本",
     "sticky": "便签",
+    "stickyDesc": "快速记录想法",
     "image": "图片",
+    "imageDesc": "AI 生成图片",
     "video": "视频",
+    "videoDesc": "AI 生成视频",
     "audio": "音频",
+    "audioDesc": "AI 生成音频",
     "file": "文件",
     "link": "链接",
+    "linkDesc": "添加网页链接",
+    "upload": "上传",
+    "uploadDesc": "导入图片、视频、音频文件",
+    "addNode": "添加节点",
+    "addResource": "添加资源",
     "imagePromptGenerate": "视频图片理解",
     "imageGenerate": "图片生成",
     "videoGenerate": "生成视频",
@@ -98,7 +108,7 @@
   "emptyGuide": {
     "title": "开始创作",
     "subtitle": "选择一个方式开始",
-    "createSticky": "创建便签",
+    "createText": "创建便签",
     "aiImage": "AI 图片",
     "aiVideo": "AI 视频",
     "importFile": "导入文件",
@@ -235,6 +245,11 @@
       "green": "绿",
       "purple": "紫",
       "gray": "灰"
+    },
+    "recommend": {
+      "textToVideo": "文生视频",
+      "imageReversePrompt": "图片反推提示词",
+      "textToSpeech": "文字转语音"
     }
   },
   "groupNode": {
@@ -654,5 +669,16 @@
       "video": "视频",
       "audio": "音频"
     }
+  },
+  "nodeLabel": {
+    "text": "文本",
+    "image": "图片",
+    "video": "视频",
+    "audio": "音频",
+    "link": "链接",
+    "file-attachment": "文件",
+    "calendar": "日历",
+    "group": "分组",
+    "image-group": "图片组"
   }
 }

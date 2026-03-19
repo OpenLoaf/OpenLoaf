@@ -49,12 +49,22 @@
   "insertTools": {
     "note": "便利貼",
     "text": "文字",
+    "textDesc": "輸入提示詞、腳本",
     "sticky": "便利貼",
+    "stickyDesc": "快速記錄想法",
     "image": "圖片",
+    "imageDesc": "AI 生成圖片",
     "video": "影片",
+    "videoDesc": "AI 生成影片",
     "audio": "音訊",
+    "audioDesc": "AI 生成音訊",
     "file": "檔案",
     "link": "連結",
+    "linkDesc": "新增網頁連結",
+    "upload": "上傳",
+    "uploadDesc": "匯入圖片、影片、音訊檔案",
+    "addNode": "新增節點",
+    "addResource": "新增資源",
     "imagePromptGenerate": "影片圖片理解",
     "imageGenerate": "圖片生成",
     "videoGenerate": "生成影片",
@@ -98,7 +108,7 @@
   "emptyGuide": {
     "title": "開始創作",
     "subtitle": "選擇一個方式開始",
-    "createSticky": "建立便利貼",
+    "createText": "建立便利貼",
     "aiImage": "AI 圖片",
     "aiVideo": "AI 影片",
     "importFile": "匯入檔案",
@@ -235,6 +245,11 @@
       "green": "綠",
       "purple": "紫",
       "gray": "灰"
+    },
+    "recommend": {
+      "textToVideo": "文生影片",
+      "imageReversePrompt": "圖片反推提示詞",
+      "textToSpeech": "文字轉語音"
     }
   },
   "groupNode": {
@@ -650,5 +665,16 @@
       "video": "影片",
       "audio": "音訊"
     }
+  },
+  "nodeLabel": {
+    "text": "文字",
+    "image": "圖片",
+    "video": "影片",
+    "audio": "音訊",
+    "link": "連結",
+    "file-attachment": "檔案",
+    "calendar": "行事曆",
+    "group": "群組",
+    "image-group": "圖片群組"
   }
 }

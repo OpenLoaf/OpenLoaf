@@ -14,9 +14,6 @@ import type { PointerEvent as ReactPointerEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@udecode/cn";
 import {
-  ImagePlus,
-  VideoIcon,
-  Music2,
   Minus,
   Plus,
   Scan,
@@ -28,7 +25,6 @@ import type { CanvasEngine } from "../engine/CanvasEngine";
 import type { CanvasSnapshot } from "../engine/types";
 import { IconBtn, toolbarSurfaceClassName } from "../ui/ToolbarParts";
 import { useBoardViewState } from "../core/useBoardViewState";
-import { DEFAULT_NODE_SIZE } from "../engine/constants";
 
 export interface BottomBarProps {
   /** Canvas engine instance. */
@@ -41,7 +37,7 @@ const ZOOM_STEP = 1.15;
 const ZOOM_HOLD_DELAY = 260;
 const ZOOM_HOLD_INTERVAL = 80;
 
-/** Bottom bar with AI creation buttons + viewport controls. */
+/** Bottom bar with viewport controls. */
 const BottomBar = memo(function BottomBar({
   engine,
   snapshot,
@@ -131,56 +127,6 @@ const BottomBar = memo(function BottomBar({
     [engine],
   );
 
-  /** Create a new empty AI generation node and select it. */
-  const createAiNode = useCallback(
-    (nodeType: "image" | "video" | "audio") => {
-      if (isLocked) return;
-      const viewport = engine.viewport.getState();
-      const centerWorld = engine.screenToWorld([
-        viewport.size[0] / 2,
-        viewport.size[1] / 2,
-      ]);
-      const [w, h] = DEFAULT_NODE_SIZE;
-      const xywh: [number, number, number, number] = [
-        centerWorld[0] - w / 2,
-        centerWorld[1] - h / 2,
-        w,
-        h,
-      ];
-
-      let props: Record<string, unknown> = {};
-      if (nodeType === "image") {
-        props = {
-          previewSrc: "",
-          originalSrc: "",
-          mimeType: "image/png",
-          fileName: "ai-generated.png",
-          naturalWidth: w,
-          naturalHeight: h,
-          origin: "ai-generate",
-        };
-      } else if (nodeType === "video") {
-        props = {
-          sourcePath: "",
-          fileName: "ai-generated.mp4",
-          origin: "ai-generate",
-        };
-      } else {
-        props = {
-          sourcePath: "",
-          fileName: "ai-generated.mp3",
-          origin: "ai-generate",
-        };
-      }
-
-      const nodeId = engine.addNodeElement(nodeType, props, xywh);
-      if (nodeId) {
-        engine.selection.setSelection([nodeId]);
-      }
-    },
-    [engine, isLocked],
-  );
-
   const isMac = useMemo(
     () =>
       typeof navigator !== "undefined" &&
@@ -193,7 +139,7 @@ const BottomBar = memo(function BottomBar({
   return (
     <div
       data-bottom-bar
-      className="absolute bottom-3 left-1/2 z-20 -translate-x-1/2"
+      className="absolute bottom-3 left-3 z-20"
       onPointerDown={(event) => {
         event.stopPropagation();
       }}
@@ -204,49 +150,6 @@ const BottomBar = memo(function BottomBar({
           toolbarSurfaceClassName,
         )}
       >
-        {/* AI creation buttons */}
-        <IconBtn
-          title={t("bottomBar.aiImage")}
-          onPointerDown={() => createAiNode("image")}
-          disabled={isLocked}
-          tooltipSide="top"
-          showTooltip={false}
-          className="h-8 w-auto gap-1.5 whitespace-nowrap px-2.5"
-        >
-          <ImagePlus size={15} className="flex-shrink-0 text-ol-blue" />
-          <span className="text-[11px] font-medium text-ol-text-secondary">
-            {t("bottomBar.aiImage")}
-          </span>
-        </IconBtn>
-        <IconBtn
-          title={t("bottomBar.aiVideo")}
-          onPointerDown={() => createAiNode("video")}
-          disabled={isLocked}
-          tooltipSide="top"
-          showTooltip={false}
-          className="h-8 w-auto gap-1.5 whitespace-nowrap px-2.5"
-        >
-          <VideoIcon size={15} className="flex-shrink-0 text-ol-purple" />
-          <span className="text-[11px] font-medium text-ol-text-secondary">
-            {t("bottomBar.aiVideo")}
-          </span>
-        </IconBtn>
-        <IconBtn
-          title={t("bottomBar.aiAudio")}
-          onPointerDown={() => createAiNode("audio")}
-          disabled={isLocked}
-          tooltipSide="top"
-          showTooltip={false}
-          className="h-8 w-auto gap-1.5 whitespace-nowrap px-2.5"
-        >
-          <Music2 size={15} className="flex-shrink-0 text-ol-green" />
-          <span className="text-[11px] font-medium text-ol-text-secondary">
-            {t("bottomBar.aiAudio")}
-          </span>
-        </IconBtn>
-
-        <span className="mx-1 h-5 w-px bg-border/60" />
-
         {/* Undo / Redo */}
         <IconBtn
           title={`${t("controls.undo")} (${undoShortcut})`}

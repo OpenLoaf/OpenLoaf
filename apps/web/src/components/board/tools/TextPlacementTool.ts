@@ -9,7 +9,7 @@
  */
 import { PlacementTool } from "./PlacementTool";
 
-/** Quick-create tool for plain text nodes. */
+/** Quick-create tool for text (sticky note) nodes. */
 export class TextPlacementTool extends PlacementTool {
   readonly id = "text";
 
@@ -18,10 +18,14 @@ export class TextPlacementTool extends PlacementTool {
   }
 
   getDefaultProps(): Record<string, unknown> {
-    return { autoFocus: true };
+    return {
+      autoFocus: true,
+      style: "sticky",
+      stickyColor: "yellow",
+    };
   }
 
   getDefaultSize(): [number, number] {
-    return [280, 56];
+    return [200, 200];
   }
 }

@@ -62,7 +62,6 @@ import {
   PenTool,
   SelectTool,
   ShapePlacementTool,
-  StickyPlacementTool,
   TextPlacementTool,
   ToolManager,
 } from "../tools";
@@ -390,7 +389,6 @@ export class CanvasEngine {
     this.tools.register(new SelectTool());
     this.tools.register(new HandTool());
     this.tools.register(new TextPlacementTool());
-    this.tools.register(new StickyPlacementTool());
     this.tools.register(new ShapePlacementTool());
     this.tools.register(new PenTool());
     this.tools.register(new HighlighterTool());

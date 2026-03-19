@@ -129,10 +129,11 @@ export function BoardCanvasRender({
   }, [engine]);
 
   // 逻辑：选中有 inlinePanel 配置的节点时自动展开，切换选区时自动收起上一个。
-  // 仅依赖 selectedIds 变化，不依赖 snapshot.elements 以避免拖拽时频繁执行。
+  // 延迟展开防止「选中后立刻拖动」时面板闪烁：如果在延迟内开始拖动，portal 不会渲染。
+  // 框选进行中（selectionBox 非 null）时不展开内联面板，避免拖拽过程中面板闪烁。
   useEffect(() => {
     const selectedIds = snapshot.selectedIds;
-    if (selectedIds.length !== 1) {
+    if (selectedIds.length !== 1 || snapshot.selectionBox) {
       engine.setExpandedNodeId(null);
       return;
     }
@@ -144,11 +145,13 @@ export function BoardCanvasRender({
     }
     const definition = engine.nodes.getDefinition(element.type);
     if (definition?.inlinePanel) {
-      engine.setExpandedNodeId(selectedId);
-    } else {
-      engine.setExpandedNodeId(null);
+      const timer = window.setTimeout(() => {
+        engine.setExpandedNodeId(selectedId);
+      }, FADE_ENTER_DELAY);
+      return () => window.clearTimeout(timer);
     }
-  }, [engine, snapshot.selectedIds]);
+    engine.setExpandedNodeId(null);
+  }, [engine, snapshot.selectedIds, snapshot.selectionBox]);
 
   const selectedConnector = getSingleSelectedElement(snapshot, "connector");
   const selectedNode = getSingleSelectedElement(snapshot, "node");
@@ -185,7 +188,7 @@ export function BoardCanvasRender({
           gpuStats={gpuStats}
         />
       ) : null}
-      {showUi && !snapshot.draggingId ? <AnchorOverlay snapshot={snapshot} /> : null}
+      {showUi && !snapshot.draggingId && !snapshot.selectionBox ? <AnchorOverlay snapshot={snapshot} /> : null}
       {showUi && !minimal ? (
         <div className={cn("pointer-events-none absolute inset-0 z-20 transition-all duration-500 ease-out", toolbarsReady ? "opacity-100 -translate-x-0" : "opacity-0 -translate-x-4")}>
           <LeftToolbar engine={engine} snapshot={snapshot} />
@@ -217,7 +220,7 @@ export function BoardCanvasRender({
       {showUi && !minimal ? (
         <BoardEmptyGuide engine={engine} visible={snapshot.docRevision > 0 && snapshot.elements.length === 0 && !snapshot.pendingInsert && toolbarsReady} activeToolId={snapshot.activeToolId} />
       ) : null}
-      {showUi && selectedConnector ? (
+      {showUi && selectedConnector && !snapshot.selectionBox ? (
         <ConnectorActionPanel
           snapshot={snapshot}
           connector={selectedConnector}
@@ -225,30 +228,34 @@ export function BoardCanvasRender({
           onDelete={() => engine.deleteSelection()}
         />
       ) : null}
-      {showUi && !snapshot.draggingId ? <MultiSelectionOutline snapshot={snapshot} engine={engine} /> : null}
+      {showUi ? <MultiSelectionOutline snapshot={snapshot} engine={engine} /> : null}
       {showUi && selectedNode && selectedNode.type !== "stroke" ? (
         <SingleSelectionOutline snapshot={snapshot} engine={engine} element={selectedNode} hidden={!!snapshot.draggingId} />
       ) : null}
-      {showUi && !snapshot.draggingId && selectedNode && selectedNode.type !== "stroke" ? (
-        <SingleSelectionToolbar
-          snapshot={snapshot}
-          engine={engine}
-          element={selectedNode}
-          onInspect={(elementId) => setInspectorNodeId(elementId)}
-          onEnterGroup={onEnterGroup}
-        />
-      ) : null}
-      {showUi && !snapshot.draggingId ? (
+      <BoardDragFade visible={showUi && !snapshot.draggingId && !snapshot.selectionBox && !!selectedNode && selectedNode.type !== "stroke"}>
+        {selectedNode ? (
+          <SingleSelectionToolbar
+            snapshot={snapshot}
+            engine={engine}
+            element={selectedNode}
+            onInspect={(elementId) => setInspectorNodeId(elementId)}
+            onEnterGroup={onEnterGroup}
+          />
+        ) : null}
+      </BoardDragFade>
+      <BoardDragFade visible={showUi && !snapshot.draggingId && !snapshot.selectionBox}>
         <MultiSelectionToolbar
           snapshot={snapshot}
           engine={engine}
           onInspect={(elementId) => setInspectorNodeId(elementId)}
           onEnterGroup={onEnterGroup}
         />
-      ) : null}
-      {showUi && inspectorElement ? (
-        <NodeInspectorPanel element={inspectorElement} onClose={() => setInspectorNodeId(null)} />
-      ) : null}
+      </BoardDragFade>
+      <BoardDragFade visible={showUi && !!inspectorElement && !snapshot.draggingId && !snapshot.selectionBox}>
+        {inspectorElement ? (
+          <NodeInspectorPanel element={inspectorElement} onClose={() => setInspectorNodeId(null)} />
+        ) : null}
+      </BoardDragFade>
       {showUi && !minimal && showSearchPanel ? (
         <NodeSearchPanel
           engine={engine}
@@ -257,6 +264,44 @@ export function BoardCanvasRender({
         />
       ) : null}
     </>
+  );
+}
+
+/** Fade-in wrapper: delayed entrance prevents flash; exit is instant (no ghost). */
+const FADE_ENTER_DELAY = 80;
+const FADE_IN_DURATION = 150;
+function BoardDragFade({ visible, children }: {
+  visible: boolean;
+  children: React.ReactNode;
+}) {
+  const [mounted, setMounted] = useState(false);
+  const [show, setShow] = useState(false);
+
+  useEffect(() => {
+    if (visible) {
+      const enterTimer = window.setTimeout(() => {
+        setMounted(true);
+        requestAnimationFrame(() => setShow(true));
+      }, FADE_ENTER_DELAY);
+      return () => window.clearTimeout(enterTimer);
+    }
+    // 退场：立刻卸载，不留残影
+    setMounted(false);
+    setShow(false);
+  }, [visible]);
+
+  if (!mounted) return null;
+
+  return (
+    <div
+      className="pointer-events-none absolute inset-0 z-20"
+      style={{
+        opacity: show ? 1 : 0,
+        transition: `opacity ${FADE_IN_DURATION}ms ease`,
+      }}
+    >
+      {children}
+    </div>
   );
 }
 

@@ -15,5 +15,4 @@ export { PenTool, HighlighterTool } from "./StrokeTools";
 export { EraserTool } from "./EraserTool";
 export { PlacementTool } from "./PlacementTool";
 export { TextPlacementTool } from "./TextPlacementTool";
-export { StickyPlacementTool } from "./StickyPlacementTool";
 export { ShapePlacementTool } from "./ShapePlacementTool";

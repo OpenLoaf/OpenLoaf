@@ -24,6 +24,8 @@ import type {
   CanvasViewState,
 } from '../../engine/types'
 import { getGroupOutlinePadding, isGroupNodeType } from '../../engine/grouping'
+import { NodeLabel } from '../../nodes/NodeLabel'
+import { TextNodeRecommendButtons } from '../../nodes/TextNodeRecommendButtons'
 
 type DomNodeLayerProps = {
   engine: CanvasEngine
@@ -34,15 +36,39 @@ type DomNodeLayerProps = {
 // 单个节点的 memo 组件（核心性能优化）
 // ---------------------------------------------------------------------------
 
+/** Node types that should not display an above-node label. */
+const LABEL_EXCLUDED_TYPES = new Set(['loading'])
+
+/**
+ * Compute a dampened label scale so labels grow slightly with zoom but cap out.
+ *
+ * The DOM layer already applies `scale(zoom)`. We counter-scale labels so their
+ * screen size follows `zoom^0.4` instead of `zoom`, clamped to [0.6, 1.6].
+ *
+ * Examples (screen size = zoom × labelScale):
+ *   zoom=0.25 → screen 0.6  (floored)
+ *   zoom=0.5  → screen 0.76
+ *   zoom=1    → screen 1.0
+ *   zoom=2    → screen 1.32
+ *   zoom=4    → screen 1.6  (capped)
+ */
+function computeLabelScale(zoom: number): number {
+  const screenScale = Math.min(Math.max(Math.pow(zoom, 0.4), 0.6), 1.6)
+  return screenScale / zoom
+}
+
 type DomNodeItemProps = {
+  engine: CanvasEngine
   element: CanvasNodeElement
   View: ComponentType<CanvasNodeViewProps<Record<string, unknown>>>
   selected: boolean
   editing: boolean
   expanded: boolean
+  boxSelecting: boolean
   groupPadding: number
   onSelect: () => void
   onUpdate: (patch: Record<string, unknown>) => void
+  onLabelChange: (label: string) => void
 }
 
 /** Z-index boost applied to expanded nodes so they appear above all others. */
@@ -50,18 +76,23 @@ const EXPANDED_Z_INDEX_BOOST = 9999
 
 /** 单个节点渲染。memo 确保只有 props 变化时才重渲染。 */
 const DomNodeItem = memo(function DomNodeItem({
+  engine,
   element,
   View,
   selected,
   editing,
   expanded,
+  boxSelecting,
   groupPadding,
   onSelect,
   onUpdate,
+  onLabelChange,
 }: DomNodeItemProps) {
   const [x, y, w, h] = element.xywh
   const padding = isGroupNodeType(element.type) ? groupPadding : 0
   const baseZ = element.zIndex ?? 0
+  const isGroup = isGroupNodeType(element.type)
+  const showLabel = !isGroup && !LABEL_EXCLUDED_TYPES.has(element.type)
 
   return (
     <div
@@ -72,14 +103,9 @@ const DomNodeItem = memo(function DomNodeItem({
       data-selected={selected || undefined}
       data-expanded={expanded || undefined}
       className={cn(
-        'absolute',
+        'absolute overflow-visible',
         editing ? 'select-text' : 'select-none',
-        isGroupNodeType(element.type)
-          ? 'pointer-events-none'
-          : 'pointer-events-auto',
-        // 逻辑：展开的节点使用 overflow-visible 让内嵌面板溢出节点边界，
-        // 不修改 Yjs xywh，面板展开是纯本地 UI 状态。
-        expanded ? 'overflow-visible' : 'overflow-hidden',
+        isGroup ? 'pointer-events-none' : 'pointer-events-auto',
       )}
       style={{
         left: x - padding,
@@ -93,7 +119,17 @@ const DomNodeItem = memo(function DomNodeItem({
         transformOrigin: 'center',
       }}
     >
-      <div className="h-full w-full">
+      {showLabel && (
+        <NodeLabel element={element} onLabelChange={onLabelChange} />
+      )}
+      <div
+        className={cn(
+          'h-full w-full',
+          // 逻辑：展开的节点使用 overflow-visible 让内嵌面板溢出节点边界，
+          // 不修改 Yjs xywh，面板展开是纯本地 UI 状态。
+          expanded ? 'overflow-visible' : 'overflow-hidden',
+        )}
+      >
         <View
           element={element}
           selected={selected}
@@ -108,6 +144,9 @@ const DomNodeItem = memo(function DomNodeItem({
           <Lock size={10} className="text-white" />
         </div>
       )}
+      {element.type === 'text' && selected && !boxSelecting && (
+        <TextNodeRecommendButtons engine={engine} element={element} />
+      )}
     </div>
   )
 }, (prev, next) => {
@@ -117,6 +156,7 @@ const DomNodeItem = memo(function DomNodeItem({
   if (prev.selected !== next.selected) return false
   if (prev.editing !== next.editing) return false
   if (prev.expanded !== next.expanded) return false
+  if (prev.boxSelecting !== next.boxSelecting) return false
   if (prev.groupPadding !== next.groupPadding) return false
   return true
 })
@@ -145,6 +185,8 @@ function DomNodeLayerBase({ engine, snapshot }: DomNodeLayerProps) {
     const { zoom, offset } = view.viewport
     layer.style.transform = `translate(${offset[0]}px, ${offset[1]}px) scale(${zoom})`
     layer.style.willChange = view.panning ? 'transform' : ''
+    // Update label scale CSS variable (read by NodeLabel via var())
+    layer.style.setProperty('--label-scale', String(computeLabelScale(zoom)))
   }, [])
 
   const scheduleTransform = useCallback(
@@ -195,7 +237,8 @@ function DomNodeLayerBase({ engine, snapshot }: DomNodeLayerProps) {
       )}
       style={{
         transform: `translate(${offset[0]}px, ${offset[1]}px) scale(${zoom})`,
-      }}
+        '--label-scale': String(computeLabelScale(zoom)),
+      } as React.CSSProperties}
     >
       {snapshot.elements.map(element => {
         if (element.kind !== 'node') return null
@@ -211,14 +254,21 @@ function DomNodeLayerBase({ engine, snapshot }: DomNodeLayerProps) {
         return (
           <DomNodeItem
             key={element.id}
+            engine={engine}
             element={element}
             View={definition.view as ComponentType<CanvasNodeViewProps<Record<string, unknown>>>}
             selected={selected}
             editing={editing}
             expanded={expanded}
+            boxSelecting={!!snapshot.selectionBox}
             groupPadding={groupPadding}
             onSelect={() => engine.selection.setSelection([element.id])}
             onUpdate={patch => engine.doc.updateNodeProps(element.id, patch)}
+            onLabelChange={label => {
+              engine.doc.updateElement(element.id, {
+                meta: { ...element.meta, label: label || undefined },
+              })
+            }}
           />
         )
       })}
@@ -235,6 +285,7 @@ function areDomNodeLayerPropsEqual(
   if (prev.snapshot.draggingId !== next.snapshot.draggingId) return false
   if (prev.snapshot.editingNodeId !== next.snapshot.editingNodeId) return false
   if (prev.snapshot.expandedNodeId !== next.snapshot.expandedNodeId) return false
+  if (!!prev.snapshot.selectionBox !== !!next.snapshot.selectionBox) return false
   const prevSel = prev.snapshot.selectedIds
   const nextSel = next.snapshot.selectedIds
   if (prevSel.length !== nextSel.length) return false

@@ -22,13 +22,18 @@ const DEFAULT_SIZE_MAP: Record<DeriveTargetType, [width: number, height: number]
   audio: [280, 100],
 }
 
-/** Side gap between source and derived node (horizontal). */
+/** Side gap between source and derived node (horizontal, downstream). */
 const DERIVE_SIDE_GAP = 60
+/** Side gap for upstream derivation (left side, typically larger nodes). */
+const DERIVE_UPSTREAM_SIDE_GAP = 120
 /** Stack gap between stacked derived nodes. */
 const DERIVE_STACK_GAP = 16
 
 /** Supported target node types for derivation. */
 export type DeriveTargetType = 'image' | 'video' | 'audio'
+
+/** Direction of derivation relative to the source node. */
+export type DeriveDirection = 'downstream' | 'upstream'
 
 export type DeriveNodeOptions = {
   /** Canvas engine instance. */
@@ -39,6 +44,12 @@ export type DeriveNodeOptions = {
   targetType: DeriveTargetType
   /** Optional props for the new node. */
   targetProps?: Record<string, unknown>
+  /**
+   * Direction of derivation:
+   * - 'downstream' (default): new node to the right, connector source→target
+   * - 'upstream': new node to the left, connector target←source (new node is upstream)
+   */
+  direction?: DeriveDirection
 }
 
 /**
@@ -67,13 +78,39 @@ function collectOutboundTargetRects(
 }
 
 /**
+ * Collect inbound source node rects for a target node.
+ * Used to stack new upstream nodes to the left.
+ */
+function collectInboundSourceRects(
+  engine: CanvasEngine,
+  targetElementId: string,
+): Array<[number, number, number, number]> {
+  return engine.doc
+    .getElements()
+    .reduce<Array<[number, number, number, number]>>((rects, element) => {
+      if (element.kind !== 'connector') return rects
+      if (
+        !('elementId' in element.target) ||
+        element.target.elementId !== targetElementId
+      ) {
+        return rects
+      }
+      if (!('elementId' in element.source)) return rects
+      const sourceElement = engine.doc.getElementById(element.source.elementId)
+      if (!sourceElement || sourceElement.kind !== 'node') return rects
+      return [...rects, sourceElement.xywh]
+    }, [])
+}
+
+/**
  * Create a new node to the right of the source node, connect them,
  * and select the new node (triggering expand).
  *
  * @returns The new node id, or `null` if creation failed.
  */
 export function deriveNode(options: DeriveNodeOptions): string | null {
-  const { engine, sourceNodeId, targetType, targetProps } = options
+  const { engine, sourceNodeId, targetType, targetProps, direction = 'downstream' } = options
+  const isUpstream = direction === 'upstream'
 
   // 1. 获取源节点
   const sourceElement = engine.doc.getElementById(sourceNodeId)
@@ -82,29 +119,32 @@ export function deriveNode(options: DeriveNodeOptions): string | null {
   // 2. 计算新节点尺寸
   const [width, height] = DEFAULT_SIZE_MAP[targetType]
 
-  // 3. 收集已有的出站节点，用于堆叠计算
-  const existingOutputs = collectOutboundTargetRects(engine, sourceNodeId)
+  // 3. 收集已有的同侧节点，用于堆叠计算
+  const existingNeighbors = isUpstream
+    ? collectInboundSourceRects(engine, sourceNodeId)
+    : collectOutboundTargetRects(engine, sourceNodeId)
 
-  // 4. 使用统一的放置算法计算位置（右侧堆叠）
+  // 4. 使用统一的放置算法计算位置
+  const placementDirection = isUpstream ? 'left' : 'right'
+  const sideGap = isUpstream ? DERIVE_UPSTREAM_SIDE_GAP : DERIVE_SIDE_GAP
   const placement = resolveDirectionalStackPlacement(
     sourceElement.xywh,
-    existingOutputs,
+    existingNeighbors,
     {
-      direction: 'right',
-      sideGap: DERIVE_SIDE_GAP,
+      direction: placementDirection,
+      sideGap,
       stackGap: DERIVE_STACK_GAP,
       outputSize: [width, height],
     },
   )
 
+  const fallbackX = isUpstream
+    ? sourceElement.xywh[0] - sideGap - width
+    : sourceElement.xywh[0] + sourceElement.xywh[2] + sideGap
+
   const xywh: [number, number, number, number] = placement
     ? [placement.x, placement.y, width, height]
-    : [
-        sourceElement.xywh[0] + sourceElement.xywh[2] + DERIVE_SIDE_GAP,
-        sourceElement.xywh[1],
-        width,
-        height,
-      ]
+    : [fallbackX, sourceElement.xywh[1], width, height]
 
   // 5. 构建节点 props，标记来源为 AI 生成
   const props: Record<string, unknown> = {
@@ -116,16 +156,16 @@ export function deriveNode(options: DeriveNodeOptions): string | null {
   const newNodeId = engine.addNodeElement(targetType, props, xywh)
   if (!newNodeId) return null
 
-  // 7. 创建从源节点到新节点的连线
-  //    skipHistory: addNodeElement 已经提交过一次，连线无需重复提交
-  //    select: false，保持新节点的选中状态（而非连线）
+  // 7. 创建连线：upstream 时新节点是 source，downstream 时源节点是 source
+  const connectorSource = isUpstream ? newNodeId : sourceNodeId
+  const connectorTarget = isUpstream ? sourceNodeId : newNodeId
   engine.addConnectorElement(
     {
-      source: { elementId: sourceNodeId },
-      target: { elementId: newNodeId },
+      source: { elementId: connectorSource },
+      target: { elementId: connectorTarget },
       style: engine.getConnectorStyle(),
     },
-    { skipHistory: true, select: false },
+    { skipHistory: true, select: false, skipLayout: isUpstream },
   )
 
   // 8. 确保新节点被选中（触发 expand / 打开参数面板）

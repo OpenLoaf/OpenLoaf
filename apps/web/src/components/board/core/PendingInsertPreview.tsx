@@ -9,7 +9,7 @@
  */
 import { memo, useCallback, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { FileText, Type } from "lucide-react";
+import { FileText, ImagePlus, Music2, Type, VideoIcon } from "lucide-react";
 import type { CanvasEngine } from "../engine/CanvasEngine";
 import type { CanvasInsertRequest, CanvasPoint } from "../engine/types";
 
@@ -18,6 +18,8 @@ export const PENDING_INSERT_DOM_TYPES = new Set([
   "text",
   "file-attachment",
   "audio",
+  "image",
+  "video",
 ]);
 
 /** Extension badge color mapping (matches FileAttachmentNode). */
@@ -153,6 +155,35 @@ function PendingInsertPreviewBase({
           style={{ left: x, top: y, width: w, height: h, opacity: 0.75 }}
         >
           <FileNodePreview props={pendingInsert.props} t={t} />
+        </div>
+      </div>
+    );
+  }
+
+  // AI generation node preview (image / video)
+  if (pendingInsert.type === "image" || pendingInsert.type === "video") {
+    const isImage = pendingInsert.type === "image";
+    const Icon = isImage ? ImagePlus : VideoIcon;
+    const accentColor = isImage ? "text-ol-blue" : "text-ol-purple";
+    const borderColor = isImage ? "border-ol-blue/40" : "border-ol-purple/40";
+    const bgColor = isImage ? "bg-ol-blue-bg/30" : "bg-ol-purple-bg/30";
+    return (
+      <div
+        ref={layerRef}
+        className="pointer-events-none absolute inset-0 origin-top-left"
+      >
+        <div
+          className="absolute"
+          style={{ left: x, top: y, width: w, height: h, opacity: 0.75 }}
+        >
+          <div
+            className={`flex h-full w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed ${borderColor} ${bgColor}`}
+          >
+            <Icon size={28} className={accentColor} />
+            <span className={`text-xs font-medium ${accentColor}`}>
+              {pendingInsert.title || (isImage ? t("bottomBar.aiImage") : t("bottomBar.aiVideo"))}
+            </span>
+          </div>
         </div>
       </div>
     );

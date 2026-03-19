@@ -58,6 +58,9 @@ import { DEFAULT_NODE_SIZE } from "../engine/constants";
 import { BOARD_ASSETS_DIR_NAME } from "@/lib/file-name";
 import { resolveDirectionalStackPlacement } from "../utils/output-placement";
 
+/** Inline panel gap from node bottom edge in screen pixels (zoom-independent). */
+const PANEL_GAP_PX = 8;
+
 /** Max bytes for image node preview fetches. */
 const IMAGE_NODE_PREVIEW_MAX_BYTES = 100 * 1024;
 
@@ -327,13 +330,18 @@ export function ImageNodeView({
 
   // 逻辑：通过 subscribeView 直接操作 DOM 同步面板缩放，避免 React 渲染延迟。
   // 面板通过 Portal 渲染到 panelOverlay 层（笔画上方），用 scale(1/zoom) 保持固定屏幕大小。
+  // 间距用 PANEL_GAP_PX / zoom 保证屏幕上恒定像素间距。
+  const xywhRef = useRef(element.xywh);
+  xywhRef.current = element.xywh;
   useEffect(() => {
     if (!expanded) return;
     const syncPanelScale = () => {
       const panel = panelRef.current;
       if (!panel) return;
       const zoom = engine.viewport.getState().zoom;
+      const [, ny, , nh] = xywhRef.current;
       panel.style.transform = `translateX(-50%) scale(${1 / zoom})`;
+      panel.style.top = `${ny + nh + PANEL_GAP_PX / zoom}px`;
     };
     syncPanelScale();
     const unsub = engine.subscribeView(syncPanelScale);
@@ -757,9 +765,9 @@ export function ImageNodeView({
           style={{
             // 逻辑：面板在 panelOverlay 层（与 DomNodeLayer 同坐标系），
             // 用节点 xywh 定位在节点正下方居中。
-            // subscribeView 会实时更新 transform 的 scale(1/zoom) 保持固定屏幕大小。
+            // top 由 syncPanelScale 实时更新（间距 = PANEL_GAP_PX / zoom，屏幕恒定像素）。
             left: element.xywh[0] + element.xywh[2] / 2,
-            top: element.xywh[1] + element.xywh[3] + 8,
+            top: element.xywh[1] + element.xywh[3],
             transformOrigin: 'top center',
           }}
           onPointerDown={event => {

@@ -9,7 +9,7 @@
  */
 "use client";
 
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@udecode/cn";
 import {
@@ -19,112 +19,151 @@ import {
   FileText,
   Link,
   StickyNote,
+  Upload,
   MousePointer2,
   Hand,
-  Type,
   Plus,
   Spline,
+  Pen,
+  Highlighter,
+  Eraser,
 } from "lucide-react";
 
 import type { CanvasEngine } from "../engine/CanvasEngine";
 import type { CanvasInsertRequest, CanvasSnapshot } from "../engine/types";
 import { IconBtn, toolbarSurfaceClassName } from "../ui/ToolbarParts";
 import { TEXT_NODE_DEFAULT_HEIGHT } from "../nodes/TextNode";
+import { DEFAULT_NODE_SIZE } from "../engine/constants";
 
 export interface LeftToolbarProps {
-  /** Canvas engine instance. */
   engine: CanvasEngine;
-  /** Snapshot used for tool state. */
   snapshot: CanvasSnapshot;
 }
 
-/** Shortcut mapping for tooltips. */
 const SHORTCUTS: Record<string, string> = {
   select: "V",
   hand: "H",
   text: "T",
-  insert: "I",
   connector: "C",
+  pen: "P",
+  highlighter: "K",
+  eraser: "E",
 };
 
-/** Build a tooltip label with shortcut suffix. */
 function buildTitle(label: string, key: string): string {
   const shortcut = SHORTCUTS[key];
   return shortcut ? `${label} (${shortcut})` : label;
 }
 
-/** Side popup panel for left toolbar — pops out to the right. */
-function SidePanel(props: {
-  open: boolean;
-  children: React.ReactNode;
-  onMouseEnter?: () => void;
-  onMouseLeave?: () => void;
-}) {
-  const { open, children, onMouseEnter, onMouseLeave } = props;
+// ---------------------------------------------------------------------------
+// SidePanel — 外层 wrapper 始终 pointer-events-auto 以保持 hover 桥，
+// 内层内容在关闭时 pointer-events-none 防止点击穿透。
+// ---------------------------------------------------------------------------
+
+function SidePanel({ open, children }: { open: boolean; children: React.ReactNode }) {
   return (
     <div
-      onMouseEnter={onMouseEnter}
-      onMouseLeave={onMouseLeave}
       className={cn(
-        "pointer-events-auto absolute left-full top-0 z-50 ml-2",
-        "rounded-lg p-1.5",
-        toolbarSurfaceClassName,
-        "transition-all duration-150 ease-out",
-        open
-          ? "opacity-100 translate-x-0"
-          : "pointer-events-none opacity-0 -translate-x-2",
+        // 逻辑：外层 wrapper 用 pl-2 padding 创建透明桥，
+        // 鼠标从按钮滑到面板时不会离开父 relative div 的后代。
+        // 关闭时必须 pointer-events-none，否则不可见区域会
+        // 提前拦截鼠标导致面板意外弹出。
+        "absolute left-full top-0 z-50 pl-4",
+        open ? "pointer-events-auto" : "pointer-events-none",
       )}
     >
-      {children}
+      <div
+        className={cn(
+          "w-[220px] rounded-xl py-2",
+          toolbarSurfaceClassName,
+          "transition-all duration-150 ease-out origin-top-left",
+          open
+            ? "opacity-100 scale-100 translate-x-0"
+            : "opacity-0 scale-95 -translate-x-1",
+        )}
+      >
+        {children}
+      </div>
     </div>
   );
 }
 
-/** Horizontal panel item (icon left, label right). */
-function SidePanelItem(props: {
-  label: string;
+/** Section heading inside a SidePanel. */
+function PanelSection({ title }: { title: string }) {
+  return (
+    <h4 className="px-3.5 pt-2.5 pb-1.5 text-[13px] font-semibold text-ol-text-secondary">
+      {title}
+    </h4>
+  );
+}
+
+/** Panel item — icon + title + optional description. */
+function PanelItem({
+  icon,
+  title,
+  description,
+  active,
+  onClick,
+}: {
   icon: React.ReactNode;
+  title: string;
+  description?: string;
   active?: boolean;
   onClick?: () => void;
 }) {
-  const { label, icon, active, onClick } = props;
   return (
     <button
       type="button"
-      title={label}
-      aria-label={label}
-      onClick={(event) => {
+      aria-label={title}
+      onPointerDown={(event) => {
         event.stopPropagation();
         onClick?.();
       }}
       className={cn(
-        "flex w-full items-center gap-2 whitespace-nowrap rounded-md px-2.5 py-1.5 text-xs",
-        "transition-colors duration-150",
+        "group flex w-full items-center gap-3 px-3.5 py-2",
+        "transition-colors duration-100 rounded-md mx-0",
         active
           ? "bg-foreground/10 text-ol-blue dark:bg-foreground/15"
-          : "hover:bg-foreground/8 dark:hover:bg-foreground/10",
+          : "hover:bg-foreground/6 dark:hover:bg-foreground/8",
       )}
     >
-      <span className="flex-shrink-0">{icon}</span>
-      <span>{label}</span>
+      <span className={cn(
+        "flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg",
+        "bg-foreground/5 dark:bg-foreground/8",
+        "transition-colors duration-100",
+        "group-hover:bg-foreground/8 dark:group-hover:bg-foreground/12",
+        active && "bg-ol-blue-bg text-ol-blue dark:bg-ol-blue-bg",
+      )}>
+        {icon}
+      </span>
+      <div className="flex flex-col items-start gap-0.5 min-w-0">
+        <span className="text-[13px] font-medium leading-tight">{title}</span>
+        {description && (
+          <span className="max-h-0 overflow-hidden opacity-0 group-hover:max-h-5 group-hover:opacity-100 transition-all duration-150 ease-out text-[11px] leading-tight text-ol-text-auxiliary truncate max-w-[140px]">
+            {description}
+          </span>
+        )}
+      </div>
     </button>
   );
 }
 
-/** Left vertical toolbar with 5 primary tools. */
+const DRAW_TOOL_IDS = ["pen", "highlighter", "eraser"] as const;
+
+/** Left vertical toolbar. */
 const LeftToolbar = memo(function LeftToolbar({
   engine,
   snapshot,
 }: LeftToolbarProps) {
   const { t } = useTranslation("board");
   const [insertPanelOpen, setInsertPanelOpen] = useState(false);
-  const [textPanelOpen, setTextPanelOpen] = useState(false);
+  const [drawPanelOpen, setDrawPanelOpen] = useState(false);
   const hoverTimerRef = useRef<number | null>(null);
 
   const activeToolId = snapshot.activeToolId;
   const isLocked = snapshot.locked;
+  const isDrawToolActive = DRAW_TOOL_IDS.includes(activeToolId as typeof DRAW_TOOL_IDS[number]);
 
-  // 逻辑：组件卸载时清理 hover 定时器，防止在已卸载组件上调用 setState。
   useEffect(
     () => () => {
       if (hoverTimerRef.current) window.clearTimeout(hoverTimerRef.current);
@@ -132,14 +171,39 @@ const LeftToolbar = memo(function LeftToolbar({
     [],
   );
 
+  // 监听双击空白区域派发的自定义事件，打开插入面板
+  useEffect(() => {
+    const container = engine.getContainer();
+    if (!container) return;
+    const handleOpenInsertPanel = () => {
+      if (isLocked) return;
+      setInsertPanelOpen(true);
+      setDrawPanelOpen(false);
+    };
+    container.addEventListener(
+      "openloaf:board-open-insert-panel",
+      handleOpenInsertPanel,
+    );
+    return () => {
+      container.removeEventListener(
+        "openloaf:board-open-insert-panel",
+        handleOpenInsertPanel,
+      );
+    };
+  }, [engine, isLocked]);
+
+  const closeAllPanels = useCallback(() => {
+    setInsertPanelOpen(false);
+    setDrawPanelOpen(false);
+  }, []);
+
   const handleToolChange = useCallback(
     (toolId: string) => {
       if (isLocked && toolId !== "select" && toolId !== "hand") return;
       engine.setActiveTool(toolId);
-      setInsertPanelOpen(false);
-      setTextPanelOpen(false);
+      closeAllPanels();
     },
-    [engine, isLocked],
+    [engine, isLocked, closeAllPanels],
   );
 
   const clearHoverTimer = useCallback(() => {
@@ -149,61 +213,84 @@ const LeftToolbar = memo(function LeftToolbar({
     }
   }, []);
 
-  const handleTextEnter = useCallback(() => {
-    clearHoverTimer();
-    if (!isLocked) {
-      setTextPanelOpen(true);
-      setInsertPanelOpen(false);
-    }
-  }, [isLocked, clearHoverTimer]);
+  // 逻辑：hover 事件只在父 relative div 上处理。
+  // SidePanel 外层 wrapper 始终 pointer-events-auto，
+  // 所以鼠标在 SidePanel 上时，不会触发父 div 的 pointerLeave。
+  const makeHoverHandlers = useCallback(
+    (
+      openSetter: React.Dispatch<React.SetStateAction<boolean>>,
+      otherSetters: React.Dispatch<React.SetStateAction<boolean>>[],
+    ) => ({
+      onPointerEnter: () => {
+        clearHoverTimer();
+        if (!isLocked) {
+          openSetter(true);
+          for (const s of otherSetters) s(false);
+        }
+      },
+      onPointerLeave: () => {
+        hoverTimerRef.current = window.setTimeout(() => {
+          openSetter(false);
+          hoverTimerRef.current = null;
+        }, 300);
+      },
+    }),
+    [isLocked, clearHoverTimer],
+  );
 
-  const handleTextLeave = useCallback(() => {
-    hoverTimerRef.current = window.setTimeout(() => {
-      setTextPanelOpen(false);
-      hoverTimerRef.current = null;
-    }, 200);
-  }, []);
+  const insertHover = makeHoverHandlers(setInsertPanelOpen, [setDrawPanelOpen]);
+  const drawHover = makeHoverHandlers(setDrawPanelOpen, [setInsertPanelOpen]);
 
-  const handleInsertEnter = useCallback(() => {
-    clearHoverTimer();
-    if (!isLocked) {
-      setInsertPanelOpen(true);
-      setTextPanelOpen(false);
-    }
-  }, [isLocked, clearHoverTimer]);
-
-  const handleInsertLeave = useCallback(() => {
-    hoverTimerRef.current = window.setTimeout(() => {
-      setInsertPanelOpen(false);
-      hoverTimerRef.current = null;
-    }, 200);
-  }, []);
-
-  /** Emit a pending insert request for one-shot placement. */
   const handleInsertRequest = useCallback(
     (request: CanvasInsertRequest) => {
       if (isLocked) return;
       engine.getContainer()?.focus();
       engine.setPendingInsert(request);
-      setInsertPanelOpen(false);
-      setTextPanelOpen(false);
+      closeAllPanels();
     },
-    [engine, isLocked],
+    [engine, isLocked, closeAllPanels],
   );
 
-  const iconSize = 18;
+  /** Place an AI generation node in pending-insert mode. */
+  const placeAiNode = useCallback(
+    (nodeType: "image" | "video" | "audio") => {
+      if (isLocked) return;
+      const [w, h] = DEFAULT_NODE_SIZE;
+      let props: Record<string, unknown> = {};
+      if (nodeType === "image") {
+        props = {
+          previewSrc: "", originalSrc: "", mimeType: "image/png",
+          fileName: "ai-generated.png", naturalWidth: w, naturalHeight: h,
+          origin: "ai-generate",
+        };
+      } else if (nodeType === "video") {
+        props = { sourcePath: "", fileName: "ai-generated.mp4", origin: "ai-generate" };
+      } else {
+        props = { sourcePath: "", fileName: "ai-generated.mp3", origin: "ai-generate" };
+      }
+      handleInsertRequest({
+        id: `ai-${nodeType}`,
+        type: nodeType,
+        props,
+        size: [w, h],
+        title: t(`insertTools.${nodeType}`),
+      });
+    },
+    [isLocked, handleInsertRequest, t],
+  );
+
+  const iconSize = 20;
+  const panelIconSize = 16;
 
   return (
     <div
       data-left-toolbar
       className="absolute left-3 top-1/2 z-20 -translate-y-1/2"
-      onPointerDown={(event) => {
-        event.stopPropagation();
-      }}
+      onPointerDown={(event) => { event.stopPropagation(); }}
     >
       <div
         className={cn(
-          "pointer-events-auto flex w-12 flex-col items-center gap-0.5 rounded-xl px-1 py-1.5",
+          "pointer-events-auto flex w-14 flex-col items-center gap-1.5 rounded-xl px-2.5 py-2.5",
           toolbarSurfaceClassName,
         )}
       >
@@ -213,7 +300,7 @@ const LeftToolbar = memo(function LeftToolbar({
           active={activeToolId === "select"}
           onPointerDown={() => handleToolChange("select")}
           tooltipSide="right"
-          className="h-9 w-9"
+          className="h-9 w-9 !text-foreground"
         >
           <MousePointer2 size={iconSize} />
         </IconBtn>
@@ -224,167 +311,94 @@ const LeftToolbar = memo(function LeftToolbar({
           active={activeToolId === "hand"}
           onPointerDown={() => handleToolChange("hand")}
           tooltipSide="right"
-          className="h-9 w-9"
+          className="h-9 w-9 !text-foreground"
         >
           <Hand size={iconSize} />
         </IconBtn>
 
-        <span className="my-0.5 h-px w-6 bg-border/60" />
+        <span className="my-0.5 h-px w-7 bg-border/60" />
 
-        {/* Text (T) — hover opens sub-panel */}
+        {/* Insert (+) — hover opens the full insert panel */}
         <div
           className="relative"
-          onPointerEnter={handleTextEnter}
-          onPointerLeave={handleTextLeave}
+          {...insertHover}
         >
           <IconBtn
-            title={buildTitle(t("insertTools.text"), "text")}
-            active={
-              activeToolId === "text" ||
-              snapshot.pendingInsert?.type === "text"
-            }
+            title={t("tools.insert")}
+            active={insertPanelOpen}
             onPointerDown={() => {
-              handleInsertRequest({
-                id: "text-plain",
-                type: "text",
-                props: { autoFocus: true, style: "plain" },
-                size: [200, TEXT_NODE_DEFAULT_HEIGHT],
-                title: t("insertTools.text"),
-              });
+              if (!isLocked) setInsertPanelOpen((prev) => !prev);
             }}
             tooltipSide="right"
-            showTooltip={!textPanelOpen}
+            showTooltip={false}
             disabled={isLocked}
-            className="h-9 w-9"
+            className="h-9 w-9 !bg-foreground !text-background hover:!bg-foreground"
           >
-            <Type size={iconSize} />
+            <span className={cn("inline-flex transition-all duration-200 ease-out", insertPanelOpen && "rotate-45")}>
+              <Plus size={iconSize} />
+            </span>
           </IconBtn>
-          <SidePanel
-            open={textPanelOpen}
-            onMouseEnter={handleTextEnter}
-            onMouseLeave={handleTextLeave}
-          >
-            <SidePanelItem
-              label={t("insertTools.text")}
-              icon={<Type size={14} />}
-              active={snapshot.pendingInsert?.id === "text-plain"}
-              onClick={() => {
-                handleInsertRequest({
-                  id: "text-plain",
-                  type: "text",
-                  props: { autoFocus: true, style: "plain" },
-                  size: [200, TEXT_NODE_DEFAULT_HEIGHT],
-                  title: t("insertTools.text"),
-                });
-              }}
-            />
-            <SidePanelItem
-              label={t("insertTools.sticky")}
-              icon={<StickyNote size={14} />}
-              active={snapshot.pendingInsert?.id === "text-sticky"}
+          <SidePanel open={insertPanelOpen}>
+            {/* ── 添加节点 ── */}
+            <PanelSection title={t("insertTools.addNode") || "添加节点"} />
+            <PanelItem
+              icon={<StickyNote size={panelIconSize} />}
+              title={t("insertTools.text")}
+              description={t("insertTools.textDesc") || undefined}
+              active={snapshot.pendingInsert?.type === "text"}
               onClick={() => {
                 handleInsertRequest({
                   id: "text-sticky",
                   type: "text",
-                  props: {
-                    autoFocus: true,
-                    style: "sticky",
-                    stickyColor: "yellow",
-                  },
+                  props: { autoFocus: true, style: "sticky", stickyColor: "yellow" },
                   size: [200, 200],
-                  title: t("insertTools.sticky"),
+                  title: t("insertTools.text"),
                 });
               }}
             />
-          </SidePanel>
-        </div>
+            <PanelItem
+              icon={<Image size={panelIconSize} />}
+              title={t("insertTools.image")}
+              description={t("insertTools.imageDesc") || undefined}
+              onClick={() => placeAiNode("image")}
+            />
+            <PanelItem
+              icon={<Video size={panelIconSize} />}
+              title={t("insertTools.video")}
+              description={t("insertTools.videoDesc") || undefined}
+              onClick={() => placeAiNode("video")}
+            />
+            <PanelItem
+              icon={<Music size={panelIconSize} />}
+              title={t("insertTools.audio")}
+              description={t("insertTools.audioDesc") || undefined}
+              onClick={() => placeAiNode("audio")}
+            />
 
-        {/* Insert (+) */}
-        <div
-          className="relative"
-          onPointerEnter={handleInsertEnter}
-          onPointerLeave={handleInsertLeave}
-        >
-          <IconBtn
-            title={buildTitle(t("tools.insert"), "insert")}
-            active={insertPanelOpen}
-            onPointerDown={() => {
-              if (!isLocked) setInsertPanelOpen(!insertPanelOpen);
-            }}
-            tooltipSide="right"
-            showTooltip={!insertPanelOpen}
-            disabled={isLocked}
-            className="h-9 w-9"
-          >
-            <Plus size={iconSize} />
-          </IconBtn>
-          <SidePanel
-            open={insertPanelOpen}
-            onMouseEnter={handleInsertEnter}
-            onMouseLeave={handleInsertLeave}
-          >
-            <SidePanelItem
-              label={t("insertTools.image")}
-              icon={<Image size={14} />}
+            {/* ── 添加资源 ── */}
+            <PanelSection title={t("insertTools.addResource") || "添加资源"} />
+            <PanelItem
+              icon={<Upload size={panelIconSize} />}
+              title={t("insertTools.upload") || "上传"}
+              description={t("insertTools.uploadDesc") || undefined}
               onClick={() => {
                 engine
                   .getContainer()
-                  ?.dispatchEvent(
-                    new Event("openloaf:board-open-file-picker"),
-                  );
+                  ?.dispatchEvent(new Event("openloaf:board-open-file-picker"));
                 setInsertPanelOpen(false);
               }}
             />
-            <SidePanelItem
-              label={t("insertTools.video")}
-              icon={<Video size={14} />}
-              onClick={() => {
-                engine
-                  .getContainer()
-                  ?.dispatchEvent(
-                    new Event("openloaf:board-open-file-picker"),
-                  );
-                setInsertPanelOpen(false);
-              }}
-            />
-            <SidePanelItem
-              label={t("insertTools.audio")}
-              icon={<Music size={14} />}
-              onClick={() => {
-                engine
-                  .getContainer()
-                  ?.dispatchEvent(
-                    new Event("openloaf:board-open-file-picker"),
-                  );
-                setInsertPanelOpen(false);
-              }}
-            />
-            <SidePanelItem
-              label={t("insertTools.file")}
-              icon={<FileText size={14} />}
-              onClick={() => {
-                engine
-                  .getContainer()
-                  ?.dispatchEvent(
-                    new Event("openloaf:board-open-file-picker"),
-                  );
-                setInsertPanelOpen(false);
-              }}
-            />
-            <SidePanelItem
-              label={t("insertTools.link")}
-              icon={<Link size={14} />}
+            <PanelItem
+              icon={<Link size={panelIconSize} />}
+              title={t("insertTools.link")}
+              description={t("insertTools.linkDesc") || undefined}
               onClick={() => {
                 handleInsertRequest({
                   id: "link",
                   type: "link",
                   props: {
-                    url: "",
-                    title: "",
-                    description: "",
-                    logoSrc: "",
-                    imageSrc: "",
-                    refreshToken: Date.now(),
+                    url: "", title: "", description: "",
+                    logoSrc: "", imageSrc: "", refreshToken: Date.now(),
                   },
                   size: [280, 160],
                 });
@@ -393,7 +407,51 @@ const LeftToolbar = memo(function LeftToolbar({
           </SidePanel>
         </div>
 
-        <span className="my-0.5 h-px w-6 bg-border/60" />
+        <span className="my-0.5 h-px w-7 bg-border/60" />
+
+        {/* Pen / Highlighter / Eraser */}
+        <div
+          className="relative"
+          {...drawHover}
+        >
+          <IconBtn
+            title={buildTitle(t("tools.pen"), "pen")}
+            active={isDrawToolActive}
+            onPointerDown={() => handleToolChange(activeToolId === "pen" ? "highlighter" : "pen")}
+            tooltipSide="right"
+            showTooltip={!drawPanelOpen}
+            disabled={isLocked}
+            className="h-9 w-9 !text-foreground"
+          >
+            {activeToolId === "highlighter" ? (
+              <Highlighter size={iconSize} />
+            ) : activeToolId === "eraser" ? (
+              <Eraser size={iconSize} />
+            ) : (
+              <Pen size={iconSize} />
+            )}
+          </IconBtn>
+          <SidePanel open={drawPanelOpen}>
+            <PanelItem
+              icon={<Pen size={panelIconSize} />}
+              title={buildTitle(t("tools.pen"), "pen")}
+              active={activeToolId === "pen"}
+              onClick={() => handleToolChange("pen")}
+            />
+            <PanelItem
+              icon={<Highlighter size={panelIconSize} />}
+              title={buildTitle(t("tools.highlighter"), "highlighter")}
+              active={activeToolId === "highlighter"}
+              onClick={() => handleToolChange("highlighter")}
+            />
+            <PanelItem
+              icon={<Eraser size={panelIconSize} />}
+              title={buildTitle(t("tools.eraser"), "eraser")}
+              active={activeToolId === "eraser"}
+              onClick={() => handleToolChange("eraser")}
+            />
+          </SidePanel>
+        </div>
 
         {/* Connector (C) */}
         <IconBtn
@@ -402,7 +460,7 @@ const LeftToolbar = memo(function LeftToolbar({
           onPointerDown={() => handleToolChange("connector")}
           tooltipSide="right"
           disabled={isLocked}
-          className="h-9 w-9"
+          className="h-9 w-9 !text-foreground"
         >
           <Spline size={iconSize} />
         </IconBtn>

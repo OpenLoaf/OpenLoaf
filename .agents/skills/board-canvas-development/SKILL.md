@@ -7,12 +7,16 @@ description: Use when developing, extending, or debugging the Board infinite can
 
 Board 是 OpenLoaf 的无限画布白板系统，采用 Engine/Tool/View 三层分离架构。所有画布状态由 `CanvasEngine` 集中管理，通过订阅-发布模式驱动 React 渲染。
 
+画布的核心交互单元是**文本便签节点**（TextNode with sticky style）。文本便签是画布的"起点"——用户在便签中输入内容后，通过节点下方的功能推荐按钮衍生出图片、视频、音频等媒体节点。整体工作流为：**文本输入 → AI 推荐 → 媒体生成**。
+
 ## When to Use
 
-- 添加或修改画布节点类型（text/image/video/link/group/AI 生成）
+- 添加或修改画布节点类型（text/image/video/audio/link/group 等）
+- 开发或修改文本便签节点及其功能推荐按钮系统
+- 开发节点间上下游衍生逻辑（文生视频、图片反推提示词、文字转语音等）
 - 添加或修改交互工具（select/hand/pen/eraser 等）
 - 修改 Engine API、文档模型、选区、视口、历史记录
-- 开发 AI 图片/视频生成工作流（SaaS API、LoadingNode 轮询、模型过滤）
+- 开发 AI 图片/视频/音频生成工作流（SaaS API、LoadingNode 轮询、模型过滤）
 - 调试画布渲染、协作同步、性能问题
 - 修改连接器逻辑、布局算法、输出放置
 

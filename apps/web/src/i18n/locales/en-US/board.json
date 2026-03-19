@@ -49,12 +49,22 @@
   "insertTools": {
     "note": "Note",
     "text": "Text",
+    "textDesc": "Prompts, scripts",
     "sticky": "Sticky Note",
+    "stickyDesc": "Quick notes",
     "image": "Image",
+    "imageDesc": "AI image generation",
     "video": "Video",
+    "videoDesc": "AI video generation",
     "audio": "Audio",
+    "audioDesc": "AI audio generation",
     "file": "File",
     "link": "Link",
+    "linkDesc": "Add web link",
+    "upload": "Upload",
+    "uploadDesc": "Import images, videos, audio files",
+    "addNode": "Add Node",
+    "addResource": "Add Resource",
     "imagePromptGenerate": "Image/Video Analysis",
     "imageGenerate": "Image Generation",
     "videoGenerate": "Video Generation",
@@ -98,7 +108,7 @@
   "emptyGuide": {
     "title": "Start Creating",
     "subtitle": "Choose a way to begin",
-    "createSticky": "Sticky Note",
+    "createText": "Sticky Note",
     "aiImage": "AI Image",
     "aiVideo": "AI Video",
     "importFile": "Import File",
@@ -235,6 +245,11 @@
       "green": "Green",
       "purple": "Purple",
       "gray": "Gray"
+    },
+    "recommend": {
+      "textToVideo": "Text to Video",
+      "imageReversePrompt": "Image to Prompt",
+      "textToSpeech": "Text to Speech"
     }
   },
   "groupNode": {
@@ -650,5 +665,16 @@
       "video": "Video",
       "audio": "Audio"
     }
+  },
+  "nodeLabel": {
+    "text": "Text",
+    "image": "Image",
+    "video": "Video",
+    "audio": "Audio",
+    "link": "Link",
+    "file-attachment": "File",
+    "calendar": "Calendar",
+    "group": "Group",
+    "image-group": "Image Group"
   }
 }

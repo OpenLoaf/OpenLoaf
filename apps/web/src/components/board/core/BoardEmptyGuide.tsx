@@ -126,9 +126,9 @@ const BoardEmptyGuide = memo(function BoardEmptyGuide({
 
   const actions = [
     {
-      id: "sticky",
+      id: "text",
       icon: StickyNote,
-      label: t("emptyGuide.createSticky"),
+      label: t("emptyGuide.createText"),
       iconClass: "text-ol-amber",
       bgClass: "bg-ol-amber-bg hover:bg-ol-amber-bg-hover",
       handler: handleCreateSticky,

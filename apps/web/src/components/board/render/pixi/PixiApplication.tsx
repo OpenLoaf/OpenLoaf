@@ -19,6 +19,12 @@ import { PixiStrokeLayer } from './PixiStrokeLayer'
 import { PixiOverlayLayer } from './PixiOverlayLayer'
 import { PixiThemeResolver } from './PixiThemeResolver'
 import { DomNodeLayer } from './DomNodeLayer'
+import { patchPixiBindGroupCascade } from './patchPixiBindGroup'
+
+// 修复 PixiJS v8 的 BindGroup 级联销毁 bug：
+// 当 TextureGC 回收了 _globalFilterBindGroup 引用的 texture 时，
+// 原生 onResourceChange 会销毁整个共享 BindGroup，导致后续所有 filter 渲染崩溃。
+patchPixiBindGroupCascade()
 
 /** 创建并初始化一个 PixiJS Application */
 async function createPixiApp(container: HTMLDivElement) {
@@ -62,9 +68,10 @@ export type PixiApplicationProps = {
  * Panel overlay layer — follows the same viewport transform as DomNodeLayer,
  * but renders above the Pixi stroke layer so expanded panels aren't occluded.
  */
-function PanelOverlayLayer({ engine, panelOverlayRef }: {
+function PanelOverlayLayer({ engine, panelOverlayRef, snapshot }: {
   engine: CanvasEngine
   panelOverlayRef: React.RefObject<HTMLDivElement | null>
+  snapshot: CanvasSnapshot
 }) {
   useEffect(() => {
     const sync = () => {
@@ -79,14 +86,18 @@ function PanelOverlayLayer({ engine, panelOverlayRef }: {
   }, [engine, panelOverlayRef])
 
   const { zoom, offset } = engine.viewport.getState()
+  const isDragging = !!snapshot.draggingId
 
   return (
     <div
       ref={panelOverlayRef}
       className="pointer-events-none absolute inset-0 origin-top-left"
       data-panel-overlay
+      data-dragging={isDragging || undefined}
       style={{
         transform: `translate(${offset[0]}px, ${offset[1]}px) scale(${zoom})`,
+        opacity: isDragging ? 0 : 1,
+        transition: isDragging ? 'none' : 'opacity 150ms ease',
       }}
     />
   )
@@ -226,7 +237,7 @@ export function PixiCanvas({ engine, snapshot }: PixiApplicationProps) {
         style={{ touchAction: 'none' }}
       />
       {/* 4. 面板覆盖层：展开的 AI 参数面板通过 Portal 渲染到此层，在笔画上方 */}
-      <PanelOverlayLayer engine={engine} panelOverlayRef={panelOverlayRef} />
+      <PanelOverlayLayer engine={engine} panelOverlayRef={panelOverlayRef} snapshot={snapshot} />
     </PanelOverlayContext.Provider>
   )
 }

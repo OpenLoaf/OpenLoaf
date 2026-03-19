@@ -27,11 +27,21 @@ const TOOL_SHORTCUTS: Record<string, string> = {
   h: "hand",
   w: "hand",
   t: "text",
-  n: "sticky",
   r: "shape",
   p: "pen",
   k: "highlighter",
   e: "eraser",
+  c: "connector",
+};
+
+/**
+ * "connector" is a virtual tool — the actual drawing logic lives inside
+ * SelectTool, but the UI needs a distinct activeToolId so the toolbar can
+ * highlight the connector button. This map resolves virtual ids to the real
+ * registered tool.
+ */
+const TOOL_ALIASES: Record<string, string> = {
+  connector: "select",
 };
 
 export class ToolManager {
@@ -63,12 +73,15 @@ export class ToolManager {
 
   /** Set the current active tool. */
   setActive(toolId: string): void {
-    if (!this.tools.has(toolId)) {
+    const resolvedId = TOOL_ALIASES[toolId] ?? toolId;
+    if (!this.tools.has(resolvedId)) {
       throw new Error(`Unknown tool: ${toolId}`);
     }
+    // 逻辑：存储原始 toolId（如 "connector"）用于 UI 高亮，
+    // 但实际分发事件时使用 resolvedId 对应的已注册工具。
     this.activeToolId = toolId;
+    const tool = this.tools.get(resolvedId);
     // Activate PlacementTool instances to set pending insert.
-    const tool = this.tools.get(toolId);
     if (tool instanceof PlacementTool) {
       tool.activate(this.engine);
     }
@@ -79,10 +92,11 @@ export class ToolManager {
     return this.activeToolId;
   }
 
-  /** Return the current active tool. */
+  /** Return the current active tool (resolves aliases like "connector" → "select"). */
   getActiveTool(): CanvasTool | null {
     if (!this.activeToolId) return null;
-    return this.tools.get(this.activeToolId) ?? null;
+    const resolvedId = TOOL_ALIASES[this.activeToolId] ?? this.activeToolId;
+    return this.tools.get(resolvedId) ?? null;
   }
 
   /** Handle pointer down events from the canvas container. */
@@ -314,7 +328,7 @@ export class ToolManager {
     const key = event.key.toLowerCase();
     const toolId = TOOL_SHORTCUTS[key];
     if (!toolId) return false;
-    const isLockedTool = toolId === "pen" || toolId === "highlighter" || toolId === "eraser" || toolId === "text" || toolId === "sticky" || toolId === "shape";
+    const isLockedTool = toolId === "pen" || toolId === "highlighter" || toolId === "eraser" || toolId === "text" || toolId === "shape" || toolId === "connector";
     if (this.engine.isLocked() && isLockedTool) {
       event.preventDefault();
       return true;
