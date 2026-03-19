@@ -144,6 +144,8 @@ export type TextNodeProps = {
   shapeStroke?: string;
   /** Shape stroke width in px. Only used when style is 'shape'. */
   shapeStrokeWidth?: number;
+  /** How the text node was created. */
+  origin?: import("../board-contracts").NodeOrigin;
 };
 
 // ---------------------------------------------------------------------------
@@ -1290,6 +1292,7 @@ export const TextNodeDefinition: CanvasNodeDefinition<TextNodeProps> = {
     shapeFill: z.string().optional(),
     shapeStroke: z.string().optional(),
     shapeStrokeWidth: z.number().optional(),
+    origin: z.enum(['user', 'upload', 'ai-generate', 'paste']).optional(),
   }) as z.ZodType<TextNodeProps>,
   defaultProps: {
     value: DEFAULT_TEXT_VALUE,

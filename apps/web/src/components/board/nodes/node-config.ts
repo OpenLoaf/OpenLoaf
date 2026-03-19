@@ -80,3 +80,6 @@ export const VIDEO_GENERATE_OUTPUT_WIDTH = 320;
 /** Default height for generated video placeholders. */
 export const VIDEO_GENERATE_OUTPUT_HEIGHT = 180;
 export const VIDEO_GENERATE_DURATION_OPTIONS = [5, 10] as const;
+
+/** Available resolution options for AI generation. */
+export const GENERATE_RESOLUTION_OPTIONS = ["1K", "2K", "4K"] as const;

@@ -26,9 +26,16 @@ import {
 import { GROUP_NODE_TYPE, IMAGE_GROUP_NODE_TYPE } from "../engine/grouping";
 import { NodeFrame } from "./NodeFrame";
 
+/** Group role determines display and behavior semantics. */
+export type GroupRole = 'manual' | 'storyboard';
+
 export type GroupNodeProps = {
   /** Child node ids stored for grouping semantics. */
   childIds: string[];
+  /** Group role: 'manual' for user-created groups, 'storyboard' for AI-generated storyboard sequences. */
+  groupRole?: GroupRole;
+  /** Optional display title for the group. */
+  title?: string;
 };
 
 /** Render a transparent group container. */
@@ -44,6 +51,8 @@ function GroupNodeView(_props: CanvasNodeViewProps<GroupNodeProps>) {
 
 const groupSchema = z.object({
   childIds: z.array(z.string()),
+  groupRole: z.enum(['manual', 'storyboard']).optional(),
+  title: z.string().optional(),
 });
 
 const groupCapabilities = {

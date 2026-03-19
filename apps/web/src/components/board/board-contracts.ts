@@ -44,6 +44,37 @@ export type LinkNodeProps = {
   refreshToken: number
 }
 
+// ---------------------------------------------------------------------------
+// AI generation shared types
+// ---------------------------------------------------------------------------
+
+/** Node content origin — tracks how the node was created. */
+export type NodeOrigin = 'user' | 'upload' | 'ai-generate' | 'paste'
+
+/** AI generation configuration stored on nodes created by AI. */
+export type AiGenerateConfig = {
+  /** Model id used for generation. */
+  modelId: string
+  /** Text prompt used for generation. */
+  prompt: string
+  /** Negative prompt (optional). */
+  negativePrompt?: string
+  /** Style preset applied during generation. */
+  style?: string
+  /** Aspect ratio used for generation. */
+  aspectRatio?: '1:1' | '16:9' | '9:16' | '4:3' | '3:4'
+  /** Upstream node ids used as input references. */
+  inputNodeIds?: string[]
+  /** Server-side task id for the generation job. */
+  taskId?: string
+  /** Timestamp when the generation completed. */
+  generatedAt?: number
+}
+
+// ---------------------------------------------------------------------------
+// Node props
+// ---------------------------------------------------------------------------
+
 export type ImageNodeProps = {
   /** Compressed preview for rendering on the canvas. */
   previewSrc: string
@@ -63,4 +94,8 @@ export type ImageNodeProps = {
   transcodingLabel?: string
   /** Transcoding task id for async updates. */
   transcodingId?: string
+  /** How the image was created. Defaults to 'upload'. */
+  origin?: NodeOrigin
+  /** AI generation config. Present only when origin is 'ai-generate'. */
+  aiConfig?: AiGenerateConfig
 }

@@ -224,6 +224,8 @@ export class CanvasEngine {
   private dragEmitPending = false;
   /** Node id currently in edit mode. */
   private editingNodeId: string | null = null;
+  /** Node id currently expanded (inline panel visible). Only one at a time. */
+  private expandedNodeId: string | null = null;
   /** Whether the viewport is currently being panned. */
   private panning = false;
   /** Animation frame id for viewport focus. */
@@ -590,6 +592,7 @@ export class CanvasEngine {
       pendingInsertPoint: this.pendingInsertPoint,
       toolbarDragging: this.toolbarDragging,
       colorHistory: this.colorHistory,
+      expandedNodeId: this.expandedNodeId,
     };
   }
 
@@ -610,6 +613,18 @@ export class CanvasEngine {
   setEditingNodeId(nodeId: string | null): void {
     if (this.editingNodeId === nodeId) return;
     this.editingNodeId = nodeId;
+    this.emitChange();
+  }
+
+  /** Return the node id currently expanded (inline panel visible). */
+  getExpandedNodeId(): string | null {
+    return this.expandedNodeId;
+  }
+
+  /** Set the expanded node id. Only one node can be expanded at a time. */
+  setExpandedNodeId(nodeId: string | null): void {
+    if (this.expandedNodeId === nodeId) return;
+    this.expandedNodeId = nodeId;
     this.emitChange();
   }
 

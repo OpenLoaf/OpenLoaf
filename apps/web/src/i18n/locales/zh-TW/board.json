@@ -42,18 +42,29 @@
     "hand": "拖曳",
     "pen": "畫筆",
     "highlighter": "螢光筆",
-    "eraser": "橡皮"
+    "eraser": "橡皮",
+    "insert": "插入",
+    "connector": "連接線"
   },
   "insertTools": {
     "note": "便利貼",
     "text": "文字",
+    "sticky": "便利貼",
     "image": "圖片",
     "video": "影片",
+    "audio": "音訊",
     "file": "檔案",
+    "link": "連結",
     "imagePromptGenerate": "影片圖片理解",
     "imageGenerate": "圖片生成",
     "videoGenerate": "生成影片",
     "aiChat": "AI 對話"
+  },
+  "bottomBar": {
+    "aiImage": "AI 圖片",
+    "aiVideo": "AI 影片",
+    "aiAudio": "AI 音訊",
+    "fitView": "適應檢視"
   },
   "textToolTip": {
     "title": "文字工具",

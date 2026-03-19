@@ -42,18 +42,29 @@
     "hand": "拖拽",
     "pen": "画笔",
     "highlighter": "荧光笔",
-    "eraser": "橡皮"
+    "eraser": "橡皮",
+    "insert": "插入",
+    "connector": "连接线"
   },
   "insertTools": {
     "note": "便签",
     "text": "文本",
+    "sticky": "便签",
     "image": "图片",
     "video": "视频",
+    "audio": "音频",
     "file": "文件",
+    "link": "链接",
     "imagePromptGenerate": "视频图片理解",
     "imageGenerate": "图片生成",
     "videoGenerate": "生成视频",
     "aiChat": "AI 对话"
+  },
+  "bottomBar": {
+    "aiImage": "AI 图片",
+    "aiVideo": "AI 视频",
+    "aiAudio": "AI 音频",
+    "fitView": "适应视图"
   },
   "textToolTip": {
     "title": "文字工具",

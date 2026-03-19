@@ -42,18 +42,29 @@
     "hand": "Hand",
     "pen": "Pen",
     "highlighter": "Highlighter",
-    "eraser": "Eraser"
+    "eraser": "Eraser",
+    "insert": "Insert",
+    "connector": "Connector"
   },
   "insertTools": {
     "note": "Note",
     "text": "Text",
+    "sticky": "Sticky Note",
     "image": "Image",
     "video": "Video",
+    "audio": "Audio",
     "file": "File",
+    "link": "Link",
     "imagePromptGenerate": "Image/Video Analysis",
     "imageGenerate": "Image Generation",
     "videoGenerate": "Video Generation",
     "aiChat": "AI Chat"
+  },
+  "bottomBar": {
+    "aiImage": "AI Image",
+    "aiVideo": "AI Video",
+    "aiAudio": "AI Audio",
+    "fitView": "Fit View"
   },
   "textToolTip": {
     "title": "Text Tool",

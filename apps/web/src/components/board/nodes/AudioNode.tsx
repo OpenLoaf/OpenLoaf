@@ -37,6 +37,10 @@ export type AudioNodeProps = {
   duration?: number;
   /** MIME type. */
   mimeType?: string;
+  /** How the audio was created. Defaults to 'upload'. */
+  origin?: import("../board-contracts").NodeOrigin;
+  /** AI generation config. Present only when origin is 'ai-generate'. */
+  aiConfig?: import("../board-contracts").AiGenerateConfig;
 };
 
 /** Resolve a board-scoped path into a project-relative path. */
@@ -206,6 +210,17 @@ export const AudioNodeDefinition: CanvasNodeDefinition<AudioNodeProps> = {
     fileName: z.string().optional(),
     duration: z.number().optional(),
     mimeType: z.string().optional(),
+    origin: z.enum(['user', 'upload', 'ai-generate', 'paste']).optional(),
+    aiConfig: z.object({
+      modelId: z.string(),
+      prompt: z.string(),
+      negativePrompt: z.string().optional(),
+      style: z.string().optional(),
+      aspectRatio: z.enum(['1:1', '16:9', '9:16', '4:3', '3:4']).optional(),
+      inputNodeIds: z.array(z.string()).optional(),
+      taskId: z.string().optional(),
+      generatedAt: z.number().optional(),
+    }).optional(),
   }),
   defaultProps: {
     sourcePath: "",

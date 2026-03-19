@@ -14,8 +14,9 @@ import { cn } from "@udecode/cn";
 import type { CanvasEngine } from "../engine/CanvasEngine";
 import type { CanvasElement, CanvasSnapshot } from "../engine/types";
 import { MINIMAP_HIDE_DELAY } from "../engine/constants";
-import BoardControls from "../controls/BoardControls";
 import BoardToolbar from "../toolbar/BoardToolbar";
+import LeftToolbar from "../toolbar/LeftToolbar";
+import BottomBar from "../toolbar/BottomBar";
 import { ConnectorActionPanel, NodeInspectorPanel } from "../ui/CanvasPanels";
 import dynamic from "next/dynamic";
 
@@ -109,6 +110,28 @@ export function BoardCanvasRender({
     };
   }, [engine]);
 
+  // 逻辑：选中有 inlinePanel 配置的节点时自动展开，切换选区时自动收起上一个。
+  // 仅依赖 selectedIds 变化，不依赖 snapshot.elements 以避免拖拽时频繁执行。
+  useEffect(() => {
+    const selectedIds = snapshot.selectedIds;
+    if (selectedIds.length !== 1) {
+      engine.setExpandedNodeId(null);
+      return;
+    }
+    const selectedId = selectedIds[0];
+    const element = engine.doc.getElementById(selectedId);
+    if (!element || element.kind !== "node") {
+      engine.setExpandedNodeId(null);
+      return;
+    }
+    const definition = engine.nodes.getDefinition(element.type);
+    if (definition?.inlinePanel) {
+      engine.setExpandedNodeId(selectedId);
+    } else {
+      engine.setExpandedNodeId(null);
+    }
+  }, [engine, snapshot.selectedIds]);
+
   const selectedConnector = getSingleSelectedElement(snapshot, "connector");
   const selectedNode = getSingleSelectedElement(snapshot, "node");
   const inspectorElement = inspectorNodeId
@@ -147,11 +170,17 @@ export function BoardCanvasRender({
       {showUi && !snapshot.draggingId ? <AnchorOverlay snapshot={snapshot} /> : null}
       {showUi && !minimal ? (
         <div className={cn("pointer-events-none absolute inset-0 z-20 transition-all duration-500 ease-out", toolbarsReady ? "opacity-100 -translate-x-0" : "opacity-0 -translate-x-4")}>
-          <BoardControls engine={engine} snapshot={snapshot} onAutoLayout={onAutoLayout} />
+          <LeftToolbar engine={engine} snapshot={snapshot} />
         </div>
       ) : null}
       {showUi && !minimal ? (
         <div className={cn("pointer-events-none absolute inset-0 z-20 transition-all duration-500 ease-out", toolbarsReady ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4")}>
+          <BottomBar engine={engine} snapshot={snapshot} />
+        </div>
+      ) : null}
+      {/* Legacy toolbar kept mounted for file picker / insert logic. Hidden by BottomBar. */}
+      {showUi && !minimal ? (
+        <div className="pointer-events-none absolute inset-0 z-10 opacity-0">
           <BoardToolbar engine={engine} snapshot={snapshot} />
         </div>
       ) : null}

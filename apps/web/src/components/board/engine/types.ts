@@ -313,6 +313,8 @@ export type CanvasSnapshot = {
   toolbarDragging: boolean;
   /** Recent user-picked colors shared across all toolbar color panels. */
   colorHistory: string[];
+  /** Node id currently expanded (inline panel visible). Only one node at a time. */
+  expandedNodeId: string | null;
 };
 
 /** Props delivered to a node renderer component. */
@@ -323,6 +325,8 @@ export type CanvasNodeViewProps<P> = {
   selected: boolean;
   /** Whether the node is in edit mode. */
   editing?: boolean;
+  /** Whether the node's inline panel is expanded. */
+  expanded?: boolean;
   /** Request selecting this node. */
   onSelect: () => void;
   /** Request updating node props. */
@@ -416,6 +420,14 @@ export function resolveNodeMinSize(
   return dynamic ?? staticMin ?? fallback;
 }
 
+/** Inline panel configuration for node editing state. */
+export type CanvasInlinePanelConfig = {
+  /** Panel width when expanded (in px). */
+  width: number;
+  /** Panel height when expanded (in px). */
+  height: number;
+};
+
 /** Node definition used for registration. */
 export type CanvasNodeDefinition<P> = {
   /** Node type identifier. */
@@ -443,4 +455,6 @@ export type CanvasNodeDefinition<P> = {
   toolbar?: (ctx: CanvasToolbarContext<P>) => CanvasToolbarItem[];
   /** Capability flags for tools and UI. */
   capabilities?: CanvasNodeCapabilities;
+  /** Inline panel config for node editing (expanded when selected). */
+  inlinePanel?: CanvasInlinePanelConfig;
 };

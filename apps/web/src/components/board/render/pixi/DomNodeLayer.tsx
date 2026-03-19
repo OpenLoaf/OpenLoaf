@@ -38,10 +38,14 @@ type DomNodeItemProps = {
   View: ComponentType<CanvasNodeViewProps<Record<string, unknown>>>
   selected: boolean
   editing: boolean
+  expanded: boolean
   groupPadding: number
   onSelect: () => void
   onUpdate: (patch: Record<string, unknown>) => void
 }
+
+/** Z-index boost applied to expanded nodes so they appear above all others. */
+const EXPANDED_Z_INDEX_BOOST = 9999
 
 /** 单个节点渲染。memo 确保只有 props 变化时才重渲染。 */
 const DomNodeItem = memo(function DomNodeItem({
@@ -49,12 +53,14 @@ const DomNodeItem = memo(function DomNodeItem({
   View,
   selected,
   editing,
+  expanded,
   groupPadding,
   onSelect,
   onUpdate,
 }: DomNodeItemProps) {
   const [x, y, w, h] = element.xywh
   const padding = isGroupNodeType(element.type) ? groupPadding : 0
+  const baseZ = element.zIndex ?? 0
 
   return (
     <div
@@ -63,19 +69,23 @@ const DomNodeItem = memo(function DomNodeItem({
       data-board-editor={editing || undefined}
       data-node-type={element.type}
       data-selected={selected || undefined}
+      data-expanded={expanded || undefined}
       className={cn(
         'absolute',
         editing ? 'select-text' : 'select-none',
         isGroupNodeType(element.type)
           ? 'pointer-events-none'
           : 'pointer-events-auto',
+        // 逻辑：展开的节点使用 overflow-visible 让内嵌面板溢出节点边界，
+        // 不修改 Yjs xywh，面板展开是纯本地 UI 状态。
+        expanded ? 'overflow-visible' : 'overflow-hidden',
       )}
       style={{
         left: x - padding,
         top: y - padding,
         width: w + padding * 2,
         height: h + padding * 2,
-        zIndex: element.zIndex ?? 0,
+        zIndex: expanded ? baseZ + EXPANDED_Z_INDEX_BOOST : baseZ,
         transform: element.rotate
           ? `rotate(${element.rotate}deg)`
           : undefined,
@@ -87,6 +97,7 @@ const DomNodeItem = memo(function DomNodeItem({
           element={element}
           selected={selected}
           editing={editing}
+          expanded={expanded}
           onSelect={onSelect}
           onUpdate={onUpdate}
         />
@@ -99,6 +110,7 @@ const DomNodeItem = memo(function DomNodeItem({
   if (prev.element !== next.element) return false
   if (prev.selected !== next.selected) return false
   if (prev.editing !== next.editing) return false
+  if (prev.expanded !== next.expanded) return false
   if (prev.groupPadding !== next.groupPadding) return false
   return true
 })
@@ -188,6 +200,7 @@ function DomNodeLayerBase({ engine, snapshot }: DomNodeLayerProps) {
 
         const selected = selectedNodeIds.has(element.id)
         const editing = element.id === snapshot.editingNodeId
+        const expanded = element.id === snapshot.expandedNodeId
 
         return (
           <DomNodeItem
@@ -196,6 +209,7 @@ function DomNodeLayerBase({ engine, snapshot }: DomNodeLayerProps) {
             View={definition.view as ComponentType<CanvasNodeViewProps<Record<string, unknown>>>}
             selected={selected}
             editing={editing}
+            expanded={expanded}
             groupPadding={groupPadding}
             onSelect={() => engine.selection.setSelection([element.id])}
             onUpdate={patch => engine.doc.updateNodeProps(element.id, patch)}
@@ -214,6 +228,7 @@ function areDomNodeLayerPropsEqual(
   if (prev.snapshot.elements !== next.snapshot.elements) return false
   if (prev.snapshot.draggingId !== next.snapshot.draggingId) return false
   if (prev.snapshot.editingNodeId !== next.snapshot.editingNodeId) return false
+  if (prev.snapshot.expandedNodeId !== next.snapshot.expandedNodeId) return false
   const prevSel = prev.snapshot.selectedIds
   const nextSel = next.snapshot.selectedIds
   if (prevSel.length !== nextSel.length) return false
