@@ -9,12 +9,13 @@
  */
 "use client";
 
-import { memo, useCallback } from "react";
+import { memo, useCallback, useState } from "react";
 import {
   StickyNote,
   ImagePlus,
   Video,
   FolderOpen,
+  LayoutTemplate,
 } from "lucide-react";
 import { cn } from "@udecode/cn";
 import { useTranslation } from "react-i18next";
@@ -26,6 +27,7 @@ import {
   BOARD_TEXT_PRIMARY,
   BOARD_TEXT_AUXILIARY,
 } from "../ui/board-style-system";
+import WorkflowTemplatePicker from "../templates/WorkflowTemplatePicker";
 
 interface BoardEmptyGuideProps {
   engine: CanvasEngine;
@@ -47,6 +49,7 @@ const BoardEmptyGuide = memo(function BoardEmptyGuide({
 }: BoardEmptyGuideProps) {
   const { t } = useTranslation('board');
   const isSelectTool = activeToolId === "select";
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
 
   /** Create a sticky note at the viewport center. */
   const handleCreateSticky = useCallback(() => {
@@ -216,10 +219,31 @@ const BoardEmptyGuide = memo(function BoardEmptyGuide({
             })}
           </div>
 
-          {/* Hint text */}
-          <p className={cn(BOARD_TEXT_AUXILIARY, "text-xs select-none")}>
-            {t("emptyGuide.hint")}
-          </p>
+          {/* Hint text + template button */}
+          <div className="flex items-center gap-3 select-none">
+            <p className={cn(BOARD_TEXT_AUXILIARY, "text-xs")}>
+              {t("emptyGuide.hint")}
+            </p>
+            <span className={cn(BOARD_TEXT_AUXILIARY, "text-xs")}>|</span>
+            <button
+              type="button"
+              onPointerDown={(e) => {
+                e.stopPropagation();
+                setShowTemplatePicker(true);
+              }}
+              className={cn(
+                "flex items-center gap-1.5 rounded-full px-3 py-1",
+                "text-xs font-medium select-none cursor-pointer",
+                "transition-colors duration-150",
+                "bg-ol-blue-bg hover:bg-ol-blue-bg-hover",
+              )}
+            >
+              <LayoutTemplate size={13} className="text-ol-blue" />
+              <span className="text-ol-blue">
+                {t("emptyGuide.fromTemplate")}
+              </span>
+            </button>
+          </div>
 
           {/* Keyboard shortcuts */}
           <div className="flex items-center gap-2 select-none">
@@ -253,6 +277,16 @@ const BoardEmptyGuide = memo(function BoardEmptyGuide({
           </div>
         </div>
       </div>
+
+      {/* ── Template picker overlay ── */}
+      {showTemplatePicker && (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center z-40">
+          <WorkflowTemplatePicker
+            engine={engine}
+            onClose={() => setShowTemplatePicker(false)}
+          />
+        </div>
+      )}
     </div>
   );
 });

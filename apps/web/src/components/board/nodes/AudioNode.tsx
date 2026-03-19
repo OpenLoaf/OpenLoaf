@@ -12,7 +12,8 @@ import type {
   CanvasNodeViewProps,
   CanvasToolbarContext,
 } from "../engine/types";
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
+import { createPortal } from "react-dom";
 import { z } from "zod";
 import { Music } from "lucide-react";
 import i18next from "i18next";
@@ -27,6 +28,12 @@ import {
 import { parseScopedProjectPath } from "@/components/project/filesystem/utils/file-system-utils";
 import { getPreviewEndpoint } from "@/lib/image/uri";
 import { NodeFrame } from "./NodeFrame";
+import { AudioAiPanel } from "../panels/AudioAiPanel";
+import type { AudioGenerateParams } from "../panels/AudioAiPanel";
+import { useUpstreamData } from "../hooks/useUpstreamData";
+import { usePanelOverlay } from "../render/pixi/PixiApplication";
+import { submitAudioGenerate } from "../services/audio-generate";
+import { BOARD_ASSETS_DIR_NAME } from "@/lib/file-name";
 
 export type AudioNodeProps = {
   /** Board-relative path for the audio file. */
@@ -83,8 +90,28 @@ function createAudioToolbarItems(
 /** Render an audio node card with inline playback. */
 export function AudioNodeView({
   element,
+  expanded,
+  onUpdate,
 }: CanvasNodeViewProps<AudioNodeProps>) {
-  const { fileContext } = useBoardContext();
+  const { fileContext, engine } = useBoardContext();
+  const upstream = useUpstreamData(engine, expanded ? element.id : null);
+  const panelOverlay = usePanelOverlay();
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  // 逻辑：通过 subscribeView 直接操作 DOM 同步面板缩放，避免 React 渲染延迟。
+  // 面板通过 Portal 渲染到 panelOverlay 层（笔画上方），用 scale(1/zoom) 保持固定屏幕大小。
+  useEffect(() => {
+    if (!expanded) return;
+    const syncPanelScale = () => {
+      const panel = panelRef.current;
+      if (!panel) return;
+      const zoom = engine.viewport.getState().zoom;
+      panel.style.transform = `translateX(-50%) scale(${1 / zoom})`;
+    };
+    syncPanelScale();
+    const unsub = engine.subscribeView(syncPanelScale);
+    return unsub;
+  }, [engine, expanded]);
 
   const projectRelativePath = useMemo(
     () => resolveProjectRelativePath(element.props.sourcePath, fileContext),
@@ -146,6 +173,51 @@ export function AudioNodeView({
     resolvedPath,
   ]);
 
+  const handleGenerate = useCallback(
+    async (params: AudioGenerateParams) => {
+      try {
+        const saveDir = fileContext?.boardFolderUri
+          ? `${fileContext.boardFolderUri}/${BOARD_ASSETS_DIR_NAME}`
+          : undefined
+        const result = await submitAudioGenerate(
+          {
+            prompt: params.prompt,
+            modelId: params.modelId === 'auto' ? undefined : params.modelId,
+            audioType: params.audioType,
+            duration: params.duration,
+          },
+          {
+            projectId: fileContext?.projectId,
+            saveDir,
+            sourceNodeId: element.id,
+          },
+        )
+        const [x, y, w, h] = element.xywh
+        engine.addNodeElement(
+          'loading',
+          {
+            taskId: result.taskId,
+            taskType: 'audio_generate',
+            sourceNodeId: element.id,
+            promptText: params.prompt,
+            projectId: fileContext?.projectId ?? '',
+            saveDir: saveDir ?? '',
+          },
+          [x + w + 120, y, 280, 100],
+        )
+      } catch (err) {
+        console.error('[AudioNode] submitAudioGenerate failed:', err)
+        onUpdate({
+          aiConfig: {
+            ...(element.props.aiConfig ?? { modelId: params.modelId, prompt: params.prompt }),
+            taskId: undefined,
+          },
+        })
+      }
+    },
+    [engine, element.id, element.xywh, element.props.aiConfig, fileContext, onUpdate],
+  )
+
   return (
     <NodeFrame>
       <div
@@ -155,6 +227,8 @@ export function AudioNodeView({
         ].join(" ")}
         onDoubleClick={(event) => {
           event.stopPropagation();
+          // 逻辑：展开态不触发预览，因为此时双击可能是编辑面板内的操作。
+          if (expanded) return;
           handleOpenPreview();
         }}
       >
@@ -198,6 +272,29 @@ export function AudioNodeView({
           )}
         </div>
       </div>
+      {expanded && panelOverlay ? createPortal(
+        <div
+          ref={panelRef}
+          className="pointer-events-auto absolute"
+          data-board-editor
+          style={{
+            left: element.xywh[0] + element.xywh[2] / 2,
+            top: element.xywh[1] + element.xywh[3] + 8,
+            transformOrigin: 'top center',
+          }}
+          onPointerDown={event => {
+            event.stopPropagation();
+          }}
+        >
+          <AudioAiPanel
+            element={element}
+            onUpdate={onUpdate}
+            onGenerate={handleGenerate}
+            upstreamText={upstream?.textList.join('\n')}
+          />
+        </div>,
+        panelOverlay,
+      ) : null}
     </NodeFrame>
   );
 }
@@ -234,5 +331,6 @@ export const AudioNodeDefinition: CanvasNodeDefinition<AudioNodeProps> = {
     minSize: { w: 200, h: 100 },
     maxSize: { w: 480, h: 160 },
   },
+  inlinePanel: { width: 420, height: 320 },
   toolbar: (ctx) => createAudioToolbarItems(ctx),
 };

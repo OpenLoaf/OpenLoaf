@@ -103,7 +103,19 @@
     "aiVideo": "AI 影片",
     "importFile": "匯入檔案",
     "hint": "雙擊空白處也可以建立文字",
-    "shortcuts": "快捷鍵: V 選取 · H 拖曳 · T 文字 · C 連線"
+    "shortcuts": "快捷鍵: V 選取 · H 拖曳 · T 文字 · C 連線",
+    "fromTemplate": "從模板開始"
+  },
+  "templates": {
+    "title": "選擇工作流模板",
+    "textToImage": "文生圖",
+    "textToImageDesc": "從文字描述生成圖片",
+    "imageToVideo": "圖生影片",
+    "imageToVideoDesc": "從圖片生成影片",
+    "fullPipeline": "完整影視流",
+    "fullPipelineDesc": "文字 → 圖片 → 影片",
+    "storyboard": "分鏡模式",
+    "storyboardDesc": "腳本拆分為多張分鏡圖"
   },
   "contextMenu": {
     "exitFullscreen": "退出全螢幕",
@@ -244,7 +256,9 @@
       "group": "群組",
       "layoutVertical": "縱向排列",
       "layoutHorizontal": "橫向排列",
-      "autoLayout": "自動排版"
+      "autoLayout": "自動排版",
+      "batchDownload": "批次下載",
+      "batchDownloadProgress": "正在下載 {{count}} 個檔案"
     },
     "mindmapLayout": {
       "label": "方向",
@@ -601,5 +615,19 @@
     "autoRecommend": "自動推薦",
     "creditsCost": "積分消耗",
     "submit": "放大"
+  },
+  "audioPanel": {
+    "type": "類型",
+    "music": "音樂",
+    "voiceover": "配音",
+    "sfx": "音效",
+    "prompt": "提示詞",
+    "promptPlaceholder": "描述你想要的音訊...",
+    "model": "模型",
+    "autoRecommend": "自動推薦",
+    "duration": "時長",
+    "generate": "生成",
+    "generating": "生成中...",
+    "upstreamLoaded": "已從上游節點讀取內容"
   }
 }

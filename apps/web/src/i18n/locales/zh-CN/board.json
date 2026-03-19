@@ -103,7 +103,19 @@
     "aiVideo": "AI 视频",
     "importFile": "导入文件",
     "hint": "双击空白处也可以创建文本",
-    "shortcuts": "快捷键: V 选择 · H 拖拽 · T 文本 · C 连线"
+    "shortcuts": "快捷键: V 选择 · H 拖拽 · T 文本 · C 连线",
+    "fromTemplate": "从模板开始"
+  },
+  "templates": {
+    "title": "选择工作流模板",
+    "textToImage": "文生图",
+    "textToImageDesc": "从文字描述生成图片",
+    "imageToVideo": "图生视频",
+    "imageToVideoDesc": "从图片生成视频",
+    "fullPipeline": "完整影视流",
+    "fullPipelineDesc": "文字 → 图片 → 视频",
+    "storyboard": "分镜模式",
+    "storyboardDesc": "脚本拆分为多张分镜图"
   },
   "contextMenu": {
     "exitFullscreen": "退出全屏",
@@ -244,7 +256,9 @@
       "group": "编组",
       "layoutVertical": "竖向排列",
       "layoutHorizontal": "横向排列",
-      "autoLayout": "自动布局"
+      "autoLayout": "自动布局",
+      "batchDownload": "批量下载",
+      "batchDownloadProgress": "正在下载 {{count}} 个文件"
     },
     "mindmapLayout": {
       "label": "方向",
@@ -605,5 +619,19 @@
     "autoRecommend": "自动推荐",
     "creditsCost": "积分消耗",
     "submit": "放大"
+  },
+  "audioPanel": {
+    "type": "类型",
+    "music": "音乐",
+    "voiceover": "配音",
+    "sfx": "音效",
+    "prompt": "提示词",
+    "promptPlaceholder": "描述你想要的音频...",
+    "model": "模型",
+    "autoRecommend": "自动推荐",
+    "duration": "时长",
+    "generate": "生成",
+    "generating": "生成中...",
+    "upstreamLoaded": "已从上游节点读取内容"
   }
 }

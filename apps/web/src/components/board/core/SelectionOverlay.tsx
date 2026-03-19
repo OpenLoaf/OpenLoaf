@@ -7,12 +7,14 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import { LayoutGrid, Layers, Maximize2 } from "lucide-react";
+import { Download, LayoutGrid, Layers, Maximize2 } from "lucide-react";
 import {
   BOARD_TOOLBAR_ITEM_BLUE,
   BOARD_TOOLBAR_ITEM_AMBER,
+  BOARD_TOOLBAR_ITEM_GREEN,
   BOARD_TOOLBAR_ITEM_RED,
 } from "../ui/board-style-system";
+import { batchDownloadNodes, hasMediaNodes } from "../utils/batch-download";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type SVGProps } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
@@ -386,19 +388,28 @@ export function MultiSelectionToolbar({
 
   // 逻辑：全部是笔画节点时隐藏自动布局按钮，笔画无法参与网格布局。
   const allStrokes = selectedNodes.every(node => node.type === "stroke");
+  const showBatchDownload = hasMediaNodes(selectedNodes);
   const layoutLabel = t('selection.toolbar.autoLayout');
   const layoutIcon = <LayoutGrid size={14} />;
   const bounds = computeSelectionBounds(selectedNodes, snapshot.viewport.zoom);
 
-  const builtinItems: CanvasToolbarItem[] = [
-    {
-      id: "group",
-      label: t('selection.toolbar.group'),
-      icon: <Layers size={14} />,
-      className: BOARD_TOOLBAR_ITEM_BLUE,
-      onSelect: () => engine.groupSelection(),
-    },
-  ];
+  const builtinItems: CanvasToolbarItem[] = [];
+  if (showBatchDownload) {
+    builtinItems.push({
+      id: "batch-download",
+      label: t('selection.toolbar.batchDownload'),
+      icon: <Download size={14} />,
+      className: BOARD_TOOLBAR_ITEM_GREEN,
+      onSelect: () => batchDownloadNodes(selectedNodes, fileContext),
+    });
+  }
+  builtinItems.push({
+    id: "group",
+    label: t('selection.toolbar.group'),
+    icon: <Layers size={14} />,
+    className: BOARD_TOOLBAR_ITEM_BLUE,
+    onSelect: () => engine.groupSelection(),
+  });
   if (!allStrokes) {
     builtinItems.push({
       id: "layout",

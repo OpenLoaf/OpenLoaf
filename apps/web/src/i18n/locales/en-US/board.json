@@ -103,7 +103,19 @@
     "aiVideo": "AI Video",
     "importFile": "Import File",
     "hint": "Double-click on empty space to create text",
-    "shortcuts": "Shortcuts: V Select · H Hand · T Text · C Connector"
+    "shortcuts": "Shortcuts: V Select · H Hand · T Text · C Connector",
+    "fromTemplate": "Start from Template"
+  },
+  "templates": {
+    "title": "Choose a Workflow Template",
+    "textToImage": "Text to Image",
+    "textToImageDesc": "Generate images from text descriptions",
+    "imageToVideo": "Image to Video",
+    "imageToVideoDesc": "Generate video from images",
+    "fullPipeline": "Full Pipeline",
+    "fullPipelineDesc": "Text → Image → Video",
+    "storyboard": "Storyboard",
+    "storyboardDesc": "Split script into multiple storyboard frames"
   },
   "contextMenu": {
     "exitFullscreen": "Exit Fullscreen",
@@ -244,7 +256,9 @@
       "group": "Group",
       "layoutVertical": "Vertical Arrange",
       "layoutHorizontal": "Horizontal Arrange",
-      "autoLayout": "Auto Layout"
+      "autoLayout": "Auto Layout",
+      "batchDownload": "Batch Download",
+      "batchDownloadProgress": "Downloading {{count}} files"
     },
     "mindmapLayout": {
       "label": "Direction",
@@ -601,5 +615,19 @@
     "autoRecommend": "Auto Recommend",
     "creditsCost": "Credits Cost",
     "submit": "Upscale"
+  },
+  "audioPanel": {
+    "type": "Type",
+    "music": "Music",
+    "voiceover": "Voiceover",
+    "sfx": "Sound Effects",
+    "prompt": "Prompt",
+    "promptPlaceholder": "Describe the audio you want...",
+    "model": "Model",
+    "autoRecommend": "Auto Recommend",
+    "duration": "Duration",
+    "generate": "Generate",
+    "generating": "Generating...",
+    "upstreamLoaded": "Content loaded from upstream node"
   }
 }
