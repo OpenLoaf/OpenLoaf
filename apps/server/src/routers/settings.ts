@@ -390,23 +390,21 @@ class SettingRouterImpl extends BaseSettingRouter {
               if (!parentId) continue;
               projectCandidates.push({ rootPath: entry.rootPath, projectId: parentId });
             }
-            const items = summaries.map((summary) => {
-              if (summary.scope === "builtin") {
-                const ignoreKey = `builtin:${summary.folderName}`;
-                return { ...summary, ignoreKey, isEnabled: true, isDeletable: false };
-              }
-              const ownerProjectId = summary.scope === "project"
-                ? resolveOwnerProjectId({ skillPath: summary.path, candidates: projectCandidates })
-                : null;
-              const ignoreKey = summary.scope === "global"
-                ? buildGlobalIgnoreKey(summary.folderName)
-                : buildProjectIgnoreKey({ folderName: summary.folderName, ownerProjectId, currentProjectId: input.projectId });
-              const isEnabled = summary.scope === "global"
-                ? !projectIgnoreSkills.includes(ignoreKey)
-                : !projectIgnoreSkills.includes(ignoreKey);
-              const isDeletable = summary.scope === "project" && ownerProjectId === input.projectId;
-              return { ...summary, ignoreKey, isEnabled, isDeletable };
-            });
+            const items = summaries
+              .filter((summary) => summary.scope !== "builtin")
+              .map((summary) => {
+                const ownerProjectId = summary.scope === "project"
+                  ? resolveOwnerProjectId({ skillPath: summary.path, candidates: projectCandidates })
+                  : null;
+                const ignoreKey = summary.scope === "global"
+                  ? buildGlobalIgnoreKey(summary.folderName)
+                  : buildProjectIgnoreKey({ folderName: summary.folderName, ownerProjectId, currentProjectId: input.projectId });
+                const isEnabled = summary.scope === "global"
+                  ? !projectIgnoreSkills.includes(ignoreKey)
+                  : !projectIgnoreSkills.includes(ignoreKey);
+                const isDeletable = summary.scope === "project" && ownerProjectId === input.projectId;
+                return { ...summary, ignoreKey, isEnabled, isDeletable };
+              });
             return items.filter(
               (item) => item.scope !== "global" || !globalIgnoreSkills.includes(item.ignoreKey),
             );
@@ -417,12 +415,6 @@ class SettingRouterImpl extends BaseSettingRouter {
           const globalSummaries = loadSkillSummaries({
             globalSkillsPath: resolveGlobalSkillsPath(),
           });
-          const builtinItems = globalSummaries
-            .filter((s) => s.scope === "builtin")
-            .map((summary) => {
-              const ignoreKey = `builtin:${summary.folderName}`;
-              return { ...summary, ignoreKey, isEnabled: true, isDeletable: false };
-            });
           const globalItems = globalSummaries
             .filter((s) => s.scope === "global")
             .map((summary) => {
@@ -467,7 +459,7 @@ class SettingRouterImpl extends BaseSettingRouter {
             }
           }
 
-          return [...builtinItems, ...globalItems, ...projectItems];
+          return [...globalItems, ...projectItems];
         }),
       setSkillEnabled: shieldedProcedure
         .input(settingSchemas.setSkillEnabled.input)

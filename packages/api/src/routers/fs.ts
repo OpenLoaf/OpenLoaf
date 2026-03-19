@@ -16,7 +16,7 @@ import ffmpeg from "fluent-ffmpeg";
 import { fileURLToPath } from "node:url";
 import { t, shieldedProcedure } from "../../generated/routers/helpers/createRouter";
 import { convertDocxFileToSfdt } from "../services/docxSfdtService";
-import { resolveFilePathFromUri, resolveScopedPath, resolveScopedRootPath, toRelativePath } from "../services/vfsService";
+import { resolveFilePathFromUri, resolveScopedPath, resolveScopedRootPath, toRelativePath, toFileUriWithoutEncoding } from "../services/vfsService";
 import { readProjectTrees } from "../services/projectTreeService";
 
 /** Board folder prefix for server-side sorting. */
@@ -164,8 +164,12 @@ function buildFileNode(input: {
   const createdAt = Number.isNaN(input.stat.birthtime.getTime())
     ? input.stat.ctime.toISOString()
     : input.stat.birthtime.toISOString();
+  // 当文件在 rootPath 外部时（如全局技能 ~/.agents 不在 ~/.openloaf 下），
+  // 使用绝对 file:// URI 避免产生含 ".." 的相对路径被 path traversal 拦截。
+  const relativePath = toRelativePath(input.rootPath, input.fullPath);
+  const uri = relativePath.startsWith("..") ? toFileUriWithoutEncoding(input.fullPath) : relativePath;
   return {
-    uri: toRelativePath(input.rootPath, input.fullPath),
+    uri,
     name: input.name,
     kind: isDir ? "folder" : "file",
     ext: ext || undefined,
