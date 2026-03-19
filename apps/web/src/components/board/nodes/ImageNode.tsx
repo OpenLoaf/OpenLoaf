@@ -518,12 +518,13 @@ export function ImageNodeView({
       ) : null}
       {expanded ? (
         <div
-          className="absolute left-0 top-full z-10"
+          className="absolute top-full z-10"
           data-board-editor
           style={{
-            // 逻辑：反向缩放抵消画布 zoom，面板保持固定屏幕像素大小。
-            transform: `scale(${1 / currentZoom})`,
-            transformOrigin: 'top left',
+            // 逻辑：left:50% + translateX(-50%) 居中面板；scale(1/zoom) 抵消画布缩放。
+            left: '50%',
+            transform: `translateX(-50%) scale(${1 / currentZoom})`,
+            transformOrigin: 'top center',
             marginTop: 8 / currentZoom,
           }}
           onPointerDown={event => {

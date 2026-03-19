@@ -564,11 +564,12 @@ export function VideoNodeView({
       </div>
       {expanded ? (
         <div
-          className="absolute left-0 top-full z-10"
+          className="absolute top-full z-10"
           data-board-editor
           style={{
-            transform: `scale(${1 / currentZoom})`,
-            transformOrigin: 'top left',
+            left: '50%',
+            transform: `translateX(-50%) scale(${1 / currentZoom})`,
+            transformOrigin: 'top center',
             marginTop: 8 / currentZoom,
           }}
           onPointerDown={event => {
