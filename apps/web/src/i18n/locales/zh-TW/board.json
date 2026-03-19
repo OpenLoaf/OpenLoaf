@@ -134,7 +134,14 @@
     "lock": "鎖定",
     "unlock": "解鎖",
     "delete": "刪除",
-    "saveAs": "另存為…"
+    "saveAs": "另存為…",
+    "generateImage": "生成圖片",
+    "generateVideo": "生成影片",
+    "upscale": "高清放大",
+    "play": "播放",
+    "download": "下載",
+    "preview": "全螢幕預覽",
+    "inspect": "詳情"
   },
   "controls": {
     "undo": "復原",
@@ -250,6 +257,8 @@
       "copy": "複製",
       "bringToFront": "置頂",
       "sendToBack": "置底",
+      "bringForward": "上移一層",
+      "sendBackward": "下移一層",
       "unlock": "解鎖",
       "lock": "鎖定",
       "delete": "刪除",
@@ -629,5 +638,17 @@
     "generate": "生成",
     "generating": "生成中...",
     "upstreamLoaded": "已從上游節點讀取內容"
+  },
+  "nodeSearch": {
+    "placeholder": "搜尋節點...",
+    "results": "搜尋結果 ({{count}})",
+    "noResults": "未找到匹配節點",
+    "types": {
+      "all": "全部",
+      "text": "文字",
+      "image": "圖片",
+      "video": "影片",
+      "audio": "音訊"
+    }
   }
 }

@@ -14,6 +14,7 @@ import {
   type ComponentType,
   type ReactNode,
 } from 'react'
+import { Lock } from 'lucide-react'
 import { cn } from '@udecode/cn'
 import type { CanvasEngine } from '../../engine/CanvasEngine'
 import type {
@@ -102,6 +103,11 @@ const DomNodeItem = memo(function DomNodeItem({
           onUpdate={onUpdate}
         />
       </div>
+      {element.locked && (
+        <div className="pointer-events-none absolute top-0 right-0 flex items-center justify-center rounded-bl-md bg-black/40 p-0.5">
+          <Lock size={10} className="text-white" />
+        </div>
+      )}
     </div>
   )
 }, (prev, next) => {

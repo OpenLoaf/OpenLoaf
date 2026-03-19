@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import { Download, LayoutGrid, Layers, Maximize2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Download, LayoutGrid, Layers, Lock, Maximize2, Unlock } from "lucide-react";
 import {
   BOARD_TOOLBAR_ITEM_BLUE,
   BOARD_TOOLBAR_ITEM_AMBER,
@@ -147,7 +147,7 @@ export function SingleSelectionToolbar({
     enterGroup: onEnterGroup,
   });
 
-  const commonItems = buildCommonToolbarItems();
+  const commonItems = buildCommonToolbarItems(t, engine, element, snapshot);
   const mindmapLayoutItems = buildMindmapLayoutItems(t, engine, element, snapshot);
   const customItems = items ?? [];
   const allItems = [...customItems, ...mindmapLayoutItems, ...commonItems];
@@ -1037,8 +1037,44 @@ function getGroupScaleLimits(
 }
 
 /** Build shared toolbar items for every node (currently empty — all moved to context menu). */
-function buildCommonToolbarItems(): CanvasToolbarItem[] {
-  return [];
+function buildCommonToolbarItems(
+  t: TFunction,
+  engine: CanvasEngine,
+  element: CanvasNodeElement,
+  snapshot: CanvasSnapshot,
+): CanvasToolbarItem[] {
+  const isLocked = element.locked === true
+  const items: CanvasToolbarItem[] = [
+    {
+      id: 'bring-forward',
+      label: t('selection.toolbar.bringToFront'),
+      icon: <ArrowUp size={14} />,
+      className: BOARD_TOOLBAR_ITEM_BLUE,
+      onSelect: () => {
+        engine.bringNodeToFront(element.id)
+      },
+    },
+    {
+      id: 'send-backward',
+      label: t('selection.toolbar.sendToBack'),
+      icon: <ArrowDown size={14} />,
+      className: BOARD_TOOLBAR_ITEM_BLUE,
+      onSelect: () => {
+        engine.sendNodeToBack(element.id)
+      },
+    },
+    {
+      id: 'lock-node',
+      label: isLocked ? t('selection.toolbar.unlock') : t('selection.toolbar.lock'),
+      icon: isLocked ? <Unlock size={14} /> : <Lock size={14} />,
+      className: isLocked ? BOARD_TOOLBAR_ITEM_RED : BOARD_TOOLBAR_ITEM_AMBER,
+      onSelect: () => {
+        engine.setElementLocked(element.id, !isLocked)
+        engine.commitHistory()
+      },
+    },
+  ]
+  return items
 }
 
 /** Compute bounds for a list of selected elements. */

@@ -9,7 +9,7 @@
  */
 "use client";
 
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { cn } from "@udecode/cn";
 import type { CanvasEngine } from "../engine/CanvasEngine";
 import type { CanvasElement, CanvasSnapshot } from "../engine/types";
@@ -18,6 +18,7 @@ import BoardToolbar from "../toolbar/BoardToolbar";
 import LeftToolbar from "../toolbar/LeftToolbar";
 import BottomBar from "../toolbar/BottomBar";
 import { ConnectorActionPanel, NodeInspectorPanel } from "../ui/CanvasPanels";
+import { NodeSearchPanel } from "../ui/NodeSearchPanel";
 import dynamic from "next/dynamic";
 
 const PixiCanvas = dynamic(
@@ -83,12 +84,29 @@ export function BoardCanvasRender({
   });
   /** Node inspector target id. */
   const [inspectorNodeId, setInspectorNodeId] = useState<string | null>(null);
+  /** Whether the node search panel is visible. */
+  const [showSearchPanel, setShowSearchPanel] = useState(false);
   /** Delayed toolbar entrance animation flag. */
   const [toolbarsReady, setToolbarsReady] = useState(false);
   useEffect(() => {
     const timer = window.setTimeout(() => setToolbarsReady(true), 500);
     return () => window.clearTimeout(timer);
   }, []);
+
+  // 逻辑：Cmd+F / Ctrl+F 打开节点搜索面板，Escape 关闭。
+  const closeSearchPanel = useCallback(() => setShowSearchPanel(false), []);
+  useEffect(() => {
+    if (minimal) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key === "f") {
+        event.preventDefault();
+        event.stopPropagation();
+        setShowSearchPanel((prev) => !prev);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown, true);
+    return () => window.removeEventListener("keydown", handleKeyDown, true);
+  }, [minimal]);
 
   useEffect(() => {
     // 逻辑：主题切换时强制刷新画布渲染，确保连线颜色同步更新。
@@ -230,6 +248,13 @@ export function BoardCanvasRender({
       ) : null}
       {showUi && inspectorElement ? (
         <NodeInspectorPanel element={inspectorElement} onClose={() => setInspectorNodeId(null)} />
+      ) : null}
+      {showUi && !minimal && showSearchPanel ? (
+        <NodeSearchPanel
+          engine={engine}
+          elements={snapshot.elements}
+          onClose={closeSearchPanel}
+        />
       ) : null}
     </>
   );

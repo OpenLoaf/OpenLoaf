@@ -134,7 +134,14 @@
     "lock": "Lock",
     "unlock": "Unlock",
     "delete": "Delete",
-    "saveAs": "Save As…"
+    "saveAs": "Save As…",
+    "generateImage": "Generate Image",
+    "generateVideo": "Generate Video",
+    "upscale": "HD Upscale",
+    "play": "Play",
+    "download": "Download",
+    "preview": "Fullscreen Preview",
+    "inspect": "Details"
   },
   "controls": {
     "undo": "Undo",
@@ -250,6 +257,8 @@
       "copy": "Copy",
       "bringToFront": "Bring to Front",
       "sendToBack": "Send to Back",
+      "bringForward": "Bring Forward",
+      "sendBackward": "Send Backward",
       "unlock": "Unlock",
       "lock": "Lock",
       "delete": "Delete",
@@ -629,5 +638,17 @@
     "generate": "Generate",
     "generating": "Generating...",
     "upstreamLoaded": "Content loaded from upstream node"
+  },
+  "nodeSearch": {
+    "placeholder": "Search nodes...",
+    "results": "Results ({{count}})",
+    "noResults": "No matching nodes found",
+    "types": {
+      "all": "All",
+      "text": "Text",
+      "image": "Image",
+      "video": "Video",
+      "audio": "Audio"
+    }
   }
 }

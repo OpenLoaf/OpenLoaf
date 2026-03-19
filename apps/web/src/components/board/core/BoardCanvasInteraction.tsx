@@ -63,7 +63,14 @@ import {
   resolveLinkTitle,
 } from "../nodes/lib/link-actions";
 import type { ImageNodeProps } from "../nodes/ImageNode";
+import type { VideoNodeProps } from "../nodes/VideoNode";
 import type { LinkNodeProps } from "../nodes/LinkNode";
+import { deriveNode } from "../utils/derive-node";
+import { submitUpscale } from "../services/upscale-generate";
+import { DEFAULT_NODE_SIZE } from "../engine/constants";
+import { BOARD_ASSETS_DIR_NAME } from "@/lib/file-name";
+import { openFilePreview } from "@/components/file/lib/file-preview-store";
+import { fetchVideoMetadata } from "@/components/file/lib/video-metadata";
 import {
   resolveDirectionalStackPlacement,
   type StackPlacementDirection,
@@ -1401,6 +1408,116 @@ export function BoardCanvasInteraction({
           if (!node || node.kind !== "node") return;
           setSaveAsNode(node as CanvasNodeElement);
           setSaveAsOpen(true);
+        }}
+        onNodeDeriveVideo={(nodeId) => {
+          deriveNode({ engine, sourceNodeId: nodeId, targetType: 'video' });
+        }}
+        onNodeDeriveImage={(nodeId) => {
+          deriveNode({ engine, sourceNodeId: nodeId, targetType: 'image' });
+        }}
+        onNodeUpscale={(nodeId) => {
+          const node = engine.doc.getElementById(nodeId);
+          if (!node || node.kind !== "node" || node.type !== "image") return;
+          const props = node.props as ImageNodeProps;
+          const originalSrc = (props.originalSrc ?? "").trim();
+          const previewSrc = (props.previewSrc ?? "").trim();
+          // 逻辑：优先使用原图，回退到预览图。
+          const sourceImageSrc = originalSrc
+            ? (resolveNodeFileInfo(node as CanvasNodeElement, fileContext)?.href || originalSrc)
+            : previewSrc;
+          if (!sourceImageSrc) return;
+          submitUpscale(
+            { sourceImageSrc, scale: 2, modelId: 'auto' },
+            { projectId: fileContext?.projectId },
+          )
+            .then((result) => {
+              const [loadingW, loadingH] = DEFAULT_NODE_SIZE;
+              const existingOutputs = collectOutboundTargetRects(engine, nodeId);
+              const placement = resolveDirectionalStackPlacement(
+                node.xywh,
+                existingOutputs,
+                { direction: 'right', sideGap: 60, stackGap: 16, outputSize: [loadingW, loadingH] },
+              );
+              const x = placement ? placement.x : node.xywh[0] + node.xywh[2] + 60;
+              const y = placement ? placement.y : node.xywh[1];
+              const loadingNodeId = engine.addNodeElement(
+                'loading',
+                {
+                  taskId: result.taskId,
+                  taskType: 'upscale',
+                  sourceNodeId: nodeId,
+                  promptText: 'upscale 2x',
+                  projectId: fileContext?.projectId ?? '',
+                  saveDir: fileContext?.boardFolderUri
+                    ? `${fileContext.boardFolderUri}/${BOARD_ASSETS_DIR_NAME}`
+                    : '',
+                },
+                [x, y, loadingW, loadingH],
+              );
+              if (loadingNodeId) {
+                engine.addConnectorElement(
+                  {
+                    source: { elementId: nodeId },
+                    target: { elementId: loadingNodeId },
+                    style: engine.getConnectorStyle(),
+                  },
+                  { skipHistory: true, select: false },
+                );
+              }
+            })
+            .catch((err: unknown) => {
+              console.error('[board] upscale failed:', err);
+            });
+        }}
+        onNodeDownload={(nodeId) => {
+          const node = engine.doc.getElementById(nodeId);
+          if (!node || node.kind !== "node") return;
+          void saveNodeToComputer(node as CanvasNodeElement, fileContext);
+        }}
+        onNodePreview={(nodeId) => {
+          const node = engine.doc.getElementById(nodeId);
+          if (!node || node.kind !== "node") return;
+          openImagePreviewFromNode(node as CanvasNodeElement);
+        }}
+        onNodePlay={(nodeId) => {
+          const node = engine.doc.getElementById(nodeId);
+          if (!node || node.kind !== "node" || node.type !== "video") return;
+          const props = node.props as VideoNodeProps;
+          const sourcePath = (props.sourcePath ?? "").trim();
+          if (!sourcePath) return;
+          const resolvedPath = resolveProjectRelativePath(sourcePath);
+          const displayName = props.fileName || (resolvedPath || sourcePath).split("/").pop() || "Video";
+          void fetchVideoMetadata({
+            projectId: fileContext?.projectId,
+            uri: resolvedPath || sourcePath,
+          }).then((metadata) => {
+            openFilePreview({
+              viewer: "video",
+              items: [
+                {
+                  uri: sourcePath,
+                  openUri: resolvedPath || sourcePath,
+                  name: displayName,
+                  title: displayName,
+                  width: metadata?.width ?? props.naturalWidth,
+                  height: metadata?.height ?? props.naturalHeight,
+                  projectId: fileContext?.projectId,
+                  rootUri: fileContext?.rootUri,
+                  boardId: fileContext?.boardId ?? '',
+                  clipStart: props.clipStart,
+                  clipEnd: props.clipEnd,
+                },
+              ],
+              activeIndex: 0,
+              showSave: false,
+              enableEdit: false,
+            });
+          });
+        }}
+        onNodeInspect={(nodeId) => {
+          // 逻辑：打开节点详情面板 — 通过选中并展开节点实现。
+          engine.selection.setSelection([nodeId]);
+          engine.setExpandedNodeId(nodeId);
         }}
         onContextMenu={(event) => {
           if (!showUi) return;

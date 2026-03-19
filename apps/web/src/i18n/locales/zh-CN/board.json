@@ -134,7 +134,14 @@
     "lock": "锁定",
     "unlock": "解锁",
     "delete": "删除",
-    "saveAs": "另存为…"
+    "saveAs": "另存为…",
+    "generateImage": "生成图片",
+    "generateVideo": "生成视频",
+    "upscale": "高清放大",
+    "play": "播放",
+    "download": "下载",
+    "preview": "全屏预览",
+    "inspect": "详情"
   },
   "controls": {
     "undo": "撤销",
@@ -250,6 +257,8 @@
       "copy": "复制",
       "bringToFront": "置顶",
       "sendToBack": "置底",
+      "bringForward": "上移一层",
+      "sendBackward": "下移一层",
       "unlock": "解锁",
       "lock": "锁定",
       "delete": "删除",
@@ -633,5 +642,17 @@
     "generate": "生成",
     "generating": "生成中...",
     "upstreamLoaded": "已从上游节点读取内容"
+  },
+  "nodeSearch": {
+    "placeholder": "搜索节点...",
+    "results": "搜索结果 ({{count}})",
+    "noResults": "未找到匹配节点",
+    "types": {
+      "all": "全部",
+      "text": "文本",
+      "image": "图片",
+      "video": "视频",
+      "audio": "音频"
+    }
   }
 }
