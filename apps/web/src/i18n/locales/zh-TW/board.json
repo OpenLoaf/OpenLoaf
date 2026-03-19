@@ -589,7 +589,10 @@
     "advancedSettingsPlaceholder": "更多參數設定即將推出...",
     "generate": "生成",
     "generating": "生成中...",
-    "upstreamLoaded": "已從上游節點讀取內容"
+    "upstreamLoaded": "已從上游節點讀取內容",
+    "resultPagination": {
+      "pageOf": "{{current}}/{{total}}"
+    }
   },
   "upscalePanel": {
     "title": "高清放大",

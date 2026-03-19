@@ -589,7 +589,10 @@
     "advancedSettingsPlaceholder": "More settings coming soon...",
     "generate": "Generate",
     "generating": "Generating...",
-    "upstreamLoaded": "Content loaded from upstream node"
+    "upstreamLoaded": "Content loaded from upstream node",
+    "resultPagination": {
+      "pageOf": "{{current}}/{{total}}"
+    }
   },
   "upscalePanel": {
     "title": "HD Upscale",

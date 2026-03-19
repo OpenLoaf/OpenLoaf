@@ -23,6 +23,7 @@ import {
 } from '../ui/board-style-system'
 import { useMediaModels } from '@/hooks/use-media-models'
 import { filterImageMediaModels } from '../nodes/lib/image-generation'
+import { ResultPagination } from './ResultPagination'
 
 /** Generation mode tab values. */
 type GenerateMode = 'text2img' | 'img2img'
@@ -92,6 +93,25 @@ export function ImageAiPanel({
   const [resolution, setResolution] = useState<(typeof GENERATE_RESOLUTION_OPTIONS)[number]>('1K')
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
+
+  const aiResults = aiConfig?.results
+  const selectedIndex = aiConfig?.selectedIndex ?? 0
+
+  const handleResultSelect = useCallback(
+    (index: number) => {
+      if (!aiResults || index < 0 || index >= aiResults.length) return
+      const result = aiResults[index]
+      onUpdate({
+        previewSrc: result.previewSrc,
+        originalSrc: result.originalSrc,
+        aiConfig: {
+          ...aiConfig!,
+          selectedIndex: index,
+        },
+      })
+    },
+    [aiResults, aiConfig, onUpdate],
+  )
 
   const handleGenerate = useCallback(() => {
     if (isGenerating) return
@@ -275,6 +295,15 @@ export function ImageAiPanel({
           {/* Placeholder for advanced settings (negative prompt, style, etc.) */}
           {t('imagePanel.advancedSettingsPlaceholder')}
         </div>
+      ) : null}
+
+      {/* ── Result Pagination ── */}
+      {aiResults && aiResults.length > 1 ? (
+        <ResultPagination
+          results={aiResults}
+          currentIndex={selectedIndex}
+          onSelect={handleResultSelect}
+        />
       ) : null}
 
       {/* ── Footer: Generate Button ── */}

@@ -69,6 +69,10 @@ export type AiGenerateConfig = {
   taskId?: string
   /** Timestamp when the generation completed. */
   generatedAt?: number
+  /** Generated result URLs (when count > 1). */
+  results?: Array<{ previewSrc: string; originalSrc: string }>
+  /** Currently selected result index. */
+  selectedIndex?: number
 }
 
 // ---------------------------------------------------------------------------

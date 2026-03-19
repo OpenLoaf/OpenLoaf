@@ -824,6 +824,11 @@ export const ImageNodeDefinition: CanvasNodeDefinition<ImageNodeProps> = {
       inputNodeIds: z.array(z.string()).optional(),
       taskId: z.string().optional(),
       generatedAt: z.number().optional(),
+      results: z.array(z.object({
+        previewSrc: z.string(),
+        originalSrc: z.string(),
+      })).optional(),
+      selectedIndex: z.number().optional(),
     }).optional(),
   }),
   defaultProps: {
