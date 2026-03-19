@@ -539,7 +539,6 @@ export class CanvasEngine {
 
   /** Set the currently active tool. */
   setActiveTool(toolId: string): void {
-    this.tools.setActive(toolId);
     if (toolId !== "connector") {
       this.connectorDraft = null;
       this.connectorHover = null;
@@ -548,7 +547,7 @@ export class CanvasEngine {
       this.connectorHoverId = null;
       this.nodeHoverId = null;
     }
-    // 逻辑：切换主工具时清空一次性插入状态。
+    // 逻辑：切换主工具时清空一次性插入状态（PlacementTool.activate 会重新设置）。
     this.pendingInsert = null;
     this.pendingInsertPoint = null;
     // 逻辑：切换工具时清空待处理的连线面板。
@@ -558,6 +557,8 @@ export class CanvasEngine {
       this.alignmentGuides = [];
       this.selectionBox = null;
     }
+    // 逻辑：setActive 必须在清空状态之后调用，因为 PlacementTool.activate() 会设置 pendingInsert。
+    this.tools.setActive(toolId);
     this.emitChange();
   }
 
