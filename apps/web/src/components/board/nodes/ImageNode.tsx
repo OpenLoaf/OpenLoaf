@@ -53,6 +53,7 @@ import { useUpstreamData } from "../hooks/useUpstreamData";
 import { usePanelOverlay } from "../render/pixi/PixiApplication";
 import { deriveNode } from "../utils/derive-node";
 import { submitImageGenerate } from "../services/image-generate";
+import { submitUpscale } from "../services/upscale-generate";
 import { DEFAULT_NODE_SIZE } from "../engine/constants";
 import { BOARD_ASSETS_DIR_NAME } from "@/lib/file-name";
 import { resolveDirectionalStackPlacement } from "../utils/output-placement";
@@ -197,7 +198,85 @@ function createImageToolbarItems(ctx: CanvasToolbarContext<ImageNodeProps>) {
       icon: <ZoomIn size={14} />,
       className: BOARD_TOOLBAR_ITEM_BLUE,
       onSelect: () => {
-        deriveNode({ engine: ctx.engine, sourceNodeId: ctx.element.id, targetType: 'image', targetProps: { origin: 'ai-generate' } })
+        const sourceProps = ctx.element.props
+        const sourceImageSrc =
+          resolveImageSource(sourceProps.originalSrc, ctx.fileContext) ||
+          sourceProps.previewSrc
+        if (!sourceImageSrc) return
+
+        submitUpscale(
+          { sourceImageSrc, scale: 2, modelId: 'auto' },
+          { projectId: ctx.fileContext?.projectId },
+        )
+          .then((result) => {
+            // 逻辑：计算 LoadingNode 放置位置 — 源节点右侧堆叠。
+            const [loadingW, loadingH] = DEFAULT_NODE_SIZE
+            const existingOutputs: Array<[number, number, number, number]> =
+              (ctx.engine.doc.getElements() as any[])
+                .filter((el: any) => el.kind === 'connector')
+                .reduce(
+                (rects: Array<[number, number, number, number]>, connector: any) => {
+                  if (
+                    !('elementId' in connector.source) ||
+                    connector.source.elementId !== ctx.element.id
+                  ) {
+                    return rects
+                  }
+                  if (!('elementId' in connector.target)) return rects
+                  const targetEl = ctx.engine.doc.getElementById(
+                    connector.target.elementId,
+                  )
+                  if (!targetEl || targetEl.kind !== 'node') return rects
+                  return [...rects, targetEl.xywh]
+                },
+                [],
+              )
+
+            const placement = resolveDirectionalStackPlacement(
+              ctx.element.xywh,
+              existingOutputs,
+              {
+                direction: 'right',
+                sideGap: 60,
+                stackGap: 16,
+                outputSize: [loadingW, loadingH],
+              },
+            )
+            const x = placement
+              ? placement.x
+              : ctx.element.xywh[0] + ctx.element.xywh[2] + 60
+            const y = placement ? placement.y : ctx.element.xywh[1]
+
+            const loadingNodeId = ctx.engine.addNodeElement(
+              'loading',
+              {
+                taskId: result.taskId,
+                taskType: 'upscale',
+                sourceNodeId: ctx.element.id,
+                promptText: 'upscale 2x',
+                projectId: ctx.fileContext?.projectId ?? '',
+                saveDir: ctx.fileContext?.boardFolderUri
+                  ? `${ctx.fileContext.boardFolderUri}/${BOARD_ASSETS_DIR_NAME}`
+                  : '',
+              },
+              [x, y, loadingW, loadingH],
+            )
+
+            // 逻辑：创建从源节点到 LoadingNode 的连线。
+            if (loadingNodeId) {
+              ctx.engine.addConnectorElement(
+                {
+                  source: { elementId: ctx.element.id },
+                  target: { elementId: loadingNodeId },
+                  style: ctx.engine.getConnectorStyle(),
+                },
+                { skipHistory: true, select: false },
+              )
+            }
+          })
+          .catch((err: unknown) => {
+            console.error('[board] upscale failed:', err)
+          })
       },
     },
     ...(origin === 'ai-generate'

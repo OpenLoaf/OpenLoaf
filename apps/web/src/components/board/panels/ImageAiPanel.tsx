@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import { useCallback, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronRight, Link as LinkIcon, Sparkles } from 'lucide-react'
 import type { CanvasNodeElement } from '../engine/types'
@@ -21,13 +21,14 @@ import {
   BOARD_GENERATE_INPUT,
   BOARD_GENERATE_BTN_IMAGE,
 } from '../ui/board-style-system'
+import { useMediaModels } from '@/hooks/use-media-models'
+import { filterImageMediaModels } from '../nodes/lib/image-generation'
 
 /** Generation mode tab values. */
 type GenerateMode = 'text2img' | 'img2img'
 
-/** Hardcoded model options (placeholder until real model list is integrated). */
-const MODEL_OPTIONS = [
-  { id: 'auto', labelKey: 'imagePanel.autoRecommend' },
+/** Fallback model options used when no cloud models are available. */
+const FALLBACK_MODEL_OPTIONS = [
   { id: 'dall-e-3', label: 'DALL-E 3' },
   { id: 'stable-diffusion-xl', label: 'Stable Diffusion XL' },
   { id: 'midjourney-v6', label: 'Midjourney v6' },
@@ -63,10 +64,25 @@ export function ImageAiPanel({
 }: ImageAiPanelProps) {
   const { t } = useTranslation('board')
   const aiConfig = element.props.aiConfig
+  const { imageModels, loaded: mediaModelsLoaded } = useMediaModels()
 
   const [mode, setMode] = useState<GenerateMode>(
     upstreamImages?.length ? 'img2img' : 'text2img',
   )
+
+  const imageCount = mode === 'img2img' ? (upstreamImages?.length ?? 0) : 0
+  const filteredModels = useMemo(
+    () =>
+      mediaModelsLoaded && imageModels.length > 0
+        ? filterImageMediaModels(imageModels, {
+            imageCount,
+            hasMask: false,
+            outputCount: 1,
+          })
+        : [],
+    [imageModels, mediaModelsLoaded, imageCount],
+  )
+
   const usedUpstreamText = !aiConfig?.prompt && !!upstreamText
   const [prompt, setPrompt] = useState(aiConfig?.prompt ?? upstreamText ?? '')
   const [modelId, setModelId] = useState(aiConfig?.modelId ?? 'auto')
@@ -175,11 +191,18 @@ export function ImageAiPanel({
           value={modelId}
           onChange={(e) => setModelId(e.target.value)}
         >
-          {MODEL_OPTIONS.map((opt) => (
-            <option key={opt.id} value={opt.id}>
-              {'labelKey' in opt ? t(opt.labelKey) : opt.label}
-            </option>
-          ))}
+          <option value="auto">{t('imagePanel.autoRecommend')}</option>
+          {filteredModels.length > 0
+            ? filteredModels.map((model) => (
+                <option key={model.id} value={model.id}>
+                  {model.name || model.id}
+                </option>
+              ))
+            : FALLBACK_MODEL_OPTIONS.map((opt) => (
+                <option key={opt.id} value={opt.id}>
+                  {opt.label}
+                </option>
+              ))}
         </select>
       </div>
 

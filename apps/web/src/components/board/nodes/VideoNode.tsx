@@ -190,6 +190,8 @@ function createVideoToolbarItems(ctx: CanvasToolbarContext<VideoNodeProps>) {
       label: i18next.t('board:aiToolbar.upscaleVideo'),
       icon: <ZoomIn size={14} />,
       className: BOARD_TOOLBAR_ITEM_PURPLE,
+      // TODO: 接入视频高清放大服务（需要视频专用的 upscale API），
+      // 当前暂时保持 deriveNode 创建占位节点的行为。
       onSelect: () => {
         deriveNode({ engine: ctx.engine, sourceNodeId: ctx.element.id, targetType: 'video', targetProps: { origin: 'ai-generate' } })
       },

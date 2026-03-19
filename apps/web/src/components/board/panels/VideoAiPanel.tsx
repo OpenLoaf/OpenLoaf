@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import { useCallback, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ImagePlus, Link as LinkIcon, Sparkles } from 'lucide-react'
 import type { CanvasNodeElement } from '../engine/types'
@@ -21,10 +21,11 @@ import {
   BOARD_GENERATE_INPUT,
   BOARD_GENERATE_BTN_VIDEO,
 } from '../ui/board-style-system'
+import { useMediaModels } from '@/hooks/use-media-models'
+import { filterVideoMediaModels } from '../nodes/lib/image-generation'
 
-/** Hardcoded model options (placeholder until real model list is integrated). */
-const MODEL_OPTIONS = [
-  { id: 'auto', labelKey: 'videoPanel.autoRecommend' },
+/** Fallback model options used when no cloud models are available. */
+const FALLBACK_MODEL_OPTIONS = [
   { id: 'kling-v1', label: 'Kling v1' },
   { id: 'runway-gen3', label: 'Runway Gen-3' },
   { id: 'pika-v2', label: 'Pika v2' },
@@ -56,6 +57,21 @@ export function VideoAiPanel({
 }: VideoAiPanelProps) {
   const { t } = useTranslation('board')
   const aiConfig = element.props.aiConfig
+  const { videoModels, loaded: mediaModelsLoaded } = useMediaModels()
+
+  const imageCount = upstreamImages?.length ?? 0
+  const filteredModels = useMemo(
+    () =>
+      mediaModelsLoaded && videoModels.length > 0
+        ? filterVideoMediaModels(videoModels, {
+            imageCount,
+            hasReference: false,
+            hasStartEnd: false,
+            withAudio: false,
+          })
+        : [],
+    [videoModels, mediaModelsLoaded, imageCount],
+  )
 
   const usedUpstreamText = !aiConfig?.prompt && !!upstreamText
   const [prompt, setPrompt] = useState(aiConfig?.prompt ?? upstreamText ?? '')
@@ -170,11 +186,18 @@ export function VideoAiPanel({
           value={modelId}
           onChange={(e) => setModelId(e.target.value)}
         >
-          {MODEL_OPTIONS.map((opt) => (
-            <option key={opt.id} value={opt.id}>
-              {'labelKey' in opt ? t(opt.labelKey) : opt.label}
-            </option>
-          ))}
+          <option value="auto">{t('videoPanel.autoRecommend')}</option>
+          {filteredModels.length > 0
+            ? filteredModels.map((model) => (
+                <option key={model.id} value={model.id}>
+                  {model.name || model.id}
+                </option>
+              ))
+            : FALLBACK_MODEL_OPTIONS.map((opt) => (
+                <option key={opt.id} value={opt.id}>
+                  {opt.label}
+                </option>
+              ))}
         </select>
       </div>
 
