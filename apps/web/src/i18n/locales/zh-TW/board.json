@@ -490,7 +490,13 @@
     "aiAssistant": "AI智能體",
     "imagePromptGenerate": "圖片理解",
     "imageGenerate": "圖片生成",
-    "videoGenerate": "生成影片"
+    "videoGenerate": "生成影片",
+    "generateImage": "生成圖片",
+    "generateVideo": "生影片",
+    "upscale": "高清",
+    "repaint": "重繪",
+    "regenerate": "重新生成",
+    "upscaleVideo": "高清放大"
   },
   "nodeInspector": {
     "panelTitle": "節點詳情",
@@ -589,5 +595,13 @@
     "advancedSettingsPlaceholder": "更多參數設定即將推出...",
     "generate": "生成",
     "generating": "生成中..."
+  },
+  "upscalePanel": {
+    "title": "高清放大",
+    "scaleFactor": "放大倍數",
+    "model": "模型",
+    "autoRecommend": "自動推薦",
+    "creditsCost": "積分消耗",
+    "submit": "放大"
   }
 }

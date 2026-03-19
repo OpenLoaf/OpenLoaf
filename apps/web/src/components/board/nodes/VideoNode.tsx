@@ -16,13 +16,14 @@ import type {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 import Hls from "hls.js";
-import { Download, Info, Loader2, Pause, Play, Scissors } from "lucide-react";
+import { Download, Info, Loader2, Pause, Play, Scissors, ZoomIn } from "lucide-react";
 import i18next from "i18next";
 import { openVideoTrimDialog } from "../dialogs/video-trim/VideoTrimDialog";
 import {
   BOARD_TOOLBAR_ITEM_AMBER,
   BOARD_TOOLBAR_ITEM_BLUE,
   BOARD_TOOLBAR_ITEM_GREEN,
+  BOARD_TOOLBAR_ITEM_PURPLE,
 } from "../ui/board-style-system";
 import { openFilePreview } from "@/components/file/lib/file-preview-store";
 import { fetchVideoMetadata } from "@/components/file/lib/video-metadata";
@@ -131,6 +132,17 @@ function createVideoToolbarItems(ctx: CanvasToolbarContext<VideoNodeProps>) {
     boardId: isBoardRelativePath(sourcePath) ? ctx.fileContext?.boardId : undefined,
   };
 
+  // AI action buttons prepended before base items
+  const aiItems = [
+    {
+      id: 'ai-upscale-video',
+      label: i18next.t('board:aiToolbar.upscaleVideo'),
+      icon: <ZoomIn size={14} />,
+      className: BOARD_TOOLBAR_ITEM_PURPLE,
+      onSelect: () => {},
+    },
+  ];
+
   const baseItems = [
     {
       id: 'play',
@@ -182,7 +194,7 @@ function createVideoToolbarItems(ctx: CanvasToolbarContext<VideoNodeProps>) {
       onSelect: () => ctx.openInspector(ctx.element.id),
     },
   ];
-  return baseItems;
+  return [...aiItems, ...baseItems];
 }
 
 /** Export the clipped segment via server-side ffmpeg. */

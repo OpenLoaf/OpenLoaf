@@ -30,6 +30,7 @@ import {
   AlignRight,
   Bold,
   CheckSquare,
+  ImagePlus,
   Italic,
   List,
   ListOrdered,
@@ -39,6 +40,7 @@ import {
   Strikethrough,
   Type,
   Underline,
+  Video,
 } from "lucide-react";
 import { cn } from "@udecode/cn";
 import { KEYS } from 'platejs';
@@ -637,6 +639,21 @@ function createTextToolbarItems(ctx: CanvasToolbarContext<TextNodeProps>) {
   };
 
   return [
+    // ---- AI actions ----
+    {
+      id: 'ai-generate-image',
+      label: t('board:aiToolbar.generateImage'),
+      icon: <ImagePlus size={14} />,
+      className: BOARD_TOOLBAR_ITEM_BLUE,
+      onSelect: () => {},
+    },
+    {
+      id: 'ai-generate-video',
+      label: t('board:aiToolbar.generateVideo'),
+      icon: <Video size={14} />,
+      className: BOARD_TOOLBAR_ITEM_PURPLE,
+      onSelect: () => {},
+    },
     // ---- Node-level: Font size ----
     {
       id: 'text-size',

@@ -490,7 +490,13 @@
     "aiAssistant": "AI Assistant",
     "imagePromptGenerate": "Image Analysis",
     "imageGenerate": "Image Generation",
-    "videoGenerate": "Video Generation"
+    "videoGenerate": "Video Generation",
+    "generateImage": "Generate Image",
+    "generateVideo": "Generate Video",
+    "upscale": "Upscale",
+    "repaint": "Repaint",
+    "regenerate": "Regenerate",
+    "upscaleVideo": "Upscale Video"
   },
   "nodeInspector": {
     "panelTitle": "Node Details",
@@ -589,5 +595,13 @@
     "advancedSettingsPlaceholder": "More settings coming soon...",
     "generate": "Generate",
     "generating": "Generating..."
+  },
+  "upscalePanel": {
+    "title": "HD Upscale",
+    "scaleFactor": "Scale Factor",
+    "model": "Model",
+    "autoRecommend": "Auto Recommend",
+    "creditsCost": "Credits Cost",
+    "submit": "Upscale"
   }
 }

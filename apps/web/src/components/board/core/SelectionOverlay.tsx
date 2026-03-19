@@ -671,7 +671,9 @@ export function SingleSelectionOutline({
   const top = bounds.y * zoom + offset[1];
   const width = bounds.w * zoom;
   const height = bounds.h * zoom;
-  const allowHandles = canResize && !snapshot.locked && !element.locked;
+  // 逻辑：面板展开时隐藏 resize 手柄，因为面板展开后节点尺寸由面板内容决定，不应允许手动 resize。
+  const isExpanded = snapshot.expandedNodeId === element.id;
+  const allowHandles = canResize && !snapshot.locked && !element.locked && !isExpanded;
 
   const handlePointerDown = (corner: ResizeCorner) => {
     return (event: ReactPointerEvent<HTMLButtonElement>) => {

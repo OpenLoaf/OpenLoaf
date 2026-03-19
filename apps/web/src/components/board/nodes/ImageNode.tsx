@@ -18,6 +18,9 @@ import {
   Download,
   ImageOff,
   Info,
+  RefreshCw,
+  Video,
+  ZoomIn,
 } from "lucide-react";
 import { useBoardContext } from "../core/BoardProvider";
 import { buildImageNodePayloadFromUri } from "../utils/image";
@@ -42,6 +45,7 @@ import i18next from "i18next";
 import {
   BOARD_TOOLBAR_ITEM_BLUE,
   BOARD_TOOLBAR_ITEM_GREEN,
+  BOARD_TOOLBAR_ITEM_PURPLE,
 } from "../ui/board-style-system";
 import { createPortal } from "react-dom";
 import { ImageAiPanel } from "../panels/ImageAiPanel";
@@ -169,6 +173,37 @@ async function downloadOriginalImage(
 
 /** Build toolbar items for image nodes. */
 function createImageToolbarItems(ctx: CanvasToolbarContext<ImageNodeProps>) {
+  const origin = ctx.element.props.origin;
+
+  // AI action buttons prepended before base items
+  const aiItems = [
+    {
+      id: "ai-generate-video",
+      label: i18next.t('board:aiToolbar.generateVideo'),
+      icon: <Video size={14} />,
+      className: BOARD_TOOLBAR_ITEM_PURPLE,
+      onSelect: () => {},
+    },
+    {
+      id: "ai-upscale",
+      label: i18next.t('board:aiToolbar.upscale'),
+      icon: <ZoomIn size={14} />,
+      className: BOARD_TOOLBAR_ITEM_BLUE,
+      onSelect: () => {},
+    },
+    ...(origin === 'ai-generate'
+      ? [
+          {
+            id: "ai-regenerate",
+            label: i18next.t('board:aiToolbar.regenerate'),
+            icon: <RefreshCw size={14} />,
+            className: BOARD_TOOLBAR_ITEM_PURPLE,
+            onSelect: () => {},
+          },
+        ]
+      : []),
+  ];
+
   const baseItems = [
     {
       id: "download",
@@ -185,7 +220,7 @@ function createImageToolbarItems(ctx: CanvasToolbarContext<ImageNodeProps>) {
       onSelect: () => ctx.openInspector(ctx.element.id),
     },
   ];
-  return baseItems;
+  return [...aiItems, ...baseItems];
 }
 
 /** Render an image node using a compressed preview bitmap. */
