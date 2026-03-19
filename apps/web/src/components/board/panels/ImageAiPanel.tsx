@@ -9,7 +9,7 @@
  */
 import { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChevronRight, Sparkles } from 'lucide-react'
+import { ChevronRight, Link as LinkIcon, Sparkles } from 'lucide-react'
 import type { CanvasNodeElement } from '../engine/types'
 import type { ImageNodeProps } from '../nodes/ImageNode'
 import type { AiGenerateConfig } from '../board-contracts'
@@ -67,6 +67,7 @@ export function ImageAiPanel({
   const [mode, setMode] = useState<GenerateMode>(
     upstreamImages?.length ? 'img2img' : 'text2img',
   )
+  const usedUpstreamText = !aiConfig?.prompt && !!upstreamText
   const [prompt, setPrompt] = useState(aiConfig?.prompt ?? upstreamText ?? '')
   const [modelId, setModelId] = useState(aiConfig?.modelId ?? 'auto')
   const [aspectRatio, setAspectRatio] = useState<AiGenerateConfig['aspectRatio']>(
@@ -135,6 +136,14 @@ export function ImageAiPanel({
           {t('imagePanel.imageToImage')}
         </button>
       </div>
+
+      {/* ── Upstream Banner ── */}
+      {usedUpstreamText ? (
+        <div className="flex items-center gap-1.5 rounded-md bg-ol-blue/5 px-2.5 py-1.5 text-xs text-ol-blue">
+          <LinkIcon size={12} />
+          <span>{t('imagePanel.upstreamLoaded')}</span>
+        </div>
+      ) : null}
 
       {/* ── Prompt ── */}
       <div className="flex flex-col gap-1.5">

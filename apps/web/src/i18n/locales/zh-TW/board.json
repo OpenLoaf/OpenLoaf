@@ -572,7 +572,9 @@
     "aspectRatio": "比例",
     "duration": "時長",
     "generate": "生成",
-    "generating": "生成中..."
+    "generating": "生成中...",
+    "upstreamLoaded": "已從上游節點讀取內容",
+    "upstreamImageLoaded": "已從上游節點讀取首幀圖片"
   },
   "imagePanel": {
     "textToImage": "文生圖",
@@ -586,7 +588,8 @@
     "advancedSettings": "進階設定",
     "advancedSettingsPlaceholder": "更多參數設定即將推出...",
     "generate": "生成",
-    "generating": "生成中..."
+    "generating": "生成中...",
+    "upstreamLoaded": "已從上游節點讀取內容"
   },
   "upscalePanel": {
     "title": "高清放大",

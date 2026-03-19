@@ -572,7 +572,9 @@
     "aspectRatio": "Aspect Ratio",
     "duration": "Duration",
     "generate": "Generate",
-    "generating": "Generating..."
+    "generating": "Generating...",
+    "upstreamLoaded": "Content loaded from upstream node",
+    "upstreamImageLoaded": "First frame loaded from upstream node"
   },
   "imagePanel": {
     "textToImage": "Text to Image",
@@ -586,7 +588,8 @@
     "advancedSettings": "Advanced Settings",
     "advancedSettingsPlaceholder": "More settings coming soon...",
     "generate": "Generate",
-    "generating": "Generating..."
+    "generating": "Generating...",
+    "upstreamLoaded": "Content loaded from upstream node"
   },
   "upscalePanel": {
     "title": "HD Upscale",

@@ -9,7 +9,7 @@
  */
 import { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ImagePlus, Sparkles } from 'lucide-react'
+import { ImagePlus, Link as LinkIcon, Sparkles } from 'lucide-react'
 import type { CanvasNodeElement } from '../engine/types'
 import type { VideoNodeProps } from '../nodes/VideoNode'
 import type { AiGenerateConfig } from '../board-contracts'
@@ -57,6 +57,7 @@ export function VideoAiPanel({
   const { t } = useTranslation('board')
   const aiConfig = element.props.aiConfig
 
+  const usedUpstreamText = !aiConfig?.prompt && !!upstreamText
   const [prompt, setPrompt] = useState(aiConfig?.prompt ?? upstreamText ?? '')
   const [modelId, setModelId] = useState(aiConfig?.modelId ?? 'auto')
   const [aspectRatio, setAspectRatio] = useState<AiGenerateConfig['aspectRatio']>(
@@ -91,6 +92,14 @@ export function VideoAiPanel({
 
   return (
     <div className="flex w-[420px] flex-col gap-3 rounded-xl border border-border bg-card p-4 shadow-lg">
+      {/* ── Upstream Banner ── */}
+      {usedUpstreamText ? (
+        <div className="flex items-center gap-1.5 rounded-md bg-ol-blue/5 px-2.5 py-1.5 text-xs text-ol-blue">
+          <LinkIcon size={12} />
+          <span>{t('videoPanel.upstreamLoaded')}</span>
+        </div>
+      ) : null}
+
       {/* ── Prompt ── */}
       <div className="flex flex-col gap-1.5">
         <label className="text-xs font-medium text-ol-text-secondary">
@@ -114,22 +123,28 @@ export function VideoAiPanel({
           {t('videoPanel.firstFrame')}
         </label>
         {hasUpstreamImages ? (
-          <div className="flex gap-2">
-            {upstreamImages.slice(0, 3).map((src) => (
-              <div
-                key={src}
-                className="h-14 w-14 overflow-hidden rounded-lg border border-ol-divider bg-ol-surface-muted"
-              >
-                <img
-                  src={src}
-                  alt="First frame"
-                  className="h-full w-full object-cover"
-                />
-              </div>
-            ))}
-            <span className="self-center text-xs text-ol-text-auxiliary">
-              {t('videoPanel.firstFrameAuto')}
-            </span>
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center gap-1.5 rounded-md bg-ol-blue/5 px-2.5 py-1.5 text-xs text-ol-blue">
+              <LinkIcon size={12} />
+              <span>{t('videoPanel.upstreamImageLoaded')}</span>
+            </div>
+            <div className="flex gap-2">
+              {upstreamImages.slice(0, 3).map((src) => (
+                <div
+                  key={src}
+                  className="h-14 w-14 overflow-hidden rounded-lg border border-ol-divider bg-ol-surface-muted"
+                >
+                  <img
+                    src={src}
+                    alt="First frame"
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+              ))}
+              <span className="self-center text-xs text-ol-text-auxiliary">
+                {t('videoPanel.firstFrameAuto')}
+              </span>
+            </div>
           </div>
         ) : (
           <button

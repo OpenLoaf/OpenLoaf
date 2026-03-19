@@ -178,9 +178,21 @@ export function BoardCanvasRender({
           <BottomBar engine={engine} snapshot={snapshot} />
         </div>
       ) : null}
-      {/* Legacy toolbar kept mounted for file picker / insert logic. Hidden by BottomBar. */}
+      {/*
+        * Legacy BoardToolbar – kept mounted (but invisible) because it hosts the
+        * ProjectFilePickerDialog that opens in response to the custom
+        * "openloaf:board-open-file-picker" DOM event dispatched by LeftToolbar's
+        * insert buttons (image / video / audio / file).
+        *
+        * The container uses pointer-events-none + opacity-0 so it never
+        * intercepts clicks or appears visually.  The dialog itself (a portal)
+        * still receives pointer events normally.
+        *
+        * TODO: Extract ProjectFilePickerDialog into a standalone component so
+        * BoardToolbar can be fully removed.
+        */}
       {showUi && !minimal ? (
-        <div className="pointer-events-none absolute inset-0 z-10 opacity-0">
+        <div className="pointer-events-none absolute inset-0 z-10 opacity-0" aria-hidden="true">
           <BoardToolbar engine={engine} snapshot={snapshot} />
         </div>
       ) : null}
