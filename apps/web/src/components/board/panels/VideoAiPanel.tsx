@@ -13,7 +13,10 @@ import {
   ChevronDown,
   ImagePlus,
   Languages,
+  Layers,
   Link as LinkIcon,
+  Lock,
+  Replace,
   Sparkles,
   Video,
   Wand2,
@@ -61,6 +64,8 @@ export type VideoGenerateParams = {
   aspectRatio: string
   duration: number
   firstFrameImageSrc?: string
+  /** Whether to stack (default) or overwrite the primary version. */
+  generateMode?: 'stack' | 'overwrite'
 }
 
 export type VideoAiPanelProps = {
@@ -69,6 +74,8 @@ export type VideoAiPanelProps = {
   onGenerate?: (params: VideoGenerateParams) => void
   upstreamText?: string
   upstreamImages?: string[]
+  /** When true, all inputs are disabled and the generate button is hidden. */
+  readonly?: boolean
 }
 
 /** AI video generation parameter panel displayed below video nodes. */
@@ -78,6 +85,7 @@ export function VideoAiPanel({
   onGenerate,
   upstreamText,
   upstreamImages,
+  readonly = false,
 }: VideoAiPanelProps) {
   const { t } = useTranslation('board')
   const aiConfig = element.props.aiConfig
@@ -109,6 +117,8 @@ export function VideoAiPanel({
   const [isGenerating, setIsGenerating] = useState(false)
   const [generateCount, setGenerateCount] = useState(1)
   const [showCountDropdown, setShowCountDropdown] = useState(false)
+  const [generateMode, setGenerateMode] = useState<'stack' | 'overwrite'>('stack')
+  const [showGenerateDropdown, setShowGenerateDropdown] = useState(false)
 
   const handleGenerate = useCallback(() => {
     if (isGenerating) return
@@ -125,33 +135,43 @@ export function VideoAiPanel({
 
     const firstFrameImageSrc = upstreamImages?.[0]
     if (onGenerate) {
-      onGenerate({ prompt, modelId, aspectRatio: aspectRatio ?? '16:9', duration, firstFrameImageSrc })
+      onGenerate({ prompt, modelId, aspectRatio: aspectRatio ?? '16:9', duration, firstFrameImageSrc, generateMode })
     }
 
     // Reset generating state after a short delay (actual task tracking is done by LoadingNode).
     setTimeout(() => setIsGenerating(false), 300)
-  }, [isGenerating, modelId, prompt, aspectRatio, duration, upstreamImages, onUpdate, onGenerate])
+  }, [isGenerating, modelId, prompt, aspectRatio, duration, upstreamImages, onUpdate, onGenerate, generateMode])
 
   const hasUpstreamImages = upstreamImages && upstreamImages.length > 0
 
   return (
-    <div className="flex w-[420px] flex-col gap-2.5 rounded-xl border border-border bg-card p-3 shadow-lg">
+    <div className={[
+      'flex w-[420px] flex-col gap-2.5 rounded-xl border border-border bg-card p-3 shadow-lg',
+      readonly ? 'opacity-80' : '',
+    ].join(' ')}>
+      {/* ── Readonly Banner ── */}
+      {readonly ? (
+        <div className="flex items-center gap-1.5 rounded-md bg-foreground/5 px-2.5 py-1.5 text-xs text-muted-foreground">
+          <Lock size={12} />
+          <span>{t('videoPanel.parametersLocked', { defaultValue: 'Parameters locked' })}</span>
+        </div>
+      ) : null}
       {/* ── Mode Tabs ── */}
       <div className="no-scrollbar flex gap-1 overflow-x-auto rounded-lg bg-ol-surface-muted p-0.5">
         {VIDEO_MODES.map((m) => (
           <button
             key={m.id}
             type="button"
-            disabled={!m.enabled}
+            disabled={readonly || !m.enabled}
             className={[
               'relative shrink-0 whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium transition-colors duration-150',
-              !m.enabled
+              readonly || !m.enabled
                 ? 'cursor-not-allowed text-muted-foreground/40'
                 : mode === m.id
                   ? 'bg-background text-foreground shadow-sm'
                   : 'text-muted-foreground hover:text-foreground',
             ].join(' ')}
-            onClick={() => m.enabled && setMode(m.id)}
+            onClick={() => !readonly && m.enabled && setMode(m.id)}
           >
             {t(`videoPanel.${m.key}`)}
             {!m.enabled ? (
@@ -246,10 +266,12 @@ export function VideoAiPanel({
           className={[
             'min-h-[68px] w-full resize-none rounded-lg border px-3 py-2 pr-9 text-sm leading-relaxed',
             BOARD_GENERATE_INPUT,
+            readonly ? 'cursor-not-allowed opacity-60' : '',
           ].join(' ')}
           placeholder={t('videoPanel.promptPlaceholder')}
           value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
+          onChange={(e) => !readonly && setPrompt(e.target.value)}
+          readOnly={readonly}
           rows={3}
         />
         {/* Prompt Enhancement Button */}
@@ -266,9 +288,13 @@ export function VideoAiPanel({
       <div className="flex items-center gap-1.5 border-t border-border pt-2">
         {/* Model Selector */}
         <select
-          className="h-7 max-w-[120px] truncate rounded-md border border-border bg-transparent px-1.5 text-[11px] text-foreground outline-none transition-colors duration-150 hover:bg-foreground/5"
+          className={[
+            'h-7 max-w-[120px] truncate rounded-md border border-border bg-transparent px-1.5 text-[11px] text-foreground outline-none transition-colors duration-150 hover:bg-foreground/5',
+            readonly ? 'cursor-not-allowed opacity-60' : '',
+          ].join(' ')}
           value={modelId}
-          onChange={(e) => setModelId(e.target.value)}
+          onChange={(e) => !readonly && setModelId(e.target.value)}
+          disabled={readonly}
         >
           <option value="auto">{t('videoPanel.autoRecommend')}</option>
           {filteredModels.length > 0
@@ -286,8 +312,12 @@ export function VideoAiPanel({
 
         {/* Quality + Ratio + Duration Selector */}
         <select
-          className="h-7 rounded-md border border-border bg-transparent px-1.5 text-[11px] text-foreground outline-none transition-colors duration-150 hover:bg-foreground/5"
+          className={[
+            'h-7 rounded-md border border-border bg-transparent px-1.5 text-[11px] text-foreground outline-none transition-colors duration-150 hover:bg-foreground/5',
+            readonly ? 'cursor-not-allowed opacity-60' : '',
+          ].join(' ')}
           value={`${aspectRatio}·${duration}s`}
+          disabled={readonly}
           onChange={(e) => {
             const [r, d] = e.target.value.split('·')
             setAspectRatio(r as AiGenerateConfig['aspectRatio'])
@@ -354,36 +384,68 @@ export function VideoAiPanel({
         </div>
 
         {/* Send / Generate Split Button */}
-        <div className="inline-flex items-stretch overflow-hidden rounded-full">
-          <button
-            type="button"
-            disabled={isGenerating || !prompt.trim()}
-            className={[
-              'inline-flex items-center gap-1 px-3.5 py-1.5 text-xs font-medium transition-colors duration-150',
-              BOARD_GENERATE_BTN_VIDEO,
-              (isGenerating || !prompt.trim())
-                ? 'cursor-not-allowed opacity-50'
-                : '',
-            ].join(' ')}
-            onClick={handleGenerate}
-          >
-            <Sparkles size={12} />
-            {isGenerating ? t('videoPanel.generating') : t('videoPanel.generate')}
-          </button>
-          <button
-            type="button"
-            className={[
-              'inline-flex items-center border-l border-white/20 px-1.5 transition-colors duration-150',
-              BOARD_GENERATE_BTN_VIDEO,
-              (isGenerating || !prompt.trim())
-                ? 'cursor-not-allowed opacity-50'
-                : '',
-            ].join(' ')}
-            disabled={isGenerating || !prompt.trim()}
-          >
-            <ChevronDown size={12} />
-          </button>
-        </div>
+        {readonly ? null : (
+          <div className="relative flex items-center">
+            {/* Main generate button */}
+            <button
+              type="button"
+              disabled={isGenerating || !prompt.trim()}
+              className={[
+                'inline-flex items-center gap-1 rounded-l-full px-3.5 py-1.5 text-xs font-medium transition-colors duration-150',
+                BOARD_GENERATE_BTN_VIDEO,
+                (isGenerating || !prompt.trim())
+                  ? 'cursor-not-allowed opacity-50'
+                  : '',
+              ].join(' ')}
+              onClick={handleGenerate}
+            >
+              <Sparkles size={12} />
+              {isGenerating ? t('videoPanel.generating') : t('videoPanel.generate')}
+            </button>
+            {/* Dropdown trigger */}
+            <button
+              type="button"
+              disabled={isGenerating || !prompt.trim()}
+              className={[
+                'inline-flex h-full items-center rounded-r-full border-l border-white/20 px-1.5 py-1.5 transition-colors duration-150',
+                BOARD_GENERATE_BTN_VIDEO,
+                (isGenerating || !prompt.trim())
+                  ? 'cursor-not-allowed opacity-50'
+                  : '',
+              ].join(' ')}
+              onClick={() => setShowGenerateDropdown(!showGenerateDropdown)}
+            >
+              <ChevronDown size={10} />
+            </button>
+            {/* Dropdown menu */}
+            {showGenerateDropdown ? (
+              <div className="absolute bottom-full right-0 mb-1 flex min-w-[140px] flex-col rounded-md border border-border bg-card py-0.5 shadow-md">
+                <button
+                  type="button"
+                  className={[
+                    'flex items-center gap-2 px-3 py-1.5 text-[11px] transition-colors duration-150 hover:bg-foreground/5',
+                    generateMode === 'stack' ? 'font-medium text-foreground' : 'text-muted-foreground',
+                  ].join(' ')}
+                  onClick={() => { setGenerateMode('stack'); setShowGenerateDropdown(false) }}
+                >
+                  <Layers size={12} />
+                  {t('videoPanel.stackMode')}
+                </button>
+                <button
+                  type="button"
+                  className={[
+                    'flex items-center gap-2 px-3 py-1.5 text-[11px] transition-colors duration-150 hover:bg-foreground/5',
+                    generateMode === 'overwrite' ? 'font-medium text-foreground' : 'text-muted-foreground',
+                  ].join(' ')}
+                  onClick={() => { setGenerateMode('overwrite'); setShowGenerateDropdown(false) }}
+                >
+                  <Replace size={12} />
+                  {t('videoPanel.overwriteMode')}
+                </button>
+              </div>
+            ) : null}
+          </div>
+        )}
       </div>
     </div>
   )

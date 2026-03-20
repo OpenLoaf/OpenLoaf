@@ -476,7 +476,11 @@
     "notFound": "Image not found",
     "loadFailed": "Failed to load image",
     "replaceTitle": "Select Image",
-    "replaceHint": "Select an image to replace the current node"
+    "replaceHint": "Select an image to replace the current node",
+    "generating": "Generating...",
+    "generationFailed": "Generation failed",
+    "retry": "Retry",
+    "parametersLocked": "Parameters locked — click Regenerate to modify"
   },
   "videoNode": {
     "toolbar": {
@@ -493,7 +497,11 @@
       "confirm": "Confirm",
       "loading": "Loading video...",
       "noDuration": "Duration unknown — play the video first."
-    }
+    },
+    "generating": "Generating video...",
+    "generateFailed": "Video generation failed",
+    "retry": "Retry",
+    "parametersLocked": "Parameters locked"
   },
   "audioNode": {
     "toolbar": {
@@ -503,7 +511,14 @@
       "download": "Download",
       "delete": "Delete"
     },
-    "noSource": "No audio source"
+    "noSource": "No audio source",
+    "generating": "Generating audio...",
+    "generateFailed": "Audio generation failed",
+    "retry": "Retry",
+    "parametersLocked": "Parameters locked"
+  },
+  "versionStack": {
+    "badge": "{{count}} versions"
   },
   "fileAttachmentNode": {
     "toolbar": {
@@ -684,7 +699,10 @@
       "effect": "Effect",
       "subject": "Subject",
       "camera": "Camera"
-    }
+    },
+    "stackMode": "Stack (New Version)",
+    "overwriteMode": "Overwrite Primary",
+    "parametersLocked": "Parameters locked"
   },
   "imagePanel": {
     "textToImage": "Text to Image",
@@ -711,7 +729,9 @@
     "translate": "Translate",
     "settings": "Settings",
     "generateMode": "Generate mode",
-    "upstreamSlots": "Upstream Assets"
+    "upstreamSlots": "Upstream Assets",
+    "stackMode": "Stack (New Version)",
+    "overwriteMode": "Overwrite Primary"
   },
   "upscalePanel": {
     "title": "HD Upscale",
@@ -754,7 +774,10 @@
     "translate": "Translate",
     "credits": "Credits",
     "noModel": "No models available",
-    "loginHint": "Sign in to use cloud models"
+    "loginHint": "Sign in to use cloud models",
+    "stackMode": "Stack (New Version)",
+    "overwriteMode": "Overwrite Primary",
+    "parametersLocked": "Parameters locked"
   },
   "nodeSearch": {
     "placeholder": "Search nodes...",

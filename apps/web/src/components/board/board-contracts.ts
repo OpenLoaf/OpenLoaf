@@ -102,4 +102,6 @@ export type ImageNodeProps = {
   origin?: NodeOrigin
   /** AI generation config. Present only when origin is 'ai-generate'. */
   aiConfig?: AiGenerateConfig
+  /** Version stack tracking AI generation history. */
+  versionStack?: import('./engine/types').VersionStack
 }

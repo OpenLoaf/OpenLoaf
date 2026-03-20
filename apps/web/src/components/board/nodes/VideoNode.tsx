@@ -16,7 +16,7 @@ import type {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 import Hls from "hls.js";
-import { Download, Image, Info, Loader2, Pause, Play, RefreshCw, Scissors, Trash2, Type, Video, ZoomIn } from "lucide-react";
+import { AlertTriangle, Download, Image, Info, Loader2, Pause, Play, RefreshCw, Scissors, Trash2, Type, Video, ZoomIn } from "lucide-react";
 import i18next from "i18next";
 import { openVideoTrimDialog } from "../dialogs/video-trim/VideoTrimDialog";
 import {
@@ -43,6 +43,18 @@ import { usePanelOverlay } from "../render/pixi/PixiApplication";
 import { deriveNode } from "../utils/derive-node";
 import { submitVideoGenerate } from "../services/video-generate";
 import { BOARD_ASSETS_DIR_NAME } from "@/lib/file-name";
+import {
+  createInputSnapshot,
+  createGeneratingEntry,
+  pushVersion,
+  markVersionReady,
+  markVersionFailed,
+  getPrimaryEntry,
+  getGeneratingEntry,
+  switchPrimary,
+} from '../engine/version-stack';
+import { useMediaTaskPolling } from '../hooks/useMediaTaskPolling';
+import { VersionStackOverlay } from './VersionStackOverlay';
 
 /** Inline panel gap from node bottom edge in screen pixels (zoom-independent). */
 const PANEL_GAP_PX = 8;
@@ -68,6 +80,8 @@ export type VideoNodeProps = {
   origin?: import("../board-contracts").NodeOrigin;
   /** AI generation config. Present only when origin is 'ai-generate'. */
   aiConfig?: import("../board-contracts").AiGenerateConfig;
+  /** Version stack tracking AI generation history. */
+  versionStack?: import("../engine/types").VersionStack;
 };
 
 /** Resolve a board-scoped path into a project-relative path. */
@@ -185,9 +199,10 @@ function createVideoToolbarItems(ctx: CanvasToolbarContext<VideoNodeProps>) {
   };
 
   const origin = ctx.element.props.origin
+  const tbPrimaryEntry = getPrimaryEntry(ctx.element.props.versionStack)
 
-  // AI action buttons — only when node was AI-generated
-  const aiItems = origin === 'ai-generate'
+  // AI action buttons — only when node was AI-generated and has a ready version
+  const aiItems = origin === 'ai-generate' && tbPrimaryEntry?.status === 'ready'
     ? [
         {
           id: 'regenerate',
@@ -621,12 +636,58 @@ export function VideoNodeView({
     };
   }, []);
 
+  // ---------------------------------------------------------------------------
+  // Version-stack based generation
+  // ---------------------------------------------------------------------------
+  const primaryEntry = getPrimaryEntry(element.props.versionStack)
+  const generatingEntry = getGeneratingEntry(element.props.versionStack)
+
+  const saveDir = useMemo(
+    () =>
+      fileContext?.boardFolderUri
+        ? `${fileContext.boardFolderUri}/${BOARD_ASSETS_DIR_NAME}`
+        : undefined,
+    [fileContext?.boardFolderUri],
+  )
+
+  const pollingResult = useMediaTaskPolling({
+    taskId: generatingEntry?.taskId,
+    taskType: 'video_generate',
+    projectId: fileContext?.projectId,
+    saveDir,
+    enabled: !!generatingEntry,
+    onSuccess: useCallback(
+      (resultUrls: string[]) => {
+        if (!generatingEntry) return
+        const stack = element.props.versionStack
+        if (!stack) return
+        const savedPath = resultUrls[0]?.trim() || ''
+        onUpdate({
+          versionStack: markVersionReady(stack, generatingEntry.id, { urls: resultUrls }),
+          sourcePath: savedPath,
+        })
+      },
+      [generatingEntry, element.props.versionStack, onUpdate],
+    ),
+    onFailure: useCallback(
+      (error: string) => {
+        if (!generatingEntry) return
+        const stack = element.props.versionStack
+        if (!stack) return
+        onUpdate({
+          versionStack: markVersionFailed(stack, generatingEntry.id, {
+            code: 'GENERATE_FAILED',
+            message: error,
+          }),
+        })
+      },
+      [generatingEntry, element.props.versionStack, onUpdate],
+    ),
+  })
+
   const handleGenerate = useCallback(
     async (params: VideoGenerateParams) => {
       try {
-        const saveDir = fileContext?.boardFolderUri
-          ? `${fileContext.boardFolderUri}/${BOARD_ASSETS_DIR_NAME}`
-          : undefined
         const result = await submitVideoGenerate(
           {
             prompt: params.prompt,
@@ -641,19 +702,21 @@ export function VideoNodeView({
             sourceNodeId: element.id,
           },
         )
-        const [x, y, w, h] = element.xywh
-        engine.addNodeElement(
-          'loading',
-          {
-            taskId: result.taskId,
-            taskType: 'video_generate',
-            sourceNodeId: element.id,
-            promptText: params.prompt,
-            projectId: fileContext?.projectId ?? '',
-            saveDir: saveDir ?? '',
+
+        const snapshot = createInputSnapshot({
+          prompt: params.prompt,
+          modelId: params.modelId,
+          parameters: {
+            aspectRatio: params.aspectRatio,
+            duration: params.duration,
+            firstFrameImageSrc: params.firstFrameImageSrc,
           },
-          [x + w + 120, y, 320, 180],
-        )
+        })
+        const entry = createGeneratingEntry(snapshot, result.taskId)
+        onUpdate({
+          versionStack: pushVersion(element.props.versionStack, entry),
+          origin: 'ai-generate',
+        })
       } catch (err) {
         console.error('[VideoNode] submitVideoGenerate failed:', err)
         onUpdate({
@@ -664,24 +727,96 @@ export function VideoNodeView({
         })
       }
     },
-    [engine, element.id, element.xywh, element.props.aiConfig, fileContext, onUpdate],
+    [element.id, element.props.versionStack, element.props.aiConfig, fileContext?.projectId, saveDir, onUpdate],
+  )
+
+  /** Retry generation using the failed entry's input snapshot. */
+  const handleRetry = useCallback(() => {
+    if (!primaryEntry?.input) return
+    const input = primaryEntry.input
+    const params: VideoGenerateParams = {
+      prompt: input.prompt,
+      modelId: input.modelId,
+      aspectRatio: (input.parameters?.aspectRatio as string) ?? '16:9',
+      duration: (input.parameters?.duration as number) ?? 5,
+      firstFrameImageSrc: input.parameters?.firstFrameImageSrc as string | undefined,
+    }
+    handleGenerate(params)
+  }, [primaryEntry, handleGenerate])
+
+  const isGenerating = primaryEntry?.status === 'generating'
+  const isFailed = primaryEntry?.status === 'failed'
+  const isReadyFromAi = primaryEntry?.status === 'ready' && element.props.origin === 'ai-generate'
+
+  /** Switch the version stack primary entry and update the node source. */
+  const handleSwitchPrimary = useCallback(
+    (entryId: string) => {
+      const stack = element.props.versionStack
+      if (!stack) return
+      const newStack = switchPrimary(stack, entryId)
+      const newPrimary = newStack.entries.find((e) => e.id === entryId)
+      const patch: Partial<VideoNodeProps> = { versionStack: newStack }
+      if (newPrimary?.output?.urls[0]) {
+        patch.sourcePath = newPrimary.output.urls[0]
+      }
+      onUpdate(patch)
+    },
+    [element.props.versionStack, onUpdate],
   )
 
   return (
-    <NodeFrame>
+    <NodeFrame className="group">
+      <VersionStackOverlay
+        stack={element.props.versionStack}
+        semanticColor="purple"
+        onSwitchPrimary={handleSwitchPrimary}
+      />
       <div
         className={[
-          "flex h-full w-full items-center justify-center rounded-lg border box-border",
+          "relative flex h-full w-full items-center justify-center rounded-lg border box-border",
           "border-ol-divider bg-background text-ol-text-primary",
+          isGenerating ? "openloaf-thinking-border openloaf-thinking-border-on border-transparent" : "",
         ].join(" ")}
         onDoubleClick={(event) => {
           event.stopPropagation();
           // 逻辑：展开态不触发预览，因为此时双击可能是编辑面板内的操作。
           if (expanded) return;
+          if (isGenerating || isFailed) return;
           if (playing) handleStop();
           void openVideoPreview(element.props, fileContext);
         }}
       >
+        {/* Generating overlay */}
+        {isGenerating && (
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-background/80 backdrop-blur-sm rounded-lg">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            <span className="text-xs text-muted-foreground">
+              {pollingResult.progressText || i18next.t('board:videoNode.generating', { defaultValue: 'Generating...' })}
+            </span>
+          </div>
+        )}
+
+        {/* Failed overlay */}
+        {isFailed && (
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-ol-red-bg/60 p-4 rounded-lg">
+            <AlertTriangle className="h-6 w-6 text-ol-red" />
+            <span className="text-xs text-center text-ol-red">
+              {primaryEntry.error?.message || i18next.t('board:videoNode.generateFailed', { defaultValue: 'Generation failed' })}
+            </span>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleRetry();
+              }}
+              className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] bg-ol-blue-bg text-ol-blue hover:bg-ol-blue/20 transition-colors duration-150"
+            >
+              <RefreshCw className="h-3 w-3" />
+              {i18next.t('board:videoNode.retry', { defaultValue: 'Retry' })}
+            </button>
+          </div>
+        )}
+
         {playing ? (
           <div
             className="group relative h-full w-full overflow-hidden rounded-lg bg-black"
@@ -796,6 +931,7 @@ export function VideoNodeView({
             onGenerate={handleGenerate}
             upstreamText={upstream?.textList.join('\n')}
             upstreamImages={upstream?.imageList}
+            readonly={isReadyFromAi}
           />
         </div>,
         panelOverlay,
@@ -828,6 +964,7 @@ export const VideoNodeDefinition: CanvasNodeDefinition<VideoNodeProps> = {
       taskId: z.string().optional(),
       generatedAt: z.number().optional(),
     }).optional(),
+    versionStack: z.any().optional(),
   }),
   defaultProps: {
     sourcePath: "",

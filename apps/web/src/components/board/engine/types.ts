@@ -482,6 +482,8 @@ export interface VersionStackEntry {
   id: string
   status: 'generating' | 'ready' | 'failed'
   input: InputSnapshot
+  /** Remote SaaS task id for polling generation progress. */
+  taskId?: string
   output?: {
     urls: string[]
     metadata?: Record<string, unknown>

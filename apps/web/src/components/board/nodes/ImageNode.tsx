@@ -16,11 +16,14 @@ import type {
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 import {
+  AlertTriangle,
   Download,
   ImageOff,
   ImagePlus,
   Info,
+  Loader2,
   RefreshCw,
+  RotateCw,
   Trash2,
   Type,
   Video,
@@ -60,6 +63,18 @@ import { submitUpscale } from "../services/upscale-generate";
 import { DEFAULT_NODE_SIZE } from "../engine/constants";
 import { BOARD_ASSETS_DIR_NAME } from "@/lib/file-name";
 import { resolveDirectionalStackPlacement } from "../utils/output-placement";
+import {
+  createInputSnapshot,
+  createGeneratingEntry,
+  pushVersion,
+  markVersionReady,
+  markVersionFailed,
+  getPrimaryEntry,
+  getGeneratingEntry,
+  switchPrimary,
+} from "../engine/version-stack";
+import { useMediaTaskPolling } from "../hooks/useMediaTaskPolling";
+import { VersionStackOverlay } from "./VersionStackOverlay";
 
 /** Inline panel gap from node bottom edge in screen pixels (zoom-independent). */
 const PANEL_GAP_PX = 8;
@@ -106,6 +121,8 @@ export type ImageNodeProps = {
   origin?: import("../board-contracts").NodeOrigin;
   /** AI generation config. Present only when origin is 'ai-generate'. */
   aiConfig?: import("../board-contracts").AiGenerateConfig;
+  /** Version stack tracking AI generation history. */
+  versionStack?: import("../engine/types").VersionStack;
 };
 
 /** Resolve a board-scoped uri into a project-scoped path. */
@@ -186,17 +203,23 @@ async function downloadOriginalImage(
 /** Build toolbar items for image nodes. */
 function createImageToolbarItems(ctx: CanvasToolbarContext<ImageNodeProps>) {
   const origin = ctx.element.props.origin;
+  const primaryEntry = getPrimaryEntry(ctx.element.props.versionStack);
+  const showRegenerate =
+    origin === 'ai-generate' && primaryEntry?.status === 'ready';
 
   // AI action buttons: regenerate (ai-generate only), upscale, generate video
   const aiItems = [
-    ...(origin === 'ai-generate'
+    ...(showRegenerate
       ? [
           {
             id: "ai-regenerate",
             label: i18next.t('board:aiToolbar.regenerate'),
             icon: <RefreshCw size={14} />,
             className: BOARD_TOOLBAR_ITEM_DEFAULT,
-            onSelect: () => {},
+            onSelect: () => {
+              // 逻辑：重新生成 — 展开节点面板让用户修改参数后再提交。
+              ctx.engine.setExpandedNodeId(ctx.element.id);
+            },
           },
         ]
       : []),
@@ -438,7 +461,58 @@ export function ImageNodeView({
   /** Whether the node or canvas is locked. */
   const isLocked = engine.isLocked() || element.locked === true;
 
-  /** Handle image generation: submit task and create a LoadingNode to the right. */
+  // ---------------------------------------------------------------------------
+  // Version stack state + polling
+  // ---------------------------------------------------------------------------
+
+  const primaryEntry = getPrimaryEntry(element.props.versionStack);
+  const generatingEntry = getGeneratingEntry(element.props.versionStack);
+
+  const pollingResult = useMediaTaskPolling({
+    taskId: generatingEntry?.taskId,
+    taskType: 'image_generate',
+    projectId: fileContext?.projectId,
+    saveDir: fileContext?.boardFolderUri
+      ? `${fileContext.boardFolderUri}/${BOARD_ASSETS_DIR_NAME}`
+      : undefined,
+    enabled: Boolean(generatingEntry),
+    onSuccess: useCallback(
+      (resultUrls: string[]) => {
+        if (!generatingEntry) return;
+        const stack = element.props.versionStack;
+        if (!stack) return;
+        onUpdate({
+          versionStack: markVersionReady(stack, generatingEntry.id, { urls: resultUrls }),
+          previewSrc: resultUrls[0] ?? '',
+          originalSrc: resultUrls[0] ?? '',
+        });
+      },
+      [generatingEntry, element.props.versionStack, onUpdate],
+    ),
+    onFailure: useCallback(
+      (error: string) => {
+        if (!generatingEntry) return;
+        const stack = element.props.versionStack;
+        if (!stack) return;
+        onUpdate({
+          versionStack: markVersionFailed(stack, generatingEntry.id, {
+            code: 'GENERATE_FAILED',
+            message: error,
+          }),
+        });
+      },
+      [generatingEntry, element.props.versionStack, onUpdate],
+    ),
+  });
+
+  /** Whether the node is in a generating state (version stack). */
+  const isGeneratingVersion = primaryEntry?.status === 'generating';
+  /** Whether the primary version failed. */
+  const isFailedVersion = primaryEntry?.status === 'failed';
+  /** Whether the primary version is ready. */
+  const isReadyVersion = primaryEntry?.status === 'ready';
+
+  /** Handle image generation: submit task and push a generating entry to the version stack. */
   const handleGenerate = useCallback(
     async (params: ImageGenerateParams) => {
       try {
@@ -460,72 +534,54 @@ export function ImageNodeView({
           },
         )
 
-        // 逻辑：计算 LoadingNode 放置位置 — 源节点右侧堆叠。
-        const [loadingW, loadingH] = DEFAULT_NODE_SIZE
-        const existingOutputs = engine.doc
-          .getElements()
-          .filter((el: any) => el.kind === 'connector')
-          .reduce<Array<[number, number, number, number]>>((rects, connector: any) => {
-            if (
-              !('elementId' in connector.source) ||
-              connector.source.elementId !== element.id
-            ) {
-              return rects
-            }
-            if (!('elementId' in connector.target)) return rects
-            const targetEl = engine.doc.getElementById(connector.target.elementId)
-            if (!targetEl || targetEl.kind !== 'node') return rects
-            return [...rects, targetEl.xywh]
-          }, [])
-
-        const placement = resolveDirectionalStackPlacement(
-          element.xywh,
-          existingOutputs,
-          {
-            direction: 'right',
-            sideGap: 60,
-            stackGap: 16,
-            outputSize: [loadingW, loadingH],
+        // 逻辑：创建 InputSnapshot 和 VersionStackEntry，在节点自身上追踪生成状态。
+        const inputSnapshot = createInputSnapshot({
+          prompt: params.prompt,
+          negativePrompt: params.negativePrompt,
+          modelId: params.modelId,
+          parameters: {
+            aspectRatio: params.aspectRatio,
+            resolution: params.resolution,
+            mode: params.mode,
+            referenceImageSrc: params.referenceImageSrc,
           },
-        )
-        const x = placement
-          ? placement.x
-          : element.xywh[0] + element.xywh[2] + 60
-        const y = placement ? placement.y : element.xywh[1]
-
-        const loadingNodeId = engine.addNodeElement(
-          'loading',
-          {
-            taskId: result.taskId,
-            taskType: 'image_generate',
-            sourceNodeId: element.id,
-            promptText: params.prompt,
-            chatModelId: params.modelId,
-            projectId: fileContext?.projectId ?? '',
-            saveDir: fileContext?.boardFolderUri
-              ? `${fileContext.boardFolderUri}/${BOARD_ASSETS_DIR_NAME}`
-              : '',
-          },
-          [x, y, loadingW, loadingH],
-        )
-
-        // 逻辑：创建从源节点到 LoadingNode 的连线。
-        if (loadingNodeId) {
-          engine.addConnectorElement(
-            {
-              source: { elementId: element.id },
-              target: { elementId: loadingNodeId },
-              style: engine.getConnectorStyle(),
-            },
-            { skipHistory: true, select: false },
-          )
+        })
+        const entry = createGeneratingEntry(inputSnapshot, result.taskId)
+        const config = {
+          modelId: params.modelId,
+          prompt: params.prompt,
+          negativePrompt: params.negativePrompt,
+          aspectRatio: params.aspectRatio as import("../board-contracts").AiGenerateConfig['aspectRatio'],
+          taskId: result.taskId,
         }
+
+        onUpdate({
+          versionStack: pushVersion(element.props.versionStack, entry),
+          origin: 'ai-generate',
+          aiConfig: config,
+        })
       } catch (error) {
         console.error('[ImageNode] image generation failed:', error)
       }
     },
-    [engine, element.id, element.xywh, fileContext],
+    [element.id, element.props.versionStack, fileContext, onUpdate],
   )
+
+  /** Retry generation using the failed entry's input snapshot. */
+  const handleRetryGenerate = useCallback(() => {
+    if (!primaryEntry?.input) return;
+    const input = primaryEntry.input;
+    const params: ImageGenerateParams = {
+      prompt: input.prompt,
+      negativePrompt: input.negativePrompt,
+      modelId: input.modelId,
+      aspectRatio: (input.parameters?.aspectRatio as string) ?? '1:1',
+      resolution: (input.parameters?.resolution as string) ?? '1K',
+      mode: (input.parameters?.mode as 'text2img' | 'img2img') ?? 'text2img',
+      referenceImageSrc: input.parameters?.referenceImageSrc as string | undefined,
+    };
+    handleGenerate(params);
+  }, [primaryEntry, handleGenerate]);
 
   /** Request opening the image preview on the canvas. */
   const requestPreview = useCallback(() => {
@@ -726,8 +782,30 @@ export function ImageNodeView({
     }
   }, [previewSrc]);
 
+  /** Switch the version stack primary entry and update the node preview. */
+  const handleSwitchPrimary = useCallback(
+    (entryId: string) => {
+      const stack = element.props.versionStack
+      if (!stack) return
+      const newStack = switchPrimary(stack, entryId)
+      const newPrimary = newStack.entries.find((e) => e.id === entryId)
+      const patch: Partial<ImageNodeProps> = { versionStack: newStack }
+      if (newPrimary?.output?.urls[0]) {
+        patch.previewSrc = newPrimary.output.urls[0]
+        patch.originalSrc = newPrimary.output.urls[0]
+      }
+      onUpdate(patch)
+    },
+    [element.props.versionStack, onUpdate],
+  )
+
   return (
-    <NodeFrame ref={rootRef}>
+    <NodeFrame ref={rootRef} className="group">
+      <VersionStackOverlay
+        stack={element.props.versionStack}
+        semanticColor="blue"
+        onSwitchPrimary={handleSwitchPrimary}
+      />
       <div
         className={[
           "relative h-full w-full overflow-hidden rounded-lg box-border",
@@ -793,6 +871,35 @@ export function ImageNodeView({
             <span>{transcodingLabel}</span>
           </div>
         ) : null}
+        {/* ── Generating overlay (version stack) ── */}
+        {isGeneratingVersion ? (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-lg bg-background/80 backdrop-blur-sm openloaf-thinking-border openloaf-thinking-border-on border-transparent">
+            <Loader2 className="h-6 w-6 animate-spin text-ol-blue" />
+            <span className="text-xs text-ol-text-secondary">
+              {pollingResult.progressText || i18next.t('board:imageNode.generating')}
+            </span>
+          </div>
+        ) : null}
+        {/* ── Failed overlay (version stack) ── */}
+        {isFailedVersion ? (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-lg bg-ol-red-bg/60 border border-ol-red/80">
+            <AlertTriangle className="h-6 w-6 text-ol-red" />
+            <span className="text-xs text-ol-red font-medium">
+              {primaryEntry?.error?.message || i18next.t('board:imageNode.generationFailed')}
+            </span>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleRetryGenerate();
+              }}
+              className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] bg-ol-blue-bg text-ol-blue hover:bg-ol-blue/20 transition-colors duration-150"
+            >
+              <RotateCw className="h-3 w-3" />
+              {i18next.t('board:imageNode.retry')}
+            </button>
+          </div>
+        ) : null}
       </div>
       {showDetail ? (
         <div
@@ -841,6 +948,7 @@ export function ImageNodeView({
             upstreamText={upstream?.textList.join('\n')}
             upstreamImages={resolvedUpstreamImages}
             onGenerate={handleGenerate}
+            readonly={isReadyVersion}
           />
         </div>,
         panelOverlay,
@@ -899,6 +1007,7 @@ export const ImageNodeDefinition: CanvasNodeDefinition<ImageNodeProps> = {
       })).optional(),
       selectedIndex: z.number().optional(),
     }).optional(),
+    versionStack: z.any().optional(),
   }),
   defaultProps: {
     previewSrc: "",

@@ -10,9 +10,12 @@
 import { useState, useMemo, useCallback } from 'react'
 import {
   ChevronDown,
+  Layers,
   Link2,
+  Lock,
   Mic,
   Music,
+  Replace,
   Send,
   Sparkles,
   Volume2,
@@ -56,9 +59,13 @@ export type AudioAiPanelProps = {
     duration: AudioDurationOption | 'auto'
     textContent?: string
     referenceAudioSrc?: string
+    /** Whether to stack (default) or overwrite the primary version. */
+    generateMode?: 'stack' | 'overwrite'
   }) => void
   /** Whether the panel is in a generating state. */
   generating?: boolean
+  /** When true, all inputs are disabled and the generate button is hidden. */
+  readonly?: boolean
   /** Additional class name for the root element. */
   className?: string
 }
@@ -84,6 +91,7 @@ export function AudioAiPanel({
   upstream,
   onGenerate,
   generating = false,
+  readonly = false,
   className,
 }: AudioAiPanelProps) {
   const { t } = useTranslation('board')
@@ -94,6 +102,8 @@ export function AudioAiPanel({
   const [modelId] = useState('')
   const [duration, setDuration] = useState<AudioDurationOption | 'auto'>('auto')
   const [durationOpen, setDurationOpen] = useState(false)
+  const [generateMode, setGenerateMode] = useState<'stack' | 'overwrite'>('stack')
+  const [showGenerateDropdown, setShowGenerateDropdown] = useState(false)
 
   const hasUpstreamText = Boolean(upstream?.textContent?.trim())
   const hasUpstreamAudio = Boolean(upstream?.referenceAudioSrc?.trim())
@@ -110,8 +120,9 @@ export function AudioAiPanel({
       textContent: mode === 'tts' ? upstream?.textContent : undefined,
       referenceAudioSrc:
         mode === 'tts' ? upstream?.referenceAudioSrc : undefined,
+      generateMode,
     })
-  }, [mode, prompt, modelId, duration, upstream, onGenerate])
+  }, [mode, prompt, modelId, duration, upstream, onGenerate, generateMode])
 
   const durationLabel = useMemo(() => {
     if (duration === 'auto') return t('audioPanel.durationAuto')
@@ -122,23 +133,34 @@ export function AudioAiPanel({
     <div
       className={cn(
         'flex w-full flex-col gap-3 rounded-lg border border-border/60 bg-card p-3',
+        readonly && 'opacity-80',
         className,
       )}
     >
+      {/* ---- Readonly Banner ---- */}
+      {readonly ? (
+        <div className="flex items-center gap-1.5 rounded-md bg-foreground/5 px-2.5 py-1.5 text-xs text-muted-foreground">
+          <Lock size={12} />
+          <span>{t('audioPanel.parametersLocked', { defaultValue: 'Parameters locked' })}</span>
+        </div>
+      ) : null}
       {/* ---- Tab Row ---- */}
       <div className="flex items-center gap-1 rounded-md bg-ol-surface-muted p-0.5">
         {TAB_CONFIG.map(({ id, icon: Icon }) => (
           <button
             key={id}
             type="button"
+            disabled={readonly}
             className={cn(
               'flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5',
               'text-xs font-medium transition-colors duration-150',
-              mode === id
-                ? 'bg-background text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground',
+              readonly
+                ? 'cursor-not-allowed text-muted-foreground/40'
+                : mode === id
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground',
             )}
-            onClick={() => setMode(id)}
+            onClick={() => !readonly && setMode(id)}
           >
             <Icon size={13} />
             <span>{t(`audioPanel.tabs.${id}`)}</span>
@@ -222,12 +244,14 @@ export function AudioAiPanel({
         <div className="relative">
           <textarea
             value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
+            onChange={(e) => !readonly && setPrompt(e.target.value)}
+            readOnly={readonly}
             placeholder={t('audioPanel.promptPlaceholder')}
             rows={3}
             className={cn(
               'w-full resize-none rounded-md border px-2.5 py-2 pr-8 text-xs',
               BOARD_GENERATE_INPUT,
+              readonly && 'cursor-not-allowed opacity-60',
             )}
           />
           {/* Enhance Prompt Button (placeholder) */}
@@ -246,7 +270,11 @@ export function AudioAiPanel({
         {/* Model Selector */}
         <button
           type="button"
-          className="flex items-center gap-1 rounded-full border border-border/40 bg-ol-surface-muted px-2.5 py-1 text-[11px] text-foreground transition-colors hover:bg-ol-surface-muted/80"
+          disabled={readonly}
+          className={cn(
+            'flex items-center gap-1 rounded-full border border-border/40 bg-ol-surface-muted px-2.5 py-1 text-[11px] text-foreground transition-colors hover:bg-ol-surface-muted/80',
+            readonly && 'cursor-not-allowed opacity-60',
+          )}
         >
           <Sparkles size={11} />
           <span>{modelId || t('audioPanel.model')}</span>
@@ -317,20 +345,64 @@ export function AudioAiPanel({
         </span>
 
         {/* Generate Button */}
-        <button
-          type="button"
-          disabled={generating}
-          className={cn(
-            'flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium',
-            'bg-foreground text-background transition-colors duration-150',
-            'hover:bg-foreground/90 disabled:opacity-50',
-          )}
-          onClick={handleGenerate}
-        >
-          <Send size={12} />
-          <span>{t('audioPanel.generate')}</span>
-          <ChevronDown size={11} />
-        </button>
+        {readonly ? null : (
+          <div className="relative flex items-center">
+            {/* Main generate button */}
+            <button
+              type="button"
+              disabled={generating}
+              className={cn(
+                'flex items-center gap-1.5 rounded-l-full px-3 py-1.5 text-xs font-medium',
+                'bg-foreground text-background transition-colors duration-150',
+                'hover:bg-foreground/90 disabled:opacity-50',
+              )}
+              onClick={handleGenerate}
+            >
+              <Send size={12} />
+              <span>{generating ? t('audioPanel.generating') : t('audioPanel.generate')}</span>
+            </button>
+            {/* Dropdown trigger */}
+            <button
+              type="button"
+              disabled={generating}
+              className={cn(
+                'flex h-full items-center rounded-r-full border-l border-white/20 px-1.5 py-1.5',
+                'bg-foreground text-background transition-colors duration-150',
+                'hover:bg-foreground/90 disabled:opacity-50',
+              )}
+              onClick={() => setShowGenerateDropdown(!showGenerateDropdown)}
+            >
+              <ChevronDown size={10} />
+            </button>
+            {/* Dropdown menu */}
+            {showGenerateDropdown ? (
+              <div className="absolute bottom-full right-0 mb-1 flex min-w-[140px] flex-col rounded-md border border-border bg-card py-0.5 shadow-md">
+                <button
+                  type="button"
+                  className={cn(
+                    'flex items-center gap-2 px-3 py-1.5 text-[11px] transition-colors duration-150 hover:bg-foreground/5',
+                    generateMode === 'stack' ? 'font-medium text-foreground' : 'text-muted-foreground',
+                  )}
+                  onClick={() => { setGenerateMode('stack'); setShowGenerateDropdown(false) }}
+                >
+                  <Layers size={12} />
+                  {t('audioPanel.stackMode')}
+                </button>
+                <button
+                  type="button"
+                  className={cn(
+                    'flex items-center gap-2 px-3 py-1.5 text-[11px] transition-colors duration-150 hover:bg-foreground/5',
+                    generateMode === 'overwrite' ? 'font-medium text-foreground' : 'text-muted-foreground',
+                  )}
+                  onClick={() => { setGenerateMode('overwrite'); setShowGenerateDropdown(false) }}
+                >
+                  <Replace size={12} />
+                  {t('audioPanel.overwriteMode')}
+                </button>
+              </div>
+            ) : null}
+          </div>
+        )}
       </div>
     </div>
   )

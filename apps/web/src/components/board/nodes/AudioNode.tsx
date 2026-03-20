@@ -17,7 +17,9 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { z } from "zod";
 import {
+  AlertTriangle,
   Download,
+  Loader2,
   Music,
   Play,
   RefreshCw,
@@ -43,6 +45,18 @@ import { useUpstreamData } from "../hooks/useUpstreamData";
 import { usePanelOverlay } from "../render/pixi/PixiApplication";
 import { submitAudioGenerate } from "../services/audio-generate";
 import { BOARD_ASSETS_DIR_NAME } from "@/lib/file-name";
+import {
+  createInputSnapshot,
+  createGeneratingEntry,
+  pushVersion,
+  markVersionReady,
+  markVersionFailed,
+  getPrimaryEntry,
+  getGeneratingEntry,
+  switchPrimary,
+} from '../engine/version-stack';
+import { useMediaTaskPolling } from '../hooks/useMediaTaskPolling';
+import { VersionStackOverlay } from './VersionStackOverlay';
 
 /** Inline panel gap from node bottom edge in screen pixels (zoom-independent). */
 const PANEL_GAP_PX = 8;
@@ -60,6 +74,8 @@ export type AudioNodeProps = {
   origin?: import("../board-contracts").NodeOrigin;
   /** AI generation config. Present only when origin is 'ai-generate'. */
   aiConfig?: import("../board-contracts").AiGenerateConfig;
+  /** Version stack tracking AI generation history. */
+  versionStack?: import("../engine/types").VersionStack;
 };
 
 /** Resolve a board-scoped path into a project-relative path. */
@@ -151,9 +167,11 @@ function createAudioToolbarItems(
   ctx: CanvasToolbarContext<AudioNodeProps>,
 ) {
   const items = []
-  const isAiGenerated = ctx.element.meta?.origin === 'ai-generate'
+  const origin = ctx.element.props.origin
+  const tbPrimaryEntry = getPrimaryEntry(ctx.element.props.versionStack)
+  const isAiReady = origin === 'ai-generate' && tbPrimaryEntry?.status === 'ready'
 
-  if (isAiGenerated) {
+  if (isAiReady) {
     items.push({
       id: 'regenerate',
       label: i18next.t('board:audioNode.toolbar.regenerate'),
@@ -330,6 +348,55 @@ export function AudioNodeView({
     resolvedPath,
   ]);
 
+  // ---------------------------------------------------------------------------
+  // Version-stack based generation
+  // ---------------------------------------------------------------------------
+  const primaryEntry = getPrimaryEntry(element.props.versionStack)
+  const generatingEntry = getGeneratingEntry(element.props.versionStack)
+
+  const saveDir = useMemo(
+    () =>
+      fileContext?.boardFolderUri
+        ? `${fileContext.boardFolderUri}/${BOARD_ASSETS_DIR_NAME}`
+        : undefined,
+    [fileContext?.boardFolderUri],
+  )
+
+  const pollingResult = useMediaTaskPolling({
+    taskId: generatingEntry?.taskId,
+    taskType: 'audio_generate',
+    projectId: fileContext?.projectId,
+    saveDir,
+    enabled: !!generatingEntry,
+    onSuccess: useCallback(
+      (resultUrls: string[]) => {
+        if (!generatingEntry) return
+        const stack = element.props.versionStack
+        if (!stack) return
+        const savedPath = resultUrls[0]?.trim() || ''
+        onUpdate({
+          versionStack: markVersionReady(stack, generatingEntry.id, { urls: resultUrls }),
+          sourcePath: savedPath,
+        })
+      },
+      [generatingEntry, element.props.versionStack, onUpdate],
+    ),
+    onFailure: useCallback(
+      (error: string) => {
+        if (!generatingEntry) return
+        const stack = element.props.versionStack
+        if (!stack) return
+        onUpdate({
+          versionStack: markVersionFailed(stack, generatingEntry.id, {
+            code: 'GENERATE_FAILED',
+            message: error,
+          }),
+        })
+      },
+      [generatingEntry, element.props.versionStack, onUpdate],
+    ),
+  })
+
   const handleGenerate = useCallback(
     async (params: {
       mode: import('../panels/AudioAiPanel').AudioGenerateMode
@@ -340,9 +407,6 @@ export function AudioNodeView({
       referenceAudioSrc?: string
     }) => {
       try {
-        const saveDir = fileContext?.boardFolderUri
-          ? `${fileContext.boardFolderUri}/${BOARD_ASSETS_DIR_NAME}`
-          : undefined
         const result = await submitAudioGenerate(
           {
             prompt: params.prompt,
@@ -356,19 +420,22 @@ export function AudioNodeView({
             sourceNodeId: element.id,
           },
         )
-        const [x, y, w, h] = element.xywh
-        engine.addNodeElement(
-          'loading',
-          {
-            taskId: result.taskId,
-            taskType: 'audio_generate',
-            sourceNodeId: element.id,
-            promptText: params.prompt,
-            projectId: fileContext?.projectId ?? '',
-            saveDir: saveDir ?? '',
+
+        const snapshot = createInputSnapshot({
+          prompt: params.prompt,
+          modelId: params.modelId,
+          parameters: {
+            mode: params.mode,
+            duration: params.duration,
+            textContent: params.textContent,
+            referenceAudioSrc: params.referenceAudioSrc,
           },
-          [x + w + 120, y, 280, 100],
-        )
+        })
+        const entry = createGeneratingEntry(snapshot, result.taskId)
+        onUpdate({
+          versionStack: pushVersion(element.props.versionStack, entry),
+          origin: 'ai-generate',
+        })
       } catch (err) {
         console.error('[AudioNode] submitAudioGenerate failed:', err)
         onUpdate({
@@ -379,23 +446,95 @@ export function AudioNodeView({
         })
       }
     },
-    [engine, element.id, element.xywh, element.props.aiConfig, fileContext, onUpdate],
+    [element.id, element.props.versionStack, element.props.aiConfig, fileContext?.projectId, saveDir, onUpdate],
+  )
+
+  /** Retry generation using the failed entry's input snapshot. */
+  const handleRetry = useCallback(() => {
+    if (!primaryEntry?.input) return
+    const input = primaryEntry.input
+    handleGenerate({
+      mode: (input.parameters?.mode as import('../panels/AudioAiPanel').AudioGenerateMode) ?? 'music',
+      prompt: input.prompt,
+      modelId: input.modelId,
+      duration: (input.parameters?.duration as import('../panels/AudioAiPanel').AudioDurationOption | 'auto') ?? 'auto',
+      textContent: input.parameters?.textContent as string | undefined,
+      referenceAudioSrc: input.parameters?.referenceAudioSrc as string | undefined,
+    })
+  }, [primaryEntry, handleGenerate])
+
+  const isGenerating = primaryEntry?.status === 'generating'
+  const isFailed = primaryEntry?.status === 'failed'
+  const isReadyFromAi = primaryEntry?.status === 'ready' && element.props.origin === 'ai-generate'
+
+  /** Switch the version stack primary entry and update the node source. */
+  const handleSwitchPrimary = useCallback(
+    (entryId: string) => {
+      const stack = element.props.versionStack
+      if (!stack) return
+      const newStack = switchPrimary(stack, entryId)
+      const newPrimary = newStack.entries.find((e) => e.id === entryId)
+      const patch: Partial<AudioNodeProps> = { versionStack: newStack }
+      if (newPrimary?.output?.urls[0]) {
+        patch.sourcePath = newPrimary.output.urls[0]
+      }
+      onUpdate(patch)
+    },
+    [element.props.versionStack, onUpdate],
   )
 
   return (
-    <NodeFrame>
+    <NodeFrame className="group">
+      <VersionStackOverlay
+        stack={element.props.versionStack}
+        semanticColor="green"
+        onSwitchPrimary={handleSwitchPrimary}
+      />
       <div
         className={[
-          "flex h-full w-full flex-col rounded-lg border box-border",
+          "relative flex h-full w-full flex-col rounded-lg border box-border",
           "border-ol-divider bg-background text-ol-text-primary",
+          isGenerating ? "openloaf-thinking-border openloaf-thinking-border-on border-transparent" : "",
         ].join(" ")}
         onDoubleClick={(event) => {
           event.stopPropagation();
           // 逻辑：展开态不触发预览，因为此时双击可能是编辑面板内的操作。
           if (expanded) return;
+          if (isGenerating || isFailed) return;
           handleOpenPreview();
         }}
       >
+        {/* Generating overlay */}
+        {isGenerating && (
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-background/80 backdrop-blur-sm rounded-lg">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            <span className="text-xs text-muted-foreground">
+              {pollingResult.progressText || i18next.t('board:audioNode.generating', { defaultValue: 'Generating...' })}
+            </span>
+          </div>
+        )}
+
+        {/* Failed overlay */}
+        {isFailed && (
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-ol-red-bg/60 p-4 rounded-lg">
+            <AlertTriangle className="h-6 w-6 text-ol-red" />
+            <span className="text-xs text-center text-ol-red">
+              {primaryEntry.error?.message || i18next.t('board:audioNode.generateFailed', { defaultValue: 'Generation failed' })}
+            </span>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleRetry();
+              }}
+              className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] bg-ol-blue-bg text-ol-blue hover:bg-ol-blue/20 transition-colors duration-150"
+            >
+              <RefreshCw className="h-3 w-3" />
+              {i18next.t('board:audioNode.retry', { defaultValue: 'Retry' })}
+            </button>
+          </div>
+        )}
+
         {/* Header: icon + name + duration */}
         <div className="flex items-center gap-2.5 px-3 pt-2.5 pb-1.5">
           <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-ol-amber-bg text-ol-amber">
@@ -459,6 +598,7 @@ export function AudioNodeView({
               referenceAudioSrc: upstream?.audioList?.[0],
             }}
             onGenerate={handleGenerate}
+            readonly={isReadyFromAi}
           />
         </div>,
         panelOverlay,
@@ -486,6 +626,7 @@ export const AudioNodeDefinition: CanvasNodeDefinition<AudioNodeProps> = {
       taskId: z.string().optional(),
       generatedAt: z.number().optional(),
     }).optional(),
+    versionStack: z.any().optional(),
   }),
   defaultProps: {
     sourcePath: '',

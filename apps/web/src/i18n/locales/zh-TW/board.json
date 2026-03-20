@@ -476,7 +476,11 @@
     "notFound": "圖片未找到",
     "loadFailed": "無法載入圖片",
     "replaceTitle": "選擇圖片",
-    "replaceHint": "選擇一張圖片替換當前節點"
+    "replaceHint": "選擇一張圖片替換當前節點",
+    "generating": "生成中...",
+    "generationFailed": "生成失敗",
+    "retry": "重試",
+    "parametersLocked": "參數已鎖定 — 點擊「重新生成」修改"
   },
   "videoNode": {
     "toolbar": {
@@ -493,7 +497,11 @@
       "confirm": "確認",
       "loading": "載入影片中...",
       "noDuration": "時長未知 — 請先播放影片。"
-    }
+    },
+    "generating": "影片生成中...",
+    "generateFailed": "影片生成失敗",
+    "retry": "重試",
+    "parametersLocked": "參數已鎖定"
   },
   "audioNode": {
     "toolbar": {
@@ -503,7 +511,14 @@
       "download": "下載",
       "delete": "刪除"
     },
-    "noSource": "無音訊來源"
+    "noSource": "無音訊來源",
+    "generating": "音訊生成中...",
+    "generateFailed": "音訊生成失敗",
+    "retry": "重試",
+    "parametersLocked": "參數已鎖定"
+  },
+  "versionStack": {
+    "badge": "{{count}} 個版本"
   },
   "fileAttachmentNode": {
     "toolbar": {
@@ -684,7 +699,10 @@
       "effect": "特效",
       "subject": "主體",
       "camera": "運鏡"
-    }
+    },
+    "stackMode": "堆疊（新版本）",
+    "overwriteMode": "覆寫主版本",
+    "parametersLocked": "參數已鎖定"
   },
   "imagePanel": {
     "textToImage": "文生圖",
@@ -711,7 +729,9 @@
     "translate": "翻譯",
     "settings": "設定",
     "generateMode": "生成模式",
-    "upstreamSlots": "上游素材"
+    "upstreamSlots": "上游素材",
+    "stackMode": "堆疊（新版本）",
+    "overwriteMode": "覆寫主版本"
   },
   "upscalePanel": {
     "title": "高清放大",
@@ -754,7 +774,10 @@
     "translate": "翻譯",
     "credits": "積分",
     "noModel": "無可用模型",
-    "loginHint": "登入以使用雲端模型"
+    "loginHint": "登入以使用雲端模型",
+    "stackMode": "堆疊（新版本）",
+    "overwriteMode": "覆寫主版本",
+    "parametersLocked": "參數已鎖定"
   },
   "nodeSearch": {
     "placeholder": "搜尋節點...",

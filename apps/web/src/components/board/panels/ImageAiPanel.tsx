@@ -15,7 +15,10 @@ import {
   Expand,
   FileText,
   Languages,
+  Layers,
+  Lock,
   Plus,
+  Replace,
   Settings,
   Sparkles,
   Wand2,
@@ -58,6 +61,8 @@ export type ImageGenerateParams = {
   resolution: string
   mode: GenerateMode
   referenceImageSrc?: string
+  /** Whether to stack (default) or overwrite the primary version. */
+  generateMode?: 'stack' | 'overwrite'
 }
 
 export type ImageAiPanelProps = {
@@ -65,8 +70,10 @@ export type ImageAiPanelProps = {
   onUpdate: (patch: Partial<ImageNodeProps>) => void
   upstreamText?: string
   upstreamImages?: string[]
-  /** Callback to trigger actual image generation via LoadingNode. */
+  /** Callback to trigger actual image generation. */
   onGenerate?: (params: ImageGenerateParams) => void
+  /** When true, all inputs are disabled and generate button is hidden (post-generation lock). */
+  readonly?: boolean
 }
 
 /** AI image generation parameter panel displayed below image nodes. */
@@ -76,6 +83,7 @@ export function ImageAiPanel({
   upstreamText,
   upstreamImages,
   onGenerate,
+  readonly = false,
 }: ImageAiPanelProps) {
   const { t } = useTranslation('board')
   const aiConfig = element.props.aiConfig
@@ -105,6 +113,8 @@ export function ImageAiPanel({
   const [isGenerating, setIsGenerating] = useState(false)
   const [generateCount, setGenerateCount] = useState(1)
   const [showCountDropdown, setShowCountDropdown] = useState(false)
+  const [generateMode, setGenerateMode] = useState<'stack' | 'overwrite'>('stack')
+  const [showGenerateDropdown, setShowGenerateDropdown] = useState(false)
 
   const aiResults = aiConfig?.results
   const selectedIndex = aiConfig?.selectedIndex ?? 0
@@ -151,13 +161,14 @@ export function ImageAiPanel({
         resolution,
         mode: hasRefImages ? 'img2img' : 'text2img',
         referenceImageSrc: hasRefImages ? upstreamImages?.[0] : undefined,
+        generateMode,
       }
       onGenerate(params)
     }
     // 逻辑：isGenerating 状态由外部 LoadingNode 接管后不再需要客户端重置，
     // 但仍设置一个短超时以防 onGenerate 未提供时 UI 不会卡住。
     setTimeout(() => setIsGenerating(false), 600)
-  }, [isGenerating, modelId, prompt, aspectRatio, resolution, upstreamImages, onUpdate, onGenerate])
+  }, [isGenerating, modelId, prompt, aspectRatio, resolution, upstreamImages, onUpdate, onGenerate, generateMode])
 
   /** Handle manual upload click. */
   const handleUploadClick = useCallback(() => {
@@ -236,11 +247,13 @@ export function ImageAiPanel({
           className={[
             'min-h-[68px] w-full resize-none rounded-lg border px-3 py-2 pr-9 text-sm leading-relaxed',
             BOARD_GENERATE_INPUT,
+            readonly ? 'opacity-60 cursor-not-allowed' : '',
           ].join(' ')}
           placeholder={t('imagePanel.promptPlaceholder')}
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           rows={3}
+          disabled={readonly}
         />
         {/* Prompt action buttons */}
         <div className="absolute right-2 bottom-2 flex items-center gap-0.5">
@@ -296,9 +309,13 @@ export function ImageAiPanel({
       <div className="flex items-center gap-1.5 border-t border-border pt-2">
         {/* Model Selector */}
         <select
-          className="h-7 max-w-[120px] truncate rounded-md border border-border bg-transparent px-1.5 text-[11px] text-foreground outline-none transition-colors duration-150 hover:bg-foreground/5"
+          className={[
+            'h-7 max-w-[120px] truncate rounded-md border border-border bg-transparent px-1.5 text-[11px] text-foreground outline-none transition-colors duration-150 hover:bg-foreground/5',
+            readonly ? 'opacity-60 cursor-not-allowed' : '',
+          ].join(' ')}
           value={modelId}
           onChange={(e) => setModelId(e.target.value)}
+          disabled={readonly}
         >
           <option value="auto">{t('imagePanel.autoRecommend')}</option>
           {filteredModels.length > 0
@@ -316,8 +333,12 @@ export function ImageAiPanel({
 
         {/* Ratio + Resolution Selector */}
         <select
-          className="h-7 rounded-md border border-border bg-transparent px-1.5 text-[11px] text-foreground outline-none transition-colors duration-150 hover:bg-foreground/5"
+          className={[
+            'h-7 rounded-md border border-border bg-transparent px-1.5 text-[11px] text-foreground outline-none transition-colors duration-150 hover:bg-foreground/5',
+            readonly ? 'opacity-60 cursor-not-allowed' : '',
+          ].join(' ')}
           value={`${aspectRatio}·${resolution}`}
+          disabled={readonly}
           onChange={(e) => {
             const [r, res] = e.target.value.split('·')
             setAspectRatio(r as AiGenerateConfig['aspectRatio'])
@@ -383,22 +404,74 @@ export function ImageAiPanel({
           ) : null}
         </div>
 
-        {/* Generate Button */}
-        <button
-          type="button"
-          disabled={isGenerating || !prompt.trim()}
-          className={[
-            'inline-flex items-center gap-1 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors duration-150',
-            BOARD_GENERATE_BTN_IMAGE,
-            (isGenerating || !prompt.trim())
-              ? 'cursor-not-allowed opacity-50'
-              : '',
-          ].join(' ')}
-          onClick={handleGenerate}
-        >
-          <Sparkles size={12} />
-          {isGenerating ? t('imagePanel.generating') : t('imagePanel.generate')}
-        </button>
+        {/* Generate Button / Readonly Indicator */}
+        {readonly ? (
+          <div className="inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-[10px] text-muted-foreground bg-muted/50">
+            <Lock size={10} />
+            <span>{t('imageNode.parametersLocked')}</span>
+          </div>
+        ) : (
+          <div className="relative flex items-center">
+            {/* Main generate button */}
+            <button
+              type="button"
+              disabled={isGenerating || !prompt.trim()}
+              className={[
+                'inline-flex items-center gap-1 rounded-l-full px-3.5 py-1.5 text-xs font-medium transition-colors duration-150',
+                BOARD_GENERATE_BTN_IMAGE,
+                (isGenerating || !prompt.trim())
+                  ? 'cursor-not-allowed opacity-50'
+                  : '',
+              ].join(' ')}
+              onClick={handleGenerate}
+            >
+              <Sparkles size={12} />
+              {isGenerating ? t('imagePanel.generating') : t('imagePanel.generate')}
+            </button>
+            {/* Dropdown trigger */}
+            <button
+              type="button"
+              disabled={isGenerating || !prompt.trim()}
+              className={[
+                'inline-flex h-full items-center rounded-r-full border-l border-white/20 px-1.5 py-1.5 transition-colors duration-150',
+                BOARD_GENERATE_BTN_IMAGE,
+                (isGenerating || !prompt.trim())
+                  ? 'cursor-not-allowed opacity-50'
+                  : '',
+              ].join(' ')}
+              onClick={() => setShowGenerateDropdown(!showGenerateDropdown)}
+            >
+              <ChevronDown size={10} />
+            </button>
+            {/* Dropdown menu */}
+            {showGenerateDropdown ? (
+              <div className="absolute bottom-full right-0 mb-1 flex min-w-[140px] flex-col rounded-md border border-border bg-card py-0.5 shadow-md">
+                <button
+                  type="button"
+                  className={[
+                    'flex items-center gap-2 px-3 py-1.5 text-[11px] transition-colors duration-150 hover:bg-foreground/5',
+                    generateMode === 'stack' ? 'font-medium text-foreground' : 'text-muted-foreground',
+                  ].join(' ')}
+                  onClick={() => { setGenerateMode('stack'); setShowGenerateDropdown(false) }}
+                >
+                  <Layers size={12} />
+                  {t('imagePanel.stackMode')}
+                </button>
+                <button
+                  type="button"
+                  className={[
+                    'flex items-center gap-2 px-3 py-1.5 text-[11px] transition-colors duration-150 hover:bg-foreground/5',
+                    generateMode === 'overwrite' ? 'font-medium text-foreground' : 'text-muted-foreground',
+                  ].join(' ')}
+                  onClick={() => { setGenerateMode('overwrite'); setShowGenerateDropdown(false) }}
+                >
+                  <Replace size={12} />
+                  {t('imagePanel.overwriteMode')}
+                </button>
+              </div>
+            ) : null}
+          </div>
+        )}
       </div>
     </div>
   )
