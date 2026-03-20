@@ -148,14 +148,12 @@ export function SingleSelectionToolbar({
   });
 
   const commonItems = buildCommonToolbarItems(t, engine, element, snapshot);
-  const mindmapLayoutItems = buildMindmapLayoutItems(t, engine, element, snapshot);
   const customItems = items ?? [];
-  const allItems = [...customItems, ...mindmapLayoutItems, ...commonItems];
+  const allItems = [...customItems, ...commonItems];
   toolbarItemsRef.current = allItems;
   if (
     customItems.length === 0
     && commonItems.length === 0
-    && mindmapLayoutItems.length === 0
   ) {
     return null;
   }
@@ -176,22 +174,13 @@ export function SingleSelectionToolbar({
           items={customItems}
           openPanelId={openPanelId}
           setOpenPanelId={setOpenPanelId}
-          showDivider={
-            customItems.length > 0 && mindmapLayoutItems.length > 0
-          }
-        />
-        <ToolbarGroup
-          items={mindmapLayoutItems}
-          openPanelId={openPanelId}
-          setOpenPanelId={setOpenPanelId}
-          showDivider={
-            mindmapLayoutItems.length > 0 && commonItems.length > 0
-          }
+          showDivider={customItems.length > 0 && commonItems.length > 0}
         />
         <ToolbarGroup
           items={commonItems}
           openPanelId={openPanelId}
           setOpenPanelId={setOpenPanelId}
+          compact
         />
       </div>
     </SelectionToolbarContainer>
@@ -1067,6 +1056,7 @@ function buildCommonToolbarItems(
     {
       id: 'bring-forward',
       label: t('selection.toolbar.bringToFront'),
+      showLabel: false,
       icon: <ArrowUp size={14} />,
       className: BOARD_TOOLBAR_ITEM_BLUE,
       onSelect: () => {
@@ -1076,6 +1066,7 @@ function buildCommonToolbarItems(
     {
       id: 'send-backward',
       label: t('selection.toolbar.sendToBack'),
+      showLabel: false,
       icon: <ArrowDown size={14} />,
       className: BOARD_TOOLBAR_ITEM_BLUE,
       onSelect: () => {
@@ -1085,6 +1076,7 @@ function buildCommonToolbarItems(
     {
       id: 'lock-node',
       label: isLocked ? t('selection.toolbar.unlock') : t('selection.toolbar.lock'),
+      showLabel: false,
       icon: isLocked ? <Unlock size={14} /> : <Lock size={14} />,
       className: isLocked ? BOARD_TOOLBAR_ITEM_RED : BOARD_TOOLBAR_ITEM_AMBER,
       onSelect: () => {

@@ -30,7 +30,7 @@ import { NodeFrame } from "./NodeFrame";
 /** Loading node type identifier. */
 export const LOADING_NODE_TYPE = "loading";
 
-export type LoadingTaskType = "video_generate" | "image_generate" | "video_download" | "upscale";
+export type LoadingTaskType = "video_generate" | "image_generate" | "video_download" | "upscale" | "audio_generate";
 
 export type LoadingNodeProps = {
   /** Loading task id. */
@@ -51,7 +51,7 @@ export type LoadingNodeProps = {
 
 const LoadingNodeSchema = z.object({
   taskId: z.string().optional(),
-  taskType: z.enum(["video_generate", "image_generate", "video_download", "upscale"]).optional(),
+  taskType: z.enum(["video_generate", "image_generate", "video_download", "upscale", "audio_generate"]).optional(),
   sourceNodeId: z.string().optional(),
   promptText: z.string().optional(),
   chatModelId: z.string().optional(),
@@ -253,7 +253,7 @@ export function LoadingNodeView({ element }: CanvasNodeViewProps<LoadingNodeProp
   const promptLabel = promptText || t('loading.processing');
 
   const canRun = Boolean(
-    taskId && (taskType === "video_generate" || taskType === "image_generate" || taskType === "video_download" || taskType === "upscale")
+    taskId && (taskType === "video_generate" || taskType === "image_generate" || taskType === "video_download" || taskType === "upscale" || taskType === "audio_generate")
   );
 
   useEffect(() => {
@@ -312,7 +312,9 @@ export function LoadingNodeView({ element }: CanvasNodeViewProps<LoadingNodeProp
               throw new Error(
                 taskType === "image_generate"
                   ? tRef.current('loading.imageGenerateFailed')
-                  : tRef.current('loading.videoGenerateFailed'),
+                  : taskType === "audio_generate"
+                    ? tRef.current('loading.audioGenerateFailed')
+                    : tRef.current('loading.videoGenerateFailed'),
               );
             }
 
@@ -479,7 +481,9 @@ export function LoadingNodeView({ element }: CanvasNodeViewProps<LoadingNodeProp
         throw new Error(
           taskType === "image_generate"
             ? tRef.current('loading.imageTimeout')
-            : tRef.current('loading.videoTimeout'),
+            : taskType === "audio_generate"
+              ? tRef.current('loading.audioTimeout')
+              : tRef.current('loading.videoTimeout'),
         );
       } catch (error) {
         if (!controller.signal.aborted) {
@@ -488,7 +492,9 @@ export function LoadingNodeView({ element }: CanvasNodeViewProps<LoadingNodeProp
               ? error.message
               : taskType === "image_generate"
                 ? tRef.current('loading.imageGenerateError')
-                : tRef.current('loading.videoGenerateError');
+                : taskType === "audio_generate"
+                  ? tRef.current('loading.audioGenerateError')
+                  : tRef.current('loading.videoGenerateError');
           setErrorText(message);
           if (sourceNodeId) {
             engine.doc.updateNodeProps(sourceNodeId, { errorText: message });

@@ -16,14 +16,12 @@ import type {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 import Hls from "hls.js";
-import { Download, Info, Loader2, Pause, Play, Scissors, ZoomIn } from "lucide-react";
+import { Download, Image, Info, Loader2, Pause, Play, RefreshCw, Scissors, Trash2, Type, Video, ZoomIn } from "lucide-react";
 import i18next from "i18next";
 import { openVideoTrimDialog } from "../dialogs/video-trim/VideoTrimDialog";
 import {
-  BOARD_TOOLBAR_ITEM_AMBER,
-  BOARD_TOOLBAR_ITEM_BLUE,
-  BOARD_TOOLBAR_ITEM_GREEN,
-  BOARD_TOOLBAR_ITEM_PURPLE,
+  BOARD_TOOLBAR_ITEM_DEFAULT,
+  BOARD_TOOLBAR_ITEM_RED,
 } from "../ui/board-style-system";
 import { openFilePreview } from "@/components/file/lib/file-preview-store";
 import { fetchVideoMetadata } from "@/components/file/lib/video-metadata";
@@ -88,7 +86,7 @@ async function openVideoPreview(props: VideoNodeProps, fileContext?: BoardFileCo
   const boardId = isBoardRelativePath(props.sourcePath) ? (fileContext?.boardId ?? "") : "";
   const projectRelativePath = resolveProjectRelativePath(props.sourcePath, fileContext);
   const resolvedPath = projectRelativePath || props.sourcePath;
-  const displayName = props.fileName || resolvedPath.split("/").pop() || "Video";
+  const displayName = props.fileName || resolvedPath.split("/").pop() || i18next.t('board:nodeLabel.video');
 
   const metadata = await fetchVideoMetadata({
     projectId: fileContext?.projectId,
@@ -186,41 +184,55 @@ function createVideoToolbarItems(ctx: CanvasToolbarContext<VideoNodeProps>) {
     boardId: isBoardRelativePath(sourcePath) ? ctx.fileContext?.boardId : undefined,
   };
 
-  // AI action buttons prepended before base items
-  const aiItems = [
-    {
-      id: 'ai-upscale-video',
-      label: i18next.t('board:aiToolbar.upscaleVideo'),
-      icon: <ZoomIn size={14} />,
-      className: BOARD_TOOLBAR_ITEM_PURPLE,
-      // TODO: 接入视频高清放大服务（需要视频专用的 upscale API），
-      // 当前暂时保持 deriveNode 创建占位节点的行为。
-      onSelect: () => {
-        deriveNode({ engine: ctx.engine, sourceNodeId: ctx.element.id, targetType: 'video', targetProps: { origin: 'ai-generate' } })
-      },
+  const origin = ctx.element.props.origin
+
+  // AI action buttons — only when node was AI-generated
+  const aiItems = origin === 'ai-generate'
+    ? [
+        {
+          id: 'regenerate',
+          label: i18next.t('board:videoNode.toolbar.regenerate', { defaultValue: 'Regenerate' }),
+          icon: <RefreshCw size={14} />,
+          className: BOARD_TOOLBAR_ITEM_DEFAULT,
+          onSelect: () => {
+            deriveNode({ engine: ctx.engine, sourceNodeId: ctx.element.id, targetType: 'video', targetProps: { origin: 'ai-generate' } })
+          },
+        },
+      ]
+    : []
+
+  const upscaleItem = {
+    id: 'ai-upscale-video',
+    label: i18next.t('board:aiToolbar.upscaleVideo'),
+    icon: <ZoomIn size={14} />,
+    className: BOARD_TOOLBAR_ITEM_DEFAULT,
+    // TODO: 接入视频高清放大服务（需要视频专用的 upscale API），
+    // 当前暂时保持 deriveNode 创建占位节点的行为。
+    onSelect: () => {
+      deriveNode({ engine: ctx.engine, sourceNodeId: ctx.element.id, targetType: 'video', targetProps: { origin: 'ai-generate' } })
     },
-  ];
+  }
 
   const baseItems = [
     {
       id: 'play',
       label: i18next.t('board:videoNode.toolbar.play'),
       icon: <Play size={14} />,
-      className: BOARD_TOOLBAR_ITEM_GREEN,
+      className: BOARD_TOOLBAR_ITEM_DEFAULT,
       onSelect: () => void openVideoPreview(ctx.element.props, ctx.fileContext),
     },
     {
       id: 'download',
       label: i18next.t('board:videoNode.toolbar.download', { defaultValue: 'Download' }),
       icon: <Download size={14} />,
-      className: BOARD_TOOLBAR_ITEM_GREEN,
+      className: BOARD_TOOLBAR_ITEM_DEFAULT,
       onSelect: () => void downloadVideo(ctx.element.props, ctx.fileContext),
     },
     {
       id: 'trim',
       label: i18next.t('board:videoNode.toolbar.trim', { defaultValue: 'Trim' }),
       icon: <Scissors size={14} />,
-      className: BOARD_TOOLBAR_ITEM_AMBER,
+      className: BOARD_TOOLBAR_ITEM_DEFAULT,
       active: hasClip,
       onSelect: () => {
         openVideoTrimDialog({
@@ -244,7 +256,7 @@ function createVideoToolbarItems(ctx: CanvasToolbarContext<VideoNodeProps>) {
             id: 'export-clip',
             label: i18next.t('board:videoNode.toolbar.exportClip', { defaultValue: 'Export Clip' }),
             icon: <Download size={14} />,
-            className: BOARD_TOOLBAR_ITEM_GREEN,
+            className: BOARD_TOOLBAR_ITEM_DEFAULT,
             onSelect: () => {
               void exportVideoClip(ctx.element.props, ctx.fileContext);
             },
@@ -255,12 +267,63 @@ function createVideoToolbarItems(ctx: CanvasToolbarContext<VideoNodeProps>) {
       id: 'inspect',
       label: i18next.t('board:videoNode.toolbar.detail'),
       icon: <Info size={14} />,
-      className: BOARD_TOOLBAR_ITEM_BLUE,
+      className: BOARD_TOOLBAR_ITEM_DEFAULT,
       onSelect: () => ctx.openInspector(ctx.element.id),
     },
+    {
+      id: 'delete',
+      label: i18next.t('board:contextMenu.delete'),
+      icon: <Trash2 size={14} />,
+      className: BOARD_TOOLBAR_ITEM_RED,
+      onSelect: () => {
+        ctx.engine.doc.deleteElement(ctx.element.id)
+        ctx.engine.commitHistory()
+      },
+    },
   ];
-  return [...aiItems, ...baseItems];
+  return [...aiItems, upscaleItem, ...baseItems];
 }
+
+// ---------------------------------------------------------------------------
+// Connector templates
+// ---------------------------------------------------------------------------
+
+/** Connector templates offered by the video node. */
+const getVideoNodeConnectorTemplates = (): CanvasConnectorTemplateDefinition[] => [
+  {
+    id: 'text',
+    label: i18next.t('board:connector.videoUnderstanding', { defaultValue: 'Video Understanding' }),
+    description: i18next.t('board:connector.videoUnderstandingDesc', { defaultValue: 'Analyze video and generate description' }),
+    size: [200, 200],
+    icon: <Type size={14} />,
+    createNode: () => ({
+      type: 'text',
+      props: { style: 'sticky', stickyColor: 'yellow' },
+    }),
+  },
+  {
+    id: 'image',
+    label: i18next.t('board:connector.extractFrame', { defaultValue: 'Extract Frame' }),
+    description: i18next.t('board:connector.extractFrameDesc', { defaultValue: 'Extract a frame from video' }),
+    size: [320, 180],
+    icon: <Image size={14} />,
+    createNode: () => ({
+      type: 'image',
+      props: {},
+    }),
+  },
+  {
+    id: 'video',
+    label: i18next.t('board:connector.continueVideo', { defaultValue: 'Continue Video' }),
+    description: i18next.t('board:connector.continueVideoDesc', { defaultValue: 'Generate continuation from video' }),
+    size: [320, 180],
+    icon: <Video size={14} />,
+    createNode: () => ({
+      type: 'video',
+      props: {},
+    }),
+  },
+]
 
 /** Export the clipped segment via server-side ffmpeg. */
 async function exportVideoClip(props: VideoNodeProps, fileContext?: BoardFileContext) {
@@ -393,7 +456,7 @@ export function VideoNodeView({
     () => resolveProjectRelativePath(element.props.sourcePath, fileContext) || element.props.sourcePath,
     [element.props.sourcePath, fileContext]
   );
-  const displayName = element.props.fileName || resolvedPath.split("/").pop() || "Video";
+  const displayName = element.props.fileName || resolvedPath.split("/").pop() || i18next.t('board:nodeLabel.video');
   const posterSrc = element.props.posterPath?.trim() || "";
 
   const effectiveProjectId = useMemo(() => {
@@ -723,6 +786,9 @@ export function VideoNodeView({
           onPointerDown={event => {
             event.stopPropagation();
           }}
+          onContextMenu={event => {
+            event.stopPropagation();
+          }}
         >
           <VideoAiPanel
             element={element}
@@ -777,6 +843,6 @@ export const VideoNodeDefinition: CanvasNodeDefinition<VideoNodeProps> = {
     maxSize: { w: 1280, h: 720 },
   },
   inlinePanel: { width: 420, height: 360 },
-  connectorTemplates: () => [],
+  connectorTemplates: () => getVideoNodeConnectorTemplates(),
   toolbar: (ctx) => createVideoToolbarItems(ctx),
 };

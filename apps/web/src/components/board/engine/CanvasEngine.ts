@@ -2557,6 +2557,8 @@ export class CanvasEngine {
     const adjacency = new Map<string, string[]>();
     elements.forEach(element => {
       if (element.kind !== "connector") return;
+      // Only check data-flow connectors for cycles (chat-flow is exempt)
+      if (element.semantic === 'chat-flow') return;
       if (!("elementId" in element.source) || !("elementId" in element.target)) return;
       const from = element.source.elementId;
       const to = element.target.elementId;

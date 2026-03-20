@@ -394,6 +394,11 @@ export function BoardCanvas({
     if (open) setRenameValue(currentTabTitle);
     setRenameOpen(open);
   }, [currentTabTitle]);
+  const setRequestBoardRename = useHeaderSlot((s) => s.setRequestBoardRename);
+  useEffect(() => {
+    setRequestBoardRename(() => handleRenameOpen(true));
+    return () => setRequestBoardRename(null);
+  }, [handleRenameOpen, setRequestBoardRename]);
   const updateBoardMutation = useMutation(
     trpc.board.update.mutationOptions({
       onSuccess: () => {

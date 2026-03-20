@@ -114,7 +114,27 @@
     "importFile": "Import File",
     "hint": "Double-click on empty space to create text",
     "shortcuts": "Shortcuts: V Select · H Hand · T Text · C Connector",
-    "fromTemplate": "Start from Template"
+    "fromTemplate": "Start from Template",
+    "heading": "Start from a Template",
+    "subheading": "Choose a template and click to place on canvas",
+    "tpl": {
+      "imageGen": {
+        "label": "AI Image Generation",
+        "desc": "Enter a prompt, AI generates image"
+      },
+      "imagePrompt": {
+        "label": "AI Image Analysis",
+        "desc": "Upload image, AI analyzes content"
+      },
+      "videoGen": {
+        "label": "AI Video Generation",
+        "desc": "AI generates short video clips"
+      },
+      "text": {
+        "label": "Text Note",
+        "desc": "Add text to canvas"
+      }
+    }
   },
   "templates": {
     "title": "Choose a Workflow Template",
@@ -172,6 +192,16 @@
     "textNodeDesc": "Add text content",
     "imageGenerate": "Image Generation",
     "imageGenerateDesc": "Generate new image from prompt and image",
+    "videoUnderstanding": "Video Understanding",
+    "videoUnderstandingDesc": "Analyze video and generate description",
+    "extractFrame": "Extract Frame",
+    "extractFrameDesc": "Extract a frame from video",
+    "continueVideo": "Continue Video",
+    "continueVideoDesc": "Generate continuation from video",
+    "textAiPolish": "AI Polish",
+    "textAiPolishDesc": "Polish, translate or rewrite text with AI",
+    "textToSpeech": "Text to Speech",
+    "textToSpeechDesc": "Convert text to audio",
     "straight": "Straight",
     "elbow": "Elbow",
     "curve": "Curve",
@@ -179,7 +209,13 @@
     "fly": "Fly",
     "colorTitle": "Connector color {{color}}",
     "dashed": "Dashed",
-    "deleteConnector": "Delete Connector"
+    "deleteConnector": "Delete Connector",
+    "speechRecognition": "Speech Recognition",
+    "speechRecognitionDesc": "Convert audio to text",
+    "addAudioToVideo": "Add Audio to Video",
+    "addAudioToVideoDesc": "Combine audio with video",
+    "voiceClone": "Voice Clone",
+    "voiceCloneDesc": "Clone the voice from this audio"
   },
   "nodeDetail": {
     "detail": "Details"
@@ -247,9 +283,16 @@
       "gray": "Gray"
     },
     "recommend": {
+      "textToImage": "Text to Image",
       "textToVideo": "Text to Video",
       "imageReversePrompt": "Image to Prompt",
       "textToSpeech": "Text to Speech"
+    },
+    "aiPolish": {
+      "title": "AI Polish",
+      "polish": "Polish",
+      "translate": "Translate",
+      "rewrite": "Rewrite"
     }
   },
   "groupNode": {
@@ -261,6 +304,7 @@
     "untitled": "Untitled Group",
     "storyboard": "Storyboard",
     "editTitle": "Edit Title",
+    "bgColor": "Background",
     "groupDialog": {
       "title": "Group Members",
       "editTitle": "Edit Group",
@@ -436,6 +480,7 @@
   },
   "videoNode": {
     "toolbar": {
+      "regenerate": "Regenerate",
       "play": "Play",
       "download": "Download",
       "trim": "Trim",
@@ -452,7 +497,11 @@
   },
   "audioNode": {
     "toolbar": {
-      "detail": "Details"
+      "detail": "Details",
+      "regenerate": "Regenerate",
+      "play": "Play",
+      "download": "Download",
+      "delete": "Delete"
     },
     "noSource": "No audio source"
   },
@@ -485,13 +534,16 @@
     "queryFailed": "Task query failed",
     "imageGenerateFailed": "Image generation failed",
     "videoGenerateFailed": "Video generation failed",
+    "audioGenerateFailed": "Audio generation failed",
     "videoSaveFailed": "Video save failed",
     "taskCancelled": "Task cancelled",
     "failed": "Generation failed",
     "imageTimeout": "Image generation timed out",
     "videoTimeout": "Video generation timed out",
+    "audioTimeout": "Audio generation timed out",
     "imageGenerateError": "Failed to generate image",
     "videoGenerateError": "Failed to generate video",
+    "audioGenerateError": "Failed to generate audio",
     "statusFailed": "Failed",
     "statusGenerating": "Generating…",
     "statusWaiting": "Waiting",
@@ -603,16 +655,36 @@
     "prompt": "Prompt",
     "promptPlaceholder": "Describe video content and camera movements...",
     "firstFrame": "First Frame",
+    "lastFrame": "Last Frame",
     "firstFrameAuto": "Auto-read from upstream node",
     "firstFrameUpload": "Click to upload",
+    "sourceVideo": "Source Video",
     "model": "Model",
     "autoRecommend": "Auto Recommend",
     "aspectRatio": "Aspect Ratio",
     "duration": "Duration",
+    "quality": "Quality",
     "generate": "Generate",
     "generating": "Generating...",
     "upstreamLoaded": "Content loaded from upstream node",
-    "upstreamImageLoaded": "First frame loaded from upstream node"
+    "upstreamImageLoaded": "First frame loaded from upstream node",
+    "enhancePrompt": "Enhance Prompt",
+    "translate": "Translate",
+    "credits": "Credits",
+    "mode": {
+      "textToVideo": "Text to Video",
+      "universalRef": "Universal Ref",
+      "imageToVideo": "Image to Video",
+      "startEndFrame": "Start/End Frame",
+      "videoEdit": "Video Edit"
+    },
+    "modeV2Badge": "V2",
+    "refFeatures": {
+      "mark": "Mark",
+      "effect": "Effect",
+      "subject": "Subject",
+      "camera": "Camera"
+    }
   },
   "imagePanel": {
     "textToImage": "Text to Image",
@@ -630,7 +702,16 @@
     "upstreamLoaded": "Content loaded from upstream node",
     "resultPagination": {
       "pageOf": "{{current}}/{{total}}"
-    }
+    },
+    "referenceImages": "Reference Images",
+    "selectedCount": "Selected {{count}}/{{limit}}",
+    "expandUpstream": "Expand",
+    "uploadReference": "Upload reference image",
+    "enhancePrompt": "Enhance prompt",
+    "translate": "Translate",
+    "settings": "Settings",
+    "generateMode": "Generate mode",
+    "upstreamSlots": "Upstream Assets"
   },
   "upscalePanel": {
     "title": "HD Upscale",
@@ -652,7 +733,28 @@
     "duration": "Duration",
     "generate": "Generate",
     "generating": "Generating...",
-    "upstreamLoaded": "Content loaded from upstream node"
+    "upstreamLoaded": "Content loaded from upstream node",
+    "title": "Audio Generation",
+    "tabs": {
+      "tts": "Text-to-Speech",
+      "music": "Music",
+      "sfx": "Sound Effects"
+    },
+    "tts": {
+      "textPreview": "Text Content",
+      "textPreviewEmpty": "Connect a text node to auto-fill content",
+      "referenceVoice": "Reference Voice",
+      "referenceVoiceEmpty": "Select or connect a voice sample",
+      "selectVoice": "Select Voice",
+      "registeredVoice": "Registered Voice",
+      "registeredVoicePlaceholder": "Coming in V1.5"
+    },
+    "enhancePrompt": "Enhance Prompt",
+    "durationAuto": "Auto",
+    "translate": "Translate",
+    "credits": "Credits",
+    "noModel": "No models available",
+    "loginHint": "Sign in to use cloud models"
   },
   "nodeSearch": {
     "placeholder": "Search nodes...",
@@ -676,5 +778,15 @@
     "calendar": "Calendar",
     "group": "Group",
     "image-group": "Image Group"
+  },
+  "textPanel": {
+    "upstreamPreview": "Upstream Text",
+    "instructionPlaceholder": "Enter AI instruction...",
+    "model": "Model",
+    "autoRecommend": "Auto Recommend",
+    "generate": "Generate",
+    "generating": "Generating...",
+    "translate": "Translate",
+    "credits": "Credits"
   }
 }

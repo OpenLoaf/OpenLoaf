@@ -8,6 +8,7 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import type {
+  CanvasConnectorTemplateDefinition,
   CanvasNodeDefinition,
   CanvasNodeViewProps,
   CanvasToolbarContext,
@@ -17,8 +18,11 @@ import { z } from "zod";
 import {
   Download,
   ImageOff,
+  ImagePlus,
   Info,
   RefreshCw,
+  Trash2,
+  Type,
   Video,
   ZoomIn,
 } from "lucide-react";
@@ -43,9 +47,8 @@ import { IMAGE_EXTS } from "@/components/project/filesystem/components/FileSyste
 import { IMAGE_NODE_MAX_SIZE, IMAGE_NODE_MIN_SIZE } from "./node-config";
 import i18next from "i18next";
 import {
-  BOARD_TOOLBAR_ITEM_BLUE,
-  BOARD_TOOLBAR_ITEM_GREEN,
-  BOARD_TOOLBAR_ITEM_PURPLE,
+  BOARD_TOOLBAR_ITEM_DEFAULT,
+  BOARD_TOOLBAR_ITEM_RED,
 } from "../ui/board-style-system";
 import { createPortal } from "react-dom";
 import { ImageAiPanel, type ImageGenerateParams } from "../panels/ImageAiPanel";
@@ -184,22 +187,24 @@ async function downloadOriginalImage(
 function createImageToolbarItems(ctx: CanvasToolbarContext<ImageNodeProps>) {
   const origin = ctx.element.props.origin;
 
-  // AI action buttons prepended before base items
+  // AI action buttons: regenerate (ai-generate only), upscale, generate video
   const aiItems = [
-    {
-      id: "ai-generate-video",
-      label: i18next.t('board:aiToolbar.generateVideo'),
-      icon: <Video size={14} />,
-      className: BOARD_TOOLBAR_ITEM_PURPLE,
-      onSelect: () => {
-        deriveNode({ engine: ctx.engine, sourceNodeId: ctx.element.id, targetType: 'video' })
-      },
-    },
+    ...(origin === 'ai-generate'
+      ? [
+          {
+            id: "ai-regenerate",
+            label: i18next.t('board:aiToolbar.regenerate'),
+            icon: <RefreshCw size={14} />,
+            className: BOARD_TOOLBAR_ITEM_DEFAULT,
+            onSelect: () => {},
+          },
+        ]
+      : []),
     {
       id: "ai-upscale",
       label: i18next.t('board:aiToolbar.upscale'),
       icon: <ZoomIn size={14} />,
-      className: BOARD_TOOLBAR_ITEM_BLUE,
+      className: BOARD_TOOLBAR_ITEM_DEFAULT,
       onSelect: () => {
         const sourceProps = ctx.element.props
         const sourceImageSrc =
@@ -282,17 +287,15 @@ function createImageToolbarItems(ctx: CanvasToolbarContext<ImageNodeProps>) {
           })
       },
     },
-    ...(origin === 'ai-generate'
-      ? [
-          {
-            id: "ai-regenerate",
-            label: i18next.t('board:aiToolbar.regenerate'),
-            icon: <RefreshCw size={14} />,
-            className: BOARD_TOOLBAR_ITEM_PURPLE,
-            onSelect: () => {},
-          },
-        ]
-      : []),
+    {
+      id: "ai-generate-video",
+      label: i18next.t('board:aiToolbar.generateVideo'),
+      icon: <Video size={14} />,
+      className: BOARD_TOOLBAR_ITEM_DEFAULT,
+      onSelect: () => {
+        deriveNode({ engine: ctx.engine, sourceNodeId: ctx.element.id, targetType: 'video' })
+      },
+    },
   ];
 
   const baseItems = [
@@ -300,19 +303,67 @@ function createImageToolbarItems(ctx: CanvasToolbarContext<ImageNodeProps>) {
       id: "download",
       label: i18next.t('board:imageNode.toolbar.download'),
       icon: <Download size={14} />,
-      className: BOARD_TOOLBAR_ITEM_GREEN,
+      className: BOARD_TOOLBAR_ITEM_DEFAULT,
       onSelect: () => void downloadOriginalImage(ctx.element.props, ctx.fileContext),
     },
     {
       id: "inspect",
       label: i18next.t('board:imageNode.toolbar.detail'),
       icon: <Info size={14} />,
-      className: BOARD_TOOLBAR_ITEM_BLUE,
+      className: BOARD_TOOLBAR_ITEM_DEFAULT,
       onSelect: () => ctx.openInspector(ctx.element.id),
+    },
+    {
+      id: "delete",
+      label: i18next.t('board:board.delete'),
+      icon: <Trash2 size={14} />,
+      className: BOARD_TOOLBAR_ITEM_RED,
+      onSelect: () => ctx.engine.deleteElements([ctx.element.id]),
     },
   ];
   return [...aiItems, ...baseItems];
 }
+
+// ---------------------------------------------------------------------------
+// Connector templates
+// ---------------------------------------------------------------------------
+
+/** Connector templates offered by the image node. */
+const getImageNodeConnectorTemplates = (): CanvasConnectorTemplateDefinition[] => [
+  {
+    id: 'text',
+    label: i18next.t('board:connector.textNode'),
+    description: i18next.t('board:connector.textNodeDesc'),
+    size: [200, 200],
+    icon: <Type size={14} />,
+    createNode: () => ({
+      type: 'text',
+      props: { style: 'sticky', stickyColor: 'yellow' },
+    }),
+  },
+  {
+    id: 'image',
+    label: i18next.t('board:connector.imageGenerate'),
+    description: i18next.t('board:connector.imageGenerateDesc'),
+    size: [320, 180],
+    icon: <ImagePlus size={14} />,
+    createNode: () => ({
+      type: 'image',
+      props: {},
+    }),
+  },
+  {
+    id: 'video',
+    label: i18next.t('board:connector.videoGenerate'),
+    description: i18next.t('board:connector.videoGenerateDesc'),
+    size: [320, 180],
+    icon: <Video size={14} />,
+    createNode: () => ({
+      type: 'video',
+      props: {},
+    }),
+  },
+];
 
 /** Render an image node using a compressed preview bitmap. */
 export function ImageNodeView({
@@ -325,6 +376,13 @@ export function ImageNodeView({
   const hydrationRef = useRef<string | null>(null);
   const { actions, engine, fileContext } = useBoardContext();
   const upstream = useUpstreamData(engine, expanded ? element.id : null);
+  // 把 upstream imageList 中的 board 相对路径解析为浏览器可访问 URL
+  const resolvedUpstreamImages = useMemo(
+    () => upstream?.imageList
+      .map((src) => resolveImageSource(src, fileContext))
+      .filter(Boolean) ?? [],
+    [upstream?.imageList, fileContext],
+  );
   const panelOverlay = usePanelOverlay();
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -773,12 +831,15 @@ export function ImageNodeView({
           onPointerDown={event => {
             event.stopPropagation();
           }}
+          onContextMenu={event => {
+            event.stopPropagation();
+          }}
         >
           <ImageAiPanel
             element={element}
             onUpdate={onUpdate}
             upstreamText={upstream?.textList.join('\n')}
-            upstreamImages={upstream?.imageList}
+            upstreamImages={resolvedUpstreamImages}
             onGenerate={handleGenerate}
           />
         </div>,
@@ -860,6 +921,6 @@ export const ImageNodeDefinition: CanvasNodeDefinition<ImageNodeProps> = {
     maxSize: IMAGE_NODE_MAX_SIZE,
   },
   inlinePanel: { width: 420, height: 480 },
-  connectorTemplates: () => [],
+  connectorTemplates: () => getImageNodeConnectorTemplates(),
   toolbar: (ctx) => createImageToolbarItems(ctx),
 };

@@ -8,8 +8,12 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 const path = require("node:path");
+const pkg = require("./package.json");
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  env: {
+    NEXT_PUBLIC_APP_VERSION: pkg.version,
+  },
   typedRoutes: true,
   reactCompiler: true,
   transpilePackages: [

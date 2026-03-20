@@ -51,8 +51,8 @@ function SelectionToolbarContainer({
     <div
       data-node-toolbar
       className={cn(
-        "pointer-events-auto nodrag nopan absolute z-20 -translate-x-1/2 rounded-lg",
-        "p-2",
+        "pointer-events-auto nodrag nopan absolute z-20 -translate-x-1/2 rounded-full",
+        "px-1.5 py-1",
         toolbarSurfaceClassName,
         offsetClass
       )}
@@ -75,10 +75,12 @@ type ToolbarGroupProps = {
   setOpenPanelId: (panelId: string | null) => void;
   /** Whether to render a trailing divider. */
   showDivider?: boolean;
+  /** Compact mode: icon-only items grouped tightly in a pill container. */
+  compact?: boolean;
 };
 
 /** Render a group of toolbar items with optional divider. */
-function ToolbarGroup({ items, openPanelId, setOpenPanelId, showDivider }: ToolbarGroupProps) {
+function ToolbarGroup({ items, openPanelId, setOpenPanelId, showDivider, compact }: ToolbarGroupProps) {
   if (items.length === 0) return null;
 
   // 逻辑：关闭面板时触发 onPanelClose 回调（如保存颜色历史）。
@@ -90,47 +92,55 @@ function ToolbarGroup({ items, openPanelId, setOpenPanelId, showDivider }: Toolb
     setOpenPanelId(nextId);
   };
 
+  const renderItem = (item: CanvasToolbarItem) => {
+    const hasPanel = Boolean(item.panel);
+    const isPanelOpen = openPanelId === item.id;
+    const panelContent = item.panel
+      ? typeof item.panel === "function"
+        ? item.panel({ closePanel: () => closePanelWithCallback(null) })
+        : item.panel
+      : null;
+    const isActive = Boolean(item.active) || isPanelOpen;
+    return (
+      <div key={item.id} className="relative">
+        <PanelItem
+          title={item.label}
+          size="sm"
+          active={isActive}
+          onClick={() => {
+            if (hasPanel) {
+              closePanelWithCallback(isPanelOpen ? null : item.id);
+              return;
+            }
+            closePanelWithCallback(null);
+            item.onSelect?.();
+          }}
+          showLabel={item.showLabel}
+          className={item.className}
+        >
+          {item.icon}
+        </PanelItem>
+        {panelContent ? (
+          <HoverPanel
+            open={isPanelOpen}
+            className={cn("w-max", item.panelClassName)}
+          >
+            {panelContent}
+          </HoverPanel>
+        ) : null}
+      </div>
+    );
+  };
+
   return (
     <>
-      {items.map(item => {
-        const hasPanel = Boolean(item.panel);
-        const isPanelOpen = openPanelId === item.id;
-        const panelContent = item.panel
-          ? typeof item.panel === "function"
-            ? item.panel({ closePanel: () => closePanelWithCallback(null) })
-            : item.panel
-          : null;
-        const isActive = Boolean(item.active) || isPanelOpen;
-        return (
-          <div key={item.id} className="relative">
-            <PanelItem
-              title={item.label}
-              size="sm"
-              active={isActive}
-              onClick={() => {
-                if (hasPanel) {
-                  closePanelWithCallback(isPanelOpen ? null : item.id);
-                  return;
-                }
-                closePanelWithCallback(null);
-                item.onSelect?.();
-              }}
-              showLabel={item.showLabel}
-              className={item.className}
-            >
-              {item.icon}
-            </PanelItem>
-            {panelContent ? (
-              <HoverPanel
-                open={isPanelOpen}
-                className={cn("w-max", item.panelClassName)}
-              >
-                {panelContent}
-              </HoverPanel>
-            ) : null}
-          </div>
-        );
-      })}
+      {compact ? (
+        <div className="flex items-center gap-0 rounded-full bg-muted/40 p-0.5">
+          {items.map(renderItem)}
+        </div>
+      ) : (
+        items.map(renderItem)
+      )}
       {showDivider ? <span className="mx-1 h-5 w-px bg-ol-divider" /> : null}
     </>
   );

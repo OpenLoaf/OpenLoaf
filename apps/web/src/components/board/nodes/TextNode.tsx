@@ -30,6 +30,7 @@ import {
   AlignRight,
   Bold,
   CheckSquare,
+  ChevronDown,
   ImagePlus,
   Italic,
   List,
@@ -37,10 +38,13 @@ import {
   MessageSquare,
   Palette,
   PaintBucket,
+  Sparkles,
   Strikethrough,
   Type,
   Underline,
   Video,
+  Volume2,
+  Wand2,
 } from "lucide-react";
 import { cn } from "@udecode/cn";
 import { KEYS } from 'platejs';
@@ -52,14 +56,17 @@ import {
   MESSAGE_STREAM_MARKDOWN_CLASSNAME,
 } from "@/components/ai/message/markdown/MessageStreamMarkdown";
 import {
-  BOARD_TOOLBAR_ITEM_BLUE,
-  BOARD_TOOLBAR_ITEM_PURPLE,
+  BOARD_TOOLBAR_ITEM_DEFAULT,
 } from "../ui/board-style-system";
 import { useBoardContext } from "../core/BoardProvider";
+import { createPortal } from "react-dom";
 import { deriveNode } from "../utils/derive-node";
 import { MINDMAP_META } from "../engine/mindmap-layout";
 import { HueSlider, buildColorSwatches, DEFAULT_COLOR_PRESETS } from "../ui/HueSlider";
 import { BoardTextEditorKit } from "./text-editor-kit";
+import { useUpstreamData } from "../hooks/useUpstreamData";
+import { usePanelOverlay } from "../render/pixi/PixiApplication";
+import { TextAiPanel, type TextGenerateParams } from "../panels/TextAiPanel";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -216,14 +223,47 @@ const textEditorRefs = new Map<string, PlateEditor>();
 /** Connector templates offered by the text node – resolved at render time. */
 const getTextNodeConnectorTemplates = (): CanvasConnectorTemplateDefinition[] => [
   {
+    id: "image",
+    label: i18next.t('board:connector.imageGenerate'),
+    description: i18next.t('board:connector.imageGenerateDesc'),
+    size: [320, 180],
+    icon: <ImagePlus size={14} />,
+    createNode: () => ({
+      type: "image",
+      props: {},
+    }),
+  },
+  {
+    id: "video",
+    label: i18next.t('board:connector.videoGenerate'),
+    description: i18next.t('board:connector.videoGenerateDesc'),
+    size: [320, 180],
+    icon: <Video size={14} />,
+    createNode: () => ({
+      type: "video",
+      props: {},
+    }),
+  },
+  {
+    id: "audio",
+    label: i18next.t('board:connector.textToSpeech'),
+    description: i18next.t('board:connector.textToSpeechDesc'),
+    size: [320, 120],
+    icon: <Volume2 size={14} />,
+    createNode: () => ({
+      type: "audio",
+      props: {},
+    }),
+  },
+  {
     id: "text",
-    label: i18next.t('board:connector.textNode'),
-    description: i18next.t('board:connector.textNodeDesc'),
-    size: [200, TEXT_NODE_DEFAULT_HEIGHT],
+    label: i18next.t('board:connector.textAiPolish'),
+    description: i18next.t('board:connector.textAiPolishDesc'),
+    size: [200, 200],
     icon: <Type size={14} />,
     createNode: () => ({
       type: "text",
-      props: {},
+      props: { style: 'sticky', stickyColor: 'yellow' },
     }),
   },
 ];
@@ -495,7 +535,7 @@ function buildColorToolbarItems(
       label: t('board:textNode.toolbar.textColor'),
       showLabel: true,
       icon: <Palette size={14} />,
-      className: BOARD_TOOLBAR_ITEM_PURPLE,
+      className: BOARD_TOOLBAR_ITEM_DEFAULT,
       onPanelClose: () => {
         if (textColor) addColorHistory(textColor);
       },
@@ -549,7 +589,7 @@ function buildColorToolbarItems(
       label: t('board:textNode.toolbar.backgroundColor'),
       showLabel: true,
       icon: <PaintBucket size={14} />,
-      className: BOARD_TOOLBAR_ITEM_PURPLE,
+      className: BOARD_TOOLBAR_ITEM_DEFAULT,
       onPanelClose: () => {
         if (backgroundColor) addColorHistory(backgroundColor);
       },
@@ -640,24 +680,40 @@ function createTextToolbarItems(ctx: CanvasToolbarContext<TextNodeProps>) {
   };
 
   return [
-    // ---- AI actions ----
+    // ---- AI Polish dropdown ----
     {
-      id: 'ai-generate-image',
-      label: t('board:aiToolbar.generateImage'),
-      icon: <ImagePlus size={14} />,
-      className: BOARD_TOOLBAR_ITEM_BLUE,
-      onSelect: () => {
-        deriveNode({ engine: ctx.engine, sourceNodeId: ctx.element.id, targetType: 'image' })
-      },
-    },
-    {
-      id: 'ai-generate-video',
-      label: t('board:aiToolbar.generateVideo'),
-      icon: <Video size={14} />,
-      className: BOARD_TOOLBAR_ITEM_PURPLE,
-      onSelect: () => {
-        deriveNode({ engine: ctx.engine, sourceNodeId: ctx.element.id, targetType: 'video' })
-      },
+      id: 'ai-polish',
+      label: t('board:textNode.aiPolish.title'),
+      icon: <><Wand2 size={14} /><ChevronDown size={10} className="ml-0.5 opacity-60" /></>,
+      className: BOARD_TOOLBAR_ITEM_DEFAULT,
+      panel: (
+        <div className="flex flex-col gap-0.5 min-w-[120px]">
+          <TextToolbarPanelButton
+            title={t('board:textNode.aiPolish.polish')}
+            onSelect={() => {
+              deriveNode({ engine: ctx.engine, sourceNodeId: ctx.element.id, targetType: 'text', targetProps: { style: 'sticky', stickyColor: 'yellow' } })
+            }}
+          >
+            <Sparkles size={12} className="mr-1.5" />{t('board:textNode.aiPolish.polish')}
+          </TextToolbarPanelButton>
+          <TextToolbarPanelButton
+            title={t('board:textNode.aiPolish.translate')}
+            onSelect={() => {
+              deriveNode({ engine: ctx.engine, sourceNodeId: ctx.element.id, targetType: 'text', targetProps: { style: 'sticky', stickyColor: 'blue' } })
+            }}
+          >
+            <MessageSquare size={12} className="mr-1.5" />{t('board:textNode.aiPolish.translate')}
+          </TextToolbarPanelButton>
+          <TextToolbarPanelButton
+            title={t('board:textNode.aiPolish.rewrite')}
+            onSelect={() => {
+              deriveNode({ engine: ctx.engine, sourceNodeId: ctx.element.id, targetType: 'text', targetProps: { style: 'sticky', stickyColor: 'green' } })
+            }}
+          >
+            <Type size={12} className="mr-1.5" />{t('board:textNode.aiPolish.rewrite')}
+          </TextToolbarPanelButton>
+        </div>
+      ),
     },
     // ---- Node-level: Font size ----
     {
@@ -665,7 +721,7 @@ function createTextToolbarItems(ctx: CanvasToolbarContext<TextNodeProps>) {
       label: t('board:textNode.toolbar.fontSize'),
       showLabel: true,
       icon: <Type size={14} />,
-      className: BOARD_TOOLBAR_ITEM_BLUE,
+      className: BOARD_TOOLBAR_ITEM_DEFAULT,
       panel: (
         <div className="flex items-center gap-1">
           {TEXT_NODE_FONT_SIZES.map(size => (
@@ -687,7 +743,7 @@ function createTextToolbarItems(ctx: CanvasToolbarContext<TextNodeProps>) {
       label: t('board:textNode.toolbar.style'),
       showLabel: true,
       icon: <Bold size={14} />,
-      className: BOARD_TOOLBAR_ITEM_PURPLE,
+      className: BOARD_TOOLBAR_ITEM_DEFAULT,
       panel: (
         <div className="flex items-center gap-1">
           <TextToolbarPanelButton
@@ -727,7 +783,7 @@ function createTextToolbarItems(ctx: CanvasToolbarContext<TextNodeProps>) {
       label: t('board:textNode.toolbar.list'),
       showLabel: true,
       icon: <List size={14} />,
-      className: BOARD_TOOLBAR_ITEM_BLUE,
+      className: BOARD_TOOLBAR_ITEM_DEFAULT,
       panel: (() => {
         // 逻辑：直接读取编辑器 value 检测列表类型，不依赖 editor.selection。
         const blocks = (editor?.children ?? []) as Record<string, unknown>[];
@@ -822,7 +878,7 @@ function createTextToolbarItems(ctx: CanvasToolbarContext<TextNodeProps>) {
       label: t('board:textNode.toolbar.align'),
       showLabel: true,
       icon: <AlignLeft size={14} />,
-      className: BOARD_TOOLBAR_ITEM_BLUE,
+      className: BOARD_TOOLBAR_ITEM_DEFAULT,
       panel: (
         <div className="flex items-center gap-1">
           <TextToolbarPanelButton
@@ -858,11 +914,15 @@ function createTextToolbarItems(ctx: CanvasToolbarContext<TextNodeProps>) {
 // TextNodeView — main component
 // ---------------------------------------------------------------------------
 
+/** Gap in px between the node bottom and the panel (screen-space constant). */
+const TEXT_PANEL_GAP_PX = 16;
+
 /** Render the editable text node with Plate rich-text editing. */
 function EditableTextNodeView({
   element,
   selected,
   editing,
+  expanded,
   onSelect,
   onUpdate,
 }: CanvasNodeViewProps<TextNodeProps>) {
@@ -883,6 +943,42 @@ function EditableTextNodeView({
 
   const { engine } = useBoardContext();
   const isLocked = engine.isLocked() || element.locked;
+
+  // Upstream data for AI panel (only resolve when expanded)
+  const upstream = useUpstreamData(engine, expanded ? element.id : null);
+  const panelOverlay = usePanelOverlay();
+  const panelRef = useRef<HTMLDivElement | null>(null);
+
+  // 逻辑：检查是否有上游 text→text 连接（用于显示 AI 面板）。
+  const hasUpstreamTextConnection = useMemo(() => {
+    if (!upstream) return false;
+    return upstream.textList.length > 0;
+  }, [upstream]);
+
+  // 逻辑：面板通过 subscribeView 同步缩放和位置。
+  const xywhRef = useRef(element.xywh);
+  xywhRef.current = element.xywh;
+  useEffect(() => {
+    if (!expanded || !hasUpstreamTextConnection) return;
+    const syncPanelScale = () => {
+      const el = panelRef.current;
+      if (!el) return;
+      const zoom = engine.viewport.getState().zoom;
+      const gap = TEXT_PANEL_GAP_PX / zoom;
+      const [, ny, , nh] = xywhRef.current;
+      el.style.top = `${ny + nh + gap}px`;
+      el.style.transform = `translateX(-50%) scale(${1 / zoom})`;
+    };
+    syncPanelScale();
+    return engine.subscribeView(syncPanelScale);
+  }, [engine, expanded, hasUpstreamTextConnection]);
+
+  const handleTextAiGenerate = useCallback(
+    (_params: TextGenerateParams) => {
+      // TODO: wire to actual AI generation
+    },
+    [],
+  );
 
   const [isEditing, setIsEditing] = useState(Boolean(editing) && !isGhost);
   const [shouldFocus, setShouldFocus] = useState(false);
@@ -1265,6 +1361,31 @@ function EditableTextNodeView({
           {getTextNodePlaceholder()}
         </div>
       ) : null}
+      {expanded && hasUpstreamTextConnection && panelOverlay ? createPortal(
+        <div
+          ref={panelRef}
+          className="pointer-events-auto absolute"
+          data-board-editor
+          style={{
+            left: element.xywh[0] + element.xywh[2] / 2,
+            top: element.xywh[1] + element.xywh[3],
+            transformOrigin: 'top center',
+          }}
+          onPointerDown={event => {
+            event.stopPropagation();
+          }}
+          onContextMenu={event => {
+            event.stopPropagation();
+          }}
+        >
+          <TextAiPanel
+            element={element}
+            upstreamText={upstream?.textList.join('\n')}
+            onGenerate={handleTextAiGenerate}
+          />
+        </div>,
+        panelOverlay,
+      ) : null}
     </div>
   );
 }
@@ -1352,4 +1473,5 @@ export const TextNodeDefinition: CanvasNodeDefinition<TextNodeProps> = {
     minSize: TEXT_NODE_MIN_SIZE,
     maxSize: TEXT_NODE_MAX_SIZE,
   },
+  inlinePanel: { width: 420, height: 360 },
 };

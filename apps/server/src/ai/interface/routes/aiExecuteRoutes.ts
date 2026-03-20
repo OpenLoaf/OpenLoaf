@@ -106,6 +106,9 @@ function parseAiExecuteRequest(body: unknown): { request?: AiExecuteRequest; err
       chatModelId: toText(raw.chatModelId) || undefined,
       chatModelSource,
       clientPlatform: normalizeClientPlatform(raw.clientPlatform),
+      webVersion: toText(raw.webVersion) || undefined,
+      serverVersion: toText(raw.serverVersion) || undefined,
+      desktopVersion: toText(raw.desktopVersion) || undefined,
       messageIdChain: normalizeMessageIdChain(raw.messageIdChain),
     },
   };

@@ -157,6 +157,8 @@ export type CanvasConnectorStyle =
   | "hand"
   | "fly";
 
+export type ConnectorSemantic = 'data-flow' | 'chat-flow'
+
 /** Connector element for linking nodes. */
 export type CanvasConnectorElement = CanvasElementBase & {
   /** Discriminator for connector elements. */
@@ -171,6 +173,8 @@ export type CanvasConnectorElement = CanvasElementBase & {
   color?: string;
   /** Whether the connector uses a dashed stroke. */
   dashed?: boolean;
+  semantic?: ConnectorSemantic
+  immutable?: boolean
 };
 
 /** Draft connector used for interactive linking. */
@@ -458,3 +462,40 @@ export type CanvasNodeDefinition<P> = {
   /** Inline panel config for node editing (expanded when selected). */
   inlinePanel?: CanvasInlinePanelConfig;
 };
+
+/** Immutable snapshot of inputs used for one AI generation */
+export interface InputSnapshot {
+  prompt: string
+  negativePrompt?: string
+  modelId: string
+  parameters: Record<string, unknown>
+  upstreamRefs: Array<{
+    nodeId: string
+    nodeType: string
+    data: string
+  }>
+  timestamp: number
+}
+
+/** Single immutable version in a media node's version stack */
+export interface VersionStackEntry {
+  id: string
+  status: 'generating' | 'ready' | 'failed'
+  input: InputSnapshot
+  output?: {
+    urls: string[]
+    metadata?: Record<string, unknown>
+  }
+  error?: {
+    code: string
+    message: string
+    taskId?: string
+  }
+  createdAt: number
+}
+
+/** Version stack for media nodes (image/video/audio) */
+export interface VersionStack {
+  entries: VersionStackEntry[]
+  primaryId?: string
+}

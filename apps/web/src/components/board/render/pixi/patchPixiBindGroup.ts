@@ -22,8 +22,6 @@
  * before each filter render pass.
  */
 
-/* eslint-disable @typescript-eslint/no-require-imports */
-
 let patched = false
 
 export function patchPixiBindGroupCascade(): void {
@@ -31,13 +29,13 @@ export function patchPixiBindGroupCascade(): void {
   patched = true
 
   try {
-    // Access PixiJS internal BindGroup class.
-    // The require path is stable across pixi.js v8.x.
-    const mod = require('pixi.js/lib/rendering/renderers/gpu/shader/BindGroup') as {
+    // Access PixiJS BindGroup class from the public entry point.
+    // Previously used a deep subpath import that isn't in the exports map.
+    const { BindGroup } = require('pixi.js') as {
       BindGroup: { prototype: PixiBindGroup }
     }
 
-    const proto = mod.BindGroup.prototype
+    const proto = BindGroup.prototype
     if (!proto || typeof proto.onResourceChange !== 'function') return
 
     proto.onResourceChange = function patchedOnResourceChange(

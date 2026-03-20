@@ -91,7 +91,7 @@ function PanelOverlayLayer({ engine, panelOverlayRef, snapshot }: {
   return (
     <div
       ref={panelOverlayRef}
-      className="pointer-events-none absolute inset-0 origin-top-left"
+      className="pointer-events-none absolute inset-0 z-[15] origin-top-left"
       data-panel-overlay
       data-dragging={isDragging || undefined}
       style={{

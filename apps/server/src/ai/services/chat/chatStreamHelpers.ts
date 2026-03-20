@@ -129,6 +129,12 @@ export function initRequestContext(input: {
   videoModelId?: string | null;
   /** Client platform for conditional tool registration. */
   clientPlatform?: ClientPlatform | null;
+  /** Web app version for SaaS metadata. */
+  webVersion?: string | null;
+  /** Server version for SaaS metadata. */
+  serverVersion?: string | null;
+  /** Desktop (Electron) app version for SaaS metadata. */
+  desktopVersion?: string | null;
   /** Page context for skill auto-loading. */
   pageContext?: ChatPageContext | null;
 }): RequestInitResult {
@@ -156,6 +162,9 @@ export function initRequestContext(input: {
     ...(input.autoApproveTools ? { autoApproveTools: true } : {}),
     ...(boardId ? { boardId } : {}),
     ...(input.clientPlatform ? { clientPlatform: input.clientPlatform } : {}),
+    ...(input.webVersion ? { webVersion: input.webVersion } : {}),
+    ...(input.serverVersion ? { serverVersion: input.serverVersion } : {}),
+    ...(input.desktopVersion ? { desktopVersion: input.desktopVersion } : {}),
     ...(input.pageContext ? { pageContext: input.pageContext } : {}),
   });
 

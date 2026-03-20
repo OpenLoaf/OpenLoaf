@@ -107,6 +107,10 @@ export const BOARD_SETTINGS_DROPDOWN_ITEM_ACTIVE =
 
 /* ── Toolbar Item Semantic Colors ── */
 
+/** Toolbar item — neutral (default black/white actions). */
+export const BOARD_TOOLBAR_ITEM_DEFAULT =
+  "text-foreground hover:bg-foreground/8 dark:hover:bg-foreground/10";
+
 /** Toolbar item — blue (primary / info actions). */
 export const BOARD_TOOLBAR_ITEM_BLUE =
   "text-ol-blue hover:bg-ol-blue-bg";

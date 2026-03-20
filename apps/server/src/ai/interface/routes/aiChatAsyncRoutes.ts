@@ -187,6 +187,9 @@ function parseAsyncRequest(body: unknown): { request?: AiExecuteRequest; error?:
       params: raw.params && typeof raw.params === 'object' && !Array.isArray(raw.params)
         ? raw.params as Record<string, unknown>
         : undefined,
+      webVersion: toText(raw.webVersion) || undefined,
+      serverVersion: toText(raw.serverVersion) || undefined,
+      desktopVersion: toText(raw.desktopVersion) || undefined,
       messageIdChain: normalizeMessageIdChain(raw.messageIdChain),
     },
   }

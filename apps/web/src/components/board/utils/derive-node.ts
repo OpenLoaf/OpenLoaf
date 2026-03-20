@@ -20,6 +20,7 @@ const DEFAULT_SIZE_MAP: Record<DeriveTargetType, [width: number, height: number]
   image: [IMAGE_NODE_DEFAULT_MAX_SIZE, IMAGE_NODE_DEFAULT_MAX_SIZE],
   video: [VIDEO_GENERATE_OUTPUT_WIDTH, VIDEO_GENERATE_OUTPUT_HEIGHT],
   audio: [280, 100],
+  text: [200, 200],
 }
 
 /** Side gap between source and derived node (horizontal, downstream). */
@@ -30,7 +31,7 @@ const DERIVE_UPSTREAM_SIDE_GAP = 120
 const DERIVE_STACK_GAP = 16
 
 /** Supported target node types for derivation. */
-export type DeriveTargetType = 'image' | 'video' | 'audio'
+export type DeriveTargetType = 'image' | 'video' | 'audio' | 'text'
 
 /** Direction of derivation relative to the source node. */
 export type DeriveDirection = 'downstream' | 'upstream'

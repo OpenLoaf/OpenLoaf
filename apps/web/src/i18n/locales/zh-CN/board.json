@@ -114,7 +114,27 @@
     "importFile": "导入文件",
     "hint": "双击空白处也可以创建文本",
     "shortcuts": "快捷键: V 选择 · H 拖拽 · T 文本 · C 连线",
-    "fromTemplate": "从模板开始"
+    "fromTemplate": "从模板开始",
+    "heading": "从模板开始创作",
+    "subheading": "选择一个模板，点击画布放置",
+    "tpl": {
+      "imageGen": {
+        "label": "AI 图片生成",
+        "desc": "输入提示词，AI 生成图片"
+      },
+      "imagePrompt": {
+        "label": "AI 图片理解",
+        "desc": "上传图片，AI 分析内容"
+      },
+      "videoGen": {
+        "label": "AI 视频生成",
+        "desc": "AI 生成短视频片段"
+      },
+      "text": {
+        "label": "文本笔记",
+        "desc": "添加文字到画布"
+      }
+    }
   },
   "templates": {
     "title": "选择工作流模板",
@@ -172,6 +192,16 @@
     "textNodeDesc": "添加文本内容",
     "imageGenerate": "图片生成",
     "imageGenerateDesc": "基于提示词与图片生成新图",
+    "videoUnderstanding": "视频理解",
+    "videoUnderstandingDesc": "分析视频并生成描述",
+    "extractFrame": "提取帧",
+    "extractFrameDesc": "从视频中提取帧图片",
+    "continueVideo": "续写视频",
+    "continueVideoDesc": "基于视频生成后续内容",
+    "textAiPolish": "AI 润色",
+    "textAiPolishDesc": "使用 AI 润色、翻译或改写文本",
+    "textToSpeech": "文字转语音",
+    "textToSpeechDesc": "将文本转换为音频",
     "straight": "直线",
     "elbow": "折线",
     "curve": "曲线",
@@ -179,7 +209,13 @@
     "fly": "飞行",
     "colorTitle": "连线颜色 {{color}}",
     "dashed": "虚线",
-    "deleteConnector": "删除连线"
+    "deleteConnector": "删除连线",
+    "speechRecognition": "语音识别",
+    "speechRecognitionDesc": "将音频转为文本",
+    "addAudioToVideo": "添加音频到视频",
+    "addAudioToVideoDesc": "将音频与视频合并",
+    "voiceClone": "声音克隆",
+    "voiceCloneDesc": "从此音频克隆声音"
   },
   "nodeDetail": {
     "detail": "详情"
@@ -247,9 +283,16 @@
       "gray": "灰"
     },
     "recommend": {
+      "textToImage": "文生图",
       "textToVideo": "文生视频",
       "imageReversePrompt": "图片反推提示词",
       "textToSpeech": "文字转语音"
+    },
+    "aiPolish": {
+      "title": "AI 润色",
+      "polish": "润色",
+      "translate": "翻译",
+      "rewrite": "改写"
     }
   },
   "groupNode": {
@@ -261,6 +304,7 @@
     "untitled": "未命名分组",
     "storyboard": "分镜",
     "editTitle": "编辑标题",
+    "bgColor": "背景色",
     "groupDialog": {
       "title": "组成员",
       "editTitle": "编辑组",
@@ -440,6 +484,7 @@
   },
   "videoNode": {
     "toolbar": {
+      "regenerate": "重新生成",
       "play": "播放",
       "download": "下载",
       "trim": "剪辑",
@@ -456,7 +501,11 @@
   },
   "audioNode": {
     "toolbar": {
-      "detail": "详情"
+      "detail": "详情",
+      "regenerate": "重新生成",
+      "play": "播放",
+      "download": "下载",
+      "delete": "删除"
     },
     "noSource": "无音频源"
   },
@@ -489,13 +538,16 @@
     "queryFailed": "任务查询失败",
     "imageGenerateFailed": "图片生成失败",
     "videoGenerateFailed": "视频生成失败",
+    "audioGenerateFailed": "音频生成失败",
     "videoSaveFailed": "视频保存失败",
     "taskCancelled": "任务已取消",
     "failed": "生成失败",
     "imageTimeout": "图片生成超时",
     "videoTimeout": "视频生成超时",
+    "audioTimeout": "音频生成超时",
     "imageGenerateError": "生成图片失败",
     "videoGenerateError": "生成视频失败",
+    "audioGenerateError": "生成音频失败",
     "statusFailed": "失败",
     "statusGenerating": "生成中…",
     "statusWaiting": "等待任务",
@@ -606,17 +658,37 @@
   "videoPanel": {
     "prompt": "提示词",
     "promptPlaceholder": "描述视频内容和运镜效果...",
-    "firstFrame": "首帧图片",
+    "firstFrame": "首帧",
+    "lastFrame": "尾帧",
     "firstFrameAuto": "从上游节点自动读取",
     "firstFrameUpload": "点击上传",
+    "sourceVideo": "源视频",
     "model": "模型",
     "autoRecommend": "自动推荐",
     "aspectRatio": "比例",
     "duration": "时长",
+    "quality": "质量",
     "generate": "生成",
     "generating": "生成中...",
     "upstreamLoaded": "已从上游节点读取内容",
-    "upstreamImageLoaded": "已从上游节点读取首帧图片"
+    "upstreamImageLoaded": "已从上游节点读取首帧图片",
+    "enhancePrompt": "优化提示词",
+    "translate": "翻译",
+    "credits": "积分",
+    "mode": {
+      "textToVideo": "文生视频",
+      "universalRef": "全能参考",
+      "imageToVideo": "图生视频",
+      "startEndFrame": "首尾帧",
+      "videoEdit": "视频编辑"
+    },
+    "modeV2Badge": "V2",
+    "refFeatures": {
+      "mark": "标记",
+      "effect": "特效",
+      "subject": "主体",
+      "camera": "运镜"
+    }
   },
   "imagePanel": {
     "textToImage": "文生图",
@@ -634,7 +706,16 @@
     "upstreamLoaded": "已从上游节点读取内容",
     "resultPagination": {
       "pageOf": "{{current}}/{{total}}"
-    }
+    },
+    "referenceImages": "参考图片",
+    "selectedCount": "已选 {{count}}/{{limit}}",
+    "expandUpstream": "展开",
+    "uploadReference": "上传参考图",
+    "enhancePrompt": "优化提示词",
+    "translate": "翻译",
+    "settings": "设置",
+    "generateMode": "生成模式",
+    "upstreamSlots": "上游素材"
   },
   "upscalePanel": {
     "title": "高清放大",
@@ -656,7 +737,28 @@
     "duration": "时长",
     "generate": "生成",
     "generating": "生成中...",
-    "upstreamLoaded": "已从上游节点读取内容"
+    "upstreamLoaded": "已从上游节点读取内容",
+    "title": "音频生成",
+    "tabs": {
+      "tts": "语音合成",
+      "music": "音乐生成",
+      "sfx": "音效"
+    },
+    "tts": {
+      "textPreview": "文本内容",
+      "textPreviewEmpty": "连接文本节点以自动填充内容",
+      "referenceVoice": "参考音色",
+      "referenceVoiceEmpty": "选择或连接音色样本",
+      "selectVoice": "选择音色",
+      "registeredVoice": "已注册音色",
+      "registeredVoicePlaceholder": "V1.5 版本上线"
+    },
+    "enhancePrompt": "优化提示词",
+    "durationAuto": "自动",
+    "translate": "翻译",
+    "credits": "积分",
+    "noModel": "无可用模型",
+    "loginHint": "登录以使用云端模型"
   },
   "nodeSearch": {
     "placeholder": "搜索节点...",
@@ -680,5 +782,15 @@
     "calendar": "日历",
     "group": "分组",
     "image-group": "图片组"
+  },
+  "textPanel": {
+    "upstreamPreview": "上游文本",
+    "instructionPlaceholder": "输入 AI 操作指令...",
+    "model": "模型",
+    "autoRecommend": "自动推荐",
+    "generate": "生成",
+    "generating": "生成中...",
+    "translate": "翻译",
+    "credits": "积分"
   }
 }

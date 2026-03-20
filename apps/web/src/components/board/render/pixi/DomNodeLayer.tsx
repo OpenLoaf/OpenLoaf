@@ -25,7 +25,6 @@ import type {
 } from '../../engine/types'
 import { getGroupOutlinePadding, isGroupNodeType } from '../../engine/grouping'
 import { NodeLabel } from '../../nodes/NodeLabel'
-import { TextNodeRecommendButtons } from '../../nodes/TextNodeRecommendButtons'
 
 type DomNodeLayerProps = {
   engine: CanvasEngine
@@ -143,9 +142,6 @@ const DomNodeItem = memo(function DomNodeItem({
         <div className="pointer-events-none absolute top-0 right-0 flex items-center justify-center rounded-bl-md bg-black/40 p-0.5">
           <Lock size={10} className="text-white" />
         </div>
-      )}
-      {element.type === 'text' && selected && !boxSelecting && (
-        <TextNodeRecommendButtons engine={engine} element={element} />
       )}
     </div>
   )

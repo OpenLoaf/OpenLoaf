@@ -9,7 +9,16 @@
  */
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ImagePlus, Link as LinkIcon, Sparkles } from 'lucide-react'
+import {
+  ChevronDown,
+  ImagePlus,
+  Languages,
+  Link as LinkIcon,
+  Sparkles,
+  Video,
+  Wand2,
+  Zap,
+} from 'lucide-react'
 import type { CanvasNodeElement } from '../engine/types'
 import type { VideoNodeProps } from '../nodes/VideoNode'
 import type { AiGenerateConfig } from '../board-contracts'
@@ -30,6 +39,21 @@ const FALLBACK_MODEL_OPTIONS = [
   { id: 'runway-gen3', label: 'Runway Gen-3' },
   { id: 'pika-v2', label: 'Pika v2' },
 ] as const
+
+/** Video generation mode. */
+type VideoMode = 'text2video' | 'universalRef' | 'img2video' | 'startEndFrame' | 'videoEdit'
+
+/** All modes with their i18n key and enabled status. */
+const VIDEO_MODES: Array<{ id: VideoMode; key: string; enabled: boolean }> = [
+  { id: 'text2video', key: 'mode.textToVideo', enabled: true },
+  { id: 'universalRef', key: 'mode.universalRef', enabled: true },
+  { id: 'img2video', key: 'mode.imageToVideo', enabled: true },
+  { id: 'startEndFrame', key: 'mode.startEndFrame', enabled: true },
+  { id: 'videoEdit', key: 'mode.videoEdit', enabled: false },
+]
+
+/** Reference feature buttons for universalRef mode. */
+const REF_FEATURES = ['mark', 'effect', 'subject', 'camera'] as const
 
 export type VideoGenerateParams = {
   prompt: string
@@ -59,18 +83,20 @@ export function VideoAiPanel({
   const aiConfig = element.props.aiConfig
   const { videoModels, loaded: mediaModelsLoaded } = useMediaModels()
 
+  const [mode, setMode] = useState<VideoMode>('text2video')
+
   const imageCount = upstreamImages?.length ?? 0
   const filteredModels = useMemo(
     () =>
       mediaModelsLoaded && videoModels.length > 0
         ? filterVideoMediaModels(videoModels, {
             imageCount,
-            hasReference: false,
-            hasStartEnd: false,
+            hasReference: mode === 'universalRef',
+            hasStartEnd: mode === 'startEndFrame',
             withAudio: false,
           })
         : [],
-    [videoModels, mediaModelsLoaded, imageCount],
+    [videoModels, mediaModelsLoaded, imageCount, mode],
   )
 
   const usedUpstreamText = !aiConfig?.prompt && !!upstreamText
@@ -81,6 +107,8 @@ export function VideoAiPanel({
   )
   const [duration, setDuration] = useState<(typeof VIDEO_GENERATE_DURATION_OPTIONS)[number]>(5)
   const [isGenerating, setIsGenerating] = useState(false)
+  const [generateCount, setGenerateCount] = useState(1)
+  const [showCountDropdown, setShowCountDropdown] = useState(false)
 
   const handleGenerate = useCallback(() => {
     if (isGenerating) return
@@ -107,23 +135,116 @@ export function VideoAiPanel({
   const hasUpstreamImages = upstreamImages && upstreamImages.length > 0
 
   return (
-    <div className="flex w-[420px] flex-col gap-3 rounded-xl border border-border bg-card p-4 shadow-lg">
+    <div className="flex w-[420px] flex-col gap-2.5 rounded-xl border border-border bg-card p-3 shadow-lg">
+      {/* ── Mode Tabs ── */}
+      <div className="no-scrollbar flex gap-1 overflow-x-auto rounded-lg bg-ol-surface-muted p-0.5">
+        {VIDEO_MODES.map((m) => (
+          <button
+            key={m.id}
+            type="button"
+            disabled={!m.enabled}
+            className={[
+              'relative shrink-0 whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium transition-colors duration-150',
+              !m.enabled
+                ? 'cursor-not-allowed text-muted-foreground/40'
+                : mode === m.id
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground',
+            ].join(' ')}
+            onClick={() => m.enabled && setMode(m.id)}
+          >
+            {t(`videoPanel.${m.key}`)}
+            {!m.enabled ? (
+              <span className="ml-1 inline-flex items-center rounded bg-muted-foreground/10 px-1 py-px text-[9px] font-semibold leading-none text-muted-foreground/50">
+                {t('videoPanel.modeV2Badge')}
+              </span>
+            ) : null}
+          </button>
+        ))}
+      </div>
+
       {/* ── Upstream Banner ── */}
       {usedUpstreamText ? (
-        <div className="flex items-center gap-1.5 rounded-md bg-ol-blue/5 px-2.5 py-1.5 text-xs text-ol-blue">
+        <div className="flex items-center gap-1.5 rounded-md bg-foreground/5 px-2.5 py-1.5 text-xs text-muted-foreground">
           <LinkIcon size={12} />
           <span>{t('videoPanel.upstreamLoaded')}</span>
         </div>
       ) : null}
 
+      {/* ── Slot Area: per mode ── */}
+      {mode === 'img2video' ? (
+        <SlotArea
+          label={t('videoPanel.firstFrame')}
+          images={hasUpstreamImages ? upstreamImages.slice(0, 1) : undefined}
+          upstreamBanner={hasUpstreamImages ? t('videoPanel.upstreamImageLoaded') : undefined}
+          uploadLabel={t('videoPanel.firstFrameUpload')}
+        />
+      ) : null}
+
+      {mode === 'startEndFrame' ? (
+        <div className="flex gap-2">
+          <SlotArea
+            label={t('videoPanel.firstFrame')}
+            images={hasUpstreamImages ? upstreamImages.slice(0, 1) : undefined}
+            uploadLabel={t('videoPanel.firstFrameUpload')}
+            compact
+          />
+          <SlotArea
+            label={t('videoPanel.lastFrame')}
+            images={hasUpstreamImages && upstreamImages.length > 1 ? upstreamImages.slice(1, 2) : undefined}
+            uploadLabel={t('videoPanel.firstFrameUpload')}
+            compact
+          />
+        </div>
+      ) : null}
+
+      {mode === 'universalRef' ? (
+        <div className="flex flex-col gap-1.5">
+          <div className="flex flex-wrap gap-1">
+            {REF_FEATURES.map((feat) => (
+              <button
+                key={feat}
+                type="button"
+                className="rounded-full border border-border px-2.5 py-1 text-[11px] text-muted-foreground transition-colors duration-150 hover:bg-foreground/5 hover:text-foreground"
+              >
+                {t(`videoPanel.refFeatures.${feat}`)}
+              </button>
+            ))}
+          </div>
+          {hasUpstreamImages ? (
+            <div className="flex flex-wrap gap-1.5">
+              {upstreamImages.slice(0, 4).map((src, idx) => (
+                <div
+                  key={`ref-${idx}`}
+                  className="h-[52px] w-[52px] shrink-0 overflow-hidden rounded-md border border-border bg-ol-surface-muted"
+                >
+                  <img
+                    src={src}
+                    alt={`ref-${idx}`}
+                    className="h-full w-full object-cover"
+                    draggable={false}
+                  />
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {mode === 'videoEdit' ? (
+        <SlotArea
+          label={t('videoPanel.sourceVideo')}
+          uploadLabel={t('videoPanel.firstFrameUpload')}
+          disabled
+          icon={<Video size={16} />}
+        />
+      ) : null}
+
       {/* ── Prompt ── */}
-      <div className="flex flex-col gap-1.5">
-        <label className="text-xs font-medium text-ol-text-secondary">
-          {t('videoPanel.prompt')}
-        </label>
+      <div className="relative flex flex-col gap-1">
         <textarea
           className={[
-            'min-h-[72px] w-full resize-none rounded-lg border px-3 py-2 text-sm leading-relaxed',
+            'min-h-[68px] w-full resize-none rounded-lg border px-3 py-2 pr-9 text-sm leading-relaxed',
             BOARD_GENERATE_INPUT,
           ].join(' ')}
           placeholder={t('videoPanel.promptPlaceholder')}
@@ -131,58 +252,21 @@ export function VideoAiPanel({
           onChange={(e) => setPrompt(e.target.value)}
           rows={3}
         />
+        {/* Prompt Enhancement Button */}
+        <button
+          type="button"
+          className="absolute right-2 bottom-2 inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-foreground/8 dark:hover:bg-foreground/10 transition-colors duration-150"
+          title={t('videoPanel.enhancePrompt')}
+        >
+          <Wand2 size={14} />
+        </button>
       </div>
 
-      {/* ── First Frame Image ── */}
-      <div className="flex flex-col gap-1.5">
-        <label className="text-xs font-medium text-ol-text-secondary">
-          {t('videoPanel.firstFrame')}
-        </label>
-        {hasUpstreamImages ? (
-          <div className="flex flex-col gap-1.5">
-            <div className="flex items-center gap-1.5 rounded-md bg-ol-blue/5 px-2.5 py-1.5 text-xs text-ol-blue">
-              <LinkIcon size={12} />
-              <span>{t('videoPanel.upstreamImageLoaded')}</span>
-            </div>
-            <div className="flex gap-2">
-              {upstreamImages.slice(0, 3).map((src) => (
-                <div
-                  key={src}
-                  className="h-14 w-14 overflow-hidden rounded-lg border border-ol-divider bg-ol-surface-muted"
-                >
-                  <img
-                    src={src}
-                    alt="First frame"
-                    className="h-full w-full object-cover"
-                  />
-                </div>
-              ))}
-              <span className="self-center text-xs text-ol-text-auxiliary">
-                {t('videoPanel.firstFrameAuto')}
-              </span>
-            </div>
-          </div>
-        ) : (
-          <button
-            type="button"
-            className="flex h-14 w-full items-center justify-center gap-2 rounded-lg border border-dashed border-ol-divider bg-ol-surface-muted text-xs text-ol-text-auxiliary transition-colors duration-150 hover:border-ol-purple hover:text-ol-purple"
-          >
-            <ImagePlus size={16} />
-            {t('videoPanel.firstFrameUpload')}
-          </button>
-        )}
-      </div>
-
-      {/* ── Model Select ── */}
-      <div className="flex items-center gap-2">
-        <label className="shrink-0 text-xs font-medium text-ol-text-secondary">
-          {t('videoPanel.model')}
-        </label>
+      {/* ── Bottom Bar ── */}
+      <div className="flex items-center gap-1.5 border-t border-border pt-2">
+        {/* Model Selector */}
         <select
-          className={[
-            'flex-1 rounded-lg border px-3 py-1.5 text-sm',
-            BOARD_GENERATE_INPUT,
-          ].join(' ')}
+          className="h-7 max-w-[120px] truncate rounded-md border border-border bg-transparent px-1.5 text-[11px] text-foreground outline-none transition-colors duration-150 hover:bg-foreground/5"
           value={modelId}
           onChange={(e) => setModelId(e.target.value)}
         >
@@ -199,74 +283,184 @@ export function VideoAiPanel({
                 </option>
               ))}
         </select>
-      </div>
 
-      {/* ── Aspect Ratio ── */}
-      <div className="flex items-center gap-2">
-        <label className="shrink-0 text-xs font-medium text-ol-text-secondary">
-          {t('videoPanel.aspectRatio')}
-        </label>
-        <div className="flex gap-1.5">
-          {VIDEO_GENERATE_ASPECT_RATIO_OPTIONS.map((ratio) => (
-            <button
-              key={ratio}
-              type="button"
-              className={[
-                'rounded-full px-3 py-1 text-xs font-medium transition-colors duration-150',
-                aspectRatio === ratio
-                  ? 'bg-ol-purple/10 text-ol-purple'
-                  : 'bg-ol-surface-muted text-ol-text-secondary hover:bg-ol-purple/5 hover:text-ol-purple',
-              ].join(' ')}
-              onClick={() => setAspectRatio(ratio)}
-            >
-              {ratio}
-            </button>
-          ))}
-        </div>
-      </div>
+        {/* Quality + Ratio + Duration Selector */}
+        <select
+          className="h-7 rounded-md border border-border bg-transparent px-1.5 text-[11px] text-foreground outline-none transition-colors duration-150 hover:bg-foreground/5"
+          value={`${aspectRatio}·${duration}s`}
+          onChange={(e) => {
+            const [r, d] = e.target.value.split('·')
+            setAspectRatio(r as AiGenerateConfig['aspectRatio'])
+            setDuration(Number.parseInt(d, 10) as (typeof VIDEO_GENERATE_DURATION_OPTIONS)[number])
+          }}
+        >
+          {VIDEO_GENERATE_ASPECT_RATIO_OPTIONS.map((ratio) =>
+            VIDEO_GENERATE_DURATION_OPTIONS.map((dur) => (
+              <option key={`${ratio}·${dur}s`} value={`${ratio}·${dur}s`}>
+                {ratio} · {dur}s
+              </option>
+            )),
+          )}
+        </select>
 
-      {/* ── Duration ── */}
-      <div className="flex items-center gap-2">
-        <label className="shrink-0 text-xs font-medium text-ol-text-secondary">
-          {t('videoPanel.duration')}
-        </label>
-        <div className="flex gap-1.5">
-          {VIDEO_GENERATE_DURATION_OPTIONS.map((dur) => (
-            <button
-              key={dur}
-              type="button"
-              className={[
-                'rounded-full px-3 py-1 text-xs font-medium transition-colors duration-150',
-                duration === dur
-                  ? 'bg-ol-purple/10 text-ol-purple'
-                  : 'bg-ol-surface-muted text-ol-text-secondary hover:bg-ol-purple/5 hover:text-ol-purple',
-              ].join(' ')}
-              onClick={() => setDuration(dur)}
-            >
-              {dur}s
-            </button>
-          ))}
-        </div>
-      </div>
+        {/* Spacer */}
+        <div className="flex-1" />
 
-      {/* ── Footer: Generate Button ── */}
-      <div className="flex items-center justify-end pt-1">
+        {/* Translate Button */}
         <button
           type="button"
-          disabled={isGenerating || !prompt.trim()}
-          className={[
-            'inline-flex items-center gap-1.5 rounded-full px-5 py-2 text-sm font-medium transition-colors duration-150',
-            BOARD_GENERATE_BTN_VIDEO,
-            (isGenerating || !prompt.trim())
-              ? 'cursor-not-allowed opacity-50'
-              : '',
-          ].join(' ')}
-          onClick={handleGenerate}
+          className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-foreground/8 dark:hover:bg-foreground/10 transition-colors duration-150"
+          title={t('videoPanel.translate')}
         >
-          <Sparkles size={14} />
-          {isGenerating ? t('videoPanel.generating') : t('videoPanel.generate')}
+          <Languages size={14} />
         </button>
+
+        {/* Count Dropdown */}
+        <div className="relative">
+          <button
+            type="button"
+            className="inline-flex h-7 items-center gap-0.5 rounded-md border border-border px-1.5 text-[11px] text-foreground hover:bg-foreground/5 transition-colors duration-150"
+            onClick={() => setShowCountDropdown(!showCountDropdown)}
+          >
+            <span>{generateCount}x</span>
+            <ChevronDown size={10} />
+          </button>
+          {showCountDropdown ? (
+            <div className="absolute bottom-full right-0 mb-1 flex flex-col rounded-md border border-border bg-card py-0.5 shadow-md">
+              {[1, 2, 4].map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  className={[
+                    'px-4 py-1 text-[11px] transition-colors duration-150 hover:bg-foreground/5',
+                    generateCount === n ? 'text-foreground font-medium' : 'text-muted-foreground',
+                  ].join(' ')}
+                  onClick={() => {
+                    setGenerateCount(n)
+                    setShowCountDropdown(false)
+                  }}
+                >
+                  {n}x
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
+
+        {/* Credits Indicator */}
+        <div className="inline-flex h-7 items-center gap-0.5 rounded-md px-1.5 text-[11px] text-muted-foreground">
+          <Zap size={12} />
+          <span>--</span>
+        </div>
+
+        {/* Send / Generate Split Button */}
+        <div className="inline-flex items-stretch overflow-hidden rounded-full">
+          <button
+            type="button"
+            disabled={isGenerating || !prompt.trim()}
+            className={[
+              'inline-flex items-center gap-1 px-3.5 py-1.5 text-xs font-medium transition-colors duration-150',
+              BOARD_GENERATE_BTN_VIDEO,
+              (isGenerating || !prompt.trim())
+                ? 'cursor-not-allowed opacity-50'
+                : '',
+            ].join(' ')}
+            onClick={handleGenerate}
+          >
+            <Sparkles size={12} />
+            {isGenerating ? t('videoPanel.generating') : t('videoPanel.generate')}
+          </button>
+          <button
+            type="button"
+            className={[
+              'inline-flex items-center border-l border-white/20 px-1.5 transition-colors duration-150',
+              BOARD_GENERATE_BTN_VIDEO,
+              (isGenerating || !prompt.trim())
+                ? 'cursor-not-allowed opacity-50'
+                : '',
+            ].join(' ')}
+            disabled={isGenerating || !prompt.trim()}
+          >
+            <ChevronDown size={12} />
+          </button>
+        </div>
       </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// SlotArea — reusable image/video upload slot
+// ---------------------------------------------------------------------------
+
+type SlotAreaProps = {
+  label: string
+  images?: string[]
+  upstreamBanner?: string
+  uploadLabel: string
+  compact?: boolean
+  disabled?: boolean
+  icon?: React.ReactNode
+}
+
+function SlotArea({
+  label,
+  images,
+  upstreamBanner,
+  uploadLabel,
+  compact,
+  disabled,
+  icon,
+}: SlotAreaProps) {
+  const hasImages = images && images.length > 0
+
+  return (
+    <div className={[
+      'flex flex-col gap-1.5',
+      compact ? 'flex-1 min-w-0' : '',
+    ].join(' ')}>
+      <span className="text-xs font-medium text-muted-foreground">{label}</span>
+      {upstreamBanner && hasImages ? (
+        <div className="flex items-center gap-1.5 rounded-md bg-foreground/5 px-2 py-1 text-[11px] text-muted-foreground">
+          <LinkIcon size={10} />
+          <span className="truncate">{upstreamBanner}</span>
+        </div>
+      ) : null}
+      {hasImages ? (
+        <div className="flex gap-1.5">
+          {images.map((src, idx) => (
+            <div
+              key={`slot-${idx}`}
+              className={[
+                'overflow-hidden rounded-md border border-border bg-ol-surface-muted',
+                compact ? 'h-[52px] w-full' : 'h-14 w-14',
+              ].join(' ')}
+            >
+              <img
+                src={src}
+                alt={label}
+                className="h-full w-full object-cover"
+                draggable={false}
+              />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <button
+          type="button"
+          disabled={disabled}
+          className={[
+            'flex items-center justify-center gap-2 rounded-lg border border-dashed border-border text-xs transition-colors duration-150',
+            compact ? 'h-[52px] w-full' : 'h-14 w-full',
+            disabled
+              ? 'cursor-not-allowed bg-ol-surface-muted/50 text-muted-foreground/30'
+              : 'bg-ol-surface-muted text-muted-foreground hover:border-foreground/30 hover:text-foreground',
+          ].join(' ')}
+        >
+          {icon ?? <ImagePlus size={16} />}
+          {compact ? null : uploadLabel}
+        </button>
+      )}
     </div>
   )
 }

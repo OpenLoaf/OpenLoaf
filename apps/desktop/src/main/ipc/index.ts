@@ -986,5 +986,11 @@ export function registerIpcHandlers(args: { log: Logger }) {
     }
   });
 
+  // 应用退出时清理日历子进程，防止孤儿进程泄漏。
+  app.on('will-quit', () => {
+    calendarSync.stopTimer();
+    calendarService.destroy();
+  });
+
   args.log('IPC handlers registered');
 }

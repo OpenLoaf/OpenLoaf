@@ -303,6 +303,9 @@ export async function runChatStream(input: {
     imageModelId: agentModelIds.imageModelId,
     videoModelId: agentModelIds.videoModelId,
     clientPlatform: input.request.clientPlatform,
+    webVersion: input.request.webVersion,
+    serverVersion: input.request.serverVersion,
+    desktopVersion: input.request.desktopVersion,
     pageContext: input.request.pageContext,
   });
 
@@ -827,6 +830,9 @@ export async function runChatImageRequest(input: {
     messageId,
     saasAccessToken: input.saasAccessToken,
     clientPlatform: input.request.clientPlatform,
+    webVersion: input.request.webVersion,
+    serverVersion: input.request.serverVersion,
+    desktopVersion: input.request.desktopVersion,
     pageContext: input.request.pageContext,
   });
 

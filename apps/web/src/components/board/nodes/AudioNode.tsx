@@ -8,6 +8,7 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import type {
+  CanvasConnectorTemplateDefinition,
   CanvasNodeDefinition,
   CanvasNodeViewProps,
   CanvasToolbarContext,
@@ -15,9 +16,16 @@ import type {
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { z } from "zod";
-import { Music } from "lucide-react";
+import {
+  Download,
+  Music,
+  Play,
+  RefreshCw,
+  Trash2,
+  Type,
+  Video,
+} from "lucide-react";
 import i18next from "i18next";
-import { BOARD_TOOLBAR_ITEM_BLUE } from "../ui/board-style-system";
 import { openFilePreview } from "@/components/file/lib/file-preview-store";
 import type { BoardFileContext } from "../board-contracts";
 import { useBoardContext } from "../core/BoardProvider";
@@ -27,9 +35,10 @@ import {
 } from "../core/boardFilePath";
 import { parseScopedProjectPath } from "@/components/project/filesystem/utils/file-system-utils";
 import { getPreviewEndpoint } from "@/lib/image/uri";
+import { arrayBufferToBase64 } from "../utils/base64";
 import { NodeFrame } from "./NodeFrame";
 import { AudioAiPanel } from "../panels/AudioAiPanel";
-import type { AudioGenerateParams } from "../panels/AudioAiPanel";
+import type { AudioPanelUpstream } from "../panels/AudioAiPanel";
 import { useUpstreamData } from "../hooks/useUpstreamData";
 import { usePanelOverlay } from "../render/pixi/PixiApplication";
 import { submitAudioGenerate } from "../services/audio-generate";
@@ -75,19 +84,159 @@ function formatDuration(seconds?: number): string {
   return `${mins}:${secs.toString().padStart(2, "0")}`;
 }
 
+/** Resolve the default directory for download dialogs. */
+function resolveDownloadDefaultDir(fileContext?: BoardFileContext) {
+  const boardFolderUri = fileContext?.boardFolderUri?.trim()
+  if (boardFolderUri) {
+    if (boardFolderUri.startsWith('file://')) return boardFolderUri
+  }
+  const rootUri = fileContext?.rootUri?.trim()
+  if (rootUri && rootUri.startsWith('file://')) return rootUri
+  return ''
+}
+
+/** Trigger a download for the audio file. */
+async function downloadAudioFile(
+  props: AudioNodeProps,
+  fileContext?: BoardFileContext,
+) {
+  const resolvedPath =
+    resolveProjectRelativePath(props.sourcePath, fileContext) ||
+    props.sourcePath
+  if (!resolvedPath) return
+
+  let href = resolvedPath
+  if (
+    !resolvedPath.startsWith('data:') &&
+    !resolvedPath.startsWith('blob:') &&
+    !resolvedPath.startsWith('http://') &&
+    !resolvedPath.startsWith('https://')
+  ) {
+    const parsed = parseScopedProjectPath(props.sourcePath)
+    href = getPreviewEndpoint(resolvedPath, {
+      projectId: fileContext?.projectId ?? parsed?.projectId,
+    })
+  }
+
+  const saveFile = window.openloafElectron?.saveFile
+  if (saveFile) {
+    try {
+      const response = await fetch(href)
+      if (!response.ok) throw new Error('download failed')
+      const buffer = await response.arrayBuffer()
+      const contentBase64 = arrayBufferToBase64(buffer)
+      const defaultDir = resolveDownloadDefaultDir(fileContext)
+      const fileName = props.fileName || 'audio.mp3'
+      const extension = fileName.split('.').pop() || 'mp3'
+      const result = await saveFile({
+        contentBase64,
+        defaultDir: defaultDir || undefined,
+        suggestedName: fileName,
+        filters: [{ name: 'Audio', extensions: [extension] }],
+      })
+      if (result?.ok || result?.canceled) return
+    } catch {
+      // fallback to browser download
+    }
+  }
+  const link = document.createElement('a')
+  link.href = href
+  link.download = props.fileName || 'audio'
+  link.rel = 'noreferrer'
+  link.click()
+}
+
 /** Build toolbar items for audio nodes. */
 function createAudioToolbarItems(
   ctx: CanvasToolbarContext<AudioNodeProps>,
 ) {
-  return [
+  const items = []
+  const isAiGenerated = ctx.element.meta?.origin === 'ai-generate'
+
+  if (isAiGenerated) {
+    items.push({
+      id: 'regenerate',
+      label: i18next.t('board:audioNode.toolbar.regenerate'),
+      icon: <RefreshCw size={14} />,
+      onSelect: () => {
+        // placeholder: regenerate logic handled by upstream AI node
+      },
+    })
+    items.push({ id: 'divider-1', label: '', icon: null } as never)
+  }
+
+  items.push(
     {
-      id: "inspect",
-      label: i18next.t("board:audioNode.toolbar.detail"),
-      icon: <Music size={14} />,
-      className: BOARD_TOOLBAR_ITEM_BLUE,
+      id: 'play',
+      label: i18next.t('board:audioNode.toolbar.play'),
+      icon: <Play size={14} />,
       onSelect: () => ctx.openInspector(ctx.element.id),
     },
-  ];
+    {
+      id: 'download',
+      label: i18next.t('board:audioNode.toolbar.download'),
+      icon: <Download size={14} />,
+      onSelect: () =>
+        void downloadAudioFile(ctx.element.props, ctx.fileContext),
+    },
+    {
+      id: 'inspect',
+      label: i18next.t('board:audioNode.toolbar.detail'),
+      icon: <Music size={14} />,
+      onSelect: () => ctx.openInspector(ctx.element.id),
+    },
+    {
+      id: 'delete',
+      label: i18next.t('board:audioNode.toolbar.delete'),
+      icon: <Trash2 size={14} />,
+      className: 'text-destructive',
+      onSelect: () => {
+        ctx.engine.doc.removeElement(ctx.element.id)
+        ctx.engine.commitHistory()
+      },
+    },
+  )
+
+  return items
+}
+
+/** Connector templates offered by the audio node. */
+function getAudioNodeConnectorTemplates(): CanvasConnectorTemplateDefinition[] {
+  return [
+    {
+      id: 'text',
+      label: i18next.t('board:connector.speechRecognition'),
+      description: i18next.t('board:connector.speechRecognitionDesc'),
+      size: [200, 200],
+      icon: <Type size={14} />,
+      createNode: () => ({
+        type: 'text',
+        props: { style: 'sticky', stickyColor: 'yellow' },
+      }),
+    },
+    {
+      id: 'video',
+      label: i18next.t('board:connector.addAudioToVideo'),
+      description: i18next.t('board:connector.addAudioToVideoDesc'),
+      size: [320, 180],
+      icon: <Video size={14} />,
+      createNode: () => ({
+        type: 'video',
+        props: {},
+      }),
+    },
+    {
+      id: 'audio',
+      label: i18next.t('board:connector.voiceClone'),
+      description: i18next.t('board:connector.voiceCloneDesc'),
+      size: [320, 120],
+      icon: <Music size={14} />,
+      createNode: () => ({
+        type: 'audio',
+        props: {},
+      }),
+    },
+  ]
 }
 
 /** Render an audio node card with inline playback. */
@@ -127,7 +276,7 @@ export function AudioNodeView({
   );
   const resolvedPath = projectRelativePath || element.props.sourcePath;
   const displayName =
-    element.props.fileName || resolvedPath.split("/").pop() || "Audio";
+    element.props.fileName || resolvedPath.split("/").pop() || i18next.t('board:nodeLabel.audio');
   const durationText = formatDuration(element.props.duration);
   const boardId = fileContext?.boardId ?? "";
 
@@ -182,7 +331,14 @@ export function AudioNodeView({
   ]);
 
   const handleGenerate = useCallback(
-    async (params: AudioGenerateParams) => {
+    async (params: {
+      mode: import('../panels/AudioAiPanel').AudioGenerateMode
+      prompt: string
+      modelId: string
+      duration: import('../panels/AudioAiPanel').AudioDurationOption | 'auto'
+      textContent?: string
+      referenceAudioSrc?: string
+    }) => {
       try {
         const saveDir = fileContext?.boardFolderUri
           ? `${fileContext.boardFolderUri}/${BOARD_ASSETS_DIR_NAME}`
@@ -191,8 +347,8 @@ export function AudioNodeView({
           {
             prompt: params.prompt,
             modelId: params.modelId === 'auto' ? undefined : params.modelId,
-            audioType: params.audioType,
-            duration: params.duration,
+            audioType: params.mode === 'tts' ? 'voiceover' : params.mode,
+            duration: params.duration === 'auto' ? undefined : params.duration,
           },
           {
             projectId: fileContext?.projectId,
@@ -293,12 +449,16 @@ export function AudioNodeView({
           onPointerDown={event => {
             event.stopPropagation();
           }}
+          onContextMenu={event => {
+            event.stopPropagation();
+          }}
         >
           <AudioAiPanel
-            element={element}
-            onUpdate={onUpdate}
+            upstream={{
+              textContent: upstream?.textList.join('\n'),
+              referenceAudioSrc: upstream?.audioList?.[0],
+            }}
             onGenerate={handleGenerate}
-            upstreamText={upstream?.textList.join('\n')}
           />
         </div>,
         panelOverlay,
@@ -309,7 +469,7 @@ export function AudioNodeView({
 
 /** Definition for the audio node. */
 export const AudioNodeDefinition: CanvasNodeDefinition<AudioNodeProps> = {
-  type: "audio",
+  type: 'audio',
   schema: z.object({
     sourcePath: z.string(),
     fileName: z.string().optional(),
@@ -328,17 +488,18 @@ export const AudioNodeDefinition: CanvasNodeDefinition<AudioNodeProps> = {
     }).optional(),
   }),
   defaultProps: {
-    sourcePath: "",
-    fileName: "",
+    sourcePath: '',
+    fileName: '',
   },
   view: AudioNodeView,
   capabilities: {
     resizable: true,
     rotatable: false,
-    connectable: "anchors",
+    connectable: 'anchors',
     minSize: { w: 200, h: 100 },
     maxSize: { w: 480, h: 160 },
   },
   inlinePanel: { width: 420, height: 320 },
+  connectorTemplates: () => getAudioNodeConnectorTemplates(),
   toolbar: (ctx) => createAudioToolbarItems(ctx),
 };

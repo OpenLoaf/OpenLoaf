@@ -24,7 +24,7 @@ export type SaasMediaTaskResult = {
   /** Task progress when available. */
   progress?: number;
   /** Result type when available. */
-  resultType?: "image" | "video";
+  resultType?: "image" | "video" | "audio";
   /** Result asset URLs. */
   resultUrls?: string[];
   /** Error payload when failed. */

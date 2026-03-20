@@ -95,6 +95,12 @@ export type RequestContext = {
   creditsConsumed?: number;
   /** Client platform for conditional tool registration. */
   clientPlatform?: ClientPlatform;
+  /** Web app version for SaaS metadata. */
+  webVersion?: string;
+  /** Server version for SaaS metadata. */
+  serverVersion?: string;
+  /** Desktop (Electron) app version for SaaS metadata. */
+  desktopVersion?: string;
   /** Page context for AI agent skill auto-loading. */
   pageContext?: ChatPageContext;
 };

@@ -25,10 +25,19 @@ export type UpstreamData = {
   textList: string[];
   /** Image sources extracted from upstream image nodes. */
   imageList: string[];
+  /** Video sources extracted from upstream video nodes. */
+  videoList: string[];
+  /** Audio sources extracted from upstream audio nodes. */
+  audioList: string[];
 };
 
 /** Empty upstream data constant to avoid unnecessary allocations. */
-const EMPTY_UPSTREAM_DATA: UpstreamData = { textList: [], imageList: [] };
+const EMPTY_UPSTREAM_DATA: UpstreamData = {
+  textList: [],
+  imageList: [],
+  videoList: [],
+  audioList: [],
+};
 
 // ---------------------------------------------------------------------------
 // Plate.js Value serialization
@@ -91,11 +100,30 @@ function isConnector(el: CanvasElement): el is CanvasConnectorElement {
 }
 
 /**
- * Find all connectors whose target points to the given node id.
+ * Check whether a connector carries data-flow semantics.
+ *
+ * Connectors with `semantic === 'chat-flow'` represent conversational
+ * links and should NOT contribute upstream data. Only connectors with
+ * no semantic tag (defaults to data-flow) or an explicit non-chat-flow
+ * value are considered data-flow connectors.
+ */
+function isDataFlowConnector(conn: CanvasConnectorElement): boolean {
+  const semantic = (conn as Record<string, unknown>).semantic as
+    | string
+    | undefined;
+  return semantic !== 'chat-flow';
+}
+
+/**
+ * Find all data-flow connectors whose target points to the given node id.
  *
  * This filters from the full element list since CanvasDoc does not expose
  * a dedicated `getConnectorsByTarget` method. The filter is lightweight
  * because connector counts are typically small relative to total elements.
+ *
+ * Connectors with `semantic === 'chat-flow'` are excluded — only data-flow
+ * connectors (semantic undefined or any value other than 'chat-flow')
+ * contribute to upstream data.
  */
 function getConnectorsByTarget(
   doc: CanvasDoc,
@@ -106,7 +134,8 @@ function getConnectorsByTarget(
     if (
       isConnector(el) &&
       "elementId" in el.target &&
-      el.target.elementId === nodeId
+      el.target.elementId === nodeId &&
+      isDataFlowConnector(el)
     ) {
       result.push(el);
     }
@@ -119,7 +148,7 @@ function getConnectorsByTarget(
 // ---------------------------------------------------------------------------
 
 /**
- * Resolve upstream data for a node by traversing incoming connectors.
+ * Resolve upstream data for a node by traversing incoming data-flow connectors.
  *
  * For each connector whose target is `nodeId`, the source element is
  * inspected:
@@ -127,7 +156,10 @@ function getConnectorsByTarget(
  *   plain text and added to `textList`.
  * - **image** nodes: `props.previewSrc` (falling back to `props.originalSrc`)
  *   is added to `imageList`.
+ * - **video** nodes: `props.sourcePath` is added to `videoList`.
+ * - **audio** nodes: `props.sourcePath` is added to `audioList`.
  *
+ * Chat-flow connectors are excluded — only data-flow connectors contribute.
  * Other node types are silently ignored. Free-point sources (connectors
  * originating from a canvas point rather than a node) are also skipped.
  */
@@ -140,6 +172,8 @@ export function resolveUpstreamData(
 
   const textList: string[] = [];
   const imageList: string[] = [];
+  const videoList: string[] = [];
+  const audioList: string[] = [];
 
   for (const conn of connectors) {
     // Skip connectors whose source is a free point (not attached to a node).
@@ -162,12 +196,27 @@ export function resolveUpstreamData(
       if (src) {
         imageList.push(src);
       }
+    } else if (node.type === "video") {
+      const props = node.props as { sourcePath?: string };
+      if (props.sourcePath) {
+        videoList.push(props.sourcePath);
+      }
+    } else if (node.type === "audio") {
+      const props = node.props as { sourcePath?: string };
+      if (props.sourcePath) {
+        audioList.push(props.sourcePath);
+      }
     }
   }
 
-  if (textList.length === 0 && imageList.length === 0) {
+  if (
+    textList.length === 0 &&
+    imageList.length === 0 &&
+    videoList.length === 0 &&
+    audioList.length === 0
+  ) {
     return EMPTY_UPSTREAM_DATA;
   }
 
-  return { textList, imageList };
+  return { textList, imageList, videoList, audioList };
 }

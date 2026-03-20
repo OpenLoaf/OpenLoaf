@@ -43,10 +43,10 @@ export async function submitImageGenerate(
     sourceNodeId?: string
   } = {},
 ): Promise<ImageGenerateResult> {
-  // 逻辑：modelId 为 'auto' 或空时，传空字符串让服务端自动选择。
+  // 逻辑：modelId 为空或 'auto' 时不传，由 SaaS 后端自动选择。
   const modelId = request.modelId && request.modelId !== 'auto'
     ? request.modelId
-    : ''
+    : undefined
 
   const output = request.aspectRatio && isSaasAspectRatio(request.aspectRatio)
     ? { aspectRatio: request.aspectRatio as SaasAspectRatio }

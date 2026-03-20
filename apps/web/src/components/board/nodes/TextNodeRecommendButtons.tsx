@@ -6,7 +6,7 @@
  */
 import { memo, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Video, ImagePlus, Volume2 } from 'lucide-react'
+import { Video, ImagePlus, Volume2, Sparkles } from 'lucide-react'
 import { cn } from '@udecode/cn'
 import type { CanvasEngine } from '../engine/CanvasEngine'
 import type { CanvasNodeElement } from '../engine/types'
@@ -38,7 +38,7 @@ function hasUpstreamOfType(
 // Button config
 // ---------------------------------------------------------------------------
 
-const RECOMMEND_ICONS = [ImagePlus, Video, Volume2] as const
+const RECOMMEND_ICONS = [Sparkles, ImagePlus, Video, Volume2] as const
 
 // ---------------------------------------------------------------------------
 // Component
@@ -90,28 +90,43 @@ export const TextNodeRecommendButtons = memo(function TextNodeRecommendButtons({
 
   const items: RecommendItem[] = []
 
+  // 1. 文生图 — 始终显示
+  items.push({
+    id: 'text-to-image',
+    label: t('textNode.recommend.textToImage'),
+    icon: RECOMMEND_ICONS[0],
+    iconColor: 'text-ol-blue',
+    handler: () =>
+      deriveNode({ engine, sourceNodeId: element.id, targetType: 'image', direction: 'downstream' }),
+  })
+
+  // 2. 图片反推提示词 — 文本为空且无上游图片节点时显示
   if (isTextEmpty && !hasUpstreamImage) {
     items.push({
       id: 'image-reverse-prompt',
       label: t('textNode.recommend.imageReversePrompt'),
-      icon: RECOMMEND_ICONS[0],
+      icon: RECOMMEND_ICONS[1],
       iconColor: 'text-ol-blue',
       handler: () =>
         deriveNode({ engine, sourceNodeId: element.id, targetType: 'image', direction: 'upstream' }),
     })
   }
+
+  // 3. 文生视频 — 始终显示
   items.push({
     id: 'text-to-video',
     label: t('textNode.recommend.textToVideo'),
-    icon: RECOMMEND_ICONS[1],
+    icon: RECOMMEND_ICONS[2],
     iconColor: 'text-ol-purple',
     handler: () =>
       deriveNode({ engine, sourceNodeId: element.id, targetType: 'video', direction: 'downstream' }),
   })
+
+  // 4. 文字转语音 — 始终显示
   items.push({
     id: 'text-to-speech',
     label: t('textNode.recommend.textToSpeech'),
-    icon: RECOMMEND_ICONS[2],
+    icon: RECOMMEND_ICONS[3],
     iconColor: 'text-ol-green',
     handler: () =>
       deriveNode({ engine, sourceNodeId: element.id, targetType: 'audio', direction: 'downstream' }),
@@ -119,7 +134,7 @@ export const TextNodeRecommendButtons = memo(function TextNodeRecommendButtons({
 
   return (
     <div
-      className="pointer-events-auto absolute top-full left-1/2 mt-3 ol-glass-toolbar flex flex-col gap-0.5 rounded-lg border border-border/50 p-1"
+      className="pointer-events-auto absolute top-full left-1/2 mt-3 ol-glass-toolbar flex flex-row gap-0.5 rounded-lg border border-border/50 p-1"
       style={{ transform: 'translateX(-50%) scale(var(--label-scale, 1))', transformOrigin: 'top center' }}
     >
       {items.map((item) => {
@@ -128,9 +143,10 @@ export const TextNodeRecommendButtons = memo(function TextNodeRecommendButtons({
           <button
             key={item.id}
             type="button"
+            title={item.label}
             className={cn(
-              'flex items-center gap-1.5 whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium',
-              'transition-colors duration-150 text-secondary-foreground',
+              'flex items-center justify-center rounded-md p-1.5',
+              'transition-colors duration-150',
               'hover:bg-foreground/8 dark:hover:bg-foreground/10',
             )}
             onPointerDown={(e) => {
@@ -140,7 +156,6 @@ export const TextNodeRecommendButtons = memo(function TextNodeRecommendButtons({
             }}
           >
             <Icon size={14} className={item.iconColor} />
-            {item.label}
           </button>
         )
       })}
