@@ -1499,7 +1499,7 @@ export class CanvasEngine {
   }
 
   /** Auto layout all nodes using the mindmap tree. */
-  autoLayoutMindmap(): void {
+  autoLayoutMindmap(options?: { skipHistory?: boolean }): void {
     if (this.locked) return;
     const elements = this.doc.getElements();
     const rootDirections = new Map<string, MindmapLayoutDirection>();
@@ -1710,7 +1710,7 @@ export class CanvasEngine {
       });
     });
 
-    if (hasChanges) {
+    if (hasChanges && !options?.skipHistory) {
       this.commitHistory();
     }
   }
@@ -1719,20 +1719,50 @@ export class CanvasEngine {
   autoLayoutMindmapPinned(pinnedId: string): void {
     const before = this.doc.getElementById(pinnedId);
     if (!before || before.kind !== "node") {
-      this.autoLayoutMindmap();
+      this.autoLayoutMindmap({ skipHistory: true });
+      this.commitHistory();
       return;
     }
     const [bx, by] = before.xywh;
-    this.autoLayoutMindmap();
+    this.autoLayoutMindmap({ skipHistory: true });
     const after = this.doc.getElementById(pinnedId);
-    if (!after || after.kind !== "node") return;
+    if (!after || after.kind !== "node") {
+      this.commitHistory();
+      return;
+    }
     const [ax, ay] = after.xywh;
     const dx = bx - ax;
     const dy = by - ay;
-    if (dx === 0 && dy === 0) return;
+    if (dx === 0 && dy === 0) {
+      this.commitHistory();
+      return;
+    }
     // 逻辑：将整棵树偏移回去，使 pinned 节点保持原位。
     const rootId = this.resolveMindmapRootId(pinnedId);
     const descendants = this.collectMindmapSubtree(rootId);
+
+    // 收集属于此子树的 ghost 节点和 ghost 连线
+    const descendantSet = new Set(descendants);
+    const elements = this.doc.getElements();
+    const ghostNodeIds: string[] = [];
+    elements.forEach(el => {
+      if (el.kind === "node" && this.getMindmapFlag(el, MINDMAP_META.ghost)) {
+        const parentId = this.getMindmapString(el, MINDMAP_META.ghostParentId);
+        if (parentId && descendantSet.has(parentId)) {
+          ghostNodeIds.push(el.id);
+        }
+      }
+    });
+    const ghostConnectorIds: string[] = [];
+    elements.forEach(el => {
+      if (el.kind === "connector" && this.getMindmapFlag(el, MINDMAP_META.ghostConnector)) {
+        const parentId = this.getMindmapString(el, MINDMAP_META.ghostConnectorParentId);
+        if (parentId && descendantSet.has(parentId)) {
+          ghostConnectorIds.push(el.id);
+        }
+      }
+    });
+
     this.doc.transact(() => {
       descendants.forEach(id => {
         const el = this.doc.getElementById(id);
@@ -1740,25 +1770,53 @@ export class CanvasEngine {
         const [ex, ey, ew, eh] = el.xywh;
         this.doc.updateElement(id, { xywh: [ex + dx, ey + dy, ew, eh] });
       });
+
+      // 偏移 ghost 节点
+      ghostNodeIds.forEach(id => {
+        const el = this.doc.getElementById(id);
+        if (!el || el.kind !== "node") return;
+        const [ex, ey, ew, eh] = el.xywh;
+        this.doc.updateElement(id, { xywh: [ex + dx, ey + dy, ew, eh] });
+      });
+
+      // 偏移 ghost 连线（point 类型端点需要偏移坐标）
+      ghostConnectorIds.forEach(id => {
+        const el = this.doc.getElementById(id);
+        if (!el || el.kind !== "connector") return;
+        const patch: Record<string, unknown> = {};
+        if ("point" in el.source) {
+          const [sx, sy] = el.source.point;
+          patch.source = { point: [sx + dx, sy + dy] as CanvasPoint };
+        }
+        if ("point" in el.target) {
+          const [tx, ty] = el.target.point;
+          patch.target = { point: [tx + dx, ty + dy] as CanvasPoint };
+        }
+        if (Object.keys(patch).length > 0) {
+          this.doc.updateElement(id, patch);
+        }
+      });
     });
+    this.commitHistory();
   }
 
   /** Collect all node ids in a mindmap subtree rooted at nodeId. */
   private collectMindmapSubtree(rootId: string): string[] {
-    const result: string[] = [rootId];
+    const visited = new Set<string>([rootId]);
     const queue = [rootId];
-    while (queue.length > 0) {
-      const current = queue.shift()!;
+    let head = 0;
+    while (head < queue.length) {
+      const current = queue[head++];
       const outbound = this.getMindmapOutboundConnectors(current);
       outbound.forEach(connector => {
         if (!("elementId" in connector.target)) return;
         const childId = connector.target.elementId;
-        if (result.includes(childId)) return;
-        result.push(childId);
+        if (visited.has(childId)) return;
+        visited.add(childId);
         queue.push(childId);
       });
     }
-    return result;
+    return queue;
   }
 
   /** Extract inheritable text style props from a text node element. */
@@ -1822,7 +1880,6 @@ export class CanvasEngine {
       { skipHistory: true, skipLayout: true, select: false }
     );
     this.selection.setSelection([childId]);
-    this.commitHistory();
     this.autoLayoutMindmapPinned(parentId);
     return childId;
   }
@@ -1857,7 +1914,6 @@ export class CanvasEngine {
       );
       if (!siblingId) return null;
       this.selection.setSelection([siblingId]);
-      this.commitHistory();
       this.autoLayoutMindmapPinned(nodeId);
       return siblingId;
     }
