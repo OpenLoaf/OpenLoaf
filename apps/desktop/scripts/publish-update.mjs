@@ -24,8 +24,9 @@
  *   beta/manifest.json              ← 轻量渠道指针: { "desktop": { "version": "0.1.1-beta.1" } }
  *   desktop/
  *     beta/
- *       latest-mac.yml              ← macOS x64 更新清单
- *       latest-mac-arm64.yml        ← macOS arm64 更新清单（electron-updater 6.x ARM Mac 优先读取）
+ *       latest-mac.yml              ← macOS 合并更新清单（包含 arm64 + x64 entries，electron-updater generic provider 始终读取此文件）
+ *       latest-mac-arm64.yml        ← macOS arm64 独立更新清单（兼容/调试用）
+ *       latest-mac-x64.yml          ← macOS x64 独立更新清单（兼容/调试用）
  *       latest.yml
  *       latest-linux.yml
  *     latest.yml
@@ -36,7 +37,9 @@
  *       OpenLoaf-0.1.1-beta.1-MacOS-arm64.dmg
  *       OpenLoaf-0.1.1-beta.1.exe
  *       OpenLoaf-0.1.1-beta.1.AppImage
- *       latest-mac.yml              ← electron-updater 兼容文件（版本目录内）
+ *       latest-mac.yml              ← electron-updater 合并清单（arm64 + x64）
+ *       latest-mac-arm64.yml        ← arm64 独立清单
+ *       latest-mac-x64.yml          ← x64 独立清单
  *       latest.yml
  *       latest-linux.yml
  *
@@ -92,7 +95,7 @@ if (cosConfig) {
 // 全平台产物匹配规则
 // ---------------------------------------------------------------------------
 
-const AUTO_UPDATE_YMLS = ['latest-mac.yml', 'latest-mac-arm64.yml', 'latest.yml', 'latest-linux.yml']
+const AUTO_UPDATE_YMLS = ['latest-mac.yml', 'latest-mac-arm64.yml', 'latest-mac-x64.yml', 'latest.yml', 'latest-linux.yml']
 
 function isAutoUpdateYml(filename) {
   return AUTO_UPDATE_YMLS.includes(filename)
@@ -119,12 +122,12 @@ const PLATFORM_FILTERS = {
   'mac-arm64': {
     installerFilter: (f) =>
       /[-_]arm64[-_.]/.test(f) || f.includes('-MacOS-arm64'),
-    ymls: ['latest-mac-arm64.yml'],
+    ymls: ['latest-mac-arm64.yml'],  // per-arch yml; combined latest-mac.yml 由 generateCombinedMacYml 生成
   },
   'mac-x64': {
     installerFilter: (f) =>
       (/[-_]x64[-_.]/.test(f) && (f.endsWith('.dmg') || f.endsWith('.dmg.blockmap') || f.endsWith('.zip') || f.endsWith('.zip.blockmap'))),
-    ymls: ['latest-mac.yml'],
+    ymls: ['latest-mac-x64.yml'],  // per-arch yml; combined latest-mac.yml 由 generateCombinedMacYml 生成
   },
   'win-x64': {
     installerFilter: (f) => f.endsWith('.exe') || f.endsWith('.exe.blockmap'),
@@ -206,15 +209,20 @@ function computeSha512Base64(filePath) {
 /**
  * 从上传的安装包列表中，按平台生成 electron-updater 格式的 yml 文件。
  *
- * 平台 → yml 文件名映射：
- * - mac-arm64 → latest-mac-arm64.yml（electron-updater 6.x ARM Mac 优先读取）
- * - mac-x64   → latest-mac.yml（x64 Mac 读取）
+ * 平台 → 独立 yml 文件名映射（用于各架构单独的 yml）：
+ * - mac-arm64 → latest-mac-arm64.yml（仅 arm64 entries）
+ * - mac-x64   → latest-mac-x64.yml（仅 x64 entries，内部使用）
  * - win-x64   → latest.yml（使用 .exe）
  * - linux-x64 → latest-linux.yml（使用 .AppImage）
+ *
+ * 注意：electron-updater generic provider 在 macOS 上始终读取 latest-mac.yml，
+ * 不会读取 latest-mac-arm64.yml！latest-mac.yml 必须包含所有架构的 entries，
+ * electron-updater 的 MacUpdater 通过 URL 中的 "arm64" 关键字自动选择正确架构。
+ * 因此，每个 mac 平台构建完成后，都会调用 generateCombinedMacYml() 合并生成 latest-mac.yml。
  */
 const YML_PLATFORM_MAP = {
   'mac-arm64':  { yml: 'latest-mac-arm64.yml', ext: '.zip' },
-  'mac-x64':    { yml: 'latest-mac.yml',       ext: '.zip' },
+  'mac-x64':    { yml: 'latest-mac-x64.yml',   ext: '.zip' },
   'win-x64':    { yml: 'latest.yml',           ext: '.exe' },
   'linux-x64':  { yml: 'latest-linux.yml',     ext: '.AppImage' },
 }
@@ -284,9 +292,112 @@ async function generateAndUploadYmls(version, channel, installerFiles, distDir, 
     await uploadToAll(`desktop/${channel}/${ymlName}`, ymlPath)
     console.log(`   ✅ Generated & uploaded ${ymlName}`)
 
-    // electron-updater 6.x 在 ARM Mac 上优先读取 latest-mac-arm64.yml，
-    // x64 Mac 读取 latest-mac.yml。两个文件由各自平台的构建步骤独立生成，互不覆盖。
   }
+}
+
+/**
+ * 从 R2 公共 URL 下载并解析 electron-updater yml 文件。
+ * 返回 { version, files: [{ url, sha512, size, blockMapSize? }] } 或 null。
+ */
+async function fetchRemoteYml(channelOrVersionPath, ymlName) {
+  try {
+    // 加 cache-busting 参数，避免 CDN 返回过期内容（arm64 刚上传、x64 马上就要读取）
+    const url = `${r2Config.publicUrl}/desktop/${channelOrVersionPath}/${ymlName}?_t=${Date.now()}`
+    const resp = await fetch(url)
+    if (!resp.ok) return null
+    const text = await resp.text()
+
+    const version = text.match(/^version:\s*(.+)$/m)?.[1]?.trim()
+    if (!version) return null
+
+    const files = []
+    // 匹配每个 file entry（url, sha512, size, 可选 blockMapSize）
+    const entryRegex = /^\s*-\s*url:\s*(.+)$\n\s*sha512:\s*(.+)$\n\s*size:\s*(\d+)(?:\n\s*blockMapSize:\s*(\d+))?/gm
+    for (const m of text.matchAll(entryRegex)) {
+      const entry = { url: m[1].trim(), sha512: m[2].trim(), size: parseInt(m[3].trim()) }
+      if (m[4]) entry.blockMapSize = parseInt(m[4].trim())
+      files.push(entry)
+    }
+    return { version, files }
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 生成合并的 latest-mac.yml，包含 arm64 和 x64 两个架构的 entries。
+ *
+ * electron-updater generic provider 在 macOS 上始终读取 latest-mac.yml（不区分架构），
+ * MacUpdater.doDownloadUpdate() 通过 URL 中的 "arm64" 关键字自动选择正确的 zip。
+ * 如果 latest-mac.yml 只包含一种架构，另一种架构的 Mac 将被迫下载错误版本。
+ *
+ * 工作方式：
+ * 1. 收集 distDir 中当前构建的 mac zip 文件（当前架构的 entries）
+ * 2. 从 R2 获取已有的 latest-mac-arm64.yml / latest-mac-x64.yml（另一架构的 entries）
+ * 3. 合并去重后写入 latest-mac.yml
+ *
+ * 由于 CI 中 arm64 和 x64 按顺序构建，后完成的平台会自然产出包含两个架构的完整版本。
+ */
+async function generateCombinedMacYml(version, channel, distDir, publicUrl = r2Config.publicUrl) {
+  const allEntries = []
+  const seenUrls = new Set()
+
+  const addEntry = (entry) => {
+    if (seenUrls.has(entry.url)) return
+    seenUrls.add(entry.url)
+    allEntries.push(entry)
+  }
+
+  // 1. 收集 distDir 中所有 mac zip 文件（当前构建产出）
+  for (const file of readdirSync(distDir)) {
+    if (!file.endsWith('.zip') || file.endsWith('.zip.blockmap')) continue
+    const platform = inferPlatform(file)
+    if (platform !== 'mac-arm64' && platform !== 'mac-x64') continue
+
+    const filePath = path.join(distDir, file)
+    const sha512 = await computeSha512Base64(filePath)
+    const size = statSync(filePath).size
+    const entry = { url: `${publicUrl}/desktop/${version}/${file}`, sha512, size }
+    const blockmapPath = `${filePath}.blockmap`
+    if (existsSync(blockmapPath)) {
+      entry.blockMapSize = statSync(blockmapPath).size
+    }
+    addEntry(entry)
+  }
+
+  // 2. 从 R2 获取已有的 per-arch yml（补充另一个架构的 entries）
+  for (const ymlName of ['latest-mac-arm64.yml', 'latest-mac-x64.yml']) {
+    const remote = await fetchRemoteYml(channel, ymlName)
+    if (remote && remote.version === version) {
+      for (const entry of remote.files) addEntry(entry)
+    }
+  }
+
+  if (allEntries.length === 0) return
+
+  // 3. arm64 优先作为 primary（Apple Silicon 是主流 Mac 架构）
+  const primary = allEntries.find((f) => f.url.includes('arm64')) || allEntries[0]
+
+  let yml = `version: ${version}\n`
+  yml += 'files:\n'
+  for (const f of allEntries) {
+    yml += `  - url: ${f.url}\n`
+    yml += `    sha512: ${f.sha512}\n`
+    yml += `    size: ${f.size}\n`
+    if (f.blockMapSize) {
+      yml += `    blockMapSize: ${f.blockMapSize}\n`
+    }
+  }
+  yml += `path: ${primary.url}\n`
+  yml += `sha512: ${primary.sha512}\n`
+  yml += `releaseDate: '${new Date().toISOString()}'\n`
+
+  const ymlPath = path.join(distDir, 'latest-mac.yml')
+  writeFileSync(ymlPath, yml, 'utf-8')
+
+  await uploadToAll(`desktop/${version}/latest-mac.yml`, ymlPath)
+  await uploadToAll(`desktop/${channel}/latest-mac.yml`, ymlPath)
+  console.log(`   ✅ Generated & uploaded combined latest-mac.yml (${allEntries.length} entries: ${allEntries.map(e => e.url.includes('arm64') ? 'arm64' : 'x64').join(' + ')})`)
 }
 
 // ---------------------------------------------------------------------------
@@ -573,9 +684,17 @@ async function main() {
     await uploadJsonToAll(channelManifestKey, channelManifest)
     console.log(`✅ Updated ${channelManifestKey}: desktop.version = "${version}"`)
 
-    // 生成 electron-updater yml 并上传到渠道目录
+    // 生成 electron-updater per-platform yml 并上传到渠道目录
     console.log('\n📝 Generating electron-updater yml files...')
     await generateAndUploadYmls(version, channel, installerFiles, distDir)
+
+    // macOS 平台：生成合并的 latest-mac.yml（包含 arm64 + x64 entries）
+    // electron-updater generic provider 在 macOS 上始终读取 latest-mac.yml，
+    // 由 MacUpdater 根据 URL 中的 "arm64" 自动选择正确架构的 zip。
+    if (platformArg === 'mac-arm64' || platformArg === 'mac-x64') {
+      console.log('\n📝 Generating combined latest-mac.yml...')
+      await generateCombinedMacYml(version, channel, distDir)
+    }
 
     return
   }
@@ -608,9 +727,16 @@ async function main() {
   await uploadJsonToAll(channelManifestKey, channelManifest)
   console.log(`✅ Updated ${channelManifestKey}: desktop.version = "${version}"`)
 
-  // 生成 electron-updater yml（兜底，确保渠道目录有 yml）
+  // 生成 electron-updater per-platform yml（兜底，确保渠道目录有 yml）
   console.log('\n📝 Generating electron-updater yml files...')
   await generateAndUploadYmls(version, channel, installerFiles, distDir)
+
+  // macOS：生成合并的 latest-mac.yml（包含 arm64 + x64 entries）
+  const hasMacFiles = installerFiles.some((f) => inferPlatform(f)?.startsWith('mac-'))
+  if (hasMacFiles) {
+    console.log('\n📝 Generating combined latest-mac.yml...')
+    await generateCombinedMacYml(version, channel, distDir)
+  }
 
   // 上传 changelogs
   console.log('\n📝 Uploading changelogs...')
