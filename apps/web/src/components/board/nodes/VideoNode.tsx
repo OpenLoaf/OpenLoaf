@@ -958,6 +958,7 @@ export function VideoNodeView({
             upstreamText={upstream?.textList.join('\n')}
             upstreamImages={upstream?.imageList}
             readonly={isReadyFromAi && !editingOverride}
+            onUnlock={() => setEditingOverride(true)}
           />
         </div>,
         panelOverlay,

@@ -66,6 +66,8 @@ export type AudioAiPanelProps = {
   generating?: boolean
   /** When true, all inputs are disabled and the generate button is hidden. */
   readonly?: boolean
+  /** Callback to unlock the panel for editing. */
+  onUnlock?: () => void
   /** Additional class name for the root element. */
   className?: string
 }
@@ -92,6 +94,7 @@ export function AudioAiPanel({
   onGenerate,
   generating = false,
   readonly = false,
+  onUnlock,
   className,
 }: AudioAiPanelProps) {
   const { t } = useTranslation('board')
@@ -139,10 +142,14 @@ export function AudioAiPanel({
     >
       {/* ---- Readonly Banner ---- */}
       {readonly ? (
-        <div className="flex items-center gap-1.5 rounded-md bg-foreground/5 px-2.5 py-1.5 text-xs text-muted-foreground">
+        <button
+          type="button"
+          onClick={() => onUnlock?.()}
+          className="flex items-center gap-1.5 rounded-md bg-foreground/5 px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-foreground/10 transition-colors duration-150 cursor-pointer"
+        >
           <Lock size={12} />
-          <span>{t('audioPanel.parametersLocked', { defaultValue: 'Parameters locked' })}</span>
-        </div>
+          <span>{t('audioPanel.parametersLocked', { defaultValue: 'Parameters locked — click to unlock' })}</span>
+        </button>
       ) : null}
       {/* ---- Tab Row ---- */}
       <div className="flex items-center gap-1 rounded-md bg-ol-surface-muted p-0.5">

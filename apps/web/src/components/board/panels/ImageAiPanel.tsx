@@ -7,11 +7,11 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import {
   ChevronDown,
-  ChevronRight,
   Expand,
   FileText,
   Languages,
@@ -74,6 +74,54 @@ export type ImageAiPanelProps = {
   onGenerate?: (params: ImageGenerateParams) => void
   /** When true, all inputs are disabled and generate button is hidden (post-generation lock). */
   readonly?: boolean
+  /** Callback to unlock the panel for editing (override readonly). */
+  onUnlock?: () => void
+}
+
+/**
+ * Upstream slot wrapper that portals the hover preview to document.body,
+ * escaping DomNodeLayer's stacking context so the preview appears above
+ * AnchorOverlay and SelectionToolbar.
+ */
+function UpstreamSlotPreview({
+  className,
+  children,
+  preview,
+}: {
+  className?: string
+  children: ReactNode
+  preview: ReactNode
+}) {
+  const [hovered, setHovered] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  const [rect, setRect] = useState<DOMRect | null>(null)
+
+  return (
+    <div
+      ref={ref}
+      className={className}
+      onPointerEnter={() => {
+        setHovered(true)
+        if (ref.current) setRect(ref.current.getBoundingClientRect())
+      }}
+      onPointerLeave={() => setHovered(false)}
+    >
+      {children}
+      {hovered && rect && createPortal(
+        <div
+          className="pointer-events-none fixed z-[9999]"
+          style={{
+            left: rect.left + rect.width / 2,
+            top: rect.top - 8,
+            transform: 'translate(-50%, -100%)',
+          }}
+        >
+          {preview}
+        </div>,
+        document.body,
+      )}
+    </div>
+  )
 }
 
 /** AI image generation parameter panel displayed below image nodes. */
@@ -84,6 +132,7 @@ export function ImageAiPanel({
   upstreamImages,
   onGenerate,
   readonly = false,
+  onUnlock,
 }: ImageAiPanelProps) {
   const { t } = useTranslation('board')
   const aiConfig = element.props.aiConfig
@@ -195,19 +244,27 @@ export function ImageAiPanel({
           <div className="flex flex-wrap items-center gap-1.5">
             {/* Text slot */}
             {upstreamText ? (
-              <div className="group relative h-[52px] w-[52px] shrink-0 rounded-md border border-border bg-ol-surface-muted flex items-center justify-center cursor-default">
+              <UpstreamSlotPreview
+                className="relative h-[52px] w-[52px] shrink-0 rounded-md border border-border bg-ol-surface-muted flex items-center justify-center cursor-default"
+                preview={
+                  <div className="w-52 max-h-40 overflow-y-auto rounded-lg border border-border bg-popover px-3 py-2 text-xs text-popover-foreground shadow-md">
+                    <p className="whitespace-pre-wrap break-words">{upstreamText}</p>
+                  </div>
+                }
+              >
                 <FileText size={18} className="text-muted-foreground" />
-                {/* Hover preview — above slot */}
-                <div className="pointer-events-none invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-opacity duration-150 absolute bottom-full left-1/2 z-50 mb-2 -translate-x-1/2 w-52 max-h-40 overflow-y-auto rounded-lg border border-border bg-popover px-3 py-2 text-xs text-popover-foreground shadow-md">
-                  <p className="whitespace-pre-wrap break-words">{upstreamText}</p>
-                </div>
-              </div>
+              </UpstreamSlotPreview>
             ) : null}
             {/* Image slots */}
             {(upstreamImages ?? []).map((src, idx) => (
-              <div
+              <UpstreamSlotPreview
                 key={`upstream-${idx}`}
-                className="group relative h-[52px] w-[52px] shrink-0 rounded-md border border-border bg-ol-surface-muted cursor-default"
+                className="relative h-[52px] w-[52px] shrink-0 rounded-md border border-border bg-ol-surface-muted cursor-default"
+                preview={
+                  <div className="overflow-hidden rounded-lg border border-border bg-popover shadow-md">
+                    <img src={src} alt={`preview-${idx}`} className="max-h-40 max-w-48 object-contain" draggable={false} />
+                  </div>
+                }
               >
                 <img
                   src={src}
@@ -215,21 +272,19 @@ export function ImageAiPanel({
                   className="absolute inset-0 h-full w-full rounded-md object-cover"
                   draggable={false}
                 />
-                {/* Hover preview — above slot */}
-                <div className="pointer-events-none invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-opacity duration-150 absolute bottom-full left-1/2 z-50 mb-2 -translate-x-1/2 overflow-hidden rounded-lg border border-border bg-popover shadow-md">
-                  <img src={src} alt={`preview-${idx}`} className="max-h-40 max-w-48 object-contain" draggable={false} />
-                </div>
-              </div>
+              </UpstreamSlotPreview>
             ))}
-            {/* Upload button */}
-            <button
-              type="button"
-              className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-md border border-dashed border-border text-muted-foreground hover:bg-foreground/5 transition-colors duration-150"
-              onClick={handleUploadClick}
-              title={t('imagePanel.uploadReference')}
-            >
-              <Plus size={16} />
-            </button>
+            {/* Upload button — hidden when readonly */}
+            {!readonly ? (
+              <button
+                type="button"
+                className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-md border border-dashed border-border text-muted-foreground hover:bg-foreground/5 transition-colors duration-150"
+                onClick={handleUploadClick}
+                title={t('imagePanel.uploadReference')}
+              >
+                <Plus size={16} />
+              </button>
+            ) : null}
           </div>
           <input
             ref={uploadInputRef}
@@ -255,46 +310,26 @@ export function ImageAiPanel({
           rows={3}
           disabled={readonly}
         />
-        {/* Prompt action buttons */}
-        <div className="absolute right-2 bottom-2 flex items-center gap-0.5">
-          <button
-            type="button"
-            className="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-foreground/8 dark:hover:bg-foreground/10 transition-colors duration-150"
-            title={t('imagePanel.translate')}
-          >
-            <Languages size={14} />
-          </button>
-          <button
-            type="button"
-            className="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-foreground/8 dark:hover:bg-foreground/10 transition-colors duration-150"
-            title={t('imagePanel.enhancePrompt')}
-          >
-            <Wand2 size={14} />
-          </button>
-        </div>
+        {/* Prompt action buttons — hidden when readonly */}
+        {!readonly ? (
+          <div className="absolute right-2 bottom-2 flex items-center gap-0.5">
+            <button
+              type="button"
+              className="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-foreground/8 dark:hover:bg-foreground/10 transition-colors duration-150"
+              title={t('imagePanel.translate')}
+            >
+              <Languages size={14} />
+            </button>
+            <button
+              type="button"
+              className="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-foreground/8 dark:hover:bg-foreground/10 transition-colors duration-150"
+              title={t('imagePanel.enhancePrompt')}
+            >
+              <Wand2 size={14} />
+            </button>
+          </div>
+        ) : null}
       </div>
-
-      {/* ── Advanced Settings Toggle ── */}
-      <button
-        type="button"
-        className="flex items-center gap-1 text-xs text-muted-foreground/70 hover:text-muted-foreground transition-colors duration-150"
-        onClick={() => setShowAdvanced(!showAdvanced)}
-      >
-        <ChevronRight
-          size={14}
-          className={[
-            'transition-transform duration-150',
-            showAdvanced ? 'rotate-90' : '',
-          ].join(' ')}
-        />
-        {t('imagePanel.advancedSettings')}
-      </button>
-
-      {showAdvanced ? (
-        <div className="rounded-lg border border-border bg-ol-surface-muted/50 p-3 text-xs text-muted-foreground">
-          {t('imagePanel.advancedSettingsPlaceholder')}
-        </div>
-      ) : null}
 
       {/* ── Result Pagination ── */}
       {aiResults && aiResults.length > 1 ? (
@@ -310,8 +345,8 @@ export function ImageAiPanel({
         {/* Model Selector */}
         <select
           className={[
-            'h-7 max-w-[120px] truncate rounded-md border border-border bg-transparent px-1.5 text-[11px] text-foreground outline-none transition-colors duration-150 hover:bg-foreground/5',
-            readonly ? 'opacity-60 cursor-not-allowed' : '',
+            'h-7 max-w-[120px] truncate rounded-md border border-border bg-transparent px-1.5 text-[11px] text-foreground outline-none transition-colors duration-150',
+            readonly ? 'opacity-60 cursor-not-allowed appearance-none' : 'hover:bg-foreground/5',
           ].join(' ')}
           value={modelId}
           onChange={(e) => setModelId(e.target.value)}
@@ -334,8 +369,8 @@ export function ImageAiPanel({
         {/* Ratio + Resolution Selector */}
         <select
           className={[
-            'h-7 rounded-md border border-border bg-transparent px-1.5 text-[11px] text-foreground outline-none transition-colors duration-150 hover:bg-foreground/5',
-            readonly ? 'opacity-60 cursor-not-allowed' : '',
+            'h-7 rounded-md border border-border bg-transparent px-1.5 text-[11px] text-foreground outline-none transition-colors duration-150',
+            readonly ? 'opacity-60 cursor-not-allowed appearance-none' : 'hover:bg-foreground/5',
           ].join(' ')}
           value={`${aspectRatio}·${resolution}`}
           disabled={readonly}
@@ -360,8 +395,13 @@ export function ImageAiPanel({
         {/* Settings Button */}
         <button
           type="button"
-          className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-foreground/8 dark:hover:bg-foreground/10 transition-colors duration-150"
+          className={[
+            'inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors duration-150',
+            readonly ? 'opacity-50 cursor-not-allowed' : 'hover:bg-foreground/8 dark:hover:bg-foreground/10',
+          ].join(' ')}
           title={t('imagePanel.settings')}
+          disabled={readonly}
+          onClick={() => !readonly && setShowAdvanced(!showAdvanced)}
         >
           <Settings size={14} />
         </button>
@@ -376,11 +416,15 @@ export function ImageAiPanel({
         <div className="relative">
           <button
             type="button"
-            className="inline-flex h-7 items-center gap-0.5 rounded-md border border-border px-1.5 text-[11px] text-foreground hover:bg-foreground/5 transition-colors duration-150"
-            onClick={() => setShowCountDropdown(!showCountDropdown)}
+            className={[
+              'inline-flex h-7 items-center gap-0.5 rounded-md border border-border px-1.5 text-[11px] text-foreground transition-colors duration-150',
+              readonly ? 'opacity-60 cursor-not-allowed' : 'hover:bg-foreground/5',
+            ].join(' ')}
+            onClick={() => !readonly && setShowCountDropdown(!showCountDropdown)}
+            disabled={readonly}
           >
             <span>{generateCount}x</span>
-            <ChevronDown size={10} />
+            {!readonly ? <ChevronDown size={10} /> : null}
           </button>
           {showCountDropdown ? (
             <div className="absolute bottom-full right-0 mb-1 flex flex-col rounded-md border border-border bg-card py-0.5 shadow-md">
@@ -404,12 +448,16 @@ export function ImageAiPanel({
           ) : null}
         </div>
 
-        {/* Generate Button / Readonly Indicator */}
+        {/* Generate / Unlock Button */}
         {readonly ? (
-          <div className="inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-[10px] text-muted-foreground bg-muted/50">
-            <Lock size={10} />
-            <span>{t('imageNode.parametersLocked')}</span>
-          </div>
+          <button
+            type="button"
+            className="inline-flex items-center gap-1 rounded-full px-3.5 py-1.5 text-xs font-medium text-muted-foreground border border-border hover:bg-foreground/5 transition-colors duration-150"
+            onClick={() => onUnlock?.()}
+          >
+            <Lock size={12} />
+            {t('imageNode.unlock')}
+          </button>
         ) : (
           <div className="relative flex items-center">
             {/* Main generate button */}
@@ -473,6 +521,21 @@ export function ImageAiPanel({
           </div>
         )}
       </div>
+
+      {/* ── Advanced Settings (toggled by gear button) ── */}
+      {showAdvanced ? (
+        <div className="rounded-lg border border-border bg-ol-surface-muted/50 p-3 text-xs text-muted-foreground">
+          {t('imagePanel.advancedSettingsPlaceholder')}
+        </div>
+      ) : null}
+
+      {/* ── Readonly Hint (separate line below bottom bar) ── */}
+      {readonly ? (
+        <div className="flex items-center justify-end gap-1 text-[10px] text-muted-foreground">
+          <Lock size={10} />
+          <span>{t('imageNode.parametersLocked')}</span>
+        </div>
+      ) : null}
     </div>
   )
 }

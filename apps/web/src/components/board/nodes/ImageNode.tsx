@@ -978,6 +978,7 @@ export function ImageNodeView({
             upstreamImages={resolvedUpstreamImages}
             onGenerate={handleGenerate}
             readonly={isReadyVersion && !editingOverride}
+            onUnlock={() => setEditingOverride(true)}
           />
         </div>,
         panelOverlay,

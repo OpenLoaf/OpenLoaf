@@ -76,6 +76,8 @@ export type VideoAiPanelProps = {
   upstreamImages?: string[]
   /** When true, all inputs are disabled and the generate button is hidden. */
   readonly?: boolean
+  /** Callback to unlock the panel for editing. */
+  onUnlock?: () => void
 }
 
 /** AI video generation parameter panel displayed below video nodes. */
@@ -86,6 +88,7 @@ export function VideoAiPanel({
   upstreamText,
   upstreamImages,
   readonly = false,
+  onUnlock,
 }: VideoAiPanelProps) {
   const { t } = useTranslation('board')
   const aiConfig = element.props.aiConfig
@@ -151,10 +154,14 @@ export function VideoAiPanel({
     ].join(' ')}>
       {/* ── Readonly Banner ── */}
       {readonly ? (
-        <div className="flex items-center gap-1.5 rounded-md bg-foreground/5 px-2.5 py-1.5 text-xs text-muted-foreground">
+        <button
+          type="button"
+          onClick={() => onUnlock?.()}
+          className="flex items-center gap-1.5 rounded-md bg-foreground/5 px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-foreground/10 transition-colors duration-150 cursor-pointer"
+        >
           <Lock size={12} />
-          <span>{t('videoPanel.parametersLocked', { defaultValue: 'Parameters locked' })}</span>
-        </div>
+          <span>{t('videoPanel.parametersLocked', { defaultValue: 'Parameters locked — click to unlock' })}</span>
+        </button>
       ) : null}
       {/* ── Mode Tabs ── */}
       <div className="no-scrollbar flex gap-1 overflow-x-auto rounded-lg bg-ol-surface-muted p-0.5">

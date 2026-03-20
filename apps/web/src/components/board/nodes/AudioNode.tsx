@@ -625,6 +625,7 @@ export function AudioNodeView({
             }}
             onGenerate={handleGenerate}
             readonly={isReadyFromAi && !editingOverride}
+            onUnlock={() => setEditingOverride(true)}
           />
         </div>,
         panelOverlay,
