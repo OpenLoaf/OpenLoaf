@@ -430,6 +430,10 @@ export async function setBasicConfigFromWeb(update: BasicConfigUpdate): Promise<
     typeof next.chatShowAllToolResults === "boolean"
       ? next.chatShowAllToolResults
       : current.chatShowAllToolResults;
+  const showDevNoticeDialog =
+    typeof next.showDevNoticeDialog === "boolean"
+      ? next.showDevNoticeDialog
+      : current.showDevNoticeDialog;
   const normalized: BasicConfig = {
     chatSource: next.chatSource === "cloud" ? "cloud" : "local",
     chatThinkingMode,
@@ -472,6 +476,7 @@ export async function setBasicConfigFromWeb(update: BasicConfigUpdate): Promise<
     webSearchProvider,
     webSearchApiKey,
     chatShowAllToolResults,
+    showDevNoticeDialog,
   };
   writeBasicConf(normalized);
   // Sync temp storage dir override to packages/api layer.

@@ -18,6 +18,7 @@ import {
   LogIn,
   LogOut,
   RefreshCcw,
+  Info,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -292,6 +293,18 @@ export function SidebarUserAccount() {
                           <span>{creditsBalanceLabel}</span>
                         </span>
                       ) : null}
+                    </div>
+                  </div>
+                </div>
+
+                <DropdownMenuSeparator className="my-2" />
+
+                <div className="mx-2 mb-1 rounded-lg bg-ol-amber-bg/50 px-2.5 py-2 text-[11px] leading-[1.6] text-muted-foreground">
+                  <div className="flex items-start gap-1.5">
+                    <Info className="mt-0.5 size-3.5 shrink-0 text-ol-amber" />
+                    <div>
+                      <p>{t('devNotice')}</p>
+                      <p className="mt-1 text-ol-amber">{t('devNoticeWelcome')}</p>
                     </div>
                   </div>
                 </div>
@@ -575,6 +588,18 @@ export function CompactUserAvatar() {
                   </div>
                 </div>
               </div>
+              <DropdownMenuSeparator className="my-2" />
+
+              <div className="mx-2 mb-1 rounded-lg bg-ol-amber-bg/50 px-2.5 py-2 text-[11px] leading-[1.6] text-muted-foreground">
+                <div className="flex items-start gap-1.5">
+                  <Info className="mt-0.5 size-3.5 shrink-0 text-ol-amber" />
+                  <div>
+                    <p>{t('devNotice')}</p>
+                    <p className="mt-1 text-ol-amber">{t('devNoticeWelcome')}</p>
+                  </div>
+                </div>
+              </div>
+
               <DropdownMenuSeparator className="my-2" />
             </>
           )}

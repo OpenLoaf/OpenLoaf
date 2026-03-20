@@ -34,6 +34,7 @@ import { useSaasAuth } from "@/hooks/use-saas-auth";
 import { useLanguageSync } from "@/i18n/useLanguageSync";
 import CloseConfirmDialog from "@/components/layout/CloseConfirmDialog";
 import TrayNavigationListener from "@/components/layout/TrayNavigationListener";
+import DevNoticeDialog from "@/components/layout/DevNoticeDialog";
 
 type ThemeSelection = "light" | "dark" | "system";
 type FontSizeSelection = "small" | "medium" | "large" | "xlarge";
@@ -390,6 +391,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
             <AutoUpdateGate />
             <CloseConfirmDialog />
             <TrayNavigationListener />
+            <DevNoticeDialog />
           </LocalAuthGate>
           {/* <ReactQueryDevtools initialIsOpen={false} /> */}
         </MotionSettingsBootstrap>

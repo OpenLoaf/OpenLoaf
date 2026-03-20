@@ -117,6 +117,8 @@
     "animationHigh": "高",
     "notificationSound": "通知聲音提示",
     "notificationSoundDesc": "語音輸入開始時播放提示音",
+    "showDevNotice": "啟動時顯示開發階段提示",
+    "showDevNoticeDesc": "每次啟動時彈出開發階段公告對話框",
     "minimizeToTray": "關閉時最小化至系統匣",
     "minimizeToTrayDesc": "開啟後，關閉視窗時應用程式將最小化至系統匣而不是結束"
   },

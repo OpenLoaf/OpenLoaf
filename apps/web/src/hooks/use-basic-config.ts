@@ -72,6 +72,7 @@ const DEFAULT_BASIC_CONFIG: BasicConfig = {
   webSearchProvider: "",
   webSearchApiKey: "",
   chatShowAllToolResults: false,
+  showDevNoticeDialog: true,
 };
 
 export function useBasicConfig() {

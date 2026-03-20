@@ -55,7 +55,18 @@
     "downloadingUpdate": "正在下载更新",
     "isLatest": "当前已是最新版本",
     "restartToApply": "新版本已下载完成，重启应用后生效",
-    "relaunchNow": "立即重启"
+    "relaunchNow": "立即重启",
+    "devNotice": "当前软件处于开发阶段，暂不支持充值。积分用完后请点击「反馈意见」通知我们手动赋予积分。",
+    "devNoticeWelcome": "欢迎提供宝贵意见，帮助我们不断改进！",
+    "devNoticeDialog": {
+      "title": "开发阶段公告",
+      "content1": "感谢您使用 OpenLoaf！当前软件仍处于开发阶段，功能可能随时调整或变更，部分特性尚不稳定，请见谅。",
+      "content2": "目前暂不支持在线充值。如果您的积分已用完，请点击左下角头像处的「反馈意见」通知我们，我们会免费为您补充积分。",
+      "content3": "欢迎提供宝贵意见和建议，帮助我们把产品做得更好！",
+      "dontShowAgain": "下次启动时不再显示",
+      "feedbackButton": "反馈意见",
+      "okButton": "我知道了"
+    }
   },
   "file": {
     "name": "文件名",

@@ -28,6 +28,7 @@ import { OpenLoafSettingsField } from "@openloaf/ui/openloaf/OpenLoafSettingsFie
 import {
   Bell,
   ChevronDown,
+  Construction,
   Languages,
   Monitor,
   Palette,
@@ -363,6 +364,28 @@ export function BasicSettings() {
                           void setBasic({ appNotificationSoundEnabled: checked })
                         }
                         aria-label="Notification sound"
+                      />
+                    </div>
+                  </OpenLoafSettingsField>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 py-3">
+                  <SettingIcon icon={Construction} bg="bg-ol-amber-bg" fg="text-ol-amber" />
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-medium">{t('basicSettings.showDevNotice')}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {t('basicSettings.showDevNoticeDesc')}
+                    </div>
+                  </div>
+
+                  <OpenLoafSettingsField className="w-full sm:w-64 shrink-0 justify-end">
+                    <div className="origin-right scale-125">
+                      <Switch
+                        checked={basic.showDevNoticeDialog}
+                        onCheckedChange={(checked) =>
+                          void setBasic({ showDevNoticeDialog: checked })
+                        }
+                        aria-label="Show dev notice dialog"
                       />
                     </div>
                   </OpenLoafSettingsField>

@@ -99,6 +99,7 @@ const DEFAULT_BASIC_CONF: BasicConf = {
   webSearchProvider: "",
   webSearchApiKey: "",
   chatShowAllToolResults: false,
+  showDevNoticeDialog: true,
 };
 
 /** Normalize CLI tool config. */
@@ -395,6 +396,12 @@ function normalizeBasicConf(raw?: Partial<BasicConf>, fallback?: Partial<BasicCo
       : typeof fallbackSource.chatShowAllToolResults === "boolean"
         ? fallbackSource.chatShowAllToolResults
         : DEFAULT_BASIC_CONF.chatShowAllToolResults;
+  const showDevNoticeDialog =
+    typeof source.showDevNoticeDialog === "boolean"
+      ? source.showDevNoticeDialog
+      : typeof fallbackSource.showDevNoticeDialog === "boolean"
+        ? fallbackSource.showDevNoticeDialog
+        : DEFAULT_BASIC_CONF.showDevNoticeDialog;
 
   return {
     chatSource,
@@ -436,6 +443,7 @@ function normalizeBasicConf(raw?: Partial<BasicConf>, fallback?: Partial<BasicCo
     webSearchProvider,
     webSearchApiKey,
     chatShowAllToolResults,
+    showDevNoticeDialog,
   };
 }
 

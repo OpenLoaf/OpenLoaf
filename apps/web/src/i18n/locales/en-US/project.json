@@ -55,7 +55,18 @@
     "downloadingUpdate": "Downloading update",
     "isLatest": "You're on the latest version",
     "restartToApply": "New version downloaded. Restart to apply.",
-    "relaunchNow": "Restart Now"
+    "relaunchNow": "Restart Now",
+    "devNotice": "This software is in early development and does not support top-ups yet. When your credits run out, please click \"Feedback\" to let us know and we'll add credits manually.",
+    "devNoticeWelcome": "Your feedback is greatly appreciated and helps us improve!",
+    "devNoticeDialog": {
+      "title": "Development Stage Notice",
+      "content1": "Thank you for using OpenLoaf! The software is still under active development — features may change or be adjusted at any time, and some may not be fully stable yet.",
+      "content2": "Online top-ups are not available at the moment. If you've run out of credits, please click your avatar (bottom-left) and select \"Feedback\" to let us know — we'll add credits for you for free.",
+      "content3": "We truly appreciate your feedback and suggestions to help us improve!",
+      "dontShowAgain": "Don't show this again on startup",
+      "feedbackButton": "Feedback",
+      "okButton": "Got it"
+    }
   },
   "file": {
     "name": "Name",
