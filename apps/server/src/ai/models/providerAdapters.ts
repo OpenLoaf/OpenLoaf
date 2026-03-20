@@ -25,7 +25,7 @@ import {
   ensureOpenAiCompatibleBaseUrl,
   readApiKey,
 } from "@/ai/shared/util";
-import { getSessionId } from "@/ai/shared/context/requestContext";
+import { getSessionId, getClientId, getRequestContext } from "@/ai/shared/context/requestContext";
 import type { ProviderSettingEntry } from "@/modules/settings/settingsService";
 
 type AdapterInput = {
@@ -126,18 +126,24 @@ const SAAS_PROVIDER_FACTORIES: Record<
 };
 
 /**
- * 构建 SaaS 专用 fetch，自动注入 chatSessionId 到请求体。
- * SDK 0.1.9 新增：/api/v1/chat/completions 和 /api/v1/responses 支持可选 chatSessionId 字段。
+ * 构建 SaaS 专用 fetch，自动注入客户端元数据到请求体。
+ * SDK 0.1.10：chatSessionId、clientId、serverVersion、webVersion、desktopVersion。
  */
 function buildSaasFetch(): typeof fetch {
   const debugFetch = buildAiDebugFetch();
   return async (input, init) => {
-    const sessionId = getSessionId();
-    if (sessionId && init?.body) {
+    if (init?.body) {
       try {
         const bodyStr = typeof init.body === "string" ? init.body : String(init.body);
         const parsed = JSON.parse(bodyStr);
-        parsed.chatSessionId = sessionId;
+        const ctx = getRequestContext();
+        const sessionId = ctx?.sessionId;
+        const clientId = ctx?.clientId;
+        if (sessionId) parsed.chatSessionId = sessionId;
+        if (clientId) parsed.clientId = clientId;
+        if (ctx?.serverVersion) parsed.serverVersion = ctx.serverVersion;
+        if (ctx?.webVersion) parsed.webVersion = ctx.webVersion;
+        if (ctx?.desktopVersion) parsed.desktopVersion = ctx.desktopVersion;
         init = { ...init, body: JSON.stringify(parsed) };
       } catch {
         // JSON 解析失败时不注入，保持原始请求

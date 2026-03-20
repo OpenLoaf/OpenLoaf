@@ -1,0 +1,181 @@
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+import { useCallback, useMemo } from 'react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
+import i18next from 'i18next'
+import type { VersionStack } from '../engine/types'
+import { getVersionCount, getPrimaryEntry } from '../engine/version-stack'
+
+export type VersionStackOverlayProps = {
+  stack: VersionStack | undefined
+  /** Semantic color for the badge: 'blue' | 'purple' | 'green' */
+  semanticColor: 'blue' | 'purple' | 'green'
+  /** Optional callback for bottom hover navigation. Omit to hide bottom nav (use toolbar instead). */
+  onSwitchPrimary?: (entryId: string) => void
+  /** Resolved thumbnail URLs for animated card stacking effect. */
+  thumbnails?: Array<{ id: string; src: string }>
+}
+
+const badgeColorMap = {
+  blue: 'bg-blue-500 text-white',
+  purple: 'bg-purple-500 text-white',
+  green: 'bg-green-500 text-white',
+} as const
+
+/** Max number of animated background cards to render. */
+const MAX_BG_CARDS = 2
+
+/**
+ * Scale factor for all cards (primary + background).
+ * Both primary and bg cards are scaled to this value; bg cards add rotation.
+ * At 0.84 scale + ≤10° rotation the bounding box stays within ~97% for 1:1 images.
+ */
+export const STACK_CARD_SCALE = 0.84
+
+/**
+ * Reusable overlay that renders version stack indicators on top of any media node.
+ * When thumbnails are provided, renders background photo-cards with rotation behind the primary.
+ * The parent is expected to scale the primary content to STACK_CARD_SCALE.
+ */
+export function VersionStackOverlay({
+  stack,
+  semanticColor,
+  onSwitchPrimary,
+  thumbnails,
+}: VersionStackOverlayProps) {
+  const count = getVersionCount(stack)
+  const primaryEntry = getPrimaryEntry(stack)
+
+  const currentIndex = useMemo(() => {
+    if (!stack || !primaryEntry) return 0
+    const idx = stack.entries.findIndex((e) => e.id === primaryEntry.id)
+    return idx >= 0 ? idx : 0
+  }, [stack, primaryEntry])
+
+  // 逻辑：背景卡片按渲染顺序（离 primary 的距离）确定性地递增角度，统一向左倾斜。
+  // 不依赖 random，切换 primary 时卡片位置稳定不跳动。
+
+  const handlePrev = useCallback(
+    (e: React.PointerEvent) => {
+      e.stopPropagation()
+      if (!stack || currentIndex <= 0 || !onSwitchPrimary) return
+      onSwitchPrimary(stack.entries[currentIndex - 1].id)
+    },
+    [stack, currentIndex, onSwitchPrimary],
+  )
+
+  const handleNext = useCallback(
+    (e: React.PointerEvent) => {
+      e.stopPropagation()
+      if (!stack || currentIndex >= count - 1 || !onSwitchPrimary) return
+      onSwitchPrimary(stack.entries[currentIndex + 1].id)
+    },
+    [stack, currentIndex, count, onSwitchPrimary],
+  )
+
+  if (count <= 1) return null
+
+  const hasAnimatedCards = thumbnails && thumbnails.length > 1
+  const bgThumbnails = hasAnimatedCards
+    ? thumbnails.filter((t) => t.id !== primaryEntry?.id).slice(0, MAX_BG_CARDS)
+    : []
+
+  return (
+    <>
+      {/* Background photo-cards — scaled + rotated, peek out behind the primary */}
+      {hasAnimatedCards && bgThumbnails.length > 0 ? (
+        <AnimatePresence>
+          {bgThumbnails.map((thumb, i) => {
+            // 确定性角度：第 1 张 -6°，第 2 张 -10°，无随机，切换时不跳动
+            const rot = -(6 + i * 4)
+            return (
+              <motion.div
+                key={thumb.id}
+                initial={{ opacity: 0, scale: 0.76 }}
+                animate={{ opacity: 1, scale: STACK_CARD_SCALE, rotate: rot }}
+                exit={{ opacity: 0, scale: 0.76 }}
+                transition={{ duration: 0.35, ease: 'easeInOut' }}
+                className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl shadow-sm"
+                style={{ zIndex: -1 - i, transformOrigin: 'center' }}
+              >
+                <img
+                  src={thumb.src}
+                  alt=""
+                  className="h-full w-full object-cover"
+                  draggable={false}
+                />
+              </motion.div>
+            )
+          })}
+        </AnimatePresence>
+      ) : (
+        // 逻辑：没有缩略图时回退为静态阴影层（用于 Video/Audio 节点）。
+        <>
+          {count > 2 && (
+            <div
+              className="pointer-events-none absolute inset-0 z-[-1] rounded-lg border border-border bg-card opacity-20"
+              style={{ transform: 'translate(6px, 6px)' }}
+            />
+          )}
+          <div
+            className="pointer-events-none absolute inset-0 z-[-1] rounded-lg border border-border bg-card opacity-40"
+            style={{ transform: 'translate(3px, 3px)' }}
+          />
+        </>
+      )}
+
+      {/* Version badge (top-right corner) — shows current/total */}
+      <div
+        className={[
+          'pointer-events-auto absolute top-1.5 right-1.5 z-20',
+          'flex items-center justify-center rounded-full',
+          'min-w-[24px] h-[24px] px-1.5 text-[11px] font-semibold shadow-sm',
+          badgeColorMap[semanticColor],
+        ].join(' ')}
+        title={i18next.t('board:versionStack.badge', { count })}
+      >
+        {currentIndex + 1}/{count}
+      </div>
+
+      {/* Hover version navigator (bottom center) — only shown when onSwitchPrimary is provided */}
+      {onSwitchPrimary ? (
+        <div
+          className={[
+            'pointer-events-auto absolute -bottom-8 left-1/2 -translate-x-1/2 z-20',
+            'flex items-center gap-1.5 rounded-full bg-card border border-border px-2.5 py-1 shadow-sm',
+            'opacity-0 group-hover:opacity-100 transition-opacity duration-150',
+          ].join(' ')}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <button
+            type="button"
+            className="flex items-center justify-center disabled:opacity-30 transition-opacity"
+            disabled={currentIndex <= 0}
+            onPointerDown={handlePrev}
+          >
+            <ChevronLeft size={14} />
+          </button>
+          <span className="text-[11px] font-mono select-none">
+            {currentIndex + 1}/{count}
+          </span>
+          <button
+            type="button"
+            className="flex items-center justify-center disabled:opacity-30 transition-opacity"
+            disabled={currentIndex >= count - 1}
+            onPointerDown={handleNext}
+          >
+            <ChevronRight size={14} />
+          </button>
+        </div>
+      ) : null}
+    </>
+  )
+}

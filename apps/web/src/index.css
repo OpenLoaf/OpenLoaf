@@ -267,8 +267,8 @@ body {
   --canvas-node-bg: #ffffff;
   --canvas-node-border: #e2e8f0;
   --canvas-node-text: #0f172a;
-  --canvas-selection-fill: #2563eb;
-  --canvas-selection-border: #2563eb;
+  --canvas-selection-fill: #000000;
+  --canvas-selection-border: #000000;
   --canvas-alignment-guide: #f59e0b;
   --canvas-anchor: #2563eb;
   --canvas-group-outline: #94a3b8;
@@ -375,8 +375,8 @@ body {
   --canvas-node-bg: #1e1e1e;
   --canvas-node-border: #3a3a3a;
   --canvas-node-text: #e2e8f0;
-  --canvas-selection-fill: #3b82f6;
-  --canvas-selection-border: #60a5fa;
+  --canvas-selection-fill: #ffffff;
+  --canvas-selection-border: #ffffff;
   --canvas-alignment-guide: #f59e0b;
   --canvas-anchor: #3b82f6;
   --canvas-group-outline: #555555;
@@ -487,6 +487,19 @@ body {
   --radius-xl: var(--ol-radius-xl);
   --radius-2xl: var(--ol-radius-2xl);
   --radius-3xl: var(--ol-radius-3xl);
+}
+
+/* 画布面板 Portal 入场动画：防止选中后立刻拖动时面板闪烁 */
+@keyframes board-panel-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+[data-panel-overlay] > * {
+  animation: board-panel-fade-in 150ms ease both;
+}
+/* 拖拽中禁止入场动画，避免退场时重播 */
+[data-panel-overlay][data-dragging] > * {
+  animation: none;
 }
 
 @keyframes sparkle-float {

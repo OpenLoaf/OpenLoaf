@@ -1,0 +1,843 @@
+{
+  "board": {
+    "title": "キャンバスツール",
+    "new": "新規キャンバス",
+    "create": "キャンバスを作成",
+    "edit": "編集",
+    "delete": "削除",
+    "save": "保存",
+    "renameCanvas": "名前を変更",
+    "renameCanvasPlaceholder": "キャンバス名を入力",
+    "saveToProject": "プロジェクトに保存",
+    "deleteCanvas": "削除",
+    "actions": "操作",
+    "cancel": "キャンセル",
+    "download": "ダウンロード",
+    "share": "共有",
+    "duplicate": "複製",
+    "undo": "元に戻す",
+    "redo": "やり直し",
+    "clear": "クリア",
+    "brush": "ブラシ",
+    "eraser": "消しゴム",
+    "pen": "ペン",
+    "color": "カラー",
+    "size": "サイズ",
+    "opacity": "不透明度",
+    "zoom": "ズーム",
+    "fit": "画面に合わせる",
+    "gridToggle": "グリッドを表示",
+    "rulerToggle": "ルーラーを表示",
+    "layer": "レイヤー",
+    "layers": "レイヤー",
+    "newLayer": "新規レイヤー",
+    "deleteLayer": "レイヤーを削除",
+    "renameLayer": "レイヤー名を変更",
+    "imagePreview": "画像プレビュー",
+    "renderError": "キャンバス描画エラー",
+    "retry": "再試行"
+  },
+  "tools": {
+    "select": "選択",
+    "hand": "ハンド",
+    "pen": "ペン",
+    "highlighter": "ハイライター",
+    "eraser": "消しゴム",
+    "insert": "挿入",
+    "connector": "コネクター"
+  },
+  "insertTools": {
+    "note": "ノート",
+    "text": "テキスト",
+    "textDesc": "プロンプト、スクリプト",
+    "sticky": "付箋",
+    "stickyDesc": "簡単なメモ",
+    "image": "画像",
+    "imageDesc": "AI画像生成",
+    "video": "動画",
+    "videoDesc": "AI動画生成",
+    "audio": "オーディオ",
+    "audioDesc": "AIオーディオ生成",
+    "file": "ファイル",
+    "link": "リンク",
+    "linkDesc": "Webリンクを追加",
+    "upload": "アップロード",
+    "uploadDesc": "画像、動画、オーディオファイルをインポート",
+    "addNode": "ノードを追加",
+    "addResource": "リソースを追加",
+    "imagePromptGenerate": "画像/動画分析",
+    "imageGenerate": "画像生成",
+    "videoGenerate": "動画生成",
+    "aiChat": "AIチャット"
+  },
+  "bottomBar": {
+    "aiImage": "AI画像",
+    "aiVideo": "AI動画",
+    "aiAudio": "AIオーディオ",
+    "fitView": "画面に合わせる"
+  },
+  "textToolTip": {
+    "title": "テキストツール",
+    "desc": "リッチテキスト編集でキャンバスにテキストを追加",
+    "mindmapHint": "Tabキーで子ノードを作成し、マインドマップを素早く構築",
+    "mindmapExample": {
+      "root": "トピック",
+      "child1": "アイデアA",
+      "child2": "アイデアB",
+      "grandchild": "詳細"
+    }
+  },
+  "descriptions": {
+    "note": "クイックノートカード",
+    "image": "画像ブロック",
+    "video": "動画ブロック",
+    "file": "ファイル添付",
+    "imagePromptGenerate": "画像/動画を分析して説明を生成",
+    "imageGenerate": "画像とテキストから新しい画像を生成",
+    "videoGenerate": "画像とプロンプトから動画を生成",
+    "aiChat": "キャンバス上でAIとチャット"
+  },
+  "picker": {
+    "imageTitle": "画像ファイルを選択",
+    "imageHint": "画像以外のファイルはグレー表示されます",
+    "videoTitle": "動画ファイルを選択",
+    "videoHint": "動画以外のファイルはグレー表示されます",
+    "fileTitle": "ファイルを選択",
+    "fileHint": "すべてのファイル形式に対応"
+  },
+  "emptyGuide": {
+    "title": "作成を開始",
+    "subtitle": "始め方を選択してください",
+    "createText": "付箋",
+    "aiImage": "AI画像",
+    "aiVideo": "AI動画",
+    "importFile": "ファイルをインポート",
+    "hint": "空白部分をダブルクリックしてテキストを作成",
+    "shortcuts": "ショートカット: V 選択 · H ハンド · T テキスト · C コネクター",
+    "fromTemplate": "テンプレートから開始",
+    "heading": "テンプレートから始める",
+    "subheading": "テンプレートを選択してキャンバスに配置",
+    "tpl": {
+      "imageGen": {
+        "label": "AI画像生成",
+        "desc": "プロンプトを入力、AIが画像を生成"
+      },
+      "imagePrompt": {
+        "label": "AI画像分析",
+        "desc": "画像をアップロード、AIが内容を分析"
+      },
+      "videoGen": {
+        "label": "AI動画生成",
+        "desc": "AIがショート動画クリップを生成"
+      },
+      "text": {
+        "label": "テキストノート",
+        "desc": "キャンバスにテキストを追加"
+      }
+    }
+  },
+  "templates": {
+    "title": "ワークフローテンプレートを選択",
+    "textToImage": "テキストから画像",
+    "textToImageDesc": "テキストの説明から画像を生成",
+    "imageToVideo": "画像から動画",
+    "imageToVideoDesc": "画像から動画を生成",
+    "fullPipeline": "フルパイプライン",
+    "fullPipelineDesc": "テキスト → 画像 → 動画",
+    "storyboard": "ストーリーボード",
+    "storyboardDesc": "脚本を複数のストーリーボードフレームに分割"
+  },
+  "contextMenu": {
+    "exitFullscreen": "フルスクリーン終了",
+    "enterFullscreen": "フルスクリーン",
+    "maximize": "ビューを最大化",
+    "autoLayout": "自動レイアウト",
+    "reload": "再読み込み",
+    "paste": "貼り付け",
+    "insertText": "テキストを挿入",
+    "insertFile": "ファイルを挿入",
+    "aiImageGenerate": "AI画像生成",
+    "aiVideoGenerate": "AI動画生成",
+    "duplicate": "複製",
+    "bringToFront": "最前面に移動",
+    "sendToBack": "最背面に移動",
+    "lock": "ロック",
+    "unlock": "ロック解除",
+    "delete": "削除",
+    "saveAs": "名前を付けて保存…",
+    "generateImage": "画像を生成",
+    "generateVideo": "動画を生成",
+    "upscale": "高画質化",
+    "play": "再生",
+    "download": "ダウンロード",
+    "preview": "フルスクリーンプレビュー",
+    "inspect": "詳細"
+  },
+  "controls": {
+    "undo": "元に戻す",
+    "redo": "やり直し",
+    "maximize": "ビューを最大化",
+    "autoLayout": "自動レイアウト",
+    "unlock": "ロック解除",
+    "lock": "ロック",
+    "zoomIn": "拡大",
+    "zoomOut": "縮小"
+  },
+  "connector": {
+    "videoGenerate": "動画を生成",
+    "videoGenerateDesc": "テキストから動画を生成",
+    "imagePromptGenerate": "画像/動画分析",
+    "imagePromptGenerateDesc": "動画を分析して説明を生成",
+    "textNode": "テキストノード",
+    "textNodeDesc": "テキストコンテンツを追加",
+    "imageGenerate": "画像生成",
+    "imageGenerateDesc": "プロンプトと画像から新しい画像を生成",
+    "videoUnderstanding": "動画理解",
+    "videoUnderstandingDesc": "動画を分析して説明を生成",
+    "extractFrame": "フレーム抽出",
+    "extractFrameDesc": "動画からフレームを抽出",
+    "continueVideo": "動画を延長",
+    "continueVideoDesc": "動画から続きを生成",
+    "textAiPolish": "AI校正",
+    "textAiPolishDesc": "AIでテキストを校正、翻訳、書き直し",
+    "textToSpeech": "テキスト読み上げ",
+    "textToSpeechDesc": "テキストをオーディオに変換",
+    "straight": "直線",
+    "elbow": "直角",
+    "curve": "曲線",
+    "hand": "手書き",
+    "fly": "フライ",
+    "colorTitle": "コネクターの色 {{color}}",
+    "dashed": "破線",
+    "deleteConnector": "コネクターを削除",
+    "speechRecognition": "音声認識",
+    "speechRecognitionDesc": "オーディオをテキストに変換",
+    "addAudioToVideo": "動画にオーディオを追加",
+    "addAudioToVideoDesc": "オーディオと動画を結合",
+    "voiceClone": "ボイスクローン",
+    "voiceCloneDesc": "このオーディオから声をクローン"
+  },
+  "nodeDetail": {
+    "detail": "詳細"
+  },
+  "textNode": {
+    "placeholder": "テキストを入力",
+    "toolbar": {
+      "heading": "見出し",
+      "inline": "インライン",
+      "blocks": "ブロック",
+      "fontSize": "フォントサイズ",
+      "fontWeight": "フォントウェイト",
+      "style": "スタイル",
+      "list": "リスト",
+      "align": "配置",
+      "textColor": "文字色",
+      "backgroundColor": "背景色"
+    },
+    "format": {
+      "paragraph": "段落",
+      "bold": "太字",
+      "italic": "斜体",
+      "code": "インラインコード",
+      "link": "リンク",
+      "quote": "引用",
+      "codeBlock": "コードブロック",
+      "underline": "下線",
+      "strikethrough": "取り消し線",
+      "heading1": "見出し1",
+      "heading2": "見出し2",
+      "heading3": "見出し3",
+      "heading4": "見出し4",
+      "heading5": "見出し5",
+      "unorderedList": "箇条書き",
+      "orderedList": "番号付きリスト",
+      "todoList": "チェックリスト",
+      "alignLeft": "左揃え",
+      "alignCenter": "中央揃え",
+      "alignRight": "右揃え"
+    },
+    "fontWeights": {
+      "regular": "レギュラー",
+      "medium": "ミディアム",
+      "semibold": "セミボールド",
+      "bold": "ボールド"
+    },
+    "colors": {
+      "default": "デフォルト",
+      "black": "ブラック",
+      "blue": "ブルー",
+      "orange": "オレンジ",
+      "red": "レッド",
+      "green": "グリーン",
+      "purple": "パープル",
+      "gray": "グレー"
+    },
+    "backgrounds": {
+      "transparent": "透明",
+      "black": "ブラック",
+      "blue": "ブルー",
+      "orange": "オレンジ",
+      "red": "レッド",
+      "green": "グリーン",
+      "purple": "パープル",
+      "gray": "グレー"
+    },
+    "recommend": {
+      "textToImage": "テキストから画像",
+      "textToVideo": "テキストから動画",
+      "imageReversePrompt": "画像からプロンプト",
+      "textToSpeech": "テキスト読み上げ"
+    },
+    "aiPolish": {
+      "title": "AI校正",
+      "polish": "校正",
+      "translate": "翻訳",
+      "rewrite": "書き直し"
+    }
+  },
+  "groupNode": {
+    "layoutVertical": "縦並び",
+    "layoutHorizontal": "横並び",
+    "dissolve": "グループ解除",
+    "uniformSize": "サイズを揃える",
+    "enter": "入る",
+    "untitled": "無題のグループ",
+    "storyboard": "ストーリーボード",
+    "editTitle": "タイトルを編集",
+    "bgColor": "背景色",
+    "groupDialog": {
+      "title": "グループメンバー",
+      "editTitle": "グループを編集",
+      "memberCount": "{{count}} メンバー"
+    }
+  },
+  "selection": {
+    "toolbar": {
+      "copy": "コピー",
+      "bringToFront": "最前面に移動",
+      "sendToBack": "最背面に移動",
+      "bringForward": "前面に移動",
+      "sendBackward": "背面に移動",
+      "unlock": "ロック解除",
+      "lock": "ロック",
+      "delete": "削除",
+      "group": "グループ化",
+      "layoutVertical": "縦に整列",
+      "layoutHorizontal": "横に整列",
+      "autoLayout": "自動レイアウト",
+      "batchDownload": "一括ダウンロード",
+      "batchDownloadProgress": "{{count}} ファイルをダウンロード中"
+    },
+    "mindmapLayout": {
+      "label": "方向",
+      "left": "左",
+      "balanced": "バランス",
+      "right": "右"
+    }
+  },
+  "imageGenerate": {
+    "title": "画像生成",
+    "model": "モデル",
+    "prompt": "プロンプト",
+    "promptPlaceholder": "プロンプトを入力",
+    "generate": "生成",
+    "retry": "再試行",
+    "login": "サインイン",
+    "loggingIn": "サインイン中",
+    "mode": {
+      "textToImage": "テキストから画像",
+      "singleImage": "単一",
+      "multiImage": "複数"
+    },
+    "advanced": {
+      "count": "枚数",
+      "aspectRatio": "アスペクト比",
+      "style": "スタイル",
+      "stylePlaceholder": "Enterキーでカスタムスタイルを追加",
+      "negativePrompt": "ネガティブプロンプト",
+      "auto": "自動"
+    },
+    "modelSelect": {
+      "noModel": "利用可能なモデルがありません",
+      "loginHint": "OpenLoafアカウントにサインインしてクラウドモデルを利用"
+    },
+    "status": {
+      "generating": "生成中",
+      "waiting": "待機中",
+      "failed": "失敗"
+    },
+    "errors": {
+      "noModelSupport": "画像生成に対応したモデルを選択してください",
+      "noPrompt": "プロンプトを入力するか、接続してください",
+      "invalidImageUrl": "一部の画像URLにアクセスできません。入力を確認してください",
+      "imageReadFailed": "画像の読み込みに失敗しました",
+      "submitFailed": "画像タスクの送信に失敗しました",
+      "generateFailed": "画像の生成に失敗しました",
+      "copyFailed": "コピーに失敗しました",
+      "tooManyImages": "最大{{max}}枚の画像に対応しています"
+    },
+    "hints": {
+      "needsPrompt": "画像を接続するか、プロンプトを入力して画像を生成してください。",
+      "tooManyImages": "最大{{max}}枚の画像に対応、{{connected}}枚が接続済みです。",
+      "invalidImage": "一部の画像URLにアクセスできません。入力を確認してください。",
+      "needsModel": "画像生成モデルが見つかりません。設定で構成してください。",
+      "generateFailed": "画像の生成に失敗しました。再試行してください。"
+    }
+  },
+  "videoGenerate": {
+    "title": "動画生成",
+    "model": "モデル",
+    "prompt": "プロンプト",
+    "promptPlaceholder": "プロンプトを入力",
+    "generate": "生成",
+    "retry": "再試行",
+    "login": "サインイン",
+    "loggingIn": "サインイン中",
+    "outputAudio": "オーディオ出力",
+    "advanced": {
+      "aspectRatio": "アスペクト比",
+      "duration": "再生時間",
+      "style": "スタイル",
+      "stylePlaceholder": "Enterキーでカスタムスタイルを追加",
+      "negativePrompt": "ネガティブプロンプト",
+      "auto": "自動",
+      "yes": "はい",
+      "no": "いいえ",
+      "selectPlaceholder": "選択..."
+    },
+    "status": {
+      "completed": "完了",
+      "failed": "生成失敗",
+      "needModel": "モデルが必要",
+      "generating": "生成中",
+      "waiting": "待機中",
+      "needsPrompt": "プロンプトが必要",
+      "missingParams": "パラメータ不足",
+      "tooManyImages": "画像が多すぎます",
+      "invalidImage": "無効な画像",
+      "idle": "準備完了"
+    },
+    "errors": {
+      "noModelSupport": "動画生成に対応したモデルを選択してください",
+      "noPrompt": "プロンプトを入力するか、接続してください",
+      "generateFailed": "動画の生成に失敗しました",
+      "saveFailed": "動画の保存に失敗しました",
+      "copyErrorSuccess": "エラー情報をコピーしました",
+      "copyFailed": "コピーに失敗しました",
+      "imageReadFailed": "画像の読み込みに失敗しました",
+      "invalidImageUrl": "一部の画像URLにアクセスできません。入力を確認してください",
+      "missingParameters": "必須項目を先に入力してください",
+      "tooManyImages": "最大{{max}}枚の画像に対応しています",
+      "saveDirFailed": "動画の保存先ディレクトリを特定できません",
+      "submitFailed": "動画タスクの送信に失敗しました"
+    },
+    "modelSelect": {
+      "noModel": "利用可能なモデルがありません",
+      "loginHint": "OpenLoafアカウントにサインインしてクラウドモデルを利用"
+    },
+    "hints": {
+      "needsPrompt": "画像を接続するか、プロンプトを入力して動画を生成してください。",
+      "missingParameters": "必須項目が不足しています: {{required}}",
+      "tooManyImages": "最大{{max}}枚の画像に対応、{{connected}}枚が接続済みです。",
+      "invalidImage": "一部の画像URLにアクセスできません。入力を確認してください。",
+      "needsModel": "動画生成モデルが見つかりません。設定で構成してください。",
+      "generateFailed": "動画の生成に失敗しました。再試行してください。"
+    }
+  },
+  "imagePromptGenerate": {
+    "title": "画像/動画分析",
+    "model": "モデル",
+    "stop": "停止",
+    "login": "サインイン",
+    "loggingIn": "サインイン中",
+    "retry": "再試行",
+    "regenerate": "再生成",
+    "run": "実行",
+    "contentDescription": "コンテンツ説明",
+    "noModel": "利用可能なモデルがありません",
+    "loginHint": "サインインしてクラウドモデルを利用",
+    "errors": {
+      "noInput": "現在の入力に有効なURLが見つかりません。説明を生成できません",
+      "generateFailed": "説明の生成に失敗しました",
+      "noModelSupport": "現在の入力タイプに対応したモデルを選択してください",
+      "copySuccess": "説明をコピーしました",
+      "copyFailed": "コピーに失敗しました"
+    }
+  },
+  "imageDetail": {
+    "revisedPrompt": "修正されたプロンプト",
+    "userPrompt": "ユーザープロンプト"
+  },
+  "imageNode": {
+    "toolbar": {
+      "download": "ダウンロード",
+      "detail": "詳細"
+    },
+    "notFound": "画像が見つかりません",
+    "loadFailed": "画像の読み込みに失敗しました",
+    "replaceTitle": "画像を選択",
+    "replaceHint": "現在のノードを置き換える画像を選択",
+    "generating": "生成中...",
+    "generationFailed": "生成に失敗しました",
+    "retry": "再試行",
+    "parametersLocked": "パラメータがロックされています — ロック解除をクリックして変更",
+    "unlock": "ロック解除"
+  },
+  "videoNode": {
+    "toolbar": {
+      "regenerate": "再生成",
+      "play": "再生",
+      "download": "ダウンロード",
+      "trim": "トリミング",
+      "exportClip": "クリップを書き出し",
+      "detail": "詳細"
+    },
+    "trim": {
+      "dialogTitle": "動画をトリミング",
+      "reset": "リセット",
+      "confirm": "確定",
+      "loading": "動画を読み込み中...",
+      "noDuration": "再生時間が不明です — まず動画を再生してください。"
+    },
+    "generating": "動画を生成中...",
+    "generateFailed": "動画の生成に失敗しました",
+    "retry": "再試行",
+    "parametersLocked": "パラメータがロックされています"
+  },
+  "audioNode": {
+    "toolbar": {
+      "detail": "詳細",
+      "regenerate": "再生成",
+      "play": "再生",
+      "download": "ダウンロード",
+      "delete": "削除"
+    },
+    "noSource": "オーディオソースがありません",
+    "generating": "オーディオを生成中...",
+    "generateFailed": "オーディオの生成に失敗しました",
+    "retry": "再試行",
+    "parametersLocked": "パラメータがロックされています"
+  },
+  "versionStack": {
+    "badge": "{{count}} バージョン",
+    "prev": "前へ",
+    "next": "次へ"
+  },
+  "fileAttachmentNode": {
+    "toolbar": {
+      "detail": "詳細"
+    }
+  },
+  "videoDetail": {
+    "fileLabel": "動画ファイル",
+    "unnamed": "無題",
+    "pathValue": "パス: {{path}}",
+    "pathEmpty": "パス: -",
+    "durationValue": "再生時間: {{duration}}",
+    "sizeValue": "サイズ: {{size}}"
+  },
+  "linkNode": {
+    "toolbar": {
+      "open": "開く",
+      "copyUrl": "URLをコピー"
+    }
+  },
+  "anchorOverlay": {
+    "expand": "展開",
+    "collapse": "折りたたむ"
+  },
+  "loading": {
+    "processing": "タスクを処理中",
+    "cancelled": "リクエストがキャンセルされました",
+    "queryFailed": "タスクの問い合わせに失敗しました",
+    "imageGenerateFailed": "画像の生成に失敗しました",
+    "videoGenerateFailed": "動画の生成に失敗しました",
+    "audioGenerateFailed": "オーディオの生成に失敗しました",
+    "videoSaveFailed": "動画の保存に失敗しました",
+    "taskCancelled": "タスクがキャンセルされました",
+    "failed": "生成に失敗しました",
+    "imageTimeout": "画像生成がタイムアウトしました",
+    "videoTimeout": "動画生成がタイムアウトしました",
+    "audioTimeout": "オーディオ生成がタイムアウトしました",
+    "imageGenerateError": "画像の生成に失敗しました",
+    "videoGenerateError": "動画の生成に失敗しました",
+    "audioGenerateError": "オーディオの生成に失敗しました",
+    "statusFailed": "失敗",
+    "statusGenerating": "生成中…",
+    "statusWaiting": "待機中",
+    "transcoding": "トランスコード中",
+    "cancel": "キャンセル",
+    "retry": "再試行",
+    "delete": "削除",
+    "dismiss": "閉じる"
+  },
+  "collab": {
+    "imageTranscodeFailed": "画像のトランスコードに失敗しました。元のファイルが挿入されました"
+  },
+  "panelHeader": {
+    "noCanvas": "エクスポート可能なキャンバスが見つかりません",
+    "exportFailed": "エクスポート失敗: 画像を生成できません",
+    "exitFullscreen": "フルスクリーン終了",
+    "enterFullscreen": "フルスクリーン",
+    "showAIPanel": "AIパネルを表示",
+    "hideAIPanel": "AIパネルを非表示",
+    "screenshot": "キャンバスをスクリーンショット",
+    "openInFileSystem": "ファイルシステムで開く",
+    "openBoardFolder": "キャンバスフォルダを開く",
+    "openBoardFolderMissing": "キャンバスフォルダが見つかりません",
+    "openBoardFolderFailed": "キャンバスフォルダを開けません"
+  },
+  "aiToolbar": {
+    "aiAssistant": "AIアシスタント",
+    "imagePromptGenerate": "画像分析",
+    "imageGenerate": "画像生成",
+    "videoGenerate": "動画生成",
+    "generateImage": "画像を生成",
+    "generateVideo": "動画を生成",
+    "upscale": "高画質化",
+    "repaint": "リペイント",
+    "regenerate": "再生成",
+    "upscaleVideo": "動画を高画質化"
+  },
+  "nodeInspector": {
+    "panelTitle": "ノード詳細",
+    "close": "閉じる",
+    "type": "タイプ",
+    "position": "位置",
+    "size": "サイズ",
+    "titleLabel": "タイトル",
+    "description": "説明"
+  },
+  "nodePicker": {
+    "title": "ノードを選択",
+    "empty": "利用可能なノードがありません"
+  },
+  "chatInput": {
+    "title": "AIチャット",
+    "placeholder": "メッセージを入力、Enterで送信…",
+    "send": "送信",
+    "sending": "送信中…",
+    "sent": "送信済み",
+    "retry": "再試行",
+    "autoModel": "モデルを自動選択"
+  },
+  "chatMessage": {
+    "title": "AIの応答",
+    "streaming": "生成中",
+    "thinking": "思考中…",
+    "otherGenerating": "生成中…",
+    "stop": "停止",
+    "retry": "再試行",
+    "copied": "コピーしました",
+    "copyFailed": "コピーに失敗しました",
+    "hiddenPart": "非表示コンテンツ",
+    "show": "表示",
+    "continueChatLabel": "チャットを続ける",
+    "continueChatDesc": "ここから会話を続ける",
+    "edit": "編集"
+  },
+  "styles": {
+    "realistic": "リアリスティック",
+    "anime": "アニメ",
+    "illustration": "イラスト",
+    "3d": "3D",
+    "cyberpunk": "サイバーパンク",
+    "oilPainting": "油絵",
+    "watercolor": "水彩画",
+    "sketch": "スケッチ",
+    "pixelArt": "ピクセルアート",
+    "flat": "フラット",
+    "minimalist": "ミニマリスト",
+    "chinese": "中国風",
+    "impressionist": "印象派",
+    "popart": "ポップアート",
+    "steampunk": "スチームパンク",
+    "gothic": "ゴシック",
+    "surrealism": "シュルレアリスム",
+    "geometric": "ジオメトリック",
+    "retro": "レトロ",
+    "scifi": "SF",
+    "fantasy": "ファンタジー",
+    "ink": "水墨画",
+    "lowpoly": "ローポリ"
+  },
+  "fallbackNode": {
+    "deprecated": "このノードタイプ ({{type}}) は廃止されました",
+    "delete": "削除"
+  },
+  "shapeNode": {
+    "toolbar": {
+      "color": "カラー"
+    }
+  },
+  "videoPanel": {
+    "prompt": "プロンプト",
+    "promptPlaceholder": "動画の内容やカメラの動きを記述...",
+    "firstFrame": "最初のフレーム",
+    "lastFrame": "最後のフレーム",
+    "firstFrameAuto": "上流ノードから自動読み込み",
+    "firstFrameUpload": "クリックしてアップロード",
+    "sourceVideo": "元動画",
+    "model": "モデル",
+    "autoRecommend": "自動推奨",
+    "aspectRatio": "アスペクト比",
+    "duration": "再生時間",
+    "quality": "品質",
+    "generate": "生成",
+    "generating": "生成中...",
+    "upstreamLoaded": "上流ノードからコンテンツを読み込みました",
+    "upstreamImageLoaded": "上流ノードから最初のフレームを読み込みました",
+    "enhancePrompt": "プロンプトを強化",
+    "translate": "翻訳",
+    "credits": "クレジット",
+    "estimatedCredits": "この生成の推定クレジット",
+    "mode": {
+      "textToVideo": "テキストから動画",
+      "universalRef": "汎用リファレンス",
+      "imageToVideo": "画像から動画",
+      "startEndFrame": "開始/終了フレーム",
+      "videoEdit": "動画編集"
+    },
+    "modeV2Badge": "V2",
+    "refFeatures": {
+      "mark": "マーク",
+      "effect": "エフェクト",
+      "subject": "被写体",
+      "camera": "カメラ"
+    },
+    "stackMode": "スタック（新バージョン）",
+    "overwriteMode": "プライマリを上書き",
+    "parametersLocked": "パラメータがロックされています"
+  },
+  "imagePanel": {
+    "textToImage": "テキストから画像",
+    "imageToImage": "画像から画像",
+    "prompt": "プロンプト",
+    "promptPlaceholder": "生成したい画像を記述...",
+    "model": "モデル",
+    "autoRecommend": "自動推奨",
+    "aspectRatio": "アスペクト比",
+    "resolution": "解像度",
+    "advancedSettings": "詳細設定",
+    "advancedSettingsPlaceholder": "さらなる設定は近日公開...",
+    "generate": "生成",
+    "generating": "生成中...",
+    "upstreamLoaded": "上流ノードからコンテンツを読み込みました",
+    "resultPagination": {
+      "pageOf": "{{current}}/{{total}}"
+    },
+    "referenceImages": "参照画像",
+    "selectedCount": "{{count}}/{{limit}} 選択済み",
+    "expandUpstream": "展開",
+    "uploadReference": "参照画像をアップロード",
+    "enhancePrompt": "プロンプトを強化",
+    "translate": "翻訳",
+    "settings": "設定",
+    "generateMode": "生成モード",
+    "upstreamSlots": "上流アセット",
+    "estimatedCredits": "この生成の推定クレジット",
+    "stackMode": "スタック（新バージョン）",
+    "overwriteMode": "プライマリを上書き",
+    "mode": {
+      "auto": "自動",
+      "upscale": "高画質化",
+      "inpaint": "インペイント",
+      "erase": "消去",
+      "matting": "切り抜き",
+      "multiview": "マルチアングル",
+      "outpaint": "アウトペイント"
+    },
+    "comingSoon": "近日公開",
+    "upscaleScale": "拡大倍率",
+    "maskEdit": "マスクを編集",
+    "erasePlaceholder": "消去したい領域を塗りつぶしてください"
+  },
+  "upscalePanel": {
+    "title": "高画質化",
+    "scaleFactor": "拡大倍率",
+    "model": "モデル",
+    "autoRecommend": "自動推奨",
+    "creditsCost": "クレジット消費",
+    "submit": "高画質化"
+  },
+  "audioPanel": {
+    "type": "タイプ",
+    "music": "音楽",
+    "voiceover": "ナレーション",
+    "sfx": "効果音",
+    "prompt": "プロンプト",
+    "promptPlaceholder": "生成したいオーディオを記述...",
+    "model": "モデル",
+    "autoRecommend": "自動推奨",
+    "duration": "再生時間",
+    "generate": "生成",
+    "generating": "生成中...",
+    "upstreamLoaded": "上流ノードからコンテンツを読み込みました",
+    "title": "オーディオ生成",
+    "tabs": {
+      "tts": "テキスト読み上げ",
+      "music": "音楽",
+      "sfx": "効果音"
+    },
+    "tts": {
+      "textPreview": "テキスト内容",
+      "textPreviewEmpty": "テキストノードを接続してコンテンツを自動入力",
+      "referenceVoice": "リファレンスボイス",
+      "referenceVoiceEmpty": "ボイスサンプルを選択または接続",
+      "selectVoice": "ボイスを選択",
+      "registeredVoice": "登録済みボイス",
+      "registeredVoicePlaceholder": "V1.5で対応予定"
+    },
+    "enhancePrompt": "プロンプトを強化",
+    "durationAuto": "自動",
+    "translate": "翻訳",
+    "credits": "クレジット",
+    "estimatedCredits": "この生成の推定クレジット",
+    "noModel": "利用可能なモデルがありません",
+    "loginHint": "サインインしてクラウドモデルを利用",
+    "stackMode": "スタック（新バージョン）",
+    "overwriteMode": "プライマリを上書き",
+    "parametersLocked": "パラメータがロックされています"
+  },
+  "nodeSearch": {
+    "placeholder": "ノードを検索...",
+    "results": "検索結果 ({{count}})",
+    "noResults": "一致するノードが見つかりません",
+    "types": {
+      "all": "すべて",
+      "text": "テキスト",
+      "image": "画像",
+      "video": "動画",
+      "audio": "オーディオ"
+    }
+  },
+  "nodeLabel": {
+    "text": "テキスト",
+    "image": "画像",
+    "video": "動画",
+    "audio": "オーディオ",
+    "link": "リンク",
+    "file-attachment": "ファイル",
+    "calendar": "カレンダー",
+    "group": "グループ",
+    "image-group": "画像グループ"
+  },
+  "textPanel": {
+    "upstreamPreview": "上流テキスト",
+    "instructionPlaceholder": "AI指示を入力...",
+    "model": "モデル",
+    "autoRecommend": "自動推奨",
+    "generate": "生成",
+    "generating": "生成中...",
+    "translate": "翻訳",
+    "credits": "クレジット"
+  },
+  "generateAction": {
+    "generate": "生成",
+    "generating": "生成中...",
+    "newNode": "新規ノードを生成",
+    "stackCurrent": "現在のノードにスタック",
+    "locked": "パラメータがロックされています",
+    "unlock": "ロック解除"
+  }
+}

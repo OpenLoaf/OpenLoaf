@@ -30,17 +30,21 @@ import {
   AlignRight,
   Bold,
   CheckSquare,
+  ChevronDown,
+  ImagePlus,
   Italic,
   List,
   ListOrdered,
   MessageSquare,
   Palette,
   PaintBucket,
-  Play,
   Sparkles,
   Strikethrough,
   Type,
   Underline,
+  Video,
+  Volume2,
+  Wand2,
 } from "lucide-react";
 import { cn } from "@udecode/cn";
 import { KEYS } from 'platejs';
@@ -52,21 +56,17 @@ import {
   MESSAGE_STREAM_MARKDOWN_CLASSNAME,
 } from "@/components/ai/message/markdown/MessageStreamMarkdown";
 import {
-  BOARD_TOOLBAR_ITEM_BLUE,
-  BOARD_TOOLBAR_ITEM_PURPLE,
+  BOARD_TOOLBAR_ITEM_DEFAULT,
 } from "../ui/board-style-system";
 import { useBoardContext } from "../core/BoardProvider";
-import { VIDEO_GENERATE_NODE_TYPE } from "./videoGenerate";
-import { IMAGE_GENERATE_NODE_TYPE } from "./imageGenerate/constants";
+import { createPortal } from "react-dom";
+import { deriveNode } from "../utils/derive-node";
 import { MINDMAP_META } from "../engine/mindmap-layout";
 import { HueSlider, buildColorSwatches, DEFAULT_COLOR_PRESETS } from "../ui/HueSlider";
 import { BoardTextEditorKit } from "./text-editor-kit";
-import {
-  getBoardChatMessageMeta,
-  getBoardChatPartMeta,
-  layoutBoardChatMessageGroup,
-} from "../utils/board-chat-message";
-import { createBoardChatMessageToolbarItems } from "../utils/board-chat-toolbar";
+import { useUpstreamData } from "../hooks/useUpstreamData";
+import { usePanelOverlay } from "../render/pixi/PixiApplication";
+import { TextAiPanel, type TextGenerateParams } from "../panels/TextAiPanel";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -77,6 +77,45 @@ export type TextNodeValue = string | Value;
 
 /** Supported text alignment for text nodes. */
 export type TextNodeTextAlign = "left" | "center" | "right";
+
+/** Visual style variant for text nodes. */
+export type TextNodeStyle = "plain" | "sticky" | "shape";
+
+/** Preset sticky note colors. */
+export type StickyColor = "yellow" | "blue" | "green" | "pink" | "purple" | "orange";
+
+/** Sticky note color definitions (light + dark background/text). */
+export const STICKY_COLORS: Record<StickyColor, { bg: string; darkBg: string }> = {
+  yellow:  { bg: "bg-amber-100",  darkBg: "dark:bg-amber-900/60" },
+  blue:    { bg: "bg-blue-100",   darkBg: "dark:bg-blue-900/60" },
+  green:   { bg: "bg-emerald-100", darkBg: "dark:bg-emerald-900/60" },
+  pink:    { bg: "bg-pink-100",   darkBg: "dark:bg-pink-900/60" },
+  purple:  { bg: "bg-purple-100", darkBg: "dark:bg-purple-900/60" },
+  orange:  { bg: "bg-orange-100", darkBg: "dark:bg-orange-900/60" },
+};
+
+/** Shape sub-types for style='shape'. */
+export type ShapeType = "rectangle" | "rounded_rectangle" | "ellipse" | "diamond" | "triangle";
+
+/** CSS clip-path for each shape. "none" means use border-radius instead. */
+const SHAPE_CLIP_PATHS: Record<ShapeType, string | null> = {
+  rectangle: null,
+  rounded_rectangle: null,
+  ellipse: "ellipse(50% 50% at 50% 50%)",
+  diamond: "polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)",
+  triangle: "polygon(50% 0%, 100% 100%, 0% 100%)",
+};
+
+/** Compute contrast text color for a hex fill. */
+function getShapeTextColor(hex: string): string {
+  const cleaned = hex.replace("#", "");
+  if (cleaned.length < 6) return "#ffffff";
+  const r = Number.parseInt(cleaned.slice(0, 2), 16);
+  const g = Number.parseInt(cleaned.slice(2, 4), 16);
+  const b = Number.parseInt(cleaned.slice(4, 6), 16);
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.5 ? "#000000" : "#ffffff";
+}
 
 export type TextNodeProps = {
   /** Text content stored on the node. */
@@ -103,6 +142,20 @@ export type TextNodeProps = {
   readOnlyProjection?: boolean;
   /** Markdown text shown in read-only chat projection mode. */
   markdownText?: string;
+  /** Visual style variant: 'plain' (default), 'sticky' (colored note), or 'shape'. */
+  style?: TextNodeStyle;
+  /** Sticky note color preset. Only used when style is 'sticky'. */
+  stickyColor?: StickyColor;
+  /** Shape sub-type. Only used when style is 'shape'. */
+  shapeType?: ShapeType;
+  /** Shape fill color. Only used when style is 'shape'. */
+  shapeFill?: string;
+  /** Shape stroke color. Only used when style is 'shape'. */
+  shapeStroke?: string;
+  /** Shape stroke width in px. Only used when style is 'shape'. */
+  shapeStrokeWidth?: number;
+  /** How the text node was created. */
+  origin?: import("../board-contracts").NodeOrigin;
 };
 
 // ---------------------------------------------------------------------------
@@ -170,36 +223,47 @@ const textEditorRefs = new Map<string, PlateEditor>();
 /** Connector templates offered by the text node – resolved at render time. */
 const getTextNodeConnectorTemplates = (): CanvasConnectorTemplateDefinition[] => [
   {
+    id: "image",
+    label: i18next.t('board:connector.imageGenerate'),
+    description: i18next.t('board:connector.imageGenerateDesc'),
+    size: [320, 180],
+    icon: <ImagePlus size={14} />,
+    createNode: () => ({
+      type: "image",
+      props: {},
+    }),
+  },
+  {
+    id: "video",
+    label: i18next.t('board:connector.videoGenerate'),
+    description: i18next.t('board:connector.videoGenerateDesc'),
+    size: [320, 180],
+    icon: <Video size={14} />,
+    createNode: () => ({
+      type: "video",
+      props: {},
+    }),
+  },
+  {
+    id: "audio",
+    label: i18next.t('board:connector.textToSpeech'),
+    description: i18next.t('board:connector.textToSpeechDesc'),
+    size: [320, 120],
+    icon: <Volume2 size={14} />,
+    createNode: () => ({
+      type: "audio",
+      props: {},
+    }),
+  },
+  {
     id: "text",
-    label: i18next.t('board:connector.textNode'),
-    description: i18next.t('board:connector.textNodeDesc'),
-    size: [200, TEXT_NODE_DEFAULT_HEIGHT],
+    label: i18next.t('board:connector.textAiPolish'),
+    description: i18next.t('board:connector.textAiPolishDesc'),
+    size: [200, 200],
     icon: <Type size={14} />,
     createNode: () => ({
       type: "text",
-      props: {},
-    }),
-  },
-  {
-    id: IMAGE_GENERATE_NODE_TYPE,
-    label: i18next.t('board:connector.imageGenerate'),
-    description: i18next.t('board:connector.imageGenerateDesc'),
-    size: [320, 260],
-    icon: <Sparkles size={14} />,
-    createNode: () => ({
-      type: IMAGE_GENERATE_NODE_TYPE,
-      props: {},
-    }),
-  },
-  {
-    id: VIDEO_GENERATE_NODE_TYPE,
-    label: i18next.t('board:connector.videoGenerate'),
-    description: i18next.t('board:connector.videoGenerateDesc'),
-    size: [360, 280],
-    icon: <Play size={14} />,
-    createNode: () => ({
-      type: VIDEO_GENERATE_NODE_TYPE,
-      props: {},
+      props: { style: 'sticky', stickyColor: 'yellow' },
     }),
   },
 ];
@@ -351,14 +415,7 @@ function ReadOnlyMarkdownProjection(props: {
 }) {
   const { engine } = useBoardContext();
   const contentRef = useRef<HTMLDivElement | null>(null);
-  const element = engine.doc.getElementById(props.elementId);
-  const partMeta = getBoardChatPartMeta(element);
-  const messageGroupMeta =
-    getBoardChatMessageMeta(element)
-    ?? (partMeta
-      ? getBoardChatMessageMeta(engine.doc.getElementById(partMeta.messageGroupId))
-      : null);
-  const isAnimating = messageGroupMeta?.status === "streaming";
+  const isAnimating = false;
 
   useEffect(() => {
     const content = contentRef.current;
@@ -373,8 +430,6 @@ function ReadOnlyMarkdownProjection(props: {
       const [, , width, currentHeight] = node.xywh;
       // 逻辑：只允许增高不允许缩小，避免 Markdown 异步渲染期间 scrollHeight 暂时偏小导致节点高度跳动。
       if (nextHeight <= currentHeight) return;
-      const partMeta = getBoardChatPartMeta(node);
-      // 逻辑：只读聊天文本高度变化时，同时同步消息组内垂直布局，避免后续节点重叠。
       engine.batch(() => {
         engine.doc.transact(() => {
           engine.doc.updateElement(props.elementId, {
@@ -382,9 +437,6 @@ function ReadOnlyMarkdownProjection(props: {
           });
         });
       });
-      if (partMeta?.messageGroupId) {
-        layoutBoardChatMessageGroup(engine, partMeta.messageGroupId);
-      }
     });
     observer.observe(content);
     return () => observer.disconnect();
@@ -483,7 +535,7 @@ function buildColorToolbarItems(
       label: t('board:textNode.toolbar.textColor'),
       showLabel: true,
       icon: <Palette size={14} />,
-      className: BOARD_TOOLBAR_ITEM_PURPLE,
+      className: BOARD_TOOLBAR_ITEM_DEFAULT,
       onPanelClose: () => {
         if (textColor) addColorHistory(textColor);
       },
@@ -537,7 +589,7 @@ function buildColorToolbarItems(
       label: t('board:textNode.toolbar.backgroundColor'),
       showLabel: true,
       icon: <PaintBucket size={14} />,
-      className: BOARD_TOOLBAR_ITEM_PURPLE,
+      className: BOARD_TOOLBAR_ITEM_DEFAULT,
       onPanelClose: () => {
         if (backgroundColor) addColorHistory(backgroundColor);
       },
@@ -628,13 +680,48 @@ function createTextToolbarItems(ctx: CanvasToolbarContext<TextNodeProps>) {
   };
 
   return [
+    // ---- AI Polish dropdown ----
+    {
+      id: 'ai-polish',
+      label: t('board:textNode.aiPolish.title'),
+      icon: <><Wand2 size={14} /><ChevronDown size={10} className="ml-0.5 opacity-60" /></>,
+      className: BOARD_TOOLBAR_ITEM_DEFAULT,
+      panel: (
+        <div className="flex flex-col gap-0.5 min-w-[120px]">
+          <TextToolbarPanelButton
+            title={t('board:textNode.aiPolish.polish')}
+            onSelect={() => {
+              deriveNode({ engine: ctx.engine, sourceNodeId: ctx.element.id, targetType: 'text', targetProps: { style: 'sticky', stickyColor: 'yellow' } })
+            }}
+          >
+            <Sparkles size={12} className="mr-1.5" />{t('board:textNode.aiPolish.polish')}
+          </TextToolbarPanelButton>
+          <TextToolbarPanelButton
+            title={t('board:textNode.aiPolish.translate')}
+            onSelect={() => {
+              deriveNode({ engine: ctx.engine, sourceNodeId: ctx.element.id, targetType: 'text', targetProps: { style: 'sticky', stickyColor: 'blue' } })
+            }}
+          >
+            <MessageSquare size={12} className="mr-1.5" />{t('board:textNode.aiPolish.translate')}
+          </TextToolbarPanelButton>
+          <TextToolbarPanelButton
+            title={t('board:textNode.aiPolish.rewrite')}
+            onSelect={() => {
+              deriveNode({ engine: ctx.engine, sourceNodeId: ctx.element.id, targetType: 'text', targetProps: { style: 'sticky', stickyColor: 'green' } })
+            }}
+          >
+            <Type size={12} className="mr-1.5" />{t('board:textNode.aiPolish.rewrite')}
+          </TextToolbarPanelButton>
+        </div>
+      ),
+    },
     // ---- Node-level: Font size ----
     {
       id: 'text-size',
       label: t('board:textNode.toolbar.fontSize'),
       showLabel: true,
       icon: <Type size={14} />,
-      className: BOARD_TOOLBAR_ITEM_BLUE,
+      className: BOARD_TOOLBAR_ITEM_DEFAULT,
       panel: (
         <div className="flex items-center gap-1">
           {TEXT_NODE_FONT_SIZES.map(size => (
@@ -656,7 +743,7 @@ function createTextToolbarItems(ctx: CanvasToolbarContext<TextNodeProps>) {
       label: t('board:textNode.toolbar.style'),
       showLabel: true,
       icon: <Bold size={14} />,
-      className: BOARD_TOOLBAR_ITEM_PURPLE,
+      className: BOARD_TOOLBAR_ITEM_DEFAULT,
       panel: (
         <div className="flex items-center gap-1">
           <TextToolbarPanelButton
@@ -696,7 +783,7 @@ function createTextToolbarItems(ctx: CanvasToolbarContext<TextNodeProps>) {
       label: t('board:textNode.toolbar.list'),
       showLabel: true,
       icon: <List size={14} />,
-      className: BOARD_TOOLBAR_ITEM_BLUE,
+      className: BOARD_TOOLBAR_ITEM_DEFAULT,
       panel: (() => {
         // 逻辑：直接读取编辑器 value 检测列表类型，不依赖 editor.selection。
         const blocks = (editor?.children ?? []) as Record<string, unknown>[];
@@ -791,7 +878,7 @@ function createTextToolbarItems(ctx: CanvasToolbarContext<TextNodeProps>) {
       label: t('board:textNode.toolbar.align'),
       showLabel: true,
       icon: <AlignLeft size={14} />,
-      className: BOARD_TOOLBAR_ITEM_BLUE,
+      className: BOARD_TOOLBAR_ITEM_DEFAULT,
       panel: (
         <div className="flex items-center gap-1">
           <TextToolbarPanelButton
@@ -827,11 +914,15 @@ function createTextToolbarItems(ctx: CanvasToolbarContext<TextNodeProps>) {
 // TextNodeView — main component
 // ---------------------------------------------------------------------------
 
+/** Gap in px between the node bottom and the panel (screen-space constant). */
+const TEXT_PANEL_GAP_PX = 16;
+
 /** Render the editable text node with Plate rich-text editing. */
 function EditableTextNodeView({
   element,
   selected,
   editing,
+  expanded,
   onSelect,
   onUpdate,
 }: CanvasNodeViewProps<TextNodeProps>) {
@@ -852,6 +943,42 @@ function EditableTextNodeView({
 
   const { engine } = useBoardContext();
   const isLocked = engine.isLocked() || element.locked;
+
+  // Upstream data for AI panel (only resolve when expanded)
+  const upstream = useUpstreamData(engine, expanded ? element.id : null);
+  const panelOverlay = usePanelOverlay();
+  const panelRef = useRef<HTMLDivElement | null>(null);
+
+  // 逻辑：检查是否有上游 text→text 连接（用于显示 AI 面板）。
+  const hasUpstreamTextConnection = useMemo(() => {
+    if (!upstream) return false;
+    return upstream.textList.length > 0;
+  }, [upstream]);
+
+  // 逻辑：面板通过 subscribeView 同步缩放和位置。
+  const xywhRef = useRef(element.xywh);
+  xywhRef.current = element.xywh;
+  useEffect(() => {
+    if (!expanded || !hasUpstreamTextConnection) return;
+    const syncPanelScale = () => {
+      const el = panelRef.current;
+      if (!el) return;
+      const zoom = engine.viewport.getState().zoom;
+      const gap = TEXT_PANEL_GAP_PX / zoom;
+      const [, ny, , nh] = xywhRef.current;
+      el.style.top = `${ny + nh + gap}px`;
+      el.style.transform = `translateX(-50%) scale(${1 / zoom})`;
+    };
+    syncPanelScale();
+    return engine.subscribeView(syncPanelScale);
+  }, [engine, expanded, hasUpstreamTextConnection]);
+
+  const handleTextAiGenerate = useCallback(
+    (_params: TextGenerateParams) => {
+      // TODO: wire to actual AI generation
+    },
+    [],
+  );
 
   const [isEditing, setIsEditing] = useState(Boolean(editing) && !isGhost);
   const [shouldFocus, setShouldFocus] = useState(false);
@@ -1124,14 +1251,53 @@ function EditableTextNodeView({
 
   // ---- Render ----
 
-  const containerStyle = backgroundColor ? { backgroundColor } : undefined;
-  const defaultBg = backgroundColor ? "" : "bg-ol-surface-muted";
+  const nodeStyle = element.props.style ?? "plain";
+  const isSticky = nodeStyle === "sticky";
+  const isShape = nodeStyle === "shape";
+  const stickyColorDef = isSticky
+    ? STICKY_COLORS[element.props.stickyColor ?? "yellow"]
+    : null;
+
+  // Shape styling
+  const shapeType = element.props.shapeType ?? "rectangle";
+  const shapeFill = element.props.shapeFill ?? "#3b82f6";
+  const shapeStroke = element.props.shapeStroke ?? "#2563eb";
+  const shapeStrokeWidth = element.props.shapeStrokeWidth ?? 2;
+  const shapeClipPath = isShape ? SHAPE_CLIP_PATHS[shapeType] : null;
+  const hasClipPath = Boolean(shapeClipPath);
+
+  const containerStyle: React.CSSProperties | undefined = isShape
+    ? {
+        backgroundColor: shapeFill,
+        border: `${shapeStrokeWidth}px solid ${shapeStroke}`,
+        clipPath: shapeClipPath ?? undefined,
+        borderRadius: shapeType === "rounded_rectangle" ? 12 : shapeType === "rectangle" ? 4 : 0,
+        color: getShapeTextColor(shapeFill),
+      }
+    : backgroundColor && !isSticky
+      ? { backgroundColor }
+      : undefined;
+
+  const defaultBg = isSticky || isShape
+    ? ""
+    : backgroundColor
+      ? ""
+      : "bg-ol-surface-muted";
+  const stickyBg = stickyColorDef
+    ? `${stickyColorDef.bg} ${stickyColorDef.darkBg}`
+    : "";
   const containerClasses = [
-    "relative h-full w-full box-border rounded-lg p-2.5",
-    isEditing && !backgroundColor
-      ? "bg-background"
-      : defaultBg,
-    "text-ol-text-primary",
+    "relative h-full w-full box-border",
+    isShape ? (hasClipPath ? "p-[15%]" : "p-2.5") : "p-2.5",
+    isSticky ? "rounded-sm shadow-sm" : isShape ? "" : "rounded-lg",
+    isSticky
+      ? stickyBg
+      : isShape
+        ? ""
+        : isEditing && !backgroundColor
+          ? "bg-background"
+          : defaultBg,
+    isShape ? "" : "text-ol-text-primary",
     "overflow-y-auto board-text-scrollbar",
     isEditing ? "cursor-text" : "cursor-default",
   ].join(" ");
@@ -1195,6 +1361,31 @@ function EditableTextNodeView({
           {getTextNodePlaceholder()}
         </div>
       ) : null}
+      {expanded && hasUpstreamTextConnection && panelOverlay ? createPortal(
+        <div
+          ref={panelRef}
+          className="pointer-events-auto absolute"
+          data-board-editor
+          style={{
+            left: element.xywh[0] + element.xywh[2] / 2,
+            top: element.xywh[1] + element.xywh[3],
+            transformOrigin: 'top center',
+          }}
+          onPointerDown={event => {
+            event.stopPropagation();
+          }}
+          onContextMenu={event => {
+            event.stopPropagation();
+          }}
+        >
+          <TextAiPanel
+            element={element}
+            upstreamText={upstream?.textList.join('\n')}
+            onGenerate={handleTextAiGenerate}
+          />
+        </div>,
+        panelOverlay,
+      ) : null}
     </div>
   );
 }
@@ -1238,6 +1429,13 @@ export const TextNodeDefinition: CanvasNodeDefinition<TextNodeProps> = {
     backgroundColor: z.string().optional(),
     readOnlyProjection: z.boolean().optional(),
     markdownText: z.string().optional(),
+    style: z.enum(["plain", "sticky", "shape"]).optional(),
+    stickyColor: z.enum(["yellow", "blue", "green", "pink", "purple", "orange"]).optional(),
+    shapeType: z.enum(["rectangle", "rounded_rectangle", "ellipse", "diamond", "triangle"]).optional(),
+    shapeFill: z.string().optional(),
+    shapeStroke: z.string().optional(),
+    shapeStrokeWidth: z.number().optional(),
+    origin: z.enum(['user', 'upload', 'ai-generate', 'paste']).optional(),
   }) as z.ZodType<TextNodeProps>,
   defaultProps: {
     value: DEFAULT_TEXT_VALUE,
@@ -1264,8 +1462,7 @@ export const TextNodeDefinition: CanvasNodeDefinition<TextNodeProps> = {
   connectorTemplates: () => getTextNodeConnectorTemplates(),
   toolbar: (ctx) => {
     if (ctx.element.props.readOnlyProjection) {
-      const messageMeta = getBoardChatMessageMeta(ctx.element);
-      return messageMeta ? createBoardChatMessageToolbarItems(ctx, messageMeta) : [];
+      return [];
     }
     return createTextToolbarItems(ctx);
   },
@@ -1276,4 +1473,5 @@ export const TextNodeDefinition: CanvasNodeDefinition<TextNodeProps> = {
     minSize: TEXT_NODE_MIN_SIZE,
     maxSize: TEXT_NODE_MAX_SIZE,
   },
+  inlinePanel: { width: 420, height: 360 },
 };

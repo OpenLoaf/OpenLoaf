@@ -30,7 +30,7 @@ import { NodeFrame } from "./NodeFrame";
 /** Loading node type identifier. */
 export const LOADING_NODE_TYPE = "loading";
 
-export type LoadingTaskType = "video_generate" | "image_generate" | "video_download";
+export type LoadingTaskType = "video_generate" | "image_generate" | "video_download" | "upscale" | "audio_generate";
 
 export type LoadingNodeProps = {
   /** Loading task id. */
@@ -51,7 +51,7 @@ export type LoadingNodeProps = {
 
 const LoadingNodeSchema = z.object({
   taskId: z.string().optional(),
-  taskType: z.enum(["video_generate", "image_generate", "video_download"]).optional(),
+  taskType: z.enum(["video_generate", "image_generate", "video_download", "upscale", "audio_generate"]).optional(),
   sourceNodeId: z.string().optional(),
   promptText: z.string().optional(),
   chatModelId: z.string().optional(),
@@ -253,7 +253,7 @@ export function LoadingNodeView({ element }: CanvasNodeViewProps<LoadingNodeProp
   const promptLabel = promptText || t('loading.processing');
 
   const canRun = Boolean(
-    taskId && (taskType === "video_generate" || taskType === "image_generate" || taskType === "video_download")
+    taskId && (taskType === "video_generate" || taskType === "image_generate" || taskType === "video_download" || taskType === "upscale" || taskType === "audio_generate")
   );
 
   useEffect(() => {
@@ -312,7 +312,9 @@ export function LoadingNodeView({ element }: CanvasNodeViewProps<LoadingNodeProp
               throw new Error(
                 taskType === "image_generate"
                   ? tRef.current('loading.imageGenerateFailed')
-                  : tRef.current('loading.videoGenerateFailed'),
+                  : taskType === "audio_generate"
+                    ? tRef.current('loading.audioGenerateFailed')
+                    : tRef.current('loading.videoGenerateFailed'),
               );
             }
 
@@ -479,7 +481,9 @@ export function LoadingNodeView({ element }: CanvasNodeViewProps<LoadingNodeProp
         throw new Error(
           taskType === "image_generate"
             ? tRef.current('loading.imageTimeout')
-            : tRef.current('loading.videoTimeout'),
+            : taskType === "audio_generate"
+              ? tRef.current('loading.audioTimeout')
+              : tRef.current('loading.videoTimeout'),
         );
       } catch (error) {
         if (!controller.signal.aborted) {
@@ -488,7 +492,9 @@ export function LoadingNodeView({ element }: CanvasNodeViewProps<LoadingNodeProp
               ? error.message
               : taskType === "image_generate"
                 ? tRef.current('loading.imageGenerateError')
-                : tRef.current('loading.videoGenerateError');
+                : taskType === "audio_generate"
+                  ? tRef.current('loading.audioGenerateError')
+                  : tRef.current('loading.videoGenerateError');
           setErrorText(message);
           if (sourceNodeId) {
             engine.doc.updateNodeProps(sourceNodeId, { errorText: message });
@@ -567,40 +573,32 @@ export function LoadingNodeView({ element }: CanvasNodeViewProps<LoadingNodeProp
     <NodeFrame>
       <div
         className={[
-          "relative flex h-full w-full min-h-0 min-w-0 flex-col items-center justify-center gap-1 rounded-md bg-card border border-border/60 p-3 text-center text-ol-text-primary",
-          !errorText ? "openloaf-thinking-border openloaf-thinking-border-on border-transparent" : "",
-          errorText
-            ? "border-ol-red/80 bg-ol-red-bg/60"
-            : "",
+          "relative flex h-full w-full min-h-0 min-w-0 flex-col items-center justify-center gap-1.5 rounded-lg border p-3 text-center",
+          !errorText
+            ? "border-ol-border bg-card text-ol-text-primary"
+            : "border-ol-border bg-ol-surface-muted text-ol-text-primary",
         ].join(" ")}
       >
-        <div className="flex items-center justify-center gap-2 text-xs font-medium">
-          <Loader2 className={isRunning ? "h-4 w-4 animate-spin" : "h-4 w-4"} />
-          <span>{statusText}</span>
-        </div>
-        <div className="w-full text-[11px] text-ol-text-auxiliary line-clamp-1 truncate">
-          {promptLabel}
-        </div>
-        {taskType === "video_download" && !errorText && (
-          <div className="w-full mt-1 h-1.5 rounded-full bg-border/40 overflow-hidden">
-            <div
-              className="h-full rounded-full bg-ol-blue transition-all duration-300"
-              style={{ width: `${Math.max(Math.min(downloadProgress, 100), 0)}%` }}
-            />
-          </div>
-        )}
-        {errorText && (
-          <div className="text-[10px] text-ol-red line-clamp-2 mt-0.5">
-            {errorText}
-          </div>
-        )}
-        <div className="flex items-center gap-1 mt-1">
-          {errorText ? (
-            <>
+        {errorText ? (
+          <>
+            {/* ✕ icon circle */}
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/[0.06]">
+              <X className="h-4 w-4 text-ol-text-auxiliary" />
+            </div>
+            {/* Operation name */}
+            <div className="text-xs font-medium text-ol-text-secondary">
+              {promptLabel}
+            </div>
+            {/* Error detail */}
+            <div className="text-[10px] text-ol-text-auxiliary line-clamp-2">
+              {errorText}
+            </div>
+            {/* Actions */}
+            <div className="flex items-center gap-2 mt-0.5">
               <button
                 type="button"
                 onClick={handleRetry}
-                className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] bg-ol-blue-bg text-ol-blue hover:bg-ol-blue/20 transition-colors duration-150"
+                className="flex items-center gap-1 rounded-full px-3 py-1 text-[11px] bg-white/[0.08] text-ol-text-secondary hover:bg-white/[0.12] transition-colors duration-150"
               >
                 <RotateCw className="h-3 w-3" />
                 {t('loading.retry')}
@@ -608,23 +606,43 @@ export function LoadingNodeView({ element }: CanvasNodeViewProps<LoadingNodeProp
               <button
                 type="button"
                 onClick={handleDelete}
-                className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] bg-ol-red-bg text-ol-red hover:bg-ol-red/20 transition-colors duration-150"
+                className="text-[11px] text-ol-text-auxiliary hover:text-ol-text-secondary transition-colors duration-150"
               >
-                <Trash2 className="h-3 w-3" />
                 {t('loading.delete')}
               </button>
-            </>
-          ) : isRunning ? (
-            <button
-              type="button"
-              onClick={handleCancel}
-              className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] bg-ol-red-bg text-ol-red hover:bg-ol-red/20 transition-colors duration-150"
-            >
-              <X className="h-3 w-3" />
-              {t('loading.cancel')}
-            </button>
-          ) : null}
-        </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="flex items-center justify-center gap-2 text-xs font-medium">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>{statusText}</span>
+            </div>
+            <div className="w-full text-[11px] text-ol-text-auxiliary line-clamp-1 truncate">
+              {promptLabel}
+            </div>
+            {taskType === "video_download" && (
+              <div className="w-full mt-1 h-1.5 rounded-full bg-border/40 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-ol-blue transition-all duration-300"
+                  style={{ width: `${Math.max(Math.min(downloadProgress, 100), 0)}%` }}
+                />
+              </div>
+            )}
+            {isRunning ? (
+              <div className="flex items-center gap-1 mt-1">
+                <button
+                  type="button"
+                  onClick={handleCancel}
+                  className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] text-ol-text-auxiliary hover:text-ol-text-secondary transition-colors duration-150"
+                >
+                  <X className="h-3 w-3" />
+                  {t('loading.cancel')}
+                </button>
+              </div>
+            ) : null}
+          </>
+        )}
       </div>
     </NodeFrame>
   );

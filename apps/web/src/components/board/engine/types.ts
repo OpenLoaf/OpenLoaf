@@ -157,6 +157,8 @@ export type CanvasConnectorStyle =
   | "hand"
   | "fly";
 
+export type ConnectorSemantic = 'data-flow' | 'chat-flow'
+
 /** Connector element for linking nodes. */
 export type CanvasConnectorElement = CanvasElementBase & {
   /** Discriminator for connector elements. */
@@ -171,6 +173,8 @@ export type CanvasConnectorElement = CanvasElementBase & {
   color?: string;
   /** Whether the connector uses a dashed stroke. */
   dashed?: boolean;
+  semantic?: ConnectorSemantic
+  immutable?: boolean
 };
 
 /** Draft connector used for interactive linking. */
@@ -313,6 +317,8 @@ export type CanvasSnapshot = {
   toolbarDragging: boolean;
   /** Recent user-picked colors shared across all toolbar color panels. */
   colorHistory: string[];
+  /** Node id currently expanded (inline panel visible). Only one node at a time. */
+  expandedNodeId: string | null;
 };
 
 /** Props delivered to a node renderer component. */
@@ -323,6 +329,8 @@ export type CanvasNodeViewProps<P> = {
   selected: boolean;
   /** Whether the node is in edit mode. */
   editing?: boolean;
+  /** Whether the node's inline panel is expanded. */
+  expanded?: boolean;
   /** Request selecting this node. */
   onSelect: () => void;
   /** Request updating node props. */
@@ -416,6 +424,14 @@ export function resolveNodeMinSize(
   return dynamic ?? staticMin ?? fallback;
 }
 
+/** Inline panel configuration for node editing state. */
+export type CanvasInlinePanelConfig = {
+  /** Panel width when expanded (in px). */
+  width: number;
+  /** Panel height when expanded (in px). */
+  height: number;
+};
+
 /** Node definition used for registration. */
 export type CanvasNodeDefinition<P> = {
   /** Node type identifier. */
@@ -443,4 +459,45 @@ export type CanvasNodeDefinition<P> = {
   toolbar?: (ctx: CanvasToolbarContext<P>) => CanvasToolbarItem[];
   /** Capability flags for tools and UI. */
   capabilities?: CanvasNodeCapabilities;
+  /** Inline panel config for node editing (expanded when selected). */
+  inlinePanel?: CanvasInlinePanelConfig;
 };
+
+/** Immutable snapshot of inputs used for one AI generation */
+export interface InputSnapshot {
+  prompt: string
+  negativePrompt?: string
+  modelId: string
+  parameters: Record<string, unknown>
+  upstreamRefs: Array<{
+    nodeId: string
+    nodeType: string
+    data: string
+  }>
+  timestamp: number
+}
+
+/** Single immutable version in a media node's version stack */
+export interface VersionStackEntry {
+  id: string
+  status: 'generating' | 'ready' | 'failed'
+  input: InputSnapshot
+  /** Remote SaaS task id for polling generation progress. */
+  taskId?: string
+  output?: {
+    urls: string[]
+    metadata?: Record<string, unknown>
+  }
+  error?: {
+    code: string
+    message: string
+    taskId?: string
+  }
+  createdAt: number
+}
+
+/** Version stack for media nodes (image/video/audio) */
+export interface VersionStack {
+  entries: VersionStackEntry[]
+  primaryId?: string
+}

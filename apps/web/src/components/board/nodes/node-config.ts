@@ -20,9 +20,9 @@ export const IMAGE_NODE_MIN_SIZE = { w: 120, h: 90 };
 /** ImageNode 最大尺寸。 */
 export const IMAGE_NODE_MAX_SIZE = { w: 960, h: 720 };
 
-/** Node type identifier for image generation. */
+/** @deprecated Node type removed in canvas redesign. Kept for reference only. */
 export const IMAGE_GENERATE_NODE_TYPE = "image_generate";
-/** Node type identifier for video generation. */
+/** @deprecated Node type removed in canvas redesign. Kept for reference only. */
 export const VIDEO_GENERATE_NODE_TYPE = "video_generate";
 
 /** Gap between generated image nodes. */
@@ -36,7 +36,7 @@ export const IMAGE_GENERATE_MAX_INPUT_IMAGES = 9;
 /** Maximum number of output images supported by image generation nodes. */
 export const IMAGE_GENERATE_MAX_OUTPUT_IMAGES = 9;
 /** Available aspect ratio options. */
-const GENERATE_ASPECT_RATIO_OPTIONS = ["1:1", "16:9", "9:16", "4:3"] as const;
+const GENERATE_ASPECT_RATIO_OPTIONS = ["auto", "1:1", "16:9", "9:16", "4:3"] as const;
 export const IMAGE_GENERATE_ASPECT_RATIO_OPTIONS = GENERATE_ASPECT_RATIO_OPTIONS;
 export const VIDEO_GENERATE_ASPECT_RATIO_OPTIONS = GENERATE_ASPECT_RATIO_OPTIONS;
 export const IMAGE_GENERATE_COUNT_OPTIONS = Array.from({ length: 5 }, (_, index) => index + 1);
@@ -80,3 +80,6 @@ export const VIDEO_GENERATE_OUTPUT_WIDTH = 320;
 /** Default height for generated video placeholders. */
 export const VIDEO_GENERATE_OUTPUT_HEIGHT = 180;
 export const VIDEO_GENERATE_DURATION_OPTIONS = [5, 10] as const;
+
+/** Available resolution options for AI generation. */
+export const GENERATE_RESOLUTION_OPTIONS = ["1K", "2K", "4K"] as const;

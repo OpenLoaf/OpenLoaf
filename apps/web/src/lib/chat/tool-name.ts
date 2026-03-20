@@ -37,7 +37,6 @@ import {
   waitAgentToolDef,
   abortAgentToolDef,
 } from "@openloaf/api/types/tools/agent";
-import { timeNowToolDef } from "@openloaf/api/types/tools/system";
 
 type ToolNameTarget = {
   /** Tool title override. */
@@ -74,7 +73,6 @@ const TOOL_DEFS: ToolNameSource[] = [
   sendInputToolDef,
   waitAgentToolDef,
   abortAgentToolDef,
-  timeNowToolDef,
   updatePlanToolDef,
   jsxCreateToolDef,
   chartRenderToolDef,

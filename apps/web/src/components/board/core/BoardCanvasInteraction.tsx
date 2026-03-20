@@ -63,7 +63,14 @@ import {
   resolveLinkTitle,
 } from "../nodes/lib/link-actions";
 import type { ImageNodeProps } from "../nodes/ImageNode";
+import type { VideoNodeProps } from "../nodes/VideoNode";
 import type { LinkNodeProps } from "../nodes/LinkNode";
+import { deriveNode } from "../utils/derive-node";
+import { submitUpscale } from "../services/upscale-generate";
+import { DEFAULT_NODE_SIZE } from "../engine/constants";
+import { BOARD_ASSETS_DIR_NAME } from "@/lib/file-name";
+import { openFilePreview } from "@/components/file/lib/file-preview-store";
+import { fetchVideoMetadata } from "@/components/file/lib/video-metadata";
 import {
   resolveDirectionalStackPlacement,
   type StackPlacementDirection,
@@ -84,10 +91,6 @@ import {
   emitSidebarOpenRequest,
   getLeftSidebarOpen,
 } from "@/lib/sidebar-state";
-import {
-  IMAGE_GENERATE_NODE_TYPE,
-  VIDEO_GENERATE_NODE_TYPE,
-} from "../nodes/node-config";
 import { TEXT_NODE_DEFAULT_HEIGHT } from "../nodes/TextNode";
 import { isGroupNodeType } from "../engine/grouping";
 import {
@@ -100,14 +103,12 @@ import {
 
 const EDITABLE_NODE_TYPES = new Set([
   "text",
-  "image-generate",
-  "image-prompt-generate",
 ]);
 const DEFAULT_VIDEO_WIDTH = 16;
 const DEFAULT_VIDEO_HEIGHT = 9;
 const DEFAULT_VIDEO_NODE_MAX = 420;
-const DEFAULT_AUDIO_NODE_WIDTH = 280;
-const DEFAULT_AUDIO_NODE_HEIGHT = 100;
+const DEFAULT_AUDIO_NODE_WIDTH = 320;
+const DEFAULT_AUDIO_NODE_HEIGHT = 120;
 const DEFAULT_FILE_NODE_WIDTH = 260;
 const DEFAULT_FILE_NODE_HEIGHT = 80;
 const CONNECTOR_TEMPLATE_SIDE_GAP = 60;
@@ -909,30 +910,6 @@ export function BoardCanvasInteraction({
     );
   }, [engine]);
 
-  /** Enter pending insert mode for an AI image generation node. */
-  const handleInsertImageGenerateFromContextMenu = useCallback(() => {
-    if (engine.isLocked()) return;
-    engine.getContainer()?.focus();
-    engine.setPendingInsert({
-      id: IMAGE_GENERATE_NODE_TYPE,
-      type: IMAGE_GENERATE_NODE_TYPE,
-      props: {},
-      size: [320, 260],
-    });
-  }, [engine]);
-
-  /** Enter pending insert mode for an AI video generation node. */
-  const handleInsertVideoGenerateFromContextMenu = useCallback(() => {
-    if (engine.isLocked()) return;
-    engine.getContainer()?.focus();
-    engine.setPendingInsert({
-      id: VIDEO_GENERATE_NODE_TYPE,
-      type: VIDEO_GENERATE_NODE_TYPE,
-      props: {},
-      size: [360, 280],
-    });
-  }, [engine]);
-
   const handleCanvasDragOver = (event: DragEvent<HTMLDivElement>) => {
     const types = event.dataTransfer?.types;
     if (!types) return;
@@ -1299,9 +1276,35 @@ export function BoardCanvasInteraction({
       return;
     }
     if (element.type === "image") {
+      const imgProps = element.props as ImageNodeProps;
+      const isEmpty = !imgProps.originalSrc && !imgProps.previewSrc;
+      if (isEmpty) {
+        // 逻辑：空图片节点双击展开面板（由节点内部处理文件选择）。
+        engine.selection.setSelection([element.id]);
+        engine.setExpandedNodeId(element.id);
+        return;
+      }
       engine.setEditingNodeId(element.id);
       openImagePreviewFromNode(element);
       return;
+    }
+    if (element.type === "video") {
+      const vidProps = element.props as VideoNodeProps;
+      const isEmpty = !vidProps.sourcePath?.trim();
+      if (isEmpty) {
+        engine.selection.setSelection([element.id]);
+        engine.setExpandedNodeId(element.id);
+        return;
+      }
+    }
+    if (element.type === "audio") {
+      const audProps = element.props as { sourcePath?: string };
+      const isEmpty = !audProps.sourcePath?.trim();
+      if (isEmpty) {
+        engine.selection.setSelection([element.id]);
+        engine.setExpandedNodeId(element.id);
+        return;
+      }
     }
     if (EDITABLE_NODE_TYPES.has(element.type)) {
       engine.selection.setSelection([element.id]);
@@ -1406,8 +1409,6 @@ export function BoardCanvasInteraction({
         pasteDisabled={engine.isLocked()}
         onInsertText={handleInsertTextFromContextMenu}
         onInsertFile={handleInsertFileFromContextMenu}
-        onInsertImageGenerate={handleInsertImageGenerateFromContextMenu}
-        onInsertVideoGenerate={handleInsertVideoGenerateFromContextMenu}
         insertDisabled={engine.isLocked()}
         contextNode={contextNode}
         onNodeDelete={(nodeId) => {
@@ -1433,6 +1434,116 @@ export function BoardCanvasInteraction({
           if (!node || node.kind !== "node") return;
           setSaveAsNode(node as CanvasNodeElement);
           setSaveAsOpen(true);
+        }}
+        onNodeDeriveVideo={(nodeId) => {
+          deriveNode({ engine, sourceNodeId: nodeId, targetType: 'video' });
+        }}
+        onNodeDeriveImage={(nodeId) => {
+          deriveNode({ engine, sourceNodeId: nodeId, targetType: 'image' });
+        }}
+        onNodeUpscale={(nodeId) => {
+          const node = engine.doc.getElementById(nodeId);
+          if (!node || node.kind !== "node" || node.type !== "image") return;
+          const props = node.props as ImageNodeProps;
+          const originalSrc = (props.originalSrc ?? "").trim();
+          const previewSrc = (props.previewSrc ?? "").trim();
+          // 逻辑：优先使用原图，回退到预览图。
+          const sourceImageSrc = originalSrc
+            ? (resolveNodeFileInfo(node as CanvasNodeElement, fileContext)?.href || originalSrc)
+            : previewSrc;
+          if (!sourceImageSrc) return;
+          submitUpscale(
+            { sourceImageSrc, scale: 2, modelId: 'auto' },
+            { projectId: fileContext?.projectId },
+          )
+            .then((result) => {
+              const [loadingW, loadingH] = DEFAULT_NODE_SIZE;
+              const existingOutputs = collectOutboundTargetRects(engine, nodeId);
+              const placement = resolveDirectionalStackPlacement(
+                node.xywh,
+                existingOutputs,
+                { direction: 'right', sideGap: 60, stackGap: 16, outputSize: [loadingW, loadingH] },
+              );
+              const x = placement ? placement.x : node.xywh[0] + node.xywh[2] + 60;
+              const y = placement ? placement.y : node.xywh[1];
+              const loadingNodeId = engine.addNodeElement(
+                'loading',
+                {
+                  taskId: result.taskId,
+                  taskType: 'upscale',
+                  sourceNodeId: nodeId,
+                  promptText: 'upscale 2x',
+                  projectId: fileContext?.projectId ?? '',
+                  saveDir: fileContext?.boardFolderUri
+                    ? `${fileContext.boardFolderUri}/${BOARD_ASSETS_DIR_NAME}`
+                    : '',
+                },
+                [x, y, loadingW, loadingH],
+              );
+              if (loadingNodeId) {
+                engine.addConnectorElement(
+                  {
+                    source: { elementId: nodeId },
+                    target: { elementId: loadingNodeId },
+                    style: engine.getConnectorStyle(),
+                  },
+                  { skipHistory: true, select: false },
+                );
+              }
+            })
+            .catch((err: unknown) => {
+              console.error('[board] upscale failed:', err);
+            });
+        }}
+        onNodeDownload={(nodeId) => {
+          const node = engine.doc.getElementById(nodeId);
+          if (!node || node.kind !== "node") return;
+          void saveNodeToComputer(node as CanvasNodeElement, fileContext);
+        }}
+        onNodePreview={(nodeId) => {
+          const node = engine.doc.getElementById(nodeId);
+          if (!node || node.kind !== "node") return;
+          openImagePreviewFromNode(node as CanvasNodeElement);
+        }}
+        onNodePlay={(nodeId) => {
+          const node = engine.doc.getElementById(nodeId);
+          if (!node || node.kind !== "node" || node.type !== "video") return;
+          const props = node.props as VideoNodeProps;
+          const sourcePath = (props.sourcePath ?? "").trim();
+          if (!sourcePath) return;
+          const resolvedPath = resolveProjectRelativePath(sourcePath);
+          const displayName = props.fileName || (resolvedPath || sourcePath).split("/").pop() || "Video";
+          void fetchVideoMetadata({
+            projectId: fileContext?.projectId,
+            uri: resolvedPath || sourcePath,
+          }).then((metadata) => {
+            openFilePreview({
+              viewer: "video",
+              items: [
+                {
+                  uri: sourcePath,
+                  openUri: resolvedPath || sourcePath,
+                  name: displayName,
+                  title: displayName,
+                  width: metadata?.width ?? props.naturalWidth,
+                  height: metadata?.height ?? props.naturalHeight,
+                  projectId: fileContext?.projectId,
+                  rootUri: fileContext?.rootUri,
+                  boardId: fileContext?.boardId ?? '',
+                  clipStart: props.clipStart,
+                  clipEnd: props.clipEnd,
+                },
+              ],
+              activeIndex: 0,
+              showSave: false,
+              enableEdit: false,
+            });
+          });
+        }}
+        onNodeInspect={(nodeId) => {
+          // 逻辑：打开节点详情面板 — 通过选中并展开节点实现。
+          engine.selection.setSelection([nodeId]);
+          engine.setExpandedNodeId(nodeId);
         }}
         onContextMenu={(event) => {
           if (!showUi) return;
@@ -1559,18 +1670,20 @@ export function BoardCanvasInteraction({
             if (hitElement?.kind === "node") {
               handleNodeDoubleClick(hitElement);
             } else if (!hitElement) {
-              // 逻辑：双击空白区域时创建文本节点并自动进入编辑模式。
+              // 逻辑：双击空白区域时在鼠标位置显示浮动插入菜单。
               if (snapshot.activeToolId !== "select") {
                 engine.setActiveTool("select");
               }
-              const w = 200;
-              const h = TEXT_NODE_DEFAULT_HEIGHT;
-              engine.addNodeElement("text", { autoFocus: true }, [
-                worldPoint[0],
-                worldPoint[1],
-                w,
-                h,
-              ]);
+              containerRef.current?.dispatchEvent(
+                new CustomEvent("openloaf:board-floating-insert-menu", {
+                  bubbles: true,
+                  detail: {
+                    clientX: event.clientX,
+                    clientY: event.clientY,
+                    worldPoint,
+                  },
+                }),
+              );
             }
           }}
         >

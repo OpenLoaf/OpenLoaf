@@ -15,7 +15,6 @@ import { resolveScopedOpenLoafPath } from "@openloaf/config";
 import { t, shieldedProcedure } from "../../generated/routers/helpers/createRouter";
 import { createBoardId } from "../common/boardId";
 import { recordEntityVisit } from "../services/entityVisitRecordService";
-import { getResolvedTempStorageDir } from "../services/appConfigService";
 import { resolveScopedRootPath } from "../services/vfsService";
 
 const BOARD_THUMBNAIL_FILE_NAME = "index.png";
@@ -179,13 +178,10 @@ function extractBoardTitle(folderName: string): string {
   return "画布";
 }
 
-/** Resolve the boards directory: project-scoped or temp storage fallback. */
+/** Resolve the boards directory: project-scoped or global root. */
 function resolveBoardsBaseDir(projectId?: string): string {
-  if (projectId) {
-    const rootPath = resolveScopedRootPath({ projectId });
-    return resolveScopedOpenLoafPath(rootPath, "boards");
-  }
-  return path.join(getResolvedTempStorageDir(), "boards");
+  const rootPath = resolveScopedRootPath({ projectId });
+  return resolveScopedOpenLoafPath(rootPath, "boards");
 }
 
 /**
@@ -288,20 +284,12 @@ async function hardDeleteBoardResources(
 
   try {
     let boardDir: string;
-    if (board.projectId) {
-      const rootPath = resolveScopedRootPath({ projectId: board.projectId });
-      boardDir = resolveScopedOpenLoafPath(
-        rootPath,
-        "boards",
-        resolveBoardFolderName(board.folderUri),
-      );
-    } else {
-      boardDir = path.join(
-        getResolvedTempStorageDir(),
-        "boards",
-        resolveBoardFolderName(board.folderUri),
-      );
-    }
+    const rootPath = resolveScopedRootPath({ projectId: board.projectId ?? undefined });
+    boardDir = resolveScopedOpenLoafPath(
+      rootPath,
+      "boards",
+      resolveBoardFolderName(board.folderUri),
+    );
     await fs.rm(boardDir, { recursive: true, force: true });
   } catch (error) {
     console.warn("[board.hardDelete] failed to delete folder", error);
@@ -431,9 +419,7 @@ export const boardRouter = t.router({
     .query(async ({ ctx, input }) => {
       let rootPath: string;
       try {
-        rootPath = input.projectId
-          ? resolveScopedRootPath(input)
-          : getResolvedTempStorageDir();
+        rootPath = resolveScopedRootPath(input);
       } catch {
         return { items: {} as Record<string, string> };
       }

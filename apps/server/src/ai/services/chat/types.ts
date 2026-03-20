@@ -79,6 +79,12 @@ export type AiExecuteRequest = {
   chatModelSource?: ChatModelSource;
   /** Client platform for conditional tool registration. */
   clientPlatform?: ClientPlatform;
+  /** Web app version for SaaS metadata. */
+  webVersion?: string;
+  /** Server version for SaaS metadata. */
+  serverVersion?: string;
+  /** Desktop (Electron) app version for SaaS metadata. */
+  desktopVersion?: string;
   /** Board chat: explicit message ID chain from canvas connector graph. */
   messageIdChain?: string[];
   /** Page context for skill auto-loading. */

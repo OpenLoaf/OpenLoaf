@@ -117,6 +117,8 @@
     "animationHigh": "High",
     "notificationSound": "Notification Sound",
     "notificationSoundDesc": "Play sound cue when voice input starts",
+    "showDevNotice": "Show Dev Notice on Startup",
+    "showDevNoticeDesc": "Display the development stage notice dialog each time the app starts",
     "minimizeToTray": "Minimize to Tray on Close",
     "minimizeToTrayDesc": "When enabled, closing the window minimizes the app to the system tray instead of quitting"
   },
@@ -556,6 +558,10 @@
   },
   "agent": {
     "management": "Agent Management",
+    "expertCenter": "Expert Center",
+    "expertCenterDesc": "Browse agents by category, summon them to serve you",
+    "summonBtn": "Summon Now",
+    "categoryAll": "All",
     "createBtn": "Create Agent",
     "createTitle": "Create Agent",
     "openDir": "Open Directory",

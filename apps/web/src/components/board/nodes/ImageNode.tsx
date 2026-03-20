@@ -16,18 +16,21 @@ import type {
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 import {
+  ChevronLeft,
+  ChevronRight,
   Download,
   ImageOff,
-  Info,
-  Play,
-  Sparkles,
+  ImagePlus,
+  Loader2,
+  RotateCw,
+  Trash2,
+  Type,
+  Video,
+  X,
 } from "lucide-react";
 import { useBoardContext } from "../core/BoardProvider";
 import { buildImageNodePayloadFromUri } from "../utils/image";
 import { ImageNodeDetail } from "./ImageNodeDetail";
-import { IMAGE_PROMPT_GENERATE_NODE_TYPE } from "./imagePromptGenerate";
-import { IMAGE_GENERATE_NODE_TYPE } from "./imageGenerate";
-import { VIDEO_GENERATE_NODE_TYPE } from "./videoGenerate";
 import { NodeFrame } from "./NodeFrame";
 import type { BoardFileContext } from "../core/BoardProvider";
 import {
@@ -37,7 +40,12 @@ import {
 } from "../core/boardFilePath";
 import { arrayBufferToBase64 } from "../utils/base64";
 import { getPreviewEndpoint } from "@/lib/image/uri";
-import { isProjectAbsolutePath } from "@/components/project/filesystem/utils/file-system-utils";
+import {
+  formatScopedProjectPath,
+  isProjectAbsolutePath,
+  normalizeProjectRelativePath,
+  parseScopedProjectPath,
+} from "@/components/project/filesystem/utils/file-system-utils";
 import {
   ProjectFilePickerDialog,
   type ProjectFilePickerSelection,
@@ -46,11 +54,34 @@ import { IMAGE_EXTS } from "@/components/project/filesystem/components/FileSyste
 import { IMAGE_NODE_MAX_SIZE, IMAGE_NODE_MIN_SIZE } from "./node-config";
 import i18next from "i18next";
 import {
-  BOARD_TOOLBAR_ITEM_BLUE,
-  BOARD_TOOLBAR_ITEM_GREEN,
+  BOARD_TOOLBAR_ITEM_DEFAULT,
+  BOARD_TOOLBAR_ITEM_RED,
 } from "../ui/board-style-system";
-import { getBoardChatMessageMeta } from "../utils/board-chat-message";
-import { createBoardChatMessageToolbarItems } from "../utils/board-chat-toolbar";
+import { createPortal } from "react-dom";
+import { ImageAiPanel, type ImageGenerateParams } from "../panels/ImageAiPanel";
+import { useUpstreamData } from "../hooks/useUpstreamData";
+import { usePanelOverlay } from "../render/pixi/PixiApplication";
+import { deriveNode } from "../utils/derive-node";
+import { submitImageGenerate } from "../services/image-generate";
+import { MaskPaintOverlay, type MaskPaintHandle } from "./MaskPaintOverlay";
+import { BOARD_ASSETS_DIR_NAME } from "@/lib/file-name";
+import {
+  createInputSnapshot,
+  createGeneratingEntry,
+  pushVersion,
+  markVersionReady,
+  markVersionFailed,
+  getPrimaryEntry,
+  getGeneratingEntry,
+  switchPrimary,
+} from "../engine/version-stack";
+import { useMediaTaskPolling } from "../hooks/useMediaTaskPolling";
+import { VersionStackOverlay, STACK_CARD_SCALE } from "./VersionStackOverlay";
+import { GeneratingOverlay } from "./GeneratingOverlay";
+import { motion, AnimatePresence } from "framer-motion";
+
+/** Inline panel gap from node bottom edge in screen pixels (zoom-independent). */
+const PANEL_GAP_PX = 8;
 
 /** Max bytes for image node preview fetches. */
 const IMAGE_NODE_PREVIEW_MAX_BYTES = 100 * 1024;
@@ -90,6 +121,12 @@ export type ImageNodeProps = {
   transcodingLabel?: string;
   /** Transcoding task id for async updates. */
   transcodingId?: string;
+  /** How the image was created. Defaults to 'upload'. */
+  origin?: import("../board-contracts").NodeOrigin;
+  /** AI generation config. Present only when origin is 'ai-generate'. */
+  aiConfig?: import("../board-contracts").AiGenerateConfig;
+  /** Version stack tracking AI generation history. */
+  versionStack?: import("../engine/types").VersionStack;
 };
 
 /** Resolve a board-scoped uri into a project-scoped path. */
@@ -147,7 +184,9 @@ async function downloadOriginalImage(
       const buffer = await response.arrayBuffer();
       const contentBase64 = arrayBufferToBase64(buffer);
       const defaultDir = resolveDownloadDefaultDir(fileContext);
-      const fileName = props.fileName || "image.png";
+      const rawName = props.fileName || "image.png";
+      const hasExt = rawName.includes(".");
+      const fileName = hasExt ? rawName : `${rawName}.png`;
       const extension = fileName.split(".").pop() || "png";
       const result = await saveFile({
         contentBase64,
@@ -167,79 +206,183 @@ async function downloadOriginalImage(
   link.click();
 }
 
+/**
+ * Module-level set tracking which nodes have been unlocked for editing.
+ * Set by toolbar "regenerate" action, read by the component to override readonly.
+ */
+const editingUnlockedIds = new Set<string>();
+
+/** Build the props patch for switching version stack primary. */
+function buildSwitchPrimaryPatch(
+  stack: import("../engine/types").VersionStack,
+  entryId: string,
+  projectId?: string,
+): Partial<ImageNodeProps> {
+  const newStack = switchPrimary(stack, entryId)
+  const newPrimary = newStack.entries.find((e) => e.id === entryId)
+  const patch: Partial<ImageNodeProps> = { versionStack: newStack }
+  if (newPrimary?.output?.urls[0]) {
+    const raw = newPrimary.output.urls[0]
+    const scopedPath = parseScopedProjectPath(raw)
+      ? raw
+      : projectId
+        ? formatScopedProjectPath({
+            projectId,
+            currentProjectId: projectId,
+            relativePath: normalizeProjectRelativePath(raw),
+            includeAt: true,
+          })
+        : raw
+    patch.previewSrc = ''
+    patch.originalSrc = scopedPath
+    patch.fileName = raw.split('/').pop() || 'image.png'
+    patch.naturalWidth = 1
+    patch.naturalHeight = 1
+  }
+  return patch
+}
+
 /** Build toolbar items for image nodes. */
-function createImageToolbarItems(ctx: CanvasToolbarContext<ImageNodeProps>) {
-  const baseItems = [
+function createImageToolbarItems(
+  ctx: CanvasToolbarContext<ImageNodeProps>,
+) {
+  const items: import("../engine/types").CanvasToolbarItem[] = []
+
+  // 逻辑：版本堆叠 > 1 时在工具栏添加上一张/下一张导航按钮。
+  const stack = ctx.element.props.versionStack
+  const count = stack?.entries.length ?? 0
+  if (stack && count > 1) {
+    const primary = getPrimaryEntry(stack)
+    const currentIdx = primary
+      ? stack.entries.findIndex((e) => e.id === primary.id)
+      : 0
+    items.push(
+      {
+        id: 'version-prev',
+        label: i18next.t('board:versionStack.prev'),
+        showLabel: true,
+        icon: <ChevronLeft size={14} />,
+        className: [BOARD_TOOLBAR_ITEM_DEFAULT, currentIdx <= 0 ? 'opacity-30' : ''].join(' '),
+        onSelect: () => {
+          if (currentIdx <= 0) return
+          ctx.updateNodeProps(buildSwitchPrimaryPatch(stack, stack.entries[currentIdx - 1].id, ctx.fileContext?.projectId))
+        },
+      },
+      {
+        id: 'version-next',
+        label: i18next.t('board:versionStack.next'),
+        showLabel: true,
+        icon: <ChevronRight size={14} />,
+        className: [BOARD_TOOLBAR_ITEM_DEFAULT, currentIdx >= count - 1 ? 'opacity-30' : ''].join(' '),
+        onSelect: () => {
+          if (currentIdx >= count - 1) return
+          ctx.updateNodeProps(buildSwitchPrimaryPatch(stack, stack.entries[currentIdx + 1].id, ctx.fileContext?.projectId))
+        },
+      },
+    )
+  }
+
+  items.push(
     {
       id: "download",
       label: i18next.t('board:imageNode.toolbar.download'),
       icon: <Download size={14} />,
-      className: BOARD_TOOLBAR_ITEM_GREEN,
+      className: BOARD_TOOLBAR_ITEM_DEFAULT,
       onSelect: () => void downloadOriginalImage(ctx.element.props, ctx.fileContext),
     },
     {
-      id: "inspect",
-      label: i18next.t('board:imageNode.toolbar.detail'),
-      icon: <Info size={14} />,
-      className: BOARD_TOOLBAR_ITEM_BLUE,
-      onSelect: () => ctx.openInspector(ctx.element.id),
+      id: "delete",
+      label: i18next.t('board:board.delete'),
+      icon: <Trash2 size={14} />,
+      className: BOARD_TOOLBAR_ITEM_RED,
+      onSelect: () => ctx.engine.deleteSelection(),
     },
-  ];
-  const messageMeta = getBoardChatMessageMeta(ctx.element);
-  if (!messageMeta) return baseItems;
-  const chatItems = createBoardChatMessageToolbarItems(ctx, messageMeta);
-  return (messageMeta.status ?? "streaming") === "complete"
-    ? [...chatItems, ...baseItems]
-    : chatItems;
+  )
+
+  return items
 }
 
+// ---------------------------------------------------------------------------
+// Connector templates
+// ---------------------------------------------------------------------------
+
 /** Connector templates offered by the image node. */
-function getImageNodeConnectorTemplates(): CanvasConnectorTemplateDefinition[] {
-  return [
-    {
-      id: IMAGE_PROMPT_GENERATE_NODE_TYPE,
-      label: i18next.t('board:connector.imagePromptGenerate'),
-      description: i18next.t('board:connector.imagePromptGenerateDesc'),
-      size: [320, 220],
-      icon: <Sparkles size={14} />,
-      createNode: () => ({
-        type: IMAGE_PROMPT_GENERATE_NODE_TYPE,
-        props: {},
-      }),
-    },
-    {
-      id: IMAGE_GENERATE_NODE_TYPE,
-      label: i18next.t('board:connector.imageGenerate'),
-      description: i18next.t('board:connector.imageGenerateDesc'),
-      size: [320, 260],
-      icon: <Sparkles size={14} />,
-      createNode: () => ({
-        type: IMAGE_GENERATE_NODE_TYPE,
-        props: {},
-      }),
-    },
-    {
-      id: VIDEO_GENERATE_NODE_TYPE,
-      label: i18next.t('board:connector.videoGenerate'),
-      description: i18next.t('board:connector.videoGenerateDesc'),
-      size: [360, 280],
-      icon: <Play size={14} />,
-      createNode: () => ({
-        type: VIDEO_GENERATE_NODE_TYPE,
-        props: {},
-      }),
-    },
-  ];
-}
+const getImageNodeConnectorTemplates = (): CanvasConnectorTemplateDefinition[] => [
+  {
+    id: 'text',
+    label: i18next.t('board:connector.textNode'),
+    description: i18next.t('board:connector.textNodeDesc'),
+    size: [200, 200],
+    icon: <Type size={14} />,
+    createNode: () => ({
+      type: 'text',
+      props: { style: 'sticky', stickyColor: 'yellow' },
+    }),
+  },
+  {
+    id: 'image',
+    label: i18next.t('board:connector.imageGenerate'),
+    description: i18next.t('board:connector.imageGenerateDesc'),
+    size: [320, 180],
+    icon: <ImagePlus size={14} />,
+    createNode: () => ({
+      type: 'image',
+      props: {},
+    }),
+  },
+  {
+    id: 'video',
+    label: i18next.t('board:connector.videoGenerate'),
+    description: i18next.t('board:connector.videoGenerateDesc'),
+    size: [320, 180],
+    icon: <Video size={14} />,
+    createNode: () => ({
+      type: 'video',
+      props: {},
+    }),
+  },
+];
 
 /** Render an image node using a compressed preview bitmap. */
 export function ImageNodeView({
   element,
   selected,
+  expanded,
+  onUpdate,
 }: CanvasNodeViewProps<ImageNodeProps>) {
   /** Guard against repeated hydration requests. */
   const hydrationRef = useRef<string | null>(null);
   const { actions, engine, fileContext } = useBoardContext();
+  const upstream = useUpstreamData(engine, expanded ? element.id : null);
+  // 把 upstream imageList 中的 board 相对路径解析为浏览器可访问 URL
+  const resolvedUpstreamImages = useMemo(
+    () => upstream?.imageList
+      .map((src) => resolveImageSource(src, fileContext))
+      .filter(Boolean) ?? [],
+    [upstream?.imageList, fileContext],
+  );
+  const panelOverlay = usePanelOverlay();
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  // 逻辑：通过 subscribeView 直接操作 DOM 同步面板缩放，避免 React 渲染延迟。
+  // 面板通过 Portal 渲染到 panelOverlay 层（笔画上方），用 scale(1/zoom) 保持固定屏幕大小。
+  // 间距用 PANEL_GAP_PX / zoom 保证屏幕上恒定像素间距。
+  const xywhRef = useRef(element.xywh);
+  xywhRef.current = element.xywh;
+  useEffect(() => {
+    if (!expanded) return;
+    const syncPanelScale = () => {
+      const panel = panelRef.current;
+      if (!panel) return;
+      const zoom = engine.viewport.getState().zoom;
+      const [, ny, , nh] = xywhRef.current;
+      panel.style.transform = `translateX(-50%) scale(${1 / zoom})`;
+      panel.style.top = `${ny + nh + PANEL_GAP_PX / zoom}px`;
+    };
+    syncPanelScale();
+    const unsub = engine.subscribeView(syncPanelScale);
+    return unsub;
+  }, [engine, expanded]);
   const previewSrc =
     element.props.previewSrc ||
     resolveImageSource(element.props.originalSrc, fileContext);
@@ -272,6 +415,272 @@ export function ImageNodeView({
   );
   /** Whether the node or canvas is locked. */
   const isLocked = engine.isLocked() || element.locked === true;
+  /** Whether the user has dismissed the failed overlay to view old content. */
+  const [dismissedFailure, setDismissedFailure] = useState(false);
+  /** Whether inline mask painting is active (inpaint/erase mode). */
+  const [maskPainting, setMaskPainting] = useState(false);
+  /** Current mask paint result from the overlay. */
+  const [maskResult, setMaskResult] = useState<import('./MaskPaintOverlay').MaskPaintResult | null>(null);
+  /** Ref to mask paint overlay for exposing brush controls to the panel. */
+  const maskPaintRef = useRef<MaskPaintHandle>(null);
+  /** Brush size state synced from overlay — drives the panel slider. */
+  const [brushSize, setBrushSize] = useState(40);
+  // 逻辑：面板关闭时自动退出遮罩编辑模式。
+  useEffect(() => {
+    if (!expanded) setMaskPainting(false);
+  }, [expanded]);
+
+  // ---------------------------------------------------------------------------
+  // Version stack state + polling
+  // ---------------------------------------------------------------------------
+
+  const primaryEntry = getPrimaryEntry(element.props.versionStack);
+  const generatingEntry = getGeneratingEntry(element.props.versionStack);
+
+  // 逻辑：有生成记录（ready）且存储了 upstreamRefs 时，使用冻结的上游数据；
+  // 版本切换时 primaryEntry 变化，插槽内容自动跟随。
+  const effectiveUpstream = useMemo(() => {
+    const refs = primaryEntry?.input?.upstreamRefs;
+    if (primaryEntry?.status === 'ready' && refs && refs.length > 0) {
+      const text = refs.filter(r => r.nodeType === 'text').map(r => r.data).join('\n') || undefined;
+      const images = refs
+        .filter(r => r.nodeType === 'image')
+        .map(r => resolveImageSource(r.data, fileContext))
+        .filter(Boolean) as string[];
+      return { text, images };
+    }
+    return {
+      text: upstream?.textList.join('\n') || undefined,
+      images: resolvedUpstreamImages,
+    };
+  }, [primaryEntry, upstream, resolvedUpstreamImages, fileContext]);
+
+  const pollingResult = useMediaTaskPolling({
+    taskId: generatingEntry?.taskId,
+    taskType: 'image_generate',
+    projectId: fileContext?.projectId,
+    saveDir: fileContext?.boardFolderUri
+      ? `${fileContext.boardFolderUri}/${BOARD_ASSETS_DIR_NAME}`
+      : undefined,
+    enabled: Boolean(generatingEntry),
+    onSuccess: useCallback(
+      (resultUrls: string[]) => {
+        if (!generatingEntry) return;
+        const stack = element.props.versionStack;
+        if (!stack) return;
+        const savedPath = resultUrls[0]?.trim() || '';
+        const scopedPath = (() => {
+          if (!savedPath) return '';
+          if (parseScopedProjectPath(savedPath)) return savedPath;
+          const pid = fileContext?.projectId;
+          if (!pid) return savedPath;
+          const relative = normalizeProjectRelativePath(savedPath);
+          return formatScopedProjectPath({
+            projectId: pid,
+            currentProjectId: pid,
+            relativePath: relative,
+            includeAt: true,
+          });
+        })();
+        const generatedFileName = savedPath.split('/').pop() || 'image.png';
+        onUpdate({
+          versionStack: markVersionReady(stack, generatingEntry.id, { urls: resultUrls }),
+          previewSrc: '',
+          originalSrc: scopedPath,
+          fileName: generatedFileName,
+          // 逻辑：重置尺寸以触发 hydration 重新检测新图片的真实宽高并自动调整节点比例。
+          naturalWidth: 1,
+          naturalHeight: 1,
+        });
+      },
+      [generatingEntry, element.props.versionStack, onUpdate, fileContext?.projectId],
+    ),
+    onFailure: useCallback(
+      (error: string) => {
+        if (!generatingEntry) return;
+        const stack = element.props.versionStack;
+        if (!stack) return;
+        onUpdate({
+          versionStack: markVersionFailed(stack, generatingEntry.id, {
+            code: 'GENERATE_FAILED',
+            message: error,
+          }),
+        });
+      },
+      [generatingEntry, element.props.versionStack, onUpdate],
+    ),
+  });
+
+  /** Whether the node is in a generating state (version stack). */
+  const isGeneratingVersion = primaryEntry?.status === 'generating';
+  /** Whether the primary version failed. */
+  const isFailedVersion = primaryEntry?.status === 'failed';
+  /** Whether the primary version is ready. */
+  const isReadyVersion = primaryEntry?.status === 'ready';
+  /**
+   * Editing override — check module-level editingUnlockedIds set.
+   * Set by toolbar "regenerate" action, cleared when generation starts.
+   */
+  const [editingOverride, setEditingOverride] = useState(
+    () => editingUnlockedIds.has(element.id),
+  );
+  // 逻辑：每次 expanded 变化时检查是否被标记为编辑模式。
+  useEffect(() => {
+    if (editingUnlockedIds.has(element.id)) {
+      editingUnlockedIds.delete(element.id);
+      setEditingOverride(true);
+    }
+  }, [expanded, element.id]);
+  // 逻辑：生成开始后或面板关闭后自动关闭编辑覆盖。
+  useEffect(() => {
+    if (isGeneratingVersion || !expanded) setEditingOverride(false);
+  }, [isGeneratingVersion, expanded]);
+  // 逻辑：新的失败状态出现时重置 dismiss。
+  useEffect(() => {
+    if (isFailedVersion) setDismissedFailure(false);
+  }, [primaryEntry?.id]);
+
+  /** Handle image generation: submit task and push a generating entry to the version stack. */
+  const handleGenerate = useCallback(
+    async (params: ImageGenerateParams) => {
+      try {
+        const result = await submitImageGenerate(
+          {
+            prompt: params.prompt,
+            negativePrompt: params.negativePrompt,
+            modelId: params.modelId !== 'auto' ? params.modelId : undefined,
+            aspectRatio: params.aspectRatio,
+            resolution: params.resolution,
+            referenceImageSrc: params.referenceImageSrc,
+            referenceImageSrcs: params.referenceImageSrcs,
+          },
+          {
+            projectId: fileContext?.projectId,
+            saveDir: fileContext?.boardFolderUri
+              ? `${fileContext.boardFolderUri}/${BOARD_ASSETS_DIR_NAME}`
+              : undefined,
+            sourceNodeId: element.id,
+          },
+        )
+
+        // 逻辑：创建 InputSnapshot 和 VersionStackEntry，在节点自身上追踪生成状态。
+        // 逻辑：将当前上游数据快照保存到 InputSnapshot，使生成后插槽内容固定。
+        const inputSnapshot = createInputSnapshot({
+          prompt: params.prompt,
+          negativePrompt: params.negativePrompt,
+          modelId: params.modelId,
+          parameters: {
+            aspectRatio: params.aspectRatio,
+            resolution: params.resolution,
+            mode: params.mode,
+            referenceImageSrc: params.referenceImageSrc,
+            referenceImageSrcs: params.referenceImageSrcs,
+          },
+          upstreamRefs: [
+            ...(upstream?.textList ?? []).map(text => ({ nodeId: '', nodeType: 'text', data: text })),
+            ...(upstream?.imageList ?? []).map(src => ({ nodeId: '', nodeType: 'image', data: src })),
+          ],
+        })
+        const entry = createGeneratingEntry(inputSnapshot, result.taskId)
+        const config = {
+          modelId: params.modelId,
+          prompt: params.prompt,
+          negativePrompt: params.negativePrompt,
+          aspectRatio: params.aspectRatio as import("../board-contracts").AiGenerateConfig['aspectRatio'],
+          taskId: result.taskId,
+        }
+
+        onUpdate({
+          versionStack: pushVersion(element.props.versionStack, entry),
+          origin: 'ai-generate',
+          aiConfig: config,
+        })
+      } catch (error) {
+        console.error('[ImageNode] image generation failed:', error)
+      }
+    },
+    [element.id, element.props.versionStack, fileContext, upstream, onUpdate],
+  )
+
+  /** Retry generation using the failed entry's input snapshot. */
+  const handleRetryGenerate = useCallback(() => {
+    if (!primaryEntry?.input) return;
+    const input = primaryEntry.input;
+    const params: ImageGenerateParams = {
+      prompt: input.prompt,
+      negativePrompt: input.negativePrompt,
+      modelId: input.modelId,
+      aspectRatio: (input.parameters?.aspectRatio as string) ?? '1:1',
+      resolution: (input.parameters?.resolution as string) ?? '1K',
+      mode: (input.parameters?.mode as 'text2img' | 'img2img') ?? 'text2img',
+      referenceImageSrc: input.parameters?.referenceImageSrc as string | undefined,
+      referenceImageSrcs: input.parameters?.referenceImageSrcs as string[] | undefined,
+    };
+    handleGenerate(params);
+  }, [primaryEntry, handleGenerate]);
+
+  /** Generate into a new derived image node with the same params. */
+  const handleGenerateNewNode = useCallback(
+    async (params: ImageGenerateParams) => {
+      try {
+        // 逻辑：创建新的图片节点并在其上提交生成任务。
+        const newNodeId = deriveNode({
+          engine,
+          sourceNodeId: element.id,
+          targetType: 'image',
+          targetProps: { origin: 'ai-generate' },
+        })
+        if (!newNodeId) return
+
+        const result = await submitImageGenerate(
+          {
+            prompt: params.prompt,
+            negativePrompt: params.negativePrompt,
+            modelId: params.modelId !== 'auto' ? params.modelId : undefined,
+            aspectRatio: params.aspectRatio,
+            resolution: params.resolution,
+            referenceImageSrc: params.referenceImageSrc,
+            referenceImageSrcs: params.referenceImageSrcs,
+          },
+          {
+            projectId: fileContext?.projectId,
+            saveDir: fileContext?.boardFolderUri
+              ? `${fileContext.boardFolderUri}/${BOARD_ASSETS_DIR_NAME}`
+              : undefined,
+            sourceNodeId: newNodeId,
+          },
+        )
+
+        const inputSnapshot = createInputSnapshot({
+          prompt: params.prompt,
+          negativePrompt: params.negativePrompt,
+          modelId: params.modelId,
+          parameters: {
+            aspectRatio: params.aspectRatio,
+            resolution: params.resolution,
+            mode: params.mode,
+          },
+        })
+        const entry = createGeneratingEntry(inputSnapshot, result.taskId)
+
+        engine.doc.updateNodeProps(newNodeId, {
+          versionStack: pushVersion(undefined, entry),
+          origin: 'ai-generate',
+          aiConfig: {
+            modelId: params.modelId,
+            prompt: params.prompt,
+            negativePrompt: params.negativePrompt,
+            aspectRatio: params.aspectRatio,
+            taskId: result.taskId,
+          },
+        })
+      } catch (error) {
+        console.error('[ImageNode] new node generation failed:', error)
+      }
+    },
+    [engine, element.id, fileContext],
+  )
+
   /** Request opening the image preview on the canvas. */
   const requestPreview = useCallback(() => {
     const originalSrc = resolvedOriginal;
@@ -417,18 +826,40 @@ export function ImageNodeView({
         if (!element.props.previewSrc && payload.props.previewSrc) {
           patch.previewSrc = payload.props.previewSrc;
         }
-        if (element.props.naturalWidth <= 1 || element.props.naturalHeight <= 1) {
+        const needsSizeInit =
+          element.props.naturalWidth <= 1 || element.props.naturalHeight <= 1;
+        if (needsSizeInit) {
           patch.naturalWidth = payload.props.naturalWidth;
           patch.naturalHeight = payload.props.naturalHeight;
         }
         if (!element.props.mimeType && payload.props.mimeType) {
           patch.mimeType = payload.props.mimeType;
         }
-        if (!element.props.fileName && payload.props.fileName) {
+        if ((!element.props.fileName || element.props.fileName === 'image.png') && payload.props.fileName) {
           patch.fileName = payload.props.fileName;
         }
         if (Object.keys(patch).length > 0) {
           engine.doc.updateNodeProps(nodeId, patch);
+        }
+        // 逻辑：首次获取图片尺寸后，自动调整节点宽高以适配图片比例。
+        if (needsSizeInit && payload.props.naturalWidth > 1 && payload.props.naturalHeight > 1) {
+          const el = engine.doc.getElementById(nodeId);
+          if (el && el.kind === "node") {
+            const [ex, ey, ew, eh] = el.xywh;
+            const ratio = payload.props.naturalWidth / payload.props.naturalHeight;
+            const newW = Math.max(ew, IMAGE_NODE_MIN_SIZE.w);
+            const newH = Math.round(newW / ratio);
+            const cx = ex + ew / 2;
+            const cy = ey + eh / 2;
+            engine.doc.updateElement(nodeId, {
+              xywh: [
+                Math.round(cx - newW / 2),
+                Math.round(cy - newH / 2),
+                newW,
+                newH,
+              ],
+            });
+          }
         }
       } catch {
         // 逻辑：预览加载失败时保持原状，避免阻断渲染。
@@ -471,11 +902,44 @@ export function ImageNodeView({
     }
   }, [previewSrc]);
 
+  // 逻辑：为版本堆叠动画效果计算所有 ready 版本的缩略图 URL。
+  const versionThumbnails = useMemo(() => {
+    const stack = element.props.versionStack
+    if (!stack || stack.entries.length <= 1) return undefined
+    return stack.entries
+      .filter((e) => e.status === 'ready' && e.output?.urls[0])
+      .map((e) => {
+        const raw = e.output!.urls[0]
+        const scoped = parseScopedProjectPath(raw)
+          ? raw
+          : fileContext?.projectId
+            ? formatScopedProjectPath({
+                projectId: fileContext.projectId,
+                currentProjectId: fileContext.projectId,
+                relativePath: normalizeProjectRelativePath(raw),
+                includeAt: true,
+              })
+            : raw
+        return { id: e.id, src: resolveImageSource(scoped, fileContext) }
+      })
+      .filter((t): t is { id: string; src: string } => Boolean(t.src))
+  }, [element.props.versionStack, fileContext])
+
+  /** Whether the node has multiple ready versions (activates card-stack visual). */
+  const isStacked = (versionThumbnails?.length ?? 0) > 1
+
   return (
-    <NodeFrame ref={rootRef}>
+    <NodeFrame ref={rootRef} className="group">
+      <VersionStackOverlay
+        stack={element.props.versionStack}
+        semanticColor="blue"
+        thumbnails={versionThumbnails}
+      />
       <div
         className={[
-          "relative h-full w-full overflow-hidden rounded-lg box-border",
+          "relative h-full w-full overflow-hidden box-border",
+          // 逻辑：堆叠时去掉容器圆角和背景，让缩放后的卡片自带圆角。
+          isStacked ? '' : 'rounded-lg',
         ].join(" ")}
         onPointerDownCapture={event => {
           if (isLocked) return;
@@ -485,7 +949,9 @@ export function ImageNodeView({
         }}
         onDoubleClick={event => {
           event.stopPropagation();
-          if (isImageError || (!hasPreview && !isPreviewLoading && !isTranscoding)) {
+          if (expanded) return;
+          // 逻辑：空节点双击打开文件选择器，有内容时双击打开预览。
+          if (!hasPreview && !isPreviewLoading && !isTranscoding) {
             requestReplaceImage();
           } else {
             requestPreview();
@@ -493,31 +959,52 @@ export function ImageNodeView({
         }}
       >
         {hasPreview && !isImageError ? (
-          <>
-            <img
-              src={previewSrc}
-              alt={element.props.fileName || "Image"}
+          <AnimatePresence mode="popLayout">
+            <motion.div
+              key={primaryEntry?.id || 'initial'}
+              initial={isStacked ? { opacity: 0, scale: STACK_CARD_SCALE * 0.9 } : false}
+              animate={{ opacity: 1, scale: isStacked ? STACK_CARD_SCALE : 1 }}
+              exit={isStacked ? { opacity: 0, scale: STACK_CARD_SCALE * 0.9 } : undefined}
+              transition={{ duration: 0.3, ease: 'easeOut' }}
               className={[
-                "h-full w-full object-contain transition-opacity duration-200 ease-out",
-                isImageLoading ? "opacity-0" : "opacity-100",
+                "h-full w-full",
+                // 逻辑：堆叠时主图作为"卡片"——圆角、实色背景、阴影，与背景卡片匹配。
+                isStacked ? "rounded-2xl bg-background shadow-md overflow-hidden" : "",
               ].join(" ")}
-              draggable={false}
-              onLoad={() => setIsImageLoading(false)}
-              onError={() => {
-                setIsImageLoading(false);
-                setIsImageError(true);
-              }}
-            />
-            {isImageLoading ? (
-              <div className="absolute inset-0">
-                <ImageNodeSkeleton />
-              </div>
-            ) : null}
-          </>
+              style={isStacked ? { transformOrigin: 'center' } : undefined}
+            >
+              <img
+                src={previewSrc}
+                alt={element.props.fileName || "Image"}
+                className={[
+                  "h-full w-full object-contain transition-opacity duration-200 ease-out",
+                  isImageLoading ? "opacity-0" : "opacity-100",
+                ].join(" ")}
+                draggable={false}
+                onLoad={() => setIsImageLoading(false)}
+                onError={() => {
+                  setIsImageLoading(false);
+                  setIsImageError(true);
+                }}
+              />
+              {isImageLoading ? (
+                <div className="absolute inset-0">
+                  <ImageNodeSkeleton />
+                </div>
+              ) : null}
+            </motion.div>
+          </AnimatePresence>
         ) : (
-          <div className="flex h-full w-full items-center justify-center rounded-lg border border-ol-divider bg-ol-surface-muted">
+          <div className="flex h-full w-full items-center justify-center rounded-lg border border-dashed border-ol-divider bg-ol-surface-muted">
             {isPreviewLoading || isTranscoding ? (
               <ImageNodeSkeleton />
+            ) : !element.props.originalSrc && !element.props.previewSrc ? (
+              <div className="flex flex-col items-center gap-2 text-muted-foreground/40 px-4">
+                <ImagePlus size={36} strokeWidth={1.2} />
+                <span className="text-xs text-center leading-relaxed whitespace-pre-line">
+                  {i18next.t('board:imageNode.emptyHint', { defaultValue: '双击上传图片\n或选中后 AI 生成' })}
+                </span>
+              </div>
             ) : (
               <div className="flex flex-col items-center gap-2 text-muted-foreground/60">
                 <ImageOff size={28} strokeWidth={1.5} />
@@ -534,6 +1021,60 @@ export function ImageNodeView({
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-lg bg-background/80 text-xs text-ol-text-secondary">
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
             <span>{transcodingLabel}</span>
+          </div>
+        ) : null}
+        {/* ── Generating overlay (version stack) ── */}
+        {isGeneratingVersion ? (
+          <GeneratingOverlay
+            startedAt={pollingResult.startedAt}
+            estimatedSeconds={45}
+            serverProgress={pollingResult.progress}
+            color="blue"
+          />
+        ) : null}
+        {/* ── Mask paint overlay (inpaint/erase) ── */}
+        <MaskPaintOverlay
+          ref={maskPaintRef}
+          active={maskPainting && hasPreview}
+          imageWidth={element.props.naturalWidth || 512}
+          imageHeight={element.props.naturalHeight || 512}
+          onMaskChange={setMaskResult}
+          onBrushSizeChange={setBrushSize}
+        />
+        {/* ── Failed overlay (version stack) ── */}
+        {isFailedVersion && !dismissedFailure ? (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-lg bg-background/75 backdrop-blur-sm">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/[0.06]">
+              <X className="h-4 w-4 text-ol-text-auxiliary" />
+            </div>
+            <span className="text-xs text-ol-text-auxiliary font-medium">
+              {primaryEntry?.error?.message || i18next.t('board:imageNode.generationFailed')}
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleRetryGenerate();
+                }}
+                className="flex items-center gap-1 rounded-full px-3 py-1 text-[11px] bg-white/[0.08] text-ol-text-secondary hover:bg-white/[0.12] transition-colors duration-150"
+              >
+                <RotateCw className="h-3 w-3" />
+                {i18next.t('board:imageNode.retry')}
+              </button>
+              {hasPreview && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDismissedFailure(true);
+                  }}
+                  className="text-[11px] text-ol-text-auxiliary underline underline-offset-2 hover:text-ol-text-secondary transition-colors duration-150"
+                >
+                  {i18next.t('board:loading.dismiss')}
+                </button>
+              )}
+            </div>
           </div>
         ) : null}
       </div>
@@ -557,6 +1098,48 @@ export function ImageNodeView({
             projectId={fileContext?.projectId}
           />
         </div>
+      ) : null}
+      {expanded && panelOverlay ? createPortal(
+        <div
+          ref={panelRef}
+          className="pointer-events-auto absolute"
+          data-board-editor
+          style={{
+            // 逻辑：面板在 panelOverlay 层（与 DomNodeLayer 同坐标系），
+            // 用节点 xywh 定位在节点正下方居中。
+            // top 由 syncPanelScale 实时更新（间距 = PANEL_GAP_PX / zoom，屏幕恒定像素）。
+            // 初始值也需包含间距，避免 useEffect 执行前出现 0 间距闪烁。
+            left: element.xywh[0] + element.xywh[2] / 2,
+            top: element.xywh[1] + element.xywh[3] + PANEL_GAP_PX / engine.viewport.getState().zoom,
+            transform: `translateX(-50%) scale(${1 / engine.viewport.getState().zoom})`,
+            transformOrigin: 'top center',
+          }}
+          onPointerDown={event => {
+            event.stopPropagation();
+          }}
+          onContextMenu={event => {
+            event.stopPropagation();
+          }}
+        >
+          <ImageAiPanel
+            element={element}
+            onUpdate={onUpdate}
+            upstreamText={effectiveUpstream.text}
+            upstreamImages={effectiveUpstream.images}
+            resolvedImageSrc={previewSrc}
+            onGenerate={handleGenerate}
+            onGenerateNewNode={handleGenerateNewNode}
+            maskPainting={maskPainting}
+            onToggleMaskPaint={setMaskPainting}
+            maskResult={maskResult}
+            maskPaintRef={maskPaintRef}
+            brushSize={brushSize}
+            readonly={(isReadyVersion || isGeneratingVersion) && !editingOverride}
+            editing={editingOverride}
+            onUnlock={() => setEditingOverride(true)}
+          />
+        </div>,
+        panelOverlay,
       ) : null}
       <ProjectFilePickerDialog
         open={replacePickerOpen}
@@ -596,12 +1179,29 @@ export const ImageNodeDefinition: CanvasNodeDefinition<ImageNodeProps> = {
     isTranscoding: z.boolean().optional(),
     transcodingLabel: z.string().optional(),
     transcodingId: z.string().optional(),
+    origin: z.enum(['user', 'upload', 'ai-generate', 'paste']).optional(),
+    aiConfig: z.object({
+      modelId: z.string(),
+      prompt: z.string(),
+      negativePrompt: z.string().optional(),
+      style: z.string().optional(),
+      aspectRatio: z.enum(['1:1', '16:9', '9:16', '4:3', '3:4']).optional(),
+      inputNodeIds: z.array(z.string()).optional(),
+      taskId: z.string().optional(),
+      generatedAt: z.number().optional(),
+      results: z.array(z.object({
+        previewSrc: z.string(),
+        originalSrc: z.string(),
+      })).optional(),
+      selectedIndex: z.number().optional(),
+    }).optional(),
+    versionStack: z.any().optional(),
   }),
   defaultProps: {
     previewSrc: "",
     originalSrc: "",
     mimeType: "image/png",
-    fileName: "Image",
+    fileName: "image.png",
     naturalWidth: 1,
     naturalHeight: 1,
     isTranscoding: false,
@@ -617,6 +1217,7 @@ export const ImageNodeDefinition: CanvasNodeDefinition<ImageNodeProps> = {
     minSize: IMAGE_NODE_MIN_SIZE,
     maxSize: IMAGE_NODE_MAX_SIZE,
   },
+  inlinePanel: { width: 420, height: 480 },
   connectorTemplates: () => getImageNodeConnectorTemplates(),
-  toolbar: () => [],
+  toolbar: (ctx) => createImageToolbarItems(ctx),
 };

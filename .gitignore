@@ -3,6 +3,7 @@ node_modules
 
 # Docs
 docs/plans/
+docs/canvas-discussion/
 docs/screenshots/.DS_Store
 .pnp
 .pnp.js

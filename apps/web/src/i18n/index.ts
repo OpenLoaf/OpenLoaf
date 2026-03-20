@@ -46,6 +46,17 @@ import enUSBoard from './locales/en-US/board.json';
 import enUSCalendar from './locales/en-US/calendar.json';
 import enUSDesktop from './locales/en-US/desktop.json';
 
+// Japanese
+import jaJPCommon from './locales/ja-JP/common.json';
+import jaJPNav from './locales/ja-JP/nav.json';
+import jaJPAi from './locales/ja-JP/ai.json';
+import jaJPSettings from './locales/ja-JP/settings.json';
+import jaJPProject from './locales/ja-JP/project.json';
+import jaJPTasks from './locales/ja-JP/tasks.json';
+import jaJPBoard from './locales/ja-JP/board.json';
+import jaJPCalendar from './locales/ja-JP/calendar.json';
+import jaJPDesktop from './locales/ja-JP/desktop.json';
+
 /**
  * Resolve initial language:
  * 1. localStorage cache (written by useLanguageSync on every change)
@@ -106,6 +117,17 @@ i18n.use(initReactI18next).init({
       board: enUSBoard,
       calendar: enUSCalendar,
       desktop: enUSDesktop,
+    },
+    'ja-JP': {
+      common: jaJPCommon,
+      nav: jaJPNav,
+      ai: jaJPAi,
+      settings: jaJPSettings,
+      project: jaJPProject,
+      tasks: jaJPTasks,
+      board: jaJPBoard,
+      calendar: jaJPCalendar,
+      desktop: jaJPDesktop,
     },
   },
   interpolation: {

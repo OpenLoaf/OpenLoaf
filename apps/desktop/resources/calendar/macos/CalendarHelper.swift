@@ -116,6 +116,30 @@ struct CalendarHelper {
         return formatter
     }()
 
+    /// Retain the stdin monitor source so ARC does not deallocate it.
+    private static var parentDeathSource: DispatchSourceRead?
+
+    /// Monitor stdin for EOF. When the parent process dies the pipe breaks and
+    /// this fires, allowing the child to exit instead of becoming an orphan.
+    private static func installParentDeathWatcher() {
+        let source = DispatchSource.makeReadSource(
+            fileDescriptor: STDIN_FILENO,
+            queue: .global(qos: .utility)
+        )
+        source.setEventHandler {
+            // stdin readable → check if EOF (parent died) or unexpected data.
+            var buf = [UInt8](repeating: 0, count: 1)
+            let n = read(STDIN_FILENO, &buf, 1)
+            if n <= 0 {
+                // EOF or error — parent is gone, exit gracefully.
+                exit(0)
+            }
+        }
+        source.resume()
+        // 逻辑：必须用 static 持有引用，否则 ARC 会在函数返回后释放 source。
+        parentDeathSource = source
+    }
+
     /// Main entry handling CLI actions.
     static func main() {
         let args = CommandLine.arguments
@@ -622,6 +646,13 @@ struct CalendarHelper {
 
     /// Handle watch mode and emit change notifications.
     private static func handleWatch() {
+        // 逻辑：在任何可能阻塞的操作之前安装 stdin EOF 监听。
+        // 当父进程（Electron）退出时管道断开，本进程检测到 EOF 后自动退出，
+        // 防止成为孤儿进程。必须在 ensureAuthorized 之前，因为权限请求可能阻塞。
+        if isatty(STDIN_FILENO) == 0 {
+            installParentDeathWatcher()
+        }
+
         let eventStore = EKEventStore()
         guard ensureAuthorized(eventStore) else { return }
 
@@ -635,7 +666,7 @@ struct CalendarHelper {
             emitChange()
         }
 
-        // 逻辑：保持进程存活，直到外部终止。
+        // 逻辑：保持进程存活，直到 stdin EOF（父进程死亡）或外部信号终止。
         RunLoop.current.run()
         center.removeObserver(observer)
     }

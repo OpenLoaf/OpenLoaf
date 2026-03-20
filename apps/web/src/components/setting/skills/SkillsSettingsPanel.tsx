@@ -180,22 +180,11 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
     });
   }, [skills, searchQuery, statusFilter]);
 
-  /** Group skills: builtin + global first, then each project separately. */
+  /** Group skills: global first, then each project separately. */
   const skillGroups = useMemo((): SkillGroup[] => {
-    const builtinSkills = filteredSkills.filter((s) => s.scope === "builtin");
     const globalSkills = filteredSkills.filter((s) => s.scope === "global");
     const projectSkills = filteredSkills.filter((s) => s.scope === "project");
     const groups: SkillGroup[] = [];
-
-    // Builtin group
-    if (builtinSkills.length > 0) {
-      groups.push({
-        key: "builtin",
-        label: t('skills.scopeBuiltin', { defaultValue: '内置' }),
-        icon: Globe,
-        skills: builtinSkills,
-      });
-    }
 
     // Global group
     if (globalSkills.length > 0) {

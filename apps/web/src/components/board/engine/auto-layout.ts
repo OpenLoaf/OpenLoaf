@@ -141,6 +141,7 @@ function isExcludedNode(node: CanvasNodeElement): boolean {
   const meta = node.meta as Record<string, unknown> | undefined
   if (meta?.mindmapGhost) return true
   if (meta?.mindmapHidden) return true
+  if (meta?.mindmapBranchColor !== undefined) return true
   return false
 }
 
@@ -547,14 +548,14 @@ function tidyGrid(
     finalRowY.push(prevCenter + prevHalfH + rowGap + currHalfH)
   }
 
-  // Compute original cluster centroid
+  // Compute original cluster centroid (excluding locked nodes)
   let origCxSum = 0
   let origCySum = 0
   let count = 0
   rows.forEach((row) => {
     row.forEach((id) => {
       const node = layoutNodes.get(id)
-      if (!node) return
+      if (!node || node.locked) return
       origCxSum += node.xywh[0] + node.xywh[2] / 2
       origCySum += node.xywh[1] + node.xywh[3] / 2
       count += 1
@@ -662,12 +663,15 @@ function tidyRow(
   }
   const gap = actualGaps.length > 0 ? Math.max(Math.min(...actualGaps), MIN_GAP) : MIN_GAP
 
-  // Original centroid
+  // Original centroid (excluding locked nodes)
   let origCx = 0
+  let origCxCount = 0
   items.forEach((item) => {
+    if (item.node.locked) return
     origCx += item.node.xywh[0] + item.node.xywh[2] / 2
+    origCxCount += 1
   })
-  origCx /= items.length
+  origCx = origCxCount > 0 ? origCx / origCxCount : 0
 
   // First node X stays, subsequent nodes placed with uniform gap
   let cursorX = items[0].node.xywh[0]
@@ -687,12 +691,14 @@ function tidyRow(
 
   // Re-center to original centroid X
   let newCx = 0
+  let newCxCount = 0
   items.forEach((item) => {
     const pos = layoutPositions.get(item.id)
     if (!pos) return
     newCx += pos[0] + item.node.xywh[2] / 2
+    newCxCount += 1
   })
-  newCx /= items.length
+  newCx = newCxCount > 0 ? newCx / newCxCount : 0
   const dx = origCx - newCx
   if (Math.abs(dx) > 0.5) {
     items.forEach((item) => {
@@ -742,12 +748,15 @@ function tidyColumn(
   }
   const gap = actualGaps.length > 0 ? Math.max(Math.min(...actualGaps), MIN_GAP) : MIN_GAP
 
-  // Original centroid
+  // Original centroid (excluding locked nodes)
   let origCy = 0
+  let origCyCount = 0
   items.forEach((item) => {
+    if (item.node.locked) return
     origCy += item.node.xywh[1] + item.node.xywh[3] / 2
+    origCyCount += 1
   })
-  origCy /= items.length
+  origCy = origCyCount > 0 ? origCy / origCyCount : 0
 
   // Place with detected alignment
   let cursorY = items[0].node.xywh[1]
@@ -767,12 +776,14 @@ function tidyColumn(
 
   // Re-center to original centroid Y
   let newCy = 0
+  let newCyCount = 0
   items.forEach((item) => {
     const pos = layoutPositions.get(item.id)
     if (!pos) return
     newCy += pos[1] + item.node.xywh[3] / 2
+    newCyCount += 1
   })
-  newCy /= items.length
+  newCy = newCyCount > 0 ? newCy / newCyCount : 0
   const dy = origCy - newCy
   if (Math.abs(dy) > 0.5) {
     items.forEach((item) => {
@@ -850,11 +861,6 @@ function resolveOverlapsMinimal(
         const aCy = a.y + a.h / 2
         const bCx = b.x + b.w / 2
         const bCy = b.y + b.h / 2
-        const pushRight = (a.x + a.w + MIN_GAP) - b.x
-        const pushLeft = b.x + b.w + MIN_GAP - a.x
-        const pushDown = (a.y + a.h + MIN_GAP) - b.y
-        const pushUp = b.y + b.h + MIN_GAP - a.y
-
         if (mover === b) {
           // Push b away from a, choosing direction based on center offset
           const dx = bCx - aCx
@@ -1673,6 +1679,7 @@ export function computePartialLayoutUpdates(
     })
 
     linkedNodes.forEach((node) => {
+      if (node.locked) return
       const pos = layoutPositions.get(node.id)
       if (!pos) return
       const [, , w, h] = node.xywh

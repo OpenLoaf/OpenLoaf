@@ -10,6 +10,7 @@
 import type {
   AiImageRequest,
   AiVideoRequest,
+  AiAudioRequest,
   AiTaskResponse,
   AiTaskCancelResponse,
   AiModelsResponse,
@@ -19,11 +20,13 @@ import type {
   AiVideoInputs,
   AiImageOutput,
   AiVideoOutput,
+  AiAudioOutput,
 } from "@openloaf-saas/sdk";
 
 export type {
   AiImageRequest,
   AiVideoRequest,
+  AiAudioRequest,
   AiTaskResponse,
   AiTaskCancelResponse,
   AiModelsResponse,
@@ -33,6 +36,7 @@ export type {
   AiVideoInputs,
   AiImageOutput,
   AiVideoOutput,
+  AiAudioOutput,
 };
 
 export type MediaSubmitContext = {
@@ -46,3 +50,4 @@ export type MediaSubmitContext = {
 
 export type SaasImageSubmitPayload = AiImageRequest & MediaSubmitContext;
 export type SaasVideoSubmitPayload = AiVideoRequest & MediaSubmitContext;
+export type SaasAudioSubmitPayload = AiAudioRequest & MediaSubmitContext;

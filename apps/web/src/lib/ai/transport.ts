@@ -18,6 +18,7 @@ import { resolveServerUrl } from "@/utils/server-url";
 import { isElectronEnv } from "@/utils/is-electron-env";
 import { getClientTimeZone } from "@/utils/time-zone";
 import { getAccessToken } from "@/lib/saas-auth";
+import { getDesktopVersion, getWebVersion, getServerVersion } from "@/lib/app-version";
 
 function stripTotalUsageFromMetadata(message: any) {
   if (!message || typeof message !== "object") return message;
@@ -55,6 +56,11 @@ export function createChatTransport({
             : headers;
       const baseParams = { ...(paramsRef.current ?? {}) };
       const clientId = getWebClientId();
+      const [webVersion, desktopVersion, serverVersion] = await Promise.all([
+        getWebVersion(),
+        isElectronEnv() ? getDesktopVersion() : Promise.resolve(undefined),
+        isElectronEnv() ? getServerVersion() : Promise.resolve(undefined),
+      ]);
       const tabId = typeof tabIdRef.current === "string" ? tabIdRef.current : undefined;
       const extraBody = body && typeof body === "object" ? body : {};
       const bodyRecord = extraBody as Record<string, unknown>;
@@ -80,6 +86,9 @@ export function createChatTransport({
         intent: "chat",
         responseMode: "stream",
         clientPlatform: isElectronEnv() ? 'desktop' : 'web',
+        webVersion,
+        desktopVersion,
+        serverVersion,
       };
 
       if (messages.length === 0) {

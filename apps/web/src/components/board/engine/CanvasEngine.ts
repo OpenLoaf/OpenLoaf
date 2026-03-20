@@ -61,6 +61,8 @@ import {
   HighlighterTool,
   PenTool,
   SelectTool,
+  ShapePlacementTool,
+  TextPlacementTool,
   ToolManager,
 } from "../tools";
 import { ViewportController } from "./ViewportController";
@@ -221,6 +223,8 @@ export class CanvasEngine {
   private dragEmitPending = false;
   /** Node id currently in edit mode. */
   private editingNodeId: string | null = null;
+  /** Node id currently expanded (inline panel visible). Only one at a time. */
+  private expandedNodeId: string | null = null;
   /** Whether the viewport is currently being panned. */
   private panning = false;
   /** Animation frame id for viewport focus. */
@@ -229,6 +233,8 @@ export class CanvasEngine {
   private focusViewportToken = 0;
   /** Deferred fitToElements padding when viewport size was zero at call time. */
   private pendingFitPadding: number | null = null;
+  /** When true, the next fitToElements call (including deferred) is skipped once. */
+  private skipInitialFit = false;
   /** History stack for undo operations. */
   private historyPast: CanvasHistoryState[] = [];
   /** History stack for redo operations. */
@@ -384,6 +390,8 @@ export class CanvasEngine {
     this.tools = new ToolManager(this);
     this.tools.register(new SelectTool());
     this.tools.register(new HandTool());
+    this.tools.register(new TextPlacementTool());
+    this.tools.register(new ShapePlacementTool());
     this.tools.register(new PenTool());
     this.tools.register(new HighlighterTool());
     this.tools.register(new EraserTool());
@@ -414,9 +422,13 @@ export class CanvasEngine {
     this.viewport.setSize(nextWidth, nextHeight);
     // 逻辑：attach 时若已有延迟的 fitToElements 请求且尺寸就绪，立即执行。
     if (this.pendingFitPadding !== null && nextWidth > 0 && nextHeight > 0) {
-      const padding = this.pendingFitPadding;
-      this.pendingFitPadding = null;
-      fitToElements(this.doc, this.viewport, padding);
+      if (this.skipInitialFit) {
+        this.pendingFitPadding = null;
+      } else {
+        const padding = this.pendingFitPadding;
+        this.pendingFitPadding = null;
+        fitToElements(this.doc, this.viewport, padding);
+      }
     }
 
     this.resizeObserver = new ResizeObserver(entries => {
@@ -484,9 +496,13 @@ export class CanvasEngine {
       this.viewport.setSize(this.resizeSize[0], this.resizeSize[1]);
       // 逻辑：viewport 尺寸就绪后执行之前因 size=0 而延迟的 fitToElements。
       if (this.pendingFitPadding !== null && this.resizeSize[0] > 0 && this.resizeSize[1] > 0) {
-        const padding = this.pendingFitPadding;
-        this.pendingFitPadding = null;
-        fitToElements(this.doc, this.viewport, padding);
+        if (this.skipInitialFit) {
+          this.pendingFitPadding = null;
+        } else {
+          const padding = this.pendingFitPadding;
+          this.pendingFitPadding = null;
+          fitToElements(this.doc, this.viewport, padding);
+        }
       }
     });
   }
@@ -531,9 +547,19 @@ export class CanvasEngine {
     };
   }
 
+  /** Mark that an initial viewport has been restored from external storage.
+   *  All fitToElements calls will be skipped until clearInitialViewportLock(). */
+  markInitialViewportRestored(): void {
+    this.skipInitialFit = true;
+  }
+
+  /** Release the initial viewport lock, allowing fitToElements to work normally. */
+  clearInitialViewportLock(): void {
+    this.skipInitialFit = false;
+  }
+
   /** Set the currently active tool. */
   setActiveTool(toolId: string): void {
-    this.tools.setActive(toolId);
     if (toolId !== "connector") {
       this.connectorDraft = null;
       this.connectorHover = null;
@@ -542,7 +568,7 @@ export class CanvasEngine {
       this.connectorHoverId = null;
       this.nodeHoverId = null;
     }
-    // 逻辑：切换主工具时清空一次性插入状态。
+    // 逻辑：切换主工具时清空一次性插入状态（PlacementTool.activate 会重新设置）。
     this.pendingInsert = null;
     this.pendingInsertPoint = null;
     // 逻辑：切换工具时清空待处理的连线面板。
@@ -552,6 +578,8 @@ export class CanvasEngine {
       this.alignmentGuides = [];
       this.selectionBox = null;
     }
+    // 逻辑：setActive 必须在清空状态之后调用，因为 PlacementTool.activate() 会设置 pendingInsert。
+    this.tools.setActive(toolId);
     this.emitChange();
   }
 
@@ -583,6 +611,7 @@ export class CanvasEngine {
       pendingInsertPoint: this.pendingInsertPoint,
       toolbarDragging: this.toolbarDragging,
       colorHistory: this.colorHistory,
+      expandedNodeId: this.expandedNodeId,
     };
   }
 
@@ -603,6 +632,18 @@ export class CanvasEngine {
   setEditingNodeId(nodeId: string | null): void {
     if (this.editingNodeId === nodeId) return;
     this.editingNodeId = nodeId;
+    this.emitChange();
+  }
+
+  /** Return the node id currently expanded (inline panel visible). */
+  getExpandedNodeId(): string | null {
+    return this.expandedNodeId;
+  }
+
+  /** Set the expanded node id. Only one node can be expanded at a time. */
+  setExpandedNodeId(nodeId: string | null): void {
+    if (this.expandedNodeId === nodeId) return;
+    this.expandedNodeId = nodeId;
     this.emitChange();
   }
 
@@ -1479,7 +1520,7 @@ export class CanvasEngine {
   }
 
   /** Auto layout all nodes using the mindmap tree. */
-  autoLayoutMindmap(): void {
+  autoLayoutMindmap(options?: { skipHistory?: boolean }): void {
     if (this.locked) return;
     const elements = this.doc.getElements();
     const rootDirections = new Map<string, MindmapLayoutDirection>();
@@ -1690,7 +1731,7 @@ export class CanvasEngine {
       });
     });
 
-    if (hasChanges) {
+    if (hasChanges && !options?.skipHistory) {
       this.commitHistory();
     }
   }
@@ -1699,20 +1740,50 @@ export class CanvasEngine {
   autoLayoutMindmapPinned(pinnedId: string): void {
     const before = this.doc.getElementById(pinnedId);
     if (!before || before.kind !== "node") {
-      this.autoLayoutMindmap();
+      this.autoLayoutMindmap({ skipHistory: true });
+      this.commitHistory();
       return;
     }
     const [bx, by] = before.xywh;
-    this.autoLayoutMindmap();
+    this.autoLayoutMindmap({ skipHistory: true });
     const after = this.doc.getElementById(pinnedId);
-    if (!after || after.kind !== "node") return;
+    if (!after || after.kind !== "node") {
+      this.commitHistory();
+      return;
+    }
     const [ax, ay] = after.xywh;
     const dx = bx - ax;
     const dy = by - ay;
-    if (dx === 0 && dy === 0) return;
+    if (dx === 0 && dy === 0) {
+      this.commitHistory();
+      return;
+    }
     // 逻辑：将整棵树偏移回去，使 pinned 节点保持原位。
     const rootId = this.resolveMindmapRootId(pinnedId);
     const descendants = this.collectMindmapSubtree(rootId);
+
+    // 收集属于此子树的 ghost 节点和 ghost 连线
+    const descendantSet = new Set(descendants);
+    const elements = this.doc.getElements();
+    const ghostNodeIds: string[] = [];
+    elements.forEach(el => {
+      if (el.kind === "node" && this.getMindmapFlag(el, MINDMAP_META.ghost)) {
+        const parentId = this.getMindmapString(el, MINDMAP_META.ghostParentId);
+        if (parentId && descendantSet.has(parentId)) {
+          ghostNodeIds.push(el.id);
+        }
+      }
+    });
+    const ghostConnectorIds: string[] = [];
+    elements.forEach(el => {
+      if (el.kind === "connector" && this.getMindmapFlag(el, MINDMAP_META.ghostConnector)) {
+        const parentId = this.getMindmapString(el, MINDMAP_META.ghostConnectorParentId);
+        if (parentId && descendantSet.has(parentId)) {
+          ghostConnectorIds.push(el.id);
+        }
+      }
+    });
+
     this.doc.transact(() => {
       descendants.forEach(id => {
         const el = this.doc.getElementById(id);
@@ -1720,25 +1791,53 @@ export class CanvasEngine {
         const [ex, ey, ew, eh] = el.xywh;
         this.doc.updateElement(id, { xywh: [ex + dx, ey + dy, ew, eh] });
       });
+
+      // 偏移 ghost 节点
+      ghostNodeIds.forEach(id => {
+        const el = this.doc.getElementById(id);
+        if (!el || el.kind !== "node") return;
+        const [ex, ey, ew, eh] = el.xywh;
+        this.doc.updateElement(id, { xywh: [ex + dx, ey + dy, ew, eh] });
+      });
+
+      // 偏移 ghost 连线（point 类型端点需要偏移坐标）
+      ghostConnectorIds.forEach(id => {
+        const el = this.doc.getElementById(id);
+        if (!el || el.kind !== "connector") return;
+        const patch: Record<string, unknown> = {};
+        if ("point" in el.source) {
+          const [sx, sy] = el.source.point;
+          patch.source = { point: [sx + dx, sy + dy] as CanvasPoint };
+        }
+        if ("point" in el.target) {
+          const [tx, ty] = el.target.point;
+          patch.target = { point: [tx + dx, ty + dy] as CanvasPoint };
+        }
+        if (Object.keys(patch).length > 0) {
+          this.doc.updateElement(id, patch);
+        }
+      });
     });
+    this.commitHistory();
   }
 
   /** Collect all node ids in a mindmap subtree rooted at nodeId. */
   private collectMindmapSubtree(rootId: string): string[] {
-    const result: string[] = [rootId];
+    const visited = new Set<string>([rootId]);
     const queue = [rootId];
-    while (queue.length > 0) {
-      const current = queue.shift()!;
+    let head = 0;
+    while (head < queue.length) {
+      const current = queue[head++];
       const outbound = this.getMindmapOutboundConnectors(current);
       outbound.forEach(connector => {
         if (!("elementId" in connector.target)) return;
         const childId = connector.target.elementId;
-        if (result.includes(childId)) return;
-        result.push(childId);
+        if (visited.has(childId)) return;
+        visited.add(childId);
         queue.push(childId);
       });
     }
-    return result;
+    return queue;
   }
 
   /** Extract inheritable text style props from a text node element. */
@@ -1802,7 +1901,6 @@ export class CanvasEngine {
       { skipHistory: true, skipLayout: true, select: false }
     );
     this.selection.setSelection([childId]);
-    this.commitHistory();
     this.autoLayoutMindmapPinned(parentId);
     return childId;
   }
@@ -1837,7 +1935,6 @@ export class CanvasEngine {
       );
       if (!siblingId) return null;
       this.selection.setSelection([siblingId]);
-      this.commitHistory();
       this.autoLayoutMindmapPinned(nodeId);
       return siblingId;
     }
@@ -2269,6 +2366,12 @@ export class CanvasEngine {
 
   /** Fit the viewport to include all node elements. */
   fitToElements(padding = DEFAULT_FIT_PADDING): void {
+    // 逻辑：已从外部恢复视口状态时，跳过所有初始加载阶段的 fitToElements 调用，
+    // 直到 clearInitialViewportLock() 被显式调用，避免闪跳。
+    if (this.skipInitialFit) {
+      this.pendingFitPadding = null;
+      return;
+    }
     const { size } = this.viewport.getState();
     if (size[0] <= 0 || size[1] <= 0) {
       // 逻辑：viewport 尺寸还未就绪时延迟执行，等 setSize 触发后重试。
@@ -2537,6 +2640,8 @@ export class CanvasEngine {
     const adjacency = new Map<string, string[]>();
     elements.forEach(element => {
       if (element.kind !== "connector") return;
+      // Only check data-flow connectors for cycles (chat-flow is exempt)
+      if (element.semantic === 'chat-flow') return;
       if (!("elementId" in element.source) || !("elementId" in element.target)) return;
       const from = element.source.elementId;
       const to = element.target.elementId;

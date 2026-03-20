@@ -125,6 +125,8 @@ export const basicConfigSchema = z.object({
   webSearchApiKey: z.string(),
   /** Show all tool call results in chat message list. */
   chatShowAllToolResults: z.boolean(),
+  /** Show the dev-stage notice dialog on startup. */
+  showDevNoticeDialog: z.boolean(),
 });
 
 export const basicConfigUpdateSchema = basicConfigSchema.partial();

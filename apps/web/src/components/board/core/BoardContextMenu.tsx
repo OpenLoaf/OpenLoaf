@@ -15,18 +15,21 @@ import {
   Clipboard,
   Copy,
   Download,
-  Film,
   FileText,
   ImagePlus,
+  Info,
   LayoutGrid,
   Lock,
   Maximize2,
   Minimize2,
+  Play,
   RotateCw,
   Scan,
   Trash2,
   Type,
   Unlock,
+  Video,
+  ZoomIn,
 } from "lucide-react";
 import type { ReactElement, MouseEvent as ReactMouseEvent } from "react";
 import { useTranslation } from "react-i18next";
@@ -64,10 +67,6 @@ export type BoardContextMenuProps = {
   onInsertText?: () => void;
   /** Insert file handler. */
   onInsertFile?: () => void;
-  /** Insert AI image generate node handler. */
-  onInsertImageGenerate?: () => void;
-  /** Insert AI video generate node handler. */
-  onInsertVideoGenerate?: () => void;
   /** Whether insert actions are disabled (e.g. locked). */
   insertDisabled?: boolean;
   /** Context menu trigger handler. */
@@ -82,6 +81,19 @@ export type BoardContextMenuProps = {
   onNodeDuplicate?: (nodeId: string) => void;
   /** Save as handler for image/video nodes. */
   onNodeSaveAs?: (nodeId: string) => void;
+  /** Derive a new node (image/video generation) from source node. */
+  onNodeDeriveVideo?: (nodeId: string) => void;
+  onNodeDeriveImage?: (nodeId: string) => void;
+  /** HD upscale for image nodes. */
+  onNodeUpscale?: (nodeId: string) => void;
+  /** Download original file for image/video nodes. */
+  onNodeDownload?: (nodeId: string) => void;
+  /** Open fullscreen preview for image nodes. */
+  onNodePreview?: (nodeId: string) => void;
+  /** Open video playback for video nodes. */
+  onNodePlay?: (nodeId: string) => void;
+  /** Open the node inspector panel. */
+  onNodeInspect?: (nodeId: string) => void;
 };
 
 /** Render the board context menu. */
@@ -97,8 +109,6 @@ export function BoardContextMenu({
   pasteDisabled = false,
   onInsertText,
   onInsertFile,
-  onInsertImageGenerate,
-  onInsertVideoGenerate,
   insertDisabled = false,
   isFullscreen,
   onContextMenu,
@@ -109,11 +119,18 @@ export function BoardContextMenu({
   onNodeSendToBack,
   onNodeDuplicate,
   onNodeSaveAs,
+  onNodeDeriveVideo,
+  onNodeDeriveImage,
+  onNodeUpscale,
+  onNodeDownload,
+  onNodePreview,
+  onNodePlay,
+  onNodeInspect,
 }: BoardContextMenuProps) {
   const { t } = useTranslation('board');
   const isNodeMenu = Boolean(contextNode);
   const isLocked = contextNode?.locked === true;
-  const isSaveableNode = contextNode?.type === "image" || contextNode?.type === "video";
+  const nodeType = contextNode?.type;
 
   return (
     <ContextMenu>
@@ -123,21 +140,113 @@ export function BoardContextMenu({
       <ContextMenuContent className="w-52">
         {isNodeMenu && contextNode ? (
           <>
-            {/* 节点右键菜单 */}
-            <ContextMenuItem
-              icon={Copy}
-              onSelect={() => onNodeDuplicate?.(contextNode.id)}
-            >
-              {t('contextMenu.duplicate')}
-            </ContextMenuItem>
-            {isSaveableNode ? (
-              <ContextMenuItem
-                icon={Download}
-                onSelect={() => onNodeSaveAs?.(contextNode.id)}
-              >
-                {t('contextMenu.saveAs')}
-              </ContextMenuItem>
+            {/* ── 图片节点专属菜单 ── */}
+            {nodeType === 'image' ? (
+              <>
+                <ContextMenuItem
+                  icon={Video}
+                  onSelect={() => onNodeDeriveVideo?.(contextNode.id)}
+                >
+                  {t('contextMenu.generateVideo')}
+                </ContextMenuItem>
+                <ContextMenuItem
+                  icon={ZoomIn}
+                  onSelect={() => onNodeUpscale?.(contextNode.id)}
+                >
+                  {t('contextMenu.upscale')}
+                </ContextMenuItem>
+                <ContextMenuSeparator />
+                <ContextMenuItem
+                  icon={Copy}
+                  onSelect={() => onNodeDuplicate?.(contextNode.id)}
+                >
+                  {t('contextMenu.duplicate')}
+                </ContextMenuItem>
+                <ContextMenuItem
+                  icon={Download}
+                  onSelect={() => onNodeDownload?.(contextNode.id)}
+                >
+                  {t('contextMenu.download')}
+                </ContextMenuItem>
+                <ContextMenuItem
+                  icon={Maximize2}
+                  onSelect={() => onNodePreview?.(contextNode.id)}
+                >
+                  {t('contextMenu.preview')}
+                </ContextMenuItem>
+                <ContextMenuSeparator />
+                <ContextMenuItem
+                  icon={Info}
+                  onSelect={() => onNodeInspect?.(contextNode.id)}
+                >
+                  {t('contextMenu.inspect')}
+                </ContextMenuItem>
+              </>
             ) : null}
+
+            {/* ── 视频节点专属菜单 ── */}
+            {nodeType === 'video' ? (
+              <>
+                <ContextMenuItem
+                  icon={Play}
+                  onSelect={() => onNodePlay?.(contextNode.id)}
+                >
+                  {t('contextMenu.play')}
+                </ContextMenuItem>
+                <ContextMenuItem
+                  icon={Download}
+                  onSelect={() => onNodeDownload?.(contextNode.id)}
+                >
+                  {t('contextMenu.download')}
+                </ContextMenuItem>
+                <ContextMenuSeparator />
+                <ContextMenuItem
+                  icon={Copy}
+                  onSelect={() => onNodeDuplicate?.(contextNode.id)}
+                >
+                  {t('contextMenu.duplicate')}
+                </ContextMenuItem>
+              </>
+            ) : null}
+
+            {/* ── 文本节点专属菜单 ── */}
+            {nodeType === 'text' ? (
+              <>
+                <ContextMenuItem
+                  icon={ImagePlus}
+                  onSelect={() => onNodeDeriveImage?.(contextNode.id)}
+                >
+                  {t('contextMenu.generateImage')}
+                </ContextMenuItem>
+                <ContextMenuItem
+                  icon={Video}
+                  onSelect={() => onNodeDeriveVideo?.(contextNode.id)}
+                >
+                  {t('contextMenu.generateVideo')}
+                </ContextMenuItem>
+                <ContextMenuSeparator />
+                <ContextMenuItem
+                  icon={Copy}
+                  onSelect={() => onNodeDuplicate?.(contextNode.id)}
+                >
+                  {t('contextMenu.duplicate')}
+                </ContextMenuItem>
+              </>
+            ) : null}
+
+            {/* ── 通用节点菜单（非 image/video/text 类型） ── */}
+            {nodeType !== 'image' && nodeType !== 'video' && nodeType !== 'text' ? (
+              <>
+                <ContextMenuItem
+                  icon={Copy}
+                  onSelect={() => onNodeDuplicate?.(contextNode.id)}
+                >
+                  {t('contextMenu.duplicate')}
+                </ContextMenuItem>
+              </>
+            ) : null}
+
+            {/* ── 所有节点通用底部菜单 ── */}
             <ContextMenuSeparator />
             <ContextMenuItem
               icon={ArrowUp}
@@ -194,27 +303,6 @@ export function BoardContextMenu({
             >
               {t('contextMenu.insertFile')}
             </ContextMenuItem>
-            <ContextMenuItem
-              icon={ImagePlus}
-              disabled={insertDisabled}
-              onSelect={() => {
-                if (insertDisabled) return;
-                onInsertImageGenerate?.();
-              }}
-            >
-              {t('contextMenu.aiImageGenerate')}
-            </ContextMenuItem>
-            <ContextMenuItem
-              icon={Film}
-              disabled={insertDisabled}
-              onSelect={() => {
-                if (insertDisabled) return;
-                onInsertVideoGenerate?.();
-              }}
-            >
-              {t('contextMenu.aiVideoGenerate')}
-            </ContextMenuItem>
-
             <ContextMenuSeparator />
 
             <ContextMenuItem

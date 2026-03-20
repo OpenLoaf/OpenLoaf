@@ -337,11 +337,6 @@ export function computeMindmapLayout(
       layoutDirection === "right" ? rootX + rootW + spacingX : rootX - spacingX;
     let cursorY = rootY + (rootH - tree.boundH) / 2;
 
-    if (rootH >= tree.boundH && tree.children.length === 1) {
-      const onlyChild = tree.children[0];
-      cursorY += (rootH - onlyChild.height) / 2;
-    }
-
     tree.children.forEach(child => {
       const childX =
         layoutDirection === "right" ? nextX : nextX - child.width;

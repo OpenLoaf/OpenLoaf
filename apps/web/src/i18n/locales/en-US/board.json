@@ -42,18 +42,39 @@
     "hand": "Hand",
     "pen": "Pen",
     "highlighter": "Highlighter",
-    "eraser": "Eraser"
+    "eraser": "Eraser",
+    "insert": "Insert",
+    "connector": "Connector"
   },
   "insertTools": {
     "note": "Note",
     "text": "Text",
+    "textDesc": "Prompts, scripts",
+    "sticky": "Sticky Note",
+    "stickyDesc": "Quick notes",
     "image": "Image",
+    "imageDesc": "AI image generation",
     "video": "Video",
+    "videoDesc": "AI video generation",
+    "audio": "Audio",
+    "audioDesc": "AI audio generation",
     "file": "File",
+    "link": "Link",
+    "linkDesc": "Add web link",
+    "upload": "Upload",
+    "uploadDesc": "Import images, videos, audio files",
+    "addNode": "Add Node",
+    "addResource": "Add Resource",
     "imagePromptGenerate": "Image/Video Analysis",
     "imageGenerate": "Image Generation",
     "videoGenerate": "Video Generation",
     "aiChat": "AI Chat"
+  },
+  "bottomBar": {
+    "aiImage": "AI Image",
+    "aiVideo": "AI Video",
+    "aiAudio": "AI Audio",
+    "fitView": "Fit View"
   },
   "textToolTip": {
     "title": "Text Tool",
@@ -85,6 +106,15 @@
     "fileHint": "All file types supported"
   },
   "emptyGuide": {
+    "title": "Start Creating",
+    "subtitle": "Choose a way to begin",
+    "createText": "Sticky Note",
+    "aiImage": "AI Image",
+    "aiVideo": "AI Video",
+    "importFile": "Import File",
+    "hint": "Double-click on empty space to create text",
+    "shortcuts": "Shortcuts: V Select · H Hand · T Text · C Connector",
+    "fromTemplate": "Start from Template",
     "heading": "Start from a Template",
     "subheading": "Choose a template and click to place on canvas",
     "tpl": {
@@ -106,6 +136,17 @@
       }
     }
   },
+  "templates": {
+    "title": "Choose a Workflow Template",
+    "textToImage": "Text to Image",
+    "textToImageDesc": "Generate images from text descriptions",
+    "imageToVideo": "Image to Video",
+    "imageToVideoDesc": "Generate video from images",
+    "fullPipeline": "Full Pipeline",
+    "fullPipelineDesc": "Text → Image → Video",
+    "storyboard": "Storyboard",
+    "storyboardDesc": "Split script into multiple storyboard frames"
+  },
   "contextMenu": {
     "exitFullscreen": "Exit Fullscreen",
     "enterFullscreen": "Enter Fullscreen",
@@ -123,7 +164,14 @@
     "lock": "Lock",
     "unlock": "Unlock",
     "delete": "Delete",
-    "saveAs": "Save As…"
+    "saveAs": "Save As…",
+    "generateImage": "Generate Image",
+    "generateVideo": "Generate Video",
+    "upscale": "HD Upscale",
+    "play": "Play",
+    "download": "Download",
+    "preview": "Fullscreen Preview",
+    "inspect": "Details"
   },
   "controls": {
     "undo": "Undo",
@@ -144,6 +192,16 @@
     "textNodeDesc": "Add text content",
     "imageGenerate": "Image Generation",
     "imageGenerateDesc": "Generate new image from prompt and image",
+    "videoUnderstanding": "Video Understanding",
+    "videoUnderstandingDesc": "Analyze video and generate description",
+    "extractFrame": "Extract Frame",
+    "extractFrameDesc": "Extract a frame from video",
+    "continueVideo": "Continue Video",
+    "continueVideoDesc": "Generate continuation from video",
+    "textAiPolish": "AI Polish",
+    "textAiPolishDesc": "Polish, translate or rewrite text with AI",
+    "textToSpeech": "Text to Speech",
+    "textToSpeechDesc": "Convert text to audio",
     "straight": "Straight",
     "elbow": "Elbow",
     "curve": "Curve",
@@ -151,7 +209,13 @@
     "fly": "Fly",
     "colorTitle": "Connector color {{color}}",
     "dashed": "Dashed",
-    "deleteConnector": "Delete Connector"
+    "deleteConnector": "Delete Connector",
+    "speechRecognition": "Speech Recognition",
+    "speechRecognitionDesc": "Convert audio to text",
+    "addAudioToVideo": "Add Audio to Video",
+    "addAudioToVideoDesc": "Combine audio with video",
+    "voiceClone": "Voice Clone",
+    "voiceCloneDesc": "Clone the voice from this audio"
   },
   "nodeDetail": {
     "detail": "Details"
@@ -217,6 +281,18 @@
       "green": "Green",
       "purple": "Purple",
       "gray": "Gray"
+    },
+    "recommend": {
+      "textToImage": "Text to Image",
+      "textToVideo": "Text to Video",
+      "imageReversePrompt": "Image to Prompt",
+      "textToSpeech": "Text to Speech"
+    },
+    "aiPolish": {
+      "title": "AI Polish",
+      "polish": "Polish",
+      "translate": "Translate",
+      "rewrite": "Rewrite"
     }
   },
   "groupNode": {
@@ -225,6 +301,10 @@
     "dissolve": "Dissolve",
     "uniformSize": "Uniform Size",
     "enter": "Enter",
+    "untitled": "Untitled Group",
+    "storyboard": "Storyboard",
+    "editTitle": "Edit Title",
+    "bgColor": "Background",
     "groupDialog": {
       "title": "Group Members",
       "editTitle": "Edit Group",
@@ -236,13 +316,17 @@
       "copy": "Copy",
       "bringToFront": "Bring to Front",
       "sendToBack": "Send to Back",
+      "bringForward": "Bring Forward",
+      "sendBackward": "Send Backward",
       "unlock": "Unlock",
       "lock": "Lock",
       "delete": "Delete",
       "group": "Group",
       "layoutVertical": "Vertical Arrange",
       "layoutHorizontal": "Horizontal Arrange",
-      "autoLayout": "Auto Layout"
+      "autoLayout": "Auto Layout",
+      "batchDownload": "Batch Download",
+      "batchDownloadProgress": "Downloading {{count}} files"
     },
     "mindmapLayout": {
       "label": "Direction",
@@ -392,11 +476,19 @@
     "notFound": "Image not found",
     "loadFailed": "Failed to load image",
     "replaceTitle": "Select Image",
-    "replaceHint": "Select an image to replace the current node"
+    "replaceHint": "Select an image to replace the current node",
+    "generating": "Generating...",
+    "generationFailed": "Generation failed",
+    "retry": "Retry",
+    "parametersLocked": "Parameters locked — click Unlock to modify",
+    "unlock": "Unlock",
+    "emptyHint": "Double-click to upload\nor select to generate with AI"
   },
   "videoNode": {
     "toolbar": {
+      "regenerate": "Regenerate",
       "play": "Play",
+      "download": "Download",
       "trim": "Trim",
       "exportClip": "Export Clip",
       "detail": "Details"
@@ -407,13 +499,32 @@
       "confirm": "Confirm",
       "loading": "Loading video...",
       "noDuration": "Duration unknown — play the video first."
-    }
+    },
+    "generating": "Generating video...",
+    "generateFailed": "Video generation failed",
+    "retry": "Retry",
+    "parametersLocked": "Parameters locked",
+    "emptyHint": "Double-click to upload\nor select to generate with AI"
   },
   "audioNode": {
     "toolbar": {
-      "detail": "Details"
+      "detail": "Details",
+      "regenerate": "Regenerate",
+      "play": "Play",
+      "download": "Download",
+      "delete": "Delete"
     },
-    "noSource": "No audio source"
+    "noSource": "No audio source",
+    "generating": "Generating audio...",
+    "generateFailed": "Audio generation failed",
+    "retry": "Retry",
+    "parametersLocked": "Parameters locked",
+    "emptyHint": "Double-click to upload\nor select to generate with AI"
+  },
+  "versionStack": {
+    "badge": "{{count}} versions",
+    "prev": "Previous",
+    "next": "Next"
   },
   "fileAttachmentNode": {
     "toolbar": {
@@ -444,20 +555,24 @@
     "queryFailed": "Task query failed",
     "imageGenerateFailed": "Image generation failed",
     "videoGenerateFailed": "Video generation failed",
+    "audioGenerateFailed": "Audio generation failed",
     "videoSaveFailed": "Video save failed",
     "taskCancelled": "Task cancelled",
     "failed": "Generation failed",
     "imageTimeout": "Image generation timed out",
     "videoTimeout": "Video generation timed out",
+    "audioTimeout": "Audio generation timed out",
     "imageGenerateError": "Failed to generate image",
     "videoGenerateError": "Failed to generate video",
+    "audioGenerateError": "Failed to generate audio",
     "statusFailed": "Failed",
     "statusGenerating": "Generating…",
     "statusWaiting": "Waiting",
     "transcoding": "Transcoding",
     "cancel": "Cancel",
     "retry": "Retry",
-    "delete": "Delete"
+    "delete": "Delete",
+    "dismiss": "Dismiss"
   },
   "collab": {
     "imageTranscodeFailed": "Image transcoding failed, original file was inserted"
@@ -479,7 +594,13 @@
     "aiAssistant": "AI Assistant",
     "imagePromptGenerate": "Image Analysis",
     "imageGenerate": "Image Generation",
-    "videoGenerate": "Video Generation"
+    "videoGenerate": "Video Generation",
+    "generateImage": "Generate Image",
+    "generateVideo": "Generate Video",
+    "upscale": "Upscale",
+    "repaint": "Repaint",
+    "regenerate": "Regenerate",
+    "upscaleVideo": "Upscale Video"
   },
   "nodeInspector": {
     "panelTitle": "Node Details",
@@ -542,5 +663,186 @@
     "fantasy": "Fantasy",
     "ink": "Ink Wash",
     "lowpoly": "Low Poly"
+  },
+  "fallbackNode": {
+    "deprecated": "This node type ({{type}}) has been deprecated",
+    "delete": "Delete"
+  },
+  "shapeNode": {
+    "toolbar": {
+      "color": "Color"
+    }
+  },
+  "videoPanel": {
+    "prompt": "Prompt",
+    "promptPlaceholder": "Describe video content and camera movements...",
+    "firstFrame": "First Frame",
+    "lastFrame": "Last Frame",
+    "firstFrameAuto": "Auto-read from upstream node",
+    "firstFrameUpload": "Click to upload",
+    "sourceVideo": "Source Video",
+    "model": "Model",
+    "autoRecommend": "Auto Recommend",
+    "aspectRatio": "Aspect Ratio",
+    "duration": "Duration",
+    "quality": "Quality",
+    "generate": "Generate",
+    "generating": "Generating...",
+    "upstreamLoaded": "Content loaded from upstream node",
+    "upstreamImageLoaded": "First frame loaded from upstream node",
+    "enhancePrompt": "Enhance Prompt",
+    "translate": "Translate",
+    "credits": "Credits",
+    "estimatedCredits": "Estimated credits for this generation",
+    "mode": {
+      "textToVideo": "Text to Video",
+      "universalRef": "Universal Ref",
+      "imageToVideo": "Image to Video",
+      "startEndFrame": "Start/End Frame",
+      "videoEdit": "Video Edit"
+    },
+    "modeV2Badge": "V2",
+    "refFeatures": {
+      "mark": "Mark",
+      "effect": "Effect",
+      "subject": "Subject",
+      "camera": "Camera"
+    },
+    "stackMode": "Stack (New Version)",
+    "overwriteMode": "Overwrite Primary",
+    "parametersLocked": "Parameters locked"
+  },
+  "imagePanel": {
+    "textToImage": "Text to Image",
+    "imageToImage": "Image to Image",
+    "prompt": "Prompt",
+    "promptPlaceholder": "Describe the image you want...",
+    "model": "Model",
+    "autoRecommend": "Auto Recommend",
+    "aspectRatio": "Aspect Ratio",
+    "resolution": "Resolution",
+    "advancedSettings": "Advanced Settings",
+    "advancedSettingsPlaceholder": "More settings coming soon...",
+    "generate": "Generate",
+    "generating": "Generating...",
+    "upstreamLoaded": "Content loaded from upstream node",
+    "resultPagination": {
+      "pageOf": "{{current}}/{{total}}"
+    },
+    "referenceImages": "Reference Images",
+    "selectedCount": "Selected {{count}}/{{limit}}",
+    "expandUpstream": "Expand",
+    "uploadReference": "Upload reference image",
+    "enhancePrompt": "Enhance prompt",
+    "translate": "Translate",
+    "settings": "Settings",
+    "generateMode": "Generate mode",
+    "upstreamSlots": "Upstream Assets",
+    "estimatedCredits": "Estimated credits for this generation",
+    "stackMode": "Stack (New Version)",
+    "overwriteMode": "Overwrite Primary",
+    "mode": {
+      "auto": "Auto",
+      "upscale": "Upscale",
+      "inpaint": "Inpaint",
+      "erase": "Erase",
+      "matting": "Cutout",
+      "multiview": "Multi-angle",
+      "outpaint": "Outpaint"
+    },
+    "comingSoon": "Coming Soon",
+    "upscaleScale": "Scale Factor",
+    "maskEdit": "Edit Mask",
+    "erasePlaceholder": "Paint over the area to erase"
+  },
+  "upscalePanel": {
+    "title": "HD Upscale",
+    "scaleFactor": "Scale Factor",
+    "model": "Model",
+    "autoRecommend": "Auto Recommend",
+    "creditsCost": "Credits Cost",
+    "submit": "Upscale"
+  },
+  "audioPanel": {
+    "type": "Type",
+    "music": "Music",
+    "voiceover": "Voiceover",
+    "sfx": "Sound Effects",
+    "prompt": "Prompt",
+    "promptPlaceholder": "Describe the audio you want...",
+    "model": "Model",
+    "autoRecommend": "Auto Recommend",
+    "duration": "Duration",
+    "generate": "Generate",
+    "generating": "Generating...",
+    "upstreamLoaded": "Content loaded from upstream node",
+    "title": "Audio Generation",
+    "tabs": {
+      "tts": "Text-to-Speech",
+      "music": "Music",
+      "sfx": "Sound Effects"
+    },
+    "tts": {
+      "textPreview": "Text Content",
+      "textPreviewEmpty": "Connect a text node to auto-fill content",
+      "referenceVoice": "Reference Voice",
+      "referenceVoiceEmpty": "Select or connect a voice sample",
+      "selectVoice": "Select Voice",
+      "registeredVoice": "Registered Voice",
+      "registeredVoicePlaceholder": "Coming in V1.5"
+    },
+    "enhancePrompt": "Enhance Prompt",
+    "durationAuto": "Auto",
+    "translate": "Translate",
+    "credits": "Credits",
+    "estimatedCredits": "Estimated credits for this generation",
+    "noModel": "No models available",
+    "loginHint": "Sign in to use cloud models",
+    "stackMode": "Stack (New Version)",
+    "overwriteMode": "Overwrite Primary",
+    "parametersLocked": "Parameters locked"
+  },
+  "nodeSearch": {
+    "placeholder": "Search nodes...",
+    "results": "Results ({{count}})",
+    "noResults": "No matching nodes found",
+    "types": {
+      "all": "All",
+      "text": "Text",
+      "image": "Image",
+      "video": "Video",
+      "audio": "Audio"
+    }
+  },
+  "nodeLabel": {
+    "text": "Text",
+    "image": "Image",
+    "video": "Video",
+    "audio": "Audio",
+    "link": "Link",
+    "file-attachment": "File",
+    "calendar": "Calendar",
+    "group": "Group",
+    "image-group": "Image Group"
+  },
+  "textPanel": {
+    "upstreamPreview": "Upstream Text",
+    "instructionPlaceholder": "Enter AI instruction...",
+    "model": "Model",
+    "autoRecommend": "Auto Recommend",
+    "generate": "Generate",
+    "generating": "Generating...",
+    "translate": "Translate",
+    "credits": "Credits"
+  },
+  "generateAction": {
+    "generate": "Generate",
+    "generating": "Generating...",
+    "newNode": "Generate New Node",
+    "stackCurrent": "Stack on Current Node",
+    "currentNode": "Current node",
+    "regenerate": "Regenerate",
+    "locked": "Parameters Locked",
+    "unlock": "Unlock"
   }
 }

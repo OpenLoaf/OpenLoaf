@@ -71,7 +71,7 @@ function IconBtn(props: {
       onPointerDown={handlePointerDown}
       disabled={disabled}
       className={cn(
-        "inline-flex h-8 w-8 items-center justify-center rounded-md",
+        "inline-flex h-9 w-9 items-center justify-center rounded-md",
         "transition-colors duration-150",
         active
           ? BOARD_ICON_BTN_ACTIVE
@@ -154,8 +154,8 @@ function PanelItem(props: {
   } = props;
   const sizeClassName =
     size === "sm"
-      ? "gap-1 rounded-lg px-2 py-1 text-[10px]"
-      : "gap-1 rounded-lg px-2.5 py-1.5 text-[11px]";
+      ? "gap-2 rounded-full px-3 py-1.5 text-xs"
+      : "gap-2 rounded-full px-3.5 py-2 text-xs";
   /** Handle tool activation on pointer down to avoid click loss. */
   const handlePointerDown = (event: React.PointerEvent<HTMLButtonElement>) => {
     // 逻辑：优先响应按下，避免 click 被画布层吞掉
@@ -200,14 +200,18 @@ function PanelItem(props: {
       title={title}
       aria-label={title}
       className={cn(
-        // 面板条目：上下排列（图标在上、文字在下）
-        "inline-flex flex-col items-center",
+        // 面板条目：横向排列（图标 + 文字并排）
+        "inline-flex flex-row items-center",
         "transition-colors duration-150",
         sizeClassName,
         active
           ? BOARD_PANEL_ITEM_ACTIVE
           : BOARD_PANEL_ITEM_HOVER,
-        className
+        className,
+        // 统一中性文字色（覆盖语义色），tailwind-merge 最后声明优先
+        active
+          ? "text-foreground"
+          : "text-muted-foreground hover:text-foreground",
       )}
     >
       {children}

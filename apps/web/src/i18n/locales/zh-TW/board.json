@@ -42,18 +42,39 @@
     "hand": "拖曳",
     "pen": "畫筆",
     "highlighter": "螢光筆",
-    "eraser": "橡皮"
+    "eraser": "橡皮",
+    "insert": "插入",
+    "connector": "連接線"
   },
   "insertTools": {
     "note": "便利貼",
     "text": "文字",
+    "textDesc": "輸入提示詞、腳本",
+    "sticky": "便利貼",
+    "stickyDesc": "快速記錄想法",
     "image": "圖片",
+    "imageDesc": "AI 生成圖片",
     "video": "影片",
+    "videoDesc": "AI 生成影片",
+    "audio": "音訊",
+    "audioDesc": "AI 生成音訊",
     "file": "檔案",
+    "link": "連結",
+    "linkDesc": "新增網頁連結",
+    "upload": "上傳",
+    "uploadDesc": "匯入圖片、影片、音訊檔案",
+    "addNode": "新增節點",
+    "addResource": "新增資源",
     "imagePromptGenerate": "影片圖片理解",
     "imageGenerate": "圖片生成",
     "videoGenerate": "生成影片",
     "aiChat": "AI 對話"
+  },
+  "bottomBar": {
+    "aiImage": "AI 圖片",
+    "aiVideo": "AI 影片",
+    "aiAudio": "AI 音訊",
+    "fitView": "適應檢視"
   },
   "textToolTip": {
     "title": "文字工具",
@@ -85,6 +106,15 @@
     "fileHint": "支援所有檔案類型"
   },
   "emptyGuide": {
+    "title": "開始創作",
+    "subtitle": "選擇一個方式開始",
+    "createText": "建立便利貼",
+    "aiImage": "AI 圖片",
+    "aiVideo": "AI 影片",
+    "importFile": "匯入檔案",
+    "hint": "雙擊空白處也可以建立文字",
+    "shortcuts": "快捷鍵: V 選取 · H 拖曳 · T 文字 · C 連線",
+    "fromTemplate": "從模板開始",
     "heading": "從範本開始創作",
     "subheading": "選擇一個範本，點擊畫布放置",
     "tpl": {
@@ -106,6 +136,17 @@
       }
     }
   },
+  "templates": {
+    "title": "選擇工作流模板",
+    "textToImage": "文生圖",
+    "textToImageDesc": "從文字描述生成圖片",
+    "imageToVideo": "圖生影片",
+    "imageToVideoDesc": "從圖片生成影片",
+    "fullPipeline": "完整影視流",
+    "fullPipelineDesc": "文字 → 圖片 → 影片",
+    "storyboard": "分鏡模式",
+    "storyboardDesc": "腳本拆分為多張分鏡圖"
+  },
   "contextMenu": {
     "exitFullscreen": "退出全螢幕",
     "enterFullscreen": "全螢幕顯示",
@@ -123,7 +164,14 @@
     "lock": "鎖定",
     "unlock": "解鎖",
     "delete": "刪除",
-    "saveAs": "另存為…"
+    "saveAs": "另存為…",
+    "generateImage": "生成圖片",
+    "generateVideo": "生成影片",
+    "upscale": "高清放大",
+    "play": "播放",
+    "download": "下載",
+    "preview": "全螢幕預覽",
+    "inspect": "詳情"
   },
   "controls": {
     "undo": "復原",
@@ -144,6 +192,16 @@
     "textNodeDesc": "新增文字內容",
     "imageGenerate": "圖片生成",
     "imageGenerateDesc": "基於提示詞與圖片生成新圖",
+    "videoUnderstanding": "影片理解",
+    "videoUnderstandingDesc": "分析影片並生成描述",
+    "extractFrame": "擷取幀",
+    "extractFrameDesc": "從影片中擷取幀圖片",
+    "continueVideo": "續寫影片",
+    "continueVideoDesc": "基於影片生成後續內容",
+    "textAiPolish": "AI 潤色",
+    "textAiPolishDesc": "使用 AI 潤色、翻譯或改寫文字",
+    "textToSpeech": "文字轉語音",
+    "textToSpeechDesc": "將文字轉換為音訊",
     "straight": "直線",
     "elbow": "折線",
     "curve": "曲線",
@@ -151,7 +209,13 @@
     "fly": "飛行",
     "colorTitle": "連線顏色 {{color}}",
     "dashed": "虛線",
-    "deleteConnector": "刪除連線"
+    "deleteConnector": "刪除連線",
+    "speechRecognition": "語音辨識",
+    "speechRecognitionDesc": "將音訊轉為文字",
+    "addAudioToVideo": "新增音訊到影片",
+    "addAudioToVideoDesc": "將音訊與影片合併",
+    "voiceClone": "聲音複製",
+    "voiceCloneDesc": "從此音訊複製聲音"
   },
   "nodeDetail": {
     "detail": "詳情"
@@ -217,6 +281,18 @@
       "green": "綠",
       "purple": "紫",
       "gray": "灰"
+    },
+    "recommend": {
+      "textToImage": "文生圖",
+      "textToVideo": "文生影片",
+      "imageReversePrompt": "圖片反推提示詞",
+      "textToSpeech": "文字轉語音"
+    },
+    "aiPolish": {
+      "title": "AI 潤色",
+      "polish": "潤色",
+      "translate": "翻譯",
+      "rewrite": "改寫"
     }
   },
   "groupNode": {
@@ -225,6 +301,10 @@
     "dissolve": "解散",
     "uniformSize": "統一大小",
     "enter": "進入",
+    "untitled": "未命名分組",
+    "storyboard": "分鏡",
+    "editTitle": "編輯標題",
+    "bgColor": "背景色",
     "groupDialog": {
       "title": "組成員",
       "editTitle": "編輯組",
@@ -236,13 +316,17 @@
       "copy": "複製",
       "bringToFront": "置頂",
       "sendToBack": "置底",
+      "bringForward": "上移一層",
+      "sendBackward": "下移一層",
       "unlock": "解鎖",
       "lock": "鎖定",
       "delete": "刪除",
       "group": "群組",
       "layoutVertical": "縱向排列",
       "layoutHorizontal": "橫向排列",
-      "autoLayout": "自動排版"
+      "autoLayout": "自動排版",
+      "batchDownload": "批次下載",
+      "batchDownloadProgress": "正在下載 {{count}} 個檔案"
     },
     "mindmapLayout": {
       "label": "方向",
@@ -392,11 +476,19 @@
     "notFound": "圖片未找到",
     "loadFailed": "無法載入圖片",
     "replaceTitle": "選擇圖片",
-    "replaceHint": "選擇一張圖片替換當前節點"
+    "replaceHint": "選擇一張圖片替換當前節點",
+    "generating": "生成中...",
+    "generationFailed": "生成失敗",
+    "retry": "重試",
+    "parametersLocked": "參數已鎖定 — 點擊「解鎖」修改",
+    "unlock": "解鎖",
+    "emptyHint": "雙擊上傳圖片\n或選中後 AI 生成"
   },
   "videoNode": {
     "toolbar": {
+      "regenerate": "重新生成",
       "play": "播放",
+      "download": "下載",
       "trim": "剪輯",
       "exportClip": "匯出片段",
       "detail": "詳情"
@@ -407,13 +499,32 @@
       "confirm": "確認",
       "loading": "載入影片中...",
       "noDuration": "時長未知 — 請先播放影片。"
-    }
+    },
+    "generating": "影片生成中...",
+    "generateFailed": "影片生成失敗",
+    "retry": "重試",
+    "parametersLocked": "參數已鎖定",
+    "emptyHint": "雙擊上傳影片\n或選中後 AI 生成"
   },
   "audioNode": {
     "toolbar": {
-      "detail": "詳情"
+      "detail": "詳情",
+      "regenerate": "重新生成",
+      "play": "播放",
+      "download": "下載",
+      "delete": "刪除"
     },
-    "noSource": "無音訊來源"
+    "noSource": "無音訊來源",
+    "generating": "音訊生成中...",
+    "generateFailed": "音訊生成失敗",
+    "retry": "重試",
+    "parametersLocked": "參數已鎖定",
+    "emptyHint": "雙擊上傳音訊\n或選中後 AI 生成"
+  },
+  "versionStack": {
+    "badge": "{{count}} 個版本",
+    "prev": "上一張",
+    "next": "下一張"
   },
   "fileAttachmentNode": {
     "toolbar": {
@@ -444,20 +555,24 @@
     "queryFailed": "任務查詢失敗",
     "imageGenerateFailed": "圖片生成失敗",
     "videoGenerateFailed": "影片生成失敗",
+    "audioGenerateFailed": "音訊生成失敗",
     "videoSaveFailed": "影片儲存失敗",
     "taskCancelled": "任務已取消",
     "failed": "生成失敗",
     "imageTimeout": "圖片生成逾時",
     "videoTimeout": "影片生成逾時",
+    "audioTimeout": "音訊生成逾時",
     "imageGenerateError": "生成圖片失敗",
     "videoGenerateError": "生成影片失敗",
+    "audioGenerateError": "生成音訊失敗",
     "statusFailed": "失敗",
     "statusGenerating": "生成中…",
     "statusWaiting": "等待任務",
     "transcoding": "轉碼中",
     "cancel": "取消",
     "retry": "重試",
-    "delete": "刪除"
+    "delete": "刪除",
+    "dismiss": "忽略"
   },
   "collab": {
     "imageTranscodeFailed": "圖片轉碼失敗，已使用原始檔案插入"
@@ -479,7 +594,13 @@
     "aiAssistant": "AI智能體",
     "imagePromptGenerate": "圖片理解",
     "imageGenerate": "圖片生成",
-    "videoGenerate": "生成影片"
+    "videoGenerate": "生成影片",
+    "generateImage": "生成圖片",
+    "generateVideo": "生影片",
+    "upscale": "高清",
+    "repaint": "重繪",
+    "regenerate": "重新生成",
+    "upscaleVideo": "高清放大"
   },
   "nodeInspector": {
     "panelTitle": "節點詳情",
@@ -542,5 +663,186 @@
     "fantasy": "奇幻風",
     "ink": "水墨風",
     "lowpoly": "低多邊形"
+  },
+  "fallbackNode": {
+    "deprecated": "此節點類型 ({{type}}) 已停用",
+    "delete": "刪除"
+  },
+  "shapeNode": {
+    "toolbar": {
+      "color": "顏色"
+    }
+  },
+  "videoPanel": {
+    "prompt": "提示詞",
+    "promptPlaceholder": "描述影片內容和運鏡效果...",
+    "firstFrame": "首幀",
+    "lastFrame": "尾幀",
+    "firstFrameAuto": "從上游節點自動讀取",
+    "firstFrameUpload": "點擊上傳",
+    "sourceVideo": "來源影片",
+    "model": "模型",
+    "autoRecommend": "自動推薦",
+    "aspectRatio": "比例",
+    "duration": "時長",
+    "quality": "品質",
+    "generate": "生成",
+    "generating": "生成中...",
+    "upstreamLoaded": "已從上游節點讀取內容",
+    "upstreamImageLoaded": "已從上游節點讀取首幀圖片",
+    "enhancePrompt": "優化提示詞",
+    "translate": "翻譯",
+    "credits": "積分",
+    "estimatedCredits": "本次生成預計消耗積分",
+    "mode": {
+      "textToVideo": "文生影片",
+      "universalRef": "全能參考",
+      "imageToVideo": "圖生影片",
+      "startEndFrame": "首尾幀",
+      "videoEdit": "影片編輯"
+    },
+    "modeV2Badge": "V2",
+    "refFeatures": {
+      "mark": "標記",
+      "effect": "特效",
+      "subject": "主體",
+      "camera": "運鏡"
+    },
+    "stackMode": "堆疊（新版本）",
+    "overwriteMode": "覆寫主版本",
+    "parametersLocked": "參數已鎖定"
+  },
+  "imagePanel": {
+    "textToImage": "文生圖",
+    "imageToImage": "圖生圖",
+    "prompt": "提示詞",
+    "promptPlaceholder": "描述你想要的畫面...",
+    "model": "模型",
+    "autoRecommend": "自動推薦",
+    "aspectRatio": "比例",
+    "resolution": "解析度",
+    "advancedSettings": "進階設定",
+    "advancedSettingsPlaceholder": "更多參數設定即將推出...",
+    "generate": "生成",
+    "generating": "生成中...",
+    "upstreamLoaded": "已從上游節點讀取內容",
+    "resultPagination": {
+      "pageOf": "{{current}}/{{total}}"
+    },
+    "referenceImages": "參考圖片",
+    "selectedCount": "已選 {{count}}/{{limit}}",
+    "expandUpstream": "展開",
+    "uploadReference": "上傳參考圖",
+    "enhancePrompt": "優化提示詞",
+    "translate": "翻譯",
+    "settings": "設定",
+    "generateMode": "生成模式",
+    "upstreamSlots": "上游素材",
+    "estimatedCredits": "本次生成預計消耗積分",
+    "stackMode": "堆疊（新版本）",
+    "overwriteMode": "覆寫主版本",
+    "mode": {
+      "auto": "自動",
+      "upscale": "高清",
+      "inpaint": "重繪",
+      "erase": "擦除",
+      "matting": "摳圖",
+      "multiview": "多角度",
+      "outpaint": "擴圖"
+    },
+    "comingSoon": "即將推出",
+    "upscaleScale": "放大倍數",
+    "maskEdit": "編輯遮罩",
+    "erasePlaceholder": "塗抹要擦除的區域"
+  },
+  "upscalePanel": {
+    "title": "高清放大",
+    "scaleFactor": "放大倍數",
+    "model": "模型",
+    "autoRecommend": "自動推薦",
+    "creditsCost": "積分消耗",
+    "submit": "放大"
+  },
+  "audioPanel": {
+    "type": "類型",
+    "music": "音樂",
+    "voiceover": "配音",
+    "sfx": "音效",
+    "prompt": "提示詞",
+    "promptPlaceholder": "描述你想要的音訊...",
+    "model": "模型",
+    "autoRecommend": "自動推薦",
+    "duration": "時長",
+    "generate": "生成",
+    "generating": "生成中...",
+    "upstreamLoaded": "已從上游節點讀取內容",
+    "title": "音訊生成",
+    "tabs": {
+      "tts": "語音合成",
+      "music": "音樂生成",
+      "sfx": "音效"
+    },
+    "tts": {
+      "textPreview": "文字內容",
+      "textPreviewEmpty": "連接文字節點以自動填入內容",
+      "referenceVoice": "參考音色",
+      "referenceVoiceEmpty": "選擇或連接音色樣本",
+      "selectVoice": "選擇音色",
+      "registeredVoice": "已註冊音色",
+      "registeredVoicePlaceholder": "V1.5 版本上線"
+    },
+    "enhancePrompt": "優化提示詞",
+    "durationAuto": "自動",
+    "translate": "翻譯",
+    "credits": "積分",
+    "estimatedCredits": "本次生成預計消耗積分",
+    "noModel": "無可用模型",
+    "loginHint": "登入以使用雲端模型",
+    "stackMode": "堆疊（新版本）",
+    "overwriteMode": "覆寫主版本",
+    "parametersLocked": "參數已鎖定"
+  },
+  "nodeSearch": {
+    "placeholder": "搜尋節點...",
+    "results": "搜尋結果 ({{count}})",
+    "noResults": "未找到匹配節點",
+    "types": {
+      "all": "全部",
+      "text": "文字",
+      "image": "圖片",
+      "video": "影片",
+      "audio": "音訊"
+    }
+  },
+  "nodeLabel": {
+    "text": "文字",
+    "image": "圖片",
+    "video": "影片",
+    "audio": "音訊",
+    "link": "連結",
+    "file-attachment": "檔案",
+    "calendar": "行事曆",
+    "group": "群組",
+    "image-group": "圖片群組"
+  },
+  "textPanel": {
+    "upstreamPreview": "上游文字",
+    "instructionPlaceholder": "輸入 AI 操作指令...",
+    "model": "模型",
+    "autoRecommend": "自動推薦",
+    "generate": "生成",
+    "generating": "生成中...",
+    "translate": "翻譯",
+    "credits": "積分"
+  },
+  "generateAction": {
+    "generate": "生成",
+    "generating": "生成中...",
+    "newNode": "生成新節點",
+    "stackCurrent": "堆疊到當前節點",
+    "currentNode": "當前節點",
+    "regenerate": "重新生成",
+    "locked": "參數已鎖定",
+    "unlock": "解鎖編輯"
   }
 }

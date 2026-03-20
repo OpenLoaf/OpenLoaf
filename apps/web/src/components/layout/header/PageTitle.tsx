@@ -11,7 +11,7 @@
 
 import { useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, PencilLine } from "lucide-react";
 import { useAppState } from "@/hooks/use-app-state";
 import { applyProjectShellToTab, exitProjectShellToProjectList } from "@/lib/project-shell";
 import { PROJECT_LIST_TAB_INPUT, CANVAS_LIST_TAB_INPUT } from "@openloaf/api/common";
@@ -20,6 +20,7 @@ import { useAppView } from "@/hooks/use-app-view";
 import { useLayoutState } from "@/hooks/use-layout-state";
 import { resolveLayoutViewState } from "@/hooks/layout-utils";
 import { useProject } from "@/hooks/use-project";
+import { useHeaderSlot } from "@/hooks/use-header-slot";
 import {
   type PreviousViewSnapshot,
   resolvePreviousViewSnapshot,
@@ -109,6 +110,7 @@ export const PageTitle = () => {
 
   const isBoardViewer = activeTab?.base?.component === 'board-viewer';
   const isSettingsPage = activeTab?.base?.component === 'settings-page';
+  const requestBoardRename = useHeaderSlot((s) => s.requestBoardRename);
   const inProject = layoutView.isProjectContext;
   const isProjectWindow = isProjectWindowMode();
   const isBoardWindow = isBoardWindowMode();
@@ -296,6 +298,16 @@ export const PageTitle = () => {
           </>
         ) : cleanedTitle}
       </h1>
+      {isBoardViewer && requestBoardRename && (
+        <button
+          type="button"
+          onClick={requestBoardRename}
+          className="shrink-0 p-1 rounded-md text-muted-foreground/50 hover:text-foreground/70 hover:bg-muted/50 transition-colors duration-150"
+          title={t('canvasList.renameTitle')}
+        >
+          <PencilLine className="size-3.5" />
+        </button>
+      )}
     </div>
   );
 };

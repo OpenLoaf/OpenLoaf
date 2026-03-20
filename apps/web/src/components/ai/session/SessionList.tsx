@@ -11,8 +11,10 @@
 
 import * as React from "react";
 import { useTranslation } from "react-i18next";
+import { Loader2 } from "lucide-react";
 import SessionItem, { type Session } from "./SessionItem";
 import { useChatSessions, type ChatSessionListItem } from "@/hooks/use-chat-sessions";
+import { useIsInView } from "@/hooks/use-is-in-view";
 import {
   Queue,
   QueueItem,
@@ -33,6 +35,12 @@ interface SessionListProps {
   externalSessions?: ChatSessionListItem[];
   /** Loading state when using external sessions. */
   externalLoading?: boolean;
+  /** Whether more pages are available. */
+  hasMore?: boolean;
+  /** Whether the next page is currently being fetched. */
+  isFetchingNextPage?: boolean;
+  /** Callback to load more sessions. */
+  onLoadMore?: () => void;
   /** Select handler. */
   onSelect?: (session: Session) => void;
   /** Menu open state callback. */
@@ -126,12 +134,17 @@ function buildSessionDisplayName(input: SessionDisplayNameInput): string {
   return title ? `${projectName} / ${title}` : projectName;
 }
 
+const LOAD_MORE_IN_VIEW_MARGIN = "200px 0px";
+
 export default function SessionList({
   tabId,
   activeSessionId,
   openSessionIds,
   externalSessions,
   externalLoading,
+  hasMore: externalHasMore,
+  isFetchingNextPage: externalIsFetchingNextPage,
+  onLoadMore,
   onSelect,
   onMenuOpenChange,
   className,
@@ -141,6 +154,14 @@ export default function SessionList({
   const chatSessions = externalSessions ?? internal.sessions;
   const isLoading = externalSessions ? (externalLoading ?? false) : internal.isLoading;
   const scopeProjectId = externalSessions ? undefined : internal.scopeProjectId;
+  const hasMore = externalSessions ? (externalHasMore ?? false) : internal.hasMore;
+  const isFetchingNextPage = externalSessions
+    ? (externalIsFetchingNextPage ?? false)
+    : internal.isFetchingNextPage;
+  const handleLoadMore = externalSessions
+    ? onLoadMore
+    : () => void internal.fetchNextPage();
+
   const sessions: Session[] = React.useMemo(() => {
     const showProjectLabel = !scopeProjectId;
     return chatSessions.map((s) => ({
@@ -163,6 +184,18 @@ export default function SessionList({
   }, [chatSessions, scopeProjectId]);
 
   const groups = React.useMemo(() => groupSessions(sessions), [sessions]);
+
+  // Infinite scroll sentinel
+  const loadMoreRef = React.useRef<HTMLDivElement>(null);
+  const { ref: loadMoreInViewRef, isInView: isLoadMoreInView } = useIsInView(loadMoreRef, {
+    inView: hasMore,
+    inViewMargin: LOAD_MORE_IN_VIEW_MARGIN,
+  });
+
+  React.useEffect(() => {
+    if (!hasMore || !isLoadMoreInView || isFetchingNextPage) return;
+    handleLoadMore?.();
+  }, [handleLoadMore, hasMore, isFetchingNextPage, isLoadMoreInView]);
 
   return (
     <div
@@ -196,6 +229,12 @@ export default function SessionList({
               </QueueSectionContent>
             </QueueSection>
           ))}
+          {hasMore ? <div ref={loadMoreInViewRef} className="h-4 w-full" aria-hidden="true" /> : null}
+          {isFetchingNextPage ? (
+            <div className="flex items-center justify-center py-2 text-sm text-muted-foreground">
+              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+            </div>
+          ) : null}
         </Queue>
       )}
     </div>

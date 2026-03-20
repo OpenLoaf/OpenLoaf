@@ -175,6 +175,9 @@ function buildChatStreamRequest(input: {
     chatModelSource: input.request.chatModelSource,
     autoApproveTools: input.autoApproveTools,
     clientPlatform: input.request.clientPlatform,
+    webVersion: input.request.webVersion,
+    serverVersion: input.request.serverVersion,
+    desktopVersion: input.request.desktopVersion,
     messageIdChain: input.request.messageIdChain,
     pageContext: input.request.pageContext,
   };
@@ -207,6 +210,9 @@ function buildChatImageRequest(input: {
     imageSaveDir: input.request.imageSaveDir,
     selectedSkills: input.selectedSkills,
     clientPlatform: input.request.clientPlatform,
+    webVersion: input.request.webVersion,
+    serverVersion: input.request.serverVersion,
+    desktopVersion: input.request.desktopVersion,
     pageContext: input.request.pageContext,
   };
 }

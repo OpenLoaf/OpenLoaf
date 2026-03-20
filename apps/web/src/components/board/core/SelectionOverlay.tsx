@@ -7,12 +7,14 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import { LayoutGrid, Layers, Maximize2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Download, LayoutGrid, Layers, Lock, Maximize2, Unlock } from "lucide-react";
 import {
   BOARD_TOOLBAR_ITEM_BLUE,
   BOARD_TOOLBAR_ITEM_AMBER,
+  BOARD_TOOLBAR_ITEM_GREEN,
   BOARD_TOOLBAR_ITEM_RED,
 } from "../ui/board-style-system";
+import { batchDownloadNodes, hasMediaNodes } from "../utils/batch-download";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type SVGProps } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
@@ -145,15 +147,13 @@ export function SingleSelectionToolbar({
     enterGroup: onEnterGroup,
   });
 
-  const commonItems = buildCommonToolbarItems();
-  const mindmapLayoutItems = buildMindmapLayoutItems(t, engine, element, snapshot);
+  const commonItems = buildCommonToolbarItems(t, engine, element, snapshot);
   const customItems = items ?? [];
-  const allItems = [...customItems, ...mindmapLayoutItems, ...commonItems];
+  const allItems = [...customItems, ...commonItems];
   toolbarItemsRef.current = allItems;
   if (
     customItems.length === 0
     && commonItems.length === 0
-    && mindmapLayoutItems.length === 0
   ) {
     return null;
   }
@@ -174,22 +174,13 @@ export function SingleSelectionToolbar({
           items={customItems}
           openPanelId={openPanelId}
           setOpenPanelId={setOpenPanelId}
-          showDivider={
-            customItems.length > 0 && mindmapLayoutItems.length > 0
-          }
-        />
-        <ToolbarGroup
-          items={mindmapLayoutItems}
-          openPanelId={openPanelId}
-          setOpenPanelId={setOpenPanelId}
-          showDivider={
-            mindmapLayoutItems.length > 0 && commonItems.length > 0
-          }
+          showDivider={customItems.length > 0 && commonItems.length > 0}
         />
         <ToolbarGroup
           items={commonItems}
           openPanelId={openPanelId}
           setOpenPanelId={setOpenPanelId}
+          compact
         />
       </div>
     </SelectionToolbarContainer>
@@ -386,19 +377,28 @@ export function MultiSelectionToolbar({
 
   // 逻辑：全部是笔画节点时隐藏自动布局按钮，笔画无法参与网格布局。
   const allStrokes = selectedNodes.every(node => node.type === "stroke");
+  const showBatchDownload = hasMediaNodes(selectedNodes);
   const layoutLabel = t('selection.toolbar.autoLayout');
   const layoutIcon = <LayoutGrid size={14} />;
   const bounds = computeSelectionBounds(selectedNodes, snapshot.viewport.zoom);
 
-  const builtinItems: CanvasToolbarItem[] = [
-    {
-      id: "group",
-      label: t('selection.toolbar.group'),
-      icon: <Layers size={14} />,
-      className: BOARD_TOOLBAR_ITEM_BLUE,
-      onSelect: () => engine.groupSelection(),
-    },
-  ];
+  const builtinItems: CanvasToolbarItem[] = [];
+  if (showBatchDownload) {
+    builtinItems.push({
+      id: "batch-download",
+      label: t('selection.toolbar.batchDownload'),
+      icon: <Download size={14} />,
+      className: BOARD_TOOLBAR_ITEM_GREEN,
+      onSelect: () => batchDownloadNodes(selectedNodes, fileContext),
+    });
+  }
+  builtinItems.push({
+    id: "group",
+    label: t('selection.toolbar.group'),
+    icon: <Layers size={14} />,
+    className: BOARD_TOOLBAR_ITEM_BLUE,
+    onSelect: () => engine.groupSelection(),
+  });
   if (!allStrokes) {
     builtinItems.push({
       id: "layout",
@@ -509,24 +509,28 @@ export function MultiSelectionOutline({ snapshot, engine }: MultiSelectionOutlin
       Boolean(element && element.kind === "node")
     );
 
+  // 逻辑：stroke 节点没有 DOM 表示，通过 PixiOverlayLayer 绘制选中路径高亮。
+  // DOM 多选框仅包含有 DOM 元素的节点，避免 useMultiDomBoundsSync 找不到 DOM 导致残留幽灵边框。
+  const domElements = selectedElements.filter(e => e.type !== "stroke");
+
   const padding = MULTI_SELECTION_OUTLINE_PADDING;
   const outlineRef = useRef<HTMLDivElement>(null);
-  const selectedIds = selectedElements.map(e => e.id);
+  const domIds = domElements.map(e => e.id);
 
   // 逻辑：通过 DOM 测量同步多选边框位置，消除 store 与 DOM 之间的帧延迟不一致。
   useMultiDomBoundsSync(
     engine,
-    selectedIds,
-    !isMoving && selectedElements.length > 1,
+    domIds,
+    !isMoving && domElements.length > 1,
     outlineRef,
     padding,
   );
 
-  if (selectedElements.length <= 1) return null;
+  if (domElements.length <= 1) return null;
   // 逻辑：平移或缩放画布时隐藏选区框，避免 React 状态与 DOM transform 帧差导致位置偏移。
   if (isMoving) return null;
 
-  const bounds = computeSelectionBounds(selectedElements, viewState.viewport.zoom);
+  const bounds = computeSelectionBounds(domElements, viewState.viewport.zoom);
   const { zoom, offset } = viewState.viewport;
   const left = bounds.x * zoom + offset[0];
   const top = bounds.y * zoom + offset[1];
@@ -537,15 +541,25 @@ export function MultiSelectionOutline({ snapshot, engine }: MultiSelectionOutlin
     <div
       ref={outlineRef}
       data-board-selection-outline
-      className="pointer-events-none absolute z-10 rounded-lg"
+      className="pointer-events-none absolute z-10 overflow-visible"
       style={{
         left: left - padding,
         top: top - padding,
         width: width + padding * 2,
         height: height + padding * 2,
-        border: '1.5px solid #3b82f6',
       }}
-    />
+    >
+      <svg className="absolute inset-0 h-full w-full overflow-visible">
+        <rect
+          x="0.5" y="0.5"
+          width="calc(100% - 1px)" height="calc(100% - 1px)"
+          rx="8" ry="8"
+          fill="var(--canvas-selection-fill)" fillOpacity="0.06"
+          stroke="var(--canvas-selection-border)" strokeWidth="1" strokeOpacity="0.7"
+          strokeDasharray="6 4"
+        />
+      </svg>
+    </div>
   );
 }
 
@@ -608,7 +622,12 @@ export function SingleSelectionOutline({
 }: SingleSelectionOutlineProps) {
   const definition = engine.nodes.getDefinition(element.type);
   const canResize = definition?.capabilities?.resizable !== false;
-  const hideOutline = isGroupNodeType(element.type);
+  // 逻辑：组节点和有版本堆叠的媒体节点不显示选中边框（卡片堆叠自带视觉边界）。
+  const versionStack = (element.props as Record<string, unknown>)?.versionStack as
+    | { entries?: unknown[] }
+    | undefined;
+  const hasVersionStack = (versionStack?.entries?.length ?? 0) > 1;
+  const hideOutline = isGroupNodeType(element.type) || hasVersionStack;
 
   // 逻辑：视图变化时单独更新控制柄位置，避免全量快照渲染。
   const { isMoving, viewState } = useIsViewportMoving(engine);
@@ -671,7 +690,9 @@ export function SingleSelectionOutline({
   const top = bounds.y * zoom + offset[1];
   const width = bounds.w * zoom;
   const height = bounds.h * zoom;
-  const allowHandles = canResize && !snapshot.locked && !element.locked;
+  // 逻辑：面板展开时隐藏 resize 手柄，因为面板展开后节点尺寸由面板内容决定，不应允许手动 resize。
+  const isExpanded = snapshot.expandedNodeId === element.id;
+  const allowHandles = canResize && !snapshot.locked && !element.locked && !isExpanded;
 
   const handlePointerDown = (corner: ResizeCorner) => {
     return (event: ReactPointerEvent<HTMLButtonElement>) => {
@@ -835,8 +856,13 @@ export function SingleSelectionOutline({
       <div
         ref={outlineRef}
         data-board-selection-outline
-        className="pointer-events-none absolute z-10 box-border rounded-none border-2 border-[#1E96EB]"
-        style={{ left, top, width, height, ...hiddenStyle }}
+        className="pointer-events-none absolute z-10 box-border rounded-lg"
+        style={{
+          left, top, width, height,
+          border: '1.5px solid var(--canvas-selection-border)',
+          opacity: 0.7,
+          ...hiddenStyle,
+        }}
       />
       {allowHandles
         ? SINGLE_SELECTION_CORNERS.map((corner) => {
@@ -850,7 +876,7 @@ export function SingleSelectionOutline({
                 data-resize-handle
                 onPointerDown={handlePointerDown(corner.id)}
                 className={[
-                  "pointer-events-auto absolute z-20 box-border rounded-[2px] border-2 border-[#1E96EB] bg-background",
+                  "pointer-events-auto absolute z-20 box-border rounded-[2px] border-2 border-[var(--canvas-selection-border)] bg-background",
                   "touch-none -translate-x-1/2 -translate-y-1/2",
                   corner.cursorClass,
                 ].join(" ")}
@@ -1024,8 +1050,47 @@ function getGroupScaleLimits(
 }
 
 /** Build shared toolbar items for every node (currently empty — all moved to context menu). */
-function buildCommonToolbarItems(): CanvasToolbarItem[] {
-  return [];
+function buildCommonToolbarItems(
+  t: TFunction,
+  engine: CanvasEngine,
+  element: CanvasNodeElement,
+  snapshot: CanvasSnapshot,
+): CanvasToolbarItem[] {
+  const isLocked = element.locked === true
+  const items: CanvasToolbarItem[] = [
+    {
+      id: 'bring-forward',
+      label: t('selection.toolbar.bringToFront'),
+      showLabel: false,
+      icon: <ArrowUp size={14} />,
+      className: BOARD_TOOLBAR_ITEM_BLUE,
+      onSelect: () => {
+        engine.bringNodeToFront(element.id)
+      },
+    },
+    {
+      id: 'send-backward',
+      label: t('selection.toolbar.sendToBack'),
+      showLabel: false,
+      icon: <ArrowDown size={14} />,
+      className: BOARD_TOOLBAR_ITEM_BLUE,
+      onSelect: () => {
+        engine.sendNodeToBack(element.id)
+      },
+    },
+    {
+      id: 'lock-node',
+      label: isLocked ? t('selection.toolbar.unlock') : t('selection.toolbar.lock'),
+      showLabel: false,
+      icon: isLocked ? <Unlock size={14} /> : <Lock size={14} />,
+      className: isLocked ? BOARD_TOOLBAR_ITEM_RED : BOARD_TOOLBAR_ITEM_AMBER,
+      onSelect: () => {
+        engine.setElementLocked(element.id, !isLocked)
+        engine.commitHistory()
+      },
+    },
+  ]
+  return items
 }
 
 /** Compute bounds for a list of selected elements. */

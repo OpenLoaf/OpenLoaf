@@ -8,7 +8,7 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import { resolveServerUrl } from "@/utils/server-url";
-import type { SaasImageSubmitPayload, SaasVideoSubmitPayload } from "@openloaf/api/types/saasMedia";
+import type { SaasAudioSubmitPayload, SaasImageSubmitPayload, SaasVideoSubmitPayload } from "@openloaf/api/types/saasMedia";
 import { getAccessToken } from "@/lib/saas-auth";
 
 type FetchMediaModelsOptions = {
@@ -49,6 +49,19 @@ export async function submitImageTask(payload: SaasImageSubmitPayload) {
   const base = resolveServerUrl();
   const authHeaders = await buildAuthHeaders();
   const response = await fetch(`${base}/ai/image`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json", ...authHeaders },
+    body: JSON.stringify(payload),
+  });
+  return parseJsonResponse(response);
+}
+
+/** Submit an audio generation task to SaaS proxy. */
+export async function submitAudioTask(payload: SaasAudioSubmitPayload) {
+  const base = resolveServerUrl();
+  const authHeaders = await buildAuthHeaders();
+  const response = await fetch(`${base}/ai/audio`, {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json", ...authHeaders },
@@ -117,6 +130,16 @@ export async function fetchImageModels(options?: FetchMediaModelsOptions) {
 export async function fetchVideoModels(options?: FetchMediaModelsOptions) {
   const authHeaders = await buildAuthHeaders();
   const response = await fetch(buildModelRequestUrl("/ai/vedio/models", options), {
+    credentials: "include",
+    headers: authHeaders,
+  });
+  return parseJsonResponse(response);
+}
+
+/** Fetch audio model list from SaaS proxy. */
+export async function fetchAudioModels(options?: FetchMediaModelsOptions) {
+  const authHeaders = await buildAuthHeaders();
+  const response = await fetch(buildModelRequestUrl("/ai/audio/models", options), {
     credentials: "include",
     headers: authHeaders,
   });

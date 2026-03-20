@@ -15,10 +15,7 @@ import dynamic from "next/dynamic";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient, trpc } from "@/utils/trpc";
 import { Button } from "@openloaf/ui/button";
-import { Switch } from "@openloaf/ui/switch";
-import { Checkbox } from "@openloaf/ui/checkbox";
 import { Input } from "@openloaf/ui/input";
-import { FilterTab } from "@openloaf/ui/filter-tab";
 import {
   Search, Trash2, X, FolderOpen, Eye, Plus, Pencil, RefreshCw,
   Globe, FileSearch, FilePen, Terminal, Mail, Calendar,
@@ -61,8 +58,6 @@ type AgentSummary = {
   isChildProject: boolean;
   isSystem: boolean;
 };
-
-type StatusFilter = "all" | "enabled" | "disabled";
 
 type CapabilityTool = {
   id: string;
@@ -125,6 +120,28 @@ const CAP_BG_MAP: Record<string, string> = {
   "code-interpreter": "bg-ol-amber-bg",
   system: "bg-ol-surface-muted",
 };
+
+/** Card color palette for the expert center grid. */
+const CARD_COLOR_PALETTE = [
+  { tag: "text-orange-600 dark:text-orange-400", tagBorder: "border-orange-400/60 dark:border-orange-500/40", avatar: "from-orange-100 to-amber-50 dark:from-orange-900/25 dark:to-amber-900/10", icon: "text-orange-500 dark:text-orange-400" },
+  { tag: "text-purple-600 dark:text-purple-400", tagBorder: "border-purple-400/60 dark:border-purple-500/40", avatar: "from-purple-100 to-violet-50 dark:from-purple-900/25 dark:to-violet-900/10", icon: "text-purple-500 dark:text-purple-400" },
+  { tag: "text-emerald-600 dark:text-emerald-400", tagBorder: "border-emerald-400/60 dark:border-emerald-500/40", avatar: "from-emerald-100 to-green-50 dark:from-emerald-900/25 dark:to-green-900/10", icon: "text-emerald-500 dark:text-emerald-400" },
+  { tag: "text-blue-600 dark:text-blue-400", tagBorder: "border-blue-400/60 dark:border-blue-500/40", avatar: "from-blue-100 to-sky-50 dark:from-blue-900/25 dark:to-sky-900/10", icon: "text-blue-500 dark:text-blue-400" },
+  { tag: "text-pink-600 dark:text-pink-400", tagBorder: "border-pink-400/60 dark:border-pink-500/40", avatar: "from-pink-100 to-rose-50 dark:from-pink-900/25 dark:to-rose-900/10", icon: "text-pink-500 dark:text-pink-400" },
+  { tag: "text-teal-600 dark:text-teal-400", tagBorder: "border-teal-400/60 dark:border-teal-500/40", avatar: "from-teal-100 to-cyan-50 dark:from-teal-900/25 dark:to-cyan-900/10", icon: "text-teal-500 dark:text-teal-400" },
+  { tag: "text-rose-600 dark:text-rose-400", tagBorder: "border-rose-400/60 dark:border-rose-500/40", avatar: "from-rose-100 to-pink-50 dark:from-rose-900/25 dark:to-pink-900/10", icon: "text-rose-500 dark:text-rose-400" },
+  { tag: "text-indigo-600 dark:text-indigo-400", tagBorder: "border-indigo-400/60 dark:border-indigo-500/40", avatar: "from-indigo-100 to-blue-50 dark:from-indigo-900/25 dark:to-blue-900/10", icon: "text-indigo-500 dark:text-indigo-400" },
+];
+
+/** Simple string hash for consistent color assignment. */
+function simpleHash(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash) + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash);
+}
 
 /** Fallback map for commonly used agent icons. */
 const AGENT_ICON_MAP: Partial<Record<string, LucideIcon>> = {
@@ -248,8 +265,7 @@ function ProjectAgentView({ projectId }: { projectId: string }) {
 function GlobalAgentView() {
   const { t } = useTranslation(["settings", "common"]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [showAllProjects, setShowAllProjects] = useState(true);
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
 
   const agentsQuery = useQuery(trpc.settings.getAgents.queryOptions({ includeAllProjects: true }));
   const agents = (agentsQuery.data ?? []) as AgentSummary[];
@@ -258,7 +274,6 @@ function GlobalAgentView() {
     () => (capGroupsQuery.data ?? []) as CapabilityGroup[],
     [capGroupsQuery.data],
   );
-  /** Resolve enabled capability groups from tool ids. */
   const resolveAgentGroups = useCallback(
     (toolIds: string[]) => {
       if (!toolIds?.length || capGroups.length === 0) return [];
@@ -281,49 +296,60 @@ function GlobalAgentView() {
   }, [agents]);
 
   const hasNonMasterAgents = useMemo(
-    () =>
-      agents.some((agent) => agent.folderName.toLowerCase() !== "master"),
+    () => agents.some((agent) => agent.folderName.toLowerCase() !== "master"),
     [agents],
   );
+
+  /** Non-master agents for category computation. */
+  const nonMasterAgents = useMemo(
+    () => agents.filter((a) => a.folderName.toLowerCase() !== "master"),
+    [agents],
+  );
+
+  /** Category tabs derived from capability groups. */
+  const categories = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const agent of nonMasterAgents) {
+      const groups = resolveAgentGroups(agent.toolIds);
+      for (const group of groups) {
+        counts.set(group.id, (counts.get(group.id) || 0) + 1);
+      }
+    }
+    return [
+      { id: "all", label: t("settings:agent.categoryAll"), count: nonMasterAgents.length },
+      ...capGroups
+        .filter((g) => counts.has(g.id))
+        .map((g) => ({
+          id: g.id,
+          label: t(`settings:capabilityGroups.${g.id}`, { defaultValue: g.label || g.id }),
+          count: counts.get(g.id) || 0,
+        })),
+    ];
+  }, [nonMasterAgents, capGroups, resolveAgentGroups, t]);
+
   const filteredAgents = useMemo(() => {
-    const filtered = agents.filter((agent) => {
-      if (agent.folderName.toLowerCase() === "master") return false;
+    const filtered = nonMasterAgents.filter((agent) => {
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const matchName = agent.name.toLowerCase().includes(q);
         const matchDesc = agent.description.toLowerCase().includes(q);
         const agentGroups = resolveAgentGroups(agent.toolIds);
-        const groupLabels = agentGroups
-          .map((group) => `${group.label} ${group.id}`)
-          .join(" ");
-        const groupTools = agentGroups
-          .flatMap((group) => group.tools ?? [])
-          .map((tool) => tool.label || tool.id)
-          .join(" ");
-        const toolText = agent.toolIds.join(" ");
-        const matchCaps = `${groupLabels} ${groupTools} ${toolText}`
-          .toLowerCase()
-          .includes(q);
+        const groupLabels = agentGroups.map((group) => `${group.label} ${group.id}`).join(" ");
+        const matchCaps = groupLabels.toLowerCase().includes(q);
         if (!matchName && !matchDesc && !matchCaps) return false;
       }
-      if (statusFilter === "enabled" && !agent.isEnabled) return false;
-      if (statusFilter === "disabled" && agent.isEnabled) return false;
-      if (!showAllProjects && agent.scope === 'project') return false;
+      if (selectedCategory !== "all") {
+        const groups = resolveAgentGroups(agent.toolIds);
+        if (!groups.some((g) => g.id === selectedCategory)) return false;
+      }
       return true;
     });
-    // 逻辑：系统 Agent 排在列表顶部。
     return filtered.sort((a, b) => {
       if (a.isSystem && !b.isSystem) return -1;
       if (!a.isSystem && b.isSystem) return 1;
       return 0;
     });
-  }, [
-    agents,
-    searchQuery,
-    statusFilter,
-    showAllProjects,
-    resolveAgentGroups,
-  ]);
+  }, [nonMasterAgents, searchQuery, selectedCategory, resolveAgentGroups]);
 
   const mkdirMutation = useMutation(
     trpc.fs.mkdir.mutationOptions({
@@ -361,10 +387,7 @@ function GlobalAgentView() {
       return;
     }
     try {
-      await mkdirMutation.mutateAsync({
-        uri: ".openloaf/agents",
-        recursive: true,
-      });
+      await mkdirMutation.mutateAsync({ uri: ".openloaf/agents", recursive: true });
     } catch {
       return;
     }
@@ -374,13 +397,10 @@ function GlobalAgentView() {
       pushStackItem({
         id: `agents-root:global`,
         sourceKey: `agents-root:global`,
-        component: 'folder-tree-preview',
-        title: 'Agents',
-        params: {
-          rootUri: agentsUri,
-          currentUri: '',
-        },
-      })
+        component: "folder-tree-preview",
+        title: "Agents",
+        params: { rootUri: agentsUri, currentUri: "" },
+      });
       return;
     }
     const agentsUri = buildScopedAgentsUri(rootUri);
@@ -394,19 +414,13 @@ function GlobalAgentView() {
       if (!rootUri) return;
       const stackKey = agent.ignoreKey.trim() || agent.path || agent.name;
       const titlePrefix =
-        agent.scope === "global"
-          ? t("settings:agent.scopeGlobal")
-          : t("settings:agent.scopeProject");
+        agent.scope === "global" ? t("settings:agent.scopeGlobal") : t("settings:agent.scopeProject");
       pushStackItem({
         id: `agent:${agent.scope}:${stackKey}`,
         sourceKey: `agent:${agent.scope}:${stackKey}`,
         component: "folder-tree-preview",
         title: `${titlePrefix} · ${agent.name}`,
-        params: {
-          rootUri,
-          currentEntryKind: "file",
-          projectTitle: agent.name,
-        },
+        params: { rootUri, currentEntryKind: "file", projectTitle: agent.name },
       });
     },
     [pushStackItem, t],
@@ -419,14 +433,10 @@ function GlobalAgentView() {
         sourceKey: `agent-detail:${agent.scope}:${agent.name}`,
         component: "agent-detail",
         title: t("settings:agent.tabTitle", { name: agent.name }),
-        params: {
-          agentPath: agent.path,
-          scope: agent.scope,
-          isSystem: agent.isSystem,
-        },
+        params: { agentPath: agent.path, scope: agent.scope, isSystem: agent.isSystem },
       });
     },
-    [pushStackItem],
+    [pushStackItem, t],
   );
 
   const handleCreateAgent = useCallback(() => {
@@ -435,12 +445,9 @@ function GlobalAgentView() {
       sourceKey: `agent-detail:new`,
       component: "agent-detail",
       title: t("settings:agent.createTitle"),
-      params: {
-        isNew: true,
-        scope: "global",
-      },
+      params: { isNew: true, scope: "global" },
     });
-  }, [pushStackItem]);
+  }, [pushStackItem, t]);
 
   const handleToggleAgent = useCallback(
     (agent: AgentSummary, nextEnabled: boolean) => {
@@ -457,9 +464,7 @@ function GlobalAgentView() {
   const handleDeleteAgent = useCallback(
     async (agent: AgentSummary) => {
       if (!agent.isDeletable || !agent.ignoreKey.trim()) return;
-      const confirmed = window.confirm(
-        t("settings:agent.deleteConfirm", { name: agent.name }),
-      );
+      const confirmed = window.confirm(t("settings:agent.deleteConfirm", { name: agent.name }));
       if (!confirmed) return;
       await deleteAgentMutation.mutateAsync({
         scope: "global",
@@ -467,79 +472,30 @@ function GlobalAgentView() {
         agentPath: agent.path,
       });
     },
-    [deleteAgentMutation],
+    [deleteAgentMutation, t],
   );
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex flex-wrap items-start justify-between gap-2.5 border-b border-border/60 px-3 py-2.5">
-        <div className="space-y-1">
-          <h3 className="text-sm font-semibold tracking-tight text-foreground">
-            {t("settings:agent.management")}
-          </h3>
-          <p className="text-xs text-muted-foreground">
-            {t("settings:agent.globalDescription")}
+      {/* Header */}
+      <div className="flex flex-wrap items-start justify-between gap-4 px-5 pt-5 pb-2">
+        <div>
+          <h2 className="text-xl font-bold tracking-tight text-foreground">
+            {t("settings:agent.expertCenter")}
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {t("settings:agent.expertCenterDesc")}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            size="sm"
-            className="h-8 rounded-md px-2.5 text-xs sm:px-3"
-            onClick={handleCreateAgent}
-            aria-label={t("settings:agent.createBtn")}
-          >
-            <Plus className="h-3.5 w-3.5" />
-            <span className="ml-1.5 hidden sm:inline">{t("settings:agent.createBtn")}</span>
-          </Button>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                type="button"
-                size="sm"
-                variant="secondary"
-                className="h-8 rounded-md border border-border/70 bg-background/85 px-2.5 text-xs transition-colors hover:bg-muted/55 sm:px-3"
-                onClick={() => void handleOpenAgentsRoot()}
-                disabled={!globalAgentsRootUri}
-                aria-label={t("settings:agent.openDirTooltip")}
-              >
-                <FolderOpen className="h-3.5 w-3.5" />
-                <span className="ml-1.5 hidden sm:inline">{t("settings:agent.openDir")}</span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" sideOffset={6}>
-              {t("settings:agent.openDirTooltip")}
-            </TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                type="button"
-                size="icon"
-                variant="ghost"
-                className="h-8 w-8 rounded-md text-muted-foreground hover:text-foreground"
-                onClick={() => queryClient.invalidateQueries({ queryKey: trpc.settings.getAgents.queryOptions().queryKey })}
-              >
-                <RefreshCw className={`h-3.5 w-3.5 ${agentsQuery.isFetching ? "animate-spin" : ""}`} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" sideOffset={6}>
-              {t("settings:agent.refresh", { defaultValue: "刷新" })}
-            </TooltipContent>
-          </Tooltip>
-        </div>
-      </div>
-
-      <div className="border-b border-border/60 px-3 py-2.5">
-        <div className="flex flex-wrap items-center gap-2.5">
-          <div className="relative min-w-[160px] flex-1">
+          <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               type="text"
               placeholder={t("settings:agent.searchPlaceholder")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-9 rounded-lg border-border/70 bg-background/90 pl-9 pr-9 text-sm"
+              className="h-9 w-56 rounded-lg border-border/70 bg-background/90 pl-9 pr-9 text-sm"
             />
             {searchQuery ? (
               <Button
@@ -554,134 +510,186 @@ function GlobalAgentView() {
               </Button>
             ) : null}
           </div>
-          <label className="flex items-center gap-1.5 text-xs text-muted-foreground whitespace-nowrap">
-            <Checkbox checked={showAllProjects} onCheckedChange={(v) => setShowAllProjects(v === true)} className="h-3.5 w-3.5" />
-            {t("settings:agent.allProjects")}
-          </label>
-          <div className="flex items-center rounded-md border border-border/70 bg-muted/40">
-            <FilterTab text={t("settings:agent.statusAll")} selected={statusFilter === 'all'} onSelect={() => setStatusFilter('all')} layoutId="agent-status-filter" />
-            <FilterTab text={t("settings:agent.statusEnabled")} selected={statusFilter === 'enabled'} onSelect={() => setStatusFilter('enabled')} layoutId="agent-status-filter" />
-            <FilterTab text={t("settings:agent.statusDisabled")} selected={statusFilter === 'disabled'} onSelect={() => setStatusFilter('disabled')} layoutId="agent-status-filter" />
-          </div>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8 rounded-md text-muted-foreground hover:text-foreground"
+                onClick={handleCreateAgent}
+                aria-label={t("settings:agent.createBtn")}
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" sideOffset={6}>
+              {t("settings:agent.createBtn")}
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8 rounded-md text-muted-foreground hover:text-foreground"
+                onClick={() => void handleOpenAgentsRoot()}
+                disabled={!globalAgentsRootUri}
+                aria-label={t("settings:agent.openDirTooltip")}
+              >
+                <FolderOpen className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" sideOffset={6}>
+              {t("settings:agent.openDirTooltip")}
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8 rounded-md text-muted-foreground hover:text-foreground"
+                onClick={() =>
+                  queryClient.invalidateQueries({
+                    queryKey: trpc.settings.getAgents.queryOptions().queryKey,
+                  })
+                }
+              >
+                <RefreshCw
+                  className={`h-4 w-4 ${agentsQuery.isFetching ? "animate-spin" : ""}`}
+                />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" sideOffset={6}>
+              {t("settings:agent.refresh", { defaultValue: "刷新" })}
+            </TooltipContent>
+          </Tooltip>
         </div>
       </div>
 
-      <div className="mt-2 min-h-0 flex-1 overflow-y-auto pr-1">
+      {/* Category tabs */}
+      <div className="flex items-center gap-0.5 overflow-x-auto border-b border-border/40 px-5">
+        {categories.map((cat) => (
+          <button
+            key={cat.id}
+            type="button"
+            className={`whitespace-nowrap px-3 py-2.5 text-sm font-medium transition-colors ${
+              selectedCategory === cat.id
+                ? "border-b-2 border-purple-500 text-purple-600 dark:border-purple-400 dark:text-purple-400"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+            onClick={() => setSelectedCategory(cat.id)}
+          >
+            {cat.label}
+            <span className="ml-1 text-xs opacity-60">({cat.count})</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Agent grid */}
+      <div className="min-h-0 flex-1 overflow-y-auto p-5">
         {filteredAgents.length > 0 ? (
-          <div className="grid grid-cols-2 gap-2 pb-1">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
             {filteredAgents.map((agent) => {
-              const canOpen = Boolean(
-                resolveAgentFolderUri(agent.path),
-              );
+              const canOpen = Boolean(resolveAgentFolderUri(agent.path));
+              const colorIdx = simpleHash(agent.name) % CARD_COLOR_PALETTE.length;
+              const palette = CARD_COLOR_PALETTE[colorIdx]!;
+              const agentGroups = resolveAgentGroups(agent.toolIds);
+              const primaryGroup = agentGroups[0];
+              const tagLabel = primaryGroup
+                ? t(`settings:capabilityGroups.${primaryGroup.id}`, {
+                    defaultValue: primaryGroup.label || primaryGroup.id,
+                  })
+                : agent.scope === "project"
+                  ? t("settings:agent.badgeProject")
+                  : t("settings:agent.scopeGlobal");
+              const displayName = agent.isSystem
+                ? t(`settings:agentTemplates.${agent.folderName}.name`, { defaultValue: agent.name })
+                : agent.name;
+              const displayDesc = agent.isSystem
+                ? t(`settings:agentTemplates.${agent.folderName}.description`, {
+                    defaultValue: agent.description,
+                  })
+                : agent.description;
 
               return (
                 <ContextMenu
-                  key={
-                    agent.ignoreKey ||
-                    agent.path ||
-                    `${agent.scope}:${agent.name}`
-                  }
+                  key={agent.ignoreKey || agent.path || `${agent.scope}:${agent.name}`}
                 >
                   <ContextMenuTrigger asChild>
                     <div
-                      className="group flex flex-col gap-2 rounded-lg bg-ol-surface-muted px-3 py-2.5 transition-[background-color] duration-200 hover:bg-ol-divider"
-                      onDoubleClick={() => {
-                        handleEditAgent(agent);
-                      }}
+                      className="group relative flex cursor-pointer flex-col items-center gap-2.5 rounded-xl border border-dashed border-border/60 px-4 pb-5 pt-6 transition-all duration-200 hover:border-purple-400 hover:shadow-sm dark:hover:border-purple-500/60"
+                      onDoubleClick={() => handleEditAgent(agent)}
                     >
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex min-w-0 items-center gap-2">
-                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-background/70 text-foreground/80 shadow-sm">
-                            {(() => {
-                              const iconValue = agent.icon?.trim() ?? "";
-                              if (iconValue && /[^a-z0-9-_]/i.test(iconValue)) {
-                                return (
-                                  <span className="text-sm leading-none text-foreground/80">
-                                    {iconValue}
-                                  </span>
-                                );
-                              }
-                              const iconKey = normalizeIconName(iconValue || "bot");
-                              const colorClass = AGENT_ICON_COLOR_MAP[iconKey] ?? "text-foreground/80";
-                              const pascalName = iconKey
-                                .split("-")
-                                .filter(Boolean)
-                                .map((part) => part[0]?.toUpperCase() + part.slice(1))
-                                .join("");
-                              const StaticIcon = AGENT_ICON_MAP[iconKey];
-                              const DynamicIcon = StaticIcon ? null : resolveLucideIcon(pascalName);
-                              const AgentIcon = StaticIcon ?? DynamicIcon ?? Bot;
-                              return <AgentIcon className={`h-4 w-4 ${colorClass}`} />;
-                            })()}
-                          </span>
-                          <span className="min-w-0 truncate text-sm font-medium text-foreground">
-                            {agent.isSystem
-                              ? t(`settings:agentTemplates.${agent.folderName}.name`, { defaultValue: agent.name })
-                              : agent.name}
-                          </span>
-                        </div>
-                        <Switch
-                          checked={agent.isEnabled}
-                          onCheckedChange={(checked) =>
-                            handleToggleAgent(agent, checked)
-                          }
-                          className="shrink-0 border-ol-divider bg-ol-surface-muted data-[state=checked]:bg-ol-green/60 dark:data-[state=checked]:bg-ol-green/45"
-                          aria-label={t("settings:agent.enableLabel", { name: agent.name })}
-                          disabled={updateAgentMutation.isPending}
-                        />
-                      </div>
-                      <div className="flex flex-wrap items-center gap-1.5">
+                      {/* Disabled overlay */}
+                      {!agent.isEnabled ? (
+                        <div className="absolute inset-0 z-10 rounded-xl bg-background/50" />
+                      ) : null}
+
+                      {/* Circular avatar */}
+                      <div
+                        className={`flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-gradient-to-br ${palette.avatar}`}
+                      >
                         {(() => {
-                          const label = agent.scope === "project" ? t("settings:agent.badgeProject") : t("settings:agent.badgeGlobal");
-                          const colorClass = agent.scope === "project"
-                            ? "bg-ol-blue-bg text-ol-blue"
-                            : "bg-ol-purple-bg text-ol-purple";
-                          return (
-                            <span className={`shrink-0 rounded px-1 py-px text-[10px] ${colorClass}`}>
-                              {label}
-                            </span>
-                          );
+                          const iconValue = agent.icon?.trim() ?? "";
+                          if (iconValue && /[^a-z0-9-_]/i.test(iconValue)) {
+                            return (
+                              <span className="text-2xl leading-none">{iconValue}</span>
+                            );
+                          }
+                          const iconKey = normalizeIconName(iconValue || "bot");
+                          const pascalName = iconKey
+                            .split("-")
+                            .filter(Boolean)
+                            .map((part) => part[0]?.toUpperCase() + part.slice(1))
+                            .join("");
+                          const StaticIcon = AGENT_ICON_MAP[iconKey];
+                          const DynamicIcon = StaticIcon ? null : resolveLucideIcon(pascalName);
+                          const AgentIcon = StaticIcon ?? DynamicIcon ?? Bot;
+                          return <AgentIcon className={`h-9 w-9 ${palette.icon}`} />;
                         })()}
-                        {agent.isSystem ? (
-                          <span className="shrink-0 rounded px-1 py-px text-[10px] bg-ol-blue-bg text-ol-blue">
-                            {t("settings:agent.system")}
-                          </span>
-                        ) : null}
-                        {agent.model ? (
-                          <span className="shrink-0 rounded border border-border/60 bg-background/60 px-1 py-px font-mono text-[10px] text-foreground/70">
-                            {agent.model}
-                          </span>
-                        ) : null}
-                        {agent.toolIds.length > 0 ? resolveAgentGroups(agent.toolIds).map((group) => {
-                          const capMeta = CAP_ICON_MAP[group.id];
-                          const CapIcon = capMeta?.icon ?? Blocks;
-                          const iconClass = capMeta?.className ?? "text-muted-foreground";
-                          const bgClass = CAP_BG_MAP[group.id] ?? "bg-muted/30";
-                          return (
-                            <span
-                              key={group.id}
-                              className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] ${bgClass}`}
-                            >
-                              <CapIcon className={`h-3 w-3 ${iconClass}`} />
-                              {t(`settings:capabilityGroups.${group.id}`, { defaultValue: group.label || group.id })}
-                            </span>
-                          );
-                        }) : null}
                       </div>
-                      {agent.description?.trim() ? (
-                        <p className="line-clamp-2 text-xs text-muted-foreground">
-                          {agent.isSystem
-                            ? t(`settings:agentTemplates.${agent.folderName}.description`, { defaultValue: agent.description })
-                            : agent.description}
+
+                      {/* Name */}
+                      <span className="max-w-full truncate text-sm font-semibold text-foreground">
+                        {displayName}
+                      </span>
+
+                      {/* Tag badge */}
+                      <span
+                        className={`rounded-full border border-dashed px-3 py-0.5 text-xs font-medium ${palette.tag} ${palette.tagBorder}`}
+                      >
+                        {tagLabel}
+                      </span>
+
+                      {/* Description */}
+                      {displayDesc?.trim() ? (
+                        <p className="line-clamp-2 w-full text-center text-xs leading-relaxed text-muted-foreground">
+                          {displayDesc}
                         </p>
                       ) : null}
+
+                      {/* Hover: summon button */}
+                      <div className="absolute inset-x-3 bottom-3 z-20 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                        <Button
+                          type="button"
+                          className="h-9 w-full rounded-full bg-purple-600 text-sm font-medium text-white shadow-md hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEditAgent(agent);
+                          }}
+                        >
+                          <Plus className="mr-1 h-3.5 w-3.5" />
+                          {t("settings:agent.summonBtn")}
+                        </Button>
+                      </div>
                     </div>
                   </ContextMenuTrigger>
-                  <ContextMenuContent className="w-44">
-                    <ContextMenuItem
-                      icon={Pencil}
-                      onClick={() => handleEditAgent(agent)}
-                    >
+                  <ContextMenuContent className="w-48">
+                    <ContextMenuItem icon={Pencil} onClick={() => handleEditAgent(agent)}>
                       {t("settings:agent.editBtn")}
                     </ContextMenuItem>
                     <ContextMenuItem
@@ -690,6 +698,15 @@ function GlobalAgentView() {
                       disabled={!canOpen}
                     >
                       {t("settings:agent.viewDir")}
+                    </ContextMenuItem>
+                    <ContextMenuItem
+                      icon={agent.isEnabled ? X : Plus}
+                      onClick={() => handleToggleAgent(agent, !agent.isEnabled)}
+                      disabled={updateAgentMutation.isPending || !agent.ignoreKey.trim()}
+                    >
+                      {agent.isEnabled
+                        ? t("settings:agent.statusDisabled")
+                        : t("settings:agent.statusEnabled")}
                     </ContextMenuItem>
                     {agent.isDeletable ? (
                       <ContextMenuItem
@@ -709,15 +726,13 @@ function GlobalAgentView() {
         ) : null}
 
         {agentsQuery.isLoading ? (
-          <div className="py-9 text-center text-sm text-muted-foreground">
+          <div className="py-16 text-center text-sm text-muted-foreground">
             {t("settings:agent.loading")}
           </div>
         ) : null}
 
-        {!agentsQuery.isLoading &&
-        !agentsQuery.isError &&
-        !hasNonMasterAgents ? (
-          <div className="py-9 text-center text-sm text-muted-foreground">
+        {!agentsQuery.isLoading && !agentsQuery.isError && !hasNonMasterAgents ? (
+          <div className="py-16 text-center text-sm text-muted-foreground">
             {t("settings:agent.noAgents")}
           </div>
         ) : null}
@@ -726,13 +741,13 @@ function GlobalAgentView() {
         !agentsQuery.isError &&
         hasNonMasterAgents &&
         filteredAgents.length === 0 ? (
-          <div className="py-9 text-center text-sm text-muted-foreground">
+          <div className="py-16 text-center text-sm text-muted-foreground">
             {t("settings:agent.noMatch")}
           </div>
         ) : null}
 
         {agentsQuery.isError ? (
-          <div className="py-9 text-center text-sm text-destructive">
+          <div className="py-16 text-center text-sm text-destructive">
             {t("settings:agent.loadError", { error: agentsQuery.error?.message ?? "" })}
           </div>
         ) : null}

@@ -57,7 +57,6 @@ import {
   jsReplToolDef,
   jsReplResetToolDef,
 } from "@openloaf/api/types/tools/runtime";
-import { timeNowToolDef } from "@openloaf/api/types/tools/system";
 import { requestUserInputToolDef } from "@openloaf/api/types/tools/userInput";
 import { jsxCreateToolDef } from "@openloaf/api/types/tools/jsxCreate";
 import { chartRenderToolDef } from "@openloaf/api/types/tools/chart";
@@ -112,7 +111,6 @@ const ALL_TOOL_DEFS: ToolDefLike[] = [
   abortAgentToolDef,
   jsReplToolDef,
   jsReplResetToolDef,
-  timeNowToolDef,
   updatePlanToolDef,
   requestUserInputToolDef,
   jsxCreateToolDef,

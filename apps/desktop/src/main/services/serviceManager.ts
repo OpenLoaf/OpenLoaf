@@ -28,11 +28,13 @@ export type ServiceManager = {
 };
 
 /**
- * 尝试优雅停止子进程及其整个进程树。
+ * 尝试优雅停止子进程。
  *
- * Unix: 通过 `kill(-pid)` 向整个进程组发送信号（需要子进程以 detached 模式启动）。
- *       同时对直接子进程发 SIGTERM 作为后备。
- * Windows: 使用 `taskkill /t` 杀掉整个进程树。
+ * 开发环境下子进程通过 run-supervised.mjs 包装启动，supervisor 会：
+ *   1. 收到 SIGTERM 后级联 kill(-childPid) 杀掉整个进程树
+ *   2. 检测到 stdin EOF（父进程死亡）后自动清理子进程树
+ *
+ * 生产环境下直接停止 server 进程。
  */
 function stopManaged(child: ChildProcess | null) {
   if (!child) return;
@@ -42,7 +44,7 @@ function stopManaged(child: ChildProcess | null) {
 
   if (process.platform === 'win32') {
     try {
-      // Kill the entire process tree on Windows (pnpm -> node -> next/turbopack).
+      // Kill the entire process tree on Windows.
       spawn('taskkill', ['/pid', String(pid), '/t', '/f'], {
         stdio: 'ignore',
         windowsHide: true,
@@ -53,18 +55,12 @@ function stopManaged(child: ChildProcess | null) {
     }
   }
 
-  // Unix: kill the entire process group via negative PID.
-  // This reaches grandchildren (e.g. node --watch → actual server process)
-  // that a simple child.kill('SIGTERM') would miss.
+  // 发送 SIGTERM 给 supervisor/server 进程。
+  // supervisor 的 SIGTERM handler 会级联清理子进程树。
   try {
-    process.kill(-pid, 'SIGTERM');
+    child.kill('SIGTERM');
   } catch {
-    // Process group may not exist (not detached), fall back to direct kill.
-    try {
-      child.kill('SIGTERM');
-    } catch {
-      // ignore
-    }
+    // ignore
   }
 }
 

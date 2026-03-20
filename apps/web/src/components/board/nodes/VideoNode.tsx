@@ -16,28 +16,54 @@ import type {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 import Hls from "hls.js";
-import { Download, Info, Loader2, Pause, Play, Scissors, Sparkles } from "lucide-react";
+import { Download, Image, Info, Loader2, Pause, Play, RefreshCw, Scissors, Trash2, Type, Video, X } from "lucide-react";
 import i18next from "i18next";
 import { openVideoTrimDialog } from "../dialogs/video-trim/VideoTrimDialog";
 import {
-  BOARD_TOOLBAR_ITEM_AMBER,
-  BOARD_TOOLBAR_ITEM_BLUE,
-  BOARD_TOOLBAR_ITEM_GREEN,
+  BOARD_TOOLBAR_ITEM_DEFAULT,
+  BOARD_TOOLBAR_ITEM_RED,
 } from "../ui/board-style-system";
-import { IMAGE_PROMPT_GENERATE_NODE_TYPE } from "./imagePromptGenerate";
-import { getBoardChatMessageMeta } from "../utils/board-chat-message";
-import { createBoardChatMessageToolbarItems } from "../utils/board-chat-toolbar";
 import { openFilePreview } from "@/components/file/lib/file-preview-store";
 import { fetchVideoMetadata } from "@/components/file/lib/video-metadata";
-import { parseScopedProjectPath } from "@/components/project/filesystem/utils/file-system-utils";
+import {
+  formatScopedProjectPath,
+  normalizeProjectRelativePath,
+  parseScopedProjectPath,
+} from "@/components/project/filesystem/utils/file-system-utils";
 import { useBoardContext, type BoardFileContext } from "../core/BoardProvider";
 import {
   isBoardRelativePath,
   resolveBoardFolderScope,
   resolveProjectPathFromBoardUri,
 } from "../core/boardFilePath";
+import { getPreviewEndpoint } from "@/lib/image/uri";
 import { resolveServerUrl } from "@/utils/server-url";
 import { NodeFrame } from "./NodeFrame";
+import { createPortal } from "react-dom";
+import { VideoAiPanel } from "../panels/VideoAiPanel";
+import type { VideoGenerateParams } from "../panels/VideoAiPanel";
+import { useUpstreamData } from "../hooks/useUpstreamData";
+import { usePanelOverlay } from "../render/pixi/PixiApplication";
+import { deriveNode } from "../utils/derive-node";
+import { submitVideoGenerate } from "../services/video-generate";
+import { BOARD_ASSETS_DIR_NAME } from "@/lib/file-name";
+import { saveBoardAssetFile } from "../utils/board-asset";
+import {
+  createInputSnapshot,
+  createGeneratingEntry,
+  pushVersion,
+  markVersionReady,
+  markVersionFailed,
+  getPrimaryEntry,
+  getGeneratingEntry,
+  switchPrimary,
+} from '../engine/version-stack';
+import { useMediaTaskPolling } from '../hooks/useMediaTaskPolling';
+import { VersionStackOverlay } from './VersionStackOverlay';
+import { GeneratingOverlay } from './GeneratingOverlay';
+
+/** Inline panel gap from node bottom edge in screen pixels (zoom-independent). */
+const PANEL_GAP_PX = 8;
 
 export type VideoNodeProps = {
   /** Project-relative path for the video. */
@@ -56,6 +82,12 @@ export type VideoNodeProps = {
   clipStart?: number;
   /** Clip end time in seconds (default duration). */
   clipEnd?: number;
+  /** How the video was created. Defaults to 'upload'. */
+  origin?: import("../board-contracts").NodeOrigin;
+  /** AI generation config. Present only when origin is 'ai-generate'. */
+  aiConfig?: import("../board-contracts").AiGenerateConfig;
+  /** Version stack tracking AI generation history. */
+  versionStack?: import("../engine/types").VersionStack;
 };
 
 /** Resolve a board-scoped path into a project-relative path. */
@@ -74,7 +106,7 @@ async function openVideoPreview(props: VideoNodeProps, fileContext?: BoardFileCo
   const boardId = isBoardRelativePath(props.sourcePath) ? (fileContext?.boardId ?? "") : "";
   const projectRelativePath = resolveProjectRelativePath(props.sourcePath, fileContext);
   const resolvedPath = projectRelativePath || props.sourcePath;
-  const displayName = props.fileName || resolvedPath.split("/").pop() || "Video";
+  const displayName = props.fileName || resolvedPath.split("/").pop() || i18next.t('board:nodeLabel.video');
 
   const metadata = await fetchVideoMetadata({
     projectId: fileContext?.projectId,
@@ -103,6 +135,52 @@ async function openVideoPreview(props: VideoNodeProps, fileContext?: BoardFileCo
   });
 }
 
+/** Trigger a download for the original video file. */
+async function downloadVideo(props: VideoNodeProps, fileContext?: BoardFileContext) {
+  const sourcePath = (props.sourcePath ?? "").trim();
+  if (!sourcePath) return;
+  const scope = resolveBoardFolderScope(fileContext);
+  const projectPath = resolveProjectPathFromBoardUri({
+    uri: sourcePath,
+    boardFolderScope: scope,
+    currentProjectId: fileContext?.projectId,
+    rootUri: fileContext?.rootUri,
+  });
+  const href = projectPath
+    ? getPreviewEndpoint(projectPath, { projectId: fileContext?.projectId })
+    : sourcePath;
+  if (!href) return;
+  const fileName = props.fileName || sourcePath.split("/").pop() || "video.mp4";
+  const saveFile = window.openloafElectron?.saveFile;
+  if (saveFile) {
+    try {
+      const response = await fetch(href);
+      if (!response.ok) throw new Error("download failed");
+      const buffer = await response.arrayBuffer();
+      const bytes = new Uint8Array(buffer);
+      let binary = "";
+      for (let i = 0; i < bytes.length; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      const contentBase64 = btoa(binary);
+      const extension = fileName.split(".").pop() || "mp4";
+      const result = await saveFile({
+        contentBase64,
+        suggestedName: fileName,
+        filters: [{ name: "Video", extensions: [extension] }],
+      });
+      if (result?.ok || result?.canceled) return;
+    } catch {
+      // 逻辑：桌面保存失败时回退到浏览器下载方式。
+    }
+  }
+  const link = document.createElement("a");
+  link.href = href;
+  link.download = fileName;
+  link.rel = "noreferrer";
+  link.click();
+}
+
 /** Compute HLS path for the video node (reused by toolbar and view). */
 function computeHlsPath(sourcePath: string, resolvedPath: string): string {
   if (isBoardRelativePath(sourcePath)) return sourcePath;
@@ -110,6 +188,12 @@ function computeHlsPath(sourcePath: string, resolvedPath: string): string {
   if (parsed) return parsed.relativePath;
   return resolvedPath;
 }
+
+/**
+ * Module-level set tracking which nodes have been unlocked for editing.
+ * Set by toolbar "regenerate" action, read by the component to override readonly.
+ */
+const editingUnlockedIds = new Set<string>();
 
 /** Build toolbar items for video nodes. */
 function createVideoToolbarItems(ctx: CanvasToolbarContext<VideoNodeProps>) {
@@ -131,14 +215,21 @@ function createVideoToolbarItems(ctx: CanvasToolbarContext<VideoNodeProps>) {
       id: 'play',
       label: i18next.t('board:videoNode.toolbar.play'),
       icon: <Play size={14} />,
-      className: BOARD_TOOLBAR_ITEM_GREEN,
+      className: BOARD_TOOLBAR_ITEM_DEFAULT,
       onSelect: () => void openVideoPreview(ctx.element.props, ctx.fileContext),
+    },
+    {
+      id: 'download',
+      label: i18next.t('board:videoNode.toolbar.download', { defaultValue: 'Download' }),
+      icon: <Download size={14} />,
+      className: BOARD_TOOLBAR_ITEM_DEFAULT,
+      onSelect: () => void downloadVideo(ctx.element.props, ctx.fileContext),
     },
     {
       id: 'trim',
       label: i18next.t('board:videoNode.toolbar.trim', { defaultValue: 'Trim' }),
       icon: <Scissors size={14} />,
-      className: BOARD_TOOLBAR_ITEM_AMBER,
+      className: BOARD_TOOLBAR_ITEM_DEFAULT,
       active: hasClip,
       onSelect: () => {
         openVideoTrimDialog({
@@ -162,7 +253,7 @@ function createVideoToolbarItems(ctx: CanvasToolbarContext<VideoNodeProps>) {
             id: 'export-clip',
             label: i18next.t('board:videoNode.toolbar.exportClip', { defaultValue: 'Export Clip' }),
             icon: <Download size={14} />,
-            className: BOARD_TOOLBAR_ITEM_GREEN,
+            className: BOARD_TOOLBAR_ITEM_DEFAULT,
             onSelect: () => {
               void exportVideoClip(ctx.element.props, ctx.fileContext);
             },
@@ -173,17 +264,60 @@ function createVideoToolbarItems(ctx: CanvasToolbarContext<VideoNodeProps>) {
       id: 'inspect',
       label: i18next.t('board:videoNode.toolbar.detail'),
       icon: <Info size={14} />,
-      className: BOARD_TOOLBAR_ITEM_BLUE,
+      className: BOARD_TOOLBAR_ITEM_DEFAULT,
       onSelect: () => ctx.openInspector(ctx.element.id),
     },
+    {
+      id: 'delete',
+      label: i18next.t('board:contextMenu.delete'),
+      icon: <Trash2 size={14} />,
+      className: BOARD_TOOLBAR_ITEM_RED,
+      onSelect: () => ctx.engine.deleteSelection(),
+    },
   ];
-  const messageMeta = getBoardChatMessageMeta(ctx.element);
-  if (!messageMeta) return baseItems;
-  const chatItems = createBoardChatMessageToolbarItems(ctx, messageMeta);
-  return (messageMeta.status ?? "streaming") === "complete"
-    ? [...chatItems, ...baseItems]
-    : chatItems;
+  return baseItems;
 }
+
+// ---------------------------------------------------------------------------
+// Connector templates
+// ---------------------------------------------------------------------------
+
+/** Connector templates offered by the video node. */
+const getVideoNodeConnectorTemplates = (): CanvasConnectorTemplateDefinition[] => [
+  {
+    id: 'text',
+    label: i18next.t('board:connector.videoUnderstanding', { defaultValue: 'Video Understanding' }),
+    description: i18next.t('board:connector.videoUnderstandingDesc', { defaultValue: 'Analyze video and generate description' }),
+    size: [200, 200],
+    icon: <Type size={14} />,
+    createNode: () => ({
+      type: 'text',
+      props: { style: 'sticky', stickyColor: 'yellow' },
+    }),
+  },
+  {
+    id: 'image',
+    label: i18next.t('board:connector.extractFrame', { defaultValue: 'Extract Frame' }),
+    description: i18next.t('board:connector.extractFrameDesc', { defaultValue: 'Extract a frame from video' }),
+    size: [320, 180],
+    icon: <Image size={14} />,
+    createNode: () => ({
+      type: 'image',
+      props: {},
+    }),
+  },
+  {
+    id: 'video',
+    label: i18next.t('board:connector.continueVideo', { defaultValue: 'Continue Video' }),
+    description: i18next.t('board:connector.continueVideoDesc', { defaultValue: 'Generate continuation from video' }),
+    size: [320, 180],
+    icon: <Video size={14} />,
+    createNode: () => ({
+      type: 'video',
+      props: {},
+    }),
+  },
+]
 
 /** Export the clipped segment via server-side ffmpeg. */
 async function exportVideoClip(props: VideoNodeProps, fileContext?: BoardFileContext) {
@@ -279,10 +413,54 @@ function buildHlsQualityUrl(
 /** Render a video node card with inline HLS playback. */
 export function VideoNodeView({
   element,
+  expanded,
   onUpdate,
 }: CanvasNodeViewProps<VideoNodeProps>) {
-  const { fileContext } = useBoardContext();
+  const { fileContext, engine } = useBoardContext();
+  const upstream = useUpstreamData(engine, expanded ? element.id : null);
+  const panelOverlay = usePanelOverlay();
+  const panelRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  /** Handle file selection from hidden input — save to board assets and update node. */
+  const handleFileInputChange = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file || !fileContext?.boardFolderUri) return;
+      e.target.value = '';
+      try {
+        const relativePath = await saveBoardAssetFile({
+          file,
+          fallbackName: 'video.mp4',
+          projectId: fileContext.projectId,
+          boardFolderUri: fileContext.boardFolderUri,
+        });
+        onUpdate({ sourcePath: relativePath, fileName: file.name });
+      } catch { /* ignore save failure */ }
+    },
+    [fileContext, onUpdate],
+  );
+
+  // 逻辑：通过 subscribeView 直接操作 DOM 同步面板缩放，避免 React 渲染延迟。
+  // 面板通过 Portal 渲染到 panelOverlay 层（笔画上方），用 scale(1/zoom) 保持固定屏幕大小。
+  // 间距用 PANEL_GAP_PX / zoom 保证屏幕上恒定像素间距。
+  const xywhRef = useRef(element.xywh);
+  xywhRef.current = element.xywh;
+  useEffect(() => {
+    if (!expanded) return;
+    const syncPanelScale = () => {
+      const panel = panelRef.current;
+      if (!panel) return;
+      const zoom = engine.viewport.getState().zoom;
+      const [, ny, , nh] = xywhRef.current;
+      panel.style.transform = `translateX(-50%) scale(${1 / zoom})`;
+      panel.style.top = `${ny + nh + PANEL_GAP_PX / zoom}px`;
+    };
+    syncPanelScale();
+    const unsub = engine.subscribeView(syncPanelScale);
+    return unsub;
+  }, [engine, expanded]);
   const hlsRef = useRef<Hls | null>(null);
   const [playing, setPlaying] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -292,7 +470,7 @@ export function VideoNodeView({
     () => resolveProjectRelativePath(element.props.sourcePath, fileContext) || element.props.sourcePath,
     [element.props.sourcePath, fileContext]
   );
-  const displayName = element.props.fileName || resolvedPath.split("/").pop() || "Video";
+  const displayName = element.props.fileName || resolvedPath.split("/").pop() || i18next.t('board:nodeLabel.video');
   const posterSrc = element.props.posterPath?.trim() || "";
 
   const effectiveProjectId = useMemo(() => {
@@ -457,19 +635,339 @@ export function VideoNodeView({
     };
   }, []);
 
+  // ---------------------------------------------------------------------------
+  // Version-stack based generation
+  // ---------------------------------------------------------------------------
+  const primaryEntry = getPrimaryEntry(element.props.versionStack)
+  const generatingEntry = getGeneratingEntry(element.props.versionStack)
+
+  // 逻辑：有生成记录时使用冻结的上游数据，版本切换时自动跟随。
+  const effectiveUpstream = useMemo(() => {
+    const refs = primaryEntry?.input?.upstreamRefs;
+    if (primaryEntry?.status === 'ready' && refs && refs.length > 0) {
+      return {
+        text: refs.filter(r => r.nodeType === 'text').map(r => r.data).join('\n') || undefined,
+        images: refs.filter(r => r.nodeType === 'image').map(r => r.data),
+      };
+    }
+    return {
+      text: upstream?.textList.join('\n') || undefined,
+      images: upstream?.imageList,
+    };
+  }, [primaryEntry, upstream]);
+
+  const saveDir = useMemo(
+    () =>
+      fileContext?.boardFolderUri
+        ? `${fileContext.boardFolderUri}/${BOARD_ASSETS_DIR_NAME}`
+        : undefined,
+    [fileContext?.boardFolderUri],
+  )
+
+  const pollingResult = useMediaTaskPolling({
+    taskId: generatingEntry?.taskId,
+    taskType: 'video_generate',
+    projectId: fileContext?.projectId,
+    saveDir,
+    enabled: !!generatingEntry,
+    onSuccess: useCallback(
+      (resultUrls: string[]) => {
+        if (!generatingEntry) return
+        const stack = element.props.versionStack
+        if (!stack) return
+        const savedPath = resultUrls[0]?.trim() || ''
+        const scopedPath = (() => {
+          if (!savedPath) return ''
+          if (parseScopedProjectPath(savedPath)) return savedPath
+          const pid = fileContext?.projectId
+          if (!pid) return savedPath
+          const relative = normalizeProjectRelativePath(savedPath)
+          return formatScopedProjectPath({
+            projectId: pid,
+            currentProjectId: pid,
+            relativePath: relative,
+            includeAt: true,
+          })
+        })()
+        onUpdate({
+          versionStack: markVersionReady(stack, generatingEntry.id, { urls: resultUrls }),
+          sourcePath: scopedPath,
+          fileName: savedPath.split('/').pop() || undefined,
+        })
+        // 逻辑：生成完成后获取视频元数据并自动调整节点尺寸。
+        const nodeId = element.id
+        void (async () => {
+          try {
+            const metadata = await fetchVideoMetadata({
+              projectId: fileContext?.projectId,
+              uri: scopedPath,
+            })
+            if (!metadata?.width || !metadata?.height) return
+            const el = engine.doc.getElementById(nodeId)
+            if (!el || el.kind !== 'node') return
+            const [ex, ey, ew, eh] = el.xywh
+            const ratio = metadata.width / metadata.height
+            const newW = Math.max(ew, 240)
+            const newH = Math.round(newW / ratio)
+            const cx = ex + ew / 2
+            const cy = ey + eh / 2
+            engine.doc.updateElement(nodeId, {
+              xywh: [Math.round(cx - newW / 2), Math.round(cy - newH / 2), newW, newH],
+            })
+            engine.doc.updateNodeProps(nodeId, {
+              naturalWidth: metadata.width,
+              naturalHeight: metadata.height,
+              duration: metadata.duration,
+            })
+          } catch { /* ignore metadata fetch failure */ }
+        })()
+      },
+      [generatingEntry, element.props.versionStack, onUpdate, fileContext?.projectId, element.id, engine],
+    ),
+    onFailure: useCallback(
+      (error: string) => {
+        if (!generatingEntry) return
+        const stack = element.props.versionStack
+        if (!stack) return
+        onUpdate({
+          versionStack: markVersionFailed(stack, generatingEntry.id, {
+            code: 'GENERATE_FAILED',
+            message: error,
+          }),
+        })
+      },
+      [generatingEntry, element.props.versionStack, onUpdate],
+    ),
+  })
+
+  const handleGenerate = useCallback(
+    async (params: VideoGenerateParams) => {
+      try {
+        const result = await submitVideoGenerate(
+          {
+            prompt: params.prompt,
+            modelId: params.modelId === 'auto' ? undefined : params.modelId,
+            aspectRatio: params.aspectRatio,
+            duration: params.duration,
+            firstFrameImageSrc: params.firstFrameImageSrc,
+          },
+          {
+            projectId: fileContext?.projectId,
+            saveDir,
+            sourceNodeId: element.id,
+          },
+        )
+
+        const snapshot = createInputSnapshot({
+          prompt: params.prompt,
+          modelId: params.modelId,
+          parameters: {
+            aspectRatio: params.aspectRatio,
+            duration: params.duration,
+            firstFrameImageSrc: params.firstFrameImageSrc,
+          },
+          upstreamRefs: [
+            ...(upstream?.textList ?? []).map(text => ({ nodeId: '', nodeType: 'text', data: text })),
+            ...(upstream?.imageList ?? []).map(src => ({ nodeId: '', nodeType: 'image', data: src })),
+          ],
+        })
+        const entry = createGeneratingEntry(snapshot, result.taskId)
+        onUpdate({
+          versionStack: pushVersion(element.props.versionStack, entry),
+          origin: 'ai-generate',
+        })
+      } catch (err) {
+        console.error('[VideoNode] submitVideoGenerate failed:', err)
+        onUpdate({
+          aiConfig: {
+            ...(element.props.aiConfig ?? { modelId: params.modelId, prompt: params.prompt }),
+            taskId: undefined,
+          },
+        })
+      }
+    },
+    [element.id, element.props.versionStack, element.props.aiConfig, fileContext?.projectId, saveDir, onUpdate],
+  )
+
+  /** Retry generation using the failed entry's input snapshot. */
+  const handleRetry = useCallback(() => {
+    if (!primaryEntry?.input) return
+    const input = primaryEntry.input
+    const params: VideoGenerateParams = {
+      prompt: input.prompt,
+      modelId: input.modelId,
+      aspectRatio: (input.parameters?.aspectRatio as string) ?? '16:9',
+      duration: (input.parameters?.duration as number) ?? 5,
+      firstFrameImageSrc: input.parameters?.firstFrameImageSrc as string | undefined,
+    }
+    handleGenerate(params)
+  }, [primaryEntry, handleGenerate])
+
+  /** Generate into a new derived video node with the same params. */
+  const handleGenerateNewNode = useCallback(
+    async (params: VideoGenerateParams) => {
+      try {
+        const newNodeId = deriveNode({
+          engine,
+          sourceNodeId: element.id,
+          targetType: 'video',
+          targetProps: { origin: 'ai-generate' },
+        })
+        if (!newNodeId) return
+
+        const result = await submitVideoGenerate(
+          {
+            prompt: params.prompt,
+            modelId: params.modelId === 'auto' ? undefined : params.modelId,
+            aspectRatio: params.aspectRatio,
+            duration: params.duration,
+            firstFrameImageSrc: params.firstFrameImageSrc,
+          },
+          {
+            projectId: fileContext?.projectId,
+            saveDir,
+            sourceNodeId: newNodeId,
+          },
+        )
+
+        const snapshot = createInputSnapshot({
+          prompt: params.prompt,
+          modelId: params.modelId,
+          parameters: {
+            aspectRatio: params.aspectRatio,
+            duration: params.duration,
+            firstFrameImageSrc: params.firstFrameImageSrc,
+          },
+        })
+        const entry = createGeneratingEntry(snapshot, result.taskId)
+        engine.doc.updateNodeProps(newNodeId, {
+          versionStack: pushVersion(undefined, entry),
+          origin: 'ai-generate',
+        })
+      } catch (err) {
+        console.error('[VideoNode] new node generation failed:', err)
+      }
+    },
+    [engine, element.id, fileContext?.projectId, saveDir],
+  )
+
+  const isGenerating = primaryEntry?.status === 'generating'
+  const isFailed = primaryEntry?.status === 'failed'
+  const isReadyFromAi = primaryEntry?.status === 'ready' && element.props.origin === 'ai-generate'
+  const [dismissedFailure, setDismissedFailure] = useState(false)
+
+  /**
+   * Editing override — check module-level editingUnlockedIds set.
+   * Set by toolbar "regenerate" action, cleared when generation starts.
+   */
+  const [editingOverride, setEditingOverride] = useState(
+    () => editingUnlockedIds.has(element.id),
+  );
+  // 逻辑：每次 expanded 变化时检查是否被标记为编辑模式。
+  useEffect(() => {
+    if (editingUnlockedIds.has(element.id)) {
+      editingUnlockedIds.delete(element.id);
+      setEditingOverride(true);
+    }
+  }, [expanded, element.id]);
+  // 逻辑：生成开始后或面板关闭后自动关闭编辑覆盖。
+  useEffect(() => {
+    if (isGenerating || !expanded) setEditingOverride(false);
+  }, [isGenerating, expanded]);
+  // 逻辑：新的失败状态出现时重置 dismiss。
+  useEffect(() => {
+    if (isFailed) setDismissedFailure(false);
+  }, [primaryEntry?.id]);
+
+  /** Switch the version stack primary entry and update the node source. */
+  const handleSwitchPrimary = useCallback(
+    (entryId: string) => {
+      const stack = element.props.versionStack
+      if (!stack) return
+      const newStack = switchPrimary(stack, entryId)
+      const newPrimary = newStack.entries.find((e) => e.id === entryId)
+      const patch: Partial<VideoNodeProps> = { versionStack: newStack }
+      if (newPrimary?.output?.urls[0]) {
+        patch.sourcePath = newPrimary.output.urls[0]
+      }
+      onUpdate(patch)
+    },
+    [element.props.versionStack, onUpdate],
+  )
+
   return (
-    <NodeFrame>
+    <NodeFrame className="group">
+      <VersionStackOverlay
+        stack={element.props.versionStack}
+        semanticColor="purple"
+        onSwitchPrimary={handleSwitchPrimary}
+      />
       <div
         className={[
-          "flex h-full w-full items-center justify-center rounded-lg border box-border",
+          "relative flex h-full w-full items-center justify-center rounded-lg border box-border",
           "border-ol-divider bg-background text-ol-text-primary",
+          "",
         ].join(" ")}
         onDoubleClick={(event) => {
           event.stopPropagation();
+          if (expanded) return;
+          if (isGenerating || isFailed) return;
+          // 逻辑：空节点双击打开文件选择器，有内容时双击打开预览。
+          if (!element.props.sourcePath?.trim()) {
+            fileInputRef.current?.click();
+            return;
+          }
           if (playing) handleStop();
           void openVideoPreview(element.props, fileContext);
         }}
       >
+        {/* Generating overlay */}
+        {isGenerating && (
+          <GeneratingOverlay
+            startedAt={pollingResult.startedAt}
+            estimatedSeconds={90}
+            serverProgress={pollingResult.progress}
+            color="purple"
+          />
+        )}
+
+        {/* Failed overlay */}
+        {isFailed && !dismissedFailure && (
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-background/75 backdrop-blur-sm p-4 rounded-lg">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/[0.06]">
+              <X className="h-4 w-4 text-ol-text-auxiliary" />
+            </div>
+            <span className="text-xs text-center text-ol-text-auxiliary font-medium">
+              {primaryEntry.error?.message || i18next.t('board:videoNode.generateFailed', { defaultValue: 'Generation failed' })}
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleRetry();
+                }}
+                className="flex items-center gap-1 rounded-full px-3 py-1 text-[11px] bg-white/[0.08] text-ol-text-secondary hover:bg-white/[0.12] transition-colors duration-150"
+              >
+                <RefreshCw className="h-3 w-3" />
+                {i18next.t('board:videoNode.retry', { defaultValue: 'Retry' })}
+              </button>
+              {posterSrc && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDismissedFailure(true);
+                  }}
+                  className="text-[11px] text-ol-text-auxiliary underline underline-offset-2 hover:text-ol-text-secondary transition-colors duration-150"
+                >
+                  {i18next.t('board:loading.dismiss', { defaultValue: 'Dismiss' })}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         {playing ? (
           <div
             className="group relative h-full w-full overflow-hidden rounded-lg bg-black"
@@ -540,6 +1038,15 @@ export function VideoNodeView({
               {displayName}
             </div>
           </div>
+        ) : !element.props.sourcePath?.trim() ? (
+          <div className="flex h-full w-full items-center justify-center rounded-lg border border-dashed border-ol-divider bg-ol-surface-muted">
+            <div className="flex flex-col items-center gap-2 text-muted-foreground/40 px-4">
+              <Video size={36} strokeWidth={1.2} />
+              <span className="text-xs text-center leading-relaxed whitespace-pre-line">
+                {i18next.t('board:videoNode.emptyHint', { defaultValue: '双击上传视频\n或选中后 AI 生成' })}
+              </span>
+            </div>
+          </div>
         ) : (
           <div className="relative h-full w-full">
             <div className="absolute top-2 left-2 right-2 line-clamp-2 text-[11px] text-ol-text-secondary">
@@ -561,24 +1068,49 @@ export function VideoNodeView({
           </div>
         )}
       </div>
+      {expanded && panelOverlay ? createPortal(
+        <div
+          ref={panelRef}
+          className="pointer-events-auto absolute"
+          data-board-editor
+          style={{
+            left: element.xywh[0] + element.xywh[2] / 2,
+            top: element.xywh[1] + element.xywh[3] + PANEL_GAP_PX / engine.viewport.getState().zoom,
+            transform: `translateX(-50%) scale(${1 / engine.viewport.getState().zoom})`,
+            transformOrigin: 'top center',
+          }}
+          onPointerDown={event => {
+            event.stopPropagation();
+          }}
+          onContextMenu={event => {
+            event.stopPropagation();
+          }}
+        >
+          <VideoAiPanel
+            element={element}
+            onUpdate={onUpdate}
+            onGenerate={handleGenerate}
+            onGenerateNewNode={handleGenerateNewNode}
+            upstreamText={effectiveUpstream.text}
+            upstreamImages={effectiveUpstream.images}
+            readonly={(isReadyFromAi || !!generatingEntry) && !editingOverride}
+            editing={editingOverride}
+            onUnlock={() => setEditingOverride(true)}
+          />
+        </div>,
+        panelOverlay,
+      ) : null}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="video/*"
+        className="hidden"
+        onChange={handleFileInputChange}
+      />
     </NodeFrame>
   );
 }
 
-/** Connector templates offered by the video node – resolved at render time. */
-const getVideoNodeConnectorTemplates = (): CanvasConnectorTemplateDefinition[] => [
-  {
-    id: IMAGE_PROMPT_GENERATE_NODE_TYPE,
-    label: i18next.t('board:connector.imagePromptGenerate'),
-    description: i18next.t('board:connector.imagePromptGenerateDesc'),
-    size: [320, 220],
-    icon: <Sparkles size={14} />,
-    createNode: () => ({
-      type: IMAGE_PROMPT_GENERATE_NODE_TYPE,
-      props: {},
-    }),
-  },
-];
 
 /** Definition for the video node. */
 export const VideoNodeDefinition: CanvasNodeDefinition<VideoNodeProps> = {
@@ -592,6 +1124,18 @@ export const VideoNodeDefinition: CanvasNodeDefinition<VideoNodeProps> = {
     naturalHeight: z.number().optional(),
     clipStart: z.number().optional(),
     clipEnd: z.number().optional(),
+    origin: z.enum(['user', 'upload', 'ai-generate', 'paste']).optional(),
+    aiConfig: z.object({
+      modelId: z.string(),
+      prompt: z.string(),
+      negativePrompt: z.string().optional(),
+      style: z.string().optional(),
+      aspectRatio: z.enum(['1:1', '16:9', '9:16', '4:3', '3:4']).optional(),
+      inputNodeIds: z.array(z.string()).optional(),
+      taskId: z.string().optional(),
+      generatedAt: z.number().optional(),
+    }).optional(),
+    versionStack: z.any().optional(),
   }),
   defaultProps: {
     sourcePath: "",
@@ -606,6 +1150,7 @@ export const VideoNodeDefinition: CanvasNodeDefinition<VideoNodeProps> = {
     minSize: { w: 200, h: 112 },
     maxSize: { w: 1280, h: 720 },
   },
+  inlinePanel: { width: 420, height: 360 },
   connectorTemplates: () => getVideoNodeConnectorTemplates(),
   toolbar: (ctx) => createVideoToolbarItems(ctx),
 };

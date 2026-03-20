@@ -25,6 +25,8 @@ import systemAgentArchitectureMd from './system-agent-architecture/SKILL.md'
 import browserAutomationGuideMd from './browser-automation-guide/SKILL.md'
 import officeDocumentGuideMd from './office-document-guide/SKILL.md'
 import memoryOpsMd from './memory-ops/SKILL.md'
+import mediaOpsMd from './media-ops/SKILL.md'
+import visualizationOpsMd from './visualization-ops/SKILL.md'
 
 const FRONT_MATTER_DELIMITER = '---'
 
@@ -52,7 +54,7 @@ export const BUILTIN_SKILLS: BuiltinSkill[] = [
     content: stripFrontMatter(openloafBasicsMd),
     icon: '📚',
     colorIndex: 0,
-    // 通用指南，不绑定具体工具
+    tools: ['request-user-input', 'update-plan'],
   },
   {
     name: 'file-ops',
@@ -115,7 +117,7 @@ export const BUILTIN_SKILLS: BuiltinSkill[] = [
     content: stripFrontMatter(workbenchOpsMd),
     icon: '🧩',
     colorIndex: 7,
-    tools: ['widget-init', 'widget-list', 'widget-get', 'widget-check', 'read-file', 'apply-patch'],
+    tools: ['widget-init', 'widget-list', 'widget-get', 'widget-check', 'generate-widget', 'read-file', 'apply-patch'],
   },
   {
     name: 'settings-guide',
@@ -151,7 +153,7 @@ export const BUILTIN_SKILLS: BuiltinSkill[] = [
     content: stripFrontMatter(browserAutomationGuideMd),
     icon: '🌐',
     colorIndex: 3,
-    tools: ['open-url', 'web-search', 'web-fetch', 'browser-snapshot', 'browser-act', 'browser-wait', 'browser-extract', 'browser-screenshot', 'browser-download-image'],
+    tools: ['open-url', 'web-search', 'web-fetch', 'browser-snapshot', 'browser-observe', 'browser-act', 'browser-wait', 'browser-extract', 'browser-screenshot', 'browser-download-image'],
   },
   {
     name: 'office-document-guide',
@@ -170,5 +172,23 @@ export const BUILTIN_SKILLS: BuiltinSkill[] = [
     icon: '🧠',
     colorIndex: 5,
     tools: ['memory-save', 'memory-search', 'memory-get'],
+  },
+  {
+    name: 'media-ops',
+    description:
+      'AI 媒体生成与处理——图片生成、视频生成、图片编辑（缩放/裁剪/旋转/格式转换）、视频格式转换、音频提取、视频下载。当用户提到生成图片、画图、AI 画画、创建插画、设计海报、做视频、视频转码、提取音频、视频下载、图片处理、调整大小、裁剪、旋转、格式转换、"帮我画"、"生成一张"、"做个视频"、"下载这个视频"、"把图片转成 PNG"、"提取背景音乐"、"这个视频转 MP4"、resize、crop、blur、convert、generate image、create video 时激活。',
+    content: stripFrontMatter(mediaOpsMd),
+    icon: '🎬',
+    colorIndex: 6,
+    tools: ['image-generate', 'image-process', 'video-generate', 'video-convert', 'video-download', 'list-media-models'],
+  },
+  {
+    name: 'visualization-ops',
+    description:
+      '可视化渲染——JSX 组件渲染和 ECharts 图表。当用户需要展示数据图表、可视化卡片、统计面板、任务状态展示、信息汇总卡片、结构化内容展示，或当你需要输出"可视化组件/卡片/布局"而非纯文本时激活。触发词：图表、chart、柱状图、折线图、饼图、可视化、visualization、数据展示、dashboard、卡片展示、render component、"画个图表"、"展示一下数据"、"做个统计图"、"用卡片展示"、"可视化一下"。',
+    content: stripFrontMatter(visualizationOpsMd),
+    icon: '📈',
+    colorIndex: 7,
+    tools: ['jsx-create', 'chart-render'],
   },
 ]

@@ -15,7 +15,7 @@ import { Bug, FolderOpen, History, Lightbulb, MessageSquarePlus, Palette, X } fr
 import SessionList from "@/components/ai/session/SessionList";
 import * as React from "react";
 import { useChatActions, useChatSession, useChatState } from "./context";
-import { skipToken, useMutation, useQuery } from "@tanstack/react-query";
+import { skipToken, useInfiniteQuery, useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient, trpc, trpcClient } from "@/utils/trpc";
 import { useAppView } from "@/hooks/use-app-view";
 import { invalidateChatSessions, useChatSessions } from "@/hooks/use-chat-sessions";
@@ -97,13 +97,15 @@ export default function ChatHeader({
       : { boardId: null as string | null },
     [shellProjectId],
   );
-  const sessionsQuery = useQuery({
-    ...trpc.chat.listSessions.queryOptions(sessionsListInput),
+  const sessionsQuery = useInfiniteQuery({
+    ...trpc.chat.listSessions.infiniteQueryOptions(sessionsListInput, {
+      getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    }),
     staleTime: 60_000,
     refetchOnWindowFocus: false,
   });
   const sessions = React.useMemo(
-    () => (sessionsQuery.data ?? []) as Array<{ id: string; title: string; projectId?: string | null; isUserRename?: boolean; updatedAt: string | Date }>,
+    () => (sessionsQuery.data?.pages.flatMap((p) => p.items) ?? []) as Array<{ id: string; title: string; projectId?: string | null; isUserRename?: boolean; updatedAt: string | Date }>,
     [sessionsQuery.data],
   );
   const refetchSessions = sessionsQuery.refetch;
@@ -531,6 +533,9 @@ export default function ChatHeader({
                   activeSessionId={activeSessionId}
                   externalSessions={sessions as any}
                   externalLoading={sessionsQuery.isLoading}
+                  hasMore={Boolean(sessionsQuery.hasNextPage)}
+                  isFetchingNextPage={sessionsQuery.isFetchingNextPage}
+                  onLoadMore={() => void sessionsQuery.fetchNextPage()}
                   onMenuOpenChange={handleMenuOpenChange}
                   onSelect={(session) => {
                     setHistoryOpen(false);

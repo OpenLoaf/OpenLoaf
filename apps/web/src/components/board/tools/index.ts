@@ -13,3 +13,6 @@ export { SelectTool } from "./SelectTool";
 export { HandTool } from "./HandTool";
 export { PenTool, HighlighterTool } from "./StrokeTools";
 export { EraserTool } from "./EraserTool";
+export { PlacementTool } from "./PlacementTool";
+export { TextPlacementTool } from "./TextPlacementTool";
+export { ShapePlacementTool } from "./ShapePlacementTool";

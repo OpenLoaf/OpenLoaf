@@ -83,7 +83,8 @@ function killStaleWindows(repoRoot, log) {
     `   $_.CommandLine -match 'postcss\\.js')`,
     `}`,
     `if ($procs) { $procs | ForEach-Object {`,
-    `  Write-Output $_.ProcessId`,
+    `  $name = $_.Name; $cmd = $_.CommandLine.Substring(0, [Math]::Min(80, $_.CommandLine.Length))`,
+    `  Write-Output "$($_.ProcessId)|$name|$cmd"`,
     `  Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue`,
     `} }`,
   ].join(' ')
@@ -94,8 +95,10 @@ function killStaleWindows(repoRoot, log) {
   })
 
   if (result.stdout?.trim()) {
-    for (const pid of result.stdout.trim().split(/\r?\n/)) {
-      log(`[kill] Killed stale process PID ${pid.trim()}`)
+    for (const line of result.stdout.trim().split(/\r?\n/)) {
+      const [pid, name, cmd] = line.trim().split('|')
+      const display = name && cmd ? `${name} (${cmd.trim()})` : pid
+      log(`[kill] Killing stale process PID ${pid} (${display})`)
       killed++
     }
   }
@@ -131,8 +134,9 @@ function killStaleUnix(repoRoot, log) {
       const parts = line.trim().split(/\s+/)
       const pid = Number(parts[0])
       if (!pid || pid === selfPid || pid === parentPid) continue
+      const cmdline = parts.slice(1).join(' ')
 
-      log(`[kill] Killing stale process PID ${pid}`)
+      log(`[kill] Killing stale process PID ${pid}: ${cmdline}`)
       try {
         process.kill(pid, 'SIGTERM')
         killed++

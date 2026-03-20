@@ -117,6 +117,8 @@
     "animationHigh": "高",
     "notificationSound": "通知声音提示",
     "notificationSoundDesc": "语音输入开始时播放提示音",
+    "showDevNotice": "启动时显示开发阶段提示",
+    "showDevNoticeDesc": "每次启动时弹出开发阶段公告对话框",
     "minimizeToTray": "关闭时最小化到托盘",
     "minimizeToTrayDesc": "开启后，关闭窗口时应用将最小化到系统托盘而不是退出"
   },
@@ -556,6 +558,10 @@
   },
   "agent": {
     "management": "智能体管理",
+    "expertCenter": "专家中心",
+    "expertCenterDesc": "按分类浏览智能体，召唤他们为你服务",
+    "summonBtn": "立即召唤",
+    "categoryAll": "全部",
     "createBtn": "创建智能体",
     "createTitle": "创建智能体",
     "openDir": "打开目录",
