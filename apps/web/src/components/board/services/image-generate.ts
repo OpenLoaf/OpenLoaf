@@ -8,7 +8,6 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import { submitImageTask } from '@/lib/saas-media'
-import { isLocalUrl, fetchMediaAsBase64 } from './resolve-local-media'
 
 /** Supported aspect ratio literals accepted by the SaaS API. */
 type SaasAspectRatio = '1:1' | '16:9' | '9:16' | '4:3'
@@ -64,17 +63,10 @@ export async function submitImageGenerate(
   }
 
   // 逻辑：图生图模式下，将参考图作为输入传给 SaaS API。
-  // 本地 URL（localhost/127.0.0.1）SaaS 后端无法下载，需先转 base64。
+  // 本地 URL 的解析由服务端 submitImageProxy 处理（S3 优先 → base64 兜底）。
   if (request.referenceImageSrc) {
-    if (isLocalUrl(request.referenceImageSrc)) {
-      const { base64, mediaType } = await fetchMediaAsBase64(request.referenceImageSrc)
-      payload.inputs = {
-        images: [{ base64, mediaType }],
-      }
-    } else {
-      payload.inputs = {
-        images: [{ url: request.referenceImageSrc }],
-      }
+    payload.inputs = {
+      images: [{ url: request.referenceImageSrc }],
     }
   }
 

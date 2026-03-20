@@ -10,11 +10,15 @@
 import path from "node:path";
 import { isRecord } from "@/ai/shared/util";
 import { resolveImageSaveDirectory, saveImageUrlsToDirectory } from "@/ai/services/image/imageStorage";
+import { loadProjectImageBuffer } from "@/ai/services/image/attachmentResolver";
 import {
   resolveVideoSaveDirectory,
   saveGeneratedVideoFromUrl,
 } from "@/ai/services/video/videoStorage";
 import { getOpenLoafRootDir } from "@openloaf/config";
+import { readBasicConf, readS3Providers } from "@/modules/settings/openloafConfStore";
+import { createS3StorageService, resolveS3ProviderConfig } from "@/modules/storage/s3StorageService";
+import { logger } from "@/common/logger";
 import {
   cancelMediaTask,
   fetchImageModels,
@@ -88,6 +92,152 @@ function splitMediaSubmitBody(body: unknown): {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Local URL → S3 public URL / base64 resolution
+// ---------------------------------------------------------------------------
+
+/** Resolve active S3 storage service, or null if not configured. */
+function resolveActiveS3() {
+  const basic = readBasicConf();
+  const activeId = basic.activeS3Id;
+  if (!activeId) return null;
+  const provider = readS3Providers().find((entry) => entry.id === activeId);
+  if (!provider) return null;
+  return createS3StorageService(resolveS3ProviderConfig(provider));
+}
+
+/** Check whether a URL is a local server address that the SaaS backend cannot access. */
+function isLocalMediaUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname;
+    return (
+      host === 'localhost' ||
+      host === '127.0.0.1' ||
+      host === '0.0.0.0' ||
+      host === '::1' ||
+      host.endsWith('.local')
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Extract the relative file path from a local preview URL.
+ * e.g. `http://127.0.0.1:23334/chat/attachments/preview?path=boards/board_xxx/asset/foo.jpg`
+ *      → `boards/board_xxx/asset/foo.jpg`
+ */
+function extractPathFromLocalUrl(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    return parsed.searchParams.get('path');
+  } catch {
+    return null;
+  }
+}
+
+type ResolvedMediaInput = { url: string } | { base64: string; mediaType: string };
+
+/**
+ * Resolve a local image URL to either:
+ *   1. S3 public URL (if S3 configured) — preferred
+ *   2. base64 encoded data (fallback)
+ *   3. Original URL (if not local or resolution fails)
+ */
+async function resolveLocalMediaInput(
+  input: Record<string, unknown>,
+  context: MediaSubmitContext,
+): Promise<ResolvedMediaInput> {
+  const url = typeof input.url === 'string' ? input.url : '';
+  if (!url || !isLocalMediaUrl(url)) {
+    return input as ResolvedMediaInput;
+  }
+
+  const relativePath = extractPathFromLocalUrl(url);
+  if (!relativePath) {
+    logger.warn({ url }, 'Cannot extract path from local media URL, passing as-is');
+    return input as ResolvedMediaInput;
+  }
+
+  // Read file from disk
+  const loaded = await loadProjectImageBuffer({
+    path: relativePath,
+    projectId: context.projectId,
+  });
+  if (!loaded) {
+    logger.warn({ relativePath }, 'Failed to load local media file, passing URL as-is');
+    return input as ResolvedMediaInput;
+  }
+
+  // Strategy 1: Upload to S3 if configured
+  const s3 = resolveActiveS3();
+  if (s3) {
+    try {
+      const key = `temp/media-input/${Date.now()}_${path.basename(relativePath)}`;
+      const ref = await s3.putObject({
+        key,
+        body: loaded.buffer,
+        contentType: loaded.mediaType,
+        contentLength: loaded.buffer.length,
+      });
+      logger.debug({ key, url: ref.url }, 'Uploaded local media to S3');
+      return { url: ref.url };
+    } catch (err) {
+      logger.warn({ err, relativePath }, 'S3 upload failed, falling back to base64');
+    }
+  }
+
+  // Strategy 2: Base64 fallback
+  const base64 = loaded.buffer.toString('base64');
+  return { base64, mediaType: loaded.mediaType };
+}
+
+/** Process all image inputs in a media payload, resolving local URLs. */
+async function resolvePayloadMediaInputs(
+  payload: Record<string, unknown>,
+  context: MediaSubmitContext,
+): Promise<Record<string, unknown>> {
+  const inputs = isRecord(payload.inputs) ? { ...payload.inputs } : null;
+  if (!inputs) return payload;
+
+  let changed = false;
+
+  // Handle inputs.images (array of { url, base64, mediaType })
+  if (Array.isArray(inputs.images)) {
+    const resolved = await Promise.all(
+      inputs.images.map(async (img: unknown) => {
+        if (!isRecord(img) || typeof img.url !== 'string') return img;
+        const result = await resolveLocalMediaInput(img as Record<string, unknown>, context);
+        if (result !== img) changed = true;
+        return result;
+      }),
+    );
+    inputs.images = resolved;
+  }
+
+  // Handle inputs.startImage (single { url, base64, mediaType })
+  if (isRecord(inputs.startImage) && typeof inputs.startImage.url === 'string') {
+    const result = await resolveLocalMediaInput(inputs.startImage as Record<string, unknown>, context);
+    if (result !== inputs.startImage) { inputs.startImage = result; changed = true; }
+  }
+
+  // Handle inputs.endImage
+  if (isRecord(inputs.endImage) && typeof inputs.endImage.url === 'string') {
+    const result = await resolveLocalMediaInput(inputs.endImage as Record<string, unknown>, context);
+    if (result !== inputs.endImage) { inputs.endImage = result; changed = true; }
+  }
+
+  // Handle inputs.referenceVideo
+  if (isRecord(inputs.referenceVideo) && typeof inputs.referenceVideo.url === 'string') {
+    const result = await resolveLocalMediaInput(inputs.referenceVideo as Record<string, unknown>, context);
+    if (result !== inputs.referenceVideo) { inputs.referenceVideo = result; changed = true; }
+  }
+
+  if (!changed) return payload;
+  return { ...payload, inputs };
+}
+
 /** Submit image generation via SaaS SDK. */
 export async function submitImageProxy(
   body: unknown,
@@ -97,7 +247,10 @@ export async function submitImageProxy(
   if (!payload) {
     throw new MediaProxyHttpError(400, "invalid_payload", "请求参数无效");
   }
-  const result = await submitMediaTask({ kind: "image", payload }, accessToken);
+  // 逻辑：本地 URL（localhost/127.0.0.1）SaaS 后端无法下载，
+  // 有 S3 → 上传后用公开 URL 替换；无 S3 → 转 base64 兜底。
+  const resolvedPayload = await resolvePayloadMediaInputs(payload, context);
+  const result = await submitMediaTask({ kind: "image", payload: resolvedPayload }, accessToken);
   // 逻辑：提交成功后记录上下文，供轮询阶段落库使用。
   if (result?.success === true && result.data?.taskId) {
     rememberMediaTask({
@@ -121,7 +274,9 @@ export async function submitVideoProxy(
   if (!payload) {
     throw new MediaProxyHttpError(400, "invalid_payload", "请求参数无效");
   }
-  const result = await submitMediaTask({ kind: "video", payload }, accessToken);
+  // 逻辑：同图片生成，解析本地 URL。
+  const resolvedPayload = await resolvePayloadMediaInputs(payload, context);
+  const result = await submitMediaTask({ kind: "video", payload: resolvedPayload }, accessToken);
   // 逻辑：提交成功后记录上下文，供轮询阶段落库使用。
   if (result?.success === true && result.data?.taskId) {
     rememberMediaTask({

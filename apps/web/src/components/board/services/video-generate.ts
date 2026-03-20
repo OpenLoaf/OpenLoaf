@@ -8,7 +8,6 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import { submitVideoTask } from '@/lib/saas-media'
-import { isLocalUrl, fetchMediaAsBase64 } from './resolve-local-media'
 
 export type VideoGenerateRequest = {
   prompt: string
@@ -43,14 +42,9 @@ export async function submitVideoGenerate(
     payload.parameters = { duration: request.duration }
   }
 
-  // 逻辑：首帧图为本地 URL 时，SaaS 后端无法下载，需转 base64。
+  // 逻辑：首帧参考图。本地 URL 的解析由服务端处理（S3 优先 → base64 兜底）。
   if (request.firstFrameImageSrc) {
-    if (isLocalUrl(request.firstFrameImageSrc)) {
-      const { base64, mediaType } = await fetchMediaAsBase64(request.firstFrameImageSrc)
-      payload.inputs = { startImage: { base64, mediaType } }
-    } else {
-      payload.inputs = { startImage: { url: request.firstFrameImageSrc } }
-    }
+    payload.inputs = { startImage: { url: request.firstFrameImageSrc } }
   }
 
   // Attach storage context for server-side asset saving.
