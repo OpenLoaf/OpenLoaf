@@ -200,8 +200,16 @@ async function downloadOriginalImage(
   link.click();
 }
 
+/**
+ * Module-level set tracking which nodes have been unlocked for editing.
+ * Set by toolbar "regenerate" action, read by the component to override readonly.
+ */
+const editingUnlockedIds = new Set<string>();
+
 /** Build toolbar items for image nodes. */
-function createImageToolbarItems(ctx: CanvasToolbarContext<ImageNodeProps>) {
+function createImageToolbarItems(
+  ctx: CanvasToolbarContext<ImageNodeProps>,
+) {
   const origin = ctx.element.props.origin;
   const primaryEntry = getPrimaryEntry(ctx.element.props.versionStack);
   const showRegenerate =
@@ -217,7 +225,8 @@ function createImageToolbarItems(ctx: CanvasToolbarContext<ImageNodeProps>) {
             icon: <RefreshCw size={14} />,
             className: BOARD_TOOLBAR_ITEM_DEFAULT,
             onSelect: () => {
-              // 逻辑：重新生成 — 展开节点面板让用户修改参数后再提交。
+              // 逻辑：重新生成 — 标记为编辑模式，解除面板 readonly，展开面板。
+              editingUnlockedIds.add(ctx.element.id);
               ctx.engine.setExpandedNodeId(ctx.element.id);
             },
           },
@@ -511,6 +520,24 @@ export function ImageNodeView({
   const isFailedVersion = primaryEntry?.status === 'failed';
   /** Whether the primary version is ready. */
   const isReadyVersion = primaryEntry?.status === 'ready';
+  /**
+   * Editing override — check module-level editingUnlockedIds set.
+   * Set by toolbar "regenerate" action, cleared when generation starts.
+   */
+  const [editingOverride, setEditingOverride] = useState(
+    () => editingUnlockedIds.has(element.id),
+  );
+  // 逻辑：每次 expanded 变化时检查是否被标记为编辑模式。
+  useEffect(() => {
+    if (editingUnlockedIds.has(element.id)) {
+      editingUnlockedIds.delete(element.id);
+      setEditingOverride(true);
+    }
+  }, [expanded, element.id]);
+  // 逻辑：生成开始后或面板关闭后自动关闭编辑覆盖。
+  useEffect(() => {
+    if (isGeneratingVersion || !expanded) setEditingOverride(false);
+  }, [isGeneratingVersion, expanded]);
 
   /** Handle image generation: submit task and push a generating entry to the version stack. */
   const handleGenerate = useCallback(
@@ -931,8 +958,10 @@ export function ImageNodeView({
             // 逻辑：面板在 panelOverlay 层（与 DomNodeLayer 同坐标系），
             // 用节点 xywh 定位在节点正下方居中。
             // top 由 syncPanelScale 实时更新（间距 = PANEL_GAP_PX / zoom，屏幕恒定像素）。
+            // 初始值也需包含间距，避免 useEffect 执行前出现 0 间距闪烁。
             left: element.xywh[0] + element.xywh[2] / 2,
-            top: element.xywh[1] + element.xywh[3],
+            top: element.xywh[1] + element.xywh[3] + PANEL_GAP_PX / engine.viewport.getState().zoom,
+            transform: `translateX(-50%) scale(${1 / engine.viewport.getState().zoom})`,
             transformOrigin: 'top center',
           }}
           onPointerDown={event => {
@@ -948,7 +977,7 @@ export function ImageNodeView({
             upstreamText={upstream?.textList.join('\n')}
             upstreamImages={resolvedUpstreamImages}
             onGenerate={handleGenerate}
-            readonly={isReadyVersion}
+            readonly={isReadyVersion && !editingOverride}
           />
         </div>,
         panelOverlay,

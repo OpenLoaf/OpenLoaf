@@ -183,6 +183,12 @@ function computeHlsPath(sourcePath: string, resolvedPath: string): string {
   return resolvedPath;
 }
 
+/**
+ * Module-level set tracking which nodes have been unlocked for editing.
+ * Set by toolbar "regenerate" action, read by the component to override readonly.
+ */
+const editingUnlockedIds = new Set<string>();
+
 /** Build toolbar items for video nodes. */
 function createVideoToolbarItems(ctx: CanvasToolbarContext<VideoNodeProps>) {
   const { clipStart, clipEnd, duration, sourcePath } = ctx.element.props;
@@ -210,7 +216,8 @@ function createVideoToolbarItems(ctx: CanvasToolbarContext<VideoNodeProps>) {
           icon: <RefreshCw size={14} />,
           className: BOARD_TOOLBAR_ITEM_DEFAULT,
           onSelect: () => {
-            deriveNode({ engine: ctx.engine, sourceNodeId: ctx.element.id, targetType: 'video', targetProps: { origin: 'ai-generate' } })
+            editingUnlockedIds.add(ctx.element.id);
+            ctx.engine.setExpandedNodeId(ctx.element.id);
           },
         },
       ]
@@ -748,6 +755,25 @@ export function VideoNodeView({
   const isFailed = primaryEntry?.status === 'failed'
   const isReadyFromAi = primaryEntry?.status === 'ready' && element.props.origin === 'ai-generate'
 
+  /**
+   * Editing override — check module-level editingUnlockedIds set.
+   * Set by toolbar "regenerate" action, cleared when generation starts.
+   */
+  const [editingOverride, setEditingOverride] = useState(
+    () => editingUnlockedIds.has(element.id),
+  );
+  // 逻辑：每次 expanded 变化时检查是否被标记为编辑模式。
+  useEffect(() => {
+    if (editingUnlockedIds.has(element.id)) {
+      editingUnlockedIds.delete(element.id);
+      setEditingOverride(true);
+    }
+  }, [expanded, element.id]);
+  // 逻辑：生成开始后或面板关闭后自动关闭编辑覆盖。
+  useEffect(() => {
+    if (isGenerating || !expanded) setEditingOverride(false);
+  }, [isGenerating, expanded]);
+
   /** Switch the version stack primary entry and update the node source. */
   const handleSwitchPrimary = useCallback(
     (entryId: string) => {
@@ -931,7 +957,7 @@ export function VideoNodeView({
             onGenerate={handleGenerate}
             upstreamText={upstream?.textList.join('\n')}
             upstreamImages={upstream?.imageList}
-            readonly={isReadyFromAi}
+            readonly={isReadyFromAi && !editingOverride}
           />
         </div>,
         panelOverlay,

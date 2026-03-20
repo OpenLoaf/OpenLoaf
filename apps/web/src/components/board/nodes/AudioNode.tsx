@@ -13,7 +13,7 @@ import type {
   CanvasNodeViewProps,
   CanvasToolbarContext,
 } from "../engine/types";
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { z } from "zod";
 import {
@@ -162,6 +162,12 @@ async function downloadAudioFile(
   link.click()
 }
 
+/**
+ * Module-level set tracking which nodes have been unlocked for editing.
+ * Set by toolbar "regenerate" action, read by the component to override readonly.
+ */
+const editingUnlockedIds = new Set<string>();
+
 /** Build toolbar items for audio nodes. */
 function createAudioToolbarItems(
   ctx: CanvasToolbarContext<AudioNodeProps>,
@@ -177,7 +183,8 @@ function createAudioToolbarItems(
       label: i18next.t('board:audioNode.toolbar.regenerate'),
       icon: <RefreshCw size={14} />,
       onSelect: () => {
-        // placeholder: regenerate logic handled by upstream AI node
+        editingUnlockedIds.add(ctx.element.id);
+        ctx.engine.setExpandedNodeId(ctx.element.id);
       },
     })
     items.push({ id: 'divider-1', label: '', icon: null } as never)
@@ -467,6 +474,25 @@ export function AudioNodeView({
   const isFailed = primaryEntry?.status === 'failed'
   const isReadyFromAi = primaryEntry?.status === 'ready' && element.props.origin === 'ai-generate'
 
+  /**
+   * Editing override — check module-level editingUnlockedIds set.
+   * Set by toolbar "regenerate" action, cleared when generation starts.
+   */
+  const [editingOverride, setEditingOverride] = useState(
+    () => editingUnlockedIds.has(element.id),
+  );
+  // 逻辑：每次 expanded 变化时检查是否被标记为编辑模式。
+  useEffect(() => {
+    if (editingUnlockedIds.has(element.id)) {
+      editingUnlockedIds.delete(element.id);
+      setEditingOverride(true);
+    }
+  }, [expanded, element.id]);
+  // 逻辑：生成开始后或面板关闭后自动关闭编辑覆盖。
+  useEffect(() => {
+    if (isGenerating || !expanded) setEditingOverride(false);
+  }, [isGenerating, expanded]);
+
   /** Switch the version stack primary entry and update the node source. */
   const handleSwitchPrimary = useCallback(
     (entryId: string) => {
@@ -598,7 +624,7 @@ export function AudioNodeView({
               referenceAudioSrc: upstream?.audioList?.[0],
             }}
             onGenerate={handleGenerate}
-            readonly={isReadyFromAi}
+            readonly={isReadyFromAi && !editingOverride}
           />
         </div>,
         panelOverlay,
