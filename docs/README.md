@@ -15,7 +15,7 @@
   <br /><br />
   <a href="https://github.com/OpenLoaf/OpenLoaf/releases/latest">下载 macOS / Windows / Linux 安装包</a>
   <br /><br />
-  <a href="./README_en.md">English</a> | <strong>简体中文</strong>
+  <a href="./README_en.md">English</a> | <strong>简体中文</strong> | <a href="./README_ja.md">日本語</a>
 </div>
 
 ---

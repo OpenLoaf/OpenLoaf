@@ -622,7 +622,12 @@ export function SingleSelectionOutline({
 }: SingleSelectionOutlineProps) {
   const definition = engine.nodes.getDefinition(element.type);
   const canResize = definition?.capabilities?.resizable !== false;
-  const hideOutline = isGroupNodeType(element.type);
+  // 逻辑：组节点和有版本堆叠的媒体节点不显示选中边框（卡片堆叠自带视觉边界）。
+  const versionStack = (element.props as Record<string, unknown>)?.versionStack as
+    | { entries?: unknown[] }
+    | undefined;
+  const hasVersionStack = (versionStack?.entries?.length ?? 0) > 1;
+  const hideOutline = isGroupNodeType(element.type) || hasVersionStack;
 
   // 逻辑：视图变化时单独更新控制柄位置，避免全量快照渲染。
   const { isMoving, viewState } = useIsViewportMoving(engine);

@@ -71,7 +71,7 @@ function IconBtn(props: {
       onPointerDown={handlePointerDown}
       disabled={disabled}
       className={cn(
-        "inline-flex h-8 w-8 items-center justify-center rounded-md",
+        "inline-flex h-9 w-9 items-center justify-center rounded-md",
         "transition-colors duration-150",
         active
           ? BOARD_ICON_BTN_ACTIVE
@@ -154,8 +154,8 @@ function PanelItem(props: {
   } = props;
   const sizeClassName =
     size === "sm"
-      ? "gap-1.5 rounded-full px-2.5 py-1.5 text-xs"
-      : "gap-1.5 rounded-full px-3 py-2 text-xs";
+      ? "gap-2 rounded-full px-3 py-1.5 text-xs"
+      : "gap-2 rounded-full px-3.5 py-2 text-xs";
   /** Handle tool activation on pointer down to avoid click loss. */
   const handlePointerDown = (event: React.PointerEvent<HTMLButtonElement>) => {
     // 逻辑：优先响应按下，避免 click 被画布层吞掉

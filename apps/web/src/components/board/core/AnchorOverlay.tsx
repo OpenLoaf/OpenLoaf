@@ -102,7 +102,7 @@ export function AnchorOverlay({ snapshot }: AnchorOverlayProps) {
             : SELECTED_ANCHOR_EDGE_SIZE_HOVER
           : 11;
         const size = isHover ? hoverSize : baseSize;
-        const iconSize = isHover ? 16 : 14;
+        const iconSize = isHover ? 18 : 16;
         // 逻辑：选中锚点外扩保持固定距离，避免 hover 时跳动。
         const offsetDistance =
           useSelectedStyle ? baseSize / 2 + SELECTED_ANCHOR_GAP : 0;

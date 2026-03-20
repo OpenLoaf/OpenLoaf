@@ -484,7 +484,9 @@
     "generating": "生成中...",
     "generationFailed": "生成失败",
     "retry": "重试",
-    "parametersLocked": "参数已锁定 — 点击「重新生成」修改"
+    "parametersLocked": "参数已锁定 — 点击「解锁」修改",
+    "unlock": "解锁",
+    "emptyHint": "双击上传图片\n或选中后 AI 生成"
   },
   "videoNode": {
     "toolbar": {
@@ -505,7 +507,8 @@
     "generating": "视频生成中...",
     "generateFailed": "视频生成失败",
     "retry": "重试",
-    "parametersLocked": "参数已锁定"
+    "parametersLocked": "参数已锁定",
+    "emptyHint": "双击上传视频\n或选中后 AI 生成"
   },
   "audioNode": {
     "toolbar": {
@@ -519,10 +522,13 @@
     "generating": "音频生成中...",
     "generateFailed": "音频生成失败",
     "retry": "重试",
-    "parametersLocked": "参数已锁定"
+    "parametersLocked": "参数已锁定",
+    "emptyHint": "双击上传音频\n或选中后 AI 生成"
   },
   "versionStack": {
-    "badge": "{{count}} 个版本"
+    "badge": "{{count}} 个版本",
+    "prev": "上一张",
+    "next": "下一张"
   },
   "fileAttachmentNode": {
     "toolbar": {
@@ -569,7 +575,8 @@
     "transcoding": "转码中",
     "cancel": "取消",
     "retry": "重试",
-    "delete": "删除"
+    "delete": "删除",
+    "dismiss": "忽略"
   },
   "collab": {
     "imageTranscodeFailed": "图片转码失败，已使用原始文件插入"
@@ -690,6 +697,7 @@
     "enhancePrompt": "优化提示词",
     "translate": "翻译",
     "credits": "积分",
+    "estimatedCredits": "本次生成预计消耗积分",
     "mode": {
       "textToVideo": "文生视频",
       "universalRef": "全能参考",
@@ -734,8 +742,22 @@
     "settings": "设置",
     "generateMode": "生成模式",
     "upstreamSlots": "上游素材",
+    "estimatedCredits": "本次生成预计消耗积分",
     "stackMode": "堆叠（新版本）",
-    "overwriteMode": "覆盖主版本"
+    "overwriteMode": "覆盖主版本",
+    "mode": {
+      "auto": "自动",
+      "upscale": "高清",
+      "inpaint": "重绘",
+      "erase": "擦除",
+      "matting": "抠图",
+      "multiview": "多角度",
+      "outpaint": "扩图"
+    },
+    "comingSoon": "即将推出",
+    "upscaleScale": "放大倍数",
+    "maskEdit": "编辑遮罩",
+    "erasePlaceholder": "涂抹要擦除的区域"
   },
   "upscalePanel": {
     "title": "高清放大",
@@ -777,6 +799,7 @@
     "durationAuto": "自动",
     "translate": "翻译",
     "credits": "积分",
+    "estimatedCredits": "本次生成预计消耗积分",
     "noModel": "无可用模型",
     "loginHint": "登录以使用云端模型",
     "stackMode": "堆叠（新版本）",
@@ -815,5 +838,15 @@
     "generating": "生成中...",
     "translate": "翻译",
     "credits": "积分"
+  },
+  "generateAction": {
+    "generate": "生成",
+    "generating": "生成中...",
+    "newNode": "生成新节点",
+    "stackCurrent": "堆叠到当前节点",
+    "currentNode": "当前节点",
+    "regenerate": "重新生成",
+    "locked": "参数已锁定",
+    "unlock": "解锁编辑"
   }
 }

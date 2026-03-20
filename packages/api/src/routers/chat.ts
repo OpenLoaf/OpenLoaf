@@ -70,6 +70,16 @@ export type ChatSessionSummary = {
   messageCount: number
 }
 
+/** Paginated session list page. */
+export type ChatSessionListPage = {
+  items: ChatSessionSummary[]
+  total: number
+  cursor: string | null
+  nextCursor: string | null
+  pageSize: number
+  hasMore: boolean
+}
+
 export type CopySessionToBoardResult = {
   /** Target board metadata. */
   board: {
@@ -99,6 +109,25 @@ function normalizeOptionalId(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined
   const trimmed = value.trim()
   return trimmed ? trimmed : undefined
+}
+
+const DEFAULT_SESSION_PAGE_SIZE = 30
+const MAX_SESSION_PAGE_SIZE = 100
+
+/** Normalize session list page size into a safe bounded integer. */
+function normalizeSessionPageSize(pageSize?: number | null): number {
+  if (!pageSize || Number.isNaN(pageSize)) return DEFAULT_SESSION_PAGE_SIZE
+  const normalized = Math.floor(pageSize)
+  if (normalized < 1) return DEFAULT_SESSION_PAGE_SIZE
+  return Math.min(normalized, MAX_SESSION_PAGE_SIZE)
+}
+
+/** Decode offset cursor for paginated session list queries. */
+function decodeSessionListCursor(cursor?: string | null): number {
+  if (!cursor) return 0
+  const offset = Number.parseInt(cursor, 10)
+  if (Number.isNaN(offset) || offset < 0) return 0
+  return offset
 }
 
 /** Resolve boardId filter for session listing. */
@@ -196,18 +225,22 @@ export const chatRouter = t.router({
       z.object({
         projectId: z.string().optional(),
         boardId: z.string().trim().min(1).nullable().optional(),
+        cursor: z.string().nullable().optional(),
+        pageSize: z.number().int().min(1).max(100).nullable().optional(),
       }),
     )
-    .query(async ({ ctx, input }) => {
+    .query(async ({ ctx, input }): Promise<ChatSessionListPage> => {
       const projectId = normalizeOptionalId(input.projectId)
       const boardId = resolveBoardIdFilter(input.boardId)
+      const pageSize = normalizeSessionPageSize(input.pageSize)
+      const offset = decodeSessionListCursor(input.cursor)
       let projectIdFilter: string[] | null = null
       let projectTitleMap = new Map<string, string>()
 
       const projectTrees = await readProjectTrees()
       if (projectId) {
         const entry = findProjectNodeWithParent(projectTrees, projectId)
-        if (!entry) return []
+        if (!entry) return { items: [], total: 0, cursor: input.cursor ?? null, nextCursor: null, pageSize, hasMore: false }
         projectIdFilter = collectProjectSubtreeIds(entry.node)
       }
 
@@ -223,14 +256,21 @@ export const chatRouter = t.router({
       }
       const projectIconMap = buildProjectIconMap(projectTrees)
 
+      const where = {
+        deletedAt: null,
+        id: { not: { startsWith: 'task-' } },
+        ...(boardId !== undefined ? { boardId } : {}),
+        ...(projectIdFilter ? { projectId: { in: projectIdFilter } } : {}),
+      }
+
+      const total = await ctx.prisma.chatSession.count({ where })
+      const boundedOffset = Math.min(offset, total)
+
       const sessions = await ctx.prisma.chatSession.findMany({
-        where: {
-          deletedAt: null,
-          id: { not: { startsWith: 'task-' } },
-          ...(boardId !== undefined ? { boardId } : {}),
-          ...(projectIdFilter ? { projectId: { in: projectIdFilter } } : {}),
-        },
+        where,
         orderBy: [{ isPin: 'desc' }, { updatedAt: 'desc' }],
+        skip: boundedOffset,
+        take: pageSize,
         select: {
           id: true,
           title: true,
@@ -244,7 +284,7 @@ export const chatRouter = t.router({
         },
       })
 
-      return sessions.map((session) => ({
+      const items = sessions.map((session) => ({
         ...session,
         projectName: session.projectId
           ? projectTitleMap.get(session.projectId) ?? null
@@ -253,6 +293,18 @@ export const chatRouter = t.router({
           ? projectIconMap.get(session.projectId) ?? null
           : null,
       })) as ChatSessionSummary[]
+
+      const nextOffset = boundedOffset + items.length
+      const hasMore = nextOffset < total
+
+      return {
+        items,
+        total,
+        cursor: input.cursor ?? null,
+        nextCursor: hasMore ? String(nextOffset) : null,
+        pageSize,
+        hasMore,
+      }
     }),
 
   /**

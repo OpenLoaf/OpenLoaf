@@ -66,7 +66,7 @@ const textToImage: WorkflowTemplate = {
             previewSrc: '',
             originalSrc: '',
             mimeType: 'image/png',
-            fileName: 'ai-generated.png',
+            fileName: '',
             naturalWidth: NODE_SIZE[0],
             naturalHeight: NODE_SIZE[1],
             origin: 'ai-generate',
@@ -115,7 +115,7 @@ const imageToVideo: WorkflowTemplate = {
           type: 'video',
           props: {
             sourcePath: '',
-            fileName: 'ai-generated.mp4',
+            fileName: '',
             origin: 'ai-generate',
           },
           xywh: [
@@ -161,7 +161,7 @@ const fullPipeline: WorkflowTemplate = {
             previewSrc: '',
             originalSrc: '',
             mimeType: 'image/png',
-            fileName: 'ai-generated.png',
+            fileName: '',
             naturalWidth: NODE_SIZE[0],
             naturalHeight: NODE_SIZE[1],
             origin: 'ai-generate',
@@ -177,7 +177,7 @@ const fullPipeline: WorkflowTemplate = {
           type: 'video',
           props: {
             sourcePath: '',
-            fileName: 'ai-generated.mp4',
+            fileName: '',
             origin: 'ai-generate',
           },
           xywh: [

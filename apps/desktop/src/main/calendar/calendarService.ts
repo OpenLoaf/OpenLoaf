@@ -195,7 +195,9 @@ export function createCalendarService(args: { log: Logger }) {
     if (!helperPath || !fs.existsSync(helperPath)) {
       return;
     }
-    const child = spawn(helperPath, ["watch"], { stdio: ["ignore", "pipe", "pipe"] });
+    // 逻辑：stdin 设为 pipe，当本进程退出时管道断开，Swift 子进程检测到 stdin EOF
+    // 后自动退出，防止成为孤儿进程。对 watch 尤其重要——它是长驻进程。
+    const child = spawn(helperPath, ["watch"], { stdio: ["pipe", "pipe", "pipe"] });
     watchSession = { process: child };
 
     let buffer = "";

@@ -160,13 +160,10 @@ function PendingInsertPreviewBase({
     );
   }
 
-  // AI generation node preview (image / video)
+  // AI generation node preview (image / video / audio)
   if (pendingInsert.type === "image" || pendingInsert.type === "video") {
     const isImage = pendingInsert.type === "image";
     const Icon = isImage ? ImagePlus : VideoIcon;
-    const accentColor = isImage ? "text-ol-blue" : "text-ol-purple";
-    const borderColor = isImage ? "border-ol-blue/40" : "border-ol-purple/40";
-    const bgColor = isImage ? "bg-ol-blue-bg/30" : "bg-ol-purple-bg/30";
     return (
       <div
         ref={layerRef}
@@ -177,10 +174,10 @@ function PendingInsertPreviewBase({
           style={{ left: x, top: y, width: w, height: h, opacity: 0.75 }}
         >
           <div
-            className={`flex h-full w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed ${borderColor} ${bgColor}`}
+            className="flex h-full w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-foreground/20 bg-foreground/[0.03] dark:bg-foreground/[0.06]"
           >
-            <Icon size={28} className={accentColor} />
-            <span className={`text-xs font-medium ${accentColor}`}>
+            <Icon size={28} className="text-muted-foreground" />
+            <span className="text-xs font-medium text-muted-foreground">
               {pendingInsert.title || (isImage ? t("bottomBar.aiImage") : t("bottomBar.aiVideo"))}
             </span>
           </div>

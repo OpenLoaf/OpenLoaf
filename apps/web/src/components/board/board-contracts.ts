@@ -62,7 +62,7 @@ export type AiGenerateConfig = {
   /** Style preset applied during generation. */
   style?: string
   /** Aspect ratio used for generation. */
-  aspectRatio?: '1:1' | '16:9' | '9:16' | '4:3' | '3:4'
+  aspectRatio?: 'auto' | '1:1' | '16:9' | '9:16' | '4:3' | '3:4'
   /** Upstream node ids used as input references. */
   inputNodeIds?: string[]
   /** Server-side task id for the generation job. */

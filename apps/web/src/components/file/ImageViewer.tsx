@@ -781,7 +781,12 @@ export default function ImageViewer({
   const handleStartAdjust = React.useCallback(async () => {
     if (!dataUrl) return;
     if (!enableEdit) return;
-    if (!chat?.addAttachments || (!chat?.addMaskedAttachment && !onApplyMask)) {
+    // 逻辑：当提供了 onApplyMask 回调时（如画布 mask 编辑），跳过 chat/S3/model 检查。
+    if (onApplyMask) {
+      setIsAdjusting(true);
+      return;
+    }
+    if (!chat?.addAttachments || !chat?.addMaskedAttachment) {
       toast.error(t("file.onlyChatAvailable"));
       return;
     }
@@ -800,13 +805,13 @@ export default function ImageViewer({
     }
     maskModelIdRef.current = maskModels[0]?.id ?? "";
     setIsAdjusting(true);
-  }, [chat, dataUrl, hasS3Storage, modelOptions, rawChatSource]);
+  }, [chat, dataUrl, hasS3Storage, modelOptions, onApplyMask, rawChatSource]);
 
   /** Finish brush mode and save to attachments. */
   const handleFinishAdjust = React.useCallback(async () => {
     if (!dataUrl) return;
     if (!enableEdit) return;
-    if (!chat?.addAttachments || (!chat?.addMaskedAttachment && !onApplyMask)) {
+    if (!onApplyMask && (!chat?.addAttachments || !chat?.addMaskedAttachment)) {
       toast.error(t("file.onlyChatAvailable"));
       return;
     }
@@ -822,7 +827,7 @@ export default function ImageViewer({
 
     if (!hasStroke || !maskCanvasRef.current || !overlayCanvasRef.current) {
       // 未涂抹时直接保存原图，不生成 mask。
-      chat.addAttachments?.([imageFile]);
+      chat?.addAttachments?.([imageFile]);
       setIsAdjusting(false);
       setHasStroke(false);
       hasStrokeRef.current = false;
@@ -871,7 +876,7 @@ export default function ImageViewer({
     if (onApplyMask) {
       onApplyMask(maskedInput);
     } else {
-      chat.addMaskedAttachment?.(maskedInput);
+      chat?.addMaskedAttachment?.(maskedInput);
     }
     if (maskModelIdRef.current) {
       await setBasic({ modelDefaultChatModelId: maskModelIdRef.current });

@@ -11,7 +11,7 @@ import type {
   CanvasNodeDefinition,
   CanvasNodeViewProps,
 } from "../engine/types";
-import { AlertTriangle, Trash2 } from "lucide-react";
+import { Trash2, X } from "lucide-react";
 import { useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { NodeFrame } from "./NodeFrame";
@@ -72,18 +72,20 @@ function FallbackNodeView({
 
   return (
     <NodeFrame className="flex items-center justify-center">
-      <div className="flex h-full w-full flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-ol-border bg-ol-surface-muted/50 p-4 text-center">
-        <AlertTriangle size={20} className="text-ol-text-auxiliary" />
+      <div className="flex h-full w-full flex-col items-center justify-center gap-1.5 rounded-lg border border-ol-border bg-ol-surface-muted p-4 text-center">
+        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/[0.06]">
+          <X size={16} className="text-ol-text-auxiliary" />
+        </div>
         <p className="text-xs text-ol-text-auxiliary">
           {t("fallbackNode.deprecated", { type: element.type })}
         </p>
         <button
           type="button"
-          className="flex items-center gap-1 rounded-full bg-ol-red-bg px-3 py-1 text-xs text-ol-red transition-colors duration-150 hover:bg-ol-red/20"
+          className="text-[11px] text-ol-text-auxiliary hover:text-ol-text-secondary transition-colors duration-150"
           onPointerDown={(e) => e.stopPropagation()}
           onClick={handleDelete}
         >
-          <Trash2 size={12} />
+          <Trash2 size={12} className="inline mr-1" />
           {t("fallbackNode.delete")}
         </button>
       </div>

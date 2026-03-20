@@ -17,7 +17,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { z } from "zod";
 import {
-  AlertTriangle,
   Download,
   Loader2,
   Music,
@@ -26,6 +25,7 @@ import {
   Trash2,
   Type,
   Video,
+  X,
 } from "lucide-react";
 import i18next from "i18next";
 import { openFilePreview } from "@/components/file/lib/file-preview-store";
@@ -35,15 +35,21 @@ import {
   resolveBoardFolderScope,
   resolveProjectPathFromBoardUri,
 } from "../core/boardFilePath";
-import { parseScopedProjectPath } from "@/components/project/filesystem/utils/file-system-utils";
+import {
+  formatScopedProjectPath,
+  normalizeProjectRelativePath,
+  parseScopedProjectPath,
+} from "@/components/project/filesystem/utils/file-system-utils";
 import { getPreviewEndpoint } from "@/lib/image/uri";
 import { arrayBufferToBase64 } from "../utils/base64";
 import { NodeFrame } from "./NodeFrame";
 import { AudioAiPanel } from "../panels/AudioAiPanel";
-import type { AudioPanelUpstream } from "../panels/AudioAiPanel";
+import type { AudioPanelUpstream, AudioGenerateParams } from "../panels/AudioAiPanel";
+import { deriveNode } from "../utils/derive-node";
 import { useUpstreamData } from "../hooks/useUpstreamData";
 import { usePanelOverlay } from "../render/pixi/PixiApplication";
 import { submitAudioGenerate } from "../services/audio-generate";
+import { saveBoardAssetFile } from "../utils/board-asset";
 import { BOARD_ASSETS_DIR_NAME } from "@/lib/file-name";
 import {
   createInputSnapshot,
@@ -57,6 +63,8 @@ import {
 } from '../engine/version-stack';
 import { useMediaTaskPolling } from '../hooks/useMediaTaskPolling';
 import { VersionStackOverlay } from './VersionStackOverlay';
+import { GeneratingOverlay } from './GeneratingOverlay';
+import { AudioWavePlayer } from './AudioWavePlayer';
 
 /** Inline panel gap from node bottom edge in screen pixels (zoom-independent). */
 const PANEL_GAP_PX = 8;
@@ -90,14 +98,6 @@ function resolveProjectRelativePath(
     currentProjectId: fileContext?.projectId,
     rootUri: fileContext?.rootUri,
   });
-}
-
-/** Format seconds to mm:ss. */
-function formatDuration(seconds?: number): string {
-  if (seconds == null || !Number.isFinite(seconds) || seconds < 0) return "";
-  const mins = Math.floor(seconds / 60);
-  const secs = Math.floor(seconds % 60);
-  return `${mins}:${secs.toString().padStart(2, "0")}`;
 }
 
 /** Resolve the default directory for download dialogs. */
@@ -172,23 +172,7 @@ const editingUnlockedIds = new Set<string>();
 function createAudioToolbarItems(
   ctx: CanvasToolbarContext<AudioNodeProps>,
 ) {
-  const items = []
-  const origin = ctx.element.props.origin
-  const tbPrimaryEntry = getPrimaryEntry(ctx.element.props.versionStack)
-  const isAiReady = origin === 'ai-generate' && tbPrimaryEntry?.status === 'ready'
-
-  if (isAiReady) {
-    items.push({
-      id: 'regenerate',
-      label: i18next.t('board:audioNode.toolbar.regenerate'),
-      icon: <RefreshCw size={14} />,
-      onSelect: () => {
-        editingUnlockedIds.add(ctx.element.id);
-        ctx.engine.setExpandedNodeId(ctx.element.id);
-      },
-    })
-    items.push({ id: 'divider-1', label: '', icon: null } as never)
-  }
+  const items: ReturnType<typeof Array<any>>  = []
 
   items.push(
     {
@@ -215,10 +199,7 @@ function createAudioToolbarItems(
       label: i18next.t('board:audioNode.toolbar.delete'),
       icon: <Trash2 size={14} />,
       className: 'text-destructive',
-      onSelect: () => {
-        ctx.engine.doc.removeElement(ctx.element.id)
-        ctx.engine.commitHistory()
-      },
+      onSelect: () => ctx.engine.deleteSelection(),
     },
   )
 
@@ -274,6 +255,26 @@ export function AudioNodeView({
   const upstream = useUpstreamData(engine, expanded ? element.id : null);
   const panelOverlay = usePanelOverlay();
   const panelRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  /** Handle file selection from hidden input — save to board assets and update node. */
+  const handleFileInputChange = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file || !fileContext?.boardFolderUri) return;
+      e.target.value = '';
+      try {
+        const relativePath = await saveBoardAssetFile({
+          file,
+          fallbackName: 'audio.mp3',
+          projectId: fileContext.projectId,
+          boardFolderUri: fileContext.boardFolderUri,
+        });
+        onUpdate({ sourcePath: relativePath, fileName: file.name });
+      } catch { /* ignore save failure */ }
+    },
+    [fileContext, onUpdate],
+  );
 
   // 逻辑：通过 subscribeView 直接操作 DOM 同步面板缩放，避免 React 渲染延迟。
   // 面板通过 Portal 渲染到 panelOverlay 层（笔画上方），用 scale(1/zoom) 保持固定屏幕大小。
@@ -302,7 +303,6 @@ export function AudioNodeView({
   const resolvedPath = projectRelativePath || element.props.sourcePath;
   const displayName =
     element.props.fileName || resolvedPath.split("/").pop() || i18next.t('board:nodeLabel.audio');
-  const durationText = formatDuration(element.props.duration);
   const boardId = fileContext?.boardId ?? "";
 
   // 逻辑：从 @{[proj_xxx]/path} 格式中提取 projectId 作为 fallback。
@@ -361,6 +361,21 @@ export function AudioNodeView({
   const primaryEntry = getPrimaryEntry(element.props.versionStack)
   const generatingEntry = getGeneratingEntry(element.props.versionStack)
 
+  // 逻辑：有生成记录时使用冻结的上游数据，版本切换时自动跟随。
+  const effectiveUpstream = useMemo(() => {
+    const refs = primaryEntry?.input?.upstreamRefs;
+    if (primaryEntry?.status === 'ready' && refs && refs.length > 0) {
+      return {
+        textContent: refs.filter(r => r.nodeType === 'text').map(r => r.data).join('\n') || undefined,
+        referenceAudioSrc: refs.find(r => r.nodeType === 'audio')?.data,
+      };
+    }
+    return {
+      textContent: upstream?.textList.join('\n') || undefined,
+      referenceAudioSrc: upstream?.audioList?.[0],
+    };
+  }, [primaryEntry, upstream]);
+
   const saveDir = useMemo(
     () =>
       fileContext?.boardFolderUri
@@ -381,12 +396,26 @@ export function AudioNodeView({
         const stack = element.props.versionStack
         if (!stack) return
         const savedPath = resultUrls[0]?.trim() || ''
+        const scopedPath = (() => {
+          if (!savedPath) return ''
+          if (parseScopedProjectPath(savedPath)) return savedPath
+          const pid = fileContext?.projectId
+          if (!pid) return savedPath
+          const relative = normalizeProjectRelativePath(savedPath)
+          return formatScopedProjectPath({
+            projectId: pid,
+            currentProjectId: pid,
+            relativePath: relative,
+            includeAt: true,
+          })
+        })()
         onUpdate({
           versionStack: markVersionReady(stack, generatingEntry.id, { urls: resultUrls }),
-          sourcePath: savedPath,
+          sourcePath: scopedPath,
+          fileName: savedPath.split('/').pop() || undefined,
         })
       },
-      [generatingEntry, element.props.versionStack, onUpdate],
+      [generatingEntry, element.props.versionStack, onUpdate, fileContext?.projectId],
     ),
     onFailure: useCallback(
       (error: string) => {
@@ -437,6 +466,10 @@ export function AudioNodeView({
             textContent: params.textContent,
             referenceAudioSrc: params.referenceAudioSrc,
           },
+          upstreamRefs: [
+            ...(upstream?.textList ?? []).map(text => ({ nodeId: '', nodeType: 'text', data: text })),
+            ...(upstream?.audioList ?? []).map(src => ({ nodeId: '', nodeType: 'audio', data: src })),
+          ],
         })
         const entry = createGeneratingEntry(snapshot, result.taskId)
         onUpdate({
@@ -470,9 +503,58 @@ export function AudioNodeView({
     })
   }, [primaryEntry, handleGenerate])
 
+  /** Generate into a new derived audio node with the same params. */
+  const handleGenerateNewNode = useCallback(
+    async (params: AudioGenerateParams) => {
+      try {
+        const newNodeId = deriveNode({
+          engine,
+          sourceNodeId: element.id,
+          targetType: 'audio',
+          targetProps: { origin: 'ai-generate' },
+        })
+        if (!newNodeId) return
+
+        const result = await submitAudioGenerate(
+          {
+            prompt: params.prompt,
+            modelId: params.modelId === 'auto' ? undefined : params.modelId,
+            audioType: params.mode === 'tts' ? 'voiceover' : params.mode,
+            duration: params.duration === 'auto' ? undefined : params.duration,
+          },
+          {
+            projectId: fileContext?.projectId,
+            saveDir,
+            sourceNodeId: newNodeId,
+          },
+        )
+
+        const snapshot = createInputSnapshot({
+          prompt: params.prompt,
+          modelId: params.modelId,
+          parameters: {
+            mode: params.mode,
+            duration: params.duration,
+            textContent: params.textContent,
+            referenceAudioSrc: params.referenceAudioSrc,
+          },
+        })
+        const entry = createGeneratingEntry(snapshot, result.taskId)
+        engine.doc.updateNodeProps(newNodeId, {
+          versionStack: pushVersion(undefined, entry),
+          origin: 'ai-generate',
+        })
+      } catch (err) {
+        console.error('[AudioNode] new node generation failed:', err)
+      }
+    },
+    [engine, element.id, fileContext?.projectId, saveDir],
+  )
+
   const isGenerating = primaryEntry?.status === 'generating'
   const isFailed = primaryEntry?.status === 'failed'
   const isReadyFromAi = primaryEntry?.status === 'ready' && element.props.origin === 'ai-generate'
+  const [dismissedFailure, setDismissedFailure] = useState(false)
 
   /**
    * Editing override — check module-level editingUnlockedIds set.
@@ -492,6 +574,10 @@ export function AudioNodeView({
   useEffect(() => {
     if (isGenerating || !expanded) setEditingOverride(false);
   }, [isGenerating, expanded]);
+  // 逻辑：新的失败状态出现时重置 dismiss。
+  useEffect(() => {
+    if (isFailed) setDismissedFailure(false);
+  }, [primaryEntry?.id]);
 
   /** Switch the version stack primary entry and update the node source. */
   const handleSwitchPrimary = useCallback(
@@ -520,83 +606,85 @@ export function AudioNodeView({
         className={[
           "relative flex h-full w-full flex-col rounded-lg border box-border",
           "border-ol-divider bg-background text-ol-text-primary",
-          isGenerating ? "openloaf-thinking-border openloaf-thinking-border-on border-transparent" : "",
+          "",
         ].join(" ")}
         onDoubleClick={(event) => {
           event.stopPropagation();
-          // 逻辑：展开态不触发预览，因为此时双击可能是编辑面板内的操作。
           if (expanded) return;
           if (isGenerating || isFailed) return;
+          // 逻辑：空节点双击打开文件选择器，有内容时双击打开预览。
+          if (!element.props.sourcePath?.trim()) {
+            fileInputRef.current?.click();
+            return;
+          }
           handleOpenPreview();
         }}
       >
         {/* Generating overlay */}
         {isGenerating && (
-          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-background/80 backdrop-blur-sm rounded-lg">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            <span className="text-xs text-muted-foreground">
-              {pollingResult.progressText || i18next.t('board:audioNode.generating', { defaultValue: 'Generating...' })}
-            </span>
-          </div>
+          <GeneratingOverlay
+            startedAt={pollingResult.startedAt}
+            estimatedSeconds={30}
+            serverProgress={pollingResult.progress}
+            color="green"
+          />
         )}
 
         {/* Failed overlay */}
-        {isFailed && (
-          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-ol-red-bg/60 p-4 rounded-lg">
-            <AlertTriangle className="h-6 w-6 text-ol-red" />
-            <span className="text-xs text-center text-ol-red">
+        {isFailed && !dismissedFailure && (
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-background/75 backdrop-blur-sm p-4 rounded-lg">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/[0.06]">
+              <X className="h-4 w-4 text-ol-text-auxiliary" />
+            </div>
+            <span className="text-xs text-center text-ol-text-auxiliary font-medium">
               {primaryEntry.error?.message || i18next.t('board:audioNode.generateFailed', { defaultValue: 'Generation failed' })}
             </span>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleRetry();
-              }}
-              className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] bg-ol-blue-bg text-ol-blue hover:bg-ol-blue/20 transition-colors duration-150"
-            >
-              <RefreshCw className="h-3 w-3" />
-              {i18next.t('board:audioNode.retry', { defaultValue: 'Retry' })}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleRetry();
+                }}
+                className="flex items-center gap-1 rounded-full px-3 py-1 text-[11px] bg-white/[0.08] text-ol-text-secondary hover:bg-white/[0.12] transition-colors duration-150"
+              >
+                <RefreshCw className="h-3 w-3" />
+                {i18next.t('board:audioNode.retry', { defaultValue: 'Retry' })}
+              </button>
+              {audioSrc && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDismissedFailure(true);
+                  }}
+                  className="text-[11px] text-ol-text-auxiliary underline underline-offset-2 hover:text-ol-text-secondary transition-colors duration-150"
+                >
+                  {i18next.t('board:loading.dismiss', { defaultValue: 'Dismiss' })}
+                </button>
+              )}
+            </div>
           </div>
         )}
 
-        {/* Header: icon + name + duration */}
-        <div className="flex items-center gap-2.5 px-3 pt-2.5 pb-1.5">
-          <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-ol-amber-bg text-ol-amber">
-            <Music className="h-4 w-4" />
-          </div>
-          <div className="flex min-w-0 flex-1 flex-col">
-            <span className="truncate text-[12px] font-medium leading-tight">
-              {displayName}
-            </span>
-            {durationText ? (
-              <span className="text-[10px] text-muted-foreground">
-                {durationText}
-              </span>
-            ) : null}
-          </div>
-        </div>
-
-        {/* Inline audio player */}
+        {/* Audio waveform player — fills entire node */}
         <div
-          className="flex flex-1 items-end px-2.5 pb-2"
+          className="flex flex-1 min-h-0"
           data-board-scroll
           onPointerDown={(event) => {
             event.stopPropagation();
           }}
         >
           {audioSrc ? (
-            <audio
-              controls
-              controlsList="nodownload"
-              preload="metadata"
-              className="h-8 w-full [&::-webkit-media-controls-panel]:bg-neutral-50 dark:[&::-webkit-media-controls-panel]:bg-neutral-800"
-              src={audioSrc}
-            />
+            <AudioWavePlayer src={audioSrc} />
           ) : (
-            <div className="flex h-8 w-full items-center justify-center text-[10px] text-muted-foreground">
-              {i18next.t("board:audioNode.noSource")}
+            <div className="flex h-full w-full items-center justify-center rounded-lg border border-dashed border-ol-divider bg-ol-surface-muted">
+              <div className="flex flex-col items-center gap-2 text-muted-foreground/40 px-4">
+                <Music size={36} strokeWidth={1.2} />
+                <span className="text-xs text-center leading-relaxed whitespace-pre-line">
+                  {i18next.t('board:audioNode.emptyHint', { defaultValue: '双击上传音频\n或选中后 AI 生成' })}
+                </span>
+              </div>
             </div>
           )}
         </div>
@@ -620,16 +708,26 @@ export function AudioNodeView({
         >
           <AudioAiPanel
             upstream={{
-              textContent: upstream?.textList.join('\n'),
-              referenceAudioSrc: upstream?.audioList?.[0],
+              textContent: effectiveUpstream.textContent,
+              referenceAudioSrc: effectiveUpstream.referenceAudioSrc,
             }}
             onGenerate={handleGenerate}
-            readonly={isReadyFromAi && !editingOverride}
+            onGenerateNewNode={handleGenerateNewNode}
+            hasResource={Boolean(element.props.sourcePath)}
+            readonly={(isReadyFromAi || !!generatingEntry) && !editingOverride}
+            editing={editingOverride}
             onUnlock={() => setEditingOverride(true)}
           />
         </div>,
         panelOverlay,
       ) : null}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="audio/*"
+        className="hidden"
+        onChange={handleFileInputChange}
+      />
     </NodeFrame>
   );
 }
@@ -661,11 +759,11 @@ export const AudioNodeDefinition: CanvasNodeDefinition<AudioNodeProps> = {
   },
   view: AudioNodeView,
   capabilities: {
-    resizable: true,
+    resizable: false,
     rotatable: false,
     connectable: 'anchors',
-    minSize: { w: 200, h: 100 },
-    maxSize: { w: 480, h: 160 },
+    minSize: { w: 320, h: 120 },
+    maxSize: { w: 320, h: 120 },
   },
   inlinePanel: { width: 420, height: 320 },
   connectorTemplates: () => getAudioNodeConnectorTemplates(),

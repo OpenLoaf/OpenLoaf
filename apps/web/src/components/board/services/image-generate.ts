@@ -25,6 +25,8 @@ export type ImageGenerateRequest = {
   resolution?: string
   style?: string
   referenceImageSrc?: string
+  /** All upstream reference images (takes precedence over referenceImageSrc). */
+  referenceImageSrcs?: string[]
 }
 
 export type ImageGenerateResult = {
@@ -64,9 +66,14 @@ export async function submitImageGenerate(
 
   // 逻辑：图生图模式下，将参考图作为输入传给 SaaS API。
   // 本地 URL 的解析由服务端 submitImageProxy 处理（S3 优先 → base64 兜底）。
-  if (request.referenceImageSrc) {
+  const refSrcs = request.referenceImageSrcs?.length
+    ? request.referenceImageSrcs
+    : request.referenceImageSrc
+      ? [request.referenceImageSrc]
+      : []
+  if (refSrcs.length > 0) {
     payload.inputs = {
-      images: [{ url: request.referenceImageSrc }],
+      images: refSrcs.map((url) => ({ url })),
     }
   }
 

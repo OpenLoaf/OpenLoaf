@@ -480,7 +480,9 @@
     "generating": "Generating...",
     "generationFailed": "Generation failed",
     "retry": "Retry",
-    "parametersLocked": "Parameters locked — click Regenerate to modify"
+    "parametersLocked": "Parameters locked — click Unlock to modify",
+    "unlock": "Unlock",
+    "emptyHint": "Double-click to upload\nor select to generate with AI"
   },
   "videoNode": {
     "toolbar": {
@@ -501,7 +503,8 @@
     "generating": "Generating video...",
     "generateFailed": "Video generation failed",
     "retry": "Retry",
-    "parametersLocked": "Parameters locked"
+    "parametersLocked": "Parameters locked",
+    "emptyHint": "Double-click to upload\nor select to generate with AI"
   },
   "audioNode": {
     "toolbar": {
@@ -515,10 +518,13 @@
     "generating": "Generating audio...",
     "generateFailed": "Audio generation failed",
     "retry": "Retry",
-    "parametersLocked": "Parameters locked"
+    "parametersLocked": "Parameters locked",
+    "emptyHint": "Double-click to upload\nor select to generate with AI"
   },
   "versionStack": {
-    "badge": "{{count}} versions"
+    "badge": "{{count}} versions",
+    "prev": "Previous",
+    "next": "Next"
   },
   "fileAttachmentNode": {
     "toolbar": {
@@ -565,7 +571,8 @@
     "transcoding": "Transcoding",
     "cancel": "Cancel",
     "retry": "Retry",
-    "delete": "Delete"
+    "delete": "Delete",
+    "dismiss": "Dismiss"
   },
   "collab": {
     "imageTranscodeFailed": "Image transcoding failed, original file was inserted"
@@ -686,6 +693,7 @@
     "enhancePrompt": "Enhance Prompt",
     "translate": "Translate",
     "credits": "Credits",
+    "estimatedCredits": "Estimated credits for this generation",
     "mode": {
       "textToVideo": "Text to Video",
       "universalRef": "Universal Ref",
@@ -730,8 +738,22 @@
     "settings": "Settings",
     "generateMode": "Generate mode",
     "upstreamSlots": "Upstream Assets",
+    "estimatedCredits": "Estimated credits for this generation",
     "stackMode": "Stack (New Version)",
-    "overwriteMode": "Overwrite Primary"
+    "overwriteMode": "Overwrite Primary",
+    "mode": {
+      "auto": "Auto",
+      "upscale": "Upscale",
+      "inpaint": "Inpaint",
+      "erase": "Erase",
+      "matting": "Cutout",
+      "multiview": "Multi-angle",
+      "outpaint": "Outpaint"
+    },
+    "comingSoon": "Coming Soon",
+    "upscaleScale": "Scale Factor",
+    "maskEdit": "Edit Mask",
+    "erasePlaceholder": "Paint over the area to erase"
   },
   "upscalePanel": {
     "title": "HD Upscale",
@@ -773,6 +795,7 @@
     "durationAuto": "Auto",
     "translate": "Translate",
     "credits": "Credits",
+    "estimatedCredits": "Estimated credits for this generation",
     "noModel": "No models available",
     "loginHint": "Sign in to use cloud models",
     "stackMode": "Stack (New Version)",
@@ -811,5 +834,15 @@
     "generating": "Generating...",
     "translate": "Translate",
     "credits": "Credits"
+  },
+  "generateAction": {
+    "generate": "Generate",
+    "generating": "Generating...",
+    "newNode": "Generate New Node",
+    "stackCurrent": "Stack on Current Node",
+    "currentNode": "Current node",
+    "regenerate": "Regenerate",
+    "locked": "Parameters Locked",
+    "unlock": "Unlock"
   }
 }

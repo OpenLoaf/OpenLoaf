@@ -171,27 +171,6 @@ const LeftToolbar = memo(function LeftToolbar({
     [],
   );
 
-  // 监听双击空白区域派发的自定义事件，打开插入面板
-  useEffect(() => {
-    const container = engine.getContainer();
-    if (!container) return;
-    const handleOpenInsertPanel = () => {
-      if (isLocked) return;
-      setInsertPanelOpen(true);
-      setDrawPanelOpen(false);
-    };
-    container.addEventListener(
-      "openloaf:board-open-insert-panel",
-      handleOpenInsertPanel,
-    );
-    return () => {
-      container.removeEventListener(
-        "openloaf:board-open-insert-panel",
-        handleOpenInsertPanel,
-      );
-    };
-  }, [engine, isLocked]);
-
   const closeAllPanels = useCallback(() => {
     setInsertPanelOpen(false);
     setDrawPanelOpen(false);
@@ -260,19 +239,19 @@ const LeftToolbar = memo(function LeftToolbar({
       if (nodeType === "image") {
         props = {
           previewSrc: "", originalSrc: "", mimeType: "image/png",
-          fileName: "ai-generated.png", naturalWidth: w, naturalHeight: h,
+          fileName: "", naturalWidth: w, naturalHeight: h,
           origin: "ai-generate",
         };
       } else if (nodeType === "video") {
-        props = { sourcePath: "", fileName: "ai-generated.mp4", origin: "ai-generate" };
+        props = { sourcePath: "", fileName: "", origin: "ai-generate" };
       } else {
-        props = { sourcePath: "", fileName: "ai-generated.mp3", origin: "ai-generate" };
+        props = { sourcePath: "", fileName: "", origin: "ai-generate" };
       }
       handleInsertRequest({
         id: `ai-${nodeType}`,
         type: nodeType,
         props,
-        size: [w, h],
+        size: nodeType === 'audio' ? [320, 120] : [w, h],
         title: t(`insertTools.${nodeType}`),
       });
     },

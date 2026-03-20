@@ -24,6 +24,8 @@ export type TaskPollingResult = {
   progressText?: string
   resultUrls?: string[]
   error?: string
+  /** Timestamp (ms) when polling started — used for countdown display. */
+  startedAt?: number
 }
 
 export type UseMediaTaskPollingOptions = {
@@ -97,9 +99,8 @@ export function useMediaTaskPolling(
     const controller = new AbortController()
     abortRef.current = controller
 
-    setResult({ status: 'polling' })
-
     const startTime = Date.now()
+    setResult({ status: 'polling', startedAt: startTime })
     const timeoutMs = TIMEOUT_MS[taskType]
 
     const run = async () => {
@@ -187,6 +188,7 @@ export function useMediaTaskPolling(
             status: 'polling',
             progress,
             progressText: progress !== undefined ? `${progress}%` : 'Generating...',
+            startedAt: startTime,
           })
 
           // Backoff wait.

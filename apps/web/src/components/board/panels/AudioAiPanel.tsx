@@ -10,22 +10,20 @@
 import { useState, useMemo, useCallback } from 'react'
 import {
   ChevronDown,
-  Layers,
   Link2,
-  Lock,
   Mic,
   Music,
-  Replace,
-  Send,
   Sparkles,
   Volume2,
-  Wand2,
+  Zap,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@udecode/cn'
 import {
   BOARD_GENERATE_INPUT,
 } from '../ui/board-style-system'
+import { estimateAudioCredits } from '../services/credit-estimate'
+import { GenerateActionBar } from './GenerateActionBar'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -47,25 +45,32 @@ export type AudioPanelUpstream = {
   referenceAudioName?: string
 }
 
+/** Audio generate params type. */
+export type AudioGenerateParams = {
+  mode: AudioGenerateMode
+  prompt: string
+  modelId: string
+  duration: AudioDurationOption | 'auto'
+  textContent?: string
+  referenceAudioSrc?: string
+}
+
 /** Props for the AudioAiPanel component. */
 export type AudioAiPanelProps = {
   /** Upstream data from connected nodes. */
   upstream?: AudioPanelUpstream
   /** Callback when the user submits a generation request. */
-  onGenerate?: (params: {
-    mode: AudioGenerateMode
-    prompt: string
-    modelId: string
-    duration: AudioDurationOption | 'auto'
-    textContent?: string
-    referenceAudioSrc?: string
-    /** Whether to stack (default) or overwrite the primary version. */
-    generateMode?: 'stack' | 'overwrite'
-  }) => void
+  onGenerate?: (params: AudioGenerateParams) => void
+  /** Callback to generate into a new derived node. */
+  onGenerateNewNode?: (params: AudioGenerateParams) => void
+  /** Whether the node currently has a resource. */
+  hasResource?: boolean
   /** Whether the panel is in a generating state. */
   generating?: boolean
   /** When true, all inputs are disabled and the generate button is hidden. */
   readonly?: boolean
+  /** Editing mode — user unlocked an existing result to tweak params. */
+  editing?: boolean
   /** Callback to unlock the panel for editing. */
   onUnlock?: () => void
   /** Additional class name for the root element. */
@@ -92,8 +97,11 @@ const TAB_CONFIG: { id: AudioGenerateMode; icon: typeof Mic }[] = [
 export function AudioAiPanel({
   upstream,
   onGenerate,
+  onGenerateNewNode,
+  hasResource = false,
   generating = false,
   readonly = false,
+  editing = false,
   onUnlock,
   className,
 }: AudioAiPanelProps) {
@@ -105,8 +113,6 @@ export function AudioAiPanel({
   const [modelId] = useState('')
   const [duration, setDuration] = useState<AudioDurationOption | 'auto'>('auto')
   const [durationOpen, setDurationOpen] = useState(false)
-  const [generateMode, setGenerateMode] = useState<'stack' | 'overwrite'>('stack')
-  const [showGenerateDropdown, setShowGenerateDropdown] = useState(false)
 
   const hasUpstreamText = Boolean(upstream?.textContent?.trim())
   const hasUpstreamAudio = Boolean(upstream?.referenceAudioSrc?.trim())
@@ -114,43 +120,49 @@ export function AudioAiPanel({
   // For TTS mode, duration is auto (based on text length)
   const showDuration = mode !== 'tts'
 
+  const buildParams = useCallback((): AudioGenerateParams => ({
+    mode,
+    prompt,
+    modelId,
+    duration: mode === 'tts' ? 'auto' : duration,
+    textContent: mode === 'tts' ? upstream?.textContent : undefined,
+    referenceAudioSrc:
+      mode === 'tts' ? upstream?.referenceAudioSrc : undefined,
+  }), [mode, prompt, modelId, duration, upstream])
+
   const handleGenerate = useCallback(() => {
-    onGenerate?.({
-      mode,
-      prompt,
-      modelId,
-      duration: mode === 'tts' ? 'auto' : duration,
-      textContent: mode === 'tts' ? upstream?.textContent : undefined,
-      referenceAudioSrc:
-        mode === 'tts' ? upstream?.referenceAudioSrc : undefined,
-      generateMode,
-    })
-  }, [mode, prompt, modelId, duration, upstream, onGenerate, generateMode])
+    onGenerate?.(buildParams())
+  }, [onGenerate, buildParams])
+
+  const handleGenerateNew = useCallback(() => {
+    onGenerateNewNode?.(buildParams())
+  }, [onGenerateNewNode, buildParams])
 
   const durationLabel = useMemo(() => {
     if (duration === 'auto') return t('audioPanel.durationAuto')
     return `${duration}s`
   }, [duration, t])
 
+  const textLength = mode === 'tts' ? (upstream?.textContent?.length ?? 0) : 0
+  const estimatedCredits = useMemo(
+    () =>
+      estimateAudioCredits({
+        modelId,
+        textLength,
+        duration: mode === 'tts' ? 'auto' : duration,
+        mode,
+      }),
+    [modelId, textLength, duration, mode],
+  )
+
   return (
     <div
       className={cn(
-        'flex w-full flex-col gap-3 rounded-lg border border-border/60 bg-card p-3',
+        'flex w-[420px] flex-col gap-3 rounded-xl border border-border bg-card p-3 shadow-lg',
         readonly && 'opacity-80',
         className,
       )}
     >
-      {/* ---- Readonly Banner ---- */}
-      {readonly ? (
-        <button
-          type="button"
-          onClick={() => onUnlock?.()}
-          className="flex items-center gap-1.5 rounded-md bg-foreground/5 px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-foreground/10 transition-colors duration-150 cursor-pointer"
-        >
-          <Lock size={12} />
-          <span>{t('audioPanel.parametersLocked', { defaultValue: 'Parameters locked — click to unlock' })}</span>
-        </button>
-      ) : null}
       {/* ---- Tab Row ---- */}
       <div className="flex items-center gap-1 rounded-md bg-ol-surface-muted p-0.5">
         {TAB_CONFIG.map(({ id, icon: Icon }) => (
@@ -261,14 +273,14 @@ export function AudioAiPanel({
               readonly && 'cursor-not-allowed opacity-60',
             )}
           />
-          {/* Enhance Prompt Button (placeholder) */}
-          <button
+          {/* Enhance Prompt Button — TODO: re-enable when implemented */}
+          {/* <button
             type="button"
             className="absolute bottom-2 right-2 flex h-5 w-5 items-center justify-center rounded text-muted-foreground/60 transition-colors hover:text-foreground"
             title={t('audioPanel.enhancePrompt')}
           >
             <Wand2 size={13} />
-          </button>
+          </button> */}
         </div>
       </div>
 
@@ -338,79 +350,33 @@ export function AudioAiPanel({
         {/* Spacer */}
         <div className="flex-1" />
 
-        {/* Translate (placeholder) */}
-        <button
+        {/* Translate — TODO: re-enable when implemented */}
+        {/* <button
           type="button"
           className="text-[11px] text-muted-foreground transition-colors hover:text-foreground"
         >
           {t('audioPanel.translate')}
-        </button>
+        </button> */}
 
-        {/* Credits (placeholder) */}
-        <span className="text-[11px] text-muted-foreground">
-          {t('audioPanel.credits')}
-        </span>
-
-        {/* Generate Button */}
-        {readonly ? null : (
-          <div className="relative flex items-center">
-            {/* Main generate button */}
-            <button
-              type="button"
-              disabled={generating}
-              className={cn(
-                'flex items-center gap-1.5 rounded-l-full px-3 py-1.5 text-xs font-medium',
-                'bg-foreground text-background transition-colors duration-150',
-                'hover:bg-foreground/90 disabled:opacity-50',
-              )}
-              onClick={handleGenerate}
-            >
-              <Send size={12} />
-              <span>{generating ? t('audioPanel.generating') : t('audioPanel.generate')}</span>
-            </button>
-            {/* Dropdown trigger */}
-            <button
-              type="button"
-              disabled={generating}
-              className={cn(
-                'flex h-full items-center rounded-r-full border-l border-white/20 px-1.5 py-1.5',
-                'bg-foreground text-background transition-colors duration-150',
-                'hover:bg-foreground/90 disabled:opacity-50',
-              )}
-              onClick={() => setShowGenerateDropdown(!showGenerateDropdown)}
-            >
-              <ChevronDown size={10} />
-            </button>
-            {/* Dropdown menu */}
-            {showGenerateDropdown ? (
-              <div className="absolute bottom-full right-0 mb-1 flex min-w-[140px] flex-col rounded-md border border-border bg-card py-0.5 shadow-md">
-                <button
-                  type="button"
-                  className={cn(
-                    'flex items-center gap-2 px-3 py-1.5 text-[11px] transition-colors duration-150 hover:bg-foreground/5',
-                    generateMode === 'stack' ? 'font-medium text-foreground' : 'text-muted-foreground',
-                  )}
-                  onClick={() => { setGenerateMode('stack'); setShowGenerateDropdown(false) }}
-                >
-                  <Layers size={12} />
-                  {t('audioPanel.stackMode')}
-                </button>
-                <button
-                  type="button"
-                  className={cn(
-                    'flex items-center gap-2 px-3 py-1.5 text-[11px] transition-colors duration-150 hover:bg-foreground/5',
-                    generateMode === 'overwrite' ? 'font-medium text-foreground' : 'text-muted-foreground',
-                  )}
-                  onClick={() => { setGenerateMode('overwrite'); setShowGenerateDropdown(false) }}
-                >
-                  <Replace size={12} />
-                  {t('audioPanel.overwriteMode')}
-                </button>
-              </div>
-            ) : null}
-          </div>
-        )}
+        {/* Credits Indicator */}
+        <div className="inline-flex items-center gap-0.5 text-[11px] text-muted-foreground" title={t('audioPanel.estimatedCredits')}>
+          <Zap size={12} />
+          <span>{estimatedCredits != null ? `≈${estimatedCredits}` : '--'}</span>
+        </div>
       </div>
+
+      {/* ---- Generate Action Bar ---- */}
+      <GenerateActionBar
+        hasResource={hasResource}
+        generating={generating}
+        disabled={false}
+        buttonClassName="bg-foreground text-background hover:bg-foreground/90"
+        onGenerate={handleGenerate}
+        onGenerateNewNode={handleGenerateNew}
+        readonly={readonly}
+        editing={editing}
+        onUnlock={onUnlock}
+      />
     </div>
   )
 }

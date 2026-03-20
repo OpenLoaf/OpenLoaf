@@ -23,22 +23,24 @@ import {
 import { Button } from "@openloaf/ui/button"
 import { Checkbox } from "@openloaf/ui/checkbox"
 import { useBasicConfig } from "@/hooks/use-basic-config"
+import { useAppView } from "@/hooks/use-app-view"
 
 export default function DevNoticeDialog() {
   const { t } = useTranslation('project', { keyPrefix: 'global' })
   const { basic, setBasic, isLoading } = useBasicConfig()
+  const appInitialized = useAppView((s) => s.initialized)
 
   const [open, setOpen] = useState(false)
   const [dontShowAgain, setDontShowAgain] = useState(true)
   const shownRef = useRef(false)
 
   useEffect(() => {
-    if (isLoading || shownRef.current) return
+    if (isLoading || !appInitialized || shownRef.current) return
     shownRef.current = true
     if (basic.showDevNoticeDialog) {
       setOpen(true)
     }
-  }, [isLoading, basic.showDevNoticeDialog])
+  }, [isLoading, appInitialized, basic.showDevNoticeDialog])
 
   const handleClose = () => {
     setOpen(false)

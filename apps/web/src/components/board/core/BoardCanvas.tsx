@@ -253,7 +253,21 @@ export function BoardCanvas({
   /** Engine instance used for rendering and interaction. */
   const engineRef = useRef<CanvasEngine | null>(null);
   if (!engineRef.current) {
-    engineRef.current = externalEngine ?? new CanvasEngine();
+    const created = externalEngine ?? new CanvasEngine();
+    // 逻辑：引擎创建后立即从 localStorage 恢复上次视口，确保首帧就处于正确位置。
+    if (resolvedBoardId) {
+      try {
+        const raw = localStorage.getItem(`board-viewport:${resolvedBoardId}`);
+        if (raw) {
+          const saved = JSON.parse(raw);
+          if (typeof saved.zoom === 'number' && Array.isArray(saved.offset)) {
+            created.viewport.setViewport(saved.zoom, saved.offset);
+            created.markInitialViewportRestored();
+          }
+        }
+      } catch { /* ignore */ }
+    }
+    engineRef.current = created;
   }
   const engine = externalEngine ?? engineRef.current;
   /** Current board element count (kept in sync for thumbnail guard). */
@@ -690,6 +704,61 @@ export function BoardCanvas({
         .catch(() => {});
     };
   }, [boardFolderUri, projectId, resolveExportTarget, queryClient]);
+
+  // ── Viewport persistence ──────────────────────────────────────────────
+  // 逻辑：记录用户上次离开画布时的缩放与位置，再次进入时恢复，避免每次都 fitToElements。
+  // 恢复逻辑在引擎创建时同步执行（见上方 engineRef 初始化块），此处仅负责保存。
+
+  // 保存视口状态到 localStorage（卸载时）
+  useEffect(() => {
+    return () => {
+      if (!resolvedBoardId) return;
+      const state = engine.viewport.getState();
+      try {
+        localStorage.setItem(
+          `board-viewport:${resolvedBoardId}`,
+          JSON.stringify({ zoom: state.zoom, offset: state.offset }),
+        );
+      } catch { /* ignore quota errors */ }
+    };
+  }, [engine, resolvedBoardId]);
+
+  // 视口变化时防抖保存（500ms），防止频繁写入
+  useEffect(() => {
+    if (!resolvedBoardId) return;
+    let timer: number | null = null;
+    const unsubscribe = engine.subscribeView(() => {
+      if (timer) window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        const state = engine.viewport.getState();
+        try {
+          localStorage.setItem(
+            `board-viewport:${resolvedBoardId}`,
+            JSON.stringify({ zoom: state.zoom, offset: state.offset }),
+          );
+        } catch { /* ignore */ }
+      }, 500) as unknown as number;
+    });
+    return () => {
+      unsubscribe();
+      if (timer) window.clearTimeout(timer);
+    };
+  }, [engine, resolvedBoardId]);
+
+  // 逻辑：初始加载完成后释放视口锁，让"适配全部"按钮等后续操作恢复正常。
+  // 元素首次出现 + 两帧渲染稳定后清除，覆盖 hydration、flushPendingImports、thumbnail init 等全部调用。
+  const viewportLockClearedRef = useRef(false);
+  useEffect(() => {
+    if (elementCount === 0) return;
+    if (viewportLockClearedRef.current) return;
+    viewportLockClearedRef.current = true;
+    let rafId = requestAnimationFrame(() => {
+      rafId = requestAnimationFrame(() => {
+        engine.clearInitialViewportLock();
+      });
+    });
+    return () => cancelAnimationFrame(rafId);
+  }, [elementCount, engine]);
 
   // 逻辑：预览优先使用原图地址，缺失时回退到压缩预览。
   return (

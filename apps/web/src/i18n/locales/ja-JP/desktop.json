@@ -1,0 +1,217 @@
+{
+  "catalog": {
+    "flip-clock": "フリップクロック",
+    "clock": "時計",
+    "quick-actions": "クイックアクション",
+    "calendar": "カレンダー",
+    "chat-history": "チャット履歴",
+    "email-inbox": "メール受信箱",
+    "task-board": "タスクボード",
+    "3d-folder": "3Dフォルダー",
+    "video": "ビデオ",
+    "web-stack": "ウェブ",
+    "help": "はじめに"
+  },
+  "iconCatalog": {
+    "files": "ファイル",
+    "tasks": "タスク",
+    "search": "検索",
+    "settings": "設定",
+    "agent-settings": "Agent設定",
+    "skill-settings": "スキル"
+  },
+  "variants": {
+    "hm": "時:分",
+    "hms": "時:分:秒",
+    "month": "月表示",
+    "week": "週表示",
+    "day": "日表示",
+    "full": "全体表示"
+  },
+  "page": {
+    "iconFallback": "アイコン",
+    "folderFallback": "フォルダー",
+    "addWidget": "ウィジェットを追加",
+    "organize": "整理",
+    "cancel": "キャンセル",
+    "done": "完了",
+    "edit": "編集"
+  },
+  "editToolbar": {
+    "libraryTitle": "ウィジェットライブラリ",
+    "addWidget": "ウィジェットを追加",
+    "organize": "整理",
+    "cancel": "キャンセル",
+    "done": "完了",
+    "edit": "編集"
+  },
+  "library": {
+    "searchPlaceholder": "ウィジェットを検索…",
+    "noMatch": "一致するウィジェットがありません",
+    "shortcuts": "ショートカット",
+    "aiGenerated": "AI生成",
+    "newItem": "+ 新規",
+    "aiAssistant": "AIアシスタント",
+    "confirmDelete": "ウィジェット「{{name}}」を削除しますか？",
+    "deleteAriaLabel": "{{name}}を削除",
+    "generateWithAi": "AIチャットでカスタムウィジェットを生成"
+  },
+  "tile": {
+    "pin": "ピン留め",
+    "unpin": "ピン留めを解除",
+    "mode": "モード",
+    "edit": "編集",
+    "refresh": "更新",
+    "selectFolder": "フォルダーを選択",
+    "selectVideo": "ビデオを選択",
+    "delete": "削除",
+    "editWebTitle": "ウェブウィジェットを編集",
+    "editWebDescription": "URLとタイトルを入力すると、ロゴとプレビューが自動的に取得されます。",
+    "webUrl": "ウェブURL",
+    "webTitleOptional": "タイトル（任意）",
+    "customNamePlaceholder": "カスタム名",
+    "invalidUrl": "有効なURLを入力してください",
+    "noProjectSpaceDir": "プロジェクトスペースのディレクトリが見つかりません",
+    "webFallbackTitle": "ウェブ",
+    "save": "保存"
+  },
+  "content": {
+    "noProjectSpace": "プロジェクトスペースが見つかりません",
+    "noTab": "現在のタブが見つかりません",
+    "tabNotFound": "タブが見つかりません",
+    "openProjectTab": "先にプロジェクトタブを開いてください",
+    "selectFolder": "フォルダーを選択",
+    "selectVideo": "ビデオを選択",
+    "setUrl": "URLを設定"
+  },
+  "overlay": {
+    "defaultLabel": "設定"
+  },
+  "quickActions": {
+    "cannotCreateCanvas": "現在のワークベンチではキャンバスの作成はサポートされていません",
+    "noProjectSpace": "プロジェクトスペースが見つかりません",
+    "noTab": "現在のタブが見つかりません",
+    "openProjectTab": "先にプロジェクトタブを開いてください",
+    "noProjectInfo": "現在のタブにプロジェクト情報がありません",
+    "createCanvasFailed": "キャンバスの作成に失敗しました",
+    "fetchingTerminalStatus": "ターミナルのステータスを取得中",
+    "terminalDisabled": "ターミナルが有効になっていません",
+    "noProjectSpaceDir": "プロジェクトスペースのディレクトリが見つかりません",
+    "noRuntimeContext": "現在のタブのランタイムコンテキストがありません",
+    "canvasName": "キャンバス",
+    "terminal": "ターミナル",
+    "search": "検索",
+    "creating": "作成中…",
+    "canvas": "キャンバス",
+    "aiChat": "AIチャット"
+  },
+  "chatHistory": {
+    "title": "履歴",
+    "loading": "読み込み中…",
+    "count": "{{count}}件",
+    "noHistory": "この日の履歴はありません",
+    "unnamed": "無題のセッション",
+    "pinned": "ピン留め"
+  },
+  "emailInbox": {
+    "title": "受信箱",
+    "loading": "読み込み中…",
+    "messageCount": "{{count}}通のメール",
+    "searchPlaceholder": "メールを検索",
+    "noProjectSpace": "プロジェクトスペースが見つかりません",
+    "loadingAccounts": "アカウントを読み込み中...",
+    "noAccount": "メールアカウントが設定されていません",
+    "configureEmail": "メールを設定",
+    "loadingMessages": "メッセージを読み込み中...",
+    "noMessages": "メッセージがありません",
+    "loadingMore": "さらに読み込み中...",
+    "emailPage": "メール",
+    "noTab": "現在のタブが見つかりません"
+  },
+  "help": {
+    "prevPage": "前へ",
+    "nextPage": "次へ",
+    "pageN": "{{n}}ページ",
+    "pages": {
+      "welcome": {
+        "title": "OpenLoafへようこそ",
+        "description": "効率的な作業をサポートするAI生産性ワークベンチ"
+      },
+      "aiChat": {
+        "title": "AIチャット",
+        "description": "Spaceキーで素早くAIを呼び出し、Cmd+Bでチャットパネルを開き、Cmd+Tで独立したワークベンチを開きます"
+      },
+      "dock": {
+        "title": "ボトムドック",
+        "description": "Alt+1〜4でワークベンチ、カレンダー、メール、タスクを素早く切り替えます"
+      },
+      "search": {
+        "title": "グローバル検索",
+        "description": "Cmd+Fでファイル、メール、タスクなどすべてのコンテンツを検索します"
+      },
+      "calendar": {
+        "title": "カレンダー",
+        "description": "日/週/月/年の複数表示に対応。Cmd+Lですぐに開けます"
+      },
+      "email": {
+        "title": "メール",
+        "description": "メールアカウントを追加して、OpenLoafでメールの送受信ができます"
+      },
+      "tasks": {
+        "title": "タスクボード",
+        "description": "カンバンビューでタスクを管理し、ステータス追跡やスケジュールタスクをサポートします"
+      },
+      "desktop": {
+        "title": "パーソナライズデスクトップ",
+        "description": "右クリックで編集モードに入り、ドラッグでウィジェットを並べ替えます"
+      }
+    },
+    "actions": {
+      "calendar": "カレンダー",
+      "email": "メール",
+      "tasks": "タスクボード"
+    },
+    "noTab": "現在のタブが見つかりません",
+    "noRuntimeContext": "現在のタブのランタイムコンテキストがありません"
+  },
+  "dynamicWidget": {
+    "renderError": "ウィジェットのレンダリングエラー: {{message}}",
+    "approvalTitle": "このウィジェットを有効にしますか？",
+    "approvalDesc": "このウィジェットはサーバーで以下のスクリプトを実行します:",
+    "approve": "確認",
+    "loading": "読み込み中...",
+    "loadFailed": "コンポーネントの読み込みに失敗しました",
+    "retry": "再試行",
+    "missingParams": "ウィジェットのパラメーターが不足しています"
+  },
+  "calendarWidget": {
+    "openDetail": "カレンダーの詳細を開く"
+  },
+  "taskBoard": {
+    "statusRunning": "実行中",
+    "statusReview": "レビュー",
+    "statusTodo": "未着手",
+    "statusDone": "完了",
+    "loading": "タスクを読み込み中...",
+    "noActiveTasks": "アクティブなタスクがありません",
+    "openTaskBoard": "タスクボードを開く",
+    "priorityUrgent": "緊急",
+    "priorityHigh": "高",
+    "priorityMedium": "中",
+    "priorityLow": "低"
+  },
+  "threeDFolder": {
+    "noFolderInfo": "フォルダー情報が見つかりません",
+    "unnamedProject": "無題のプロジェクト"
+  },
+  "videoWidget": {
+    "noFile": "ビデオが選択されていません",
+    "bindHint": "設定でビデオをバインドしてください",
+    "clickToPlay": "クリックしてビデオを再生",
+    "play": "再生"
+  },
+  "webStack": {
+    "updating": "更新中",
+    "openWeb": "ウェブページを開く"
+  }
+}

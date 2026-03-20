@@ -13,10 +13,12 @@ import { mapSaasError } from "@/modules/saas/core/errors";
 import { logger } from "@/common/logger";
 import {
   cancelMediaProxy,
+  fetchAudioModelsProxy,
   fetchImageModelsProxy,
   fetchVideoModelsProxy,
   isMediaProxyHttpError,
   pollMediaProxy,
+  submitAudioProxy,
   submitImageProxy,
   submitVideoProxy,
 } from "@/modules/saas/modules/media/mediaProxy";
@@ -110,6 +112,8 @@ type SaasMediaRouteDeps = {
   fetchImageModelsProxy?: typeof fetchImageModelsProxy;
   /** Override video model fetcher for tests. */
   fetchVideoModelsProxy?: typeof fetchVideoModelsProxy;
+  /** Override audio model fetcher for tests. */
+  fetchAudioModelsProxy?: typeof fetchAudioModelsProxy;
 };
 
 /** Register SaaS media proxy routes. */
@@ -119,6 +123,7 @@ export function registerSaasMediaRoutes(
 ): void {
   const fetchImageModelsHandler = deps.fetchImageModelsProxy ?? fetchImageModelsProxy;
   const fetchVideoModelsHandler = deps.fetchVideoModelsProxy ?? fetchVideoModelsProxy;
+  const fetchAudioModelsHandler = deps.fetchAudioModelsProxy ?? fetchAudioModelsProxy;
 
   app.post("/ai/image", async (c) => {
     return handleSaasMediaRoute(c, async (accessToken) => {
@@ -162,6 +167,22 @@ export function registerSaasMediaRoutes(
     return handleSaasMediaRoute(
       c,
       async (accessToken) => fetchVideoModelsHandler(accessToken, { force }),
+      { allowAnonymous: true },
+    );
+  });
+
+  app.post("/ai/audio", async (c) => {
+    return handleSaasMediaRoute(c, async (accessToken) => {
+      const body = await c.req.json().catch(() => null);
+      return submitAudioProxy(body, accessToken);
+    });
+  });
+
+  app.get("/ai/audio/models", async (c) => {
+    const force = resolveForceRefresh(c.req.query("force"));
+    return handleSaasMediaRoute(
+      c,
+      async (accessToken) => fetchAudioModelsHandler(accessToken, { force }),
       { allowAnonymous: true },
     );
   });

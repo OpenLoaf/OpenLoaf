@@ -558,6 +558,10 @@
   },
   "agent": {
     "management": "Agent Management",
+    "expertCenter": "Expert Center",
+    "expertCenterDesc": "Browse agents by category, summon them to serve you",
+    "summonBtn": "Summon Now",
+    "categoryAll": "All",
     "createBtn": "Create Agent",
     "createTitle": "Create Agent",
     "openDir": "Open Directory",

@@ -79,7 +79,7 @@ const BoardEmptyGuide = memo(function BoardEmptyGuide({
         previewSrc: "",
         originalSrc: "",
         mimeType: "image/png",
-        fileName: "ai-generated.png",
+        fileName: "",
         naturalWidth: w,
         naturalHeight: h,
         origin: "ai-generate",
@@ -104,7 +104,7 @@ const BoardEmptyGuide = memo(function BoardEmptyGuide({
       "video",
       {
         sourcePath: "",
-        fileName: "ai-generated.mp4",
+        fileName: "",
         origin: "ai-generate",
       },
       [centerWorld[0] - w / 2, centerWorld[1] - h / 2, w, h],

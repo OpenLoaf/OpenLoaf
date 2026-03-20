@@ -59,7 +59,6 @@ export async function submitUpscale(
     // Server endpoint unavailable – fall through to mock.
   }
 
-  // ── Mock fallback ──────────────────────────────────────────────────────
-  // Remove this block once the real upscale API is deployed.
-  return { taskId: `mock-upscale-${Date.now()}` }
+  // The SaaS backend does not yet support upscale tasks.
+  throw new Error('Upscale is not yet available')
 }

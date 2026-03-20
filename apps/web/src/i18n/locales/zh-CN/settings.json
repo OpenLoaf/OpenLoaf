@@ -558,6 +558,10 @@
   },
   "agent": {
     "management": "智能体管理",
+    "expertCenter": "专家中心",
+    "expertCenterDesc": "按分类浏览智能体，召唤他们为你服务",
+    "summonBtn": "立即召唤",
+    "categoryAll": "全部",
     "createBtn": "创建智能体",
     "createTitle": "创建智能体",
     "openDir": "打开目录",

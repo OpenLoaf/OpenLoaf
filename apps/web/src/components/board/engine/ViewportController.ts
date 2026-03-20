@@ -18,7 +18,7 @@ export class ViewportController {
   /** Minimum zoom value for the viewport. */
   private readonly minZoom = 0.3;
   /** Maximum zoom value for the viewport. */
-  private readonly maxZoom = 1.2;
+  private readonly maxZoom = 2.0;
   /** Current zoom level. */
   private zoom = 1;
   /** Viewport translation in screen coordinates. */

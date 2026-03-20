@@ -21,6 +21,7 @@ import { createS3StorageService, resolveS3ProviderConfig } from "@/modules/stora
 import { logger } from "@/common/logger";
 import {
   cancelMediaTask,
+  fetchAudioModels,
   fetchImageModels,
   fetchVideoModels,
   pollMediaTask,
@@ -291,6 +292,29 @@ export async function submitVideoProxy(
   return result;
 }
 
+/** Submit audio generation via SaaS SDK. */
+export async function submitAudioProxy(
+  body: unknown,
+  accessToken: string,
+): Promise<unknown> {
+  const { payload, context } = splitMediaSubmitBody(body);
+  if (!payload) {
+    throw new MediaProxyHttpError(400, "invalid_payload", "请求参数无效");
+  }
+  const result = await submitMediaTask({ kind: "audio", payload }, accessToken);
+  if (result?.success === true && result.data?.taskId) {
+    rememberMediaTask({
+      taskId: result.data.taskId,
+      resultType: "audio",
+      projectId: context.projectId,
+      saveDir: context.saveDir,
+      sourceNodeId: context.sourceNodeId,
+      createdAt: Date.now(),
+    });
+  }
+  return result;
+}
+
 export type PollRecoveryHint = {
   /** Project id for lazy loading board tasks. */
   projectId?: string;
@@ -360,6 +384,32 @@ export async function pollMediaProxy(
           const relativePath = toGlobalRelativePath(filePath);
           return relativePath ?? path.basename(filePath);
         });
+      }
+    }
+
+    if (resultType === "audio") {
+      const resolvedDir = await resolveVideoSaveDirectory({
+        saveDir,
+        projectId: ctx?.projectId ?? null,
+      });
+      if (!resolvedDir) {
+        throw new Error("保存目录无效");
+      }
+      // 逻辑：音频仅保存首个结果，复用视频下载逻辑。
+      const saved = await saveGeneratedVideoFromUrl({
+        url: resultUrls[0]!,
+        directory: resolvedDir,
+        fileNameBase: taskId,
+      });
+      if (ctx?.projectId) {
+        const normalizedSaveDir = saveDir.replace(/\\/g, "/").replace(/\/+$/, "");
+        resultUrls = [
+          normalizedSaveDir ? `${normalizedSaveDir}/${saved.fileName}` : saved.fileName,
+        ];
+      } else {
+        const savedFilePath = path.join(resolvedDir, saved.fileName);
+        const relativePath = toGlobalRelativePath(savedFilePath);
+        resultUrls = [relativePath ?? saved.fileName];
       }
     }
 
@@ -437,4 +487,12 @@ export async function fetchVideoModelsProxy(
   options?: { force?: boolean },
 ): Promise<unknown> {
   return fetchVideoModels(accessToken, options);
+}
+
+/** Fetch audio model list. */
+export async function fetchAudioModelsProxy(
+  accessToken: string,
+  options?: { force?: boolean },
+): Promise<unknown> {
+  return fetchAudioModels(accessToken, options);
 }

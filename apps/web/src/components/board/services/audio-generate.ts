@@ -7,6 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
+import { submitAudioTask } from '@/lib/saas-media'
 
 export type AudioGenerateRequest = {
   prompt: string
@@ -20,16 +21,37 @@ export type AudioGenerateResult = {
 }
 
 /**
- * Submit an audio generation task.
+ * Submit an audio generation task via SaaS proxy.
  *
- * Currently a mock implementation — returns an immediate local taskId.
- * Will be replaced with a real SaaS proxy call once the audio generation
- * backend is available.
+ * Maps the board-level request into the SDK's AiAudioRequest format:
+ *   - prompt → text
+ *   - audioType / duration → parameters
  */
 export async function submitAudioGenerate(
-  _request: AudioGenerateRequest,
-  _options: { projectId?: string; saveDir?: string; sourceNodeId?: string },
+  request: AudioGenerateRequest,
+  options: { projectId?: string; saveDir?: string; sourceNodeId?: string },
 ): Promise<AudioGenerateResult> {
-  // Mock implementation — no real backend yet.
-  return { taskId: `mock-audio-${Date.now()}` }
+  const modelId = request.modelId && request.modelId !== 'auto'
+    ? request.modelId
+    : 'auto'
+
+  const parameters: Record<string, unknown> = {}
+  if (request.audioType) parameters.audioType = request.audioType
+  if (request.duration != null) parameters.duration = request.duration
+
+  const result = await submitAudioTask({
+    modelId,
+    text: request.prompt,
+    parameters: Object.keys(parameters).length > 0 ? parameters : undefined,
+    projectId: options.projectId,
+    saveDir: options.saveDir,
+    sourceNodeId: options.sourceNodeId,
+  })
+
+  if (!result || result.success !== true || !result.data?.taskId) {
+    const message = result?.message || '音频生成任务创建失败'
+    throw new Error(message)
+  }
+
+  return { taskId: result.data.taskId as string }
 }

@@ -21,6 +21,7 @@ export const SUPPORTED_UI_LANGUAGES: Array<{ value: LanguageId; label: string }>
   { value: 'zh-CN', label: '中文（简体）' },
   { value: 'zh-TW', label: '中文（繁體）' },
   { value: 'en-US', label: 'English' },
+  { value: 'ja-JP', label: '日本語' },
 ];
 
 /**

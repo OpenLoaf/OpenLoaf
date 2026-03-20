@@ -480,7 +480,9 @@
     "generating": "生成中...",
     "generationFailed": "生成失敗",
     "retry": "重試",
-    "parametersLocked": "參數已鎖定 — 點擊「重新生成」修改"
+    "parametersLocked": "參數已鎖定 — 點擊「解鎖」修改",
+    "unlock": "解鎖",
+    "emptyHint": "雙擊上傳圖片\n或選中後 AI 生成"
   },
   "videoNode": {
     "toolbar": {
@@ -501,7 +503,8 @@
     "generating": "影片生成中...",
     "generateFailed": "影片生成失敗",
     "retry": "重試",
-    "parametersLocked": "參數已鎖定"
+    "parametersLocked": "參數已鎖定",
+    "emptyHint": "雙擊上傳影片\n或選中後 AI 生成"
   },
   "audioNode": {
     "toolbar": {
@@ -515,10 +518,13 @@
     "generating": "音訊生成中...",
     "generateFailed": "音訊生成失敗",
     "retry": "重試",
-    "parametersLocked": "參數已鎖定"
+    "parametersLocked": "參數已鎖定",
+    "emptyHint": "雙擊上傳音訊\n或選中後 AI 生成"
   },
   "versionStack": {
-    "badge": "{{count}} 個版本"
+    "badge": "{{count}} 個版本",
+    "prev": "上一張",
+    "next": "下一張"
   },
   "fileAttachmentNode": {
     "toolbar": {
@@ -565,7 +571,8 @@
     "transcoding": "轉碼中",
     "cancel": "取消",
     "retry": "重試",
-    "delete": "刪除"
+    "delete": "刪除",
+    "dismiss": "忽略"
   },
   "collab": {
     "imageTranscodeFailed": "圖片轉碼失敗，已使用原始檔案插入"
@@ -686,6 +693,7 @@
     "enhancePrompt": "優化提示詞",
     "translate": "翻譯",
     "credits": "積分",
+    "estimatedCredits": "本次生成預計消耗積分",
     "mode": {
       "textToVideo": "文生影片",
       "universalRef": "全能參考",
@@ -730,8 +738,22 @@
     "settings": "設定",
     "generateMode": "生成模式",
     "upstreamSlots": "上游素材",
+    "estimatedCredits": "本次生成預計消耗積分",
     "stackMode": "堆疊（新版本）",
-    "overwriteMode": "覆寫主版本"
+    "overwriteMode": "覆寫主版本",
+    "mode": {
+      "auto": "自動",
+      "upscale": "高清",
+      "inpaint": "重繪",
+      "erase": "擦除",
+      "matting": "摳圖",
+      "multiview": "多角度",
+      "outpaint": "擴圖"
+    },
+    "comingSoon": "即將推出",
+    "upscaleScale": "放大倍數",
+    "maskEdit": "編輯遮罩",
+    "erasePlaceholder": "塗抹要擦除的區域"
   },
   "upscalePanel": {
     "title": "高清放大",
@@ -773,6 +795,7 @@
     "durationAuto": "自動",
     "translate": "翻譯",
     "credits": "積分",
+    "estimatedCredits": "本次生成預計消耗積分",
     "noModel": "無可用模型",
     "loginHint": "登入以使用雲端模型",
     "stackMode": "堆疊（新版本）",
@@ -811,5 +834,15 @@
     "generating": "生成中...",
     "translate": "翻譯",
     "credits": "積分"
+  },
+  "generateAction": {
+    "generate": "生成",
+    "generating": "生成中...",
+    "newNode": "生成新節點",
+    "stackCurrent": "堆疊到當前節點",
+    "currentNode": "當前節點",
+    "regenerate": "重新生成",
+    "locked": "參數已鎖定",
+    "unlock": "解鎖編輯"
   }
 }

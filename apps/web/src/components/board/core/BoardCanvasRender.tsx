@@ -16,6 +16,7 @@ import type { CanvasElement, CanvasSnapshot } from "../engine/types";
 import { MINIMAP_HIDE_DELAY } from "../engine/constants";
 import BoardToolbar from "../toolbar/BoardToolbar";
 import LeftToolbar from "../toolbar/LeftToolbar";
+import FloatingInsertMenu from "../toolbar/FloatingInsertMenu";
 import BottomBar from "../toolbar/BottomBar";
 import { ConnectorActionPanel, NodeInspectorPanel } from "../ui/CanvasPanels";
 import { NodeSearchPanel } from "../ui/NodeSearchPanel";
@@ -193,6 +194,9 @@ export function BoardCanvasRender({
         <div className={cn("pointer-events-none absolute inset-0 z-20 transition-all duration-500 ease-out", toolbarsReady ? "opacity-100 -translate-x-0" : "opacity-0 -translate-x-4")}>
           <LeftToolbar engine={engine} snapshot={snapshot} />
         </div>
+      ) : null}
+      {showUi && !minimal ? (
+        <FloatingInsertMenu engine={engine} snapshot={snapshot} containerRef={containerRef} />
       ) : null}
       {showUi && !minimal ? (
         <div className={cn("pointer-events-none absolute inset-0 z-20 transition-all duration-500 ease-out", toolbarsReady ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4")}>

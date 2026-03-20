@@ -15,7 +15,7 @@ export type MediaTaskContext = {
   /** Task id. */
   taskId: string;
   /** Result type hint. */
-  resultType?: "image" | "video";
+  resultType?: "image" | "video" | "audio";
   /** Project id for storage. */
   projectId?: string;
   /** Save directory path (relative to project root, e.g. .openloaf/boards/xxx/asset). */

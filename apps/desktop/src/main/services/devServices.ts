@@ -150,7 +150,19 @@ function killStaleServerOnPort(host: string, port: number, log: Logger): void {
 }
 
 /**
+ * 解析 supervisor 脚本路径。supervisor 监听 stdin EOF 检测父进程死亡，
+ * 自动杀掉子进程树，防止 Electron 崩溃/强退后残留孤儿进程。
+ */
+function resolveSupervisorPath(): string {
+  return path.resolve(__dirname, '../../scripts/run-supervised.mjs');
+}
+
+/**
  * 启动子进程并把 stdout/stderr 打上 label 输出到父进程控制台，便于排查 dev 启动问题。
+ *
+ * 通过 run-supervised.mjs 包装，实现父进程死亡后子进程自动退出：
+ *   Electron → supervisor (stdin pipe) → child (detached, own process group)
+ *   当 Electron 死亡 → stdin pipe 断开 → supervisor 检测 EOF → kill(-childPid)
  */
 function spawnLogged(
   label: string,
@@ -158,19 +170,14 @@ function spawnLogged(
   args: string[],
   opts: { cwd: string; env: NodeJS.ProcessEnv; ipc?: boolean }
 ): ChildProcess {
-  // On Windows, .cmd/.bat files require shell mode for proper execution.
-  // Node.js handles cmd.exe escaping internally when shell: true is set.
-  const isWin = process.platform === 'win32';
-  const useCmdShim = isWin && /\.(cmd|bat)$/i.test(command);
+  const supervisorPath = resolveSupervisorPath();
 
-  const child = spawn(command, args, {
+  const child = spawn(process.execPath, [supervisorPath, command, ...args], {
     cwd: opts.cwd,
-    env: opts.env,
-    // ipc: 添加 IPC channel（fd3），让子进程通过 disconnect 感知父进程退出
-    stdio: opts.ipc ? ['ignore', 'pipe', 'pipe', 'ipc'] : ['ignore', 'pipe', 'pipe'],
-    shell: useCmdShim,
-    // detached: 让子进程成为新进程组的 leader，退出时可通过 kill(-pid) 杀掉整棵进程树
-    detached: true,
+    env: { ...opts.env, ELECTRON_RUN_AS_NODE: '1' },
+    // stdin 设为 pipe：作为"生命线"，Electron 退出时管道断开，supervisor 检测 EOF。
+    // stdout/stderr 设为 pipe 用于日志标签化。
+    stdio: ['pipe', 'pipe', 'pipe'],
   });
 
   child.stdout?.on('data', (d) => process.stdout.write(`[${label}] ${d}`));

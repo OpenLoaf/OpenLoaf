@@ -233,6 +233,8 @@ export class CanvasEngine {
   private focusViewportToken = 0;
   /** Deferred fitToElements padding when viewport size was zero at call time. */
   private pendingFitPadding: number | null = null;
+  /** When true, the next fitToElements call (including deferred) is skipped once. */
+  private skipInitialFit = false;
   /** History stack for undo operations. */
   private historyPast: CanvasHistoryState[] = [];
   /** History stack for redo operations. */
@@ -420,9 +422,13 @@ export class CanvasEngine {
     this.viewport.setSize(nextWidth, nextHeight);
     // 逻辑：attach 时若已有延迟的 fitToElements 请求且尺寸就绪，立即执行。
     if (this.pendingFitPadding !== null && nextWidth > 0 && nextHeight > 0) {
-      const padding = this.pendingFitPadding;
-      this.pendingFitPadding = null;
-      fitToElements(this.doc, this.viewport, padding);
+      if (this.skipInitialFit) {
+        this.pendingFitPadding = null;
+      } else {
+        const padding = this.pendingFitPadding;
+        this.pendingFitPadding = null;
+        fitToElements(this.doc, this.viewport, padding);
+      }
     }
 
     this.resizeObserver = new ResizeObserver(entries => {
@@ -490,9 +496,13 @@ export class CanvasEngine {
       this.viewport.setSize(this.resizeSize[0], this.resizeSize[1]);
       // 逻辑：viewport 尺寸就绪后执行之前因 size=0 而延迟的 fitToElements。
       if (this.pendingFitPadding !== null && this.resizeSize[0] > 0 && this.resizeSize[1] > 0) {
-        const padding = this.pendingFitPadding;
-        this.pendingFitPadding = null;
-        fitToElements(this.doc, this.viewport, padding);
+        if (this.skipInitialFit) {
+          this.pendingFitPadding = null;
+        } else {
+          const padding = this.pendingFitPadding;
+          this.pendingFitPadding = null;
+          fitToElements(this.doc, this.viewport, padding);
+        }
       }
     });
   }
@@ -535,6 +545,17 @@ export class CanvasEngine {
     return () => {
       this.viewListeners.delete(listener);
     };
+  }
+
+  /** Mark that an initial viewport has been restored from external storage.
+   *  All fitToElements calls will be skipped until clearInitialViewportLock(). */
+  markInitialViewportRestored(): void {
+    this.skipInitialFit = true;
+  }
+
+  /** Release the initial viewport lock, allowing fitToElements to work normally. */
+  clearInitialViewportLock(): void {
+    this.skipInitialFit = false;
   }
 
   /** Set the currently active tool. */
@@ -2345,6 +2366,12 @@ export class CanvasEngine {
 
   /** Fit the viewport to include all node elements. */
   fitToElements(padding = DEFAULT_FIT_PADDING): void {
+    // 逻辑：已从外部恢复视口状态时，跳过所有初始加载阶段的 fitToElements 调用，
+    // 直到 clearInitialViewportLock() 被显式调用，避免闪跳。
+    if (this.skipInitialFit) {
+      this.pendingFitPadding = null;
+      return;
+    }
     const { size } = this.viewport.getState();
     if (size[0] <= 0 || size[1] <= 0) {
       // 逻辑：viewport 尺寸还未就绪时延迟执行，等 setSize 触发后重试。

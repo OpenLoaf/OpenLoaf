@@ -107,8 +107,8 @@ const EDITABLE_NODE_TYPES = new Set([
 const DEFAULT_VIDEO_WIDTH = 16;
 const DEFAULT_VIDEO_HEIGHT = 9;
 const DEFAULT_VIDEO_NODE_MAX = 420;
-const DEFAULT_AUDIO_NODE_WIDTH = 280;
-const DEFAULT_AUDIO_NODE_HEIGHT = 100;
+const DEFAULT_AUDIO_NODE_WIDTH = 320;
+const DEFAULT_AUDIO_NODE_HEIGHT = 120;
 const DEFAULT_FILE_NODE_WIDTH = 260;
 const DEFAULT_FILE_NODE_HEIGHT = 80;
 const CONNECTOR_TEMPLATE_SIDE_GAP = 60;
@@ -1276,9 +1276,35 @@ export function BoardCanvasInteraction({
       return;
     }
     if (element.type === "image") {
+      const imgProps = element.props as ImageNodeProps;
+      const isEmpty = !imgProps.originalSrc && !imgProps.previewSrc;
+      if (isEmpty) {
+        // 逻辑：空图片节点双击展开面板（由节点内部处理文件选择）。
+        engine.selection.setSelection([element.id]);
+        engine.setExpandedNodeId(element.id);
+        return;
+      }
       engine.setEditingNodeId(element.id);
       openImagePreviewFromNode(element);
       return;
+    }
+    if (element.type === "video") {
+      const vidProps = element.props as VideoNodeProps;
+      const isEmpty = !vidProps.sourcePath?.trim();
+      if (isEmpty) {
+        engine.selection.setSelection([element.id]);
+        engine.setExpandedNodeId(element.id);
+        return;
+      }
+    }
+    if (element.type === "audio") {
+      const audProps = element.props as { sourcePath?: string };
+      const isEmpty = !audProps.sourcePath?.trim();
+      if (isEmpty) {
+        engine.selection.setSelection([element.id]);
+        engine.setExpandedNodeId(element.id);
+        return;
+      }
     }
     if (EDITABLE_NODE_TYPES.has(element.type)) {
       engine.selection.setSelection([element.id]);
@@ -1644,17 +1670,20 @@ export function BoardCanvasInteraction({
             if (hitElement?.kind === "node") {
               handleNodeDoubleClick(hitElement);
             } else if (!hitElement) {
-              // 逻辑：双击空白区域时打开左工具栏的插入面板。
+              // 逻辑：双击空白区域时在鼠标位置显示浮动插入菜单。
               if (snapshot.activeToolId !== "select") {
                 engine.setActiveTool("select");
               }
-              engine
-                .getContainer()
-                ?.dispatchEvent(
-                  new CustomEvent("openloaf:board-open-insert-panel", {
-                    bubbles: true,
-                  }),
-                );
+              containerRef.current?.dispatchEvent(
+                new CustomEvent("openloaf:board-floating-insert-menu", {
+                  bubbles: true,
+                  detail: {
+                    clientX: event.clientX,
+                    clientY: event.clientY,
+                    worldPoint,
+                  },
+                }),
+              );
             }
           }}
         >

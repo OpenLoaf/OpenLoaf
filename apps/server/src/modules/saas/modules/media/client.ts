@@ -11,7 +11,7 @@ import { getSaasClient } from "../../client";
 
 export type SaasMediaSubmitArgs = {
   /** Media task kind. */
-  kind: "image" | "video";
+  kind: "image" | "video" | "audio";
   /** Input payload to SaaS. */
   payload: Record<string, unknown>;
 };
@@ -80,6 +80,9 @@ export async function submitMediaTask(input: SaasMediaSubmitArgs, accessToken: s
   if (input.kind === "image") {
     return client.ai.image(input.payload as any);
   }
+  if (input.kind === "audio") {
+    return client.ai.audio(input.payload as any);
+  }
   return client.ai.video(input.payload as any);
 }
 
@@ -138,5 +141,21 @@ export async function fetchVideoModels(
   const client = getSaasClient(accessToken);
   const payload = await client.ai.videoModels();
   writeCache(cachedVideoModels, accessToken, payload);
+  return payload;
+}
+
+const cachedAudioModels = new Map<string, { updatedAt: number; payload: unknown }>();
+
+/** Fetch audio model list with cache. */
+export async function fetchAudioModels(
+  accessToken: string,
+  options: FetchMediaModelOptions = {},
+) {
+  const force = options.force === true;
+  const cached = force ? null : readCache(cachedAudioModels, accessToken);
+  if (cached) return cached;
+  const client = getSaasClient(accessToken);
+  const payload = await client.ai.audioModels();
+  writeCache(cachedAudioModels, accessToken, payload);
   return payload;
 }

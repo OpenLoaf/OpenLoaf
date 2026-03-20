@@ -10,7 +10,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { skipToken, useQuery, type QueryClient } from "@tanstack/react-query";
+import { skipToken, useInfiniteQuery, type QueryClient } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 import { useAppState } from "@/hooks/use-app-state";
 
@@ -65,7 +65,7 @@ function toTime(value: string | Date): number {
 /** Build recent sessions list from session list. */
 function buildRecentSessions(sessions: ChatSessionListItem[]): ChatSessionListItem[] {
   if (sessions.length <= RECENT_SESSION_LIMIT) return sessions;
-  // 最近会话按更新时间排序，避免置顶影响“最近”展示。
+  // 最近会话按更新时间排序，避免置顶影响"最近"展示。
   const sorted = [...sessions].sort((a, b) => toTime(b.updatedAt) - toTime(a.updatedAt));
   return sorted.slice(0, RECENT_SESSION_LIMIT);
 }
@@ -96,12 +96,17 @@ export function useChatSessions(_input?: UseChatSessionsInput) {
       : { boardId: null };
   }, [scopedBoardId, scopedProjectId]);
 
-  const query = useQuery({
-    ...trpc.chat.listSessions.queryOptions(listInput ?? skipToken),
+  const query = useInfiniteQuery({
+    ...trpc.chat.listSessions.infiniteQueryOptions(listInput ?? skipToken, {
+      getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    }),
     staleTime: 60_000,
     refetchOnWindowFocus: false,
   });
-  const sessions = (query.data ?? EMPTY_SESSIONS) as ChatSessionListItem[];
+  const sessions = useMemo(
+    () => (query.data?.pages.flatMap((p) => p.items) ?? EMPTY_SESSIONS) as ChatSessionListItem[],
+    [query.data],
+  );
   const recentSessions = useMemo(() => buildRecentSessions(sessions), [sessions]);
 
   return {
@@ -110,6 +115,9 @@ export function useChatSessions(_input?: UseChatSessionsInput) {
     scopeProjectId: scopedProjectId,
     isLoading: query.isLoading,
     refetch: query.refetch,
+    hasMore: Boolean(query.hasNextPage),
+    fetchNextPage: query.fetchNextPage,
+    isFetchingNextPage: query.isFetchingNextPage,
   };
 }
 

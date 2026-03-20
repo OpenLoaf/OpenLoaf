@@ -34,10 +34,19 @@ const STROKE_WIDTH = 1.2
 const STROKE_OUTLINE_SELECTED = 0.8
 /** 悬停高亮外描边增量 */
 const STROKE_OUTLINE_HOVER = 0.5
-/** 默认连线透明度（偏淡） */
-const STROKE_ALPHA = 0.35
+/** 默认连线透明度 */
+const STROKE_ALPHA = 0.55
 /** 选中/悬停时的连线透明度 */
-const STROKE_ALPHA_ACTIVE = 0.7
+const STROKE_ALPHA_ACTIVE = 0.8
+
+/** 选中节点关联连线的流动动画参数 */
+const FLOW_DASH = 4
+const FLOW_GAP = 14
+const FLOW_SPEED = 50
+const FLOW_WIDTH = 1.4
+const FLOW_ALPHA = 0.65
+
+type FlowConnectorData = { flatPoints: CanvasPoint[] }
 
 /**
  * Renders connector elements as PixiJS Graphics paths.
@@ -48,8 +57,14 @@ export class PixiConnectorLayer {
   private container: Container
   private theme: PixiThemeResolver
   private graphics = new Graphics()
+  private flowGraphics = new Graphics()
   private lastRevision = -1
   private hadUiOverlay = false
+  private lastSelectedKey = ''
+  private flowConnectors: FlowConnectorData[] = []
+  private flowOffset = 0
+  private flowAnimationId: number | null = null
+  private lastFlowTime = 0
 
   constructor(
     engine: CanvasEngine,
@@ -60,15 +75,23 @@ export class PixiConnectorLayer {
     this.container = container
     this.theme = theme
     this.container.addChild(this.graphics)
+    this.container.addChild(this.flowGraphics)
   }
 
   /** Re-render all connectors from the current snapshot. */
   sync(): void {
     const snapshot = this.engine.getSnapshot()
     const hasUiOverlay = !!(snapshot.connectorDraft || snapshot.connectorDrop)
-    if (snapshot.docRevision === this.lastRevision && !hasUiOverlay && !this.hadUiOverlay) return
+    const selectedKey = snapshot.selectedIds.join(',')
+    const selectionChanged = selectedKey !== this.lastSelectedKey
+    if (
+      snapshot.docRevision === this.lastRevision
+      && !hasUiOverlay && !this.hadUiOverlay
+      && !selectionChanged
+    ) return
     this.lastRevision = snapshot.docRevision
     this.hadUiOverlay = hasUiOverlay
+    this.lastSelectedKey = selectedKey
 
     const palette = this.theme.getPalette()
     const g = this.graphics
@@ -102,6 +125,10 @@ export class PixiConnectorLayer {
       connectorElements,
       (elementId) => boundsMap[elementId],
     )
+
+    // 选中节点 ID 集合（用于检测关联连线）
+    const selectedSet = new Set(snapshot.selectedIds)
+    const nextFlowConnectors: FlowConnectorData[] = []
 
     // 绘制所有连线
     for (const connector of connectorElements) {
@@ -173,6 +200,13 @@ export class PixiConnectorLayer {
           lineAlpha,
         )
       }
+
+      // 流动动画：收集关联到选中节点的连线路径
+      const sourceNodeId = 'elementId' in connector.source ? connector.source.elementId : null
+      const targetNodeId = 'elementId' in connector.target ? connector.target.elementId : null
+      if ((sourceNodeId && selectedSet.has(sourceNodeId)) || (targetNodeId && selectedSet.has(targetNodeId))) {
+        nextFlowConnectors.push({ flatPoints: points })
+      }
     }
 
     // 绘制 draft connector
@@ -205,6 +239,104 @@ export class PixiConnectorLayer {
         })
       }
     }
+
+    // 管理流动动画生命周期
+    this.flowConnectors = nextFlowConnectors
+    if (nextFlowConnectors.length > 0) {
+      if (this.flowAnimationId === null) this.startFlowAnimation()
+    } else {
+      this.stopFlowAnimation()
+      this.flowGraphics.clear()
+    }
+  }
+
+  /** 启动流动动画循环 */
+  private startFlowAnimation(): void {
+    this.lastFlowTime = performance.now()
+    const cycle = FLOW_DASH + FLOW_GAP
+    const animate = (now: number) => {
+      const dt = (now - this.lastFlowTime) / 1000
+      this.lastFlowTime = now
+      this.flowOffset = (this.flowOffset + FLOW_SPEED * dt) % cycle
+
+      const palette = this.theme.getPalette()
+      const fg = this.flowGraphics
+      fg.clear()
+      for (const fc of this.flowConnectors) {
+        this.drawFlowingDash(fg, fc.flatPoints, palette.selectionBorder)
+      }
+      this.flowAnimationId = requestAnimationFrame(animate)
+    }
+    this.flowAnimationId = requestAnimationFrame(animate)
+  }
+
+  /** 停止流动动画 */
+  private stopFlowAnimation(): void {
+    if (this.flowAnimationId !== null) {
+      cancelAnimationFrame(this.flowAnimationId)
+      this.flowAnimationId = null
+    }
+  }
+
+  /** 绘制带时间偏移的流动虚线（沿 source→target 方向移动） */
+  private drawFlowingDash(
+    g: Graphics,
+    flatPoints: CanvasPoint[],
+    color: number,
+  ): void {
+    if (flatPoints.length < 2) return
+
+    const cycle = FLOW_DASH + FLOW_GAP
+    // 逻辑：反转偏移使虚线沿路径正方向（source→target）流动
+    const phase = (cycle - (this.flowOffset % cycle)) % cycle
+    let drawing = phase < FLOW_DASH
+    let remaining = drawing ? FLOW_DASH - phase : cycle - phase
+
+    g.setStrokeStyle({
+      width: FLOW_WIDTH,
+      color,
+      alpha: FLOW_ALPHA,
+      cap: 'round',
+      join: 'round',
+    })
+
+    let [cx, cy] = flatPoints[0]
+    if (drawing) {
+      g.moveTo(cx, cy)
+    }
+
+    for (let i = 1; i < flatPoints.length; i++) {
+      const [nx, ny] = flatPoints[i]
+      let dx = nx - cx
+      let dy = ny - cy
+      let segLen = Math.hypot(dx, dy)
+
+      while (segLen > 0) {
+        const step = Math.min(remaining, segLen)
+        const ratio = step / segLen
+        const px = cx + dx * ratio
+        const py = cy + dy * ratio
+
+        if (drawing) {
+          g.lineTo(px, py)
+        } else {
+          g.moveTo(px, py)
+        }
+
+        remaining -= step
+        if (remaining <= 0) {
+          drawing = !drawing
+          remaining = drawing ? FLOW_DASH : FLOW_GAP
+        }
+
+        cx = px
+        cy = py
+        dx = nx - cx
+        dy = ny - cy
+        segLen = Math.hypot(dx, dy)
+      }
+    }
+    g.stroke()
   }
 
   /** Draw connector path with dashed or solid stroke. */
@@ -364,7 +496,9 @@ export class PixiConnectorLayer {
   }
 
   destroy(): void {
+    this.stopFlowAnimation()
     this.graphics.destroy()
+    this.flowGraphics.destroy()
   }
 }
 
