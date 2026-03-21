@@ -546,13 +546,15 @@ export function ImageNodeView({
       try {
         const result = await submitImageGenerate(
           {
-            prompt: params.prompt,
+            prompt: params.prompt ?? '',
             negativePrompt: params.negativePrompt,
-            modelId: params.modelId !== 'auto' ? params.modelId : undefined,
             aspectRatio: params.aspectRatio,
             resolution: params.resolution,
-            referenceImageSrc: params.referenceImageSrc,
-            referenceImageSrcs: params.referenceImageSrcs,
+            mode: params.generateMode,
+            referenceImageSrcs: params.inputImages,
+            count: params.count,
+            quality: params.quality,
+            seed: params.seed,
           },
           {
             projectId: fileContext?.projectId,
@@ -568,13 +570,15 @@ export function ImageNodeView({
         const inputSnapshot = createInputSnapshot({
           prompt: params.prompt,
           negativePrompt: params.negativePrompt,
-          modelId: params.modelId,
           parameters: {
+            feature: params.feature,
             aspectRatio: params.aspectRatio,
             resolution: params.resolution,
-            mode: params.mode,
-            referenceImageSrc: params.referenceImageSrc,
-            referenceImageSrcs: params.referenceImageSrcs,
+            generateMode: params.generateMode,
+            inputImages: params.inputImages,
+            quality: params.quality,
+            count: params.count,
+            seed: params.seed,
           },
           upstreamRefs: [
             ...(upstream?.textList ?? []).map(text => ({ nodeId: '', nodeType: 'text', data: text })),
@@ -582,11 +586,12 @@ export function ImageNodeView({
           ],
         })
         const entry = createGeneratingEntry(inputSnapshot, result.taskId)
-        const config = {
-          modelId: params.modelId,
-          prompt: params.prompt,
+        const config: import("../board-contracts").AiGenerateConfig = {
+          feature: params.feature,
+          prompt: params.prompt ?? '',
           negativePrompt: params.negativePrompt,
           aspectRatio: params.aspectRatio as import("../board-contracts").AiGenerateConfig['aspectRatio'],
+          quality: params.quality,
           taskId: result.taskId,
         }
 
@@ -607,14 +612,16 @@ export function ImageNodeView({
     if (!primaryEntry?.input) return;
     const input = primaryEntry.input;
     const params: ImageGenerateParams = {
+      feature: (input.parameters?.feature as ImageGenerateParams['feature']) ?? 'imageGenerate',
       prompt: input.prompt,
       negativePrompt: input.negativePrompt,
-      modelId: input.modelId,
       aspectRatio: (input.parameters?.aspectRatio as string) ?? '1:1',
       resolution: (input.parameters?.resolution as string) ?? '1K',
-      mode: (input.parameters?.mode as 'text2img' | 'img2img') ?? 'text2img',
-      referenceImageSrc: input.parameters?.referenceImageSrc as string | undefined,
-      referenceImageSrcs: input.parameters?.referenceImageSrcs as string[] | undefined,
+      generateMode: input.parameters?.generateMode as ImageGenerateParams['generateMode'],
+      inputImages: input.parameters?.inputImages as string[] | undefined,
+      quality: input.parameters?.quality as ImageGenerateParams['quality'],
+      count: input.parameters?.count as ImageGenerateParams['count'],
+      seed: input.parameters?.seed as number | undefined,
     };
     handleGenerate(params);
   }, [primaryEntry, handleGenerate]);
@@ -634,13 +641,15 @@ export function ImageNodeView({
 
         const result = await submitImageGenerate(
           {
-            prompt: params.prompt,
+            prompt: params.prompt ?? '',
             negativePrompt: params.negativePrompt,
-            modelId: params.modelId !== 'auto' ? params.modelId : undefined,
             aspectRatio: params.aspectRatio,
             resolution: params.resolution,
-            referenceImageSrc: params.referenceImageSrc,
-            referenceImageSrcs: params.referenceImageSrcs,
+            mode: params.generateMode,
+            referenceImageSrcs: params.inputImages,
+            count: params.count,
+            quality: params.quality,
+            seed: params.seed,
           },
           {
             projectId: fileContext?.projectId,
@@ -654,11 +663,14 @@ export function ImageNodeView({
         const inputSnapshot = createInputSnapshot({
           prompt: params.prompt,
           negativePrompt: params.negativePrompt,
-          modelId: params.modelId,
           parameters: {
+            feature: params.feature,
             aspectRatio: params.aspectRatio,
             resolution: params.resolution,
-            mode: params.mode,
+            generateMode: params.generateMode,
+            quality: params.quality,
+            count: params.count,
+            seed: params.seed,
           },
         })
         const entry = createGeneratingEntry(inputSnapshot, result.taskId)
@@ -667,10 +679,11 @@ export function ImageNodeView({
           versionStack: pushVersion(undefined, entry),
           origin: 'ai-generate',
           aiConfig: {
-            modelId: params.modelId,
-            prompt: params.prompt,
+            feature: params.feature,
+            prompt: params.prompt ?? '',
             negativePrompt: params.negativePrompt,
-            aspectRatio: params.aspectRatio,
+            aspectRatio: params.aspectRatio as import("../board-contracts").AiGenerateConfig['aspectRatio'],
+            quality: params.quality,
             taskId: result.taskId,
           },
         })

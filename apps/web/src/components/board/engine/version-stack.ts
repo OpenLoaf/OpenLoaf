@@ -17,16 +17,17 @@ import type { InputSnapshot, VersionStack, VersionStackEntry } from './types'
 
 /** Create a new InputSnapshot from generation parameters. */
 export function createInputSnapshot(params: {
-  prompt: string
+  prompt?: string
   negativePrompt?: string
-  modelId: string
+  /** @deprecated v2 uses feature-based routing; kept for backward compat. */
+  modelId?: string
   parameters?: Record<string, unknown>
   upstreamRefs?: InputSnapshot['upstreamRefs']
 }): InputSnapshot {
   return {
-    prompt: params.prompt,
+    prompt: params.prompt ?? '',
     negativePrompt: params.negativePrompt,
-    modelId: params.modelId,
+    modelId: params.modelId ?? '',
     parameters: params.parameters ?? {},
     upstreamRefs: params.upstreamRefs ?? [],
     timestamp: Date.now(),
