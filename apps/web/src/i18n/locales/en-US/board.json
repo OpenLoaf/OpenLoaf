@@ -753,7 +753,47 @@
     "comingSoon": "Coming Soon",
     "upscaleScale": "Scale Factor",
     "maskEdit": "Edit Mask",
-    "erasePlaceholder": "Paint over the area to erase"
+    "erasePlaceholder": "Paint over the area to erase",
+    "feature": {
+      "imageGenerate": "Generate",
+      "poster": "Poster",
+      "imageEdit": "Edit",
+      "upscale": "Upscale",
+      "outpaint": "Outpaint"
+    },
+    "generateMode": {
+      "text": "Text to Image",
+      "reference": "Reference",
+      "sketch": "Sketch",
+      "character": "Character"
+    },
+    "editMode": {
+      "instruct": "Instruct",
+      "stylize": "Stylize",
+      "colorize": "Colorize",
+      "inpaint": "Inpaint",
+      "erase": "Erase",
+      "eraseWatermark": "Remove Watermark"
+    },
+    "needsImage": "Requires an image first",
+    "strength": "Edit Strength",
+    "strengthHint": "Higher values produce larger changes",
+    "quality": "Quality",
+    "qualityDraft": "Draft",
+    "qualityStandard": "Standard",
+    "qualityHd": "HD",
+    "seed": "Seed",
+    "seedRandom": "Random",
+    "posterTitle": "Title",
+    "posterTitlePlaceholder": "Enter poster title",
+    "posterSubTitle": "Subtitle",
+    "posterBodyText": "Body Text",
+    "posterPromptPlaceholder": "Describe the visual style of the poster...",
+    "outpaintTop": "Top",
+    "outpaintBottom": "Bottom",
+    "outpaintLeft": "Left",
+    "outpaintRight": "Right",
+    "outpaintHint": "At least one direction must be greater than 1.0"
   },
   "upscalePanel": {
     "title": "HD Upscale",

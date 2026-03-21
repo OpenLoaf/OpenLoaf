@@ -757,7 +757,47 @@
     "comingSoon": "即将推出",
     "upscaleScale": "放大倍数",
     "maskEdit": "编辑遮罩",
-    "erasePlaceholder": "涂抹要擦除的区域"
+    "erasePlaceholder": "涂抹要擦除的区域",
+    "feature": {
+      "imageGenerate": "生成",
+      "poster": "海报",
+      "imageEdit": "编辑",
+      "upscale": "放大",
+      "outpaint": "扩图"
+    },
+    "generateMode": {
+      "text": "文生图",
+      "reference": "参考图",
+      "sketch": "草图",
+      "character": "角色"
+    },
+    "editMode": {
+      "instruct": "指令编辑",
+      "stylize": "风格化",
+      "colorize": "上色",
+      "inpaint": "局部重绘",
+      "erase": "擦除",
+      "eraseWatermark": "去水印"
+    },
+    "needsImage": "需要先有图片内容",
+    "strength": "编辑强度",
+    "strengthHint": "数值越大改动越大",
+    "quality": "质量",
+    "qualityDraft": "草稿",
+    "qualityStandard": "标准",
+    "qualityHd": "高清",
+    "seed": "种子",
+    "seedRandom": "随机",
+    "posterTitle": "标题",
+    "posterTitlePlaceholder": "输入海报标题",
+    "posterSubTitle": "副标题",
+    "posterBodyText": "正文",
+    "posterPromptPlaceholder": "描述海报的视觉风格...",
+    "outpaintTop": "上",
+    "outpaintBottom": "下",
+    "outpaintLeft": "左",
+    "outpaintRight": "右",
+    "outpaintHint": "至少一个方向需要大于 1.0"
   },
   "upscalePanel": {
     "title": "高清放大",
