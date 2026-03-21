@@ -39,6 +39,29 @@ export type {
   AiAudioOutput,
 };
 
+// ── Media v2 types ──
+export type {
+  MediaFeature,
+  MediaAspectRatio,
+  MediaResolution,
+  MediaQuality,
+  MediaGenerateBase,
+  MediaGenerateRequest,
+  ImageGenerateRequest as MediaImageGenerateRequest,
+  PosterRequest,
+  ImageEditRequest,
+  UpscaleRequest as MediaUpscaleRequest,
+  OutpaintRequest,
+  VideoGenerateRequest as MediaVideoGenerateRequest,
+  DigitalHumanRequest,
+  TtsRequest,
+  MediaTaskItem,
+  MediaTaskGroupData,
+  MediaTaskGroupSuccess,
+  MediaTaskGroupResponse,
+  MediaModelsQuery,
+} from "@openloaf-saas/sdk";
+
 export type MediaSubmitContext = {
   /** Project id for storage scoping. */
   projectId?: string;
@@ -51,3 +74,6 @@ export type MediaSubmitContext = {
 export type SaasImageSubmitPayload = AiImageRequest & MediaSubmitContext;
 export type SaasVideoSubmitPayload = AiVideoRequest & MediaSubmitContext;
 export type SaasAudioSubmitPayload = AiAudioRequest & MediaSubmitContext;
+
+// ── Media v2 payload ──
+export type SaasMediaGeneratePayload = import("@openloaf-saas/sdk").MediaGenerateRequest & MediaSubmitContext;
