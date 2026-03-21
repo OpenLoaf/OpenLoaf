@@ -8,6 +8,7 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import { useState, useRef, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { Link2, Plus, X } from 'lucide-react'
 
 export type MediaSlotProps = {
@@ -43,7 +44,10 @@ export function MediaSlot({
   compact,
 }: MediaSlotProps) {
   const inputRef = useRef<HTMLInputElement>(null)
+  const slotRef = useRef<HTMLDivElement>(null)
   const [imgFailed, setImgFailed] = useState(false)
+  const [hovered, setHovered] = useState(false)
+  const [rect, setRect] = useState<DOMRect | null>(null)
 
   // Reset failure state when src changes
   const prevSrcRef = useRef(src)
@@ -67,7 +71,15 @@ export function MediaSlot({
   const size = compact ? 'h-[44px] w-[44px]' : 'h-[52px] w-[52px]'
 
   return (
-    <div className="group/slot flex flex-col items-center gap-1">
+    <div
+      ref={slotRef}
+      className="group/slot flex flex-col items-center gap-1"
+      onPointerEnter={() => {
+        setHovered(true)
+        if (slotRef.current) setRect(slotRef.current.getBoundingClientRect())
+      }}
+      onPointerLeave={() => setHovered(false)}
+    >
       <button
         type="button"
         disabled={disabled || (!onUpload && !hasSrc)}
@@ -134,6 +146,25 @@ export function MediaSlot({
           onChange={handleFileChange}
         />
       ) : null}
+      {/* Hover preview portaled to body to escape stacking context */}
+      {hasSrc && hovered && rect && createPortal(
+        <div
+          className="pointer-events-none fixed z-[9999]"
+          style={{
+            left: rect.left + rect.width / 2,
+            top: rect.top - 8,
+            transform: 'translate(-50%, -100%)',
+          }}
+        >
+          <img
+            src={src}
+            alt={label}
+            className="max-h-40 max-w-48 rounded-lg border border-border object-contain shadow-lg"
+            draggable={false}
+          />
+        </div>,
+        document.body,
+      )}
     </div>
   )
 }
