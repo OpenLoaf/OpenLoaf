@@ -318,9 +318,9 @@ export function SidebarUserAccount() {
               {!authLoggedIn && (
                 <DropdownMenuItem
                   onSelect={() => handleOpenLogin()}
-                  className="rounded-lg bg-ol-blue-bg text-ol-blue focus:bg-ol-blue-bg-hover focus:text-ol-blue"
+                  className="rounded-lg"
                 >
-                  <LogIn className="size-4 text-ol-blue" />
+                  <LogIn className="size-4" />
                   {t('loginAccount')}
                 </DropdownMenuItem>
               )}
@@ -340,9 +340,9 @@ export function SidebarUserAccount() {
                     updateStatus?.state === "downloading" ||
                     updateStatus?.state === "ready"
                   }
-                  className="rounded-lg text-ol-amber focus:bg-ol-amber-bg focus:text-ol-amber"
+                  className="rounded-lg"
                 >
-                  <RefreshCcw className="size-4 text-ol-amber" />
+                  <RefreshCcw className="size-4" />
                   <span className="flex-1">
                     {updateStatus?.state === "ready"
                       ? t('updateReady')
@@ -351,13 +351,12 @@ export function SidebarUserAccount() {
                         : t('checkUpdate')}
                   </span>
                   {updateStatus?.state === "ready" && (
-                    <span className="ml-1 size-2 rounded-full bg-ol-blue" />
+                    <span className="ml-1 size-2 rounded-full bg-foreground" />
                   )}
                 </DropdownMenuItem>
               )}
               {authLoggedIn && (
                 <DropdownMenuItem
-                  variant="destructive"
                   onSelect={() => void handleLogout()}
                   className="rounded-lg"
                 >
