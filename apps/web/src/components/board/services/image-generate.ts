@@ -7,26 +7,26 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import { submitImageTask } from '@/lib/saas-media'
-
-/** Supported aspect ratio literals accepted by the SaaS API. */
-type SaasAspectRatio = '1:1' | '16:9' | '9:16' | '4:3'
-
-/** Check whether a string is a valid SaaS aspect ratio. */
-function isSaasAspectRatio(value: string): value is SaasAspectRatio {
-  return value === '1:1' || value === '16:9' || value === '9:16' || value === '4:3'
-}
+import { submitMediaGenerate } from '@/lib/saas-media'
 
 export type ImageGenerateRequest = {
   prompt: string
   negativePrompt?: string
-  modelId?: string
   aspectRatio?: string
   resolution?: string
   style?: string
-  referenceImageSrc?: string
-  /** All upstream reference images (takes precedence over referenceImageSrc). */
+  /** imageGenerate sub-mode. */
+  mode?: 'text' | 'reference' | 'sketch' | 'character'
+  /** Reference images for reference/sketch/character modes. */
   referenceImageSrcs?: string[]
+  /** Whether input is a sketch (for sketch mode). */
+  isSketch?: boolean
+  /** Number of results to generate. */
+  count?: 1 | 2 | 4
+  /** Quality level. */
+  quality?: 'draft' | 'standard' | 'hd'
+  /** Seed for reproducibility. */
+  seed?: number
 }
 
 export type ImageGenerateResult = {
@@ -34,8 +34,7 @@ export type ImageGenerateResult = {
 }
 
 /**
- * Submit an image generation task to the server.
- * Returns a taskId that can be used with LoadingNode for polling.
+ * Submit an image generation task via v2 unified endpoint.
  */
 export async function submitImageGenerate(
   request: ImageGenerateRequest,
@@ -45,39 +44,39 @@ export async function submitImageGenerate(
     sourceNodeId?: string
   } = {},
 ): Promise<ImageGenerateResult> {
-  // 逻辑：modelId 为空或 'auto' 时不传，由 SaaS 后端自动选择。
-  const modelId = request.modelId && request.modelId !== 'auto'
-    ? request.modelId
-    : undefined
+  const refSrcs = request.referenceImageSrcs?.length
+    ? request.referenceImageSrcs
+    : []
 
-  const output = request.aspectRatio && isSaasAspectRatio(request.aspectRatio)
-    ? { aspectRatio: request.aspectRatio as SaasAspectRatio }
-    : undefined
+  const mode = request.mode
+    ?? (refSrcs.length > 0 ? 'reference' : 'text')
 
   const payload: Record<string, unknown> = {
-    modelId,
+    feature: 'imageGenerate',
     prompt: request.prompt,
     negativePrompt: request.negativePrompt || undefined,
-    output,
+    aspectRatio: request.aspectRatio && request.aspectRatio !== 'auto'
+      ? request.aspectRatio : undefined,
+    resolution: request.resolution && request.resolution !== '1K'
+      ? request.resolution : undefined,
+    mode,
+    style: request.style || undefined,
+    count: request.count,
+    quality: request.quality,
+    seed: request.seed,
     projectId: options.projectId,
     saveDir: options.saveDir,
     sourceNodeId: options.sourceNodeId,
   }
 
-  // 逻辑：图生图模式下，将参考图作为输入传给 SaaS API。
-  // 本地 URL 的解析由服务端 submitImageProxy 处理（S3 优先 → base64 兜底）。
-  const refSrcs = request.referenceImageSrcs?.length
-    ? request.referenceImageSrcs
-    : request.referenceImageSrc
-      ? [request.referenceImageSrc]
-      : []
   if (refSrcs.length > 0) {
     payload.inputs = {
       images: refSrcs.map((url) => ({ url })),
+      isSketch: request.isSketch || undefined,
     }
   }
 
-  const result = await submitImageTask(payload as any)
+  const result = await submitMediaGenerate(payload)
 
   if (!result || result.success !== true || !result.data?.taskId) {
     const message = result?.message || '图片生成任务创建失败'
