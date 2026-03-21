@@ -184,7 +184,7 @@ export const AppSidebar = ({
           <IconNavItem
             icon={Sparkles}
             tooltip={t("aiAssistant")}
-            color="amber"
+            color="black"
             isActive={!isInProject && (() => {
               // 无 base 且无项目 = 全局聊天模式（包括临时对话和历史会话）
               if (!appState.base && !appState.projectShell) return true;
@@ -195,7 +195,7 @@ export const AppSidebar = ({
           <IconNavItem
             icon={Palette}
             tooltip={t("smartCanvas")}
-            color="purple"
+            color="black"
             isActive={
               !isInProject &&
               (isCanvasListActive ||
@@ -207,7 +207,7 @@ export const AppSidebar = ({
           <IconNavItem
             icon={FolderClosed}
             tooltip={t("sidebarProjectSpace")}
-            color="blue"
+            color="black"
             isActive={
               (isProjectListActive ||
                 isMenuActive(PROJECT_LIST_TAB_INPUT) ||
@@ -224,14 +224,14 @@ export const AppSidebar = ({
           <IconNavItem
             icon={LayoutDashboard}
             tooltip={t("workbench")}
-            color="green"
+            color="black"
             isActive={!isInProject && (isWorkbenchActive || isMenuActive(WORKBENCH_TAB_INPUT))}
             onClick={() => openPrimaryPageTab({ ...WORKBENCH_TAB_INPUT })}
           />
           <IconNavItem
             icon={CalendarDays}
             tooltip={t("calendar")}
-            color="sky"
+            color="black"
             isActive={!isInProject && isCalendarActive}
             onClick={() =>
               openPrimaryPageTab({ baseId: "base:calendar", component: "calendar-page", titleKey: "nav:calendar", icon: "🗓️" })
@@ -240,7 +240,7 @@ export const AppSidebar = ({
           <IconNavItem
             icon={Mail}
             tooltip={t("email")}
-            color="teal"
+            color="black"
             isActive={!isInProject && isEmailActive}
             onClick={() =>
               openPrimaryPageTab({ baseId: "base:mailbox", component: "email-page", titleKey: "nav:email", icon: "📧" })
@@ -249,7 +249,7 @@ export const AppSidebar = ({
           <IconNavItem
             icon={Clock}
             tooltip={t("tasks")}
-            color="rose"
+            color="black"
             isActive={!isInProject && isTasksActive}
             onClick={() =>
               openPrimaryPageTab({ baseId: "base:scheduled-tasks", component: "scheduled-tasks-page", titleKey: "nav:tasks", icon: "⏰" })
@@ -263,20 +263,20 @@ export const AppSidebar = ({
           <IconNavItem
             icon={Search}
             tooltip={`${t("search")} (⌘K)`}
-            color="blue"
+            color="black"
             onClick={() => setSearchOpen(true)}
           />
           <IconNavItem
             icon={Bot}
             tooltip={t("agents")}
-            color="blue"
+            color="black"
             isActive={!isInProject && isAgentsActive}
             onClick={() => openPrimaryPageTab({ ...AGENTS_TAB_INPUT, preserveCurrentView: true })}
           />
           <IconNavItem
             icon={Wand2}
             tooltip={t("skills")}
-            color="purple"
+            color="black"
             isActive={!isInProject && isSkillsActive}
             onClick={() => openPrimaryPageTab({ ...SKILLS_TAB_INPUT, preserveCurrentView: true })}
           />

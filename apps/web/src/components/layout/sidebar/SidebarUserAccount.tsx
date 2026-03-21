@@ -19,6 +19,7 @@ import {
   LogOut,
   RefreshCcw,
   Info,
+  CircleUserRound,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -537,16 +538,20 @@ export function CompactUserAvatar() {
             type="button"
             className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-sidebar-accent transition-colors"
           >
-            <Avatar className="size-7 rounded-md">
-              <AvatarImage src={displayAvatar || undefined} alt={avatarAlt} />
-              <AvatarFallback className="bg-transparent">
-                <img
-                  src="/head_s.png"
-                  alt="OpenLoaf"
-                  className="size-full object-contain"
-                />
-              </AvatarFallback>
-            </Avatar>
+            {authLoggedIn ? (
+              <Avatar className="size-7 rounded-md">
+                <AvatarImage src={displayAvatar || undefined} alt={avatarAlt} />
+                <AvatarFallback className="bg-transparent">
+                  <img
+                    src="/head_s.png"
+                    alt="OpenLoaf"
+                    className="size-full object-contain"
+                  />
+                </AvatarFallback>
+              </Avatar>
+            ) : (
+              <CircleUserRound className="size-5 text-sidebar-foreground/70" />
+            )}
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent

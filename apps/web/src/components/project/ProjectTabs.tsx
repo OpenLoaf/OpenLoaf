@@ -95,6 +95,8 @@ type ProjectTabsProps = {
   revealDelayMs?: number;
   size?: "sm" | "md" | "lg";
   tabId?: string;
+  /** Tab values to hide (feature-gated and not yet initialized). */
+  hiddenTabs?: ReadonlySet<string>;
 };
 
 /** Render project tabs with expandable tabs UI. */
@@ -105,14 +107,25 @@ export default function ProjectTabs({
   size = "md",
   tabId,
   revealDelayMs = 0,
+  hiddenTabs,
 }: ProjectTabsProps) {
   const { t } = useTranslation("project");
   const [dockHost, setDockHost] = useState<HTMLElement | null>(null);
-  // 根据当前值映射到选中索引
+
+  // 过滤掉被隐藏的 tab（feature-gated 且未初始化）。
+  const visibleTabs = useMemo(
+    () =>
+      hiddenTabs?.size
+        ? PROJECT_TABS.filter((tab) => !hiddenTabs.has(tab.value))
+        : PROJECT_TABS,
+    [hiddenTabs],
+  );
+
+  // 根据当前值映射到选中索引（基于可见 tab 列表）。
   const selectedIndex = useMemo(() => {
-    const index = PROJECT_TABS.findIndex((tab) => tab.value === value);
+    const index = visibleTabs.findIndex((tab) => tab.value === value);
     return index === -1 ? null : index;
-  }, [value]);
+  }, [value, visibleTabs]);
 
   const isMac = useMemo(
     () =>
@@ -123,19 +136,19 @@ export default function ProjectTabs({
 
   const tabs = useMemo(
     () =>
-      PROJECT_TABS.map((tab) => ({
+      visibleTabs.map((tab) => ({
         id: tab.value,
         label: t(tab.labelKey.replace("project:", "")),
         icon: tab.icon,
         tone: tab.tone,
       })),
-    [t]
+    [t, visibleTabs]
   );
 
   /** Handle tab changes from UI. */
   const handleChange = (index: number | null) => {
     if (index === null) return;
-    const nextTab = PROJECT_TABS[index];
+    const nextTab = visibleTabs[index];
     if (!nextTab) return;
     onValueChange(nextTab.value);
   };

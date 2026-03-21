@@ -21,7 +21,7 @@ import i18next from "i18next";
 import { generateId } from "ai";
 import * as React from "react";
 import { motion } from "motion/react";
-import { LayoutDashboard, CalendarDays, Mail, Clock, Folder, Settings } from "lucide-react";
+import { LayoutDashboard, CalendarDays, Mail, Clock, Folder, Palette, Settings } from "lucide-react";
 import { QUICK_LAUNCH_ITEMS, PROJECT_QUICK_LAUNCH_ITEMS } from "./quick-launch-items";
 import { openProjectShellTab } from "@/lib/project-shell";
 import {
@@ -151,6 +151,11 @@ const FEATURE_INTRO_STYLE = {
     iconColor: "text-ol-amber",
     iconBg: "bg-ol-amber/10",
   },
+  canvas: {
+    icon: Palette,
+    iconColor: "text-ol-purple",
+    iconBg: "bg-ol-purple/10",
+  },
 } as const
 
 /** Feature intro dialog for gated project features. */
@@ -160,7 +165,7 @@ function FeatureIntroDialog({
   onOpenChange,
   onConfirm,
 }: {
-  feature: "index" | "tasks"
+  feature: "index" | "tasks" | "canvas"
   open: boolean
   onOpenChange: (open: boolean) => void
   onConfirm: () => void
@@ -205,7 +210,7 @@ function QuickLaunchBar({ projectId }: { projectId?: string }) {
   const { t: tProject } = useTranslation('project')
   const { tabId } = useChatSession()
   const { data: projectData, invalidateProject } = useProject(projectId || undefined)
-  const [introFeature, setIntroFeature] = React.useState<"index" | "tasks" | null>(null)
+  const [introFeature, setIntroFeature] = React.useState<"index" | "tasks" | "canvas" | null>(null)
   const initFeatureMutation = useMutation(trpc.project.initFeature.mutationOptions())
 
   // initializedFeatures 为 undefined → 旧项目，全部激活
@@ -255,7 +260,7 @@ function QuickLaunchBar({ projectId }: { projectId?: string }) {
     (item: (typeof PROJECT_QUICK_LAUNCH_ITEMS)[number]) => {
       const isInactive = !isAllActive && item.featureGated
         && !initFeatures?.includes(item.value)
-      if (isInactive && (item.value === "index" || item.value === "tasks")) {
+      if (isInactive && (item.value === "index" || item.value === "tasks" || item.value === "canvas")) {
         setIntroFeature(item.value)
       } else {
         handleProjectQuickLaunch(item)

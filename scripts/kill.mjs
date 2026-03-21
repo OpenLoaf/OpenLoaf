@@ -76,7 +76,7 @@ function killStaleWindows(repoRoot, log) {
   const safeRoot = repoRoot.replace(/\\/g, '\\\\').replace(/'/g, "''")
   const script = [
     `$procs = Get-CimInstance Win32_Process | Where-Object {`,
-    `  $_.CommandLine -and $_.CommandLine -like '*${safeRoot}*' -and`,
+    `  $_.CommandLine -and ($_.CommandLine -like '*${safeRoot}\\*' -or $_.CommandLine -like '*${safeRoot}/*') -and`,
     `  ($_.CommandLine -match 'next dev' -or $_.CommandLine -match 'next-server' -or`,
     `   $_.CommandLine -match 'server[/\\\\]src[/\\\\]index' -or`,
     `   $_.CommandLine -match 'turbo.*dev' -or $_.CommandLine -match 'webpack-loaders\\.js' -or`,
@@ -124,7 +124,7 @@ function killStaleUnix(repoRoot, log) {
 
   try {
     const output = execSync(
-      `ps -eo pid,args | grep -E '(${grepPattern})' | grep '${repoRoot}' | grep -v grep`,
+      `ps -eo pid,args | grep -E '(${grepPattern})' | grep '${repoRoot}/' | grep -v grep`,
       { encoding: 'utf-8', timeout: 5000 },
     ).trim()
 

@@ -65,7 +65,7 @@ export const PROJECT_QUICK_LAUNCH_ITEMS = [
     bgColor: "bg-ol-amber/10 group-hover:bg-ol-amber/20",
   },
   {
-    value: "canvas", icon: Palette, labelKey: "project.tabCanvas", featureGated: false,
+    value: "canvas", icon: Palette, labelKey: "project.tabCanvas", featureGated: true,
     iconColor: "text-ol-green/70 group-hover:text-ol-green",
     bgColor: "bg-ol-green/10 group-hover:bg-ol-green/20",
   },

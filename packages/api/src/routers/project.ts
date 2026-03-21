@@ -991,7 +991,7 @@ export const projectRouter = t.router({
     .input(
       z.object({
         projectId: z.string(),
-        feature: z.enum(["index", "tasks"]),
+        feature: z.enum(["index", "tasks", "canvas"]),
       })
     )
     .mutation(async ({ input }) => {

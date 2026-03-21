@@ -218,7 +218,7 @@ export default function ProjectPage({
   const initialProjectTab =
     projectTab && PROJECT_TABS.some((tab) => tab.value === projectTab)
       ? projectTab
-      : "index";
+      : "files";
   const [activeTab, setActiveTab] = useState<ProjectTabValue>(initialProjectTab);
   const [mountedTabs, setMountedTabs] = useState<Set<ProjectTabValue>>(
     () => new Set<ProjectTabValue>([initialProjectTab])
@@ -242,6 +242,19 @@ export default function ProjectPage({
   const isProjectShellMode = Boolean(tabView?.projectShell);
   // 逻辑：项目数据未加载前不覆盖持久化标题/图标，避免切换时闪动。
   const shouldSyncTabMeta = localTitle !== null || localIcon !== null || Boolean(projectData?.project);
+  // Feature-gated tabs: 新项目 initializedFeatures=[] 时隐藏，旧项目 undefined 时全部显示。
+  const FEATURE_GATED_TABS = ["index", "tasks", "canvas"] as const;
+  const initFeatures = projectData?.project?.initializedFeatures;
+  const hiddenTabs = useMemo(() => {
+    // undefined → 旧项目，全部显示
+    if (!initFeatures) return undefined;
+    const set = new Set<string>();
+    for (const tab of FEATURE_GATED_TABS) {
+      if (!initFeatures.includes(tab)) set.add(tab);
+    }
+    return set.size > 0 ? set : undefined;
+  }, [initFeatures]);
+
   const shouldRenderIndex = activeTab === "index" || mountedTabs.has("index");
   const shouldRenderFiles = activeTab === "files" || mountedTabs.has("files");
   const shouldRenderTasks = activeTab === "tasks" || mountedTabs.has("tasks");
@@ -454,11 +467,13 @@ export default function ProjectPage({
 
       const nextTab = getProjectTabByIndex(Number.parseInt(match[1], 10) - 1);
       if (!nextTab) return;
+      // 跳过被隐藏的 tab（feature-gated 且未初始化）。
+      if (hiddenTabs?.has(nextTab)) return;
 
       event.preventDefault();
       handleProjectTabChange(nextTab);
     },
-    [handleProjectTabChange, tabActive]
+    [handleProjectTabChange, tabActive, hiddenTabs]
   );
 
   useEffect(() => {
@@ -488,6 +503,7 @@ export default function ProjectPage({
           revealDelayMs={200}
           size="md"
           tabId={tabId}
+          hiddenTabs={hiddenTabs}
         />
         <div
           className={`h-full w-full overflow-auto show-scrollbar ${

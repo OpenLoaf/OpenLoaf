@@ -458,6 +458,10 @@
       "title": "Enable Project History",
       "description": "Project history tracks and displays file change summaries and daily work reports. This will enable the history feature for this project."
     },
+    "canvas": {
+      "title": "Enable Canvas Board",
+      "description": "The canvas board provides a visual node-based workflow for AI generation, image processing, and content organization. This will enable the canvas feature for this project."
+    },
     "cancel": "Cancel",
     "confirm": "Enable"
   },
