@@ -710,7 +710,35 @@
     },
     "stackMode": "Stack (New Version)",
     "overwriteMode": "Overwrite Primary",
-    "parametersLocked": "Parameters locked"
+    "parametersLocked": "Parameters locked",
+    "feature": {
+      "videoGenerate": "Video",
+      "digitalHuman": "Digital Human"
+    },
+    "modeV2": {
+      "text": "Text",
+      "firstFrame": "Image",
+      "startEnd": "Start/End",
+      "reference": "Reference",
+      "storyboard": "Storyboard",
+      "motionControl": "Motion",
+      "photo2video": "Photo Drive",
+      "lipSync": "Lip Sync"
+    },
+    "withAudio": "Generate audio",
+    "quality": {
+      "draft": "Draft",
+      "standard": "Standard",
+      "hd": "HD"
+    },
+    "digitalHuman": {
+      "personImage": "Person Photo",
+      "personVideo": "Source Video",
+      "audioInput": "Audio Input",
+      "uploadPerson": "Upload person photo",
+      "uploadAudio": "Upload audio file"
+    },
+    "videoEditTeaser": "Video Editing · Coming Soon"
   },
   "imagePanel": {
     "textToImage": "Text to Image",
@@ -829,7 +857,14 @@
       "referenceVoiceEmpty": "Select or connect a voice sample",
       "selectVoice": "Select Voice",
       "registeredVoice": "Registered Voice",
-      "registeredVoicePlaceholder": "Coming in V1.5"
+      "registeredVoicePlaceholder": "Coming in V1.5",
+      "textLabel": "Text to Speak",
+      "textPlaceholder": "Enter text to synthesize...",
+      "textAutoFilled": "Auto-filled from text node ({{count}} chars)",
+      "voiceLabel": "Voice",
+      "voiceAuto": "Auto",
+      "referenceLabel": "Reference Voice (Clone)",
+      "referenceConnectHint": "Connect an audio node to clone voice"
     },
     "enhancePrompt": "Enhance Prompt",
     "durationAuto": "Auto",
@@ -840,7 +875,24 @@
     "loginHint": "Sign in to use cloud models",
     "stackMode": "Stack (New Version)",
     "overwriteMode": "Overwrite Primary",
-    "parametersLocked": "Parameters locked"
+    "parametersLocked": "Parameters locked",
+    "advanced": {
+      "label": "Advanced",
+      "outputFormat": "Format",
+      "sampleRate": "Sample Rate",
+      "sampleRateAuto": "Auto",
+      "quality": "Quality",
+      "qualityDraft": "Draft",
+      "qualityStandard": "Standard",
+      "qualityHd": "HD",
+      "seed": "Seed",
+      "seedPlaceholder": "Leave empty for random"
+    },
+    "tabBadgeSoon": "Soon",
+    "comingSoon": {
+      "music": { "title": "Music Generation", "description": "Coming soon" },
+      "sfx": { "title": "Sound Effects", "description": "Coming soon" }
+    }
   },
   "nodeSearch": {
     "placeholder": "Search nodes...",

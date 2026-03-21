@@ -714,7 +714,35 @@
     },
     "stackMode": "堆叠（新版本）",
     "overwriteMode": "覆盖主版本",
-    "parametersLocked": "参数已锁定"
+    "parametersLocked": "参数已锁定",
+    "feature": {
+      "videoGenerate": "视频生成",
+      "digitalHuman": "数字人"
+    },
+    "modeV2": {
+      "text": "文生",
+      "firstFrame": "图生",
+      "startEnd": "首尾帧",
+      "reference": "参考",
+      "storyboard": "分镜",
+      "motionControl": "运动控制",
+      "photo2video": "照片驱动",
+      "lipSync": "口型同步"
+    },
+    "withAudio": "同步生成音频",
+    "quality": {
+      "draft": "草稿",
+      "standard": "标准",
+      "hd": "高清"
+    },
+    "digitalHuman": {
+      "personImage": "人物照片",
+      "personVideo": "源视频",
+      "audioInput": "音频输入",
+      "uploadPerson": "上传人像照片",
+      "uploadAudio": "上传音频文件"
+    },
+    "videoEditTeaser": "视频编辑 · 即将推出"
   },
   "imagePanel": {
     "textToImage": "文生图",
@@ -833,7 +861,14 @@
       "referenceVoiceEmpty": "选择或连接音色样本",
       "selectVoice": "选择音色",
       "registeredVoice": "已注册音色",
-      "registeredVoicePlaceholder": "V1.5 版本上线"
+      "registeredVoicePlaceholder": "V1.5 版本上线",
+      "textLabel": "朗读文本",
+      "textPlaceholder": "输入要合成语音的文本内容...",
+      "textAutoFilled": "已从文本节点自动填充（{{count}}字）",
+      "voiceLabel": "音色",
+      "voiceAuto": "自动推荐",
+      "referenceLabel": "参考音色（声音克隆）",
+      "referenceConnectHint": "连接音频节点以克隆音色"
     },
     "enhancePrompt": "优化提示词",
     "durationAuto": "自动",
@@ -844,7 +879,24 @@
     "loginHint": "登录以使用云端模型",
     "stackMode": "堆叠（新版本）",
     "overwriteMode": "覆盖主版本",
-    "parametersLocked": "参数已锁定"
+    "parametersLocked": "参数已锁定",
+    "advanced": {
+      "label": "高级设置",
+      "outputFormat": "输出格式",
+      "sampleRate": "采样率",
+      "sampleRateAuto": "自动",
+      "quality": "质量",
+      "qualityDraft": "草稿",
+      "qualityStandard": "标准",
+      "qualityHd": "高清",
+      "seed": "种子",
+      "seedPlaceholder": "留空为随机"
+    },
+    "tabBadgeSoon": "Soon",
+    "comingSoon": {
+      "music": { "title": "音乐生成", "description": "即将推出，敬请期待" },
+      "sfx": { "title": "音效生成", "description": "即将推出，敬请期待" }
+    }
   },
   "nodeSearch": {
     "placeholder": "搜索节点...",

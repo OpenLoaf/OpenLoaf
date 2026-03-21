@@ -710,7 +710,35 @@
     },
     "stackMode": "堆疊（新版本）",
     "overwriteMode": "覆寫主版本",
-    "parametersLocked": "參數已鎖定"
+    "parametersLocked": "參數已鎖定",
+    "feature": {
+      "videoGenerate": "影片生成",
+      "digitalHuman": "數位人"
+    },
+    "modeV2": {
+      "text": "文生",
+      "firstFrame": "圖生",
+      "startEnd": "首尾幀",
+      "reference": "參考",
+      "storyboard": "分鏡",
+      "motionControl": "運動控制",
+      "photo2video": "照片驅動",
+      "lipSync": "口型同步"
+    },
+    "withAudio": "同步生成音訊",
+    "quality": {
+      "draft": "草稿",
+      "standard": "標準",
+      "hd": "高清"
+    },
+    "digitalHuman": {
+      "personImage": "人物照片",
+      "personVideo": "來源影片",
+      "audioInput": "音訊輸入",
+      "uploadPerson": "上傳人像照片",
+      "uploadAudio": "上傳音訊檔案"
+    },
+    "videoEditTeaser": "影片編輯 · 即將推出"
   },
   "imagePanel": {
     "textToImage": "文生圖",
@@ -829,7 +857,14 @@
       "referenceVoiceEmpty": "選擇或連接音色樣本",
       "selectVoice": "選擇音色",
       "registeredVoice": "已註冊音色",
-      "registeredVoicePlaceholder": "V1.5 版本上線"
+      "registeredVoicePlaceholder": "V1.5 版本上線",
+      "textLabel": "朗讀文本",
+      "textPlaceholder": "輸入要合成語音的文本內容...",
+      "textAutoFilled": "已從文本節點自動填充（{{count}}字）",
+      "voiceLabel": "音色",
+      "voiceAuto": "自動推薦",
+      "referenceLabel": "參考音色（聲音複製）",
+      "referenceConnectHint": "連接音訊節點以複製音色"
     },
     "enhancePrompt": "優化提示詞",
     "durationAuto": "自動",
@@ -840,7 +875,24 @@
     "loginHint": "登入以使用雲端模型",
     "stackMode": "堆疊（新版本）",
     "overwriteMode": "覆寫主版本",
-    "parametersLocked": "參數已鎖定"
+    "parametersLocked": "參數已鎖定",
+    "advanced": {
+      "label": "進階設定",
+      "outputFormat": "輸出格式",
+      "sampleRate": "取樣率",
+      "sampleRateAuto": "自動",
+      "quality": "品質",
+      "qualityDraft": "草稿",
+      "qualityStandard": "標準",
+      "qualityHd": "高清",
+      "seed": "種子",
+      "seedPlaceholder": "留空為隨機"
+    },
+    "tabBadgeSoon": "Soon",
+    "comingSoon": {
+      "music": { "title": "音樂生成", "description": "即將推出，敬請期待" },
+      "sfx": { "title": "音效生成", "description": "即將推出，敬請期待" }
+    }
   },
   "nodeSearch": {
     "placeholder": "搜尋節點...",
