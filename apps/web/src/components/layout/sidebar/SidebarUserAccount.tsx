@@ -384,7 +384,7 @@ export function SidebarUserAccount() {
               </Button>
               <Button
                 type="button"
-                className="bg-ol-blue-bg text-ol-blue hover:bg-ol-blue-bg-hover shadow-none"
+                className="shadow-none"
                 onClick={async () => {
                   setRestartDialogOpen(false)
                   await window.openloafElectron?.relaunchApp?.()
@@ -611,9 +611,9 @@ export function CompactUserAvatar() {
             {!authLoggedIn && (
               <DropdownMenuItem
                 onSelect={() => setLoginOpen(true)}
-                className="rounded-lg bg-ol-blue-bg text-ol-blue focus:bg-ol-blue-bg-hover focus:text-ol-blue"
+                className="rounded-lg"
               >
-                <LogIn className="size-4 text-ol-blue" />
+                <LogIn className="size-4" />
                 {t('loginAccount')}
               </DropdownMenuItem>
             )}
@@ -633,9 +633,9 @@ export function CompactUserAvatar() {
                   updateStatus?.state === "downloading" ||
                   updateStatus?.state === "ready"
                 }
-                className="rounded-lg text-ol-amber focus:bg-ol-amber-bg focus:text-ol-amber"
+                className="rounded-lg"
               >
-                <RefreshCcw className="size-4 text-ol-amber" />
+                <RefreshCcw className="size-4" />
                 <span className="flex-1">
                   {updateStatus?.state === "ready"
                     ? t('updateReady')
@@ -644,13 +644,12 @@ export function CompactUserAvatar() {
                       : t('checkUpdate')}
                 </span>
                 {updateStatus?.state === "ready" && (
-                  <span className="ml-1 size-2 rounded-full bg-ol-blue" />
+                  <span className="ml-1 size-2 rounded-full bg-foreground" />
                 )}
               </DropdownMenuItem>
             )}
             {authLoggedIn && (
               <DropdownMenuItem
-                variant="destructive"
                 onSelect={() => void handleLogout()}
                 className="rounded-lg"
               >
@@ -678,7 +677,7 @@ export function CompactUserAvatar() {
             </Button>
             <Button
               type="button"
-              className="bg-ol-blue-bg text-ol-blue hover:bg-ol-blue-bg-hover shadow-none"
+              className="shadow-none"
               onClick={async () => {
                 setRestartDialogOpen(false)
                 await window.openloafElectron?.relaunchApp?.()

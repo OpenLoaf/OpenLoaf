@@ -118,3 +118,4 @@ apps/openloaf-office-plugins
 .husky/
 .npm-cache
 .openloaf
+.superpowers/
