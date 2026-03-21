@@ -14,6 +14,10 @@ import { getProjectRootPath } from "@openloaf/api/services/vfsService";
 export type MediaTaskContext = {
   /** Task id. */
   taskId: string;
+  /** v2: group this task belongs to. */
+  groupId?: string;
+  /** v2: feature discriminator. */
+  feature?: string;
   /** Result type hint. */
   resultType?: "image" | "video" | "audio";
   /** Project id for storage. */
