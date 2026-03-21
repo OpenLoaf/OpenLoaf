@@ -194,7 +194,7 @@ export function SaasLoginDialog({ open, onOpenChange }: SaasLoginDialogProps) {
                   <button
                     type="button"
                     className={cn(
-                      "flex w-full items-center justify-center gap-2 rounded-md border border-border/70 bg-muted/40 px-4 py-3 text-foreground transition-colors",
+                      "flex w-full items-center justify-center gap-2 rounded-3xl border border-border/70 bg-muted/40 px-4 py-3 text-foreground transition-colors",
                       "hover:bg-muted/60",
                     )}
                     onClick={() => {
@@ -212,7 +212,7 @@ export function SaasLoginDialog({ open, onOpenChange }: SaasLoginDialogProps) {
                   onClick={() => void handleLogin("google")}
                   disabled={isBusy}
                   className={cn(
-                    "flex w-full items-center justify-center gap-2 rounded-md border border-border/70 bg-muted/40 px-4 py-3 text-foreground transition-colors",
+                    "flex w-full items-center justify-center gap-2 rounded-3xl border border-border/70 bg-muted/40 px-4 py-3 text-foreground transition-colors",
                     "hover:bg-muted/60",
                     isBusy && "cursor-not-allowed opacity-60",
                   )}
@@ -240,7 +240,7 @@ export function SaasLoginDialog({ open, onOpenChange }: SaasLoginDialogProps) {
                   onClick={() => void handleLogin("wechat")}
                   disabled={isBusy}
                   className={cn(
-                    "flex w-full items-center justify-center gap-2 rounded-md border border-border/70 bg-muted/40 px-4 py-3 text-foreground transition-colors",
+                    "flex w-full items-center justify-center gap-2 rounded-3xl border border-border/70 bg-muted/40 px-4 py-3 text-foreground transition-colors",
                     "hover:bg-muted/60",
                     isBusy && "cursor-not-allowed opacity-60",
                   )}

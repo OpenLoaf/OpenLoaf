@@ -291,13 +291,13 @@ export default function StreamingCodeViewer({
   } else if (isDone && patchResult?.isDelete) {
     statusIndicator = { text: t('file.fileDeleted'), color: 'bg-destructive', destructive: true }
   } else if (isDone && patchResult?.isAdd) {
-    statusIndicator = { text: t('file.newFile'), color: 'bg-ol-green' }
+    statusIndicator = { text: t('file.newFile'), color: 'bg-muted-foreground' }
   } else if (isDone) {
-    statusIndicator = { text: t('saved'), color: 'bg-ol-green' }
+    statusIndicator = { text: t('saved'), color: 'bg-muted-foreground' }
   } else if (loadingOriginal) {
-    statusIndicator = { text: t('file.loadingFile'), color: 'bg-ol-blue animate-pulse' }
+    statusIndicator = { text: t('file.loadingFile'), color: 'bg-foreground animate-pulse' }
   } else if (isStreaming) {
-    statusIndicator = { text: t('file.changing'), color: 'bg-ol-blue animate-pulse' }
+    statusIndicator = { text: t('file.changing'), color: 'bg-foreground animate-pulse' }
   }
 
   return (
@@ -314,7 +314,7 @@ export default function StreamingCodeViewer({
       {statusIndicator && (
         <div
           className={cn(
-            'absolute bottom-3 right-3 flex items-center gap-1.5 rounded-md ol-glass-float px-2 py-1 text-xs',
+            'absolute bottom-3 right-3 flex items-center gap-1.5 rounded-3xl ol-glass-float px-2 py-1 text-xs',
             statusIndicator.destructive ? 'text-destructive' : 'text-muted-foreground',
           )}
         >

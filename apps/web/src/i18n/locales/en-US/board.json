@@ -47,11 +47,11 @@
     "connector": "Connector"
   },
   "insertTools": {
-    "note": "Note",
+    "note": "Text",
     "text": "Text",
     "textDesc": "Prompts, scripts",
-    "sticky": "Sticky Note",
-    "stickyDesc": "Quick notes",
+    "sticky": "Text",
+    "stickyDesc": "Enter text content",
     "image": "Image",
     "imageDesc": "AI image generation",
     "video": "Video",
@@ -88,7 +88,7 @@
     }
   },
   "descriptions": {
-    "note": "Quick note card",
+    "note": "Text card",
     "image": "Image block",
     "video": "Video block",
     "file": "File attachment",
@@ -108,9 +108,10 @@
   "emptyGuide": {
     "title": "Start Creating",
     "subtitle": "Choose a way to begin",
-    "createText": "Sticky Note",
+    "createText": "Text",
     "aiImage": "AI Image",
     "aiVideo": "AI Video",
+    "aiAudio": "AI Audio",
     "importFile": "Import File",
     "hint": "Double-click on empty space to create text",
     "shortcuts": "Shortcuts: V Select · H Hand · T Text · C Connector",
@@ -355,7 +356,9 @@
       "style": "Style",
       "stylePlaceholder": "Press Enter to add custom style",
       "negativePrompt": "Negative Prompt",
-      "auto": "Auto"
+      "auto": "Auto",
+      "negativePromptLabel": "Negative Prompt",
+      "clearStyle": "Clear"
     },
     "modelSelect": {
       "noModel": "No models available",
@@ -403,7 +406,9 @@
       "auto": "Auto",
       "yes": "Yes",
       "no": "No",
-      "selectPlaceholder": "Select..."
+      "selectPlaceholder": "Select...",
+      "negativePromptLabel": "Negative Prompt",
+      "clearStyle": "Clear"
     },
     "status": {
       "completed": "Completed",
@@ -524,7 +529,12 @@
   "versionStack": {
     "badge": "{{count}} versions",
     "prev": "Previous",
-    "next": "Next"
+    "next": "Next",
+    "deleteTitle": "Delete Version",
+    "deleteDescription": "This node has {{count}} versions. Only the currently displayed version will be removed.",
+    "deleteAll": "Delete all versions (entire node)",
+    "deleteCancel": "Cancel",
+    "deleteConfirm": "Delete"
   },
   "fileAttachmentNode": {
     "toolbar": {
@@ -685,7 +695,11 @@
     "autoRecommend": "Auto Recommend",
     "aspectRatio": "Aspect Ratio",
     "duration": "Duration",
-    "quality": "Quality",
+    "quality": {
+      "draft": "Draft",
+      "standard": "Standard",
+      "hd": "HD"
+    },
     "generate": "Generate",
     "generating": "Generating...",
     "upstreamLoaded": "Content loaded from upstream node",
@@ -726,11 +740,6 @@
       "lipSync": "Lip Sync"
     },
     "withAudio": "Generate audio",
-    "quality": {
-      "draft": "Draft",
-      "standard": "Standard",
-      "hd": "HD"
-    },
     "digitalHuman": {
       "personImage": "Person Photo",
       "personVideo": "Source Video",
@@ -744,7 +753,7 @@
     "textToImage": "Text to Image",
     "imageToImage": "Image to Image",
     "prompt": "Prompt",
-    "promptPlaceholder": "Describe the image you want...",
+    "promptPlaceholder": "Describe the image you want, e.g.: a cat sitting on a rooftop under the stars",
     "model": "Model",
     "autoRecommend": "Auto Recommend",
     "aspectRatio": "Aspect Ratio",
@@ -764,7 +773,12 @@
     "enhancePrompt": "Enhance prompt",
     "translate": "Translate",
     "settings": "Settings",
-    "generateMode": "Generate mode",
+    "generateMode": {
+      "text": "Text to Image",
+      "reference": "Reference",
+      "sketch": "Sketch",
+      "character": "Character"
+    },
     "upstreamSlots": "Upstream Assets",
     "estimatedCredits": "Estimated credits for this generation",
     "stackMode": "Stack (New Version)",
@@ -783,17 +797,12 @@
     "maskEdit": "Edit Mask",
     "erasePlaceholder": "Paint over the area to erase",
     "feature": {
-      "imageGenerate": "Generate",
+      "imageGenerate": "Auto",
       "poster": "Poster",
       "imageEdit": "Edit",
       "upscale": "Upscale",
-      "outpaint": "Outpaint"
-    },
-    "generateMode": {
-      "text": "Text to Image",
-      "reference": "Reference",
-      "sketch": "Sketch",
-      "character": "Character"
+      "outpaint": "Outpaint",
+      "matting": "Cutout"
     },
     "editMode": {
       "instruct": "Instruct",
@@ -821,7 +830,8 @@
     "outpaintBottom": "Bottom",
     "outpaintLeft": "Left",
     "outpaintRight": "Right",
-    "outpaintHint": "At least one direction must be greater than 1.0"
+    "outpaintHint": "At least one direction must be greater than 1.0",
+    "maskRequired": "Please paint the area to modify first"
   },
   "upscalePanel": {
     "title": "HD Upscale",
@@ -890,8 +900,14 @@
     },
     "tabBadgeSoon": "Soon",
     "comingSoon": {
-      "music": { "title": "Music Generation", "description": "Coming soon" },
-      "sfx": { "title": "Sound Effects", "description": "Coming soon" }
+      "music": {
+        "title": "Music Generation",
+        "description": "Coming soon"
+      },
+      "sfx": {
+        "title": "Sound Effects",
+        "description": "Coming soon"
+      }
     }
   },
   "nodeSearch": {
@@ -930,11 +946,177 @@
   "generateAction": {
     "generate": "Generate",
     "generating": "Generating...",
+    "loginAndGenerate": "Login & Generate",
     "newNode": "Generate New Node",
     "stackCurrent": "Stack on Current Node",
     "currentNode": "Current node",
     "regenerate": "Regenerate",
+    "cancel": "Cancel",
     "locked": "Parameters Locked",
     "unlock": "Unlock"
+  },
+  "generatingOverlay": {
+    "status": "Generating, ~{{duration}}"
+  },
+  "polling": {
+    "errorGeneric": "Generation failed, please retry",
+    "errorNotFound": "Task expired, please regenerate",
+    "errorNetwork": "Network error, please check your connection and retry",
+    "errorAuth": "Session expired, please log in again",
+    "errorServer": "Service temporarily unavailable, please retry later",
+    "errorInsufficientBalance": "Insufficient credits, please top up and retry",
+    "errorRateLimit": "Too many requests, please retry later",
+    "errorContentPolicy": "Content violates safety policy, please modify and retry",
+    "errorTimeout": "Generation timed out, please retry",
+    "errorNoResults": "Generation completed but returned no results, please retry"
+  },
+  "v3": {
+    "features": {
+      "imageGenerate": "Image Generation",
+      "imageInpaint": "Inpainting",
+      "imageStyleTransfer": "Style Transfer",
+      "outpaint": "Outpaint",
+      "upscale": "Upscale",
+      "videoGenerate": "Video Generation",
+      "lipSync": "Lip Sync",
+      "tts": "Text to Speech",
+      "music": "Music Generation",
+      "sfx": "Sound Effects",
+      "comingSoonTitle": "Coming Soon",
+      "comingSoonDescription": "This feature is under development, stay tuned"
+    },
+    "variants": {
+      "img-gen-qwen": "Qwen Standard",
+      "img-gen-volc": "Jimeng Image",
+      "img-gen-kling": "Kling HD",
+      "img-inpaint-volc": "Jimeng Inpaint",
+      "img-style-volc": "Jimeng Style Transfer",
+      "outpaint-qwen": "Qwen Outpaint",
+      "upscale-qwen": "Qwen Upscale",
+      "upscale-volc": "Jimeng Smart Upscale",
+      "vid-gen-qwen": "Qwen Video",
+      "vid-gen-volc": "Jimeng Video",
+      "vid-gen-kling": "Kling Video",
+      "lip-sync-volc": "Jimeng Lip Sync",
+      "lip-sync-kling": "Kling Lip Sync",
+      "tts-qwen": "CosyVoice TTS"
+    },
+    "params": {
+      "prompt": "Prompt",
+      "negativePrompt": "Negative Prompt",
+      "aspectRatio": "Aspect Ratio",
+      "quality": "Quality",
+      "qualityStandard": "Standard",
+      "qualityHd": "HD",
+      "count": "Count",
+      "seed": "Seed",
+      "seedPlaceholder": "Leave empty for random",
+      "style": "Style",
+      "scale": "Scale Factor",
+      "xScale": "Horizontal Scale",
+      "yScale": "Vertical Scale",
+      "duration": "Duration",
+      "withAudio": "Generate audio",
+      "mode": "Mode",
+      "modeStd": "Standard",
+      "modePro": "Professional",
+      "format": "Output Format",
+      "voice": "Voice",
+      "voiceAuto": "Auto",
+      "speechRate": "Speech Rate",
+      "pitchRate": "Pitch",
+      "volume": "Volume",
+      "text": "Text Content",
+      "textPlaceholder": "Enter text for speech synthesis...",
+      "person": "Person",
+      "audio": "Audio",
+      "image": "Image",
+      "mask": "Mask",
+      "referenceAudio": "Reference Voice",
+      "referenceAudioConnected": "Reference voice connected",
+      "advancedSettings": "Advanced Settings",
+      "ratioAuto": "Auto",
+      "quality_standard": "Standard",
+      "quality_hd": "HD",
+      "negativePromptPlaceholder": "Things to avoid in the image...",
+      "proRequired": "This variant requires a Pro membership or above",
+      "needsImage": "An image is required for this operation",
+      "inpaintHint": "Paint over the area you want to modify on the image, then describe what to fill",
+      "inpaintPromptPlaceholder": "Describe what to fill in the painted area...",
+      "styleSource": "Style source image",
+      "needsStyleImage": "A source image is required for style transfer",
+      "stylePromptPlaceholder": "Describe the content to generate in this style...",
+      "scaleFactor": "Scale Factor",
+      "upscaleVolcHint": "High-quality upscaling powered by cloud AI",
+      "outpaintHint": "Scale > 1.0 extends the image in that direction",
+      "textAutoFilled": "Auto-filled from upstream ({{count}} chars)",
+      "voices": {
+        "longshu": "Long Shu",
+        "longxiaochun": "Long Xiaochun",
+        "longxiaoxia": "Long Xiaoxia",
+        "longlaotie": "Long Laotie",
+        "longyue": "Long Yue",
+        "longcheng": "Long Cheng",
+        "longjielidou": "Long Jielidou",
+        "longtong": "Long Tong"
+      }
+    },
+    "selectVariant": "Select model",
+    "unknownVariant": "This variant is not yet supported in the UI",
+    "estimatedCredits": "Estimated credits",
+    "fields": {
+      "firstFrame": "First Frame",
+      "firstFrameRequired": "Connect an image node (required)",
+      "firstFrameOptional": "Connect an image node (optional)",
+      "optional": "(optional)",
+      "upstreamImageLoaded": "Image loaded from upstream",
+      "upstreamVideoLoaded": "Video loaded from upstream",
+      "upstreamAudioLoaded": "Audio loaded from upstream",
+      "promptPlaceholder": "Describe the video you want to generate...",
+      "style": "Style",
+      "styleAuto": "Auto",
+      "withAudio": "With Audio",
+      "ratioAuto": "Auto",
+      "mode": "Mode",
+      "modeStd": "Standard",
+      "modePro": "Pro",
+      "personImage": "Person Image",
+      "personVideoOrImage": "Person (Video or Image)",
+      "videoSource": "Video source",
+      "audioInput": "Audio Input",
+      "uploadPerson": "Connect a person image node",
+      "uploadPersonVideoOrImage": "Connect a video or image node",
+      "uploadAudio": "Connect an audio node",
+      "lipSyncHint": "Connect a person image and audio node to generate lip sync video",
+      "lipSyncKlingHint": "Connect a person video/image and audio node to generate lip sync video"
+    },
+    "warnings": {
+      "promptRequired": "Please enter a prompt",
+      "textRequired": "Please enter text to speak"
+    },
+    "common": {
+      "selectVariant": "Select Model Variant",
+      "credits": "Credits",
+      "creditsPerCall": "{{credits}} credits/call",
+      "membershipRequired": "Requires {{level}} membership",
+      "noVariants": "No variants available",
+      "loading": "Loading capabilities...",
+      "loadError": "Unable to load AI capabilities",
+      "loadErrorHint": "Check your network connection and try again, or sign in to your cloud account",
+      "retry": "Retry",
+      "comingSoon": "Coming Soon",
+      "genericPromptPlaceholder": "Enter prompt...",
+      "uploadImage": "Upload Image",
+      "uploadAudio": "Upload Audio",
+      "uploadPerson": "Upload Person",
+      "fromUpstream": "From upstream node",
+      "autoFilled": "Auto-filled",
+      "autoFilledCount": "Auto-filled ({{count}} chars)",
+      "referenceConnectHint": "Connect an audio node to clone voice",
+      "promptPlaceholderImage": "Describe the image you want to generate...",
+      "promptPlaceholderVideo": "Describe video content and camera movements...",
+      "promptPlaceholderInpaint": "Describe the desired modification...",
+      "promptPlaceholderStyle": "Describe the target style..."
+    }
   }
 }

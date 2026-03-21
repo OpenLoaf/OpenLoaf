@@ -21,7 +21,7 @@ export const MESSAGE_STREAM_MARKDOWN_CLASSNAME = cn(
   // Code block styling (handled by components but resetting some defaults)
   "prose-pre:p-0 prose-pre:bg-transparent prose-pre:m-0 prose-pre:overflow-x-auto",
   // Inline code styling
-  "prose-code:px-1 prose-code:py-0.5 prose-code:font-mono prose-code:text-[0.9em] prose-code:font-normal prose-code:bg-muted/50 prose-code:rounded-sm prose-code:before:content-none prose-code:after:content-none",
+  "prose-code:px-1 prose-code:py-0.5 prose-code:font-mono prose-code:text-[0.9em] prose-code:font-normal prose-code:bg-muted/50 prose-code:rounded-3xl prose-code:before:content-none prose-code:after:content-none",
   // Other elements
   "prose-blockquote:not-italic prose-blockquote:border-l-primary/50 prose-blockquote:text-muted-foreground",
   "prose-a:break-all prose-a:text-primary prose-a:no-underline hover:prose-a:underline",

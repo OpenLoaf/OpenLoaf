@@ -68,7 +68,7 @@ function CalendarFilterPanelTrigger({
   return (
     <AccordionPrimitive.Header className="flex items-center justify-between gap-2 pr-2">
       <AccordionPrimitive.Trigger
-        className="focus-visible:border-ring focus-visible:ring-ring/50 flex flex-1 items-center justify-between gap-2 rounded-md py-2 text-left text-sm font-medium transition-all outline-none hover:underline focus-visible:ring-[3px] disabled:pointer-events-none disabled:opacity-50 [&[data-state=open]_.calendar-accordion-chevron]:rotate-180"
+        className="focus-visible:border-ring focus-visible:ring-ring/50 flex flex-1 items-center justify-between gap-2 rounded-3xl py-2 text-left text-sm font-medium transition-all outline-none hover:underline focus-visible:ring-[3px] disabled:pointer-events-none disabled:opacity-50 [&[data-state=open]_.calendar-accordion-chevron]:rotate-180"
       >
         <span className="flex items-center gap-2">
           <ChevronDownIcon className="calendar-accordion-chevron size-4 shrink-0 text-muted-foreground transition-transform duration-200" />
@@ -153,7 +153,7 @@ export function CalendarFilterPanel({
   const renderProjectNode = (node: ProjectNode, depth: number) => (
     <div key={node.projectId} className="space-y-1">
       <div
-        className="flex items-center justify-between gap-2 rounded-md py-1.5 pr-2 transition-colors hover:bg-muted/60"
+        className="flex items-center justify-between gap-2 rounded-3xl py-1.5 pr-2 transition-colors hover:bg-muted/60"
         style={{ paddingLeft: `${8 + depth * 12}px` }}
       >
         <button
@@ -183,30 +183,30 @@ export function CalendarFilterPanel({
 
   return (
     <div
-      className={`flex flex-col rounded-md bg-background/95 p-2 text-sm ${
+      className={`flex flex-col rounded-3xl bg-background/95 p-2 text-sm ${
         className ?? ""
       }`}
     >
       <div className="flex items-center px-2 h-9">
-        <Filter className="h-3.5 w-3.5 text-ol-text-auxiliary" />
+        <Filter className="h-3.5 w-3.5 text-muted-foreground" />
         <span className="text-sm font-semibold text-foreground ml-1.5">{t('filter')}</span>
       </div>
-      <div className="border-b border-ol-divider mb-1.5" />
-      <div className="flex items-center gap-0.5 rounded-md border bg-background p-0.5 mx-1 mb-2">
+      <div className="border-b border-border mb-1.5" />
+      <div className="flex items-center gap-0.5 rounded-3xl border bg-background p-0.5 mx-1 mb-2">
         {([
-          { value: "all" as const, labelKey: "all", activeBg: "bg-ol-blue-bg", activeText: "text-ol-blue" },
-          { value: "local" as const, labelKey: "local", activeBg: "bg-ol-green-bg", activeText: "text-ol-green" },
-          { value: "system" as const, labelKey: "system", activeBg: "bg-ol-purple-bg", activeText: "text-ol-purple" },
+          { value: "all" as const, labelKey: "all", activeBg: "bg-secondary", activeText: "text-foreground" },
+          { value: "local" as const, labelKey: "local", activeBg: "bg-secondary", activeText: "text-muted-foreground" },
+          { value: "system" as const, labelKey: "system", activeBg: "bg-secondary", activeText: "text-muted-foreground" },
         ] as const).map(({ value, labelKey, activeBg, activeText }) => {
           const isActive = sourceFilter === value;
           return (
             <button
               key={value}
               type="button"
-              className={`flex-1 inline-flex items-center justify-center gap-1 rounded-md transition-all duration-150 h-7 text-[11px] font-medium ${
+              className={`flex-1 inline-flex items-center justify-center gap-1 rounded-3xl transition-all duration-150 h-7 text-[11px] font-medium ${
                 isActive
                   ? `${activeBg} ${activeText}`
-                  : "text-ol-text-auxiliary hover:bg-ol-surface-muted hover:text-ol-text-primary"
+                  : "text-muted-foreground hover:bg-accent hover:text-foreground"
               }`}
               onClick={() => onSourceFilterChange(value)}
             >
@@ -259,7 +259,7 @@ export function CalendarFilterPanel({
               return (
                 <div
                   key={calendar.id}
-                  className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 pr-2 transition-colors hover:bg-muted/60"
+                  className="flex items-center justify-between gap-2 rounded-3xl px-2 py-1.5 pr-2 transition-colors hover:bg-muted/60"
                 >
                   <button
                     type="button"
@@ -333,7 +333,7 @@ export function CalendarFilterPanel({
               return (
                 <div
                   key={calendar.id}
-                  className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 pr-2 transition-colors hover:bg-muted/60"
+                  className="flex items-center justify-between gap-2 rounded-3xl px-2 py-1.5 pr-2 transition-colors hover:bg-muted/60"
                 >
                   <button
                     type="button"
@@ -403,11 +403,11 @@ export function CalendarFilterPanel({
           </AccordionContent>
         </AccordionItem>
       </Accordion>
-      <div className="mt-1 border-t border-ol-divider pt-2 px-1">
+      <div className="mt-1 border-t border-border pt-2 px-1">
         <div
           role="button"
           tabIndex={0}
-          className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-muted/60 cursor-pointer"
+          className="flex w-full items-center justify-between gap-2 rounded-3xl px-2 py-1.5 transition-colors hover:bg-muted/60 cursor-pointer"
           onClick={onToggleTasks}
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggleTasks?.(); } }}
         >

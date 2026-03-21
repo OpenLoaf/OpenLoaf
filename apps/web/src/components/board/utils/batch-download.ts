@@ -14,7 +14,7 @@ import {
   resolveBoardFolderScope,
   resolveProjectPathFromBoardUri,
 } from '../core/boardFilePath'
-import { getPreviewEndpoint } from '@/lib/image/uri'
+import { getBoardPreviewEndpoint, getPreviewEndpoint } from '@/lib/image/uri'
 import { toast } from 'sonner'
 import i18next from 'i18next'
 
@@ -52,6 +52,12 @@ function resolveImageDownloadUrl(
   ) {
     return uri
   }
+  if (fileContext?.boardId && isBoardRelativePath(uri)) {
+    return getBoardPreviewEndpoint(uri, {
+      boardId: fileContext.boardId,
+      projectId: fileContext.projectId,
+    })
+  }
   const projectPath = resolveProjectRelativePath(uri, fileContext)
   if (!projectPath) return ''
   return getPreviewEndpoint(projectPath, {
@@ -71,6 +77,12 @@ function resolveVideoDownloadUrl(
     sourcePath.startsWith('https://')
   ) {
     return sourcePath
+  }
+  if (fileContext?.boardId && isBoardRelativePath(sourcePath)) {
+    return getBoardPreviewEndpoint(sourcePath, {
+      boardId: fileContext.boardId,
+      projectId: fileContext.projectId,
+    })
   }
   const scope = resolveBoardFolderScope(fileContext)
   const projectPath = resolveProjectPathFromBoardUri({

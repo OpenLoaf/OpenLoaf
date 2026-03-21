@@ -53,54 +53,54 @@ function getHelpPages(t: TFunction): HelpPage[] {
       title: t('desktop:help.pages.welcome.title'),
       description: t('desktop:help.pages.welcome.description'),
       icon: Sparkles,
-      iconColorClass: "bg-ol-blue-bg text-ol-blue",
+      iconColorClass: "bg-secondary text-foreground",
     },
     {
       title: t('desktop:help.pages.aiChat.title'),
       description: t('desktop:help.pages.aiChat.description'),
       icon: MessageSquareText,
-      iconColorClass: "bg-ol-purple-bg text-ol-purple",
+      iconColorClass: "bg-secondary text-muted-foreground",
       action: "open-ai-chat",
     },
     {
       title: t('desktop:help.pages.dock.title'),
       description: t('desktop:help.pages.dock.description'),
       icon: PanelBottom,
-      iconColorClass: "bg-ol-blue-bg text-ol-blue",
+      iconColorClass: "bg-secondary text-foreground",
     },
     {
       title: t('desktop:help.pages.search.title'),
       description: t('desktop:help.pages.search.description'),
       icon: Search,
-      iconColorClass: "bg-ol-blue-bg text-ol-blue",
+      iconColorClass: "bg-secondary text-foreground",
       action: "open-search",
     },
     {
       title: t('desktop:help.pages.calendar.title'),
       description: t('desktop:help.pages.calendar.description'),
       icon: CalendarDays,
-      iconColorClass: "bg-ol-green-bg text-ol-green",
+      iconColorClass: "bg-secondary text-muted-foreground",
       action: "open-calendar",
     },
     {
       title: t('desktop:help.pages.email.title'),
       description: t('desktop:help.pages.email.description'),
       icon: Mail,
-      iconColorClass: "bg-ol-amber-bg text-ol-amber",
+      iconColorClass: "bg-secondary text-muted-foreground",
       action: "open-email",
     },
     {
       title: t('desktop:help.pages.tasks.title'),
       description: t('desktop:help.pages.tasks.description'),
       icon: KanbanSquare,
-      iconColorClass: "bg-ol-amber-bg text-ol-amber",
+      iconColorClass: "bg-secondary text-muted-foreground",
       action: "open-tasks",
     },
     {
       title: t('desktop:help.pages.desktop.title'),
       description: t('desktop:help.pages.desktop.description'),
       icon: LayoutGrid,
-      iconColorClass: "bg-ol-purple-bg text-ol-purple",
+      iconColorClass: "bg-secondary text-muted-foreground",
     },
   ]
 }
@@ -223,7 +223,7 @@ export default function HelpWidget() {
       {/* Navigation arrows */}
       <button
         type="button"
-        className="absolute top-1/2 left-1.5 z-10 flex size-8 -translate-y-1/2 items-center justify-center rounded-md ol-glass-float text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100 [div:hover>&]:opacity-100"
+        className="absolute top-1/2 left-1.5 z-10 flex size-8 -translate-y-1/2 items-center justify-center rounded-3xl ol-glass-float text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100 [div:hover>&]:opacity-100"
         onClick={goPrev}
         aria-label={t('help.prevPage')}
       >
@@ -231,7 +231,7 @@ export default function HelpWidget() {
       </button>
       <button
         type="button"
-        className="absolute top-1/2 right-1.5 z-10 flex size-8 -translate-y-1/2 items-center justify-center rounded-md ol-glass-float text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100 [div:hover>&]:opacity-100"
+        className="absolute top-1/2 right-1.5 z-10 flex size-8 -translate-y-1/2 items-center justify-center rounded-3xl ol-glass-float text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100 [div:hover>&]:opacity-100"
         onClick={goNext}
         aria-label={t('help.nextPage')}
       >
@@ -277,13 +277,13 @@ function HelpSlide({
         className={cn(
           "flex flex-col items-center gap-2",
           page.action &&
-            "cursor-pointer rounded-xl px-5 py-3 transition-colors duration-150 hover:bg-accent/60",
+            "cursor-pointer rounded-3xl px-5 py-3 transition-colors duration-150 hover:bg-accent/60",
         )}
         onClick={handleClick}
       >
         <div
           className={cn(
-            "flex size-10 items-center justify-center rounded-xl",
+            "flex size-10 items-center justify-center rounded-3xl",
             page.iconColorClass,
           )}
         >

@@ -277,7 +277,7 @@ export const JSXPreviewError = memo(
     return (
       <div
         className={cn(
-          "flex items-center gap-2 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-destructive text-sm",
+          "flex items-center gap-2 rounded-3xl border border-destructive/50 bg-destructive/10 p-3 text-destructive text-sm",
           className
         )}
         {...props}

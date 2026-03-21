@@ -105,7 +105,7 @@ export function CliToolsList({ selectedId, onSelect, onOpenInstall, disabled }: 
             type="button"
             variant="outline"
             size="sm"
-            className="rounded-md px-4"
+            className="rounded-3xl px-4"
             onClick={onOpenInstall}
           >
             {t('mode.goInstall')}
@@ -134,7 +134,7 @@ export function CliToolsList({ selectedId, onSelect, onOpenInstall, disabled }: 
             role="button"
             tabIndex={!clickable ? -1 : 0}
             className={cn(
-              'flex w-full items-center gap-3 rounded-md px-3 py-2 text-left transition-colors',
+              'flex w-full items-center gap-3 rounded-3xl px-3 py-2 text-left transition-colors',
               installed
                 ? clickable
                   ? 'cursor-pointer hover:bg-sidebar-accent/60'
@@ -171,7 +171,7 @@ export function CliToolsList({ selectedId, onSelect, onOpenInstall, disabled }: 
             {installed && (
               <span
                 className={cn(
-                  'flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border transition-colors',
+                  'flex h-4 w-4 shrink-0 items-center justify-center rounded-3xl border transition-colors',
                   isSelected
                     ? 'border-primary bg-primary text-primary-foreground'
                     : 'border-border bg-background text-transparent',

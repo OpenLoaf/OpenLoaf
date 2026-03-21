@@ -36,18 +36,71 @@ function diagnoseDns(hostname: string): void {
   });
 }
 
+const isDev = process.env.NODE_ENV !== "production";
+
+/** Safely extract request body for logging (truncate large payloads). */
+function extractBody(init?: RequestInit): unknown {
+  if (!init?.body) return undefined;
+  if (typeof init.body === "string") {
+    try {
+      const parsed = JSON.parse(init.body);
+      return parsed;
+    } catch {
+      return init.body.length > 500 ? `${init.body.slice(0, 500)}…` : init.body;
+    }
+  }
+  return "[non-string body]";
+}
+
 /** Fetch wrapper with configurable timeout and diagnostics logging. */
 const timeoutFetcher: typeof fetch = (input, init) => {
   const url = typeof input === "string" ? input : input instanceof URL ? input.href : (input as Request).url;
+  const method = init?.method ?? "GET";
   const t0 = Date.now();
-  logger.info({ url }, "[saas-fetch] start");
+
+  if (isDev) {
+    const body = extractBody(init);
+    const headers = init?.headers
+      ? Object.fromEntries(
+          init.headers instanceof Headers
+            ? init.headers.entries()
+            : Array.isArray(init.headers)
+              ? init.headers
+              : Object.entries(init.headers),
+        )
+      : undefined;
+    logger.debug({ method, url, headers, body }, "[saas-fetch] >>> request");
+  } else {
+    logger.info({ url }, "[saas-fetch] start");
+  }
 
   return fetch(input, {
     ...init,
     signal: init?.signal ?? AbortSignal.timeout(SAAS_TIMEOUT_MS),
   }).then(
-    (res) => {
-      logger.info({ url, status: res.status, ms: Date.now() - t0 }, "[saas-fetch] ok");
+    async (res) => {
+      const ms = Date.now() - t0;
+      if (isDev) {
+        // 克隆响应以读取 body，不影响下游消费
+        const cloned = res.clone();
+        let resBody: unknown;
+        try {
+          resBody = await cloned.json();
+        } catch {
+          try {
+            const text = await cloned.text();
+            resBody = text.length > 1000 ? `${text.slice(0, 1000)}…` : text;
+          } catch {
+            resBody = "[unreadable]";
+          }
+        }
+        logger.debug(
+          { method, url, status: res.status, ms, resBody },
+          "[saas-fetch] <<< response",
+        );
+      } else {
+        logger.info({ url, status: res.status, ms }, "[saas-fetch] ok");
+      }
       return res;
     },
     (err) => {

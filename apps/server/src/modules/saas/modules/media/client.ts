@@ -37,6 +37,9 @@ type FetchMediaModelOptions = {
   force?: boolean;
 };
 
+/** Connect timeout for v3 direct HTTP calls (ms). */
+const SAAS_TIMEOUT_MS = 30_000;
+
 /** Cache ttl for media model lists. */
 const MODELS_TTL_MS = 24 * 60 * 60 * 1000;
 const cachedImageModels = new Map<string, { updatedAt: number; payload: unknown }>();
@@ -93,7 +96,7 @@ export async function pollMediaTask(
   accessToken: string,
 ): Promise<SaasMediaTaskResult> {
   const client = getSaasClient(accessToken);
-  const response = await client.ai.task(taskId);
+  const response = await client.ai.mediaTask(taskId);
   if (!response || response.success !== true) {
     return {
       taskId,
@@ -114,68 +117,10 @@ export async function pollMediaTask(
 /** Cancel a SaaS media task. */
 export async function cancelMediaTask(taskId: string, accessToken: string) {
   const client = getSaasClient(accessToken);
-  return client.ai.cancelTask(taskId);
+  return client.ai.mediaCancelTask(taskId);
 }
 
-// ═══════════ Media v2 client functions ═══════════
-
-/** Submit a media generation task via SDK v2 unified endpoint. */
-export async function submitMediaGenerateV2(
-  payload: MediaGenerateRequest,
-  accessToken: string,
-): Promise<{ success: boolean; data?: { taskId: string }; message?: string }> {
-  const client = getSaasClient(accessToken);
-  return client.ai.mediaGenerate(payload) as any;
-}
-
-/** Poll single task via SDK v2 endpoint. */
-export async function pollMediaTaskV2(
-  taskId: string,
-  accessToken: string,
-): Promise<
-  Omit<SaasMediaTaskResult, "taskId" | "status"> & {
-    taskId?: string;
-    status: SaasMediaTaskResult["status"] | "not_found";
-    creditsConsumed?: number;
-  }
-> {
-  const client = getSaasClient(accessToken);
-  const response = (await client.ai.mediaTask(taskId)) as any;
-  if (!response || response.success === false) {
-    return { status: "not_found" };
-  }
-  const d = response.data;
-  return {
-    taskId,
-    status: d.status ?? "queued",
-    progress: d.progress,
-    resultType: d.resultType,
-    resultUrls: d.resultUrls,
-    error: d.error,
-    creditsConsumed: d.creditsConsumed,
-  };
-}
-
-/** Cancel a running task via SDK v2. */
-export async function cancelMediaTaskV2(
-  taskId: string,
-  accessToken: string,
-): Promise<{ status: string }> {
-  const client = getSaasClient(accessToken);
-  const response = (await client.ai.mediaCancelTask(taskId)) as any;
-  return { status: response?.data?.status ?? "unknown" };
-}
-
-/** Poll task group via SDK v2. */
-export async function pollMediaTaskGroupV2(
-  groupId: string,
-  accessToken: string,
-): Promise<any> {
-  const client = getSaasClient(accessToken);
-  return client.ai.mediaTaskGroup(groupId);
-}
-
-/** Fetch media models via SDK v2 unified endpoint. */
+/** Fetch media models via SDK v2 unified endpoint (kept for AI chat model preferences). */
 export async function fetchMediaModelsV2(
   accessToken: string,
   feature?: string,
@@ -212,18 +157,135 @@ export async function fetchVideoModels(
   return payload;
 }
 
-const cachedAudioModels = new Map<string, { updatedAt: number; payload: unknown }>();
+// ---------------------------------------------------------------------------
+// File upload via SaaS SDK
+// ---------------------------------------------------------------------------
 
-/** Fetch audio model list with cache. */
-export async function fetchAudioModels(
+/**
+ * Upload a file buffer to SaaS CDN via sdk.ai.uploadFile().
+ * Returns the public URL.
+ */
+export async function uploadMediaFile(
+  buffer: Buffer,
+  filename: string,
+  contentType: string,
   accessToken: string,
-  options: FetchMediaModelOptions = {},
-) {
-  const force = options.force === true;
-  const cached = force ? null : readCache(cachedAudioModels, accessToken);
-  if (cached) return cached;
+): Promise<string> {
   const client = getSaasClient(accessToken);
-  const payload = await client.ai.audioModels();
-  writeCache(cachedAudioModels, accessToken, payload);
-  return payload;
+  const blob = new Blob([new Uint8Array(buffer)], { type: contentType });
+  const response = await client.ai.uploadFile(blob, filename);
+  if (!response || !response.url) {
+    throw new Error('SaaS uploadFile returned no URL');
+  }
+  return response.url;
+}
+
+// ═══════════ Media v3 client functions ═══════════
+// 逻辑：SDK v0.1.13 尚未包含 v3 方法，直接通过 HTTP 调用 SaaS v3 REST 端点。
+
+/** Build auth headers for v3 direct HTTP calls. */
+function v3AuthHeaders(accessToken: string): Record<string, string> {
+  return {
+    'Content-Type': 'application/json',
+    ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+  }
+}
+
+/**
+ * Execute a v3 HTTP request with error handling.
+ * 逻辑：封装 fetch + JSON 解析 + 网络错误重试（1 次），
+ * 将 socket/network 错误转为带 status 的 Error 供上层 mapSaasError 捕获。
+ */
+async function v3Fetch(
+  url: string,
+  init?: RequestInit,
+  retries = 1,
+): Promise<any> {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const response = await fetch(url, {
+        ...init,
+        signal: init?.signal ?? AbortSignal.timeout(SAAS_TIMEOUT_MS),
+      })
+      let json: any
+      try {
+        json = await response.json()
+      } catch {
+        // 逻辑：JSON 解析失败时返回空对象，避免崩溃。
+        json = {}
+      }
+      if (!response.ok) {
+        const message = json?.message || json?.error?.message || `HTTP ${response.status}`
+        const err = new Error(message) as any
+        err.status = response.status
+        err.statusText = response.statusText
+        err.payload = json
+        throw err
+      }
+      return json
+    } catch (err: any) {
+      // 逻辑：socket 断开等网络错误时重试一次；最后一次仍失败则抛出。
+      const isNetworkError = err?.cause?.code === 'UND_ERR_SOCKET'
+        || err?.cause?.code === 'ECONNRESET'
+        || err?.cause?.code === 'ECONNREFUSED'
+        || err?.message === 'fetch failed'
+      if (isNetworkError && attempt < retries) {
+        await new Promise((r) => setTimeout(r, 500))
+        continue
+      }
+      // 逻辑：给网络错误补上 status 503，便于 handleSaasMediaRoute 识别。
+      if (isNetworkError && !err.status) {
+        err.status = 503
+        err.code = 'NETWORK_ERROR'
+        err.message = err.message || '网络连接失败'
+      }
+      throw err
+    }
+  }
+}
+
+/** Fetch v3 capabilities for a given media category. */
+export async function fetchCapabilitiesV3(
+  category: 'image' | 'video' | 'audio',
+  accessToken: string,
+) {
+  const baseUrl = getSaasClient(accessToken).getBaseUrl()
+  return v3Fetch(`${baseUrl}/api/ai/v3/capabilities/${category}`, {
+    headers: v3AuthHeaders(accessToken),
+  })
+}
+
+/** Submit a v3 media generation task. */
+export async function submitV3Generate(payload: Record<string, unknown>, accessToken: string) {
+  const baseUrl = getSaasClient(accessToken).getBaseUrl()
+  return v3Fetch(`${baseUrl}/api/ai/v3/generate`, {
+    method: 'POST',
+    headers: v3AuthHeaders(accessToken),
+    body: JSON.stringify(payload),
+  })
+}
+
+/** Poll a v3 media task by id. */
+export async function pollV3Task(taskId: string, accessToken: string) {
+  const baseUrl = getSaasClient(accessToken).getBaseUrl()
+  return v3Fetch(`${baseUrl}/api/ai/v3/task/${taskId}`, {
+    headers: v3AuthHeaders(accessToken),
+  })
+}
+
+/** Cancel a v3 media task by id. */
+export async function cancelV3Task(taskId: string, accessToken: string) {
+  const baseUrl = getSaasClient(accessToken).getBaseUrl()
+  return v3Fetch(`${baseUrl}/api/ai/v3/task/${taskId}/cancel`, {
+    method: 'POST',
+    headers: v3AuthHeaders(accessToken),
+  })
+}
+
+/** Poll a v3 media task group by group id. */
+export async function pollV3TaskGroup(groupId: string, accessToken: string) {
+  const baseUrl = getSaasClient(accessToken).getBaseUrl()
+  return v3Fetch(`${baseUrl}/api/ai/v3/task-group/${groupId}`, {
+    headers: v3AuthHeaders(accessToken),
+  })
 }

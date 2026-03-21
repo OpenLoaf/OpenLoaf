@@ -289,7 +289,7 @@ export default function DesktopEditToolbar({
           type="button"
           variant="ghost"
           size="sm"
-          className="h-7 gap-1.5 rounded-md px-3 text-xs bg-ol-blue-bg text-ol-blue hover:bg-ol-blue-bg-hover hover:text-ol-blue transition-colors duration-150"
+          className="h-7 gap-1.5 rounded-3xl px-3 text-xs bg-secondary text-foreground hover:bg-accent hover:text-foreground transition-colors duration-150"
           onClick={handleAddAndEdit}
         >
           <Plus className="size-3.5" />
@@ -299,7 +299,7 @@ export default function DesktopEditToolbar({
           type="button"
           variant="ghost"
           size="sm"
-          className="h-7 gap-1.5 rounded-md px-3 text-xs text-ol-text-auxiliary hover:bg-ol-surface-muted transition-colors duration-150"
+          className="h-7 gap-1.5 rounded-3xl px-3 text-xs text-muted-foreground hover:bg-accent transition-colors duration-150"
           onClick={onEnterEditMode}
         >
           <PencilLine className="size-3.5" />
@@ -316,7 +316,7 @@ export default function DesktopEditToolbar({
         type="button"
         variant="ghost"
         size="sm"
-        className="h-7 gap-1.5 rounded-md px-3 text-xs bg-ol-blue-bg text-ol-blue hover:bg-ol-blue-bg-hover hover:text-ol-blue transition-colors duration-150"
+        className="h-7 gap-1.5 rounded-3xl px-3 text-xs bg-secondary text-foreground hover:bg-accent hover:text-foreground transition-colors duration-150"
         onClick={handleOpenWidgetLibrary}
       >
         <Plus className="size-3.5" />
@@ -326,7 +326,7 @@ export default function DesktopEditToolbar({
         type="button"
         variant="ghost"
         size="sm"
-        className="h-7 gap-1.5 rounded-md px-3 text-xs bg-ol-amber-bg text-ol-amber hover:bg-ol-amber-bg-hover hover:text-ol-amber transition-colors duration-150"
+        className="h-7 gap-1.5 rounded-3xl px-3 text-xs bg-secondary text-muted-foreground hover:bg-accent hover:text-muted-foreground transition-colors duration-150"
         onClick={onCompact}
       >
         <Box className="size-3.5" />
@@ -336,7 +336,7 @@ export default function DesktopEditToolbar({
         type="button"
         variant="ghost"
         size="sm"
-        className="h-7 gap-1.5 rounded-md px-3 text-xs text-ol-red hover:bg-ol-red-bg hover:text-ol-red transition-colors duration-150"
+        className="h-7 gap-1.5 rounded-3xl px-3 text-xs text-destructive hover:bg-secondary hover:text-destructive transition-colors duration-150"
         onClick={onCancel}
       >
         <X className="size-3.5" />
@@ -346,7 +346,7 @@ export default function DesktopEditToolbar({
         type="button"
         variant="ghost"
         size="sm"
-        className="h-7 gap-1.5 rounded-md px-3 text-xs bg-ol-green-bg text-ol-green hover:bg-ol-green-bg-hover hover:text-ol-green transition-colors duration-150"
+        className="h-7 gap-1.5 rounded-3xl px-3 text-xs bg-secondary text-muted-foreground hover:bg-accent hover:text-muted-foreground transition-colors duration-150"
         onClick={onDone}
       >
         <Check className="size-3.5" />

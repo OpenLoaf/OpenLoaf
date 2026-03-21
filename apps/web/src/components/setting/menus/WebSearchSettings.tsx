@@ -103,8 +103,8 @@ export function WebSearchSettings() {
       <OpenLoafSettingsGroup title="搜索提供商">
         <div className="space-y-4">
           <div className="flex flex-wrap items-center gap-2 py-2">
-            <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-ol-blue-bg">
-              <Globe className="h-3 w-3 text-ol-blue" />
+            <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-secondary">
+              <Globe className="h-3 w-3 text-foreground" />
             </div>
             <Label className="text-sm font-medium">搜索服务</Label>
             <OpenLoafSettingsField>
@@ -126,8 +126,8 @@ export function WebSearchSettings() {
           {provider && (
             <>
               <div className="flex flex-wrap items-center gap-2 py-2">
-                <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-ol-amber-bg">
-                  <Key className="h-3 w-3 text-ol-amber" />
+                <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-secondary">
+                  <Key className="h-3 w-3 text-foreground" />
                 </div>
                 <Label className="text-sm font-medium">API Key</Label>
                 <OpenLoafSettingsField className="flex items-center gap-1">
@@ -160,17 +160,17 @@ export function WebSearchSettings() {
                   <Button
                     type="button"
                     size="sm"
-                    className="rounded-md bg-ol-blue-bg text-ol-blue shadow-none hover:bg-ol-blue-bg-hover"
+                    className="rounded-3xl bg-secondary text-secondary-foreground shadow-none hover:bg-accent"
                     disabled={testing || !apiKey}
                     onClick={() => void handleTestConnection()}
                   >
                     {testing ? "测试中..." : "测试连接"}
                   </Button>
                   {testResult === "success" && (
-                    <CheckCircle2 className="h-4 w-4 text-ol-green" />
+                    <CheckCircle2 className="h-4 w-4 text-foreground" />
                   )}
                   {testResult === "error" && (
-                    <XCircle className="h-4 w-4 text-ol-red" />
+                    <XCircle className="h-4 w-4 text-destructive" />
                   )}
                 </OpenLoafSettingsField>
               </div>

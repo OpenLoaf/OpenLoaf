@@ -346,7 +346,7 @@ export function ThirdPartyTools() {
       <OpenLoafSettingsGroup title={t('thirdPartyTools.systemInfo')} subtitle={t('thirdPartyTools.systemInfoDesc')}>
         <div className="divide-y divide-border/40">
           <div className="flex flex-wrap items-center gap-2 py-3">
-            <SettingIcon icon={Monitor} bg="bg-ol-blue-bg" fg="text-ol-blue" />
+            <SettingIcon icon={Monitor} bg="bg-secondary" fg="text-foreground" />
             <div className="min-w-0 flex-1 text-sm font-medium">{t('thirdPartyTools.systemVersion')}</div>
             <OpenLoafSettingsField className="flex items-center justify-end text-right text-xs text-muted-foreground">
               <Button
@@ -364,7 +364,7 @@ export function ThirdPartyTools() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2 py-3">
-            <SettingIcon icon={Terminal} bg="bg-ol-green-bg" fg="text-ol-green" />
+            <SettingIcon icon={Terminal} bg="bg-secondary" fg="text-foreground" />
             <div className="min-w-0 flex-1 text-sm font-medium">{t('thirdPartyTools.cmdEnv')}</div>
             <OpenLoafSettingsField className="flex items-center justify-end text-right text-xs text-muted-foreground">
               <Button
@@ -401,7 +401,7 @@ export function ThirdPartyTools() {
             <OpenLoafSettingsField className="w-full sm:w-52 shrink-0 justify-end gap-2">
               <Button
                 size="sm"
-                className="rounded-md bg-ol-blue-bg text-ol-blue hover:bg-ol-blue-bg-hover shadow-none"
+                className="rounded-3xl bg-secondary text-secondary-foreground hover:bg-accent shadow-none"
                 disabled={
                   (installCliMutation.isPending &&
                     installCliMutation.variables?.id === "python") ||
@@ -447,7 +447,7 @@ export function ThirdPartyTools() {
             <OpenLoafSettingsField className="w-full sm:w-52 shrink-0 justify-end gap-2">
               <Button
                 size="sm"
-                className="rounded-md bg-ol-blue-bg text-ol-blue hover:bg-ol-blue-bg-hover shadow-none"
+                className="rounded-3xl bg-secondary text-secondary-foreground hover:bg-accent shadow-none"
                 disabled={
                   (installCliMutation.isPending &&
                     installCliMutation.variables?.id === "codex") ||
@@ -474,7 +474,7 @@ export function ThirdPartyTools() {
               {cliStatuses.codex.installed ? (
                 <Button
                   size="sm"
-                  className="rounded-md bg-ol-surface-muted text-ol-text-auxiliary hover:bg-muted shadow-none"
+                  className="rounded-3xl bg-secondary text-secondary-foreground hover:bg-accent shadow-none"
                   onClick={() => openCliSettings("codex")}
                 >
                   {t('thirdPartyTools.settings')}
@@ -498,7 +498,7 @@ export function ThirdPartyTools() {
             <OpenLoafSettingsField className="w-full sm:w-52 shrink-0 justify-end gap-2">
               <Button
                 size="sm"
-                className="rounded-md bg-ol-blue-bg text-ol-blue hover:bg-ol-blue-bg-hover shadow-none"
+                className="rounded-3xl bg-secondary text-secondary-foreground hover:bg-accent shadow-none"
                 disabled={
                   (installCliMutation.isPending &&
                     installCliMutation.variables?.id === "claudeCode") ||
@@ -526,7 +526,7 @@ export function ThirdPartyTools() {
               {cliStatuses.claudeCode.installed ? (
                 <Button
                   size="sm"
-                  className="rounded-md bg-ol-surface-muted text-ol-text-auxiliary hover:bg-muted shadow-none"
+                  className="rounded-3xl bg-secondary text-secondary-foreground hover:bg-accent shadow-none"
                   onClick={() => openCliSettings("claudeCode")}
                 >
                   {t('thirdPartyTools.settings')}
@@ -568,7 +568,7 @@ export function ThirdPartyTools() {
                 }
               />
             </div>
-            <div className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2">
+            <div className="flex items-center justify-between gap-3 rounded-3xl border border-border px-3 py-2">
               <div className="space-y-1">
                 <div className="text-sm font-medium">{t('thirdPartyTools.forceCustomKey')}</div>
                 <div className="text-xs text-muted-foreground">

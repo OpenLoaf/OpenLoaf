@@ -37,7 +37,7 @@ export function BrowserErrorOverlay({
   const displayUrl = failed?.validatedURL || url;
   return (
     <div className="absolute inset-0 z-10 grid place-items-center bg-background/70">
-      <div className="max-w-[360px] rounded-lg border bg-background p-4 text-sm">
+      <div className="max-w-[360px] rounded-3xl border bg-background p-4 text-sm">
         <div className="flex items-center gap-2 font-medium">
           <TriangleAlert className="h-4 w-4" />
           <span>{title}</span>

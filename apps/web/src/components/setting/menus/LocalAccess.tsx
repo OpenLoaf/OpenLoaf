@@ -213,8 +213,8 @@ export default function LocalAccess() {
     <>
           {/* External access toggle */}
           <div className="flex flex-wrap items-center gap-2 py-3">
-            <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-ol-blue-bg">
-              <Globe className="h-3 w-3 text-ol-blue" />
+            <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-secondary">
+              <Globe className="h-3 w-3 text-foreground" />
             </div>
             <div className="min-w-0 flex-1">
               <div className="text-sm font-medium">
@@ -239,8 +239,8 @@ export default function LocalAccess() {
           {/* Change password (only when enabled) */}
           {externalAccessEnabled && (
             <div className="flex flex-wrap items-center gap-2 py-3">
-              <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-ol-amber-bg">
-                <KeyRound className="h-3 w-3 text-ol-amber" />
+              <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-secondary">
+                <KeyRound className="h-3 w-3 text-foreground" />
               </div>
               <div className="min-w-0 flex-1">
                 <div className="text-sm font-medium">

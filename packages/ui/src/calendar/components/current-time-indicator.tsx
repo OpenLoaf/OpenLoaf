@@ -74,7 +74,7 @@ const NoMemoCurrentTimeIndicator = ({
 	// Default indicator rendering
 	return (
 		<div
-			className="absolute left-0 right-0 h-0.5 bg-ol-red z-50 pointer-events-none"
+			className="absolute left-0 right-0 h-0.5 bg-destructive z-50 pointer-events-none"
 			data-testid="current-time-indicator"
 			style={{
 				top: `${progress}%`,

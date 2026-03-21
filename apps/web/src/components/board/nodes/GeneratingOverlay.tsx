@@ -8,6 +8,7 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -43,12 +44,12 @@ const SVG_SIZE = (RING_RADIUS + RING_STROKE) * 2
 // Helpers
 // ---------------------------------------------------------------------------
 
-function formatCountdown(remainingSeconds: number): string {
-  const s = Math.max(0, Math.ceil(remainingSeconds))
+function formatDuration(seconds: number): string {
+  const s = Math.max(0, Math.ceil(seconds))
   const m = Math.floor(s / 60)
   const sec = s % 60
   if (m > 0) return `${m}:${sec.toString().padStart(2, '0')}`
-  return `${sec}s`
+  return `${s}s`
 }
 
 // ---------------------------------------------------------------------------
@@ -62,6 +63,7 @@ export function GeneratingOverlay({
   serverProgress,
   color = 'blue',
 }: GeneratingOverlayProps) {
+  const { t } = useTranslation('board')
   const [now, setNow] = useState(Date.now)
   const mountTime = useState(() => Date.now())[0]
   const effectiveStart = startedAt ?? mountTime
@@ -81,13 +83,11 @@ export function GeneratingOverlay({
   const progress =
     serverProgress != null ? Math.min(serverProgress / 100, 0.99) : timeProgress
 
-  const remainingSec = Math.max(estimatedSeconds - elapsedSec, 0)
-
   const colors = COLOR_MAP[color]
   const dashOffset = RING_CIRCUMFERENCE * (1 - progress)
 
   return (
-    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-1.5 rounded-lg bg-background/80 backdrop-blur-sm">
+    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-1.5 rounded-3xl bg-background/80 backdrop-blur-sm">
       {/* Circular ring */}
       <div className="relative">
         <svg
@@ -118,18 +118,16 @@ export function GeneratingOverlay({
             className={`${colors.ring} transition-[stroke-dashoffset] duration-1000 ease-linear`}
           />
         </svg>
-        {/* Center text */}
+        {/* Center text — always percentage */}
         <div className="absolute inset-0 flex items-center justify-center">
           <span className={`text-xs font-medium tabular-nums ${colors.text}`}>
-            {serverProgress != null ? `${Math.round(serverProgress)}%` : formatCountdown(remainingSec)}
+            {Math.round(progress * 100)}%
           </span>
         </div>
       </div>
-      {/* Label */}
-      <span className="text-[11px] text-ol-text-secondary">
-        {serverProgress != null
-          ? formatCountdown(remainingSec)
-          : `${Math.round(progress * 100)}%`}
+      {/* Status line */}
+      <span className="text-[11px] tabular-nums text-ol-text-secondary">
+        {t('generatingOverlay.status', { duration: formatDuration(estimatedSeconds) })}
       </span>
     </div>
   )

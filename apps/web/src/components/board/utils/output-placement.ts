@@ -99,29 +99,29 @@ export function resolveRightStackPlacement(
   );
   if (heights.length === 0) return null;
   const [sourceX, sourceY, sourceW, sourceH] = sourceRect;
-  const firstOutput = pickFirstOutput(existingOutputs);
-  const baseX = firstOutput
-    ? firstOutput[0]
-    : sourceX + sourceW + options.sideGap;
-  const startY =
-    existingOutputs.length > 0
-      ? existingOutputs.reduce(
-          (maxY, target) => {
-            const bottom = target[1] + target[3];
-            // 逻辑：已有输出时从最底部继续往下摆放。
-            return Math.max(maxY, bottom);
-          },
-          firstOutput ? firstOutput[1] + firstOutput[3] : sourceY,
-        ) + options.stackGap
-      : (() => {
-          const totalHeight =
-            heights.reduce((sum, value) => sum + value, 0) +
-            options.stackGap * Math.max(heights.length - 1, 0);
-          const centerY = sourceY + sourceH / 2;
-          // 逻辑：新生成的输出栈以源节点中心对齐。
-          return centerY - totalHeight / 2;
-        })();
-  return { baseX, startY };
+
+  if (existingOutputs.length > 0) {
+    // 逻辑：找到最底部的下游节点（y + h 最大），新节点放在它正下方并 x 对齐。
+    const bottommost = existingOutputs.reduce((best, cur) => {
+      const bestBottom = best[1] + best[3];
+      const curBottom = cur[1] + cur[3];
+      return curBottom > bestBottom ? cur : best;
+    });
+    return {
+      baseX: bottommost[0],
+      startY: bottommost[1] + bottommost[3] + options.stackGap,
+    };
+  }
+
+  // 无已有输出时：放在源节点右侧，垂直居中对齐。
+  const totalHeight =
+    heights.reduce((sum, value) => sum + value, 0) +
+    options.stackGap * Math.max(heights.length - 1, 0);
+  const centerY = sourceY + sourceH / 2;
+  return {
+    baseX: sourceX + sourceW + options.sideGap,
+    startY: centerY - totalHeight / 2,
+  };
 }
 
 /** Resolve placement for outputs stacked from a specific source anchor direction. */
@@ -150,22 +150,22 @@ export function resolveDirectionalStackPlacement(
 
   switch (options.direction) {
     case "left": {
-      const firstOutput = pickFirstOutput(sameDirectionOutputs);
-      const x = firstOutput
-        ? firstOutput[0] + firstOutput[2] - width
-        : sourceX - options.sideGap - width;
-      const y =
-        sameDirectionOutputs.length > 0
-          ? sameDirectionOutputs.reduce(
-              (maxY, target) => {
-                const bottom = target[1] + target[3];
-                // 逻辑：同侧已有节点时继续向下堆叠，保持左侧列对齐。
-                return Math.max(maxY, bottom);
-              },
-              firstOutput ? firstOutput[1] + firstOutput[3] : sourceY,
-            ) + options.stackGap
-          : sourceCenterY - height / 2;
-      return { x, y };
+      if (sameDirectionOutputs.length > 0) {
+        // 逻辑：找到最底部的下游节点，新节点放在它正下方并右端对齐。
+        const bottommost = sameDirectionOutputs.reduce((best, cur) => {
+          const bestBottom = best[1] + best[3];
+          const curBottom = cur[1] + cur[3];
+          return curBottom > bestBottom ? cur : best;
+        });
+        return {
+          x: bottommost[0] + bottommost[2] - width,
+          y: bottommost[1] + bottommost[3] + options.stackGap,
+        };
+      }
+      return {
+        x: sourceX - options.sideGap - width,
+        y: sourceCenterY - height / 2,
+      };
     }
     case "right": {
       const placement = resolveRightStackPlacement(

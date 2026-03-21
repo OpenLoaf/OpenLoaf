@@ -491,7 +491,7 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
         <ContextMenuTrigger asChild>
           <div
             className={cn(
-              "group relative flex flex-col overflow-hidden rounded-2xl border-l-[3px] border border-border/70 shadow-none transition-all duration-200 hover:shadow-sm hover:border-ol-green/60 cursor-pointer",
+              "group relative flex flex-col overflow-hidden rounded-3xl border-l-[3px] border border-border/70 shadow-none transition-all duration-200 hover:shadow-none hover:border-foreground/40 cursor-pointer",
               ACCENT_BORDER_COLORS[colorIdx],
             )}
             onClick={() => { if (canOpenSkill) handleOpenSkill(skill) }}
@@ -509,7 +509,7 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
                 <Switch
                   checked={skill.isEnabled}
                   onCheckedChange={(checked) => handleToggleSkill(skill, checked)}
-                  className="border-ol-divider bg-ol-surface-muted data-[state=checked]:bg-ol-green/60 dark:data-[state=checked]:bg-ol-green/45"
+                  className="border-border bg-secondary data-[state=checked]:bg-foreground dark:data-[state=checked]:bg-foreground"
                   aria-label={t('skills.enableSkillAriaLabel', { name: skill.name })}
                   disabled={updateSkillMutation.isPending}
                   onClick={(e) => e.stopPropagation()}
@@ -531,7 +531,7 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
                   type="button"
                   size="icon"
                   variant="ghost"
-                  className="h-7 w-7 flex-none rounded-lg opacity-0 transition-opacity group-hover:opacity-100 hover:bg-ol-green/10 text-ol-green"
+                  className="h-7 w-7 flex-none rounded-3xl opacity-0 transition-opacity group-hover:opacity-100 hover:bg-accent text-foreground"
                   onClick={(e) => { e.stopPropagation(); handleInsertSkillCommand(skill) }}
                   aria-label={t('skills.useSkillAriaLabel', { name: skill.name })}
                 >
@@ -592,8 +592,8 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
     >
       {/* Drag overlay */}
       {isDragOver ? (
-        <div className="absolute inset-0 z-50 flex items-center justify-center rounded-lg border-2 border-dashed border-ol-green bg-ol-green/5 backdrop-blur-sm">
-          <div className="flex flex-col items-center gap-2 text-ol-green">
+        <div className="absolute inset-0 z-50 flex items-center justify-center rounded-3xl border-2 border-dashed border-foreground bg-secondary/50 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-2 text-foreground">
             <Import className="h-8 w-8" />
             <p className="text-sm font-medium">{t('skills.import.dropHint')}</p>
             <p className="text-xs text-muted-foreground">{t('skills.import.dropSubHint')}</p>
@@ -601,7 +601,7 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
         </div>
       ) : null}
       {isImporting ? (
-        <div className="absolute inset-0 z-50 flex items-center justify-center rounded-lg bg-background/60 backdrop-blur-sm">
+        <div className="absolute inset-0 z-50 flex items-center justify-center rounded-3xl bg-background/60 backdrop-blur-sm">
           <div className="flex items-center gap-2 text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin" />
             <span className="text-sm">{t('skills.import.importing')}</span>
@@ -620,7 +620,7 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
               placeholder={t('skills.searchPlaceholder')}
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
-              className="h-8 rounded-md border-transparent bg-muted/40 pl-8 pr-7 text-sm focus:border-border"
+              className="h-8 rounded-3xl border-transparent bg-muted/40 pl-8 pr-7 text-sm focus:border-border"
             />
             {searchQuery ? (
               <button
@@ -642,8 +642,8 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
                 size="sm"
                 variant={statusFilter === value ? "secondary" : "ghost"}
                 className={cn(
-                  "h-7 rounded-md px-2.5 text-xs",
-                  statusFilter === value && "bg-ol-green/10 text-ol-green hover:bg-ol-green/20",
+                  "h-7 rounded-3xl px-2.5 text-xs",
+                  statusFilter === value && "bg-secondary text-foreground hover:bg-accent",
                 )}
                 onClick={() => setStatusFilter(value)}
               >
@@ -662,7 +662,7 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
                 type="button"
                 size="icon"
                 variant="ghost"
-                className="h-8 w-8 rounded-md text-muted-foreground hover:text-foreground"
+                className="h-8 w-8 rounded-3xl text-muted-foreground hover:text-foreground"
                 onClick={() => invalidateSkillQueries()}
                 disabled={skillsQuery.isLoading}
               >
@@ -675,7 +675,7 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
             type="button"
             variant="ghost"
             size="sm"
-            className="rounded-md bg-ol-green/10 text-ol-green hover:bg-ol-green/20"
+            className="rounded-3xl bg-secondary text-secondary-foreground hover:bg-accent"
             onClick={() => setTranslateDialogOpen(true)}
             disabled={skills.length === 0}
           >
@@ -690,7 +690,7 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
         {skillsQuery.isLoading ? (
           <div className="grid grid-cols-[repeat(auto-fill,minmax(248px,1fr))] gap-3.5">
             {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="h-[104px] animate-pulse rounded-2xl bg-muted/40" />
+              <div key={i} className="h-[104px] animate-pulse rounded-3xl bg-muted/40" />
             ))}
           </div>
         ) : skillsQuery.isError ? (
@@ -723,7 +723,7 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
                             type="button"
                             size="icon"
                             variant="ghost"
-                            className="h-6 w-6 rounded-md text-muted-foreground/50 hover:text-muted-foreground"
+                            className="h-6 w-6 rounded-3xl text-muted-foreground/50 hover:text-muted-foreground"
                             onClick={() => void handleOpenGroupFolder(group.folderUri!)}
                             aria-label={t('skills.openDirAriaLabel')}
                           >
@@ -791,13 +791,13 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
             <DialogClose asChild>
               <Button
                 variant="ghost"
-                className="rounded-md text-muted-foreground shadow-none transition-colors duration-150"
+                className="rounded-3xl text-muted-foreground shadow-none transition-colors duration-150"
               >
                 {t('skills.transfer.cancel', { defaultValue: '取消' })}
               </Button>
             </DialogClose>
             <Button
-              className="rounded-md bg-ol-green/10 text-ol-green hover:bg-ol-green/20 shadow-none transition-colors duration-150"
+              className="rounded-3xl bg-secondary text-secondary-foreground hover:bg-accent shadow-none transition-colors duration-150"
               onClick={handleTransferConfirm}
               disabled={transferSkillMutation.isPending}
             >

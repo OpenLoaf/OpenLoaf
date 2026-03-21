@@ -72,7 +72,7 @@ function FallbackNodeView({
 
   return (
     <NodeFrame className="flex items-center justify-center">
-      <div className="flex h-full w-full flex-col items-center justify-center gap-1.5 rounded-lg border border-ol-border bg-ol-surface-muted p-4 text-center">
+      <div className="flex h-full w-full flex-col items-center justify-center gap-1.5 rounded-3xl border border-ol-border bg-ol-surface-muted p-4 text-center">
         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/[0.06]">
           <X size={16} className="text-ol-text-auxiliary" />
         </div>

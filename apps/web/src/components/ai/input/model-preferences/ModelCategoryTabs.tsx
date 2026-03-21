@@ -23,33 +23,33 @@ const TAB_CONFIGS = [
     id: 'chat',
     labelKey: 'mode.chat' as const,
     icon: MessageSquare,
-    activeText: 'text-ol-blue',
+    activeText: 'text-foreground',
     inactiveText: 'text-muted-foreground',
-    indicator: 'border-t-sky-500',
+    indicator: 'border-t-foreground',
   },
   {
     id: 'image',
     labelKey: 'mode.image' as const,
     icon: Image,
-    activeText: 'text-ol-purple',
+    activeText: 'text-foreground',
     inactiveText: 'text-muted-foreground',
-    indicator: 'border-t-violet-500',
+    indicator: 'border-t-foreground',
   },
   {
     id: 'video',
     labelKey: 'mode.video' as const,
     icon: Video,
-    activeText: 'text-ol-amber',
+    activeText: 'text-foreground',
     inactiveText: 'text-muted-foreground',
-    indicator: 'border-t-amber-500',
+    indicator: 'border-t-foreground',
   },
   {
     id: 'cli',
     label: 'CLI',
     icon: Terminal,
-    activeText: 'text-ol-green',
+    activeText: 'text-foreground',
     inactiveText: 'text-muted-foreground',
-    indicator: 'border-t-emerald-500',
+    indicator: 'border-t-foreground',
   },
 ] as const
 
@@ -79,8 +79,8 @@ export function ModelCategoryTabs({
                     tab.inactiveText,
                     'hover:bg-muted/70 hover:text-foreground',
                   ],
-              isFirst && 'rounded-bl-xl',
-              isLast && 'rounded-br-xl',
+              isFirst && 'rounded-bl-sm',
+              isLast && 'rounded-br-sm',
             )}
             onClick={() => onValueChange(tab.id)}
           >

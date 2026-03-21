@@ -40,6 +40,7 @@ import {
   PaintBucket,
   Sparkles,
   Strikethrough,
+  Trash2,
   Type,
   Underline,
   Video,
@@ -57,6 +58,7 @@ import {
 } from "@/components/ai/message/markdown/MessageStreamMarkdown";
 import {
   BOARD_TOOLBAR_ITEM_DEFAULT,
+  BOARD_TOOLBAR_ITEM_RED,
 } from "../ui/board-style-system";
 import { useBoardContext } from "../core/BoardProvider";
 import { createPortal } from "react-dom";
@@ -86,12 +88,12 @@ export type StickyColor = "yellow" | "blue" | "green" | "pink" | "purple" | "ora
 
 /** Sticky note color definitions (light + dark background/text). */
 export const STICKY_COLORS: Record<StickyColor, { bg: string; darkBg: string }> = {
-  yellow:  { bg: "bg-amber-100",  darkBg: "dark:bg-amber-900/60" },
-  blue:    { bg: "bg-blue-100",   darkBg: "dark:bg-blue-900/60" },
-  green:   { bg: "bg-emerald-100", darkBg: "dark:bg-emerald-900/60" },
-  pink:    { bg: "bg-pink-100",   darkBg: "dark:bg-pink-900/60" },
-  purple:  { bg: "bg-purple-100", darkBg: "dark:bg-purple-900/60" },
-  orange:  { bg: "bg-orange-100", darkBg: "dark:bg-orange-900/60" },
+  yellow:  { bg: "bg-neutral-100",  darkBg: "dark:bg-neutral-800/60" },
+  blue:    { bg: "bg-neutral-100",  darkBg: "dark:bg-neutral-800/60" },
+  green:   { bg: "bg-neutral-100",  darkBg: "dark:bg-neutral-800/60" },
+  pink:    { bg: "bg-neutral-100",  darkBg: "dark:bg-neutral-800/60" },
+  purple:  { bg: "bg-neutral-100",  darkBg: "dark:bg-neutral-800/60" },
+  orange:  { bg: "bg-neutral-100",  darkBg: "dark:bg-neutral-800/60" },
 };
 
 /** Shape sub-types for style='shape'. */
@@ -445,7 +447,7 @@ function ReadOnlyMarkdownProjection(props: {
   return (
     <div
       className={cn(
-        "relative w-full box-border rounded-lg p-3",
+        "relative w-full box-border rounded-3xl p-3",
         props.backgroundColor ? "" : "bg-ol-surface-muted",
         "text-ol-text-primary",
       )}
@@ -498,7 +500,7 @@ function TextToolbarPanelButton({
         onSelect();
       }}
       className={cn(
-        "inline-flex h-8 min-w-[32px] items-center justify-center rounded-md px-2 text-[11px] font-medium",
+        "inline-flex h-8 min-w-[32px] items-center justify-center rounded-3xl px-2 text-[11px] font-medium",
         "transition-colors",
         active
           ? "bg-foreground/12 text-foreground dark:bg-foreground/18 dark:text-background"
@@ -610,7 +612,7 @@ function buildColorToolbarItems(
                   {color.value ? (
                     <span
                       className={cn(
-                        "h-5 w-5 rounded-sm ring-1 ring-border",
+                        "h-5 w-5 rounded-3xl ring-1 ring-border",
                         isActive
                           ? "ring-2 ring-foreground ring-offset-2 ring-offset-background shadow-[0_0_0_2px_rgba(255,255,255,0.9)]"
                           : ""
@@ -620,7 +622,7 @@ function buildColorToolbarItems(
                   ) : (
                     <span
                       className={cn(
-                        "inline-flex h-5 w-5 items-center justify-center rounded-sm ring-1 ring-border text-[10px] text-ol-text-auxiliary",
+                        "inline-flex h-5 w-5 items-center justify-center rounded-3xl ring-1 ring-border text-[10px] text-ol-text-auxiliary",
                         isActive
                           ? "ring-2 ring-foreground ring-offset-2 ring-offset-background shadow-[0_0_0_2px_rgba(255,255,255,0.9)]"
                           : ""
@@ -907,6 +909,14 @@ function createTextToolbarItems(ctx: CanvasToolbarContext<TextNodeProps>) {
     },
     // ---- Node-level: Text color & Background color ----
     ...buildColorToolbarItems(t, ctx, { textColor, backgroundColor, autoTextColor, colorPresets, backgroundPresets, addColorHistory }),
+    // ---- Delete ----
+    {
+      id: 'delete',
+      label: t('board:board.delete'),
+      icon: <Trash2 size={14} />,
+      className: BOARD_TOOLBAR_ITEM_RED,
+      onSelect: () => ctx.engine.deleteSelection(),
+    },
   ];
 }
 
@@ -1289,15 +1299,13 @@ function EditableTextNodeView({
   const containerClasses = [
     "relative h-full w-full box-border",
     isShape ? (hasClipPath ? "p-[15%]" : "p-2.5") : "p-2.5",
-    isSticky ? "rounded-sm shadow-sm" : isShape ? "" : "rounded-lg",
+    isSticky ? "rounded-3xl shadow-sm" : isShape ? "" : "rounded-3xl",
     isSticky
       ? stickyBg
       : isShape
         ? ""
-        : isEditing && !backgroundColor
-          ? "bg-background"
-          : defaultBg,
-    isShape ? "" : "text-ol-text-primary",
+        : defaultBg,
+    isShape ? "" : "text-ol-text-secondary",
     "overflow-y-auto board-text-scrollbar",
     isEditing ? "cursor-text" : "cursor-default",
   ].join(" ");
@@ -1306,7 +1314,7 @@ function EditableTextNodeView({
     return (
       <button
         type="button"
-        className="flex h-full w-full items-center justify-center rounded-md border border-ol-divider bg-background text-[11px] font-medium text-ol-text-auxiliary shadow-none transition hover:bg-ol-surface-muted"
+        className="flex h-full w-full items-center justify-center rounded-3xl border border-ol-divider bg-background text-[11px] font-medium text-ol-text-auxiliary shadow-none transition hover:bg-ol-surface-muted"
         style={branchColor ? { borderColor: branchColor, color: branchColor } : undefined}
         onPointerDown={event => {
           event.preventDefault();
@@ -1337,7 +1345,7 @@ function EditableTextNodeView({
           readOnly={!isEditing}
           className={cn(
             "w-full bg-transparent outline-none p-0",
-            "text-ol-text-primary",
+            "text-ol-text-secondary",
             "[&>[data-slate-node=element]+[data-slate-node=element]]:mt-1",
             // 逻辑：view 模式下整体禁止指针交互，但 checkbox 保留可点击。
             !isEditing && "pointer-events-none [&_[data-slot=checkbox]]:!pointer-events-auto",

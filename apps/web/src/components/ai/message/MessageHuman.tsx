@@ -422,7 +422,7 @@ export default function MessageHuman({
                     } as any
                   }
                   key={`${part.url}-${index}`}
-                  className="!size-auto overflow-visible rounded-md border border-[var(--ol-chat-human-border)] bg-transparent p-0"
+                  className="!size-auto overflow-visible rounded-3xl border border-[var(--ol-chat-human-border)] bg-transparent p-0"
                   onClick={() => {
                     if (!preview?.src) return;
                     openPreview(part.url);
@@ -445,7 +445,7 @@ export default function MessageHuman({
                       baseSrc={preview.src}
                       maskSrc={maskPreview?.status === "ready" ? maskPreview.src : undefined}
                       alt="chat image"
-                      containerClassName="max-h-16 max-w-[90px] overflow-hidden rounded-md border border-[var(--ol-chat-human-border)]"
+                      containerClassName="max-h-16 max-w-[90px] overflow-hidden rounded-3xl border border-[var(--ol-chat-human-border)]"
                       className="block max-h-16 max-w-[90px] object-contain"
                       maskClassName="max-h-16 max-w-[90px] object-contain opacity-70"
                     />

@@ -96,6 +96,8 @@ export function BoardCanvasRender({
 
   // 逻辑：Cmd+F / Ctrl+F 打开节点搜索面板，Escape 关闭。
   const closeSearchPanel = useCallback(() => setShowSearchPanel(false), []);
+  const showSearchPanelRef = useRef(showSearchPanel);
+  showSearchPanelRef.current = showSearchPanel;
   useEffect(() => {
     if (minimal) return;
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -103,6 +105,13 @@ export function BoardCanvasRender({
         event.preventDefault();
         event.stopPropagation();
         setShowSearchPanel((prev) => !prev);
+        return;
+      }
+      // 逻辑：capture 阶段拦截 Escape，确保搜索面板优先关闭（不被 CanvasEngine 吞掉）。
+      if (event.key === "Escape" && showSearchPanelRef.current) {
+        event.preventDefault();
+        event.stopPropagation();
+        setShowSearchPanel(false);
       }
     };
     window.addEventListener("keydown", handleKeyDown, true);

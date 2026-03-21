@@ -43,7 +43,7 @@ export default function ChatModeSelector({
   const control = (
     <div
       className={cn(
-        "relative flex h-8 cursor-pointer items-center rounded-full border border-border/60 bg-muted/60 p-0.5",
+        "relative flex h-8 cursor-pointer items-center rounded-3xl border border-border/60 bg-muted/60 p-0.5",
         compact ? "w-[68px]" : "w-[160px]",
         disabled && "pointer-events-none opacity-50",
         className,
@@ -54,10 +54,10 @@ export default function ChatModeSelector({
       {/* Sliding indicator pill */}
       <span
         className={cn(
-          "absolute top-[3px] bottom-[3px] w-[calc(50%-3px)] rounded-full transition-all duration-200",
+          "absolute top-[3px] bottom-[3px] w-[calc(50%-3px)] rounded-3xl transition-all duration-200",
           isAgent
-            ? "left-[3px] bg-ol-purple/15"
-            : "left-[50%] bg-ol-amber/15",
+            ? "left-[3px] bg-foreground/10"
+            : "left-[50%] bg-foreground/10",
         )}
       />
 
@@ -67,9 +67,9 @@ export default function ChatModeSelector({
         role="radio"
         aria-checked={isAgent}
         className={cn(
-          "relative z-10 flex h-[26px] flex-1 items-center justify-center gap-1.5 rounded-full text-xs font-medium transition-colors",
+          "relative z-10 flex h-[26px] flex-1 items-center justify-center gap-1.5 rounded-3xl text-xs font-medium transition-colors",
           isAgent
-            ? "text-ol-purple"
+            ? "text-foreground"
             : "text-muted-foreground",
         )}
         onClick={() => {
@@ -87,9 +87,9 @@ export default function ChatModeSelector({
         role="radio"
         aria-checked={!isAgent}
         className={cn(
-          "relative z-10 flex h-[26px] flex-1 items-center justify-center gap-1.5 rounded-full text-xs font-medium transition-colors",
+          "relative z-10 flex h-[26px] flex-1 items-center justify-center gap-1.5 rounded-3xl text-xs font-medium transition-colors",
           !isAgent
-            ? "text-ol-amber"
+            ? "text-foreground"
             : "text-muted-foreground",
         )}
         onClick={() => {

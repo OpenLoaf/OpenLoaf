@@ -111,7 +111,7 @@ function GroupNodeView({ element, onUpdate }: CanvasNodeViewProps<GroupNodeProps
     <NodeFrame>
       <div
         className={cn(
-          'pointer-events-none absolute inset-0 rounded-lg border',
+          'pointer-events-none absolute inset-0 rounded-3xl border',
           borderColor,
           !customBgColor && defaultBgClass,
         )}
@@ -245,7 +245,7 @@ function createGroupToolbarItems(ctx: CanvasToolbarContext<GroupNodeProps>) {
                     ctx.updateNodeProps({ bgColor: preset.value } as Partial<GroupNodeProps>);
                   }}
                   className={cn(
-                    'inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors',
+                    'inline-flex h-8 w-8 items-center justify-center rounded-3xl transition-colors',
                     isActive
                       ? 'bg-foreground/12 dark:bg-foreground/18'
                       : 'hover:bg-accent/70',
@@ -254,7 +254,7 @@ function createGroupToolbarItems(ctx: CanvasToolbarContext<GroupNodeProps>) {
                   {preset.value ? (
                     <span
                       className={cn(
-                        'h-5 w-5 rounded-sm ring-1 ring-border',
+                        'h-5 w-5 rounded-3xl ring-1 ring-border',
                         isActive && 'ring-2 ring-foreground ring-offset-2 ring-offset-background',
                       )}
                       style={{ backgroundColor: preset.value }}
@@ -262,7 +262,7 @@ function createGroupToolbarItems(ctx: CanvasToolbarContext<GroupNodeProps>) {
                   ) : (
                     <span
                       className={cn(
-                        'inline-flex h-5 w-5 items-center justify-center rounded-sm ring-1 ring-border text-[10px] text-muted-foreground',
+                        'inline-flex h-5 w-5 items-center justify-center rounded-3xl ring-1 ring-border text-[10px] text-muted-foreground',
                         isActive && 'ring-2 ring-foreground ring-offset-2 ring-offset-background',
                       )}
                     >

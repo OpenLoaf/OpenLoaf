@@ -245,7 +245,7 @@ export default function WriteFileTool({
 
   return (
     <div className={cn('w-full min-w-0', className)}>
-      <div className="overflow-hidden rounded-xl border bg-card text-card-foreground">
+      <div className="overflow-hidden rounded-3xl border bg-card text-card-foreground">
         {/* macOS 风格标题栏 */}
         <div className="flex items-center gap-3 border-b bg-muted/50 px-3 py-2">
           <TrafficLights state={windowState} />
@@ -271,14 +271,14 @@ export default function WriteFileTool({
             >
               <span className={
                 file.status === 'added'
-                  ? 'text-ol-green'
+                  ? 'text-foreground'
                   : file.status === 'deleted'
-                    ? 'text-ol-red'
-                    : 'text-ol-amber'
+                    ? 'text-destructive'
+                    : 'text-muted-foreground'
               }>
                 {file.status === 'added' ? '+' : file.status === 'deleted' ? '-' : '~'}
               </span>
-              <span className="flex-1 break-all text-ol-amber">
+              <span className="flex-1 break-all text-foreground">
                 {file.path}
               </span>
               <span className="shrink-0 text-[10px] text-muted-foreground">

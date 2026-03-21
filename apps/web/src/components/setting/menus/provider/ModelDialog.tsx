@@ -138,10 +138,10 @@ export function ModelDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>
+          <Button variant="ghost" onClick={() => onOpenChange(false)} className="rounded-3xl">
             {tc('cancel')}
           </Button>
-          <Button onClick={onSubmit}>{tc('save')}</Button>
+          <Button onClick={onSubmit} className="rounded-3xl">{tc('save')}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

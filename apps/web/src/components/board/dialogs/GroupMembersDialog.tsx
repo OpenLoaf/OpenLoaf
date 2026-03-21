@@ -217,7 +217,7 @@ function GroupMembersDialogInner({
         onClick={handleClose}
       />
       {/* Content */}
-      <div className="bg-card absolute top-[50%] left-[50%] z-50 flex h-[80vh] max-h-[80vh] w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] flex-col gap-0 rounded-lg border p-0 shadow-none animate-in fade-in-0 zoom-in-95 duration-200 sm:max-w-5xl">
+      <div className="bg-card absolute top-[50%] left-[50%] z-50 flex h-[80vh] max-h-[80vh] w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] flex-col gap-0 rounded-3xl border p-0 shadow-none animate-in fade-in-0 zoom-in-95 duration-200 sm:max-w-5xl">
         {/* Header */}
         <div className="flex shrink-0 items-center justify-between border-b border-ol-divider px-4 py-3">
           <div className="flex flex-col gap-1 text-left">
@@ -227,7 +227,7 @@ function GroupMembersDialogInner({
           </div>
           <button
             type="button"
-            className="rounded-md opacity-70 transition-opacity hover:opacity-100"
+            className="rounded-3xl opacity-70 transition-opacity hover:opacity-100"
             onClick={handleClose}
           >
             <XIcon className="size-4" />

@@ -89,7 +89,7 @@ function OptionSelect({
       <PromptInputSelect value={value} onValueChange={onChange}>
         <PromptInputSelectTrigger
           className={cn(
-            "h-7 min-w-[110px] rounded-md px-2 text-xs shadow-xs",
+            "h-7 min-w-[110px] rounded-3xl px-2 text-xs shadow-xs",
             triggerClassName
           )}
         >
@@ -222,7 +222,7 @@ export default function ChatImageOutputOption({
   const containerClassName =
     variant === "inline"
       ? "flex flex-wrap gap-3 px-2 py-2"
-      : "flex flex-wrap gap-3 rounded-lg border border-border bg-background px-3 py-2";
+      : "flex flex-wrap gap-3 rounded-3xl border border-border bg-background px-3 py-2";
 
   return (
     <div className={cn(containerClassName, className)}>

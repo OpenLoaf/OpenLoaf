@@ -16,6 +16,9 @@ import {
   exportVideoClip,
 } from './videoDownloadService'
 import { resolveScopedPath } from '@openloaf/api'
+import {
+  resolveBoardDirFromDb,
+} from '@openloaf/api/common/boardPaths'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import fs from 'node:fs'
@@ -151,14 +154,20 @@ export function registerVideoDownloadRoutes(app: Hono) {
         return c.json({ error: 'endTime must be greater than startTime' }, 400)
       }
 
-      // Resolve source to absolute path — prepend board prefix if boardId is present
-      const effectiveTarget = body.boardId
-        ? `.openloaf/boards/${body.boardId}/${sourcePath.replace(/^\/+/, '')}`
-        : sourcePath
-      const absolutePath = resolveScopedPath({
-        projectId: body.projectId,
-        target: effectiveTarget,
-      })
+      // Resolve source to absolute path — query DB for board's real folderUri
+      let absolutePath: string
+      if (body.boardId) {
+        const boardResult = await resolveBoardDirFromDb(body.boardId)
+        if (!boardResult) {
+          return c.json({ error: 'Board not found' }, 404)
+        }
+        absolutePath = path.resolve(boardResult.absDir, sourcePath.replace(/^\/+/, ''))
+      } else {
+        absolutePath = resolveScopedPath({
+          projectId: body.projectId,
+          target: sourcePath,
+        })
+      }
 
       if (!fs.existsSync(absolutePath)) {
         return c.json({ error: 'Source file not found' }, 404)

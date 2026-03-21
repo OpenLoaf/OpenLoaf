@@ -607,7 +607,7 @@ export default function CodeViewer({
     <div ref={containerRef} className={containerClassName} onKeyDown={handleFindShortcut}>
       {selectionRect ? (
         <div
-          className="absolute z-10 flex items-center gap-1 rounded-md border border-border/70 bg-background/95 px-1.5 py-1 shadow-sm"
+          className="absolute z-10 flex items-center gap-1 rounded-3xl border border-border/70 bg-background/95 px-1.5 py-1 shadow-none"
           style={{
             left: selectionRect.left,
             top: Math.max(selectionRect.top - 10, 6),

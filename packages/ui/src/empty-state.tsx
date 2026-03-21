@@ -38,7 +38,7 @@ export function EmptyState({
     <div
       className={cn(
         "bg-background border-border hover:border-border/80 text-center",
-        "border-2 border-dashed rounded-xl p-14 w-full max-w-[620px]",
+        "border-2 border-dashed rounded-3xl p-14 w-full max-w-[620px]",
         "group transition duration-500",
         className
       )}
@@ -46,19 +46,19 @@ export function EmptyState({
       <div className="flex justify-center isolate">
         {icons.length === 3 ? (
           <>
-            <div className="bg-background size-12 grid place-items-center rounded-xl relative left-2.5 top-1.5 -rotate-6 shadow-lg ring-1 ring-border group-hover:-translate-x-5 group-hover:-rotate-12 group-hover:-translate-y-0.5 transition duration-500 group-hover:duration-200">
+            <div className="bg-background size-12 grid place-items-center rounded-3xl relative left-2.5 top-1.5 -rotate-6 shadow-lg ring-1 ring-border group-hover:-translate-x-5 group-hover:-rotate-12 group-hover:-translate-y-0.5 transition duration-500 group-hover:duration-200">
               {iconA &&
                 React.createElement(iconA, {
                   className: "w-6 h-6 text-muted-foreground",
                 })}
             </div>
-            <div className="bg-background size-12 grid place-items-center rounded-xl relative z-10 shadow-lg ring-1 ring-border group-hover:-translate-y-0.5 transition duration-500 group-hover:duration-200">
+            <div className="bg-background size-12 grid place-items-center rounded-3xl relative z-10 shadow-lg ring-1 ring-border group-hover:-translate-y-0.5 transition duration-500 group-hover:duration-200">
               {iconB &&
                 React.createElement(iconB, {
                   className: "w-6 h-6 text-muted-foreground",
                 })}
             </div>
-            <div className="bg-background size-12 grid place-items-center rounded-xl relative right-2.5 top-1.5 rotate-6 shadow-lg ring-1 ring-border group-hover:translate-x-5 group-hover:rotate-12 group-hover:-translate-y-0.5 transition duration-500 group-hover:duration-200">
+            <div className="bg-background size-12 grid place-items-center rounded-3xl relative right-2.5 top-1.5 rotate-6 shadow-lg ring-1 ring-border group-hover:translate-x-5 group-hover:rotate-12 group-hover:-translate-y-0.5 transition duration-500 group-hover:duration-200">
               {iconC &&
                 React.createElement(iconC, {
                   className: "w-6 h-6 text-muted-foreground",
@@ -66,7 +66,7 @@ export function EmptyState({
             </div>
           </>
         ) : (
-          <div className="bg-background size-12 grid place-items-center rounded-xl shadow-lg ring-1 ring-border group-hover:-translate-y-0.5 transition duration-500 group-hover:duration-200">
+          <div className="bg-background size-12 grid place-items-center rounded-3xl shadow-lg ring-1 ring-border group-hover:-translate-y-0.5 transition duration-500 group-hover:duration-200">
             {iconA &&
               React.createElement(iconA, {
                 className: "w-6 h-6 text-muted-foreground",

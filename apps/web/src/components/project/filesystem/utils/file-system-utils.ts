@@ -258,9 +258,10 @@ export function buildChildUri(baseUri: string, name: string) {
 /**
  * Build a board folder URI from a root URI and a board's folderUri.
  *
- * Board folderUri is always ".openloaf/boards/<id>/" (relative to a project root).
+ * New boards use folderUri "boards/<id>/"; legacy boards may still have
+ * ".openloaf/boards/<id>/" (relative to a project root).
  * For global boards, rootUri IS the .openloaf directory itself ("file://~/.openloaf"),
- * which would produce a double ".openloaf" when naively joined.
+ * which would produce a double ".openloaf" when naively joined with legacy URIs.
  * This function strips the redundant ".openloaf/" prefix in that case.
  */
 export function buildBoardFolderUri(rootUri: string, folderUri: string): string {

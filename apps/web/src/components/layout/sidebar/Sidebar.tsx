@@ -9,7 +9,7 @@
  */
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import i18next from "i18next";
 import { useTranslation } from "react-i18next";
 import { isWorkbenchDockContextComponent } from "@/components/layout/global-entry-dock";
@@ -24,8 +24,9 @@ import {
 } from "@openloaf/ui/sidebar";
 import { Bot, CalendarDays, Clock, FolderClosed, LayoutDashboard, Mail, Palette, Search, Settings, Sparkles, Wand2 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@openloaf/ui/tooltip";
-import { useAppState } from "@/hooks/use-app-state";
+import { useAppState, getAppState } from "@/hooks/use-app-state";
 import { useLayoutState } from "@/hooks/use-layout-state";
+import { useSectionSnapshot, detectCurrentSection, type SectionKey } from "@/hooks/use-section-snapshot";
 import {
   AGENTS_TAB_INPUT,
   AI_ASSISTANT_TAB_INPUT,
@@ -41,40 +42,20 @@ import { useSidebarNavigation } from "@/hooks/use-sidebar-navigation";
 import { CompactUserAvatar } from "@/components/layout/sidebar/SidebarUserAccount";
 import { BOARD_VIEWER_COMPONENT, resolveLayoutViewState } from "@/hooks/layout-utils";
 import { isProjectWindowMode, isBoardWindowMode } from "@/lib/window-mode";
-import { openPrimaryPage } from "@/lib/primary-page-navigation";
+import { openPrimaryPage, captureCurrentViewSnapshot, restoreViewSnapshot } from "@/lib/primary-page-navigation";
 
 const ICON_BTN_BASE =
-  "flex h-10 w-10 items-center justify-center rounded-lg transition-colors duration-150";
-
-const ICON_COLOR = {
-  amber:
-    "[&>svg]:text-ol-amber/70 hover:[&>svg]:text-ol-amber data-[active=true]:bg-ol-amber/15 dark:data-[active=true]:bg-ol-amber/20 data-[active=true]:[&>svg]:text-ol-amber",
-  green:
-    "[&>svg]:text-ol-green/70 hover:[&>svg]:text-ol-green data-[active=true]:bg-ol-green/15 dark:data-[active=true]:bg-ol-green/20 data-[active=true]:[&>svg]:text-ol-green",
-  purple:
-    "[&>svg]:text-ol-purple/70 hover:[&>svg]:text-ol-purple data-[active=true]:bg-ol-purple/15 dark:data-[active=true]:bg-ol-purple/20 data-[active=true]:[&>svg]:text-ol-purple",
-  blue:
-    "[&>svg]:text-ol-blue/70 hover:[&>svg]:text-ol-blue data-[active=true]:bg-ol-blue/15 dark:data-[active=true]:bg-ol-blue/20 data-[active=true]:[&>svg]:text-ol-blue",
-  sky:
-    "[&>svg]:text-sky-500/70 hover:[&>svg]:text-sky-500 data-[active=true]:bg-sky-500/15 dark:data-[active=true]:bg-sky-500/20 data-[active=true]:[&>svg]:text-sky-500",
-  teal:
-    "[&>svg]:text-teal-500/70 hover:[&>svg]:text-teal-500 data-[active=true]:bg-teal-500/15 dark:data-[active=true]:bg-teal-500/20 data-[active=true]:[&>svg]:text-teal-500",
-  rose:
-    "[&>svg]:text-rose-500/70 hover:[&>svg]:text-rose-500 data-[active=true]:bg-rose-500/15 dark:data-[active=true]:bg-rose-500/20 data-[active=true]:[&>svg]:text-rose-500",
-  black:
-    "[&>svg]:text-sidebar-foreground/80 hover:[&>svg]:text-sidebar-foreground data-[active=true]:[&>svg]:text-sidebar-accent-foreground",
-} as const;
+  "relative flex h-10 w-10 items-center justify-center rounded-3xl transition-colors duration-150 [&>svg]:text-sidebar-foreground/60 hover:[&>svg]:text-sidebar-foreground data-[active=true]:[&>svg]:text-sidebar-accent-foreground";
 
 function IconNavItem({
   icon: Icon,
   tooltip,
-  color,
   isActive = false,
   onClick,
 }: {
   icon: React.ComponentType<{ className?: string }>;
   tooltip: string;
-  color: keyof typeof ICON_COLOR;
+  color?: string;
   isActive?: boolean;
   onClick?: () => void;
 }) {
@@ -83,7 +64,7 @@ function IconNavItem({
       <Tooltip>
         <TooltipTrigger asChild>
           <SidebarMenuButton
-            className={`${ICON_BTN_BASE} ${ICON_COLOR[color]} justify-center px-0`}
+            className={`${ICON_BTN_BASE} justify-center px-0`}
             isActive={isActive}
             onClick={onClick}
             type="button"
@@ -96,6 +77,76 @@ function IconNavItem({
         </TooltipContent>
       </Tooltip>
     </SidebarMenuItem>
+  );
+}
+
+/* ── 滑动指示器布局常量 ── */
+// h-10 = 40px, gap-1 = 4px → 每个按钮步进 44px
+const ITEM = 40;
+const GAP = 4;
+const STEP = ITEM + GAP; // 44
+// 分隔线: gap(4) + my-1(4) + h-px(1) + my-1(4) + gap(4) = 17
+const SEP = GAP + 4 + 1 + 4 + GAP; // 17
+
+/** Content 区 7 个按钮的 Y 偏移（AI=0, Canvas=1, Project=2, [sep], Workbench=3, Calendar=4, Email=5, Tasks=6） */
+const CONTENT_Y = [
+  0,
+  STEP,
+  STEP * 2,
+  STEP * 2 + ITEM + SEP,
+  STEP * 2 + ITEM + SEP + STEP,
+  STEP * 2 + ITEM + SEP + STEP * 2,
+  STEP * 2 + ITEM + SEP + STEP * 3,
+];
+/** Footer 区 4 个按钮（Search=0, Agents=1, Skills=2, Settings=3） */
+const FOOTER_Y = [0, STEP, STEP * 2, STEP * 3];
+
+/**
+ * 纯 CSS transform 驱动的滑动指示器。
+ * - 持续可见时：transform 滑动
+ * - 隐藏→显示：直接出现在目标位置（仅 opacity 过渡）
+ * - 显示→隐藏：原地淡出（仅 opacity 过渡）
+ */
+function SlidingIndicator({ activeIdx, offsets }: { activeIdx: number; offsets: number[] }) {
+  const isVisible = activeIdx >= 0 && activeIdx < offsets.length;
+  const state = useRef({ wasVisible: false, lastY: 0 });
+
+  const targetY = isVisible ? offsets[activeIdx] : state.current.lastY;
+  const shouldSlide = state.current.wasVisible && isVisible;
+
+  useEffect(() => {
+    state.current.wasVisible = isVisible;
+    if (isVisible) {
+      state.current.lastY = offsets[activeIdx];
+    }
+  });
+
+  const transition = shouldSlide
+    ? "transform 300ms cubic-bezier(0.4, 0, 0.2, 1), opacity 200ms ease"
+    : "opacity 200ms ease";
+
+  return (
+    <>
+      {/* 背景高亮 */}
+      <div
+        className="pointer-events-none absolute z-0 left-1/2 -translate-x-1/2 w-10 h-10 rounded-3xl bg-sidebar-accent"
+        style={{
+          transform: `translateY(${targetY}px)`,
+          opacity: isVisible ? 1 : 0,
+          transition,
+        }}
+      />
+      {/* 左侧竖条（按钮内部左侧） */}
+      <div
+        className="pointer-events-none absolute z-10 h-5 w-[3px] rounded-full bg-sidebar-foreground"
+        style={{
+          left: "calc(50% - 20px)",
+          transform: `translateY(${targetY + (ITEM - 20) / 2}px)`,
+          opacity: isVisible ? 1 : 0,
+          transition,
+        }}
+      />
+    </>
   );
 }
 
@@ -143,6 +194,31 @@ export const AppSidebar = ({
   const isSettingsActive = layoutView.isSettingsPage;
   const isInProject = layoutView.isProjectContext;
 
+  /* ── 激活态布尔 → 索引 ── */
+  const isAiActive = !isInProject && (
+    (!appState.base && !appState.projectShell) || isMenuActive(AI_ASSISTANT_TAB_INPUT)
+  );
+  const isCanvasActive = !isInProject && (
+    isCanvasListActive || isMenuActive(CANVAS_LIST_TAB_INPUT) || isCanvasViewerActive
+  );
+  const isProjectActive = (
+    isProjectListActive || isMenuActive(PROJECT_LIST_TAB_INPUT) || isInProject
+  ) && !isSettingsActive;
+
+  const activeContentIdx = isAiActive ? 0
+    : isCanvasActive ? 1
+    : isProjectActive ? 2
+    : (!isInProject && (isWorkbenchActive || isMenuActive(WORKBENCH_TAB_INPUT))) ? 3
+    : (!isInProject && isCalendarActive) ? 4
+    : (!isInProject && isEmailActive) ? 5
+    : (!isInProject && isTasksActive) ? 6
+    : -1;
+
+  const activeFooterIdx = isSettingsActive ? 3
+    : (!isInProject && isAgentsActive) ? 1
+    : (!isInProject && isSkillsActive) ? 2
+    : -1;
+
   const openPrimaryPageTab = useCallback(
     (input: {
       baseId: string;
@@ -167,6 +243,30 @@ export const AppSidebar = ({
     [],
   );
 
+  /**
+   * 切换 sidebar 节时：保存当前节快照 → 恢复目标节快照（若有）→ 否则走默认导航。
+   * 同节内重复点击则走默认行为（回到列表/临时对话）。
+   */
+  const handleSectionSwitch = useCallback(
+    (targetSection: SectionKey, defaultAction: () => void) => {
+      const currentSection = detectCurrentSection(getAppState())
+      if (currentSection === targetSection) {
+        defaultAction()
+        return
+      }
+      if (currentSection) {
+        useSectionSnapshot.getState().saveSnapshot(currentSection, captureCurrentViewSnapshot())
+      }
+      const savedSnapshot = useSectionSnapshot.getState().getSnapshot(targetSection)
+      if (savedSnapshot) {
+        restoreViewSnapshot(savedSnapshot)
+      } else {
+        defaultAction()
+      }
+    },
+    [],
+  )
+
   if (isNarrow || isProjectWindowMode() || isBoardWindowMode()) return null;
 
   return (
@@ -179,42 +279,29 @@ export const AppSidebar = ({
       </SidebarHeader>
 
       <SidebarContent className="items-center px-0">
-        <SidebarMenu className="items-center gap-1 px-1.5">
+        <SidebarMenu className="relative items-center gap-1 px-1.5">
+          <SlidingIndicator activeIdx={activeContentIdx} offsets={CONTENT_Y} />
           {/* Core */}
           <IconNavItem
             icon={Sparkles}
             tooltip={t("aiAssistant")}
             color="black"
-            isActive={!isInProject && (() => {
-              // 无 base 且无项目 = 全局聊天模式（包括临时对话和历史会话）
-              if (!appState.base && !appState.projectShell) return true;
-              return isMenuActive(AI_ASSISTANT_TAB_INPUT);
-            })()}
-            onClick={nav.openTempChat}
+            isActive={isAiActive}
+            onClick={() => handleSectionSwitch('chat', nav.openTempChat)}
           />
           <IconNavItem
             icon={Palette}
             tooltip={t("smartCanvas")}
             color="black"
-            isActive={
-              !isInProject &&
-              (isCanvasListActive ||
-              isMenuActive(CANVAS_LIST_TAB_INPUT) ||
-              isCanvasViewerActive)
-            }
-            onClick={() => openPrimaryPageTab({ ...CANVAS_LIST_TAB_INPUT })}
+            isActive={isCanvasActive}
+            onClick={() => handleSectionSwitch('canvas', () => openPrimaryPageTab({ ...CANVAS_LIST_TAB_INPUT }))}
           />
           <IconNavItem
             icon={FolderClosed}
             tooltip={t("sidebarProjectSpace")}
             color="black"
-            isActive={
-              (isProjectListActive ||
-                isMenuActive(PROJECT_LIST_TAB_INPUT) ||
-                isInProject) &&
-              !isSettingsActive
-            }
-            onClick={() => openPrimaryPageTab({ ...PROJECT_LIST_TAB_INPUT })}
+            isActive={isProjectActive}
+            onClick={() => handleSectionSwitch('project', () => openPrimaryPageTab({ ...PROJECT_LIST_TAB_INPUT }))}
           />
 
           {/* Separator */}
@@ -259,7 +346,8 @@ export const AppSidebar = ({
       </SidebarContent>
 
       <SidebarFooter className="items-center px-0 py-2 gap-1">
-        <SidebarMenu className="items-center gap-1 px-1.5">
+        <SidebarMenu className="relative items-center gap-1 px-1.5">
+          <SlidingIndicator activeIdx={activeFooterIdx} offsets={FOOTER_Y} />
           <IconNavItem
             icon={Search}
             tooltip={`${t("search")} (⌘K)`}

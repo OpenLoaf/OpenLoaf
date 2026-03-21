@@ -14,6 +14,17 @@ export type PreviewEndpointOptions = {
   projectId?: string;
   /** Max preview payload size. */
   maxBytes?: number;
+  /** Board id — when present, uses board attachment endpoint for board-relative paths. */
+  boardId?: string;
+};
+
+export type BoardPreviewEndpointOptions = {
+  /** Board id for resolving board asset path. */
+  boardId: string;
+  /** Project scope for preview resolution. */
+  projectId?: string;
+  /** Max preview payload size. */
+  maxBytes?: number;
 };
 
 export type PreviewTooLargeError = Error & {
@@ -39,6 +50,20 @@ export function getPreviewEndpoint(
     : `/chat/attachments/preview?path=${encodedPath}${projectParam}${maxBytesParam}`;
 }
 
+/** Resolve board-scoped preview endpoint. Accepts a board-relative file path (e.g. "asset/foo.jpg"). */
+export function getBoardPreviewEndpoint(
+  file: string,
+  options: BoardPreviewEndpointOptions,
+) {
+  const apiBase = resolveServerUrl();
+  const encodedFile = encodeURIComponent(file);
+  const encodedBoardId = encodeURIComponent(options.boardId);
+  const projectParam = options.projectId ? `&projectId=${encodeURIComponent(options.projectId)}` : "";
+  const maxBytesParam = options.maxBytes ? `&maxBytes=${options.maxBytes}` : "";
+  const base = apiBase || "";
+  return `${base}/board/attachments/preview?boardId=${encodedBoardId}&file=${encodedFile}${projectParam}${maxBytesParam}`;
+}
+
 /** Check whether a uri is a relative path. */
 function isRelativePath(uri: string) {
   return !/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(uri);
@@ -57,7 +82,18 @@ export async function fetchBlobFromUri(
   uri: string,
   options?: PreviewEndpointOptions
 ) {
-  const endpoint = isRelativePath(uri) ? getPreviewEndpoint(uri, options) : uri;
+  let endpoint: string;
+  if (!isRelativePath(uri)) {
+    endpoint = uri;
+  } else if (options?.boardId) {
+    endpoint = getBoardPreviewEndpoint(uri, {
+      boardId: options.boardId,
+      projectId: options.projectId,
+      maxBytes: options.maxBytes,
+    });
+  } else {
+    endpoint = getPreviewEndpoint(uri, options);
+  }
   const res = await fetch(endpoint);
   if (!res.ok) {
     if (res.status === 413) {

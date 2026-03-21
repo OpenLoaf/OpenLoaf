@@ -215,7 +215,7 @@ function TerminalSessionView({
     const xtermRoot = containerRef.current.querySelector(".xterm");
     xtermRoot?.classList.add("p-1");
     const xtermViewport = containerRef.current.querySelector(".xterm-viewport");
-    xtermViewport?.classList.add("rounded-sm");
+    xtermViewport?.classList.add("rounded-3xl");
     fitAddon.fit();
 
     terminalRef.current = terminal;

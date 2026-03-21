@@ -58,7 +58,7 @@ export const ImageElement = withHOC(
                 ref={handleRef}
                 className={cn(
                   'block w-full max-w-full cursor-pointer object-cover px-0',
-                  'rounded-sm',
+                  'rounded-3xl',
                   focused && selected && 'ring-2 ring-ring ring-offset-2',
                   isDragging && 'opacity-50'
                 )}

@@ -7,31 +7,48 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import { submitMediaGenerate } from '@/lib/saas-media'
+import { submitV3Generate } from '@/lib/saas-media'
+
+// ---------------------------------------------------------------------------
+// v3 request / result types
+// ---------------------------------------------------------------------------
 
 export type VideoGenerateRequest = {
-  prompt: string
-  aspectRatio?: string
-  duration?: 5 | 10 | 15
-  /** videoGenerate sub-mode. */
-  mode?: 'text' | 'firstFrame' | 'startEnd' | 'reference' | 'storyboard' | 'withAudio' | 'motionControl'
-  /** First frame image for firstFrame/motionControl modes. */
-  firstFrameImageSrc?: string
-  /** End frame image for startEnd mode. */
-  endFrameImageSrc?: string
-  /** Reference images for reference mode. */
-  referenceImageSrcs?: string[]
-  /** Whether to generate audio alongside video. */
-  withAudio?: boolean
+  /** v3 feature id (e.g. 'videoGenerate', 'lipSync'). Defaults to 'videoGenerate'. */
+  feature?: string
+  /** v3 variant id (e.g. 'vid-gen-qwen'). Optional for legacy callers. */
+  variant?: string
+  /** v3 inputs (images, audio, prompt, person etc.). */
+  inputs?: Record<string, unknown>
+  /** v3 params (style, duration, aspectRatio etc.). */
+  params?: Record<string, unknown>
   /** Number of results to generate. */
-  count?: 1 | 2 | 4
-  /** Quality level. */
-  quality?: 'draft' | 'standard' | 'hd'
+  count?: number
   /** Seed for reproducibility. */
   seed?: number
-  /** Style preset. */
+
+  // ── Legacy fields (backward compat -- mapped to v3 format) ──
+  /** @deprecated Use params.prompt or inputs.prompt instead. */
+  prompt?: string
+  /** @deprecated Use params.aspectRatio instead. */
+  aspectRatio?: string
+  /** @deprecated Use params.duration instead. */
+  duration?: number
+  /** @deprecated Use variant-specific mode in params. */
+  mode?: string
+  /** @deprecated Use inputs.startImage instead. */
+  firstFrameImageSrc?: string
+  /** @deprecated Use inputs.endImage instead. */
+  endFrameImageSrc?: string
+  /** @deprecated Use inputs.images instead. */
+  referenceImageSrcs?: string[]
+  /** @deprecated Use params.withAudio instead. */
+  withAudio?: boolean
+  /** @deprecated Use params.quality instead. */
+  quality?: string
+  /** @deprecated Use params.style instead. */
   style?: string
-  /** Negative prompt. */
+  /** @deprecated Use params.negativePrompt instead. */
   negativePrompt?: string
 }
 
@@ -40,35 +57,67 @@ export type VideoGenerateResult = {
 }
 
 /**
- * Submit a video generation task via v2 unified endpoint.
+ * Submit a video generation task via v3 endpoint.
+ *
+ * When `variant` is present the request is forwarded directly to the v3 API.
+ * For backward compatibility, legacy fields are mapped to v3 format when
+ * `variant` is not provided (e.g. retry from old version stack entries).
  */
 export async function submitVideoGenerate(
   request: VideoGenerateRequest,
-  options: { projectId?: string; saveDir?: string; sourceNodeId?: string },
+  options: { projectId?: string; boardId?: string; sourceNodeId?: string },
 ): Promise<VideoGenerateResult> {
-  const mode = request.mode
-    ?? (request.firstFrameImageSrc ? 'firstFrame' : 'text')
+  // ── v3 path (new callers supply feature + variant) ──
+  if (request.variant) {
+    const result = await submitV3Generate({
+      feature: request.feature || 'videoGenerate',
+      variant: request.variant,
+      inputs: request.inputs,
+      params: request.params,
+      count: request.count,
+      seed: request.seed,
+      projectId: options.projectId,
+      boardId: options.boardId,
+      sourceNodeId: options.sourceNodeId,
+    })
 
-  const payload: Record<string, unknown> = {
-    feature: 'videoGenerate',
-    prompt: request.prompt,
-    aspectRatio: request.aspectRatio && request.aspectRatio !== 'auto'
-      ? request.aspectRatio : undefined,
-    duration: request.duration ?? 5,
-    mode,
-    style: request.style || undefined,
-    negativePrompt: request.negativePrompt || undefined,
-    count: request.count,
-    quality: request.quality,
-    seed: request.seed,
-    withAudio: request.withAudio || undefined,
-    projectId: options.projectId,
-    saveDir: options.saveDir,
-    sourceNodeId: options.sourceNodeId,
+    if (!result || result.success !== true || !result.data?.taskId) {
+      const message = result?.message || 'Video generation task submission failed'
+      throw new Error(message)
+    }
+
+    return { taskId: result.data.taskId as string }
   }
 
-  // Build inputs based on mode
-  const inputs: Record<string, unknown> = {}
+  // ── Legacy fallback (old callers without variant) ──
+  // Build v3 inputs/params from legacy fields so the server can route.
+  const inputs: Record<string, unknown> = { ...request.inputs }
+  const params: Record<string, unknown> = { ...request.params }
+
+  if (request.prompt) {
+    params.prompt = request.prompt
+  }
+  if (request.aspectRatio && request.aspectRatio !== 'auto') {
+    params.aspectRatio = request.aspectRatio
+  }
+  if (request.duration) {
+    params.duration = request.duration
+  }
+  if (request.style) {
+    params.style = request.style
+  }
+  if (request.quality) {
+    params.quality = request.quality
+  }
+  if (request.withAudio) {
+    params.withAudio = true
+  }
+  if (request.negativePrompt) {
+    params.negativePrompt = request.negativePrompt
+  }
+  if (request.mode) {
+    params.mode = request.mode
+  }
   if (request.firstFrameImageSrc) {
     inputs.startImage = { url: request.firstFrameImageSrc }
   }
@@ -76,13 +125,20 @@ export async function submitVideoGenerate(
     inputs.endImage = { url: request.endFrameImageSrc }
   }
   if (request.referenceImageSrcs?.length) {
-    inputs.images = request.referenceImageSrcs.map(url => ({ url }))
-  }
-  if (Object.keys(inputs).length > 0) {
-    payload.inputs = inputs
+    inputs.images = request.referenceImageSrcs.map((url) => ({ url }))
   }
 
-  const result = await submitMediaGenerate(payload)
+  const result = await submitV3Generate({
+    feature: request.feature || 'videoGenerate',
+    variant: 'vid-gen-volc', // Default variant for legacy callers
+    inputs: Object.keys(inputs).length > 0 ? inputs : undefined,
+    params: Object.keys(params).length > 0 ? params : undefined,
+    count: request.count,
+    seed: request.seed,
+    projectId: options.projectId,
+    boardId: options.boardId,
+    sourceNodeId: options.sourceNodeId,
+  })
 
   if (!result || result.success !== true || !result.data?.taskId) {
     const message = result?.message || 'Video generation task submission failed'

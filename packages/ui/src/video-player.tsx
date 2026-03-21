@@ -257,7 +257,7 @@ export function VideoPlayer({
 
   if (!controls) {
     return (
-      <div className={cn("relative overflow-hidden rounded-lg bg-black", className)}>
+      <div className={cn("relative overflow-hidden rounded-3xl bg-black", className)}>
         <video
           ref={videoRef}
           poster={poster}
@@ -274,7 +274,7 @@ export function VideoPlayer({
     <div
       ref={containerRef}
       className={cn(
-        "group/player relative overflow-hidden rounded-lg bg-black",
+        "group/player relative overflow-hidden rounded-3xl bg-black",
         className,
       )}
       onMouseMove={resetHideTimer}
@@ -305,7 +305,7 @@ export function VideoPlayer({
           />
           <div className="absolute inset-0 bg-background/60" />
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-            <span className="flex aspect-square h-[18%] min-h-8 items-center justify-center rounded-md border border-border bg-background/70 text-foreground">
+            <span className="flex aspect-square h-[18%] min-h-8 items-center justify-center rounded-3xl border border-border bg-background/70 text-foreground">
               <Play className="h-[55%] w-[55%] min-h-4 min-w-4 translate-x-[0.5px]" />
             </span>
           </div>

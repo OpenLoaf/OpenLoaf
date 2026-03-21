@@ -56,7 +56,7 @@ const listColumnClassName =
   "grid-cols-[minmax(200px,1fr)] @[520px]/fs-list:grid-cols-[minmax(200px,1fr)_160px] @[760px]/fs-list:grid-cols-[minmax(220px,1fr)_160px_140px_90px] @[980px]/fs-list:grid-cols-[minmax(260px,1fr)_200px_160px_110px]";
 /** Base layout for list rows. */
 const listRowBaseClassName =
-  "grid items-center gap-3 rounded-md px-3 py-2 text-left text-xs leading-4";
+  "grid items-center gap-3 rounded-3xl px-3 py-2 text-left text-xs leading-4";
 /** Extension display labels for list type column. */
 const FILE_TYPE_LABEL_OVERRIDES: Record<string, string> = {
   ts: "TypeScript",
@@ -319,7 +319,7 @@ const FileSystemEntryRenameRow = memo(function FileSystemEntryRenameRow({
           <Input
             value={renamingValue ?? displayName}
             onChange={(event) => onRenamingChange?.(event.target.value)}
-            className="h-6 w-full rounded-sm border border-border/60 bg-background px-2 py-0 text-left text-xs leading-4 shadow-none md:text-xs focus-visible:ring-0 focus-visible:ring-offset-0"
+            className="h-6 w-full rounded-3xl border border-border/60 bg-background px-2 py-0 text-left text-xs leading-4 shadow-none md:text-xs focus-visible:ring-0 focus-visible:ring-offset-0"
             onKeyDown={(event) => {
               if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "a") {
                 event.stopPropagation();
@@ -692,7 +692,7 @@ const FileSystemList = memo(function FileSystemList({
     >
       {selectionRect && gridRef.current ? (
         <div
-          className="pointer-events-none absolute z-10 rounded-md border border-primary/40 bg-primary/10"
+          className="pointer-events-none absolute z-10 rounded-3xl border border-primary/40 bg-primary/10"
           style={{
             left: selectionRect.left - gridRef.current.getBoundingClientRect().left,
             top: selectionRect.top - gridRef.current.getBoundingClientRect().top,

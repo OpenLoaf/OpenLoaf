@@ -72,21 +72,21 @@ export default React.memo(function MessageTaskReport({ message }: MessageTaskRep
       <div className="flex items-center gap-2 px-1">
         <Avatar className={cn(
           "size-6 ring-1",
-          isCompleted && "ring-ol-green/40",
-          isFailed && "ring-ol-red/40",
-          !isCompleted && !isFailed && "ring-ol-blue/40",
+          isCompleted && "ring-foreground/40",
+          isFailed && "ring-destructive/40",
+          !isCompleted && !isFailed && "ring-foreground/40",
         )}>
           <AvatarFallback className={cn(
-            isCompleted && "bg-ol-green/10 text-ol-green",
-            isFailed && "bg-ol-red/10 text-ol-red",
-            !isCompleted && !isFailed && "bg-ol-blue/10 text-ol-blue",
+            isCompleted && "bg-secondary text-foreground",
+            isFailed && "bg-destructive/10 text-destructive",
+            !isCompleted && !isFailed && "bg-secondary text-foreground",
           )}>
             {isCompleted ? <CheckCircle2 className="size-3.5" /> : null}
             {isFailed ? <XCircle className="size-3.5" /> : null}
             {!isCompleted && !isFailed ? <ClipboardList className="size-3.5" /> : null}
           </AvatarFallback>
         </Avatar>
-        <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+        <span className="rounded-3xl bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
           {agentTypeLabel}
         </span>
         <span className="truncate text-[11px] font-medium text-muted-foreground">
@@ -99,10 +99,10 @@ export default React.memo(function MessageTaskReport({ message }: MessageTaskRep
         )}
         {taskTitle && (
           <span className={cn(
-            "ml-1 truncate rounded-full px-2 py-0.5 text-[10px] font-medium",
-            isCompleted && "bg-ol-green/10 text-ol-green",
-            isFailed && "bg-ol-red/10 text-ol-red",
-            !isCompleted && !isFailed && "bg-ol-blue/10 text-ol-blue",
+            "ml-1 truncate rounded-3xl px-2 py-0.5 text-[10px] font-medium",
+            isCompleted && "bg-secondary text-foreground",
+            isFailed && "bg-destructive/10 text-destructive",
+            !isCompleted && !isFailed && "bg-secondary text-foreground",
           )}>
             {taskTitle}
           </span>

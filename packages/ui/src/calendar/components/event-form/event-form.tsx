@@ -36,11 +36,11 @@ import { cn } from '@openloaf/ui/calendar/lib/utils'
 
 const COLOR_OPTIONS = [
 	{
-		value: `bg-ol-blue-bg text-ol-blue`,
+		value: `bg-secondary text-foreground`,
 		label: 'Blue',
 	},
 	{
-		value: `bg-ol-green-bg text-ol-green`,
+		value: `bg-secondary text-foreground`,
 		label: 'Green',
 	},
 	{
@@ -60,23 +60,23 @@ const COLOR_OPTIONS = [
 		label: 'Pink',
 	},
 	{
-		value: `bg-ol-purple-bg text-ol-purple`,
+		value: `bg-secondary text-foreground`,
 		label: 'Indigo',
 	},
 	{
-		value: `bg-ol-amber-bg text-ol-amber`,
+		value: `bg-secondary text-foreground`,
 		label: 'Amber',
 	},
 	{
-		value: `bg-ol-green-bg text-ol-green`,
+		value: `bg-secondary text-foreground`,
 		label: 'Emerald',
 	},
 	{
-		value: `bg-ol-blue-bg text-ol-blue`,
+		value: `bg-secondary text-foreground`,
 		label: 'Sky',
 	},
 	{
-		value: `bg-ol-purple-bg text-ol-purple`,
+		value: `bg-secondary text-foreground`,
 		label: 'Violet',
 	},
 	{
@@ -88,7 +88,7 @@ const COLOR_OPTIONS = [
 		label: 'Teal',
 	},
 	{
-		value: `bg-ol-amber-bg text-ol-amber`,
+		value: `bg-secondary text-foreground`,
 		label: 'Orange',
 	},
 ]
@@ -353,7 +353,7 @@ export const EventForm: React.FC<EventFormProps> = ({
 						)}
 
 						{isReminder && (
-							<div className="flex items-center justify-between rounded-lg border px-3 py-2.5">
+							<div className="flex items-center justify-between rounded-3xl border px-3 py-2.5">
 								<div className="flex flex-col">
 									<span className="text-xs font-medium">{t('timeRange')}</span>
 									<span className="text-[11px] text-muted-foreground">

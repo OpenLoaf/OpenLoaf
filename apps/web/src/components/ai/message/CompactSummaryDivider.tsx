@@ -51,7 +51,7 @@ export default function CompactSummaryDivider({
           aria-expanded={expanded}
           aria-controls={hasSummary ? summaryId : undefined}
           className={cn(
-            "h-7 rounded-md border border-muted-foreground/30 bg-muted/20 px-3 py-1 text-xs text-muted-foreground",
+            "h-7 rounded-3xl border border-muted-foreground/30 bg-muted/20 px-3 py-1 text-xs text-muted-foreground",
             hasSummary ? "cursor-pointer hover:text-foreground/80" : "cursor-default",
           )}
           tooltip={hasSummary ? (expanded ? "收起压缩摘要" : "展开压缩摘要") : undefined}
@@ -62,7 +62,7 @@ export default function CompactSummaryDivider({
       {expanded && hasSummary ? (
         <div
           id={summaryId}
-          className="w-full max-w-3xl rounded-lg border border-muted-foreground/20 bg-muted/20 px-3 py-2 text-xs text-foreground/80"
+          className="w-full max-w-3xl rounded-3xl border border-muted-foreground/20 bg-muted/20 px-3 py-2 text-xs text-foreground/80"
         >
           <MessageResponse className="whitespace-pre-wrap break-words">
             {summaryText}

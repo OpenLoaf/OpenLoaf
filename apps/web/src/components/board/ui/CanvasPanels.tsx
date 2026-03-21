@@ -10,6 +10,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import i18next from "i18next";
 import { cn } from "@udecode/cn";
@@ -27,6 +28,7 @@ import type {
   CanvasPoint,
   CanvasSnapshot,
   CanvasRect,
+  CanvasToolbarItem,
 } from "../engine/types";
 import { toScreenPoint } from "../utils/coordinates";
 import {
@@ -39,6 +41,12 @@ import { useBoardEngine } from "../core/BoardProvider";
 import { useBoardViewState } from "../core/useBoardViewState";
 import { applyGroupAnchorPadding } from "../engine/anchors";
 import { getGroupOutlinePadding, isGroupNodeType } from "../engine/grouping";
+import { toolbarSurfaceClassName, PanelItem } from "./ToolbarParts";
+import {
+  BOARD_TOOLBAR_ITEM_DEFAULT,
+  BOARD_TOOLBAR_ITEM_RED,
+} from "./board-style-system";
+import { ToolbarGroup } from "./SelectionToolbar";
 
 type ConnectorActionPanelProps = {
   /** Snapshot used for positioning. */
@@ -51,6 +59,48 @@ type ConnectorActionPanelProps = {
   onDelete: () => void;
 };
 
+/** Build toolbar items for a selected connector. */
+function buildConnectorToolbarItems(
+  t: (key: string) => string,
+  currentStyle: CanvasConnectorStyle,
+  onStyleChange: (style: CanvasConnectorStyle) => void,
+  onDelete: () => void,
+): CanvasToolbarItem[] {
+  return [
+    {
+      id: 'style-straight',
+      label: t('connector.straight'),
+      icon: <ArrowRight size={14} />,
+      active: currentStyle === 'straight',
+      className: BOARD_TOOLBAR_ITEM_DEFAULT,
+      onSelect: () => onStyleChange('straight'),
+    },
+    {
+      id: 'style-elbow',
+      label: t('connector.elbow'),
+      icon: <CornerRightDown size={14} />,
+      active: currentStyle === 'elbow',
+      className: BOARD_TOOLBAR_ITEM_DEFAULT,
+      onSelect: () => onStyleChange('elbow'),
+    },
+    {
+      id: 'style-curve',
+      label: t('connector.curve'),
+      icon: <ChartSpline size={14} />,
+      active: currentStyle === 'curve',
+      className: BOARD_TOOLBAR_ITEM_DEFAULT,
+      onSelect: () => onStyleChange('curve'),
+    },
+    {
+      id: 'delete',
+      label: t('connector.deleteConnector'),
+      icon: <Trash2 size={14} />,
+      className: BOARD_TOOLBAR_ITEM_RED,
+      onSelect: onDelete,
+    },
+  ];
+}
+
 /** Render a style panel when a connector is selected. */
 function ConnectorActionPanel({
   snapshot,
@@ -58,62 +108,40 @@ function ConnectorActionPanel({
   onStyleChange,
   onDelete,
 }: ConnectorActionPanelProps) {
-  // 逻辑：面板位置随视口变化实时更新。
   const { t } = useTranslation('board');
   const engine = useBoardEngine();
   const viewState = useBoardViewState(engine);
-  const center = resolveConnectorCenter(connector, snapshot, viewState.viewport);
+  // 逻辑：优先使用鼠标点击位置定位工具栏，回退到路径中点。
+  const clickPoint = snapshot.selectionClickPoint;
+  const center = clickPoint ?? resolveConnectorCenter(connector, snapshot, viewState.viewport);
   const screen = toScreenPoint(center, viewState);
-  // 逻辑：工具栏继续上移一点，减少对连线本体的遮挡。
   const offsetScreenY = 34;
   const currentStyle = connector.style ?? snapshot.connectorStyle;
+  const [openPanelId, setOpenPanelId] = useState<string | null>(null);
+
+  const items = buildConnectorToolbarItems(t, currentStyle, onStyleChange, onDelete);
 
   return (
     <div
-      data-connector-action
-      className="pointer-events-auto absolute z-30 flex -translate-x-1/2 -translate-y-1/2 items-center gap-1 rounded-md border border-ol-divider bg-background/90 px-2 py-1 shadow-[0_12px_28px_rgba(15,23,42,0.18)] backdrop-blur"
+      data-node-toolbar
+      className={cn(
+        "pointer-events-auto absolute z-30 -translate-x-1/2 rounded-full",
+        "px-2 py-1.5",
+        toolbarSurfaceClassName,
+      )}
       style={{ left: screen[0], top: screen[1] - offsetScreenY }}
       onPointerDown={event => {
-        // 逻辑：避免面板交互触发画布选择。
         event.stopPropagation();
       }}
+      onMouseDown={event => event.preventDefault()}
     >
-      <div className="flex items-center gap-3">
-        <ConnectorStyleButton
-          title={t('connector.straight')}
-          active={currentStyle === "straight"}
-          onPointerDown={() => onStyleChange("straight")}
-        >
-          <ArrowRight size={14} />
-        </ConnectorStyleButton>
-        <ConnectorStyleButton
-          title={t('connector.elbow')}
-          active={currentStyle === "elbow"}
-          onPointerDown={() => onStyleChange("elbow")}
-        >
-          <CornerRightDown size={14} />
-        </ConnectorStyleButton>
-        <ConnectorStyleButton
-          title={t('connector.curve')}
-          active={currentStyle === "curve"}
-          onPointerDown={() => onStyleChange("curve")}
-        >
-          <ChartSpline size={14} />
-        </ConnectorStyleButton>
+      <div className="flex items-center gap-1">
+        <ToolbarGroup
+          items={items}
+          openPanelId={openPanelId}
+          setOpenPanelId={setOpenPanelId}
+        />
       </div>
-      <span className="mx-1 h-4 w-px bg-ol-divider" />
-      <button
-        type="button"
-        onPointerDown={event => {
-          event.preventDefault();
-          event.stopPropagation();
-          onDelete();
-        }}
-        className="inline-flex h-7 w-7 items-center justify-center rounded-md text-ol-text-auxiliary transition-colors duration-150 hover:bg-destructive/10 hover:text-destructive"
-        title={t('connector.deleteConnector')}
-      >
-        <Trash2 size={14} />
-      </button>
     </div>
   );
 }
@@ -195,46 +223,6 @@ function resolvePolylineMidpoint(points: CanvasPoint[]): CanvasPoint | null {
   return points[points.length - 1] ?? null;
 }
 
-type ConnectorStyleButtonProps = {
-  /** Button label for tooltip. */
-  title: string;
-  /** Whether the button is active. */
-  active: boolean;
-  /** Pointer down handler. */
-  onPointerDown: () => void;
-  /** Icon content. */
-  children: ReactNode;
-};
-
-/** Render a connector style control button. */
-function ConnectorStyleButton({
-  title,
-  active,
-  onPointerDown,
-  children,
-}: ConnectorStyleButtonProps) {
-  return (
-    <button
-      type="button"
-      onPointerDown={event => {
-        event.preventDefault();
-        event.stopPropagation();
-        onPointerDown();
-      }}
-      className={cn(
-        "inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors duration-150",
-        "text-ol-text-auxiliary",
-        active
-          ? "bg-ol-text-primary text-white shadow-[0_0_0_1px_rgba(15,23,42,0.2)] dark:bg-foreground dark:text-background"
-          : "hover:bg-muted/58 hover:text-ol-text-secondary dark:hover:bg-muted/46"
-      )}
-      title={title}
-    >
-      {children}
-    </button>
-  );
-}
-
 type NodeInspectorPanelProps = {
   /** Target node element. */
   element: CanvasNodeElement;
@@ -261,7 +249,7 @@ function NodeInspectorPanel({ element, onClose }: NodeInspectorPanelProps) {
     <div
       data-node-inspector
       className={cn(
-        "pointer-events-auto absolute z-30 min-w-[220px] -translate-x-1/2 rounded-lg",
+        "pointer-events-auto absolute z-30 min-w-[220px] -translate-x-1/2 rounded-3xl",
         "border border-ol-divider bg-background/95 px-3 py-2 text-xs text-ol-text-auxiliary shadow-[0_12px_28px_rgba(15,23,42,0.18)] backdrop-blur",
         showBelow ? "mt-3" : "mb-3"
       )}
@@ -282,7 +270,7 @@ function NodeInspectorPanel({ element, onClose }: NodeInspectorPanelProps) {
             event.stopPropagation();
             onClose();
           }}
-          className="rounded-md px-1 py-0.5 text-[11px] text-ol-text-auxiliary transition-colors duration-150 hover:text-ol-text-primary"
+          className="rounded-3xl px-1 py-0.5 text-[11px] text-ol-text-auxiliary transition-colors duration-150 hover:text-ol-text-primary"
         >
           {t('nodeInspector.close')}
         </button>

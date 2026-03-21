@@ -1,3 +1,4 @@
+@import url("https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap");
 @import "./styles/syncfusion.css";
 @import "tailwindcss";
 @import "gridstack/dist/gridstack.min.css";
@@ -97,6 +98,7 @@
 @theme {
   --font-sans: "Inter", "Helvetica Neue", "Geist", ui-sans-serif, system-ui, sans-serif,
     "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  --font-mono: "Space Mono", "Menlo", monospace;
 }
 
 html,
@@ -149,7 +151,7 @@ body {
 }
 
 :root {
-  --radius: 0.5rem;  /* TE 工业微圆角：基础值从 10px → 8px */
+  --radius: 0.375rem;  /* TE 工业微圆角：6px 基础值 */
   --macos-traffic-lights-width: 0px;
   --titlebar-controls-width: 0px;
 
@@ -202,10 +204,16 @@ body {
   --ol-blur-md: 0px;
   --ol-blur-lg: 0px;
 
-  /* 圆角覆盖（TE 工业微圆角） */
-  --ol-radius-xl: 0.5rem;     /* 原 ~14px → 8px */
-  --ol-radius-2xl: 0.5rem;    /* 原 16px → 8px */
-  --ol-radius-3xl: 0.5rem;    /* 原 24px → 8px */
+  /* 圆角覆盖 */
+  --ol-radius-xl: 0.75rem;
+  --ol-radius-2xl: 0.75rem;
+  --ol-radius-3xl: 0.75rem;
+
+  /* ── TE Industrial Dual-Theme Tokens ── */
+  --te-accent: #d4a800;          /* 深金黄 — 白底对比度高 */
+  --te-accent-fg: #ffffff;       /* accent 上的文字 */
+  --te-surface: #f5f5f5;         /* 卡片底色 */
+  --te-surface-hover: #eeeeee;   /* hover 底色 */
 
   /* Glass 效果背景（TE：实心） */
   --ol-glass-toolbar-bg: var(--card);
@@ -264,6 +272,9 @@ body {
   --canvas-minimap-mask-stroke: color-mix(in oklch, var(--foreground) 22%, var(--background));
   --canvas-guide: color-mix(in oklch, var(--primary) 55%, transparent);
   --canvas-bg: #fafafa;
+  --canvas-dot: rgba(0, 0, 0, 0.07);
+  --canvas-dot-size: 1.2px;
+  --canvas-dot-gap: 24px;
   --canvas-node-bg: #ffffff;
   --canvas-node-border: #e2e8f0;
   --canvas-node-text: #0f172a;
@@ -328,6 +339,12 @@ body {
 
   --ol-scrollbar-thumb: rgba(200, 200, 200, 0.3);
   --ol-scrollbar-thumb-hover: rgba(200, 200, 200, 0.5);
+
+  /* ── TE Industrial Dark Tokens ── */
+  --te-accent: #ffcc00;          /* 经典 TE 黄 */
+  --te-accent-fg: #000000;       /* accent 上的文字 */
+  --te-surface: #0a0a0a;         /* 卡片底色 */
+  --te-surface-hover: #141414;   /* hover 底色 */
   --ol-chat-human-bg: color-mix(in oklch, var(--secondary) 92%, var(--background) 8%);
   --ol-chat-human-border: rgba(255, 255, 255, 0.08);
   --ol-chat-human-text: var(--foreground);
@@ -372,6 +389,9 @@ body {
   --brand: #ff7b4f;
   --highlight: #fcc544;
   --canvas-bg: #0a0a0a;
+  --canvas-dot: rgba(255, 255, 255, 0.06);
+  --canvas-dot-size: 1.2px;
+  --canvas-dot-gap: 24px;
   --canvas-node-bg: #1e1e1e;
   --canvas-node-border: #3a3a3a;
   --canvas-node-text: #e2e8f0;
@@ -487,6 +507,18 @@ body {
   --radius-xl: var(--ol-radius-xl);
   --radius-2xl: var(--ol-radius-2xl);
   --radius-3xl: var(--ol-radius-3xl);
+
+  /* TE Industrial Token Mappings */
+  --color-te-accent: var(--te-accent);
+  --color-te-accent-fg: var(--te-accent-fg);
+  --color-te-surface: var(--te-surface);
+  --color-te-surface-hover: var(--te-surface-hover);
+}
+
+/* 画布点阵背景 */
+[data-board-canvas] {
+  background-image: radial-gradient(circle, var(--canvas-dot) var(--canvas-dot-size), transparent var(--canvas-dot-size));
+  background-size: var(--canvas-dot-gap) var(--canvas-dot-gap);
 }
 
 /* 画布面板 Portal 入场动画：防止选中后立刻拖动时面板闪烁 */

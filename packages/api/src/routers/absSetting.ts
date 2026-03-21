@@ -152,6 +152,8 @@ export const settingSchemas = {
     output: z.object({
       /** Default project storage root URI (file://...). */
       rootUri: z.string().min(1),
+      /** Temp storage root URI for unbound boards (file://...). */
+      tempRootUri: z.string().min(1),
     }),
   },
   getCliToolsStatus: {

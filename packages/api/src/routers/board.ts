@@ -11,18 +11,26 @@ import { z } from "zod";
 import path from "node:path";
 import { promises as fs } from "node:fs";
 import sharp from "sharp";
-import { resolveScopedOpenLoafPath } from "@openloaf/config";
+import { getOpenLoafRootDir } from "@openloaf/config";
 import { t, shieldedProcedure } from "../../generated/routers/helpers/createRouter";
 import { createBoardId } from "../common/boardId";
+import {
+  BOARD_FOLDER_PREFIX,
+  BOARD_FOLDER_PREFIX_LEGACY,
+  buildBoardFolderUri,
+  resolveBoardDir,
+  resolveBoardEntityId,
+  resolveBoardFolderName,
+  resolveBoardScopedRoot,
+  resolveBoardsBaseDir,
+} from "../common/boardPaths";
 import { recordEntityVisit } from "../services/entityVisitRecordService";
-import { resolveScopedRootPath } from "../services/vfsService";
+import { getResolvedTempStorageDir } from "../services/appConfigService";
 
 const BOARD_THUMBNAIL_FILE_NAME = "index.png";
 const BOARD_THUMBNAIL_WIDTH = 280;
 const BOARD_THUMBNAIL_QUALITY = 60;
 
-const BOARD_FOLDER_PREFIX = "board_";
-const BOARD_FOLDER_PREFIX_LEGACY = "tnboard_";
 const DEFAULT_BOARD_LIST_PAGE_SIZE = 30;
 const MAX_BOARD_LIST_PAGE_SIZE = 120;
 
@@ -158,16 +166,6 @@ async function listBoardListPage(
   return page;
 }
 
-/** Extract the canonical board entity id from folderUri. */
-function resolveBoardEntityId(folderUri: string): string {
-  return folderUri.replace(/\/+$/u, "").split("/").filter(Boolean).pop() ?? "";
-}
-
-/** Extract the physical folder name from a board folderUri. */
-function resolveBoardFolderName(folderUri: string): string {
-  return folderUri.replace(/\/+$/u, "").split("/").filter(Boolean).pop() ?? "";
-}
-
 /** Extract a display title from a board folder name. */
 function extractBoardTitle(folderName: string): string {
   if (folderName.startsWith(BOARD_FOLDER_PREFIX_LEGACY)) {
@@ -178,10 +176,72 @@ function extractBoardTitle(folderName: string): string {
   return "画布";
 }
 
-/** Resolve the boards directory: project-scoped or global root. */
-function resolveBoardsBaseDir(projectId?: string): string {
-  const rootPath = resolveScopedRootPath({ projectId });
-  return resolveScopedOpenLoafPath(rootPath, "boards");
+/**
+ * Migrate legacy unbound board folders to the current temp storage layout.
+ * Handles two legacy locations:
+ * 1. ~/.openloaf/boards/ → {tempDir}/boards/
+ * 2. {tempDir}/.openloaf/boards/ → {tempDir}/boards/
+ * Runs once per process.
+ */
+let _legacyBoardsMigrated = false;
+async function migrateLegacyUnboundBoards(): Promise<void> {
+  if (_legacyBoardsMigrated) return;
+  _legacyBoardsMigrated = true;
+
+  const tempDir = getResolvedTempStorageDir();
+  const newDir = resolveBoardDir(tempDir); // {tempDir}/boards/
+
+  // Legacy locations to migrate from
+  const legacyDirs = [
+    path.join(getOpenLoafRootDir(), "boards"),       // ~/.openloaf/boards/
+    path.join(tempDir, ".openloaf", "boards"),        // {tempDir}/.openloaf/boards/
+  ];
+
+  for (const legacyDir of legacyDirs) {
+    if (path.resolve(legacyDir) === path.resolve(newDir)) continue;
+    await migrateBoardFolders(legacyDir, newDir);
+  }
+}
+
+/** Move board folders from a legacy directory to the new directory. */
+async function migrateBoardFolders(legacyDir: string, newDir: string): Promise<void> {
+  let entries: string[];
+  try {
+    entries = await fs.readdir(legacyDir);
+  } catch {
+    return; // Legacy dir doesn't exist — nothing to migrate
+  }
+
+  const boardFolders = entries.filter(
+    (name) =>
+      name.startsWith(BOARD_FOLDER_PREFIX) ||
+      name.startsWith(BOARD_FOLDER_PREFIX_LEGACY) ||
+      name.startsWith("chat_"),
+  );
+  if (boardFolders.length === 0) return;
+
+  await fs.mkdir(newDir, { recursive: true });
+
+  for (const folder of boardFolders) {
+    const src = path.join(legacyDir, folder);
+    const dest = path.join(newDir, folder);
+    try {
+      await fs.access(dest);
+      continue; // Destination already exists — skip
+    } catch {
+      // Destination doesn't exist — safe to move
+    }
+    try {
+      await fs.rename(src, dest);
+    } catch {
+      try {
+        await fs.cp(src, dest, { recursive: true });
+        await fs.rm(src, { recursive: true, force: true });
+      } catch (err) {
+        console.warn(`[migrateLegacyUnboundBoards] failed to move ${folder}:`, err);
+      }
+    }
+  }
 }
 
 /**
@@ -192,8 +252,14 @@ async function syncBoardsFromDisk(
   prisma: any,
   input: { projectId?: string },
 ): Promise<void> {
+  // Migrate legacy unbound boards from ~/.openloaf/boards/ to temp storage
+  if (!input.projectId) {
+    await migrateLegacyUnboundBoards();
+  }
   let boardsDir: string;
+  let rootPath: string;
   try {
+    rootPath = resolveBoardScopedRoot(input.projectId);
     boardsDir = resolveBoardsBaseDir(input.projectId);
   } catch (err) {
     console.warn("[syncBoardsFromDisk] resolveBoardsBaseDir failed:", err);
@@ -233,11 +299,12 @@ async function syncBoardsFromDisk(
   }
   if (toSync.length === 0) return;
 
-  // Check which ones already have DB records (by folderUri)
-  const folderUris = toSync.map((b) => `.openloaf/boards/${b.folderName}/`);
+  // Check which ones already have DB records (by folderUri — match both old and new format)
+  const newFolderUris = toSync.map((b) => buildBoardFolderUri(rootPath, b.folderName));
+  const legacyFolderUris = toSync.map((b) => `.openloaf/boards/${b.folderName}/`);
   const existing = await prisma.board.findMany({
     where: {
-      folderUri: { in: folderUris },
+      folderUri: { in: [...newFolderUris, ...legacyFolderUris] },
     },
     select: { folderUri: true },
   });
@@ -245,12 +312,15 @@ async function syncBoardsFromDisk(
 
   // Create missing records
   const newRecords = toSync
-    .filter((b) => !existingSet.has(`.openloaf/boards/${b.folderName}/`))
+    .filter((b) =>
+      !existingSet.has(buildBoardFolderUri(rootPath, b.folderName)) &&
+      !existingSet.has(`.openloaf/boards/${b.folderName}/`)
+    )
     .map((b) => ({
       id: createBoardId(),
       title: extractBoardTitle(b.folderName),
       projectId: input.projectId ?? null,
-      folderUri: `.openloaf/boards/${b.folderName}/`,
+      folderUri: buildBoardFolderUri(rootPath, b.folderName),
       createdAt: b.mtime,
       updatedAt: b.mtime,
     }));
@@ -283,11 +353,9 @@ async function hardDeleteBoardResources(
   });
 
   try {
-    let boardDir: string;
-    const rootPath = resolveScopedRootPath({ projectId: board.projectId ?? undefined });
-    boardDir = resolveScopedOpenLoafPath(
+    const rootPath = resolveBoardScopedRoot(board.projectId ?? undefined);
+    const boardDir = resolveBoardDir(
       rootPath,
-      "boards",
       resolveBoardFolderName(board.folderUri),
     );
     await fs.rm(boardDir, { recursive: true, force: true });
@@ -309,7 +377,8 @@ export const boardRouter = t.router({
     )
     .mutation(async ({ ctx, input }) => {
       const boardId = createBoardId();
-      const folderUri = `.openloaf/boards/${boardId}/`;
+      const rootPath = resolveBoardScopedRoot(input.projectId);
+      const folderUri = buildBoardFolderUri(rootPath, boardId);
 
       const now = new Date();
       const defaultTitle = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, "0")}/${String(now.getDate()).padStart(2, "0")} ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
@@ -419,7 +488,7 @@ export const boardRouter = t.router({
     .query(async ({ ctx, input }) => {
       let rootPath: string;
       try {
-        rootPath = resolveScopedRootPath(input);
+        rootPath = resolveBoardScopedRoot(input.projectId);
       } catch {
         return { items: {} as Record<string, string> };
       }
@@ -440,9 +509,8 @@ export const boardRouter = t.router({
             const folderName = folderUri
               ? folderUri.replace(/\/$/, "").split("/").pop()!
               : boardId;
-            const thumbPath = resolveScopedOpenLoafPath(
+            const thumbPath = resolveBoardDir(
               rootPath,
-              "boards",
               folderName,
               BOARD_THUMBNAIL_FILE_NAME,
             );
@@ -504,14 +572,12 @@ export const boardRouter = t.router({
       if (!original) throw new Error("Board not found");
 
       const newBoardId = createBoardId();
-      const newFolderUri = `.openloaf/boards/${newBoardId}/`;
+      const rootPath = resolveBoardScopedRoot(input.projectId);
+      const newFolderUri = buildBoardFolderUri(rootPath, newBoardId);
 
       // Copy board folder on disk
       try {
-        const rootPath = resolveScopedRootPath({
-          projectId: input.projectId,
-        });
-        const boardsDir = resolveScopedOpenLoafPath(rootPath, "boards");
+        const boardsDir = resolveBoardDir(rootPath);
         const originalFolderName = original.folderUri.replace(/\/$/, "").split("/").pop()!;
         const srcDir = path.join(boardsDir, originalFolderName);
         const destDir = path.join(boardsDir, newBoardId);
@@ -628,10 +694,10 @@ export const boardRouter = t.router({
       // Move physical folder
       const folderName = resolveBoardFolderName(board.folderUri);
       try {
-        const srcRoot = resolveScopedRootPath({ projectId: srcProjectId });
-        const destRoot = resolveScopedRootPath({ projectId: destProjectId });
-        const srcDir = resolveScopedOpenLoafPath(srcRoot, "boards", folderName);
-        const destBoardsDir = resolveScopedOpenLoafPath(destRoot, "boards");
+        const srcRoot = resolveBoardScopedRoot(srcProjectId);
+        const destRoot = resolveBoardScopedRoot(destProjectId);
+        const srcDir = resolveBoardDir(srcRoot, folderName);
+        const destBoardsDir = resolveBoardDir(destRoot);
         await fs.mkdir(destBoardsDir, { recursive: true });
         const destDir = path.join(destBoardsDir, folderName);
         await fs.rename(srcDir, destDir);

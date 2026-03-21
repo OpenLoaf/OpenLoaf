@@ -171,7 +171,7 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
       >
         <div className="divide-y divide-border/40">
           <div className="flex flex-wrap items-center gap-2 py-3">
-            <SettingIcon icon={MessageSquare} bg="bg-ol-blue-bg" fg="text-ol-blue" />
+            <SettingIcon icon={MessageSquare} bg="bg-secondary" fg="text-foreground" />
             <div className="min-w-0 flex-1">
               <div className="text-sm font-medium">{t('provider.chatMemoryScope')}</div>
               <div className="text-xs text-muted-foreground">
@@ -198,7 +198,7 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
           </div>
 
           <div className="flex flex-wrap items-center gap-2 py-3">
-            <SettingIcon icon={Volume2} bg="bg-ol-green-bg" fg="text-ol-green" />
+            <SettingIcon icon={Volume2} bg="bg-secondary" fg="text-foreground" />
             <div className="min-w-0 flex-1">
               <div className="text-sm font-medium">{t('provider.modelSound')}</div>
               <div className="text-xs text-muted-foreground">
@@ -220,7 +220,7 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
           </div>
 
           <div className="flex flex-wrap items-center gap-2 py-3">
-            <SettingIcon icon={Eye} bg="bg-ol-purple-bg" fg="text-ol-purple" />
+            <SettingIcon icon={Eye} bg="bg-secondary" fg="text-foreground" />
             <div className="min-w-0 flex-1">
               <div className="text-sm font-medium">{t('provider.showAllToolResults')}</div>
               <div className="text-xs text-muted-foreground">

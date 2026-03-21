@@ -512,7 +512,7 @@ export default function ProjectPage({
         >
           <div className="w-full h-full min-h-0 min-w-0 flex flex-col [&>div]:!min-w-0 [&>div]:!w-full [&>div]:!h-full [&>div]:!block">
             <div className="flex-1 min-h-0 w-full h-full">
-              <div className="relative w-full h-full min-h-0 overflow-hidden rounded-lg bg-background">
+              <div className="relative w-full h-full min-h-0 overflow-hidden rounded-3xl bg-background">
                 <div
                   id="project-panel-index"
                   role="tabpanel"

@@ -14,7 +14,7 @@ import dayjs from '@openloaf/ui/calendar/lib/configs/dayjs-config'
 import { cn } from '@openloaf/ui/calendar/lib/utils'
 
 const DAY_HEADER_NAMES = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
-const EVENT_DOT_COLORS = ['bg-primary', 'bg-ol-blue', 'bg-ol-green']
+const EVENT_DOT_COLORS = ['bg-primary', 'bg-foreground', 'bg-foreground']
 const DAYS_IN_MINI_CALENDAR = 42
 
 const getDayTooltip = (eventCount: number): string => {
@@ -104,12 +104,12 @@ const YearView = () => {
 
 	const getDayClassName = (day: DayData): string => {
 		const baseClass =
-			'relative flex aspect-square w-full cursor-pointer flex-col items-center justify-center hover:bg-accent rounded-sm transition-colors duration-200'
+			'relative flex aspect-square w-full cursor-pointer flex-col items-center justify-center hover:bg-accent rounded-3xl transition-colors duration-200'
 		const outsideMonthClass = day.isInCurrentMonth
 			? ''
 			: 'text-muted-foreground opacity-50'
 		const todayClass = day.isToday
-			? 'bg-ol-blue text-white rounded-full'
+			? 'bg-foreground text-background rounded-full'
 			: ''
 		const selectedClass =
 			day.isSelected && !day.isToday ? 'bg-muted rounded-full font-bold' : ''
@@ -144,7 +144,7 @@ const YearView = () => {
 
 					return (
 						<div
-							className="hover:border-primary flex flex-col rounded-lg border p-3 text-left transition-all duration-200 hover:shadow-sm"
+							className="hover:border-primary flex flex-col rounded-3xl border p-3 text-left transition-all duration-200 hover:shadow-sm"
 							data-testid={`year-month-${month.monthKey}`}
 							key={month.monthKey}
 						>
@@ -165,7 +165,7 @@ const YearView = () => {
 
 								{month.eventCount > 0 && (
 									<span
-										className="bg-primary text-primary-foreground rounded-md px-2 py-1 text-xs"
+										className="bg-primary text-primary-foreground rounded-3xl px-2 py-1 text-xs"
 										data-testid={`year-month-event-count-${month.monthKey}`}
 									>
 										{getEventCountLabel(month.eventCount)}

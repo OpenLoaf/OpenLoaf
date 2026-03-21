@@ -65,13 +65,13 @@ const MAX_LABEL_LENGTH = 40
 function getNodeTypeIcon(type: string) {
   switch (type) {
     case "text":
-      return <FileText size={14} className="shrink-0 text-blue-500" />
+      return <FileText size={14} className="shrink-0 text-muted-foreground" />
     case "image":
-      return <Image size={14} className="shrink-0 text-emerald-500" />
+      return <Image size={14} className="shrink-0 text-muted-foreground" />
     case "video":
-      return <Video size={14} className="shrink-0 text-purple-500" />
+      return <Video size={14} className="shrink-0 text-muted-foreground" />
     case "audio":
-      return <Music size={14} className="shrink-0 text-amber-500" />
+      return <Music size={14} className="shrink-0 text-muted-foreground" />
     default:
       return <FileText size={14} className="shrink-0 text-muted-foreground" />
   }
@@ -264,8 +264,8 @@ export function NodeSearchPanel({
     <div
       className={cn(
         "pointer-events-auto absolute right-3 top-3 z-30",
-        "flex w-80 flex-col rounded-xl",
-        "border border-border/60 bg-background/95 shadow-lg backdrop-blur-sm",
+        "flex w-80 flex-col rounded-3xl",
+        "border border-border bg-background/95 shadow-none backdrop-blur-sm",
         "animate-in fade-in slide-in-from-top-2 duration-200",
       )}
       onKeyDown={handleKeyDown}
@@ -287,7 +287,7 @@ export function NodeSearchPanel({
         <button
           type="button"
           onClick={onClose}
-          className="rounded-md p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="rounded-3xl p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           aria-label={t("nodeInspector.close")}
         >
           <X size={16} />
@@ -304,7 +304,7 @@ export function NodeSearchPanel({
             className={cn(
               "rounded-full px-2.5 py-1 text-xs font-medium transition-colors duration-150",
               typeFilter === filterType
-                ? "bg-primary/10 text-primary"
+                ? "bg-foreground/10 text-foreground"
                 : "text-muted-foreground hover:bg-muted hover:text-foreground",
             )}
           >
@@ -336,9 +336,9 @@ export function NodeSearchPanel({
               data-search-index={index}
               onClick={() => focusOnResult(result)}
               className={cn(
-                "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors duration-100",
+                "flex w-full items-center gap-2 rounded-3xl px-2.5 py-2 text-left transition-colors duration-100",
                 index === activeIndex
-                  ? "bg-primary/10 text-foreground"
+                  ? "bg-foreground/10 text-foreground"
                   : "text-foreground/80 hover:bg-muted",
               )}
             >

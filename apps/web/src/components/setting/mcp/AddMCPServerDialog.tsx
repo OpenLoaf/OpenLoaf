@@ -394,14 +394,14 @@ export function AddMCPServerDialog({ open, onOpenChange, onSuccess }: Props) {
         </DialogHeader>
 
         {/* Mode toggle — fixed at top */}
-        <div className="flex items-center gap-1 rounded-md bg-muted/40 p-1">
+        <div className="flex items-center gap-1 rounded-3xl bg-muted/40 p-1">
           <button
             type="button"
             onClick={() => setMode("json")}
             className={cn(
-              "flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+              "flex flex-1 items-center justify-center gap-1.5 rounded-3xl px-3 py-1.5 text-xs font-medium transition-colors",
               mode === "json"
-                ? "bg-background text-foreground shadow-sm"
+                ? "bg-background text-foreground shadow-none"
                 : "text-muted-foreground hover:text-foreground",
             )}
           >
@@ -412,9 +412,9 @@ export function AddMCPServerDialog({ open, onOpenChange, onSuccess }: Props) {
             type="button"
             onClick={() => setMode("form")}
             className={cn(
-              "flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+              "flex flex-1 items-center justify-center gap-1.5 rounded-3xl px-3 py-1.5 text-xs font-medium transition-colors",
               mode === "form"
-                ? "bg-background text-foreground shadow-sm"
+                ? "bg-background text-foreground shadow-none"
                 : "text-muted-foreground hover:text-foreground",
             )}
           >
@@ -431,7 +431,7 @@ export function AddMCPServerDialog({ open, onOpenChange, onSuccess }: Props) {
            * ================================================================ */
           <div className="space-y-3">
             <textarea
-              className="h-48 w-full rounded-xl border border-border/40 bg-ol-surface-input p-3 font-mono text-xs text-foreground shadow-none placeholder:text-ol-text-auxiliary/50 focus-visible:ring-0 focus-visible:shadow-none focus-visible:border-border/70 focus:outline-none"
+              className="h-48 w-full rounded-3xl border border-border/40 bg-background p-3 font-mono text-xs text-foreground shadow-none placeholder:text-muted-foreground/50 focus-visible:ring-0 focus-visible:shadow-none focus-visible:border-border/70 focus:outline-none"
               placeholder={`${t("settings:mcp.jsonPlaceholder")}\n\n{\n  "mcpServers": {\n    "server-name": {\n      "command": "npx",\n      "args": ["-y", "package-name"],\n      "env": { "API_KEY": "..." }\n    }\n  }\n}`}
               value={jsonText}
               onChange={(e) => setJsonText(e.target.value)}
@@ -440,31 +440,31 @@ export function AddMCPServerDialog({ open, onOpenChange, onSuccess }: Props) {
             {/* Parse preview */}
             {parseResult ? (
               parseResult.ok ? (
-                <div className="rounded-xl border border-border/40 bg-ol-green-bg p-2.5 shadow-none">
-                  <div className="flex items-center gap-1.5 text-xs font-medium text-ol-green">
+                <div className="rounded-3xl border border-border/40 bg-secondary p-2.5 shadow-none">
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-foreground">
                     <CheckCircle2 className="h-3.5 w-3.5" />
                     {t("settings:mcp.jsonParsed", { count: parseResult.servers.length })}
                   </div>
                   <div className="mt-1.5 space-y-1">
                     {parseResult.servers.map((s) => (
-                      <div key={s.name} className="flex items-center gap-2 text-[11px] text-ol-green">
+                      <div key={s.name} className="flex items-center gap-2 text-[11px] text-foreground">
                         <span className="font-medium">{s.name}</span>
-                        <span className="rounded-full bg-ol-green-bg-hover px-1.5 py-0.5 text-[10px]">
+                        <span className="rounded-full bg-accent px-1.5 py-0.5 text-[10px]">
                           {s.transport}
                         </span>
                         {s.command ? (
-                          <span className="truncate text-ol-text-auxiliary">
+                          <span className="truncate text-muted-foreground">
                             {s.command} {s.args?.join(" ")}
                           </span>
                         ) : s.url ? (
-                          <span className="truncate text-ol-text-auxiliary">{s.url}</span>
+                          <span className="truncate text-muted-foreground">{s.url}</span>
                         ) : null}
                       </div>
                     ))}
                   </div>
                 </div>
               ) : (
-                <div className="flex items-center gap-1.5 rounded-xl border border-border/40 bg-ol-red-bg p-2.5 text-xs text-ol-red shadow-none">
+                <div className="flex items-center gap-1.5 rounded-3xl border border-destructive/20 bg-destructive/5 p-2.5 text-xs text-destructive shadow-none">
                   <AlertCircle className="h-3.5 w-3.5 shrink-0" />
                   {parseResult.error}
                 </div>
@@ -510,16 +510,16 @@ export function AddMCPServerDialog({ open, onOpenChange, onSuccess }: Props) {
             </div>
             <div className="space-y-1.5">
               <label className="text-sm font-medium">{t("settings:mcp.transport")}</label>
-              <div className="flex items-center gap-1 rounded-md bg-muted/40 p-1">
+              <div className="flex items-center gap-1 rounded-3xl bg-muted/40 p-1">
                 {TRANSPORT_TABS.map((tab) => (
                   <button
                     key={tab.value}
                     type="button"
                     onClick={() => setTransport(tab.value)}
                     className={cn(
-                      "flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                      "flex flex-1 items-center justify-center gap-1.5 rounded-3xl px-3 py-1.5 text-xs font-medium transition-colors",
                       transport === tab.value
-                        ? "bg-background text-foreground shadow-sm"
+                        ? "bg-background text-foreground shadow-none"
                         : "text-muted-foreground hover:text-foreground",
                     )}
                   >
@@ -602,12 +602,12 @@ export function AddMCPServerDialog({ open, onOpenChange, onSuccess }: Props) {
         </div>
 
         <DialogFooter className="shrink-0">
-          <Button variant="outline" className="rounded-full shadow-none" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" className="rounded-3xl shadow-none" onClick={() => onOpenChange(false)}>
             {t("settings:mcp.cancel")}
           </Button>
           {mode === "json" ? (
             <Button
-              className="rounded-full bg-ol-purple-bg text-ol-purple shadow-none hover:bg-ol-purple-bg-hover transition-colors duration-150"
+              className="rounded-3xl bg-secondary text-secondary-foreground shadow-none hover:bg-accent transition-colors duration-150"
               onClick={handleJsonImport}
               disabled={!parseResult?.ok || importing}
             >
@@ -618,7 +618,7 @@ export function AddMCPServerDialog({ open, onOpenChange, onSuccess }: Props) {
             </Button>
           ) : (
             <Button
-              className="rounded-full bg-ol-blue-bg text-ol-blue shadow-none hover:bg-ol-blue-bg-hover transition-colors duration-150"
+              className="rounded-3xl bg-secondary text-secondary-foreground shadow-none hover:bg-accent transition-colors duration-150"
               onClick={handleFormSubmit}
               disabled={addMutation.isPending}
             >
@@ -661,19 +661,19 @@ function ScopeSelector({
         <PopoverTrigger asChild>
           <button
             type="button"
-            className="flex h-8 w-full items-center justify-between gap-2 rounded-md border border-border/40 bg-ol-surface-input px-3 text-xs shadow-none transition-colors hover:border-border/70"
+            className="flex h-8 w-full items-center justify-between gap-2 rounded-3xl border border-border/40 bg-background px-3 text-xs shadow-none transition-colors hover:border-border/70"
           >
             <span className="flex items-center gap-1.5 min-w-0">
               {scopeValue === "global" ? (
-                <Layers className="h-3.5 w-3.5 shrink-0 text-ol-text-auxiliary" />
+                <Layers className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
               ) : selectedProject?.icon ? (
                 <span className="text-[13px] leading-none shrink-0">{selectedProject.icon}</span>
               ) : (
-                <FolderOpen className="h-3.5 w-3.5 shrink-0 text-ol-text-auxiliary" />
+                <FolderOpen className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
               )}
               <span className="truncate">{scopeDisplayLabel}</span>
             </span>
-            <ChevronDown className="h-3.5 w-3.5 shrink-0 text-ol-text-auxiliary" />
+            <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
           </button>
         </PopoverTrigger>
         <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start" sideOffset={4}>
@@ -692,7 +692,7 @@ function ScopeSelector({
                 >
                   <Layers className="h-3.5 w-3.5 shrink-0" />
                   <span className="truncate">{t("settings:mcp.scopeGlobalLabel")}</span>
-                  {scopeValue === "global" && <Check className="ml-auto h-3.5 w-3.5 shrink-0 text-ol-green" />}
+                  {scopeValue === "global" && <Check className="ml-auto h-3.5 w-3.5 shrink-0 text-foreground" />}
                 </CommandItem>
               </CommandGroup>
 
@@ -712,7 +712,7 @@ function ScopeSelector({
                         <FolderOpen className="h-3.5 w-3.5 shrink-0" />
                       )}
                       <span className="truncate">{p.title}</span>
-                      {p.rootUri === scopeValue && <Check className="ml-auto h-3.5 w-3.5 shrink-0 text-ol-green" />}
+                      {p.rootUri === scopeValue && <Check className="ml-auto h-3.5 w-3.5 shrink-0 text-foreground" />}
                     </CommandItem>
                   ))}
                 </CommandGroup>

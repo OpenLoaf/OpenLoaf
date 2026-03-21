@@ -121,12 +121,12 @@ export function VersionStackOverlay({
         <>
           {count > 2 && (
             <div
-              className="pointer-events-none absolute inset-0 z-[-1] rounded-lg border border-border bg-card opacity-20"
+              className="pointer-events-none absolute inset-0 z-[-1] rounded-3xl border border-border bg-card opacity-20"
               style={{ transform: 'translate(6px, 6px)' }}
             />
           )}
           <div
-            className="pointer-events-none absolute inset-0 z-[-1] rounded-lg border border-border bg-card opacity-40"
+            className="pointer-events-none absolute inset-0 z-[-1] rounded-3xl border border-border bg-card opacity-40"
             style={{ transform: 'translate(3px, 3px)' }}
           />
         </>

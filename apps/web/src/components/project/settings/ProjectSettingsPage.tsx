@@ -44,12 +44,12 @@ type ProjectSettingsPanelProps = {
 type ProjectSettingsMenuKey = "basic" | "ai" | "memory" | "skills" | "agents" | "git";
 
 const PROJECT_MENU_ICON_COLOR = {
-  basic: "text-ol-blue",
-  ai: "text-ol-purple",
-  memory: "text-ol-green",
-  skills: "text-ol-purple",
-  agents: "text-ol-green",
-  git: "text-ol-green",
+  basic: "text-foreground",
+  ai: "text-foreground",
+  memory: "text-foreground",
+  skills: "text-foreground",
+  agents: "text-foreground",
+  git: "text-foreground",
 } as const;
 
 /** Build a menu icon component with fixed email-style color tone. */

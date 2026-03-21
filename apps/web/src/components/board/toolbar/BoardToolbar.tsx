@@ -1046,7 +1046,7 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
   const insertIconClassName =
     "origin-center transition-transform duration-150 ease-out group-hover:-rotate-15";
   /** 底部持久工具按钮统一使用更紧凑的圆角，避免选中态出现过胖的椭圆。 */
-  const persistentToolButtonClassName = "group h-10 w-9 overflow-hidden rounded-md";
+  const persistentToolButtonClassName = "group h-10 w-9 overflow-hidden rounded-3xl";
 
   return (
     <div
@@ -1058,7 +1058,7 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
       }}
       className={cn(
         "pointer-events-auto absolute bottom-4 left-1/2 z-20 -translate-x-1/2",
-        "h-16 rounded-lg px-2",
+        "h-16 rounded-3xl px-2",
         toolbarSurfaceClassName
       )}
     >
@@ -1159,7 +1159,7 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
                           setPenSize(size);
                         }}
                         className={cn(
-                          "inline-flex h-7 w-7 items-center justify-center rounded-md",
+                          "inline-flex h-7 w-7 items-center justify-center rounded-3xl",
                           penSize === size
                             ? "bg-foreground/12 text-foreground dark:bg-foreground/18 dark:text-white"
                             : "hover:bg-accent/60"
@@ -1259,7 +1259,7 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
                           setHlSize(size);
                         }}
                         className={cn(
-                          "inline-flex h-7 w-7 items-center justify-center rounded-md",
+                          "inline-flex h-7 w-7 items-center justify-center rounded-3xl",
                           hlSize === size
                             ? "bg-foreground/12 text-foreground dark:bg-foreground/18 dark:text-white"
                             : "hover:bg-accent/60"
@@ -1351,23 +1351,23 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
                       <div className="text-[12px] font-semibold text-foreground">{t('textToolTip.title')}</div>
                       <div className="text-[11px] leading-relaxed text-muted-foreground">{t('textToolTip.desc')}</div>
                       {/* Mindmap illustration */}
-                      <div className="mt-1 rounded-lg bg-muted/50 dark:bg-muted/30 px-3 py-2.5">
+                      <div className="mt-1 rounded-3xl bg-muted/50 dark:bg-muted/30 px-3 py-2.5">
                         <div className="flex items-start gap-0">
                           <div className="flex flex-col items-center">
-                            <span className="inline-flex items-center rounded-md bg-primary/10 dark:bg-primary/20 px-2 py-0.5 text-[10px] font-medium text-primary">{t('textToolTip.mindmapExample.root')}</span>
+                            <span className="inline-flex items-center rounded-3xl bg-primary/10 dark:bg-primary/20 px-2 py-0.5 text-[10px] font-medium text-primary">{t('textToolTip.mindmapExample.root')}</span>
                             <span className="h-2 w-px bg-border" />
                           </div>
                         </div>
                         <div className="flex gap-4 pl-2">
                           <div className="flex flex-col items-center">
                             <span className="h-px w-3 bg-border" />
-                            <span className="inline-flex items-center rounded-md bg-ol-blue/10 px-1.5 py-0.5 text-[9px] text-ol-blue">{t('textToolTip.mindmapExample.child1')}</span>
+                            <span className="inline-flex items-center rounded-3xl bg-ol-blue/10 px-1.5 py-0.5 text-[9px] text-ol-blue">{t('textToolTip.mindmapExample.child1')}</span>
                           </div>
                           <div className="flex flex-col items-center">
                             <span className="h-px w-3 bg-border" />
-                            <span className="inline-flex items-center rounded-md bg-ol-amber/10 px-1.5 py-0.5 text-[9px] text-ol-amber">{t('textToolTip.mindmapExample.child2')}</span>
+                            <span className="inline-flex items-center rounded-3xl bg-ol-amber/10 px-1.5 py-0.5 text-[9px] text-ol-amber">{t('textToolTip.mindmapExample.child2')}</span>
                             <span className="h-1.5 w-px bg-border" />
-                            <span className="inline-flex items-center rounded-md bg-ol-green/10 px-1.5 py-0.5 text-[9px] text-ol-green">{t('textToolTip.mindmapExample.grandchild')}</span>
+                            <span className="inline-flex items-center rounded-3xl bg-ol-green/10 px-1.5 py-0.5 text-[9px] text-ol-green">{t('textToolTip.mindmapExample.grandchild')}</span>
                           </div>
                         </div>
                       </div>

@@ -70,16 +70,16 @@ type SettingsMenuKey =
   | "projectTest";
 
 const SETTINGS_MENU_ICON_COLOR = {
-  basic: "text-ol-blue",
-  global: "text-ol-amber",
-  shortcuts: "text-ol-text-auxiliary",
-  keys: "text-ol-purple",
-  auxiliaryModel: "text-ol-blue",
-  memory: "text-ol-green",
-  mcp: "text-ol-purple",
-  thirdPartyTools: "text-ol-text-auxiliary",
-  storage: "text-ol-green",
-  projectTest: "text-ol-amber",
+  basic: "text-foreground",
+  global: "text-foreground",
+  shortcuts: "text-muted-foreground",
+  keys: "text-foreground",
+  auxiliaryModel: "text-foreground",
+  memory: "text-foreground",
+  mcp: "text-foreground",
+  thirdPartyTools: "text-muted-foreground",
+  storage: "text-foreground",
+  projectTest: "text-foreground",
 } as const;
 
 /** Build a menu icon component with fixed email-style color tone. */

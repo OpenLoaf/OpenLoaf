@@ -229,7 +229,7 @@ export function TranslateTitlesDialog({
               </span>
               <span className="flex items-center gap-3">
                 {translatedCount > 0 ? (
-                  <span className="text-ol-green">
+                  <span className="text-foreground">
                     {t("skills.translateTitles.translated", { count: translatedCount, defaultValue: `${translatedCount} 已翻译` })}
                   </span>
                 ) : null}
@@ -250,7 +250,7 @@ export function TranslateTitlesDialog({
 
         {/* Error message or item list */}
         {errorItem ? (
-          <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3">
+          <div className="rounded-3xl border border-destructive/30 bg-destructive/5 px-4 py-3">
             <p className="text-sm font-medium text-destructive">{errorItem.error}</p>
             {processedCount > 0 ? (
               <p className="mt-1.5 text-xs text-muted-foreground">
@@ -263,7 +263,7 @@ export function TranslateTitlesDialog({
             ) : null}
           </div>
         ) : (
-          <div ref={scrollRef} className="max-h-64 overflow-y-auto rounded-lg border bg-muted/20 p-1">
+          <div ref={scrollRef} className="max-h-64 overflow-y-auto rounded-3xl border bg-muted/20 p-1">
             {visibleItems.length === 0 && isDone ? (
               <div className="px-2.5 py-3 text-center text-sm text-muted-foreground">
                 {t("skills.translateTitles.allSkipped", { defaultValue: "所有技能标题已是最新，无需翻译" })}
@@ -277,15 +277,15 @@ export function TranslateTitlesDialog({
                 <div
                   key={item.folderPath}
                   data-active={item.status === "translating" ? "" : undefined}
-                  className={`flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm ${
-                    item.status === "translating" ? "bg-ol-green/5" : ""
+                  className={`flex items-center gap-2 rounded-3xl px-2.5 py-1.5 text-sm ${
+                    item.status === "translating" ? "bg-secondary/50" : ""
                   }`}
                 >
                   <span className="flex h-4 w-4 shrink-0 items-center justify-center">
                     {item.status === "translating" ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin text-ol-green" />
+                      <Loader2 className="h-3.5 w-3.5 animate-spin text-foreground" />
                     ) : item.status === "translated" ? (
-                      <Check className="h-3.5 w-3.5 text-ol-green" />
+                      <Check className="h-3.5 w-3.5 text-foreground" />
                     ) : (
                       <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/20" />
                     )}
@@ -314,7 +314,7 @@ export function TranslateTitlesDialog({
               </Button>
               <Button
                 onClick={() => void handleStart()}
-                className="bg-ol-green/10 text-ol-green hover:bg-ol-green/20"
+                className="bg-secondary text-secondary-foreground hover:bg-accent"
                 disabled={items.length === 0}
               >
                 <Languages className="mr-1.5 h-3.5 w-3.5" />

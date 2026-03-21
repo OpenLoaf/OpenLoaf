@@ -46,7 +46,7 @@ function TextNodePreview({ t }: { t: (key: string) => string }) {
   return (
     <div
       className={[
-        "flex h-full w-full items-center gap-1.5 rounded-sm outline outline-1 outline-dashed p-2.5",
+        "flex h-full w-full items-center gap-1.5 rounded-3xl outline outline-1 outline-dashed p-2.5",
         "outline-ol-divider bg-background",
         "",
       ].join(" ")}
@@ -74,7 +74,7 @@ function FileNodePreview({
   return (
     <div
       className={[
-        "flex h-full w-full items-center gap-3 rounded-sm border box-border px-3",
+        "flex h-full w-full items-center gap-3 rounded-3xl border box-border px-3",
         "border-ol-divider bg-background text-ol-text-primary",
         "",
       ].join(" ")}
@@ -174,7 +174,7 @@ function PendingInsertPreviewBase({
           style={{ left: x, top: y, width: w, height: h, opacity: 0.75 }}
         >
           <div
-            className="flex h-full w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-foreground/20 bg-foreground/[0.03] dark:bg-foreground/[0.06]"
+            className="flex h-full w-full flex-col items-center justify-center gap-2 rounded-3xl border-2 border-dashed border-foreground/20 bg-foreground/[0.03] dark:bg-foreground/[0.06]"
           >
             <Icon size={28} className="text-muted-foreground" />
             <span className="text-xs font-medium text-muted-foreground">

@@ -24,6 +24,10 @@ import {
   type BoardJsonSnapshot,
   resolveScopedPath,
 } from "@openloaf/api";
+import {
+  buildBoardFolderUri,
+  resolveBoardScopedRoot,
+} from "@openloaf/api/common/boardPaths";
 import { prisma } from "@openloaf/db";
 import { logger } from "@/common/logger";
 
@@ -251,7 +255,8 @@ const ensuredBoardFolderUris = new Set<string>();
 async function ensureBoardDbRecord(ctx: BoardCollabContext): Promise<void> {
   const folderName = path.basename(ctx.boardFolderPath);
   if (!folderName) return;
-  const folderUri = `.openloaf/boards/${folderName}/`;
+  const rootPath = resolveBoardScopedRoot(ctx.projectId);
+  const folderUri = buildBoardFolderUri(rootPath, folderName);
   if (ensuredBoardFolderUris.has(folderUri)) return;
   ensuredBoardFolderUris.add(folderUri);
   try {

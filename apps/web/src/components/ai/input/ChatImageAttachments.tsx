@@ -179,7 +179,7 @@ export const ChatImageAttachments = React.forwardRef<
                       : attachment.file.name
                   }
                   className={cn(
-                    "group relative flex h-11 w-[200px] max-w-full overflow-hidden rounded-md border bg-muted/30",
+                    "group relative flex h-11 w-[200px] max-w-full overflow-hidden rounded-3xl border bg-muted/30",
                     isError && "border-destructive/40"
                   )}
                 >
@@ -208,7 +208,7 @@ export const ChatImageAttachments = React.forwardRef<
                         draggable={false}
                       />
                       {attachment.hasMask && (
-                        <div className="absolute bottom-1 left-1 rounded bg-ol-green/80 px-1 py-0.5 text-[9px] leading-none text-white">
+                        <div className="absolute bottom-1 left-1 rounded bg-foreground/80 px-1 py-0.5 text-[9px] leading-none text-background">
                           已调整
                         </div>
                       )}
@@ -242,7 +242,7 @@ export const ChatImageAttachments = React.forwardRef<
                   {onRemoveAttachment && (
                     <button
                       type="button"
-                      className="absolute right-1 top-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-background/70 text-foreground shadow-sm ring-1 ring-border/50 backdrop-blur transition-transform duration-150 ease-out hover:scale-125 hover:bg-background focus-visible:scale-125"
+                      className="absolute right-1 top-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-background/70 text-foreground shadow-none ring-1 ring-border/50 backdrop-blur transition-transform duration-150 ease-out hover:scale-125 hover:bg-background focus-visible:scale-125"
                       onClick={(event) => {
                         event.stopPropagation();
                         onRemoveAttachment(attachment.id);

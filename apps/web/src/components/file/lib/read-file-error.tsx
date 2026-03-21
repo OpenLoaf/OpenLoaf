@@ -148,7 +148,7 @@ export function ReadFileErrorFallback({
       }
     >
       <div className="w-full max-w-lg">
-        <div className="rounded-lg p-6 text-center">
+        <div className="rounded-3xl p-6 text-center">
           <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-destructive/10 text-destructive">
             <AlertTriangle className="h-5 w-5" />
           </div>
@@ -159,7 +159,7 @@ export function ReadFileErrorFallback({
             {descriptionText}
           </div>
           {uri ? (
-            <div className="mx-auto mt-3 flex max-w-full items-center gap-1.5 rounded-md bg-muted/60 px-3 py-1.5">
+            <div className="mx-auto mt-3 flex max-w-full items-center gap-1.5 rounded-3xl bg-muted/60 px-3 py-1.5">
               <code className="min-w-0 flex-1 break-all text-left text-xs text-muted-foreground">
                 {uri}
               </code>

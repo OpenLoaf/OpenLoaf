@@ -137,7 +137,7 @@ function SkillMenuItem({
       role="option"
       aria-selected={isActive}
       className={cn(
-        "flex flex-col gap-0.5 px-2.5 py-2 text-left text-xs cursor-default rounded-sm mx-1",
+        "flex flex-col gap-0.5 px-2.5 py-2 text-left text-xs cursor-default rounded-3xl mx-1",
         isActive ? "bg-muted/70" : "hover:bg-muted/60",
       )}
       onClick={onClick}
@@ -284,7 +284,7 @@ const ChatCommandMenu = forwardRef<ChatCommandMenuHandle, ChatCommandMenuProps>(
     const menu = (
       <div
         className={cn(
-          "fixed z-50 flex flex-col rounded-lg border border-border bg-popover shadow-lg",
+          "fixed z-50 flex flex-col rounded-3xl border border-border bg-popover shadow-none",
           className,
         )}
         style={{ left: pos.left, bottom: pos.bottom, width: MENU_WIDTH, maxHeight: 320 }}
@@ -293,7 +293,7 @@ const ChatCommandMenu = forwardRef<ChatCommandMenuHandle, ChatCommandMenuProps>(
         onMouseDown={(e) => e.preventDefault()}
       >
         <div className="shrink-0 px-2.5 py-2 border-b border-border">
-          <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium bg-[var(--ol-skill-chip-bg)] text-[var(--ol-skill-chip-text)]">
+          <span className="inline-flex items-center gap-1 rounded-3xl px-2 py-0.5 text-[11px] font-medium bg-[var(--ol-skill-chip-bg)] text-[var(--ol-skill-chip-text)]">
             <Sparkles className="size-3" />
             技能
           </span>

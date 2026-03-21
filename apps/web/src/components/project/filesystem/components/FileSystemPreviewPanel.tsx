@@ -56,7 +56,7 @@ const FileSystemPreviewPanel = memo(function FileSystemPreviewPanel({
       onContextMenuCapture={onContextMenuCapture}
     >
       <div className="flex h-full flex-col gap-3 p-3">
-        <div className="flex min-h-0 flex-1 items-stretch justify-stretch overflow-hidden rounded-md border border-border/70 bg-muted/30">
+        <div className="flex min-h-0 flex-1 items-stretch justify-stretch overflow-hidden rounded-3xl border border-border/70 bg-muted/30">
           <FileSystemEntryPreviewContent
             entry={previewEntry}
             rootUri={rootUri}

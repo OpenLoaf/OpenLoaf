@@ -12,7 +12,7 @@
 import { useEffect } from "react";
 import { create } from "zustand";
 import type { AiModel } from "@openloaf-saas/sdk";
-import { fetchImageModels, fetchVideoModels } from "@/lib/saas-media";
+import { fetchMediaModels } from "@/lib/saas-media";
 
 type MediaKind = "image" | "video";
 
@@ -112,8 +112,8 @@ const useMediaModelStore = create<MediaModelState>((set, get) => ({
     try {
       const kinds = options.kinds?.length ? new Set(options.kinds) : new Set<MediaKind>(["image", "video"]);
       const [imagePayload, videoPayload] = await Promise.all([
-        kinds.has("image") ? fetchImageModels({ force: options.force }) : Promise.resolve(null),
-        kinds.has("video") ? fetchVideoModels({ force: options.force }) : Promise.resolve(null),
+        kinds.has("image") ? fetchMediaModels("imageGenerate", { force: options.force }) : Promise.resolve(null),
+        kinds.has("video") ? fetchMediaModels("videoGenerate", { force: options.force }) : Promise.resolve(null),
       ]);
       const imageResolved = kinds.has("image")
         ? resolveModelPayload(imagePayload)

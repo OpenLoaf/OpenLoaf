@@ -207,7 +207,7 @@ export default function AutoUpdateGate() {
         {!isDesktopUpdate && state.changelogLoading ? (
           <div className="py-2 text-xs text-muted-foreground">{t("updateGate.loadingChangelog")}</div>
         ) : !isDesktopUpdate && state.changelog ? (
-          <div className="max-h-48 overflow-y-auto rounded-md border p-3">
+          <div className="max-h-48 overflow-y-auto rounded-3xl border p-3">
             <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap text-xs">
               {state.changelog}
             </div>

@@ -32,7 +32,7 @@ export function OpenLoafSettingsCard({
     padding === "xy" ? "p-3" : padding === "x" ? "px-3" : "";
 
   return (
-    <div className={cn("rounded-lg border border-border bg-card", className)}>
+    <div className={cn("rounded-3xl border border-border bg-card", className)}>
       <div
         className={cn(
           paddingClass,

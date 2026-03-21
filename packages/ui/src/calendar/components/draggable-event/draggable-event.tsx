@@ -56,7 +56,7 @@ const getBorderRadiusClass = (
 	if (isTruncatedEnd) {
 		return 'rounded-l-sm rounded-r-none'
 	}
-	return 'rounded-sm'
+	return 'rounded-3xl'
 }
 
 /** Format duration between two dayjs dates. */
@@ -71,12 +71,12 @@ const formatDuration = (start: CalendarEvent['start'], end: CalendarEvent['end']
 function EventHoverCard({ event }: { event: CalendarEvent }) {
 	const background = resolveEventColor(
 		event.backgroundColor,
-		'bg-ol-blue',
+		'bg-foreground',
 		'backgroundColor'
 	)
 
 	return (
-		<div className="w-64 rounded-lg border bg-popover p-3 text-popover-foreground shadow-sm">
+		<div className="w-64 rounded-3xl border bg-popover p-3 text-popover-foreground shadow-sm">
 			<div className="flex items-center gap-2 mb-2">
 				<div
 					className={cn('h-3 w-3 rounded-full shrink-0', background.className)}
@@ -224,7 +224,7 @@ function DraggableEventUnmemoized({
 
 		const background = resolveEventColor(
 			event.backgroundColor,
-			'bg-ol-blue',
+			'bg-foreground',
 			'backgroundColor'
 		)
 		const textColor = resolveEventColor(event.color, 'text-white', 'color')

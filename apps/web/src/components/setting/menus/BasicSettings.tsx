@@ -163,7 +163,7 @@ export function BasicSettings() {
             <OpenLoafSettingsGroup title={t('basicSettings.systemConfig')}>
               <div className="divide-y divide-border/40">
                 <div className="flex flex-wrap items-center gap-2 py-3">
-                  <SettingIcon icon={Languages} bg="bg-ol-blue-bg" fg="text-ol-blue" />
+                  <SettingIcon icon={Languages} bg="bg-secondary" fg="text-foreground" />
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-medium">{t('basicSettings.language')}</div>
                     <div className="text-xs text-muted-foreground">
@@ -209,7 +209,7 @@ export function BasicSettings() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2 py-3">
-                  <SettingIcon icon={Palette} bg="bg-ol-purple-bg" fg="text-ol-purple" />
+                  <SettingIcon icon={Palette} bg="bg-secondary" fg="text-foreground" />
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-medium">{t('basicSettings.theme')}</div>
                     <div className="text-xs text-muted-foreground">
@@ -224,7 +224,7 @@ export function BasicSettings() {
                         aria-label={t('basicSettings.themeAutoSwitch')}
                         title={t('basicSettings.themeAutoSwitch')}
                         className={[
-                          "flex h-8 shrink-0 items-center gap-1.5 rounded-md border px-2.5 text-xs font-medium transition-colors duration-150",
+                          "flex h-8 shrink-0 items-center gap-1.5 rounded-3xl border px-2.5 text-xs font-medium transition-colors duration-150",
                           isAutoTheme
                             ? "border-primary bg-primary/10 text-primary"
                             : "border-border bg-transparent text-muted-foreground hover:bg-accent",
@@ -262,7 +262,7 @@ export function BasicSettings() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2 py-3">
-                  <SettingIcon icon={Type} bg="bg-ol-green-bg" fg="text-ol-green" />
+                  <SettingIcon icon={Type} bg="bg-secondary" fg="text-foreground" />
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-medium">{t('basicSettings.fontSize')}</div>
                     <div className="text-xs text-muted-foreground">
@@ -288,7 +288,7 @@ export function BasicSettings() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2 py-3">
-                  <SettingIcon icon={PanelBottomClose} bg="bg-ol-amber-bg" fg="text-ol-amber" />
+                  <SettingIcon icon={PanelBottomClose} bg="bg-secondary" fg="text-foreground" />
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-medium">{t('basicSettings.projectOpenMode')}</div>
                     <div className="text-xs text-muted-foreground">
@@ -323,7 +323,7 @@ export function BasicSettings() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2 py-3">
-                  <SettingIcon icon={Sparkles} bg="bg-ol-green-bg" fg="text-ol-green" />
+                  <SettingIcon icon={Sparkles} bg="bg-secondary" fg="text-foreground" />
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-medium">{t('basicSettings.animationLevel')}</div>
                     <div className="text-xs text-muted-foreground">
@@ -348,7 +348,7 @@ export function BasicSettings() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2 py-3">
-                  <SettingIcon icon={Bell} bg="bg-ol-blue-bg" fg="text-ol-blue" />
+                  <SettingIcon icon={Bell} bg="bg-secondary" fg="text-foreground" />
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-medium">{t('basicSettings.notificationSound')}</div>
                     <div className="text-xs text-muted-foreground">
@@ -370,7 +370,7 @@ export function BasicSettings() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2 py-3">
-                  <SettingIcon icon={Construction} bg="bg-ol-amber-bg" fg="text-ol-amber" />
+                  <SettingIcon icon={Construction} bg="bg-secondary" fg="text-foreground" />
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-medium">{t('basicSettings.showDevNotice')}</div>
                     <div className="text-xs text-muted-foreground">
@@ -393,7 +393,7 @@ export function BasicSettings() {
 
                 {isElectron && (
                   <div className="flex flex-wrap items-center gap-2 py-3">
-                    <SettingIcon icon={PanelBottomClose} bg="bg-ol-surface-muted" fg="text-ol-text-auxiliary" />
+                    <SettingIcon icon={PanelBottomClose} bg="bg-secondary" fg="text-muted-foreground" />
                     <div className="min-w-0 flex-1">
                       <div className="text-sm font-medium">{t('basicSettings.minimizeToTray')}</div>
                       <div className="text-xs text-muted-foreground">

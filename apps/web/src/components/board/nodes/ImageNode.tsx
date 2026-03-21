@@ -39,7 +39,7 @@ import {
   resolveProjectPathFromBoardUri,
 } from "../core/boardFilePath";
 import { arrayBufferToBase64 } from "../utils/base64";
-import { getPreviewEndpoint } from "@/lib/image/uri";
+import { getBoardPreviewEndpoint, getPreviewEndpoint } from "@/lib/image/uri";
 import {
   formatScopedProjectPath,
   isProjectAbsolutePath,
@@ -63,14 +63,15 @@ import { useUpstreamData } from "../hooks/useUpstreamData";
 import { usePanelOverlay } from "../render/pixi/PixiApplication";
 import { deriveNode } from "../utils/derive-node";
 import { submitImageGenerate } from "../services/image-generate";
+import { submitUpscale } from "../services/upscale-generate";
+// v3 generate is used internally by submitImageGenerate and submitUpscale
 import { MaskPaintOverlay, type MaskPaintHandle } from "./MaskPaintOverlay";
-import { BOARD_ASSETS_DIR_NAME } from "@/lib/file-name";
 import {
   createInputSnapshot,
   createGeneratingEntry,
   pushVersion,
   markVersionReady,
-  markVersionFailed,
+  removeFailedEntry,
   getPrimaryEntry,
   getGeneratingEntry,
   switchPrimary,
@@ -86,19 +87,12 @@ const PANEL_GAP_PX = 8;
 /** Max bytes for image node preview fetches. */
 const IMAGE_NODE_PREVIEW_MAX_BYTES = 100 * 1024;
 
-/** Render a checkerboard skeleton for image nodes. */
+/** Render a neutral gray loading skeleton for image nodes. */
 function ImageNodeSkeleton() {
   return (
-    <div
-      className="h-full w-full animate-pulse rounded-lg"
-      style={{
-        backgroundColor: "#fafafa",
-        backgroundImage:
-          "linear-gradient(45deg, #e5e5e5 25%, transparent 25%, transparent 75%, #e5e5e5 75%, #e5e5e5), linear-gradient(45deg, #e5e5e5 25%, transparent 25%, transparent 75%, #e5e5e5 75%, #e5e5e5)",
-        backgroundSize: "16px 16px",
-        backgroundPosition: "0 0, 8px 8px",
-      }}
-    />
+    <div className="flex h-full w-full items-center justify-center rounded-3xl bg-muted/60">
+      <div className="h-5 w-5 animate-spin rounded-full border-2 border-muted-foreground/20 border-t-muted-foreground/60" />
+    </div>
   );
 }
 
@@ -150,6 +144,13 @@ function resolveImageSource(uri: string, fileContext?: BoardFileContext) {
     uri.startsWith("https://")
   ) {
     return uri;
+  }
+  // 有 boardId 且路径是 board-relative 时，使用专用画布端点
+  if (fileContext?.boardId && isBoardRelativePath(uri)) {
+    return getBoardPreviewEndpoint(uri, {
+      boardId: fileContext.boardId,
+      projectId: fileContext.projectId,
+    });
   }
   const projectPath = resolveProjectRelativePath(uri, fileContext);
   if (!projectPath) return "";
@@ -417,6 +418,11 @@ export function ImageNodeView({
   const isLocked = engine.isLocked() || element.locked === true;
   /** Whether the user has dismissed the failed overlay to view old content. */
   const [dismissedFailure, setDismissedFailure] = useState(false);
+  /** Last failure info — stored transiently after removing the failed entry from the version stack. */
+  const [lastFailure, setLastFailure] = useState<{
+    input: import('../engine/types').InputSnapshot
+    error: { code: string; message: string }
+  } | null>(null);
   /** Whether inline mask painting is active (inpaint/erase mode). */
   const [maskPainting, setMaskPainting] = useState(false);
   /** Current mask paint result from the overlay. */
@@ -425,6 +431,16 @@ export function ImageNodeView({
   const maskPaintRef = useRef<MaskPaintHandle>(null);
   /** Brush size state synced from overlay — drives the panel slider. */
   const [brushSize, setBrushSize] = useState(40);
+  // 逻辑：primaryEntry 变为 failed 时（如新节点提交失败写入的），提取到 lastFailure 并清理 stack。
+  useEffect(() => {
+    const pe = getPrimaryEntry(element.props.versionStack)
+    if (pe?.status === 'failed' && pe.input && pe.error) {
+      setLastFailure({ input: pe.input, error: { code: pe.error.code, message: pe.error.message } })
+      setDismissedFailure(false)
+      const { stack: cleaned } = removeFailedEntry(element.props.versionStack!, pe.id)
+      onUpdate({ versionStack: cleaned })
+    }
+  }, [element.props.versionStack, onUpdate])
   // 逻辑：面板关闭时自动退出遮罩编辑模式。
   useEffect(() => {
     if (!expanded) setMaskPainting(false);
@@ -459,9 +475,7 @@ export function ImageNodeView({
     taskId: generatingEntry?.taskId,
     taskType: 'image_generate',
     projectId: fileContext?.projectId,
-    saveDir: fileContext?.boardFolderUri
-      ? `${fileContext.boardFolderUri}/${BOARD_ASSETS_DIR_NAME}`
-      : undefined,
+    boardId: fileContext?.boardId,
     enabled: Boolean(generatingEntry),
     onSuccess: useCallback(
       (resultUrls: string[]) => {
@@ -500,21 +514,48 @@ export function ImageNodeView({
         if (!generatingEntry) return;
         const stack = element.props.versionStack;
         if (!stack) return;
-        onUpdate({
-          versionStack: markVersionFailed(stack, generatingEntry.id, {
-            code: 'GENERATE_FAILED',
-            message: error,
-          }),
-        });
+        // 逻辑：失败的生成从版本堆叠中移除，回退 primaryId 到上一个成功版本。
+        // 失败信息暂存到 lastFailure 供错误浮层和重试使用。
+        const { stack: newStack, removed } = removeFailedEntry(stack, generatingEntry.id);
+        if (removed?.input) {
+          const isCancelled = error.toLowerCase().includes('cancel')
+          setLastFailure({
+            input: removed.input,
+            error: { code: isCancelled ? 'CANCELLED' : 'GENERATE_FAILED', message: error },
+          });
+          setDismissedFailure(false);
+        }
+        // 逻辑：回退到上一个成功版本的图片。
+        const prevReady = [...newStack.entries].reverse().find((e) => e.status === 'ready');
+        const patch: Partial<ImageNodeProps> = { versionStack: newStack };
+        if (prevReady?.output?.urls[0]) {
+          const raw = prevReady.output.urls[0];
+          const scopedPath = parseScopedProjectPath(raw)
+            ? raw
+            : fileContext?.projectId
+              ? formatScopedProjectPath({
+                  projectId: fileContext.projectId,
+                  currentProjectId: fileContext.projectId,
+                  relativePath: normalizeProjectRelativePath(raw),
+                  includeAt: true,
+                })
+              : raw;
+          patch.previewSrc = '';
+          patch.originalSrc = scopedPath;
+          patch.fileName = raw.split('/').pop() || 'image.png';
+          patch.naturalWidth = 1;
+          patch.naturalHeight = 1;
+        }
+        onUpdate(patch);
       },
-      [generatingEntry, element.props.versionStack, onUpdate],
+      [generatingEntry, element.props.versionStack, onUpdate, fileContext?.projectId],
     ),
   });
 
   /** Whether the node is in a generating state (version stack). */
   const isGeneratingVersion = primaryEntry?.status === 'generating';
-  /** Whether the primary version failed. */
-  const isFailedVersion = primaryEntry?.status === 'failed';
+  /** Whether there is a recent failure (from lastFailure transient state). */
+  const isFailedVersion = lastFailure !== null;
   /** Whether the primary version is ready. */
   const isReadyVersion = primaryEntry?.status === 'ready';
   /**
@@ -537,46 +578,77 @@ export function ImageNodeView({
   }, [isGeneratingVersion, expanded]);
   // 逻辑：新的失败状态出现时重置 dismiss。
   useEffect(() => {
-    if (isFailedVersion) setDismissedFailure(false);
-  }, [primaryEntry?.id]);
+    if (lastFailure) setDismissedFailure(false);
+  }, [lastFailure]);
+  // 逻辑：生成开始后清除上次失败状态。
+  useEffect(() => {
+    if (isGeneratingVersion) setLastFailure(null);
+  }, [isGeneratingVersion]);
+
+  /** Route generation request to the correct service based on feature. */
+  const submitByFeature = useCallback(
+    async (params: ImageGenerateParams, overrideSourceNodeId?: string): Promise<{ taskId: string }> => {
+      const opts = {
+        projectId: fileContext?.projectId,
+        boardId: fileContext?.boardId,
+        sourceNodeId: overrideSourceNodeId ?? element.id,
+      }
+
+      // v3 path: when variant is provided, route through v3 unified endpoint
+      if (params.variant) {
+        // Upscale variants: use dedicated submitUpscale for compat
+        if (params.variant.startsWith('upscale-')) {
+          const imageUrl = (params.inputs?.image as { url: string })?.url ?? ''
+          const scale = (params.params?.scale as 2 | 4) ?? 2
+          return submitUpscale(
+            { sourceImageSrc: imageUrl, scale, variant: params.variant },
+            opts,
+          )
+        }
+        // All other v3 variants: use submitImageGenerate (which calls submitV3Generate)
+        return submitImageGenerate(
+          {
+            feature: params.feature,
+            variant: params.variant,
+            inputs: params.inputs,
+            params: params.params,
+            count: params.count,
+            seed: params.seed,
+          },
+          opts,
+        )
+      }
+
+      // v2 fallback: legacy params without variant
+      return submitImageGenerate(
+        {
+          feature: params.feature || 'imageGenerate',
+          variant: '',
+          prompt: params.prompt ?? '',
+          aspectRatio: params.aspectRatio,
+        },
+        opts,
+      )
+    },
+    [fileContext?.projectId, fileContext?.boardId, element.id],
+  )
 
   /** Handle image generation: submit task and push a generating entry to the version stack. */
   const handleGenerate = useCallback(
     async (params: ImageGenerateParams) => {
       try {
-        const result = await submitImageGenerate(
-          {
-            prompt: params.prompt ?? '',
-            negativePrompt: params.negativePrompt,
-            aspectRatio: params.aspectRatio,
-            resolution: params.resolution,
-            mode: params.generateMode,
-            referenceImageSrcs: params.inputImages,
-            count: params.count,
-            quality: params.quality,
-            seed: params.seed,
-          },
-          {
-            projectId: fileContext?.projectId,
-            saveDir: fileContext?.boardFolderUri
-              ? `${fileContext.boardFolderUri}/${BOARD_ASSETS_DIR_NAME}`
-              : undefined,
-            sourceNodeId: element.id,
-          },
-        )
+        const result = await submitByFeature(params)
 
         // 逻辑：创建 InputSnapshot 和 VersionStackEntry，在节点自身上追踪生成状态。
         // 逻辑：将当前上游数据快照保存到 InputSnapshot，使生成后插槽内容固定。
         const inputSnapshot = createInputSnapshot({
           prompt: params.prompt,
-          negativePrompt: params.negativePrompt,
           parameters: {
             feature: params.feature,
+            variant: params.variant,
+            inputs: params.inputs,
+            params: params.params,
             aspectRatio: params.aspectRatio,
-            resolution: params.resolution,
-            generateMode: params.generateMode,
-            inputImages: params.inputImages,
-            quality: params.quality,
             count: params.count,
             seed: params.seed,
           },
@@ -587,11 +659,9 @@ export function ImageNodeView({
         })
         const entry = createGeneratingEntry(inputSnapshot, result.taskId)
         const config: import("../board-contracts").AiGenerateConfig = {
-          feature: params.feature,
+          feature: params.feature as import("../board-contracts").AiGenerateConfig['feature'],
           prompt: params.prompt ?? '',
-          negativePrompt: params.negativePrompt,
           aspectRatio: params.aspectRatio as import("../board-contracts").AiGenerateConfig['aspectRatio'],
-          quality: params.quality,
           taskId: result.taskId,
         }
 
@@ -602,36 +672,66 @@ export function ImageNodeView({
         })
       } catch (error) {
         console.error('[ImageNode] image generation failed:', error)
+        // 逻辑：提交失败时设置 lastFailure 显示错误浮层，让用户可以重试。
+        const inputSnapshot = createInputSnapshot({
+          prompt: params.prompt,
+          parameters: {
+            feature: params.feature,
+            variant: params.variant,
+            inputs: params.inputs,
+            params: params.params,
+            aspectRatio: params.aspectRatio,
+            count: params.count,
+            seed: params.seed,
+          },
+        })
+        const raw = error instanceof Error ? error.message.toLowerCase() : ''
+        let msgKey = 'board:polling.errorGeneric'
+        if (raw.includes('insufficient') || raw.includes('balance') || raw.includes('credit') || raw.includes('quota') || raw.includes('402')) {
+          msgKey = 'board:polling.errorInsufficientBalance'
+        } else if (raw.includes('network') || raw.includes('fetch') || raw.includes('econnrefused')) {
+          msgKey = 'board:polling.errorNetwork'
+        } else if (raw.includes('401') || raw.includes('403') || raw.includes('unauthorized') || raw.includes('access denied')) {
+          msgKey = 'board:polling.errorAuth'
+        } else if (raw.includes('429') || raw.includes('rate') || raw.includes('too many')) {
+          msgKey = 'board:polling.errorRateLimit'
+        } else if (raw.includes('500') || raw.includes('502') || raw.includes('503')) {
+          msgKey = 'board:polling.errorServer'
+        }
+        setLastFailure({
+          input: inputSnapshot,
+          error: { code: 'SUBMIT_FAILED', message: i18next.t(msgKey, { defaultValue: '生成失败，请重试' }) },
+        })
       }
     },
-    [element.id, element.props.versionStack, fileContext, upstream, onUpdate],
+    [element.id, element.props.versionStack, fileContext, upstream, onUpdate, submitByFeature],
   )
 
-  /** Retry generation using the failed entry's input snapshot. */
+  /** Retry generation using the last failure's input snapshot. */
   const handleRetryGenerate = useCallback(() => {
-    if (!primaryEntry?.input) return;
-    const input = primaryEntry.input;
+    if (!lastFailure?.input) return;
+    const input = lastFailure.input;
     const params: ImageGenerateParams = {
-      feature: (input.parameters?.feature as ImageGenerateParams['feature']) ?? 'imageGenerate',
-      prompt: input.prompt,
-      negativePrompt: input.negativePrompt,
-      aspectRatio: (input.parameters?.aspectRatio as string) ?? '1:1',
-      resolution: (input.parameters?.resolution as string) ?? '1K',
-      generateMode: input.parameters?.generateMode as ImageGenerateParams['generateMode'],
-      inputImages: input.parameters?.inputImages as string[] | undefined,
-      quality: input.parameters?.quality as ImageGenerateParams['quality'],
-      count: input.parameters?.count as ImageGenerateParams['count'],
+      feature: (input.parameters?.feature as string) ?? 'imageGenerate',
+      variant: (input.parameters?.variant as string) ?? '',
+      inputs: (input.parameters?.inputs as Record<string, unknown>) ?? { prompt: input.prompt },
+      params: (input.parameters?.params as Record<string, unknown>) ?? {},
+      count: input.parameters?.count as number | undefined,
       seed: input.parameters?.seed as number | undefined,
+      // Backward compat
+      prompt: input.prompt,
+      aspectRatio: (input.parameters?.aspectRatio as string) ?? '1:1',
     };
     handleGenerate(params);
-  }, [primaryEntry, handleGenerate]);
+  }, [lastFailure, handleGenerate]);
 
   /** Generate into a new derived image node with the same params. */
   const handleGenerateNewNode = useCallback(
     async (params: ImageGenerateParams) => {
+      let newNodeId: string | null = null
       try {
         // 逻辑：创建新的图片节点并在其上提交生成任务。
-        const newNodeId = deriveNode({
+        newNodeId = deriveNode({
           engine,
           sourceNodeId: element.id,
           targetType: 'image',
@@ -639,59 +739,86 @@ export function ImageNodeView({
         })
         if (!newNodeId) return
 
-        const result = await submitImageGenerate(
-          {
-            prompt: params.prompt ?? '',
-            negativePrompt: params.negativePrompt,
-            aspectRatio: params.aspectRatio,
-            resolution: params.resolution,
-            mode: params.generateMode,
-            referenceImageSrcs: params.inputImages,
-            count: params.count,
-            quality: params.quality,
-            seed: params.seed,
-          },
-          {
-            projectId: fileContext?.projectId,
-            saveDir: fileContext?.boardFolderUri
-              ? `${fileContext.boardFolderUri}/${BOARD_ASSETS_DIR_NAME}`
-              : undefined,
-            sourceNodeId: newNodeId,
-          },
-        )
-
+        // 逻辑：先写入 generating 状态（无 taskId），让新节点立即显示 loading。
         const inputSnapshot = createInputSnapshot({
           prompt: params.prompt,
-          negativePrompt: params.negativePrompt,
           parameters: {
             feature: params.feature,
+            variant: params.variant,
+            inputs: params.inputs,
+            params: params.params,
             aspectRatio: params.aspectRatio,
-            resolution: params.resolution,
-            generateMode: params.generateMode,
-            quality: params.quality,
             count: params.count,
             seed: params.seed,
           },
         })
-        const entry = createGeneratingEntry(inputSnapshot, result.taskId)
-
+        const pendingEntry = createGeneratingEntry(inputSnapshot, '')
         engine.doc.updateNodeProps(newNodeId, {
-          versionStack: pushVersion(undefined, entry),
+          versionStack: pushVersion(undefined, pendingEntry),
           origin: 'ai-generate',
           aiConfig: {
-            feature: params.feature,
+            feature: params.feature as import("../board-contracts").AiGenerateConfig['feature'],
             prompt: params.prompt ?? '',
-            negativePrompt: params.negativePrompt,
             aspectRatio: params.aspectRatio as import("../board-contracts").AiGenerateConfig['aspectRatio'],
-            quality: params.quality,
+          },
+        })
+
+        const result = await submitByFeature(params, newNodeId)
+
+        // 逻辑：API 返回后补上 taskId，轮询开始。
+        engine.doc.updateNodeProps(newNodeId, {
+          versionStack: {
+            entries: [{ ...pendingEntry, taskId: result.taskId }],
+            primaryId: pendingEntry.id,
+          },
+          aiConfig: {
+            feature: params.feature as import("../board-contracts").AiGenerateConfig['feature'],
+            prompt: params.prompt ?? '',
+            aspectRatio: params.aspectRatio as import("../board-contracts").AiGenerateConfig['aspectRatio'],
             taskId: result.taskId,
           },
         })
       } catch (error) {
         console.error('[ImageNode] new node generation failed:', error)
+        // 逻辑：提交失败时在新节点上写入失败的 version stack entry，让新节点显示错误浮层。
+        if (newNodeId) {
+          const raw = error instanceof Error ? error.message.toLowerCase() : ''
+          let msgKey = 'board:polling.errorGeneric'
+          if (raw.includes('insufficient') || raw.includes('balance') || raw.includes('credit') || raw.includes('402')) {
+            msgKey = 'board:polling.errorInsufficientBalance'
+          } else if (raw.includes('network') || raw.includes('fetch') || raw.includes('econnrefused')) {
+            msgKey = 'board:polling.errorNetwork'
+          } else if (raw.includes('401') || raw.includes('403') || raw.includes('unauthorized') || raw.includes('access denied')) {
+            msgKey = 'board:polling.errorAuth'
+          } else if (raw.includes('500') || raw.includes('502') || raw.includes('503')) {
+            msgKey = 'board:polling.errorServer'
+          }
+          const msg = i18next.t(msgKey, { defaultValue: '生成失败，请重试' })
+          const snapshot = createInputSnapshot({
+            prompt: params.prompt,
+            parameters: {
+              feature: params.feature,
+              variant: params.variant,
+              inputs: params.inputs,
+              params: params.params,
+              aspectRatio: params.aspectRatio,
+            },
+          })
+          const failedEntry: import('../engine/types').VersionStackEntry = {
+            id: `fail-${Date.now()}`,
+            status: 'failed',
+            input: snapshot,
+            createdAt: Date.now(),
+            error: { code: 'SUBMIT_FAILED', message: msg },
+          }
+          engine.doc.updateNodeProps(newNodeId, {
+            versionStack: pushVersion(undefined, failedEntry),
+            aiConfig: { feature: params.feature as import("../board-contracts").AiGenerateConfig['feature'], prompt: params.prompt ?? '' },
+          })
+        }
       }
     },
-    [engine, element.id, fileContext],
+    [engine, element.id, fileContext, submitByFeature],
   )
 
   /** Request opening the image preview on the canvas. */
@@ -820,8 +947,12 @@ export function ImageNodeView({
       setIsPreviewLoading(true);
       try {
         // 逻辑：ImageNode 复用预览 URL，避免 data url 二次加载闪烁。
-        const payload = await buildImageNodePayloadFromUri(resolvedOriginal, {
+        // 有 boardId 且原始路径是 board-relative 时，直接传原始路径 + boardId 走专用端点。
+        const useBoardEndpoint = fileContext?.boardId && isBoardRelativePath(element.props.originalSrc);
+        const fetchUri = useBoardEndpoint ? element.props.originalSrc : resolvedOriginal;
+        const payload = await buildImageNodePayloadFromUri(fetchUri, {
           projectId: fileContext?.projectId,
+          boardId: useBoardEndpoint ? fileContext.boardId : undefined,
           maxPreviewBytes: IMAGE_NODE_PREVIEW_MAX_BYTES,
           previewMode: "none",
         });
@@ -855,6 +986,7 @@ export function ImageNodeView({
           engine.doc.updateNodeProps(nodeId, patch);
         }
         // 逻辑：首次获取图片尺寸后，自动调整节点宽高以适配图片比例。
+        // ew 继承自源节点宽度（由 deriveNode 设定），作为最大宽度上限。
         if (needsSizeInit && payload.props.naturalWidth > 1 && payload.props.naturalHeight > 1) {
           const el = engine.doc.getElementById(nodeId);
           if (el && el.kind === "node") {
@@ -942,7 +1074,7 @@ export function ImageNodeView({
   const isStacked = (versionThumbnails?.length ?? 0) > 1
 
   return (
-    <NodeFrame ref={rootRef} className="group">
+    <NodeFrame ref={rootRef} className="group" data-image-error={isImageError || undefined}>
       <VersionStackOverlay
         stack={element.props.versionStack}
         semanticColor="blue"
@@ -952,7 +1084,7 @@ export function ImageNodeView({
         className={[
           "relative h-full w-full overflow-hidden box-border",
           // 逻辑：堆叠时去掉容器圆角和背景，让缩放后的卡片自带圆角。
-          isStacked ? '' : 'rounded-lg',
+          isStacked ? '' : 'rounded-3xl',
         ].join(" ")}
         onPointerDownCapture={event => {
           if (isLocked) return;
@@ -986,6 +1118,12 @@ export function ImageNodeView({
               ].join(" ")}
               style={isStacked ? { transformOrigin: 'center' } : undefined}
             >
+              {/* 逻辑：加载中先显示灰色骨架，图片就绪后淡入。 */}
+              {isImageLoading ? (
+                <div className="absolute inset-0">
+                  <ImageNodeSkeleton />
+                </div>
+              ) : null}
               <img
                 src={previewSrc}
                 alt={element.props.fileName || "Image"}
@@ -1000,16 +1138,13 @@ export function ImageNodeView({
                   setIsImageError(true);
                 }}
               />
-              {isImageLoading ? (
-                <div className="absolute inset-0">
-                  <ImageNodeSkeleton />
-                </div>
-              ) : null}
             </motion.div>
           </AnimatePresence>
         ) : (
-          <div className="flex h-full w-full items-center justify-center rounded-lg border border-dashed border-ol-divider bg-ol-surface-muted">
-            {isPreviewLoading || isTranscoding ? (
+          <div className="flex h-full w-full items-center justify-center rounded-3xl border border-dashed border-ol-divider bg-ol-surface-muted">
+            {/* 逻辑：有失败浮层时隐藏空状态内容，避免图标重叠。 */}
+            {isFailedVersion && !dismissedFailure ? null
+            : isPreviewLoading || isTranscoding ? (
               <ImageNodeSkeleton />
             ) : !element.props.originalSrc && !element.props.previewSrc ? (
               <div className="flex flex-col items-center gap-2 text-muted-foreground/40 px-4">
@@ -1031,7 +1166,7 @@ export function ImageNodeView({
           </div>
         )}
         {isTranscoding ? (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-lg bg-background/80 text-xs text-ol-text-secondary">
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-3xl bg-background/80 text-xs text-ol-text-secondary">
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
             <span>{transcodingLabel}</span>
           </div>
@@ -1054,14 +1189,18 @@ export function ImageNodeView({
           onMaskChange={setMaskResult}
           onBrushSizeChange={setBrushSize}
         />
-        {/* ── Failed overlay (version stack) ── */}
-        {isFailedVersion && !dismissedFailure ? (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-lg bg-background/75 backdrop-blur-sm">
+        {/* ── Failed / Cancelled overlay (version stack) ── */}
+        {isFailedVersion && !dismissedFailure ? (() => {
+          const isCancelled = lastFailure?.error?.code === 'CANCELLED'
+          return (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-3xl bg-background/75 backdrop-blur-sm">
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/[0.06]">
               <X className="h-4 w-4 text-ol-text-auxiliary" />
             </div>
             <span className="text-xs text-ol-text-auxiliary font-medium">
-              {primaryEntry?.error?.message || i18next.t('board:imageNode.generationFailed')}
+              {isCancelled
+                ? i18next.t('board:imageNode.cancelled', { defaultValue: '已取消' })
+                : (lastFailure?.error?.message || i18next.t('board:imageNode.generationFailed'))}
             </span>
             <div className="flex items-center gap-2">
               <button
@@ -1073,7 +1212,9 @@ export function ImageNodeView({
                 className="flex items-center gap-1 rounded-full px-3 py-1 text-[11px] bg-white/[0.08] text-ol-text-secondary hover:bg-white/[0.12] transition-colors duration-150"
               >
                 <RotateCw className="h-3 w-3" />
-                {i18next.t('board:imageNode.retry')}
+                {isCancelled
+                  ? i18next.t('board:imageNode.resend', { defaultValue: '重新发送' })
+                  : i18next.t('board:imageNode.retry')}
               </button>
               {hasPreview && (
                 <button
@@ -1089,7 +1230,8 @@ export function ImageNodeView({
               )}
             </div>
           </div>
-        ) : null}
+          )
+        })() : null}
       </div>
       {showDetail ? (
         <div
@@ -1139,7 +1281,7 @@ export function ImageNodeView({
             onUpdate={onUpdate}
             upstreamText={effectiveUpstream.text}
             upstreamImages={effectiveUpstream.images}
-            resolvedImageSrc={previewSrc}
+            resolvedImageSrc={resolveImageSource(element.props.originalSrc, fileContext) || previewSrc}
             onGenerate={handleGenerate}
             onGenerateNewNode={handleGenerateNewNode}
             maskPainting={maskPainting}
@@ -1150,6 +1292,7 @@ export function ImageNodeView({
             readonly={(isReadyVersion || isGeneratingVersion) && !editingOverride}
             editing={editingOverride}
             onUnlock={() => setEditingOverride(true)}
+            onCancelEdit={() => setEditingOverride(false)}
           />
         </div>,
         panelOverlay,

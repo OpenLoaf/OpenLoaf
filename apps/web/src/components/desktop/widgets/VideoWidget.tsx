@@ -43,7 +43,7 @@ export default function VideoWidget({ title, fileRef }: VideoWidgetProps) {
 
   if (!fileRef) {
     return (
-      <div className="flex h-full w-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border/70 bg-muted/30 p-4 text-xs text-muted-foreground">
+      <div className="flex h-full w-full flex-col items-center justify-center gap-2 rounded-3xl border border-dashed border-border/70 bg-muted/30 p-4 text-xs text-muted-foreground">
         <div>{t('videoWidget.noFile')}</div>
         <div className="text-[10px]">{t('videoWidget.bindHint')}</div>
       </div>
@@ -51,7 +51,7 @@ export default function VideoWidget({ title, fileRef }: VideoWidgetProps) {
   }
 
   return (
-    <div className="flex h-full w-full flex-col items-center justify-center gap-3 rounded-xl border border-border/70 bg-background/80 p-4">
+    <div className="flex h-full w-full flex-col items-center justify-center gap-3 rounded-3xl border border-border/70 bg-background/80 p-4">
       <div className="text-xs text-muted-foreground">{t('videoWidget.clickToPlay')}</div>
       <Button type="button" size="sm" onClick={handlePlay} className="gap-2">
         <Play className="h-4 w-4" />

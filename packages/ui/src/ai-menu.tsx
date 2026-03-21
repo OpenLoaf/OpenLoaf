@@ -200,7 +200,7 @@ export function AIMenu() {
         side="bottom"
       >
         <Command
-          className="w-full rounded-lg border shadow-sm"
+          className="w-full rounded-3xl border shadow-sm"
           value={value}
           onValueChange={setValue}
         >
@@ -685,7 +685,7 @@ export function AILoadingBar() {
     return (
       <div
         className={cn(
-          '-translate-x-1/2 absolute bottom-4 left-1/2 z-20 flex items-center gap-3 rounded-md border border-border bg-muted px-3 py-1.5 text-muted-foreground text-sm shadow-sm transition-all duration-300'
+          '-translate-x-1/2 absolute bottom-4 left-1/2 z-20 flex items-center gap-3 rounded-3xl border border-border bg-muted px-3 py-1.5 text-muted-foreground text-sm shadow-sm transition-all duration-300'
         )}
       >
         <span className="h-4 w-4 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
@@ -710,7 +710,7 @@ export function AILoadingBar() {
     return (
       <div
         className={cn(
-          '-translate-x-1/2 absolute bottom-4 left-1/2 z-50 flex flex-col items-center gap-0 rounded-xl ol-glass-float p-1 text-muted-foreground text-sm',
+          '-translate-x-1/2 absolute bottom-4 left-1/2 z-50 flex flex-col items-center gap-0 rounded-3xl ol-glass-float p-1 text-muted-foreground text-sm',
           'p-3'
         )}
       >

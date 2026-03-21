@@ -74,7 +74,7 @@ function SubAgentSkillsPopover({ agentName, projectId }: { agentName: string; pr
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted/60 hover:text-foreground"
+          className="inline-flex h-6 w-6 items-center justify-center rounded-3xl text-muted-foreground transition hover:bg-muted/60 hover:text-foreground"
           aria-label="管理技能"
         >
           <Sparkles className="h-3.5 w-3.5" />
@@ -89,7 +89,7 @@ function SubAgentSkillsPopover({ agentName, projectId }: { agentName: string; pr
             {availableSkills.map((skill) => (
               <label
                 key={skill.originalName}
-                className="flex items-start gap-2 rounded-md px-1.5 py-1 text-[11px] leading-tight hover:bg-muted/40"
+                className="flex items-start gap-2 rounded-3xl px-1.5 py-1 text-[11px] leading-tight hover:bg-muted/40"
               >
                 <Checkbox
                   checked={enabledSkills.includes(skill.originalName)}
@@ -113,8 +113,8 @@ function StatusBadge({ stream, hasHistory }: {
 }) {
   if (!stream && hasHistory) {
     return (
-      <span className="inline-flex items-center gap-1 text-[11px] text-ol-green">
-        <span className="size-1.5 rounded-full bg-ol-green" />
+      <span className="inline-flex items-center gap-1 text-[11px] text-foreground">
+        <span className="size-1.5 rounded-full bg-foreground" />
         已完成
       </span>
     )
@@ -136,15 +136,15 @@ function StatusBadge({ stream, hasHistory }: {
   }
   if (isDone) {
     return (
-      <span className="inline-flex items-center gap-1 text-[11px] text-ol-green">
-        <span className="size-1.5 rounded-full bg-ol-green" />
+      <span className="inline-flex items-center gap-1 text-[11px] text-foreground">
+        <span className="size-1.5 rounded-full bg-foreground" />
         已完成
       </span>
     )
   }
   return (
-    <span className="inline-flex items-center gap-1 text-[11px] text-ol-blue">
-      <span className="size-1.5 animate-pulse rounded-full bg-ol-blue" />
+    <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+      <span className="size-1.5 animate-pulse rounded-full bg-muted-foreground" />
       运行中
     </span>
   )
@@ -326,7 +326,7 @@ export default function SubAgentChatPanel({
                       if (msgParts.length === 0) return null
                       return (
                         <div key={msg.id} className={cn(
-                          msg.role === 'user' && 'rounded-lg bg-muted/40 px-2 py-1.5',
+                          msg.role === 'user' && 'rounded-3xl bg-muted/40 px-2 py-1.5',
                         )}>
                           {msg.role === 'user' && (
                             <div className="mb-1 text-[11px] font-medium text-muted-foreground">用户</div>
@@ -380,7 +380,7 @@ export default function SubAgentChatPanel({
 
         {/* Error display */}
         {errorText ? (
-          <div className="mt-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+          <div className="mt-2 rounded-3xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
             {errorText}
           </div>
         ) : null}

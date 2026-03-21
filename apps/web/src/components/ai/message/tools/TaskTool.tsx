@@ -100,74 +100,74 @@ const ACTION_CONFIG: Record<TaskAction, {
   create: {
     icon: ListTodo,
     labelKey: 'taskAction.create',
-    color: 'text-ol-blue',
-    badgeColor: 'bg-ol-blue-bg text-ol-blue border-transparent',
+    color: 'text-foreground',
+    badgeColor: 'bg-secondary text-foreground border-transparent',
   },
   cancel: {
     icon: XCircle,
     labelKey: 'taskAction.cancel',
-    color: 'text-ol-red',
-    badgeColor: 'bg-ol-red-bg text-ol-red border-transparent',
+    color: 'text-destructive',
+    badgeColor: 'bg-destructive/10 text-destructive border-transparent',
   },
   delete: {
     icon: Trash2,
     labelKey: 'taskAction.delete',
-    color: 'text-ol-red',
-    badgeColor: 'bg-ol-red-bg text-ol-red border-transparent',
+    color: 'text-destructive',
+    badgeColor: 'bg-destructive/10 text-destructive border-transparent',
   },
   run: {
     icon: Play,
     labelKey: 'taskAction.run',
-    color: 'text-ol-green',
-    badgeColor: 'bg-ol-green-bg text-ol-green border-transparent',
+    color: 'text-foreground',
+    badgeColor: 'bg-secondary text-foreground border-transparent',
   },
   resolve: {
     icon: CheckSquare,
     labelKey: 'taskAction.resolve',
-    color: 'text-ol-purple',
-    badgeColor: 'bg-ol-purple-bg text-ol-purple border-transparent',
+    color: 'text-foreground',
+    badgeColor: 'bg-secondary text-foreground border-transparent',
   },
   archive: {
     icon: Archive,
     labelKey: 'taskAction.archive',
-    color: 'text-ol-text-auxiliary',
-    badgeColor: 'bg-ol-surface-muted text-ol-text-auxiliary border-transparent',
+    color: 'text-muted-foreground',
+    badgeColor: 'bg-muted text-muted-foreground border-transparent',
   },
   cancelAll: {
     icon: XCircle,
     labelKey: 'taskAction.cancelAll',
-    color: 'text-ol-red',
-    badgeColor: 'bg-ol-red-bg text-ol-red border-transparent',
+    color: 'text-destructive',
+    badgeColor: 'bg-destructive/10 text-destructive border-transparent',
   },
   deleteAll: {
     icon: Trash2,
     labelKey: 'taskAction.deleteAll',
-    color: 'text-ol-red',
-    badgeColor: 'bg-ol-red-bg text-ol-red border-transparent',
+    color: 'text-destructive',
+    badgeColor: 'bg-destructive/10 text-destructive border-transparent',
   },
   archiveAll: {
     icon: Archive,
     labelKey: 'taskAction.archiveAll',
-    color: 'text-ol-text-auxiliary',
-    badgeColor: 'bg-ol-surface-muted text-ol-text-auxiliary border-transparent',
+    color: 'text-muted-foreground',
+    badgeColor: 'bg-muted text-muted-foreground border-transparent',
   },
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────
 
 const PRIORITY_COLORS: Record<Priority, string> = {
-  urgent: 'bg-ol-red-bg text-ol-red border-transparent',
-  high: 'bg-ol-amber-bg text-ol-amber border-transparent',
-  medium: 'bg-ol-blue-bg text-ol-blue border-transparent',
-  low: 'bg-ol-surface-muted text-ol-text-auxiliary border-transparent',
+  urgent: 'bg-destructive/10 text-destructive border-transparent',
+  high: 'bg-secondary text-foreground border-transparent',
+  medium: 'bg-secondary text-foreground border-transparent',
+  low: 'bg-muted text-muted-foreground border-transparent',
 }
 
 const STATUS_BADGE_COLORS: Record<TaskStatus, string> = {
-  todo: 'bg-ol-blue-bg text-ol-blue border-transparent',
-  running: 'bg-ol-amber-bg text-ol-amber border-transparent',
-  review: 'bg-ol-purple-bg text-ol-purple border-transparent',
-  done: 'bg-ol-green-bg text-ol-green border-transparent',
-  cancelled: 'bg-ol-surface-muted text-ol-text-auxiliary border-transparent',
+  todo: 'bg-secondary text-foreground border-transparent',
+  running: 'bg-secondary text-foreground border-transparent',
+  review: 'bg-secondary text-foreground border-transparent',
+  done: 'bg-secondary text-foreground border-transparent',
+  cancelled: 'bg-muted text-muted-foreground border-transparent',
 }
 
 const STATUS_ICONS: Record<TaskStatus, typeof Circle> = {
@@ -298,7 +298,7 @@ export default function TaskTool({
     <div className={cn('w-full min-w-0', className)}>
       {/* 任务卡片样式 - 可点击 */}
       <div
-        className="max-w-sm cursor-pointer overflow-hidden rounded-lg border bg-card p-3 shadow-none transition-colors hover:bg-accent/50"
+        className="max-w-sm cursor-pointer overflow-hidden rounded-3xl border bg-card p-3 shadow-none transition-colors hover:bg-accent/50"
         onClick={!streaming ? handleOpenTaskBoard : undefined}
       >
         {/* Header: 状态图标 + 标题 + 优先级 */}
@@ -309,11 +309,11 @@ export default function TaskTool({
                 className={cn(
                   'h-4 w-4 shrink-0',
                   taskStatus === 'running' && 'animate-spin',
-                  taskStatus === 'todo' && 'text-ol-blue',
-                  taskStatus === 'running' && 'text-ol-amber',
-                  taskStatus === 'review' && 'text-ol-purple',
-                  taskStatus === 'done' && 'text-ol-green',
-                  taskStatus === 'cancelled' && 'text-ol-text-auxiliary',
+                  taskStatus === 'todo' && 'text-foreground',
+                  taskStatus === 'running' && 'text-foreground',
+                  taskStatus === 'review' && 'text-foreground',
+                  taskStatus === 'done' && 'text-foreground',
+                  taskStatus === 'cancelled' && 'text-muted-foreground',
                 )}
               />
             )}
@@ -349,7 +349,7 @@ export default function TaskTool({
           {scheduleLabel && (
             <Badge
               variant="outline"
-              className="bg-ol-amber-bg text-[10px] text-ol-amber border-transparent"
+              className="bg-secondary text-[10px] text-foreground border-transparent"
             >
               <CalendarClock className="mr-1 h-3 w-3" />
               {scheduleLabel}
@@ -395,7 +395,7 @@ export default function TaskTool({
 
         {/* 错误信息 */}
         {(part.errorText || (output?.ok === false && output?.error)) && (
-          <div className="mt-2 rounded-md bg-destructive/10 p-2 text-xs text-destructive">
+          <div className="mt-2 rounded-3xl bg-destructive/10 p-2 text-xs text-destructive">
             {part.errorText || output?.error}
           </div>
         )}

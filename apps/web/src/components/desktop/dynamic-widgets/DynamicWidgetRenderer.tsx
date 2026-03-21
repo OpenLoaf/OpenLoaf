@@ -113,7 +113,7 @@ function WidgetApprovalPrompt({
         {t('dynamicWidget.approvalDesc')}
       </div>
       {scriptEntries.length > 0 ? (
-        <div className="w-full max-w-xs rounded-md border border-border bg-muted/30 p-2 text-left">
+        <div className="w-full max-w-xs rounded-3xl border border-border bg-muted/30 p-2 text-left">
           {scriptEntries.map(([name, cmd]) => (
             <div key={name} className="truncate text-xs font-mono text-muted-foreground">
               <span className="text-foreground">{name}</span>: {cmd}
@@ -123,7 +123,7 @@ function WidgetApprovalPrompt({
       ) : null}
       <button
         type="button"
-        className="mt-1 rounded-md bg-primary px-4 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+        className="mt-1 rounded-3xl bg-primary px-4 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
         onPointerDown={handlePointerDown}
       >
         {t('dynamicWidget.approve')}
@@ -226,7 +226,7 @@ export default function DynamicWidgetRenderer({
         <div className="text-xs text-destructive">{error || t('dynamicWidget.loadFailed')}</div>
         <button
           type="button"
-          className="rounded-md border border-border px-3 py-1 text-xs text-muted-foreground hover:bg-muted"
+          className="rounded-3xl border border-border px-3 py-1 text-xs text-muted-foreground hover:bg-muted"
           onClick={() => window.location.reload()}
         >
           {t('dynamicWidget.retry')}

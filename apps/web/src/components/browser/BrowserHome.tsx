@@ -79,7 +79,7 @@ function SiteIcon({
   return (
     <div
       className={cn(
-        "relative grid place-items-center rounded-2xl ring-1 ring-border/60 shadow-sm",
+        "relative grid place-items-center rounded-3xl ring-1 ring-border/60 shadow-none",
         className,
       )}
       style={{ background: accent }}
@@ -89,7 +89,7 @@ function SiteIcon({
         <img
           src={iconUrl}
           alt=""
-          className="h-8 w-8 rounded-md"
+          className="h-8 w-8 rounded-3xl"
           loading="lazy"
           onError={() => setImageFailed(true)}
         />
@@ -217,9 +217,9 @@ export function BrowserHome({ onOpenUrl }: { onOpenUrl?: (url: string) => void }
           <div className="text-sm font-medium text-foreground">收藏</div>
         </div>
 
-        <div className="rounded-2xl">
+        <div className="rounded-3xl">
           {favorites.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-border/70 px-4 py-6 text-center text-xs text-muted-foreground">
+            <div className="rounded-3xl border border-dashed border-border/70 px-4 py-6 text-center text-xs text-muted-foreground">
               暂无收藏，可在右上角点击星标添加
             </div>
           ) : (
@@ -247,7 +247,7 @@ export function BrowserHome({ onOpenUrl }: { onOpenUrl?: (url: string) => void }
                     <motion.button
                       type="button"
                       className={cn(
-                        "group flex w-full flex-col items-center rounded-xl p-2 transition-colors",
+                        "group flex w-full flex-col items-center rounded-3xl p-2 transition-colors",
                         "hover:bg-sidebar/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
                         dragOverId === s.id && "ring-2 ring-ring/60",
                       )}
@@ -345,14 +345,14 @@ export function BrowserHome({ onOpenUrl }: { onOpenUrl?: (url: string) => void }
                   key={s.id}
                   type="button"
                   className={cn(
-                    "group flex items-center gap-3 rounded-xl border bg-card/40 px-3 py-2 text-left transition-colors",
+                    "group flex items-center gap-3 rounded-3xl border bg-card/40 px-3 py-2 text-left transition-colors",
                     "hover:bg-sidebar/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
                   )}
                   onClick={() => onOpenUrl?.(s.url)}
                   title={s.url}
                   variants={itemVariants}
                 >
-                  <div className="grid h-9 w-9 place-items-center rounded-xl bg-sidebar/40 ring-1 ring-border/60">
+                  <div className="grid h-9 w-9 place-items-center rounded-3xl bg-sidebar/40 ring-1 ring-border/60">
                     <Globe className="h-4 w-4 text-muted-foreground group-hover:text-foreground" />
                   </div>
 

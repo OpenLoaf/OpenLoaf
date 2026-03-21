@@ -74,7 +74,7 @@ function SidePanel({ open, children }: { open: boolean; children: React.ReactNod
     >
       <div
         className={cn(
-          "w-[220px] rounded-xl py-2",
+          "w-[220px] rounded-3xl py-2",
           toolbarSurfaceClassName,
           "transition-all duration-150 ease-out origin-top-left",
           open
@@ -121,14 +121,14 @@ function PanelItem({
       }}
       className={cn(
         "group flex w-full items-center gap-3 px-3.5 py-2",
-        "transition-colors duration-100 rounded-md mx-0",
+        "transition-colors duration-100 rounded-3xl mx-0",
         active
           ? "bg-foreground/10 text-ol-blue dark:bg-foreground/15"
           : "hover:bg-foreground/6 dark:hover:bg-foreground/8",
       )}
     >
       <span className={cn(
-        "flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg",
+        "flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-3xl",
         "bg-foreground/5 dark:bg-foreground/8",
         "transition-colors duration-100",
         "group-hover:bg-foreground/8 dark:group-hover:bg-foreground/12",
@@ -269,7 +269,7 @@ const LeftToolbar = memo(function LeftToolbar({
     >
       <div
         className={cn(
-          "pointer-events-auto flex w-14 flex-col items-center gap-1.5 rounded-xl px-2.5 py-2.5",
+          "pointer-events-auto flex w-14 flex-col items-center gap-1.5 rounded-3xl px-2.5 py-2.5",
           toolbarSurfaceClassName,
         )}
       >

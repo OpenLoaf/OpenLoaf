@@ -400,7 +400,7 @@ const FileSystemGitTreeNode = memo(function FileSystemGitTreeNode({
           role="button"
           tabIndex={-1}
           className={cn(
-            "group relative flex w-full items-center gap-2 rounded-md px-2 py-1 text-left",
+            "group relative flex w-full items-center gap-2 rounded-3xl px-2 py-1 text-left",
             "transition-all duration-200 ease-out",
             isSelected ? "bg-muted/70 ring-1 ring-border/70" : "hover:bg-muted/40",
             isDragOver ? "bg-muted/80 ring-1 ring-border" : null
@@ -432,7 +432,7 @@ const FileSystemGitTreeNode = memo(function FileSystemGitTreeNode({
               autoFocus
               value={renamingValue ?? node.label}
               onChange={(event) => onRenamingChange?.(event.target.value)}
-              className="h-6 w-full rounded-sm border border-border/60 bg-background px-2 py-0 text-left text-xs leading-4 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+              className="h-6 w-full rounded-3xl border border-border/60 bg-background px-2 py-0 text-left text-xs leading-4 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
               onKeyDown={(event) => {
                 if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "a") {
                   event.stopPropagation();

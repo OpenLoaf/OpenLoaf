@@ -209,7 +209,7 @@ export default function SessionList({
         <Queue className="border-none bg-transparent px-0 py-1 shadow-none">
           {groups.map((g) => (
             <QueueSection key={g.key} defaultOpen>
-              <QueueSectionTrigger className="rounded-md px-2 py-1.5 text-xs font-medium">
+              <QueueSectionTrigger className="rounded-3xl px-2 py-1.5 text-xs font-medium">
                 <QueueSectionLabel label={t(g.labelKey, { defaultValue: g.labelKey })} count={g.sessions.length} />
               </QueueSectionTrigger>
               <QueueSectionContent className="mt-1">

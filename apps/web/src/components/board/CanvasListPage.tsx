@@ -19,7 +19,7 @@ import { trpc } from "@/utils/trpc";
 import { useAppView } from "@/hooks/use-app-view";
 import { useLayoutState } from "@/hooks/use-layout-state";
 import { useIsInView } from "@/hooks/use-is-in-view";
-import { useProjectStorageRootUri } from "@/hooks/use-project-storage-root-uri";
+import { useProjectStorageRootUri, useTempStorageRootUri } from "@/hooks/use-project-storage-root-uri";
 import { buildBoardFolderUri, buildFileUriFromRoot } from "@/components/project/filesystem/utils/file-system-utils";
 import { BOARD_INDEX_FILE_NAME } from "@/lib/file-name";
 import { buildBoardChatTabState } from "./utils/board-chat-tab";
@@ -68,26 +68,26 @@ import {
 
 /** Deterministic pastel gradient based on board id hash. */
 const PREVIEW_GRADIENTS = [
-  "from-teal-100 to-cyan-50 dark:from-teal-900/40 dark:to-cyan-900/30",
-  "from-violet-100 to-fuchsia-50 dark:from-violet-900/40 dark:to-fuchsia-900/30",
-  "from-amber-100 to-orange-50 dark:from-amber-900/40 dark:to-orange-900/30",
-  "from-sky-100 to-blue-50 dark:from-sky-900/40 dark:to-blue-900/30",
-  "from-rose-100 to-pink-50 dark:from-rose-900/40 dark:to-pink-900/30",
-  "from-emerald-100 to-green-50 dark:from-emerald-900/40 dark:to-green-900/30",
-  "from-indigo-100 to-purple-50 dark:from-indigo-900/40 dark:to-purple-900/30",
-  "from-lime-100 to-yellow-50 dark:from-lime-900/40 dark:to-yellow-900/30",
+  "from-neutral-100 to-neutral-50 dark:from-neutral-800/40 dark:to-neutral-900/30",
+  "from-stone-100 to-stone-50 dark:from-stone-800/40 dark:to-stone-900/30",
+  "from-zinc-100 to-zinc-50 dark:from-zinc-800/40 dark:to-zinc-900/30",
+  "from-gray-100 to-gray-50 dark:from-gray-800/40 dark:to-gray-900/30",
+  "from-slate-100 to-slate-50 dark:from-slate-800/40 dark:to-slate-900/30",
+  "from-neutral-100/80 to-stone-50 dark:from-neutral-800/30 dark:to-stone-900/30",
+  "from-zinc-100/80 to-gray-50 dark:from-zinc-800/30 dark:to-gray-900/30",
+  "from-slate-100/80 to-neutral-50 dark:from-slate-800/30 dark:to-neutral-900/30",
 ];
 
 /** Left border accent colors matching PREVIEW_GRADIENTS. */
 const ACCENT_BORDER_COLORS = [
-  "border-l-teal-300 dark:border-l-teal-600",
-  "border-l-violet-300 dark:border-l-violet-600",
-  "border-l-amber-300 dark:border-l-amber-600",
-  "border-l-sky-300 dark:border-l-sky-600",
-  "border-l-rose-300 dark:border-l-rose-600",
-  "border-l-emerald-300 dark:border-l-emerald-600",
-  "border-l-indigo-300 dark:border-l-indigo-600",
-  "border-l-lime-300 dark:border-l-lime-600",
+  "border-l-neutral-300 dark:border-l-neutral-600",
+  "border-l-stone-300 dark:border-l-stone-600",
+  "border-l-zinc-300 dark:border-l-zinc-600",
+  "border-l-gray-300 dark:border-l-gray-600",
+  "border-l-slate-300 dark:border-l-slate-600",
+  "border-l-neutral-400 dark:border-l-neutral-500",
+  "border-l-zinc-400 dark:border-l-zinc-500",
+  "border-l-slate-400 dark:border-l-slate-500",
 ];
 
 const BOARD_PAGE_SIZE = 24;
@@ -310,9 +310,9 @@ function BoardCard({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.25, delay: Math.min(index * 0.03, 0.3) }}
-          className={`group relative flex flex-col overflow-hidden rounded-lg border cursor-pointer transition-all duration-200 hover:shadow-sm hover:border-ol-purple/60 ${
+          className={`group relative flex flex-col overflow-hidden rounded-3xl border cursor-pointer transition-all duration-200 hover:shadow-none hover:border-foreground/30 ${
             isActive
-              ? "border-ol-purple shadow-sm ring-1 ring-ol-purple/30"
+              ? "border-foreground/20 shadow-none ring-1 ring-foreground/20"
               : "border-border"
           }`}
           onClick={() => onBoardClick(board)}
@@ -344,7 +344,7 @@ function BoardCard({
                   <Button
                     variant="secondary"
                     size="icon"
-                    className="h-7 w-7 rounded-lg ol-glass-float"
+                    className="h-7 w-7 rounded-3xl ol-glass-float"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <MoreHorizontal className="h-3.5 w-3.5" />
@@ -419,17 +419,17 @@ function BoardCard({
 
           <div className={`flex flex-col gap-1 px-3 py-2.5 bg-gradient-to-r ${PREVIEW_GRADIENTS[gradientIndex]}`}
           >
-            <span className="text-sm font-medium truncate">
+            <span className="text-base font-semibold truncate">
               {board.title || labels.untitled}
             </span>
-            <div className="flex items-center justify-between gap-1.5 text-xs text-muted-foreground">
+            <div className="flex items-center justify-between gap-1.5 text-[11px] text-muted-foreground/60">
               <span>{formatBoardDate(board.createdAt, lang)}</span>
               {projectInfo ? (
                 <span className="flex items-center gap-1 shrink-0 truncate max-w-[50%]">
                   {projectInfo.icon ? (
                     <span className="text-xs leading-none">{projectInfo.icon}</span>
                   ) : (
-                    <img src="/head_s.png" alt="" className="h-3.5 w-3.5 rounded-sm" />
+                    <img src="/head_s.png" alt="" className="h-3.5 w-3.5 rounded-3xl" />
                   )}
                   <span className="truncate">{projectInfo.name}</span>
                 </span>
@@ -486,6 +486,7 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
   const { t: tAi } = useTranslation("ai");
   const lang = i18n.language;
   const projectStorageRootUri = useProjectStorageRootUri();
+  const tempStorageRootUri = useTempStorageRootUri();
   const queryClient = useQueryClient();
 
   const navigate = useAppView((s) => s.navigate);
@@ -524,8 +525,8 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
   }, [projectList]);
   const resolveBoardRootUri = useCallback(
     (targetProjectId?: string | null) =>
-      targetProjectId ? projectRootUriMap.get(targetProjectId) : projectStorageRootUri,
-    [projectRootUriMap, projectStorageRootUri],
+      targetProjectId ? projectRootUriMap.get(targetProjectId) : (tempStorageRootUri ?? projectStorageRootUri),
+    [projectRootUriMap, tempStorageRootUri, projectStorageRootUri],
   );
 
   const pagedBoardsInput = useMemo(
@@ -889,7 +890,7 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={t("search")}
-              className="h-8 pl-8 pr-7 text-sm rounded-md bg-muted/40 border-transparent focus:border-border"
+              className="h-8 pl-8 pr-7 text-sm rounded-3xl bg-muted/40 border-transparent focus:border-border"
             />
             {searchQuery && (
               <button
@@ -901,9 +902,9 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
               </button>
             )}
           </div>
-          {!projectId && projectInfoById.size > 0 ? (
+          {!projectId ? (
             <Select value={filterProjectId} onValueChange={setFilterProjectId}>
-              <SelectTrigger className="h-8 w-auto max-w-40 gap-1.5 rounded-md border-transparent bg-muted/40 px-3 text-sm focus:border-border [&>svg]:h-3.5 [&>svg]:w-3.5">
+              <SelectTrigger className="h-8 w-auto max-w-40 gap-1.5 rounded-3xl border-transparent bg-muted/40 px-3 text-sm focus:border-border [&>svg]:h-3.5 [&>svg]:w-3.5">
                 <FolderOpen className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
                 <SelectValue />
               </SelectTrigger>
@@ -916,7 +917,7 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
                       {info.icon ? (
                         <span className="text-xs leading-none">{info.icon}</span>
                       ) : (
-                        <img src="/head_s.png" alt="" className="h-3.5 w-3.5 rounded-sm" />
+                        <img src="/head_s.png" alt="" className="h-3.5 w-3.5 rounded-3xl" />
                       )}
                       {info.name}
                     </span>
@@ -935,7 +936,7 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 rounded-md text-muted-foreground hover:text-foreground"
+                className="h-8 w-8 rounded-3xl text-muted-foreground hover:text-foreground"
                 onClick={() => invalidateBoardList()}
               >
                 <RefreshCw className={`h-3.5 w-3.5 ${boardsQuery.isFetching ? "animate-spin" : ""}`} />
@@ -948,7 +949,7 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
               <Button
                 variant={groupByTime ? "secondary" : "ghost"}
                 size="icon"
-                className={`h-8 w-8 rounded-md ${groupByTime ? "bg-ol-purple/10 text-ol-purple" : ""}`}
+                className={`h-8 w-8 rounded-3xl ${groupByTime ? "bg-secondary text-foreground" : ""}`}
                 onClick={() => setGroupByTime((v) => !v)}
               >
                 <CalendarDays className="h-4 w-4" />
@@ -959,7 +960,7 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
           <Button
             variant="ghost"
             size="sm"
-            className="rounded-md bg-ol-purple/10 text-ol-purple hover:bg-ol-purple/20"
+            className="rounded-3xl bg-foreground text-background hover:bg-foreground/90"
             onClick={handleCreate}
             disabled={!canCreateBoard || createMutation.isPending}
           >
@@ -976,7 +977,7 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
             {Array.from({ length: 8 }).map((_, index) => (
               <div
                 key={index}
-                className="overflow-hidden rounded-2xl border border-border/60 bg-card/70"
+                className="overflow-hidden rounded-3xl border border-border/60 bg-card/70"
               >
                 <div className="h-36 animate-pulse bg-muted/60" />
                 <div className="space-y-2 px-3.5 py-3">
@@ -993,7 +994,7 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
             <Button
               variant="ghost"
               size="sm"
-              className="rounded-md mt-1 bg-ol-purple/10 text-ol-purple hover:bg-ol-purple/20"
+              className="rounded-3xl mt-1 bg-secondary text-foreground hover:bg-accent"
               onClick={handleCreate}
               disabled={!canCreateBoard || createMutation.isPending}
             >
@@ -1005,7 +1006,7 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
           <div className="space-y-6">
             {boardGroups.map((group) => (
               <div key={group.key}>
-                <h3 className="mb-3 text-xs font-medium text-muted-foreground/70 px-1">
+                <h3 className="mb-3 text-sm font-semibold text-foreground/60 uppercase tracking-wide px-1">
                   {tAi(group.labelKey, { defaultValue: group.labelKey })}
                 </h3>
                 <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-4">
@@ -1109,11 +1110,11 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
               type="button"
               variant="ghost"
               size="icon"
-              className={`h-9 w-9 shrink-0 rounded-md shadow-none transition-colors duration-150 ${
+              className={`h-9 w-9 shrink-0 rounded-3xl shadow-none transition-colors duration-150 ${
                 aiNaming
                   ? "text-muted-foreground opacity-50"
                   : saasLoggedIn
-                    ? "bg-ol-amber/10 text-ol-amber hover:bg-ol-amber/20"
+                    ? "bg-secondary text-foreground hover:bg-accent"
                     : "text-muted-foreground"
               }`}
               title={t("canvasList.aiName")}
@@ -1131,13 +1132,13 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
             <DialogClose asChild>
               <Button
                 variant="ghost"
-                className="rounded-md text-muted-foreground shadow-none transition-colors duration-150"
+                className="rounded-3xl text-muted-foreground shadow-none transition-colors duration-150"
               >
                 {t("cancel")}
               </Button>
             </DialogClose>
             <Button
-              className="rounded-md bg-ol-purple/10 text-ol-purple hover:bg-ol-purple/20 shadow-none transition-colors duration-150"
+              className="rounded-3xl bg-secondary text-foreground hover:bg-accent shadow-none transition-colors duration-150"
               onClick={handleRenameSave}
               disabled={updateMutation.isPending}
             >
@@ -1174,13 +1175,13 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
             <DialogClose asChild>
               <Button
                 variant="ghost"
-                className="rounded-md text-muted-foreground shadow-none transition-colors duration-150"
+                className="rounded-3xl text-muted-foreground shadow-none transition-colors duration-150"
               >
                 {t("cancel")}
               </Button>
             </DialogClose>
             <Button
-              className="rounded-md bg-ol-purple/10 text-ol-purple hover:bg-ol-purple/20 shadow-none transition-colors duration-150"
+              className="rounded-3xl bg-secondary text-foreground hover:bg-accent shadow-none transition-colors duration-150"
               onClick={handleCreateConfirm}
               disabled={createMutation.isPending}
             >

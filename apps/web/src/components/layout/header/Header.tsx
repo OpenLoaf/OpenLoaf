@@ -132,7 +132,7 @@ export const Header = () => {
               <div className="animate-[sparkle-float_2.2s_ease-in-out_infinite] hover:animate-none hover:-translate-y-0.5 hover:rotate-[10deg] active:scale-95 active:rotate-0 transition-transform">
                 <Sparkles
                   aria-hidden="true"
-                  className="h-5 w-5 text-ol-amber"
+                  className="h-5 w-5 text-foreground"
                   fill="currentColor"
                 />
               </div>

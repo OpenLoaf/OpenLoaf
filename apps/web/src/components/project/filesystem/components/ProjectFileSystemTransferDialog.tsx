@@ -836,7 +836,7 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
             <Button
               type="button"
               variant="outline"
-              className="rounded-md shadow-none transition-colors duration-150"
+              className="rounded-3xl shadow-none transition-colors duration-150"
               disabled={transferEntries.length === 0}
               onClick={handleSaveToComputerClick}
             >

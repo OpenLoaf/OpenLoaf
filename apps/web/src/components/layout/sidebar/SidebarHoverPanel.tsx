@@ -125,14 +125,14 @@ function groupItemsByTime(items: HistoryItem[]): HistoryGroup[] {
 }
 
 const PROJECT_LABEL_COLORS = [
-  { bg: 'bg-ol-blue-bg', text: 'text-ol-blue' },
-  { bg: 'bg-ol-purple-bg', text: 'text-ol-purple' },
-  { bg: 'bg-ol-amber-bg', text: 'text-ol-amber' },
-  { bg: 'bg-ol-green-bg', text: 'text-ol-green' },
-  { bg: 'bg-ol-red-bg', text: 'text-ol-red' },
-  { bg: 'bg-ol-purple-bg', text: 'text-ol-purple' },
-  { bg: 'bg-ol-green-bg', text: 'text-ol-green' },
-  { bg: 'bg-ol-amber-bg', text: 'text-ol-amber' },
+  { bg: 'bg-secondary', text: 'text-foreground' },
+  { bg: 'bg-secondary', text: 'text-foreground' },
+  { bg: 'bg-secondary', text: 'text-foreground' },
+  { bg: 'bg-secondary', text: 'text-foreground' },
+  { bg: 'bg-secondary', text: 'text-foreground' },
+  { bg: 'bg-secondary', text: 'text-foreground' },
+  { bg: 'bg-secondary', text: 'text-foreground' },
+  { bg: 'bg-secondary', text: 'text-foreground' },
 ]
 
 function hashString(str: string): number {
@@ -459,7 +459,7 @@ export function SidebarHoverPanel({
           side={side}
           sideOffset={16}
           align={align}
-          className="w-80 max-h-[40rem] flex flex-col rounded-lg border border-border bg-popover p-0 shadow-lg"
+          className="w-80 max-h-[40rem] flex flex-col rounded-3xl border border-border bg-popover p-0 shadow-none"
         >
           <div className="shrink-0 px-3 py-2.5 text-xs font-semibold text-foreground/80 border-b border-border">
             {title}
@@ -489,15 +489,15 @@ export function SidebarHoverPanel({
                           onClick={() => handleItemClick(item)}
                         >
                           {item.kind === 'board' ? (
-                            <Palette className="h-3.5 w-3.5 shrink-0 text-ol-green/70" />
+                            <Palette className="h-3.5 w-3.5 shrink-0 text-foreground/60" />
                           ) : (
-                            <Sparkles className="h-3.5 w-3.5 shrink-0 text-ol-purple/70" />
+                            <Sparkles className="h-3.5 w-3.5 shrink-0 text-foreground/60" />
                           )}
                           {type === 'all-chats' &&
                             item.projectId &&
                             projectNameMap.get(item.projectId) && (
                               <span
-                                className={`shrink-0 max-w-20 truncate rounded-md px-1.5 py-0.5 text-[10px] font-medium leading-none ${getProjectColor(item.projectId).bg} ${getProjectColor(item.projectId).text}`}
+                                className={`shrink-0 max-w-20 truncate rounded-3xl px-1.5 py-0.5 text-[10px] font-medium leading-none ${getProjectColor(item.projectId).bg} ${getProjectColor(item.projectId).text}`}
                               >
                                 {projectNameMap.get(item.projectId)}
                               </span>

@@ -150,7 +150,7 @@ const TitleContent = () => {
 							<div className="flex w-full items-center justify-between">
 								<span>{day.format('dddd, MMM D')}</span>
 								{isToday && (
-									<span className="bg-primary text-primary-foreground rounded-sm px-1! text-xs">
+									<span className="bg-primary text-primary-foreground rounded-3xl px-1! text-xs">
 										{t('today')}
 									</span>
 								)}

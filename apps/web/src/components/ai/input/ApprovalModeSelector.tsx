@@ -65,7 +65,7 @@ export default function ApprovalModeSelector({
         <TooltipTrigger asChild>
           <div
             className={cn(
-              "relative inline-flex h-8 cursor-pointer items-center rounded-full border border-border/60 bg-muted/60 p-0.5",
+              "relative inline-flex h-8 cursor-pointer items-center rounded-3xl border border-border/60 bg-muted/60 p-0.5",
               disabled && "pointer-events-none opacity-50",
               className,
             )}
@@ -83,17 +83,17 @@ export default function ApprovalModeSelector({
             {/* Sliding indicator */}
             <span
               className={cn(
-                "absolute top-[3px] bottom-[3px] w-[26px] rounded-full transition-all duration-200",
+                "absolute top-[3px] bottom-[3px] w-[26px] rounded-3xl transition-all duration-200",
                 isManual
-                  ? "left-[3px] bg-ol-blue/15"
-                  : "right-[3px] left-auto bg-ol-amber/15",
+                  ? "left-[3px] bg-foreground/10"
+                  : "right-[3px] left-auto bg-foreground/10",
               )}
             />
             <span
               className={cn(
                 "relative z-10 inline-flex h-[26px] w-[26px] items-center justify-center transition-colors",
                 isManual
-                  ? "text-ol-blue"
+                  ? "text-foreground"
                   : "text-muted-foreground",
               )}
             >
@@ -103,7 +103,7 @@ export default function ApprovalModeSelector({
               className={cn(
                 "relative z-10 inline-flex h-[26px] w-[26px] items-center justify-center transition-colors",
                 !isManual
-                  ? "text-ol-amber"
+                  ? "text-foreground"
                   : "text-muted-foreground",
               )}
             >
@@ -129,7 +129,7 @@ export default function ApprovalModeSelector({
           <AlertDialogFooter>
             <AlertDialogCancel>{t('approval.cancel')}</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-ol-amber text-white hover:bg-ol-amber/90"
+              className="bg-foreground text-background hover:bg-foreground/90"
               onClick={() => onChange("auto")}
             >
               {t('approval.confirmEnable')}

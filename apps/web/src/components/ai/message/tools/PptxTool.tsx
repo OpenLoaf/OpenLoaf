@@ -53,7 +53,7 @@ function PptxStructureView({
             return (
               <div key={i} className="rounded border border-border/40 px-2.5 py-1.5">
                 <div className="flex items-center gap-2">
-                  <span className="inline-flex size-5 shrink-0 items-center justify-center rounded bg-ol-blue/10 text-[10px] font-bold text-ol-blue">
+                  <span className="inline-flex size-5 shrink-0 items-center justify-center rounded bg-secondary text-[10px] font-bold text-foreground">
                     {index + 1}
                   </span>
                   <span className="min-w-0 truncate text-xs font-medium">
@@ -100,7 +100,7 @@ function TextPreviewView({
     <div className="space-y-2">
       <div className="flex flex-wrap gap-3 text-[10px] text-muted-foreground">
         {characterCount > 0 && <span>{t('tool.word.characterCount', { count: characterCount })}</span>}
-        {uiTruncated && <span className="text-ol-amber">{t('tool.word.textTruncated')}</span>}
+        {uiTruncated && <span className="text-muted-foreground">{t('tool.word.textTruncated')}</span>}
       </div>
       <pre className="max-h-[280px] overflow-auto whitespace-pre-wrap rounded bg-muted/40 p-2 text-xs leading-relaxed">
         {displayText}

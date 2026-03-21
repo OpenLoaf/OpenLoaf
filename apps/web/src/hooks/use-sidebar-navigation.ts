@@ -176,8 +176,8 @@ export function useSidebarNavigation() {
     const randomSuffix = Math.random().toString(36).slice(2, 6).toUpperCase()
     const canvasLabel = i18next.t('nav:canvasList.defaultName')
     const boardName = `tnboard_${canvasLabel}_${randomSuffix}`
-    const boardFolderUri = `.openloaf/boards/${boardName}`
-    const boardFileUri = `.openloaf/boards/${boardName}/${BOARD_INDEX_FILE_NAME}`
+    const boardFolderUri = `boards/${boardName}`
+    const boardFileUri = `boards/${boardName}/${BOARD_INDEX_FILE_NAME}`
     navigate({
       title: tabTitle,
       icon: TEMP_CANVAS_TAB_INPUT.icon,

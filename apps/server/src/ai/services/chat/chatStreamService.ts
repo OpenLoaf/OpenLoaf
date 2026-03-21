@@ -1340,13 +1340,13 @@ async function waitForSaasImageTask(input: {
   while (true) {
     if (input.abortSignal.aborted) {
       try {
-        await input.client.ai.cancelTask(input.taskId);
+        await input.client.ai.mediaCancelTask(input.taskId);
       } catch {
         // 忽略取消失败。
       }
       throw new ChatImageRequestError("请求已取消。", 499);
     }
-    const response = await input.client.ai.task(input.taskId);
+    const response = await input.client.ai.mediaTask(input.taskId);
     if (!response || response.success !== true) {
       const message = response?.message || "任务查询失败。";
       throw new ChatImageRequestError(message, 502);

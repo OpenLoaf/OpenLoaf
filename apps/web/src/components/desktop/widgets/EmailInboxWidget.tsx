@@ -137,11 +137,11 @@ export default function EmailInboxWidget() {
         className="mt-3 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto pr-1 text-sm show-scrollbar"
       >
         {accountsQuery.isLoading ? (
-          <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-border bg-muted/10 text-xs text-muted-foreground">
+          <div className="flex flex-1 items-center justify-center rounded-3xl border border-dashed border-border bg-muted/10 text-xs text-muted-foreground">
             {t('emailInbox.loadingAccounts')}
           </div>
         ) : !hasAccounts ? (
-          <div className="flex flex-1 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-muted/10 text-xs text-muted-foreground">
+          <div className="flex flex-1 flex-col items-center justify-center gap-2 rounded-3xl border border-dashed border-border bg-muted/10 text-xs text-muted-foreground">
             <div>{t('emailInbox.noAccount')}</div>
             <button
               type="button"
@@ -152,11 +152,11 @@ export default function EmailInboxWidget() {
             </button>
           </div>
         ) : messagesQuery.isLoading ? (
-          <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-border bg-muted/10 text-xs text-muted-foreground">
+          <div className="flex flex-1 items-center justify-center rounded-3xl border border-dashed border-border bg-muted/10 text-xs text-muted-foreground">
             {t('emailInbox.loadingMessages')}
           </div>
         ) : visibleMessages.length === 0 ? (
-          <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-border bg-muted/10 text-xs text-muted-foreground">
+          <div className="flex flex-1 items-center justify-center rounded-3xl border border-dashed border-border bg-muted/10 text-xs text-muted-foreground">
             {t('emailInbox.noMessages')}
           </div>
         ) : (
@@ -169,7 +169,7 @@ export default function EmailInboxWidget() {
                   type="button"
                   onClick={() => handleSelectMessage(mail)}
                   className={cn(
-                    "min-h-[92px] w-full rounded-lg border px-2 py-3 text-left transition",
+                    "min-h-[92px] w-full rounded-3xl border px-2 py-3 text-left transition",
                     isActive
                       ? "border-border bg-muted text-foreground"
                       : "border-transparent text-muted-foreground hover:border-border/50 hover:bg-muted/40",

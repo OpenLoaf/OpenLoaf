@@ -41,10 +41,10 @@ type GitCommitDialogProps = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  added: "text-ol-green",
-  modified: "text-ol-amber",
-  deleted: "text-ol-red",
-  renamed: "text-ol-blue",
+  added: "text-foreground",
+  modified: "text-foreground",
+  deleted: "text-destructive",
+  renamed: "text-foreground",
   untracked: "text-muted-foreground",
 };
 
@@ -137,7 +137,7 @@ export function GitCommitDialog({
               {t("project.git.noChanges")}
             </div>
           ) : (
-            <ScrollArea className="max-h-40 rounded-md border">
+            <ScrollArea className="max-h-40 rounded-3xl border">
               <div className="p-2 space-y-0.5">
                 {allFiles.map((file) => (
                   <div

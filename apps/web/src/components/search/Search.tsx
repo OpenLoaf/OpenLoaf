@@ -31,7 +31,7 @@ import { openProjectShellTab } from "@/lib/project-shell";
 import { WORKBENCH_TAB_INPUT } from "@openloaf/api/common";
 import { trpc } from "@/utils/trpc";
 import { useQueries, skipToken, useQuery } from "@tanstack/react-query";
-import { CalendarDays, Inbox, LayoutTemplate, Sparkles } from "lucide-react";
+import { CalendarDays, LayoutTemplate, Sparkles } from "lucide-react";
 import { SearchInput } from "./SearchInput";
 import { getEntryVisual } from "@/components/project/filesystem/components/FileSystemEntryVisual";
 import { openFilePreview } from "@/components/file/lib/open-file";
@@ -574,7 +574,7 @@ export function Search({
       onOpenChange={handleOpenChange}
       title={t('searchTitle')}
       description={t('searchDescription')}
-      className="top-[25%] max-h-[70vh] translate-y-0 sm:max-w-xl openloaf-thinking-border openloaf-thinking-border-on border-transparent"
+      className="top-[18%] max-h-[70vh] translate-y-0 sm:max-w-xl border-border"
       showCloseButton={false}
       overlayClassName="backdrop-blur-sm bg-black/60"
       commandProps={{
@@ -633,26 +633,6 @@ export function Search({
                     <KbdGroup className="gap-1">
                       <Kbd>⌘</Kbd>
                       <Kbd>L</Kbd>
-                    </KbdGroup>
-                  </CommandShortcut>
-                </CommandItem>
-                <CommandItem
-                  value="inbox"
-                  onSelect={() =>
-                    openSingletonTab({
-                      baseId: "base:inbox",
-                      component: "inbox-page",
-                      title: t('inbox'),
-                      icon: "📥",
-                    })
-                  }
-                >
-                  <Inbox className="h-5 w-5" />
-                  <span>{t('inbox')}</span>
-                  <CommandShortcut>
-                    <KbdGroup className="gap-1">
-                      <Kbd>⌘</Kbd>
-                      <Kbd>I</Kbd>
                     </KbdGroup>
                   </CommandShortcut>
                 </CommandItem>

@@ -79,19 +79,19 @@ function hashCode(str: string): number {
 function StatusDot({ status }: { status: string }) {
   const color =
     status === "connected"
-      ? "bg-ol-green"
+      ? "bg-foreground"
       : status === "connecting"
-        ? "bg-ol-amber animate-pulse"
+        ? "bg-foreground/50 animate-pulse"
         : status === "error"
-          ? "bg-ol-red"
-          : "bg-ol-text-auxiliary/40"
+          ? "bg-destructive"
+          : "bg-muted-foreground/40"
   return <span className={cn("inline-block h-2 w-2 rounded-full", color)} />
 }
 
 // Transport badge
 function TransportBadge({ transport }: { transport: string }) {
   return (
-    <span className="inline-flex items-center rounded-full border border-border/40 bg-ol-surface-muted px-1.5 py-0.5 text-[10px] text-ol-text-auxiliary shadow-none">
+    <span className="inline-flex items-center rounded-3xl border border-border/40 bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground shadow-none">
       {transport}
     </span>
   )
@@ -252,7 +252,7 @@ export function MCPSettingsPanel() {
               placeholder={t("settings:mcp.searchPlaceholder")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-8 rounded-md border-transparent bg-muted/40 pl-8 pr-7 text-sm focus:border-border"
+              className="h-8 rounded-3xl border-transparent bg-muted/40 pl-8 pr-7 text-sm focus:border-border"
             />
             {searchQuery ? (
               <button
@@ -274,8 +274,8 @@ export function MCPSettingsPanel() {
                 size="sm"
                 variant={statusFilter === value ? "secondary" : "ghost"}
                 className={cn(
-                  "h-7 rounded-md px-2.5 text-xs",
-                  statusFilter === value && "bg-ol-green/10 text-ol-green hover:bg-ol-green/20",
+                  "h-7 rounded-3xl px-2.5 text-xs",
+                  statusFilter === value && "bg-secondary text-foreground hover:bg-accent",
                 )}
                 onClick={() => setStatusFilter(value)}
               >
@@ -296,7 +296,7 @@ export function MCPSettingsPanel() {
                 type="button"
                 size="icon"
                 variant="ghost"
-                className="h-8 w-8 rounded-md text-muted-foreground hover:text-foreground"
+                className="h-8 w-8 rounded-3xl text-muted-foreground hover:text-foreground"
                 disabled={reconnecting || servers.filter((s) => s.enabled).length === 0}
                 onClick={handleReconnectAll}
               >
@@ -313,7 +313,7 @@ export function MCPSettingsPanel() {
             type="button"
             variant="ghost"
             size="sm"
-            className="rounded-md bg-ol-green/10 text-ol-green hover:bg-ol-green/20"
+            className="rounded-3xl bg-secondary text-secondary-foreground hover:bg-accent"
             onClick={() => setShowAddDialog(true)}
           >
             <Plus className="mr-1.5 h-4 w-4" />
@@ -327,7 +327,7 @@ export function MCPSettingsPanel() {
         {serversQuery.isLoading ? (
           <div className="grid grid-cols-[repeat(auto-fill,minmax(248px,1fr))] gap-3.5">
             {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="h-[104px] animate-pulse rounded-2xl bg-muted/40" />
+              <div key={i} className="h-[104px] animate-pulse rounded-3xl bg-muted/40" />
             ))}
           </div>
         ) : servers.length === 0 ? (
@@ -341,7 +341,7 @@ export function MCPSettingsPanel() {
             </div>
             <Button
               size="sm"
-              className="mt-2 gap-1 rounded-md bg-ol-green/10 px-4 text-xs text-ol-green shadow-none hover:bg-ol-green/20 transition-colors duration-150"
+              className="mt-2 gap-1 rounded-3xl bg-secondary px-4 text-xs text-secondary-foreground shadow-none hover:bg-accent transition-colors duration-150"
               onClick={() => setShowAddDialog(true)}
             >
               <Plus className="h-3.5 w-3.5" />
@@ -379,7 +379,7 @@ export function MCPSettingsPanel() {
                         <ContextMenuTrigger asChild>
                           <div
                             className={cn(
-                              "group relative flex flex-col overflow-hidden rounded-2xl border-l-[3px] border border-border/70 shadow-none transition-all duration-200 hover:shadow-sm hover:border-ol-green/60",
+                              "group relative flex flex-col overflow-hidden rounded-3xl border-l-[3px] border border-border/70 shadow-none transition-all duration-200 hover:shadow-none hover:border-foreground/40",
                               ACCENT_BORDER_COLORS[colorIdx],
                             )}
                           >
@@ -400,7 +400,7 @@ export function MCPSettingsPanel() {
                                       enabled: checked,
                                     })
                                   }
-                                  className="border-ol-divider bg-ol-surface-muted data-[state=checked]:bg-ol-green/60 dark:data-[state=checked]:bg-ol-green/45"
+                                  className="border-border bg-secondary data-[state=checked]:bg-foreground dark:data-[state=checked]:bg-foreground"
                                   disabled={enableMutation.isPending}
                                   onClick={(e) => e.stopPropagation()}
                                 />
@@ -436,7 +436,7 @@ export function MCPSettingsPanel() {
 
                               {/* Error message */}
                               {info?.error ? (
-                                <p className="mt-1 line-clamp-1 text-[10px] text-ol-red">
+                                <p className="mt-1 line-clamp-1 text-[10px] text-destructive">
                                   {info.error}
                                 </p>
                               ) : null}

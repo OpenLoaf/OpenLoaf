@@ -131,15 +131,15 @@ export function ExpandableTabs({
   const sizeToken = sizeConfig[size];
   const variantConfig = {
     default: {
-      container: "rounded-lg border bg-background",
-      button: "rounded-md",
+      container: "rounded-3xl border bg-background",
+      button: "rounded-3xl",
       selected: "bg-muted",
       unselected: "text-muted-foreground hover:bg-muted hover:text-foreground",
     },
     dock: {
       container:
-        "rounded-md border border-border/60 bg-background/90 shadow-[0_16px_40px_rgba(0,0,0,0.2)] backdrop-blur",
-      button: "rounded-md",
+        "rounded-3xl border border-border/60 bg-background/90 shadow-[0_16px_40px_rgba(0,0,0,0.2)] backdrop-blur",
+      button: "rounded-3xl",
       selected: "bg-background text-foreground shadow-sm",
       unselected:
         "text-muted-foreground/80 hover:bg-background/80 hover:text-foreground",

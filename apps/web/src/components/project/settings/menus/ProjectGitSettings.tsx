@@ -500,7 +500,7 @@ const ProjectGitSettings = memo(function ProjectGitSettings({
                 return (
                   <div
                     key={commit.oid}
-                    className="relative flex items-start gap-3 rounded-md px-1 py-2 pl-6 transition hover:bg-accent/40"
+                    className="relative flex items-start gap-3 rounded-3xl px-1 py-2 pl-6 transition hover:bg-accent/40"
                   >
                     <div className="absolute left-[5px] top-4 h-2 w-2 rounded-full bg-muted-foreground/70" />
                     <div className="flex min-w-0 flex-1 items-start justify-between gap-3">
@@ -519,10 +519,10 @@ const ProjectGitSettings = memo(function ProjectGitSettings({
                         <div className="font-mono">{commit.shortOid}</div>
                         <div className="mt-1">
                           {(commit.filesChanged ?? 0).toLocaleString()} files ·{" "}
-                          <span className="text-ol-green">
+                          <span className="text-foreground">
                             +{(commit.insertions ?? 0).toLocaleString()}
                           </span>{" "}
-                          <span className="text-ol-red">
+                          <span className="text-destructive">
                             -{(commit.deletions ?? 0).toLocaleString()}
                           </span>
                         </div>

@@ -212,7 +212,7 @@ export default function JsxCreateTool({
           <JSXPreviewError className="mt-2 text-xs" />
         </JSXPreview>
       ) : errorText ? (
-        <div className="rounded-md border border-destructive/50 bg-destructive/10 p-2 text-xs text-destructive">
+        <div className="rounded-3xl border border-destructive/50 bg-destructive/10 p-2 text-xs text-destructive">
           {errorText}
         </div>
       ) : (

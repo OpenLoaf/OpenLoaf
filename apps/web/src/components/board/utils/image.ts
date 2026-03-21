@@ -278,11 +278,14 @@ export async function buildImageNodePayloadFromUri(
     previewMode?: "dataUrl" | "none";
     /** Project id for resolving relative paths. */
     projectId?: string;
+    /** Board id for resolving board-relative paths via board endpoint. */
+    boardId?: string;
   }
 ): Promise<ImageNodePayload> {
   const blob = await fetchBlobFromUri(uri, {
     projectId: options?.projectId,
     maxBytes: options?.maxPreviewBytes,
+    boardId: options?.boardId,
   });
   const previewMode = options?.previewMode ?? "dataUrl";
   const image =

@@ -28,11 +28,11 @@ type TaskSummary = {
 };
 
 const STATUS_DOT: Record<string, string> = {
-  running: "bg-ol-blue",
-  review: "bg-ol-amber",
-  todo: "bg-ol-text-auxiliary",
-  done: "bg-ol-green",
-  cancelled: "bg-ol-red",
+  running: "bg-foreground",
+  review: "bg-muted-foreground",
+  todo: "bg-muted-foreground",
+  done: "bg-muted-foreground",
+  cancelled: "bg-destructive",
 };
 
 /** Compact task board widget for desktop. */
@@ -85,27 +85,27 @@ export default function TaskBoardWidget() {
           <div className="text-sm font-semibold text-foreground">{t('catalog.task-board')}</div>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="inline-flex items-center gap-1 rounded-md bg-ol-blue/10 px-1.5 py-0.5 text-[10px] font-medium text-ol-blue">
+          <span className="inline-flex items-center gap-1 rounded-3xl bg-foreground/10 px-1.5 py-0.5 text-[10px] font-medium text-foreground">
             {counts.running} {t('taskBoard.statusRunning')}
           </span>
-          <span className="inline-flex items-center gap-1 rounded-md bg-ol-amber/10 px-1.5 py-0.5 text-[10px] font-medium text-ol-amber">
+          <span className="inline-flex items-center gap-1 rounded-3xl bg-muted-foreground/10 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
             {counts.review} {t('taskBoard.statusReview')}
           </span>
-          <span className="inline-flex items-center gap-1 rounded-md bg-ol-surface-muted px-1.5 py-0.5 text-[10px] font-medium text-ol-text-auxiliary">
+          <span className="inline-flex items-center gap-1 rounded-3xl bg-secondary px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
             {counts.todo} {t('taskBoard.statusTodo')}
           </span>
-          <span className="inline-flex items-center gap-1 rounded-md bg-ol-green/10 px-1.5 py-0.5 text-[10px] font-medium text-ol-green">
+          <span className="inline-flex items-center gap-1 rounded-3xl bg-muted-foreground/10 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
             {counts.done} {t('taskBoard.statusDone')}
           </span>
         </div>
       </div>
       <div className="mt-3 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto pr-1 text-sm show-scrollbar">
         {isLoading ? (
-          <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-border bg-muted/10 text-xs text-muted-foreground">
+          <div className="flex flex-1 items-center justify-center rounded-3xl border border-dashed border-border bg-muted/10 text-xs text-muted-foreground">
             {t('taskBoard.loading')}
           </div>
         ) : activeTasks.length === 0 ? (
-          <div className="flex flex-1 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-muted/10 text-xs text-muted-foreground">
+          <div className="flex flex-1 flex-col items-center justify-center gap-2 rounded-3xl border border-dashed border-border bg-muted/10 text-xs text-muted-foreground">
             <div>{t('taskBoard.noActiveTasks')}</div>
             <button
               type="button"
@@ -121,15 +121,15 @@ export default function TaskBoardWidget() {
               key={task.id}
               type="button"
               onClick={handleOpenTaskBoard}
-              className="w-full rounded-lg border border-transparent px-2 py-2 text-left transition hover:border-border/50 hover:bg-muted/40"
+              className="w-full rounded-3xl border border-transparent px-2 py-2 text-left transition hover:border-border/50 hover:bg-muted/40"
             >
               <div className="flex items-center gap-2">
-                <span className={cn("h-2 w-2 shrink-0 rounded-full", STATUS_DOT[task.status] ?? "bg-ol-text-auxiliary")} />
+                <span className={cn("h-2 w-2 shrink-0 rounded-full", STATUS_DOT[task.status] ?? "bg-muted-foreground")} />
                 <span className="line-clamp-1 flex-1 text-sm text-foreground">{task.name}</span>
                 {task.priority && task.priority !== "medium" ? (
                   <span className={cn(
                     "shrink-0 text-[10px] font-medium",
-                    task.priority === "urgent" ? "text-ol-red" : task.priority === "high" ? "text-ol-amber" : "text-ol-text-auxiliary",
+                    task.priority === "urgent" ? "text-destructive" : task.priority === "high" ? "text-muted-foreground" : "text-muted-foreground",
                   )}>
                     {priorityLabel[task.priority as keyof typeof priorityLabel] ?? task.priority}
                   </span>

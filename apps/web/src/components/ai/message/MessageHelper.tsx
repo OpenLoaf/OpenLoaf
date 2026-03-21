@@ -23,6 +23,7 @@ import { cn } from "@/lib/utils";
 import { useMutation } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 import { getCachedAccessToken } from "@/lib/saas-auth";
+import { useTabActive } from "@/components/layout/TabActiveContext";
 
 type SuggestionItem = {
   label: string;
@@ -32,7 +33,7 @@ type SuggestionItem = {
 };
 
 const ICON_ORDER = [Sparkles, ClipboardList, Code2, FileText];
-const COLORS = ["text-ol-amber", "text-ol-blue", "text-ol-green", "text-ol-purple"];
+const COLORS = ["text-muted-foreground", "text-muted-foreground", "text-muted-foreground", "text-muted-foreground"];
 
 export default function MessageHelper({
   compact,
@@ -52,7 +53,7 @@ export default function MessageHelper({
         label: item.label,
         value: item.value,
         icon: ICON_ORDER[index] || Sparkles,
-        color: COLORS[index] || "text-ol-blue",
+        color: COLORS[index] || "text-muted-foreground",
       }))
     : [];
 
@@ -61,14 +62,16 @@ export default function MessageHelper({
     trpc.settings.generateChatSuggestions.mutationOptions(),
   );
 
+  const tabActive = useTabActive();
   const lastRequestedKeyRef = React.useRef<string>("");
   React.useEffect(() => {
+    if (!tabActive) return;
     const key = projectId || "__global__";
     if (lastRequestedKeyRef.current === key) return;
     lastRequestedKeyRef.current = key;
     dynamicMutation.mutate({ projectId: projectId || undefined, saasAccessToken: getCachedAccessToken() ?? undefined });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId]);
+  }, [projectId, tabActive]);
 
   // 缓存上一次的有效建议，加载期间保持不变避免布局弹跳
   const prevSuggestionsRef = React.useRef<SuggestionItem[]>(staticSuggestions);
@@ -79,7 +82,7 @@ export default function MessageHelper({
         label: item.label,
         value: item.value,
         icon: ICON_ORDER[index % ICON_ORDER.length] || Sparkles,
-        color: COLORS[index % COLORS.length] || "text-ol-blue",
+        color: COLORS[index % COLORS.length] || "text-muted-foreground",
       }));
       prevSuggestionsRef.current = result;
       return result;
@@ -140,7 +143,7 @@ export default function MessageHelper({
                 onPointerEnter={() => setHoveredIndex(index)}
                 onPointerLeave={() => setHoveredIndex(-1)}
                 className={cn(
-                  "flex items-center gap-1.5 whitespace-nowrap rounded-md border px-3 py-1.5 text-xs transition-colors duration-150 hover:bg-muted/80 hover:border-border",
+                  "flex items-center gap-1.5 whitespace-nowrap rounded-3xl border px-3 py-1.5 text-xs transition-colors duration-150 hover:bg-muted/80 hover:border-border",
                   isSelected
                     ? "border-border bg-muted text-foreground dark:border-border"
                     : "border-border/60 bg-background text-secondary-foreground dark:border-border/40"

@@ -127,7 +127,7 @@ async function main() {
   clearSessionDirCache()
 
   await prisma.chatSession.create({ data: { id: testSessionId } })
-  registerSessionDir(testSessionId)
+  await registerSessionDir(testSessionId)
 
   try {
     // =====================================================================
@@ -449,7 +449,7 @@ async function main() {
     await test('B12: deleteSessionFiles', async () => {
       const sid2 = `test_cfs_del_${crypto.randomUUID()}`
       await prisma.chatSession.create({ data: { id: sid2 } })
-      registerSessionDir(sid2)
+      await registerSessionDir(sid2)
       await appendMessage({ sessionId: sid2, message: msg('del1', null) })
       await writeSessionJson(sid2, { title: 'to-delete' } as any)
 
@@ -466,7 +466,7 @@ async function main() {
     await test('B13: concurrent writes via mutex', async () => {
       const sid3 = `test_cfs_conc_${crypto.randomUUID()}`
       await prisma.chatSession.create({ data: { id: sid3 } })
-      registerSessionDir(sid3)
+      await registerSessionDir(sid3)
 
       const promises = Array.from({ length: 10 }, (_, i) =>
         appendMessage({ sessionId: sid3, message: msg(`conc${i}`, null) }),
@@ -488,7 +488,7 @@ async function main() {
     // Prepare a fresh session for C-layer tests
     const cSid = `test_cfs_view_${crypto.randomUUID()}`
     await prisma.chatSession.create({ data: { id: cSid } })
-    registerSessionDir(cSid)
+    await registerSessionDir(cSid)
 
     // Build a tree:
     //   c1 (user) -> c2 (assistant) -> c3 (user) -> c4 (assistant)

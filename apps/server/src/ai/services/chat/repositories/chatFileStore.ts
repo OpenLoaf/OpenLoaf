@@ -13,6 +13,11 @@ import path from 'node:path'
 import { resolveOpenLoafPath, resolveScopedOpenLoafPath } from '@openloaf/config'
 import { getResolvedTempStorageDir } from '@openloaf/api/services/appConfigService'
 import {
+  lookupBoardRecord,
+  resolveBoardAbsPath,
+  resolveBoardScopedRoot,
+} from '@openloaf/api/common/boardPaths'
+import {
   getProjectRootPath,
 } from '@openloaf/api/services/vfsService'
 import { prisma } from '@openloaf/db'
@@ -148,26 +153,28 @@ function touchSessionDirCache(sessionId: string) {
 
 /**
  * 解析 session 的 chat-history 根目录：
- * - 有 boardId → <scopeRoot>/.openloaf/boards/<boardId>/chat-history/
+ * - 有 boardId → 从 DB 查询画布 folderUri，解析画布目录（sessionId 拼接在后）
  * - 有 projectId → <projectRoot>/.openloaf/chat-history/
  * - 都没有 → <tempStorageDir>/chat-history/ (fallback)
  */
-function resolveChatHistoryRoot(
+async function resolveChatHistoryRoot(
   projectId?: string | null,
   boardId?: string | null,
-): string {
-  // 画布内聊天：boardId 存在时，chat 文件直接存在画布目录下（不嵌套 chat-history/）
-  // sessionId === boardId，resolveSessionDir 会拼接 sessionId，
-  // 最终路径：<scopeRoot>/.openloaf/boards/<boardId>/
+): Promise<string> {
+  // 画布内聊天：从 DB 查询 folderUri，chat 文件直接存在画布目录下
+  // sessionId === boardId，resolveSessionDir 会拼接 sessionId
   if (boardId) {
-    const scopeRoot = projectId
-      ? getProjectRootPath(projectId)
-      : null
-    if (scopeRoot) {
-      return resolveScopedOpenLoafPath(scopeRoot, 'boards')
+    const board = await lookupBoardRecord(boardId)
+    const rootPath = resolveBoardScopedRoot(board?.projectId ?? projectId ?? undefined)
+    if (board) {
+      // 去掉 folderUri 末尾的 boardId 目录，返回 boards/ 基目录
+      // 因为后续 resolveSessionDir 会 path.join(root, sessionId) 把 boardId 拼回去
+      const folderName = board.folderUri.replace(/\/+$/u, "").split("/").filter(Boolean)
+      folderName.pop()
+      return path.join(rootPath, ...folderName)
     }
-    // 无项目的画布聊天：fallback 到临时存储路径
-    return path.join(getResolvedTempStorageDir(), 'boards')
+    // fallback: 画布不在 DB 中
+    return path.join(rootPath, "boards")
   }
   if (projectId) {
     const projectRoot = getProjectRootPath(projectId)
@@ -190,7 +197,7 @@ async function resolveSessionDir(sessionId: string): Promise<string> {
     where: { id: sessionId },
     select: { projectId: true, boardId: true },
   })
-  const root = resolveChatHistoryRoot(session?.projectId, session?.boardId)
+  const root = await resolveChatHistoryRoot(session?.projectId, session?.boardId)
   const dir = path.join(root, sessionId)
 
   // 防御：项目路径下 messages.jsonl 不存在时，回退到临时存储路径或旧全局路径
@@ -223,13 +230,13 @@ async function resolveSessionDir(sessionId: string): Promise<string> {
   return dir
 }
 
-/** 注册 session 目录（写入时已知 projectId/boardId，避免 DB 查询） */
-export function registerSessionDir(
+/** 注册 session 目录（写入时已知 projectId/boardId） */
+export async function registerSessionDir(
   sessionId: string,
   projectId?: string | null,
   boardId?: string | null,
-): void {
-  const root = resolveChatHistoryRoot(projectId, boardId)
+): Promise<void> {
+  const root = await resolveChatHistoryRoot(projectId, boardId)
   sessionDirCache.set(sessionId, path.join(root, sessionId))
   touchSessionDirCache(sessionId)
 }
@@ -1194,7 +1201,7 @@ export async function deleteAllChatFiles(): Promise<void> {
     select: { id: true, projectId: true, boardId: true },
   })
   for (const session of sessions) {
-    registerSessionDir(session.id, session.projectId, session.boardId)
+    await registerSessionDir(session.id, session.projectId, session.boardId)
     try {
       const dir = await resolveSessionDir(session.id)
       await fs.rm(dir, { recursive: true, force: true })

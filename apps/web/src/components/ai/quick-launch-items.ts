@@ -17,28 +17,28 @@ import { LayoutDashboard, CalendarDays, Clock, Folder, FolderKanban, Palette, Se
 export const QUICK_LAUNCH_ITEMS = [
   {
     baseId: "base:canvas-list", component: "canvas-list-page", labelKey: "quickLaunch.smartCanvas", icon: Palette, titleKey: "nav:canvas", tabIcon: "🎨", viewType: "canvas-list",
-    iconColor: "text-ol-purple/70 group-hover:text-ol-purple",
-    bgColor: "bg-ol-purple/10 group-hover:bg-ol-purple/20",
+    iconColor: "text-muted-foreground group-hover:text-foreground",
+    bgColor: "bg-secondary group-hover:bg-secondary/80",
   },
   {
     baseId: "base:project-list", component: "project-list-page", labelKey: "quickLaunch.projectSpace", icon: FolderKanban, titleKey: "nav:projectList", tabIcon: "📁", viewType: "project-list",
-    iconColor: "text-ol-blue/70 group-hover:text-ol-blue",
-    bgColor: "bg-ol-blue/10 group-hover:bg-ol-blue/20",
+    iconColor: "text-muted-foreground group-hover:text-foreground",
+    bgColor: "bg-secondary group-hover:bg-secondary/80",
   },
   {
     baseId: "base:workbench", component: "global-desktop", labelKey: "quickLaunch.workbench", icon: LayoutDashboard, titleKey: "nav:workbench", tabIcon: "bot", viewType: "workbench",
-    iconColor: "text-ol-green/70 group-hover:text-ol-green",
-    bgColor: "bg-ol-green/10 group-hover:bg-ol-green/20",
+    iconColor: "text-muted-foreground group-hover:text-foreground",
+    bgColor: "bg-secondary group-hover:bg-secondary/80",
   },
   {
     baseId: "base:calendar", component: "calendar-page", labelKey: "quickLaunch.calendar", icon: CalendarDays, titleKey: "nav:calendar", tabIcon: "🗓️", viewType: "calendar",
-    iconColor: "text-sky-500/70 group-hover:text-sky-500",
-    bgColor: "bg-sky-500/10 group-hover:bg-sky-500/20",
+    iconColor: "text-muted-foreground group-hover:text-foreground",
+    bgColor: "bg-secondary group-hover:bg-secondary/80",
   },
   {
     baseId: "base:scheduled-tasks", component: "scheduled-tasks-page", labelKey: "quickLaunch.tasks", icon: Clock, titleKey: "nav:tasks", tabIcon: "⏰", viewType: "scheduled-tasks",
-    iconColor: "text-rose-500/70 group-hover:text-rose-500",
-    bgColor: "bg-rose-500/10 group-hover:bg-rose-500/20",
+    iconColor: "text-muted-foreground group-hover:text-foreground",
+    bgColor: "bg-secondary group-hover:bg-secondary/80",
   },
 ] as const
 
@@ -46,32 +46,32 @@ export const QUICK_LAUNCH_ITEMS = [
 export const PROJECT_QUICK_LAUNCH_ITEMS = [
   {
     value: "index", icon: LayoutDashboard, labelKey: "project.tabHome", featureGated: true,
-    iconColor: "text-ol-blue/70 group-hover:text-ol-blue",
-    bgColor: "bg-ol-blue/10 group-hover:bg-ol-blue/20",
+    iconColor: "text-muted-foreground group-hover:text-foreground",
+    bgColor: "bg-secondary group-hover:bg-secondary/80",
   },
   {
     value: "files", icon: Folder, labelKey: "project.tabFiles", featureGated: false,
-    iconColor: "text-ol-green/70 group-hover:text-ol-green",
-    bgColor: "bg-ol-green/10 group-hover:bg-ol-green/20",
+    iconColor: "text-muted-foreground group-hover:text-foreground",
+    bgColor: "bg-secondary group-hover:bg-secondary/80",
   },
   {
     value: "tasks", icon: CalendarDays, labelKey: "project.tabHistory", featureGated: true,
-    iconColor: "text-ol-amber/70 group-hover:text-ol-amber",
-    bgColor: "bg-ol-amber/10 group-hover:bg-ol-amber/20",
+    iconColor: "text-muted-foreground group-hover:text-foreground",
+    bgColor: "bg-secondary group-hover:bg-secondary/80",
   },
   {
     value: "scheduled", icon: Clock, labelKey: "project.tabScheduled", featureGated: false,
-    iconColor: "text-ol-amber/70 group-hover:text-ol-amber",
-    bgColor: "bg-ol-amber/10 group-hover:bg-ol-amber/20",
+    iconColor: "text-muted-foreground group-hover:text-foreground",
+    bgColor: "bg-secondary group-hover:bg-secondary/80",
   },
   {
     value: "canvas", icon: Palette, labelKey: "project.tabCanvas", featureGated: true,
-    iconColor: "text-ol-green/70 group-hover:text-ol-green",
-    bgColor: "bg-ol-green/10 group-hover:bg-ol-green/20",
+    iconColor: "text-muted-foreground group-hover:text-foreground",
+    bgColor: "bg-secondary group-hover:bg-secondary/80",
   },
   {
     value: "settings", icon: Settings, labelKey: "project.tabSettings", featureGated: false,
-    iconColor: "text-ol-text-auxiliary/70 group-hover:text-ol-text-secondary",
-    bgColor: "bg-ol-surface-muted group-hover:bg-ol-surface-muted",
+    iconColor: "text-muted-foreground group-hover:text-foreground",
+    bgColor: "bg-muted group-hover:bg-muted",
   },
 ] as const

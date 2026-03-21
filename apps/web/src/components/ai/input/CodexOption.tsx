@@ -140,7 +140,7 @@ function OptionSelect({
       >
         <PromptInputSelectTrigger
           className={cn(
-            "h-7 min-w-[120px] rounded-md px-2 text-xs shadow-xs",
+            "h-7 min-w-[120px] rounded-3xl px-2 text-xs shadow-xs",
             disabled && "cursor-not-allowed opacity-60",
             triggerClassName,
           )}
@@ -210,10 +210,10 @@ function StrengthLevelToggle({
               onKeyDown={(event) => handleStrengthKeyDown(event, option.value)}
               className={cn(
                 "h-4 w-2 rounded-[1px] transition-colors",
-                isFilled ? "bg-ol-green" : "bg-ol-green/25",
+                isFilled ? "bg-foreground" : "bg-foreground/25",
                 disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer",
                 !disabled &&
-                  "hover:bg-ol-green-bg-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ol-green/60",
+                  "hover:bg-foreground/70 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-foreground/60",
               )}
             />
           );
@@ -334,7 +334,7 @@ export default function CodexOption({
   const containerClassName =
     variant === "inline"
       ? "flex flex-wrap gap-3 px-2 py-2"
-      : "flex flex-wrap gap-3 rounded-lg border border-border bg-background px-3 py-2";
+      : "flex flex-wrap gap-3 rounded-3xl border border-border bg-background px-3 py-2";
 
   return (
     <div className={cn(containerClassName, className)}>

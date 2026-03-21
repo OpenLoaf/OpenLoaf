@@ -33,7 +33,7 @@ export function ImageElementStatic(
           <img
             className={cn(
               'w-full max-w-full cursor-default object-cover px-0',
-              'rounded-sm'
+              'rounded-3xl'
             )}
             alt={(props.attributes as any).alt}
             src={url}

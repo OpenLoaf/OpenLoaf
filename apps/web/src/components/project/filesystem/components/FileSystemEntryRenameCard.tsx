@@ -69,7 +69,7 @@ const FileSystemEntryRenameCard = memo(function FileSystemEntryRenameCard({
       data-entry-uri={entry.uri}
       data-flip-id={entry.uri}
       ref={entryRef}
-      className={`flex flex-col items-center gap-3 rounded-md px-3 py-4 text-center text-xs text-foreground ${
+      className={`flex flex-col items-center gap-3 rounded-3xl px-3 py-4 text-center text-xs text-foreground ${
         isSelected ? "bg-muted/70 ring-1 ring-border" : ""
       }`}
     >

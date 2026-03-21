@@ -34,7 +34,7 @@ interface ChatMessageTextProps {
 }
 
 const MESSAGE_TOKEN_CHIP_BASE_CLASS = cn(
-  "inline-flex items-center gap-[3px] align-middle px-1.5 py-px mx-0.5 rounded-md border border-transparent",
+  "inline-flex items-center gap-[3px] align-middle px-1.5 py-px mx-0.5 rounded-3xl border border-transparent",
   "text-xs font-medium leading-[18px] cursor-pointer select-none whitespace-nowrap max-w-[200px] transition-colors",
 );
 
@@ -45,7 +45,7 @@ const SKILL_TOKEN_CHIP_CLASS = cn(
 
 const MENTION_TOKEN_CHIP_CLASS = cn(
   MESSAGE_TOKEN_CHIP_BASE_CLASS,
-  "bg-ol-blue-bg text-ol-blue hover:bg-ol-blue-bg-hover",
+  "bg-secondary text-foreground hover:bg-secondary/80",
 );
 
 export default function ChatMessageText({ value, className, projectId }: ChatMessageTextProps) {
@@ -77,7 +77,7 @@ export default function ChatMessageText({ value, className, projectId }: ChatMes
         <Snippet
           key={`command-${index}`}
           code={segment.value}
-          className="inline-flex h-6 w-auto max-w-full align-middle rounded-md border border-border/60 bg-muted/60"
+          className="inline-flex h-6 w-auto max-w-full align-middle rounded-3xl border border-border/60 bg-muted/60"
         >
           <SnippetAddon>
             <SnippetText className="px-2 text-[11px] font-semibold text-foreground">

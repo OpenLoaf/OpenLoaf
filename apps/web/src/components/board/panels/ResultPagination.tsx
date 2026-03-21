@@ -48,7 +48,7 @@ export function ResultPagination({
             key={index}
             type="button"
             className={[
-              'shrink-0 h-12 w-12 overflow-hidden rounded-md border-2 transition-colors duration-150',
+              'shrink-0 h-12 w-12 overflow-hidden rounded-3xl border-2 transition-colors duration-150',
               index === currentIndex
                 ? 'border-ol-blue shadow-sm'
                 : 'border-transparent hover:border-ol-blue/30',

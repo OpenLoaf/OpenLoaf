@@ -471,7 +471,7 @@ function FileTreeNode({
                 {node.projectIcon ? (
                   <span className="text-xs leading-none">{node.projectIcon}</span>
                 ) : (
-                  <img src="/head_s.png" alt="" className="h-4 w-4 rounded-sm" />
+                  <img src="/head_s.png" alt="" className="h-4 w-4 rounded-3xl" />
                 )}
                 <span>{node.name}</span>
               </div>
@@ -1728,11 +1728,11 @@ export const PageTreeMenu = ({
           className="pointer-events-none fixed z-50"
           style={{ left: dragGhost.x, top: dragGhost.y }}
         >
-          <div className="flex max-w-[240px] items-center gap-2 rounded-md border border-border/70 bg-background/90 px-2 py-1 text-xs text-foreground shadow-lg">
+          <div className="flex max-w-[240px] items-center gap-2 rounded-3xl border border-border/70 bg-background/90 px-2 py-1 text-xs text-foreground shadow-none">
             {dragGhost.icon ? (
               <span className="text-xs leading-none">{dragGhost.icon}</span>
             ) : (
-              <img src="/head_s.png" alt="" className="h-3.5 w-3.5 rounded-sm" />
+              <img src="/head_s.png" alt="" className="h-3.5 w-3.5 rounded-3xl" />
             )}
             <span className="truncate">{dragGhost.title}</span>
           </div>
@@ -1774,7 +1774,7 @@ export const PageTreeMenu = ({
         <div
           data-project-root-drop="true"
           className={cn(
-            "mx-1 rounded-md border border-dashed border-border/70 px-2 py-1 text-xs text-muted-foreground transition-colors",
+            "mx-1 rounded-3xl border border-dashed border-border/70 px-2 py-1 text-xs text-muted-foreground transition-colors",
             isRootDropActive && "border-primary/70 bg-primary/10 text-primary",
             !draggingProject && "pointer-events-none max-h-0 py-0 opacity-0",
           )}
@@ -1804,7 +1804,7 @@ export const PageTreeMenu = ({
                   <Button
                     type="button"
                     variant="ghost"
-                    className="size-10 shrink-0 rounded-lg text-lg"
+                    className="size-10 shrink-0 rounded-3xl text-lg"
                     aria-label={t("common:rename")}
                   >
                     {renameTarget.nextIcon ?? <SmilePlus className="size-5 text-muted-foreground" />}
@@ -1871,7 +1871,7 @@ export const PageTreeMenu = ({
               </Button>
             </DialogClose>
             <Button
-              className="bg-ol-blue-bg text-ol-blue hover:bg-ol-blue-bg-hover shadow-none"
+              className="bg-secondary text-foreground hover:bg-secondary/80 shadow-none"
               onClick={handleRename}
               disabled={isBusy}
             >

@@ -17,6 +17,7 @@ import { registerAiExecuteRoutes } from "@/ai/interface/routes/aiExecuteRoutes";
 import { registerAiChatAsyncRoutes } from "@/ai/interface/routes/aiChatAsyncRoutes";
 import { registerAiCommandRoutes } from "@/ai/interface/routes/aiCommandRoutes";
 import { registerAiCopilotRoutes } from "@/ai/interface/routes/aiCopilotRoutes";
+import { registerBoardAttachmentRoutes } from "@/ai/interface/routes/boardAttachmentRoutes";
 import { registerChatAttachmentRoutes } from "@/ai/interface/routes/chatAttachmentRoutes";
 import { registerFrontendToolAckRoutes } from "@/ai/interface/routes/frontendToolAckRoutes";
 import { registerSecretStoreRoutes } from "@/ai/interface/routes/secretStoreRoutes";
@@ -100,6 +101,7 @@ export function createApp() {
   registerAiChatAsyncRoutes(app);
   registerAiCommandRoutes(app);
   registerAiCopilotRoutes(app);
+  registerBoardAttachmentRoutes(app);
   registerChatAttachmentRoutes(app);
   registerFrontendToolAckRoutes(app);
   registerSecretStoreRoutes(app);

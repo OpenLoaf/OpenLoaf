@@ -96,6 +96,47 @@ export function markVersionFailed(
   }
 }
 
+/**
+ * Remove a failed entry from the stack and revert primaryId to the last ready
+ * entry (or the last remaining entry). Returns the removed entry for caller to
+ * store temporarily (error overlay / retry).
+ */
+export function removeFailedEntry(
+  stack: VersionStack,
+  entryId: string,
+): { stack: VersionStack; removed: VersionStackEntry | undefined } {
+  const removed = stack.entries.find((e) => e.id === entryId)
+  const remaining = stack.entries.filter((e) => e.id !== entryId)
+  // Revert primary to last ready entry, or last remaining entry.
+  const lastReady = [...remaining].reverse().find((e) => e.status === 'ready')
+  const newPrimaryId = lastReady?.id ?? remaining[remaining.length - 1]?.id
+  return {
+    stack: { entries: remaining, primaryId: newPrimaryId },
+    removed,
+  }
+}
+
+/**
+ * Remove the current primary entry from the stack and revert to the previous
+ * ready entry.  Returns `null` when the stack has only one entry — the caller
+ * should delete the whole node instead.
+ */
+export function removePrimaryEntry(
+  stack: VersionStack,
+): { stack: VersionStack; removed: VersionStackEntry } | null {
+  const primary = getPrimaryEntry(stack)
+  if (!primary) return null
+  if (stack.entries.length <= 1) return null
+
+  const remaining = stack.entries.filter((e) => e.id !== primary.id)
+  const lastReady = [...remaining].reverse().find((e) => e.status === 'ready')
+  const newPrimaryId = lastReady?.id ?? remaining[remaining.length - 1]?.id
+  return {
+    stack: { entries: remaining, primaryId: newPrimaryId },
+    removed: primary,
+  }
+}
+
 /** Switch primary to a different entry. */
 export function switchPrimary(
   stack: VersionStack,

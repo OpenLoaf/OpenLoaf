@@ -129,14 +129,14 @@ const MemoryEditor = memo(function MemoryEditor({ scope, projectId }: MemoryEdit
       <OpenLoafSettingsGroup
         title={t('settings:memory.title')}
         subtitle={scope === 'project' ? t('settings:memory.subtitleProject') : t('settings:memory.subtitle')}
-        icon={<Brain className="h-4 w-4 text-ol-green" />}
+        icon={<Brain className="h-4 w-4 text-foreground" />}
         showBorder={false}
         action={
           <div className="flex items-center gap-1">
             {hasFiles ? (
               <button
                 type="button"
-                className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs text-muted-foreground transition-colors duration-150 hover:bg-destructive/10 hover:text-destructive"
+                className="inline-flex items-center gap-1.5 rounded-3xl px-2.5 py-1 text-xs text-muted-foreground transition-colors duration-150 hover:bg-destructive/10 hover:text-destructive"
                 onClick={() => setClearConfirmOpen(true)}
                 title={t('settings:memory.clearAll')}
               >
@@ -146,7 +146,7 @@ const MemoryEditor = memo(function MemoryEditor({ scope, projectId }: MemoryEdit
             {canOpenFolder ? (
               <button
                 type="button"
-                className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs text-muted-foreground transition-colors duration-150 hover:bg-muted/50 hover:text-foreground"
+                className="inline-flex items-center gap-1.5 rounded-3xl px-2.5 py-1 text-xs text-muted-foreground transition-colors duration-150 hover:bg-muted/50 hover:text-foreground"
                 onClick={handleOpenFolder}
                 title={t('settings:memory.openFolder')}
               >
@@ -177,7 +177,7 @@ const MemoryEditor = memo(function MemoryEditor({ scope, projectId }: MemoryEdit
                         className={cn(
                           'flex w-full items-center gap-2 px-3 py-2 text-left text-xs transition-colors duration-150',
                           effectiveSelectedUri === file.uri
-                            ? 'bg-ol-green-bg text-ol-green'
+                            ? 'bg-secondary text-foreground'
                             : 'text-foreground hover:bg-muted/50',
                         )}
                         onClick={() => handleSelect(file)}

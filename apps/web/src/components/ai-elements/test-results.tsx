@@ -65,7 +65,7 @@ export const TestResults = ({
   return (
     <TestResultsContext.Provider value={contextValue}>
       <div
-        className={cn("rounded-lg border bg-background", className)}
+        className={cn("rounded-3xl border bg-background", className)}
         {...props}
       >
         {children ??
@@ -116,7 +116,7 @@ export const TestResultsSummary = ({
       {children ?? (
         <>
           <Badge
-            className="gap-1 bg-ol-green-bg text-ol-green"
+            className="gap-1 bg-secondary text-foreground"
             variant="secondary"
           >
             <CheckCircle2Icon className="size-3" />
@@ -124,7 +124,7 @@ export const TestResultsSummary = ({
           </Badge>
           {summary.failed > 0 && (
             <Badge
-              className="gap-1 bg-ol-red-bg text-ol-red"
+              className="gap-1 bg-destructive/10 text-destructive"
               variant="secondary"
             >
               <XCircleIcon className="size-3" />
@@ -133,7 +133,7 @@ export const TestResultsSummary = ({
           )}
           {summary.skipped > 0 && (
             <Badge
-              className="gap-1 bg-ol-amber-bg text-ol-amber"
+              className="gap-1 bg-secondary text-foreground"
               variant="secondary"
             >
               <CircleIcon className="size-3" />
@@ -188,11 +188,11 @@ export const TestResultsProgress = ({
         <>
           <div className="flex h-2 overflow-hidden rounded-full bg-muted">
             <div
-              className="bg-ol-green transition-all"
+              className="bg-foreground transition-all"
               style={{ width: `${passedPercent}%` }}
             />
             <div
-              className="bg-ol-red transition-all"
+              className="bg-destructive transition-all"
               style={{ width: `${failedPercent}%` }}
             />
           </div>
@@ -246,7 +246,7 @@ export const TestSuite = ({
 
   return (
     <TestSuiteContext.Provider value={contextValue}>
-      <Collapsible className={cn("rounded-lg border", className)} {...props}>
+      <Collapsible className={cn("rounded-3xl border", className)} {...props}>
         {children}
       </Collapsible>
     </TestSuiteContext.Provider>
@@ -298,17 +298,17 @@ export const TestSuiteStats = ({
     {children ?? (
       <>
         {passed > 0 && (
-          <span className="text-ol-green">
+          <span className="text-foreground">
             {passed} passed
           </span>
         )}
         {failed > 0 && (
-          <span className="text-ol-red">
+          <span className="text-destructive">
             {failed} failed
           </span>
         )}
         {skipped > 0 && (
-          <span className="text-ol-amber">
+          <span className="text-foreground">
             {skipped} skipped
           </span>
         )}
@@ -378,10 +378,10 @@ export const Test = ({
 };
 
 const statusStyles: Record<TestStatus, string> = {
-  failed: "text-ol-red",
-  passed: "text-ol-green",
-  running: "text-ol-blue",
-  skipped: "text-ol-amber",
+  failed: "text-destructive",
+  passed: "text-foreground",
+  running: "text-foreground",
+  skipped: "text-muted-foreground",
 };
 
 const statusIcons: Record<TestStatus, React.ReactNode> = {
@@ -460,7 +460,7 @@ export const TestError = ({
 }: TestErrorProps) => (
   <div
     className={cn(
-      "mt-2 rounded-md bg-ol-red-bg p-3",
+      "mt-2 rounded-3xl bg-destructive/10 p-3",
       className
     )}
     {...props}
@@ -478,7 +478,7 @@ export const TestErrorMessage = ({
 }: TestErrorMessageProps) => (
   <p
     className={cn(
-      "font-medium text-ol-red text-sm",
+      "font-medium text-destructive text-sm",
       className
     )}
     {...props}
@@ -496,7 +496,7 @@ export const TestErrorStack = ({
 }: TestErrorStackProps) => (
   <pre
     className={cn(
-      "mt-2 overflow-auto font-mono text-ol-red text-xs",
+      "mt-2 overflow-auto font-mono text-destructive text-xs",
       className
     )}
     {...props}

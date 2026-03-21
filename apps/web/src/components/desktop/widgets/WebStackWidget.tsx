@@ -136,18 +136,18 @@ export default function WebStackWidget({
           <img
             src={logoSrc}
             alt={displayTitle}
-            className="h-10 w-10 rounded-2xl object-cover"
+            className="h-10 w-10 rounded-3xl object-cover"
             onLoad={handleLogoLoad}
             onError={handleLogoError}
           />
         ) : (
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-muted text-xs font-medium text-muted-foreground">
+          <div className="flex h-10 w-10 items-center justify-center rounded-3xl bg-muted text-xs font-medium text-muted-foreground">
             {displayTitle.slice(0, 1).toUpperCase()}
           </div>
         )}
         <div className="line-clamp-1 text-xs font-medium text-foreground">{displayTitle}</div>
         {isLoading ? (
-          <div className="absolute right-2 top-2 rounded-md bg-background/90 px-2 py-0.5 text-[10px] text-muted-foreground shadow-sm">
+          <div className="absolute right-2 top-2 rounded-3xl bg-background/90 px-2 py-0.5 text-[10px] text-muted-foreground shadow-none">
             {t('webStack.updating')}
           </div>
         ) : null}
@@ -167,12 +167,12 @@ export default function WebStackWidget({
           <img
             src={logoSrc}
             alt={displayTitle}
-            className="h-9 w-9 rounded-xl object-cover"
+            className="h-9 w-9 rounded-3xl object-cover"
             onLoad={handleLogoLoad}
             onError={handleLogoError}
           />
         ) : (
-          <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-muted text-xs font-medium text-muted-foreground">
+          <div className="flex h-9 w-9 items-center justify-center rounded-3xl bg-muted text-xs font-medium text-muted-foreground">
             {displayTitle.slice(0, 1).toUpperCase()}
           </div>
         )}
@@ -183,7 +183,7 @@ export default function WebStackWidget({
           </div>
         </div>
         {isLoading ? (
-          <div className="absolute right-2 top-2 rounded-md bg-background/90 px-2 py-0.5 text-[10px] text-muted-foreground shadow-sm">
+          <div className="absolute right-2 top-2 rounded-3xl bg-background/90 px-2 py-0.5 text-[10px] text-muted-foreground shadow-none">
             {t('webStack.updating')}
           </div>
         ) : null}
@@ -195,7 +195,7 @@ export default function WebStackWidget({
     return (
       <button
         type="button"
-        className="relative flex h-full w-full items-end overflow-hidden rounded-2xl"
+        className="relative flex h-full w-full items-end overflow-hidden rounded-3xl"
         onClick={handleOpen}
         disabled={!normalizedUrl}
       >
@@ -209,7 +209,7 @@ export default function WebStackWidget({
           <div className="absolute inset-0 bg-gradient-to-br from-muted/50 to-muted" />
         )}
         {isLoading ? (
-          <div className="absolute right-3 top-3 z-10 rounded-md bg-background/90 px-2 py-0.5 text-[10px] text-muted-foreground shadow-sm">
+          <div className="absolute right-3 top-3 z-10 rounded-3xl bg-background/90 px-2 py-0.5 text-[10px] text-muted-foreground shadow-none">
             {t('webStack.updating')}
           </div>
         ) : null}
@@ -220,12 +220,12 @@ export default function WebStackWidget({
             <img
               src={logoSrc}
               alt={displayTitle}
-              className="h-9 w-9 rounded-xl object-cover"
+              className="h-9 w-9 rounded-3xl object-cover"
               onLoad={handleLogoLoad}
               onError={handleLogoError}
             />
           ) : (
-            <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-muted text-xs font-medium text-muted-foreground">
+            <div className="flex h-9 w-9 items-center justify-center rounded-3xl bg-muted text-xs font-medium text-muted-foreground">
               {displayTitle.slice(0, 1).toUpperCase()}
             </div>
           )}
@@ -237,8 +237,8 @@ export default function WebStackWidget({
             </div>
             <div
               className={cn(
-                "rounded-md border border-border/60 bg-background px-3 py-1 text-[11px] font-medium text-foreground",
-                "shadow-sm"
+                "rounded-3xl border border-border/60 bg-background px-3 py-1 text-[11px] font-medium text-foreground",
+                "shadow-none"
               )}
             >
               {t('webStack.openWeb')}

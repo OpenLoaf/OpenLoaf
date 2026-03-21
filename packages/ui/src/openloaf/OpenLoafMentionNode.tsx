@@ -74,7 +74,7 @@ export function OpenLoafMentionElement(
     <PlateElement
       {...props}
       className={cn(
-        "mx-0.5 inline-flex items-center justify-center gap-1 rounded-md bg-muted px-1 py-0.5 align-baseline text-[10px] font-medium text-foreground",
+        "mx-0.5 inline-flex items-center justify-center gap-1 rounded-3xl bg-muted px-1 py-0.5 align-baseline text-[10px] font-medium text-foreground",
         !readOnly && "cursor-pointer",
         selected && focused && "ring-1 ring-ring",
         firstChild?.[KEYS.bold] === true && "font-bold",
@@ -106,7 +106,7 @@ export function OpenLoafMentionElement(
       {!readOnly && isFileReference ? (
         <button
           type="button"
-          className="ml-0.5 inline-flex h-4 w-4 items-center justify-center rounded-md text-muted-foreground hover:text-foreground"
+          className="ml-0.5 inline-flex h-4 w-4 items-center justify-center rounded-3xl text-muted-foreground hover:text-foreground"
           onMouseDown={(event) => event.preventDefault()}
           onClick={handleRemove}
         >

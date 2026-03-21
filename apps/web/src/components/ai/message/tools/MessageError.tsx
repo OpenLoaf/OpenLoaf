@@ -124,7 +124,7 @@ export default function MessageError({ error }: MessageErrorProps) {
       transition={{ duration: 0.16, ease: "easeOut" }}
       className="my-0.5 px-2 pr-5"
     >
-      <div className="overflow-hidden rounded-xl bg-ol-red-bg dark:bg-red-950/60">
+      <div className="overflow-hidden rounded-3xl bg-ol-red-bg dark:bg-red-950/60">
         {/* 第一行：红绿灯（左） + 标题（右对齐） */}
         <div className="flex items-center justify-between px-3.5 py-2">
           <div className="flex shrink-0 items-center gap-[5px]">
@@ -149,7 +149,7 @@ export default function MessageError({ error }: MessageErrorProps) {
           <button
             type="button"
             onClick={handleCopy}
-            className="inline-flex h-7 items-center gap-1.5 rounded-md border border-ol-red/20 bg-white/60 px-3 text-[11px] font-medium text-ol-red transition-colors duration-150 hover:bg-ol-red-bg dark:border-red-400/20 dark:bg-red-900/40 dark:text-red-300 dark:hover:bg-red-900/60"
+            className="inline-flex h-7 items-center gap-1.5 rounded-3xl border border-ol-red/20 bg-white/60 px-3 text-[11px] font-medium text-ol-red transition-colors duration-150 hover:bg-ol-red-bg dark:border-red-400/20 dark:bg-red-900/40 dark:text-red-300 dark:hover:bg-red-900/60"
           >
             {copied ? <CheckIcon className="size-3" /> : <CopyIcon className="size-3" />}
             {copied ? t('error.copied') : t('error.copyLog')}
@@ -158,7 +158,7 @@ export default function MessageError({ error }: MessageErrorProps) {
             type="button"
             onClick={handleRetry}
             disabled={isBusy}
-            className="inline-flex h-7 items-center gap-1.5 rounded-md bg-ol-red px-3 text-[11px] font-medium text-white transition-colors duration-150 hover:brightness-110 disabled:opacity-40"
+            className="inline-flex h-7 items-center gap-1.5 rounded-3xl bg-ol-red px-3 text-[11px] font-medium text-white transition-colors duration-150 hover:brightness-110 disabled:opacity-40"
           >
             <RotateCcw className="size-3" />
             {t('error.retry')}

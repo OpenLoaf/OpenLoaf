@@ -12,9 +12,10 @@
 import { memo, useCallback, useState } from "react";
 import {
   StickyNote,
-  ImagePlus,
+  Image,
   Video,
-  FolderOpen,
+  Music,
+  Upload,
   LayoutTemplate,
 } from "lucide-react";
 import { cn } from "@udecode/cn";
@@ -64,55 +65,35 @@ const BoardEmptyGuide = memo(function BoardEmptyGuide({
     );
   }, [engine]);
 
-  /** Create an AI image generation node at the viewport center. */
-  const handleAiImage = useCallback(() => {
-    engine.getContainer()?.focus();
-    const viewport = engine.viewport.getState();
-    const centerWorld = engine.screenToWorld([
-      viewport.size[0] / 2,
-      viewport.size[1] / 2,
-    ]);
-    const [w, h] = DEFAULT_NODE_SIZE;
-    const nodeId = engine.addNodeElement(
-      "image",
-      {
-        previewSrc: "",
-        originalSrc: "",
-        mimeType: "image/png",
-        fileName: "",
-        naturalWidth: w,
-        naturalHeight: h,
-        origin: "ai-generate",
-      },
-      [centerWorld[0] - w / 2, centerWorld[1] - h / 2, w, h],
-    );
-    if (nodeId) {
-      engine.selection.setSelection([nodeId]);
-    }
-  }, [engine]);
-
-  /** Create an AI video generation node at the viewport center. */
-  const handleAiVideo = useCallback(() => {
-    engine.getContainer()?.focus();
-    const viewport = engine.viewport.getState();
-    const centerWorld = engine.screenToWorld([
-      viewport.size[0] / 2,
-      viewport.size[1] / 2,
-    ]);
-    const [w, h] = DEFAULT_NODE_SIZE;
-    const nodeId = engine.addNodeElement(
-      "video",
-      {
-        sourcePath: "",
-        fileName: "",
-        origin: "ai-generate",
-      },
-      [centerWorld[0] - w / 2, centerWorld[1] - h / 2, w, h],
-    );
-    if (nodeId) {
-      engine.selection.setSelection([nodeId]);
-    }
-  }, [engine]);
+  /** Create an AI generation node at the viewport center. */
+  const handleAiNode = useCallback(
+    (nodeType: "image" | "video" | "audio") => {
+      engine.getContainer()?.focus();
+      const viewport = engine.viewport.getState();
+      const centerWorld = engine.screenToWorld([
+        viewport.size[0] / 2,
+        viewport.size[1] / 2,
+      ]);
+      const [w, h] = DEFAULT_NODE_SIZE;
+      let props: Record<string, unknown>;
+      if (nodeType === "image") {
+        props = {
+          previewSrc: "", originalSrc: "", mimeType: "image/png",
+          fileName: "", naturalWidth: w, naturalHeight: h,
+          origin: "ai-generate",
+        };
+      } else {
+        props = { sourcePath: "", fileName: "", origin: "ai-generate" };
+      }
+      const size: [number, number] = nodeType === "audio" ? [320, 120] : [w, h];
+      const nodeId = engine.addNodeElement(
+        nodeType, props,
+        [centerWorld[0] - size[0] / 2, centerWorld[1] - size[1] / 2, size[0], size[1]],
+      );
+      if (nodeId) engine.selection.setSelection([nodeId]);
+    },
+    [engine],
+  );
 
   /** Open the project file picker via custom event. */
   const handleImportFile = useCallback(() => {
@@ -125,39 +106,14 @@ const BoardEmptyGuide = memo(function BoardEmptyGuide({
   }, [engine]);
 
   const actions = [
-    {
-      id: "text",
-      icon: StickyNote,
-      label: t("emptyGuide.createText"),
-      iconClass: "text-ol-amber",
-      bgClass: "bg-ol-amber-bg hover:bg-ol-amber-bg-hover",
-      handler: handleCreateSticky,
-    },
-    {
-      id: "ai-image",
-      icon: ImagePlus,
-      label: t("emptyGuide.aiImage"),
-      iconClass: "text-ol-blue",
-      bgClass: "bg-ol-blue-bg hover:bg-ol-blue-bg-hover",
-      handler: handleAiImage,
-    },
-    {
-      id: "ai-video",
-      icon: Video,
-      label: t("emptyGuide.aiVideo"),
-      iconClass: "text-ol-purple",
-      bgClass: "bg-ol-purple-bg hover:bg-ol-purple-bg-hover",
-      handler: handleAiVideo,
-    },
-    {
-      id: "import-file",
-      icon: FolderOpen,
-      label: t("emptyGuide.importFile"),
-      iconClass: "text-ol-green",
-      bgClass: "bg-ol-green-bg hover:bg-ol-green-bg-hover",
-      handler: handleImportFile,
-    },
-  ] as const;
+    { id: "text", icon: StickyNote, label: t("emptyGuide.createText"), handler: handleCreateSticky },
+    { id: "ai-image", icon: Image, label: t("emptyGuide.aiImage"), handler: () => handleAiNode("image") },
+    { id: "ai-video", icon: Video, label: t("emptyGuide.aiVideo"), handler: () => handleAiNode("video") },
+    { id: "ai-audio", icon: Music, label: t("emptyGuide.aiAudio"), handler: () => handleAiNode("audio") },
+    { id: "import-file", icon: Upload, label: t("emptyGuide.importFile"), handler: handleImportFile },
+    { id: "template", icon: LayoutTemplate, label: t("emptyGuide.fromTemplate"), handler: () => setShowTemplatePicker(true) },
+  ];
+
 
   return (
     <div
@@ -167,25 +123,19 @@ const BoardEmptyGuide = memo(function BoardEmptyGuide({
       )}
     >
       {/* ── Center card ── */}
-      <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center -mt-16">
-        {/* Card container */}
+      <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center -mt-12">
         <div
           data-canvas-toolbar
           onPointerDown={(e) => e.stopPropagation()}
           className={cn(
-            "flex flex-col items-center gap-5 rounded-2xl px-10 py-8",
+            "flex flex-col items-center gap-5 rounded-3xl px-8 py-7",
             toolbarSurfaceClassName,
             isSelectTool ? "pointer-events-auto" : "pointer-events-none",
           )}
         >
-          {/* Logo + heading */}
-          <div className="flex flex-col items-center gap-1.5 select-none">
-            <img
-              src="/logo_nobody.png"
-              alt="OpenLoaf"
-              className="mb-1 h-16 w-16"
-            />
-            <p className={cn(BOARD_TEXT_PRIMARY, "text-xl font-semibold")}>
+          {/* Heading */}
+          <div className="flex flex-col items-center gap-1 select-none">
+            <p className={cn(BOARD_TEXT_PRIMARY, "text-lg font-semibold")}>
               {t("emptyGuide.title")}
             </p>
             <p className={cn(BOARD_TEXT_AUXILIARY, "text-xs")}>
@@ -193,8 +143,8 @@ const BoardEmptyGuide = memo(function BoardEmptyGuide({
             </p>
           </div>
 
-          {/* Quick action buttons row */}
-          <div className="flex items-center gap-3">
+          {/* Quick action cards — 6-item grid */}
+          <div className="grid grid-cols-6 gap-1.5">
             {actions.map((action) => {
               const Icon = action.icon;
               return (
@@ -206,75 +156,32 @@ const BoardEmptyGuide = memo(function BoardEmptyGuide({
                     action.handler();
                   }}
                   className={cn(
-                    "flex items-center gap-2 rounded-full px-4 py-2",
-                    "text-sm font-medium select-none cursor-pointer",
+                    "flex flex-col items-center justify-center gap-1.5",
+                    "w-[72px] rounded-2xl px-2 py-3",
+                    "select-none cursor-pointer",
                     "transition-colors duration-150",
-                    action.bgClass,
+                    "bg-foreground/5 hover:bg-foreground/12",
+                    "dark:bg-foreground/8 dark:hover:bg-foreground/16",
                   )}
                 >
-                  <Icon size={16} className={action.iconClass} />
-                  <span className={action.iconClass}>{action.label}</span>
+                  <span className={cn(
+                    "flex h-8 w-8 items-center justify-center rounded-xl",
+                    "bg-foreground/6 dark:bg-foreground/10",
+                  )}>
+                    <Icon size={16} className="text-foreground/70" />
+                  </span>
+                  <span className="text-[11px] font-medium text-ol-text-secondary leading-tight">
+                    {action.label}
+                  </span>
                 </button>
               );
             })}
           </div>
 
-          {/* Hint text + template button */}
-          <div className="flex items-center gap-3 select-none">
-            <p className={cn(BOARD_TEXT_AUXILIARY, "text-xs")}>
-              {t("emptyGuide.hint")}
-            </p>
-            <span className={cn(BOARD_TEXT_AUXILIARY, "text-xs")}>|</span>
-            <button
-              type="button"
-              onPointerDown={(e) => {
-                e.stopPropagation();
-                setShowTemplatePicker(true);
-              }}
-              className={cn(
-                "flex items-center gap-1.5 rounded-full px-3 py-1",
-                "text-xs font-medium select-none cursor-pointer",
-                "transition-colors duration-150",
-                "bg-ol-blue-bg hover:bg-ol-blue-bg-hover",
-              )}
-            >
-              <LayoutTemplate size={13} className="text-ol-blue" />
-              <span className="text-ol-blue">
-                {t("emptyGuide.fromTemplate")}
-              </span>
-            </button>
-          </div>
-
-          {/* Keyboard shortcuts */}
-          <div className="flex items-center gap-2 select-none">
-            {[
-              { key: "V", label: t("tools.select") },
-              { key: "H", label: t("tools.hand") },
-              { key: "T", label: t("insertTools.text") },
-              { key: "C", label: t("tools.connector") },
-            ].map((shortcut, i) => (
-              <span key={shortcut.key} className="flex items-center gap-1">
-                {i > 0 && (
-                  <span className={cn(BOARD_TEXT_AUXILIARY, "text-xs mx-0.5")}>
-                    ·
-                  </span>
-                )}
-                <kbd
-                  className={cn(
-                    "inline-flex h-5 min-w-5 items-center justify-center rounded px-1",
-                    "text-[10px] font-mono font-medium",
-                    "bg-foreground/8 text-ol-text-secondary",
-                    "dark:bg-foreground/12",
-                  )}
-                >
-                  {shortcut.key}
-                </kbd>
-                <span className={cn(BOARD_TEXT_AUXILIARY, "text-[11px]")}>
-                  {shortcut.label}
-                </span>
-              </span>
-            ))}
-          </div>
+          {/* Hint text */}
+          <p className={cn(BOARD_TEXT_AUXILIARY, "text-[11px] select-none")}>
+            {t("emptyGuide.hint")}
+          </p>
         </div>
       </div>
 

@@ -73,6 +73,8 @@ type BoardCanvasCollabProps = {
   boardFileUri?: string;
   /** Callback exposing sync capability. */
   onSyncLogChange?: (payload: { canSyncLog: boolean; onSyncLog?: () => void }) => void;
+  /** Callback fired once the board has been hydrated from collaboration data. */
+  onHydrated?: () => void;
 };
 
 const BOARD_DOC_ORIGIN = "board-engine";
@@ -295,6 +297,7 @@ export function BoardCanvasCollab({
   boardFolderUri,
   boardFileUri,
   onSyncLogChange,
+  onHydrated,
 }: BoardCanvasCollabProps) {
   const { t } = useTranslation('board');
   const queryClient = useQueryClient();
@@ -371,6 +374,11 @@ export function BoardCanvasCollab({
   useEffect(() => {
     mkdirRef.current = mkdirMutation.mutateAsync;
   }, [mkdirMutation.mutateAsync]);
+
+  const onHydratedRef = useRef(onHydrated);
+  useEffect(() => {
+    onHydratedRef.current = onHydrated;
+  }, [onHydrated]);
 
   /** Whether the meta file has been persisted. */
   const metaPersistedRef = useRef(false);
@@ -699,6 +707,7 @@ export function BoardCanvasCollab({
         hydratedRef.current = true;
         engine.fitToElements();
         flushPendingImports();
+        onHydratedRef.current?.();
         return;
       }
       applyingRemoteRef.current = true;
@@ -709,6 +718,7 @@ export function BoardCanvasCollab({
       if (!hydratedRef.current) {
         hydratedRef.current = true;
         engine.fitToElements();
+        onHydratedRef.current?.();
       }
       applyingRemoteRef.current = false;
       flushPendingImports();

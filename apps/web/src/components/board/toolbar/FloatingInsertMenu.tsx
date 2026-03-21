@@ -161,7 +161,7 @@ const FloatingInsertMenu = memo(function FloatingInsertMenu({
     >
       <div
         className={cn(
-          "w-[220px] rounded-xl py-2",
+          "w-[220px] rounded-3xl py-2",
           toolbarSurfaceClassName,
         )}
       >
@@ -257,13 +257,13 @@ function MenuItem({
       }}
       className={cn(
         "group flex w-full items-center gap-3 px-3.5 py-2",
-        "transition-colors duration-100 rounded-md mx-0",
+        "transition-colors duration-100 rounded-3xl mx-0",
         "hover:bg-foreground/6 dark:hover:bg-foreground/8",
       )}
     >
       <span
         className={cn(
-          "flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg",
+          "flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-3xl",
           "bg-foreground/5 dark:bg-foreground/8",
           "transition-colors duration-100",
           "group-hover:bg-foreground/8 dark:group-hover:bg-foreground/12",

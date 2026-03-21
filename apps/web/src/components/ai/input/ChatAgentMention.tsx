@@ -225,7 +225,7 @@ const ChatAgentMention = forwardRef<ChatAgentMentionHandle, ChatAgentMentionProp
     const menu = (
       <div
         className={cn(
-          "fixed z-50 flex flex-col rounded-lg border border-border bg-popover shadow-lg",
+          "fixed z-50 flex flex-col rounded-3xl border border-border bg-popover shadow-none",
           className,
         )}
         style={{ left: pos.left, bottom: pos.bottom, width: MENU_WIDTH, maxHeight: 320 }}
@@ -245,7 +245,7 @@ const ChatAgentMention = forwardRef<ChatAgentMentionHandle, ChatAgentMentionProp
                 role="option"
                 aria-selected={isActive}
                 className={cn(
-                  "flex items-center gap-2 px-2.5 py-2 text-left text-xs cursor-default rounded-sm mx-1",
+                  "flex items-center gap-2 px-2.5 py-2 text-left text-xs cursor-default rounded-3xl mx-1",
                   isActive ? "bg-muted/70" : "hover:bg-muted/60",
                 )}
                 onClick={() => selectItem(item)}

@@ -36,7 +36,7 @@ export default function EmailComposeStackPanel({
     return (
       <div
         className={cn(
-          "flex h-full min-h-0 items-center justify-center text-xs text-ol-text-auxiliary",
+          "flex h-full min-h-0 items-center justify-center text-xs text-muted-foreground",
           EMAIL_GLASS_PANEL_CLASS,
         )}
       >

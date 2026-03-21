@@ -60,7 +60,7 @@ const CalendarContent: FC = () => {
 						direction="horizontal"
 						transitionKey={view}
 					>
-						<div className="border h-full w-full rounded-lg overflow-hidden" data-testid="calendar-body">
+						<div className="border h-full w-full rounded-3xl overflow-hidden" data-testid="calendar-body">
 							{viewMap[view]}
 						</div>
 					</AnimatedSection>

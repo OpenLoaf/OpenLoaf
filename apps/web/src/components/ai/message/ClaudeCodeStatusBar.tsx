@@ -71,10 +71,10 @@ function RateLimitBanner({ rateLimit }: { rateLimit: NonNullable<ClaudeCodeRunti
   return (
     <div
       className={cn(
-        "flex items-center gap-1.5 rounded-md px-2 py-1 text-xs",
+        "flex items-center gap-1.5 rounded-3xl px-2 py-1 text-xs",
         isRejected
           ? "bg-destructive/10 text-destructive"
-          : "bg-ol-amber/10 text-ol-amber",
+          : "bg-secondary text-foreground",
       )}
     >
       <span className="shrink-0">{isRejected ? "\u2715" : "\u26A0"}</span>
@@ -126,9 +126,9 @@ function TaskList({ tasks }: { tasks: Record<string, { description: string; stat
         return (
           <span key={id} className="inline-flex items-center gap-1.5">
             {isRunning ? (
-              <span className="inline-block h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-ol-blue/60" />
+              <span className="inline-block h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-foreground/60" />
             ) : isDone ? (
-              <span className="shrink-0 text-ol-green">{"\u2713"}</span>
+              <span className="shrink-0 text-foreground">{"\u2713"}</span>
             ) : (
               <span className="shrink-0 text-destructive">{"\u2715"}</span>
             )}

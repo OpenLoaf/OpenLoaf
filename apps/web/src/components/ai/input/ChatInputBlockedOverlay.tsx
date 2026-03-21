@@ -43,14 +43,14 @@ export function ChatInputBlockedOverlay({
       )}
       {!blockedCompact && (
         <div className="text-center">
-          <p className="text-[13px] font-medium text-ol-text-primary">
+          <p className="text-[13px] font-medium text-foreground">
             {blockedReason === 'cloud-login'
               ? t('blocked.titleCloudLogin')
               : blockedReason === 'local-empty'
                 ? t('blocked.titleLocalEmpty')
                 : t('blocked.titleDefault')}
           </p>
-          <p className="mt-0.5 text-[11px] text-ol-text-auxiliary">
+          <p className="mt-0.5 text-[11px] text-muted-foreground">
             {blockedReason === 'cloud-login'
               ? t('blocked.descCloudLogin')
               : blockedReason === 'local-empty'
@@ -65,7 +65,7 @@ export function ChatInputBlockedOverlay({
         {blockedReason === 'local-empty' && onRequestSwitchCloud ? (
           <button
             type="button"
-            className="inline-flex h-8 items-center gap-1.5 rounded-md bg-ol-blue-bg px-4 text-[12px] font-medium text-ol-blue transition-colors duration-150 hover:bg-ol-blue-bg-hover disabled:opacity-50"
+            className="inline-flex h-8 items-center gap-1.5 rounded-3xl bg-secondary px-4 text-[12px] font-medium text-foreground transition-colors duration-150 hover:bg-secondary/80 disabled:opacity-50"
             onClick={onRequestSwitchCloud}
           >
             <Cloud className="size-3.5" />
@@ -74,7 +74,7 @@ export function ChatInputBlockedOverlay({
         ) : (
           <button
             type="button"
-            className="h-8 rounded-md bg-ol-blue-bg px-4 text-[12px] font-medium text-ol-blue transition-colors duration-150 hover:bg-ol-blue-bg-hover disabled:opacity-50"
+            className="h-8 rounded-3xl bg-secondary px-4 text-[12px] font-medium text-foreground transition-colors duration-150 hover:bg-secondary/80 disabled:opacity-50"
             onClick={onRequestLogin}
             disabled={!onRequestLogin}
           >
@@ -84,7 +84,7 @@ export function ChatInputBlockedOverlay({
         {blockedReason === 'cloud-login' && onRequestSwitchLocal ? (
           <button
             type="button"
-            className="h-8 rounded-md bg-ol-surface-muted px-4 text-[12px] font-medium text-ol-text-secondary transition-colors duration-150 hover:bg-ol-divider"
+            className="h-8 rounded-3xl bg-secondary px-4 text-[12px] font-medium text-foreground transition-colors duration-150 hover:bg-accent"
             onClick={onRequestSwitchLocal}
           >
             {t('blocked.btnSwitchLocal')}
@@ -92,7 +92,7 @@ export function ChatInputBlockedOverlay({
         ) : (
           <button
             type="button"
-            className="inline-flex h-8 items-center gap-1.5 rounded-md bg-ol-surface-muted px-4 text-[12px] font-medium text-ol-text-secondary transition-colors duration-150 hover:bg-ol-divider disabled:opacity-50"
+            className="inline-flex h-8 items-center gap-1.5 rounded-3xl bg-secondary px-4 text-[12px] font-medium text-foreground transition-colors duration-150 hover:bg-accent disabled:opacity-50"
             onClick={onRequestLocalConfig}
             disabled={!onRequestLocalConfig}
           >

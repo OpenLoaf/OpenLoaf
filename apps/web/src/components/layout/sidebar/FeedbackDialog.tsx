@@ -209,10 +209,10 @@ export function FeedbackDialog() {
 
   return (
     <Dialog open={open} onOpenChange={setFeedbackOpen}>
-      <DialogContent className="sm:max-w-md gap-0 p-0 overflow-hidden sm:rounded-2xl">
+      <DialogContent className="sm:max-w-md gap-0 p-0 overflow-hidden sm:rounded-3xl">
         <div className="flex items-center gap-3 border-b border-border/40 px-5 py-4">
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-ol-blue-bg">
-            <MessageSquare className="h-3.5 w-3.5 text-ol-blue" />
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-3xl bg-secondary">
+            <MessageSquare className="h-3.5 w-3.5 text-foreground" />
           </div>
           <DialogHeader className="p-0">
             <DialogTitle className="text-sm font-medium">{t('sidebar.feedback.title')}</DialogTitle>
@@ -294,7 +294,7 @@ export function FeedbackDialog() {
             variant="ghost"
             size="sm"
             type="button"
-            className="rounded-md transition-colors duration-150"
+            className="rounded-3xl transition-colors duration-150"
             onClick={() => setFeedbackOpen(false)}
           >
             {t('sidebar.feedback.cancel')}
@@ -302,7 +302,7 @@ export function FeedbackDialog() {
           <Button
             size="sm"
             type="button"
-            className="rounded-md bg-ol-blue-bg text-ol-blue shadow-none hover:bg-ol-blue-bg-hover transition-colors duration-150"
+            className="rounded-3xl bg-secondary text-foreground shadow-none hover:bg-secondary/80 transition-colors duration-150"
             onClick={submitFeedback}
             disabled={submitting}
           >

@@ -442,7 +442,7 @@ export function ChatInputBox({
     <div
       ref={inputContainerRef}
       className={cn(
-        "relative shrink-0 rounded-xl bg-background transition-all duration-200 flex flex-col overflow-hidden border",
+        "relative shrink-0 rounded-3xl bg-background transition-all duration-200 flex flex-col overflow-hidden border",
         variant === "default" ? "mt-4 max-h-[30%]" : "max-h-none",
         isFocused && "border-foreground/25",
         isOverLimit && "border-destructive",
@@ -590,7 +590,7 @@ export function ChatInputBox({
                       type="button"
                       variant="ghost"
                       size="icon-sm"
-                      className="rounded-md w-8 h-8 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                      className="rounded-3xl w-8 h-8 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                       onClick={() => setFilePickerOpen(true)}
                       disabled={!canAttachAll && !canAttachImage}
                       aria-label={t('input.addAttachment')}
@@ -636,7 +636,7 @@ export function ChatInputBox({
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="h-7 rounded-md px-2.5 text-xs shadow-none"
+                  className="h-7 rounded-3xl px-2.5 text-xs shadow-none"
                   onClick={onCancel}
                 >
                   {resolvedCancelLabel}
@@ -651,7 +651,7 @@ export function ChatInputBox({
                       variant="ghost"
                       size="icon-sm"
                       className={cn(
-                        "rounded-md w-8 h-8 shrink-0 transition-colors",
+                        "rounded-3xl w-8 h-8 shrink-0 transition-colors",
                         isListening
                           ? "bg-primary/10 text-primary hover:bg-primary/15"
                           : "text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -675,7 +675,7 @@ export function ChatInputBox({
                   disabled={isSendDisabled}
                   size="sm"
                   className={cn(
-                    "h-8 rounded-md px-3 text-xs shrink-0 disabled:opacity-100",
+                    "h-8 rounded-3xl px-3 text-xs shrink-0 disabled:opacity-100",
                     canSubmit
                       ? "bg-primary hover:bg-primary/90 text-primary-foreground"
                       : "bg-muted text-foreground/60 cursor-not-allowed"
@@ -692,14 +692,14 @@ export function ChatInputBox({
                       disabled={isLoading ? !onStop : isSendDisabled}
                       size="icon-sm"
                       className={cn(
-                        "h-[30px] w-[30px] rounded-md shrink-0 transition-colors duration-200",
+                        "h-[30px] w-[30px] rounded-3xl shrink-0 transition-colors duration-200",
                         isLoading
                           ? "bg-destructive/10 text-destructive hover:bg-destructive/15 dark:bg-destructive/15"
                           : isOverLimit
-                            ? "bg-ol-blue/15 text-ol-blue/40 cursor-not-allowed"
+                            ? "bg-muted text-muted-foreground/40 cursor-not-allowed"
                             : canSubmit
-                              ? "bg-ol-blue hover:bg-ol-blue/90 text-white"
-                              : "bg-ol-blue/15 text-ol-blue/50"
+                              ? "bg-foreground hover:bg-foreground/90 text-background"
+                              : "bg-muted text-muted-foreground/50"
                       )}
                     />
                   </TooltipTrigger>

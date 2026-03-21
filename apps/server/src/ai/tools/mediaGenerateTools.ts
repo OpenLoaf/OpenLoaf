@@ -19,6 +19,11 @@ import {
   listMediaModelsToolDef,
 } from '@openloaf/api/types/tools/mediaGenerate'
 import { getProjectRootPath } from '@openloaf/api/services/vfsService'
+import {
+  buildBoardAssetRelativePath,
+  resolveBoardAssetDir,
+  resolveBoardScopedRoot,
+} from '@openloaf/api/common/boardPaths'
 import { getOpenLoafRootDir } from '@openloaf/config'
 import { logger } from '@/common/logger'
 import {
@@ -179,15 +184,14 @@ async function downloadAndSaveImage(input: {
   const fileName = buildFileName('png', input.fileName, input.index, input.total)
   // 逻辑：有 boardId 时直接保存到画布资产目录，与视频行为一致。
   if (input.boardId) {
-    const rootPath = input.projectId ? getProjectRootPath(input.projectId) : null
-    const effectiveRoot = rootPath ?? getOpenLoafRootDir()
-    const boardSegment = path.join('.openloaf', 'boards', input.boardId)
-    const dir = path.join(effectiveRoot, boardSegment, 'asset')
+    const boardRoot = resolveBoardScopedRoot(input.projectId)
+    const dir = resolveBoardAssetDir(boardRoot, input.boardId)
     await fs.mkdir(dir, { recursive: true })
     const filePath = path.join(dir, fileName)
     await fs.writeFile(filePath, buffer)
+    const relativeAssetDir = buildBoardAssetRelativePath(boardRoot, input.boardId)
     return {
-      url: path.posix.join(boardSegment.split(path.sep).join('/'), 'asset', fileName),
+      url: path.posix.join(relativeAssetDir.split(path.sep).join('/'), fileName),
       mediaType,
     }
   }
@@ -218,17 +222,24 @@ async function downloadAndSaveVideo(input: {
   const contentType = response.headers.get('content-type') || 'video/mp4'
   const ext = contentType.includes('webm') ? 'webm' : 'mp4'
   const fileName = buildFileName(ext, input.fileName, input.index, input.total)
-  const rootPath = input.projectId ? getProjectRootPath(input.projectId) : null
-  const effectiveRoot = rootPath ?? getOpenLoafRootDir()
-  const chatHistorySegment = input.boardId
-    ? path.join('.openloaf', 'boards', input.boardId)
-    : path.join('.openloaf', 'chat-history', input.sessionId)
-  const dir = path.join(effectiveRoot, chatHistorySegment, 'asset')
+  let dir: string
+  let relativeAssetDir: string
+  if (input.boardId) {
+    const boardRoot = resolveBoardScopedRoot(input.projectId)
+    dir = resolveBoardAssetDir(boardRoot, input.boardId)
+    relativeAssetDir = buildBoardAssetRelativePath(boardRoot, input.boardId)
+  } else {
+    const rootPath = input.projectId ? getProjectRootPath(input.projectId) : null
+    const effectiveRoot = rootPath ?? getOpenLoafRootDir()
+    const chatHistorySegment = path.join('.openloaf', 'chat-history', input.sessionId)
+    dir = path.join(effectiveRoot, chatHistorySegment, 'asset')
+    relativeAssetDir = path.join(chatHistorySegment, 'asset')
+  }
   await fs.mkdir(dir, { recursive: true })
   const filePath = path.join(dir, fileName)
   const stream = Readable.fromWeb(response.body as any)
   await pipeline(stream, createWriteStream(filePath))
-  return { url: path.posix.join(chatHistorySegment.split(path.sep).join('/'), 'asset', fileName) }
+  return { url: path.posix.join(relativeAssetDir.split(path.sep).join('/'), fileName) }
 }
 
 /** Simplify media model list for AI decision making — only keep fields the AI needs. */

@@ -131,7 +131,7 @@ export function TimePicker({
 								return (
 									<button
 										className={cn(
-											'relative flex w-full cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground',
+											'relative flex w-full cursor-pointer select-none items-center rounded-3xl px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground',
 											isSelected && 'bg-accent text-accent-foreground'
 										)}
 										key={time}

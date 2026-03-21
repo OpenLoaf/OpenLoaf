@@ -81,7 +81,7 @@ function msg(
 async function createSession(): Promise<string> {
   const sid = `test_branch_${crypto.randomUUID()}`
   await prisma.chatSession.create({ data: { id: sid, messageCount: 0 } })
-  registerSessionDir(sid)
+  await registerSessionDir(sid)
   return sid
 }
 

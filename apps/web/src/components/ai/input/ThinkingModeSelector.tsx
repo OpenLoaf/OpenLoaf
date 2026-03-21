@@ -38,7 +38,7 @@ export default function ThinkingModeSelector({
   return (
     <div
       className={cn(
-        "relative inline-flex h-8 cursor-pointer items-center rounded-full border border-border/60 bg-muted/60 p-0.5",
+        "relative inline-flex h-8 cursor-pointer items-center rounded-3xl border border-border/60 bg-muted/60 p-0.5",
         disabled && "pointer-events-none opacity-50",
         className,
       )}
@@ -56,17 +56,17 @@ export default function ThinkingModeSelector({
       {/* 滑动指示块 */}
       <span
         className={cn(
-          "absolute top-0.5 h-7 w-7 rounded-full transition-all duration-200",
+          "absolute top-0.5 h-7 w-7 rounded-3xl transition-all duration-200",
           isDeep
-            ? "left-0.5 bg-ol-purple/15"
-            : "left-[calc(100%-1.875rem)] bg-ol-green/15",
+            ? "left-0.5 bg-foreground/10"
+            : "left-[calc(100%-1.875rem)] bg-foreground/10",
         )}
       />
       <span
         className={cn(
           "relative z-10 inline-flex h-7 w-7 items-center justify-center transition-colors",
           isDeep
-            ? "text-ol-purple"
+            ? "text-foreground"
             : "text-muted-foreground",
         )}
       >
@@ -76,7 +76,7 @@ export default function ThinkingModeSelector({
         className={cn(
           "relative z-10 inline-flex h-7 w-7 items-center justify-center transition-colors",
           !isDeep
-            ? "text-ol-green"
+            ? "text-foreground"
             : "text-muted-foreground",
         )}
       >

@@ -194,7 +194,7 @@ export default function PlateDocViewer({
 
   const saveIcon =
     saveIndicator === 'saving' ? <Loader2 className="h-4 w-4 animate-spin" /> :
-    saveIndicator === 'saved' ? <Check className="h-4 w-4 text-ol-green" /> :
+    saveIndicator === 'saved' ? <Check className="h-4 w-4 text-muted-foreground" /> :
     <Save className="h-4 w-4" />
 
   return (

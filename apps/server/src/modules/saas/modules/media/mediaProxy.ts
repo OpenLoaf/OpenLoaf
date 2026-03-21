@@ -8,6 +8,10 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import path from "node:path";
+import {
+  buildBoardAssetRelativePath,
+  resolveBoardScopedRoot,
+} from "@openloaf/api/common/boardPaths";
 import { isRecord } from "@/ai/shared/util";
 import { resolveImageSaveDirectory, saveImageUrlsToDirectory } from "@/ai/services/image/imageStorage";
 import { loadProjectImageBuffer } from "@/ai/services/image/attachmentResolver";
@@ -20,14 +24,13 @@ import { readBasicConf, readS3Providers } from "@/modules/settings/openloafConfS
 import { createS3StorageService, resolveS3ProviderConfig } from "@/modules/storage/s3StorageService";
 import { logger } from "@/common/logger";
 import {
-  cancelMediaTask,
-  fetchAudioModels,
-  fetchImageModels,
-  fetchVideoModels,
-  pollMediaTask,
-  submitMediaTask,
-  submitMediaGenerateV2,
   fetchMediaModelsV2,
+  uploadMediaFile,
+  fetchCapabilitiesV3,
+  submitV3Generate,
+  pollV3Task,
+  cancelV3Task,
+  pollV3TaskGroup,
 } from "./client";
 import {
   clearMediaTask,
@@ -50,6 +53,8 @@ export type MediaSubmitContext = {
   projectId?: string;
   /** Save directory for generated assets. */
   saveDir?: string;
+  /** Board id — used to resolve saveDir when saveDir is not provided. */
+  boardId?: string;
   /** Source node id for tracing. */
   sourceNodeId?: string;
 };
@@ -82,14 +87,22 @@ function splitMediaSubmitBody(body: unknown): {
   const {
     projectId,
     saveDir,
+    boardId,
     sourceNodeId,
     ...payload
   } = body as Record<string, unknown>;
+  // 逻辑：优先使用 boardId 构建 saveDir，向后兼容直接传入 saveDir 的老客户端。
+  let resolvedSaveDir = typeof saveDir === "string" ? saveDir : undefined;
+  if (!resolvedSaveDir && typeof boardId === "string" && boardId) {
+    const boardRoot = resolveBoardScopedRoot(typeof projectId === "string" ? projectId : undefined);
+    resolvedSaveDir = buildBoardAssetRelativePath(boardRoot, boardId);
+  }
   return {
     payload,
     context: {
       projectId: typeof projectId === "string" ? projectId : undefined,
-      saveDir: typeof saveDir === "string" ? saveDir : undefined,
+      saveDir: resolvedSaveDir,
+      boardId: typeof boardId === "string" ? boardId : undefined,
       sourceNodeId: typeof sourceNodeId === "string" ? sourceNodeId : undefined,
     },
   };
@@ -143,23 +156,36 @@ function extractPathFromLocalUrl(url: string): string | null {
 type ResolvedMediaInput = { url: string } | { base64: string; mediaType: string };
 
 /**
- * Resolve a local image URL to either:
- *   1. S3 public URL (if S3 configured) — preferred
- *   2. base64 encoded data (fallback)
- *   3. Original URL (if not local or resolution fails)
+ * Resolve a local/relative media input to a publicly accessible format.
+ *
+ * Strategy (in order):
+ *   1. Local S3 configured → upload to S3, return public URL
+ *   2. No S3 → upload via SaaS SDK `sdk.ai.uploadFile()`, return CDN URL
+ *   3. uploadFile not available/fails → base64 inline fallback
+ *
+ * Non-local URLs (http/https external) are passed through unchanged.
  */
 async function resolveLocalMediaInput(
   input: Record<string, unknown>,
   context: MediaSubmitContext,
+  accessToken?: string,
 ): Promise<ResolvedMediaInput> {
   const url = typeof input.url === 'string' ? input.url : '';
-  if (!url || !isLocalMediaUrl(url)) {
+
+  // data: URLs — already inline, pass through
+  if (url.startsWith('data:')) return input as ResolvedMediaInput;
+
+  // External URLs (not local) — pass through
+  if (url && !isLocalMediaUrl(url) && (url.startsWith('http://') || url.startsWith('https://'))) {
     return input as ResolvedMediaInput;
   }
 
+  // No URL or local URL — need to resolve
+  if (!url) return input as ResolvedMediaInput;
+
   const relativePath = extractPathFromLocalUrl(url);
   if (!relativePath) {
-    logger.warn({ url }, 'Cannot extract path from local media URL, passing as-is');
+    logger.warn({ url }, 'Cannot extract path from local media URL');
     return input as ResolvedMediaInput;
   }
 
@@ -169,15 +195,17 @@ async function resolveLocalMediaInput(
     projectId: context.projectId,
   });
   if (!loaded) {
-    logger.warn({ relativePath }, 'Failed to load local media file, passing URL as-is');
+    logger.warn({ relativePath }, 'Failed to load local media file');
     return input as ResolvedMediaInput;
   }
 
-  // Strategy 1: Upload to S3 if configured
+  const fileName = path.basename(relativePath);
+
+  // Strategy 1: Upload to local S3 if configured
   const s3 = resolveActiveS3();
   if (s3) {
     try {
-      const key = `temp/media-input/${Date.now()}_${path.basename(relativePath)}`;
+      const key = `temp/media-input/${Date.now()}_${fileName}`;
       const ref = await s3.putObject({
         key,
         body: loaded.buffer,
@@ -187,11 +215,22 @@ async function resolveLocalMediaInput(
       logger.debug({ key, url: ref.url }, 'Uploaded local media to S3');
       return { url: ref.url };
     } catch (err) {
-      logger.warn({ err, relativePath }, 'S3 upload failed, falling back to base64');
+      logger.warn({ err, relativePath }, 'S3 upload failed, trying SDK uploadFile');
     }
   }
 
-  // Strategy 2: Base64 fallback
+  // Strategy 2: Upload via SaaS SDK uploadFile
+  if (accessToken) {
+    try {
+      const cdnUrl = await uploadMediaFile(loaded.buffer, fileName, loaded.mediaType, accessToken);
+      logger.debug({ fileName, url: cdnUrl }, 'Uploaded local media via SDK uploadFile');
+      return { url: cdnUrl };
+    } catch (err) {
+      logger.warn({ err, relativePath }, 'SDK uploadFile failed, falling back to base64');
+    }
+  }
+
+  // Strategy 3: Base64 fallback
   const base64 = loaded.buffer.toString('base64');
   return { base64, mediaType: loaded.mediaType };
 }
@@ -200,11 +239,12 @@ async function resolveLocalMediaInput(
 async function resolvePayloadMediaInputs(
   payload: Record<string, unknown>,
   context: MediaSubmitContext,
+  accessToken?: string,
 ): Promise<Record<string, unknown>> {
   // v2: referenceAudio (tts voice cloning) — at payload level, not inside inputs
   let topLevelChanged = false;
   if (isRecord(payload.referenceAudio) && typeof (payload.referenceAudio as any).url === "string") {
-    const resolved = await resolveLocalMediaInput(payload.referenceAudio as Record<string, unknown>, context);
+    const resolved = await resolveLocalMediaInput(payload.referenceAudio as Record<string, unknown>, context, accessToken);
     if (resolved !== payload.referenceAudio) {
       payload = { ...payload, referenceAudio: resolved };
       topLevelChanged = true;
@@ -221,7 +261,7 @@ async function resolvePayloadMediaInputs(
     const resolved = await Promise.all(
       inputs.images.map(async (img: unknown) => {
         if (!isRecord(img) || typeof img.url !== 'string') return img;
-        const result = await resolveLocalMediaInput(img as Record<string, unknown>, context);
+        const result = await resolveLocalMediaInput(img as Record<string, unknown>, context, accessToken);
         if (result !== img) changed = true;
         return result;
       }),
@@ -231,40 +271,40 @@ async function resolvePayloadMediaInputs(
 
   // Handle inputs.startImage (single { url, base64, mediaType })
   if (isRecord(inputs.startImage) && typeof inputs.startImage.url === 'string') {
-    const result = await resolveLocalMediaInput(inputs.startImage as Record<string, unknown>, context);
+    const result = await resolveLocalMediaInput(inputs.startImage as Record<string, unknown>, context, accessToken);
     if (result !== inputs.startImage) { inputs.startImage = result; changed = true; }
   }
 
   // Handle inputs.endImage
   if (isRecord(inputs.endImage) && typeof inputs.endImage.url === 'string') {
-    const result = await resolveLocalMediaInput(inputs.endImage as Record<string, unknown>, context);
+    const result = await resolveLocalMediaInput(inputs.endImage as Record<string, unknown>, context, accessToken);
     if (result !== inputs.endImage) { inputs.endImage = result; changed = true; }
   }
 
   // Handle inputs.referenceVideo
   if (isRecord(inputs.referenceVideo) && typeof inputs.referenceVideo.url === 'string') {
-    const result = await resolveLocalMediaInput(inputs.referenceVideo as Record<string, unknown>, context);
+    const result = await resolveLocalMediaInput(inputs.referenceVideo as Record<string, unknown>, context, accessToken);
     if (result !== inputs.referenceVideo) { inputs.referenceVideo = result; changed = true; }
   }
 
   // v2: single image input (imageEdit, upscale, outpaint)
   if (isRecord(inputs.image) && typeof inputs.image.url === "string") {
-    const resolved = await resolveLocalMediaInput(inputs.image as Record<string, unknown>, context);
+    const resolved = await resolveLocalMediaInput(inputs.image as Record<string, unknown>, context, accessToken);
     if (resolved !== inputs.image) { inputs.image = resolved; changed = true; }
   }
   // v2: mask input (imageEdit inpaint/erase)
   if (isRecord(inputs.mask) && typeof inputs.mask.url === "string") {
-    const resolved = await resolveLocalMediaInput(inputs.mask as Record<string, unknown>, context);
+    const resolved = await resolveLocalMediaInput(inputs.mask as Record<string, unknown>, context, accessToken);
     if (resolved !== inputs.mask) { inputs.mask = resolved; changed = true; }
   }
   // v2: person input (digitalHuman)
   if (isRecord(inputs.person) && typeof inputs.person.url === "string") {
-    const resolved = await resolveLocalMediaInput(inputs.person as Record<string, unknown>, context);
+    const resolved = await resolveLocalMediaInput(inputs.person as Record<string, unknown>, context, accessToken);
     if (resolved !== inputs.person) { inputs.person = resolved; changed = true; }
   }
   // v2: audio input (digitalHuman)
   if (isRecord(inputs.audio) && typeof inputs.audio.url === "string") {
-    const resolved = await resolveLocalMediaInput(inputs.audio as Record<string, unknown>, context);
+    const resolved = await resolveLocalMediaInput(inputs.audio as Record<string, unknown>, context, accessToken);
     if (resolved !== inputs.audio) { inputs.audio = resolved; changed = true; }
   }
 
@@ -296,42 +336,6 @@ function inferResultType(feature: string): "image" | "video" | "audio" {
   }
 }
 
-/** Submit media generate via v2 unified endpoint. */
-export async function submitMediaGenerateProxy(
-  body: unknown,
-  accessToken: string,
-): Promise<unknown> {
-  const { payload, context } = splitMediaSubmitBody(body);
-  if (!payload || typeof payload !== "object" || !("feature" in payload)) {
-    throw new MediaProxyHttpError(
-      400,
-      "invalid_payload",
-      "请求参数无效，缺少 feature 字段",
-    );
-  }
-
-  const feature = (payload as Record<string, unknown>).feature as string;
-  const resolvedPayload = await resolvePayloadMediaInputs(payload, context);
-  const result = await submitMediaGenerateV2(
-    resolvedPayload as any,
-    accessToken,
-  );
-
-  if (result?.success === true && result.data?.taskId) {
-    rememberMediaTask({
-      taskId: result.data.taskId,
-      feature,
-      resultType: inferResultType(feature),
-      projectId: context.projectId,
-      saveDir: context.saveDir,
-      sourceNodeId: context.sourceNodeId,
-      createdAt: Date.now(),
-    });
-  }
-
-  return result;
-}
-
 /** Fetch v2 media models (unified, with optional feature filter). */
 export async function fetchMediaModelsProxy(
   accessToken: string,
@@ -340,91 +344,61 @@ export async function fetchMediaModelsProxy(
   return fetchMediaModelsV2(accessToken, feature);
 }
 
-/** Submit image generation via SaaS SDK. */
-export async function submitImageProxy(
-  body: unknown,
-  accessToken: string,
-): Promise<unknown> {
-  const { payload, context } = splitMediaSubmitBody(body);
-  if (!payload) {
-    throw new MediaProxyHttpError(400, "invalid_payload", "请求参数无效");
-  }
-  // 逻辑：本地 URL（localhost/127.0.0.1）SaaS 后端无法下载，
-  // 有 S3 → 上传后用公开 URL 替换；无 S3 → 转 base64 兜底。
-  const resolvedPayload = await resolvePayloadMediaInputs(payload, context);
-  const result = await submitMediaTask({ kind: "image", payload: resolvedPayload }, accessToken);
-  // 逻辑：提交成功后记录上下文，供轮询阶段落库使用。
-  if (result?.success === true && result.data?.taskId) {
-    rememberMediaTask({
-      taskId: result.data.taskId,
-      resultType: "image",
-      projectId: context.projectId,
-      saveDir: context.saveDir,
-      sourceNodeId: context.sourceNodeId,
-      createdAt: Date.now(),
-    });
-  }
-  return result;
-}
-
-/** Submit video generation via SaaS SDK. */
-export async function submitVideoProxy(
-  body: unknown,
-  accessToken: string,
-): Promise<unknown> {
-  const { payload, context } = splitMediaSubmitBody(body);
-  if (!payload) {
-    throw new MediaProxyHttpError(400, "invalid_payload", "请求参数无效");
-  }
-  // 逻辑：同图片生成，解析本地 URL。
-  const resolvedPayload = await resolvePayloadMediaInputs(payload, context);
-  const result = await submitMediaTask({ kind: "video", payload: resolvedPayload }, accessToken);
-  // 逻辑：提交成功后记录上下文，供轮询阶段落库使用。
-  if (result?.success === true && result.data?.taskId) {
-    rememberMediaTask({
-      taskId: result.data.taskId,
-      resultType: "video",
-      projectId: context.projectId,
-      saveDir: context.saveDir,
-      sourceNodeId: context.sourceNodeId,
-      createdAt: Date.now(),
-    });
-  }
-  return result;
-}
-
-/** Submit audio generation via SaaS SDK. */
-export async function submitAudioProxy(
-  body: unknown,
-  accessToken: string,
-): Promise<unknown> {
-  const { payload, context } = splitMediaSubmitBody(body);
-  if (!payload) {
-    throw new MediaProxyHttpError(400, "invalid_payload", "请求参数无效");
-  }
-  const result = await submitMediaTask({ kind: "audio", payload }, accessToken);
-  if (result?.success === true && result.data?.taskId) {
-    rememberMediaTask({
-      taskId: result.data.taskId,
-      resultType: "audio",
-      projectId: context.projectId,
-      saveDir: context.saveDir,
-      sourceNodeId: context.sourceNodeId,
-      createdAt: Date.now(),
-    });
-  }
-  return result;
-}
-
 export type PollRecoveryHint = {
   /** Project id for lazy loading board tasks. */
-  projectId?: string;
+  projectId?: string
   /** Save directory for lazy loading board tasks. */
-  saveDir?: string;
-};
+  saveDir?: string
+  /** Board id — used to resolve saveDir when saveDir is not provided. */
+  boardId?: string
+}
 
-/** Poll SaaS task and persist assets if needed. */
-export async function pollMediaProxy(
+// ═══════════ Media v3 proxy functions ═══════════
+
+/** Fetch v3 capabilities for a given media category. */
+export async function fetchCapabilitiesProxy(
+  category: 'image' | 'video' | 'audio',
+  accessToken: string,
+): Promise<unknown> {
+  return fetchCapabilitiesV3(category, accessToken);
+}
+
+/** Submit v3 media generation task with local URL resolution. */
+export async function submitV3GenerateProxy(
+  body: unknown,
+  accessToken: string,
+): Promise<unknown> {
+  const { payload, context } = splitMediaSubmitBody(body);
+  if (!payload || typeof payload !== "object") {
+    throw new MediaProxyHttpError(
+      400,
+      "invalid_payload",
+      "请求参数无效",
+    );
+  }
+
+  const resolvedPayload = await resolvePayloadMediaInputs(payload, context, accessToken);
+  const result = await submitV3Generate(resolvedPayload, accessToken);
+
+  // 逻辑：提交成功时记住任务上下文，便于后续 poll 时进行资产持久化。
+  if (result?.success === true && result.data?.taskId) {
+    const feature = (resolvedPayload as Record<string, unknown>).feature as string | undefined;
+    rememberMediaTask({
+      taskId: result.data.taskId,
+      feature: feature ?? undefined,
+      resultType: feature ? inferResultType(feature) : undefined,
+      projectId: context.projectId,
+      saveDir: context.saveDir,
+      sourceNodeId: context.sourceNodeId,
+      createdAt: Date.now(),
+    });
+  }
+
+  return result;
+}
+
+/** Poll v3 task and persist assets if needed. */
+export async function pollV3TaskProxy(
   taskId: string,
   accessToken: string,
   recoveryHint?: PollRecoveryHint,
@@ -432,17 +406,35 @@ export async function pollMediaProxy(
   if (!taskId) {
     throw new MediaProxyHttpError(400, "invalid_payload", "任务编号无效");
   }
+
   let ctx = getMediaTaskContext(taskId);
   // 逻辑：内存未命中时尝试从画布目录的 tasks.json 恢复（服务重启场景）。
-  if (!ctx && recoveryHint?.projectId && recoveryHint?.saveDir) {
-    loadBoardTasks(recoveryHint.projectId, recoveryHint.saveDir);
+  const hintSaveDir = recoveryHint?.saveDir
+    || (recoveryHint?.boardId
+      ? buildBoardAssetRelativePath(
+          resolveBoardScopedRoot(recoveryHint.projectId),
+          recoveryHint.boardId,
+        )
+      : undefined);
+  if (!ctx && recoveryHint?.projectId && hintSaveDir) {
+    loadBoardTasks(recoveryHint.projectId, hintSaveDir);
     ctx = getMediaTaskContext(taskId);
   }
-  const result = await pollMediaTask(taskId, accessToken);
-  const resultType = result.resultType ?? ctx?.resultType;
-  let resultUrls = result.resultUrls;
 
-  if (result.status === "succeeded" && resultUrls && resultUrls.length > 0) {
+  const response = await pollV3Task(taskId, accessToken);
+  if (!response || response.success !== true) {
+    return {
+      success: false,
+      message: response?.message ?? "任务查询失败",
+    };
+  }
+
+  const data = response.data;
+  const feature = ctx?.feature;
+  const resultType = feature ? inferResultType(feature) : (data.resultType ?? ctx?.resultType);
+  let resultUrls: string[] | undefined = data.resultUrls;
+
+  if (data.status === "succeeded" && resultUrls && resultUrls.length > 0) {
     const saveDir = (ctx?.saveDir ?? "").trim();
     if (!saveDir) {
       // 逻辑：未指定保存目录时直接返回 SaaS URL。
@@ -450,11 +442,12 @@ export async function pollMediaProxy(
       return {
         success: true,
         data: {
-          status: result.status,
-          progress: result.progress,
-          resultType: resultType,
+          taskId: data.taskId ?? taskId,
+          status: data.status,
+          resultType,
           resultUrls,
-          error: result.error,
+          creditsConsumed: data.creditsConsumed,
+          error: data.error,
         },
       };
     }
@@ -473,14 +466,12 @@ export async function pollMediaProxy(
         directory: resolvedDir,
       });
       if (ctx?.projectId) {
-        // 逻辑：有 projectId 时返回 saveDir 相对路径，前端通过 projectId 加载。
         const normalizedSaveDir = saveDir.replace(/\\/g, "/").replace(/\/+$/, "");
         resultUrls = savedPaths.map((filePath) => {
           const fileName = path.basename(filePath);
           return normalizedSaveDir ? `${normalizedSaveDir}/${fileName}` : fileName;
         });
       } else {
-        // 逻辑：无 projectId 时返回全局相对路径，前端通过 preview endpoint 全局加载。
         resultUrls = savedPaths.map((filePath) => {
           const relativePath = toGlobalRelativePath(filePath);
           return relativePath ?? path.basename(filePath);
@@ -529,13 +520,11 @@ export async function pollMediaProxy(
         fileNameBase: taskId,
       });
       if (ctx?.projectId) {
-        // 逻辑：有 projectId 时返回 saveDir 相对路径。
         const normalizedSaveDir = saveDir.replace(/\\/g, "/").replace(/\/+$/, "");
         resultUrls = [
           normalizedSaveDir ? `${normalizedSaveDir}/${saved.fileName}` : saved.fileName,
         ];
       } else {
-        // 逻辑：无 projectId 时返回全局相对路径。
         const savedFilePath = path.join(resolvedDir, saved.fileName);
         const relativePath = toGlobalRelativePath(savedFilePath);
         resultUrls = [relativePath ?? saved.fileName];
@@ -546,7 +535,7 @@ export async function pollMediaProxy(
     clearMediaTask(taskId);
   }
 
-  if (result.status === "failed" || result.status === "canceled") {
+  if (data.status === "failed" || data.status === "canceled") {
     // 逻辑：失败/取消时清理上下文缓存。
     clearMediaTask(taskId);
   }
@@ -554,46 +543,35 @@ export async function pollMediaProxy(
   return {
     success: true,
     data: {
-      status: result.status,
-      progress: result.progress,
-      resultType: resultType,
+      taskId: data.taskId ?? taskId,
+      status: data.status,
+      resultType,
       resultUrls,
-      error: result.error,
+      creditsConsumed: data.creditsConsumed,
+      error: data.error,
     },
   };
 }
 
-/** Cancel SaaS media task. */
-export async function cancelMediaProxy(
+/** Cancel v3 media task. */
+export async function cancelV3TaskProxy(
   taskId: string,
   accessToken: string,
 ): Promise<unknown> {
   if (!taskId) {
     throw new MediaProxyHttpError(400, "invalid_payload", "任务编号无效");
   }
-  return cancelMediaTask(taskId, accessToken);
+  return cancelV3Task(taskId, accessToken);
 }
 
-/** Fetch image model list. */
-export async function fetchImageModelsProxy(
+/** Poll v3 task group. */
+export async function pollV3TaskGroupProxy(
+  groupId: string,
   accessToken: string,
-  options?: { force?: boolean },
 ): Promise<unknown> {
-  return fetchImageModels(accessToken, options);
+  if (!groupId) {
+    throw new MediaProxyHttpError(400, "invalid_payload", "任务组编号无效");
+  }
+  return pollV3TaskGroup(groupId, accessToken);
 }
 
-/** Fetch video model list. */
-export async function fetchVideoModelsProxy(
-  accessToken: string,
-  options?: { force?: boolean },
-): Promise<unknown> {
-  return fetchVideoModels(accessToken, options);
-}
-
-/** Fetch audio model list. */
-export async function fetchAudioModelsProxy(
-  accessToken: string,
-  options?: { force?: boolean },
-): Promise<unknown> {
-  return fetchAudioModels(accessToken, options);
-}

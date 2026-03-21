@@ -140,11 +140,11 @@ export default function WidgetCheckTool({
   if (part.state === 'output-available' && !isLatest) {
     return (
       <div className={cn('w-full min-w-0', className)}>
-        <div className="flex items-center gap-2 rounded-md border px-3 py-1.5 text-xs text-muted-foreground">
+        <div className="flex items-center gap-2 rounded-3xl border px-3 py-1.5 text-xs text-muted-foreground">
           {ok ? (
-            <CheckCircle2 className="size-3.5 text-ol-green" />
+            <CheckCircle2 className="size-3.5 text-foreground" />
           ) : (
-            <XCircle className="size-3.5 text-ol-red" />
+            <XCircle className="size-3.5 text-destructive" />
           )}
           <span className="font-mono">{widgetName}</span>
           <span>{ok ? '编译通过' : `${errors.length} 个错误`}</span>
@@ -155,7 +155,7 @@ export default function WidgetCheckTool({
 
   return (
     <div className={cn('w-full min-w-0', className)}>
-      <div className="overflow-hidden rounded-xl border bg-card text-card-foreground">
+      <div className="overflow-hidden rounded-3xl border bg-card text-card-foreground">
         {/* 标题栏 */}
         <div className="flex items-center gap-3 border-b bg-muted/50 px-3 py-2">
           <TrafficLights state={windowState} />
@@ -201,7 +201,7 @@ export default function WidgetCheckTool({
           <div className="flex items-center justify-end gap-2 border-t px-3 py-2">
             <button
               type="button"
-              className="inline-flex items-center gap-1.5 rounded-md bg-ol-blue/10 px-2.5 py-1 text-xs font-medium text-ol-blue hover:bg-ol-blue/20"
+              className="inline-flex items-center gap-1.5 rounded-3xl bg-secondary px-2.5 py-1 text-xs font-medium text-foreground hover:bg-secondary/80"
               onClick={handleOpenWidget}
             >
               <FolderOpen className="size-3.5" />
@@ -209,7 +209,7 @@ export default function WidgetCheckTool({
             </button>
             <button
               type="button"
-              className="inline-flex items-center gap-1.5 rounded-md bg-ol-purple/10 px-2.5 py-1 text-xs font-medium text-ol-purple hover:bg-ol-purple/20"
+              className="inline-flex items-center gap-1.5 rounded-3xl bg-secondary px-2.5 py-1 text-xs font-medium text-foreground hover:bg-secondary/80"
               onClick={handleAddToDesktop}
             >
               <LayoutGrid className="size-3.5" />

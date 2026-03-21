@@ -145,7 +145,7 @@ export default function WidgetTool({
 
   return (
     <div className={cn('w-full min-w-0', className)}>
-      <div className="overflow-hidden rounded-xl border bg-card text-card-foreground">
+      <div className="overflow-hidden rounded-3xl border bg-card text-card-foreground">
         {/* macOS 风格标题栏 */}
         <div className="flex items-center gap-3 border-b bg-muted/50 px-3 py-2">
           <TrafficLights state={windowState} />
@@ -162,8 +162,8 @@ export default function WidgetTool({
         {/* 命令区域 — widgetId */}
         <div className="border-b bg-muted/20 px-3 py-2">
           <div className="flex items-center gap-2 font-mono text-xs">
-            <span className="text-ol-green">$</span>
-            <span className="flex-1 break-all text-ol-amber">
+            <span className="text-muted-foreground">$</span>
+            <span className="flex-1 break-all text-foreground">
               {widgetId}
             </span>
           </div>
@@ -200,7 +200,7 @@ export default function WidgetTool({
           <div className="flex items-center justify-end gap-2 border-t px-3 py-2">
             <button
               type="button"
-              className="inline-flex items-center gap-1.5 rounded-md bg-ol-blue/10 px-2.5 py-1 text-xs font-medium text-ol-blue hover:bg-ol-blue/20"
+              className="inline-flex items-center gap-1.5 rounded-3xl bg-secondary px-2.5 py-1 text-xs font-medium text-foreground hover:bg-secondary/80"
               onClick={handleOpenWidget}
             >
               <FolderOpen className="size-3.5" />
@@ -208,7 +208,7 @@ export default function WidgetTool({
             </button>
             <button
               type="button"
-              className="inline-flex items-center gap-1.5 rounded-md bg-ol-purple/10 px-2.5 py-1 text-xs font-medium text-ol-purple hover:bg-ol-purple/20"
+              className="inline-flex items-center gap-1.5 rounded-3xl bg-secondary px-2.5 py-1 text-xs font-medium text-foreground hover:bg-secondary/80"
               onClick={handleAddToDesktop}
             >
               <LayoutGrid className="size-3.5" />

@@ -381,13 +381,13 @@ export const ScheduledTaskDialog = memo(function ScheduledTaskDialog({
   const isProjectScope = tabScope === 'project'
   // 逻辑：项目 Tab 必须选中具体项目才能提交。
   const canSubmit = Boolean(name.trim()) && (isEditing || !isProjectScope || Boolean(resolvedProjectId))
-  const inputBase = 'h-8 rounded-md border border-border/70 bg-muted/40 px-3 text-xs text-foreground shadow-none focus-visible:ring-0'
+  const inputBase = 'h-8 rounded-3xl border border-border/70 bg-muted/40 px-3 text-xs text-foreground shadow-none focus-visible:ring-0'
   const inlineInput = 'h-8 w-full max-w-[360px] border-0 bg-transparent text-right text-sm text-foreground shadow-none focus-visible:ring-0'
-  const selectBase = 'h-8 rounded-md border border-border/70 bg-muted/40 px-3 text-xs shadow-none justify-between gap-2 focus-visible:ring-0'
+  const selectBase = 'h-8 rounded-3xl border border-border/70 bg-muted/40 px-3 text-xs shadow-none justify-between gap-2 focus-visible:ring-0'
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[640px] h-[78vh] flex flex-col overflow-hidden rounded-2xl border border-border/60 bg-background p-0 shadow-ol-float">
+      <DialogContent className="max-w-[640px] h-[78vh] flex flex-col overflow-hidden rounded-3xl border border-border/60 bg-background p-0 shadow-ol-float">
         <DialogHeader className="shrink-0 px-6 pt-6 pb-3">
           <DialogTitle className="text-[16px] font-semibold">{isEditing ? t('schedule.editTitle') : t('schedule.createTitle')}</DialogTitle>
         </DialogHeader>
@@ -405,12 +405,12 @@ export const ScheduledTaskDialog = memo(function ScheduledTaskDialog({
               </FormRow>
               <FormRow label={t('schedule.typeLabel')}>
                 <Tabs value={triggerMode} onValueChange={(value) => setTriggerMode(value as typeof triggerMode)}>
-                  <TabsList className="h-8 w-max rounded-md border border-border/70 bg-muted/40 p-1">
-                    <TabsTrigger value="scheduled" className="h-6 rounded-md px-2 text-xs whitespace-nowrap">
+                  <TabsList className="h-8 w-max rounded-3xl border border-border/70 bg-muted/40 p-1">
+                    <TabsTrigger value="scheduled" className="h-6 rounded-3xl px-2 text-xs whitespace-nowrap">
                       {t('schedule.scheduled')}
                     </TabsTrigger>
-                    <TabsTrigger value="condition" className="h-6 rounded-md px-2 text-xs whitespace-nowrap">
-                      {t('schedule.condition')} <span className="ml-1 text-[10px] text-ol-amber">(Beta)</span>
+                    <TabsTrigger value="condition" className="h-6 rounded-3xl px-2 text-xs whitespace-nowrap">
+                      {t('schedule.condition')} <span className="ml-1 text-[10px] text-muted-foreground">(Beta)</span>
                     </TabsTrigger>
                   </TabsList>
                 </Tabs>
@@ -419,11 +419,11 @@ export const ScheduledTaskDialog = memo(function ScheduledTaskDialog({
                 <>
                   <FormRow label={t('schedule.scopeLabel')}>
                     <Tabs value={tabScope} onValueChange={(value) => setTabScope(value as typeof tabScope)}>
-                      <TabsList className="h-8 w-max rounded-md border border-border/70 bg-muted/40 p-1">
-                        <TabsTrigger value="global" className="h-6 rounded-md px-2 text-xs whitespace-nowrap">
+                      <TabsList className="h-8 w-max rounded-3xl border border-border/70 bg-muted/40 p-1">
+                        <TabsTrigger value="global" className="h-6 rounded-3xl px-2 text-xs whitespace-nowrap">
                           {t('schedule.global', { defaultValue: t('schedule.projectSpace') })}
                         </TabsTrigger>
-                        <TabsTrigger value="project" className="h-6 rounded-md px-2 text-xs whitespace-nowrap">
+                        <TabsTrigger value="project" className="h-6 rounded-3xl px-2 text-xs whitespace-nowrap">
                           {t('schedule.project')}
                         </TabsTrigger>
                       </TabsList>
@@ -439,18 +439,18 @@ export const ScheduledTaskDialog = memo(function ScheduledTaskDialog({
                           <SelectTrigger className={cn(selectBase, 'w-[220px]')}>
                             <SelectValue placeholder={projectsQuery.isLoading ? t('schedule.loadingProjects') : t('schedule.selectProject')} />
                           </SelectTrigger>
-                          <SelectContent className="rounded-xl">
+                          <SelectContent className="rounded-3xl">
                             {projectOptions.length > 0 ? (
                               projectOptions.map((project) => {
                                 const prefix = project.depth > 0 ? `${'-- '.repeat(project.depth)}` : ''
                                 return (
-                                  <SelectItem key={project.projectId} value={project.projectId} className="rounded-lg text-xs">
+                                  <SelectItem key={project.projectId} value={project.projectId} className="rounded-3xl text-xs">
                                     {prefix}{project.title}
                                   </SelectItem>
                                 )
                               })
                             ) : (
-                              <SelectItem value="__empty__" disabled className="rounded-lg text-xs text-muted-foreground">
+                              <SelectItem value="__empty__" disabled className="rounded-3xl text-xs text-muted-foreground">
                                 {t('schedule.noProjects')}
                               </SelectItem>
                             )}
@@ -467,14 +467,14 @@ export const ScheduledTaskDialog = memo(function ScheduledTaskDialog({
             </div>
 
             <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as typeof activeTab)}>
-              <TabsList className="h-9 w-max rounded-md border border-border/70 bg-muted/40 p-1">
-                <TabsTrigger value="trigger" className="h-7 rounded-md px-3 text-xs whitespace-nowrap">
+              <TabsList className="h-9 w-max rounded-3xl border border-border/70 bg-muted/40 p-1">
+                <TabsTrigger value="trigger" className="h-7 rounded-3xl px-3 text-xs whitespace-nowrap">
                   {t('schedule.triggerTab')}
                 </TabsTrigger>
-                <TabsTrigger value="action" className="h-7 rounded-md px-3 text-xs whitespace-nowrap">
+                <TabsTrigger value="action" className="h-7 rounded-3xl px-3 text-xs whitespace-nowrap">
                   {t('schedule.actionTab')}
                 </TabsTrigger>
-                <TabsTrigger value="advanced" className="h-7 rounded-md px-3 text-xs whitespace-nowrap">
+                <TabsTrigger value="advanced" className="h-7 rounded-3xl px-3 text-xs whitespace-nowrap">
                   {t('schedule.advancedTab')}
                 </TabsTrigger>
               </TabsList>
@@ -488,13 +488,13 @@ export const ScheduledTaskDialog = memo(function ScheduledTaskDialog({
                             <SelectTrigger className={cn(selectBase, 'w-[220px]')}>
                               <SelectValue />
                             </SelectTrigger>
-                            <SelectContent className="rounded-xl">
-                              <SelectItem value="interval" className="rounded-lg text-xs">{t('schedule.interval')}</SelectItem>
-                              <SelectItem value="daily" className="rounded-lg text-xs">{t('schedule.daily')}</SelectItem>
-                              <SelectItem value="weekly" className="rounded-lg text-xs">{t('schedule.weekly')}</SelectItem>
-                              <SelectItem value="monthly" className="rounded-lg text-xs">{t('schedule.monthly')}</SelectItem>
-                              <SelectItem value="once" className="rounded-lg text-xs">{t('schedule.once')}</SelectItem>
-                              <SelectItem value="custom" className="rounded-lg text-xs">{t('schedule.custom')}</SelectItem>
+                            <SelectContent className="rounded-3xl">
+                              <SelectItem value="interval" className="rounded-3xl text-xs">{t('schedule.interval')}</SelectItem>
+                              <SelectItem value="daily" className="rounded-3xl text-xs">{t('schedule.daily')}</SelectItem>
+                              <SelectItem value="weekly" className="rounded-3xl text-xs">{t('schedule.weekly')}</SelectItem>
+                              <SelectItem value="monthly" className="rounded-3xl text-xs">{t('schedule.monthly')}</SelectItem>
+                              <SelectItem value="once" className="rounded-3xl text-xs">{t('schedule.once')}</SelectItem>
+                              <SelectItem value="custom" className="rounded-3xl text-xs">{t('schedule.custom')}</SelectItem>
                             </SelectContent>
                           </Select>
                         </FormRow>
@@ -516,7 +516,7 @@ export const ScheduledTaskDialog = memo(function ScheduledTaskDialog({
                                 date={scheduleOnceDate}
                                 onChange={setScheduleOnceDate}
                                 label={t('schedule.selectDate')}
-                                className="[& button]:h-8 [& button]:rounded-md [& button]:border-border/70 [& button]:bg-muted/40 [& button]:text-xs [& button]:shadow-none w-full max-w-[220px]"
+                                className="[& button]:h-8 [& button]:rounded-3xl [& button]:border-border/70 [& button]:bg-muted/40 [& button]:text-xs [& button]:shadow-none w-full max-w-[220px]"
                               />
                             </FormRow>
                             <FormRow label={t('schedule.timeLabel')}>
@@ -525,7 +525,7 @@ export const ScheduledTaskDialog = memo(function ScheduledTaskDialog({
                                 onChange={setScheduleOnceTime}
                                 timeFormat="24-hour"
                                 placeholder={t('schedule.selectTime')}
-                                className="h-8 w-full max-w-[200px] rounded-md border border-border/70 bg-muted/40 text-xs font-normal shadow-none"
+                                className="h-8 w-full max-w-[200px] rounded-3xl border border-border/70 bg-muted/40 text-xs font-normal shadow-none"
                               />
                             </FormRow>
                           </>
@@ -537,7 +537,7 @@ export const ScheduledTaskDialog = memo(function ScheduledTaskDialog({
                               onChange={setScheduleTime}
                               timeFormat="24-hour"
                               placeholder={t('schedule.selectTime')}
-                              className="h-8 w-full max-w-[200px] rounded-md border border-border/70 bg-muted/40 text-xs font-normal shadow-none"
+                              className="h-8 w-full max-w-[200px] rounded-3xl border border-border/70 bg-muted/40 text-xs font-normal shadow-none"
                             />
                           </FormRow>
                         ) : null}
@@ -548,14 +548,14 @@ export const ScheduledTaskDialog = memo(function ScheduledTaskDialog({
                                 <SelectTrigger className={cn(selectBase, 'w-[180px]')}>
                                   <SelectValue />
                                 </SelectTrigger>
-                                <SelectContent className="rounded-xl">
-                                  <SelectItem value="1" className="rounded-lg text-xs">{t('schedule.dayLabels.1')}</SelectItem>
-                                  <SelectItem value="2" className="rounded-lg text-xs">{t('schedule.dayLabels.2')}</SelectItem>
-                                  <SelectItem value="3" className="rounded-lg text-xs">{t('schedule.dayLabels.3')}</SelectItem>
-                                  <SelectItem value="4" className="rounded-lg text-xs">{t('schedule.dayLabels.4')}</SelectItem>
-                                  <SelectItem value="5" className="rounded-lg text-xs">{t('schedule.dayLabels.5')}</SelectItem>
-                                  <SelectItem value="6" className="rounded-lg text-xs">{t('schedule.dayLabels.6')}</SelectItem>
-                                  <SelectItem value="0" className="rounded-lg text-xs">{t('schedule.dayLabels.0')}</SelectItem>
+                                <SelectContent className="rounded-3xl">
+                                  <SelectItem value="1" className="rounded-3xl text-xs">{t('schedule.dayLabels.1')}</SelectItem>
+                                  <SelectItem value="2" className="rounded-3xl text-xs">{t('schedule.dayLabels.2')}</SelectItem>
+                                  <SelectItem value="3" className="rounded-3xl text-xs">{t('schedule.dayLabels.3')}</SelectItem>
+                                  <SelectItem value="4" className="rounded-3xl text-xs">{t('schedule.dayLabels.4')}</SelectItem>
+                                  <SelectItem value="5" className="rounded-3xl text-xs">{t('schedule.dayLabels.5')}</SelectItem>
+                                  <SelectItem value="6" className="rounded-3xl text-xs">{t('schedule.dayLabels.6')}</SelectItem>
+                                  <SelectItem value="0" className="rounded-3xl text-xs">{t('schedule.dayLabels.0')}</SelectItem>
                                 </SelectContent>
                               </Select>
                             </FormRow>
@@ -565,7 +565,7 @@ export const ScheduledTaskDialog = memo(function ScheduledTaskDialog({
                                 onChange={setScheduleTime}
                                 timeFormat="24-hour"
                                 placeholder={t('schedule.selectTime')}
-                                className="h-8 w-full max-w-[200px] rounded-md border border-border/70 bg-muted/40 text-xs font-normal shadow-none"
+                                className="h-8 w-full max-w-[200px] rounded-3xl border border-border/70 bg-muted/40 text-xs font-normal shadow-none"
                               />
                             </FormRow>
                           </>
@@ -588,7 +588,7 @@ export const ScheduledTaskDialog = memo(function ScheduledTaskDialog({
                                 onChange={setScheduleTime}
                                 timeFormat="24-hour"
                                 placeholder={t('schedule.selectTime')}
-                                className="h-8 w-full max-w-[200px] rounded-md border border-border/70 bg-muted/40 text-xs font-normal shadow-none"
+                                className="h-8 w-full max-w-[200px] rounded-3xl border border-border/70 bg-muted/40 text-xs font-normal shadow-none"
                               />
                             </FormRow>
                           </>
@@ -621,12 +621,12 @@ export const ScheduledTaskDialog = memo(function ScheduledTaskDialog({
                         <SelectTrigger className={cn(selectBase, 'w-[220px]')}>
                           <SelectValue placeholder={t('schedule.default')} />
                         </SelectTrigger>
-                        <SelectContent className="rounded-xl">
-                          <SelectItem value="__default__" className="rounded-lg text-xs">
+                        <SelectContent className="rounded-3xl">
+                          <SelectItem value="__default__" className="rounded-3xl text-xs">
                             {t('schedule.default')}
                           </SelectItem>
                           {enabledAgents.map((agent: { folderName: string; name: string; icon?: string }) => (
-                            <SelectItem key={agent.folderName} value={agent.folderName} className="rounded-lg text-xs">
+                            <SelectItem key={agent.folderName} value={agent.folderName} className="rounded-3xl text-xs">
                               <span className="inline-flex items-center gap-1.5">
                                 {agent.icon && /[^a-z0-9-_]/i.test(agent.icon.trim()) ? (
                                   <span className="text-xs leading-none">{agent.icon.trim()}</span>
@@ -683,14 +683,14 @@ export const ScheduledTaskDialog = memo(function ScheduledTaskDialog({
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}
-            className="h-9 rounded-md px-5 text-[13px] text-ol-text-auxiliary hover:bg-ol-surface-muted"
+            className="h-9 rounded-3xl px-5 text-[13px] text-muted-foreground hover:bg-accent"
           >
             {t('schedule.cancelButton')}
           </Button>
           <Button
             onClick={handleSubmit}
             disabled={!canSubmit || isPending}
-            className="h-9 rounded-md px-5 text-[13px] bg-ol-blue text-white shadow-none hover:bg-ol-blue/85"
+            className="h-9 rounded-3xl px-5 text-[13px] bg-foreground text-white shadow-none hover:bg-foreground/85"
           >
             {isPending ? t('schedule.savingButton') : isEditing ? t('schedule.saveButton') : t('schedule.createButton')}
           </Button>

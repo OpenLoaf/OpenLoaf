@@ -16,6 +16,9 @@ import {
   resolveScopedPath,
   toRelativePath,
 } from "@openloaf/api/services/vfsService";
+import {
+  resolveBoardDirFromDb,
+} from "@openloaf/api/common/boardPaths";
 import { getOpenLoafRootDir } from "@openloaf/config";
 import { logger } from "@/common/logger";
 
@@ -118,18 +121,31 @@ function resolveProjectFilePath(input: { path: string; projectId: string }) {
 }
 
 /** Resolve an absolute file path using project-scoped rules. */
-function resolveScopedFilePath(input: {
+async function resolveScopedFilePath(input: {
   path: string;
   projectId?: string;
-  /** Optional board id — server resolves to .openloaf/boards/<boardId>/ prefix. */
+  /** Optional board id — server resolves via DB folderUri. */
   boardId?: string;
 }) {
   const rawPath = input.path.trim();
   if (!rawPath) return null;
-  const boardPrefix = input.boardId ? `.openloaf/boards/${input.boardId}` : "";
-  const effectivePath = boardPrefix
-    ? `${boardPrefix}/${normalizeRelativePath(rawPath)}`
-    : rawPath;
+
+  // When boardId is present, query DB for the board's real folderUri.
+  if (input.boardId) {
+    const boardResult = await resolveBoardDirFromDb(input.boardId);
+    if (!boardResult) return null;
+    const filePath = normalizeRelativePath(rawPath);
+    if (!filePath || hasParentTraversal(filePath)) return null;
+    const absPath = path.resolve(boardResult.absDir, filePath);
+    if (!absPath.startsWith(path.resolve(boardResult.absDir) + path.sep) && absPath !== path.resolve(boardResult.absDir)) {
+      return null;
+    }
+    const rootResolved = path.resolve(boardResult.rootPath);
+    const relativePath = path.relative(rootResolved, absPath).split(path.sep).join("/");
+    return { rootPath: rootResolved, absPath, relativePath, projectId: input.projectId ?? "" };
+  }
+
+  const effectivePath = rawPath;
   const scopedMatch = effectivePath.match(PROJECT_SCOPE_REGEX);
   let projectId = input.projectId?.trim() ?? "";
   if (scopedMatch?.[1]) {
@@ -535,7 +551,7 @@ export async function getHlsManifest(input: {
   boardId?: string;
   quality?: HlsQuality;
 }): Promise<HlsManifestStatus | null> {
-  const resolved = resolveScopedFilePath({
+  const resolved = await resolveScopedFilePath({
     path: input.path,
     projectId: input.projectId,
     boardId: input.boardId,
@@ -605,7 +621,7 @@ export async function getHlsProgress(input: {
   boardId?: string;
   quality: HlsQuality;
 }): Promise<HlsProgressResult | null> {
-  const resolved = resolveScopedFilePath({
+  const resolved = await resolveScopedFilePath({
     path: input.path,
     projectId: input.projectId,
     boardId: input.boardId,
@@ -628,7 +644,7 @@ export async function getHlsThumbnails(input: {
   projectId?: string;
   boardId?: string;
 }): Promise<HlsThumbnailResult | null> {
-  const resolved = resolveScopedFilePath({
+  const resolved = await resolveScopedFilePath({
     path: input.path,
     projectId: input.projectId,
     boardId: input.boardId,

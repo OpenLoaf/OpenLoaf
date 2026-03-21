@@ -41,7 +41,7 @@ export function StepUpOptionCard({
       onClick={onClick}
       {...props}
       className={cn(
-        "relative flex min-h-[140px] w-full items-center gap-8 overflow-hidden rounded-2xl border bg-background/80 p-8 text-left transition",
+        "relative flex min-h-[140px] w-full items-center gap-8 overflow-hidden rounded-3xl border bg-background/80 p-8 text-left transition",
         "transition-transform duration-200 ease-out",
         "hover:border-primary/40 hover:bg-background",
         selected && "border-primary/50 ring-2 ring-primary/15 scale-100",
@@ -56,7 +56,7 @@ export function StepUpOptionCard({
         </div>
       ) : null}
       {icon ? (
-        <div className="flex size-12 items-center justify-center rounded-2xl border border-border bg-muted/70">
+        <div className="flex size-12 items-center justify-center rounded-3xl border border-border bg-muted/70">
           {icon}
         </div>
       ) : null}

@@ -7,21 +7,19 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import { submitMediaGenerate } from '@/lib/saas-media'
+import { submitV3Generate } from '@/lib/saas-media'
 
 export type AudioGenerateRequest = {
-  /** Text to synthesize (SDK v2 TTS 'text' field). */
-  text: string
-  /** Voice preset ID. */
-  voice?: string
-  /** Reference audio for voice cloning. */
-  referenceAudioSrc?: string
-  /** Output format. */
-  format?: 'mp3' | 'wav' | 'opus'
-  /** Output sample rate. */
-  sampleRate?: number
-  /** Quality level. */
-  quality?: 'draft' | 'standard' | 'hd'
+  /** v3 feature ID (e.g. 'tts'). */
+  feature: string
+  /** v3 variant ID (e.g. 'tts-qwen'). */
+  variant: string
+  /** Input data (e.g. { text: '...' }). */
+  inputs: Record<string, unknown>
+  /** Generation parameters (e.g. { voice: '...', format: 'mp3' }). */
+  params: Record<string, unknown>
+  /** Number of outputs. */
+  count?: number
   /** Seed for reproducibility. */
   seed?: number
 }
@@ -31,40 +29,26 @@ export type AudioGenerateResult = {
 }
 
 /**
- * Submit a TTS task via v2 unified endpoint.
+ * Submit a TTS task via v3 unified endpoint.
  */
 export async function submitAudioGenerate(
   request: AudioGenerateRequest,
-  options: { projectId?: string; saveDir?: string; sourceNodeId?: string },
+  options: { projectId?: string; boardId?: string; sourceNodeId?: string },
 ): Promise<AudioGenerateResult> {
-  const payload: Record<string, unknown> = {
-    feature: 'tts',
-    text: request.text,
-    voice: request.voice || undefined,
-    quality: request.quality,
+  const result = await submitV3Generate({
+    feature: request.feature,
+    variant: request.variant,
+    inputs: request.inputs,
+    params: request.params,
+    count: request.count,
     seed: request.seed,
     projectId: options.projectId,
-    saveDir: options.saveDir,
+    boardId: options.boardId,
     sourceNodeId: options.sourceNodeId,
-  }
-
-  // Voice cloning via reference audio
-  if (request.referenceAudioSrc) {
-    payload.referenceAudio = { url: request.referenceAudioSrc }
-  }
-
-  // Output configuration
-  if (request.format || request.sampleRate) {
-    payload.output = {
-      format: request.format || undefined,
-      sampleRate: request.sampleRate || undefined,
-    }
-  }
-
-  const result = await submitMediaGenerate(payload)
+  })
 
   if (!result || result.success !== true || !result.data?.taskId) {
-    const message = result?.message || '语音合成任务创建失败'
+    const message = result?.message || 'Audio generation task creation failed'
     throw new Error(message)
   }
 

@@ -42,7 +42,7 @@ export function MentionElementStatic(
     <SlateElement
       {...props}
       className={cn(
-        'inline-block rounded-md bg-muted px-1.5 py-0.5 align-baseline font-medium text-sm',
+        'inline-block rounded-3xl bg-muted px-1.5 py-0.5 align-baseline font-medium text-sm',
         firstChild?.[KEYS.bold] === true && 'font-bold',
         firstChild?.[KEYS.italic] === true && 'italic',
         firstChild?.[KEYS.underline] === true && 'underline'

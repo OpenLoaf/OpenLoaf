@@ -532,7 +532,7 @@ export default function MarkdownViewer({
     <>
       {frontMatter ? (
         <div className="px-8 pt-3">
-          <div className="rounded-lg border border-border/70 bg-muted/20 px-3 py-2 text-xs">
+          <div className="rounded-3xl border border-border/70 bg-muted/20 px-3 py-2 text-xs">
             <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
               YAML Front Matter
             </div>

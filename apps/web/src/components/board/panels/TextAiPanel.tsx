@@ -65,14 +65,14 @@ export function TextAiPanel({
   )
 
   return (
-    <div className="flex w-[420px] flex-col gap-3 rounded-xl border border-border bg-card p-4 shadow-lg">
+    <div className="flex w-[420px] flex-col gap-3 rounded-3xl border border-border bg-card p-4 shadow-lg">
       {/* -- Upstream Text Preview -- */}
       {upstreamText ? (
         <div className="relative">
           <label className="mb-1 block text-xs font-medium text-muted-foreground">
             {t('textPanel.upstreamPreview')}
           </label>
-          <div className="relative max-h-[200px] overflow-hidden rounded-lg bg-muted/50 p-3 text-sm leading-relaxed text-muted-foreground">
+          <div className="relative max-h-[200px] overflow-hidden rounded-3xl bg-muted/50 p-3 text-sm leading-relaxed text-muted-foreground">
             {upstreamText}
             {/* Gradient fade at the bottom */}
             <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-muted/50 to-transparent" />
@@ -84,7 +84,7 @@ export function TextAiPanel({
       <div className="flex flex-col gap-1.5">
         <textarea
           className={[
-            'min-h-[72px] w-full resize-none rounded-lg border px-3 py-2 text-sm leading-relaxed',
+            'min-h-[72px] w-full resize-none rounded-3xl border px-3 py-2 text-sm leading-relaxed',
             BOARD_GENERATE_INPUT,
           ].join(' ')}
           placeholder={t('textPanel.instructionPlaceholder')}
@@ -101,7 +101,7 @@ export function TextAiPanel({
           {/* Model selector */}
           <select
             className={[
-              'rounded-lg border px-2.5 py-1.5 text-xs',
+              'rounded-3xl border px-2.5 py-1.5 text-xs',
               BOARD_GENERATE_INPUT,
             ].join(' ')}
             value={modelId}
@@ -117,7 +117,7 @@ export function TextAiPanel({
           {/* Translate shortcut */}
           <button
             type="button"
-            className="inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-xs font-medium text-muted-foreground transition-colors duration-150 hover:bg-foreground/8 dark:hover:bg-foreground/10"
+            className="inline-flex items-center gap-1 rounded-3xl px-2 py-1.5 text-xs font-medium text-muted-foreground transition-colors duration-150 hover:bg-foreground/8 dark:hover:bg-foreground/10"
             onPointerDown={(e) => {
               e.stopPropagation()
               e.preventDefault()

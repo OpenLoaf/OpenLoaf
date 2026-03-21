@@ -179,7 +179,7 @@ const ProjectFileSystemHeader = memo(function ProjectFileSystemHeader({
 
   return (
     <div className="project-files-header flex min-w-0 w-full px-4 pt-1 pb-0">
-      <div className="project-files-header-panel flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-border/60 bg-muted/40 px-2 py-1.5">
+      <div className="project-files-header-panel flex min-w-0 flex-1 items-center gap-2 rounded-3xl border border-border/60 bg-muted/40 px-2 py-1.5">
         <div className="project-files-header-title flex items-center gap-2 min-w-0">
           <div className="min-w-0">
             <ProjectFileSystemBreadcrumbs
@@ -315,7 +315,7 @@ const ProjectFileSystemToolbar = memo(function ProjectFileSystemToolbar({
 
   const btnBase = "h-7 w-7 shrink-0 transition-colors duration-150";
   const iconSize = "size-3.5";
-  const toggleItemBase = `h-7 w-7 min-w-7 px-0 rounded-md text-foreground/50 transition-colors duration-150 data-[state=on]:bg-accent data-[state=on]:text-foreground`;
+  const toggleItemBase = `h-7 w-7 min-w-7 px-0 rounded-3xl text-foreground/50 transition-colors duration-150 data-[state=on]:bg-accent data-[state=on]:text-foreground`;
 
   return (
     <div className="flex items-center gap-1" data-no-drag="true">
@@ -404,7 +404,7 @@ const ProjectFileSystemToolbar = memo(function ProjectFileSystemToolbar({
       {/* Actions */}
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" className={`${btnBase} text-ol-amber/80 hover:text-ol-amber`} aria-label={t('project:filesystem.newFolder')} onClick={onCreateFolder}>
+          <Button variant="ghost" size="icon" className={`${btnBase} text-foreground/80 hover:text-foreground`} aria-label={t('project:filesystem.newFolder')} onClick={onCreateFolder}>
             <FolderPlus className={iconSize} />
           </Button>
         </TooltipTrigger>
@@ -412,7 +412,7 @@ const ProjectFileSystemToolbar = memo(function ProjectFileSystemToolbar({
       </Tooltip>
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" className={`${btnBase} text-ol-green/80 hover:text-ol-green`} aria-label={t('project:filesystem.newDocument')} onClick={onCreateDocument}>
+          <Button variant="ghost" size="icon" className={`${btnBase} text-foreground/80 hover:text-foreground`} aria-label={t('project:filesystem.newDocument')} onClick={onCreateDocument}>
             <FilePlus className={iconSize} />
           </Button>
         </TooltipTrigger>
@@ -420,7 +420,7 @@ const ProjectFileSystemToolbar = memo(function ProjectFileSystemToolbar({
       </Tooltip>
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" className={`${btnBase} text-ol-purple/80 hover:text-ol-purple`} aria-label={t('project:filesystem.addFile')} onClick={() => uploadInputRef.current?.click()}>
+          <Button variant="ghost" size="icon" className={`${btnBase} text-foreground/80 hover:text-foreground`} aria-label={t('project:filesystem.addFile')} onClick={() => uploadInputRef.current?.click()}>
             <Upload className={iconSize} />
           </Button>
         </TooltipTrigger>
@@ -463,7 +463,7 @@ const ProjectFileSystemToolbar = memo(function ProjectFileSystemToolbar({
           </TooltipContent>
         </Tooltip>
         <div
-          className={`relative overflow-hidden rounded-md bg-foreground/5 transition-[width,opacity] duration-150 ease-linear ${
+          className={`relative overflow-hidden rounded-3xl bg-foreground/5 transition-[width,opacity] duration-150 ease-linear ${
             isSearchVisible ? "w-44 opacity-100" : "w-0 opacity-0"
           }`}
         >

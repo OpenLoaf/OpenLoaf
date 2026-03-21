@@ -44,7 +44,7 @@ export default function TempProjectNotification({
   }, [promoteMutation, projectId])
 
   return (
-    <div className="my-2 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm dark:border-amber-800 dark:bg-amber-950/30">
+    <div className="my-2 flex items-center gap-2 rounded-3xl border border-border bg-secondary px-3 py-2 text-sm">
       <FolderOpen className="size-4 shrink-0 text-amber-600 dark:text-amber-400" />
       <span className="text-amber-800 dark:text-amber-200">
         文件已保存到临时项目

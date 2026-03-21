@@ -308,12 +308,12 @@ function SystemEventFormDialog({
                   : translations?.addNewEvent}
               </DialogDescription>
             </div>
-            <div className="flex items-center justify-between gap-2 rounded-md border border-border bg-background/70 px-3 py-2 sm:justify-end">
+            <div className="flex items-center justify-between gap-2 rounded-3xl border border-border bg-background/70 px-3 py-2 sm:justify-end">
               <div className="flex flex-col">
-                <span className="text-xs font-medium text-ol-text-secondary">
+                <span className="text-xs font-medium text-muted-foreground">
                   {t('reminderToggleLabel')}
                 </span>
-                <span className="text-[11px] text-ol-text-auxiliary">
+                <span className="text-[11px] text-muted-foreground">
                   {t('reminderToggleDesc')}
                 </span>
               </div>
@@ -325,7 +325,7 @@ function SystemEventFormDialog({
           </div>
         </DialogHeader>
         <div className="grid gap-2">
-          <span className="text-xs font-medium text-ol-text-secondary">
+          <span className="text-xs font-medium text-muted-foreground">
             {t(eventKind === "reminder" ? "reminderListLabel" : "calendarTypeLabel")}
           </span>
           <Select value={calendarId} onValueChange={setCalendarId} disabled={listSource.length === 0}>
@@ -653,7 +653,7 @@ export default function CalendarPage({
               : shouldShowImportButton ? (
                 <button
                   type="button"
-                  className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium bg-ol-green-bg text-ol-green hover:bg-ol-green-bg-hover shadow-none transition-colors duration-150 disabled:opacity-50"
+                  className="flex items-center gap-1.5 rounded-3xl px-3 py-1.5 text-xs font-medium bg-secondary text-muted-foreground hover:bg-accent shadow-none transition-colors duration-150 disabled:opacity-50"
                   onClick={handleImportCalendar}
                   disabled={isLoading}
                 >
@@ -684,7 +684,7 @@ export default function CalendarPage({
               if (meta?.kind === "task") {
                 return (
                   <div
-                    className={`h-full w-full ${eventPaddingClassName} text-left overflow-clip relative rounded-sm flex items-center ${reminderGapClassName}`}
+                    className={`h-full w-full ${eventPaddingClassName} text-left overflow-clip relative rounded-3xl flex items-center ${reminderGapClassName}`}
                     style={{ backgroundColor: "transparent" }}
                   >
                     <span
@@ -700,7 +700,7 @@ export default function CalendarPage({
               if (meta?.kind !== "reminder") {
                 return (
                   <div
-                    className={`h-full w-full ${eventPaddingClassName} border-[1.5px] border-card text-left overflow-clip relative rounded-sm flex items-center`}
+                    className={`h-full w-full ${eventPaddingClassName} border-[1.5px] border-card text-left overflow-clip relative rounded-3xl flex items-center`}
                     style={{ backgroundColor: event.backgroundColor, color: event.color }}
                   >
                     <span className={`${eventTextClassName} font-semibold`}>
@@ -713,7 +713,7 @@ export default function CalendarPage({
               const isReadOnly = meta?.readOnly === true || meta?.isSubscribed === true;
               return (
                 <div
-                  className={`h-full w-full ${eventPaddingClassName} text-left overflow-clip relative rounded-sm flex items-center ${reminderGapClassName} ${
+                  className={`h-full w-full ${eventPaddingClassName} text-left overflow-clip relative rounded-3xl flex items-center ${reminderGapClassName} ${
                     isCompleted ? "text-muted-foreground" : "text-foreground"
                   }`}
                   style={{
@@ -830,7 +830,7 @@ export default function CalendarPage({
             <AlertDialogCancel>{t('later')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleRelaunchApp}
-              className="bg-ol-blue text-white hover:bg-ol-blue/85"
+              className="bg-foreground text-white hover:bg-foreground/85"
             >
               {t('restart')}
             </AlertDialogAction>

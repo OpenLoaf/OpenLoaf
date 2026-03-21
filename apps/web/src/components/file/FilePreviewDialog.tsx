@@ -166,7 +166,7 @@ export default function FilePreviewDialog() {
         overlaySlot={
           <button
             type="button"
-            className="fixed right-5 top-5 z-[60] inline-flex h-10 w-10 items-center justify-center rounded-md bg-background/80 text-foreground shadow-md ring-1 ring-border/60 backdrop-blur hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            className="fixed right-5 top-5 z-[60] inline-flex h-10 w-10 items-center justify-center rounded-3xl bg-background/80 text-foreground shadow-none ring-1 ring-border/60 backdrop-blur hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
             aria-label="关闭"
             onClick={() => closeFilePreview()}
           >
@@ -299,7 +299,7 @@ export default function FilePreviewDialog() {
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="pointer-events-auto h-12 w-12 shrink-0 rounded-md ol-glass-toolbar text-foreground ring-1 ring-border/60 hover:bg-background/90 disabled:opacity-30"
+                className="pointer-events-auto h-12 w-12 shrink-0 rounded-3xl ol-glass-toolbar text-foreground ring-1 ring-border/60 hover:bg-background/90 disabled:opacity-30"
                 onClick={() => {
                   if (!payload.onActiveIndexChange || !canPrev) return;
                   payload.onActiveIndexChange(payload.activeIndex - 1);
@@ -313,7 +313,7 @@ export default function FilePreviewDialog() {
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="pointer-events-auto h-12 w-12 shrink-0 rounded-md ol-glass-toolbar text-foreground ring-1 ring-border/60 hover:bg-background/90 disabled:opacity-30"
+                className="pointer-events-auto h-12 w-12 shrink-0 rounded-3xl ol-glass-toolbar text-foreground ring-1 ring-border/60 hover:bg-background/90 disabled:opacity-30"
                 onClick={() => {
                   if (!payload.onActiveIndexChange || !canNext) return;
                   payload.onActiveIndexChange(payload.activeIndex + 1);

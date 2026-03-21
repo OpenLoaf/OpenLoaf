@@ -359,7 +359,7 @@ export default function DesktopTileGridstack({
       animate={{ scale: 1, boxShadow: "none" }}
       transition={{ type: "spring", stiffness: 450, damping: 32 }}
       className={cn(
-        "desktop-tile-handle relative h-full w-full select-none rounded-lg",
+        "desktop-tile-handle relative h-full w-full select-none rounded-3xl",
         allowOverflow ? "overflow-visible" : "overflow-hidden",
         "bg-card border border-border dark:bg-card",
         isPinned ? "ring-2 ring-primary/40" : ""
@@ -441,8 +441,8 @@ export default function DesktopTileGridstack({
           <button
             type="button"
             className={cn(
-              "desktop-edit-action-button flex size-6 items-center justify-center rounded-md border border-border bg-background text-foreground shadow-sm",
-              isPinned ? "text-ol-red" : "",
+              "desktop-edit-action-button flex size-6 items-center justify-center rounded-3xl border border-border bg-background text-foreground shadow-none",
+              isPinned ? "text-destructive" : "",
               isPinned
                 ? "opacity-100 pointer-events-auto"
                 : "opacity-0 pointer-events-none transition-opacity group-hover:opacity-100 group-hover:pointer-events-auto"

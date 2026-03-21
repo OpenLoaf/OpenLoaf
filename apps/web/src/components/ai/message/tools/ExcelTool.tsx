@@ -257,7 +257,7 @@ function ListSheetsView({ data }: { data: ExcelOutputData }) {
       {sheets.map((name) => (
         <span
           key={name}
-          className="inline-flex items-center rounded-md bg-muted/60 px-2 py-0.5 text-xs font-medium"
+          className="inline-flex items-center rounded-3xl bg-muted/60 px-2 py-0.5 text-xs font-medium"
         >
           {name}
         </span>
@@ -509,7 +509,7 @@ export default function ExcelTool({
 
   return (
     <div className={cn('w-full min-w-0', className)}>
-      <div className="overflow-hidden rounded-xl border bg-card text-card-foreground">
+      <div className="overflow-hidden rounded-3xl border bg-card text-card-foreground">
         {/* macOS 风格标题栏（可点击折叠/展开） */}
         <button
           type="button"

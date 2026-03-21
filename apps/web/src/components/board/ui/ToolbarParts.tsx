@@ -71,7 +71,7 @@ function IconBtn(props: {
       onPointerDown={handlePointerDown}
       disabled={disabled}
       className={cn(
-        "inline-flex h-9 w-9 items-center justify-center rounded-md",
+        "inline-flex h-9 w-9 items-center justify-center rounded-3xl",
         "transition-colors duration-150",
         active
           ? BOARD_ICON_BTN_ACTIVE
@@ -113,7 +113,7 @@ function HoverPanel(props: {
       className={cn(
         "pointer-events-auto absolute bottom-full left-1/2 z-10 -translate-x-1/2 -translate-y-4",
         // 使用接近 AFFiNE 的上弹菜单风格
-        "rounded-lg p-2",
+        "rounded-3xl p-2",
         toolbarSurfaceClassName,
         "transition-all duration-150 ease-out",
         open ? "opacity-100 scale-100" : "pointer-events-none opacity-0 scale-95",

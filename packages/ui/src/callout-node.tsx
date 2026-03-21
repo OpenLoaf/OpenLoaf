@@ -38,7 +38,7 @@ export function CalloutElement({
 
   return (
     <PlateElement
-      className={cn('my-1 flex rounded-sm bg-muted p-4 pl-3', className)}
+      className={cn('my-1 flex rounded-3xl bg-muted p-4 pl-3', className)}
       style={{
         backgroundColor: props.element.backgroundColor as any,
       }}
@@ -48,7 +48,7 @@ export function CalloutElement({
       }}
       {...props}
     >
-      <div className="flex w-full gap-2 rounded-md">
+      <div className="flex w-full gap-2 rounded-3xl">
         <EmojiPopover
           {...emojiToolbarDropdownProps}
           control={

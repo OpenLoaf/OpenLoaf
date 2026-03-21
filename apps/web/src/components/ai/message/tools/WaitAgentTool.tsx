@@ -71,12 +71,12 @@ function AgentStatusRow({ agentId, stream, toolParts }: {
         {hasError ? (
           <XCircleIcon className="size-3.5 shrink-0 text-destructive" />
         ) : isDone ? (
-          <CheckCircle2Icon className="size-3.5 shrink-0 text-ol-green" />
+          <CheckCircle2Icon className="size-3.5 shrink-0 text-foreground" />
         ) : hasPending ? (
-          <ShieldAlertIcon className="size-3.5 shrink-0 text-ol-amber" />
+          <ShieldAlertIcon className="size-3.5 shrink-0 text-muted-foreground" />
         ) : (
           <div className="size-3.5 shrink-0 flex items-center justify-center">
-            <span className="size-2 animate-pulse rounded-full bg-ol-blue" />
+            <span className="size-2 animate-pulse rounded-full bg-muted-foreground" />
           </div>
         )}
         <span className="min-w-0 flex-1 truncate text-[11px] text-foreground/80">
@@ -85,9 +85,9 @@ function AgentStatusRow({ agentId, stream, toolParts }: {
         <span className={cn(
           'text-[10px]',
           hasError && 'text-destructive',
-          isDone && 'text-ol-green',
-          hasPending && 'text-ol-amber',
-          isRunning && !hasPending && 'text-ol-blue',
+          isDone && 'text-foreground',
+          hasPending && 'text-muted-foreground',
+          isRunning && !hasPending && 'text-muted-foreground',
         )}>
           {hasError ? '出错' : isDone ? '完成' : hasPending ? '待审批' : '运行中'}
         </span>
@@ -169,7 +169,7 @@ export default function WaitAgentTool({
   return (
     <div
       className={cn(
-        'min-w-0 rounded-lg border bg-card text-xs',
+        'min-w-0 rounded-3xl border bg-card text-xs',
         className,
       )}
     >
@@ -217,12 +217,12 @@ export default function WaitAgentTool({
       {outputObj && !isWaiting ? (
         <div className="border-t bg-muted/30 px-3 py-1.5">
           {completedId ? (
-            <div className="text-[11px] text-ol-green">
+            <div className="text-[11px] text-foreground">
               首个完成: {completedId}
             </div>
           ) : null}
           {timedOut ? (
-            <div className="text-[11px] text-ol-amber">
+            <div className="text-[11px] text-muted-foreground">
               等待超时
             </div>
           ) : null}
@@ -233,7 +233,7 @@ export default function WaitAgentTool({
                   <span className="truncate">{id}</span>
                   <span>→</span>
                   <span className={cn(
-                    status === 'completed' && 'text-ol-green',
+                    status === 'completed' && 'text-foreground',
                     status === 'failed' && 'text-destructive',
                   )}>
                     {status}

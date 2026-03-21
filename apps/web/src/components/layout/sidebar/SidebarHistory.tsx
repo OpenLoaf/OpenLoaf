@@ -33,7 +33,7 @@ function SidebarHistorySkeleton() {
   return (
     <SidebarGroup className="flex min-h-0 flex-1 flex-col gap-2 px-2 pb-2 pt-3">
       <SidebarGroupLabel className="px-2">
-        <div className="h-3 w-18 rounded-full bg-muted-foreground/15" />
+        <div className="h-3 w-18 rounded-3xl bg-muted-foreground/15" />
       </SidebarGroupLabel>
       <SidebarGroupContent className="flex flex-col gap-1">
         <SidebarMenuSkeleton
@@ -114,12 +114,12 @@ function renderHistoryItemIcon(item: SidebarHistoryItem) {
         </span>
       );
     }
-    return <FolderOpen className="h-4 w-4 shrink-0 self-center text-ol-blue/80" />;
+    return <FolderOpen className="h-4 w-4 shrink-0 self-center text-foreground/60" />;
   }
   if (item.entityType === "chat") {
-    return <MessageSquare className="h-4 w-4 shrink-0 self-center text-ol-amber/80" />;
+    return <MessageSquare className="h-4 w-4 shrink-0 self-center text-foreground/60" />;
   }
-  return <Palette className="h-4 w-4 shrink-0 self-center text-ol-purple/80" />;
+  return <Palette className="h-4 w-4 shrink-0 self-center text-foreground/60" />;
 }
 
 export function SidebarHistory({ projectId }: SidebarHistoryProps) {
@@ -248,8 +248,8 @@ export function SidebarHistory({ projectId }: SidebarHistoryProps) {
             title={sortButtonLabel}
             className={
               sortBy === "lastVisitedAt"
-                ? "flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-sm bg-sidebar-accent/20 text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent/30 hover:text-sidebar-foreground/85"
-                : "flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-sm text-sidebar-foreground/35 transition-colors hover:bg-sidebar-accent/20 hover:text-sidebar-foreground/60"
+                ? "flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-3xl bg-sidebar-accent/20 text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent/30 hover:text-sidebar-foreground/85"
+                : "flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-3xl text-sidebar-foreground/35 transition-colors hover:bg-sidebar-accent/20 hover:text-sidebar-foreground/60"
             }
             onClick={() => setSortBy(nextSortBy)}
           >

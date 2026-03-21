@@ -874,7 +874,7 @@ export default function ElectrronBrowserWindow({
               >
                 <button
                   type="button"
-                  className="grid h-8 w-8 place-items-center rounded-md text-muted-foreground transition hover:bg-sidebar/60 hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+                  className="grid h-8 w-8 place-items-center rounded-3xl text-muted-foreground transition hover:bg-sidebar/60 hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
                   onClick={onGoBack}
                   disabled={!canGoBack}
                   aria-label="Back"
@@ -884,7 +884,7 @@ export default function ElectrronBrowserWindow({
                 </button>
                 <button
                   type="button"
-                  className="grid h-8 w-8 place-items-center rounded-md text-muted-foreground transition hover:bg-sidebar/60 hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+                  className="grid h-8 w-8 place-items-center rounded-3xl text-muted-foreground transition hover:bg-sidebar/60 hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
                   onClick={onGoForward}
                   disabled={!canGoForward}
                   aria-label="Forward"

@@ -7,26 +7,35 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import { submitMediaGenerate } from '@/lib/saas-media'
+import { submitV3Generate } from '@/lib/saas-media'
 
 export type ImageGenerateRequest = {
-  prompt: string
+  /** v3 feature id (e.g. 'imageGenerate', 'imageInpaint'). */
+  feature: string
+  /** v3 variant id (e.g. 'img-gen-qwen', 'img-gen-volc'). */
+  variant: string
+  /** v3 inputs (prompt, images, mask, etc.). */
+  inputs?: Record<string, unknown>
+  /** v3 params (negativePrompt, aspectRatio, quality, etc.). */
+  params?: Record<string, unknown>
+  /** Number of results to generate. */
+  count?: number
+  /** Seed for reproducibility. */
+  seed?: number
+  // ── Backward compat fields (v2) ──
+  prompt?: string
   negativePrompt?: string
   aspectRatio?: string
   resolution?: string
   style?: string
-  /** imageGenerate sub-mode. */
+  /** @deprecated v2 sub-mode. */
   mode?: 'text' | 'reference' | 'sketch' | 'character'
-  /** Reference images for reference/sketch/character modes. */
+  /** @deprecated v2 reference images. */
   referenceImageSrcs?: string[]
-  /** Whether input is a sketch (for sketch mode). */
+  /** @deprecated v2 sketch flag. */
   isSketch?: boolean
-  /** Number of results to generate. */
-  count?: 1 | 2 | 4
-  /** Quality level. */
+  /** @deprecated v2 quality. */
   quality?: 'draft' | 'standard' | 'hd'
-  /** Seed for reproducibility. */
-  seed?: number
 }
 
 export type ImageGenerateResult = {
@@ -34,52 +43,76 @@ export type ImageGenerateResult = {
 }
 
 /**
- * Submit an image generation task via v2 unified endpoint.
+ * Submit an image generation task via v3 endpoint.
+ *
+ * Accepts v3-format requests (feature + variant + inputs/params).
+ * Falls back to v2-style fields for backward compatibility when
+ * variant is not provided.
  */
 export async function submitImageGenerate(
   request: ImageGenerateRequest,
   options: {
     projectId?: string
-    saveDir?: string
+    boardId?: string
     sourceNodeId?: string
   } = {},
 ): Promise<ImageGenerateResult> {
+  // v3 path: variant is provided
+  if (request.variant) {
+    const result = await submitV3Generate({
+      feature: request.feature,
+      variant: request.variant,
+      inputs: request.inputs,
+      params: request.params,
+      count: request.count,
+      seed: request.seed,
+      projectId: options.projectId,
+      boardId: options.boardId,
+      sourceNodeId: options.sourceNodeId,
+    })
+
+    if (!result || result.success !== true || !result.data?.taskId) {
+      const message = result?.message || 'Image generation task creation failed'
+      throw new Error(message)
+    }
+
+    return { taskId: result.data.taskId as string }
+  }
+
+  // v2 fallback: build v3 payload from legacy fields
   const refSrcs = request.referenceImageSrcs?.length
     ? request.referenceImageSrcs
     : []
 
-  const mode = request.mode
-    ?? (refSrcs.length > 0 ? 'reference' : 'text')
-
-  const payload: Record<string, unknown> = {
-    feature: 'imageGenerate',
+  const inputs: Record<string, unknown> = {
     prompt: request.prompt,
-    negativePrompt: request.negativePrompt || undefined,
-    aspectRatio: request.aspectRatio && request.aspectRatio !== 'auto'
-      ? request.aspectRatio : undefined,
-    resolution: request.resolution && request.resolution !== '1K'
-      ? request.resolution : undefined,
-    mode,
-    style: request.style || undefined,
+  }
+  if (refSrcs.length > 0) {
+    inputs.images = refSrcs.map((url) => ({ url }))
+    if (request.isSketch) inputs.isSketch = true
+  }
+
+  const params: Record<string, unknown> = {}
+  if (request.negativePrompt) params.negativePrompt = request.negativePrompt
+  if (request.aspectRatio && request.aspectRatio !== 'auto') params.aspectRatio = request.aspectRatio
+  if (request.resolution && request.resolution !== '1K') params.resolution = request.resolution
+  if (request.style) params.style = request.style
+  if (request.quality) params.quality = request.quality
+
+  const result = await submitV3Generate({
+    feature: request.feature || 'imageGenerate',
+    variant: 'img-gen-qwen', // default fallback variant
+    inputs,
+    params,
     count: request.count,
-    quality: request.quality,
     seed: request.seed,
     projectId: options.projectId,
-    saveDir: options.saveDir,
+    boardId: options.boardId,
     sourceNodeId: options.sourceNodeId,
-  }
-
-  if (refSrcs.length > 0) {
-    payload.inputs = {
-      images: refSrcs.map((url) => ({ url })),
-      isSketch: request.isSketch || undefined,
-    }
-  }
-
-  const result = await submitMediaGenerate(payload)
+  })
 
   if (!result || result.success !== true || !result.data?.taskId) {
-    const message = result?.message || '图片生成任务创建失败'
+    const message = result?.message || 'Image generation task creation failed'
     throw new Error(message)
   }
 

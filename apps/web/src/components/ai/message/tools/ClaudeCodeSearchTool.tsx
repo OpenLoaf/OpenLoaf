@@ -57,7 +57,7 @@ export default function ClaudeCodeSearchTool({
     <div className={cn('w-full min-w-0', className)}>
       <div
         className={cn(
-          'group flex w-full items-center gap-2 overflow-hidden rounded-lg border bg-card px-3 py-2',
+          'group flex w-full items-center gap-2 overflow-hidden rounded-3xl border bg-card px-3 py-2',
         )}
       >
         <Icon className="size-3.5 shrink-0 text-muted-foreground" />

@@ -222,7 +222,7 @@ export function ObjectStorageService() {
         className="pb-4"
       >
         <div className="flex flex-wrap items-center gap-2 py-3">
-          <SettingIcon icon={FolderOpen} bg="bg-ol-amber-bg" fg="text-ol-amber" />
+          <SettingIcon icon={FolderOpen} bg="bg-secondary" fg="text-foreground" />
           <div className="min-w-0 flex-1">
             <div className="text-sm font-medium">{t("tempStorage.path")}</div>
             <div className="text-xs text-muted-foreground">{t("tempStorage.pathDescription")}</div>
@@ -230,7 +230,7 @@ export function ObjectStorageService() {
           <OpenLoafSettingsField className="w-full sm:w-72 shrink-0">
             <button
               type="button"
-              className="flex h-9 w-full items-center rounded-lg border border-input bg-background px-3 text-xs text-muted-foreground hover:bg-accent/50 transition-colors"
+              className="flex h-9 w-full items-center rounded-3xl border border-input bg-background px-3 text-xs text-muted-foreground hover:bg-accent/50 transition-colors"
               onClick={handlePickTempStorageDir}
             >
               <FolderOpen className="mr-2 h-3.5 w-3.5 shrink-0" />

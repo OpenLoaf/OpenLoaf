@@ -40,7 +40,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   )
 }
 
-const inputCls = 'h-8 w-full max-w-[260px] rounded-md border border-border/70 bg-muted/40 px-3 text-xs text-foreground shadow-none focus-visible:ring-0'
+const inputCls = 'h-8 w-full max-w-[260px] rounded-3xl border border-border/70 bg-muted/40 px-3 text-xs text-foreground shadow-none focus-visible:ring-0'
 
 export const ConditionConfigForm = memo(function ConditionConfigForm({
   value,
@@ -53,7 +53,7 @@ export const ConditionConfigForm = memo(function ConditionConfigForm({
 
   return (
     <div className="divide-y divide-border/60">
-      <div className="rounded-md border border-ol-amber/30 bg-ol-amber-bg px-3 py-2 text-xs text-ol-amber mb-2">
+      <div className="rounded-3xl border border-ol-amber/30 bg-secondary px-3 py-2 text-xs text-muted-foreground mb-2">
         {t('schedule.conditionExperimental', { defaultValue: 'Condition triggers are experimental — backend not yet implemented.' })}
       </div>
       <Row label={t('schedule.conditionType')}>
@@ -61,14 +61,14 @@ export const ConditionConfigForm = memo(function ConditionConfigForm({
           value={value.type}
           onValueChange={(v) => onChange({ ...value, type: v as ConditionType, preFilter: {} })}
         >
-          <TabsList className="h-8 w-max rounded-md border border-border/70 bg-muted/40 p-1">
-            <TabsTrigger value="email_received" className="h-6 rounded-md px-2 text-xs whitespace-nowrap">
+          <TabsList className="h-8 w-max rounded-3xl border border-border/70 bg-muted/40 p-1">
+            <TabsTrigger value="email_received" className="h-6 rounded-3xl px-2 text-xs whitespace-nowrap">
               {t('schedule.emailReceived')}
             </TabsTrigger>
-            <TabsTrigger value="chat_keyword" className="h-6 rounded-md px-2 text-xs whitespace-nowrap">
+            <TabsTrigger value="chat_keyword" className="h-6 rounded-3xl px-2 text-xs whitespace-nowrap">
               {t('schedule.chatKeyword')}
             </TabsTrigger>
-            <TabsTrigger value="file_changed" className="h-6 rounded-md px-2 text-xs whitespace-nowrap">
+            <TabsTrigger value="file_changed" className="h-6 rounded-3xl px-2 text-xs whitespace-nowrap">
               {t('schedule.fileChanged')}
             </TabsTrigger>
           </TabsList>
@@ -121,11 +121,11 @@ export const ConditionConfigForm = memo(function ConditionConfigForm({
               value={((value.preFilter?.matchMode as string) ?? 'any')}
               onValueChange={(v) => updatePreFilter('matchMode', v)}
             >
-              <TabsList className="h-8 w-max rounded-md border border-border/70 bg-muted/40 p-1">
-                <TabsTrigger value="any" className="h-6 rounded-md px-2 text-xs whitespace-nowrap">
+              <TabsList className="h-8 w-max rounded-3xl border border-border/70 bg-muted/40 p-1">
+                <TabsTrigger value="any" className="h-6 rounded-3xl px-2 text-xs whitespace-nowrap">
                   {t('schedule.conditionMatchAny')}
                 </TabsTrigger>
-                <TabsTrigger value="all" className="h-6 rounded-md px-2 text-xs whitespace-nowrap">
+                <TabsTrigger value="all" className="h-6 rounded-3xl px-2 text-xs whitespace-nowrap">
                   {t('schedule.conditionMatchAll')}
                 </TabsTrigger>
               </TabsList>

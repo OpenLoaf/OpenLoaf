@@ -41,7 +41,7 @@ function MediaEmptyWithLogin({
         type="button"
         variant="outline"
         size="sm"
-        className="rounded-md px-4"
+        className="rounded-3xl px-4"
         onClick={() => {
           onClose()
           onOpenLogin()
@@ -204,7 +204,7 @@ export function ModelPreferencesPanel({
               type="button"
               variant="outline"
               size="sm"
-              className="rounded-md px-4"
+              className="rounded-3xl px-4"
               onClick={() => {
                 onClose()
                 onOpenLogin()

@@ -85,14 +85,14 @@ import {
 
 /** Card gradients — order matches ColorPickerSubMenu & PREVIEW_GRADIENTS in CanvasListPage. */
 const CARD_GRADIENTS = [
-  "from-teal-100 to-cyan-50 dark:from-teal-900/40 dark:to-cyan-900/30",
-  "from-violet-100 to-fuchsia-50 dark:from-violet-900/40 dark:to-fuchsia-900/30",
-  "from-amber-100 to-orange-50 dark:from-amber-900/40 dark:to-orange-900/30",
-  "from-sky-100 to-blue-50 dark:from-sky-900/40 dark:to-blue-900/30",
-  "from-rose-100 to-pink-50 dark:from-rose-900/40 dark:to-pink-900/30",
-  "from-emerald-100 to-green-50 dark:from-emerald-900/40 dark:to-green-900/30",
-  "from-indigo-100 to-purple-50 dark:from-indigo-900/40 dark:to-purple-900/30",
-  "from-lime-100 to-yellow-50 dark:from-lime-900/40 dark:to-yellow-900/30",
+  "from-neutral-100 to-neutral-50 dark:from-neutral-800/40 dark:to-neutral-900/30",
+  "from-stone-100 to-stone-50 dark:from-stone-800/40 dark:to-stone-900/30",
+  "from-zinc-100 to-zinc-50 dark:from-zinc-800/40 dark:to-zinc-900/30",
+  "from-gray-100 to-gray-50 dark:from-gray-800/40 dark:to-gray-900/30",
+  "from-slate-100 to-slate-50 dark:from-slate-800/40 dark:to-slate-900/30",
+  "from-neutral-100/80 to-stone-50 dark:from-neutral-800/30 dark:to-stone-900/30",
+  "from-zinc-100/80 to-gray-50 dark:from-zinc-800/30 dark:to-gray-900/30",
+  "from-slate-100/80 to-neutral-50 dark:from-slate-800/30 dark:to-neutral-900/30",
 ];
 
 const PROJECT_TYPE_ORDER = [
@@ -572,9 +572,9 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.25, delay: Math.min(index * 0.03, 0.3) }}
-              className={`group relative flex flex-col overflow-hidden rounded-2xl ol-glass-float cursor-pointer shadow-none transition-colors duration-200 hover:border-ol-blue/60 dark:bg-background/30 ${
+              className={`group relative flex flex-col overflow-hidden rounded-3xl ol-glass-float cursor-pointer shadow-none transition-colors duration-200 hover:border-foreground/30 dark:bg-background/30 ${
                 isActive
-                  ? "border-ol-blue bg-ol-blue/[0.04] dark:bg-ol-blue/[0.08]"
+                  ? "border-foreground/30 bg-foreground/[0.04] dark:bg-foreground/[0.08]"
                   : "border-border/70"
               }`}
               onClick={() => handleProjectClick(project)}
@@ -599,17 +599,17 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
                 {/* Badges */}
                 <div className="absolute top-2 left-2 flex items-center gap-1.5">
                   {project.isFavorite && (
-                    <span className="inline-flex items-center rounded-md bg-ol-amber p-1 text-white">
+                    <span className="inline-flex items-center rounded-3xl bg-foreground p-1 text-background">
                       <Star className="h-2.5 w-2.5 fill-current" />
                     </span>
                   )}
                   {project.isGitProject && (
-                    <span className="inline-flex items-center rounded-md bg-black/50 p-1 text-white dark:bg-foreground/20">
+                    <span className="inline-flex items-center rounded-3xl bg-black/50 p-1 text-white dark:bg-foreground/20">
                       <GitBranch className="h-2.5 w-2.5" />
                     </span>
                   )}
                   {project.depth > 0 && (
-                    <span className="inline-flex items-center rounded-md bg-black/30 px-1.5 py-0.5 text-[10px] font-medium text-white dark:bg-foreground/15">
+                    <span className="inline-flex items-center rounded-3xl bg-black/30 px-1.5 py-0.5 text-[10px] font-medium text-white dark:bg-foreground/15">
                       L{project.depth}
                     </span>
                   )}
@@ -622,7 +622,7 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
                       <Button
                         variant="secondary"
                         size="icon"
-                        className="h-6 w-6 rounded-md ol-glass-float shadow-none"
+                        className="h-6 w-6 rounded-3xl ol-glass-float shadow-none"
                         onClick={(e) => e.stopPropagation()}
                       >
                         <MoreHorizontal className="h-3 w-3" />
@@ -717,16 +717,16 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
 
               {/* Info area */}
               <div className="flex flex-col gap-1 px-3.5 py-2.5">
-                <span className="flex items-center gap-1.5 truncate text-sm font-medium">
+                <span className="flex items-center gap-1.5 truncate text-base font-semibold">
                   {project.icon && (
-                    <span className="text-sm leading-none shrink-0">
+                    <span className="text-base leading-none shrink-0">
                       {project.icon}
                     </span>
                   )}
                   {project.title || t("projectListPage.untitled")}
                 </span>
-                <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
-                  <span className="truncate">{displayPath}</span>
+                <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground/60">
+                  <span className="truncate">{displayPath?.split('/').pop() || displayPath}</span>
                   {childCount > 0 && (
                     <span className="shrink-0">
                       {t("projectListPage.childCount", { count: childCount })}
@@ -830,11 +830,11 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
     >
       {/* Drag overlay */}
       {isDragOver && (
-        <div className="pointer-events-none absolute inset-0 z-50 flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-ol-blue bg-ol-blue/5 backdrop-blur-sm">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-ol-blue/10">
-            <FolderInput className="h-7 w-7 text-ol-blue" />
+        <div className="pointer-events-none absolute inset-0 z-50 flex flex-col items-center justify-center gap-3 rounded-3xl border-2 border-dashed border-foreground/30 bg-foreground/5 backdrop-blur-sm">
+          <div className="flex h-14 w-14 items-center justify-center rounded-3xl bg-secondary">
+            <FolderInput className="h-7 w-7 text-foreground" />
           </div>
-          <p className="text-sm font-medium text-ol-blue">
+          <p className="text-sm font-medium text-foreground">
             {t("projectListPage.dropToCreate")}
           </p>
         </div>
@@ -848,7 +848,7 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={t("search")}
-              className="h-8 pl-8 pr-7 text-sm rounded-md bg-muted/40 border-transparent focus:border-border"
+              className="h-8 pl-8 pr-7 text-sm rounded-3xl bg-muted/40 border-transparent focus:border-border"
             />
             {searchQuery && (
               <button
@@ -864,7 +864,7 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
             value={filterProjectType}
             onValueChange={setFilterProjectType}
           >
-            <SelectTrigger className="h-8 w-auto max-w-40 gap-1.5 rounded-md border-transparent bg-muted/40 px-3 text-sm focus:border-border [&>svg]:h-3.5 [&>svg]:w-3.5">
+            <SelectTrigger className="h-8 w-auto max-w-40 gap-1.5 rounded-3xl border-transparent bg-muted/40 px-3 text-sm focus:border-border [&>svg]:h-3.5 [&>svg]:w-3.5">
               <Filter className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
               <SelectValue />
             </SelectTrigger>
@@ -891,7 +891,7 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 rounded-md text-muted-foreground hover:text-foreground"
+                className="h-8 w-8 rounded-3xl text-muted-foreground hover:text-foreground"
                 onClick={() => invalidateProjects()}
               >
                 <RefreshCw className={`h-3.5 w-3.5 ${projectsQuery.isFetching ? "animate-spin" : ""}`} />
@@ -904,7 +904,7 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
               <Button
                 variant={groupByType ? "secondary" : "ghost"}
                 size="icon"
-                className={`h-8 w-8 rounded-md ${groupByType ? "bg-ol-blue/10 text-ol-blue" : ""}`}
+                className={`h-8 w-8 rounded-3xl ${groupByType ? "bg-secondary text-foreground" : ""}`}
                 onClick={() => setGroupByType((value) => !value)}
               >
                 <Layers3 className="h-4 w-4" />
@@ -917,7 +917,7 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
           <Button
             variant="ghost"
             size="sm"
-            className="rounded-md bg-ol-blue/10 text-ol-blue hover:bg-ol-blue/20"
+            className="rounded-3xl bg-foreground text-background hover:bg-foreground/90"
             onClick={openAddDialog}
           >
             <Plus className="mr-1.5 h-4 w-4" />
@@ -933,7 +933,7 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
             {Array.from({ length: 8 }).map((_, index) => (
               <div
                 key={index}
-                className="overflow-hidden rounded-2xl border border-border/60 bg-card/70"
+                className="overflow-hidden rounded-3xl border border-border/60 bg-card/70"
               >
                 <div className="h-36 animate-pulse bg-muted/60" />
                 <div className="space-y-2 px-3.5 py-2.5">
@@ -957,7 +957,7 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
             {groupedProjects.map((group) => (
               <div key={group.key}>
                 <div className="mb-3 px-1">
-                  <h3 className="text-xs font-medium text-muted-foreground/70">
+                  <h3 className="text-sm font-semibold text-foreground/60 uppercase tracking-wide">
                     {tSettings(`project.typeLabel.${group.key}`)}
                   </h3>
                 </div>
@@ -975,7 +975,7 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
                 aria-hidden="true"
               >
                 {isFetchingNextProjects ? (
-                  <div className="h-6 w-6 rounded-full border-2 border-border/60 border-t-ol-blue animate-spin" />
+                  <div className="h-6 w-6 rounded-full border-2 border-border/60 border-t-foreground animate-spin" />
                 ) : null}
               </div>
             ) : null}
@@ -994,7 +994,7 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
                 aria-hidden="true"
               >
                 {isFetchingNextProjects ? (
-                  <div className="h-6 w-6 rounded-full border-2 border-border/60 border-t-ol-blue animate-spin" />
+                  <div className="h-6 w-6 rounded-full border-2 border-border/60 border-t-foreground animate-spin" />
                 ) : null}
               </div>
             ) : null}
@@ -1033,14 +1033,14 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
             <DialogClose asChild>
               <Button
                 variant="ghost"
-                className="rounded-md text-muted-foreground shadow-none transition-colors duration-150"
+                className="rounded-3xl text-muted-foreground shadow-none transition-colors duration-150"
               >
                 {t("cancel")}
               </Button>
             </DialogClose>
             <Button
               variant="ghost"
-              className="rounded-md bg-ol-blue/10 text-ol-blue hover:bg-ol-blue/20 shadow-none transition-colors duration-150"
+              className="rounded-3xl bg-secondary text-foreground hover:bg-accent shadow-none transition-colors duration-150"
               onClick={handleRenameSave}
               disabled={updateMutation.isPending}
             >
@@ -1057,7 +1057,7 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
         }}
       >
         <DialogContent
-          className="max-w-[420px] overflow-hidden rounded-2xl border border-border/60 bg-background p-0 shadow-ol-float"
+          className="max-w-[420px] overflow-hidden rounded-3xl border border-border/60 bg-background p-0 shadow-none"
           onInteractOutside={(e) => { if (isBusy) e.preventDefault(); }}
           onEscapeKeyDown={(e) => { if (isBusy) e.preventDefault(); }}
         >
@@ -1070,10 +1070,10 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
             <div className="flex gap-2.5 px-6 pt-3 pb-7">
               <button
                 type="button"
-                className="group flex flex-1 flex-col items-center gap-2.5 rounded-xl border border-ol-blue/20 bg-ol-blue-bg px-4 py-4 text-center transition-colors duration-150 hover:border-ol-blue/30 hover:bg-ol-blue-bg-hover"
+                className="group flex flex-1 flex-col items-center gap-2.5 rounded-3xl border border-foreground/10 bg-secondary px-4 py-4 text-center transition-colors duration-150 hover:border-foreground/20 hover:bg-accent"
                 onClick={() => setAddMode("create")}
               >
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-ol-blue-bg text-ol-blue">
+                <div className="flex h-9 w-9 items-center justify-center rounded-3xl bg-secondary text-foreground">
                   <FolderPlus className="h-4.5 w-4.5" />
                 </div>
                 <div>
@@ -1083,10 +1083,10 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
               </button>
               <button
                 type="button"
-                className="group flex flex-1 flex-col items-center gap-2.5 rounded-xl border border-ol-purple/20 bg-ol-purple-bg px-4 py-4 text-center transition-colors duration-150 hover:border-ol-purple/30 hover:bg-ol-purple-bg-hover"
+                className="group flex flex-1 flex-col items-center gap-2.5 rounded-3xl border border-foreground/10 bg-secondary px-4 py-4 text-center transition-colors duration-150 hover:border-foreground/20 hover:bg-accent"
                 onClick={() => setAddMode("git")}
               >
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-ol-purple-bg text-ol-purple">
+                <div className="flex h-9 w-9 items-center justify-center rounded-3xl bg-secondary text-foreground">
                   <GitBranch className="h-4.5 w-4.5" />
                 </div>
                 <div>
@@ -1106,7 +1106,7 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
                 </Label>
                 <button
                   type="button"
-                  className="flex h-9 w-full items-center rounded-lg border border-input bg-background px-3 text-xs text-muted-foreground hover:bg-accent/50 transition-colors"
+                  className="flex h-9 w-full items-center rounded-3xl border border-input bg-background px-3 text-xs text-muted-foreground hover:bg-accent/50 transition-colors"
                   onClick={async () => {
                     const dir = await pickDirectory(createFolderPath || undefined);
                     if (dir) {
@@ -1132,7 +1132,7 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
                   id="add-project-title"
                   value={createTitle}
                   onChange={(e) => setCreateTitle(e.target.value)}
-                  className="h-9 rounded-lg"
+                  className="h-9 rounded-3xl"
                   placeholder={t("sidebar.projectNamePlaceholder")}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && createFolderPath.trim() && !isBusy) {
@@ -1157,7 +1157,7 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
                       id="git-url"
                       value={gitUrl}
                       onChange={(e) => setGitUrl(e.target.value)}
-                      className="h-9 rounded-lg font-mono text-xs"
+                      className="h-9 rounded-3xl font-mono text-xs"
                       autoFocus
                       placeholder="https://github.com/user/repo.git"
                       onKeyDown={(e) => {
@@ -1171,7 +1171,7 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
                     </Label>
                     <button
                       type="button"
-                      className="flex h-9 w-full items-center rounded-lg border border-input bg-background px-3 text-xs text-muted-foreground hover:bg-accent/50 transition-colors"
+                      className="flex h-9 w-full items-center rounded-3xl border border-input bg-background px-3 text-xs text-muted-foreground hover:bg-accent/50 transition-colors"
                       onClick={async () => {
                         const dir = await pickDirectory(gitTargetDir || undefined);
                         if (dir) setGitTargetDir(dir);
@@ -1185,12 +1185,12 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
               {(isBusy || gitDone) && (
                 <div className="flex flex-col gap-2">
                   {gitDone && (
-                    <div className="flex items-center gap-2 text-sm text-ol-green">
+                    <div className="flex items-center gap-2 text-sm text-foreground">
                       <CheckCircle2 className="h-4 w-4" />
                       <span>{t("sidebar.cloneComplete")}</span>
                     </div>
                   )}
-                  <div className="max-h-[160px] overflow-y-auto rounded-lg border border-border/40 bg-muted/30 p-2.5">
+                  <div className="max-h-[160px] overflow-y-auto rounded-3xl border border-border/40 bg-muted/30 p-2.5">
                     <pre className="whitespace-pre-wrap break-all font-mono text-[11px] leading-relaxed text-muted-foreground">
                       {gitProgress.slice(-12).join("\n") || t("sidebar.connecting")}
                     </pre>
@@ -1206,7 +1206,7 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
               <Button
                 variant="outline"
                 type="button"
-                className="h-9 rounded-md px-5 text-[13px] text-ol-text-auxiliary hover:bg-ol-surface-muted"
+                className="h-9 rounded-3xl px-5 text-[13px] text-muted-foreground hover:bg-accent"
                 onClick={() => { setAddMode(null); setCreateTitle(""); setCreateFolderPath(""); }}
               >
                 {t("sidebar.back")}
@@ -1215,7 +1215,7 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
                 variant="ghost"
                 onClick={handleCreateProject}
                 disabled={isBusy || !createFolderPath.trim()}
-                className="h-9 rounded-md px-5 text-[13px] bg-ol-blue text-white shadow-none hover:bg-ol-blue hover:text-white hover:opacity-90"
+                className="h-9 rounded-3xl px-5 text-[13px] bg-foreground text-background shadow-none hover:bg-foreground hover:text-background hover:opacity-90"
               >
                 {isBusy ? t("sidebar.creating") : t("sidebar.create")}
               </Button>
@@ -1231,7 +1231,7 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
                     <Button
                       variant="outline"
                       type="button"
-                      className="h-9 rounded-md px-5 text-[13px] text-ol-red border-ol-red/20 hover:bg-ol-red-bg"
+                      className="h-9 rounded-3xl px-5 text-[13px] text-destructive border-destructive/20 hover:bg-destructive/10"
                       onClick={handleAbortClone}
                     >
                       <Square className="mr-1.5 h-3.5 w-3.5" />
@@ -1241,7 +1241,7 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
                     <Button
                       variant="outline"
                       type="button"
-                      className="h-9 rounded-md px-5 text-[13px] text-ol-text-auxiliary hover:bg-ol-surface-muted"
+                      className="h-9 rounded-3xl px-5 text-[13px] text-muted-foreground hover:bg-accent"
                       onClick={() => setAddMode(null)}
                     >
                       {t("sidebar.back")}
@@ -1251,7 +1251,7 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
                     variant="ghost"
                     onClick={handleCloneFromGit}
                     disabled={isBusy || !gitUrl.trim()}
-                    className="h-9 rounded-md px-5 text-[13px] bg-ol-purple text-white shadow-none hover:bg-ol-purple hover:text-white hover:opacity-90"
+                    className="h-9 rounded-3xl px-5 text-[13px] bg-foreground text-background shadow-none hover:bg-foreground hover:text-background hover:opacity-90"
                   >
                     {isBusy ? t("sidebar.cloning") : t("sidebar.startClone")}
                   </Button>
@@ -1260,7 +1260,7 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
                 <Button
                   variant="ghost"
                   onClick={() => setIsCreateOpen(false)}
-                  className="h-9 rounded-md px-5 text-[13px] bg-ol-green text-white shadow-none hover:bg-ol-green hover:text-white hover:opacity-90"
+                  className="h-9 rounded-3xl px-5 text-[13px] bg-foreground text-background shadow-none hover:bg-foreground hover:text-background hover:opacity-90"
                 >
                   {t("sidebar.done")}
                 </Button>

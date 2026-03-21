@@ -94,7 +94,7 @@ export const ColumnElement = withHOC(
           <div
             className={cn(
               'relative h-full border border-transparent p-1.5',
-              !readOnly && 'rounded-lg border-border border-dashed',
+              !readOnly && 'rounded-3xl border-border border-dashed',
               isDragging && 'opacity-50'
             )}
           >

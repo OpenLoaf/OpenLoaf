@@ -105,7 +105,7 @@ export function StepUpProviderStep({
             />
           ))}
           {entries.length === 0 ? (
-            <div className="rounded-2xl border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
+            <div className="rounded-3xl border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
               {/* 当前无可用供应商时提示用户先新增。 */}
               暂无模型供应商，请先新增。
             </div>

@@ -49,14 +49,14 @@ export function ConfirmDeleteDialog({
         </DialogHeader>
         <div className="text-sm text-muted-foreground">{description}</div>
         <DialogFooter>
-          <Button variant="ghost" onClick={onClose}>
+          <Button variant="ghost" onClick={onClose} className="rounded-3xl">
             {t('cancel')}
           </Button>
           <Button
-            variant="destructive"
             onClick={async () => {
               await onConfirm();
             }}
+            className="bg-destructive text-white hover:bg-destructive/90 rounded-3xl shadow-none transition-colors duration-150"
           >
             {t('delete')}
           </Button>

@@ -27,14 +27,14 @@ import type { AddDialogState } from './use-email-page-state'
 
 /** 预设账户类型（id 为存储键，labelKey 用于 i18n 显示） */
 const ACCOUNT_TYPE_PRESETS = [
-  { id: 'work', labelKey: 'email.accountPreset_work', color: 'bg-ol-blue' },
-  { id: 'personal', labelKey: 'email.accountPreset_personal', color: 'bg-ol-green' },
-  { id: 'support', labelKey: 'email.accountPreset_support', color: 'bg-ol-amber' },
+  { id: 'work', labelKey: 'email.accountPreset_work', color: 'bg-foreground' },
+  { id: 'personal', labelKey: 'email.accountPreset_personal', color: 'bg-muted-foreground' },
+  { id: 'support', labelKey: 'email.accountPreset_support', color: 'bg-muted-foreground' },
   { id: 'notifications', labelKey: 'email.accountPreset_notifications', color: 'bg-purple-500' },
   { id: 'marketing', labelKey: 'email.accountPreset_marketing', color: 'bg-pink-500' },
-  { id: 'finance', labelKey: 'email.accountPreset_finance', color: 'bg-ol-amber' },
+  { id: 'finance', labelKey: 'email.accountPreset_finance', color: 'bg-muted-foreground' },
   { id: 'tech', labelKey: 'email.accountPreset_tech', color: 'bg-cyan-500' },
-  { id: 'subscriptions', labelKey: 'email.accountPreset_subscriptions', color: 'bg-ol-text-auxiliary' },
+  { id: 'subscriptions', labelKey: 'email.accountPreset_subscriptions', color: 'bg-muted-foreground' },
 ] as const
 
 type ConfigureStepProps = {
@@ -121,9 +121,9 @@ export function ConfigureStep({ addDialog }: ConfigureStepProps) {
       {isOAuth ? (
         <>
           {addDialog.formState.oauthAuthorized ? (
-            <div className="flex items-center gap-2 rounded-lg bg-ol-green/10 px-3 py-2.5">
-              <CheckCircle2 className="size-4 text-ol-green" />
-              <span className="text-xs text-ol-green">
+            <div className="flex items-center gap-2 rounded-3xl bg-muted-foreground/10 px-3 py-2.5">
+              <CheckCircle2 className="size-4 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">
                 {t('email.authorized')}
                 {addDialog.formState.oauthEmail
                   ? ` ${addDialog.formState.oauthEmail}`
@@ -204,7 +204,7 @@ export function ConfigureStep({ addDialog }: ConfigureStepProps) {
             <CollapsibleTrigger asChild>
               <button
                 type="button"
-                className="flex w-full items-center justify-between rounded-lg bg-muted/30 px-3 py-2 text-xs text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+                className="flex w-full items-center justify-between rounded-3xl bg-muted/30 px-3 py-2 text-xs text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
               >
                 <span className="flex items-center gap-2">
                   <Settings2 className="size-3.5" />
@@ -221,7 +221,7 @@ export function ConfigureStep({ addDialog }: ConfigureStepProps) {
             <CollapsibleContent className="mt-3 space-y-4">
               <div className="space-y-2.5">
                 <div className="flex items-center gap-2 text-xs font-medium text-foreground/70">
-                  <span className="size-1.5 rounded-full bg-ol-blue" />
+                  <span className="size-1.5 rounded-full bg-foreground" />
                   {t('email.imapIncoming')}
                 </div>
                 <div className="grid grid-cols-[1fr,90px] gap-2">
@@ -266,7 +266,7 @@ export function ConfigureStep({ addDialog }: ConfigureStepProps) {
               </div>
               <div className="space-y-2.5">
                 <div className="flex items-center gap-2 text-xs font-medium text-foreground/70">
-                  <span className="size-1.5 rounded-full bg-ol-green" />
+                  <span className="size-1.5 rounded-full bg-muted-foreground" />
                   {t('email.smtpOutgoing')}
                 </div>
                 <div className="grid grid-cols-[1fr,90px] gap-2">
@@ -330,7 +330,7 @@ export function ConfigureStep({ addDialog }: ConfigureStepProps) {
                 type="button"
                 onClick={() => handleToggleLabel(preset.id)}
                 className={cn(
-                  'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all',
+                  'inline-flex items-center gap-1.5 rounded-3xl px-3 py-1.5 text-xs font-medium transition-all',
                   isSelected
                     ? 'bg-foreground text-background'
                     : 'bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground',
@@ -346,7 +346,7 @@ export function ConfigureStep({ addDialog }: ConfigureStepProps) {
               key={label}
               type="button"
               onClick={() => handleRemoveCustomLabel(label)}
-              className="inline-flex items-center gap-1.5 rounded-md bg-foreground px-3 py-1.5 text-xs font-medium text-background transition-all"
+              className="inline-flex items-center gap-1.5 rounded-3xl bg-foreground px-3 py-1.5 text-xs font-medium text-background transition-all"
             >
               <span className="size-2 rounded-full bg-background/30" />
               {label}
@@ -366,7 +366,7 @@ export function ConfigureStep({ addDialog }: ConfigureStepProps) {
             <button
               type="button"
               onClick={handleEnableCustomLabel}
-              className="inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs text-muted-foreground transition-all hover:bg-muted hover:text-foreground"
+              className="inline-flex items-center gap-1 rounded-3xl px-2.5 py-1.5 text-xs text-muted-foreground transition-all hover:bg-muted hover:text-foreground"
             >
               <Plus className="size-3" />
               {t('email.custom')}
@@ -376,12 +376,12 @@ export function ConfigureStep({ addDialog }: ConfigureStepProps) {
       </div>
 
       {addDialog.formError ? (
-        <div className="rounded-lg bg-destructive/10 px-3 py-2.5 text-xs text-destructive">
+        <div className="rounded-3xl bg-destructive/10 px-3 py-2.5 text-xs text-destructive">
           {addDialog.formError}
         </div>
       ) : null}
       {addDialog.testStatus === 'ok' ? (
-        <div className="rounded-lg bg-ol-green/10 px-3 py-2.5 text-xs text-ol-green">
+        <div className="rounded-3xl bg-muted-foreground/10 px-3 py-2.5 text-xs text-muted-foreground">
           {t('email.testSuccess')}
         </div>
       ) : null}

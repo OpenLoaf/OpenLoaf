@@ -209,12 +209,14 @@ export class SelectTool implements CanvasTool {
 
     ctx.engine.setAlignmentGuides([]);
     ctx.engine.setSelectionBox(null);
+    ctx.engine.setSelectionClickPoint(null);
     this.selectionStartWorld = null;
     this.selectionStartScreen = null;
     this.selectionBoxActive = false;
 
     if (hit.kind === "connector") {
       ctx.engine.selection.setSelection([hit.id]);
+      ctx.engine.setSelectionClickPoint(ctx.worldPoint);
       ctx.engine.setConnectorStyle(hit.style ?? ctx.engine.getConnectorStyle(), {
         applyToSelection: false,
       });
@@ -491,7 +493,8 @@ export class SelectTool implements CanvasTool {
           });
           keepDraft = true;
         } else if (!isSameElement) {
-          ctx.engine.addConnectorElement(draft);
+          // 逻辑：连接到已有节点时跳过自动布局，保持目标节点原位。
+          ctx.engine.addConnectorElement(draft, { skipLayout: true });
         }
       }
 

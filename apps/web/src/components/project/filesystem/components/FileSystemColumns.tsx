@@ -58,7 +58,7 @@ const isBoardFolderEntry = (entry: FileSystemEntry) =>
 
 /** Base layout for column rows. */
 const columnRowBaseClassName =
-  "flex items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs text-foreground";
+  "flex items-center gap-2 rounded-3xl px-2.5 py-1.5 text-left text-xs text-foreground";
 /** Extension display labels for column metadata. */
 const COLUMN_TYPE_LABEL_OVERRIDES: Record<string, string> = {
   ts: "TypeScript",
@@ -255,7 +255,7 @@ const FileSystemColumnRenameRow = memo(function FileSystemColumnRenameRow({
         <Input
           value={renamingValue ?? displayName}
           onChange={(event) => onRenamingChange?.(event.target.value)}
-          className="h-6 w-full rounded-sm border border-border/60 bg-background px-2 py-0 text-left text-xs leading-4 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+          className="h-6 w-full rounded-3xl border border-border/60 bg-background px-2 py-0 text-left text-xs leading-4 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
           onKeyDown={(event) => {
             if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "a") {
               event.stopPropagation();
@@ -733,7 +733,7 @@ const FileSystemColumns = memo(function FileSystemColumns({
     >
       {selectionRect && gridRef.current ? (
         <div
-          className="pointer-events-none absolute z-10 rounded-md border border-primary/40 bg-primary/10"
+          className="pointer-events-none absolute z-10 rounded-3xl border border-primary/40 bg-primary/10"
           style={{
             left: selectionRect.left - gridRef.current.getBoundingClientRect().left,
             top: selectionRect.top - gridRef.current.getBoundingClientRect().top,

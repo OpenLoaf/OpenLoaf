@@ -19,7 +19,7 @@ export function DateElementStatic(props: SlateElementProps<TDateElement>) {
 
   return (
     <SlateElement className="inline-block" {...props}>
-      <span className="w-fit rounded-sm bg-muted px-1 text-muted-foreground">
+      <span className="w-fit rounded-3xl bg-muted px-1 text-muted-foreground">
         {element.date ? (
           (() => {
             const today = new Date();

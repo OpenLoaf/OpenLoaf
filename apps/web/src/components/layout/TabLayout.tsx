@@ -58,7 +58,7 @@ class PanelErrorBoundary extends React.Component<
         <div className="flex h-full w-full items-center justify-center">
           <button
             type="button"
-            className="rounded-md bg-muted px-4 py-2 text-sm text-foreground transition-colors hover:bg-muted/80"
+            className="rounded-3xl bg-muted px-4 py-2 text-sm text-foreground transition-colors hover:bg-muted/80"
             onClick={() => this.setState({ hasError: false })}
           >
             重新加载面板
@@ -134,7 +134,7 @@ function RightChatPanel() {
       style={{ minWidth: RIGHT_CHAT_MIN_PX }}
     >
       <div className="flex min-h-0 flex-1 flex-col">
-        <div className="relative flex min-h-0 flex-1 flex-col rounded-lg bg-background overflow-hidden">
+        <div className="relative flex min-h-0 flex-1 flex-col rounded-3xl bg-background overflow-hidden">
           <Chat
             className="flex-1 min-h-0"
             fullPage={!layout.base}
@@ -455,7 +455,7 @@ export function TabLayout() {
       onPointerLeave={handleDragEnd}
     >
       <motion.div
-        className="relative z-10 flex min-h-0 min-w-0 flex-col rounded-lg bg-background overflow-hidden"
+        className="relative z-10 flex min-h-0 min-w-0 flex-col rounded-3xl bg-background overflow-hidden"
         style={{
           width: useTransform(splitPercent, (v) => `${v}%`),
           minWidth: isLeftVisible && minLeftEnabled ? effectiveMinLeft : 0,
@@ -481,7 +481,7 @@ export function TabLayout() {
 
       <motion.div
         className={cn(
-          "relative z-20 flex shrink-0 items-center justify-center rounded-4xl bg-sidebar touch-none select-none",
+          "relative z-20 flex shrink-0 items-center justify-center rounded-3xl bg-sidebar touch-none select-none",
           "hover:bg-primary/20 active:bg-primary/30",
           isDragging ? "cursor-col-resize bg-primary/20" : "cursor-col-resize"
         )}
@@ -492,7 +492,7 @@ export function TabLayout() {
         }}
         onPointerDown={handleDragStart}
       >
-        <div className={cn("h-6 w-1 rounded-full bg-muted/70", isDragging && "bg-primary/70")} />
+        <div className={cn("h-6 w-1 rounded-3xl bg-muted/70", isDragging && "bg-primary/70")} />
       </motion.div>
 
       <motion.div

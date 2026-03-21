@@ -84,7 +84,7 @@ export function StepUpLoginStep({
           ))}
         </div>
         <div
-          className={`rounded-2xl border px-4 py-3 text-xs ${
+          className={`rounded-3xl border px-4 py-3 text-xs ${
             selectedProvider && selectedRegion
               ? "border-primary/20 bg-primary/5 text-primary"
               : "border-dashed text-muted-foreground"

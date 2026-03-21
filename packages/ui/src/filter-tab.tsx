@@ -54,7 +54,7 @@ export function FilterTab({
         <motion.span
           layoutId={layoutId}
           transition={{ type: 'spring', duration: 0.4 }}
-          className="absolute inset-0 z-0 rounded-md bg-background shadow-sm"
+          className="absolute inset-0 z-0 rounded-3xl bg-background shadow-sm"
         />
       ) : null}
     </button>

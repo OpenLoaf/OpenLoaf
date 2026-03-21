@@ -168,7 +168,7 @@ const TestSetting = memo(function TestSetting() {
       <OpenLoafSettingsGroup title="实验功能">
         <div className="divide-y divide-border/40">
           <div className="flex flex-wrap items-center gap-2 py-3">
-            <SettingIcon icon={Layers} bg="bg-ol-blue-bg" fg="text-ol-blue" />
+            <SettingIcon icon={Layers} bg="bg-secondary" fg="text-foreground" />
             <div className="min-w-0 flex-1">
               <div className="text-sm font-medium">Stack Demo</div>
               <div className="text-xs text-muted-foreground">
@@ -176,12 +176,12 @@ const TestSetting = memo(function TestSetting() {
               </div>
             </div>
             <OpenLoafSettingsField className="flex-wrap gap-2">
-              <Button size="sm" className="rounded-md bg-ol-blue-bg text-ol-blue hover:bg-ol-blue-bg-hover shadow-none" onClick={handleCreateThreeStacks}>
+              <Button size="sm" className="rounded-3xl bg-secondary text-foreground hover:bg-secondary-hover shadow-none" onClick={handleCreateThreeStacks}>
                 Stack: Create 3 (demo)
               </Button>
               <Button
                 size="sm"
-                className="rounded-md bg-ol-surface-muted text-ol-text-auxiliary hover:bg-muted shadow-none"
+                className="rounded-3xl bg-secondary text-muted-foreground hover:bg-muted shadow-none"
                 onClick={() => {
                   const toolKey = `demo:${Date.now()}`;
                   upsertToolPart("main", toolKey, {
@@ -208,7 +208,7 @@ const TestSetting = memo(function TestSetting() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2 py-3">
-            <SettingIcon icon={Monitor} bg="bg-ol-purple-bg" fg="text-ol-purple" />
+            <SettingIcon icon={Monitor} bg="bg-secondary" fg="text-foreground" />
             <div className="min-w-0 flex-1">
               <div className="text-sm font-medium">面板模拟</div>
               <div className="text-xs text-muted-foreground">
@@ -217,13 +217,13 @@ const TestSetting = memo(function TestSetting() {
             </div>
             <OpenLoafSettingsField className="flex-wrap gap-2">
               {terminalStatus.enabled ? (
-                <Button size="sm" className="rounded-md bg-ol-surface-muted text-ol-text-auxiliary hover:bg-muted shadow-none" onClick={handleOpenGlobalTerminal}>
+                <Button size="sm" className="rounded-3xl bg-secondary text-muted-foreground hover:bg-muted shadow-none" onClick={handleOpenGlobalTerminal}>
                   Stack: Terminal (global)
                 </Button>
               ) : null}
               <Button
                 size="sm"
-                className="rounded-md bg-ol-surface-muted text-ol-text-auxiliary hover:bg-muted shadow-none"
+                className="rounded-3xl bg-secondary text-muted-foreground hover:bg-muted shadow-none"
                 onClick={() => {
                   pushStackItem({
                     id: "project:current",
@@ -240,7 +240,7 @@ const TestSetting = memo(function TestSetting() {
                 <>
                   <Button
                     size="sm"
-                    className="rounded-md bg-ol-surface-muted text-ol-text-auxiliary hover:bg-muted shadow-none"
+                    className="rounded-3xl bg-secondary text-muted-foreground hover:bg-muted shadow-none"
                     onClick={() => {
                       pushStackItem({
                         id: `browser:${Date.now()}`,
@@ -255,7 +255,7 @@ const TestSetting = memo(function TestSetting() {
                   </Button>
                   <Button
                     size="sm"
-                    className="rounded-md bg-ol-surface-muted text-ol-text-auxiliary hover:bg-muted shadow-none"
+                    className="rounded-3xl bg-secondary text-muted-foreground hover:bg-muted shadow-none"
                     onClick={() => {
                       pushStackItem({
                         id: BROWSER_WINDOW_PANEL_ID,
@@ -279,7 +279,7 @@ const TestSetting = memo(function TestSetting() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2 py-3">
-            <SettingIcon icon={Magnet} bg="bg-ol-blue-bg" fg="text-ol-blue" />
+            <SettingIcon icon={Magnet} bg="bg-secondary" fg="text-foreground" />
             <div className="min-w-0 flex-1">
               <div className="text-sm font-medium">画布自动对齐</div>
               <div className="text-xs text-muted-foreground">
@@ -298,7 +298,7 @@ const TestSetting = memo(function TestSetting() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2 py-3">
-            <SettingIcon icon={Bug} bg="bg-ol-amber-bg" fg="text-ol-amber" />
+            <SettingIcon icon={Bug} bg="bg-secondary" fg="text-foreground" />
             <div className="min-w-0 flex-1">
               <div className="text-sm font-medium">画布调试信息</div>
               <div className="text-xs text-muted-foreground">
@@ -323,17 +323,17 @@ const TestSetting = memo(function TestSetting() {
       <OpenLoafSettingsGroup title="操作">
         <div className="divide-y divide-border/40">
           <div className="flex flex-wrap items-center gap-2 py-3">
-            <SettingIcon icon={RefreshCw} bg="bg-ol-amber-bg" fg="text-ol-amber" />
+            <SettingIcon icon={RefreshCw} bg="bg-secondary" fg="text-foreground" />
             <div className="text-sm font-medium">重新进入初始化</div>
             <OpenLoafSettingsField>
-              <Button type="button" size="sm" className="rounded-md bg-ol-amber-bg text-ol-amber hover:bg-ol-amber-bg-hover shadow-none" onClick={handleRestartSetup}>
+              <Button type="button" size="sm" className="rounded-3xl bg-secondary text-foreground hover:bg-secondary-hover shadow-none" onClick={handleRestartSetup}>
                 进入
               </Button>
             </OpenLoafSettingsField>
           </div>
           {isElectron ? (
             <div className="flex flex-wrap items-center gap-2 py-3">
-              <SettingIcon icon={Monitor} bg="bg-ol-surface-muted" fg="text-ol-text-auxiliary" />
+              <SettingIcon icon={Monitor} bg="bg-secondary" fg="text-muted-foreground" />
               <div className="text-sm font-medium">WebContentsView 数</div>
               <OpenLoafSettingsField className="max-w-[70%] gap-2">
                 <button
@@ -349,7 +349,7 @@ const TestSetting = memo(function TestSetting() {
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="h-6 px-2 text-xs rounded-md"
+                  className="h-6 px-2 text-xs rounded-3xl"
                   aria-label="清除"
                   disabled={webContentsViewCount == null || webContentsViewCount === 0}
                   onClick={() => void clearWebContentsViews()}
@@ -365,7 +365,7 @@ const TestSetting = memo(function TestSetting() {
       <OpenLoafSettingsGroup title="Stack 状态">
         <div className="divide-y divide-border/40">
           <div className="flex flex-wrap items-center gap-2 py-3">
-            <SettingIcon icon={Layers} bg="bg-ol-green-bg" fg="text-ol-green" />
+            <SettingIcon icon={Layers} bg="bg-secondary" fg="text-foreground" />
             <div className="min-w-0 flex-1">
               <div className="text-sm font-medium">当前 Stack</div>
               <div className="text-xs text-muted-foreground">
@@ -379,7 +379,7 @@ const TestSetting = memo(function TestSetting() {
               <Button
                 size="sm"
                 variant="ghost"
-                className="rounded-md"
+                className="rounded-3xl"
                 onClick={() => {
                   clearStack();
                 }}

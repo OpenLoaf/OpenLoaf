@@ -62,7 +62,7 @@ function WordStructureView({
             return (
               <div key={i} className="flex items-start gap-2 text-xs">
                 {style && (
-                  <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${isHeading ? 'bg-ol-blue/10 text-ol-blue' : 'bg-muted text-muted-foreground'}`}>
+                  <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${isHeading ? 'bg-secondary text-foreground' : 'bg-muted text-muted-foreground'}`}>
                     {style}
                   </span>
                 )}
@@ -144,13 +144,13 @@ function TextPreviewView({
       <div className="flex flex-wrap gap-3 text-[10px] text-muted-foreground">
         <span>{t('tool.word.characterCount', { count: characterCount })}</span>
         {pageCount != null && <span>{t('tool.pdf.pageCount', { count: pageCount })}</span>}
-        {uiTruncated && <span className="text-ol-amber">{t('tool.word.textTruncated')}</span>}
+        {uiTruncated && <span className="text-muted-foreground">{t('tool.word.textTruncated')}</span>}
       </div>
       <pre className="max-h-[280px] overflow-auto whitespace-pre-wrap rounded bg-muted/40 p-2 text-xs leading-relaxed">
         {displayText}
       </pre>
       {legacy && hint && (
-        <div className="rounded bg-ol-amber/10 px-2 py-1 text-[10px] text-ol-amber">
+        <div className="rounded bg-secondary px-2 py-1 text-[10px] text-muted-foreground">
           {hint}
         </div>
       )}

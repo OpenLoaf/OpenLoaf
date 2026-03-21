@@ -1002,7 +1002,7 @@ export default function ImageViewer({
                 onClick={isAdjusting ? handleFinishAdjust : handleStartAdjust}
               >
                 <Sparkles
-                  className={`h-4 w-4 ${isAdjusting ? "text-ol-green" : "text-ol-blue"}`}
+                  className={`h-4 w-4 ${isAdjusting ? "text-muted-foreground" : "text-foreground"}`}
                 />
                 <span className="ml-1">{isAdjusting ? "完成" : "修改"}</span>
               </Button>

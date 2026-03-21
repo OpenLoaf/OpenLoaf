@@ -245,7 +245,7 @@ function MediaAttachmentList({
             key={record.id}
             type="button"
             onClick={() => openMediaViewer(record)}
-            className="group relative w-full overflow-hidden rounded-lg"
+            className="group relative w-full overflow-hidden rounded-3xl"
           >
             <video
               src={record.previewUrl}
@@ -315,7 +315,7 @@ function MediaGenerateLoading({
     <div className="w-full min-w-0">
       <div
         className={cn(
-          "relative max-w-xs overflow-hidden rounded-lg border border-border/50 bg-muted/40",
+          "relative max-w-xs overflow-hidden rounded-3xl border border-border/50 bg-muted/40",
           ratioClass,
         )}
       >
@@ -348,8 +348,8 @@ function MediaGenerateError({
     const canRetry = loggedIn && messageId;
     return (
       <>
-        <div className="flex max-w-sm items-center gap-2 rounded-lg border border-ol-amber/30 bg-ol-amber/5 px-3 py-2">
-          <span className="flex-1 text-xs text-ol-amber">
+        <div className="flex max-w-sm items-center gap-2 rounded-3xl border border-border bg-secondary px-3 py-2">
+          <span className="flex-1 text-xs text-foreground">
             {canRetry
               ? `已登录，可重新生成${kindLabel}`
               : errorText || `需要登录才能生成${kindLabel}`}
@@ -382,7 +382,7 @@ function MediaGenerateError({
 
   if (errorCode === "insufficient_credits") {
     return (
-      <div className="max-w-sm rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2">
+      <div className="max-w-sm rounded-3xl border border-destructive/30 bg-destructive/5 px-3 py-2">
         <span className="text-xs text-destructive">{errorText || "积分不足"}</span>
       </div>
     );
@@ -390,8 +390,8 @@ function MediaGenerateError({
 
   if (errorCode === "no_model") {
     return (
-      <div className="max-w-sm rounded-lg border border-ol-amber/30 bg-ol-amber/5 px-3 py-2">
-        <span className="text-xs text-ol-amber">
+      <div className="max-w-sm rounded-3xl border border-border bg-secondary px-3 py-2">
+        <span className="text-xs text-muted-foreground">
           {errorText || `未选择${kindLabel}生成模型`}
         </span>
       </div>
@@ -400,8 +400,8 @@ function MediaGenerateError({
 
   if (errorCode === "invalid_input") {
     return (
-      <div className="max-w-sm rounded-lg border border-ol-amber/30 bg-ol-amber/5 px-3 py-2">
-        <span className="text-xs text-ol-amber">
+      <div className="max-w-sm rounded-3xl border border-border bg-secondary px-3 py-2">
+        <span className="text-xs text-muted-foreground">
           {errorText || `${kindLabel}生成参数异常，请重试`}
         </span>
       </div>
@@ -409,7 +409,7 @@ function MediaGenerateError({
   }
 
   return (
-    <div className="ml-2 w-full max-w-[90%] rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2">
+    <div className="ml-2 w-full max-w-[90%] rounded-3xl border border-destructive/30 bg-destructive/5 px-3 py-2">
       <span className="text-xs text-destructive">
         {errorText || `${kindLabel}生成失败`}
       </span>

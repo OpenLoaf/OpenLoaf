@@ -46,7 +46,7 @@ export function TerminalTabsBar({
               <div
                 key={t.id}
                 className={cn(
-                  "group relative flex h-10 shrink-0 items-center gap-2 overflow-hidden rounded-lg px-3 text-sm",
+                  "group relative flex h-10 shrink-0 items-center gap-2 overflow-hidden rounded-3xl px-3 text-sm",
                   isActive
                     ? "min-w-[180px] max-w-[260px] text-foreground"
                     : "max-w-[180px] bg-sidebar/30 text-muted-foreground hover:bg-sidebar/60 hover:text-foreground",
@@ -79,7 +79,7 @@ export function TerminalTabsBar({
 
                 <button
                   type="button"
-                  className="relative z-10 grid h-6 w-6 place-items-center rounded-md opacity-0 transition-opacity group-hover:opacity-100"
+                  className="relative z-10 grid h-6 w-6 place-items-center rounded-3xl opacity-0 transition-opacity group-hover:opacity-100"
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
@@ -96,7 +96,7 @@ export function TerminalTabsBar({
 
         <button
           type="button"
-          className="ml-1 grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-transparent text-muted-foreground hover:bg-sidebar/60 hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+          className="ml-1 grid h-10 w-10 shrink-0 place-items-center rounded-3xl bg-transparent text-muted-foreground hover:bg-sidebar/60 hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();

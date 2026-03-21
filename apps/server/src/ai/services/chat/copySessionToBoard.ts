@@ -11,6 +11,10 @@ import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { createBoardId } from "@openloaf/api/common/boardId";
+import {
+  buildBoardFolderUri,
+  resolveBoardScopedRoot,
+} from "@openloaf/api/common/boardPaths";
 import { getProjectRootPath } from "@openloaf/api/services/vfsService";
 import { prisma } from "@openloaf/db";
 import { getOpenLoafRootDir } from "@openloaf/config";
@@ -179,7 +183,7 @@ export async function copySessionToBoard(
     targetBoardId: input.targetBoardId,
   });
   const targetSessionId = board.id;
-  registerSessionDir(targetSessionId, board.projectId, board.id);
+  await registerSessionDir(targetSessionId, board.projectId, board.id);
 
   const sourceScopeRootPath = resolveScopeRootPath(sourceSession.projectId);
   const targetScopeRootPath = resolveScopeRootPath(board.projectId);
@@ -318,7 +322,8 @@ async function ensureTargetBoard(input: {
 
   const boardId = createBoardId();
   const title = normalizeBoardTitle(input.sourceSession.title);
-  const folderUri = `.openloaf/boards/${boardId}/`;
+  const rootPath = resolveBoardScopedRoot(input.sourceSession.projectId ?? undefined);
+  const folderUri = buildBoardFolderUri(rootPath, boardId);
   const board = await input.prisma.board.create({
     data: {
       id: boardId,

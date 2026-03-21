@@ -66,7 +66,7 @@ const getBorderRadiusClass = (
 	if (isTruncatedEnd) {
 		return 'rounded-l-sm rounded-r-none'
 	}
-	return 'rounded-sm'
+	return 'rounded-3xl'
 }
 
 export const EventDragOverlay = forwardRef<EventDragOverlayHandle, {}>(
@@ -172,7 +172,7 @@ export const EventDragOverlay = forwardRef<EventDragOverlayHandle, {}>(
 							className={cn(
 								resolveEventColor(
 									activeEvent.event.backgroundColor,
-									'bg-ol-blue',
+									'bg-foreground',
 									'backgroundColor'
 								).className,
 								resolveEventColor(
@@ -195,7 +195,7 @@ export const EventDragOverlay = forwardRef<EventDragOverlayHandle, {}>(
 							style={{
 								...resolveEventColor(
 									activeEvent.event.backgroundColor,
-									'bg-ol-blue',
+									'bg-foreground',
 									'backgroundColor'
 								).style,
 								...resolveEventColor(

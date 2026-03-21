@@ -141,7 +141,7 @@ export default function LocalAuthGate({ children }: { children: React.ReactNode 
     <>
       {children}
       <div className="fixed inset-0 z-[70] flex items-center justify-center ol-glass-float p-6">
-        <div className="w-full max-w-md rounded-2xl border border-border/60 bg-background p-6 shadow-lg">
+        <div className="w-full max-w-md rounded-3xl border border-border/60 bg-background p-6 shadow-lg">
           <div className="space-y-2">
             <h1 className="text-lg font-semibold">{t("localAuth.title")}</h1>
             {status === "blocked" ? (
@@ -172,7 +172,7 @@ export default function LocalAuthGate({ children }: { children: React.ReactNode 
                   autoFocus
                 />
               </div>
-              <div className="flex items-center justify-between rounded-lg border border-border/60 px-3 py-2">
+              <div className="flex items-center justify-between rounded-3xl border border-border/60 px-3 py-2">
                 <Label htmlFor="local-auth-remember" className="text-sm">
                   {t("localAuth.rememberLogin")}
                 </Label>

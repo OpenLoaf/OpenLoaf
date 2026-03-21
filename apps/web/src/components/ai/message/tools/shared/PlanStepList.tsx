@@ -39,8 +39,8 @@ const PLAN_STATUS_META: Record<
   completed: {
     label: "已完成",
     Icon: CheckCircle2,
-    badgeClassName: "bg-ol-green/15 text-ol-green",
-    iconClassName: "text-ol-green",
+    badgeClassName: "bg-secondary text-foreground",
+    iconClassName: "text-foreground",
   },
 };
 
@@ -72,7 +72,7 @@ export default function PlanStepList({ plan, className }: PlanStepListProps) {
                 <div className="min-w-0 flex-1 space-y-1">
                   <span
                     className={cn(
-                      "inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-medium",
+                      "inline-flex items-center rounded-3xl px-1.5 py-0.5 text-[10px] font-medium",
                       meta.badgeClassName,
                     )}
                   >

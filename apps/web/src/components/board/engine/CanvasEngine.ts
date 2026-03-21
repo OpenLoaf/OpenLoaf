@@ -32,6 +32,7 @@ import type {
   CanvasStrokeSettings,
   CanvasStrokeTool,
   CanvasViewState,
+  VersionStack,
 } from "./types";
 import { resolveNodeMinSize } from "./types";
 import type { CanvasHistoryState } from "./history-utils";
@@ -125,6 +126,7 @@ import {
   isGroupNodeType,
 } from "./grouping";
 import { generateElementId } from "./id";
+import { removePrimaryEntry } from "./version-stack";
 
 /** Builder for image payloads. */
 type ImagePayloadBuilder = (file: File) => Promise<ImageNodePayload>;
@@ -181,6 +183,13 @@ export class CanvasEngine {
   private mindmapLayoutDirection: MindmapLayoutDirection = "right";
   /** Last toast timestamp for cycle warning. */
   private lastCycleToastAt = 0;
+  /**
+   * Optional UI-layer interceptor called when deleting nodes that have a
+   * version stack with more than one entry.  The callback receives the full
+   * expanded selection ids — if it returns `true` the engine skips its own
+   * `deleteSelection` and lets the UI handle it (e.g. show a dialog).
+   */
+  deleteInterceptor: ((selectionIds: string[]) => boolean) | null = null;
   /** Pending connector drop for node creation. */
   private connectorDrop: CanvasConnectorDrop | null = null;
   /** Pending insert request for one-shot placement. */
@@ -191,6 +200,8 @@ export class CanvasEngine {
   private toolbarDragging = false;
   /** Recent user-picked colors shared across all toolbar color panels. Max 7. */
   private colorHistory: string[] = [];
+  /** World-space point where the current selection was clicked (for toolbar positioning). */
+  private selectionClickPoint: CanvasPoint | null = null;
   /** Whether snap-to-align is enabled during drag/resize. */
   private snapEnabled = false;
   /** Alignment guides for snapping feedback. */
@@ -612,6 +623,7 @@ export class CanvasEngine {
       toolbarDragging: this.toolbarDragging,
       colorHistory: this.colorHistory,
       expandedNodeId: this.expandedNodeId,
+      selectionClickPoint: this.selectionClickPoint,
     };
   }
 
@@ -937,6 +949,12 @@ export class CanvasEngine {
   setConnectorHoverId(id: string | null): void {
     if (this.connectorHoverId === id) return;
     this.connectorHoverId = id;
+    this.emitChange();
+  }
+
+  /** Set the world-space point where the selection was clicked. */
+  setSelectionClickPoint(point: CanvasPoint | null): void {
+    this.selectionClickPoint = point;
     this.emitChange();
   }
 
@@ -1298,7 +1316,86 @@ export class CanvasEngine {
       this.doc.getElements(),
       this.selection.getSelectedIds()
     );
+    // 逻辑：如果选中节点含多版本堆叠，交给 UI 层拦截器处理（弹出确认对话）。
+    if (this.deleteInterceptor) {
+      const hasStack = selectionIds.some(id => {
+        const el = this.doc.getElementById(id);
+        if (!el || el.kind !== "node") return false;
+        const props = (el as CanvasNodeElement).props as Record<string, unknown> | undefined;
+        const vs = props?.versionStack as VersionStack | undefined;
+        return vs && Array.isArray(vs.entries) && vs.entries.length > 1;
+      });
+      if (hasStack && this.deleteInterceptor(selectionIds)) return;
+    }
     deleteSelection(this.getSelectionDeps(), selectionIds);
+  }
+
+  /** Force-delete selected elements, bypassing the version stack interceptor. */
+  forceDeleteSelection(selectionIds?: string[]): void {
+    const ids = selectionIds ?? expandSelectionWithGroupChildren(
+      this.doc.getElements(),
+      this.selection.getSelectedIds()
+    );
+    deleteSelection(this.getSelectionDeps(), ids);
+  }
+
+  /**
+   * Remove only the current primary version from each stacked node in the
+   * selection.  When a node's stack drops to zero entries the whole node is
+   * deleted.  Non-stacked nodes are deleted outright.
+   */
+  removeCurrentVersionFromSelection(selectionIds?: string[]): void {
+    const ids = selectionIds ?? expandSelectionWithGroupChildren(
+      this.doc.getElements(),
+      this.selection.getSelectedIds()
+    );
+    if (ids.length === 0) return;
+
+    const nodesToDelete: string[] = [];
+    this.doc.transact(() => {
+      for (const id of ids) {
+        const el = this.doc.getElementById(id);
+        if (!el || el.kind !== "node") {
+          // connectors / non-node elements — delete directly
+          nodesToDelete.push(id);
+          continue;
+        }
+        const node = el as CanvasNodeElement;
+        const nodeProps = node.props as Record<string, unknown> | undefined;
+        const vs = nodeProps?.versionStack as VersionStack | undefined;
+        if (!vs || !Array.isArray(vs.entries) || vs.entries.length <= 1) {
+          // No stack or single entry — delete the whole node.
+          nodesToDelete.push(id);
+          continue;
+        }
+        // Remove just the primary entry and update the node.
+        const result = removePrimaryEntry(vs);
+        if (!result) {
+          nodesToDelete.push(id);
+          continue;
+        }
+        const newPrimary = result.stack.entries.find(
+          (e) => e.id === result.stack.primaryId,
+        );
+        const patch: Record<string, unknown> = { versionStack: result.stack };
+        // Switch displayed media to the new primary's output.
+        if (newPrimary?.output?.urls?.[0]) {
+          const url = newPrimary.output.urls[0];
+          patch.originalSrc = url;
+          patch.previewSrc = "";
+          patch.fileName = url.split("/").pop() || "media";
+          patch.naturalWidth = 1;
+          patch.naturalHeight = 1;
+        }
+        this.doc.updateElement(id, { props: { ...nodeProps, ...patch } });
+      }
+    });
+    if (nodesToDelete.length > 0) {
+      deleteSelection(this.getSelectionDeps(), nodesToDelete);
+    } else {
+      this.selection.clear();
+      this.commitHistory();
+    }
   }
 
   /** Copy selected nodes (and internal connectors) to clipboard. */

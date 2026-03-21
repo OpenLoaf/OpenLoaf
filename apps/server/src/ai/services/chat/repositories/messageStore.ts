@@ -150,7 +150,7 @@ export async function saveMessage(input: SaveMessageInput): Promise<SaveMessageR
   }
 
   // 逻辑：提前注册 session 目录路径，避免后续文件操作时查 DB
-  registerSessionDir(input.sessionId, projectId, boardId)
+  await registerSessionDir(input.sessionId, projectId, boardId)
 
   // 确保 session 存在
   await ensureSession(input.sessionId, {

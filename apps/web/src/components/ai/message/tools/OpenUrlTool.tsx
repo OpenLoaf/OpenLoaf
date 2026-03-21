@@ -108,7 +108,7 @@ export default function OpenUrlTool({
           </SourcesContent>
         </Sources>
         {errorText && (
-          <div className="mt-1 rounded-md bg-destructive/10 px-2 py-1 text-[11px] text-destructive">
+          <div className="mt-1 rounded-3xl bg-destructive/10 px-2 py-1 text-[11px] text-destructive">
             {errorText}
           </div>
         )}

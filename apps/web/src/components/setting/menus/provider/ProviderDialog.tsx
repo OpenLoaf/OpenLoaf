@@ -131,7 +131,7 @@ function renderModelTags(tags: string[] | undefined, getTagLabel: (tag: string) 
       {(tags ?? []).map((tag) => (
         <span
           key={tag}
-          className="inline-flex items-center rounded-md border border-border bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground"
+          className="inline-flex items-center rounded-3xl border border-border bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground"
         >
           {getTagLabel(tag)}
         </span>
@@ -149,7 +149,7 @@ function renderModelTagsCompact(tags: string[] | undefined, getTagLabel: (tag: s
       {(tags ?? []).map((tag) => (
         <span
           key={tag}
-          className="inline-flex items-center rounded-md border border-border bg-muted px-1.5 py-0.5 text-[10px] leading-none text-muted-foreground"
+          className="inline-flex items-center rounded-3xl border border-border bg-muted px-1.5 py-0.5 text-[10px] leading-none text-muted-foreground"
         >
           {getTagLabel(tag)}
         </span>
@@ -366,7 +366,7 @@ export function ProviderDialog({
             {showResponsesToggle ? (
               <div className="space-y-2">
                 <div className="text-sm font-medium">{t('provider.responsesApi')}</div>
-                <div className="flex items-center justify-between rounded-md border border-border bg-muted/20 px-3 py-2">
+                <div className="flex items-center justify-between rounded-3xl border border-border bg-muted/20 px-3 py-2">
                   <div className="text-xs text-muted-foreground">
                     {t('provider.responsesApiDescription')}
                   </div>
@@ -393,7 +393,7 @@ export function ProviderDialog({
                 <Plus className="h-2.5 w-2.5" />
               </Button>
             </div>
-            <div className="flex-1 min-h-[360px] rounded-md border border-border">
+            <div className="flex-1 min-h-[360px] rounded-3xl border border-border">
               <div className="grid h-full min-h-[360px] grid-cols-[0.9fr_1fr] gap-3 p-3">
                 <div className="flex min-h-0 flex-col gap-2 pr-1">
                   <div className="flex-1 min-h-0 overflow-auto space-y-1">
@@ -404,7 +404,7 @@ export function ProviderDialog({
                         <div
                           key={model.id}
                           className={cn(
-                            "flex items-center justify-between rounded-md border border-transparent px-2 py-2 text-sm transition-colors",
+                            "flex items-center justify-between rounded-3xl border border-transparent px-2 py-2 text-sm transition-colors",
                             focusedModel?.id === model.id
                               ? "bg-muted/60 border-border"
                               : "hover:bg-muted/30",
@@ -434,7 +434,7 @@ export function ProviderDialog({
                     )}
                   </div>
                 </div>
-                <div className="min-h-0 overflow-auto rounded-md border border-border bg-muted/20 p-3 text-sm">
+                <div className="min-h-0 overflow-auto rounded-3xl border border-border bg-muted/20 p-3 text-sm">
                   {focusedModel ? (
                     <div className="space-y-4">
                       <div className="flex items-start justify-between gap-2">
@@ -512,10 +512,10 @@ export function ProviderDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>
+          <Button variant="ghost" onClick={() => onOpenChange(false)} className="rounded-3xl">
             {t('provider.cancel')}
           </Button>
-          <Button onClick={onSubmit}>{t('provider.save')}</Button>
+          <Button onClick={onSubmit} className="rounded-3xl">{t('provider.save')}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -81,19 +81,19 @@ export default function CloseConfirmDialog() {
           <Button
             variant="ghost"
             onClick={handleCancel}
-            className="rounded-md shadow-none transition-colors duration-150"
+            className="rounded-3xl shadow-none transition-colors duration-150"
           >
             {t('cancel')}
           </Button>
           <Button
             onClick={handleMinimize}
-            className="rounded-md bg-ol-blue-bg text-ol-blue hover:bg-ol-blue-bg-hover shadow-none transition-colors duration-150"
+            className="rounded-3xl bg-secondary text-foreground hover:bg-secondary/80 shadow-none transition-colors duration-150"
           >
             {t('closeConfirm.minimize')}
           </Button>
           <Button
             onClick={handleQuit}
-            className="rounded-md bg-ol-red-bg text-ol-red hover:bg-ol-red-bg-hover shadow-none transition-colors duration-150"
+            className="bg-destructive text-white hover:bg-destructive/90 rounded-3xl shadow-none transition-colors duration-150"
           >
             {t('closeConfirm.quit')}
           </Button>

@@ -104,7 +104,7 @@ export function BoardPerfOverlay({ stats, gpuStats }: BoardPerfOverlayProps) {
       data-board-controls
       className="absolute right-3 top-3 z-40 select-none"
     >
-      <div className={`rounded-md px-2 py-1 text-[10px] leading-4 ol-glass-float ${expanded ? 'bg-black/50 text-white/70' : 'bg-black/30 text-white/50'}`}>
+      <div className={`rounded-3xl px-2 py-1 text-[10px] leading-4 ol-glass-float ${expanded ? 'bg-black/50 text-white/70' : 'bg-black/30 text-white/50'}`}>
         <div
           className="flex cursor-pointer items-center justify-between gap-3"
           onClick={() => setExpanded((v) => !v)}

@@ -142,7 +142,7 @@ export default function VideoViewer({
     if (!relativePath) return null;
 
     const quality = "720p";
-    // 逻辑：boardId 传给 HLS 端点，让服务端通过 .openloaf/boards/<boardId>/ 解析画布内相对资源。
+    // 逻辑：boardId 传给 HLS 端点，让服务端通过 boards/<boardId>/ 解析画布内相对资源。
     const ids = {
       projectId: resolvedProjectId,
       boardId: boardIdProp || undefined,
@@ -402,7 +402,7 @@ export default function VideoViewer({
 
   if (!playbackUrl) {
     return (
-      <div className="relative h-full w-full overflow-hidden rounded-lg">
+      <div className="relative h-full w-full overflow-hidden rounded-3xl">
         {previewBackground ? (
           <div
             className="absolute inset-0 bg-cover bg-center"
@@ -411,7 +411,7 @@ export default function VideoViewer({
         ) : null}
         <div className="absolute inset-0 bg-background/70" />
         <div className="relative z-10 flex h-full w-full items-center justify-center p-6">
-          <div className="flex w-full max-w-sm flex-col gap-3 rounded-lg border border-border bg-background/90 px-5 py-4 text-foreground shadow-sm">
+          <div className="flex w-full max-w-sm flex-col gap-3 rounded-3xl border border-border bg-background/90 px-5 py-4 text-foreground shadow-none">
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">
                 {isBuilding ? "视频转码中" : "正在准备视频"}
@@ -471,7 +471,7 @@ export default function VideoViewer({
             clipEndTime={clipEndProp && clipEndProp > 0 ? clipEndProp : undefined}
             smallLayoutWhen={forceLargeLayout ? false : undefined}
             className={cn(
-              "max-h-full max-w-full rounded-lg bg-black",
+              "max-h-full max-w-full rounded-3xl bg-black",
               isPortrait === null
                 ? "h-full w-full [&_video]:h-full [&_video]:w-full"
                 : isPortrait

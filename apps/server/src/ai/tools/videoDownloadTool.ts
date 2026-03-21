@@ -12,6 +12,11 @@ import path from 'node:path'
 import { tool, zodSchema } from 'ai'
 import { getProjectRootPath } from '@openloaf/api/services/vfsService'
 import { videoDownloadToolDef } from '@openloaf/api/types/tools/videoDownload'
+import {
+  buildBoardAssetRelativePath,
+  resolveBoardAssetDir,
+  resolveBoardScopedRoot,
+} from '@openloaf/api/common/boardPaths'
 import { getOpenLoafRootDir } from '@openloaf/config'
 import {
   getAbortSignal,
@@ -56,19 +61,19 @@ function toPosixRelativePath(rootPath: string, targetPath: string): string {
 function resolveVideoStorageTarget(): VideoStorageTarget {
   const projectId = getProjectId()
   const boardId = getBoardId()
-  const rootPath = projectId
-    ? (getProjectRootPath(projectId) ?? getOpenLoafRootDir())
-    : getOpenLoafRootDir()
 
   if (boardId) {
-    const relativeDir = path.join('.openloaf', 'boards', boardId, 'asset')
+    const boardRoot = resolveBoardScopedRoot(projectId)
     return {
-      rootPath,
-      saveDirPath: path.join(rootPath, relativeDir),
+      rootPath: boardRoot,
+      saveDirPath: resolveBoardAssetDir(boardRoot, boardId),
       destination: 'board',
     }
   }
 
+  const rootPath = projectId
+    ? (getProjectRootPath(projectId) ?? getOpenLoafRootDir())
+    : getOpenLoafRootDir()
   const sessionId = requireSessionId()
   const relativeDir = path.join('.openloaf', 'chat-history', sessionId, 'asset')
   return {

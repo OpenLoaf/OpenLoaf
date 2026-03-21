@@ -8,6 +8,7 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import { useEffect, useRef, useState } from 'react'
+import i18next from 'i18next'
 import { pollTask } from '@/lib/saas-media'
 
 // ---------------------------------------------------------------------------
@@ -32,7 +33,10 @@ export type UseMediaTaskPollingOptions = {
   taskId: string | undefined
   taskType: MediaTaskType
   projectId?: string
+  /** @deprecated Use boardId instead. */
   saveDir?: string
+  /** Board id — server resolves the save path automatically. */
+  boardId?: string
   /** Set to `false` to pause polling. Defaults to `true`. */
   enabled?: boolean
   onSuccess?: (resultUrls: string[], metadata?: Record<string, unknown>) => void
@@ -71,7 +75,7 @@ function getPollDelay(attempt: number): number {
 export function useMediaTaskPolling(
   options: UseMediaTaskPollingOptions,
 ): TaskPollingResult {
-  const { taskId, taskType, projectId, saveDir, enabled = true, onSuccess, onFailure } = options
+  const { taskId, taskType, projectId, saveDir, boardId, enabled = true, onSuccess, onFailure } = options
 
   const [result, setResult] = useState<TaskPollingResult>({ status: 'idle' })
 
@@ -110,12 +114,7 @@ export function useMediaTaskPolling(
 
           // Wall-clock timeout check.
           if (Date.now() - startTime > timeoutMs) {
-            const msg =
-              taskType === 'image_generate'
-                ? 'Image generation timed out'
-                : taskType === 'audio_generate'
-                  ? 'Audio generation timed out'
-                  : 'Video generation timed out'
+            const msg = i18next.t('board:polling.errorTimeout', { defaultValue: '生成超时，请重试' })
             setResult({ status: 'timeout', error: msg })
             onFailureRef.current?.(msg)
             return
@@ -124,6 +123,7 @@ export function useMediaTaskPolling(
           const status = await pollTask(taskId, {
             projectId: projectId || undefined,
             saveDir: saveDir || undefined,
+            boardId: boardId || undefined,
           })
 
           // Abort check after await.
@@ -155,12 +155,7 @@ export function useMediaTaskPolling(
               : []
 
             if (resultUrls.length === 0) {
-              const msg =
-                taskType === 'image_generate'
-                  ? 'Image generation returned no results'
-                  : taskType === 'audio_generate'
-                    ? 'Audio generation returned no results'
-                    : 'Video generation returned no results'
+              const msg = i18next.t('board:polling.errorNoResults', { defaultValue: '生成完成但未返回结果，请重试' })
               setResult({ status: 'failed', error: msg })
               onFailureRef.current?.(msg)
               return
@@ -173,9 +168,20 @@ export function useMediaTaskPolling(
 
           // ------ Failed / Canceled ------
           if (status.data.status === 'failed' || status.data.status === 'canceled') {
-            const fallback =
-              status.data.status === 'canceled' ? 'Task was cancelled' : 'Task failed'
-            const msg: string = status.data.error?.message || fallback
+            const rawMsg: string = status.data.error?.message || ''
+            const raw = rawMsg.toLowerCase()
+            let msg: string
+            if (status.data.status === 'canceled') {
+              msg = rawMsg || 'Task was cancelled'
+            } else if (raw.includes('insufficient') || raw.includes('balance') || raw.includes('credit') || raw.includes('quota')) {
+              msg = i18next.t('board:polling.errorInsufficientBalance', { defaultValue: '账户余额不足，请充值后重试' })
+            } else if (raw.includes('rate') || raw.includes('too many') || raw.includes('limit')) {
+              msg = i18next.t('board:polling.errorRateLimit', { defaultValue: '请求过于频繁，请稍后重试' })
+            } else if (raw.includes('content') || raw.includes('policy') || raw.includes('safety') || raw.includes('nsfw')) {
+              msg = i18next.t('board:polling.errorContentPolicy', { defaultValue: '内容不符合安全规范，请修改后重试' })
+            } else {
+              msg = rawMsg || i18next.t('board:polling.errorGeneric', { defaultValue: '生成失败，请重试' })
+            }
             setResult({ status: 'failed', error: msg })
             onFailureRef.current?.(msg)
             return
@@ -204,12 +210,30 @@ export function useMediaTaskPolling(
         }
 
         // Exhausted max attempts without a terminal state.
-        const msg = 'Task polling exceeded maximum attempts'
+        const msg = i18next.t('board:polling.errorTimeout', { defaultValue: '生成超时，请重试' })
         setResult({ status: 'timeout', error: msg })
         onFailureRef.current?.(msg)
       } catch (err) {
         if (controller.signal.aborted) return
-        const msg = err instanceof Error ? err.message : 'Unknown polling error'
+        // 逻辑：HTTP 错误或网络异常对用户不友好，统一转为可读提示。
+        let msgKey = 'board:polling.errorGeneric'
+        if (err instanceof Error) {
+          const raw = err.message.toLowerCase()
+          if (raw.includes('insufficient') || raw.includes('balance') || raw.includes('credit') || raw.includes('quota') || raw.includes('402')) {
+            msgKey = 'board:polling.errorInsufficientBalance'
+          } else if (raw.includes('not found') || raw.includes('404')) {
+            msgKey = 'board:polling.errorNotFound'
+          } else if (raw.includes('network') || raw.includes('fetch') || raw.includes('timeout') || raw.includes('econnrefused')) {
+            msgKey = 'board:polling.errorNetwork'
+          } else if (raw.includes('401') || raw.includes('403') || raw.includes('unauthorized')) {
+            msgKey = 'board:polling.errorAuth'
+          } else if (raw.includes('429') || raw.includes('rate') || raw.includes('too many')) {
+            msgKey = 'board:polling.errorRateLimit'
+          } else if (raw.includes('500') || raw.includes('502') || raw.includes('503')) {
+            msgKey = 'board:polling.errorServer'
+          }
+        }
+        const msg = i18next.t(msgKey, { defaultValue: '生成失败，请重试' })
         setResult({ status: 'failed', error: msg })
         onFailureRef.current?.(msg)
       } finally {

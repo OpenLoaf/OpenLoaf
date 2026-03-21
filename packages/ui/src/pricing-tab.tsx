@@ -7,24 +7,24 @@ import { cn } from "@/lib/utils"
 
 const TAB_COLORS = {
   sky: {
-    text: "text-ol-blue",
-    bg: "bg-ol-blue-bg",
+    text: "text-foreground",
+    bg: "bg-secondary",
   },
   amber: {
-    text: "text-ol-amber",
-    bg: "bg-ol-amber-bg",
+    text: "text-foreground",
+    bg: "bg-secondary",
   },
   violet: {
-    text: "text-ol-purple",
-    bg: "bg-ol-purple-bg",
+    text: "text-foreground",
+    bg: "bg-secondary",
   },
   emerald: {
-    text: "text-ol-green",
-    bg: "bg-ol-green-bg",
+    text: "text-foreground",
+    bg: "bg-secondary",
   },
   rose: {
-    text: "text-ol-red",
-    bg: "bg-ol-red-bg",
+    text: "text-destructive",
+    bg: "bg-destructive/10",
   },
 } as const
 
@@ -68,7 +68,7 @@ export function Tab({
         <motion.span
           layoutId={layoutId}
           transition={{ type: "spring", duration: 0.35, bounce: 0.15 }}
-          className={cn("absolute inset-0.5 z-0 rounded-md", palette.bg)}
+          className={cn("absolute inset-0.5 z-0 rounded-3xl", palette.bg)}
         />
       )}
     </button>

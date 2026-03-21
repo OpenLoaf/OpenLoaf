@@ -7,11 +7,13 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import { submitMediaGenerate } from '@/lib/saas-media'
+import { submitV3Generate } from '@/lib/saas-media'
 
 export type UpscaleRequest = {
   sourceImageSrc: string
   scale: 2 | 4
+  /** v3 variant id (e.g. 'upscale-qwen', 'upscale-volc'). Defaults to 'upscale-qwen'. */
+  variant?: string
 }
 
 export type UpscaleResult = {
@@ -19,25 +21,25 @@ export type UpscaleResult = {
 }
 
 /**
- * Submit an upscale task via v2 unified endpoint.
- * SDK v2 has native upscale support as a first-class feature.
+ * Submit an upscale task via v3 endpoint.
  */
 export async function submitUpscale(
   request: UpscaleRequest,
-  options: { projectId?: string; saveDir?: string; sourceNodeId?: string } = {},
+  options: { projectId?: string; boardId?: string; sourceNodeId?: string } = {},
 ): Promise<UpscaleResult> {
-  const payload: Record<string, unknown> = {
+  const result = await submitV3Generate({
     feature: 'upscale',
-    scale: request.scale,
+    variant: request.variant ?? 'upscale-qwen',
     inputs: {
       image: { url: request.sourceImageSrc },
     },
+    params: {
+      scale: request.scale,
+    },
     projectId: options.projectId,
-    saveDir: options.saveDir,
+    boardId: options.boardId,
     sourceNodeId: options.sourceNodeId,
-  }
-
-  const result = await submitMediaGenerate(payload)
+  })
 
   if (!result || result.success !== true || !result.data?.taskId) {
     const message = result?.message || 'Upscale task submission failed'

@@ -108,7 +108,7 @@ export default function PendingCloudLoginPrompt() {
         className="my-0.5 px-2 pr-5"
       >
         <Message from="user" className="ml-auto max-w-[78%]">
-          <MessageContent className={cn("show-scrollbar max-h-64 overflow-x-hidden overflow-y-auto border px-3 py-2 text-[12px] leading-4 shadow-sm", USER_MESSAGE_SURFACE_CLASS)}>
+          <MessageContent className={cn("show-scrollbar max-h-64 overflow-x-hidden overflow-y-auto border px-3 py-2 text-[12px] leading-4 shadow-none", USER_MESSAGE_SURFACE_CLASS)}>
             <span className="whitespace-pre-wrap break-words">{pendingCloudMessage.text}</span>
           </MessageContent>
         </Message>
@@ -121,16 +121,16 @@ export default function PendingCloudLoginPrompt() {
             transition={{ duration: 0.14, delay: 0.06, ease: 'easeOut' }}
           >
             <MessageContent className="w-full !bg-transparent !p-0">
-              <div className="overflow-hidden rounded-xl bg-ol-blue-bg">
+              <div className="overflow-hidden rounded-3xl bg-secondary">
                 <div className="flex items-center gap-2.5 px-3.5 py-2.5">
-                  <span className="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-ol-amber-bg">
-                    <Sparkles className="size-3 text-ol-amber" />
+                  <span className="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-muted">
+                    <Sparkles className="size-3 text-foreground" />
                   </span>
                   <div className="min-w-0">
-                    <p className="truncate text-[12px] font-medium text-ol-blue">
+                    <p className="truncate text-[12px] font-medium text-foreground">
                       {isLoggedInLocalEmpty ? '本地模型未配置' : '需要登录后继续'}
                     </p>
-                    <p className="truncate text-[10px] text-ol-text-auxiliary">
+                    <p className="truncate text-[10px] text-muted-foreground">
                       {isLoggedInLocalEmpty
                         ? '切换到云端模型继续对话，或先完成本地模型配置'
                         : hasConfiguredProviders
@@ -140,13 +140,13 @@ export default function PendingCloudLoginPrompt() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1.5 border-t border-ol-blue/10 px-3.5 py-2.5">
+                <div className="flex items-center gap-1.5 border-t border-border/40 px-3.5 py-2.5">
                   {isLoggedInLocalEmpty ? (
                     <>
                       <button
                         type="button"
                         onClick={handleUseCloud}
-                        className="inline-flex h-7 flex-1 items-center justify-center gap-1.5 rounded-md bg-ol-blue px-3 text-[11px] font-medium text-white transition-colors duration-150 hover:brightness-110"
+                        className="inline-flex h-7 flex-1 items-center justify-center gap-1.5 rounded-3xl bg-foreground px-3 text-[11px] font-medium text-background transition-colors duration-150 hover:bg-foreground/90"
                       >
                         <Cloud className="size-3" />
                         使用云端模型
@@ -154,7 +154,7 @@ export default function PendingCloudLoginPrompt() {
                       <button
                         type="button"
                         onClick={handleGoToProviderConfig}
-                        className="inline-flex h-7 flex-1 items-center justify-center gap-1.5 rounded-md border border-ol-blue/25 bg-white/70 px-3 text-[11px] font-medium text-ol-blue transition-colors duration-150 hover:bg-ol-blue-bg-hover dark:bg-ol-blue-bg"
+                        className="inline-flex h-7 flex-1 items-center justify-center gap-1.5 rounded-3xl border border-border bg-background px-3 text-[11px] font-medium text-foreground transition-colors duration-150 hover:bg-secondary"
                       >
                         <Settings2 className="size-3" />
                         前往模型配置
@@ -165,7 +165,7 @@ export default function PendingCloudLoginPrompt() {
                       <button
                         type="button"
                         onClick={() => handleLogin()}
-                        className="inline-flex h-7 flex-1 items-center justify-center gap-1.5 rounded-md bg-ol-blue px-3 text-[11px] font-medium text-white transition-colors duration-150 hover:brightness-110"
+                        className="inline-flex h-7 flex-1 items-center justify-center gap-1.5 rounded-3xl bg-foreground px-3 text-[11px] font-medium text-background transition-colors duration-150 hover:bg-foreground/90"
                       >
                         <Cloud className="size-3" />
                         登录云端模型
@@ -173,7 +173,7 @@ export default function PendingCloudLoginPrompt() {
                       <button
                         type="button"
                         onClick={() => handleUseLocal()}
-                        className="inline-flex h-7 flex-1 items-center justify-center gap-1.5 rounded-md border border-ol-blue/25 bg-white/70 px-3 text-[11px] font-medium text-ol-blue transition-colors duration-150 hover:bg-ol-blue-bg-hover dark:bg-ol-blue-bg"
+                        className="inline-flex h-7 flex-1 items-center justify-center gap-1.5 rounded-3xl border border-border bg-background px-3 text-[11px] font-medium text-foreground transition-colors duration-150 hover:bg-secondary"
                       >
                         {hasConfiguredProviders ? (
                           <HardDrive className="size-3" />

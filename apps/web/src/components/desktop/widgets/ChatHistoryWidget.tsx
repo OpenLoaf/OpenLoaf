@@ -109,7 +109,7 @@ const ChatHistoryWidget = memo(function ChatHistoryWidget() {
                 <Button
                   variant="secondary"
                   size="sm"
-                  className="h-7 gap-1.5 rounded-md px-2 text-xs"
+                  className="h-7 gap-1.5 rounded-3xl px-2 text-xs"
                 >
                   <CalendarDays className="h-3.5 w-3.5" />
                   {formatDateLabel(activeDate)}
@@ -126,9 +126,9 @@ const ChatHistoryWidget = memo(function ChatHistoryWidget() {
                   modifiers={{ hasHistory: sessionDates }}
                   modifiersClassNames={{
                     hasHistory:
-                      "after:content-[''] after:absolute after:bottom-1 after:left-1/2 after:h-1.5 after:w-1.5 after:-translate-x-1/2 after:rounded-full after:bg-ol-amber/80 dark:after:bg-ol-amber/90 after:pointer-events-none after:z-10",
+                      "after:content-[''] after:absolute after:bottom-1 after:left-1/2 after:h-1.5 after:w-1.5 after:-translate-x-1/2 after:rounded-full after:bg-muted-foreground/80 dark:after:bg-muted-foreground/90 after:pointer-events-none after:z-10",
                   }}
-                  className="w-full rounded-xl border border-border/60 bg-background p-3"
+                  className="w-full rounded-3xl border border-border/60 bg-background p-3"
                 />
               </PopoverContent>
             </Popover>
@@ -136,11 +136,11 @@ const ChatHistoryWidget = memo(function ChatHistoryWidget() {
         </div>
         <div className="mt-3 flex-1 space-y-2 overflow-auto show-scrollbar">
           {isLoading ? (
-            <div className="rounded-xl border border-dashed border-border/60 bg-background/60 px-3 py-6 text-center text-sm text-muted-foreground">
+            <div className="rounded-3xl border border-dashed border-border/60 bg-background/60 px-3 py-6 text-center text-sm text-muted-foreground">
               {t('chatHistory.loading')}
             </div>
           ) : activeSessions.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-border/60 bg-background/60 px-3 py-6 text-center text-sm text-muted-foreground">
+            <div className="rounded-3xl border border-dashed border-border/60 bg-background/60 px-3 py-6 text-center text-sm text-muted-foreground">
               {t('chatHistory.noHistory')}
             </div>
           ) : (
@@ -151,7 +151,7 @@ const ChatHistoryWidget = memo(function ChatHistoryWidget() {
                 aria-pressed={activeChatSessionId === session.id}
                 onClick={() => handleSessionSelect(session.id)}
                 className={cn(
-                  "flex w-full items-center justify-between gap-3 rounded-xl border border-border/60 px-3 py-2 text-left transition-colors",
+                  "flex w-full items-center justify-between gap-3 rounded-3xl border border-border/60 px-3 py-2 text-left transition-colors",
                   activeChatSessionId === session.id
                     ? "border-primary/40 bg-primary/10"
                     : "bg-background/80 hover:bg-accent/40"
@@ -159,14 +159,14 @@ const ChatHistoryWidget = memo(function ChatHistoryWidget() {
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 min-w-0">
-                    <div className="shrink-0 flex h-8 w-8 items-center justify-center rounded-lg bg-muted/60 text-muted-foreground">
+                    <div className="shrink-0 flex h-8 w-8 items-center justify-center rounded-3xl bg-muted/60 text-muted-foreground">
                       <MessageCircle className="h-4 w-4" />
                     </div>
                     <div className="truncate text-sm font-medium text-foreground">
                       {session.title.trim() || t('chatHistory.unnamed')}
                     </div>
                     {session.isPin ? (
-                      <span className="shrink-0 rounded-md bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                      <span className="shrink-0 rounded-3xl bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
                         {t('chatHistory.pinned')}
                       </span>
                     ) : null}

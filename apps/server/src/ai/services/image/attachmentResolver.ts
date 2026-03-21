@@ -14,6 +14,7 @@ import sharp from "sharp";
 import type { UIMessage } from "ai";
 import type { OpenLoafImageMetadataV1 } from "@openloaf/api/types/image";
 import { getProjectRootPath } from "@openloaf/api/services/vfsService";
+import { resolveBoardAbsPath, resolveBoardScopedRoot, lookupBoardRecord, BOARD_CHAT_HISTORY_DIR, resolveBoardFolderName } from "@openloaf/api/common/boardPaths";
 import { getOpenLoafRootDir, resolveScopedOpenLoafPath } from "@openloaf/config";
 import { getProjectId } from "@/ai/shared/context/requestContext";
 
@@ -335,7 +336,7 @@ async function resolveImageMetadataText(filePath: string): Promise<string | null
  * Resolve root path and chat-history directory for chat attachments.
  *
  * - 普通聊天：`<scopeRoot>/.openloaf/chat-history/`
- * - 画布内聊天（boardId 存在）：`<scopeRoot>/.openloaf/boards/<boardId>/chat-history/`
+ * - 画布内聊天（boardId 存在）：通过 DB 查询 folderUri 解析实际路径
  */
 async function resolveChatAttachmentRoot(input: {
   /** Project id. */
@@ -343,6 +344,20 @@ async function resolveChatAttachmentRoot(input: {
   /** Optional board id — when present, chat files live under the board directory. */
   boardId?: string;
 }): Promise<{ rootPath: string; chatHistoryDir: string } | null> {
+  const boardId = input.boardId?.trim();
+
+  // 画布内聊天：从 DB 查询画布的 folderUri，拼接 chat-history 子目录
+  if (boardId) {
+    const board = await lookupBoardRecord(boardId);
+    const projectId = board?.projectId ?? input.projectId;
+    const rootPath = resolveBoardScopedRoot(projectId ?? undefined);
+    const chatHistoryDir = board
+      ? resolveBoardAbsPath(rootPath, board.folderUri, BOARD_CHAT_HISTORY_DIR)
+      : path.join(rootPath, "boards", boardId, BOARD_CHAT_HISTORY_DIR);
+    return { rootPath, chatHistoryDir };
+  }
+
+  // 普通聊天
   const projectId = input.projectId?.trim();
   let scopeRoot: string | null = null;
   if (projectId) {
@@ -352,11 +367,7 @@ async function resolveChatAttachmentRoot(input: {
     scopeRoot = getOpenLoafRootDir();
   }
   if (!scopeRoot) return null;
-  const boardId = input.boardId?.trim();
-  // 画布内聊天：chat-history 存储在 board 目录下
-  const chatHistoryDir = boardId
-    ? resolveScopedOpenLoafPath(scopeRoot, "boards", boardId, "chat-history")
-    : resolveScopedOpenLoafPath(scopeRoot, "chat-history");
+  const chatHistoryDir = resolveScopedOpenLoafPath(scopeRoot, "chat-history");
   return { rootPath: scopeRoot, chatHistoryDir };
 }
 
@@ -458,6 +469,9 @@ async function resolveProjectFilePath(input: {
   return { absPath: resolved.absPath, relativePath: resolved.relativePath };
 }
 
+/** Match board path patterns: ".openloaf/boards/{boardId}/..." or "boards/{boardId}/..." */
+const BOARD_PATH_REGEX = /^(?:\.openloaf\/)?boards\/([^/]+)\//;
+
 /** Resolve a relative path into an absolute file path with root info. */
 async function resolveProjectFilePathWithRoot(input: {
   /** Raw relative path string. */
@@ -469,6 +483,24 @@ async function resolveProjectFilePathWithRoot(input: {
   if (!parsed) return null;
   const relativePath = normalizeRelativePath(parsed.relativePath);
   if (!relativePath || hasParentTraversal(relativePath)) return null;
+
+  // 画布路径特殊处理：从路径中提取 boardId，查 DB 获取正确的根路径
+  const boardMatch = relativePath.match(BOARD_PATH_REGEX);
+  if (boardMatch) {
+    const boardId = boardMatch[1]!;
+    const board = await lookupBoardRecord(boardId);
+    if (board) {
+      const rootPath = resolveBoardScopedRoot(board.projectId ?? parsed.projectId ?? input.projectId ?? undefined);
+      // 从 relativePath 中去掉 folderUri 前缀，得到 board 内的子路径（如 "asset/xxx.jpg"）
+      const folderUriNormalized = board.folderUri.replace(/\/+$/u, "");
+      const subPath = relativePath.startsWith(folderUriNormalized + "/")
+        ? relativePath.slice(folderUriNormalized.length + 1)
+        : relativePath.replace(BOARD_PATH_REGEX, "");
+      const absPath = resolveBoardAbsPath(rootPath, board.folderUri, subPath);
+      return { absPath, relativePath, rootPath };
+    }
+  }
+
   const root = await resolveChatAttachmentRoot({
     projectId: parsed.projectId ?? input.projectId ?? getProjectId(),
   });
@@ -839,15 +871,20 @@ export async function getFilePreview(input: {
   includeMetadata?: boolean;
   /** Target byte size for preview compression. */
   maxBytes?: number;
+  /** Pre-resolved absolute path — skips internal path resolution when provided. */
+  resolved?: { absPath: string; rootPath: string; relativePath: string };
 }): Promise<FilePreviewResult | null> {
-  // 绝对路径分支：仅允许 ~/.openloaf/ 目录下的文件。
-  const absoluteResolved = resolveAbsoluteOpenLoafPath(input.path);
-  const resolved = absoluteResolved
-    ? { absPath: absoluteResolved.absPath, rootPath: absoluteResolved.rootPath, relativePath: path.relative(absoluteResolved.rootPath, absoluteResolved.absPath) }
-    : await resolveProjectFilePathWithRoot({
-        path: input.path,
-        projectId: input.projectId,
-      });
+  // 若调用方已解析路径，直接使用；否则走内部解析。
+  let resolved = input.resolved ?? null;
+  if (!resolved) {
+    const absoluteResolved = resolveAbsoluteOpenLoafPath(input.path);
+    resolved = absoluteResolved
+      ? { absPath: absoluteResolved.absPath, rootPath: absoluteResolved.rootPath, relativePath: path.relative(absoluteResolved.rootPath, absoluteResolved.absPath) }
+      : await resolveProjectFilePathWithRoot({
+          path: input.path,
+          projectId: input.projectId,
+        });
+  }
   if (!resolved) return null;
   const filePath = resolved.absPath;
   const lowerPath = filePath.toLowerCase();

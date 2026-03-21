@@ -40,6 +40,7 @@ import {
 } from "@openloaf/ui/openloaf/drag-drop-types";
 import {
   fetchBlobFromUri,
+  getBoardPreviewEndpoint,
   getPreviewEndpoint,
   resolveFileName,
 } from "@/lib/image/uri";
@@ -65,7 +66,7 @@ import {
 import type { ImageNodeProps } from "../nodes/ImageNode";
 import type { VideoNodeProps } from "../nodes/VideoNode";
 import type { LinkNodeProps } from "../nodes/LinkNode";
-import { deriveNode } from "../utils/derive-node";
+import { deriveNode, avoidNodeCollisions } from "../utils/derive-node";
 import { submitUpscale } from "../services/upscale-generate";
 import { DEFAULT_NODE_SIZE } from "../engine/constants";
 import { BOARD_ASSETS_DIR_NAME } from "@/lib/file-name";
@@ -76,6 +77,7 @@ import {
   type StackPlacementDirection,
 } from "../utils/output-placement";
 import {
+  isBoardRelativePath,
   resolveBoardFolderScope,
   resolveProjectPathFromBoardUri,
 } from "./boardFilePath";
@@ -100,6 +102,7 @@ import { trpcClient } from "@/utils/trpc";
 import {
   getRelativePathFromUri,
 } from "@/components/project/filesystem/utils/file-system-utils";
+import { VersionStackDeleteDialog } from "../dialogs/VersionStackDeleteDialog";
 
 const EDITABLE_NODE_TYPES = new Set([
   "text",
@@ -236,16 +239,24 @@ function resolveNodeFileInfo(
     const props = node.props as import("../nodes/ImageNode").ImageNodeProps;
     const originalSrc = (props.originalSrc ?? "").trim();
     if (!originalSrc) return null;
-    const scope = resolveBoardFolderScope(fileContext);
-    const projectPath = resolveProjectPathFromBoardUri({
-      uri: originalSrc,
-      boardFolderScope: scope,
-      currentProjectId: fileContext?.projectId,
-      rootUri: fileContext?.rootUri,
-    });
-    const href = projectPath
-      ? getPreviewEndpoint(projectPath, { projectId: fileContext?.projectId })
-      : originalSrc;
+    let href: string;
+    if (fileContext?.boardId && isBoardRelativePath(originalSrc)) {
+      href = getBoardPreviewEndpoint(originalSrc, {
+        boardId: fileContext.boardId,
+        projectId: fileContext.projectId,
+      });
+    } else {
+      const scope = resolveBoardFolderScope(fileContext);
+      const projectPath = resolveProjectPathFromBoardUri({
+        uri: originalSrc,
+        boardFolderScope: scope,
+        currentProjectId: fileContext?.projectId,
+        rootUri: fileContext?.rootUri,
+      });
+      href = projectPath
+        ? getPreviewEndpoint(projectPath, { projectId: fileContext?.projectId })
+        : originalSrc;
+    }
     if (!href) return null;
     return { href, fileName: props.fileName || "image.png" };
   }
@@ -253,16 +264,24 @@ function resolveNodeFileInfo(
     const props = node.props as import("../nodes/VideoNode").VideoNodeProps;
     const sourcePath = (props.sourcePath ?? "").trim();
     if (!sourcePath) return null;
-    const scope = resolveBoardFolderScope(fileContext);
-    const projectPath = resolveProjectPathFromBoardUri({
-      uri: sourcePath,
-      boardFolderScope: scope,
-      currentProjectId: fileContext?.projectId,
-      rootUri: fileContext?.rootUri,
-    });
-    const href = projectPath
-      ? getPreviewEndpoint(projectPath, { projectId: fileContext?.projectId })
-      : sourcePath;
+    let href: string;
+    if (fileContext?.boardId && isBoardRelativePath(sourcePath)) {
+      href = getBoardPreviewEndpoint(sourcePath, {
+        boardId: fileContext.boardId,
+        projectId: fileContext.projectId,
+      });
+    } else {
+      const scope = resolveBoardFolderScope(fileContext);
+      const projectPath = resolveProjectPathFromBoardUri({
+        uri: sourcePath,
+        boardFolderScope: scope,
+        currentProjectId: fileContext?.projectId,
+        rootUri: fileContext?.rootUri,
+      });
+      href = projectPath
+        ? getPreviewEndpoint(projectPath, { projectId: fileContext?.projectId })
+        : sourcePath;
+    }
     if (!href) return null;
     return { href, fileName: props.fileName || sourcePath.split("/").pop() || "video.mp4" };
   }
@@ -494,6 +513,10 @@ export function BoardCanvasInteraction({
   /** 另存为 Dialog 状态 */
   const [saveAsOpen, setSaveAsOpen] = useState(false);
   const [saveAsNode, setSaveAsNode] = useState<CanvasNodeElement | null>(null);
+  /** 版本堆叠删除确认对话状态 */
+  const [versionDeleteOpen, setVersionDeleteOpen] = useState(false);
+  const [versionDeleteIds, setVersionDeleteIds] = useState<string[]>([]);
+  const [versionDeleteCount, setVersionDeleteCount] = useState(0);
   /** Latest cursor applier used by async loaders. */
   const applyCursorRef = useRef<() => void>(() => {});
   /** Track wheel gesture target to avoid mid-gesture handoff. */
@@ -513,6 +536,31 @@ export function BoardCanvasInteraction({
   useEffect(() => {
     latestSnapshotRef.current = snapshot;
   }, [snapshot]);
+
+  // 逻辑：拦截含版本堆叠节点的删除，弹出确认对话让用户选择删除范围。
+  useEffect(() => {
+    engine.deleteInterceptor = (selectionIds) => {
+      // 计算选中堆叠节点中最大版本数（用于对话描述）。
+      let maxCount = 0
+      for (const id of selectionIds) {
+        const el = engine.doc.getElementById(id)
+        if (!el || el.kind !== 'node') continue
+        const vs = (el as CanvasNodeElement).props?.versionStack as
+          | { entries: unknown[] }
+          | undefined
+        const count = vs?.entries?.length ?? 0
+        if (count > maxCount) maxCount = count
+      }
+      if (maxCount <= 1) return false
+      setVersionDeleteIds(selectionIds)
+      setVersionDeleteCount(maxCount)
+      setVersionDeleteOpen(true)
+      return true
+    }
+    return () => {
+      engine.deleteInterceptor = null
+    }
+  }, [engine])
 
   /** Fit view for context menu. */
   const handleFitView = useCallback(() => {
@@ -651,6 +699,21 @@ export function BoardCanvasInteraction({
     return () => {
       unsubscribe();
     };
+  }, [engine]);
+
+  // 逻辑：同步视口变换到画布点阵背景，使点阵跟随平移和缩放。
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const applyDotTransform = () => {
+      const { zoom, offset } = engine.getViewState().viewport;
+      const gap = zoom * 24;
+      container.style.backgroundSize = `${gap}px ${gap}px`;
+      container.style.backgroundPosition = `${offset[0]}px ${offset[1]}px`;
+    };
+    applyDotTransform();
+    const unsubscribe = engine.subscribeView(applyDotTransform);
+    return () => unsubscribe();
   }, [engine]);
 
   useEffect(() => {
@@ -1221,31 +1284,28 @@ export function BoardCanvasInteraction({
     });
   };
 
+  const resolveBoardOrProjectEndpoint = (uri: string): string => {
+    if (fileContext?.boardId && isBoardRelativePath(uri)) {
+      return getBoardPreviewEndpoint(uri, {
+        boardId: fileContext.boardId,
+        projectId,
+      });
+    }
+    const projectPath = resolveProjectRelativePath(uri);
+    return projectPath ? getPreviewEndpoint(projectPath, { projectId }) : uri;
+  };
+
   const openImagePreviewFromNode = (element: CanvasNodeElement) => {
     if (element.type !== "image") return;
     const props = element.props as ImageNodeProps;
     const originalSrc = props.originalSrc || "";
-    const projectRelativeOriginal = resolveProjectRelativePath(originalSrc);
-    const resolvedOriginal = projectRelativeOriginal
-      ? getPreviewEndpoint(projectRelativeOriginal, { projectId })
-      : originalSrc;
+    const resolvedOriginal = resolveBoardOrProjectEndpoint(originalSrc);
     const previewSrc = props.previewSrc || "";
-    const projectRelativePreview = resolveProjectRelativePath(previewSrc);
-    const resolvedPreview = projectRelativePreview
-      ? getPreviewEndpoint(projectRelativePreview, { projectId })
-      : previewSrc;
-    const hasScheme = /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(originalSrc);
-    const canUseOriginal =
-      hasScheme &&
-      (resolvedOriginal.startsWith("data:") ||
-        resolvedOriginal.startsWith("blob:") ||
-        resolvedOriginal.startsWith("http://") ||
-        resolvedOriginal.startsWith("https://"));
-    const finalOriginal = projectRelativeOriginal
-      ? resolvedOriginal
-      : canUseOriginal
-        ? resolvedOriginal
-        : "";
+    const resolvedPreview = resolveBoardOrProjectEndpoint(previewSrc);
+    const resolvedOriginalUsable =
+      resolvedOriginal !== originalSrc ||
+      /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(resolvedOriginal);
+    const finalOriginal = resolvedOriginalUsable ? resolvedOriginal : "";
     const finalPreview = resolvedPreview || previewSrc;
     if (!finalOriginal && !finalPreview) return;
     onOpenImagePreview({
@@ -1278,8 +1338,10 @@ export function BoardCanvasInteraction({
     if (element.type === "image") {
       const imgProps = element.props as ImageNodeProps;
       const isEmpty = !imgProps.originalSrc && !imgProps.previewSrc;
-      if (isEmpty) {
-        // 逻辑：空图片节点双击展开面板（由节点内部处理文件选择）。
+      // 逻辑：图片加载失败时也视为空节点，通过 DOM data 属性检测。
+      const isLoadError = document.querySelector(`[data-element-id="${element.id}"] [data-image-error]`) != null;
+      if (isEmpty || isLoadError) {
+        // 逻辑：空图片节点或加载失败节点双击展开面板（由节点内部处理文件选择）。
         engine.selection.setSelection([element.id]);
         engine.setExpandedNodeId(element.id);
         return;
@@ -1364,15 +1426,18 @@ export function BoardCanvasInteraction({
                 outputSize: [width, height],
               },
             );
-            if (!placement) {
-              return [
-                snapshot.connectorDrop.point[0] - width / 2,
-                snapshot.connectorDrop.point[1] - height / 2,
-                width,
-                height,
-              ];
-            }
-            return [placement.x, placement.y, width, height];
+            const proposed: [number, number, number, number] = placement
+              ? [placement.x, placement.y, width, height]
+              : [
+                  snapshot.connectorDrop.point[0] - width / 2,
+                  snapshot.connectorDrop.point[1] - height / 2,
+                  width,
+                  height,
+                ];
+            const allNodes = engine.doc
+              .getElements()
+              .filter((el): el is CanvasNodeElement => el.kind === 'node');
+            return avoidNodeCollisions(proposed, allNodes, sourceElement.id, direction);
           })()
         : [
             snapshot.connectorDrop.point[0] - width / 2,
@@ -1457,15 +1522,24 @@ export function BoardCanvasInteraction({
             { projectId: fileContext?.projectId },
           )
             .then((result) => {
+              // 逻辑：重新读取源节点，避免 async 期间位置变化导致放置位置过时。
+              const currentNode = engine.doc.getElementById(nodeId);
+              if (!currentNode || currentNode.kind !== "node") return;
+              const sourceXywh = currentNode.xywh;
               const [loadingW, loadingH] = DEFAULT_NODE_SIZE;
               const existingOutputs = collectOutboundTargetRects(engine, nodeId);
               const placement = resolveDirectionalStackPlacement(
-                node.xywh,
+                sourceXywh,
                 existingOutputs,
                 { direction: 'right', sideGap: 60, stackGap: 16, outputSize: [loadingW, loadingH] },
               );
-              const x = placement ? placement.x : node.xywh[0] + node.xywh[2] + 60;
-              const y = placement ? placement.y : node.xywh[1];
+              const x = placement ? placement.x : sourceXywh[0] + sourceXywh[2] + 60;
+              const y = placement ? placement.y : sourceXywh[1];
+              const proposed: [number, number, number, number] = [x, y, loadingW, loadingH];
+              const allNodes = engine.doc
+                .getElements()
+                .filter((el): el is CanvasNodeElement => el.kind === 'node');
+              const finalXywh = avoidNodeCollisions(proposed, allNodes, nodeId, 'right');
               const loadingNodeId = engine.addNodeElement(
                 'loading',
                 {
@@ -1478,7 +1552,7 @@ export function BoardCanvasInteraction({
                     ? `${fileContext.boardFolderUri}/${BOARD_ASSETS_DIR_NAME}`
                     : '',
                 },
-                [x, y, loadingW, loadingH],
+                finalXywh,
               );
               if (loadingNodeId) {
                 engine.addConnectorElement(
@@ -1750,6 +1824,23 @@ export function BoardCanvasInteraction({
           }}
         />
       ) : null}
+      <VersionStackDeleteDialog
+        open={versionDeleteOpen}
+        versionCount={versionDeleteCount}
+        onCancel={() => {
+          setVersionDeleteOpen(false)
+          setVersionDeleteIds([])
+        }}
+        onConfirm={(deleteAll) => {
+          setVersionDeleteOpen(false)
+          if (deleteAll) {
+            engine.forceDeleteSelection(versionDeleteIds)
+          } else {
+            engine.removeCurrentVersionFromSelection(versionDeleteIds)
+          }
+          setVersionDeleteIds([])
+        }}
+      />
     </>
   );
 }

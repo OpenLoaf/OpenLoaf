@@ -155,6 +155,8 @@ export type CanvasToolHost = {
   setAlignmentGuides: (guides: CanvasAlignmentGuide[]) => void;
   /** Update the rectangle selection box. */
   setSelectionBox: (box: CanvasSelectionBox | null) => void;
+  /** Set the world-space point where the selection was clicked (for toolbar positioning). */
+  setSelectionClickPoint: (point: CanvasPoint | null) => void;
   /** Update selection box and selection in one step. */
   setSelectionBoxAndSelection: (
     box: CanvasSelectionBox | null,

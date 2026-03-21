@@ -59,7 +59,7 @@ import { resolveSystemCliInfo } from "@/modules/settings/resolveSystemCliInfo";
 import { resolveOfficeInfo } from "@/modules/settings/resolveOfficeInfo";
 import { isSystemAgentId } from "@/ai/shared/systemAgentDefinitions";
 import { getErrorMessage } from "@/shared/errorMessages";
-import { getDefaultProjectStorageRootUri } from "@openloaf/api/services/appConfigService";
+import { getDefaultProjectStorageRootUri, getResolvedTempStorageDir } from "@openloaf/api/services/appConfigService";
 
 /** Normalize ignoreSkills list for persistence. */
 function normalizeIgnoreSkills(values?: unknown): string[] {
@@ -321,6 +321,7 @@ class SettingRouterImpl extends BaseSettingRouter {
         .query(async () => {
           return {
             rootUri: getDefaultProjectStorageRootUri(),
+            tempRootUri: pathToFileURL(getResolvedTempStorageDir()).href,
           };
         }),
       getCliToolsStatus: shieldedProcedure

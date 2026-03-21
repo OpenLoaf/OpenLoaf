@@ -110,7 +110,7 @@ function ResultEntries({ entries }: { entries: ResultEntry[] }) {
               href={entry.href}
               target="_blank"
               rel="noreferrer"
-              className="truncate font-mono text-ol-blue hover:text-ol-blue/80 hover:underline"
+              className="truncate font-mono text-muted-foreground hover:text-foreground hover:underline"
             >
               {entry.value || entry.href}
             </a>
@@ -281,7 +281,7 @@ function ResultView({
   return (
     <div className="space-y-3">
       {previewUrl ? (
-        <div className="overflow-hidden rounded-lg border border-border/40 bg-black">
+        <div className="overflow-hidden rounded-3xl border border-border/40 bg-black">
           <video
             controls
             preload="metadata"

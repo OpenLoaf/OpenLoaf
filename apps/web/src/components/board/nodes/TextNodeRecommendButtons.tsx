@@ -134,7 +134,7 @@ export const TextNodeRecommendButtons = memo(function TextNodeRecommendButtons({
 
   return (
     <div
-      className="pointer-events-auto absolute top-full left-1/2 mt-3 ol-glass-toolbar flex flex-row gap-0.5 rounded-lg border border-border/50 p-1"
+      className="pointer-events-auto absolute top-full left-1/2 mt-3 ol-glass-toolbar flex flex-row gap-0.5 rounded-3xl border border-border/50 p-1"
       style={{ transform: 'translateX(-50%) scale(var(--label-scale, 1))', transformOrigin: 'top center' }}
     >
       {items.map((item) => {
@@ -145,7 +145,7 @@ export const TextNodeRecommendButtons = memo(function TextNodeRecommendButtons({
             type="button"
             title={item.label}
             className={cn(
-              'flex items-center justify-center rounded-md p-1.5',
+              'flex items-center justify-center rounded-3xl p-1.5',
               'transition-colors duration-150',
               'hover:bg-foreground/8 dark:hover:bg-foreground/10',
             )}

@@ -94,40 +94,40 @@ const PROMPT_REMARK_PLUGINS = Object.values(defaultRemarkPlugins)
 
 /** 能力组 ID → 彩色图标映射 */
 const CAP_ICON_MAP: Record<string, { icon: LucideIcon; className: string }> = {
-  browser: { icon: Globe, className: 'text-ol-blue' },
-  'file-read': { icon: FileSearch, className: 'text-ol-green' },
-  'file-write': { icon: FilePen, className: 'text-ol-green' },
-  shell: { icon: Terminal, className: 'text-ol-text-auxiliary' },
-  email: { icon: Mail, className: 'text-ol-red' },
-  calendar: { icon: Calendar, className: 'text-ol-amber' },
-  office: { icon: Edit3, className: 'text-ol-green' },
-  'image-generate': { icon: Image, className: 'text-ol-red' },
-  'video-generate': { icon: Video, className: 'text-ol-purple' },
-  widget: { icon: LayoutGrid, className: 'text-ol-purple' },
-  project: { icon: FolderKanban, className: 'text-ol-blue' },
-  web: { icon: Link, className: 'text-ol-blue' },
-  agent: { icon: Users, className: 'text-ol-purple' },
-  'code-interpreter': { icon: Code, className: 'text-ol-amber' },
-  system: { icon: Settings, className: 'text-ol-text-auxiliary' },
+  browser: { icon: Globe, className: 'text-foreground' },
+  'file-read': { icon: FileSearch, className: 'text-foreground' },
+  'file-write': { icon: FilePen, className: 'text-foreground' },
+  shell: { icon: Terminal, className: 'text-muted-foreground' },
+  email: { icon: Mail, className: 'text-foreground' },
+  calendar: { icon: Calendar, className: 'text-foreground' },
+  office: { icon: Edit3, className: 'text-foreground' },
+  'image-generate': { icon: Image, className: 'text-foreground' },
+  'video-generate': { icon: Video, className: 'text-foreground' },
+  widget: { icon: LayoutGrid, className: 'text-foreground' },
+  project: { icon: FolderKanban, className: 'text-foreground' },
+  web: { icon: Link, className: 'text-foreground' },
+  agent: { icon: Users, className: 'text-foreground' },
+  'code-interpreter': { icon: Code, className: 'text-foreground' },
+  system: { icon: Settings, className: 'text-muted-foreground' },
 }
 
 /** 能力组 ID → 扁平 pastel 背景色映射 */
 const CAP_BG_MAP: Record<string, string> = {
-  browser: 'bg-ol-blue-bg',
-  'file-read': 'bg-ol-green-bg',
-  'file-write': 'bg-ol-green-bg',
-  shell: 'bg-ol-surface-muted',
-  email: 'bg-ol-red-bg',
-  calendar: 'bg-ol-amber-bg',
-  office: 'bg-ol-green-bg',
-  'image-generate': 'bg-ol-red-bg',
-  'video-generate': 'bg-ol-purple-bg',
-  widget: 'bg-ol-purple-bg',
-  project: 'bg-ol-blue-bg',
-  web: 'bg-ol-blue-bg',
-  agent: 'bg-ol-purple-bg',
-  'code-interpreter': 'bg-ol-amber-bg',
-  system: 'bg-ol-surface-muted',
+  browser: 'bg-secondary',
+  'file-read': 'bg-secondary',
+  'file-write': 'bg-secondary',
+  shell: 'bg-secondary',
+  email: 'bg-secondary',
+  calendar: 'bg-secondary',
+  office: 'bg-secondary',
+  'image-generate': 'bg-secondary',
+  'video-generate': 'bg-secondary',
+  widget: 'bg-secondary',
+  project: 'bg-secondary',
+  web: 'bg-secondary',
+  agent: 'bg-secondary',
+  'code-interpreter': 'bg-secondary',
+  system: 'bg-secondary',
 }
 
 type AgentDetailPanelProps = {
@@ -291,7 +291,7 @@ function MediaModelSelect({
           variant="secondary"
           size="sm"
           disabled={disabled}
-          className="h-8 w-fit max-w-full shrink min-w-0 justify-between rounded-md border border-border/60 bg-background/80 px-3 text-xs"
+          className="h-8 w-fit max-w-full shrink min-w-0 justify-between rounded-3xl border border-border/60 bg-background/80 px-3 text-xs"
         >
           <span className="flex min-w-0 items-center gap-2">
             {normalizedValue.length > 0 ? (
@@ -319,7 +319,7 @@ function MediaModelSelect({
               </span>
             ) : (
               <>
-                <Sparkles className="h-3.5 w-3.5 shrink-0 text-ol-green" />
+                <Sparkles className="h-3.5 w-3.5 shrink-0 text-foreground" />
                 <span className="truncate">Auto</span>
               </>
             )}
@@ -329,7 +329,7 @@ function MediaModelSelect({
       <PopoverContent
         align="end"
         sideOffset={8}
-        className="w-80 rounded-lg border-border bg-card p-2 shadow-sm"
+        className="w-80 rounded-3xl border-border bg-card p-2 shadow-none"
       >
         {!authLoggedIn ? (
           <div className="flex flex-col items-center justify-center gap-2 py-6">
@@ -353,13 +353,13 @@ function MediaModelSelect({
           <div className="max-h-64 space-y-1 overflow-y-auto">
             <button
               type="button"
-              className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-xs hover:bg-muted/50"
+              className="flex w-full items-center gap-2 rounded-3xl px-3 py-2 text-left text-xs hover:bg-muted/50"
               onClick={() => applyChange([])}
             >
-              <Sparkles className="h-3.5 w-3.5 text-ol-green" />
+              <Sparkles className="h-3.5 w-3.5 text-foreground" />
               <span className="flex-1 truncate">Auto</span>
               {normalizedValue.length === 0 ? (
-                <Check className="h-3.5 w-3.5 text-ol-green" />
+                <Check className="h-3.5 w-3.5 text-foreground" />
               ) : (
                 <span className="h-3.5 w-3.5" />
               )}
@@ -493,7 +493,7 @@ function ChatModelSelect({
           variant="secondary"
           size="sm"
           disabled={disabled}
-          className="h-8 w-fit max-w-full shrink min-w-0 justify-between rounded-md border border-border/60 bg-background/80 px-3 text-xs"
+          className="h-8 w-fit max-w-full shrink min-w-0 justify-between rounded-3xl border border-border/60 bg-background/80 px-3 text-xs"
         >
           <span className="flex min-w-0 items-center gap-2">
             {normalizedValue.length > 0 ? (
@@ -521,7 +521,7 @@ function ChatModelSelect({
               </span>
             ) : (
               <>
-                <Sparkles className="h-3.5 w-3.5 shrink-0 text-ol-green" />
+                <Sparkles className="h-3.5 w-3.5 shrink-0 text-foreground" />
                 <span className="truncate">Auto</span>
               </>
             )}
@@ -531,7 +531,7 @@ function ChatModelSelect({
       <PopoverContent
         align="end"
         sideOffset={8}
-        className="w-80 rounded-lg border-border bg-card p-2 shadow-sm"
+        className="w-80 rounded-3xl border-border bg-card p-2 shadow-none"
       >
         {showCloudLogin ? (
           <div className="flex flex-col items-center justify-center gap-2 py-6">
@@ -555,13 +555,13 @@ function ChatModelSelect({
           <div className="max-h-64 space-y-1 overflow-y-auto">
             <button
               type="button"
-              className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-xs hover:bg-muted/50"
+              className="flex w-full items-center gap-2 rounded-3xl px-3 py-2 text-left text-xs hover:bg-muted/50"
               onClick={() => applyChange([])}
             >
-              <Sparkles className="h-3.5 w-3.5 text-ol-green" />
+              <Sparkles className="h-3.5 w-3.5 text-foreground" />
               <span className="flex-1 truncate">Auto</span>
               {normalizedValue.length === 0 ? (
-                <Check className="h-3.5 w-3.5 text-ol-green" />
+                <Check className="h-3.5 w-3.5 text-foreground" />
               ) : (
                 <span className="h-3.5 w-3.5" />
               )}
@@ -1252,7 +1252,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
       return (
         <div
           key={group.id}
-          className={`relative flex cursor-pointer flex-col rounded-lg p-3 transition-colors ${bgClass}`}
+          className={`relative flex cursor-pointer flex-col rounded-3xl p-3 transition-colors ${bgClass}`}
           onClick={(e) => {
             if ((e.target as HTMLElement).closest('[role="switch"]')) return
             if ((e.target as HTMLElement).closest('input[type="checkbox"]')) return
@@ -1275,7 +1275,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
               onCheckedChange={(checked) =>
                 handleToggleGroup(group.id, Boolean(checked))
               }
-              className="ml-auto data-[state=checked]:bg-ol-blue dark:data-[state=checked]:bg-ol-blue"
+              className="ml-auto data-[state=checked]:bg-foreground dark:data-[state=checked]:bg-foreground"
             />
           </div>
           <div className="mt-1.5 flex items-start gap-1">
@@ -1295,7 +1295,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
                 return (
                   <label
                     key={tool.id}
-                    className="flex items-start gap-2 rounded-md px-2 py-1 text-[11px] leading-tight hover:bg-background/60"
+                    className="flex items-start gap-2 rounded-3xl px-2 py-1 text-[11px] leading-tight hover:bg-background/60"
                   >
                     <Checkbox
                       checked={checked}
@@ -1423,7 +1423,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
           {/* Apple 风格基本信息区 */}
           <div className="flex flex-col items-center gap-2 pt-2 pb-1">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted">
-              <Bot className="h-7 w-7 text-ol-blue" />
+              <Bot className="h-7 w-7 text-foreground" />
             </div>
             <Input
               value={name}
@@ -1437,7 +1437,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
           <OpenLoafSettingsCard divided>
             <div className="flex flex-wrap items-center gap-3 gap-y-2 py-2.5">
               <span className="flex items-center gap-2 text-sm font-medium">
-                <MessageSquare className="h-4 w-4 text-ol-blue" />
+                <MessageSquare className="h-4 w-4 text-foreground" />
                 {t('settings:agent.panel.chatModel')}
                 {isMasterAgent ? (
                   <Tooltip>
@@ -1479,19 +1479,19 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
                     onOpenLogin={() => setLoginOpen(true)}
                     emptyText={t('settings:agent.panel.noChatModel')}
                   />
-                <div className="flex shrink-0 items-center rounded-md border border-border/70 bg-muted/40">
+                <div className="flex shrink-0 items-center rounded-3xl border border-border/70 bg-muted/40">
                   <FilterTab
                     text={t('settings:agent.panel.sourceLocal')}
                     selected={!isCloudSource}
                     onSelect={() => handleChatSourceSelect('local')}
-                    icon={<HardDrive className="h-3 w-3 text-ol-amber" />}
+                    icon={<HardDrive className="h-3 w-3 text-foreground" />}
                     layoutId="agent-chat-source"
                   />
                   <FilterTab
                     text={t('settings:agent.panel.sourceCloud')}
                     selected={isCloudSource}
                     onSelect={() => handleChatSourceSelect('cloud')}
-                    icon={<Cloud className="h-3 w-3 text-ol-blue" />}
+                    icon={<Cloud className="h-3 w-3 text-foreground" />}
                     layoutId="agent-chat-source"
                   />
                 </div>
@@ -1500,7 +1500,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
             {isMasterAgent ? (
               <div className="flex flex-wrap items-center gap-3 gap-y-2 py-2.5">
                 <span className="flex items-center gap-2 text-sm font-medium">
-                  <Sparkles className="h-4 w-4 text-ol-green" />
+                  <Sparkles className="h-4 w-4 text-foreground" />
                   {t('settings:agent.panel.auxModel')}
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -1528,19 +1528,19 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
                     onOpenLogin={() => setLoginOpen(true)}
                     emptyText={t('settings:agent.panel.noChatModel')}
                   />
-                  <div className="flex shrink-0 items-center rounded-md border border-border/70 bg-muted/40">
+                  <div className="flex shrink-0 items-center rounded-3xl border border-border/70 bg-muted/40">
                     <FilterTab
                       text={t('settings:agent.panel.sourceLocal')}
                       selected={!isAuxCloudSource}
                       onSelect={() => setAuxiliaryModelSource('local')}
-                      icon={<HardDrive className="h-3 w-3 text-ol-amber" />}
+                      icon={<HardDrive className="h-3 w-3 text-foreground" />}
                       layoutId="agent-aux-source"
                     />
                     <FilterTab
                       text={t('settings:agent.panel.sourceCloud')}
                       selected={isAuxCloudSource}
                       onSelect={() => setAuxiliaryModelSource('cloud')}
-                      icon={<Cloud className="h-3 w-3 text-ol-blue" />}
+                      icon={<Cloud className="h-3 w-3 text-foreground" />}
                       layoutId="agent-aux-source"
                     />
                   </div>
@@ -1550,10 +1550,10 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
             {isMasterAgent ? (
               <div className="flex flex-wrap items-center gap-3 gap-y-2 py-2.5">
                 <span className="flex items-center gap-2 text-sm font-medium">
-                  <Gauge className="h-4 w-4 text-ol-purple" />
+                  <Gauge className="h-4 w-4 text-foreground" />
                   {t('settings:agent.panel.maxSubagents')}
                 </span>
-                <div className="ml-auto flex items-center rounded-md border border-border/70 bg-muted/40">
+                <div className="ml-auto flex items-center rounded-3xl border border-border/70 bg-muted/40">
                   {[2, 3, 4, 5].map((count) => (
                     <FilterTab
                       key={count}
@@ -1571,7 +1571,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
             ) : (
               <div className="flex items-center gap-3 py-2.5">
                 <span className="flex items-center gap-2 text-sm font-medium">
-                  <Edit3 className="h-4 w-4 text-ol-amber" />
+                  <Edit3 className="h-4 w-4 text-foreground" />
                   {t('settings:agent.panel.notes')}
                 </span>
                 <Input
@@ -1587,7 +1587,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
           <OpenLoafSettingsCard divided>
             <div className="flex flex-wrap items-center gap-3 gap-y-2 py-2.5">
               <div className="flex items-center gap-2 text-sm font-medium">
-                <Image className="h-4 w-4 text-ol-red" />
+                <Image className="h-4 w-4 text-foreground" />
                 {t('settings:agent.panel.imageGen')}
               </div>
               <div className="ml-auto flex flex-wrap items-center gap-2">
@@ -1607,7 +1607,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
                       emptyText={t('settings:agent.panel.noImageModel')}
                     />
                   ) : (
-                    <Button size="sm" className="bg-ol-blue text-white hover:bg-ol-blue" onClick={() => setLoginOpen(true)}>
+                    <Button size="sm" className="bg-foreground text-background hover:bg-foreground/90" onClick={() => setLoginOpen(true)}>
                       <img src="/head_s.png" alt="OpenLoaf" className="mr-1 h-5 w-5" />
                       {t('settings:agent.panel.loginCloudShort')}
                     </Button>
@@ -1625,7 +1625,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
             </div>
             <div className="flex flex-wrap items-center gap-3 gap-y-2 py-2.5">
               <div className="flex items-center gap-2 text-sm font-medium">
-                <Video className="h-4 w-4 text-ol-purple" />
+                <Video className="h-4 w-4 text-foreground" />
                 {t('settings:agent.panel.videoGen')}
               </div>
               <div className="ml-auto flex flex-wrap items-center gap-2">
@@ -1645,7 +1645,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
                       emptyText={t('settings:agent.panel.noVideoModel')}
                     />
                   ) : (
-                    <Button size="sm" className="bg-ol-blue text-white hover:bg-ol-blue" onClick={() => setLoginOpen(true)}>
+                    <Button size="sm" className="bg-foreground text-background hover:bg-foreground/90" onClick={() => setLoginOpen(true)}>
                       <img src="/head_s.png" alt="OpenLoaf" className="mr-1 h-5 w-5" />
                       {t('settings:agent.panel.loginCloudShort')}
                     </Button>
@@ -1668,26 +1668,26 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
             <div className="sticky top-0 z-10 bg-background">
               <div className="text-sm font-medium">{t('settings:agent.panel.configLabel')}</div>
               <div className="flex items-center justify-between gap-2">
-                <TabsList className="mt-1.5 h-8 w-max rounded-md border border-border/70 bg-muted/40 p-1">
+                <TabsList className="mt-1.5 h-8 w-max rounded-3xl border border-border/70 bg-muted/40 p-1">
                   <TabsTrigger
                     value="capabilities"
-                    className="h-6 rounded-md px-2.5 text-xs whitespace-nowrap"
+                    className="h-6 rounded-3xl px-2.5 text-xs whitespace-nowrap"
                   >
-                    <Blocks className="mr-1 h-3 w-3 text-ol-blue" />
+                    <Blocks className="mr-1 h-3 w-3 text-foreground" />
                     {t('settings:agent.panel.capabilitiesTab')}
                   </TabsTrigger>
                   <TabsTrigger
                     value="skills"
-                    className="h-6 rounded-md px-2.5 text-xs whitespace-nowrap"
+                    className="h-6 rounded-3xl px-2.5 text-xs whitespace-nowrap"
                   >
-                    <Sparkles className="mr-1 h-3 w-3 text-ol-purple" />
+                    <Sparkles className="mr-1 h-3 w-3 text-foreground" />
                     {t('settings:agent.panel.skillsTab')}
                   </TabsTrigger>
                   <TabsTrigger
                     value="prompt"
-                    className="h-6 rounded-md px-2.5 text-xs whitespace-nowrap"
+                    className="h-6 rounded-3xl px-2.5 text-xs whitespace-nowrap"
                   >
-                    <ScrollText className="mr-1 h-3 w-3 text-ol-amber" />
+                    <ScrollText className="mr-1 h-3 w-3 text-foreground" />
                     {t('settings:agent.panel.promptTab')}
                   </TabsTrigger>
                 </TabsList>
@@ -1697,7 +1697,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
                       type="button"
                       size="sm"
                       variant="ghost"
-                      className="h-7 rounded-md px-3 text-xs bg-ol-amber-bg text-ol-amber hover:bg-ol-amber-bg-hover"
+                      className="h-7 rounded-3xl px-3 text-xs bg-secondary text-secondary-foreground hover:bg-accent"
                       onClick={() => setPromptPreview((v) => !v)}
                     >
                       {promptPreview ? (
@@ -1712,7 +1712,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
                     type="button"
                     size="sm"
                     variant="ghost"
-                    className="h-7 rounded-md px-3 text-xs"
+                    className="h-7 rounded-3xl px-3 text-xs"
                     onClick={handleResetToDefault}
                     disabled={!canReset}
                   >
@@ -1758,7 +1758,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
                           return (
                             <label
                               key={skill.ignoreKey || skill.path || skill.name}
-                              className="flex cursor-pointer flex-col rounded-[22px] bg-ol-surface-muted p-3.5 transition-colors hover:bg-ol-divider"
+                              className="flex cursor-pointer flex-col rounded-[22px] bg-secondary p-3.5 transition-colors hover:bg-accent"
                             >
                               <div className="flex items-start gap-2">
                                 <Checkbox

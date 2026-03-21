@@ -75,7 +75,7 @@ export const MediaEmbedElement = withHOC(
                     id={embed!.id!}
                     title="youtube"
                     wrapperClass={cn(
-                      'rounded-sm',
+                      'rounded-3xl',
                       focused && selected && 'ring-2 ring-ring ring-offset-2',
                       'relative block cursor-pointer bg-black bg-center bg-cover [contain:content]',
                       '[&.lyt-activated]:before:absolute [&.lyt-activated]:before:top-0 [&.lyt-activated]:before:h-[60px] [&.lyt-activated]:before:w-full [&.lyt-activated]:before:bg-top [&.lyt-activated]:before:bg-repeat-x [&.lyt-activated]:before:pb-[50px] [&.lyt-activated]:before:[transition:all_0.2s_cubic-bezier(0,_0,_0.2,_1)]',
@@ -103,7 +103,7 @@ export const MediaEmbedElement = withHOC(
                   >
                     <iframe
                       className={cn(
-                        'absolute top-0 left-0 size-full rounded-sm',
+                        'absolute top-0 left-0 size-full rounded-3xl',
                         isVideo && 'border-0',
                         focused && selected && 'ring-2 ring-ring ring-offset-2'
                       )}

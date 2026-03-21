@@ -54,7 +54,7 @@ export default function DevNoticeDialog() {
       <DialogContent className="sm:max-w-md shadow-none border-border/60">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Construction className="size-5 text-ol-amber" />
+            <Construction className="size-5 text-foreground" />
             {t('devNoticeDialog.title')}
           </DialogTitle>
           <DialogDescription className="sr-only">
@@ -65,7 +65,7 @@ export default function DevNoticeDialog() {
         <div className="space-y-3 text-sm text-muted-foreground leading-relaxed">
           <p>{t('devNoticeDialog.content1')}</p>
           <p>{t('devNoticeDialog.content2')}</p>
-          <p className="text-ol-amber font-medium">{t('devNoticeDialog.content3')}</p>
+          <p className="text-foreground font-medium">{t('devNoticeDialog.content3')}</p>
         </div>
 
         <div className="flex items-center gap-2 pt-1">
@@ -86,6 +86,7 @@ export default function DevNoticeDialog() {
           <Button
             type="button"
             onClick={handleClose}
+            className="rounded-3xl"
           >
             {t('devNoticeDialog.okButton')}
           </Button>

@@ -73,7 +73,7 @@ export default function ToolResultPanel({
           {!isEmpty(part.input) ? (
             <div className="space-y-1">
               <div className="text-[11px] text-muted-foreground">Input</div>
-              <pre className="max-h-48 overflow-auto rounded-md bg-muted/40 p-2 text-[11px] leading-relaxed">
+              <pre className="max-h-48 overflow-auto rounded-3xl bg-muted/40 p-2 text-[11px] leading-relaxed">
                 {inputDisplay.text}
               </pre>
             </div>
@@ -83,7 +83,7 @@ export default function ToolResultPanel({
             <div className="text-[11px] text-muted-foreground">
               Output{outputDisplay.truncated ? " (truncated)" : ""}
             </div>
-            <pre className="flex-1 overflow-auto rounded-md bg-muted/40 p-2 text-[11px] leading-relaxed">
+            <pre className="flex-1 overflow-auto rounded-3xl bg-muted/40 p-2 text-[11px] leading-relaxed">
               {outputDisplay.text || "（暂无返回结果）"}
             </pre>
           </div>

@@ -64,32 +64,32 @@ import type { LucideIcon } from 'lucide-react'
 
 /** Output mode → badge style mapping (label resolved via t()). */
 const OUTPUT_MODE_CLASS: Record<string, string> = {
-  structured: 'bg-ol-blue-bg text-ol-blue',
-  text: 'bg-ol-green-bg text-ol-green',
-  'tool-call': 'bg-ol-purple-bg text-ol-purple',
-  skill: 'bg-ol-amber-bg text-ol-amber',
+  structured: 'bg-secondary text-foreground',
+  text: 'bg-secondary text-foreground',
+  'tool-call': 'bg-secondary text-foreground',
+  skill: 'bg-secondary text-foreground',
 }
 
 /** Capability key → icon + color mapping. */
 const CAP_ICON_MAP: Record<string, { icon: LucideIcon; color: string }> = {
-  'project.classify': { icon: FolderKanban, color: 'text-ol-blue' },
-  'chat.suggestions': { icon: MessageSquareText, color: 'text-ol-purple' },
-  'chat.title': { icon: FileText, color: 'text-ol-amber' },
-  'project.ephemeralName': { icon: Folder, color: 'text-ol-green' },
-  'git.commitMessage': { icon: GitCommitHorizontal, color: 'text-ol-amber' },
-  'text.translate': { icon: Languages, color: 'text-ol-green' },
+  'project.classify': { icon: FolderKanban, color: 'text-foreground' },
+  'chat.suggestions': { icon: MessageSquareText, color: 'text-foreground' },
+  'chat.title': { icon: FileText, color: 'text-foreground' },
+  'project.ephemeralName': { icon: Folder, color: 'text-foreground' },
+  'git.commitMessage': { icon: GitCommitHorizontal, color: 'text-foreground' },
+  'text.translate': { icon: Languages, color: 'text-foreground' },
 }
 
 /** Flat color palette for trigger scenario badges. */
 const TRIGGER_COLORS = [
-  'bg-ol-blue-bg text-ol-blue',
-  'bg-ol-amber-bg text-ol-amber',
-  'bg-ol-green-bg text-ol-green',
-  'bg-ol-purple-bg text-ol-purple',
-  'bg-ol-red-bg text-ol-red',
-  'bg-ol-green-bg text-ol-green',
-  'bg-ol-amber-bg text-ol-amber',
-  'bg-ol-purple-bg text-ol-purple',
+  'bg-secondary text-foreground',
+  'bg-secondary text-foreground',
+  'bg-secondary text-foreground',
+  'bg-secondary text-foreground',
+  'bg-secondary text-foreground',
+  'bg-secondary text-foreground',
+  'bg-secondary text-foreground',
+  'bg-secondary text-foreground',
 ]
 
 /** Format token count into compact K/M notation. */
@@ -267,19 +267,19 @@ export function AuxiliaryModelSettings() {
               </div>
             </div>
             <OpenLoafSettingsField className="shrink-0 justify-end">
-              <div className="flex items-center rounded-md border border-border/70 bg-muted/40">
+              <div className="flex items-center rounded-3xl border border-border/70 bg-muted/40">
                 <FilterTab
                   text={t('auxiliaryModel.sourceLocal')}
                   selected={modelSource === 'local'}
                   onSelect={() => setModelSource('local')}
-                  icon={<HardDrive className="h-3 w-3 text-ol-amber" />}
+                  icon={<HardDrive className="h-3 w-3 text-foreground" />}
                   layoutId="aux-model-source"
                 />
                 <FilterTab
                   text={t('auxiliaryModel.sourceSaas')}
                   selected={modelSource === 'saas'}
                   onSelect={() => setModelSource('saas')}
-                  icon={<Sparkles className="h-3 w-3 text-ol-purple" />}
+                  icon={<Sparkles className="h-3 w-3 text-foreground" />}
                   layoutId="aux-model-source"
                 />
               </div>
@@ -291,8 +291,8 @@ export function AuxiliaryModelSettings() {
             <div className="flex flex-col gap-2.5 py-3">
               {showSaasLogin ? (
                 /* Not logged in — show login prompt */
-                <div className="flex items-center gap-3 rounded-lg border border-ol-purple/20 bg-ol-purple/5 px-4 py-3">
-                  <Sparkles className="h-4 w-4 shrink-0 text-ol-purple" />
+                <div className="flex items-center gap-3 rounded-3xl border border-border bg-secondary/50 px-4 py-3">
+                  <Sparkles className="h-4 w-4 shrink-0 text-foreground" />
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-foreground">{t('auxiliaryModel.needLogin')}</p>
                     <p className="text-xs text-muted-foreground">{t('auxiliaryModel.needLoginHint')}</p>
@@ -300,7 +300,7 @@ export function AuxiliaryModelSettings() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="shrink-0 rounded-md px-4 text-xs transition-colors duration-150"
+                    className="shrink-0 rounded-3xl px-4 text-xs transition-colors duration-150"
                     onClick={() => setLoginOpen(true)}
                   >
                     {t('auxiliaryModel.login')}
@@ -309,8 +309,8 @@ export function AuxiliaryModelSettings() {
               ) : (
                 /* Logged in — show SaaS info + quota */
                 <div className="flex flex-col gap-2.5">
-                  <div className="flex items-center gap-3 rounded-lg border border-ol-purple/20 bg-ol-purple/5 px-4 py-3">
-                    <Sparkles className="h-4 w-4 shrink-0 text-ol-purple" />
+                  <div className="flex items-center gap-3 rounded-3xl border border-border bg-secondary/50 px-4 py-3">
+                    <Sparkles className="h-4 w-4 shrink-0 text-foreground" />
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium text-foreground">{t('auxiliaryModel.saasProvided')}</p>
                       <p className="text-xs text-muted-foreground">{t('auxiliaryModel.saasProvidedHint')}</p>
@@ -372,7 +372,7 @@ export function AuxiliaryModelSettings() {
                       type="button"
                       onClick={() => setActiveCapKey(cap.key)}
                       className={cn(
-                        'flex w-full items-center gap-2 rounded-md px-1.5 py-2 text-left text-xs transition-colors duration-150',
+                        'flex w-full items-center gap-2 rounded-3xl px-1.5 py-2 text-left text-xs transition-colors duration-150',
                         isActive
                           ? 'bg-accent/80 text-accent-foreground font-medium'
                           : 'text-muted-foreground hover:bg-accent/40 hover:text-foreground',
@@ -381,8 +381,8 @@ export function AuxiliaryModelSettings() {
                       <Icon className={cn('h-3.5 w-3.5 shrink-0', iconColor)} />
                       <span className="truncate">{t(`auxiliaryCapabilities.${cap.key}.label`, { defaultValue: cap.label })}</span>
                       {hasCustom && (
-                        <span className="ml-auto flex h-4 w-4 items-center justify-center rounded-full bg-ol-blue-bg">
-                          <Check className="h-2.5 w-2.5 text-ol-blue" />
+                        <span className="ml-auto flex h-4 w-4 items-center justify-center rounded-3xl bg-secondary">
+                          <Check className="h-2.5 w-2.5 text-foreground" />
                         </span>
                       )}
                     </button>
@@ -409,7 +409,7 @@ export function AuxiliaryModelSettings() {
                         {activeCap.outputMode && OUTPUT_MODE_CLASS[activeCap.outputMode] && (
                           <span
                             className={cn(
-                              'inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-medium',
+                              'inline-flex items-center rounded-3xl px-2 py-0.5 text-[10px] font-medium',
                               OUTPUT_MODE_CLASS[activeCap.outputMode],
                             )}
                           >
@@ -425,7 +425,7 @@ export function AuxiliaryModelSettings() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-7 shrink-0 gap-1 rounded-md bg-ol-blue-bg px-2.5 text-xs text-ol-blue hover:bg-ol-blue-bg-hover transition-colors duration-150"
+                        className="h-7 shrink-0 gap-1 rounded-3xl bg-secondary px-2.5 text-xs text-secondary-foreground hover:bg-accent transition-colors duration-150"
                         onClick={() => setTestDialogOpen(true)}
                       >
                         <Play className="h-3 w-3" />
@@ -435,7 +435,7 @@ export function AuxiliaryModelSettings() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-7 shrink-0 gap-1 rounded-md px-2.5 text-xs text-muted-foreground hover:text-foreground transition-colors duration-150"
+                          className="h-7 shrink-0 gap-1 rounded-3xl px-2.5 text-xs text-muted-foreground hover:text-foreground transition-colors duration-150"
                           onClick={handleResetPrompt}
                         >
                           <RotateCcw className="h-3 w-3" />
@@ -453,7 +453,7 @@ export function AuxiliaryModelSettings() {
                         <span
                           key={trigger}
                           className={cn(
-                            'inline-flex items-center rounded-md px-2 py-1 text-[11px] font-medium',
+                            'inline-flex items-center rounded-3xl px-2 py-1 text-[11px] font-medium',
                             TRIGGER_COLORS[idx % TRIGGER_COLORS.length],
                           )}
                         >
@@ -469,7 +469,7 @@ export function AuxiliaryModelSettings() {
                       <span className="text-xs font-medium text-muted-foreground">{t('auxiliaryModel.prompt')}</span>
                       <span className="text-[10px] text-muted-foreground/50">{currentPrompt.length}</span>
                       {isCustomized && (
-                        <span className="rounded-md bg-ol-amber-bg px-1.5 py-px text-[10px] font-medium text-ol-amber">
+                        <span className="rounded-3xl bg-secondary px-1.5 py-px text-[10px] font-medium text-foreground">
                           {t('auxiliaryModel.modified')}
                         </span>
                       )}
@@ -477,7 +477,7 @@ export function AuxiliaryModelSettings() {
                     <Textarea
                       value={currentPrompt}
                       onChange={(e) => handlePromptChange(e.target.value)}
-                      className="flex-1 min-h-0 resize-none rounded-lg border-border/60 bg-background/50 font-mono text-xs leading-relaxed focus-visible:ring-1 focus-visible:ring-ring/50"
+                      className="flex-1 min-h-0 resize-none rounded-3xl border-border/60 bg-background/50 font-mono text-xs leading-relaxed focus-visible:ring-1 focus-visible:ring-ring/50"
                       placeholder={t('auxiliaryModel.promptPlaceholder')}
                     />
                   </div>
@@ -494,7 +494,7 @@ export function AuxiliaryModelSettings() {
           onClick={handleSave}
           disabled={saveMutation.isPending}
           size="sm"
-          className="rounded-md px-5 transition-colors duration-150"
+          className="rounded-3xl px-5 transition-colors duration-150"
         >
           {saveMutation.isPending ? t('auxiliaryModel.saving') : t('auxiliaryModel.save')}
         </Button>
@@ -601,12 +601,12 @@ function TestCapabilityDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="gap-0 overflow-hidden p-0 sm:max-w-lg sm:rounded-lg">
+      <DialogContent className="gap-0 overflow-hidden p-0 sm:max-w-lg sm:rounded-3xl">
         {/* Header — 半透明玻璃层 */}
         <div className="flex items-center gap-3 border-b border-border/40 ol-glass-float px-5 py-4">
           <div className={cn(
-            'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
-            'bg-card shadow-sm ring-1 ring-border/30',
+            'flex h-8 w-8 shrink-0 items-center justify-center rounded-3xl',
+            'bg-card shadow-none ring-1 ring-border/30',
           )}>
             <Icon className={cn('h-4 w-4', iconColor)} />
           </div>
@@ -616,7 +616,7 @@ function TestCapabilityDialog({
                 {t('auxiliaryModel.testDialogTitle', { label: capabilityLabel })}
                 {badgeClass && badgeLabel && (
                   <span className={cn(
-                    'inline-flex items-center rounded-md px-1.5 py-px text-[10px] font-medium',
+                    'inline-flex items-center rounded-3xl px-1.5 py-px text-[10px] font-medium',
                     badgeClass,
                   )}>
                     {badgeLabel}
@@ -645,7 +645,7 @@ function TestCapabilityDialog({
               onChange={(e) => setContext(e.target.value)}
               rows={5}
               className={cn(
-                'resize-none rounded-lg border-border/50 bg-muted/20 font-mono text-xs leading-relaxed shadow-none',
+                'resize-none rounded-3xl border-border/50 bg-muted/20 font-mono text-xs leading-relaxed shadow-none',
                 'placeholder:text-muted-foreground/40',
                 'focus-visible:ring-0 focus-visible:shadow-none focus-visible:border-border/70',
                 'transition-colors duration-200',
@@ -662,16 +662,16 @@ function TestCapabilityDialog({
               {/* Result content */}
               {result.ok ? (
                 isText ? (
-                  <div className="rounded-lg border border-border/30 bg-muted/15 p-3.5 text-xs leading-relaxed whitespace-pre-wrap">
+                  <div className="rounded-3xl border border-border/30 bg-muted/15 p-3.5 text-xs leading-relaxed whitespace-pre-wrap">
                     {String(result.result)}
                   </div>
                 ) : (
-                  <pre className="max-h-52 overflow-auto rounded-lg border border-border/30 bg-muted/15 p-3.5 font-mono text-xs leading-relaxed">
+                  <pre className="max-h-52 overflow-auto rounded-3xl border border-border/30 bg-muted/15 p-3.5 font-mono text-xs leading-relaxed">
                     {JSON.stringify(result.result, null, 2)}
                   </pre>
                 )
               ) : (
-                <div className="rounded-lg border border-ol-red/15 bg-ol-red/5 p-3.5 text-xs leading-relaxed text-ol-red">
+                <div className="rounded-3xl border border-destructive/15 bg-destructive/5 p-3.5 text-xs leading-relaxed text-destructive">
                   {result.error ?? t('auxiliaryModel.testFailed')}
                 </div>
               )}
@@ -679,20 +679,20 @@ function TestCapabilityDialog({
               {/* Stats — below content */}
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                 <span className={cn(
-                  'inline-flex items-center rounded-md px-1.5 py-px text-[10px] font-medium',
+                  'inline-flex items-center rounded-3xl px-1.5 py-px text-[10px] font-medium',
                   result.ok
-                    ? 'bg-ol-green-bg text-ol-green'
-                    : 'bg-ol-red-bg text-ol-red',
+                    ? 'bg-secondary text-foreground'
+                    : 'bg-destructive/10 text-destructive',
                 )}>
                   {result.ok ? t('auxiliaryModel.testSuccess') : t('auxiliaryModel.testFailed')}
                 </span>
                 <span className={cn(
-                  'inline-flex items-center rounded-md px-1.5 py-px text-[10px] font-medium tabular-nums',
+                  'inline-flex items-center rounded-3xl px-1.5 py-px text-[10px] font-medium tabular-nums',
                   result.durationMs < 1000
-                    ? 'bg-ol-green-bg text-ol-green'
+                    ? 'bg-secondary text-foreground'
                     : result.durationMs < 3000
-                      ? 'bg-ol-amber-bg text-ol-amber'
-                      : 'bg-ol-red-bg text-ol-red',
+                      ? 'bg-secondary text-foreground'
+                      : 'bg-destructive/10 text-destructive',
                 )}>
                   {result.durationMs < 1000
                     ? t('auxiliaryModel.testDuration', { duration: result.durationMs })
@@ -721,7 +721,7 @@ function TestCapabilityDialog({
           <Button
             variant="ghost"
             size="sm"
-            className="rounded-md px-4 text-xs text-muted-foreground hover:text-foreground transition-colors duration-200"
+            className="rounded-3xl px-4 text-xs text-muted-foreground hover:text-foreground transition-colors duration-200"
             onClick={() => onOpenChange(false)}
           >
             {t('common:close')}
@@ -730,7 +730,7 @@ function TestCapabilityDialog({
             size="sm"
             variant="ghost"
             className={cn(
-              'gap-1.5 rounded-md bg-ol-blue-bg px-5 text-xs text-ol-blue hover:bg-ol-blue-bg-hover transition-all duration-200',
+              'gap-1.5 rounded-3xl bg-secondary px-5 text-xs text-secondary-foreground hover:bg-accent transition-all duration-200',
               testMutation.isPending && 'opacity-80',
             )}
             onClick={handleRun}
@@ -778,7 +778,7 @@ function ModelSelector({
         <Button
           variant="outline"
           size="sm"
-          className="h-8 gap-1.5 rounded-md px-3.5 text-xs transition-colors duration-150"
+          className="h-8 gap-1.5 rounded-3xl px-3.5 text-xs transition-colors duration-150"
         >
           <span className="max-w-[140px] truncate">{label}</span>
           <ChevronDown className="h-3 w-3 shrink-0 opacity-50" />
@@ -797,7 +797,7 @@ function ModelSelector({
               <label
                 key={model.id}
                 className={cn(
-                  'flex cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs transition-colors duration-150',
+                  'flex cursor-pointer items-center gap-2.5 rounded-3xl px-2.5 py-2 text-xs transition-colors duration-150',
                   checked
                     ? 'bg-accent/60 text-accent-foreground'
                     : 'hover:bg-accent/40',
@@ -829,19 +829,19 @@ function SaasQuotaBar({ quota }: { quota: { used: number; limit: number; remaini
   const isExhausted = quota.remaining <= 0
 
   const barColor = isExhausted
-    ? 'bg-ol-red'
+    ? 'bg-destructive'
     : isWarning
-      ? 'bg-ol-amber'
-      : 'bg-ol-purple'
+      ? 'bg-foreground/60'
+      : 'bg-foreground'
 
   const textColor = isExhausted
-    ? 'text-ol-red'
+    ? 'text-destructive'
     : isWarning
-      ? 'text-ol-amber'
+      ? 'text-foreground'
       : 'text-muted-foreground'
 
   return (
-    <div className="flex flex-col gap-1.5 rounded-lg border border-border/40 bg-muted/20 px-3.5 py-2.5">
+    <div className="flex flex-col gap-1.5 rounded-3xl border border-border/40 bg-muted/20 px-3.5 py-2.5">
       <div className="flex items-center justify-between">
         <span className={cn('text-xs font-medium', textColor)}>
           {t('auxiliaryModel.quotaUsed', { used: quota.used, limit: quota.limit })}
@@ -857,7 +857,7 @@ function SaasQuotaBar({ quota }: { quota: { used: number; limit: number; remaini
         />
       </div>
       {isExhausted && (
-        <p className="text-[11px] text-ol-red">
+        <p className="text-[11px] text-destructive">
           {t('auxiliaryModel.quotaExhausted')}
         </p>
       )}

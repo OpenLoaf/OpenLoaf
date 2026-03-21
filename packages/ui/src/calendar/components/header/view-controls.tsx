@@ -38,24 +38,24 @@ const VIEW_CONFIG: {
 	{
 		type: 'month',
 		icon: Calendar,
-		activeBg: 'bg-ol-blue-bg',
-		activeText: 'text-ol-blue',
+		activeBg: 'bg-secondary',
+		activeText: 'text-foreground',
 		darkActiveBg: '',
 		darkActiveText: '',
 	},
 	{
 		type: 'week',
 		icon: Grid3x3,
-		activeBg: 'bg-ol-purple-bg',
-		activeText: 'text-ol-purple',
+		activeBg: 'bg-secondary',
+		activeText: 'text-foreground',
 		darkActiveBg: '',
 		darkActiveText: '',
 	},
 	{
 		type: 'day',
 		icon: Clock,
-		activeBg: 'bg-ol-amber-bg',
-		activeText: 'text-ol-amber',
+		activeBg: 'bg-secondary',
+		activeText: 'text-foreground',
 		darkActiveBg: '',
 		darkActiveText: '',
 	},
@@ -75,7 +75,7 @@ const ViewControls: React.FC<ViewControlsProps> = ({
 			{/* Desktop: segmented control */}
 			<div
 				className={cn(
-					'hidden sm:flex items-center gap-0.5 rounded-md border bg-background p-0.5',
+					'hidden sm:flex items-center gap-0.5 rounded-3xl border bg-background p-0.5',
 					className
 				)}
 			>
@@ -85,10 +85,10 @@ const ViewControls: React.FC<ViewControlsProps> = ({
 						<button
 							type="button"
 							className={cn(
-								'inline-flex items-center justify-center rounded-md transition-all duration-150',
+								'inline-flex items-center justify-center rounded-3xl transition-all duration-150',
 								isActive
 									? `h-7 gap-1 px-2.5 ${activeBg} ${activeText} ${darkActiveBg} ${darkActiveText}`
-									: 'h-7 w-7 text-ol-text-auxiliary hover:bg-ol-surface-muted hover:text-ol-text-primary'
+									: 'h-7 w-7 text-muted-foreground hover:bg-secondary hover:text-foreground'
 							)}
 							key={type}
 							onClick={() => onChange(type)}

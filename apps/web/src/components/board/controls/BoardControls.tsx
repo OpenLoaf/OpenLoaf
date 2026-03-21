@@ -179,7 +179,7 @@ const BoardControls = memo(function BoardControls({
     >
       <div
         className={cn(
-          "pointer-events-auto flex flex-col items-center gap-1 rounded-lg px-1.5 py-1",
+          "pointer-events-auto flex flex-col items-center gap-1 rounded-3xl px-1.5 py-1",
           toolbarSurfaceClassName
         )}
       >

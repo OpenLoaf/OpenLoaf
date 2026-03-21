@@ -58,7 +58,7 @@ function renderModelTagsCompact(tags: string[] | undefined, getTagLabel: (tag: s
       {(tags ?? []).map((tag) => (
         <span
           key={tag}
-          className="inline-flex items-center rounded-md border border-border bg-muted px-1.5 py-0.5 text-[10px] leading-none text-muted-foreground"
+          className="inline-flex items-center rounded-3xl border border-border bg-muted px-1.5 py-0.5 text-[10px] leading-none text-muted-foreground"
         >
           {getTagLabel(tag)}
         </span>
@@ -98,7 +98,7 @@ export function ProviderSection({
         {null}
       </OpenLoafSettingsGroup>
 
-      <div className="rounded-lg border border-border overflow-hidden">
+      <div className="rounded-3xl border border-border overflow-hidden">
         <Table>
           <TableHeader className="bg-muted/50">
             <TableRow>

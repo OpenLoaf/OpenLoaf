@@ -852,7 +852,7 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
               </Button>
             </DialogClose>
             <Button
-              className="bg-ol-blue/10 text-ol-blue hover:bg-ol-blue/20 shadow-none"
+              className="bg-foreground/10 text-foreground hover:bg-foreground/20 shadow-none"
               onClick={() => void handleRename()}
               disabled={renameBusy}
             >
@@ -877,7 +877,7 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
             <DialogTitle>{t("project.selectParentDialog")}</DialogTitle>
             <DialogDescription>{t("project.selectParentDescription")}</DialogDescription>
           </DialogHeader>
-          <div className="max-h-[360px] overflow-y-auto rounded-xl border border-border/60 bg-card/60 p-3">
+          <div className="max-h-[360px] overflow-y-auto rounded-3xl border border-border/60 bg-card/60 p-3">
             {selectableProjects.length === 0 ? (
               <div className="text-xs text-muted-foreground">{t("project.noParents")}</div>
             ) : (
@@ -941,7 +941,7 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
                 void handleConfirmParentMove();
               }}
               disabled={moveParentBusy}
-              className="bg-ol-blue text-white hover:brightness-110"
+              className="bg-foreground text-background hover:bg-foreground/90"
             >
               {moveParentBusy ? t("project.movingButton") : t("project.confirmMove")}
             </AlertDialogAction>
@@ -997,7 +997,7 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
                 void handleConfirmMove();
               }}
               disabled={moveBusy}
-              className="bg-ol-blue text-white hover:brightness-110"
+              className="bg-foreground text-background hover:bg-foreground/90"
             >
               {moveBusy ? t("project.movingButton") : t("project.confirmMove")}
             </AlertDialogAction>

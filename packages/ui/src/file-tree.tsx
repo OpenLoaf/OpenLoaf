@@ -61,7 +61,7 @@ function FileItem({ node, depth, isLast, parentPath }: FileItemProps) {
     <div className="select-none">
       <div
         className={cn(
-          "group relative flex items-center gap-2 py-1 px-2 rounded-md cursor-pointer",
+          "group relative flex items-center gap-2 py-1 px-2 rounded-3xl cursor-pointer",
           "transition-all duration-200 ease-out",
           isHovered && "bg-file-tree-hover",
         )}
@@ -185,7 +185,7 @@ export function FileTree({ data, className }: FileTreeProps) {
   return (
     <div
       className={cn(
-        "bg-file-tree-bg rounded-lg border border-border/50 p-3 font-mono",
+        "bg-file-tree-bg rounded-3xl border border-border/50 p-3 font-mono",
         className,
       )}
     >

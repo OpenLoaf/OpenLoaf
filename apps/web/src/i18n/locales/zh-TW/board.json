@@ -47,11 +47,11 @@
     "connector": "連接線"
   },
   "insertTools": {
-    "note": "便利貼",
+    "note": "文字",
     "text": "文字",
     "textDesc": "輸入提示詞、腳本",
-    "sticky": "便利貼",
-    "stickyDesc": "快速記錄想法",
+    "sticky": "文字",
+    "stickyDesc": "輸入文字內容",
     "image": "圖片",
     "imageDesc": "AI 生成圖片",
     "video": "影片",
@@ -88,7 +88,7 @@
     }
   },
   "descriptions": {
-    "note": "快速筆記卡片",
+    "note": "文字卡片",
     "image": "圖片區塊",
     "video": "影片區塊",
     "file": "檔案附件",
@@ -108,9 +108,10 @@
   "emptyGuide": {
     "title": "開始創作",
     "subtitle": "選擇一個方式開始",
-    "createText": "建立便利貼",
+    "createText": "建立文字",
     "aiImage": "AI 圖片",
     "aiVideo": "AI 影片",
+    "aiAudio": "AI 音訊",
     "importFile": "匯入檔案",
     "hint": "雙擊空白處也可以建立文字",
     "shortcuts": "快捷鍵: V 選取 · H 拖曳 · T 文字 · C 連線",
@@ -355,7 +356,9 @@
       "style": "風格",
       "stylePlaceholder": "按 Enter 可自訂風格",
       "negativePrompt": "不希望出現",
-      "auto": "自動"
+      "auto": "自動",
+      "negativePromptLabel": "反向提示",
+      "clearStyle": "清除"
     },
     "modelSelect": {
       "noModel": "無可用模型",
@@ -403,7 +406,9 @@
       "auto": "自動",
       "yes": "是",
       "no": "否",
-      "selectPlaceholder": "請選擇"
+      "selectPlaceholder": "請選擇",
+      "negativePromptLabel": "反向提示",
+      "clearStyle": "清除"
     },
     "status": {
       "completed": "已完成",
@@ -524,7 +529,12 @@
   "versionStack": {
     "badge": "{{count}} 個版本",
     "prev": "上一張",
-    "next": "下一張"
+    "next": "下一張",
+    "deleteTitle": "刪除版本",
+    "deleteDescription": "目前節點包含 {{count}} 個版本，預設僅刪除當前顯示的版本。",
+    "deleteAll": "刪除所有版本（整個節點）",
+    "deleteCancel": "取消",
+    "deleteConfirm": "刪除"
   },
   "fileAttachmentNode": {
     "toolbar": {
@@ -685,7 +695,11 @@
     "autoRecommend": "自動推薦",
     "aspectRatio": "比例",
     "duration": "時長",
-    "quality": "品質",
+    "quality": {
+      "draft": "草稿",
+      "standard": "標準",
+      "hd": "高清"
+    },
     "generate": "生成",
     "generating": "生成中...",
     "upstreamLoaded": "已從上游節點讀取內容",
@@ -726,11 +740,6 @@
       "lipSync": "口型同步"
     },
     "withAudio": "同步生成音訊",
-    "quality": {
-      "draft": "草稿",
-      "standard": "標準",
-      "hd": "高清"
-    },
     "digitalHuman": {
       "personImage": "人物照片",
       "personVideo": "來源影片",
@@ -744,7 +753,7 @@
     "textToImage": "文生圖",
     "imageToImage": "圖生圖",
     "prompt": "提示詞",
-    "promptPlaceholder": "描述你想要的畫面...",
+    "promptPlaceholder": "描述你想生成的圖片，例如：一隻貓坐在星空下的屋頂上",
     "model": "模型",
     "autoRecommend": "自動推薦",
     "aspectRatio": "比例",
@@ -764,7 +773,12 @@
     "enhancePrompt": "優化提示詞",
     "translate": "翻譯",
     "settings": "設定",
-    "generateMode": "生成模式",
+    "generateMode": {
+      "text": "文生圖",
+      "reference": "參考圖",
+      "sketch": "草圖",
+      "character": "角色"
+    },
     "upstreamSlots": "上游素材",
     "estimatedCredits": "本次生成預計消耗積分",
     "stackMode": "堆疊（新版本）",
@@ -783,17 +797,12 @@
     "maskEdit": "編輯遮罩",
     "erasePlaceholder": "塗抹要擦除的區域",
     "feature": {
-      "imageGenerate": "生成",
+      "imageGenerate": "自動",
       "poster": "海報",
       "imageEdit": "編輯",
       "upscale": "放大",
-      "outpaint": "擴圖"
-    },
-    "generateMode": {
-      "text": "文生圖",
-      "reference": "參考圖",
-      "sketch": "草圖",
-      "character": "角色"
+      "outpaint": "擴圖",
+      "matting": "去背"
     },
     "editMode": {
       "instruct": "指令編輯",
@@ -821,7 +830,8 @@
     "outpaintBottom": "下",
     "outpaintLeft": "左",
     "outpaintRight": "右",
-    "outpaintHint": "至少一個方向需要大於 1.0"
+    "outpaintHint": "至少一個方向需要大於 1.0",
+    "maskRequired": "請先塗抹需要修改的區域"
   },
   "upscalePanel": {
     "title": "高清放大",
@@ -890,8 +900,14 @@
     },
     "tabBadgeSoon": "Soon",
     "comingSoon": {
-      "music": { "title": "音樂生成", "description": "即將推出，敬請期待" },
-      "sfx": { "title": "音效生成", "description": "即將推出，敬請期待" }
+      "music": {
+        "title": "音樂生成",
+        "description": "即將推出，敬請期待"
+      },
+      "sfx": {
+        "title": "音效生成",
+        "description": "即將推出，敬請期待"
+      }
     }
   },
   "nodeSearch": {
@@ -930,11 +946,177 @@
   "generateAction": {
     "generate": "生成",
     "generating": "生成中...",
+    "loginAndGenerate": "登入並生成",
     "newNode": "生成新節點",
     "stackCurrent": "堆疊到當前節點",
     "currentNode": "當前節點",
     "regenerate": "重新生成",
+    "cancel": "取消",
     "locked": "參數已鎖定",
     "unlock": "解鎖編輯"
+  },
+  "generatingOverlay": {
+    "status": "生成中，約需 {{duration}}"
+  },
+  "polling": {
+    "errorGeneric": "生成失敗，請重試",
+    "errorNotFound": "任務已過期，請重新生成",
+    "errorNetwork": "網路異常，請檢查連線後重試",
+    "errorAuth": "登入已過期，請重新登入",
+    "errorServer": "服務暫時不可用，請稍後重試",
+    "errorInsufficientBalance": "帳戶餘額不足，請儲值後重試",
+    "errorRateLimit": "請求過於頻繁，請稍後重試",
+    "errorContentPolicy": "內容不符合安全規範，請修改後重試",
+    "errorTimeout": "生成超時，請重試",
+    "errorNoResults": "生成完成但未返回結果，請重試"
+  },
+  "v3": {
+    "features": {
+      "imageGenerate": "圖片生成",
+      "imageInpaint": "塗抹修改",
+      "imageStyleTransfer": "風格遷移",
+      "outpaint": "擴圖",
+      "upscale": "超解析度",
+      "videoGenerate": "影片生成",
+      "lipSync": "口型同步",
+      "tts": "語音合成",
+      "music": "音樂生成",
+      "sfx": "音效生成",
+      "comingSoonTitle": "即將推出",
+      "comingSoonDescription": "此功能正在開發中，敬請期待"
+    },
+    "variants": {
+      "img-gen-qwen": "百鍊標準版",
+      "img-gen-volc": "即夢文生圖",
+      "img-gen-kling": "可靈高畫質版",
+      "img-inpaint-volc": "即夢塗抹修改",
+      "img-style-volc": "即夢風格遷移",
+      "outpaint-qwen": "百鍊擴圖",
+      "upscale-qwen": "百鍊超解析度",
+      "upscale-volc": "即夢智慧超清",
+      "vid-gen-qwen": "百鍊影片",
+      "vid-gen-volc": "即夢影片",
+      "vid-gen-kling": "可靈影片",
+      "lip-sync-volc": "即夢口型同步",
+      "lip-sync-kling": "可靈口型同步",
+      "tts-qwen": "CosyVoice 語音"
+    },
+    "params": {
+      "prompt": "提示詞",
+      "negativePrompt": "反向提示",
+      "aspectRatio": "寬高比",
+      "quality": "品質",
+      "qualityStandard": "標準",
+      "qualityHd": "高畫質",
+      "count": "數量",
+      "seed": "種子",
+      "seedPlaceholder": "留空為隨機",
+      "style": "風格",
+      "scale": "放大倍數",
+      "xScale": "水平擴展",
+      "yScale": "垂直擴展",
+      "duration": "時長",
+      "withAudio": "同步生成音訊",
+      "mode": "模式",
+      "modeStd": "標準",
+      "modePro": "專業",
+      "format": "輸出格式",
+      "voice": "音色",
+      "voiceAuto": "自動推薦",
+      "speechRate": "語速",
+      "pitchRate": "音調",
+      "volume": "音量",
+      "text": "文字內容",
+      "textPlaceholder": "輸入要合成語音的文字...",
+      "person": "人物素材",
+      "audio": "音訊素材",
+      "image": "圖片素材",
+      "mask": "遮罩",
+      "referenceAudio": "參考音色",
+      "referenceAudioConnected": "已連接參考音色",
+      "advancedSettings": "進階設定",
+      "ratioAuto": "自動",
+      "quality_standard": "標準",
+      "quality_hd": "高畫質",
+      "negativePromptPlaceholder": "輸入不希望出現的元素...",
+      "proRequired": "此變體需要 Pro 會員或更高等級",
+      "needsImage": "需要圖片才能執行此操作",
+      "inpaintHint": "在圖片上塗抹要修改的區域，然後描述要填充的內容",
+      "inpaintPromptPlaceholder": "描述要在塗抹區域填充的內容...",
+      "styleSource": "風格源圖片",
+      "needsStyleImage": "風格遷移需要一張源圖片",
+      "stylePromptPlaceholder": "描述要以此風格生成的內容...",
+      "scaleFactor": "放大倍數",
+      "upscaleVolcHint": "由雲端 AI 提供的高品質超解析度",
+      "outpaintHint": "倍數 > 1.0 將在該方向擴展圖片",
+      "textAutoFilled": "已從上游自動填入（{{count}}字）",
+      "voices": {
+        "longshu": "龍叔",
+        "longxiaochun": "龍小淳",
+        "longxiaoxia": "龍小夏",
+        "longlaotie": "龍老鐵",
+        "longyue": "龍悅",
+        "longcheng": "龍城",
+        "longjielidou": "龍傑力豆",
+        "longtong": "龍童"
+      }
+    },
+    "selectVariant": "選擇模型",
+    "unknownVariant": "此變體暫不支援介面操作",
+    "estimatedCredits": "預估積分消耗",
+    "fields": {
+      "firstFrame": "首幀",
+      "firstFrameRequired": "連接一個圖片節點（必填）",
+      "firstFrameOptional": "連接一個圖片節點（可選）",
+      "optional": "（可選）",
+      "upstreamImageLoaded": "已從上游節點載入圖片",
+      "upstreamVideoLoaded": "已從上游節點載入影片",
+      "upstreamAudioLoaded": "已從上游節點載入音訊",
+      "promptPlaceholder": "描述你想生成的影片...",
+      "style": "風格",
+      "styleAuto": "自動",
+      "withAudio": "同步生成音訊",
+      "ratioAuto": "自動",
+      "mode": "模式",
+      "modeStd": "標準",
+      "modePro": "專業",
+      "personImage": "人物圖片",
+      "personVideoOrImage": "人物（影片或圖片）",
+      "videoSource": "影片素材",
+      "audioInput": "音訊輸入",
+      "uploadPerson": "連接一個人物圖片節點",
+      "uploadPersonVideoOrImage": "連接一個影片或圖片節點",
+      "uploadAudio": "連接一個音訊節點",
+      "lipSyncHint": "連接人物圖片和音訊節點以生成口型同步影片",
+      "lipSyncKlingHint": "連接人物影片/圖片和音訊節點以生成口型同步影片"
+    },
+    "warnings": {
+      "promptRequired": "請輸入提示詞",
+      "textRequired": "請輸入要朗讀的文字"
+    },
+    "common": {
+      "selectVariant": "選擇模型變體",
+      "credits": "積分",
+      "creditsPerCall": "{{credits}} 積分/次",
+      "membershipRequired": "需要 {{level}} 會員",
+      "noVariants": "暫無可用變體",
+      "loading": "載入能力列表中...",
+      "loadError": "無法載入 AI 功能",
+      "loadErrorHint": "請檢查網路連線後重試，或登入雲端帳號",
+      "retry": "重試",
+      "comingSoon": "即將推出",
+      "genericPromptPlaceholder": "輸入提示詞...",
+      "uploadImage": "上傳圖片",
+      "uploadAudio": "上傳音訊",
+      "uploadPerson": "上傳人像素材",
+      "fromUpstream": "來自上游節點",
+      "autoFilled": "已自動填入",
+      "autoFilledCount": "已自動填入（{{count}}字）",
+      "referenceConnectHint": "連接音訊節點以複製音色",
+      "promptPlaceholderImage": "描述你想生成的圖片...",
+      "promptPlaceholderVideo": "描述影片內容和運鏡效果...",
+      "promptPlaceholderInpaint": "描述修改後的效果...",
+      "promptPlaceholderStyle": "描述目標風格..."
+    }
   }
 }

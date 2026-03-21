@@ -95,7 +95,7 @@ function renderTransientStatusBar(
 ) {
   return (
     <motion.div key="transient-status" {...motionProps}>
-      <div className="flex items-center gap-2 rounded-md border border-dashed border-muted-foreground/30 bg-muted/20 px-2 py-1.5 text-xs text-muted-foreground">
+      <div className="flex items-center gap-2 rounded-3xl border border-dashed border-muted-foreground/30 bg-muted/20 px-2 py-1.5 text-xs text-muted-foreground">
         <div className="h-1 w-8 overflow-hidden rounded-full bg-muted">
           <div className="h-full w-1/2 animate-pulse rounded-full bg-primary/20" />
         </div>
@@ -113,7 +113,7 @@ export const MESSAGE_TEXT_CLASSNAME = cn(
 export const MESSAGE_REVISED_PROMPT_CLASSNAME = cn(
   "min-w-0 w-full max-w-full px-1 font-sans text-xs leading-relaxed text-muted-foreground",
   "whitespace-pre-wrap break-words [overflow-wrap:anywhere]",
-  "rounded-md border border-dashed border-muted-foreground/30 bg-muted/20",
+  "rounded-3xl border border-dashed border-muted-foreground/30 bg-muted/20",
 );
 
 /** Styling for file parts. */

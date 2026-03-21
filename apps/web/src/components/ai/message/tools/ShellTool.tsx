@@ -176,7 +176,7 @@ export default function ShellTool({
 
   return (
     <div className={cn('w-full min-w-0', className)}>
-      <div className="overflow-hidden rounded-xl border bg-card text-card-foreground">
+      <div className="overflow-hidden rounded-3xl border bg-card text-card-foreground">
         {/* macOS 风格标题栏 */}
         <div className="flex items-center gap-3 border-b bg-muted/50 px-3 py-2">
           <TrafficLights state={windowState} />
@@ -194,11 +194,11 @@ export default function ShellTool({
         {command ? (
           <div className="border-b bg-muted/20 px-3 py-2">
             <div className="flex items-center gap-2 font-mono text-xs">
-              <span className="text-ol-green">$</span>
-              <span className="flex-1 break-all text-ol-amber">{command}</span>
+              <span className="text-muted-foreground">$</span>
+              <span className="flex-1 break-all text-foreground">{command}</span>
               <div className="flex shrink-0 items-center gap-2 text-[10px] text-muted-foreground">
                 {exitCode != null && !isStreaming ? (
-                  <span className={exitCode === 0 ? 'text-ol-green' : 'text-destructive'}>
+                  <span className={exitCode === 0 ? 'text-foreground' : 'text-destructive'}>
                     exit {exitCode}
                   </span>
                 ) : null}

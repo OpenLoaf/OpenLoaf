@@ -301,15 +301,15 @@ const ProjectHistory = memo(function ProjectHistory({
           <div className="text-sm font-semibold text-foreground">{t("project.historyDailyFiles")}</div>
           <div className="mt-4 flex-1 min-h-0 overflow-auto">
             {fileChangeQuery.isLoading ? (
-              <div className="rounded-xl border border-dashed border-border/60 bg-background/60 px-3 py-6 text-center text-sm text-muted-foreground">
+              <div className="rounded-3xl border border-dashed border-border/60 bg-background/60 px-3 py-6 text-center text-sm text-muted-foreground">
                 {t("project.historyLoadingShort")}
               </div>
             ) : fileChangeQuery.isError ? (
-              <div className="rounded-xl border border-dashed border-border/60 bg-background/60 px-3 py-6 text-center text-sm text-muted-foreground">
+              <div className="rounded-3xl border border-dashed border-border/60 bg-background/60 px-3 py-6 text-center text-sm text-muted-foreground">
                 {t("project.historyReadFailed")}
               </div>
             ) : fileChangeEntries.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-border/60 bg-background/60 px-3 py-6 text-center text-sm text-muted-foreground">
+              <div className="rounded-3xl border border-dashed border-border/60 bg-background/60 px-3 py-6 text-center text-sm text-muted-foreground">
                 {t("project.historyNoFiles")}
               </div>
             ) : (
@@ -344,9 +344,9 @@ const ProjectHistory = memo(function ProjectHistory({
             modifiers={{ hasHistory: sessionDates }}
             modifiersClassNames={{
               hasHistory:
-                "after:content-[''] after:absolute after:bottom-1 after:left-1/2 after:h-1.5 after:w-1.5 after:-translate-x-1/2 after:rounded-full after:bg-ol-amber/80 after:pointer-events-none after:z-10",
+                "after:content-[''] after:absolute after:bottom-1 after:left-1/2 after:h-1.5 after:w-1.5 after:-translate-x-1/2 after:rounded-full after:bg-foreground/80 after:pointer-events-none after:z-10",
             }}
-            className="h-full w-full rounded-xl border border-border/60 bg-background/80 p-3"
+            className="h-full w-full rounded-3xl border border-border/60 bg-background/80 p-3"
           />
         </section>
 
@@ -369,11 +369,11 @@ const ProjectHistory = memo(function ProjectHistory({
           </div>
           <div className="mt-4 flex-1 space-y-2 overflow-auto">
             {isSessionsLoading ? (
-              <div className="rounded-xl border border-dashed border-border/60 bg-background/60 px-3 py-6 text-center text-sm text-muted-foreground">
+              <div className="rounded-3xl border border-dashed border-border/60 bg-background/60 px-3 py-6 text-center text-sm text-muted-foreground">
                 {t("project.historyLoadingShort")}
               </div>
             ) : activeSessions.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-border/60 bg-background/60 px-3 py-6 text-center text-sm text-muted-foreground">
+              <div className="rounded-3xl border border-dashed border-border/60 bg-background/60 px-3 py-6 text-center text-sm text-muted-foreground">
                 {t("project.historyNoSessions")}
               </div>
             ) : (
@@ -384,7 +384,7 @@ const ProjectHistory = memo(function ProjectHistory({
                   aria-pressed={activeChatSessionId === session.id}
                   onClick={() => handleSessionSelect(session.id)}
                   className={cn(
-                    "flex w-full items-center justify-between gap-3 rounded-xl border border-border/60 px-3 py-2 text-left transition-colors",
+                    "flex w-full items-center justify-between gap-3 rounded-3xl border border-border/60 px-3 py-2 text-left transition-colors",
                     activeChatSessionId === session.id
                       ? "border-primary/40 bg-primary/10"
                       : "bg-background/80 hover:bg-accent/40"
@@ -392,14 +392,14 @@ const ProjectHistory = memo(function ProjectHistory({
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 min-w-0">
-                      <div className="shrink-0 flex h-8 w-8 items-center justify-center rounded-lg bg-muted/60 text-muted-foreground">
+                      <div className="shrink-0 flex h-8 w-8 items-center justify-center rounded-3xl bg-muted/60 text-muted-foreground">
                         <MessageCircle className="h-4 w-4" />
                       </div>
                       <div className="truncate text-sm font-medium text-foreground">
                         {session.title.trim() || t("project.historyUnnamedSession")}
                       </div>
                       {session.isPin ? (
-                        <span className="shrink-0 rounded-md bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                        <span className="shrink-0 rounded-3xl bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
                           {t("project.historyPinned")}
                         </span>
                       ) : null}

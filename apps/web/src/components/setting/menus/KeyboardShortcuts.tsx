@@ -61,7 +61,6 @@ const SHORTCUT_KEYS_MAP: Record<string, string> = {
   "chat.toggle": "chatToggle",
   "search.toggle": "searchToggle",
   "open.calendar": "openCalendar",
-  "open.inbox": "openInbox",
   "open.ai": "openAi",
   "settings.open": "settingsOpen",
   "refresh.disable": "refreshDisable",
@@ -70,45 +69,45 @@ const SHORTCUT_KEYS_MAP: Record<string, string> = {
 
 /** Icon and color for each global shortcut. */
 const SHORTCUT_ICON_MAP: Record<string, { icon: LucideIcon; bg: string; fg: string }> = {
-  "sidebar.toggle": { icon: PanelLeft, bg: "bg-ol-surface-muted", fg: "text-ol-text-auxiliary" },
-  "chat.toggle": { icon: MessageSquare, bg: "bg-ol-blue-bg", fg: "text-ol-blue" },
-  "search.toggle": { icon: Search, bg: "bg-ol-amber-bg", fg: "text-ol-amber" },
-  "open.calendar": { icon: Calendar, bg: "bg-ol-green-bg", fg: "text-ol-green" },
-  "open.workbench": { icon: Columns2, bg: "bg-ol-blue-bg", fg: "text-ol-blue" },
-  "open.ai-assistant": { icon: Bot, bg: "bg-ol-purple-bg", fg: "text-ol-purple" },
-  "settings.open": { icon: Settings, bg: "bg-ol-surface-muted", fg: "text-ol-text-auxiliary" },
-  "refresh.disable": { icon: ShieldOff, bg: "bg-ol-red-bg", fg: "text-ol-red" },
-  "feedback.open": { icon: MessageSquare, bg: "bg-ol-blue-bg", fg: "text-ol-blue" },
+  "sidebar.toggle": { icon: PanelLeft, bg: "bg-secondary", fg: "text-muted-foreground" },
+  "chat.toggle": { icon: MessageSquare, bg: "bg-secondary", fg: "text-foreground" },
+  "search.toggle": { icon: Search, bg: "bg-secondary", fg: "text-foreground" },
+  "open.calendar": { icon: Calendar, bg: "bg-secondary", fg: "text-foreground" },
+  "open.workbench": { icon: Columns2, bg: "bg-secondary", fg: "text-foreground" },
+  "open.ai-assistant": { icon: Bot, bg: "bg-secondary", fg: "text-foreground" },
+  "settings.open": { icon: Settings, bg: "bg-secondary", fg: "text-muted-foreground" },
+  "refresh.disable": { icon: ShieldOff, bg: "bg-secondary", fg: "text-foreground" },
+  "feedback.open": { icon: MessageSquare, bg: "bg-secondary", fg: "text-foreground" },
 };
 
 /** Icon and color for each project shortcut. */
 const PROJECT_ICON_MAP: Record<string, { icon: LucideIcon; bg: string; fg: string }> = {
-  "project.tab.index": { icon: Home, bg: "bg-ol-blue-bg", fg: "text-ol-blue" },
-  "project.tab.canvas": { icon: LayoutGrid, bg: "bg-ol-purple-bg", fg: "text-ol-purple" },
-  "project.tab.tasks": { icon: ListChecks, bg: "bg-ol-green-bg", fg: "text-ol-green" },
-  "project.tab.materials": { icon: Paperclip, bg: "bg-ol-amber-bg", fg: "text-ol-amber" },
-  "project.tab.skills": { icon: Wand2, bg: "bg-ol-red-bg", fg: "text-ol-red" },
+  "project.tab.index": { icon: Home, bg: "bg-secondary", fg: "text-foreground" },
+  "project.tab.canvas": { icon: LayoutGrid, bg: "bg-secondary", fg: "text-foreground" },
+  "project.tab.tasks": { icon: ListChecks, bg: "bg-secondary", fg: "text-foreground" },
+  "project.tab.materials": { icon: Paperclip, bg: "bg-secondary", fg: "text-foreground" },
+  "project.tab.skills": { icon: Wand2, bg: "bg-secondary", fg: "text-foreground" },
 };
 
 /** Icon and color for each canvas shortcut. */
 const CANVAS_ICON_MAP: Record<string, { icon: LucideIcon; bg: string; fg: string }> = {
-  "canvas.select": { icon: MousePointer2, bg: "bg-ol-surface-muted", fg: "text-ol-text-auxiliary" },
-  "canvas.hand": { icon: Hand, bg: "bg-ol-amber-bg", fg: "text-ol-amber" },
-  "canvas.pen": { icon: PenTool, bg: "bg-ol-blue-bg", fg: "text-ol-blue" },
-  "canvas.highlighter": { icon: Highlighter, bg: "bg-ol-amber-bg", fg: "text-ol-amber" },
-  "canvas.eraser": { icon: Eraser, bg: "bg-ol-red-bg", fg: "text-ol-red" },
-  "canvas.fitToScreen": { icon: Maximize2, bg: "bg-ol-blue-bg", fg: "text-ol-blue" },
-  "canvas.lock": { icon: Lock, bg: "bg-ol-amber-bg", fg: "text-ol-amber" },
-  "canvas.autoLayout": { icon: LayoutDashboard, bg: "bg-ol-purple-bg", fg: "text-ol-purple" },
-  "canvas.undo": { icon: Undo2, bg: "bg-ol-blue-bg", fg: "text-ol-blue" },
-  "canvas.redo": { icon: Redo2, bg: "bg-ol-green-bg", fg: "text-ol-green" },
-  "canvas.copy": { icon: Copy, bg: "bg-ol-green-bg", fg: "text-ol-green" },
-  "canvas.cut": { icon: Scissors, bg: "bg-ol-purple-bg", fg: "text-ol-purple" },
-  "canvas.group": { icon: Group, bg: "bg-ol-purple-bg", fg: "text-ol-purple" },
-  "canvas.delete": { icon: Trash2, bg: "bg-ol-red-bg", fg: "text-ol-red" },
+  "canvas.select": { icon: MousePointer2, bg: "bg-secondary", fg: "text-muted-foreground" },
+  "canvas.hand": { icon: Hand, bg: "bg-secondary", fg: "text-foreground" },
+  "canvas.pen": { icon: PenTool, bg: "bg-secondary", fg: "text-foreground" },
+  "canvas.highlighter": { icon: Highlighter, bg: "bg-secondary", fg: "text-foreground" },
+  "canvas.eraser": { icon: Eraser, bg: "bg-secondary", fg: "text-foreground" },
+  "canvas.fitToScreen": { icon: Maximize2, bg: "bg-secondary", fg: "text-foreground" },
+  "canvas.lock": { icon: Lock, bg: "bg-secondary", fg: "text-foreground" },
+  "canvas.autoLayout": { icon: LayoutDashboard, bg: "bg-secondary", fg: "text-foreground" },
+  "canvas.undo": { icon: Undo2, bg: "bg-secondary", fg: "text-foreground" },
+  "canvas.redo": { icon: Redo2, bg: "bg-secondary", fg: "text-foreground" },
+  "canvas.copy": { icon: Copy, bg: "bg-secondary", fg: "text-foreground" },
+  "canvas.cut": { icon: Scissors, bg: "bg-secondary", fg: "text-foreground" },
+  "canvas.group": { icon: Group, bg: "bg-secondary", fg: "text-foreground" },
+  "canvas.delete": { icon: Trash2, bg: "bg-secondary", fg: "text-foreground" },
 };
 
-const DEFAULT_ICON = { icon: Sparkles, bg: "bg-ol-surface-muted", fg: "text-ol-text-auxiliary" };
+const DEFAULT_ICON = { icon: Sparkles, bg: "bg-secondary", fg: "text-muted-foreground" };
 
 /** Returns the localized label for a shortcut, falling back to the original text. */
 function getShortcutLabel(

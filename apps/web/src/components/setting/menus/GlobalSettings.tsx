@@ -148,7 +148,7 @@ export function GlobalSettings() {
         <OpenLoafSettingsGroup title={t("settings.accountInfo")}>
           <div className="divide-y divide-border/40">
             <div className="flex flex-wrap items-center gap-2 py-3">
-              <SettingIcon icon={Crown} bg="bg-ol-amber-bg" fg="text-ol-amber" />
+              <SettingIcon icon={Crown} bg="bg-secondary" fg="text-foreground" />
               <div className="text-sm font-medium">{t("settings.membershipLevel")}</div>
               <OpenLoafSettingsField className="text-right text-xs text-muted-foreground">
                 {userProfileQuery.isLoading
@@ -160,7 +160,7 @@ export function GlobalSettings() {
               </OpenLoafSettingsField>
             </div>
             <div className="flex flex-wrap items-center gap-2 py-3">
-              <SettingIcon icon={Sparkles} bg="bg-ol-green-bg" fg="text-ol-green" />
+              <SettingIcon icon={Sparkles} bg="bg-secondary" fg="text-foreground" />
               <div className="text-sm font-medium">{t("settings.creditsBalance")}</div>
               <OpenLoafSettingsField className="text-right text-xs text-muted-foreground">
                 {userProfileQuery.isLoading
@@ -177,7 +177,7 @@ export function GlobalSettings() {
       <OpenLoafSettingsGroup title={t("settings.basicInfo")}>
         <div className="divide-y divide-border/40">
           <div className="flex flex-wrap items-center gap-2 py-3">
-            <SettingIcon icon={Layers} bg="bg-ol-purple-bg" fg="text-ol-purple" />
+            <SettingIcon icon={Layers} bg="bg-secondary" fg="text-foreground" />
             <div className="text-sm font-medium">{t("settings.projectCount")}</div>
             <OpenLoafSettingsField className="text-right text-xs text-muted-foreground">
               {projectsQuery.isLoading ? t("settings.loading") : totalProjectCount}
@@ -189,21 +189,21 @@ export function GlobalSettings() {
       <OpenLoafSettingsGroup title={t("settings.chatData")}>
         <div className="divide-y divide-border/40">
           <div className="flex flex-wrap items-center gap-2 py-3">
-            <SettingIcon icon={MessageSquare} bg="bg-ol-blue-bg" fg="text-ol-blue" />
+            <SettingIcon icon={MessageSquare} bg="bg-secondary" fg="text-foreground" />
             <div className="text-sm font-medium">{t("settings.totalSessions")}</div>
             <OpenLoafSettingsField className="text-right text-xs text-muted-foreground">
               {typeof sessionCount === "number" ? sessionCount : "—"}
             </OpenLoafSettingsField>
           </div>
           <div className="flex flex-wrap items-center gap-2 py-3">
-            <SettingIcon icon={Sparkles} bg="bg-ol-amber-bg" fg="text-ol-amber" />
+            <SettingIcon icon={Sparkles} bg="bg-secondary" fg="text-foreground" />
             <div className="text-sm font-medium">{t("settings.totalTokens")}</div>
             <OpenLoafSettingsField className="text-right text-xs text-muted-foreground">
               {usage ? formatTokenCount(usage.totalTokens) : "—"}
             </OpenLoafSettingsField>
           </div>
           <div className="flex flex-wrap items-center gap-2 py-3">
-            <SettingIcon icon={BarChart3} bg="bg-ol-green-bg" fg="text-ol-green" />
+            <SettingIcon icon={BarChart3} bg="bg-secondary" fg="text-foreground" />
             <div className="text-sm font-medium">{t("settings.tokenUsage")}</div>
             <OpenLoafSettingsField className="text-right text-xs text-muted-foreground">
               {usage
@@ -222,7 +222,7 @@ export function GlobalSettings() {
       <OpenLoafSettingsGroup title={t("settings.cleanup")}>
         <div className="divide-y divide-border/40">
           <div className="flex flex-wrap items-center gap-2 py-3">
-            <SettingIcon icon={Trash2} bg="bg-ol-red-bg" fg="text-ol-red" />
+            <SettingIcon icon={Trash2} bg="bg-secondary" fg="text-foreground" />
             <div className="min-w-0 flex-1">
               <div className="text-sm font-medium">{t("settings.clearAllChat")}</div>
               <div className="text-xs text-muted-foreground">
@@ -233,7 +233,7 @@ export function GlobalSettings() {
               <Button
                 type="button"
                 size="sm"
-                className="rounded-md bg-ol-red-bg text-ol-red shadow-none hover:bg-ol-red-bg-hover"
+                className="rounded-3xl bg-destructive/10 text-destructive shadow-none hover:bg-destructive/20"
                 disabled={clearAllChat.isPending}
                 onClick={() => void handleClearAllChat()}
               >
@@ -242,7 +242,7 @@ export function GlobalSettings() {
             </OpenLoafSettingsField>
           </div>
           <div className="flex flex-wrap items-center gap-2 py-3">
-            <SettingIcon icon={Layers} bg="bg-ol-amber-bg" fg="text-ol-amber" />
+            <SettingIcon icon={Layers} bg="bg-secondary" fg="text-foreground" />
             <div className="min-w-0 flex-1">
               <div className="text-sm font-medium">{t("settings.clearAllCanvas")}</div>
               <div className="text-xs text-muted-foreground">
@@ -253,7 +253,7 @@ export function GlobalSettings() {
               <Button
                 type="button"
                 size="sm"
-                className="rounded-md bg-ol-amber-bg text-ol-amber shadow-none hover:bg-ol-amber-bg-hover"
+                className="rounded-3xl bg-secondary text-secondary-foreground shadow-none hover:bg-accent"
                 disabled={clearUnboundBoards.isPending}
                 onClick={() => void handleClearUnboundBoards()}
               >

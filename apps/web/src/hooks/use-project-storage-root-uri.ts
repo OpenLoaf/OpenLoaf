@@ -3,7 +3,7 @@
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 
-type ProjectStorageRootResult = { rootUri: string };
+type ProjectStorageRootResult = { rootUri: string; tempRootUri: string };
 type ProjectStorageRootQueryOptions = ReturnType<typeof trpc.settings.getProjectStorageRoot.queryOptions>;
 type ProjectStorageRootOverrides = Partial<
   Omit<ProjectStorageRootQueryOptions, "queryKey" | "queryFn">
@@ -33,4 +33,10 @@ export function useProjectStorageRootQuery(
 export function useProjectStorageRootUri() {
   const query = useProjectStorageRootQuery();
   return query.data?.rootUri;
+}
+
+/** Read the temp storage root URI for unbound boards. */
+export function useTempStorageRootUri() {
+  const query = useProjectStorageRootQuery();
+  return query.data?.tempRootUri;
 }

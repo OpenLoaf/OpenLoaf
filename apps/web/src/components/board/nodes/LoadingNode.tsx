@@ -573,7 +573,7 @@ export function LoadingNodeView({ element }: CanvasNodeViewProps<LoadingNodeProp
     <NodeFrame>
       <div
         className={[
-          "relative flex h-full w-full min-h-0 min-w-0 flex-col items-center justify-center gap-1.5 rounded-lg border p-3 text-center",
+          "relative flex h-full w-full min-h-0 min-w-0 flex-col items-center justify-center gap-1.5 rounded-3xl border p-3 text-center",
           !errorText
             ? "border-ol-border bg-card text-ol-text-primary"
             : "border-ol-border bg-ol-surface-muted text-ol-text-primary",

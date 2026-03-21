@@ -44,7 +44,7 @@ export function ModelPreferencesHeader({
         {showManageButton && (
           <button
             type="button"
-            className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="inline-flex items-center gap-1 rounded-3xl px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             onClick={onManageModels}
           >
             <Settings2 className="h-3 w-3" />
@@ -55,7 +55,7 @@ export function ModelPreferencesHeader({
       <div className="flex items-center gap-3">
         {showCloudSwitch && (
           <div
-            className="relative inline-flex h-6 cursor-pointer items-center rounded-full border border-border/60 bg-muted/60 p-0.5"
+            className="relative inline-flex h-6 cursor-pointer items-center rounded-3xl border border-border/60 bg-muted/60 p-0.5"
             onClick={() => onCloudSourceChange(!isCloudSource)}
             role="switch"
             aria-checked={isCloudSource}
@@ -69,17 +69,17 @@ export function ModelPreferencesHeader({
           >
             <span
               className={cn(
-                'absolute top-0.5 h-5 w-[calc(50%-2px)] rounded-full transition-all duration-200',
+                'absolute top-0.5 h-5 w-[calc(50%-2px)] rounded-3xl transition-all duration-200',
                 isCloudSource
-                  ? 'left-[calc(50%+1px)] bg-ol-blue/15'
-                  : 'left-0.5 bg-ol-amber/15',
+                  ? 'left-[calc(50%+1px)] bg-foreground/10'
+                  : 'left-0.5 bg-foreground/10',
               )}
             />
             <span
               className={cn(
                 'relative z-10 inline-flex h-5 items-center justify-center gap-0.5 px-1.5 transition-colors text-[11px]',
                 !isCloudSource
-                  ? 'text-ol-amber'
+                  ? 'text-foreground'
                   : 'text-muted-foreground',
               )}
             >
@@ -90,7 +90,7 @@ export function ModelPreferencesHeader({
               className={cn(
                 'relative z-10 inline-flex h-5 items-center justify-center gap-0.5 px-1.5 transition-colors text-[11px]',
                 isCloudSource
-                  ? 'text-ol-blue'
+                  ? 'text-foreground'
                   : 'text-muted-foreground',
               )}
             >
@@ -103,10 +103,10 @@ export function ModelPreferencesHeader({
           type="button"
           disabled={disableAuto}
           className={cn(
-            'inline-flex h-6 items-center gap-1 rounded-md px-2 text-[11px] transition-colors',
+            'inline-flex h-6 items-center gap-1 rounded-3xl px-2 text-[11px] transition-colors',
             disableAuto && 'cursor-not-allowed opacity-40',
             isAuto
-              ? 'bg-ol-green/10 text-ol-green'
+              ? 'bg-secondary text-foreground'
               : 'bg-muted/60 text-muted-foreground hover:text-foreground',
           )}
           onClick={() => onAutoChange(true)}

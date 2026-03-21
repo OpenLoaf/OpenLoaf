@@ -135,7 +135,7 @@ const WorkflowTemplatePicker = memo(function WorkflowTemplatePicker({
               handleSelect(template)
             }}
             className={cn(
-              'flex flex-col items-center gap-2 rounded-xl px-4 py-4',
+              'flex flex-col items-center gap-2 rounded-3xl px-4 py-4',
               'border border-border/40',
               'cursor-pointer select-none',
               'transition-all duration-150',

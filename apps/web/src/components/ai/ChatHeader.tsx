@@ -55,15 +55,15 @@ interface ChatHeaderProps {
 }
 
 const CHAT_HEADER_EMAIL_ICON_CLASS = {
-  debug: "text-ol-purple",
-  feedback: "text-ol-purple",
+  debug: "text-muted-foreground",
+  feedback: "text-muted-foreground",
   copyToCanvas:
-    "text-ol-purple/70 hover:text-ol-purple",
-  asset: "text-ol-amber/80 hover:text-ol-amber",
-  closeDock: "text-ol-amber",
-  clear: "text-ol-green",
-  history: "text-ol-blue",
-  close: "text-ol-text-auxiliary",
+    "text-muted-foreground hover:text-foreground",
+  asset: "text-muted-foreground hover:text-foreground",
+  closeDock: "text-muted-foreground",
+  clear: "text-muted-foreground",
+  history: "text-muted-foreground",
+  close: "text-muted-foreground",
 } as const;
 
 export default function ChatHeader({

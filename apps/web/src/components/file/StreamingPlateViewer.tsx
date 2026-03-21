@@ -122,19 +122,19 @@ export default function StreamingPlateViewer({
         </EditorContainer>
       </Plate>
       {isStreaming && (
-        <div className="absolute bottom-3 right-3 flex items-center gap-1.5 rounded-md ol-glass-float px-2 py-1 text-xs text-muted-foreground">
-          <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-ol-blue" />
+        <div className="absolute bottom-3 right-3 flex items-center gap-1.5 rounded-3xl ol-glass-float px-2 py-1 text-xs text-muted-foreground">
+          <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-foreground" />
           编辑中...
         </div>
       )}
       {isDone && (
-        <div className="absolute bottom-3 right-3 flex items-center gap-1.5 rounded-md ol-glass-float px-2 py-1 text-xs text-muted-foreground">
-          <span className="inline-block h-1.5 w-1.5 rounded-full bg-ol-green" />
+        <div className="absolute bottom-3 right-3 flex items-center gap-1.5 rounded-3xl ol-glass-float px-2 py-1 text-xs text-muted-foreground">
+          <span className="inline-block h-1.5 w-1.5 rounded-full bg-muted-foreground" />
           已完成
         </div>
       )}
       {isError && (
-        <div className="absolute bottom-3 right-3 flex items-center gap-1.5 rounded-md ol-glass-float px-2 py-1 text-xs text-destructive">
+        <div className="absolute bottom-3 right-3 flex items-center gap-1.5 rounded-3xl ol-glass-float px-2 py-1 text-xs text-destructive">
           <span className="inline-block h-1.5 w-1.5 rounded-full bg-destructive" />
           编辑失败
         </div>

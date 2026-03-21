@@ -32,6 +32,7 @@ import { openFilePreview } from "@/components/file/lib/file-preview-store";
 import type { BoardFileContext } from "../board-contracts";
 import { useBoardContext } from "../core/BoardProvider";
 import {
+  isBoardRelativePath,
   resolveBoardFolderScope,
   resolveProjectPathFromBoardUri,
 } from "../core/boardFilePath";
@@ -40,7 +41,7 @@ import {
   normalizeProjectRelativePath,
   parseScopedProjectPath,
 } from "@/components/project/filesystem/utils/file-system-utils";
-import { getPreviewEndpoint } from "@/lib/image/uri";
+import { getBoardPreviewEndpoint, getPreviewEndpoint } from "@/lib/image/uri";
 import { arrayBufferToBase64 } from "../utils/base64";
 import { NodeFrame } from "./NodeFrame";
 import { AudioAiPanel } from "../panels/AudioAiPanel";
@@ -50,13 +51,12 @@ import { useUpstreamData } from "../hooks/useUpstreamData";
 import { usePanelOverlay } from "../render/pixi/PixiApplication";
 import { submitAudioGenerate } from "../services/audio-generate";
 import { saveBoardAssetFile } from "../utils/board-asset";
-import { BOARD_ASSETS_DIR_NAME } from "@/lib/file-name";
 import {
   createInputSnapshot,
   createGeneratingEntry,
   pushVersion,
   markVersionReady,
-  markVersionFailed,
+  removeFailedEntry,
   getPrimaryEntry,
   getGeneratingEntry,
   switchPrimary,
@@ -128,10 +128,17 @@ async function downloadAudioFile(
     !resolvedPath.startsWith('http://') &&
     !resolvedPath.startsWith('https://')
   ) {
-    const parsed = parseScopedProjectPath(props.sourcePath)
-    href = getPreviewEndpoint(resolvedPath, {
-      projectId: fileContext?.projectId ?? parsed?.projectId,
-    })
+    if (fileContext?.boardId && isBoardRelativePath(props.sourcePath)) {
+      href = getBoardPreviewEndpoint(props.sourcePath, {
+        boardId: fileContext.boardId,
+        projectId: fileContext.projectId,
+      })
+    } else {
+      const parsed = parseScopedProjectPath(props.sourcePath)
+      href = getPreviewEndpoint(resolvedPath, {
+        projectId: fileContext?.projectId ?? parsed?.projectId,
+      })
+    }
   }
 
   const saveFile = window.openloafElectron?.saveFile
@@ -322,10 +329,16 @@ export function AudioNodeView({
     ) {
       return resolvedPath;
     }
+    if (fileContext?.boardId && isBoardRelativePath(element.props.sourcePath)) {
+      return getBoardPreviewEndpoint(element.props.sourcePath, {
+        boardId: fileContext.boardId,
+        projectId: effectiveProjectId,
+      });
+    }
     return getPreviewEndpoint(resolvedPath, {
       projectId: effectiveProjectId,
     });
-  }, [effectiveProjectId, resolvedPath]);
+  }, [effectiveProjectId, resolvedPath, fileContext?.boardId, element.props.sourcePath]);
 
   const handleOpenPreview = useCallback(() => {
     if (!resolvedPath) return;
@@ -376,19 +389,11 @@ export function AudioNodeView({
     };
   }, [primaryEntry, upstream]);
 
-  const saveDir = useMemo(
-    () =>
-      fileContext?.boardFolderUri
-        ? `${fileContext.boardFolderUri}/${BOARD_ASSETS_DIR_NAME}`
-        : undefined,
-    [fileContext?.boardFolderUri],
-  )
-
   const pollingResult = useMediaTaskPolling({
     taskId: generatingEntry?.taskId,
     taskType: 'audio_generate',
     projectId: fileContext?.projectId,
-    saveDir,
+    boardId: fileContext?.boardId,
     enabled: !!generatingEntry,
     onSuccess: useCallback(
       (resultUrls: string[]) => {
@@ -422,44 +427,64 @@ export function AudioNodeView({
         if (!generatingEntry) return
         const stack = element.props.versionStack
         if (!stack) return
-        onUpdate({
-          versionStack: markVersionFailed(stack, generatingEntry.id, {
-            code: 'GENERATE_FAILED',
-            message: error,
-          }),
-        })
+        const { stack: newStack, removed } = removeFailedEntry(stack, generatingEntry.id)
+        if (removed?.input) {
+          const isCancelled = error.toLowerCase().includes('cancel')
+          setLastFailure({
+            input: removed.input,
+            error: { code: isCancelled ? 'CANCELLED' : 'GENERATE_FAILED', message: error },
+          })
+          setDismissedFailure(false)
+        }
+        onUpdate({ versionStack: newStack })
       },
       [generatingEntry, element.props.versionStack, onUpdate],
     ),
   })
 
+  /** Last failure info — stored transiently after removing the failed entry from the version stack. */
+  const [lastFailure, setLastFailure] = useState<{
+    input: import('../engine/types').InputSnapshot
+    error: { code: string; message: string }
+  } | null>(null)
+
+  // 逻辑：primaryEntry 变为 failed 时，提取到 lastFailure 并清理 stack。
+  useEffect(() => {
+    const pe = getPrimaryEntry(element.props.versionStack)
+    if (pe?.status === 'failed' && pe.input && pe.error) {
+      setLastFailure({ input: pe.input, error: { code: pe.error.code, message: pe.error.message } })
+      setDismissedFailure(false)
+      const { stack: cleaned } = removeFailedEntry(element.props.versionStack!, pe.id)
+      onUpdate({ versionStack: cleaned })
+    }
+  }, [element.props.versionStack, onUpdate])
+
   const handleGenerate = useCallback(
     async (params: AudioGenerateParams) => {
+      const promptText = (params.inputs?.text as string) ?? ''
       try {
         const result = await submitAudioGenerate(
           {
-            text: params.text,
-            voice: params.voice,
-            referenceAudioSrc: params.referenceAudioSrc,
-            format: params.format,
-            sampleRate: params.sampleRate,
-            quality: params.quality,
+            feature: params.feature,
+            variant: params.variant,
+            inputs: params.inputs,
+            params: params.params,
+            count: params.count,
             seed: params.seed,
           },
           {
             projectId: fileContext?.projectId,
-            saveDir,
+            boardId: fileContext?.boardId,
             sourceNodeId: element.id,
           },
         )
 
         const snapshot = createInputSnapshot({
-          prompt: params.text,
+          prompt: promptText,
           parameters: {
-            feature: 'tts',
-            voice: params.voice,
-            referenceAudioSrc: params.referenceAudioSrc,
-            quality: params.quality,
+            feature: params.feature,
+            variant: params.variant,
+            ...params.params,
           },
           upstreamRefs: [
             ...(upstream?.textList ?? []).map(text => ({ nodeId: '', nodeType: 'text', data: text })),
@@ -473,36 +498,53 @@ export function AudioNodeView({
         })
       } catch (err) {
         console.error('[AudioNode] submitAudioGenerate failed:', err)
-        onUpdate({
-          aiConfig: {
-            ...(element.props.aiConfig ?? { prompt: params.text }),
-            feature: 'tts',
-            taskId: undefined,
-          },
+        const inputSnapshot = createInputSnapshot({
+          prompt: promptText,
+          parameters: { feature: params.feature, variant: params.variant, ...params.params },
+        })
+        const raw = err instanceof Error ? err.message.toLowerCase() : ''
+        let msgKey = 'board:polling.errorGeneric'
+        if (raw.includes('insufficient') || raw.includes('balance') || raw.includes('credit') || raw.includes('quota') || raw.includes('402')) {
+          msgKey = 'board:polling.errorInsufficientBalance'
+        } else if (raw.includes('network') || raw.includes('fetch') || raw.includes('econnrefused')) {
+          msgKey = 'board:polling.errorNetwork'
+        } else if (raw.includes('401') || raw.includes('403') || raw.includes('unauthorized') || raw.includes('access denied')) {
+          msgKey = 'board:polling.errorAuth'
+        } else if (raw.includes('429') || raw.includes('rate') || raw.includes('too many')) {
+          msgKey = 'board:polling.errorRateLimit'
+        } else if (raw.includes('500') || raw.includes('502') || raw.includes('503')) {
+          msgKey = 'board:polling.errorServer'
+        }
+        setLastFailure({
+          input: inputSnapshot,
+          error: { code: 'SUBMIT_FAILED', message: i18next.t(msgKey, { defaultValue: '生成失败，请重试' }) },
         })
       }
     },
-    [element.id, element.props.versionStack, element.props.aiConfig, fileContext?.projectId, saveDir, onUpdate],
+    [element.id, element.props.versionStack, element.props.aiConfig, fileContext?.projectId, fileContext?.boardId, onUpdate],
   )
 
-  /** Retry generation using the failed entry's input snapshot. */
+  /** Retry generation using the last failure's input snapshot. */
   const handleRetry = useCallback(() => {
-    if (!primaryEntry?.input) return
-    const input = primaryEntry.input
+    if (!lastFailure?.input) return
+    const input = lastFailure.input
     handleGenerate({
-      feature: 'tts',
-      text: input.prompt,
-      voice: input.parameters?.voice as string | undefined,
-      referenceAudioSrc: input.parameters?.referenceAudioSrc as string | undefined,
-      quality: input.parameters?.quality as 'draft' | 'standard' | 'hd' | undefined,
+      feature: (input.parameters?.feature as string) ?? 'tts',
+      variant: (input.parameters?.variant as string) ?? 'tts-qwen',
+      inputs: { text: input.prompt },
+      params: {
+        ...(input.parameters?.voice ? { voice: input.parameters.voice } : {}),
+      },
     })
-  }, [primaryEntry, handleGenerate])
+  }, [lastFailure, handleGenerate])
 
   /** Generate into a new derived audio node with the same params. */
   const handleGenerateNewNode = useCallback(
     async (params: AudioGenerateParams) => {
+      const promptText = (params.inputs?.text as string) ?? ''
+      let newNodeId: string | null = null
       try {
-        const newNodeId = deriveNode({
+        newNodeId = deriveNode({
           engine,
           sourceNodeId: element.id,
           targetType: 'audio',
@@ -510,48 +552,77 @@ export function AudioNodeView({
         })
         if (!newNodeId) return
 
+        // 逻辑：先写入 generating 状态，让新节点立即显示 loading。
+        const snapshot = createInputSnapshot({
+          prompt: promptText,
+          parameters: {
+            feature: params.feature,
+            variant: params.variant,
+            ...params.params,
+          },
+        })
+        const pendingEntry = createGeneratingEntry(snapshot, '')
+        engine.doc.updateNodeProps(newNodeId, {
+          versionStack: pushVersion(undefined, pendingEntry),
+          origin: 'ai-generate',
+          aiConfig: { feature: params.feature, prompt: promptText },
+        })
+
         const result = await submitAudioGenerate(
           {
-            text: params.text,
-            voice: params.voice,
-            referenceAudioSrc: params.referenceAudioSrc,
-            format: params.format,
-            sampleRate: params.sampleRate,
-            quality: params.quality,
+            feature: params.feature,
+            variant: params.variant,
+            inputs: params.inputs,
+            params: params.params,
+            count: params.count,
             seed: params.seed,
           },
           {
             projectId: fileContext?.projectId,
-            saveDir,
+            boardId: fileContext?.boardId,
             sourceNodeId: newNodeId,
           },
         )
 
-        const snapshot = createInputSnapshot({
-          prompt: params.text,
-          parameters: {
-            feature: 'tts',
-            voice: params.voice,
-            referenceAudioSrc: params.referenceAudioSrc,
-            quality: params.quality,
-          },
-        })
-        const entry = createGeneratingEntry(snapshot, result.taskId)
+        // 逻辑：API 返回后补上 taskId。
         engine.doc.updateNodeProps(newNodeId, {
-          versionStack: pushVersion(undefined, entry),
-          origin: 'ai-generate',
+          versionStack: {
+            entries: [{ ...pendingEntry, taskId: result.taskId }],
+            primaryId: pendingEntry.id,
+          },
         })
       } catch (err) {
         console.error('[AudioNode] new node generation failed:', err)
+        if (newNodeId) {
+          const raw = err instanceof Error ? err.message.toLowerCase() : ''
+          let msgKey = 'board:polling.errorGeneric'
+          if (raw.includes('insufficient') || raw.includes('balance') || raw.includes('credit') || raw.includes('402')) {
+            msgKey = 'board:polling.errorInsufficientBalance'
+          } else if (raw.includes('401') || raw.includes('403') || raw.includes('unauthorized') || raw.includes('access denied')) {
+            msgKey = 'board:polling.errorAuth'
+          } else if (raw.includes('500') || raw.includes('502') || raw.includes('503')) {
+            msgKey = 'board:polling.errorServer'
+          }
+          const msg = i18next.t(msgKey, { defaultValue: '生成失败，请重试' })
+          const snapshot = createInputSnapshot({ prompt: promptText, parameters: { feature: params.feature } })
+          const failedEntry: import('../engine/types').VersionStackEntry = {
+            id: `fail-${Date.now()}`, status: 'failed', input: snapshot, createdAt: Date.now(),
+            error: { code: 'SUBMIT_FAILED', message: msg },
+          }
+          engine.doc.updateNodeProps(newNodeId, {
+            versionStack: pushVersion(undefined, failedEntry),
+            aiConfig: { feature: params.feature, prompt: promptText },
+          })
+        }
       }
     },
-    [engine, element.id, fileContext?.projectId, saveDir],
+    [engine, element.id, fileContext?.projectId, fileContext?.boardId],
   )
 
   const isGenerating = primaryEntry?.status === 'generating'
-  const isFailed = primaryEntry?.status === 'failed'
   const isReadyFromAi = primaryEntry?.status === 'ready' && element.props.origin === 'ai-generate'
   const [dismissedFailure, setDismissedFailure] = useState(false)
+  const isFailed = lastFailure !== null
 
   /**
    * Editing override — check module-level editingUnlockedIds set.
@@ -573,8 +644,12 @@ export function AudioNodeView({
   }, [isGenerating, expanded]);
   // 逻辑：新的失败状态出现时重置 dismiss。
   useEffect(() => {
-    if (isFailed) setDismissedFailure(false);
-  }, [primaryEntry?.id]);
+    if (lastFailure) setDismissedFailure(false);
+  }, [lastFailure]);
+  // 逻辑：生成开始后清除上次失败状态。
+  useEffect(() => {
+    if (isGenerating) setLastFailure(null);
+  }, [isGenerating]);
 
   /** Switch the version stack primary entry and update the node source. */
   const handleSwitchPrimary = useCallback(
@@ -601,7 +676,7 @@ export function AudioNodeView({
       />
       <div
         className={[
-          "relative flex h-full w-full flex-col rounded-lg border box-border",
+          "relative flex h-full w-full flex-col rounded-3xl border box-border",
           "border-ol-divider bg-background text-ol-text-primary",
           "",
         ].join(" ")}
@@ -627,14 +702,18 @@ export function AudioNodeView({
           />
         )}
 
-        {/* Failed overlay */}
-        {isFailed && !dismissedFailure && (
-          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-background/75 backdrop-blur-sm p-4 rounded-lg">
+        {/* Failed / Cancelled overlay */}
+        {isFailed && !dismissedFailure && (() => {
+          const isCancelled = lastFailure?.error?.code === 'CANCELLED'
+          return (
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-background/75 backdrop-blur-sm p-4 rounded-3xl">
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/[0.06]">
               <X className="h-4 w-4 text-ol-text-auxiliary" />
             </div>
             <span className="text-xs text-center text-ol-text-auxiliary font-medium">
-              {primaryEntry.error?.message || i18next.t('board:audioNode.generateFailed', { defaultValue: 'Generation failed' })}
+              {isCancelled
+                ? i18next.t('board:audioNode.cancelled', { defaultValue: '已取消' })
+                : (lastFailure?.error?.message || i18next.t('board:audioNode.generateFailed', { defaultValue: 'Generation failed' }))}
             </span>
             <div className="flex items-center gap-2">
               <button
@@ -646,7 +725,9 @@ export function AudioNodeView({
                 className="flex items-center gap-1 rounded-full px-3 py-1 text-[11px] bg-white/[0.08] text-ol-text-secondary hover:bg-white/[0.12] transition-colors duration-150"
               >
                 <RefreshCw className="h-3 w-3" />
-                {i18next.t('board:audioNode.retry', { defaultValue: 'Retry' })}
+                {isCancelled
+                  ? i18next.t('board:audioNode.resend', { defaultValue: '重新发送' })
+                  : i18next.t('board:audioNode.retry', { defaultValue: 'Retry' })}
               </button>
               {audioSrc && (
                 <button
@@ -662,7 +743,8 @@ export function AudioNodeView({
               )}
             </div>
           </div>
-        )}
+          )
+        })()}
 
         {/* Audio waveform player — fills entire node */}
         <div
@@ -675,7 +757,7 @@ export function AudioNodeView({
           {audioSrc ? (
             <AudioWavePlayer src={audioSrc} />
           ) : (
-            <div className="flex h-full w-full items-center justify-center rounded-lg border border-dashed border-ol-divider bg-ol-surface-muted">
+            <div className="flex h-full w-full items-center justify-center rounded-3xl border border-dashed border-ol-divider bg-ol-surface-muted">
               <div className="flex flex-col items-center gap-2 text-muted-foreground/40 px-4">
                 <Music size={36} strokeWidth={1.2} />
                 <span className="text-xs text-center leading-relaxed whitespace-pre-line">
@@ -714,6 +796,7 @@ export function AudioNodeView({
             readonly={(isReadyFromAi || !!generatingEntry) && !editingOverride}
             editing={editingOverride}
             onUnlock={() => setEditingOverride(true)}
+            onCancelEdit={() => setEditingOverride(false)}
           />
         </div>,
         panelOverlay,

@@ -53,12 +53,12 @@ export function EmailSidebar({ sidebar, onStartCompose }: EmailSidebarProps) {
             const unifiedIconClassName = cn(
               "h-3.5 w-3.5",
               item.scope === "all-inboxes" &&
-                "text-ol-blue",
-              item.scope === "flagged" && "text-ol-amber",
-              item.scope === "drafts" && "text-ol-purple",
-              item.scope === "sent" && "text-ol-green",
-              item.scope === "deleted" && "text-ol-red",
-              item.scope === "mailbox" && "text-ol-text-auxiliary",
+                "text-foreground",
+              item.scope === "flagged" && "text-muted-foreground",
+              item.scope === "drafts" && "text-muted-foreground",
+              item.scope === "sent" && "text-muted-foreground",
+              item.scope === "deleted" && "text-muted-foreground",
+              item.scope === "mailbox" && "text-muted-foreground",
             );
             return (
               <button
@@ -68,11 +68,11 @@ export function EmailSidebar({ sidebar, onStartCompose }: EmailSidebarProps) {
                   sidebar.onSelectUnifiedView(item.scope, item.label)
                 }
                 className={cn(
-                  "flex w-full items-center justify-between rounded-md px-3 py-2 text-[13px] transition-colors duration-150",
+                  "flex w-full items-center justify-between rounded-3xl px-3 py-2 text-[13px] transition-colors duration-150",
                   isActive
                     ? EMAIL_TONE_ACTIVE_CLASS
                     : cn(
-                        "text-ol-text-secondary",
+                        "text-muted-foreground",
                         EMAIL_TONE_HOVER_CLASS,
                       ),
                 )}
@@ -98,11 +98,11 @@ export function EmailSidebar({ sidebar, onStartCompose }: EmailSidebarProps) {
       >
         <div className="flex items-center justify-between px-2">
           <div className="flex items-center gap-1.5">
-            <div className="text-xs font-semibold text-ol-text-auxiliary">
+            <div className="text-xs font-semibold text-muted-foreground">
               {t('email.mailboxList')}
             </div>
             {sidebar.isSyncingMailbox ? (
-              <span className="text-[9px] text-ol-blue">{t('email.syncing')}</span>
+              <span className="text-[9px] text-foreground">{t('email.syncing')}</span>
             ) : sidebar.accounts.length > 0 ? (
               <span className="text-[9px] font-medium text-muted-foreground">
                 {sidebar.accounts.length}
@@ -115,8 +115,8 @@ export function EmailSidebar({ sidebar, onStartCompose }: EmailSidebarProps) {
               variant="ghost"
               size="icon"
               className={cn(
-                "h-7 w-7 rounded-md border border-transparent bg-ol-green-bg text-ol-green transition-colors duration-150",
-                "hover:bg-ol-green-bg-hover",
+                "h-7 w-7 rounded-3xl border border-transparent bg-secondary text-muted-foreground transition-colors duration-150",
+                "hover:bg-accent",
                 "disabled:bg-muted/28 disabled:text-muted-foreground",
               )}
               onClick={sidebar.onSyncMailbox}
@@ -133,8 +133,8 @@ export function EmailSidebar({ sidebar, onStartCompose }: EmailSidebarProps) {
               variant="ghost"
               size="icon"
               className={cn(
-                "h-7 w-7 rounded-md border border-transparent bg-ol-green-bg text-ol-green transition-colors duration-150",
-                "hover:bg-ol-green-bg-hover",
+                "h-7 w-7 rounded-3xl border border-transparent bg-secondary text-muted-foreground transition-colors duration-150",
+                "hover:bg-accent",
               )}
               onClick={sidebar.onOpenAddAccount}
               aria-label={t('email.addMailbox')}
@@ -145,11 +145,11 @@ export function EmailSidebar({ sidebar, onStartCompose }: EmailSidebarProps) {
           </div>
         </div>
         {sidebar.accountsLoading ? (
-          <div className="flex flex-1 items-center justify-center rounded-lg bg-background/72 px-3 py-3 text-xs text-ol-text-auxiliary">
+          <div className="flex flex-1 items-center justify-center rounded-3xl bg-background/72 px-3 py-3 text-xs text-muted-foreground">
             {t('email.loadingAccounts')}
           </div>
         ) : sidebar.accounts.length === 0 ? (
-          <div className="flex flex-1 items-center justify-center rounded-lg bg-background/72 px-3 py-3 text-xs text-ol-text-auxiliary">
+          <div className="flex flex-1 items-center justify-center rounded-3xl bg-background/72 px-3 py-3 text-xs text-muted-foreground">
             {t('email.emptyAccounts')}
           </div>
         ) : (
@@ -161,9 +161,9 @@ export function EmailSidebar({ sidebar, onStartCompose }: EmailSidebarProps) {
                   return (
                     <div
                       key={group.account.emailAddress}
-                      className="group/account rounded-xl px-2 py-1.5"
+                      className="group/account rounded-3xl px-2 py-1.5"
                     >
-                      <div className="flex w-full items-center justify-between text-xs text-ol-text-auxiliary">
+                      <div className="flex w-full items-center justify-between text-xs text-muted-foreground">
                         <button
                           type="button"
                           onClick={() =>
@@ -214,7 +214,7 @@ export function EmailSidebar({ sidebar, onStartCompose }: EmailSidebarProps) {
                       {expanded ? (
                         <div className="mt-1 space-y-1">
                           {group.isLoading ? (
-                            <div className="rounded-md bg-background/72 px-2 py-2 text-[11px] text-ol-text-auxiliary dark:bg-muted/42">
+                            <div className="rounded-3xl bg-background/72 px-2 py-2 text-[11px] text-muted-foreground dark:bg-muted/42">
                               {t('email.loadingFolders')}
                             </div>
                           ) : group.mailboxTree.length ? (
@@ -242,7 +242,7 @@ export function EmailSidebar({ sidebar, onStartCompose }: EmailSidebarProps) {
                               />
                             </div>
                           ) : (
-                            <div className="rounded-md bg-background/72 px-2 py-2 text-[11px] text-ol-text-auxiliary dark:bg-muted/42">
+                            <div className="rounded-3xl bg-background/72 px-2 py-2 text-[11px] text-muted-foreground dark:bg-muted/42">
                               {t('email.emptyFolders')}
                             </div>
                           )}
@@ -262,7 +262,7 @@ export function EmailSidebar({ sidebar, onStartCompose }: EmailSidebarProps) {
           type="button"
           variant="default"
           size="default"
-          className="h-12 w-full justify-start gap-2 rounded-2xl bg-ol-blue-bg px-4 text-sm font-semibold text-ol-blue shadow-none transition-colors duration-150 hover:bg-ol-blue-bg-hover"
+          className="h-12 w-full justify-start gap-2 rounded-3xl bg-secondary px-4 text-sm font-semibold text-foreground shadow-none transition-colors duration-150 hover:bg-accent"
           onClick={onStartCompose}
         >
           <PenSquare className="h-4 w-4" />

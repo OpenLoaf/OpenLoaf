@@ -53,11 +53,11 @@ type ActivityLogEntry = {
 // ─── Helpers ──────────────────────────────────────────────────────────
 
 const STATUS_COLORS: Record<TaskStatus, string> = {
-  todo: 'bg-ol-blue-bg text-ol-blue',
-  running: 'bg-ol-amber-bg text-ol-amber',
-  review: 'bg-ol-purple-bg text-ol-purple',
-  done: 'bg-ol-green-bg text-ol-green',
-  cancelled: 'bg-ol-surface-muted text-ol-text-auxiliary',
+  todo: 'bg-secondary text-foreground',
+  running: 'bg-secondary text-muted-foreground',
+  review: 'bg-secondary text-muted-foreground',
+  done: 'bg-secondary text-muted-foreground',
+  cancelled: 'bg-secondary text-muted-foreground',
 }
 
 const getStatusLabels = (t: (key: string) => string): Record<TaskStatus, string> => ({
@@ -145,7 +145,7 @@ function AgentOutputContent({
 
   if (!sessionId) {
     return (
-      <div className="flex h-full items-center justify-center text-sm text-ol-text-auxiliary">
+      <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
         {status === 'todo' ? t('messages.notStarted') : t('messages.noPlanContent')}
       </div>
     )
@@ -154,7 +154,7 @@ function AgentOutputContent({
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-5 w-5 animate-spin text-ol-text-auxiliary" />
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
       </div>
     )
   }
@@ -163,7 +163,7 @@ function AgentOutputContent({
 
   if (allMessages.length === 0) {
     return (
-      <div className="flex h-full items-center justify-center text-sm text-ol-text-auxiliary">
+      <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
         {status === 'running' ? t('messages.executingRunning') : t('messages.noPlanContent')}
       </div>
     )
@@ -241,14 +241,14 @@ function HistoryTimeline({
   if (isLoading) {
     return (
       <div className="flex h-20 items-center justify-center">
-        <Loader2 className="h-4 w-4 animate-spin text-ol-text-auxiliary" />
+        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
       </div>
     )
   }
 
   if (timeline.length === 0) {
     return (
-      <div className="py-4 text-center text-xs text-ol-text-auxiliary">
+      <div className="py-4 text-center text-xs text-muted-foreground">
         {t('messages.noActivity')}
       </div>
     )
@@ -267,29 +267,29 @@ function HistoryTimeline({
               <div className="flex flex-col items-center">
                 <div className={cn(
                   'mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full',
-                  isOk ? 'bg-ol-green-bg' : 'bg-ol-red-bg',
+                  isOk ? 'bg-secondary' : 'bg-secondary',
                 )}>
                   {isOk
-                    ? <CheckCircle2 className="h-2.5 w-2.5 text-ol-green" />
-                    : <XCircle className="h-2.5 w-2.5 text-ol-red" />
+                    ? <CheckCircle2 className="h-2.5 w-2.5 text-muted-foreground" />
+                    : <XCircle className="h-2.5 w-2.5 text-destructive" />
                   }
                 </div>
-                {!isLast && <div className="my-0.5 w-px flex-1 bg-ol-divider" />}
+                {!isLast && <div className="my-0.5 w-px flex-1 bg-border" />}
               </div>
               <div className="flex-1 pb-2.5">
                 <div className="flex items-center justify-between">
-                  <span className={cn('text-[11px] font-medium', isOk ? 'text-ol-green' : 'text-ol-red')}>
+                  <span className={cn('text-[11px] font-medium', isOk ? 'text-muted-foreground' : 'text-destructive')}>
                     {isOk ? t('schedule.statusLabels.ok') : t('schedule.statusLabels.error')}
                   </span>
-                  <span className="text-[10px] text-ol-text-auxiliary">
+                  <span className="text-[10px] text-muted-foreground">
                     {formatDuration(log.durationMs)}
                   </span>
                 </div>
-                <div className="text-[10px] text-ol-text-auxiliary">
+                <div className="text-[10px] text-muted-foreground">
                   {formatDateTime(log.startedAt)}
                 </div>
                 {log.error && (
-                  <div className="mt-1 break-all rounded-md bg-ol-red-bg px-2 py-1 text-[10px] text-ol-red">
+                  <div className="mt-1 break-all rounded-3xl bg-secondary px-2 py-1 text-[10px] text-destructive">
                     {log.error}
                   </div>
                 )}
@@ -302,22 +302,22 @@ function HistoryTimeline({
         return (
           <div key={`act-${idx}`} className="flex gap-2.5">
             <div className="flex flex-col items-center">
-              <div className="mt-1.5 h-1.5 w-1.5 rounded-full bg-ol-text-auxiliary/40" />
-              {!isLast && <div className="w-px flex-1 bg-ol-divider" />}
+              <div className="mt-1.5 h-1.5 w-1.5 rounded-full bg-muted-foreground/40" />
+              {!isLast && <div className="w-px flex-1 bg-border" />}
             </div>
             <div className="min-w-0 flex-1 pb-2.5">
               <div className="flex items-center gap-1.5">
                 <Badge variant="outline" className={cn('text-[10px] border-0 px-1.5 py-0', STATUS_COLORS[entry.to as TaskStatus])}>
                   {statusLabels[entry.to as TaskStatus] ?? entry.to}
                 </Badge>
-                <span className="text-[10px] text-ol-text-auxiliary">
+                <span className="text-[10px] text-muted-foreground">
                   {actorLabels[entry.actor] ?? entry.actor}
                 </span>
               </div>
               {entry.reason && (
-                <p className="mt-0.5 text-[10px] text-ol-text-auxiliary">{entry.reason}</p>
+                <p className="mt-0.5 text-[10px] text-muted-foreground">{entry.reason}</p>
               )}
-              <span className="text-[10px] text-ol-text-auxiliary">
+              <span className="text-[10px] text-muted-foreground">
                 {formatDateTime(entry.timestamp)}
               </span>
             </div>
@@ -400,14 +400,14 @@ export const TaskDetailPanel = memo(function TaskDetailPanel({
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-ol-text-auxiliary" />
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     )
   }
 
   if (!task) {
     return (
-      <div className="flex h-full items-center justify-center text-sm text-ol-text-auxiliary">
+      <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
         {t('messages.taskNotFound')}
       </div>
     )
@@ -436,10 +436,10 @@ export const TaskDetailPanel = memo(function TaskDetailPanel({
         <div className="shrink-0 border-b px-4 py-4">
           <div className="flex flex-col items-center gap-1.5">
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted">
-              <Bot className="h-6 w-6 text-ol-purple" />
+              <Bot className="h-6 w-6 text-muted-foreground" />
             </div>
             {agentName ? (
-              <div className="text-sm font-semibold text-ol-text-primary">{agentName}</div>
+              <div className="text-sm font-semibold text-foreground">{agentName}</div>
             ) : null}
             <div className="flex items-center gap-1.5">
               <Badge
@@ -452,12 +452,12 @@ export const TaskDetailPanel = memo(function TaskDetailPanel({
               >
                 {statusLabels[status]}
               </Badge>
-              <span className="text-[10px] text-ol-text-auxiliary">
+              <span className="text-[10px] text-muted-foreground">
                 {t(`priority.${priority}`)} &middot; {t(`triggerMode.${triggerMode}`)}
               </span>
             </div>
             {createdAt ? (
-              <span className="text-[10px] text-ol-text-auxiliary">{formatDateTime(createdAt)}</span>
+              <span className="text-[10px] text-muted-foreground">{formatDateTime(createdAt)}</span>
             ) : null}
           </div>
           {/* Actions */}
@@ -467,7 +467,7 @@ export const TaskDetailPanel = memo(function TaskDetailPanel({
                 <>
                   <Button
                     size="sm"
-                    className="h-6 rounded-full bg-ol-blue-bg px-3 text-[11px] font-medium text-ol-blue shadow-none transition-colors duration-150 hover:bg-ol-blue-bg-hover"
+                    className="h-6 rounded-3xl bg-secondary px-3 text-[11px] font-medium text-foreground shadow-none transition-colors duration-150 hover:bg-accent"
                     onClick={() => handleResolve('approve')}
                   >
                     {t('detail.confirmPlan')}
@@ -475,7 +475,7 @@ export const TaskDetailPanel = memo(function TaskDetailPanel({
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="h-6 rounded-full px-3 text-[11px] font-medium text-ol-text-auxiliary shadow-none hover:bg-ol-surface-muted"
+                    className="h-6 rounded-3xl px-3 text-[11px] font-medium text-muted-foreground shadow-none hover:bg-accent"
                     onClick={() => handleResolve('reject')}
                   >
                     {t('actions.reject')}
@@ -486,7 +486,7 @@ export const TaskDetailPanel = memo(function TaskDetailPanel({
                 <>
                   <Button
                     size="sm"
-                    className="h-6 rounded-full bg-ol-green-bg px-3 text-[11px] font-medium text-ol-green shadow-none transition-colors duration-150 hover:bg-ol-green-bg-hover"
+                    className="h-6 rounded-3xl bg-secondary px-3 text-[11px] font-medium text-muted-foreground shadow-none transition-colors duration-150 hover:bg-accent"
                     onClick={() => handleResolve('approve')}
                   >
                     {t('actions.pass')}
@@ -494,7 +494,7 @@ export const TaskDetailPanel = memo(function TaskDetailPanel({
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="h-6 rounded-full px-3 text-[11px] font-medium text-ol-text-auxiliary shadow-none hover:bg-ol-surface-muted"
+                    className="h-6 rounded-3xl px-3 text-[11px] font-medium text-muted-foreground shadow-none hover:bg-accent"
                     onClick={() => handleResolve('rework')}
                   >
                     {t('actions.rework')}
@@ -504,7 +504,7 @@ export const TaskDetailPanel = memo(function TaskDetailPanel({
               {status === 'todo' && (
                 <Button
                   size="sm"
-                  className="h-6 rounded-full bg-ol-blue-bg px-3 text-[11px] font-medium text-ol-blue shadow-none transition-colors duration-150 hover:bg-ol-blue-bg-hover"
+                  className="h-6 rounded-3xl bg-secondary px-3 text-[11px] font-medium text-foreground shadow-none transition-colors duration-150 hover:bg-accent"
                   onClick={handleRun}
                   disabled={runMutation.isPending}
                 >
@@ -515,7 +515,7 @@ export const TaskDetailPanel = memo(function TaskDetailPanel({
               <Button
                 size="sm"
                 variant="ghost"
-                className="h-6 rounded-full px-2.5 text-[11px] text-ol-red shadow-none hover:bg-ol-red-bg"
+                className="h-6 rounded-3xl px-2.5 text-[11px] text-destructive shadow-none hover:bg-secondary"
                 onClick={handleCancel}
               >
                 <XCircle className="mr-1 h-3 w-3" />
@@ -533,7 +533,7 @@ export const TaskDetailPanel = memo(function TaskDetailPanel({
               className={cn(MESSAGE_STREAM_MARKDOWN_CLASSNAME, 'text-sm')}
             />
           ) : (
-            <div className="flex h-full items-center justify-center text-xs text-ol-text-auxiliary">
+            <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
               {t('messages.noPlanContent')}
             </div>
           )}
@@ -541,7 +541,7 @@ export const TaskDetailPanel = memo(function TaskDetailPanel({
 
         {/* ③ History timeline — compact, pinned to bottom */}
         <div className="shrink-0 px-4 py-2.5">
-          <div className="mb-1.5 text-[10px] font-medium uppercase tracking-wider text-ol-text-auxiliary">
+          <div className="mb-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
             {t('tabs.history')}
           </div>
           {taskId ? (

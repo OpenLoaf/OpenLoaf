@@ -439,7 +439,7 @@ export function ProjectFilePickerDialog({
               <>
                 <button
                   type="button"
-                  className="mb-2 flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors duration-150"
+                  className="mb-2 flex w-full items-center gap-2 rounded-3xl px-2 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors duration-150"
                   onClick={() => {
                     setActiveRootUri(defaultRootUri);
                     setActiveUri(resolveInitialActiveUri(defaultRootUri, defaultActiveUri));
@@ -528,7 +528,7 @@ export function ProjectFilePickerDialog({
             <Button
               type="button"
               variant="outline"
-              className="rounded-md shadow-none transition-colors duration-150"
+              className="rounded-3xl shadow-none transition-colors duration-150"
               onClick={handleImportFromComputer}
             >
               {actionButtonLabel ?? t('project:filesystem.importFromComputer')}
@@ -541,7 +541,7 @@ export function ProjectFilePickerDialog({
               <Button
                 type="button"
                 variant="ghost"
-                className="rounded-md shadow-none transition-colors duration-150"
+                className="rounded-3xl shadow-none transition-colors duration-150"
               >
                 {t('project:filesystem.cancel')}
               </Button>
@@ -549,7 +549,7 @@ export function ProjectFilePickerDialog({
             <Button
               type="button"
               disabled={confirmDisabled}
-              className="rounded-md bg-ol-blue/10 text-ol-blue hover:bg-ol-blue/20 shadow-none transition-colors duration-150"
+              className="rounded-3xl bg-foreground/10 text-foreground hover:bg-foreground/20 shadow-none transition-colors duration-150"
               onClick={() => folderSelectMode ? handleFolderConfirm() : handleConfirm()}
             >
               {confirmButtonLabel ?? t('project:filesystem.selectConfirmLabel')}

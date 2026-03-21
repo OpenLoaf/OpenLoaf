@@ -29,7 +29,6 @@ const LazyCalendarPage = React.lazy(() => import("@/components/calendar/Calendar
 const LazyEmailPage = React.lazy(() => import("@/components/email/EmailPage"));
 const LazyEmailComposeStackPanel = React.lazy(() => import("@/components/email/EmailComposeStackPanel"));
 const LazyEmailMessageStackPanel = React.lazy(() => import("@/components/email/EmailMessageStackPanel"));
-const LazyInboxPage = React.lazy(() => import("@/components/inbox/Inbox"));
 const LazyTemplatePage = React.lazy(() => import("@/components/template/Template"));
 const LazyFileViewer = React.lazy(() => import("@/components/file/FileViewer"));
 const LazyImageViewer = React.lazy(() => import("@/components/file/ImageViewer"));
@@ -139,7 +138,6 @@ export const ComponentMap: Record<string, PanelComponent> = {
   "email-page": LazyEmailPage,
   "email-compose-stack": LazyEmailComposeStackPanel,
   "email-message-stack": LazyEmailMessageStackPanel,
-  "inbox-page": LazyInboxPage,
   "template-page": LazyTemplatePage,
   "file-viewer": LazyFileViewer,
   "image-viewer": LazyImageViewer,

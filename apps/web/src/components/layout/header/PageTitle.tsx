@@ -122,19 +122,7 @@ export const PageTitle = () => {
     () => resolvePreviousViewLabel(previousViewSnapshot, t),
     [previousViewSnapshot, t],
   );
-  const previousViewButtonClassName = useMemo(() => {
-    const targetComponent = previousViewSnapshot?.layout.base?.component;
-    if (previousViewSnapshot?.projectShell) {
-      return "bg-ol-blue-bg text-ol-blue hover:bg-ol-blue-bg-hover";
-    }
-    if (
-      targetComponent === CANVAS_LIST_TAB_INPUT.component ||
-      targetComponent === 'board-viewer'
-    ) {
-      return "bg-ol-purple-bg text-ol-purple hover:bg-ol-purple-bg-hover";
-    }
-    return "bg-sidebar-accent text-sidebar-accent-foreground hover:bg-sidebar-accent/80";
-  }, [previousViewSnapshot]);
+  const BACK_BUTTON_CLASS = "text-muted-foreground/70 hover:text-foreground hover:bg-muted/40";
   const showPreviousViewBack =
     Boolean(previousViewSnapshot) && !isBoardViewer && !isProjectWindow && !isBoardWindow;
 
@@ -243,7 +231,7 @@ export const PageTitle = () => {
         <button
           type="button"
           onClick={handleBackToPreviousView}
-          className={`flex items-center gap-1 h-6 max-w-56 rounded-md px-2 text-xs font-medium transition-colors duration-150 ${previousViewButtonClassName}`}
+          className={`flex items-center gap-1 h-5 max-w-56 rounded-3xl px-2 font-mono text-xs font-medium uppercase tracking-wide transition-colors duration-150 ${BACK_BUTTON_CLASS}`}
         >
           <ArrowLeft className="h-3.5 w-3.5 shrink-0" />
           <span className="truncate">{previousViewLabel}</span>
@@ -253,7 +241,7 @@ export const PageTitle = () => {
         <button
           type="button"
           onClick={handleBackToProjectList}
-          className="flex items-center gap-1 h-6 rounded-md px-2 text-xs font-medium bg-ol-blue-bg text-ol-blue hover:bg-ol-blue-bg-hover transition-colors duration-150"
+          className={`flex items-center gap-1 h-5 rounded-3xl px-2 font-mono text-xs font-medium uppercase tracking-wide ${BACK_BUTTON_CLASS} transition-colors duration-150`}
         >
           <ArrowLeft className="h-3.5 w-3.5" />
           {t('sidebarProjectSpace')}
@@ -263,7 +251,7 @@ export const PageTitle = () => {
         <button
           type="button"
           onClick={handleBackFromBoard}
-          className="flex items-center gap-1 h-6 max-w-56 rounded-md px-2 text-xs font-medium bg-ol-blue-bg text-ol-blue hover:bg-ol-blue-bg-hover transition-colors duration-150"
+          className={`flex items-center gap-1 h-5 max-w-56 rounded-3xl px-2 font-mono text-xs font-medium uppercase tracking-wide ${BACK_BUTTON_CLASS} transition-colors duration-150`}
         >
           <ArrowLeft className="h-3.5 w-3.5 shrink-0" />
           <span className="truncate">
@@ -279,7 +267,7 @@ export const PageTitle = () => {
         <button
           type="button"
           onClick={handleBackFromBoard}
-          className="flex items-center gap-1 h-6 max-w-56 rounded-md px-2 text-xs font-medium bg-ol-purple-bg text-ol-purple hover:bg-ol-purple-bg-hover transition-colors duration-150"
+          className={`flex items-center gap-1 h-5 max-w-56 rounded-3xl px-2 font-mono text-xs font-medium uppercase tracking-wide ${BACK_BUTTON_CLASS} transition-colors duration-150`}
         >
           <ArrowLeft className="h-3.5 w-3.5 shrink-0" />
           <span className="truncate">
@@ -302,7 +290,7 @@ export const PageTitle = () => {
         <button
           type="button"
           onClick={requestBoardRename}
-          className="shrink-0 p-1 rounded-md text-muted-foreground/50 hover:text-foreground/70 hover:bg-muted/50 transition-colors duration-150"
+          className="shrink-0 p-1 rounded-3xl text-muted-foreground/50 hover:text-foreground/70 hover:bg-muted/50 transition-colors duration-150"
           title={t('canvasList.renameTitle')}
         >
           <PencilLine className="size-3.5" />

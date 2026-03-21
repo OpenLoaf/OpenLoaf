@@ -319,6 +319,8 @@ export type CanvasSnapshot = {
   colorHistory: string[];
   /** Node id currently expanded (inline panel visible). Only one node at a time. */
   expandedNodeId: string | null;
+  /** World-space point where the current selection was clicked (for toolbar positioning). */
+  selectionClickPoint: CanvasPoint | null;
 };
 
 /** Props delivered to a node renderer component. */

@@ -180,7 +180,7 @@ export function ImageNodeDetail({
   return (
     <div
       className={cn(
-        "relative h-[94px] w-[360px] rounded-lg border border-border bg-card shadow-sm",
+        "relative h-[94px] w-[360px] rounded-3xl border border-border bg-card shadow-sm",
         className
       )}
       data-board-editor

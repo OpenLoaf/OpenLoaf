@@ -12,17 +12,13 @@ import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { mapSaasError } from "@/modules/saas/core/errors";
 import { logger } from "@/common/logger";
 import {
-  cancelMediaProxy,
-  fetchAudioModelsProxy,
-  fetchImageModelsProxy,
   fetchMediaModelsProxy,
-  fetchVideoModelsProxy,
   isMediaProxyHttpError,
-  pollMediaProxy,
-  submitAudioProxy,
-  submitImageProxy,
-  submitMediaGenerateProxy,
-  submitVideoProxy,
+  fetchCapabilitiesProxy,
+  submitV3GenerateProxy,
+  pollV3TaskProxy,
+  cancelV3TaskProxy,
+  pollV3TaskGroupProxy,
 } from "@/modules/saas/modules/media/mediaProxy";
 
 type SaasErrorPayload = {
@@ -33,13 +29,6 @@ type SaasErrorPayload = {
   /** Human readable message. */
   message: string;
 };
-
-/** Resolve force refresh query flag. */
-function resolveForceRefresh(queryValue?: string): boolean {
-  if (!queryValue) return false;
-  const normalized = queryValue.trim().toLowerCase();
-  return normalized === "1" || normalized === "true";
-}
 
 /** Normalize numeric status to a Hono contentful status code. */
 function normalizeStatus(status: number): ContentfulStatusCode {
@@ -109,110 +98,9 @@ async function handleSaasMediaRoute(
   }
 }
 
-type SaasMediaRouteDeps = {
-  /** Override image model fetcher for tests. */
-  fetchImageModelsProxy?: typeof fetchImageModelsProxy;
-  /** Override video model fetcher for tests. */
-  fetchVideoModelsProxy?: typeof fetchVideoModelsProxy;
-  /** Override audio model fetcher for tests. */
-  fetchAudioModelsProxy?: typeof fetchAudioModelsProxy;
-};
-
 /** Register SaaS media proxy routes. */
-export function registerSaasMediaRoutes(
-  app: Hono,
-  deps: SaasMediaRouteDeps = {},
-): void {
-  const fetchImageModelsHandler = deps.fetchImageModelsProxy ?? fetchImageModelsProxy;
-  const fetchVideoModelsHandler = deps.fetchVideoModelsProxy ?? fetchVideoModelsProxy;
-  const fetchAudioModelsHandler = deps.fetchAudioModelsProxy ?? fetchAudioModelsProxy;
-
-  app.post("/ai/image", async (c) => {
-    return handleSaasMediaRoute(c, async (accessToken) => {
-      const body = await c.req.json().catch(() => null);
-      return submitImageProxy(body, accessToken);
-    });
-  });
-
-  app.post("/ai/vedio", async (c) => {
-    return handleSaasMediaRoute(c, async (accessToken) => {
-      const body = await c.req.json().catch(() => null);
-      return submitVideoProxy(body, accessToken);
-    });
-  });
-
-  app.get("/ai/task/:taskId", async (c) => {
-    return handleSaasMediaRoute(c, async (accessToken) => {
-      const projectId = c.req.query("projectId") || undefined;
-      const saveDir = c.req.query("saveDir") || undefined;
-      return pollMediaProxy(c.req.param("taskId"), accessToken, { projectId, saveDir });
-    });
-  });
-
-  app.post("/ai/task/:taskId/cancel", async (c) => {
-    return handleSaasMediaRoute(c, async (accessToken) =>
-      cancelMediaProxy(c.req.param("taskId"), accessToken),
-    );
-  });
-
-  app.get("/ai/image/models", async (c) => {
-    const force = resolveForceRefresh(c.req.query("force"));
-    return handleSaasMediaRoute(
-      c,
-      async (accessToken) => fetchImageModelsHandler(accessToken, { force }),
-      { allowAnonymous: true },
-    );
-  });
-
-  app.get("/ai/vedio/models", async (c) => {
-    const force = resolveForceRefresh(c.req.query("force"));
-    return handleSaasMediaRoute(
-      c,
-      async (accessToken) => fetchVideoModelsHandler(accessToken, { force }),
-      { allowAnonymous: true },
-    );
-  });
-
-  app.post("/ai/audio", async (c) => {
-    return handleSaasMediaRoute(c, async (accessToken) => {
-      const body = await c.req.json().catch(() => null);
-      return submitAudioProxy(body, accessToken);
-    });
-  });
-
-  app.get("/ai/audio/models", async (c) => {
-    const force = resolveForceRefresh(c.req.query("force"));
-    return handleSaasMediaRoute(
-      c,
-      async (accessToken) => fetchAudioModelsHandler(accessToken, { force }),
-      { allowAnonymous: true },
-    );
-  });
-
-  // ═══════════ Media v2 routes ═══════════
-
-  app.post("/ai/media/generate", async (c) => {
-    return handleSaasMediaRoute(c, async (accessToken) => {
-      const body = await c.req.json().catch(() => null);
-      return submitMediaGenerateProxy(body, accessToken);
-    });
-  });
-
-  app.get("/ai/media/task/:taskId", async (c) => {
-    return handleSaasMediaRoute(c, async (accessToken) => {
-      const projectId = c.req.query("projectId") || undefined;
-      const saveDir = c.req.query("saveDir") || undefined;
-      // Reuse v1 poll logic — v2 task response is compatible
-      return pollMediaProxy(c.req.param("taskId"), accessToken, { projectId, saveDir });
-    });
-  });
-
-  app.post("/ai/media/task/:taskId/cancel", async (c) => {
-    return handleSaasMediaRoute(c, async (accessToken) => {
-      return cancelMediaProxy(c.req.param("taskId"), accessToken);
-    });
-  });
-
+export function registerSaasMediaRoutes(app: Hono): void {
+  // 逻辑：v2 models 路由保留，供 AI 聊天模型偏好使用。
   app.get("/ai/media/models", async (c) => {
     const feature = c.req.query("feature") || undefined;
     return handleSaasMediaRoute(
@@ -220,5 +108,47 @@ export function registerSaasMediaRoutes(
       async (accessToken) => fetchMediaModelsProxy(accessToken, feature),
       { allowAnonymous: true },
     );
+  });
+
+  // ── v3 routes ──
+
+  app.get("/ai/v3/capabilities/:category", async (c) => {
+    const category = c.req.param("category");
+    if (!["image", "video", "audio"].includes(category)) {
+      return c.json(buildSaasErrorPayload("invalid_category", "无效的能力类别"), 400);
+    }
+    return handleSaasMediaRoute(
+      c,
+      async (accessToken) => fetchCapabilitiesProxy(category as any, accessToken),
+      { allowAnonymous: true },
+    );
+  });
+
+  app.post("/ai/v3/generate", async (c) => {
+    return handleSaasMediaRoute(c, async (accessToken) => {
+      const body = await c.req.json().catch(() => null);
+      return submitV3GenerateProxy(body, accessToken);
+    });
+  });
+
+  app.get("/ai/v3/task/:taskId", async (c) => {
+    return handleSaasMediaRoute(c, async (accessToken) => {
+      const projectId = c.req.query("projectId") || undefined;
+      const saveDir = c.req.query("saveDir") || undefined;
+      const boardId = c.req.query("boardId") || undefined;
+      return pollV3TaskProxy(c.req.param("taskId"), accessToken, { projectId, saveDir, boardId });
+    });
+  });
+
+  app.post("/ai/v3/task/:taskId/cancel", async (c) => {
+    return handleSaasMediaRoute(c, async (accessToken) => {
+      return cancelV3TaskProxy(c.req.param("taskId"), accessToken);
+    });
+  });
+
+  app.get("/ai/v3/task-group/:groupId", async (c) => {
+    return handleSaasMediaRoute(c, async (accessToken) => {
+      return pollV3TaskGroupProxy(c.req.param("groupId"), accessToken);
+    });
   });
 }

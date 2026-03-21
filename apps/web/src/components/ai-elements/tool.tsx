@@ -34,7 +34,7 @@ export type ToolProps = ComponentProps<typeof Collapsible>;
 
 export const Tool = ({ className, ...props }: ToolProps) => (
   <Collapsible
-    className={cn("group not-prose w-full rounded-md border", className)}
+    className={cn("group not-prose w-full rounded-3xl border", className)}
     {...props}
   />
 );
@@ -58,12 +58,12 @@ export type ToolHeaderProps = {
 
 const statusIcons: Record<ToolPart["state"], ReactNode> = {
   "approval-requested": <ClockIcon className="size-3 text-yellow-600" />,
-  "approval-responded": <CheckCircleIcon className="size-3 text-ol-blue" />,
+  "approval-responded": <CheckCircleIcon className="size-3 text-foreground" />,
   "input-available": <ClockIcon className="size-3 animate-pulse" />,
   "input-streaming": <CircleIcon className="size-3" />,
-  "output-available": <CheckCircleIcon className="size-3 text-ol-green" />,
-  "output-denied": <XCircleIcon className="size-3 text-ol-amber" />,
-  "output-error": <XCircleIcon className="size-3 text-ol-red" />,
+  "output-available": <CheckCircleIcon className="size-3 text-foreground" />,
+  "output-denied": <XCircleIcon className="size-3 text-muted-foreground" />,
+  "output-error": <XCircleIcon className="size-3 text-destructive" />,
 };
 
 export const getStatusBadge = (status: ToolPart["state"]) => statusIcons[status];
@@ -130,7 +130,7 @@ export const ToolInput = ({ className, input, toolId, ...props }: ToolInputProps
           <span className="text-[10px] font-normal text-muted-foreground/50">{toolId}</span>
         ) : null}
       </h4>
-      <div className="rounded-md bg-muted/50">
+      <div className="rounded-3xl bg-muted/50">
         <CodeBlock code={code} language="json" />
       </div>
     </div>
@@ -169,7 +169,7 @@ export const ToolOutput = ({
       </h4>
       <div
         className={cn(
-          "overflow-x-auto rounded-md text-xs [&_table]:w-full",
+          "overflow-x-auto rounded-3xl text-xs [&_table]:w-full",
           errorText
             ? "bg-destructive/10 text-destructive"
             : "bg-muted/50 text-foreground"

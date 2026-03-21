@@ -186,7 +186,7 @@ export default function QuickActionsWidget({ scope }: QuickActionsWidgetProps) {
         <Button
           type="button"
           variant="ghost"
-          className="h-11 justify-start gap-2 rounded-xl bg-ol-blue-bg text-ol-blue hover:bg-ol-blue-bg-hover hover:text-ol-blue transition-colors duration-150"
+          className="h-11 justify-start gap-2 rounded-3xl bg-secondary text-foreground hover:bg-accent hover:text-foreground transition-colors duration-150"
           onClick={handleOpenSearch}
         >
           <Search className="size-4" />
@@ -195,7 +195,7 @@ export default function QuickActionsWidget({ scope }: QuickActionsWidgetProps) {
         <Button
           type="button"
           variant="ghost"
-          className="h-11 justify-start gap-2 rounded-xl bg-ol-purple-bg text-ol-purple hover:bg-ol-purple-bg-hover hover:text-ol-purple transition-colors duration-150"
+          className="h-11 justify-start gap-2 rounded-3xl bg-secondary text-muted-foreground hover:bg-accent hover:text-muted-foreground transition-colors duration-150"
           onClick={handleOpenTerminal}
         >
           <Terminal className="size-4" />
@@ -205,7 +205,7 @@ export default function QuickActionsWidget({ scope }: QuickActionsWidgetProps) {
           <Button
             type="button"
             variant="ghost"
-            className="h-11 justify-start gap-2 rounded-xl bg-ol-amber-bg text-ol-amber hover:bg-ol-amber-bg-hover hover:text-ol-amber transition-colors duration-150"
+            className="h-11 justify-start gap-2 rounded-3xl bg-secondary text-muted-foreground hover:bg-accent hover:text-muted-foreground transition-colors duration-150"
             onClick={handleCreateCanvas}
             disabled={creating}
           >
@@ -216,7 +216,7 @@ export default function QuickActionsWidget({ scope }: QuickActionsWidgetProps) {
         <Button
           type="button"
           variant="ghost"
-          className="h-11 justify-start gap-2 rounded-xl bg-ol-green-bg text-ol-green hover:bg-ol-green-bg-hover hover:text-ol-green transition-colors duration-150"
+          className="h-11 justify-start gap-2 rounded-3xl bg-secondary text-muted-foreground hover:bg-accent hover:text-muted-foreground transition-colors duration-150"
           onClick={handleOpenAiChat}
         >
           <Sparkles className="size-4" />

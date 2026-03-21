@@ -129,10 +129,10 @@ export default function SelectMode({
       size="icon-sm"
       variant="ghost"
       className={cn(
-        'h-8 w-8 rounded-md transition-colors',
+        'h-8 w-8 rounded-3xl transition-colors',
         chatMode === 'cli'
-          ? 'bg-ol-amber/10 text-ol-amber'
-          : 'bg-ol-purple/10 text-ol-purple',
+          ? 'bg-secondary text-foreground'
+          : 'bg-secondary text-foreground',
         className,
       )}
       aria-label={t('mode.customizeSettings')}
@@ -144,10 +144,10 @@ export default function SelectMode({
       type="button"
       size="sm"
       className={cn(
-        'h-7 w-auto min-w-0 shrink inline-flex items-center gap-1 rounded-md px-1.5 text-xs font-medium transition-colors',
+        'h-7 w-auto min-w-0 shrink inline-flex items-center gap-1 rounded-3xl px-1.5 text-xs font-medium transition-colors',
         chatMode === 'cli'
-          ? 'bg-ol-amber/10 text-ol-amber hover:bg-ol-amber/20'
-          : 'bg-ol-purple/10 text-ol-purple hover:bg-ol-purple/20',
+          ? 'bg-secondary text-foreground hover:bg-secondary/80'
+          : 'bg-secondary text-foreground hover:bg-secondary/80',
         className,
       )}
     >
@@ -164,10 +164,10 @@ export default function SelectMode({
         variant="ghost"
         disabled
         className={cn(
-          'h-8 w-8 rounded-md transition-colors pointer-events-none opacity-60',
+          'h-8 w-8 rounded-3xl transition-colors pointer-events-none opacity-60',
           chatMode === 'cli'
-            ? 'bg-ol-amber/10 text-ol-amber'
-            : 'bg-ol-purple/10 text-ol-purple',
+            ? 'bg-secondary text-foreground'
+            : 'bg-secondary text-foreground',
           className,
         )}
         aria-label={t('mode.customizeSettings')}
@@ -180,10 +180,10 @@ export default function SelectMode({
         size="sm"
         disabled
         className={cn(
-          'h-7 w-auto min-w-0 shrink inline-flex items-center gap-1 rounded-md px-1.5 text-xs font-medium transition-colors pointer-events-none opacity-60',
+          'h-7 w-auto min-w-0 shrink inline-flex items-center gap-1 rounded-3xl px-1.5 text-xs font-medium transition-colors pointer-events-none opacity-60',
           chatMode === 'cli'
-            ? 'bg-ol-amber/10 text-ol-amber'
-            : 'bg-ol-purple/10 text-ol-purple',
+            ? 'bg-secondary text-foreground'
+            : 'bg-secondary text-foreground',
           className,
         )}
       >
@@ -210,7 +210,7 @@ export default function SelectMode({
             align="end"
             sideOffset={8}
             className={cn(
-              'w-96 max-w-[94vw] rounded-xl ol-glass-float p-2',
+              'w-96 max-w-[94vw] rounded-3xl ol-glass-float p-2',
             )}
           >
             <ModelPreferencesPanel

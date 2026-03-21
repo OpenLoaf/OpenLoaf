@@ -434,7 +434,7 @@ const FileSystemGrid = memo(function FileSystemGrid({
         >
           {selectionRect && gridRef.current ? (
             <div
-              className="pointer-events-none absolute z-10 rounded-md border border-primary/40 bg-primary/10"
+              className="pointer-events-none absolute z-10 rounded-3xl border border-primary/40 bg-primary/10"
               style={{
                 left:
                   selectionRect.left -

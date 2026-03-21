@@ -75,7 +75,7 @@ function VideoTrimDialogContent({ payload }: { payload: VideoTrimPayload }) {
         onClick={close}
       />
       {/* Content */}
-      <div className="bg-card absolute top-[50%] left-[50%] z-50 flex max-h-[85vh] w-full max-w-3xl translate-x-[-50%] translate-y-[-50%] flex-col rounded-lg border shadow-lg animate-in fade-in-0 zoom-in-95 duration-200">
+      <div className="bg-card absolute top-[50%] left-[50%] z-50 flex max-h-[85vh] w-full max-w-3xl translate-x-[-50%] translate-y-[-50%] flex-col rounded-3xl border shadow-lg animate-in fade-in-0 zoom-in-95 duration-200">
         {/* Header */}
         <div className="flex shrink-0 items-center justify-between border-b border-ol-divider px-5 py-3">
           <h2 className="text-sm font-semibold leading-none">
@@ -83,7 +83,7 @@ function VideoTrimDialogContent({ payload }: { payload: VideoTrimPayload }) {
           </h2>
           <button
             type="button"
-            className="rounded-md opacity-70 transition-opacity hover:opacity-100"
+            className="rounded-3xl opacity-70 transition-opacity hover:opacity-100"
             onClick={close}
           >
             <XIcon className="size-4" />

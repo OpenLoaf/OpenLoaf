@@ -87,37 +87,37 @@ type CapabilityGroup = {
 }
 
 const CAP_ICON_MAP: Record<string, { icon: LucideIcon; className: string }> = {
-  browser: { icon: Globe, className: "text-ol-blue" },
-  "file-read": { icon: FileSearch, className: "text-ol-green" },
-  "file-write": { icon: FilePen, className: "text-ol-green" },
-  shell: { icon: Terminal, className: "text-ol-text-auxiliary" },
-  email: { icon: Mail, className: "text-ol-red" },
-  calendar: { icon: Calendar, className: "text-ol-amber" },
-  "image-generate": { icon: Image, className: "text-ol-red" },
-  "video-generate": { icon: Video, className: "text-ol-purple" },
-  widget: { icon: LayoutGrid, className: "text-ol-purple" },
-  project: { icon: FolderKanban, className: "text-ol-blue" },
-  web: { icon: Link, className: "text-ol-blue" },
-  agent: { icon: Users, className: "text-ol-purple" },
-  "code-interpreter": { icon: Code, className: "text-ol-amber" },
-  system: { icon: Settings, className: "text-ol-text-auxiliary" },
+  browser: { icon: Globe, className: "text-foreground" },
+  "file-read": { icon: FileSearch, className: "text-foreground" },
+  "file-write": { icon: FilePen, className: "text-foreground" },
+  shell: { icon: Terminal, className: "text-muted-foreground" },
+  email: { icon: Mail, className: "text-foreground" },
+  calendar: { icon: Calendar, className: "text-foreground" },
+  "image-generate": { icon: Image, className: "text-foreground" },
+  "video-generate": { icon: Video, className: "text-foreground" },
+  widget: { icon: LayoutGrid, className: "text-foreground" },
+  project: { icon: FolderKanban, className: "text-foreground" },
+  web: { icon: Link, className: "text-foreground" },
+  agent: { icon: Users, className: "text-foreground" },
+  "code-interpreter": { icon: Code, className: "text-foreground" },
+  system: { icon: Settings, className: "text-muted-foreground" },
 }
 
 const CAP_BG_MAP: Record<string, string> = {
-  browser: "bg-ol-blue-bg",
-  "file-read": "bg-ol-green-bg",
-  "file-write": "bg-ol-green-bg",
-  shell: "bg-ol-surface-muted",
-  email: "bg-ol-red-bg",
-  calendar: "bg-ol-amber-bg",
-  "image-generate": "bg-ol-red-bg",
-  "video-generate": "bg-ol-purple-bg",
-  widget: "bg-ol-purple-bg",
-  project: "bg-ol-blue-bg",
-  web: "bg-ol-blue-bg",
-  agent: "bg-ol-purple-bg",
-  "code-interpreter": "bg-ol-amber-bg",
-  system: "bg-ol-surface-muted",
+  browser: "bg-secondary",
+  "file-read": "bg-secondary",
+  "file-write": "bg-secondary",
+  shell: "bg-secondary",
+  email: "bg-secondary",
+  calendar: "bg-secondary",
+  "image-generate": "bg-secondary",
+  "video-generate": "bg-secondary",
+  widget: "bg-secondary",
+  project: "bg-secondary",
+  web: "bg-secondary",
+  agent: "bg-secondary",
+  "code-interpreter": "bg-secondary",
+  system: "bg-secondary",
 }
 
 const AGENT_ICON_MAP: Partial<Record<string, LucideIcon>> = {
@@ -127,11 +127,11 @@ const AGENT_ICON_MAP: Partial<Record<string, LucideIcon>> = {
 }
 
 const AGENT_ICON_COLOR_MAP: Record<string, string> = {
-  bot: "text-ol-purple", sparkles: "text-ol-purple",
-  "file-text": "text-ol-green", terminal: "text-ol-text-auxiliary",
-  globe: "text-ol-blue", mail: "text-ol-red",
-  calendar: "text-ol-amber", "layout-grid": "text-ol-purple",
-  "folder-kanban": "text-ol-blue",
+  bot: "text-foreground", sparkles: "text-foreground",
+  "file-text": "text-foreground", terminal: "text-muted-foreground",
+  globe: "text-foreground", mail: "text-foreground",
+  calendar: "text-foreground", "layout-grid": "text-foreground",
+  "folder-kanban": "text-foreground",
 }
 
 function normalizeIconName(value: string): string {
@@ -179,7 +179,7 @@ function CopyAgentDialog({
               <button
                 key={agent.path}
                 type="button"
-                className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-colors hover:bg-muted/60"
+                className="flex w-full items-center gap-2.5 rounded-3xl px-3 py-2 text-left transition-colors hover:bg-muted/60"
                 onClick={() => onSelect(agent)}
               >
                 <AgentIconDisplay icon={agent.icon} />
@@ -190,7 +190,7 @@ function CopyAgentDialog({
                   ) : null}
                 </div>
                 {agent.folderName === "master" ? (
-                  <span className="shrink-0 rounded bg-ol-purple-bg px-1 py-px text-[10px] text-ol-purple">
+                  <span className="shrink-0 rounded bg-secondary px-1 py-px text-[10px] text-foreground">
                     {t("settings:agent.master")}
                   </span>
                 ) : null}
@@ -207,7 +207,7 @@ function AgentIconDisplay({ icon }: { icon: string }) {
   const iconValue = icon?.trim() ?? ""
   if (iconValue && /[^a-z0-9-_]/i.test(iconValue)) {
     return (
-      <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-background/70 text-foreground/80 shadow-sm">
+      <span className="flex h-7 w-7 items-center justify-center rounded-3xl bg-background/70 text-foreground/80 shadow-none">
         <span className="text-sm leading-none">{iconValue}</span>
       </span>
     )
@@ -219,7 +219,7 @@ function AgentIconDisplay({ icon }: { icon: string }) {
   const DynamicIcon = StaticIcon ? null : resolveLucideIcon(pascalName)
   const AgentIcon = StaticIcon ?? DynamicIcon ?? Bot
   return (
-    <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-background/70 text-foreground/80 shadow-sm">
+    <span className="flex h-7 w-7 items-center justify-center rounded-3xl bg-background/70 text-foreground/80 shadow-none">
       <AgentIcon className={`h-4 w-4 ${colorClass}`} />
     </span>
   )
@@ -481,7 +481,7 @@ export function ProjectAgentView({ projectId }: { projectId: string }) {
               <Button
                 type="button"
                 size="sm"
-                className="h-8 rounded-md px-2.5 text-xs sm:px-3"
+                className="h-8 rounded-3xl px-2.5 text-xs sm:px-3"
 
               >
                 <Plus className="h-3.5 w-3.5" />
@@ -512,7 +512,7 @@ export function ProjectAgentView({ projectId }: { projectId: string }) {
                 type="button"
                 size="sm"
                 variant="secondary"
-                className="h-8 rounded-md border border-border/70 bg-background/85 px-2.5 text-xs transition-colors hover:bg-muted/55 sm:px-3"
+                className="h-8 rounded-3xl border border-border/70 bg-background/85 px-2.5 text-xs transition-colors hover:bg-muted/55 sm:px-3"
                 onClick={handleOpenGlobalAgents}
 
               >
@@ -537,14 +537,14 @@ export function ProjectAgentView({ projectId }: { projectId: string }) {
               placeholder={t("settings:agent.searchPlaceholder")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-9 rounded-lg border-border/70 bg-background/90 pl-9 pr-9 text-sm"
+              className="h-9 rounded-3xl border-border/70 bg-background/90 pl-9 pr-9 text-sm"
             />
             {searchQuery ? (
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 rounded-md"
+                className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 rounded-3xl"
                 onClick={() => setSearchQuery("")}
                 aria-label={t("common:clear")}
               >
@@ -552,7 +552,7 @@ export function ProjectAgentView({ projectId }: { projectId: string }) {
               </Button>
             ) : null}
           </div>
-          <div className="flex items-center rounded-md border border-border/70 bg-muted/40">
+          <div className="flex items-center rounded-3xl border border-border/70 bg-muted/40">
             <FilterTab text={t("settings:agent.statusAll")} selected={statusFilter === "all"} onSelect={() => setStatusFilter("all")} layoutId="project-agent-filter" />
             <FilterTab text={t("settings:agent.statusEnabled")} selected={statusFilter === "enabled"} onSelect={() => setStatusFilter("enabled")} layoutId="project-agent-filter" />
             <FilterTab text={t("settings:agent.statusDisabled")} selected={statusFilter === "disabled"} onSelect={() => setStatusFilter("disabled")} layoutId="project-agent-filter" />
@@ -568,7 +568,7 @@ export function ProjectAgentView({ projectId }: { projectId: string }) {
               <ContextMenu key={agent.ignoreKey || agent.path || `${agent.scope}:${agent.name}`}>
                 <ContextMenuTrigger asChild>
                   <div
-                    className="group flex items-center gap-3 rounded-lg bg-ol-blue-bg px-3 py-2.5 transition-[background-color] duration-200 hover:bg-ol-blue-bg-hover"
+                    className="group flex items-center gap-3 rounded-3xl bg-secondary px-3 py-2.5 transition-[background-color] duration-200 hover:bg-accent"
                     onDoubleClick={() => handleEditAgent(agent)}
                   >
                     <div className="min-w-0 flex-1 space-y-1">
@@ -578,18 +578,18 @@ export function ProjectAgentView({ projectId }: { projectId: string }) {
                           {agent.name}
                         </span>
                         {agent.folderName === "master" ? (
-                          <span className="shrink-0 rounded px-1 py-px text-[10px] bg-ol-purple-bg text-ol-purple">
+                          <span className="shrink-0 rounded px-1 py-px text-[10px] bg-secondary text-foreground">
                             {t("settings:agent.master")}
                           </span>
                         ) : null}
                         {agent.isSystem ? (
-                          <span className="shrink-0 rounded px-1 py-px text-[10px] bg-ol-blue-bg text-ol-blue">
+                          <span className="shrink-0 rounded px-1 py-px text-[10px] bg-secondary text-foreground">
                             {t("settings:agent.system")}
                           </span>
                         ) : null}
                         {/* 逻辑：当前项目 Agent 与全局同名时显示覆盖标记。 */}
                         {!agent.isInherited && globalAgentFolderSet.has(agent.folderName) ? (
-                          <span className="shrink-0 rounded px-1 py-px text-[10px] bg-ol-amber-bg text-ol-amber">
+                          <span className="shrink-0 rounded px-1 py-px text-[10px] bg-secondary text-foreground">
                             {t("settings:agent.override")}
                           </span>
                         ) : null}
@@ -612,7 +612,7 @@ export function ProjectAgentView({ projectId }: { projectId: string }) {
                             const iconClass = capMeta?.className ?? "text-muted-foreground"
                             const bgClass = CAP_BG_MAP[group.id] ?? "bg-muted/30"
                             return (
-                              <span key={group.id} className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] ${bgClass}`}>
+                              <span key={group.id} className={`inline-flex items-center gap-1 rounded-3xl px-1.5 py-0.5 text-[10px] ${bgClass}`}>
                                 <CapIcon className={`h-3 w-3 ${iconClass}`} />
                                 {group.label || group.id}
                               </span>
@@ -624,7 +624,7 @@ export function ProjectAgentView({ projectId }: { projectId: string }) {
                     <Switch
                       checked={agent.isEnabled}
                       onCheckedChange={(checked) => handleToggleAgent(agent, checked)}
-                      className="shrink-0 border-ol-divider bg-ol-surface-muted data-[state=checked]:bg-ol-green/60 dark:data-[state=checked]:bg-ol-green/45"
+                      className="shrink-0 border-border bg-secondary data-[state=checked]:bg-foreground dark:data-[state=checked]:bg-foreground"
                       aria-label={t("settings:agent.enableLabel", { name: agent.name })}
                       disabled={updateAgentMutation.isPending}
                     />

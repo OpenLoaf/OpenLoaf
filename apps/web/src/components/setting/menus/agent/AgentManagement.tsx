@@ -88,37 +88,37 @@ function buildScopedAgentsUri(rootUri: string): string {
 }
 
 const CAP_ICON_MAP: Record<string, { icon: LucideIcon; className: string }> = {
-  browser: { icon: Globe, className: "text-ol-blue" },
-  "file-read": { icon: FileSearch, className: "text-ol-green" },
-  "file-write": { icon: FilePen, className: "text-ol-green" },
-  shell: { icon: Terminal, className: "text-ol-text-auxiliary" },
-  email: { icon: Mail, className: "text-ol-red" },
-  calendar: { icon: Calendar, className: "text-ol-amber" },
-  "image-generate": { icon: Image, className: "text-ol-red" },
-  "video-generate": { icon: Video, className: "text-ol-purple" },
-  widget: { icon: LayoutGrid, className: "text-ol-purple" },
-  project: { icon: FolderKanban, className: "text-ol-blue" },
-  web: { icon: Link, className: "text-ol-blue" },
-  agent: { icon: Users, className: "text-ol-purple" },
-  "code-interpreter": { icon: Code, className: "text-ol-amber" },
-  system: { icon: Settings, className: "text-ol-text-auxiliary" },
+  browser: { icon: Globe, className: "text-foreground" },
+  "file-read": { icon: FileSearch, className: "text-foreground" },
+  "file-write": { icon: FilePen, className: "text-foreground" },
+  shell: { icon: Terminal, className: "text-muted-foreground" },
+  email: { icon: Mail, className: "text-foreground" },
+  calendar: { icon: Calendar, className: "text-foreground" },
+  "image-generate": { icon: Image, className: "text-foreground" },
+  "video-generate": { icon: Video, className: "text-foreground" },
+  widget: { icon: LayoutGrid, className: "text-foreground" },
+  project: { icon: FolderKanban, className: "text-foreground" },
+  web: { icon: Link, className: "text-foreground" },
+  agent: { icon: Users, className: "text-foreground" },
+  "code-interpreter": { icon: Code, className: "text-foreground" },
+  system: { icon: Settings, className: "text-muted-foreground" },
 };
 
 const CAP_BG_MAP: Record<string, string> = {
-  browser: "bg-ol-blue-bg",
-  "file-read": "bg-ol-green-bg",
-  "file-write": "bg-ol-green-bg",
-  shell: "bg-ol-surface-muted",
-  email: "bg-ol-red-bg",
-  calendar: "bg-ol-amber-bg",
-  "image-generate": "bg-ol-red-bg",
-  "video-generate": "bg-ol-purple-bg",
-  widget: "bg-ol-purple-bg",
-  project: "bg-ol-blue-bg",
-  web: "bg-ol-blue-bg",
-  agent: "bg-ol-purple-bg",
-  "code-interpreter": "bg-ol-amber-bg",
-  system: "bg-ol-surface-muted",
+  browser: "bg-secondary",
+  "file-read": "bg-secondary",
+  "file-write": "bg-secondary",
+  shell: "bg-secondary",
+  email: "bg-secondary",
+  calendar: "bg-secondary",
+  "image-generate": "bg-secondary",
+  "video-generate": "bg-secondary",
+  widget: "bg-secondary",
+  project: "bg-secondary",
+  web: "bg-secondary",
+  agent: "bg-secondary",
+  "code-interpreter": "bg-secondary",
+  system: "bg-secondary",
 };
 
 /** Card color palette for the expert center grid. */
@@ -157,15 +157,15 @@ const AGENT_ICON_MAP: Partial<Record<string, LucideIcon>> = {
 };
 
 const AGENT_ICON_COLOR_MAP: Record<string, string> = {
-  bot: "text-ol-purple",
-  sparkles: "text-ol-purple",
-  "file-text": "text-ol-green",
-  terminal: "text-ol-text-auxiliary",
-  globe: "text-ol-blue",
-  mail: "text-ol-red",
-  calendar: "text-ol-amber",
-  "layout-grid": "text-ol-purple",
-  "folder-kanban": "text-ol-blue",
+  bot: "text-foreground",
+  sparkles: "text-foreground",
+  "file-text": "text-foreground",
+  terminal: "text-muted-foreground",
+  globe: "text-foreground",
+  mail: "text-foreground",
+  calendar: "text-foreground",
+  "layout-grid": "text-foreground",
+  "folder-kanban": "text-foreground",
 };
 
 /** Normalize path to use forward slashes. */
@@ -495,14 +495,14 @@ function GlobalAgentView() {
               placeholder={t("settings:agent.searchPlaceholder")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-9 w-56 rounded-lg border-border/70 bg-background/90 pl-9 pr-9 text-sm"
+              className="h-9 w-56 rounded-3xl border-border/70 bg-background/90 pl-9 pr-9 text-sm"
             />
             {searchQuery ? (
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 rounded-md"
+                className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 rounded-3xl"
                 onClick={() => setSearchQuery("")}
                 aria-label={t("common:clear")}
               >
@@ -516,7 +516,7 @@ function GlobalAgentView() {
                 type="button"
                 size="icon"
                 variant="ghost"
-                className="h-8 w-8 rounded-md text-muted-foreground hover:text-foreground"
+                className="h-8 w-8 rounded-3xl text-muted-foreground hover:text-foreground"
                 onClick={handleCreateAgent}
                 aria-label={t("settings:agent.createBtn")}
               >
@@ -533,7 +533,7 @@ function GlobalAgentView() {
                 type="button"
                 size="icon"
                 variant="ghost"
-                className="h-8 w-8 rounded-md text-muted-foreground hover:text-foreground"
+                className="h-8 w-8 rounded-3xl text-muted-foreground hover:text-foreground"
                 onClick={() => void handleOpenAgentsRoot()}
                 disabled={!globalAgentsRootUri}
                 aria-label={t("settings:agent.openDirTooltip")}
@@ -551,7 +551,7 @@ function GlobalAgentView() {
                 type="button"
                 size="icon"
                 variant="ghost"
-                className="h-8 w-8 rounded-md text-muted-foreground hover:text-foreground"
+                className="h-8 w-8 rounded-3xl text-muted-foreground hover:text-foreground"
                 onClick={() =>
                   queryClient.invalidateQueries({
                     queryKey: trpc.settings.getAgents.queryOptions().queryKey,
@@ -621,12 +621,12 @@ function GlobalAgentView() {
                 >
                   <ContextMenuTrigger asChild>
                     <div
-                      className="group relative flex cursor-pointer flex-col items-center gap-2.5 rounded-xl border border-dashed border-border/60 px-4 pb-5 pt-6 transition-all duration-200 hover:border-purple-400 hover:shadow-sm dark:hover:border-purple-500/60"
+                      className="group relative flex cursor-pointer flex-col items-center gap-2.5 rounded-3xl border border-dashed border-border/60 px-4 pb-5 pt-6 transition-all duration-200 hover:border-purple-400 hover:shadow-none dark:hover:border-purple-500/60"
                       onDoubleClick={() => handleEditAgent(agent)}
                     >
                       {/* Disabled overlay */}
                       {!agent.isEnabled ? (
-                        <div className="absolute inset-0 z-10 rounded-xl bg-background/50" />
+                        <div className="absolute inset-0 z-10 rounded-3xl bg-background/50" />
                       ) : null}
 
                       {/* Circular avatar */}
@@ -676,7 +676,7 @@ function GlobalAgentView() {
                       <div className="absolute inset-x-3 bottom-3 z-20 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
                         <Button
                           type="button"
-                          className="h-9 w-full rounded-full bg-purple-600 text-sm font-medium text-white shadow-md hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600"
+                          className="h-9 w-full rounded-3xl bg-foreground text-sm font-medium text-background shadow-none hover:bg-foreground/90"
                           onClick={(e) => {
                             e.stopPropagation();
                             handleEditAgent(agent);

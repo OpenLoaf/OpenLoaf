@@ -55,16 +55,16 @@ import { useGlobalOverlay } from "@/lib/globalShortcuts"
 /** 侧边栏等级徽章样式 — 使用更轻的浅色底，避免与 sidebar 背景相同，同时不过分抢眼。 */
 const SIDEBAR_MEMBERSHIP_BADGE_STYLES = {
   free: "bg-foreground/[0.05] text-foreground/65 dark:bg-foreground/[0.06] dark:text-foreground/65",
-  vip: "bg-ol-amber-bg text-ol-amber",
-  svip: "bg-ol-purple-bg text-ol-purple",
-  infinity: "bg-ol-blue-bg text-ol-blue",
+  vip: "bg-secondary text-foreground",
+  svip: "bg-secondary text-foreground",
+  infinity: "bg-secondary text-foreground",
 } satisfies Record<string, string>
 
 const SIDEBAR_MEMBERSHIP_BADGE_DEFAULT_STYLE =
   "bg-foreground/[0.05] text-foreground/65 dark:bg-foreground/[0.06] dark:text-foreground/65"
 
-const SIDEBAR_CREDITS_TEXT_STYLE = "text-ol-green"
-const SIDEBAR_CREDITS_ICON_STYLE = "text-ol-green"
+const SIDEBAR_CREDITS_TEXT_STYLE = "text-foreground"
+const SIDEBAR_CREDITS_ICON_STYLE = "text-foreground"
 
 type SidebarMembershipLevel = keyof typeof SIDEBAR_MEMBERSHIP_BADGE_STYLES
 
@@ -217,9 +217,9 @@ export function SidebarUserAccount() {
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton
               size="default"
-              className="h-12 rounded-lg border-none px-1.5 py-3 ring-0 shadow-none focus:outline-none focus:ring-0 focus-visible:ring-0 focus-visible:shadow-none [&:not([data-highlight])]:hover:bg-sidebar-accent [&:not([data-highlight])]:hover:text-sidebar-accent-foreground data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground data-[state=open]:ring-0"
+              className="h-12 rounded-3xl border-none px-1.5 py-3 ring-0 shadow-none focus:outline-none focus:ring-0 focus-visible:ring-0 focus-visible:shadow-none [&:not([data-highlight])]:hover:bg-sidebar-accent [&:not([data-highlight])]:hover:text-sidebar-accent-foreground data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground data-[state=open]:ring-0"
             >
-              <Avatar className="size-8 rounded-md">
+              <Avatar className="size-8 rounded-3xl">
                 <AvatarImage src={displayAvatar || undefined} alt={avatarAlt} />
                 <AvatarFallback className="bg-transparent">
                   <img
@@ -236,7 +236,7 @@ export function SidebarUserAccount() {
                   </span>
                   {membershipLabel ? (
                     <span
-                      className={`inline-flex shrink-0 items-center rounded-md px-1.5 py-px text-[10px] font-medium leading-4 transition-colors duration-150 ${SIDEBAR_MEMBERSHIP_BADGE_STYLES[membershipLevel ?? "free"] ?? SIDEBAR_MEMBERSHIP_BADGE_DEFAULT_STYLE}`}
+                      className={`inline-flex shrink-0 items-center rounded-3xl px-1.5 py-px text-[10px] font-medium leading-4 transition-colors duration-150 ${SIDEBAR_MEMBERSHIP_BADGE_STYLES[membershipLevel ?? "free"] ?? SIDEBAR_MEMBERSHIP_BADGE_DEFAULT_STYLE}`}
                     >
                       {membershipLabel}
                     </span>
@@ -258,7 +258,7 @@ export function SidebarUserAccount() {
             align="start"
             side="bottom"
             sideOffset={8}
-            className="w-72 rounded-xl p-2"
+            className="w-72 rounded-3xl p-2"
           >
             {authLoggedIn && (
               <>
@@ -280,7 +280,7 @@ export function SidebarUserAccount() {
                       </span>
                       {membershipLabel ? (
                         <span
-                          className={`inline-flex shrink-0 items-center rounded-md px-1.5 py-px text-[10px] font-medium leading-4 transition-colors duration-150 ${SIDEBAR_MEMBERSHIP_BADGE_STYLES[membershipLevel ?? "free"] ?? SIDEBAR_MEMBERSHIP_BADGE_DEFAULT_STYLE}`}
+                          className={`inline-flex shrink-0 items-center rounded-3xl px-1.5 py-px text-[10px] font-medium leading-4 transition-colors duration-150 ${SIDEBAR_MEMBERSHIP_BADGE_STYLES[membershipLevel ?? "free"] ?? SIDEBAR_MEMBERSHIP_BADGE_DEFAULT_STYLE}`}
                         >
                           {membershipLabel}
                         </span>
@@ -300,12 +300,12 @@ export function SidebarUserAccount() {
 
                 <DropdownMenuSeparator className="my-2" />
 
-                <div className="mx-2 mb-1 rounded-lg bg-ol-amber-bg/50 px-2.5 py-2 text-[11px] leading-[1.6] text-muted-foreground">
+                <div className="mx-2 mb-1 rounded-3xl bg-secondary/50 px-2.5 py-2 text-[11px] leading-[1.6] text-muted-foreground">
                   <div className="flex items-start gap-1.5">
-                    <Info className="mt-0.5 size-3.5 shrink-0 text-ol-amber" />
+                    <Info className="mt-0.5 size-3.5 shrink-0 text-foreground" />
                     <div>
                       <p>{t('devNotice')}</p>
-                      <p className="mt-1 text-ol-amber">{t('devNoticeWelcome')}</p>
+                      <p className="mt-1 text-foreground">{t('devNoticeWelcome')}</p>
                     </div>
                   </div>
                 </div>
@@ -318,7 +318,7 @@ export function SidebarUserAccount() {
               {!authLoggedIn && (
                 <DropdownMenuItem
                   onSelect={() => handleOpenLogin()}
-                  className="rounded-lg"
+                  className="rounded-3xl"
                 >
                   <LogIn className="size-4" />
                   {t('loginAccount')}
@@ -326,7 +326,7 @@ export function SidebarUserAccount() {
               )}
               <DropdownMenuItem
                 onSelect={() => setFeedbackOpen(true)}
-                className="rounded-lg"
+                className="rounded-3xl"
               >
                 <Lightbulb className="size-4" />
                 {tNav('sidebar.feedback.title')}
@@ -340,7 +340,7 @@ export function SidebarUserAccount() {
                     updateStatus?.state === "downloading" ||
                     updateStatus?.state === "ready"
                   }
-                  className="rounded-lg"
+                  className="rounded-3xl"
                 >
                   <RefreshCcw className="size-4" />
                   <span className="flex-1">
@@ -358,7 +358,7 @@ export function SidebarUserAccount() {
               {authLoggedIn && (
                 <DropdownMenuItem
                   onSelect={() => void handleLogout()}
-                  className="rounded-lg"
+                  className="rounded-3xl"
                 >
                   <LogOut className="size-4" />
                   {t('logout')}
@@ -379,12 +379,13 @@ export function SidebarUserAccount() {
                 type="button"
                 variant="outline"
                 onClick={() => setRestartDialogOpen(false)}
+                className="rounded-3xl"
               >
                 {t('cancelButton')}
               </Button>
               <Button
                 type="button"
-                className="shadow-none"
+                className="rounded-3xl shadow-none"
                 onClick={async () => {
                   setRestartDialogOpen(false)
                   await window.openloafElectron?.relaunchApp?.()
@@ -535,10 +536,10 @@ export function CompactUserAvatar() {
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-sidebar-accent transition-colors"
+            className="flex h-8 w-8 items-center justify-center rounded-3xl hover:bg-sidebar-accent transition-colors"
           >
             {authLoggedIn ? (
-              <Avatar className="size-7 rounded-md">
+              <Avatar className="size-7 rounded-3xl">
                 <AvatarImage src={displayAvatar || undefined} alt={avatarAlt} />
                 <AvatarFallback className="bg-transparent">
                   <img
@@ -557,7 +558,7 @@ export function CompactUserAvatar() {
           align="start"
           side="right"
           sideOffset={8}
-          className="w-72 rounded-xl p-2"
+          className="w-72 rounded-3xl p-2"
         >
           {authLoggedIn && (
             <>
@@ -575,7 +576,7 @@ export function CompactUserAvatar() {
                     </span>
                     {membershipLabel ? (
                       <span
-                        className={`inline-flex shrink-0 items-center rounded-md px-1.5 py-px text-[10px] font-medium leading-4 transition-colors duration-150 ${SIDEBAR_MEMBERSHIP_BADGE_STYLES[membershipLevel ?? "free"] ?? SIDEBAR_MEMBERSHIP_BADGE_DEFAULT_STYLE}`}
+                        className={`inline-flex shrink-0 items-center rounded-3xl px-1.5 py-px text-[10px] font-medium leading-4 transition-colors duration-150 ${SIDEBAR_MEMBERSHIP_BADGE_STYLES[membershipLevel ?? "free"] ?? SIDEBAR_MEMBERSHIP_BADGE_DEFAULT_STYLE}`}
                       >
                         {membershipLabel}
                       </span>
@@ -594,12 +595,12 @@ export function CompactUserAvatar() {
               </div>
               <DropdownMenuSeparator className="my-2" />
 
-              <div className="mx-2 mb-1 rounded-lg bg-ol-amber-bg/50 px-2.5 py-2 text-[11px] leading-[1.6] text-muted-foreground">
+              <div className="mx-2 mb-1 rounded-3xl bg-secondary/50 px-2.5 py-2 text-[11px] leading-[1.6] text-muted-foreground">
                 <div className="flex items-start gap-1.5">
-                  <Info className="mt-0.5 size-3.5 shrink-0 text-ol-amber" />
+                  <Info className="mt-0.5 size-3.5 shrink-0 text-foreground" />
                   <div>
                     <p>{t('devNotice')}</p>
-                    <p className="mt-1 text-ol-amber">{t('devNoticeWelcome')}</p>
+                    <p className="mt-1 text-foreground">{t('devNoticeWelcome')}</p>
                   </div>
                 </div>
               </div>
@@ -611,7 +612,7 @@ export function CompactUserAvatar() {
             {!authLoggedIn && (
               <DropdownMenuItem
                 onSelect={() => setLoginOpen(true)}
-                className="rounded-lg"
+                className="rounded-3xl"
               >
                 <LogIn className="size-4" />
                 {t('loginAccount')}
@@ -619,7 +620,7 @@ export function CompactUserAvatar() {
             )}
             <DropdownMenuItem
               onSelect={() => setFeedbackOpen(true)}
-              className="rounded-lg"
+              className="rounded-3xl"
             >
               <Lightbulb className="size-4" />
               {tNav('sidebar.feedback.title')}
@@ -633,7 +634,7 @@ export function CompactUserAvatar() {
                   updateStatus?.state === "downloading" ||
                   updateStatus?.state === "ready"
                 }
-                className="rounded-lg"
+                className="rounded-3xl"
               >
                 <RefreshCcw className="size-4" />
                 <span className="flex-1">
@@ -651,7 +652,7 @@ export function CompactUserAvatar() {
             {authLoggedIn && (
               <DropdownMenuItem
                 onSelect={() => void handleLogout()}
-                className="rounded-lg"
+                className="rounded-3xl"
               >
                 <LogOut className="size-4" />
                 {t('logout')}
@@ -672,12 +673,13 @@ export function CompactUserAvatar() {
               type="button"
               variant="outline"
               onClick={() => setRestartDialogOpen(false)}
+              className="rounded-3xl"
             >
               {t('cancelButton')}
             </Button>
             <Button
               type="button"
-              className="shadow-none"
+              className="rounded-3xl shadow-none"
               onClick={async () => {
                 setRestartDialogOpen(false)
                 await window.openloafElectron?.relaunchApp?.()

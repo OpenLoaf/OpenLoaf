@@ -43,15 +43,15 @@ function AgentStatusBadge({ stream, part }: {
   }
   if (isDone) {
     return (
-      <span className="inline-flex items-center gap-1 text-[11px] text-ol-green">
-        <span className="size-1.5 rounded-full bg-ol-green" />
+      <span className="inline-flex items-center gap-1 text-[11px] text-foreground">
+        <span className="size-1.5 rounded-full bg-foreground" />
         已完成
       </span>
     )
   }
   return (
-    <span className="inline-flex items-center gap-1 text-[11px] text-ol-blue">
-      <span className="size-1.5 animate-pulse rounded-full bg-ol-blue" />
+    <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+      <span className="size-1.5 animate-pulse rounded-full bg-muted-foreground" />
       运行中
     </span>
   )
@@ -116,7 +116,7 @@ export default function SpawnAgentTool({
   return (
     <div
       className={cn(
-        'group min-w-0 cursor-pointer rounded-lg border bg-card text-xs transition-colors hover:border-primary/30 hover:bg-accent/50',
+        'group min-w-0 cursor-pointer rounded-3xl border bg-card text-xs transition-colors hover:border-primary/30 hover:bg-accent/50',
         className,
       )}
       onClick={handleClick}

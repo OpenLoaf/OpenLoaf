@@ -47,11 +47,11 @@
     "connector": "コネクター"
   },
   "insertTools": {
-    "note": "ノート",
+    "note": "テキスト",
     "text": "テキスト",
     "textDesc": "プロンプト、スクリプト",
-    "sticky": "付箋",
-    "stickyDesc": "簡単なメモ",
+    "sticky": "テキスト",
+    "stickyDesc": "テキストを入力",
     "image": "画像",
     "imageDesc": "AI画像生成",
     "video": "動画",
@@ -88,7 +88,7 @@
     }
   },
   "descriptions": {
-    "note": "クイックノートカード",
+    "note": "テキストカード",
     "image": "画像ブロック",
     "video": "動画ブロック",
     "file": "ファイル添付",
@@ -108,9 +108,10 @@
   "emptyGuide": {
     "title": "作成を開始",
     "subtitle": "始め方を選択してください",
-    "createText": "付箋",
+    "createText": "テキスト",
     "aiImage": "AI画像",
     "aiVideo": "AI動画",
+    "aiAudio": "AIオーディオ",
     "importFile": "ファイルをインポート",
     "hint": "空白部分をダブルクリックしてテキストを作成",
     "shortcuts": "ショートカット: V 選択 · H ハンド · T テキスト · C コネクター",
@@ -355,7 +356,9 @@
       "style": "スタイル",
       "stylePlaceholder": "Enterキーでカスタムスタイルを追加",
       "negativePrompt": "ネガティブプロンプト",
-      "auto": "自動"
+      "auto": "自動",
+      "negativePromptLabel": "ネガティブプロンプト",
+      "clearStyle": "クリア"
     },
     "modelSelect": {
       "noModel": "利用可能なモデルがありません",
@@ -403,7 +406,9 @@
       "auto": "自動",
       "yes": "はい",
       "no": "いいえ",
-      "selectPlaceholder": "選択..."
+      "selectPlaceholder": "選択...",
+      "negativePromptLabel": "ネガティブプロンプト",
+      "clearStyle": "クリア"
     },
     "status": {
       "completed": "完了",
@@ -481,7 +486,8 @@
     "generationFailed": "生成に失敗しました",
     "retry": "再試行",
     "parametersLocked": "パラメータがロックされています — ロック解除をクリックして変更",
-    "unlock": "ロック解除"
+    "unlock": "ロック解除",
+    "emptyHint": "ダブルクリックで画像をアップロード\nまたは選択してAIで生成"
   },
   "videoNode": {
     "toolbar": {
@@ -502,7 +508,8 @@
     "generating": "動画を生成中...",
     "generateFailed": "動画の生成に失敗しました",
     "retry": "再試行",
-    "parametersLocked": "パラメータがロックされています"
+    "parametersLocked": "パラメータがロックされています",
+    "emptyHint": "ダブルクリックで動画をアップロード\nまたは選択してAIで生成"
   },
   "audioNode": {
     "toolbar": {
@@ -516,12 +523,18 @@
     "generating": "オーディオを生成中...",
     "generateFailed": "オーディオの生成に失敗しました",
     "retry": "再試行",
-    "parametersLocked": "パラメータがロックされています"
+    "parametersLocked": "パラメータがロックされています",
+    "emptyHint": "ダブルクリックで音声をアップロード\nまたは選択してAIで生成"
   },
   "versionStack": {
     "badge": "{{count}} バージョン",
     "prev": "前へ",
-    "next": "次へ"
+    "next": "次へ",
+    "deleteTitle": "バージョンの削除",
+    "deleteDescription": "このノードには {{count}} 個のバージョンがあります。現在表示中のバージョンのみ削除されます。",
+    "deleteAll": "すべてのバージョンを削除（ノード全体）",
+    "deleteCancel": "キャンセル",
+    "deleteConfirm": "削除"
   },
   "fileAttachmentNode": {
     "toolbar": {
@@ -682,7 +695,11 @@
     "autoRecommend": "自動推奨",
     "aspectRatio": "アスペクト比",
     "duration": "再生時間",
-    "quality": "品質",
+    "quality": {
+      "draft": "下書き",
+      "standard": "標準",
+      "hd": "高画質"
+    },
     "generate": "生成",
     "generating": "生成中...",
     "upstreamLoaded": "上流ノードからコンテンツを読み込みました",
@@ -707,7 +724,30 @@
     },
     "stackMode": "スタック（新バージョン）",
     "overwriteMode": "プライマリを上書き",
-    "parametersLocked": "パラメータがロックされています"
+    "parametersLocked": "パラメータがロックされています",
+    "feature": {
+      "videoGenerate": "動画生成",
+      "digitalHuman": "デジタルヒューマン"
+    },
+    "modeV2": {
+      "text": "テキスト",
+      "firstFrame": "画像",
+      "startEnd": "始終フレーム",
+      "reference": "リファレンス",
+      "storyboard": "絵コンテ",
+      "motionControl": "モーション制御",
+      "photo2video": "写真駆動",
+      "lipSync": "リップシンク"
+    },
+    "withAudio": "音声も同時生成",
+    "digitalHuman": {
+      "personImage": "人物写真",
+      "personVideo": "ソース動画",
+      "audioInput": "音声入力",
+      "uploadPerson": "人物写真をアップロード",
+      "uploadAudio": "音声ファイルをアップロード"
+    },
+    "videoEditTeaser": "動画編集 · 近日公開"
   },
   "imagePanel": {
     "textToImage": "テキストから画像",
@@ -733,7 +773,12 @@
     "enhancePrompt": "プロンプトを強化",
     "translate": "翻訳",
     "settings": "設定",
-    "generateMode": "生成モード",
+    "generateMode": {
+      "text": "テキストから画像",
+      "reference": "リファレンス",
+      "sketch": "スケッチ",
+      "character": "キャラクター"
+    },
     "upstreamSlots": "上流アセット",
     "estimatedCredits": "この生成の推定クレジット",
     "stackMode": "スタック（新バージョン）",
@@ -750,7 +795,43 @@
     "comingSoon": "近日公開",
     "upscaleScale": "拡大倍率",
     "maskEdit": "マスクを編集",
-    "erasePlaceholder": "消去したい領域を塗りつぶしてください"
+    "erasePlaceholder": "消去したい領域を塗りつぶしてください",
+    "feature": {
+      "imageGenerate": "生成",
+      "poster": "ポスター",
+      "imageEdit": "編集",
+      "upscale": "拡大",
+      "outpaint": "拡張",
+      "matting": "切り抜き"
+    },
+    "editMode": {
+      "instruct": "指示編集",
+      "stylize": "スタイル変換",
+      "colorize": "着色",
+      "inpaint": "部分修正",
+      "erase": "消去",
+      "eraseWatermark": "ウォーターマーク除去"
+    },
+    "needsImage": "先に画像が必要です",
+    "strength": "編集強度",
+    "strengthHint": "値が大きいほど変更が大きくなります",
+    "quality": "品質",
+    "qualityDraft": "下書き",
+    "qualityStandard": "標準",
+    "qualityHd": "高画質",
+    "seed": "シード",
+    "seedRandom": "ランダム",
+    "posterTitle": "タイトル",
+    "posterTitlePlaceholder": "ポスターのタイトルを入力",
+    "posterSubTitle": "サブタイトル",
+    "posterBodyText": "本文",
+    "posterPromptPlaceholder": "ポスターのビジュアルスタイルを記述...",
+    "outpaintTop": "上",
+    "outpaintBottom": "下",
+    "outpaintLeft": "左",
+    "outpaintRight": "右",
+    "outpaintHint": "少なくとも一方向は1.0より大きくする必要があります",
+    "maskRequired": "修正する領域を先に塗ってください"
   },
   "upscalePanel": {
     "title": "高画質化",
@@ -786,7 +867,14 @@
       "referenceVoiceEmpty": "ボイスサンプルを選択または接続",
       "selectVoice": "ボイスを選択",
       "registeredVoice": "登録済みボイス",
-      "registeredVoicePlaceholder": "V1.5で対応予定"
+      "registeredVoicePlaceholder": "V1.5で対応予定",
+      "textLabel": "読み上げテキスト",
+      "textPlaceholder": "音声合成するテキストを入力...",
+      "textAutoFilled": "テキストノードから自動入力（{{count}}文字）",
+      "voiceLabel": "ボイス",
+      "voiceAuto": "自動推奨",
+      "referenceLabel": "リファレンスボイス（声のクローン）",
+      "referenceConnectHint": "音声ノードを接続してボイスをクローン"
     },
     "enhancePrompt": "プロンプトを強化",
     "durationAuto": "自動",
@@ -797,7 +885,30 @@
     "loginHint": "サインインしてクラウドモデルを利用",
     "stackMode": "スタック（新バージョン）",
     "overwriteMode": "プライマリを上書き",
-    "parametersLocked": "パラメータがロックされています"
+    "parametersLocked": "パラメータがロックされています",
+    "advanced": {
+      "label": "詳細設定",
+      "outputFormat": "出力形式",
+      "sampleRate": "サンプルレート",
+      "sampleRateAuto": "自動",
+      "quality": "品質",
+      "qualityDraft": "下書き",
+      "qualityStandard": "標準",
+      "qualityHd": "高画質",
+      "seed": "シード",
+      "seedPlaceholder": "空欄でランダム"
+    },
+    "tabBadgeSoon": "Soon",
+    "comingSoon": {
+      "music": {
+        "title": "音楽生成",
+        "description": "近日公開予定"
+      },
+      "sfx": {
+        "title": "効果音生成",
+        "description": "近日公開予定"
+      }
+    }
   },
   "nodeSearch": {
     "placeholder": "ノードを検索...",
@@ -838,6 +949,160 @@
     "newNode": "新規ノードを生成",
     "stackCurrent": "現在のノードにスタック",
     "locked": "パラメータがロックされています",
-    "unlock": "ロック解除"
+    "unlock": "ロック解除",
+    "currentNode": "現在のノード",
+    "regenerate": "再生成"
+  },
+  "generatingOverlay": {
+    "status": "生成中、約 {{duration}}"
+  },
+  "v3": {
+    "features": {
+      "imageGenerate": "画像生成",
+      "imageInpaint": "インペイント",
+      "imageStyleTransfer": "スタイル変換",
+      "outpaint": "アウトペイント",
+      "upscale": "超解像",
+      "videoGenerate": "動画生成",
+      "lipSync": "リップシンク",
+      "tts": "音声合成",
+      "music": "音楽生成",
+      "sfx": "効果音生成",
+      "comingSoonTitle": "近日公開",
+      "comingSoonDescription": "この機能は開発中です。お楽しみに"
+    },
+    "variants": {
+      "img-gen-qwen": "百練スタンダード",
+      "img-gen-volc": "ジーモン画像",
+      "img-gen-kling": "コリン高画質",
+      "img-inpaint-volc": "ジーモンインペイント",
+      "img-style-volc": "ジーモンスタイル変換",
+      "outpaint-qwen": "百練アウトペイント",
+      "upscale-qwen": "百練超解像",
+      "upscale-volc": "ジーモンスマート超解像",
+      "vid-gen-qwen": "百練動画",
+      "vid-gen-volc": "ジーモン動画",
+      "vid-gen-kling": "コリン動画",
+      "lip-sync-volc": "ジーモンリップシンク",
+      "lip-sync-kling": "コリンリップシンク",
+      "tts-qwen": "CosyVoice 音声合成"
+    },
+    "params": {
+      "prompt": "プロンプト",
+      "negativePrompt": "ネガティブプロンプト",
+      "aspectRatio": "アスペクト比",
+      "quality": "品質",
+      "qualityStandard": "標準",
+      "qualityHd": "高画質",
+      "count": "枚数",
+      "seed": "シード",
+      "seedPlaceholder": "空欄でランダム",
+      "style": "スタイル",
+      "scale": "拡大倍率",
+      "xScale": "水平拡張",
+      "yScale": "垂直拡張",
+      "duration": "長さ",
+      "withAudio": "音声も同時生成",
+      "mode": "モード",
+      "modeStd": "標準",
+      "modePro": "プロフェッショナル",
+      "format": "出力形式",
+      "voice": "ボイス",
+      "voiceAuto": "自動",
+      "speechRate": "話速",
+      "pitchRate": "ピッチ",
+      "volume": "音量",
+      "text": "テキスト内容",
+      "textPlaceholder": "音声合成するテキストを入力...",
+      "person": "人物素材",
+      "audio": "オーディオ素材",
+      "image": "画像素材",
+      "mask": "マスク",
+      "referenceAudio": "リファレンスボイス",
+      "referenceAudioConnected": "リファレンスボイスが接続されました",
+      "advancedSettings": "詳細設定",
+      "ratioAuto": "自動",
+      "quality_standard": "標準",
+      "quality_hd": "高画質",
+      "negativePromptPlaceholder": "画像に含めたくない要素を入力...",
+      "proRequired": "このバリアントには Pro メンバーシップ以上が必要です",
+      "needsImage": "この操作には画像が必要です",
+      "inpaintHint": "画像上の修正したい部分を塗り、生成内容を記述してください",
+      "inpaintPromptPlaceholder": "塗った部分に何を生成するか記述...",
+      "styleSource": "スタイルソース画像",
+      "needsStyleImage": "スタイル変換にはソース画像が必要です",
+      "stylePromptPlaceholder": "このスタイルで生成したい内容を記述...",
+      "scaleFactor": "拡大倍率",
+      "upscaleVolcHint": "クラウド AI による高品質超解像",
+      "outpaintHint": "倍率 > 1.0 でその方向に画像を拡張します",
+      "textAutoFilled": "上流から自動入力済み（{{count}}文字）",
+      "voices": {
+        "longshu": "龍叔",
+        "longxiaochun": "龍小淳",
+        "longxiaoxia": "龍小夏",
+        "longlaotie": "龍老鉄",
+        "longyue": "龍悦",
+        "longcheng": "龍城",
+        "longjielidou": "龍杰力豆",
+        "longtong": "龍童"
+      }
+    },
+    "selectVariant": "モデルを選択",
+    "unknownVariant": "このバリアントはまだ UI でサポートされていません",
+    "estimatedCredits": "推定クレジット",
+    "fields": {
+      "firstFrame": "最初のフレーム",
+      "firstFrameRequired": "画像ノードを接続（必須）",
+      "firstFrameOptional": "画像ノードを接続（任意）",
+      "optional": "（任意）",
+      "upstreamImageLoaded": "上流ノードから画像を読み込みました",
+      "upstreamVideoLoaded": "上流ノードから動画を読み込みました",
+      "upstreamAudioLoaded": "上流ノードからオーディオを読み込みました",
+      "promptPlaceholder": "生成したい動画を記述...",
+      "style": "スタイル",
+      "styleAuto": "自動",
+      "withAudio": "音声も生成",
+      "ratioAuto": "自動",
+      "mode": "モード",
+      "modeStd": "標準",
+      "modePro": "プロ",
+      "personImage": "人物画像",
+      "personVideoOrImage": "人物（動画または画像）",
+      "videoSource": "動画ソース",
+      "audioInput": "オーディオ入力",
+      "uploadPerson": "人物画像ノードを接続",
+      "uploadPersonVideoOrImage": "動画または画像ノードを接続",
+      "uploadAudio": "オーディオノードを接続",
+      "lipSyncHint": "人物画像とオーディオノードを接続してリップシンク動画を生成",
+      "lipSyncKlingHint": "人物動画/画像とオーディオノードを接続してリップシンク動画を生成"
+    },
+    "warnings": {
+      "promptRequired": "プロンプトを入力してください",
+      "textRequired": "読み上げるテキストを入力してください"
+    },
+    "common": {
+      "selectVariant": "モデルバリアントを選択",
+      "credits": "クレジット",
+      "creditsPerCall": "{{credits}} クレジット/回",
+      "membershipRequired": "{{level}} メンバーシップが必要",
+      "noVariants": "利用可能なバリアントがありません",
+      "loading": "機能リストを読み込み中...",
+      "loadError": "AI 機能の読み込みに失敗しました",
+      "loadErrorHint": "ネットワーク接続を確認して再試行するか、クラウドアカウントにログインしてください",
+      "retry": "再試行",
+      "comingSoon": "近日公開",
+      "genericPromptPlaceholder": "プロンプトを入力...",
+      "uploadImage": "画像をアップロード",
+      "uploadAudio": "オーディオをアップロード",
+      "uploadPerson": "人物素材をアップロード",
+      "fromUpstream": "上流ノードから取得",
+      "autoFilled": "自動入力済み",
+      "autoFilledCount": "自動入力済み（{{count}}文字）",
+      "referenceConnectHint": "音声ノードを接続してボイスをクローン",
+      "promptPlaceholderImage": "生成したい画像を記述...",
+      "promptPlaceholderVideo": "動画の内容やカメラの動きを記述...",
+      "promptPlaceholderInpaint": "修正後のイメージを記述...",
+      "promptPlaceholderStyle": "目標のスタイルを記述..."
+    }
   }
 }

@@ -212,7 +212,7 @@ export default function MessageFile({ url, mediaType, title, className }: Messag
         }
         className={cn(
           "cursor-pointer",
-          isImage ? "!size-auto overflow-hidden rounded-md border border-border/60" : undefined,
+          isImage ? "!size-auto overflow-hidden rounded-3xl border border-border/60" : undefined,
         )}
         onClick={() => {
           if (!entry) return;

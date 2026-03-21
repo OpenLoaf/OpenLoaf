@@ -32,7 +32,7 @@ import {
   SelectValue,
 } from "@openloaf/ui/select";
 import { useProjects } from "@/hooks/use-projects";
-import { useProjectStorageRootUri } from "@/hooks/use-project-storage-root-uri";
+import { useProjectStorageRootUri, useTempStorageRootUri } from "@/hooks/use-project-storage-root-uri";
 import { useSidebarNavigation } from "@/hooks/use-sidebar-navigation";
 import { buildBoardFolderUri, buildFileUriFromRoot } from "@/components/project/filesystem/utils/file-system-utils";
 import { queuePendingBoardElements } from "@/components/board/engine/pending-elements-store";
@@ -85,6 +85,7 @@ export function CopyChatToCanvasDialog({
   const { data: projects } = useProjects();
   const projectRootUriMap = useMemo(() => buildProjectRootUriMap(projects), [projects]);
   const projectStorageRootUri = useProjectStorageRootUri();
+  const tempStorageRootUri = useTempStorageRootUri();
   const [targetMode, setTargetMode] = useState<TargetMode>("new");
   const [selectedBoardId, setSelectedBoardId] = useState("");
 
@@ -131,7 +132,7 @@ export function CopyChatToCanvasDialog({
     if (normalizedProjectId) {
       return projectRootUriMap.get(normalizedProjectId);
     }
-    return projectStorageRootUri;
+    return tempStorageRootUri ?? projectStorageRootUri;
   };
 
   const copyMutation = useMutation(trpc.chat.copySessionToBoard.mutationOptions());
@@ -262,6 +263,7 @@ export function CopyChatToCanvasDialog({
             variant="outline"
             onClick={() => onOpenChange(false)}
             disabled={copyMutation.isPending}
+            className="rounded-3xl"
           >
             {t("copyToCanvas.cancel")}
           </Button>
@@ -273,6 +275,7 @@ export function CopyChatToCanvasDialog({
               || sessionQuery.isLoading
               || (targetMode === "existing" && !selectedBoardId)
             }
+            className="rounded-3xl"
           >
             {copyMutation.isPending ? (
               <>

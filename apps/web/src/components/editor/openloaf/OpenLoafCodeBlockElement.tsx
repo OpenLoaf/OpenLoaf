@@ -40,7 +40,7 @@ export function OpenLoafCodeBlockElement(
   return (
     <PlateElement className="py-1" {...props}>
       <div
-        className="relative rounded-md bg-muted/50 p-4"
+        className="relative rounded-3xl bg-muted/50 p-4"
         contentEditable={false}
         onClick={() => {
           if (readOnly) return;
@@ -52,7 +52,7 @@ export function OpenLoafCodeBlockElement(
         {!readOnly && (
           <button
             type="button"
-            className="absolute top-2 right-2 rounded-md border border-border bg-background/80 px-2 py-0.5 text-xs text-muted-foreground"
+            className="absolute top-2 right-2 rounded-3xl border border-border bg-background/80 px-2 py-0.5 text-xs text-muted-foreground"
             onClick={(event) => {
               event.stopPropagation();
               setShowSource(true);

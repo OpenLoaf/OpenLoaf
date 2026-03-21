@@ -856,7 +856,7 @@ export function SingleSelectionOutline({
       <div
         ref={outlineRef}
         data-board-selection-outline
-        className="pointer-events-none absolute z-10 box-border rounded-lg"
+        className="pointer-events-none absolute z-10 box-border rounded-3xl"
         style={{
           left, top, width, height,
           border: '1.5px solid var(--canvas-selection-border)',
@@ -1007,7 +1007,7 @@ function MultiSelectionResizeHandle({
       aria-label="Resize selection"
       data-multi-resize-handle
       onPointerDown={handlePointerDown}
-      className="pointer-events-auto absolute z-20 flex items-center justify-center rounded-md border border-ol-divider bg-background/90 text-ol-text-auxiliary shadow-[0_6px_12px_rgba(15,23,42,0.12)] transition-colors duration-150 hover:text-ol-text-primary"
+      className="pointer-events-auto absolute z-20 flex items-center justify-center rounded-3xl border border-ol-divider bg-background/90 text-ol-text-auxiliary shadow-[0_6px_12px_rgba(15,23,42,0.12)] transition-colors duration-150 hover:text-ol-text-primary"
       style={{ left: x, top: y, width: size, height: size }}
     >
       <Maximize2 size={14} className="pointer-events-none rotate-90" />

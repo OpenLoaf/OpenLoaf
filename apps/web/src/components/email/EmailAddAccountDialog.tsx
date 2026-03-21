@@ -57,13 +57,13 @@ export function EmailAddAccountDialog({ addDialog }: EmailAddAccountDialogProps)
                 <button
                   type="button"
                   onClick={addDialog.onBackToProviderSelect}
-                  className="-ml-1 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  className="-ml-1 rounded-3xl p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 >
                   <ArrowLeft className="size-4" />
                 </button>
                 <div className="flex items-center gap-2">
                   {selectedProvider ? (
-                    <span className="flex size-6 items-center justify-center rounded-lg bg-muted">
+                    <span className="flex size-6 items-center justify-center rounded-3xl bg-muted">
                       <selectedProvider.icon className="size-3.5" />
                     </span>
                   ) : null}
@@ -114,7 +114,7 @@ export function EmailAddAccountDialog({ addDialog }: EmailAddAccountDialogProps)
                   variant="ghost"
                   size="sm"
                   onClick={() => addDialog.onAddDialogOpenChange(false)}
-                  className="h-8 text-xs"
+                  className="h-8 text-xs rounded-3xl"
                 >
                   {t('cancel')}
                 </Button>
@@ -123,7 +123,7 @@ export function EmailAddAccountDialog({ addDialog }: EmailAddAccountDialogProps)
                   size="sm"
                   onClick={addDialog.onAddAccount}
                   disabled={addDialog.addAccountPending}
-                  className="h-8 text-xs"
+                  className="h-8 text-xs rounded-3xl"
                 >
                   {addDialog.addAccountPending ? t('saving') : t('email.saveAccount')}
                 </Button>

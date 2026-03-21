@@ -128,7 +128,7 @@ export function EmojiPicker({
   return (
     <div
       className={cn(
-        'flex flex-col rounded-xl bg-popover text-popover-foreground',
+        'flex flex-col rounded-3xl bg-popover text-popover-foreground',
         'h-[23rem] w-80 border shadow-sm'
       )}
     >
@@ -194,7 +194,7 @@ const EmojiButton = React.memo(function EmojiButton({
       type="button"
     >
       <div
-        className="absolute inset-0 rounded-md opacity-0 group-hover:opacity-100"
+        className="absolute inset-0 rounded-3xl opacity-0 group-hover:opacity-100"
         aria-hidden="true"
       />
       <span
@@ -379,7 +379,7 @@ function EmojiPickerSearchBar({
     <div className="flex items-center px-2">
       <div className="relative flex grow items-center">
         <input
-          className="block w-full appearance-none rounded-md border-0 bg-muted px-10 py-2 text-sm outline-none placeholder:text-muted-foreground focus-visible:outline-none"
+          className="block w-full appearance-none rounded-3xl border-0 bg-muted px-10 py-2 text-sm outline-none placeholder:text-muted-foreground focus-visible:outline-none"
           value={searchValue}
           onChange={(event) => setSearch(event.target.value)}
           placeholder={i18n.search}
@@ -413,7 +413,7 @@ function EmojiPickerSearchAndClear({
           size="icon"
           variant="ghost"
           className={cn(
-            '-translate-y-1/2 absolute top-1/2 right-0.5 flex size-8 cursor-pointer items-center justify-center rounded-md border-none bg-transparent text-popover-foreground hover:bg-transparent'
+            '-translate-y-1/2 absolute top-1/2 right-0.5 flex size-8 cursor-pointer items-center justify-center rounded-3xl border-none bg-transparent text-popover-foreground hover:bg-transparent'
           )}
           onClick={clearSearch}
           title={i18n.clear}
@@ -515,7 +515,7 @@ function EmojiPickerNavigation({
                     size="sm"
                     variant="ghost"
                     className={cn(
-                      'h-fit rounded-md fill-current p-1.5 text-muted-foreground hover:bg-muted hover:text-muted-foreground',
+                      'h-fit rounded-3xl fill-current p-1.5 text-muted-foreground hover:bg-muted hover:text-muted-foreground',
                       id === focusedCategory &&
                         'pointer-events-none bg-accent fill-current text-accent-foreground'
                     )}

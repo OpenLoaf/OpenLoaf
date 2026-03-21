@@ -476,9 +476,9 @@ export default function ExcelViewer({
                 key={sheet.name}
                 type="button"
                 className={cn(
-                  "rounded-md px-3 py-1 text-xs font-medium transition",
+                  "rounded-3xl px-3 py-1 text-xs font-medium transition",
                   index === activeSheetIndex
-                    ? "bg-background text-foreground shadow-sm"
+                    ? "bg-background text-foreground shadow-none"
                     : "text-muted-foreground hover:text-foreground"
                 )}
                 onClick={() => setActiveSheetIndex(index)}

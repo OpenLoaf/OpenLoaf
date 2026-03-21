@@ -100,7 +100,7 @@ export default React.memo(function ClaudeCodeUserQuestion({
   if (questions.length === 0) return null;
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-primary/20 bg-primary/5 p-3">
+    <div className="flex flex-col gap-3 rounded-3xl border border-primary/20 bg-primary/5 p-3">
       {questions.map((q, qIdx) => (
         <div key={qIdx} className="flex flex-col gap-1.5">
           {q.header && (
@@ -119,7 +119,7 @@ export default React.memo(function ClaudeCodeUserQuestion({
                   disabled={answered || submitting}
                   onClick={() => handleToggle(qIdx, optIdx, q.multiSelect)}
                   className={cn(
-                    "rounded-md border px-3 py-1 text-xs transition-colors duration-150",
+                    "rounded-3xl border px-3 py-1 text-xs transition-colors duration-150",
                     answered
                       ? "cursor-default opacity-50"
                       : "cursor-pointer hover:bg-primary/10",
@@ -147,7 +147,7 @@ export default React.memo(function ClaudeCodeUserQuestion({
           disabled={!hasSelection || submitting}
           onClick={handleSubmit}
           className={cn(
-            "mt-1 self-start rounded-md px-4 py-1.5 text-xs font-medium transition-colors duration-150",
+            "mt-1 self-start rounded-3xl px-4 py-1.5 text-xs font-medium transition-colors duration-150",
             hasSelection && !submitting
               ? "bg-primary text-primary-foreground hover:bg-primary/90"
               : "cursor-not-allowed bg-muted text-muted-foreground",
@@ -157,7 +157,7 @@ export default React.memo(function ClaudeCodeUserQuestion({
         </button>
       )}
       {answered && (
-        <span className="text-xs text-ol-green">
+        <span className="text-xs text-foreground">
           {"\u2713"} Answered
         </span>
       )}

@@ -60,7 +60,7 @@ export const NodePicker = forwardRef<HTMLDivElement, NodePickerProps>(
         <div
           data-connector-drop-panel
           className={cn(
-            "pointer-events-auto rounded-xl p-1",
+            "pointer-events-auto rounded-3xl p-1",
             BOARD_TOOLBAR_SURFACE_CLASS,
           )}
         >
@@ -75,13 +75,13 @@ export const NodePicker = forwardRef<HTMLDivElement, NodePickerProps>(
                     onSelect(item.id);
                   }}
                   className={cn(
-                    "group flex flex-col items-center gap-1 rounded-lg px-3 py-2",
+                    "group flex flex-col items-center gap-1 rounded-3xl px-3 py-2",
                     "text-ol-text-auxiliary transition-colors duration-100",
                     "hover:bg-foreground/8 hover:text-ol-text-primary",
                     "dark:hover:bg-foreground/10",
                   )}
                 >
-                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-ol-surface-muted text-ol-text-auxiliary transition-colors group-hover:bg-ol-blue-bg group-hover:text-ol-blue">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-3xl bg-ol-surface-muted text-ol-text-auxiliary transition-colors group-hover:bg-ol-blue-bg group-hover:text-ol-blue">
                     {item.icon ?? <Type size={16} />}
                   </span>
                   <span className="whitespace-nowrap text-[11px] font-medium leading-3">

@@ -75,7 +75,7 @@ export function FilePathLink({ filePath }: { filePath: string }) {
     <span
       role="button"
       tabIndex={0}
-      className="inline-flex cursor-pointer items-center gap-1 truncate font-mono text-ol-blue hover:text-ol-blue/80 hover:underline"
+      className="inline-flex cursor-pointer items-center gap-1 truncate font-mono text-muted-foreground hover:text-foreground hover:underline"
       onClick={handleClick}
       onKeyDown={(e) => { if (e.key === 'Enter') handleClick(e as unknown as React.MouseEvent) }}
     >

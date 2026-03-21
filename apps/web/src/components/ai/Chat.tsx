@@ -120,7 +120,7 @@ function RecentSessionsBar() {
             <button
               key={session.id}
               type="button"
-              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors hover:bg-muted/60"
+              className="flex w-full items-center gap-2 rounded-3xl px-2 py-1.5 text-left text-xs transition-colors hover:bg-muted/60"
               onClick={() => selectSession(session.id)}
             >
               <span className="min-w-0 flex-1 truncate text-foreground/80">
@@ -143,18 +143,18 @@ function RecentSessionsBar() {
 const FEATURE_INTRO_STYLE = {
   index: {
     icon: LayoutDashboard,
-    iconColor: "text-ol-blue",
-    iconBg: "bg-ol-blue/10",
+    iconColor: "text-foreground",
+    iconBg: "bg-secondary",
   },
   tasks: {
     icon: CalendarDays,
-    iconColor: "text-ol-amber",
-    iconBg: "bg-ol-amber/10",
+    iconColor: "text-foreground",
+    iconBg: "bg-secondary",
   },
   canvas: {
     icon: Palette,
-    iconColor: "text-ol-purple",
-    iconBg: "bg-ol-purple/10",
+    iconColor: "text-foreground",
+    iconBg: "bg-secondary",
   },
 } as const
 
@@ -179,7 +179,7 @@ function FeatureIntroDialog({
         <AlertDialogHeader>
           <div className="flex items-center gap-3">
             <div className={cn(
-              "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
+              "flex h-10 w-10 shrink-0 items-center justify-center rounded-3xl",
               style.iconBg,
             )}>
               <Icon className={cn("size-5", style.iconColor)} />
@@ -194,7 +194,7 @@ function FeatureIntroDialog({
           <AlertDialogCancel>{t('featureIntro.cancel')}</AlertDialogCancel>
           <AlertDialogAction
             onClick={onConfirm}
-            className="bg-ol-blue/10 text-ol-blue hover:bg-ol-blue/20"
+            className="bg-secondary text-foreground hover:bg-secondary/80"
           >
             {t('featureIntro.confirm')}
           </AlertDialogAction>
@@ -313,12 +313,12 @@ function QuickLaunchBar({ projectId }: { projectId?: string }) {
               transition={{ delay: 0.3 + index * 0.06, duration: 0.25 }}
             >
               <div className={cn(
-                "flex h-14 w-14 items-center justify-center rounded-2xl transition-all duration-150 group-hover:scale-105",
-                isInactive ? "bg-ol-text-auxiliary/8" : item.bgColor,
+                "flex h-14 w-14 items-center justify-center rounded-3xl transition-all duration-150 group-hover:scale-105",
+                isInactive ? "bg-muted-foreground/8" : item.bgColor,
               )}>
                 <Icon className={cn(
                   "size-6 transition-colors duration-150",
-                  isInactive ? "text-ol-text-auxiliary" : item.iconColor,
+                  isInactive ? "text-muted-foreground" : item.iconColor,
                 )} />
               </div>
               <span className="text-[11px] text-muted-foreground transition-colors duration-150 group-hover:text-foreground">
@@ -410,14 +410,16 @@ function ChatFullPageLayout({
         <div className="flex flex-1 flex-col min-h-0">
           <div className="flex flex-1 flex-col items-center justify-center min-h-0">
             <div className="flex w-full max-w-3xl flex-col items-center gap-4 px-6 -mt-20">
-              <motion.img
-                src="/logo_nobody.png"
-                alt="OpenLoaf"
-                className="mb-2 h-24 w-24"
+              <motion.div
+                className="mb-2 select-none font-bold leading-none tracking-widest"
+                style={{ fontSize: 'clamp(2rem, 5vw, 3rem)' }}
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.25 }}
-              />
+              >
+                <span className="text-foreground">Open</span>
+                <span className="text-te-accent">Loaf</span>
+              </motion.div>
               <motion.p
                 className="mb-4 text-base text-muted-foreground"
                 initial={{ opacity: 0, y: 8 }}
@@ -1237,7 +1239,7 @@ export function Chat({
               : t('drag.allowFile')
         }
         variant={dragMode === "deny" ? "warning" : "default"}
-        radiusClassName="rounded-2xl"
+        radiusClassName="rounded-3xl"
         description={
           dragMode === "deny" ? (
             dragHint === "image"

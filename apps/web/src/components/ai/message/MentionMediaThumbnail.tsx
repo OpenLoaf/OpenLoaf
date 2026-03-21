@@ -63,7 +63,7 @@ function MentionFallbackChip({ filePath }: { filePath: string }) {
       data-openloaf-mention="true"
       data-mention-value={filePath}
       data-slate-value={filePath}
-      className="inline-flex items-center gap-[3px] align-bottom py-px px-1.5 mx-0.5 rounded-md bg-ol-blue text-white text-xs font-medium leading-[18px] cursor-pointer select-none whitespace-nowrap max-w-[200px] hover:bg-ol-blue/90 transition-colors"
+      className="inline-flex items-center gap-[3px] align-bottom py-px px-1.5 mx-0.5 rounded-3xl bg-foreground text-background text-xs font-medium leading-[18px] cursor-pointer select-none whitespace-nowrap max-w-[200px] hover:bg-foreground/90 transition-colors"
     >
       <FileText className="size-3 shrink-0" />
       <span className="overflow-hidden text-ellipsis">{label}</span>
@@ -134,7 +134,7 @@ export function MentionImageThumbnail({ path: filePath }: { path: string }) {
 
   if (!objectUrl) {
     return (
-      <span className="inline-block align-bottom mx-0.5 h-[48px] w-[64px] rounded-md bg-muted/60 animate-pulse" />
+      <span className="inline-block align-bottom mx-0.5 h-[48px] w-[64px] rounded-3xl bg-muted/60 animate-pulse" />
     )
   }
 
@@ -142,7 +142,7 @@ export function MentionImageThumbnail({ path: filePath }: { path: string }) {
     <span
       role="button"
       tabIndex={0}
-      className="inline-block align-bottom mx-0.5 cursor-pointer rounded-md overflow-hidden border border-border/40 hover:border-blue-400 transition-colors"
+      className="inline-block align-bottom mx-0.5 cursor-pointer rounded-3xl overflow-hidden border border-border/40 hover:border-blue-400 transition-colors"
       onClick={handleClick}
       onKeyDown={(e) => { if (e.key === 'Enter') handleClick(e as unknown as React.MouseEvent) }}
     >
@@ -187,7 +187,7 @@ export function MentionVideoThumbnail({ path: filePath }: { path: string }) {
 
   if (!objectUrl) {
     return (
-      <span className="inline-block align-bottom mx-0.5 h-[48px] w-[64px] rounded-md bg-muted/60 animate-pulse" />
+      <span className="inline-block align-bottom mx-0.5 h-[48px] w-[64px] rounded-3xl bg-muted/60 animate-pulse" />
     )
   }
 
@@ -195,7 +195,7 @@ export function MentionVideoThumbnail({ path: filePath }: { path: string }) {
     <span
       role="button"
       tabIndex={0}
-      className="inline-block align-bottom mx-0.5 cursor-pointer rounded-md overflow-hidden border border-border/40 hover:border-blue-400 transition-colors"
+      className="inline-block align-bottom mx-0.5 cursor-pointer rounded-3xl overflow-hidden border border-border/40 hover:border-blue-400 transition-colors"
       onClick={handleClick}
       onKeyDown={(e) => { if (e.key === 'Enter') handleClick(e as unknown as React.MouseEvent) }}
     >

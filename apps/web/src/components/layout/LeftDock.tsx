@@ -165,7 +165,7 @@ function PanelFrame({
           "overflow-hidden",
           floating
             ? cn(
-                "rounded-xl shadow-2xl",
+                "rounded-3xl shadow-none",
                 isStreaming
                   ? "openloaf-thinking-border openloaf-thinking-border-on"
                   : "border border-border",
@@ -181,7 +181,7 @@ function PanelFrame({
       >
         <div
           className={cn(
-            "flex w-full flex-col overflow-hidden rounded-xl",
+            "flex w-full flex-col overflow-hidden rounded-3xl",
             opaquePanel ? "bg-background" : "ol-glass-float",
             fillHeight && "h-full",
           )}

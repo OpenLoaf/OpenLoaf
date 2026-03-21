@@ -95,7 +95,7 @@ export function EmailMessageList({
       <div className={cn("relative border-b px-3 py-2.5", EMAIL_DIVIDER_CLASS)}>
         {messageList.isRefreshing ? (
           <div className="absolute left-0 right-0 top-0 z-10 h-0.5 overflow-hidden bg-muted">
-            <div className="h-full w-1/3 animate-[shimmer_1.5s_ease-in-out_infinite] bg-ol-blue" />
+            <div className="h-full w-1/3 animate-[shimmer_1.5s_ease-in-out_infinite] bg-foreground" />
           </div>
         ) : null}
         <div className="flex items-center gap-1">
@@ -111,7 +111,7 @@ export function EmailMessageList({
 
           {hasSelection ? (
             <>
-              <span className="ml-1 text-xs text-ol-text-auxiliary">
+              <span className="ml-1 text-xs text-muted-foreground">
                 {t('email.selectedCount', { count: selectedIds.size })}
               </span>
               <Button
@@ -122,7 +122,7 @@ export function EmailMessageList({
                 disabled={messageList.batchActionPending}
                 title={t('email.archive')}
                 className={cn(
-                  "h-8 w-8 rounded-md text-ol-amber transition-colors duration-150",
+                  "h-8 w-8 rounded-3xl text-muted-foreground transition-colors duration-150",
                   "hover:bg-muted/58 dark:hover:bg-muted/46",
                 )}
               >
@@ -136,7 +136,7 @@ export function EmailMessageList({
                 disabled={messageList.batchActionPending}
                 title={t('delete')}
                 className={cn(
-                  "h-8 w-8 rounded-md text-ol-red transition-colors duration-150",
+                  "h-8 w-8 rounded-3xl text-destructive transition-colors duration-150",
                   "hover:bg-muted/58 dark:hover:bg-muted/46",
                 )}
               >
@@ -150,7 +150,7 @@ export function EmailMessageList({
                     size="icon"
                     disabled={messageList.batchActionPending}
                     className={cn(
-                      "h-8 w-8 rounded-md text-ol-purple transition-colors duration-150",
+                      "h-8 w-8 rounded-3xl text-muted-foreground transition-colors duration-150",
                       "hover:bg-muted/58 dark:hover:bg-muted/46",
                     )}
                   >
@@ -173,7 +173,7 @@ export function EmailMessageList({
                 size="icon"
                 disabled
                 className={cn(
-                  "h-8 w-8 rounded-md text-ol-amber transition-colors duration-150",
+                  "h-8 w-8 rounded-3xl text-muted-foreground transition-colors duration-150",
                   "hover:bg-muted/58 dark:hover:bg-muted/46",
                 )}
               >
@@ -187,7 +187,7 @@ export function EmailMessageList({
                 disabled={messageList.isRefreshing}
                 title={t('refresh')}
                 className={cn(
-                  "h-8 w-8 rounded-md text-ol-green transition-colors duration-150",
+                  "h-8 w-8 rounded-3xl text-muted-foreground transition-colors duration-150",
                   "hover:bg-muted/58 dark:hover:bg-muted/46",
                 )}
               >
@@ -199,7 +199,7 @@ export function EmailMessageList({
                 size="icon"
                 disabled
                 className={cn(
-                  "h-8 w-8 rounded-md text-ol-purple transition-colors duration-150",
+                  "h-8 w-8 rounded-3xl text-muted-foreground transition-colors duration-150",
                   "hover:bg-muted/58 dark:hover:bg-muted/46",
                 )}
               >
@@ -208,7 +208,7 @@ export function EmailMessageList({
             </>
           )}
 
-          <div className="ml-auto flex items-center gap-1 text-xs text-ol-text-auxiliary">
+          <div className="ml-auto flex items-center gap-1 text-xs text-muted-foreground">
             <Button
               type="button"
               variant="ghost"
@@ -216,7 +216,7 @@ export function EmailMessageList({
               onClick={handleCycleDensity}
               title={t('email.densityLabel', { label: densityLabels[messageList.density] })}
               className={cn(
-                "h-7 w-7 rounded-md text-ol-text-auxiliary transition-colors duration-150",
+                "h-7 w-7 rounded-3xl text-muted-foreground transition-colors duration-150",
                 "hover:bg-muted/58",
               )}
             >
@@ -228,15 +228,15 @@ export function EmailMessageList({
           </div>
         </div>
         <div className="mt-2 relative">
-          <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-ol-text-auxiliary" />
+          <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
           <Input
             value={messageList.searchKeyword}
             onChange={(event) => messageList.setSearchKeyword(event.target.value)}
             placeholder={t('email.searchPlaceholder')}
-            className={cn("h-9 rounded-md pl-9 text-xs", EMAIL_FLAT_INPUT_CLASS)}
+            className={cn("h-9 rounded-3xl pl-9 text-xs", EMAIL_FLAT_INPUT_CLASS)}
           />
           {messageList.isSearching ? (
-            <Loader2 className="absolute right-3 top-2.5 h-3.5 w-3.5 animate-spin text-ol-text-auxiliary" />
+            <Loader2 className="absolute right-3 top-2.5 h-3.5 w-3.5 animate-spin text-muted-foreground" />
           ) : null}
         </div>
       </div>
@@ -282,7 +282,7 @@ export function EmailMessageList({
                     EMAIL_DENSITY_ROW_HEIGHT[messageList.density],
                     EMAIL_DIVIDER_CLASS,
                     isSelected
-                      ? "bg-ol-blue-bg"
+                      ? "bg-secondary"
                       : isActive
                         ? EMAIL_TONE_ACTIVE_CLASS
                         : cn(
@@ -315,11 +315,11 @@ export function EmailMessageList({
                         className="h-3.5 w-3.5 pointer-events-none"
                       />
                     </div>
-                    <Star className="h-3.5 w-3.5 shrink-0 text-ol-amber" />
+                    <Star className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                     <span
                       className={cn(
                         "h-2 w-2 rounded-full",
-                        mail.unread ? "bg-ol-blue" : "bg-transparent",
+                        mail.unread ? "bg-foreground" : "bg-transparent",
                       )}
                     />
                   </div>
@@ -328,33 +328,33 @@ export function EmailMessageList({
                       "truncate",
                       EMAIL_DENSITY_TEXT_SIZE[messageList.density],
                       mail.unread
-                        ? "font-semibold text-ol-text-primary"
-                        : "font-medium text-ol-text-secondary",
+                        ? "font-semibold text-foreground"
+                        : "font-medium text-muted-foreground",
                     )}
                   >
                     {mail.from}
                   </div>
-                  <div className={cn("min-w-0 truncate text-ol-text-auxiliary", EMAIL_DENSITY_TEXT_SIZE[messageList.density])}>
+                  <div className={cn("min-w-0 truncate text-muted-foreground", EMAIL_DENSITY_TEXT_SIZE[messageList.density])}>
                     <span
                       className={cn(
                         mail.unread
-                          ? "font-semibold text-ol-text-primary"
-                          : "text-ol-text-secondary",
+                          ? "font-semibold text-foreground"
+                          : "text-muted-foreground",
                       )}
                     >
                       {mail.subject || t('email.noSubject')}
                     </span>
-                    <span className="text-ol-text-auxiliary">
+                    <span className="text-muted-foreground">
                       {" "}
                       - {mail.preview || t('email.noPreview')}
                     </span>
                     {mail.hasAttachments ? (
-                      <span className="ml-2 inline-flex items-center text-ol-purple">
+                      <span className="ml-2 inline-flex items-center text-muted-foreground">
                         <Paperclip className="h-3 w-3" />
                       </span>
                     ) : null}
                     {mail.isPrivate ? (
-                      <span className="ml-2 inline-flex items-center text-ol-green">
+                      <span className="ml-2 inline-flex items-center text-muted-foreground">
                         <Lock className="h-3 w-3" />
                       </span>
                     ) : null}
@@ -363,8 +363,8 @@ export function EmailMessageList({
                     className={cn(
                       "truncate text-right text-xs",
                       mail.unread
-                        ? "font-semibold text-ol-text-primary"
-                        : "text-ol-text-auxiliary",
+                        ? "font-semibold text-foreground"
+                        : "text-muted-foreground",
                     )}
                   >
                     {rowTime}

@@ -32,7 +32,7 @@ export const DayNumber: React.FC<DayNumberProps> = ({
 		<div
 			className={cn(
 				'flex h-5 w-5 sm:h-6 sm:w-6 items-center justify-center rounded-full text-xs shrink-0',
-				isToday && 'bg-ol-blue text-white font-medium',
+				isToday && 'bg-foreground text-background font-medium',
 				className
 			)}
 			data-testid={

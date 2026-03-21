@@ -36,7 +36,7 @@ import {
   resolveBoardFolderScope,
   resolveProjectPathFromBoardUri,
 } from "../core/boardFilePath";
-import { getPreviewEndpoint } from "@/lib/image/uri";
+import { getBoardPreviewEndpoint, getPreviewEndpoint } from "@/lib/image/uri";
 import { resolveServerUrl } from "@/utils/server-url";
 import { NodeFrame } from "./NodeFrame";
 import { createPortal } from "react-dom";
@@ -46,14 +46,13 @@ import { useUpstreamData } from "../hooks/useUpstreamData";
 import { usePanelOverlay } from "../render/pixi/PixiApplication";
 import { deriveNode } from "../utils/derive-node";
 import { submitVideoGenerate } from "../services/video-generate";
-import { BOARD_ASSETS_DIR_NAME } from "@/lib/file-name";
 import { saveBoardAssetFile } from "../utils/board-asset";
 import {
   createInputSnapshot,
   createGeneratingEntry,
   pushVersion,
   markVersionReady,
-  markVersionFailed,
+  removeFailedEntry,
   getPrimaryEntry,
   getGeneratingEntry,
   switchPrimary,
@@ -101,6 +100,30 @@ function resolveProjectRelativePath(path: string, fileContext?: BoardFileContext
   });
 }
 
+/** Resolve an image uri (from upstream nodes) into a browser-friendly source. */
+function resolveImageSource(uri: string, fileContext?: BoardFileContext) {
+  if (!uri) return '';
+  if (
+    uri.startsWith('data:') ||
+    uri.startsWith('blob:') ||
+    uri.startsWith('http://') ||
+    uri.startsWith('https://')
+  ) {
+    return uri;
+  }
+  if (fileContext?.boardId && isBoardRelativePath(uri)) {
+    return getBoardPreviewEndpoint(uri, {
+      boardId: fileContext.boardId,
+      projectId: fileContext.projectId,
+    });
+  }
+  const projectPath = resolveProjectRelativePath(uri, fileContext);
+  if (!projectPath) return '';
+  return getPreviewEndpoint(projectPath, {
+    projectId: fileContext?.projectId,
+  });
+}
+
 /** Open video in the file preview dialog (same as double-click). */
 async function openVideoPreview(props: VideoNodeProps, fileContext?: BoardFileContext) {
   const boardId = isBoardRelativePath(props.sourcePath) ? (fileContext?.boardId ?? "") : "";
@@ -139,16 +162,24 @@ async function openVideoPreview(props: VideoNodeProps, fileContext?: BoardFileCo
 async function downloadVideo(props: VideoNodeProps, fileContext?: BoardFileContext) {
   const sourcePath = (props.sourcePath ?? "").trim();
   if (!sourcePath) return;
-  const scope = resolveBoardFolderScope(fileContext);
-  const projectPath = resolveProjectPathFromBoardUri({
-    uri: sourcePath,
-    boardFolderScope: scope,
-    currentProjectId: fileContext?.projectId,
-    rootUri: fileContext?.rootUri,
-  });
-  const href = projectPath
-    ? getPreviewEndpoint(projectPath, { projectId: fileContext?.projectId })
-    : sourcePath;
+  let href = sourcePath;
+  if (fileContext?.boardId && isBoardRelativePath(sourcePath)) {
+    href = getBoardPreviewEndpoint(sourcePath, {
+      boardId: fileContext.boardId,
+      projectId: fileContext.projectId,
+    });
+  } else {
+    const scope = resolveBoardFolderScope(fileContext);
+    const projectPath = resolveProjectPathFromBoardUri({
+      uri: sourcePath,
+      boardFolderScope: scope,
+      currentProjectId: fileContext?.projectId,
+      rootUri: fileContext?.rootUri,
+    });
+    href = projectPath
+      ? getPreviewEndpoint(projectPath, { projectId: fileContext?.projectId })
+      : sourcePath;
+  }
   if (!href) return;
   const fileName = props.fileName || sourcePath.split("/").pop() || "video.mp4";
   const saveFile = window.openloafElectron?.saveFile;
@@ -642,33 +673,29 @@ export function VideoNodeView({
   const generatingEntry = getGeneratingEntry(element.props.versionStack)
 
   // 逻辑：有生成记录时使用冻结的上游数据，版本切换时自动跟随。
+  // 上游图片 URL 需要通过 resolveImageSource 解析为浏览器可访问的端点。
   const effectiveUpstream = useMemo(() => {
+    const resolveImages = (srcs: string[] | undefined) =>
+      srcs?.map(src => resolveImageSource(src, fileContext)).filter(Boolean) as string[] | undefined;
+
     const refs = primaryEntry?.input?.upstreamRefs;
     if (primaryEntry?.status === 'ready' && refs && refs.length > 0) {
       return {
         text: refs.filter(r => r.nodeType === 'text').map(r => r.data).join('\n') || undefined,
-        images: refs.filter(r => r.nodeType === 'image').map(r => r.data),
+        images: resolveImages(refs.filter(r => r.nodeType === 'image').map(r => r.data)),
       };
     }
     return {
       text: upstream?.textList.join('\n') || undefined,
-      images: upstream?.imageList,
+      images: resolveImages(upstream?.imageList),
     };
-  }, [primaryEntry, upstream]);
-
-  const saveDir = useMemo(
-    () =>
-      fileContext?.boardFolderUri
-        ? `${fileContext.boardFolderUri}/${BOARD_ASSETS_DIR_NAME}`
-        : undefined,
-    [fileContext?.boardFolderUri],
-  )
+  }, [primaryEntry, upstream, fileContext]);
 
   const pollingResult = useMediaTaskPolling({
     taskId: generatingEntry?.taskId,
     taskType: 'video_generate',
     projectId: fileContext?.projectId,
-    saveDir,
+    boardId: fileContext?.boardId,
     enabled: !!generatingEntry,
     onSuccess: useCallback(
       (resultUrls: string[]) => {
@@ -729,22 +756,51 @@ export function VideoNodeView({
         if (!generatingEntry) return
         const stack = element.props.versionStack
         if (!stack) return
-        onUpdate({
-          versionStack: markVersionFailed(stack, generatingEntry.id, {
-            code: 'GENERATE_FAILED',
-            message: error,
-          }),
-        })
+        const { stack: newStack, removed } = removeFailedEntry(stack, generatingEntry.id)
+        if (removed?.input) {
+          const isCancelled = error.toLowerCase().includes('cancel')
+          setLastFailure({
+            input: removed.input,
+            error: { code: isCancelled ? 'CANCELLED' : 'GENERATE_FAILED', message: error },
+          })
+          setDismissedFailure(false)
+        }
+        onUpdate({ versionStack: newStack })
       },
       [generatingEntry, element.props.versionStack, onUpdate],
     ),
   })
+
+  /** Last failure info — stored transiently after removing the failed entry from the version stack. */
+  const [lastFailure, setLastFailure] = useState<{
+    input: import('../engine/types').InputSnapshot
+    error: { code: string; message: string }
+  } | null>(null)
+
+  // 逻辑：primaryEntry 变为 failed 时，提取到 lastFailure 并清理 stack。
+  useEffect(() => {
+    const pe = getPrimaryEntry(element.props.versionStack)
+    if (pe?.status === 'failed' && pe.input && pe.error) {
+      setLastFailure({ input: pe.input, error: { code: pe.error.code, message: pe.error.message } })
+      setDismissedFailure(false)
+      const { stack: cleaned } = removeFailedEntry(element.props.versionStack!, pe.id)
+      onUpdate({ versionStack: cleaned })
+    }
+  }, [element.props.versionStack, onUpdate])
 
   const handleGenerate = useCallback(
     async (params: VideoGenerateParams) => {
       try {
         const result = await submitVideoGenerate(
           {
+            // v3 fields
+            feature: params.feature,
+            variant: params.variant,
+            inputs: params.inputs,
+            params: params.params,
+            count: params.count,
+            seed: params.seed,
+            // legacy fields (backward compat)
             prompt: params.prompt,
             aspectRatio: params.aspectRatio,
             duration: params.duration,
@@ -754,12 +810,10 @@ export function VideoNodeView({
             referenceImageSrcs: params.referenceImageSrcs,
             withAudio: params.withAudio,
             quality: params.quality,
-            count: params.count,
-            seed: params.seed,
           },
           {
             projectId: fileContext?.projectId,
-            saveDir,
+            boardId: fileContext?.boardId,
             sourceNodeId: element.id,
           },
         )
@@ -768,6 +822,9 @@ export function VideoNodeView({
           prompt: params.prompt,
           parameters: {
             feature: params.feature,
+            variant: params.variant,
+            inputs: params.inputs,
+            params: params.params,
             mode: params.mode,
             aspectRatio: params.aspectRatio,
             duration: params.duration,
@@ -786,24 +843,41 @@ export function VideoNodeView({
         })
       } catch (err) {
         console.error('[VideoNode] submitVideoGenerate failed:', err)
-        onUpdate({
-          aiConfig: {
-            ...(element.props.aiConfig ?? { prompt: params.prompt }),
-            feature: params.feature,
-            taskId: undefined,
-          },
+        const inputSnapshot = createInputSnapshot({
+          prompt: params.prompt,
+          parameters: { feature: params.feature, variant: params.variant, inputs: params.inputs, params: params.params, aspectRatio: params.aspectRatio, quality: params.quality },
+        })
+        const raw = err instanceof Error ? err.message.toLowerCase() : ''
+        let msgKey = 'board:polling.errorGeneric'
+        if (raw.includes('insufficient') || raw.includes('balance') || raw.includes('credit') || raw.includes('quota') || raw.includes('402')) {
+          msgKey = 'board:polling.errorInsufficientBalance'
+        } else if (raw.includes('network') || raw.includes('fetch') || raw.includes('econnrefused')) {
+          msgKey = 'board:polling.errorNetwork'
+        } else if (raw.includes('401') || raw.includes('403') || raw.includes('unauthorized') || raw.includes('access denied')) {
+          msgKey = 'board:polling.errorAuth'
+        } else if (raw.includes('429') || raw.includes('rate') || raw.includes('too many')) {
+          msgKey = 'board:polling.errorRateLimit'
+        } else if (raw.includes('500') || raw.includes('502') || raw.includes('503')) {
+          msgKey = 'board:polling.errorServer'
+        }
+        setLastFailure({
+          input: inputSnapshot,
+          error: { code: 'SUBMIT_FAILED', message: i18next.t(msgKey, { defaultValue: '生成失败，请重试' }) },
         })
       }
     },
-    [element.id, element.props.versionStack, element.props.aiConfig, fileContext?.projectId, saveDir, onUpdate],
+    [element.id, element.props.versionStack, element.props.aiConfig, fileContext?.projectId, fileContext?.boardId, onUpdate],
   )
 
   /** Retry generation using the failed entry's input snapshot. */
   const handleRetry = useCallback(() => {
-    if (!primaryEntry?.input) return
-    const input = primaryEntry.input
+    if (!lastFailure?.input) return
+    const input = lastFailure.input
     const params: VideoGenerateParams = {
       feature: (input.parameters?.feature as VideoGenerateParams['feature']) ?? 'videoGenerate',
+      variant: input.parameters?.variant as string | undefined,
+      inputs: input.parameters?.inputs as Record<string, unknown> | undefined,
+      params: input.parameters?.params as Record<string, unknown> | undefined,
       mode: (input.parameters?.mode as VideoGenerateParams['mode']) ?? 'text',
       prompt: input.prompt,
       aspectRatio: (input.parameters?.aspectRatio as string) ?? '16:9',
@@ -812,13 +886,14 @@ export function VideoNodeView({
       withAudio: input.parameters?.withAudio as boolean | undefined,
     }
     handleGenerate(params)
-  }, [primaryEntry, handleGenerate])
+  }, [lastFailure, handleGenerate])
 
   /** Generate into a new derived video node with the same params. */
   const handleGenerateNewNode = useCallback(
     async (params: VideoGenerateParams) => {
+      let newNodeId: string | null = null
       try {
-        const newNodeId = deriveNode({
+        newNodeId = deriveNode({
           engine,
           sourceNodeId: element.id,
           targetType: 'video',
@@ -826,8 +901,38 @@ export function VideoNodeView({
         })
         if (!newNodeId) return
 
+        // 逻辑：先写入 generating 状态，让新节点立即显示 loading。
+        const snapshot = createInputSnapshot({
+          prompt: params.prompt,
+          parameters: {
+            feature: params.feature,
+            variant: params.variant,
+            inputs: params.inputs,
+            params: params.params,
+            mode: params.mode,
+            aspectRatio: params.aspectRatio,
+            duration: params.duration,
+            quality: params.quality,
+            withAudio: params.withAudio,
+          },
+        })
+        const pendingEntry = createGeneratingEntry(snapshot, '')
+        engine.doc.updateNodeProps(newNodeId, {
+          versionStack: pushVersion(undefined, pendingEntry),
+          origin: 'ai-generate',
+          aiConfig: { feature: params.feature, prompt: params.prompt ?? '' },
+        })
+
         const result = await submitVideoGenerate(
           {
+            // v3 fields
+            feature: params.feature,
+            variant: params.variant,
+            inputs: params.inputs,
+            params: params.params,
+            count: params.count,
+            seed: params.seed,
+            // legacy fields (backward compat)
             prompt: params.prompt,
             aspectRatio: params.aspectRatio,
             duration: params.duration,
@@ -837,43 +942,53 @@ export function VideoNodeView({
             referenceImageSrcs: params.referenceImageSrcs,
             withAudio: params.withAudio,
             quality: params.quality,
-            count: params.count,
-            seed: params.seed,
           },
           {
             projectId: fileContext?.projectId,
-            saveDir,
+            boardId: fileContext?.boardId,
             sourceNodeId: newNodeId,
           },
         )
 
-        const snapshot = createInputSnapshot({
-          prompt: params.prompt,
-          parameters: {
-            feature: params.feature,
-            mode: params.mode,
-            aspectRatio: params.aspectRatio,
-            duration: params.duration,
-            quality: params.quality,
-            withAudio: params.withAudio,
-          },
-        })
-        const entry = createGeneratingEntry(snapshot, result.taskId)
+        // 逻辑：API 返回后补上 taskId。
         engine.doc.updateNodeProps(newNodeId, {
-          versionStack: pushVersion(undefined, entry),
-          origin: 'ai-generate',
+          versionStack: {
+            entries: [{ ...pendingEntry, taskId: result.taskId }],
+            primaryId: pendingEntry.id,
+          },
         })
       } catch (err) {
         console.error('[VideoNode] new node generation failed:', err)
+        if (newNodeId) {
+          const raw = err instanceof Error ? err.message.toLowerCase() : ''
+          let msgKey = 'board:polling.errorGeneric'
+          if (raw.includes('insufficient') || raw.includes('balance') || raw.includes('credit') || raw.includes('402')) {
+            msgKey = 'board:polling.errorInsufficientBalance'
+          } else if (raw.includes('401') || raw.includes('403') || raw.includes('unauthorized') || raw.includes('access denied')) {
+            msgKey = 'board:polling.errorAuth'
+          } else if (raw.includes('500') || raw.includes('502') || raw.includes('503')) {
+            msgKey = 'board:polling.errorServer'
+          }
+          const msg = i18next.t(msgKey, { defaultValue: '生成失败，请重试' })
+          const snapshot = createInputSnapshot({ prompt: params.prompt, parameters: { feature: params.feature, variant: params.variant, inputs: params.inputs, params: params.params } })
+          const failedEntry: import('../engine/types').VersionStackEntry = {
+            id: `fail-${Date.now()}`, status: 'failed', input: snapshot, createdAt: Date.now(),
+            error: { code: 'SUBMIT_FAILED', message: msg },
+          }
+          engine.doc.updateNodeProps(newNodeId, {
+            versionStack: pushVersion(undefined, failedEntry),
+            aiConfig: { feature: params.feature, prompt: params.prompt ?? '' },
+          })
+        }
       }
     },
-    [engine, element.id, fileContext?.projectId, saveDir],
+    [engine, element.id, fileContext?.projectId, fileContext?.boardId],
   )
 
   const isGenerating = primaryEntry?.status === 'generating'
-  const isFailed = primaryEntry?.status === 'failed'
   const isReadyFromAi = primaryEntry?.status === 'ready' && element.props.origin === 'ai-generate'
   const [dismissedFailure, setDismissedFailure] = useState(false)
+  const isFailed = lastFailure !== null
 
   /**
    * Editing override — check module-level editingUnlockedIds set.
@@ -895,8 +1010,12 @@ export function VideoNodeView({
   }, [isGenerating, expanded]);
   // 逻辑：新的失败状态出现时重置 dismiss。
   useEffect(() => {
-    if (isFailed) setDismissedFailure(false);
-  }, [primaryEntry?.id]);
+    if (lastFailure) setDismissedFailure(false);
+  }, [lastFailure]);
+  // 逻辑：生成开始后清除上次失败状态。
+  useEffect(() => {
+    if (isGenerating) setLastFailure(null);
+  }, [isGenerating]);
 
   /** Switch the version stack primary entry and update the node source. */
   const handleSwitchPrimary = useCallback(
@@ -923,7 +1042,7 @@ export function VideoNodeView({
       />
       <div
         className={[
-          "relative flex h-full w-full items-center justify-center rounded-lg border box-border",
+          "relative flex h-full w-full items-center justify-center rounded-3xl border box-border",
           "border-ol-divider bg-background text-ol-text-primary",
           "",
         ].join(" ")}
@@ -950,14 +1069,18 @@ export function VideoNodeView({
           />
         )}
 
-        {/* Failed overlay */}
-        {isFailed && !dismissedFailure && (
-          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-background/75 backdrop-blur-sm p-4 rounded-lg">
+        {/* Failed / Cancelled overlay */}
+        {isFailed && !dismissedFailure && (() => {
+          const isCancelled = lastFailure?.error?.code === 'CANCELLED'
+          return (
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-background/75 backdrop-blur-sm p-4 rounded-3xl">
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/[0.06]">
               <X className="h-4 w-4 text-ol-text-auxiliary" />
             </div>
             <span className="text-xs text-center text-ol-text-auxiliary font-medium">
-              {primaryEntry.error?.message || i18next.t('board:videoNode.generateFailed', { defaultValue: 'Generation failed' })}
+              {isCancelled
+                ? i18next.t('board:videoNode.cancelled', { defaultValue: '已取消' })
+                : (lastFailure?.error?.message || i18next.t('board:videoNode.generateFailed', { defaultValue: 'Generation failed' }))}
             </span>
             <div className="flex items-center gap-2">
               <button
@@ -969,7 +1092,9 @@ export function VideoNodeView({
                 className="flex items-center gap-1 rounded-full px-3 py-1 text-[11px] bg-white/[0.08] text-ol-text-secondary hover:bg-white/[0.12] transition-colors duration-150"
               >
                 <RefreshCw className="h-3 w-3" />
-                {i18next.t('board:videoNode.retry', { defaultValue: 'Retry' })}
+                {isCancelled
+                  ? i18next.t('board:videoNode.resend', { defaultValue: '重新发送' })
+                  : i18next.t('board:videoNode.retry', { defaultValue: 'Retry' })}
               </button>
               {posterSrc && (
                 <button
@@ -985,11 +1110,12 @@ export function VideoNodeView({
               )}
             </div>
           </div>
-        )}
+          )
+        })()}
 
         {playing ? (
           <div
-            className="group relative h-full w-full overflow-hidden rounded-lg bg-black"
+            className="group relative h-full w-full overflow-hidden rounded-3xl bg-black"
             data-board-scroll
             data-board-editor="true"
             onPointerDown={(e) => e.stopPropagation()}
@@ -1011,7 +1137,7 @@ export function VideoNodeView({
                   <button
                     type="button"
                     data-board-controls
-                    className="flex h-[12%] min-h-5 aspect-square cursor-pointer items-center justify-center rounded-md border border-white/40 bg-black/40 text-white transition-transform duration-200 ease-out hover:scale-125"
+                    className="flex h-[12%] min-h-5 aspect-square cursor-pointer items-center justify-center rounded-3xl border border-white/40 bg-black/40 text-white transition-transform duration-200 ease-out hover:scale-125"
                     onPointerDown={(e) => {
                       e.stopPropagation();
                       handleStop();
@@ -1031,7 +1157,7 @@ export function VideoNodeView({
             )}
           </div>
         ) : posterSrc ? (
-          <div className="relative h-full w-full overflow-hidden rounded-lg">
+          <div className="relative h-full w-full overflow-hidden rounded-3xl">
             <img
               src={posterSrc}
               alt={displayName}
@@ -1044,7 +1170,7 @@ export function VideoNodeView({
               <button
                 type="button"
                 data-board-controls
-                className="flex h-[12%] min-h-5 aspect-square cursor-pointer items-center justify-center rounded-md border border-white/40 bg-black/40 text-white transition-transform duration-200 ease-out hover:scale-125"
+                className="flex h-[12%] min-h-5 aspect-square cursor-pointer items-center justify-center rounded-3xl border border-white/40 bg-black/40 text-white transition-transform duration-200 ease-out hover:scale-125"
                 onPointerDown={(e) => {
                   e.stopPropagation();
                   handlePlayInline();
@@ -1058,7 +1184,7 @@ export function VideoNodeView({
             </div>
           </div>
         ) : !element.props.sourcePath?.trim() ? (
-          <div className="flex h-full w-full items-center justify-center rounded-lg border border-dashed border-ol-divider bg-ol-surface-muted">
+          <div className="flex h-full w-full items-center justify-center rounded-3xl border border-dashed border-ol-divider bg-ol-surface-muted">
             <div className="flex flex-col items-center gap-2 text-muted-foreground/40 px-4">
               <Video size={36} strokeWidth={1.2} />
               <span className="text-xs text-center leading-relaxed whitespace-pre-line">
@@ -1075,7 +1201,7 @@ export function VideoNodeView({
               <button
                 type="button"
                 data-board-controls
-                className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-md bg-ol-surface-muted text-ol-text-auxiliary transition-transform duration-200 ease-out hover:scale-125"
+                className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-3xl bg-ol-surface-muted text-ol-text-auxiliary transition-transform duration-200 ease-out hover:scale-125"
                 onPointerDown={(e) => {
                   e.stopPropagation();
                   handlePlayInline();
@@ -1115,6 +1241,7 @@ export function VideoNodeView({
             readonly={(isReadyFromAi || !!generatingEntry) && !editingOverride}
             editing={editingOverride}
             onUnlock={() => setEditingOverride(true)}
+            onCancelEdit={() => setEditingOverride(false)}
           />
         </div>,
         panelOverlay,

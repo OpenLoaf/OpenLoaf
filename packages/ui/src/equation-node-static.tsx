@@ -42,7 +42,7 @@ export function EquationElementStatic(
     <SlateElement className="my-1" {...props}>
       <div
         className={cn(
-          'group flex select-none items-center justify-center rounded-sm hover:bg-primary/10 data-[selected=true]:bg-primary/10',
+          'group flex select-none items-center justify-center rounded-3xl hover:bg-primary/10 data-[selected=true]:bg-primary/10',
           element.texExpression.length === 0 ? 'bg-muted p-3 pr-9' : 'px-2 py-1'
         )}
       >
@@ -85,11 +85,11 @@ export function InlineEquationElementStatic(
   return (
     <SlateElement
       {...props}
-      className="inline-block select-none rounded-sm [&_.katex-display]:my-0"
+      className="inline-block select-none rounded-3xl [&_.katex-display]:my-0"
     >
       <div
         className={cn(
-          'after:-top-0.5 after:-left-1 after:absolute after:inset-0 after:z-1 after:h-[calc(100%)+4px] after:w-[calc(100%+8px)] after:rounded-sm after:content-[""]',
+          'after:-top-0.5 after:-left-1 after:absolute after:inset-0 after:z-1 after:h-[calc(100%)+4px] after:w-[calc(100%+8px)] after:rounded-3xl after:content-[""]',
           'h-6',
           props.element.texExpression.length === 0 &&
             'text-muted-foreground after:bg-neutral-500/10'

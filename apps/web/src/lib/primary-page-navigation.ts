@@ -81,12 +81,8 @@ export function resolvePreviousViewSnapshot(base?: DockItem): PreviousViewSnapsh
   return cloneSerializable(rawSnapshot as PreviousViewSnapshot);
 }
 
-/** Restore the previous captured view from the current base panel. */
-export function restorePreviousViewFromBase(base?: DockItem) {
-  const snapshot = resolvePreviousViewSnapshot(base ?? useLayoutState.getState().base);
-  if (!snapshot) return false;
-
-  // 中文注释：返回时一次性恢复完整视图快照，避免标题、项目上下文、聊天上下文出现“只恢复一半”的状态漂移。
+/** Restore a view snapshot directly (used by section navigation and back-button). */
+export function restoreViewSnapshot(snapshot: PreviousViewSnapshot) {
   useAppView.setState({
     chatSessionId: snapshot.chatSessionId,
     chatParams: snapshot.chatParams,
@@ -97,6 +93,13 @@ export function restorePreviousViewFromBase(base?: DockItem) {
     initialized: true,
   });
   useLayoutState.getState().restoreLayout(snapshot.layout);
+}
+
+/** Restore the previous captured view from the current base panel. */
+export function restorePreviousViewFromBase(base?: DockItem) {
+  const snapshot = resolvePreviousViewSnapshot(base ?? useLayoutState.getState().base);
+  if (!snapshot) return false;
+  restoreViewSnapshot(snapshot);
   return true;
 }
 

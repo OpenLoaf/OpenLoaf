@@ -169,8 +169,8 @@ export default function DesktopTileContent({
         }>
           <div className={
             isWide
-              ? "flex size-8 shrink-0 items-center justify-center rounded-xl text-foreground transition-transform duration-200 ease-out group-hover:scale-110"
-              : "flex size-10 items-center justify-center rounded-2xl text-foreground transition-transform duration-200 ease-out group-hover:-translate-y-1 group-hover:rotate-3 group-hover:scale-110"
+              ? "flex size-8 shrink-0 items-center justify-center rounded-3xl text-foreground transition-transform duration-200 ease-out group-hover:scale-110"
+              : "flex size-10 items-center justify-center rounded-3xl text-foreground transition-transform duration-200 ease-out group-hover:-translate-y-1 group-hover:rotate-3 group-hover:scale-110"
           }>
             {item.icon}
           </div>

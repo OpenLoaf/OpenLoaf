@@ -146,7 +146,7 @@ const BottomBar = memo(function BottomBar({
     >
       <div
         className={cn(
-          "pointer-events-auto flex h-11 items-center gap-1 rounded-xl px-2",
+          "pointer-events-auto flex h-11 items-center gap-1 rounded-3xl px-2",
           toolbarSurfaceClassName,
         )}
       >

@@ -31,12 +31,12 @@ export function ProviderSelectStep({
               key={provider.id}
               onClick={() => onSelectProvider(provider.id)}
               className={cn(
-                'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 transition-colors',
+                'flex w-full items-center gap-3 rounded-3xl px-3 py-2.5 transition-colors',
                 'hover:bg-muted/60',
                 isCustom && 'mt-2 border-t border-border/50 pt-3',
               )}
             >
-              <span className="flex size-8 items-center justify-center rounded-lg bg-muted/50">
+              <span className="flex size-8 items-center justify-center rounded-3xl bg-muted/50">
                 <Icon className="size-4" />
               </span>
               <span className="flex-1 text-left text-sm font-medium text-foreground/90">

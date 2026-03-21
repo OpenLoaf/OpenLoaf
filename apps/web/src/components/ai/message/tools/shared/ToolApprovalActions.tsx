@@ -219,7 +219,7 @@ export default function ToolApprovalActions({ approvalId, size = "sm" }: ToolApp
         variant="default"
         className={
           isLarge
-            ? "h-8 rounded-md px-3 text-xs bg-ol-green text-white hover:bg-ol-green-bg-hover border-0"
+            ? "h-8 rounded-3xl px-3 text-xs bg-foreground text-background hover:bg-foreground/90 border-0"
             : "h-6 px-2 text-[10px]"
         }
         disabled={disabled}
@@ -233,7 +233,7 @@ export default function ToolApprovalActions({ approvalId, size = "sm" }: ToolApp
         variant={isLarge ? "ghost" : "outline"}
         className={
           isLarge
-            ? "h-8 rounded-md px-3 text-xs text-muted-foreground hover:text-foreground"
+            ? "h-8 rounded-3xl px-3 text-xs text-muted-foreground hover:text-foreground"
             : "h-6 px-2 text-[10px]"
         }
         disabled={disabled}

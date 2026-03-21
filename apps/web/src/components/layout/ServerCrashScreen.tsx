@@ -123,7 +123,7 @@ export function ServerCrashScreen({ crashInfo }: { crashInfo: CrashInfo }) {
   return (
     <div className="grid h-svh place-items-center bg-background">
       <div className="flex max-w-lg flex-col items-center gap-5 px-6 text-center">
-        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10">
+        <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-destructive/10">
           <AlertTriangle className="h-8 w-8 text-destructive" />
         </div>
 
@@ -144,7 +144,7 @@ export function ServerCrashScreen({ crashInfo }: { crashInfo: CrashInfo }) {
             <summary className="cursor-pointer text-xs font-medium text-muted-foreground">
               {t("crashScreen.errorDetails")}
             </summary>
-            <pre className="mt-2 max-h-48 overflow-auto rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
+            <pre className="mt-2 max-h-48 overflow-auto rounded-3xl bg-muted/50 p-3 text-xs text-muted-foreground">
               {crashInfo.error}
             </pre>
           </details>
@@ -155,7 +155,7 @@ export function ServerCrashScreen({ crashInfo }: { crashInfo: CrashInfo }) {
             type="button"
             onClick={handleSubmitFeedback}
             disabled={submitting}
-            className="inline-flex items-center gap-2 rounded-md bg-muted px-4 py-2 text-sm font-medium text-foreground transition-colors duration-150 hover:bg-muted/80 disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-3xl bg-muted px-4 py-2 text-sm font-medium text-foreground transition-colors duration-150 hover:bg-muted/80 disabled:opacity-50"
           >
             <Send className="h-4 w-4" />
             {submitting
@@ -167,7 +167,7 @@ export function ServerCrashScreen({ crashInfo }: { crashInfo: CrashInfo }) {
               type="button"
               onClick={handleDownloadLatest}
               disabled={downloadingUrl}
-              className="inline-flex items-center gap-2 rounded-md bg-muted px-4 py-2 text-sm font-medium text-foreground transition-colors duration-150 hover:bg-muted/80 disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-3xl bg-muted px-4 py-2 text-sm font-medium text-foreground transition-colors duration-150 hover:bg-muted/80 disabled:opacity-50"
             >
               <Download className="h-4 w-4" />
               {downloadingUrl
@@ -178,7 +178,7 @@ export function ServerCrashScreen({ crashInfo }: { crashInfo: CrashInfo }) {
           <button
             type="button"
             onClick={handleRestart}
-            className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors duration-150 hover:bg-primary/90"
+            className="inline-flex items-center gap-2 rounded-3xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors duration-150 hover:bg-primary/90"
           >
             <RefreshCw className="h-4 w-4" />
             {t("crashScreen.restart")}

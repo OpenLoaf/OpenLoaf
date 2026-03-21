@@ -42,7 +42,7 @@ export function UpscalePanel({
   }
 
   return (
-    <div className="flex w-[360px] flex-col gap-3 rounded-xl border border-border bg-card p-4 shadow-lg">
+    <div className="flex w-[360px] flex-col gap-3 rounded-3xl border border-border bg-card p-4 shadow-lg">
       {/* ── Title ── */}
       <h3 className="text-sm font-medium text-ol-text-primary">
         {t('upscalePanel.title')}
@@ -79,7 +79,7 @@ export function UpscalePanel({
         </label>
         <select
           className={[
-            'flex-1 rounded-lg border px-3 py-1.5 text-sm',
+            'flex-1 rounded-3xl border px-3 py-1.5 text-sm',
             BOARD_GENERATE_INPUT,
           ].join(' ')}
           value={modelId}

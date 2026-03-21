@@ -105,49 +105,49 @@ type ViewMode = 'kanban' | 'list'
 // ─── Helpers ──────────────────────────────────────────────────────────
 
 const PRIORITY_COLORS: Record<Priority, string> = {
-  urgent: 'bg-ol-red-bg text-ol-red border-transparent',
-  high: 'bg-ol-amber-bg text-ol-amber border-transparent',
-  medium: 'bg-ol-blue-bg text-ol-blue border-transparent',
-  low: 'bg-ol-surface-muted text-ol-text-auxiliary border-transparent',
+  urgent: 'bg-secondary text-destructive border-transparent',
+  high: 'bg-secondary text-muted-foreground border-transparent',
+  medium: 'bg-secondary text-foreground border-transparent',
+  low: 'bg-secondary text-muted-foreground border-transparent',
 }
 
 const TRIGGER_COLORS: Record<TriggerMode, string> = {
-  manual: 'bg-ol-green-bg text-ol-green border-transparent',
-  scheduled: 'bg-ol-purple-bg text-ol-purple border-transparent',
-  condition: 'bg-ol-amber-bg text-ol-amber border-transparent',
+  manual: 'bg-secondary text-muted-foreground border-transparent',
+  scheduled: 'bg-secondary text-muted-foreground border-transparent',
+  condition: 'bg-secondary text-muted-foreground border-transparent',
 }
 
 const PRIORITY_FILTER_COLORS: Record<Priority, { active: string; inactive: string }> = {
   urgent: {
-    active: 'bg-ol-red text-white',
-    inactive: 'bg-ol-red-bg text-ol-red hover:bg-ol-red-bg-hover',
+    active: 'bg-destructive text-white',
+    inactive: 'bg-secondary text-destructive hover:bg-accent',
   },
   high: {
-    active: 'bg-ol-amber text-white',
-    inactive: 'bg-ol-amber-bg text-ol-amber hover:bg-ol-amber-bg-hover',
+    active: 'bg-muted-foreground text-white',
+    inactive: 'bg-secondary text-muted-foreground hover:bg-accent',
   },
   medium: {
-    active: 'bg-ol-blue text-white',
-    inactive: 'bg-ol-blue-bg text-ol-blue hover:bg-ol-blue-bg-hover',
+    active: 'bg-foreground text-white',
+    inactive: 'bg-secondary text-foreground hover:bg-accent',
   },
   low: {
-    active: 'bg-ol-text-auxiliary text-white',
-    inactive: 'bg-ol-surface-muted text-ol-text-auxiliary hover:bg-ol-surface-muted/80',
+    active: 'bg-muted-foreground text-white',
+    inactive: 'bg-secondary text-muted-foreground hover:bg-accent/80',
   },
 }
 
 const TRIGGER_FILTER_COLORS: Record<TriggerMode, { active: string; inactive: string }> = {
   manual: {
-    active: 'bg-ol-green text-white',
-    inactive: 'bg-ol-green-bg text-ol-green hover:bg-ol-green-bg-hover',
+    active: 'bg-muted-foreground text-white',
+    inactive: 'bg-secondary text-muted-foreground hover:bg-accent',
   },
   scheduled: {
-    active: 'bg-ol-purple text-white',
-    inactive: 'bg-ol-purple-bg text-ol-purple hover:bg-ol-purple-bg-hover',
+    active: 'bg-muted-foreground text-white',
+    inactive: 'bg-secondary text-muted-foreground hover:bg-accent',
   },
   condition: {
-    active: 'bg-ol-amber text-white',
-    inactive: 'bg-ol-amber-bg text-ol-amber hover:bg-ol-amber-bg-hover',
+    active: 'bg-muted-foreground text-white',
+    inactive: 'bg-secondary text-muted-foreground hover:bg-accent',
   },
 }
 
@@ -173,29 +173,29 @@ const getStatusColumns = (t: (key: string) => string): { status: TaskStatus; lab
 
 const STATUS_FLAT_COLORS: Record<TaskStatus, { icon: string; badge: string; bg: string }> = {
   todo: {
-    icon: 'text-ol-blue',
-    badge: 'bg-ol-blue-bg text-ol-blue',
-    bg: 'bg-ol-blue-bg/30',
+    icon: 'text-foreground',
+    badge: 'bg-secondary text-foreground',
+    bg: 'bg-secondary/30',
   },
   running: {
-    icon: 'text-ol-amber',
-    badge: 'bg-ol-amber-bg text-ol-amber',
-    bg: 'bg-ol-amber-bg/30',
+    icon: 'text-muted-foreground',
+    badge: 'bg-secondary text-muted-foreground',
+    bg: 'bg-secondary/30',
   },
   review: {
-    icon: 'text-ol-purple',
-    badge: 'bg-ol-purple-bg text-ol-purple',
-    bg: 'bg-ol-purple-bg/30',
+    icon: 'text-muted-foreground',
+    badge: 'bg-secondary text-muted-foreground',
+    bg: 'bg-secondary/30',
   },
   done: {
-    icon: 'text-ol-green',
-    badge: 'bg-ol-green-bg text-ol-green',
-    bg: 'bg-ol-green-bg/30',
+    icon: 'text-muted-foreground',
+    badge: 'bg-secondary text-muted-foreground',
+    bg: 'bg-secondary/30',
   },
   cancelled: {
-    icon: 'text-ol-text-auxiliary',
-    badge: 'bg-ol-surface-muted text-ol-text-auxiliary',
-    bg: 'bg-ol-surface-muted/30',
+    icon: 'text-muted-foreground',
+    badge: 'bg-secondary text-muted-foreground',
+    bg: 'bg-secondary/30',
   },
 }
 
@@ -315,7 +315,7 @@ const TaskCard = memo(function TaskCard({
       ref={setNodeRef}
       {...(isDraggable ? { ...listeners, ...attributes } : {})}
       className={cn(
-        'group cursor-pointer rounded-lg border bg-card p-3 shadow-none transition-colors hover:bg-accent/50',
+        'group cursor-pointer rounded-3xl border bg-card p-3 shadow-none transition-colors hover:bg-accent/50',
         isDragging && 'opacity-50',
         isDraggable && 'touch-none',
         isFinished && 'opacity-70',
@@ -326,9 +326,9 @@ const TaskCard = memo(function TaskCard({
       <div className="mb-2 flex items-start justify-between gap-2">
         <div className="flex items-center gap-1.5 min-w-0">
           {isDone ? (
-            <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-ol-green" />
+            <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
           ) : isCancelled ? (
-            <XCircle className="h-3.5 w-3.5 shrink-0 text-ol-text-auxiliary" />
+            <XCircle className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
           ) : null}
           <h4 className={cn('text-sm font-medium leading-tight line-clamp-2', isFinished && 'line-through decoration-muted-foreground/40')}>{task.name}</h4>
         </div>
@@ -350,7 +350,7 @@ const TaskCard = memo(function TaskCard({
           {TRIGGER_LABELS[task.triggerMode]}
         </Badge>
         {task.schedule && formatSchedule(task.schedule, t) && (
-          <Badge variant="secondary" className="text-[10px] bg-ol-purple-bg text-ol-purple border-transparent">
+          <Badge variant="secondary" className="text-[10px] bg-secondary text-muted-foreground border-transparent">
             <Clock className="mr-1 h-2.5 w-2.5" />
             {formatSchedule(task.schedule, t)}
           </Badge>
@@ -361,12 +361,12 @@ const TaskCard = memo(function TaskCard({
           </Badge>
         )}
         {task.status === 'review' && task.reviewType === 'plan' && (
-          <Badge variant="default" className="bg-ol-amber/15 text-ol-amber text-[10px]">
+          <Badge variant="default" className="bg-muted-foreground/15 text-muted-foreground text-[10px]">
             {t('reviewType.plan')}
           </Badge>
         )}
         {task.status === 'review' && task.reviewType === 'completion' && (
-          <Badge variant="default" className="bg-ol-green/15 text-ol-green text-[10px]">
+          <Badge variant="default" className="bg-muted-foreground/15 text-muted-foreground text-[10px]">
             {t('reviewType.completion')}
           </Badge>
         )}
@@ -503,7 +503,7 @@ function KanbanColumn({
       <div
         ref={setNodeRef}
         className={cn(
-          'flex flex-1 flex-col gap-2 overflow-y-auto rounded-lg p-2 transition-all',
+          'flex flex-1 flex-col gap-2 overflow-y-auto rounded-3xl p-2 transition-all',
           colors.bg,
           isOver && 'ring-2 ring-primary/50',
         )}
@@ -569,12 +569,12 @@ function FilterBar({
   return (
     <div className="flex items-center gap-2">
       <div className="relative">
-        <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ol-text-auxiliary" />
+        <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
         <Input
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder={tl('messages.searchPlaceholder')}
-          className="h-7 w-44 rounded-md border-transparent bg-ol-surface-input pl-8 text-xs text-ol-text-primary placeholder:text-ol-text-auxiliary focus-visible:border-ol-focus-border focus-visible:ring-ol-focus-ring"
+          className="h-7 w-44 rounded-3xl border-transparent bg-secondary pl-8 text-xs text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring"
         />
       </div>
 
@@ -584,11 +584,11 @@ function FilterBar({
           <button
             type="button"
             className={cn(
-              'flex items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors duration-150',
+              'flex items-center gap-1 rounded-3xl px-2.5 py-1 text-[11px] font-medium transition-colors duration-150',
               'border border-transparent',
               priorityCount > 0
-                ? 'bg-ol-blue-bg text-ol-blue hover:bg-ol-blue-bg-hover'
-                : 'bg-ol-surface-muted text-ol-text-auxiliary hover:bg-ol-surface-muted/80',
+                ? 'bg-secondary text-foreground hover:bg-accent'
+                : 'bg-secondary text-muted-foreground hover:bg-accent/80',
             )}
           >
             <Filter className="h-3 w-3" />
@@ -607,7 +607,7 @@ function FilterBar({
             return (
               <label
                 key={p}
-                className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors hover:bg-accent"
+                className="flex cursor-pointer items-center gap-2 rounded-3xl px-2 py-1.5 text-xs transition-colors hover:bg-accent"
               >
                 <Checkbox
                   checked={isActive}
@@ -616,7 +616,7 @@ function FilterBar({
                 />
                 <span
                   className={cn(
-                    'rounded-md px-2 py-0.5 text-[11px] font-medium',
+                    'rounded-3xl px-2 py-0.5 text-[11px] font-medium',
                     isActive ? colors.active : colors.inactive,
                   )}
                 >
@@ -634,11 +634,11 @@ function FilterBar({
           <button
             type="button"
             className={cn(
-              'flex items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors duration-150',
+              'flex items-center gap-1 rounded-3xl px-2.5 py-1 text-[11px] font-medium transition-colors duration-150',
               'border border-transparent',
               triggerCount > 0
-                ? 'bg-ol-purple-bg text-ol-purple hover:bg-ol-purple-bg-hover'
-                : 'bg-ol-surface-muted text-ol-text-auxiliary hover:bg-ol-surface-muted/80',
+                ? 'bg-secondary text-muted-foreground hover:bg-accent'
+                : 'bg-secondary text-muted-foreground hover:bg-accent/80',
             )}
           >
             <Filter className="h-3 w-3" />
@@ -657,7 +657,7 @@ function FilterBar({
             return (
               <label
                 key={t}
-                className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors hover:bg-accent"
+                className="flex cursor-pointer items-center gap-2 rounded-3xl px-2 py-1.5 text-xs transition-colors hover:bg-accent"
               >
                 <Checkbox
                   checked={isActive}
@@ -666,7 +666,7 @@ function FilterBar({
                 />
                 <span
                   className={cn(
-                    'rounded-md px-2 py-0.5 text-[11px] font-medium',
+                    'rounded-3xl px-2 py-0.5 text-[11px] font-medium',
                     isActive ? colors.active : colors.inactive,
                   )}
                 >
@@ -864,20 +864,20 @@ export default function TaskBoardPage({
           <Button
             size="sm"
             variant="ghost"
-            className="h-7 rounded-md px-2.5 text-xs font-medium text-ol-text-auxiliary shadow-none transition-colors duration-150 hover:bg-ol-surface-muted"
+            className="h-7 rounded-3xl px-2.5 text-xs font-medium text-muted-foreground shadow-none transition-colors duration-150 hover:bg-accent"
             onClick={handleRefresh}
             disabled={isRefreshing}
           >
             <RefreshCw className={cn('h-3.5 w-3.5', isRefreshing && 'animate-spin')} />
           </Button>
-          <div className="flex gap-0.5 rounded-md bg-ol-surface-muted p-0.5">
+          <div className="flex gap-0.5 rounded-3xl bg-secondary p-0.5">
             <button
               type="button"
               className={cn(
-                'rounded-md p-1.5 transition-colors duration-150',
+                'rounded-3xl p-1.5 transition-colors duration-150',
                 viewMode === 'kanban'
-                  ? 'bg-background text-ol-blue shadow-sm'
-                  : 'text-ol-text-auxiliary hover:text-ol-text-primary',
+                  ? 'bg-background text-foreground shadow-none'
+                  : 'text-muted-foreground hover:text-foreground',
               )}
               onClick={() => setViewMode('kanban')}
             >
@@ -886,10 +886,10 @@ export default function TaskBoardPage({
             <button
               type="button"
               className={cn(
-                'rounded-md p-1.5 transition-colors duration-150',
+                'rounded-3xl p-1.5 transition-colors duration-150',
                 viewMode === 'list'
-                  ? 'bg-background text-ol-blue shadow-sm'
-                  : 'text-ol-text-auxiliary hover:text-ol-text-primary',
+                  ? 'bg-background text-foreground shadow-none'
+                  : 'text-muted-foreground hover:text-foreground',
               )}
               onClick={() => setViewMode('list')}
             >
@@ -898,7 +898,7 @@ export default function TaskBoardPage({
           </div>
           <Button
             size="sm"
-            className="h-7 rounded-md border-transparent bg-ol-blue-bg px-3 text-xs font-medium text-ol-blue shadow-none transition-colors duration-150 hover:bg-ol-blue-bg-hover"
+            className="h-7 rounded-3xl border-transparent bg-secondary px-3 text-xs font-medium text-foreground shadow-none transition-colors duration-150 hover:bg-accent"
             onClick={() => setDialogOpen(true)}
           >
             <Plus className="mr-1 h-3.5 w-3.5" />
@@ -907,7 +907,7 @@ export default function TaskBoardPage({
           <Button
             size="sm"
             variant="ghost"
-            className="h-7 rounded-md bg-ol-amber-bg px-3 text-xs font-medium text-ol-amber shadow-none transition-colors duration-150 hover:bg-ol-amber-bg-hover"
+            className="h-7 rounded-3xl bg-secondary px-3 text-xs font-medium text-muted-foreground shadow-none transition-colors duration-150 hover:bg-accent"
             onClick={activateAiChat}
           >
             <Sparkles className="mr-1 h-3.5 w-3.5" />
@@ -949,7 +949,7 @@ export default function TaskBoardPage({
                       headerExtra={
                         <button
                           type="button"
-                          className="rounded-md p-0.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                          className="rounded-3xl p-0.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                           onClick={() => setShowCancelled((v) => !v)}
                           title={showCancelled ? t('status.done') : t('status.cancelled')}
                         >
@@ -975,7 +975,7 @@ export default function TaskBoardPage({
             </div>
             <DragOverlay>
               {activeTask ? (
-                <div className="w-[240px] rounded-lg border bg-card p-3 shadow-lg opacity-90">
+                <div className="w-[240px] rounded-3xl border bg-card p-3 shadow-lg opacity-90">
                   <h4 className="text-sm font-medium line-clamp-2">{activeTask.name}</h4>
                   <Badge variant="outline" className={cn('mt-1 text-[10px]', PRIORITY_COLORS[activeTask.priority ?? 'medium'])}>
                     {PRIORITY_LABELS[activeTask.priority ?? 'medium']}
@@ -995,7 +995,7 @@ export default function TaskBoardPage({
               <div
                 key={task.id}
                 className={cn(
-                  'flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors hover:bg-accent/50',
+                  'flex cursor-pointer items-center gap-3 rounded-3xl border p-3 transition-colors hover:bg-accent/50',
                   listFinished && 'opacity-70',
                 )}
                 onClick={() => onOpenDetail(task.id)}
@@ -1003,9 +1003,9 @@ export default function TaskBoardPage({
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     {listDone ? (
-                      <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-ol-green" />
+                      <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                     ) : listCancelled ? (
-                      <XCircle className="h-3.5 w-3.5 shrink-0 text-ol-text-auxiliary" />
+                      <XCircle className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                     ) : null}
                     <span className={cn('text-sm font-medium', listFinished && 'line-through decoration-muted-foreground/40')}>{task.name}</span>
                     <Badge
@@ -1026,13 +1026,12 @@ export default function TaskBoardPage({
                 </div>
                 <Badge
                   variant="outline"
-                  className={cn('text-[10px]', {
-                    'bg-ol-blue/15 text-ol-blue': task.status === 'todo',
-                    'bg-ol-amber/15 text-ol-amber': task.status === 'running',
-                    'bg-ol-purple/15 text-ol-purple': task.status === 'review',
-                    'bg-ol-green/15 text-ol-green': task.status === 'done',
-                    'bg-ol-text-auxiliary/15 text-ol-text-auxiliary': task.status === 'cancelled',
-                  })}
+                  className={cn(
+                    'text-[10px]',
+                    task.status === 'todo'
+                      ? 'bg-foreground/15 text-foreground'
+                      : 'bg-muted-foreground/15 text-muted-foreground',
+                  )}
                 >
                   {statusColumns.find((c) => c.status === task.status)?.label ?? task.status}
                 </Badge>

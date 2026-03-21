@@ -427,7 +427,7 @@ const ImageThumbnail = memo(function ImageThumbnail({
     ? `${sizeClassName} aspect-square`
     : `${sizeClassName} w-auto aspect-[4/3]`;
   return (
-    <div className={`${wrapperClassName} overflow-hidden rounded-sm bg-muted/40`}>
+    <div className={`${wrapperClassName} overflow-hidden rounded-3xl bg-muted/40`}>
       {src ? (
         <img
           src={src}
@@ -468,7 +468,7 @@ const VideoThumbnail = memo(function VideoThumbnail({
     ? `${sizeClassName} aspect-square`
     : `${sizeClassName} w-auto aspect-video`;
   return (
-    <div className={`${wrapperClassName} relative overflow-hidden rounded-sm bg-muted/40`}>
+    <div className={`${wrapperClassName} relative overflow-hidden rounded-3xl bg-muted/40`}>
       {src ? (
         <img
           src={src}
@@ -485,7 +485,7 @@ const VideoThumbnail = memo(function VideoThumbnail({
         </div>
       )}
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-        <span className="flex h-[34%] min-h-2 aspect-square items-center justify-center rounded-md border border-border bg-background/70 text-foreground">
+        <span className="flex h-[34%] min-h-2 aspect-square items-center justify-center rounded-3xl border border-border bg-background/70 text-foreground">
           <Play className="h-[50%] w-[50%] min-h-2 min-w-2 translate-x-[0.5px]" />
         </span>
       </div>

@@ -75,7 +75,7 @@ import { applyProjectShellToTab } from "@/lib/project-shell";
 import { trpc, trpcClient } from "@/utils/trpc";
 import { useHeaderSlot } from "@/hooks/use-header-slot";
 import { useSaasAuth } from "@/hooks/use-saas-auth";
-import { useProjectStorageRootUri } from "@/hooks/use-project-storage-root-uri";
+import { useProjectStorageRootUri, useTempStorageRootUri } from "@/hooks/use-project-storage-root-uri";
 import { getCachedAccessToken } from "@/lib/saas-auth";
 import { SaasLoginDialog } from "@/components/auth/SaasLoginDialog";
 import i18next from "i18next";
@@ -134,7 +134,7 @@ class BoardErrorBoundary extends Component<
             <p className="mb-4 text-xs opacity-70">{this.state.error.message}</p>
             <button
               type="button"
-              className="rounded-md border px-3 py-1.5 text-xs hover:bg-accent"
+              className="rounded-3xl border px-3 py-1.5 text-xs hover:bg-accent"
               onClick={() => this.setState({ error: null })}
             >
               {i18next.t('board:board.retry')}
@@ -214,10 +214,11 @@ export function BoardCanvas({
   className,
 }: BoardCanvasProps) {
   const projectStorageRootUri = useProjectStorageRootUri();
-  // 逻辑：全局画布统一回退到默认项目存储根，不再依赖旧版存储根兼容查询。
-  const resolvedRootUri = rootUri?.trim() || projectStorageRootUri;
+  const tempStorageRootUri = useTempStorageRootUri();
+  // 逻辑：全局画布统一回退到临时存储根，不再依赖旧版存储根兼容查询。
+  const resolvedRootUri = rootUri?.trim() || tempStorageRootUri || projectStorageRootUri;
   const queryClient = useQueryClient();
-  // 逻辑：提取画布文件夹名（末段路径），服务端通过 .openloaf/boards/<boardId>/ 前缀还原完整路径。
+  // 逻辑：提取画布文件夹名（末段路径），服务端通过 boards/<boardId>/ 前缀还原完整路径。
   // decodeURIComponent 防止 URI 中已编码的中文被 URLSearchParams 双重编码。
   const resolvedBoardId = useMemo(() => {
     const source = boardFolderUri?.trim() || boardId?.trim() || "";
@@ -289,6 +290,9 @@ export function BoardCanvas({
   /** Preview source id for board modal coordination. */
   const previewSourceId = useId();
   const activePreviewSourceId = useFilePreviewStore((state) => state.payload?.sourceId);
+  /** Whether the board data has been hydrated from collaboration. */
+  const [hydrated, setHydrated] = useState(false);
+  const handleHydrated = useCallback(() => setHydrated(true), []);
   /** Sync callback provided by collaboration layer. */
   const [syncLogState, setSyncLogState] = useState<{
     canSyncLog: boolean;
@@ -789,7 +793,7 @@ export function BoardCanvas({
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className={`h-9 w-9 shrink-0 rounded-md shadow-none transition-colors duration-150 ${
+                  className={`h-9 w-9 shrink-0 rounded-3xl shadow-none transition-colors duration-150 ${
                     aiNaming || snapshot.elements.length === 0
                       ? "text-muted-foreground opacity-50"
                       : saasLoggedIn
@@ -811,14 +815,14 @@ export function BoardCanvas({
                 <Button
                   type="button"
                   variant="ghost"
-                  className="rounded-md text-muted-foreground shadow-none transition-colors duration-150"
+                  className="rounded-3xl text-muted-foreground shadow-none transition-colors duration-150"
                   onClick={() => handleRenameOpen(false)}
                 >
                   {tBoard('board.cancel')}
                 </Button>
                 <Button
                   type="button"
-                  className="rounded-md bg-ol-blue/10 text-ol-blue hover:bg-ol-blue/20 shadow-none transition-colors duration-150"
+                  className="rounded-3xl bg-ol-blue/10 text-ol-blue hover:bg-ol-blue/20 shadow-none transition-colors duration-150"
                   disabled={!renameValue.trim()}
                   onClick={handleRenameConfirm}
                 >
@@ -833,7 +837,7 @@ export function BoardCanvas({
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="h-7 gap-1 rounded-md px-2.5 text-xs"
+                className="h-7 gap-1 rounded-3xl px-2.5 text-xs"
               >
                 <MoreHorizontal className="size-3.5" />
                 {tBoard('board.actions')}
@@ -903,13 +907,13 @@ export function BoardCanvas({
             <DialogClose asChild>
               <Button
                 variant="ghost"
-                className="rounded-md text-muted-foreground shadow-none transition-colors duration-150"
+                className="rounded-3xl text-muted-foreground shadow-none transition-colors duration-150"
               >
                 {i18next.t('nav:cancel')}
               </Button>
             </DialogClose>
             <Button
-              className="rounded-md bg-ol-purple/10 text-ol-purple hover:bg-ol-purple/20 shadow-none transition-colors duration-150"
+              className="rounded-3xl bg-ol-purple/10 text-ol-purple hover:bg-ol-purple/20 shadow-none transition-colors duration-150"
               disabled={!saveToProjectTargetId || moveToProjectMutation.isPending}
               onClick={async () => {
                 if (!saveToProjectTargetId || !resolvedBoardId) {
@@ -937,6 +941,7 @@ export function BoardCanvas({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    <div className="relative h-full w-full">
     <BoardErrorBoundary>
       <BoardProvider
         engine={engine}
@@ -959,6 +964,7 @@ export function BoardCanvas({
           boardFolderUri={boardFolderUri}
           boardFileUri={boardFileUri}
           onSyncLogChange={setSyncLogState}
+          onHydrated={handleHydrated}
         />
         <BoardCanvasInteraction
           engine={engine}
@@ -994,6 +1000,17 @@ export function BoardCanvas({
         <VideoTrimDialog />
       </BoardProvider>
     </BoardErrorBoundary>
+    {!hydrated && (
+      <div className="pointer-events-none absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <span className="text-sm text-muted-foreground">
+            {i18next.t('common:loading')}
+          </span>
+        </div>
+      </div>
+    )}
+    </div>
     </>
   );
 }

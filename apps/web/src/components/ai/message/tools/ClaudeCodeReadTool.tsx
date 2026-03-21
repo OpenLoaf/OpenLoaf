@@ -57,7 +57,7 @@ export default function ClaudeCodeReadTool({
         onClick={handleOpen}
         disabled={!filePath}
         className={cn(
-          'group flex w-full items-center gap-2 overflow-hidden rounded-lg border bg-card px-3 py-2 text-left',
+          'group flex w-full items-center gap-2 overflow-hidden rounded-3xl border bg-card px-3 py-2 text-left',
           'transition-colors duration-150 hover:bg-muted/60',
           !filePath && 'cursor-default opacity-50',
         )}

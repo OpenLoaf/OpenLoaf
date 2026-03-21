@@ -7,66 +7,61 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
-  ChevronDown,
-  ImagePlus,
-  Link as LinkIcon,
-  Video,
-  Zap,
+  Loader2,
 } from 'lucide-react'
 import type { CanvasNodeElement } from '../engine/types'
 import type { VideoNodeProps } from '../nodes/VideoNode'
 import type { AiGenerateConfig } from '../board-contracts'
-import {
-  VIDEO_GENERATE_ASPECT_RATIO_OPTIONS,
-  VIDEO_GENERATE_DURATION_OPTIONS,
-} from '../nodes/node-config'
-import {
-  BOARD_GENERATE_INPUT,
-} from '../ui/board-style-system'
+import { useCapabilities } from '@/hooks/use-capabilities'
 import { GenerateActionBar } from './GenerateActionBar'
+import { VIDEO_VARIANT_REGISTRY } from './variants/video'
 
-/** SDK v2 video feature type. */
-type VideoFeature = 'videoGenerate' | 'digitalHuman' | 'videoEdit' | 'motionTransfer'
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
-/** SDK v2 videoGenerate modes. */
-type VideoGenMode = 'text' | 'firstFrame' | 'startEnd' | 'reference' | 'storyboard' | 'motionControl'
-
-/** SDK v2 digitalHuman modes. */
-type DigitalHumanMode = 'photo2video' | 'lipSync'
-
-/** videoGenerate mode tabs. */
-const VIDEO_GEN_MODES: Array<{ id: VideoGenMode; needsUpstream: boolean }> = [
-  { id: 'text', needsUpstream: false },
-  { id: 'firstFrame', needsUpstream: true },
-  { id: 'startEnd', needsUpstream: true },
-  { id: 'reference', needsUpstream: true },
-]
-
-/** Advanced modes (shown after separator). */
-const VIDEO_GEN_ADVANCED_MODES: Array<{ id: VideoGenMode; needsUpstream: boolean; enabled: boolean }> = [
-  { id: 'storyboard', needsUpstream: false, enabled: false },
-  { id: 'motionControl', needsUpstream: true, enabled: false },
-]
-
+/** v3-aware generate params emitted by the panel. */
 export type VideoGenerateParams = {
-  feature: VideoFeature
-  mode: VideoGenMode | DigitalHumanMode
-  prompt: string
-  aspectRatio: string
-  duration: 5 | 10 | 15
-  quality?: 'draft' | 'standard' | 'hd'
-  count?: 1 | 2 | 4
+  /** v3 feature id (e.g. 'videoGenerate', 'lipSync'). */
+  feature: string
+  /** v3 variant id (e.g. 'vid-gen-qwen'). Optional for legacy callers. */
+  variant?: string
+  /** v3 inputs (images, audio, prompt etc.). */
+  inputs?: Record<string, unknown>
+  /** v3 params (style, duration, aspectRatio etc.). */
+  params?: Record<string, unknown>
+  /** Number of results to generate. */
+  count?: number
+  /** Seed for reproducibility. */
   seed?: number
+  /** Credits per call for this variant (informational). */
+  creditsPerCall?: number
+
+  // ── Legacy fields kept for backward compat with VideoNode caller ──
+  /** @deprecated Use inputs/params instead. */
+  prompt?: string
+  /** @deprecated Use params.aspectRatio instead. */
+  aspectRatio?: string
+  /** @deprecated Use params.duration instead. */
+  duration?: number
+  /** @deprecated Use params.quality instead. */
+  quality?: string
+  /** @deprecated Use params.mode instead. */
+  mode?: string
+  /** @deprecated Use params.withAudio instead. */
   withAudio?: boolean
-  style?: string
-  negativePrompt?: string
+  /** @deprecated Use inputs.startImage instead. */
   firstFrameImageSrc?: string
+  /** @deprecated Use inputs.endImage instead. */
   endFrameImageSrc?: string
+  /** @deprecated Use inputs.images instead. */
   referenceImageSrcs?: string[]
+  /** @deprecated Use inputs.person instead. */
   personSrc?: string
+  /** @deprecated Use inputs.audio instead. */
   audioSrc?: string
 }
 
@@ -78,12 +73,16 @@ export type VideoAiPanelProps = {
   onGenerateNewNode?: (params: VideoGenerateParams) => void
   upstreamText?: string
   upstreamImages?: string[]
+  upstreamAudioUrl?: string
+  upstreamVideoUrl?: string
   /** When true, all inputs are disabled and the generate button is hidden. */
   readonly?: boolean
   /** Editing mode -- user unlocked an existing result to tweak params. */
   editing?: boolean
   /** Callback to unlock the panel for editing. */
   onUnlock?: () => void
+  /** Callback to cancel editing mode (re-lock the panel). */
+  onCancelEdit?: () => void
 }
 
 /** AI video generation parameter panel displayed below video nodes. */
@@ -94,400 +93,251 @@ export function VideoAiPanel({
   onGenerateNewNode,
   upstreamText,
   upstreamImages,
+  upstreamAudioUrl,
+  upstreamVideoUrl,
   readonly = false,
   editing = false,
   onUnlock,
+  onCancelEdit,
 }: VideoAiPanelProps) {
   const { t } = useTranslation('board')
   const aiConfig = element.props.aiConfig
 
-  const [feature, setFeature] = useState<VideoFeature>('videoGenerate')
-  const [genMode, setGenMode] = useState<VideoGenMode>('text')
-  const [dhMode, setDhMode] = useState<DigitalHumanMode>('photo2video')
-  const [quality, setQuality] = useState<'draft' | 'standard' | 'hd'>('standard')
-  const [withAudio, setWithAudio] = useState(false)
+  // ── v3 Capabilities ──
+  const {
+    data: capsData,
+    loading: capsLoading,
+    error: capsError,
+    refresh: capsRefresh,
+  } = useCapabilities('video')
 
-  const usedUpstreamText = !aiConfig?.prompt && !!upstreamText
-  const [prompt, setPrompt] = useState(aiConfig?.prompt ?? upstreamText ?? '')
-  const [aspectRatio, setAspectRatio] = useState<AiGenerateConfig['aspectRatio']>(
-    aiConfig?.aspectRatio ?? 'auto',
+  const features = useMemo(() => capsData?.features ?? [], [capsData])
+
+  // ── Feature tab state ──
+  const [selectedFeatureId, setSelectedFeatureId] = useState<string>(
+    (aiConfig?.feature as string) ?? '',
   )
-  const [duration, setDuration] = useState<(typeof VIDEO_GENERATE_DURATION_OPTIONS)[number]>(5)
-  const [isGenerating, setIsGenerating] = useState(false)
-  const [generateCount, setGenerateCount] = useState(1)
-  const [showCountDropdown, setShowCountDropdown] = useState(false)
 
-  const isGenerateDisabled = (() => {
-    if (feature === 'digitalHuman') return false // Will need person+audio validation later
-    if (!prompt.trim()) return true
-    if (genMode === 'firstFrame' && !upstreamImages?.[0]) return true
-    if (genMode === 'startEnd' && !upstreamImages?.[0]) return true
-    if (genMode === 'reference' && !upstreamImages?.length) return true
+  // Auto-select first feature when caps load.
+  useEffect(() => {
+    if (features.length > 0 && !features.find((f) => f.id === selectedFeatureId)) {
+      setSelectedFeatureId(features[0].id)
+    }
+  }, [features, selectedFeatureId])
+
+  const selectedFeature = useMemo(
+    () => features.find((f) => f.id === selectedFeatureId) ?? null,
+    [features, selectedFeatureId],
+  )
+
+  // ── Variant selector state ──
+  const [selectedVariantId, setSelectedVariantId] = useState<string>('')
+
+  // Auto-select first variant when feature changes.
+  useEffect(() => {
+    if (selectedFeature?.variants?.length) {
+      const current = selectedFeature.variants.find((v) => v.id === selectedVariantId)
+      if (!current) {
+        setSelectedVariantId(selectedFeature.variants[0].id)
+      }
+    }
+  }, [selectedFeature, selectedVariantId])
+
+  const selectedVariant = useMemo(
+    () => selectedFeature?.variants?.find((v) => v.id === selectedVariantId) ?? null,
+    [selectedFeature, selectedVariantId],
+  )
+
+  // ── Variant warning ──
+  const [variantWarning, setVariantWarning] = useState<string | null>(null)
+
+  // Clear warning when feature/variant changes
+  useEffect(() => {
+    setVariantWarning(null)
+  }, [selectedFeatureId, selectedVariantId])
+
+  // ── Variant form params (updated by variant component) ──
+  const latestParams = useRef<{
+    inputs: Record<string, unknown>
+    params: Record<string, unknown>
+    count?: number
+    seed?: number
+  }>({ inputs: {}, params: {} })
+
+  const handleParamsChange = useCallback(
+    (params: {
+      inputs: Record<string, unknown>
+      params: Record<string, unknown>
+      count?: number
+      seed?: number
+    }) => {
+      latestParams.current = params
+    },
+    [],
+  )
+
+  // ── Generation state ──
+  const [isGenerating, setIsGenerating] = useState(false)
+
+  const isGenerateDisabled = useMemo(() => {
+    if (!selectedFeature || !selectedVariant) return true
     return false
-  })()
+  }, [selectedFeature, selectedVariant])
+
+  /** Build VideoGenerateParams from the current state. */
+  const buildParams = useCallback((): VideoGenerateParams => {
+    const p = latestParams.current
+    const promptValue =
+      (p.params?.prompt as string) ??
+      (p.inputs?.prompt as string) ??
+      ''
+
+    return {
+      feature: selectedFeatureId,
+      variant: selectedVariantId,
+      inputs: p.inputs,
+      params: p.params,
+      count: p.count,
+      seed: p.seed,
+      creditsPerCall: selectedVariant?.creditsPerCall,
+      // Legacy compat fields
+      prompt: promptValue,
+      aspectRatio: (p.params?.aspectRatio as string) ?? 'auto',
+      duration: (p.params?.duration as number) ?? 5,
+      quality: (p.params?.quality as string) ?? undefined,
+      mode: (p.params?.mode as string) ?? undefined,
+    }
+  }, [selectedFeatureId, selectedVariantId, selectedVariant])
 
   const handleGenerate = useCallback(() => {
     if (isGenerating) return
     setIsGenerating(true)
-    const currentMode = feature === 'videoGenerate' ? genMode : dhMode
+
+    const params = buildParams()
+
     const config: AiGenerateConfig = {
-      feature,
-      prompt,
-      aspectRatio,
-      quality,
+      feature: params.feature as AiGenerateConfig['feature'],
+      prompt: params.prompt ?? '',
+      aspectRatio: params.aspectRatio as AiGenerateConfig['aspectRatio'],
     }
     onUpdate({
       origin: 'ai-generate',
       aiConfig: config,
     })
 
-    const params: VideoGenerateParams = {
-      feature,
-      mode: currentMode,
-      prompt,
-      aspectRatio: aspectRatio ?? 'auto',
-      duration: duration as 5 | 10 | 15,
-      quality,
-      count: generateCount as 1 | 2 | 4,
-      withAudio: feature === 'videoGenerate' ? withAudio : undefined,
-      firstFrameImageSrc: (genMode === 'firstFrame' || genMode === 'startEnd') ? upstreamImages?.[0] : undefined,
-      endFrameImageSrc: genMode === 'startEnd' ? upstreamImages?.[1] : undefined,
-      referenceImageSrcs: genMode === 'reference' ? upstreamImages : undefined,
-    }
-
-    if (onGenerate) {
-      onGenerate(params)
-    }
-
+    onGenerate?.(params)
     setTimeout(() => setIsGenerating(false), 300)
-  }, [isGenerating, feature, genMode, dhMode, prompt, aspectRatio, quality, duration, generateCount, withAudio, upstreamImages, onUpdate, onGenerate])
+  }, [isGenerating, buildParams, onUpdate, onGenerate])
 
   const handleGenerateNew = useCallback(() => {
     if (isGenerating) return
     setIsGenerating(true)
-    const currentMode = feature === 'videoGenerate' ? genMode : dhMode
-    const params: VideoGenerateParams = {
-      feature,
-      mode: currentMode,
-      prompt,
-      aspectRatio: aspectRatio ?? 'auto',
-      duration: duration as 5 | 10 | 15,
-      quality,
-      count: generateCount as 1 | 2 | 4,
-      withAudio: feature === 'videoGenerate' ? withAudio : undefined,
-      firstFrameImageSrc: (genMode === 'firstFrame' || genMode === 'startEnd') ? upstreamImages?.[0] : undefined,
-      endFrameImageSrc: genMode === 'startEnd' ? upstreamImages?.[1] : undefined,
-      referenceImageSrcs: genMode === 'reference' ? upstreamImages : undefined,
-    }
-    if (onGenerateNewNode) {
-      onGenerateNewNode(params)
-    }
+
+    const params = buildParams()
+    onGenerateNewNode?.(params)
     setTimeout(() => setIsGenerating(false), 300)
-  }, [isGenerating, feature, genMode, dhMode, prompt, aspectRatio, quality, duration, generateCount, withAudio, upstreamImages, onGenerateNewNode])
+  }, [isGenerating, buildParams, onGenerateNewNode])
 
   const hasResource = Boolean(element.props.sourcePath)
-  const hasUpstreamImages = upstreamImages && upstreamImages.length > 0
+
+  // ── Upstream data for variant components ──
+  const upstream = useMemo(
+    () => ({
+      textContent: upstreamText,
+      images: upstreamImages,
+      audioUrl: upstreamAudioUrl,
+      videoUrl: upstreamVideoUrl,
+    }),
+    [upstreamText, upstreamImages, upstreamAudioUrl, upstreamVideoUrl],
+  )
+
+  // ── Resolve variant form component ──
+  const VariantForm = selectedVariant
+    ? VIDEO_VARIANT_REGISTRY[selectedVariant.id] ?? null
+    : null
+
+  const showFallback = !features.length
 
   return (
-    <div className={[
-      'flex w-[420px] flex-col gap-2.5 rounded-xl border border-border bg-card p-3 shadow-lg',
-      readonly ? 'opacity-80' : '',
-    ].join(' ')}>
-      {/* -- Feature Tabs (top level) -- */}
-      <div className="flex items-center gap-1 rounded-lg bg-ol-surface-muted p-0.5">
-        {(['videoGenerate', 'digitalHuman'] as const).map((f) => (
-          <button
-            key={f}
-            type="button"
-            disabled={readonly}
-            className={[
-              'flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors duration-150',
-              feature === f
-                ? 'bg-background text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground',
-            ].join(' ')}
-            onClick={() => setFeature(f)}
-          >
-            {t(`videoPanel.feature.${f}`)}
-          </button>
-        ))}
-      </div>
-
-      {/* -- Mode Pills (second level, videoGenerate) -- */}
-      {feature === 'videoGenerate' ? (
-        <div className="no-scrollbar flex gap-1 overflow-x-auto">
-          {VIDEO_GEN_MODES.map((m) => (
-            <button
-              key={m.id}
-              type="button"
-              disabled={readonly}
-              className={[
-                'shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors duration-150',
-                genMode === m.id
-                  ? 'bg-foreground/10 text-foreground'
-                  : 'text-muted-foreground hover:text-foreground',
-              ].join(' ')}
-              onClick={() => setGenMode(m.id)}
-            >
-              {t(`videoPanel.modeV2.${m.id}`)}
-            </button>
-          ))}
-          <span className="mx-0.5 h-4 w-px self-center bg-border" />
-          {VIDEO_GEN_ADVANCED_MODES.map((m) => (
-            <button
-              key={m.id}
-              type="button"
-              disabled={readonly || !m.enabled}
-              className={[
-                'shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors duration-150',
-                !m.enabled ? 'cursor-not-allowed text-muted-foreground/40' :
-                genMode === m.id
-                  ? 'bg-foreground/10 text-foreground'
-                  : 'text-muted-foreground hover:text-foreground',
-              ].join(' ')}
-              onClick={() => m.enabled && setGenMode(m.id)}
-            >
-              {t(`videoPanel.modeV2.${m.id}`)}
-              {!m.enabled ? <span className="ml-1 text-[9px] text-muted-foreground/50">Soon</span> : null}
-            </button>
-          ))}
-        </div>
-      ) : null}
-
-      {/* -- Mode Pills (second level, digitalHuman) -- */}
-      {feature === 'digitalHuman' ? (
-        <div className="flex gap-1">
-          {(['photo2video', 'lipSync'] as const).map((m) => (
-            <button
-              key={m}
-              type="button"
-              disabled={readonly}
-              className={[
-                'rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors duration-150',
-                dhMode === m
-                  ? 'bg-foreground/10 text-foreground'
-                  : 'text-muted-foreground hover:text-foreground',
-              ].join(' ')}
-              onClick={() => setDhMode(m)}
-            >
-              {t(`videoPanel.modeV2.${m}`)}
-            </button>
-          ))}
-        </div>
-      ) : null}
-
-      {/* -- Upstream Banner -- */}
-      {usedUpstreamText ? (
-        <div className="flex items-center gap-1.5 rounded-md bg-foreground/5 px-2.5 py-1.5 text-xs text-muted-foreground">
-          <LinkIcon size={12} />
-          <span>{t('videoPanel.upstreamLoaded')}</span>
-        </div>
-      ) : null}
-
-      {/* -- Slot Area: per mode (videoGenerate) -- */}
-      {feature === 'videoGenerate' && genMode === 'firstFrame' ? (
-        <SlotArea
-          label={t('videoPanel.firstFrame')}
-          images={hasUpstreamImages ? upstreamImages.slice(0, 1) : undefined}
-          upstreamBanner={hasUpstreamImages ? t('videoPanel.upstreamImageLoaded') : undefined}
-          uploadLabel={t('videoPanel.firstFrameUpload')}
-        />
-      ) : null}
-
-      {feature === 'videoGenerate' && genMode === 'startEnd' ? (
-        <div className="flex gap-2">
-          <SlotArea
-            label={t('videoPanel.firstFrame')}
-            images={hasUpstreamImages ? upstreamImages.slice(0, 1) : undefined}
-            uploadLabel={t('videoPanel.firstFrameUpload')}
-            compact
-          />
-          <SlotArea
-            label={t('videoPanel.lastFrame')}
-            images={hasUpstreamImages && upstreamImages.length > 1 ? upstreamImages.slice(1, 2) : undefined}
-            uploadLabel={t('videoPanel.firstFrameUpload')}
-            compact
-          />
-        </div>
-      ) : null}
-
-      {feature === 'videoGenerate' && genMode === 'reference' ? (
-        <div className="flex flex-col gap-1.5">
-          {hasUpstreamImages ? (
-            <div className="flex flex-wrap gap-1.5">
-              {upstreamImages.slice(0, 4).map((src, idx) => (
-                <div
-                  key={`ref-${idx}`}
-                  className="h-[52px] w-[52px] shrink-0 overflow-hidden rounded-md border border-border bg-ol-surface-muted"
-                >
-                  <img
-                    src={src}
-                    alt={`ref-${idx}`}
-                    className="h-full w-full object-cover"
-                    draggable={false}
-                  />
-                </div>
-              ))}
-            </div>
+    <div
+      className={[
+        'flex w-[420px] flex-col gap-2.5 rounded-3xl border border-border bg-card p-3 shadow-lg',
+        readonly ? 'opacity-80' : '',
+      ].join(' ')}
+    >
+      {/* -- Fallback: loading / error / empty -- */}
+      {showFallback ? (
+        <div className="flex min-h-[120px] flex-col items-center justify-center gap-2 py-6">
+          {capsLoading ? (
+            <>
+              <Loader2 size={20} className="animate-spin text-muted-foreground/60" />
+              <span className="text-xs text-muted-foreground">{t('v3.common.loading')}</span>
+            </>
+          ) : capsError ? (
+            <>
+              <span className="text-sm font-medium text-muted-foreground">{t('v3.common.loadError')}</span>
+              <span className="text-[11px] text-muted-foreground/60">{t('v3.common.loadErrorHint')}</span>
+              <button
+                type="button"
+                className="mt-1 rounded-full border border-border px-3.5 py-1 text-xs text-muted-foreground hover:bg-foreground/5 transition-colors duration-150"
+                onClick={() => capsRefresh()}
+              >
+                {t('v3.common.retry')}
+              </button>
+            </>
           ) : (
-            <SlotArea
-              label={t('videoPanel.modeV2.reference')}
-              uploadLabel={t('videoPanel.firstFrameUpload')}
-            />
+            <span className="text-xs text-muted-foreground">{t('v3.common.noVariants')}</span>
           )}
         </div>
       ) : null}
 
-      {/* -- Slot Area: digitalHuman modes -- */}
-      {feature === 'digitalHuman' ? (
-        <div className="flex flex-col gap-2">
-          <SlotArea
-            label={t(`videoPanel.digitalHuman.${dhMode === 'photo2video' ? 'personImage' : 'personVideo'}`)}
-            images={hasUpstreamImages ? upstreamImages.slice(0, 1) : undefined}
-            uploadLabel={t('videoPanel.digitalHuman.uploadPerson')}
-          />
-          <SlotArea
-            label={t('videoPanel.digitalHuman.audioInput')}
-            uploadLabel={t('videoPanel.digitalHuman.uploadAudio')}
-          />
+      {/* -- Feature Tabs (dynamic from capabilities) -- */}
+      {!showFallback ? (
+        <div className="flex items-center gap-1 rounded-3xl bg-ol-surface-muted p-0.5">
+          {features
+            .filter((f) => (readonly && !editing ? f.id === selectedFeatureId : true))
+            .map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                disabled={readonly && !editing}
+                className={[
+                  'flex-1 rounded-3xl px-3 py-1.5 text-xs font-medium transition-colors duration-150',
+                  selectedFeatureId === f.id
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground',
+                ].join(' ')}
+                onClick={() => setSelectedFeatureId(f.id)}
+              >
+                {t(`v3.features.${f.id}`, { defaultValue: f.displayName })}
+              </button>
+            ))}
         </div>
       ) : null}
 
-      {/* -- Prompt (videoGenerate only) -- */}
-      {feature === 'videoGenerate' ? (
-        <div className="relative flex flex-col gap-1">
-          <textarea
-            className={[
-              'min-h-[68px] w-full resize-none rounded-lg border px-3 py-2 pr-9 text-sm leading-relaxed',
-              BOARD_GENERATE_INPUT,
-              readonly ? 'cursor-not-allowed opacity-60' : '',
-            ].join(' ')}
-            placeholder={t('videoPanel.promptPlaceholder')}
-            value={prompt}
-            onChange={(e) => !readonly && setPrompt(e.target.value)}
-            readOnly={readonly}
-            rows={3}
-          />
-        </div>
-      ) : null}
-
-      {/* -- Bottom Bar -- */}
-      <div className="flex items-center gap-1.5 border-t border-border pt-2">
-        {/* Aspect Ratio Selector (videoGenerate only) */}
-        {feature === 'videoGenerate' ? (
-          <select
-            className={[
-              'h-7 rounded-md border border-border bg-transparent px-1.5 text-[11px] text-foreground outline-none transition-colors duration-150',
-              readonly ? 'cursor-not-allowed opacity-60 appearance-none' : 'hover:bg-foreground/5',
-            ].join(' ')}
-            value={aspectRatio ?? 'auto'}
-            disabled={readonly}
-            onChange={(e) => setAspectRatio(e.target.value as AiGenerateConfig['aspectRatio'])}
-          >
-            {VIDEO_GENERATE_ASPECT_RATIO_OPTIONS.map((ratio) => (
-              <option key={ratio} value={ratio}>
-                {ratio === 'auto' ? t('videoPanel.ratioAuto', { defaultValue: 'Auto' }) : ratio}
-              </option>
-            ))}
-          </select>
-        ) : null}
-
-        {/* Duration Selector (videoGenerate only) */}
-        {feature === 'videoGenerate' ? (
-          <select
-            className={[
-              'h-7 rounded-md border border-border bg-transparent px-1.5 text-[11px] text-foreground outline-none transition-colors duration-150',
-              readonly ? 'cursor-not-allowed opacity-60 appearance-none' : 'hover:bg-foreground/5',
-            ].join(' ')}
-            value={duration}
-            disabled={readonly}
-            onChange={(e) => setDuration(Number.parseInt(e.target.value, 10) as (typeof VIDEO_GENERATE_DURATION_OPTIONS)[number])}
-          >
-            {VIDEO_GENERATE_DURATION_OPTIONS.map((dur) => (
-              <option key={dur} value={dur}>{dur}s</option>
-            ))}
-          </select>
-        ) : null}
-
-        {/* Quality Selector (all features) */}
-        <select
-          className={[
-            'h-7 rounded-md border border-border bg-transparent px-1.5 text-[11px] text-foreground outline-none transition-colors duration-150',
-            readonly ? 'cursor-not-allowed opacity-60 appearance-none' : 'hover:bg-foreground/5',
-          ].join(' ')}
-          value={quality}
+      {/* -- Variant Form -- */}
+      {selectedVariant && VariantForm ? (
+        <VariantForm
+          variant={selectedVariant}
+          upstream={upstream}
+          nodeResourceUrl={undefined}
           disabled={readonly}
-          onChange={(e) => setQuality(e.target.value as 'draft' | 'standard' | 'hd')}
-        >
-          {(['draft', 'standard', 'hd'] as const).map((q) => (
-            <option key={q} value={q}>
-              {t(`videoPanel.quality.${q}`)}
-            </option>
-          ))}
-        </select>
-
-        {/* Spacer */}
-        <div className="flex-1" />
-
-        {/* Count Dropdown */}
-        <div className="relative">
-          <button
-            type="button"
-            className={[
-              'inline-flex h-7 items-center gap-0.5 rounded-md border border-border px-1.5 text-[11px] text-foreground transition-colors duration-150',
-              readonly ? 'opacity-60 cursor-not-allowed' : 'hover:bg-foreground/5',
-            ].join(' ')}
-            onClick={() => !readonly && setShowCountDropdown(!showCountDropdown)}
-            disabled={readonly}
-          >
-            <span>{generateCount}x</span>
-            {!readonly ? <ChevronDown size={10} /> : null}
-          </button>
-          {showCountDropdown ? (
-            <div className="absolute bottom-full right-0 mb-1 flex flex-col rounded-md border border-border bg-card py-0.5 shadow-md">
-              {[1, 2, 4].map((n) => (
-                <button
-                  key={n}
-                  type="button"
-                  className={[
-                    'px-4 py-1 text-[11px] transition-colors duration-150 hover:bg-foreground/5',
-                    generateCount === n ? 'text-foreground font-medium' : 'text-muted-foreground',
-                  ].join(' ')}
-                  onClick={() => {
-                    setGenerateCount(n)
-                    setShowCountDropdown(false)
-                  }}
-                >
-                  {n}x
-                </button>
-              ))}
-            </div>
-          ) : null}
+          onParamsChange={handleParamsChange}
+          onWarningChange={setVariantWarning}
+        />
+      ) : selectedVariant ? (
+        // Fallback for unknown variants
+        <div className="flex flex-col items-center justify-center gap-1 rounded-3xl bg-ol-surface-muted px-3 py-4">
+          <span className="text-xs text-muted-foreground">
+            {t('v3.unknownVariant', {
+              defaultValue: 'This variant is not yet supported in the UI',
+            })}
+          </span>
+          <span className="text-[10px] text-muted-foreground/50">
+            {selectedVariant.id}
+          </span>
         </div>
-
-        {/* Credits Indicator */}
-        <div className="inline-flex h-7 items-center gap-0.5 rounded-md px-1.5 text-[11px] text-muted-foreground" title={t('videoPanel.estimatedCredits')}>
-          <Zap size={12} />
-          <span>--</span>
-        </div>
-      </div>
-
-      {/* withAudio checkbox (videoGenerate only) */}
-      {feature === 'videoGenerate' ? (
-        <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-          <input
-            type="checkbox"
-            checked={withAudio}
-            onChange={(e) => setWithAudio(e.target.checked)}
-            disabled={readonly}
-            className="accent-foreground"
-          />
-          {t('videoPanel.withAudio')}
-        </label>
       ) : null}
-
-      {/* Video Edit teaser */}
-      <p className="text-center text-[10px] text-muted-foreground/50">{t('videoPanel.videoEditTeaser')}</p>
 
       {/* -- Generate Action Bar -- */}
       <GenerateActionBar
@@ -500,83 +350,17 @@ export function VideoAiPanel({
         readonly={readonly}
         editing={editing}
         onUnlock={onUnlock}
+        onCancelEdit={onCancelEdit}
+        creditsPerCall={selectedVariant?.creditsPerCall}
+        warningMessage={variantWarning}
+        variants={selectedFeature?.variants?.map((v) => ({
+          id: v.id,
+          displayName: t(`v3.variants.${v.id}`, { defaultValue: v.displayName }),
+          creditsPerCall: v.creditsPerCall,
+        }))}
+        selectedVariantId={selectedVariant?.id ?? undefined}
+        onVariantChange={setSelectedVariantId}
       />
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// SlotArea -- reusable image/video upload slot
-// ---------------------------------------------------------------------------
-
-type SlotAreaProps = {
-  label: string
-  images?: string[]
-  upstreamBanner?: string
-  uploadLabel: string
-  compact?: boolean
-  disabled?: boolean
-  icon?: React.ReactNode
-}
-
-function SlotArea({
-  label,
-  images,
-  upstreamBanner,
-  uploadLabel,
-  compact,
-  disabled,
-  icon,
-}: SlotAreaProps) {
-  const hasImages = images && images.length > 0
-
-  return (
-    <div className={[
-      'flex flex-col gap-1.5',
-      compact ? 'flex-1 min-w-0' : '',
-    ].join(' ')}>
-      <span className="text-xs font-medium text-muted-foreground">{label}</span>
-      {upstreamBanner && hasImages ? (
-        <div className="flex items-center gap-1.5 rounded-md bg-foreground/5 px-2 py-1 text-[11px] text-muted-foreground">
-          <LinkIcon size={10} />
-          <span className="truncate">{upstreamBanner}</span>
-        </div>
-      ) : null}
-      {hasImages ? (
-        <div className="flex gap-1.5">
-          {images.map((src, idx) => (
-            <div
-              key={`slot-${idx}`}
-              className={[
-                'overflow-hidden rounded-md border border-border bg-ol-surface-muted',
-                compact ? 'h-[52px] w-full' : 'h-14 w-14',
-              ].join(' ')}
-            >
-              <img
-                src={src}
-                alt={label}
-                className="h-full w-full object-cover"
-                draggable={false}
-              />
-            </div>
-          ))}
-        </div>
-      ) : (
-        <button
-          type="button"
-          disabled={disabled}
-          className={[
-            'flex items-center justify-center gap-2 rounded-lg border border-dashed border-border text-xs transition-colors duration-150',
-            compact ? 'h-[52px] w-full' : 'h-14 w-full',
-            disabled
-              ? 'cursor-not-allowed bg-ol-surface-muted/50 text-muted-foreground/30'
-              : 'bg-ol-surface-muted text-muted-foreground hover:border-foreground/30 hover:text-foreground',
-          ].join(' ')}
-        >
-          {icon ?? <ImagePlus size={16} />}
-          {compact ? null : uploadLabel}
-        </button>
-      )}
     </div>
   )
 }

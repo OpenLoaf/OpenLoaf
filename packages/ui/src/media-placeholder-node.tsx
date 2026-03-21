@@ -153,7 +153,7 @@ export const PlaceholderElement = withHOC(
         {(!loading || !isImage) && (
           <div
             className={cn(
-              'flex cursor-pointer select-none items-center rounded-sm bg-muted p-3 pr-9 hover:bg-primary/10'
+              'flex cursor-pointer select-none items-center rounded-3xl bg-muted p-3 pr-9 hover:bg-primary/10'
             )}
             onClick={() => !loading && openFilePicker()}
             contentEditable={false}
@@ -224,12 +224,12 @@ export function ImageProgress({
     <div className={cn('relative', className)} contentEditable={false}>
       <img
         ref={imageRef}
-        className="h-auto w-full rounded-sm object-cover"
+        className="h-auto w-full rounded-3xl object-cover"
         alt={file.name}
         src={objectUrl}
       />
       {progress < 100 && (
-        <div className="absolute right-1 bottom-1 flex items-center space-x-2 rounded-md bg-black/50 px-1 py-0.5">
+        <div className="absolute right-1 bottom-1 flex items-center space-x-2 rounded-3xl bg-black/50 px-1 py-0.5">
           <Loader2Icon className="size-3.5 animate-spin text-muted-foreground" />
           <span className="font-medium text-white text-xs">
             {Math.round(progress)}%

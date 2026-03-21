@@ -83,14 +83,14 @@ function WidgetEntityPreview({
   if (widgetKey === "chat-history") return <ChatHistoryWidget />;
   if (widgetKey === "calendar") {
     return (
-      <div className="flex h-full w-full items-center justify-center rounded-lg border border-dashed border-border/60 bg-muted/30 text-xs text-muted-foreground">
+      <div className="flex h-full w-full items-center justify-center rounded-3xl border border-dashed border-border/60 bg-muted/30 text-xs text-muted-foreground">
         {t('catalog.calendar')}
       </div>
     );
   }
   if (widgetKey === "email-inbox") {
     return (
-      <div className="flex h-full w-full items-center justify-center rounded-lg border border-dashed border-border/60 bg-muted/30 text-xs text-muted-foreground">
+      <div className="flex h-full w-full items-center justify-center rounded-3xl border border-dashed border-border/60 bg-muted/30 text-xs text-muted-foreground">
         {t('catalog.email-inbox')}
       </div>
     );
@@ -101,7 +101,7 @@ function WidgetEntityPreview({
   if (widgetKey === "video") return <VideoWidget />;
   if (widgetKey === "web-stack") {
     return (
-      <div className="flex h-full w-full items-center justify-center rounded-lg border border-dashed border-border/60 bg-muted/30 text-xs text-muted-foreground">
+      <div className="flex h-full w-full items-center justify-center rounded-3xl border border-dashed border-border/60 bg-muted/30 text-xs text-muted-foreground">
         {t('catalog.web-stack')}
       </div>
     );
@@ -226,7 +226,7 @@ export default function DesktopWidgetLibraryPanel({
               key={item.widgetKey}
               role="button"
               tabIndex={0}
-              className="group flex min-w-0 flex-col gap-2 rounded-xl border border-border/60 bg-background p-2 text-left hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+              className="group flex min-w-0 flex-col gap-2 rounded-3xl border border-border/60 bg-background p-2 text-left hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
               onClick={(event) => {
                 emitDesktopWidgetSelected({
                   tabId,
@@ -244,7 +244,7 @@ export default function DesktopWidgetLibraryPanel({
                 removeStackItem(panelKey);
               }}
             >
-              <div className="pointer-events-none flex h-28 items-center justify-center overflow-hidden rounded-lg border border-border bg-card p-2">
+              <div className="pointer-events-none flex h-28 items-center justify-center overflow-hidden rounded-3xl border border-border bg-card p-2">
                 <div className="h-full w-full origin-center scale-[0.8]">
                   <WidgetEntityPreview widgetKey={item.widgetKey} scope={scope} />
                 </div>
@@ -256,7 +256,7 @@ export default function DesktopWidgetLibraryPanel({
           ))}
 
           {filtered.length === 0 && filteredIcons.length === 0 ? (
-            <div className="col-span-full rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
+            <div className="col-span-full rounded-3xl border border-dashed border-border p-4 text-sm text-muted-foreground">
               {t('library.noMatch')}
             </div>
           ) : null}
@@ -273,7 +273,7 @@ export default function DesktopWidgetLibraryPanel({
                   key={item.iconKey}
                   role="button"
                   tabIndex={0}
-                  className="group flex min-w-0 flex-col items-center gap-1.5 rounded-xl border border-border/60 bg-background p-3 text-center hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                  className="group flex min-w-0 flex-col items-center gap-1.5 rounded-3xl border border-border/60 bg-background p-3 text-center hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
                   onClick={() => {
                     emitDesktopWidgetSelected({
                       tabId,
@@ -295,7 +295,7 @@ export default function DesktopWidgetLibraryPanel({
                     removeStackItem(panelKey);
                   }}
                 >
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-3xl border border-border bg-card text-muted-foreground">
                     <DesktopIconWidget iconKey={item.iconKey} />
                   </div>
                   <div className="truncate text-xs font-medium">{t('iconCatalog.' + item.iconKey)}</div>
@@ -333,7 +333,7 @@ export default function DesktopWidgetLibraryPanel({
                   key={dw.id}
                   role="button"
                   tabIndex={0}
-                  className="group relative flex min-w-0 flex-col gap-2 rounded-xl border border-border/60 bg-background p-2 text-left hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                  className="group relative flex min-w-0 flex-col gap-2 rounded-3xl border border-border/60 bg-background p-2 text-left hover:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
                   onClick={() => {
                     emitDesktopWidgetSelected({
                       tabId,
@@ -359,7 +359,7 @@ export default function DesktopWidgetLibraryPanel({
                 >
                   <button
                     type="button"
-                    className="absolute top-1.5 right-1.5 z-10 hidden rounded-md p-0.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive group-hover:block"
+                    className="absolute top-1.5 right-1.5 z-10 hidden rounded-3xl p-0.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive group-hover:block"
                     onClick={(e) => {
                       e.stopPropagation();
                       if (!confirm(t('library.confirmDelete', { name: dw.name }))) return;
@@ -371,7 +371,7 @@ export default function DesktopWidgetLibraryPanel({
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
                   </button>
-                  <div className="pointer-events-none flex h-28 items-center justify-center overflow-hidden rounded-lg border border-dashed border-border/60 bg-muted/30 text-xs text-muted-foreground">
+                  <div className="pointer-events-none flex h-28 items-center justify-center overflow-hidden rounded-3xl border border-dashed border-border/60 bg-muted/30 text-xs text-muted-foreground">
                     {dw.description || dw.name}
                   </div>
                   <div className="min-w-0">
@@ -386,7 +386,7 @@ export default function DesktopWidgetLibraryPanel({
             <div className="mb-2 text-xs font-medium text-muted-foreground">{t('library.aiGenerated')}</div>
             <button
               type="button"
-              className="w-full rounded-xl border border-dashed border-border/60 p-4 text-center text-sm text-muted-foreground hover:bg-accent"
+              className="w-full rounded-3xl border border-dashed border-border/60 p-4 text-center text-sm text-muted-foreground hover:bg-accent"
               onClick={() => {
                 useAppView.getState().navigate({
                   title: t('library.aiAssistant'),

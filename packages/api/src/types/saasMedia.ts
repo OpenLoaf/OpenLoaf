@@ -77,9 +77,46 @@ export type MediaSubmitContext = {
   sourceNodeId?: string;
 };
 
-export type SaasImageSubmitPayload = AiImageRequest & MediaSubmitContext;
-export type SaasVideoSubmitPayload = AiVideoRequest & MediaSubmitContext;
-export type SaasAudioSubmitPayload = AiAudioRequest & MediaSubmitContext;
-
 // ── Media v2 payload ──
 export type SaasMediaGeneratePayload = import("@openloaf-saas/sdk").MediaGenerateRequest & MediaSubmitContext;
+
+// ── Media v3 types ──
+
+export type V3Feature = {
+  id: string
+  displayName: string
+  variants: V3Variant[]
+}
+
+export type V3Variant = {
+  id: string
+  displayName: string
+  creditsPerCall: number
+  minMembershipLevel: 'free' | 'lite' | 'pro' | 'premium' | 'infinity'
+  capabilities?: Record<string, unknown>
+}
+
+export type V3CapabilitiesData = {
+  category: 'image' | 'video' | 'audio'
+  features: V3Feature[]
+  updatedAt: string
+}
+
+export type V3GenerateRequest = {
+  feature: string
+  variant: string
+  inputs?: Record<string, unknown>
+  params?: Record<string, unknown>
+  count?: number
+  seed?: number
+}
+
+export type V3TaskStatus = 'queued' | 'running' | 'succeeded' | 'failed' | 'canceled'
+
+export type V3TaskResult = {
+  taskId: string
+  status: V3TaskStatus
+  resultUrls?: string[]
+  creditsConsumed?: number
+  error?: { code?: string; message?: string }
+}

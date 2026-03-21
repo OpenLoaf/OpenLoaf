@@ -28,7 +28,7 @@ export const FileElement = withHOC(
     const { name, unsafeUrl } = useMediaState();
 
     return (
-      <PlateElement className="my-px rounded-sm" {...props}>
+      <PlateElement className="my-px rounded-3xl" {...props}>
         <a
           className="group relative m-0 flex cursor-pointer items-center rounded px-0.5 py-[3px] hover:bg-muted"
           contentEditable={false}

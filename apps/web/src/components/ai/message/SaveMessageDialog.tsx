@@ -63,7 +63,7 @@ function FolderItem({
     <button
       type="button"
       className={cn(
-        "flex items-center gap-2 w-full px-2.5 py-1.5 text-left text-xs rounded-md transition-colors",
+        "flex items-center gap-2 w-full px-2.5 py-1.5 text-left text-xs rounded-3xl transition-colors",
         isActive
           ? "bg-primary/10 text-primary font-medium"
           : "text-foreground hover:bg-muted/60",
@@ -273,7 +273,7 @@ export function SaveMessageDialog({
           </div>
 
           {/* Folder browser */}
-          <div className="border rounded-md h-48 overflow-y-auto p-1">
+          <div className="border rounded-3xl h-48 overflow-y-auto p-1">
             {folderQuery.isLoading ? (
               <div className="flex items-center justify-center h-full text-xs text-muted-foreground">
                 {t("common:loading")}
