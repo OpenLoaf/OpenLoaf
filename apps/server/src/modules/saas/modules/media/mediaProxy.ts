@@ -26,6 +26,8 @@ import {
   fetchVideoModels,
   pollMediaTask,
   submitMediaTask,
+  submitMediaGenerateV2,
+  fetchMediaModelsV2,
 } from "./client";
 import {
   clearMediaTask,
@@ -199,8 +201,18 @@ async function resolvePayloadMediaInputs(
   payload: Record<string, unknown>,
   context: MediaSubmitContext,
 ): Promise<Record<string, unknown>> {
+  // v2: referenceAudio (tts voice cloning) — at payload level, not inside inputs
+  let topLevelChanged = false;
+  if (isRecord(payload.referenceAudio) && typeof (payload.referenceAudio as any).url === "string") {
+    const resolved = await resolveLocalMediaInput(payload.referenceAudio as Record<string, unknown>, context);
+    if (resolved !== payload.referenceAudio) {
+      payload = { ...payload, referenceAudio: resolved };
+      topLevelChanged = true;
+    }
+  }
+
   const inputs = isRecord(payload.inputs) ? { ...payload.inputs } : null;
-  if (!inputs) return payload;
+  if (!inputs) return topLevelChanged ? payload : payload;
 
   let changed = false;
 
@@ -235,8 +247,92 @@ async function resolvePayloadMediaInputs(
     if (result !== inputs.referenceVideo) { inputs.referenceVideo = result; changed = true; }
   }
 
-  if (!changed) return payload;
+  // v2: single image input (imageEdit, upscale, outpaint)
+  if (isRecord(inputs.image) && typeof inputs.image.url === "string") {
+    const resolved = await resolveLocalMediaInput(inputs.image as Record<string, unknown>, context);
+    if (resolved !== inputs.image) { inputs.image = resolved; changed = true; }
+  }
+  // v2: mask input (imageEdit inpaint/erase)
+  if (isRecord(inputs.mask) && typeof inputs.mask.url === "string") {
+    const resolved = await resolveLocalMediaInput(inputs.mask as Record<string, unknown>, context);
+    if (resolved !== inputs.mask) { inputs.mask = resolved; changed = true; }
+  }
+  // v2: person input (digitalHuman)
+  if (isRecord(inputs.person) && typeof inputs.person.url === "string") {
+    const resolved = await resolveLocalMediaInput(inputs.person as Record<string, unknown>, context);
+    if (resolved !== inputs.person) { inputs.person = resolved; changed = true; }
+  }
+  // v2: audio input (digitalHuman)
+  if (isRecord(inputs.audio) && typeof inputs.audio.url === "string") {
+    const resolved = await resolveLocalMediaInput(inputs.audio as Record<string, unknown>, context);
+    if (resolved !== inputs.audio) { inputs.audio = resolved; changed = true; }
+  }
+
+  if (!changed) return topLevelChanged ? payload : payload;
   return { ...payload, inputs };
+}
+
+/** Infer resultType from v2 feature for storage routing. */
+function inferResultType(feature: string): "image" | "video" | "audio" {
+  switch (feature) {
+    case "imageGenerate":
+    case "poster":
+    case "imageEdit":
+    case "upscale":
+    case "outpaint":
+      return "image";
+    case "videoGenerate":
+    case "digitalHuman":
+      return "video";
+    case "tts":
+      return "audio";
+    default:
+      return "image";
+  }
+}
+
+/** Submit media generate via v2 unified endpoint. */
+export async function submitMediaGenerateProxy(
+  body: unknown,
+  accessToken: string,
+): Promise<unknown> {
+  const { payload, context } = splitMediaSubmitBody(body);
+  if (!payload || typeof payload !== "object" || !("feature" in payload)) {
+    throw new MediaProxyHttpError(
+      400,
+      "invalid_payload",
+      "请求参数无效，缺少 feature 字段",
+    );
+  }
+
+  const feature = (payload as Record<string, unknown>).feature as string;
+  const resolvedPayload = await resolvePayloadMediaInputs(payload, context);
+  const result = await submitMediaGenerateV2(
+    resolvedPayload as any,
+    accessToken,
+  );
+
+  if (result?.success === true && result.data?.taskId) {
+    rememberMediaTask({
+      taskId: result.data.taskId,
+      feature,
+      resultType: inferResultType(feature),
+      projectId: context.projectId,
+      saveDir: context.saveDir,
+      sourceNodeId: context.sourceNodeId,
+      createdAt: Date.now(),
+    });
+  }
+
+  return result;
+}
+
+/** Fetch v2 media models (unified, with optional feature filter). */
+export async function fetchMediaModelsProxy(
+  accessToken: string,
+  feature?: string,
+): Promise<unknown> {
+  return fetchMediaModelsV2(accessToken, feature);
 }
 
 /** Submit image generation via SaaS SDK. */
