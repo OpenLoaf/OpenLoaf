@@ -434,21 +434,17 @@ export function AudioNodeView({
   })
 
   const handleGenerate = useCallback(
-    async (params: {
-      mode: import('../panels/AudioAiPanel').AudioGenerateMode
-      prompt: string
-      modelId: string
-      duration: import('../panels/AudioAiPanel').AudioDurationOption | 'auto'
-      textContent?: string
-      referenceAudioSrc?: string
-    }) => {
+    async (params: AudioGenerateParams) => {
       try {
         const result = await submitAudioGenerate(
           {
-            prompt: params.prompt,
-            modelId: params.modelId === 'auto' ? undefined : params.modelId,
-            audioType: params.mode === 'tts' ? 'voiceover' : params.mode,
-            duration: params.duration === 'auto' ? undefined : params.duration,
+            text: params.text,
+            voice: params.voice,
+            referenceAudioSrc: params.referenceAudioSrc,
+            format: params.format,
+            sampleRate: params.sampleRate,
+            quality: params.quality,
+            seed: params.seed,
           },
           {
             projectId: fileContext?.projectId,
@@ -458,13 +454,12 @@ export function AudioNodeView({
         )
 
         const snapshot = createInputSnapshot({
-          prompt: params.prompt,
-          modelId: params.modelId,
+          prompt: params.text,
           parameters: {
-            mode: params.mode,
-            duration: params.duration,
-            textContent: params.textContent,
+            feature: 'tts',
+            voice: params.voice,
             referenceAudioSrc: params.referenceAudioSrc,
+            quality: params.quality,
           },
           upstreamRefs: [
             ...(upstream?.textList ?? []).map(text => ({ nodeId: '', nodeType: 'text', data: text })),
@@ -480,7 +475,8 @@ export function AudioNodeView({
         console.error('[AudioNode] submitAudioGenerate failed:', err)
         onUpdate({
           aiConfig: {
-            ...(element.props.aiConfig ?? { modelId: params.modelId, prompt: params.prompt }),
+            ...(element.props.aiConfig ?? { prompt: params.text }),
+            feature: 'tts',
             taskId: undefined,
           },
         })
@@ -494,12 +490,11 @@ export function AudioNodeView({
     if (!primaryEntry?.input) return
     const input = primaryEntry.input
     handleGenerate({
-      mode: (input.parameters?.mode as import('../panels/AudioAiPanel').AudioGenerateMode) ?? 'music',
-      prompt: input.prompt,
-      modelId: input.modelId,
-      duration: (input.parameters?.duration as import('../panels/AudioAiPanel').AudioDurationOption | 'auto') ?? 'auto',
-      textContent: input.parameters?.textContent as string | undefined,
+      feature: 'tts',
+      text: input.prompt,
+      voice: input.parameters?.voice as string | undefined,
       referenceAudioSrc: input.parameters?.referenceAudioSrc as string | undefined,
+      quality: input.parameters?.quality as 'draft' | 'standard' | 'hd' | undefined,
     })
   }, [primaryEntry, handleGenerate])
 
@@ -517,10 +512,13 @@ export function AudioNodeView({
 
         const result = await submitAudioGenerate(
           {
-            prompt: params.prompt,
-            modelId: params.modelId === 'auto' ? undefined : params.modelId,
-            audioType: params.mode === 'tts' ? 'voiceover' : params.mode,
-            duration: params.duration === 'auto' ? undefined : params.duration,
+            text: params.text,
+            voice: params.voice,
+            referenceAudioSrc: params.referenceAudioSrc,
+            format: params.format,
+            sampleRate: params.sampleRate,
+            quality: params.quality,
+            seed: params.seed,
           },
           {
             projectId: fileContext?.projectId,
@@ -530,13 +528,12 @@ export function AudioNodeView({
         )
 
         const snapshot = createInputSnapshot({
-          prompt: params.prompt,
-          modelId: params.modelId,
+          prompt: params.text,
           parameters: {
-            mode: params.mode,
-            duration: params.duration,
-            textContent: params.textContent,
+            feature: 'tts',
+            voice: params.voice,
             referenceAudioSrc: params.referenceAudioSrc,
+            quality: params.quality,
           },
         })
         const entry = createGeneratingEntry(snapshot, result.taskId)
