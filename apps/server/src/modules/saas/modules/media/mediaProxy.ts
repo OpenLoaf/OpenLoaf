@@ -280,11 +280,16 @@ function inferResultType(feature: string): "image" | "video" | "audio" {
     case "imageEdit":
     case "upscale":
     case "outpaint":
+    case "matting":
       return "image";
     case "videoGenerate":
+    case "videoEdit":
     case "digitalHuman":
+    case "motionTransfer":
       return "video";
     case "tts":
+    case "music":
+    case "sfx":
       return "audio";
     default:
       return "image";

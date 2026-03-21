@@ -29,7 +29,7 @@ import {
 import { GenerateActionBar } from './GenerateActionBar'
 
 /** SDK v2 video feature type. */
-type VideoFeature = 'videoGenerate' | 'digitalHuman'
+type VideoFeature = 'videoGenerate' | 'digitalHuman' | 'videoEdit' | 'motionTransfer'
 
 /** SDK v2 videoGenerate modes. */
 type VideoGenMode = 'text' | 'firstFrame' | 'startEnd' | 'reference' | 'storyboard' | 'motionControl'

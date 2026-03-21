@@ -55,6 +55,12 @@ export type {
   VideoGenerateRequest as MediaVideoGenerateRequest,
   DigitalHumanRequest,
   TtsRequest,
+  // v2 new features (SDK 0.1.13)
+  MattingRequest,
+  VideoEditRequest,
+  MotionTransferRequest,
+  MusicRequest,
+  SfxRequest,
   MediaTaskItem,
   MediaTaskGroupData,
   MediaTaskGroupSuccess,

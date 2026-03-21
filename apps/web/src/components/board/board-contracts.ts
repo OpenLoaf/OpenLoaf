@@ -54,7 +54,7 @@ export type NodeOrigin = 'user' | 'upload' | 'ai-generate' | 'paste'
 /** AI generation configuration stored on nodes created by AI. */
 export type AiGenerateConfig = {
   /** SDK v2 feature that produced this generation. */
-  feature?: 'imageGenerate' | 'poster' | 'imageEdit' | 'upscale' | 'outpaint' | 'videoGenerate' | 'digitalHuman' | 'tts'
+  feature?: 'imageGenerate' | 'poster' | 'imageEdit' | 'upscale' | 'outpaint' | 'matting' | 'videoGenerate' | 'videoEdit' | 'digitalHuman' | 'motionTransfer' | 'tts' | 'music' | 'sfx'
   /** @deprecated v2 uses feature-based routing. Kept for backward compat. */
   modelId?: string
   /** Text prompt used for generation. */

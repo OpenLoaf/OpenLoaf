@@ -42,7 +42,7 @@ const UPSTREAM_IMAGE_SLOT_LIMIT = 10
 // ---------------------------------------------------------------------------
 
 /** SDK v2 image feature. */
-type ImageFeature = 'imageGenerate' | 'poster' | 'imageEdit' | 'upscale' | 'outpaint'
+type ImageFeature = 'imageGenerate' | 'poster' | 'imageEdit' | 'upscale' | 'outpaint' | 'matting'
 
 /** imageGenerate sub-mode. */
 type ImageGenerateMode = 'text' | 'reference' | 'sketch' | 'character'
@@ -57,6 +57,7 @@ const FEATURE_TABS: Array<{ id: ImageFeature; needsImage: boolean }> = [
   { id: 'imageEdit', needsImage: true },
   { id: 'upscale', needsImage: true },
   { id: 'outpaint', needsImage: true },
+  { id: 'matting', needsImage: true },
 ]
 
 /** @deprecated Use ImageFeature instead. */
