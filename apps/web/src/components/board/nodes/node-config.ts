@@ -36,7 +36,7 @@ export const IMAGE_GENERATE_MAX_INPUT_IMAGES = 9;
 /** Maximum number of output images supported by image generation nodes. */
 export const IMAGE_GENERATE_MAX_OUTPUT_IMAGES = 9;
 /** Available aspect ratio options. */
-const GENERATE_ASPECT_RATIO_OPTIONS = ["auto", "1:1", "16:9", "9:16", "4:3"] as const;
+const GENERATE_ASPECT_RATIO_OPTIONS = ["auto", "1:1", "16:9", "9:16", "4:3", "3:2"] as const;
 export const IMAGE_GENERATE_ASPECT_RATIO_OPTIONS = GENERATE_ASPECT_RATIO_OPTIONS;
 export const VIDEO_GENERATE_ASPECT_RATIO_OPTIONS = GENERATE_ASPECT_RATIO_OPTIONS;
 export const IMAGE_GENERATE_COUNT_OPTIONS = Array.from({ length: 5 }, (_, index) => index + 1);
@@ -79,7 +79,7 @@ export const VIDEO_GENERATE_NODE_FIRST_GAP = 120;
 export const VIDEO_GENERATE_OUTPUT_WIDTH = 320;
 /** Default height for generated video placeholders. */
 export const VIDEO_GENERATE_OUTPUT_HEIGHT = 180;
-export const VIDEO_GENERATE_DURATION_OPTIONS = [5, 10] as const;
+export const VIDEO_GENERATE_DURATION_OPTIONS = [5, 10, 15] as const;
 
 /** Available resolution options for AI generation. */
 export const GENERATE_RESOLUTION_OPTIONS = ["1K", "2K", "4K"] as const;
