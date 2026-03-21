@@ -53,8 +53,10 @@ export type NodeOrigin = 'user' | 'upload' | 'ai-generate' | 'paste'
 
 /** AI generation configuration stored on nodes created by AI. */
 export type AiGenerateConfig = {
-  /** Model id used for generation. */
-  modelId: string
+  /** SDK v2 feature that produced this generation. */
+  feature?: 'imageGenerate' | 'poster' | 'imageEdit' | 'upscale' | 'outpaint' | 'videoGenerate' | 'digitalHuman' | 'tts'
+  /** @deprecated v2 uses feature-based routing. Kept for backward compat. */
+  modelId?: string
   /** Text prompt used for generation. */
   prompt: string
   /** Negative prompt (optional). */
@@ -62,7 +64,13 @@ export type AiGenerateConfig = {
   /** Style preset applied during generation. */
   style?: string
   /** Aspect ratio used for generation. */
-  aspectRatio?: 'auto' | '1:1' | '16:9' | '9:16' | '4:3' | '3:4'
+  aspectRatio?: 'auto' | '1:1' | '16:9' | '9:16' | '4:3' | '3:2'
+  /** Generation quality level. */
+  quality?: 'draft' | 'standard' | 'hd'
+  /** Number of results generated. */
+  count?: number
+  /** Seed for reproducibility. */
+  seed?: number
   /** Upstream node ids used as input references. */
   inputNodeIds?: string[]
   /** Server-side task id for the generation job. */
