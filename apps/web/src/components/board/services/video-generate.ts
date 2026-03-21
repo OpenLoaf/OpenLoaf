@@ -7,14 +7,32 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import { submitVideoTask } from '@/lib/saas-media'
+import { submitMediaGenerate } from '@/lib/saas-media'
 
 export type VideoGenerateRequest = {
   prompt: string
-  modelId?: string
   aspectRatio?: string
-  duration?: number // 5 or 10
-  firstFrameImageSrc?: string // first-frame reference image
+  duration?: 5 | 10 | 15
+  /** videoGenerate sub-mode. */
+  mode?: 'text' | 'firstFrame' | 'startEnd' | 'reference' | 'storyboard' | 'withAudio' | 'motionControl'
+  /** First frame image for firstFrame/motionControl modes. */
+  firstFrameImageSrc?: string
+  /** End frame image for startEnd mode. */
+  endFrameImageSrc?: string
+  /** Reference images for reference mode. */
+  referenceImageSrcs?: string[]
+  /** Whether to generate audio alongside video. */
+  withAudio?: boolean
+  /** Number of results to generate. */
+  count?: 1 | 2 | 4
+  /** Quality level. */
+  quality?: 'draft' | 'standard' | 'hd'
+  /** Seed for reproducibility. */
+  seed?: number
+  /** Style preset. */
+  style?: string
+  /** Negative prompt. */
+  negativePrompt?: string
 }
 
 export type VideoGenerateResult = {
@@ -22,40 +40,52 @@ export type VideoGenerateResult = {
 }
 
 /**
- * Submit a video generation task to the SaaS proxy.
- * Returns the server-assigned taskId for subsequent polling via LoadingNode.
+ * Submit a video generation task via v2 unified endpoint.
  */
 export async function submitVideoGenerate(
   request: VideoGenerateRequest,
   options: { projectId?: string; saveDir?: string; sourceNodeId?: string },
 ): Promise<VideoGenerateResult> {
+  const mode = request.mode
+    ?? (request.firstFrameImageSrc ? 'firstFrame' : 'text')
+
   const payload: Record<string, unknown> = {
-    modelId: request.modelId || 'auto',
+    feature: 'videoGenerate',
     prompt: request.prompt,
+    aspectRatio: request.aspectRatio && request.aspectRatio !== 'auto'
+      ? request.aspectRatio : undefined,
+    duration: request.duration ?? 5,
+    mode,
+    style: request.style || undefined,
+    negativePrompt: request.negativePrompt || undefined,
+    count: request.count,
+    quality: request.quality,
+    seed: request.seed,
+    withAudio: request.withAudio || undefined,
+    projectId: options.projectId,
+    saveDir: options.saveDir,
+    sourceNodeId: options.sourceNodeId,
   }
 
-  if (request.aspectRatio) {
-    payload.output = { aspectRatio: request.aspectRatio }
-  }
-
-  if (request.duration) {
-    payload.parameters = { duration: request.duration }
-  }
-
-  // 逻辑：首帧参考图。本地 URL 的解析由服务端处理（S3 优先 → base64 兜底）。
+  // Build inputs based on mode
+  const inputs: Record<string, unknown> = {}
   if (request.firstFrameImageSrc) {
-    payload.inputs = { startImage: { url: request.firstFrameImageSrc } }
+    inputs.startImage = { url: request.firstFrameImageSrc }
+  }
+  if (request.endFrameImageSrc) {
+    inputs.endImage = { url: request.endFrameImageSrc }
+  }
+  if (request.referenceImageSrcs?.length) {
+    inputs.images = request.referenceImageSrcs.map(url => ({ url }))
+  }
+  if (Object.keys(inputs).length > 0) {
+    payload.inputs = inputs
   }
 
-  // Attach storage context for server-side asset saving.
-  if (options.projectId) payload.projectId = options.projectId
-  if (options.saveDir) payload.saveDir = options.saveDir
-  if (options.sourceNodeId) payload.sourceNodeId = options.sourceNodeId
-
-  const result = await submitVideoTask(payload as any)
+  const result = await submitMediaGenerate(payload)
 
   if (!result || result.success !== true || !result.data?.taskId) {
-    const message = result?.message || result?.error || 'Video generation task submission failed'
+    const message = result?.message || 'Video generation task submission failed'
     throw new Error(message)
   }
 
