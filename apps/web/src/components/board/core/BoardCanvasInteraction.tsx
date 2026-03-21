@@ -1453,7 +1453,7 @@ export function BoardCanvasInteraction({
             : previewSrc;
           if (!sourceImageSrc) return;
           submitUpscale(
-            { sourceImageSrc, scale: 2, modelId: 'auto' },
+            { sourceImageSrc, scale: 2 },
             { projectId: fileContext?.projectId },
           )
             .then((result) => {
