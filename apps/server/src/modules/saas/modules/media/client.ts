@@ -8,6 +8,7 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import { getSaasClient } from "../../client";
+import type { MediaGenerateRequest } from "@openloaf-saas/sdk";
 
 export type SaasMediaSubmitArgs = {
   /** Media task kind. */
@@ -114,6 +115,73 @@ export async function pollMediaTask(
 export async function cancelMediaTask(taskId: string, accessToken: string) {
   const client = getSaasClient(accessToken);
   return client.ai.cancelTask(taskId);
+}
+
+// ═══════════ Media v2 client functions ═══════════
+
+/** Submit a media generation task via SDK v2 unified endpoint. */
+export async function submitMediaGenerateV2(
+  payload: MediaGenerateRequest,
+  accessToken: string,
+): Promise<{ success: boolean; data?: { taskId: string }; message?: string }> {
+  const client = getSaasClient(accessToken);
+  return client.ai.mediaGenerate(payload) as any;
+}
+
+/** Poll single task via SDK v2 endpoint. */
+export async function pollMediaTaskV2(
+  taskId: string,
+  accessToken: string,
+): Promise<
+  Omit<SaasMediaTaskResult, "taskId" | "status"> & {
+    taskId?: string;
+    status: SaasMediaTaskResult["status"] | "not_found";
+    creditsConsumed?: number;
+  }
+> {
+  const client = getSaasClient(accessToken);
+  const response = (await client.ai.mediaTask(taskId)) as any;
+  if (!response || response.success === false) {
+    return { status: "not_found" };
+  }
+  const d = response.data;
+  return {
+    taskId,
+    status: d.status ?? "queued",
+    progress: d.progress,
+    resultType: d.resultType,
+    resultUrls: d.resultUrls,
+    error: d.error,
+    creditsConsumed: d.creditsConsumed,
+  };
+}
+
+/** Cancel a running task via SDK v2. */
+export async function cancelMediaTaskV2(
+  taskId: string,
+  accessToken: string,
+): Promise<{ status: string }> {
+  const client = getSaasClient(accessToken);
+  const response = (await client.ai.mediaCancelTask(taskId)) as any;
+  return { status: response?.data?.status ?? "unknown" };
+}
+
+/** Poll task group via SDK v2. */
+export async function pollMediaTaskGroupV2(
+  groupId: string,
+  accessToken: string,
+): Promise<any> {
+  const client = getSaasClient(accessToken);
+  return client.ai.mediaTaskGroup(groupId);
+}
+
+/** Fetch media models via SDK v2 unified endpoint. */
+export async function fetchMediaModelsV2(
+  accessToken: string,
+  feature?: string,
+): Promise<any> {
+  const client = getSaasClient(accessToken);
+  return client.ai.mediaModels(feature);
 }
 
 /** Fetch image model list with cache. */
