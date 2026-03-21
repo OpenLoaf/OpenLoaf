@@ -83,6 +83,47 @@ export async function submitVideoTask(payload: SaasVideoSubmitPayload) {
   return parseJsonResponse(response);
 }
 
+/** Submit a media generation task via v2 unified endpoint. */
+export async function submitMediaGenerate(payload: Record<string, unknown>) {
+  const base = resolveServerUrl();
+  const authHeaders = await buildAuthHeaders();
+  const response = await fetch(`${base}/ai/media/generate`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json", ...authHeaders },
+    body: JSON.stringify(payload),
+  });
+  return parseJsonResponse(response);
+}
+
+/** Poll single task via v2 endpoint. */
+export async function pollMediaTaskV2(taskId: string, options?: PollTaskOptions) {
+  const base = resolveServerUrl();
+  const authHeaders = await buildAuthHeaders();
+  const url = new URL(`${base}/ai/media/task/${taskId}`);
+  if (options?.projectId) url.searchParams.set("projectId", options.projectId);
+  if (options?.saveDir) url.searchParams.set("saveDir", options.saveDir);
+  const response = await fetch(url.toString(), {
+    credentials: "include",
+    headers: authHeaders,
+  });
+  return parseJsonResponse(response);
+}
+
+/** Fetch media models via v2 unified endpoint. */
+export async function fetchMediaModels(feature?: string, options?: FetchMediaModelsOptions) {
+  const authHeaders = await buildAuthHeaders();
+  const base = resolveServerUrl();
+  const url = new URL(`${base}/ai/media/models`);
+  if (feature) url.searchParams.set("feature", feature);
+  if (options?.force) url.searchParams.set("force", "1");
+  const response = await fetch(url.toString(), {
+    credentials: "include",
+    headers: authHeaders,
+  });
+  return parseJsonResponse(response);
+}
+
 type PollTaskOptions = {
   /** Project id for server-side context recovery. */
   projectId?: string;
