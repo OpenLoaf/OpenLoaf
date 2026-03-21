@@ -746,10 +746,16 @@ export function VideoNodeView({
         const result = await submitVideoGenerate(
           {
             prompt: params.prompt,
-            modelId: params.modelId === 'auto' ? undefined : params.modelId,
             aspectRatio: params.aspectRatio,
             duration: params.duration,
+            mode: params.mode as any,
             firstFrameImageSrc: params.firstFrameImageSrc,
+            endFrameImageSrc: params.endFrameImageSrc,
+            referenceImageSrcs: params.referenceImageSrcs,
+            withAudio: params.withAudio,
+            quality: params.quality,
+            count: params.count,
+            seed: params.seed,
           },
           {
             projectId: fileContext?.projectId,
@@ -760,11 +766,13 @@ export function VideoNodeView({
 
         const snapshot = createInputSnapshot({
           prompt: params.prompt,
-          modelId: params.modelId,
           parameters: {
+            feature: params.feature,
+            mode: params.mode,
             aspectRatio: params.aspectRatio,
             duration: params.duration,
-            firstFrameImageSrc: params.firstFrameImageSrc,
+            quality: params.quality,
+            withAudio: params.withAudio,
           },
           upstreamRefs: [
             ...(upstream?.textList ?? []).map(text => ({ nodeId: '', nodeType: 'text', data: text })),
@@ -780,7 +788,8 @@ export function VideoNodeView({
         console.error('[VideoNode] submitVideoGenerate failed:', err)
         onUpdate({
           aiConfig: {
-            ...(element.props.aiConfig ?? { modelId: params.modelId, prompt: params.prompt }),
+            ...(element.props.aiConfig ?? { prompt: params.prompt }),
+            feature: params.feature,
             taskId: undefined,
           },
         })
@@ -794,11 +803,13 @@ export function VideoNodeView({
     if (!primaryEntry?.input) return
     const input = primaryEntry.input
     const params: VideoGenerateParams = {
+      feature: (input.parameters?.feature as VideoGenerateParams['feature']) ?? 'videoGenerate',
+      mode: (input.parameters?.mode as VideoGenerateParams['mode']) ?? 'text',
       prompt: input.prompt,
-      modelId: input.modelId,
       aspectRatio: (input.parameters?.aspectRatio as string) ?? '16:9',
-      duration: (input.parameters?.duration as number) ?? 5,
-      firstFrameImageSrc: input.parameters?.firstFrameImageSrc as string | undefined,
+      duration: (input.parameters?.duration as 5 | 10 | 15) ?? 5,
+      quality: input.parameters?.quality as VideoGenerateParams['quality'],
+      withAudio: input.parameters?.withAudio as boolean | undefined,
     }
     handleGenerate(params)
   }, [primaryEntry, handleGenerate])
@@ -818,10 +829,16 @@ export function VideoNodeView({
         const result = await submitVideoGenerate(
           {
             prompt: params.prompt,
-            modelId: params.modelId === 'auto' ? undefined : params.modelId,
             aspectRatio: params.aspectRatio,
             duration: params.duration,
+            mode: params.mode as any,
             firstFrameImageSrc: params.firstFrameImageSrc,
+            endFrameImageSrc: params.endFrameImageSrc,
+            referenceImageSrcs: params.referenceImageSrcs,
+            withAudio: params.withAudio,
+            quality: params.quality,
+            count: params.count,
+            seed: params.seed,
           },
           {
             projectId: fileContext?.projectId,
@@ -832,11 +849,13 @@ export function VideoNodeView({
 
         const snapshot = createInputSnapshot({
           prompt: params.prompt,
-          modelId: params.modelId,
           parameters: {
+            feature: params.feature,
+            mode: params.mode,
             aspectRatio: params.aspectRatio,
             duration: params.duration,
-            firstFrameImageSrc: params.firstFrameImageSrc,
+            quality: params.quality,
+            withAudio: params.withAudio,
           },
         })
         const entry = createGeneratingEntry(snapshot, result.taskId)

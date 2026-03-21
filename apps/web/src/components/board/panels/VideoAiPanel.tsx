@@ -12,10 +12,8 @@ import { useTranslation } from 'react-i18next'
 import {
   ChevronDown,
   ImagePlus,
-  Languages,
   Link as LinkIcon,
   Video,
-  Wand2,
   Zap,
 } from 'lucide-react'
 import type { CanvasNodeElement } from '../engine/types'
@@ -27,41 +25,49 @@ import {
 } from '../nodes/node-config'
 import {
   BOARD_GENERATE_INPUT,
-  BOARD_GENERATE_BTN_VIDEO,
 } from '../ui/board-style-system'
-import { useMediaModels } from '@/hooks/use-media-models'
-import { filterVideoMediaModels } from '../nodes/lib/image-generation'
-import { estimateVideoCredits } from '../services/credit-estimate'
 import { GenerateActionBar } from './GenerateActionBar'
 
-/** Fallback model options used when no cloud models are available. */
-const FALLBACK_MODEL_OPTIONS = [
-  { id: 'kling-v1', label: 'Kling v1' },
-  { id: 'runway-gen3', label: 'Runway Gen-3' },
-  { id: 'pika-v2', label: 'Pika v2' },
-] as const
+/** SDK v2 video feature type. */
+type VideoFeature = 'videoGenerate' | 'digitalHuman'
 
-/** Video generation mode. */
-type VideoMode = 'text2video' | 'universalRef' | 'img2video' | 'startEndFrame' | 'videoEdit'
+/** SDK v2 videoGenerate modes. */
+type VideoGenMode = 'text' | 'firstFrame' | 'startEnd' | 'reference' | 'storyboard' | 'motionControl'
 
-/** All modes with their i18n key and enabled status. */
-const VIDEO_MODES: Array<{ id: VideoMode; key: string; enabled: boolean }> = [
-  { id: 'text2video', key: 'mode.textToVideo', enabled: true },
-  { id: 'universalRef', key: 'mode.universalRef', enabled: true },
-  { id: 'img2video', key: 'mode.imageToVideo', enabled: true },
-  { id: 'startEndFrame', key: 'mode.startEndFrame', enabled: true },
-  { id: 'videoEdit', key: 'mode.videoEdit', enabled: false },
+/** SDK v2 digitalHuman modes. */
+type DigitalHumanMode = 'photo2video' | 'lipSync'
+
+/** videoGenerate mode tabs. */
+const VIDEO_GEN_MODES: Array<{ id: VideoGenMode; needsUpstream: boolean }> = [
+  { id: 'text', needsUpstream: false },
+  { id: 'firstFrame', needsUpstream: true },
+  { id: 'startEnd', needsUpstream: true },
+  { id: 'reference', needsUpstream: true },
 ]
 
-/** Reference feature buttons for universalRef mode. */
-const REF_FEATURES = ['mark', 'effect', 'subject', 'camera'] as const
+/** Advanced modes (shown after separator). */
+const VIDEO_GEN_ADVANCED_MODES: Array<{ id: VideoGenMode; needsUpstream: boolean; enabled: boolean }> = [
+  { id: 'storyboard', needsUpstream: false, enabled: false },
+  { id: 'motionControl', needsUpstream: true, enabled: false },
+]
 
 export type VideoGenerateParams = {
+  feature: VideoFeature
+  mode: VideoGenMode | DigitalHumanMode
   prompt: string
-  modelId: string
   aspectRatio: string
-  duration: number
+  duration: 5 | 10 | 15
+  quality?: 'draft' | 'standard' | 'hd'
+  count?: 1 | 2 | 4
+  seed?: number
+  withAudio?: boolean
+  style?: string
+  negativePrompt?: string
   firstFrameImageSrc?: string
+  endFrameImageSrc?: string
+  referenceImageSrcs?: string[]
+  personSrc?: string
+  audioSrc?: string
 }
 
 export type VideoAiPanelProps = {
@@ -74,7 +80,7 @@ export type VideoAiPanelProps = {
   upstreamImages?: string[]
   /** When true, all inputs are disabled and the generate button is hidden. */
   readonly?: boolean
-  /** Editing mode — user unlocked an existing result to tweak params. */
+  /** Editing mode -- user unlocked an existing result to tweak params. */
   editing?: boolean
   /** Callback to unlock the panel for editing. */
   onUnlock?: () => void
@@ -94,27 +100,15 @@ export function VideoAiPanel({
 }: VideoAiPanelProps) {
   const { t } = useTranslation('board')
   const aiConfig = element.props.aiConfig
-  const { videoModels, loaded: mediaModelsLoaded } = useMediaModels()
 
-  const [mode, setMode] = useState<VideoMode>('text2video')
-
-  const imageCount = upstreamImages?.length ?? 0
-  const filteredModels = useMemo(
-    () =>
-      mediaModelsLoaded && videoModels.length > 0
-        ? filterVideoMediaModels(videoModels, {
-            imageCount,
-            hasReference: mode === 'universalRef',
-            hasStartEnd: mode === 'startEndFrame',
-            withAudio: false,
-          })
-        : [],
-    [videoModels, mediaModelsLoaded, imageCount, mode],
-  )
+  const [feature, setFeature] = useState<VideoFeature>('videoGenerate')
+  const [genMode, setGenMode] = useState<VideoGenMode>('text')
+  const [dhMode, setDhMode] = useState<DigitalHumanMode>('photo2video')
+  const [quality, setQuality] = useState<'draft' | 'standard' | 'hd'>('standard')
+  const [withAudio, setWithAudio] = useState(false)
 
   const usedUpstreamText = !aiConfig?.prompt && !!upstreamText
   const [prompt, setPrompt] = useState(aiConfig?.prompt ?? upstreamText ?? '')
-  const [modelId, setModelId] = useState(aiConfig?.modelId ?? 'auto')
   const [aspectRatio, setAspectRatio] = useState<AiGenerateConfig['aspectRatio']>(
     aiConfig?.aspectRatio ?? 'auto',
   )
@@ -123,45 +117,73 @@ export function VideoAiPanel({
   const [generateCount, setGenerateCount] = useState(1)
   const [showCountDropdown, setShowCountDropdown] = useState(false)
 
-  const estimatedCredits = useMemo(
-    () =>
-      estimateVideoCredits(
-        { modelId, duration, aspectRatio: aspectRatio ?? '16:9', count: generateCount },
-        filteredModels,
-      ),
-    [modelId, duration, aspectRatio, generateCount, filteredModels],
-  )
+  const isGenerateDisabled = (() => {
+    if (feature === 'digitalHuman') return false // Will need person+audio validation later
+    if (!prompt.trim()) return true
+    if (genMode === 'firstFrame' && !upstreamImages?.[0]) return true
+    if (genMode === 'startEnd' && !upstreamImages?.[0]) return true
+    if (genMode === 'reference' && !upstreamImages?.length) return true
+    return false
+  })()
 
   const handleGenerate = useCallback(() => {
     if (isGenerating) return
     setIsGenerating(true)
+    const currentMode = feature === 'videoGenerate' ? genMode : dhMode
     const config: AiGenerateConfig = {
-      modelId,
+      feature,
       prompt,
       aspectRatio,
+      quality,
     }
     onUpdate({
       origin: 'ai-generate',
       aiConfig: config,
     })
 
-    const firstFrameImageSrc = upstreamImages?.[0]
+    const params: VideoGenerateParams = {
+      feature,
+      mode: currentMode,
+      prompt,
+      aspectRatio: aspectRatio ?? 'auto',
+      duration: duration as 5 | 10 | 15,
+      quality,
+      count: generateCount as 1 | 2 | 4,
+      withAudio: feature === 'videoGenerate' ? withAudio : undefined,
+      firstFrameImageSrc: (genMode === 'firstFrame' || genMode === 'startEnd') ? upstreamImages?.[0] : undefined,
+      endFrameImageSrc: genMode === 'startEnd' ? upstreamImages?.[1] : undefined,
+      referenceImageSrcs: genMode === 'reference' ? upstreamImages : undefined,
+    }
+
     if (onGenerate) {
-      onGenerate({ prompt, modelId, aspectRatio: aspectRatio ?? 'auto', duration, firstFrameImageSrc })
+      onGenerate(params)
     }
 
     setTimeout(() => setIsGenerating(false), 300)
-  }, [isGenerating, modelId, prompt, aspectRatio, duration, upstreamImages, onUpdate, onGenerate])
+  }, [isGenerating, feature, genMode, dhMode, prompt, aspectRatio, quality, duration, generateCount, withAudio, upstreamImages, onUpdate, onGenerate])
 
   const handleGenerateNew = useCallback(() => {
     if (isGenerating) return
     setIsGenerating(true)
-    const firstFrameImageSrc = upstreamImages?.[0]
+    const currentMode = feature === 'videoGenerate' ? genMode : dhMode
+    const params: VideoGenerateParams = {
+      feature,
+      mode: currentMode,
+      prompt,
+      aspectRatio: aspectRatio ?? 'auto',
+      duration: duration as 5 | 10 | 15,
+      quality,
+      count: generateCount as 1 | 2 | 4,
+      withAudio: feature === 'videoGenerate' ? withAudio : undefined,
+      firstFrameImageSrc: (genMode === 'firstFrame' || genMode === 'startEnd') ? upstreamImages?.[0] : undefined,
+      endFrameImageSrc: genMode === 'startEnd' ? upstreamImages?.[1] : undefined,
+      referenceImageSrcs: genMode === 'reference' ? upstreamImages : undefined,
+    }
     if (onGenerateNewNode) {
-      onGenerateNewNode({ prompt, modelId, aspectRatio: aspectRatio ?? 'auto', duration, firstFrameImageSrc })
+      onGenerateNewNode(params)
     }
     setTimeout(() => setIsGenerating(false), 300)
-  }, [isGenerating, modelId, prompt, aspectRatio, duration, upstreamImages, onGenerateNewNode])
+  }, [isGenerating, feature, genMode, dhMode, prompt, aspectRatio, quality, duration, generateCount, withAudio, upstreamImages, onGenerateNewNode])
 
   const hasResource = Boolean(element.props.sourcePath)
   const hasUpstreamImages = upstreamImages && upstreamImages.length > 0
@@ -171,34 +193,90 @@ export function VideoAiPanel({
       'flex w-[420px] flex-col gap-2.5 rounded-xl border border-border bg-card p-3 shadow-lg',
       readonly ? 'opacity-80' : '',
     ].join(' ')}>
-      {/* ── Mode Tabs ── */}
-      <div className="no-scrollbar flex gap-1 overflow-x-auto rounded-lg bg-ol-surface-muted p-0.5">
-        {VIDEO_MODES.map((m) => (
+      {/* -- Feature Tabs (top level) -- */}
+      <div className="flex items-center gap-1 rounded-lg bg-ol-surface-muted p-0.5">
+        {(['videoGenerate', 'digitalHuman'] as const).map((f) => (
           <button
-            key={m.id}
+            key={f}
             type="button"
-            disabled={readonly || !m.enabled}
+            disabled={readonly}
             className={[
-              'relative shrink-0 whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium transition-colors duration-150',
-              readonly || !m.enabled
-                ? 'cursor-not-allowed text-muted-foreground/40'
-                : mode === m.id
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground',
+              'flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors duration-150',
+              feature === f
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground',
             ].join(' ')}
-            onClick={() => !readonly && m.enabled && setMode(m.id)}
+            onClick={() => setFeature(f)}
           >
-            {t(`videoPanel.${m.key}`)}
-            {!m.enabled ? (
-              <span className="ml-1 inline-flex items-center rounded bg-muted-foreground/10 px-1 py-px text-[9px] font-semibold leading-none text-muted-foreground/50">
-                {t('videoPanel.modeV2Badge')}
-              </span>
-            ) : null}
+            {t(`videoPanel.feature.${f}`)}
           </button>
         ))}
       </div>
 
-      {/* ── Upstream Banner ── */}
+      {/* -- Mode Pills (second level, videoGenerate) -- */}
+      {feature === 'videoGenerate' ? (
+        <div className="no-scrollbar flex gap-1 overflow-x-auto">
+          {VIDEO_GEN_MODES.map((m) => (
+            <button
+              key={m.id}
+              type="button"
+              disabled={readonly}
+              className={[
+                'shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors duration-150',
+                genMode === m.id
+                  ? 'bg-foreground/10 text-foreground'
+                  : 'text-muted-foreground hover:text-foreground',
+              ].join(' ')}
+              onClick={() => setGenMode(m.id)}
+            >
+              {t(`videoPanel.modeV2.${m.id}`)}
+            </button>
+          ))}
+          <span className="mx-0.5 h-4 w-px self-center bg-border" />
+          {VIDEO_GEN_ADVANCED_MODES.map((m) => (
+            <button
+              key={m.id}
+              type="button"
+              disabled={readonly || !m.enabled}
+              className={[
+                'shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors duration-150',
+                !m.enabled ? 'cursor-not-allowed text-muted-foreground/40' :
+                genMode === m.id
+                  ? 'bg-foreground/10 text-foreground'
+                  : 'text-muted-foreground hover:text-foreground',
+              ].join(' ')}
+              onClick={() => m.enabled && setGenMode(m.id)}
+            >
+              {t(`videoPanel.modeV2.${m.id}`)}
+              {!m.enabled ? <span className="ml-1 text-[9px] text-muted-foreground/50">Soon</span> : null}
+            </button>
+          ))}
+        </div>
+      ) : null}
+
+      {/* -- Mode Pills (second level, digitalHuman) -- */}
+      {feature === 'digitalHuman' ? (
+        <div className="flex gap-1">
+          {(['photo2video', 'lipSync'] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              disabled={readonly}
+              className={[
+                'rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors duration-150',
+                dhMode === m
+                  ? 'bg-foreground/10 text-foreground'
+                  : 'text-muted-foreground hover:text-foreground',
+              ].join(' ')}
+              onClick={() => setDhMode(m)}
+            >
+              {t(`videoPanel.modeV2.${m}`)}
+            </button>
+          ))}
+        </div>
+      ) : null}
+
+      {/* -- Upstream Banner -- */}
       {usedUpstreamText ? (
         <div className="flex items-center gap-1.5 rounded-md bg-foreground/5 px-2.5 py-1.5 text-xs text-muted-foreground">
           <LinkIcon size={12} />
@@ -206,8 +284,8 @@ export function VideoAiPanel({
         </div>
       ) : null}
 
-      {/* ── Slot Area: per mode ── */}
-      {mode === 'img2video' ? (
+      {/* -- Slot Area: per mode (videoGenerate) -- */}
+      {feature === 'videoGenerate' && genMode === 'firstFrame' ? (
         <SlotArea
           label={t('videoPanel.firstFrame')}
           images={hasUpstreamImages ? upstreamImages.slice(0, 1) : undefined}
@@ -216,7 +294,7 @@ export function VideoAiPanel({
         />
       ) : null}
 
-      {mode === 'startEndFrame' ? (
+      {feature === 'videoGenerate' && genMode === 'startEnd' ? (
         <div className="flex gap-2">
           <SlotArea
             label={t('videoPanel.firstFrame')}
@@ -233,19 +311,8 @@ export function VideoAiPanel({
         </div>
       ) : null}
 
-      {mode === 'universalRef' ? (
+      {feature === 'videoGenerate' && genMode === 'reference' ? (
         <div className="flex flex-col gap-1.5">
-          <div className="flex flex-wrap gap-1">
-            {REF_FEATURES.map((feat) => (
-              <button
-                key={feat}
-                type="button"
-                className="rounded-full border border-border px-2.5 py-1 text-[11px] text-muted-foreground transition-colors duration-150 hover:bg-foreground/5 hover:text-foreground"
-              >
-                {t(`videoPanel.refFeatures.${feat}`)}
-              </button>
-            ))}
-          </div>
           {hasUpstreamImages ? (
             <div className="flex flex-wrap gap-1.5">
               {upstreamImages.slice(0, 4).map((src, idx) => (
@@ -262,112 +329,105 @@ export function VideoAiPanel({
                 </div>
               ))}
             </div>
-          ) : null}
+          ) : (
+            <SlotArea
+              label={t('videoPanel.modeV2.reference')}
+              uploadLabel={t('videoPanel.firstFrameUpload')}
+            />
+          )}
         </div>
       ) : null}
 
-      {mode === 'videoEdit' ? (
-        <SlotArea
-          label={t('videoPanel.sourceVideo')}
-          uploadLabel={t('videoPanel.firstFrameUpload')}
-          disabled
-          icon={<Video size={16} />}
-        />
+      {/* -- Slot Area: digitalHuman modes -- */}
+      {feature === 'digitalHuman' ? (
+        <div className="flex flex-col gap-2">
+          <SlotArea
+            label={t(`videoPanel.digitalHuman.${dhMode === 'photo2video' ? 'personImage' : 'personVideo'}`)}
+            images={hasUpstreamImages ? upstreamImages.slice(0, 1) : undefined}
+            uploadLabel={t('videoPanel.digitalHuman.uploadPerson')}
+          />
+          <SlotArea
+            label={t('videoPanel.digitalHuman.audioInput')}
+            uploadLabel={t('videoPanel.digitalHuman.uploadAudio')}
+          />
+        </div>
       ) : null}
 
-      {/* ── Prompt ── */}
-      <div className="relative flex flex-col gap-1">
-        <textarea
-          className={[
-            'min-h-[68px] w-full resize-none rounded-lg border px-3 py-2 pr-9 text-sm leading-relaxed',
-            BOARD_GENERATE_INPUT,
-            readonly ? 'cursor-not-allowed opacity-60' : '',
-          ].join(' ')}
-          placeholder={t('videoPanel.promptPlaceholder')}
-          value={prompt}
-          onChange={(e) => !readonly && setPrompt(e.target.value)}
-          readOnly={readonly}
-          rows={3}
-        />
-        {/* Prompt Enhancement Button — TODO: re-enable when implemented */}
-        {/* <button
-          type="button"
-          className="absolute right-2 bottom-2 inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-foreground/8 dark:hover:bg-foreground/10 transition-colors duration-150"
-          title={t('videoPanel.enhancePrompt')}
-        >
-          <Wand2 size={14} />
-        </button> */}
-      </div>
+      {/* -- Prompt (videoGenerate only) -- */}
+      {feature === 'videoGenerate' ? (
+        <div className="relative flex flex-col gap-1">
+          <textarea
+            className={[
+              'min-h-[68px] w-full resize-none rounded-lg border px-3 py-2 pr-9 text-sm leading-relaxed',
+              BOARD_GENERATE_INPUT,
+              readonly ? 'cursor-not-allowed opacity-60' : '',
+            ].join(' ')}
+            placeholder={t('videoPanel.promptPlaceholder')}
+            value={prompt}
+            onChange={(e) => !readonly && setPrompt(e.target.value)}
+            readOnly={readonly}
+            rows={3}
+          />
+        </div>
+      ) : null}
 
-      {/* ── Bottom Bar ── */}
+      {/* -- Bottom Bar -- */}
       <div className="flex items-center gap-1.5 border-t border-border pt-2">
-        {/* Model Selector */}
-        <select
-          className={[
-            'h-7 max-w-[120px] truncate rounded-md border border-border bg-transparent px-1.5 text-[11px] text-foreground outline-none transition-colors duration-150',
-            readonly ? 'cursor-not-allowed opacity-60 appearance-none' : 'hover:bg-foreground/5',
-          ].join(' ')}
-          value={modelId}
-          onChange={(e) => !readonly && setModelId(e.target.value)}
-          disabled={readonly}
-        >
-          <option value="auto">{t('videoPanel.autoRecommend')}</option>
-          {filteredModels.length > 0
-            ? filteredModels.map((model) => (
-                <option key={model.id} value={model.id}>
-                  {model.name || model.id}
-                </option>
-              ))
-            : FALLBACK_MODEL_OPTIONS.map((opt) => (
-                <option key={opt.id} value={opt.id}>
-                  {opt.label}
-                </option>
-              ))}
-        </select>
+        {/* Aspect Ratio Selector (videoGenerate only) */}
+        {feature === 'videoGenerate' ? (
+          <select
+            className={[
+              'h-7 rounded-md border border-border bg-transparent px-1.5 text-[11px] text-foreground outline-none transition-colors duration-150',
+              readonly ? 'cursor-not-allowed opacity-60 appearance-none' : 'hover:bg-foreground/5',
+            ].join(' ')}
+            value={aspectRatio ?? 'auto'}
+            disabled={readonly}
+            onChange={(e) => setAspectRatio(e.target.value as AiGenerateConfig['aspectRatio'])}
+          >
+            {VIDEO_GENERATE_ASPECT_RATIO_OPTIONS.map((ratio) => (
+              <option key={ratio} value={ratio}>
+                {ratio === 'auto' ? t('videoPanel.ratioAuto', { defaultValue: 'Auto' }) : ratio}
+              </option>
+            ))}
+          </select>
+        ) : null}
 
-        {/* Aspect Ratio Selector */}
+        {/* Duration Selector (videoGenerate only) */}
+        {feature === 'videoGenerate' ? (
+          <select
+            className={[
+              'h-7 rounded-md border border-border bg-transparent px-1.5 text-[11px] text-foreground outline-none transition-colors duration-150',
+              readonly ? 'cursor-not-allowed opacity-60 appearance-none' : 'hover:bg-foreground/5',
+            ].join(' ')}
+            value={duration}
+            disabled={readonly}
+            onChange={(e) => setDuration(Number.parseInt(e.target.value, 10) as (typeof VIDEO_GENERATE_DURATION_OPTIONS)[number])}
+          >
+            {VIDEO_GENERATE_DURATION_OPTIONS.map((dur) => (
+              <option key={dur} value={dur}>{dur}s</option>
+            ))}
+          </select>
+        ) : null}
+
+        {/* Quality Selector (all features) */}
         <select
           className={[
             'h-7 rounded-md border border-border bg-transparent px-1.5 text-[11px] text-foreground outline-none transition-colors duration-150',
             readonly ? 'cursor-not-allowed opacity-60 appearance-none' : 'hover:bg-foreground/5',
           ].join(' ')}
-          value={aspectRatio ?? 'auto'}
+          value={quality}
           disabled={readonly}
-          onChange={(e) => setAspectRatio(e.target.value as AiGenerateConfig['aspectRatio'])}
+          onChange={(e) => setQuality(e.target.value as 'draft' | 'standard' | 'hd')}
         >
-          {VIDEO_GENERATE_ASPECT_RATIO_OPTIONS.map((ratio) => (
-            <option key={ratio} value={ratio}>
-              {ratio === 'auto' ? t('videoPanel.ratioAuto', { defaultValue: 'Auto' }) : ratio}
+          {(['draft', 'standard', 'hd'] as const).map((q) => (
+            <option key={q} value={q}>
+              {t(`videoPanel.quality.${q}`)}
             </option>
-          ))}
-        </select>
-
-        {/* Duration Selector */}
-        <select
-          className={[
-            'h-7 rounded-md border border-border bg-transparent px-1.5 text-[11px] text-foreground outline-none transition-colors duration-150',
-            readonly ? 'cursor-not-allowed opacity-60 appearance-none' : 'hover:bg-foreground/5',
-          ].join(' ')}
-          value={duration}
-          disabled={readonly}
-          onChange={(e) => setDuration(Number.parseInt(e.target.value, 10) as (typeof VIDEO_GENERATE_DURATION_OPTIONS)[number])}
-        >
-          {VIDEO_GENERATE_DURATION_OPTIONS.map((dur) => (
-            <option key={dur} value={dur}>{dur}s</option>
           ))}
         </select>
 
         {/* Spacer */}
         <div className="flex-1" />
-
-        {/* Translate Button — TODO: re-enable when implemented */}
-        {/* <button
-          type="button"
-          className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-foreground/8 dark:hover:bg-foreground/10 transition-colors duration-150"
-          title={t('videoPanel.translate')}
-        >
-          <Languages size={14} />
-        </button> */}
 
         {/* Count Dropdown */}
         <div className="relative">
@@ -408,15 +468,32 @@ export function VideoAiPanel({
         {/* Credits Indicator */}
         <div className="inline-flex h-7 items-center gap-0.5 rounded-md px-1.5 text-[11px] text-muted-foreground" title={t('videoPanel.estimatedCredits')}>
           <Zap size={12} />
-          <span>{estimatedCredits != null ? `≈${estimatedCredits}` : '--'}</span>
+          <span>--</span>
         </div>
       </div>
 
-      {/* ── Generate Action Bar ── */}
+      {/* withAudio checkbox (videoGenerate only) */}
+      {feature === 'videoGenerate' ? (
+        <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          <input
+            type="checkbox"
+            checked={withAudio}
+            onChange={(e) => setWithAudio(e.target.checked)}
+            disabled={readonly}
+            className="accent-foreground"
+          />
+          {t('videoPanel.withAudio')}
+        </label>
+      ) : null}
+
+      {/* Video Edit teaser */}
+      <p className="text-center text-[10px] text-muted-foreground/50">{t('videoPanel.videoEditTeaser')}</p>
+
+      {/* -- Generate Action Bar -- */}
       <GenerateActionBar
         hasResource={hasResource}
         generating={isGenerating}
-        disabled={!prompt.trim()}
+        disabled={isGenerateDisabled}
         buttonClassName="bg-foreground text-background hover:bg-foreground/90"
         onGenerate={handleGenerate}
         onGenerateNewNode={handleGenerateNew}
@@ -429,7 +506,7 @@ export function VideoAiPanel({
 }
 
 // ---------------------------------------------------------------------------
-// SlotArea — reusable image/video upload slot
+// SlotArea -- reusable image/video upload slot
 // ---------------------------------------------------------------------------
 
 type SlotAreaProps = {
