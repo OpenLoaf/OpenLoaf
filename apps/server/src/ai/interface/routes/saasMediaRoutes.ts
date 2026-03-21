@@ -15,11 +15,13 @@ import {
   cancelMediaProxy,
   fetchAudioModelsProxy,
   fetchImageModelsProxy,
+  fetchMediaModelsProxy,
   fetchVideoModelsProxy,
   isMediaProxyHttpError,
   pollMediaProxy,
   submitAudioProxy,
   submitImageProxy,
+  submitMediaGenerateProxy,
   submitVideoProxy,
 } from "@/modules/saas/modules/media/mediaProxy";
 
@@ -183,6 +185,39 @@ export function registerSaasMediaRoutes(
     return handleSaasMediaRoute(
       c,
       async (accessToken) => fetchAudioModelsHandler(accessToken, { force }),
+      { allowAnonymous: true },
+    );
+  });
+
+  // ═══════════ Media v2 routes ═══════════
+
+  app.post("/ai/media/generate", async (c) => {
+    return handleSaasMediaRoute(c, async (accessToken) => {
+      const body = await c.req.json().catch(() => null);
+      return submitMediaGenerateProxy(body, accessToken);
+    });
+  });
+
+  app.get("/ai/media/task/:taskId", async (c) => {
+    return handleSaasMediaRoute(c, async (accessToken) => {
+      const projectId = c.req.query("projectId") || undefined;
+      const saveDir = c.req.query("saveDir") || undefined;
+      // Reuse v1 poll logic — v2 task response is compatible
+      return pollMediaProxy(c.req.param("taskId"), accessToken, { projectId, saveDir });
+    });
+  });
+
+  app.post("/ai/media/task/:taskId/cancel", async (c) => {
+    return handleSaasMediaRoute(c, async (accessToken) => {
+      return cancelMediaProxy(c.req.param("taskId"), accessToken);
+    });
+  });
+
+  app.get("/ai/media/models", async (c) => {
+    const feature = c.req.query("feature") || undefined;
+    return handleSaasMediaRoute(
+      c,
+      async (accessToken) => fetchMediaModelsProxy(accessToken, feature),
       { allowAnonymous: true },
     );
   });
