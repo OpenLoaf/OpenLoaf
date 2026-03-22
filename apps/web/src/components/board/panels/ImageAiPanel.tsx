@@ -168,7 +168,8 @@ export function ImageAiPanel({
   projectId,
   boardFolderUri,
 }: ImageAiPanelProps) {
-  const { t } = useTranslation('board')
+  const { t, i18n } = useTranslation('board')
+  const prefLang = i18n.language.startsWith('zh') ? 'zh' : 'en'
   const aiConfig = element.props.aiConfig
 
   // ── v3 capabilities ──
@@ -540,9 +541,12 @@ export function ImageAiPanel({
           const vc = IMAGE_VARIANT_CONSTRAINTS[v.id]
           const hasImage = Boolean(resolvedImageSrc || upstreamImages?.length)
           const needsImage = vc?.requiresImage && !hasImage
+          // Use server-provided preference label; fall back to displayName.
+          // TODO: replace with MEDIA_PREFERENCES[v.preference]?.label[prefLang] once SDK ≥0.1.14
+          const prefLabel: string | undefined = undefined
           return {
             id: v.id,
-            displayName: t(`v3.variants.${v.id}`, { defaultValue: v.displayName }),
+            displayName: prefLabel ?? v.displayName,
             creditsPerCall: v.creditsPerCall,
             incompatible: needsImage,
             incompatibleReason: needsImage

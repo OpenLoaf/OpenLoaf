@@ -112,7 +112,8 @@ export function VideoAiPanel({
   onUnlock,
   onCancelEdit,
 }: VideoAiPanelProps) {
-  const { t } = useTranslation('board')
+  const { t, i18n } = useTranslation('board')
+  const prefLang = i18n.language.startsWith('zh') ? 'zh' : 'en'
   const aiConfig = element.props.aiConfig
 
   // ── v3 Capabilities ──
@@ -384,9 +385,12 @@ export function VideoAiPanel({
           const needsImage = vc?.requiresImage && !hasImage
           const needsAudio = vc?.requiresAudio && !hasAudio
           const incompatible = needsImage || needsAudio
+          // Use server-provided preference label; fall back to displayName.
+          // TODO: replace with MEDIA_PREFERENCES[v.preference]?.label[prefLang] once SDK ≥0.1.14
+          const prefLabel: string | undefined = undefined
           return {
             id: v.id,
-            displayName: t(`v3.variants.${v.id}`, { defaultValue: v.displayName }),
+            displayName: prefLabel ?? v.displayName,
             creditsPerCall: v.creditsPerCall,
             incompatible,
             incompatibleReason: needsImage
