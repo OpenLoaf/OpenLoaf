@@ -67,7 +67,8 @@ async function resolveDouyinVideoId(url: string): Promise<string | null> {
 
     // Direct video path: /video/ID or /share/video/ID
     const pathMatch = u.pathname.match(/\/(?:share\/)?video\/(\d+)/)
-    if (pathMatch) return pathMatch[1]
+    const directVideoId = pathMatch?.[1]
+    if (directVideoId) return directVideoId
 
     // Modal param: ?modal_id=ID
     const modalId = u.searchParams.get('modal_id')
@@ -82,7 +83,8 @@ async function resolveDouyinVideoId(url: string): Promise<string | null> {
       const location = res.headers.get('location')
       if (location) {
         const locMatch = location.match(/\/video\/(\d+)/)
-        if (locMatch) return locMatch[1]
+        const redirectedVideoId = locMatch?.[1]
+        if (redirectedVideoId) return redirectedVideoId
       }
     }
   } catch {
@@ -144,7 +146,8 @@ async function extractDouyinVideo(videoId: string): Promise<DouyinVideoData> {
   const routerMatch = html.match(/window\._ROUTER_DATA\s*=\s*({[\s\S]+?})\s*<\/script>/)
   if (!routerMatch) throw new Error('Douyin _ROUTER_DATA not found in SSR page')
 
-  const jsonStr = routerMatch[1].replace(/\\u002F/g, '/')
+  const jsonStr = routerMatch[1]?.replace(/\\u002F/g, '/')
+  if (!jsonStr) throw new Error('Douyin _ROUTER_DATA payload missing')
   const data = JSON.parse(jsonStr)
 
   // Navigate: loaderData → "video_(id)/page" → videoInfoRes → item_list[0]

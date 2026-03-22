@@ -254,7 +254,6 @@ export function ImageAdjustOverlay({
             grid: true,
           }}
           backgroundClassName="bg-black/40"
-          scaleImage={{ wheel: false, touch: false }}
         />
       </div>
 
