@@ -16,7 +16,7 @@ import {
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@udecode/cn'
-import { MEDIA_PREFERENCES, type MediaPreferenceId } from '@openloaf-saas/sdk'
+import { MEDIA_PREFERENCES, MEDIA_FEATURES, type MediaPreferenceId, type MediaFeatureId } from '@openloaf-saas/sdk'
 import { useCapabilities } from '@/hooks/use-capabilities'
 import type { V3Feature, V3Variant } from '@/lib/saas-media'
 import { GenerateActionBar } from './GenerateActionBar'
@@ -265,9 +265,7 @@ export function AudioAiPanel({
             >
               <Icon size={13} />
               <span>
-                {t(`v3.features.${feature.id}`, {
-                  defaultValue: feature.displayName,
-                })}
+                {MEDIA_FEATURES[feature.id as MediaFeatureId]?.label[prefLang] ?? feature.id}
               </span>
               {hasNoVariants ? (
                 <span className="ml-1 rounded bg-muted-foreground/10 px-1 py-px text-[9px] text-muted-foreground/50">
@@ -332,7 +330,7 @@ export function AudioAiPanel({
           warningMessage={variantWarning}
           variants={variants.length > 0 ? variants.map((v) => ({
             id: v.id,
-            displayName: MEDIA_PREFERENCES[v.preference as MediaPreferenceId]?.label[prefLang] ?? v.displayName,
+            displayName: MEDIA_PREFERENCES[v.preference as MediaPreferenceId]?.label[prefLang] ?? v.id,
             creditsPerCall: v.creditsPerCall,
           })) : undefined}
           selectedVariantId={resolvedVariantId ?? undefined}

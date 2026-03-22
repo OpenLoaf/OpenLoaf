@@ -15,7 +15,7 @@ import {
 import type { CanvasNodeElement } from '../engine/types'
 import type { VideoNodeProps } from '../nodes/VideoNode'
 import type { AiGenerateConfig } from '../board-contracts'
-import { MEDIA_PREFERENCES, type MediaPreferenceId } from '@openloaf-saas/sdk'
+import { MEDIA_PREFERENCES, MEDIA_FEATURES, type MediaPreferenceId, type MediaFeatureId } from '@openloaf-saas/sdk'
 import { useCapabilities } from '@/hooks/use-capabilities'
 import { resolveAllMediaInputs } from '@/lib/media-upload'
 import { GenerateActionBar } from './GenerateActionBar'
@@ -335,7 +335,7 @@ export function VideoAiPanel({
                 ].join(' ')}
                 onClick={() => setSelectedFeatureId(f.id)}
               >
-                {t(`v3.features.${f.id}`, { defaultValue: f.displayName })}
+                {MEDIA_FEATURES[f.id as MediaFeatureId]?.label[prefLang] ?? f.id}
               </button>
             ))}
         </div>
@@ -390,7 +390,7 @@ export function VideoAiPanel({
           const prefLabel = MEDIA_PREFERENCES[v.preference as MediaPreferenceId]?.label[prefLang]
           return {
             id: v.id,
-            displayName: prefLabel ?? v.displayName,
+            displayName: prefLabel ?? v.id,
             creditsPerCall: v.creditsPerCall,
             incompatible,
             incompatibleReason: needsImage

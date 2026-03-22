@@ -8,12 +8,14 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 
-// ── v3 media types (SDK 0.1.14+) ──
+// ── v3 media types (SDK 0.1.15+) ──
 
 export type {
   MEDIA_PREFERENCES,
   MediaPreferenceId,
   MediaPreferenceLocale,
+  MEDIA_FEATURES,
+  MediaFeatureId,
   V3Feature,
   V3Variant,
   V3GenerateRequest,

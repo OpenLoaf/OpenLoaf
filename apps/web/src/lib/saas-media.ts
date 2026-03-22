@@ -90,18 +90,16 @@ export async function cancelTask(taskId: string) {
 /** v3 capability feature. */
 export type V3Feature = {
   id: string
-  displayName: string
   variants: V3Variant[]
 }
 
 /** v3 capability variant. */
 export type V3Variant = {
   id: string
-  displayName: string
   preference: string
   creditsPerCall: number
+  billingType?: string
   minMembershipLevel: 'free' | 'lite' | 'pro' | 'premium' | 'infinity'
-  capabilities?: Record<string, unknown>
 }
 
 /** v3 capabilities response. */
