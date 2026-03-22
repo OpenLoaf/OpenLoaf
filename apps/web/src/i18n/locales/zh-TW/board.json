@@ -1127,5 +1127,28 @@
       "sourceImageRequired": "請上傳需要編輯的圖片",
       "editPlusHint": "塗抹需要修改的區域，然後在下方描述修改效果"
     }
+  },
+  "slot": {
+    "prompt": "正向提示詞",
+    "negativePrompt": "反向提示詞",
+    "sourceImage": "來源圖片",
+    "referenceImages": "參考圖片",
+    "startFrame": "首幀圖片",
+    "audio": "音訊",
+    "video": "影片",
+    "text": "文字",
+    "editInstruction": "編輯指令",
+    "person": "人物圖片",
+    "face": "臉部圖片",
+    "style": "風格圖片",
+    "textPlaceholder": "輸入文字或 @ 引用上游便箋...",
+    "unassignedTexts": "待分配文字：",
+    "clearReference": "清除引用",
+    "overflow": "{{count}} 項未使用",
+    "overflowReason": "此功能最多支援 {{max}} 項",
+    "clickToReplace": "點擊替換",
+    "fromNode": "來自「{{name}}」",
+    "missingRequired": "缺少必要輸入",
+    "needsExtraInput": "還需連入{{type}}"
   }
 }

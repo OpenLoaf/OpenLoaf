@@ -1113,5 +1113,28 @@
       "sourceImageRequired": "編集する画像をアップロードしてください",
       "editPlusHint": "変更する領域を塗り、下に変更内容を記述してください"
     }
+  },
+  "slot": {
+    "prompt": "プロンプト",
+    "negativePrompt": "ネガティブプロンプト",
+    "sourceImage": "ソース画像",
+    "referenceImages": "参照画像",
+    "startFrame": "開始フレーム",
+    "audio": "オーディオ",
+    "video": "ビデオ",
+    "text": "テキスト",
+    "editInstruction": "編集指示",
+    "person": "人物画像",
+    "face": "顔画像",
+    "style": "スタイル画像",
+    "textPlaceholder": "テキストを入力、または @ で上流ノートを参照...",
+    "unassignedTexts": "未割り当てテキスト：",
+    "clearReference": "参照をクリア",
+    "overflow": "{{count}} 件未使用",
+    "overflowReason": "この機能は最大 {{max}} 件まで対応",
+    "clickToReplace": "クリックして置換",
+    "fromNode": "「{{name}}」から",
+    "missingRequired": "必須入力が不足しています",
+    "needsExtraInput": "{{type}}の入力が必要です"
   }
 }

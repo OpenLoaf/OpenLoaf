@@ -1127,5 +1127,28 @@
       "sourceImageRequired": "Please upload an image to edit",
       "editPlusHint": "Paint the area to modify, then describe the change below"
     }
+  },
+  "slot": {
+    "prompt": "Prompt",
+    "negativePrompt": "Negative Prompt",
+    "sourceImage": "Source Image",
+    "referenceImages": "Reference Images",
+    "startFrame": "Start Frame",
+    "audio": "Audio",
+    "video": "Video",
+    "text": "Text",
+    "editInstruction": "Edit Instruction",
+    "person": "Person Image",
+    "face": "Face Image",
+    "style": "Style Image",
+    "textPlaceholder": "Type text or @ to reference upstream notes...",
+    "unassignedTexts": "Unassigned texts:",
+    "clearReference": "Clear reference",
+    "overflow": "{{count}} unused",
+    "overflowReason": "This feature supports up to {{max}} items",
+    "clickToReplace": "Click to replace",
+    "fromNode": "From \"{{name}}\"",
+    "missingRequired": "Missing required input",
+    "needsExtraInput": "Needs {{type}} input"
   }
 }

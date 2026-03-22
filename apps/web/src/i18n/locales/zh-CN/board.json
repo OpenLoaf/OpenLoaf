@@ -1131,5 +1131,28 @@
       "sourceImageRequired": "请上传需要编辑的图片",
       "editPlusHint": "涂抹需要修改的区域，然后在下方描述修改效果"
     }
+  },
+  "slot": {
+    "prompt": "正向提示词",
+    "negativePrompt": "反向提示词",
+    "sourceImage": "源图片",
+    "referenceImages": "参考图片",
+    "startFrame": "首帧图片",
+    "audio": "音频",
+    "video": "视频",
+    "text": "文本",
+    "editInstruction": "编辑指令",
+    "person": "人物图片",
+    "face": "人脸图片",
+    "style": "风格图片",
+    "textPlaceholder": "输入文本或 @ 引用上游便签...",
+    "unassignedTexts": "待分配文本：",
+    "clearReference": "清除引用",
+    "overflow": "{{count}} 项未使用",
+    "overflowReason": "该功能最多支持 {{max}} 项",
+    "clickToReplace": "点击替换",
+    "fromNode": "来自「{{name}}」",
+    "missingRequired": "缺少必需输入",
+    "needsExtraInput": "还需连入{{type}}"
   }
 }
