@@ -34,13 +34,9 @@ import { buildImageNodePayloadFromUri } from "../utils/image";
 import { ImageNodeDetail } from "./ImageNodeDetail";
 import { NodeFrame } from "./NodeFrame";
 import type { BoardFileContext } from "../core/BoardProvider";
-import {
-  isBoardRelativePath,
-  resolveBoardFolderScope,
-  resolveProjectPathFromBoardUri,
-} from "../core/boardFilePath";
-import { arrayBufferToBase64 } from "../utils/base64";
-import { getBoardPreviewEndpoint, getPreviewEndpoint } from "@/lib/image/uri";
+import { isBoardRelativePath } from "../core/boardFilePath";
+import { resolveProjectRelativePath, resolveMediaSource } from './shared/resolveMediaSource';
+import { downloadMediaFile } from './shared/downloadMediaFile';
 import {
   formatScopedProjectPath,
   isProjectAbsolutePath,
@@ -128,88 +124,14 @@ export type ImageNodeProps = {
   versionStack?: import("../engine/types").VersionStack;
 };
 
-/** Resolve a board-scoped uri into a project-scoped path. */
-function resolveProjectRelativePath(uri: string, fileContext?: BoardFileContext) {
-  const scope = resolveBoardFolderScope(fileContext);
-  return resolveProjectPathFromBoardUri({
-    uri,
-    boardFolderScope: scope,
-    currentProjectId: fileContext?.projectId,
-    rootUri: fileContext?.rootUri,
-  });
-}
-
-/** Resolve image uri to a browser-friendly source. */
-function resolveImageSource(uri: string, fileContext?: BoardFileContext) {
-  if (!uri) return "";
-  if (
-    uri.startsWith("data:") ||
-    uri.startsWith("blob:") ||
-    uri.startsWith("http://") ||
-    uri.startsWith("https://")
-  ) {
-    return uri;
-  }
-  // 有 boardId 且路径是 board-relative 时，使用专用画布端点
-  if (fileContext?.boardId && isBoardRelativePath(uri)) {
-    return getBoardPreviewEndpoint(uri, {
-      boardId: fileContext.boardId,
-      projectId: fileContext.projectId,
-    });
-  }
-  const projectPath = resolveProjectRelativePath(uri, fileContext);
-  if (!projectPath) return "";
-  return getPreviewEndpoint(projectPath, {
-    projectId: fileContext?.projectId,
-  });
-}
-
-/** Resolve the default directory for download dialogs. */
-function resolveDownloadDefaultDir(fileContext?: BoardFileContext) {
-  const boardFolderUri = fileContext?.boardFolderUri?.trim();
-  if (boardFolderUri) {
-    if (boardFolderUri.startsWith("file://")) return boardFolderUri;
-  }
-  const rootUri = fileContext?.rootUri?.trim();
-  if (rootUri && rootUri.startsWith("file://")) return rootUri;
-  return "";
-}
-
 /** Trigger a download for the original image. */
 async function downloadOriginalImage(
   props: ImageNodeProps,
   fileContext?: BoardFileContext,
 ) {
-  const href = resolveImageSource(props.originalSrc, fileContext);
-  if (!href) return;
-  const saveFile = window.openloafElectron?.saveFile;
-  if (saveFile) {
-    try {
-      const response = await fetch(href);
-      if (!response.ok) throw new Error("download failed");
-      const buffer = await response.arrayBuffer();
-      const contentBase64 = arrayBufferToBase64(buffer);
-      const defaultDir = resolveDownloadDefaultDir(fileContext);
-      const rawName = props.fileName || "image.png";
-      const hasExt = rawName.includes(".");
-      const fileName = hasExt ? rawName : `${rawName}.png`;
-      const extension = fileName.split(".").pop() || "png";
-      const result = await saveFile({
-        contentBase64,
-        defaultDir: defaultDir || undefined,
-        suggestedName: fileName,
-        filters: [{ name: "Image", extensions: [extension] }],
-      });
-      if (result?.ok || result?.canceled) return;
-    } catch {
-      // 逻辑：桌面保存失败时回退到浏览器下载方式。
-    }
-  }
-  const link = document.createElement("a");
-  link.href = href;
-  link.download = props.fileName || "image";
-  link.rel = "noreferrer";
-  link.click();
+  const rawName = props.fileName || 'image.png'
+  const fileName = rawName.includes('.') ? rawName : `${rawName}.png`
+  await downloadMediaFile({ src: props.originalSrc, fileName, fileContext, filterLabel: 'Image' })
 }
 
 /** Build the props patch for switching version stack primary. */
@@ -380,9 +302,9 @@ export function ImageNodeView({
   const upstream = useUpstreamData(engine, expanded ? element.id : null);
   // 把 upstream imageList 中的 board 相对路径解析为浏览器可访问 URL
   const resolvedUpstreamImages = useMemo(
-    () => upstream?.imageList
-      .map((src) => resolveImageSource(src, fileContext))
-      .filter(Boolean) ?? [],
+    () => (upstream?.imageList
+      .map((src) => resolveMediaSource(src, fileContext))
+      .filter(Boolean) ?? []) as string[],
     [upstream?.imageList, fileContext],
   );
   // Raw board-relative paths for API submission (e.g. "asset/xxx.jpg")
@@ -394,7 +316,7 @@ export function ImageNodeView({
   const { panelRef } = useInlinePanelSync({ engine, xywh: element.xywh, expanded });
   const previewSrc =
     element.props.previewSrc ||
-    resolveImageSource(element.props.originalSrc, fileContext);
+    resolveMediaSource(element.props.originalSrc, fileContext);
   const hasPreview = Boolean(previewSrc);
   const isTranscoding = element.props.isTranscoding === true;
   const transcodingLabel = element.props.transcodingLabel || i18next.t('board:loading.transcoding');
@@ -452,7 +374,7 @@ export function ImageNodeView({
       const text = refs.filter(r => r.nodeType === 'text').map(r => r.data).join('\n') || undefined;
       const rawPaths = refs.filter(r => r.nodeType === 'image').map(r => r.data).filter(Boolean);
       const images = rawPaths
-        .map(r => resolveImageSource(r, fileContext))
+        .map(r => resolveMediaSource(r, fileContext))
         .filter(Boolean) as string[];
       return {
         text,
@@ -815,7 +737,7 @@ export function ImageNodeView({
     // 逻辑：点击图片触发预览，由 board action 统一接管显示。
     actions.openImagePreview({
       originalSrc: finalOriginal,
-      previewSrc,
+      previewSrc: previewSrc ?? '',
       fileName: element.props.fileName,
       mimeType: element.props.mimeType,
     });
@@ -1053,7 +975,7 @@ export function ImageNodeView({
                 includeAt: true,
               })
             : raw
-        return { id: e.id, src: resolveImageSource(scoped, fileContext) }
+        return { id: e.id, src: resolveMediaSource(scoped, fileContext) }
       })
       .filter((t): t is { id: string; src: string } => Boolean(t.src))
   }, [element.props.versionStack, fileContext])
@@ -1272,7 +1194,7 @@ export function ImageNodeView({
             upstreamImagePaths={effectiveUpstream.imagePaths}
             upstreamAudioUrl={effectiveUpstream.audioUrl}
             upstreamVideoUrl={effectiveUpstream.videoUrl}
-            resolvedImageSrc={resolveImageSource(element.props.originalSrc, fileContext) || previewSrc}
+            resolvedImageSrc={resolveMediaSource(element.props.originalSrc, fileContext) || previewSrc}
             onGenerate={handleGenerate}
             onGenerateNewNode={handleGenerateNewNode}
             maskPainting={maskPainting}

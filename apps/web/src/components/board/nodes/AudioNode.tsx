@@ -33,17 +33,12 @@ import { openFilePreview } from "@/components/file/lib/file-preview-store";
 import type { BoardFileContext, AiGenerateConfig } from "../board-contracts";
 import { useBoardContext } from "../core/BoardProvider";
 import {
-  isBoardRelativePath,
-  resolveBoardFolderScope,
-  resolveProjectPathFromBoardUri,
-} from "../core/boardFilePath";
-import {
   formatScopedProjectPath,
   normalizeProjectRelativePath,
   parseScopedProjectPath,
 } from "@/components/project/filesystem/utils/file-system-utils";
-import { getBoardPreviewEndpoint, getPreviewEndpoint } from "@/lib/image/uri";
-import { arrayBufferToBase64 } from "../utils/base64";
+import { resolveProjectRelativePath, resolveMediaSource } from './shared/resolveMediaSource';
+import { downloadMediaFile } from './shared/downloadMediaFile';
 import { NodeFrame } from "./NodeFrame";
 import { AudioAiPanel } from "../panels/AudioAiPanel";
 import type { AudioPanelUpstream, AudioGenerateParams } from "../panels/AudioAiPanel";
@@ -89,87 +84,15 @@ export type AudioNodeProps = {
   versionStack?: import("../engine/types").VersionStack;
 };
 
-/** Resolve a board-scoped path into a project-relative path. */
-function resolveProjectRelativePath(
-  path: string,
-  fileContext?: BoardFileContext,
-) {
-  const scope = resolveBoardFolderScope(fileContext);
-  return resolveProjectPathFromBoardUri({
-    uri: path,
-    boardFolderScope: scope,
-    currentProjectId: fileContext?.projectId,
-    rootUri: fileContext?.rootUri,
-  });
-}
-
-/** Resolve the default directory for download dialogs. */
-function resolveDownloadDefaultDir(fileContext?: BoardFileContext) {
-  const boardFolderUri = fileContext?.boardFolderUri?.trim()
-  if (boardFolderUri) {
-    if (boardFolderUri.startsWith('file://')) return boardFolderUri
-  }
-  const rootUri = fileContext?.rootUri?.trim()
-  if (rootUri && rootUri.startsWith('file://')) return rootUri
-  return ''
-}
-
 /** Trigger a download for the audio file. */
 async function downloadAudioFile(
   props: AudioNodeProps,
   fileContext?: BoardFileContext,
 ) {
-  const resolvedPath =
-    resolveProjectRelativePath(props.sourcePath, fileContext) ||
-    props.sourcePath
-  if (!resolvedPath) return
-
-  let href = resolvedPath
-  if (
-    !resolvedPath.startsWith('data:') &&
-    !resolvedPath.startsWith('blob:') &&
-    !resolvedPath.startsWith('http://') &&
-    !resolvedPath.startsWith('https://')
-  ) {
-    if (fileContext?.boardId && isBoardRelativePath(props.sourcePath)) {
-      href = getBoardPreviewEndpoint(props.sourcePath, {
-        boardId: fileContext.boardId,
-        projectId: fileContext.projectId,
-      })
-    } else {
-      const parsed = parseScopedProjectPath(props.sourcePath)
-      href = getPreviewEndpoint(resolvedPath, {
-        projectId: fileContext?.projectId ?? parsed?.projectId,
-      })
-    }
-  }
-
-  const saveFile = window.openloafElectron?.saveFile
-  if (saveFile) {
-    try {
-      const response = await fetch(href)
-      if (!response.ok) throw new Error('download failed')
-      const buffer = await response.arrayBuffer()
-      const contentBase64 = arrayBufferToBase64(buffer)
-      const defaultDir = resolveDownloadDefaultDir(fileContext)
-      const fileName = props.fileName || 'audio.mp3'
-      const extension = fileName.split('.').pop() || 'mp3'
-      const result = await saveFile({
-        contentBase64,
-        defaultDir: defaultDir || undefined,
-        suggestedName: fileName,
-        filters: [{ name: 'Audio', extensions: [extension] }],
-      })
-      if (result?.ok || result?.canceled) return
-    } catch {
-      // fallback to browser download
-    }
-  }
-  const link = document.createElement('a')
-  link.href = href
-  link.download = props.fileName || 'audio'
-  link.rel = 'noreferrer'
-  link.click()
+  const sourcePath = props.sourcePath?.trim()
+  if (!sourcePath) return
+  const fileName = props.fileName || 'audio.mp3'
+  await downloadMediaFile({ src: sourcePath, fileName, fileContext, filterLabel: 'Audio' })
 }
 
 /** Build toolbar items for audio nodes. */
@@ -305,26 +228,10 @@ export function AudioNodeView({
     return parsed?.projectId;
   }, [element.props.sourcePath, fileContext?.projectId]);
 
-  const audioSrc = useMemo(() => {
-    if (!resolvedPath) return "";
-    if (
-      resolvedPath.startsWith("data:") ||
-      resolvedPath.startsWith("blob:") ||
-      resolvedPath.startsWith("http://") ||
-      resolvedPath.startsWith("https://")
-    ) {
-      return resolvedPath;
-    }
-    if (fileContext?.boardId && isBoardRelativePath(element.props.sourcePath)) {
-      return getBoardPreviewEndpoint(element.props.sourcePath, {
-        boardId: fileContext.boardId,
-        projectId: effectiveProjectId,
-      });
-    }
-    return getPreviewEndpoint(resolvedPath, {
-      projectId: effectiveProjectId,
-    });
-  }, [effectiveProjectId, resolvedPath, fileContext?.boardId, element.props.sourcePath]);
+  const audioSrc = useMemo(
+    () => resolveMediaSource(element.props.sourcePath, fileContext) ?? '',
+    [element.props.sourcePath, fileContext],
+  );
 
   const handleOpenPreview = useCallback(() => {
     if (!resolvedPath) return;

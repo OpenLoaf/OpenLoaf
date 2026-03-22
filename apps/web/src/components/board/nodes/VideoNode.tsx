@@ -31,13 +31,10 @@ import {
   parseScopedProjectPath,
 } from "@/components/project/filesystem/utils/file-system-utils";
 import { useBoardContext, type BoardFileContext } from "../core/BoardProvider";
-import {
-  isBoardRelativePath,
-  resolveBoardFolderScope,
-  resolveProjectPathFromBoardUri,
-} from "../core/boardFilePath";
-import { getBoardPreviewEndpoint, getPreviewEndpoint } from "@/lib/image/uri";
+import { isBoardRelativePath } from "../core/boardFilePath";
 import { resolveServerUrl } from "@/utils/server-url";
+import { resolveProjectRelativePath, resolveMediaSource } from './shared/resolveMediaSource';
+import { downloadMediaFile } from './shared/downloadMediaFile';
 import { NodeFrame } from "./NodeFrame";
 import { createPortal } from "react-dom";
 import { VideoAiPanel } from "../panels/VideoAiPanel";
@@ -92,40 +89,6 @@ export type VideoNodeProps = {
   versionStack?: import("../engine/types").VersionStack;
 };
 
-/** Resolve a board-scoped path into a project-relative path. */
-function resolveProjectRelativePath(path: string, fileContext?: BoardFileContext) {
-  const scope = resolveBoardFolderScope(fileContext);
-  return resolveProjectPathFromBoardUri({
-    uri: path,
-    boardFolderScope: scope,
-    currentProjectId: fileContext?.projectId,
-    rootUri: fileContext?.rootUri,
-  });
-}
-
-/** Resolve an image uri (from upstream nodes) into a browser-friendly source. */
-function resolveImageSource(uri: string, fileContext?: BoardFileContext) {
-  if (!uri) return '';
-  if (
-    uri.startsWith('data:') ||
-    uri.startsWith('blob:') ||
-    uri.startsWith('http://') ||
-    uri.startsWith('https://')
-  ) {
-    return uri;
-  }
-  if (fileContext?.boardId && isBoardRelativePath(uri)) {
-    return getBoardPreviewEndpoint(uri, {
-      boardId: fileContext.boardId,
-      projectId: fileContext.projectId,
-    });
-  }
-  const projectPath = resolveProjectRelativePath(uri, fileContext);
-  if (!projectPath) return '';
-  return getPreviewEndpoint(projectPath, {
-    projectId: fileContext?.projectId,
-  });
-}
 
 /** Open video in the file preview dialog (same as double-click). */
 async function openVideoPreview(props: VideoNodeProps, fileContext?: BoardFileContext) {
@@ -164,56 +127,10 @@ async function openVideoPreview(props: VideoNodeProps, fileContext?: BoardFileCo
 
 /** Trigger a download for the original video file. */
 async function downloadVideo(props: VideoNodeProps, fileContext?: BoardFileContext) {
-  const sourcePath = (props.sourcePath ?? "").trim();
+  const sourcePath = (props.sourcePath ?? '').trim();
   if (!sourcePath) return;
-  let href = sourcePath;
-  if (fileContext?.boardId && isBoardRelativePath(sourcePath)) {
-    href = getBoardPreviewEndpoint(sourcePath, {
-      boardId: fileContext.boardId,
-      projectId: fileContext.projectId,
-    });
-  } else {
-    const scope = resolveBoardFolderScope(fileContext);
-    const projectPath = resolveProjectPathFromBoardUri({
-      uri: sourcePath,
-      boardFolderScope: scope,
-      currentProjectId: fileContext?.projectId,
-      rootUri: fileContext?.rootUri,
-    });
-    href = projectPath
-      ? getPreviewEndpoint(projectPath, { projectId: fileContext?.projectId })
-      : sourcePath;
-  }
-  if (!href) return;
-  const fileName = props.fileName || sourcePath.split("/").pop() || "video.mp4";
-  const saveFile = window.openloafElectron?.saveFile;
-  if (saveFile) {
-    try {
-      const response = await fetch(href);
-      if (!response.ok) throw new Error("download failed");
-      const buffer = await response.arrayBuffer();
-      const bytes = new Uint8Array(buffer);
-      let binary = "";
-      for (let i = 0; i < bytes.length; i++) {
-        binary += String.fromCharCode(bytes[i]);
-      }
-      const contentBase64 = btoa(binary);
-      const extension = fileName.split(".").pop() || "mp4";
-      const result = await saveFile({
-        contentBase64,
-        suggestedName: fileName,
-        filters: [{ name: "Video", extensions: [extension] }],
-      });
-      if (result?.ok || result?.canceled) return;
-    } catch {
-      // 逻辑：桌面保存失败时回退到浏览器下载方式。
-    }
-  }
-  const link = document.createElement("a");
-  link.href = href;
-  link.download = fileName;
-  link.rel = "noreferrer";
-  link.click();
+  const fileName = props.fileName || sourcePath.split('/').pop() || 'video.mp4';
+  await downloadMediaFile({ src: sourcePath, fileName, fileContext, filterLabel: 'Video' });
 }
 
 /** Compute HLS path for the video node (reused by toolbar and view). */
@@ -667,10 +584,10 @@ export function VideoNodeView({
   const { primaryEntry, generatingEntry, isGenerating: isGeneratingVersion } = useVersionStackState(element.props.versionStack)
 
   // 逻辑：有生成记录时使用冻结的上游数据，版本切换时自动跟随。
-  // 上游图片 URL 需要通过 resolveImageSource 解析为浏览器可访问的端点。
+  // 上游图片 URL 需要通过 resolveMediaSource 解析为浏览器可访问的端点。
   const effectiveUpstream = useMemo(() => {
     const resolveImages = (srcs: string[] | undefined) =>
-      srcs?.map(src => resolveImageSource(src, fileContext)).filter(Boolean) as string[] | undefined;
+      srcs?.map(src => resolveMediaSource(src, fileContext)).filter(Boolean) as string[] | undefined;
 
     const refs = primaryEntry?.input?.upstreamRefs;
     if (primaryEntry?.status === 'ready' && refs && refs.length > 0) {
