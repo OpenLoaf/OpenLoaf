@@ -14,6 +14,12 @@ export { MediaSlot, UpstreamTextBadge } from './MediaSlot'
 export type { MediaSlotProps } from './MediaSlot'
 export { PillSelect } from './PillSelect'
 export type { PillSelectOption, PillSelectProps } from './PillSelect'
+export { ReferenceChip } from './ReferenceChip'
+export type { ReferenceChipProps } from './ReferenceChip'
+export { TextReferencePool } from './TextReferencePool'
+export type { TextReferencePoolProps } from './TextReferencePool'
+export { ReferenceDropdown } from './ReferenceDropdown'
+export type { ReferenceDropdownHandle, ReferenceDropdownProps } from './ReferenceDropdown'
 
 /**
  * Convert a media source string to the correct API input format.
