@@ -11,7 +11,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { VariantFormProps } from '../types'
 import { BOARD_GENERATE_INPUT } from '../../../ui/board-style-system'
-import { UpstreamTextBadge, toMediaInput } from '../shared'
+import { UpstreamTextBadge, toMediaInput, useSourceImage } from '../shared'
 
 /**
  * Variant form for OL-IP-001 (涂抹修改).
@@ -29,21 +29,15 @@ export function ImgInpaintVolcVariant({
   nodeResourceUrl,
   nodeResourcePath,
   disabled,
+  initialParams,
   onParamsChange,
   onWarningChange,
 }: VariantFormProps) {
   const { t } = useTranslation('board')
 
-  const [prompt, setPrompt] = useState(upstream.textContent ?? '')
+  const [prompt, setPrompt] = useState(initialParams?.inputs?.prompt as string ?? '')
 
-  // Track image load failures so broken URLs are treated as "no resource"
-  const rawSourceUrl = nodeResourceUrl
-  const [imgLoadFailed, setImgLoadFailed] = useState(false)
-  useEffect(() => { setImgLoadFailed(false) }, [rawSourceUrl])
-  const sourceUrl = imgLoadFailed ? undefined : rawSourceUrl
-
-  // Raw path for API submission
-  const sourcePath = nodeResourcePath
+  const { sourceUrl, sourcePath, rawSourceUrl, setImgLoadFailed } = useSourceImage(nodeResourceUrl, nodeResourcePath, upstream)
 
   // Report blocking warning to parent
   useEffect(() => {
@@ -57,7 +51,7 @@ export function ImgInpaintVolcVariant({
         // Mask is injected by the parent panel from MaskPaintOverlay result
       },
       params: {
-        ...(prompt ? { prompt } : {}),
+        ...(prompt?.trim() ? { prompt } : {}),
       },
     })
   }, [prompt, sourcePath, onParamsChange])

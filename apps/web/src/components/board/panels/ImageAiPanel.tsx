@@ -48,8 +48,6 @@ export type ImageGenerateParams = {
   aspectRatio?: string
 }
 
-/** @deprecated Kept for backward compat imports. */
-export type ImagePanelMode = string
 
 export type ImageAiPanelProps = {
   element: CanvasNodeElement<ImageNodeProps>
@@ -107,12 +105,11 @@ function GenericVariantFallback({
   const [prompt, setPrompt] = useState('')
 
   const sync = useCallback(() => {
-    const effectivePrompt = [upstream.textContent, prompt].filter(s => s?.trim()).join('\n')
     onParamsChange({
-      inputs: { prompt: effectivePrompt },
+      inputs: { prompt },
       params: {},
     })
-  }, [prompt, upstream.textContent, onParamsChange])
+  }, [prompt, onParamsChange])
 
   useEffect(() => { sync() }, [sync])
 
@@ -335,6 +332,18 @@ export function ImageAiPanel({
   const collectParams = useCallback(async (): Promise<ImageGenerateParams> => {
     const vp = variantParamsRef.current
     const inputs = { ...vp.inputs }
+    const params = { ...vp.params }
+
+    // Prepend upstream text to prompt for submission (variants store user prompt only)
+    const userPromptFromInputs = (inputs.prompt as string) ?? ''
+    const userPromptFromParams = (params.prompt as string) ?? ''
+    const userPrompt = userPromptFromInputs || userPromptFromParams
+    const effectivePrompt = [upstreamText, userPrompt].filter(s => s?.trim()).join('\n')
+    if (inputs.prompt !== undefined || !userPromptFromParams) {
+      inputs.prompt = effectivePrompt
+    } else {
+      params.prompt = effectivePrompt
+    }
 
     // Inject mask data for inpaint variants — save mask to asset dir first
     if (needsMaskPaint && maskResult?.maskBlob && boardFolderUri) {
@@ -362,14 +371,14 @@ export function ImageAiPanel({
       feature: selectedFeature?.id ?? 'imageGenerate',
       variant: selectedVariant?.id ?? '',
       inputs,
-      params: vp.params,
+      params,
       count: vp.count,
       seed: vp.seed,
       // Backward compat
-      prompt: (vp.inputs.prompt as string) ?? (vp.params.prompt as string) ?? '',
-      aspectRatio: vp.params.aspectRatio as string | undefined,
+      prompt: effectivePrompt,
+      aspectRatio: (vp.params.aspectRatio as string | undefined),
     }
-  }, [selectedFeature, selectedVariant, needsMaskPaint, maskResult, boardFolderUri, projectId])
+  }, [selectedFeature, selectedVariant, needsMaskPaint, maskResult, boardFolderUri, projectId, upstreamText])
 
   /** Build v3-compatible generation params with media uploaded to public URLs. */
   const buildParams = useCallback(async (): Promise<ImageGenerateParams> => {

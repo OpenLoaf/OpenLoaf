@@ -13,7 +13,7 @@ import { Paintbrush } from 'lucide-react'
 import type { VariantFormProps } from '../types'
 import { BOARD_GENERATE_INPUT } from '../../../ui/board-style-system'
 import { IMAGE_GENERATE_ASPECT_RATIO_OPTIONS } from '../../../nodes/node-config'
-import { MediaSlot, PillSelect, UpstreamTextBadge, toMediaInput } from '../shared'
+import { MediaSlot, PillSelect, UpstreamTextBadge, toMediaInput, useSourceImage } from '../shared'
 
 const QUALITY_OPTIONS = ['standard', 'hd'] as const
 type Quality = (typeof QUALITY_OPTIONS)[number]
@@ -30,24 +30,17 @@ export function ImgStyleVolcVariant({
   nodeResourceUrl,
   nodeResourcePath,
   disabled,
+  initialParams,
   onParamsChange,
   onWarningChange,
 }: VariantFormProps) {
   const { t } = useTranslation('board')
 
-  const [prompt, setPrompt] = useState(upstream.textContent ?? '')
-  const [aspectRatio, setAspectRatio] = useState('auto')
-  const [quality, setQuality] = useState<Quality>('standard')
+  const [prompt, setPrompt] = useState(initialParams?.inputs?.prompt as string ?? '')
+  const [aspectRatio, setAspectRatio] = useState(initialParams?.params?.aspectRatio as string ?? 'auto')
+  const [quality, setQuality] = useState<Quality>(initialParams?.params?.quality as Quality ?? 'standard')
 
-  // Use node's own image or first upstream image as style source (for display)
-  const rawStyleSourceUrl = nodeResourceUrl ?? upstream.images?.[0]
-  const [imgLoadFailed, setImgLoadFailed] = useState(false)
-  // Reset load failure state when URL changes
-  useEffect(() => { setImgLoadFailed(false) }, [rawStyleSourceUrl])
-  const styleSourceUrl = imgLoadFailed ? undefined : rawStyleSourceUrl
-
-  // Raw path for API submission (prefer nodeResourcePath, then upstream.imagePaths)
-  const styleSourcePath = nodeResourcePath ?? upstream.imagePaths?.[0]
+  const { sourceUrl: styleSourceUrl, sourcePath: styleSourcePath, rawSourceUrl: rawStyleSourceUrl, setImgLoadFailed } = useSourceImage(nodeResourceUrl, nodeResourcePath, upstream)
 
   // Manual upload for style source (only if no upstream/node source)
   const [manualStyleSrc, setManualStyleSrc] = useState<string | undefined>()

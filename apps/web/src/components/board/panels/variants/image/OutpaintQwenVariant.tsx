@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { VariantFormProps } from '../types'
-import { toMediaInput } from '../shared'
+import { toMediaInput, useSourceImage } from '../shared'
 
 /**
  * Variant form for OL-OP-001 (百炼扩图).
@@ -24,21 +24,16 @@ export function OutpaintQwenVariant({
   nodeResourceUrl,
   nodeResourcePath,
   disabled,
+  initialParams,
   onParamsChange,
   onWarningChange,
 }: VariantFormProps) {
   const { t } = useTranslation('board')
 
-  const rawSourceUrl = nodeResourceUrl ?? upstream.images?.[0]
-  const [imgLoadFailed, setImgLoadFailed] = useState(false)
-  useEffect(() => { setImgLoadFailed(false) }, [rawSourceUrl])
-  const sourceUrl = imgLoadFailed ? undefined : rawSourceUrl
+  const { sourceUrl, sourcePath, rawSourceUrl, setImgLoadFailed } = useSourceImage(nodeResourceUrl, nodeResourcePath, upstream)
 
-  // Raw path for API submission
-  const sourcePath = nodeResourcePath ?? upstream.imagePaths?.[0]
-
-  const [xScale, setXScale] = useState(1.5)
-  const [yScale, setYScale] = useState(1.5)
+  const [xScale, setXScale] = useState(initialParams?.params?.xScale as number ?? 1.5)
+  const [yScale, setYScale] = useState(initialParams?.params?.yScale as number ?? 1.5)
 
   // Report blocking warning to parent
   useEffect(() => {

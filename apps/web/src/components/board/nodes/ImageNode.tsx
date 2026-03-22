@@ -675,51 +675,49 @@ export function ImageNodeView({
   /** Handle image generation: submit task and push a generating entry to the version stack. */
   const handleGenerate = useCallback(
     async (params: ImageGenerateParams) => {
+      // 逻辑：先写入 generating 状态（无 taskId），让节点立即显示 loading，再等 API 返回后补上 taskId。
+      const inputSnapshot = createInputSnapshot({
+        prompt: params.prompt,
+        parameters: {
+          feature: params.feature,
+          variant: params.variant,
+          inputs: params.inputs,
+          params: params.params,
+          aspectRatio: params.aspectRatio,
+          count: params.count,
+          seed: params.seed,
+        },
+        upstreamRefs: upstream?.entries ?? [],
+      })
+      const pendingEntry = createGeneratingEntry(inputSnapshot, '')
+      const config: import("../board-contracts").AiGenerateConfig = {
+        feature: params.feature as import("../board-contracts").AiGenerateConfig['feature'],
+        prompt: params.prompt ?? '',
+        aspectRatio: params.aspectRatio as import("../board-contracts").AiGenerateConfig['aspectRatio'],
+      }
+      onUpdate({
+        versionStack: pushVersion(element.props.versionStack, pendingEntry),
+        origin: 'ai-generate',
+        aiConfig: config,
+      })
+
       try {
         const result = await submitByFeature(params)
 
-        // 逻辑：创建 InputSnapshot 和 VersionStackEntry，在节点自身上追踪生成状态。
-        // 逻辑：将当前上游数据快照保存到 InputSnapshot，使生成后插槽内容固定。
-        const inputSnapshot = createInputSnapshot({
-          prompt: params.prompt,
-          parameters: {
-            feature: params.feature,
-            variant: params.variant,
-            inputs: params.inputs,
-            params: params.params,
-            aspectRatio: params.aspectRatio,
-            count: params.count,
-            seed: params.seed,
-          },
-          upstreamRefs: upstream?.entries ?? [],
-        })
-        const entry = createGeneratingEntry(inputSnapshot, result.taskId)
-        const config: import("../board-contracts").AiGenerateConfig = {
-          feature: params.feature as import("../board-contracts").AiGenerateConfig['feature'],
-          prompt: params.prompt ?? '',
-          aspectRatio: params.aspectRatio as import("../board-contracts").AiGenerateConfig['aspectRatio'],
-        }
-
+        // 逻辑：API 返回后补上 taskId，轮询开始。
+        const currentStack = element.props.versionStack
+        const updatedEntries = (currentStack?.entries ?? [pendingEntry]).map(e =>
+          e.id === pendingEntry.id ? { ...e, taskId: result.taskId } : e,
+        )
         onUpdate({
-          versionStack: pushVersion(element.props.versionStack, entry),
-          origin: 'ai-generate',
-          aiConfig: config,
+          versionStack: {
+            entries: updatedEntries,
+            primaryId: pendingEntry.id,
+          },
         })
       } catch (error) {
         console.error('[ImageNode] image generation failed:', error)
-        // 逻辑：提交失败时设置 lastFailure 显示错误浮层，让用户可以重试。
-        const inputSnapshot = createInputSnapshot({
-          prompt: params.prompt,
-          parameters: {
-            feature: params.feature,
-            variant: params.variant,
-            inputs: params.inputs,
-            params: params.params,
-            aspectRatio: params.aspectRatio,
-            count: params.count,
-            seed: params.seed,
-          },
-        })
+        // 逻辑：提交失败时从 stack 中移除 pending entry，设置 lastFailure 显示错误浮层。
         const raw = error instanceof Error ? error.message.toLowerCase() : ''
         let msgKey = 'board:polling.errorGeneric'
         if (raw.includes('insufficient') || raw.includes('balance') || raw.includes('credit') || raw.includes('quota') || raw.includes('402')) {
@@ -733,6 +731,11 @@ export function ImageNodeView({
         } else if (raw.includes('500') || raw.includes('502') || raw.includes('503')) {
           msgKey = 'board:polling.errorServer'
         }
+        const { stack: cleaned } = removeFailedEntry(
+          pushVersion(element.props.versionStack, pendingEntry),
+          pendingEntry.id,
+        )
+        onUpdate({ versionStack: cleaned })
         setLastFailure({
           input: inputSnapshot,
           error: { code: 'SUBMIT_FAILED', message: i18next.t(msgKey, { defaultValue: '生成失败，请重试' }) },
@@ -764,6 +767,17 @@ export function ImageNodeView({
   const handleGenerateNewNode = useCallback(
     async (params: ImageGenerateParams) => {
       let newNodeId: string | null = null
+      // 逻辑：将源节点的参数缓存拷贝到新节点，使新节点面板可恢复生成参数。
+      const cacheKey = `${params.feature}:${params.variant}`
+      const copiedParamsCache = {
+        ...(element.props.aiConfig?.paramsCache ?? {}),
+        [cacheKey]: {
+          inputs: params.inputs,
+          params: params.params,
+          count: params.count,
+          seed: params.seed,
+        },
+      }
       try {
         // 逻辑：创建新的图片节点并在其上提交生成任务。
         newNodeId = deriveNode({
@@ -795,6 +809,7 @@ export function ImageNodeView({
             feature: params.feature as import("../board-contracts").AiGenerateConfig['feature'],
             prompt: params.prompt ?? '',
             aspectRatio: params.aspectRatio as import("../board-contracts").AiGenerateConfig['aspectRatio'],
+            paramsCache: copiedParamsCache,
           },
         })
 
@@ -814,6 +829,7 @@ export function ImageNodeView({
             feature: params.feature as import("../board-contracts").AiGenerateConfig['feature'],
             prompt: params.prompt ?? '',
             aspectRatio: params.aspectRatio as import("../board-contracts").AiGenerateConfig['aspectRatio'],
+            paramsCache: copiedParamsCache,
           },
         })
       } catch (error) {
@@ -1390,7 +1406,7 @@ export const ImageNodeDefinition: CanvasNodeDefinition<ImageNodeProps> = {
     transcodingId: z.string().optional(),
     origin: z.enum(['user', 'upload', 'ai-generate', 'paste']).optional(),
     aiConfig: z.object({
-      feature: z.enum(['imageGenerate', 'poster', 'imageEdit', 'upscale', 'outpaint', 'videoGenerate', 'digitalHuman', 'tts']).optional(),
+      feature: z.enum(['imageGenerate', 'imageEdit', 'imageInpaint', 'imageStyleTransfer', 'upscale', 'outpaint', 'videoGenerate', 'lipSync', 'tts', 'poster', 'matting', 'videoEdit', 'digitalHuman', 'motionTransfer', 'music', 'sfx']).optional(),
       modelId: z.string().optional(),
       prompt: z.string(),
       negativePrompt: z.string().optional(),

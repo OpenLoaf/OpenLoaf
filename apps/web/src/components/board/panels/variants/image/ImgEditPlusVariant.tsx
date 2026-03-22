@@ -12,7 +12,7 @@ import { useTranslation } from 'react-i18next'
 import { ImageIcon } from 'lucide-react'
 import type { VariantFormProps } from '../types'
 import { BOARD_GENERATE_INPUT } from '../../../ui/board-style-system'
-import { MediaSlot, UpstreamTextBadge, toMediaInput } from '../shared'
+import { MediaSlot, UpstreamTextBadge, toMediaInput, useMediaSlots } from '../shared'
 
 /** Max source images for qwen-image-edit-plus. */
 const MAX_IMAGES = 3
@@ -28,33 +28,23 @@ export function ImgEditPlusVariant({
   upstream,
   nodeResourcePath,
   disabled,
+  initialParams,
   onParamsChange,
   onWarningChange,
 }: VariantFormProps) {
   const { t } = useTranslation('board')
 
-  const [prompt, setPrompt] = useState(upstream.textContent ?? '')
-  const [manualImages, setManualImages] = useState<string[]>([])
-  const [negativePrompt, setNegativePrompt] = useState('')
+  const [prompt, setPrompt] = useState(initialParams?.inputs?.prompt as string ?? '')
+  const { manualImages, displayImages, apiImages, addImage, removeImage, canAdd } = useMediaSlots(MAX_IMAGES, nodeResourcePath, upstream)
+  const [negativePrompt, setNegativePrompt] = useState(initialParams?.params?.negativePrompt as string ?? '')
   const [showNegative, setShowNegative] = useState(false)
-
-  const nodeImage = nodeResourcePath?.trim() || ''
-
-  // Display: resolved URLs (upstream.images) + manual uploads
-  const displayImages = [...(upstream.images ?? []), ...manualImages]
-
-  // API: current node image (priority) + upstream paths + manual uploads
-  const apiImages = [
-    ...(nodeImage ? [nodeImage] : []),
-    ...(upstream.imagePaths ?? upstream.images ?? []),
-    ...manualImages,
-  ].slice(0, MAX_IMAGES)
 
   const hasImages = apiImages.length > 0
 
   // Report warning when prompt is empty OR when no images provided
   useEffect(() => {
-    if (!prompt.trim()) {
+    const hasPrompt = prompt.trim() || upstream.textContent?.trim()
+    if (!hasPrompt) {
       onWarningChange?.(
         t('v3.warnings.promptRequired', { defaultValue: '请输入提示词' }),
       )
@@ -65,7 +55,7 @@ export function ImgEditPlusVariant({
     } else {
       onWarningChange?.(null)
     }
-  }, [prompt, hasImages, onWarningChange, t])
+  }, [prompt, upstream.textContent, hasImages, onWarningChange, t])
 
   const sync = useCallback(() => {
     onParamsChange({
@@ -109,11 +99,11 @@ export function ImgEditPlusVariant({
             disabled={disabled}
             boardId={upstream.boardId}
             projectId={upstream.projectId}
-            onRemove={() => setManualImages(prev => prev.filter((_, i) => i !== idx))}
+            onRemove={() => removeImage(idx)}
           />
         ))}
         {/* Add slot — only show when under max */}
-        {!disabled && displayImages.length < MAX_IMAGES ? (
+        {!disabled && canAdd ? (
           <MediaSlot
             label={t('v3.common.uploadImage', { defaultValue: 'Upload' })}
             icon={<ImageIcon size={16} />}
@@ -122,7 +112,7 @@ export function ImgEditPlusVariant({
             boardId={upstream.boardId}
             projectId={upstream.projectId}
             boardFolderUri={upstream.boardFolderUri}
-            onUpload={(value) => setManualImages(prev => [...prev, value])}
+            onUpload={(value) => addImage(value)}
           />
         ) : null}
       </div>

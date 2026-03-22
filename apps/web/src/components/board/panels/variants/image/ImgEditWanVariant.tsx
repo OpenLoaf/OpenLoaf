@@ -12,7 +12,7 @@ import { useTranslation } from 'react-i18next'
 import { ImageIcon } from 'lucide-react'
 import type { VariantFormProps } from '../types'
 import { BOARD_GENERATE_INPUT } from '../../../ui/board-style-system'
-import { MediaSlot, UpstreamTextBadge, toMediaInput } from '../shared'
+import { MediaSlot, UpstreamTextBadge, toMediaInput, useMediaSlots } from '../shared'
 
 /** Max images per mode. */
 const MAX_NORMAL = 4
@@ -30,46 +30,34 @@ export function ImgEditWanVariant({
   upstream,
   nodeResourcePath,
   disabled,
+  initialParams,
   onParamsChange,
   onWarningChange,
 }: VariantFormProps) {
   const { t } = useTranslation('board')
 
-  const [prompt, setPrompt] = useState(upstream.textContent ?? '')
-  const [mode, setMode] = useState<Mode>('normal')
-  const [manualImages, setManualImages] = useState<string[]>([])
-  const [negativePrompt, setNegativePrompt] = useState('')
+  const [prompt, setPrompt] = useState(initialParams?.inputs?.prompt as string ?? '')
+  const [mode, setMode] = useState<Mode>(initialParams?.params?.enable_interleave ? 'interleave' : 'normal')
+  const [negativePrompt, setNegativePrompt] = useState(initialParams?.params?.negativePrompt as string ?? '')
   const [showNegative, setShowNegative] = useState(false)
 
   const maxImages = mode === 'interleave' ? MAX_INTERLEAVE : MAX_NORMAL
+  const { manualImages, displayImages, apiImages, addImage, removeImage, canAdd, trimToMax } = useMediaSlots(maxImages, nodeResourcePath, upstream)
 
-  const nodeImage = nodeResourcePath?.trim() || ''
-
-  // Display: resolved URLs (upstream.images) + manual uploads
-  const displayImages = [...(upstream.images ?? []), ...manualImages]
-
-  // API: current node image (priority) + upstream paths + manual uploads
-  const apiImages = [
-    ...(nodeImage ? [nodeImage] : []),
-    ...(upstream.imagePaths ?? upstream.images ?? []),
-    ...manualImages,
-  ].slice(0, maxImages)
-
-  // When mode changes to interleave, trim images to max 1
+  // When mode changes, trim manual images to new max
   useEffect(() => {
-    if (mode === 'interleave' && manualImages.length > 1) {
-      setManualImages(prev => prev.slice(0, 1))
-    }
-  }, [mode, manualImages.length])
+    trimToMax(maxImages)
+  }, [maxImages, trimToMax])
 
   // Report warning when prompt is empty
   useEffect(() => {
+    const hasPrompt = prompt.trim() || upstream.textContent?.trim()
     onWarningChange?.(
-      !prompt.trim()
+      !hasPrompt
         ? t('v3.warnings.promptRequired', { defaultValue: '请输入提示词' })
         : null,
     )
-  }, [prompt, onWarningChange, t])
+  }, [prompt, upstream.textContent, onWarningChange, t])
 
   const sync = useCallback(() => {
     onParamsChange({
@@ -135,11 +123,11 @@ export function ImgEditWanVariant({
             disabled={disabled}
             boardId={upstream.boardId}
             projectId={upstream.projectId}
-            onRemove={() => setManualImages(prev => prev.filter((_, i) => i !== idx))}
+            onRemove={() => removeImage(idx)}
           />
         ))}
         {/* Add slot — only show when under max */}
-        {!disabled && displayImages.length < maxImages ? (
+        {!disabled && canAdd ? (
           <MediaSlot
             label={t('v3.common.uploadImage', { defaultValue: 'Upload' })}
             icon={<ImageIcon size={16} />}
@@ -147,7 +135,7 @@ export function ImgEditWanVariant({
             boardId={upstream.boardId}
             projectId={upstream.projectId}
             boardFolderUri={upstream.boardFolderUri}
-            onUpload={(value) => setManualImages(prev => [...prev, value])}
+            onUpload={(value) => addImage(value)}
           />
         ) : null}
       </div>

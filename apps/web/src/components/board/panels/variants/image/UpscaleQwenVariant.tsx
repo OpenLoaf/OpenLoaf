@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { VariantFormProps } from '../types'
-import { toMediaInput } from '../shared'
+import { toMediaInput, useSourceImage } from '../shared'
 
 const SCALE_OPTIONS = [2, 4] as const
 
@@ -26,20 +26,15 @@ export function UpscaleQwenVariant({
   nodeResourceUrl,
   nodeResourcePath,
   disabled,
+  initialParams,
   onParamsChange,
   onWarningChange,
 }: VariantFormProps) {
   const { t } = useTranslation('board')
 
-  const rawSourceUrl = nodeResourceUrl ?? upstream.images?.[0]
-  const [imgLoadFailed, setImgLoadFailed] = useState(false)
-  useEffect(() => { setImgLoadFailed(false) }, [rawSourceUrl])
-  const sourceUrl = imgLoadFailed ? undefined : rawSourceUrl
+  const { sourceUrl, sourcePath, rawSourceUrl, setImgLoadFailed } = useSourceImage(nodeResourceUrl, nodeResourcePath, upstream)
 
-  // Raw path for API submission
-  const sourcePath = nodeResourcePath ?? upstream.imagePaths?.[0]
-
-  const [scale, setScale] = useState<(typeof SCALE_OPTIONS)[number]>(2)
+  const [scale, setScale] = useState<(typeof SCALE_OPTIONS)[number]>((initialParams?.params?.scale as (typeof SCALE_OPTIONS)[number]) ?? 2)
 
   // Report blocking warning to parent
   useEffect(() => {

@@ -13,7 +13,7 @@ import { ImageIcon } from 'lucide-react'
 import type { VariantFormProps } from '../types'
 import { BOARD_GENERATE_INPUT } from '../../../ui/board-style-system'
 import { IMAGE_GENERATE_ASPECT_RATIO_OPTIONS } from '../../../nodes/node-config'
-import { MediaSlot, PillSelect, UpstreamTextBadge, toMediaInput } from '../shared'
+import { MediaSlot, PillSelect, UpstreamTextBadge, toMediaInput, useMediaSlots } from '../shared'
 
 const QUALITY_OPTIONS = ['standard', 'hd'] as const
 type Quality = (typeof QUALITY_OPTIONS)[number]
@@ -42,24 +42,12 @@ export function ImgGenRefVariant({
   const [quality, setQuality] = useState<Quality>(initialParams?.params?.quality as Quality ?? 'standard')
   const [style, setStyle] = useState(initialParams?.params?.style as string ?? '')
 
-  // Manual upload images managed locally by the variant (board-relative paths or data URLs)
-  const [manualImages, setManualImages] = useState<string[]>([])
-
-  const nodeImage = nodeResourcePath?.trim() || ''
-  // For display: resolved URLs (upstream.images) + manual images
-  const displayImages = [...(upstream.images ?? []), ...manualImages]
-  // For API submission: raw paths (当前节点图片优先 + 上游 + 手动上传)
-  const apiImages = [
-    ...(nodeImage ? [nodeImage] : []),
-    ...(upstream.imagePaths ?? upstream.images ?? []),
-    ...manualImages,
-  ]
+  const { manualImages, displayImages, apiImages, addImage, removeImage, canAdd } = useMediaSlots(MAX_REF_IMAGES, nodeResourcePath, upstream)
 
   const sync = useCallback(() => {
-    const effectivePrompt = [upstream.textContent, prompt].filter(s => s?.trim()).join('\n')
     onParamsChange({
       inputs: {
-        prompt: effectivePrompt,
+        prompt,
         ...(apiImages.length
           ? { images: apiImages.map(src => toMediaInput(src)) }
           : {}),
@@ -70,7 +58,7 @@ export function ImgGenRefVariant({
         quality,
       },
     })
-  }, [prompt, upstream.textContent, style, aspectRatio, quality, apiImages.length, onParamsChange]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [prompt, style, aspectRatio, quality, apiImages.length, onParamsChange]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { sync() }, [sync])
 
@@ -98,13 +86,11 @@ export function ImgGenRefVariant({
             disabled={disabled}
             boardId={upstream.boardId}
             projectId={upstream.projectId}
-            onRemove={() =>
-              setManualImages(prev => prev.filter((_, i) => i !== idx))
-            }
+            onRemove={() => removeImage(idx)}
           />
         ))}
         {/* Add slot */}
-        {!disabled && displayImages.length < MAX_REF_IMAGES ? (
+        {!disabled && canAdd ? (
           <MediaSlot
             label={t('v3.common.uploadImage', { defaultValue: 'Upload' })}
             icon={<ImageIcon size={16} />}
@@ -112,9 +98,7 @@ export function ImgGenRefVariant({
             boardId={upstream.boardId}
             projectId={upstream.projectId}
             boardFolderUri={upstream.boardFolderUri}
-            onUpload={(value) =>
-              setManualImages(prev => [...prev, value])
-            }
+            onUpload={(value) => addImage(value)}
           />
         ) : null}
       </div>

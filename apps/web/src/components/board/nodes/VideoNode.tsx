@@ -1315,7 +1315,7 @@ export const VideoNodeDefinition: CanvasNodeDefinition<VideoNodeProps> = {
     clipEnd: z.number().optional(),
     origin: z.enum(['user', 'upload', 'ai-generate', 'paste']).optional(),
     aiConfig: z.object({
-      feature: z.enum(['imageGenerate', 'poster', 'imageEdit', 'upscale', 'outpaint', 'videoGenerate', 'digitalHuman', 'tts']).optional(),
+      feature: z.enum(['imageGenerate', 'imageEdit', 'imageInpaint', 'imageStyleTransfer', 'upscale', 'outpaint', 'videoGenerate', 'lipSync', 'tts', 'poster', 'matting', 'videoEdit', 'digitalHuman', 'motionTransfer', 'music', 'sfx']).optional(),
       modelId: z.string().optional(),
       prompt: z.string(),
       negativePrompt: z.string().optional(),
