@@ -9,8 +9,8 @@
  */
 import type { ComponentType } from 'react'
 import type { VariantFormProps, VariantInputConstraints } from '../types'
-import { ImgGenQwenVariant } from './ImgGenQwenVariant'
-import { ImgGenVolcVariant } from './ImgGenVolcVariant'
+import { ImgGenTextVariant } from './ImgGenTextVariant'
+import { ImgGenRefVariant } from './ImgGenRefVariant'
 import { ImgInpaintVolcVariant } from './ImgInpaintVolcVariant'
 import { ImgStyleVolcVariant } from './ImgStyleVolcVariant'
 import { OutpaintQwenVariant } from './OutpaintQwenVariant'
@@ -19,14 +19,14 @@ import { UpscaleVolcVariant } from './UpscaleVolcVariant'
 
 /** Registry mapping v3 variant IDs to their form components. */
 export const IMAGE_VARIANT_REGISTRY: Record<string, ComponentType<VariantFormProps>> = {
-  // imageGenerate — text only (temporary: will be replaced by ImgGenTextVariant)
-  'OL-IG-001': ImgGenQwenVariant,
-  'OL-IG-002': ImgGenQwenVariant,
-  'OL-IG-003': ImgGenQwenVariant,
-  'OL-IG-004': ImgGenQwenVariant,
+  // imageGenerate — text only
+  'OL-IG-001': ImgGenTextVariant,
+  'OL-IG-002': ImgGenTextVariant,
+  'OL-IG-003': ImgGenTextVariant,
+  'OL-IG-004': ImgGenTextVariant,
   // imageGenerate — with reference images
-  'OL-IG-005': ImgGenVolcVariant,
-  'OL-IG-006': ImgGenVolcVariant,
+  'OL-IG-005': ImgGenRefVariant,
+  'OL-IG-006': ImgGenRefVariant,
   // imageInpaint
   'OL-IP-001': ImgInpaintVolcVariant,
   // imageStyleTransfer
