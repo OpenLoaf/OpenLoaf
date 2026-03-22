@@ -19,7 +19,7 @@ import type { VariantFormProps } from '../types'
 import { MediaSlot, PillSelect, UpstreamTextBadge, toMediaInput } from '../shared'
 
 /**
- * vid-gen-qwen (百炼视频) variant form.
+ * OL-VG-001 (百炼视频) variant form.
  *
  * Requires a first-frame image (startImage) -- pure text-to-video is NOT supported.
  * Params: prompt, style, upstreamModelId, duration, withAudio.

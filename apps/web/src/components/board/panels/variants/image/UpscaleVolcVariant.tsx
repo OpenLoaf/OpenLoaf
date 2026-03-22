@@ -15,7 +15,7 @@ import { toMediaInput } from '../shared'
 const SCALE_OPTIONS = [2, 4] as const
 
 /**
- * Variant form for upscale-volc (即梦超清).
+ * Variant form for OL-UP-002 (即梦超清).
  *
  * Inputs: image ({url})
  * Params: scale (2), modelId

@@ -1300,8 +1300,7 @@ export const VideoNodeDefinition: CanvasNodeDefinition<VideoNodeProps> = {
   },
   view: VideoNodeView,
   capabilities: {
-    resizable: true,
-    resizeMode: "uniform",
+    resizable: false,
     rotatable: false,
     connectable: "anchors",
     minSize: { w: 200, h: 112 },

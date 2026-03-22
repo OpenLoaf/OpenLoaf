@@ -20,7 +20,7 @@ import type { VariantFormProps } from '../types'
 import { MediaSlot, PillSelect, UpstreamTextBadge, toMediaInput } from '../shared'
 
 /**
- * vid-gen-volc (即梦视频) variant form.
+ * OL-VG-003 (即梦视频) variant form.
  *
  * Supports both text-to-video and image-to-video.
  * Inputs: prompt (required, in params), startImage (optional), images (optional).

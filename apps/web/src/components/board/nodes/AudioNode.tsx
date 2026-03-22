@@ -530,7 +530,7 @@ export function AudioNodeView({
     const input = lastFailure.input
     handleGenerate({
       feature: (input.parameters?.feature as string) ?? 'tts',
-      variant: (input.parameters?.variant as string) ?? 'tts-qwen',
+      variant: (input.parameters?.variant as string) ?? 'OL-TT-001',
       inputs: { text: input.prompt },
       params: {
         ...(input.parameters?.voice ? { voice: input.parameters.voice } : {}),

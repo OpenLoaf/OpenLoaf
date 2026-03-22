@@ -13,7 +13,7 @@ import type { VariantFormProps } from '../types'
 import { toMediaInput } from '../shared'
 
 /**
- * Variant form for outpaint-qwen (百炼扩图).
+ * Variant form for OL-OP-001 (百炼扩图).
  *
  * Inputs: image ({url})
  * Params: xScale (1.5), yScale (1.5)

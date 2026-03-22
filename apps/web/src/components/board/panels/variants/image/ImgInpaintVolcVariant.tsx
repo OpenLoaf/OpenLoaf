@@ -14,7 +14,7 @@ import { BOARD_GENERATE_INPUT } from '../../../ui/board-style-system'
 import { UpstreamTextBadge, toMediaInput } from '../shared'
 
 /**
- * Variant form for img-inpaint-volc (涂抹修改).
+ * Variant form for OL-IP-001 (涂抹修改).
  *
  * Inputs: image ({url}), mask ({url} - white = repair area)
  * Params: prompt

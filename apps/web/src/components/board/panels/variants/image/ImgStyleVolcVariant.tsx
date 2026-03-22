@@ -19,7 +19,7 @@ const QUALITY_OPTIONS = ['standard', 'hd'] as const
 type Quality = (typeof QUALITY_OPTIONS)[number]
 
 /**
- * Variant form for img-style-volc (风格迁移).
+ * Variant form for OL-ST-001 (风格迁移).
  *
  * Inputs: image ({url} - style source)
  * Params: prompt, aspectRatio, quality

@@ -59,7 +59,7 @@ const VOLUME_DEFAULT = 50
 // Component
 // ---------------------------------------------------------------------------
 
-/** TTS variant form for CosyVoice (tts-qwen). */
+/** TTS variant form for CosyVoice (OL-TT-001). */
 export function TtsQwenVariant({
   upstream,
   disabled = false,

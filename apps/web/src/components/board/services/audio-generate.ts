@@ -12,7 +12,7 @@ import { submitV3Generate } from '@/lib/saas-media'
 export type AudioGenerateRequest = {
   /** v3 feature ID (e.g. 'tts'). */
   feature: string
-  /** v3 variant ID (e.g. 'tts-qwen'). */
+  /** v3 variant ID (e.g. 'OL-TT-001'). */
   variant: string
   /** Input data (e.g. { text: '...' }). */
   inputs: Record<string, unknown>

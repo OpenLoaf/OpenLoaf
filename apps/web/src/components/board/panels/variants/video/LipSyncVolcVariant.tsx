@@ -14,7 +14,7 @@ import type { VariantFormProps } from '../types'
 import { MediaSlot, toMediaInput } from '../shared'
 
 /**
- * lip-sync-volc (即梦口型) variant form.
+ * OL-LS-001 (即梦口型) variant form.
  *
  * Inputs: person ({url} - person image), audio ({url} - audio file).
  * Params: modelId.

@@ -15,7 +15,7 @@ import { toMediaInput } from '../shared'
 const SCALE_OPTIONS = [2, 4] as const
 
 /**
- * Variant form for upscale-qwen (百炼超分).
+ * Variant form for OL-UP-001 (百炼超分).
  *
  * Inputs: image ({url})
  * Params: scale (2)

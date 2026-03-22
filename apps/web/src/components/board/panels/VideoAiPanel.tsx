@@ -28,7 +28,7 @@ import { VIDEO_VARIANT_REGISTRY, VIDEO_VARIANT_CONSTRAINTS } from './variants/vi
 export type VideoGenerateParams = {
   /** v3 feature id (e.g. 'videoGenerate', 'lipSync'). */
   feature: string
-  /** v3 variant id (e.g. 'vid-gen-qwen'). Optional for legacy callers. */
+  /** v3 variant id (e.g. 'OL-VG-001'). Optional for legacy callers. */
   variant?: string
   /** v3 inputs (images, audio, prompt etc.). */
   inputs?: Record<string, unknown>
