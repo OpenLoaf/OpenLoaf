@@ -11,7 +11,6 @@ import type { ComponentType } from 'react'
 import type { VariantFormProps, VariantInputConstraints } from '../types'
 import { ImgGenQwenVariant } from './ImgGenQwenVariant'
 import { ImgGenVolcVariant } from './ImgGenVolcVariant'
-import { ImgGenKlingVariant } from './ImgGenKlingVariant'
 import { ImgInpaintVolcVariant } from './ImgInpaintVolcVariant'
 import { ImgStyleVolcVariant } from './ImgStyleVolcVariant'
 import { OutpaintQwenVariant } from './OutpaintQwenVariant'
@@ -20,34 +19,55 @@ import { UpscaleVolcVariant } from './UpscaleVolcVariant'
 
 /** Registry mapping v3 variant IDs to their form components. */
 export const IMAGE_VARIANT_REGISTRY: Record<string, ComponentType<VariantFormProps>> = {
-  'img-gen-qwen': ImgGenQwenVariant,
-  'img-gen-volc': ImgGenVolcVariant,
-  'img-gen-kling': ImgGenKlingVariant,
-  'img-inpaint-volc': ImgInpaintVolcVariant,
-  'img-style-volc': ImgStyleVolcVariant,
-  'outpaint-qwen': OutpaintQwenVariant,
-  'upscale-qwen': UpscaleQwenVariant,
-  'upscale-volc': UpscaleVolcVariant,
+  // imageGenerate — text only (temporary: will be replaced by ImgGenTextVariant)
+  'OL-IG-001': ImgGenQwenVariant,
+  'OL-IG-002': ImgGenQwenVariant,
+  'OL-IG-003': ImgGenQwenVariant,
+  'OL-IG-004': ImgGenQwenVariant,
+  // imageGenerate — with reference images
+  'OL-IG-005': ImgGenVolcVariant,
+  'OL-IG-006': ImgGenVolcVariant,
+  // imageInpaint
+  'OL-IP-001': ImgInpaintVolcVariant,
+  // imageStyleTransfer
+  'OL-ST-001': ImgStyleVolcVariant,
+  // upscale
+  'OL-UP-001': UpscaleQwenVariant,
+  'OL-UP-002': UpscaleVolcVariant,
+  // outpaint
+  'OL-OP-001': OutpaintQwenVariant,
 }
 
 /** Input constraints for each image variant. */
 export const IMAGE_VARIANT_CONSTRAINTS: Record<string, VariantInputConstraints> = {
-  'img-gen-qwen': { textOnly: true },
-  'img-gen-volc': {}, // accepts optional reference images
-  'img-gen-kling': { textOnly: true },
-  'img-inpaint-volc': { requiresImage: true },
-  'img-style-volc': { requiresImage: true },
-  'outpaint-qwen': { requiresImage: true },
-  'upscale-qwen': { requiresImage: true },
-  'upscale-volc': { requiresImage: true },
+  'OL-IG-001': { textOnly: true },
+  'OL-IG-002': { textOnly: true },
+  'OL-IG-003': { textOnly: true },
+  'OL-IG-004': { textOnly: true },
+  'OL-IG-005': {},
+  'OL-IG-006': {},
+  'OL-IP-001': { requiresImage: true },
+  'OL-ST-001': { requiresImage: true },
+  'OL-UP-001': { requiresImage: true },
+  'OL-UP-002': { requiresImage: true },
+  'OL-OP-001': { requiresImage: true },
 }
 
-/** Feature IDs that require mask painting on the node. */
+/** Feature IDs whose variants may use mask painting on the node. */
 export const MASK_PAINT_FEATURES = new Set([
   'imageInpaint',
+  'imageEdit',
 ])
 
-/** Variant IDs that require mask painting. */
+/** Variant IDs that support mask painting. */
 export const MASK_PAINT_VARIANTS = new Set([
-  'img-inpaint-volc',
+  'OL-IP-001',
+])
+
+/**
+ * Variants where mask is REQUIRED (generate disabled without mask).
+ * Other MASK_PAINT_VARIANTS treat mask as optional.
+ */
+export const MASK_REQUIRED_VARIANTS = new Set([
+  'OL-IP-001',
 ])

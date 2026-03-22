@@ -16,5 +16,5 @@ export const AUDIO_VARIANT_REGISTRY: Record<
   string,
   ComponentType<VariantFormProps>
 > = {
-  'tts-qwen': TtsQwenVariant,
+  'OL-TT-001': TtsQwenVariant,
 }
