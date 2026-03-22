@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@udecode/cn'
+import { MEDIA_PREFERENCES, type MediaPreferenceId } from '@openloaf-saas/sdk'
 import { useCapabilities } from '@/hooks/use-capabilities'
 import type { V3Feature, V3Variant } from '@/lib/saas-media'
 import { GenerateActionBar } from './GenerateActionBar'
@@ -99,7 +100,8 @@ export function AudioAiPanel({
   onCancelEdit,
   className,
 }: AudioAiPanelProps) {
-  const { t } = useTranslation('board')
+  const { t, i18n } = useTranslation('board')
+  const prefLang = i18n.language.startsWith('zh') ? 'zh' : 'en'
   const {
     data: capabilities,
     loading: capLoading,
@@ -330,7 +332,7 @@ export function AudioAiPanel({
           warningMessage={variantWarning}
           variants={variants.length > 0 ? variants.map((v) => ({
             id: v.id,
-            displayName: t(`v3.variants.${v.id}`, { defaultValue: v.displayName }),
+            displayName: MEDIA_PREFERENCES[v.preference as MediaPreferenceId]?.label[prefLang] ?? v.displayName,
             creditsPerCall: v.creditsPerCall,
           })) : undefined}
           selectedVariantId={resolvedVariantId ?? undefined}

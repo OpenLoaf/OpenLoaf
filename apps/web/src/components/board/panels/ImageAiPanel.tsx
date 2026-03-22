@@ -135,9 +135,6 @@ function GenericVariantFallback({
         rows={3}
         disabled={disabled}
       />
-      <p className="text-[10px] text-muted-foreground/60">
-        {variant.displayName}
-      </p>
     </div>
   )
 }
