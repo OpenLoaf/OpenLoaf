@@ -12,12 +12,13 @@ import type {
   CanvasNodeDefinition,
   CanvasNodeViewProps,
   CanvasToolbarContext,
+  InputSnapshot,
 } from "../engine/types";
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import type { UpstreamData } from "../engine/upstream-data";
+import { useCallback, useEffect, useMemo } from "react";
 import { z } from "zod";
 import {
   Download,
-  Loader2,
   Music,
   Play,
   Trash2,
@@ -38,8 +39,7 @@ import { resolveProjectRelativePath, resolveMediaSource } from './shared/resolve
 import { downloadMediaFile } from './shared/downloadMediaFile';
 import { NodeFrame } from "./NodeFrame";
 import { AudioAiPanel } from "../panels/AudioAiPanel";
-import type { AudioPanelUpstream, AudioGenerateParams } from "../panels/AudioAiPanel";
-import { deriveNode } from "../utils/derive-node";
+import type { AudioGenerateParams } from "../panels/AudioAiPanel";
 import { useUpstreamData } from "../hooks/useUpstreamData";
 import { usePanelOverlay } from "../render/pixi/PixiApplication";
 import { submitAudioGenerate } from "../services/audio-generate";
@@ -48,17 +48,15 @@ import { useInlinePanelSync } from './shared/useInlinePanelSync';
 import { FailureOverlay } from './shared/FailureOverlay';
 import { InlinePanelPortal } from './shared/InlinePanelPortal';
 import { useEffectiveUpstream } from './shared/useEffectiveUpstream';
+import { useMediaGeneration, type SubmitOptions } from './shared/useMediaGeneration';
 import {
   createInputSnapshot,
-  createGeneratingEntry,
-  pushVersion,
   markVersionReady,
   removeFailedEntry,
   switchPrimary,
 } from '../engine/version-stack';
 import { useMediaTaskPolling } from '../hooks/useMediaTaskPolling';
 import {
-  mapErrorToMessageKey,
   useVersionStackState,
   useVersionStackFailureState,
   useVersionStackEditingOverride,
@@ -331,164 +329,83 @@ export function AudioNodeView({
 
   const { lastFailure, setLastFailure, dismissedFailure, setDismissedFailure, isFailed } = useVersionStackFailureState(element.props.versionStack, onUpdate)
 
-  const handleGenerate = useCallback(
-    async (params: AudioGenerateParams) => {
+  // ── Audio-specific callbacks for useMediaGeneration ──
+  const buildSnapshot = useCallback(
+    (params: AudioGenerateParams, up: UpstreamData | null) => {
       const promptText = (params.inputs?.text as string) ?? ''
-      // 逻辑：先写入 generating 状态（无 taskId），让节点立即显示 loading，再等 API 返回后补上 taskId。
-      const inputSnapshot = createInputSnapshot({
+      return createInputSnapshot({
         prompt: promptText,
         parameters: {
           feature: params.feature,
           variant: params.variant,
           ...params.params,
         },
-        upstreamRefs: upstream?.entries ?? [],
+        upstreamRefs: up?.entries ?? [],
       })
-      const pendingEntry = createGeneratingEntry(inputSnapshot, '')
+    },
+    [],
+  )
+  const buildGeneratePatch = useCallback(
+    (params: AudioGenerateParams) => {
+      const promptText = (params.inputs?.text as string) ?? ''
       const promptLabel = promptText.slice(0, 30).trim() || undefined
-      onUpdate({
-        versionStack: pushVersion(element.props.versionStack, pendingEntry),
-        origin: 'ai-generate',
+      return {
         fileName: promptLabel,
         aiConfig: {
           feature: params.feature as AiGenerateConfig['feature'],
           prompt: promptText,
           paramsCache: element.props.aiConfig?.paramsCache,
         },
-      })
-
-      try {
-        const result = await submitAudioGenerate(
-          {
-            feature: params.feature,
-            variant: params.variant,
-            inputs: params.inputs,
-            params: params.params,
-            count: params.count,
-            seed: params.seed,
-          },
-          {
-            projectId: fileContext?.projectId,
-            boardId: fileContext?.boardId,
-            sourceNodeId: element.id,
-          },
-        )
-
-        // 逻辑：API 返回后补上 taskId，轮询开始。
-        const currentStack = element.props.versionStack
-        const updatedEntries = (currentStack?.entries ?? [pendingEntry]).map(e =>
-          e.id === pendingEntry.id ? { ...e, taskId: result.taskId } : e,
-        )
-        onUpdate({
-          versionStack: {
-            entries: updatedEntries,
-            primaryId: pendingEntry.id,
-          },
-        })
-      } catch (err) {
-        console.error('[AudioNode] submitAudioGenerate failed:', err)
-        // 逻辑：提交失败时从 stack 中移除 pending entry，设置 lastFailure 显示错误浮层。
-        const msgKey = mapErrorToMessageKey(err)
-        const { stack: cleaned } = removeFailedEntry(
-          pushVersion(element.props.versionStack, pendingEntry),
-          pendingEntry.id,
-        )
-        onUpdate({ versionStack: cleaned })
-        setLastFailure({
-          input: inputSnapshot,
-          error: { code: 'SUBMIT_FAILED', message: i18next.t(msgKey, { defaultValue: '生成失败，请重试' }) },
-        })
       }
     },
-    [element.id, element.props.versionStack, fileContext?.projectId, fileContext?.boardId, upstream, onUpdate],
+    [element.props.aiConfig?.paramsCache],
   )
-
-  /** Retry generation using the last failure's input snapshot. */
-  const handleRetry = useCallback(() => {
-    if (!lastFailure?.input) return
-    const input = lastFailure.input
-    handleGenerate({
+  const audioSubmitGenerate = useCallback(
+    (params: AudioGenerateParams, options: SubmitOptions) =>
+      submitAudioGenerate(
+        {
+          feature: params.feature,
+          variant: params.variant,
+          inputs: params.inputs,
+          params: params.params,
+          count: params.count,
+          seed: params.seed,
+        },
+        options,
+      ),
+    [],
+  )
+  const buildRetryParams = useCallback(
+    (input: InputSnapshot): AudioGenerateParams => ({
       feature: (input.parameters?.feature as string) ?? 'tts',
       variant: (input.parameters?.variant as string) ?? 'OL-TT-001',
       inputs: { text: input.prompt },
       params: {
         ...(input.parameters?.voice ? { voice: input.parameters.voice } : {}),
       },
-    })
-  }, [lastFailure, handleGenerate])
-
-  /** Generate into a new derived audio node with the same params. */
-  const handleGenerateNewNode = useCallback(
-    async (params: AudioGenerateParams) => {
-      const promptText = (params.inputs?.text as string) ?? ''
-      let newNodeId: string | null = null
-      try {
-        newNodeId = deriveNode({
-          engine,
-          sourceNodeId: element.id,
-          targetType: 'audio',
-          targetProps: { origin: 'ai-generate' },
-        })
-        if (!newNodeId) return
-
-        // 逻辑：先写入 generating 状态，让新节点立即显示 loading。
-        const snapshot = createInputSnapshot({
-          prompt: promptText,
-          parameters: {
-            feature: params.feature,
-            variant: params.variant,
-            ...params.params,
-          },
-        })
-        const pendingEntry = createGeneratingEntry(snapshot, '')
-        engine.doc.updateNodeProps(newNodeId, {
-          versionStack: pushVersion(undefined, pendingEntry),
-          origin: 'ai-generate',
-          aiConfig: { feature: params.feature, prompt: promptText },
-        })
-
-        const result = await submitAudioGenerate(
-          {
-            feature: params.feature,
-            variant: params.variant,
-            inputs: params.inputs,
-            params: params.params,
-            count: params.count,
-            seed: params.seed,
-          },
-          {
-            projectId: fileContext?.projectId,
-            boardId: fileContext?.boardId,
-            sourceNodeId: newNodeId,
-          },
-        )
-
-        // 逻辑：API 返回后补上 taskId。
-        engine.doc.updateNodeProps(newNodeId, {
-          versionStack: {
-            entries: [{ ...pendingEntry, taskId: result.taskId }],
-            primaryId: pendingEntry.id,
-          },
-        })
-      } catch (err) {
-        console.error('[AudioNode] new node generation failed:', err)
-        if (newNodeId) {
-          const msgKey = mapErrorToMessageKey(err)
-          const msg = i18next.t(msgKey, { defaultValue: '生成失败，请重试' })
-          const snapshot = createInputSnapshot({ prompt: promptText, parameters: { feature: params.feature } })
-          const failedEntry: import('../engine/types').VersionStackEntry = {
-            id: `fail-${Date.now()}`, status: 'failed', input: snapshot, createdAt: Date.now(),
-            error: { code: 'SUBMIT_FAILED', message: msg },
-          }
-          engine.doc.updateNodeProps(newNodeId, {
-            versionStack: pushVersion(undefined, failedEntry),
-            aiConfig: { feature: params.feature, prompt: promptText },
-          })
-        }
-      }
-    },
-    [engine, element.id, fileContext?.projectId, fileContext?.boardId],
+    }),
+    [],
   )
+
+  const {
+    handleGenerate,
+    handleRetryGenerate: handleRetry,
+    handleGenerateNewNode,
+  } = useMediaGeneration<AudioGenerateParams>({
+    elementId: element.id,
+    versionStack: element.props.versionStack,
+    fileContext,
+    engine,
+    upstream,
+    onUpdate,
+    setLastFailure,
+    lastFailure,
+    buildSnapshot,
+    buildGeneratePatch,
+    submitGenerate: audioSubmitGenerate,
+    buildRetryParams,
+    deriveNodeType: 'audio',
+  })
 
   const isReadyFromAi = primaryEntry?.status === 'ready' && element.props.origin === 'ai-generate'
 

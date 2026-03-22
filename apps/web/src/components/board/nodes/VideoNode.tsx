@@ -12,7 +12,9 @@ import type {
   CanvasNodeDefinition,
   CanvasNodeViewProps,
   CanvasToolbarContext,
+  InputSnapshot,
 } from "../engine/types";
+import type { UpstreamData } from "../engine/upstream-data";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 import Hls from "hls.js";
@@ -42,23 +44,19 @@ import { InlinePanelPortal } from './shared/InlinePanelPortal';
 import type { VideoGenerateParams } from "../panels/VideoAiPanel";
 import { useUpstreamData } from "../hooks/useUpstreamData";
 import { usePanelOverlay } from "../render/pixi/PixiApplication";
-import { deriveNode } from "../utils/derive-node";
 import { submitVideoGenerate } from "../services/video-generate";
-import { resolveAllMediaInputs } from "@/lib/media-upload";
 import { useFileUploadHandler } from './shared/useFileUploadHandler';
 import { useInlinePanelSync } from './shared/useInlinePanelSync';
 import { useEffectiveUpstream } from './shared/useEffectiveUpstream';
+import { useMediaGeneration, type SubmitOptions } from './shared/useMediaGeneration';
 import {
   createInputSnapshot,
-  createGeneratingEntry,
-  pushVersion,
   markVersionReady,
   removeFailedEntry,
   switchPrimary,
 } from '../engine/version-stack';
 import { useMediaTaskPolling } from '../hooks/useMediaTaskPolling';
 import {
-  mapErrorToMessageKey,
   useVersionStackState,
   useVersionStackFailureState,
   useVersionStackEditingOverride,
@@ -672,78 +670,60 @@ export function VideoNodeView({
   const { lastFailure, setLastFailure, dismissedFailure, setDismissedFailure, isFailed } =
     useVersionStackFailureState(element.props.versionStack, onUpdate)
 
-  const handleGenerate = useCallback(
-    async (params: VideoGenerateParams) => {
-      try {
-        const result = await submitVideoGenerate(
-          {
-            // v3 fields
-            feature: params.feature,
-            variant: params.variant,
-            inputs: params.inputs,
-            params: params.params,
-            count: params.count,
-            seed: params.seed,
-            // legacy fields (backward compat)
-            prompt: params.prompt,
-            aspectRatio: params.aspectRatio,
-            duration: params.duration,
-            mode: params.mode as any,
-            firstFrameImageSrc: params.firstFrameImageSrc,
-            endFrameImageSrc: params.endFrameImageSrc,
-            referenceImageSrcs: params.referenceImageSrcs,
-            withAudio: params.withAudio,
-            quality: params.quality,
-          },
-          {
-            projectId: fileContext?.projectId,
-            boardId: fileContext?.boardId,
-            sourceNodeId: element.id,
-          },
-        )
-
-        const snapshot = createInputSnapshot({
-          prompt: params.prompt,
-          parameters: {
-            feature: params.feature,
-            variant: params.variant,
-            inputs: params.inputs,
-            params: params.params,
-            mode: params.mode,
-            aspectRatio: params.aspectRatio,
-            duration: params.duration,
-            quality: params.quality,
-            withAudio: params.withAudio,
-          },
-          upstreamRefs: upstream?.entries ?? [],
-        })
-        const entry = createGeneratingEntry(snapshot, result.taskId)
-        onUpdate({
-          versionStack: pushVersion(element.props.versionStack, entry),
-          origin: 'ai-generate',
-        })
-      } catch (err) {
-        console.error('[VideoNode] submitVideoGenerate failed:', err)
-        const inputSnapshot = createInputSnapshot({
-          prompt: params.prompt,
-          parameters: { feature: params.feature, variant: params.variant, inputs: params.inputs, params: params.params, aspectRatio: params.aspectRatio, quality: params.quality },
-        })
-        const msgKey = mapErrorToMessageKey(err)
-        const msg = i18next.t(msgKey, { defaultValue: '生成失败，请重试' })
-        setLastFailure({
-          input: inputSnapshot,
-          error: { code: 'SUBMIT_FAILED', message: msg },
-        })
-      }
-    },
-    [element.id, element.props.versionStack, element.props.aiConfig, fileContext?.projectId, fileContext?.boardId, onUpdate],
+  // ── Video-specific callbacks for useMediaGeneration ──
+  const buildSnapshot = useCallback(
+    (params: VideoGenerateParams, up: UpstreamData | null) =>
+      createInputSnapshot({
+        prompt: params.prompt,
+        parameters: {
+          feature: params.feature,
+          variant: params.variant,
+          inputs: params.inputs,
+          params: params.params,
+          mode: params.mode,
+          aspectRatio: params.aspectRatio,
+          duration: params.duration,
+          quality: params.quality,
+          withAudio: params.withAudio,
+        },
+        upstreamRefs: up?.entries ?? [],
+      }),
+    [],
   )
-
-  /** Retry generation using the failed entry's input snapshot. */
-  const handleRetry = useCallback(() => {
-    if (!lastFailure?.input) return
-    const input = lastFailure.input
-    const params: VideoGenerateParams = {
+  const buildGeneratePatch = useCallback(
+    (params: VideoGenerateParams) => ({
+      aiConfig: { feature: params.feature, prompt: params.prompt ?? '' },
+    }),
+    [],
+  )
+  const videoSubmitGenerate = useCallback(
+    (params: VideoGenerateParams, options: SubmitOptions) =>
+      submitVideoGenerate(
+        {
+          // v3 fields
+          feature: params.feature,
+          variant: params.variant,
+          inputs: params.inputs,
+          params: params.params,
+          count: params.count,
+          seed: params.seed,
+          // legacy fields (backward compat)
+          prompt: params.prompt,
+          aspectRatio: params.aspectRatio,
+          duration: params.duration,
+          mode: params.mode as any,
+          firstFrameImageSrc: params.firstFrameImageSrc,
+          endFrameImageSrc: params.endFrameImageSrc,
+          referenceImageSrcs: params.referenceImageSrcs,
+          withAudio: params.withAudio,
+          quality: params.quality,
+        },
+        options,
+      ),
+    [],
+  )
+  const buildRetryParams = useCallback(
+    (input: InputSnapshot): VideoGenerateParams => ({
       feature: (input.parameters?.feature as VideoGenerateParams['feature']) ?? 'videoGenerate',
       variant: input.parameters?.variant as string | undefined,
       inputs: input.parameters?.inputs as Record<string, unknown> | undefined,
@@ -754,101 +734,29 @@ export function VideoNodeView({
       duration: (input.parameters?.duration as 5 | 10 | 15) ?? 5,
       quality: input.parameters?.quality as VideoGenerateParams['quality'],
       withAudio: input.parameters?.withAudio as boolean | undefined,
-    }
-    handleGenerate(params)
-  }, [lastFailure, handleGenerate])
-
-  /** Generate into a new derived video node with the same params. */
-  const handleGenerateNewNode = useCallback(
-    async (params: VideoGenerateParams) => {
-      let newNodeId: string | null = null
-      try {
-        newNodeId = deriveNode({
-          engine,
-          sourceNodeId: element.id,
-          targetType: 'video',
-          targetProps: { origin: 'ai-generate' },
-        })
-        if (!newNodeId) return
-
-        // 逻辑：先写入 generating 状态，让新节点立即显示 loading。
-        const snapshot = createInputSnapshot({
-          prompt: params.prompt,
-          parameters: {
-            feature: params.feature,
-            variant: params.variant,
-            inputs: params.inputs,
-            params: params.params,
-            mode: params.mode,
-            aspectRatio: params.aspectRatio,
-            duration: params.duration,
-            quality: params.quality,
-            withAudio: params.withAudio,
-          },
-        })
-        const pendingEntry = createGeneratingEntry(snapshot, '')
-        engine.doc.updateNodeProps(newNodeId, {
-          versionStack: pushVersion(undefined, pendingEntry),
-          origin: 'ai-generate',
-          aiConfig: { feature: params.feature, prompt: params.prompt ?? '' },
-        })
-
-        // 逻辑：上传媒体输入到公网 URL，在子节点创建后再执行以避免阻塞。
-        const resolvedInputs = await resolveAllMediaInputs(params.inputs ?? {}, fileContext?.boardId)
-
-        const result = await submitVideoGenerate(
-          {
-            // v3 fields
-            feature: params.feature,
-            variant: params.variant,
-            inputs: resolvedInputs,
-            params: params.params,
-            count: params.count,
-            seed: params.seed,
-            // legacy fields (backward compat)
-            prompt: params.prompt,
-            aspectRatio: params.aspectRatio,
-            duration: params.duration,
-            mode: params.mode as any,
-            firstFrameImageSrc: params.firstFrameImageSrc,
-            endFrameImageSrc: params.endFrameImageSrc,
-            referenceImageSrcs: params.referenceImageSrcs,
-            withAudio: params.withAudio,
-            quality: params.quality,
-          },
-          {
-            projectId: fileContext?.projectId,
-            boardId: fileContext?.boardId,
-            sourceNodeId: newNodeId,
-          },
-        )
-
-        // 逻辑：API 返回后补上 taskId。
-        engine.doc.updateNodeProps(newNodeId, {
-          versionStack: {
-            entries: [{ ...pendingEntry, taskId: result.taskId }],
-            primaryId: pendingEntry.id,
-          },
-        })
-      } catch (err) {
-        console.error('[VideoNode] new node generation failed:', err)
-        if (newNodeId) {
-          const msgKey = mapErrorToMessageKey(err)
-          const msg = i18next.t(msgKey, { defaultValue: '生成失败，请重试' })
-          const snapshot = createInputSnapshot({ prompt: params.prompt, parameters: { feature: params.feature, variant: params.variant, inputs: params.inputs, params: params.params } })
-          const failedEntry: import('../engine/types').VersionStackEntry = {
-            id: `fail-${Date.now()}`, status: 'failed', input: snapshot, createdAt: Date.now(),
-            error: { code: 'SUBMIT_FAILED', message: msg },
-          }
-          engine.doc.updateNodeProps(newNodeId, {
-            versionStack: pushVersion(undefined, failedEntry),
-            aiConfig: { feature: params.feature, prompt: params.prompt ?? '' },
-          })
-        }
-      }
-    },
-    [engine, element.id, fileContext?.projectId, fileContext?.boardId],
+    }),
+    [],
   )
+
+  const {
+    handleGenerate,
+    handleRetryGenerate: handleRetry,
+    handleGenerateNewNode,
+  } = useMediaGeneration<VideoGenerateParams>({
+    elementId: element.id,
+    versionStack: element.props.versionStack,
+    fileContext,
+    engine,
+    upstream,
+    onUpdate,
+    setLastFailure,
+    lastFailure,
+    buildSnapshot,
+    buildGeneratePatch,
+    submitGenerate: videoSubmitGenerate,
+    buildRetryParams,
+    deriveNodeType: 'video',
+  })
 
   const isGenerating = isGeneratingVersion
   const isReadyFromAi = primaryEntry?.status === 'ready' && element.props.origin === 'ai-generate'

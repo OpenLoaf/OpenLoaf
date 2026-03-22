@@ -12,7 +12,9 @@ import type {
   CanvasNodeDefinition,
   CanvasNodeViewProps,
   CanvasToolbarContext,
+  InputSnapshot,
 } from "../engine/types";
+import type { UpstreamData } from "../engine/upstream-data";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 import {
@@ -55,23 +57,17 @@ import {
 import { ImageAiPanel, type ImageGenerateParams } from "../panels/ImageAiPanel";
 import { useUpstreamData } from "../hooks/useUpstreamData";
 import { usePanelOverlay } from "../render/pixi/PixiApplication";
-import { deriveNode } from "../utils/derive-node";
 import { submitImageGenerate } from "../services/image-generate";
 import { submitUpscale } from "../services/upscale-generate";
-// v3 generate is used internally by submitImageGenerate and submitUpscale
-import { resolveAllMediaInputs } from "@/lib/media-upload";
 import { MaskPaintOverlay, type MaskPaintHandle } from "./MaskPaintOverlay";
 import {
   createInputSnapshot,
-  createGeneratingEntry,
-  pushVersion,
   markVersionReady,
   removeFailedEntry,
   getPrimaryEntry,
   switchPrimary,
 } from "../engine/version-stack";
 import {
-  mapErrorToMessageKey,
   useVersionStackState,
   useVersionStackFailureState,
   useVersionStackEditingOverride,
@@ -84,6 +80,7 @@ import { useInlinePanelSync } from './shared/useInlinePanelSync';
 import { useEffectiveUpstream } from './shared/useEffectiveUpstream';
 import { FailureOverlay } from './shared/FailureOverlay';
 import { InlinePanelPortal } from './shared/InlinePanelPortal';
+import { useMediaGeneration, type SubmitOptions } from './shared/useMediaGeneration';
 
 /** Max bytes for image node preview fetches. */
 const IMAGE_NODE_PREVIEW_MAX_BYTES = 100 * 1024;
@@ -456,15 +453,37 @@ export function ImageNodeView({
     if (isGeneratingVersion) setLastFailure(null);
   }, [isGeneratingVersion]);
 
-  /** Route generation request to the correct service based on feature. */
-  const submitByFeature = useCallback(
-    async (params: ImageGenerateParams, overrideSourceNodeId?: string): Promise<{ taskId: string }> => {
-      const opts = {
-        projectId: fileContext?.projectId,
-        boardId: fileContext?.boardId,
-        sourceNodeId: overrideSourceNodeId ?? element.id,
-      }
-
+  // ── Image-specific callbacks for useMediaGeneration ──
+  const buildSnapshot = useCallback(
+    (params: ImageGenerateParams, up: UpstreamData | null) =>
+      createInputSnapshot({
+        prompt: params.prompt,
+        parameters: {
+          feature: params.feature,
+          variant: params.variant,
+          inputs: params.inputs,
+          params: params.params,
+          aspectRatio: params.aspectRatio,
+          count: params.count,
+          seed: params.seed,
+        },
+        upstreamRefs: up?.entries ?? [],
+      }),
+    [],
+  )
+  const buildGeneratePatch = useCallback(
+    (params: ImageGenerateParams) => ({
+      aiConfig: {
+        feature: params.feature as import("../board-contracts").AiGenerateConfig['feature'],
+        prompt: params.prompt ?? '',
+        aspectRatio: params.aspectRatio as import("../board-contracts").AiGenerateConfig['aspectRatio'],
+      },
+    }),
+    [],
+  )
+  /** Route generation to the correct service based on variant. */
+  const imageSubmitGenerate = useCallback(
+    (params: ImageGenerateParams, options: SubmitOptions): Promise<{ taskId: string }> => {
       // v3 path: when variant is provided, route through v3 unified endpoint
       if (params.variant) {
         // Upscale variants: use dedicated submitUpscale for compat
@@ -473,7 +492,7 @@ export function ImageNodeView({
           const scale = (params.params?.scale as 2 | 4) ?? 2
           return submitUpscale(
             { sourceImageSrc: imageUrl, scale, variant: params.variant },
-            opts,
+            options,
           )
         }
         // All other v3 variants: use submitImageGenerate (which calls submitV3Generate)
@@ -486,7 +505,7 @@ export function ImageNodeView({
             count: params.count,
             seed: params.seed,
           },
-          opts,
+          options,
         )
       }
 
@@ -498,78 +517,13 @@ export function ImageNodeView({
           prompt: params.prompt ?? '',
           aspectRatio: params.aspectRatio,
         },
-        opts,
+        options,
       )
     },
-    [fileContext?.projectId, fileContext?.boardId, element.id],
+    [],
   )
-
-  /** Handle image generation: submit task and push a generating entry to the version stack. */
-  const handleGenerate = useCallback(
-    async (params: ImageGenerateParams) => {
-      // 逻辑：先写入 generating 状态（无 taskId），让节点立即显示 loading，再等 API 返回后补上 taskId。
-      const inputSnapshot = createInputSnapshot({
-        prompt: params.prompt,
-        parameters: {
-          feature: params.feature,
-          variant: params.variant,
-          inputs: params.inputs,
-          params: params.params,
-          aspectRatio: params.aspectRatio,
-          count: params.count,
-          seed: params.seed,
-        },
-        upstreamRefs: upstream?.entries ?? [],
-      })
-      const pendingEntry = createGeneratingEntry(inputSnapshot, '')
-      const config: import("../board-contracts").AiGenerateConfig = {
-        feature: params.feature as import("../board-contracts").AiGenerateConfig['feature'],
-        prompt: params.prompt ?? '',
-        aspectRatio: params.aspectRatio as import("../board-contracts").AiGenerateConfig['aspectRatio'],
-      }
-      onUpdate({
-        versionStack: pushVersion(element.props.versionStack, pendingEntry),
-        origin: 'ai-generate',
-        aiConfig: config,
-      })
-
-      try {
-        const result = await submitByFeature(params)
-
-        // 逻辑：API 返回后补上 taskId，轮询开始。
-        const currentStack = element.props.versionStack
-        const updatedEntries = (currentStack?.entries ?? [pendingEntry]).map(e =>
-          e.id === pendingEntry.id ? { ...e, taskId: result.taskId } : e,
-        )
-        onUpdate({
-          versionStack: {
-            entries: updatedEntries,
-            primaryId: pendingEntry.id,
-          },
-        })
-      } catch (error) {
-        console.error('[ImageNode] image generation failed:', error)
-        // 逻辑：提交失败时从 stack 中移除 pending entry，设置 lastFailure 显示错误浮层。
-        const msgKey = mapErrorToMessageKey(error)
-        const { stack: cleaned } = removeFailedEntry(
-          pushVersion(element.props.versionStack, pendingEntry),
-          pendingEntry.id,
-        )
-        onUpdate({ versionStack: cleaned })
-        setLastFailure({
-          input: inputSnapshot,
-          error: { code: 'SUBMIT_FAILED', message: i18next.t(msgKey, { defaultValue: '生成失败，请重试' }) },
-        })
-      }
-    },
-    [element.id, element.props.versionStack, fileContext, upstream, onUpdate, submitByFeature],
-  )
-
-  /** Retry generation using the last failure's input snapshot. */
-  const handleRetryGenerate = useCallback(() => {
-    if (!lastFailure?.input) return;
-    const input = lastFailure.input;
-    const params: ImageGenerateParams = {
+  const buildRetryParams = useCallback(
+    (input: InputSnapshot): ImageGenerateParams => ({
       feature: (input.parameters?.feature as string) ?? 'imageGenerate',
       variant: (input.parameters?.variant as string) ?? '',
       inputs: (input.parameters?.inputs as Record<string, unknown>) ?? { prompt: input.prompt },
@@ -579,14 +533,12 @@ export function ImageNodeView({
       // Backward compat
       prompt: input.prompt,
       aspectRatio: (input.parameters?.aspectRatio as string) ?? '1:1',
-    };
-    handleGenerate(params);
-  }, [lastFailure, handleGenerate]);
-
-  /** Generate into a new derived image node with the same params. */
-  const handleGenerateNewNode = useCallback(
-    async (params: ImageGenerateParams) => {
-      let newNodeId: string | null = null
+    }),
+    [],
+  )
+  /** Build derive-node patch with paramsCache copying. */
+  const buildDeriveNodePatch = useCallback(
+    (params: ImageGenerateParams) => {
       // 逻辑：将源节点的参数缓存拷贝到新节点，使新节点面板可恢复生成参数。
       const cacheKey = `${params.feature}:${params.variant}`
       const copiedParamsCache = {
@@ -598,92 +550,38 @@ export function ImageNodeView({
           seed: params.seed,
         },
       }
-      try {
-        // 逻辑：创建新的图片节点并在其上提交生成任务。
-        newNodeId = deriveNode({
-          engine,
-          sourceNodeId: element.id,
-          targetType: 'image',
-          targetProps: { origin: 'ai-generate' },
-        })
-        if (!newNodeId) return
-
-        // 逻辑：先写入 generating 状态（无 taskId），让新节点立即显示 loading。
-        const inputSnapshot = createInputSnapshot({
-          prompt: params.prompt,
-          parameters: {
-            feature: params.feature,
-            variant: params.variant,
-            inputs: params.inputs,
-            params: params.params,
-            aspectRatio: params.aspectRatio,
-            count: params.count,
-            seed: params.seed,
-          },
-        })
-        const pendingEntry = createGeneratingEntry(inputSnapshot, '')
-        engine.doc.updateNodeProps(newNodeId, {
-          versionStack: pushVersion(undefined, pendingEntry),
-          origin: 'ai-generate',
-          aiConfig: {
-            feature: params.feature as import("../board-contracts").AiGenerateConfig['feature'],
-            prompt: params.prompt ?? '',
-            aspectRatio: params.aspectRatio as import("../board-contracts").AiGenerateConfig['aspectRatio'],
-            paramsCache: copiedParamsCache,
-          },
-        })
-
-        // 逻辑：上传媒体输入（mask、图片等）到公网 URL，在子节点创建后再执行以避免阻塞。
-        const resolvedInputs = await resolveAllMediaInputs(params.inputs ?? {}, fileContext?.boardId)
-        const resolvedParams = { ...params, inputs: resolvedInputs }
-
-        const result = await submitByFeature(resolvedParams, newNodeId)
-
-        // 逻辑：API 返回后补上 taskId，轮询开始。
-        engine.doc.updateNodeProps(newNodeId, {
-          versionStack: {
-            entries: [{ ...pendingEntry, taskId: result.taskId }],
-            primaryId: pendingEntry.id,
-          },
-          aiConfig: {
-            feature: params.feature as import("../board-contracts").AiGenerateConfig['feature'],
-            prompt: params.prompt ?? '',
-            aspectRatio: params.aspectRatio as import("../board-contracts").AiGenerateConfig['aspectRatio'],
-            paramsCache: copiedParamsCache,
-          },
-        })
-      } catch (error) {
-        console.error('[ImageNode] new node generation failed:', error)
-        // 逻辑：提交失败时在新节点上写入失败的 version stack entry，让新节点显示错误浮层。
-        if (newNodeId) {
-          const msgKey = mapErrorToMessageKey(error)
-          const msg = i18next.t(msgKey, { defaultValue: '生成失败，请重试' })
-          const snapshot = createInputSnapshot({
-            prompt: params.prompt,
-            parameters: {
-              feature: params.feature,
-              variant: params.variant,
-              inputs: params.inputs,
-              params: params.params,
-              aspectRatio: params.aspectRatio,
-            },
-          })
-          const failedEntry: import('../engine/types').VersionStackEntry = {
-            id: `fail-${Date.now()}`,
-            status: 'failed',
-            input: snapshot,
-            createdAt: Date.now(),
-            error: { code: 'SUBMIT_FAILED', message: msg },
-          }
-          engine.doc.updateNodeProps(newNodeId, {
-            versionStack: pushVersion(undefined, failedEntry),
-            aiConfig: { feature: params.feature as import("../board-contracts").AiGenerateConfig['feature'], prompt: params.prompt ?? '' },
-          })
-        }
+      return {
+        aiConfig: {
+          feature: params.feature as import("../board-contracts").AiGenerateConfig['feature'],
+          prompt: params.prompt ?? '',
+          aspectRatio: params.aspectRatio as import("../board-contracts").AiGenerateConfig['aspectRatio'],
+          paramsCache: copiedParamsCache,
+        },
       }
     },
-    [engine, element.id, fileContext, submitByFeature],
+    [element.props.aiConfig?.paramsCache],
   )
+
+  const {
+    handleGenerate,
+    handleRetryGenerate,
+    handleGenerateNewNode,
+  } = useMediaGeneration<ImageGenerateParams>({
+    elementId: element.id,
+    versionStack: element.props.versionStack,
+    fileContext,
+    engine,
+    upstream,
+    onUpdate,
+    setLastFailure,
+    lastFailure,
+    buildSnapshot,
+    buildGeneratePatch,
+    submitGenerate: imageSubmitGenerate,
+    buildRetryParams,
+    deriveNodeType: 'image',
+    buildDeriveNodePatch,
+  })
 
   /** Request opening the image preview on the canvas. */
   const requestPreview = useCallback(() => {
