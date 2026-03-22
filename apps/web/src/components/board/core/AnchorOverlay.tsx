@@ -14,7 +14,7 @@ import type {
   CanvasSnapshot,
 } from "../engine/types";
 import { cn } from "@udecode/cn";
-import { Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import {
   SELECTED_ANCHOR_EDGE_SIZE,
   SELECTED_ANCHOR_EDGE_SIZE_HOVER,
@@ -128,11 +128,35 @@ export function AnchorOverlay({ snapshot }: AnchorOverlayProps) {
               }}
             >
               {isSideAnchor && useSelectedStyle ? (
-                <Plus
-                  size={iconSize}
-                  className="text-[var(--canvas-connector-handle-fill)]"
-                  strokeWidth={2.2}
-                />
+                <>
+                  <Plus
+                    size={iconSize}
+                    className={cn(
+                      "absolute text-[var(--canvas-connector-handle-fill)] transition-opacity duration-150",
+                      isHover ? "opacity-0" : "opacity-100"
+                    )}
+                    strokeWidth={2.2}
+                  />
+                  {anchor.anchorId === "left" ? (
+                    <ChevronLeft
+                      size={10}
+                      className={cn(
+                        "absolute text-[var(--canvas-connector-handle-fill)] transition-opacity duration-150",
+                        isHover ? "opacity-100" : "opacity-0"
+                      )}
+                      strokeWidth={2.5}
+                    />
+                  ) : (
+                    <ChevronRight
+                      size={10}
+                      className={cn(
+                        "absolute text-[var(--canvas-connector-handle-fill)] transition-opacity duration-150",
+                        isHover ? "opacity-100" : "opacity-0"
+                      )}
+                      strokeWidth={2.5}
+                    />
+                  )}
+                </>
               ) : null}
             </div>
           </div>
