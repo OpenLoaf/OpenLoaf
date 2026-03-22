@@ -12,7 +12,7 @@ import nodePath from "node:path";
 import { getFilePreview } from "@/ai/services/image/attachmentResolver";
 import {
   resolveBoardAbsPath,
-  resolveBoardScopedRoot,
+  resolveBoardRootPath,
 } from "@openloaf/api/common/boardPaths";
 import { prisma } from "@openloaf/db";
 
@@ -53,7 +53,7 @@ export function registerBoardAttachmentRoutes(app: Hono) {
     }
 
     const projectId = board.projectId ?? projectIdHint;
-    const rootPath = resolveBoardScopedRoot(projectId);
+    const rootPath = resolveBoardRootPath(board);
     // 用 DB 中的 folderUri 拼接，不猜测路径格式
     const absPath = resolveBoardAbsPath(rootPath, board.folderUri, file);
     const relativePath = nodePath.relative(rootPath, absPath);

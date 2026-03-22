@@ -16,4 +16,5 @@ export const LARGE_ANCHOR_NODE_TYPES = new Set([
   "video",
   "text",
   "video_generate",
+  "audio",
 ]);

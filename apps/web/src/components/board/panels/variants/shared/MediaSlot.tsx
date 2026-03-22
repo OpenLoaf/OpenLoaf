@@ -105,7 +105,8 @@ export function MediaSlot({
     return src
   }, [src, boardId, projectId])
 
-  const hasSrc = displaySrc && !imgFailed
+  const isNonImageSlot = uploadAccept !== 'image/*'
+  const hasSrc = isNonImageSlot ? Boolean(src) : (displaySrc && !imgFailed)
   const size = compact ? 'h-[44px] w-[44px]' : 'h-[52px] w-[52px]'
 
   return (
@@ -132,13 +133,19 @@ export function MediaSlot({
         onClick={() => !disabled && !hasSrc && inputRef.current?.click()}
       >
         {hasSrc ? (
-          <img
-            src={displaySrc}
-            alt={label}
-            className="h-full w-full object-cover"
-            draggable={false}
-            onError={() => setImgFailed(true)}
-          />
+          isNonImageSlot ? (
+            <div className="flex h-full w-full items-center justify-center text-foreground/70">
+              {icon ?? <Plus size={16} />}
+            </div>
+          ) : (
+            <img
+              src={displaySrc}
+              alt={label}
+              className="h-full w-full object-cover"
+              draggable={false}
+              onError={() => setImgFailed(true)}
+            />
+          )
         ) : (
           <div className="flex h-full w-full items-center justify-center text-muted-foreground/50">
             {icon ?? <Plus size={16} />}

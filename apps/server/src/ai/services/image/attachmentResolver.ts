@@ -14,7 +14,7 @@ import sharp from "sharp";
 import type { UIMessage } from "ai";
 import type { OpenLoafImageMetadataV1 } from "@openloaf/api/types/image";
 import { getProjectRootPath } from "@openloaf/api/services/vfsService";
-import { resolveBoardAbsPath, resolveBoardScopedRoot, lookupBoardRecord, BOARD_CHAT_HISTORY_DIR, resolveBoardFolderName } from "@openloaf/api/common/boardPaths";
+import { resolveBoardAbsPath, resolveBoardScopedRoot, resolveBoardRootPath, lookupBoardRecord, BOARD_CHAT_HISTORY_DIR, resolveBoardFolderName } from "@openloaf/api/common/boardPaths";
 import { getOpenLoafRootDir, resolveScopedOpenLoafPath } from "@openloaf/config";
 import { getProjectId } from "@/ai/shared/context/requestContext";
 
@@ -349,8 +349,9 @@ async function resolveChatAttachmentRoot(input: {
   // 画布内聊天：从 DB 查询画布的 folderUri，拼接 chat-history 子目录
   if (boardId) {
     const board = await lookupBoardRecord(boardId);
-    const projectId = board?.projectId ?? input.projectId;
-    const rootPath = resolveBoardScopedRoot(projectId ?? undefined);
+    const rootPath = board
+      ? resolveBoardRootPath(board)
+      : resolveBoardScopedRoot(input.projectId ?? undefined);
     const chatHistoryDir = board
       ? resolveBoardAbsPath(rootPath, board.folderUri, BOARD_CHAT_HISTORY_DIR)
       : path.join(rootPath, "boards", boardId, BOARD_CHAT_HISTORY_DIR);
@@ -490,7 +491,7 @@ async function resolveProjectFilePathWithRoot(input: {
     const boardId = boardMatch[1]!;
     const board = await lookupBoardRecord(boardId);
     if (board) {
-      const rootPath = resolveBoardScopedRoot(board.projectId ?? parsed.projectId ?? input.projectId ?? undefined);
+      const rootPath = resolveBoardRootPath(board);
       // 从 relativePath 中去掉 folderUri 前缀，得到 board 内的子路径（如 "asset/xxx.jpg"）
       const folderUriNormalized = board.folderUri.replace(/\/+$/u, "");
       const subPath = relativePath.startsWith(folderUriNormalized + "/")

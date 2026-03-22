@@ -31,6 +31,10 @@ type SelectionToolbarContainerProps = {
   onPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
   /** Toolbar contents. */
   children: ReactNode;
+  /** When true, position in world coordinates with counter-scaling (rendered inside a transform layer). */
+  worldMode?: boolean;
+  /** Current viewport zoom — required when worldMode is true. */
+  zoom?: number;
 };
 
 /** Shared container for selection toolbars. */
@@ -39,11 +43,48 @@ function SelectionToolbarContainer({
   offsetClass,
   onPointerDown,
   children,
+  worldMode,
+  zoom = 1,
 }: SelectionToolbarContainerProps) {
   // 逻辑：视图变化时独立刷新位置，避免依赖全量快照更新。
   const engine = useBoardEngine();
   const viewState = useBoardViewState(engine);
-  // 逻辑：工具条固定在节点上方，不再自动切换上下位置。
+
+  if (worldMode) {
+    // 世界坐标模式：工具栏在 transform 层内，位置使用世界坐标，通过 counter-scale 保持恒定屏幕尺寸。
+    // 锚点放在节点上边缘中心，transformOrigin 0 0 保证此世界坐标点在缩放时不漂移。
+    // 内层 div 用 -translate-x-1/2 -translate-y-full 实现居中 + 上移。
+    const anchorX = bounds.x + bounds.w / 2;
+    const anchorY = bounds.y;
+    return (
+      <div
+        className="absolute"
+        style={{
+          left: anchorX,
+          top: anchorY,
+          transform: `scale(${1 / zoom})`,
+          transformOrigin: '0 0',
+          pointerEvents: 'none',
+        }}
+      >
+        <div
+          data-node-toolbar
+          className={cn(
+            "pointer-events-auto nodrag nopan -translate-x-1/2 rounded-full",
+            "px-2 py-1.5",
+            toolbarSurfaceClassName,
+            offsetClass,
+          )}
+          onPointerDown={onPointerDown}
+          onMouseDown={event => event.preventDefault()}
+        >
+          {children}
+        </div>
+      </div>
+    );
+  }
+
+  // 屏幕坐标模式（旧逻辑，用于多选工具栏等）。
   const anchor: CanvasPoint = [bounds.x + bounds.w / 2, bounds.y];
   const screen = toScreenPoint(anchor, viewState);
 
@@ -58,7 +99,6 @@ function SelectionToolbarContainer({
       )}
       style={{ left: screen[0], top: screen[1] }}
       onPointerDown={onPointerDown}
-      // 逻辑：阻止 mousedown 默认行为，防止焦点从编辑器转移到工具栏按钮。
       onMouseDown={event => event.preventDefault()}
     >
       {children}

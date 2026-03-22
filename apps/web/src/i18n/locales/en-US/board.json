@@ -160,10 +160,10 @@
     "aiImageGenerate": "AI Image Generation",
     "aiVideoGenerate": "AI Video Generation",
     "duplicate": "Duplicate",
-    "bringToFront": "Bring to Front",
-    "sendToBack": "Send to Back",
-    "lock": "Lock",
-    "unlock": "Unlock",
+    "bringToFront": "Up",
+    "sendToBack": "Down",
+    "lock": "Pin",
+    "unlock": "Unpin",
     "delete": "Delete",
     "saveAs": "Save As…",
     "generateImage": "Generate Image",
@@ -319,8 +319,8 @@
       "sendToBack": "Send to Back",
       "bringForward": "Bring Forward",
       "sendBackward": "Send Backward",
-      "unlock": "Unlock",
-      "lock": "Lock",
+      "unlock": "Unpin",
+      "lock": "Pin",
       "delete": "Delete",
       "group": "Group",
       "layoutVertical": "Vertical Arrange",
@@ -611,6 +611,9 @@
     "repaint": "Repaint",
     "regenerate": "Regenerate",
     "upscaleVideo": "Upscale Video"
+  },
+  "toolbar": {
+    "upload": "Upload"
   },
   "nodeInspector": {
     "panelTitle": "Node Details",
@@ -1034,6 +1037,10 @@
       "upscaleVolcHint": "High-quality upscaling powered by cloud AI",
       "outpaintHint": "Scale > 1.0 extends the image in that direction",
       "textAutoFilled": "Auto-filled from upstream ({{count}} chars)",
+      "resolution": "Resolution",
+      "sourceLanguage": "Source Language",
+      "targetLanguage": "Target Language",
+      "enableItn": "Smart Formatting",
       "voices": {
         "longshu": "Long Shu",
         "longxiaochun": "Long Xiaochun",
@@ -1072,11 +1079,20 @@
       "uploadPersonVideoOrImage": "Connect a video or image node",
       "uploadAudio": "Connect an audio node",
       "lipSyncHint": "Connect a person image and audio node to generate lip sync video",
-      "lipSyncKlingHint": "Connect a person video/image and audio node to generate lip sync video"
+      "lipSyncKlingHint": "Connect a person video/image and audio node to generate lip sync video",
+      "digitalHumanHint": "Connect a person image and audio node to generate digital human video",
+      "faceSwapHint": "Connect a face image and video node",
+      "uploadFaceImage": "Connect a face image node",
+      "uploadVideo": "Connect a video node",
+      "faceImage": "Face",
+      "videoInput": "Video",
+      "videoTranslateHint": "Connect a video node to translate",
+      "speechToTextHint": "Upload or connect an audio node to transcribe speech to text"
     },
     "warnings": {
       "promptRequired": "Please enter a prompt",
-      "textRequired": "Please enter text to speak"
+      "textRequired": "Please enter text to speak",
+      "audioRequired": "Connect an audio node for speech recognition"
     },
     "common": {
       "selectVariant": "Select Model Variant",

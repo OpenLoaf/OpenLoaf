@@ -15,6 +15,7 @@
  * - 全局画布（兼容）：~/.openloaf/boards/{boardId}/...
  */
 import path from "node:path";
+import { homedir } from "node:os";
 import { resolveScopedOpenLoafPath } from "@openloaf/config";
 import { prisma } from "@openloaf/db";
 import { getResolvedTempStorageDir } from "../services/appConfigService";
@@ -123,6 +124,27 @@ export async function lookupBoardRecord(boardId: string): Promise<{
 }
 
 /**
+ * 根据 DB 记录解析画布的根路径。
+ *
+ * 兼容规则：
+ * - 旧版临时画布（重构前）：folderUri = ".openloaf/boards/{id}/"，projectId = null
+ *   → rootPath = homedir()（因为旧代码 resolveBoardScopedRoot(null) 返回 homedir）
+ * - 新版临时画布（重构后）：folderUri = "boards/{id}/"，projectId = null
+ *   → rootPath = getResolvedTempStorageDir()
+ * - 项目画布：folderUri = ".openloaf/boards/{id}/"，projectId = "xxx"
+ *   → rootPath = resolveScopedRootPath({ projectId })
+ */
+export function resolveBoardRootPath(record: {
+  folderUri: string;
+  projectId: string | null;
+}): string {
+  if (!record.projectId && record.folderUri.startsWith(".openloaf/")) {
+    return homedir();
+  }
+  return resolveBoardScopedRoot(record.projectId ?? undefined);
+}
+
+/**
  * 从数据库查询画布并解析其绝对路径。
  * 适用于所有 READ 操作（读取已有画布文件）。
  * 返回 { absDir, rootPath } 或 null（画布不存在时）。
@@ -133,7 +155,7 @@ export async function resolveBoardDirFromDb(
 ): Promise<{ absDir: string; rootPath: string } | null> {
   const board = await lookupBoardRecord(boardId);
   if (!board) return null;
-  const rootPath = resolveBoardScopedRoot(board.projectId ?? undefined);
+  const rootPath = resolveBoardRootPath(board);
   const absDir = resolveBoardAbsPath(rootPath, board.folderUri, ...subpath);
   return { absDir, rootPath };
 }

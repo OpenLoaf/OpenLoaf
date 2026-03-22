@@ -15,7 +15,6 @@ import { cn } from "@udecode/cn";
 import { Type } from "lucide-react";
 
 import type { CanvasConnectorTemplateDefinition } from "../engine/types";
-import { BOARD_TOOLBAR_SURFACE_CLASS } from "../ui/board-style-system";
 
 type NodePickerProps = {
   position: [number, number];
@@ -59,10 +58,7 @@ export const NodePicker = forwardRef<HTMLDivElement, NodePickerProps>(
       >
         <div
           data-connector-drop-panel
-          className={cn(
-            "pointer-events-auto rounded-3xl p-1",
-            BOARD_TOOLBAR_SURFACE_CLASS,
-          )}
+          className="pointer-events-auto rounded-3xl border border-border bg-card p-1 shadow-lg"
         >
           {templates.length ? (
             <div className="flex items-center gap-0.5">

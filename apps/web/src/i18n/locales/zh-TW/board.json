@@ -160,10 +160,10 @@
     "aiImageGenerate": "AI 圖片生成",
     "aiVideoGenerate": "AI 影片生成",
     "duplicate": "複製",
-    "bringToFront": "置頂",
-    "sendToBack": "置底",
-    "lock": "鎖定",
-    "unlock": "解鎖",
+    "bringToFront": "上",
+    "sendToBack": "下",
+    "lock": "固定",
+    "unlock": "取消固定",
     "delete": "刪除",
     "saveAs": "另存為…",
     "generateImage": "生成圖片",
@@ -319,8 +319,8 @@
       "sendToBack": "置底",
       "bringForward": "上移一層",
       "sendBackward": "下移一層",
-      "unlock": "解鎖",
-      "lock": "鎖定",
+      "unlock": "取消固定",
+      "lock": "固定",
       "delete": "刪除",
       "group": "群組",
       "layoutVertical": "縱向排列",
@@ -611,6 +611,9 @@
     "repaint": "重繪",
     "regenerate": "重新生成",
     "upscaleVideo": "高清放大"
+  },
+  "toolbar": {
+    "upload": "上傳"
   },
   "nodeInspector": {
     "panelTitle": "節點詳情",
@@ -1034,6 +1037,10 @@
       "upscaleVolcHint": "由雲端 AI 提供的高品質超解析度",
       "outpaintHint": "倍數 > 1.0 將在該方向擴展圖片",
       "textAutoFilled": "已從上游自動填入（{{count}}字）",
+      "resolution": "解析度",
+      "sourceLanguage": "來源語言",
+      "targetLanguage": "目標語言",
+      "enableItn": "智慧格式化",
       "voices": {
         "longshu": "龍叔",
         "longxiaochun": "龍小淳",
@@ -1072,11 +1079,20 @@
       "uploadPersonVideoOrImage": "連接一個影片或圖片節點",
       "uploadAudio": "連接一個音訊節點",
       "lipSyncHint": "連接人物圖片和音訊節點以生成口型同步影片",
-      "lipSyncKlingHint": "連接人物影片/圖片和音訊節點以生成口型同步影片"
+      "lipSyncKlingHint": "連接人物影片/圖片和音訊節點以生成口型同步影片",
+      "digitalHumanHint": "連接人物圖片和音訊節點以生成數位人影片",
+      "faceSwapHint": "連接人臉圖片和影片節點",
+      "uploadFaceImage": "連接一個人臉圖片節點",
+      "uploadVideo": "連接一個影片節點",
+      "faceImage": "人臉圖片",
+      "videoInput": "影片輸入",
+      "videoTranslateHint": "連接一個影片節點進行翻譯",
+      "speechToTextHint": "上傳或連接音訊節點將語音轉為文字"
     },
     "warnings": {
       "promptRequired": "請輸入提示詞",
-      "textRequired": "請輸入要朗讀的文字"
+      "textRequired": "請輸入要朗讀的文字",
+      "audioRequired": "連接一個音訊節點進行語音辨識"
     },
     "common": {
       "selectVariant": "選擇模型變體",

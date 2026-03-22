@@ -158,12 +158,15 @@ export function SingleSelectionToolbar({
     return null;
   }
 
-  const bounds = computeSelectionBounds([element], snapshot.viewport.zoom);
+  const zoom = snapshot.viewport.zoom;
+  const bounds = computeSelectionBounds([element], zoom);
 
   return (
     <SelectionToolbarContainer
       bounds={bounds}
-      offsetClass="-translate-y-full -mt-3"
+      offsetClass="-translate-y-full -mt-6"
+      worldMode
+      zoom={zoom}
       onPointerDown={event => {
         // 逻辑：避免拖拽节点时误触工具条。
         event.stopPropagation();
@@ -586,6 +589,18 @@ const SINGLE_SELECTION_CORNERS: Array<{ id: ResizeCorner; cursorClass: string }>
   { id: "bottom-left", cursorClass: "cursor-nesw-resize" },
 ];
 
+type ResizeEdge = "top" | "right" | "bottom" | "left";
+
+/** Edge handle length in screen pixels. */
+const SINGLE_SELECTION_EDGE_LENGTH = 20;
+/** Edge handle metadata for single selection edge resizing. */
+const SINGLE_SELECTION_EDGES: Array<{ id: ResizeEdge; cursorClass: string }> = [
+  { id: "top", cursorClass: "cursor-ns-resize" },
+  { id: "right", cursorClass: "cursor-ew-resize" },
+  { id: "bottom", cursorClass: "cursor-ns-resize" },
+  { id: "left", cursorClass: "cursor-ew-resize" },
+];
+
 /** Cached anchor data for a corner resize gesture. */
 type CornerMeta = {
   /** Anchor x position in world space. */
@@ -666,6 +681,20 @@ export function SingleSelectionOutline({
         "bottom-left": { x: l, y: t + h },
       };
       for (const [id, pos] of Object.entries(corners)) {
+        const btn = handleRefsMap.current[id];
+        if (btn) {
+          btn.style.left = `${pos.x}px`;
+          btn.style.top = `${pos.y}px`;
+        }
+      }
+
+      const edges: Record<string, { x: number; y: number }> = {
+        "top": { x: l + w / 2, y: t },
+        "right": { x: l + w, y: t + h / 2 },
+        "bottom": { x: l + w / 2, y: t + h },
+        "left": { x: l, y: t + h / 2 },
+      };
+      for (const [id, pos] of Object.entries(edges)) {
         const btn = handleRefsMap.current[id];
         if (btn) {
           btn.style.left = `${pos.x}px`;
@@ -840,11 +869,91 @@ export function SingleSelectionOutline({
     };
   };
 
+  const resizeMode = definition?.capabilities?.resizeMode ?? "free";
+  const allowEdgeHandles = allowHandles && resizeMode === "free";
+
+  const handleEdgePointerDown = (edge: ResizeEdge) => {
+    return (event: ReactPointerEvent<HTMLButtonElement>) => {
+      if (engine.isLocked()) return;
+      event.stopPropagation();
+      event.preventDefault();
+
+      const container = engine.getContainer();
+      if (!container) return;
+      const rect = container.getBoundingClientRect();
+      const startPoint: [number, number] = [
+        event.clientX - rect.left,
+        event.clientY - rect.top,
+      ];
+      const startWorld = engine.screenToWorld(startPoint);
+      const [startX, startY, startW, startH] = element.xywh;
+      const minSize = resolveNodeMinSize(definition, element);
+      const maxSize = definition?.capabilities?.maxSize;
+      const isHorizontal = edge === "left" || edge === "right";
+      const isPositive = edge === "right" || edge === "bottom";
+      const fixedX = isHorizontal
+        ? (isPositive ? startX : startX + startW)
+        : startX;
+      const fixedY = isHorizontal
+        ? startY
+        : (isPositive ? startY : startY + startH);
+
+      engine.setAlignmentGuides([]);
+
+      const handlePointerMove = (moveEvent: PointerEvent) => {
+        const nextPoint: [number, number] = [
+          moveEvent.clientX - rect.left,
+          moveEvent.clientY - rect.top,
+        ];
+        const nextWorld = engine.screenToWorld(nextPoint);
+        const dx = nextWorld[0] - startWorld[0];
+        const dy = nextWorld[1] - startWorld[1];
+
+        let nextW = startW;
+        let nextH = startH;
+        let nextX = startX;
+        let nextY = startY;
+
+        if (isHorizontal) {
+          nextW = startW + dx * (isPositive ? 1 : -1);
+          nextW = Math.max(minSize.w, maxSize ? Math.min(maxSize.w, nextW) : nextW);
+          nextX = isPositive ? fixedX : fixedX - nextW;
+        } else {
+          nextH = startH + dy * (isPositive ? 1 : -1);
+          nextH = Math.max(minSize.h, maxSize ? Math.min(maxSize.h, nextH) : nextH);
+          nextY = isPositive ? fixedY : fixedY - nextH;
+        }
+
+        engine.doc.updateElement(element.id, {
+          xywh: [nextX, nextY, nextW, nextH],
+        });
+        engine.setAlignmentGuides([]);
+      };
+
+      const handlePointerUp = () => {
+        engine.setAlignmentGuides([]);
+        engine.commitHistory();
+        window.removeEventListener("pointermove", handlePointerMove);
+        window.removeEventListener("pointerup", handlePointerUp);
+      };
+
+      window.addEventListener("pointermove", handlePointerMove);
+      window.addEventListener("pointerup", handlePointerUp);
+    };
+  };
+
   const cornerPoints: Record<ResizeCorner, { x: number; y: number }> = {
     "top-left": { x: left, y: top },
     "top-right": { x: left + width, y: top },
     "bottom-right": { x: left + width, y: top + height },
     "bottom-left": { x: left, y: top + height },
+  };
+
+  const edgePoints: Record<ResizeEdge, { x: number; y: number }> = {
+    "top": { x: left + width / 2, y: top },
+    "right": { x: left + width, y: top + height / 2 },
+    "bottom": { x: left + width / 2, y: top + height },
+    "left": { x: left, y: top + height / 2 },
   };
 
   // 逻辑：hidden 时用 visibility:hidden 保持 DOM 存在（ResizeObserver 继续追踪），
@@ -853,17 +962,6 @@ export function SingleSelectionOutline({
 
   return (
     <>
-      <div
-        ref={outlineRef}
-        data-board-selection-outline
-        className="pointer-events-none absolute z-10 box-border rounded-3xl"
-        style={{
-          left, top, width, height,
-          border: '1.5px solid var(--canvas-selection-border)',
-          opacity: 0.7,
-          ...hiddenStyle,
-        }}
-      />
       {allowHandles
         ? SINGLE_SELECTION_CORNERS.map((corner) => {
             const point = cornerPoints[corner.id];
@@ -885,6 +983,34 @@ export function SingleSelectionOutline({
                   top: point.y,
                   width: SINGLE_SELECTION_HANDLE_SIZE,
                   height: SINGLE_SELECTION_HANDLE_SIZE,
+                  ...hiddenStyle,
+                }}
+              />
+            );
+          })
+        : null}
+      {allowEdgeHandles
+        ? SINGLE_SELECTION_EDGES.map((edge) => {
+            const point = edgePoints[edge.id];
+            const isH = edge.id === "top" || edge.id === "bottom";
+            return (
+              <button
+                key={edge.id}
+                ref={(el) => { handleRefsMap.current[edge.id] = el; }}
+                type="button"
+                aria-label={`Resize ${edge.id}`}
+                data-resize-handle
+                onPointerDown={handleEdgePointerDown(edge.id)}
+                className={[
+                  "pointer-events-auto absolute z-20 box-border rounded-[2px] border-2 border-[var(--canvas-selection-border)] bg-background",
+                  "touch-none -translate-x-1/2 -translate-y-1/2",
+                  edge.cursorClass,
+                ].join(" ")}
+                style={{
+                  left: point.x,
+                  top: point.y,
+                  width: isH ? SINGLE_SELECTION_EDGE_LENGTH : SINGLE_SELECTION_HANDLE_SIZE,
+                  height: isH ? SINGLE_SELECTION_HANDLE_SIZE : SINGLE_SELECTION_EDGE_LENGTH,
                   ...hiddenStyle,
                 }}
               />
@@ -1057,31 +1183,40 @@ function buildCommonToolbarItems(
   snapshot: CanvasSnapshot,
 ): CanvasToolbarItem[] {
   const isLocked = element.locked === true
+  // 只有当前节点与其他节点存在重叠时，才显示上移/下移按钮
+  const [ex, ey, ew, eh] = element.xywh
+  const hasOverlap = snapshot.elements.some(el => {
+    if (el.id === element.id || el.kind !== 'node') return false
+    const [ox, oy, ow, oh] = el.xywh
+    return ex < ox + ow && ex + ew > ox && ey < oy + oh && ey + eh > oy
+  })
   const items: CanvasToolbarItem[] = [
-    {
-      id: 'bring-forward',
-      label: t('selection.toolbar.bringToFront'),
-      showLabel: false,
-      icon: <ArrowUp size={14} />,
-      className: BOARD_TOOLBAR_ITEM_BLUE,
-      onSelect: () => {
-        engine.bringNodeToFront(element.id)
+    ...(hasOverlap ? [
+      {
+        id: 'bring-forward',
+        label: t('selection.toolbar.bringToFront'),
+        showLabel: true,
+        icon: <ArrowUp size={14} />,
+        className: BOARD_TOOLBAR_ITEM_BLUE,
+        onSelect: () => {
+          engine.bringNodeToFront(element.id)
+        },
       },
-    },
-    {
-      id: 'send-backward',
-      label: t('selection.toolbar.sendToBack'),
-      showLabel: false,
-      icon: <ArrowDown size={14} />,
-      className: BOARD_TOOLBAR_ITEM_BLUE,
-      onSelect: () => {
-        engine.sendNodeToBack(element.id)
+      {
+        id: 'send-backward',
+        label: t('selection.toolbar.sendToBack'),
+        showLabel: true,
+        icon: <ArrowDown size={14} />,
+        className: BOARD_TOOLBAR_ITEM_BLUE,
+        onSelect: () => {
+          engine.sendNodeToBack(element.id)
+        },
       },
-    },
+    ] : []),
     {
       id: 'lock-node',
       label: isLocked ? t('selection.toolbar.unlock') : t('selection.toolbar.lock'),
-      showLabel: false,
+      showLabel: true,
       icon: isLocked ? <Unlock size={14} /> : <Lock size={14} />,
       className: isLocked ? BOARD_TOOLBAR_ITEM_RED : BOARD_TOOLBAR_ITEM_AMBER,
       onSelect: () => {

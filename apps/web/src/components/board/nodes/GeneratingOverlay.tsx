@@ -74,8 +74,7 @@ export function GeneratingOverlay({
     return () => clearInterval(id)
   }, [])
 
-  const elapsedMs = now - effectiveStart
-  const elapsedSec = elapsedMs / 1000
+  const elapsedMs = Math.max(0, now - effectiveStart)
   const estimatedMs = estimatedSeconds * 1000
 
   // Progress: prefer server-reported, otherwise time-based (cap at 99%).

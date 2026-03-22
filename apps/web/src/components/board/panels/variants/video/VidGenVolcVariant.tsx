@@ -71,8 +71,7 @@ export function VidGenVolcVariant({
       inputs.images = extraPaths.map((src) => toMediaInput(src))
     }
 
-    const effectivePrompt = [upstream.textContent, prompt].filter(s => s?.trim()).join('\n')
-    inputs.prompt = effectivePrompt
+    inputs.prompt = prompt
     onParamsChange({
       inputs,
       params: {
@@ -81,7 +80,7 @@ export function VidGenVolcVariant({
         duration,
       },
     })
-  }, [prompt, upstream.textContent, style, aspectRatio, duration, firstFramePath, upstream.imagePaths, upstream.images, onParamsChange])
+  }, [prompt, style, aspectRatio, duration, firstFramePath, upstream.imagePaths, upstream.images, onParamsChange])
 
   return (
     <div className="flex flex-col gap-2.5">

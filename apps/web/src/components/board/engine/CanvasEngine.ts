@@ -210,10 +210,14 @@ export class CanvasEngine {
   private selectionBox: CanvasSelectionBox | null = null;
   /** Cached ordered elements for hit testing. */
   private orderedElementsCache: CanvasElement[] | null = null;
+  /** Cached base sorted+filtered elements (before selected-last reorder). */
+  private baseOrderedCache: CanvasElement[] | null = null;
   /** Cached anchor map for connector hit testing. */
   private anchorMapCache: CanvasAnchorMap | null = null;
-  /** Dirty flag for ordered elements cache. */
+  /** Dirty flag for ordered elements cache (doc changed). */
   private orderedElementsDirty = true;
+  /** Dirty flag for selection-based reorder only. */
+  private selectionOrderDirty = true;
   /** Dirty flag for anchor map cache. */
   private anchorMapDirty = true;
   /** Cached bounds for elements to avoid heavy recompute on pan. */
@@ -382,15 +386,17 @@ export class CanvasEngine {
     const emitChange = () => this.emitChange();
     const emitViewChange = () => this.emitViewChange();
     const emitSelectionChange = () => {
-      this.orderedElementsDirty = true;
-      this.orderedElementsCache = null;
+      // 逻辑：选区变化不影响元素数据，无需重建缓存。
+      // 选中节点的视觉置顶由 DomNodeItem 的 CSS z-index 处理。
       this.emitChange();
     };
     const emitDocChange = () => {
       this.orderedElementsDirty = true;
+      this.selectionOrderDirty = true;
       this.anchorMapDirty = true;
       this.elementsBoundsDirty = true;
       this.orderedElementsCache = null;
+      this.baseOrderedCache = null;
       this.anchorMapCache = null;
       this.emitChange();
     };
@@ -1037,6 +1043,10 @@ export class CanvasEngine {
             : null;
       if (sourceId && targetId && this.wouldCreateCycle(sourceId, targetId)) {
         this.notifyCycleBlocked();
+        return;
+      }
+      if (sourceId && targetId && !this.isConnectionCompatible(sourceId, targetId)) {
+        this.notifyIncompatibleConnection();
         return;
       }
     }
@@ -2320,6 +2330,10 @@ export class CanvasEngine {
       this.notifyCycleBlocked();
       return;
     }
+    if (sourceId && targetId && !this.isConnectionCompatible(sourceId, targetId)) {
+      this.notifyIncompatibleConnection();
+      return;
+    }
     const anchors = this.getAnchorMapWithGroupPadding();
     const sourceAxisPreference = this.buildSourceAxisPreferenceMap();
     const normalizedDraft: CanvasConnectorDraft = {
@@ -2722,6 +2736,37 @@ export class CanvasEngine {
     toast.error("禁止连接形成环");
   }
 
+  /**
+   * 节点连接兼容性矩阵。
+   * key = 目标节点类型，value = 允许的上游（源）节点类型集合。
+   * 不在矩阵中的节点类型不做限制（如 group、link 等辅助节点）。
+   */
+  private static readonly CONNECTION_MATRIX: Record<string, Set<string>> = {
+    text:  new Set(["text", "image", "video", "audio"]),
+    image: new Set(["text", "image", "video"]),
+    video: new Set(["text", "image", "video", "audio"]),
+    audio: new Set(["text", "audio"]),
+  };
+
+  /** Check whether a connection from source to target is type-compatible. */
+  private isConnectionCompatible(sourceId: string, targetId: string): boolean {
+    const source = this.doc.getElementById(sourceId);
+    const target = this.doc.getElementById(targetId);
+    if (!source || !target) return true;
+    if (source.kind !== "node" || target.kind !== "node") return true;
+    const allowed = CanvasEngine.CONNECTION_MATRIX[target.type];
+    if (!allowed) return true; // 目标类型不在矩阵中则不限制
+    return allowed.has(source.type);
+  }
+
+  /** Notify when an incompatible connection is blocked. */
+  private notifyIncompatibleConnection(): void {
+    const now = Date.now();
+    if (now - this.lastCycleToastAt < 600) return;
+    this.lastCycleToastAt = now;
+    toast.error("不支持此类型的连接");
+  }
+
   /** Check whether a new connector would create a cycle. */
   private wouldCreateCycle(sourceId: string, targetId: string): boolean {
     if (sourceId === targetId) return true;
@@ -2821,48 +2866,56 @@ export class CanvasEngine {
 
   /** Return elements sorted by zIndex with stable fallback. */
   private getOrderedElements(): CanvasElement[] {
-    if (!this.orderedElementsDirty && this.orderedElementsCache) {
+    if (!this.orderedElementsDirty && !this.selectionOrderDirty && this.orderedElementsCache) {
       return this.orderedElementsCache;
     }
-    const sorted = sortElementsByZIndex(this.doc.getElements());
-    const hiddenNodeIds = new Set(
-      sorted
-        .filter(
-          (element): element is CanvasNodeElement =>
-            element.kind === "node" && this.getMindmapFlag(element, MINDMAP_META.hidden)
-        )
-        .map(element => element.id)
-    );
-    const ghostNodeIds = new Set(
-      sorted
-        .filter(
-          (element): element is CanvasNodeElement =>
-            element.kind === "node" && this.getMindmapFlag(element, MINDMAP_META.ghost)
-        )
-        .map(element => element.id)
-    );
-    const filtered = sorted.filter(element => {
-      if (element.kind === "node") {
-        return !hiddenNodeIds.has(element.id);
-      }
-      if (element.kind === "connector") {
-        if (
-          "elementId" in element.source &&
-          (hiddenNodeIds.has(element.source.elementId) ||
-            ghostNodeIds.has(element.source.elementId))
-        ) {
-          return false;
+
+    // 逻辑：两级缓存——base 缓存排序+过滤结果（仅 doc 变化时重建），
+    // ordered 缓存加入选中置顶的最终数组（选区变化时也重建）。
+    // 选区变化时只重排不重新排序，元素对象引用保持稳定。
+    if (this.orderedElementsDirty || !this.baseOrderedCache) {
+      const sorted = sortElementsByZIndex(this.doc.getElements());
+      const hiddenNodeIds = new Set(
+        sorted
+          .filter(
+            (element): element is CanvasNodeElement =>
+              element.kind === "node" && this.getMindmapFlag(element, MINDMAP_META.hidden)
+          )
+          .map(element => element.id)
+      );
+      const ghostNodeIds = new Set(
+        sorted
+          .filter(
+            (element): element is CanvasNodeElement =>
+              element.kind === "node" && this.getMindmapFlag(element, MINDMAP_META.ghost)
+          )
+          .map(element => element.id)
+      );
+      this.baseOrderedCache = sorted.filter(element => {
+        if (element.kind === "node") {
+          return !hiddenNodeIds.has(element.id);
         }
-        if (
-          "elementId" in element.target &&
-          (hiddenNodeIds.has(element.target.elementId) ||
-            ghostNodeIds.has(element.target.elementId))
-        ) {
-          return false;
+        if (element.kind === "connector") {
+          if (
+            "elementId" in element.source &&
+            (hiddenNodeIds.has(element.source.elementId) ||
+              ghostNodeIds.has(element.source.elementId))
+          ) {
+            return false;
+          }
+          if (
+            "elementId" in element.target &&
+            (hiddenNodeIds.has(element.target.elementId) ||
+              ghostNodeIds.has(element.target.elementId))
+          ) {
+            return false;
+          }
         }
-      }
-      return true;
-    });
+        return true;
+      });
+    }
+
+    const filtered = this.baseOrderedCache;
     const selectedIds = this.selection.getSelectedIds();
     // 逻辑：选中节点临时置顶显示，但不修改原始 zIndex。
     const elements =
@@ -2883,6 +2936,7 @@ export class CanvasEngine {
           })();
     this.orderedElementsCache = elements;
     this.orderedElementsDirty = false;
+    this.selectionOrderDirty = false;
     return elements;
   }
 

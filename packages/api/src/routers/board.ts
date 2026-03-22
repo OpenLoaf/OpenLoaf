@@ -18,9 +18,11 @@ import {
   BOARD_FOLDER_PREFIX,
   BOARD_FOLDER_PREFIX_LEGACY,
   buildBoardFolderUri,
+  resolveBoardAbsPath,
   resolveBoardDir,
   resolveBoardEntityId,
   resolveBoardFolderName,
+  resolveBoardRootPath,
   resolveBoardScopedRoot,
   resolveBoardsBaseDir,
 } from "../common/boardPaths";
@@ -353,11 +355,8 @@ async function hardDeleteBoardResources(
   });
 
   try {
-    const rootPath = resolveBoardScopedRoot(board.projectId ?? undefined);
-    const boardDir = resolveBoardDir(
-      rootPath,
-      resolveBoardFolderName(board.folderUri),
-    );
+    const rootPath = resolveBoardRootPath(board);
+    const boardDir = resolveBoardAbsPath(rootPath, board.folderUri);
     await fs.rm(boardDir, { recursive: true, force: true });
   } catch (error) {
     console.warn("[board.hardDelete] failed to delete folder", error);
@@ -486,34 +485,22 @@ export const boardRouter = t.router({
       }),
     )
     .query(async ({ ctx, input }) => {
-      let rootPath: string;
-      try {
-        rootPath = resolveBoardScopedRoot(input.projectId);
-      } catch {
-        return { items: {} as Record<string, string> };
-      }
-
-      // Look up folderUri for each board so legacy folders (tnboard_*) resolve correctly
+      // 逻辑：从 DB 读取每个画布的 projectId 和 folderUri，独立解析路径，
+      // 不依赖前端传入的 projectId，避免路径不匹配。
       const boardRecords = await ctx.prisma.board.findMany({
         where: { id: { in: input.boardIds } },
-        select: { id: true, folderUri: true },
+        select: { id: true, folderUri: true, projectId: true },
       });
-      const folderUriMap = new Map(boardRecords.map((b: any) => [b.id, b.folderUri as string]));
+      const boardMap = new Map(boardRecords.map((b: any) => [b.id, b as { folderUri: string; projectId: string | null }]));
 
       const results: Record<string, string> = {};
       await Promise.all(
         input.boardIds.map(async (boardId) => {
           try {
-            const folderUri = folderUriMap.get(boardId);
-            // folderUri is like ".openloaf/boards/tnboard_xxx/" — extract folder name
-            const folderName = folderUri
-              ? folderUri.replace(/\/$/, "").split("/").pop()!
-              : boardId;
-            const thumbPath = resolveBoardDir(
-              rootPath,
-              folderName,
-              BOARD_THUMBNAIL_FILE_NAME,
-            );
+            const record = boardMap.get(boardId);
+            if (!record?.folderUri) return;
+            const rootPath = resolveBoardRootPath(record);
+            const thumbPath = resolveBoardAbsPath(rootPath, record.folderUri, BOARD_THUMBNAIL_FILE_NAME);
             const buffer = await sharp(thumbPath)
               .resize(BOARD_THUMBNAIL_WIDTH, undefined, { fit: "inside" })
               .webp({ quality: BOARD_THUMBNAIL_QUALITY })
@@ -693,9 +680,10 @@ export const boardRouter = t.router({
 
       // Move physical folder
       const folderName = resolveBoardFolderName(board.folderUri);
+      const destRoot = resolveBoardScopedRoot(destProjectId);
+      const newFolderUri = buildBoardFolderUri(destRoot, folderName);
       try {
-        const srcRoot = resolveBoardScopedRoot(srcProjectId);
-        const destRoot = resolveBoardScopedRoot(destProjectId);
+        const srcRoot = resolveBoardRootPath(board);
         const srcDir = resolveBoardDir(srcRoot, folderName);
         const destBoardsDir = resolveBoardDir(destRoot);
         await fs.mkdir(destBoardsDir, { recursive: true });
@@ -706,10 +694,10 @@ export const boardRouter = t.router({
         // Fall through to update DB even if folder move fails
       }
 
-      // Update DB record
+      // Update DB record — 同时更新 folderUri 以匹配目标项目的路径格式
       const updated = await ctx.prisma.board.update({
         where: { id: input.boardId },
-        data: { projectId: destProjectId },
+        data: { projectId: destProjectId, folderUri: newFolderUri },
       });
 
       return updated;

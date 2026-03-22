@@ -33,6 +33,8 @@ export interface VariantContext {
   hasImage: boolean
   /** Whether audio input is available. */
   hasAudio: boolean
+  /** Whether video input is available. */
+  hasVideo: boolean
 }
 
 /**

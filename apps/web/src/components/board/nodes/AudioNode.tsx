@@ -30,7 +30,7 @@ import {
 } from "lucide-react";
 import i18next from "i18next";
 import { openFilePreview } from "@/components/file/lib/file-preview-store";
-import type { BoardFileContext } from "../board-contracts";
+import type { BoardFileContext, AiGenerateConfig } from "../board-contracts";
 import { useBoardContext } from "../core/BoardProvider";
 import {
   isBoardRelativePath,
@@ -446,10 +446,17 @@ export function AudioNodeView({
             includeAt: true,
           })
         })()
+        const snapshot = generatingEntry.input
+        const promptLabel = snapshot?.prompt?.slice(0, 30).trim()
+          || element.props.aiConfig?.prompt?.slice(0, 30).trim()
         onUpdate({
           versionStack: markVersionReady(stack, generatingEntry.id, { urls: resultUrls }),
           sourcePath: scopedPath,
-          fileName: savedPath.split('/').pop() || undefined,
+          fileName: promptLabel || savedPath.split('/').pop() || undefined,
+          aiConfig: {
+            ...(element.props.aiConfig ?? {} as AiGenerateConfig),
+            prompt: snapshot?.prompt || element.props.aiConfig?.prompt || '',
+          },
         })
       },
       [generatingEntry, element.props.versionStack, onUpdate, fileContext?.projectId],
@@ -479,6 +486,29 @@ export function AudioNodeView({
   const handleGenerate = useCallback(
     async (params: AudioGenerateParams) => {
       const promptText = (params.inputs?.text as string) ?? ''
+      // 逻辑：先写入 generating 状态（无 taskId），让节点立即显示 loading，再等 API 返回后补上 taskId。
+      const inputSnapshot = createInputSnapshot({
+        prompt: promptText,
+        parameters: {
+          feature: params.feature,
+          variant: params.variant,
+          ...params.params,
+        },
+        upstreamRefs: upstream?.entries ?? [],
+      })
+      const pendingEntry = createGeneratingEntry(inputSnapshot, '')
+      const promptLabel = promptText.slice(0, 30).trim() || undefined
+      onUpdate({
+        versionStack: pushVersion(element.props.versionStack, pendingEntry),
+        origin: 'ai-generate',
+        fileName: promptLabel,
+        aiConfig: {
+          feature: params.feature as AiGenerateConfig['feature'],
+          prompt: promptText,
+          paramsCache: element.props.aiConfig?.paramsCache,
+        },
+      })
+
       try {
         const result = await submitAudioGenerate(
           {
@@ -496,34 +526,33 @@ export function AudioNodeView({
           },
         )
 
-        const snapshot = createInputSnapshot({
-          prompt: promptText,
-          parameters: {
-            feature: params.feature,
-            variant: params.variant,
-            ...params.params,
-          },
-          upstreamRefs: upstream?.entries ?? [],
-        })
-        const entry = createGeneratingEntry(snapshot, result.taskId)
+        // 逻辑：API 返回后补上 taskId，轮询开始。
+        const currentStack = element.props.versionStack
+        const updatedEntries = (currentStack?.entries ?? [pendingEntry]).map(e =>
+          e.id === pendingEntry.id ? { ...e, taskId: result.taskId } : e,
+        )
         onUpdate({
-          versionStack: pushVersion(element.props.versionStack, entry),
-          origin: 'ai-generate',
+          versionStack: {
+            entries: updatedEntries,
+            primaryId: pendingEntry.id,
+          },
         })
       } catch (err) {
         console.error('[AudioNode] submitAudioGenerate failed:', err)
-        const inputSnapshot = createInputSnapshot({
-          prompt: promptText,
-          parameters: { feature: params.feature, variant: params.variant, ...params.params },
-        })
+        // 逻辑：提交失败时从 stack 中移除 pending entry，设置 lastFailure 显示错误浮层。
         const msgKey = mapErrorToMessageKey(err)
+        const { stack: cleaned } = removeFailedEntry(
+          pushVersion(element.props.versionStack, pendingEntry),
+          pendingEntry.id,
+        )
+        onUpdate({ versionStack: cleaned })
         setLastFailure({
           input: inputSnapshot,
           error: { code: 'SUBMIT_FAILED', message: i18next.t(msgKey, { defaultValue: '生成失败，请重试' }) },
         })
       }
     },
-    [element.id, element.props.versionStack, element.props.aiConfig, fileContext?.projectId, fileContext?.boardId, onUpdate],
+    [element.id, element.props.versionStack, fileContext?.projectId, fileContext?.boardId, upstream, onUpdate],
   )
 
   /** Retry generation using the last failure's input snapshot. */
@@ -730,7 +759,7 @@ export function AudioNodeView({
         >
           {audioSrc ? (
             <AudioWavePlayer src={audioSrc} />
-          ) : (
+          ) : !isGenerating ? (
             <div className="flex h-full w-full items-center justify-center rounded-3xl border border-dashed border-ol-divider bg-ol-surface-muted">
               <div className="flex flex-col items-center gap-2 text-muted-foreground/40 px-4">
                 <Music size={36} strokeWidth={1.2} />
@@ -739,7 +768,7 @@ export function AudioNodeView({
                 </span>
               </div>
             </div>
-          )}
+          ) : null}
         </div>
       </div>
       {expanded && panelOverlay ? createPortal(
@@ -749,7 +778,8 @@ export function AudioNodeView({
           data-board-editor
           style={{
             left: element.xywh[0] + element.xywh[2] / 2,
-            top: element.xywh[1] + element.xywh[3],
+            top: element.xywh[1] + element.xywh[3] + PANEL_GAP_PX / engine.viewport.getState().zoom,
+            transform: `translateX(-50%) scale(${1 / engine.viewport.getState().zoom})`,
             transformOrigin: 'top center',
           }}
           onPointerDown={event => {
@@ -763,6 +793,9 @@ export function AudioNodeView({
             upstream={{
               textContent: effectiveUpstream.textContent,
               referenceAudioSrc: effectiveUpstream.referenceAudioSrc,
+              boardId: fileContext?.boardId,
+              projectId: fileContext?.projectId,
+              boardFolderUri: fileContext?.boardFolderUri,
             }}
             onGenerate={handleGenerate}
             onGenerateNewNode={handleGenerateNewNode}

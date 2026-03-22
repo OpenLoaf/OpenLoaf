@@ -7,14 +7,24 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import type { ComponentType } from 'react'
-import type { VariantFormProps } from '../types'
+import type { VariantDefinition } from '../types'
+import { SpeechToTextVariant } from './SpeechToTextVariant'
 import { TtsQwenVariant } from './TtsQwenVariant'
 
-/** Registry mapping variant IDs to their form components for audio features. */
-export const AUDIO_VARIANT_REGISTRY: Record<
-  string,
-  ComponentType<VariantFormProps>
-> = {
-  'OL-TT-001': TtsQwenVariant,
+/** Audio variant definitions — each variant owns its applicability logic. */
+export const AUDIO_VARIANTS: Record<string, VariantDefinition> = {
+  // tts — always available (text input from upstream or manual)
+  'OL-TT-001': {
+    component: TtsQwenVariant,
+    isApplicable: () => true,
+  },
+  'OL-TT-002': {
+    component: TtsQwenVariant,
+    isApplicable: () => true,
+  },
+  // speechToText — requires audio input
+  'OL-SR-001': {
+    component: SpeechToTextVariant,
+    isApplicable: (ctx) => ctx.hasAudio,
+  },
 }

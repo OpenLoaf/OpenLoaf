@@ -1,5 +1,65 @@
 
-## 三类媒体节点对比
+## V3 Variant 系统（当前架构，SDK v0.1.15）
+
+画布 AI 面板已迁移到 **v3 偏好系统**。不再使用旧的 model tag 过滤，改用 `capabilities` API 返回的 `feature + variant` 组合。
+
+### Feature 可见性规则（isApplicable 三级判断）
+
+每个 variant 通过 `isApplicable(ctx: VariantContext)` 决定自身可见性。`VariantContext` 包含：
+- `nodeHasImage: boolean` — 节点本身是否已有图片
+- `hasImage: boolean` — 节点 OR 上游是否有图片
+- `hasAudio: boolean` — 是否有音频
+
+Feature 标签页在 `ImageAiPanel` 中过滤：只要某 feature 下至少有一个 variant 的 `isApplicable` 返回 true，该标签页就显示。
+
+| Feature | isApplicable 条件 | 语义 |
+|---------|:--:|------|
+| imageGenerate (图片生成) | `!hasImage` | 无任何图片时才能纯生成 |
+| imageEdit (图片编辑) | `hasImage` | 节点或上游有图可编辑 |
+| imageInpaint (图片修复) | **`nodeHasImage`** | 需在本节点图上画遮罩 |
+| imageStyleTransfer (风格迁移) | `hasImage` | 需要风格源图 |
+| upscale (超分辨率) | `hasImage` | 需要源图放大 |
+| outpaint (扩图) | `hasImage` | 需要源图扩展 |
+
+**关键区分**：imageInpaint 用 `nodeHasImage`（非 `hasImage`），因为遮罩只能画在本节点的图片上，上游图片不可画遮罩。
+
+### Variant 注册
+
+所有 image variant 定义在 `variants/image/index.ts` 的 `IMAGE_VARIANTS` 表中。每个 variant 条目：
+```typescript
+'OL-XX-NNN': {
+  component: SomeVariantComponent,
+  isApplicable: (ctx) => ctx.hasImage, // 可见性条件
+  maskPaint?: true,     // 是否支持遮罩绘制
+  maskRequired?: true,  // 遮罩是否为必需
+}
+```
+
+### Variant 自主组装原则
+
+- 父组件（ImageAiPanel）始终把 `nodeResourcePath`、`nodeResourceUrl`、upstream images 传给所有 variant
+- 每个 variant 自己决定如何使用输入数据并组装进 API inputs
+- 禁止在父组件层面拦截 props 传递
+
+### 开发新画布 Feature 的步骤
+
+1. 确定 feature 的 `isApplicable` 属于哪一级（`nodeHasImage` / `hasImage` / `!hasImage`）
+2. 在 `variants/{category}/index.ts` 注册 variant，使用正确的 `isApplicable`
+3. variant 组件用 `useSourceImage`（单图）或 `useMediaSlots`（多图）处理输入
+4. 如需遮罩，设置 `maskPaint: true` / `maskRequired: true`
+5. 用 `onWarningChange` 在缺少输入时报警告
+6. 确认 SDK variant ID 映射正确（参考 SaaS 仓库的 `references/media-v3/README.md`）
+
+### SDK Variant ID 参考
+
+详细 ID 映射见 memory: `project_sdk_v0114_preference_migration.md`。
+SaaS 仓库参考文档：`OpenLoaf-saas/.agents/skills/openloaf-saas-sdk-reference/references/media-v3/`
+
+---
+
+## 三类媒体节点对比（旧架构参考）
+
+> 以下为旧架构参考，新功能开发请使用上方 V3 Variant 系统。
 
 | 维度 | imageGenerate | videoGenerate | imagePromptGenerate |
 |------|--------------|---------------|---------------------|

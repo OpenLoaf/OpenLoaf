@@ -104,26 +104,9 @@ export function GenerateActionBar({
   const [target, setTarget] = useState<GenerateTarget>(editing ? 'current' : 'new-node')
   const effectiveTarget = editing ? 'current' : target
 
-  // Dropdown states
-  const [showVariantDropdown, setShowVariantDropdown] = useState(false)
+  // Target dropdown state
   const [showTargetDropdown, setShowTargetDropdown] = useState(false)
-  const variantDropdownRef = useRef<HTMLDivElement>(null)
   const targetDropdownRef = useRef<HTMLDivElement>(null)
-
-  // Outside-click-to-close for variant dropdown
-  useEffect(() => {
-    if (!showVariantDropdown) return
-    const handler = (e: MouseEvent) => {
-      if (
-        variantDropdownRef.current &&
-        !variantDropdownRef.current.contains(e.target as Node)
-      ) {
-        setShowVariantDropdown(false)
-      }
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [showVariantDropdown])
 
   // Outside-click-to-close for target dropdown
   useEffect(() => {
@@ -196,54 +179,36 @@ export function GenerateActionBar({
   // ── Normal state ──
   return (
     <div className="flex items-center gap-2 border-t border-border pt-2">
-      {/* Left: Warning text OR Variant selector pill */}
+      {/* Left: Warning text OR Variant tab selector */}
       {warningMessage ? (
         <div className="flex items-center gap-1.5 text-[11px] text-amber-500 dark:text-amber-400">
           <AlertCircle size={13} className="shrink-0" />
           <span>{warningMessage}</span>
         </div>
       ) : variants && variants.length > 1 && onVariantChange ? (
-        <div className="relative" ref={variantDropdownRef}>
-          <button
-            type="button"
-            disabled={disabled || generating}
-            className="inline-flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-[11px] text-foreground transition-colors duration-150 hover:bg-foreground/5"
-            onClick={() => setShowVariantDropdown(!showVariantDropdown)}
-          >
-            <span className="max-w-[120px] truncate font-medium">
-              {variants.find((v) => v.id === selectedVariantId)?.displayName ?? '...'}
-            </span>
-            <ChevronDown size={10} className="text-muted-foreground" />
-          </button>
-          {showVariantDropdown ? (
-            <div className="absolute left-0 top-full mt-1 z-10 flex flex-col rounded-2xl border border-border bg-card py-0.5 shadow-lg min-w-[160px]">
-              {variants.map((v) => (
-                <button
-                  key={v.id}
-                  type="button"
-                  disabled={v.incompatible}
-                  title={v.incompatibleReason}
-                  className={[
-                    'flex items-center justify-between px-3 py-1.5 text-[11px] transition-colors',
-                    v.incompatible
-                      ? 'opacity-40 cursor-not-allowed'
-                      : 'hover:bg-foreground/5',
-                    selectedVariantId === v.id ? 'text-foreground font-medium' : 'text-muted-foreground',
-                  ].join(' ')}
-                  onClick={() => {
-                    if (v.incompatible) return
-                    onVariantChange(v.id)
-                    setShowVariantDropdown(false)
-                  }}
-                >
-                  <span>{v.displayName}</span>
-                  <span className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground/60">
-                    <Zap size={9} />{v.creditsPerCall}
-                  </span>
-                </button>
-              ))}
-            </div>
-          ) : null}
+        <div className="flex items-center gap-0.5 rounded-full bg-ol-surface-muted p-0.5">
+          {variants.map((v) => (
+            <button
+              key={v.id}
+              type="button"
+              disabled={v.incompatible || disabled || generating}
+              title={v.incompatibleReason}
+              className={[
+                'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors duration-150',
+                v.incompatible
+                  ? 'opacity-30 cursor-not-allowed text-muted-foreground'
+                  : selectedVariantId === v.id
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground',
+              ].join(' ')}
+              onClick={() => {
+                if (v.incompatible) return
+                onVariantChange(v.id)
+              }}
+            >
+              <span>{v.displayName}</span>
+            </button>
+          ))}
         </div>
       ) : null}
 
@@ -270,7 +235,7 @@ export function GenerateActionBar({
 
       {/* Generate button (+ target dropdown when node has resource) */}
       <div className="relative" ref={targetDropdownRef}>
-        {hasResource && !warningMessage ? (
+        {hasResource && !warningMessage && !editing ? (
           // 逻辑：有资源时显示两个并排按钮（生成 + ▾），外层 div 统一圆角。
           <div className={[
             'inline-flex items-stretch overflow-hidden rounded-full',

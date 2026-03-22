@@ -70,6 +70,8 @@ type DomNodeItemProps = {
   onLabelChange: (label: string) => void
 }
 
+/** Z-index boost applied to selected nodes so they render above siblings. */
+const SELECTED_Z_INDEX_BOOST = 1000
 /** Z-index boost applied to expanded nodes so they appear above all others. */
 const EXPANDED_Z_INDEX_BOOST = 9999
 
@@ -111,7 +113,7 @@ const DomNodeItem = memo(function DomNodeItem({
         top: y - padding,
         width: w + padding * 2,
         height: h + padding * 2,
-        zIndex: expanded ? baseZ + EXPANDED_Z_INDEX_BOOST : baseZ,
+        zIndex: expanded ? baseZ + EXPANDED_Z_INDEX_BOOST : selected ? baseZ + SELECTED_Z_INDEX_BOOST : baseZ,
         transform: element.rotate
           ? `rotate(${element.rotate}deg)`
           : undefined,
@@ -138,8 +140,17 @@ const DomNodeItem = memo(function DomNodeItem({
           onUpdate={onUpdate}
         />
       </div>
+      {selected && !isGroup && (
+        <div
+          className="pointer-events-none absolute inset-0 rounded-3xl"
+          style={{
+            border: '1.5px solid var(--canvas-selection-border)',
+            opacity: 0.7,
+          }}
+        />
+      )}
       {element.locked && (
-        <div className="pointer-events-none absolute top-0 right-0 flex items-center justify-center rounded-bl-md bg-black/40 p-0.5">
+        <div className="pointer-events-none absolute bottom-1 left-1 flex items-center justify-center rounded-md bg-black/40 p-0.5">
           <Lock size={10} className="text-white" />
         </div>
       )}
@@ -277,7 +288,10 @@ function areDomNodeLayerPropsEqual(
   next: DomNodeLayerProps,
 ): boolean {
   if (prev.engine !== next.engine) return false
-  if (prev.snapshot.elements !== next.snapshot.elements) return false
+  // 逻辑：用 docRevision 检测元素数据是否变化，而非 elements 数组引用。
+  // 选区变化只会改变 elements 排序（选中置顶）但不改变元素数据，
+  // 此时 docRevision 不变，避免所有节点不必要的重渲染。
+  if (prev.snapshot.docRevision !== next.snapshot.docRevision) return false
   if (prev.snapshot.draggingId !== next.snapshot.draggingId) return false
   if (prev.snapshot.editingNodeId !== next.snapshot.editingNodeId) return false
   if (prev.snapshot.expandedNodeId !== next.snapshot.expandedNodeId) return false

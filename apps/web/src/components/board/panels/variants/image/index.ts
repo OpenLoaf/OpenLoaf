@@ -9,79 +9,70 @@
  */
 import type { VariantDefinition } from '../types'
 import { ImgGenTextVariant } from './ImgGenTextVariant'
-import { ImgGenRefVariant } from './ImgGenRefVariant'
 import { ImgInpaintVolcVariant } from './ImgInpaintVolcVariant'
 import { ImgStyleVolcVariant } from './ImgStyleVolcVariant'
 import { OutpaintQwenVariant } from './OutpaintQwenVariant'
 import { UpscaleQwenVariant } from './UpscaleQwenVariant'
-import { UpscaleVolcVariant } from './UpscaleVolcVariant'
 import { ImgEditWanVariant } from './ImgEditWanVariant'
 import { ImgEditPlusVariant } from './ImgEditPlusVariant'
+import { MatExtractVolcVariant } from './MatExtractVolcVariant'
 
 /** Image variant definitions — each variant owns its applicability logic. */
 export const IMAGE_VARIANTS: Record<string, VariantDefinition> = {
-  // imageGenerate — text only (not applicable when node already has image)
+  // imageGenerate — text-to-image (not applicable when any image exists)
   'OL-IG-001': {
     component: ImgGenTextVariant,
-    isApplicable: (ctx) => !ctx.nodeHasImage,
+    isApplicable: (ctx) => !ctx.hasImage,
   },
   'OL-IG-002': {
     component: ImgGenTextVariant,
-    isApplicable: (ctx) => !ctx.nodeHasImage,
+    isApplicable: (ctx) => !ctx.hasImage,
   },
   'OL-IG-003': {
     component: ImgGenTextVariant,
-    isApplicable: (ctx) => !ctx.nodeHasImage,
+    isApplicable: (ctx) => !ctx.hasImage,
   },
-  'OL-IG-004': {
-    component: ImgGenTextVariant,
-    isApplicable: (ctx) => !ctx.nodeHasImage,
-  },
-  // imageGenerate — with reference images (always applicable)
-  'OL-IG-005': {
-    component: ImgGenRefVariant,
-    isApplicable: () => true,
-  },
-  'OL-IG-006': {
-    component: ImgGenRefVariant,
-    isApplicable: () => true,
-  },
-  // imageInpaint (requires image + mask)
+  // imageInpaint — requires node's own image for mask painting
   'OL-IP-001': {
     component: ImgInpaintVolcVariant,
-    isApplicable: (ctx) => ctx.hasImage,
+    isApplicable: (ctx) => ctx.nodeHasImage,
     maskPaint: true,
     maskRequired: true,
   },
-  // imageStyleTransfer (requires image)
+  // imageStyleTransfer (requires image: node or upstream)
   'OL-ST-001': {
     component: ImgStyleVolcVariant,
     isApplicable: (ctx) => ctx.hasImage,
   },
-  // upscale (requires image)
+  'OL-ST-002': {
+    component: ImgStyleVolcVariant,
+    isApplicable: (ctx) => ctx.hasImage,
+  },
+  // upscale (requires image: node or upstream)
   'OL-UP-001': {
     component: UpscaleQwenVariant,
     isApplicable: (ctx) => ctx.hasImage,
   },
-  'OL-UP-002': {
-    component: UpscaleVolcVariant,
-    isApplicable: (ctx) => ctx.hasImage,
-  },
-  // outpaint (requires image)
+  // outpaint (requires image: node or upstream)
   'OL-OP-001': {
     component: OutpaintQwenVariant,
     isApplicable: (ctx) => ctx.hasImage,
   },
-  // imageEdit (always applicable)
+  // imageEdit — Plus (requires image + optional mask)
   'OL-IE-001': {
-    component: ImgEditWanVariant,
-    isApplicable: () => true,
-  },
-  // imageEdit (requires image + optional mask)
-  'OL-IE-002': {
     component: ImgEditPlusVariant,
     isApplicable: (ctx) => ctx.hasImage,
     maskPaint: true,
+  },
+  // imageEdit — Wan (requires image: node or upstream)
+  'OL-IE-002': {
+    component: ImgEditWanVariant,
+    isApplicable: (ctx) => ctx.hasImage,
+  },
+  // materialExtract (requires image: node or upstream)
+  'OL-ME-001': {
+    component: MatExtractVolcVariant,
+    isApplicable: (ctx) => ctx.hasImage,
   },
 }
 

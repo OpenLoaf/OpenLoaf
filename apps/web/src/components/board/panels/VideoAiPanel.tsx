@@ -21,6 +21,7 @@ import { resolveAllMediaInputs } from '@/lib/media-upload'
 import { GenerateActionBar } from './GenerateActionBar'
 import { VIDEO_VARIANTS } from './variants/video'
 import type { VariantContext } from './variants/types'
+import { ScrollableTabBar } from '../ui/ScrollableTabBar'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -150,7 +151,8 @@ export function VideoAiPanel({
     nodeHasImage: false, // video nodes don't have a "current image"
     hasImage: Boolean(upstreamImages?.length),
     hasAudio: Boolean(upstreamAudioUrl),
-  }), [upstreamImages?.length, upstreamAudioUrl])
+    hasVideo: Boolean(upstreamVideoUrl),
+  }), [upstreamImages?.length, upstreamAudioUrl, upstreamVideoUrl])
 
   const isVariantApplicable = useCallback((variantId: string) => {
     const def = VIDEO_VARIANTS[variantId]
@@ -391,19 +393,20 @@ export function VideoAiPanel({
 
       {/* -- Feature Tabs (dynamic from capabilities) -- */}
       {!showFallback ? (
-        <div
-          className="no-scrollbar flex items-center gap-1 overflow-x-auto rounded-3xl bg-ol-surface-muted p-0.5"
-          onWheel={(e) => { e.stopPropagation(); e.currentTarget.scrollLeft += e.deltaY }}
-        >
+        <ScrollableTabBar className="items-center">
           {features
-            .filter((f) => (readonly && !editing ? f.id === selectedFeatureId : true))
+            .filter((f) => {
+              if (readonly && !editing) return f.id === selectedFeatureId
+              if (f.variants.every(v => !isVariantApplicable(v.id))) return false
+              return true
+            })
             .map((f) => (
               <button
                 key={f.id}
                 type="button"
                 disabled={readonly && !editing}
                 className={[
-                  'flex-1 rounded-3xl px-3 py-1.5 text-xs font-medium transition-colors duration-150',
+                  'shrink-0 whitespace-nowrap rounded-3xl px-3 py-1.5 text-xs font-medium transition-colors duration-150',
                   selectedFeatureId === f.id
                     ? 'bg-background text-foreground shadow-sm'
                     : 'text-muted-foreground hover:text-foreground',
@@ -413,7 +416,7 @@ export function VideoAiPanel({
                 {MEDIA_FEATURES[f.id as MediaFeatureId]?.label[prefLang] ?? f.id}
               </button>
             ))}
-        </div>
+        </ScrollableTabBar>
       ) : null}
 
       {/* -- Variant Form -- */}

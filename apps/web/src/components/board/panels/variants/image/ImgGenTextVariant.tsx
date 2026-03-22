@@ -67,11 +67,9 @@ export function ImgGenTextVariant({
   const nodeImage = upstream.imagePaths?.[0] ?? upstream.images?.[0]
 
   const sync = useCallback(() => {
-    // Concatenate upstream text + user prompt (upstream first, then user additions)
-    const effectivePrompt = [upstream.textContent, prompt].filter(s => s?.trim()).join('\n')
     onParamsChange({
       inputs: {
-        prompt: effectivePrompt,
+        prompt,
         ...(nodeImage ? { image: toMediaInput(nodeImage) } : {}),
       },
       params: {
@@ -81,7 +79,7 @@ export function ImgGenTextVariant({
       },
       ...(config.showCount ? { count } : {}),
     })
-  }, [prompt, upstream.textContent, negativePrompt, aspectRatio, quality, count, config, nodeImage, onParamsChange])
+  }, [prompt, negativePrompt, aspectRatio, quality, count, config, nodeImage, onParamsChange])
 
   useEffect(() => { sync() }, [sync])
 

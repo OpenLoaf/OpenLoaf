@@ -62,22 +62,35 @@ const VOLUME_DEFAULT = 50
 /** TTS variant form for CosyVoice (OL-TT-001). */
 export function TtsQwenVariant({
   upstream,
+  initialParams,
   disabled = false,
   onParamsChange,
   onWarningChange,
 }: VariantFormProps) {
   const { t } = useTranslation('board')
 
-  // State
-  const [text, setText] = useState(upstream.textContent ?? '')
-  const [isTextFromUpstream, setIsTextFromUpstream] = useState(
-    Boolean(upstream.textContent),
+  // State — priority: cached (initialParams) > upstream defaults > hardcoded defaults
+  const [text, setText] = useState(
+    (initialParams?.inputs?.text as string) ?? upstream.textContent ?? '',
   )
-  const [voiceId, setVoiceId] = useState('auto')
-  const [format, setFormat] = useState<'mp3' | 'wav' | 'opus'>('mp3')
-  const [speechRate, setSpeechRate] = useState(SPEECH_RATE_DEFAULT)
-  const [pitchRate, setPitchRate] = useState(PITCH_RATE_DEFAULT)
-  const [volume, setVolume] = useState(VOLUME_DEFAULT)
+  const [isTextFromUpstream, setIsTextFromUpstream] = useState(
+    !initialParams?.inputs?.text && Boolean(upstream.textContent),
+  )
+  const [voiceId, setVoiceId] = useState(
+    (initialParams?.params?.voice as string) ?? 'auto',
+  )
+  const [format, setFormat] = useState<'mp3' | 'wav' | 'opus'>(
+    (initialParams?.params?.format as 'mp3' | 'wav' | 'opus') ?? 'mp3',
+  )
+  const [speechRate, setSpeechRate] = useState(
+    (initialParams?.params?.speechRate as number) ?? SPEECH_RATE_DEFAULT,
+  )
+  const [pitchRate, setPitchRate] = useState(
+    (initialParams?.params?.pitchRate as number) ?? PITCH_RATE_DEFAULT,
+  )
+  const [volume, setVolume] = useState(
+    (initialParams?.params?.volume as number) ?? VOLUME_DEFAULT,
+  )
   const [showAdvanced, setShowAdvanced] = useState(false)
 
   const hasUpstreamAudio = Boolean(upstream.audioUrl?.trim())

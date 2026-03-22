@@ -160,10 +160,10 @@
     "aiImageGenerate": "AI画像生成",
     "aiVideoGenerate": "AI動画生成",
     "duplicate": "複製",
-    "bringToFront": "最前面に移動",
-    "sendToBack": "最背面に移動",
-    "lock": "ロック",
-    "unlock": "ロック解除",
+    "bringToFront": "上",
+    "sendToBack": "下",
+    "lock": "固定",
+    "unlock": "固定解除",
     "delete": "削除",
     "saveAs": "名前を付けて保存…",
     "generateImage": "画像を生成",
@@ -319,8 +319,8 @@
       "sendToBack": "最背面に移動",
       "bringForward": "前面に移動",
       "sendBackward": "背面に移動",
-      "unlock": "ロック解除",
-      "lock": "ロック",
+      "unlock": "固定解除",
+      "lock": "固定",
       "delete": "削除",
       "group": "グループ化",
       "layoutVertical": "縦に整列",
@@ -611,6 +611,9 @@
     "repaint": "リペイント",
     "regenerate": "再生成",
     "upscaleVideo": "動画を高画質化"
+  },
+  "toolbar": {
+    "upload": "アップロード"
   },
   "nodeInspector": {
     "panelTitle": "ノード詳細",
@@ -1020,6 +1023,10 @@
       "upscaleVolcHint": "クラウド AI による高品質超解像",
       "outpaintHint": "倍率 > 1.0 でその方向に画像を拡張します",
       "textAutoFilled": "上流から自動入力済み（{{count}}文字）",
+      "resolution": "解像度",
+      "sourceLanguage": "ソース言語",
+      "targetLanguage": "ターゲット言語",
+      "enableItn": "スマートフォーマット",
       "voices": {
         "longshu": "龍叔",
         "longxiaochun": "龍小淳",
@@ -1058,11 +1065,20 @@
       "uploadPersonVideoOrImage": "動画または画像ノードを接続",
       "uploadAudio": "オーディオノードを接続",
       "lipSyncHint": "人物画像とオーディオノードを接続してリップシンク動画を生成",
-      "lipSyncKlingHint": "人物動画/画像とオーディオノードを接続してリップシンク動画を生成"
+      "lipSyncKlingHint": "人物動画/画像とオーディオノードを接続してリップシンク動画を生成",
+      "digitalHumanHint": "人物画像とオーディオノードを接続してデジタルヒューマン動画を生成",
+      "faceSwapHint": "顔画像と動画ノードを接続",
+      "uploadFaceImage": "顔画像ノードを接続",
+      "uploadVideo": "動画ノードを接続",
+      "faceImage": "顔画像",
+      "videoInput": "動画入力",
+      "videoTranslateHint": "翻訳する動画ノードを接続",
+      "speechToTextHint": "オーディオノードをアップロードまたは接続して音声をテキストに変換"
     },
     "warnings": {
       "promptRequired": "プロンプトを入力してください",
-      "textRequired": "読み上げるテキストを入力してください"
+      "textRequired": "読み上げるテキストを入力してください",
+      "audioRequired": "音声認識にはオーディオノードを接続してください"
     },
     "common": {
       "selectVariant": "モデルバリアントを選択",

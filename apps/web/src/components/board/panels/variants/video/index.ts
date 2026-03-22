@@ -8,9 +8,12 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import type { VariantDefinition } from '../types'
+import { DigitalHumanQwenVariant } from './DigitalHumanQwenVariant'
+import { FaceSwapQwenVariant } from './FaceSwapQwenVariant'
+import { LipSyncVolcVariant } from './LipSyncVolcVariant'
 import { VidGenQwenVariant } from './VidGenQwenVariant'
 import { VidGenVolcVariant } from './VidGenVolcVariant'
-import { LipSyncVolcVariant } from './LipSyncVolcVariant'
+import { VideoTranslateVolcVariant } from './VideoTranslateVolcVariant'
 
 /** Video variant definitions — each variant owns its applicability logic. */
 export const VIDEO_VARIANTS: Record<string, VariantDefinition> = {
@@ -29,5 +32,21 @@ export const VIDEO_VARIANTS: Record<string, VariantDefinition> = {
   'OL-LS-001': {
     component: LipSyncVolcVariant,
     isApplicable: (ctx) => ctx.hasImage && ctx.hasAudio,
+  },
+  'OL-DH-001': {
+    component: DigitalHumanQwenVariant,
+    isApplicable: (ctx) => ctx.hasImage && ctx.hasAudio,
+  },
+  'OL-FS-001': {
+    component: FaceSwapQwenVariant,
+    isApplicable: (ctx) => ctx.hasImage && ctx.hasVideo,
+  },
+  'OL-FS-002': {
+    component: FaceSwapQwenVariant,
+    isApplicable: (ctx) => ctx.hasImage && ctx.hasVideo,
+  },
+  'OL-VT-001': {
+    component: VideoTranslateVolcVariant,
+    isApplicable: (ctx) => ctx.hasVideo,
   },
 }

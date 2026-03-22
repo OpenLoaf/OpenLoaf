@@ -30,6 +30,7 @@ import {
 import { IMAGE_VARIANTS } from './variants/image'
 import type { VariantContext, VariantFormProps } from './variants/types'
 import { GenerateActionBar } from './GenerateActionBar'
+import { ScrollableTabBar } from '../ui/ScrollableTabBar'
 
 // ---------------------------------------------------------------------------
 // Exported types
@@ -57,6 +58,8 @@ export type ImageAiPanelProps = {
   upstreamImages?: string[]
   /** Raw board-relative paths for API submission (e.g. "asset/xxx.jpg"). */
   upstreamImagePaths?: string[]
+  upstreamAudioUrl?: string
+  upstreamVideoUrl?: string
   /** Resolved browser-friendly source URL for the current image. */
   resolvedImageSrc?: string
   /** Board context for variant MediaSlot preview resolution & file saving. */
@@ -142,6 +145,8 @@ export function ImageAiPanel({
   upstreamText,
   upstreamImages,
   upstreamImagePaths,
+  upstreamAudioUrl,
+  upstreamVideoUrl,
   resolvedImageSrc,
   onGenerate,
   onGenerateNewNode,
@@ -190,8 +195,9 @@ export function ImageAiPanel({
   const variantCtx: VariantContext = useMemo(() => ({
     nodeHasImage,
     hasImage: Boolean(element.props.previewSrc || element.props.originalSrc || upstreamImages?.length),
-    hasAudio: false, // image panel has no audio
-  }), [nodeHasImage, element.props.previewSrc, element.props.originalSrc, upstreamImages?.length])
+    hasAudio: Boolean(upstreamAudioUrl),
+    hasVideo: Boolean(upstreamVideoUrl),
+  }), [nodeHasImage, element.props.previewSrc, element.props.originalSrc, upstreamImages?.length, upstreamAudioUrl, upstreamVideoUrl])
 
   /** Check if a variant is applicable in the current context. */
   const isVariantApplicable = useCallback((variantId: string) => {
@@ -455,10 +461,12 @@ export function ImageAiPanel({
     // Always pass image data — each variant decides how to use it
     images: upstreamImages?.length ? upstreamImages : undefined,
     imagePaths: upstreamImagePaths?.length ? upstreamImagePaths : undefined,
+    audioUrl: upstreamAudioUrl,
+    videoUrl: upstreamVideoUrl,
     boardId,
     projectId,
     boardFolderUri,
-  }), [upstreamText, upstreamImages, upstreamImagePaths, boardId, projectId, boardFolderUri])
+  }), [upstreamText, upstreamImages, upstreamImagePaths, upstreamAudioUrl, upstreamVideoUrl, boardId, projectId, boardFolderUri])
 
   // ── Loading / Error fallback ──
   // 逻辑：loading 和 error 不再提前 return，而是渲染在主面板内部，
@@ -506,10 +514,7 @@ export function ImageAiPanel({
 
       {/* ── Feature Tabs ── */}
       {features.length > 0 ? (
-        <div
-          className="no-scrollbar flex gap-1 overflow-x-auto rounded-3xl bg-ol-surface-muted p-0.5"
-          onWheel={(e) => { e.stopPropagation(); e.currentTarget.scrollLeft += e.deltaY }}
-        >
+        <ScrollableTabBar>
           {features
             .filter(feat => {
               // In readonly mode (not editing), only show the active feature
@@ -539,7 +544,7 @@ export function ImageAiPanel({
                 </button>
               )
             })}
-        </div>
+        </ScrollableTabBar>
       ) : null}
 
       {/* ── Mask brush controls (for inpaint variants) ── */}

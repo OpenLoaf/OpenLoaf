@@ -16,6 +16,7 @@ import {
   lookupBoardRecord,
   resolveBoardAbsPath,
   resolveBoardScopedRoot,
+  resolveBoardRootPath,
 } from '@openloaf/api/common/boardPaths'
 import {
   getProjectRootPath,
@@ -165,7 +166,9 @@ async function resolveChatHistoryRoot(
   // sessionId === boardId，resolveSessionDir 会拼接 sessionId
   if (boardId) {
     const board = await lookupBoardRecord(boardId)
-    const rootPath = resolveBoardScopedRoot(board?.projectId ?? projectId ?? undefined)
+    const rootPath = board
+      ? resolveBoardRootPath(board)
+      : resolveBoardScopedRoot(projectId ?? undefined)
     if (board) {
       // 去掉 folderUri 末尾的 boardId 目录，返回 boards/ 基目录
       // 因为后续 resolveSessionDir 会 path.join(root, sessionId) 把 boardId 拼回去

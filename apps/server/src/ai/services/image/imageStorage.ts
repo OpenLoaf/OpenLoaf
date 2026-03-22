@@ -15,6 +15,7 @@ import {
   getProjectRootPath,
   resolveFilePathFromUri,
 } from "@openloaf/api/services/vfsService";
+import { getResolvedTempStorageDir } from "@openloaf/api/services/appConfigService";
 import { getOpenLoafRootDir } from "@openloaf/config";
 import { readBasicConf, readS3Providers } from "@/modules/settings/openloafConfStore";
 import { createS3StorageService, resolveS3ProviderConfig } from "@/modules/storage/s3StorageService";
@@ -175,13 +176,8 @@ async function normalizeImageSaveDirectory(targetPath: string): Promise<string> 
   }
 }
 
-/** Resolve the effective temp storage directory. */
-export function getResolvedTempStorageDir(): string {
-  const conf = readBasicConf();
-  const custom = conf.appTempStorageDir?.trim();
-  if (custom) return custom;
-  return path.join(getOpenLoafRootDir(), "temp");
-}
+// Re-export from appConfigService for backward compat (videoStorage imports from here).
+export { getResolvedTempStorageDir } from "@openloaf/api/services/appConfigService";
 
 /** Resolve local directory from a project-relative path. */
 function resolveRelativeSaveDirectory(input: {

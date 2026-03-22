@@ -12,13 +12,13 @@ import { useTranslation } from 'react-i18next'
 import type { VariantFormProps } from '../types'
 import { toMediaInput, useSourceImage } from '../shared'
 
-const SCALE_OPTIONS = [2, 4] as const
+const SCALE_OPTIONS = ['4K', '8K'] as const
 
 /**
  * Variant form for OL-UP-001 (百炼超分).
  *
  * Inputs: image ({url})
- * Params: scale (2)
+ * Params: scale ("4K")
  */
 export function UpscaleQwenVariant({
   variant,
@@ -34,7 +34,7 @@ export function UpscaleQwenVariant({
 
   const { sourceUrl, sourcePath, rawSourceUrl, setImgLoadFailed } = useSourceImage(nodeResourceUrl, nodeResourcePath, upstream)
 
-  const [scale, setScale] = useState<(typeof SCALE_OPTIONS)[number]>((initialParams?.params?.scale as (typeof SCALE_OPTIONS)[number]) ?? 2)
+  const [scale, setScale] = useState<(typeof SCALE_OPTIONS)[number]>((initialParams?.params?.scale as (typeof SCALE_OPTIONS)[number]) ?? '4K')
 
   // Report blocking warning to parent
   useEffect(() => {
@@ -86,7 +86,7 @@ export function UpscaleQwenVariant({
               ].join(' ')}
               onClick={() => !disabled && setScale(s)}
             >
-              {s}x
+              {s}
             </button>
           ))}
         </div>

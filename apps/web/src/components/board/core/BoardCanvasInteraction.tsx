@@ -1452,6 +1452,7 @@ export function BoardCanvasInteraction({
         target: { elementId: id },
         style: engine.getConnectorStyle(),
       });
+      engine.selection.setSelection([id]);
     }
     engine.setConnectorDrop(null);
     engine.setConnectorDraft(null);

@@ -13,23 +13,28 @@ import { Music, User } from 'lucide-react'
 import type { VariantFormProps } from '../types'
 import { MediaSlot, toMediaInput } from '../shared'
 
+const RESOLUTION_OPTIONS = ['480P', '720P'] as const
+
 /**
- * OL-LS-001 (即梦口型) variant form.
+ * OL-DH-001 (百炼数字人) variant form.
  *
- * Inputs: person ({url} - person image), audio ({url} - audio file).
- * Params: modelId.
- * Both must be URLs.
+ * Inputs: image ({url} - person portrait), audio ({url} - audio file, ≤20s).
+ * Params: resolution ("480P" | "720P").
  */
-export function LipSyncVolcVariant({
+export function DigitalHumanQwenVariant({
   variant,
   upstream,
   nodeResourceUrl,
-  // initialParams not used — media-only variant with no cacheable text params
+  initialParams,
   disabled = false,
   onParamsChange,
   onWarningChange,
 }: VariantFormProps) {
   const { t } = useTranslation('board')
+
+  const [resolution, setResolution] = useState<(typeof RESOLUTION_OPTIONS)[number]>(
+    (initialParams?.params?.resolution as (typeof RESOLUTION_OPTIONS)[number]) ?? '480P',
+  )
 
   // Manual uploads (only used when no upstream source)
   const [manualPersonSrc, setManualPersonSrc] = useState<string | undefined>()
@@ -52,7 +57,7 @@ export function LipSyncVolcVariant({
   // Report warning when required inputs are missing
   useEffect(() => {
     if (!hasPerson && !hasAudio) {
-      onWarningChange?.(t('v3.fields.lipSyncHint', { defaultValue: 'Connect a person image and audio node to generate lip sync video' }))
+      onWarningChange?.(t('v3.fields.digitalHumanHint', { defaultValue: 'Connect a person image and audio node to generate digital human video' }))
     } else if (!hasPerson) {
       onWarningChange?.(t('v3.fields.uploadPerson', { defaultValue: 'Connect a person image node' }))
     } else if (!hasAudio) {
@@ -66,7 +71,7 @@ export function LipSyncVolcVariant({
   useEffect(() => {
     const inputs: Record<string, unknown> = {}
     if (personPath) {
-      inputs.person = toMediaInput(personPath)
+      inputs.image = toMediaInput(personPath)
     }
     if (audioPath) {
       inputs.audio = toMediaInput(audioPath)
@@ -74,9 +79,11 @@ export function LipSyncVolcVariant({
 
     onParamsChange({
       inputs,
-      params: {},
+      params: {
+        resolution,
+      },
     })
-  }, [personPath, audioPath, onParamsChange])
+  }, [personPath, audioPath, resolution, onParamsChange])
 
   return (
     <div className="flex flex-col gap-2.5">
@@ -117,9 +124,35 @@ export function LipSyncVolcVariant({
         />
       </div>
 
+      {/* Resolution selector */}
+      <div className="flex flex-col gap-1.5">
+        <span className="text-xs font-medium text-muted-foreground">
+          {t('v3.params.resolution', { defaultValue: 'Resolution' })}
+        </span>
+        <div className="flex gap-2">
+          {RESOLUTION_OPTIONS.map((r) => (
+            <button
+              key={r}
+              type="button"
+              disabled={disabled}
+              className={[
+                'flex-1 rounded-3xl border py-2 text-sm font-medium transition-colors duration-150',
+                resolution === r
+                  ? 'border-foreground/30 bg-foreground/5 text-foreground'
+                  : 'border-border text-muted-foreground hover:bg-foreground/5 hover:text-foreground',
+                disabled ? 'cursor-not-allowed opacity-60' : '',
+              ].join(' ')}
+              onClick={() => !disabled && setResolution(r)}
+            >
+              {r}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Hint */}
       <p className="text-center text-[10px] text-muted-foreground/50">
-        {t('v3.fields.lipSyncHint', { defaultValue: 'Connect a person image and audio node to generate lip sync video' })}
+        {t('v3.fields.digitalHumanHint', { defaultValue: 'Connect a person image and audio node to generate digital human video' })}
       </p>
     </div>
   )

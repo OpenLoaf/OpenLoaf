@@ -198,7 +198,7 @@ export function BoardCanvasRender({
           gpuStats={gpuStats}
         />
       ) : null}
-      {showUi && !snapshot.draggingId && !snapshot.selectionBox ? <AnchorOverlay snapshot={snapshot} /> : null}
+      {/* AnchorOverlay 已移入下方 WorldToolbarLayer 内渲染 */}
       {showUi && !minimal ? (
         <div className={cn("pointer-events-none absolute inset-0 z-20 transition-all duration-500 ease-out", toolbarsReady ? "opacity-100 -translate-x-0" : "opacity-0 -translate-x-4")}>
           <LeftToolbar engine={engine} snapshot={snapshot} />
@@ -245,8 +245,9 @@ export function BoardCanvasRender({
       {showUi && selectedNode && selectedNode.type !== "stroke" ? (
         <SingleSelectionOutline snapshot={snapshot} engine={engine} element={selectedNode} hidden={!!snapshot.draggingId} />
       ) : null}
-      <BoardDragFade visible={showUi && !snapshot.draggingId && !snapshot.selectionBox && !!selectedNode && selectedNode.type !== "stroke"}>
-        {selectedNode ? (
+      <WorldToolbarLayer engine={engine}>
+        {showUi && !snapshot.draggingId && !snapshot.selectionBox ? <AnchorOverlay snapshot={snapshot} /> : null}
+        {showUi && !snapshot.draggingId && !snapshot.selectionBox && selectedNode && selectedNode.type !== "stroke" ? (
           <SingleSelectionToolbar
             snapshot={snapshot}
             engine={engine}
@@ -255,7 +256,7 @@ export function BoardCanvasRender({
             onEnterGroup={onEnterGroup}
           />
         ) : null}
-      </BoardDragFade>
+      </WorldToolbarLayer>
       <BoardDragFade visible={showUi && !snapshot.draggingId && !snapshot.selectionBox}>
         <MultiSelectionToolbar
           snapshot={snapshot}
@@ -277,6 +278,49 @@ export function BoardCanvasRender({
         />
       ) : null}
     </>
+  );
+}
+
+/**
+ * 世界坐标工具栏层。
+ * 与 DomNodeLayer 共享相同的 RAF transform 更新，确保工具栏与节点零帧差同步。
+ */
+function WorldToolbarLayer({ engine, children }: { engine: CanvasEngine; children: React.ReactNode }) {
+  const layerRef = useRef<HTMLDivElement | null>(null);
+  const rafRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const handler = () => {
+      if (rafRef.current !== null) return;
+      rafRef.current = window.requestAnimationFrame(() => {
+        rafRef.current = null;
+        const layer = layerRef.current;
+        if (!layer) return;
+        const { zoom, offset } = engine.getViewState().viewport;
+        layer.style.transform = `translate(${offset[0]}px, ${offset[1]}px) scale(${zoom})`;
+      });
+    };
+    handler();
+    const unsub = engine.subscribeView(handler);
+    return () => {
+      unsub();
+      if (rafRef.current !== null) {
+        window.cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+    };
+  }, [engine]);
+
+  const { zoom, offset } = engine.getViewState().viewport;
+
+  return (
+    <div
+      ref={layerRef}
+      className="pointer-events-none absolute inset-0 z-20 origin-top-left"
+      style={{ transform: `translate(${offset[0]}px, ${offset[1]}px) scale(${zoom})` }}
+    >
+      {children}
+    </div>
   );
 }
 

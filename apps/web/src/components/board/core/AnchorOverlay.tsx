@@ -22,11 +22,8 @@ import {
   SELECTED_ANCHOR_SIDE_SIZE,
   SELECTED_ANCHOR_SIDE_SIZE_HOVER,
 } from "../engine/constants";
-import { toScreenPoint } from "../utils/coordinates";
 import { LARGE_ANCHOR_NODE_TYPES } from "../engine/anchorTypes";
 import { getGroupOutlinePadding, isGroupNodeType } from "../engine/grouping";
-import { useBoardEngine } from "./BoardProvider";
-import { useBoardViewState } from "./useBoardViewState";
 
 type AnchorOverlayItem = CanvasAnchorHit & {
   /** Anchor source used for styling offsets. */
@@ -38,15 +35,18 @@ type AnchorOverlayProps = {
   snapshot: CanvasSnapshot;
 };
 
-/** Render anchor handles above nodes for linking. */
+/**
+ * Render anchor handles above nodes for linking.
+ *
+ * 渲染在 WorldAnchorLayer（与 DomNodeLayer 相同的 RAF transform 层）内部，
+ * 使用世界坐标定位 + counter-scale 保持恒定屏幕尺寸，与节点零帧差同步。
+ */
 export function AnchorOverlay({ snapshot }: AnchorOverlayProps) {
-  // 逻辑：视图变化时独立刷新锚点位置，避免全量快照重算。
-  const engine = useBoardEngine();
-  const viewState = useBoardViewState(engine);
   if (snapshot.selectedIds.length > 1) {
     return null;
   }
-  const groupPadding = getGroupOutlinePadding(viewState.viewport.zoom);
+  const zoom = snapshot.viewport.zoom;
+  const groupPadding = getGroupOutlinePadding(zoom);
   const hoverAnchor = snapshot.connectorHover;
   const selectedAnchors = getSelectedImageAnchors(snapshot);
   const hoverAnchors = getHoveredImageAnchors(snapshot);
@@ -75,17 +75,9 @@ export function AnchorOverlay({ snapshot }: AnchorOverlayProps) {
   });
 
   return (
-    <div
-      data-board-anchor-overlay
-      className="pointer-events-none absolute inset-0 z-20"
-    >
+    <>
       {Array.from(uniqueAnchors.values()).map(anchor => {
         const adjustedPoint = resolveGroupAnchorPoint(anchor, snapshot, groupPadding);
-        const screen = toScreenPoint(adjustedPoint, viewState);
-        const element = snapshot.elements.find(
-          (item): item is CanvasNodeElement =>
-            item.kind === "node" && item.id === anchor.elementId
-        );
         const isHover =
           hoverAnchor?.elementId === anchor.elementId &&
           hoverAnchor.anchorId === anchor.anchorId;
@@ -106,67 +98,47 @@ export function AnchorOverlay({ snapshot }: AnchorOverlayProps) {
         // 逻辑：选中锚点外扩保持固定距离，避免 hover 时跳动。
         const offsetDistance =
           useSelectedStyle ? baseSize / 2 + SELECTED_ANCHOR_GAP : 0;
-        const offset = resolveAnchorScreenOffset(anchor.anchorId, offsetDistance);
-        const anchorCenter: CanvasPoint = [
-          screen[0] + offset[0],
-          screen[1] + offset[1],
-        ];
+        const anchorOffset = resolveAnchorScreenOffset(anchor.anchorId, offsetDistance);
         return (
           <div
             key={`${anchor.elementId}-${anchor.anchorId}`}
-            className={cn(
-              "absolute flex items-center justify-center rounded-full border shadow-[0_0_0_1px_rgba(0,0,0,0.12)]",
-              isHover
-                ? "bg-[var(--canvas-connector-anchor-hover)]"
-                : "bg-[var(--canvas-connector-anchor)]",
-              "border-[var(--canvas-connector-handle-fill)]"
-            )}
+            className="absolute"
             style={{
-              left: anchorCenter[0],
-              top: anchorCenter[1],
-              width: size,
-              height: size,
-              marginLeft: -size / 2,
-              marginTop: -size / 2,
+              left: adjustedPoint[0],
+              top: adjustedPoint[1],
+              transform: `scale(${1 / zoom})`,
+              transformOrigin: '0 0',
             }}
           >
-            {isSideAnchor && useSelectedStyle ? (
-              <Plus
-                size={iconSize}
-                className="text-[var(--canvas-connector-handle-fill)]"
-                strokeWidth={2.2}
-              />
-            ) : null}
+            <div
+              className={cn(
+                "absolute flex items-center justify-center rounded-full border shadow-[0_0_0_1px_rgba(0,0,0,0.12)]",
+                isHover
+                  ? "bg-[var(--canvas-connector-anchor-hover)]"
+                  : "bg-[var(--canvas-connector-anchor)]",
+                "border-[var(--canvas-connector-handle-fill)]"
+              )}
+              style={{
+                left: anchorOffset[0],
+                top: anchorOffset[1],
+                width: size,
+                height: size,
+                marginLeft: -size / 2,
+                marginTop: -size / 2,
+              }}
+            >
+              {isSideAnchor && useSelectedStyle ? (
+                <Plus
+                  size={iconSize}
+                  className="text-[var(--canvas-connector-handle-fill)]"
+                  strokeWidth={2.2}
+                />
+              ) : null}
+            </div>
           </div>
         );
       })}
-    </div>
-  );
-}
-
-/** Check whether the anchor belongs to a selected large-anchor node. */
-function isSelectedLargeAnchorNode(
-  elementId: string,
-  snapshot: CanvasSnapshot
-): boolean {
-  if (!snapshot.selectedIds.includes(elementId)) return false;
-  const element = snapshot.elements.find(item => item.id === elementId);
-  return (
-    element?.kind === "node" && LARGE_ANCHOR_NODE_TYPES.has(element.type)
-  );
-}
-
-/** Check whether the anchor belongs to a hovered large-anchor node. */
-function isHoverLargeAnchorNode(
-  elementId: string,
-  snapshot: CanvasSnapshot
-): boolean {
-  const hoverNodeId = snapshot.nodeHoverId;
-  if (!hoverNodeId || hoverNodeId !== elementId) return false;
-  if (snapshot.selectedIds.includes(elementId)) return false;
-  const element = snapshot.elements.find(item => item.id === elementId);
-  return (
-    element?.kind === "node" && LARGE_ANCHOR_NODE_TYPES.has(element.type)
+    </>
   );
 }
 

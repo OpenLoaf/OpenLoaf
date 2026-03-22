@@ -179,9 +179,23 @@ export function registerSaasMediaRoutes(app: Hono): void {
         if (!boardResult) {
           return { success: false, message: "Board not found" };
         }
-        const absPath = nodePath.resolve(boardResult.absDir, inputPath);
+        let absPath = nodePath.resolve(boardResult.absDir, inputPath);
         if (!absPath.startsWith(nodePath.resolve(boardResult.absDir) + nodePath.sep)) {
           return { success: false, message: "Invalid file path" };
+        }
+        // 逻辑：兼容旧版 global-root-relative 路径（如 "temp/boards/board_xxx/asset/xxx.png"）。
+        // resolveBoardDirFromDb 已通过 resolveBoardRootPath 兼容旧 folderUri，
+        // 这里仅处理 inputPath 非 board-relative 的情况（提取 asset/xxx.png 尾部）。
+        try {
+          await fsPromises.access(absPath);
+        } catch {
+          const assetMatch = inputPath.match(/(?:^|\/)(asset\/[^/]+)$/);
+          if (assetMatch) {
+            const altPath = nodePath.resolve(boardResult.absDir, assetMatch[1]);
+            if (altPath.startsWith(nodePath.resolve(boardResult.absDir) + nodePath.sep)) {
+              absPath = altPath;
+            }
+          }
         }
         try {
           const buffer = await fsPromises.readFile(absPath);

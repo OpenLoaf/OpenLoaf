@@ -20,7 +20,9 @@ import { MEDIA_PREFERENCES, MEDIA_FEATURES, type MediaPreferenceId, type MediaFe
 import { useCapabilities } from '@/hooks/use-capabilities'
 import type { V3Feature, V3Variant } from '@/lib/saas-media'
 import { GenerateActionBar } from './GenerateActionBar'
-import { AUDIO_VARIANT_REGISTRY } from './variants/audio'
+import { AUDIO_VARIANTS } from './variants/audio'
+import type { VariantContext } from './variants/types'
+import { ScrollableTabBar } from '../ui/ScrollableTabBar'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -34,6 +36,10 @@ export type AudioPanelUpstream = {
   referenceAudioSrc?: string
   /** Display name for the reference audio. */
   referenceAudioName?: string
+  /** Board context for variant MediaSlot preview resolution & file saving. */
+  boardId?: string
+  projectId?: string
+  boardFolderUri?: string
 }
 
 /** Audio generate params for v3. */
@@ -148,7 +154,7 @@ export function AudioAiPanel({
 
   // Get the variant form component from the registry
   const VariantForm = resolvedVariantId
-    ? AUDIO_VARIANT_REGISTRY[resolvedVariantId]
+    ? AUDIO_VARIANTS[resolvedVariantId]?.component ?? null
     : null
 
   // Is this a coming-soon feature (no variants)?
@@ -159,9 +165,25 @@ export function AudioAiPanel({
     () => ({
       textContent: upstream?.textContent,
       audioUrl: upstream?.referenceAudioSrc,
+      boardId: upstream?.boardId,
+      projectId: upstream?.projectId,
+      boardFolderUri: upstream?.boardFolderUri,
     }),
-    [upstream],
+    [upstream?.textContent, upstream?.referenceAudioSrc, upstream?.boardId, upstream?.projectId, upstream?.boardFolderUri],
   )
+
+  // ── Variant context & applicability ──
+  const variantCtx: VariantContext = useMemo(() => ({
+    nodeHasImage: false, // audio nodes don't have a "current image"
+    hasImage: false,
+    hasAudio: Boolean(upstream?.referenceAudioSrc),
+    hasVideo: false,
+  }), [upstream?.referenceAudioSrc])
+
+  const isVariantApplicable = useCallback((variantId: string) => {
+    const def = AUDIO_VARIANTS[variantId]
+    return !def || def.isApplicable(variantCtx)
+  }, [variantCtx])
 
   // Credits from selected variant
   const creditsPerCall = selectedVariant?.creditsPerCall ?? null
@@ -207,7 +229,7 @@ export function AudioAiPanel({
     <div
       className={cn(
         'flex w-[420px] flex-col gap-3 rounded-3xl border border-border bg-card p-3 shadow-lg',
-        readonly && 'opacity-80',
+        readonly && !editing && 'pointer-events-none',
         className,
       )}
     >
@@ -232,14 +254,32 @@ export function AudioAiPanel({
               </button>
             </>
           ) : (
-            <span className="text-xs text-muted-foreground">{t('v3.common.noVariants')}</span>
+            <>
+              <span className="text-sm font-medium text-muted-foreground">{t('v3.common.loadError')}</span>
+              <span className="text-[11px] text-muted-foreground/60">{t('v3.common.loadErrorHint')}</span>
+              <button
+                type="button"
+                className="mt-1 rounded-full border border-border px-3.5 py-1 text-xs text-muted-foreground hover:bg-foreground/5 transition-colors duration-150"
+                onClick={() => capRefresh()}
+              >
+                {t('v3.common.retry')}
+              </button>
+            </>
           )}
         </div>
       ) : null}
 
       {/* ---- Feature Tab Row ---- */}
-      {!showFallback ? <div className="flex items-center gap-1 rounded-3xl bg-ol-surface-muted p-0.5">
-        {featureTabs.map((feature) => {
+      {!showFallback ? <ScrollableTabBar className="items-center">
+        {featureTabs
+          .filter((feature) => {
+            // In readonly mode only show the active tab
+            if (readonly && !editing) return feature.id === selectedFeatureId
+            // Hide features where no variant is applicable
+            if (feature.variants.length > 0 && feature.variants.every((v) => !isVariantApplicable(v.id))) return false
+            return true
+          })
+          .map((feature) => {
           const Icon = FEATURE_ICON_MAP[feature.id] ?? Mic
           const hasNoVariants = feature.variants.length === 0
           return (
@@ -248,7 +288,7 @@ export function AudioAiPanel({
               type="button"
               disabled={readonly}
               className={cn(
-                'flex flex-1 items-center justify-center gap-1.5 rounded-3xl px-2 py-1.5',
+                'flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-3xl px-2 py-1.5',
                 'text-xs font-medium transition-colors duration-150',
                 readonly
                   ? 'cursor-not-allowed text-muted-foreground/40'
@@ -275,7 +315,7 @@ export function AudioAiPanel({
             </button>
           )
         })}
-      </div> : null}
+      </ScrollableTabBar> : null}
 
       {/* ---- Variant Form ---- */}
       {VariantForm && selectedVariant ? (
@@ -314,7 +354,7 @@ export function AudioAiPanel({
       ) : null}
 
       {/* ---- Generate Action Bar ---- */}
-      {!isComingSoon ? (
+      {!isComingSoon && !showFallback ? (
         <GenerateActionBar
           hasResource={hasResource}
           generating={generating}
@@ -328,7 +368,7 @@ export function AudioAiPanel({
           onCancelEdit={onCancelEdit}
           creditsPerCall={creditsPerCall ?? undefined}
           warningMessage={variantWarning}
-          variants={variants.length > 0 ? variants.map((v) => ({
+          variants={variants.length > 0 ? variants.filter((v) => isVariantApplicable(v.id)).map((v) => ({
             id: v.id,
             displayName: MEDIA_PREFERENCES[v.preference as MediaPreferenceId]?.label[prefLang] ?? v.id,
             creditsPerCall: v.creditsPerCall,

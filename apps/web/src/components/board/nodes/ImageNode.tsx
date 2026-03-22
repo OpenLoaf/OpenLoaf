@@ -476,12 +476,20 @@ export function ImageNodeView({
       const images = rawPaths
         .map(r => resolveImageSource(r, fileContext))
         .filter(Boolean) as string[];
-      return { text, images, imagePaths: rawPaths };
+      return {
+        text,
+        images,
+        imagePaths: rawPaths,
+        audioUrl: refs.find(r => r.nodeType === 'audio')?.data,
+        videoUrl: refs.find(r => r.nodeType === 'video')?.data,
+      };
     }
     return {
       text: upstream?.textList.join('\n') || undefined,
       images: resolvedUpstreamImages,
       imagePaths: upstreamImagePaths,
+      audioUrl: upstream?.audioList?.[0],
+      videoUrl: upstream?.videoList?.[0],
     };
   }, [primaryEntry, upstream, resolvedUpstreamImages, upstreamImagePaths, fileContext]);
 
@@ -1284,6 +1292,8 @@ export function ImageNodeView({
             upstreamText={effectiveUpstream.text}
             upstreamImages={effectiveUpstream.images}
             upstreamImagePaths={effectiveUpstream.imagePaths}
+            upstreamAudioUrl={effectiveUpstream.audioUrl}
+            upstreamVideoUrl={effectiveUpstream.videoUrl}
             resolvedImageSrc={resolveImageSource(element.props.originalSrc, fileContext) || previewSrc}
             onGenerate={handleGenerate}
             onGenerateNewNode={handleGenerateNewNode}

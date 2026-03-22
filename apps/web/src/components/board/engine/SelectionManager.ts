@@ -10,6 +10,8 @@
 export class SelectionManager {
   /** Selected element ids in insertion order. */
   private selectedIds: string[] = [];
+  /** Cached snapshot array — same reference when contents unchanged. */
+  private cachedSnapshot: string[] = [];
   /** Change emitter used to notify subscribers. */
   private readonly emitChange: () => void;
 
@@ -69,9 +71,12 @@ export class SelectionManager {
     this.emitChange();
   }
 
-  /** Return selected ids as an array. */
+  /** Return selected ids as a stable array (same reference when contents unchanged). */
   getSelectedIds(): string[] {
-    return [...this.selectedIds];
+    if (!this.isSameSelection(this.cachedSnapshot, this.selectedIds)) {
+      this.cachedSnapshot = [...this.selectedIds];
+    }
+    return this.cachedSnapshot;
   }
 
   /** Check whether an id is selected. */

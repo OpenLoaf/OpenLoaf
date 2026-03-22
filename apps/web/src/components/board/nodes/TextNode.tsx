@@ -189,7 +189,7 @@ export const TEXT_NODE_DEFAULT_HEIGHT = Math.ceil(
 /** Minimum size for text nodes. */
 const TEXT_NODE_MIN_SIZE = { w: 200, h: TEXT_NODE_DEFAULT_HEIGHT };
 /** Maximum size for text nodes. */
-const TEXT_NODE_MAX_SIZE = { w: 720, h: 420 };
+const TEXT_NODE_MAX_SIZE = { w: 720, h: 10000 };
 /** Default text alignment for text nodes. */
 const TEXT_NODE_DEFAULT_TEXT_ALIGN: TextNodeTextAlign = "left";
 /** Auto text color when background is light. */
@@ -427,11 +427,10 @@ function ReadOnlyMarkdownProjection(props: {
       if (!node || node.kind !== "node") return;
       const nextHeight = Math.max(
         TEXT_NODE_DEFAULT_HEIGHT,
-        Math.ceil(content.scrollHeight + 24),
+        Math.ceil(content.scrollHeight + TEXT_NODE_VERTICAL_PADDING),
       );
       const [, , width, currentHeight] = node.xywh;
-      // 逻辑：只允许增高不允许缩小，避免 Markdown 异步渲染期间 scrollHeight 暂时偏小导致节点高度跳动。
-      if (nextHeight <= currentHeight) return;
+      if (Math.abs(nextHeight - currentHeight) < TEXT_NODE_RESIZE_EPSILON) return;
       engine.batch(() => {
         engine.doc.transact(() => {
           engine.doc.updateElement(props.elementId, {
@@ -447,7 +446,7 @@ function ReadOnlyMarkdownProjection(props: {
   return (
     <div
       className={cn(
-        "relative w-full box-border rounded-3xl p-3",
+        "relative w-full box-border rounded-3xl p-2.5",
         props.backgroundColor ? "" : "bg-ol-surface-muted",
         "text-ol-text-primary",
       )}
@@ -1154,7 +1153,7 @@ function EditableTextNodeView({
         Math.ceil(content.scrollHeight + TEXT_NODE_VERTICAL_PADDING),
       );
       const [x, y, w, currentHeight] = node.xywh;
-      if (nextHeight <= currentHeight) return;
+      if (Math.abs(nextHeight - currentHeight) < TEXT_NODE_RESIZE_EPSILON) return;
       engine.doc.updateElement(element.id, {
         xywh: [x, y, w, nextHeight],
       });

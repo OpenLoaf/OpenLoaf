@@ -718,12 +718,16 @@ export function VideoNodeView({
         text: refs.filter(r => r.nodeType === 'text').map(r => r.data).join('\n') || undefined,
         images: resolveImages(rawPaths),
         imagePaths: rawPaths,
+        audioUrl: refs.find(r => r.nodeType === 'audio')?.data,
+        videoUrl: refs.find(r => r.nodeType === 'video')?.data,
       };
     }
     return {
       text: upstream?.textList.join('\n') || undefined,
       images: resolveImages(upstream?.imageList),
       imagePaths: upstream?.imageList?.filter(Boolean),
+      audioUrl: upstream?.audioList?.[0],
+      videoUrl: upstream?.videoList?.[0],
     };
   }, [primaryEntry, upstream, fileContext]);
 
@@ -1224,6 +1228,8 @@ export function VideoNodeView({
             upstreamText={effectiveUpstream.text}
             upstreamImages={effectiveUpstream.images}
             upstreamImagePaths={effectiveUpstream.imagePaths}
+            upstreamAudioUrl={effectiveUpstream.audioUrl}
+            upstreamVideoUrl={effectiveUpstream.videoUrl}
             boardId={fileContext?.boardId}
             projectId={fileContext?.projectId}
             boardFolderUri={fileContext?.boardFolderUri}

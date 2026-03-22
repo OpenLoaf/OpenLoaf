@@ -72,8 +72,7 @@ export function VidGenQwenVariant({
       inputs.startImage = toMediaInput(firstFramePath)
     }
 
-    const effectivePrompt = [upstream.textContent, prompt].filter(s => s?.trim()).join('\n')
-    inputs.prompt = effectivePrompt
+    inputs.prompt = prompt
     onParamsChange({
       inputs,
       params: {
@@ -82,7 +81,7 @@ export function VidGenQwenVariant({
         withAudio: withAudio || undefined,
       },
     })
-  }, [prompt, upstream.textContent, style, duration, withAudio, firstFramePath, onParamsChange])
+  }, [prompt, style, duration, withAudio, firstFramePath, onParamsChange])
 
   return (
     <div className="flex flex-col gap-2.5">
