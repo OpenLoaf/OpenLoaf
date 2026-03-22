@@ -47,7 +47,7 @@ import { usePanelOverlay } from "../render/pixi/PixiApplication";
 import { deriveNode } from "../utils/derive-node";
 import { submitVideoGenerate } from "../services/video-generate";
 import { resolveAllMediaInputs } from "@/lib/media-upload";
-import { saveBoardAssetFile } from "../utils/board-asset";
+import { useFileUploadHandler } from './shared/useFileUploadHandler';
 import {
   createInputSnapshot,
   createGeneratingEntry,
@@ -475,37 +475,12 @@ export function VideoNodeView({
   const panelOverlay = usePanelOverlay();
   const panelRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  /** Handle file selection from hidden input — save to board assets and update node. */
-  const handleFileInputChange = useCallback(
-    async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (!file || !fileContext?.boardFolderUri) return;
-      e.target.value = '';
-      try {
-        const relativePath = await saveBoardAssetFile({
-          file,
-          fallbackName: 'video.mp4',
-          projectId: fileContext.projectId,
-          boardFolderUri: fileContext.boardFolderUri,
-        });
-        onUpdate({ sourcePath: relativePath, fileName: file.name });
-      } catch { /* ignore save failure */ }
-    },
-    [fileContext, onUpdate],
-  );
-
-  // 逻辑：监听工具栏上传按钮的自定义事件，触发隐藏文件选择器。
-  useEffect(() => {
-    const handler = (e: Event) => {
-      if ((e as CustomEvent).detail === element.id) {
-        fileInputRef.current?.click();
-      }
-    };
-    document.addEventListener('board:trigger-upload', handler);
-    return () => document.removeEventListener('board:trigger-upload', handler);
-  }, [element.id]);
+  const { fileInputRef, handleFileInputChange } = useFileUploadHandler<VideoNodeProps>({
+    elementId: element.id,
+    fileContext,
+    onUpdate,
+    fallbackName: 'video.mp4',
+  });
 
   // 逻辑：通过 subscribeView 直接操作 DOM 同步面板缩放，避免 React 渲染延迟。
   // 面板通过 Portal 渲染到 panelOverlay 层（笔画上方），用 scale(1/zoom) 保持固定屏幕大小。
