@@ -14,19 +14,16 @@ import type {
   CanvasToolbarContext,
 } from "../engine/types";
 import { useCallback, useEffect, useMemo, useRef } from "react";
-import { createPortal } from "react-dom";
 import { z } from "zod";
 import {
   Download,
   Loader2,
   Music,
   Play,
-  RefreshCw,
   Trash2,
   Type,
   Upload,
   Video,
-  X,
 } from "lucide-react";
 import i18next from "i18next";
 import { openFilePreview } from "@/components/file/lib/file-preview-store";
@@ -47,7 +44,9 @@ import { useUpstreamData } from "../hooks/useUpstreamData";
 import { usePanelOverlay } from "../render/pixi/PixiApplication";
 import { submitAudioGenerate } from "../services/audio-generate";
 import { useFileUploadHandler } from './shared/useFileUploadHandler';
-import { useInlinePanelSync, PANEL_GAP_PX } from './shared/useInlinePanelSync';
+import { useInlinePanelSync } from './shared/useInlinePanelSync';
+import { FailureOverlay } from './shared/FailureOverlay';
+import { InlinePanelPortal } from './shared/InlinePanelPortal';
 import { useEffectiveUpstream } from './shared/useEffectiveUpstream';
 import {
   createInputSnapshot,
@@ -555,48 +554,17 @@ export function AudioNodeView({
         )}
 
         {/* Failed / Cancelled overlay */}
-        {isFailed && (() => {
-          const isCancelled = lastFailure?.error?.code === 'CANCELLED'
-          return (
-          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-background/75 backdrop-blur-sm p-4 rounded-3xl">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/[0.06]">
-              <X className="h-4 w-4 text-ol-text-auxiliary" />
-            </div>
-            <span className="text-xs text-center text-ol-text-auxiliary font-medium">
-              {isCancelled
-                ? i18next.t('board:audioNode.cancelled', { defaultValue: '已取消' })
-                : (lastFailure?.error?.message || i18next.t('board:audioNode.generateFailed', { defaultValue: 'Generation failed' }))}
-            </span>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleRetry();
-                }}
-                className="flex items-center gap-1 rounded-full px-3 py-1 text-[11px] bg-white/[0.08] text-ol-text-secondary hover:bg-white/[0.12] transition-colors duration-150"
-              >
-                <RefreshCw className="h-3 w-3" />
-                {isCancelled
-                  ? i18next.t('board:audioNode.resend', { defaultValue: '重新发送' })
-                  : i18next.t('board:audioNode.retry', { defaultValue: 'Retry' })}
-              </button>
-              {audioSrc && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setDismissedFailure(true);
-                  }}
-                  className="text-[11px] text-ol-text-auxiliary underline underline-offset-2 hover:text-ol-text-secondary transition-colors duration-150"
-                >
-                  {i18next.t('board:loading.dismiss', { defaultValue: 'Dismiss' })}
-                </button>
-              )}
-            </div>
-          </div>
-          )
-        })()}
+        <FailureOverlay
+          visible={isFailed}
+          isCancelled={lastFailure?.error?.code === 'CANCELLED'}
+          message={lastFailure?.error?.message || i18next.t('board:audioNode.generateFailed', { defaultValue: 'Generation failed' })}
+          cancelledKey="board:audioNode.cancelled"
+          retryKey="board:audioNode.retry"
+          resendKey="board:audioNode.resend"
+          onRetry={handleRetry}
+          canDismiss={Boolean(audioSrc)}
+          onDismiss={() => setDismissedFailure(true)}
+        />
 
         {/* Audio waveform player — fills entire node */}
         <div
@@ -620,43 +588,30 @@ export function AudioNodeView({
           ) : null}
         </div>
       </div>
-      {expanded && panelOverlay ? createPortal(
-        <div
-          ref={panelRef}
-          className="pointer-events-auto absolute"
-          data-board-editor
-          style={{
-            left: element.xywh[0] + element.xywh[2] / 2,
-            top: element.xywh[1] + element.xywh[3] + PANEL_GAP_PX / engine.viewport.getState().zoom,
-            transform: `translateX(-50%) scale(${1 / engine.viewport.getState().zoom})`,
-            transformOrigin: 'top center',
+      <InlinePanelPortal
+        expanded={expanded}
+        panelOverlay={panelOverlay}
+        panelRef={panelRef}
+        xywh={element.xywh}
+        engine={engine}
+      >
+        <AudioAiPanel
+          upstream={{
+            textContent: effectiveUpstream.text,
+            referenceAudioSrc: effectiveUpstream.audioUrl,
+            boardId: fileContext?.boardId,
+            projectId: fileContext?.projectId,
+            boardFolderUri: fileContext?.boardFolderUri,
           }}
-          onPointerDown={event => {
-            event.stopPropagation();
-          }}
-          onContextMenu={event => {
-            event.stopPropagation();
-          }}
-        >
-          <AudioAiPanel
-            upstream={{
-              textContent: effectiveUpstream.text,
-              referenceAudioSrc: effectiveUpstream.audioUrl,
-              boardId: fileContext?.boardId,
-              projectId: fileContext?.projectId,
-              boardFolderUri: fileContext?.boardFolderUri,
-            }}
-            onGenerate={handleGenerate}
-            onGenerateNewNode={handleGenerateNewNode}
-            hasResource={Boolean(element.props.sourcePath)}
-            readonly={(isReadyFromAi || !!generatingEntry) && !editingOverride}
-            editing={editingOverride}
-            onUnlock={() => setEditingOverride(true)}
-            onCancelEdit={() => setEditingOverride(false)}
-          />
-        </div>,
-        panelOverlay,
-      ) : null}
+          onGenerate={handleGenerate}
+          onGenerateNewNode={handleGenerateNewNode}
+          hasResource={Boolean(element.props.sourcePath)}
+          readonly={(isReadyFromAi || !!generatingEntry) && !editingOverride}
+          editing={editingOverride}
+          onUnlock={() => setEditingOverride(true)}
+          onCancelEdit={() => setEditingOverride(false)}
+        />
+      </InlinePanelPortal>
       <input
         ref={fileInputRef}
         type="file"

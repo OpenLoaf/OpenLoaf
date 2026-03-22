@@ -22,12 +22,10 @@ import {
   ImageOff,
   ImagePlus,
   Loader2,
-  RotateCw,
   Trash2,
   Type,
   Upload,
   Video,
-  X,
 } from "lucide-react";
 import { useBoardContext } from "../core/BoardProvider";
 import { buildImageNodePayloadFromUri } from "../utils/image";
@@ -54,7 +52,6 @@ import {
   BOARD_TOOLBAR_ITEM_DEFAULT,
   BOARD_TOOLBAR_ITEM_RED,
 } from "../ui/board-style-system";
-import { createPortal } from "react-dom";
 import { ImageAiPanel, type ImageGenerateParams } from "../panels/ImageAiPanel";
 import { useUpstreamData } from "../hooks/useUpstreamData";
 import { usePanelOverlay } from "../render/pixi/PixiApplication";
@@ -83,8 +80,10 @@ import { useMediaTaskPolling } from "../hooks/useMediaTaskPolling";
 import { VersionStackOverlay, STACK_CARD_SCALE } from "./VersionStackOverlay";
 import { GeneratingOverlay } from "./GeneratingOverlay";
 import { motion, AnimatePresence } from "framer-motion";
-import { useInlinePanelSync, PANEL_GAP_PX } from './shared/useInlinePanelSync';
+import { useInlinePanelSync } from './shared/useInlinePanelSync';
 import { useEffectiveUpstream } from './shared/useEffectiveUpstream';
+import { FailureOverlay } from './shared/FailureOverlay';
+import { InlinePanelPortal } from './shared/InlinePanelPortal';
 
 /** Max bytes for image node preview fetches. */
 const IMAGE_NODE_PREVIEW_MAX_BYTES = 100 * 1024;
@@ -1066,48 +1065,17 @@ export function ImageNodeView({
           onBrushSizeChange={setBrushSize}
         />
         {/* ── Failed / Cancelled overlay (version stack) ── */}
-        {isFailedVersion && !dismissedFailure ? (() => {
-          const isCancelled = lastFailure?.error?.code === 'CANCELLED'
-          return (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-3xl bg-background/75 backdrop-blur-sm">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/[0.06]">
-              <X className="h-4 w-4 text-ol-text-auxiliary" />
-            </div>
-            <span className="text-xs text-ol-text-auxiliary font-medium">
-              {isCancelled
-                ? i18next.t('board:imageNode.cancelled', { defaultValue: '已取消' })
-                : (lastFailure?.error?.message || i18next.t('board:imageNode.generationFailed'))}
-            </span>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleRetryGenerate();
-                }}
-                className="flex items-center gap-1 rounded-full px-3 py-1 text-[11px] bg-white/[0.08] text-ol-text-secondary hover:bg-white/[0.12] transition-colors duration-150"
-              >
-                <RotateCw className="h-3 w-3" />
-                {isCancelled
-                  ? i18next.t('board:imageNode.resend', { defaultValue: '重新发送' })
-                  : i18next.t('board:imageNode.retry')}
-              </button>
-              {hasPreview && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setDismissedFailure(true);
-                  }}
-                  className="text-[11px] text-ol-text-auxiliary underline underline-offset-2 hover:text-ol-text-secondary transition-colors duration-150"
-                >
-                  {i18next.t('board:loading.dismiss')}
-                </button>
-              )}
-            </div>
-          </div>
-          )
-        })() : null}
+        <FailureOverlay
+          visible={isFailedVersion && !dismissedFailure}
+          isCancelled={lastFailure?.error?.code === 'CANCELLED'}
+          message={lastFailure?.error?.message || i18next.t('board:imageNode.generationFailed')}
+          cancelledKey="board:imageNode.cancelled"
+          retryKey="board:imageNode.retry"
+          resendKey="board:imageNode.resend"
+          onRetry={handleRetryGenerate}
+          canDismiss={hasPreview}
+          onDismiss={() => setDismissedFailure(true)}
+        />
       </div>
       {showDetail ? (
         <div
@@ -1130,55 +1098,38 @@ export function ImageNodeView({
           />
         </div>
       ) : null}
-      {expanded && panelOverlay ? createPortal(
-        <div
-          ref={panelRef}
-          className="pointer-events-auto absolute"
-          data-board-editor
-          style={{
-            // 逻辑：面板在 panelOverlay 层（与 DomNodeLayer 同坐标系），
-            // 用节点 xywh 定位在节点正下方居中。
-            // top 由 syncPanelScale 实时更新（间距 = PANEL_GAP_PX / zoom，屏幕恒定像素）。
-            // 初始值也需包含间距，避免 useEffect 执行前出现 0 间距闪烁。
-            left: element.xywh[0] + element.xywh[2] / 2,
-            top: element.xywh[1] + element.xywh[3] + PANEL_GAP_PX / engine.viewport.getState().zoom,
-            transform: `translateX(-50%) scale(${1 / engine.viewport.getState().zoom})`,
-            transformOrigin: 'top center',
-          }}
-          onPointerDown={event => {
-            event.stopPropagation();
-          }}
-          onContextMenu={event => {
-            event.stopPropagation();
-          }}
-        >
-          <ImageAiPanel
-            element={element}
-            onUpdate={onUpdate}
-            upstreamText={effectiveUpstream.text}
-            upstreamImages={effectiveUpstream.images}
-            upstreamImagePaths={effectiveUpstream.imagePaths}
-            upstreamAudioUrl={effectiveUpstream.audioUrl}
-            upstreamVideoUrl={effectiveUpstream.videoUrl}
-            resolvedImageSrc={resolveMediaSource(element.props.originalSrc, fileContext) || previewSrc}
-            onGenerate={handleGenerate}
-            onGenerateNewNode={handleGenerateNewNode}
-            maskPainting={maskPainting}
-            onToggleMaskPaint={setMaskPainting}
-            maskResult={maskResult}
-            maskPaintRef={maskPaintRef}
-            brushSize={brushSize}
-            readonly={(isReadyVersion || isGeneratingVersion) && !editingOverride}
-            editing={editingOverride}
-            onUnlock={() => setEditingOverride(true)}
-            onCancelEdit={() => setEditingOverride(false)}
-            boardId={fileContext?.boardId}
-            projectId={fileContext?.projectId}
-            boardFolderUri={fileContext?.boardFolderUri}
-          />
-        </div>,
-        panelOverlay,
-      ) : null}
+      <InlinePanelPortal
+        expanded={expanded}
+        panelOverlay={panelOverlay}
+        panelRef={panelRef}
+        xywh={element.xywh}
+        engine={engine}
+      >
+        <ImageAiPanel
+          element={element}
+          onUpdate={onUpdate}
+          upstreamText={effectiveUpstream.text}
+          upstreamImages={effectiveUpstream.images}
+          upstreamImagePaths={effectiveUpstream.imagePaths}
+          upstreamAudioUrl={effectiveUpstream.audioUrl}
+          upstreamVideoUrl={effectiveUpstream.videoUrl}
+          resolvedImageSrc={resolveMediaSource(element.props.originalSrc, fileContext) || previewSrc}
+          onGenerate={handleGenerate}
+          onGenerateNewNode={handleGenerateNewNode}
+          maskPainting={maskPainting}
+          onToggleMaskPaint={setMaskPainting}
+          maskResult={maskResult}
+          maskPaintRef={maskPaintRef}
+          brushSize={brushSize}
+          readonly={(isReadyVersion || isGeneratingVersion) && !editingOverride}
+          editing={editingOverride}
+          onUnlock={() => setEditingOverride(true)}
+          onCancelEdit={() => setEditingOverride(false)}
+          boardId={fileContext?.boardId}
+          projectId={fileContext?.projectId}
+          boardFolderUri={fileContext?.boardFolderUri}
+        />
+      </InlinePanelPortal>
       <ProjectFilePickerDialog
         open={replacePickerOpen}
         onOpenChange={setReplacePickerOpen}

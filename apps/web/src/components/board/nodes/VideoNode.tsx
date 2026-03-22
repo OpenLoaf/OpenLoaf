@@ -16,7 +16,7 @@ import type {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 import Hls from "hls.js";
-import { Download, Image, Info, Loader2, Pause, Play, RefreshCw, Scissors, Trash2, Type, Upload, Video, X } from "lucide-react";
+import { Download, Image, Info, Loader2, Pause, Play, Scissors, Trash2, Type, Upload, Video } from "lucide-react";
 import i18next from "i18next";
 import { openVideoTrimDialog } from "../dialogs/video-trim/VideoTrimDialog";
 import {
@@ -36,8 +36,9 @@ import { resolveServerUrl } from "@/utils/server-url";
 import { resolveProjectRelativePath } from './shared/resolveMediaSource';
 import { downloadMediaFile } from './shared/downloadMediaFile';
 import { NodeFrame } from "./NodeFrame";
-import { createPortal } from "react-dom";
 import { VideoAiPanel } from "../panels/VideoAiPanel";
+import { FailureOverlay } from './shared/FailureOverlay';
+import { InlinePanelPortal } from './shared/InlinePanelPortal';
 import type { VideoGenerateParams } from "../panels/VideoAiPanel";
 import { useUpstreamData } from "../hooks/useUpstreamData";
 import { usePanelOverlay } from "../render/pixi/PixiApplication";
@@ -45,7 +46,7 @@ import { deriveNode } from "../utils/derive-node";
 import { submitVideoGenerate } from "../services/video-generate";
 import { resolveAllMediaInputs } from "@/lib/media-upload";
 import { useFileUploadHandler } from './shared/useFileUploadHandler';
-import { useInlinePanelSync, PANEL_GAP_PX } from './shared/useInlinePanelSync';
+import { useInlinePanelSync } from './shared/useInlinePanelSync';
 import { useEffectiveUpstream } from './shared/useEffectiveUpstream';
 import {
   createInputSnapshot,
@@ -916,48 +917,17 @@ export function VideoNodeView({
         )}
 
         {/* Failed / Cancelled overlay */}
-        {isFailed && !dismissedFailure && (() => {
-          const isCancelled = lastFailure?.error?.code === 'CANCELLED'
-          return (
-          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-background/75 backdrop-blur-sm p-4 rounded-3xl">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/[0.06]">
-              <X className="h-4 w-4 text-ol-text-auxiliary" />
-            </div>
-            <span className="text-xs text-center text-ol-text-auxiliary font-medium">
-              {isCancelled
-                ? i18next.t('board:videoNode.cancelled', { defaultValue: '已取消' })
-                : (lastFailure?.error?.message || i18next.t('board:videoNode.generateFailed', { defaultValue: 'Generation failed' }))}
-            </span>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleRetry();
-                }}
-                className="flex items-center gap-1 rounded-full px-3 py-1 text-[11px] bg-white/[0.08] text-ol-text-secondary hover:bg-white/[0.12] transition-colors duration-150"
-              >
-                <RefreshCw className="h-3 w-3" />
-                {isCancelled
-                  ? i18next.t('board:videoNode.resend', { defaultValue: '重新发送' })
-                  : i18next.t('board:videoNode.retry', { defaultValue: 'Retry' })}
-              </button>
-              {posterSrc && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setDismissedFailure(true);
-                  }}
-                  className="text-[11px] text-ol-text-auxiliary underline underline-offset-2 hover:text-ol-text-secondary transition-colors duration-150"
-                >
-                  {i18next.t('board:loading.dismiss', { defaultValue: 'Dismiss' })}
-                </button>
-              )}
-            </div>
-          </div>
-          )
-        })()}
+        <FailureOverlay
+          visible={isFailed && !dismissedFailure}
+          isCancelled={lastFailure?.error?.code === 'CANCELLED'}
+          message={lastFailure?.error?.message || i18next.t('board:videoNode.generateFailed', { defaultValue: 'Generation failed' })}
+          cancelledKey="board:videoNode.cancelled"
+          retryKey="board:videoNode.retry"
+          resendKey="board:videoNode.resend"
+          onRetry={handleRetry}
+          canDismiss={Boolean(posterSrc)}
+          onDismiss={() => setDismissedFailure(true)}
+        />
 
         {playing ? (
           <div
@@ -1059,45 +1029,32 @@ export function VideoNodeView({
           </div>
         )}
       </div>
-      {expanded && panelOverlay ? createPortal(
-        <div
-          ref={panelRef}
-          className="pointer-events-auto absolute"
-          data-board-editor
-          style={{
-            left: element.xywh[0] + element.xywh[2] / 2,
-            top: element.xywh[1] + element.xywh[3] + PANEL_GAP_PX / engine.viewport.getState().zoom,
-            transform: `translateX(-50%) scale(${1 / engine.viewport.getState().zoom})`,
-            transformOrigin: 'top center',
-          }}
-          onPointerDown={event => {
-            event.stopPropagation();
-          }}
-          onContextMenu={event => {
-            event.stopPropagation();
-          }}
-        >
-          <VideoAiPanel
-            element={element}
-            onUpdate={onUpdate}
-            onGenerate={handleGenerate}
-            onGenerateNewNode={handleGenerateNewNode}
-            upstreamText={effectiveUpstream.text}
-            upstreamImages={effectiveUpstream.images}
-            upstreamImagePaths={effectiveUpstream.imagePaths}
-            upstreamAudioUrl={effectiveUpstream.audioUrl}
-            upstreamVideoUrl={effectiveUpstream.videoUrl}
-            boardId={fileContext?.boardId}
-            projectId={fileContext?.projectId}
-            boardFolderUri={fileContext?.boardFolderUri}
-            readonly={(isReadyFromAi || !!generatingEntry) && !editingOverride}
-            editing={editingOverride}
-            onUnlock={() => setEditingOverride(true)}
-            onCancelEdit={() => setEditingOverride(false)}
-          />
-        </div>,
-        panelOverlay,
-      ) : null}
+      <InlinePanelPortal
+        expanded={expanded}
+        panelOverlay={panelOverlay}
+        panelRef={panelRef}
+        xywh={element.xywh}
+        engine={engine}
+      >
+        <VideoAiPanel
+          element={element}
+          onUpdate={onUpdate}
+          onGenerate={handleGenerate}
+          onGenerateNewNode={handleGenerateNewNode}
+          upstreamText={effectiveUpstream.text}
+          upstreamImages={effectiveUpstream.images}
+          upstreamImagePaths={effectiveUpstream.imagePaths}
+          upstreamAudioUrl={effectiveUpstream.audioUrl}
+          upstreamVideoUrl={effectiveUpstream.videoUrl}
+          boardId={fileContext?.boardId}
+          projectId={fileContext?.projectId}
+          boardFolderUri={fileContext?.boardFolderUri}
+          readonly={(isReadyFromAi || !!generatingEntry) && !editingOverride}
+          editing={editingOverride}
+          onUnlock={() => setEditingOverride(true)}
+          onCancelEdit={() => setEditingOverride(false)}
+        />
+      </InlinePanelPortal>
       <input
         ref={fileInputRef}
         type="file"
