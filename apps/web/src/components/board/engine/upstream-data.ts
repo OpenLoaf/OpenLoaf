@@ -20,6 +20,9 @@ import type { TextNodeValue } from "../nodes/TextNode";
 // ---------------------------------------------------------------------------
 
 /** Upstream data resolved from connected nodes. */
+/** An upstream data entry with its source node ID for traceability. */
+export type UpstreamEntry = { nodeId: string; nodeType: string; data: string };
+
 export type UpstreamData = {
   /** Text contents extracted from upstream text nodes. */
   textList: string[];
@@ -29,6 +32,8 @@ export type UpstreamData = {
   videoList: string[];
   /** Audio sources extracted from upstream audio nodes. */
   audioList: string[];
+  /** All entries with source node IDs (for InputSnapshot.upstreamRefs). */
+  entries: UpstreamEntry[];
 };
 
 /** Empty upstream data constant to avoid unnecessary allocations. */
@@ -37,6 +42,7 @@ const EMPTY_UPSTREAM_DATA: UpstreamData = {
   imageList: [],
   videoList: [],
   audioList: [],
+  entries: [],
 };
 
 // ---------------------------------------------------------------------------
@@ -174,6 +180,7 @@ export function resolveUpstreamData(
   const imageList: string[] = [];
   const videoList: string[] = [];
   const audioList: string[] = [];
+  const entries: UpstreamEntry[] = [];
 
   for (const conn of connectors) {
     // Skip connectors whose source is a free point (not attached to a node).
@@ -189,34 +196,33 @@ export function resolveUpstreamData(
       const text = serializeTextNodeValue(props.value);
       if (text.trim()) {
         textList.push(text);
+        entries.push({ nodeId: node.id, nodeType: 'text', data: text });
       }
     } else if (node.type === "image") {
       const props = node.props as { previewSrc?: string; originalSrc?: string };
       const src = props.previewSrc || props.originalSrc;
       if (src) {
         imageList.push(src);
+        entries.push({ nodeId: node.id, nodeType: 'image', data: src });
       }
     } else if (node.type === "video") {
       const props = node.props as { sourcePath?: string };
       if (props.sourcePath) {
         videoList.push(props.sourcePath);
+        entries.push({ nodeId: node.id, nodeType: 'video', data: props.sourcePath });
       }
     } else if (node.type === "audio") {
       const props = node.props as { sourcePath?: string };
       if (props.sourcePath) {
         audioList.push(props.sourcePath);
+        entries.push({ nodeId: node.id, nodeType: 'audio', data: props.sourcePath });
       }
     }
   }
 
-  if (
-    textList.length === 0 &&
-    imageList.length === 0 &&
-    videoList.length === 0 &&
-    audioList.length === 0
-  ) {
+  if (entries.length === 0) {
     return EMPTY_UPSTREAM_DATA;
   }
 
-  return { textList, imageList, videoList, audioList };
+  return { textList, imageList, videoList, audioList, entries };
 }

@@ -24,6 +24,7 @@ import {
   RefreshCw,
   Trash2,
   Type,
+  Upload,
   Video,
   X,
 } from "lucide-react";
@@ -179,6 +180,29 @@ const editingUnlockedIds = new Set<string>();
 function createAudioToolbarItems(
   ctx: CanvasToolbarContext<AudioNodeProps>,
 ) {
+  const isEmpty = !ctx.element.props.sourcePath?.trim()
+
+  // 逻辑：空节点只显示上传和删除按钮。
+  if (isEmpty) {
+    return [
+      {
+        id: 'upload',
+        label: i18next.t('board:toolbar.upload', { defaultValue: '上传' }),
+        icon: <Upload size={14} />,
+        onSelect: () => {
+          document.dispatchEvent(new CustomEvent('board:trigger-upload', { detail: ctx.element.id }));
+        },
+      },
+      {
+        id: 'delete',
+        label: i18next.t('board:audioNode.toolbar.delete'),
+        icon: <Trash2 size={14} />,
+        className: 'text-destructive',
+        onSelect: () => ctx.engine.deleteSelection(),
+      },
+    ]
+  }
+
   const items: ReturnType<typeof Array<any>>  = []
 
   items.push(
@@ -282,6 +306,17 @@ export function AudioNodeView({
     },
     [fileContext, onUpdate],
   );
+
+  // 逻辑：监听工具栏上传按钮的自定义事件，触发隐藏文件选择器。
+  useEffect(() => {
+    const handler = (e: Event) => {
+      if ((e as CustomEvent).detail === element.id) {
+        fileInputRef.current?.click();
+      }
+    };
+    document.addEventListener('board:trigger-upload', handler);
+    return () => document.removeEventListener('board:trigger-upload', handler);
+  }, [element.id]);
 
   // 逻辑：通过 subscribeView 直接操作 DOM 同步面板缩放，避免 React 渲染延迟。
   // 面板通过 Portal 渲染到 panelOverlay 层（笔画上方），用 scale(1/zoom) 保持固定屏幕大小。
@@ -486,10 +521,7 @@ export function AudioNodeView({
             variant: params.variant,
             ...params.params,
           },
-          upstreamRefs: [
-            ...(upstream?.textList ?? []).map(text => ({ nodeId: '', nodeType: 'text', data: text })),
-            ...(upstream?.audioList ?? []).map(src => ({ nodeId: '', nodeType: 'audio', data: src })),
-          ],
+          upstreamRefs: upstream?.entries ?? [],
         })
         const entry = createGeneratingEntry(snapshot, result.taskId)
         onUpdate({

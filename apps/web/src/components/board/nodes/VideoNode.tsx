@@ -16,7 +16,7 @@ import type {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 import Hls from "hls.js";
-import { Download, Image, Info, Loader2, Pause, Play, RefreshCw, Scissors, Trash2, Type, Video, X } from "lucide-react";
+import { Download, Image, Info, Loader2, Pause, Play, RefreshCw, Scissors, Trash2, Type, Upload, Video, X } from "lucide-react";
 import i18next from "i18next";
 import { openVideoTrimDialog } from "../dialogs/video-trim/VideoTrimDialog";
 import {
@@ -46,6 +46,7 @@ import { useUpstreamData } from "../hooks/useUpstreamData";
 import { usePanelOverlay } from "../render/pixi/PixiApplication";
 import { deriveNode } from "../utils/derive-node";
 import { submitVideoGenerate } from "../services/video-generate";
+import { resolveAllMediaInputs } from "@/lib/media-upload";
 import { saveBoardAssetFile } from "../utils/board-asset";
 import {
   createInputSnapshot,
@@ -229,6 +230,30 @@ const editingUnlockedIds = new Set<string>();
 /** Build toolbar items for video nodes. */
 function createVideoToolbarItems(ctx: CanvasToolbarContext<VideoNodeProps>) {
   const { clipStart, clipEnd, duration, sourcePath } = ctx.element.props;
+  const isEmpty = !sourcePath?.trim();
+
+  // 逻辑：空节点只显示上传和删除按钮。
+  if (isEmpty) {
+    return [
+      {
+        id: 'upload',
+        label: i18next.t('board:toolbar.upload', { defaultValue: '上传' }),
+        icon: <Upload size={14} />,
+        className: BOARD_TOOLBAR_ITEM_DEFAULT,
+        onSelect: () => {
+          document.dispatchEvent(new CustomEvent('board:trigger-upload', { detail: ctx.element.id }));
+        },
+      },
+      {
+        id: 'delete',
+        label: i18next.t('board:contextMenu.delete'),
+        icon: <Trash2 size={14} />,
+        className: BOARD_TOOLBAR_ITEM_RED,
+        onSelect: () => ctx.engine.deleteSelection(),
+      },
+    ];
+  }
+
   const hasClip = (clipStart != null && clipStart > 0) || (clipEnd != null && duration != null && clipEnd < duration);
 
   // 逻辑：计算 HLS 所需的路径和 ID，传给剪辑对话框。
@@ -472,6 +497,17 @@ export function VideoNodeView({
     },
     [fileContext, onUpdate],
   );
+
+  // 逻辑：监听工具栏上传按钮的自定义事件，触发隐藏文件选择器。
+  useEffect(() => {
+    const handler = (e: Event) => {
+      if ((e as CustomEvent).detail === element.id) {
+        fileInputRef.current?.click();
+      }
+    };
+    document.addEventListener('board:trigger-upload', handler);
+    return () => document.removeEventListener('board:trigger-upload', handler);
+  }, [element.id]);
 
   // 逻辑：通过 subscribeView 直接操作 DOM 同步面板缩放，避免 React 渲染延迟。
   // 面板通过 Portal 渲染到 panelOverlay 层（笔画上方），用 scale(1/zoom) 保持固定屏幕大小。
@@ -834,10 +870,7 @@ export function VideoNodeView({
             quality: params.quality,
             withAudio: params.withAudio,
           },
-          upstreamRefs: [
-            ...(upstream?.textList ?? []).map(text => ({ nodeId: '', nodeType: 'text', data: text })),
-            ...(upstream?.imageList ?? []).map(src => ({ nodeId: '', nodeType: 'image', data: src })),
-          ],
+          upstreamRefs: upstream?.entries ?? [],
         })
         const entry = createGeneratingEntry(snapshot, result.taskId)
         onUpdate({
@@ -926,12 +959,15 @@ export function VideoNodeView({
           aiConfig: { feature: params.feature, prompt: params.prompt ?? '' },
         })
 
+        // 逻辑：上传媒体输入到公网 URL，在子节点创建后再执行以避免阻塞。
+        const resolvedInputs = await resolveAllMediaInputs(params.inputs ?? {}, fileContext?.boardId)
+
         const result = await submitVideoGenerate(
           {
             // v3 fields
             feature: params.feature,
             variant: params.variant,
-            inputs: params.inputs,
+            inputs: resolvedInputs,
             params: params.params,
             count: params.count,
             seed: params.seed,

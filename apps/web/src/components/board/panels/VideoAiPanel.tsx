@@ -19,7 +19,8 @@ import { MEDIA_PREFERENCES, MEDIA_FEATURES, type MediaPreferenceId, type MediaFe
 import { useCapabilities } from '@/hooks/use-capabilities'
 import { resolveAllMediaInputs } from '@/lib/media-upload'
 import { GenerateActionBar } from './GenerateActionBar'
-import { VIDEO_VARIANT_REGISTRY, VIDEO_VARIANT_CONSTRAINTS } from './variants/video'
+import { VIDEO_VARIANTS } from './variants/video'
+import type { VariantContext } from './variants/types'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -144,22 +145,43 @@ export function VideoAiPanel({
     [features, selectedFeatureId],
   )
 
+  // ── Variant context & applicability ──
+  const variantCtx: VariantContext = useMemo(() => ({
+    nodeHasImage: false, // video nodes don't have a "current image"
+    hasImage: Boolean(upstreamImages?.length),
+    hasAudio: Boolean(upstreamAudioUrl),
+  }), [upstreamImages?.length, upstreamAudioUrl])
+
+  const isVariantApplicable = useCallback((variantId: string) => {
+    const def = VIDEO_VARIANTS[variantId]
+    return !def || def.isApplicable(variantCtx)
+  }, [variantCtx])
+
   // ── Variant selector state ──
   const [selectedVariantId, setSelectedVariantId] = useState<string>('')
 
-  // Auto-select first variant when feature changes.
+  // Auto-select first applicable variant when feature changes.
   useEffect(() => {
     if (selectedFeature?.variants?.length) {
-      const current = selectedFeature.variants.find((v) => v.id === selectedVariantId)
+      const current = selectedFeature.variants.find((v) => v.id === selectedVariantId && isVariantApplicable(v.id))
       if (!current) {
-        setSelectedVariantId(selectedFeature.variants[0].id)
+        const first = selectedFeature.variants.find(v => isVariantApplicable(v.id))
+        setSelectedVariantId(first?.id ?? selectedFeature.variants[0].id)
       }
     }
-  }, [selectedFeature, selectedVariantId])
+  }, [selectedFeature, selectedVariantId, isVariantApplicable])
 
   const selectedVariant = useMemo(
-    () => selectedFeature?.variants?.find((v) => v.id === selectedVariantId) ?? null,
-    [selectedFeature, selectedVariantId],
+    () => {
+      if (!selectedFeature?.variants?.length) return null
+      if (selectedVariantId) {
+        const found = selectedFeature.variants.find((v) => v.id === selectedVariantId && isVariantApplicable(v.id))
+        if (found) return found
+      }
+      return selectedFeature.variants.find(v => isVariantApplicable(v.id))
+        ?? selectedFeature.variants[0]
+    },
+    [selectedFeature, selectedVariantId, isVariantApplicable],
   )
 
   // ── Variant warning ──
@@ -178,6 +200,42 @@ export function VideoAiPanel({
     seed?: number
   }>({ inputs: {}, params: {} })
 
+  // ── Params cache — in-memory map for instant reads, async persist to node ──
+  const aiConfigRef = useRef(aiConfig)
+  aiConfigRef.current = aiConfig
+  const activeKeyRef = useRef('')
+  const paramsCacheLocal = useRef(
+    (aiConfig?.paramsCache ?? {}) as Record<string, typeof latestParams.current>,
+  )
+
+  const persistCacheToNode = useCallback(() => {
+    const key = activeKeyRef.current
+    if (key) paramsCacheLocal.current[key] = latestParams.current
+    onUpdate({
+      aiConfig: {
+        prompt: '',
+        ...aiConfigRef.current,
+        paramsCache: { ...paramsCacheLocal.current },
+      },
+    })
+  }, [onUpdate])
+
+  // Save old variant to local cache before switching
+  useEffect(() => {
+    const newKey = selectedVariant ? `${selectedFeatureId}:${selectedVariant.id}` : ''
+    const prevKey = activeKeyRef.current
+    if (prevKey && prevKey !== newKey) {
+      paramsCacheLocal.current[prevKey] = { ...latestParams.current }
+      persistCacheToNode()
+    }
+    activeKeyRef.current = newKey
+  }, [selectedFeatureId, selectedVariant?.id, persistCacheToNode])
+
+  // Persist to node when panel unmounts
+  useEffect(() => {
+    return () => persistCacheToNode()
+  }, [persistCacheToNode])
+
   const handleParamsChange = useCallback(
     (params: {
       inputs: Record<string, unknown>
@@ -186,6 +244,8 @@ export function VideoAiPanel({
       seed?: number
     }) => {
       latestParams.current = params
+      const key = activeKeyRef.current
+      if (key) paramsCacheLocal.current[key] = params
     },
     [],
   )
@@ -195,29 +255,23 @@ export function VideoAiPanel({
 
   const isGenerateDisabled = useMemo(() => {
     if (!selectedFeature || !selectedVariant) return true
-    const vc = VIDEO_VARIANT_CONSTRAINTS[selectedVariant.id]
-    const hasImage = Boolean(upstreamImages?.length)
-    const hasAudio = Boolean(upstreamAudioUrl)
-    if (vc?.requiresImage && !hasImage) return true
-    if (vc?.requiresAudio && !hasAudio) return true
+    const def = VIDEO_VARIANTS[selectedVariant.id]
+    if (def?.isDisabled?.(variantCtx)) return true
     return false
-  }, [selectedFeature, selectedVariant, upstreamImages, upstreamAudioUrl])
+  }, [selectedFeature, selectedVariant, variantCtx])
 
-  /** Build VideoGenerateParams from the current state. */
-  const buildParams = useCallback(async (): Promise<VideoGenerateParams> => {
+  /** Collect params without uploading media — fast, for immediate node creation. */
+  const collectParams = useCallback((): VideoGenerateParams => {
     const p = latestParams.current
     const promptValue =
       (p.params?.prompt as string) ??
       (p.inputs?.prompt as string) ??
       ''
 
-    // Upload all media inputs to public URLs before sending to server
-    const resolvedInputs = await resolveAllMediaInputs(p.inputs, boardId)
-
     return {
       feature: selectedFeatureId,
       variant: selectedVariantId,
-      inputs: resolvedInputs,
+      inputs: p.inputs,
       params: p.params,
       count: p.count,
       seed: p.seed,
@@ -229,7 +283,14 @@ export function VideoAiPanel({
       quality: (p.params?.quality as string) ?? undefined,
       mode: (p.params?.mode as string) ?? undefined,
     }
-  }, [selectedFeatureId, selectedVariantId, selectedVariant, boardId])
+  }, [selectedFeatureId, selectedVariantId, selectedVariant])
+
+  /** Build VideoGenerateParams with media uploaded to public URLs. */
+  const buildParams = useCallback(async (): Promise<VideoGenerateParams> => {
+    const params = collectParams()
+    const resolvedInputs = params.inputs ? await resolveAllMediaInputs(params.inputs, boardId) : params.inputs
+    return { ...params, inputs: resolvedInputs }
+  }, [collectParams, boardId])
 
   const handleGenerate = useCallback(async () => {
     if (isGenerating) return
@@ -255,10 +316,11 @@ export function VideoAiPanel({
     if (isGenerating) return
     setIsGenerating(true)
 
-    const params = await buildParams()
+    // Use collectParams (no S3 upload) so the child node is created immediately.
+    const params = collectParams()
     onGenerateNewNode?.(params)
     setTimeout(() => setIsGenerating(false), 300)
-  }, [isGenerating, buildParams, onGenerateNewNode])
+  }, [isGenerating, collectParams, onGenerateNewNode])
 
   const hasResource = Boolean(element.props.sourcePath)
 
@@ -279,7 +341,7 @@ export function VideoAiPanel({
 
   // ── Resolve variant form component ──
   const VariantForm = selectedVariant
-    ? VIDEO_VARIANT_REGISTRY[selectedVariant.id] ?? null
+    ? VIDEO_VARIANTS[selectedVariant.id]?.component ?? null
     : null
 
   const showFallback = !features.length
@@ -312,7 +374,17 @@ export function VideoAiPanel({
               </button>
             </>
           ) : (
-            <span className="text-xs text-muted-foreground">{t('v3.common.noVariants')}</span>
+            <>
+              <span className="text-sm font-medium text-muted-foreground">{t('v3.common.loadError')}</span>
+              <span className="text-[11px] text-muted-foreground/60">{t('v3.common.loadErrorHint')}</span>
+              <button
+                type="button"
+                className="mt-1 rounded-full border border-border px-3.5 py-1 text-xs text-muted-foreground hover:bg-foreground/5 transition-colors duration-150"
+                onClick={() => capsRefresh()}
+              >
+                {t('v3.common.retry')}
+              </button>
+            </>
           )}
         </div>
       ) : null}
@@ -351,6 +423,7 @@ export function VideoAiPanel({
           upstream={upstream}
           nodeResourceUrl={undefined}
           disabled={readonly}
+          initialParams={paramsCacheLocal.current[`${selectedFeatureId}:${selectedVariant.id}`] ?? aiConfig?.paramsCache?.[`${selectedFeatureId}:${selectedVariant.id}`]}
           onParamsChange={handleParamsChange}
           onWarningChange={setVariantWarning}
         />
@@ -369,7 +442,7 @@ export function VideoAiPanel({
       ) : null}
 
       {/* -- Generate Action Bar -- */}
-      <GenerateActionBar
+      {!showFallback ? <GenerateActionBar
         hasResource={hasResource}
         generating={isGenerating}
         disabled={isGenerateDisabled}
@@ -382,30 +455,19 @@ export function VideoAiPanel({
         onCancelEdit={onCancelEdit}
         creditsPerCall={selectedVariant?.creditsPerCall}
         warningMessage={variantWarning}
-        variants={selectedFeature?.variants?.map((v) => {
-          const vc = VIDEO_VARIANT_CONSTRAINTS[v.id]
-          const hasImage = Boolean(upstreamImages?.length)
-          const hasAudio = Boolean(upstreamAudioUrl)
-          const needsImage = vc?.requiresImage && !hasImage
-          const needsAudio = vc?.requiresAudio && !hasAudio
-          const incompatible = needsImage || needsAudio
-          // Use server-provided preference label; fall back to displayName.
-          const prefLabel = MEDIA_PREFERENCES[v.preference as MediaPreferenceId]?.label[prefLang]
-          return {
-            id: v.id,
-            displayName: prefLabel ?? v.id,
-            creditsPerCall: v.creditsPerCall,
-            incompatible,
-            incompatibleReason: needsImage
-              ? t('v3.constraints.requiresImage', { defaultValue: '需要输入图片' })
-              : needsAudio
-                ? t('v3.constraints.requiresAudio', { defaultValue: '需要输入音频' })
-                : undefined,
-          }
-        })}
+        variants={selectedFeature?.variants
+          ?.filter((v) => isVariantApplicable(v.id))
+          .map((v) => {
+            const prefLabel = MEDIA_PREFERENCES[v.preference as MediaPreferenceId]?.label[prefLang]
+            return {
+              id: v.id,
+              displayName: prefLabel ?? v.id,
+              creditsPerCall: v.creditsPerCall,
+            }
+          })}
         selectedVariantId={selectedVariant?.id ?? undefined}
         onVariantChange={setSelectedVariantId}
-      />
+      /> : null}
     </div>
   )
 }

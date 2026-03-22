@@ -27,14 +27,8 @@ import type { AiGenerateConfig } from '../board-contracts'
 import {
   BOARD_GENERATE_INPUT,
 } from '../ui/board-style-system'
-import {
-  IMAGE_VARIANT_REGISTRY,
-  IMAGE_VARIANT_CONSTRAINTS,
-  MASK_PAINT_VARIANTS,
-  MASK_REQUIRED_VARIANTS,
-} from './variants/image'
-import type { VariantFormProps } from './variants/types'
-import { ResultPagination } from './ResultPagination'
+import { IMAGE_VARIANTS } from './variants/image'
+import type { VariantContext, VariantFormProps } from './variants/types'
 import { GenerateActionBar } from './GenerateActionBar'
 
 // ---------------------------------------------------------------------------
@@ -110,14 +104,15 @@ function GenericVariantFallback({
   onParamsChange,
 }: VariantFormProps) {
   const { t } = useTranslation('board')
-  const [prompt, setPrompt] = useState(upstream.textContent ?? '')
+  const [prompt, setPrompt] = useState('')
 
   const sync = useCallback(() => {
+    const effectivePrompt = [upstream.textContent, prompt].filter(s => s?.trim()).join('\n')
     onParamsChange({
-      inputs: { prompt },
+      inputs: { prompt: effectivePrompt },
       params: {},
     })
-  }, [prompt, onParamsChange])
+  }, [prompt, upstream.textContent, onParamsChange])
 
   useEffect(() => { sync() }, [sync])
 
@@ -180,7 +175,11 @@ export function ImageAiPanel({
   const features = capabilities?.features ?? []
 
   // ── Feature & variant selection state ──
-  const initialFeatureId = (aiConfig?.feature as string | undefined) ?? 'imageGenerate'
+  // When the node already has an image, default to imageEdit (user intent is to
+  // modify the existing image, not generate from scratch).
+  const nodeHasImage = Boolean(element.props.previewSrc || element.props.originalSrc)
+  const initialFeatureId = (aiConfig?.feature as string | undefined)
+    ?? (nodeHasImage ? 'imageEdit' : 'imageGenerate')
   const [selectedFeatureId, setSelectedFeatureId] = useState(initialFeatureId)
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null)
 
@@ -190,22 +189,59 @@ export function ImageAiPanel({
     [features, selectedFeatureId],
   )
 
+  // Build variant context — each variant uses this to decide applicability
+  const variantCtx: VariantContext = useMemo(() => ({
+    nodeHasImage,
+    hasImage: Boolean(element.props.previewSrc || element.props.originalSrc || upstreamImages?.length),
+    hasAudio: false, // image panel has no audio
+  }), [nodeHasImage, element.props.previewSrc, element.props.originalSrc, upstreamImages?.length])
+
+  /** Check if a variant is applicable in the current context. */
+  const isVariantApplicable = useCallback((variantId: string) => {
+    const def = IMAGE_VARIANTS[variantId]
+    return !def || def.isApplicable(variantCtx)
+  }, [variantCtx])
+
+  // Smart default: pick the first applicable variant.
   const selectedVariant: V3Variant | undefined = useMemo(() => {
     if (!selectedFeature) return undefined
-    return selectedFeature.variants.find(v => v.id === selectedVariantId)
-      ?? selectedFeature.variants[0]
-  }, [selectedFeature, selectedVariantId])
+    // Explicit user selection — honour it if applicable
+    if (selectedVariantId) {
+      const found = selectedFeature.variants.find(v => v.id === selectedVariantId)
+      if (found && isVariantApplicable(found.id)) return found
+    }
+    // Default: first applicable variant
+    const applicable = selectedFeature.variants.find(v => isVariantApplicable(v.id))
+    if (applicable) return applicable
+    return selectedFeature.variants[0]
+  }, [selectedFeature, selectedVariantId, isVariantApplicable])
 
   // Sync feature selection when capabilities arrive or aiConfig changes
+  // Helper: does a feature have at least one applicable variant?
+  const featureHasApplicable = useCallback(
+    (feat: V3Feature) => feat.variants.some(v => isVariantApplicable(v.id)),
+    [isVariantApplicable],
+  )
+
   useEffect(() => {
     if (!features.length) return
     const configFeature = aiConfig?.feature as string | undefined
-    if (configFeature && features.some(f => f.id === configFeature)) {
-      setSelectedFeatureId(configFeature)
+    // Honour cached feature if it has applicable variants
+    if (configFeature) {
+      const feat = features.find(f => f.id === configFeature)
+      if (feat && featureHasApplicable(feat)) {
+        setSelectedFeatureId(configFeature)
+        return
+      }
+    }
+    // Fallback: first feature with applicable variants
+    const fallback = features.find(f => featureHasApplicable(f))
+    if (fallback) {
+      setSelectedFeatureId(fallback.id)
     } else if (!features.some(f => f.id === selectedFeatureId)) {
       setSelectedFeatureId(features[0].id)
     }
-  }, [features, aiConfig?.feature]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [features, aiConfig?.feature, featureHasApplicable]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Variant params (collected from the active variant form) ──
   const variantParamsRef = useRef<{
@@ -215,6 +251,45 @@ export function ImageAiPanel({
     seed?: number
   }>({ inputs: {}, params: {} })
 
+  // ── Params cache — in-memory map for instant reads, async persist to node ──
+  const aiConfigRef = useRef(aiConfig)
+  aiConfigRef.current = aiConfig
+  const activeKeyRef = useRef('')
+  // Local cache map — always up-to-date, survives feature/variant switching within same panel session.
+  const paramsCacheLocal = useRef(
+    (aiConfig?.paramsCache ?? {}) as Record<string, typeof variantParamsRef.current>,
+  )
+
+  const persistCacheToNode = useCallback(() => {
+    // Flush current variant params into local map
+    const key = activeKeyRef.current
+    if (key) paramsCacheLocal.current[key] = variantParamsRef.current
+    onUpdate({
+      aiConfig: {
+        prompt: '',
+        ...aiConfigRef.current,
+        paramsCache: { ...paramsCacheLocal.current },
+      },
+    })
+  }, [onUpdate])
+
+  // Track active key — save old variant to local cache before switching
+  useEffect(() => {
+    const newKey = selectedVariant ? `${selectedFeatureId}:${selectedVariant.id}` : ''
+    const prevKey = activeKeyRef.current
+    if (prevKey && prevKey !== newKey) {
+      // Snapshot current params into local cache BEFORE new form overwrites variantParamsRef
+      paramsCacheLocal.current[prevKey] = { ...variantParamsRef.current }
+      persistCacheToNode()
+    }
+    activeKeyRef.current = newKey
+  }, [selectedFeatureId, selectedVariant?.id, persistCacheToNode])
+
+  // Persist to node when panel unmounts
+  useEffect(() => {
+    return () => persistCacheToNode()
+  }, [persistCacheToNode])
+
   const handleVariantParamsChange = useCallback((params: {
     inputs: Record<string, unknown>
     params: Record<string, unknown>
@@ -222,6 +297,9 @@ export function ImageAiPanel({
     seed?: number
   }) => {
     variantParamsRef.current = params
+    // Also keep local cache in sync for instant reads on switch
+    const key = activeKeyRef.current
+    if (key) paramsCacheLocal.current[key] = params
   }, [])
 
   // ── Variant warning ──
@@ -235,14 +313,15 @@ export function ImageAiPanel({
   // ── Generation state ──
   const [isGenerating, setIsGenerating] = useState(false)
 
-  const aiResults = aiConfig?.results
-  const selectedResultIndex = aiConfig?.selectedIndex ?? 0
-
   /** Whether the node currently has a resource. */
   const hasResource = Boolean(element.props.previewSrc || element.props.originalSrc)
 
   /** Whether mask painting is needed for the current variant. */
-  const needsMaskPaint = selectedVariant ? MASK_PAINT_VARIANTS.has(selectedVariant.id) : false
+  // 逻辑：readonly（未解锁编辑）时不激活遮罩绘制，避免光标提前变成遮罩圆圈。
+  const variantDef = selectedVariant ? IMAGE_VARIANTS[selectedVariant.id] : undefined
+  const needsMaskPaint = selectedVariant && !(readonly && !editing)
+    ? Boolean(variantDef?.maskPaint)
+    : false
 
   // Toggle mask painting when variant changes
   useEffect(() => {
@@ -251,24 +330,9 @@ export function ImageAiPanel({
 
   // ── Callbacks ──
 
-  const handleResultSelect = useCallback(
-    (index: number) => {
-      if (!aiResults || index < 0 || index >= aiResults.length) return
-      const result = aiResults[index]
-      onUpdate({
-        previewSrc: result.previewSrc,
-        originalSrc: result.originalSrc,
-        aiConfig: {
-          ...aiConfig!,
-          selectedIndex: index,
-        },
-      })
-    },
-    [aiResults, aiConfig, onUpdate],
-  )
 
-  /** Build v3-compatible generation params from current state. */
-  const buildParams = useCallback(async (): Promise<ImageGenerateParams> => {
+  /** Collect params without uploading media — fast, for immediate node creation. */
+  const collectParams = useCallback(async (): Promise<ImageGenerateParams> => {
     const vp = variantParamsRef.current
     const inputs = { ...vp.inputs }
 
@@ -294,13 +358,10 @@ export function ImageAiPanel({
       inputs.mask = { url: maskResult.maskDataUrl }
     }
 
-    // Upload all media inputs to public URLs before sending to server
-    const resolvedInputs = await resolveAllMediaInputs(inputs, boardId)
-
     return {
       feature: selectedFeature?.id ?? 'imageGenerate',
       variant: selectedVariant?.id ?? '',
-      inputs: resolvedInputs,
+      inputs,
       params: vp.params,
       count: vp.count,
       seed: vp.seed,
@@ -308,7 +369,14 @@ export function ImageAiPanel({
       prompt: (vp.inputs.prompt as string) ?? (vp.params.prompt as string) ?? '',
       aspectRatio: vp.params.aspectRatio as string | undefined,
     }
-  }, [selectedFeature, selectedVariant, needsMaskPaint, maskResult, boardFolderUri, projectId, boardId])
+  }, [selectedFeature, selectedVariant, needsMaskPaint, maskResult, boardFolderUri, projectId])
+
+  /** Build v3-compatible generation params with media uploaded to public URLs. */
+  const buildParams = useCallback(async (): Promise<ImageGenerateParams> => {
+    const params = await collectParams()
+    const resolvedInputs = await resolveAllMediaInputs(params.inputs, boardId)
+    return { ...params, inputs: resolvedInputs }
+  }, [collectParams, boardId])
 
   const handleGenerate = useCallback(async () => {
     if (isGenerating) return
@@ -330,7 +398,9 @@ export function ImageAiPanel({
   const handleGenerateNewNode = useCallback(async () => {
     if (isGenerating) return
     setIsGenerating(true)
-    const params = await buildParams()
+    // Use collectParams (no S3 upload) so the child node is created immediately.
+    // Media upload will happen in ImageNode.handleGenerateNewNode after node creation.
+    const params = await collectParams()
     // Save current params to aiConfig so the panel can restore them on reopen
     onUpdate({
       aiConfig: {
@@ -342,34 +412,25 @@ export function ImageAiPanel({
     })
     onGenerateNewNode?.(params)
     setTimeout(() => setIsGenerating(false), 600)
-  }, [isGenerating, onGenerateNewNode, buildParams, onUpdate, aiConfig])
+  }, [isGenerating, onGenerateNewNode, collectParams, onUpdate, aiConfig])
 
   const handleFeatureSelect = useCallback((featureId: string) => {
     setSelectedFeatureId(featureId)
     setSelectedVariantId(null) // Reset to first variant of the new feature
   }, [])
 
-  // ── Variant constraints ──
-  const selectedConstraints = selectedVariant
-    ? IMAGE_VARIANT_CONSTRAINTS[selectedVariant.id]
-    : undefined
-
-  /** Whether the selected variant accepts image input. */
-  const variantAcceptsImage = !selectedConstraints?.textOnly
-
   /** Whether generate should be disabled. */
   const isGenerateDisabled = (() => {
     if (!selectedVariant) return true
-    const c = IMAGE_VARIANT_CONSTRAINTS[selectedVariant.id]
-    // Constraint-based: variant requires an existing image but none is available
-    if (c?.requiresImage && !resolvedImageSrc && !upstreamImages?.length) return true
-    // Inpaint variants also require a painted mask
-    if (MASK_REQUIRED_VARIANTS.has(selectedVariant.id) && !maskResult?.maskDataUrl) return true
+    // Ask the variant definition if it should be disabled
+    if (variantDef?.isDisabled?.(variantCtx)) return true
+    // Mask-required variants need a painted mask
+    if (variantDef?.maskRequired && !maskResult?.maskDataUrl) return true
     return false
   })()
 
   // Panel-level warning for mask painting (variant doesn't have access to mask state).
-  const maskRequired = selectedVariant ? MASK_REQUIRED_VARIANTS.has(selectedVariant.id) : false
+  const maskRequired = Boolean(variantDef?.maskRequired)
   const panelWarning = maskRequired && resolvedImageSrc && !maskResult?.maskDataUrl
     ? t('imagePanel.maskRequired', { defaultValue: 'Please paint the area to modify' })
     : null
@@ -377,18 +438,18 @@ export function ImageAiPanel({
 
   // ── Resolve variant component ──
   const VariantForm = selectedVariant
-    ? IMAGE_VARIANT_REGISTRY[selectedVariant.id] ?? GenericVariantFallback
+    ? IMAGE_VARIANTS[selectedVariant.id]?.component ?? GenericVariantFallback
     : null
 
   const variantUpstream = useMemo(() => ({
     textContent: upstreamText,
-    // For textOnly variants, strip image data to prevent accidental inclusion
-    images: variantAcceptsImage && upstreamImages?.length ? upstreamImages : undefined,
-    imagePaths: variantAcceptsImage && upstreamImagePaths?.length ? upstreamImagePaths : undefined,
+    // Always pass image data — each variant decides how to use it
+    images: upstreamImages?.length ? upstreamImages : undefined,
+    imagePaths: upstreamImagePaths?.length ? upstreamImagePaths : undefined,
     boardId,
     projectId,
     boardFolderUri,
-  }), [upstreamText, upstreamImages, upstreamImagePaths, boardId, projectId, boardFolderUri, variantAcceptsImage])
+  }), [upstreamText, upstreamImages, upstreamImagePaths, boardId, projectId, boardFolderUri])
 
   // ── Loading / Error fallback ──
   // 逻辑：loading 和 error 不再提前 return，而是渲染在主面板内部，
@@ -419,7 +480,17 @@ export function ImageAiPanel({
               </button>
             </>
           ) : (
-            <span className="text-xs text-muted-foreground">{t('v3.common.noVariants')}</span>
+            <>
+              <span className="text-sm font-medium text-muted-foreground">{t('v3.common.loadError')}</span>
+              <span className="text-[11px] text-muted-foreground/60">{t('v3.common.loadErrorHint')}</span>
+              <button
+                type="button"
+                className="mt-1 rounded-full border border-border px-3.5 py-1 text-xs text-muted-foreground hover:bg-foreground/5 transition-colors duration-150"
+                onClick={() => capsRefresh()}
+              >
+                {t('v3.common.retry')}
+              </button>
+            </>
           )}
         </div>
       ) : null}
@@ -434,6 +505,8 @@ export function ImageAiPanel({
             .filter(feat => {
               // In readonly mode (not editing), only show the active feature
               if (readonly && !editing) return feat.id === selectedFeatureId
+              // Hide features with no applicable variants in current context
+              if (feat.variants.every(v => !isVariantApplicable(v.id))) return false
               return true
             })
             .map((feat) => {
@@ -504,25 +577,17 @@ export function ImageAiPanel({
         <VariantForm
           variant={selectedVariant}
           upstream={variantUpstream}
-          nodeResourceUrl={variantAcceptsImage ? resolvedImageSrc : undefined}
-          nodeResourcePath={variantAcceptsImage ? element.props.originalSrc : undefined}
+          nodeResourceUrl={resolvedImageSrc}
+          nodeResourcePath={element.props.originalSrc}
           disabled={readonly && !editing}
+          initialParams={paramsCacheLocal.current[`${selectedFeatureId}:${selectedVariant.id}`] ?? aiConfig?.paramsCache?.[`${selectedFeatureId}:${selectedVariant.id}`]}
           onParamsChange={handleVariantParamsChange}
           onWarningChange={setVariantWarning}
         />
       ) : null}
 
-      {/* ── Result Pagination ── */}
-      {aiResults && aiResults.length > 1 ? (
-        <ResultPagination
-          results={aiResults}
-          currentIndex={selectedResultIndex}
-          onSelect={handleResultSelect}
-        />
-      ) : null}
-
       {/* ── Generate Action Bar ── */}
-      <GenerateActionBar
+      {!showFallback ? <GenerateActionBar
         hasResource={hasResource}
         generating={isGenerating}
         disabled={isGenerateDisabled}
@@ -535,24 +600,19 @@ export function ImageAiPanel({
         onCancelEdit={onCancelEdit}
         creditsPerCall={selectedVariant?.creditsPerCall}
         warningMessage={effectiveWarning}
-        variants={selectedFeature?.variants?.map((v) => {
-          const vc = IMAGE_VARIANT_CONSTRAINTS[v.id]
-          const hasImage = Boolean(resolvedImageSrc || upstreamImages?.length)
-          const needsImage = vc?.requiresImage && !hasImage
-          const prefLabel = MEDIA_PREFERENCES[v.preference as MediaPreferenceId]?.label[prefLang]
-          return {
-            id: v.id,
-            displayName: prefLabel ?? v.id,
-            creditsPerCall: v.creditsPerCall,
-            incompatible: needsImage,
-            incompatibleReason: needsImage
-              ? t('v3.constraints.requiresImage', { defaultValue: '需要输入图片' })
-              : undefined,
-          }
-        })}
+        variants={selectedFeature?.variants
+          ?.filter((v) => isVariantApplicable(v.id))
+          .map((v) => {
+            const prefLabel = MEDIA_PREFERENCES[v.preference as MediaPreferenceId]?.label[prefLang]
+            return {
+              id: v.id,
+              displayName: prefLabel ?? v.id,
+              creditsPerCall: v.creditsPerCall,
+            }
+          })}
         selectedVariantId={selectedVariant?.id}
         onVariantChange={setSelectedVariantId}
-      />
+      /> : null}
     </div>
   )
 }

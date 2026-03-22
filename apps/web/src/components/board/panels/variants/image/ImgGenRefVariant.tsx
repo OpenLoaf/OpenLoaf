@@ -32,14 +32,15 @@ export function ImgGenRefVariant({
   upstream,
   nodeResourcePath,
   disabled,
+  initialParams,
   onParamsChange,
 }: VariantFormProps) {
   const { t } = useTranslation('board')
 
-  const [prompt, setPrompt] = useState(upstream.textContent ?? '')
-  const [aspectRatio, setAspectRatio] = useState('auto')
-  const [quality, setQuality] = useState<Quality>('standard')
-  const [style, setStyle] = useState('')
+  const [prompt, setPrompt] = useState(initialParams?.inputs?.prompt as string ?? initialParams?.params?.prompt as string ?? '')
+  const [aspectRatio, setAspectRatio] = useState(initialParams?.params?.aspectRatio as string ?? 'auto')
+  const [quality, setQuality] = useState<Quality>(initialParams?.params?.quality as Quality ?? 'standard')
+  const [style, setStyle] = useState(initialParams?.params?.style as string ?? '')
 
   // Manual upload images managed locally by the variant (board-relative paths or data URLs)
   const [manualImages, setManualImages] = useState<string[]>([])
@@ -55,20 +56,21 @@ export function ImgGenRefVariant({
   ]
 
   const sync = useCallback(() => {
+    const effectivePrompt = [upstream.textContent, prompt].filter(s => s?.trim()).join('\n')
     onParamsChange({
       inputs: {
+        prompt: effectivePrompt,
         ...(apiImages.length
           ? { images: apiImages.map(src => toMediaInput(src)) }
           : {}),
       },
       params: {
-        prompt,
         ...(style ? { style } : {}),
         aspectRatio,
         quality,
       },
     })
-  }, [prompt, style, aspectRatio, quality, apiImages.length, onParamsChange]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [prompt, upstream.textContent, style, aspectRatio, quality, apiImages.length, onParamsChange]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { sync() }, [sync])
 

@@ -30,15 +30,22 @@ export function VidGenVolcVariant({
   variant,
   upstream,
   nodeResourceUrl,
+  initialParams,
   disabled = false,
   onParamsChange,
 }: VariantFormProps) {
   const { t } = useTranslation('board')
 
-  const [prompt, setPrompt] = useState(upstream.textContent ?? '')
-  const [style, setStyle] = useState('')
-  const [aspectRatio, setAspectRatio] = useState<string>('auto')
-  const [duration, setDuration] = useState<(typeof VIDEO_GENERATE_DURATION_OPTIONS)[number]>(5)
+  const [prompt, setPrompt] = useState(
+    (initialParams?.inputs?.prompt as string) ?? (initialParams?.params?.prompt as string) ?? '',
+  )
+  const [style, setStyle] = useState((initialParams?.params?.style as string) ?? '')
+  const [aspectRatio, setAspectRatio] = useState<string>(
+    (initialParams?.params?.aspectRatio as string) ?? 'auto',
+  )
+  const [duration, setDuration] = useState<(typeof VIDEO_GENERATE_DURATION_OPTIONS)[number]>(
+    (initialParams?.params?.duration as (typeof VIDEO_GENERATE_DURATION_OPTIONS)[number]) ?? 5,
+  )
 
   // Manual upload for first frame (only if no upstream source)
   const [manualFirstFrame, setManualFirstFrame] = useState<string | undefined>()
@@ -64,16 +71,17 @@ export function VidGenVolcVariant({
       inputs.images = extraPaths.map((src) => toMediaInput(src))
     }
 
+    const effectivePrompt = [upstream.textContent, prompt].filter(s => s?.trim()).join('\n')
+    inputs.prompt = effectivePrompt
     onParamsChange({
       inputs,
       params: {
-        prompt,
         style: style || undefined,
         aspectRatio: aspectRatio !== 'auto' ? aspectRatio : undefined,
         duration,
       },
     })
-  }, [prompt, style, aspectRatio, duration, firstFramePath, upstream.imagePaths, upstream.images, onParamsChange])
+  }, [prompt, upstream.textContent, style, aspectRatio, duration, firstFramePath, upstream.imagePaths, upstream.images, onParamsChange])
 
   return (
     <div className="flex flex-col gap-2.5">

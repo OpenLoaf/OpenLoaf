@@ -28,16 +28,23 @@ export function VidGenQwenVariant({
   variant,
   upstream,
   nodeResourceUrl,
+  initialParams,
   disabled = false,
   onParamsChange,
   onWarningChange,
 }: VariantFormProps) {
   const { t } = useTranslation('board')
 
-  const [prompt, setPrompt] = useState(upstream.textContent ?? '')
-  const [style, setStyle] = useState('')
-  const [duration, setDuration] = useState<(typeof VIDEO_GENERATE_DURATION_OPTIONS)[number]>(5)
-  const [withAudio, setWithAudio] = useState(false)
+  const [prompt, setPrompt] = useState(
+    (initialParams?.inputs?.prompt as string) ?? (initialParams?.params?.prompt as string) ?? '',
+  )
+  const [style, setStyle] = useState((initialParams?.params?.style as string) ?? '')
+  const [duration, setDuration] = useState<(typeof VIDEO_GENERATE_DURATION_OPTIONS)[number]>(
+    (initialParams?.params?.duration as (typeof VIDEO_GENERATE_DURATION_OPTIONS)[number]) ?? 5,
+  )
+  const [withAudio, setWithAudio] = useState(
+    (initialParams?.params?.withAudio as boolean) ?? false,
+  )
 
   // Manual upload for first frame (only if no upstream source)
   const [manualFirstFrame, setManualFirstFrame] = useState<string | undefined>()
@@ -65,16 +72,17 @@ export function VidGenQwenVariant({
       inputs.startImage = toMediaInput(firstFramePath)
     }
 
+    const effectivePrompt = [upstream.textContent, prompt].filter(s => s?.trim()).join('\n')
+    inputs.prompt = effectivePrompt
     onParamsChange({
       inputs,
       params: {
-        prompt,
         style: style || undefined,
         duration,
         withAudio: withAudio || undefined,
       },
     })
-  }, [prompt, style, duration, withAudio, firstFramePath, onParamsChange])
+  }, [prompt, upstream.textContent, style, duration, withAudio, firstFramePath, onParamsChange])
 
   return (
     <div className="flex flex-col gap-2.5">

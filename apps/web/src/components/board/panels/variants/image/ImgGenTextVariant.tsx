@@ -12,7 +12,7 @@ import { useTranslation } from 'react-i18next'
 import type { VariantFormProps } from '../types'
 import { BOARD_GENERATE_INPUT } from '../../../ui/board-style-system'
 import { IMAGE_GENERATE_ASPECT_RATIO_OPTIONS } from '../../../nodes/node-config'
-import { PillSelect, UpstreamTextBadge } from '../shared'
+import { PillSelect, UpstreamTextBadge, toMediaInput } from '../shared'
 
 const QUALITY_OPTIONS = ['standard', 'hd'] as const
 type Quality = (typeof QUALITY_OPTIONS)[number]
@@ -31,14 +31,15 @@ const DEFAULT_CONFIG = { showNegative: false, showCount: false }
 /**
  * Parameterized variant form for text-to-image variants OL-IG-001/002/003/004.
  *
- * Pure text-to-image — does NOT accept image input.
- * Inputs: prompt
+ * Inputs: prompt, image (from node resource when available on canvas)
  * Params: negativePrompt (when showNegative), aspectRatio, quality, count (when showCount)
  */
 export function ImgGenTextVariant({
   variant,
   upstream,
+  nodeResourcePath,
   disabled,
+  initialParams,
   onParamsChange,
   onWarningChange,
 }: VariantFormProps) {
@@ -46,24 +47,32 @@ export function ImgGenTextVariant({
 
   const config = FIELD_CONFIG[variant.id] ?? DEFAULT_CONFIG
 
-  const [prompt, setPrompt] = useState(upstream.textContent ?? '')
-  const [negativePrompt, setNegativePrompt] = useState('')
-  const [aspectRatio, setAspectRatio] = useState('auto')
-  const [quality, setQuality] = useState<Quality>('standard')
-  const [count, setCount] = useState(1)
+  const [prompt, setPrompt] = useState(initialParams?.inputs?.prompt as string ?? '')
+  const [negativePrompt, setNegativePrompt] = useState(initialParams?.params?.negativePrompt as string ?? '')
+  const [aspectRatio, setAspectRatio] = useState(initialParams?.params?.aspectRatio as string ?? 'auto')
+  const [quality, setQuality] = useState<Quality>(initialParams?.params?.quality as Quality ?? 'standard')
+  const [count, setCount] = useState(initialParams?.count ?? 1)
   const [showNegative, setShowNegative] = useState(false)
 
   // Report warning when prompt is empty (required for text-to-image).
   useEffect(() => {
-    onWarningChange?.(!prompt.trim()
+    const hasPrompt = prompt.trim() || upstream.textContent?.trim()
+    onWarningChange?.(!hasPrompt
       ? t('v3.warnings.promptRequired', { defaultValue: 'Please enter a prompt' })
       : null)
-  }, [prompt, onWarningChange, t])
+  }, [prompt, upstream.textContent, onWarningChange, t])
+
+  // Upstream image (if connected via edge). nodeResourcePath is always empty
+  // because this variant is only applicable when !nodeHasImage.
+  const nodeImage = upstream.imagePaths?.[0] ?? upstream.images?.[0]
 
   const sync = useCallback(() => {
+    // Concatenate upstream text + user prompt (upstream first, then user additions)
+    const effectivePrompt = [upstream.textContent, prompt].filter(s => s?.trim()).join('\n')
     onParamsChange({
       inputs: {
-        prompt,
+        prompt: effectivePrompt,
+        ...(nodeImage ? { image: toMediaInput(nodeImage) } : {}),
       },
       params: {
         ...(config.showNegative && negativePrompt ? { negativePrompt } : {}),
@@ -72,7 +81,7 @@ export function ImgGenTextVariant({
       },
       ...(config.showCount ? { count } : {}),
     })
-  }, [prompt, negativePrompt, aspectRatio, quality, count, config, onParamsChange])
+  }, [prompt, upstream.textContent, negativePrompt, aspectRatio, quality, count, config, nodeImage, onParamsChange])
 
   useEffect(() => { sync() }, [sync])
 

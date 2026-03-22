@@ -7,8 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import type { ComponentType } from 'react'
-import type { VariantFormProps, VariantInputConstraints } from '../types'
+import type { VariantDefinition } from '../types'
 import { ImgGenTextVariant } from './ImgGenTextVariant'
 import { ImgGenRefVariant } from './ImgGenRefVariant'
 import { ImgInpaintVolcVariant } from './ImgInpaintVolcVariant'
@@ -19,63 +18,75 @@ import { UpscaleVolcVariant } from './UpscaleVolcVariant'
 import { ImgEditWanVariant } from './ImgEditWanVariant'
 import { ImgEditPlusVariant } from './ImgEditPlusVariant'
 
-/** Registry mapping v3 variant IDs to their form components. */
-export const IMAGE_VARIANT_REGISTRY: Record<string, ComponentType<VariantFormProps>> = {
-  // imageGenerate — text only
-  'OL-IG-001': ImgGenTextVariant,
-  'OL-IG-002': ImgGenTextVariant,
-  'OL-IG-003': ImgGenTextVariant,
-  'OL-IG-004': ImgGenTextVariant,
-  // imageGenerate — with reference images
-  'OL-IG-005': ImgGenRefVariant,
-  'OL-IG-006': ImgGenRefVariant,
-  // imageInpaint
-  'OL-IP-001': ImgInpaintVolcVariant,
-  // imageStyleTransfer
-  'OL-ST-001': ImgStyleVolcVariant,
-  // upscale
-  'OL-UP-001': UpscaleQwenVariant,
-  'OL-UP-002': UpscaleVolcVariant,
-  // outpaint
-  'OL-OP-001': OutpaintQwenVariant,
-  // imageEdit
-  'OL-IE-001': ImgEditWanVariant,
-  'OL-IE-002': ImgEditPlusVariant,
-}
-
-/** Input constraints for each image variant. */
-export const IMAGE_VARIANT_CONSTRAINTS: Record<string, VariantInputConstraints> = {
-  'OL-IG-001': { textOnly: true },
-  'OL-IG-002': { textOnly: true },
-  'OL-IG-003': { textOnly: true },
-  'OL-IG-004': { textOnly: true },
-  'OL-IG-005': {},
-  'OL-IG-006': {},
-  'OL-IP-001': { requiresImage: true },
-  'OL-ST-001': { requiresImage: true },
-  'OL-UP-001': { requiresImage: true },
-  'OL-UP-002': { requiresImage: true },
-  'OL-OP-001': { requiresImage: true },
-  'OL-IE-001': {},
-  'OL-IE-002': { requiresImage: true },
+/** Image variant definitions — each variant owns its applicability logic. */
+export const IMAGE_VARIANTS: Record<string, VariantDefinition> = {
+  // imageGenerate — text only (not applicable when node already has image)
+  'OL-IG-001': {
+    component: ImgGenTextVariant,
+    isApplicable: (ctx) => !ctx.nodeHasImage,
+  },
+  'OL-IG-002': {
+    component: ImgGenTextVariant,
+    isApplicable: (ctx) => !ctx.nodeHasImage,
+  },
+  'OL-IG-003': {
+    component: ImgGenTextVariant,
+    isApplicable: (ctx) => !ctx.nodeHasImage,
+  },
+  'OL-IG-004': {
+    component: ImgGenTextVariant,
+    isApplicable: (ctx) => !ctx.nodeHasImage,
+  },
+  // imageGenerate — with reference images (always applicable)
+  'OL-IG-005': {
+    component: ImgGenRefVariant,
+    isApplicable: () => true,
+  },
+  'OL-IG-006': {
+    component: ImgGenRefVariant,
+    isApplicable: () => true,
+  },
+  // imageInpaint (requires image + mask)
+  'OL-IP-001': {
+    component: ImgInpaintVolcVariant,
+    isApplicable: (ctx) => ctx.hasImage,
+    maskPaint: true,
+    maskRequired: true,
+  },
+  // imageStyleTransfer (requires image)
+  'OL-ST-001': {
+    component: ImgStyleVolcVariant,
+    isApplicable: (ctx) => ctx.hasImage,
+  },
+  // upscale (requires image)
+  'OL-UP-001': {
+    component: UpscaleQwenVariant,
+    isApplicable: (ctx) => ctx.hasImage,
+  },
+  'OL-UP-002': {
+    component: UpscaleVolcVariant,
+    isApplicable: (ctx) => ctx.hasImage,
+  },
+  // outpaint (requires image)
+  'OL-OP-001': {
+    component: OutpaintQwenVariant,
+    isApplicable: (ctx) => ctx.hasImage,
+  },
+  // imageEdit (always applicable)
+  'OL-IE-001': {
+    component: ImgEditWanVariant,
+    isApplicable: () => true,
+  },
+  // imageEdit (requires image + optional mask)
+  'OL-IE-002': {
+    component: ImgEditPlusVariant,
+    isApplicable: (ctx) => ctx.hasImage,
+    maskPaint: true,
+  },
 }
 
 /** Feature IDs whose variants may use mask painting on the node. */
 export const MASK_PAINT_FEATURES = new Set([
   'imageInpaint',
   'imageEdit',
-])
-
-/** Variant IDs that support mask painting. */
-export const MASK_PAINT_VARIANTS = new Set([
-  'OL-IP-001',
-  'OL-IE-002',
-])
-
-/**
- * Variants where mask is REQUIRED (generate disabled without mask).
- * Other MASK_PAINT_VARIANTS treat mask as optional.
- */
-export const MASK_REQUIRED_VARIANTS = new Set([
-  'OL-IP-001',
 ])

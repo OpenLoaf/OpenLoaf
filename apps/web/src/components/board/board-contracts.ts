@@ -73,14 +73,15 @@ export type AiGenerateConfig = {
   seed?: number
   /** Upstream node ids used as input references. */
   inputNodeIds?: string[]
-  /** Server-side task id for the generation job. */
-  taskId?: string
   /** Timestamp when the generation completed. */
   generatedAt?: number
-  /** Generated result URLs (when count > 1). */
-  results?: Array<{ previewSrc: string; originalSrc: string }>
-  /** Currently selected result index. */
-  selectedIndex?: number
+  /** Cached variant form params keyed by "feature:variantId". */
+  paramsCache?: Record<string, {
+    inputs: Record<string, unknown>
+    params: Record<string, unknown>
+    count?: number
+    seed?: number
+  }>
 }
 
 // ---------------------------------------------------------------------------

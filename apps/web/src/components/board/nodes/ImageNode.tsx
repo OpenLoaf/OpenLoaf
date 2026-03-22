@@ -25,6 +25,7 @@ import {
   RotateCw,
   Trash2,
   Type,
+  Upload,
   Video,
   X,
 } from "lucide-react";
@@ -65,6 +66,7 @@ import { deriveNode } from "../utils/derive-node";
 import { submitImageGenerate } from "../services/image-generate";
 import { submitUpscale } from "../services/upscale-generate";
 // v3 generate is used internally by submitImageGenerate and submitUpscale
+import { resolveAllMediaInputs } from "@/lib/media-upload";
 import { MaskPaintOverlay, type MaskPaintHandle } from "./MaskPaintOverlay";
 import {
   createInputSnapshot,
@@ -247,6 +249,30 @@ function buildSwitchPrimaryPatch(
 function createImageToolbarItems(
   ctx: CanvasToolbarContext<ImageNodeProps>,
 ) {
+  const isEmpty = !ctx.element.props.originalSrc && !ctx.element.props.previewSrc
+
+  // 逻辑：空节点只显示上传和删除按钮。
+  if (isEmpty) {
+    return [
+      {
+        id: 'upload',
+        label: i18next.t('board:toolbar.upload', { defaultValue: '上传' }),
+        icon: <Upload size={14} />,
+        className: BOARD_TOOLBAR_ITEM_DEFAULT,
+        onSelect: () => {
+          document.dispatchEvent(new CustomEvent('board:trigger-upload', { detail: ctx.element.id }));
+        },
+      },
+      {
+        id: "delete",
+        label: i18next.t('board:board.delete'),
+        icon: <Trash2 size={14} />,
+        className: BOARD_TOOLBAR_ITEM_RED,
+        onSelect: () => ctx.engine.deleteSelection(),
+      },
+    ]
+  }
+
   const items: import("../engine/types").CanvasToolbarItem[] = []
 
   // 逻辑：版本堆叠 > 1 时在工具栏添加上一张/下一张导航按钮。
@@ -508,7 +534,6 @@ export function ImageNodeView({
         const refreshedAiConfig: import("../board-contracts").AiGenerateConfig = {
           ...(element.props.aiConfig ?? {} as import("../board-contracts").AiGenerateConfig),
           prompt: snapshot?.prompt || element.props.aiConfig?.prompt || '',
-          taskId: generatingEntry.taskId,
         };
         onUpdate({
           versionStack: markVersionReady(stack, generatingEntry.id, { urls: resultUrls }),
@@ -666,17 +691,13 @@ export function ImageNodeView({
             count: params.count,
             seed: params.seed,
           },
-          upstreamRefs: [
-            ...(upstream?.textList ?? []).map(text => ({ nodeId: '', nodeType: 'text', data: text })),
-            ...(upstream?.imageList ?? []).map(src => ({ nodeId: '', nodeType: 'image', data: src })),
-          ],
+          upstreamRefs: upstream?.entries ?? [],
         })
         const entry = createGeneratingEntry(inputSnapshot, result.taskId)
         const config: import("../board-contracts").AiGenerateConfig = {
           feature: params.feature as import("../board-contracts").AiGenerateConfig['feature'],
           prompt: params.prompt ?? '',
           aspectRatio: params.aspectRatio as import("../board-contracts").AiGenerateConfig['aspectRatio'],
-          taskId: result.taskId,
         }
 
         onUpdate({
@@ -777,7 +798,11 @@ export function ImageNodeView({
           },
         })
 
-        const result = await submitByFeature(params, newNodeId)
+        // 逻辑：上传媒体输入（mask、图片等）到公网 URL，在子节点创建后再执行以避免阻塞。
+        const resolvedInputs = await resolveAllMediaInputs(params.inputs ?? {}, fileContext?.boardId)
+        const resolvedParams = { ...params, inputs: resolvedInputs }
+
+        const result = await submitByFeature(resolvedParams, newNodeId)
 
         // 逻辑：API 返回后补上 taskId，轮询开始。
         engine.doc.updateNodeProps(newNodeId, {
@@ -789,7 +814,6 @@ export function ImageNodeView({
             feature: params.feature as import("../board-contracts").AiGenerateConfig['feature'],
             prompt: params.prompt ?? '',
             aspectRatio: params.aspectRatio as import("../board-contracts").AiGenerateConfig['aspectRatio'],
-            taskId: result.taskId,
           },
         })
       } catch (error) {
@@ -862,6 +886,17 @@ export function ImageNodeView({
   const requestReplaceImage = useCallback(() => {
     setReplacePickerOpen(true);
   }, []);
+
+  // 逻辑：监听工具栏上传按钮的自定义事件，打开文件选择器对话框。
+  useEffect(() => {
+    const handler = (e: Event) => {
+      if ((e as CustomEvent).detail === element.id) {
+        requestReplaceImage();
+      }
+    };
+    document.addEventListener('board:trigger-upload', handler);
+    return () => document.removeEventListener('board:trigger-upload', handler);
+  }, [element.id, requestReplaceImage]);
 
   /** Apply a new image payload to the current node. */
   const applyReplacePayload = useCallback(
@@ -1156,8 +1191,8 @@ export function ImageNodeView({
           </AnimatePresence>
         ) : (
           <div className="flex h-full w-full items-center justify-center rounded-3xl border border-dashed border-ol-divider bg-ol-surface-muted">
-            {/* 逻辑：有失败浮层时隐藏空状态内容，避免图标重叠。 */}
-            {isFailedVersion && !dismissedFailure ? null
+            {/* 逻辑：有失败/生成浮层时隐藏空状态内容，避免图标透出。 */}
+            {(isFailedVersion && !dismissedFailure) || isGeneratingVersion ? null
             : isPreviewLoading || isTranscoding ? (
               <ImageNodeSkeleton />
             ) : !element.props.originalSrc && !element.props.previewSrc ? (
@@ -1365,13 +1400,7 @@ export const ImageNodeDefinition: CanvasNodeDefinition<ImageNodeProps> = {
       count: z.number().optional(),
       seed: z.number().optional(),
       inputNodeIds: z.array(z.string()).optional(),
-      taskId: z.string().optional(),
       generatedAt: z.number().optional(),
-      results: z.array(z.object({
-        previewSrc: z.string(),
-        originalSrc: z.string(),
-      })).optional(),
-      selectedIndex: z.number().optional(),
     }).optional(),
     versionStack: z.any().optional(),
   }),
