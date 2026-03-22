@@ -183,7 +183,9 @@ export function computeOutputTemplates(
   sourceOutputTypes: MediaType[],
 ): TemplateGroup[] {
   const groupMap = new Map<MediaType, TemplateItem[]>()
-  const seen = new Set<string>()
+  // De-duplicate by feature: each feature appears at most once, using the
+  // first matching variant as its representative.
+  const seenFeatures = new Set<string>()
 
   for (const registry of ALL_REGISTRIES) {
     for (const [variantId, def] of Object.entries(registry)) {
@@ -196,9 +198,10 @@ export function computeOutputTemplates(
       )
       if (!hasOverlap) continue
 
-      // De-duplicate: each variantId appears at most once.
-      if (seen.has(variantId)) continue
-      seen.add(variantId)
+      // De-duplicate by feature: show one entry per feature, not per variant.
+      const fid = featureIdForVariant(variantId) ?? variantId
+      if (seenFeatures.has(fid)) continue
+      seenFeatures.add(fid)
 
       // Types the variant needs that the source cannot supply.
       const missingInputTypes = def.acceptsInputTypes.filter(

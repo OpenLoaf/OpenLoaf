@@ -350,6 +350,7 @@
     "approvalRejected": "却下済み",
     "rejected": "却下済み",
     "outputLoading": "出力を読み込み中...",
+    "executing": "実行中…",
     "confirmExec": "このコマンドを実行しますか？",
     "processing": "処理中...",
     "thinkingStreaming": "思考中...",

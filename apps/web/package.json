@@ -107,6 +107,7 @@
     "platejs": "^52.0.17",
     "radix-ui": "^1.4.3",
     "react": "19.2.3",
+    "react-advanced-cropper": "^0.20.1",
     "react-data-grid": "7.0.0-beta.59",
     "react-day-picker": "^9.13.0",
     "react-dnd": "^16.0.1",

@@ -19,6 +19,7 @@ import { cn } from '@udecode/cn'
 import { MEDIA_PREFERENCES, MEDIA_FEATURES, type MediaPreferenceId, type MediaFeatureId } from '@openloaf-saas/sdk'
 import { useCapabilities } from '@/hooks/use-capabilities'
 import type { V3Feature, V3Variant } from '@/lib/saas-media'
+import type { UpstreamData } from '../engine/upstream-data'
 import { GenerateActionBar } from './GenerateActionBar'
 import { AUDIO_VARIANTS } from './variants/audio'
 import type { VariantContext } from './variants/types'
@@ -56,6 +57,8 @@ export type AudioGenerateParams = {
 export type AudioAiPanelProps = {
   /** Upstream data from connected nodes. */
   upstream?: AudioPanelUpstream
+  /** Raw upstream data for InputSlotBar (with entries for slot assignment). */
+  rawUpstream?: UpstreamData | null
   /** Callback when the user submits a generation request. */
   onGenerate?: (params: AudioGenerateParams) => void
   /** Callback to generate into a new derived node. */
@@ -96,6 +99,7 @@ const WELL_KNOWN_FEATURES = ['tts', 'music', 'sfx'] as const
 /** Audio AI generation panel driven by v3 capabilities. */
 export function AudioAiPanel({
   upstream,
+  rawUpstream: _rawUpstream,
   onGenerate,
   onGenerateNewNode,
   hasResource = false,

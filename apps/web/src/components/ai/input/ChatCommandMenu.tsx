@@ -25,6 +25,7 @@ import { useQuery } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 import { FolderOpen, Globe, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTabActive } from "@/components/layout/TabActiveContext";
 import { buildSkillCommandText } from "./chat-input-utils";
 
 type SkillSummary = {
@@ -171,11 +172,13 @@ const ChatCommandMenu = forwardRef<ChatCommandMenuHandle, ChatCommandMenuProps>(
     });
     const menuRef = useRef<HTMLDivElement | null>(null);
     const [pos, setPos] = useState<{ left: number; bottom: number } | null>(null);
+    const isTabActive = useTabActive();
     const skillsQuery = useQuery({
       ...(projectId
         ? trpc.settings.getSkills.queryOptions({ projectId })
         : trpc.settings.getSkills.queryOptions()),
       staleTime: 5 * 60 * 1000,
+      enabled: isTabActive,
     });
     const skills = (skillsQuery.data ?? EMPTY_SKILLS) as SkillSummary[];
     const scopeLabels = useMemo<Record<SkillSummary["scope"], string>>(

@@ -48,6 +48,8 @@ const EMPTY_SESSIONS: ChatSessionListItem[] = [];
 export type UseChatSessionsInput = {
   /** Current tab id. */
   tabId?: string;
+  /** Whether the query is enabled (defaults to true). */
+  enabled?: boolean;
 };
 
 /** Normalize optional id value. */
@@ -96,10 +98,15 @@ export function useChatSessions(_input?: UseChatSessionsInput) {
       : { boardId: null };
   }, [scopedBoardId, scopedProjectId]);
 
+  const enabled = _input?.enabled ?? true;
+
   const query = useInfiniteQuery({
-    ...trpc.chat.listSessions.infiniteQueryOptions(listInput ?? skipToken, {
-      getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
-    }),
+    ...trpc.chat.listSessions.infiniteQueryOptions(
+      enabled ? (listInput ?? skipToken) : skipToken,
+      {
+        getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+      },
+    ),
     staleTime: 60_000,
     refetchOnWindowFocus: false,
   });

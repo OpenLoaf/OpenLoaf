@@ -119,4 +119,14 @@ export type ImageNodeProps = {
   aiConfig?: AiGenerateConfig
   /** Version stack tracking AI generation history. */
   versionStack?: import('./engine/types').VersionStack
+  /** Original untransformed image URI — backed up on first image adjust. */
+  rawOriginalSrc?: string
+  /** Image adjustment state preserved for re-editing. */
+  imageAdjust?: {
+    rotation: number
+    flipH: boolean
+    flipV: boolean
+    cropRect?: { x: number; y: number; width: number; height: number }
+    aspectRatio?: string
+  }
 }

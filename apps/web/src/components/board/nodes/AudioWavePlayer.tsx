@@ -41,7 +41,7 @@ export function AudioWavePlayer({ src }: AudioWavePlayerProps) {
     cursorColor: '#ef4444',
     cursorWidth: 2,
     barWidth: 3,
-    barGap: 2,
+    barGap: 4,
     barRadius: 2,
     normalize: true,
     hideScrollbar: true,

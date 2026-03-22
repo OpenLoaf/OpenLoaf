@@ -552,8 +552,11 @@
   "linkNode": {
     "toolbar": {
       "open": "Open",
-      "copyUrl": "Copy URL"
-    }
+      "copyUrl": "Copy URL",
+      "editUrl": "Edit URL"
+    },
+    "urlPlaceholder": "Paste or type a web link",
+    "urlSubmit": "OK"
   },
   "anchorOverlay": {
     "expand": "Expand",

@@ -552,8 +552,11 @@
   "linkNode": {
     "toolbar": {
       "open": "開啟",
-      "copyUrl": "複製網址"
-    }
+      "copyUrl": "複製網址",
+      "editUrl": "修改網址"
+    },
+    "urlPlaceholder": "貼上或輸入網頁連結",
+    "urlSubmit": "確定"
   },
   "anchorOverlay": {
     "expand": "展開",

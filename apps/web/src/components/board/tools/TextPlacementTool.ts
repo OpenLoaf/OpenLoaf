@@ -7,6 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
+import { TEXT_NODE_DEFAULT_HEIGHT } from "../nodes/TextNode";
 import { PlacementTool } from "./PlacementTool";
 
 /** Quick-create tool for text (sticky note) nodes. */
@@ -26,6 +27,6 @@ export class TextPlacementTool extends PlacementTool {
   }
 
   getDefaultSize(): [number, number] {
-    return [200, 200];
+    return [200, TEXT_NODE_DEFAULT_HEIGHT];
   }
 }

@@ -25,6 +25,7 @@ import type { CanvasEngine } from "../engine/CanvasEngine";
 import type { CanvasPoint, CanvasSnapshot } from "../engine/types";
 import { toolbarSurfaceClassName } from "../ui/ToolbarParts";
 import { DEFAULT_NODE_SIZE } from "../engine/constants";
+import { TEXT_NODE_DEFAULT_HEIGHT } from "../nodes/TextNode";
 
 /** Custom event name for opening the floating insert menu. */
 export const FLOATING_INSERT_MENU_EVENT = "openloaf:board-floating-insert-menu";
@@ -177,7 +178,7 @@ const FloatingInsertMenu = memo(function FloatingInsertMenu({
             placeNode(
               "text",
               { autoFocus: true, style: "sticky", stickyColor: "yellow" },
-              [200, 200],
+              [200, TEXT_NODE_DEFAULT_HEIGHT],
             )
           }
         />
@@ -226,7 +227,7 @@ const FloatingInsertMenu = memo(function FloatingInsertMenu({
                 url: "", title: "", description: "",
                 logoSrc: "", imageSrc: "", refreshToken: Date.now(),
               },
-              [280, 160],
+              [360, 120],
             )
           }
         />

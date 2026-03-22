@@ -67,8 +67,12 @@ const HLS_QUALITIES = ["1080p", "720p", "source"] as const;
 const HLS_THUMBNAIL_DIR = "thumbnails";
 /** Prefix for generated thumbnail filenames. */
 const HLS_THUMBNAIL_PREFIX = "thumb_";
-/** Seconds between thumbnail captures. */
-const HLS_THUMBNAIL_INTERVAL_SECONDS = 4;
+/** Target number of thumbnail frames for the filmstrip. */
+const THUMBNAIL_TARGET_FRAMES = 10;
+/** Minimum interval between thumbnail captures (seconds). */
+const THUMBNAIL_MIN_INTERVAL = 0.5;
+/** Maximum interval between thumbnail captures (seconds). */
+const THUMBNAIL_MAX_INTERVAL = 10;
 /** Target thumbnail width in pixels. */
 const HLS_THUMBNAIL_WIDTH = 160;
 
@@ -476,13 +480,20 @@ async function ensureThumbnailAssets(input: {
       .filter((name) => name === "thumbnails.vtt" || name.startsWith(HLS_THUMBNAIL_PREFIX))
       .map((name) => fs.unlink(path.join(thumbnailDir, name)).catch(() => null))
   );
-  // 逻辑：重新生成缩略图时覆盖旧资源，避免内容不一致。
+  // 逻辑：根据视频时长动态计算提取间隔，确保短视频也有足够帧数。
+  const durationSeconds =
+    (await probeDurationSeconds(input.sourcePath)) ?? 5;
+  const intervalSeconds = Math.max(
+    THUMBNAIL_MIN_INTERVAL,
+    Math.min(THUMBNAIL_MAX_INTERVAL, durationSeconds / THUMBNAIL_TARGET_FRAMES),
+  );
+
   await new Promise<void>((resolve, reject) => {
     ffmpeg(input.sourcePath)
       .outputOptions([
         "-y",
         "-vf",
-        `fps=1/${HLS_THUMBNAIL_INTERVAL_SECONDS},scale=${HLS_THUMBNAIL_WIDTH}:-1:flags=lanczos`,
+        `fps=1/${intervalSeconds},scale=${HLS_THUMBNAIL_WIDTH}:-1:flags=lanczos`,
         "-q:v",
         "5",
       ])
@@ -492,8 +503,6 @@ async function ensureThumbnailAssets(input: {
       .run();
   });
 
-  const durationSeconds =
-    (await probeDurationSeconds(input.sourcePath)) ?? HLS_THUMBNAIL_INTERVAL_SECONDS;
   const files = (await fs.readdir(thumbnailDir)).filter((name) =>
     name.startsWith(HLS_THUMBNAIL_PREFIX)
   );
@@ -503,7 +512,7 @@ async function ensureThumbnailAssets(input: {
   }
   const vtt = buildThumbnailVtt({
     durationSeconds,
-    intervalSeconds: HLS_THUMBNAIL_INTERVAL_SECONDS,
+    intervalSeconds,
     filenames: files,
   });
   await fs.writeFile(vttPath, vtt, "utf-8");
@@ -687,7 +696,7 @@ export async function getHlsThumbnails(input: {
     cacheKey,
   });
   const raw = await fs.readFile(vttPath, "utf-8");
-  const prefix = `/media/hls/thumbnail/`;
+  const prefix = `/media/thumbnail/`;
   const lines = raw.split(/\r?\n/).map((line) => {
     const trimmed = line.trim();
     if (!trimmed) return line;

@@ -904,17 +904,22 @@ export async function getFilePreview(input: {
     const buffer = await fs.readFile(filePath);
     return { kind: "ready", buffer, mediaType: "application/pdf", metadata: null };
   }
-  // 逻辑：视频文件直接返回原内容，不做压缩处理。
-  const videoMimeMap: Record<string, string> = {
+  // 逻辑：视频/音频文件直接返回原内容，不做压缩处理。
+  const binaryMimeMap: Record<string, string> = {
     ".mp4": "video/mp4",
     ".webm": "video/webm",
     ".mov": "video/quicktime",
+    ".mp3": "audio/mpeg",
+    ".wav": "audio/wav",
+    ".ogg": "audio/ogg",
+    ".flac": "audio/flac",
+    ".opus": "audio/opus",
   };
   const fileExt = path.extname(lowerPath);
-  const videoMime = videoMimeMap[fileExt];
-  if (videoMime) {
+  const binaryMime = binaryMimeMap[fileExt];
+  if (binaryMime) {
     const buffer = await fs.readFile(filePath);
-    return { kind: "ready", buffer, mediaType: videoMime, metadata: null };
+    return { kind: "ready", buffer, mediaType: binaryMime, metadata: null };
   }
   const format = resolveImageFormat("application/octet-stream", filePath);
   if (!format || !isSupportedImageMime(format.mediaType)) return null;

@@ -350,6 +350,7 @@
     "approvalRejected": "Rejected",
     "rejected": "Rejected",
     "outputLoading": "Loading output…",
+    "executing": "Executing…",
     "confirmExec": "Confirm executing this command?",
     "processing": "Processing...",
     "thinkingStreaming": "Thinking...",

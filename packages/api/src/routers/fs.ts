@@ -18,6 +18,7 @@ import { t, shieldedProcedure } from "../../generated/routers/helpers/createRout
 import { convertDocxFileToSfdt } from "../services/docxSfdtService";
 import { resolveFilePathFromUri, resolveScopedPath, resolveScopedRootPath, toRelativePath, toFileUriWithoutEncoding } from "../services/vfsService";
 import { readProjectTrees } from "../services/projectTreeService";
+import { resolveBoardDirFromDb } from "../common/boardPaths";
 
 /** Board folder prefix for server-side sorting. */
 const BOARD_FOLDER_PREFIX = "board_";
@@ -58,6 +59,10 @@ const fsScopeSchema = z.object({
 
 const fsUriSchema = fsScopeSchema.extend({
   uri: z.string(),
+});
+
+const fsVideoMetaSchema = fsUriSchema.extend({
+  boardId: z.string().trim().optional(),
 });
 
 const fsListSchema = fsScopeSchema.extend({
@@ -585,8 +590,26 @@ export const fsRouter = t.router({
     }),
 
   /** Probe video dimensions and duration for a file entry. */
-  videoMetadata: shieldedProcedure.input(fsUriSchema).query(async ({ input }) => {
-    const resolvedScope = resolveFsReadScope(input, input.uri);
+  videoMetadata: shieldedProcedure.input(fsVideoMetaSchema).query(async ({ input }) => {
+    let resolvedScope: ResolvedFsReadScope | null = null;
+
+    if (input.boardId) {
+      // Board-relative path resolution for temp boards without projectId.
+      const boardResult = await resolveBoardDirFromDb(input.boardId);
+      if (boardResult) {
+        const normalizedUri = input.uri
+          .replace(/\\/g, "/")
+          .replace(/^(\.\/)+/, "")
+          .replace(/^\/+/, "");
+        const fullPath = path.resolve(boardResult.absDir, normalizedUri);
+        resolvedScope = { rootPath: boardResult.rootPath, fullPath };
+      }
+    }
+
+    if (!resolvedScope) {
+      resolvedScope = resolveFsReadScope(input, input.uri);
+    }
+
     if (!resolvedScope) {
       return {
         width: null,

@@ -21,10 +21,13 @@ import {
 const PROJECT_SCOPE_REGEX = /^@?\[([^\]]+)\]\/(.+)$/;
 /** Supported video extensions for directory inference. */
 const VIDEO_SAVE_EXTENSIONS = new Set([".mp4", ".webm", ".mov", ".mkv"]);
+/** Supported audio extensions. */
+const AUDIO_SAVE_EXTENSIONS = new Set([".mp3", ".wav", ".ogg", ".flac", ".opus"]);
 
-/** Check whether extension is a known video extension. */
-function isVideoSaveExtension(ext: string): boolean {
-  return VIDEO_SAVE_EXTENSIONS.has(ext.toLowerCase());
+/** Check whether extension is a known video or audio extension. */
+function isMediaSaveExtension(ext: string): boolean {
+  const lower = ext.toLowerCase();
+  return VIDEO_SAVE_EXTENSIONS.has(lower) || AUDIO_SAVE_EXTENSIONS.has(lower);
 }
 
 /** Normalize a target path into a directory. */
@@ -37,7 +40,7 @@ async function normalizeVideoSaveDirectory(targetPath: string): Promise<string> 
   } catch {
     const ext = path.extname(targetPath).toLowerCase();
     // 兼容传入文件路径时自动取目录。
-    if (isVideoSaveExtension(ext)) return path.dirname(targetPath);
+    if (isMediaSaveExtension(ext)) return path.dirname(targetPath);
     return targetPath;
   }
 }
@@ -112,18 +115,27 @@ export async function resolveVideoSaveDirectory(input: {
 }
 
 /** Resolve extension from media type or url. */
-function resolveVideoExtension(input: { mediaType: string; url: string }): string {
+function resolveMediaExtension(input: { mediaType: string; url: string }): string {
   const mediaType = input.mediaType.toLowerCase();
+  // video
   if (mediaType.includes("webm")) return "webm";
   if (mediaType.includes("quicktime")) return "mov";
   if (mediaType.includes("mp4")) return "mp4";
+  // audio
+  if (mediaType.includes("audio/mpeg")) return "mp3";
+  if (mediaType.includes("audio/wav") || mediaType.includes("audio/x-wav")) return "wav";
+  if (mediaType.includes("audio/ogg")) return "ogg";
+  if (mediaType.includes("audio/flac")) return "flac";
+  if (mediaType.includes("audio/opus")) return "opus";
   try {
     const parsed = new URL(input.url);
     const ext = path.extname(parsed.pathname).toLowerCase().replace(".", "");
-    if (ext && isVideoSaveExtension(`.${ext}`)) return ext;
+    if (ext && isMediaSaveExtension(`.${ext}`)) return ext;
   } catch {
     // ignore invalid url
   }
+  // default based on media type prefix
+  if (mediaType.startsWith("audio/")) return "mp3";
   return "mp4";
 }
 
@@ -142,7 +154,7 @@ export async function saveGeneratedVideoFromUrl(input: {
     throw new Error(`下载视频失败: ${response.status} ${text}`);
   }
   const mediaType = response.headers.get("content-type") || "video/mp4";
-  const ext = resolveVideoExtension({ mediaType, url: input.url });
+  const ext = resolveMediaExtension({ mediaType, url: input.url });
   const safeBase = sanitizeFileName(input.fileNameBase) || "video";
   const fileName = `${safeBase}.${ext}`;
   const filePath = path.join(input.directory, fileName);

@@ -21,8 +21,7 @@ import { cn } from "@/lib/utils";
 import {
   CheckCircleIcon,
   ChevronDownIcon,
-  CircleIcon,
-  ClockIcon,
+  LoaderCircleIcon,
   WrenchIcon,
   XCircleIcon,
 } from "lucide-react";
@@ -56,17 +55,18 @@ export type ToolHeaderProps = {
     }
 );
 
-const statusIcons: Record<ToolPart["state"], ReactNode> = {
-  "approval-requested": <ClockIcon className="size-3 text-yellow-600" />,
+const statusIcons: Record<ToolPart["state"] | "output-streaming", ReactNode> = {
+  "approval-requested": <LoaderCircleIcon className="size-3 animate-spin text-yellow-600" />,
   "approval-responded": <CheckCircleIcon className="size-3 text-foreground" />,
-  "input-available": <ClockIcon className="size-3 animate-pulse" />,
-  "input-streaming": <CircleIcon className="size-3" />,
+  "input-available": <LoaderCircleIcon className="size-3 animate-spin text-muted-foreground" />,
+  "input-streaming": <LoaderCircleIcon className="size-3 animate-spin text-muted-foreground" />,
   "output-available": <CheckCircleIcon className="size-3 text-foreground" />,
   "output-denied": <XCircleIcon className="size-3 text-muted-foreground" />,
   "output-error": <XCircleIcon className="size-3 text-destructive" />,
+  "output-streaming": <LoaderCircleIcon className="size-3 animate-spin text-muted-foreground" />,
 };
 
-export const getStatusBadge = (status: ToolPart["state"]) => statusIcons[status];
+export const getStatusBadge = (status: string) => statusIcons[status as keyof typeof statusIcons];
 
 export const ToolHeader = ({
   className,

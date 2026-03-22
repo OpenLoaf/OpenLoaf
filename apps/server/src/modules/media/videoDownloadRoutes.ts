@@ -74,10 +74,14 @@ export function registerVideoDownloadRoutes(app: Hono) {
           })
         }
         saveDirPath = path.join(boardDir, BOARD_ASSETS_DIR)
+      } else if (body.boardId) {
+        const boardResult = await resolveBoardDirFromDb(body.boardId)
+        if (!boardResult) {
+          return c.json({ error: 'Board not found' }, 404)
+        }
+        saveDirPath = path.join(boardResult.absDir, BOARD_ASSETS_DIR)
       } else {
-        const configDir = process.env.OPENLOAF_CONFIG_DIR
-          || path.join(process.env.HOME || '/tmp', '.openloaf')
-        saveDirPath = path.join(configDir, 'temp', 'video-downloads')
+        return c.json({ error: 'Missing boardFolderUri or boardId' }, 400)
       }
 
       const taskId = startDownload({
@@ -150,32 +154,26 @@ export function registerVideoDownloadRoutes(app: Hono) {
       if (!sourcePath || startTime == null || endTime == null) {
         return c.json({ error: 'Missing sourcePath, startTime, or endTime' }, 400)
       }
+      if (!body.boardId) {
+        return c.json({ error: 'Missing boardId' }, 400)
+      }
       if (endTime <= startTime) {
         return c.json({ error: 'endTime must be greater than startTime' }, 400)
       }
 
-      // Resolve source to absolute path — query DB for board's real folderUri
-      let absolutePath: string
-      if (body.boardId) {
-        const boardResult = await resolveBoardDirFromDb(body.boardId)
-        if (!boardResult) {
-          return c.json({ error: 'Board not found' }, 404)
-        }
-        absolutePath = path.resolve(boardResult.absDir, sourcePath.replace(/^\/+/, ''))
-      } else {
-        absolutePath = resolveScopedPath({
-          projectId: body.projectId,
-          target: sourcePath,
-        })
+      const boardResult = await resolveBoardDirFromDb(body.boardId)
+      if (!boardResult) {
+        return c.json({ error: 'Board not found' }, 404)
       }
+
+      // Resolve source to absolute path
+      const absolutePath = path.resolve(boardResult.absDir, sourcePath.replace(/^\/+/, ''))
 
       if (!fs.existsSync(absolutePath)) {
         return c.json({ error: 'Source file not found' }, 404)
       }
 
-      const configDir = process.env.OPENLOAF_CONFIG_DIR
-        || path.join(process.env.HOME || '/tmp', '.openloaf')
-      const outputDir = path.join(configDir, 'temp', 'video-clips')
+      const outputDir = path.join(boardResult.absDir, BOARD_ASSETS_DIR)
       const fileName = path.basename(absolutePath)
 
       const result = await exportVideoClip({
@@ -197,14 +195,20 @@ export function registerVideoDownloadRoutes(app: Hono) {
   /** Download an exported clip file. */
   app.get('/media/video-clip/download', async (c) => {
     const filePath = c.req.query('file')?.trim()
+    const boardId = c.req.query('boardId')?.trim()
     if (!filePath) {
       return c.json({ error: 'Missing file parameter' }, 400)
     }
+    if (!boardId) {
+      return c.json({ error: 'Missing boardId' }, 400)
+    }
 
-    // Security: only allow files from our temp directory
-    const configDir = process.env.OPENLOAF_CONFIG_DIR
-      || path.join(process.env.HOME || '/tmp', '.openloaf')
-    const allowedDir = path.join(configDir, 'temp', 'video-clips')
+    // Security: only allow files within the board's asset directory
+    const boardResult = await resolveBoardDirFromDb(boardId)
+    if (!boardResult) {
+      return c.json({ error: 'Board not found' }, 404)
+    }
+    const allowedDir = path.join(boardResult.absDir, BOARD_ASSETS_DIR)
     const resolved = path.resolve(filePath)
     if (!resolved.startsWith(allowedDir)) {
       return c.json({ error: 'Access denied' }, 403)

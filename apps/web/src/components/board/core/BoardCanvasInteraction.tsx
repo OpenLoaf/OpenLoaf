@@ -87,7 +87,7 @@ import {
   resolveProjectPathFromBoardUri,
 } from "./boardFilePath";
 import { buildLinkNodePayloadFromUrl } from "../utils/link";
-import { isVideoPlatformUrl, probeVideoUrl } from "../utils/video-url";
+import { isVideoPlatformUrl } from "../utils/video-url";
 import { resolveServerUrl } from "@/utils/server-url";
 import { useLayoutState } from "@/hooks/use-layout-state";
 import { useTranslation } from "react-i18next";
@@ -762,20 +762,14 @@ export function BoardCanvasInteraction({
         if (isVideoPlatformUrl(urlPayload.url)) {
           void insertVideoFromUrl(urlPayload.url, center);
         } else {
-          void probeVideoUrl(urlPayload.url).then((isVideo) => {
-            if (isVideo) {
-              void insertVideoFromUrl(urlPayload.url, center);
-            } else {
-              const linkPayload = buildLinkNodePayloadFromUrl(urlPayload.url);
-              const [width, height] = linkPayload.size;
-              engine.addNodeElement("link", linkPayload.props, [
-                center[0] - width / 2,
-                center[1] - height / 2,
-                width,
-                height,
-              ]);
-            }
-          });
+          const linkPayload = buildLinkNodePayloadFromUrl(urlPayload.url);
+          const [width, height] = linkPayload.size;
+          engine.addNodeElement("link", linkPayload.props, [
+            center[0] - width / 2,
+            center[1] - height / 2,
+            width,
+            height,
+          ]);
         }
       }
     };
@@ -1089,26 +1083,20 @@ export function BoardCanvasInteraction({
     }
   };
 
-  /** Insert a URL at a canvas point: known video platforms go to download, others get probed, fallback to link. */
+  /** Insert a URL at a canvas point: known video platforms go to download, others create link node. */
   const insertUrlAtPoint = async (url: string, center: CanvasPoint) => {
     if (isVideoPlatformUrl(url)) {
       await insertVideoFromUrl(url, center);
       return;
     }
-    // 逻辑：未知平台异步探测，能提取视频信息就下载，否则创建链接节点。
-    const isVideo = await probeVideoUrl(url);
-    if (isVideo) {
-      await insertVideoFromUrl(url, center);
-    } else {
-      const linkPayload = buildLinkNodePayloadFromUrl(url);
-      const [width, height] = linkPayload.size;
-      engine.addNodeElement("link", linkPayload.props, [
-        center[0] - width / 2,
-        center[1] - height / 2,
-        width,
-        height,
-      ]);
-    }
+    const linkPayload = buildLinkNodePayloadFromUrl(url);
+    const [width, height] = linkPayload.size;
+    engine.addNodeElement("link", linkPayload.props, [
+      center[0] - width / 2,
+      center[1] - height / 2,
+      width,
+      height,
+    ]);
   };
 
   /** Insert audio files at a canvas point: save to board assets, get duration, add nodes. */

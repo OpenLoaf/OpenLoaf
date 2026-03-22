@@ -350,6 +350,7 @@
     "approvalRejected": "已拒绝执行",
     "rejected": "已拒绝",
     "outputLoading": "输出加载中…",
+    "executing": "执行中…",
     "confirmExec": "确认执行此命令？",
     "processing": "处理中...",
     "thinkingStreaming": "深度思考中...",

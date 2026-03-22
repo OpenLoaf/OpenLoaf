@@ -303,13 +303,15 @@ export class SelectTool implements CanvasTool {
         );
         if (hover) {
           // 逻辑：在吸附到目标前先验证连接合法性，不合法时记录原因供视觉反馈使用。
+          // backward 拖拽时 mouseUp 会交换 source/target，验证需用交换后的方向。
           const sourceNode = ctx.engine.doc.getElementById(this.connectorSource.elementId);
+          const isBackward = this.connectorDirection === 'backward';
           const validation = sourceNode && sourceNode.kind === 'node'
             ? validateConnection(
-                sourceNode,
-                this.connectorSource.anchorId,
-                targetNode,
-                hover.anchorId,
+                isBackward ? targetNode : sourceNode,
+                isBackward ? hover.anchorId : this.connectorSource.anchorId,
+                isBackward ? sourceNode : targetNode,
+                isBackward ? this.connectorSource.anchorId : hover.anchorId,
                 (type) => ctx.engine.getNodeDefinition(type),
               )
             : { valid: true };

@@ -19,7 +19,8 @@ import {
   getProjectRootPath,
   resolveScopedPath,
 } from "@openloaf/api/services/vfsService";
-import { getOpenLoafRootDir, resolveOpenLoafPath } from "@openloaf/config";
+import { getOpenLoafRootDir } from "@openloaf/config";
+import { getResolvedTempStorageDir } from "@openloaf/api/services/appConfigService";
 import { createTempProject } from "@openloaf/api/services/tempProjectService";
 import { migrateSessionDirToProject } from "@/ai/services/chat/repositories/chatFileStore";
 import { updateSessionProjectId } from "@/ai/services/chat/repositories/messageStore";
@@ -31,6 +32,8 @@ type ToolRoots = {
   projectRoot?: string;
   /** Chat asset directory for global conversations (no projectId). */
   chatAssetRoot?: string;
+  /** Session files root ({sessionDir}/root/) for resolving user-attached files. */
+  sessionFilesRoot?: string;
 };
 
 /** Resolve global/project roots for current request context. */
@@ -39,12 +42,16 @@ export function resolveToolRoots(): ToolRoots {
   const projectId = getProjectId();
   const projectRoot = projectId ? getProjectRootPath(projectId) ?? undefined : undefined;
 
-  // 计算 chat asset root（仅全局对话，即无 projectRoot 时）
+  // 临时会话（无 projectRoot）：通过 sessionId 计算正确的会话存储路径。
+  // 文件存储在 {tempDir}/chat-history/{sessionId}/ 下，不是 ~/.openloaf/。
   let chatAssetRoot: string | undefined;
+  let sessionFilesRoot: string | undefined;
   if (!projectRoot) {
     const sessionId = getSessionId();
     if (sessionId) {
-      chatAssetRoot = path.join(resolveOpenLoafPath("chat-history"), sessionId, "asset");
+      const sessionDir = path.join(getResolvedTempStorageDir(), "chat-history", sessionId);
+      chatAssetRoot = path.join(sessionDir, "asset");
+      sessionFilesRoot = path.join(sessionDir, "root");
     }
   }
 
@@ -52,6 +59,7 @@ export function resolveToolRoots(): ToolRoots {
     globalRoot: path.resolve(globalRoot),
     projectRoot: projectRoot ? path.resolve(projectRoot) : undefined,
     chatAssetRoot,
+    sessionFilesRoot,
   };
 }
 
@@ -67,9 +75,22 @@ export function resolveToolPath(input: {
 }): { absPath: string; rootLabel: "project" | "external" } {
   const projectId = getProjectId();
   const { projectRoot } = resolveToolRoots();
-  const absPath = path.resolve(
-    resolveScopedPath({ projectId, target: input.target }),
-  );
+
+  let absPath: string;
+  // 临时会话（无 projectId 有 sessionId）：相对路径解析基于 tempDir，
+  // 不走 resolveScopedPath 的 globalRoot fallback（会错误地解析到 ~/.openloaf/）。
+  if (!projectId && getSessionId()) {
+    const raw = input.target.trim();
+    const stripped = raw.startsWith("@{") && raw.endsWith("}") ? raw.slice(2, -1) : raw;
+    if (!path.isAbsolute(stripped) && !stripped.startsWith("~") && !stripped.startsWith("file:")) {
+      absPath = path.resolve(getResolvedTempStorageDir(), stripped);
+    } else {
+      absPath = path.resolve(resolveScopedPath({ projectId, target: input.target }));
+    }
+  } else {
+    absPath = path.resolve(resolveScopedPath({ projectId, target: input.target }));
+  }
+
   const insideProject = projectRoot ? isPathInside(projectRoot, absPath) : false;
   const rootLabel = insideProject ? "project" : "external";
   return { absPath, rootLabel };

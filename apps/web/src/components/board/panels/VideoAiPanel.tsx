@@ -13,6 +13,7 @@ import {
   Loader2,
 } from 'lucide-react'
 import type { CanvasNodeElement } from '../engine/types'
+import type { UpstreamData } from '../engine/upstream-data'
 import type { VideoNodeProps } from '../nodes/VideoNode'
 import type { AiGenerateConfig } from '../board-contracts'
 import { MEDIA_PREFERENCES, MEDIA_FEATURES, type MediaPreferenceId, type MediaFeatureId } from '@openloaf-saas/sdk'
@@ -82,6 +83,8 @@ export type VideoAiPanelProps = {
   upstreamImagePaths?: string[]
   upstreamAudioUrl?: string
   upstreamVideoUrl?: string
+  /** Raw upstream data for InputSlotBar (with entries for slot assignment). */
+  rawUpstream?: UpstreamData | null
   /** Board context for variant MediaSlot preview resolution & file saving. */
   boardId?: string
   projectId?: string
@@ -107,6 +110,7 @@ export function VideoAiPanel({
   upstreamImagePaths,
   upstreamAudioUrl,
   upstreamVideoUrl,
+  rawUpstream: _rawUpstream,
   boardId,
   projectId,
   boardFolderUri,
@@ -273,7 +277,7 @@ export function VideoAiPanel({
     return {
       feature: selectedFeatureId,
       variant: selectedVariantId,
-      inputs: p.inputs,
+      inputs: { ...p.inputs },
       params: p.params,
       count: p.count,
       seed: p.seed,
@@ -300,10 +304,15 @@ export function VideoAiPanel({
 
     const params = await buildParams()
 
+    // Snapshot current variant params into local cache before persisting
+    const key = activeKeyRef.current
+    if (key) paramsCacheLocal.current[key] = latestParams.current
     const config: AiGenerateConfig = {
+      ...aiConfigRef.current,
       feature: params.feature as AiGenerateConfig['feature'],
       prompt: params.prompt ?? '',
       aspectRatio: params.aspectRatio as AiGenerateConfig['aspectRatio'],
+      paramsCache: { ...paramsCacheLocal.current },
     }
     onUpdate({
       origin: 'ai-generate',

@@ -330,7 +330,7 @@ const LeftToolbar = memo(function LeftToolbar({
                   id: "text-sticky",
                   type: "text",
                   props: { autoFocus: true, style: "sticky", stickyColor: "yellow" },
-                  size: [200, 200],
+                  size: [200, TEXT_NODE_DEFAULT_HEIGHT],
                   title: t("insertTools.text"),
                 });
               }}

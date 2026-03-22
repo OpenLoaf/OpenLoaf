@@ -12,10 +12,10 @@
 import { forwardRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@udecode/cn'
-import { ImagePlus, Music, Type, Video } from 'lucide-react'
+import { Image, Music, Type, Video } from 'lucide-react'
 
-import type { MediaType } from '../panels/variants/slot-types'
 import type { TemplateGroup, TemplateItem } from '../engine/dynamic-templates'
+import { toolbarSurfaceClassName } from '../ui/ToolbarParts'
 
 // ---------------------------------------------------------------------------
 // Props
@@ -53,19 +53,18 @@ function resolveAlignClass(align: GroupedNodePickerProps['align']) {
   }
 }
 
-/** Lucide icon element for a given media type group. */
-function GroupIcon({ mediaType }: { mediaType: MediaType }) {
-  switch (mediaType) {
-    case 'text':
-      return <Type size={12} />
+/** Resolve the Lucide icon for a template item based on its node type. */
+function resolveItemIcon(nodeType: string) {
+  const size = 16
+  switch (nodeType) {
     case 'image':
-      return <ImagePlus size={12} />
+      return <Image size={size} />
     case 'video':
-      return <Video size={12} />
+      return <Video size={size} />
     case 'audio':
-      return <Music size={12} />
+      return <Music size={size} />
     default:
-      return null
+      return <Type size={size} />
   }
 }
 
@@ -80,11 +79,10 @@ export const GroupedNodePicker = forwardRef<HTMLDivElement, GroupedNodePickerPro
   ) {
     const { t } = useTranslation('board')
 
-    const hasGroups = groups.length > 0
+    // Flatten all groups into a single item list.
+    const items = groups.flatMap((g) => g.items)
 
     return (
-      /* Outer positioning wrapper — pointer-events-none so canvas interactions
-         pass through the transparent area around the panel. */
       <div
         ref={ref}
         data-node-picker
@@ -103,29 +101,63 @@ export const GroupedNodePicker = forwardRef<HTMLDivElement, GroupedNodePickerPro
           }}
         />
 
-        {/* Main panel */}
+        {/* Main panel — same style as FloatingInsertMenu */}
         <div
           data-connector-drop-panel
           className={cn(
-            'pointer-events-auto rounded-3xl border border-border bg-card shadow-lg',
-            'max-w-[320px] min-w-[200px]',
-            'max-h-[480px] overflow-y-auto',
-            'p-2',
+            'pointer-events-auto w-[220px] rounded-3xl py-2',
+            toolbarSurfaceClassName,
           )}
         >
-          {hasGroups ? (
-            <div className="flex flex-col gap-3">
-              {groups.map((group) => (
-                <GroupSection
-                  key={group.id}
-                  group={group}
-                  onSelect={onSelect}
-                  t={t}
-                />
-              ))}
-            </div>
+          {items.length > 0 ? (
+            items.map((item) => {
+              const hasMissing = item.missingInputTypes.length > 0
+              const missingHint = hasMissing
+                ? item.missingInputTypes
+                    .map((mt) => t(`dynamicTemplates.mediaType.${mt}` as Parameters<typeof t>[0]))
+                    .join(', ')
+                : null
+
+              return (
+                <button
+                  key={item.variantId}
+                  type="button"
+                  onPointerDown={(e) => {
+                    e.stopPropagation()
+                    onSelect(item)
+                  }}
+                  className={cn(
+                    'group flex w-full items-center gap-3 px-3.5 py-2',
+                    'transition-colors duration-100 rounded-3xl mx-0',
+                    'hover:bg-foreground/6 dark:hover:bg-foreground/8',
+                  )}
+                >
+                  <span
+                    className={cn(
+                      'flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-3xl',
+                      'bg-foreground/5 dark:bg-foreground/8',
+                      'transition-colors duration-100',
+                      'group-hover:bg-foreground/8 dark:group-hover:bg-foreground/12',
+                      hasMissing && 'opacity-50 group-hover:opacity-100',
+                    )}
+                  >
+                    {resolveItemIcon(item.nodeType)}
+                  </span>
+                  <div className="flex flex-col items-start gap-0.5 min-w-0">
+                    <span className="text-[13px] font-medium leading-tight">
+                      {t(item.labelKey as Parameters<typeof t>[0])}
+                    </span>
+                    {missingHint && (
+                      <span className="text-[11px] leading-tight text-ol-text-auxiliary truncate max-w-[140px]">
+                        *{missingHint}
+                      </span>
+                    )}
+                  </div>
+                </button>
+              )
+            })
           ) : (
-            <div className="px-3 py-2 text-[11px] text-ol-text-auxiliary">
+            <div className="px-3.5 py-2 text-[11px] text-ol-text-auxiliary">
               {t('nodePicker.empty')}
             </div>
           )}
@@ -136,100 +168,3 @@ export const GroupedNodePicker = forwardRef<HTMLDivElement, GroupedNodePickerPro
 )
 
 GroupedNodePicker.displayName = 'GroupedNodePicker'
-
-// ---------------------------------------------------------------------------
-// GroupSection sub-component
-// ---------------------------------------------------------------------------
-
-interface GroupSectionProps {
-  group: TemplateGroup
-  onSelect: (item: TemplateItem) => void
-  t: ReturnType<typeof useTranslation<'board'>>['t']
-}
-
-function GroupSection({ group, onSelect, t }: GroupSectionProps) {
-  return (
-    <div className="flex flex-col gap-1">
-      {/* Group header label */}
-      <div className="flex items-center gap-1 px-2 pt-0.5">
-        <span className="text-ol-text-auxiliary/60">
-          <GroupIcon mediaType={group.id} />
-        </span>
-        <span className="text-[10px] font-medium uppercase tracking-wider text-ol-text-auxiliary/60">
-          {t(group.labelKey as Parameters<typeof t>[0])}
-        </span>
-      </div>
-
-      {/* Items grid */}
-      <div className="flex flex-wrap gap-0.5">
-        {group.items.map((item) => (
-          <TemplateItemButton key={item.variantId} item={item} onSelect={onSelect} t={t} />
-        ))}
-      </div>
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// TemplateItemButton sub-component
-// ---------------------------------------------------------------------------
-
-interface TemplateItemButtonProps {
-  item: TemplateItem
-  onSelect: (item: TemplateItem) => void
-  t: ReturnType<typeof useTranslation<'board'>>['t']
-}
-
-function TemplateItemButton({ item, onSelect, t }: TemplateItemButtonProps) {
-  const hasMissingInputs = item.missingInputTypes.length > 0
-
-  /** Localised label for the missing input hint. */
-  const missingHint = hasMissingInputs
-    ? item.missingInputTypes
-        .map((mt) => t(`dynamicTemplates.mediaType.${mt}` as Parameters<typeof t>[0]))
-        .join(', ')
-    : null
-
-  return (
-    <button
-      type="button"
-      onPointerDown={(e) => {
-        e.stopPropagation()
-        onSelect(item)
-      }}
-      className={cn(
-        'group flex flex-col items-center gap-1 rounded-3xl px-3 py-2',
-        'transition-colors duration-100',
-        hasMissingInputs
-          ? 'text-ol-text-auxiliary/60 hover:text-ol-text-primary'
-          : 'text-ol-text-auxiliary hover:text-ol-text-primary',
-        'hover:bg-foreground/8',
-        'dark:hover:bg-foreground/10',
-      )}
-    >
-      {/* Icon badge */}
-      <span
-        className={cn(
-          'flex h-8 w-8 items-center justify-center rounded-3xl transition-colors',
-          hasMissingInputs
-            ? 'bg-ol-surface-muted text-ol-text-auxiliary/50 group-hover:bg-ol-blue-bg group-hover:text-ol-blue'
-            : 'bg-ol-surface-muted text-ol-text-auxiliary group-hover:bg-ol-blue-bg group-hover:text-ol-blue',
-        )}
-      >
-        <Type size={16} />
-      </span>
-
-      {/* Label */}
-      <span className="whitespace-nowrap text-[11px] font-medium leading-tight">
-        {t(item.labelKey as Parameters<typeof t>[0])}
-      </span>
-
-      {/* Missing input hint */}
-      {missingHint && (
-        <span className="whitespace-nowrap text-[9px] leading-tight text-ol-text-auxiliary/50">
-          *{missingHint}
-        </span>
-      )}
-    </button>
-  )
-}

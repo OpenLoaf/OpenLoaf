@@ -28,7 +28,7 @@ import { useProjectLayout } from "@/hooks/use-project-layout"
 import { useRecordEntityVisit } from "@/hooks/use-record-entity-visit"
 import { useChatSessions } from "@/hooks/use-chat-sessions"
 import { LeftDock } from "./LeftDock"
-import { TabActiveProvider } from "./TabActiveContext"
+import { TabActiveProvider, useTabActive } from "./TabActiveContext"
 
 const RIGHT_CHAT_MIN_PX = 360
 const DIVIDER_GAP_PX = 10
@@ -74,11 +74,12 @@ class PanelErrorBoundary extends React.Component<
 // The right-side chat is fully independent from the board — users can freely
 // switch sessions and create new ones regardless of which board is open.
 function RightChatPanel() {
+  const isActive = useTabActive()
   const activeSessionId = useAppView((s) => s.chatSessionId)
   const chatParams = useAppView((s) => s.chatParams)
   const layout = useLayoutState()
   const { recordEntityVisit } = useRecordEntityVisit()
-  const { sessions: remoteSessions } = useChatSessions()
+  const { sessions: remoteSessions } = useChatSessions({ enabled: isActive })
 
   const hasRemoteActiveSession = React.useMemo(() => {
     if (!activeSessionId) return false
@@ -143,7 +144,7 @@ function RightChatPanel() {
             loadHistory={true}
             tabId="main"
             {...(chatParams ?? {})}
-            active={true}
+            active={isActive}
             onSessionChange={(sessionId, options) => {
               useAppView.getState().setChatSession(sessionId, options?.loadHistory)
             }}

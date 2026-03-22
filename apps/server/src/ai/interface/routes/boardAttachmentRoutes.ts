@@ -80,8 +80,8 @@ export function registerBoardAttachmentRoutes(app: Hono) {
 
       const body = toUint8Array(preview.buffer);
 
-      // 视频 Range 请求支持
-      if (preview.mediaType.startsWith("video/")) {
+      // 视频/音频 Range 请求支持
+      if (preview.mediaType.startsWith("video/") || preview.mediaType.startsWith("audio/")) {
         const total = body.byteLength;
         const rangeHeader = c.req.header("range");
         if (rangeHeader) {

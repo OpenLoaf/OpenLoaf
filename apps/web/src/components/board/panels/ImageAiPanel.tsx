@@ -22,6 +22,7 @@ import { BRUSH_MIN_SIZE, BRUSH_MAX_SIZE } from '../nodes/MaskPaintOverlay'
 import { resolveAllMediaInputs } from '@/lib/media-upload'
 import { saveBoardAssetFile } from '../utils/board-asset'
 import type { CanvasNodeElement } from '../engine/types'
+import type { UpstreamData } from '../engine/upstream-data'
 import type { ImageNodeProps } from '../nodes/ImageNode'
 import type { AiGenerateConfig } from '../board-contracts'
 import {
@@ -60,6 +61,8 @@ export type ImageAiPanelProps = {
   upstreamImagePaths?: string[]
   upstreamAudioUrl?: string
   upstreamVideoUrl?: string
+  /** Raw upstream data for InputSlotBar (with entries for slot assignment). */
+  rawUpstream?: UpstreamData | null
   /** Resolved browser-friendly source URL for the current image. */
   resolvedImageSrc?: string
   /** Board context for variant MediaSlot preview resolution & file saving. */
@@ -147,6 +150,7 @@ export function ImageAiPanel({
   upstreamImagePaths,
   upstreamAudioUrl,
   upstreamVideoUrl,
+  rawUpstream: _rawUpstream,
   resolvedImageSrc,
   onGenerate,
   onGenerateNewNode,
@@ -397,10 +401,15 @@ export function ImageAiPanel({
     if (isGenerating) return
     setIsGenerating(true)
     const params = await buildParams()
+    // Snapshot current variant params into local cache before persisting
+    const key = activeKeyRef.current
+    if (key) paramsCacheLocal.current[key] = variantParamsRef.current
     const config: AiGenerateConfig = {
+      ...aiConfigRef.current,
       feature: params.feature as AiGenerateConfig['feature'],
       prompt: params.prompt ?? '',
       aspectRatio: params.aspectRatio as AiGenerateConfig['aspectRatio'],
+      paramsCache: { ...paramsCacheLocal.current },
     }
     onUpdate({
       origin: 'ai-generate',

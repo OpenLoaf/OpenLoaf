@@ -10,14 +10,12 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import Hls from 'hls.js'
 import { Check, Loader2, Pause, Play, RotateCcw } from 'lucide-react'
 import i18next from 'i18next'
 import type { DragTarget, VideoTrimPayload } from './video-trim-types'
 import {
-  buildHlsManifestUrl,
-  buildHlsQualityUrl,
-  buildHlsThumbnailsUrl,
+  buildStreamUrl,
+  buildThumbnailsUrl,
   clamp,
   formatTime,
   formatTimePrecise,
@@ -105,7 +103,6 @@ export function VideoTrimPlayer({ payload, onConfirm, onClose }: VideoTrimPlayer
 
   // ---- refs ----
   const videoRef = useRef<HTMLVideoElement>(null)
-  const hlsRef = useRef<Hls | null>(null)
   const trackRef = useRef<HTMLDivElement>(null)
   const draggingRef = useRef<DragTarget>(null)
 
@@ -114,7 +111,6 @@ export function VideoTrimPlayer({ payload, onConfirm, onClose }: VideoTrimPlayer
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(payload.duration)
   const [ready, setReady] = useState(false)
-  const [isBuilding, setIsBuilding] = useState(false)
 
   // ---- clip state ----
   const [clipStart, setClipStart] = useState(payload.clipStart)
@@ -128,11 +124,10 @@ export function VideoTrimPlayer({ payload, onConfirm, onClose }: VideoTrimPlayer
   const clipEndRef = useRef(clipEnd)
   clipEndRef.current = clipEnd
 
-  // ---- HLS URLs ----
-  const masterUrl = useMemo(() => buildHlsManifestUrl(hlsPath, ids), [hlsPath, ids])
-  const qualityUrl = useMemo(() => buildHlsQualityUrl(hlsPath, '720p', ids), [hlsPath, ids])
+  // ---- Stream URL ----
+  const streamUrl = useMemo(() => buildStreamUrl(hlsPath, ids), [hlsPath, ids])
   const thumbnailsUrl = useMemo(
-    () => payload.thumbnailsUrl || buildHlsThumbnailsUrl(hlsPath, ids),
+    () => payload.thumbnailsUrl || buildThumbnailsUrl(hlsPath, ids),
     [hlsPath, ids, payload.thumbnailsUrl],
   )
   const images = useVttThumbnails(thumbnailsUrl)
@@ -150,81 +145,19 @@ export function VideoTrimPlayer({ payload, onConfirm, onClose }: VideoTrimPlayer
     prevDurationRef.current = effectiveDuration
   }, [effectiveDuration, clipEnd])
 
-  // ---- HLS polling + attach ----
-  // Polling is separated from video attachment: poll first, then attach when
-  // both the playback URL is known AND the <video> element exists.
-  const [playbackUrl, setPlaybackUrl] = useState<string | null>(null)
-
-  // Step 1: poll HLS readiness (no dependency on videoRef)
+  // ---- Direct video attach ----
   useEffect(() => {
-    let cancelled = false
-    let pollTimer: ReturnType<typeof setTimeout> | null = null
-
-    const poll = async () => {
-      try {
-        const res = await fetch(qualityUrl, { cache: 'no-store' })
-        if (cancelled) return
-        if (res.status === 200) {
-          setIsBuilding(false)
-          setPlaybackUrl(masterUrl)
-          return
-        }
-        if (res.status === 202) {
-          setIsBuilding(true)
-          pollTimer = setTimeout(poll, 1500)
-          return
-        }
-        setIsBuilding(false)
-      } catch {
-        if (!cancelled) setIsBuilding(false)
-      }
-    }
-    poll()
-
-    return () => {
-      cancelled = true
-      if (pollTimer) clearTimeout(pollTimer)
-    }
-  }, [qualityUrl, masterUrl])
-
-  // Step 2: attach HLS once URL is ready and <video> exists
-  useEffect(() => {
-    if (!playbackUrl) return
     const video = videoRef.current
-    if (!video) return
+    if (!video || !streamUrl) return
 
-    let cancelled = false
-    if (Hls.isSupported()) {
-      const hls = new Hls({ enableWorker: false })
-      hlsRef.current = hls
-      hls.loadSource(playbackUrl)
-      hls.attachMedia(video)
-      hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        if (!cancelled) setReady(true)
-      })
-    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      video.src = playbackUrl
-      setReady(true)
-    }
+    video.src = streamUrl
+    const onCanPlay = () => setReady(true)
+    video.addEventListener('canplay', onCanPlay)
 
     return () => {
-      cancelled = true
-      if (hlsRef.current) {
-        hlsRef.current.destroy()
-        hlsRef.current = null
-      }
+      video.removeEventListener('canplay', onCanPlay)
     }
-  }, [playbackUrl])
-
-  // ---- Cleanup on unmount ----
-  useEffect(() => {
-    return () => {
-      if (hlsRef.current) {
-        hlsRef.current.destroy()
-        hlsRef.current = null
-      }
-    }
-  }, [])
+  }, [streamUrl])
 
   // ---- video event handlers ----
   const onLoadedMetadata = useCallback(() => {
@@ -290,13 +223,35 @@ export function VideoTrimPlayer({ payload, onConfirm, onClose }: VideoTrimPlayer
       e.preventDefault()
       const v = valueFromClientX(e.clientX)
       if (target === 'start') {
-        setClipStart(Math.min(v, clipEndRef.current - 0.1))
-      } else if (target === 'end') {
-        setClipEnd(Math.max(v, clipStartRef.current + 0.1))
-      } else if (target === 'playhead') {
+        const oldStart = clipStartRef.current
+        const newStart = Math.min(v, clipEndRef.current - 0.1)
+        setClipStart(newStart)
         const video = videoRef.current
-        if (video) video.currentTime = v
-        setCurrentTime(v)
+        // 逻辑：播放头在起点附近时跟随 start 手柄移动，否则只约束不越界。
+        if (video) {
+          if (Math.abs(video.currentTime - oldStart) < 0.15 || video.currentTime < newStart) {
+            video.currentTime = newStart
+            setCurrentTime(newStart)
+          }
+        }
+      } else if (target === 'end') {
+        const oldEnd = clipEndRef.current
+        const newEnd = Math.max(v, clipStartRef.current + 0.1)
+        setClipEnd(newEnd)
+        const video = videoRef.current
+        // 逻辑：播放头在终点附近时跟随 end 手柄移动，否则只约束不越界。
+        if (video) {
+          if (Math.abs(video.currentTime - oldEnd) < 0.15 || video.currentTime > newEnd) {
+            video.currentTime = newEnd
+            setCurrentTime(newEnd)
+          }
+        }
+      } else if (target === 'playhead') {
+        // 逻辑：拖动播放头时也约束在裁剪范围内。
+        const clamped = clamp(v, clipStartRef.current, clipEndRef.current)
+        const video = videoRef.current
+        if (video) video.currentTime = clamped
+        setCurrentTime(clamped)
       }
     }
     const handleUp = () => {
@@ -326,7 +281,7 @@ export function VideoTrimPlayer({ payload, onConfirm, onClose }: VideoTrimPlayer
     (e: React.PointerEvent) => {
       e.preventDefault()
       e.stopPropagation()
-      const v = valueFromClientX(e.clientX)
+      const v = clamp(valueFromClientX(e.clientX), clipStartRef.current, clipEndRef.current)
       const video = videoRef.current
       if (video) video.currentTime = v
       setCurrentTime(v)
@@ -403,9 +358,7 @@ export function VideoTrimPlayer({ payload, onConfirm, onClose }: VideoTrimPlayer
             <div className="flex flex-col items-center gap-2 text-sm text-white/70">
               <Loader2 className="h-6 w-6 animate-spin" />
               <span>
-                {isBuilding
-                  ? i18next.t('board:videoNode.trim.building', { defaultValue: '视频转码中...' })
-                  : i18next.t('board:videoNode.trim.loading', { defaultValue: 'Loading video...' })}
+                {i18next.t('board:videoNode.trim.loading', { defaultValue: 'Loading video...' })}
               </span>
             </div>
           </div>
@@ -525,7 +478,7 @@ export function VideoTrimPlayer({ payload, onConfirm, onClose }: VideoTrimPlayer
           </button>
           <button
             type="button"
-            className="inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs bg-ol-blue text-white hover:bg-ol-blue/90 transition-colors duration-150"
+            className="inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs bg-foreground text-background hover:bg-foreground/90 transition-colors duration-150"
             onClick={handleConfirm}
           >
             <Check className="h-3.5 w-3.5" />

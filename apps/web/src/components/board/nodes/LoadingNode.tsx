@@ -11,7 +11,7 @@ import type { CanvasNodeDefinition, CanvasNodeViewProps } from "../engine/types"
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { z } from "zod";
-import { Loader2, X, RotateCw, Trash2 } from "lucide-react";
+import { Loader2, X, RotateCw, Trash2, Link, Copy, Check } from "lucide-react";
 import { trpcClient } from "@/utils/trpc";
 import { resolveServerUrl } from "@/utils/server-url";
 import { fetchVideoMetadata } from "@/components/file/lib/video-metadata";
@@ -47,6 +47,8 @@ export type LoadingNodeProps = {
   projectId?: string;
   /** Save directory for generated assets. */
   saveDir?: string;
+  /** Persisted error from a failed task — survives component remounts. */
+  failedError?: string;
 };
 
 const LoadingNodeSchema = z.object({
@@ -57,6 +59,7 @@ const LoadingNodeSchema = z.object({
   chatModelId: z.string().optional(),
   projectId: z.string().optional(),
   saveDir: z.string().optional(),
+  failedError: z.string().optional(),
 });
 
 /** Default loading container size. */
@@ -138,14 +141,13 @@ async function pollVideoDownload(
     xywhRef: React.RefObject<[number, number, number, number]>;
     tRef: React.RefObject<(key: string) => string>;
     onProgress: (percent: number, phase: string) => void;
+    onInfo?: (info: { title?: string }) => void;
   },
 ) {
   const baseUrl = resolveServerUrl();
   const prefix = baseUrl || "";
   const maxAttempts = 300;
-  const maxRestarts = 3;
   let currentTaskId = taskId;
-  let restartCount = 0;
 
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     if (controller.signal.aborted) {
@@ -156,21 +158,6 @@ async function pollVideoDownload(
       `${prefix}/media/video-download/progress?taskId=${encodeURIComponent(currentTaskId)}`,
     );
     if (!res.ok) {
-      // 404 means server restarted and lost the task — restart the download
-      if (res.status === 404 && ctx.downloadUrl && restartCount < maxRestarts) {
-        restartCount += 1;
-        currentTaskId = await restartVideoDownload({
-          url: ctx.downloadUrl,
-          saveDir: ctx.saveDir,
-          projectId: ctx.projectId,
-          boardId: ctx.boardId,
-        });
-        // Update the loading node props so the new taskId persists
-        engine.doc.updateNodeProps(loadingNodeId, { taskId: currentTaskId });
-        ctx.onProgress(0, 'extracting');
-        attempt = 0; // 重置计数器，新任务重新开始
-        continue;
-      }
       throw new Error(ctx.tRef.current('loading.queryFailed'));
     }
     const json = await res.json();
@@ -178,7 +165,11 @@ async function pollVideoDownload(
       throw new Error(ctx.tRef.current('loading.queryFailed'));
     }
 
-    const { status, progress, result, error, phase } = json.data;
+    const { status, progress, result, error, phase, info } = json.data;
+
+    if (info?.title && ctx.onInfo) {
+      ctx.onInfo({ title: info.title });
+    }
 
     if (typeof progress === "number") {
       ctx.onProgress(progress, phase || 'downloading');
@@ -229,12 +220,14 @@ async function pollVideoDownload(
 /** Render the loading node. */
 export function LoadingNodeView({ element }: CanvasNodeViewProps<LoadingNodeProps>) {
   const { t } = useTranslation('board');
-  const { engine } = useBoardContext();
+  const { engine, fileContext } = useBoardContext();
   const [isRunning, setIsRunning] = useState(false);
   const [errorText, setErrorText] = useState("");
   const [retryCount, setRetryCount] = useState(0);
   const [downloadProgress, setDownloadProgress] = useState(-1);
   const [downloadPhase, setDownloadPhase] = useState<string>("extracting");
+  const [videoTitle, setVideoTitle] = useState("");
+  const [copiedField, setCopiedField] = useState<"link" | "error" | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   // 逻辑：用 ref 持有可变值，避免它们出现在 useEffect 依赖中导致轮询被意外重启。
@@ -249,12 +242,20 @@ export function LoadingNodeView({ element }: CanvasNodeViewProps<LoadingNodeProp
   const sourceNodeId = element.props.sourceNodeId ?? "";
   const projectId = element.props.projectId ?? "";
   const saveDir = element.props.saveDir ?? "";
+  const failedError = element.props.failedError ?? "";
 
   const promptLabel = promptText || t('loading.processing');
 
   const canRun = Boolean(
-    taskId && (taskType === "video_generate" || taskType === "image_generate" || taskType === "video_download" || taskType === "upscale" || taskType === "audio_generate")
+    taskId && !failedError && (taskType === "video_generate" || taskType === "image_generate" || taskType === "video_download" || taskType === "upscale" || taskType === "audio_generate")
   );
+
+  // Restore persisted error state on mount (survives component remount)
+  useEffect(() => {
+    if (failedError) {
+      setErrorText(failedError);
+    }
+  }, [failedError]);
 
   useEffect(() => {
     if (!canRun) return;
@@ -277,6 +278,9 @@ export function LoadingNodeView({ element }: CanvasNodeViewProps<LoadingNodeProp
             onProgress: (pct, phase) => {
               setDownloadProgress(pct);
               setDownloadPhase(phase);
+            },
+            onInfo: (info) => {
+              if (info.title) setVideoTitle(info.title);
             },
           });
           return;
@@ -422,6 +426,7 @@ export function LoadingNodeView({ element }: CanvasNodeViewProps<LoadingNodeProp
             const [metadata, thumbnailResult] = await Promise.all([
               fetchVideoMetadata({
                 projectId,
+                boardId: fileContext?.boardId,
                 uri: scopedPath,
               }),
               projectId && relativePath
@@ -496,6 +501,8 @@ export function LoadingNodeView({ element }: CanvasNodeViewProps<LoadingNodeProp
                   ? tRef.current('loading.audioGenerateError')
                   : tRef.current('loading.videoGenerateError');
           setErrorText(message);
+          // 持久化错误到节点 props，防止组件 remount 时重新触发轮询
+          engine.doc.updateNodeProps(element.id, { failedError: message });
           if (sourceNodeId) {
             engine.doc.updateNodeProps(sourceNodeId, { errorText: message });
           }
@@ -542,20 +549,59 @@ export function LoadingNodeView({ element }: CanvasNodeViewProps<LoadingNodeProp
     clearLoadingNode(engine, element.id);
   }, [engine, element.id, taskId, taskType]);
 
-  const handleRetry = useCallback(() => {
-    // 逻辑：递增 retryCount 触发 useEffect 重新执行轮询。
+  const handleRetry = useCallback(async () => {
     setErrorText("");
     abortControllerRef.current = null;
+
+    // video_download: 旧 task 已失败，需要重新发起下载获取新 taskId
+    if (taskType === "video_download" && promptText) {
+      try {
+        const baseUrl = resolveServerUrl() || "";
+        const res = await fetch(`${baseUrl}/media/video-download/start`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            url: promptText,
+            boardId: fileContext?.boardId,
+            projectId: projectId || undefined,
+          }),
+        });
+        const json = await res.json();
+        if (json.success && json.data?.taskId) {
+          engine.doc.updateNodeProps(element.id, {
+            taskId: json.data.taskId,
+            failedError: '',
+          });
+          setRetryCount((c) => c + 1);
+          return;
+        }
+      } catch {
+        // fall through to simple retry
+      }
+    }
+
+    // 其他任务类型：清除错误 + 递增 retryCount 重新轮询
+    engine.doc.updateNodeProps(element.id, { failedError: '' });
     setRetryCount((c) => c + 1);
-  }, []);
+  }, [engine, element.id, taskType, promptText, fileContext?.boardId, projectId]);
 
   const handleDelete = useCallback(() => {
     clearLoadingNode(engine, element.id);
   }, [engine, element.id]);
 
+  const handleCopy = useCallback((text: string, field: "link" | "error") => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedField(field);
+      setTimeout(() => setCopiedField(null), 1500);
+    });
+  }, []);
+
+  const isVideoDownload = taskType === "video_download";
+  const hasSourceUrl = isVideoDownload && !!promptText;
+
   const statusText = (() => {
     if (errorText) return t('loading.statusFailed');
-    if (taskType === "video_download" && (isRunning || downloadProgress >= 0)) {
+    if (isVideoDownload && (isRunning || downloadProgress >= 0)) {
       if (downloadPhase === 'extracting' || downloadProgress < 0) {
         return t('loading.statusExtracting', { defaultValue: '解析视频信息...' });
       }
@@ -568,6 +614,11 @@ export function LoadingNodeView({ element }: CanvasNodeViewProps<LoadingNodeProp
     if (isRunning) return t('loading.statusGenerating');
     return t('loading.statusWaiting');
   })();
+
+  // 下载中显示视频标题，回退到 URL
+  const displayLabel = isVideoDownload
+    ? (videoTitle || promptText || t('loading.processing'))
+    : promptLabel;
 
   return (
     <NodeFrame>
@@ -585,16 +636,21 @@ export function LoadingNodeView({ element }: CanvasNodeViewProps<LoadingNodeProp
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/[0.06]">
               <X className="h-4 w-4 text-ol-text-auxiliary" />
             </div>
-            {/* Operation name */}
+            {/* Title */}
             <div className="text-xs font-medium text-ol-text-secondary">
-              {promptLabel}
+              {isVideoDownload
+                ? t('loading.downloadFailed', { defaultValue: '视频下载失败' })
+                : promptLabel}
             </div>
-            {/* Error detail */}
-            <div className="text-[10px] text-ol-text-auxiliary line-clamp-2">
+            {/* Error detail — selectable & copyable */}
+            <div
+              className="w-full text-[10px] text-ol-text-auxiliary line-clamp-3 select-text cursor-text break-all"
+              title={errorText}
+            >
               {errorText}
             </div>
             {/* Actions */}
-            <div className="flex items-center gap-2 mt-0.5">
+            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap justify-center">
               <button
                 type="button"
                 onClick={handleRetry}
@@ -605,10 +661,33 @@ export function LoadingNodeView({ element }: CanvasNodeViewProps<LoadingNodeProp
               </button>
               <button
                 type="button"
-                onClick={handleDelete}
-                className="text-[11px] text-ol-text-auxiliary hover:text-ol-text-secondary transition-colors duration-150"
+                onClick={() => handleCopy(errorText, "error")}
+                className="flex items-center gap-1 rounded-full px-2 py-1 text-[11px] text-ol-text-auxiliary hover:text-ol-text-secondary transition-colors duration-150"
+                title={t('loading.copyError', { defaultValue: '复制错误信息' })}
               >
-                {t('loading.delete')}
+                {copiedField === "error"
+                  ? <Check className="h-3 w-3" />
+                  : <Copy className="h-3 w-3" />}
+              </button>
+              {hasSourceUrl && (
+                <button
+                  type="button"
+                  onClick={() => handleCopy(promptText, "link")}
+                  className="flex items-center gap-1 rounded-full px-2 py-1 text-[11px] text-ol-text-auxiliary hover:text-ol-text-secondary transition-colors duration-150"
+                  title={t('loading.copyLink', { defaultValue: '复制原始链接' })}
+                >
+                  {copiedField === "link"
+                    ? <Check className="h-3 w-3" />
+                    : <Link className="h-3 w-3" />}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={handleDelete}
+                className="flex items-center gap-1 rounded-full px-2 py-1 text-[11px] text-ol-text-auxiliary hover:text-ol-text-secondary transition-colors duration-150"
+                title={t('loading.delete')}
+              >
+                <Trash2 className="h-3 w-3" />
               </button>
             </div>
           </>
@@ -618,10 +697,10 @@ export function LoadingNodeView({ element }: CanvasNodeViewProps<LoadingNodeProp
               <Loader2 className="h-4 w-4 animate-spin" />
               <span>{statusText}</span>
             </div>
-            <div className="w-full text-[11px] text-ol-text-auxiliary line-clamp-1 truncate">
-              {promptLabel}
+            <div className="w-full text-[11px] text-ol-text-auxiliary line-clamp-1 truncate" title={displayLabel}>
+              {displayLabel}
             </div>
-            {taskType === "video_download" && (
+            {isVideoDownload && (
               <div className="w-full mt-1 h-1.5 rounded-full bg-border/40 overflow-hidden">
                 <div
                   className="h-full rounded-full bg-ol-blue transition-all duration-300"
@@ -629,8 +708,20 @@ export function LoadingNodeView({ element }: CanvasNodeViewProps<LoadingNodeProp
                 />
               </div>
             )}
-            {isRunning ? (
-              <div className="flex items-center gap-1 mt-1">
+            <div className="flex items-center gap-1 mt-1">
+              {hasSourceUrl && (
+                <button
+                  type="button"
+                  onClick={() => handleCopy(promptText, "link")}
+                  className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] text-ol-text-auxiliary hover:text-ol-text-secondary transition-colors duration-150"
+                  title={t('loading.copyLink', { defaultValue: '复制原始链接' })}
+                >
+                  {copiedField === "link"
+                    ? <Check className="h-3 w-3" />
+                    : <Link className="h-3 w-3" />}
+                </button>
+              )}
+              {isRunning && (
                 <button
                   type="button"
                   onClick={handleCancel}
@@ -639,8 +730,8 @@ export function LoadingNodeView({ element }: CanvasNodeViewProps<LoadingNodeProp
                   <X className="h-3 w-3" />
                   {t('loading.cancel')}
                 </button>
-              </div>
-            ) : null}
+              )}
+            </div>
           </>
         )}
       </div>
@@ -660,6 +751,7 @@ export const LoadingNodeDefinition: CanvasNodeDefinition<LoadingNodeProps> = {
     chatModelId: "",
     projectId: "",
     saveDir: "",
+    failedError: "",
   },
   view: LoadingNodeView,
   capabilities: {

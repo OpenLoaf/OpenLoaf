@@ -503,7 +503,8 @@
       "reset": "重置",
       "confirm": "确认",
       "loading": "加载视频中...",
-      "noDuration": "时长未知 — 请先播放视频。"
+      "noDuration": "时长未知 — 请先播放视频。",
+      "clipDuration": "片段: {{time}}"
     },
     "generating": "视频生成中...",
     "generateFailed": "视频生成失败",
@@ -552,8 +553,11 @@
   "linkNode": {
     "toolbar": {
       "open": "打开",
-      "copyUrl": "复制URL"
-    }
+      "copyUrl": "复制URL",
+      "editUrl": "修改URL"
+    },
+    "urlPlaceholder": "粘贴或输入网页链接",
+    "urlSubmit": "确定"
   },
   "anchorOverlay": {
     "expand": "展开",

@@ -9,8 +9,7 @@
  */
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useTranslation } from "react-i18next";
+import { useEffect, useMemo, useState } from "react";
 import { VideoPlayer } from "@openloaf/ui/video-player";
 import { StackHeader } from "@/components/layout/StackHeader";
 import { useLayoutState } from "@/hooks/use-layout-state";
@@ -31,8 +30,6 @@ interface VideoViewerProps {
   /** Board id for resolving board-relative assets on the server. */
   boardId?: string;
   thumbnailSrc?: string;
-  width?: number;
-  height?: number;
   /** Force the large layout to keep controls stable. */
   forceLargeLayout?: boolean;
   /** Clip start time in seconds. */
@@ -41,50 +38,31 @@ interface VideoViewerProps {
   clipEnd?: number;
   panelKey?: string;
   tabId?: string;
-  /** Callback when video native dimensions are detected. */
-  onVideoSize?: (size: { width: number; height: number }) => void;
 }
 
-type HlsUrlInput = { path: string; projectId?: string; boardId?: string };
+type StreamUrlInput = { path: string; projectId?: string; boardId?: string };
 
-function applyIdParams(query: URLSearchParams, input: HlsUrlInput) {
-  if (input.projectId) query.set("projectId", input.projectId);
-  if (input.boardId) query.set("boardId", input.boardId);
-}
-
-/** Build an HLS manifest URL for the backend endpoint. */
-function buildManifestUrl(input: HlsUrlInput) {
+/** Build a direct stream URL for video playback. */
+function buildStreamUrl(input: StreamUrlInput) {
   const baseUrl = resolveServerUrl();
+  const prefix = baseUrl ? `${baseUrl}/media/stream` : "/media/stream";
+  if (input.boardId) {
+    const query = new URLSearchParams({ boardId: input.boardId, file: input.path });
+    if (input.projectId) query.set("projectId", input.projectId);
+    return `${prefix}?${query.toString()}`;
+  }
   const query = new URLSearchParams({ path: input.path });
-  applyIdParams(query, input);
-  const prefix = baseUrl ? `${baseUrl}/media/hls/manifest` : "/media/hls/manifest";
-  return `${prefix}?${query.toString()}`;
-}
-
-/** Build a quality-specific HLS manifest URL for the backend endpoint. */
-function buildQualityManifestUrl(input: HlsUrlInput & { quality: string }) {
-  const baseUrl = resolveServerUrl();
-  const query = new URLSearchParams({ path: input.path, quality: input.quality });
-  applyIdParams(query, input);
-  const prefix = baseUrl ? `${baseUrl}/media/hls/manifest` : "/media/hls/manifest";
-  return `${prefix}?${query.toString()}`;
-}
-
-/** Build an HLS progress URL for the backend endpoint. */
-function buildProgressUrl(input: HlsUrlInput & { quality: string }) {
-  const baseUrl = resolveServerUrl();
-  const query = new URLSearchParams({ path: input.path, quality: input.quality });
-  applyIdParams(query, input);
-  const prefix = baseUrl ? `${baseUrl}/media/hls/progress` : "/media/hls/progress";
+  if (input.projectId) query.set("projectId", input.projectId);
   return `${prefix}?${query.toString()}`;
 }
 
 /** Build a VTT thumbnails URL for the backend endpoint. */
-function buildThumbnailsUrl(input: HlsUrlInput) {
+function buildThumbnailsUrl(input: StreamUrlInput) {
   const baseUrl = resolveServerUrl();
   const query = new URLSearchParams({ path: input.path });
-  applyIdParams(query, input);
-  const prefix = baseUrl ? `${baseUrl}/media/hls/thumbnails` : "/media/hls/thumbnails";
+  if (input.projectId) query.set("projectId", input.projectId);
+  if (input.boardId) query.set("boardId", input.boardId);
+  const prefix = baseUrl ? `${baseUrl}/media/thumbnails` : "/media/thumbnails";
   return `${prefix}?${query.toString()}`;
 }
 
@@ -97,29 +75,17 @@ export default function VideoViewer({
   rootUri,
   boardId: boardIdProp,
   thumbnailSrc,
-  width,
-  height,
   forceLargeLayout,
   clipStart: clipStartProp,
   clipEnd: clipEndProp,
   panelKey,
   tabId,
-  onVideoSize,
 }: VideoViewerProps) {
-  const { t } = useTranslation("common");
   const removeStackItem = useLayoutState((state) => state.removeStackItem);
   const displayTitle = name ?? "";
   const shouldRenderStackHeader = Boolean(tabId && panelKey);
   const shouldRenderInlineHeader = Boolean(!shouldRenderStackHeader && displayTitle);
-  const [playbackUrl, setPlaybackUrl] = useState<string | null>(null);
-  const [isBuilding, setIsBuilding] = useState(false);
-  const [buildError, setBuildError] = useState<string | null>(null);
   const [previewBackground, setPreviewBackground] = useState<string | null>(null);
-  const [buildProgress, setBuildProgress] = useState(0);
-  const [detectedSize, setDetectedSize] = useState<{ width: number; height: number } | null>(null);
-  const playerWrapperRef = useRef<HTMLDivElement | null>(null);
-  const onVideoSizeRef = useRef(onVideoSize);
-  onVideoSizeRef.current = onVideoSize;
 
   const manifest = useMemo(() => {
     if (!uri) return null;
@@ -145,84 +111,17 @@ export default function VideoViewer({
 
     if (!relativePath) return null;
 
-    const quality = "720p";
-    // 逻辑：boardId 传给 HLS 端点，让服务端通过 boards/<boardId>/ 解析画布内相对资源。
     const ids = {
       projectId: resolvedProjectId,
       boardId: boardIdProp || undefined,
     };
-    const masterUrl = buildManifestUrl({
-      path: relativePath,
-      ...ids,
-    });
-    const qualityUrl = buildQualityManifestUrl({
-      path: relativePath,
-      ...ids,
-      quality,
-    });
-    const prewarmUrls = [
-      buildQualityManifestUrl({
-        path: relativePath,
-        ...ids,
-        quality: "1080p",
-      }),
-      buildQualityManifestUrl({
-        path: relativePath,
-        ...ids,
-        quality: "source",
-      }),
-    ];
     return {
-      // 逻辑：播放器使用 master 清单以支持分辨率切换。
-      url: masterUrl,
-      // 逻辑：仍用默认分辨率轮询转码完成，避免 HLS 读取到 202。
-      buildUrl: qualityUrl,
-      // 逻辑：后台预热其他清晰度，避免切换时阻塞。
-      prewarmUrls,
-      progress: buildProgressUrl({
-        path: relativePath,
-        ...ids,
-        quality,
-      }),
+      url: buildStreamUrl({ path: relativePath, ...ids }),
       thumbnails: buildThumbnailsUrl({ path: relativePath, ...ids }),
-      quality,
       projectId: resolvedProjectId,
       relativePath,
     };
   }, [boardIdProp, projectIdProp, rootUri, uri]);
-
-  // 逻辑：当 props 未提供 width/height 时，从 video 元素的 loadedmetadata 检测真实尺寸。
-  useEffect(() => {
-    if (width && height) return;
-    const wrapper = playerWrapperRef.current;
-    if (!wrapper || !playbackUrl) return;
-    const handleMetadata = (event: Event) => {
-      const video = event.target as HTMLVideoElement;
-      if (video.videoWidth > 0 && video.videoHeight > 0) {
-        const size = { width: video.videoWidth, height: video.videoHeight };
-        setDetectedSize(size);
-        onVideoSizeRef.current?.(size);
-      }
-    };
-    // 逻辑：VideoPlayer 异步挂载 video 元素，用 MutationObserver 等它出现。
-    const tryAttach = () => {
-      const video = wrapper.querySelector("video");
-      if (!video) return false;
-      video.addEventListener("loadedmetadata", handleMetadata, { once: true });
-      if (video.videoWidth > 0 && video.videoHeight > 0) {
-        const size = { width: video.videoWidth, height: video.videoHeight };
-        setDetectedSize(size);
-        onVideoSizeRef.current?.(size);
-      }
-      return true;
-    };
-    if (tryAttach()) return;
-    const observer = new MutationObserver(() => {
-      if (tryAttach()) observer.disconnect();
-    });
-    observer.observe(wrapper, { childList: true, subtree: true });
-    return () => observer.disconnect();
-  }, [width, height, playbackUrl]);
 
   useEffect(() => {
     if (thumbnailSrc) {
@@ -262,87 +161,9 @@ export default function VideoViewer({
     };
   }, [manifest?.thumbnails, thumbnailSrc]);
 
-  useEffect(() => {
-    if (!isBuilding || !manifest?.progress) {
-      return;
-    }
-    let cancelled = false;
-    const pollProgress = async () => {
-      try {
-        const response = await fetch(manifest.progress, { cache: "no-store" });
-        if (!response.ok) return;
-        const payload = (await response.json()) as { percent?: number; status?: string };
-        if (cancelled) return;
-        if (typeof payload.percent === "number") {
-          setBuildProgress(Math.floor(payload.percent));
-        }
-      } catch {
-        // 逻辑：进度请求失败时保持已有百分比。
-      }
-    };
-    pollProgress();
-    const timer = setInterval(pollProgress, 1000);
-    return () => {
-      cancelled = true;
-      clearInterval(timer);
-    };
-  }, [isBuilding, manifest?.progress]);
-
-  useEffect(() => {
-    if (!manifest?.url || !manifest?.buildUrl) {
-      setPlaybackUrl(null);
-      setIsBuilding(false);
-      setBuildError(null);
-      setBuildProgress(0);
-      return;
-    }
-    let cancelled = false;
-    let timer: ReturnType<typeof setTimeout> | null = null;
-    setBuildProgress(0);
-    const pollManifest = async () => {
-      try {
-        const response = await fetch(manifest.buildUrl, { cache: "no-store" });
-        if (cancelled) return;
-        if (response.status === 200) {
-          setPlaybackUrl(manifest.url);
-          setIsBuilding(false);
-          setBuildError(null);
-          setBuildProgress(100);
-          // 逻辑：触发其他清晰度转码，提升后续切换成功率。
-          manifest.prewarmUrls?.forEach((url) => {
-            void fetch(url, { cache: "no-store" }).catch(() => {
-              // 逻辑：预热失败不影响当前播放。
-            });
-          });
-          return;
-        }
-        if (response.status === 202) {
-          // 逻辑：转码中继续轮询，避免 hls.js 读取到 202。
-          setPlaybackUrl(null);
-          setIsBuilding(true);
-          timer = setTimeout(pollManifest, 1500);
-          return;
-        }
-        setPlaybackUrl(null);
-        setIsBuilding(false);
-        setBuildError(`Manifest error: ${response.status}`);
-      } catch (error) {
-        if (cancelled) return;
-        setPlaybackUrl(null);
-        setIsBuilding(false);
-        setBuildError("Manifest request failed");
-      }
-    };
-    pollManifest();
-    return () => {
-      cancelled = true;
-      if (timer) clearTimeout(timer);
-    };
-  }, [manifest?.buildUrl, manifest?.url]);
-
   const canClose = Boolean(tabId && panelKey);
 
-  const videoError = !uri ? false : Boolean(buildError) || (Boolean(uri) && !manifest?.url);
+  const videoError = !uri ? false : Boolean(uri) && !manifest?.url;
 
   if (!uri || videoError) {
     return (
@@ -352,45 +173,11 @@ export default function VideoViewer({
         projectId={projectIdProp}
         rootUri={rootUri}
         error={videoError}
-        errorDetail={buildError}
-        errorMessage={buildError ? t("file.videoLoadFailed", { error: buildError }) : "无法解析视频路径"}
+        errorMessage="无法解析视频路径"
         errorDescription="请检查文件路径或格式后重试。"
       >
         {null}
       </ViewerGuard>
-    );
-  }
-
-  if (!playbackUrl) {
-    return (
-      <div className="relative h-full w-full overflow-hidden rounded-3xl">
-        {previewBackground ? (
-          <div
-            className="absolute inset-0 bg-cover bg-center"
-            style={{ backgroundImage: `url(${previewBackground})` }}
-          />
-        ) : null}
-        <div className="absolute inset-0 bg-background/70" />
-        <div className="relative z-10 flex h-full w-full items-center justify-center p-6">
-          <div className="flex w-full max-w-sm flex-col gap-3 rounded-3xl border border-border bg-background/90 px-5 py-4 text-foreground shadow-none">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">
-                {isBuilding ? "视频转码中" : "正在准备视频"}
-              </span>
-              <span className="tabular-nums">{isBuilding ? buildProgress : 0}%</span>
-            </div>
-            <div className="h-2 w-full overflow-hidden rounded bg-muted">
-              <div
-                className="h-full bg-foreground/80 transition-[width] duration-700"
-                style={{ width: `${isBuilding ? buildProgress : 0}%` }}
-              />
-            </div>
-            <div className="text-xs text-muted-foreground">
-              {isBuilding ? "首次打开会进行转码，请稍候..." : "正在准备播放器..."}
-            </div>
-          </div>
-        </div>
-      </div>
     );
   }
 
@@ -418,29 +205,18 @@ export default function VideoViewer({
           </div>
         </div>
       ) : null}
-      <div className="flex-1 flex items-center justify-center overflow-hidden bg-black">
-        <div
-          ref={playerWrapperRef}
-          className="relative flex h-full items-center justify-center"
-          style={(() => {
-            const w = width || detectedSize?.width;
-            const h = height || detectedSize?.height;
-            if (w && h) return { aspectRatio: `${w} / ${h}`, maxWidth: '100%' };
-            return { width: '100%' };
-          })()}
-        >
-          <VideoPlayer
-            src={playbackUrl}
-            poster={thumbnailSrc ?? previewBackground ?? undefined}
-            thumbnails={manifest?.thumbnails}
-            title={displayTitle}
-            clipStartTime={clipStartProp}
-            clipEndTime={clipEndProp && clipEndProp > 0 ? clipEndProp : undefined}
-            smallLayoutWhen={forceLargeLayout ? false : undefined}
-            className="h-full w-full rounded-3xl bg-black [&_video]:h-full [&_video]:w-full"
-            controls
-          />
-        </div>
+      <div className="relative min-h-0 flex-1">
+        <VideoPlayer
+          src={manifest?.url ?? null}
+          poster={thumbnailSrc ?? previewBackground ?? undefined}
+          thumbnails={manifest?.thumbnails}
+          title={displayTitle}
+          clipStartTime={clipStartProp}
+          clipEndTime={clipEndProp && clipEndProp > 0 ? clipEndProp : undefined}
+          smallLayoutWhen={forceLargeLayout ? false : undefined}
+          className="h-full w-full rounded-3xl bg-black"
+          controls
+        />
       </div>
     </div>
   );

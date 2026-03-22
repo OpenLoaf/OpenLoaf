@@ -338,7 +338,7 @@ export function InputSlotBar({
           return (
             <TextSlotField
               key={slot.id}
-              label={t(`slot.${slot.labelKey}`, { defaultValue: slot.labelKey })}
+              label={t(slot.labelKey, { defaultValue: slot.labelKey })}
               references={textRefs}
               userText={userTexts[slot.id] ?? ''}
               allReferences={allTextRefs}

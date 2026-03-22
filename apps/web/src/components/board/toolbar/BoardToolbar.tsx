@@ -882,6 +882,7 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
       for (const item of videoSelections) {
         const metadata = await fetchVideoMetadata({
           projectId: item.projectId,
+          boardId: fileContext?.boardId,
           uri: item.entry.uri,
         });
         // 逻辑：优先使用视频元数据计算比例，避免缩略图导致比例偏差。

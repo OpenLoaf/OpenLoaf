@@ -154,7 +154,7 @@ export function BoardCanvasRender({
       return;
     }
     const definition = engine.nodes.getDefinition(element.type);
-    if (definition?.inlinePanel) {
+    if (definition?.inlinePanel && definition.inlinePanel.autoExpand !== false) {
       const timer = window.setTimeout(() => {
         engine.setExpandedNodeId(selectedId);
       }, FADE_ENTER_DELAY);

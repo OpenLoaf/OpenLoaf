@@ -53,7 +53,7 @@ export function MediaSlotGroup({
   onAssignmentChange,
 }: MediaSlotGroupProps) {
   const { t } = useTranslation('board')
-  const label = t(`slot.${slot.labelKey}`, { defaultValue: slot.labelKey })
+  const label = t(slot.labelKey, { defaultValue: slot.labelKey })
   const isRequired = slot.min > 0
   const canAdd = slot.allowManualInput && assigned.length < slot.max
 

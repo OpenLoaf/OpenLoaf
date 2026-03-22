@@ -21,6 +21,7 @@ import {
   GlobeIcon,
   ImageIcon,
   ListChecksIcon,
+  LoaderCircleIcon,
   SearchIcon,
   TerminalIcon,
   WrenchIcon,
@@ -260,7 +261,12 @@ export default function UnifiedTool({
             errorText={displayErrorText}
           />
         ) : null}
-        {isOutputLoading && !hasOutputPayload ? (
+        {isStreaming && !hasOutputPayload ? (
+          <div className="flex items-center gap-1.5 text-muted-foreground text-xs py-1">
+            <LoaderCircleIcon className="size-3 animate-spin" />
+            <span>{t('tool.executing')}</span>
+          </div>
+        ) : isOutputLoading && !hasOutputPayload ? (
           <div className="text-muted-foreground text-xs">{t('tool.outputLoading')}</div>
         ) : null}
       </ToolContent>

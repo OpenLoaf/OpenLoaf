@@ -19,6 +19,7 @@ export type VideoMetadata = {
 /** Fetch video dimensions from the server. */
 export async function fetchVideoMetadata(input: {
   projectId?: string;
+  boardId?: string;
   uri: string;
 }): Promise<VideoMetadata | null> {
   const trimmed = input.uri.trim();
@@ -32,6 +33,7 @@ export async function fetchVideoMetadata(input: {
   try {
     const result = await trpcClient.fs.videoMetadata.query({
       projectId,
+      boardId: input.boardId,
       uri: relativePath,
     });
     if (!result?.width || !result?.height) return null;

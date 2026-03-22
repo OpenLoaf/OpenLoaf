@@ -9,7 +9,6 @@
  */
 import type {
   CanvasAnchorHit,
-  CanvasNodeElement,
   CanvasPoint,
   CanvasSnapshot,
 } from "../engine/types";
@@ -28,7 +27,7 @@ import { getGroupOutlinePadding, isGroupNodeType } from "../engine/grouping";
 
 type AnchorOverlayItem = CanvasAnchorHit & {
   /** Anchor source used for styling offsets. */
-  origin: "connector" | "hover" | "selected";
+  origin: "connector" | "hover";
 };
 
 type AnchorOverlayProps = {
@@ -43,36 +42,18 @@ type AnchorOverlayProps = {
  * 使用世界坐标定位 + counter-scale 保持恒定屏幕尺寸，与节点零帧差同步。
  */
 export function AnchorOverlay({ snapshot }: AnchorOverlayProps) {
-  if (snapshot.selectedIds.length > 1) {
-    return null;
-  }
   const zoom = snapshot.viewport.zoom;
   const groupPadding = getGroupOutlinePadding(zoom);
   const hoverAnchor = snapshot.connectorHover;
-  const selectedAnchors = getSelectedImageAnchors(snapshot);
   const hoverAnchors = getHoveredImageAnchors(snapshot);
-  if (!hoverAnchor && selectedAnchors.length === 0 && hoverAnchors.length === 0) {
+  if (!hoverAnchor && hoverAnchors.length === 0) {
     return null;
   }
 
-  const anchors: AnchorOverlayItem[] = [];
-  selectedAnchors.forEach(anchor => {
-    anchors.push({ ...anchor, origin: "selected" });
-  });
-  hoverAnchors.forEach(anchor => {
-    anchors.push({ ...anchor, origin: "hover" });
-  });
   const uniqueAnchors = new Map<string, AnchorOverlayItem>();
-  anchors.forEach(anchor => {
+  hoverAnchors.forEach(anchor => {
     const key = `${anchor.elementId}-${anchor.anchorId}`;
-    const existing = uniqueAnchors.get(key);
-    if (!existing || anchor.origin === "selected" || anchor.origin === "hover") {
-      uniqueAnchors.set(key, anchor);
-      return;
-    }
-    if (existing.origin !== "selected" && anchor.origin === "connector") {
-      uniqueAnchors.set(key, anchor);
-    }
+    uniqueAnchors.set(key, { ...anchor, origin: "hover" });
   });
 
   const connectorValidation = snapshot.connectorValidation;
@@ -211,29 +192,6 @@ function resolveGroupAnchorPoint(
   return [anchor.point[0] + offset[0], anchor.point[1] + offset[1]];
 }
 
-/** Collect anchors for selected large-anchor nodes. */
-function getSelectedImageAnchors(snapshot: CanvasSnapshot): CanvasAnchorHit[] {
-  if (snapshot.selectedIds.length === 0) return [];
-  const selectedAnchors: CanvasAnchorHit[] = [];
-  snapshot.selectedIds.forEach(selectedId => {
-    const element = snapshot.elements.find(item => item.id === selectedId);
-    if (!element || element.kind !== "node") return;
-    if (!LARGE_ANCHOR_NODE_TYPES.has(element.type)) return;
-    const anchors = snapshot.anchors[selectedId];
-    if (!anchors) return;
-    anchors.forEach(anchor => {
-      // 逻辑：大锚点节点选中时仅保留左右锚点。
-      if (anchor.id !== "left" && anchor.id !== "right") return;
-      selectedAnchors.push({
-        elementId: selectedId,
-        anchorId: anchor.id,
-        point: anchor.point as CanvasPoint,
-      });
-    });
-  });
-  return selectedAnchors;
-}
-
 /**
  * Resolve the Tailwind class for connector drag validation feedback on a hovered anchor.
  * Returns null when no colored feedback should be applied (use default styling).
@@ -256,7 +214,6 @@ function resolveAnchorValidationClass(
 function getHoveredImageAnchors(snapshot: CanvasSnapshot): CanvasAnchorHit[] {
   const hoverNodeId = snapshot.nodeHoverId;
   if (!hoverNodeId) return [];
-  if (snapshot.selectedIds.includes(hoverNodeId)) return [];
   const element = snapshot.elements.find(item => item.id === hoverNodeId);
   if (
     !element ||

@@ -19,6 +19,158 @@ import { getHlsManifest } from './hlsService'
 let ytdlp: YtDlp | null = null
 let initPromise: Promise<YtDlp> | null = null
 
+/**
+ * Normalize video URLs that yt-dlp cannot handle directly.
+ * e.g. Douyin modal URLs like `douyin.com/jingxuan?modal_id=XXX`
+ * → `douyin.com/video/XXX`
+ */
+function normalizeVideoUrl(url: string): string {
+  try {
+    const u = new URL(url)
+    if (u.hostname.endsWith('douyin.com') && u.searchParams.has('modal_id')) {
+      const modalId = u.searchParams.get('modal_id')!
+      return `https://www.douyin.com/video/${modalId}`
+    }
+  } catch {
+    // Invalid URL, return as-is
+  }
+  return url
+}
+
+// ----- Douyin direct extraction -----
+// yt-dlp's Douyin extractor is broken (requires a_bogus signature).
+// We bypass it entirely: fetch video metadata from iesdouyin.com SSR page,
+// then download the video file directly via HTTP.
+
+const DOUYIN_MOBILE_UA =
+  'Mozilla/5.0 (Linux; Android 13; SM-S908B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36'
+
+function isDouyinUrl(url: string): boolean {
+  try {
+    const host = new URL(url).hostname
+    return host.endsWith('douyin.com') || host.endsWith('iesdouyin.com')
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Resolve a Douyin video ID from any supported URL format:
+ * - douyin.com/video/ID
+ * - douyin.com/...?modal_id=ID
+ * - iesdouyin.com/share/video/ID
+ * - v.douyin.com/XXXXX (short link → follow redirect)
+ */
+async function resolveDouyinVideoId(url: string): Promise<string | null> {
+  try {
+    const u = new URL(url)
+
+    // Direct video path: /video/ID or /share/video/ID
+    const pathMatch = u.pathname.match(/\/(?:share\/)?video\/(\d+)/)
+    if (pathMatch) return pathMatch[1]
+
+    // Modal param: ?modal_id=ID
+    const modalId = u.searchParams.get('modal_id')
+    if (modalId && /^\d+$/.test(modalId)) return modalId
+
+    // Short link (v.douyin.com): follow 302 redirect to extract ID
+    if (u.hostname === 'v.douyin.com') {
+      const res = await fetch(url, {
+        redirect: 'manual',
+        headers: { 'User-Agent': DOUYIN_MOBILE_UA },
+      })
+      const location = res.headers.get('location')
+      if (location) {
+        const locMatch = location.match(/\/video\/(\d+)/)
+        if (locMatch) return locMatch[1]
+      }
+    }
+  } catch {
+    // Invalid URL
+  }
+  return null
+}
+
+interface DouyinVideoData {
+  title: string
+  videoUrl: string
+  coverUrl: string
+  width: number
+  height: number
+  duration: number
+}
+
+/** Fetch ttwid cookie from ByteDance registration endpoint. */
+async function fetchTtwid(): Promise<string> {
+  const res = await fetch('https://ttwid.bytedance.com/ttwid/union/register/', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'User-Agent': DOUYIN_MOBILE_UA,
+    },
+    body: JSON.stringify({
+      region: 'cn',
+      aid: 1128,
+      needFid: false,
+      service: 'www.douyin.com',
+      migrate_info: { ticket: '', source: 'node' },
+      cbUrlProtocol: 'https',
+      union: true,
+    }),
+  })
+  const setCookies = res.headers.getSetCookie?.() ?? []
+  return setCookies.map((c) => c.split(';')[0]).join('; ')
+}
+
+/**
+ * Extract video data from Douyin via the iesdouyin.com SSR share page.
+ * This endpoint returns server-rendered HTML with `_ROUTER_DATA` containing
+ * full video metadata including play_addr URLs.
+ */
+async function extractDouyinVideo(videoId: string): Promise<DouyinVideoData> {
+  const cookieStr = await fetchTtwid()
+  if (!cookieStr) throw new Error('Failed to obtain Douyin ttwid cookie')
+
+  const shareUrl = `https://www.iesdouyin.com/share/video/${videoId}/`
+  const res = await fetch(shareUrl, {
+    headers: {
+      'User-Agent': DOUYIN_MOBILE_UA,
+      Cookie: cookieStr,
+    },
+  })
+  if (!res.ok) throw new Error(`Douyin share page returned ${res.status}`)
+
+  const html = await res.text()
+  const routerMatch = html.match(/window\._ROUTER_DATA\s*=\s*({[\s\S]+?})\s*<\/script>/)
+  if (!routerMatch) throw new Error('Douyin _ROUTER_DATA not found in SSR page')
+
+  const jsonStr = routerMatch[1].replace(/\\u002F/g, '/')
+  const data = JSON.parse(jsonStr)
+
+  // Navigate: loaderData → "video_(id)/page" → videoInfoRes → item_list[0]
+  const loaderData = data.loaderData
+  const pageKey = Object.keys(loaderData).find((k) => k.includes('page'))
+  const pageData = pageKey ? loaderData[pageKey] : null
+  const item = pageData?.videoInfoRes?.item_list?.[0]
+  if (!item?.video?.play_addr) throw new Error('Douyin video data not found in SSR response')
+
+  const video = item.video
+  const playAddrUrl = video.play_addr.url_list?.[0]
+  if (!playAddrUrl) throw new Error('Douyin play_addr URL missing')
+
+  // Convert watermarked URL (playwm) to no-watermark (play)
+  const videoUrl = playAddrUrl.replace('/playwm/', '/play/')
+
+  return {
+    title: item.desc || 'Douyin Video',
+    videoUrl,
+    coverUrl: video.cover?.url_list?.[0] || '',
+    width: video.width || 0,
+    height: video.height || 0,
+    duration: Math.round((video.duration || 0) / 1000),
+  }
+}
+
 /** Ensure yt-dlp binary is available, download if missing. */
 async function ensureYtDlp(): Promise<YtDlp> {
   if (ytdlp) return ytdlp
@@ -61,8 +213,25 @@ const tasks = new Map<string, VideoDownloadTask>()
 
 /** Fetch video metadata without downloading. */
 export async function getVideoInfo(url: string): Promise<VideoInfo> {
+  const normalized = normalizeVideoUrl(url)
+
+  // Douyin: use direct extraction (yt-dlp's Douyin extractor is broken)
+  if (isDouyinUrl(normalized)) {
+    const videoId = await resolveDouyinVideoId(normalized)
+    if (!videoId) throw new Error('Invalid Douyin URL: cannot extract video ID')
+    const data = await extractDouyinVideo(videoId)
+    return {
+      title: data.title,
+      thumbnail: data.coverUrl,
+      duration: data.duration,
+      width: data.width,
+      height: data.height,
+      ext: 'mp4',
+    }
+  }
+
   const dlp = await ensureYtDlp()
-  const info = await dlp.getInfoAsync<'video'>(url)
+  const info = await dlp.getInfoAsync<'video'>(normalized)
   return extractVideoInfo(info)
 }
 
@@ -131,15 +300,72 @@ async function runDownload(
   ctx: { boardId?: string; projectId?: string },
 ) {
   try {
-    const dlp = await ensureYtDlp()
+    const normalized = normalizeVideoUrl(task.url)
     task.status = 'downloading'
     fs.mkdirSync(saveDirPath, { recursive: true })
 
+    // Douyin: direct HTTP download (yt-dlp extractor is broken)
+    if (isDouyinUrl(normalized)) {
+      const videoId = await resolveDouyinVideoId(normalized)
+      if (!videoId) throw new Error('Invalid Douyin URL: cannot extract video ID')
+
+      task.phase = 'extracting'
+      const data = await extractDouyinVideo(videoId)
+      logger.info({ taskId: task.id, title: data.title }, 'Douyin video info extracted')
+
+      task.info = {
+        title: data.title,
+        thumbnail: data.coverUrl,
+        duration: data.duration,
+        width: data.width,
+        height: data.height,
+        ext: 'mp4',
+      }
+      task.phase = 'downloading'
+
+      // Sanitize filename
+      const safeTitle = data.title
+        .replace(/[<>:"/\\|?*\x00-\x1f]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 100) || 'douyin_video'
+      const fileName = `${safeTitle}.mp4`
+      const filePath = path.join(saveDirPath, fileName)
+
+      // Stream download with progress
+      const res = await fetch(data.videoUrl, {
+        headers: { 'User-Agent': DOUYIN_MOBILE_UA },
+      })
+      if (!res.ok) throw new Error(`Douyin video download HTTP ${res.status}`)
+
+      const totalSize = Number(res.headers.get('content-length')) || 0
+      let downloaded = 0
+      const chunks: Buffer[] = []
+
+      const reader = res.body?.getReader()
+      if (!reader) throw new Error('No response body reader')
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        if ((task.status as string) === 'failed') return
+        chunks.push(Buffer.from(value))
+        downloaded += value.byteLength
+        if (totalSize > 0) {
+          task.progress = Math.min(Math.round((downloaded / totalSize) * 100), 99)
+        }
+      }
+
+      fs.writeFileSync(filePath, Buffer.concat(chunks))
+      await finishDownload(task, filePath, fileName, ctx)
+      return
+    }
+
+    // Non-Douyin: use yt-dlp
+    const dlp = await ensureYtDlp()
     const outputTemplate = path.join(saveDirPath, '%(title)s.%(ext)s')
 
-    // 逻辑：使用 execBuilder + exec() 获取可靠进度。
-    // downloadAsync 的 onProgress 在合并下载时不触发中间进度。
-    const builder = dlp.execBuilder(task.url)
+    const builder = dlp.execBuilder(normalized)
       .format('bestvideo[height<=720]+bestaudio/best[height<=720]/best')
       .options({ output: outputTemplate })
 
@@ -158,8 +384,6 @@ async function runDownload(
         pct = (p.downloaded / p.total) * 100
       }
       if (pct != null) {
-        // 逻辑：将单流百分比映射到总进度。
-        // 流 0: 0-50%, 流 1: 50-100%（双流时）；单流时直接 0-100%
         const streamPct = Math.min(pct, 100)
         const overallPct = (streamIndex * 100 + streamPct) / streamCount
         task.progress = Math.min(Math.round(overallPct), 99)
@@ -182,14 +406,12 @@ async function runDownload(
       if (task.status !== 'downloading' && task.status !== 'merging') return
       const lines = data.split('\n')
       for (const line of lines) {
-        // 逻辑：检测新流开始下载（Destination 行出现时代表新一个流）
         if (line.includes('[download] Destination:')) {
           if (task.phase === 'downloading' && task.progress > 0) {
             streamIndex += 1
           }
           task.phase = 'downloading'
         }
-        // 逻辑：解析百分比进度
         const match = line.match(/\[download\]\s+([\d.]+)%/)
         if (match?.[1]) {
           const pct = parseFloat(match[1])
@@ -199,12 +421,10 @@ async function runDownload(
             task.progress = Math.min(Math.round(overallPct), 99)
           }
         }
-        // 逻辑：检测合并阶段
         if (line.includes('[Merger]') || line.includes('[ffmpeg]')) {
           task.phase = 'merging'
           task.status = 'merging'
         }
-        // 逻辑：单流模式检测（没有合并的情况）
         if (line.includes('Requested format is not available')) {
           streamCount = 1
         }
@@ -215,7 +435,6 @@ async function runDownload(
 
     if ((task.status as string) === 'failed') return
 
-    // 逻辑：优先使用 result.filePaths，回退扫描目录
     const filePaths = result.filePaths ?? []
     let filePath: string | undefined = filePaths[filePaths.length - 1]
     if (!filePath || !fs.existsSync(filePath)) {
@@ -237,31 +456,39 @@ async function runDownload(
       fs.renameSync(filePath, targetPath)
     }
 
-    task.phase = 'done'
-    task.progress = 100
-
-    // Extract poster frame and video dimensions before marking completed
-    const posterMeta = await extractPosterAndMeta(targetPath)
-    task.result = {
-      filePath: targetPath,
-      fileName,
-      posterDataUrl: posterMeta?.posterDataUrl,
-      width: posterMeta?.width,
-      height: posterMeta?.height,
-    }
-    task.status = 'completed'
-    logger.info({ taskId: task.id, fileName, width: posterMeta?.width, height: posterMeta?.height }, 'Video download completed')
-
-    // Auto-trigger HLS pre-transcoding
-    void triggerPreTranscode(fileName, ctx).catch(() => undefined)
+    await finishDownload(task, targetPath, fileName, ctx)
   } catch (error) {
     if ((task.status as string) === 'failed') return
     task.status = 'failed'
     task.error = error instanceof Error ? error.message : 'Download failed'
-    logger.error({ taskId: task.id, error }, 'Video download failed')
+    logger.error({ taskId: task.id, err: error instanceof Error ? { message: error.message, stack: error.stack } : error }, 'Video download failed')
   } finally {
     scheduleCleanup(task.id)
   }
+}
+
+/** Shared completion logic for both yt-dlp and direct downloads. */
+async function finishDownload(
+  task: VideoDownloadTask,
+  filePath: string,
+  fileName: string,
+  ctx: { boardId?: string; projectId?: string },
+) {
+  task.phase = 'done'
+  task.progress = 100
+
+  const posterMeta = await extractPosterAndMeta(filePath)
+  task.result = {
+    filePath,
+    fileName,
+    posterDataUrl: posterMeta?.posterDataUrl,
+    width: posterMeta?.width,
+    height: posterMeta?.height,
+  }
+  task.status = 'completed'
+  logger.info({ taskId: task.id, fileName, width: posterMeta?.width, height: posterMeta?.height }, 'Video download completed')
+
+  void triggerPreTranscode(fileName, ctx).catch(() => undefined)
 }
 
 /** Extract a poster frame and video dimensions from a local video file. */

@@ -174,8 +174,8 @@ export function registerChatAttachmentRoutes(app: Hono) {
     if (result.type === "json") {
       return c.json(result.body, result.status);
     }
-    // 逻辑：视频文件支持 Range 请求，浏览器 <video> 元素需要此功能进行 seeking。
-    if (result.contentType.startsWith("video/")) {
+    // 逻辑：视频/音频文件支持 Range 请求，浏览器媒体元素需要此功能进行 seeking。
+    if (result.contentType.startsWith("video/") || result.contentType.startsWith("audio/")) {
       const total = result.body.byteLength;
       const rangeHeader = c.req.header("range");
       if (rangeHeader) {

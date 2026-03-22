@@ -21,7 +21,7 @@ import {
 import { cn } from "@/lib/utils";
 
 type VideoPlayerProps = {
-  src: string;
+  src: string | null;
   poster?: string;
   autoPlay?: boolean;
   muted?: boolean;
@@ -58,7 +58,6 @@ export function VideoPlayer({
   className,
 }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const hlsRef = useRef<import("hls.js").default | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const progressRef = useRef<HTMLDivElement>(null);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -75,41 +74,11 @@ export function VideoPlayer({
 
   const effectiveEnd = clipEndTime && clipEndTime > 0 ? clipEndTime : duration;
 
-  // HLS setup
+  // Direct video source setup
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !src) return;
-
-    // Native HLS (Safari)
-    if (video.canPlayType("application/vnd.apple.mpegurl")) {
-      video.src = src;
-      return;
-    }
-
-    let cancelled = false;
-    import("hls.js").then((mod) => {
-      if (cancelled) return;
-      const Hls = mod.default;
-      if (!Hls.isSupported()) {
-        video.src = src;
-        return;
-      }
-      const hls = new Hls({
-        startLevel: -1,
-        capLevelToPlayerSize: true,
-      });
-      hlsRef.current = hls;
-      hls.loadSource(src);
-      hls.attachMedia(video);
-    });
-
-    return () => {
-      cancelled = true;
-      if (hlsRef.current) {
-        hlsRef.current.destroy();
-        hlsRef.current = null;
-      }
-    };
+    video.src = src;
   }, [src]);
 
   // Clip enforcement via timeupdate

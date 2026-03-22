@@ -99,7 +99,7 @@ export function registerHlsRoutes(app: Hono) {
     });
   });
 
-  app.get("/media/hls/thumbnails", async (c) => {
+  app.get("/media/thumbnails", async (c) => {
     const path = c.req.query("path")?.trim() ?? "";
     const projectId = c.req.query("projectId")?.trim() ?? "";
 
@@ -121,7 +121,7 @@ export function registerHlsRoutes(app: Hono) {
     });
   });
 
-  app.get("/media/hls/thumbnail/:name", async (c) => {
+  app.get("/media/thumbnail/:name", async (c) => {
     const name = c.req.param("name")?.trim() ?? "";
     const token = c.req.query("token")?.trim() ?? "";
     if (!name || !token) {

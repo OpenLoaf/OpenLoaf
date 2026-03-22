@@ -7,8 +7,6 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import { resolveServerUrl } from '@/utils/server-url'
-
 /** Patterns for known video platforms — matched synchronously for instant feedback. */
 const VIDEO_PLATFORM_PATTERNS = [
   // YouTube
@@ -76,24 +74,3 @@ export function isVideoPlatformUrl(url: string): boolean {
   return VIDEO_PLATFORM_PATTERNS.some((pattern) => pattern.test(url))
 }
 
-/**
- * Probe a URL via server-side yt-dlp to check if it contains downloadable media.
- * Use this for URLs not matched by `isVideoPlatformUrl`.
- * Returns true if the server can extract video info from the URL.
- */
-export async function probeVideoUrl(url: string): Promise<boolean> {
-  try {
-    const baseUrl = resolveServerUrl()
-    const prefix = baseUrl || ''
-    const res = await fetch(`${prefix}/media/video-download/info`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url }),
-    })
-    if (!res.ok) return false
-    const json = await res.json()
-    return json.success === true && !!json.data?.title
-  } catch {
-    return false
-  }
-}

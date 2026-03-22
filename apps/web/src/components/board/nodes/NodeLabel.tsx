@@ -21,7 +21,7 @@ import i18next from 'i18next'
 import type { CanvasNodeElement } from '../engine/types'
 import { extractTextNodePlainText } from './lib/text-node-utils'
 
-const MAX_DEFAULT_LABEL_LENGTH = 30
+const MAX_DEFAULT_LABEL_LENGTH = 18
 
 /** Resolve a small icon for a node type. */
 function getNodeTypeIcon(type: string) {
@@ -194,9 +194,10 @@ export const NodeLabel = memo(function NodeLabel({
         <input
           ref={inputRef}
           className={cn(
-            'h-4 min-w-[60px] max-w-[200px] rounded border-none bg-transparent px-0.5 text-xs outline-none',
+            'h-4 min-w-[60px] rounded border-none bg-transparent px-0.5 text-xs outline-none',
             'text-foreground/70 focus:ring-1 focus:ring-primary/40',
           )}
+          style={{ maxWidth: 'calc(140px / var(--label-scale, 1))' }}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onBlur={commit}
@@ -204,7 +205,8 @@ export const NodeLabel = memo(function NodeLabel({
         />
       ) : (
         <span
-          className="max-w-[200px] truncate text-xs text-foreground/40 select-none"
+          className="truncate text-xs text-foreground/40 select-none"
+          style={{ maxWidth: 'calc(140px / var(--label-scale, 1))' }}
           title={displayTitle}
           onDoubleClick={handleDoubleClick}
         >

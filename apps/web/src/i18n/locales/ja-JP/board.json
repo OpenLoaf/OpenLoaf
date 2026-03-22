@@ -552,8 +552,11 @@
   "linkNode": {
     "toolbar": {
       "open": "開く",
-      "copyUrl": "URLをコピー"
-    }
+      "copyUrl": "URLをコピー",
+      "editUrl": "URLを編集"
+    },
+    "urlPlaceholder": "URLを貼り付けまたは入力",
+    "urlSubmit": "OK"
   },
   "anchorOverlay": {
     "expand": "展開",

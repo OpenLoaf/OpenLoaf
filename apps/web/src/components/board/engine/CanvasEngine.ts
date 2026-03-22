@@ -1363,6 +1363,7 @@ export class CanvasEngine {
       if (hasStack && this.deleteInterceptor(selectionIds)) return;
     }
     deleteSelection(this.getSelectionDeps(), selectionIds);
+    this.setNodeHoverId(null);
   }
 
   /** Force-delete selected elements, bypassing the version stack interceptor. */
@@ -1372,6 +1373,7 @@ export class CanvasEngine {
       this.selection.getSelectedIds()
     );
     deleteSelection(this.getSelectionDeps(), ids);
+    this.setNodeHoverId(null);
   }
 
   /**

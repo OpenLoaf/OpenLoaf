@@ -57,9 +57,26 @@ export function buildHlsQualityUrl(
   return buildHlsUrl('/media/hls/manifest', path, ids, { quality })
 }
 
-export function buildHlsThumbnailsUrl(
+export function buildThumbnailsUrl(
   path: string,
   ids: { projectId?: string; boardId?: string },
 ) {
-  return buildHlsUrl('/media/hls/thumbnails', path, ids)
+  return buildHlsUrl('/media/thumbnails', path, ids)
+}
+
+/** Build a direct stream URL for video playback. */
+export function buildStreamUrl(
+  sourcePath: string,
+  ids: { projectId?: string; boardId?: string },
+) {
+  const baseUrl = resolveServerUrl()
+  const prefix = baseUrl ? `${baseUrl}/media/stream` : '/media/stream'
+  if (ids.boardId) {
+    const query = new URLSearchParams({ boardId: ids.boardId, file: sourcePath })
+    if (ids.projectId) query.set('projectId', ids.projectId)
+    return `${prefix}?${query.toString()}`
+  }
+  const query = new URLSearchParams({ path: sourcePath })
+  if (ids.projectId) query.set('projectId', ids.projectId)
+  return `${prefix}?${query.toString()}`
 }

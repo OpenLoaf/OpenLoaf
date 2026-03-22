@@ -43,6 +43,7 @@ const SAAS_TIMEOUT_MS = 30_000;
 const MODELS_TTL_MS = 24 * 60 * 60 * 1000;
 const cachedImageModels = new Map<string, { updatedAt: number; payload: unknown }>();
 const cachedVideoModels = new Map<string, { updatedAt: number; payload: unknown }>();
+const cachedCapabilities = new Map<string, { updatedAt: number; payload: unknown }>();
 
 /** Read cached payload by token. */
 function readCache(
@@ -247,15 +248,20 @@ async function v3Fetch(
   }
 }
 
-/** Fetch v3 capabilities for a given media category. */
+/** Fetch v3 capabilities for a given media category (24h in-memory cache). */
 export async function fetchCapabilitiesV3(
   category: 'image' | 'video' | 'audio',
   accessToken: string,
 ) {
+  const cacheKey = `${category}:${accessToken}`
+  const cached = readCache(cachedCapabilities, cacheKey)
+  if (cached) return cached
   const baseUrl = getSaasClient(accessToken).getBaseUrl()
-  return v3Fetch(`${baseUrl}/api/ai/v3/capabilities/${category}`, {
+  const payload = await v3Fetch(`${baseUrl}/api/ai/v3/capabilities/${category}`, {
     headers: v3AuthHeaders(accessToken),
   })
+  writeCache(cachedCapabilities, cacheKey, payload)
+  return payload
 }
 
 /** Submit a v3 media generation task. */

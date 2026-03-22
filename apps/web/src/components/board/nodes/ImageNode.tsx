@@ -19,6 +19,7 @@ import { z } from "zod";
 import {
   ChevronLeft,
   ChevronRight,
+  Crop,
   Download,
   ImageOff,
   ImagePlus,
@@ -45,7 +46,8 @@ import {
   type ProjectFilePickerSelection,
 } from "@/components/project/filesystem/components/ProjectFilePickerDialog";
 import { IMAGE_EXTS } from "@/components/project/filesystem/components/FileSystemEntryVisual";
-import { IMAGE_NODE_MAX_SIZE, IMAGE_NODE_MIN_SIZE } from "./node-config";
+import { IMAGE_NODE_MAX_SIZE, IMAGE_NODE_MIN_SIZE, IMAGE_NODE_DEFAULT_MAX_SIZE } from "./node-config";
+import { saveBoardAssetFile } from "../utils/board-asset";
 import i18next from "i18next";
 import {
   BOARD_TOOLBAR_ITEM_DEFAULT,
@@ -57,6 +59,7 @@ import { usePanelOverlay } from "../render/pixi/PixiApplication";
 import { submitImageGenerate } from "../services/image-generate";
 import { submitUpscale } from "../services/upscale-generate";
 import { MaskPaintOverlay, type MaskPaintHandle } from "./MaskPaintOverlay";
+import { ImageAdjustOverlay, type ImageAdjustResult } from "./ImageAdjustOverlay";
 import {
   createInputSnapshot,
   markVersionReady,
@@ -116,6 +119,16 @@ export type ImageNodeProps = {
   aiConfig?: import("../board-contracts").AiGenerateConfig;
   /** Version stack tracking AI generation history. */
   versionStack?: import("../engine/types").VersionStack;
+  /** Original untransformed image URI — backed up on first image adjust. */
+  rawOriginalSrc?: string;
+  /** Image adjustment state preserved for re-editing. */
+  imageAdjust?: {
+    rotation: number;
+    flipH: boolean;
+    flipV: boolean;
+    cropRect?: { x: number; y: number; width: number; height: number };
+    aspectRatio?: string;
+  };
 };
 
 /** Trigger a download for the original image. */
@@ -224,6 +237,15 @@ function createImageToolbarItems(
 
   items.push(
     {
+      id: 'image-adjust',
+      label: i18next.t('board:imageNode.toolbar.adjust', { defaultValue: '调整' }),
+      icon: <Crop size={14} />,
+      className: BOARD_TOOLBAR_ITEM_DEFAULT,
+      onSelect: () => {
+        document.dispatchEvent(new CustomEvent('board:trigger-image-adjust', { detail: ctx.element.id }));
+      },
+    },
+    {
       id: "download",
       label: i18next.t('board:imageNode.toolbar.download'),
       icon: <Download size={14} />,
@@ -292,6 +314,8 @@ export function ImageNodeView({
   /** Whether the node or canvas is locked. */
   const isLocked = engine.isLocked() || element.locked === true;
   const { lastFailure, setLastFailure, dismissedFailure, setDismissedFailure } = useVersionStackFailureState(element.props.versionStack, onUpdate);
+  /** Whether the image adjust overlay is active. */
+  const [adjusting, setAdjusting] = useState(false);
   /** Whether inline mask painting is active (inpaint/erase mode). */
   const [maskPainting, setMaskPainting] = useState(false);
   /** Current mask paint result from the overlay. */
@@ -431,14 +455,10 @@ export function ImageNodeView({
       }),
     [],
   )
+  // Panel's handleGenerate already persists aiConfig (with paramsCache).
+  // Returning {} avoids a stale-closure overwrite from useMediaGeneration.
   const buildGeneratePatch = useCallback(
-    (params: ImageGenerateParams) => ({
-      aiConfig: {
-        feature: params.feature as import("../board-contracts").AiGenerateConfig['feature'],
-        prompt: params.prompt ?? '',
-        aspectRatio: params.aspectRatio as import("../board-contracts").AiGenerateConfig['aspectRatio'],
-      },
-    }),
+    (_params: ImageGenerateParams) => ({}),
     [],
   )
   /** Route generation to the correct service based on variant. */
@@ -581,6 +601,92 @@ export function ImageNodeView({
     document.addEventListener('board:trigger-upload', handler);
     return () => document.removeEventListener('board:trigger-upload', handler);
   }, [element.id, requestReplaceImage]);
+
+  // 逻辑：监听工具栏图片调整按钮的自定义事件。
+  useEffect(() => {
+    const handler = (e: Event) => {
+      if ((e as CustomEvent).detail === element.id) {
+        setAdjusting(true);
+      }
+    };
+    document.addEventListener('board:trigger-image-adjust', handler);
+    return () => document.removeEventListener('board:trigger-image-adjust', handler);
+  }, [element.id]);
+
+  /** Resolve the image source for the adjust overlay — use rawOriginalSrc (original untransformed) if available. */
+  const adjustImageSrc = useMemo(() => {
+    const raw = element.props.rawOriginalSrc;
+    if (raw) {
+      return resolveMediaSource(raw, fileContext) || previewSrc || '';
+    }
+    return resolveMediaSource(element.props.originalSrc, fileContext) || previewSrc || '';
+  }, [element.props.rawOriginalSrc, element.props.originalSrc, fileContext, previewSrc]);
+
+  /** Handle confirmed image adjustment. */
+  const handleAdjustConfirm = useCallback(
+    async (result: ImageAdjustResult) => {
+      try {
+        // 逻辑：将变换后的图片保存到画布资产目录。
+        const file = new File([result.blob], 'adjusted.png', { type: 'image/png' });
+        const boardFolder = fileContext?.boardFolderUri;
+        if (boardFolder) {
+          const boardRelPath = await saveBoardAssetFile({
+            file,
+            fallbackName: 'adjusted.png',
+            projectId: fileContext?.projectId,
+            boardFolderUri: boardFolder,
+          });
+          // 逻辑：首次调整时备份原始图片 URI。
+          const rawOriginal = element.props.rawOriginalSrc || element.props.originalSrc;
+          const patch: Partial<ImageNodeProps> = {
+            originalSrc: boardRelPath,
+            previewSrc: result.previewSrc,
+            naturalWidth: result.width,
+            naturalHeight: result.height,
+            rawOriginalSrc: rawOriginal,
+            imageAdjust: result.adjust,
+          };
+          onUpdate(patch);
+          // 逻辑：裁剪后宽高比可能改变，调整节点 xywh 保持中心点不变。
+          const el = engine.doc.getElementById(element.id);
+          if (el && el.kind === 'node') {
+            const [ex, ey, ew, eh] = el.xywh;
+            const ratio = result.width / result.height;
+            const newW = Math.min(Math.max(ew, IMAGE_NODE_MIN_SIZE.w), IMAGE_NODE_MAX_SIZE.w);
+            const newH = Math.round(newW / ratio);
+            const cx = ex + ew / 2;
+            const cy = ey + eh / 2;
+            engine.doc.updateElement(element.id, {
+              xywh: [
+                Math.round(cx - newW / 2),
+                Math.round(cy - newH / 2),
+                newW,
+                newH,
+              ],
+            });
+          }
+        } else {
+          // 逻辑：无画布目录时使用 data URL 作为 fallback。
+          const rawOriginal = element.props.rawOriginalSrc || element.props.originalSrc;
+          const dataUrl = result.previewSrc;
+          onUpdate({
+            originalSrc: dataUrl,
+            previewSrc: dataUrl,
+            naturalWidth: result.width,
+            naturalHeight: result.height,
+            rawOriginalSrc: rawOriginal,
+            imageAdjust: result.adjust,
+          });
+        }
+        hydrationRef.current = null;
+      } catch {
+        // 逻辑：调整失败时静默回退。
+      } finally {
+        setAdjusting(false);
+      }
+    },
+    [element.id, element.props.originalSrc, element.props.rawOriginalSrc, engine, fileContext, onUpdate],
+  );
 
   /** Apply a new image payload to the current node. */
   const applyReplacePayload = useCallback(
@@ -1010,6 +1116,13 @@ export function ImageNodeView({
         className="hidden"
         onChange={handleReplaceInputChange}
       />
+      <ImageAdjustOverlay
+        active={adjusting && Boolean(adjustImageSrc)}
+        imageSrc={adjustImageSrc}
+        initialAdjust={element.props.imageAdjust}
+        onConfirm={handleAdjustConfirm}
+        onCancel={() => setAdjusting(false)}
+      />
     </NodeFrame>
   );
 }
@@ -1042,6 +1155,19 @@ export const ImageNodeDefinition: CanvasNodeDefinition<ImageNodeProps> = {
       generatedAt: z.number().optional(),
     }).optional(),
     versionStack: z.any().optional(),
+    rawOriginalSrc: z.string().optional(),
+    imageAdjust: z.object({
+      rotation: z.number(),
+      flipH: z.boolean(),
+      flipV: z.boolean(),
+      cropRect: z.object({
+        x: z.number(),
+        y: z.number(),
+        width: z.number(),
+        height: z.number(),
+      }).optional(),
+      aspectRatio: z.string().optional(),
+    }).optional(),
   }),
   defaultProps: {
     previewSrc: "",

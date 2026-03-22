@@ -441,6 +441,8 @@ export type CanvasInlinePanelConfig = {
   width: number;
   /** Panel height when expanded (in px). */
   height: number;
+  /** Whether to auto-expand when the node is selected. Defaults to true. */
+  autoExpand?: boolean;
 };
 
 /** Node definition used for registration. */

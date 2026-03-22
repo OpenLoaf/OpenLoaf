@@ -42,6 +42,7 @@ import { useChatToolStream } from "./hooks/use-chat-tool-stream";
 import { useChatLifecycle } from "./hooks/use-chat-lifecycle";
 import { useSubAgentStreams } from "./hooks/use-sub-agent-streams";
 import { useChatApproval } from "./hooks/use-chat-approval";
+import { useTabActive } from "@/components/layout/TabActiveContext";
 import { useChatMessageOps } from "./hooks/use-chat-message-ops";
 import { useChatSessionManagement } from "./hooks/use-chat-session-management";
 import {
@@ -341,6 +342,7 @@ export default function ChatCoreProvider({
   setMessagesRef.current = chat.setMessages;
 
   // ── Branch state ──
+  const isTabActive = useTabActive();
   const shouldLoadHistory = Boolean(loadHistory);
   const {
     snapshot: sessionSnapshot,
@@ -352,7 +354,7 @@ export default function ChatCoreProvider({
     refreshSnapshot,
   } = useChatBranchState({
     sessionId,
-    enabled: shouldLoadHistory && chat.messages.length === 0,
+    enabled: isTabActive && shouldLoadHistory && chat.messages.length === 0,
     localMessageCount: chat.messages.length,
     branchSnapshot,
   });
@@ -523,7 +525,7 @@ export default function ChatCoreProvider({
   chatStatusRef.current = chat.status;
 
   React.useEffect(() => {
-    if (!sessionId) return;
+    if (!sessionId || !isTabActive) return;
     const subscription = trpcClient.chat.onSessionUpdate.subscribe(
       { sessionId },
       {
@@ -562,7 +564,7 @@ export default function ChatCoreProvider({
       },
     );
     return () => { subscription.unsubscribe() };
-  }, [sessionId, chat.setMessages]);
+  }, [sessionId, isTabActive, chat.setMessages]);
 
   const updateMessage = React.useCallback(
     (id: string, updates: Partial<UIMessage>) => {

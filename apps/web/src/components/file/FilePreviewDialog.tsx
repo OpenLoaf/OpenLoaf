@@ -112,13 +112,19 @@ export default function FilePreviewDialog() {
     const height = currentItem?.height;
     const hasHeader = Boolean(currentItem?.title?.trim());
     if (!width || !height || width <= 0 || height <= 0) {
-      console.info("[FilePreviewDialog] video size missing", {
+      console.info("[FilePreviewDialog] video size missing, using 16:9 fallback", {
         uri: currentItem?.uri,
         width,
         height,
       });
-      setVideoDialogSize(null);
-      return;
+      // Fallback: use default 16:9 aspect ratio
+      const update = () => {
+        const size = getVideoDialogSize({ width: 1920, height: 1080, hasHeader });
+        setVideoDialogSize(size);
+      };
+      update();
+      window.addEventListener("resize", update);
+      return () => window.removeEventListener("resize", update);
     }
     const update = () => {
       const size = getVideoDialogSize({ width, height, hasHeader });
@@ -151,10 +157,8 @@ export default function FilePreviewDialog() {
                 dialogSize ? "opacity-100" : "opacity-100 min-h-[200px] min-w-[320px]"
               }`
             : isVideo && videoDialogSize
-              ? "h-auto w-auto max-h-[90vh] max-w-none sm:max-w-none p-0 overflow-hidden transition-[width,height,opacity] duration-200"
-              : isVideo
-                ? "h-auto w-auto max-h-[90vh] max-w-none sm:max-w-none p-0 overflow-hidden opacity-0 pointer-events-none"
-                : "h-[90vh] w-[90vw] max-w-none sm:max-w-none p-0 overflow-hidden"
+              ? "h-auto w-auto max-h-[90vh] max-w-none sm:max-w-none p-0 overflow-hidden transition-opacity duration-200"
+              : "h-[90vh] w-[90vw] max-w-none sm:max-w-none p-0 overflow-hidden"
         }
         overlayClassName="bg-background/35 backdrop-blur-2xl"
         style={
@@ -162,9 +166,7 @@ export default function FilePreviewDialog() {
             ? { width: dialogSize.width, height: dialogSize.height }
             : isVideo && videoDialogSize
               ? { width: videoDialogSize.width, height: videoDialogSize.height }
-              : isVideo
-                ? { width: 1, height: 1 }
-                : undefined
+              : undefined
         }
         showCloseButton={false}
         overlaySlot={
@@ -277,17 +279,9 @@ export default function FilePreviewDialog() {
               rootUri={currentItem.rootUri}
               boardId={currentItem.boardId}
               thumbnailSrc={currentItem.thumbnailSrc}
-              width={currentItem.width}
-              height={currentItem.height}
               clipStart={currentItem.clipStart}
               clipEnd={currentItem.clipEnd}
               forceLargeLayout
-              onVideoSize={(size) => {
-                if (!videoDialogSize) {
-                  const hasHeader = Boolean(currentItem?.title?.trim());
-                  setVideoDialogSize(getVideoDialogSize({ ...size, hasHeader }));
-                }
-              }}
             />
           ) : null}
 

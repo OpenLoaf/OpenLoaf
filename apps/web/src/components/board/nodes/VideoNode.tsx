@@ -16,7 +16,7 @@ import type {
 import type { UpstreamData } from "../engine/upstream-data";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
-import Hls from "hls.js";
+
 import { Download, Info, Loader2, Pause, Play, Scissors, Trash2, Upload, Video } from "lucide-react";
 import i18next from "i18next";
 import { openVideoTrimDialog } from "../dialogs/video-trim/VideoTrimDialog";
@@ -295,9 +295,10 @@ async function exportVideoClip(props: VideoNodeProps, fileContext?: BoardFileCon
     }
 
     // Trigger download
+    const clipParams = `file=${encodeURIComponent(data.data.filePath)}&boardId=${encodeURIComponent(fileContext?.boardId ?? '')}`;
     const downloadUrl = baseUrl
-      ? `${baseUrl}/media/video-clip/download?file=${encodeURIComponent(data.data.filePath)}`
-      : `/media/video-clip/download?file=${encodeURIComponent(data.data.filePath)}`;
+      ? `${baseUrl}/media/video-clip/download?${clipParams}`
+      : `/media/video-clip/download?${clipParams}`;
 
     const electronApi = (window as unknown as Record<string, unknown>).openloafElectron as
       | { saveFile?: (opts: { url: string; fileName: string }) => void }
@@ -315,34 +316,67 @@ async function exportVideoClip(props: VideoNodeProps, fileContext?: BoardFileCon
   }
 }
 
-/** Build an HLS manifest URL for a project-relative video path. */
-function buildHlsManifestUrl(
-  path: string,
+/** Build a direct stream URL for inline video playback. */
+function buildStreamUrl(
+  sourcePath: string,
   ids: { projectId?: string; boardId?: string },
 ) {
   const baseUrl = resolveServerUrl();
-  const query = new URLSearchParams({ path });
+  const prefix = baseUrl ? `${baseUrl}/media/stream` : "/media/stream";
+
+  if (ids.boardId && isBoardRelativePath(sourcePath)) {
+    const query = new URLSearchParams({ boardId: ids.boardId, file: sourcePath });
+    if (ids.projectId) query.set("projectId", ids.projectId);
+    return `${prefix}?${query.toString()}`;
+  }
+
+  const query = new URLSearchParams({ path: sourcePath });
   if (ids.projectId) query.set("projectId", ids.projectId);
-  if (ids.boardId) query.set("boardId", ids.boardId);
-  const prefix = baseUrl ? `${baseUrl}/media/hls/manifest` : "/media/hls/manifest";
   return `${prefix}?${query.toString()}`;
 }
 
-/** Build an HLS quality manifest URL. */
-function buildHlsQualityUrl(
-  path: string,
-  quality: string,
-  ids: { projectId?: string; boardId?: string },
-) {
-  const baseUrl = resolveServerUrl();
-  const query = new URLSearchParams({ path, quality });
-  if (ids.projectId) query.set("projectId", ids.projectId);
-  if (ids.boardId) query.set("boardId", ids.boardId);
-  const prefix = baseUrl ? `${baseUrl}/media/hls/manifest` : "/media/hls/manifest";
-  return `${prefix}?${query.toString()}`;
+/** Capture the first frame of a video as a data URL poster. */
+function captureVideoPoster(streamUrl: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    const video = document.createElement("video");
+    video.crossOrigin = "anonymous";
+    video.preload = "metadata";
+    video.muted = true;
+    let settled = false;
+    const settle = (v: string | null) => {
+      if (settled) return;
+      settled = true;
+      resolve(v);
+      video.removeAttribute("src");
+      video.load();
+    };
+    const timeout = setTimeout(() => settle(null), 8000);
+    video.addEventListener("seeked", () => {
+      clearTimeout(timeout);
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) { settle(null); return; }
+        ctx.drawImage(video, 0, 0);
+        settle(canvas.toDataURL("image/jpeg", 0.8));
+      } catch {
+        settle(null);
+      }
+    }, { once: true });
+    video.addEventListener("loadedmetadata", () => {
+      video.currentTime = 0.1;
+    }, { once: true });
+    video.addEventListener("error", () => {
+      clearTimeout(timeout);
+      settle(null);
+    }, { once: true });
+    video.src = streamUrl;
+  });
 }
 
-/** Render a video node card with inline HLS playback. */
+/** Render a video node card with inline direct-stream playback. */
 export function VideoNodeView({
   element,
   expanded,
@@ -359,7 +393,7 @@ export function VideoNodeView({
     fallbackName: 'video.mp4',
   });
   const { panelRef } = useInlinePanelSync({ engine, xywh: element.xywh, expanded });
-  const hlsRef = useRef<Hls | null>(null);
+
   const [playing, setPlaying] = useState(false);
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -377,7 +411,7 @@ export function VideoNodeView({
     return parsed?.projectId;
   }, [element.props.sourcePath, fileContext?.projectId]);
 
-  // 逻辑：HLS URL 需要未展开的原始路径 + ids，让服务端通过 boardId/projectId 正确解析。
+  // 逻辑：stream URL 需要未展开的原始路径 + ids，让服务端通过 boardId/projectId 正确解析。
   // resolvedPath 已经包含 board 目录前缀，直接传会导致服务端重复拼接。
   const hlsPath = useMemo(() => {
     if (isBoardRelativePath(element.props.sourcePath)) {
@@ -397,7 +431,20 @@ export function VideoNodeView({
     [effectiveProjectId, fileContext?.boardId, element.props.sourcePath],
   );
 
-  // 逻辑：用 ref 持有 clip 值，避免放入 useEffect deps 导致拖滑块时重建 HLS 播放。
+  // 逻辑：有视频但无 poster 时自动提取首帧作为缩略图。
+  useEffect(() => {
+    if (!hlsPath || posterSrc || !ids.boardId && !ids.projectId) return;
+    let cancelled = false;
+    const url = buildStreamUrl(hlsPath, ids);
+    captureVideoPoster(url).then((poster) => {
+      if (!cancelled && poster) {
+        onUpdate({ posterPath: poster });
+      }
+    });
+    return () => { cancelled = true; };
+  }, [hlsPath, ids, posterSrc, onUpdate]);
+
+  // 逻辑：用 ref 持有 clip 值，避免放入 useEffect deps 导致拖滑块时重建播放。
   const clipStartRef = useRef(element.props.clipStart);
   clipStartRef.current = element.props.clipStart;
   const clipEndRef = useRef(element.props.clipEnd);
@@ -409,14 +456,8 @@ export function VideoNodeView({
   const stoppedRef = useRef(false);
 
   const handleStop = useCallback(() => {
-    if (stoppedRef.current) return; // 防止 timeupdate + onEnded 双重触发
+    if (stoppedRef.current) return;
     stoppedRef.current = true;
-    // 逻辑：先销毁 HLS 实例再设 playing=false。
-    // setPlaying(false) 会卸载 video 元素，无需额外 pause/load。
-    if (hlsRef.current) {
-      hlsRef.current.destroy();
-      hlsRef.current = null;
-    }
     setPlaying(false);
     setLoading(false);
   }, []);
@@ -428,34 +469,29 @@ export function VideoNodeView({
     setLoading(true);
   }, [hlsPath]);
 
-  // 逻辑：playing 后轮询 HLS 转码状态，就绪后用 hls.js 或原生 HLS 播放。
+  // 逻辑：playing 时直接通过 stream 端点播放视频，无需 HLS 转码。
   useEffect(() => {
     if (!playing || !hlsPath) return;
     const video = videoRef.current;
     if (!video) return;
 
     let cancelled = false;
-    let pollTimer: ReturnType<typeof setTimeout> | null = null;
+    const streamUrl = buildStreamUrl(hlsPath, ids);
 
-    const qualityUrl = buildHlsQualityUrl(hlsPath, "720p", ids);
-    const masterUrl = buildHlsManifestUrl(hlsPath, ids);
-
-    // 逻辑：视频加载后检测时长，若节点未记录 duration 则自动回写，使剪切面板可用。
     const onLoadedMetadata = () => {
+      if (cancelled) return;
       const d = video.duration;
       if (Number.isFinite(d) && d > 0 && durationRef.current == null) {
         onUpdateRef.current({ duration: d } as Partial<VideoNodeProps>);
       }
-    };
-    video.addEventListener("loadedmetadata", onLoadedMetadata);
-
-    const applyClipAndPlay = () => {
+      setLoading(false);
       const cs = clipStartRef.current;
       if (cs != null && cs > 0) {
         video.currentTime = cs;
       }
       video.play().catch(() => {});
     };
+    video.addEventListener("loadedmetadata", onLoadedMetadata);
 
     const onTimeUpdate = () => {
       const cs = clipStartRef.current ?? 0;
@@ -471,74 +507,24 @@ export function VideoNodeView({
     };
     video.addEventListener("timeupdate", onTimeUpdate);
 
-    const startPlayback = (url: string) => {
-      if (cancelled) return;
-      setLoading(false);
-      if (Hls.isSupported()) {
-        const hls = new Hls({ enableWorker: false });
-        hlsRef.current = hls;
-        hls.loadSource(url);
-        hls.attachMedia(video);
-        // 逻辑：等待首个片段缓冲完成再播放，避免 MANIFEST_PARSED 时 SourceBuffer 尚未就绪导致 play() 被中断。
-        let started = false;
-        hls.on(Hls.Events.FRAG_BUFFERED, () => {
-          if (!cancelled && !started) {
-            started = true;
-            applyClipAndPlay();
-          }
-        });
-        hls.on(Hls.Events.ERROR, (_event, data) => {
-          if (data.fatal && !cancelled) {
-            console.error("[HLS] fatal error:", data.type, data.details);
-            handleStop();
-          }
-        });
-      } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
-        video.src = url;
-        applyClipAndPlay();
+    const onError = () => {
+      if (!cancelled) {
+        console.error("[VideoNode] playback error:", video.error);
+        handleStop();
       }
     };
+    video.addEventListener("error", onError);
 
-    const pollManifest = async () => {
-      try {
-        const res = await fetch(qualityUrl, { cache: "no-store" });
-        if (cancelled) return;
-        if (res.status === 200) {
-          startPlayback(masterUrl);
-          return;
-        }
-        if (res.status === 202) {
-          pollTimer = setTimeout(pollManifest, 1500);
-          return;
-        }
-        setLoading(false);
-      } catch {
-        if (!cancelled) setLoading(false);
-      }
-    };
-    pollManifest();
+    video.src = streamUrl;
 
     return () => {
       cancelled = true;
-      if (pollTimer) clearTimeout(pollTimer);
-      video.removeEventListener("timeupdate", onTimeUpdate);
       video.removeEventListener("loadedmetadata", onLoadedMetadata);
-      if (hlsRef.current) {
-        hlsRef.current.destroy();
-        hlsRef.current = null;
-      }
+      video.removeEventListener("timeupdate", onTimeUpdate);
+      video.removeEventListener("error", onError);
     };
   }, [playing, hlsPath, ids, handleStop]);
 
-  // 逻辑：组件卸载时销毁 hls 实例。
-  useEffect(() => {
-    return () => {
-      if (hlsRef.current) {
-        hlsRef.current.destroy();
-        hlsRef.current = null;
-      }
-    };
-  }, []);
 
   // ---------------------------------------------------------------------------
   // Version-stack based generation
@@ -606,6 +592,17 @@ export function VideoNodeView({
             })
           } catch { /* ignore metadata fetch failure */ }
         })()
+        // 逻辑：生成完成后自动提取首帧作为节点缩略图。
+        void (async () => {
+          try {
+            const ids = { projectId: fileContext?.projectId, boardId: fileContext?.boardId }
+            const url = buildStreamUrl(savedPath, ids)
+            const poster = await captureVideoPoster(url)
+            if (poster) {
+              engine.doc.updateNodeProps(nodeId, { posterPath: poster })
+            }
+          } catch { /* ignore poster capture failure */ }
+        })()
       },
       [generatingEntry, element.props.versionStack, onUpdate, fileContext?.projectId, element.id, engine],
     ),
@@ -652,7 +649,14 @@ export function VideoNodeView({
       }),
     [],
   )
+  // Panel's handleGenerate already persists aiConfig (with paramsCache).
+  // Returning {} avoids a stale-closure overwrite from useMediaGeneration.
   const buildGeneratePatch = useCallback(
+    (_params: VideoGenerateParams) => ({}),
+    [],
+  )
+  // Derive nodes need aiConfig for initial setup (no panel involved).
+  const buildDeriveNodePatch = useCallback(
     (params: VideoGenerateParams) => ({
       aiConfig: { feature: params.feature, prompt: params.prompt ?? '' },
     }),
@@ -718,6 +722,7 @@ export function VideoNodeView({
     submitGenerate: videoSubmitGenerate,
     buildRetryParams,
     deriveNodeType: 'video',
+    buildDeriveNodePatch,
   })
 
   const isGenerating = isGeneratingVersion
@@ -865,9 +870,6 @@ export function VideoNodeView({
                 <Play className="h-[50%] w-[50%] min-h-2.5 min-w-2.5 translate-x-[0.5px]" />
               </button>
             </div>
-            <div className="absolute top-2 left-2 right-2 line-clamp-2 text-[11px] text-white/90 drop-shadow">
-              {displayName}
-            </div>
           </div>
         ) : !element.props.sourcePath?.trim() ? (
           <div className="flex h-full w-full items-center justify-center rounded-3xl border border-dashed border-ol-divider bg-ol-surface-muted">
@@ -880,9 +882,6 @@ export function VideoNodeView({
           </div>
         ) : (
           <div className="relative h-full w-full">
-            <div className="absolute top-2 left-2 right-2 line-clamp-2 text-[11px] text-ol-text-secondary">
-              {displayName}
-            </div>
             <div className="absolute inset-0 flex items-center justify-center">
               <button
                 type="button"

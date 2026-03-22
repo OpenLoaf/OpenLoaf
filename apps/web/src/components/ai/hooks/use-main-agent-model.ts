@@ -13,6 +13,7 @@ import { useCallback, useMemo, useRef } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient, trpc } from "@/utils/trpc";
 import { useBasicConfig } from "@/hooks/use-basic-config";
+import { useTabActive } from "@/components/layout/TabActiveContext";
 
 const EMPTY_IDS: string[] = [];
 
@@ -44,10 +45,12 @@ type AgentDetail = {
  */
 export function useMainAgentModel(projectId?: string) {
   const { basic } = useBasicConfig();
+  const isTabActive = useTabActive();
   const agentsQueryInput = projectId ? { projectId } : undefined;
   const agentsQuery = useQuery({
     ...trpc.settings.getAgents.queryOptions(agentsQueryInput),
     staleTime: 5 * 60 * 1000,
+    enabled: isTabActive,
   });
   const masterAgent = useMemo(() => {
     const list = (agentsQuery.data ?? []) as Array<{

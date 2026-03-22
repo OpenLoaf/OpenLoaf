@@ -20,6 +20,7 @@ import { queryClient, trpc, trpcClient } from "@/utils/trpc";
 import { useAppView } from "@/hooks/use-app-view";
 import { invalidateChatSessions, useChatSessions } from "@/hooks/use-chat-sessions";
 import { useLayoutState } from "@/hooks/use-layout-state";
+import { useTabActive } from "@/components/layout/TabActiveContext";
 import { useAppState } from "@/hooks/use-app-state";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { useSaasAuth } from "@/hooks/use-saas-auth";
@@ -97,10 +98,14 @@ export default function ChatHeader({
       : { boardId: null as string | null },
     [shellProjectId],
   );
+  const isTabActive = useTabActive();
   const sessionsQuery = useInfiniteQuery({
-    ...trpc.chat.listSessions.infiniteQueryOptions(sessionsListInput, {
-      getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
-    }),
+    ...trpc.chat.listSessions.infiniteQueryOptions(
+      isTabActive ? sessionsListInput : skipToken,
+      {
+        getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+      },
+    ),
     staleTime: 60_000,
     refetchOnWindowFocus: false,
   });
