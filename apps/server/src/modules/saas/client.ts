@@ -63,7 +63,7 @@ const timeoutFetcher: typeof fetch = (input, init) => {
     const headers = init?.headers
       ? Object.fromEntries(
           init.headers instanceof Headers
-            ? init.headers.entries()
+            ? (init.headers as unknown as { entries(): Iterable<[string, string]> }).entries()
             : Array.isArray(init.headers)
               ? init.headers
               : Object.entries(init.headers),

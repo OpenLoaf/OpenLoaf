@@ -98,6 +98,7 @@ export type V3Feature = {
 export type V3Variant = {
   id: string
   displayName: string
+  preference: string
   creditsPerCall: number
   minMembershipLevel: 'free' | 'lite' | 'pro' | 'premium' | 'infinity'
   capabilities?: Record<string, unknown>

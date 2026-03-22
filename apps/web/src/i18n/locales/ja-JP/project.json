@@ -18,8 +18,9 @@
     "credits": "クレジット",
     "membership": {
       "free": "無料",
-      "vip": "VIP",
-      "svip": "SVIP",
+      "lite": "Lite",
+      "pro": "Pro",
+      "premium": "Premium",
       "infinity": "Infinity"
     },
     "settings": {

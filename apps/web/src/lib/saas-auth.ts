@@ -328,7 +328,7 @@ export async function isAuthenticated(): Promise<boolean> {
 /** Fetch full user profile from SaaS backend (includes membershipLevel & creditsBalance). */
 export async function fetchUserProfile(): Promise<{
   id: string;
-  membershipLevel: "free" | "vip" | "svip" | "infinity";
+  membershipLevel: "free" | "lite" | "pro" | "premium" | "infinity";
   creditsBalance: number;
 } | null> {
   const token = await getAccessToken();

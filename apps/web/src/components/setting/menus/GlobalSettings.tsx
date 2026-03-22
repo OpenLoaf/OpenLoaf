@@ -69,8 +69,9 @@ export function GlobalSettings() {
 
   const membershipLabels = {
     free: t("membership.free"),
-    vip: t("membership.vip"),
-    svip: t("membership.svip"),
+    lite: t("membership.lite"),
+    pro: t("membership.pro"),
+    premium: t("membership.premium"),
     infinity: t("membership.infinity"),
   };
 

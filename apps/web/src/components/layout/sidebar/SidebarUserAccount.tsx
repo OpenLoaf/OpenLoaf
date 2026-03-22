@@ -55,8 +55,9 @@ import { useGlobalOverlay } from "@/lib/globalShortcuts"
 /** 侧边栏等级徽章样式 — 使用更轻的浅色底，避免与 sidebar 背景相同，同时不过分抢眼。 */
 const SIDEBAR_MEMBERSHIP_BADGE_STYLES = {
   free: "bg-foreground/[0.05] text-foreground/65 dark:bg-foreground/[0.06] dark:text-foreground/65",
-  vip: "bg-secondary text-foreground",
-  svip: "bg-secondary text-foreground",
+  lite: "bg-secondary text-foreground",
+  pro: "bg-secondary text-foreground",
+  premium: "bg-secondary text-foreground",
   infinity: "bg-secondary text-foreground",
 } satisfies Record<string, string>
 
@@ -107,8 +108,9 @@ export function SidebarUserAccount() {
 
   const membershipLabels = buildMembershipLabels({
     free: t('membership.free'),
-    vip: t('membership.vip'),
-    svip: t('membership.svip'),
+    lite: t('membership.lite'),
+    pro: t('membership.pro'),
+    premium: t('membership.premium'),
     infinity: t('membership.infinity'),
   })
 
@@ -433,8 +435,9 @@ export function CompactUserAvatar() {
 
   const membershipLabels = buildMembershipLabels({
     free: t('membership.free'),
-    vip: t('membership.vip'),
-    svip: t('membership.svip'),
+    lite: t('membership.lite'),
+    pro: t('membership.pro'),
+    premium: t('membership.premium'),
     infinity: t('membership.infinity'),
   })
   const isWechatLogin = Boolean(authUser?.email?.endsWith("@wechat.local"))

@@ -18,8 +18,9 @@
     "credits": "Credits",
     "membership": {
       "free": "Free",
-      "vip": "VIP",
-      "svip": "SVIP",
+      "lite": "Lite",
+      "pro": "Pro",
+      "premium": "Premium",
       "infinity": "Infinity"
     },
     "settings": {

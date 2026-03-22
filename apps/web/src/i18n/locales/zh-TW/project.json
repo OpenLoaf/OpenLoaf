@@ -18,8 +18,9 @@
     "credits": "點數",
     "membership": {
       "free": "免費版",
-      "vip": "VIP",
-      "svip": "SVIP",
+      "lite": "Lite",
+      "pro": "Pro",
+      "premium": "Premium",
       "infinity": "Infinity"
     },
     "settings": {
