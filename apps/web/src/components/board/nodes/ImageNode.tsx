@@ -75,9 +75,14 @@ import {
   markVersionReady,
   removeFailedEntry,
   getPrimaryEntry,
-  getGeneratingEntry,
   switchPrimary,
 } from "../engine/version-stack";
+import {
+  mapErrorToMessageKey,
+  useVersionStackState,
+  useVersionStackFailureState,
+  useVersionStackEditingOverride,
+} from "../hooks/useVersionStack";
 import { useMediaTaskPolling } from "../hooks/useMediaTaskPolling";
 import { VersionStackOverlay, STACK_CARD_SCALE } from "./VersionStackOverlay";
 import { GeneratingOverlay } from "./GeneratingOverlay";
@@ -208,12 +213,6 @@ async function downloadOriginalImage(
   link.rel = "noreferrer";
   link.click();
 }
-
-/**
- * Module-level set tracking which nodes have been unlocked for editing.
- * Set by toolbar "regenerate" action, read by the component to override readonly.
- */
-const editingUnlockedIds = new Set<string>();
 
 /** Build the props patch for switching version stack primary. */
 function buildSwitchPrimaryPatch(
@@ -447,13 +446,7 @@ export function ImageNodeView({
   );
   /** Whether the node or canvas is locked. */
   const isLocked = engine.isLocked() || element.locked === true;
-  /** Whether the user has dismissed the failed overlay to view old content. */
-  const [dismissedFailure, setDismissedFailure] = useState(false);
-  /** Last failure info — stored transiently after removing the failed entry from the version stack. */
-  const [lastFailure, setLastFailure] = useState<{
-    input: import('../engine/types').InputSnapshot
-    error: { code: string; message: string }
-  } | null>(null);
+  const { lastFailure, setLastFailure, dismissedFailure, setDismissedFailure } = useVersionStackFailureState(element.props.versionStack, onUpdate);
   /** Whether inline mask painting is active (inpaint/erase mode). */
   const [maskPainting, setMaskPainting] = useState(false);
   /** Current mask paint result from the overlay. */
@@ -462,16 +455,6 @@ export function ImageNodeView({
   const maskPaintRef = useRef<MaskPaintHandle>(null);
   /** Brush size state synced from overlay — drives the panel slider. */
   const [brushSize, setBrushSize] = useState(40);
-  // 逻辑：primaryEntry 变为 failed 时（如新节点提交失败写入的），提取到 lastFailure 并清理 stack。
-  useEffect(() => {
-    const pe = getPrimaryEntry(element.props.versionStack)
-    if (pe?.status === 'failed' && pe.input && pe.error) {
-      setLastFailure({ input: pe.input, error: { code: pe.error.code, message: pe.error.message } })
-      setDismissedFailure(false)
-      const { stack: cleaned } = removeFailedEntry(element.props.versionStack!, pe.id)
-      onUpdate({ versionStack: cleaned })
-    }
-  }, [element.props.versionStack, onUpdate])
   // 逻辑：面板关闭时自动退出遮罩编辑模式。
   useEffect(() => {
     if (!expanded) setMaskPainting(false);
@@ -481,8 +464,7 @@ export function ImageNodeView({
   // Version stack state + polling
   // ---------------------------------------------------------------------------
 
-  const primaryEntry = getPrimaryEntry(element.props.versionStack);
-  const generatingEntry = getGeneratingEntry(element.props.versionStack);
+  const { primaryEntry, generatingEntry, isGenerating: isGeneratingVersion } = useVersionStackState(element.props.versionStack);
 
   // 逻辑：有生成记录（ready）且存储了 upstreamRefs 时，使用冻结的上游数据；
   // 版本切换时 primaryEntry 变化，插槽内容自动跟随。
@@ -591,34 +573,11 @@ export function ImageNodeView({
     ),
   });
 
-  /** Whether the node is in a generating state (version stack). */
-  const isGeneratingVersion = primaryEntry?.status === 'generating';
   /** Whether there is a recent failure (from lastFailure transient state). */
   const isFailedVersion = lastFailure !== null;
   /** Whether the primary version is ready. */
   const isReadyVersion = primaryEntry?.status === 'ready';
-  /**
-   * Editing override — check module-level editingUnlockedIds set.
-   * Set by toolbar "regenerate" action, cleared when generation starts.
-   */
-  const [editingOverride, setEditingOverride] = useState(
-    () => editingUnlockedIds.has(element.id),
-  );
-  // 逻辑：每次 expanded 变化时检查是否被标记为编辑模式。
-  useEffect(() => {
-    if (editingUnlockedIds.has(element.id)) {
-      editingUnlockedIds.delete(element.id);
-      setEditingOverride(true);
-    }
-  }, [expanded, element.id]);
-  // 逻辑：生成开始后或面板关闭后自动关闭编辑覆盖。
-  useEffect(() => {
-    if (isGeneratingVersion || !expanded) setEditingOverride(false);
-  }, [isGeneratingVersion, expanded]);
-  // 逻辑：新的失败状态出现时重置 dismiss。
-  useEffect(() => {
-    if (lastFailure) setDismissedFailure(false);
-  }, [lastFailure]);
+  const { editingOverride, setEditingOverride } = useVersionStackEditingOverride(element.id, expanded, isGeneratingVersion);
   // 逻辑：生成开始后清除上次失败状态。
   useEffect(() => {
     if (isGeneratingVersion) setLastFailure(null);
@@ -718,19 +677,7 @@ export function ImageNodeView({
       } catch (error) {
         console.error('[ImageNode] image generation failed:', error)
         // 逻辑：提交失败时从 stack 中移除 pending entry，设置 lastFailure 显示错误浮层。
-        const raw = error instanceof Error ? error.message.toLowerCase() : ''
-        let msgKey = 'board:polling.errorGeneric'
-        if (raw.includes('insufficient') || raw.includes('balance') || raw.includes('credit') || raw.includes('quota') || raw.includes('402')) {
-          msgKey = 'board:polling.errorInsufficientBalance'
-        } else if (raw.includes('network') || raw.includes('fetch') || raw.includes('econnrefused')) {
-          msgKey = 'board:polling.errorNetwork'
-        } else if (raw.includes('401') || raw.includes('403') || raw.includes('unauthorized') || raw.includes('access denied')) {
-          msgKey = 'board:polling.errorAuth'
-        } else if (raw.includes('429') || raw.includes('rate') || raw.includes('too many')) {
-          msgKey = 'board:polling.errorRateLimit'
-        } else if (raw.includes('500') || raw.includes('502') || raw.includes('503')) {
-          msgKey = 'board:polling.errorServer'
-        }
+        const msgKey = mapErrorToMessageKey(error)
         const { stack: cleaned } = removeFailedEntry(
           pushVersion(element.props.versionStack, pendingEntry),
           pendingEntry.id,
@@ -836,17 +783,7 @@ export function ImageNodeView({
         console.error('[ImageNode] new node generation failed:', error)
         // 逻辑：提交失败时在新节点上写入失败的 version stack entry，让新节点显示错误浮层。
         if (newNodeId) {
-          const raw = error instanceof Error ? error.message.toLowerCase() : ''
-          let msgKey = 'board:polling.errorGeneric'
-          if (raw.includes('insufficient') || raw.includes('balance') || raw.includes('credit') || raw.includes('402')) {
-            msgKey = 'board:polling.errorInsufficientBalance'
-          } else if (raw.includes('network') || raw.includes('fetch') || raw.includes('econnrefused')) {
-            msgKey = 'board:polling.errorNetwork'
-          } else if (raw.includes('401') || raw.includes('403') || raw.includes('unauthorized') || raw.includes('access denied')) {
-            msgKey = 'board:polling.errorAuth'
-          } else if (raw.includes('500') || raw.includes('502') || raw.includes('503')) {
-            msgKey = 'board:polling.errorServer'
-          }
+          const msgKey = mapErrorToMessageKey(error)
           const msg = i18next.t(msgKey, { defaultValue: '生成失败，请重试' })
           const snapshot = createInputSnapshot({
             prompt: params.prompt,

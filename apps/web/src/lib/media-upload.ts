@@ -103,7 +103,7 @@ function isMediaInput(value: unknown): value is Record<string, unknown> {
 
 /**
  * Resolve a single media input record to a public URL.
- * Handles: { path }, { url: "data:..." }, { url: "http://localhost..." }, { base64, mediaType }
+ * Handles: { path }, { url: "data:..." }, { base64, mediaType }
  * Passes through: { url: "https://..." } (already public)
  */
 async function resolveOneMediaInput(
@@ -134,8 +134,7 @@ async function resolveOneMediaInput(
     return 'url' in result ? { url: result.url } : result
   }
 
-  // localhost URL — extract path, but we can't reliably resolve, pass through
-  // (server-side resolvePayloadMediaInputs will handle as fallback)
+  // Unrecognized format — pass through unchanged
   return input
 }
 

@@ -295,91 +295,6 @@ async function resolveLocalMediaInput(
   return await uploadOrInlineBuffer(loaded.buffer, path.basename(relativePath), loaded.mediaType, context, accessToken);
 }
 
-/** Check if a record needs media resolution (has url or path field). */
-function needsMediaResolve(rec: Record<string, unknown>): boolean {
-  return typeof rec.url === 'string' || typeof rec.path === 'string';
-}
-
-/**
- * @deprecated 前端现已通过 /ai/v3/media/upload 上传所有媒体，server 不再需要解析 variant 字段。
- * 保留供兼容旧客户端使用，后续版本移除。
- */
-async function resolvePayloadMediaInputs(
-  payload: Record<string, unknown>,
-  context: MediaSubmitContext,
-  accessToken?: string,
-): Promise<Record<string, unknown>> {
-  // v2: referenceAudio (tts voice cloning) — at payload level, not inside inputs
-  let topLevelChanged = false;
-  if (isRecord(payload.referenceAudio) && needsMediaResolve(payload.referenceAudio as Record<string, unknown>)) {
-    const resolved = await resolveLocalMediaInput(payload.referenceAudio as Record<string, unknown>, context, accessToken);
-    if (resolved !== payload.referenceAudio) {
-      payload = { ...payload, referenceAudio: resolved };
-      topLevelChanged = true;
-    }
-  }
-
-  const inputs = isRecord(payload.inputs) ? { ...payload.inputs } : null;
-  if (!inputs) return topLevelChanged ? payload : payload;
-
-  let changed = false;
-
-  // Handle inputs.images (array of { url, base64, mediaType } or { path })
-  if (Array.isArray(inputs.images)) {
-    const resolved = await Promise.all(
-      inputs.images.map(async (img: unknown) => {
-        if (!isRecord(img) || !needsMediaResolve(img as Record<string, unknown>)) return img;
-        const result = await resolveLocalMediaInput(img as Record<string, unknown>, context, accessToken);
-        if (result !== img) changed = true;
-        return result;
-      }),
-    );
-    inputs.images = resolved;
-  }
-
-  // Handle inputs.startImage (single { url, base64, mediaType } or { path })
-  if (isRecord(inputs.startImage) && needsMediaResolve(inputs.startImage as Record<string, unknown>)) {
-    const result = await resolveLocalMediaInput(inputs.startImage as Record<string, unknown>, context, accessToken);
-    if (result !== inputs.startImage) { inputs.startImage = result; changed = true; }
-  }
-
-  // Handle inputs.endImage
-  if (isRecord(inputs.endImage) && needsMediaResolve(inputs.endImage as Record<string, unknown>)) {
-    const result = await resolveLocalMediaInput(inputs.endImage as Record<string, unknown>, context, accessToken);
-    if (result !== inputs.endImage) { inputs.endImage = result; changed = true; }
-  }
-
-  // Handle inputs.referenceVideo
-  if (isRecord(inputs.referenceVideo) && needsMediaResolve(inputs.referenceVideo as Record<string, unknown>)) {
-    const result = await resolveLocalMediaInput(inputs.referenceVideo as Record<string, unknown>, context, accessToken);
-    if (result !== inputs.referenceVideo) { inputs.referenceVideo = result; changed = true; }
-  }
-
-  // v2: single image input (imageEdit, upscale, outpaint)
-  if (isRecord(inputs.image) && needsMediaResolve(inputs.image as Record<string, unknown>)) {
-    const resolved = await resolveLocalMediaInput(inputs.image as Record<string, unknown>, context, accessToken);
-    if (resolved !== inputs.image) { inputs.image = resolved; changed = true; }
-  }
-  // v2: mask input (imageEdit inpaint/erase)
-  if (isRecord(inputs.mask) && needsMediaResolve(inputs.mask as Record<string, unknown>)) {
-    const resolved = await resolveLocalMediaInput(inputs.mask as Record<string, unknown>, context, accessToken);
-    if (resolved !== inputs.mask) { inputs.mask = resolved; changed = true; }
-  }
-  // v2: person input (digitalHuman)
-  if (isRecord(inputs.person) && needsMediaResolve(inputs.person as Record<string, unknown>)) {
-    const resolved = await resolveLocalMediaInput(inputs.person as Record<string, unknown>, context, accessToken);
-    if (resolved !== inputs.person) { inputs.person = resolved; changed = true; }
-  }
-  // v2: audio input (digitalHuman)
-  if (isRecord(inputs.audio) && needsMediaResolve(inputs.audio as Record<string, unknown>)) {
-    const resolved = await resolveLocalMediaInput(inputs.audio as Record<string, unknown>, context, accessToken);
-    if (resolved !== inputs.audio) { inputs.audio = resolved; changed = true; }
-  }
-
-  if (!changed) return topLevelChanged ? payload : payload;
-  return { ...payload, inputs };
-}
-
 /** Infer resultType from v2 feature for storage routing. */
 function inferResultType(feature: string): "image" | "video" | "audio" {
   switch (feature) {
@@ -540,9 +455,12 @@ export async function pollV3TaskProxy(
           return normalizedSaveDir ? `${normalizedSaveDir}/${fileName}` : fileName;
         });
       } else {
+        // 逻辑：无 projectId 时返回 board-relative 路径（如 "asset/xxx.png"），
+        // 以便前端 isBoardRelativePath 识别并使用画布预览端点。
+        const assetDirName = path.basename(saveDir.replace(/\/+$/, ""));
         resultUrls = savedPaths.map((filePath) => {
-          const relativePath = toGlobalRelativePath(filePath);
-          return relativePath ?? path.basename(filePath);
+          const fileName = path.basename(filePath);
+          return `${assetDirName}/${fileName}`;
         });
       }
     }
@@ -567,9 +485,8 @@ export async function pollV3TaskProxy(
           normalizedSaveDir ? `${normalizedSaveDir}/${saved.fileName}` : saved.fileName,
         ];
       } else {
-        const savedFilePath = path.join(resolvedDir, saved.fileName);
-        const relativePath = toGlobalRelativePath(savedFilePath);
-        resultUrls = [relativePath ?? saved.fileName];
+        const assetDirName = path.basename(saveDir.replace(/\/+$/, ""));
+        resultUrls = [`${assetDirName}/${saved.fileName}`];
       }
     }
 
@@ -593,9 +510,8 @@ export async function pollV3TaskProxy(
           normalizedSaveDir ? `${normalizedSaveDir}/${saved.fileName}` : saved.fileName,
         ];
       } else {
-        const savedFilePath = path.join(resolvedDir, saved.fileName);
-        const relativePath = toGlobalRelativePath(savedFilePath);
-        resultUrls = [relativePath ?? saved.fileName];
+        const assetDirName = path.basename(saveDir.replace(/\/+$/, ""));
+        resultUrls = [`${assetDirName}/${saved.fileName}`];
       }
     }
 

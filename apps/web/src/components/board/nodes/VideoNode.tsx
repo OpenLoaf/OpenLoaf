@@ -54,11 +54,15 @@ import {
   pushVersion,
   markVersionReady,
   removeFailedEntry,
-  getPrimaryEntry,
-  getGeneratingEntry,
   switchPrimary,
 } from '../engine/version-stack';
 import { useMediaTaskPolling } from '../hooks/useMediaTaskPolling';
+import {
+  mapErrorToMessageKey,
+  useVersionStackState,
+  useVersionStackFailureState,
+  useVersionStackEditingOverride,
+} from '../hooks/useVersionStack';
 import { VersionStackOverlay } from './VersionStackOverlay';
 import { GeneratingOverlay } from './GeneratingOverlay';
 
@@ -220,12 +224,6 @@ function computeHlsPath(sourcePath: string, resolvedPath: string): string {
   if (parsed) return parsed.relativePath;
   return resolvedPath;
 }
-
-/**
- * Module-level set tracking which nodes have been unlocked for editing.
- * Set by toolbar "regenerate" action, read by the component to override readonly.
- */
-const editingUnlockedIds = new Set<string>();
 
 /** Build toolbar items for video nodes. */
 function createVideoToolbarItems(ctx: CanvasToolbarContext<VideoNodeProps>) {
@@ -705,8 +703,7 @@ export function VideoNodeView({
   // ---------------------------------------------------------------------------
   // Version-stack based generation
   // ---------------------------------------------------------------------------
-  const primaryEntry = getPrimaryEntry(element.props.versionStack)
-  const generatingEntry = getGeneratingEntry(element.props.versionStack)
+  const { primaryEntry, generatingEntry, isGenerating: isGeneratingVersion } = useVersionStackState(element.props.versionStack)
 
   // 逻辑：有生成记录时使用冻结的上游数据，版本切换时自动跟随。
   // 上游图片 URL 需要通过 resolveImageSource 解析为浏览器可访问的端点。
@@ -810,22 +807,8 @@ export function VideoNodeView({
     ),
   })
 
-  /** Last failure info — stored transiently after removing the failed entry from the version stack. */
-  const [lastFailure, setLastFailure] = useState<{
-    input: import('../engine/types').InputSnapshot
-    error: { code: string; message: string }
-  } | null>(null)
-
-  // 逻辑：primaryEntry 变为 failed 时，提取到 lastFailure 并清理 stack。
-  useEffect(() => {
-    const pe = getPrimaryEntry(element.props.versionStack)
-    if (pe?.status === 'failed' && pe.input && pe.error) {
-      setLastFailure({ input: pe.input, error: { code: pe.error.code, message: pe.error.message } })
-      setDismissedFailure(false)
-      const { stack: cleaned } = removeFailedEntry(element.props.versionStack!, pe.id)
-      onUpdate({ versionStack: cleaned })
-    }
-  }, [element.props.versionStack, onUpdate])
+  const { lastFailure, setLastFailure, dismissedFailure, setDismissedFailure, isFailed } =
+    useVersionStackFailureState(element.props.versionStack, onUpdate)
 
   const handleGenerate = useCallback(
     async (params: VideoGenerateParams) => {
@@ -883,22 +866,11 @@ export function VideoNodeView({
           prompt: params.prompt,
           parameters: { feature: params.feature, variant: params.variant, inputs: params.inputs, params: params.params, aspectRatio: params.aspectRatio, quality: params.quality },
         })
-        const raw = err instanceof Error ? err.message.toLowerCase() : ''
-        let msgKey = 'board:polling.errorGeneric'
-        if (raw.includes('insufficient') || raw.includes('balance') || raw.includes('credit') || raw.includes('quota') || raw.includes('402')) {
-          msgKey = 'board:polling.errorInsufficientBalance'
-        } else if (raw.includes('network') || raw.includes('fetch') || raw.includes('econnrefused')) {
-          msgKey = 'board:polling.errorNetwork'
-        } else if (raw.includes('401') || raw.includes('403') || raw.includes('unauthorized') || raw.includes('access denied')) {
-          msgKey = 'board:polling.errorAuth'
-        } else if (raw.includes('429') || raw.includes('rate') || raw.includes('too many')) {
-          msgKey = 'board:polling.errorRateLimit'
-        } else if (raw.includes('500') || raw.includes('502') || raw.includes('503')) {
-          msgKey = 'board:polling.errorServer'
-        }
+        const msgKey = mapErrorToMessageKey(err)
+        const msg = i18next.t(msgKey, { defaultValue: '生成失败，请重试' })
         setLastFailure({
           input: inputSnapshot,
-          error: { code: 'SUBMIT_FAILED', message: i18next.t(msgKey, { defaultValue: '生成失败，请重试' }) },
+          error: { code: 'SUBMIT_FAILED', message: msg },
         })
       }
     },
@@ -999,15 +971,7 @@ export function VideoNodeView({
       } catch (err) {
         console.error('[VideoNode] new node generation failed:', err)
         if (newNodeId) {
-          const raw = err instanceof Error ? err.message.toLowerCase() : ''
-          let msgKey = 'board:polling.errorGeneric'
-          if (raw.includes('insufficient') || raw.includes('balance') || raw.includes('credit') || raw.includes('402')) {
-            msgKey = 'board:polling.errorInsufficientBalance'
-          } else if (raw.includes('401') || raw.includes('403') || raw.includes('unauthorized') || raw.includes('access denied')) {
-            msgKey = 'board:polling.errorAuth'
-          } else if (raw.includes('500') || raw.includes('502') || raw.includes('503')) {
-            msgKey = 'board:polling.errorServer'
-          }
+          const msgKey = mapErrorToMessageKey(err)
           const msg = i18next.t(msgKey, { defaultValue: '生成失败，请重试' })
           const snapshot = createInputSnapshot({ prompt: params.prompt, parameters: { feature: params.feature, variant: params.variant, inputs: params.inputs, params: params.params } })
           const failedEntry: import('../engine/types').VersionStackEntry = {
@@ -1024,33 +988,15 @@ export function VideoNodeView({
     [engine, element.id, fileContext?.projectId, fileContext?.boardId],
   )
 
-  const isGenerating = primaryEntry?.status === 'generating'
+  const isGenerating = isGeneratingVersion
   const isReadyFromAi = primaryEntry?.status === 'ready' && element.props.origin === 'ai-generate'
-  const [dismissedFailure, setDismissedFailure] = useState(false)
-  const isFailed = lastFailure !== null
 
-  /**
-   * Editing override — check module-level editingUnlockedIds set.
-   * Set by toolbar "regenerate" action, cleared when generation starts.
-   */
-  const [editingOverride, setEditingOverride] = useState(
-    () => editingUnlockedIds.has(element.id),
+  const { editingOverride, setEditingOverride } = useVersionStackEditingOverride(
+    element.id,
+    expanded,
+    isGenerating,
   );
-  // 逻辑：每次 expanded 变化时检查是否被标记为编辑模式。
-  useEffect(() => {
-    if (editingUnlockedIds.has(element.id)) {
-      editingUnlockedIds.delete(element.id);
-      setEditingOverride(true);
-    }
-  }, [expanded, element.id]);
-  // 逻辑：生成开始后或面板关闭后自动关闭编辑覆盖。
-  useEffect(() => {
-    if (isGenerating || !expanded) setEditingOverride(false);
-  }, [isGenerating, expanded]);
-  // 逻辑：新的失败状态出现时重置 dismiss。
-  useEffect(() => {
-    if (lastFailure) setDismissedFailure(false);
-  }, [lastFailure]);
+
   // 逻辑：生成开始后清除上次失败状态。
   useEffect(() => {
     if (isGenerating) setLastFailure(null);
