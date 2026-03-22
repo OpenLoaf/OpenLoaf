@@ -23,14 +23,29 @@ export const IMAGE_VARIANTS: Record<string, VariantDefinition> = {
   'OL-IG-001': {
     component: ImgGenTextVariant,
     isApplicable: (ctx) => !ctx.hasImage,
+    acceptsInputTypes: ['text'],
+    producesOutputType: 'image',
+    inputSlots: [
+      { id: 'prompt', mediaType: 'text', labelKey: 'slot.prompt', min: 0, max: 1, allowManualInput: true, overflowStrategy: 'merge', referenceMode: 'inline' },
+    ],
   },
   'OL-IG-002': {
     component: ImgGenTextVariant,
     isApplicable: (ctx) => !ctx.hasImage,
+    acceptsInputTypes: ['text'],
+    producesOutputType: 'image',
+    inputSlots: [
+      { id: 'prompt', mediaType: 'text', labelKey: 'slot.prompt', min: 0, max: 1, allowManualInput: true, overflowStrategy: 'merge', referenceMode: 'inline' },
+    ],
   },
   'OL-IG-003': {
     component: ImgGenTextVariant,
     isApplicable: (ctx) => !ctx.hasImage,
+    acceptsInputTypes: ['text'],
+    producesOutputType: 'image',
+    inputSlots: [
+      { id: 'prompt', mediaType: 'text', labelKey: 'slot.prompt', min: 0, max: 1, allowManualInput: true, overflowStrategy: 'merge', referenceMode: 'inline' },
+    ],
   },
   // imageInpaint — requires node's own image for mask painting
   'OL-IP-001': {
@@ -38,41 +53,86 @@ export const IMAGE_VARIANTS: Record<string, VariantDefinition> = {
     isApplicable: (ctx) => ctx.nodeHasImage,
     maskPaint: true,
     maskRequired: true,
+    acceptsInputTypes: ['image'],
+    producesOutputType: 'image',
+    inputSlots: [
+      { id: 'prompt', mediaType: 'text', labelKey: 'slot.prompt', min: 0, max: 1, allowManualInput: true, overflowStrategy: 'merge', referenceMode: 'inline' },
+      { id: 'image', mediaType: 'image', labelKey: 'slot.sourceImage', min: 1, max: 1, allowManualInput: true, overflowStrategy: 'rotate' },
+    ],
   },
   // imageStyleTransfer (requires image: node or upstream)
   'OL-ST-001': {
     component: ImgStyleVolcVariant,
     isApplicable: (ctx) => ctx.hasImage,
+    acceptsInputTypes: ['image'],
+    producesOutputType: 'image',
+    inputSlots: [
+      { id: 'prompt', mediaType: 'text', labelKey: 'slot.prompt', min: 0, max: 1, allowManualInput: true, overflowStrategy: 'merge', referenceMode: 'inline' },
+      { id: 'style', mediaType: 'image', labelKey: 'slot.style', min: 1, max: 1, allowManualInput: true, overflowStrategy: 'rotate' },
+    ],
   },
   'OL-ST-002': {
     component: ImgStyleVolcVariant,
     isApplicable: (ctx) => ctx.hasImage,
+    acceptsInputTypes: ['image'],
+    producesOutputType: 'image',
+    inputSlots: [
+      { id: 'prompt', mediaType: 'text', labelKey: 'slot.prompt', min: 0, max: 1, allowManualInput: true, overflowStrategy: 'merge', referenceMode: 'inline' },
+      { id: 'style', mediaType: 'image', labelKey: 'slot.style', min: 1, max: 1, allowManualInput: true, overflowStrategy: 'rotate' },
+    ],
   },
   // upscale (requires image: node or upstream)
   'OL-UP-001': {
     component: UpscaleQwenVariant,
     isApplicable: (ctx) => ctx.hasImage,
+    acceptsInputTypes: ['image'],
+    producesOutputType: 'image',
+    inputSlots: [
+      { id: 'image', mediaType: 'image', labelKey: 'slot.sourceImage', min: 1, max: 1, allowManualInput: true, overflowStrategy: 'rotate' },
+    ],
   },
   // outpaint (requires image: node or upstream)
   'OL-OP-001': {
     component: OutpaintQwenVariant,
     isApplicable: (ctx) => ctx.hasImage,
+    acceptsInputTypes: ['image'],
+    producesOutputType: 'image',
+    inputSlots: [
+      { id: 'image', mediaType: 'image', labelKey: 'slot.sourceImage', min: 1, max: 1, allowManualInput: true, overflowStrategy: 'rotate' },
+    ],
   },
   // imageEdit — Plus (requires image + optional mask)
   'OL-IE-001': {
     component: ImgEditPlusVariant,
     isApplicable: (ctx) => ctx.hasImage,
     maskPaint: true,
+    acceptsInputTypes: ['image'],
+    producesOutputType: 'image',
+    inputSlots: [
+      { id: 'prompt', mediaType: 'text', labelKey: 'slot.prompt', min: 1, max: 1, allowManualInput: true, overflowStrategy: 'merge', referenceMode: 'inline' },
+      { id: 'images', mediaType: 'image', labelKey: 'slot.referenceImages', min: 1, max: 3, allowManualInput: true, overflowStrategy: 'truncate' },
+    ],
   },
   // imageEdit — Wan (requires image: node or upstream)
   'OL-IE-002': {
     component: ImgEditWanVariant,
     isApplicable: (ctx) => ctx.hasImage,
+    acceptsInputTypes: ['image'],
+    producesOutputType: 'image',
+    inputSlots: [
+      { id: 'prompt', mediaType: 'text', labelKey: 'slot.prompt', min: 1, max: 1, allowManualInput: true, overflowStrategy: 'merge', referenceMode: 'inline' },
+      { id: 'images', mediaType: 'image', labelKey: 'slot.referenceImages', min: 0, max: 4, allowManualInput: true, overflowStrategy: 'truncate' },
+    ],
   },
   // materialExtract (requires image: node or upstream)
   'OL-ME-001': {
     component: MatExtractVolcVariant,
     isApplicable: (ctx) => ctx.hasImage,
+    acceptsInputTypes: ['image'],
+    producesOutputType: 'image',
+    inputSlots: [
+      { id: 'image', mediaType: 'image', labelKey: 'slot.sourceImage', min: 1, max: 1, allowManualInput: true, overflowStrategy: 'rotate' },
+    ],
   },
 }
 

@@ -9,6 +9,7 @@
  */
 import type { ComponentType } from 'react'
 import type { V3Variant } from '@/lib/saas-media'
+import type { MediaType, InputSlotDefinition } from './slot-types'
 
 /** Upstream data piped from connected nodes. */
 export interface VariantUpstream {
@@ -54,6 +55,12 @@ export interface VariantDefinition {
   maskPaint?: boolean
   /** Whether mask painting is required (generate disabled without mask). */
   maskRequired?: boolean
+  /** Input media types this variant accepts (for connection validation + NodePicker). */
+  acceptsInputTypes?: MediaType[]
+  /** Output media type produced by this variant. */
+  producesOutputType?: MediaType
+  /** Declarative input slots for InputSlotBar rendering. */
+  inputSlots?: InputSlotDefinition[]
 }
 
 

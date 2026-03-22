@@ -17,14 +17,29 @@ export const AUDIO_VARIANTS: Record<string, VariantDefinition> = {
   'OL-TT-001': {
     component: TtsQwenVariant,
     isApplicable: () => true,
+    acceptsInputTypes: ['text'],
+    producesOutputType: 'audio',
+    inputSlots: [
+      { id: 'text', mediaType: 'text', labelKey: 'slot.text', min: 1, max: 1, allowManualInput: true, overflowStrategy: 'merge', referenceMode: 'replace' },
+    ],
   },
   'OL-TT-002': {
     component: TtsQwenVariant,
     isApplicable: () => true,
+    acceptsInputTypes: ['text'],
+    producesOutputType: 'audio',
+    inputSlots: [
+      { id: 'text', mediaType: 'text', labelKey: 'slot.text', min: 1, max: 1, allowManualInput: true, overflowStrategy: 'merge', referenceMode: 'replace' },
+    ],
   },
   // speechToText — requires audio input
   'OL-SR-001': {
     component: SpeechToTextVariant,
     isApplicable: (ctx) => ctx.hasAudio,
+    acceptsInputTypes: ['audio'],
+    producesOutputType: 'text',
+    inputSlots: [
+      { id: 'audio', mediaType: 'audio', labelKey: 'slot.audio', min: 1, max: 1, allowManualInput: true, overflowStrategy: 'rotate' },
+    ],
   },
 }
