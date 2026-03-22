@@ -33,7 +33,7 @@ import {
 import { useBoardContext, type BoardFileContext } from "../core/BoardProvider";
 import { isBoardRelativePath } from "../core/boardFilePath";
 import { resolveServerUrl } from "@/utils/server-url";
-import { resolveProjectRelativePath, resolveMediaSource } from './shared/resolveMediaSource';
+import { resolveProjectRelativePath } from './shared/resolveMediaSource';
 import { downloadMediaFile } from './shared/downloadMediaFile';
 import { NodeFrame } from "./NodeFrame";
 import { createPortal } from "react-dom";
@@ -46,6 +46,7 @@ import { submitVideoGenerate } from "../services/video-generate";
 import { resolveAllMediaInputs } from "@/lib/media-upload";
 import { useFileUploadHandler } from './shared/useFileUploadHandler';
 import { useInlinePanelSync, PANEL_GAP_PX } from './shared/useInlinePanelSync';
+import { useEffectiveUpstream } from './shared/useEffectiveUpstream';
 import {
   createInputSnapshot,
   createGeneratingEntry,
@@ -584,30 +585,7 @@ export function VideoNodeView({
   const { primaryEntry, generatingEntry, isGenerating: isGeneratingVersion } = useVersionStackState(element.props.versionStack)
 
   // 逻辑：有生成记录时使用冻结的上游数据，版本切换时自动跟随。
-  // 上游图片 URL 需要通过 resolveMediaSource 解析为浏览器可访问的端点。
-  const effectiveUpstream = useMemo(() => {
-    const resolveImages = (srcs: string[] | undefined) =>
-      srcs?.map(src => resolveMediaSource(src, fileContext)).filter(Boolean) as string[] | undefined;
-
-    const refs = primaryEntry?.input?.upstreamRefs;
-    if (primaryEntry?.status === 'ready' && refs && refs.length > 0) {
-      const rawPaths = refs.filter(r => r.nodeType === 'image').map(r => r.data).filter(Boolean);
-      return {
-        text: refs.filter(r => r.nodeType === 'text').map(r => r.data).join('\n') || undefined,
-        images: resolveImages(rawPaths),
-        imagePaths: rawPaths,
-        audioUrl: refs.find(r => r.nodeType === 'audio')?.data,
-        videoUrl: refs.find(r => r.nodeType === 'video')?.data,
-      };
-    }
-    return {
-      text: upstream?.textList.join('\n') || undefined,
-      images: resolveImages(upstream?.imageList),
-      imagePaths: upstream?.imageList?.filter(Boolean),
-      audioUrl: upstream?.audioList?.[0],
-      videoUrl: upstream?.videoList?.[0],
-    };
-  }, [primaryEntry, upstream, fileContext]);
+  const effectiveUpstream = useEffectiveUpstream(primaryEntry, upstream, fileContext);
 
   const pollingResult = useMediaTaskPolling({
     taskId: generatingEntry?.taskId,

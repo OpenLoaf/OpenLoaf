@@ -48,6 +48,7 @@ import { usePanelOverlay } from "../render/pixi/PixiApplication";
 import { submitAudioGenerate } from "../services/audio-generate";
 import { useFileUploadHandler } from './shared/useFileUploadHandler';
 import { useInlinePanelSync, PANEL_GAP_PX } from './shared/useInlinePanelSync';
+import { useEffectiveUpstream } from './shared/useEffectiveUpstream';
 import {
   createInputSnapshot,
   createGeneratingEntry,
@@ -267,19 +268,7 @@ export function AudioNodeView({
   const { primaryEntry, generatingEntry, isGenerating } = useVersionStackState(element.props.versionStack)
 
   // 逻辑：有生成记录时使用冻结的上游数据，版本切换时自动跟随。
-  const effectiveUpstream = useMemo(() => {
-    const refs = primaryEntry?.input?.upstreamRefs;
-    if (primaryEntry?.status === 'ready' && refs && refs.length > 0) {
-      return {
-        textContent: refs.filter(r => r.nodeType === 'text').map(r => r.data).join('\n') || undefined,
-        referenceAudioSrc: refs.find(r => r.nodeType === 'audio')?.data,
-      };
-    }
-    return {
-      textContent: upstream?.textList.join('\n') || undefined,
-      referenceAudioSrc: upstream?.audioList?.[0],
-    };
-  }, [primaryEntry, upstream]);
+  const effectiveUpstream = useEffectiveUpstream(primaryEntry, upstream, fileContext);
 
   const pollingResult = useMediaTaskPolling({
     taskId: generatingEntry?.taskId,
@@ -651,8 +640,8 @@ export function AudioNodeView({
         >
           <AudioAiPanel
             upstream={{
-              textContent: effectiveUpstream.textContent,
-              referenceAudioSrc: effectiveUpstream.referenceAudioSrc,
+              textContent: effectiveUpstream.text,
+              referenceAudioSrc: effectiveUpstream.audioUrl,
               boardId: fileContext?.boardId,
               projectId: fileContext?.projectId,
               boardFolderUri: fileContext?.boardFolderUri,

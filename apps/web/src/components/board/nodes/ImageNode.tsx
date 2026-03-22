@@ -84,6 +84,7 @@ import { VersionStackOverlay, STACK_CARD_SCALE } from "./VersionStackOverlay";
 import { GeneratingOverlay } from "./GeneratingOverlay";
 import { motion, AnimatePresence } from "framer-motion";
 import { useInlinePanelSync, PANEL_GAP_PX } from './shared/useInlinePanelSync';
+import { useEffectiveUpstream } from './shared/useEffectiveUpstream';
 
 /** Max bytes for image node preview fetches. */
 const IMAGE_NODE_PREVIEW_MAX_BYTES = 100 * 1024;
@@ -300,18 +301,6 @@ export function ImageNodeView({
   const hydrationRef = useRef<string | null>(null);
   const { actions, engine, fileContext } = useBoardContext();
   const upstream = useUpstreamData(engine, expanded ? element.id : null);
-  // 把 upstream imageList 中的 board 相对路径解析为浏览器可访问 URL
-  const resolvedUpstreamImages = useMemo(
-    () => (upstream?.imageList
-      .map((src) => resolveMediaSource(src, fileContext))
-      .filter(Boolean) ?? []) as string[],
-    [upstream?.imageList, fileContext],
-  );
-  // Raw board-relative paths for API submission (e.g. "asset/xxx.jpg")
-  const upstreamImagePaths = useMemo(
-    () => upstream?.imageList?.filter(Boolean) ?? [],
-    [upstream?.imageList],
-  );
   const panelOverlay = usePanelOverlay();
   const { panelRef } = useInlinePanelSync({ engine, xywh: element.xywh, expanded });
   const previewSrc =
@@ -368,30 +357,7 @@ export function ImageNodeView({
 
   // 逻辑：有生成记录（ready）且存储了 upstreamRefs 时，使用冻结的上游数据；
   // 版本切换时 primaryEntry 变化，插槽内容自动跟随。
-  const effectiveUpstream = useMemo(() => {
-    const refs = primaryEntry?.input?.upstreamRefs;
-    if (primaryEntry?.status === 'ready' && refs && refs.length > 0) {
-      const text = refs.filter(r => r.nodeType === 'text').map(r => r.data).join('\n') || undefined;
-      const rawPaths = refs.filter(r => r.nodeType === 'image').map(r => r.data).filter(Boolean);
-      const images = rawPaths
-        .map(r => resolveMediaSource(r, fileContext))
-        .filter(Boolean) as string[];
-      return {
-        text,
-        images,
-        imagePaths: rawPaths,
-        audioUrl: refs.find(r => r.nodeType === 'audio')?.data,
-        videoUrl: refs.find(r => r.nodeType === 'video')?.data,
-      };
-    }
-    return {
-      text: upstream?.textList.join('\n') || undefined,
-      images: resolvedUpstreamImages,
-      imagePaths: upstreamImagePaths,
-      audioUrl: upstream?.audioList?.[0],
-      videoUrl: upstream?.videoList?.[0],
-    };
-  }, [primaryEntry, upstream, resolvedUpstreamImages, upstreamImagePaths, fileContext]);
+  const effectiveUpstream = useEffectiveUpstream(primaryEntry, upstream, fileContext);
 
   const pollingResult = useMediaTaskPolling({
     taskId: generatingEntry?.taskId,
