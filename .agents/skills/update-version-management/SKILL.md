@@ -185,6 +185,7 @@ Desktop 采用 **Beta-only 构建策略**：新构建只能打 beta tag，stable
 
 - **Workflow**：`.github/workflows/publish-desktop.yml`
 - **触发**：`push.tags: desktop@*` 或 `workflow_dispatch`
+- **版本同步**：CI 从 tag 提取版本后，直接改写 `apps/desktop/package.json` 的 `version` 字段；不要在 workflow 里用 `npm version`，否则会被 `catalog:` 依赖拦住
 - **Web 构建环境变量**：`NEXT_PUBLIC_SERVER_URL`、`NEXT_PUBLIC_OPENLOAF_SAAS_URL`、`NEXT_PUBLIC_UPDATE_BASE_URL`
 - **`dist.mjs`**：自动 `--publish=never`；支持 `--beta[=N]` 本地测试
 - **Linux**：仅 AppImage

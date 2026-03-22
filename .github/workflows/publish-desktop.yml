@@ -187,8 +187,13 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         run: |
           TAG_VERSION="${GITHUB_REF#refs/tags/desktop@}"
-          cd apps/desktop
-          npm version "$TAG_VERSION" --no-git-tag-version --allow-same-version
+          node -e '
+            const fs = require("node:fs");
+            const path = "apps/desktop/package.json";
+            const pkg = JSON.parse(fs.readFileSync(path, "utf8"));
+            pkg.version = process.argv[1];
+            fs.writeFileSync(path, JSON.stringify(pkg, null, 2) + "\n");
+          ' "$TAG_VERSION"
           echo "Set desktop version to $TAG_VERSION"
 
       # ── ARM64 构建（原生架构） ──────────────────────────────────────
@@ -331,8 +336,13 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         run: |
           TAG_VERSION="${GITHUB_REF#refs/tags/desktop@}"
-          cd apps/desktop
-          npm version "$TAG_VERSION" --no-git-tag-version --allow-same-version
+          node -e '
+            const fs = require("node:fs");
+            const path = "apps/desktop/package.json";
+            const pkg = JSON.parse(fs.readFileSync(path, "utf8"));
+            pkg.version = process.argv[1];
+            fs.writeFileSync(path, JSON.stringify(pkg, null, 2) + "\n");
+          ' "$TAG_VERSION"
           echo "Set desktop version to $TAG_VERSION"
 
       - name: Build and package desktop (Windows)
@@ -429,8 +439,13 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         run: |
           TAG_VERSION="${GITHUB_REF#refs/tags/desktop@}"
-          cd apps/desktop
-          npm version "$TAG_VERSION" --no-git-tag-version --allow-same-version
+          node -e '
+            const fs = require("node:fs");
+            const path = "apps/desktop/package.json";
+            const pkg = JSON.parse(fs.readFileSync(path, "utf8"));
+            pkg.version = process.argv[1];
+            fs.writeFileSync(path, JSON.stringify(pkg, null, 2) + "\n");
+          ' "$TAG_VERSION"
           echo "Set desktop version to $TAG_VERSION"
 
       - name: Build and package desktop (Linux)
@@ -492,8 +507,13 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         run: |
           TAG_VERSION="${GITHUB_REF#refs/tags/desktop@}"
-          cd apps/desktop
-          npm version "$TAG_VERSION" --no-git-tag-version --allow-same-version
+          node -e '
+            const fs = require("node:fs");
+            const path = "apps/desktop/package.json";
+            const pkg = JSON.parse(fs.readFileSync(path, "utf8"));
+            pkg.version = process.argv[1];
+            fs.writeFileSync(path, JSON.stringify(pkg, null, 2) + "\n");
+          ' "$TAG_VERSION"
 
       # 下载各平台元数据作为兜底（R2 manifest 已由各平台各自写入，这里合并确保完整性）
       - name: Download platform metadata artifacts
