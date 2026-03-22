@@ -1011,6 +1011,7 @@ export function ImageNodeView({
           upstreamImagePaths={effectiveUpstream.imagePaths}
           upstreamAudioUrl={effectiveUpstream.audioUrl}
           upstreamVideoUrl={effectiveUpstream.videoUrl}
+          rawUpstream={upstream}
           resolvedImageSrc={resolveMediaSource(element.props.originalSrc, fileContext) || previewSrc}
           onGenerate={handleGenerate}
           onGenerateNewNode={handleGenerateNewNode}
@@ -1102,6 +1103,7 @@ export const ImageNodeDefinition: CanvasNodeDefinition<ImageNodeProps> = {
     maxSize: IMAGE_NODE_MAX_SIZE,
   },
   inlinePanel: { width: 420, height: 480 },
+  outputTypes: ['image'],
   connectorTemplates: () => getImageNodeConnectorTemplates(),
   toolbar: (ctx) => createImageToolbarItems(ctx),
 };

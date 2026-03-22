@@ -1481,4 +1481,5 @@ export const TextNodeDefinition: CanvasNodeDefinition<TextNodeProps> = {
     maxSize: TEXT_NODE_MAX_SIZE,
   },
   inlinePanel: { width: 420, height: 360 },
+  outputTypes: ['text'],
 };

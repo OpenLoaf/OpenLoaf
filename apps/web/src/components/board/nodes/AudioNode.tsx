@@ -520,6 +520,7 @@ export function AudioNodeView({
             projectId: fileContext?.projectId,
             boardFolderUri: fileContext?.boardFolderUri,
           }}
+          rawUpstream={upstream}
           onGenerate={handleGenerate}
           onGenerateNewNode={handleGenerateNewNode}
           hasResource={Boolean(element.props.sourcePath)}
@@ -578,6 +579,7 @@ export const AudioNodeDefinition: CanvasNodeDefinition<AudioNodeProps> = {
     maxSize: { w: 320, h: 120 },
   },
   inlinePanel: { width: 420, height: 320 },
+  outputTypes: ['audio'],
   connectorTemplates: () => getAudioNodeConnectorTemplates(),
   toolbar: (ctx) => createAudioToolbarItems(ctx),
 };

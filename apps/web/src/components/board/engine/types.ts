@@ -10,6 +10,7 @@
 import type { ComponentType, ReactNode } from "react";
 import type { ZodType } from "zod";
 import type { BoardFileContext } from "../core/BoardProvider";
+import type { MediaType } from "../panels/variants/slot-types";
 
 /** 2D point in canvas space. */
 export type CanvasPoint = [number, number];
@@ -463,6 +464,8 @@ export type CanvasNodeDefinition<P> = {
   capabilities?: CanvasNodeCapabilities;
   /** Inline panel config for node editing (expanded when selected). */
   inlinePanel?: CanvasInlinePanelConfig;
+  /** Media types this node can output (for connection validation + NodePicker) */
+  outputTypes?: MediaType[]
 };
 
 /** Immutable snapshot of inputs used for one AI generation */

@@ -954,6 +954,7 @@ export function VideoNodeView({
           upstreamImagePaths={effectiveUpstream.imagePaths}
           upstreamAudioUrl={effectiveUpstream.audioUrl}
           upstreamVideoUrl={effectiveUpstream.videoUrl}
+          rawUpstream={upstream}
           boardId={fileContext?.boardId}
           projectId={fileContext?.projectId}
           boardFolderUri={fileContext?.boardFolderUri}
@@ -1017,6 +1018,7 @@ export const VideoNodeDefinition: CanvasNodeDefinition<VideoNodeProps> = {
     maxSize: { w: 1280, h: 720 },
   },
   inlinePanel: { width: 420, height: 360 },
+  outputTypes: ['video', 'image'],
   connectorTemplates: () => getVideoNodeConnectorTemplates(),
   toolbar: (ctx) => createVideoToolbarItems(ctx),
 };
