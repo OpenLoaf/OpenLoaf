@@ -14,7 +14,7 @@ import path from "node:path";
 import { prisma } from "@openloaf/db";
 import { type ChatModelSource, type ModelDefinition } from "@openloaf/api/common";
 import type { ImageGenerateOptions, OpenLoafImageMetadataV1 } from "@openloaf/api/types/image";
-import type { AiImageRequest } from "@openloaf-saas/sdk";
+import { submitV3Generate, pollV3Task, cancelV3Task } from "@/modules/saas/modules/media/client";
 import type { OpenLoafUIMessage, TokenUsage } from "@openloaf/api/types/message";
 import { createMasterAgentRunner, createPMAgentRunner } from "@/ai";
 import { getTemplate, isTemplateId } from "@/ai/agent-templates";
@@ -1002,18 +1002,25 @@ async function generateImageModelResult(input: ImageModelRequest): Promise<Image
     mask: resolvedPrompt.mask,
     abortSignal: input.abortSignal,
   });
-  const payload: AiImageRequest = {
-    modelId: resolvedModelId,
-    prompt: promptText,
-    ...(negativePrompt ? { negativePrompt } : {}),
-    ...(style ? { style } : {}),
-    ...(inputs ? { inputs } : {}),
-    ...(output ? { output } : {}),
-    ...(parameters ? { parameters } : {}),
-  };
+  const v3Payload: Record<string, unknown> = {
+    feature: 'imageGenerate',
+    variant: 'OL-IG-001',
+    inputs: {
+      prompt: promptText,
+      ...(inputs?.images ? { images: inputs.images } : {}),
+      ...(inputs?.mask ? { mask: inputs.mask } : {}),
+    },
+    params: {
+      ...(negativePrompt ? { negativePrompt } : {}),
+      ...(style ? { style } : {}),
+      ...(output?.aspectRatio ? { aspectRatio: output.aspectRatio } : {}),
+      ...(output?.quality ? { quality: output.quality } : {}),
+      ...(parameters ? { ...parameters } : {}),
+    },
+    ...(output?.count ? { count: output.count } : {}),
+  }
 
-  const client = getSaasClient(accessToken);
-  const submitResult = await client.ai.image(payload);
+  const submitResult = await submitV3Generate(v3Payload, accessToken);
   if (!submitResult || submitResult.success !== true || !submitResult.data?.taskId) {
     const fallbackMessage = "图片任务创建失败。";
     const message =
@@ -1024,7 +1031,7 @@ async function generateImageModelResult(input: ImageModelRequest): Promise<Image
   }
   const taskId = submitResult.data.taskId;
   const taskResult = await waitForSaasImageTask({
-    client,
+    accessToken,
     taskId,
     abortSignal: input.abortSignal,
   });
@@ -1234,7 +1241,7 @@ function resolveSaasAspectRatio(options?: ImageGenerateOptions): "1:1" | "16:9" 
 /** Build SaaS image output payload. */
 function resolveSaasImageOutput(
   options?: ImageGenerateOptions,
-): AiImageRequest["output"] | undefined {
+): { count?: number; aspectRatio?: string; quality?: string } | undefined {
   const count = typeof options?.n === "number" ? options.n : undefined;
   const aspectRatio = resolveSaasAspectRatio(options);
   const qualityRaw = options?.providerOptions?.openai?.quality?.trim();
@@ -1273,7 +1280,7 @@ async function resolveSaasImageInputs(input: {
   images: Array<{ data: unknown; mediaType?: string }>;
   mask?: { data: unknown; mediaType?: string };
   abortSignal: AbortSignal;
-}): Promise<AiImageRequest["inputs"] | undefined> {
+}): Promise<{ images?: Array<{ base64: string; mediaType: string }>; mask?: { base64: string; mediaType: string } } | undefined> {
   if (input.images.length === 0 && !input.mask) return undefined;
   const projectId = getProjectId();
   const resolvedImages = await Promise.all(
@@ -1328,7 +1335,7 @@ async function sleepWithAbort(ms: number, abortSignal: AbortSignal): Promise<voi
 
 /** Poll SaaS image task until completion. */
 async function waitForSaasImageTask(input: {
-  client: ReturnType<typeof getSaasClient>;
+  accessToken: string;
   taskId: string;
   abortSignal: AbortSignal;
 }): Promise<{
@@ -1340,13 +1347,13 @@ async function waitForSaasImageTask(input: {
   while (true) {
     if (input.abortSignal.aborted) {
       try {
-        await input.client.ai.mediaCancelTask(input.taskId);
+        await cancelV3Task(input.taskId, input.accessToken);
       } catch {
         // 忽略取消失败。
       }
       throw new ChatImageRequestError("请求已取消。", 499);
     }
-    const response = await input.client.ai.mediaTask(input.taskId);
+    const response = await pollV3Task(input.taskId, input.accessToken);
     if (!response || response.success !== true) {
       const message = response?.message || "任务查询失败。";
       throw new ChatImageRequestError(message, 502);

@@ -15,6 +15,7 @@ import {
 import type { CanvasNodeElement } from '../engine/types'
 import type { VideoNodeProps } from '../nodes/VideoNode'
 import type { AiGenerateConfig } from '../board-contracts'
+import { MEDIA_PREFERENCES, type MediaPreferenceId } from '@openloaf-saas/sdk'
 import { useCapabilities } from '@/hooks/use-capabilities'
 import { resolveAllMediaInputs } from '@/lib/media-upload'
 import { GenerateActionBar } from './GenerateActionBar'
@@ -386,8 +387,7 @@ export function VideoAiPanel({
           const needsAudio = vc?.requiresAudio && !hasAudio
           const incompatible = needsImage || needsAudio
           // Use server-provided preference label; fall back to displayName.
-          // TODO: replace with MEDIA_PREFERENCES[v.preference]?.label[prefLang] once SDK ≥0.1.14
-          const prefLabel: string | undefined = undefined
+          const prefLabel = MEDIA_PREFERENCES[v.preference as MediaPreferenceId]?.label[prefLang]
           return {
             id: v.id,
             displayName: prefLabel ?? v.displayName,

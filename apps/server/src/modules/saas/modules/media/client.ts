@@ -8,7 +8,6 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import { getSaasClient } from "../../client";
-import type { MediaGenerateRequest } from "@openloaf-saas/sdk";
 
 export type SaasMediaSubmitArgs = {
   /** Media task kind. */
@@ -77,32 +76,28 @@ function writeCache(
   }
 }
 
-/** Submit a SaaS media task. */
+/**
+ * @deprecated v2 media submit — delegates to v3 generate.
+ * AI agent tools still call this; the payload is forwarded as-is to v3Generate.
+ */
 export async function submitMediaTask(input: SaasMediaSubmitArgs, accessToken: string) {
-  const client = getSaasClient(accessToken);
-  // 逻辑：根据任务类型路由到对应 SDK 方法。
-  if (input.kind === "image") {
-    return client.ai.image(input.payload as any);
-  }
-  if (input.kind === "audio") {
-    return client.ai.audio(input.payload as any);
-  }
-  return client.ai.video(input.payload as any);
+  return submitV3Generate(input.payload, accessToken)
 }
 
-/** Poll a SaaS media task by id. */
+/**
+ * @deprecated v2 task poll — delegates to v3 task poll.
+ */
 export async function pollMediaTask(
   taskId: string,
   accessToken: string,
 ): Promise<SaasMediaTaskResult> {
-  const client = getSaasClient(accessToken);
-  const response = await client.ai.mediaTask(taskId);
+  const response = await pollV3Task(taskId, accessToken)
   if (!response || response.success !== true) {
     return {
       taskId,
       status: "failed",
       error: { message: response?.message ?? "任务查询失败" },
-    };
+    }
   }
   return {
     taskId,
@@ -111,50 +106,58 @@ export async function pollMediaTask(
     resultType: response.data.resultType,
     resultUrls: response.data.resultUrls,
     error: response.data.error,
-  };
+  }
 }
 
-/** Cancel a SaaS media task. */
+/**
+ * @deprecated v2 task cancel — delegates to v3 cancel.
+ */
 export async function cancelMediaTask(taskId: string, accessToken: string) {
-  const client = getSaasClient(accessToken);
-  return client.ai.mediaCancelTask(taskId);
+  return cancelV3Task(taskId, accessToken)
 }
 
-/** Fetch media models via SDK v2 unified endpoint (kept for AI chat model preferences). */
+/**
+ * @deprecated v2 media models — delegates to v3 capabilities.
+ * Returns capabilities for the given feature category.
+ */
 export async function fetchMediaModelsV2(
   accessToken: string,
   feature?: string,
 ): Promise<any> {
-  const client = getSaasClient(accessToken);
-  return client.ai.mediaModels(feature);
+  const category = feature?.startsWith('video') ? 'video'
+    : feature === 'tts' || feature === 'music' || feature === 'sfx' ? 'audio'
+    : 'image'
+  return fetchCapabilitiesV3(category, accessToken)
 }
 
-/** Fetch image model list with cache. */
+/**
+ * @deprecated v1 image models — delegates to v3 image capabilities.
+ */
 export async function fetchImageModels(
   accessToken: string,
   options: FetchMediaModelOptions = {},
 ) {
-  const force = options.force === true;
-  const cached = force ? null : readCache(cachedImageModels, accessToken);
-  if (cached) return cached;
-  const client = getSaasClient(accessToken);
-  const payload = await client.ai.imageModels();
-  writeCache(cachedImageModels, accessToken, payload);
-  return payload;
+  const force = options.force === true
+  const cached = force ? null : readCache(cachedImageModels, accessToken)
+  if (cached) return cached
+  const payload = await fetchCapabilitiesV3('image', accessToken)
+  writeCache(cachedImageModels, accessToken, payload)
+  return payload
 }
 
-/** Fetch video model list with cache. */
+/**
+ * @deprecated v1 video models — delegates to v3 video capabilities.
+ */
 export async function fetchVideoModels(
   accessToken: string,
   options: FetchMediaModelOptions = {},
 ) {
-  const force = options.force === true;
-  const cached = force ? null : readCache(cachedVideoModels, accessToken);
-  if (cached) return cached;
-  const client = getSaasClient(accessToken);
-  const payload = await client.ai.videoModels();
-  writeCache(cachedVideoModels, accessToken, payload);
-  return payload;
+  const force = options.force === true
+  const cached = force ? null : readCache(cachedVideoModels, accessToken)
+  if (cached) return cached
+  const payload = await fetchCapabilitiesV3('video', accessToken)
+  writeCache(cachedVideoModels, accessToken, payload)
+  return payload
 }
 
 // ---------------------------------------------------------------------------

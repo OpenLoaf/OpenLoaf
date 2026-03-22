@@ -15,6 +15,7 @@ import {
   Redo2,
   Undo2,
 } from 'lucide-react'
+import { MEDIA_PREFERENCES, type MediaPreferenceId } from '@openloaf-saas/sdk'
 import { useCapabilities } from '@/hooks/use-capabilities'
 import type { V3Feature, V3Variant } from '@/lib/saas-media'
 import { BRUSH_MIN_SIZE, BRUSH_MAX_SIZE } from '../nodes/MaskPaintOverlay'
@@ -541,9 +542,7 @@ export function ImageAiPanel({
           const vc = IMAGE_VARIANT_CONSTRAINTS[v.id]
           const hasImage = Boolean(resolvedImageSrc || upstreamImages?.length)
           const needsImage = vc?.requiresImage && !hasImage
-          // Use server-provided preference label; fall back to displayName.
-          // TODO: replace with MEDIA_PREFERENCES[v.preference]?.label[prefLang] once SDK ≥0.1.14
-          const prefLabel: string | undefined = undefined
+          const prefLabel = MEDIA_PREFERENCES[v.preference as MediaPreferenceId]?.label[prefLang]
           return {
             id: v.id,
             displayName: prefLabel ?? v.displayName,
