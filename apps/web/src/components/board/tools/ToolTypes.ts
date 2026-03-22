@@ -19,6 +19,7 @@ import type {
   CanvasConnectorStyle,
   CanvasElement,
   CanvasInsertRequest,
+  CanvasNodeDefinition,
   CanvasNodeElement,
   CanvasPoint,
   CanvasRect,
@@ -29,6 +30,7 @@ import type {
   CanvasViewState,
   CanvasViewportState,
 } from "../engine/types";
+import type { ConnectionValidation } from "../engine/connection-validator";
 
 export type CanvasToolSelectionHost = {
   /** Return the selected element ids. */
@@ -127,6 +129,10 @@ export type CanvasToolHost = {
   getConnectorDrop: () => CanvasConnectorDrop | null;
   /** Update the pending connector drop. */
   setConnectorDrop: (drop: CanvasConnectorDrop | null) => void;
+  /** Update the connector drag validation result. */
+  setConnectorValidation: (result: ConnectionValidation | null) => void;
+  /** Return a node definition by type, or undefined if unknown. */
+  getNodeDefinition: (type: string) => CanvasNodeDefinition<unknown> | undefined;
   /** Return the top-most node under the point. */
   findNodeAt: (point: CanvasPoint) => CanvasNodeElement | null;
   /** Return the nearest edge anchor hit for a node. */

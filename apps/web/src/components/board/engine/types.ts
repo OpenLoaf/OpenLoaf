@@ -11,6 +11,7 @@ import type { ComponentType, ReactNode } from "react";
 import type { ZodType } from "zod";
 import type { BoardFileContext } from "../core/BoardProvider";
 import type { MediaType } from "../panels/variants/slot-types";
+import type { ConnectionValidation } from "./connection-validator";
 
 /** 2D point in canvas space. */
 export type CanvasPoint = [number, number];
@@ -327,6 +328,8 @@ export type CanvasSnapshot = {
   expandedNodeId: string | null;
   /** World-space point where the current selection was clicked (for toolbar positioning). */
   selectionClickPoint: CanvasPoint | null;
+  /** Validation result for the current connector drag target. Null when no draft is active. */
+  connectorValidation: ConnectionValidation | null;
 };
 
 /** Props delivered to a node renderer component. */

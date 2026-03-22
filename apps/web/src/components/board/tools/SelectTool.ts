@@ -35,6 +35,7 @@ import {
 import { LARGE_ANCHOR_NODE_TYPES } from "../engine/anchorTypes";
 import { getAnchorDirection } from "../engine/anchor-direction";
 import { snapMoveRect } from "../utils/alignment-guides";
+import { validateConnection } from "../engine/connection-validator";
 import type { CanvasTool, CanvasToolHost, ToolContext } from "./ToolTypes";
 
 // 逻辑：悬停判定比节点实际范围更大，延迟清理锚点避免闪烁。
@@ -301,6 +302,36 @@ export class SelectTool implements CanvasTool {
           anchorHint
         );
         if (hover) {
+          // 逻辑：在吸附到目标前先验证连接合法性，不合法时记录原因供视觉反馈使用。
+          const sourceNode = ctx.engine.doc.getElementById(this.connectorSource.elementId);
+          const validation = sourceNode && sourceNode.kind === 'node'
+            ? validateConnection(
+                sourceNode,
+                this.connectorSource.anchorId,
+                targetNode,
+                hover.anchorId,
+                (type) => ctx.engine.getNodeDefinition(type),
+              )
+            : { valid: true };
+          ctx.engine.setConnectorValidation(validation);
+
+          // 逻辑：方向不匹配时不吸附，让连线跟随鼠标，避免误连同向锚点。
+          if (!validation.valid && validation.reason === 'direction-mismatch') {
+            ctx.engine.setNodeHoverId(null);
+            ctx.engine.setConnectorHover(null);
+            ctx.engine.setConnectorDraft({
+              source: {
+                elementId: this.connectorSource.elementId,
+                anchorId: this.connectorSource.anchorId,
+              },
+              target: { point: ctx.worldPoint },
+              style: ctx.engine.getConnectorStyle(),
+              dashed: ctx.engine.getConnectorDashed(),
+            });
+            return;
+          }
+
+          // 逻辑：类型不兼容时仍吸附（显示红色锚点提示），但保留验证结果供 AnchorOverlay 消费。
           const isLargeAnchorTarget = LARGE_ANCHOR_NODE_TYPES.has(targetNode.type);
           ctx.engine.setNodeHoverId(isLargeAnchorTarget ? targetNode.id : null);
           const anchorScope =
@@ -324,6 +355,8 @@ export class SelectTool implements CanvasTool {
         }
       }
 
+      // 逻辑：未悬停在目标节点上时清空验证状态。
+      ctx.engine.setConnectorValidation(null);
       ctx.engine.setNodeHoverId(null);
       const edgeHover = ctx.engine.findEdgeAnchorHit(ctx.worldPoint, undefined, selectedIds);
       ctx.engine.setConnectorHover(edgeHover);
@@ -517,6 +550,7 @@ export class SelectTool implements CanvasTool {
         ctx.engine.setConnectorDraft(null);
       }
       ctx.engine.setConnectorHover(null);
+      ctx.engine.setConnectorValidation(null);
       this.connectorSource = null;
       this.connectorDrafting = false;
       this.connectorDirection = 'forward';

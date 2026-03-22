@@ -13,6 +13,7 @@ import type {
   CanvasPoint,
   CanvasSnapshot,
 } from "../engine/types";
+import type { ConnectionValidation } from "../engine/connection-validator";
 import { cn } from "@udecode/cn";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import {
@@ -74,6 +75,9 @@ export function AnchorOverlay({ snapshot }: AnchorOverlayProps) {
     }
   });
 
+  const connectorValidation = snapshot.connectorValidation;
+  const isDrafting = snapshot.connectorDraft !== null;
+
   return (
     <>
       {Array.from(uniqueAnchors.values()).map(anchor => {
@@ -99,6 +103,14 @@ export function AnchorOverlay({ snapshot }: AnchorOverlayProps) {
         const offsetDistance =
           useSelectedStyle ? baseSize / 2 + SELECTED_ANCHOR_GAP : 0;
         const anchorOffset = resolveAnchorScreenOffset(anchor.anchorId, offsetDistance);
+
+        // 逻辑：连线拖拽中，对悬停锚点根据验证结果着色：合法绿色，类型不兼容红色，无结果保持默认。
+        const validationClass = resolveAnchorValidationClass(
+          isHover,
+          isDrafting,
+          connectorValidation,
+        );
+
         return (
           <div
             key={`${anchor.elementId}-${anchor.anchorId}`}
@@ -113,10 +125,12 @@ export function AnchorOverlay({ snapshot }: AnchorOverlayProps) {
             <div
               className={cn(
                 "absolute flex items-center justify-center rounded-full border shadow-[0_0_0_1px_rgba(0,0,0,0.12)]",
-                isHover
-                  ? "bg-[var(--canvas-connector-anchor-hover)]"
-                  : "bg-[var(--canvas-connector-anchor)]",
-                "border-[var(--canvas-connector-handle-fill)]"
+                validationClass ?? (
+                  isHover
+                    ? "bg-[var(--canvas-connector-anchor-hover)]"
+                    : "bg-[var(--canvas-connector-anchor)]"
+                ),
+                validationClass ? "border-transparent" : "border-[var(--canvas-connector-handle-fill)]"
               )}
               style={{
                 left: anchorOffset[0],
@@ -218,6 +232,24 @@ function getSelectedImageAnchors(snapshot: CanvasSnapshot): CanvasAnchorHit[] {
     });
   });
   return selectedAnchors;
+}
+
+/**
+ * Resolve the Tailwind class for connector drag validation feedback on a hovered anchor.
+ * Returns null when no colored feedback should be applied (use default styling).
+ */
+function resolveAnchorValidationClass(
+  isHover: boolean,
+  isDrafting: boolean,
+  validation: ConnectionValidation | null,
+): string | null {
+  // 逻辑：只在连线拖拽中、鼠标悬停的目标锚点上显示验证色，其余锚点保持默认样式。
+  if (!isHover || !isDrafting || validation === null) return null;
+  if (validation.valid) {
+    return "bg-green-500/20 border-green-500 ring-1 ring-green-500";
+  }
+  // type-incompatible → 红色提示；self-loop 也用红色。
+  return "bg-red-500/20 border-red-500 ring-1 ring-red-500";
 }
 
 /** Collect anchors for hovered large-anchor nodes. */

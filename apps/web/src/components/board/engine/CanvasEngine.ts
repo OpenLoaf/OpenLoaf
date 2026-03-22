@@ -127,6 +127,7 @@ import {
 } from "./grouping";
 import { generateElementId } from "./id";
 import { removePrimaryEntry } from "./version-stack";
+import type { ConnectionValidation } from "./connection-validator";
 
 /** Builder for image payloads. */
 type ImagePayloadBuilder = (file: File) => Promise<ImageNodePayload>;
@@ -179,6 +180,8 @@ export class CanvasEngine {
   private connectorStyle: CanvasConnectorStyle = "curve";
   /** Whether new connectors use dashed strokes. */
   private connectorDashed = true;
+  /** Validation result for the current connector drag target. */
+  private connectorValidation: ConnectionValidation | null = null;
   /** Active mindmap layout direction. */
   private mindmapLayoutDirection: MindmapLayoutDirection = "right";
   /** Last toast timestamp for cycle warning. */
@@ -580,6 +583,7 @@ export class CanvasEngine {
     if (toolId !== "connector") {
       this.connectorDraft = null;
       this.connectorHover = null;
+      this.connectorValidation = null;
     }
     if (toolId !== "select") {
       this.connectorHoverId = null;
@@ -630,6 +634,7 @@ export class CanvasEngine {
       colorHistory: this.colorHistory,
       expandedNodeId: this.expandedNodeId,
       selectionClickPoint: this.selectionClickPoint,
+      connectorValidation: this.connectorValidation,
     };
   }
 
@@ -937,6 +942,26 @@ export class CanvasEngine {
   /** Return the current hover anchor. */
   getConnectorHover(): CanvasAnchorHit | null {
     return this.connectorHover;
+  }
+
+  /** Update the connector drag validation result. */
+  setConnectorValidation(result: ConnectionValidation | null): void {
+    if (
+      this.connectorValidation === result ||
+      (this.connectorValidation !== null &&
+        result !== null &&
+        this.connectorValidation.valid === result.valid &&
+        this.connectorValidation.reason === result.reason)
+    ) {
+      return;
+    }
+    this.connectorValidation = result;
+    this.emitChange();
+  }
+
+  /** Return a node definition by type, or undefined if unknown. */
+  getNodeDefinition(type: string): CanvasNodeDefinition<unknown> | undefined {
+    return this.nodes.getDefinition(type) ?? undefined;
   }
 
   /** Update hovered node id used for showing anchor UI. */
