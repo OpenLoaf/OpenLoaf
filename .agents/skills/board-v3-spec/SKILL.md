@@ -182,7 +182,7 @@ interface VariantDefinition {
 | 字段 | 位置 | 类型 | 必填 | 说明 |
 |------|------|------|------|------|
 | startImage | inputs | MediaInput | Y | 首帧图片 |
-| prompt | params | string | Y | |
+| prompt | inputs | string | Y | |
 | style | params | string | N | |
 | duration | params | number | Y | 默认 5 |
 | withAudio | params | boolean | Y | 默认 true |
@@ -194,6 +194,7 @@ interface VariantDefinition {
 | 字段 | 位置 | 类型 | 必填 | 说明 |
 |------|------|------|------|------|
 | startImage | inputs | MediaInput | N | 可选首帧 |
+| prompt | inputs | string | Y | |
 | images | inputs | MediaInput[] | N | 额外参考图 |
 | prompt | params | string | Y | |
 | style | params | string | N | |

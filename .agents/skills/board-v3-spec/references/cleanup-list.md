@@ -1,8 +1,11 @@
 # 垃圾代码清理清单
 
 > 按优先级排列，每项标注文件位置和具体行为。
+> 最后更新：Phase 1-4 完成后
 
-## P0 — 数据一致性问题（必须修）
+## P0 — 数据一致性问题 ✅ 全部完成
+
+> 以下 4 项已在 Phase 1 中修复并提交。
 
 ### 1. prompt 字段位置不一致
 - **文件**: `ImgGenRefVariant.tsx`
@@ -24,61 +27,22 @@
 - **问题**: `nodeId` 始终为空字符串 `''`
 - **修复**: 传入真实的源节点 ID
 
-## P1 — 代码重构
+## P1 — 代码重构（大部分已完成）
 
-### 5. ImagePanelMode deprecated 导出
-- **文件**: `ImageAiPanel.tsx` L52-53
-- **代码**: `export type ImagePanelMode = string`
-- **操作**: 删除
+### 5. ✅ ImagePanelMode deprecated 导出 — 已删除（Phase 2）
+### 6. VideoGenerateParams deprecated 字段 — 待清理
+### 7. ✅ AiGenerateConfig 枚举值 — 已补全 v3 值 + 保留 v2 compat（Phase 2）
+### 8. ✅ editingUnlockedIds 全局 Set — 已迁移到 useVersionStack.ts hook（Phase 3）
+### 9. ✅ localhost URL 处理分支 — 已清理注释引用（Phase 4）
+### 10. ✅ 后端 resolvePayloadMediaInputs — 已删除（Phase 4）
 
-### 6. VideoGenerateParams deprecated 字段
-- **文件**: `ImageAiPanel.tsx` L46-68
-- **字段**: prompt, aspectRatio, duration, quality, mode, withAudio, firstFrameImageSrc
-- **操作**: 确认无外部引用后删除
+## P2 — 重复代码提取 ✅ 全部完成
 
-### 7. AiGenerateConfig 过时枚举值
-- **文件**: `board-contracts.ts`
-- **过时值**: poster, matting, digitalHuman, motionTransfer, music, sfx, videoEdit
-- **操作**: 移除未使用的枚举值
+### 11. ✅ useSourceImage hook — 5 个 variant 已重构（Phase 2）
+### 12. ✅ useMediaSlots hook — 3 个 variant 已重构（Phase 2）
 
-### 8. editingUnlockedIds 全局 Set
-- **文件**: `ImageNode.tsx`（模块级）
-- **问题**: 跨组件生命周期的全局可变状态
-- **操作**: 改为 engine context 或 aiConfig.isEditing
-
-### 9. localhost URL 处理分支
-- **文件**: `media-upload.ts` (resolveOneMediaInput)
-- **问题**: `http://127.0.0.1` 分支已 deprecated
-- **操作**: 删除整个分支
-
-### 10. 后端 resolvePayloadMediaInputs 旧逻辑
-- **文件**: `mediaProxy.ts`
-- **问题**: 前端已全部走 path-based upload，后端旧 payload 处理无用
-- **操作**: 确认无调用后删除
-
-## P2 — 重复代码提取
-
-### 11. Source image 解析重复
-- **涉及**: ImgStyleVolcVariant, UpscaleQwenVariant, UpscaleVolcVariant, OutpaintQwenVariant
-- **重复代码**:
-  ```typescript
-  const rawSourceUrl = nodeResourceUrl ?? upstream.images?.[0]
-  const [imgLoadFailed, setImgLoadFailed] = useState(false)
-  useEffect(() => { setImgLoadFailed(false) }, [rawSourceUrl])
-  const sourceUrl = imgLoadFailed ? undefined : rawSourceUrl
-  const sourcePath = nodeResourcePath ?? upstream.imagePaths?.[0]
-  ```
-- **操作**: 提取 `useSourceImage(nodeResourcePath, nodeResourceUrl, upstream)` hook
-
-### 12. Manual images 管理重复
-- **涉及**: ImgGenRefVariant, ImgEditWanVariant, ImgEditPlusVariant
-- **重复代码**: manualImages state + displayImages + apiImages 拼接 + MediaSlot 渲染
-- **操作**: 提取 `useMediaSlots(max, nodeImage, upstream)` hook
-
-### 13. 版本堆叠工具栏重复
-- **涉及**: ImageNode, VideoNode, AudioNode
-- **重复代码**: getPrimaryEntry + getGeneratingEntry + toolbar items
-- **操作**: 提取 `useVersionStackToolbar(stack, onUpdate)` hook
+### 13. ✅ 版本堆叠状态管理重复 — 已提取 4 个 hooks（Phase 3）
+- mapErrorToMessageKey, useVersionStackState, useVersionStackFailureState, useVersionStackEditingOverride
 
 ### 14. Upstream 双套图片格式
 - **文件**: `variants/types.ts` (VariantUpstream)

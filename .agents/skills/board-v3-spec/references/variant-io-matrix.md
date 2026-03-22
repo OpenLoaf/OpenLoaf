@@ -24,9 +24,9 @@
 
 | ID | Component | isApplicable | inputs | params |
 |----|-----------|-------------|--------|--------|
-| OL-VG-001 | VidGenQwenVariant | hasImage | startImage | prompt, style?, duration, withAudio |
-| OL-VG-002 | VidGenQwenVariant | hasImage | startImage | prompt, style?, duration, withAudio |
-| OL-VG-003 | VidGenVolcVariant | always | startImage?, images[]? | prompt, style?, aspectRatio?, duration |
+| OL-VG-001 | VidGenQwenVariant | hasImage | startImage, prompt | style?, duration, withAudio |
+| OL-VG-002 | VidGenQwenVariant | hasImage | startImage, prompt | style?, duration, withAudio |
+| OL-VG-003 | VidGenVolcVariant | always | startImage?, prompt, images[]? | style?, aspectRatio?, duration |
 | OL-LS-001 | LipSyncVolcVariant | hasImage && hasAudio | person, audio | (none) |
 
 ## Audio Variants

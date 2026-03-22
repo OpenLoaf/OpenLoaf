@@ -22,7 +22,7 @@ const MAX_IMAGES = 3
  *
  * Inputs: prompt (required), images (1-3, REQUIRED)
  * Note: mask is NOT rendered here — the parent ImageAiPanel injects it
- *       when MASK_PAINT_VARIANTS.has(variant.id).
+ *       when the variant definition has maskPaint: true.
  */
 export function ImgEditPlusVariant({
   upstream,
