@@ -1136,5 +1136,49 @@
     "fromNode": "「{{name}}」から",
     "missingRequired": "必須入力が不足しています",
     "needsExtraInput": "{{type}}の入力が必要です"
+  },
+  "dynamicTemplates": {
+    "group": {
+      "text": "テキスト",
+      "image": "画像",
+      "video": "ビデオ",
+      "audio": "オーディオ"
+    },
+    "upstreamGroup": {
+      "text": "テキストノードを作成",
+      "image": "画像ノードを作成",
+      "video": "ビデオノードを作成",
+      "audio": "オーディオノードを作成"
+    },
+    "mediaType": {
+      "text": "テキスト",
+      "image": "画像",
+      "video": "ビデオ",
+      "audio": "オーディオ"
+    },
+    "variant": {
+      "OL-IG-001": { "label": "テキストから画像" },
+      "OL-IG-002": { "label": "テキストから画像" },
+      "OL-IG-003": { "label": "テキストから画像" },
+      "OL-IP-001": { "label": "インペイント" },
+      "OL-ST-001": { "label": "スタイル転送" },
+      "OL-ST-002": { "label": "スタイル転送" },
+      "OL-UP-001": { "label": "高解像度化" },
+      "OL-OP-001": { "label": "アウトペイント" },
+      "OL-IE-001": { "label": "精密編集" },
+      "OL-IE-002": { "label": "画像編集" },
+      "OL-ME-001": { "label": "切り抜き" },
+      "OL-VG-001": { "label": "画像から動画" },
+      "OL-VG-002": { "label": "画像から動画" },
+      "OL-VG-003": { "label": "動画生成" },
+      "OL-LS-001": { "label": "リップシンク" },
+      "OL-DH-001": { "label": "デジタルヒューマン" },
+      "OL-FS-001": { "label": "顔交換" },
+      "OL-FS-002": { "label": "顔交換" },
+      "OL-VT-001": { "label": "動画翻訳" },
+      "OL-TT-001": { "label": "テキスト読み上げ" },
+      "OL-TT-002": { "label": "テキスト読み上げ" },
+      "OL-SR-001": { "label": "音声認識" }
+    }
   }
 }

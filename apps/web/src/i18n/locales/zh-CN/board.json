@@ -1154,5 +1154,49 @@
     "fromNode": "来自「{{name}}」",
     "missingRequired": "缺少必需输入",
     "needsExtraInput": "还需连入{{type}}"
+  },
+  "dynamicTemplates": {
+    "group": {
+      "text": "文本",
+      "image": "图片",
+      "video": "视频",
+      "audio": "音频"
+    },
+    "upstreamGroup": {
+      "text": "新建文本节点",
+      "image": "新建图片节点",
+      "video": "新建视频节点",
+      "audio": "新建音频节点"
+    },
+    "mediaType": {
+      "text": "文本",
+      "image": "图片",
+      "video": "视频",
+      "audio": "音频"
+    },
+    "variant": {
+      "OL-IG-001": { "label": "文本生图" },
+      "OL-IG-002": { "label": "文本生图" },
+      "OL-IG-003": { "label": "文本生图" },
+      "OL-IP-001": { "label": "局部重绘" },
+      "OL-ST-001": { "label": "风格迁移" },
+      "OL-ST-002": { "label": "风格迁移" },
+      "OL-UP-001": { "label": "高清放大" },
+      "OL-OP-001": { "label": "扩图" },
+      "OL-IE-001": { "label": "精准编辑" },
+      "OL-IE-002": { "label": "图片编辑" },
+      "OL-ME-001": { "label": "抠图" },
+      "OL-VG-001": { "label": "图生视频" },
+      "OL-VG-002": { "label": "图生视频" },
+      "OL-VG-003": { "label": "文生视频" },
+      "OL-LS-001": { "label": "口型同步" },
+      "OL-DH-001": { "label": "数字人" },
+      "OL-FS-001": { "label": "换脸" },
+      "OL-FS-002": { "label": "换脸" },
+      "OL-VT-001": { "label": "视频翻译" },
+      "OL-TT-001": { "label": "文字转语音" },
+      "OL-TT-002": { "label": "文字转语音" },
+      "OL-SR-001": { "label": "语音识别" }
+    }
   }
 }

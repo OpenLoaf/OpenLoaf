@@ -1150,5 +1150,49 @@
     "fromNode": "來自「{{name}}」",
     "missingRequired": "缺少必要輸入",
     "needsExtraInput": "還需連入{{type}}"
+  },
+  "dynamicTemplates": {
+    "group": {
+      "text": "文字",
+      "image": "圖片",
+      "video": "影片",
+      "audio": "音訊"
+    },
+    "upstreamGroup": {
+      "text": "新增文字節點",
+      "image": "新增圖片節點",
+      "video": "新增影片節點",
+      "audio": "新增音訊節點"
+    },
+    "mediaType": {
+      "text": "文字",
+      "image": "圖片",
+      "video": "影片",
+      "audio": "音訊"
+    },
+    "variant": {
+      "OL-IG-001": { "label": "文字生圖" },
+      "OL-IG-002": { "label": "文字生圖" },
+      "OL-IG-003": { "label": "文字生圖" },
+      "OL-IP-001": { "label": "局部重繪" },
+      "OL-ST-001": { "label": "風格遷移" },
+      "OL-ST-002": { "label": "風格遷移" },
+      "OL-UP-001": { "label": "高清放大" },
+      "OL-OP-001": { "label": "擴圖" },
+      "OL-IE-001": { "label": "精準編輯" },
+      "OL-IE-002": { "label": "圖片編輯" },
+      "OL-ME-001": { "label": "摳圖" },
+      "OL-VG-001": { "label": "圖生影片" },
+      "OL-VG-002": { "label": "圖生影片" },
+      "OL-VG-003": { "label": "文生影片" },
+      "OL-LS-001": { "label": "口型同步" },
+      "OL-DH-001": { "label": "數位人" },
+      "OL-FS-001": { "label": "換臉" },
+      "OL-FS-002": { "label": "換臉" },
+      "OL-VT-001": { "label": "影片翻譯" },
+      "OL-TT-001": { "label": "文字轉語音" },
+      "OL-TT-002": { "label": "文字轉語音" },
+      "OL-SR-001": { "label": "語音辨識" }
+    }
   }
 }

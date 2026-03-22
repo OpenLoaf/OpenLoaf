@@ -1150,5 +1150,49 @@
     "fromNode": "From \"{{name}}\"",
     "missingRequired": "Missing required input",
     "needsExtraInput": "Needs {{type}} input"
+  },
+  "dynamicTemplates": {
+    "group": {
+      "text": "Text",
+      "image": "Image",
+      "video": "Video",
+      "audio": "Audio"
+    },
+    "upstreamGroup": {
+      "text": "New Text Node",
+      "image": "New Image Node",
+      "video": "New Video Node",
+      "audio": "New Audio Node"
+    },
+    "mediaType": {
+      "text": "text",
+      "image": "image",
+      "video": "video",
+      "audio": "audio"
+    },
+    "variant": {
+      "OL-IG-001": { "label": "Text to Image" },
+      "OL-IG-002": { "label": "Text to Image" },
+      "OL-IG-003": { "label": "Text to Image" },
+      "OL-IP-001": { "label": "Inpaint" },
+      "OL-ST-001": { "label": "Style Transfer" },
+      "OL-ST-002": { "label": "Style Transfer" },
+      "OL-UP-001": { "label": "Upscale" },
+      "OL-OP-001": { "label": "Outpaint" },
+      "OL-IE-001": { "label": "Edit+" },
+      "OL-IE-002": { "label": "Edit" },
+      "OL-ME-001": { "label": "Cutout" },
+      "OL-VG-001": { "label": "Image to Video" },
+      "OL-VG-002": { "label": "Image to Video" },
+      "OL-VG-003": { "label": "Generate" },
+      "OL-LS-001": { "label": "Lip Sync" },
+      "OL-DH-001": { "label": "Digital Human" },
+      "OL-FS-001": { "label": "Face Swap" },
+      "OL-FS-002": { "label": "Face Swap" },
+      "OL-VT-001": { "label": "Translate" },
+      "OL-TT-001": { "label": "Text to Speech" },
+      "OL-TT-002": { "label": "Text to Speech" },
+      "OL-SR-001": { "label": "Speech to Text" }
+    }
   }
 }
