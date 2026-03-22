@@ -52,6 +52,7 @@ import { useUpstreamData } from "../hooks/useUpstreamData";
 import { usePanelOverlay } from "../render/pixi/PixiApplication";
 import { submitAudioGenerate } from "../services/audio-generate";
 import { useFileUploadHandler } from './shared/useFileUploadHandler';
+import { useInlinePanelSync, PANEL_GAP_PX } from './shared/useInlinePanelSync';
 import {
   createInputSnapshot,
   createGeneratingEntry,
@@ -70,9 +71,6 @@ import {
 import { VersionStackOverlay } from './VersionStackOverlay';
 import { GeneratingOverlay } from './GeneratingOverlay';
 import { AudioWavePlayer } from './AudioWavePlayer';
-
-/** Inline panel gap from node bottom edge in screen pixels (zoom-independent). */
-const PANEL_GAP_PX = 8;
 
 export type AudioNodeProps = {
   /** Board-relative path for the audio file. */
@@ -283,33 +281,13 @@ export function AudioNodeView({
   const { fileContext, engine } = useBoardContext();
   const upstream = useUpstreamData(engine, expanded ? element.id : null);
   const panelOverlay = usePanelOverlay();
-  const panelRef = useRef<HTMLDivElement>(null);
   const { fileInputRef, handleFileInputChange } = useFileUploadHandler<AudioNodeProps>({
     elementId: element.id,
     fileContext,
     onUpdate,
     fallbackName: 'audio.mp3',
   });
-
-  // 逻辑：通过 subscribeView 直接操作 DOM 同步面板缩放，避免 React 渲染延迟。
-  // 面板通过 Portal 渲染到 panelOverlay 层（笔画上方），用 scale(1/zoom) 保持固定屏幕大小。
-  // 间距用 PANEL_GAP_PX / zoom 保证屏幕上恒定像素间距。
-  const xywhRef = useRef(element.xywh);
-  xywhRef.current = element.xywh;
-  useEffect(() => {
-    if (!expanded) return;
-    const syncPanelScale = () => {
-      const panel = panelRef.current;
-      if (!panel) return;
-      const zoom = engine.viewport.getState().zoom;
-      const [, ny, , nh] = xywhRef.current;
-      panel.style.transform = `translateX(-50%) scale(${1 / zoom})`;
-      panel.style.top = `${ny + nh + PANEL_GAP_PX / zoom}px`;
-    };
-    syncPanelScale();
-    const unsub = engine.subscribeView(syncPanelScale);
-    return unsub;
-  }, [engine, expanded]);
+  const { panelRef } = useInlinePanelSync({ engine, xywh: element.xywh, expanded });
 
   const projectRelativePath = useMemo(
     () => resolveProjectRelativePath(element.props.sourcePath, fileContext),
