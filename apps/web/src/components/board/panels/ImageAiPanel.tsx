@@ -26,7 +26,12 @@ import type { AiGenerateConfig } from '../board-contracts'
 import {
   BOARD_GENERATE_INPUT,
 } from '../ui/board-style-system'
-import { IMAGE_VARIANT_REGISTRY, IMAGE_VARIANT_CONSTRAINTS, MASK_PAINT_VARIANTS } from './variants/image'
+import {
+  IMAGE_VARIANT_REGISTRY,
+  IMAGE_VARIANT_CONSTRAINTS,
+  MASK_PAINT_VARIANTS,
+  MASK_REQUIRED_VARIANTS,
+} from './variants/image'
 import type { VariantFormProps } from './variants/types'
 import { ResultPagination } from './ResultPagination'
 import { GenerateActionBar } from './GenerateActionBar'
@@ -360,12 +365,13 @@ export function ImageAiPanel({
     // Constraint-based: variant requires an existing image but none is available
     if (c?.requiresImage && !resolvedImageSrc && !upstreamImages?.length) return true
     // Inpaint variants also require a painted mask
-    if (MASK_PAINT_VARIANTS.has(selectedVariant.id) && !maskResult?.maskDataUrl) return true
+    if (MASK_REQUIRED_VARIANTS.has(selectedVariant.id) && !maskResult?.maskDataUrl) return true
     return false
   })()
 
   // Panel-level warning for mask painting (variant doesn't have access to mask state).
-  const panelWarning = needsMaskPaint && resolvedImageSrc && !maskResult?.maskDataUrl
+  const maskRequired = selectedVariant ? MASK_REQUIRED_VARIANTS.has(selectedVariant.id) : false
+  const panelWarning = maskRequired && resolvedImageSrc && !maskResult?.maskDataUrl
     ? t('imagePanel.maskRequired', { defaultValue: 'Please paint the area to modify' })
     : null
   const effectiveWarning = variantWarning ?? panelWarning
