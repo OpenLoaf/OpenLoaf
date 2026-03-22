@@ -16,6 +16,8 @@ import { ImgStyleVolcVariant } from './ImgStyleVolcVariant'
 import { OutpaintQwenVariant } from './OutpaintQwenVariant'
 import { UpscaleQwenVariant } from './UpscaleQwenVariant'
 import { UpscaleVolcVariant } from './UpscaleVolcVariant'
+import { ImgEditWanVariant } from './ImgEditWanVariant'
+import { ImgEditPlusVariant } from './ImgEditPlusVariant'
 
 /** Registry mapping v3 variant IDs to their form components. */
 export const IMAGE_VARIANT_REGISTRY: Record<string, ComponentType<VariantFormProps>> = {
@@ -36,6 +38,9 @@ export const IMAGE_VARIANT_REGISTRY: Record<string, ComponentType<VariantFormPro
   'OL-UP-002': UpscaleVolcVariant,
   // outpaint
   'OL-OP-001': OutpaintQwenVariant,
+  // imageEdit
+  'OL-IE-001': ImgEditWanVariant,
+  'OL-IE-002': ImgEditPlusVariant,
 }
 
 /** Input constraints for each image variant. */
@@ -51,6 +56,8 @@ export const IMAGE_VARIANT_CONSTRAINTS: Record<string, VariantInputConstraints> 
   'OL-UP-001': { requiresImage: true },
   'OL-UP-002': { requiresImage: true },
   'OL-OP-001': { requiresImage: true },
+  'OL-IE-001': {},
+  'OL-IE-002': { requiresImage: true },
 }
 
 /** Feature IDs whose variants may use mask painting on the node. */
@@ -62,6 +69,7 @@ export const MASK_PAINT_FEATURES = new Set([
 /** Variant IDs that support mask painting. */
 export const MASK_PAINT_VARIANTS = new Set([
   'OL-IP-001',
+  'OL-IE-002',
 ])
 
 /**
