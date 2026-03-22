@@ -151,8 +151,10 @@ export default function FilePreviewDialog() {
                 dialogSize ? "opacity-100" : "opacity-100 min-h-[200px] min-w-[320px]"
               }`
             : isVideo && videoDialogSize
-              ? "h-auto w-auto max-h-[90vh] max-w-none sm:max-w-none p-0 overflow-hidden transition-opacity duration-200"
-              : "h-[90vh] w-[90vw] max-w-none sm:max-w-none p-0 overflow-hidden"
+              ? "h-auto w-auto max-h-[90vh] max-w-none sm:max-w-none p-0 overflow-hidden transition-[width,height,opacity] duration-200"
+              : isVideo
+                ? "h-auto w-auto max-h-[90vh] max-w-none sm:max-w-none p-0 overflow-hidden opacity-0 pointer-events-none"
+                : "h-[90vh] w-[90vw] max-w-none sm:max-w-none p-0 overflow-hidden"
         }
         overlayClassName="bg-background/35 backdrop-blur-2xl"
         style={
@@ -160,7 +162,9 @@ export default function FilePreviewDialog() {
             ? { width: dialogSize.width, height: dialogSize.height }
             : isVideo && videoDialogSize
               ? { width: videoDialogSize.width, height: videoDialogSize.height }
-              : undefined
+              : isVideo
+                ? { width: 1, height: 1 }
+                : undefined
         }
         showCloseButton={false}
         overlaySlot={
@@ -278,6 +282,12 @@ export default function FilePreviewDialog() {
               clipStart={currentItem.clipStart}
               clipEnd={currentItem.clipEnd}
               forceLargeLayout
+              onVideoSize={(size) => {
+                if (!videoDialogSize) {
+                  const hasHeader = Boolean(currentItem?.title?.trim());
+                  setVideoDialogSize(getVideoDialogSize({ ...size, hasHeader }));
+                }
+              }}
             />
           ) : null}
 

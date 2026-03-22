@@ -578,18 +578,14 @@ export function VideoNodeView({
   const handleStop = useCallback(() => {
     if (stoppedRef.current) return; // 防止 timeupdate + onEnded 双重触发
     stoppedRef.current = true;
-    setPlaying(false);
-    setLoading(false);
+    // 逻辑：先销毁 HLS 实例再设 playing=false。
+    // setPlaying(false) 会卸载 video 元素，无需额外 pause/load。
     if (hlsRef.current) {
       hlsRef.current.destroy();
       hlsRef.current = null;
     }
-    const video = videoRef.current;
-    if (video) {
-      video.pause();
-      video.removeAttribute("src");
-      video.load();
-    }
+    setPlaying(false);
+    setLoading(false);
   }, []);
 
   const handlePlayInline = useCallback(() => {
@@ -625,7 +621,7 @@ export function VideoNodeView({
       if (cs != null && cs > 0) {
         video.currentTime = cs;
       }
-      video.play();
+      video.play().catch(() => {});
     };
 
     const onTimeUpdate = () => {
@@ -650,8 +646,19 @@ export function VideoNodeView({
         hlsRef.current = hls;
         hls.loadSource(url);
         hls.attachMedia(video);
-        hls.on(Hls.Events.MANIFEST_PARSED, () => {
-          if (!cancelled) applyClipAndPlay();
+        // 逻辑：等待首个片段缓冲完成再播放，避免 MANIFEST_PARSED 时 SourceBuffer 尚未就绪导致 play() 被中断。
+        let started = false;
+        hls.on(Hls.Events.FRAG_BUFFERED, () => {
+          if (!cancelled && !started) {
+            started = true;
+            applyClipAndPlay();
+          }
+        });
+        hls.on(Hls.Events.ERROR, (_event, data) => {
+          if (data.fatal && !cancelled) {
+            console.error("[HLS] fatal error:", data.type, data.details);
+            handleStop();
+          }
         });
       } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
         video.src = url;

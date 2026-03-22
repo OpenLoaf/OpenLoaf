@@ -15,7 +15,6 @@ import { VideoPlayer } from "@openloaf/ui/video-player";
 import { StackHeader } from "@/components/layout/StackHeader";
 import { useLayoutState } from "@/hooks/use-layout-state";
 import { resolveServerUrl } from "@/utils/server-url";
-import { cn } from "@/lib/utils";
 import {
   getRelativePathFromUri,
   normalizeProjectRelativePath,
@@ -42,6 +41,8 @@ interface VideoViewerProps {
   clipEnd?: number;
   panelKey?: string;
   tabId?: string;
+  /** Callback when video native dimensions are detected. */
+  onVideoSize?: (size: { width: number; height: number }) => void;
 }
 
 type HlsUrlInput = { path: string; projectId?: string; boardId?: string };
@@ -103,6 +104,7 @@ export default function VideoViewer({
   clipEnd: clipEndProp,
   panelKey,
   tabId,
+  onVideoSize,
 }: VideoViewerProps) {
   const { t } = useTranslation("common");
   const removeStackItem = useLayoutState((state) => state.removeStackItem);
@@ -114,8 +116,10 @@ export default function VideoViewer({
   const [buildError, setBuildError] = useState<string | null>(null);
   const [previewBackground, setPreviewBackground] = useState<string | null>(null);
   const [buildProgress, setBuildProgress] = useState(0);
-  const [isPortrait, setIsPortrait] = useState<boolean | null>(null);
+  const [detectedSize, setDetectedSize] = useState<{ width: number; height: number } | null>(null);
   const playerWrapperRef = useRef<HTMLDivElement | null>(null);
+  const onVideoSizeRef = useRef(onVideoSize);
+  onVideoSizeRef.current = onVideoSize;
 
   const manifest = useMemo(() => {
     if (!uri) return null;
@@ -187,6 +191,39 @@ export default function VideoViewer({
     };
   }, [boardIdProp, projectIdProp, rootUri, uri]);
 
+  // 逻辑：当 props 未提供 width/height 时，从 video 元素的 loadedmetadata 检测真实尺寸。
+  useEffect(() => {
+    if (width && height) return;
+    const wrapper = playerWrapperRef.current;
+    if (!wrapper || !playbackUrl) return;
+    const handleMetadata = (event: Event) => {
+      const video = event.target as HTMLVideoElement;
+      if (video.videoWidth > 0 && video.videoHeight > 0) {
+        const size = { width: video.videoWidth, height: video.videoHeight };
+        setDetectedSize(size);
+        onVideoSizeRef.current?.(size);
+      }
+    };
+    // 逻辑：VideoPlayer 异步挂载 video 元素，用 MutationObserver 等它出现。
+    const tryAttach = () => {
+      const video = wrapper.querySelector("video");
+      if (!video) return false;
+      video.addEventListener("loadedmetadata", handleMetadata, { once: true });
+      if (video.videoWidth > 0 && video.videoHeight > 0) {
+        const size = { width: video.videoWidth, height: video.videoHeight };
+        setDetectedSize(size);
+        onVideoSizeRef.current?.(size);
+      }
+      return true;
+    };
+    if (tryAttach()) return;
+    const observer = new MutationObserver(() => {
+      if (tryAttach()) observer.disconnect();
+    });
+    observer.observe(wrapper, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, [width, height, playbackUrl]);
+
   useEffect(() => {
     if (thumbnailSrc) {
       // 逻辑：已有列表缩略图时直接用作背景，避免重复解析 VTT。
@@ -224,82 +261,6 @@ export default function VideoViewer({
       cancelled = true;
     };
   }, [manifest?.thumbnails, thumbnailSrc]);
-
-  useEffect(() => {
-    if (width && height) {
-      // 逻辑：优先使用视频元数据判断方向，避免缩略图比例误差。
-      setIsPortrait(height >= width);
-      return;
-    }
-    const posterSource = thumbnailSrc ?? previewBackground;
-    if (!posterSource) {
-      setIsPortrait(null);
-      return;
-    }
-    let cancelled = false;
-    const image = new Image();
-    image.decoding = "async";
-    image.src = posterSource;
-    const resolveOrientation = () => {
-      if (cancelled) return;
-      const naturalWidth = image.naturalWidth || 1;
-      const naturalHeight = image.naturalHeight || 1;
-      // 逻辑：根据缩略图比例推断横竖屏，决定播放器撑满方向。
-      setIsPortrait(naturalHeight >= naturalWidth);
-    };
-    if (image.decode) {
-      image
-        .decode()
-        .then(resolveOrientation)
-        .catch(() => {
-          if (cancelled) return;
-          setIsPortrait(null);
-        });
-    } else {
-      image.onload = resolveOrientation;
-      image.onerror = () => {
-        if (cancelled) return;
-        setIsPortrait(null);
-      };
-    }
-    return () => {
-      cancelled = true;
-    };
-  }, [height, previewBackground, thumbnailSrc, width]);
-
-  useEffect(() => {
-    const wrapper = playerWrapperRef.current;
-    if (!wrapper) return;
-    const applySizing = () => {
-      const video = wrapper.querySelector("video");
-      if (!video) return;
-      if (isPortrait === null) {
-        video.style.setProperty("width", "100%", "important");
-        video.style.setProperty("height", "100%", "important");
-        return;
-      }
-      if (isPortrait) {
-        // 逻辑：竖屏视频高度撑满，宽度自适应。
-        video.style.setProperty("height", "100%", "important");
-        video.style.setProperty("width", "auto", "important");
-        return;
-      }
-      // 逻辑：横屏视频宽度撑满，高度自适应。
-      video.style.setProperty("width", "100%", "important");
-      video.style.setProperty("height", "auto", "important");
-    };
-    applySizing();
-    const raf = requestAnimationFrame(applySizing);
-    const observer = new MutationObserver(() => {
-      // 逻辑：播放器内部 DOM 变动时重新注入尺寸样式，覆盖全局 video 规则。
-      applySizing();
-    });
-    observer.observe(wrapper, { childList: true, subtree: true });
-    return () => {
-      cancelAnimationFrame(raf);
-      observer.disconnect();
-    };
-  }, [isPortrait, playbackUrl]);
 
   useEffect(() => {
     if (!isBuilding || !manifest?.progress) {
@@ -457,10 +418,16 @@ export default function VideoViewer({
           </div>
         </div>
       ) : null}
-      <div className="flex-1">
+      <div className="flex-1 flex items-center justify-center overflow-hidden bg-black">
         <div
           ref={playerWrapperRef}
-          className="relative flex h-full w-full items-center justify-center bg-black"
+          className="relative flex h-full items-center justify-center"
+          style={(() => {
+            const w = width || detectedSize?.width;
+            const h = height || detectedSize?.height;
+            if (w && h) return { aspectRatio: `${w} / ${h}`, maxWidth: '100%' };
+            return { width: '100%' };
+          })()}
         >
           <VideoPlayer
             src={playbackUrl}
@@ -470,14 +437,7 @@ export default function VideoViewer({
             clipStartTime={clipStartProp}
             clipEndTime={clipEndProp && clipEndProp > 0 ? clipEndProp : undefined}
             smallLayoutWhen={forceLargeLayout ? false : undefined}
-            className={cn(
-              "max-h-full max-w-full rounded-3xl bg-black",
-              isPortrait === null
-                ? "h-full w-full [&_video]:h-full [&_video]:w-full"
-                : isPortrait
-                  ? "h-full w-auto [&_video]:h-full [&_video]:w-auto"
-                  : "w-full h-auto [&_video]:w-full [&_video]:h-auto"
-            )}
+            className="h-full w-full rounded-3xl bg-black [&_video]:h-full [&_video]:w-full"
             controls
           />
         </div>

@@ -101,6 +101,18 @@ export function isHlsQuality(value?: string): value is HlsQuality {
   return Boolean(value && HLS_QUALITIES.includes(value as HlsQuality));
 }
 
+/**
+ * 逻辑：HLS 缓存根目录必须与 getHlsSegment/getHlsThumbnail 的查找路径一致。
+ * segment/thumbnail 查找逻辑：projectId 存在 → getProjectRootPath(projectId)，否则 → getOpenLoafRootDir()。
+ * 因此缓存写入也必须遵循同样的规则，而非使用 resolved.rootPath（它可能是临时存储目录）。
+ */
+function resolveHlsCacheRoot(projectId?: string): string {
+  if (projectId) {
+    return getProjectRootPath(projectId) ?? getOpenLoafRootDir();
+  }
+  return getOpenLoafRootDir();
+}
+
 /** Resolve an absolute file path under a project root. */
 function resolveProjectFilePath(input: { path: string; projectId: string }) {
   const rootPath = getProjectRootPath(input.projectId);
@@ -349,10 +361,12 @@ async function probeDurationSeconds(sourcePath: string) {
 function buildMasterPlaylist(input: {
   path: string;
   projectId?: string;
+  boardId?: string;
 }) {
   const makeUrl = (quality: HlsQuality) => {
     const query = new URLSearchParams({ path: input.path, quality });
     if (input.projectId) query.set("projectId", input.projectId);
+    if (input.boardId) query.set("boardId", input.boardId);
     return `/media/hls/manifest?${query.toString()}`;
   };
   const lines = [
@@ -564,14 +578,15 @@ export async function getHlsManifest(input: {
     relativePath: resolved.relativePath,
     stat: { size: sourceStat.size, mtimeMs: sourceStat.mtimeMs },
   });
-  const baseCacheDir = path.join(resolved.rootPath, HLS_CACHE_DIR, cacheKey);
+  const baseCacheDir = path.join(resolveHlsCacheRoot(resolved.projectId), HLS_CACHE_DIR, cacheKey);
 
   if (!input.quality) {
     return {
       status: "ready",
       manifest: buildMasterPlaylist({
-        path: resolved.relativePath,
-        projectId: resolved.projectId,
+        path: input.path,
+        projectId: input.projectId,
+        boardId: input.boardId,
       }),
       token: "",
     };
@@ -657,7 +672,7 @@ export async function getHlsThumbnails(input: {
     relativePath: resolved.relativePath,
     stat: { size: sourceStat.size, mtimeMs: sourceStat.mtimeMs },
   });
-  const baseCacheDir = path.join(resolved.rootPath, HLS_CACHE_DIR, cacheKey);
+  const baseCacheDir = path.join(resolveHlsCacheRoot(resolved.projectId), HLS_CACHE_DIR, cacheKey);
   const vttPath = await ensureThumbnailTask({
     key: cacheKey,
     build: () =>

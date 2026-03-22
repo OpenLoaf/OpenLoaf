@@ -121,32 +121,36 @@ function isDataFlowConnector(conn: CanvasConnectorElement): boolean {
 }
 
 /**
- * Find all data-flow connectors whose target points to the given node id.
+ * Find all data-flow connectors connected to the given node id and return
+ * the peer (other-end) element id for each.
  *
- * This filters from the full element list since CanvasDoc does not expose
- * a dedicated `getConnectorsByTarget` method. The filter is lightweight
- * because connector counts are typically small relative to total elements.
+ * Checks BOTH directions — the node can be either the source or the target
+ * of the connector. This makes upstream data resolution direction-agnostic:
+ * users can create connectors in any direction and data will still flow.
  *
  * Connectors with `semantic === 'chat-flow'` are excluded — only data-flow
  * connectors (semantic undefined or any value other than 'chat-flow')
  * contribute to upstream data.
  */
-function getConnectorsByTarget(
+function getConnectedPeerIds(
   doc: CanvasDoc,
   nodeId: string,
-): CanvasConnectorElement[] {
-  const result: CanvasConnectorElement[] = [];
+): string[] {
+  const peerIds: string[] = [];
   for (const el of doc.getElements()) {
-    if (
-      isConnector(el) &&
-      "elementId" in el.target &&
-      el.target.elementId === nodeId &&
-      isDataFlowConnector(el)
-    ) {
-      result.push(el);
+    if (!isConnector(el) || !isDataFlowConnector(el)) continue;
+    const hasSourceId = "elementId" in el.source;
+    const hasTargetId = "elementId" in el.target;
+    if (!hasSourceId || !hasTargetId) continue;
+    const sourceId = (el.source as { elementId: string }).elementId;
+    const targetId = (el.target as { elementId: string }).elementId;
+    if (targetId === nodeId && sourceId !== nodeId) {
+      peerIds.push(sourceId);
+    } else if (sourceId === nodeId && targetId !== nodeId) {
+      peerIds.push(targetId);
     }
   }
-  return result;
+  return peerIds;
 }
 
 // ---------------------------------------------------------------------------
@@ -154,10 +158,12 @@ function getConnectorsByTarget(
 // ---------------------------------------------------------------------------
 
 /**
- * Resolve upstream data for a node by traversing incoming data-flow connectors.
+ * Resolve upstream data for a node by traversing connected data-flow connectors.
  *
- * For each connector whose target is `nodeId`, the source element is
- * inspected:
+ * Direction-agnostic: checks connectors where the node is either source or
+ * target, so users can create connectors in any direction and data flows.
+ *
+ * For each connected peer node:
  * - **text** nodes: the `props.value` (TextNodeValue) is serialized to
  *   plain text and added to `textList`.
  * - **image** nodes: `props.previewSrc` (falling back to `props.originalSrc`)
@@ -166,15 +172,14 @@ function getConnectorsByTarget(
  * - **audio** nodes: `props.sourcePath` is added to `audioList`.
  *
  * Chat-flow connectors are excluded — only data-flow connectors contribute.
- * Other node types are silently ignored. Free-point sources (connectors
- * originating from a canvas point rather than a node) are also skipped.
+ * Other node types are silently ignored.
  */
 export function resolveUpstreamData(
   doc: CanvasDoc,
   nodeId: string,
 ): UpstreamData {
-  const connectors = getConnectorsByTarget(doc, nodeId);
-  if (connectors.length === 0) return EMPTY_UPSTREAM_DATA;
+  const peerIds = getConnectedPeerIds(doc, nodeId);
+  if (peerIds.length === 0) return EMPTY_UPSTREAM_DATA;
 
   const textList: string[] = [];
   const imageList: string[] = [];
@@ -182,14 +187,11 @@ export function resolveUpstreamData(
   const audioList: string[] = [];
   const entries: UpstreamEntry[] = [];
 
-  for (const conn of connectors) {
-    // Skip connectors whose source is a free point (not attached to a node).
-    if (!("elementId" in conn.source)) continue;
+  for (const peerId of peerIds) {
+    const peer = doc.getElementById(peerId);
+    if (!peer || peer.kind !== "node") continue;
 
-    const upstream = doc.getElementById(conn.source.elementId);
-    if (!upstream || upstream.kind !== "node") continue;
-
-    const node = upstream as CanvasNodeElement;
+    const node = peer as CanvasNodeElement;
 
     if (node.type === "text") {
       const props = node.props as { value?: TextNodeValue };
