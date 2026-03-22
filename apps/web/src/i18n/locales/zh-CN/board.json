@@ -985,22 +985,6 @@
       "comingSoonTitle": "即将推出",
       "comingSoonDescription": "此功能正在开发中，敬请期待"
     },
-    "variants": {
-      "img-gen-qwen": "百炼标准版",
-      "img-gen-volc": "即梦文生图",
-      "img-gen-kling": "可灵高清版",
-      "img-inpaint-volc": "即梦涂抹修改",
-      "img-style-volc": "即梦风格迁移",
-      "outpaint-qwen": "百炼扩图",
-      "upscale-qwen": "百炼超清",
-      "upscale-volc": "即梦智能超清",
-      "vid-gen-qwen": "百炼视频",
-      "vid-gen-volc": "即梦视频",
-      "vid-gen-kling": "可灵视频",
-      "lip-sync-volc": "即梦口型同步",
-      "lip-sync-kling": "可灵口型同步",
-      "tts-qwen": "CosyVoice 语音"
-    },
     "params": {
       "prompt": "提示词",
       "negativePrompt": "反向提示",
@@ -1121,6 +1105,14 @@
       "promptPlaceholderVideo": "描述视频内容和运镜效果...",
       "promptPlaceholderInpaint": "描述修改后的效果...",
       "promptPlaceholderStyle": "描述目标风格..."
+    },
+    "imageEdit": {
+      "normalMode": "普通模式",
+      "interleaveMode": "图文混排",
+      "normalHint": "最多 4 张参考图",
+      "interleaveHint": "最多 1 张参考图",
+      "editPromptPlaceholder": "描述你想要的编辑效果...",
+      "sourceImageRequired": "请上传需要编辑的图片"
     }
   }
 }

@@ -985,22 +985,6 @@
       "comingSoonTitle": "Coming Soon",
       "comingSoonDescription": "This feature is under development, stay tuned"
     },
-    "variants": {
-      "img-gen-qwen": "Qwen Standard",
-      "img-gen-volc": "Jimeng Image",
-      "img-gen-kling": "Kling HD",
-      "img-inpaint-volc": "Jimeng Inpaint",
-      "img-style-volc": "Jimeng Style Transfer",
-      "outpaint-qwen": "Qwen Outpaint",
-      "upscale-qwen": "Qwen Upscale",
-      "upscale-volc": "Jimeng Smart Upscale",
-      "vid-gen-qwen": "Qwen Video",
-      "vid-gen-volc": "Jimeng Video",
-      "vid-gen-kling": "Kling Video",
-      "lip-sync-volc": "Jimeng Lip Sync",
-      "lip-sync-kling": "Kling Lip Sync",
-      "tts-qwen": "CosyVoice TTS"
-    },
     "params": {
       "prompt": "Prompt",
       "negativePrompt": "Negative Prompt",
@@ -1117,6 +1101,14 @@
       "promptPlaceholderVideo": "Describe video content and camera movements...",
       "promptPlaceholderInpaint": "Describe the desired modification...",
       "promptPlaceholderStyle": "Describe the target style..."
+    },
+    "imageEdit": {
+      "normalMode": "Normal",
+      "interleaveMode": "Interleave",
+      "normalHint": "Up to 4 reference images",
+      "interleaveHint": "Up to 1 reference image",
+      "editPromptPlaceholder": "Describe the edit you want...",
+      "sourceImageRequired": "Please upload an image to edit"
     }
   }
 }

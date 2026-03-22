@@ -985,22 +985,6 @@
       "comingSoonTitle": "即將推出",
       "comingSoonDescription": "此功能正在開發中，敬請期待"
     },
-    "variants": {
-      "img-gen-qwen": "百鍊標準版",
-      "img-gen-volc": "即夢文生圖",
-      "img-gen-kling": "可靈高畫質版",
-      "img-inpaint-volc": "即夢塗抹修改",
-      "img-style-volc": "即夢風格遷移",
-      "outpaint-qwen": "百鍊擴圖",
-      "upscale-qwen": "百鍊超解析度",
-      "upscale-volc": "即夢智慧超清",
-      "vid-gen-qwen": "百鍊影片",
-      "vid-gen-volc": "即夢影片",
-      "vid-gen-kling": "可靈影片",
-      "lip-sync-volc": "即夢口型同步",
-      "lip-sync-kling": "可靈口型同步",
-      "tts-qwen": "CosyVoice 語音"
-    },
     "params": {
       "prompt": "提示詞",
       "negativePrompt": "反向提示",
@@ -1117,6 +1101,14 @@
       "promptPlaceholderVideo": "描述影片內容和運鏡效果...",
       "promptPlaceholderInpaint": "描述修改後的效果...",
       "promptPlaceholderStyle": "描述目標風格..."
+    },
+    "imageEdit": {
+      "normalMode": "普通模式",
+      "interleaveMode": "圖文混排",
+      "normalHint": "最多 4 張參考圖",
+      "interleaveHint": "最多 1 張參考圖",
+      "editPromptPlaceholder": "描述你想要的編輯效果...",
+      "sourceImageRequired": "請上傳需要編輯的圖片"
     }
   }
 }

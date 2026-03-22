@@ -971,22 +971,6 @@
       "comingSoonTitle": "近日公開",
       "comingSoonDescription": "この機能は開発中です。お楽しみに"
     },
-    "variants": {
-      "img-gen-qwen": "百練スタンダード",
-      "img-gen-volc": "ジーモン画像",
-      "img-gen-kling": "コリン高画質",
-      "img-inpaint-volc": "ジーモンインペイント",
-      "img-style-volc": "ジーモンスタイル変換",
-      "outpaint-qwen": "百練アウトペイント",
-      "upscale-qwen": "百練超解像",
-      "upscale-volc": "ジーモンスマート超解像",
-      "vid-gen-qwen": "百練動画",
-      "vid-gen-volc": "ジーモン動画",
-      "vid-gen-kling": "コリン動画",
-      "lip-sync-volc": "ジーモンリップシンク",
-      "lip-sync-kling": "コリンリップシンク",
-      "tts-qwen": "CosyVoice 音声合成"
-    },
     "params": {
       "prompt": "プロンプト",
       "negativePrompt": "ネガティブプロンプト",
@@ -1103,6 +1087,14 @@
       "promptPlaceholderVideo": "動画の内容やカメラの動きを記述...",
       "promptPlaceholderInpaint": "修正後のイメージを記述...",
       "promptPlaceholderStyle": "目標のスタイルを記述..."
+    },
+    "imageEdit": {
+      "normalMode": "通常モード",
+      "interleaveMode": "テキスト混在",
+      "normalHint": "参照画像は最大4枚",
+      "interleaveHint": "参照画像は最大1枚",
+      "editPromptPlaceholder": "編集したい効果を説明してください...",
+      "sourceImageRequired": "編集する画像をアップロードしてください"
     }
   }
 }
