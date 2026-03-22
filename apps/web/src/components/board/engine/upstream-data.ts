@@ -21,7 +21,13 @@ import type { TextNodeValue } from "../nodes/TextNode";
 
 /** Upstream data resolved from connected nodes. */
 /** An upstream data entry with its source node ID for traceability. */
-export type UpstreamEntry = { nodeId: string; nodeType: string; data: string };
+export type UpstreamEntry = {
+  nodeId: string;
+  nodeType: string;
+  data: string;
+  /** Display name derived automatically from the source node content. */
+  label?: string;
+};
 
 export type UpstreamData = {
   /** Text contents extracted from upstream text nodes. */
@@ -154,6 +160,25 @@ function getConnectedPeerIds(
 }
 
 // ---------------------------------------------------------------------------
+// Label derivation
+// ---------------------------------------------------------------------------
+
+/**
+ * Derive a short display label from text node content.
+ *
+ * Uses the first non-empty line of text, truncated to 20 characters.
+ * Falls back to "Text·<shortId>" when the text is blank.
+ */
+function deriveTextNodeLabel(text: string, nodeId: string): string {
+  const firstLine = text.split('\n').find((line) => line.trim().length > 0) ?? '';
+  if (!firstLine.trim()) {
+    return `Text·${nodeId.slice(0, 6)}`;
+  }
+  const trimmed = firstLine.trim();
+  return trimmed.length > 20 ? `${trimmed.slice(0, 20)}…` : trimmed;
+}
+
+// ---------------------------------------------------------------------------
 // Main resolver
 // ---------------------------------------------------------------------------
 
@@ -198,7 +223,8 @@ export function resolveUpstreamData(
       const text = serializeTextNodeValue(props.value);
       if (text.trim()) {
         textList.push(text);
-        entries.push({ nodeId: node.id, nodeType: 'text', data: text });
+        const label = deriveTextNodeLabel(text, node.id);
+        entries.push({ nodeId: node.id, nodeType: 'text', data: text, label });
       }
     } else if (node.type === "image") {
       const props = node.props as { previewSrc?: string; originalSrc?: string };
