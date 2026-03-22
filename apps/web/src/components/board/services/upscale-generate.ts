@@ -12,7 +12,7 @@ import { submitV3Generate } from '@/lib/saas-media'
 export type UpscaleRequest = {
   sourceImageSrc: string
   scale: 2 | 4
-  /** v3 variant id (e.g. 'upscale-qwen', 'upscale-volc'). Defaults to 'upscale-qwen'. */
+  /** v3 variant id (e.g. 'OL-UP-001', 'OL-UP-002'). Defaults to 'OL-UP-001'. */
   variant?: string
 }
 
@@ -29,7 +29,7 @@ export async function submitUpscale(
 ): Promise<UpscaleResult> {
   const result = await submitV3Generate({
     feature: 'upscale',
-    variant: request.variant ?? 'upscale-qwen',
+    variant: request.variant ?? 'OL-UP-001',
     inputs: {
       image: { url: request.sourceImageSrc },
     },

@@ -16,7 +16,7 @@ import { submitV3Generate } from '@/lib/saas-media'
 export type VideoGenerateRequest = {
   /** v3 feature id (e.g. 'videoGenerate', 'lipSync'). Defaults to 'videoGenerate'. */
   feature?: string
-  /** v3 variant id (e.g. 'vid-gen-qwen'). Optional for legacy callers. */
+  /** v3 variant id (e.g. 'OL-VG-001'). Optional for legacy callers. */
   variant?: string
   /** v3 inputs (images, audio, prompt, person etc.). */
   inputs?: Record<string, unknown>
@@ -130,7 +130,7 @@ export async function submitVideoGenerate(
 
   const result = await submitV3Generate({
     feature: request.feature || 'videoGenerate',
-    variant: 'vid-gen-volc', // Default variant for legacy callers
+    variant: 'OL-VG-003', // Default variant for legacy callers
     inputs: Object.keys(inputs).length > 0 ? inputs : undefined,
     params: Object.keys(params).length > 0 ? params : undefined,
     count: request.count,

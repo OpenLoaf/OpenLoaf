@@ -12,7 +12,7 @@ import { submitV3Generate } from '@/lib/saas-media'
 export type ImageGenerateRequest = {
   /** v3 feature id (e.g. 'imageGenerate', 'imageInpaint'). */
   feature: string
-  /** v3 variant id (e.g. 'img-gen-qwen', 'img-gen-volc'). */
+  /** v3 variant id (e.g. 'OL-IG-001', 'OL-IG-002'). */
   variant: string
   /** v3 inputs (prompt, images, mask, etc.). */
   inputs?: Record<string, unknown>
@@ -101,7 +101,7 @@ export async function submitImageGenerate(
 
   const result = await submitV3Generate({
     feature: request.feature || 'imageGenerate',
-    variant: 'img-gen-qwen', // default fallback variant
+    variant: 'OL-IG-001', // default fallback variant
     inputs,
     params,
     count: request.count,
