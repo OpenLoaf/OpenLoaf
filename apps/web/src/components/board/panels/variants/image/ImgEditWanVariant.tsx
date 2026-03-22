@@ -66,7 +66,7 @@ export function ImgEditWanVariant({
   useEffect(() => {
     onWarningChange?.(
       !prompt.trim()
-        ? t('v3.warnings.promptRequired', { defaultValue: 'Please enter a prompt' })
+        ? t('v3.warnings.promptRequired', { defaultValue: '请输入提示词' })
         : null,
     )
   }, [prompt, onWarningChange, t])
@@ -91,31 +91,26 @@ export function ImgEditWanVariant({
   return (
     <div className="flex flex-col gap-2">
       {/* ── Mode toggle ── */}
-      <div className="flex items-center gap-1">
-        <span className="text-[11px] text-muted-foreground/70">
-          {t('v3.imageEdit.mode', { defaultValue: 'Mode' })}
-        </span>
-        <div className="flex items-center gap-0.5 rounded-full border border-border bg-ol-surface-muted/50 p-0.5">
-          {(['normal', 'interleave'] as Mode[]).map((m) => (
-            <button
-              key={m}
-              type="button"
-              disabled={disabled}
-              className={[
-                'h-5 rounded-full px-2 text-[10px] transition-colors duration-150',
-                mode === m
-                  ? 'bg-foreground/10 text-foreground'
-                  : 'text-muted-foreground hover:bg-foreground/5',
-                disabled ? 'cursor-not-allowed opacity-60' : '',
-              ].join(' ')}
-              onClick={() => setMode(m)}
-            >
-              {m === 'normal'
-                ? t('v3.imageEdit.modeNormal', { defaultValue: 'Normal' })
-                : t('v3.imageEdit.modeInterleave', { defaultValue: 'Interleave' })}
-            </button>
-          ))}
-        </div>
+      <div className="flex items-center gap-0.5 rounded-full border border-border bg-ol-surface-muted/50 p-0.5 self-start">
+        {(['normal', 'interleave'] as Mode[]).map((m) => (
+          <button
+            key={m}
+            type="button"
+            disabled={disabled}
+            className={[
+              'h-5 rounded-full px-2.5 text-[10px] transition-colors duration-150',
+              mode === m
+                ? 'bg-foreground/10 text-foreground'
+                : 'text-muted-foreground hover:bg-foreground/5',
+              disabled ? 'cursor-not-allowed opacity-60' : '',
+            ].join(' ')}
+            onClick={() => setMode(m)}
+          >
+            {m === 'normal'
+              ? t('v3.imageEdit.normalMode', { defaultValue: '普通模式' })
+              : t('v3.imageEdit.interleaveMode', { defaultValue: '图文混排' })}
+          </button>
+        ))}
       </div>
 
       {/* ── Reference image slots ── */}
@@ -166,8 +161,8 @@ export function ImgEditWanVariant({
             BOARD_GENERATE_INPUT,
             disabled ? 'opacity-60 cursor-not-allowed' : '',
           ].join(' ')}
-          placeholder={t('v3.imageEdit.promptPlaceholder', {
-            defaultValue: 'Describe how you want to edit the image...',
+          placeholder={t('v3.imageEdit.editPromptPlaceholder', {
+            defaultValue: '描述你想要的编辑效果...',
           })}
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}

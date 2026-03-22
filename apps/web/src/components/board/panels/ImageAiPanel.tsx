@@ -428,7 +428,7 @@ export function ImageAiPanel({
       {features.length > 0 ? (
         <div
           className="no-scrollbar flex gap-1 overflow-x-auto rounded-3xl bg-ol-surface-muted p-0.5"
-          onWheel={(e) => { e.currentTarget.scrollLeft += e.deltaY }}
+          onWheel={(e) => { e.stopPropagation(); e.currentTarget.scrollLeft += e.deltaY }}
         >
           {features
             .filter(feat => {

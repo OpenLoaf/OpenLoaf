@@ -319,7 +319,10 @@ export function VideoAiPanel({
 
       {/* -- Feature Tabs (dynamic from capabilities) -- */}
       {!showFallback ? (
-        <div className="flex items-center gap-1 rounded-3xl bg-ol-surface-muted p-0.5">
+        <div
+          className="no-scrollbar flex items-center gap-1 overflow-x-auto rounded-3xl bg-ol-surface-muted p-0.5"
+          onWheel={(e) => { e.stopPropagation(); e.currentTarget.scrollLeft += e.deltaY }}
+        >
           {features
             .filter((f) => (readonly && !editing ? f.id === selectedFeatureId : true))
             .map((f) => (

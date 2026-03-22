@@ -56,11 +56,11 @@ export function ImgEditPlusVariant({
   useEffect(() => {
     if (!prompt.trim()) {
       onWarningChange?.(
-        t('v3.warnings.promptRequired', { defaultValue: 'Please enter a prompt' }),
+        t('v3.warnings.promptRequired', { defaultValue: '请输入提示词' }),
       )
     } else if (!hasImages) {
       onWarningChange?.(
-        t('v3.imageEdit.needsImage', { defaultValue: 'At least one source image is required' }),
+        t('v3.imageEdit.sourceImageRequired', { defaultValue: '请上传需要编辑的图片' }),
       )
     } else {
       onWarningChange?.(null)
@@ -131,7 +131,7 @@ export function ImgEditPlusVariant({
       {hasImages ? (
         <p className="text-[10px] text-muted-foreground/60">
           {t('v3.imageEdit.editPlusHint', {
-            defaultValue: 'Paint over the area to modify, then describe the change below',
+            defaultValue: '涂抹需要修改的区域，然后在下方描述修改效果',
           })}
         </p>
       ) : null}
@@ -145,8 +145,8 @@ export function ImgEditPlusVariant({
             BOARD_GENERATE_INPUT,
             disabled ? 'opacity-60 cursor-not-allowed' : '',
           ].join(' ')}
-          placeholder={t('v3.imageEdit.promptPlaceholder', {
-            defaultValue: 'Describe how you want to edit the image...',
+          placeholder={t('v3.imageEdit.editPromptPlaceholder', {
+            defaultValue: '描述你想要的编辑效果...',
           })}
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}

@@ -1094,7 +1094,8 @@
       "normalHint": "参照画像は最大4枚",
       "interleaveHint": "参照画像は最大1枚",
       "editPromptPlaceholder": "編集したい効果を説明してください...",
-      "sourceImageRequired": "編集する画像をアップロードしてください"
+      "sourceImageRequired": "編集する画像をアップロードしてください",
+      "editPlusHint": "変更する領域を塗り、下に変更内容を記述してください"
     }
   }
 }

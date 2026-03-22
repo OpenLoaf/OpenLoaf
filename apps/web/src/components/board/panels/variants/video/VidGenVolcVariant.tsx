@@ -118,7 +118,7 @@ export function VidGenVolcVariant({
         <span className="text-[11px] text-muted-foreground">
           {t('v3.fields.style', { defaultValue: 'Style' })}
         </span>
-        <div className="no-scrollbar flex gap-1 overflow-x-auto">
+        <div className="no-scrollbar flex gap-1 overflow-x-auto" onWheel={(e) => { e.stopPropagation(); e.currentTarget.scrollLeft += e.deltaY }}>
           <button
             type="button"
             disabled={disabled}

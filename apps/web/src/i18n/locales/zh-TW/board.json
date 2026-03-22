@@ -1108,7 +1108,8 @@
       "normalHint": "最多 4 張參考圖",
       "interleaveHint": "最多 1 張參考圖",
       "editPromptPlaceholder": "描述你想要的編輯效果...",
-      "sourceImageRequired": "請上傳需要編輯的圖片"
+      "sourceImageRequired": "請上傳需要編輯的圖片",
+      "editPlusHint": "塗抹需要修改的區域，然後在下方描述修改效果"
     }
   }
 }

@@ -42,7 +42,7 @@ export function ResultPagination({
   return (
     <div className="flex flex-col gap-2">
       {/* ── Thumbnail strip ── */}
-      <div className="flex gap-1.5 overflow-x-auto py-0.5">
+      <div className="no-scrollbar flex gap-1.5 overflow-x-auto py-0.5" onWheel={(e) => { e.stopPropagation(); e.currentTarget.scrollLeft += e.deltaY }}>
         {results.map((result, index) => (
           <button
             key={index}

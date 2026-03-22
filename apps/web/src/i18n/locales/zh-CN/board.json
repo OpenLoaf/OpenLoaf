@@ -1112,7 +1112,8 @@
       "normalHint": "最多 4 张参考图",
       "interleaveHint": "最多 1 张参考图",
       "editPromptPlaceholder": "描述你想要的编辑效果...",
-      "sourceImageRequired": "请上传需要编辑的图片"
+      "sourceImageRequired": "请上传需要编辑的图片",
+      "editPlusHint": "涂抹需要修改的区域，然后在下方描述修改效果"
     }
   }
 }

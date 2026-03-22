@@ -1108,7 +1108,8 @@
       "normalHint": "Up to 4 reference images",
       "interleaveHint": "Up to 1 reference image",
       "editPromptPlaceholder": "Describe the edit you want...",
-      "sourceImageRequired": "Please upload an image to edit"
+      "sourceImageRequired": "Please upload an image to edit",
+      "editPlusHint": "Paint the area to modify, then describe the change below"
     }
   }
 }
