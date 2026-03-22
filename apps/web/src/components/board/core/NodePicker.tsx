@@ -42,6 +42,11 @@ function resolveAlignClass(align: NodePickerProps["align"]) {
   }
 }
 
+/**
+ * @deprecated Use `GroupedNodePicker` with `computeOutputTemplates` / `computeInputTemplates`
+ * from `engine/dynamic-templates.ts` instead. This component is kept for backward compatibility
+ * but is no longer rendered by `BoardCanvasInteraction`.
+ */
 export const NodePicker = forwardRef<HTMLDivElement, NodePickerProps>(
   /** Render the node picker for connector drops. */
   function NodePicker({ position, align = "center", templates, onSelect }, ref) {

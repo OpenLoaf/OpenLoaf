@@ -24,7 +24,6 @@ import { cn } from "@udecode/cn";
 import type { CanvasEngine } from "../engine/CanvasEngine";
 import type {
   CanvasConnectorEnd,
-  CanvasConnectorTemplateDefinition,
   CanvasElement,
   CanvasNodeElement,
   CanvasPoint,
@@ -58,7 +57,13 @@ import {
   getAudioDuration,
   resolveViewerType,
 } from "../utils/board-asset";
-import { NodePicker } from "./NodePicker";
+import { GroupedNodePicker } from "./GroupedNodePicker";
+import {
+  computeOutputTemplates,
+  computeInputTemplates,
+  type TemplateGroup,
+  type TemplateItem,
+} from "../engine/dynamic-templates";
 import {
   openLinkInStack as openLinkInStackAction,
   resolveLinkTitle,
@@ -1374,8 +1379,9 @@ export function BoardCanvasInteraction({
     }
   };
 
-  const availableTemplates = useMemo(() => {
+  const availableTemplateGroups = useMemo((): TemplateGroup[] => {
     if (!snapshot.connectorDrop) return [];
+    const isBackward = snapshot.connectorDrop.direction === 'backward';
     const sourceElementId =
       "elementId" in snapshot.connectorDrop.source
         ? snapshot.connectorDrop.source.elementId
@@ -1384,24 +1390,39 @@ export function BoardCanvasInteraction({
       ? engine.doc.getElementById(sourceElementId)
       : null;
     if (!source || source.kind !== "node") return [];
-    // 逻辑：可用节点由源节点定义提供，避免全局模板硬编码。
     const definition = engine.nodes.getDefinition(source.type);
-    if (!definition?.connectorTemplates) return [];
-    return definition.connectorTemplates(source as CanvasNodeElement);
+    if (!definition) return [];
+    // 逻辑：forward 拖拽根据源节点 outputTypes 动态计算可连目标；backward 拖拽根据目标节点类型反推上游。
+    if (isBackward) {
+      return computeInputTemplates(source.type);
+    }
+    const outputTypes = definition.outputTypes ?? [];
+    return computeOutputTemplates(outputTypes);
   }, [engine, snapshot.connectorDrop]);
 
-  const handleTemplateSelect = (templateId: string) => {
+  const handleTemplateSelect = (item: TemplateItem) => {
     if (!snapshot.connectorDrop) return;
-    const template = availableTemplates.find((item) => item.id === templateId);
-    if (!template) return;
 
     const isBackward = snapshot.connectorDrop.direction === 'backward';
     const sourceElementId =
       "elementId" in snapshot.connectorDrop.source
         ? snapshot.connectorDrop.source.elementId
         : "";
-    const { type, props } = template.createNode({ sourceElementId });
-    const [width, height] = template.size;
+    const type = item.nodeType;
+    const [width, height] = item.nodeSize;
+    // 逻辑：根据 preselect 设置 aiConfig，面板打开时自动选中对应 feature/variant。
+    const props: Record<string, unknown> = {};
+    if (item.preselect.featureId && item.preselect.variantId) {
+      props.aiConfig = {
+        feature: item.preselect.featureId,
+        preselect: item.preselect,
+      };
+    }
+    // 逻辑：text 节点创建时设置默认便签样式。
+    if (type === 'text') {
+      props.style = 'sticky';
+      props.stickyColor = 'yellow';
+    }
     const sourceElement = sourceElementId
       ? engine.doc.getElementById(sourceElementId)
       : null;
@@ -1776,7 +1797,7 @@ export function BoardCanvasInteraction({
           <ConnectorDropPanel
             engine={engine}
             snapshot={snapshot}
-            templates={availableTemplates}
+            groups={availableTemplateGroups}
             onSelect={handleTemplateSelect}
             panelRef={nodePickerRef}
           />
@@ -1861,10 +1882,10 @@ type ConnectorDropPanelProps = {
   engine: CanvasEngine;
   /** Snapshot used for drop positioning. */
   snapshot: CanvasSnapshot;
-  /** Templates available for the picker. */
-  templates: CanvasConnectorTemplateDefinition[];
-  /** Selection handler for templates. */
-  onSelect: (templateId: string) => void;
+  /** Template groups for the grouped picker. */
+  groups: TemplateGroup[];
+  /** Selection handler for template items. */
+  onSelect: (item: TemplateItem) => void;
   /** Ref for the picker panel element. */
   panelRef: RefObject<HTMLDivElement | null>;
 };
@@ -1873,7 +1894,7 @@ type ConnectorDropPanelProps = {
 function ConnectorDropPanel({
   engine,
   snapshot,
-  templates,
+  groups,
   onSelect,
   panelRef,
 }: ConnectorDropPanelProps) {
@@ -1897,12 +1918,17 @@ function ConnectorDropPanel({
     }
   }
   return (
-    <NodePicker
+    <GroupedNodePicker
       ref={panelRef}
       position={screen}
       align={align}
-      templates={templates}
+      groups={groups}
       onSelect={onSelect}
+      onClose={() => {
+        engine.setConnectorDrop(null);
+        engine.setConnectorDraft(null);
+        engine.setConnectorHover(null);
+      }}
     />
   );
 }

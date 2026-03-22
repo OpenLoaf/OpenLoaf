@@ -8,7 +8,6 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import type {
-  CanvasConnectorTemplateDefinition,
   CanvasNodeDefinition,
   CanvasNodeViewProps,
   CanvasToolbarContext,
@@ -31,7 +30,6 @@ import {
   Bold,
   CheckSquare,
   ChevronDown,
-  ImagePlus,
   Italic,
   List,
   ListOrdered,
@@ -43,8 +41,6 @@ import {
   Trash2,
   Type,
   Underline,
-  Video,
-  Volume2,
   Wand2,
 } from "lucide-react";
 import { cn } from "@udecode/cn";
@@ -221,54 +217,6 @@ const textEditorRefs = new Map<string, PlateEditor>();
 // ---------------------------------------------------------------------------
 // Connector templates
 // ---------------------------------------------------------------------------
-
-/** Connector templates offered by the text node – resolved at render time. */
-const getTextNodeConnectorTemplates = (): CanvasConnectorTemplateDefinition[] => [
-  {
-    id: "image",
-    label: i18next.t('board:connector.imageGenerate'),
-    description: i18next.t('board:connector.imageGenerateDesc'),
-    size: [320, 180],
-    icon: <ImagePlus size={14} />,
-    createNode: () => ({
-      type: "image",
-      props: {},
-    }),
-  },
-  {
-    id: "video",
-    label: i18next.t('board:connector.videoGenerate'),
-    description: i18next.t('board:connector.videoGenerateDesc'),
-    size: [320, 180],
-    icon: <Video size={14} />,
-    createNode: () => ({
-      type: "video",
-      props: {},
-    }),
-  },
-  {
-    id: "audio",
-    label: i18next.t('board:connector.textToSpeech'),
-    description: i18next.t('board:connector.textToSpeechDesc'),
-    size: [320, 120],
-    icon: <Volume2 size={14} />,
-    createNode: () => ({
-      type: "audio",
-      props: {},
-    }),
-  },
-  {
-    id: "text",
-    label: i18next.t('board:connector.textAiPolish'),
-    description: i18next.t('board:connector.textAiPolishDesc'),
-    size: [200, 200],
-    icon: <Type size={14} />,
-    createNode: () => ({
-      type: "text",
-      props: { style: 'sticky', stickyColor: 'yellow' },
-    }),
-  },
-];
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -1466,7 +1414,6 @@ export const TextNodeDefinition: CanvasNodeDefinition<TextNodeProps> = {
         + TEXT_NODE_VERTICAL_PADDING,
     ),
   }),
-  connectorTemplates: () => getTextNodeConnectorTemplates(),
   toolbar: (ctx) => {
     if (ctx.element.props.readOnlyProjection) {
       return [];

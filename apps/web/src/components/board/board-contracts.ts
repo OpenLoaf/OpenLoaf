@@ -86,6 +86,8 @@ export type AiGenerateConfig = {
     count?: number
     seed?: number
   }>
+  /** Preselect hint written by GroupedNodePicker to auto-open a specific variant. */
+  preselect?: { featureId: string; variantId: string }
 }
 
 // ---------------------------------------------------------------------------

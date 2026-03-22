@@ -8,7 +8,6 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import type {
-  CanvasConnectorTemplateDefinition,
   CanvasNodeDefinition,
   CanvasNodeViewProps,
   CanvasToolbarContext,
@@ -22,9 +21,7 @@ import {
   Music,
   Play,
   Trash2,
-  Type,
   Upload,
-  Video,
 } from "lucide-react";
 import i18next from "i18next";
 import { openFilePreview } from "@/components/file/lib/file-preview-store";
@@ -152,45 +149,6 @@ function createAudioToolbarItems(
   )
 
   return items
-}
-
-/** Connector templates offered by the audio node. */
-function getAudioNodeConnectorTemplates(): CanvasConnectorTemplateDefinition[] {
-  return [
-    {
-      id: 'text',
-      label: i18next.t('board:connector.speechRecognition'),
-      description: i18next.t('board:connector.speechRecognitionDesc'),
-      size: [200, 200],
-      icon: <Type size={14} />,
-      createNode: () => ({
-        type: 'text',
-        props: { style: 'sticky', stickyColor: 'yellow' },
-      }),
-    },
-    {
-      id: 'video',
-      label: i18next.t('board:connector.addAudioToVideo'),
-      description: i18next.t('board:connector.addAudioToVideoDesc'),
-      size: [320, 180],
-      icon: <Video size={14} />,
-      createNode: () => ({
-        type: 'video',
-        props: {},
-      }),
-    },
-    {
-      id: 'audio',
-      label: i18next.t('board:connector.voiceClone'),
-      description: i18next.t('board:connector.voiceCloneDesc'),
-      size: [320, 120],
-      icon: <Music size={14} />,
-      createNode: () => ({
-        type: 'audio',
-        props: {},
-      }),
-    },
-  ]
 }
 
 /** Render an audio node card with inline playback. */
@@ -580,6 +538,5 @@ export const AudioNodeDefinition: CanvasNodeDefinition<AudioNodeProps> = {
   },
   inlinePanel: { width: 420, height: 320 },
   outputTypes: ['audio'],
-  connectorTemplates: () => getAudioNodeConnectorTemplates(),
   toolbar: (ctx) => createAudioToolbarItems(ctx),
 };

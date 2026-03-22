@@ -8,7 +8,6 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import type {
-  CanvasConnectorTemplateDefinition,
   CanvasNodeDefinition,
   CanvasNodeViewProps,
   CanvasToolbarContext,
@@ -25,9 +24,7 @@ import {
   ImagePlus,
   Loader2,
   Trash2,
-  Type,
   Upload,
-  Video,
 } from "lucide-react";
 import { useBoardContext } from "../core/BoardProvider";
 import { buildImageNodePayloadFromUri } from "../utils/image";
@@ -248,43 +245,6 @@ function createImageToolbarItems(
 // ---------------------------------------------------------------------------
 // Connector templates
 // ---------------------------------------------------------------------------
-
-/** Connector templates offered by the image node. */
-const getImageNodeConnectorTemplates = (): CanvasConnectorTemplateDefinition[] => [
-  {
-    id: 'text',
-    label: i18next.t('board:connector.textNode'),
-    description: i18next.t('board:connector.textNodeDesc'),
-    size: [200, 200],
-    icon: <Type size={14} />,
-    createNode: () => ({
-      type: 'text',
-      props: { style: 'sticky', stickyColor: 'yellow' },
-    }),
-  },
-  {
-    id: 'image',
-    label: i18next.t('board:connector.imageGenerate'),
-    description: i18next.t('board:connector.imageGenerateDesc'),
-    size: [320, 180],
-    icon: <ImagePlus size={14} />,
-    createNode: () => ({
-      type: 'image',
-      props: {},
-    }),
-  },
-  {
-    id: 'video',
-    label: i18next.t('board:connector.videoGenerate'),
-    description: i18next.t('board:connector.videoGenerateDesc'),
-    size: [320, 180],
-    icon: <Video size={14} />,
-    createNode: () => ({
-      type: 'video',
-      props: {},
-    }),
-  },
-];
 
 /** Render an image node using a compressed preview bitmap. */
 export function ImageNodeView({
@@ -1104,6 +1064,5 @@ export const ImageNodeDefinition: CanvasNodeDefinition<ImageNodeProps> = {
   },
   inlinePanel: { width: 420, height: 480 },
   outputTypes: ['image'],
-  connectorTemplates: () => getImageNodeConnectorTemplates(),
   toolbar: (ctx) => createImageToolbarItems(ctx),
 };

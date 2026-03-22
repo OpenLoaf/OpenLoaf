@@ -8,7 +8,6 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import type {
-  CanvasConnectorTemplateDefinition,
   CanvasNodeDefinition,
   CanvasNodeViewProps,
   CanvasToolbarContext,
@@ -18,7 +17,7 @@ import type { UpstreamData } from "../engine/upstream-data";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 import Hls from "hls.js";
-import { Download, Image, Info, Loader2, Pause, Play, Scissors, Trash2, Type, Upload, Video } from "lucide-react";
+import { Download, Info, Loader2, Pause, Play, Scissors, Trash2, Upload, Video } from "lucide-react";
 import i18next from "i18next";
 import { openVideoTrimDialog } from "../dialogs/video-trim/VideoTrimDialog";
 import {
@@ -251,43 +250,6 @@ function createVideoToolbarItems(ctx: CanvasToolbarContext<VideoNodeProps>) {
 // ---------------------------------------------------------------------------
 // Connector templates
 // ---------------------------------------------------------------------------
-
-/** Connector templates offered by the video node. */
-const getVideoNodeConnectorTemplates = (): CanvasConnectorTemplateDefinition[] => [
-  {
-    id: 'text',
-    label: i18next.t('board:connector.videoUnderstanding', { defaultValue: 'Video Understanding' }),
-    description: i18next.t('board:connector.videoUnderstandingDesc', { defaultValue: 'Analyze video and generate description' }),
-    size: [200, 200],
-    icon: <Type size={14} />,
-    createNode: () => ({
-      type: 'text',
-      props: { style: 'sticky', stickyColor: 'yellow' },
-    }),
-  },
-  {
-    id: 'image',
-    label: i18next.t('board:connector.extractFrame', { defaultValue: 'Extract Frame' }),
-    description: i18next.t('board:connector.extractFrameDesc', { defaultValue: 'Extract a frame from video' }),
-    size: [320, 180],
-    icon: <Image size={14} />,
-    createNode: () => ({
-      type: 'image',
-      props: {},
-    }),
-  },
-  {
-    id: 'video',
-    label: i18next.t('board:connector.continueVideo', { defaultValue: 'Continue Video' }),
-    description: i18next.t('board:connector.continueVideoDesc', { defaultValue: 'Generate continuation from video' }),
-    size: [320, 180],
-    icon: <Video size={14} />,
-    createNode: () => ({
-      type: 'video',
-      props: {},
-    }),
-  },
-]
 
 /** Export the clipped segment via server-side ffmpeg. */
 async function exportVideoClip(props: VideoNodeProps, fileContext?: BoardFileContext) {
@@ -1019,6 +981,5 @@ export const VideoNodeDefinition: CanvasNodeDefinition<VideoNodeProps> = {
   },
   inlinePanel: { width: 420, height: 360 },
   outputTypes: ['video', 'image'],
-  connectorTemplates: () => getVideoNodeConnectorTemplates(),
   toolbar: (ctx) => createVideoToolbarItems(ctx),
 };

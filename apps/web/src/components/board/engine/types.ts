@@ -464,7 +464,11 @@ export type CanvasNodeDefinition<P> = {
   };
   /** Anchor resolver for connectors. */
   anchors?: (props: P, bounds: CanvasRect) => CanvasAnchorDefinition[];
-  /** Connector templates shown when dragging from this node's anchors. */
+  /**
+   * @deprecated Replaced by dynamic template computation via `computeOutputTemplates` /
+   * `computeInputTemplates` in `engine/dynamic-templates.ts`. No longer read by
+   * `BoardCanvasInteraction`; kept only for backward compatibility.
+   */
   connectorTemplates?: (element: CanvasNodeElement<P>) => CanvasConnectorTemplateDefinition[];
   /** Toolbar definition for the node. */
   toolbar?: (ctx: CanvasToolbarContext<P>) => CanvasToolbarItem[];
