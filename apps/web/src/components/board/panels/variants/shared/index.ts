@@ -20,6 +20,8 @@ export { TextReferencePool } from './TextReferencePool'
 export type { TextReferencePoolProps } from './TextReferencePool'
 export { ReferenceDropdown } from './ReferenceDropdown'
 export type { ReferenceDropdownHandle, ReferenceDropdownProps } from './ReferenceDropdown'
+export { TextSlotField } from './TextSlotField'
+export type { TextSlotFieldProps } from './TextSlotField'
 
 /**
  * Convert a media source string to the correct API input format.
