@@ -192,12 +192,17 @@ export type CanvasConnectorDraft = {
   dashed?: boolean;
 };
 
+/** Direction of a connector drag operation. */
+export type ConnectorDragDirection = 'forward' | 'backward';
+
 /** Pending connector drop information for node creation. */
 export type CanvasConnectorDrop = {
   /** Source endpoint of the connector. */
   source: CanvasConnectorEnd;
   /** World point where the drop occurred. */
   point: CanvasPoint;
+  /** Drag direction: forward = output→downstream, backward = input→upstream. */
+  direction?: ConnectorDragDirection;
 };
 
 /** Pending insert request for one-shot placement. */

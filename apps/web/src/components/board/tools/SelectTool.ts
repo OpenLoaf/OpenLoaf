@@ -13,6 +13,7 @@ import type {
   CanvasNodeElement,
   CanvasPoint,
   CanvasRect,
+  ConnectorDragDirection,
 } from "../engine/types";
 import {
   DRAG_ACTIVATION_DISTANCE,
@@ -32,6 +33,7 @@ import {
   resolveGroupSelectionId,
 } from "../engine/grouping";
 import { LARGE_ANCHOR_NODE_TYPES } from "../engine/anchorTypes";
+import { getAnchorDirection } from "../engine/anchor-direction";
 import { snapMoveRect } from "../utils/alignment-guides";
 import type { CanvasTool, CanvasToolHost, ToolContext } from "./ToolTypes";
 
@@ -48,6 +50,8 @@ export class SelectTool implements CanvasTool {
   private connectorSource: CanvasAnchorHit | null = null;
   /** Whether a new connector is being dragged. */
   private connectorDrafting = false;
+  /** Direction of the connector drag: forward (right→downstream) or backward (left→upstream). */
+  private connectorDirection: ConnectorDragDirection = 'forward';
   /** Dragging start point in world coordinates. */
   private dragStart: CanvasPoint | null = null;
   /** Whether the drag threshold has been passed. */
@@ -153,6 +157,9 @@ export class SelectTool implements CanvasTool {
         ) {
           this.connectorSource = edgeHit;
           this.connectorDrafting = true;
+          // 逻辑：左锚点（input）拖出 → backward（向上游连接），其余 → forward（向下游连接）。
+          this.connectorDirection =
+            getAnchorDirection(edgeHit.anchorId) === 'input' ? 'backward' : 'forward';
           ctx.engine.selection.setSelection([edgeHit.elementId]);
           ctx.engine.setConnectorDraft({
             source: { elementId: edgeHit.elementId, anchorId: edgeHit.anchorId },
@@ -287,10 +294,11 @@ export class SelectTool implements CanvasTool {
       this.cancelHoverClear();
       const targetNode = ctx.engine.findNodeAt(ctx.worldPoint);
       if (targetNode && targetNode.id !== this.connectorSource.elementId) {
-        // 逻辑：拖拽过程中只要进入节点即可吸附，不要求命中边缘锚点。
+        // 逻辑：根据拖拽方向提供锚点吸附提示，forward 吸附左侧 input，backward 吸附右侧 output。
+        const anchorHint = this.getDirectionalAnchorHint(targetNode);
         const hover = ctx.engine.getNearestEdgeAnchorHit(
           targetNode.id,
-          this.connectorSource.point
+          anchorHint
         );
         if (hover) {
           const isLargeAnchorTarget = LARGE_ANCHOR_NODE_TYPES.has(targetNode.type);
@@ -480,21 +488,27 @@ export class SelectTool implements CanvasTool {
   onPointerUp(ctx: ToolContext): void {
     if (this.connectorDrafting && this.connectorSource) {
       const draft = ctx.engine.getConnectorDraft();
+      const direction = this.connectorDirection;
       let keepDraft = false;
       if (draft) {
         const isSameElement =
           "elementId" in draft.target &&
           draft.target.elementId === this.connectorSource.elementId;
         if ("point" in draft.target) {
-          // 逻辑：拖到空白处触发组件选择面板。
+          // 逻辑：拖到空白处触发组件选择面板，传递方向供后续创建节点使用。
           ctx.engine.setConnectorDrop({
             source: draft.source,
             point: draft.target.point,
+            direction,
           });
           keepDraft = true;
         } else if (!isSameElement) {
-          // 逻辑：连接到已有节点时跳过自动布局，保持目标节点原位。
-          ctx.engine.addConnectorElement(draft, { skipLayout: true });
+          // 逻辑：backward 拖拽连接到已有节点时交换 source/target，保证连线方向为上游→下游。
+          const finalDraft =
+            direction === 'backward'
+              ? { ...draft, source: draft.target, target: draft.source }
+              : draft;
+          ctx.engine.addConnectorElement(finalDraft, { skipLayout: true });
         }
       }
 
@@ -505,6 +519,7 @@ export class SelectTool implements CanvasTool {
       ctx.engine.setConnectorHover(null);
       this.connectorSource = null;
       this.connectorDrafting = false;
+      this.connectorDirection = 'forward';
       return;
     }
     if (this.connectorDragId) {
@@ -835,6 +850,24 @@ export class SelectTool implements CanvasTool {
       if (!rightSet.has(id)) return false;
     }
     return true;
+  }
+
+  /**
+   * Compute a hint point that biases anchor snapping toward the expected direction.
+   * Forward drag → hint far to the left of target (snaps to left/input anchor).
+   * Backward drag → hint far to the right of target (snaps to right/output anchor).
+   */
+  private getDirectionalAnchorHint(targetNode: CanvasNodeElement): CanvasPoint {
+    const [x, y, w, h] = targetNode.xywh;
+    const centerY = y + h / 2;
+    // 逻辑：使用极端偏移量保证始终命中期望侧锚点，不受实际拖拽位置影响。
+    const FAR_OFFSET = 100_000;
+    if (this.connectorDirection === 'backward') {
+      // backward → 吸附目标的右侧（output）锚点
+      return [x + w + FAR_OFFSET, centerY];
+    }
+    // forward → 吸附目标的左侧（input）锚点
+    return [x - FAR_OFFSET, centerY];
   }
 
   /** Compute the bounding rect for the current drag group. */

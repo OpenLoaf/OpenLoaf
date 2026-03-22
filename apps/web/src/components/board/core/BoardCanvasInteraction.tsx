@@ -1395,6 +1395,7 @@ export function BoardCanvasInteraction({
     const template = availableTemplates.find((item) => item.id === templateId);
     if (!template) return;
 
+    const isBackward = snapshot.connectorDrop.direction === 'backward';
     const sourceElementId =
       "elementId" in snapshot.connectorDrop.source
         ? snapshot.connectorDrop.source.elementId
@@ -1447,11 +1448,19 @@ export function BoardCanvasInteraction({
           ];
     const id = engine.addNodeElement(type, props, xywh);
     if (id) {
-      engine.addConnectorElement({
-        source: snapshot.connectorDrop.source,
-        target: { elementId: id },
-        style: engine.getConnectorStyle(),
-      });
+      // 逻辑：backward 拖拽时新节点是上游 source，origin 节点是 target；forward 保持原逻辑。
+      const connectorDraft = isBackward
+        ? {
+            source: { elementId: id } as CanvasConnectorEnd,
+            target: snapshot.connectorDrop.source,
+            style: engine.getConnectorStyle(),
+          }
+        : {
+            source: snapshot.connectorDrop.source,
+            target: { elementId: id } as CanvasConnectorEnd,
+            style: engine.getConnectorStyle(),
+          };
+      engine.addConnectorElement(connectorDraft);
       engine.selection.setSelection([id]);
     }
     engine.setConnectorDrop(null);
@@ -1590,6 +1599,7 @@ export function BoardCanvasInteraction({
           const displayName = props.fileName || (resolvedPath || sourcePath).split("/").pop() || "Video";
           void fetchVideoMetadata({
             projectId: fileContext?.projectId,
+            boardId: fileContext?.boardId,
             uri: resolvedPath || sourcePath,
           }).then((metadata) => {
             openFilePreview({
