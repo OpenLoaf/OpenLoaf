@@ -7,9 +7,11 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
+import { promises as fsPromises } from "node:fs";
 import path from "node:path";
 import {
   buildBoardAssetRelativePath,
+  resolveBoardDirFromDb,
   resolveBoardScopedRoot,
 } from "@openloaf/api/common/boardPaths";
 import { isRecord } from "@/ai/shared/util";
@@ -57,6 +59,17 @@ export type MediaSubmitContext = {
   boardId?: string;
   /** Source node id for tracing. */
   sourceNodeId?: string;
+};
+
+/** Extension → MIME type mapping for path-based media inputs. */
+export const MEDIA_TYPE_MAP: Record<string, string> = {
+  '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+  '.png': 'image/png', '.webp': 'image/webp',
+  '.gif': 'image/gif', '.svg': 'image/svg+xml',
+  '.mp4': 'video/mp4', '.webm': 'video/webm',
+  '.mov': 'video/quicktime',
+  '.mp3': 'audio/mpeg', '.wav': 'audio/wav',
+  '.ogg': 'audio/ogg', '.flac': 'audio/flac',
 };
 
 /** HTTP error used by media proxy. */
@@ -156,20 +169,97 @@ function extractPathFromLocalUrl(url: string): string | null {
 type ResolvedMediaInput = { url: string } | { base64: string; mediaType: string };
 
 /**
- * Resolve a local/relative media input to a publicly accessible format.
+ * Upload a buffer via S3/SDK or fall back to base64 inline.
  *
  * Strategy (in order):
  *   1. Local S3 configured → upload to S3, return public URL
  *   2. No S3 → upload via SaaS SDK `sdk.ai.uploadFile()`, return CDN URL
  *   3. uploadFile not available/fails → base64 inline fallback
+ */
+export async function uploadOrInlineBuffer(
+  buffer: Buffer,
+  fileName: string,
+  mediaType: string,
+  context: MediaSubmitContext,
+  accessToken?: string,
+): Promise<ResolvedMediaInput> {
+  // Strategy 1: Upload to local S3 if configured
+  const s3 = resolveActiveS3();
+  if (s3) {
+    try {
+      const key = `temp/media-input/${Date.now()}_${fileName}`;
+      const ref = await s3.putObject({
+        key,
+        body: buffer,
+        contentType: mediaType,
+        contentLength: buffer.length,
+      });
+      logger.debug({ key, url: ref.url }, 'Uploaded local media to S3');
+      return { url: ref.url };
+    } catch (err) {
+      logger.warn({ err, fileName }, 'S3 upload failed, trying SDK uploadFile');
+    }
+  }
+
+  // Strategy 2: Upload via SaaS SDK uploadFile
+  if (accessToken) {
+    try {
+      const cdnUrl = await uploadMediaFile(buffer, fileName, mediaType, accessToken);
+      logger.debug({ fileName, url: cdnUrl }, 'Uploaded local media via SDK uploadFile');
+      return { url: cdnUrl };
+    } catch (err) {
+      logger.warn({ err, fileName }, 'SDK uploadFile failed, falling back to base64');
+    }
+  }
+
+  // Strategy 3: Base64 fallback
+  return { base64: buffer.toString('base64'), mediaType };
+}
+
+/**
+ * Resolve a local/relative media input to a publicly accessible format.
  *
- * Non-local URLs (http/https external) are passed through unchanged.
+ * Supports two input formats:
+ *   - `{ path: "asset/xxx.jpg" }` — board-relative path, read directly from disk
+ *   - `{ url: "http://127.0.0.1:..." }` — local URL, fetched via loadProjectImageBuffer
+ *
+ * Non-local URLs (http/https external) and data: URLs are passed through unchanged.
  */
 async function resolveLocalMediaInput(
   input: Record<string, unknown>,
   context: MediaSubmitContext,
   accessToken?: string,
 ): Promise<ResolvedMediaInput> {
+  // ── path-based input (board-relative path like "asset/xxx.jpg") ──
+  const inputPath = typeof input.path === 'string' ? input.path.trim() : '';
+  if (inputPath) {
+    const boardId = context.boardId;
+    if (!boardId) {
+      logger.warn({ path: inputPath }, 'path input requires boardId in context');
+      return input as ResolvedMediaInput;
+    }
+    const boardResult = await resolveBoardDirFromDb(boardId);
+    if (!boardResult) {
+      logger.warn({ boardId, path: inputPath }, 'Board not found for path input');
+      return input as ResolvedMediaInput;
+    }
+    const absPath = path.resolve(boardResult.absDir, inputPath);
+    if (!absPath.startsWith(path.resolve(boardResult.absDir) + path.sep)) {
+      logger.warn({ absPath, boardDir: boardResult.absDir }, 'Path traversal rejected');
+      return input as ResolvedMediaInput;
+    }
+    try {
+      const buffer = await fsPromises.readFile(absPath);
+      const ext = path.extname(absPath).toLowerCase();
+      const mediaType = MEDIA_TYPE_MAP[ext] || 'application/octet-stream';
+      return await uploadOrInlineBuffer(Buffer.from(buffer), path.basename(absPath), mediaType, context, accessToken);
+    } catch (err) {
+      logger.warn({ err, absPath }, 'Failed to read board asset file');
+      return input as ResolvedMediaInput;
+    }
+  }
+
+  // ── url-based input (existing logic) ──
   const url = typeof input.url === 'string' ? input.url : '';
 
   // data: URLs — already inline, pass through
@@ -182,6 +272,9 @@ async function resolveLocalMediaInput(
 
   // No URL or local URL — need to resolve
   if (!url) return input as ResolvedMediaInput;
+
+  // Deprecated: localhost URL self-fetch — prefer path-based input
+  logger.warn({ url }, 'Deprecated: localhost URL media input, use { path } instead');
 
   const relativePath = extractPathFromLocalUrl(url);
   if (!relativePath) {
@@ -199,43 +292,18 @@ async function resolveLocalMediaInput(
     return input as ResolvedMediaInput;
   }
 
-  const fileName = path.basename(relativePath);
-
-  // Strategy 1: Upload to local S3 if configured
-  const s3 = resolveActiveS3();
-  if (s3) {
-    try {
-      const key = `temp/media-input/${Date.now()}_${fileName}`;
-      const ref = await s3.putObject({
-        key,
-        body: loaded.buffer,
-        contentType: loaded.mediaType,
-        contentLength: loaded.buffer.length,
-      });
-      logger.debug({ key, url: ref.url }, 'Uploaded local media to S3');
-      return { url: ref.url };
-    } catch (err) {
-      logger.warn({ err, relativePath }, 'S3 upload failed, trying SDK uploadFile');
-    }
-  }
-
-  // Strategy 2: Upload via SaaS SDK uploadFile
-  if (accessToken) {
-    try {
-      const cdnUrl = await uploadMediaFile(loaded.buffer, fileName, loaded.mediaType, accessToken);
-      logger.debug({ fileName, url: cdnUrl }, 'Uploaded local media via SDK uploadFile');
-      return { url: cdnUrl };
-    } catch (err) {
-      logger.warn({ err, relativePath }, 'SDK uploadFile failed, falling back to base64');
-    }
-  }
-
-  // Strategy 3: Base64 fallback
-  const base64 = loaded.buffer.toString('base64');
-  return { base64, mediaType: loaded.mediaType };
+  return await uploadOrInlineBuffer(loaded.buffer, path.basename(relativePath), loaded.mediaType, context, accessToken);
 }
 
-/** Process all image inputs in a media payload, resolving local URLs. */
+/** Check if a record needs media resolution (has url or path field). */
+function needsMediaResolve(rec: Record<string, unknown>): boolean {
+  return typeof rec.url === 'string' || typeof rec.path === 'string';
+}
+
+/**
+ * @deprecated 前端现已通过 /ai/v3/media/upload 上传所有媒体，server 不再需要解析 variant 字段。
+ * 保留供兼容旧客户端使用，后续版本移除。
+ */
 async function resolvePayloadMediaInputs(
   payload: Record<string, unknown>,
   context: MediaSubmitContext,
@@ -243,7 +311,7 @@ async function resolvePayloadMediaInputs(
 ): Promise<Record<string, unknown>> {
   // v2: referenceAudio (tts voice cloning) — at payload level, not inside inputs
   let topLevelChanged = false;
-  if (isRecord(payload.referenceAudio) && typeof (payload.referenceAudio as any).url === "string") {
+  if (isRecord(payload.referenceAudio) && needsMediaResolve(payload.referenceAudio as Record<string, unknown>)) {
     const resolved = await resolveLocalMediaInput(payload.referenceAudio as Record<string, unknown>, context, accessToken);
     if (resolved !== payload.referenceAudio) {
       payload = { ...payload, referenceAudio: resolved };
@@ -256,11 +324,11 @@ async function resolvePayloadMediaInputs(
 
   let changed = false;
 
-  // Handle inputs.images (array of { url, base64, mediaType })
+  // Handle inputs.images (array of { url, base64, mediaType } or { path })
   if (Array.isArray(inputs.images)) {
     const resolved = await Promise.all(
       inputs.images.map(async (img: unknown) => {
-        if (!isRecord(img) || typeof img.url !== 'string') return img;
+        if (!isRecord(img) || !needsMediaResolve(img as Record<string, unknown>)) return img;
         const result = await resolveLocalMediaInput(img as Record<string, unknown>, context, accessToken);
         if (result !== img) changed = true;
         return result;
@@ -269,41 +337,41 @@ async function resolvePayloadMediaInputs(
     inputs.images = resolved;
   }
 
-  // Handle inputs.startImage (single { url, base64, mediaType })
-  if (isRecord(inputs.startImage) && typeof inputs.startImage.url === 'string') {
+  // Handle inputs.startImage (single { url, base64, mediaType } or { path })
+  if (isRecord(inputs.startImage) && needsMediaResolve(inputs.startImage as Record<string, unknown>)) {
     const result = await resolveLocalMediaInput(inputs.startImage as Record<string, unknown>, context, accessToken);
     if (result !== inputs.startImage) { inputs.startImage = result; changed = true; }
   }
 
   // Handle inputs.endImage
-  if (isRecord(inputs.endImage) && typeof inputs.endImage.url === 'string') {
+  if (isRecord(inputs.endImage) && needsMediaResolve(inputs.endImage as Record<string, unknown>)) {
     const result = await resolveLocalMediaInput(inputs.endImage as Record<string, unknown>, context, accessToken);
     if (result !== inputs.endImage) { inputs.endImage = result; changed = true; }
   }
 
   // Handle inputs.referenceVideo
-  if (isRecord(inputs.referenceVideo) && typeof inputs.referenceVideo.url === 'string') {
+  if (isRecord(inputs.referenceVideo) && needsMediaResolve(inputs.referenceVideo as Record<string, unknown>)) {
     const result = await resolveLocalMediaInput(inputs.referenceVideo as Record<string, unknown>, context, accessToken);
     if (result !== inputs.referenceVideo) { inputs.referenceVideo = result; changed = true; }
   }
 
   // v2: single image input (imageEdit, upscale, outpaint)
-  if (isRecord(inputs.image) && typeof inputs.image.url === "string") {
+  if (isRecord(inputs.image) && needsMediaResolve(inputs.image as Record<string, unknown>)) {
     const resolved = await resolveLocalMediaInput(inputs.image as Record<string, unknown>, context, accessToken);
     if (resolved !== inputs.image) { inputs.image = resolved; changed = true; }
   }
   // v2: mask input (imageEdit inpaint/erase)
-  if (isRecord(inputs.mask) && typeof inputs.mask.url === "string") {
+  if (isRecord(inputs.mask) && needsMediaResolve(inputs.mask as Record<string, unknown>)) {
     const resolved = await resolveLocalMediaInput(inputs.mask as Record<string, unknown>, context, accessToken);
     if (resolved !== inputs.mask) { inputs.mask = resolved; changed = true; }
   }
   // v2: person input (digitalHuman)
-  if (isRecord(inputs.person) && typeof inputs.person.url === "string") {
+  if (isRecord(inputs.person) && needsMediaResolve(inputs.person as Record<string, unknown>)) {
     const resolved = await resolveLocalMediaInput(inputs.person as Record<string, unknown>, context, accessToken);
     if (resolved !== inputs.person) { inputs.person = resolved; changed = true; }
   }
   // v2: audio input (digitalHuman)
-  if (isRecord(inputs.audio) && typeof inputs.audio.url === "string") {
+  if (isRecord(inputs.audio) && needsMediaResolve(inputs.audio as Record<string, unknown>)) {
     const resolved = await resolveLocalMediaInput(inputs.audio as Record<string, unknown>, context, accessToken);
     if (resolved !== inputs.audio) { inputs.audio = resolved; changed = true; }
   }
@@ -377,12 +445,12 @@ export async function submitV3GenerateProxy(
     );
   }
 
-  const resolvedPayload = await resolvePayloadMediaInputs(payload, context, accessToken);
-  const result = await submitV3Generate(resolvedPayload, accessToken);
+  // 直接透传 payload，前端已通过 /ai/v3/media/upload 上传所有媒体为公网 URL
+  const result = await submitV3Generate(payload, accessToken);
 
   // 逻辑：提交成功时记住任务上下文，便于后续 poll 时进行资产持久化。
   if (result?.success === true && result.data?.taskId) {
-    const feature = (resolvedPayload as Record<string, unknown>).feature as string | undefined;
+    const feature = (payload as Record<string, unknown>).feature as string | undefined;
     rememberMediaTask({
       taskId: result.data.taskId,
       feature: feature ?? undefined,

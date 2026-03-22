@@ -8,7 +8,7 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import type { ComponentType } from 'react'
-import type { VariantFormProps } from '../types'
+import type { VariantFormProps, VariantInputConstraints } from '../types'
 import { ImgGenQwenVariant } from './ImgGenQwenVariant'
 import { ImgGenVolcVariant } from './ImgGenVolcVariant'
 import { ImgGenKlingVariant } from './ImgGenKlingVariant'
@@ -28,6 +28,18 @@ export const IMAGE_VARIANT_REGISTRY: Record<string, ComponentType<VariantFormPro
   'outpaint-qwen': OutpaintQwenVariant,
   'upscale-qwen': UpscaleQwenVariant,
   'upscale-volc': UpscaleVolcVariant,
+}
+
+/** Input constraints for each image variant. */
+export const IMAGE_VARIANT_CONSTRAINTS: Record<string, VariantInputConstraints> = {
+  'img-gen-qwen': { textOnly: true },
+  'img-gen-volc': {}, // accepts optional reference images
+  'img-gen-kling': { textOnly: true },
+  'img-inpaint-volc': { requiresImage: true },
+  'img-style-volc': { requiresImage: true },
+  'outpaint-qwen': { requiresImage: true },
+  'upscale-qwen': { requiresImage: true },
+  'upscale-volc': { requiresImage: true },
 }
 
 /** Feature IDs that require mask painting on the node. */

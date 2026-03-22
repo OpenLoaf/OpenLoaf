@@ -16,8 +16,9 @@ import type { CanvasNodeElement } from '../engine/types'
 import type { VideoNodeProps } from '../nodes/VideoNode'
 import type { AiGenerateConfig } from '../board-contracts'
 import { useCapabilities } from '@/hooks/use-capabilities'
+import { resolveAllMediaInputs } from '@/lib/media-upload'
 import { GenerateActionBar } from './GenerateActionBar'
-import { VIDEO_VARIANT_REGISTRY } from './variants/video'
+import { VIDEO_VARIANT_REGISTRY, VIDEO_VARIANT_CONSTRAINTS } from './variants/video'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -72,9 +73,16 @@ export type VideoAiPanelProps = {
   /** Callback to generate into a new derived node. */
   onGenerateNewNode?: (params: VideoGenerateParams) => void
   upstreamText?: string
+  /** Resolved browser-friendly URLs for display/thumbnails. */
   upstreamImages?: string[]
+  /** Raw board-relative paths for API submission (e.g. "asset/xxx.jpg"). */
+  upstreamImagePaths?: string[]
   upstreamAudioUrl?: string
   upstreamVideoUrl?: string
+  /** Board context for variant MediaSlot preview resolution & file saving. */
+  boardId?: string
+  projectId?: string
+  boardFolderUri?: string
   /** When true, all inputs are disabled and the generate button is hidden. */
   readonly?: boolean
   /** Editing mode -- user unlocked an existing result to tweak params. */
@@ -93,8 +101,12 @@ export function VideoAiPanel({
   onGenerateNewNode,
   upstreamText,
   upstreamImages,
+  upstreamImagePaths,
   upstreamAudioUrl,
   upstreamVideoUrl,
+  boardId,
+  projectId,
+  boardFolderUri,
   readonly = false,
   editing = false,
   onUnlock,
@@ -181,21 +193,29 @@ export function VideoAiPanel({
 
   const isGenerateDisabled = useMemo(() => {
     if (!selectedFeature || !selectedVariant) return true
+    const vc = VIDEO_VARIANT_CONSTRAINTS[selectedVariant.id]
+    const hasImage = Boolean(upstreamImages?.length)
+    const hasAudio = Boolean(upstreamAudioUrl)
+    if (vc?.requiresImage && !hasImage) return true
+    if (vc?.requiresAudio && !hasAudio) return true
     return false
-  }, [selectedFeature, selectedVariant])
+  }, [selectedFeature, selectedVariant, upstreamImages, upstreamAudioUrl])
 
   /** Build VideoGenerateParams from the current state. */
-  const buildParams = useCallback((): VideoGenerateParams => {
+  const buildParams = useCallback(async (): Promise<VideoGenerateParams> => {
     const p = latestParams.current
     const promptValue =
       (p.params?.prompt as string) ??
       (p.inputs?.prompt as string) ??
       ''
 
+    // Upload all media inputs to public URLs before sending to server
+    const resolvedInputs = await resolveAllMediaInputs(p.inputs, boardId)
+
     return {
       feature: selectedFeatureId,
       variant: selectedVariantId,
-      inputs: p.inputs,
+      inputs: resolvedInputs,
       params: p.params,
       count: p.count,
       seed: p.seed,
@@ -207,13 +227,13 @@ export function VideoAiPanel({
       quality: (p.params?.quality as string) ?? undefined,
       mode: (p.params?.mode as string) ?? undefined,
     }
-  }, [selectedFeatureId, selectedVariantId, selectedVariant])
+  }, [selectedFeatureId, selectedVariantId, selectedVariant, boardId])
 
-  const handleGenerate = useCallback(() => {
+  const handleGenerate = useCallback(async () => {
     if (isGenerating) return
     setIsGenerating(true)
 
-    const params = buildParams()
+    const params = await buildParams()
 
     const config: AiGenerateConfig = {
       feature: params.feature as AiGenerateConfig['feature'],
@@ -229,11 +249,11 @@ export function VideoAiPanel({
     setTimeout(() => setIsGenerating(false), 300)
   }, [isGenerating, buildParams, onUpdate, onGenerate])
 
-  const handleGenerateNew = useCallback(() => {
+  const handleGenerateNew = useCallback(async () => {
     if (isGenerating) return
     setIsGenerating(true)
 
-    const params = buildParams()
+    const params = await buildParams()
     onGenerateNewNode?.(params)
     setTimeout(() => setIsGenerating(false), 300)
   }, [isGenerating, buildParams, onGenerateNewNode])
@@ -245,10 +265,14 @@ export function VideoAiPanel({
     () => ({
       textContent: upstreamText,
       images: upstreamImages,
+      imagePaths: upstreamImagePaths,
       audioUrl: upstreamAudioUrl,
       videoUrl: upstreamVideoUrl,
+      boardId,
+      projectId,
+      boardFolderUri,
     }),
-    [upstreamText, upstreamImages, upstreamAudioUrl, upstreamVideoUrl],
+    [upstreamText, upstreamImages, upstreamImagePaths, upstreamAudioUrl, upstreamVideoUrl, boardId, projectId, boardFolderUri],
   )
 
   // ── Resolve variant form component ──
@@ -353,11 +377,25 @@ export function VideoAiPanel({
         onCancelEdit={onCancelEdit}
         creditsPerCall={selectedVariant?.creditsPerCall}
         warningMessage={variantWarning}
-        variants={selectedFeature?.variants?.map((v) => ({
-          id: v.id,
-          displayName: t(`v3.variants.${v.id}`, { defaultValue: v.displayName }),
-          creditsPerCall: v.creditsPerCall,
-        }))}
+        variants={selectedFeature?.variants?.map((v) => {
+          const vc = VIDEO_VARIANT_CONSTRAINTS[v.id]
+          const hasImage = Boolean(upstreamImages?.length)
+          const hasAudio = Boolean(upstreamAudioUrl)
+          const needsImage = vc?.requiresImage && !hasImage
+          const needsAudio = vc?.requiresAudio && !hasAudio
+          const incompatible = needsImage || needsAudio
+          return {
+            id: v.id,
+            displayName: t(`v3.variants.${v.id}`, { defaultValue: v.displayName }),
+            creditsPerCall: v.creditsPerCall,
+            incompatible,
+            incompatibleReason: needsImage
+              ? t('v3.constraints.requiresImage', { defaultValue: '需要输入图片' })
+              : needsAudio
+                ? t('v3.constraints.requiresAudio', { defaultValue: '需要输入音频' })
+                : undefined,
+          }
+        })}
         selectedVariantId={selectedVariant?.id ?? undefined}
         onVariantChange={setSelectedVariantId}
       />

@@ -10,6 +10,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { VariantFormProps } from '../types'
+import { toMediaInput } from '../shared'
 
 const SCALE_OPTIONS = [2, 4] as const
 
@@ -23,6 +24,7 @@ export function UpscaleQwenVariant({
   variant,
   upstream,
   nodeResourceUrl,
+  nodeResourcePath,
   disabled,
   onParamsChange,
   onWarningChange,
@@ -34,6 +36,9 @@ export function UpscaleQwenVariant({
   useEffect(() => { setImgLoadFailed(false) }, [rawSourceUrl])
   const sourceUrl = imgLoadFailed ? undefined : rawSourceUrl
 
+  // Raw path for API submission
+  const sourcePath = nodeResourcePath ?? upstream.imagePaths?.[0]
+
   const [scale, setScale] = useState<(typeof SCALE_OPTIONS)[number]>(2)
 
   // Report blocking warning to parent
@@ -44,13 +49,13 @@ export function UpscaleQwenVariant({
   const sync = useCallback(() => {
     onParamsChange({
       inputs: {
-        ...(sourceUrl ? { image: { url: sourceUrl } } : {}),
+        ...(sourcePath ? { image: toMediaInput(sourcePath) } : {}),
       },
       params: {
         scale,
       },
     })
-  }, [sourceUrl, scale, onParamsChange])
+  }, [sourcePath, scale, onParamsChange])
 
   useEffect(() => { sync() }, [sync])
 

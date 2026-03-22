@@ -583,17 +583,15 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
               <div
                 className={`relative flex h-36 items-center justify-center bg-gradient-to-br ${CARD_GRADIENTS[gradientIndex]}`}
               >
-                <div className="flex flex-col items-center gap-2.5 opacity-40">
+                <div className="flex flex-col items-center gap-2 px-4 text-center">
                   {project.icon ? (
-                    <span className="text-4xl leading-none">{project.icon}</span>
+                    <span className="text-3xl leading-none">{project.icon}</span>
                   ) : (
-                    <FolderOpen className="h-8 w-8" />
+                    <FolderOpen className="h-7 w-7 opacity-40" />
                   )}
-                  <div className="flex gap-1">
-                    <div className="h-1.5 w-6 rounded-full bg-current opacity-30" />
-                    <div className="h-1.5 w-4 rounded-full bg-current opacity-20" />
-                    <div className="h-1.5 w-8 rounded-full bg-current opacity-25" />
-                  </div>
+                  <span className="line-clamp-2 text-sm font-semibold leading-snug">
+                    {project.title || t("projectListPage.untitled")}
+                  </span>
                 </div>
 
                 {/* Badges */}
@@ -716,23 +714,13 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
               </div>
 
               {/* Info area */}
-              <div className="flex flex-col gap-1 px-3.5 py-2.5">
-                <span className="flex items-center gap-1.5 truncate text-base font-semibold">
-                  {project.icon && (
-                    <span className="text-base leading-none shrink-0">
-                      {project.icon}
-                    </span>
-                  )}
-                  {project.title || t("projectListPage.untitled")}
-                </span>
-                <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground/60">
-                  <span className="truncate">{displayPath?.split('/').pop() || displayPath}</span>
-                  {childCount > 0 && (
-                    <span className="shrink-0">
-                      {t("projectListPage.childCount", { count: childCount })}
-                    </span>
-                  )}
-                </div>
+              <div className="flex items-center justify-between gap-2 px-3.5 py-2 text-[11px] text-muted-foreground/60">
+                <span className="truncate">{displayPath?.split('/').pop() || displayPath}</span>
+                {childCount > 0 && (
+                  <span className="shrink-0">
+                    {t("projectListPage.childCount", { count: childCount })}
+                  </span>
+                )}
               </div>
             </motion.div>
           </ContextMenuTrigger>

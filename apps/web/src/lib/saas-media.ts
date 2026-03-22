@@ -16,7 +16,7 @@ type FetchMediaModelsOptions = {
 };
 
 /** Build auth headers for SaaS proxy. */
-async function buildAuthHeaders(): Promise<Record<string, string>> {
+export async function buildAuthHeaders(): Promise<Record<string, string>> {
   const token = await getAccessToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
 }

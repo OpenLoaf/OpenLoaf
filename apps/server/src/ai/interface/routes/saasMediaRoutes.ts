@@ -19,7 +19,12 @@ import {
   pollV3TaskProxy,
   cancelV3TaskProxy,
   pollV3TaskGroupProxy,
+  uploadOrInlineBuffer,
+  MEDIA_TYPE_MAP,
 } from "@/modules/saas/modules/media/mediaProxy";
+import { resolveBoardDirFromDb } from "@openloaf/api/common/boardPaths";
+import { promises as fsPromises } from "node:fs";
+import nodePath from "node:path";
 
 type SaasErrorPayload = {
   /** Marks response as failure. */
@@ -149,6 +154,75 @@ export function registerSaasMediaRoutes(app: Hono): void {
   app.get("/ai/v3/task-group/:groupId", async (c) => {
     return handleSaasMediaRoute(c, async (accessToken) => {
       return pollV3TaskGroupProxy(c.req.param("groupId"), accessToken);
+    });
+  });
+
+  app.post("/ai/v3/media/upload", async (c) => {
+    return handleSaasMediaRoute(c, async (accessToken) => {
+      const contentType = c.req.header("content-type") || "";
+
+      // JSON body: { path, boardId }
+      if (contentType.includes("application/json")) {
+        const body = await c.req.json().catch(() => null);
+        if (!body) {
+          return { success: false, message: "Invalid JSON body" };
+        }
+        const inputPath = typeof body.path === "string" ? body.path.trim() : "";
+        const boardId = typeof body.boardId === "string" ? body.boardId.trim() : "";
+        if (!inputPath || !boardId) {
+          return { success: false, message: "path and boardId are required" };
+        }
+        if (inputPath.includes("..")) {
+          return { success: false, message: "Invalid file path" };
+        }
+        const boardResult = await resolveBoardDirFromDb(boardId);
+        if (!boardResult) {
+          return { success: false, message: "Board not found" };
+        }
+        const absPath = nodePath.resolve(boardResult.absDir, inputPath);
+        if (!absPath.startsWith(nodePath.resolve(boardResult.absDir) + nodePath.sep)) {
+          return { success: false, message: "Invalid file path" };
+        }
+        try {
+          const buffer = await fsPromises.readFile(absPath);
+          const ext = nodePath.extname(absPath).toLowerCase();
+          const mediaType = MEDIA_TYPE_MAP[ext] || "application/octet-stream";
+          const result = await uploadOrInlineBuffer(
+            Buffer.from(buffer),
+            nodePath.basename(absPath),
+            mediaType,
+            {},
+            accessToken,
+          );
+          return { success: true, data: result };
+        } catch (err) {
+          logger.warn({ err, absPath }, "Failed to read board asset file for upload");
+          return { success: false, message: "File not found or unreadable" };
+        }
+      }
+
+      // Multipart: file upload
+      let formData: Record<string, unknown>;
+      try {
+        formData = await c.req.parseBody();
+      } catch {
+        return { success: false, message: "Invalid multipart body" };
+      }
+      const file = formData.file;
+      if (!file || typeof file === "string") {
+        return { success: false, message: "file field is required" };
+      }
+      const fileObj = file as File;
+      const buffer = Buffer.from(await fileObj.arrayBuffer());
+      const mediaType = fileObj.type || "application/octet-stream";
+      const result = await uploadOrInlineBuffer(
+        buffer,
+        fileObj.name || "upload",
+        mediaType,
+        {},
+        accessToken,
+      );
+      return { success: true, data: result };
     });
   });
 }

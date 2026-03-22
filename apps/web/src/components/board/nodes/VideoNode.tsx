@@ -680,14 +680,17 @@ export function VideoNodeView({
 
     const refs = primaryEntry?.input?.upstreamRefs;
     if (primaryEntry?.status === 'ready' && refs && refs.length > 0) {
+      const rawPaths = refs.filter(r => r.nodeType === 'image').map(r => r.data).filter(Boolean);
       return {
         text: refs.filter(r => r.nodeType === 'text').map(r => r.data).join('\n') || undefined,
-        images: resolveImages(refs.filter(r => r.nodeType === 'image').map(r => r.data)),
+        images: resolveImages(rawPaths),
+        imagePaths: rawPaths,
       };
     }
     return {
       text: upstream?.textList.join('\n') || undefined,
       images: resolveImages(upstream?.imageList),
+      imagePaths: upstream?.imageList?.filter(Boolean),
     };
   }, [primaryEntry, upstream, fileContext]);
 
@@ -1238,6 +1241,10 @@ export function VideoNodeView({
             onGenerateNewNode={handleGenerateNewNode}
             upstreamText={effectiveUpstream.text}
             upstreamImages={effectiveUpstream.images}
+            upstreamImagePaths={effectiveUpstream.imagePaths}
+            boardId={fileContext?.boardId}
+            projectId={fileContext?.projectId}
+            boardFolderUri={fileContext?.boardFolderUri}
             readonly={(isReadyFromAi || !!generatingEntry) && !editingOverride}
             editing={editingOverride}
             onUnlock={() => setEditingOverride(true)}

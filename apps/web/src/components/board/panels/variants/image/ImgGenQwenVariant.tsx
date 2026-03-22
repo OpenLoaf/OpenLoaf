@@ -9,25 +9,22 @@
  */
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ImageIcon } from 'lucide-react'
 import type { VariantFormProps } from '../types'
 import { BOARD_GENERATE_INPUT } from '../../../ui/board-style-system'
 import { IMAGE_GENERATE_ASPECT_RATIO_OPTIONS } from '../../../nodes/node-config'
-import { MediaSlot, PillSelect, UpstreamTextBadge } from '../shared'
+import { PillSelect, UpstreamTextBadge } from '../shared'
 
 const QUALITY_OPTIONS = ['standard', 'hd'] as const
 type Quality = (typeof QUALITY_OPTIONS)[number]
 
 const COUNT_OPTIONS = [1, 2, 4] as const
 
-/** Max total reference images (upstream + manual). */
-const MAX_REF_IMAGES = 10
-
 /**
  * Variant form for img-gen-qwen (百炼文生图).
  *
- * Inputs: prompt, images (reference), mask
- * Params: negativePrompt, style, aspectRatio, quality, count, upstreamModelId
+ * Pure text-to-image — does NOT accept image input.
+ * Inputs: prompt
+ * Params: negativePrompt, aspectRatio, quality, count
  */
 export function ImgGenQwenVariant({
   variant,
@@ -45,12 +42,6 @@ export function ImgGenQwenVariant({
   const [count, setCount] = useState(1)
   const [showNegative, setShowNegative] = useState(false)
 
-  // Manual upload images managed locally by the variant
-  const [manualImages, setManualImages] = useState<string[]>([])
-
-  // Combine upstream + manual images
-  const allImages = [...(upstream.images ?? []), ...manualImages]
-
   // Report warning when prompt is empty (required for Qwen text-to-image).
   useEffect(() => {
     onWarningChange?.(!prompt.trim()
@@ -62,9 +53,6 @@ export function ImgGenQwenVariant({
     onParamsChange({
       inputs: {
         prompt,
-        ...(allImages.length
-          ? { images: allImages.map(url => ({ url })) }
-          : {}),
       },
       params: {
         ...(negativePrompt ? { negativePrompt } : {}),
@@ -73,48 +61,12 @@ export function ImgGenQwenVariant({
       },
       count,
     })
-  }, [prompt, negativePrompt, aspectRatio, quality, count, allImages.length, onParamsChange]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [prompt, negativePrompt, aspectRatio, quality, count, onParamsChange])
 
   useEffect(() => { sync() }, [sync])
 
   return (
     <div className="flex flex-col gap-2">
-      {/* ── Reference image slots ── */}
-      <div className="flex flex-wrap items-end gap-2">
-        {/* Upstream images (read-only) */}
-        {(upstream.images ?? []).map((src, idx) => (
-          <MediaSlot
-            key={`up-${idx}`}
-            label={t('v3.params.image', { defaultValue: 'Reference' })}
-            src={src}
-            disabled={disabled}
-          />
-        ))}
-        {/* Manual upload images (removable) */}
-        {manualImages.map((src, idx) => (
-          <MediaSlot
-            key={`man-${idx}`}
-            label={t('v3.params.image', { defaultValue: 'Reference' })}
-            src={src}
-            disabled={disabled}
-            onRemove={() =>
-              setManualImages(prev => prev.filter((_, i) => i !== idx))
-            }
-          />
-        ))}
-        {/* Add slot */}
-        {!disabled && allImages.length < MAX_REF_IMAGES ? (
-          <MediaSlot
-            label={t('v3.common.uploadImage', { defaultValue: 'Upload' })}
-            icon={<ImageIcon size={16} />}
-            disabled={disabled}
-            onUpload={(dataUrl) =>
-              setManualImages(prev => [...prev, dataUrl])
-            }
-          />
-        ) : null}
-      </div>
-
       {/* ── Prompt ── */}
       <div className="flex flex-col gap-1">
         {upstream.textContent ? <UpstreamTextBadge text={upstream.textContent} /> : null}

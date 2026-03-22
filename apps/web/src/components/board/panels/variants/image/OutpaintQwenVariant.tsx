@@ -10,6 +10,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { VariantFormProps } from '../types'
+import { toMediaInput } from '../shared'
 
 /**
  * Variant form for outpaint-qwen (百炼扩图).
@@ -21,6 +22,7 @@ export function OutpaintQwenVariant({
   variant,
   upstream,
   nodeResourceUrl,
+  nodeResourcePath,
   disabled,
   onParamsChange,
   onWarningChange,
@@ -31,6 +33,9 @@ export function OutpaintQwenVariant({
   const [imgLoadFailed, setImgLoadFailed] = useState(false)
   useEffect(() => { setImgLoadFailed(false) }, [rawSourceUrl])
   const sourceUrl = imgLoadFailed ? undefined : rawSourceUrl
+
+  // Raw path for API submission
+  const sourcePath = nodeResourcePath ?? upstream.imagePaths?.[0]
 
   const [xScale, setXScale] = useState(1.5)
   const [yScale, setYScale] = useState(1.5)
@@ -43,14 +48,14 @@ export function OutpaintQwenVariant({
   const sync = useCallback(() => {
     onParamsChange({
       inputs: {
-        ...(sourceUrl ? { image: { url: sourceUrl } } : {}),
+        ...(sourcePath ? { image: toMediaInput(sourcePath) } : {}),
       },
       params: {
         xScale,
         yScale,
       },
     })
-  }, [sourceUrl, xScale, yScale, onParamsChange])
+  }, [sourcePath, xScale, yScale, onParamsChange])
 
   useEffect(() => { sync() }, [sync])
 

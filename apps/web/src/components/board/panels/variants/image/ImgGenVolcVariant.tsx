@@ -13,7 +13,7 @@ import { ImageIcon } from 'lucide-react'
 import type { VariantFormProps } from '../types'
 import { BOARD_GENERATE_INPUT } from '../../../ui/board-style-system'
 import { IMAGE_GENERATE_ASPECT_RATIO_OPTIONS } from '../../../nodes/node-config'
-import { MediaSlot, PillSelect, UpstreamTextBadge } from '../shared'
+import { MediaSlot, PillSelect, UpstreamTextBadge, toMediaInput } from '../shared'
 
 const QUALITY_OPTIONS = ['standard', 'hd'] as const
 type Quality = (typeof QUALITY_OPTIONS)[number]
@@ -30,6 +30,7 @@ const MAX_REF_IMAGES = 10
 export function ImgGenVolcVariant({
   variant,
   upstream,
+  nodeResourcePath,
   disabled,
   onParamsChange,
 }: VariantFormProps) {
@@ -40,17 +41,24 @@ export function ImgGenVolcVariant({
   const [quality, setQuality] = useState<Quality>('standard')
   const [style, setStyle] = useState('')
 
-  // Manual upload images managed locally by the variant
+  // Manual upload images managed locally by the variant (board-relative paths or data URLs)
   const [manualImages, setManualImages] = useState<string[]>([])
 
-  // Combine upstream + manual images
-  const allImages = [...(upstream.images ?? []), ...manualImages]
+  const nodeImage = nodeResourcePath?.trim() || ''
+  // For display: resolved URLs (upstream.images) + manual images
+  const displayImages = [...(upstream.images ?? []), ...manualImages]
+  // For API submission: raw paths (当前节点图片优先 + 上游 + 手动上传)
+  const apiImages = [
+    ...(nodeImage ? [nodeImage] : []),
+    ...(upstream.imagePaths ?? upstream.images ?? []),
+    ...manualImages,
+  ]
 
   const sync = useCallback(() => {
     onParamsChange({
       inputs: {
-        ...(allImages.length
-          ? { images: allImages.map(url => ({ url })) }
+        ...(apiImages.length
+          ? { images: apiImages.map(src => toMediaInput(src)) }
           : {}),
       },
       params: {
@@ -60,7 +68,7 @@ export function ImgGenVolcVariant({
         quality,
       },
     })
-  }, [prompt, style, aspectRatio, quality, allImages.length, onParamsChange]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [prompt, style, aspectRatio, quality, apiImages.length, onParamsChange]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { sync() }, [sync])
 
@@ -75,6 +83,8 @@ export function ImgGenVolcVariant({
             label={t('v3.params.image', { defaultValue: 'Reference' })}
             src={src}
             disabled={disabled}
+            boardId={upstream.boardId}
+            projectId={upstream.projectId}
           />
         ))}
         {/* Manual upload images (removable) */}
@@ -84,19 +94,24 @@ export function ImgGenVolcVariant({
             label={t('v3.params.image', { defaultValue: 'Reference' })}
             src={src}
             disabled={disabled}
+            boardId={upstream.boardId}
+            projectId={upstream.projectId}
             onRemove={() =>
               setManualImages(prev => prev.filter((_, i) => i !== idx))
             }
           />
         ))}
         {/* Add slot */}
-        {!disabled && allImages.length < MAX_REF_IMAGES ? (
+        {!disabled && displayImages.length < MAX_REF_IMAGES ? (
           <MediaSlot
             label={t('v3.common.uploadImage', { defaultValue: 'Upload' })}
             icon={<ImageIcon size={16} />}
             disabled={disabled}
-            onUpload={(dataUrl) =>
-              setManualImages(prev => [...prev, dataUrl])
+            boardId={upstream.boardId}
+            projectId={upstream.projectId}
+            boardFolderUri={upstream.boardFolderUri}
+            onUpload={(value) =>
+              setManualImages(prev => [...prev, value])
             }
           />
         ) : null}

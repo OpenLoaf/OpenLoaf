@@ -8,12 +8,21 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import type { ComponentType } from 'react'
-import type { VariantFormProps } from '../types'
+import type { VariantFormProps, VariantInputConstraints } from '../types'
 import { VidGenQwenVariant } from './VidGenQwenVariant'
 import { VidGenVolcVariant } from './VidGenVolcVariant'
 import { VidGenKlingVariant } from './VidGenKlingVariant'
 import { LipSyncVolcVariant } from './LipSyncVolcVariant'
 import { LipSyncKlingVariant } from './LipSyncKlingVariant'
+
+/** Input constraints for each video variant. */
+export const VIDEO_VARIANT_CONSTRAINTS: Record<string, VariantInputConstraints> = {
+  'vid-gen-qwen': { requiresImage: true }, // first frame required
+  'vid-gen-volc': {}, // first frame optional
+  'vid-gen-kling': {}, // first frame optional
+  'lip-sync-volc': { requiresImage: true, requiresAudio: true },
+  'lip-sync-kling': { requiresImage: true, requiresAudio: true },
+}
 
 /** Registry mapping variant ids to their form components. */
 export const VIDEO_VARIANT_REGISTRY: Record<string, ComponentType<VariantFormProps>> = {

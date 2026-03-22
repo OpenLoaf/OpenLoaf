@@ -11,7 +11,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Music, User } from 'lucide-react'
 import type { VariantFormProps } from '../types'
-import { MediaSlot } from '../shared'
+import { MediaSlot, toMediaInput } from '../shared'
 
 /**
  * lip-sync-volc (即梦口型) variant form.
@@ -34,11 +34,17 @@ export function LipSyncVolcVariant({
   const [manualPersonSrc, setManualPersonSrc] = useState<string | undefined>()
   const [manualAudioSrc, setManualAudioSrc] = useState<string | undefined>()
 
+  // For display (resolved URLs)
   const upstreamPerson = upstream.images?.[0] ?? nodeResourceUrl
   const upstreamAudio = upstream.audioUrl
 
   const personUrl = upstreamPerson ?? manualPersonSrc
   const audioUrl = upstreamAudio ?? manualAudioSrc
+
+  // For API submission (raw paths)
+  const upstreamPersonPath = upstream.imagePaths?.[0]
+  const personPath = upstreamPersonPath ?? manualPersonSrc
+  const audioPath = upstreamAudio ?? manualAudioSrc
   const hasPerson = Boolean(personUrl)
   const hasAudio = Boolean(audioUrl)
 
@@ -58,18 +64,18 @@ export function LipSyncVolcVariant({
   // Sync params to parent on any change.
   useEffect(() => {
     const inputs: Record<string, unknown> = {}
-    if (personUrl) {
-      inputs.person = { url: personUrl }
+    if (personPath) {
+      inputs.person = toMediaInput(personPath)
     }
-    if (audioUrl) {
-      inputs.audio = { url: audioUrl }
+    if (audioPath) {
+      inputs.audio = toMediaInput(audioPath)
     }
 
     onParamsChange({
       inputs,
       params: {},
     })
-  }, [personUrl, audioUrl, onParamsChange])
+  }, [personPath, audioPath, onParamsChange])
 
   return (
     <div className="flex flex-col gap-2.5">
@@ -81,8 +87,11 @@ export function LipSyncVolcVariant({
           src={personUrl}
           required
           disabled={disabled}
+          boardId={upstream.boardId}
+          projectId={upstream.projectId}
+          boardFolderUri={upstream.boardFolderUri}
           onUpload={!upstreamPerson
-            ? (dataUrl) => setManualPersonSrc(dataUrl)
+            ? (value) => setManualPersonSrc(value)
             : undefined}
           onRemove={manualPersonSrc
             ? () => setManualPersonSrc(undefined)
@@ -95,8 +104,11 @@ export function LipSyncVolcVariant({
           required
           disabled={disabled}
           uploadAccept="audio/*"
+          boardId={upstream.boardId}
+          projectId={upstream.projectId}
+          boardFolderUri={upstream.boardFolderUri}
           onUpload={!upstreamAudio
-            ? (dataUrl) => setManualAudioSrc(dataUrl)
+            ? (value) => setManualAudioSrc(value)
             : undefined}
           onRemove={manualAudioSrc
             ? () => setManualAudioSrc(undefined)

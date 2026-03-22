@@ -180,7 +180,8 @@ export const BUILTIN_SKILLS: BuiltinSkill[] = [
     content: stripFrontMatter(mediaOpsMd),
     icon: '🎬',
     colorIndex: 6,
-    tools: ['image-generate', 'image-process', 'video-generate', 'video-convert', 'video-download', 'list-media-models'],
+    // image-generate / video-generate / list-media-models 暂时关闭（v1 API 已废弃，画布已迁移到 v3）
+    tools: ['image-process', 'video-convert', 'video-download'],
   },
   {
     name: 'visualization-ops',

@@ -15,7 +15,7 @@ import {
   VIDEO_GENERATE_ASPECT_RATIO_OPTIONS,
 } from '../../../nodes/node-config'
 import type { VariantFormProps } from '../types'
-import { MediaSlot, PillSelect, UpstreamTextBadge } from '../shared'
+import { MediaSlot, PillSelect, UpstreamTextBadge, toMediaInput } from '../shared'
 
 /** Kling mode options. */
 const KLING_MODES = ['std', 'pro'] as const
@@ -48,8 +48,13 @@ export function VidGenKlingVariant({
   // Manual upload for first frame (only if no upstream source)
   const [manualFirstFrame, setManualFirstFrame] = useState<string | undefined>()
 
+  // For display (resolved URL)
   const upstreamFirstFrame = upstream.images?.[0] ?? nodeResourceUrl
   const firstFrameUrl = upstreamFirstFrame ?? manualFirstFrame
+
+  // For API submission (raw path)
+  const upstreamFirstFramePath = upstream.imagePaths?.[0]
+  const firstFramePath = upstreamFirstFramePath ?? manualFirstFrame
 
   // Report warning when prompt is empty (required for Kling video).
   useEffect(() => {
@@ -63,8 +68,8 @@ export function VidGenKlingVariant({
     const inputs: Record<string, unknown> = {
       prompt,
     }
-    if (firstFrameUrl) {
-      inputs.image = { url: firstFrameUrl }
+    if (firstFramePath) {
+      inputs.image = toMediaInput(firstFramePath)
     }
 
     onParamsChange({
@@ -75,7 +80,7 @@ export function VidGenKlingVariant({
         aspectRatio: aspectRatio !== 'auto' ? aspectRatio : '16:9',
       },
     })
-  }, [prompt, mode, aspectRatio, firstFrameUrl, onParamsChange])
+  }, [prompt, mode, aspectRatio, firstFramePath, onParamsChange])
 
   return (
     <div className="flex flex-col gap-2.5">
@@ -86,8 +91,11 @@ export function VidGenKlingVariant({
           icon={<ImagePlus size={16} />}
           src={firstFrameUrl}
           disabled={disabled}
+          boardId={upstream.boardId}
+          projectId={upstream.projectId}
+          boardFolderUri={upstream.boardFolderUri}
           onUpload={!upstreamFirstFrame
-            ? (dataUrl) => setManualFirstFrame(dataUrl)
+            ? (value) => setManualFirstFrame(value)
             : undefined}
           onRemove={manualFirstFrame
             ? () => setManualFirstFrame(undefined)

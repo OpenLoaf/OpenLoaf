@@ -21,6 +21,10 @@ export type GenerateActionVariant = {
   id: string
   displayName: string
   creditsPerCall: number
+  /** When true, variant is incompatible with current node state. */
+  incompatible?: boolean
+  /** Human-readable reason for incompatibility. */
+  incompatibleReason?: string
 }
 
 export type GenerateActionBarProps = {
@@ -217,11 +221,17 @@ export function GenerateActionBar({
                 <button
                   key={v.id}
                   type="button"
+                  disabled={v.incompatible}
+                  title={v.incompatibleReason}
                   className={[
-                    'flex items-center justify-between px-3 py-1.5 text-[11px] transition-colors hover:bg-foreground/5',
+                    'flex items-center justify-between px-3 py-1.5 text-[11px] transition-colors',
+                    v.incompatible
+                      ? 'opacity-40 cursor-not-allowed'
+                      : 'hover:bg-foreground/5',
                     selectedVariantId === v.id ? 'text-foreground font-medium' : 'text-muted-foreground',
                   ].join(' ')}
                   onClick={() => {
+                    if (v.incompatible) return
                     onVariantChange(v.id)
                     setShowVariantDropdown(false)
                   }}

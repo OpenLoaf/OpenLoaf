@@ -7,9 +7,11 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import { useState, useRef, type ReactNode } from 'react'
+import { useState, useRef, useMemo, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { Link2, Plus, X } from 'lucide-react'
+import { saveBoardAssetFile } from '../../../utils/board-asset'
+import { getBoardPreviewEndpoint } from '@/lib/image/uri'
 
 export type MediaSlotProps = {
   /** Label shown below the slot. */
@@ -22,14 +24,20 @@ export type MediaSlotProps = {
   required?: boolean
   /** Whether the slot accepts file upload on click. */
   uploadAccept?: string
-  /** Called when user uploads a file (returns data URL). */
-  onUpload?: (dataUrl: string) => void
+  /** Called when user uploads a file (returns board-relative path or data URL as fallback). */
+  onUpload?: (value: string) => void
   /** Called when the slot content is removed. */
   onRemove?: () => void
   /** Whether the slot is disabled. */
   disabled?: boolean
   /** Compact size (44px instead of 52px). */
   compact?: boolean
+  /** Board id for preview resolution. */
+  boardId?: string
+  /** Project id for preview resolution. */
+  projectId?: string
+  /** Board folder URI for saving uploaded files to asset directory. */
+  boardFolderUri?: string
 }
 
 export function MediaSlot({
@@ -42,6 +50,9 @@ export function MediaSlot({
   onRemove,
   disabled,
   compact,
+  boardId,
+  projectId,
+  boardFolderUri,
 }: MediaSlotProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const slotRef = useRef<HTMLDivElement>(null)
@@ -56,18 +67,45 @@ export function MediaSlot({
     if (imgFailed) setImgFailed(false)
   }
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+    e.target.value = ''
+
+    if (boardFolderUri) {
+      try {
+        const relativePath = await saveBoardAssetFile({
+          file,
+          fallbackName: 'upload',
+          projectId,
+          boardFolderUri,
+        })
+        onUpload?.(relativePath)
+        return
+      } catch {
+        // fallback to data URL below
+      }
+    }
+
+    // Fallback: read as data URL
     const reader = new FileReader()
     reader.onload = () => {
       if (typeof reader.result === 'string') onUpload?.(reader.result)
     }
     reader.readAsDataURL(file)
-    e.target.value = ''
   }
 
-  const hasSrc = src && !imgFailed
+  /** Resolve src to a displayable URL. Board-relative paths need server preview endpoint. */
+  const displaySrc = useMemo(() => {
+    if (!src) return undefined
+    // data URL, http(s) URL, or blob URL — use directly
+    if (/^(data:|https?:|blob:)/i.test(src)) return src
+    // Board-relative path — resolve via board preview endpoint
+    if (boardId) return getBoardPreviewEndpoint(src, { boardId, projectId })
+    return src
+  }, [src, boardId, projectId])
+
+  const hasSrc = displaySrc && !imgFailed
   const size = compact ? 'h-[44px] w-[44px]' : 'h-[52px] w-[52px]'
 
   return (
@@ -95,7 +133,7 @@ export function MediaSlot({
       >
         {hasSrc ? (
           <img
-            src={src}
+            src={displaySrc}
             alt={label}
             className="h-full w-full object-cover"
             draggable={false}
@@ -157,7 +195,7 @@ export function MediaSlot({
           }}
         >
           <img
-            src={src}
+            src={displaySrc}
             alt={label}
             className="max-h-40 max-w-48 rounded-lg border border-border object-contain shadow-lg"
             draggable={false}

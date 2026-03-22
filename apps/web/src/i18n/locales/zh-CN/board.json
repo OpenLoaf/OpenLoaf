@@ -976,7 +976,7 @@
       "imageInpaint": "涂抹修改",
       "imageStyleTransfer": "风格迁移",
       "outpaint": "扩图",
-      "upscale": "超分辨率",
+      "upscale": "超清",
       "videoGenerate": "视频生成",
       "lipSync": "口型同步",
       "tts": "语音合成",
@@ -992,7 +992,7 @@
       "img-inpaint-volc": "即梦涂抹修改",
       "img-style-volc": "即梦风格迁移",
       "outpaint-qwen": "百炼扩图",
-      "upscale-qwen": "百炼超分辨率",
+      "upscale-qwen": "百炼超清",
       "upscale-volc": "即梦智能超清",
       "vid-gen-qwen": "百炼视频",
       "vid-gen-volc": "即梦视频",
@@ -1047,7 +1047,7 @@
       "needsStyleImage": "风格迁移需要一张源图片",
       "stylePromptPlaceholder": "描述要以此风格生成的内容...",
       "scaleFactor": "放大倍数",
-      "upscaleVolcHint": "由云端 AI 提供的高质量超分辨率",
+      "upscaleVolcHint": "由云端 AI 提供的高质量超清",
       "outpaintHint": "倍数 > 1.0 将在该方向扩展图片",
       "textAutoFilled": "已从上游自动填充（{{count}}字）",
       "voices": {
@@ -1093,6 +1093,10 @@
     "warnings": {
       "promptRequired": "请输入提示词",
       "textRequired": "请输入要朗读的文本"
+    },
+    "constraints": {
+      "requiresImage": "需要输入图片",
+      "requiresAudio": "需要输入音频"
     },
     "common": {
       "selectVariant": "选择模型变体",

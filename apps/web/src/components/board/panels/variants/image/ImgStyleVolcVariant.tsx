@@ -13,7 +13,7 @@ import { Paintbrush } from 'lucide-react'
 import type { VariantFormProps } from '../types'
 import { BOARD_GENERATE_INPUT } from '../../../ui/board-style-system'
 import { IMAGE_GENERATE_ASPECT_RATIO_OPTIONS } from '../../../nodes/node-config'
-import { MediaSlot, PillSelect, UpstreamTextBadge } from '../shared'
+import { MediaSlot, PillSelect, UpstreamTextBadge, toMediaInput } from '../shared'
 
 const QUALITY_OPTIONS = ['standard', 'hd'] as const
 type Quality = (typeof QUALITY_OPTIONS)[number]
@@ -28,6 +28,7 @@ export function ImgStyleVolcVariant({
   variant,
   upstream,
   nodeResourceUrl,
+  nodeResourcePath,
   disabled,
   onParamsChange,
   onWarningChange,
@@ -38,16 +39,20 @@ export function ImgStyleVolcVariant({
   const [aspectRatio, setAspectRatio] = useState('auto')
   const [quality, setQuality] = useState<Quality>('standard')
 
-  // Use node's own image or first upstream image as style source
+  // Use node's own image or first upstream image as style source (for display)
   const rawStyleSourceUrl = nodeResourceUrl ?? upstream.images?.[0]
   const [imgLoadFailed, setImgLoadFailed] = useState(false)
   // Reset load failure state when URL changes
   useEffect(() => { setImgLoadFailed(false) }, [rawStyleSourceUrl])
   const styleSourceUrl = imgLoadFailed ? undefined : rawStyleSourceUrl
 
+  // Raw path for API submission (prefer nodeResourcePath, then upstream.imagePaths)
+  const styleSourcePath = nodeResourcePath ?? upstream.imagePaths?.[0]
+
   // Manual upload for style source (only if no upstream/node source)
   const [manualStyleSrc, setManualStyleSrc] = useState<string | undefined>()
   const effectiveStyleUrl = styleSourceUrl ?? manualStyleSrc
+  const effectiveStylePath = styleSourcePath ?? manualStyleSrc
 
   // Report blocking warning to parent
   useEffect(() => {
@@ -57,7 +62,7 @@ export function ImgStyleVolcVariant({
   const sync = useCallback(() => {
     onParamsChange({
       inputs: {
-        ...(effectiveStyleUrl ? { image: { url: effectiveStyleUrl } } : {}),
+        ...(effectiveStylePath ? { image: toMediaInput(effectiveStylePath) } : {}),
       },
       params: {
         prompt,
@@ -65,7 +70,7 @@ export function ImgStyleVolcVariant({
         quality,
       },
     })
-  }, [prompt, aspectRatio, quality, effectiveStyleUrl, onParamsChange])
+  }, [prompt, aspectRatio, quality, effectiveStylePath, onParamsChange])
 
   useEffect(() => { sync() }, [sync])
 
@@ -79,7 +84,10 @@ export function ImgStyleVolcVariant({
           src={effectiveStyleUrl}
           required
           disabled={disabled}
-          onUpload={!styleSourceUrl ? (dataUrl) => setManualStyleSrc(dataUrl) : undefined}
+          boardId={upstream.boardId}
+          projectId={upstream.projectId}
+          boardFolderUri={upstream.boardFolderUri}
+          onUpload={!styleSourceUrl ? (value) => setManualStyleSrc(value) : undefined}
           onRemove={manualStyleSrc ? () => setManualStyleSrc(undefined) : undefined}
         />
       </div>

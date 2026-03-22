@@ -362,6 +362,11 @@ export function ImageNodeView({
       .filter(Boolean) ?? [],
     [upstream?.imageList, fileContext],
   );
+  // Raw board-relative paths for API submission (e.g. "asset/xxx.jpg")
+  const upstreamImagePaths = useMemo(
+    () => upstream?.imageList?.filter(Boolean) ?? [],
+    [upstream?.imageList],
+  );
   const panelOverlay = usePanelOverlay();
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -459,17 +464,18 @@ export function ImageNodeView({
     const refs = primaryEntry?.input?.upstreamRefs;
     if (primaryEntry?.status === 'ready' && refs && refs.length > 0) {
       const text = refs.filter(r => r.nodeType === 'text').map(r => r.data).join('\n') || undefined;
-      const images = refs
-        .filter(r => r.nodeType === 'image')
-        .map(r => resolveImageSource(r.data, fileContext))
+      const rawPaths = refs.filter(r => r.nodeType === 'image').map(r => r.data).filter(Boolean);
+      const images = rawPaths
+        .map(r => resolveImageSource(r, fileContext))
         .filter(Boolean) as string[];
-      return { text, images };
+      return { text, images, imagePaths: rawPaths };
     }
     return {
       text: upstream?.textList.join('\n') || undefined,
       images: resolvedUpstreamImages,
+      imagePaths: upstreamImagePaths,
     };
-  }, [primaryEntry, upstream, resolvedUpstreamImages, fileContext]);
+  }, [primaryEntry, upstream, resolvedUpstreamImages, upstreamImagePaths, fileContext]);
 
   const pollingResult = useMediaTaskPolling({
     taskId: generatingEntry?.taskId,
@@ -497,17 +503,25 @@ export function ImageNodeView({
           });
         })();
         const generatedFileName = savedPath.split('/').pop() || 'image.png';
+        // 从生成快照恢复 aiConfig，确保 prompt 等元数据不丢失
+        const snapshot = generatingEntry.input;
+        const refreshedAiConfig: import("../board-contracts").AiGenerateConfig = {
+          ...(element.props.aiConfig ?? {} as import("../board-contracts").AiGenerateConfig),
+          prompt: snapshot?.prompt || element.props.aiConfig?.prompt || '',
+          taskId: generatingEntry.taskId,
+        };
         onUpdate({
           versionStack: markVersionReady(stack, generatingEntry.id, { urls: resultUrls }),
           previewSrc: '',
           originalSrc: scopedPath,
           fileName: generatedFileName,
+          aiConfig: refreshedAiConfig,
           // 逻辑：重置尺寸以触发 hydration 重新检测新图片的真实宽高并自动调整节点比例。
           naturalWidth: 1,
           naturalHeight: 1,
         });
       },
-      [generatingEntry, element.props.versionStack, onUpdate, fileContext?.projectId],
+      [generatingEntry, element.props.versionStack, element.props.aiConfig, onUpdate, fileContext?.projectId],
     ),
     onFailure: useCallback(
       (error: string) => {
@@ -1281,6 +1295,7 @@ export function ImageNodeView({
             onUpdate={onUpdate}
             upstreamText={effectiveUpstream.text}
             upstreamImages={effectiveUpstream.images}
+            upstreamImagePaths={effectiveUpstream.imagePaths}
             resolvedImageSrc={resolveImageSource(element.props.originalSrc, fileContext) || previewSrc}
             onGenerate={handleGenerate}
             onGenerateNewNode={handleGenerateNewNode}
@@ -1293,6 +1308,9 @@ export function ImageNodeView({
             editing={editingOverride}
             onUnlock={() => setEditingOverride(true)}
             onCancelEdit={() => setEditingOverride(false)}
+            boardId={fileContext?.boardId}
+            projectId={fileContext?.projectId}
+            boardFolderUri={fileContext?.boardFolderUri}
           />
         </div>,
         panelOverlay,

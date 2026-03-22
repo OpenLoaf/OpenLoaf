@@ -27,22 +27,17 @@ const TAB_CONFIGS = [
     inactiveText: 'text-muted-foreground',
     indicator: 'border-t-foreground',
   },
-  {
-    id: 'image',
-    labelKey: 'mode.image' as const,
-    icon: Image,
-    activeText: 'text-foreground',
-    inactiveText: 'text-muted-foreground',
-    indicator: 'border-t-foreground',
-  },
-  {
-    id: 'video',
-    labelKey: 'mode.video' as const,
-    icon: Video,
-    activeText: 'text-foreground',
-    inactiveText: 'text-muted-foreground',
-    indicator: 'border-t-foreground',
-  },
+  // image/video tabs 暂时关闭（v1 models 接口已废弃，待迁移到 v3 capabilities）
+  // {
+  //   id: 'image',
+  //   labelKey: 'mode.image' as const,
+  //   icon: Image,
+  // },
+  // {
+  //   id: 'video',
+  //   labelKey: 'mode.video' as const,
+  //   icon: Video,
+  // },
   {
     id: 'cli',
     label: 'CLI',

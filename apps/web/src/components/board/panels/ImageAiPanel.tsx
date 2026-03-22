@@ -18,13 +18,15 @@ import {
 import { useCapabilities } from '@/hooks/use-capabilities'
 import type { V3Feature, V3Variant } from '@/lib/saas-media'
 import { BRUSH_MIN_SIZE, BRUSH_MAX_SIZE } from '../nodes/MaskPaintOverlay'
+import { resolveAllMediaInputs } from '@/lib/media-upload'
+import { saveBoardAssetFile } from '../utils/board-asset'
 import type { CanvasNodeElement } from '../engine/types'
 import type { ImageNodeProps } from '../nodes/ImageNode'
 import type { AiGenerateConfig } from '../board-contracts'
 import {
   BOARD_GENERATE_INPUT,
 } from '../ui/board-style-system'
-import { IMAGE_VARIANT_REGISTRY, MASK_PAINT_VARIANTS } from './variants/image'
+import { IMAGE_VARIANT_REGISTRY, IMAGE_VARIANT_CONSTRAINTS, MASK_PAINT_VARIANTS } from './variants/image'
 import type { VariantFormProps } from './variants/types'
 import { ResultPagination } from './ResultPagination'
 import { GenerateActionBar } from './GenerateActionBar'
@@ -53,9 +55,16 @@ export type ImageAiPanelProps = {
   element: CanvasNodeElement<ImageNodeProps>
   onUpdate: (patch: Partial<ImageNodeProps>) => void
   upstreamText?: string
+  /** Resolved browser-friendly URLs for display/thumbnails. */
   upstreamImages?: string[]
+  /** Raw board-relative paths for API submission (e.g. "asset/xxx.jpg"). */
+  upstreamImagePaths?: string[]
   /** Resolved browser-friendly source URL for the current image. */
   resolvedImageSrc?: string
+  /** Board context for variant MediaSlot preview resolution & file saving. */
+  boardId?: string
+  projectId?: string
+  boardFolderUri?: string
   /** Callback to trigger actual image generation. */
   onGenerate?: (params: ImageGenerateParams) => void
   /** Callback to generate into a new derived node. */
@@ -137,6 +146,7 @@ export function ImageAiPanel({
   onUpdate,
   upstreamText,
   upstreamImages,
+  upstreamImagePaths,
   resolvedImageSrc,
   onGenerate,
   onGenerateNewNode,
@@ -149,6 +159,9 @@ export function ImageAiPanel({
   editing = false,
   onUnlock,
   onCancelEdit,
+  boardId,
+  projectId,
+  boardFolderUri,
 }: ImageAiPanelProps) {
   const { t } = useTranslation('board')
   const aiConfig = element.props.aiConfig
@@ -251,19 +264,39 @@ export function ImageAiPanel({
   )
 
   /** Build v3-compatible generation params from current state. */
-  const buildParams = useCallback((): ImageGenerateParams => {
+  const buildParams = useCallback(async (): Promise<ImageGenerateParams> => {
     const vp = variantParamsRef.current
     const inputs = { ...vp.inputs }
 
-    // Inject mask data for inpaint variants
-    if (needsMaskPaint && maskResult?.maskDataUrl) {
+    // Inject mask data for inpaint variants — save mask to asset dir first
+    if (needsMaskPaint && maskResult?.maskBlob && boardFolderUri) {
+      const maskFile = new File([maskResult.maskBlob], `mask_${Date.now()}.png`, { type: 'image/png' })
+      try {
+        const maskPath = await saveBoardAssetFile({
+          file: maskFile,
+          fallbackName: 'mask.png',
+          projectId,
+          boardFolderUri,
+        })
+        inputs.mask = { path: maskPath }
+      } catch {
+        // fallback: 保存失败时用 data URL
+        if (maskResult.maskDataUrl) {
+          inputs.mask = { url: maskResult.maskDataUrl }
+        }
+      }
+    } else if (needsMaskPaint && maskResult?.maskDataUrl) {
+      // fallback: 无 boardFolderUri 时用 data URL
       inputs.mask = { url: maskResult.maskDataUrl }
     }
+
+    // Upload all media inputs to public URLs before sending to server
+    const resolvedInputs = await resolveAllMediaInputs(inputs, boardId)
 
     return {
       feature: selectedFeature?.id ?? 'imageGenerate',
       variant: selectedVariant?.id ?? '',
-      inputs,
+      inputs: resolvedInputs,
       params: vp.params,
       count: vp.count,
       seed: vp.seed,
@@ -271,12 +304,12 @@ export function ImageAiPanel({
       prompt: (vp.inputs.prompt as string) ?? (vp.params.prompt as string) ?? '',
       aspectRatio: vp.params.aspectRatio as string | undefined,
     }
-  }, [selectedFeature, selectedVariant, needsMaskPaint, maskResult])
+  }, [selectedFeature, selectedVariant, needsMaskPaint, maskResult, boardFolderUri, projectId, boardId])
 
-  const handleGenerate = useCallback(() => {
+  const handleGenerate = useCallback(async () => {
     if (isGenerating) return
     setIsGenerating(true)
-    const params = buildParams()
+    const params = await buildParams()
     const config: AiGenerateConfig = {
       feature: params.feature as AiGenerateConfig['feature'],
       prompt: params.prompt ?? '',
@@ -290,10 +323,10 @@ export function ImageAiPanel({
     setTimeout(() => setIsGenerating(false), 600)
   }, [isGenerating, buildParams, onUpdate, onGenerate])
 
-  const handleGenerateNewNode = useCallback(() => {
+  const handleGenerateNewNode = useCallback(async () => {
     if (isGenerating) return
     setIsGenerating(true)
-    const params = buildParams()
+    const params = await buildParams()
     // Save current params to aiConfig so the panel can restore them on reopen
     onUpdate({
       aiConfig: {
@@ -312,20 +345,22 @@ export function ImageAiPanel({
     setSelectedVariantId(null) // Reset to first variant of the new feature
   }, [])
 
+  // ── Variant constraints ──
+  const selectedConstraints = selectedVariant
+    ? IMAGE_VARIANT_CONSTRAINTS[selectedVariant.id]
+    : undefined
+
+  /** Whether the selected variant accepts image input. */
+  const variantAcceptsImage = !selectedConstraints?.textOnly
+
   /** Whether generate should be disabled. */
   const isGenerateDisabled = (() => {
     if (!selectedVariant) return true
-    // Inpaint variants require an existing image
-    if (MASK_PAINT_VARIANTS.has(selectedVariant.id) && !resolvedImageSrc) return true
+    const c = IMAGE_VARIANT_CONSTRAINTS[selectedVariant.id]
+    // Constraint-based: variant requires an existing image but none is available
+    if (c?.requiresImage && !resolvedImageSrc && !upstreamImages?.length) return true
     // Inpaint variants also require a painted mask
     if (MASK_PAINT_VARIANTS.has(selectedVariant.id) && !maskResult?.maskDataUrl) return true
-    // Upscale/outpaint variants require a source image
-    if (
-      (selectedVariant.id.startsWith('upscale-') || selectedVariant.id.startsWith('outpaint-'))
-      && !resolvedImageSrc && !upstreamImages?.length
-    ) return true
-    // Style transfer requires a style source
-    if (selectedVariant.id === 'img-style-volc' && !resolvedImageSrc && !upstreamImages?.length) return true
     return false
   })()
 
@@ -342,8 +377,13 @@ export function ImageAiPanel({
 
   const variantUpstream = useMemo(() => ({
     textContent: upstreamText,
-    images: upstreamImages?.length ? upstreamImages : undefined,
-  }), [upstreamText, upstreamImages])
+    // For textOnly variants, strip image data to prevent accidental inclusion
+    images: variantAcceptsImage && upstreamImages?.length ? upstreamImages : undefined,
+    imagePaths: variantAcceptsImage && upstreamImagePaths?.length ? upstreamImagePaths : undefined,
+    boardId,
+    projectId,
+    boardFolderUri,
+  }), [upstreamText, upstreamImages, upstreamImagePaths, boardId, projectId, boardFolderUri, variantAcceptsImage])
 
   // ── Loading / Error fallback ──
   // 逻辑：loading 和 error 不再提前 return，而是渲染在主面板内部，
@@ -459,7 +499,8 @@ export function ImageAiPanel({
         <VariantForm
           variant={selectedVariant}
           upstream={variantUpstream}
-          nodeResourceUrl={resolvedImageSrc}
+          nodeResourceUrl={variantAcceptsImage ? resolvedImageSrc : undefined}
+          nodeResourcePath={variantAcceptsImage ? element.props.originalSrc : undefined}
           disabled={readonly && !editing}
           onParamsChange={handleVariantParamsChange}
           onWarningChange={setVariantWarning}
@@ -489,11 +530,20 @@ export function ImageAiPanel({
         onCancelEdit={onCancelEdit}
         creditsPerCall={selectedVariant?.creditsPerCall}
         warningMessage={effectiveWarning}
-        variants={selectedFeature?.variants?.map((v) => ({
-          id: v.id,
-          displayName: t(`v3.variants.${v.id}`, { defaultValue: v.displayName }),
-          creditsPerCall: v.creditsPerCall,
-        }))}
+        variants={selectedFeature?.variants?.map((v) => {
+          const vc = IMAGE_VARIANT_CONSTRAINTS[v.id]
+          const hasImage = Boolean(resolvedImageSrc || upstreamImages?.length)
+          const needsImage = vc?.requiresImage && !hasImage
+          return {
+            id: v.id,
+            displayName: t(`v3.variants.${v.id}`, { defaultValue: v.displayName }),
+            creditsPerCall: v.creditsPerCall,
+            incompatible: needsImage,
+            incompatibleReason: needsImage
+              ? t('v3.constraints.requiresImage', { defaultValue: '需要输入图片' })
+              : undefined,
+          }
+        })}
         selectedVariantId={selectedVariant?.id}
         onVariantChange={setSelectedVariantId}
       />

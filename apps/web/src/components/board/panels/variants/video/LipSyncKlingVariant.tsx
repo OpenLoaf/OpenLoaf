@@ -11,7 +11,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Music, User } from 'lucide-react'
 import type { VariantFormProps } from '../types'
-import { MediaSlot } from '../shared'
+import { MediaSlot, toMediaInput } from '../shared'
 
 /**
  * lip-sync-kling (可灵口型) variant form.
@@ -31,10 +31,14 @@ export function LipSyncKlingVariant({
   const { t } = useTranslation('board')
 
   // Person input: prefer video from upstream, fall back to image.
+  // For display (resolved URLs)
   const upstreamPersonVideo = upstream.videoUrl
   const upstreamPersonImage = upstream.images?.[0] ?? nodeResourceUrl
   const upstreamPerson = upstreamPersonVideo ?? upstreamPersonImage
   const upstreamAudio = upstream.audioUrl
+
+  // For API submission (raw paths)
+  const upstreamPersonPath = upstream.videoUrl ?? upstream.imagePaths?.[0]
 
   // Manual uploads (only used when no upstream source)
   const [manualPersonSrc, setManualPersonSrc] = useState<string | undefined>()
@@ -42,6 +46,10 @@ export function LipSyncKlingVariant({
 
   const personUrl = upstreamPerson ?? manualPersonSrc
   const audioUrl = upstreamAudio ?? manualAudioSrc
+
+  // API submission paths
+  const personPath = upstreamPersonPath ?? manualPersonSrc
+  const audioPath = upstreamAudio ?? manualAudioSrc
   const hasPerson = Boolean(personUrl)
   const hasAudio = Boolean(audioUrl)
 
@@ -61,18 +69,18 @@ export function LipSyncKlingVariant({
   // Sync params to parent on any change.
   useEffect(() => {
     const inputs: Record<string, unknown> = {}
-    if (personUrl) {
-      inputs.person = { url: personUrl }
+    if (personPath) {
+      inputs.person = toMediaInput(personPath)
     }
-    if (audioUrl) {
-      inputs.audio = { url: audioUrl }
+    if (audioPath) {
+      inputs.audio = toMediaInput(audioPath)
     }
 
     onParamsChange({
       inputs,
       params: {},
     })
-  }, [personUrl, audioUrl, onParamsChange])
+  }, [personPath, audioPath, onParamsChange])
 
   return (
     <div className="flex flex-col gap-2.5">
@@ -85,8 +93,11 @@ export function LipSyncKlingVariant({
           required
           disabled={disabled}
           uploadAccept="image/*,video/*"
+          boardId={upstream.boardId}
+          projectId={upstream.projectId}
+          boardFolderUri={upstream.boardFolderUri}
           onUpload={!upstreamPerson
-            ? (dataUrl) => setManualPersonSrc(dataUrl)
+            ? (value) => setManualPersonSrc(value)
             : undefined}
           onRemove={manualPersonSrc
             ? () => setManualPersonSrc(undefined)
@@ -99,8 +110,11 @@ export function LipSyncKlingVariant({
           required
           disabled={disabled}
           uploadAccept="audio/*"
+          boardId={upstream.boardId}
+          projectId={upstream.projectId}
+          boardFolderUri={upstream.boardFolderUri}
           onUpload={!upstreamAudio
-            ? (dataUrl) => setManualAudioSrc(dataUrl)
+            ? (value) => setManualAudioSrc(value)
             : undefined}
           onRemove={manualAudioSrc
             ? () => setManualAudioSrc(undefined)

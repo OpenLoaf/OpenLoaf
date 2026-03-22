@@ -12,9 +12,30 @@ import type { V3Variant } from '@/lib/saas-media'
 /** Upstream data piped from connected nodes. */
 export interface VariantUpstream {
   textContent?: string
+  /** Resolved browser-friendly URLs for display/thumbnails. */
   images?: string[]
+  /** Raw board-relative paths for API submission (e.g. "asset/xxx.jpg"). */
+  imagePaths?: string[]
   audioUrl?: string
   videoUrl?: string
+  /** Board context for MediaSlot preview resolution & file saving. */
+  boardId?: string
+  projectId?: string
+  boardFolderUri?: string
+}
+
+/**
+ * Declares what inputs a variant accepts/requires.
+ * Used by panels to auto-filter incompatible variants and control input passing.
+ */
+export type VariantInputConstraints = {
+  /** When true, the variant is pure text-to-media — node images and upstream images
+   *  should NOT be passed as input. */
+  textOnly?: boolean
+  /** When true, variant requires the node to already have an image resource. */
+  requiresImage?: boolean
+  /** When true, variant requires audio input (from upstream or manual upload). */
+  requiresAudio?: boolean
 }
 
 /** Common props shared by all variant form components. */
@@ -23,8 +44,10 @@ export interface VariantFormProps {
   variant: V3Variant
   /** Upstream data from connected nodes. */
   upstream: VariantUpstream
-  /** URL of the node's existing image resource (for edit/upscale/outpaint). */
+  /** Resolved browser-friendly URL of the node's existing image resource (for display). */
   nodeResourceUrl?: string
+  /** Raw board-relative path of the node's existing image resource (for API submission). */
+  nodeResourcePath?: string
   /** When true, all inputs are disabled (readonly / generating state). */
   disabled?: boolean
   /** Called whenever any form field changes with the latest params snapshot. */

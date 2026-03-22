@@ -16,7 +16,7 @@ import {
   VIDEO_GENERATE_STYLE_SUGGESTIONS,
 } from '../../../nodes/node-config'
 import type { VariantFormProps } from '../types'
-import { MediaSlot, PillSelect, UpstreamTextBadge } from '../shared'
+import { MediaSlot, PillSelect, UpstreamTextBadge, toMediaInput } from '../shared'
 
 /**
  * vid-gen-qwen (百炼视频) variant form.
@@ -42,9 +42,14 @@ export function VidGenQwenVariant({
   // Manual upload for first frame (only if no upstream source)
   const [manualFirstFrame, setManualFirstFrame] = useState<string | undefined>()
 
+  // For display (resolved URL)
   const upstreamFirstFrame = upstream.images?.[0] ?? nodeResourceUrl
   const firstFrameUrl = upstreamFirstFrame ?? manualFirstFrame
   const hasFirstFrame = Boolean(firstFrameUrl)
+
+  // For API submission (raw path)
+  const upstreamFirstFramePath = upstream.imagePaths?.[0]
+  const firstFramePath = upstreamFirstFramePath ?? manualFirstFrame
 
   // Report warning when first frame is missing (required for this variant)
   useEffect(() => {
@@ -56,8 +61,8 @@ export function VidGenQwenVariant({
   // Sync params to parent on any change.
   useEffect(() => {
     const inputs: Record<string, unknown> = {}
-    if (firstFrameUrl) {
-      inputs.startImage = { url: firstFrameUrl }
+    if (firstFramePath) {
+      inputs.startImage = toMediaInput(firstFramePath)
     }
 
     onParamsChange({
@@ -69,7 +74,7 @@ export function VidGenQwenVariant({
         withAudio: withAudio || undefined,
       },
     })
-  }, [prompt, style, duration, withAudio, firstFrameUrl, onParamsChange])
+  }, [prompt, style, duration, withAudio, firstFramePath, onParamsChange])
 
   return (
     <div className="flex flex-col gap-2.5">
@@ -81,8 +86,11 @@ export function VidGenQwenVariant({
           src={firstFrameUrl}
           required
           disabled={disabled}
+          boardId={upstream.boardId}
+          projectId={upstream.projectId}
+          boardFolderUri={upstream.boardFolderUri}
           onUpload={!upstreamFirstFrame
-            ? (dataUrl) => setManualFirstFrame(dataUrl)
+            ? (value) => setManualFirstFrame(value)
             : undefined}
           onRemove={manualFirstFrame
             ? () => setManualFirstFrame(undefined)

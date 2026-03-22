@@ -11,7 +11,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { VariantFormProps } from '../types'
 import { BOARD_GENERATE_INPUT } from '../../../ui/board-style-system'
-import { UpstreamTextBadge } from '../shared'
+import { UpstreamTextBadge, toMediaInput } from '../shared'
 
 /**
  * Variant form for img-inpaint-volc (涂抹修改).
@@ -27,6 +27,7 @@ export function ImgInpaintVolcVariant({
   variant,
   upstream,
   nodeResourceUrl,
+  nodeResourcePath,
   disabled,
   onParamsChange,
   onWarningChange,
@@ -41,6 +42,9 @@ export function ImgInpaintVolcVariant({
   useEffect(() => { setImgLoadFailed(false) }, [rawSourceUrl])
   const sourceUrl = imgLoadFailed ? undefined : rawSourceUrl
 
+  // Raw path for API submission
+  const sourcePath = nodeResourcePath
+
   // Report blocking warning to parent
   useEffect(() => {
     onWarningChange?.(!sourceUrl ? t('v3.params.needsImage', { defaultValue: 'An image is required for inpainting' }) : null)
@@ -49,14 +53,14 @@ export function ImgInpaintVolcVariant({
   const sync = useCallback(() => {
     onParamsChange({
       inputs: {
-        ...(sourceUrl ? { image: { url: sourceUrl } } : {}),
+        ...(sourcePath ? { image: toMediaInput(sourcePath) } : {}),
         // Mask is injected by the parent panel from MaskPaintOverlay result
       },
       params: {
         ...(prompt ? { prompt } : {}),
       },
     })
-  }, [prompt, sourceUrl, onParamsChange])
+  }, [prompt, sourcePath, onParamsChange])
 
   useEffect(() => { sync() }, [sync])
 
