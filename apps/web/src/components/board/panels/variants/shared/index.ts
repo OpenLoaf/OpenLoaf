@@ -22,6 +22,12 @@ export { ReferenceDropdown } from './ReferenceDropdown'
 export type { ReferenceDropdownHandle, ReferenceDropdownProps } from './ReferenceDropdown'
 export { TextSlotField } from './TextSlotField'
 export type { TextSlotFieldProps } from './TextSlotField'
+export { OverflowHint } from './OverflowHint'
+export type { OverflowHintProps } from './OverflowHint'
+export { MediaSlotGroup } from './MediaSlotGroup'
+export type { MediaSlotGroupProps } from './MediaSlotGroup'
+export { InputSlotBar } from './InputSlotBar'
+export type { InputSlotBarProps, ResolvedSlotInputs } from './InputSlotBar'
 
 /**
  * Convert a media source string to the correct API input format.
