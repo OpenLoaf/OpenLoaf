@@ -1007,10 +1007,13 @@ function AssociatedRefSlot({
     return (
       <Tooltip>
         <TooltipTrigger asChild>
-          <button
-            type="button"
-            disabled={disabled}
+          <div
+            role="button"
+            tabIndex={disabled ? -1 : 0}
             onClick={handleClick}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') handleClick()
+            }}
             className="flex flex-col items-center gap-1"
           >
             <MediaSlot
@@ -1023,7 +1026,7 @@ function AssociatedRefSlot({
               compact
               associated
             />
-          </button>
+          </div>
         </TooltipTrigger>
         <TooltipContent side="top">
           {t('slot.swapHint')}
@@ -1036,9 +1039,9 @@ function AssociatedRefSlot({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild disabled={disabled}>
-        <button
-          type="button"
-          disabled={disabled}
+        <div
+          role="button"
+          tabIndex={disabled ? -1 : 0}
           className="flex flex-col items-center gap-1"
         >
           <MediaSlot
@@ -1051,7 +1054,7 @@ function AssociatedRefSlot({
             compact
             associated
           />
-        </button>
+        </div>
       </PopoverTrigger>
       <PopoverContent
         className="w-auto min-w-[140px] max-w-[260px] p-2"
