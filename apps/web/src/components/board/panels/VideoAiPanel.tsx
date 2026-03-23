@@ -23,8 +23,9 @@ import { GenerateActionBar } from './GenerateActionBar'
 import { VIDEO_VARIANTS } from './variants/video'
 import type { VariantContext } from './variants/types'
 import type { MediaReference, PersistedSlotMap } from './variants/slot-types'
-import type { ResolvedSlotInputs } from './variants/shared/InputSlotBar'
+import { InputSlotBar, type ResolvedSlotInputs } from './variants/shared/InputSlotBar'
 import { ScrollableTabBar } from '../ui/ScrollableTabBar'
+import type { BoardFileContext } from '../board-contracts'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -91,6 +92,8 @@ export type VideoAiPanelProps = {
   boardId?: string
   projectId?: string
   boardFolderUri?: string
+  /** Full file context object (optional, derived from boardId/projectId/boardFolderUri if not provided). */
+  fileContext?: BoardFileContext
   /** When true, all inputs are disabled and the generate button is hidden. */
   readonly?: boolean
   /** Editing mode -- user unlocked an existing result to tweak params. */
@@ -112,10 +115,11 @@ export function VideoAiPanel({
   upstreamImagePaths,
   upstreamAudioUrl,
   upstreamVideoUrl,
-  rawUpstream: _rawUpstream,
+  rawUpstream,
   boardId,
   projectId,
   boardFolderUri,
+  fileContext: fileContextProp,
   readonly = false,
   editing = false,
   onUnlock,
@@ -379,6 +383,17 @@ export function VideoAiPanel({
     [upstreamText, upstreamImages, upstreamImagePaths, upstreamAudioUrl, upstreamVideoUrl, boardId, projectId, boardFolderUri],
   )
 
+  // ── Derive fileContext from props ──
+  const fileContext = useMemo<BoardFileContext | undefined>(
+    () => fileContextProp ?? (boardId || projectId || boardFolderUri
+      ? { boardId, projectId, boardFolderUri }
+      : undefined),
+    [fileContextProp, boardId, projectId, boardFolderUri],
+  )
+
+  // ── Current variant definition (for inputSlots) ──
+  const variantDef = selectedVariant ? VIDEO_VARIANTS[selectedVariant.id] : undefined
+
   // ── Resolve variant form component ──
   const VariantForm = selectedVariant
     ? VIDEO_VARIANTS[selectedVariant.id]?.component ?? null
@@ -457,13 +472,28 @@ export function VideoAiPanel({
         </ScrollableTabBar>
       ) : null}
 
+      {/* -- InputSlotBar (declarative slot assignment) -- */}
+      {variantDef?.inputSlots?.length && selectedVariant ? (
+        <InputSlotBar
+          slots={variantDef.inputSlots}
+          upstream={rawUpstream ?? { textList: [], imageList: [], videoList: [], audioList: [], entries: [] }}
+          fileContext={fileContext}
+          disabled={readonly && !editing}
+          cachedAssignment={
+            (paramsCacheLocal.current[`${selectedFeatureId}:${selectedVariant.id}`]?.slotAssignment as PersistedSlotMap | undefined)
+          }
+          onAssignmentChange={handleSlotInputsChange}
+          onSlotAssignmentChange={handleSlotAssignmentPersist}
+        />
+      ) : null}
+
       {/* -- Variant Form -- */}
       {selectedVariant && VariantForm ? (
         <VariantForm
           variant={selectedVariant}
           upstream={upstream}
           nodeResourceUrl={undefined}
-          disabled={readonly}
+          disabled={readonly && !editing}
           initialParams={paramsCacheLocal.current[`${selectedFeatureId}:${selectedVariant.id}`] ?? aiConfig?.paramsCache?.[`${selectedFeatureId}:${selectedVariant.id}`]}
           onParamsChange={handleParamsChange}
           onWarningChange={setVariantWarning}
