@@ -23,6 +23,8 @@ import type { UpstreamData } from '../engine/upstream-data'
 import { GenerateActionBar } from './GenerateActionBar'
 import { AUDIO_VARIANTS } from './variants/audio'
 import type { VariantContext } from './variants/types'
+import type { MediaReference, PersistedSlotMap } from './variants/slot-types'
+import type { ResolvedSlotInputs } from './variants/shared/InputSlotBar'
 import { ScrollableTabBar } from '../ui/ScrollableTabBar'
 
 // ---------------------------------------------------------------------------
@@ -146,6 +148,7 @@ export function AudioAiPanel({
     params: Record<string, unknown>
     count?: number
     seed?: number
+    slotAssignment?: PersistedSlotMap
   } | null>(null)
 
   // Resolve selected feature and variant
@@ -199,11 +202,34 @@ export function AudioAiPanel({
       params: Record<string, unknown>
       count?: number
       seed?: number
+      slotAssignment?: PersistedSlotMap
     }) => {
       latestParamsRef.current = params
     },
     [],
   )
+
+  // ── Slot system ──
+
+  /** Persist slot assignment so it survives panel close/reopen. */
+  const handleSlotAssignmentPersist = useCallback((map: PersistedSlotMap) => {
+    latestParamsRef.current = latestParamsRef.current
+      ? { ...latestParamsRef.current, slotAssignment: map }
+      : { inputs: {}, params: {}, slotAssignment: map }
+  }, [])
+
+  /** Receive resolved slot inputs from InputSlotBar and merge into state. */
+  const [resolvedSlots, setResolvedSlots] = useState<Record<string, MediaReference[]>>({})
+
+  const handleSlotInputsChange = useCallback((resolved: ResolvedSlotInputs) => {
+    setResolvedSlots(resolved.mediaRefs)
+    if (latestParamsRef.current) {
+      latestParamsRef.current = {
+        ...latestParamsRef.current,
+        inputs: { ...latestParamsRef.current.inputs, ...resolved.inputs },
+      }
+    }
+  }, [])
 
   // Generate handlers
   const buildGenerateParams = useCallback((): AudioGenerateParams | null => {
@@ -329,6 +355,7 @@ export function AudioAiPanel({
           disabled={readonly || generating}
           onParamsChange={handleParamsChange}
           onWarningChange={setVariantWarning}
+          resolvedSlots={resolvedSlots}
         />
       ) : null}
 

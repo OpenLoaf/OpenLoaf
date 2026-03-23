@@ -22,6 +22,8 @@ import { resolveAllMediaInputs } from '@/lib/media-upload'
 import { GenerateActionBar } from './GenerateActionBar'
 import { VIDEO_VARIANTS } from './variants/video'
 import type { VariantContext } from './variants/types'
+import type { MediaReference, PersistedSlotMap } from './variants/slot-types'
+import type { ResolvedSlotInputs } from './variants/shared/InputSlotBar'
 import { ScrollableTabBar } from '../ui/ScrollableTabBar'
 
 // ---------------------------------------------------------------------------
@@ -204,6 +206,7 @@ export function VideoAiPanel({
     params: Record<string, unknown>
     count?: number
     seed?: number
+    slotAssignment?: PersistedSlotMap
   }>({ inputs: {}, params: {} })
 
   // ── Params cache — in-memory map for instant reads, async persist to node ──
@@ -248,6 +251,7 @@ export function VideoAiPanel({
       params: Record<string, unknown>
       count?: number
       seed?: number
+      slotAssignment?: PersistedSlotMap
     }) => {
       latestParams.current = params
       const key = activeKeyRef.current
@@ -255,6 +259,31 @@ export function VideoAiPanel({
     },
     [],
   )
+
+  // ── Slot system ──
+
+  /** Persist slot assignment to paramsCache so it survives panel close/reopen. */
+  const handleSlotAssignmentPersist = useCallback((map: PersistedSlotMap) => {
+    latestParams.current = { ...latestParams.current, slotAssignment: map }
+    const key = activeKeyRef.current
+    if (key) {
+      paramsCacheLocal.current[key] = { ...latestParams.current, slotAssignment: map }
+    }
+  }, [])
+
+  /** Receive resolved slot inputs from InputSlotBar and merge into state. */
+  const [resolvedSlots, setResolvedSlots] = useState<Record<string, MediaReference[]>>({})
+
+  const handleSlotInputsChange = useCallback((resolved: ResolvedSlotInputs) => {
+    setResolvedSlots(resolved.mediaRefs)
+    // Merge slot-resolved inputs into the current params
+    latestParams.current = {
+      ...latestParams.current,
+      inputs: { ...latestParams.current.inputs, ...resolved.inputs },
+    }
+    const key = activeKeyRef.current
+    if (key) paramsCacheLocal.current[key] = latestParams.current
+  }, [])
 
   // ── Generation state ──
   const [isGenerating, setIsGenerating] = useState(false)
@@ -438,6 +467,7 @@ export function VideoAiPanel({
           initialParams={paramsCacheLocal.current[`${selectedFeatureId}:${selectedVariant.id}`] ?? aiConfig?.paramsCache?.[`${selectedFeatureId}:${selectedVariant.id}`]}
           onParamsChange={handleParamsChange}
           onWarningChange={setVariantWarning}
+          resolvedSlots={resolvedSlots}
         />
       ) : selectedVariant ? (
         // Fallback for unknown variants
