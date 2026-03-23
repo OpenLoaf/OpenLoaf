@@ -141,6 +141,9 @@ function isDataFlowConnector(conn: CanvasConnectorElement): boolean {
 function getConnectedPeerIds(
   doc: CanvasDoc,
   nodeId: string,
+  /** When true, only return nodes that feed INTO this node (source peers).
+   *  When false (default), return all connected peers (bidirectional). */
+  upstreamOnly = false,
 ): string[] {
   const peerIds: string[] = [];
   for (const el of doc.getElements()) {
@@ -150,9 +153,12 @@ function getConnectedPeerIds(
     if (!hasSourceId || !hasTargetId) continue;
     const sourceId = (el.source as { elementId: string }).elementId;
     const targetId = (el.target as { elementId: string }).elementId;
+    // This node is the target → source is upstream (parent)
     if (targetId === nodeId && sourceId !== nodeId) {
       peerIds.push(sourceId);
-    } else if (sourceId === nodeId && targetId !== nodeId) {
+    }
+    // This node is the source → target is downstream (child) — skip if upstreamOnly
+    if (!upstreamOnly && sourceId === nodeId && targetId !== nodeId) {
       peerIds.push(targetId);
     }
   }
@@ -202,8 +208,10 @@ function deriveTextNodeLabel(text: string, nodeId: string): string {
 export function resolveUpstreamData(
   doc: CanvasDoc,
   nodeId: string,
+  /** When true, only resolve nodes that feed INTO this node (true parents). */
+  upstreamOnly = false,
 ): UpstreamData {
-  const peerIds = getConnectedPeerIds(doc, nodeId);
+  const peerIds = getConnectedPeerIds(doc, nodeId, upstreamOnly);
   if (peerIds.length === 0) return EMPTY_UPSTREAM_DATA;
 
   const textList: string[] = [];

@@ -40,7 +40,7 @@ export function useUpstreamData(
 
     // Compute upstream data for the given node, debounced.
     const compute = () => {
-      const result = resolveUpstreamData(engine.doc, nodeId);
+      const result = resolveUpstreamData(engine.doc, nodeId, true);
       setData(result);
     };
 
