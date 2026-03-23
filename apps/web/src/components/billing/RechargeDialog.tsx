@@ -63,7 +63,12 @@ export function RechargeDialog({ open, onOpenChange }: RechargeDialogProps) {
     }, EMBED_TIMEOUT_MS)
 
     void getAccessToken().then((token) => {
-      if (destroyed || !token || !containerRef.current) return
+      if (destroyed) return
+      if (!token || !containerRef.current) {
+        clearTimeout(timeoutId)
+        setTimedOut(true)
+        return
+      }
 
       const embed = createRechargeEmbed({
         container: containerRef.current,
@@ -103,7 +108,8 @@ export function RechargeDialog({ open, onOpenChange }: RechargeDialogProps) {
       embedRef.current?.destroy()
       embedRef.current = null
     }
-  }, [open, t, handleClose])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, handleClose])
 
   const handleRetry = () => {
     setTimedOut(false)

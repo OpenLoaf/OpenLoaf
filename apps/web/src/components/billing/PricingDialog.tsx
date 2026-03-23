@@ -63,7 +63,12 @@ export function PricingDialog({ open, onOpenChange }: PricingDialogProps) {
     }, EMBED_TIMEOUT_MS)
 
     void getAccessToken().then((token) => {
-      if (destroyed || !token || !containerRef.current) return
+      if (destroyed) return
+      if (!token || !containerRef.current) {
+        clearTimeout(timeoutId)
+        setTimedOut(true)
+        return
+      }
 
       const embed = createPricingEmbed({
         container: containerRef.current,
@@ -104,7 +109,8 @@ export function PricingDialog({ open, onOpenChange }: PricingDialogProps) {
       embedRef.current?.destroy()
       embedRef.current = null
     }
-  }, [open, t, handleClose])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, handleClose])
 
   const handleRetry = () => {
     setTimedOut(false)
