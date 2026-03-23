@@ -10,6 +10,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
+  AlertCircle,
   Loader2,
   Paintbrush,
   Redo2,
@@ -661,6 +662,14 @@ export function ImageAiPanel({
         />
       ) : null}
 
+      {/* ── Warning message (between variant form and action bar) ── */}
+      {effectiveWarning ? (
+        <div className="flex items-center gap-1.5 px-1 text-[11px] text-amber-500 dark:text-amber-400">
+          <AlertCircle size={13} className="shrink-0" />
+          <span>{effectiveWarning}</span>
+        </div>
+      ) : null}
+
       {/* ── Generate Action Bar ── */}
       {!showFallback ? <GenerateActionBar
         hasResource={hasResource}
@@ -674,7 +683,7 @@ export function ImageAiPanel({
         onUnlock={onUnlock}
         onCancelEdit={onCancelEdit}
         creditsPerCall={selectedVariant?.creditsPerCall}
-        warningMessage={effectiveWarning}
+        warningMessage={null}
         variants={selectedFeature?.variants
           ?.filter((v) => isVariantApplicable(v.id))
           .map((v) => {
