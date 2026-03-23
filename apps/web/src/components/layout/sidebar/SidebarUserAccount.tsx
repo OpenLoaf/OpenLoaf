@@ -20,6 +20,7 @@ import {
   RefreshCcw,
   Info,
   CircleUserRound,
+  CreditCard,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -50,6 +51,7 @@ import { fetchUserProfile } from "@/lib/saas-auth"
 import { SaasLoginDialog } from "@/components/auth/SaasLoginDialog"
 import { isElectronEnv } from "@/utils/is-electron-env"
 import { useGlobalOverlay } from "@/lib/globalShortcuts"
+import { PricingDialog } from "@/components/billing/PricingDialog"
 
 
 /** 侧边栏等级徽章样式 — 使用更轻的浅色底，避免与 sidebar 背景相同，同时不过分抢眼。 */
@@ -77,8 +79,10 @@ function buildMembershipLabels(input: Record<SidebarMembershipLevel, string>) {
 export function SidebarUserAccount() {
   const { t } = useTranslation('project', { keyPrefix: 'global' })
   const { t: tNav } = useTranslation('nav')
+  const { t: tSettings } = useTranslation('settings')
 
   const [loginOpen, setLoginOpen] = React.useState(false)
+  const [pricingOpen, setPricingOpen] = React.useState(false)
   const [dropdownOpen, setDropdownOpen] = React.useState(false)
   const setFeedbackOpen = useGlobalOverlay((s) => s.setFeedbackOpen)
 
@@ -214,6 +218,7 @@ export function SidebarUserAccount() {
     <SidebarMenu>
       <SidebarMenuItem>
         <SaasLoginDialog open={loginOpen} onOpenChange={setLoginOpen} />
+        <PricingDialog open={pricingOpen} onOpenChange={setPricingOpen} />
 
         <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
           <DropdownMenuTrigger asChild>
@@ -333,6 +338,15 @@ export function SidebarUserAccount() {
                 <Lightbulb className="size-4" />
                 {tNav('sidebar.feedback.title')}
               </DropdownMenuItem>
+              {authLoggedIn && (
+                <DropdownMenuItem
+                  onSelect={() => setPricingOpen(true)}
+                  className="rounded-3xl"
+                >
+                  <CreditCard className="size-4" />
+                  {tSettings('account.upgrade')}
+                </DropdownMenuItem>
+              )}
               {isElectron && (
                 <DropdownMenuItem
                   onSelect={() => void handleCheckUpdate()}
@@ -406,8 +420,10 @@ export function SidebarUserAccount() {
 export function CompactUserAvatar() {
   const { t } = useTranslation('project', { keyPrefix: 'global' })
   const { t: tNav } = useTranslation('nav')
+  const { t: tSettings } = useTranslation('settings')
 
   const [loginOpen, setLoginOpen] = React.useState(false)
+  const [pricingOpen, setPricingOpen] = React.useState(false)
   const [dropdownOpen, setDropdownOpen] = React.useState(false)
   const setFeedbackOpen = useGlobalOverlay((s) => s.setFeedbackOpen)
 
@@ -535,6 +551,7 @@ export function CompactUserAvatar() {
   return (
     <>
       <SaasLoginDialog open={loginOpen} onOpenChange={setLoginOpen} />
+      <PricingDialog open={pricingOpen} onOpenChange={setPricingOpen} />
       <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
         <DropdownMenuTrigger asChild>
           <button
@@ -628,6 +645,15 @@ export function CompactUserAvatar() {
               <Lightbulb className="size-4" />
               {tNav('sidebar.feedback.title')}
             </DropdownMenuItem>
+            {authLoggedIn && (
+              <DropdownMenuItem
+                onSelect={() => setPricingOpen(true)}
+                className="rounded-3xl"
+              >
+                <CreditCard className="size-4" />
+                {tSettings('account.upgrade')}
+              </DropdownMenuItem>
+            )}
             {isElectron && (
               <DropdownMenuItem
                 onSelect={() => void handleCheckUpdate()}
