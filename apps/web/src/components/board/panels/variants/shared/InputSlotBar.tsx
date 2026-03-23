@@ -240,8 +240,14 @@ export function InputSlotBar({
   // Persistence callback
   // ---------------------------------------------------------------------------
 
-  const emitSlotAssignment = useCallback(() => {
-    if (!onSlotAssignmentChange) return
+  // Emit slot assignment when assignments change (inline to avoid callback dep chain)
+  const onSlotAssignmentChangeRef = useRef(onSlotAssignmentChange)
+  onSlotAssignmentChangeRef.current = onSlotAssignmentChange
+  const prevAssignmentsRef = useRef(slotAssignments)
+  useEffect(() => {
+    if (prevAssignmentsRef.current === slotAssignments) return
+    prevAssignmentsRef.current = slotAssignments
+    if (!onSlotAssignmentChangeRef.current) return
     const map: PersistedSlotMap = {}
     for (const slot of slots) {
       if (slot.mediaType === 'text') continue
@@ -255,17 +261,8 @@ export function InputSlotBar({
         }
       }
     }
-    onSlotAssignmentChange(map)
-  }, [slots, slotAssignments, onSlotAssignmentChange])
-
-  // Emit slot assignment when assignments change
-  const prevAssignmentsRef = useRef(slotAssignments)
-  useEffect(() => {
-    if (prevAssignmentsRef.current !== slotAssignments) {
-      prevAssignmentsRef.current = slotAssignments
-      emitSlotAssignment()
-    }
-  }, [slotAssignments, emitSlotAssignment])
+    onSlotAssignmentChangeRef.current(map)
+  }, [slots, slotAssignments])
 
   // ---------------------------------------------------------------------------
   // Callbacks — text slots
@@ -370,7 +367,7 @@ export function InputSlotBar({
         // Update associated refs: remove the incoming ref, add evicted ref
         setAssociatedRefs((prevAssoc) => {
           let updated = prevAssoc.filter((r) => r.nodeId !== assocRef.nodeId)
-          if (evictedRef) {
+          if (evictedRef && !updated.some((r) => r.nodeId === evictedRef.nodeId)) {
             updated = [...updated, evictedRef]
           }
           return updated
@@ -400,7 +397,7 @@ export function InputSlotBar({
 
         setAssociatedRefs((prevAssoc) => {
           let updated = prevAssoc.filter((r) => r.nodeId !== assocRef.nodeId)
-          if (evictedRef) {
+          if (evictedRef && !updated.some((r) => r.nodeId === evictedRef.nodeId)) {
             updated = [...updated, evictedRef]
           }
           return updated
@@ -653,7 +650,7 @@ export function InputSlotBar({
         /** Renders all associated ref chips */
         const associatedRefChips = associatedRefs.map((ref) => (
           <AssociatedRefSlot
-            key={ref.nodeId}
+            key={`assoc:${ref.nodeId}`}
             ref_={ref}
             mediaSlots={mediaSlots}
             slotAssignments={slotAssignments}

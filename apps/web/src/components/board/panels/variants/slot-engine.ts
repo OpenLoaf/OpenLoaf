@@ -299,12 +299,14 @@ export function restoreOrAssign(
     }
   }
 
-  // Pass 3: Collect associated (unassigned media refs)
+  // Pass 3: Collect associated (unassigned media refs, deduplicated)
   const associated: MediaReference[] = []
+  const seenAssocIds = new Set<string>()
   for (const type of ['image', 'video', 'audio'] as const) {
     for (const ref of pools[type] ?? []) {
-      if (isMediaReference(ref) && !usedNodeIds.has(ref.nodeId)) {
+      if (isMediaReference(ref) && !usedNodeIds.has(ref.nodeId) && !seenAssocIds.has(ref.nodeId)) {
         associated.push(ref)
+        seenAssocIds.add(ref.nodeId)
       }
     }
   }
