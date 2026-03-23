@@ -38,6 +38,8 @@ import { TextSlotField } from './TextSlotField'
 export type ResolvedSlotInputs = {
   /** slotId -> resolved values ready for API submission */
   inputs: Record<string, unknown>
+  /** slotId -> raw MediaReference list (for framework-level slot persistence) */
+  mediaRefs: Record<string, MediaReference[]>  // 新增
   /** Whether all required slots are satisfied */
   isValid: boolean
 }
@@ -290,7 +292,14 @@ export function InputSlotBar({
         }
       }
 
-      onAssignmentChange({ inputs, isValid })
+      // Build mediaRefs: slotId -> assigned MediaReference[]
+      const mediaRefs: Record<string, MediaReference[]> = {}
+      for (const slot of slots) {
+        if (slot.mediaType === 'text') continue
+        mediaRefs[slot.id] = (slotAssignments[slot.id] ?? []).filter(isMediaReference)
+      }
+
+      onAssignmentChange({ inputs, mediaRefs, isValid })
     }, DEBOUNCE_MS)
 
     return () => {

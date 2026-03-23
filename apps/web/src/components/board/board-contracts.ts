@@ -7,6 +7,8 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
+import type { VariantParamsSnapshot } from './panels/variants/types'
+
 export type ImagePreviewPayload = {
   /** Original image uri. */
   originalSrc: string;
@@ -80,12 +82,7 @@ export type AiGenerateConfig = {
   /** Timestamp when the generation completed. */
   generatedAt?: number
   /** Cached variant form params keyed by "feature:variantId". */
-  paramsCache?: Record<string, {
-    inputs: Record<string, unknown>
-    params: Record<string, unknown>
-    count?: number
-    seed?: number
-  }>
+  paramsCache?: Record<string, VariantParamsSnapshot>
   /** Preselect hint written by GroupedNodePicker to auto-open a specific variant. */
   preselect?: { featureId: string; variantId: string }
 }

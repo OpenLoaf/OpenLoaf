@@ -9,7 +9,7 @@
  */
 import type { ComponentType } from 'react'
 import type { V3Variant } from '@/lib/saas-media'
-import type { MediaType, InputSlotDefinition } from './slot-types'
+import type { MediaReference, PersistedSlotMap, MediaType, InputSlotDefinition } from './slot-types'
 
 /** Upstream data piped from connected nodes. */
 export interface VariantUpstream {
@@ -72,6 +72,7 @@ export interface VariantParamsSnapshot {
   params: Record<string, unknown>
   count?: number
   seed?: number
+  slotAssignment?: PersistedSlotMap  // 新增
 }
 
 /** Common props shared by all variant form components. */
@@ -92,4 +93,6 @@ export interface VariantFormProps {
   onParamsChange: (params: VariantParamsSnapshot) => void
   /** Report a blocking warning (e.g. "需要源图片"). Set to null/undefined to clear. */
   onWarningChange?: (warning: string | null) => void
+  /** 框架层分配结果：slotId → 已分配的媒体引用列表 */
+  resolvedSlots?: Record<string, MediaReference[]>  // 新增：框架层分配结果
 }

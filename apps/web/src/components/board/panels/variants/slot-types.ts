@@ -13,6 +13,7 @@
 // ---------------------------------------------------------------------------
 
 export type MediaType = 'image' | 'video' | 'audio' | 'text'
+/** @deprecated 新架构下溢出节点统一进入关联节点区，不再需要插槽级溢出策略 */
 export type OverflowStrategy = 'rotate' | 'merge' | 'truncate'
 export type TextReferenceMode = 'inline' | 'replace'
 
@@ -57,6 +58,14 @@ export interface SlotAssignment {
   overflow: Record<string, (TextReference | MediaReference)[]>
   missingRequired: string[]
 }
+
+/**
+ * 持久化的插槽分配映射（存入 paramsCache，跨会话恢复）
+ * 与运行时的 SlotAssignment 区分：本类型仅记录 slotId → 来源标识
+ */
+export type PersistedSlotMap = Record<string, string>
+// key: slotId (如 'image', 'mask', 'startFrame')
+// value: nodeId（来自父节点）| "manual:<board-relative-path>"（用户手动上传）
 
 /** Union of all reference types held in a pool */
 export type PoolReference = TextReference | MediaReference
