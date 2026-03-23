@@ -229,8 +229,8 @@ importers:
         specifier: ^0.4.2
         version: 0.4.2(@trpc/server@11.11.0(typescript@5.9.3))(hono@4.12.2)
       '@openloaf-saas/sdk':
-        specifier: 0.1.20
-        version: 0.1.20(@trpc/server@11.11.0(typescript@5.9.3))(typescript@5.9.3)
+        specifier: 0.1.21
+        version: 0.1.21(@trpc/server@11.11.0(typescript@5.9.3))(typescript@5.9.3)
       '@openloaf/api':
         specifier: workspace:*
         version: link:../../packages/api
@@ -425,8 +425,8 @@ importers:
         specifier: ^4.7.0
         version: 4.7.0(monaco-editor@0.52.2)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@openloaf-saas/sdk':
-        specifier: 0.1.20
-        version: 0.1.20(@trpc/server@11.11.0(typescript@5.9.3))(typescript@5.9.3)
+        specifier: 0.1.21
+        version: 0.1.21(@trpc/server@11.11.0(typescript@5.9.3))(typescript@5.9.3)
       '@openloaf/api':
         specifier: workspace:*
         version: link:../../packages/api
@@ -822,8 +822,8 @@ importers:
         specifier: ^3.0.37
         version: 3.0.37(zod@4.3.6)
       '@openloaf-saas/sdk':
-        specifier: 0.1.20
-        version: 0.1.20(@trpc/server@11.11.0(typescript@5.9.3))(typescript@5.9.3)
+        specifier: 0.1.21
+        version: 0.1.21(@trpc/server@11.11.0(typescript@5.9.3))(typescript@5.9.3)
       '@openloaf/db':
         specifier: workspace:*
         version: link:../db
@@ -3781,8 +3781,8 @@ packages:
   '@opencode-ai/sdk@1.2.15':
     resolution: {integrity: sha512-NUJNlyBCdZ4R0EBLjJziEQOp2XbRPJosaMcTcWSWO5XJPKGUpz0u8ql+5cR8K+v2RJ+hp2NobtNwpjEYfe6BRQ==}
 
-  '@openloaf-saas/sdk@0.1.20':
-    resolution: {integrity: sha512-bAbH44XrDTIRpj262WH/jlO8gP89jnOiIqJwVzALb3PMmlFxY8EpzpJqHI2p1ME6SHs7mtDCG83g2laRe5iZ+g==}
+  '@openloaf-saas/sdk@0.1.21':
+    resolution: {integrity: sha512-6G0/f0NXOKXHxRb9CW+ypieinkiGvlqiyDBzcZVUJ0x+gs7e8FZAZDVwijHAMnL05oI7D8lVpAIY4LXqfsYsqw==}
 
   '@opentelemetry/api-logs@0.212.0':
     resolution: {integrity: sha512-TEEVrLbNROUkYY51sBJGk7lO/OLjuepch8+hmpM6ffMJQ2z/KVCjdHuCFX6fJj8OkJP2zckPjrJzQtXU3IAsFg==}
@@ -21748,7 +21748,7 @@ snapshots:
 
   '@opencode-ai/sdk@1.2.15': {}
 
-  '@openloaf-saas/sdk@0.1.20(@trpc/server@11.11.0(typescript@5.9.3))(typescript@5.9.3)':
+  '@openloaf-saas/sdk@0.1.21(@trpc/server@11.11.0(typescript@5.9.3))(typescript@5.9.3)':
     dependencies:
       '@trpc/client': 11.11.0(@trpc/server@11.11.0(typescript@5.9.3))(typescript@5.9.3)
       zod: 4.3.6
