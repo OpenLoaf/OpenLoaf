@@ -11,13 +11,21 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Film, User } from 'lucide-react'
 import type { VariantFormProps } from '../types'
-import { MediaSlot, toMediaInput } from '../shared'
+import { MediaSlot, PillSelect, toMediaInput } from '../shared'
+
+/** Mode 选项：wan-std = 标准模式 (30积分/秒)，wan-pro = 专业模式 (60积分/秒) */
+const FACE_SWAP_MODE_OPTIONS = [
+  { value: 'wan-std', label: 'Standard' },
+  { value: 'wan-pro', label: 'Pro' },
+] as const
+
+type FaceSwapMode = (typeof FACE_SWAP_MODE_OPTIONS)[number]['value']
 
 /**
  * OL-FS-001 / OL-FS-002 (百炼视频换脸) variant form.
  *
  * Inputs: image ({url} - face to swap in), video ({url} - reference video).
- * Params: none (mode controlled by hardcodedParams).
+ * Params: mode ("wan-std" | "wan-pro").
  */
 export function FaceSwapQwenVariant({
   variant,
@@ -28,6 +36,10 @@ export function FaceSwapQwenVariant({
   onWarningChange,
 }: VariantFormProps) {
   const { t } = useTranslation('board')
+
+  // OL-FS-001 默认标准模式，OL-FS-002 默认专业模式
+  const defaultMode: FaceSwapMode = variant.id === 'OL-FS-002' ? 'wan-pro' : 'wan-std'
+  const [mode, setMode] = useState<FaceSwapMode>(defaultMode)
 
   // Manual uploads (only used when no upstream source)
   const [manualImageSrc, setManualImageSrc] = useState<string | undefined>()
@@ -72,9 +84,9 @@ export function FaceSwapQwenVariant({
 
     onParamsChange({
       inputs,
-      params: {},
+      params: { mode },
     })
-  }, [imagePath, videoPath, onParamsChange])
+  }, [imagePath, videoPath, mode, onParamsChange])
 
   return (
     <div className="flex flex-col gap-2.5">
@@ -112,6 +124,22 @@ export function FaceSwapQwenVariant({
           onRemove={manualVideoSrc
             ? () => setManualVideoSrc(undefined)
             : undefined}
+        />
+      </div>
+
+      {/* Mode 选择器 */}
+      <div className="flex items-center gap-2">
+        <span className="text-[11px] text-muted-foreground">
+          {t('v3.fields.mode', { defaultValue: 'Mode' })}
+        </span>
+        <PillSelect
+          options={FACE_SWAP_MODE_OPTIONS.map((o) => ({
+            value: o.value,
+            label: t(`v3.fields.faceSwapMode.${o.value}`, { defaultValue: o.label }),
+          }))}
+          value={mode}
+          onChange={(v) => setMode(v as FaceSwapMode)}
+          disabled={disabled}
         />
       </div>
 

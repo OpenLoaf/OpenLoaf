@@ -67,6 +67,9 @@ export function InlinePanelPortal({
       onPointerDown={(event) => {
         event.stopPropagation()
       }}
+      onPointerMove={(event) => {
+        event.stopPropagation()
+      }}
       onContextMenu={(event) => {
         event.stopPropagation()
       }}

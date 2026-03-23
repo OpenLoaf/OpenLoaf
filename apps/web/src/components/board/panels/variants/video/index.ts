@@ -50,11 +50,11 @@ export const VIDEO_VARIANTS: Record<string, VariantDefinition> = {
   },
   'OL-LS-001': {
     component: LipSyncVolcVariant,
-    isApplicable: (ctx) => ctx.hasImage && ctx.hasAudio,
-    acceptsInputTypes: ['image', 'audio'],
+    isApplicable: (ctx) => ctx.hasVideo && ctx.hasAudio,
+    acceptsInputTypes: ['video', 'audio'],
     producesOutputType: 'video',
     inputSlots: [
-      { id: 'person', mediaType: 'image', labelKey: 'slot.person', min: 1, max: 1, allowManualInput: true, overflowStrategy: 'rotate' },
+      { id: 'video', mediaType: 'video', labelKey: 'slot.video', min: 1, max: 1, allowManualInput: true, overflowStrategy: 'rotate' },
       { id: 'audio', mediaType: 'audio', labelKey: 'slot.audio', min: 1, max: 1, allowManualInput: true, overflowStrategy: 'rotate' },
     ],
   },

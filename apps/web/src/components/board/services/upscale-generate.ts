@@ -11,13 +11,21 @@ import { submitV3Generate } from '@/lib/saas-media'
 
 export type UpscaleRequest = {
   sourceImageSrc: string
-  scale: 2 | 4
+  /** 兼容旧调用：接受 number (2|4) 或 string ("4K"|"8K") */
+  scale: 2 | 4 | '4K' | '8K'
   /** v3 variant id (e.g. 'OL-UP-001', 'OL-UP-002'). Defaults to 'OL-UP-001'. */
   variant?: string
 }
 
 export type UpscaleResult = {
   taskId: string
+}
+
+/** 将 legacy number scale 映射为 v3 string scale */
+export function normalizeScale(scale: 2 | 4 | '4K' | '8K'): '4K' | '8K' {
+  if (scale === 2 || scale === '4K') return '4K'
+  if (scale === 4 || scale === '8K') return '8K'
+  return '4K'
 }
 
 /**
@@ -34,7 +42,7 @@ export async function submitUpscale(
       image: { url: request.sourceImageSrc },
     },
     params: {
-      scale: request.scale,
+      scale: normalizeScale(request.scale),
     },
     projectId: options.projectId,
     boardId: options.boardId,

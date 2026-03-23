@@ -16,7 +16,7 @@ import type { CanvasNodeElement } from '../engine/types'
 import type { UpstreamData } from '../engine/upstream-data'
 import type { VideoNodeProps } from '../nodes/VideoNode'
 import type { AiGenerateConfig } from '../board-contracts'
-import { MEDIA_PREFERENCES, MEDIA_FEATURES, type MediaPreferenceId, type MediaFeatureId } from '@openloaf-saas/sdk'
+import { MEDIA_FEATURES, type MediaFeatureId } from '@openloaf-saas/sdk'
 import { useCapabilities } from '@/hooks/use-capabilities'
 import { resolveAllMediaInputs } from '@/lib/media-upload'
 import { GenerateActionBar } from './GenerateActionBar'
@@ -470,10 +470,9 @@ export function VideoAiPanel({
         variants={selectedFeature?.variants
           ?.filter((v) => isVariantApplicable(v.id))
           .map((v) => {
-            const prefLabel = MEDIA_PREFERENCES[v.preference as MediaPreferenceId]?.label[prefLang]
             return {
               id: v.id,
-              displayName: prefLabel ?? v.id,
+              displayName: v.featureTabName ?? v.id,
               creditsPerCall: v.creditsPerCall,
             }
           })}

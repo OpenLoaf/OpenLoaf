@@ -71,10 +71,10 @@ export function VidGenVolcVariant({
       inputs.images = extraPaths.map((src) => toMediaInput(src))
     }
 
-    inputs.prompt = prompt
     onParamsChange({
       inputs,
       params: {
+        prompt,
         style: style || undefined,
         aspectRatio: aspectRatio !== 'auto' ? aspectRatio : undefined,
         duration,

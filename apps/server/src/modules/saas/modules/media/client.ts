@@ -7,56 +7,65 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import { getSaasClient } from "../../client";
+import { SaaSNetworkError } from '@openloaf-saas/sdk'
+import { getSaasClient } from '../../client'
 
 export type SaasMediaSubmitArgs = {
   /** Media task kind. */
-  kind: "image" | "video" | "audio";
+  kind: 'image' | 'video' | 'audio'
   /** Input payload to SaaS. */
-  payload: Record<string, unknown>;
-};
+  payload: Record<string, unknown>
+}
 
 export type SaasMediaTaskResult = {
   /** Task identifier. */
-  taskId: string;
+  taskId: string
   /** Task status. */
-  status: "queued" | "running" | "succeeded" | "failed" | "canceled";
+  status: 'queued' | 'running' | 'succeeded' | 'failed' | 'canceled'
   /** Task progress when available. */
-  progress?: number;
+  progress?: number
   /** Result type when available. */
-  resultType?: "image" | "video" | "audio";
+  resultType?: 'image' | 'video' | 'audio'
   /** Result asset URLs. */
-  resultUrls?: string[];
+  resultUrls?: string[]
+  /** STT 识别结果文本 */
+  resultText?: string
   /** Error payload when failed. */
-  error?: { code?: string; message: string };
-};
+  error?: { code?: string; message: string }
+}
 
 type FetchMediaModelOptions = {
   /** Force bypass in-memory cache. */
-  force?: boolean;
-};
-
-/** Connect timeout for v3 direct HTTP calls (ms). */
-const SAAS_TIMEOUT_MS = 30_000;
+  force?: boolean
+}
 
 /** Cache ttl for media model lists. */
-const MODELS_TTL_MS = 24 * 60 * 60 * 1000;
-const cachedImageModels = new Map<string, { updatedAt: number; payload: unknown }>();
-const cachedVideoModels = new Map<string, { updatedAt: number; payload: unknown }>();
-const cachedCapabilities = new Map<string, { updatedAt: number; payload: unknown }>();
+const MODELS_TTL_MS = 24 * 60 * 60 * 1000
+const cachedImageModels = new Map<
+  string,
+  { updatedAt: number; payload: unknown }
+>()
+const cachedVideoModels = new Map<
+  string,
+  { updatedAt: number; payload: unknown }
+>()
+const cachedCapabilities = new Map<
+  string,
+  { updatedAt: number; payload: unknown }
+>()
 
 /** Read cached payload by token. */
 function readCache(
   cache: Map<string, { updatedAt: number; payload: unknown }>,
   token: string,
 ): unknown | null {
-  const entry = cache.get(token);
-  if (!entry) return null;
+  const entry = cache.get(token)
+  if (!entry) return null
   if (Date.now() - entry.updatedAt > MODELS_TTL_MS) {
-    cache.delete(token);
-    return null;
+    cache.delete(token)
+    return null
   }
-  return entry.payload;
+  return entry.payload
 }
 
 /** Write cached payload by token. */
@@ -65,23 +74,62 @@ function writeCache(
   token: string,
   payload: unknown,
 ): void {
-  cache.set(token, { updatedAt: Date.now(), payload });
+  cache.set(token, { updatedAt: Date.now(), payload })
   // 逻辑：避免缓存无限增长，超过 20 条时清理最旧记录。
-  if (cache.size <= 20) return;
+  if (cache.size <= 20) return
   const entries = Array.from(cache.entries()).sort(
     (a, b) => a[1].updatedAt - b[1].updatedAt,
-  );
-  const overflow = cache.size - 20;
+  )
+  const overflow = cache.size - 20
   for (let i = 0; i < overflow; i += 1) {
-    cache.delete(entries[i]![0]);
+    cache.delete(entries[i]![0])
   }
+}
+
+/**
+ * 网络错误重试包装器。
+ * 逻辑：SDK 原生方法不带自动重试，此包装器为网络级错误（socket 断开、连接拒绝等）
+ * 提供 1 次重试机会，与迁移前的 v3Fetch 行为保持一致。
+ */
+async function withNetworkRetry<T>(
+  fn: () => Promise<T>,
+  retries = 1,
+): Promise<T> {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await fn()
+    } catch (err: any) {
+      const isNetworkError =
+        err instanceof SaaSNetworkError ||
+        err?.cause?.code === 'UND_ERR_SOCKET' ||
+        err?.cause?.code === 'ECONNRESET' ||
+        err?.cause?.code === 'ECONNREFUSED' ||
+        err?.message === 'fetch failed'
+      if (isNetworkError && attempt < retries) {
+        await new Promise((r) => setTimeout(r, 500))
+        continue
+      }
+      // 逻辑：给网络错误补上 status 503，便于 handleSaasMediaRoute 识别。
+      if (isNetworkError && !err.status) {
+        err.status = 503
+        err.code = 'NETWORK_ERROR'
+        err.message = err.message || '网络连接失败'
+      }
+      throw err
+    }
+  }
+  // 逻辑：不可达，TypeScript 需要返回值。
+  throw new Error('unreachable')
 }
 
 /**
  * @deprecated v2 media submit — delegates to v3 generate.
  * AI agent tools still call this; the payload is forwarded as-is to v3Generate.
  */
-export async function submitMediaTask(input: SaasMediaSubmitArgs, accessToken: string) {
+export async function submitMediaTask(
+  input: SaasMediaSubmitArgs,
+  accessToken: string,
+) {
   return submitV3Generate(input.payload, accessToken)
 }
 
@@ -96,16 +144,15 @@ export async function pollMediaTask(
   if (!response || response.success !== true) {
     return {
       taskId,
-      status: "failed",
-      error: { message: response?.message ?? "任务查询失败" },
+      status: 'failed',
+      error: { message: (response as any)?.message ?? '任务查询失败' },
     }
   }
   return {
     taskId,
     status: response.data.status,
-    progress: response.data.progress,
-    resultType: response.data.resultType,
     resultUrls: response.data.resultUrls,
+    resultText: response.data.resultText,
     error: response.data.error,
   }
 }
@@ -113,7 +160,10 @@ export async function pollMediaTask(
 /**
  * @deprecated v2 task cancel — delegates to v3 cancel.
  */
-export async function cancelMediaTask(taskId: string, accessToken: string) {
+export async function cancelMediaTask(
+  taskId: string,
+  accessToken: string,
+) {
   return cancelV3Task(taskId, accessToken)
 }
 
@@ -125,9 +175,11 @@ export async function fetchMediaModelsV2(
   accessToken: string,
   feature?: string,
 ): Promise<any> {
-  const category = feature?.startsWith('video') ? 'video'
-    : feature === 'tts' || feature === 'music' || feature === 'sfx' ? 'audio'
-    : 'image'
+  const category = feature?.startsWith('video')
+    ? 'video'
+    : feature === 'tts' || feature === 'music' || feature === 'sfx'
+      ? 'audio'
+      : 'image'
   return fetchCapabilitiesV3(category, accessToken)
 }
 
@@ -175,78 +227,19 @@ export async function uploadMediaFile(
   contentType: string,
   accessToken: string,
 ): Promise<string> {
-  const client = getSaasClient(accessToken);
-  const blob = new Blob([new Uint8Array(buffer)], { type: contentType });
-  const response = await client.ai.uploadFile(blob, filename);
+  const client = getSaasClient(accessToken)
+  const blob = new Blob([new Uint8Array(buffer)], { type: contentType })
+  const response = await client.ai.uploadFile(blob, filename)
   if (!response || !response.url) {
-    throw new Error('SaaS uploadFile returned no URL');
+    throw new Error('SaaS uploadFile returned no URL')
   }
-  return response.url;
+  return response.url
 }
 
 // ═══════════ Media v3 client functions ═══════════
-// 逻辑：SDK v0.1.13 尚未包含 v3 方法，直接通过 HTTP 调用 SaaS v3 REST 端点。
-
-/** Build auth headers for v3 direct HTTP calls. */
-function v3AuthHeaders(accessToken: string): Record<string, string> {
-  return {
-    'Content-Type': 'application/json',
-    ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-  }
-}
-
-/**
- * Execute a v3 HTTP request with error handling.
- * 逻辑：封装 fetch + JSON 解析 + 网络错误重试（1 次），
- * 将 socket/network 错误转为带 status 的 Error 供上层 mapSaasError 捕获。
- */
-async function v3Fetch(
-  url: string,
-  init?: RequestInit,
-  retries = 1,
-): Promise<any> {
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    try {
-      const response = await fetch(url, {
-        ...init,
-        signal: init?.signal ?? AbortSignal.timeout(SAAS_TIMEOUT_MS),
-      })
-      let json: any
-      try {
-        json = await response.json()
-      } catch {
-        // 逻辑：JSON 解析失败时返回空对象，避免崩溃。
-        json = {}
-      }
-      if (!response.ok) {
-        const message = json?.message || json?.error?.message || `HTTP ${response.status}`
-        const err = new Error(message) as any
-        err.status = response.status
-        err.statusText = response.statusText
-        err.payload = json
-        throw err
-      }
-      return json
-    } catch (err: any) {
-      // 逻辑：socket 断开等网络错误时重试一次；最后一次仍失败则抛出。
-      const isNetworkError = err?.cause?.code === 'UND_ERR_SOCKET'
-        || err?.cause?.code === 'ECONNRESET'
-        || err?.cause?.code === 'ECONNREFUSED'
-        || err?.message === 'fetch failed'
-      if (isNetworkError && attempt < retries) {
-        await new Promise((r) => setTimeout(r, 500))
-        continue
-      }
-      // 逻辑：给网络错误补上 status 503，便于 handleSaasMediaRoute 识别。
-      if (isNetworkError && !err.status) {
-        err.status = 503
-        err.code = 'NETWORK_ERROR'
-        err.message = err.message || '网络连接失败'
-      }
-      throw err
-    }
-  }
-}
+// 逻辑：通过 SDK v0.1.20 原生方法调用 SaaS v3 REST 端点。
+// SDK 方法已通过 getSaasClient 配置的 timeoutFetcher 获得超时和诊断日志，
+// withNetworkRetry 包装器提供网络错误重试（1 次）。
 
 /** Fetch v3 capabilities for a given media category (24h in-memory cache). */
 export async function fetchCapabilitiesV3(
@@ -256,45 +249,42 @@ export async function fetchCapabilitiesV3(
   const cacheKey = `${category}:${accessToken}`
   const cached = readCache(cachedCapabilities, cacheKey)
   if (cached) return cached
-  const baseUrl = getSaasClient(accessToken).getBaseUrl()
-  const payload = await v3Fetch(`${baseUrl}/api/ai/v3/capabilities/${category}`, {
-    headers: v3AuthHeaders(accessToken),
+  const client = getSaasClient(accessToken)
+  const payload = await withNetworkRetry(() => {
+    if (category === 'image') return client.ai.imageCapabilities()
+    if (category === 'video') return client.ai.videoCapabilities()
+    return client.ai.audioCapabilities()
   })
   writeCache(cachedCapabilities, cacheKey, payload)
   return payload
 }
 
 /** Submit a v3 media generation task. */
-export async function submitV3Generate(payload: Record<string, unknown>, accessToken: string) {
-  const baseUrl = getSaasClient(accessToken).getBaseUrl()
-  return v3Fetch(`${baseUrl}/api/ai/v3/generate`, {
-    method: 'POST',
-    headers: v3AuthHeaders(accessToken),
-    body: JSON.stringify(payload),
-  })
+export async function submitV3Generate(
+  payload: Record<string, unknown>,
+  accessToken: string,
+) {
+  const client = getSaasClient(accessToken)
+  return withNetworkRetry(() => client.ai.v3Generate(payload as any))
 }
 
 /** Poll a v3 media task by id. */
 export async function pollV3Task(taskId: string, accessToken: string) {
-  const baseUrl = getSaasClient(accessToken).getBaseUrl()
-  return v3Fetch(`${baseUrl}/api/ai/v3/task/${taskId}`, {
-    headers: v3AuthHeaders(accessToken),
-  })
+  const client = getSaasClient(accessToken)
+  return withNetworkRetry(() => client.ai.v3Task(taskId))
 }
 
 /** Cancel a v3 media task by id. */
 export async function cancelV3Task(taskId: string, accessToken: string) {
-  const baseUrl = getSaasClient(accessToken).getBaseUrl()
-  return v3Fetch(`${baseUrl}/api/ai/v3/task/${taskId}/cancel`, {
-    method: 'POST',
-    headers: v3AuthHeaders(accessToken),
-  })
+  const client = getSaasClient(accessToken)
+  return withNetworkRetry(() => client.ai.v3CancelTask(taskId))
 }
 
 /** Poll a v3 media task group by group id. */
-export async function pollV3TaskGroup(groupId: string, accessToken: string) {
-  const baseUrl = getSaasClient(accessToken).getBaseUrl()
-  return v3Fetch(`${baseUrl}/api/ai/v3/task-group/${groupId}`, {
-    headers: v3AuthHeaders(accessToken),
-  })
+export async function pollV3TaskGroup(
+  groupId: string,
+  accessToken: string,
+) {
+  const client = getSaasClient(accessToken)
+  return withNetworkRetry(() => client.ai.v3TaskGroup(groupId))
 }

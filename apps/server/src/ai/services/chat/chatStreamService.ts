@@ -1021,13 +1021,8 @@ async function generateImageModelResult(input: ImageModelRequest): Promise<Image
   }
 
   const submitResult = await submitV3Generate(v3Payload, accessToken);
-  if (!submitResult || submitResult.success !== true || !submitResult.data?.taskId) {
-    const fallbackMessage = "图片任务创建失败。";
-    const message =
-      submitResult && submitResult.success === false
-        ? submitResult.message
-        : fallbackMessage;
-    throw new ChatImageRequestError(message, 502);
+  if (!submitResult?.data || !('taskId' in submitResult.data)) {
+    throw new ChatImageRequestError("图片任务创建失败。", 502);
   }
   const taskId = submitResult.data.taskId;
   const taskResult = await waitForSaasImageTask({
@@ -1354,9 +1349,8 @@ async function waitForSaasImageTask(input: {
       throw new ChatImageRequestError("请求已取消。", 499);
     }
     const response = await pollV3Task(input.taskId, input.accessToken);
-    if (!response || response.success !== true) {
-      const message = response?.message || "任务查询失败。";
-      throw new ChatImageRequestError(message, 502);
+    if (!response?.data) {
+      throw new ChatImageRequestError("任务查询失败。", 502);
     }
     const data = response.data;
     if (data.status === "succeeded") {

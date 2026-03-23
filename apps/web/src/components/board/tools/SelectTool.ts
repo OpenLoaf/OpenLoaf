@@ -797,7 +797,7 @@ export class SelectTool implements CanvasTool {
       if (meta?.[MINDMAP_META.hidden] || meta?.[MINDMAP_META.ghost]) continue;
       if (!LARGE_ANCHOR_NODE_TYPES.has(element.type)) continue;
       if (element.locked) continue;
-      if (selectedIds.includes(element.id)) continue;
+      // 逻辑：选中节点也需要显示 hover 锚点，方便用户拖出连线。
       const [x, y, w, h] = element.xywh;
       const within =
         point[0] >= x - padding &&

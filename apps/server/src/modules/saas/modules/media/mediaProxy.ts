@@ -364,7 +364,7 @@ export async function submitV3GenerateProxy(
   const result = await submitV3Generate(payload, accessToken);
 
   // 逻辑：提交成功时记住任务上下文，便于后续 poll 时进行资产持久化。
-  if (result?.success === true && result.data?.taskId) {
+  if (result?.data && 'taskId' in result.data) {
     const feature = (payload as Record<string, unknown>).feature as string | undefined;
     rememberMediaTask({
       taskId: result.data.taskId,
@@ -405,16 +405,16 @@ export async function pollV3TaskProxy(
   }
 
   const response = await pollV3Task(taskId, accessToken);
-  if (!response || response.success !== true) {
+  if (!response?.data) {
     return {
       success: false,
-      message: response?.message ?? "任务查询失败",
+      message: "任务查询失败",
     };
   }
 
   const data = response.data;
   const feature = ctx?.feature;
-  const resultType = feature ? inferResultType(feature) : (data.resultType ?? ctx?.resultType);
+  const resultType = feature ? inferResultType(feature) : ctx?.resultType;
   let resultUrls: string[] | undefined = data.resultUrls;
 
   if (data.status === "succeeded" && resultUrls && resultUrls.length > 0) {

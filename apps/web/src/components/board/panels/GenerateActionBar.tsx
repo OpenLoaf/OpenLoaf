@@ -186,30 +186,50 @@ export function GenerateActionBar({
           <span>{warningMessage}</span>
         </div>
       ) : variants && variants.length > 1 && onVariantChange ? (
-        <div className="flex items-center gap-0.5 rounded-full bg-ol-surface-muted p-0.5">
-          {variants.map((v) => (
-            <button
-              key={v.id}
-              type="button"
-              disabled={v.incompatible || disabled || generating}
-              title={v.incompatibleReason}
-              className={[
-                'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors duration-150',
-                v.incompatible
-                  ? 'opacity-30 cursor-not-allowed text-muted-foreground'
-                  : selectedVariantId === v.id
-                    ? 'bg-background text-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground',
-              ].join(' ')}
-              onClick={() => {
-                if (v.incompatible) return
-                onVariantChange(v.id)
-              }}
+        variants.length <= 2 ? (
+          /* ≤2 个 variant：tab 胶囊样式 */
+          <div className="flex items-center gap-0.5 rounded-full bg-ol-surface-muted p-0.5">
+            {variants.map((v) => (
+              <button
+                key={v.id}
+                type="button"
+                disabled={v.incompatible || disabled || generating}
+                title={v.incompatibleReason}
+                className={[
+                  'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors duration-150',
+                  v.incompatible
+                    ? 'opacity-30 cursor-not-allowed text-muted-foreground'
+                    : selectedVariantId === v.id
+                      ? 'bg-background text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground',
+                ].join(' ')}
+                onClick={() => {
+                  if (v.incompatible) return
+                  onVariantChange(v.id)
+                }}
+              >
+                <span>{v.displayName}</span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          /* >2 个 variant：下拉框 */
+          <div className="relative">
+            <select
+              value={selectedVariantId ?? ''}
+              disabled={disabled || generating}
+              onChange={(e) => onVariantChange(e.target.value)}
+              className="appearance-none rounded-full bg-ol-surface-muted pl-2.5 pr-6 py-1 text-[11px] font-medium text-foreground border-none outline-none cursor-pointer transition-colors duration-150 hover:bg-ol-surface-muted/80"
             >
-              <span>{v.displayName}</span>
-            </button>
-          ))}
-        </div>
+              {variants.map((v) => (
+                <option key={v.id} value={v.id} disabled={v.incompatible}>
+                  {v.displayName}
+                </option>
+              ))}
+            </select>
+            <ChevronDown size={12} className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          </div>
+        )
       ) : null}
 
       <div className="flex-1" />

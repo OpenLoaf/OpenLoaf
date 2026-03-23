@@ -15,6 +15,7 @@ import { OutpaintQwenVariant } from './OutpaintQwenVariant'
 import { UpscaleQwenVariant } from './UpscaleQwenVariant'
 import { ImgEditWanVariant } from './ImgEditWanVariant'
 import { ImgEditPlusVariant } from './ImgEditPlusVariant'
+import { ImgGenVolcVariant } from './ImgGenVolcVariant'
 import { MatExtractVolcVariant } from './MatExtractVolcVariant'
 
 /** Image variant definitions — each variant owns its applicability logic. */
@@ -45,6 +46,36 @@ export const IMAGE_VARIANTS: Record<string, VariantDefinition> = {
     producesOutputType: 'image',
     inputSlots: [
       { id: 'prompt', mediaType: 'text', labelKey: 'slot.prompt', min: 0, max: 1, allowManualInput: true, overflowStrategy: 'merge', referenceMode: 'inline' },
+    ],
+  },
+  'OL-IG-004': {
+    component: ImgGenTextVariant,
+    isApplicable: (ctx) => !ctx.hasImage,
+    acceptsInputTypes: ['text'],
+    producesOutputType: 'image',
+    inputSlots: [
+      { id: 'prompt', mediaType: 'text', labelKey: 'slot.prompt', min: 0, max: 1, allowManualInput: true, overflowStrategy: 'merge', referenceMode: 'inline' },
+    ],
+  },
+  // imageGenerate — Volcengine (Jimeng) text-to-image with optional reference images
+  'OL-IG-005': {
+    component: ImgGenVolcVariant,
+    isApplicable: () => true,
+    acceptsInputTypes: ['text', 'image'],
+    producesOutputType: 'image',
+    inputSlots: [
+      { id: 'prompt', mediaType: 'text', labelKey: 'slot.prompt', min: 0, max: 1, allowManualInput: true, overflowStrategy: 'merge', referenceMode: 'inline' },
+      { id: 'images', mediaType: 'image', labelKey: 'slot.referenceImages', min: 0, max: 4, allowManualInput: true, overflowStrategy: 'truncate' },
+    ],
+  },
+  'OL-IG-006': {
+    component: ImgGenVolcVariant,
+    isApplicable: () => true,
+    acceptsInputTypes: ['text', 'image'],
+    producesOutputType: 'image',
+    inputSlots: [
+      { id: 'prompt', mediaType: 'text', labelKey: 'slot.prompt', min: 0, max: 1, allowManualInput: true, overflowStrategy: 'merge', referenceMode: 'inline' },
+      { id: 'images', mediaType: 'image', labelKey: 'slot.referenceImages', min: 0, max: 4, allowManualInput: true, overflowStrategy: 'truncate' },
     ],
   },
   // imageInpaint — requires node's own image for mask painting
@@ -101,7 +132,7 @@ export const IMAGE_VARIANTS: Record<string, VariantDefinition> = {
       { id: 'image', mediaType: 'image', labelKey: 'slot.sourceImage', min: 1, max: 1, allowManualInput: true, overflowStrategy: 'rotate' },
     ],
   },
-  // imageEdit — Plus (requires image + optional mask)
+  // imageEdit — Plus (qwen-image-edit-plus, mask support)
   'OL-IE-001': {
     component: ImgEditPlusVariant,
     isApplicable: (ctx) => ctx.hasImage,
@@ -113,7 +144,7 @@ export const IMAGE_VARIANTS: Record<string, VariantDefinition> = {
       { id: 'images', mediaType: 'image', labelKey: 'slot.referenceImages', min: 1, max: 3, allowManualInput: true, overflowStrategy: 'truncate' },
     ],
   },
-  // imageEdit — Wan (requires image: node or upstream)
+  // imageEdit — Wan (wan2.6, enable_interleave)
   'OL-IE-002': {
     component: ImgEditWanVariant,
     isApplicable: (ctx) => ctx.hasImage,

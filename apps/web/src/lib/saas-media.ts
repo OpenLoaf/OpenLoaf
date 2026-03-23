@@ -96,7 +96,7 @@ export type V3Feature = {
 /** v3 capability variant. */
 export type V3Variant = {
   id: string
-  preference: string
+  featureTabName: string
   creditsPerCall: number
   billingType?: string
   minMembershipLevel: 'free' | 'lite' | 'pro' | 'premium' | 'infinity'

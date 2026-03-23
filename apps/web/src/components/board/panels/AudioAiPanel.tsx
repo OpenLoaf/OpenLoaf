@@ -16,7 +16,7 @@ import {
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@udecode/cn'
-import { MEDIA_PREFERENCES, MEDIA_FEATURES, type MediaPreferenceId, type MediaFeatureId } from '@openloaf-saas/sdk'
+import { MEDIA_FEATURES, type MediaFeatureId } from '@openloaf-saas/sdk'
 import { useCapabilities } from '@/hooks/use-capabilities'
 import type { V3Feature, V3Variant } from '@/lib/saas-media'
 import type { UpstreamData } from '../engine/upstream-data'
@@ -374,7 +374,7 @@ export function AudioAiPanel({
           warningMessage={variantWarning}
           variants={variants.length > 0 ? variants.filter((v) => isVariantApplicable(v.id)).map((v) => ({
             id: v.id,
-            displayName: MEDIA_PREFERENCES[v.preference as MediaPreferenceId]?.label[prefLang] ?? v.id,
+            displayName: v.featureTabName ?? v.id,
             creditsPerCall: v.creditsPerCall,
           })) : undefined}
           selectedVariantId={resolvedVariantId ?? undefined}

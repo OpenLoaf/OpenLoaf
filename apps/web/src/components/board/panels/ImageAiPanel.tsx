@@ -15,7 +15,7 @@ import {
   Redo2,
   Undo2,
 } from 'lucide-react'
-import { MEDIA_PREFERENCES, MEDIA_FEATURES, type MediaPreferenceId, type MediaFeatureId } from '@openloaf-saas/sdk'
+import { MEDIA_FEATURES, type MediaFeatureId } from '@openloaf-saas/sdk'
 import { useCapabilities } from '@/hooks/use-capabilities'
 import type { V3Feature, V3Variant } from '@/lib/saas-media'
 import { BRUSH_MIN_SIZE, BRUSH_MAX_SIZE } from '../nodes/MaskPaintOverlay'
@@ -626,10 +626,9 @@ export function ImageAiPanel({
         variants={selectedFeature?.variants
           ?.filter((v) => isVariantApplicable(v.id))
           .map((v) => {
-            const prefLabel = MEDIA_PREFERENCES[v.preference as MediaPreferenceId]?.label[prefLang]
             return {
               id: v.id,
-              displayName: prefLabel ?? v.id,
+              displayName: v.featureTabName ?? v.id,
               creditsPerCall: v.creditsPerCall,
             }
           })}

@@ -9,15 +9,15 @@
  */
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Music, User } from 'lucide-react'
+import { Film, Music } from 'lucide-react'
 import type { VariantFormProps } from '../types'
 import { MediaSlot, toMediaInput } from '../shared'
 
 /**
  * OL-LS-001 (即梦口型) variant form.
  *
- * Inputs: person ({url} - person image), audio ({url} - audio file).
- * Params: modelId.
+ * Inputs: video ({url} - person video, MP4/AVI/MOV 2-120s), audio ({url} - audio file).
+ * Params: none.
  * Both must be URLs.
  */
 export function LipSyncVolcVariant({
@@ -32,41 +32,40 @@ export function LipSyncVolcVariant({
   const { t } = useTranslation('board')
 
   // Manual uploads (only used when no upstream source)
-  const [manualPersonSrc, setManualPersonSrc] = useState<string | undefined>()
+  const [manualVideoSrc, setManualVideoSrc] = useState<string | undefined>()
   const [manualAudioSrc, setManualAudioSrc] = useState<string | undefined>()
 
-  // For display (resolved URLs)
-  const upstreamPerson = upstream.images?.[0] ?? nodeResourceUrl
+  // For display (resolved URLs) — 输入类型为 video
+  const upstreamVideo = upstream.videoUrl
   const upstreamAudio = upstream.audioUrl
 
-  const personUrl = upstreamPerson ?? manualPersonSrc
+  const videoUrl = upstreamVideo ?? manualVideoSrc
   const audioUrl = upstreamAudio ?? manualAudioSrc
 
   // For API submission (raw paths)
-  const upstreamPersonPath = upstream.imagePaths?.[0]
-  const personPath = upstreamPersonPath ?? manualPersonSrc
+  const videoPath = upstreamVideo ?? manualVideoSrc
   const audioPath = upstreamAudio ?? manualAudioSrc
-  const hasPerson = Boolean(personUrl)
+  const hasVideo = Boolean(videoUrl)
   const hasAudio = Boolean(audioUrl)
 
   // Report warning when required inputs are missing
   useEffect(() => {
-    if (!hasPerson && !hasAudio) {
-      onWarningChange?.(t('v3.fields.lipSyncHint', { defaultValue: 'Connect a person image and audio node to generate lip sync video' }))
-    } else if (!hasPerson) {
-      onWarningChange?.(t('v3.fields.uploadPerson', { defaultValue: 'Connect a person image node' }))
+    if (!hasVideo && !hasAudio) {
+      onWarningChange?.(t('v3.fields.lipSyncHint', { defaultValue: 'Connect a person video and audio node to generate lip sync video' }))
+    } else if (!hasVideo) {
+      onWarningChange?.(t('v3.fields.uploadPersonVideo', { defaultValue: 'Connect a person video node' }))
     } else if (!hasAudio) {
       onWarningChange?.(t('v3.fields.uploadAudio', { defaultValue: 'Connect an audio node' }))
     } else {
       onWarningChange?.(null)
     }
-  }, [hasPerson, hasAudio, onWarningChange, t])
+  }, [hasVideo, hasAudio, onWarningChange, t])
 
   // Sync params to parent on any change.
   useEffect(() => {
     const inputs: Record<string, unknown> = {}
-    if (personPath) {
-      inputs.person = toMediaInput(personPath)
+    if (videoPath) {
+      inputs.video = toMediaInput(videoPath)
     }
     if (audioPath) {
       inputs.audio = toMediaInput(audioPath)
@@ -76,26 +75,27 @@ export function LipSyncVolcVariant({
       inputs,
       params: {},
     })
-  }, [personPath, audioPath, onParamsChange])
+  }, [videoPath, audioPath, onParamsChange])
 
   return (
     <div className="flex flex-col gap-2.5">
-      {/* Person + Audio slots side by side */}
+      {/* Video + Audio slots side by side */}
       <div className="flex items-end gap-3">
         <MediaSlot
-          label={t('v3.fields.personImage', { defaultValue: 'Person' })}
-          icon={<User size={16} />}
-          src={personUrl}
+          label={t('v3.fields.personVideo', { defaultValue: 'Video' })}
+          icon={<Film size={16} />}
+          src={videoUrl}
           required
           disabled={disabled}
+          uploadAccept="video/*"
           boardId={upstream.boardId}
           projectId={upstream.projectId}
           boardFolderUri={upstream.boardFolderUri}
-          onUpload={!upstreamPerson
-            ? (value) => setManualPersonSrc(value)
+          onUpload={!upstreamVideo
+            ? (value) => setManualVideoSrc(value)
             : undefined}
-          onRemove={manualPersonSrc
-            ? () => setManualPersonSrc(undefined)
+          onRemove={manualVideoSrc
+            ? () => setManualVideoSrc(undefined)
             : undefined}
         />
         <MediaSlot
@@ -119,7 +119,7 @@ export function LipSyncVolcVariant({
 
       {/* Hint */}
       <p className="text-center text-[10px] text-muted-foreground/50">
-        {t('v3.fields.lipSyncHint', { defaultValue: 'Connect a person image and audio node to generate lip sync video' })}
+        {t('v3.fields.lipSyncHint', { defaultValue: 'Connect a person video and audio node to generate lip sync video' })}
       </p>
     </div>
   )

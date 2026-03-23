@@ -10,11 +10,8 @@
 
 // ── v3 media types (SDK 0.1.15+) ──
 
+export { MEDIA_FEATURES } from '@openloaf-saas/sdk'
 export type {
-  MEDIA_PREFERENCES,
-  MediaPreferenceId,
-  MediaPreferenceLocale,
-  MEDIA_FEATURES,
   MediaFeatureId,
   V3Feature,
   V3Variant,
@@ -42,6 +39,8 @@ export type V3TaskResult = {
   taskId: string
   status: V3TaskStatus
   resultUrls?: string[]
+  /** STT 识别结果文本 */
+  resultText?: string
   creditsConsumed?: number
   error?: { code?: string; message?: string }
 }
