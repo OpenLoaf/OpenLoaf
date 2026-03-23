@@ -170,11 +170,15 @@ export function InputSlotBar({
 
   // ---------------------------------------------------------------------------
   // Unified assignment (restoreOrAssign replaces assignUpstreamToSlots)
+  // cachedAssignment is ONLY used for initial restore (not on every change)
+  // to avoid feedback loop: assign → persist → cache prop changes → re-assign
   // ---------------------------------------------------------------------------
 
+  const initialCacheRef = useRef(cachedAssignment)
+
   const unifiedResult = useMemo(
-    () => restoreOrAssign(slots, pools, cachedAssignment),
-    [slots, pools, cachedAssignment],
+    () => restoreOrAssign(slots, pools, initialCacheRef.current),
+    [slots, pools],
   )
 
   // ---------------------------------------------------------------------------
@@ -194,15 +198,25 @@ export function InputSlotBar({
     () => unifiedResult.associated,
   )
 
-  // Sync when upstream / unified result changes
-  const prevUnifiedRef = useRef(unifiedResult)
+  // Sync when upstream / pools change (e.g. new connection added/removed)
+  // Update initialCacheRef when slots change (variant switch with new cache)
+  const prevPoolsRef = useRef(pools)
+  const prevSlotsRef = useRef(slots)
   useEffect(() => {
-    if (prevUnifiedRef.current !== unifiedResult) {
-      prevUnifiedRef.current = unifiedResult
-      setSlotAssignments(unifiedResult.assigned)
-      setAssociatedRefs(unifiedResult.associated)
+    const poolsChanged = prevPoolsRef.current !== pools
+    const slotsChanged = prevSlotsRef.current !== slots
+    if (poolsChanged || slotsChanged) {
+      prevPoolsRef.current = pools
+      prevSlotsRef.current = slots
+      // On variant switch, load the new cache; on upstream change, keep current
+      if (slotsChanged) {
+        initialCacheRef.current = cachedAssignment
+      }
+      const fresh = restoreOrAssign(slots, pools, initialCacheRef.current)
+      setSlotAssignments(fresh.assigned)
+      setAssociatedRefs(fresh.associated)
     }
-  }, [unifiedResult])
+  }, [slots, pools, cachedAssignment])
 
   // ---------------------------------------------------------------------------
   // Unassigned text references (for TextReferencePool)
