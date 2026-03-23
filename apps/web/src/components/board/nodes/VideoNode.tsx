@@ -979,6 +979,6 @@ export const VideoNodeDefinition: CanvasNodeDefinition<VideoNodeProps> = {
     maxSize: { w: 1280, h: 720 },
   },
   inlinePanel: { width: 420, height: 360 },
-  outputTypes: ['video', 'image'],
+  outputTypes: ['video'],
   toolbar: (ctx) => createVideoToolbarItems(ctx),
 };
