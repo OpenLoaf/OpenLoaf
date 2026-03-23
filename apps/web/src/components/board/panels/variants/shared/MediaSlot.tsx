@@ -184,16 +184,18 @@ export function MediaSlot({
           </div>
         ) : null}
       </button>
-      <span
-        className={[
-          'text-center leading-tight',
-          compact ? 'text-[9px]' : 'text-[10px]',
-          'text-muted-foreground/60',
-        ].join(' ')}
-      >
-        {label}
-        {required ? <span className="text-amber-500"> *</span> : null}
-      </span>
+      {(label || required) ? (
+        <span
+          className={[
+            'text-center leading-tight',
+            compact ? 'text-[9px]' : 'text-[10px]',
+            'text-muted-foreground/60',
+          ].join(' ')}
+        >
+          {label}
+          {required ? <span className="text-amber-500"> *</span> : null}
+        </span>
+      ) : null}
       {onUpload ? (
         <input
           ref={inputRef}

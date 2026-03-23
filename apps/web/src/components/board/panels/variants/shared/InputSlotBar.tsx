@@ -652,10 +652,10 @@ export function InputSlotBar({
 
         if (isSingleRow) {
           return (
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-start gap-2">
               {activeSlotChips}
               {hasAssociated && (
-                <div className="mx-0.5 h-8 w-px self-center bg-border" />
+                <div className="mt-2 h-8 w-px self-start bg-border" />
               )}
               {associatedRefChips}
             </div>
@@ -664,11 +664,11 @@ export function InputSlotBar({
 
         return (
           <div className="flex flex-col gap-1.5">
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-start gap-2">
               {activeSlotChips}
             </div>
             {hasAssociated && (
-              <div className="flex flex-wrap items-center gap-2 opacity-70">
+              <div className="flex flex-wrap items-start gap-2 opacity-70">
                 {associatedRefChips}
               </div>
             )}
@@ -1014,7 +1014,6 @@ function AssociatedRefSlot({
             onKeyDown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') handleClick()
             }}
-            className="flex flex-col items-center gap-1"
           >
             <MediaSlot
               label=""
@@ -1042,7 +1041,6 @@ function AssociatedRefSlot({
         <div
           role="button"
           tabIndex={disabled ? -1 : 0}
-          className="flex flex-col items-center gap-1"
         >
           <MediaSlot
             label=""
