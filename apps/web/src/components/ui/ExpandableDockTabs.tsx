@@ -134,9 +134,9 @@ const toneConfig = {
     inactiveText: "text-muted-foreground/70",
   },
   rose: {
-    activeBg: "bg-destructive/10",
-    activeText: "text-destructive",
-    inactiveText: "text-destructive/70",
+    activeBg: "bg-secondary",
+    activeText: "text-foreground",
+    inactiveText: "text-foreground/70",
   },
   teal: {
     activeBg: "bg-teal-500/15 dark:bg-teal-400/20",

@@ -17,6 +17,7 @@ import {
 import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";
 import type { AppRouter } from "@openloaf/api";
 import { toast } from "sonner";
+import i18next from "i18next";
 import superjson from "superjson";
 import { resolveServerUrl } from "@/utils/server-url";
 
@@ -29,6 +30,16 @@ export const queryClient = new QueryClient({
   },
   queryCache: new QueryCache({
     onError: (error, query) => {
+      // Project directory missing — already cleaned up server-side, just notify the user.
+      if (error.message === "PROJECT_REMOVED") {
+        toast.info(
+          i18next.t("nav:project.removedAutoCleanup"),
+          { id: "project-removed" },
+        );
+        queryClient.invalidateQueries({ queryKey: ["project", "list"] });
+        queryClient.invalidateQueries({ queryKey: ["project", "listPaged"] });
+        return;
+      }
       toast.error(error.message, {
         action: {
           label: "retry",

@@ -50,6 +50,9 @@
     "cloning": "Cloning...",
     "startClone": "Start Clone",
     "done": "Done",
+    "autoCreateFolder": "Auto-create folder",
+    "autoCreateFolderHint": "A project folder will be created in the temp directory",
+    "autoCreateFolderEnterName": "Enter a project name first",
     "addToProjectSpace": "Added to project space",
     "addError": "Add failed",
     "feedback": {
@@ -94,6 +97,7 @@
     "addProjectHint": "Click below to add a project",
     "openManagerFailed": "Cannot open file manager",
     "removed": "Project removed",
+    "removedAutoCleanup": "Abnormal data detected, automatically resolved",
     "removeFailed": "Remove failed",
     "permanentlyDeleted": "Project permanently deleted",
     "permanentDeleteFailed": "Permanent delete failed",

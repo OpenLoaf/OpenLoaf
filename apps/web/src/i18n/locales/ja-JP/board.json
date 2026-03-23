@@ -1042,7 +1042,36 @@
         "longcheng": "龍城",
         "longjielidou": "龍杰力豆",
         "longtong": "龍童"
-      }
+      },
+      "qwen3Voices": {
+        "Cherry": "Cherry",
+        "Serena": "Serena",
+        "Ethan": "Ethan",
+        "Chelsie": "Chelsie",
+        "Momo": "Momo",
+        "Vivian": "Vivian",
+        "Moon": "Moon",
+        "Maia": "Maia",
+        "Kai": "Kai",
+        "Nofish": "Nofish"
+      },
+      "languageType": "テキスト言語",
+      "languageTypeAuto": "自動検出",
+      "languageTypes": {
+        "Chinese": "中国語",
+        "English": "英語",
+        "Spanish": "スペイン語",
+        "Russian": "ロシア語",
+        "Italian": "イタリア語",
+        "French": "フランス語",
+        "Korean": "韓国語",
+        "Japanese": "日本語",
+        "German": "ドイツ語",
+        "Portuguese": "ポルトガル語"
+      },
+      "instructions": "音声指示",
+      "instructionsPlaceholder": "自然言語で音声スタイルを記述、例：温かいトーンでゆっくりと話す...",
+      "instructionsHint": "instruct-flash モデルのみ対応、トーン・速度・感情を制御"
     },
     "selectVariant": "モデルを選択",
     "unknownVariant": "このバリアントはまだ UI でサポートされていません",
@@ -1193,5 +1222,10 @@
       "OL-TT-002": { "label": "テキスト読み上げ" },
       "OL-SR-001": { "label": "音声認識" }
     }
+  },
+  "videoLocked": {
+    "title": "動画生成にはProプラン以上が必要です",
+    "description": "アップグレードして全ての動画機能をご利用ください",
+    "upgrade": "アップグレード"
   }
 }

@@ -156,6 +156,11 @@ const FEATURE_INTRO_STYLE = {
     iconColor: "text-foreground",
     iconBg: "bg-secondary",
   },
+  scheduled: {
+    icon: Clock,
+    iconColor: "text-foreground",
+    iconBg: "bg-secondary",
+  },
 } as const
 
 /** Feature intro dialog for gated project features. */
@@ -165,7 +170,7 @@ function FeatureIntroDialog({
   onOpenChange,
   onConfirm,
 }: {
-  feature: "index" | "tasks" | "canvas"
+  feature: "index" | "tasks" | "canvas" | "scheduled"
   open: boolean
   onOpenChange: (open: boolean) => void
   onConfirm: () => void
@@ -210,7 +215,7 @@ function QuickLaunchBar({ projectId }: { projectId?: string }) {
   const { t: tProject } = useTranslation('project')
   const { tabId } = useChatSession()
   const { data: projectData, invalidateProject } = useProject(projectId || undefined)
-  const [introFeature, setIntroFeature] = React.useState<"index" | "tasks" | "canvas" | null>(null)
+  const [introFeature, setIntroFeature] = React.useState<"index" | "tasks" | "canvas" | "scheduled" | null>(null)
   const initFeatureMutation = useMutation(trpc.project.initFeature.mutationOptions())
 
   // initializedFeatures 为 undefined → 旧项目，全部激活

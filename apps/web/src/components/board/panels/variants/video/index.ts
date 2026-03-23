@@ -20,21 +20,23 @@ export const VIDEO_VARIANTS: Record<string, VariantDefinition> = {
   'OL-VG-001': {
     component: VidGenQwenVariant,
     isApplicable: (ctx) => ctx.hasImage,
-    acceptsInputTypes: ['image'],
+    acceptsInputTypes: ['image', 'audio'],
     producesOutputType: 'video',
     inputSlots: [
       { id: 'prompt', mediaType: 'text', labelKey: 'slot.prompt', min: 0, max: 1, allowManualInput: true, overflowStrategy: 'merge', referenceMode: 'inline' },
       { id: 'startFrame', mediaType: 'image', labelKey: 'slot.startFrame', min: 1, max: 1, allowManualInput: true, overflowStrategy: 'rotate' },
+      { id: 'audio', mediaType: 'audio', labelKey: 'slot.audio', min: 0, max: 1, allowManualInput: true, overflowStrategy: 'rotate' },
     ],
   },
   'OL-VG-002': {
     component: VidGenQwenVariant,
     isApplicable: (ctx) => ctx.hasImage,
-    acceptsInputTypes: ['image'],
+    acceptsInputTypes: ['image', 'audio'],
     producesOutputType: 'video',
     inputSlots: [
       { id: 'prompt', mediaType: 'text', labelKey: 'slot.prompt', min: 0, max: 1, allowManualInput: true, overflowStrategy: 'merge', referenceMode: 'inline' },
       { id: 'startFrame', mediaType: 'image', labelKey: 'slot.startFrame', min: 1, max: 1, allowManualInput: true, overflowStrategy: 'rotate' },
+      { id: 'audio', mediaType: 'audio', labelKey: 'slot.audio', min: 0, max: 1, allowManualInput: true, overflowStrategy: 'rotate' },
     ],
   },
   'OL-VG-003': {

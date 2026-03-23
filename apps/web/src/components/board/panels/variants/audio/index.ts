@@ -9,6 +9,7 @@
  */
 import type { VariantDefinition } from '../types'
 import { SpeechToTextVariant } from './SpeechToTextVariant'
+import { TtsQwen3Variant } from './TtsQwen3Variant'
 import { TtsQwenVariant } from './TtsQwenVariant'
 
 /** Audio variant definitions — each variant owns its applicability logic. */
@@ -24,7 +25,7 @@ export const AUDIO_VARIANTS: Record<string, VariantDefinition> = {
     ],
   },
   'OL-TT-002': {
-    component: TtsQwenVariant,
+    component: TtsQwen3Variant,
     isApplicable: () => true,
     acceptsInputTypes: ['text'],
     producesOutputType: 'audio',

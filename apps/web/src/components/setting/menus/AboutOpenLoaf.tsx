@@ -62,7 +62,7 @@ const UPDATE_BASE_URL = process.env.NEXT_PUBLIC_UPDATE_BASE_URL;
  * Build changelog URL for a given component and version.
  * Points to R2 update server (NEXT_PUBLIC_UPDATE_BASE_URL).
  */
-function buildChangelogUrl(component: "server" | "web", version: string): string | undefined {
+function buildChangelogUrl(component: "server" | "web" | "desktop", version: string): string | undefined {
   if (!UPDATE_BASE_URL || version === "—" || version === "bundled") return undefined;
   return `${UPDATE_BASE_URL}/changelogs/${component}/${version}`;
 }
@@ -287,7 +287,8 @@ export function AboutOpenLoaf() {
 
   /** Open changelog sheet and fetch all changelogs in parallel. */
   const openAllChangelogs = React.useCallback(async () => {
-    const components: Array<{ key: string; component: "server" | "web"; version: string }> = [
+    const components: Array<{ key: string; component: "server" | "web" | "desktop"; version: string }> = [
+      { key: "desktop", component: "desktop", version: currentVersion },
       { key: "server", component: "server", version: serverVersion },
       { key: "web", component: "web", version: webVersion },
     ];
@@ -312,7 +313,7 @@ export function AboutOpenLoaf() {
         }));
       }),
     );
-  }, [basic.uiLanguage, serverVersion, webVersion]);
+  }, [basic.uiLanguage, currentVersion, serverVersion, webVersion]);
 
   /** Format a version string with "v" prefix, unless it's a placeholder. */
   const fmtVersion = (v: string) => {
@@ -646,12 +647,15 @@ export function AboutOpenLoaf() {
             <SheetTitle>{t('aboutAdditions.allChangelogs')}</SheetTitle>
           </SheetHeader>
           <div className="px-4">
-            <Accordion type="multiple" defaultValue={["server", "web"]}>
+            <Accordion type="multiple" defaultValue={["desktop", "server", "web"]}>
               {[
+                { key: "desktop", label: t('aboutAdditions.desktop'), version: currentVersion, icon: Monitor, bg: "bg-secondary", fg: "text-foreground" },
                 { key: "server", label: t('aboutAdditions.server'), version: serverVersion, icon: Server, bg: "bg-secondary", fg: "text-foreground" },
                 { key: "web", label: "Web", version: webVersion, icon: Globe, bg: "bg-secondary", fg: "text-foreground" },
               ].map((item) => {
                 const entry = changelogSheet.changelogs[item.key];
+                // 加载完成后 content 为空（404）则不显示该分组
+                if (entry && !entry.loading && !entry.content) return null;
                 return (
                   <AccordionItem key={item.key} value={item.key}>
                     <AccordionTrigger>
@@ -667,14 +671,10 @@ export function AboutOpenLoaf() {
                           <Loader2 className="h-4 w-4 animate-spin mr-2" />
                           {t('aboutAdditions.loading')}
                         </div>
-                      ) : entry?.content ? (
-                        <Streamdown mode="static" className="prose prose-sm dark:prose-invert max-w-none">
-                          {entry.content}
-                        </Streamdown>
                       ) : (
-                        <div className="py-4 text-center text-sm text-muted-foreground">
-                          {t('aboutAdditions.changelogNotFound')}
-                        </div>
+                        <Streamdown mode="static" className="prose prose-sm dark:prose-invert max-w-none">
+                          {entry!.content!}
+                        </Streamdown>
                       )}
                     </AccordionContent>
                   </AccordionItem>

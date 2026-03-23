@@ -9,8 +9,9 @@
  */
 import { z } from "zod";
 import path from "node:path";
-import { promises as fs } from "node:fs";
+import { existsSync, promises as fs } from "node:fs";
 import { randomUUID } from "node:crypto";
+import { TRPCError } from "@trpc/server";
 import { t, shieldedProcedure } from "../../generated/routers/helpers/createRouter";
 import {
   getProjectRootUri,
@@ -207,6 +208,48 @@ function resolveProjectRootPath(projectId: string): string {
     throw new Error("Project not found.");
   }
   return resolveLocalPathFromUri(rootUri);
+}
+
+/** Soft-delete a missing project from DB and remove from registry. */
+async function cleanupMissingProject(
+  projectId: string,
+  prisma: { project: { updateMany: (args: any) => Promise<any> } },
+): Promise<void> {
+  try {
+    removeTopLevelProject(projectId);
+  } catch {
+    // ignore registry cleanup errors
+  }
+  try {
+    await prisma.project.updateMany({
+      where: { id: projectId, isDeleted: false },
+      data: { isDeleted: true, deletedAt: new Date() },
+    });
+  } catch {
+    // ignore DB cleanup errors
+  }
+}
+
+/**
+ * Resolve a project root path, cleaning up DB/registry when the project
+ * directory is missing from disk or registry. Throws NOT_FOUND with
+ * message "PROJECT_REMOVED" so the frontend can show a friendly toast.
+ */
+async function resolveProjectRootPathOrCleanup(
+  projectId: string,
+  prisma: { project: { updateMany: (args: any) => Promise<any> } },
+): Promise<string> {
+  const rootUri = getProjectRootUri(projectId);
+  if (!rootUri) {
+    await cleanupMissingProject(projectId, prisma);
+    throw new TRPCError({ code: "NOT_FOUND", message: "PROJECT_REMOVED" });
+  }
+  const rootPath = resolveLocalPathFromUri(rootUri);
+  if (!existsSync(rootPath)) {
+    await cleanupMissingProject(projectId, prisma);
+    throw new TRPCError({ code: "NOT_FOUND", message: "PROJECT_REMOVED" });
+  }
+  return rootPath;
 }
 
 /** Resolve cache root path from project scope. */
@@ -500,7 +543,7 @@ export const projectRouter = t.router({
               title: rawTitle || fallbackTitle,
               icon: input.icon ?? undefined,
               projects: {},
-              initializedFeatures: [],
+              initializedFeatures: ["canvas"],
             },
       );
       const metaPath = getProjectMetaPath(projectRootPath);
@@ -542,8 +585,8 @@ export const projectRouter = t.router({
   /** Get a single project by project id. */
   get: shieldedProcedure
     .input(z.object({ projectId: z.string() }))
-    .query(async ({ input }) => {
-      const rootPath = resolveProjectRootPath(input.projectId);
+    .query(async ({ ctx, input }) => {
+      const rootPath = await resolveProjectRootPathOrCleanup(input.projectId, ctx.prisma);
       const config = await readProjectConfig(rootPath);
       return {
         project: {
@@ -826,8 +869,8 @@ export const projectRouter = t.router({
   /** Get AI settings for a project. */
   getAiSettings: shieldedProcedure
     .input(z.object({ projectId: z.string() }))
-    .query(async ({ input }) => {
-      const rootPath = resolveProjectRootPath(input.projectId);
+    .query(async ({ ctx, input }) => {
+      const rootPath = await resolveProjectRootPathOrCleanup(input.projectId, ctx.prisma);
       const metaPath = getProjectMetaPath(rootPath);
       const raw = (await readJsonFile(metaPath)) ?? {};
       const parsed = projectConfigSchema.parse(raw);
@@ -933,8 +976,8 @@ export const projectRouter = t.router({
   /** Get homepage data for a project. */
   getHomePage: shieldedProcedure
     .input(z.object({ projectId: z.string() }))
-    .query(async ({ input }) => {
-      const rootPath = resolveProjectRootPath(input.projectId);
+    .query(async ({ ctx, input }) => {
+      const rootPath = await resolveProjectRootPathOrCleanup(input.projectId, ctx.prisma);
       const pagePath = getHomePagePath(rootPath);
       const raw = await readJsonFile(pagePath);
       if (!raw || typeof raw !== "object") {
@@ -991,7 +1034,7 @@ export const projectRouter = t.router({
     .input(
       z.object({
         projectId: z.string(),
-        feature: z.enum(["index", "tasks", "canvas"]),
+        feature: z.enum(["index", "tasks", "canvas", "scheduled"]),
       })
     )
     .mutation(async ({ input }) => {
@@ -1012,11 +1055,30 @@ export const projectRouter = t.router({
       return { ok: true };
     }),
 
+  /** Batch-set the enabled features for a project (replaces the entire list). */
+  setFeatures: shieldedProcedure
+    .input(
+      z.object({
+        projectId: z.string(),
+        features: z.array(z.enum(["index", "tasks", "canvas", "scheduled"])),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const rootPath = resolveProjectRootPath(input.projectId);
+      const config = await readProjectConfig(rootPath);
+      const metaPath = getProjectMetaPath(rootPath);
+      await writeJsonAtomic(metaPath, {
+        ...config,
+        initializedFeatures: [...new Set(input.features)],
+      });
+      return { ok: true };
+    }),
+
   /** Get board snapshot for a project. */
   getBoard: shieldedProcedure
     .input(z.object({ projectId: z.string() }))
-    .query(async ({ input }) => {
-      const rootPath = resolveProjectRootPath(input.projectId);
+    .query(async ({ ctx, input }) => {
+      const rootPath = await resolveProjectRootPathOrCleanup(input.projectId, ctx.prisma);
       const boardPath = getBoardSnapshotPath(rootPath);
       const raw = await readJsonFile(boardPath);
       return { board: raw ?? null };
@@ -1198,7 +1260,7 @@ export const projectRouter = t.router({
         title: projectTitle,
         icon: "💬", // 默认对话图标
         projects: {},
-        initializedFeatures: [],
+        initializedFeatures: ["canvas"],
       });
 
       const metaPath = getProjectMetaPath(projectRootPath);

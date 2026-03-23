@@ -264,13 +264,20 @@ export function InputSlotBar({
     for (const slot of slots) {
       if (slot.mediaType === 'text') continue
       const refs = slotAssignments[slot.id] ?? []
-      const mediaRef = refs.find(isMediaReference) as MediaReference | undefined
-      if (mediaRef) {
-        if (mediaRef.nodeId.startsWith('__manual_')) {
-          map[slot.id] = `manual:${mediaRef.path}`
-        } else {
-          map[slot.id] = mediaRef.nodeId
-        }
+      const mediaRefs = refs.filter(isMediaReference) as MediaReference[]
+      if (mediaRefs.length === 0) continue
+
+      if (slot.max > 1) {
+        // Multi-item slot: persist as array
+        map[slot.id] = mediaRefs.map((r) =>
+          r.nodeId.startsWith('__manual_') ? `manual:${r.path}` : r.nodeId,
+        )
+      } else {
+        // Single-item slot: persist as string (backward compat)
+        const mediaRef = mediaRefs[0]
+        map[slot.id] = mediaRef.nodeId.startsWith('__manual_')
+          ? `manual:${mediaRef.path}`
+          : mediaRef.nodeId
       }
     }
     onSlotAssignmentChangeRef.current(map)
@@ -332,18 +339,36 @@ export function InputSlotBar({
   // Callbacks — media slot upload
   // ---------------------------------------------------------------------------
 
+  /** Lookup slot max by slotId */
+  const slotMaxMap = useMemo(() => {
+    const map: Record<string, number> = {}
+    for (const s of slots) map[s.id] = s.max
+    return map
+  }, [slots])
+
   const handleMediaUpload = useCallback(
     (slotId: string, mediaType: MediaType, value: string) => {
-      const newRef: MediaReference = {
-        nodeId: `__manual_${slotId}__`,
-        nodeType: mediaType,
-        url: value,
-        path: value,
-      }
+      const max = slotMaxMap[slotId] ?? 1
       setSlotAssignments((prev) => {
-        // Move displaced upstream ref back to associated
-        const displaced = (prev[slotId] ?? [])
-          .filter(isMediaReference)
+        const current = prev[slotId] ?? []
+        const currentMedia = current.filter(isMediaReference)
+
+        // Generate unique nodeId for manual uploads
+        const manualIdx = currentMedia.filter((r) => r.nodeId.startsWith('__manual_')).length
+        const newRef: MediaReference = {
+          nodeId: `__manual_${slotId}_${manualIdx}__`,
+          nodeType: mediaType,
+          url: value,
+          path: value,
+        }
+
+        if (max > 1 && currentMedia.length < max) {
+          // Multi-item slot with room: append
+          return { ...prev, [slotId]: [...current, newRef] }
+        }
+
+        // Single-item or full: replace (move displaced upstream refs to associated)
+        const displaced = currentMedia
           .filter((r) => !r.nodeId.startsWith('__manual_'))
         if (displaced.length > 0) {
           setAssociatedRefs((prevAssoc) => {
@@ -355,13 +380,30 @@ export function InputSlotBar({
         return { ...prev, [slotId]: [newRef] }
       })
     },
-    [],
+    [slotMaxMap],
   )
 
-  const handleMediaRemove = useCallback((slotId: string) => {
+  /** Remove a specific ref from a slot (by nodeId), or clear the entire slot. */
+  const handleMediaRemove = useCallback((slotId: string, removeNodeId?: string) => {
     setSlotAssignments((prev) => {
-      const removedRefs = (prev[slotId] ?? []).filter(isMediaReference)
-      // Move removed upstream refs (not manual uploads) back to associated
+      const current = prev[slotId] ?? []
+
+      if (removeNodeId) {
+        // Remove a specific ref (multi-item mode)
+        const removed = current.find(
+          (r) => isMediaReference(r) && r.nodeId === removeNodeId,
+        ) as MediaReference | undefined
+        if (removed && !removed.nodeId.startsWith('__manual_')) {
+          setAssociatedRefs((prevAssoc) => {
+            if (prevAssoc.some((r) => r.nodeId === removed.nodeId)) return prevAssoc
+            return [...prevAssoc, removed]
+          })
+        }
+        return { ...prev, [slotId]: current.filter((r) => !isMediaReference(r) || r.nodeId !== removeNodeId) }
+      }
+
+      // Remove all (legacy single-item mode)
+      const removedRefs = current.filter(isMediaReference)
       const upstreamRefs = removedRefs.filter(
         (r) => !r.nodeId.startsWith('__manual_'),
       )
@@ -389,7 +431,15 @@ export function InputSlotBar({
         const currentRefs = prev[targetSlotId] ?? []
         const currentMedia = currentRefs.filter(isMediaReference)
 
-        // If the target slot already has a media ref, move it back to associated
+        if (targetSlot.max > 1 && currentMedia.length < targetSlot.max) {
+          // Multi-item slot with room: append
+          setAssociatedRefs((prevAssoc) =>
+            prevAssoc.filter((r) => r.nodeId !== assocRef.nodeId),
+          )
+          return { ...prev, [targetSlotId]: [...currentRefs, assocRef] }
+        }
+
+        // Single-item or full: replace oldest, move it to associated
         const evictedRef = currentMedia[0]
 
         const next = {
@@ -534,7 +584,13 @@ export function InputSlotBar({
   // Layout: determine single-row vs two-row
   // ---------------------------------------------------------------------------
 
-  const totalCount = mediaSlots.length + associatedRefs.length
+  // Count total chips: each assigned ref + add button + associated refs
+  const totalAssigned = mediaSlots.reduce((sum, s) => {
+    const refs = (slotAssignments[s.id] ?? []).filter(isMediaReference)
+    const canAdd = refs.length < s.max ? 1 : 0
+    return sum + refs.length + canAdd
+  }, 0)
+  const totalCount = totalAssigned + associatedRefs.length
   const isSingleRow = totalCount <= 7
 
   // ---------------------------------------------------------------------------
@@ -551,27 +607,92 @@ export function InputSlotBar({
       {mediaSlots.length > 0 ? (() => {
         const hasAssociated = associatedRefs.length > 0
 
-        /** Renders all active slot chips */
-        const activeSlotChips = mediaSlots.map((slot) => {
+        /** Renders all active slot chips (supports multi-item slots) */
+        const activeSlotChips = mediaSlots.flatMap((slot) => {
           const assignedMedia = (slotAssignments[slot.id] ?? []).filter(
             isMediaReference,
           )
-          const currentRef = assignedMedia[0]
-          const isEmpty = !currentRef
           const matchingAssociated = matchingAssociatedForSlot(slot)
-          const shouldPulse = isEmpty && matchingAssociated.length > 0
           const slotLabel = t(slot.labelKey, { defaultValue: slot.labelKey })
           const uploadAccept = uploadAcceptForType(slot.mediaType)
+          const isMulti = slot.max > 1
+          const canAddMore = assignedMedia.length < slot.max
 
-          if (isEmpty) {
-            // Empty active slot: click to assign from associated or upload
+          const chips: React.ReactNode[] = []
+
+          // Render each assigned ref as a chip
+          for (let i = 0; i < assignedMedia.length; i++) {
+            const ref = assignedMedia[i]
+            const isFirst = i === 0
+            const chipKey = `${slot.id}:${ref.nodeId}`
+
             if (matchingAssociated.length > 0) {
-              return (
-                <ActiveSlotWithPopover
-                  key={slot.id}
+              chips.push(
+                <FilledSlotWithPopover
+                  key={chipKey}
                   slotId={slot.id}
-                  label={slotLabel}
-                  required={slot.min > 0}
+                  label={isFirst ? slotLabel : ''}
+                  currentRef={ref}
+                  required={isFirst && slot.min > 0}
+                  disabled={disabled}
+                  uploadAccept={uploadAccept}
+                  mediaType={slot.mediaType}
+                  candidates={matchingAssociated}
+                  variantUpstream={variantUpstream}
+                  onSwap={(newRef) =>
+                    isMulti
+                      ? handleAssociatedToSlot(newRef, slot.id)
+                      : handleSlotSwapWithAssociated(slot.id, newRef)
+                  }
+                  onUpload={(v) =>
+                    handleMediaUpload(slot.id, slot.mediaType, v)
+                  }
+                  onRemove={() =>
+                    isMulti
+                      ? handleMediaRemove(slot.id, ref.nodeId)
+                      : handleMediaRemove(slot.id)
+                  }
+                  t={t}
+                />,
+              )
+            } else {
+              chips.push(
+                <MediaSlot
+                  key={chipKey}
+                  label={isFirst ? slotLabel : ''}
+                  src={ref.url}
+                  required={isFirst && slot.min > 0}
+                  uploadAccept={uploadAccept}
+                  disabled={disabled}
+                  onUpload={(v) =>
+                    handleMediaUpload(slot.id, slot.mediaType, v)
+                  }
+                  onRemove={() =>
+                    isMulti
+                      ? handleMediaRemove(slot.id, ref.nodeId)
+                      : handleMediaRemove(slot.id)
+                  }
+                  boardId={variantUpstream.boardId}
+                  projectId={variantUpstream.projectId}
+                  boardFolderUri={variantUpstream.boardFolderUri}
+                  compact
+                />,
+              )
+            }
+          }
+
+          // "Add more" button when under max
+          if (canAddMore && !disabled) {
+            const isEmpty = assignedMedia.length === 0
+            const shouldPulse = isEmpty && matchingAssociated.length > 0
+
+            if (matchingAssociated.length > 0) {
+              chips.push(
+                <ActiveSlotWithPopover
+                  key={`${slot.id}:add`}
+                  slotId={slot.id}
+                  label={isEmpty ? slotLabel : ''}
+                  required={isEmpty && slot.min > 0}
                   disabled={disabled}
                   pulse={shouldPulse}
                   uploadAccept={uploadAccept}
@@ -585,74 +706,30 @@ export function InputSlotBar({
                     handleMediaUpload(slot.id, slot.mediaType, v)
                   }
                   t={t}
-                />
+                />,
+              )
+            } else {
+              chips.push(
+                <MediaSlot
+                  key={`${slot.id}:add`}
+                  label={isEmpty ? slotLabel : ''}
+                  icon={<Plus size={14} />}
+                  required={isEmpty && slot.min > 0}
+                  uploadAccept={uploadAccept}
+                  disabled={disabled}
+                  onUpload={(v) =>
+                    handleMediaUpload(slot.id, slot.mediaType, v)
+                  }
+                  boardId={variantUpstream.boardId}
+                  projectId={variantUpstream.projectId}
+                  boardFolderUri={variantUpstream.boardFolderUri}
+                  compact
+                />,
               )
             }
-            // No matching associated refs: plain upload slot
-            return (
-              <MediaSlot
-                key={slot.id}
-                label={slotLabel}
-                icon={<Plus size={14} />}
-                required={slot.min > 0}
-                uploadAccept={uploadAccept}
-                disabled={disabled}
-                onUpload={(v) =>
-                  handleMediaUpload(slot.id, slot.mediaType, v)
-                }
-                boardId={variantUpstream.boardId}
-                projectId={variantUpstream.projectId}
-                boardFolderUri={variantUpstream.boardFolderUri}
-                compact
-              />
-            )
           }
 
-          // Filled active slot: click to swap with associated ref
-          if (matchingAssociated.length > 0) {
-            return (
-              <FilledSlotWithPopover
-                key={slot.id}
-                slotId={slot.id}
-                label={slotLabel}
-                currentRef={currentRef}
-                required={slot.min > 0}
-                disabled={disabled}
-                uploadAccept={uploadAccept}
-                mediaType={slot.mediaType}
-                candidates={matchingAssociated}
-                variantUpstream={variantUpstream}
-                onSwap={(ref) =>
-                  handleSlotSwapWithAssociated(slot.id, ref)
-                }
-                onUpload={(v) =>
-                  handleMediaUpload(slot.id, slot.mediaType, v)
-                }
-                onRemove={() => handleMediaRemove(slot.id)}
-                t={t}
-              />
-            )
-          }
-
-          // Filled slot, no alternatives to swap with
-          return (
-            <MediaSlot
-              key={slot.id}
-              label={slotLabel}
-              src={currentRef.url}
-              required={slot.min > 0}
-              uploadAccept={uploadAccept}
-              disabled={disabled}
-              onUpload={(v) =>
-                handleMediaUpload(slot.id, slot.mediaType, v)
-              }
-              onRemove={() => handleMediaRemove(slot.id)}
-              boardId={variantUpstream.boardId}
-              projectId={variantUpstream.projectId}
-              boardFolderUri={variantUpstream.boardFolderUri}
-              compact
-            />
-          )
+          return chips
         })
 
         /** Renders all associated ref chips */

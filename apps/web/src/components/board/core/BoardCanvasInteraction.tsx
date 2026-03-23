@@ -1779,7 +1779,6 @@ export function BoardCanvasInteraction({
             }
           }}
           onDoubleClick={(event) => {
-            console.info('[DBLCLICK] fired', { showUi, pendingInsert: snapshot.pendingInsert, toolbarDragging: snapshot.toolbarDragging, locked: engine.isLocked() });
             if (!showUi) return;
             const rawTarget = event.target as EventTarget | null;
             const target =
@@ -1788,13 +1787,12 @@ export function BoardCanvasInteraction({
                 : rawTarget instanceof Node
                   ? rawTarget.parentElement
                   : null;
-            if (!target) { console.info('[DBLCLICK] no target'); return; }
+            if (!target) return;
             // 逻辑：过滤 React portal 冒泡的事件（如文件选择对话框的双击）。
-            if (!containerRef.current?.contains(target)) { console.info('[DBLCLICK] target not in container', target); return; }
-            if (snapshot.pendingInsert || snapshot.toolbarDragging) { console.info('[DBLCLICK] pendingInsert or toolbarDragging'); return; }
-            if (engine.isLocked()) { console.info('[DBLCLICK] engine locked'); return; }
+            if (!containerRef.current?.contains(target)) return;
+            if (snapshot.pendingInsert || snapshot.toolbarDragging) return;
+            if (engine.isLocked()) return;
             if (isBoardUiTarget(target, ["[data-connector-drop-panel]"])) {
-              console.info('[DBLCLICK] is board UI target');
               return;
             }
             const rect = containerRef.current?.getBoundingClientRect();
@@ -1804,7 +1802,6 @@ export function BoardCanvasInteraction({
               event.clientY - rect.top,
             ]);
             const hitElement = engine.pickElementAt(worldPoint);
-            console.info('[DBLCLICK] hitElement', hitElement?.kind, hitElement?.type, hitElement?.id);
             if (hitElement?.kind === "node") {
               handleNodeDoubleClick(hitElement);
             } else if (!hitElement) {

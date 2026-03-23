@@ -50,6 +50,9 @@
     "cloning": "克隆中...",
     "startClone": "开始克隆",
     "done": "完成",
+    "autoCreateFolder": "自动创建文件夹",
+    "autoCreateFolderHint": "将在临时文件夹下自动创建项目目录",
+    "autoCreateFolderEnterName": "请先输入项目名称",
     "addToProjectSpace": "已添加到项目空间",
     "addError": "添加失败",
     "feedback": {
@@ -94,6 +97,7 @@
     "addProjectHint": "点击下方添加项目",
     "openManagerFailed": "无法打开文件管理器",
     "removed": "项目已移除",
+    "removedAutoCleanup": "检测到异常数据，已自动处理",
     "removeFailed": "移除失败",
     "permanentlyDeleted": "项目已彻底删除",
     "permanentDeleteFailed": "彻底删除失败",

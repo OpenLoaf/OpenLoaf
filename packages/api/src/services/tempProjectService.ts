@@ -42,7 +42,7 @@ export async function createTempProject(opts?: {
     title: opts?.title || "Temp Project",
     projectType: "temp" as const,
     projects: {},
-    initializedFeatures: [],
+    initializedFeatures: ["canvas"],
     tempMeta: {
       sessionId: opts?.sessionId ?? null,
       createdAt: now,

@@ -60,7 +60,7 @@ export const PROJECT_QUICK_LAUNCH_ITEMS = [
     bgColor: "bg-secondary group-hover:bg-secondary/80",
   },
   {
-    value: "scheduled", icon: Clock, labelKey: "project.tabScheduled", featureGated: false,
+    value: "scheduled", icon: Clock, labelKey: "project.tabScheduled", featureGated: true,
     iconColor: "text-muted-foreground group-hover:text-foreground",
     bgColor: "bg-secondary group-hover:bg-secondary/80",
   },

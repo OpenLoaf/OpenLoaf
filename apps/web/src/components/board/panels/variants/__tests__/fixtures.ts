@@ -193,6 +193,17 @@ export const VARIANT_FIXTURES: Record<string, VariantFixture> = {
     inputs: { prompt: 'a bird flying', startImage: { url: 'https://example.com/frame.jpg' } },
     params: { duration: 5, withAudio: true, style: 'cinematic' },
   },
+  'OL-VG-001_with_audio': {
+    label: '百炼视频 Flash — 带音频输入',
+    feature: 'videoGenerate',
+    variant: 'OL-VG-001',
+    inputs: {
+      prompt: 'a bird flying',
+      startImage: { url: 'https://example.com/frame.jpg' },
+      audio: { url: 'https://example.com/bgm.wav' },
+    },
+    params: { duration: 5, withAudio: true },
+  },
   'OL-VG-002_basic': {
     label: '百炼视频 标准 — 基础',
     feature: 'videoGenerate',
@@ -299,6 +310,20 @@ export const VARIANT_FIXTURES: Record<string, VariantFixture> = {
     variant: 'OL-TT-001',
     inputs: { text: '你好世界' },
     params: { voice: 'longshu', format: 'wav', speechRate: 1.5, pitchRate: 0.8, volume: 80 },
+  },
+  'OL-TT-002_basic': {
+    label: 'Qwen3 TTS — 默认参数',
+    feature: 'tts',
+    variant: 'OL-TT-002',
+    inputs: { text: '你好世界' },
+    params: {},
+  },
+  'OL-TT-002_custom': {
+    label: 'Qwen3 TTS — 自定义参数',
+    feature: 'tts',
+    variant: 'OL-TT-002',
+    inputs: { text: 'Hello world' },
+    params: { voice: 'Serena', languageType: 'English', instruction: 'Speak slowly with a warm tone' },
   },
 
   // ═══ STT ═══

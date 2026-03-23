@@ -45,7 +45,7 @@ import { isProjectWindowMode, isBoardWindowMode } from "@/lib/window-mode";
 import { openPrimaryPage, captureCurrentViewSnapshot, restoreViewSnapshot } from "@/lib/primary-page-navigation";
 
 const ICON_BTN_BASE =
-  "relative flex h-10 w-10 items-center justify-center rounded-3xl transition-colors duration-150 [&>svg]:text-sidebar-foreground/60 hover:[&>svg]:text-sidebar-foreground data-[active=true]:[&>svg]:text-sidebar-accent-foreground";
+  "relative flex h-10 w-10 items-center justify-center rounded-3xl transition-colors duration-150 hover:bg-transparent active:bg-transparent data-[active=true]:bg-transparent [&>svg]:text-sidebar-foreground/60 hover:[&>svg]:text-sidebar-foreground data-[active=true]:[&>svg]:text-sidebar-accent-foreground";
 
 function IconNavItem({
   icon: Icon,

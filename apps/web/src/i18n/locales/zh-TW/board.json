@@ -1056,7 +1056,36 @@
         "longcheng": "龍城",
         "longjielidou": "龍傑力豆",
         "longtong": "龍童"
-      }
+      },
+      "qwen3Voices": {
+        "Cherry": "Cherry",
+        "Serena": "Serena",
+        "Ethan": "Ethan",
+        "Chelsie": "Chelsie",
+        "Momo": "Momo",
+        "Vivian": "Vivian",
+        "Moon": "Moon",
+        "Maia": "Maia",
+        "Kai": "Kai",
+        "Nofish": "Nofish"
+      },
+      "languageType": "文字語言",
+      "languageTypeAuto": "自動偵測",
+      "languageTypes": {
+        "Chinese": "中文",
+        "English": "英語",
+        "Spanish": "西班牙語",
+        "Russian": "俄語",
+        "Italian": "義大利語",
+        "French": "法語",
+        "Korean": "韓語",
+        "Japanese": "日語",
+        "German": "德語",
+        "Portuguese": "葡萄牙語"
+      },
+      "instructions": "語音指令",
+      "instructionsPlaceholder": "用自然語言描述語音風格，如：用溫柔的語氣緩慢地說...",
+      "instructionsHint": "僅 instruct-flash 模型支援，可控制語調、語速和情感"
     },
     "selectVariant": "選擇模型",
     "unknownVariant": "此變體暫不支援介面操作",
@@ -1207,5 +1236,10 @@
       "OL-TT-002": { "label": "文字轉語音" },
       "OL-SR-001": { "label": "語音辨識" }
     }
+  },
+  "videoLocked": {
+    "title": "影片生成需要 Pro 及以上方案",
+    "description": "升級後即可使用全部影片功能",
+    "upgrade": "升級方案"
   }
 }

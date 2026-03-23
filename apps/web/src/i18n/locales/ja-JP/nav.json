@@ -50,6 +50,9 @@
     "cloning": "クローン中...",
     "startClone": "クローンを開始",
     "done": "完了",
+    "autoCreateFolder": "フォルダーを自動作成",
+    "autoCreateFolderHint": "一時フォルダーにプロジェクトディレクトリを自動作成します",
+    "autoCreateFolderEnterName": "プロジェクト名を入力してください",
     "addToProjectSpace": "プロジェクトスペースに追加しました",
     "addError": "追加に失敗しました",
     "feedback": {
@@ -94,6 +97,7 @@
     "addProjectHint": "下のボタンをクリックしてプロジェクトを追加",
     "openManagerFailed": "ファイルマネージャーを開けません",
     "removed": "プロジェクトを削除しました",
+    "removedAutoCleanup": "異常データを検出しました。自動的に処理しました",
     "removeFailed": "削除に失敗しました",
     "permanentlyDeleted": "プロジェクトを完全に削除しました",
     "permanentDeleteFailed": "完全削除に失敗しました",

@@ -20,6 +20,7 @@ import { trpc } from "@/utils/trpc";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { useTabActive } from "@/components/layout/TabActiveContext";
 import { useAppState } from "@/hooks/use-app-state";
+import { useProject } from "@/hooks/use-project";
 import { useLayoutState } from "@/hooks/use-layout-state";
 import { cn } from "@/lib/utils";
 import ProjectTabs, { type ProjectTabValue } from "@/components/project/ProjectTabs";
@@ -135,6 +136,10 @@ export default function ProjectSettingsPage({
       ?? normalizeProjectSettingsMenuKey(readPersistedSettingsMenu("project"))
       ?? "basic"
   );
+  const { data: projectData } = useProject(projectId);
+  const projectIcon = projectData?.project?.icon ?? null;
+  const projectTitle = projectData?.project?.title ?? null;
+
   const gitInfoQuery = useQuery({
     ...trpc.project.getGitInfo.queryOptions(
       projectId ? { projectId } : skipToken,
@@ -298,18 +303,26 @@ export default function ProjectSettingsPage({
           : "h-full min-h-0 pl-3 pr-1 pt-2"
       }
       menu={
-        <OpenLoafSettingsMenu
-          groups={menuGroups}
-          activeKey={activeKey}
-          isCollapsed={isCollapsed}
-          onChange={(key) => {
-            const nextKey = key as ProjectSettingsMenuKey;
-            setActiveKey(nextKey);
-            writePersistedSettingsMenu("project", nextKey);
-            if (!tabId) return;
-            setBaseParams({ settingsMenu: nextKey });
-          }}
-        />
+        <div className="flex h-full flex-col overflow-hidden">
+          {!isCollapsed && (projectTitle || projectIcon) && (
+            <div className="mx-2 mt-2 mb-1 flex items-center gap-1.5 rounded-lg px-3 py-2 min-w-0 bg-muted/50">
+              {projectIcon ? <span className="text-sm leading-none shrink-0">{projectIcon}</span> : null}
+              <span className="truncate text-xs font-medium text-muted-foreground">{projectTitle}</span>
+            </div>
+          )}
+          <OpenLoafSettingsMenu
+            groups={menuGroups}
+            activeKey={activeKey}
+            isCollapsed={isCollapsed}
+            onChange={(key) => {
+              const nextKey = key as ProjectSettingsMenuKey;
+              setActiveKey(nextKey);
+              writePersistedSettingsMenu("project", nextKey);
+              if (!tabId) return;
+              setBaseParams({ settingsMenu: nextKey });
+            }}
+          />
+        </div>
       }
       content={
         <div

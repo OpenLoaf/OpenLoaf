@@ -50,6 +50,9 @@
     "cloning": "複製中...",
     "startClone": "開始複製",
     "done": "完成",
+    "autoCreateFolder": "自動建立資料夾",
+    "autoCreateFolderHint": "將在暫存資料夾下自動建立專案目錄",
+    "autoCreateFolderEnterName": "請先輸入專案名稱",
     "addToProjectSpace": "已新增至專案空間",
     "addError": "新增失敗",
     "feedback": {
@@ -94,6 +97,7 @@
     "addProjectHint": "點擊下方新增專案",
     "openManagerFailed": "無法開啟檔案管理器",
     "removed": "專案已移除",
+    "removedAutoCleanup": "偵測到異常資料，已自動處理",
     "removeFailed": "移除失敗",
     "permanentlyDeleted": "專案已徹底刪除",
     "permanentDeleteFailed": "徹底刪除失敗",

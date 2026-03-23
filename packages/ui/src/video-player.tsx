@@ -71,6 +71,8 @@ export function VideoPlayer({
   const [showControls, setShowControls] = useState(true);
   const [ready, setReady] = useState(false);
   const [buffered, setBuffered] = useState(0);
+  // 逻辑：ready 后清除 poster，让浏览器显示高清视频首帧而非低分辨率缩略图。
+  const effectivePoster = ready ? undefined : poster;
 
   const effectiveEnd = clipEndTime && clipEndTime > 0 ? clipEndTime : duration;
 
@@ -102,12 +104,14 @@ export function VideoPlayer({
 
     const onLoadedMetadata = () => {
       setDuration(video.duration);
-      setReady(true);
-      // 逻辑：元数据加载后移除 poster，让浏览器显示高清视频首帧而非低分辨率缩略图。
-      video.removeAttribute("poster");
       if (clipStartTime && clipStartTime > 0) {
         video.currentTime = clipStartTime;
       }
+    };
+
+    // 逻辑：首帧解码完成后才标记 ready，确保移除 poster 时视频有可见帧，避免黑屏。
+    const onLoadedData = () => {
+      setReady(true);
     };
 
     const onPlay = () => setPlaying(true);
@@ -116,6 +120,7 @@ export function VideoPlayer({
 
     video.addEventListener("timeupdate", onTimeUpdate);
     video.addEventListener("loadedmetadata", onLoadedMetadata);
+    video.addEventListener("loadeddata", onLoadedData);
     video.addEventListener("play", onPlay);
     video.addEventListener("pause", onPause);
     video.addEventListener("durationchange", onDurationChange);
@@ -123,6 +128,7 @@ export function VideoPlayer({
     return () => {
       video.removeEventListener("timeupdate", onTimeUpdate);
       video.removeEventListener("loadedmetadata", onLoadedMetadata);
+      video.removeEventListener("loadeddata", onLoadedData);
       video.removeEventListener("play", onPlay);
       video.removeEventListener("pause", onPause);
       video.removeEventListener("durationchange", onDurationChange);
@@ -231,7 +237,7 @@ export function VideoPlayer({
       <div className={cn("relative overflow-hidden rounded-3xl bg-black", className)}>
         <video
           ref={videoRef}
-          poster={poster}
+          poster={effectivePoster}
           autoPlay={autoPlay}
           muted={mutedProp}
           playsInline
@@ -256,7 +262,7 @@ export function VideoPlayer({
       {/* Video element */}
       <video
         ref={videoRef}
-        poster={poster}
+        poster={effectivePoster}
         autoPlay={autoPlay}
         muted={isMuted}
         playsInline

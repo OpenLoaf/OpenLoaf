@@ -9,7 +9,9 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useQuery } from '@tanstack/react-query'
 import {
+  Lock,
   Loader2,
 } from 'lucide-react'
 import type { CanvasNodeElement } from '../engine/types'
@@ -17,6 +19,9 @@ import type { UpstreamData } from '../engine/upstream-data'
 import type { VideoNodeProps } from '../nodes/VideoNode'
 import type { AiGenerateConfig } from '../board-contracts'
 import { MEDIA_FEATURES, type MediaFeatureId } from '@openloaf-saas/sdk'
+import { useSaasAuth } from '@/hooks/use-saas-auth'
+import { fetchUserProfile } from '@/lib/saas-auth'
+import { PricingDialog } from '@/components/billing/PricingDialog'
 import { useCapabilities } from '@/hooks/use-capabilities'
 import { resolveAllMediaInputs } from '@/lib/media-upload'
 import { GenerateActionBar } from './GenerateActionBar'
@@ -127,6 +132,39 @@ export function VideoAiPanel({
 }: VideoAiPanelProps) {
   const { t, i18n } = useTranslation('board')
   const prefLang = i18n.language.startsWith('zh') ? 'zh' : 'en'
+
+  // ── Membership gate: free/lite users cannot use video generation ──
+  const loggedIn = useSaasAuth((s) => s.loggedIn)
+  const profileQuery = useQuery({
+    queryKey: ['saas', 'userProfile'],
+    queryFn: fetchUserProfile,
+    enabled: loggedIn,
+    staleTime: 60_000,
+  })
+  const membershipLevel = profileQuery.data?.membershipLevel
+  const isVideoLocked = loggedIn && membershipLevel != null && (membershipLevel === 'free' || membershipLevel === 'lite')
+  const [pricingOpen, setPricingOpen] = useState(false)
+
+  if (isVideoLocked) {
+    return (
+      <div className="flex w-[420px] flex-col items-center justify-center gap-3 rounded-3xl border border-border bg-card px-6 py-10 shadow-lg">
+        <Lock size={24} className="text-muted-foreground" />
+        <div className="text-center">
+          <div className="text-sm font-medium text-foreground">{t('videoLocked.title')}</div>
+          <div className="mt-1 text-xs text-muted-foreground">{t('videoLocked.description')}</div>
+        </div>
+        <button
+          type="button"
+          className="mt-1 inline-flex items-center gap-1 rounded-full bg-foreground px-4 py-1.5 text-xs font-medium text-background transition-colors duration-150 hover:bg-foreground/90"
+          onClick={() => setPricingOpen(true)}
+        >
+          {t('videoLocked.upgrade')}
+        </button>
+        <PricingDialog open={pricingOpen} onOpenChange={setPricingOpen} />
+      </div>
+    )
+  }
+
   const aiConfig = element.props.aiConfig
 
   // ── v3 Capabilities ──

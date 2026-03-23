@@ -243,8 +243,10 @@ export function restoreOrAssign(
       if (slot.min === 0) continue // optional slots don't invalidate the cache
       const cachedValue = cachedAssignment[slot.id]
       if (!cachedValue) continue
-      if (cachedValue.startsWith('manual:')) continue // manual refs are always valid
-      if (!mediaRefMap.has(cachedValue)) {
+      // Normalize to array for uniform validation
+      const values = Array.isArray(cachedValue) ? cachedValue : [cachedValue]
+      const hasValidRef = values.some((v) => v.startsWith('manual:') || mediaRefMap.has(v))
+      if (!hasValidRef) {
         cacheValid = false
         break
       }
@@ -255,23 +257,31 @@ export function restoreOrAssign(
         const cachedValue = cachedAssignment[slot.id]
         if (!cachedValue) continue
 
-        if (cachedValue.startsWith('manual:')) {
-          const manualPath = cachedValue.slice('manual:'.length)
-          assigned[slot.id] = [
-            {
-              nodeId: `__manual_${slot.id}__`,
+        // Normalize to array for uniform processing
+        const values = Array.isArray(cachedValue) ? cachedValue : [cachedValue]
+        const refs: PoolReference[] = []
+
+        for (let i = 0; i < values.length; i++) {
+          const v = values[i]
+          if (v.startsWith('manual:')) {
+            const manualPath = v.slice('manual:'.length)
+            refs.push({
+              nodeId: `__manual_${slot.id}_${i}__`,
               nodeType: slot.mediaType,
               url: manualPath,
               path: manualPath,
-            } as MediaReference,
-          ]
-          continue
+            } as MediaReference)
+          } else {
+            const ref = mediaRefMap.get(v)
+            if (ref && !usedNodeIds.has(v)) {
+              refs.push(ref)
+              usedNodeIds.add(v)
+            }
+          }
         }
 
-        const ref = mediaRefMap.get(cachedValue)
-        if (ref && !usedNodeIds.has(cachedValue)) {
-          assigned[slot.id] = [ref]
-          usedNodeIds.add(cachedValue)
+        if (refs.length > 0) {
+          assigned[slot.id] = refs
         }
       }
     }

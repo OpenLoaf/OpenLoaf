@@ -21,7 +21,18 @@ describe('PersistedSlotMap type', () => {
       mask: 'manual:assets/uploads/mask.png',
     }
     expect(map.image).toBe('node-id-123')
-    expect(map.mask?.startsWith('manual:')).toBe(true)
+    const maskVal = map.mask
+    expect(typeof maskVal === 'string' && maskVal.startsWith('manual:')).toBe(true)
+  })
+
+  it('should support multi-value slots (string[])', () => {
+    const map: PersistedSlotMap = {
+      images: ['node-id-1', 'node-id-2', 'manual:asset/upload.jpg'],
+      mask: 'node-id-3',
+    }
+    expect(Array.isArray(map.images)).toBe(true)
+    expect((map.images as string[]).length).toBe(3)
+    expect(typeof map.mask === 'string').toBe(true)
   })
 
   it('should be storable in VariantParamsSnapshot', () => {

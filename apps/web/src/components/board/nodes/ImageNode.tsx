@@ -933,9 +933,9 @@ export function ImageNodeView({
         }}
         onDoubleClick={event => {
           event.stopPropagation();
-          if (expanded) return;
-          // 逻辑：空节点双击打开文件选择器，有内容时双击打开预览。
+          // 逻辑：空节点双击打开文件选择器（展开态跳过因为面板已可见），有内容时双击始终打开预览。
           if (!hasPreview && !isPreviewLoading && !isTranscoding) {
+            if (expanded) return;
             requestReplaceImage();
           } else {
             requestPreview();

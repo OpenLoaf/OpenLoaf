@@ -1057,7 +1057,36 @@
         "longcheng": "龙城",
         "longjielidou": "龙杰力豆",
         "longtong": "龙童"
-      }
+      },
+      "qwen3Voices": {
+        "Cherry": "Cherry",
+        "Serena": "Serena",
+        "Ethan": "Ethan",
+        "Chelsie": "Chelsie",
+        "Momo": "Momo",
+        "Vivian": "Vivian",
+        "Moon": "Moon",
+        "Maia": "Maia",
+        "Kai": "Kai",
+        "Nofish": "Nofish"
+      },
+      "languageType": "文本语言",
+      "languageTypeAuto": "自动检测",
+      "languageTypes": {
+        "Chinese": "中文",
+        "English": "英语",
+        "Spanish": "西班牙语",
+        "Russian": "俄语",
+        "Italian": "意大利语",
+        "French": "法语",
+        "Korean": "韩语",
+        "Japanese": "日语",
+        "German": "德语",
+        "Portuguese": "葡萄牙语"
+      },
+      "instructions": "语音指令",
+      "instructionsPlaceholder": "用自然语言描述语音风格，如：用温柔的语气缓慢地说...",
+      "instructionsHint": "仅 instruct-flash 模型支持，可控制语调、语速和情感"
     },
     "selectVariant": "选择模型",
     "unknownVariant": "此变体暂不支持界面操作",
@@ -1212,5 +1241,10 @@
       "OL-TT-002": { "label": "文字转语音" },
       "OL-SR-001": { "label": "语音识别" }
     }
+  },
+  "videoLocked": {
+    "title": "视频生成需要 Pro 及以上套餐",
+    "description": "升级后即可使用全部视频功能",
+    "upgrade": "升级套餐"
   }
 }

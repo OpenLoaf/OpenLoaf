@@ -1056,7 +1056,36 @@
         "longcheng": "Long Cheng",
         "longjielidou": "Long Jielidou",
         "longtong": "Long Tong"
-      }
+      },
+      "qwen3Voices": {
+        "Cherry": "Cherry",
+        "Serena": "Serena",
+        "Ethan": "Ethan",
+        "Chelsie": "Chelsie",
+        "Momo": "Momo",
+        "Vivian": "Vivian",
+        "Moon": "Moon",
+        "Maia": "Maia",
+        "Kai": "Kai",
+        "Nofish": "Nofish"
+      },
+      "languageType": "Language",
+      "languageTypeAuto": "Auto Detect",
+      "languageTypes": {
+        "Chinese": "Chinese",
+        "English": "English",
+        "Spanish": "Spanish",
+        "Russian": "Russian",
+        "Italian": "Italian",
+        "French": "French",
+        "Korean": "Korean",
+        "Japanese": "Japanese",
+        "German": "German",
+        "Portuguese": "Portuguese"
+      },
+      "instructions": "Voice Instructions",
+      "instructionsPlaceholder": "Describe voice style in natural language, e.g.: speak slowly with a warm tone...",
+      "instructionsHint": "Only supported by instruct-flash model, controls tone, speed, and emotion"
     },
     "selectVariant": "Select model",
     "unknownVariant": "This variant is not yet supported in the UI",
@@ -1207,5 +1236,10 @@
       "OL-TT-002": { "label": "Text to Speech" },
       "OL-SR-001": { "label": "Speech to Text" }
     }
+  },
+  "videoLocked": {
+    "title": "Video generation requires Pro plan or above",
+    "description": "Upgrade to unlock all video features",
+    "upgrade": "Upgrade"
   }
 }

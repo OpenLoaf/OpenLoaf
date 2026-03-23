@@ -39,6 +39,7 @@ import {
   SelectValue,
 } from "@openloaf/ui/select";
 import { Label } from "@openloaf/ui/label";
+import { Switch } from "@openloaf/ui/switch";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -119,7 +120,7 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
   projectId,
   rootUri,
 }: ProjectBasicSettingsProps) {
-  const { t } = useTranslation("settings");
+  const { t } = useTranslation(["settings", "common"]);
   const queryClient = useQueryClient();
   const { data: projectData, invalidateProject, invalidateProjectList } = useProject(
     projectId,
@@ -168,6 +169,13 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
 
   const moveStorage = useMutation(trpc.project.moveStorage.mutationOptions({}));
   const moveProjectParent = useMutation(trpc.project.move.mutationOptions({}));
+  const setFeaturesMutation = useMutation(
+    trpc.project.setFeatures.mutationOptions({
+      onSuccess: async () => {
+        await invalidateProject();
+      },
+    }),
+  );
 
   const projectsQuery = useProjects({ enabled: Boolean(projectId) });
 
@@ -221,6 +229,33 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
     "flex-1 text-right text-xs text-muted-foreground hover:text-foreground hover:underline disabled:cursor-default disabled:no-underline disabled:text-muted-foreground";
   const baseValueTruncateClass = `${baseValueClass} truncate`;
   const baseValueWrapClass = `${baseValueClass} break-all`;
+
+  const FEATURE_OPTIONS = [
+    { value: "canvas", labelKey: "project.featureCanvas", descKey: "project.featureCanvasDesc" },
+    { value: "index", labelKey: "project.featureHome", descKey: "project.featureHomeDesc" },
+    { value: "tasks", labelKey: "project.featureHistory", descKey: "project.featureHistoryDesc" },
+    { value: "scheduled", labelKey: "project.featureScheduled", descKey: "project.featureScheduledDesc" },
+  ] as const;
+  const enabledFeatures = useMemo(
+    () => new Set(project?.initializedFeatures ?? []),
+    [project?.initializedFeatures],
+  );
+  const handleToggleFeature = useCallback(
+    (feature: string, checked: boolean) => {
+      if (!projectId) return;
+      const next = new Set(enabledFeatures);
+      if (checked) {
+        next.add(feature);
+      } else {
+        next.delete(feature);
+      }
+      setFeaturesMutation.mutate({
+        projectId,
+        features: [...next] as ("index" | "tasks" | "canvas" | "scheduled")[],
+      });
+    },
+    [projectId, enabledFeatures, setFeaturesMutation],
+  );
 
   /** Whether cache management is available. */
   const canManageCache = Boolean(cacheScope);
@@ -712,6 +747,27 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
         </div>
       </OpenLoafSettingsGroup>
 
+      <OpenLoafSettingsGroup title={t("project.features")} cardProps={{ divided: true, padding: "x" }}>
+        {FEATURE_OPTIONS.map((opt) => (
+          <div key={opt.value} className="flex flex-wrap items-center gap-2 py-3">
+            <div className="min-w-0 sm:w-56">
+              <div className="text-sm font-medium">{t(opt.labelKey)}</div>
+              <div className="text-xs text-muted-foreground">{t(opt.descKey)}</div>
+            </div>
+
+            <OpenLoafSettingsField>
+              <Switch
+                checked={enabledFeatures.has(opt.value)}
+                onCheckedChange={(checked) =>
+                  handleToggleFeature(opt.value, checked)
+                }
+                disabled={!projectId || setFeaturesMutation.isPending}
+              />
+            </OpenLoafSettingsField>
+          </div>
+        ))}
+      </OpenLoafSettingsGroup>
+
       <OpenLoafSettingsGroup title={t("project.storageManagement")} cardProps={{ divided: true, padding: "x" }}>
         <div className="flex flex-wrap items-start gap-2 py-3">
           <div className="min-w-0 sm:w-56">
@@ -848,7 +904,7 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
           <DialogFooter>
             <DialogClose asChild>
               <Button variant="outline" type="button" disabled={renameBusy}>
-                {t("common.cancel")}
+                {t("common:cancel")}
               </Button>
             </DialogClose>
             <Button
@@ -856,7 +912,7 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
               onClick={() => void handleRename()}
               disabled={renameBusy}
             >
-              {renameBusy ? t("common.saving") : t("common.save")}
+              {renameBusy ? t("common:saving") : t("common:save")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -891,7 +947,7 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
           <DialogFooter>
             <DialogClose asChild>
               <Button variant="outline" type="button">
-                {t("common.cancel")}
+                {t("common:cancel")}
               </Button>
             </DialogClose>
             <Button
@@ -934,7 +990,7 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
             {t("project.childrenMoveNote")}
           </div>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={moveParentBusy}>{t("common.cancel")}</AlertDialogCancel>
+            <AlertDialogCancel disabled={moveParentBusy}>{t("common:cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={(event) => {
                 event.preventDefault();
@@ -990,7 +1046,7 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
             </div>
           ) : null}
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={moveBusy}>{t("common.cancel")}</AlertDialogCancel>
+            <AlertDialogCancel disabled={moveBusy}>{t("common:cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={(event) => {
                 event.preventDefault();
@@ -1021,10 +1077,10 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={clearProjectCache.isPending}>
-              {t("common.cancel")}
+              {t("common:cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="bg-destructive text-white hover:bg-destructive/90"
               onClick={(event) => {
                 event.preventDefault();
                 void handleClearProjectCache();
@@ -1056,10 +1112,10 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={clearProjectChat.isPending}>
-              {t("common.cancel")}
+              {t("common:cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="bg-destructive text-white hover:bg-destructive/90"
               onClick={(event) => {
                 event.preventDefault();
                 void handleClearProjectChat();

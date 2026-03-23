@@ -63,9 +63,10 @@ export interface SlotAssignment {
  * 持久化的插槽分配映射（存入 paramsCache，跨会话恢复）
  * 与运行时的 SlotAssignment 区分：本类型仅记录 slotId → 来源标识
  */
-export type PersistedSlotMap = Record<string, string>
+export type PersistedSlotMap = Record<string, string | string[]>
 // key: slotId (如 'image', 'mask', 'startFrame')
-// value: nodeId（来自父节点）| "manual:<board-relative-path>"（用户手动上传）
+// value: 单值 slot → nodeId | "manual:<path>"
+//        多值 slot (max > 1) → [nodeId, ...] | ["manual:<path>", ...]
 
 /** Union of all reference types held in a pool */
 export type PoolReference = TextReference | MediaReference

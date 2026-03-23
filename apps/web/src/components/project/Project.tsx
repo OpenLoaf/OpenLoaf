@@ -243,7 +243,7 @@ export default function ProjectPage({
   // 逻辑：项目数据未加载前不覆盖持久化标题/图标，避免切换时闪动。
   const shouldSyncTabMeta = localTitle !== null || localIcon !== null || Boolean(projectData?.project);
   // Feature-gated tabs: 新项目 initializedFeatures=[] 时隐藏，旧项目 undefined 时全部显示。
-  const FEATURE_GATED_TABS = ["index", "tasks", "canvas"] as const;
+  const FEATURE_GATED_TABS = ["index", "tasks", "canvas", "scheduled"] as const;
   const initFeatures = projectData?.project?.initializedFeatures;
   const hiddenTabs = useMemo(() => {
     // undefined → 旧项目，全部显示

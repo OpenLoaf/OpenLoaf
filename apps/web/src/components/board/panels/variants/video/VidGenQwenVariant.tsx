@@ -9,7 +9,7 @@
  */
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ImagePlus } from 'lucide-react'
+import { ImagePlus, Music } from 'lucide-react'
 import { BOARD_GENERATE_INPUT } from '../../../ui/board-style-system'
 import {
   VIDEO_GENERATE_DURATION_OPTIONS,
@@ -24,8 +24,12 @@ import { MediaSlot, PillSelect, UpstreamTextBadge, toMediaInput } from '../share
  * Requires a first-frame image (startImage) -- pure text-to-video is NOT supported.
  * Params: prompt, style, upstreamModelId, duration, withAudio.
  *
+ * Optionally accepts an audio input (audio slot). When provided, the audio
+ * file is sent as `inputs.audio` (audio_url). If no audio is connected but
+ * `withAudio` is checked, the model auto-generates BGM.
+ *
  * When `resolvedSlots` is provided (InputSlotBar mode), the variant reads
- * the `startFrame` slot from the framework instead of self-managing uploads.
+ * the `startFrame` and `audio` slots from the framework instead of self-managing uploads.
  */
 export function VidGenQwenVariant({
   variant,
@@ -52,19 +56,29 @@ export function VidGenQwenVariant({
 
   // Self-managed first frame (only used in fallback mode, i.e. resolvedSlots === undefined)
   const [manualFirstFrame, setManualFirstFrame] = useState<string | undefined>()
+  // Self-managed audio (only used in fallback mode)
+  const [manualAudioSrc, setManualAudioSrc] = useState<string | undefined>()
 
   // Resolve first frame source based on mode
   let firstFrameUrl: string | undefined
   let firstFramePath: string | undefined
   let hasFirstFrame: boolean
 
+  // Resolve audio source based on mode
+  let audioUrl: string | undefined
+  let audioPath: string | undefined
+
   if (resolvedSlots) {
-    // Framework mode: read from resolvedSlots['startFrame']
+    // Framework mode: read from resolvedSlots['startFrame'] and resolvedSlots['audio']
     const refs = resolvedSlots['startFrame'] ?? []
     const ref = refs[0]
     firstFrameUrl = ref?.url
     firstFramePath = ref?.path ?? ref?.url
     hasFirstFrame = Boolean(firstFrameUrl)
+
+    const audioRef = (resolvedSlots['audio'] ?? [])[0]
+    audioUrl = audioRef?.url
+    audioPath = audioRef?.path ?? audioRef?.url
   } else {
     // Fallback: self-managed
     const upstreamFirstFrame = upstream.images?.[0] ?? nodeResourceUrl
@@ -72,7 +86,13 @@ export function VidGenQwenVariant({
     const upstreamFirstFramePath = upstream.imagePaths?.[0]
     firstFramePath = upstreamFirstFramePath ?? manualFirstFrame
     hasFirstFrame = Boolean(firstFrameUrl)
+
+    const upstreamAudio = upstream.audioUrl
+    audioUrl = upstreamAudio ?? manualAudioSrc
+    audioPath = upstreamAudio ?? manualAudioSrc
   }
+
+  const hasAudio = Boolean(audioUrl)
 
   // Report warning when first frame is missing (required for this variant)
   useEffect(() => {
@@ -87,6 +107,9 @@ export function VidGenQwenVariant({
     if (firstFramePath) {
       inputs.startImage = toMediaInput(firstFramePath)
     }
+    if (audioPath) {
+      inputs.audio = toMediaInput(audioPath)
+    }
     inputs.prompt = prompt
     onParamsChange({
       inputs,
@@ -96,11 +119,11 @@ export function VidGenQwenVariant({
         withAudio: withAudio || undefined,
       },
     })
-  }, [prompt, style, duration, withAudio, firstFramePath, onParamsChange])
+  }, [prompt, style, duration, withAudio, firstFramePath, audioPath, onParamsChange])
 
   return (
     <div className="flex flex-col gap-2.5">
-      {/* First-frame slot — only rendered in fallback (no resolvedSlots) mode */}
+      {/* First-frame + Audio slots — only rendered in fallback (no resolvedSlots) mode */}
       {!resolvedSlots ? (
         <div className="flex items-end gap-2">
           <MediaSlot
@@ -117,6 +140,22 @@ export function VidGenQwenVariant({
               : undefined}
             onRemove={manualFirstFrame
               ? () => setManualFirstFrame(undefined)
+              : undefined}
+          />
+          <MediaSlot
+            label={t('v3.fields.audioInput', { defaultValue: 'Audio' })}
+            icon={<Music size={16} />}
+            src={audioUrl}
+            disabled={disabled}
+            uploadAccept="audio/*"
+            boardId={upstream.boardId}
+            projectId={upstream.projectId}
+            boardFolderUri={upstream.boardFolderUri}
+            onUpload={!upstream.audioUrl
+              ? (value) => setManualAudioSrc(value)
+              : undefined}
+            onRemove={manualAudioSrc
+              ? () => setManualAudioSrc(undefined)
               : undefined}
           />
         </div>

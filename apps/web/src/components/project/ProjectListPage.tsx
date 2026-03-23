@@ -17,6 +17,7 @@ import {
   ExternalLink,
   FolderOpen,
   FolderPlus,
+  Info,
   Plus,
   Edit2,
   Trash2,
@@ -42,9 +43,11 @@ import { useIsInView } from "@/hooks/use-is-in-view";
 import { ColorPickerSubMenu } from "@/components/shared/ColorPickerSubMenu";
 import { useLayoutState } from "@/hooks/use-layout-state";
 import { useProjectOpen } from "@/hooks/use-project-open";
+import { useProjectStorageRootQuery } from "@/hooks/use-project-storage-root-uri";
 import { getDisplayPathFromUri } from "@/components/project/filesystem/utils/file-system-utils";
 import type { ProjectListItem } from "@openloaf/api/services/projectTreeService";
 import { Button } from "@openloaf/ui/button";
+import { Checkbox } from "@openloaf/ui/checkbox";
 import { Input } from "@openloaf/ui/input";
 import { Label } from "@openloaf/ui/label";
 import {
@@ -171,7 +174,7 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [filterProjectType, setFilterProjectType] = useState<string>("__all__");
-  const [groupByType, setGroupByType] = useState(true);
+  const [groupByType, setGroupByType] = useState(false);
   const [renameTarget, setRenameTarget] = useState<{
     projectId: string;
     title: string;
@@ -182,7 +185,9 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
   const [addMode, setAddMode] = useState<"create" | "git" | null>(null);
   const [createTitle, setCreateTitle] = useState("");
   const [createFolderPath, setCreateFolderPath] = useState("");
+  const [autoCreateFolder, setAutoCreateFolder] = useState(true);
   const [isBusy, setIsBusy] = useState(false);
+  const storageRootQuery = useProjectStorageRootQuery({ enabled: isCreateOpen });
   const [gitUrl, setGitUrl] = useState("");
   const [gitTargetDir, setGitTargetDir] = useState("");
   const [gitProgress, setGitProgress] = useState<string[]>([]);
@@ -279,6 +284,7 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
     setAddMode(null);
     setCreateTitle("");
     setCreateFolderPath("");
+    setAutoCreateFolder(true);
     setGitUrl("");
     setGitTargetDir("");
     setGitProgress([]);
@@ -353,10 +359,23 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
     return null;
   };
 
+  /** Compute the resolved folder path for auto-create mode. */
+  const autoCreatePath = useMemo(() => {
+    if (!autoCreateFolder || !createTitle.trim()) return "";
+    const tempUri = storageRootQuery.data?.tempRootUri;
+    if (!tempUri) return "";
+    try {
+      const basePath = decodeURIComponent(new URL(tempUri).pathname);
+      return `${basePath}/${createTitle.trim()}`;
+    } catch {
+      return "";
+    }
+  }, [autoCreateFolder, createTitle, storageRootQuery.data?.tempRootUri]);
+
   /** Submit handler for creating a project at the selected folder. */
   const handleCreateProject = useCallback(async () => {
     const title = createTitle.trim();
-    const folderPath = createFolderPath.trim();
+    const folderPath = autoCreateFolder ? autoCreatePath : createFolderPath.trim();
     if (!folderPath) return;
     try {
       setIsBusy(true);
@@ -364,6 +383,7 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
       const autoIcon = (result.isCodeProject && !result.hasIcon) ? "💻" : undefined;
       const res = await createMutation.mutateAsync({
         ...(title ? { title } : {}),
+        ...(autoCreateFolder ? { folderName: title } : {}),
         rootUri: folderPath,
         enableVersionControl: true,
         icon: autoIcon,
@@ -372,6 +392,7 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
       setIsCreateOpen(false);
       setCreateTitle("");
       setCreateFolderPath("");
+      setAutoCreateFolder(false);
       // Fire-and-forget: infer project type via auxiliary model.
       if (res.project?.projectId) {
         trpcClient.settings.inferProjectType
@@ -384,7 +405,7 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
     } finally {
       setIsBusy(false);
     }
-  }, [createTitle, createFolderPath, createMutation, invalidateProjects, t]);
+  }, [createTitle, createFolderPath, autoCreateFolder, autoCreatePath, createMutation, invalidateProjects, t]);
 
   /** Start git clone via SSE subscription. */
   const handleCloneFromGit = useCallback(() => {
@@ -1089,30 +1110,6 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
           {addMode === "create" && (
             <div className="flex min-w-0 flex-col gap-3 px-6 pt-3 pb-3">
               <div>
-                <Label className="mb-1.5 block text-sm font-medium text-foreground">
-                  {t("sidebar.storageLocation")}
-                </Label>
-                <button
-                  type="button"
-                  className="flex h-9 w-full items-center rounded-3xl border border-input bg-background px-3 text-xs text-muted-foreground hover:bg-accent/50 transition-colors"
-                  onClick={async () => {
-                    const dir = await pickDirectory(createFolderPath || undefined);
-                    if (dir) {
-                      setCreateFolderPath(dir);
-                      if (!createTitle.trim()) {
-                        const folderName = dir.split(/[/\\]/).filter(Boolean).pop() ?? "";
-                        setCreateTitle(folderName);
-                      }
-                    }
-                  }}
-                >
-                  <FolderOpen className="mr-2 h-3.5 w-3.5 shrink-0" />
-                  <span dir="rtl" className="truncate text-left">
-                    {createFolderPath || t("sidebar.selectFolder")}
-                  </span>
-                </button>
-              </div>
-              <div>
                 <Label htmlFor="add-project-title" className="mb-1.5 block text-sm font-medium text-foreground">
                   {t("sidebar.projectName")}
                 </Label>
@@ -1122,13 +1119,80 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
                   onChange={(e) => setCreateTitle(e.target.value)}
                   className="h-9 rounded-3xl"
                   placeholder={t("sidebar.projectNamePlaceholder")}
+                  autoFocus
                   onKeyDown={(e) => {
-                    if (e.key === "Enter" && createFolderPath.trim() && !isBusy) {
+                    if (e.key === "Enter" && (autoCreateFolder ? autoCreatePath : createFolderPath.trim()) && !isBusy) {
                       handleCreateProject();
                     }
                   }}
                 />
               </div>
+
+              {/* Auto-create folder checkbox */}
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <Checkbox
+                  checked={autoCreateFolder}
+                  onCheckedChange={(v) => {
+                    setAutoCreateFolder(v === true);
+                    if (v === true) setCreateFolderPath("");
+                  }}
+                  className="rounded-[6px]"
+                />
+                <span className="text-sm text-foreground">{t("sidebar.autoCreateFolder")}</span>
+              </label>
+
+              {/* Auto-create path preview */}
+              {autoCreateFolder && (
+                <div className="flex items-start gap-2 rounded-2xl bg-muted/50 px-3 py-2.5">
+                  <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs text-muted-foreground/60">{t("sidebar.autoCreateFolderHint")}</p>
+                    <p className="mt-1 truncate text-xs font-mono text-foreground/70" dir="ltr" title={autoCreatePath}>
+                      {autoCreatePath || t("sidebar.autoCreateFolderEnterName")}
+                    </p>
+                  </div>
+                  {autoCreatePath && (
+                    <button
+                      type="button"
+                      className="mt-0.5 shrink-0 rounded-lg p-1 text-muted-foreground/60 hover:bg-accent hover:text-foreground transition-colors"
+                      onClick={() => {
+                        const tempUri = storageRootQuery.data?.tempRootUri;
+                        if (tempUri) window.openloafElectron?.openPath?.({ uri: tempUri });
+                      }}
+                    >
+                      <FolderOpen className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Manual folder picker */}
+              {!autoCreateFolder && (
+                <div>
+                  <Label className="mb-1.5 block text-sm font-medium text-foreground">
+                    {t("sidebar.storageLocation")}
+                  </Label>
+                  <button
+                    type="button"
+                    className="flex h-9 w-full items-center rounded-3xl border border-input bg-background px-3 text-xs text-muted-foreground hover:bg-accent/50 transition-colors"
+                    onClick={async () => {
+                      const dir = await pickDirectory(createFolderPath || undefined);
+                      if (dir) {
+                        setCreateFolderPath(dir);
+                        if (!createTitle.trim()) {
+                          const folderName = dir.split(/[/\\]/).filter(Boolean).pop() ?? "";
+                          setCreateTitle(folderName);
+                        }
+                      }
+                    }}
+                  >
+                    <FolderOpen className="mr-2 h-3.5 w-3.5 shrink-0" />
+                    <span dir="rtl" className="truncate text-left">
+                      {createFolderPath || t("sidebar.selectFolder")}
+                    </span>
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
@@ -1195,14 +1259,14 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
                 variant="outline"
                 type="button"
                 className="h-9 rounded-3xl px-5 text-[13px] text-muted-foreground hover:bg-accent"
-                onClick={() => { setAddMode(null); setCreateTitle(""); setCreateFolderPath(""); }}
+                onClick={() => { setAddMode(null); setCreateTitle(""); setCreateFolderPath(""); setAutoCreateFolder(false); }}
               >
                 {t("sidebar.back")}
               </Button>
               <Button
                 variant="ghost"
                 onClick={handleCreateProject}
-                disabled={isBusy || !createFolderPath.trim()}
+                disabled={isBusy || !(autoCreateFolder ? autoCreatePath : createFolderPath.trim())}
                 className="h-9 rounded-3xl px-5 text-[13px] bg-foreground text-background shadow-none hover:bg-foreground hover:text-background hover:opacity-90"
               >
                 {isBusy ? t("sidebar.creating") : t("sidebar.create")}
