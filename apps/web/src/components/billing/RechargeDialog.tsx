@@ -18,7 +18,9 @@ import { Loader2 } from "lucide-react"
 import {
   Dialog,
   DialogContent,
+  DialogTitle,
 } from "@openloaf/ui/dialog"
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden"
 import { Button } from "@openloaf/ui/button"
 import { resolveSaasBaseUrl, getAccessToken } from "@/lib/saas-auth"
 import { queryClient } from "@/utils/trpc"
@@ -115,6 +117,7 @@ export function RechargeDialog({ open, onOpenChange }: RechargeDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="h-[80vh] max-w-2xl p-0 overflow-hidden rounded-3xl shadow-none border-border/60">
+        <VisuallyHidden><DialogTitle>{t("account.recharge")}</DialogTitle></VisuallyHidden>
         <div className="relative h-full w-full">
           <div ref={containerRef} className="h-full w-full" />
           {loading && !timedOut && (
