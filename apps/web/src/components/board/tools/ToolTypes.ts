@@ -125,6 +125,8 @@ export type CanvasToolHost = {
   getNodeHoverId: () => string | null;
   /** Update the hovered connector id. */
   setConnectorHoverId: (connectorId: string | null) => void;
+  /** Silently update cursor world position (no render — read by anchor animation RAF). */
+  setCursorWorld: (point: CanvasPoint | null) => void;
   /** Return the pending connector drop. */
   getConnectorDrop: () => CanvasConnectorDrop | null;
   /** Update the pending connector drop. */

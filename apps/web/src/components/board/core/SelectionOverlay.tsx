@@ -29,6 +29,7 @@ import type {
   CanvasViewportState,
 } from "../engine/types";
 import { resolveNodeMinSize } from "../engine/types";
+import { cn } from "@udecode/cn";
 import { CanvasEngine } from "../engine/CanvasEngine";
 import {
   MULTI_SELECTION_HANDLE_SIZE,
@@ -1369,4 +1370,90 @@ function isNodeBottomMost(target: CanvasNodeElement, elements: CanvasElement[]):
     .filter(element => element.kind === "node")
     .reduce((current, element) => Math.min(current, element.zIndex ?? 0), 0);
   return (target.zIndex ?? 0) <= minZ;
+}
+
+// ── Connector drop-target highlight ──
+
+type ConnectorDropTargetHighlightProps = {
+  engine: CanvasEngine;
+  snapshot: CanvasSnapshot;
+};
+
+/**
+ * 连线拖拽时，在目标节点周围渲染轻微放大 + 高亮边框动画。
+ * 通过 DOM 测量节点位置，与 SingleSelectionOutline 保持相同的同步策略。
+ */
+export function ConnectorDropTargetHighlight({ engine, snapshot }: ConnectorDropTargetHighlightProps) {
+  const draft = snapshot.connectorDraft;
+  const targetId = draft && "elementId" in draft.target ? draft.target.elementId : null;
+  const validation = snapshot.connectorValidation;
+  const isValid = !validation || validation.valid;
+
+  const outlineRef = useRef<HTMLDivElement>(null);
+  const prevTargetId = useRef<string | null>(null);
+
+  useLayoutEffect(() => {
+    const el = outlineRef.current;
+    if (!el) return;
+
+    if (!targetId) {
+      // 逻辑：目标消失 → 淡出缩回。
+      if (prevTargetId.current) {
+        el.style.transition = 'transform 200ms ease, opacity 200ms ease';
+        el.style.opacity = '0';
+        el.style.transform = 'scale(1)';
+      }
+      prevTargetId.current = null;
+      return;
+    }
+
+    const container = engine.getContainer();
+    const nodeEl = engine.getNodeDomElement(targetId);
+    if (!container || !nodeEl) return;
+
+    const sync = () => {
+      if (!outlineRef.current) return;
+      const containerRect = container.getBoundingClientRect();
+      const nodeRect = nodeEl.getBoundingClientRect();
+      const pad = 4;
+      outlineRef.current.style.left = `${nodeRect.left - containerRect.left - pad}px`;
+      outlineRef.current.style.top = `${nodeRect.top - containerRect.top - pad}px`;
+      outlineRef.current.style.width = `${nodeRect.width + pad * 2}px`;
+      outlineRef.current.style.height = `${nodeRect.height + pad * 2}px`;
+    };
+
+    sync();
+
+    // 逻辑：新目标出现 → 淡入 + 轻微放大。
+    if (prevTargetId.current !== targetId) {
+      el.style.transition = 'none';
+      el.style.opacity = '0';
+      el.style.transform = 'scale(0.98)';
+      el.getBoundingClientRect(); // force reflow
+      el.style.transition = 'transform 200ms ease-out, opacity 200ms ease-out';
+      el.style.opacity = '1';
+      el.style.transform = 'scale(1)';
+    }
+
+    prevTargetId.current = targetId;
+
+    const observer = new ResizeObserver(sync);
+    observer.observe(nodeEl);
+    return () => observer.disconnect();
+  }, [engine, targetId]);
+
+  if (!draft) return null;
+
+  return (
+    <div
+      ref={outlineRef}
+      className={cn(
+        "pointer-events-none absolute z-10 rounded-2xl",
+        isValid
+          ? "ring-2 ring-[var(--canvas-selection-border)] shadow-[0_0_12px_rgba(59,130,246,0.25)]"
+          : "ring-2 ring-red-400 shadow-[0_0_12px_rgba(248,113,113,0.25)]",
+      )}
+      style={{ opacity: 0 }}
+    />
+  );
 }

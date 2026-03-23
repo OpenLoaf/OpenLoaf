@@ -12,9 +12,11 @@ import type {
   CanvasPoint,
   CanvasSnapshot,
 } from "../engine/types";
+import type { CanvasEngine } from "../engine/CanvasEngine";
 import type { ConnectionValidation } from "../engine/connection-validator";
 import { cn } from "@udecode/cn";
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { useMemo } from "react";
+import { Plus } from "lucide-react";
 import {
   SELECTED_ANCHOR_EDGE_SIZE,
   SELECTED_ANCHOR_EDGE_SIZE_HOVER,
@@ -24,6 +26,7 @@ import {
 } from "../engine/constants";
 import { LARGE_ANCHOR_NODE_TYPES } from "../engine/anchorTypes";
 import { getGroupOutlinePadding, isGroupNodeType } from "../engine/grouping";
+import { useAnchorMagnetic } from "./useAnchorMagnetic";
 
 type AnchorOverlayItem = CanvasAnchorHit & {
   /** Anchor source used for styling offsets. */
@@ -33,6 +36,8 @@ type AnchorOverlayItem = CanvasAnchorHit & {
 type AnchorOverlayProps = {
   /** Current snapshot for anchor rendering. */
   snapshot: CanvasSnapshot;
+  /** Canvas engine instance for reading cursor position. */
+  engine: CanvasEngine;
 };
 
 /**
@@ -40,24 +45,41 @@ type AnchorOverlayProps = {
  *
  * 渲染在 WorldAnchorLayer（与 DomNodeLayer 相同的 RAF transform 层）内部，
  * 使用世界坐标定位 + counter-scale 保持恒定屏幕尺寸，与节点零帧差同步。
+ *
+ * 磁吸动画：鼠标靠近锚点时图标跟随鼠标（clamped），离开时弹性回弹。
  */
-export function AnchorOverlay({ snapshot }: AnchorOverlayProps) {
+export function AnchorOverlay({ snapshot, engine }: AnchorOverlayProps) {
   const zoom = snapshot.viewport.zoom;
   const groupPadding = getGroupOutlinePadding(zoom);
   const hoverAnchor = snapshot.connectorHover;
-  const hoverAnchors = getHoveredImageAnchors(snapshot);
+  const isDrafting = snapshot.connectorDraft !== null;
+  const hoverAnchors = isDrafting ? [] : getHoveredImageAnchors(snapshot);
+
+  const uniqueAnchors = useMemo(() => {
+    const map = new Map<string, AnchorOverlayItem>();
+    hoverAnchors.forEach(anchor => {
+      const key = `${anchor.elementId}-${anchor.anchorId}`;
+      map.set(key, { ...anchor, origin: "hover" });
+    });
+    return map;
+  }, [hoverAnchors]);
+
+  // 逻辑：为磁吸 hook 准备锚点列表（包含世界坐标）。
+  const magneticAnchors = useMemo(() => {
+    return hoverAnchors.map(a => ({
+      anchorId: a.anchorId,
+      worldPoint: resolveGroupAnchorPoint(a, snapshot, groupPadding),
+    }));
+  }, [hoverAnchors, snapshot, groupPadding]);
+
+  const magneticActive = hoverAnchors.length > 0;
+  const { setRef } = useAnchorMagnetic(engine, magneticActive, magneticAnchors);
+
   if (!hoverAnchor && hoverAnchors.length === 0) {
     return null;
   }
 
-  const uniqueAnchors = new Map<string, AnchorOverlayItem>();
-  hoverAnchors.forEach(anchor => {
-    const key = `${anchor.elementId}-${anchor.anchorId}`;
-    uniqueAnchors.set(key, { ...anchor, origin: "hover" });
-  });
-
   const connectorValidation = snapshot.connectorValidation;
-  const isDrafting = snapshot.connectorDraft !== null;
 
   return (
     <>
@@ -103,56 +125,40 @@ export function AnchorOverlay({ snapshot }: AnchorOverlayProps) {
               transformOrigin: '0 0',
             }}
           >
+            {/* 逻辑：磁吸动画容器 — transform 由 useAnchorMagnetic RAF 直接操作 ref。 */}
             <div
-              className={cn(
-                "absolute flex items-center justify-center rounded-full border shadow-[0_0_0_1px_rgba(0,0,0,0.12)]",
-                validationClass ?? (
-                  isHover
-                    ? "bg-[var(--canvas-connector-anchor-hover)]"
-                    : "bg-[var(--canvas-connector-anchor)]"
-                ),
-                validationClass ? "border-transparent" : "border-[var(--canvas-connector-handle-fill)]"
-              )}
+              ref={(el) => setRef(anchor.anchorId, el)}
+              className="absolute"
               style={{
                 left: anchorOffset[0],
                 top: anchorOffset[1],
-                width: size,
-                height: size,
-                marginLeft: -size / 2,
-                marginTop: -size / 2,
               }}
             >
-              {isSideAnchor && useSelectedStyle ? (
-                <>
+              <div
+                className={cn(
+                  "absolute flex items-center justify-center rounded-full border shadow-[0_0_0_1px_rgba(0,0,0,0.12)] transition-[width,height] duration-150",
+                  validationClass ?? (
+                    isHover
+                      ? "bg-[var(--canvas-connector-anchor-hover)]"
+                      : "bg-[var(--canvas-connector-anchor)]"
+                  ),
+                  validationClass ? "border-transparent" : "border-[var(--canvas-connector-handle-fill)]"
+                )}
+                style={{
+                  width: size,
+                  height: size,
+                  marginLeft: -size / 2,
+                  marginTop: -size / 2,
+                }}
+              >
+                {isSideAnchor && useSelectedStyle ? (
                   <Plus
                     size={iconSize}
-                    className={cn(
-                      "absolute text-[var(--canvas-connector-handle-fill)] transition-opacity duration-150",
-                      isHover ? "opacity-0" : "opacity-100"
-                    )}
+                    className="text-[var(--canvas-connector-handle-fill)]"
                     strokeWidth={2.2}
                   />
-                  {anchor.anchorId === "left" ? (
-                    <ChevronLeft
-                      size={10}
-                      className={cn(
-                        "absolute text-[var(--canvas-connector-handle-fill)] transition-opacity duration-150",
-                        isHover ? "opacity-100" : "opacity-0"
-                      )}
-                      strokeWidth={2.5}
-                    />
-                  ) : (
-                    <ChevronRight
-                      size={10}
-                      className={cn(
-                        "absolute text-[var(--canvas-connector-handle-fill)] transition-opacity duration-150",
-                        isHover ? "opacity-100" : "opacity-0"
-                      )}
-                      strokeWidth={2.5}
-                    />
-                  )}
-                </>
-              ) : null}
+                ) : null}
+              </div>
             </div>
           </div>
         );

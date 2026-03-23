@@ -161,7 +161,8 @@ export class SelectTool implements CanvasTool {
           // 逻辑：左锚点（input）拖出 → backward（向上游连接），其余 → forward（向下游连接）。
           this.connectorDirection =
             getAnchorDirection(edgeHit.anchorId) === 'input' ? 'backward' : 'forward';
-          ctx.engine.selection.setSelection([edgeHit.elementId]);
+          // 逻辑：拖线期间清空选区，避免源节点保持选中高亮干扰视觉。
+          ctx.engine.selection.clear();
           ctx.engine.setConnectorDraft({
             source: { elementId: edgeHit.elementId, anchorId: edgeHit.anchorId },
             target: { point: ctx.worldPoint },
@@ -176,20 +177,6 @@ export class SelectTool implements CanvasTool {
 
     const hit = ctx.engine.pickElementAt(ctx.worldPoint);
     if (!hit) {
-      // 逻辑：空白点击时优先命中已选连线端点，便于快速重连。
-      if (!ctx.event.shiftKey && selectedIds.length > 0 && !ctx.engine.isLocked()) {
-        const endpointHit = ctx.engine.findConnectorEndpointHit(
-          ctx.worldPoint,
-          selectedIds
-        );
-        if (endpointHit) {
-          this.connectorDragId = endpointHit.connectorId;
-          this.connectorDragRole = endpointHit.role;
-          ctx.engine.setDraggingElementId(endpointHit.connectorId);
-          return;
-        }
-      }
-
       // 逻辑：单选模式下禁止框选，直接清空选区返回。
       if (ctx.engine.isSingleSelectOnly()) {
         ctx.engine.selection.clear();
@@ -229,14 +216,6 @@ export class SelectTool implements CanvasTool {
         applyToSelection: false,
       });
       if (ctx.engine.isLocked()) return;
-      const endpointHit = ctx.engine.findConnectorEndpointHit(ctx.worldPoint, [
-        hit.id,
-      ]);
-      if (endpointHit) {
-        this.connectorDragId = endpointHit.connectorId;
-        this.connectorDragRole = endpointHit.role;
-        ctx.engine.setDraggingElementId(endpointHit.connectorId);
-      }
       return;
     }
     if (hit.kind !== "node") return;
@@ -290,6 +269,8 @@ export class SelectTool implements CanvasTool {
 
   /** Handle pointer move to drag selected nodes. */
   onPointerMove(ctx: ToolContext): void {
+    // 逻辑：静默更新鼠标世界坐标，供锚点磁吸动画 RAF 读取（不触发 React 渲染）。
+    ctx.engine.setCursorWorld(ctx.worldPoint);
     const selectedIds = ctx.engine.selection.getSelectedIds();
     if (this.connectorDrafting && this.connectorSource) {
       this.cancelHoverClear();
@@ -547,8 +528,9 @@ export class SelectTool implements CanvasTool {
         }
       }
 
+      // 逻辑：拖线结束后恢复源节点选中（面板场景除外，面板取消/选中后由 BoardCanvasInteraction 处理）。
       if (!keepDraft) {
-        // 逻辑：只有显示插入面板时才保留草稿连线。
+        ctx.engine.selection.setSelection([this.connectorSource.elementId]);
         ctx.engine.setConnectorDraft(null);
       }
       ctx.engine.setConnectorHover(null);

@@ -18,7 +18,8 @@ import BoardToolbar from "../toolbar/BoardToolbar";
 import LeftToolbar from "../toolbar/LeftToolbar";
 import FloatingInsertMenu from "../toolbar/FloatingInsertMenu";
 import BottomBar from "../toolbar/BottomBar";
-import { ConnectorActionPanel, NodeInspectorPanel } from "../ui/CanvasPanels";
+import { NodeInspectorPanel } from "../ui/CanvasPanels";
+import { ConnectorHoverScissors } from "./ConnectorHoverScissors";
 import { NodeSearchPanel } from "../ui/NodeSearchPanel";
 import dynamic from "next/dynamic";
 
@@ -32,6 +33,7 @@ import BoardEmptyGuide from "./BoardEmptyGuide";
 import { BoardPerfOverlay } from "./BoardPerfOverlay";
 import { MiniMap } from "./MiniMap";
 import {
+  ConnectorDropTargetHighlight,
   MultiSelectionOutline,
   MultiSelectionToolbar,
   SingleSelectionOutline,
@@ -163,7 +165,6 @@ export function BoardCanvasRender({
     engine.setExpandedNodeId(null);
   }, [engine, snapshot.selectedIds, snapshot.selectionBox]);
 
-  const selectedConnector = getSingleSelectedElement(snapshot, "connector");
   const selectedNode = getSingleSelectedElement(snapshot, "node");
   const inspectorElement = inspectorNodeId
     ? snapshot.elements.find(
@@ -233,20 +234,17 @@ export function BoardCanvasRender({
       {showUi && !minimal ? (
         <BoardEmptyGuide engine={engine} visible={snapshot.docRevision > 0 && snapshot.elements.length === 0 && !snapshot.pendingInsert && toolbarsReady} activeToolId={snapshot.activeToolId} />
       ) : null}
-      {showUi && selectedConnector && !snapshot.selectionBox ? (
-        <ConnectorActionPanel
-          snapshot={snapshot}
-          connector={selectedConnector}
-          onStyleChange={(style) => engine.setConnectorStyle(style)}
-          onDelete={() => engine.deleteSelection()}
-        />
-      ) : null}
+      {/* ConnectorActionPanel removed — scissors-on-hover replaces it */}
       {showUi ? <MultiSelectionOutline snapshot={snapshot} engine={engine} /> : null}
       {showUi && selectedNode && selectedNode.type !== "stroke" ? (
         <SingleSelectionOutline snapshot={snapshot} engine={engine} element={selectedNode} hidden={!!snapshot.draggingId} />
       ) : null}
+      {showUi && snapshot.connectorDraft ? <ConnectorDropTargetHighlight engine={engine} snapshot={snapshot} /> : null}
       <WorldToolbarLayer engine={engine}>
-        {showUi && !snapshot.draggingId && !snapshot.selectionBox ? <AnchorOverlay snapshot={snapshot} /> : null}
+        {showUi && !snapshot.draggingId && !snapshot.selectionBox ? <AnchorOverlay snapshot={snapshot} engine={engine} /> : null}
+        {showUi && !snapshot.draggingId && !snapshot.connectorDraft ? (
+          <ConnectorHoverScissors snapshot={snapshot} engine={engine} />
+        ) : null}
         {showUi && !snapshot.draggingId && !snapshot.selectionBox && selectedNode && selectedNode.type !== "stroke" ? (
           <SingleSelectionToolbar
             snapshot={snapshot}

@@ -68,3 +68,21 @@ export const PAN_SOFT_RESISTANCE_RATIO = 0.6;
 
 export const MULTI_SELECTION_OUTLINE_PADDING = 12;
 export const MULTI_SELECTION_HANDLE_SIZE = 22;
+
+// ── Anchor magnetic animation ──
+/** Screen-px: rest offset pushing anchor icon outward when visible but idle. */
+export const ANCHOR_REST_OFFSET = 20;
+/** Screen-px: max displacement during magnetic follow. */
+export const ANCHOR_MAGNETIC_MAX = 24;
+/** Ms: transition duration while cursor drags the icon. */
+export const ANCHOR_MAGNETIC_DURATION_MS = 80;
+/** Ms: bounce-back transition when cursor leaves hotzone. */
+export const ANCHOR_BOUNCE_DURATION_MS = 400;
+/** CSS easing for the bounce-back (slight overshoot). */
+export const ANCHOR_BOUNCE_EASING = 'cubic-bezier(0.34, 1.56, 0.64, 1)';
+/** Ms: appear / disappear fade for the anchor icon. */
+export const ANCHOR_APPEAR_DURATION_MS = 200;
+/** Scale factor applied to anchor icon while magnetically followed. */
+export const ANCHOR_MAGNETIC_SCALE = 1.08;
+/** Screen-px: hotzone radius — cursor closer than this triggers magnetic follow. */
+export const ANCHOR_HOTZONE_RADIUS = 60;

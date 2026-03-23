@@ -22,6 +22,7 @@ import { MatExtractVolcVariant } from './MatExtractVolcVariant'
 export const IMAGE_VARIANTS: Record<string, VariantDefinition> = {
   // imageGenerate — text-to-image (not applicable when any image exists)
   'OL-IG-001': {
+    featureId: 'imageGenerate',
     component: ImgGenTextVariant,
     isApplicable: (ctx) => !ctx.hasImage,
     acceptsInputTypes: ['text'],

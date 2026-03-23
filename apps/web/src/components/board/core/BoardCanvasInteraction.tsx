@@ -64,6 +64,7 @@ import {
   type TemplateGroup,
   type TemplateItem,
 } from "../engine/dynamic-templates";
+import { useAllCapabilities, ensureAllCapabilitiesLoaded, refreshAllCapabilities } from "@/hooks/use-capabilities";
 import {
   openLinkInStack as openLinkInStackAction,
   resolveLinkTitle,
@@ -487,6 +488,9 @@ export function BoardCanvasInteraction({
 }: BoardCanvasInteractionProps) {
   const { t } = useTranslation('project');
   const { fileContext } = useBoardContext();
+  const { data: allCapabilities, loading: capLoading, error: capError } = useAllCapabilities();
+  // 进入画板即加载 capabilities，确保节点选择器可用
+  useEffect(() => { ensureAllCapabilitiesLoaded() }, [])
   const showUi = !uiHidden;
   const rightChatCollapsed = useLayoutState(
     (state) => state.rightChatCollapsed ?? false,
@@ -876,11 +880,16 @@ export function BoardCanvasInteraction({
       const panel = nodePickerRef.current;
       if (!panel || !target) return;
       if (panel.contains(target)) return;
-      // 逻辑：点击面板外部时关闭，不创建节点。
+      // 逻辑：点击面板外部时关闭，不创建节点。恢复源节点选中。
+      const sourceId = snapshot.connectorDrop && "elementId" in snapshot.connectorDrop.source
+        ? snapshot.connectorDrop.source.elementId
+        : null;
       engine.setConnectorDrop(null);
-      // 逻辑：关闭面板时同步清理草稿连线。
       engine.setConnectorDraft(null);
       engine.setConnectorHover(null);
+      if (sourceId) {
+        engine.selection.setSelection([sourceId]);
+      }
     };
     document.addEventListener("pointerdown", handlePointerDown, {
       capture: true,
@@ -1385,8 +1394,8 @@ export function BoardCanvasInteraction({
       return computeInputTemplates(source.type);
     }
     const outputTypes = definition.outputTypes ?? [];
-    return computeOutputTemplates(outputTypes);
-  }, [engine, snapshot.connectorDrop]);
+    return computeOutputTemplates(outputTypes, allCapabilities);
+  }, [engine, snapshot.connectorDrop, allCapabilities]);
 
   const handleTemplateSelect = (item: TemplateItem) => {
     if (!snapshot.connectorDrop) return;
@@ -1469,7 +1478,7 @@ export function BoardCanvasInteraction({
             target: { elementId: id } as CanvasConnectorEnd,
             style: engine.getConnectorStyle(),
           };
-      engine.addConnectorElement(connectorDraft);
+      engine.addConnectorElement(connectorDraft, { skipLayout: true });
       engine.selection.setSelection([id]);
     }
     engine.setConnectorDrop(null);
@@ -1786,6 +1795,9 @@ export function BoardCanvasInteraction({
             engine={engine}
             snapshot={snapshot}
             groups={availableTemplateGroups}
+            loading={capLoading}
+            error={capError}
+            onRetry={refreshAllCapabilities}
             onSelect={handleTemplateSelect}
             panelRef={nodePickerRef}
           />
@@ -1872,6 +1884,12 @@ type ConnectorDropPanelProps = {
   snapshot: CanvasSnapshot;
   /** Template groups for the grouped picker. */
   groups: TemplateGroup[];
+  /** capabilities 加载中。 */
+  loading?: boolean;
+  /** capabilities 加载错误。 */
+  error?: string | null;
+  /** 重试加载。 */
+  onRetry?: () => void;
   /** Selection handler for template items. */
   onSelect: (item: TemplateItem) => void;
   /** Ref for the picker panel element. */
@@ -1883,6 +1901,9 @@ function ConnectorDropPanel({
   engine,
   snapshot,
   groups,
+  loading,
+  error,
+  onRetry,
   onSelect,
   panelRef,
 }: ConnectorDropPanelProps) {
@@ -1911,11 +1932,21 @@ function ConnectorDropPanel({
       position={screen}
       align={align}
       groups={groups}
+      loading={loading}
+      error={error}
+      onRetry={onRetry}
       onSelect={onSelect}
       onClose={() => {
+        // 逻辑：面板关闭时恢复源节点选中。
+        const srcId = connectorDrop && "elementId" in connectorDrop.source
+          ? connectorDrop.source.elementId
+          : null;
         engine.setConnectorDrop(null);
         engine.setConnectorDraft(null);
         engine.setConnectorHover(null);
+        if (srcId) {
+          engine.selection.setSelection([srcId]);
+        }
       }}
     />
   );

@@ -43,6 +43,8 @@ export interface VariantContext {
  * Each variant decides its own applicability and capabilities.
  */
 export interface VariantDefinition {
+  /** Feature ID（来自 capabilities API，如 "imageGenerate"）。 */
+  featureId?: string
   /** The React form component for this variant. */
   component: ComponentType<VariantFormProps>
   /** Whether this variant is applicable in the given context.

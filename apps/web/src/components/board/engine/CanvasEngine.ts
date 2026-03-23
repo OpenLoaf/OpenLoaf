@@ -176,6 +176,8 @@ export class CanvasEngine {
   private nodeHoverId: string | null = null;
   /** Hovered connector id for visual feedback. */
   private connectorHoverId: string | null = null;
+  /** Current cursor position in world coordinates (updated silently, no emitChange). */
+  private cursorWorld: CanvasPoint | null = null;
   /** Active connector style for new links. */
   private connectorStyle: CanvasConnectorStyle = "curve";
   /** Whether new connectors use dashed strokes. */
@@ -974,6 +976,16 @@ export class CanvasEngine {
   /** Return the hovered node id used for showing anchor UI. */
   getNodeHoverId(): string | null {
     return this.nodeHoverId;
+  }
+
+  /** Silently update cursor world position (no emitChange — read by animation RAF). */
+  setCursorWorld(point: CanvasPoint | null): void {
+    this.cursorWorld = point;
+  }
+
+  /** Read the last-known cursor world position. */
+  getCursorWorld(): CanvasPoint | null {
+    return this.cursorWorld;
   }
 
   /** Update hovered connector id for hover styling. */
@@ -2361,6 +2373,9 @@ export class CanvasEngine {
       this.notifyIncompatibleConnection();
       return;
     }
+    if (sourceId && targetId && this.hasExistingConnection(sourceId, targetId)) {
+      return;
+    }
     const anchors = this.getAnchorMapWithGroupPadding();
     const sourceAxisPreference = this.buildSourceAxisPreferenceMap();
     const normalizedDraft: CanvasConnectorDraft = {
@@ -2792,6 +2807,17 @@ export class CanvasEngine {
     if (now - this.lastCycleToastAt < 600) return;
     this.lastCycleToastAt = now;
     toast.error("不支持此类型的连接");
+  }
+
+  /** Check whether a connection already exists between two nodes (in either direction). */
+  private hasExistingConnection(sourceId: string, targetId: string): boolean {
+    const elements = this.doc.getElements();
+    return elements.some(el => {
+      if (el.kind !== 'connector') return false;
+      const src = 'elementId' in el.source ? el.source.elementId : null;
+      const tgt = 'elementId' in el.target ? el.target.elementId : null;
+      return (src === sourceId && tgt === targetId) || (src === targetId && tgt === sourceId);
+    });
   }
 
   /** Check whether a new connector would create a cycle. */

@@ -11,12 +11,14 @@
 /**
  * Dynamic template computation engine.
  *
- * Derives NodePicker template groups from variant declarations without
- * any hardcoded per-node connector template lists.  All functions are
- * pure (no React, no side effects).
+ * 完全基于 capabilities API 数据驱动。本地 variant registry 仅用于
+ * 判断 variant 的 acceptsInputTypes / producesOutputType。
+ *
+ * 显示层级：feature（不是 variant）。
  */
 
 import type { MediaType } from '../panels/variants/slot-types'
+import type { V3CapabilitiesData } from '@/lib/saas-media'
 import { IMAGE_VARIANTS } from '../panels/variants/image'
 import { VIDEO_VARIANTS } from '../panels/variants/video'
 import { AUDIO_VARIANTS } from '../panels/variants/audio'
@@ -26,42 +28,34 @@ import { AUDIO_VARIANTS } from '../panels/variants/audio'
 // ---------------------------------------------------------------------------
 
 export interface TemplateItem {
-  /** Variant ID, e.g. "OL-IG-001". */
+  /** Feature ID，来自 capabilities API（如 "imageGenerate"）。 */
+  featureId: string
+  /** 该 feature 下第一个兼容的 variant ID（用于 preselect）。 */
   variantId: string
-  /** i18n key for the item label, e.g. "dynamicTemplates.variant.OL-IG-001.label". */
-  labelKey: string
-  /** i18n key for the item description (optional). */
-  descriptionKey?: string
-  /** Target node type to create when this item is selected. */
+  /** 目标节点类型（image/video/audio/text）。 */
   nodeType: string
-  /** Default [width, height] for the newly created node. */
+  /** 新建节点默认尺寸。 */
   nodeSize: [number, number]
-  /** Preselect configuration to set on the new node's AI panel. */
+  /** 预选配置，设置到新节点 AI 面板。 */
   preselect: { featureId: string; variantId: string }
-  /**
-   * Input types that the source node cannot provide.
-   * A non-empty array signals that the user must supply additional inputs
-   * manually before generation can run.
-   */
+  /** 源节点无法提供的输入类型。 */
   missingInputTypes: MediaType[]
 }
 
 export interface TemplateGroup {
-  /** Output media type produced by all items in this group. */
+  /** 输出媒体类型（image/video/audio）。 */
   id: MediaType
-  /** i18n key for the group label, e.g. "dynamicTemplates.group.image". */
+  /** 分组标题 i18n key。 */
   labelKey: string
   items: TemplateItem[]
 }
 
 // ---------------------------------------------------------------------------
-// Internal constants
+// Internal
 // ---------------------------------------------------------------------------
 
-/** Canonical sort order for output-type groups. */
-const OUTPUT_TYPE_ORDER: MediaType[] = ['text', 'image', 'video', 'audio']
+const OUTPUT_TYPE_ORDER: MediaType[] = ['image', 'video', 'audio', 'text']
 
-/** Default node dimensions keyed by node type / media type. */
 const NODE_SIZE_MAP: Record<string, [number, number]> = {
   image: [320, 180],
   video: [320, 180],
@@ -69,91 +63,11 @@ const NODE_SIZE_MAP: Record<string, [number, number]> = {
   text: [200, 200],
 }
 
-/**
- * Prefix → feature ID reverse lookup.
- * Variant IDs follow the pattern "OL-<PREFIX>-<NNN>".
- */
-const PREFIX_TO_FEATURE: Record<string, string> = {
-  'OL-IG': 'imageGenerate',
-  'OL-IP': 'imageInpaint',
-  'OL-ST': 'styleTransfer',
-  'OL-UP': 'upscale',
-  'OL-OP': 'outpaint',
-  'OL-IE': 'imageEdit',
-  'OL-ME': 'materialExtract',
-  'OL-VG': 'videoGenerate',
-  'OL-LS': 'lipSync',
-  'OL-DH': 'digitalHuman',
-  'OL-FS': 'faceSwap',
-  'OL-VT': 'videoTranslate',
-  'OL-TT': 'tts',
-  'OL-SR': 'speechRecognition',
-}
+/** 合并所有 variant registry。 */
+const ALL_VARIANT_DEFS = { ...IMAGE_VARIANTS, ...VIDEO_VARIANTS, ...AUDIO_VARIANTS }
 
-/** All variant registries in a single iterable structure. */
-const ALL_REGISTRIES = [
-  IMAGE_VARIANTS,
-  VIDEO_VARIANTS,
-  AUDIO_VARIANTS,
-]
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-/**
- * Extract the "OL-XX" prefix from a variant ID like "OL-IG-001".
- * Returns undefined when the ID does not match the expected pattern.
- */
-function variantPrefix(variantId: string): string | undefined {
-  const parts = variantId.split('-')
-  // Expected: ["OL", "IG", "001"]
-  if (parts.length < 3) return undefined
-  return `${parts[0]}-${parts[1]}`
-}
-
-/** Resolve the feature ID for a given variant ID. */
-function featureIdForVariant(variantId: string): string | undefined {
-  const prefix = variantPrefix(variantId)
-  if (!prefix) return undefined
-  return PREFIX_TO_FEATURE[prefix]
-}
-
-/** Map a media type to a node type string. */
-function nodeTypeForMedia(mediaType: MediaType): string {
-  return mediaType // node types mirror media type names
-}
-
-/** Build a TemplateItem for a given variant ID and computed missing types. */
-function buildTemplateItem(
-  variantId: string,
-  producesOutputType: MediaType,
-  missingInputTypes: MediaType[],
-): TemplateItem {
-  const featureId = featureIdForVariant(variantId) ?? 'unknown'
-  const nodeType = nodeTypeForMedia(producesOutputType)
-  const nodeSize = NODE_SIZE_MAP[nodeType] ?? [320, 180]
-
-  return {
-    variantId,
-    labelKey: `dynamicTemplates.variant.${variantId}.label`,
-    descriptionKey: `dynamicTemplates.variant.${variantId}.description`,
-    nodeType,
-    nodeSize,
-    preselect: { featureId, variantId },
-    missingInputTypes,
-  }
-}
-
-/**
- * Convert a flat map of MediaType → TemplateItem[] into a sorted
- * TemplateGroup array.
- */
-function groupsFromMap(
-  map: Map<MediaType, TemplateItem[]>,
-): TemplateGroup[] {
+function groupsFromMap(map: Map<MediaType, TemplateItem[]>): TemplateGroup[] {
   const groups: TemplateGroup[] = []
-
   for (const outputType of OUTPUT_TYPE_ORDER) {
     const items = map.get(outputType)
     if (items && items.length > 0) {
@@ -164,7 +78,6 @@ function groupsFromMap(
       })
     }
   }
-
   return groups
 }
 
@@ -173,50 +86,68 @@ function groupsFromMap(
 // ---------------------------------------------------------------------------
 
 /**
- * Compute NodePicker templates for a **forward drag** from a node's right
- * anchor (i.e. "what can this node feed into?").
+ * 基于 capabilities 数据计算前向拖拽的节点选择器菜单。
  *
- * @param sourceOutputTypes - Media types produced by the source node.
- * @returns Grouped template entries sorted by output type.
+ * 逻辑：
+ * 1. 遍历 capabilities 每个 feature
+ * 2. 检查 feature 下的 variant 是否在本地 registry 中有注册
+ * 3. 检查注册 variant 的 acceptsInputTypes 是否与源节点兼容
+ * 4. 如果有任一兼容 variant，则该 feature 可显示（按 feature 去重）
+ * 5. 无 capabilities 数据则返回空（不 fallback）
+ *
+ * @param sourceOutputTypes 源节点输出的媒体类型
+ * @param capabilities capabilities API 返回的数据（可能为空）
  */
 export function computeOutputTemplates(
   sourceOutputTypes: MediaType[],
+  capabilities: V3CapabilitiesData[],
 ): TemplateGroup[] {
+  if (!capabilities || capabilities.length === 0) return []
+
   const groupMap = new Map<MediaType, TemplateItem[]>()
-  // De-duplicate by feature: each feature appears at most once, using the
-  // first matching variant as its representative.
   const seenFeatures = new Set<string>()
 
-  for (const registry of ALL_REGISTRIES) {
-    for (const [variantId, def] of Object.entries(registry)) {
-      // Skip variants that haven't declared I/O types yet.
-      if (!def.acceptsInputTypes || !def.producesOutputType) continue
+  for (const cap of capabilities) {
+    for (const feature of cap.features) {
+      if (seenFeatures.has(feature.id)) continue
 
-      // Check if this variant can accept any of the source's output types.
-      const hasOverlap = def.acceptsInputTypes.some((t) =>
-        sourceOutputTypes.includes(t),
-      )
-      if (!hasOverlap) continue
+      // 在该 feature 的 variants 中找第一个：本地有注册 + 输入兼容
+      let matchedVariantId: string | undefined
+      let matchedDef: (typeof ALL_VARIANT_DEFS)[string] | undefined
 
-      // De-duplicate by feature: show one entry per feature, not per variant.
-      const fid = featureIdForVariant(variantId) ?? variantId
-      if (seenFeatures.has(fid)) continue
-      seenFeatures.add(fid)
+      for (const v of feature.variants) {
+        const def = ALL_VARIANT_DEFS[v.id]
+        if (!def?.acceptsInputTypes || !def.producesOutputType) continue
+        if (def.acceptsInputTypes.some((t) => sourceOutputTypes.includes(t))) {
+          matchedVariantId = v.id
+          matchedDef = def
+          break
+        }
+      }
 
-      // Types the variant needs that the source cannot supply.
-      const missingInputTypes = def.acceptsInputTypes.filter(
+      if (!matchedVariantId || !matchedDef) continue
+
+      seenFeatures.add(feature.id)
+
+      const outputType = matchedDef.producesOutputType!
+      const nodeType = outputType as string
+      const nodeSize = NODE_SIZE_MAP[nodeType] ?? [320, 180]
+      const missingInputTypes = matchedDef.acceptsInputTypes!.filter(
         (t) => !sourceOutputTypes.includes(t),
       )
 
-      const item = buildTemplateItem(
-        variantId,
-        def.producesOutputType,
+      const item: TemplateItem = {
+        featureId: feature.id,
+        variantId: matchedVariantId,
+        nodeType,
+        nodeSize,
+        preselect: { featureId: feature.id, variantId: matchedVariantId },
         missingInputTypes,
-      )
+      }
 
-      const bucket = groupMap.get(def.producesOutputType) ?? []
+      const bucket = groupMap.get(outputType) ?? []
       bucket.push(item)
-      groupMap.set(def.producesOutputType, bucket)
+      groupMap.set(outputType, bucket)
     }
   }
 
@@ -224,20 +155,12 @@ export function computeOutputTemplates(
 }
 
 /**
- * Compute NodePicker templates for a **backward drag** from a node's left
- * anchor (i.e. "what upstream node could feed this node?").
- *
- * Returns simple template entries — one per accepted media type — so the
- * user can create an upstream node that produces the required input.
- *
- * @param targetNodeType - The type string of the node being fed into
- *   ("image", "video", "audio", "text").
- * @returns Grouped template entries sorted by output type.
+ * 计算后向拖拽菜单（"什么上游节点能喂给这个节点？"）。
+ * 返回每个可接受输入类型一个条目。
  */
 export function computeInputTemplates(
   targetNodeType: string,
 ): TemplateGroup[] {
-  // Resolve the variant registry for the target node type.
   let registry: Record<string, (typeof IMAGE_VARIANTS)[string]>
   switch (targetNodeType) {
     case 'image':
@@ -253,7 +176,6 @@ export function computeInputTemplates(
       return []
   }
 
-  // Collect the union of all accepted input types across all variants.
   const acceptedTypes = new Set<MediaType>()
   for (const def of Object.values(registry)) {
     if (!def.acceptsInputTypes) continue
@@ -262,45 +184,17 @@ export function computeInputTemplates(
     }
   }
 
-  // For each accepted type, emit one "create upstream node" entry.
-  // The upstream node type that *produces* this type is the type itself
-  // (image node produces image, text node produces text, etc.).
   const groupMap = new Map<MediaType, TemplateItem[]>()
-
   for (const mediaType of acceptedTypes) {
-    // Build a synthetic item using the first eligible variant that accepts
-    // this exact type and produces it as input to the target.
-    // Since we're creating an *upstream* node, the new node's output type
-    // equals the accepted media type.
-    const nodeType = nodeTypeForMedia(mediaType)
+    const nodeType = mediaType as string
     const nodeSize = NODE_SIZE_MAP[nodeType] ?? [320, 180]
 
-    // Find any variant from ALL registries that produces this media type,
-    // to use as a representative preselect.
-    let representativeVariantId: string | undefined
-    let representativeFeatureId = 'unknown'
-
-    for (const reg of ALL_REGISTRIES) {
-      for (const [vid, def] of Object.entries(reg)) {
-        if (def.producesOutputType === mediaType) {
-          representativeVariantId = vid
-          representativeFeatureId = featureIdForVariant(vid) ?? 'unknown'
-          break
-        }
-      }
-      if (representativeVariantId) break
-    }
-
     const item: TemplateItem = {
-      variantId: representativeVariantId ?? `upstream-${mediaType}`,
-      labelKey: `dynamicTemplates.upstreamGroup.${mediaType}`,
-      descriptionKey: `dynamicTemplates.upstreamGroup.${mediaType}.description`,
+      featureId: mediaType,
+      variantId: `upstream-${mediaType}`,
       nodeType,
       nodeSize,
-      preselect: {
-        featureId: representativeFeatureId,
-        variantId: representativeVariantId ?? '',
-      },
+      preselect: { featureId: mediaType, variantId: '' },
       missingInputTypes: [],
     }
 

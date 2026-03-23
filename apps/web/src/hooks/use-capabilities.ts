@@ -81,6 +81,47 @@ const useCapabilitiesStore = create<CapabilitiesState>((set, get) => ({
   },
 }))
 
+/** 确保所有 3 个 category 的 capabilities 都已加载（首次）。 */
+export function ensureAllCapabilitiesLoaded(): void {
+  const { load } = useCapabilitiesStore.getState()
+  void load('image')
+  void load('video')
+  void load('audio')
+}
+
+/** 强制刷新所有 capabilities（重试时使用）。 */
+export function refreshAllCapabilities(): void {
+  const { refresh } = useCapabilitiesStore.getState()
+  void refresh('image')
+  void refresh('video')
+  void refresh('audio')
+}
+
+/** 获取所有已缓存的 capabilities 数据（非 hook，可在任意上下文使用）。 */
+export function getAllCachedCapabilities(): V3CapabilitiesData[] {
+  const state = useCapabilitiesStore.getState()
+  return [state.image, state.video, state.audio].filter(Boolean) as V3CapabilitiesData[]
+}
+
+/** React hook：读取所有 capabilities + loading/error 状态。 */
+export function useAllCapabilities() {
+  const image = useCapabilitiesStore((s) => s.image)
+  const video = useCapabilitiesStore((s) => s.video)
+  const audio = useCapabilitiesStore((s) => s.audio)
+  const loadingImage = useCapabilitiesStore((s) => s.loadingImage)
+  const loadingVideo = useCapabilitiesStore((s) => s.loadingVideo)
+  const loadingAudio = useCapabilitiesStore((s) => s.loadingAudio)
+  const errorImage = useCapabilitiesStore((s) => s.errorImage)
+  const errorVideo = useCapabilitiesStore((s) => s.errorVideo)
+  const errorAudio = useCapabilitiesStore((s) => s.errorAudio)
+
+  const data = [image, video, audio].filter(Boolean) as V3CapabilitiesData[]
+  const loading = loadingImage || loadingVideo || loadingAudio
+  const error = errorImage ?? errorVideo ?? errorAudio
+
+  return { data, loading, error }
+}
+
 /** React hook for v3 media capabilities. */
 export function useCapabilities(category: MediaCategory) {
   const data = useCapabilitiesStore((state) => state[category])
