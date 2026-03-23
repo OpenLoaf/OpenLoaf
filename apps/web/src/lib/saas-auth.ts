@@ -346,6 +346,71 @@ export async function fetchUserProfile(): Promise<{
   }
 }
 
+/** Fetch current active subscription from SaaS backend. */
+export async function fetchCurrentSubscription(): Promise<{
+  id: string;
+  planCode: string;
+  period: "monthly" | "yearly";
+  status: "active" | "expired" | "cancelled";
+  creditsQuota: number;
+  creditsUsed: number;
+  currentPeriodStart: string;
+  currentPeriodEnd: string;
+} | null> {
+  const token = await getAccessToken();
+  if (!token) return null;
+  try {
+    const baseUrl = resolveSaasBaseUrl();
+    if (!baseUrl) return null;
+    const url = `${baseUrl}/api/trpc/memberSubscription.current`;
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    // tRPC without transformer: { result: { data: <actual> } }
+    return json?.result?.data ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Fetch credits transaction list from SaaS backend. */
+export async function fetchCreditsTransactions(input: {
+  page: number;
+  pageSize: number;
+  type?: string;
+}): Promise<{
+  items: Array<{
+    id: string;
+    type: string;
+    kind: string | null;
+    amount: number;
+    balanceAfter: number;
+    description: string;
+    createdAt: string;
+  }>;
+  total: number;
+} | null> {
+  const token = await getAccessToken();
+  if (!token) return null;
+  try {
+    const baseUrl = resolveSaasBaseUrl();
+    if (!baseUrl) return null;
+    const inputParam = encodeURIComponent(JSON.stringify(input));
+    const url = `${baseUrl}/api/trpc/memberCredits.transactions?input=${inputParam}`;
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    // tRPC without transformer: { result: { data: <actual> } }
+    return json?.result?.data ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /** Resolve auth user from cached token or storage. */
 export async function resolveAuthUser(): Promise<SaasAuthUser | null> {
   const cached = getStoredUser();
