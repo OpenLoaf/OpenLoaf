@@ -20,6 +20,9 @@ const RESOLUTION_OPTIONS = ['480P', '720P'] as const
  *
  * Inputs: image ({url} - person portrait), audio ({url} - audio file, ≤20s).
  * Params: resolution ("480P" | "720P").
+ *
+ * When `resolvedSlots` is provided (InputSlotBar mode), the variant reads
+ * `image` and `audio` slots from the framework instead of self-managing uploads.
  */
 export function DigitalHumanQwenVariant({
   variant,
@@ -29,6 +32,7 @@ export function DigitalHumanQwenVariant({
   disabled = false,
   onParamsChange,
   onWarningChange,
+  resolvedSlots,
 }: VariantFormProps) {
   const { t } = useTranslation('board')
 
@@ -36,21 +40,35 @@ export function DigitalHumanQwenVariant({
     (initialParams?.params?.resolution as (typeof RESOLUTION_OPTIONS)[number]) ?? '480P',
   )
 
-  // Manual uploads (only used when no upstream source)
+  // Self-managed uploads (only used in fallback mode, i.e. resolvedSlots === undefined)
   const [manualPersonSrc, setManualPersonSrc] = useState<string | undefined>()
   const [manualAudioSrc, setManualAudioSrc] = useState<string | undefined>()
 
-  // For display (resolved URLs)
-  const upstreamPerson = upstream.images?.[0] ?? nodeResourceUrl
-  const upstreamAudio = upstream.audioUrl
+  // Resolve person image and audio sources based on mode
+  let personUrl: string | undefined
+  let audioUrl: string | undefined
+  let personPath: string | undefined
+  let audioPath: string | undefined
 
-  const personUrl = upstreamPerson ?? manualPersonSrc
-  const audioUrl = upstreamAudio ?? manualAudioSrc
+  if (resolvedSlots) {
+    // Framework mode: read from resolvedSlots['image'] and resolvedSlots['audio']
+    const imageRef = (resolvedSlots['image'] ?? [])[0]
+    const audioRef = (resolvedSlots['audio'] ?? [])[0]
+    personUrl = imageRef?.url
+    audioUrl = audioRef?.url
+    personPath = imageRef?.path ?? imageRef?.url
+    audioPath = audioRef?.path ?? audioRef?.url
+  } else {
+    // Fallback: self-managed
+    const upstreamPerson = upstream.images?.[0] ?? nodeResourceUrl
+    const upstreamAudio = upstream.audioUrl
+    personUrl = upstreamPerson ?? manualPersonSrc
+    audioUrl = upstreamAudio ?? manualAudioSrc
+    const upstreamPersonPath = upstream.imagePaths?.[0]
+    personPath = upstreamPersonPath ?? manualPersonSrc
+    audioPath = upstreamAudio ?? manualAudioSrc
+  }
 
-  // For API submission (raw paths)
-  const upstreamPersonPath = upstream.imagePaths?.[0]
-  const personPath = upstreamPersonPath ?? manualPersonSrc
-  const audioPath = upstreamAudio ?? manualAudioSrc
   const hasPerson = Boolean(personUrl)
   const hasAudio = Boolean(audioUrl)
 
@@ -87,42 +105,44 @@ export function DigitalHumanQwenVariant({
 
   return (
     <div className="flex flex-col gap-2.5">
-      {/* Person + Audio slots side by side */}
-      <div className="flex items-end gap-3">
-        <MediaSlot
-          label={t('v3.fields.personImage', { defaultValue: 'Person' })}
-          icon={<User size={16} />}
-          src={personUrl}
-          required
-          disabled={disabled}
-          boardId={upstream.boardId}
-          projectId={upstream.projectId}
-          boardFolderUri={upstream.boardFolderUri}
-          onUpload={!upstreamPerson
-            ? (value) => setManualPersonSrc(value)
-            : undefined}
-          onRemove={manualPersonSrc
-            ? () => setManualPersonSrc(undefined)
-            : undefined}
-        />
-        <MediaSlot
-          label={t('v3.fields.audioInput', { defaultValue: 'Audio' })}
-          icon={<Music size={16} />}
-          src={audioUrl}
-          required
-          disabled={disabled}
-          uploadAccept="audio/*"
-          boardId={upstream.boardId}
-          projectId={upstream.projectId}
-          boardFolderUri={upstream.boardFolderUri}
-          onUpload={!upstreamAudio
-            ? (value) => setManualAudioSrc(value)
-            : undefined}
-          onRemove={manualAudioSrc
-            ? () => setManualAudioSrc(undefined)
-            : undefined}
-        />
-      </div>
+      {/* Person + Audio slots side by side — only rendered in fallback mode */}
+      {!resolvedSlots ? (
+        <div className="flex items-end gap-3">
+          <MediaSlot
+            label={t('v3.fields.personImage', { defaultValue: 'Person' })}
+            icon={<User size={16} />}
+            src={personUrl}
+            required
+            disabled={disabled}
+            boardId={upstream.boardId}
+            projectId={upstream.projectId}
+            boardFolderUri={upstream.boardFolderUri}
+            onUpload={!(upstream.images?.[0] ?? nodeResourceUrl)
+              ? (value) => setManualPersonSrc(value)
+              : undefined}
+            onRemove={manualPersonSrc
+              ? () => setManualPersonSrc(undefined)
+              : undefined}
+          />
+          <MediaSlot
+            label={t('v3.fields.audioInput', { defaultValue: 'Audio' })}
+            icon={<Music size={16} />}
+            src={audioUrl}
+            required
+            disabled={disabled}
+            uploadAccept="audio/*"
+            boardId={upstream.boardId}
+            projectId={upstream.projectId}
+            boardFolderUri={upstream.boardFolderUri}
+            onUpload={!upstream.audioUrl
+              ? (value) => setManualAudioSrc(value)
+              : undefined}
+            onRemove={manualAudioSrc
+              ? () => setManualAudioSrc(undefined)
+              : undefined}
+          />
+        </div>
+      ) : null}
 
       {/* Resolution selector */}
       <div className="flex flex-col gap-1.5">

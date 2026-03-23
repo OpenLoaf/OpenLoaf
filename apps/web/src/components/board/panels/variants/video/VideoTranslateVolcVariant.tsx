@@ -25,6 +25,9 @@ const LANGUAGE_OPTIONS = [
  *
  * Inputs: video ({url} - source video).
  * Params: sourceLanguage, targetLanguage.
+ *
+ * When `resolvedSlots` is provided (InputSlotBar mode), the variant reads
+ * the `video` slot from the framework instead of self-managing uploads.
  */
 export function VideoTranslateVolcVariant({
   variant,
@@ -33,6 +36,7 @@ export function VideoTranslateVolcVariant({
   disabled = false,
   onParamsChange,
   onWarningChange,
+  resolvedSlots,
 }: VariantFormProps) {
   const { t } = useTranslation('board')
 
@@ -43,15 +47,25 @@ export function VideoTranslateVolcVariant({
     (initialParams?.params?.targetLanguage as string) ?? 'en',
   )
 
-  // Manual upload (only used when no upstream source)
+  // Self-managed upload (only used in fallback mode, i.e. resolvedSlots === undefined)
   const [manualVideoSrc, setManualVideoSrc] = useState<string | undefined>()
 
-  // For display (resolved URL)
-  const upstreamVideo = upstream.videoUrl
-  const videoUrl = upstreamVideo ?? manualVideoSrc
+  // Resolve video source based on mode
+  let videoUrl: string | undefined
+  let videoPath: string | undefined
 
-  // For API submission (raw path)
-  const videoPath = upstreamVideo ?? manualVideoSrc
+  if (resolvedSlots) {
+    // Framework mode: read from resolvedSlots['video']
+    const videoRef = (resolvedSlots['video'] ?? [])[0]
+    videoUrl = videoRef?.url
+    videoPath = videoRef?.path ?? videoRef?.url
+  } else {
+    // Fallback: self-managed
+    const upstreamVideo = upstream.videoUrl
+    videoUrl = upstreamVideo ?? manualVideoSrc
+    videoPath = upstreamVideo ?? manualVideoSrc
+  }
+
   const hasVideo = Boolean(videoUrl)
 
   // Report warning when required input is missing
@@ -81,26 +95,28 @@ export function VideoTranslateVolcVariant({
 
   return (
     <div className="flex flex-col gap-2.5">
-      {/* Video slot */}
-      <div className="flex items-end gap-3">
-        <MediaSlot
-          label={t('v3.fields.videoInput', { defaultValue: 'Video' })}
-          icon={<Film size={16} />}
-          src={videoUrl}
-          required
-          disabled={disabled}
-          uploadAccept="video/*"
-          boardId={upstream.boardId}
-          projectId={upstream.projectId}
-          boardFolderUri={upstream.boardFolderUri}
-          onUpload={!upstreamVideo
-            ? (value) => setManualVideoSrc(value)
-            : undefined}
-          onRemove={manualVideoSrc
-            ? () => setManualVideoSrc(undefined)
-            : undefined}
-        />
-      </div>
+      {/* Video slot — only rendered in fallback mode */}
+      {!resolvedSlots ? (
+        <div className="flex items-end gap-3">
+          <MediaSlot
+            label={t('v3.fields.videoInput', { defaultValue: 'Video' })}
+            icon={<Film size={16} />}
+            src={videoUrl}
+            required
+            disabled={disabled}
+            uploadAccept="video/*"
+            boardId={upstream.boardId}
+            projectId={upstream.projectId}
+            boardFolderUri={upstream.boardFolderUri}
+            onUpload={!upstream.videoUrl
+              ? (value) => setManualVideoSrc(value)
+              : undefined}
+            onRemove={manualVideoSrc
+              ? () => setManualVideoSrc(undefined)
+              : undefined}
+          />
+        </div>
+      ) : null}
 
       {/* Language selectors */}
       <div className="flex flex-col gap-1.5">

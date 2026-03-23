@@ -23,6 +23,9 @@ import { MediaSlot, PillSelect, UpstreamTextBadge, toMediaInput } from '../share
  *
  * Requires a first-frame image (startImage) -- pure text-to-video is NOT supported.
  * Params: prompt, style, upstreamModelId, duration, withAudio.
+ *
+ * When `resolvedSlots` is provided (InputSlotBar mode), the variant reads
+ * the `startFrame` slot from the framework instead of self-managing uploads.
  */
 export function VidGenQwenVariant({
   variant,
@@ -32,6 +35,7 @@ export function VidGenQwenVariant({
   disabled = false,
   onParamsChange,
   onWarningChange,
+  resolvedSlots,
 }: VariantFormProps) {
   const { t } = useTranslation('board')
 
@@ -46,17 +50,29 @@ export function VidGenQwenVariant({
     (initialParams?.params?.withAudio as boolean) ?? false,
   )
 
-  // Manual upload for first frame (only if no upstream source)
+  // Self-managed first frame (only used in fallback mode, i.e. resolvedSlots === undefined)
   const [manualFirstFrame, setManualFirstFrame] = useState<string | undefined>()
 
-  // For display (resolved URL)
-  const upstreamFirstFrame = upstream.images?.[0] ?? nodeResourceUrl
-  const firstFrameUrl = upstreamFirstFrame ?? manualFirstFrame
-  const hasFirstFrame = Boolean(firstFrameUrl)
+  // Resolve first frame source based on mode
+  let firstFrameUrl: string | undefined
+  let firstFramePath: string | undefined
+  let hasFirstFrame: boolean
 
-  // For API submission (raw path)
-  const upstreamFirstFramePath = upstream.imagePaths?.[0]
-  const firstFramePath = upstreamFirstFramePath ?? manualFirstFrame
+  if (resolvedSlots) {
+    // Framework mode: read from resolvedSlots['startFrame']
+    const refs = resolvedSlots['startFrame'] ?? []
+    const ref = refs[0]
+    firstFrameUrl = ref?.url
+    firstFramePath = ref?.path ?? ref?.url
+    hasFirstFrame = Boolean(firstFrameUrl)
+  } else {
+    // Fallback: self-managed
+    const upstreamFirstFrame = upstream.images?.[0] ?? nodeResourceUrl
+    firstFrameUrl = upstreamFirstFrame ?? manualFirstFrame
+    const upstreamFirstFramePath = upstream.imagePaths?.[0]
+    firstFramePath = upstreamFirstFramePath ?? manualFirstFrame
+    hasFirstFrame = Boolean(firstFrameUrl)
+  }
 
   // Report warning when first frame is missing (required for this variant)
   useEffect(() => {
@@ -71,7 +87,6 @@ export function VidGenQwenVariant({
     if (firstFramePath) {
       inputs.startImage = toMediaInput(firstFramePath)
     }
-
     inputs.prompt = prompt
     onParamsChange({
       inputs,
@@ -85,25 +100,27 @@ export function VidGenQwenVariant({
 
   return (
     <div className="flex flex-col gap-2.5">
-      {/* First-frame slot (REQUIRED) */}
-      <div className="flex items-end gap-2">
-        <MediaSlot
-          label={t('v3.fields.firstFrame', { defaultValue: 'First Frame' })}
-          icon={<ImagePlus size={16} />}
-          src={firstFrameUrl}
-          required
-          disabled={disabled}
-          boardId={upstream.boardId}
-          projectId={upstream.projectId}
-          boardFolderUri={upstream.boardFolderUri}
-          onUpload={!upstreamFirstFrame
-            ? (value) => setManualFirstFrame(value)
-            : undefined}
-          onRemove={manualFirstFrame
-            ? () => setManualFirstFrame(undefined)
-            : undefined}
-        />
-      </div>
+      {/* First-frame slot — only rendered in fallback (no resolvedSlots) mode */}
+      {!resolvedSlots ? (
+        <div className="flex items-end gap-2">
+          <MediaSlot
+            label={t('v3.fields.firstFrame', { defaultValue: 'First Frame' })}
+            icon={<ImagePlus size={16} />}
+            src={firstFrameUrl}
+            required
+            disabled={disabled}
+            boardId={upstream.boardId}
+            projectId={upstream.projectId}
+            boardFolderUri={upstream.boardFolderUri}
+            onUpload={!(upstream.images?.[0] ?? nodeResourceUrl)
+              ? (value) => setManualFirstFrame(value)
+              : undefined}
+            onRemove={manualFirstFrame
+              ? () => setManualFirstFrame(undefined)
+              : undefined}
+          />
+        </div>
+      ) : null}
 
       {/* Prompt */}
       <div className="flex flex-col gap-1">

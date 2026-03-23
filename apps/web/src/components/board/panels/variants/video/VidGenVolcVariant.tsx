@@ -25,6 +25,9 @@ import { MediaSlot, PillSelect, UpstreamTextBadge, toMediaInput } from '../share
  * Supports both text-to-video and image-to-video.
  * Inputs: prompt (required, in params), startImage (optional), images (optional).
  * Params: style, modelId, aspectRatio, duration.
+ *
+ * When `resolvedSlots` is provided (InputSlotBar mode), the variant reads
+ * `startFrame` and `refs` slots from the framework instead of self-managing uploads.
  */
 export function VidGenVolcVariant({
   variant,
@@ -33,6 +36,7 @@ export function VidGenVolcVariant({
   initialParams,
   disabled = false,
   onParamsChange,
+  resolvedSlots,
 }: VariantFormProps) {
   const { t } = useTranslation('board')
 
@@ -47,28 +51,40 @@ export function VidGenVolcVariant({
     (initialParams?.params?.duration as (typeof VIDEO_GENERATE_DURATION_OPTIONS)[number]) ?? 5,
   )
 
-  // Manual upload for first frame (only if no upstream source)
+  // Self-managed first frame (only used in fallback mode, i.e. resolvedSlots === undefined)
   const [manualFirstFrame, setManualFirstFrame] = useState<string | undefined>()
-
-  // For display (resolved URL)
-  const upstreamFirstFrame = upstream.images?.[0] ?? nodeResourceUrl
-  const firstFrameUrl = upstreamFirstFrame ?? manualFirstFrame
-  const hasFirstFrame = Boolean(firstFrameUrl)
-
-  // For API submission (raw path)
-  const upstreamFirstFramePath = upstream.imagePaths?.[0]
-  const firstFramePath = upstreamFirstFramePath ?? manualFirstFrame
 
   // Sync params to parent on any change.
   useEffect(() => {
     const inputs: Record<string, unknown> = {}
-    if (firstFramePath) {
-      inputs.startImage = toMediaInput(firstFramePath)
-    }
-    // Additional reference images (beyond the first frame) — use raw paths for API.
-    const extraPaths = (upstream.imagePaths ?? upstream.images)?.slice(1)
-    if (extraPaths?.length) {
-      inputs.images = extraPaths.map((src) => toMediaInput(src))
+
+    if (resolvedSlots) {
+      // Framework mode: read from resolvedSlots['startFrame'] and resolvedSlots['refs']
+      const startRefs = resolvedSlots['startFrame'] ?? []
+      const refsRefs = resolvedSlots['refs'] ?? []
+      if (startRefs[0]) {
+        const ref = startRefs[0]
+        inputs.startImage = ref.path ? toMediaInput(ref.path) : toMediaInput(ref.url)
+      }
+      if (refsRefs.length) {
+        inputs.images = refsRefs.map((ref) =>
+          ref.path ? toMediaInput(ref.path) : toMediaInput(ref.url),
+        )
+      }
+    } else {
+      // Fallback: self-managed
+      const upstreamFirstFrame = upstream.images?.[0] ?? nodeResourceUrl
+      const firstFramePath = upstream.imagePaths?.[0] ?? manualFirstFrame
+      if (firstFramePath) {
+        inputs.startImage = toMediaInput(firstFramePath)
+      }
+      // Additional reference images (beyond the first frame) — use raw paths for API.
+      const extraPaths = (upstream.imagePaths ?? upstream.images)?.slice(1)
+      if (extraPaths?.length) {
+        inputs.images = extraPaths.map((src) => toMediaInput(src))
+      }
+      // suppress unused variable warning
+      void upstreamFirstFrame
     }
 
     onParamsChange({
@@ -80,28 +96,34 @@ export function VidGenVolcVariant({
         duration,
       },
     })
-  }, [prompt, style, aspectRatio, duration, firstFramePath, upstream.imagePaths, upstream.images, onParamsChange])
+  }, [prompt, style, aspectRatio, duration, resolvedSlots, manualFirstFrame, upstream.imagePaths, upstream.images, nodeResourceUrl, onParamsChange])
+
+  // Compute fallback display values
+  const upstreamFirstFrame = !resolvedSlots ? (upstream.images?.[0] ?? nodeResourceUrl) : undefined
+  const firstFrameUrl = !resolvedSlots ? (upstreamFirstFrame ?? manualFirstFrame) : undefined
 
   return (
     <div className="flex flex-col gap-2.5">
-      {/* Optional first-frame slot */}
-      <div className="flex items-end gap-2">
-        <MediaSlot
-          label={t('v3.fields.firstFrame', { defaultValue: 'First Frame' })}
-          icon={<ImagePlus size={16} />}
-          src={firstFrameUrl}
-          disabled={disabled}
-          boardId={upstream.boardId}
-          projectId={upstream.projectId}
-          boardFolderUri={upstream.boardFolderUri}
-          onUpload={!upstreamFirstFrame
-            ? (value) => setManualFirstFrame(value)
-            : undefined}
-          onRemove={manualFirstFrame
-            ? () => setManualFirstFrame(undefined)
-            : undefined}
-        />
-      </div>
+      {/* Optional first-frame slot — only rendered in fallback mode */}
+      {!resolvedSlots ? (
+        <div className="flex items-end gap-2">
+          <MediaSlot
+            label={t('v3.fields.firstFrame', { defaultValue: 'First Frame' })}
+            icon={<ImagePlus size={16} />}
+            src={firstFrameUrl}
+            disabled={disabled}
+            boardId={upstream.boardId}
+            projectId={upstream.projectId}
+            boardFolderUri={upstream.boardFolderUri}
+            onUpload={!upstreamFirstFrame
+              ? (value) => setManualFirstFrame(value)
+              : undefined}
+            onRemove={manualFirstFrame
+              ? () => setManualFirstFrame(undefined)
+              : undefined}
+          />
+        </div>
+      ) : null}
 
       {/* Prompt */}
       <div className="flex flex-col gap-1">

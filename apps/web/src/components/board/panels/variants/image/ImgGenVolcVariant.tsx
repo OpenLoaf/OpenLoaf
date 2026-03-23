@@ -50,6 +50,9 @@ const DEFAULT_CONFIG = { showStyle: false }
  *
  * Key difference from ImgGenTextVariant: prompt lives in **params** (not inputs),
  * and optional reference images live in **inputs.images**.
+ *
+ * When `resolvedSlots` is provided (InputSlotBar mode), the variant reads
+ * slot assignments from the framework instead of self-managing uploads.
  */
 export function ImgGenVolcVariant({
   variant,
@@ -59,6 +62,7 @@ export function ImgGenVolcVariant({
   initialParams,
   onParamsChange,
   onWarningChange,
+  resolvedSlots,
 }: VariantFormProps) {
   const { t } = useTranslation('board')
 
@@ -77,7 +81,7 @@ export function ImgGenVolcVariant({
     (initialParams?.params?.style as Style) ?? 'auto',
   )
 
-  // Optional reference images
+  // Self-managed slots — only used when resolvedSlots is NOT provided (fallback mode)
   const {
     manualImages,
     displayImages,
@@ -100,11 +104,22 @@ export function ImgGenVolcVariant({
   }, [prompt, upstream.textContent, onWarningChange, t])
 
   const sync = useCallback(() => {
+    let imagesForApi: Array<{ url: string } | { path: string }> = []
+
+    if (resolvedSlots) {
+      // Framework-managed slots: read from resolvedSlots['images']
+      const refs = resolvedSlots['images'] ?? []
+      imagesForApi = refs.map((ref) =>
+        ref.path ? toMediaInput(ref.path) : toMediaInput(ref.url),
+      )
+    } else {
+      // Fallback: self-managed
+      imagesForApi = apiImages.map((src) => toMediaInput(src))
+    }
+
     onParamsChange({
       inputs: {
-        ...(apiImages.length
-          ? { images: apiImages.map((src) => toMediaInput(src)) }
-          : {}),
+        ...(imagesForApi.length ? { images: imagesForApi } : {}),
       },
       params: {
         prompt,
@@ -119,6 +134,7 @@ export function ImgGenVolcVariant({
     quality,
     style,
     config.showStyle,
+    resolvedSlots,
     apiImages.length, // eslint-disable-line react-hooks/exhaustive-deps
     onParamsChange,
   ])
@@ -127,6 +143,78 @@ export function ImgGenVolcVariant({
     sync()
   }, [sync])
 
+  // When using resolvedSlots (framework mode), don't render media slots here —
+  // InputSlotBar handles them. Only render prompt + params.
+  if (resolvedSlots) {
+    return (
+      <div className="flex flex-col gap-2">
+        {/* -- Prompt -- */}
+        <div className="flex flex-col gap-1">
+          {upstream.textContent ? (
+            <UpstreamTextBadge text={upstream.textContent} />
+          ) : null}
+          <textarea
+            className={[
+              'min-h-[68px] w-full resize-none rounded-3xl border px-3 py-2',
+              'text-sm leading-relaxed',
+              BOARD_GENERATE_INPUT,
+              disabled ? 'opacity-60 cursor-not-allowed' : '',
+            ].join(' ')}
+            placeholder={t('v3.params.prompt', {
+              defaultValue: 'Describe the image you want...',
+            })}
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            rows={3}
+            disabled={disabled}
+          />
+        </div>
+
+        {/* -- Parameter row -- */}
+        <div className="flex items-center gap-1.5">
+          <PillSelect
+            options={IMAGE_GENERATE_ASPECT_RATIO_OPTIONS.map((ratio) => ({
+              value: ratio,
+              label:
+                ratio === 'auto'
+                  ? t('v3.params.ratioAuto', { defaultValue: 'Auto' })
+                  : ratio,
+            }))}
+            value={aspectRatio}
+            onChange={setAspectRatio}
+            disabled={disabled}
+          />
+          <PillSelect
+            options={QUALITY_OPTIONS.map((q) => ({
+              value: q,
+              label: t(`v3.params.quality_${q}`, {
+                defaultValue: q === 'hd' ? 'HD' : 'Standard',
+              }),
+            }))}
+            value={quality}
+            onChange={(v) => setQuality(v as Quality)}
+            disabled={disabled}
+          />
+          {config.showStyle ? (
+            <PillSelect
+              options={STYLE_OPTIONS.map((s) => ({
+                value: s,
+                label:
+                  s === 'auto'
+                    ? t('v3.params.styleAuto', { defaultValue: 'Auto' })
+                    : t(`v3.params.style_${s}`, { defaultValue: s }),
+              }))}
+              value={style}
+              onChange={(v) => setStyle(v as Style)}
+              disabled={disabled}
+            />
+          ) : null}
+        </div>
+      </div>
+    )
+  }
+
+  // Fallback: self-managed slot rendering
   return (
     <div className="flex flex-col gap-2">
       {/* -- Reference image slots (optional) -- */}

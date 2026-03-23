@@ -19,6 +19,9 @@ import { MediaSlot, toMediaInput } from '../shared'
  * Inputs: audio (required, MediaInput).
  * Params: enableItn (boolean, default true).
  * Output: resultText (via v3Task polling).
+ *
+ * When `resolvedSlots` is provided (InputSlotBar mode), the variant reads
+ * the `audio` slot from the framework instead of self-managing uploads.
  */
 export function SpeechToTextVariant({
   upstream,
@@ -26,10 +29,11 @@ export function SpeechToTextVariant({
   disabled = false,
   onParamsChange,
   onWarningChange,
+  resolvedSlots,
 }: VariantFormProps) {
   const { t } = useTranslation('board')
 
-  // Manual audio upload (only used when no upstream audio)
+  // Self-managed audio upload (only used in fallback mode, i.e. resolvedSlots === undefined)
   const [manualAudioSrc, setManualAudioSrc] = useState<string | undefined>()
 
   // enableItn — priority: cached > default true
@@ -37,10 +41,22 @@ export function SpeechToTextVariant({
     (initialParams?.params?.enableItn as boolean) ?? true,
   )
 
-  // Resolve audio source
-  const upstreamAudio = upstream.audioUrl
-  const audioUrl = upstreamAudio ?? manualAudioSrc
-  const audioPath = upstreamAudio ?? manualAudioSrc
+  // Resolve audio source based on mode
+  let audioUrl: string | undefined
+  let audioPath: string | undefined
+
+  if (resolvedSlots) {
+    // Framework mode: read from resolvedSlots['audio']
+    const audioRef = (resolvedSlots['audio'] ?? [])[0]
+    audioUrl = audioRef?.url
+    audioPath = audioRef?.path ?? audioRef?.url
+  } else {
+    // Fallback: self-managed
+    const upstreamAudio = upstream.audioUrl
+    audioUrl = upstreamAudio ?? manualAudioSrc
+    audioPath = upstreamAudio ?? manualAudioSrc
+  }
+
   const hasAudio = Boolean(audioUrl)
 
   // Report warning when audio is missing
@@ -71,24 +87,26 @@ export function SpeechToTextVariant({
 
   return (
     <div className="flex flex-col gap-2.5">
-      {/* Audio input slot */}
-      <MediaSlot
-        label={t('v3.fields.audioInput', { defaultValue: 'Audio Input' })}
-        icon={<Music size={16} />}
-        src={audioUrl}
-        required
-        disabled={disabled}
-        uploadAccept="audio/*"
-        boardId={upstream.boardId}
-        projectId={upstream.projectId}
-        boardFolderUri={upstream.boardFolderUri}
-        onUpload={
-          !upstreamAudio ? (value) => setManualAudioSrc(value) : undefined
-        }
-        onRemove={
-          manualAudioSrc ? () => setManualAudioSrc(undefined) : undefined
-        }
-      />
+      {/* Audio input slot — only rendered in fallback mode */}
+      {!resolvedSlots ? (
+        <MediaSlot
+          label={t('v3.fields.audioInput', { defaultValue: 'Audio Input' })}
+          icon={<Music size={16} />}
+          src={audioUrl}
+          required
+          disabled={disabled}
+          uploadAccept="audio/*"
+          boardId={upstream.boardId}
+          projectId={upstream.projectId}
+          boardFolderUri={upstream.boardFolderUri}
+          onUpload={
+            !upstream.audioUrl ? (value) => setManualAudioSrc(value) : undefined
+          }
+          onRemove={
+            manualAudioSrc ? () => setManualAudioSrc(undefined) : undefined
+          }
+        />
+      ) : null}
 
       {/* enableItn toggle */}
       <label className="flex items-center gap-2 px-0.5">

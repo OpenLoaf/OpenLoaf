@@ -26,6 +26,9 @@ type FaceSwapMode = (typeof FACE_SWAP_MODE_OPTIONS)[number]['value']
  *
  * Inputs: image ({url} - face to swap in), video ({url} - reference video).
  * Params: mode ("wan-std" | "wan-pro").
+ *
+ * When `resolvedSlots` is provided (InputSlotBar mode), the variant reads
+ * `face` and `video` slots from the framework instead of self-managing uploads.
  */
 export function FaceSwapQwenVariant({
   variant,
@@ -34,6 +37,7 @@ export function FaceSwapQwenVariant({
   disabled = false,
   onParamsChange,
   onWarningChange,
+  resolvedSlots,
 }: VariantFormProps) {
   const { t } = useTranslation('board')
 
@@ -41,21 +45,35 @@ export function FaceSwapQwenVariant({
   const defaultMode: FaceSwapMode = variant.id === 'OL-FS-002' ? 'wan-pro' : 'wan-std'
   const [mode, setMode] = useState<FaceSwapMode>(defaultMode)
 
-  // Manual uploads (only used when no upstream source)
+  // Self-managed uploads (only used in fallback mode, i.e. resolvedSlots === undefined)
   const [manualImageSrc, setManualImageSrc] = useState<string | undefined>()
   const [manualVideoSrc, setManualVideoSrc] = useState<string | undefined>()
 
-  // For display (resolved URLs)
-  const upstreamImage = upstream.images?.[0] ?? nodeResourceUrl
-  const upstreamVideo = upstream.videoUrl
+  // Resolve face image and video sources based on mode
+  let imageUrl: string | undefined
+  let videoUrl: string | undefined
+  let imagePath: string | undefined
+  let videoPath: string | undefined
 
-  const imageUrl = upstreamImage ?? manualImageSrc
-  const videoUrl = upstreamVideo ?? manualVideoSrc
+  if (resolvedSlots) {
+    // Framework mode: read from resolvedSlots['face'] and resolvedSlots['video']
+    const faceRef = (resolvedSlots['face'] ?? [])[0]
+    const videoRef = (resolvedSlots['video'] ?? [])[0]
+    imageUrl = faceRef?.url
+    videoUrl = videoRef?.url
+    imagePath = faceRef?.path ?? faceRef?.url
+    videoPath = videoRef?.path ?? videoRef?.url
+  } else {
+    // Fallback: self-managed
+    const upstreamImage = upstream.images?.[0] ?? nodeResourceUrl
+    const upstreamVideo = upstream.videoUrl
+    imageUrl = upstreamImage ?? manualImageSrc
+    videoUrl = upstreamVideo ?? manualVideoSrc
+    const upstreamImagePath = upstream.imagePaths?.[0]
+    imagePath = upstreamImagePath ?? manualImageSrc
+    videoPath = upstreamVideo ?? manualVideoSrc
+  }
 
-  // For API submission (raw paths)
-  const upstreamImagePath = upstream.imagePaths?.[0]
-  const imagePath = upstreamImagePath ?? manualImageSrc
-  const videoPath = upstreamVideo ?? manualVideoSrc
   const hasImage = Boolean(imageUrl)
   const hasVideo = Boolean(videoUrl)
 
@@ -90,42 +108,44 @@ export function FaceSwapQwenVariant({
 
   return (
     <div className="flex flex-col gap-2.5">
-      {/* Face image + Video slots side by side */}
-      <div className="flex items-end gap-3">
-        <MediaSlot
-          label={t('v3.fields.faceImage', { defaultValue: 'Face' })}
-          icon={<User size={16} />}
-          src={imageUrl}
-          required
-          disabled={disabled}
-          boardId={upstream.boardId}
-          projectId={upstream.projectId}
-          boardFolderUri={upstream.boardFolderUri}
-          onUpload={!upstreamImage
-            ? (value) => setManualImageSrc(value)
-            : undefined}
-          onRemove={manualImageSrc
-            ? () => setManualImageSrc(undefined)
-            : undefined}
-        />
-        <MediaSlot
-          label={t('v3.fields.videoInput', { defaultValue: 'Video' })}
-          icon={<Film size={16} />}
-          src={videoUrl}
-          required
-          disabled={disabled}
-          uploadAccept="video/*"
-          boardId={upstream.boardId}
-          projectId={upstream.projectId}
-          boardFolderUri={upstream.boardFolderUri}
-          onUpload={!upstreamVideo
-            ? (value) => setManualVideoSrc(value)
-            : undefined}
-          onRemove={manualVideoSrc
-            ? () => setManualVideoSrc(undefined)
-            : undefined}
-        />
-      </div>
+      {/* Face image + Video slots side by side — only rendered in fallback mode */}
+      {!resolvedSlots ? (
+        <div className="flex items-end gap-3">
+          <MediaSlot
+            label={t('v3.fields.faceImage', { defaultValue: 'Face' })}
+            icon={<User size={16} />}
+            src={imageUrl}
+            required
+            disabled={disabled}
+            boardId={upstream.boardId}
+            projectId={upstream.projectId}
+            boardFolderUri={upstream.boardFolderUri}
+            onUpload={!(upstream.images?.[0] ?? nodeResourceUrl)
+              ? (value) => setManualImageSrc(value)
+              : undefined}
+            onRemove={manualImageSrc
+              ? () => setManualImageSrc(undefined)
+              : undefined}
+          />
+          <MediaSlot
+            label={t('v3.fields.videoInput', { defaultValue: 'Video' })}
+            icon={<Film size={16} />}
+            src={videoUrl}
+            required
+            disabled={disabled}
+            uploadAccept="video/*"
+            boardId={upstream.boardId}
+            projectId={upstream.projectId}
+            boardFolderUri={upstream.boardFolderUri}
+            onUpload={!upstream.videoUrl
+              ? (value) => setManualVideoSrc(value)
+              : undefined}
+            onRemove={manualVideoSrc
+              ? () => setManualVideoSrc(undefined)
+              : undefined}
+          />
+        </div>
+      ) : null}
 
       {/* Mode 选择器 */}
       <div className="flex items-center gap-2">

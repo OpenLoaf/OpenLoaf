@@ -19,6 +19,9 @@ import { MediaSlot, toMediaInput } from '../shared'
  * Inputs: video ({url} - person video, MP4/AVI/MOV 2-120s), audio ({url} - audio file).
  * Params: none.
  * Both must be URLs.
+ *
+ * When `resolvedSlots` is provided (InputSlotBar mode), the variant reads
+ * `video` and `audio` slots from the framework instead of self-managing uploads.
  */
 export function LipSyncVolcVariant({
   variant,
@@ -28,23 +31,38 @@ export function LipSyncVolcVariant({
   disabled = false,
   onParamsChange,
   onWarningChange,
+  resolvedSlots,
 }: VariantFormProps) {
   const { t } = useTranslation('board')
 
-  // Manual uploads (only used when no upstream source)
+  // Self-managed uploads (only used in fallback mode, i.e. resolvedSlots === undefined)
   const [manualVideoSrc, setManualVideoSrc] = useState<string | undefined>()
   const [manualAudioSrc, setManualAudioSrc] = useState<string | undefined>()
 
-  // For display (resolved URLs) — 输入类型为 video
-  const upstreamVideo = upstream.videoUrl
-  const upstreamAudio = upstream.audioUrl
+  // Resolve video and audio sources based on mode
+  let videoUrl: string | undefined
+  let audioUrl: string | undefined
+  let videoPath: string | undefined
+  let audioPath: string | undefined
 
-  const videoUrl = upstreamVideo ?? manualVideoSrc
-  const audioUrl = upstreamAudio ?? manualAudioSrc
+  if (resolvedSlots) {
+    // Framework mode: read from resolvedSlots['video'] and resolvedSlots['audio']
+    const videoRef = (resolvedSlots['video'] ?? [])[0]
+    const audioRef = (resolvedSlots['audio'] ?? [])[0]
+    videoUrl = videoRef?.url
+    audioUrl = audioRef?.url
+    videoPath = videoRef?.path ?? videoRef?.url
+    audioPath = audioRef?.path ?? audioRef?.url
+  } else {
+    // Fallback: self-managed
+    const upstreamVideo = upstream.videoUrl
+    const upstreamAudio = upstream.audioUrl
+    videoUrl = upstreamVideo ?? manualVideoSrc
+    audioUrl = upstreamAudio ?? manualAudioSrc
+    videoPath = upstreamVideo ?? manualVideoSrc
+    audioPath = upstreamAudio ?? manualAudioSrc
+  }
 
-  // For API submission (raw paths)
-  const videoPath = upstreamVideo ?? manualVideoSrc
-  const audioPath = upstreamAudio ?? manualAudioSrc
   const hasVideo = Boolean(videoUrl)
   const hasAudio = Boolean(audioUrl)
 
@@ -79,43 +97,45 @@ export function LipSyncVolcVariant({
 
   return (
     <div className="flex flex-col gap-2.5">
-      {/* Video + Audio slots side by side */}
-      <div className="flex items-end gap-3">
-        <MediaSlot
-          label={t('v3.fields.personVideo', { defaultValue: 'Video' })}
-          icon={<Film size={16} />}
-          src={videoUrl}
-          required
-          disabled={disabled}
-          uploadAccept="video/*"
-          boardId={upstream.boardId}
-          projectId={upstream.projectId}
-          boardFolderUri={upstream.boardFolderUri}
-          onUpload={!upstreamVideo
-            ? (value) => setManualVideoSrc(value)
-            : undefined}
-          onRemove={manualVideoSrc
-            ? () => setManualVideoSrc(undefined)
-            : undefined}
-        />
-        <MediaSlot
-          label={t('v3.fields.audioInput', { defaultValue: 'Audio' })}
-          icon={<Music size={16} />}
-          src={audioUrl}
-          required
-          disabled={disabled}
-          uploadAccept="audio/*"
-          boardId={upstream.boardId}
-          projectId={upstream.projectId}
-          boardFolderUri={upstream.boardFolderUri}
-          onUpload={!upstreamAudio
-            ? (value) => setManualAudioSrc(value)
-            : undefined}
-          onRemove={manualAudioSrc
-            ? () => setManualAudioSrc(undefined)
-            : undefined}
-        />
-      </div>
+      {/* Video + Audio slots side by side — only rendered in fallback mode */}
+      {!resolvedSlots ? (
+        <div className="flex items-end gap-3">
+          <MediaSlot
+            label={t('v3.fields.personVideo', { defaultValue: 'Video' })}
+            icon={<Film size={16} />}
+            src={videoUrl}
+            required
+            disabled={disabled}
+            uploadAccept="video/*"
+            boardId={upstream.boardId}
+            projectId={upstream.projectId}
+            boardFolderUri={upstream.boardFolderUri}
+            onUpload={!upstream.videoUrl
+              ? (value) => setManualVideoSrc(value)
+              : undefined}
+            onRemove={manualVideoSrc
+              ? () => setManualVideoSrc(undefined)
+              : undefined}
+          />
+          <MediaSlot
+            label={t('v3.fields.audioInput', { defaultValue: 'Audio' })}
+            icon={<Music size={16} />}
+            src={audioUrl}
+            required
+            disabled={disabled}
+            uploadAccept="audio/*"
+            boardId={upstream.boardId}
+            projectId={upstream.projectId}
+            boardFolderUri={upstream.boardFolderUri}
+            onUpload={!upstream.audioUrl
+              ? (value) => setManualAudioSrc(value)
+              : undefined}
+            onRemove={manualAudioSrc
+              ? () => setManualAudioSrc(undefined)
+              : undefined}
+          />
+        </div>
+      ) : null}
 
       {/* Hint */}
       <p className="text-center text-[10px] text-muted-foreground/50">

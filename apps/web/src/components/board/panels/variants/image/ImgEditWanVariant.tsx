@@ -21,10 +21,13 @@ const MAX_INTERLEAVE = 1
 type Mode = 'normal' | 'interleave'
 
 /**
- * Variant form for wan2.6 image editing (OL-IE-001).
+ * Variant form for wan2.6 image editing (OL-IE-002).
  *
  * Inputs: prompt (required), images (optional, 1-4 normal / max 1 interleave)
  * Params: enable_interleave, negativePrompt (optional)
+ *
+ * When `resolvedSlots` is provided (InputSlotBar mode), the variant reads
+ * slot assignments from the framework instead of self-managing uploads.
  */
 export function ImgEditWanVariant({
   upstream,
@@ -33,6 +36,7 @@ export function ImgEditWanVariant({
   initialParams,
   onParamsChange,
   onWarningChange,
+  resolvedSlots,
 }: VariantFormProps) {
   const { t } = useTranslation('board')
 
@@ -44,10 +48,12 @@ export function ImgEditWanVariant({
   const maxImages = mode === 'interleave' ? MAX_INTERLEAVE : MAX_NORMAL
   const { manualImages, displayImages, apiImages, addImage, removeImage, canAdd, trimToMax } = useMediaSlots(maxImages, nodeResourcePath, upstream)
 
-  // When mode changes, trim manual images to new max
+  // When mode changes, trim manual images to new max (self-managed fallback only)
   useEffect(() => {
-    trimToMax(maxImages)
-  }, [maxImages, trimToMax])
+    if (!resolvedSlots) {
+      trimToMax(maxImages)
+    }
+  }, [maxImages, trimToMax, resolvedSlots])
 
   // Report warning when prompt is empty
   useEffect(() => {
@@ -60,17 +66,30 @@ export function ImgEditWanVariant({
   }, [prompt, upstream.textContent, onWarningChange, t])
 
   const sync = useCallback(() => {
+    let imagesForApi: Array<{ url: string } | { path: string }> = []
+
+    if (resolvedSlots) {
+      // Framework-managed slots: read from resolvedSlots['images']
+      const refs = (resolvedSlots['images'] ?? []).slice(0, maxImages)
+      imagesForApi = refs.map((ref) =>
+        ref.path ? toMediaInput(ref.path) : toMediaInput(ref.url),
+      )
+    } else {
+      // Fallback: self-managed
+      imagesForApi = apiImages.map((src) => toMediaInput(src))
+    }
+
     onParamsChange({
       inputs: {
         prompt,
-        ...(apiImages.length ? { images: apiImages.map(src => toMediaInput(src)) } : {}),
+        ...(imagesForApi.length ? { images: imagesForApi } : {}),
       },
       params: {
         enable_interleave: mode === 'interleave',
         ...(negativePrompt ? { negativePrompt } : {}),
       },
     })
-  }, [prompt, mode, negativePrompt, apiImages.length, onParamsChange]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [prompt, mode, negativePrompt, resolvedSlots, maxImages, apiImages.length, onParamsChange]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     sync()
@@ -101,44 +120,46 @@ export function ImgEditWanVariant({
         ))}
       </div>
 
-      {/* ── Reference image slots ── */}
-      <div className="flex flex-wrap items-end gap-2">
-        {/* Upstream images (read-only) */}
-        {(upstream.images ?? []).slice(0, maxImages).map((src, idx) => (
-          <MediaSlot
-            key={`up-${idx}`}
-            label={t('v3.params.image', { defaultValue: 'Reference' })}
-            src={src}
-            disabled={disabled}
-            boardId={upstream.boardId}
-            projectId={upstream.projectId}
-          />
-        ))}
-        {/* Manual upload images (removable) */}
-        {manualImages.map((src, idx) => (
-          <MediaSlot
-            key={`man-${idx}`}
-            label={t('v3.params.image', { defaultValue: 'Reference' })}
-            src={src}
-            disabled={disabled}
-            boardId={upstream.boardId}
-            projectId={upstream.projectId}
-            onRemove={() => removeImage(idx)}
-          />
-        ))}
-        {/* Add slot — only show when under max */}
-        {!disabled && canAdd ? (
-          <MediaSlot
-            label={t('v3.common.uploadImage', { defaultValue: 'Upload' })}
-            icon={<ImageIcon size={16} />}
-            disabled={disabled}
-            boardId={upstream.boardId}
-            projectId={upstream.projectId}
-            boardFolderUri={upstream.boardFolderUri}
-            onUpload={(value) => addImage(value)}
-          />
-        ) : null}
-      </div>
+      {/* ── Reference image slots (only rendered in fallback / self-managed mode) ── */}
+      {!resolvedSlots ? (
+        <div className="flex flex-wrap items-end gap-2">
+          {/* Upstream images (read-only) */}
+          {(upstream.images ?? []).slice(0, maxImages).map((src, idx) => (
+            <MediaSlot
+              key={`up-${idx}`}
+              label={t('v3.params.image', { defaultValue: 'Reference' })}
+              src={src}
+              disabled={disabled}
+              boardId={upstream.boardId}
+              projectId={upstream.projectId}
+            />
+          ))}
+          {/* Manual upload images (removable) */}
+          {manualImages.map((src, idx) => (
+            <MediaSlot
+              key={`man-${idx}`}
+              label={t('v3.params.image', { defaultValue: 'Reference' })}
+              src={src}
+              disabled={disabled}
+              boardId={upstream.boardId}
+              projectId={upstream.projectId}
+              onRemove={() => removeImage(idx)}
+            />
+          ))}
+          {/* Add slot — only show when under max */}
+          {!disabled && canAdd ? (
+            <MediaSlot
+              label={t('v3.common.uploadImage', { defaultValue: 'Upload' })}
+              icon={<ImageIcon size={16} />}
+              disabled={disabled}
+              boardId={upstream.boardId}
+              projectId={upstream.projectId}
+              boardFolderUri={upstream.boardFolderUri}
+              onUpload={(value) => addImage(value)}
+            />
+          ) : null}
+        </div>
+      ) : null}
 
       {/* ── Prompt ── */}
       <div className="flex flex-col gap-1">

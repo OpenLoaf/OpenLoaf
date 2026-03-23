@@ -17,6 +17,9 @@ import { toMediaInput, useSourceImage } from '../shared'
  *
  * Inputs: image ({url})
  * Params: none
+ *
+ * When `resolvedSlots` is provided (InputSlotBar mode), the variant reads
+ * the `image` slot from the framework instead of using useSourceImage.
  */
 export function MatExtractVolcVariant({
   variant,
@@ -27,10 +30,27 @@ export function MatExtractVolcVariant({
   initialParams,
   onParamsChange,
   onWarningChange,
+  resolvedSlots,
 }: VariantFormProps) {
   const { t } = useTranslation('board')
 
-  const { sourceUrl, sourcePath, rawSourceUrl, setImgLoadFailed } = useSourceImage(nodeResourceUrl, nodeResourcePath, upstream)
+  // Self-managed source image (fallback mode only)
+  const { sourceUrl: fallbackSourceUrl, sourcePath: fallbackSourcePath, rawSourceUrl, setImgLoadFailed } = useSourceImage(nodeResourceUrl, nodeResourcePath, upstream)
+
+  // Resolve image source based on mode
+  let sourceUrl: string | undefined
+  let sourcePath: string | undefined
+
+  if (resolvedSlots) {
+    // Framework mode: read from resolvedSlots['image']
+    const imageRef = (resolvedSlots['image'] ?? [])[0]
+    sourceUrl = imageRef?.url
+    sourcePath = imageRef?.path ?? imageRef?.url
+  } else {
+    // Fallback: node resource + upstream
+    sourceUrl = fallbackSourceUrl
+    sourcePath = fallbackSourcePath
+  }
 
   // Report blocking warning to parent when no image available
   useEffect(() => {
@@ -50,8 +70,8 @@ export function MatExtractVolcVariant({
 
   return (
     <div className="flex flex-col gap-2">
-      {/* Hidden probe to detect broken source URLs */}
-      {rawSourceUrl ? (
+      {/* Hidden probe to detect broken source URLs (fallback mode only) */}
+      {!resolvedSlots && rawSourceUrl ? (
         <img
           src={rawSourceUrl}
           alt=""

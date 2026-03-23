@@ -18,11 +18,14 @@ import { MediaSlot, UpstreamTextBadge, toMediaInput, useMediaSlots } from '../sh
 const MAX_IMAGES = 3
 
 /**
- * Variant form for qwen-image-edit-plus (OL-IE-002).
+ * Variant form for qwen-image-edit-plus (OL-IE-001).
  *
  * Inputs: prompt (required), images (1-3, REQUIRED)
  * Note: mask is NOT rendered here — the parent ImageAiPanel injects it
  *       when the variant definition has maskPaint: true.
+ *
+ * When `resolvedSlots` is provided (InputSlotBar mode), the variant reads
+ * slot assignments from the framework instead of self-managing uploads.
  */
 export function ImgEditPlusVariant({
   upstream,
@@ -31,6 +34,7 @@ export function ImgEditPlusVariant({
   initialParams,
   onParamsChange,
   onWarningChange,
+  resolvedSlots,
 }: VariantFormProps) {
   const { t } = useTranslation('board')
 
@@ -39,7 +43,10 @@ export function ImgEditPlusVariant({
   const [negativePrompt, setNegativePrompt] = useState(initialParams?.params?.negativePrompt as string ?? '')
   const [showNegative, setShowNegative] = useState(false)
 
-  const hasImages = apiImages.length > 0
+  // Determine if images are available (framework or self-managed)
+  const hasImages = resolvedSlots
+    ? (resolvedSlots['images'] ?? []).length > 0
+    : apiImages.length > 0
 
   // Report warning when prompt is empty OR when no images provided
   useEffect(() => {
@@ -58,17 +65,30 @@ export function ImgEditPlusVariant({
   }, [prompt, upstream.textContent, hasImages, onWarningChange, t])
 
   const sync = useCallback(() => {
+    let imagesForApi: Array<{ url: string } | { path: string }> = []
+
+    if (resolvedSlots) {
+      // Framework-managed slots: read from resolvedSlots['images']
+      const refs = (resolvedSlots['images'] ?? []).slice(0, MAX_IMAGES)
+      imagesForApi = refs.map((ref) =>
+        ref.path ? toMediaInput(ref.path) : toMediaInput(ref.url),
+      )
+    } else {
+      // Fallback: self-managed
+      imagesForApi = apiImages.map((src) => toMediaInput(src))
+    }
+
     onParamsChange({
       inputs: {
         prompt,
-        ...(apiImages.length ? { images: apiImages.map(src => toMediaInput(src)) } : {}),
+        ...(imagesForApi.length ? { images: imagesForApi } : {}),
         // mask is NOT included — parent panel injects it from MaskPaintOverlay
       },
       params: {
         ...(negativePrompt ? { negativePrompt } : {}),
       },
     })
-  }, [prompt, negativePrompt, apiImages.length, onParamsChange]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [prompt, negativePrompt, resolvedSlots, apiImages.length, onParamsChange]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     sync()
@@ -76,46 +96,48 @@ export function ImgEditPlusVariant({
 
   return (
     <div className="flex flex-col gap-2">
-      {/* ── Source image slots (required) ── */}
-      <div className="flex flex-wrap items-end gap-2">
-        {/* Upstream images (read-only) */}
-        {(upstream.images ?? []).slice(0, MAX_IMAGES).map((src, idx) => (
-          <MediaSlot
-            key={`up-${idx}`}
-            label={t('v3.params.image', { defaultValue: 'Source' })}
-            src={src}
-            required={idx === 0}
-            disabled={disabled}
-            boardId={upstream.boardId}
-            projectId={upstream.projectId}
-          />
-        ))}
-        {/* Manual upload images (removable) */}
-        {manualImages.map((src, idx) => (
-          <MediaSlot
-            key={`man-${idx}`}
-            label={t('v3.params.image', { defaultValue: 'Source' })}
-            src={src}
-            disabled={disabled}
-            boardId={upstream.boardId}
-            projectId={upstream.projectId}
-            onRemove={() => removeImage(idx)}
-          />
-        ))}
-        {/* Add slot — only show when under max */}
-        {!disabled && canAdd ? (
-          <MediaSlot
-            label={t('v3.common.uploadImage', { defaultValue: 'Upload' })}
-            icon={<ImageIcon size={16} />}
-            required={displayImages.length === 0}
-            disabled={disabled}
-            boardId={upstream.boardId}
-            projectId={upstream.projectId}
-            boardFolderUri={upstream.boardFolderUri}
-            onUpload={(value) => addImage(value)}
-          />
-        ) : null}
-      </div>
+      {/* ── Source image slots (only rendered in fallback / self-managed mode) ── */}
+      {!resolvedSlots ? (
+        <div className="flex flex-wrap items-end gap-2">
+          {/* Upstream images (read-only) */}
+          {(upstream.images ?? []).slice(0, MAX_IMAGES).map((src, idx) => (
+            <MediaSlot
+              key={`up-${idx}`}
+              label={t('v3.params.image', { defaultValue: 'Source' })}
+              src={src}
+              required={idx === 0}
+              disabled={disabled}
+              boardId={upstream.boardId}
+              projectId={upstream.projectId}
+            />
+          ))}
+          {/* Manual upload images (removable) */}
+          {manualImages.map((src, idx) => (
+            <MediaSlot
+              key={`man-${idx}`}
+              label={t('v3.params.image', { defaultValue: 'Source' })}
+              src={src}
+              disabled={disabled}
+              boardId={upstream.boardId}
+              projectId={upstream.projectId}
+              onRemove={() => removeImage(idx)}
+            />
+          ))}
+          {/* Add slot — only show when under max */}
+          {!disabled && canAdd ? (
+            <MediaSlot
+              label={t('v3.common.uploadImage', { defaultValue: 'Upload' })}
+              icon={<ImageIcon size={16} />}
+              required={displayImages.length === 0}
+              disabled={disabled}
+              boardId={upstream.boardId}
+              projectId={upstream.projectId}
+              boardFolderUri={upstream.boardFolderUri}
+              onUpload={(value) => addImage(value)}
+            />
+          ) : null}
+        </div>
+      ) : null}
 
       {/* ── Inpaint hint ── */}
       {hasImages ? (

@@ -17,6 +17,9 @@ import { toMediaInput, useSourceImage } from '../shared'
  *
  * Inputs: image ({url})
  * Params: xScale (1.5), yScale (1.5)
+ *
+ * When `resolvedSlots` is provided (InputSlotBar mode), the variant reads
+ * the `image` slot from the framework instead of using useSourceImage.
  */
 export function OutpaintQwenVariant({
   variant,
@@ -27,13 +30,30 @@ export function OutpaintQwenVariant({
   initialParams,
   onParamsChange,
   onWarningChange,
+  resolvedSlots,
 }: VariantFormProps) {
   const { t } = useTranslation('board')
 
-  const { sourceUrl, sourcePath, rawSourceUrl, setImgLoadFailed } = useSourceImage(nodeResourceUrl, nodeResourcePath, upstream)
+  // Self-managed source image (fallback mode only)
+  const { sourceUrl: fallbackSourceUrl, sourcePath: fallbackSourcePath, rawSourceUrl, setImgLoadFailed } = useSourceImage(nodeResourceUrl, nodeResourcePath, upstream)
 
   const [xScale, setXScale] = useState(initialParams?.params?.xScale as number ?? 1.5)
   const [yScale, setYScale] = useState(initialParams?.params?.yScale as number ?? 1.5)
+
+  // Resolve image source based on mode
+  let sourceUrl: string | undefined
+  let sourcePath: string | undefined
+
+  if (resolvedSlots) {
+    // Framework mode: read from resolvedSlots['image']
+    const imageRef = (resolvedSlots['image'] ?? [])[0]
+    sourceUrl = imageRef?.url
+    sourcePath = imageRef?.path ?? imageRef?.url
+  } else {
+    // Fallback: node resource + upstream
+    sourceUrl = fallbackSourceUrl
+    sourcePath = fallbackSourcePath
+  }
 
   // Report blocking warning to parent
   useEffect(() => {
@@ -56,8 +76,8 @@ export function OutpaintQwenVariant({
 
   return (
     <div className="flex flex-col gap-2">
-      {/* Hidden probe to detect broken source URLs */}
-      {rawSourceUrl ? (
+      {/* Hidden probe to detect broken source URLs (fallback mode only) */}
+      {!resolvedSlots && rawSourceUrl ? (
         <img
           src={rawSourceUrl}
           alt=""

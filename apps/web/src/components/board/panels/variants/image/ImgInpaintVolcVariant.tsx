@@ -22,6 +22,9 @@ import { UpstreamTextBadge, toMediaInput, useSourceImage } from '../shared'
  * Note: The mask painting UI is managed by the parent ImageAiPanel which
  * toggles MaskPaintOverlay on the node. This component only renders the
  * prompt field and displays an info hint about mask painting.
+ *
+ * When `resolvedSlots` is provided (InputSlotBar mode), the variant reads
+ * the `image` slot from the framework instead of using useSourceImage.
  */
 export function ImgInpaintVolcVariant({
   variant,
@@ -32,12 +35,29 @@ export function ImgInpaintVolcVariant({
   initialParams,
   onParamsChange,
   onWarningChange,
+  resolvedSlots,
 }: VariantFormProps) {
   const { t } = useTranslation('board')
 
   const [prompt, setPrompt] = useState(initialParams?.inputs?.prompt as string ?? '')
 
-  const { sourceUrl, sourcePath, rawSourceUrl, setImgLoadFailed } = useSourceImage(nodeResourceUrl, nodeResourcePath, upstream)
+  // Self-managed source image (fallback mode only)
+  const { sourceUrl: fallbackSourceUrl, sourcePath: fallbackSourcePath, rawSourceUrl, setImgLoadFailed } = useSourceImage(nodeResourceUrl, nodeResourcePath, upstream)
+
+  // Resolve image source based on mode
+  let sourceUrl: string | undefined
+  let sourcePath: string | undefined
+
+  if (resolvedSlots) {
+    // Framework mode: read from resolvedSlots['image']
+    const imageRef = (resolvedSlots['image'] ?? [])[0]
+    sourceUrl = imageRef?.url
+    sourcePath = imageRef?.path ?? imageRef?.url
+  } else {
+    // Fallback: node resource + upstream
+    sourceUrl = fallbackSourceUrl
+    sourcePath = fallbackSourcePath
+  }
 
   // Report blocking warning to parent
   useEffect(() => {
@@ -60,8 +80,8 @@ export function ImgInpaintVolcVariant({
 
   return (
     <div className="flex flex-col gap-2">
-      {/* Hidden probe to detect broken source URLs */}
-      {rawSourceUrl ? (
+      {/* Hidden probe to detect broken source URLs (fallback mode only) */}
+      {!resolvedSlots && rawSourceUrl ? (
         <img
           src={rawSourceUrl}
           alt=""

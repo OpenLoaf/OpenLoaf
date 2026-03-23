@@ -23,6 +23,9 @@ type Quality = (typeof QUALITY_OPTIONS)[number]
  *
  * Inputs: image ({url} - style source)
  * Params: prompt, aspectRatio, quality
+ *
+ * When `resolvedSlots` is provided (InputSlotBar mode), the variant reads
+ * the `style` slot from the framework instead of self-managing uploads.
  */
 export function ImgStyleVolcVariant({
   variant,
@@ -33,6 +36,7 @@ export function ImgStyleVolcVariant({
   initialParams,
   onParamsChange,
   onWarningChange,
+  resolvedSlots,
 }: VariantFormProps) {
   const { t } = useTranslation('board')
 
@@ -40,12 +44,26 @@ export function ImgStyleVolcVariant({
   const [aspectRatio, setAspectRatio] = useState(initialParams?.params?.aspectRatio as string ?? 'auto')
   const [quality, setQuality] = useState<Quality>(initialParams?.params?.quality as Quality ?? 'standard')
 
+  // Self-managed: fallback source image (used when resolvedSlots is undefined)
   const { sourceUrl: styleSourceUrl, sourcePath: styleSourcePath, rawSourceUrl: rawStyleSourceUrl, setImgLoadFailed } = useSourceImage(nodeResourceUrl, nodeResourcePath, upstream)
-
-  // Manual upload for style source (only if no upstream/node source)
   const [manualStyleSrc, setManualStyleSrc] = useState<string | undefined>()
-  const effectiveStyleUrl = styleSourceUrl ?? manualStyleSrc
-  const effectiveStylePath = styleSourcePath ?? manualStyleSrc
+  const fallbackStyleUrl = styleSourceUrl ?? manualStyleSrc
+  const fallbackStylePath = styleSourcePath ?? manualStyleSrc
+
+  // Resolve style source based on mode
+  let effectiveStyleUrl: string | undefined
+  let effectiveStylePath: string | undefined
+
+  if (resolvedSlots) {
+    // Framework mode: read from resolvedSlots['style']
+    const styleRef = (resolvedSlots['style'] ?? [])[0]
+    effectiveStyleUrl = styleRef?.url
+    effectiveStylePath = styleRef?.path ?? styleRef?.url
+  } else {
+    // Fallback: self-managed (node resource + manual upload)
+    effectiveStyleUrl = fallbackStyleUrl
+    effectiveStylePath = fallbackStylePath
+  }
 
   // Report blocking warning to parent
   useEffect(() => {
@@ -69,21 +87,33 @@ export function ImgStyleVolcVariant({
 
   return (
     <div className="flex flex-col gap-2">
-      {/* ── Style source slot ── */}
-      <div className="flex items-end gap-2">
-        <MediaSlot
-          label={t('v3.params.styleSource', { defaultValue: 'Style Source' })}
-          icon={<Paintbrush size={16} />}
-          src={effectiveStyleUrl}
-          required
-          disabled={disabled}
-          boardId={upstream.boardId}
-          projectId={upstream.projectId}
-          boardFolderUri={upstream.boardFolderUri}
-          onUpload={!styleSourceUrl ? (value) => setManualStyleSrc(value) : undefined}
-          onRemove={manualStyleSrc ? () => setManualStyleSrc(undefined) : undefined}
+      {/* Hidden probe to detect broken source URLs (fallback mode only) */}
+      {!resolvedSlots && rawStyleSourceUrl ? (
+        <img
+          src={rawStyleSourceUrl}
+          alt=""
+          className="hidden"
+          onError={() => setImgLoadFailed(true)}
         />
-      </div>
+      ) : null}
+
+      {/* ── Style source slot — only rendered in fallback mode ── */}
+      {!resolvedSlots ? (
+        <div className="flex items-end gap-2">
+          <MediaSlot
+            label={t('v3.params.styleSource', { defaultValue: 'Style Source' })}
+            icon={<Paintbrush size={16} />}
+            src={effectiveStyleUrl}
+            required
+            disabled={disabled}
+            boardId={upstream.boardId}
+            projectId={upstream.projectId}
+            boardFolderUri={upstream.boardFolderUri}
+            onUpload={!styleSourceUrl ? (value) => setManualStyleSrc(value) : undefined}
+            onRemove={manualStyleSrc ? () => setManualStyleSrc(undefined) : undefined}
+          />
+        </div>
+      ) : null}
 
       {/* ── Prompt ── */}
       <div className="flex flex-col gap-1">

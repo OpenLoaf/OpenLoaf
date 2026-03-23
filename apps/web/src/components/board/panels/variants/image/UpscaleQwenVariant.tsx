@@ -19,6 +19,9 @@ const SCALE_OPTIONS = ['4K', '8K'] as const
  *
  * Inputs: image ({url})
  * Params: scale ("4K")
+ *
+ * When `resolvedSlots` is provided (InputSlotBar mode), the variant reads
+ * the `image` slot from the framework instead of using useSourceImage.
  */
 export function UpscaleQwenVariant({
   variant,
@@ -29,12 +32,29 @@ export function UpscaleQwenVariant({
   initialParams,
   onParamsChange,
   onWarningChange,
+  resolvedSlots,
 }: VariantFormProps) {
   const { t } = useTranslation('board')
 
-  const { sourceUrl, sourcePath, rawSourceUrl, setImgLoadFailed } = useSourceImage(nodeResourceUrl, nodeResourcePath, upstream)
+  // Self-managed source image (fallback mode only)
+  const { sourceUrl: fallbackSourceUrl, sourcePath: fallbackSourcePath, rawSourceUrl, setImgLoadFailed } = useSourceImage(nodeResourceUrl, nodeResourcePath, upstream)
 
   const [scale, setScale] = useState<(typeof SCALE_OPTIONS)[number]>((initialParams?.params?.scale as (typeof SCALE_OPTIONS)[number]) ?? '4K')
+
+  // Resolve image source based on mode
+  let sourceUrl: string | undefined
+  let sourcePath: string | undefined
+
+  if (resolvedSlots) {
+    // Framework mode: read from resolvedSlots['image']
+    const imageRef = (resolvedSlots['image'] ?? [])[0]
+    sourceUrl = imageRef?.url
+    sourcePath = imageRef?.path ?? imageRef?.url
+  } else {
+    // Fallback: node resource + upstream
+    sourceUrl = fallbackSourceUrl
+    sourcePath = fallbackSourcePath
+  }
 
   // Report blocking warning to parent
   useEffect(() => {
@@ -56,8 +76,8 @@ export function UpscaleQwenVariant({
 
   return (
     <div className="flex flex-col gap-2">
-      {/* Hidden probe to detect broken source URLs */}
-      {rawSourceUrl ? (
+      {/* Hidden probe to detect broken source URLs (fallback mode only) */}
+      {!resolvedSlots && rawSourceUrl ? (
         <img
           src={rawSourceUrl}
           alt=""
