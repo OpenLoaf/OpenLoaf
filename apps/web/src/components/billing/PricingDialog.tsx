@@ -44,8 +44,15 @@ export function PricingDialog({ open, onOpenChange }: PricingDialogProps) {
     onOpenChange(false)
   }, [onOpenChange])
 
+  // Use a callback ref to detect when the container mounts in the portal
+  const [containerEl, setContainerEl] = useState<HTMLDivElement | null>(null)
+  const containerCallbackRef = useCallback((node: HTMLDivElement | null) => {
+    containerRef.current = node
+    setContainerEl(node)
+  }, [])
+
   useEffect(() => {
-    if (!open || !containerRef.current) return
+    if (!open || !containerEl) return
 
     const baseUrl = resolveSaasBaseUrl()
     if (!baseUrl) {
@@ -127,7 +134,7 @@ export function PricingDialog({ open, onOpenChange }: PricingDialogProps) {
       embedRef.current = null
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, handleClose])
+  }, [open, containerEl, handleClose])
 
   const handleRetry = () => {
     setTimedOut(false)
@@ -144,7 +151,7 @@ export function PricingDialog({ open, onOpenChange }: PricingDialogProps) {
       <DialogContent className="h-[80vh] max-w-2xl p-0 overflow-hidden rounded-3xl shadow-none border-border/60">
         <VisuallyHidden><DialogTitle>{t("account.upgrade")}</DialogTitle></VisuallyHidden>
         <div className="relative h-full w-full">
-          <div ref={containerRef} className="h-full w-full" />
+          <div ref={containerCallbackRef} className="h-full w-full" />
           {loading && !timedOut && (
             <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-background">
               <Loader2 className="size-6 animate-spin text-muted-foreground" />
