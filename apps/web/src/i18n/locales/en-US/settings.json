@@ -161,12 +161,13 @@
     "storage": "Storage",
     "agents": "Agents",
     "auxiliaryModel": "AI Tools",
-    "memory": "Memory",
+    "memory": "AI Memory",
     "webSearch": "Web Search",
     "shortcuts": "Shortcuts",
     "projectTest": "Test",
     "mcp": "MCP Servers",
-    "about": "About OpenLoaf"
+    "about": "About OpenLoaf",
+    "subscription": "Subscription"
   },
   "mcp": {
     "searchPlaceholder": "Search MCP servers...",
@@ -943,5 +944,49 @@
     "agent": "Sub-Agent",
     "code-interpreter": "JS REPL",
     "system": "System"
+  },
+  "account": {
+    "subscription": "Subscription",
+    "currentPlan": "Current Plan",
+    "period": "Billing Period",
+    "expiresAt": "Expires",
+    "creditsQuota": "Credits Quota",
+    "creditsUsed": "Credits Used",
+    "noSubscription": "No subscription — currently on Free plan",
+    "upgrade": "Upgrade",
+    "recharge": "Recharge",
+    "transactions": "Credits History",
+    "transactionType": "Type",
+    "allTypes": "All",
+    "transactionAmount": "Amount",
+    "transactionBalance": "Balance After",
+    "transactionTime": "Time",
+    "transactionDescription": "Description",
+    "noTransactions": "No transaction records",
+    "loadMore": "Load More",
+    "loading": "Loading...",
+    "loadError": "Failed to load, please retry",
+    "paymentSuccess": "Payment successful, credits added",
+    "paymentCancelled": "Payment cancelled",
+    "embedTimeout": "Page load timed out, please retry",
+    "saasUrlMissing": "SaaS service not configured",
+    "plan": {
+      "free": "Free",
+      "lite": "Lite",
+      "pro": "Pro",
+      "premium": "Premium",
+      "infinity": "Infinity"
+    },
+    "periodLabel": {
+      "monthly": "Monthly",
+      "yearly": "Yearly"
+    },
+    "txType": {
+      "consumption": "Consumption",
+      "recharge": "Recharge",
+      "deduction": "Deduction",
+      "grant": "Grant",
+      "refund": "Refund"
+    }
   }
 }

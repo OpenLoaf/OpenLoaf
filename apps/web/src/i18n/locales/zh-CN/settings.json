@@ -153,20 +153,21 @@
     "readStatusError": "无法读取访问状态"
   },
   "menu": {
-    "basic": "基础设置",
+    "basic": "基础",
     "global": "账户",
     "skills": "技能",
     "thirdPartyTools": "运行环境",
-    "keys": "模型配置",
+    "keys": "AI 配置",
     "storage": "存储",
     "agents": "智能体",
     "auxiliaryModel": "AI 工具",
-    "memory": "记忆",
+    "memory": "AI 记忆",
     "webSearch": "网页搜索",
     "shortcuts": "快捷键",
     "projectTest": "测试",
-    "mcp": "MCP 服务",
-    "about": "关于OpenLoaf"
+    "mcp": "MCP 配置",
+    "about": "关于OpenLoaf",
+    "subscription": "订阅"
   },
   "mcp": {
     "searchPlaceholder": "搜索 MCP 服务器...",
@@ -943,5 +944,49 @@
     "agent": "子智能体",
     "code-interpreter": "JavaScript REPL",
     "system": "系统工具"
+  },
+  "account": {
+    "subscription": "订阅状态",
+    "currentPlan": "当前套餐",
+    "period": "计费周期",
+    "expiresAt": "到期时间",
+    "creditsQuota": "积分额度",
+    "creditsUsed": "已用积分",
+    "noSubscription": "暂无订阅，当前为免费版",
+    "upgrade": "升级套餐",
+    "recharge": "充值积分",
+    "transactions": "积分记录",
+    "transactionType": "类型",
+    "allTypes": "全部",
+    "transactionAmount": "积分变动",
+    "transactionBalance": "变动后余额",
+    "transactionTime": "时间",
+    "transactionDescription": "说明",
+    "noTransactions": "暂无积分记录",
+    "loadMore": "加载更多",
+    "loading": "加载中...",
+    "loadError": "加载失败，请重试",
+    "paymentSuccess": "支付成功，积分已到账",
+    "paymentCancelled": "支付已取消",
+    "embedTimeout": "页面加载超时，请重试",
+    "saasUrlMissing": "SaaS 服务未配置",
+    "plan": {
+      "free": "免费版",
+      "lite": "轻享版",
+      "pro": "专业版",
+      "premium": "旗舰版",
+      "infinity": "无限版"
+    },
+    "periodLabel": {
+      "monthly": "月付",
+      "yearly": "年付"
+    },
+    "txType": {
+      "consumption": "消费",
+      "recharge": "充值",
+      "deduction": "扣减",
+      "grant": "赠送",
+      "refund": "退款"
+    }
   }
 }

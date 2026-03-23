@@ -153,20 +153,21 @@
     "readStatusError": "無法讀取存取狀態"
   },
   "menu": {
-    "basic": "基礎設定",
+    "basic": "基礎",
     "global": "帳戶",
     "skills": "技能",
     "thirdPartyTools": "執行環境",
-    "keys": "模型配置",
+    "keys": "AI 配置",
     "storage": "儲存",
     "agents": "智能體",
     "auxiliaryModel": "AI 工具",
-    "memory": "記憶",
+    "memory": "AI 記憶",
     "webSearch": "網頁搜尋",
     "shortcuts": "快速鍵",
     "projectTest": "測試",
-    "mcp": "MCP 服務",
-    "about": "關於 OpenLoaf"
+    "mcp": "MCP 配置",
+    "about": "關於 OpenLoaf",
+    "subscription": "訂閱"
   },
   "mcp": {
     "searchPlaceholder": "搜尋 MCP 伺服器...",
@@ -943,5 +944,49 @@
     "agent": "子智能體",
     "code-interpreter": "JavaScript REPL",
     "system": "系統工具"
+  },
+  "account": {
+    "subscription": "訂閱狀態",
+    "currentPlan": "目前方案",
+    "period": "計費週期",
+    "expiresAt": "到期時間",
+    "creditsQuota": "積分額度",
+    "creditsUsed": "已用積分",
+    "noSubscription": "尚無訂閱，目前為免費版",
+    "upgrade": "升級方案",
+    "recharge": "儲值積分",
+    "transactions": "積分紀錄",
+    "transactionType": "類型",
+    "allTypes": "全部",
+    "transactionAmount": "積分變動",
+    "transactionBalance": "變動後餘額",
+    "transactionTime": "時間",
+    "transactionDescription": "說明",
+    "noTransactions": "尚無積分紀錄",
+    "loadMore": "載入更多",
+    "loading": "載入中...",
+    "loadError": "載入失敗，請重試",
+    "paymentSuccess": "付款成功，積分已到帳",
+    "paymentCancelled": "付款已取消",
+    "embedTimeout": "頁面載入逾時，請重試",
+    "saasUrlMissing": "SaaS 服務未設定",
+    "plan": {
+      "free": "免費版",
+      "lite": "輕享版",
+      "pro": "專業版",
+      "premium": "旗艦版",
+      "infinity": "無限版"
+    },
+    "periodLabel": {
+      "monthly": "月付",
+      "yearly": "年付"
+    },
+    "txType": {
+      "consumption": "消費",
+      "recharge": "儲值",
+      "deduction": "扣減",
+      "grant": "贈送",
+      "refund": "退款"
+    }
   }
 }

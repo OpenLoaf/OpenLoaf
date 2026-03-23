@@ -161,12 +161,13 @@
     "storage": "ストレージ",
     "agents": "エージェント",
     "auxiliaryModel": "AIツール",
-    "memory": "メモリ",
+    "memory": "AI メモリ",
     "webSearch": "Web検索",
     "shortcuts": "ショートカット",
     "projectTest": "テスト",
     "mcp": "MCPサーバー",
-    "about": "OpenLoafについて"
+    "about": "OpenLoafについて",
+    "subscription": "サブスクリプション"
   },
   "mcp": {
     "searchPlaceholder": "MCPサーバーを検索...",
@@ -943,5 +944,49 @@
     "agent": "サブエージェント",
     "code-interpreter": "JS REPL",
     "system": "システム"
+  },
+  "account": {
+    "subscription": "サブスクリプション",
+    "currentPlan": "現在のプラン",
+    "period": "請求サイクル",
+    "expiresAt": "有効期限",
+    "creditsQuota": "クレジット枠",
+    "creditsUsed": "使用済みクレジット",
+    "noSubscription": "サブスクリプションなし — 現在フリープラン",
+    "upgrade": "アップグレード",
+    "recharge": "チャージ",
+    "transactions": "クレジット履歴",
+    "transactionType": "種類",
+    "allTypes": "すべて",
+    "transactionAmount": "変動額",
+    "transactionBalance": "変動後残高",
+    "transactionTime": "日時",
+    "transactionDescription": "説明",
+    "noTransactions": "取引記録なし",
+    "loadMore": "さらに読み込む",
+    "loading": "読み込み中...",
+    "loadError": "読み込み失敗、再試行してください",
+    "paymentSuccess": "お支払い完了、クレジットが追加されました",
+    "paymentCancelled": "お支払いがキャンセルされました",
+    "embedTimeout": "ページ読み込みタイムアウト、再試行してください",
+    "saasUrlMissing": "SaaSサービス未設定",
+    "plan": {
+      "free": "フリー",
+      "lite": "ライト",
+      "pro": "プロ",
+      "premium": "プレミアム",
+      "infinity": "インフィニティ"
+    },
+    "periodLabel": {
+      "monthly": "月額",
+      "yearly": "年額"
+    },
+    "txType": {
+      "consumption": "消費",
+      "recharge": "チャージ",
+      "deduction": "差引",
+      "grant": "付与",
+      "refund": "返金"
+    }
   }
 }
