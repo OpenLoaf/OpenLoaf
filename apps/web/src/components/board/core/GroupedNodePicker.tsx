@@ -183,12 +183,14 @@ export const GroupedNodePicker = forwardRef<HTMLDivElement, GroupedNodePickerPro
               const GroupIcon = GROUP_ICON_MAP[group.id] ?? Type
               return (
                 <div key={group.id}>
-                  <div className="flex items-center gap-1.5 px-1.5 pb-1.5 pt-1">
-                    <GroupIcon size={12} className="text-muted-foreground" />
-                    <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
-                      {t(`dynamicTemplates.group.${group.id}` as Parameters<typeof t>[0])}
-                    </span>
-                  </div>
+                  {visibleGroups.length > 1 && (
+                    <div className="flex items-center gap-1.5 px-1.5 pb-1.5 pt-1">
+                      <GroupIcon size={12} className="text-muted-foreground" />
+                      <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+                        {t(`dynamicTemplates.group.${group.id}` as Parameters<typeof t>[0])}
+                      </span>
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-3 gap-1">
                     {group.items.map((item) => {
