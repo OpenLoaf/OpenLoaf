@@ -176,10 +176,22 @@ export function InputSlotBar({
 
   const initialCacheRef = useRef(cachedAssignment)
 
-  const unifiedResult = useMemo(
-    () => restoreOrAssign(slots, pools, initialCacheRef.current),
-    [slots, pools],
-  )
+  // Accepted media types from slot declarations (e.g., only 'image' for image variants)
+  const acceptedMediaTypes = useMemo(() => {
+    const types = new Set<string>()
+    for (const slot of slots) {
+      if (slot.mediaType !== 'text') types.add(slot.mediaType)
+    }
+    return types
+  }, [slots])
+
+  const unifiedResult = useMemo(() => {
+    const raw = restoreOrAssign(slots, pools, initialCacheRef.current)
+    // Filter associated refs to only include types the variant accepts
+    // (e.g., image variant shouldn't show video refs in associated area)
+    const filtered = raw.associated.filter((r) => acceptedMediaTypes.has(r.nodeType))
+    return { ...raw, associated: filtered }
+  }, [slots, pools, acceptedMediaTypes])
 
   // ---------------------------------------------------------------------------
   // Local state for user overrides
@@ -214,9 +226,9 @@ export function InputSlotBar({
       }
       const fresh = restoreOrAssign(slots, pools, initialCacheRef.current)
       setSlotAssignments(fresh.assigned)
-      setAssociatedRefs(fresh.associated)
+      setAssociatedRefs(fresh.associated.filter((r) => acceptedMediaTypes.has(r.nodeType)))
     }
-  }, [slots, pools, cachedAssignment])
+  }, [slots, pools, cachedAssignment, acceptedMediaTypes])
 
   // ---------------------------------------------------------------------------
   // Unassigned text references (for TextReferencePool)
