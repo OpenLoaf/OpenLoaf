@@ -22,6 +22,7 @@ import { useLayoutState } from "@/hooks/use-layout-state";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import {
   Brain,
+  CreditCard,
   Cpu,
   SlidersHorizontal,
   Keyboard,
@@ -31,6 +32,7 @@ import {
   Sparkles,
   Terminal,
   Blocks,
+  Info,
 } from "lucide-react";
 import { useGlobalOverlay } from "@/lib/globalShortcuts";
 import { Button } from "@openloaf/ui/button";
@@ -50,6 +52,9 @@ import TestSetting from "./menus/TestSetting";
 import { ThirdPartyTools } from "./menus/ThirdPartyTools";
 import { MemorySettings } from "./menus/MemorySettings";
 import { MCPSettingsPanel } from "./mcp/MCPSettingsPanel";
+import { AboutOpenLoaf } from "./menus/AboutOpenLoaf";
+import { SubscriptionSettings } from "./menus/SubscriptionSettings";
+import { useSaasAuth } from "@/hooks/use-saas-auth";
 import { OpenLoafSettingsLayout } from "@openloaf/ui/openloaf/OpenLoafSettingsLayout";
 import {
   OpenLoafSettingsMenu,
@@ -67,6 +72,8 @@ type SettingsMenuKey =
   | "mcp"
   | "thirdPartyTools"
   | "shortcuts"
+  | "about"
+  | "subscription"
   | "projectTest";
 
 const SETTINGS_MENU_ICON_COLOR = {
@@ -79,6 +86,8 @@ const SETTINGS_MENU_ICON_COLOR = {
   mcp: "text-foreground",
   thirdPartyTools: "text-muted-foreground",
   storage: "text-foreground",
+  about: "text-muted-foreground",
+  subscription: "text-foreground",
   projectTest: "text-foreground",
 } as const;
 
@@ -92,7 +101,7 @@ function createMenuIcon(
   };
 }
 
-function buildMenu(t: (key: string) => string): Array<{
+function buildMenu(t: (key: string) => string, loggedIn: boolean): Array<{
   key: SettingsMenuKey;
   label: string;
   Icon: ComponentType<{ className?: string }>;
@@ -123,6 +132,12 @@ function buildMenu(t: (key: string) => string): Array<{
       Icon: createMenuIcon(Building2, SETTINGS_MENU_ICON_COLOR.global),
       Component: GlobalSettings,
     },
+    ...(loggedIn ? [{
+      key: "subscription" as SettingsMenuKey,
+      label: t('settings:menu.subscription'),
+      Icon: createMenuIcon(CreditCard, SETTINGS_MENU_ICON_COLOR.subscription),
+      Component: SubscriptionSettings,
+    }] : []),
     {
       key: "shortcuts",
       label: t('settings:menu.shortcuts'),
@@ -167,12 +182,19 @@ function buildMenu(t: (key: string) => string): Array<{
       Icon: createMenuIcon(Database, SETTINGS_MENU_ICON_COLOR.storage),
       Component: ObjectStorageService,
     },
+    // Group 4: About
+    {
+      key: "about",
+      label: t('settings:menu.about'),
+      Icon: createMenuIcon(Info, SETTINGS_MENU_ICON_COLOR.about),
+      Component: AboutOpenLoaf,
+    },
     ...DEV_MENU,
   ];
 }
 
 const ALL_MENU_KEYS: SettingsMenuKey[] = [
-  'basic', 'global', 'shortcuts', 'thirdPartyTools', 'storage', 'keys', 'auxiliaryModel', 'memory', 'mcp', 'projectTest',
+  'basic', 'global', 'shortcuts', 'thirdPartyTools', 'storage', 'keys', 'auxiliaryModel', 'memory', 'mcp', 'about', 'subscription', 'projectTest',
 ];
 const MENU_KEY_SET = new Set<SettingsMenuKey>(ALL_MENU_KEYS);
 const HIDDEN_MENU_KEYS = new Set<SettingsMenuKey>([]);
@@ -206,7 +228,8 @@ export default function SettingsPage({
   settingsMenu,
 }: SettingsPageProps) {
   const { t } = useTranslation(['settings', 'nav']);
-  const MENU = useMemo(() => buildMenu((key) => t(key)), [t]);
+  const { loggedIn } = useSaasAuth();
+  const MENU = useMemo(() => buildMenu((key) => t(key), loggedIn), [t, loggedIn]);
   const [activeKey, setActiveKey] = useState<SettingsMenuKey>(() =>
     normalizeSettingsMenuKey(settingsMenu)
       ?? normalizeSettingsMenuKey(readPersistedSettingsMenu("global"))
@@ -269,6 +292,12 @@ export default function SettingsPage({
   }, [activeKey, settingsMenu, setBaseParams, tabId]);
 
   useEffect(() => {
+    if (!MENU.some((item) => item.key === activeKey)) {
+      setActiveKey("basic");
+    }
+  }, [MENU, activeKey]);
+
+  useEffect(() => {
     if (!containerRef.current) return;
     const container = containerRef.current;
 
@@ -317,9 +346,11 @@ export default function SettingsPage({
     const general = [
       byKey.get("basic"),
       byKey.get("global"),
+      byKey.get("subscription"),
       byKey.get("shortcuts"),
       byKey.get("thirdPartyTools"),
       byKey.get("storage"),
+      byKey.get("about"),
       byKey.get("projectTest"),
     ].filter(filterVisible);
     const ai = [
