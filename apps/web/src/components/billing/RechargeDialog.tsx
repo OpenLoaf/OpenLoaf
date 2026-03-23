@@ -141,7 +141,7 @@ export function RechargeDialog({ open, onOpenChange }: RechargeDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="h-[60vh] w-[90vw] max-w-5xl p-0 overflow-hidden rounded-3xl shadow-none border-border/60">
+      <DialogContent className="h-[60vh] w-[90vw] max-w-5xl sm:max-w-5xl p-0 overflow-hidden rounded-3xl shadow-none border-border/60">
         <VisuallyHidden><DialogTitle>{t("account.recharge")}</DialogTitle></VisuallyHidden>
         <div className="relative h-full w-full">
           <div ref={containerCallbackRef} className="h-full w-full" />
