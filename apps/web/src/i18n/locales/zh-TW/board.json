@@ -1155,7 +1155,11 @@
     "clickToReplace": "點擊替換",
     "fromNode": "來自「{{name}}」",
     "missingRequired": "缺少必要輸入",
-    "needsExtraInput": "還需連入{{type}}"
+    "needsExtraInput": "還需連入{{type}}",
+    "associatedRefs": "關聯節點",
+    "swapHint": "點擊選擇替換",
+    "uploadFile": "上傳檔案",
+    "emptySlot": "點擊上傳或從關聯節點拖入"
   },
   "dynamicTemplates": {
     "group": {
@@ -1203,11 +1207,5 @@
       "OL-TT-002": { "label": "文字轉語音" },
       "OL-SR-001": { "label": "語音辨識" }
     }
-  },
-  "slot": {
-    "associatedRefs": "關聯節點",
-    "swapHint": "點擊選擇替換",
-    "uploadFile": "上傳檔案",
-    "emptySlot": "點擊上傳或從關聯節點拖入"
   }
 }

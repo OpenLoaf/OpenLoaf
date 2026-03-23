@@ -40,6 +40,8 @@ export type MediaSlotProps = {
   boardFolderUri?: string
   /** Whether this slot represents an associated (upstream) node reference. Shows dimmed style. */
   associated?: boolean
+  /** Whether to show a pulse animation (hints user can assign). */
+  pulse?: boolean
 }
 
 export function MediaSlot({
@@ -56,6 +58,7 @@ export function MediaSlot({
   projectId,
   boardFolderUri,
   associated,
+  pulse,
 }: MediaSlotProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const slotRef = useRef<HTMLDivElement>(null)
@@ -137,6 +140,7 @@ export function MediaSlot({
               : 'border border-border bg-ol-surface-muted'
             : 'border border-dashed border-border bg-ol-surface-muted/50 hover:bg-ol-surface-muted',
           disabled ? 'cursor-not-allowed opacity-60' : '',
+          pulse && !hasSrc ? 'animate-pulse' : '',
         ].join(' ')}
         onClick={() => !disabled && !hasSrc && inputRef.current?.click()}
       >

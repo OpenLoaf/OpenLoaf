@@ -1155,7 +1155,11 @@
     "clickToReplace": "Click to replace",
     "fromNode": "From \"{{name}}\"",
     "missingRequired": "Missing required input",
-    "needsExtraInput": "Needs {{type}} input"
+    "needsExtraInput": "Needs {{type}} input",
+    "associatedRefs": "Associated",
+    "swapHint": "Click to swap",
+    "uploadFile": "Upload file",
+    "emptySlot": "Click to upload or assign"
   },
   "dynamicTemplates": {
     "group": {
@@ -1203,11 +1207,5 @@
       "OL-TT-002": { "label": "Text to Speech" },
       "OL-SR-001": { "label": "Speech to Text" }
     }
-  },
-  "slot": {
-    "associatedRefs": "Associated",
-    "swapHint": "Click to swap",
-    "uploadFile": "Upload file",
-    "emptySlot": "Click to upload or assign"
   }
 }

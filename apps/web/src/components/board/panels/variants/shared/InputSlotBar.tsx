@@ -11,23 +11,36 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Plus, Upload } from 'lucide-react'
+import { cn } from '@udecode/cn'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@openloaf/ui/popover'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@openloaf/ui/tooltip'
 import type { BoardFileContext } from '../../../board-contracts'
 import type { UpstreamData } from '../../../engine/upstream-data'
 import {
-  assignUpstreamToSlots,
   buildReferencePools,
   isMediaReference,
   isTextReference,
+  restoreOrAssign,
 } from '../slot-engine'
 import type {
   InputSlotDefinition,
   MediaReference,
   MediaType,
+  PersistedSlotMap,
   PoolReference,
   TextReference,
 } from '../slot-types'
 import { toMediaInput } from './index'
-import { MediaSlotGroup } from './MediaSlotGroup'
+import { MediaSlot } from './MediaSlot'
 import { TextReferencePool } from './TextReferencePool'
 import { TextSlotField } from './TextSlotField'
 
@@ -39,7 +52,7 @@ export type ResolvedSlotInputs = {
   /** slotId -> resolved values ready for API submission */
   inputs: Record<string, unknown>
   /** slotId -> raw MediaReference list (for framework-level slot persistence) */
-  mediaRefs: Record<string, MediaReference[]>  // 新增
+  mediaRefs: Record<string, MediaReference[]>
   /** Whether all required slots are satisfied */
   isValid: boolean
 }
@@ -52,6 +65,10 @@ export type InputSlotBarProps = {
   disabled?: boolean
   /** Called whenever slot assignments change */
   onAssignmentChange?: (resolved: ResolvedSlotInputs) => void
+  /** Cached slot assignment from paramsCache (persisted across sessions) */
+  cachedAssignment?: PersistedSlotMap
+  /** Called when slot assignment changes so parent can persist it */
+  onSlotAssignmentChange?: (map: PersistedSlotMap) => void
 }
 
 // ---------------------------------------------------------------------------
@@ -87,6 +104,18 @@ function resolveSlotInput(
   return mediaRefs.map((ref) => (ref.path ? toMediaInput(ref.path) : toMediaInput(ref.url)))
 }
 
+/** Get the upload accept filter for a media type */
+function uploadAcceptForType(mediaType: MediaType): string {
+  switch (mediaType) {
+    case 'video':
+      return 'video/*'
+    case 'audio':
+      return 'audio/*'
+    default:
+      return 'image/*'
+  }
+}
+
 // ---------------------------------------------------------------------------
 // InputSlotBar
 // ---------------------------------------------------------------------------
@@ -96,6 +125,12 @@ function resolveSlotInput(
  *
  * Takes raw upstream data + slot definitions, handles auto-assignment,
  * user overrides, and outputs resolved inputs ready for API submission.
+ *
+ * Renders in a dual-zone layout:
+ * - Text slots at the top (via TextSlotField)
+ * - Active media slots zone (variant-declared slots with semantic labels)
+ * - Associated refs zone (unassigned upstream media nodes)
+ * - Click-to-swap interaction between active slots and associated refs
  */
 export function InputSlotBar({
   slots,
@@ -104,6 +139,8 @@ export function InputSlotBar({
   nodeResource,
   disabled,
   onAssignmentChange,
+  cachedAssignment,
+  onSlotAssignmentChange,
 }: InputSlotBarProps) {
   const { t } = useTranslation('board')
 
@@ -132,57 +169,40 @@ export function InputSlotBar({
   )
 
   // ---------------------------------------------------------------------------
-  // Auto-assignment (initial + when upstream changes)
+  // Unified assignment (restoreOrAssign replaces assignUpstreamToSlots)
   // ---------------------------------------------------------------------------
 
-  const autoAssignment = useMemo(
-    () => assignUpstreamToSlots(slots, pools),
-    [slots, pools],
+  const unifiedResult = useMemo(
+    () => restoreOrAssign(slots, pools, cachedAssignment),
+    [slots, pools, cachedAssignment],
   )
 
   // ---------------------------------------------------------------------------
   // Local state for user overrides
   // ---------------------------------------------------------------------------
 
-  // Assigned refs per slot — initialized from auto-assignment
+  // Assigned refs per slot — initialized from unified result
   const [slotAssignments, setSlotAssignments] = useState<
     Record<string, PoolReference[]>
-  >(() => autoAssignment.assigned)
+  >(() => unifiedResult.assigned)
 
   // User-typed text per text slot
   const [userTexts, setUserTexts] = useState<Record<string, string>>({})
 
-  // Sync auto-assignment when upstream changes
-  const prevAutoRef = useRef(autoAssignment)
+  // Track associated refs locally so we can update on swap
+  const [associatedRefs, setAssociatedRefs] = useState<MediaReference[]>(
+    () => unifiedResult.associated,
+  )
+
+  // Sync when upstream / unified result changes
+  const prevUnifiedRef = useRef(unifiedResult)
   useEffect(() => {
-    if (prevAutoRef.current !== autoAssignment) {
-      prevAutoRef.current = autoAssignment
-      setSlotAssignments(autoAssignment.assigned)
+    if (prevUnifiedRef.current !== unifiedResult) {
+      prevUnifiedRef.current = unifiedResult
+      setSlotAssignments(unifiedResult.assigned)
+      setAssociatedRefs(unifiedResult.associated)
     }
-  }, [autoAssignment])
-
-  // ---------------------------------------------------------------------------
-  // Compute overflow per slot based on current assignments
-  // ---------------------------------------------------------------------------
-
-  const slotOverflow = useMemo(() => {
-    const result: Record<string, MediaReference[]> = {}
-    for (const slot of slots) {
-      if (slot.mediaType === 'text') continue
-      // Overflow = pool items of matching type NOT currently assigned to any slot
-      const poolRefs = (pools[slot.mediaType] ?? []).filter(isMediaReference)
-      const assignedIds = new Set<string>()
-      for (const s of slots) {
-        const assigned = slotAssignments[s.id] ?? []
-        for (const ref of assigned) {
-          if (isMediaReference(ref)) assignedIds.add(ref.nodeId)
-        }
-      }
-      const overflow = poolRefs.filter((r) => !assignedIds.has(r.nodeId))
-      if (overflow.length > 0) result[slot.id] = overflow
-    }
-    return result
-  }, [slots, pools, slotAssignments])
+  }, [unifiedResult])
 
   // ---------------------------------------------------------------------------
   // Unassigned text references (for TextReferencePool)
@@ -203,15 +223,39 @@ export function InputSlotBar({
   }, [slots, pools.text, slotAssignments])
 
   // ---------------------------------------------------------------------------
-  // Callbacks
+  // Persistence callback
   // ---------------------------------------------------------------------------
 
-  const handleMediaAssignmentChange = useCallback(
-    (slotId: string, refs: MediaReference[]) => {
-      setSlotAssignments((prev) => ({ ...prev, [slotId]: refs }))
-    },
-    [],
-  )
+  const emitSlotAssignment = useCallback(() => {
+    if (!onSlotAssignmentChange) return
+    const map: PersistedSlotMap = {}
+    for (const slot of slots) {
+      if (slot.mediaType === 'text') continue
+      const refs = slotAssignments[slot.id] ?? []
+      const mediaRef = refs.find(isMediaReference) as MediaReference | undefined
+      if (mediaRef) {
+        if (mediaRef.nodeId.startsWith('__manual_')) {
+          map[slot.id] = `manual:${mediaRef.path}`
+        } else {
+          map[slot.id] = mediaRef.nodeId
+        }
+      }
+    }
+    onSlotAssignmentChange(map)
+  }, [slots, slotAssignments, onSlotAssignmentChange])
+
+  // Emit slot assignment when assignments change
+  const prevAssignmentsRef = useRef(slotAssignments)
+  useEffect(() => {
+    if (prevAssignmentsRef.current !== slotAssignments) {
+      prevAssignmentsRef.current = slotAssignments
+      emitSlotAssignment()
+    }
+  }, [slotAssignments, emitSlotAssignment])
+
+  // ---------------------------------------------------------------------------
+  // Callbacks — text slots
+  // ---------------------------------------------------------------------------
 
   const handleTextUserChange = useCallback((slotId: string, text: string) => {
     setUserTexts((prev) => ({ ...prev, [slotId]: text }))
@@ -262,6 +306,99 @@ export function InputSlotBar({
   )
 
   // ---------------------------------------------------------------------------
+  // Callbacks — media slot upload
+  // ---------------------------------------------------------------------------
+
+  const handleMediaUpload = useCallback(
+    (slotId: string, mediaType: MediaType, value: string) => {
+      const newRef: MediaReference = {
+        nodeId: `__manual_${slotId}__`,
+        nodeType: mediaType,
+        url: value,
+        path: value,
+      }
+      setSlotAssignments((prev) => ({
+        ...prev,
+        [slotId]: [newRef],
+      }))
+    },
+    [],
+  )
+
+  const handleMediaRemove = useCallback((slotId: string) => {
+    setSlotAssignments((prev) => ({
+      ...prev,
+      [slotId]: [],
+    }))
+  }, [])
+
+  // ---------------------------------------------------------------------------
+  // Click-to-swap: associated ref -> active slot
+  // ---------------------------------------------------------------------------
+
+  const handleAssociatedToSlot = useCallback(
+    (assocRef: MediaReference, targetSlotId: string) => {
+      setSlotAssignments((prev) => {
+        const targetSlot = slots.find((s) => s.id === targetSlotId)
+        if (!targetSlot) return prev
+
+        const currentRefs = prev[targetSlotId] ?? []
+        const currentMedia = currentRefs.filter(isMediaReference)
+
+        // If the target slot already has a media ref, move it back to associated
+        const evictedRef = currentMedia[0]
+
+        const next = {
+          ...prev,
+          [targetSlotId]: [assocRef],
+        }
+
+        // Update associated refs: remove the incoming ref, add evicted ref
+        setAssociatedRefs((prevAssoc) => {
+          let updated = prevAssoc.filter((r) => r.nodeId !== assocRef.nodeId)
+          if (evictedRef) {
+            updated = [...updated, evictedRef]
+          }
+          return updated
+        })
+
+        return next
+      })
+    },
+    [slots],
+  )
+
+  // ---------------------------------------------------------------------------
+  // Click-to-swap: active slot -> swap with associated ref
+  // ---------------------------------------------------------------------------
+
+  const handleSlotSwapWithAssociated = useCallback(
+    (slotId: string, assocRef: MediaReference) => {
+      setSlotAssignments((prev) => {
+        const currentRefs = prev[slotId] ?? []
+        const currentMedia = currentRefs.filter(isMediaReference)
+        const evictedRef = currentMedia[0]
+
+        const next = {
+          ...prev,
+          [slotId]: [assocRef],
+        }
+
+        setAssociatedRefs((prevAssoc) => {
+          let updated = prevAssoc.filter((r) => r.nodeId !== assocRef.nodeId)
+          if (evictedRef) {
+            updated = [...updated, evictedRef]
+          }
+          return updated
+        })
+
+        return next
+      })
+    },
+    [],
+  )
+
+  // ---------------------------------------------------------------------------
   // Resolve + emit (debounced)
   // ---------------------------------------------------------------------------
 
@@ -308,7 +445,7 @@ export function InputSlotBar({
   }, [slots, slotAssignments, userTexts, onAssignmentChange])
 
   // ---------------------------------------------------------------------------
-  // Build VariantUpstream for MediaSlotGroup (board context passthrough)
+  // Build VariantUpstream for MediaSlot (board context passthrough)
   // ---------------------------------------------------------------------------
 
   const variantUpstream = useMemo(
@@ -327,6 +464,36 @@ export function InputSlotBar({
   )
 
   // ---------------------------------------------------------------------------
+  // Split slots into text and media
+  // ---------------------------------------------------------------------------
+
+  const textSlots = useMemo(
+    () => slots.filter((s) => s.mediaType === 'text'),
+    [slots],
+  )
+  const mediaSlots = useMemo(
+    () => slots.filter((s) => s.mediaType !== 'text'),
+    [slots],
+  )
+
+  // ---------------------------------------------------------------------------
+  // Determine if associated refs have matching-type refs for a given slot
+  // ---------------------------------------------------------------------------
+
+  const matchingAssociatedForSlot = useCallback(
+    (slot: InputSlotDefinition) =>
+      associatedRefs.filter((r) => r.nodeType === slot.mediaType),
+    [associatedRefs],
+  )
+
+  // ---------------------------------------------------------------------------
+  // Layout: determine single-row vs two-row
+  // ---------------------------------------------------------------------------
+
+  const totalCount = mediaSlots.length + associatedRefs.length
+  const isSingleRow = totalCount <= 7
+
+  // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
 
@@ -340,44 +507,605 @@ export function InputSlotBar({
         />
       ) : null}
 
-      {/* Render each slot */}
-      {slots.map((slot) => {
-        if (slot.mediaType === 'text') {
-          const textRefs = (slotAssignments[slot.id] ?? []).filter(isTextReference)
-          return (
-            <TextSlotField
-              key={slot.id}
-              label={t(slot.labelKey, { defaultValue: slot.labelKey })}
-              references={textRefs}
-              userText={userTexts[slot.id] ?? ''}
-              allReferences={allTextRefs}
-              assignedNodeIds={assignedTextNodeIds}
-              required={slot.min > 0}
-              disabled={disabled}
-              mode={slot.referenceMode ?? 'inline'}
-              onUserTextChange={(text) => handleTextUserChange(slot.id, text)}
-              onAddReference={(ref) => handleTextAddRef(slot.id, ref)}
-              onRemoveReference={(nodeId) => handleTextRemoveRef(slot.id, nodeId)}
-            />
-          )
-        }
-
-        // Media slot
-        const assignedMedia = (slotAssignments[slot.id] ?? []).filter(isMediaReference)
-        const overflowMedia = slotOverflow[slot.id] ?? []
-
+      {/* Text slots */}
+      {textSlots.map((slot) => {
+        const textRefs = (slotAssignments[slot.id] ?? []).filter(isTextReference)
         return (
-          <MediaSlotGroup
+          <TextSlotField
             key={slot.id}
-            slot={slot}
-            assigned={assignedMedia}
-            overflow={overflowMedia}
-            upstream={variantUpstream}
+            label={t(slot.labelKey, { defaultValue: slot.labelKey })}
+            references={textRefs}
+            userText={userTexts[slot.id] ?? ''}
+            allReferences={allTextRefs}
+            assignedNodeIds={assignedTextNodeIds}
+            required={slot.min > 0}
             disabled={disabled}
-            onAssignmentChange={handleMediaAssignmentChange}
+            mode={slot.referenceMode ?? 'inline'}
+            onUserTextChange={(text) => handleTextUserChange(slot.id, text)}
+            onAddReference={(ref) => handleTextAddRef(slot.id, ref)}
+            onRemoveReference={(nodeId) => handleTextRemoveRef(slot.id, nodeId)}
           />
         )
       })}
+
+      {/* Dual-zone media layout */}
+      {mediaSlots.length > 0 ? (() => {
+        const hasAssociated = associatedRefs.length > 0
+
+        /** Renders all active slot chips */
+        const activeSlotChips = mediaSlots.map((slot) => {
+          const assignedMedia = (slotAssignments[slot.id] ?? []).filter(
+            isMediaReference,
+          )
+          const currentRef = assignedMedia[0]
+          const isEmpty = !currentRef
+          const matchingAssociated = matchingAssociatedForSlot(slot)
+          const shouldPulse = isEmpty && matchingAssociated.length > 0
+          const slotLabel = t(slot.labelKey, { defaultValue: slot.labelKey })
+          const uploadAccept = uploadAcceptForType(slot.mediaType)
+
+          if (isEmpty) {
+            // Empty active slot: click to assign from associated or upload
+            if (matchingAssociated.length > 0) {
+              return (
+                <ActiveSlotWithPopover
+                  key={slot.id}
+                  slotId={slot.id}
+                  label={slotLabel}
+                  required={slot.min > 0}
+                  disabled={disabled}
+                  pulse={shouldPulse}
+                  uploadAccept={uploadAccept}
+                  mediaType={slot.mediaType}
+                  candidates={matchingAssociated}
+                  variantUpstream={variantUpstream}
+                  onSelect={(ref) =>
+                    handleAssociatedToSlot(ref, slot.id)
+                  }
+                  onUpload={(v) =>
+                    handleMediaUpload(slot.id, slot.mediaType, v)
+                  }
+                  t={t}
+                />
+              )
+            }
+            // No matching associated refs: plain upload slot
+            return (
+              <MediaSlot
+                key={slot.id}
+                label={slotLabel}
+                icon={<Plus size={14} />}
+                required={slot.min > 0}
+                uploadAccept={uploadAccept}
+                disabled={disabled}
+                onUpload={(v) =>
+                  handleMediaUpload(slot.id, slot.mediaType, v)
+                }
+                boardId={variantUpstream.boardId}
+                projectId={variantUpstream.projectId}
+                boardFolderUri={variantUpstream.boardFolderUri}
+                compact
+              />
+            )
+          }
+
+          // Filled active slot: click to swap with associated ref
+          if (matchingAssociated.length > 0) {
+            return (
+              <FilledSlotWithPopover
+                key={slot.id}
+                slotId={slot.id}
+                label={slotLabel}
+                currentRef={currentRef}
+                required={slot.min > 0}
+                disabled={disabled}
+                uploadAccept={uploadAccept}
+                mediaType={slot.mediaType}
+                candidates={matchingAssociated}
+                variantUpstream={variantUpstream}
+                onSwap={(ref) =>
+                  handleSlotSwapWithAssociated(slot.id, ref)
+                }
+                onUpload={(v) =>
+                  handleMediaUpload(slot.id, slot.mediaType, v)
+                }
+                onRemove={() => handleMediaRemove(slot.id)}
+                t={t}
+              />
+            )
+          }
+
+          // Filled slot, no alternatives to swap with
+          return (
+            <MediaSlot
+              key={slot.id}
+              label={slotLabel}
+              src={currentRef.url}
+              required={slot.min > 0}
+              uploadAccept={uploadAccept}
+              disabled={disabled}
+              onUpload={(v) =>
+                handleMediaUpload(slot.id, slot.mediaType, v)
+              }
+              onRemove={() => handleMediaRemove(slot.id)}
+              boardId={variantUpstream.boardId}
+              projectId={variantUpstream.projectId}
+              boardFolderUri={variantUpstream.boardFolderUri}
+              compact
+            />
+          )
+        })
+
+        /** Renders all associated ref chips */
+        const associatedRefChips = associatedRefs.map((ref) => (
+          <AssociatedRefSlot
+            key={ref.nodeId}
+            ref_={ref}
+            mediaSlots={mediaSlots}
+            slotAssignments={slotAssignments}
+            variantUpstream={variantUpstream}
+            disabled={disabled}
+            onAssignToSlot={handleAssociatedToSlot}
+            t={t}
+          />
+        ))
+
+        if (isSingleRow) {
+          return (
+            <div className="flex flex-wrap items-center gap-2">
+              {activeSlotChips}
+              {hasAssociated && (
+                <div className="mx-0.5 h-8 w-px self-center bg-border" />
+              )}
+              {associatedRefChips}
+            </div>
+          )
+        }
+
+        return (
+          <div className="flex flex-col gap-1.5">
+            <div className="flex flex-wrap items-center gap-2">
+              {activeSlotChips}
+            </div>
+            {hasAssociated && (
+              <div className="flex flex-wrap items-center gap-2 opacity-70">
+                {associatedRefChips}
+              </div>
+            )}
+          </div>
+        )
+      })() : null}
     </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Sub-components: Active slot popover (empty slot with matching associated)
+// ---------------------------------------------------------------------------
+
+type ActiveSlotWithPopoverProps = {
+  slotId: string
+  label: string
+  required: boolean
+  disabled?: boolean
+  pulse: boolean
+  uploadAccept: string
+  mediaType: MediaType
+  candidates: MediaReference[]
+  variantUpstream: { boardId?: string; projectId?: string; boardFolderUri?: string }
+  onSelect: (ref: MediaReference) => void
+  onUpload: (value: string) => void
+  t: (key: string, options?: Record<string, unknown>) => string
+}
+
+function ActiveSlotWithPopover({
+  slotId,
+  label,
+  required,
+  disabled,
+  pulse,
+  uploadAccept,
+  candidates,
+  variantUpstream,
+  onSelect,
+  onUpload,
+  t,
+}: ActiveSlotWithPopoverProps) {
+  const [open, setOpen] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = ''
+    // Read as data URL for simplicity (MediaSlot handles board asset saving)
+    const reader = new FileReader()
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        onUpload(reader.result)
+        setOpen(false)
+      }
+    }
+    reader.readAsDataURL(file)
+  }
+
+  // Auto-assign if only one candidate
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (nextOpen && candidates.length === 1) {
+      onSelect(candidates[0])
+      return
+    }
+    setOpen(nextOpen)
+  }
+
+  return (
+    <Popover open={open} onOpenChange={handleOpenChange}>
+      <PopoverTrigger asChild disabled={disabled}>
+        <button
+          type="button"
+          className={cn(
+            'group/slot flex flex-col items-center gap-1',
+            disabled && 'pointer-events-none',
+          )}
+        >
+          <div
+            className={cn(
+              'relative flex h-[44px] w-[44px] shrink-0 items-center justify-center',
+              'overflow-hidden rounded-xl border border-dashed border-border',
+              'bg-ol-surface-muted/50 transition-colors duration-150',
+              'hover:bg-ol-surface-muted hover:border-primary/40',
+              pulse && 'animate-pulse',
+            )}
+          >
+            <Plus size={14} className="text-muted-foreground/50" />
+          </div>
+          <span className="text-center text-[9px] leading-tight text-muted-foreground/60">
+            {label}
+            {required ? <span className="text-amber-500"> *</span> : null}
+          </span>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        className="w-auto min-w-[140px] max-w-[260px] p-2"
+        side="top"
+        align="start"
+      >
+        <div className="flex flex-col gap-1.5">
+          <span className="px-1 text-[10px] font-medium text-muted-foreground">
+            {t('slot.swapHint')}
+          </span>
+          <div className="flex flex-wrap gap-1.5">
+            {candidates.map((ref) => (
+              <button
+                key={ref.nodeId}
+                type="button"
+                className={cn(
+                  'h-[36px] w-[36px] shrink-0 overflow-hidden rounded-lg border',
+                  'border-border bg-ol-surface-muted transition-colors duration-150',
+                  'hover:border-primary/50',
+                )}
+                onClick={() => {
+                  onSelect(ref)
+                  setOpen(false)
+                }}
+              >
+                <img
+                  src={ref.url}
+                  alt={ref.nodeId}
+                  className="h-full w-full object-cover"
+                  draggable={false}
+                />
+              </button>
+            ))}
+          </div>
+          {/* Upload option */}
+          <button
+            type="button"
+            className={cn(
+              'flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px]',
+              'text-muted-foreground transition-colors duration-150',
+              'hover:bg-muted/50 hover:text-foreground',
+            )}
+            onClick={() => inputRef.current?.click()}
+          >
+            <Upload size={12} />
+            {t('slot.uploadFile')}
+          </button>
+          <input
+            ref={inputRef}
+            type="file"
+            accept={uploadAccept}
+            className="hidden"
+            onChange={handleFileChange}
+          />
+        </div>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Sub-components: Filled slot popover (swap with associated ref)
+// ---------------------------------------------------------------------------
+
+type FilledSlotWithPopoverProps = {
+  slotId: string
+  label: string
+  currentRef: MediaReference
+  required: boolean
+  disabled?: boolean
+  uploadAccept: string
+  mediaType: MediaType
+  candidates: MediaReference[]
+  variantUpstream: { boardId?: string; projectId?: string; boardFolderUri?: string }
+  onSwap: (ref: MediaReference) => void
+  onUpload: (value: string) => void
+  onRemove: () => void
+  t: (key: string, options?: Record<string, unknown>) => string
+}
+
+function FilledSlotWithPopover({
+  label,
+  currentRef,
+  required,
+  disabled,
+  uploadAccept,
+  candidates,
+  variantUpstream,
+  onSwap,
+  onUpload,
+  onRemove,
+  t,
+}: FilledSlotWithPopoverProps) {
+  const [open, setOpen] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = ''
+    const reader = new FileReader()
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        onUpload(reader.result)
+        setOpen(false)
+      }
+    }
+    reader.readAsDataURL(file)
+  }
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild disabled={disabled}>
+        <div className="group/slot flex flex-col items-center gap-1">
+          <MediaSlot
+            label=""
+            src={currentRef.url}
+            required={required}
+            uploadAccept={uploadAccept}
+            disabled={disabled}
+            onRemove={onRemove}
+            boardId={variantUpstream.boardId}
+            projectId={variantUpstream.projectId}
+            boardFolderUri={variantUpstream.boardFolderUri}
+            compact
+          />
+          <span className="text-center text-[9px] leading-tight text-muted-foreground/60">
+            {label}
+            {required ? <span className="text-amber-500"> *</span> : null}
+          </span>
+        </div>
+      </PopoverTrigger>
+      <PopoverContent
+        className="w-auto min-w-[140px] max-w-[260px] p-2"
+        side="top"
+        align="start"
+      >
+        <div className="flex flex-col gap-1.5">
+          <span className="px-1 text-[10px] font-medium text-muted-foreground">
+            {t('slot.swapHint')}
+          </span>
+          <div className="flex flex-wrap gap-1.5">
+            {candidates.map((ref) => (
+              <button
+                key={ref.nodeId}
+                type="button"
+                className={cn(
+                  'h-[36px] w-[36px] shrink-0 overflow-hidden rounded-lg border',
+                  'border-border bg-ol-surface-muted transition-colors duration-150',
+                  'hover:border-primary/50',
+                )}
+                onClick={() => {
+                  onSwap(ref)
+                  setOpen(false)
+                }}
+              >
+                <img
+                  src={ref.url}
+                  alt={ref.nodeId}
+                  className="h-full w-full object-cover"
+                  draggable={false}
+                />
+              </button>
+            ))}
+          </div>
+          {/* Upload option */}
+          <button
+            type="button"
+            className={cn(
+              'flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px]',
+              'text-muted-foreground transition-colors duration-150',
+              'hover:bg-muted/50 hover:text-foreground',
+            )}
+            onClick={() => inputRef.current?.click()}
+          >
+            <Upload size={12} />
+            {t('slot.uploadFile')}
+          </button>
+          <input
+            ref={inputRef}
+            type="file"
+            accept={uploadAccept}
+            className="hidden"
+            onChange={handleFileChange}
+          />
+        </div>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Sub-components: Associated ref slot (with click-to-assign)
+// ---------------------------------------------------------------------------
+
+type AssociatedRefSlotProps = {
+  ref_: MediaReference
+  mediaSlots: InputSlotDefinition[]
+  slotAssignments: Record<string, PoolReference[]>
+  variantUpstream: { boardId?: string; projectId?: string; boardFolderUri?: string }
+  disabled?: boolean
+  onAssignToSlot: (ref: MediaReference, slotId: string) => void
+  t: (key: string, options?: Record<string, unknown>) => string
+}
+
+function AssociatedRefSlot({
+  ref_,
+  mediaSlots,
+  slotAssignments,
+  variantUpstream,
+  disabled,
+  onAssignToSlot,
+  t,
+}: AssociatedRefSlotProps) {
+  const [open, setOpen] = useState(false)
+
+  // Find matching-type active slots
+  const matchingSlots = mediaSlots.filter((s) => s.mediaType === ref_.nodeType)
+  // Find matching empty slots
+  const emptyMatchingSlots = matchingSlots.filter((s) => {
+    const refs = slotAssignments[s.id] ?? []
+    return refs.filter(isMediaReference).length === 0
+  })
+
+  const handleClick = () => {
+    if (disabled) return
+    if (emptyMatchingSlots.length > 0) {
+      // Auto-assign to first empty matching slot
+      onAssignToSlot(ref_, emptyMatchingSlots[0].id)
+    } else if (matchingSlots.length === 1) {
+      // Only one matching slot, replace directly
+      onAssignToSlot(ref_, matchingSlots[0].id)
+    } else if (matchingSlots.length > 1) {
+      // Multiple matching filled slots: show popover
+      setOpen(true)
+    }
+  }
+
+  // If only one target or empty slot exists, use simple tooltip + click
+  if (emptyMatchingSlots.length > 0 || matchingSlots.length <= 1) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={handleClick}
+            className="flex flex-col items-center gap-1"
+          >
+            <MediaSlot
+              label=""
+              src={ref_.url}
+              disabled={disabled}
+              boardId={variantUpstream.boardId}
+              projectId={variantUpstream.projectId}
+              boardFolderUri={variantUpstream.boardFolderUri}
+              compact
+              associated
+            />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top">
+          {t('slot.swapHint')}
+        </TooltipContent>
+      </Tooltip>
+    )
+  }
+
+  // Multiple matching filled slots: popover to pick which slot to replace
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild disabled={disabled}>
+        <button
+          type="button"
+          disabled={disabled}
+          className="flex flex-col items-center gap-1"
+        >
+          <MediaSlot
+            label=""
+            src={ref_.url}
+            disabled={disabled}
+            boardId={variantUpstream.boardId}
+            projectId={variantUpstream.projectId}
+            boardFolderUri={variantUpstream.boardFolderUri}
+            compact
+            associated
+          />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        className="w-auto min-w-[140px] max-w-[260px] p-2"
+        side="top"
+        align="start"
+      >
+        <div className="flex flex-col gap-1.5">
+          <span className="px-1 text-[10px] font-medium text-muted-foreground">
+            {t('slot.swapHint')}
+          </span>
+          <div className="flex flex-wrap gap-1.5">
+            {matchingSlots.map((slot) => {
+              const assignedMedia = (slotAssignments[slot.id] ?? []).filter(
+                isMediaReference,
+              )
+              const slotLabel = t(slot.labelKey, {
+                defaultValue: slot.labelKey,
+              })
+              return (
+                <button
+                  key={slot.id}
+                  type="button"
+                  className={cn(
+                    'flex flex-col items-center gap-0.5 rounded-lg p-1',
+                    'transition-colors duration-150 hover:bg-muted/50',
+                  )}
+                  onClick={() => {
+                    onAssignToSlot(ref_, slot.id)
+                    setOpen(false)
+                  }}
+                >
+                  {assignedMedia[0] ? (
+                    <div className="h-[36px] w-[36px] shrink-0 overflow-hidden rounded-lg border border-border">
+                      <img
+                        src={assignedMedia[0].url}
+                        alt={slot.id}
+                        className="h-full w-full object-cover"
+                        draggable={false}
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-lg border border-dashed border-border">
+                      <Plus size={12} className="text-muted-foreground/50" />
+                    </div>
+                  )}
+                  <span className="text-[9px] text-muted-foreground/60">
+                    {slotLabel}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
   )
 }

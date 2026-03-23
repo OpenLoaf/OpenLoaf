@@ -1141,7 +1141,11 @@
     "clickToReplace": "クリックして置換",
     "fromNode": "「{{name}}」から",
     "missingRequired": "必須入力が不足しています",
-    "needsExtraInput": "{{type}}の入力が必要です"
+    "needsExtraInput": "{{type}}の入力が必要です",
+    "associatedRefs": "関連ノード",
+    "swapHint": "クリックして交換",
+    "uploadFile": "ファイルをアップロード",
+    "emptySlot": "アップロードまたは割り当て"
   },
   "dynamicTemplates": {
     "group": {
@@ -1189,11 +1193,5 @@
       "OL-TT-002": { "label": "テキスト読み上げ" },
       "OL-SR-001": { "label": "音声認識" }
     }
-  },
-  "slot": {
-    "associatedRefs": "関連ノード",
-    "swapHint": "クリックして交換",
-    "uploadFile": "ファイルをアップロード",
-    "emptySlot": "アップロードまたは割り当て"
   }
 }
