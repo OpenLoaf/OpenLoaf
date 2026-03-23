@@ -44,7 +44,10 @@
     "highlighter": "荧光笔",
     "eraser": "橡皮",
     "insert": "插入",
-    "connector": "连接线"
+    "connector": "连接线",
+    "template": "模版",
+    "templateComingSoon": "模版功能即将上线",
+    "templateComingSoonDesc": "一键使用精选工作流模版，快速开始创作"
   },
   "insertTools": {
     "note": "文本",
@@ -1205,5 +1208,11 @@
       "OL-TT-002": { "label": "文字转语音" },
       "OL-SR-001": { "label": "语音识别" }
     }
+  },
+  "slot": {
+    "associatedRefs": "关联节点",
+    "swapHint": "点击选择替换",
+    "uploadFile": "上传文件",
+    "emptySlot": "点击上传或从关联节点拖入"
   }
 }

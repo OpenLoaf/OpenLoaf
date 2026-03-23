@@ -44,7 +44,10 @@
     "highlighter": "Highlighter",
     "eraser": "Eraser",
     "insert": "Insert",
-    "connector": "Connector"
+    "connector": "Connector",
+    "template": "Templates",
+    "templateComingSoon": "Templates coming soon",
+    "templateComingSoonDesc": "Use curated workflow templates to kickstart your creative projects"
   },
   "insertTools": {
     "note": "Text",
@@ -1200,5 +1203,11 @@
       "OL-TT-002": { "label": "Text to Speech" },
       "OL-SR-001": { "label": "Speech to Text" }
     }
+  },
+  "slot": {
+    "associatedRefs": "Associated",
+    "swapHint": "Click to swap",
+    "uploadFile": "Upload file",
+    "emptySlot": "Click to upload or assign"
   }
 }

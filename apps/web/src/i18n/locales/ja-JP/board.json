@@ -44,7 +44,10 @@
     "highlighter": "ハイライター",
     "eraser": "消しゴム",
     "insert": "挿入",
-    "connector": "コネクター"
+    "connector": "コネクター",
+    "template": "テンプレート",
+    "templateComingSoon": "テンプレート機能は近日公開",
+    "templateComingSoonDesc": "厳選されたワークフローテンプレートで素早く制作を始められます"
   },
   "insertTools": {
     "note": "テキスト",
@@ -1186,5 +1189,11 @@
       "OL-TT-002": { "label": "テキスト読み上げ" },
       "OL-SR-001": { "label": "音声認識" }
     }
+  },
+  "slot": {
+    "associatedRefs": "関連ノード",
+    "swapHint": "クリックして交換",
+    "uploadFile": "ファイルをアップロード",
+    "emptySlot": "アップロードまたは割り当て"
   }
 }

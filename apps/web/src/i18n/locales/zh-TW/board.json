@@ -44,7 +44,10 @@
     "highlighter": "螢光筆",
     "eraser": "橡皮",
     "insert": "插入",
-    "connector": "連接線"
+    "connector": "連接線",
+    "template": "模板",
+    "templateComingSoon": "模板功能即將上線",
+    "templateComingSoonDesc": "一鍵使用精選工作流模板，快速開始創作"
   },
   "insertTools": {
     "note": "文字",
@@ -1200,5 +1203,11 @@
       "OL-TT-002": { "label": "文字轉語音" },
       "OL-SR-001": { "label": "語音辨識" }
     }
+  },
+  "slot": {
+    "associatedRefs": "關聯節點",
+    "swapHint": "點擊選擇替換",
+    "uploadFile": "上傳檔案",
+    "emptySlot": "點擊上傳或從關聯節點拖入"
   }
 }

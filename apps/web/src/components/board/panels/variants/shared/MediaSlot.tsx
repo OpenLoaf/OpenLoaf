@@ -38,6 +38,8 @@ export type MediaSlotProps = {
   projectId?: string
   /** Board folder URI for saving uploaded files to asset directory. */
   boardFolderUri?: string
+  /** Whether this slot represents an associated (upstream) node reference. Shows dimmed style. */
+  associated?: boolean
 }
 
 export function MediaSlot({
@@ -53,6 +55,7 @@ export function MediaSlot({
   boardId,
   projectId,
   boardFolderUri,
+  associated,
 }: MediaSlotProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const slotRef = useRef<HTMLDivElement>(null)
@@ -109,6 +112,9 @@ export function MediaSlot({
   const hasSrc = isNonImageSlot ? Boolean(src) : (displaySrc && !imgFailed)
   const size = compact ? 'h-[44px] w-[44px]' : 'h-[52px] w-[52px]'
 
+  // Associated slots without content should not render (upstream refs always have content)
+  if (associated && !hasSrc) return null
+
   return (
     <div
       ref={slotRef}
@@ -126,7 +132,9 @@ export function MediaSlot({
           'relative shrink-0 overflow-hidden rounded-xl transition-colors duration-150',
           size,
           hasSrc
-            ? 'border border-border bg-ol-surface-muted'
+            ? associated
+              ? 'border border-dashed border-muted-foreground/30 bg-ol-surface-muted opacity-50 hover:opacity-100 cursor-pointer'
+              : 'border border-border bg-ol-surface-muted'
             : 'border border-dashed border-border bg-ol-surface-muted/50 hover:bg-ol-surface-muted',
           disabled ? 'cursor-not-allowed opacity-60' : '',
         ].join(' ')}
