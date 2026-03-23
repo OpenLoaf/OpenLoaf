@@ -205,7 +205,8 @@ export const GroupedNodePicker = forwardRef<HTMLDivElement, GroupedNodePickerPro
                             'group flex flex-col items-center gap-1.5 rounded-2xl px-1 py-2.5',
                             'transition-colors duration-100',
                             'hover:bg-foreground/6 dark:hover:bg-foreground/8',
-                            hasMissing && 'opacity-50 hover:opacity-100',
+                            // missingInputTypes no longer dims items — user can still connect
+                            // and provide missing inputs via additional connections
                           )}
                         >
                           <span
