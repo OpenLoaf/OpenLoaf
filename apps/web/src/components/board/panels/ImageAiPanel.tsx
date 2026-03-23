@@ -24,12 +24,14 @@ import { saveBoardAssetFile } from '../utils/board-asset'
 import type { CanvasNodeElement } from '../engine/types'
 import type { UpstreamData } from '../engine/upstream-data'
 import type { ImageNodeProps } from '../nodes/ImageNode'
-import type { AiGenerateConfig } from '../board-contracts'
+import type { AiGenerateConfig, BoardFileContext } from '../board-contracts'
 import {
   BOARD_GENERATE_INPUT,
 } from '../ui/board-style-system'
 import { IMAGE_VARIANTS } from './variants/image'
 import type { VariantContext, VariantFormProps } from './variants/types'
+import type { MediaReference, PersistedSlotMap } from './variants/slot-types'
+import { InputSlotBar, type ResolvedSlotInputs } from './variants/shared/InputSlotBar'
 import { GenerateActionBar } from './GenerateActionBar'
 import { ScrollableTabBar } from '../ui/ScrollableTabBar'
 
@@ -69,6 +71,8 @@ export type ImageAiPanelProps = {
   boardId?: string
   projectId?: string
   boardFolderUri?: string
+  /** Full file context object (optional, derived from boardId/projectId/boardFolderUri if not provided). */
+  fileContext?: BoardFileContext
   /** Callback to trigger actual image generation. */
   onGenerate?: (params: ImageGenerateParams) => void
   /** Callback to generate into a new derived node. */
@@ -150,7 +154,7 @@ export function ImageAiPanel({
   upstreamImagePaths,
   upstreamAudioUrl,
   upstreamVideoUrl,
-  rawUpstream: _rawUpstream,
+  rawUpstream,
   resolvedImageSrc,
   onGenerate,
   onGenerateNewNode,
@@ -166,6 +170,7 @@ export function ImageAiPanel({
   boardId,
   projectId,
   boardFolderUri,
+  fileContext: fileContextProp,
 }: ImageAiPanelProps) {
   const { t, i18n } = useTranslation('board')
   const prefLang = i18n.language.startsWith('zh') ? 'zh' : 'en'
@@ -256,6 +261,7 @@ export function ImageAiPanel({
     params: Record<string, unknown>
     count?: number
     seed?: number
+    slotAssignment?: PersistedSlotMap
   }>({ inputs: {}, params: {} })
 
   // ── Params cache — in-memory map for instant reads, async persist to node ──
@@ -465,6 +471,35 @@ export function ImageAiPanel({
     ? IMAGE_VARIANTS[selectedVariant.id]?.component ?? GenericVariantFallback
     : null
 
+  // ── Derive fileContext from props (combine separate fields into a single object) ──
+  const fileContext = useMemo<BoardFileContext | undefined>(
+    () => fileContextProp ?? (boardId || projectId || boardFolderUri
+      ? { boardId, projectId, boardFolderUri }
+      : undefined),
+    [fileContextProp, boardId, projectId, boardFolderUri],
+  )
+
+  // ── Node resource descriptor for InputSlotBar ──
+  const nodeResource = useMemo(() => {
+    const path = element.props.originalSrc
+    if (!path) return undefined
+    return { type: 'image' as const, path, url: resolvedImageSrc }
+  }, [element.props.originalSrc, resolvedImageSrc])
+
+  // ── Resolved slot inputs (populated by InputSlotBar callback) ──
+  const [resolvedSlots, setResolvedSlots] = useState<Record<string, MediaReference[]>>({})
+
+  const handleSlotInputsChange = useCallback((resolved: ResolvedSlotInputs) => {
+    setResolvedSlots(resolved.mediaRefs)
+  }, [])
+
+  const handleSlotAssignmentPersist = useCallback((map: PersistedSlotMap) => {
+    variantParamsRef.current = {
+      ...variantParamsRef.current,
+      slotAssignment: map,
+    }
+  }, [])
+
   const variantUpstream = useMemo(() => ({
     textContent: upstreamText,
     // Always pass image data — each variant decides how to use it
@@ -595,6 +630,22 @@ export function ImageAiPanel({
         </div>
       ) : null}
 
+      {/* ── InputSlotBar (declarative slot assignment) ── */}
+      {variantDef?.inputSlots?.length && selectedVariant ? (
+        <InputSlotBar
+          slots={variantDef.inputSlots}
+          upstream={rawUpstream ?? { textList: [], imageList: [], videoList: [], audioList: [], entries: [] }}
+          fileContext={fileContext}
+          nodeResource={nodeResource}
+          disabled={readonly && !editing}
+          cachedAssignment={
+            (paramsCacheLocal.current[`${selectedFeatureId}:${selectedVariant.id}`]?.slotAssignment as PersistedSlotMap | undefined)
+          }
+          onAssignmentChange={handleSlotInputsChange}
+          onSlotAssignmentChange={handleSlotAssignmentPersist}
+        />
+      ) : null}
+
       {/* ── Variant-specific form ── */}
       {VariantForm && selectedVariant ? (
         <VariantForm
@@ -606,6 +657,7 @@ export function ImageAiPanel({
           initialParams={paramsCacheLocal.current[`${selectedFeatureId}:${selectedVariant.id}`] ?? aiConfig?.paramsCache?.[`${selectedFeatureId}:${selectedVariant.id}`]}
           onParamsChange={handleVariantParamsChange}
           onWarningChange={setVariantWarning}
+          resolvedSlots={resolvedSlots}
         />
       ) : null}
 
