@@ -19,6 +19,7 @@ import type {
   InputSlotDefinition,
   MediaReference,
   MediaType,
+  PersistedSlotMap,
   PoolReference,
   ReferencePools,
   SlotAssignment,
@@ -184,6 +185,139 @@ export function assignUpstreamToSlots(
   }
 
   return { assigned, overflow, missingRequired }
+}
+
+// ---------------------------------------------------------------------------
+// restoreOrAssign
+// ---------------------------------------------------------------------------
+
+export type UnifiedSlotResult = {
+  /** 功能插槽分配：slotId → 引用列表 */
+  assigned: Record<string, PoolReference[]>
+  /** 未分配到任何功能插槽的媒体父节点 */
+  associated: MediaReference[]
+  /** 必填但为空的插槽 ID */
+  missingRequired: string[]
+}
+
+/**
+ * Unified slot assignment with cache restore support.
+ *
+ * Algorithm:
+ * 1. Build a nodeId → MediaReference lookup from the pools.
+ * 2. Pass 1 (Restore): If cachedAssignment exists, try to restore each slot
+ *    from its cached value. Manual refs (manual:<path>) are reconstructed as
+ *    synthetic MediaReferences. Upstream node refs are validated against the
+ *    current pools — stale (disconnected) refs are silently skipped.
+ * 3. Pass 2 (Auto-assign): For slots not yet filled after Pass 1, pick from
+ *    the available pool in order, skipping already-used nodes.
+ * 4. Pass 3 (Associated): Any media pool entries not assigned to any slot are
+ *    collected as associated references (shown in the overflow tray).
+ * 5. Pass 4 (Missing): Slots where assigned.length < min are flagged.
+ */
+export function restoreOrAssign(
+  slots: InputSlotDefinition[],
+  pools: ReferencePools,
+  cachedAssignment: PersistedSlotMap | undefined,
+): UnifiedSlotResult {
+  const assigned: Record<string, PoolReference[]> = {}
+  const usedNodeIds = new Set<string>()
+
+  // Build nodeId → MediaReference lookup across all media pools
+  const mediaRefMap = new Map<string, MediaReference>()
+  for (const type of ['image', 'video', 'audio'] as const) {
+    for (const ref of pools[type] ?? []) {
+      if (isMediaReference(ref)) {
+        mediaRefMap.set(ref.nodeId, ref)
+      }
+    }
+  }
+
+  // Pass 1: Restore from cache
+  // First validate that all required slots' cached values are still connected.
+  // If any required slot's cache is stale (non-manual and nodeId not in pool),
+  // abandon the entire cache restore and fall through to full auto-assignment.
+  if (cachedAssignment) {
+    let cacheValid = true
+    for (const slot of slots) {
+      if (slot.min === 0) continue // optional slots don't invalidate the cache
+      const cachedValue = cachedAssignment[slot.id]
+      if (!cachedValue) continue
+      if (cachedValue.startsWith('manual:')) continue // manual refs are always valid
+      if (!mediaRefMap.has(cachedValue)) {
+        cacheValid = false
+        break
+      }
+    }
+
+    if (cacheValid) {
+      for (const slot of slots) {
+        const cachedValue = cachedAssignment[slot.id]
+        if (!cachedValue) continue
+
+        if (cachedValue.startsWith('manual:')) {
+          const manualPath = cachedValue.slice('manual:'.length)
+          assigned[slot.id] = [
+            {
+              nodeId: `__manual_${slot.id}__`,
+              nodeType: slot.mediaType,
+              url: manualPath,
+              path: manualPath,
+            } as MediaReference,
+          ]
+          continue
+        }
+
+        const ref = mediaRefMap.get(cachedValue)
+        if (ref && !usedNodeIds.has(cachedValue)) {
+          assigned[slot.id] = [ref]
+          usedNodeIds.add(cachedValue)
+        }
+      }
+    }
+  }
+
+  // Pass 2: Auto-assign unassigned slots
+  for (const slot of slots) {
+    if (assigned[slot.id]?.length) continue
+    assigned[slot.id] = []
+
+    if (slot.mediaType === 'text') {
+      const textRefs = (pools.text ?? []).filter(isTextReference)
+      if (textRefs.length > 0) {
+        assigned[slot.id] = textRefs.slice(0, slot.max)
+      }
+      continue
+    }
+
+    const pool = (pools[slot.mediaType] ?? []).filter(isMediaReference)
+    const available = pool.filter((r) => !usedNodeIds.has(r.nodeId))
+    const toAssign = available.slice(0, slot.max)
+    assigned[slot.id] = toAssign
+    for (const ref of toAssign) {
+      usedNodeIds.add(ref.nodeId)
+    }
+  }
+
+  // Pass 3: Collect associated (unassigned media refs)
+  const associated: MediaReference[] = []
+  for (const type of ['image', 'video', 'audio'] as const) {
+    for (const ref of pools[type] ?? []) {
+      if (isMediaReference(ref) && !usedNodeIds.has(ref.nodeId)) {
+        associated.push(ref)
+      }
+    }
+  }
+
+  // Pass 4: Collect missingRequired
+  const missingRequired: string[] = []
+  for (const slot of slots) {
+    if (slot.min > 0 && (!assigned[slot.id] || assigned[slot.id].length < slot.min)) {
+      missingRequired.push(slot.id)
+    }
+  }
+
+  return { assigned, associated, missingRequired }
 }
 
 // ---------------------------------------------------------------------------
