@@ -13,7 +13,7 @@ import { Button } from "@openloaf/ui/button";
 import { Switch } from "@openloaf/ui/switch";
 import { useTranslation } from "react-i18next";
 import { getWebClientId } from "@/lib/chat/streamClientId";
-import { resolveSaasBaseUrl } from "@/lib/saas-auth";
+import { resolveSaasBaseUrl, openExternalUrl } from "@/lib/saas-auth";
 import type { LucideIcon } from "lucide-react";
 import {
   ArrowDownToLine,
@@ -597,36 +597,30 @@ export function AboutOpenLoaf() {
               </button>
             </OpenLoafSettingsField>
           </div>
-          <a
-            href={`${resolveSaasBaseUrl()}/terms`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 py-3 cursor-pointer hover:bg-accent/50 -mx-2 px-2 rounded-3xl transition-colors no-underline text-foreground"
+          <div
+            className="flex items-center gap-2 py-3 cursor-pointer hover:bg-accent/50 -mx-2 px-2 rounded-3xl transition-colors"
+            onClick={() => void openExternalUrl(`${resolveSaasBaseUrl()}/terms`)}
           >
             <SettingIcon icon={Scale} bg="bg-secondary" fg="text-foreground" />
             <div className="min-w-0 flex-1 text-sm font-medium">{t('aboutAdditions.license')}</div>
             <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-          </a>
-          <a
-            href={`${resolveSaasBaseUrl()}/privacy`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 py-3 cursor-pointer hover:bg-accent/50 -mx-2 px-2 rounded-3xl transition-colors no-underline text-foreground"
+          </div>
+          <div
+            className="flex items-center gap-2 py-3 cursor-pointer hover:bg-accent/50 -mx-2 px-2 rounded-3xl transition-colors"
+            onClick={() => void openExternalUrl(`${resolveSaasBaseUrl()}/privacy`)}
           >
             <SettingIcon icon={Shield} bg="bg-secondary" fg="text-foreground" />
             <div className="min-w-0 flex-1 text-sm font-medium">{t('aboutAdditions.privacy')}</div>
             <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-          </a>
-          <a
-            href={`${resolveSaasBaseUrl()}/opensource`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 py-3 cursor-pointer hover:bg-accent/50 -mx-2 px-2 rounded-3xl transition-colors no-underline text-foreground"
+          </div>
+          <div
+            className="flex items-center gap-2 py-3 cursor-pointer hover:bg-accent/50 -mx-2 px-2 rounded-3xl transition-colors"
+            onClick={() => void openExternalUrl(`${resolveSaasBaseUrl()}/opensource`)}
           >
             <SettingIcon icon={Code2} bg="bg-secondary" fg="text-foreground" />
             <div className="min-w-0 flex-1 text-sm font-medium">{t('aboutAdditions.oss')}</div>
             <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-          </a>
+          </div>
           <div className="flex items-center gap-2 py-3 cursor-pointer hover:bg-accent/50 -mx-2 px-2 rounded-3xl transition-colors">
             <SettingIcon icon={BookOpen} bg="bg-secondary" fg="text-foreground" />
             <div className="min-w-0 flex-1 text-sm font-medium">{t('aboutAdditions.docs')}</div>

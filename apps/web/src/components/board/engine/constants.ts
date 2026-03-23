@@ -18,7 +18,7 @@ export const SELECTION_BOX_THRESHOLD = 4;
 
 export const ANCHOR_HIT_RADIUS = 12;
 export const EDGE_ANCHOR_HIT_RADIUS = 6;
-export const EDGE_ANCHOR_CENTER_RANGE = 18;
+export const EDGE_ANCHOR_CENTER_RANGE = 28;
 export const CONNECTOR_ENDPOINT_HIT_RADIUS = 6;
 export const CONNECTOR_HIT_RADIUS = 8;
 export const STROKE_HIT_RADIUS = 8;
@@ -73,7 +73,9 @@ export const MULTI_SELECTION_HANDLE_SIZE = 22;
 /** Screen-px: rest offset pushing anchor icon outward when visible but idle. */
 export const ANCHOR_REST_OFFSET = 20;
 /** Screen-px: max displacement during magnetic follow. */
-export const ANCHOR_MAGNETIC_MAX = 24;
+export const ANCHOR_MAGNETIC_MAX = 10;
+/** Dampening ratio: icon moves this fraction of the cursor offset (0–1). */
+export const ANCHOR_MAGNETIC_DAMPEN = 0.4;
 /** Ms: transition duration while cursor drags the icon. */
 export const ANCHOR_MAGNETIC_DURATION_MS = 80;
 /** Ms: bounce-back transition when cursor leaves hotzone. */

@@ -103,6 +103,8 @@ export function VideoPlayer({
     const onLoadedMetadata = () => {
       setDuration(video.duration);
       setReady(true);
+      // 逻辑：元数据加载后移除 poster，让浏览器显示高清视频首帧而非低分辨率缩略图。
+      video.removeAttribute("poster");
       if (clipStartTime && clipStartTime > 0) {
         video.currentTime = clipStartTime;
       }

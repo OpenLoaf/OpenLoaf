@@ -16,9 +16,11 @@ import {
   ANCHOR_BOUNCE_DURATION_MS,
   ANCHOR_BOUNCE_EASING,
   ANCHOR_HOTZONE_RADIUS,
+  ANCHOR_MAGNETIC_DAMPEN,
   ANCHOR_MAGNETIC_DURATION_MS,
   ANCHOR_MAGNETIC_MAX,
   ANCHOR_MAGNETIC_SCALE,
+  SELECTED_ANCHOR_SIDE_SIZE,
 } from '../engine/constants'
 
 export type AnchorEntry = {
@@ -107,17 +109,24 @@ export function useAnchorMagnetic(
           continue
         }
 
-        // 逻辑：计算鼠标到锚点中心的屏幕像素距离。
+        // 逻辑：计算鼠标到锚点中心的屏幕像素距离，扣除锚点半径后得到"边缘距离"。
         const dx = (cursor[0] - entry.worldPoint[0]) * zoom
         const dy = (cursor[1] - entry.worldPoint[1]) * zoom
         const dist = Math.hypot(dx, dy)
+        const anchorRadius = SELECTED_ANCHOR_SIDE_SIZE / 2
         const inHotzone = dist < ANCHOR_HOTZONE_RADIUS
         const wasInHotzone = prevInHotzoneMap.current.get(entry.anchorId) ?? false
 
         if (inHotzone) {
-          const clamp = dist > ANCHOR_MAGNETIC_MAX ? ANCHOR_MAGNETIC_MAX / dist : 1
-          const tx = dx * clamp
-          const ty = dy * clamp
+          // 逻辑：扣除锚点半径 → 圆内部不产生偏移，仅超出边缘部分驱动跟随。
+          // 再乘阻尼系数，确保图标移动距离始终小于鼠标距离，手感稳定。
+          const effectiveDist = Math.max(0, dist - anchorRadius)
+          const maxOffset = ANCHOR_MAGNETIC_MAX
+          const ratio = effectiveDist > 0
+            ? Math.min(effectiveDist * ANCHOR_MAGNETIC_DAMPEN, maxOffset) / dist
+            : 0
+          const tx = dx * ratio
+          const ty = dy * ratio
           el.style.transition = `transform ${ANCHOR_MAGNETIC_DURATION_MS}ms ease-out`
           el.style.transform = `translate(${tx}px, ${ty}px) scale(${ANCHOR_MAGNETIC_SCALE})`
           prevInHotzoneMap.current.set(entry.anchorId, true)

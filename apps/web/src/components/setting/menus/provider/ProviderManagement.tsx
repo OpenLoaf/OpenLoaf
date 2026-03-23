@@ -45,6 +45,7 @@ import {
   useProviderManagement,
   type ProviderEntry,
 } from "@/components/setting/menus/provider/use-provider-management";
+import { WebSearchSettings } from "@/components/setting/menus/WebSearchSettings";
 
 /** Flat-color icon badge for settings items. */
 function SettingIcon({ icon: Icon, bg, fg }: { icon: LucideIcon; bg: string; fg: string }) {
@@ -329,6 +330,8 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
           setConfirmDeleteId(null);
         }}
       />
+
+      <WebSearchSettings />
 
     </div>
   );

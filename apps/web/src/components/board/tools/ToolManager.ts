@@ -10,7 +10,7 @@
 import type { CanvasTool, CanvasToolHost, ToolContext } from "./ToolTypes";
 import type { CanvasPoint } from "../engine/types";
 import { DEFAULT_NODE_SIZE } from "../engine/constants";
-import { isBoardUiTarget } from "../utils/dom";
+import { isBoardUiTarget, isPointerOverBoardUi } from "../utils/dom";
 import { IMAGE_NODE_STACK_OFFSET } from "../utils/image-insert";
 import { PlacementTool } from "./PlacementTool";
 
@@ -31,18 +31,9 @@ const TOOL_SHORTCUTS: Record<string, string> = {
   p: "pen",
   k: "highlighter",
   e: "eraser",
-  c: "connector",
 };
 
-/**
- * "connector" is a virtual tool — the actual drawing logic lives inside
- * SelectTool, but the UI needs a distinct activeToolId so the toolbar can
- * highlight the connector button. This map resolves virtual ids to the real
- * registered tool.
- */
-const TOOL_ALIASES: Record<string, string> = {
-  connector: "select",
-};
+const TOOL_ALIASES: Record<string, string> = {};
 
 export class ToolManager {
   /** Tool registry keyed by tool id. */
@@ -77,7 +68,7 @@ export class ToolManager {
     if (!this.tools.has(resolvedId)) {
       throw new Error(`Unknown tool: ${toolId}`);
     }
-    // 逻辑：存储原始 toolId（如 "connector"）用于 UI 高亮，
+    // 逻辑：存储原始 toolId 用于 UI 高亮，
     // 但实际分发事件时使用 resolvedId 对应的已注册工具。
     this.activeToolId = toolId;
     const tool = this.tools.get(resolvedId);
@@ -92,7 +83,7 @@ export class ToolManager {
     return this.activeToolId;
   }
 
-  /** Return the current active tool (resolves aliases like "connector" → "select"). */
+  /** Return the current active tool (resolves aliases to the real registered tool). */
   getActiveTool(): CanvasTool | null {
     if (!this.activeToolId) return null;
     const resolvedId = TOOL_ALIASES[this.activeToolId] ?? this.activeToolId;
@@ -186,6 +177,10 @@ export class ToolManager {
     // 逻辑：pointerdown 被编辑器 stopPropagation 拦截时 boardUiInteraction 未被设置，
     // 这里补充检查避免 pointermove 泄漏到工具导致选字卡顿。
     if (isBoardUiTarget(event.target)) return;
+    // 逻辑：AI 面板通过 portal 渲染在 pointer-events-none 的 overlay 层内，
+    // 面板间隙处事件穿透到 canvas，event.target 不含 data-board-editor。
+    // 用 elementsFromPoint 检测鼠标下方是否存在面板元素，避免工具误触。
+    if (isPointerOverBoardUi(event)) return;
     const ctx = this.buildContext(event);
     if (!ctx) return;
     if (this.engine.isToolbarDragging()) {
@@ -328,7 +323,7 @@ export class ToolManager {
     const key = event.key.toLowerCase();
     const toolId = TOOL_SHORTCUTS[key];
     if (!toolId) return false;
-    const isLockedTool = toolId === "pen" || toolId === "highlighter" || toolId === "eraser" || toolId === "text" || toolId === "shape" || toolId === "connector";
+    const isLockedTool = toolId === "pen" || toolId === "highlighter" || toolId === "eraser" || toolId === "text" || toolId === "shape";
     if (this.engine.isLocked() && isLockedTool) {
       event.preventDefault();
       return true;

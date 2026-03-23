@@ -29,7 +29,7 @@ const DocViewer = dynamic(() => import("@/components/file/DocViewer"), { ssr: fa
 const ExcelViewer = dynamic(() => import("@/components/file/ExcelViewer"), { ssr: false });
 const PptxViewer = dynamic(() => import("@/components/file/PptxViewer"), { ssr: false });
 const FileViewer = dynamic(() => import("@/components/file/FileViewer"), { ssr: false });
-const VideoViewer = dynamic(() => import("@/components/file/VideoViewer"), { ssr: false });
+import VideoViewer from "@/components/file/VideoViewer";
 import { getImageDialogSize, type ImageMeta } from "@/lib/image/dialog-size";
 import { useFilePreviewStore, closeFilePreview } from "@/components/file/lib/file-preview-store";
 

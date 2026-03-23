@@ -23,7 +23,7 @@ import {
   MousePointer2,
   Hand,
   Plus,
-  Spline,
+  LayoutTemplate,
   Pen,
   Highlighter,
   Eraser,
@@ -44,7 +44,6 @@ const SHORTCUTS: Record<string, string> = {
   select: "V",
   hand: "H",
   text: "T",
-  connector: "C",
   pen: "P",
   highlighter: "K",
   eraser: "E",
@@ -158,6 +157,7 @@ const LeftToolbar = memo(function LeftToolbar({
   const { t } = useTranslation("board");
   const [insertPanelOpen, setInsertPanelOpen] = useState(false);
   const [drawPanelOpen, setDrawPanelOpen] = useState(false);
+  const [templatePanelOpen, setTemplatePanelOpen] = useState(false);
   const hoverTimerRef = useRef<number | null>(null);
 
   const activeToolId = snapshot.activeToolId;
@@ -174,6 +174,7 @@ const LeftToolbar = memo(function LeftToolbar({
   const closeAllPanels = useCallback(() => {
     setInsertPanelOpen(false);
     setDrawPanelOpen(false);
+    setTemplatePanelOpen(false);
   }, []);
 
   const handleToolChange = useCallback(
@@ -217,8 +218,9 @@ const LeftToolbar = memo(function LeftToolbar({
     [isLocked, clearHoverTimer],
   );
 
-  const insertHover = makeHoverHandlers(setInsertPanelOpen, [setDrawPanelOpen]);
-  const drawHover = makeHoverHandlers(setDrawPanelOpen, [setInsertPanelOpen]);
+  const insertHover = makeHoverHandlers(setInsertPanelOpen, [setDrawPanelOpen, setTemplatePanelOpen]);
+  const drawHover = makeHoverHandlers(setDrawPanelOpen, [setInsertPanelOpen, setTemplatePanelOpen]);
+  const templateHover = makeHoverHandlers(setTemplatePanelOpen, [setInsertPanelOpen, setDrawPanelOpen]);
 
   const handleInsertRequest = useCallback(
     (request: CanvasInsertRequest) => {
@@ -432,17 +434,37 @@ const LeftToolbar = memo(function LeftToolbar({
           </SidePanel>
         </div>
 
-        {/* Connector (C) */}
-        <IconBtn
-          title={buildTitle(t("tools.connector"), "connector")}
-          active={activeToolId === "connector"}
-          onPointerDown={() => handleToolChange("connector")}
-          tooltipSide="right"
-          disabled={isLocked}
-          className="h-9 w-9 !text-foreground"
+        {/* Template — hover opens a coming-soon panel */}
+        <div
+          className="relative"
+          {...templateHover}
         >
-          <Spline size={iconSize} />
-        </IconBtn>
+          <IconBtn
+            title={t("tools.template")}
+            active={templatePanelOpen}
+            onPointerDown={() => {
+              if (!isLocked) setTemplatePanelOpen((prev) => !prev);
+            }}
+            tooltipSide="right"
+            showTooltip={!templatePanelOpen}
+            className="h-9 w-9 !text-foreground"
+          >
+            <LayoutTemplate size={iconSize} />
+          </IconBtn>
+          <SidePanel open={templatePanelOpen}>
+            <div className="flex flex-col items-center justify-center px-4 py-8 text-center">
+              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-foreground/5 dark:bg-foreground/8">
+                <LayoutTemplate size={24} className="text-ol-text-auxiliary" />
+              </div>
+              <span className="text-[13px] font-semibold text-ol-text-secondary">
+                {t("tools.templateComingSoon")}
+              </span>
+              <span className="mt-1.5 text-[11px] leading-relaxed text-ol-text-auxiliary">
+                {t("tools.templateComingSoonDesc")}
+              </span>
+            </div>
+          </SidePanel>
+        </div>
       </div>
     </div>
   );

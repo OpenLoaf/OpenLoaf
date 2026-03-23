@@ -1360,6 +1360,38 @@ export function BoardCanvasInteraction({
         engine.setExpandedNodeId(element.id);
         return;
       }
+      // 逻辑：非空视频节点双击时打开视频预览弹窗。
+      const sourcePath = vidProps.sourcePath!.trim();
+      const resolvedPath = resolveProjectRelativePath(sourcePath);
+      const displayName = vidProps.fileName || (resolvedPath || sourcePath).split("/").pop() || "Video";
+      void fetchVideoMetadata({
+        projectId: fileContext?.projectId,
+        boardId: fileContext?.boardId,
+        uri: resolvedPath || sourcePath,
+      }).then((metadata) => {
+        openFilePreview({
+          viewer: "video",
+          items: [
+            {
+              uri: sourcePath,
+              openUri: resolvedPath || sourcePath,
+              name: displayName,
+              title: displayName,
+              width: metadata?.width ?? vidProps.naturalWidth,
+              height: metadata?.height ?? vidProps.naturalHeight,
+              projectId: fileContext?.projectId,
+              rootUri: fileContext?.rootUri,
+              boardId: fileContext?.boardId ?? '',
+              clipStart: vidProps.clipStart,
+              clipEnd: vidProps.clipEnd,
+            },
+          ],
+          activeIndex: 0,
+          showSave: false,
+          enableEdit: false,
+        });
+      });
+      return;
     }
     if (element.type === "audio") {
       const audProps = element.props as { sourcePath?: string };
@@ -1747,6 +1779,7 @@ export function BoardCanvasInteraction({
             }
           }}
           onDoubleClick={(event) => {
+            console.info('[DBLCLICK] fired', { showUi, pendingInsert: snapshot.pendingInsert, toolbarDragging: snapshot.toolbarDragging, locked: engine.isLocked() });
             if (!showUi) return;
             const rawTarget = event.target as EventTarget | null;
             const target =
@@ -1755,12 +1788,13 @@ export function BoardCanvasInteraction({
                 : rawTarget instanceof Node
                   ? rawTarget.parentElement
                   : null;
-            if (!target) return;
+            if (!target) { console.info('[DBLCLICK] no target'); return; }
             // 逻辑：过滤 React portal 冒泡的事件（如文件选择对话框的双击）。
-            if (!containerRef.current?.contains(target)) return;
-            if (snapshot.pendingInsert || snapshot.toolbarDragging) return;
-            if (engine.isLocked()) return;
+            if (!containerRef.current?.contains(target)) { console.info('[DBLCLICK] target not in container', target); return; }
+            if (snapshot.pendingInsert || snapshot.toolbarDragging) { console.info('[DBLCLICK] pendingInsert or toolbarDragging'); return; }
+            if (engine.isLocked()) { console.info('[DBLCLICK] engine locked'); return; }
             if (isBoardUiTarget(target, ["[data-connector-drop-panel]"])) {
+              console.info('[DBLCLICK] is board UI target');
               return;
             }
             const rect = containerRef.current?.getBoundingClientRect();
@@ -1770,6 +1804,7 @@ export function BoardCanvasInteraction({
               event.clientY - rect.top,
             ]);
             const hitElement = engine.pickElementAt(worldPoint);
+            console.info('[DBLCLICK] hitElement', hitElement?.kind, hitElement?.type, hitElement?.id);
             if (hitElement?.kind === "node") {
               handleNodeDoubleClick(hitElement);
             } else if (!hitElement) {

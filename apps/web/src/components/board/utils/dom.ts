@@ -30,4 +30,17 @@ function isBoardUiTarget(
   return selectors.some(selector => Boolean(element.closest(selector)));
 }
 
-export { isBoardUiTarget };
+/**
+ * Check whether the pointer is geometrically over a board-UI element,
+ * regardless of pointer-events CSS.  This catches the case where an AI panel
+ * lives inside a pointer-events-none overlay: the event.target is the canvas,
+ * but the cursor is visually on top of the panel.
+ */
+function isPointerOverBoardUi(event: PointerEvent): boolean {
+  const elements = document.elementsFromPoint(event.clientX, event.clientY);
+  return elements.some(el =>
+    BOARD_UI_SELECTORS.some(sel => el.matches(sel) || el.closest(sel) !== null)
+  );
+}
+
+export { isBoardUiTarget, isPointerOverBoardUi };
