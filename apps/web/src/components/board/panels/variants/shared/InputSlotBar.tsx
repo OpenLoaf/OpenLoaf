@@ -881,7 +881,6 @@ function FilledSlotWithPopover({
           <MediaSlot
             label=""
             src={currentRef.url}
-            required={required}
             uploadAccept={uploadAccept}
             disabled={disabled}
             onRemove={onRemove}
