@@ -55,17 +55,17 @@ export function RechargeDialog({ open, onOpenChange }: RechargeDialogProps) {
     }
 
     let destroyed = false
+    const timers: ReturnType<typeof setTimeout>[] = []
     setLoading(true)
     setTimedOut(false)
 
-    const timeoutId = setTimeout(() => {
+    timers.push(setTimeout(() => {
       if (!destroyed) setTimedOut(true)
-    }, EMBED_TIMEOUT_MS)
+    }, EMBED_TIMEOUT_MS))
 
     void getAccessToken().then((token) => {
       if (destroyed) return
       if (!token || !containerRef.current) {
-        clearTimeout(timeoutId)
         setTimedOut(true)
         return
       }
@@ -75,8 +75,10 @@ export function RechargeDialog({ open, onOpenChange }: RechargeDialogProps) {
         baseUrl,
         token,
         onReady: () => {
-          clearTimeout(timeoutId)
-          if (!destroyed) setLoading(false)
+          if (!destroyed) {
+            for (const id of timers) clearTimeout(id)
+            setLoading(false)
+          }
         },
         onSuccess: () => {
           toast.success(t("account.paymentSuccess"))
@@ -91,6 +93,17 @@ export function RechargeDialog({ open, onOpenChange }: RechargeDialogProps) {
         style: { width: "100%", height: "100%", border: "none" },
       })
       embedRef.current = embed
+
+      const retrySend = () => {
+        if (destroyed || !embed.iframe?.contentWindow) return
+        embed.iframe.contentWindow.postMessage(
+          { type: "auth", token },
+          baseUrl,
+        )
+      }
+      timers.push(setTimeout(retrySend, 500))
+      timers.push(setTimeout(retrySend, 1500))
+      timers.push(setTimeout(retrySend, 3000))
     })
 
     const refreshInterval = setInterval(() => {
@@ -103,7 +116,7 @@ export function RechargeDialog({ open, onOpenChange }: RechargeDialogProps) {
 
     return () => {
       destroyed = true
-      clearTimeout(timeoutId)
+      for (const id of timers) clearTimeout(id)
       clearInterval(refreshInterval)
       embedRef.current?.destroy()
       embedRef.current = null
@@ -127,7 +140,7 @@ export function RechargeDialog({ open, onOpenChange }: RechargeDialogProps) {
         <div className="relative h-full w-full">
           <div ref={containerRef} className="h-full w-full" />
           {loading && !timedOut && (
-            <div className="absolute inset-0 flex items-center justify-center bg-background">
+            <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-background">
               <Loader2 className="size-6 animate-spin text-muted-foreground" />
             </div>
           )}
