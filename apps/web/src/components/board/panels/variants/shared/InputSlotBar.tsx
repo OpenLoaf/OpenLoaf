@@ -531,34 +531,9 @@ export function InputSlotBar({
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Unassigned text references pool */}
-      {unassignedTextRefs.length > 0 ? (
-        <TextReferencePool
-          references={unassignedTextRefs}
-          onInsert={handleInsertUnassignedText}
-        />
-      ) : null}
-
-      {/* Text slots */}
-      {textSlots.map((slot) => {
-        const textRefs = (slotAssignments[slot.id] ?? []).filter(isTextReference)
-        return (
-          <TextSlotField
-            key={slot.id}
-            label={t(slot.labelKey, { defaultValue: slot.labelKey })}
-            references={textRefs}
-            userText={userTexts[slot.id] ?? ''}
-            allReferences={allTextRefs}
-            assignedNodeIds={assignedTextNodeIds}
-            required={slot.min > 0}
-            disabled={disabled}
-            mode={slot.referenceMode ?? 'inline'}
-            onUserTextChange={(text) => handleTextUserChange(slot.id, text)}
-            onAddReference={(ref) => handleTextAddRef(slot.id, ref)}
-            onRemoveReference={(nodeId) => handleTextRemoveRef(slot.id, nodeId)}
-          />
-        )
-      })}
+      {/* Text slots are NOT rendered here — each variant handles its own
+          text input UX (prompt, negative prompt, description, etc.).
+          InputSlotBar only manages media slot assignment and display. */}
 
       {/* Dual-zone media layout */}
       {mediaSlots.length > 0 ? (() => {
