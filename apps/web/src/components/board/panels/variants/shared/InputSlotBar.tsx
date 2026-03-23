@@ -328,19 +328,40 @@ export function InputSlotBar({
         url: value,
         path: value,
       }
-      setSlotAssignments((prev) => ({
-        ...prev,
-        [slotId]: [newRef],
-      }))
+      setSlotAssignments((prev) => {
+        // Move displaced upstream ref back to associated
+        const displaced = (prev[slotId] ?? [])
+          .filter(isMediaReference)
+          .filter((r) => !r.nodeId.startsWith('__manual_'))
+        if (displaced.length > 0) {
+          setAssociatedRefs((prevAssoc) => {
+            const existing = new Set(prevAssoc.map((r) => r.nodeId))
+            const toAdd = displaced.filter((r) => !existing.has(r.nodeId))
+            return toAdd.length > 0 ? [...prevAssoc, ...toAdd] : prevAssoc
+          })
+        }
+        return { ...prev, [slotId]: [newRef] }
+      })
     },
     [],
   )
 
   const handleMediaRemove = useCallback((slotId: string) => {
-    setSlotAssignments((prev) => ({
-      ...prev,
-      [slotId]: [],
-    }))
+    setSlotAssignments((prev) => {
+      const removedRefs = (prev[slotId] ?? []).filter(isMediaReference)
+      // Move removed upstream refs (not manual uploads) back to associated
+      const upstreamRefs = removedRefs.filter(
+        (r) => !r.nodeId.startsWith('__manual_'),
+      )
+      if (upstreamRefs.length > 0) {
+        setAssociatedRefs((prevAssoc) => {
+          const existing = new Set(prevAssoc.map((r) => r.nodeId))
+          const toAdd = upstreamRefs.filter((r) => !existing.has(r.nodeId))
+          return toAdd.length > 0 ? [...prevAssoc, ...toAdd] : prevAssoc
+        })
+      }
+      return { ...prev, [slotId]: [] }
+    })
   }, [])
 
   // ---------------------------------------------------------------------------

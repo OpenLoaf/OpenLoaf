@@ -128,47 +128,53 @@ export function MediaSlot({
       }}
       onPointerLeave={() => setHovered(false)}
     >
-      <button
-        type="button"
-        disabled={disabled || (!onUpload && !hasSrc)}
+      <div
         className={[
-          'relative shrink-0 overflow-hidden rounded-xl transition-colors duration-150',
+          'relative shrink-0',
           size,
-          hasSrc
-            ? associated
-              ? 'border border-dashed border-muted-foreground/30 bg-ol-surface-muted opacity-50 hover:opacity-100 cursor-pointer'
-              : 'border border-border bg-ol-surface-muted'
-            : 'border border-dashed border-border bg-ol-surface-muted/50 hover:bg-ol-surface-muted',
-          disabled ? 'cursor-not-allowed opacity-60' : '',
-          pulse && !hasSrc ? 'animate-pulse' : '',
         ].join(' ')}
-        onClick={() => !disabled && !hasSrc && inputRef.current?.click()}
       >
-        {hasSrc ? (
-          isNonImageSlot ? (
-            <div className="flex h-full w-full items-center justify-center text-foreground/70">
+        <button
+          type="button"
+          disabled={disabled || (!onUpload && !hasSrc)}
+          className={[
+            'h-full w-full overflow-hidden rounded-xl transition-colors duration-150',
+            hasSrc
+              ? associated
+                ? 'border border-dashed border-muted-foreground/30 bg-ol-surface-muted opacity-50 hover:opacity-100 cursor-pointer'
+                : 'border border-border bg-ol-surface-muted'
+              : 'border border-dashed border-border bg-ol-surface-muted/50 hover:bg-ol-surface-muted',
+            disabled ? 'cursor-not-allowed opacity-60' : '',
+            pulse && !hasSrc ? 'animate-pulse' : '',
+          ].join(' ')}
+          onClick={() => !disabled && !hasSrc && inputRef.current?.click()}
+        >
+          {hasSrc ? (
+            isNonImageSlot ? (
+              <div className="flex h-full w-full items-center justify-center text-foreground/70">
+                {icon ?? <Plus size={16} />}
+              </div>
+            ) : (
+              <img
+                src={displaySrc}
+                alt={label}
+                className="h-full w-full object-cover"
+                draggable={false}
+                onError={() => setImgFailed(true)}
+              />
+            )
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-muted-foreground/50">
               {icon ?? <Plus size={16} />}
             </div>
-          ) : (
-            <img
-              src={displaySrc}
-              alt={label}
-              className="h-full w-full object-cover"
-              draggable={false}
-              onError={() => setImgFailed(true)}
-            />
-          )
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-muted-foreground/50">
-            {icon ?? <Plus size={16} />}
-          </div>
-        )}
-        {/* Remove button on hover */}
+          )}
+        </button>
+        {/* Remove button on hover — outside overflow-hidden so it's not clipped */}
         {hasSrc && onRemove && !disabled ? (
           <div
             role="button"
             tabIndex={0}
-            className="absolute -right-1 -top-1 hidden h-4 w-4 items-center justify-center rounded-full bg-foreground/80 text-background group-hover/slot:flex"
+            className="absolute -right-1 -top-1 z-10 hidden h-4 w-4 items-center justify-center rounded-full bg-foreground/80 text-background group-hover/slot:flex"
             onClick={(e) => {
               e.stopPropagation()
               onRemove()
@@ -183,7 +189,7 @@ export function MediaSlot({
             <X size={8} />
           </div>
         ) : null}
-      </button>
+      </div>
       {(label || required) ? (
         <span
           className={[
