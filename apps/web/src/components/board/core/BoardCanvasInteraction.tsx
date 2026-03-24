@@ -120,8 +120,6 @@ const DEFAULT_AUDIO_NODE_WIDTH = 320;
 const DEFAULT_AUDIO_NODE_HEIGHT = 120;
 const DEFAULT_FILE_NODE_WIDTH = 260;
 const DEFAULT_FILE_NODE_HEIGHT = 80;
-const CONNECTOR_TEMPLATE_SIDE_GAP = 60;
-const CONNECTOR_TEMPLATE_STACK_GAP = 16;
 /** Cursor assets for board drawing tools. */
 const PEN_CURSOR_DOWN_URL = "/board/brush-cursor.svg";
 const PEN_CURSOR_UP_URL = "/board/brush-cursor-up.svg";
@@ -999,7 +997,7 @@ export function BoardCanvasInteraction({
     center: CanvasPoint,
   ) => {
     const bfUri = fileContext?.boardFolderUri ?? boardFolderUri;
-    if (!bfUri) return;
+    if (!fileContext?.boardId && !bfUri) return;
     const videoFiles = files.filter(isVideoFile);
     if (videoFiles.length === 0) return;
     for (const [index, file] of videoFiles.entries()) {
@@ -1008,6 +1006,7 @@ export function BoardCanvasInteraction({
           file,
           fallbackName: "video.mp4",
           projectId: fileContext?.projectId,
+          boardId: fileContext?.boardId,
           boardFolderUri: bfUri,
         });
         if (!relativePath) continue;
@@ -1114,7 +1113,7 @@ export function BoardCanvasInteraction({
     center: CanvasPoint,
   ) => {
     const bfUri = fileContext?.boardFolderUri ?? boardFolderUri;
-    if (!bfUri) return;
+    if (!fileContext?.boardId && !bfUri) return;
     const audioFiles = files.filter(isAudioFile);
     if (audioFiles.length === 0) return;
     for (const [index, file] of audioFiles.entries()) {
@@ -1123,6 +1122,7 @@ export function BoardCanvasInteraction({
           file,
           fallbackName: "audio.mp3",
           projectId: fileContext?.projectId,
+          boardId: fileContext?.boardId,
           boardFolderUri: bfUri,
         });
         if (!relativePath) continue;
@@ -1155,7 +1155,7 @@ export function BoardCanvasInteraction({
     center: CanvasPoint,
   ) => {
     const bfUri = fileContext?.boardFolderUri ?? boardFolderUri;
-    if (!bfUri) return;
+    if (!fileContext?.boardId && !bfUri) return;
     if (files.length === 0) return;
     for (const [index, file] of files.entries()) {
       try {
@@ -1164,6 +1164,7 @@ export function BoardCanvasInteraction({
           file,
           fallbackName: `file.${ext || "bin"}`,
           projectId: fileContext?.projectId,
+          boardId: fileContext?.boardId,
           boardFolderUri: bfUri,
         });
         if (!relativePath) continue;
@@ -1455,47 +1456,14 @@ export function BoardCanvasInteraction({
     const sourceElement = sourceElementId
       ? engine.doc.getElementById(sourceElementId)
       : null;
-    const xywh: [number, number, number, number] =
-      sourceElement && sourceElement.kind === "node"
-        ? (() => {
-            const direction = resolveConnectorDropDirection(
-              snapshot.connectorDrop.source,
-              sourceElement.xywh,
-              snapshot.connectorDrop.point,
-            );
-            const existingOutputs = collectOutboundTargetRects(
-              engine,
-              sourceElement.id,
-            );
-            const placement = resolveDirectionalStackPlacement(
-              sourceElement.xywh,
-              existingOutputs,
-              {
-                direction,
-                sideGap: CONNECTOR_TEMPLATE_SIDE_GAP,
-                stackGap: CONNECTOR_TEMPLATE_STACK_GAP,
-                outputSize: [width, height],
-              },
-            );
-            const proposed: [number, number, number, number] = placement
-              ? [placement.x, placement.y, width, height]
-              : [
-                  snapshot.connectorDrop.point[0] - width / 2,
-                  snapshot.connectorDrop.point[1] - height / 2,
-                  width,
-                  height,
-                ];
-            const allNodes = engine.doc
-              .getElements()
-              .filter((el): el is CanvasNodeElement => el.kind === 'node');
-            return avoidNodeCollisions(proposed, allNodes, sourceElement.id, direction);
-          })()
-        : [
-            snapshot.connectorDrop.point[0] - width / 2,
-            snapshot.connectorDrop.point[1] - height / 2,
-            width,
-            height,
-          ];
+    // 逻辑：新节点左侧锚点对齐 drop point（鼠标松开位置），即左边缘 = drop.x，垂直居中 = drop.y。
+    const proposed: [number, number, number, number] = [
+      snapshot.connectorDrop.point[0],
+      snapshot.connectorDrop.point[1] - height / 2,
+      width,
+      height,
+    ];
+    const xywh = proposed;
     const id = engine.addNodeElement(type, props, xywh);
     if (id) {
       // 逻辑：backward 拖拽时新节点是上游 source，origin 节点是 target；forward 保持原逻辑。
@@ -1797,10 +1765,20 @@ export function BoardCanvasInteraction({
             }
             const rect = containerRef.current?.getBoundingClientRect();
             if (!rect) return;
-            const worldPoint = engine.screenToWorld([
+            const screenPoint: [number, number] = [
               event.clientX - rect.left,
               event.clientY - rect.top,
-            ]);
+            ];
+            const worldPoint = engine.screenToWorld(screenPoint);
+            // DEBUG: 双击坐标链追踪
+            console.log('[board-dblclick] clientX/Y:', event.clientX, event.clientY);
+            console.log('[board-dblclick] rect left/top:', rect.left, rect.top, 'w/h:', rect.width, rect.height);
+            console.log('[board-dblclick] screenPoint:', screenPoint);
+            console.log('[board-dblclick] viewport:', engine.viewport.getState());
+            console.log('[board-dblclick] worldPoint:', worldPoint);
+            // 反向验证：将 worldPoint 转回屏幕坐标
+            const backToScreen = engine.viewport.toScreen(worldPoint);
+            console.log('[board-dblclick] backToScreen:', backToScreen, 'expected:', screenPoint);
             const hitElement = engine.pickElementAt(worldPoint);
             if (hitElement?.kind === "node") {
               handleNodeDoubleClick(hitElement);

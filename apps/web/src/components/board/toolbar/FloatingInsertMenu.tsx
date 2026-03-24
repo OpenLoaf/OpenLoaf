@@ -105,12 +105,25 @@ const FloatingInsertMenu = memo(function FloatingInsertMenu({
     (type: string, props: Record<string, unknown>, size: [number, number]) => {
       if (!state) return;
       const [w, h] = size;
-      engine.addNodeElement(type, props, [
+      const xywh: [number, number, number, number] = [
         state.worldPoint[0] - w / 2,
         state.worldPoint[1] - h / 2,
         w,
         h,
-      ]);
+      ];
+      // DEBUG: 节点放置坐标追踪
+      console.log('[board-place] state.worldPoint:', state.worldPoint);
+      console.log('[board-place] node xywh:', xywh);
+      console.log('[board-place] viewport:', engine.viewport.getState());
+      // 预期屏幕中心位置
+      const { offset, zoom } = engine.viewport.getState();
+      const expectedScreenCenter = [
+        state.worldPoint[0] * zoom + offset[0],
+        state.worldPoint[1] * zoom + offset[1],
+      ];
+      console.log('[board-place] expected screen center of node:', expectedScreenCenter);
+      console.log('[board-place] original clientX/Y:', state.clientX, state.clientY);
+      engine.addNodeElement(type, props, xywh);
       close();
     },
     [engine, state, close],

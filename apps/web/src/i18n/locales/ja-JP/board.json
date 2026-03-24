@@ -1162,6 +1162,7 @@
     "person": "人物画像",
     "face": "顔画像",
     "style": "スタイル画像",
+    "mask": "マスク",
     "textPlaceholder": "テキストを入力、または @ で上流ノートを参照...",
     "unassignedTexts": "未割り当てテキスト：",
     "clearReference": "参照をクリア",

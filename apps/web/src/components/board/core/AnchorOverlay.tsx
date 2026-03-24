@@ -19,10 +19,8 @@ import { useMemo } from "react";
 import { Plus } from "lucide-react";
 import {
   SELECTED_ANCHOR_EDGE_SIZE,
-  SELECTED_ANCHOR_EDGE_SIZE_HOVER,
   SELECTED_ANCHOR_GAP,
   SELECTED_ANCHOR_SIDE_SIZE,
-  SELECTED_ANCHOR_SIDE_SIZE_HOVER,
 } from "../engine/constants";
 import { LARGE_ANCHOR_NODE_TYPES } from "../engine/anchorTypes";
 import { getGroupOutlinePadding, isGroupNodeType } from "../engine/grouping";
@@ -90,21 +88,15 @@ export function AnchorOverlay({ snapshot, engine }: AnchorOverlayProps) {
           hoverAnchor.anchorId === anchor.anchorId;
         const isSideAnchor = anchor.anchorId === "left" || anchor.anchorId === "right";
         const useSelectedStyle = anchor.origin !== "connector";
-        const baseSize = useSelectedStyle
+        const size = useSelectedStyle
           ? isSideAnchor
             ? SELECTED_ANCHOR_SIDE_SIZE
             : SELECTED_ANCHOR_EDGE_SIZE
           : 7;
-        const hoverSize = useSelectedStyle
-          ? isSideAnchor
-            ? SELECTED_ANCHOR_SIDE_SIZE_HOVER
-            : SELECTED_ANCHOR_EDGE_SIZE_HOVER
-          : 11;
-        const size = isHover ? hoverSize : baseSize;
-        const iconSize = isHover ? 18 : 16;
+        const iconSize = 16;
         // 逻辑：选中锚点外扩保持固定距离，避免 hover 时跳动。
         const offsetDistance =
-          useSelectedStyle ? baseSize / 2 + SELECTED_ANCHOR_GAP : 0;
+          useSelectedStyle ? size / 2 + SELECTED_ANCHOR_GAP : 0;
         const anchorOffset = resolveAnchorScreenOffset(anchor.anchorId, offsetDistance);
 
         // 逻辑：连线拖拽中，对悬停锚点根据验证结果着色：合法绿色，类型不兼容红色，无结果保持默认。
@@ -136,7 +128,7 @@ export function AnchorOverlay({ snapshot, engine }: AnchorOverlayProps) {
             >
               <div
                 className={cn(
-                  "absolute flex items-center justify-center rounded-full border shadow-[0_0_0_1px_rgba(0,0,0,0.12)] transition-[width,height] duration-150",
+                  "absolute flex items-center justify-center rounded-full border shadow-[0_0_0_1px_rgba(0,0,0,0.12)]",
                   validationClass ?? (
                     isHover
                       ? "bg-[var(--canvas-connector-anchor-hover)]"

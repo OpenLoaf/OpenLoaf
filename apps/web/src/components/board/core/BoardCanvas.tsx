@@ -247,6 +247,10 @@ export function BoardCanvas({
     }
     return source;
   }, [boardFolderUri, resolvedRootUri]);
+  const boardThumbnailUri = useMemo(() => {
+    if (resolvedBoardId) return BOARD_THUMBNAIL_FILE_NAME;
+    return boardFolderUri ? buildChildUri(boardFolderUri, BOARD_THUMBNAIL_FILE_NAME) : "";
+  }, [boardFolderUri, resolvedBoardId]);
   /** Root container element for canvas interactions. */
   const containerRef = useRef<HTMLDivElement | null>(null);
   /** Latest canvas element reference used for exports. */
@@ -321,7 +325,13 @@ export function BoardCanvas({
   const navigate = useAppView((s) => s.navigate);
   const pushStackItem = useLayoutState((s) => s.pushStackItem);
   const inferBoardNameMutation = useMutation(trpc.settings.inferBoardName.mutationOptions());
-  const deleteBoardMutation = useMutation(trpc.fs.delete.mutationOptions());
+  const deleteBoardMutation = useMutation(
+    trpc.board.delete.mutationOptions({
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: trpc.board.pathKey() });
+      },
+    }),
+  );
   const duplicateBoardMutation = useMutation(trpc.board.duplicate.mutationOptions({
     onSuccess: (newBoard) => {
       queryClient.invalidateQueries({ queryKey: trpc.board.list.queryKey() });
@@ -442,7 +452,7 @@ export function BoardCanvas({
     setRenameOpen(false);
   }, [renameValue, setTitle, resolvedBoardId, updateBoardMutation]);
   const handleAiName = useCallback(async () => {
-    if (!boardFolderUri) return;
+    if (!boardFolderUri || !resolvedBoardId) return;
     if (!saasLoggedIn) {
       setLoginOpen(true);
       return;
@@ -451,6 +461,8 @@ export function BoardCanvas({
     try {
       const result = await inferBoardNameMutation.mutateAsync({
         boardFolderUri,
+        boardId: resolvedBoardId,
+        projectId,
         saasAccessToken: getCachedAccessToken() ?? undefined,
       });
       if (result.title) {
@@ -463,17 +475,12 @@ export function BoardCanvas({
     } finally {
       setAiNaming(false);
     }
-  }, [boardFolderUri, saasLoggedIn, inferBoardNameMutation]);
+  }, [boardFolderUri, inferBoardNameMutation, projectId, resolvedBoardId, saasLoggedIn]);
   const handleDeleteBoard = useCallback(() => {
-    if (!boardFolderUri) return;
+    if (!resolvedBoardId) return;
     if (!confirm(i18next.t('nav:canvasList.confirmDelete'))) return;
-    // Derive relative URI from boardFolderUri
-    const rootUriBase = resolvedRootUri ?? '';
-    const relativeUri = rootUriBase && boardFolderUri.startsWith(rootUriBase)
-      ? boardFolderUri.slice(rootUriBase.length).replace(/^\//, '')
-      : boardFolderUri;
     deleteBoardMutation.mutate(
-      { uri: relativeUri },
+      { boardId: resolvedBoardId },
       {
         onSuccess: () => {
           const currentView = useAppView.getState();
@@ -511,7 +518,7 @@ export function BoardCanvas({
         },
       },
     );
-  }, [boardFolderUri, projectId, resolvedRootUri, deleteBoardMutation, navigate]);
+  }, [deleteBoardMutation, projectId, resolvedBoardId]);
   // Auto-close login dialog on successful login
   useEffect(() => {
     if (saasLoggedIn && loginOpen) setLoginOpen(false);
@@ -591,7 +598,7 @@ export function BoardCanvas({
   /** Capture and persist the current board thumbnail. */
   const saveBoardThumbnail = useCallback(
     (reason: "close" | "autoLayout" | "init") => {
-      if (!boardFolderUri) return;
+      if (!boardThumbnailUri) return;
       // 逻辑：空画布不截图，保持默认渐变预览。
       if (elementCountRef.current === 0) return;
       // 逻辑：顺序执行截图任务，避免并发占用渲染资源。
@@ -617,10 +624,10 @@ export function BoardCanvas({
             );
             if (!thumbnailBlob) return;
             const contentBase64 = await blobToBase64(thumbnailBlob);
-            const uri = buildChildUri(boardFolderUri, BOARD_THUMBNAIL_FILE_NAME);
             await writeThumbnailRef.current({
               projectId,
-              uri,
+              boardId: resolvedBoardId || undefined,
+              uri: boardThumbnailUri,
               contentBase64,
             });
             boardModifiedRef.current = false;
@@ -637,12 +644,12 @@ export function BoardCanvas({
           }
         });
     },
-    [boardFolderUri, projectId, resolveExportTarget, queryClient, engine]
+    [boardThumbnailUri, engine, projectId, queryClient, resolveExportTarget, resolvedBoardId]
   );
 
   /** Schedule a thumbnail capture after auto layout. */
   const scheduleAutoLayoutThumbnail = useCallback(() => {
-    if (!boardFolderUri) return;
+    if (!boardThumbnailUri) return;
     if (autoLayoutTimerRef.current) {
       window.clearTimeout(autoLayoutTimerRef.current);
     }
@@ -650,7 +657,7 @@ export function BoardCanvas({
     autoLayoutTimerRef.current = window.setTimeout(() => {
       saveBoardThumbnail("autoLayout");
     }, AUTO_LAYOUT_THUMBNAIL_DELAY);
-  }, [boardFolderUri, saveBoardThumbnail]);
+  }, [boardThumbnailUri, saveBoardThumbnail]);
 
   /** Track board modifications via engine subscription. */
   useEffect(() => {
@@ -665,11 +672,11 @@ export function BoardCanvas({
   useEffect(() => {
     if (elementCount === 0) return;
     if (thumbnailInitDoneRef.current) return;
-    if (!boardFolderUri) return;
+    if (!boardThumbnailUri) return;
     thumbnailInitDoneRef.current = true;
     // 逻辑：元素首次从协作层加载完成后截取缩略图，确保预览图反映最新内容。
     saveBoardThumbnail("init");
-  }, [elementCount, boardFolderUri, saveBoardThumbnail]);
+  }, [boardThumbnailUri, elementCount, saveBoardThumbnail]);
 
   /** On unmount (close/back): capture thumbnail if board was modified. */
   useEffect(() => {
@@ -679,7 +686,7 @@ export function BoardCanvas({
         autoLayoutTimerRef.current = null;
       }
       if (!boardModifiedRef.current) return;
-      if (!boardFolderUri) return;
+      if (!boardThumbnailUri) return;
       if (elementCountRef.current === 0) return;
       const target = resolveExportTarget();
       if (!target || !target.isConnected) return;
@@ -697,17 +704,17 @@ export function BoardCanvas({
           );
           if (!thumbnailBlob) return;
           const contentBase64 = await blobToBase64(thumbnailBlob);
-          const uri = buildChildUri(boardFolderUri, BOARD_THUMBNAIL_FILE_NAME);
           await writeThumbnailRef.current({
             projectId,
-            uri,
+            boardId: resolvedBoardId || undefined,
+            uri: boardThumbnailUri,
             contentBase64,
           });
           queryClient.invalidateQueries({ queryKey: trpc.board.thumbnails.queryKey() });
         })
         .catch(() => {});
     };
-  }, [boardFolderUri, projectId, resolveExportTarget, queryClient]);
+  }, [boardThumbnailUri, projectId, queryClient, resolveExportTarget, resolvedBoardId]);
 
   // ── Viewport persistence ──────────────────────────────────────────────
   // 逻辑：记录用户上次离开画布时的缩放与位置，再次进入时恢复，避免每次都 fitToElements。
@@ -961,6 +968,7 @@ export function BoardCanvas({
           initialElements={initialElements}
           projectId={projectId}
           rootUri={resolvedRootUri}
+          boardId={resolvedBoardId || undefined}
           boardFolderUri={boardFolderUri}
           boardFileUri={boardFileUri}
           onSyncLogChange={setSyncLogState}

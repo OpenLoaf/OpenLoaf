@@ -67,6 +67,8 @@ type BoardCanvasCollabProps = {
   projectId?: string;
   /** Project root uri for attachment resolution. */
   rootUri?: string;
+  /** Board id used for board-scoped file persistence. */
+  boardId?: string;
   /** Board folder uri for attachment storage. */
   boardFolderUri?: string;
   /** Board file uri for persistence. */
@@ -294,6 +296,7 @@ export function BoardCanvasCollab({
   initialElements,
   projectId,
   rootUri,
+  boardId,
   boardFolderUri,
   boardFileUri,
   onSyncLogChange,
@@ -348,12 +351,12 @@ export function BoardCanvasCollab({
     });
   }, [boardFileUri, boardFolderRef, boardFolderUri, projectId, rootUri]);
   const assetsFolderUri = useMemo(
-    () => (boardFolderUri ? buildChildUri(boardFolderUri, BOARD_ASSETS_DIR_NAME) : ""),
-    [boardFolderUri]
+    () => (boardId ? BOARD_ASSETS_DIR_NAME : (boardFolderUri ? buildChildUri(boardFolderUri, BOARD_ASSETS_DIR_NAME) : "")),
+    [boardId, boardFolderUri]
   );
   const metaFileUri = useMemo(
-    () => (boardFolderUri ? buildChildUri(boardFolderUri, BOARD_META_FILE_NAME) : ""),
-    [boardFolderUri]
+    () => (boardId ? BOARD_META_FILE_NAME : (boardFolderUri ? buildChildUri(boardFolderUri, BOARD_META_FILE_NAME) : "")),
+    [boardId, boardFolderUri]
   );
 
   const writeMetaMutation = useMutation(trpc.fs.writeFile.mutationOptions());
@@ -390,13 +393,14 @@ export function BoardCanvasCollab({
     try {
       await writeMetaRef.current({
         projectId,
+        boardId,
         uri: metaFileUri,
         content: JSON.stringify({ [BOARD_META_DOC_ID_KEY]: docId }, null, 2),
       });
     } catch {
       // 逻辑：写入失败时仍使用内存 docId，避免阻断协作。
     }
-  }, [metaFileUri, projectId]);
+  }, [boardId, metaFileUri, projectId]);
 
   /** Load or create the board doc id persisted in meta file. */
   const readOrCreateDocId = useCallback(async (): Promise<string> => {
@@ -405,6 +409,7 @@ export function BoardCanvasCollab({
       const result = await queryClient.fetchQuery(
         trpc.fs.readFile.queryOptions({
           projectId,
+          boardId,
           uri: metaFileUri,
         })
       );
@@ -417,7 +422,7 @@ export function BoardCanvasCollab({
       // 逻辑：缺少 meta 文件时生成内存 docId，延迟到首次修改时写入。
     }
     return createBoardDocId();
-  }, [metaFileUri, projectId, queryClient]);
+  }, [boardId, metaFileUri, projectId, queryClient]);
 
   /** Resolve a unique asset file name inside the board folder. */
   const resolveUniqueAssetName = useCallback(async (fileName: string) => {
@@ -429,6 +434,7 @@ export function BoardCanvasCollab({
       const result = await queryClient.fetchQuery(
         trpc.fs.list.queryOptions({
           projectId,
+          boardId,
           uri: assetsFolderUri,
         })
       );
@@ -437,26 +443,30 @@ export function BoardCanvasCollab({
     } catch {
       return safeName;
     }
-  }, [assetsFolderUri, projectId, queryClient]);
+  }, [assetsFolderUri, boardId, projectId, queryClient]);
 
   /** Persist an image file into the board assets folder. */
   const saveBoardAssetFile = useCallback(async (file: File) => {
     if (!assetsFolderUri) return "";
     await mkdirRef.current({
       projectId,
+      boardId,
       uri: assetsFolderUri,
       recursive: true,
     });
     const uniqueName = await resolveUniqueAssetName(file.name || "image.png");
-    const targetUri = buildChildUri(assetsFolderUri, uniqueName);
+    const targetUri = boardId
+      ? `${BOARD_ASSETS_DIR_NAME}/${uniqueName}`
+      : buildChildUri(assetsFolderUri, uniqueName);
     const contentBase64 = await fileToBase64(file);
     await writeAssetRef.current({
       projectId,
+      boardId,
       uri: targetUri,
       contentBase64,
     });
     return `${BOARD_ASSETS_DIR_NAME}/${uniqueName}`;
-  }, [assetsFolderUri, projectId, resolveUniqueAssetName]);
+  }, [assetsFolderUri, boardId, projectId, resolveUniqueAssetName]);
 
   /** Register a new transcoding task and return its id. */
   const registerTranscodeTask = useCallback(
@@ -585,7 +595,7 @@ export function BoardCanvasCollab({
   }, [engine, boardFolderUri]);
 
   useEffect(() => {
-    if (!boardFolderUri) {
+    if (!boardId && !boardFolderUri) {
       engine.setImagePayloadBuilder(null);
       return;
     }
@@ -626,7 +636,7 @@ export function BoardCanvasCollab({
     return () => {
       engine.setImagePayloadBuilder(null);
     };
-  }, [boardFolderUri, engine, saveBoardAssetFile]);
+  }, [boardFolderUri, boardId, engine, saveBoardAssetFile]);
 
   useEffect(() => {
     if (!rootUri) {

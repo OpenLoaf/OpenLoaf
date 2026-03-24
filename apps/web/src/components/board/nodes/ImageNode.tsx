@@ -629,11 +629,12 @@ export function ImageNodeView({
         // 逻辑：将变换后的图片保存到画布资产目录。
         const file = new File([result.blob], 'adjusted.png', { type: 'image/png' });
         const boardFolder = fileContext?.boardFolderUri;
-        if (boardFolder) {
+        if (fileContext?.boardId || boardFolder) {
           const boardRelPath = await saveBoardAssetFile({
             file,
             fallbackName: 'adjusted.png',
             projectId: fileContext?.projectId,
+            boardId: fileContext?.boardId,
             boardFolderUri: boardFolder,
           });
           // 逻辑：首次调整时备份原始图片 URI。
@@ -688,12 +689,34 @@ export function ImageNodeView({
     [element.id, element.props.originalSrc, element.props.rawOriginalSrc, engine, fileContext, onUpdate],
   );
 
-  /** Apply a new image payload to the current node. */
+  /** Apply a new image payload to the current node and resize to match aspect ratio. */
   const applyReplacePayload = useCallback(
-    (props: ImageNodeProps) => {
+    (props: ImageNodeProps, size?: [number, number]) => {
       engine.doc.updateNodeProps(element.id, props);
       setIsImageError(false);
       hydrationRef.current = null;
+      // 逻辑：替换图片后根据新图片比例调整节点尺寸。
+      const nw = props.naturalWidth;
+      const nh = props.naturalHeight;
+      if (nw && nh && nw > 1 && nh > 1) {
+        const el = engine.doc.getElementById(element.id);
+        if (el && el.kind === 'node') {
+          const [ex, ey, ew, eh] = el.xywh;
+          const ratio = nw / nh;
+          const newW = Math.max(ew, IMAGE_NODE_MIN_SIZE.w);
+          const newH = Math.round(newW / ratio);
+          const cx = ex + ew / 2;
+          const cy = ey + eh / 2;
+          engine.doc.updateElement(element.id, {
+            xywh: [
+              Math.round(cx - newW / 2),
+              Math.round(cy - newH / 2),
+              newW,
+              newH,
+            ],
+          });
+        }
+      }
     },
     [element.id, engine],
   );

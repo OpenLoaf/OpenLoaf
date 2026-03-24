@@ -53,6 +53,12 @@ export function VidGenQwenVariant({
   const [withAudio, setWithAudio] = useState(
     (initialParams?.params?.withAudio as boolean) ?? false,
   )
+  const [resolution, setResolution] = useState<'720P' | '1080P'>(
+    (initialParams?.params?.resolution as '720P' | '1080P') ?? '1080P',
+  )
+  const [shotType, setShotType] = useState<'single' | 'multi'>(
+    (initialParams?.params?.shotType as 'single' | 'multi') ?? 'single',
+  )
 
   // Self-managed first frame (only used in fallback mode, i.e. resolvedSlots === undefined)
   const [manualFirstFrame, setManualFirstFrame] = useState<string | undefined>()
@@ -117,9 +123,11 @@ export function VidGenQwenVariant({
         style: style || undefined,
         duration,
         withAudio: withAudio || undefined,
+        resolution,
+        shotType,
       },
     })
-  }, [prompt, style, duration, withAudio, firstFramePath, audioPath, onParamsChange])
+  }, [prompt, style, duration, withAudio, resolution, shotType, firstFramePath, audioPath, onParamsChange])
 
   return (
     <div className="flex flex-col gap-2.5">
@@ -230,6 +238,24 @@ export function VidGenQwenVariant({
           disabled={disabled}
         />
 
+        <PillSelect
+          options={[
+            { value: '720P', label: '720P' },
+            { value: '1080P', label: '1080P' },
+          ]}
+          value={resolution}
+          onChange={(v) => setResolution(v as '720P' | '1080P')}
+          disabled={disabled}
+        />
+        <PillSelect
+          options={[
+            { value: 'single', label: t('v3.params.shotSingle', { defaultValue: '单镜头' }) },
+            { value: 'multi', label: t('v3.params.shotMulti', { defaultValue: '多镜头' }) },
+          ]}
+          value={shotType}
+          onChange={(v) => setShotType(v as 'single' | 'multi')}
+          disabled={disabled}
+        />
         <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
           <input
             type="checkbox"

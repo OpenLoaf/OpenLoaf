@@ -579,6 +579,7 @@ export const settingSchemas = {
   inferBoardName: {
     input: z.object({
       boardFolderUri: z.string(),
+      boardId: z.string().optional(),
       projectId: z.string().optional(),
       saasAccessToken: z.string().optional(),
     }),

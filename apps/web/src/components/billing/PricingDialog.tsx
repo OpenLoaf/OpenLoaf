@@ -148,7 +148,7 @@ export function PricingDialog({ open, onOpenChange }: PricingDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="h-[520px] w-[90vw] max-w-5xl sm:max-w-5xl p-0 overflow-hidden rounded-3xl shadow-none border-border/60">
+      <DialogContent className="h-[660px] w-[90vw] max-w-5xl sm:max-w-5xl p-0 overflow-hidden rounded-3xl shadow-none border-border/60">
         <VisuallyHidden><DialogTitle>{t("account.upgrade")}</DialogTitle></VisuallyHidden>
         <div className="relative h-full w-full">
           <div ref={containerCallbackRef} className="h-full w-full overflow-auto" />

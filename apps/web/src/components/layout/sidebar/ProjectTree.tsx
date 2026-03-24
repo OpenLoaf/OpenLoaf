@@ -771,6 +771,7 @@ export const PageTreeMenu = ({
             uri: node.uri,
             boardFolderUri: node.uri,
             boardFileUri: buildChildUri(node.uri, BOARD_INDEX_FILE_NAME),
+            boardId,
             projectId: node.projectId,
             rootUri: resolvedRootUri,
             __previousBase: appState.base ?? null,

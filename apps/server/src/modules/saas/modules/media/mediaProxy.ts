@@ -11,6 +11,7 @@ import { promises as fsPromises } from "node:fs";
 import path from "node:path";
 import {
   buildBoardAssetRelativePath,
+  lookupBoardRecord,
   resolveBoardDirFromDb,
   resolveBoardScopedRoot,
 } from "@openloaf/api/common/boardPaths";
@@ -92,10 +93,10 @@ export function isMediaProxyHttpError(error: unknown): error is MediaProxyHttpEr
 }
 
 /** Normalize input body into payload + context. */
-function splitMediaSubmitBody(body: unknown): {
+async function splitMediaSubmitBody(body: unknown): Promise<{
   payload: Record<string, unknown> | null;
   context: MediaSubmitContext;
-} {
+}> {
   if (!isRecord(body)) return { payload: null, context: {} };
   const {
     projectId,
@@ -105,15 +106,23 @@ function splitMediaSubmitBody(body: unknown): {
     ...payload
   } = body as Record<string, unknown>;
   // 逻辑：优先使用 boardId 构建 saveDir，向后兼容直接传入 saveDir 的老客户端。
+  let resolvedProjectId = typeof projectId === "string" ? projectId : undefined;
   let resolvedSaveDir = typeof saveDir === "string" ? saveDir : undefined;
   if (!resolvedSaveDir && typeof boardId === "string" && boardId) {
-    const boardRoot = resolveBoardScopedRoot(typeof projectId === "string" ? projectId : undefined);
+    // 逻辑：前端可能未传 projectId，从 DB 查询画布的真实 projectId，避免文件保存到临时目录
+    if (!resolvedProjectId) {
+      const board = await lookupBoardRecord(boardId);
+      if (board?.projectId) {
+        resolvedProjectId = board.projectId;
+      }
+    }
+    const boardRoot = resolveBoardScopedRoot(resolvedProjectId);
     resolvedSaveDir = buildBoardAssetRelativePath(boardRoot, boardId);
   }
   return {
     payload,
     context: {
-      projectId: typeof projectId === "string" ? projectId : undefined,
+      projectId: resolvedProjectId,
       saveDir: resolvedSaveDir,
       boardId: typeof boardId === "string" ? boardId : undefined,
       sourceNodeId: typeof sourceNodeId === "string" ? sourceNodeId : undefined,
@@ -168,8 +177,92 @@ function extractPathFromLocalUrl(url: string): string | null {
 
 type ResolvedMediaInput = { url: string } | { base64: string; mediaType: string };
 
+/** Maximum image size for upload (1 MB). */
+const MAX_IMAGE_BYTES = 1024 * 1024;
+
+const IMAGE_MEDIA_TYPES = new Set([
+  'image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/bmp', 'image/tiff',
+]);
+
+/**
+ * Compress an image buffer to fit within MAX_IMAGE_BYTES using sharp.
+ * - PNG: 保持 PNG 格式（保留透明通道），仅通过缩小尺寸压缩
+ * - 其他格式: 转 JPEG，先降 quality 再缩小尺寸
+ * Non-image buffers and already-small images are returned as-is.
+ */
+async function compressImageBuffer(
+  buffer: Buffer,
+  mediaType: string,
+): Promise<{ buffer: Buffer; mediaType: string }> {
+  if (!IMAGE_MEDIA_TYPES.has(mediaType) || buffer.length <= MAX_IMAGE_BYTES) {
+    return { buffer, mediaType };
+  }
+  try {
+    const sharp = (await import('sharp')).default;
+    const isPng = mediaType === 'image/png';
+
+    if (isPng) {
+      // PNG: 保持格式，仅缩小尺寸
+      const meta = await sharp(buffer).metadata();
+      let width = meta.width ?? 2048;
+      let height = meta.height ?? 2048;
+      for (let i = 0; i < 8; i++) {
+        width = Math.round(width * 0.7);
+        height = Math.round(height * 0.7);
+        const compressed = await sharp(buffer)
+          .resize(width, height, { fit: 'inside' })
+          .png({ compressionLevel: 9 })
+          .toBuffer();
+        if (compressed.length <= MAX_IMAGE_BYTES) {
+          return { buffer: compressed, mediaType: 'image/png' };
+        }
+      }
+      // 兜底
+      const fallback = await sharp(buffer)
+        .resize(width, height, { fit: 'inside' })
+        .png({ compressionLevel: 9 })
+        .toBuffer();
+      return { buffer: fallback, mediaType: 'image/png' };
+    }
+
+    // 非 PNG: 转 JPEG，先降 quality 再缩小尺寸
+    const qualities = [80, 60, 40, 20];
+    for (const quality of qualities) {
+      const compressed = await sharp(buffer)
+        .jpeg({ quality, mozjpeg: true })
+        .toBuffer();
+      if (compressed.length <= MAX_IMAGE_BYTES) {
+        return { buffer: compressed, mediaType: 'image/jpeg' };
+      }
+    }
+    const meta = await sharp(buffer).metadata();
+    let width = meta.width ?? 2048;
+    let height = meta.height ?? 2048;
+    for (let i = 0; i < 5; i++) {
+      width = Math.round(width * 0.7);
+      height = Math.round(height * 0.7);
+      const compressed = await sharp(buffer)
+        .resize(width, height, { fit: 'inside' })
+        .jpeg({ quality: 40, mozjpeg: true })
+        .toBuffer();
+      if (compressed.length <= MAX_IMAGE_BYTES) {
+        return { buffer: compressed, mediaType: 'image/jpeg' };
+      }
+    }
+    const fallback = await sharp(buffer)
+      .resize(width, height, { fit: 'inside' })
+      .jpeg({ quality: 20, mozjpeg: true })
+      .toBuffer();
+    return { buffer: fallback, mediaType: 'image/jpeg' };
+  } catch (err) {
+    logger.warn({ err }, 'Image compression failed, using original');
+    return { buffer, mediaType };
+  }
+}
+
 /**
  * Upload a buffer via S3/SDK or fall back to base64 inline.
+ * Images are compressed to ≤1MB before upload.
  *
  * Strategy (in order):
  *   1. Local S3 configured → upload to S3, return public URL
@@ -177,12 +270,19 @@ type ResolvedMediaInput = { url: string } | { base64: string; mediaType: string 
  *   3. uploadFile not available/fails → base64 inline fallback
  */
 export async function uploadOrInlineBuffer(
-  buffer: Buffer,
+  inputBuffer: Buffer,
   fileName: string,
-  mediaType: string,
+  inputMediaType: string,
   context: MediaSubmitContext,
   accessToken?: string,
 ): Promise<ResolvedMediaInput> {
+  // Compress images to ≤1MB before upload
+  const { buffer, mediaType } = await compressImageBuffer(inputBuffer, inputMediaType);
+  // 压缩后文件名后缀可能变为 .jpg
+  if (mediaType !== inputMediaType && fileName) {
+    fileName = fileName.replace(/\.[^.]+$/, '.jpg');
+  }
+
   // Strategy 1: Upload to local S3 if configured
   const s3 = resolveActiveS3();
   if (s3) {
@@ -351,7 +451,7 @@ export async function submitV3GenerateProxy(
   body: unknown,
   accessToken: string,
 ): Promise<unknown> {
-  const { payload, context } = splitMediaSubmitBody(body);
+  const { payload, context } = await splitMediaSubmitBody(body);
   if (!payload || typeof payload !== "object") {
     throw new MediaProxyHttpError(
       400,
@@ -392,15 +492,23 @@ export async function pollV3TaskProxy(
 
   let ctx = getMediaTaskContext(taskId);
   // 逻辑：内存未命中时尝试从画布目录的 tasks.json 恢复（服务重启场景）。
+  // 逻辑：前端可能未传 projectId，从 DB 查询画布的真实 projectId
+  let hintProjectId = recoveryHint?.projectId;
+  if (!hintProjectId && recoveryHint?.boardId) {
+    const board = await lookupBoardRecord(recoveryHint.boardId);
+    if (board?.projectId) {
+      hintProjectId = board.projectId;
+    }
+  }
   const hintSaveDir = recoveryHint?.saveDir
     || (recoveryHint?.boardId
       ? buildBoardAssetRelativePath(
-          resolveBoardScopedRoot(recoveryHint.projectId),
+          resolveBoardScopedRoot(hintProjectId),
           recoveryHint.boardId,
         )
       : undefined);
-  if (!ctx && recoveryHint?.projectId && hintSaveDir) {
-    loadBoardTasks(recoveryHint.projectId, hintSaveDir);
+  if (!ctx && hintProjectId && hintSaveDir) {
+    loadBoardTasks(hintProjectId, hintSaveDir);
     ctx = getMediaTaskContext(taskId);
   }
 

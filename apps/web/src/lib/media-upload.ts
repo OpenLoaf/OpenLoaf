@@ -14,6 +14,81 @@ export type MediaUploadResult =
   | { url: string }
   | { base64: string; mediaType: string }
 
+/** Maximum image size for upload (1 MB). */
+const MAX_IMAGE_BYTES = 1024 * 1024
+
+/**
+ * Compress an image blob to fit within MAX_IMAGE_BYTES.
+ * - PNG: 保持 PNG 格式（保留透明通道），仅通过缩小尺寸压缩
+ * - 其他格式: 转 JPEG，先降 quality 再缩小尺寸
+ * Non-image blobs and already-small images are returned as-is.
+ */
+async function compressImageBlob(blob: Blob): Promise<Blob> {
+  if (!blob.type.startsWith('image/')) return blob
+  if (blob.size <= MAX_IMAGE_BYTES) return blob
+
+  const img = new Image()
+  const objectUrl = URL.createObjectURL(blob)
+  try {
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve()
+      img.onerror = () => reject(new Error('Failed to load image for compression'))
+      img.src = objectUrl
+    })
+  } finally {
+    URL.revokeObjectURL(objectUrl)
+  }
+
+  let width = img.naturalWidth
+  let height = img.naturalHeight
+  const canvas = document.createElement('canvas')
+  const ctx = canvas.getContext('2d')!
+  const isPng = blob.type === 'image/png'
+
+  if (isPng) {
+    // PNG: 保持格式，仅缩小尺寸
+    for (let i = 0; i < 8; i++) {
+      width = Math.round(width * 0.7)
+      height = Math.round(height * 0.7)
+      canvas.width = width
+      canvas.height = height
+      ctx.clearRect(0, 0, width, height)
+      ctx.drawImage(img, 0, 0, width, height)
+      const compressed = await new Promise<Blob | null>((resolve) =>
+        canvas.toBlob((b) => resolve(b), 'image/png'),
+      )
+      if (compressed && compressed.size <= MAX_IMAGE_BYTES) return compressed
+    }
+    // 兜底
+    const fallback = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob((b) => resolve(b), 'image/png'),
+    )
+    return fallback ?? blob
+  }
+
+  // 非 PNG: 转 JPEG，先降 quality 再缩小尺寸
+  const qualitySteps = [0.8, 0.6, 0.4, 0.2]
+  for (let scale = 0; scale <= 5; scale++) {
+    if (scale > 0) {
+      width = Math.round(width * 0.7)
+      height = Math.round(height * 0.7)
+    }
+    canvas.width = width
+    canvas.height = height
+    ctx.drawImage(img, 0, 0, width, height)
+    for (const quality of qualitySteps) {
+      const compressed = await new Promise<Blob | null>((resolve) =>
+        canvas.toBlob((b) => resolve(b), 'image/jpeg', quality),
+      )
+      if (compressed && compressed.size <= MAX_IMAGE_BYTES) return compressed
+    }
+  }
+  const fallback = await new Promise<Blob | null>((resolve) =>
+    canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.1),
+  )
+  return fallback ?? blob
+}
+
 /**
  * Upload a board-relative path to get a public URL.
  * Calls POST /ai/v3/media/upload with JSON body.
@@ -37,16 +112,24 @@ export async function uploadBoardAsset(
 
 /**
  * Upload a blob/file to get a public URL.
+ * Images are compressed to ≤300KB before upload.
  * Calls POST /ai/v3/media/upload with multipart body.
  */
 export async function uploadBlob(
   blob: Blob,
   fileName?: string,
 ): Promise<MediaUploadResult> {
+  const compressed = await compressImageBlob(blob)
+  // 非 PNG 压缩后格式变为 JPEG，需更新后缀
+  let name = fileName || 'upload'
+  if (compressed !== blob && blob.type !== 'image/png') {
+    name = name.replace(/\.[^.]+$/, '.jpg')
+  }
+
   const base = resolveServerUrl()
   const authHeaders = await buildAuthHeaders()
   const formData = new FormData()
-  formData.append('file', blob, fileName || 'upload')
+  formData.append('file', compressed, name)
   const res = await fetch(`${base}/ai/v3/media/upload`, {
     method: 'POST',
     credentials: 'include',

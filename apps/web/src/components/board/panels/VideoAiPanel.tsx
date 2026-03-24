@@ -14,6 +14,7 @@ import {
   Lock,
   Loader2,
 } from 'lucide-react'
+import { toast } from 'sonner'
 import type { CanvasNodeElement } from '../engine/types'
 import type { UpstreamData } from '../engine/upstream-data'
 import type { VideoNodeProps } from '../nodes/VideoNode'
@@ -23,7 +24,6 @@ import { useSaasAuth } from '@/hooks/use-saas-auth'
 import { fetchUserProfile } from '@/lib/saas-auth'
 import { PricingDialog } from '@/components/billing/PricingDialog'
 import { useCapabilities } from '@/hooks/use-capabilities'
-import { resolveAllMediaInputs } from '@/lib/media-upload'
 import { GenerateActionBar } from './GenerateActionBar'
 import { VIDEO_VARIANTS } from './variants/video'
 import type { VariantContext } from './variants/types'
@@ -362,47 +362,54 @@ export function VideoAiPanel({
     }
   }, [selectedFeatureId, selectedVariantId, selectedVariant])
 
-  /** Build VideoGenerateParams with media uploaded to public URLs. */
-  const buildParams = useCallback(async (): Promise<VideoGenerateParams> => {
-    const params = collectParams()
-    const resolvedInputs = params.inputs ? await resolveAllMediaInputs(params.inputs, boardId) : params.inputs
-    return { ...params, inputs: resolvedInputs }
-  }, [collectParams, boardId])
-
   const handleGenerate = useCallback(async () => {
     if (isGenerating) return
     setIsGenerating(true)
 
-    const params = await buildParams()
+    try {
+      // 逻辑：使用 collectParams（不上传媒体），让节点立即进入 loading 状态。
+      // 媒体上传由 useMediaGeneration.handleGenerate 在 loading 之后执行。
+      const params = collectParams()
 
-    // Snapshot current variant params into local cache before persisting
-    const key = activeKeyRef.current
-    if (key) paramsCacheLocal.current[key] = latestParams.current
-    const config: AiGenerateConfig = {
-      ...aiConfigRef.current,
-      feature: params.feature as AiGenerateConfig['feature'],
-      prompt: params.prompt ?? '',
-      aspectRatio: params.aspectRatio as AiGenerateConfig['aspectRatio'],
-      paramsCache: { ...paramsCacheLocal.current },
+      // Snapshot current variant params into local cache before persisting
+      const key = activeKeyRef.current
+      if (key) paramsCacheLocal.current[key] = latestParams.current
+      const config: AiGenerateConfig = {
+        ...aiConfigRef.current,
+        feature: params.feature as AiGenerateConfig['feature'],
+        prompt: params.prompt ?? '',
+        aspectRatio: params.aspectRatio as AiGenerateConfig['aspectRatio'],
+        paramsCache: { ...paramsCacheLocal.current },
+      }
+      onUpdate({
+        origin: 'ai-generate',
+        aiConfig: config,
+      })
+
+      onGenerate?.(params)
+    } catch (err) {
+      console.error('[VideoAiPanel] handleGenerate failed:', err)
+      toast.error(t('v3.errors.prepareFailed', { defaultValue: '准备生成参数失败，请重试' }))
+    } finally {
+      setTimeout(() => setIsGenerating(false), 300)
     }
-    onUpdate({
-      origin: 'ai-generate',
-      aiConfig: config,
-    })
-
-    onGenerate?.(params)
-    setTimeout(() => setIsGenerating(false), 300)
-  }, [isGenerating, buildParams, onUpdate, onGenerate])
+  }, [isGenerating, collectParams, onUpdate, onGenerate, t])
 
   const handleGenerateNew = useCallback(async () => {
     if (isGenerating) return
     setIsGenerating(true)
 
-    // Use collectParams (no S3 upload) so the child node is created immediately.
-    const params = collectParams()
-    onGenerateNewNode?.(params)
-    setTimeout(() => setIsGenerating(false), 300)
-  }, [isGenerating, collectParams, onGenerateNewNode])
+    try {
+      // Use collectParams (no S3 upload) so the child node is created immediately.
+      const params = collectParams()
+      onGenerateNewNode?.(params)
+    } catch (err) {
+      console.error('[VideoAiPanel] handleGenerateNew failed:', err)
+      toast.error(t('v3.errors.prepareFailed', { defaultValue: '准备生成参数失败，请重试' }))
+    } finally {
+      setTimeout(() => setIsGenerating(false), 300)
+    }
+  }, [isGenerating, collectParams, onGenerateNewNode, t])
 
   const hasResource = Boolean(element.props.sourcePath)
 

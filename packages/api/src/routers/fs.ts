@@ -55,6 +55,7 @@ const READ_FILE_MAX_BYTES = 50 * 1024 * 1024;
 /** Schema for project scope. */
 const fsScopeSchema = z.object({
   projectId: z.string().trim().optional(),
+  boardId: z.string().trim().optional(),
 });
 
 const fsUriSchema = fsScopeSchema.extend({
@@ -132,6 +133,11 @@ type ResolvedFsReadScope = {
   fullPath: string;
 };
 
+type BoardFsScope = {
+  projectId?: string;
+  boardId?: string;
+};
+
 /** Return true when the thrown error indicates a stale project scope. */
 function isMissingProjectScopeError(error: unknown): boolean {
   return error instanceof Error && error.message === "Project not found.";
@@ -154,6 +160,74 @@ function resolveFsReadScope(
     }
     throw error;
   }
+}
+
+/** Scoped project path matcher like [projectId]/path/to/file. */
+const PROJECT_SCOPE_REGEX = /^@?\[([^\]]+)\]\/(.+)$/;
+
+/** Return true when the target should be resolved against a board folder. */
+function shouldResolveViaBoardScope(target: string): boolean {
+  const raw = target.trim();
+  if (!raw) return true;
+  if (raw.startsWith("file:")) return false;
+  if (path.isAbsolute(raw)) return false;
+  if (raw.startsWith("@")) return false;
+  if (PROJECT_SCOPE_REGEX.test(raw)) return false;
+  return true;
+}
+
+/** Resolve a board-relative fs target via boardId + DB folderUri. */
+async function resolveBoardFsScope(
+  scope: BoardFsScope,
+  target: string
+): Promise<ResolvedFsReadScope | null> {
+  const boardId = scope.boardId?.trim();
+  if (!boardId) return null;
+  if (!shouldResolveViaBoardScope(target)) return null;
+  const boardResult = await resolveBoardDirFromDb(boardId);
+  if (!boardResult) {
+    throw new Error("Board not found.");
+  }
+  const normalizedTarget = target
+    .replace(/\\/g, "/")
+    .replace(/^(\.\/)+/, "")
+    .replace(/^\/+/, "");
+  if (normalizedTarget.split("/").some((segment) => segment === "..")) {
+    throw new Error("Invalid board path.");
+  }
+  const basePath = path.resolve(boardResult.absDir);
+  const fullPath = normalizedTarget
+    ? path.resolve(basePath, normalizedTarget)
+    : basePath;
+  if (fullPath !== basePath && !fullPath.startsWith(basePath + path.sep)) {
+    throw new Error("Invalid board path.");
+  }
+  return {
+    // 中文注释：board-aware 查询统一返回相对画布根目录的 URI（如 asset/foo.png），
+    // 避免前端再次拼接 temp/global 根目录。
+    rootPath: basePath,
+    fullPath,
+  };
+}
+
+/** Resolve fs read scope, preferring boardId when provided. */
+async function resolveFsReadScopeAsync(
+  scope: BoardFsScope,
+  target: string
+): Promise<ResolvedFsReadScope | null> {
+  const boardScope = await resolveBoardFsScope(scope, target);
+  if (boardScope) return boardScope;
+  return resolveFsReadScope(scope, target);
+}
+
+/** Resolve fs write target, preferring boardId when provided. */
+async function resolveFsTargetAsync(
+  scope: BoardFsScope,
+  target: string
+): Promise<string> {
+  const boardScope = await resolveBoardFsScope(scope, target);
+  if (boardScope) return boardScope.fullPath;
+  return resolveFsTarget(scope, target);
 }
 
 function buildFileNode(input: {
@@ -375,7 +449,7 @@ async function resolveFolderEmptyState(fullPath: string, includeHidden: boolean)
 export const fsRouter = t.router({
   /** Read metadata for a file or directory. */
   stat: shieldedProcedure.input(fsUriSchema).query(async ({ input }) => {
-    const resolvedScope = resolveFsReadScope(input, input.uri);
+    const resolvedScope = await resolveFsReadScopeAsync(input, input.uri);
     if (!resolvedScope) return null;
     const { rootPath, fullPath } = resolvedScope;
     try {
@@ -396,7 +470,7 @@ export const fsRouter = t.router({
 
   /** List direct children of a directory. */
   list: shieldedProcedure.input(fsListSchema).query(async ({ input }) => {
-    const resolvedScope = resolveFsReadScope(input, input.uri);
+    const resolvedScope = await resolveFsReadScopeAsync(input, input.uri);
     if (!resolvedScope) return { entries: [] };
     const { rootPath, fullPath } = resolvedScope;
     const dirExists = await fs.stat(fullPath).then(s => s.isDirectory(), () => false);
@@ -449,14 +523,13 @@ export const fsRouter = t.router({
 
   /** Build thumbnails for image entries. */
   thumbnails: shieldedProcedure.input(fsThumbnailSchema).query(async ({ input }) => {
-    const resolvedScope = resolveFsReadScope(input, "");
-    if (!resolvedScope) return { items: [] };
-    const { rootPath } = resolvedScope;
     // 生成 40x40 的低质量缩略图，避免传输原图。
     const items = await Promise.all(
       input.uris.map(async (uri) => {
         try {
-          const fullPath = resolveFsTarget(input, uri);
+          const resolvedScope = await resolveFsReadScopeAsync(input, uri);
+          if (!resolvedScope) return null;
+          const { rootPath, fullPath } = resolvedScope;
           const ext = path.extname(fullPath).replace(/^\./, "");
           // 中文注释：视频缩略图走专用管线，避免 sharp 读取失败。
           if (isVideoExt(ext)) {
@@ -491,7 +564,7 @@ export const fsRouter = t.router({
   folderThumbnails: shieldedProcedure
     .input(fsFolderThumbnailSchema)
     .query(async ({ input }) => {
-      const resolvedScope = resolveFsReadScope(input, input.uri);
+      const resolvedScope = await resolveFsReadScopeAsync(input, input.uri);
       if (!resolvedScope) return { items: [] };
       const { rootPath, fullPath } = resolvedScope;
       const includeHidden = Boolean(input.includeHidden);
@@ -591,25 +664,7 @@ export const fsRouter = t.router({
 
   /** Probe video dimensions and duration for a file entry. */
   videoMetadata: shieldedProcedure.input(fsVideoMetaSchema).query(async ({ input }) => {
-    let resolvedScope: ResolvedFsReadScope | null = null;
-
-    if (input.boardId) {
-      // Board-relative path resolution for temp boards without projectId.
-      const boardResult = await resolveBoardDirFromDb(input.boardId);
-      if (boardResult) {
-        const normalizedUri = input.uri
-          .replace(/\\/g, "/")
-          .replace(/^(\.\/)+/, "")
-          .replace(/^\/+/, "");
-        const fullPath = path.resolve(boardResult.absDir, normalizedUri);
-        resolvedScope = { rootPath: boardResult.rootPath, fullPath };
-      }
-    }
-
-    if (!resolvedScope) {
-      resolvedScope = resolveFsReadScope(input, input.uri);
-    }
-
+    const resolvedScope = await resolveFsReadScopeAsync(input, input.uri);
     if (!resolvedScope) {
       return {
         width: null,
@@ -628,7 +683,7 @@ export const fsRouter = t.router({
 
   /** Read a text file. */
   readFile: shieldedProcedure.input(fsUriSchema).query(async ({ input }) => {
-    const resolvedScope = resolveFsReadScope(input, input.uri);
+    const resolvedScope = await resolveFsReadScopeAsync(input, input.uri);
     if (!resolvedScope) return { content: "" };
     const { fullPath } = resolvedScope;
     try {
@@ -650,7 +705,7 @@ export const fsRouter = t.router({
 
   /** Read a binary file (base64 payload). */
   readBinary: shieldedProcedure.input(fsUriSchema).query(async ({ input }) => {
-    const resolvedScope = resolveFsReadScope(input, input.uri);
+    const resolvedScope = await resolveFsReadScopeAsync(input, input.uri);
     if (!resolvedScope) {
       return { contentBase64: "", mime: "application/octet-stream" };
     }
@@ -674,7 +729,7 @@ export const fsRouter = t.router({
   convertDocxToSfdt: shieldedProcedure
     .input(fsUriSchema)
     .mutation(async ({ input }) => {
-      const resolvedScope = resolveFsReadScope(input, input.uri);
+      const resolvedScope = await resolveFsReadScopeAsync(input, input.uri);
       if (!resolvedScope) {
         return {
           ok: false as const,
@@ -700,7 +755,7 @@ export const fsRouter = t.router({
       })
     )
     .mutation(async ({ input }) => {
-      const fullPath = resolveFsTarget(input, input.uri);
+      const fullPath = await resolveFsTargetAsync(input, input.uri);
       await fs.mkdir(path.dirname(fullPath), { recursive: true });
       await fs.writeFile(fullPath, input.content, "utf-8");
       return { ok: true };
@@ -715,7 +770,7 @@ export const fsRouter = t.router({
       })
     )
     .mutation(async ({ input }) => {
-      const fullPath = resolveFsTarget(input, input.uri);
+      const fullPath = await resolveFsTargetAsync(input, input.uri);
       await fs.mkdir(fullPath, { recursive: input.recursive ?? true });
       return { ok: true };
     }),
@@ -729,8 +784,8 @@ export const fsRouter = t.router({
       })
     )
     .mutation(async ({ input }) => {
-      const fromPath = resolveFsTarget(input, input.from);
-      const toPath = resolveFsTarget(input, input.to);
+      const fromPath = await resolveFsTargetAsync(input, input.from);
+      const toPath = await resolveFsTargetAsync(input, input.to);
       await fs.mkdir(path.dirname(toPath), { recursive: true });
       await fs.rename(fromPath, toPath);
       return { ok: true };
@@ -738,8 +793,8 @@ export const fsRouter = t.router({
 
   /** Copy a file/folder. */
   copy: shieldedProcedure.input(fsCopySchema).mutation(async ({ input }) => {
-    const fromPath = resolveFsTarget(input, input.from);
-    const toPath = resolveFsTarget(input, input.to);
+    const fromPath = await resolveFsTargetAsync(input, input.from);
+    const toPath = await resolveFsTargetAsync(input, input.to);
     await fs.mkdir(path.dirname(toPath), { recursive: true });
     await fs.cp(fromPath, toPath, { recursive: true });
     return { ok: true };
@@ -754,7 +809,7 @@ export const fsRouter = t.router({
       })
     )
     .mutation(async ({ input }) => {
-      const fullPath = resolveFsTarget(input, input.uri);
+      const fullPath = await resolveFsTargetAsync(input, input.uri);
       await fs.rm(fullPath, { recursive: input.recursive ?? true, force: true });
       return { ok: true };
     }),
@@ -768,7 +823,7 @@ export const fsRouter = t.router({
       })
     )
     .mutation(async ({ input }) => {
-      const fullPath = resolveFsTarget(input, input.uri);
+      const fullPath = await resolveFsTargetAsync(input, input.uri);
       await fs.mkdir(path.dirname(fullPath), { recursive: true });
       const buffer = Buffer.from(input.contentBase64, "base64");
       await fs.writeFile(fullPath, buffer);
@@ -779,7 +834,7 @@ export const fsRouter = t.router({
   importLocalFile: shieldedProcedure
     .input(fsImportLocalSchema)
     .mutation(async ({ input }) => {
-      const fullPath = resolveFsTarget(input, input.uri);
+      const fullPath = await resolveFsTargetAsync(input, input.uri);
       let sourcePath = input.sourcePath.trim();
       if (!sourcePath) throw new Error("Invalid sourcePath");
       if (sourcePath.startsWith("file://")) {
@@ -810,7 +865,7 @@ export const fsRouter = t.router({
       })
     )
     .mutation(async ({ input }) => {
-      const fullPath = resolveFsTarget(input, input.uri);
+      const fullPath = await resolveFsTargetAsync(input, input.uri);
       await fs.mkdir(path.dirname(fullPath), { recursive: true });
       const buffer = Buffer.from(input.contentBase64, "base64");
       await fs.appendFile(fullPath, buffer);
@@ -819,7 +874,7 @@ export const fsRouter = t.router({
 
   /** Search within the resolved root path (MVP stub). */
   search: shieldedProcedure.input(fsSearchSchema).query(async ({ input }) => {
-    const resolvedScope = resolveFsReadScope(input, input.rootUri);
+    const resolvedScope = await resolveFsReadScopeAsync(input, input.rootUri);
     if (!resolvedScope) return { results: [] };
     const { rootPath: rootBasePath, fullPath: searchRootPath } = resolvedScope;
     const query = input.query.trim().toLowerCase();

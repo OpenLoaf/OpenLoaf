@@ -506,6 +506,7 @@ export class SelectTool implements CanvasTool {
       const draft = ctx.engine.getConnectorDraft();
       const direction = this.connectorDirection;
       let keepDraft = false;
+      let connectedTargetId: string | null = null;
       if (draft) {
         const isSameElement =
           "elementId" in draft.target &&
@@ -525,12 +526,14 @@ export class SelectTool implements CanvasTool {
               ? { ...draft, source: draft.target, target: draft.source }
               : draft;
           ctx.engine.addConnectorElement(finalDraft, { skipLayout: true });
+          // 逻辑：记录连接目标节点 ID，连线完成后选中目标节点而非源节点。
+          connectedTargetId = (draft.target as { elementId: string }).elementId;
         }
       }
 
-      // 逻辑：拖线结束后恢复源节点选中（面板场景除外，面板取消/选中后由 BoardCanvasInteraction 处理）。
+      // 逻辑：连接到已有节点时选中目标节点；面板场景由 BoardCanvasInteraction 处理；其余恢复源节点选中。
       if (!keepDraft) {
-        ctx.engine.selection.setSelection([this.connectorSource.elementId]);
+        ctx.engine.selection.setSelection([connectedTargetId ?? this.connectorSource.elementId]);
         ctx.engine.setConnectorDraft(null);
       }
       ctx.engine.setConnectorHover(null);

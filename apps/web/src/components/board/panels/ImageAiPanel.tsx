@@ -12,15 +12,11 @@ import { useTranslation } from 'react-i18next'
 import {
   AlertCircle,
   Loader2,
-  Paintbrush,
-  Redo2,
-  Undo2,
 } from 'lucide-react'
+import { toast } from 'sonner'
 import { MEDIA_FEATURES, type MediaFeatureId } from '@openloaf-saas/sdk'
 import { useCapabilities } from '@/hooks/use-capabilities'
 import type { V3Feature, V3Variant } from '@/lib/saas-media'
-import { BRUSH_MIN_SIZE, BRUSH_MAX_SIZE } from '../nodes/MaskPaintOverlay'
-import { resolveAllMediaInputs } from '@/lib/media-upload'
 import { saveBoardAssetFile } from '../utils/board-asset'
 import type { CanvasNodeElement } from '../engine/types'
 import type { UpstreamData } from '../engine/upstream-data'
@@ -337,9 +333,12 @@ export function ImageAiPanel({
     ? Boolean(variantDef?.maskPaint)
     : false
 
-  // Toggle mask painting when variant changes
+  // When variant changes or needsMaskPaint becomes false, deactivate mask painting.
+  // Do NOT auto-activate — user must click the mask slot in InputSlotBar.
   useEffect(() => {
-    onToggleMaskPaint?.(needsMaskPaint)
+    if (!needsMaskPaint) {
+      onToggleMaskPaint?.(false)
+    }
   }, [needsMaskPaint, onToggleMaskPaint])
 
   // ── Callbacks ──
@@ -363,13 +362,14 @@ export function ImageAiPanel({
     }
 
     // Inject mask data for inpaint variants — save mask to asset dir first
-    if (needsMaskPaint && maskResult?.maskBlob && boardFolderUri) {
+    if (needsMaskPaint && maskResult?.maskBlob && (boardId || boardFolderUri)) {
       const maskFile = new File([maskResult.maskBlob], `mask_${Date.now()}.png`, { type: 'image/png' })
       try {
         const maskPath = await saveBoardAssetFile({
           file: maskFile,
           fallbackName: 'mask.png',
           projectId,
+          boardId,
           boardFolderUri,
         })
         inputs.mask = { path: maskPath }
@@ -380,7 +380,7 @@ export function ImageAiPanel({
         }
       }
     } else if (needsMaskPaint && maskResult?.maskDataUrl) {
-      // fallback: 无 boardFolderUri 时用 data URL
+      // fallback: 无 boardId / boardFolderUri 时用 data URL
       inputs.mask = { url: maskResult.maskDataUrl }
     }
 
@@ -397,53 +397,60 @@ export function ImageAiPanel({
     }
   }, [selectedFeature, selectedVariant, needsMaskPaint, maskResult, boardFolderUri, projectId, upstreamText])
 
-  /** Build v3-compatible generation params with media uploaded to public URLs. */
-  const buildParams = useCallback(async (): Promise<ImageGenerateParams> => {
-    const params = await collectParams()
-    const resolvedInputs = await resolveAllMediaInputs(params.inputs, boardId)
-    return { ...params, inputs: resolvedInputs }
-  }, [collectParams, boardId])
-
   const handleGenerate = useCallback(async () => {
     if (isGenerating) return
     setIsGenerating(true)
-    const params = await buildParams()
-    // Snapshot current variant params into local cache before persisting
-    const key = activeKeyRef.current
-    if (key) paramsCacheLocal.current[key] = variantParamsRef.current
-    const config: AiGenerateConfig = {
-      ...aiConfigRef.current,
-      feature: params.feature as AiGenerateConfig['feature'],
-      prompt: params.prompt ?? '',
-      aspectRatio: params.aspectRatio as AiGenerateConfig['aspectRatio'],
-      paramsCache: { ...paramsCacheLocal.current },
+    try {
+      // 逻辑：使用 collectParams（不上传媒体），让节点立即进入 loading 状态。
+      // 媒体上传由 useMediaGeneration.handleGenerate 在 loading 之后执行。
+      const params = await collectParams()
+      // Snapshot current variant params into local cache before persisting
+      const key = activeKeyRef.current
+      if (key) paramsCacheLocal.current[key] = variantParamsRef.current
+      const config: AiGenerateConfig = {
+        ...aiConfigRef.current,
+        feature: params.feature as AiGenerateConfig['feature'],
+        prompt: params.prompt ?? '',
+        aspectRatio: params.aspectRatio as AiGenerateConfig['aspectRatio'],
+        paramsCache: { ...paramsCacheLocal.current },
+      }
+      onUpdate({
+        origin: 'ai-generate',
+        aiConfig: config,
+      })
+      onGenerate?.(params)
+    } catch (err) {
+      console.error('[ImageAiPanel] handleGenerate failed:', err)
+      toast.error(t('v3.errors.prepareFailed', { defaultValue: '准备生成参数失败，请重试' }))
+    } finally {
+      setTimeout(() => setIsGenerating(false), 600)
     }
-    onUpdate({
-      origin: 'ai-generate',
-      aiConfig: config,
-    })
-    onGenerate?.(params)
-    setTimeout(() => setIsGenerating(false), 600)
-  }, [isGenerating, buildParams, onUpdate, onGenerate])
+  }, [isGenerating, collectParams, onUpdate, onGenerate, t])
 
   const handleGenerateNewNode = useCallback(async () => {
     if (isGenerating) return
     setIsGenerating(true)
-    // Use collectParams (no S3 upload) so the child node is created immediately.
-    // Media upload will happen in ImageNode.handleGenerateNewNode after node creation.
-    const params = await collectParams()
-    // Save current params to aiConfig so the panel can restore them on reopen
-    onUpdate({
-      aiConfig: {
-        ...aiConfig,
-        feature: params.feature as AiGenerateConfig['feature'],
-        prompt: params.prompt ?? '',
-        aspectRatio: params.aspectRatio as AiGenerateConfig['aspectRatio'],
-      },
-    })
-    onGenerateNewNode?.(params)
-    setTimeout(() => setIsGenerating(false), 600)
-  }, [isGenerating, onGenerateNewNode, collectParams, onUpdate, aiConfig])
+    try {
+      // Use collectParams (no S3 upload) so the child node is created immediately.
+      // Media upload will happen in ImageNode.handleGenerateNewNode after node creation.
+      const params = await collectParams()
+      // Save current params to aiConfig so the panel can restore them on reopen
+      onUpdate({
+        aiConfig: {
+          ...aiConfig,
+          feature: params.feature as AiGenerateConfig['feature'],
+          prompt: params.prompt ?? '',
+          aspectRatio: params.aspectRatio as AiGenerateConfig['aspectRatio'],
+        },
+      })
+      onGenerateNewNode?.(params)
+    } catch (err) {
+      console.error('[ImageAiPanel] handleGenerateNewNode failed:', err)
+      toast.error(t('v3.errors.prepareFailed', { defaultValue: '准备生成参数失败，请重试' }))
+    } finally {
+      setTimeout(() => setIsGenerating(false), 600)
+    }
+  }, [isGenerating, onGenerateNewNode, collectParams, onUpdate, aiConfig, t])
 
   const handleFeatureSelect = useCallback((featureId: string) => {
     setSelectedFeatureId(featureId)
@@ -592,45 +599,6 @@ export function ImageAiPanel({
         </ScrollableTabBar>
       ) : null}
 
-      {/* ── Mask brush controls (for inpaint variants) ── */}
-      {needsMaskPaint && resolvedImageSrc ? (
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-foreground/8 transition-colors"
-              title={t('imagePanel.clearMask', { defaultValue: 'Clear mask' })}
-              onClick={() => maskPaintRef?.current?.clear()}
-            >
-              <Paintbrush size={13} />
-            </button>
-            <input
-              type="range"
-              min={BRUSH_MIN_SIZE}
-              max={BRUSH_MAX_SIZE}
-              value={brushSizeProp}
-              onChange={(e) => maskPaintRef?.current?.setBrushSize(Number(e.target.value))}
-              className="h-1 min-w-0 flex-1 cursor-pointer accent-foreground"
-            />
-            <span className="mx-0.5 h-4 w-px bg-border" />
-            <button
-              type="button"
-              className="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-foreground/8 transition-colors disabled:opacity-30"
-              onClick={() => maskPaintRef?.current?.undo()}
-            >
-              <Undo2 size={13} />
-            </button>
-            <button
-              type="button"
-              className="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-foreground/8 transition-colors disabled:opacity-30"
-              onClick={() => maskPaintRef?.current?.redo()}
-            >
-              <Redo2 size={13} />
-            </button>
-          </div>
-        </div>
-      ) : null}
-
       {/* ── InputSlotBar (declarative slot assignment) ── */}
       {variantDef?.inputSlots?.length && selectedVariant ? (
         <InputSlotBar
@@ -644,6 +612,11 @@ export function ImageAiPanel({
           }
           onAssignmentChange={handleSlotInputsChange}
           onSlotAssignmentChange={handleSlotAssignmentPersist}
+          maskPaintRef={needsMaskPaint ? maskPaintRef : undefined}
+          maskPainting={needsMaskPaint ? maskPainting : undefined}
+          maskResult={needsMaskPaint ? maskResult : undefined}
+          brushSize={needsMaskPaint ? brushSizeProp : undefined}
+          onMaskPaintToggle={needsMaskPaint ? onToggleMaskPaint : undefined}
         />
       ) : null}
 

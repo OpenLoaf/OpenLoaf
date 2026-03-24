@@ -600,6 +600,14 @@ export function AboutOpenLoaf() {
           </div>
           <div
             className="flex items-center gap-2 py-3 cursor-pointer hover:bg-accent/50 -mx-2 px-2 rounded-3xl transition-colors"
+            onClick={() => void openExternalUrl('https://openloaf.hexems.com')}
+          >
+            <SettingIcon icon={Globe} bg="bg-secondary" fg="text-foreground" />
+            <div className="min-w-0 flex-1 text-sm font-medium">{t('aboutAdditions.officialWebsite')}</div>
+            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+          </div>
+          <div
+            className="flex items-center gap-2 py-3 cursor-pointer hover:bg-accent/50 -mx-2 px-2 rounded-3xl transition-colors"
             onClick={() => void openExternalUrl(`${resolveSaasBaseUrl()}/terms`)}
           >
             <SettingIcon icon={Scale} bg="bg-secondary" fg="text-foreground" />
@@ -654,8 +662,8 @@ export function AboutOpenLoaf() {
                 { key: "web", label: "Web", version: webVersion, icon: Globe, bg: "bg-secondary", fg: "text-foreground" },
               ].map((item) => {
                 const entry = changelogSheet.changelogs[item.key];
-                // 加载完成后 content 为空（404）则不显示该分组
-                if (entry && !entry.loading && !entry.content) return null;
+                // 尚未加载或加载完成后 content 为空（404）则不显示该分组
+                if (!entry || (!entry.loading && !entry.content)) return null;
                 return (
                   <AccordionItem key={item.key} value={item.key}>
                     <AccordionTrigger>

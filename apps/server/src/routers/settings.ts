@@ -27,6 +27,7 @@ import {
   projectConfigSchema,
   readProjectConfig,
 } from "@openloaf/api/services/projectTreeService";
+import { resolveBoardDirFromDb } from "@openloaf/api/common/boardPaths";
 import {
   resolveProjectAncestorRootUris,
   syncProjectsFromDisk,
@@ -1736,25 +1737,33 @@ class SettingRouterImpl extends BaseSettingRouter {
         .input(settingSchemas.inferBoardName.input)
         .output(settingSchemas.inferBoardName.output)
         .mutation(async ({ input }) => {
-          const { getProjectRootPath } = await import(
-            "@openloaf/api/services/vfsService"
-          );
-          const rootPath = input.projectId ? getProjectRootPath(input.projectId) : null;
-          if (!rootPath) return { title: "" };
+          let boardPath = "";
+          const boardId = input.boardId?.trim();
+          if (boardId) {
+            const boardResult = await resolveBoardDirFromDb(boardId);
+            if (!boardResult) return { title: "" };
+            boardPath = path.join(boardResult.absDir, "index.tnboard.json");
+          } else {
+            const { getProjectRootPath } = await import(
+              "@openloaf/api/services/vfsService"
+            );
+            const rootPath = input.projectId ? getProjectRootPath(input.projectId) : null;
+            if (!rootPath) return { title: "" };
 
-          // boardFolderUri may be a full file:// URI or a relative path like .openloaf/boards/tnboard_xxx
-          let folderName = input.boardFolderUri;
-          if (folderName.startsWith("file://")) {
-            folderName = folderName.replace(/^file:\/\//, "");
+            // boardFolderUri may be a full file:// URI or a relative path like .openloaf/boards/tnboard_xxx
+            let folderName = input.boardFolderUri;
+            if (folderName.startsWith("file://")) {
+              folderName = folderName.replace(/^file:\/\//, "");
+            }
+            folderName = path.basename(folderName);
+            boardPath = path.join(
+              rootPath,
+              ".openloaf",
+              "boards",
+              folderName,
+              "index.tnboard.json",
+            );
           }
-          folderName = path.basename(folderName);
-          const boardPath = path.join(
-            rootPath,
-            ".openloaf",
-            "boards",
-            folderName,
-            "index.tnboard.json",
-          );
 
           let snapshot: any;
           try {

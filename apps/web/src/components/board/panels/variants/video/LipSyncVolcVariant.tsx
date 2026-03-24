@@ -27,7 +27,7 @@ export function LipSyncVolcVariant({
   variant,
   upstream,
   nodeResourceUrl,
-  // initialParams not used — media-only variant with no cacheable text params
+  initialParams,
   disabled = false,
   onParamsChange,
   onWarningChange,
@@ -38,6 +38,12 @@ export function LipSyncVolcVariant({
   // Self-managed uploads (only used in fallback mode, i.e. resolvedSlots === undefined)
   const [manualVideoSrc, setManualVideoSrc] = useState<string | undefined>()
   const [manualAudioSrc, setManualAudioSrc] = useState<string | undefined>()
+  const [videoExtension, setVideoExtension] = useState(
+    (initialParams?.params?.videoExtension as boolean) ?? false,
+  )
+  const [faceThreshold, setFaceThreshold] = useState(
+    (initialParams?.params?.faceThreshold as number) ?? 170,
+  )
 
   // Resolve video and audio sources based on mode
   let videoUrl: string | undefined
@@ -91,9 +97,12 @@ export function LipSyncVolcVariant({
 
     onParamsChange({
       inputs,
-      params: {},
+      params: {
+        ...(videoExtension ? { videoExtension: true } : {}),
+        faceThreshold,
+      },
     })
-  }, [videoPath, audioPath, onParamsChange])
+  }, [videoPath, audioPath, videoExtension, faceThreshold, onParamsChange])
 
   return (
     <div className="flex flex-col gap-2.5">
@@ -136,6 +145,38 @@ export function LipSyncVolcVariant({
           />
         </div>
       ) : null}
+
+      {/* ── Parameters ── */}
+      <div className="flex flex-col gap-2">
+        <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          <input
+            type="checkbox"
+            checked={videoExtension}
+            onChange={(e) => setVideoExtension(e.target.checked)}
+            disabled={disabled}
+            className="accent-foreground"
+          />
+          {t('v3.params.videoExtension', { defaultValue: '音频较长时延长视频' })}
+        </label>
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] text-muted-foreground shrink-0">
+            {t('v3.params.faceThreshold', { defaultValue: '人脸匹配' })}
+          </span>
+          <input
+            type="range"
+            min={120}
+            max={200}
+            step={5}
+            value={faceThreshold}
+            onChange={(e) => setFaceThreshold(Number(e.target.value))}
+            disabled={disabled}
+            className="h-1 flex-1 appearance-none rounded-full bg-foreground/10 accent-foreground"
+          />
+          <span className="w-8 text-right text-[10px] text-muted-foreground tabular-nums">
+            {faceThreshold}
+          </span>
+        </div>
+      </div>
 
       {/* Hint */}
       <p className="text-center text-[10px] text-muted-foreground/50">

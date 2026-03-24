@@ -21,6 +21,7 @@ import {
   Info,
   CircleUserRound,
   CreditCard,
+  Globe,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -57,10 +58,10 @@ import { PricingDialog } from "@/components/billing/PricingDialog"
 /** 侧边栏等级徽章样式 — 使用更轻的浅色底，避免与 sidebar 背景相同，同时不过分抢眼。 */
 const SIDEBAR_MEMBERSHIP_BADGE_STYLES = {
   free: "bg-foreground/[0.05] text-foreground/65 dark:bg-foreground/[0.06] dark:text-foreground/65",
-  lite: "bg-secondary text-foreground",
-  pro: "bg-secondary text-foreground",
-  premium: "bg-secondary text-foreground",
-  infinity: "bg-secondary text-foreground",
+  lite: "bg-sky-500/10 text-sky-600 dark:bg-sky-400/15 dark:text-sky-400",
+  pro: "bg-amber-500/10 text-amber-600 dark:bg-amber-400/15 dark:text-amber-400",
+  premium: "bg-violet-500/10 text-violet-600 dark:bg-violet-400/15 dark:text-violet-400",
+  infinity: "bg-rose-500/10 text-rose-600 dark:bg-rose-400/15 dark:text-rose-400",
 } satisfies Record<string, string>
 
 const SIDEBAR_MEMBERSHIP_BADGE_DEFAULT_STYLE =
@@ -337,6 +338,13 @@ export function SidebarUserAccount() {
               >
                 <Lightbulb className="size-4" />
                 {tNav('sidebar.feedback.title')}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={() => window.open('https://openloaf.hexems.com', '_blank')}
+                className="rounded-3xl"
+              >
+                <Globe className="size-4" />
+                {t('officialWebsite')}
               </DropdownMenuItem>
               {authLoggedIn && (
                 <DropdownMenuItem
@@ -644,6 +652,13 @@ export function CompactUserAvatar() {
             >
               <Lightbulb className="size-4" />
               {tNav('sidebar.feedback.title')}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={() => window.open('https://openloaf.hexems.com', '_blank')}
+              className="rounded-3xl"
+            >
+              <Globe className="size-4" />
+              {t('officialWebsite')}
             </DropdownMenuItem>
             {authLoggedIn && (
               <DropdownMenuItem

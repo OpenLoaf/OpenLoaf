@@ -1176,6 +1176,7 @@
     "person": "Person Image",
     "face": "Face Image",
     "style": "Style Image",
+    "mask": "Mask",
     "textPlaceholder": "Type text or @ to reference upstream notes...",
     "unassignedTexts": "Unassigned texts:",
     "clearReference": "Clear reference",

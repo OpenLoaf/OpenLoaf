@@ -11,7 +11,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Plus, Upload } from 'lucide-react'
+import { Paintbrush, Plus, Redo2, Undo2, Upload } from 'lucide-react'
 import { cn } from '@udecode/cn'
 import {
   Popover,
@@ -57,6 +57,24 @@ export type ResolvedSlotInputs = {
   isValid: boolean
 }
 
+/** Handle exposed by MaskPaintOverlay for brush control. */
+export type MaskPaintHandle = {
+  brushSize: number
+  setBrushSize: (size: number) => void
+  undo: () => void
+  redo: () => void
+  clear: () => void
+  canUndo: boolean
+  canRedo: boolean
+}
+
+/** Result produced by MaskPaintOverlay. */
+export type MaskPaintResult = {
+  maskDataUrl: string
+  maskBlob: Blob
+  hasStroke: boolean
+}
+
 export type InputSlotBarProps = {
   slots: InputSlotDefinition[]
   upstream: UpstreamData
@@ -69,6 +87,16 @@ export type InputSlotBarProps = {
   cachedAssignment?: PersistedSlotMap
   /** Called when slot assignment changes so parent can persist it */
   onSlotAssignmentChange?: (map: PersistedSlotMap) => void
+  /** Ref to MaskPaintOverlay handle for brush control (paintable slots) */
+  maskPaintRef?: React.RefObject<MaskPaintHandle | null>
+  /** Whether mask painting is currently active */
+  maskPainting?: boolean
+  /** Current mask result (thumbnail + data) */
+  maskResult?: MaskPaintResult | null
+  /** Current brush size (synced from MaskPaintOverlay) */
+  brushSize?: number
+  /** Toggle mask painting on/off */
+  onMaskPaintToggle?: (active: boolean) => void
 }
 
 // ---------------------------------------------------------------------------
@@ -141,6 +169,11 @@ export function InputSlotBar({
   onAssignmentChange,
   cachedAssignment,
   onSlotAssignmentChange,
+  maskPaintRef,
+  maskPainting,
+  maskResult,
+  brushSize: brushSizeProp,
+  onMaskPaintToggle,
 }: InputSlotBarProps) {
   const { t } = useTranslation('board')
 
@@ -154,14 +187,19 @@ export function InputSlotBar({
   // Build reference pools from upstream data
   // ---------------------------------------------------------------------------
 
+  // When paintable slots exist (e.g. mask), the node's own image is the editing
+  // canvas — it should NOT be added to the reference pool as a candidate.
+  const hasPaintableSlot = useMemo(() => slots.some((s) => s.isPaintable), [slots])
+
   const nodeRef = useMemo(() => {
+    if (hasPaintableSlot) return undefined // node image = editing canvas, not a reference
     if (!nodeResource?.path) return undefined
     return {
       nodeId: '__self__',
       nodeType: nodeResource.type,
       path: nodeResource.path,
     }
-  }, [nodeResource?.path, nodeResource?.type])
+  }, [nodeResource?.path, nodeResource?.type, hasPaintableSlot])
 
   const pools = useMemo(
     () => buildReferencePools(upstream, fileContext, nodeRef),
@@ -185,13 +223,20 @@ export function InputSlotBar({
     return types
   }, [slots])
 
+  // Exclude paintable slots (e.g. mask) from pool assignment — they get data
+  // from painting, not from upstream nodes, so they should not consume image refs.
+  const assignableSlots = useMemo(
+    () => slots.filter((s) => !s.isPaintable),
+    [slots],
+  )
+
   const unifiedResult = useMemo(() => {
-    const raw = restoreOrAssign(slots, pools, initialCacheRef.current)
+    const raw = restoreOrAssign(assignableSlots, pools, initialCacheRef.current)
     // Filter associated refs to only include types the variant accepts
     // (e.g., image variant shouldn't show video refs in associated area)
     const filtered = raw.associated.filter((r) => acceptedMediaTypes.has(r.nodeType))
     return { ...raw, associated: filtered }
-  }, [slots, pools, acceptedMediaTypes])
+  }, [assignableSlots, pools, acceptedMediaTypes])
 
   // ---------------------------------------------------------------------------
   // Local state for user overrides
@@ -224,7 +269,7 @@ export function InputSlotBar({
       if (slotsChanged) {
         initialCacheRef.current = cachedAssignment
       }
-      const fresh = restoreOrAssign(slots, pools, initialCacheRef.current)
+      const fresh = restoreOrAssign(assignableSlots, pools, initialCacheRef.current)
       setSlotAssignments(fresh.assigned)
       setAssociatedRefs(fresh.associated.filter((r) => acceptedMediaTypes.has(r.nodeType)))
     }
@@ -566,6 +611,15 @@ export function InputSlotBar({
     [slots],
   )
   const mediaSlots = useMemo(
+    () => slots.filter((s) => s.mediaType !== 'text' && !s.isPaintable),
+    [slots],
+  )
+  const paintableSlots = useMemo(
+    () => slots.filter((s) => s.isPaintable),
+    [slots],
+  )
+  /** All non-text slots in declaration order (paintable + regular) for inline rendering */
+  const allMediaSlots = useMemo(
     () => slots.filter((s) => s.mediaType !== 'text'),
     [slots],
   )
@@ -604,11 +658,57 @@ export function InputSlotBar({
           InputSlotBar only manages media slot assignment and display. */}
 
       {/* Dual-zone media layout */}
-      {mediaSlots.length > 0 ? (() => {
+      {allMediaSlots.length > 0 ? (() => {
         const hasAssociated = associatedRefs.length > 0
+        const hasPaintableSlot = paintableSlots.length > 0
+        const isPaintActive = maskPainting ?? false
 
-        /** Renders all active slot chips (supports multi-item slots) */
-        const activeSlotChips = mediaSlots.flatMap((slot) => {
+        /** Renders all active slot chips (supports multi-item + paintable slots) */
+        const activeSlotChips = allMediaSlots.flatMap((slot): React.ReactNode[] => {
+          // ── Paintable slot: render inline paint chip ──
+          if (slot.isPaintable) {
+            // Only show mask when the node itself has an image resource
+            if (!nodeResource?.url) return []
+
+            const slotLabel = t(slot.labelKey, { defaultValue: slot.id })
+            const hasMask = maskResult?.hasStroke ?? false
+            return [(
+              <div key={`paint:${slot.id}`} className="flex flex-col items-center gap-1">
+                <div className="relative h-[44px] w-[44px] shrink-0">
+                  <button
+                    type="button"
+                    disabled={disabled}
+                    className={cn(
+                      'flex h-full w-full items-center justify-center rounded-xl border transition-colors duration-150',
+                      isPaintActive
+                        ? 'border-foreground/30 bg-foreground/10 text-foreground'
+                        : hasMask
+                          ? 'border-border bg-background text-foreground hover:border-foreground/20'
+                          : 'border-dashed border-border text-muted-foreground hover:border-foreground/20 hover:text-foreground',
+                      disabled && 'cursor-not-allowed opacity-60',
+                    )}
+                    onClick={() => onMaskPaintToggle?.(!isPaintActive)}
+                  >
+                    {hasMask && maskResult?.maskDataUrl ? (
+                      <img
+                        src={maskResult.maskDataUrl}
+                        alt="mask"
+                        className="h-full w-full rounded-xl object-contain p-0.5 opacity-60"
+                      />
+                    ) : (
+                      <Paintbrush size={14} />
+                    )}
+                  </button>
+                </div>
+                <span className="text-center text-[9px] leading-tight text-muted-foreground/60">
+                  {slotLabel}
+                  {slot.min > 0 ? <span className="text-amber-500"> *</span> : null}
+                </span>
+              </div>
+            )]
+          }
+
+          // ── Regular media slot ──
           const assignedMedia = (slotAssignments[slot.id] ?? []).filter(
             isMediaReference,
           )
@@ -771,6 +871,43 @@ export function InputSlotBar({
           </div>
         )
       })() : null}
+
+      {/* ── Brush controls for paintable slots (below chip row) ── */}
+      {paintableSlots.length > 0 && (maskPainting ?? false) && maskPaintRef?.current ? (
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-foreground/8 transition-colors"
+            title={t('slot.clearMask', { defaultValue: '清除遮罩' })}
+            onClick={() => maskPaintRef.current?.clear()}
+          >
+            <Paintbrush size={13} />
+          </button>
+          <input
+            type="range"
+            min={8}
+            max={120}
+            value={brushSizeProp ?? 40}
+            onChange={(e) => maskPaintRef.current?.setBrushSize(Number(e.target.value))}
+            className="h-1 min-w-0 flex-1 cursor-pointer accent-foreground"
+          />
+          <span className="mx-0.5 h-4 w-px bg-border" />
+          <button
+            type="button"
+            className="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-foreground/8 transition-colors disabled:opacity-30"
+            onClick={() => maskPaintRef.current?.undo()}
+          >
+            <Undo2 size={13} />
+          </button>
+          <button
+            type="button"
+            className="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-foreground/8 transition-colors disabled:opacity-30"
+            onClick={() => maskPaintRef.current?.redo()}
+          >
+            <Redo2 size={13} />
+          </button>
+        </div>
+      ) : null}
     </div>
   )
 }

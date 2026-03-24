@@ -243,9 +243,9 @@ export function ChatInputBox({
   afterProjectSelector,
   onAgentSelect,
 }: ChatInputBoxProps) {
-  const { t } = useTranslation('ai');
+  const { t } = useTranslation(['ai', 'common']);
   const resolvedSubmitLabel = submitLabel ?? t('chat.send');
-  const resolvedCancelLabel = cancelLabel ?? t('common.cancel');
+  const resolvedCancelLabel = cancelLabel ?? t('common:cancel');
   const isBlocked = Boolean(blocked);
   const plainTextValue = useMemo(() => getPlainTextFromInput(value), [value]);
   const isOverLimit = plainTextValue.length > MAX_CHARS;

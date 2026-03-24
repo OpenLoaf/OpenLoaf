@@ -367,6 +367,7 @@ export function openFilePreview(input: FileOpenInput): boolean | ReactNode | nul
   if (boardEntry && mode !== "embed") {
     const boardFolderUri = boardEntry.uri;
     const boardFileUri = buildChildUri(boardFolderUri, BOARD_INDEX_FILE_NAME);
+    const boardId = boardFolderUri.split("/").filter(Boolean).pop() ?? "";
     const displayName = getBoardDisplayName(boardEntry.name);
     useLayoutState.getState().pushStackItem({
       id: boardFolderUri,
@@ -376,6 +377,7 @@ export function openFilePreview(input: FileOpenInput): boolean | ReactNode | nul
         uri: boardFolderUri,
         boardFolderUri,
         boardFileUri,
+        boardId,
         name: boardEntry.name,
         projectId: input.projectId,
         rootUri: input.rootUri,
@@ -419,6 +421,7 @@ export function openFilePreview(input: FileOpenInput): boolean | ReactNode | nul
     if (isBoardFolderName(input.entry.name)) {
       const boardFolderUri = input.entry.uri;
       const boardFileUri = buildChildUri(boardFolderUri, BOARD_INDEX_FILE_NAME);
+      const boardId = boardFolderUri.split("/").filter(Boolean).pop() ?? "";
       const displayName = getBoardDisplayName(input.entry.name);
       useLayoutState.getState().pushStackItem({
         id: boardFolderUri,
@@ -428,6 +431,7 @@ export function openFilePreview(input: FileOpenInput): boolean | ReactNode | nul
           uri: boardFolderUri,
           boardFolderUri,
           boardFileUri,
+          boardId,
           name: input.entry.name,
           projectId: input.projectId,
           rootUri: input.rootUri,

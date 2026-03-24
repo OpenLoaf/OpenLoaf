@@ -1176,6 +1176,7 @@
     "person": "人物圖片",
     "face": "臉部圖片",
     "style": "風格圖片",
+    "mask": "遮罩",
     "textPlaceholder": "輸入文字或 @ 引用上游便箋...",
     "unassignedTexts": "待分配文字：",
     "clearReference": "清除引用",

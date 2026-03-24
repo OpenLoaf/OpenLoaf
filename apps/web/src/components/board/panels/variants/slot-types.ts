@@ -32,6 +32,11 @@ export interface InputSlotDefinition {
   overflowStrategy: OverflowStrategy
   /** Text slots only: how the text reference is applied */
   referenceMode?: TextReferenceMode
+  /**
+   * When true, this slot supports on-canvas painting (e.g. mask overlay).
+   * InputSlotBar renders a paint-activation chip and brush controls below it.
+   */
+  isPaintable?: boolean
 }
 
 /** Upstream text reference with identity preserved */

@@ -12,16 +12,6 @@
 import type { CanvasPoint } from '../engine/types'
 import type { CanvasEngine } from '../engine/CanvasEngine'
 import { useCallback, useEffect, useRef } from 'react'
-import {
-  ANCHOR_BOUNCE_DURATION_MS,
-  ANCHOR_BOUNCE_EASING,
-  ANCHOR_HOTZONE_RADIUS,
-  ANCHOR_MAGNETIC_DAMPEN,
-  ANCHOR_MAGNETIC_DURATION_MS,
-  ANCHOR_MAGNETIC_MAX,
-  ANCHOR_MAGNETIC_SCALE,
-  SELECTED_ANCHOR_SIDE_SIZE,
-} from '../engine/constants'
 
 export type AnchorEntry = {
   anchorId: string
@@ -29,16 +19,10 @@ export type AnchorEntry = {
 }
 
 /**
- * Magnetic-follow animation for anchor icons.
+ * Anchor icon visibility hook.
  *
- * Runs a RAF loop while `active` is true.  Reads `engine.getCursorWorld()`
- * (updated silently by SelectTool) and applies CSS transforms directly to
- * each registered icon DOM element via refs, bypassing React renders.
- *
- * Three visual states per icon:
- * 1. **Rest** — opacity 0, scale(1)
- * 2. **Visible idle** — at base position, scale(1), opacity 1
- * 3. **Magnetic follow** — translated toward cursor (clamped), scale(ANCHOR_MAGNETIC_SCALE)
+ * Shows / hides anchor icons with a simple fade transition.
+ * No magnetic-follow or bounce animations.
  */
 export function useAnchorMagnetic(
   engine: CanvasEngine,
@@ -46,9 +30,6 @@ export function useAnchorMagnetic(
   anchors: AnchorEntry[],
 ) {
   const refsMap = useRef<Map<string, HTMLDivElement>>(new Map())
-  // 逻辑：记录上一次热区状态，用于切换 transition。
-  const prevInHotzoneMap = useRef<Map<string, boolean>>(new Map())
-  // 逻辑：用 ref 持有 anchors，让 RAF 循环读取最新值而不重启 useEffect。
   const anchorsRef = useRef(anchors)
   anchorsRef.current = anchors
 
@@ -62,93 +43,23 @@ export function useAnchorMagnetic(
 
   useEffect(() => {
     if (!active) {
-      // 逻辑：失活时淡出所有 icon。
       for (const [, el] of refsMap.current) {
         el.style.transition = 'opacity 200ms ease'
-        el.style.transform = 'translate(0px, 0px) scale(1)'
+        el.style.transform = ''
         el.style.opacity = '0'
       }
-      prevInHotzoneMap.current.clear()
       return
     }
 
-    // 逻辑：激活时纯淡入显示。
     for (const entry of anchorsRef.current) {
       const el = refsMap.current.get(entry.anchorId)
       if (!el) continue
-      // 先设初始状态（无过渡，立刻就位）。
       el.style.transition = 'none'
-      el.style.transform = 'translate(0px, 0px) scale(1)'
+      el.style.transform = ''
       el.style.opacity = '0'
-      // 强制 reflow 使上一帧生效。
       el.getBoundingClientRect()
-      // 然后淡入到可见状态。
       el.style.transition = 'opacity 200ms ease-out'
-      el.style.transform = 'translate(0px, 0px) scale(1)'
       el.style.opacity = '1'
-    }
-
-    let rafId: number
-
-    const animate = () => {
-      const entries = anchorsRef.current
-      const cursor = engine.getCursorWorld()
-      const zoom = engine.viewport.getState().zoom
-
-      for (const entry of entries) {
-        const el = refsMap.current.get(entry.anchorId)
-        if (!el) continue
-
-        if (!cursor) {
-          // 鼠标不在画布上 → 保持基准位置。
-          if (prevInHotzoneMap.current.get(entry.anchorId)) {
-            el.style.transition = `transform ${ANCHOR_BOUNCE_DURATION_MS}ms ${ANCHOR_BOUNCE_EASING}`
-            el.style.transform = 'translate(0px, 0px) scale(1)'
-            prevInHotzoneMap.current.set(entry.anchorId, false)
-          }
-          continue
-        }
-
-        // 逻辑：计算鼠标到锚点中心的屏幕像素距离，扣除锚点半径后得到"边缘距离"。
-        const dx = (cursor[0] - entry.worldPoint[0]) * zoom
-        const dy = (cursor[1] - entry.worldPoint[1]) * zoom
-        const dist = Math.hypot(dx, dy)
-        const anchorRadius = SELECTED_ANCHOR_SIDE_SIZE / 2
-        const inHotzone = dist < ANCHOR_HOTZONE_RADIUS
-        const wasInHotzone = prevInHotzoneMap.current.get(entry.anchorId) ?? false
-
-        if (inHotzone) {
-          // 逻辑：扣除锚点半径 → 圆内部不产生偏移，仅超出边缘部分驱动跟随。
-          // 再乘阻尼系数，确保图标移动距离始终小于鼠标距离，手感稳定。
-          const effectiveDist = Math.max(0, dist - anchorRadius)
-          const maxOffset = ANCHOR_MAGNETIC_MAX
-          const ratio = effectiveDist > 0
-            ? Math.min(effectiveDist * ANCHOR_MAGNETIC_DAMPEN, maxOffset) / dist
-            : 0
-          const tx = dx * ratio
-          const ty = dy * ratio
-          el.style.transition = `transform ${ANCHOR_MAGNETIC_DURATION_MS}ms ease-out`
-          el.style.transform = `translate(${tx}px, ${ty}px) scale(${ANCHOR_MAGNETIC_SCALE})`
-          prevInHotzoneMap.current.set(entry.anchorId, true)
-        } else if (wasInHotzone) {
-          // 逻辑：离开热区 → 弹回基准位置，弹性过冲曲线。
-          el.style.transition = `transform ${ANCHOR_BOUNCE_DURATION_MS}ms ${ANCHOR_BOUNCE_EASING}`
-          el.style.transform = 'translate(0px, 0px) scale(1)'
-          prevInHotzoneMap.current.set(entry.anchorId, false)
-        }
-      }
-
-      rafId = requestAnimationFrame(animate)
-    }
-
-    // 逻辑：入场动画结束后启动 RAF 循环（200ms 后）。
-    const startTimer = window.setTimeout(() => {
-      rafId = requestAnimationFrame(animate)
-    }, 200)
-
-    return () => {
-      window.clearTimeout(startTimer)
-      cancelAnimationFrame(rafId)
     }
   }, [active, engine])
 

@@ -778,6 +778,7 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
       if (!board) return;
       const result = await inferBoardNameMutation.mutateAsync({
         boardFolderUri: board.folderUri,
+        boardId: board.id,
         projectId: board.projectId ?? undefined,
         saasAccessToken: getCachedAccessToken() ?? undefined,
       });

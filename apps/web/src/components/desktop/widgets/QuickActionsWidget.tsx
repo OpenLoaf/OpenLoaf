@@ -106,6 +106,7 @@ export default function QuickActionsWidget({ scope }: QuickActionsWidgetProps) {
           uri: boardFolderUri,
           boardFolderUri,
           boardFileUri,
+          boardId: folderName,
           name: folderName,
           projectId,
           rootUri,

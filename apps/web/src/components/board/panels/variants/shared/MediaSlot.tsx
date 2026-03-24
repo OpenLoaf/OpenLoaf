@@ -78,12 +78,13 @@ export function MediaSlot({
     if (!file) return
     e.target.value = ''
 
-    if (boardFolderUri) {
+    if (boardId || boardFolderUri) {
       try {
         const relativePath = await saveBoardAssetFile({
           file,
           fallbackName: 'upload',
           projectId,
+          boardId,
           boardFolderUri,
         })
         onUpload?.(relativePath)

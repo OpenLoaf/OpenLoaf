@@ -460,15 +460,16 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
   /** Persist a file into the board assets folder. */
   const saveBoardAssetFile = useCallback(
     async (file: File, fallbackName: string) => {
-      if (!fileContext?.boardFolderUri) return "";
+      if (!fileContext?.boardId && !fileContext?.boardFolderUri) return "";
       return saveBoardAssetFileUtil({
         file,
         fallbackName,
         projectId: fileContext?.projectId,
+        boardId: fileContext?.boardId,
         boardFolderUri: fileContext.boardFolderUri,
       });
     },
-    [fileContext?.boardFolderUri, fileContext?.projectId]
+    [fileContext?.boardFolderUri, fileContext?.boardId, fileContext?.projectId]
   );
 
   // buildVideoPosterFromFile is now imported from board-asset.ts

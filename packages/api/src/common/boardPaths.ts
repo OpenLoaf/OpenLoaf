@@ -15,7 +15,6 @@
  * - 全局画布（兼容）：~/.openloaf/boards/{boardId}/...
  */
 import path from "node:path";
-import { homedir } from "node:os";
 import { resolveScopedOpenLoafPath } from "@openloaf/config";
 import { prisma } from "@openloaf/db";
 import { getResolvedTempStorageDir } from "../services/appConfigService";
@@ -104,7 +103,11 @@ export function resolveBoardAbsPath(
   folderUri: string,
   ...subpath: string[]
 ): string {
-  const normalized = folderUri.replace(/\/+$/u, "");
+  let normalized = folderUri.replace(/\/+$/u, "");
+  // 逻辑：未绑定画布迁移到 tempDir/boards 后，DB 中可能仍残留旧 ".openloaf/" 前缀。
+  if (isTempStorageRoot(rootPath) && normalized.startsWith(".openloaf/boards/")) {
+    normalized = normalized.slice(".openloaf/".length);
+  }
   return path.join(rootPath, normalized, ...subpath);
 }
 
@@ -127,8 +130,8 @@ export async function lookupBoardRecord(boardId: string): Promise<{
  * 根据 DB 记录解析画布的根路径。
  *
  * 兼容规则：
- * - 旧版临时画布（重构前）：folderUri = ".openloaf/boards/{id}/"，projectId = null
- *   → rootPath = homedir()（因为旧代码 resolveBoardScopedRoot(null) 返回 homedir）
+ * - 旧版未绑定画布（重构前）：folderUri = ".openloaf/boards/{id}/"，projectId = null
+ *   → rootPath = getResolvedTempStorageDir()（磁盘已迁移到 tempDir/boards，仅 DB 可能保留旧前缀）
  * - 新版临时画布（重构后）：folderUri = "boards/{id}/"，projectId = null
  *   → rootPath = getResolvedTempStorageDir()
  * - 项目画布：folderUri = ".openloaf/boards/{id}/"，projectId = "xxx"
@@ -139,7 +142,7 @@ export function resolveBoardRootPath(record: {
   projectId: string | null;
 }): string {
   if (!record.projectId && record.folderUri.startsWith(".openloaf/")) {
-    return homedir();
+    return getResolvedTempStorageDir();
   }
   return resolveBoardScopedRoot(record.projectId ?? undefined);
 }

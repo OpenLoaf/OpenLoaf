@@ -52,6 +52,7 @@ export function ImgGenTextVariant({
   const [aspectRatio, setAspectRatio] = useState(initialParams?.params?.aspectRatio as string ?? 'auto')
   const [quality, setQuality] = useState<Quality>(initialParams?.params?.quality as Quality ?? 'standard')
   const [count, setCount] = useState(initialParams?.count ?? 1)
+  const [promptExtend, setPromptExtend] = useState(initialParams?.params?.promptExtend as boolean ?? true)
   const [showNegative, setShowNegative] = useState(false)
 
   // Report warning when prompt is empty (required for text-to-image).
@@ -76,10 +77,11 @@ export function ImgGenTextVariant({
         ...(config.showNegative && negativePrompt ? { negativePrompt } : {}),
         aspectRatio,
         quality,
+        promptExtend,
       },
       ...(config.showCount ? { count } : {}),
     })
-  }, [prompt, negativePrompt, aspectRatio, quality, count, config, nodeImage, onParamsChange])
+  }, [prompt, negativePrompt, aspectRatio, quality, count, promptExtend, config, nodeImage, onParamsChange])
 
   useEffect(() => { sync() }, [sync])
 
@@ -125,6 +127,18 @@ export function ImgGenTextVariant({
 
         <div className="flex-1" />
 
+        {/* Prompt extend toggle */}
+        <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          <input
+            type="checkbox"
+            checked={promptExtend}
+            onChange={(e) => setPromptExtend(e.target.checked)}
+            disabled={disabled}
+            className="accent-foreground"
+          />
+          {t('v3.params.promptExtend', { defaultValue: '智能改写' })}
+        </label>
+
         {/* Negative prompt toggle */}
         {config.showNegative ? (
           <button
@@ -148,7 +162,7 @@ export function ImgGenTextVariant({
           <PillSelect
             options={COUNT_OPTIONS.map((n) => ({
               value: String(n),
-              label: `${n}x`,
+              label: `×${n}`,
             }))}
             value={String(count)}
             onChange={(v) => setCount(Number(v))}

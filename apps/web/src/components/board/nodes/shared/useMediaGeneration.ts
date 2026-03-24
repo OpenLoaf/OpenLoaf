@@ -193,7 +193,7 @@ export function useMediaGeneration<P extends BaseGenerateParams>(
   const handleGenerate = useCallback(
     async (params: P) => {
       // 逻辑：先写入 generating 状态（无 taskId），让节点立即显示 loading，
-      // 再等 API 返回后补上 taskId。
+      // 再上传媒体输入、提交 API，最后补上 taskId 启动轮询。
       const inputSnapshot = buildSnapshot(params, upstream)
       const pendingEntry = createGeneratingEntry(inputSnapshot, '')
       const extraPatch = buildGeneratePatch(params)
@@ -205,15 +205,25 @@ export function useMediaGeneration<P extends BaseGenerateParams>(
       })
 
       try {
-        const result = await submitGenerate(params, {
+        // 逻辑：上传媒体输入（mask、图片等）到公网 URL，在节点显示 loading 后再执行以避免阻塞 UI。
+        const resolvedInputs = await resolveAllMediaInputs(
+          params.inputs ?? {},
+          fileContext?.boardId,
+        )
+        const resolvedParams = { ...params, inputs: resolvedInputs }
+
+        const result = await submitGenerate(resolvedParams as P, {
           projectId: fileContext?.projectId,
           boardId: fileContext?.boardId,
           sourceNodeId: elementId,
         })
 
         // 逻辑：API 返回后补上 taskId，轮询开始。
-        const currentEntries = versionStack?.entries ?? [pendingEntry]
-        const updatedEntries = currentEntries.map(e =>
+        // 注意：必须用 pushVersion 重建 entries，因为闭包中的 versionStack 是旧值，
+        // 不包含第一次 onUpdate 推入的 pendingEntry。直接读 versionStack?.entries
+        // 会导致 pendingEntry 丢失、taskId 无法回填、轮询不启动。
+        const pushedStack = pushVersion(versionStack, pendingEntry)
+        const updatedEntries = pushedStack.entries.map(e =>
           e.id === pendingEntry.id ? { ...e, taskId: result.taskId } : e,
         )
         onUpdate({

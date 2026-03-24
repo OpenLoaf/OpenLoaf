@@ -421,6 +421,8 @@ export function SidebarHoverPanel({
       if (!board) return
       const result = await inferBoardNameMutation.mutateAsync({
         boardFolderUri: board.folderUri,
+        boardId: board.id,
+        projectId: board.projectId ?? undefined,
       })
       if (result.title) {
         setRenameTarget((prev) => (prev ? { ...prev, nextTitle: result.title } : prev))

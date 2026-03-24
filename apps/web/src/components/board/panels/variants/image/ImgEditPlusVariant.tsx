@@ -12,7 +12,7 @@ import { useTranslation } from 'react-i18next'
 import { ImageIcon } from 'lucide-react'
 import type { VariantFormProps } from '../types'
 import { BOARD_GENERATE_INPUT } from '../../../ui/board-style-system'
-import { MediaSlot, UpstreamTextBadge, toMediaInput, useMediaSlots } from '../shared'
+import { MediaSlot, PillSelect, UpstreamTextBadge, toMediaInput, useMediaSlots } from '../shared'
 
 /** Max source images for qwen-image-edit-plus. */
 const MAX_IMAGES = 3
@@ -40,6 +40,9 @@ export function ImgEditPlusVariant({
 
   const [prompt, setPrompt] = useState(initialParams?.inputs?.prompt as string ?? '')
   const { manualImages, displayImages, apiImages, addImage, removeImage, canAdd } = useMediaSlots(MAX_IMAGES, nodeResourcePath, upstream)
+  const [n, setN] = useState<number>((initialParams?.params?.n as number) ?? 1)
+  const [size, setSize] = useState<string>((initialParams?.params?.size as string) ?? 'auto')
+  const [promptExtend, setPromptExtend] = useState<boolean>((initialParams?.params?.promptExtend as boolean) ?? true)
   const [negativePrompt, setNegativePrompt] = useState(initialParams?.params?.negativePrompt as string ?? '')
   const [showNegative, setShowNegative] = useState(false)
 
@@ -85,10 +88,13 @@ export function ImgEditPlusVariant({
         // mask is NOT included — parent panel injects it from MaskPaintOverlay
       },
       params: {
+        ...(n > 1 ? { n } : {}),
+        ...(size !== 'auto' ? { size } : {}),
+        promptExtend,
         ...(negativePrompt ? { negativePrompt } : {}),
       },
     })
-  }, [prompt, negativePrompt, resolvedSlots, apiImages.length, onParamsChange]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [prompt, n, size, promptExtend, negativePrompt, resolvedSlots, apiImages.length, onParamsChange]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     sync()
@@ -169,6 +175,32 @@ export function ImgEditPlusVariant({
 
       {/* ── Parameter row ── */}
       <div className="flex items-center gap-1.5">
+        <PillSelect
+          options={[1, 2, 4, 6].map((v) => ({ value: String(v), label: `×${v}` }))}
+          value={String(n)}
+          onChange={(v) => setN(Number(v))}
+          disabled={disabled}
+        />
+        <PillSelect
+          options={[
+            { value: 'auto', label: t('v3.params.sizeAuto', { defaultValue: 'Auto' }) },
+            { value: '1024*1024', label: '1024' },
+            { value: '1536*1536', label: '1536' },
+          ]}
+          value={size}
+          onChange={setSize}
+          disabled={disabled}
+        />
+        <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          <input
+            type="checkbox"
+            checked={promptExtend}
+            onChange={(e) => setPromptExtend(e.target.checked)}
+            disabled={disabled}
+            className="accent-foreground"
+          />
+          {t('v3.params.promptExtend', { defaultValue: '智能改写' })}
+        </label>
         <div className="flex-1" />
         {/* Negative prompt toggle */}
         <button

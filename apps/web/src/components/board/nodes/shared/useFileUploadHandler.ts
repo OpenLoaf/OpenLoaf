@@ -64,7 +64,7 @@ export function useFileUploadHandler<TProps extends Record<string, unknown>>({
   const handleFileInputChange = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0]
-      if (!file || !fileContext?.boardFolderUri) return
+      if (!file || (!fileContext?.boardId && !fileContext?.boardFolderUri)) return
       e.target.value = ''
       try {
         if (saveFn) {
@@ -74,6 +74,7 @@ export function useFileUploadHandler<TProps extends Record<string, unknown>>({
             file,
             fallbackName,
             projectId: fileContext.projectId,
+            boardId: fileContext.boardId,
             boardFolderUri: fileContext.boardFolderUri,
           })
           onUpdate({

@@ -1181,6 +1181,7 @@
     "person": "人物图片",
     "face": "人脸图片",
     "style": "风格图片",
+    "mask": "遮罩",
     "textPlaceholder": "输入文本或 @ 引用上游便签...",
     "unassignedTexts": "待分配文本：",
     "clearReference": "清除引用",

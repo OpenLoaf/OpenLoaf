@@ -76,9 +76,11 @@ export function renderFilePreviewContent(input: {
   if (entry.kind === "folder" && isBoardFolderName(entry.name)) {
     const boardFolderUri = entry.uri;
     const boardFileUri = buildChildUri(boardFolderUri, BOARD_INDEX_FILE_NAME);
+    const boardId = boardFolderUri.split("/").filter(Boolean).pop() ?? "";
     return (
       <Suspense fallback={<ViewerFallback />}>
         <BoardFileViewer
+          boardId={boardId}
           boardFolderUri={boardFolderUri}
           boardFileUri={boardFileUri}
           projectId={projectId}

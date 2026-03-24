@@ -12,7 +12,7 @@ import { useTranslation } from 'react-i18next'
 import { ImageIcon } from 'lucide-react'
 import type { VariantFormProps } from '../types'
 import { BOARD_GENERATE_INPUT } from '../../../ui/board-style-system'
-import { MediaSlot, UpstreamTextBadge, toMediaInput, useMediaSlots } from '../shared'
+import { MediaSlot, PillSelect, UpstreamTextBadge, toMediaInput, useMediaSlots } from '../shared'
 
 /** Max images per mode. */
 const MAX_NORMAL = 4
@@ -42,6 +42,9 @@ export function ImgEditWanVariant({
 
   const [prompt, setPrompt] = useState(initialParams?.inputs?.prompt as string ?? '')
   const [mode, setMode] = useState<Mode>(initialParams?.params?.enable_interleave ? 'interleave' : 'normal')
+  const [size, setSize] = useState<'1K' | '2K'>((initialParams?.params?.size as '1K' | '2K') ?? '1K')
+  const [n, setN] = useState<number>((initialParams?.params?.n as number) ?? 4)
+  const [promptExtend, setPromptExtend] = useState<boolean>((initialParams?.params?.promptExtend as boolean) ?? true)
   const [negativePrompt, setNegativePrompt] = useState(initialParams?.params?.negativePrompt as string ?? '')
   const [showNegative, setShowNegative] = useState(false)
 
@@ -86,10 +89,12 @@ export function ImgEditWanVariant({
       },
       params: {
         enable_interleave: mode === 'interleave',
+        size,
+        ...(mode === 'normal' ? { n, promptExtend } : {}),
         ...(negativePrompt ? { negativePrompt } : {}),
       },
     })
-  }, [prompt, mode, negativePrompt, resolvedSlots, maxImages, apiImages.length, onParamsChange]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [prompt, mode, size, n, promptExtend, negativePrompt, resolvedSlots, maxImages, apiImages.length, onParamsChange]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     sync()
@@ -182,6 +187,35 @@ export function ImgEditWanVariant({
 
       {/* ── Parameter row ── */}
       <div className="flex items-center gap-1.5">
+        <PillSelect
+          options={[
+            { value: '1K', label: '1K' },
+            { value: '2K', label: '2K' },
+          ]}
+          value={size}
+          onChange={(v) => setSize(v as '1K' | '2K')}
+          disabled={disabled}
+        />
+        {mode === 'normal' ? (
+          <PillSelect
+            options={[1, 2, 4].map((v) => ({ value: String(v), label: `×${v}` }))}
+            value={String(n)}
+            onChange={(v) => setN(Number(v))}
+            disabled={disabled}
+          />
+        ) : null}
+        {mode === 'normal' ? (
+          <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+            <input
+              type="checkbox"
+              checked={promptExtend}
+              onChange={(e) => setPromptExtend(e.target.checked)}
+              disabled={disabled}
+              className="accent-foreground"
+            />
+            {t('v3.params.promptExtend', { defaultValue: '智能改写' })}
+          </label>
+        ) : null}
         <div className="flex-1" />
         {/* Negative prompt toggle */}
         <button

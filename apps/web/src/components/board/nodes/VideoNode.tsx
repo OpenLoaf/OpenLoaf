@@ -36,6 +36,7 @@ import { isBoardRelativePath } from "../core/boardFilePath";
 import { resolveServerUrl } from "@/utils/server-url";
 import { resolveProjectRelativePath } from './shared/resolveMediaSource';
 import { downloadMediaFile } from './shared/downloadMediaFile';
+import { saveBoardAssetFile } from '../utils/board-asset';
 import { NodeFrame } from "./NodeFrame";
 import { VideoAiPanel } from "../panels/VideoAiPanel";
 import { FailureOverlay } from './shared/FailureOverlay';
@@ -386,11 +387,53 @@ export function VideoNodeView({
   const upstream = useUpstreamData(engine, expanded ? element.id : null);
   const panelOverlay = usePanelOverlay();
   const videoRef = useRef<HTMLVideoElement>(null);
+  // 逻辑：自定义保存函数，上传视频后获取元数据并自动调整节点尺寸。
+  const uploadSaveFn = useCallback(
+    async (file: File, ctx: BoardFileContext) => {
+      const relativePath = await saveBoardAssetFile({
+        file,
+        fallbackName: 'video.mp4',
+        projectId: ctx.projectId,
+        boardId: ctx.boardId,
+        boardFolderUri: ctx.boardFolderUri,
+      })
+      onUpdate({ sourcePath: relativePath, fileName: file.name })
+      const nodeId = element.id
+      void (async () => {
+        try {
+          const metadata = await fetchVideoMetadata({
+            projectId: ctx.projectId,
+            boardId: ctx.boardId,
+            uri: relativePath,
+          })
+          if (!metadata?.width || !metadata?.height) return
+          const el = engine.doc.getElementById(nodeId)
+          if (!el || el.kind !== 'node') return
+          const [ex, ey, ew, eh] = el.xywh
+          const ratio = metadata.width / metadata.height
+          const newW = Math.max(ew, 240)
+          const newH = Math.round(newW / ratio)
+          const cx = ex + ew / 2
+          const cy = ey + eh / 2
+          engine.doc.updateElement(nodeId, {
+            xywh: [Math.round(cx - newW / 2), Math.round(cy - newH / 2), newW, newH],
+          })
+          engine.doc.updateNodeProps(nodeId, {
+            naturalWidth: metadata.width,
+            naturalHeight: metadata.height,
+            duration: metadata.duration,
+          })
+        } catch { /* ignore metadata fetch failure */ }
+      })()
+    },
+    [onUpdate, element.id, engine],
+  )
   const { fileInputRef, handleFileInputChange } = useFileUploadHandler<VideoNodeProps>({
     elementId: element.id,
     fileContext,
     onUpdate,
     fallbackName: 'video.mp4',
+    saveFn: uploadSaveFn,
   });
   const { panelRef } = useInlinePanelSync({ engine, xywh: element.xywh, expanded });
 

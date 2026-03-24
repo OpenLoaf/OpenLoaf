@@ -70,17 +70,25 @@ export async function saveBoardAssetFile(input: {
   file: File;
   fallbackName: string;
   projectId?: string;
-  boardFolderUri: string;
+  boardId?: string;
+  boardFolderUri?: string;
 }): Promise<string> {
-  const { file, fallbackName, projectId, boardFolderUri } = input;
-  const assetsFolderUri = buildChildUri(boardFolderUri, BOARD_ASSETS_DIR_NAME);
+  const { file, fallbackName, projectId, boardId, boardFolderUri } = input;
+  const assetsFolderUri = boardId
+    ? BOARD_ASSETS_DIR_NAME
+    : boardFolderUri
+      ? buildChildUri(boardFolderUri, BOARD_ASSETS_DIR_NAME)
+      : "";
+  if (!assetsFolderUri) return "";
   await trpcClient.fs.mkdir.mutate({
     projectId,
+    boardId,
     uri: assetsFolderUri,
     recursive: true,
   });
   const existing = await trpcClient.fs.list.query({
     projectId,
+    boardId,
     uri: assetsFolderUri,
   });
   const existingNames = new Set(
@@ -89,10 +97,13 @@ export async function saveBoardAssetFile(input: {
   const safeName =
     (file.name || fallbackName).replace(/[\\/]/g, "-") || fallbackName;
   const uniqueName = getUniqueName(safeName, existingNames);
-  const targetUri = buildChildUri(assetsFolderUri, uniqueName);
+  const targetUri = boardId
+    ? `${BOARD_ASSETS_DIR_NAME}/${uniqueName}`
+    : buildChildUri(assetsFolderUri, uniqueName);
   const contentBase64 = await fileToBase64(file);
   await trpcClient.fs.writeBinary.mutate({
     projectId,
+    boardId,
     uri: targetUri,
     contentBase64,
   });

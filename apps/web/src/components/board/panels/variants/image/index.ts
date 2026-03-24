@@ -88,6 +88,7 @@ export const IMAGE_VARIANTS: Record<string, VariantDefinition> = {
     acceptsInputTypes: ['image'],
     producesOutputType: 'image',
     inputSlots: [
+      { id: 'mask', mediaType: 'image', labelKey: 'slot.mask', min: 1, max: 1, allowManualInput: false, overflowStrategy: 'rotate', isPaintable: true },
       { id: 'prompt', mediaType: 'text', labelKey: 'slot.prompt', min: 0, max: 1, allowManualInput: true, overflowStrategy: 'merge', referenceMode: 'inline' },
       { id: 'image', mediaType: 'image', labelKey: 'slot.sourceImage', min: 1, max: 1, allowManualInput: true, overflowStrategy: 'rotate' },
     ],
@@ -141,6 +142,7 @@ export const IMAGE_VARIANTS: Record<string, VariantDefinition> = {
     acceptsInputTypes: ['image'],
     producesOutputType: 'image',
     inputSlots: [
+      { id: 'mask', mediaType: 'image', labelKey: 'slot.mask', min: 0, max: 1, allowManualInput: false, overflowStrategy: 'rotate', isPaintable: true },
       { id: 'prompt', mediaType: 'text', labelKey: 'slot.prompt', min: 1, max: 1, allowManualInput: true, overflowStrategy: 'merge', referenceMode: 'inline' },
       { id: 'images', mediaType: 'image', labelKey: 'slot.referenceImages', min: 1, max: 3, allowManualInput: true, overflowStrategy: 'truncate' },
     ],

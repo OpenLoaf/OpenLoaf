@@ -38,11 +38,11 @@ const STYLE_OPTIONS = [
 type Style = (typeof STYLE_OPTIONS)[number]
 
 /** Per-variant field visibility config. */
-const FIELD_CONFIG: Record<string, { showStyle: boolean }> = {
-  'OL-IG-005': { showStyle: true },
-  'OL-IG-006': { showStyle: false },
+const FIELD_CONFIG: Record<string, { showStyle: boolean; showNegative: boolean }> = {
+  'OL-IG-005': { showStyle: true, showNegative: false },
+  'OL-IG-006': { showStyle: false, showNegative: true },
 }
-const DEFAULT_CONFIG = { showStyle: false }
+const DEFAULT_CONFIG = { showStyle: false, showNegative: false }
 
 /**
  * Parameterized variant form for Volcengine (Jimeng) text-to-image variants
@@ -80,6 +80,10 @@ export function ImgGenVolcVariant({
   const [style, setStyle] = useState<Style>(
     (initialParams?.params?.style as Style) ?? 'auto',
   )
+  const [negativePrompt, setNegativePrompt] = useState(
+    (initialParams?.params?.negativePrompt as string) ?? '',
+  )
+  const [showNegative, setShowNegative] = useState(false)
 
   // Self-managed slots — only used when resolvedSlots is NOT provided (fallback mode)
   const {
@@ -126,14 +130,17 @@ export function ImgGenVolcVariant({
         aspectRatio,
         quality,
         ...(config.showStyle && style !== 'auto' ? { style } : {}),
+        ...(config.showNegative && negativePrompt ? { negativePrompt } : {}),
       },
     })
   }, [
     prompt,
+    negativePrompt,
     aspectRatio,
     quality,
     style,
     config.showStyle,
+    config.showNegative,
     resolvedSlots,
     apiImages.length, // eslint-disable-line react-hooks/exhaustive-deps
     onParamsChange,
@@ -209,7 +216,40 @@ export function ImgGenVolcVariant({
               disabled={disabled}
             />
           ) : null}
+
+          {config.showNegative ? (
+            <button
+              type="button"
+              disabled={disabled}
+              className={[
+                'h-7 rounded-3xl px-2 text-[11px] transition-colors duration-150',
+                showNegative
+                  ? 'bg-foreground/10 text-foreground'
+                  : 'text-muted-foreground hover:bg-foreground/5',
+                disabled ? 'opacity-60 cursor-not-allowed' : '',
+              ].join(' ')}
+              onClick={() => setShowNegative(!showNegative)}
+            >
+              {t('v3.params.negativePrompt', { defaultValue: 'Negative' })}
+            </button>
+          ) : null}
         </div>
+
+        {/* -- Negative prompt (collapsible) -- */}
+        {config.showNegative && showNegative ? (
+          <textarea
+            className={[
+              'min-h-[40px] w-full resize-none rounded-3xl border px-3 py-2 text-xs leading-relaxed',
+              BOARD_GENERATE_INPUT,
+              disabled ? 'opacity-60 cursor-not-allowed' : '',
+            ].join(' ')}
+            placeholder={t('v3.params.negativePromptPlaceholder', { defaultValue: 'Things to avoid in the image...' })}
+            value={negativePrompt}
+            onChange={(e) => setNegativePrompt(e.target.value)}
+            rows={2}
+            disabled={disabled}
+          />
+        ) : null}
       </div>
     )
   }
@@ -317,7 +357,40 @@ export function ImgGenVolcVariant({
             disabled={disabled}
           />
         ) : null}
+
+        {config.showNegative ? (
+          <button
+            type="button"
+            disabled={disabled}
+            className={[
+              'h-7 rounded-3xl px-2 text-[11px] transition-colors duration-150',
+              showNegative
+                ? 'bg-foreground/10 text-foreground'
+                : 'text-muted-foreground hover:bg-foreground/5',
+              disabled ? 'opacity-60 cursor-not-allowed' : '',
+            ].join(' ')}
+            onClick={() => setShowNegative(!showNegative)}
+          >
+            {t('v3.params.negativePrompt', { defaultValue: 'Negative' })}
+          </button>
+        ) : null}
       </div>
+
+      {/* -- Negative prompt (collapsible) -- */}
+      {config.showNegative && showNegative ? (
+        <textarea
+          className={[
+            'min-h-[40px] w-full resize-none rounded-3xl border px-3 py-2 text-xs leading-relaxed',
+            BOARD_GENERATE_INPUT,
+            disabled ? 'opacity-60 cursor-not-allowed' : '',
+          ].join(' ')}
+          placeholder={t('v3.params.negativePromptPlaceholder', { defaultValue: 'Things to avoid in the image...' })}
+          value={negativePrompt}
+          onChange={(e) => setNegativePrompt(e.target.value)}
+          rows={2}
+          disabled={disabled}
+        />
+      ) : null}
     </div>
   )
 }

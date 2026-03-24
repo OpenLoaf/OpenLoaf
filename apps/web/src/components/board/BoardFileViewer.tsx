@@ -15,6 +15,8 @@ import { BOARD_NODE_DEFINITIONS } from "./core/board-nodes";
 import { useLayoutState } from "@/hooks/use-layout-state";
 
 export interface BoardFileViewerProps {
+  /** Target board id. */
+  boardId?: string;
   /** Target board folder uri. */
   boardFolderUri?: string;
   /** Target board file uri. */
@@ -33,6 +35,7 @@ export interface BoardFileViewerProps {
 
 /** Render a board canvas backed by a board folder. */
 const BoardFileViewer = memo(function BoardFileViewer({
+  boardId,
   boardFolderUri,
   boardFileUri,
   projectId,
@@ -59,7 +62,7 @@ const BoardFileViewer = memo(function BoardFileViewer({
     <div className="h-full w-full bg-background">
       <BoardCanvas
         className="h-full w-full"
-        boardId={boardFolderUri}
+        boardId={boardId}
         boardFolderUri={boardFolderUri}
         boardFileUri={boardFileUri}
         projectId={projectId}
