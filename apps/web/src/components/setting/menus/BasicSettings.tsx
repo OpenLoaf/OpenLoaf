@@ -10,7 +10,7 @@
 "use client";
 
 import { useTheme } from "next-themes";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Switch } from "@openloaf/ui/animate-ui/components/radix/switch";
 import { Tabs, TabsList, TabsTrigger } from "@openloaf/ui/tabs";
@@ -30,6 +30,7 @@ import {
   ChevronDown,
   Construction,
   Languages,
+  Layers,
   Monitor,
   Palette,
   PanelBottomClose,
@@ -43,10 +44,20 @@ import { SUPPORTED_UI_LANGUAGES } from "@/i18n/types";
 import type { LanguageId } from "@/i18n/types";
 import { detectSystemLanguage } from "@/i18n/detectLanguage";
 import { isElectronEnv } from "@/utils/is-electron-env";
+import type { ProjectNode } from "@openloaf/api/services/projectTreeService";
+import { useProjects } from "@/hooks/use-projects";
 import LocalAccess from "./LocalAccess";
 
 type FontSizeKey = "small" | "medium" | "large" | "xlarge";
 type AnimationLevel = "low" | "medium" | "high";
+
+/**
+ * Count project nodes in a project tree.
+ */
+function countProjectNodes(nodes?: ProjectNode[]): number {
+  if (!nodes?.length) return 0;
+  return nodes.reduce((total, node) => total + 1 + countProjectNodes(node.children), 0);
+}
 
 function SettingIcon({ icon: Icon, bg, fg }: { icon: LucideIcon; bg: string; fg: string }) {
   return (
@@ -60,7 +71,13 @@ export function BasicSettings() {
   const { theme, resolvedTheme, setTheme } = useTheme();
   const { basic, setBasic, isLoading: basicLoading } = useBasicConfig();
   const { t } = useTranslation('settings');
+  const { t: tProject } = useTranslation("project", { keyPrefix: "global" });
+  const projectsQuery = useProjects();
   const isElectron = isElectronEnv();
+  const totalProjectCount = useMemo(
+    () => countProjectNodes(projectsQuery.data),
+    [projectsQuery.data],
+  );
 
   // Electron 专属：读取/写入"关闭时最小化到托盘"偏好（存储在 .settings.json）。
   const [minimizeToTray, setMinimizeToTrayState] = useState(false);
@@ -416,6 +433,18 @@ export function BasicSettings() {
 
                 <LocalAccess />
 
+              </div>
+            </OpenLoafSettingsGroup>
+
+            <OpenLoafSettingsGroup title={tProject("settings.basicInfo")}>
+              <div className="divide-y divide-border/40">
+                <div className="flex flex-wrap items-center gap-2 py-3">
+                  <SettingIcon icon={Layers} bg="bg-secondary" fg="text-foreground" />
+                  <div className="text-sm font-medium">{tProject("settings.projectCount")}</div>
+                  <OpenLoafSettingsField className="text-right text-xs text-muted-foreground">
+                    {projectsQuery.isLoading ? tProject("settings.loading") : totalProjectCount}
+                  </OpenLoafSettingsField>
+                </div>
               </div>
             </OpenLoafSettingsGroup>
 

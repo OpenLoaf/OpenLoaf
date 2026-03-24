@@ -154,11 +154,10 @@
   },
   "menu": {
     "basic": "General",
-    "global": "Account",
     "skills": "Skills",
     "thirdPartyTools": "Runtime",
     "keys": "Models",
-    "storage": "Storage",
+    "storage": "Storage Settings",
     "agents": "Agents",
     "auxiliaryModel": "AI Tools",
     "memory": "AI Memory",
@@ -997,6 +996,28 @@
       "deduction": "Deduction",
       "grant": "Grant",
       "refund": "Refund"
+    },
+    "txKind": {
+      "imageGenerate": "Image Generation",
+      "imageEdit": "Image Editing",
+      "imageInpaint": "Inpainting",
+      "imageStyleTransfer": "Style Transfer",
+      "outpaint": "Outpaint",
+      "upscale": "Upscale",
+      "videoGenerate": "Video Generation",
+      "videoEdit": "Video Editing",
+      "lipSync": "Lip Sync",
+      "digitalHuman": "Digital Human",
+      "motionTransfer": "Motion Transfer",
+      "videoFaceSwap": "Video Face Swap",
+      "videoTranslate": "Video Translation",
+      "tts": "Text to Speech",
+      "speechToText": "Speech to Text",
+      "music": "Music Generation",
+      "sfx": "Sound Effects",
+      "poster": "Poster Generation",
+      "matting": "Cutout",
+      "materialExtract": "Material Extraction"
     }
   }
 }

@@ -11,7 +11,7 @@
 
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { ConfirmDeleteDialog } from "@/components/setting/menus/provider/ConfirmDeleteDialog";
 import { ModelDialog } from "@/components/setting/menus/provider/ModelDialog";
 import { ProviderDialog } from "@/components/setting/menus/provider/ProviderDialog";
@@ -31,7 +31,7 @@ import { Label } from "@openloaf/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@openloaf/ui/popover";
 import { Tabs, TabsList, TabsTrigger } from "@openloaf/ui/tabs";
 import { buildChatModelOptions, normalizeChatModelSource } from "@/lib/provider-models";
-import { ChevronDown, Eye, MessageSquare, Volume2 } from "lucide-react";
+import { BarChart3, ChevronDown, Eye, MessageSquare, Sparkles, Volume2 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { Switch } from "@openloaf/ui/animate-ui/components/radix/switch";
@@ -46,6 +46,26 @@ import {
   type ProviderEntry,
 } from "@/components/setting/menus/provider/use-provider-management";
 import { WebSearchSettings } from "@/components/setting/menus/WebSearchSettings";
+import { trpc } from "@/utils/trpc";
+
+const TOKEN_K = 1000;
+const TOKEN_M = 1000 * 1000;
+
+function formatTokenCount(value: number): string {
+  if (!Number.isFinite(value)) return "0";
+  const abs = Math.abs(value);
+  if (abs >= TOKEN_M) {
+    const next = value / TOKEN_M;
+    const fixed = abs % TOKEN_M === 0 ? next.toFixed(0) : next.toFixed(1);
+    return `${fixed.replace(/\.0$/, "")}M`;
+  }
+  if (abs >= TOKEN_K) {
+    const next = value / TOKEN_K;
+    const fixed = abs % TOKEN_K === 0 ? next.toFixed(0) : next.toFixed(1);
+    return `${fixed.replace(/\.0$/, "")}K`;
+  }
+  return String(value);
+}
 
 /** Flat-color icon badge for settings items. */
 function SettingIcon({ icon: Icon, bg, fg }: { icon: LucideIcon; bg: string; fg: string }) {
@@ -68,10 +88,15 @@ type ProviderManagementProps = {
 
 export function ProviderManagement({ panelKey }: ProviderManagementProps) {
   const { t } = useTranslation('settings');
+  const { t: tProject } = useTranslation("project", { keyPrefix: "global" });
   const { basic, setBasic } = useBasicConfig();
   const { providerItems } = useSettingsValues();
   const { models: cloudModels } = useCloudModels();
   const installedCliProviderIds = useInstalledCliProviderIds();
+  const statsQuery = useQuery({
+    ...trpc.chat.getChatStats.queryOptions(),
+    staleTime: 5000,
+  });
 
   const chatOnlineSearchMemoryScope: "tab" | "global" =
     basic.chatOnlineSearchMemoryScope === "global" ? "global" : "tab";
@@ -149,6 +174,8 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
   const wrapperClassName = panelKey
     ? "h-full min-h-0 overflow-auto space-y-3"
     : "space-y-3";
+  const sessionCount = statsQuery.data?.sessionCount;
+  const usage = statsQuery.data?.usageTotals;
 
   /**
    * Delete model entry from provider list with a minimum guard.
@@ -242,6 +269,39 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
             </OpenLoafSettingsField>
           </div>
 
+        </div>
+      </OpenLoafSettingsGroup>
+
+      <OpenLoafSettingsGroup title={tProject("settings.chatData")}>
+        <div className="divide-y divide-border/40">
+          <div className="flex flex-wrap items-center gap-2 py-3">
+            <SettingIcon icon={MessageSquare} bg="bg-secondary" fg="text-foreground" />
+            <div className="text-sm font-medium">{tProject("settings.totalSessions")}</div>
+            <OpenLoafSettingsField className="text-right text-xs text-muted-foreground">
+              {typeof sessionCount === "number" ? sessionCount : "—"}
+            </OpenLoafSettingsField>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 py-3">
+            <SettingIcon icon={Sparkles} bg="bg-secondary" fg="text-foreground" />
+            <div className="text-sm font-medium">{tProject("settings.totalTokens")}</div>
+            <OpenLoafSettingsField className="text-right text-xs text-muted-foreground">
+              {usage ? formatTokenCount(usage.totalTokens) : "—"}
+            </OpenLoafSettingsField>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 py-3">
+            <SettingIcon icon={BarChart3} bg="bg-secondary" fg="text-foreground" />
+            <div className="text-sm font-medium">{tProject("settings.tokenUsage")}</div>
+            <OpenLoafSettingsField className="text-right text-xs text-muted-foreground">
+              {usage
+                ? tProject("settings.tokenBreakdown", {
+                    input: formatTokenCount(usage.inputTokens),
+                    inputRaw: formatTokenCount(Math.max(0, usage.inputTokens - usage.cachedInputTokens)),
+                    cached: formatTokenCount(usage.cachedInputTokens),
+                    output: formatTokenCount(usage.outputTokens),
+                  })
+                : "—"}
+            </OpenLoafSettingsField>
+          </div>
         </div>
       </OpenLoafSettingsGroup>
 

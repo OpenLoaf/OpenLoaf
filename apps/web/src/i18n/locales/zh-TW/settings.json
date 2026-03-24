@@ -154,11 +154,10 @@
   },
   "menu": {
     "basic": "基礎",
-    "global": "帳戶",
     "skills": "技能",
     "thirdPartyTools": "執行環境",
     "keys": "AI 配置",
-    "storage": "儲存",
+    "storage": "儲存設定",
     "agents": "智能體",
     "auxiliaryModel": "AI 工具",
     "memory": "AI 記憶",
@@ -997,6 +996,28 @@
       "deduction": "扣減",
       "grant": "贈送",
       "refund": "退款"
+    },
+    "txKind": {
+      "imageGenerate": "圖片生成",
+      "imageEdit": "圖片編輯",
+      "imageInpaint": "局部重繪",
+      "imageStyleTransfer": "風格遷移",
+      "outpaint": "擴圖",
+      "upscale": "高畫質放大",
+      "videoGenerate": "影片生成",
+      "videoEdit": "影片編輯",
+      "lipSync": "口型同步",
+      "digitalHuman": "數位人",
+      "motionTransfer": "動作遷移",
+      "videoFaceSwap": "影片換臉",
+      "videoTranslate": "影片翻譯",
+      "tts": "語音合成",
+      "speechToText": "語音轉文字",
+      "music": "音樂生成",
+      "sfx": "音效生成",
+      "poster": "海報生成",
+      "matting": "去背",
+      "materialExtract": "素材提取"
     }
   }
 }

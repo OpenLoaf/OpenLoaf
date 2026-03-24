@@ -154,11 +154,10 @@
   },
   "menu": {
     "basic": "一般",
-    "global": "アカウント",
     "skills": "スキル",
     "thirdPartyTools": "ランタイム",
     "keys": "モデル",
-    "storage": "ストレージ",
+    "storage": "ストレージ設定",
     "agents": "エージェント",
     "auxiliaryModel": "AIツール",
     "memory": "AI メモリ",
@@ -997,6 +996,28 @@
       "deduction": "差引",
       "grant": "付与",
       "refund": "返金"
+    },
+    "txKind": {
+      "imageGenerate": "画像生成",
+      "imageEdit": "画像編集",
+      "imageInpaint": "インペイント",
+      "imageStyleTransfer": "スタイル変換",
+      "outpaint": "アウトペイント",
+      "upscale": "高解像度化",
+      "videoGenerate": "動画生成",
+      "videoEdit": "動画編集",
+      "lipSync": "リップシンク",
+      "digitalHuman": "デジタルヒューマン",
+      "motionTransfer": "モーション転送",
+      "videoFaceSwap": "動画顔交換",
+      "videoTranslate": "動画翻訳",
+      "tts": "音声合成",
+      "speechToText": "音声文字起こし",
+      "music": "音楽生成",
+      "sfx": "効果音生成",
+      "poster": "ポスター生成",
+      "matting": "切り抜き",
+      "materialExtract": "素材抽出"
     }
   }
 }

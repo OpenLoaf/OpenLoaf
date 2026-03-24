@@ -60,6 +60,7 @@ function SettingIcon({
 
 export function SubscriptionSettings() {
   const { t } = useTranslation("settings")
+  const { t: tProject } = useTranslation("project", { keyPrefix: "global" })
   const { loggedIn } = useSaasAuth()
 
   const [pricingOpen, setPricingOpen] = useState(false)
@@ -117,10 +118,65 @@ export function SubscriptionSettings() {
     refund: t("account.txType.refund"),
   }
 
+  /**
+   * Translate transaction kind labels from backend feature ids.
+   */
+  const getTxKindLabel = (kind: string | null | undefined) => {
+    const normalizedKind = kind?.trim()
+    if (!normalizedKind) return null
+    return t(`account.txKind.${normalizedKind}`, { defaultValue: normalizedKind })
+  }
+
   if (!loggedIn) return null
 
   return (
     <div className="space-y-6">
+      <OpenLoafSettingsGroup title={tProject("settings.accountInfo")}>
+        <div className="divide-y divide-border/40">
+          <div className="flex flex-wrap items-center gap-2 py-3">
+            <SettingIcon icon={Crown} bg="bg-secondary" fg="text-foreground" />
+            <div className="text-sm font-medium">{tProject("settings.membershipLevel")}</div>
+            <OpenLoafSettingsField className="gap-2">
+              <span className="text-right text-xs text-muted-foreground">
+                {profileQuery.isLoading
+                  ? tProject("settings.loading")
+                  : profileQuery.data?.membershipLevel
+                    ? planLabels[profileQuery.data.membershipLevel] ?? profileQuery.data.membershipLevel
+                    : "—"}
+              </span>
+              <Button
+                size="sm"
+                className="rounded-3xl shadow-none"
+                onClick={() => setPricingOpen(true)}
+              >
+                {t("account.upgrade")}
+              </Button>
+            </OpenLoafSettingsField>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 py-3">
+            <SettingIcon icon={Sparkles} bg="bg-secondary" fg="text-foreground" />
+            <div className="text-sm font-medium">{tProject("settings.creditsBalance")}</div>
+            <OpenLoafSettingsField className="gap-2">
+              <span className="text-right text-xs text-muted-foreground">
+                {profileQuery.isLoading
+                  ? tProject("settings.loading")
+                  : typeof profileQuery.data?.creditsBalance === "number"
+                    ? Math.floor(profileQuery.data.creditsBalance).toLocaleString()
+                    : "—"}
+              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                className="rounded-3xl shadow-none"
+                onClick={() => setRechargeOpen(true)}
+              >
+                {t("account.recharge")}
+              </Button>
+            </OpenLoafSettingsField>
+          </div>
+        </div>
+      </OpenLoafSettingsGroup>
+
       {/* Subscription Status */}
       <OpenLoafSettingsGroup title={t("account.subscription")}>
         <div className="divide-y divide-border/40">
@@ -161,23 +217,6 @@ export function SubscriptionSettings() {
             </div>
           )}
         </div>
-        <div className="flex gap-2 pt-3">
-          <Button
-            size="sm"
-            className="rounded-3xl shadow-none"
-            onClick={() => setPricingOpen(true)}
-          >
-            {t("account.upgrade")}
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="rounded-3xl shadow-none"
-            onClick={() => setRechargeOpen(true)}
-          >
-            {t("account.recharge")}
-          </Button>
-        </div>
       </OpenLoafSettingsGroup>
 
       {/* Credits Transaction History */}
@@ -214,32 +253,36 @@ export function SubscriptionSettings() {
                 : t("account.noTransactions")}
             </div>
           )}
-          {allTx.map((tx) => (
-            <div key={tx.id} className="flex items-center gap-3 py-2.5">
-              <SettingIcon icon={Receipt} bg="bg-secondary" fg="text-foreground" />
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-medium">
-                    {txTypeLabels[tx.type] ?? tx.type}
-                    {tx.kind ? ` · ${tx.kind}` : ""}
-                  </span>
-                </div>
-                {tx.description && (
-                  <div className="truncate text-[11px] text-muted-foreground">
-                    {tx.description}
+          {allTx.map((tx) => {
+            const txKindLabel = getTxKindLabel(tx.kind)
+
+            return (
+              <div key={tx.id} className="flex items-center gap-3 py-2.5">
+                <SettingIcon icon={Receipt} bg="bg-secondary" fg="text-foreground" />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium">
+                      {txTypeLabels[tx.type] ?? tx.type}
+                      {txKindLabel ? ` · ${txKindLabel}` : ""}
+                    </span>
                   </div>
-                )}
-              </div>
-              <div className="shrink-0 text-right">
-                <div className={`text-xs font-medium ${tx.amount >= 0 ? "text-green-600 dark:text-green-400" : "text-foreground"}`}>
-                  {tx.amount >= 0 ? "+" : ""}{Math.floor(tx.amount).toLocaleString()}
+                  {tx.description && (
+                    <div className="truncate text-[11px] text-muted-foreground">
+                      {tx.description}
+                    </div>
+                  )}
                 </div>
-                <div className="text-[10px] text-muted-foreground">
-                  {new Date(tx.createdAt).toLocaleDateString()}
+                <div className="shrink-0 text-right">
+                  <div className={`text-xs font-medium ${tx.amount >= 0 ? "text-green-600 dark:text-green-400" : "text-foreground"}`}>
+                    {tx.amount >= 0 ? "+" : ""}{Math.floor(tx.amount).toLocaleString()}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground">
+                    {new Date(tx.createdAt).toLocaleDateString()}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
 
         {/* Load more */}

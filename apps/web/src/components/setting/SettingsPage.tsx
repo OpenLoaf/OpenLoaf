@@ -26,7 +26,6 @@ import {
   Cpu,
   SlidersHorizontal,
   Keyboard,
-  Building2,
   FlaskConical,
   Database,
   Sparkles,
@@ -47,7 +46,6 @@ import { ProviderManagement } from "./menus/ProviderManagement";
 import { ObjectStorageService } from "./menus/ObjectStorageService";
 import { AuxiliaryModelSettings } from "./menus/AuxiliaryModelSettings";
 import { KeyboardShortcuts } from "./menus/KeyboardShortcuts";
-import { GlobalSettings } from "./menus/GlobalSettings";
 import TestSetting from "./menus/TestSetting";
 import { ThirdPartyTools } from "./menus/ThirdPartyTools";
 import { MemorySettings } from "./menus/MemorySettings";
@@ -67,7 +65,6 @@ type SettingsMenuKey =
   | "keys"
   | "storage"
   | "auxiliaryModel"
-  | "global"
   | "memory"
   | "mcp"
   | "thirdPartyTools"
@@ -78,7 +75,6 @@ type SettingsMenuKey =
 
 const SETTINGS_MENU_ICON_COLOR = {
   basic: "text-foreground",
-  global: "text-foreground",
   shortcuts: "text-muted-foreground",
   keys: "text-foreground",
   auxiliaryModel: "text-foreground",
@@ -125,12 +121,6 @@ function buildMenu(t: (key: string) => string, loggedIn: boolean): Array<{
       label: t('settings:menu.basic'),
       Icon: createMenuIcon(SlidersHorizontal, SETTINGS_MENU_ICON_COLOR.basic),
       Component: BasicSettings,
-    },
-    {
-      key: "global",
-      label: t('settings:menu.global'),
-      Icon: createMenuIcon(Building2, SETTINGS_MENU_ICON_COLOR.global),
-      Component: GlobalSettings,
     },
     ...(loggedIn ? [{
       key: "subscription" as SettingsMenuKey,
@@ -194,7 +184,7 @@ function buildMenu(t: (key: string) => string, loggedIn: boolean): Array<{
 }
 
 const ALL_MENU_KEYS: SettingsMenuKey[] = [
-  'basic', 'global', 'shortcuts', 'thirdPartyTools', 'storage', 'keys', 'auxiliaryModel', 'memory', 'mcp', 'about', 'subscription', 'projectTest',
+  'basic', 'shortcuts', 'thirdPartyTools', 'storage', 'keys', 'auxiliaryModel', 'memory', 'mcp', 'about', 'subscription', 'projectTest',
 ];
 const MENU_KEY_SET = new Set<SettingsMenuKey>(ALL_MENU_KEYS);
 const HIDDEN_MENU_KEYS = new Set<SettingsMenuKey>([]);
@@ -345,7 +335,6 @@ export default function SettingsPage({
       Boolean(item && !HIDDEN_MENU_KEYS.has(item.key as SettingsMenuKey));
     const general = [
       byKey.get("basic"),
-      byKey.get("global"),
       byKey.get("subscription"),
       byKey.get("shortcuts"),
       byKey.get("thirdPartyTools"),

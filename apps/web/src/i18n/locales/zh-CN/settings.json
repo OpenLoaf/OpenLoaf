@@ -154,11 +154,10 @@
   },
   "menu": {
     "basic": "基础",
-    "global": "账户",
     "skills": "技能",
     "thirdPartyTools": "运行环境",
     "keys": "AI 配置",
-    "storage": "存储",
+    "storage": "存储设置",
     "agents": "智能体",
     "auxiliaryModel": "AI 工具",
     "memory": "AI 记忆",
@@ -997,6 +996,28 @@
       "deduction": "扣减",
       "grant": "赠送",
       "refund": "退款"
+    },
+    "txKind": {
+      "imageGenerate": "图片生成",
+      "imageEdit": "图片编辑",
+      "imageInpaint": "局部重绘",
+      "imageStyleTransfer": "风格迁移",
+      "outpaint": "扩图",
+      "upscale": "超清放大",
+      "videoGenerate": "视频生成",
+      "videoEdit": "视频编辑",
+      "lipSync": "口型同步",
+      "digitalHuman": "数字人",
+      "motionTransfer": "动作迁移",
+      "videoFaceSwap": "视频换脸",
+      "videoTranslate": "视频翻译",
+      "tts": "语音合成",
+      "speechToText": "语音转文字",
+      "music": "音乐生成",
+      "sfx": "音效生成",
+      "poster": "海报生成",
+      "matting": "抠图",
+      "materialExtract": "素材提取"
     }
   }
 }

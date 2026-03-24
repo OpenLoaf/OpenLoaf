@@ -11,6 +11,7 @@
 
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { resolveServerUrl } from "@/utils/server-url";
 import { Button } from "@openloaf/ui/button";
@@ -24,7 +25,7 @@ import {
 } from "@openloaf/ui/dialog";
 import { OpenLoafSettingsField } from "@openloaf/ui/openloaf/OpenLoafSettingsField";
 import { OpenLoafSettingsGroup } from "@openloaf/ui/openloaf/OpenLoafSettingsGroup";
-import { FolderOpen } from "lucide-react";
+import { FolderOpen, Layers, Trash2 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { ConfirmDeleteDialog } from "@/components/setting/menus/provider/ConfirmDeleteDialog";
 import { S3ProviderDialog } from "@/components/setting/menus/provider/S3ProviderDialog";
@@ -33,6 +34,8 @@ import {
   useProviderManagement,
   type S3ProviderEntry,
 } from "@/components/setting/menus/provider/use-provider-management";
+import { toast } from "sonner";
+import { queryClient, trpc } from "@/utils/trpc";
 
 function SettingIcon({ icon: Icon, bg, fg }: { icon: LucideIcon; bg: string; fg: string }) {
   return (
@@ -47,6 +50,7 @@ function SettingIcon({ icon: Icon, bg, fg }: { icon: LucideIcon; bg: string; fg:
  */
 export function ObjectStorageService() {
   const { t } = useTranslation("settings");
+  const { t: tProject } = useTranslation("project", { keyPrefix: "global" });
   const [testingS3Key, setTestingS3Key] = useState<string | null>(null);
   const [s3TestDialogOpen, setS3TestDialogOpen] = useState(false);
   const [s3TestUrl, setS3TestUrl] = useState("");
@@ -54,6 +58,37 @@ export function ObjectStorageService() {
   const [s3TestCopyMessage, setS3TestCopyMessage] = useState("");
   const s3TestUrlInputRef = useRef<HTMLInputElement>(null);
   const { basic, setBasic } = useBasicConfig();
+  const statsQuery = useQuery({
+    ...trpc.chat.getChatStats.queryOptions(),
+    staleTime: 5000,
+  });
+  const clearAllChat = useMutation(
+    trpc.chat.clearAllChat.mutationOptions({
+      onSuccess: (result) => {
+        toast.success(
+          tProject("settings.sessionsClearedSuccess", { count: result.deletedSessions }),
+        );
+        queryClient.invalidateQueries();
+      },
+    }),
+  );
+  const clearUnboundBoards = useMutation(
+    trpc.board.clearUnboundBoards.mutationOptions({
+      onSuccess: (result) => {
+        if (result.deletedBoards > 0) {
+          toast.success(
+            tProject("settings.clearCanvasSuccess", { count: result.deletedBoards }),
+          );
+        } else {
+          toast.info(tProject("settings.clearCanvasEmpty"));
+        }
+        queryClient.invalidateQueries();
+      },
+      onError: () => {
+        toast.error(tProject("settings.clearCanvasError"));
+      },
+    }),
+  );
   const {
     s3Entries,
     s3DialogOpen,
@@ -91,6 +126,7 @@ export function ObjectStorageService() {
 
   const resolvedAutoUpload = basic.s3AutoUpload;
   const resolvedAutoDeleteHours = basic.s3AutoDeleteHours;
+  const sessionCount = statsQuery.data?.sessionCount;
 
   /**
    * Upload a file to S3 for testing and copy the returned URL.
@@ -212,6 +248,27 @@ export function ObjectStorageService() {
     }
   }
 
+  /**
+   * Clear all chat sessions after confirmation.
+   */
+  const handleClearAllChat = async () => {
+    const countPart =
+      typeof sessionCount === "number"
+        ? tProject("settings.clearChatConfirmWithCount", { count: sessionCount })
+        : "";
+    const confirmText = `${tProject("settings.clearChatConfirm", { countText: countPart })}`;
+    if (!window.confirm(confirmText)) return;
+    await clearAllChat.mutateAsync();
+  };
+
+  /**
+   * Clear all canvases that are not attached to any project.
+   */
+  const handleClearUnboundBoards = async () => {
+    if (!window.confirm(tProject("settings.clearCanvasConfirm"))) return;
+    await clearUnboundBoards.mutateAsync({});
+  };
+
   const tempStorageDisplay = basic.appTempStorageDir || t("tempStorage.selectFolder");
 
   return (
@@ -239,6 +296,55 @@ export function ObjectStorageService() {
               </span>
             </button>
           </OpenLoafSettingsField>
+        </div>
+      </OpenLoafSettingsGroup>
+
+      <OpenLoafSettingsGroup title={tProject("settings.cleanup")}>
+        <div className="divide-y divide-border/40">
+          <div className="flex flex-wrap items-center gap-2 py-3">
+            <SettingIcon icon={Trash2} bg="bg-secondary" fg="text-foreground" />
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-medium">{tProject("settings.clearAllChat")}</div>
+              <div className="text-xs text-muted-foreground">
+                {tProject("settings.clearAllChatDescription")}
+              </div>
+            </div>
+            <OpenLoafSettingsField>
+              <Button
+                type="button"
+                size="sm"
+                className="rounded-3xl bg-destructive/10 text-destructive shadow-none hover:bg-destructive/20"
+                disabled={clearAllChat.isPending}
+                onClick={() => void handleClearAllChat()}
+              >
+                {clearAllChat.isPending
+                  ? tProject("settings.clearingButton")
+                  : tProject("settings.clearButton")}
+              </Button>
+            </OpenLoafSettingsField>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 py-3">
+            <SettingIcon icon={Layers} bg="bg-secondary" fg="text-foreground" />
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-medium">{tProject("settings.clearAllCanvas")}</div>
+              <div className="text-xs text-muted-foreground">
+                {tProject("settings.clearAllCanvasDescription")}
+              </div>
+            </div>
+            <OpenLoafSettingsField>
+              <Button
+                type="button"
+                size="sm"
+                className="rounded-3xl bg-secondary text-secondary-foreground shadow-none hover:bg-accent"
+                disabled={clearUnboundBoards.isPending}
+                onClick={() => void handleClearUnboundBoards()}
+              >
+                {clearUnboundBoards.isPending
+                  ? tProject("settings.clearingCanvasButton")
+                  : tProject("settings.clearCanvasButton")}
+              </Button>
+            </OpenLoafSettingsField>
+          </div>
         </div>
       </OpenLoafSettingsGroup>
 
