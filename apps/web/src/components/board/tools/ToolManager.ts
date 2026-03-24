@@ -402,6 +402,12 @@ export class ToolManager {
         this.engine.redo();
         return true;
       }
+      if (key === "a") {
+        event.preventDefault();
+        const allIds = this.engine.doc.getElements().map(el => el.id);
+        this.engine.selection.setSelection(allIds);
+        return true;
+      }
     }
 
     return false;

@@ -8,7 +8,6 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import type {
-  CanvasAlignmentGuide,
   CanvasAnchorHit,
   CanvasNodeElement,
   CanvasPoint,
@@ -17,11 +16,9 @@ import type {
 } from "../engine/types";
 import {
   DRAG_ACTIVATION_DISTANCE,
-  GUIDE_MARGIN,
+  GRID_SIZE,
   MIN_ZOOM,
   SELECTION_BOX_THRESHOLD,
-  SNAP_NEARBY_RANGE,
-  SNAP_PIXEL,
 } from "../engine/constants";
 import { MINDMAP_META } from "../engine/mindmap-layout";
 import { sortElementsByZIndex } from "../engine/element-order";
@@ -34,7 +31,6 @@ import {
 } from "../engine/grouping";
 import { LARGE_ANCHOR_NODE_TYPES } from "../engine/anchorTypes";
 import { getAnchorDirection } from "../engine/anchor-direction";
-import { snapMoveRect } from "../utils/alignment-guides";
 import { validateConnection } from "../engine/connection-validator";
 import type { CanvasTool, CanvasToolHost, ToolContext } from "./ToolTypes";
 
@@ -63,6 +59,8 @@ export class SelectTool implements CanvasTool {
   private connectorDragRole: "source" | "target" | null = null;
   /** Selected node ids involved in dragging. */
   private draggingIds: string[] = [];
+  /** Pending selection id — set on pointerDown, applied on pointerUp if no drag occurred. */
+  private pendingSelectionId: string | null = null;
   /** Drag start rectangles for selected nodes. */
   private dragStartRects = new Map<string, [number, number, number, number]>();
   /** Selection box start point in world coordinates. */
@@ -87,18 +85,12 @@ export class SelectTool implements CanvasTool {
   private readonly selectionThrottleMs = 1000 / 30;
   /** Selection drag threshold in screen pixels. */
   private readonly selectionThreshold = SELECTION_BOX_THRESHOLD;
-  /** Snap pixel threshold in screen space. */
-  private readonly snapPixel = SNAP_PIXEL;
-  /** Guide margin in screen space. */
-  private readonly guideMargin = GUIDE_MARGIN;
   /** Hover clear timeout id. */
   private hoverClearTimeout: number | null = null;
   /** Cached drag group bounds (computed once at drag activation). */
   private cachedDragGroupBounds: CanvasRect | null = null;
   /** Cached set of dragging ids. */
   private cachedDraggingSet: Set<string> | null = null;
-  /** Cached snap target rects for non-dragged nodes. */
-  private cachedOthersRects: CanvasRect[] | null = null;
 
   /** Handle pointer down to perform hit testing and selection. */
   onPointerDown(ctx: ToolContext): void {
@@ -234,11 +226,17 @@ export class SelectTool implements CanvasTool {
       return;
     }
 
-    if (!ctx.engine.selection.isSelected(selectionId)) {
-      ctx.engine.selection.setSelection([selectionId]);
+    // 逻辑：pointerDown 时不立刻 setSelection，防止拖拽前闪现选中态 UI。
+    // 延迟到 pointerUp 确认是点击（非拖拽）时才设置选区（见 pendingSelectionId）。
+    const wasSelected = ctx.engine.selection.isSelected(selectionId);
+    if (!wasSelected) {
+      this.pendingSelectionId = selectionId;
     }
     if (ctx.engine.isLocked()) return;
-    const nextSelected = ctx.engine.selection.getSelectedIds();
+    // 逻辑：已选中节点用当前选区计算拖拽列表；未选中节点用 pending id 计算，不依赖 selection。
+    const nextSelected = wasSelected
+      ? ctx.engine.selection.getSelectedIds()
+      : [selectionId];
     const expandedSelected = expandSelectionWithGroupChildren(elements, nextSelected);
     const nodeIds = expandedSelected.filter(id => {
       const element = ctx.engine.doc.getElementById(id);
@@ -429,56 +427,25 @@ export class SelectTool implements CanvasTool {
       if (distance < DRAG_ACTIVATION_DISTANCE) return;
       this.dragActivated = true;
       ctx.engine.setDraggingElementId(this.draggingId);
-      // 逻辑：在拖拽激活时一次性计算 group bounds、dragging set 和 snap 目标，避免每帧重复 O(n) 计算。
       this.cachedDragGroupBounds = this.getDragGroupBounds();
       this.cachedDraggingSet = new Set(this.draggingIds);
-      // 逻辑：仅查询拖拽节点附近的节点作为对齐候选，避免全局扫描。
-      const groupBounds = this.cachedDragGroupBounds;
-      if (groupBounds) {
-        const queryRect: CanvasRect = {
-          x: groupBounds.x - SNAP_NEARBY_RANGE,
-          y: groupBounds.y - SNAP_NEARBY_RANGE,
-          w: groupBounds.w + SNAP_NEARBY_RANGE * 2,
-          h: groupBounds.h + SNAP_NEARBY_RANGE * 2,
-        };
-        this.cachedOthersRects = ctx.engine.doc
-          .getNodeCandidatesInRect(queryRect)
-          .reduce<CanvasRect[]>((acc, node) => {
-            if (!this.cachedDraggingSet!.has(node.id)) {
-              const [x, y, width, height] = node.xywh;
-              acc.push({ x, y, w: width, h: height });
-            }
-            return acc;
-          }, []);
-      } else {
-        this.cachedOthersRects = [];
-      }
     }
 
     const group = this.cachedDragGroupBounds;
     if (!group) return;
-    const nextRect: CanvasRect = {
-      x: group.x + dx,
-      y: group.y + dy,
-      w: group.w,
-      h: group.h,
-    };
     let finalDx = dx;
     let finalDy = dy;
-    let guides: CanvasAlignmentGuide[] = [];
-
-    if (ctx.engine.isSnapEnabled()) {
-      const { zoom } = ctx.engine.viewport.getState();
-      // 逻辑：阈值与边距随缩放换算，保证屏幕体验一致。
-      const threshold = this.snapPixel / Math.max(zoom, MIN_ZOOM);
-      const margin = this.guideMargin / Math.max(zoom, MIN_ZOOM);
-      const others = this.cachedOthersRects!;
-      const snapped = snapMoveRect(nextRect, others, threshold, margin);
-      finalDx = snapped.rect.x - group.x;
-      finalDy = snapped.rect.y - group.y;
-      guides = snapped.guides;
+    // 逻辑：3D 透视倾斜 — 根据拖拽速度方向计算 tilt，直接写 DOM CSS 变量绕过 React。
+    const tiltX = Math.max(-4, Math.min(4, dy * 0.015));
+    const tiltY = Math.max(-4, Math.min(4, -dx * 0.015));
+    for (const id of this.draggingIds) {
+      const el = document.querySelector(`[data-element-id="${id}"]`) as HTMLElement | null;
+      if (el) {
+        el.style.setProperty('--drag-tilt-x', `${tiltX}deg`);
+        el.style.setProperty('--drag-tilt-y', `${tiltY}deg`);
+      }
     }
-    // 逻辑：batch 合并 transact + setAlignmentGuides，避免拖拽每帧两次 emitChange。
+
     ctx.engine.batch(() => {
       ctx.engine.doc.transact(() => {
         this.draggingIds.forEach(id => {
@@ -496,7 +463,7 @@ export class SelectTool implements CanvasTool {
           });
         });
       });
-      ctx.engine.setAlignmentGuides(guides);
+      ctx.engine.setAlignmentGuides([]);
     });
   }
 
@@ -588,8 +555,45 @@ export class SelectTool implements CanvasTool {
       }
     }
     if (this.dragActivated && this.draggingIds.length > 0 && !didReparent) {
-      ctx.engine.commitHistory();
+      // 逻辑：放下时网格吸附 — 延迟一帧让 CSS transition 生效后再更新位置，实现平滑吸附动画。
+      if (!ctx.event.altKey) {
+        const snapIds = [...this.draggingIds];
+        const engine = ctx.engine;
+        requestAnimationFrame(() => {
+          const half = GRID_SIZE / 2;
+          let changed = false;
+          for (const id of snapIds) {
+            const el = engine.doc.getElementById(id);
+            if (!el || el.kind !== 'node') continue;
+            const [x, y, w, h] = el.xywh;
+            const snappedX = Math.round((x - half) / GRID_SIZE) * GRID_SIZE + half;
+            const snappedY = Math.round((y - half) / GRID_SIZE) * GRID_SIZE + half;
+            if (snappedX !== x || snappedY !== y) {
+              engine.doc.updateElement(id, { xywh: [snappedX, snappedY, w, h] });
+              changed = true;
+            }
+          }
+          if (changed) engine.commitHistory();
+        });
+      } else {
+        ctx.engine.commitHistory();
+      }
     }
+    // 逻辑：清除 3D 倾斜 CSS 变量。
+    for (const id of this.draggingIds) {
+      const el = document.querySelector(`[data-element-id="${id}"]`) as HTMLElement | null;
+      if (el) {
+        el.style.setProperty('--drag-tilt-x', '0deg');
+        el.style.setProperty('--drag-tilt-y', '0deg');
+      }
+    }
+    // 逻辑：拖拽放置后清空选区；非拖拽点击时应用 pending selection 进入选中态。
+    if (this.dragActivated) {
+      ctx.engine.selection.clear();
+    } else if (this.pendingSelectionId) {
+      ctx.engine.selection.setSelection([this.pendingSelectionId]);
+    }
+    this.pendingSelectionId = null;
     this.draggingId = null;
     this.draggingIds = [];
     this.dragStartRects.clear();
@@ -597,7 +601,6 @@ export class SelectTool implements CanvasTool {
     this.dragActivated = false;
     this.cachedDragGroupBounds = null;
     this.cachedDraggingSet = null;
-    this.cachedOthersRects = null;
     this.cancelHoverClear();
   }
 

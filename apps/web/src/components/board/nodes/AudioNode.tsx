@@ -20,7 +20,6 @@ import {
   Download,
   Music,
   Play,
-  Trash2,
   Upload,
 } from "lucide-react";
 import i18next from "i18next";
@@ -96,7 +95,7 @@ function createAudioToolbarItems(
 ) {
   const isEmpty = !ctx.element.props.sourcePath?.trim()
 
-  // 逻辑：空节点只显示上传和删除按钮。
+  // 逻辑：空节点的自定义工具仅保留上传，删除走右侧通用工具组。
   if (isEmpty) {
     return [
       {
@@ -106,13 +105,6 @@ function createAudioToolbarItems(
         onSelect: () => {
           document.dispatchEvent(new CustomEvent('board:trigger-upload', { detail: ctx.element.id }));
         },
-      },
-      {
-        id: 'delete',
-        label: i18next.t('board:audioNode.toolbar.delete'),
-        icon: <Trash2 size={14} />,
-        className: 'text-destructive',
-        onSelect: () => ctx.engine.deleteSelection(),
       },
     ]
   }
@@ -132,19 +124,6 @@ function createAudioToolbarItems(
       icon: <Download size={14} />,
       onSelect: () =>
         void downloadAudioFile(ctx.element.props, ctx.fileContext),
-    },
-    {
-      id: 'inspect',
-      label: i18next.t('board:audioNode.toolbar.detail'),
-      icon: <Music size={14} />,
-      onSelect: () => ctx.openInspector(ctx.element.id),
-    },
-    {
-      id: 'delete',
-      label: i18next.t('board:audioNode.toolbar.delete'),
-      icon: <Trash2 size={14} />,
-      className: 'text-destructive',
-      onSelect: () => ctx.engine.deleteSelection(),
     },
   )
 

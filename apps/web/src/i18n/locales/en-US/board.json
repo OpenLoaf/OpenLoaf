@@ -628,7 +628,13 @@
     "position": "Position",
     "size": "Size",
     "titleLabel": "Title",
-    "description": "Description"
+    "description": "Description",
+    "fileName": "File",
+    "format": "Format",
+    "duration": "Duration",
+    "resolution": "Resolution",
+    "fileSize": "Size",
+    "storagePath": "Location"
   },
   "nodePicker": {
     "title": "Select Node",

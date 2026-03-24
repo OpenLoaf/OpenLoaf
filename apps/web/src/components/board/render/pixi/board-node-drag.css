@@ -1,0 +1,36 @@
+/* 拖拽抬起动画 — Milanote 风格 */
+[data-board-node] {
+  --node-rotate: 0deg;
+  --drag-tilt-x: 0deg;
+  --drag-tilt-y: 0deg;
+  transform: rotate(var(--node-rotate));
+  transition: transform 0.15s ease-out, filter 0.15s linear, left 0.15s ease-out, top 0.15s ease-out;
+  /* 静止阴影 elevation-1 */
+  filter: drop-shadow(0 1px 2px rgba(51, 61, 78, 0.25));
+}
+
+/* 拖拽阴影 elevation-3 */
+[data-board-node][data-dragging] {
+  transform: rotate(var(--node-rotate)) rotateX(var(--drag-tilt-x)) rotateY(var(--drag-tilt-y));
+  filter:
+    drop-shadow(0 11px 15px rgba(51, 61, 78, 0.15))
+    drop-shadow(0 4px 6px rgba(51, 61, 78, 0.1));
+  transition: transform 0.15s ease-out, filter 0.15s linear;
+  will-change: transform, filter;
+}
+
+/* 暗色主题 */
+:is(.dark, [data-theme="dark"]) [data-board-node] {
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.4));
+}
+
+/* 拖拽时隐藏节点内的播放/暂停等控件按钮 */
+[data-board-node][data-dragging] [data-board-controls] {
+  display: none;
+}
+
+:is(.dark, [data-theme="dark"]) [data-board-node][data-dragging] {
+  filter:
+    drop-shadow(0 11px 15px rgba(0, 0, 0, 0.3))
+    drop-shadow(0 4px 6px rgba(0, 0, 0, 0.2));
+}

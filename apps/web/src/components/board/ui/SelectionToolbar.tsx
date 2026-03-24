@@ -54,6 +54,8 @@ function SelectionToolbarContainer({
     // 世界坐标模式：工具栏在 transform 层内，位置使用世界坐标，通过 counter-scale 保持恒定屏幕尺寸。
     // 锚点放在节点上边缘中心，transformOrigin 0 0 保证此世界坐标点在缩放时不漂移。
     // 内层 div 用 -translate-x-1/2 -translate-y-full 实现居中 + 上移。
+    // 逻辑：使用实时 viewState zoom 而非 snapshot zoom，避免与 WorldToolbarLayer RAF transform 不同步。
+    const liveZoom = viewState.viewport.zoom;
     const anchorX = bounds.x + bounds.w / 2;
     const anchorY = bounds.y;
     return (
@@ -62,7 +64,7 @@ function SelectionToolbarContainer({
         style={{
           left: anchorX,
           top: anchorY,
-          transform: `scale(${1 / zoom})`,
+          transform: `scale(${1 / liveZoom})`,
           transformOrigin: '0 0',
           pointerEvents: 'none',
         }}

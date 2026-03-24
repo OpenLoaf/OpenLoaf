@@ -1395,7 +1395,6 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
                         return;
                       }
                       engine.setSelectionBox(null);
-                      engine.setAlignmentGuides([]);
                       engine.setPendingInsert(request);
                       const worldPoint = getWorldPointFromEvent(event);
                       if (worldPoint) {

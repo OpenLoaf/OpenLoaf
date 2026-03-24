@@ -287,6 +287,9 @@
     "createTitle": "新建画布",
     "createDesc": "选择画布所属的项目，或创建不保存到项目的临时画布。",
     "tempCanvas": "临时画布（不保存到项目）",
+    "canvasName": "画布名称",
+    "searchProject": "搜索项目…",
+    "noProjectFound": "未找到项目",
     "createConfirm": "创建",
     "changeColor": "修改颜色"
   },

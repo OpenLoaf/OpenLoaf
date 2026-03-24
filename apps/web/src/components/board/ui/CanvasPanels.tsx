@@ -37,7 +37,7 @@ import {
   flattenConnectorPath,
   resolveConnectorEndpointsSmart,
 } from "../utils/connector-path";
-import { useBoardEngine } from "../core/BoardProvider";
+import { useBoardEngine, useBoardContext } from "../core/BoardProvider";
 import { useBoardViewState } from "../core/useBoardViewState";
 import { applyGroupAnchorPadding } from "../engine/anchors";
 import { getGroupOutlinePadding, isGroupNodeType } from "../engine/grouping";
@@ -234,26 +234,30 @@ type NodeInspectorPanelProps = {
 function NodeInspectorPanel({ element, onClose }: NodeInspectorPanelProps) {
   const [x, y, w, h] = element.xywh;
   const { t } = useTranslation('board');
+  const { fileContext } = useBoardContext();
   // 逻辑：使用独立视图订阅计算面板位置，避免依赖全量快照更新。
   const engine = useBoardEngine();
   const viewState = useBoardViewState(engine);
   const { zoom, offset, size } = viewState.viewport;
-  const nodeTop = y * zoom + offset[1];
-  const showBelow = nodeTop <= size[1] * 0.15;
-  const anchor: CanvasPoint = showBelow ? [x + w / 2, y + h] : [x + w / 2, y];
+  const anchor: CanvasPoint = [x + w / 2, y];
   const screen = toScreenPoint(anchor, viewState);
+  const showBelow = false;
 
-  const details = extractNodeDetails(element, t);
+  const details = extractNodeDetails(element, t, fileContext);
 
   return (
     <div
       data-node-inspector
       className={cn(
-        "pointer-events-auto absolute z-30 min-w-[220px] -translate-x-1/2 rounded-3xl",
+        "pointer-events-auto absolute z-30 min-w-[220px] rounded-3xl",
         "border border-ol-divider bg-background/95 px-3 py-2 text-xs text-ol-text-auxiliary shadow-[0_12px_28px_rgba(15,23,42,0.18)] backdrop-blur",
-        showBelow ? "mt-3" : "mb-3"
       )}
-      style={{ left: screen[0], top: screen[1] }}
+      style={{
+        left: screen[0],
+        top: screen[1],
+        // 向上偏移：自身高度 + 工具栏高度(~40px) + 间距(24+8px)
+        transform: 'translate(-50%, calc(-100% - 72px))',
+      }}
       onPointerDown={event => {
         // 逻辑：面板交互不触发画布选择。
         event.stopPropagation();
@@ -281,9 +285,23 @@ function NodeInspectorPanel({ element, onClose }: NodeInspectorPanelProps) {
             <span className="text-[11px] text-ol-text-auxiliary">
               {detail.label}
             </span>
-            <span className="text-[11px] font-medium text-ol-text-primary">
-              {detail.value}
-            </span>
+            {detail.onClick ? (
+              <button
+                type="button"
+                className="max-w-[160px] truncate text-[11px] font-medium text-blue-400 transition-colors hover:text-blue-300"
+                title={detail.value}
+                onPointerDown={(e) => {
+                  e.stopPropagation();
+                  detail.onClick!();
+                }}
+              >
+                {detail.value}
+              </button>
+            ) : (
+              <span className="max-w-[160px] truncate text-[11px] font-medium text-ol-text-primary" title={detail.value}>
+                {detail.value}
+              </span>
+            )}
           </div>
         ))}
       </div>
@@ -292,17 +310,102 @@ function NodeInspectorPanel({ element, onClose }: NodeInspectorPanelProps) {
 }
 
 type NodeDetailItem = {
-  /** Detail label. */
   label: string;
-  /** Detail value. */
   value: string;
+  /** If set, value becomes clickable. */
+  onClick?: () => void;
 };
+
+function formatDuration(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds <= 0) return '-';
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/** Extract details from a video/audio node. */
+function extractMediaNodeDetails(
+  element: CanvasNodeElement,
+  t: (key: string) => string,
+  fileContext?: import('../board-contracts').BoardFileContext,
+): NodeDetailItem[] {
+  const props = (element.props ?? {}) as Record<string, unknown>;
+  const details: NodeDetailItem[] = [];
+
+  // 路径来源：video/audio/file 用 sourcePath，image 用 originalSrc
+  const rawPath = (props.sourcePath as string) || (props.originalSrc as string) || '';
+
+  // 文件名
+  const fileName = (props.fileName as string) || rawPath.split('/').pop() || '-';
+  details.push({ label: t('nodeInspector.fileName'), value: fileName });
+
+  // 格式
+  const ext = rawPath.split('.').pop()?.toUpperCase() || (props.extension as string)?.toUpperCase();
+  if (ext) details.push({ label: t('nodeInspector.format'), value: ext });
+
+  // 文件大小（file-attachment 有 fileSize）
+  const fileSize = props.fileSize as number | undefined;
+  if (fileSize && fileSize > 0) {
+    details.push({ label: t('nodeInspector.fileSize'), value: formatFileSize(fileSize) });
+  }
+
+  // 时长
+  const duration = props.duration as number | undefined;
+  if (duration && duration > 0) {
+    const clipStart = (props.clipStart as number) ?? 0;
+    const clipEnd = (props.clipEnd as number) ?? 0;
+    let durationValue = formatDuration(duration);
+    if (clipEnd > clipStart && (clipStart > 0 || clipEnd < duration)) {
+      durationValue += ` (${formatDuration(clipStart)} – ${formatDuration(clipEnd)})`;
+    }
+    details.push({ label: t('nodeInspector.duration'), value: durationValue });
+  }
+
+  // 分辨率（视频）
+  const nw = props.naturalWidth as number | undefined;
+  const nh = props.naturalHeight as number | undefined;
+  if (nw && nh) {
+    details.push({ label: t('nodeInspector.resolution'), value: `${nw} × ${nh}` });
+  }
+
+  // 节点尺寸
+  const [, , w, h] = element.xywh;
+  details.push({ label: t('nodeInspector.size'), value: `${Math.round(w)} × ${Math.round(h)}` });
+
+  // 存储路径（可点击打开系统文件浏览器）
+  if (rawPath && fileContext?.boardFolderUri) {
+    const shortPath = rawPath.length > 30 ? `…${rawPath.slice(-28)}` : rawPath;
+    const boardUri = fileContext.boardFolderUri.replace(/\/$/, '');
+    const fileUri = `${boardUri}/${rawPath}`;
+    details.push({
+      label: t('nodeInspector.storagePath'),
+      value: shortPath,
+      onClick: () => {
+        window.openloafElectron?.showItemInFolder?.({ uri: fileUri });
+      },
+    });
+  }
+
+  return details;
+}
 
 /** Extract basic details from the node for the inspector. */
 function extractNodeDetails(
   element: CanvasNodeElement,
-  t: (key: string) => string
+  t: (key: string) => string,
+  fileContext?: import('../board-contracts').BoardFileContext,
 ): NodeDetailItem[] {
+  // 媒体/文件节点使用专属详情
+  if (element.type === 'video' || element.type === 'audio' || element.type === 'image') {
+    return extractMediaNodeDetails(element, t, fileContext);
+  }
+
   const [x, y, w, h] = element.xywh;
   const details: NodeDetailItem[] = [
     { label: t('nodeInspector.type'), value: element.type },

@@ -25,28 +25,28 @@ import {
 import type { PixiThemeResolver } from './PixiThemeResolver'
 
 /** 连线箭头尺寸 */
-const ARROW_SIZE = 7
+const ARROW_SIZE = 12
 /** 箭头张角 */
-const ARROW_ANGLE = Math.PI / 7.5
+const ARROW_ANGLE = Math.PI / 4.5
 /** 基础线宽 */
-const STROKE_WIDTH = 1.2
+const STROKE_WIDTH = 1.4
 /** 选中高亮外描边增量 */
 const STROKE_OUTLINE_SELECTED = 0.8
 /** 悬停高亮外描边增量 */
 const STROKE_OUTLINE_HOVER = 0.5
 /** 默认连线透明度 */
-const STROKE_ALPHA = 0.55
+const STROKE_ALPHA = 0.7
 /** 选中/悬停时的连线透明度 */
 const STROKE_ALPHA_ACTIVE = 0.8
 
 /** 选中节点关联连线的流动动画参数 */
-const FLOW_DASH = 4
-const FLOW_GAP = 14
+const FLOW_DASH = 8
+const FLOW_GAP = 6
 const FLOW_SPEED = 50
-const FLOW_WIDTH = 1.4
+const FLOW_WIDTH = 3
 const FLOW_ALPHA = 0.65
 
-type FlowConnectorData = { flatPoints: CanvasPoint[] }
+type FlowConnectorData = { flatPoints: CanvasPoint[]; trimEnd: number }
 
 /**
  * Renders connector elements as PixiJS Graphics paths.
@@ -159,53 +159,60 @@ export class PixiConnectorLayer {
       // 逻辑：选中态只改变高亮描边，不改变主线实际粗细。
       const width = STROKE_WIDTH
 
-      const lineAlpha = isSelected || isHovered ? STROKE_ALPHA_ACTIVE : STROKE_ALPHA
+      // 判断是否会播放流动动画（选中连线自身 或 关联到选中节点）
+      const sourceNodeId = 'elementId' in connector.source ? connector.source.elementId : null
+      const targetNodeId = 'elementId' in connector.target ? connector.target.elementId : null
+      const hasFlowAnimation = isSelected || (sourceNodeId && selectedSet.has(sourceNodeId)) || (targetNodeId && selectedSet.has(targetNodeId))
 
-      // 逻辑：选中态仅作为底部高亮描边，主线颜色始终使用 connector.color。
-      if (isSelected || isHovered) {
+      // 流动动画时隐藏主线，但保留箭头
+      if (!hasFlowAnimation) {
+        const lineAlpha = isHovered ? STROKE_ALPHA_ACTIVE : STROKE_ALPHA
+
+        if (isHovered) {
+          this.drawConnectorPath(g, path, points, dashed, {
+            width: width + STROKE_OUTLINE_HOVER,
+            color: palette.selectionBorder,
+            alpha: 0.14,
+          })
+        }
+
+        // 主线
         this.drawConnectorPath(g, path, points, dashed, {
-          width: width + (isSelected ? STROKE_OUTLINE_SELECTED : STROKE_OUTLINE_HOVER),
-          color: palette.selectionBorder,
-          alpha: isSelected ? 0.2 : 0.14,
+          width,
+          color,
+          alpha: lineAlpha,
         })
       }
 
-      // 主线
-      this.drawConnectorPath(g, path, points, dashed, {
-        width,
-        color,
-        alpha: lineAlpha,
-      })
-
-      // 箭头
+      // 箭头始终绘制（动画时放大）
       if (points.length >= 2) {
-        if (isSelected || isHovered) {
+        const arrowAlpha = hasFlowAnimation ? STROKE_ALPHA_ACTIVE : (isHovered ? STROKE_ALPHA_ACTIVE : STROKE_ALPHA)
+        const activeArrowSize = hasFlowAnimation ? ARROW_SIZE * 1.1 : ARROW_SIZE
+        if (isHovered && !hasFlowAnimation) {
           this.drawArrowHead(
             g,
             points[points.length - 2]!,
             points[points.length - 1]!,
             ARROW_SIZE,
             palette.selectionBorder,
-            width + (isSelected ? STROKE_OUTLINE_SELECTED : STROKE_OUTLINE_HOVER),
-            isSelected ? 0.2 : 0.14,
+            width + STROKE_OUTLINE_HOVER,
+            0.14,
           )
         }
         this.drawArrowHead(
           g,
           points[points.length - 2]!,
           points[points.length - 1]!,
-          ARROW_SIZE,
+          activeArrowSize,
           color,
           width,
-          lineAlpha,
+          arrowAlpha,
         )
       }
 
-      // 流动动画：收集关联到选中节点的连线路径
-      const sourceNodeId = 'elementId' in connector.source ? connector.source.elementId : null
-      const targetNodeId = 'elementId' in connector.target ? connector.target.elementId : null
-      if ((sourceNodeId && selectedSet.has(sourceNodeId)) || (targetNodeId && selectedSet.has(targetNodeId))) {
-        nextFlowConnectors.push({ flatPoints: points })
+      // 收集流动动画连线（trimEnd 让虚线在箭头前停止）
+      if (hasFlowAnimation) {
+        nextFlowConnectors.push({ flatPoints: points, trimEnd: ARROW_SIZE * 1.1 })
       }
     }
 
@@ -263,7 +270,7 @@ export class PixiConnectorLayer {
       const fg = this.flowGraphics
       fg.clear()
       for (const fc of this.flowConnectors) {
-        this.drawFlowingDash(fg, fc.flatPoints, palette.selectionBorder)
+        this.drawFlowingDash(fg, fc.flatPoints, palette.selectionBorder, fc.trimEnd)
       }
       this.flowAnimationId = requestAnimationFrame(animate)
     }
@@ -283,8 +290,19 @@ export class PixiConnectorLayer {
     g: Graphics,
     flatPoints: CanvasPoint[],
     color: number,
+    trimEnd = 0,
   ): void {
     if (flatPoints.length < 2) return
+
+    // 计算路径总长并在末尾截断 trimEnd 距离（为箭头留空）
+    let totalLen = 0
+    for (let i = 1; i < flatPoints.length; i++) {
+      totalLen += Math.hypot(
+        flatPoints[i][0] - flatPoints[i - 1][0],
+        flatPoints[i][1] - flatPoints[i - 1][1],
+      )
+    }
+    const maxLen = Math.max(0, totalLen - trimEnd)
 
     const cycle = FLOW_DASH + FLOW_GAP
     // 逻辑：反转偏移使虚线沿路径正方向（source→target）流动
@@ -305,6 +323,8 @@ export class PixiConnectorLayer {
       g.moveTo(cx, cy)
     }
 
+    let traveled = 0
+
     for (let i = 1; i < flatPoints.length; i++) {
       const [nx, ny] = flatPoints[i]
       let dx = nx - cx
@@ -312,7 +332,9 @@ export class PixiConnectorLayer {
       let segLen = Math.hypot(dx, dy)
 
       while (segLen > 0) {
-        const step = Math.min(remaining, segLen)
+        const budget = maxLen - traveled
+        if (budget <= 0) break
+        const step = Math.min(remaining, segLen, budget)
         const ratio = step / segLen
         const px = cx + dx * ratio
         const py = cy + dy * ratio
@@ -323,6 +345,7 @@ export class PixiConnectorLayer {
           g.moveTo(px, py)
         }
 
+        traveled += step
         remaining -= step
         if (remaining <= 0) {
           drawing = !drawing
@@ -335,6 +358,7 @@ export class PixiConnectorLayer {
         dy = ny - cy
         segLen = Math.hypot(dx, dy)
       }
+      if (traveled >= maxLen) break
     }
     g.stroke()
   }
@@ -466,12 +490,11 @@ export class PixiConnectorLayer {
     const rightX = to[0] - rx * size
     const rightY = to[1] - ry * size
 
-    g.setStrokeStyle({ width, color, alpha, cap: 'round', join: 'round' })
     g.moveTo(to[0], to[1])
     g.lineTo(leftX, leftY)
-    g.moveTo(to[0], to[1])
     g.lineTo(rightX, rightY)
-    g.stroke()
+    g.closePath()
+    g.fill({ color, alpha })
   }
 
   /** Parse CSS color string to PixiJS hex number. */

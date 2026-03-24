@@ -15,7 +15,7 @@ import type {
 import type { CanvasEngine } from "../engine/CanvasEngine";
 import type { ConnectionValidation } from "../engine/connection-validator";
 import { cn } from "@udecode/cn";
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Plus } from "lucide-react";
 import {
   SELECTED_ANCHOR_EDGE_SIZE,
@@ -25,6 +25,7 @@ import {
 import { LARGE_ANCHOR_NODE_TYPES } from "../engine/anchorTypes";
 import { getGroupOutlinePadding, isGroupNodeType } from "../engine/grouping";
 import { useAnchorMagnetic } from "./useAnchorMagnetic";
+import { useBoardViewState } from "./useBoardViewState";
 
 type AnchorOverlayItem = CanvasAnchorHit & {
   /** Anchor source used for styling offsets. */
@@ -47,7 +48,9 @@ type AnchorOverlayProps = {
  * 磁吸动画：鼠标靠近锚点时图标跟随鼠标（clamped），离开时弹性回弹。
  */
 export function AnchorOverlay({ snapshot, engine }: AnchorOverlayProps) {
-  const zoom = snapshot.viewport.zoom;
+  // 逻辑：从 viewState 获取实时 zoom，避免 snapshot 未随视口变化更新导致 counter-scale 与 WorldToolbarLayer 不同步。
+  const { viewport: liveViewport } = useBoardViewState(engine);
+  const zoom = liveViewport.zoom;
   const groupPadding = getGroupOutlinePadding(zoom);
   const hoverAnchor = snapshot.connectorHover;
   const isDrafting = snapshot.connectorDraft !== null;
@@ -70,10 +73,41 @@ export function AnchorOverlay({ snapshot, engine }: AnchorOverlayProps) {
     }));
   }, [hoverAnchors, snapshot, groupPadding]);
 
-  const magneticActive = hoverAnchors.length > 0;
-  const { setRef } = useAnchorMagnetic(engine, magneticActive, magneticAnchors);
+  // 逻辑：获取悬停节点的世界坐标矩形，用于判断鼠标是否在节点内部。
+  const hoverNodeRect = useMemo(() => {
+    const nodeId = snapshot.nodeHoverId;
+    if (!nodeId) return null;
+    const el = snapshot.elements.find(item => item.id === nodeId);
+    if (!el || el.kind !== 'node') return null;
+    return el.xywh as [number, number, number, number];
+  }, [snapshot.nodeHoverId, snapshot.elements]);
 
-  if (!hoverAnchor && hoverAnchors.length === 0) {
+  const magneticActive = hoverAnchors.length > 0;
+  const { setRef } = useAnchorMagnetic(engine, magneticActive, magneticAnchors, hoverNodeRect);
+
+  // 逻辑：延迟卸载 — 锚点消失时保留 DOM 让淡出过渡播放完再移除。
+  const hasAnchors = hoverAnchors.length > 0 || !!hoverAnchor;
+  const prevAnchorsRef = useRef(uniqueAnchors);
+  const [deferredAnchors, setDeferredAnchors] = useState(uniqueAnchors);
+  const [visible, setVisible] = useState(hasAnchors);
+
+  useEffect(() => {
+    if (hasAnchors) {
+      prevAnchorsRef.current = uniqueAnchors;
+      setDeferredAnchors(uniqueAnchors);
+      setVisible(true);
+    } else if (visible) {
+      // 保留上次的锚点 DOM，等淡出动画完成后卸载。
+      const timer = window.setTimeout(() => {
+        setVisible(false);
+      }, 500);
+      return () => window.clearTimeout(timer);
+    }
+  }, [hasAnchors, uniqueAnchors, visible]);
+
+  const displayAnchors = hasAnchors ? uniqueAnchors : deferredAnchors;
+
+  if (!visible && !hasAnchors) {
     return null;
   }
 
@@ -81,7 +115,7 @@ export function AnchorOverlay({ snapshot, engine }: AnchorOverlayProps) {
 
   return (
     <>
-      {Array.from(uniqueAnchors.values()).map(anchor => {
+      {Array.from(displayAnchors.values()).map(anchor => {
         const adjustedPoint = resolveGroupAnchorPoint(anchor, snapshot, groupPadding);
         const isHover =
           hoverAnchor?.elementId === anchor.elementId &&

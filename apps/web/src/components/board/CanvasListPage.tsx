@@ -12,7 +12,7 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { motion } from "motion/react";
 import { useTranslation } from "react-i18next";
-import { Palette, Plus, Edit2, Trash2, MoreHorizontal, Copy, CopyPlus, CalendarDays, Search, X, FolderOpen, FolderSearch, Sparkles, Loader2, ExternalLink, RefreshCw } from "lucide-react";
+import { Palette, Plus, Edit2, Trash2, MoreHorizontal, Copy, CopyPlus, CalendarDays, Search, X, FolderOpen, FolderSearch, Sparkles, Loader2, ExternalLink, RefreshCw, ChevronDown, Layers, Check } from "lucide-react";
 import { useInfiniteQuery, useMutation, useQueries, useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 
@@ -20,6 +20,10 @@ import { useAppView } from "@/hooks/use-app-view";
 import { useLayoutState } from "@/hooks/use-layout-state";
 import { useIsInView } from "@/hooks/use-is-in-view";
 import { useProjectStorageRootUri, useTempStorageRootUri } from "@/hooks/use-project-storage-root-uri";
+import { useProjects } from "@/hooks/use-projects";
+import type { ProjectNode } from "@openloaf/api/services/projectTreeService";
+import { Popover, PopoverContent, PopoverTrigger } from "@openloaf/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@openloaf/ui/command";
 import { buildBoardFolderUri, buildFileUriFromRoot } from "@/components/project/filesystem/utils/file-system-utils";
 import { BOARD_INDEX_FILE_NAME } from "@/lib/file-name";
 import { buildBoardChatTabState } from "./utils/board-chat-tab";
@@ -65,6 +69,18 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@openloaf/ui/tooltip";
+
+/** Flatten a project tree into a flat list (depth-first). */
+function flattenProjects(nodes: ProjectNode[], depth = 0): Array<ProjectNode & { depth: number }> {
+  const result: Array<ProjectNode & { depth: number }> = [];
+  for (const node of nodes) {
+    result.push({ ...node, depth });
+    if (node.children?.length) {
+      result.push(...flattenProjects(node.children, depth + 1));
+    }
+  }
+  return result;
+}
 
 /** Deterministic pastel gradient based on board id hash. */
 const PREVIEW_GRADIENTS = [
@@ -507,7 +523,9 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
   const [searchQuery, setSearchQuery] = useState("");
   const [filterProjectId, setFilterProjectId] = useState<string>("__all__");
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [createTargetProjectId, setCreateTargetProjectId] = useState<string>("__temp__");
+  const [createTargetProjectId, setCreateTargetProjectId] = useState<string | undefined>(undefined);
+  const [createBoardName, setCreateBoardName] = useState("");
+  const [createProjectPopoverOpen, setCreateProjectPopoverOpen] = useState(false);
   const [visibleThumbIds, setVisibleThumbIds] = useState<string[]>([]);
 
   const { data: projectList } = useQuery({
@@ -515,6 +533,8 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
     staleTime: 30 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
+  const { data: projectTree = [] } = useProjects();
+  const flatProjectList = useMemo(() => flattenProjects(projectTree), [projectTree]);
   const projectRootUriMap = useMemo(() => buildProjectRootUriMap(projectList), [projectList]);
   const projectInfoById = useMemo(() => {
     const map = new Map<string, { name: string; icon?: string }>();
@@ -688,31 +708,23 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
 
   const handleCreate = useCallback(() => {
     if (createMutation.isPending) return;
-    // In project context, create directly; globally, show project picker dialog
-    if (projectId) {
-      if (!resolveBoardRootUri(projectId)) return;
-      createMutation.mutate({
-        title: t("canvasList.defaultName"),
-        projectId,
-      });
-    } else {
-      setCreateTargetProjectId("__temp__");
-      setCreateDialogOpen(true);
-    }
-  }, [projectId, createMutation, t, resolveBoardRootUri]);
+    setCreateBoardName(t("canvasList.defaultName"));
+    setCreateTargetProjectId(projectId ?? undefined);
+    setCreateDialogOpen(true);
+  }, [projectId, createMutation, t]);
 
   const handleCreateConfirm = useCallback(() => {
     if (createMutation.isPending) return;
-    const targetPid =
-      createTargetProjectId === "__temp__" ? undefined : createTargetProjectId;
+    const targetPid = createTargetProjectId;
     if (targetPid && !resolveBoardRootUri(targetPid)) return;
     if (!targetPid && !resolveBoardRootUri(undefined)) return;
+    const title = createBoardName.trim() || t("canvasList.defaultName");
     createMutation.mutate({
-      title: t("canvasList.defaultName"),
+      title,
       ...(targetPid ? { projectId: targetPid } : {}),
     });
     setCreateDialogOpen(false);
-  }, [createMutation, createTargetProjectId, resolveBoardRootUri, t]);
+  }, [createMutation, createTargetProjectId, createBoardName, resolveBoardRootUri, t]);
 
   const handleBoardClick = useCallback(
     (board: { id: string; title: string; folderUri: string; projectId?: string | null }) => {
@@ -1157,20 +1169,90 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
             <DialogTitle>{t("canvasList.createTitle")}</DialogTitle>
             <DialogDescription>{t("canvasList.createDesc")}</DialogDescription>
           </DialogHeader>
-          <div className="space-y-2 py-2">
-            <Select value={createTargetProjectId} onValueChange={setCreateTargetProjectId}>
-              <SelectTrigger>
-                <SelectValue placeholder={t("canvasList.selectProject")} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__temp__">{t("canvasList.tempCanvas")}</SelectItem>
-                {projectList?.map((p) => (
-                  <SelectItem key={p.projectId} value={p.projectId}>
-                    {p.icon ? `${p.icon} ` : ""}{p.title}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="space-y-3 py-2">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground">{t("canvasList.canvasName")}</label>
+              <Input
+                value={createBoardName}
+                onChange={(e) => setCreateBoardName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.nativeEvent.isComposing) {
+                    e.preventDefault();
+                    handleCreateConfirm();
+                  }
+                }}
+                placeholder={t("canvasList.defaultName")}
+                autoFocus
+              />
+            </div>
+            {!projectId && (
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-foreground">{t("canvasList.selectProject")}</label>
+                <Popover open={createProjectPopoverOpen} onOpenChange={setCreateProjectPopoverOpen}>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors hover:bg-accent focus:outline-none focus:ring-1 focus:ring-ring"
+                    >
+                      <span className="flex items-center gap-2 truncate">
+                        {(() => {
+                          const sel = flatProjectList.find((p) => p.projectId === createTargetProjectId);
+                          if (sel) {
+                            return (
+                              <>
+                                {sel.icon ? <span className="text-sm leading-none shrink-0">{sel.icon}</span> : <FolderOpen className="w-3.5 h-3.5 shrink-0" />}
+                                <span className="truncate">{sel.title}</span>
+                              </>
+                            );
+                          }
+                          return (
+                            <>
+                              <Layers className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
+                              <span className="truncate text-muted-foreground">{t("canvasList.tempCanvas")}</span>
+                            </>
+                          );
+                        })()}
+                      </span>
+                      <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start" sideOffset={4}>
+                    <Command>
+                      <CommandInput placeholder={t("canvasList.searchProject")} className="h-8 text-xs" />
+                      <CommandList>
+                        <CommandEmpty className="py-3 text-xs text-center text-muted-foreground">
+                          {t("canvasList.noProjectFound")}
+                        </CommandEmpty>
+                        <CommandGroup>
+                          <CommandItem
+                            value="__global__"
+                            onSelect={() => { setCreateTargetProjectId(undefined); setCreateProjectPopoverOpen(false); }}
+                            className="text-xs gap-2"
+                          >
+                            <Layers className="w-3.5 h-3.5 shrink-0" />
+                            <span className="truncate">{t("canvasList.tempCanvas")}</span>
+                            {!createTargetProjectId && <Check className="ml-auto h-3.5 w-3.5 shrink-0" />}
+                          </CommandItem>
+                          {flatProjectList.map((p) => (
+                            <CommandItem
+                              key={p.projectId}
+                              value={`${p.projectId}:${p.title}`}
+                              onSelect={() => { setCreateTargetProjectId(p.projectId); setCreateProjectPopoverOpen(false); }}
+                              className="text-xs gap-2"
+                              style={{ paddingLeft: p.depth > 0 ? `${8 + p.depth * 12}px` : undefined }}
+                            >
+                              {p.icon ? <span className="text-sm leading-none shrink-0">{p.icon}</span> : <FolderOpen className="w-3.5 h-3.5 shrink-0" />}
+                              <span className="truncate">{p.title}</span>
+                              {p.projectId === createTargetProjectId && <Check className="ml-auto h-3.5 w-3.5 shrink-0" />}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <DialogClose asChild>

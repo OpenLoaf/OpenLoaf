@@ -25,6 +25,7 @@ import type {
 } from '../../engine/types'
 import { getGroupOutlinePadding, isGroupNodeType } from '../../engine/grouping'
 import { NodeLabel } from '../../nodes/NodeLabel'
+import './board-node-drag.css'
 
 type DomNodeLayerProps = {
   engine: CanvasEngine
@@ -67,11 +68,14 @@ type DomNodeItemProps = {
   groupPadding: number
   onSelect: () => void
   onUpdate: (patch: Record<string, unknown>) => void
+  dragging: boolean
   onLabelChange: (label: string) => void
 }
 
 /** Z-index boost applied to selected nodes so they render above siblings. */
 const SELECTED_Z_INDEX_BOOST = 1000
+/** Z-index boost applied to dragging nodes so they render above selected but below expanded. */
+const DRAGGING_Z_INDEX_BOOST = 5000
 /** Z-index boost applied to expanded nodes so they appear above all others. */
 const EXPANDED_Z_INDEX_BOOST = 9999
 
@@ -83,6 +87,7 @@ const DomNodeItem = memo(function DomNodeItem({
   selected,
   editing,
   expanded,
+  dragging,
   boxSelecting,
   groupPadding,
   onSelect,
@@ -103,6 +108,7 @@ const DomNodeItem = memo(function DomNodeItem({
       data-node-type={element.type}
       data-selected={selected || undefined}
       data-expanded={expanded || undefined}
+      data-dragging={dragging || undefined}
       className={cn(
         'absolute overflow-visible',
         editing ? 'select-text' : 'select-none',
@@ -113,19 +119,23 @@ const DomNodeItem = memo(function DomNodeItem({
         top: y - padding,
         width: w + padding * 2,
         height: h + padding * 2,
-        zIndex: expanded ? baseZ + EXPANDED_Z_INDEX_BOOST : selected ? baseZ + SELECTED_Z_INDEX_BOOST : baseZ,
-        transform: element.rotate
-          ? `rotate(${element.rotate}deg)`
-          : undefined,
+        zIndex: expanded
+          ? baseZ + EXPANDED_Z_INDEX_BOOST
+          : dragging
+            ? baseZ + DRAGGING_Z_INDEX_BOOST
+            : selected
+              ? baseZ + SELECTED_Z_INDEX_BOOST
+              : baseZ,
+        '--node-rotate': `${element.rotate ?? 0}deg`,
         transformOrigin: 'center',
-      }}
+      } as React.CSSProperties}
     >
       {showLabel && (
         <NodeLabel element={element} onLabelChange={onLabelChange} />
       )}
       <div
         className={cn(
-          'h-full w-full',
+          'board-node-content h-full w-full',
           // 逻辑：展开的节点使用 overflow-visible 让内嵌面板溢出节点边界，
           // 不修改 Yjs xywh，面板展开是纯本地 UI 状态。
           expanded ? 'overflow-visible' : 'overflow-hidden',
@@ -144,8 +154,9 @@ const DomNodeItem = memo(function DomNodeItem({
         <div
           className="pointer-events-none absolute inset-0 rounded-3xl"
           style={{
-            border: '1.5px solid var(--canvas-selection-border)',
-            opacity: 0.7,
+            boxShadow: 'inset 0 0 0 1.5px var(--canvas-selection-border)',
+            opacity: dragging ? 0 : 0.7,
+            transition: dragging ? 'opacity 0.05s' : 'opacity 0.15s ease 0.5s',
           }}
         />
       )}
@@ -161,6 +172,7 @@ const DomNodeItem = memo(function DomNodeItem({
   // 拖动其他节点时，未变化的节点完全跳过渲染。
   if (prev.element !== next.element) return false
   if (prev.selected !== next.selected) return false
+  if (prev.dragging !== next.dragging) return false
   if (prev.editing !== next.editing) return false
   if (prev.expanded !== next.expanded) return false
   if (prev.boxSelecting !== next.boxSelecting) return false
@@ -244,6 +256,7 @@ function DomNodeLayerBase({ engine, snapshot }: DomNodeLayerProps) {
       )}
       style={{
         transform: `translate(${offset[0]}px, ${offset[1]}px) scale(${zoom})`,
+        perspective: '2000px',
         '--label-scale': String(computeLabelScale(zoom)),
       } as React.CSSProperties}
     >
@@ -255,6 +268,9 @@ function DomNodeLayerBase({ engine, snapshot }: DomNodeLayerProps) {
         if (!definition) return null
 
         const selected = selectedNodeIds.has(element.id)
+        const dragging =
+          snapshot.draggingId != null &&
+          (element.id === snapshot.draggingId || selectedNodeIds.has(element.id))
         const editing = element.id === snapshot.editingNodeId
         const expanded = element.id === snapshot.expandedNodeId
 
@@ -265,6 +281,7 @@ function DomNodeLayerBase({ engine, snapshot }: DomNodeLayerProps) {
             element={element}
             View={definition.view as ComponentType<CanvasNodeViewProps<Record<string, unknown>>>}
             selected={selected}
+            dragging={dragging}
             editing={editing}
             expanded={expanded}
             boxSelecting={!!snapshot.selectionBox}

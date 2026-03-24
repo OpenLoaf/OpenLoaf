@@ -7,10 +7,11 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import { ArrowDown, ArrowUp, Download, LayoutGrid, Layers, Lock, Maximize2, Unlock } from "lucide-react";
+import { ArrowDown, ArrowUp, Download, Info, LayoutGrid, Layers, Lock, Maximize2, Trash2, Unlock } from "lucide-react";
 import {
   BOARD_TOOLBAR_ITEM_BLUE,
   BOARD_TOOLBAR_ITEM_AMBER,
+  BOARD_TOOLBAR_ITEM_DEFAULT,
   BOARD_TOOLBAR_ITEM_GREEN,
   BOARD_TOOLBAR_ITEM_RED,
 } from "../ui/board-style-system";
@@ -87,6 +88,8 @@ type SingleSelectionToolbarProps = {
   snapshot: CanvasSnapshot;
   /** Open node inspector. */
   onInspect: (elementId: string) => void;
+  /** Currently inspected node id (for active state). */
+  inspectorNodeId?: string | null;
   /** Enter group editing dialog. */
   onEnterGroup?: (groupId: string) => void;
 };
@@ -97,6 +100,7 @@ export function SingleSelectionToolbar({
   element,
   snapshot,
   onInspect,
+  inspectorNodeId,
   onEnterGroup,
 }: SingleSelectionToolbarProps) {
   const { t } = useTranslation('board');
@@ -135,6 +139,7 @@ export function SingleSelectionToolbar({
     fileContext,
     engine,
     openInspector: onInspect,
+    inspectorActive: inspectorNodeId === element.id,
     updateNodeProps: patch => {
       engine.doc.updateNodeProps(element.id, patch);
       engine.commitHistory();
@@ -148,7 +153,10 @@ export function SingleSelectionToolbar({
     enterGroup: onEnterGroup,
   });
 
-  const commonItems = buildCommonToolbarItems(t, engine, element, snapshot);
+  const commonItems = buildCommonToolbarItems(t, engine, element, snapshot, {
+    onInspect,
+    inspectorActive: inspectorNodeId === element.id,
+  });
   const customItems = items ?? [];
   const allItems = [...customItems, ...commonItems];
   toolbarItemsRef.current = allItems;
@@ -1176,12 +1184,13 @@ function getGroupScaleLimits(
   return { minX, minY, maxX, maxY };
 }
 
-/** Build shared toolbar items for every node (currently empty — all moved to context menu). */
+/** Build shared toolbar items for every node, keeping destructive actions in the shared right-side group. */
 function buildCommonToolbarItems(
   t: TFunction,
   engine: CanvasEngine,
   element: CanvasNodeElement,
   snapshot: CanvasSnapshot,
+  options?: { onInspect?: (id: string) => void; inspectorActive?: boolean },
 ): CanvasToolbarItem[] {
   const isLocked = element.locked === true
   // 只有当前节点与其他节点存在重叠时，才显示上移/下移按钮
@@ -1196,7 +1205,7 @@ function buildCommonToolbarItems(
       {
         id: 'bring-forward',
         label: t('selection.toolbar.bringToFront'),
-        showLabel: true,
+        showLabel: false,
         icon: <ArrowUp size={14} />,
         className: BOARD_TOOLBAR_ITEM_BLUE,
         onSelect: () => {
@@ -1206,7 +1215,7 @@ function buildCommonToolbarItems(
       {
         id: 'send-backward',
         label: t('selection.toolbar.sendToBack'),
-        showLabel: true,
+        showLabel: false,
         icon: <ArrowDown size={14} />,
         className: BOARD_TOOLBAR_ITEM_BLUE,
         onSelect: () => {
@@ -1214,15 +1223,39 @@ function buildCommonToolbarItems(
         },
       },
     ] : []),
+    ...(options?.onInspect && element.type !== 'file-attachment' ? [{
+      id: 'inspect',
+      label: t('selection.toolbar.detail', { defaultValue: '详情' }),
+      showLabel: false,
+      icon: <Info size={14} />,
+      active: options.inspectorActive,
+      className: options.inspectorActive
+        ? 'bg-foreground/10 text-ol-blue dark:bg-foreground/15 hover:bg-foreground/10 dark:hover:bg-foreground/15'
+        : BOARD_TOOLBAR_ITEM_DEFAULT,
+      onSelect: () => options.onInspect!(element.id),
+    }] : []),
     {
       id: 'lock-node',
       label: isLocked ? t('selection.toolbar.unlock') : t('selection.toolbar.lock'),
-      showLabel: true,
+      showLabel: false,
       icon: isLocked ? <Unlock size={14} /> : <Lock size={14} />,
-      className: isLocked ? BOARD_TOOLBAR_ITEM_RED : BOARD_TOOLBAR_ITEM_AMBER,
+      active: isLocked,
+      className: isLocked
+        ? 'bg-foreground/10 text-ol-amber dark:bg-foreground/15 hover:bg-foreground/10 dark:hover:bg-foreground/15'
+        : BOARD_TOOLBAR_ITEM_AMBER,
       onSelect: () => {
         engine.setElementLocked(element.id, !isLocked)
         engine.commitHistory()
+      },
+    },
+    {
+      id: 'delete-node',
+      label: t('selection.toolbar.delete'),
+      showLabel: false,
+      icon: <Trash2 size={14} />,
+      className: BOARD_TOOLBAR_ITEM_RED,
+      onSelect: () => {
+        engine.deleteSelection()
       },
     },
   ]

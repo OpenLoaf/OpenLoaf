@@ -629,7 +629,13 @@
     "position": "位置",
     "size": "尺寸",
     "titleLabel": "标题",
-    "description": "描述"
+    "description": "描述",
+    "fileName": "文件名",
+    "format": "格式",
+    "duration": "时长",
+    "resolution": "分辨率",
+    "fileSize": "文件大小",
+    "storagePath": "存储路径"
   },
   "nodePicker": {
     "title": "选择节点",

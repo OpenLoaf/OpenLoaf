@@ -26,6 +26,7 @@ import {
 } from '../utils/connector-path'
 import { applyGroupAnchorPadding } from '../engine/anchors'
 import { getGroupOutlinePadding, isGroupNodeType } from '../engine/grouping'
+import { useBoardViewState } from './useBoardViewState'
 
 type ConnectorHoverScissorsProps = {
   snapshot: CanvasSnapshot
@@ -57,9 +58,12 @@ export function ConnectorHoverScissors({ snapshot, engine }: ConnectorHoverSciss
     return resolveConnectorMidpoint(connector, snapshot)
   }, [connector, snapshot])
 
+  // 逻辑：使用实时 viewState zoom，避免与 WorldToolbarLayer RAF transform 不同步。
+  const { viewport: liveViewport } = useBoardViewState(engine)
+
   if (!midpoint || !connector) return null
 
-  const zoom = snapshot.viewport.zoom
+  const zoom = liveViewport.zoom
   const size = 28
 
   const handleClick = (event: React.PointerEvent) => {

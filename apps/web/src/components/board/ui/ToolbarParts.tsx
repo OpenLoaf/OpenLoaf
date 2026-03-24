@@ -189,7 +189,7 @@ function PanelItem(props: {
     }
     onClick?.();
   };
-  return (
+  const button = (
     <button
       type="button"
       onClick={handleClick}
@@ -197,7 +197,6 @@ function PanelItem(props: {
       onPointerUp={handlePointerUp}
       onPointerLeave={handlePointerLeave}
       onPointerCancel={handlePointerCancel}
-      title={title}
       aria-label={title}
       className={cn(
         // 面板条目：横向排列（图标 + 文字并排）
@@ -217,6 +216,19 @@ function PanelItem(props: {
       {children}
       {showLabel ? <span className="whitespace-nowrap leading-none">{title}</span> : null}
     </button>
+  );
+
+  if (showLabel) {
+    return button;
+  }
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{button}</TooltipTrigger>
+      <TooltipContent side="top" sideOffset={6}>
+        {title}
+      </TooltipContent>
+    </Tooltip>
   );
 }
 

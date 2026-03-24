@@ -38,7 +38,6 @@ import {
   PaintBucket,
   Sparkles,
   Strikethrough,
-  Trash2,
   Type,
   Underline,
   Wand2,
@@ -54,7 +53,6 @@ import {
 } from "@/components/ai/message/markdown/MessageStreamMarkdown";
 import {
   BOARD_TOOLBAR_ITEM_DEFAULT,
-  BOARD_TOOLBAR_ITEM_RED,
 } from "../ui/board-style-system";
 import { useBoardContext } from "../core/BoardProvider";
 import { createPortal } from "react-dom";
@@ -856,14 +854,6 @@ function createTextToolbarItems(ctx: CanvasToolbarContext<TextNodeProps>) {
     },
     // ---- Node-level: Text color & Background color ----
     ...buildColorToolbarItems(t, ctx, { textColor, backgroundColor, autoTextColor, colorPresets, backgroundPresets, addColorHistory }),
-    // ---- Delete ----
-    {
-      id: 'delete',
-      label: t('board:board.delete'),
-      icon: <Trash2 size={14} />,
-      className: BOARD_TOOLBAR_ITEM_RED,
-      onSelect: () => ctx.engine.deleteSelection(),
-    },
   ];
 }
 

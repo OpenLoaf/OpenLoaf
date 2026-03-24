@@ -10,7 +10,7 @@ import type { StrokeNodeProps } from "../../engine/types"
 import type { PixiThemeResolver } from "./PixiThemeResolver"
 
 /**
- * Renders screen-space overlays: selection box, alignment guides, anchor dots.
+ * Renders screen-space overlays: selection box, anchor dots.
  * These are in the overlay container (not affected by viewport transform).
  */
 export class PixiOverlayLayer {
@@ -19,7 +19,6 @@ export class PixiOverlayLayer {
   private worldContainer: Container
   private theme: PixiThemeResolver
   private selectionBoxGfx = new Graphics()
-  private alignmentGfx = new Graphics()
   private selectionOutlineGfx = new Graphics()
 
   constructor(
@@ -34,7 +33,6 @@ export class PixiOverlayLayer {
     this.theme = theme
 
     container.addChild(this.selectionBoxGfx)
-    container.addChild(this.alignmentGfx)
     container.addChild(this.selectionOutlineGfx)
   }
 
@@ -67,32 +65,6 @@ export class PixiOverlayLayer {
       })
       drawDashedRect(this.selectionBoxGfx, sx, sy, sw, sh, dash, gap)
       this.selectionBoxGfx.stroke()
-    }
-
-    // 对齐参考线
-    this.alignmentGfx.clear()
-    if (snapshot.alignmentGuides.length > 0) {
-      this.alignmentGfx.setStrokeStyle({
-        width: 1,
-        color: palette.alignmentGuide,
-        alpha: 0.8,
-      })
-      for (const guide of snapshot.alignmentGuides) {
-        if (guide.axis === "x") {
-          const sx = guide.value * zoom + offset[0]
-          const sy1 = guide.start * zoom + offset[1]
-          const sy2 = guide.end * zoom + offset[1]
-          this.alignmentGfx.moveTo(sx, sy1)
-          this.alignmentGfx.lineTo(sx, sy2)
-        } else {
-          const sy = guide.value * zoom + offset[1]
-          const sx1 = guide.start * zoom + offset[0]
-          const sx2 = guide.end * zoom + offset[0]
-          this.alignmentGfx.moveTo(sx1, sy)
-          this.alignmentGfx.lineTo(sx2, sy)
-        }
-      }
-      this.alignmentGfx.stroke()
     }
 
     // 逻辑：stroke 节点没有 DOM 表示，选中时沿笔迹路径绘制加粗高亮轮廓。
@@ -169,13 +141,12 @@ export class PixiOverlayLayer {
 
   /** Sync overlay positions on viewport change (no snapshot change). */
   syncView(): void {
-    // 对齐线和选区框依赖世界坐标，视口变化时需要重绘
+    // 选区框依赖世界坐标，视口变化时需要重绘
     this.sync()
   }
 
   destroy(): void {
     this.selectionBoxGfx.destroy()
-    this.alignmentGfx.destroy()
     this.selectionOutlineGfx.destroy()
   }
 }

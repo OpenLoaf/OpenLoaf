@@ -24,7 +24,6 @@ import {
   ImageOff,
   ImagePlus,
   Loader2,
-  Trash2,
   Upload,
 } from "lucide-react";
 import { useBoardContext } from "../core/BoardProvider";
@@ -51,7 +50,6 @@ import { saveBoardAssetFile } from "../utils/board-asset";
 import i18next from "i18next";
 import {
   BOARD_TOOLBAR_ITEM_DEFAULT,
-  BOARD_TOOLBAR_ITEM_RED,
 } from "../ui/board-style-system";
 import { ImageAiPanel, type ImageGenerateParams } from "../panels/ImageAiPanel";
 import { useUpstreamData } from "../hooks/useUpstreamData";
@@ -177,7 +175,7 @@ function createImageToolbarItems(
 ) {
   const isEmpty = !ctx.element.props.originalSrc && !ctx.element.props.previewSrc
 
-  // 逻辑：空节点只显示上传和删除按钮。
+  // 逻辑：空节点的自定义工具仅保留上传，删除走右侧通用工具组。
   if (isEmpty) {
     return [
       {
@@ -188,13 +186,6 @@ function createImageToolbarItems(
         onSelect: () => {
           document.dispatchEvent(new CustomEvent('board:trigger-upload', { detail: ctx.element.id }));
         },
-      },
-      {
-        id: "delete",
-        label: i18next.t('board:board.delete'),
-        icon: <Trash2 size={14} />,
-        className: BOARD_TOOLBAR_ITEM_RED,
-        onSelect: () => ctx.engine.deleteSelection(),
       },
     ]
   }
@@ -251,13 +242,6 @@ function createImageToolbarItems(
       icon: <Download size={14} />,
       className: BOARD_TOOLBAR_ITEM_DEFAULT,
       onSelect: () => void downloadOriginalImage(ctx.element.props, ctx.fileContext),
-    },
-    {
-      id: "delete",
-      label: i18next.t('board:board.delete'),
-      icon: <Trash2 size={14} />,
-      className: BOARD_TOOLBAR_ITEM_RED,
-      onSelect: () => ctx.engine.deleteSelection(),
     },
   )
 

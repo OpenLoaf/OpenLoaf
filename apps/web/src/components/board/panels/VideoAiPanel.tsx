@@ -450,7 +450,7 @@ export function VideoAiPanel({
     <div
       className={[
         'flex w-[420px] flex-col gap-2.5 rounded-3xl border border-border bg-card p-3 shadow-lg',
-        readonly ? 'opacity-80' : '',
+        '',
       ].join(' ')}
     >
       {/* -- Fallback: loading / error / empty -- */}

@@ -96,6 +96,22 @@ export function BoardCanvasRender({
     return () => window.clearTimeout(timer);
   }, []);
 
+  // 逻辑：拖拽结束后 UI（边框、工具栏、面板）延迟 500ms 再浮现，避免松手瞬间闪烁。
+  const DROP_SETTLE_DELAY = 500;
+  const [recentlyDropped, setRecentlyDropped] = useState(false);
+  const prevDraggingRef = useRef(snapshot.draggingId);
+  useEffect(() => {
+    const wasDragging = prevDraggingRef.current != null;
+    const isDragging = snapshot.draggingId != null;
+    prevDraggingRef.current = snapshot.draggingId;
+    if (wasDragging && !isDragging) {
+      setRecentlyDropped(true);
+      const timer = window.setTimeout(() => setRecentlyDropped(false), DROP_SETTLE_DELAY);
+      return () => window.clearTimeout(timer);
+    }
+  }, [snapshot.draggingId]);
+  const isDragging = !!snapshot.draggingId || recentlyDropped;
+
   // 逻辑：Cmd+F / Ctrl+F 打开节点搜索面板，Escape 关闭。
   const closeSearchPanel = useCallback(() => setShowSearchPanel(false), []);
   const showSearchPanelRef = useRef(showSearchPanel);
@@ -237,33 +253,34 @@ export function BoardCanvasRender({
       {/* ConnectorActionPanel removed — scissors-on-hover replaces it */}
       {showUi ? <MultiSelectionOutline snapshot={snapshot} engine={engine} /> : null}
       {showUi && selectedNode && selectedNode.type !== "stroke" ? (
-        <SingleSelectionOutline snapshot={snapshot} engine={engine} element={selectedNode} hidden={!!snapshot.draggingId} />
+        <SingleSelectionOutline snapshot={snapshot} engine={engine} element={selectedNode} hidden={isDragging} />
       ) : null}
       {showUi && snapshot.connectorDraft ? <ConnectorDropTargetHighlight engine={engine} snapshot={snapshot} /> : null}
       <WorldToolbarLayer engine={engine}>
-        {showUi && !snapshot.draggingId && !snapshot.selectionBox ? <AnchorOverlay snapshot={snapshot} engine={engine} /> : null}
-        {showUi && !snapshot.draggingId && !snapshot.connectorDraft ? (
+        {showUi && !isDragging && !snapshot.selectionBox ? <AnchorOverlay snapshot={snapshot} engine={engine} /> : null}
+        {showUi && !isDragging && !snapshot.connectorDraft ? (
           <ConnectorHoverScissors snapshot={snapshot} engine={engine} />
         ) : null}
-        {showUi && !snapshot.draggingId && !snapshot.selectionBox && selectedNode && selectedNode.type !== "stroke" ? (
+        {showUi && !isDragging && !snapshot.selectionBox && selectedNode && selectedNode.type !== "stroke" ? (
           <SingleSelectionToolbar
             snapshot={snapshot}
             engine={engine}
             element={selectedNode}
-            onInspect={(elementId) => setInspectorNodeId(elementId)}
+            onInspect={(elementId) => setInspectorNodeId(prev => prev === elementId ? null : elementId)}
+            inspectorNodeId={inspectorNodeId}
             onEnterGroup={onEnterGroup}
           />
         ) : null}
       </WorldToolbarLayer>
-      <BoardDragFade visible={showUi && !snapshot.draggingId && !snapshot.selectionBox}>
+      <BoardDragFade visible={showUi && !isDragging && !snapshot.selectionBox}>
         <MultiSelectionToolbar
           snapshot={snapshot}
           engine={engine}
-          onInspect={(elementId) => setInspectorNodeId(elementId)}
+          onInspect={(elementId) => setInspectorNodeId(prev => prev === elementId ? null : elementId)}
           onEnterGroup={onEnterGroup}
         />
       </BoardDragFade>
-      <BoardDragFade visible={showUi && !!inspectorElement && !snapshot.draggingId && !snapshot.selectionBox}>
+      <BoardDragFade visible={showUi && !!inspectorElement && !isDragging && !snapshot.selectionBox}>
         {inspectorElement ? (
           <NodeInspectorPanel element={inspectorElement} onClose={() => setInspectorNodeId(null)} />
         ) : null}

@@ -65,8 +65,8 @@ export function AudioWavePlayer({ src }: AudioWavePlayerProps) {
       <div ref={containerRef} className="flex-1 min-h-0 px-2 pt-2" />
 
       {/* Bottom bar: time + play button */}
-      <div className="flex items-center px-3 pb-2 pt-1.5">
-        <span className="text-[11px] tabular-nums text-muted-foreground">
+      <div className="flex items-end px-3 pb-1.5 pt-1.5">
+        <span className="text-[11px] tabular-nums text-muted-foreground leading-none mb-1">
           {formatTime(currentTime)} / {formatTime(duration)}
         </span>
         <div className="flex-1" />
@@ -74,9 +74,9 @@ export function AudioWavePlayer({ src }: AudioWavePlayerProps) {
           type="button"
           onClick={handlePlayPause}
           disabled={!isReady}
-          className="flex h-7 w-7 items-center justify-center rounded-full border border-border/60 text-foreground transition-colors hover:bg-foreground/10 disabled:opacity-40"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-foreground/10 text-foreground transition-colors hover:bg-foreground/20 disabled:opacity-40"
         >
-          {isPlaying ? <Pause size={13} /> : <Play size={13} className="ml-0.5" />}
+          {isPlaying ? <Pause size={12} /> : <Play size={12} className="ml-0.5" />}
         </button>
       </div>
     </div>

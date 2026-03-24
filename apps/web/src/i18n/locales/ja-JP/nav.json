@@ -287,6 +287,9 @@
     "createTitle": "新規キャンバス",
     "createDesc": "このキャンバスのプロジェクトを選択するか、プロジェクトに保存しない一時キャンバスを作成します。",
     "tempCanvas": "一時キャンバス（プロジェクトに保存されません）",
+    "canvasName": "キャンバス名",
+    "searchProject": "プロジェクトを検索…",
+    "noProjectFound": "プロジェクトが見つかりません",
     "createConfirm": "作成",
     "changeColor": "色を変更"
   },

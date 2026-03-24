@@ -1482,16 +1482,19 @@ export class CanvasEngine {
   }
 
   /** Paste clipboard contents into the document. */
-  pasteClipboard(): void {
+  pasteClipboard(centerAt?: CanvasPoint): void {
     if (this.locked) return;
     if (!this.clipboard) return;
 
     this.pasteCount += 1;
     const offset = PASTE_OFFSET_STEP * this.pasteCount;
+    // 逻辑：有鼠标位置时居中粘贴到该点，首次粘贴不加偏移。
+    const pasteCenter = centerAt ?? this.cursorWorld ?? undefined;
     const { nextNodes, nextConnectors, selectionIds } = buildPastedElements(
       this.clipboard,
       {
-        offset,
+        offset: pasteCenter ? PASTE_OFFSET_STEP * (this.pasteCount - 1) : offset,
+        centerAt: pasteCenter,
         connectorStyle: this.connectorStyle,
         generateId: this.generateId.bind(this),
         getAnchorMap: () => this.getAnchorMapWithGroupPadding(),

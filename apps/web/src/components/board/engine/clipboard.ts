@@ -44,8 +44,10 @@ export type ClipboardInsertPayload =
     };
 
 type PasteOptions = {
-  /** Offset applied to pasted elements. */
+  /** Offset applied to pasted elements (used when no centerAt). */
   offset: number;
+  /** When provided, center pasted elements around this world point. */
+  centerAt?: CanvasPoint;
   /** Default connector style. */
   connectorStyle: CanvasConnectorStyle;
   /** Provide a fresh id for new elements. */
@@ -116,10 +118,23 @@ function buildClipboardState(
 
 /** Build pasted elements from clipboard data. */
 function buildPastedElements(clipboard: CanvasClipboard, options: PasteOptions) {
-  const { nodes, connectors } = clipboard;
+  const { nodes, connectors, bounds } = clipboard;
   const idMap = new Map<string, string>();
   const maxZ = options.getNextZIndex();
   const createdAt = options.now;
+
+  // 逻辑：centerAt 模式下，将节点群中心对齐到目标点，再叠加递增偏移防止重叠。
+  let offsetX: number;
+  let offsetY: number;
+  if (options.centerAt) {
+    const cx = bounds.x + bounds.w / 2;
+    const cy = bounds.y + bounds.h / 2;
+    offsetX = options.centerAt[0] - cx + options.offset;
+    offsetY = options.centerAt[1] - cy + options.offset;
+  } else {
+    offsetX = options.offset;
+    offsetY = options.offset;
+  }
 
   nodes.forEach(node => {
     idMap.set(node.id, options.generateId(node.type));
@@ -152,7 +167,7 @@ function buildPastedElements(clipboard: CanvasClipboard, options: PasteOptions) 
     return {
       ...node,
       id: nextId,
-      xywh: [x + options.offset, y + options.offset, w, h],
+      xywh: [x + offsetX, y + offsetY, w, h],
       zIndex: maxZ + index,
       meta: Object.keys(nextMeta).length > 0 ? nextMeta : undefined,
       props: nextProps,
@@ -169,8 +184,8 @@ function buildPastedElements(clipboard: CanvasClipboard, options: PasteOptions) 
           }
         : {
             point: [
-              connector.source.point[0] + options.offset,
-              connector.source.point[1] + options.offset,
+              connector.source.point[0] + offsetX,
+              connector.source.point[1] + offsetY,
             ] as CanvasPoint,
           };
     const nextTarget: CanvasConnectorEnd =
@@ -181,8 +196,8 @@ function buildPastedElements(clipboard: CanvasClipboard, options: PasteOptions) 
           }
         : {
             point: [
-              connector.target.point[0] + options.offset,
-              connector.target.point[1] + options.offset,
+              connector.target.point[0] + offsetX,
+              connector.target.point[1] + offsetY,
             ] as CanvasPoint,
           };
 

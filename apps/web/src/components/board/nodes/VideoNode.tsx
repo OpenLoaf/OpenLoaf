@@ -17,12 +17,11 @@ import type { UpstreamData } from "../engine/upstream-data";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 
-import { Download, Info, Loader2, Pause, Play, Scissors, Trash2, Upload, Video, Volume2 } from "lucide-react";
+import { Download, Info, Loader2, Pause, Play, Scissors, Upload, Video, Volume2 } from "lucide-react";
 import i18next from "i18next";
 import { openVideoTrimDialog } from "../dialogs/video-trim/VideoTrimDialog";
 import {
   BOARD_TOOLBAR_ITEM_DEFAULT,
-  BOARD_TOOLBAR_ITEM_RED,
 } from "../ui/board-style-system";
 import { openFilePreview } from "@/components/file/lib/file-preview-store";
 import { fetchVideoMetadata } from "@/components/file/lib/video-metadata";
@@ -206,7 +205,7 @@ function createVideoToolbarItems(ctx: CanvasToolbarContext<VideoNodeProps>) {
   const { clipStart, clipEnd, duration, sourcePath } = ctx.element.props;
   const isEmpty = !sourcePath?.trim();
 
-  // 逻辑：空节点只显示上传和删除按钮。
+  // 逻辑：空节点的自定义工具仅保留上传，删除走右侧通用工具组。
   if (isEmpty) {
     return [
       {
@@ -217,13 +216,6 @@ function createVideoToolbarItems(ctx: CanvasToolbarContext<VideoNodeProps>) {
         onSelect: () => {
           document.dispatchEvent(new CustomEvent('board:trigger-upload', { detail: ctx.element.id }));
         },
-      },
-      {
-        id: 'delete',
-        label: i18next.t('board:contextMenu.delete'),
-        icon: <Trash2 size={14} />,
-        className: BOARD_TOOLBAR_ITEM_RED,
-        onSelect: () => ctx.engine.deleteSelection(),
       },
     ];
   }
@@ -303,20 +295,6 @@ function createVideoToolbarItems(ctx: CanvasToolbarContext<VideoNodeProps>) {
           fileContext: ctx.fileContext,
         });
       },
-    },
-    {
-      id: 'inspect',
-      label: i18next.t('board:videoNode.toolbar.detail'),
-      icon: <Info size={14} />,
-      className: BOARD_TOOLBAR_ITEM_DEFAULT,
-      onSelect: () => ctx.openInspector(ctx.element.id),
-    },
-    {
-      id: 'delete',
-      label: i18next.t('board:contextMenu.delete'),
-      icon: <Trash2 size={14} />,
-      className: BOARD_TOOLBAR_ITEM_RED,
-      onSelect: () => ctx.engine.deleteSelection(),
     },
   ];
   return baseItems;
@@ -518,9 +496,6 @@ export function VideoNodeView({
   const [playing, setPlaying] = useState(false);
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
-  /** Hover-preview: play first 5s when engine reports this node as hovered. */
-  const [hovering, setHovering] = useState(false);
-  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const resolvedPath = useMemo(
     () => resolveProjectRelativePath(element.props.sourcePath, fileContext) || element.props.sourcePath,
@@ -593,38 +568,6 @@ export function VideoNodeView({
     setLoading(true);
   }, [videoPath]);
 
-  const HOVER_PREVIEW_DURATION = 5;
-  const nodeFrameRef = useRef<HTMLDivElement>(null);
-  const playingRef = useRef(playing);
-  playingRef.current = playing;
-  const videoPathRef = useRef(videoPath);
-  videoPathRef.current = videoPath;
-  const idsRef = useRef(ids);
-  idsRef.current = ids;
-
-  // Hover preview: pointerenter triggers a 5s preview. The preview keeps playing
-  // even after pointerleave, then checks if mouse is still present to loop or stop.
-  const hoverIntentRef = useRef(false);
-
-  useEffect(() => {
-    const el = nodeFrameRef.current;
-    if (!el) return;
-    const onEnter = () => {
-      if (!videoPathRef.current || playingRef.current) return;
-      hoverIntentRef.current = true;
-      setHovering(true);
-    };
-    const onLeave = () => {
-      hoverIntentRef.current = false;
-    };
-    el.addEventListener('pointerenter', onEnter);
-    el.addEventListener('pointerleave', onLeave);
-    return () => {
-      el.removeEventListener('pointerenter', onEnter);
-      el.removeEventListener('pointerleave', onLeave);
-    };
-  }, []);
-
   // 逻辑：playing 时通过 stream 端点播放视频。
   useEffect(() => {
     if (!playing || !videoPath) return;
@@ -633,6 +576,7 @@ export function VideoNodeView({
 
     let cancelled = false;
     const streamUrl = buildStreamUrl(videoPath, ids);
+    video.muted = true;
 
     const onLoadedMetadata = () => {
       if (cancelled) return;
@@ -672,6 +616,7 @@ export function VideoNodeView({
     video.addEventListener("error", onError);
 
     video.src = streamUrl;
+    video.load();
 
     return () => {
       cancelled = true;
@@ -684,71 +629,6 @@ export function VideoNodeView({
       video.load();
     };
   }, [playing, videoPath, ids, handleStop]);
-
-  // Hover preview: play first 5s silently using a separate <video> element.
-  // Once started, the preview runs its full 5s regardless of pointerleave,
-  // then stops if the mouse has left.
-  const hoverVideoRef = useRef<HTMLVideoElement>(null);
-  useEffect(() => {
-    const video = hoverVideoRef.current;
-    const vp = videoPathRef.current;
-    const curIds = idsRef.current;
-    if (!video || !hovering || !vp || playingRef.current) {
-      return;
-    }
-
-    let cancelled = false;
-    const streamUrl = buildStreamUrl(vp, curIds);
-    const cs = clipStartRef.current ?? 0;
-
-    const stopPreview = () => {
-      if (cancelled) return;
-      cancelled = true;
-      video.pause();
-      video.removeAttribute('src');
-      video.load();
-      setHovering(false);
-    };
-
-    const onLoaded = () => {
-      if (cancelled) return;
-      video.currentTime = cs;
-      video.play().catch(() => stopPreview());
-    };
-    const onTimeUpdate = () => {
-      if (cancelled) return;
-      if (video.currentTime >= cs + HOVER_PREVIEW_DURATION) {
-        stopPreview();
-      }
-    };
-    const onEnded = () => stopPreview();
-    const onError = () => stopPreview();
-
-    // Auto-stop after 5s even if video is still loading/buffering.
-    hoverTimerRef.current = setTimeout(() => {
-      stopPreview();
-    }, (HOVER_PREVIEW_DURATION + 1) * 1000);
-
-    video.addEventListener('loadeddata', () => { console.log('[HoverVideo] loadeddata'); onLoaded(); });
-    video.addEventListener('timeupdate', onTimeUpdate);
-    video.addEventListener('ended', () => { console.log('[HoverVideo] ended'); onEnded(); });
-    video.addEventListener('error', (e) => { console.log('[HoverVideo] error', video.error); onError(); });
-    video.addEventListener('stalled', () => { console.log('[HoverVideo] stalled'); });
-    video.addEventListener('waiting', () => { console.log('[HoverVideo] waiting'); });
-    video.addEventListener('playing', () => { console.log('[HoverVideo] playing!'); });
-    console.log('[HoverVideo] setting src=', streamUrl);
-    video.src = streamUrl;
-
-    return () => {
-      console.log('[HoverVideo] effect cleanup, cancelled=', cancelled);
-      cancelled = true;
-      if (hoverTimerRef.current) { clearTimeout(hoverTimerRef.current); hoverTimerRef.current = null; }
-      video.pause();
-      video.removeAttribute('src');
-      video.load();
-    };
-  // Only re-run when hovering changes — other values read from refs.
-  }, [hovering]);
 
 
   // ---------------------------------------------------------------------------
@@ -981,7 +861,7 @@ export function VideoNodeView({
   )
 
   return (
-    <NodeFrame ref={nodeFrameRef} className="group">
+    <NodeFrame className="group">
       <VersionStackOverlay
         stack={element.props.versionStack}
         semanticColor="purple"
@@ -989,9 +869,8 @@ export function VideoNodeView({
       />
       <div
         className={[
-          "relative flex h-full w-full items-center justify-center rounded-3xl border box-border",
-          "border-ol-divider bg-background text-ol-text-primary",
-          "",
+          "relative flex h-full w-full items-center justify-center rounded-3xl box-border",
+          "bg-background text-ol-text-primary",
         ].join(" ")}
         onDoubleClick={(event) => {
           event.stopPropagation();
@@ -1033,8 +912,6 @@ export function VideoNodeView({
           <div
             className="group relative h-full w-full overflow-hidden rounded-3xl bg-black"
             data-board-scroll
-            data-board-editor="true"
-            onPointerDown={(e) => e.stopPropagation()}
           >
             <video
               ref={videoRef}
@@ -1043,8 +920,16 @@ export function VideoNodeView({
               className="absolute inset-0 h-full w-full object-contain"
               onEnded={handleStop}
             />
+            {/* 加载中保留 poster，避免黑屏闪烁 */}
+            {loading && posterSrc ? (
+              <img
+                src={posterSrc}
+                alt=""
+                className="pointer-events-none absolute inset-0 h-full w-full object-contain"
+              />
+            ) : null}
             {loading ? (
-              <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/60">
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
                 <Loader2 className="h-6 w-6 animate-spin text-white/70" />
               </div>
             ) : (
@@ -1054,13 +939,13 @@ export function VideoNodeView({
                   <button
                     type="button"
                     data-board-controls
-                    className="flex h-[12%] min-h-5 aspect-square cursor-pointer items-center justify-center rounded-3xl border border-white/40 bg-black/40 text-white transition-transform duration-200 ease-out hover:scale-125"
+                    className="flex h-14 w-14 cursor-pointer items-center justify-center rounded-3xl border border-white/40 bg-black/40 text-white transition-transform duration-200 ease-out hover:scale-125"
                     onPointerDown={(e) => {
                       e.stopPropagation();
                       handleStop();
                     }}
                   >
-                    <Pause className="h-[50%] w-[50%] min-h-2.5 min-w-2.5" />
+                    <Pause className="h-[50%] w-[50%] min-h-2.5 min-w-2.5 fill-current" />
                   </button>
                 </div>
                 {/* Progress bar at bottom */}
@@ -1082,18 +967,20 @@ export function VideoNodeView({
               loading="lazy"
               decoding="async"
             />
-            {/* Hover preview video — shown when engine reports hover on this node */}
-            <video
-              ref={hoverVideoRef}
-              muted
-              playsInline
-              preload="none"
-              className={[
-                "pointer-events-none absolute inset-0 h-full w-full object-contain transition-opacity duration-200",
-                hovering ? "opacity-100" : "opacity-0",
-              ].join(" ")}
-            />
-            <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-neutral-900/50 via-neutral-900/10 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-b from-neutral-900/50 via-neutral-900/10 to-transparent" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <button
+                type="button"
+                data-board-controls
+                className="flex h-14 w-14 cursor-pointer items-center justify-center rounded-3xl border border-white/40 bg-black/40 text-white transition-transform duration-200 ease-out hover:scale-125"
+                onPointerDown={(e) => {
+                  e.stopPropagation();
+                  handlePlayInline();
+                }}
+              >
+                <Play className="h-[50%] w-[50%] min-h-2.5 min-w-2.5 translate-x-[0.5px] fill-current" />
+              </button>
+            </div>
           </div>
         ) : !element.props.sourcePath?.trim() && !isGenerating ? (
           <div className="flex h-full w-full items-center justify-center rounded-3xl border border-dashed border-ol-divider bg-ol-surface-muted">
@@ -1105,20 +992,20 @@ export function VideoNodeView({
             </div>
           </div>
         ) : isGenerating ? null : (
-          <div className="relative h-full w-full overflow-hidden rounded-3xl">
-            <div className="absolute inset-0 flex items-center justify-center bg-ol-surface-muted text-ol-text-auxiliary">
-              <Video size={36} strokeWidth={1.2} className="opacity-40" />
+          <div className="relative h-full w-full">
+            <div className="absolute inset-0 flex items-center justify-center">
+              <button
+                type="button"
+                data-board-controls
+                className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-3xl bg-ol-surface-muted text-ol-text-auxiliary transition-transform duration-200 ease-out hover:scale-125"
+                onPointerDown={(e) => {
+                  e.stopPropagation();
+                  handlePlayInline();
+                }}
+              >
+                <Play className="h-5 w-5" />
+              </button>
             </div>
-            <video
-              ref={!posterSrc ? hoverVideoRef : undefined}
-              muted
-              playsInline
-              preload="none"
-              className={[
-                "pointer-events-none absolute inset-0 h-full w-full object-contain transition-opacity duration-200",
-                hovering ? "opacity-100" : "opacity-0",
-              ].join(" ")}
-            />
           </div>
         )}
       </div>

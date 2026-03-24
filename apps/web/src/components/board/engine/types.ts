@@ -401,8 +401,10 @@ export type CanvasToolbarContext<P> = {
   /** Canvas engine reference for advanced operations. */
   // biome-ignore lint: engine type kept loose to avoid circular imports
   engine: any;
-  /** Open the node inspector panel. */
+  /** Open the node inspector panel (toggle). */
   openInspector: (elementId: string) => void;
+  /** Whether the inspector is currently open for this node. */
+  inspectorActive?: boolean;
   /** Update node props and commit to history. */
   updateNodeProps: (patch: Partial<P>) => void;
   /** Ungroup the current selection. */
