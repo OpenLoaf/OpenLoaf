@@ -21,6 +21,7 @@ import {
 import { getProjectRootPath } from '@openloaf/api/services/vfsService'
 import {
   buildBoardAssetRelativePath,
+  lookupBoardRecord,
   resolveBoardAssetDir,
   resolveBoardScopedRoot,
 } from '@openloaf/api/common/boardPaths'
@@ -184,7 +185,13 @@ async function downloadAndSaveImage(input: {
   const fileName = buildFileName('png', input.fileName, input.index, input.total)
   // 逻辑：有 boardId 时直接保存到画布资产目录，与视频行为一致。
   if (input.boardId) {
-    const boardRoot = resolveBoardScopedRoot(input.projectId)
+    // 逻辑：前端可能未传 projectId，从 DB 查询画布的真实 projectId
+    let effectiveProjectId = input.projectId
+    if (!effectiveProjectId) {
+      const board = await lookupBoardRecord(input.boardId)
+      if (board?.projectId) effectiveProjectId = board.projectId
+    }
+    const boardRoot = resolveBoardScopedRoot(effectiveProjectId)
     const dir = resolveBoardAssetDir(boardRoot, input.boardId)
     await fs.mkdir(dir, { recursive: true })
     const filePath = path.join(dir, fileName)
@@ -225,7 +232,13 @@ async function downloadAndSaveVideo(input: {
   let dir: string
   let relativeAssetDir: string
   if (input.boardId) {
-    const boardRoot = resolveBoardScopedRoot(input.projectId)
+    // 逻辑：前端可能未传 projectId，从 DB 查询画布的真实 projectId
+    let effectiveProjectId = input.projectId
+    if (!effectiveProjectId) {
+      const board = await lookupBoardRecord(input.boardId)
+      if (board?.projectId) effectiveProjectId = board.projectId
+    }
+    const boardRoot = resolveBoardScopedRoot(effectiveProjectId)
     dir = resolveBoardAssetDir(boardRoot, input.boardId)
     relativeAssetDir = buildBoardAssetRelativePath(boardRoot, input.boardId)
   } else {

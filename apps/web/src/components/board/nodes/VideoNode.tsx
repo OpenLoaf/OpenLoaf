@@ -830,7 +830,7 @@ export function VideoNodeView({
             startedAt={pollingResult.startedAt}
             estimatedSeconds={90}
             serverProgress={pollingResult.progress}
-            color="purple"
+            color="blue"
           />
         )}
 
@@ -914,7 +914,7 @@ export function VideoNodeView({
               </button>
             </div>
           </div>
-        ) : !element.props.sourcePath?.trim() ? (
+        ) : !element.props.sourcePath?.trim() && !isGenerating ? (
           <div className="flex h-full w-full items-center justify-center rounded-3xl border border-dashed border-ol-divider bg-ol-surface-muted">
             <div className="flex flex-col items-center gap-2 text-muted-foreground/40 px-4">
               <Video size={36} strokeWidth={1.2} />
@@ -923,7 +923,7 @@ export function VideoNodeView({
               </span>
             </div>
           </div>
-        ) : (
+        ) : isGenerating ? null : (
           <div className="relative h-full w-full">
             <div className="absolute inset-0 flex items-center justify-center">
               <button

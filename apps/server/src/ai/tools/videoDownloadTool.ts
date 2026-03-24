@@ -14,6 +14,7 @@ import { getProjectRootPath } from '@openloaf/api/services/vfsService'
 import { videoDownloadToolDef } from '@openloaf/api/types/tools/videoDownload'
 import {
   buildBoardAssetRelativePath,
+  lookupBoardRecord,
   resolveBoardAssetDir,
   resolveBoardScopedRoot,
 } from '@openloaf/api/common/boardPaths'
@@ -58,11 +59,16 @@ function toPosixRelativePath(rootPath: string, targetPath: string): string {
 }
 
 /** Resolve the constrained storage location for the current request context. */
-function resolveVideoStorageTarget(): VideoStorageTarget {
-  const projectId = getProjectId()
+async function resolveVideoStorageTarget(): Promise<VideoStorageTarget> {
+  let projectId = getProjectId()
   const boardId = getBoardId()
 
   if (boardId) {
+    // 逻辑：前端可能未传 projectId，从 DB 查询画布的真实 projectId
+    if (!projectId) {
+      const board = await lookupBoardRecord(boardId)
+      if (board?.projectId) projectId = board.projectId
+    }
     const boardRoot = resolveBoardScopedRoot(projectId)
     return {
       rootPath: boardRoot,
@@ -145,7 +151,7 @@ export const videoDownloadTool = tool({
     const projectId = getProjectId()
     const boardId = getBoardId()
     const sessionId = getSessionId()
-    const storage = resolveVideoStorageTarget()
+    const storage = await resolveVideoStorageTarget()
 
     const taskId = startDownload({
       url,

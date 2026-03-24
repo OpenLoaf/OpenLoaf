@@ -110,7 +110,19 @@ interface ParamFieldBase {
   hint?: string
 }
 
-interface SelectField extends ParamFieldBase { type: 'select'; options: ParamOption[] }
+interface SelectField extends ParamFieldBase {
+  type: 'select'
+  /** 静态选项（少量，如 3-5 个尺寸） */
+  options?: ParamOption[]
+  /** 远程选项 catalog ID（大量，如数百个风格）。
+   *  前端调用 GET /api/ai/v3/catalogs/:catalog 加载。
+   *  SaaS 根据 Accept-Language 返回已翻译的 label + thumbnail。 */
+  catalog?: string
+  /** 渲染方式：dropdown（默认）、grid（缩略图网格）、pills（胶囊标签） */
+  display?: 'dropdown' | 'grid' | 'pills'
+  /** 启用搜索过滤（大量选项时建议开启） */
+  searchable?: boolean
+}
 interface BooleanField extends ParamFieldBase { type: 'boolean' }
 interface TextField extends ParamFieldBase { type: 'text'; multiline?: boolean; placeholder?: string }
 interface SliderField extends ParamFieldBase { type: 'slider'; min: number; max: number; step?: number }
@@ -759,7 +771,74 @@ function serializeForGenerate(def: VariantDefinition, state: FormState): V3Gener
 
 ---
 
-## 八、SaaS 侧改造清单（不变）
+## 八、远程选项 Catalog（大量选项场景）
+
+### 8.1 问题
+
+某些参数有数百个选项（风格、语音、LoRA 模型），不能硬编码在 schema 中：
+- 需要缩略图预览
+- 需要多语言翻译
+- 需要动态增减（SaaS 侧加一条记录，前端零改动）
+
+### 8.2 SaaS 侧 Catalog API
+
+```
+GET /api/ai/v3/catalogs/:catalogId
+Accept-Language: zh-CN
+
+Response:
+{
+  items: [
+    { value: 'anime', label: '动漫风', thumbnail: 'https://cdn/.../anime.jpg' },
+    { value: 'realistic', label: '写实', thumbnail: 'https://cdn/.../realistic.jpg' },
+    { value: 'oil_painting', label: '油画', thumbnail: 'https://cdn/.../oil.jpg' },
+    // ... 数百个，label 已根据 Accept-Language 翻译
+  ]
+}
+```
+
+### 8.3 Variant 中使用
+
+```typescript
+// 即梦文生图 — 风格参数（200+ 选项）
+{
+  key: 'style', type: 'select', label: 'params.style',
+  default: '', group: 'primary',
+  catalog: 'jimeng-styles',    // 从 API 加载
+  display: 'grid',              // 缩略图网格
+  searchable: true,             // 支持搜索
+}
+
+// TTS 语音列表（50+ 音色）
+{
+  key: 'voice', type: 'select', label: 'params.voice',
+  default: 'longanyang', group: 'primary',
+  catalog: 'cosyvoice-voices',
+  display: 'grid',
+  searchable: true,
+}
+```
+
+### 8.4 前端渲染
+
+- `display: 'dropdown'` → 标准下拉（<10 个选项）
+- `display: 'grid'` → 缩略图网格 + 搜索栏（大量选项）
+- `display: 'pills'` → 胶囊标签横排（中等数量）
+- 前端缓存 catalog 数据，不重复请求
+
+### 8.5 适用场景
+
+| Catalog ID | 使用者 | 数量级 |
+|-----------|--------|--------|
+| `jimeng-styles` | volc-jimeng-t2i-v31/v40 | 200+ |
+| `cosyvoice-voices` | qwen-cosyvoice-v3 | 50+ |
+| `qwen-tts-voices` | qwen-tts | 15+ |
+| `kling-elements` | Kling Omni | 动态 |
+| `lora-models` | 未来 LoRA 支持 | 动态 |
+
+---
+
+## 九、SaaS 侧改造清单
 
 | 改动 | 影响范围 |
 |------|---------|

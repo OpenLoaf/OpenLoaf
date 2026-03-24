@@ -556,21 +556,13 @@ export async function pollV3TaskProxy(
         urls: resultUrls,
         directory: resolvedDir,
       });
-      if (ctx?.projectId) {
-        const normalizedSaveDir = saveDir.replace(/\\/g, "/").replace(/\/+$/, "");
-        resultUrls = savedPaths.map((filePath) => {
-          const fileName = path.basename(filePath);
-          return normalizedSaveDir ? `${normalizedSaveDir}/${fileName}` : fileName;
-        });
-      } else {
-        // 逻辑：无 projectId 时返回 board-relative 路径（如 "asset/xxx.png"），
-        // 以便前端 isBoardRelativePath 识别并使用画布预览端点。
-        const assetDirName = path.basename(saveDir.replace(/\/+$/, ""));
-        resultUrls = savedPaths.map((filePath) => {
-          const fileName = path.basename(filePath);
-          return `${assetDirName}/${fileName}`;
-        });
-      }
+      // 逻辑：统一返回 board-relative 路径（如 "asset/xxx.png"），
+      // 前端通过 isBoardRelativePath 识别并使用画布预览端点，避免路径二次拼接。
+      const imgAssetDirName = path.basename(saveDir.replace(/\/+$/, ""));
+      resultUrls = savedPaths.map((filePath) => {
+        const fileName = path.basename(filePath);
+        return `${imgAssetDirName}/${fileName}`;
+      });
     }
 
     if (resultType === "audio") {
@@ -587,15 +579,8 @@ export async function pollV3TaskProxy(
         directory: resolvedDir,
         fileNameBase: taskId,
       });
-      if (ctx?.projectId) {
-        const normalizedSaveDir = saveDir.replace(/\\/g, "/").replace(/\/+$/, "");
-        resultUrls = [
-          normalizedSaveDir ? `${normalizedSaveDir}/${saved.fileName}` : saved.fileName,
-        ];
-      } else {
-        const assetDirName = path.basename(saveDir.replace(/\/+$/, ""));
-        resultUrls = [`${assetDirName}/${saved.fileName}`];
-      }
+      const audioAssetDirName = path.basename(saveDir.replace(/\/+$/, ""));
+      resultUrls = [`${audioAssetDirName}/${saved.fileName}`];
     }
 
     if (resultType === "video") {
@@ -612,15 +597,8 @@ export async function pollV3TaskProxy(
         directory: resolvedDir,
         fileNameBase: taskId,
       });
-      if (ctx?.projectId) {
-        const normalizedSaveDir = saveDir.replace(/\\/g, "/").replace(/\/+$/, "");
-        resultUrls = [
-          normalizedSaveDir ? `${normalizedSaveDir}/${saved.fileName}` : saved.fileName,
-        ];
-      } else {
-        const assetDirName = path.basename(saveDir.replace(/\/+$/, ""));
-        resultUrls = [`${assetDirName}/${saved.fileName}`];
-      }
+      const vidAssetDirName = path.basename(saveDir.replace(/\/+$/, ""));
+      resultUrls = [`${vidAssetDirName}/${saved.fileName}`];
     }
 
     // 逻辑：任务完成后清理上下文缓存。
