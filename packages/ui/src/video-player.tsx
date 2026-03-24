@@ -45,7 +45,7 @@ function formatTime(seconds: number): string {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-/** Render an HTML5 video player with HLS support and custom controls. */
+/** Render an HTML5 video player with custom controls. */
 export function VideoPlayer({
   src,
   poster,
@@ -76,11 +76,16 @@ export function VideoPlayer({
 
   const effectiveEnd = clipEndTime && clipEndTime > 0 ? clipEndTime : duration;
 
-  // Direct video source setup
+  // Direct video source setup — cleanup releases Chromium media buffers to prevent OOM.
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !src) return;
     video.src = src;
+    return () => {
+      video.pause();
+      video.removeAttribute('src');
+      video.load();
+    };
   }, [src]);
 
   // Clip enforcement via timeupdate

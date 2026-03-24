@@ -840,16 +840,19 @@ Response:
 
 ## 九、SaaS 侧改造清单
 
-| 改动 | 影响范围 |
-|------|---------|
-| 4 个 Volc handler: `params.prompt` → `inputs.prompt` | 1 行 × 4 |
-| 所有 handler: `params.count` → `input.count` | 多个 handler |
-| HandlerInput 新增 `count?: number` | types.ts |
-| 建议：各 handler 添加 Zod inputSchema | 可选 |
+| 改动 | 影响范围 | 说明 |
+|------|---------|------|
+| 4 个 Volc handler: `params.prompt` → `inputs.prompt` | 1 行 × 4 | 统一 prompt 读取位置 |
+| 建议：各 handler 添加 Zod inputSchema | 可选 | 强化前后端契约 |
+| Handler 新增 maxBatchSize / maxConcurrency | 各 handler | 队列系统所需（见队列设计文档） |
+| Handler 新增 resourceConstraints / precheck | 各 handler | 上传系统所需（见队列设计文档） |
+
+**注意**：`count` 由路由层拆分为多次 `handler.generate()` 调用（每次 count=1 或 maxBatchSize），
+handler 不需要感知 count 参数，`HandlerInput` 不新增 `count` 字段。
 
 ---
 
-## 九、能力覆盖矩阵
+## 十、能力覆盖矩阵
 
 | 场景 | 解决机制 | 示例 |
 |------|---------|------|
@@ -866,3 +869,46 @@ Response:
 | 仅前端参数 | clientOnly: true | ASR duration |
 | 复杂序列化 | transformPayload | Kling 多镜头展平 |
 | 复杂 UI | customComponent | TTS 语音试听 |
+
+---
+
+## 十一、SaaS 协同注意事项
+
+### inputs 格式约定（与队列系统对齐）
+
+`serializeForGenerate()` 输出的 `inputs` 保持结构化格式（slot key → value）。
+队列模式下，前端将 `MediaInput` 对象替换为 `resourceId` 字符串（`"res:"` 前缀），
+后端 generate 端点做 normalization（遍历 inputs，将 `"res:xxx"` 替换为 S3 URL），
+handler 始终收到 `{ url: "https://..." }` 格式，无需感知队列系统。
+
+```typescript
+// 非队列模式（当前）— resolveAllMediaInputs 上传后
+inputs: { image: { url: "https://cdn/xxx.jpg" }, prompt: "hello" }
+
+// 队列模式 — upload 返回 resourceId 后
+inputs: { image: "res:uuid-xxx", prompt: "hello" }
+
+// handler 收到的（两种模式统一）
+inputs: { image: { url: "https://s3/xxx.jpg" }, prompt: "hello" }
+```
+
+### 计费模式
+
+沿用现有的**事后扣费**模式：generate 成功后在 `logRequest` 中扣费，失败不扣。
+排队期间积分不冻结、不预扣。排队后积分不足时 generate 入口返回 402 + 清理 ticket。
+
+### count > 1 与 groupId 处理
+
+当前前端所有 `*-generate.ts` 只处理 `result.data.taskId`，不处理 `groupId + taskIds`。
+如果 V3 启用 `maxCount > 4` 的 variant，需要同步修改：
+
+1. **SDK**：`v3GenerateRequest.count` 从 `z.union([z.literal(1), z.literal(2), z.literal(4)])` 改为 `z.number().int().min(1).max(10).optional()`
+2. **前端**：`image-generate.ts`、`video-generate.ts`、`audio-generate.ts` 的返回值处理需支持 `{ groupId, taskIds }` 响应
+3. **轮询**：VersionStack 层需支持 group 轮询（`GET /api/ai/v3/task-group/:groupId`）
+
+如果 V3 第一版不启用 count > 4，可延后处理。
+
+### count 路由层拆分
+
+`count` 由 SaaS 路由层拆分为多次 `handler.generate()` 调用（每次传 maxBatchSize 或剩余数量），
+handler 不需要感知 count 参数，`HandlerInput` 不新增 `count` 字段。

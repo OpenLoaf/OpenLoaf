@@ -27,7 +27,7 @@ import ImageViewer from "@/components/file/ImageViewer";
 import { resolveFileViewerTarget } from "./file-viewer-target";
 
 // Heavy viewers are lazy-loaded to avoid pulling in large dependencies at startup:
-// BoardFileViewer → hls.js (306KB), CodeViewer → highlight.js (359KB),
+// CodeViewer → highlight.js (359KB),
 // PdfViewer → pdfjs-dist (165KB), DocViewer → xmlbuilder2 (168KB),
 // ExcelViewer → xlsx (222KB), VideoViewer → vidstack + media-chrome
 const BoardFileViewer = lazy(() => import("@/components/board/BoardFileViewer"));

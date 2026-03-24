@@ -98,13 +98,36 @@ function groupsFromMap(map: Map<MediaType, TemplateItem[]>): TemplateGroup[] {
  * @param sourceOutputTypes 源节点输出的媒体类型
  * @param capabilities capabilities API 返回的数据（可能为空）
  */
+/** Fixed (non-AI) template items based on source output types. */
+function getFixedTemplateItems(sourceOutputTypes: MediaType[]): Map<MediaType, TemplateItem[]> {
+  const map = new Map<MediaType, TemplateItem[]>()
+  if (sourceOutputTypes.includes('video')) {
+    map.set('audio', [
+      {
+        featureId: 'extractAudio',
+        variantId: '__fixed-extract-audio',
+        nodeType: 'audio',
+        nodeSize: NODE_SIZE_MAP.audio,
+        preselect: { featureId: 'extractAudio', variantId: '' },
+        missingInputTypes: [],
+      },
+    ])
+  }
+  return map
+}
+
 export function computeOutputTemplates(
   sourceOutputTypes: MediaType[],
   capabilities: V3CapabilitiesData[],
 ): TemplateGroup[] {
-  if (!capabilities || capabilities.length === 0) return []
-
   const groupMap = new Map<MediaType, TemplateItem[]>()
+
+  // 固定项（非 AI）放在最前面
+  for (const [type, items] of getFixedTemplateItems(sourceOutputTypes)) {
+    groupMap.set(type, [...items])
+  }
+
+  if (!capabilities || capabilities.length === 0) return groupsFromMap(groupMap)
   const seenFeatures = new Set<string>()
 
   for (const cap of capabilities) {

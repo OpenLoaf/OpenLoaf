@@ -202,7 +202,7 @@ async function pollVideoDownload(
         [x, y, nodeW, nodeH],
       );
 
-      // 逻辑：HLS 预转码由服务端下载完成后自动触发，无需客户端处理。
+      // 逻辑：视频下载完成后清除加载节点。
       clearLoadingNode(engine, loadingNodeId);
       return;
     }

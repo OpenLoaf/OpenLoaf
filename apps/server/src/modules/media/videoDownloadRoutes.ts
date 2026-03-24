@@ -14,6 +14,7 @@ import {
   getTaskStatus,
   cancelDownloadTask,
   exportVideoClip,
+  extractAudioTrack,
 } from './videoDownloadService'
 import { resolveScopedPath } from '@openloaf/api'
 import {
@@ -225,5 +226,53 @@ export function registerVideoDownloadRoutes(app: Hono) {
     c.header('Content-Disposition', `attachment; filename="${encodeURIComponent(fileName)}"`)
     c.header('Content-Length', String(buffer.length))
     return c.body(buffer)
+  })
+
+  /** Extract audio track from a video file. */
+  app.post('/media/audio-extract', async (c) => {
+    try {
+      const body = await c.req.json<{
+        sourcePath?: string
+        projectId?: string
+        boardId?: string
+        startTime?: number
+        endTime?: number
+      }>()
+
+      const { sourcePath } = body
+      if (!sourcePath) {
+        return c.json({ error: 'Missing sourcePath' }, 400)
+      }
+      if (!body.boardId) {
+        return c.json({ error: 'Missing boardId' }, 400)
+      }
+
+      const boardResult = await resolveBoardDirFromDb(body.boardId)
+      if (!boardResult) {
+        return c.json({ error: 'Board not found' }, 404)
+      }
+
+      const absolutePath = path.resolve(boardResult.absDir, sourcePath.replace(/^\/+/, ''))
+      if (!fs.existsSync(absolutePath)) {
+        return c.json({ error: 'Source file not found' }, 404)
+      }
+
+      const outputDir = path.join(boardResult.absDir, BOARD_ASSETS_DIR)
+      const fileName = path.basename(absolutePath)
+
+      const result = await extractAudioTrack({
+        absolutePath,
+        startTime: body.startTime,
+        endTime: body.endTime,
+        outputDir,
+        fileName,
+      })
+
+      return c.json({ success: true, data: result })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Audio extraction failed'
+      logger.error({ error }, 'audio-extract failed')
+      return c.json({ error: message }, 500)
+    }
   })
 }

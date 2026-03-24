@@ -14,7 +14,6 @@ import path from 'node:path'
 import fs from 'node:fs'
 import ffmpeg from 'fluent-ffmpeg'
 import { logger } from '@/common/logger'
-import { getHlsManifest } from './hlsService'
 
 let ytdlp: YtDlp | null = null
 let initPromise: Promise<YtDlp> | null = null
@@ -343,23 +342,29 @@ async function runDownload(
 
       const totalSize = Number(res.headers.get('content-length')) || 0
       let downloaded = 0
-      const chunks: Buffer[] = []
 
       const reader = res.body?.getReader()
       if (!reader) throw new Error('No response body reader')
 
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        if ((task.status as string) === 'failed') return
-        chunks.push(Buffer.from(value))
-        downloaded += value.byteLength
-        if (totalSize > 0) {
-          task.progress = Math.min(Math.round((downloaded / totalSize) * 100), 99)
+      // 流式写入文件，避免将整个视频缓冲到内存（可能数百 MB）
+      const fd = fs.openSync(filePath, 'w')
+      try {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          if ((task.status as string) === 'failed') {
+            fs.closeSync(fd)
+            return
+          }
+          fs.writeSync(fd, value)
+          downloaded += value.byteLength
+          if (totalSize > 0) {
+            task.progress = Math.min(Math.round((downloaded / totalSize) * 100), 99)
+          }
         }
+      } finally {
+        fs.closeSync(fd)
       }
-
-      fs.writeFileSync(filePath, Buffer.concat(chunks))
       await finishDownload(task, filePath, fileName, ctx)
       return
     }
@@ -491,7 +496,6 @@ async function finishDownload(
   task.status = 'completed'
   logger.info({ taskId: task.id, fileName, width: posterMeta?.width, height: posterMeta?.height }, 'Video download completed')
 
-  void triggerPreTranscode(fileName, ctx).catch(() => undefined)
 }
 
 /** Extract a poster frame and video dimensions from a local video file. */
@@ -542,6 +546,50 @@ async function extractPosterAndMeta(filePath: string): Promise<{
 }
 
 /** Export a clipped segment of a video using ffmpeg. */
+/** Extract audio track from a video file using ffmpeg. */
+export async function extractAudioTrack(input: {
+  absolutePath: string
+  startTime?: number
+  endTime?: number
+  outputDir: string
+  fileName: string
+}): Promise<{ filePath: string; relativePath: string; fileName: string; duration: number }> {
+  const { absolutePath, startTime, endTime, outputDir, fileName } = input
+  fs.mkdirSync(outputDir, { recursive: true })
+
+  const base = path.basename(fileName, path.extname(fileName))
+  const outputName = `${base}_audio.mp3`
+  const outputPath = path.join(outputDir, outputName)
+
+  await new Promise<void>((resolve, reject) => {
+    let cmd = ffmpeg(absolutePath)
+    if (startTime != null && startTime > 0) cmd = cmd.seekInput(startTime)
+    if (endTime != null && startTime != null) cmd = cmd.duration(endTime - (startTime ?? 0))
+
+    cmd
+      .noVideo()
+      .audioCodec('libmp3lame')
+      .audioBitrate(192)
+      .outputOptions(['-y'])
+      .output(outputPath)
+      .on('end', () => resolve())
+      .on('error', (err) => reject(err))
+      .run()
+  })
+
+  // Get duration of the output file
+  const audioDuration = await new Promise<number>((resolve) => {
+    ffmpeg.ffprobe(outputPath, (err, metadata) => {
+      if (err || !metadata?.format?.duration) resolve(0)
+      else resolve(metadata.format.duration)
+    })
+  })
+
+  const relativePath = `asset/${outputName}`
+  return { filePath: outputPath, relativePath, fileName: outputName, duration: audioDuration }
+}
+
+/** Export a clipped segment of a video using ffmpeg. */
 export async function exportVideoClip(input: {
   absolutePath: string
   startTime: number
@@ -585,17 +633,3 @@ export async function exportVideoClip(input: {
   })
 }
 
-/** Trigger HLS pre-transcoding on the server side after download completes. */
-async function triggerPreTranscode(
-  fileName: string,
-  ctx: { boardId?: string; projectId?: string },
-) {
-  const assetPath = `asset/${fileName}`
-  logger.info({ assetPath, boardId: ctx.boardId }, 'Triggering HLS pre-transcode')
-  await getHlsManifest({
-    path: assetPath,
-    projectId: ctx.projectId,
-    boardId: ctx.boardId,
-    quality: '720p',
-  })
-}

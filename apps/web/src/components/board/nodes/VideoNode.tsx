@@ -17,7 +17,7 @@ import type { UpstreamData } from "../engine/upstream-data";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 
-import { Download, Info, Loader2, Pause, Play, Scissors, Trash2, Upload, Video } from "lucide-react";
+import { Download, Info, Loader2, Pause, Play, Scissors, Trash2, Upload, Video, Volume2 } from "lucide-react";
 import i18next from "i18next";
 import { openVideoTrimDialog } from "../dialogs/video-trim/VideoTrimDialog";
 import {
@@ -63,6 +63,8 @@ import {
 } from '../hooks/useVersionStack';
 import { VersionStackOverlay } from './VersionStackOverlay';
 import { GeneratingOverlay } from './GeneratingOverlay';
+import { deriveNode } from '../utils/derive-node';
+import type { CanvasEngine } from '../engine/CanvasEngine';
 
 export type VideoNodeProps = {
   /** Project-relative path for the video. */
@@ -133,12 +135,70 @@ async function downloadVideo(props: VideoNodeProps, fileContext?: BoardFileConte
   await downloadMediaFile({ src: sourcePath, fileName, fileContext, filterLabel: 'Video' });
 }
 
-/** Compute HLS path for the video node (reused by toolbar and view). */
-function computeHlsPath(sourcePath: string, resolvedPath: string): string {
+/** Compute the effective video path for stream playback (reused by toolbar and view). */
+function computeVideoPath(sourcePath: string, resolvedPath: string): string {
   if (isBoardRelativePath(sourcePath)) return sourcePath;
   const parsed = parseScopedProjectPath(sourcePath);
   if (parsed) return parsed.relativePath;
   return resolvedPath;
+}
+
+/** Extract audio track from video and create an audio node via deriveNode. */
+export async function extractAudioFromVideo(params: {
+  engine: CanvasEngine;
+  sourceNodeId: string;
+  props: VideoNodeProps;
+  fileContext?: BoardFileContext;
+}) {
+  const { engine, sourceNodeId, props, fileContext } = params;
+  const { sourcePath, clipStart, clipEnd, duration } = props;
+  if (!sourcePath?.trim()) return;
+
+  const isBoardPath = isBoardRelativePath(sourcePath);
+  const resolvedSource = isBoardPath
+    ? sourcePath
+    : (parseScopedProjectPath(sourcePath)?.relativePath ?? sourcePath);
+
+  const hasClip =
+    (clipStart != null && clipStart > 0) ||
+    (clipEnd != null && duration != null && clipEnd < duration);
+
+  const baseUrl = resolveServerUrl();
+  const url = baseUrl ? `${baseUrl}/media/audio-extract` : '/media/audio-extract';
+
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sourcePath: resolvedSource,
+        projectId: fileContext?.projectId,
+        boardId: isBoardPath ? fileContext?.boardId : undefined,
+        ...(hasClip ? { startTime: clipStart ?? 0, endTime: clipEnd ?? duration } : {}),
+      }),
+    });
+    const data = await res.json();
+    if (!data.success) {
+      console.error('Audio extraction failed:', data.error);
+      return;
+    }
+
+    const { relativePath, fileName, duration: audioDuration } = data.data;
+    deriveNode({
+      engine,
+      sourceNodeId,
+      targetType: 'audio',
+      targetProps: {
+        sourcePath: relativePath,
+        fileName,
+        duration: audioDuration,
+        mimeType: 'audio/mpeg',
+        origin: 'user' as const,
+      },
+    });
+  } catch (err) {
+    console.error('Audio extraction failed:', err);
+  }
 }
 
 /** Build toolbar items for video nodes. */
@@ -170,9 +230,9 @@ function createVideoToolbarItems(ctx: CanvasToolbarContext<VideoNodeProps>) {
 
   const hasClip = (clipStart != null && clipStart > 0) || (clipEnd != null && duration != null && clipEnd < duration);
 
-  // 逻辑：计算 HLS 所需的路径和 ID，传给剪辑对话框。
+  // 逻辑：计算视频流播放所需的路径和 ID，传给剪辑对话框。
   const resolvedPath = resolveProjectRelativePath(sourcePath, ctx.fileContext) || sourcePath;
-  const hlsPath = computeHlsPath(sourcePath, resolvedPath);
+  const videoPath = computeVideoPath(sourcePath, resolvedPath);
   const effectiveProjectId = ctx.fileContext?.projectId
     ?? parseScopedProjectPath(sourcePath)?.projectId;
   const ids = {
@@ -203,7 +263,7 @@ function createVideoToolbarItems(ctx: CanvasToolbarContext<VideoNodeProps>) {
       active: hasClip,
       onSelect: () => {
         openVideoTrimDialog({
-          hlsPath,
+          videoPath,
           ids,
           duration: duration ?? 0,
           clipStart: clipStart ?? 0,
@@ -230,6 +290,20 @@ function createVideoToolbarItems(ctx: CanvasToolbarContext<VideoNodeProps>) {
           },
         ]
       : []),
+    {
+      id: 'extract-audio',
+      label: i18next.t('board:videoNode.toolbar.extractAudio', { defaultValue: '分离音频' }),
+      icon: <Volume2 size={14} />,
+      className: BOARD_TOOLBAR_ITEM_DEFAULT,
+      onSelect: () => {
+        void extractAudioFromVideo({
+          engine: ctx.engine,
+          sourceNodeId: ctx.element.id,
+          props: ctx.element.props,
+          fileContext: ctx.fileContext,
+        });
+      },
+    },
     {
       id: 'inspect',
       label: i18next.t('board:videoNode.toolbar.detail'),
@@ -361,7 +435,11 @@ function captureVideoPoster(streamUrl: string): Promise<string | null> {
         const ctx = canvas.getContext("2d");
         if (!ctx) { settle(null); return; }
         ctx.drawImage(video, 0, 0);
-        settle(canvas.toDataURL("image/jpeg", 0.8));
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.8);
+        // 立即释放 canvas 占用的像素缓冲区
+        canvas.width = 0;
+        canvas.height = 0;
+        settle(dataUrl);
       } catch {
         settle(null);
       }
@@ -440,6 +518,9 @@ export function VideoNodeView({
   const [playing, setPlaying] = useState(false);
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
+  /** Hover-preview: play first 5s when engine reports this node as hovered. */
+  const [hovering, setHovering] = useState(false);
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const resolvedPath = useMemo(
     () => resolveProjectRelativePath(element.props.sourcePath, fileContext) || element.props.sourcePath,
@@ -456,7 +537,7 @@ export function VideoNodeView({
 
   // 逻辑：stream URL 需要未展开的原始路径 + ids，让服务端通过 boardId/projectId 正确解析。
   // resolvedPath 已经包含 board 目录前缀，直接传会导致服务端重复拼接。
-  const hlsPath = useMemo(() => {
+  const videoPath = useMemo(() => {
     if (isBoardRelativePath(element.props.sourcePath)) {
       return element.props.sourcePath; // "asset/Kapture..." — 服务端用 boardId 解析
     }
@@ -476,16 +557,16 @@ export function VideoNodeView({
 
   // 逻辑：有视频但无 poster 时自动提取首帧作为缩略图。
   useEffect(() => {
-    if (!hlsPath || posterSrc || !ids.boardId && !ids.projectId) return;
+    if (!videoPath || posterSrc || !ids.boardId && !ids.projectId) return;
     let cancelled = false;
-    const url = buildStreamUrl(hlsPath, ids);
+    const url = buildStreamUrl(videoPath, ids);
     captureVideoPoster(url).then((poster) => {
       if (!cancelled && poster) {
         onUpdate({ posterPath: poster });
       }
     });
     return () => { cancelled = true; };
-  }, [hlsPath, ids, posterSrc, onUpdate]);
+  }, [videoPath, ids, posterSrc, onUpdate]);
 
   // 逻辑：用 ref 持有 clip 值，避免放入 useEffect deps 导致拖滑块时重建播放。
   const clipStartRef = useRef(element.props.clipStart);
@@ -506,20 +587,52 @@ export function VideoNodeView({
   }, []);
 
   const handlePlayInline = useCallback(() => {
-    if (!hlsPath) return;
+    if (!videoPath) return;
     stoppedRef.current = false;
     setPlaying(true);
     setLoading(true);
-  }, [hlsPath]);
+  }, [videoPath]);
 
-  // 逻辑：playing 时直接通过 stream 端点播放视频，无需 HLS 转码。
+  const HOVER_PREVIEW_DURATION = 5;
+  const nodeFrameRef = useRef<HTMLDivElement>(null);
+  const playingRef = useRef(playing);
+  playingRef.current = playing;
+  const videoPathRef = useRef(videoPath);
+  videoPathRef.current = videoPath;
+  const idsRef = useRef(ids);
+  idsRef.current = ids;
+
+  // Hover preview: pointerenter triggers a 5s preview. The preview keeps playing
+  // even after pointerleave, then checks if mouse is still present to loop or stop.
+  const hoverIntentRef = useRef(false);
+
   useEffect(() => {
-    if (!playing || !hlsPath) return;
+    const el = nodeFrameRef.current;
+    if (!el) return;
+    const onEnter = () => {
+      if (!videoPathRef.current || playingRef.current) return;
+      hoverIntentRef.current = true;
+      setHovering(true);
+    };
+    const onLeave = () => {
+      hoverIntentRef.current = false;
+    };
+    el.addEventListener('pointerenter', onEnter);
+    el.addEventListener('pointerleave', onLeave);
+    return () => {
+      el.removeEventListener('pointerenter', onEnter);
+      el.removeEventListener('pointerleave', onLeave);
+    };
+  }, []);
+
+  // 逻辑：playing 时通过 stream 端点播放视频。
+  useEffect(() => {
+    if (!playing || !videoPath) return;
     const video = videoRef.current;
     if (!video) return;
 
     let cancelled = false;
-    const streamUrl = buildStreamUrl(hlsPath, ids);
+    const streamUrl = buildStreamUrl(videoPath, ids);
 
     const onLoadedMetadata = () => {
       if (cancelled) return;
@@ -565,8 +678,77 @@ export function VideoNodeView({
       video.removeEventListener("loadedmetadata", onLoadedMetadata);
       video.removeEventListener("timeupdate", onTimeUpdate);
       video.removeEventListener("error", onError);
+      // 释放 Chromium 媒体解码资源，防止 video 元素持续缓冲导致 V8 OOM
+      video.pause();
+      video.removeAttribute("src");
+      video.load();
     };
-  }, [playing, hlsPath, ids, handleStop]);
+  }, [playing, videoPath, ids, handleStop]);
+
+  // Hover preview: play first 5s silently using a separate <video> element.
+  // Once started, the preview runs its full 5s regardless of pointerleave,
+  // then stops if the mouse has left.
+  const hoverVideoRef = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    const video = hoverVideoRef.current;
+    const vp = videoPathRef.current;
+    const curIds = idsRef.current;
+    if (!video || !hovering || !vp || playingRef.current) {
+      return;
+    }
+
+    let cancelled = false;
+    const streamUrl = buildStreamUrl(vp, curIds);
+    const cs = clipStartRef.current ?? 0;
+
+    const stopPreview = () => {
+      if (cancelled) return;
+      cancelled = true;
+      video.pause();
+      video.removeAttribute('src');
+      video.load();
+      setHovering(false);
+    };
+
+    const onLoaded = () => {
+      if (cancelled) return;
+      video.currentTime = cs;
+      video.play().catch(() => stopPreview());
+    };
+    const onTimeUpdate = () => {
+      if (cancelled) return;
+      if (video.currentTime >= cs + HOVER_PREVIEW_DURATION) {
+        stopPreview();
+      }
+    };
+    const onEnded = () => stopPreview();
+    const onError = () => stopPreview();
+
+    // Auto-stop after 5s even if video is still loading/buffering.
+    hoverTimerRef.current = setTimeout(() => {
+      stopPreview();
+    }, (HOVER_PREVIEW_DURATION + 1) * 1000);
+
+    video.addEventListener('loadeddata', () => { console.log('[HoverVideo] loadeddata'); onLoaded(); });
+    video.addEventListener('timeupdate', onTimeUpdate);
+    video.addEventListener('ended', () => { console.log('[HoverVideo] ended'); onEnded(); });
+    video.addEventListener('error', (e) => { console.log('[HoverVideo] error', video.error); onError(); });
+    video.addEventListener('stalled', () => { console.log('[HoverVideo] stalled'); });
+    video.addEventListener('waiting', () => { console.log('[HoverVideo] waiting'); });
+    video.addEventListener('playing', () => { console.log('[HoverVideo] playing!'); });
+    console.log('[HoverVideo] setting src=', streamUrl);
+    video.src = streamUrl;
+
+    return () => {
+      console.log('[HoverVideo] effect cleanup, cancelled=', cancelled);
+      cancelled = true;
+      if (hoverTimerRef.current) { clearTimeout(hoverTimerRef.current); hoverTimerRef.current = null; }
+      video.pause();
+      video.removeAttribute('src');
+      video.load();
+    };
+  // Only re-run when hovering changes — other values read from refs.
+  }, [hovering]);
 
 
   // ---------------------------------------------------------------------------
@@ -799,7 +981,7 @@ export function VideoNodeView({
   )
 
   return (
-    <NodeFrame className="group">
+    <NodeFrame ref={nodeFrameRef} className="group">
       <VersionStackOverlay
         stack={element.props.versionStack}
         semanticColor="purple"
@@ -857,6 +1039,7 @@ export function VideoNodeView({
             <video
               ref={videoRef}
               muted
+              preload="none"
               className="absolute inset-0 h-full w-full object-contain"
               onEnded={handleStop}
             />
@@ -899,20 +1082,18 @@ export function VideoNodeView({
               loading="lazy"
               decoding="async"
             />
-            <div className="absolute inset-0 bg-gradient-to-b from-neutral-900/50 via-neutral-900/10 to-transparent" />
-            <div className="absolute inset-0 flex items-center justify-center">
-              <button
-                type="button"
-                data-board-controls
-                className="flex h-[12%] min-h-5 aspect-square cursor-pointer items-center justify-center rounded-3xl border border-white/40 bg-black/40 text-white transition-transform duration-200 ease-out hover:scale-125"
-                onPointerDown={(e) => {
-                  e.stopPropagation();
-                  handlePlayInline();
-                }}
-              >
-                <Play className="h-[50%] w-[50%] min-h-2.5 min-w-2.5 translate-x-[0.5px]" />
-              </button>
-            </div>
+            {/* Hover preview video — shown when engine reports hover on this node */}
+            <video
+              ref={hoverVideoRef}
+              muted
+              playsInline
+              preload="none"
+              className={[
+                "pointer-events-none absolute inset-0 h-full w-full object-contain transition-opacity duration-200",
+                hovering ? "opacity-100" : "opacity-0",
+              ].join(" ")}
+            />
+            <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-neutral-900/50 via-neutral-900/10 to-transparent" />
           </div>
         ) : !element.props.sourcePath?.trim() && !isGenerating ? (
           <div className="flex h-full w-full items-center justify-center rounded-3xl border border-dashed border-ol-divider bg-ol-surface-muted">
@@ -924,20 +1105,20 @@ export function VideoNodeView({
             </div>
           </div>
         ) : isGenerating ? null : (
-          <div className="relative h-full w-full">
-            <div className="absolute inset-0 flex items-center justify-center">
-              <button
-                type="button"
-                data-board-controls
-                className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-3xl bg-ol-surface-muted text-ol-text-auxiliary transition-transform duration-200 ease-out hover:scale-125"
-                onPointerDown={(e) => {
-                  e.stopPropagation();
-                  handlePlayInline();
-                }}
-              >
-                <Play className="h-5 w-5" />
-              </button>
+          <div className="relative h-full w-full overflow-hidden rounded-3xl">
+            <div className="absolute inset-0 flex items-center justify-center bg-ol-surface-muted text-ol-text-auxiliary">
+              <Video size={36} strokeWidth={1.2} className="opacity-40" />
             </div>
+            <video
+              ref={!posterSrc ? hoverVideoRef : undefined}
+              muted
+              playsInline
+              preload="none"
+              className={[
+                "pointer-events-none absolute inset-0 h-full w-full object-contain transition-opacity duration-200",
+                hovering ? "opacity-100" : "opacity-0",
+              ].join(" ")}
+            />
           </div>
         )}
       </div>

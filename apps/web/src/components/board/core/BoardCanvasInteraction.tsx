@@ -58,6 +58,7 @@ import {
   resolveViewerType,
 } from "../utils/board-asset";
 import { GroupedNodePicker } from "./GroupedNodePicker";
+import { extractAudioFromVideo } from "../nodes/VideoNode";
 import {
   computeOutputTemplates,
   computeInputTemplates,
@@ -1438,6 +1439,24 @@ export function BoardCanvasInteraction({
       "elementId" in snapshot.connectorDrop.source
         ? snapshot.connectorDrop.source.elementId
         : "";
+
+    // 固定操作：分离音频
+    if (item.featureId === 'extractAudio' && sourceElementId) {
+      const sourceEl = engine.doc.getElementById(sourceElementId);
+      if (sourceEl?.kind === 'node' && sourceEl.type === 'video') {
+        void extractAudioFromVideo({
+          engine,
+          sourceNodeId: sourceElementId,
+          props: sourceEl.props as import('../nodes/VideoNode').VideoNodeProps,
+          fileContext,
+        });
+      }
+      engine.setConnectorDrop(null);
+      engine.setConnectorDraft(null);
+      engine.setConnectorHover(null);
+      return;
+    }
+
     const type = item.nodeType;
     const [width, height] = item.nodeSize;
     // 逻辑：根据 preselect 设置 aiConfig，面板打开时自动选中对应 feature/variant。

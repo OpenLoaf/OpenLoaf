@@ -138,6 +138,9 @@ export function buildVideoPosterFromFile(
       const ctx = canvas.getContext("2d");
       if (ctx) ctx.drawImage(video, 0, 0, pw, ph);
       const posterSrc = ctx ? canvas.toDataURL("image/jpeg", 0.82) : "";
+      // 立即释放 canvas 像素缓冲区
+      canvas.width = 0;
+      canvas.height = 0;
       cleanup();
       resolve({ posterSrc, width, height });
     };

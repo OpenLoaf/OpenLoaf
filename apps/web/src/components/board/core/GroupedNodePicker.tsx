@@ -74,6 +74,7 @@ const FEATURE_ICON_MAP: Record<string, typeof Image> = {
   videoTranslate: Languages,
   tts: Music,
   speechToText: Mic,
+  extractAudio: Volume2,
 }
 
 const GROUP_ICON_MAP: Record<string, typeof Image> = {
@@ -90,7 +91,13 @@ function resolveFeatureIcon(featureId: string, nodeType: string) {
   return <Fallback size={14} />
 }
 
+const FIXED_FEATURE_LABELS: Record<string, Record<string, string>> = {
+  extractAudio: { zh: '分离音频', en: 'Extract Audio', ja: 'オーディオ抽出' },
+}
+
 function resolveFeatureLabel(featureId: string, lang: string): string {
+  const fixed = FIXED_FEATURE_LABELS[featureId]
+  if (fixed) return fixed[lang] ?? fixed.en ?? featureId
   const entry = MEDIA_FEATURES[featureId as MediaFeatureId]
   if (!entry) return featureId
   const label = (entry.label as Record<string, string>)[lang]

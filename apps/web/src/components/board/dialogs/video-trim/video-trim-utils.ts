@@ -28,42 +28,6 @@ export function formatTimePrecise(seconds: number): string {
   return `${m}:${s.toFixed(1).padStart(4, '0')}`
 }
 
-function buildHlsUrl(
-  endpoint: string,
-  path: string,
-  ids: { projectId?: string; boardId?: string },
-  extra?: Record<string, string>,
-) {
-  const baseUrl = resolveServerUrl()
-  const query = new URLSearchParams({ path, ...extra })
-  if (ids.projectId) query.set('projectId', ids.projectId)
-  if (ids.boardId) query.set('boardId', ids.boardId)
-  const prefix = baseUrl ? `${baseUrl}${endpoint}` : endpoint
-  return `${prefix}?${query.toString()}`
-}
-
-export function buildHlsManifestUrl(
-  path: string,
-  ids: { projectId?: string; boardId?: string },
-) {
-  return buildHlsUrl('/media/hls/manifest', path, ids)
-}
-
-export function buildHlsQualityUrl(
-  path: string,
-  quality: string,
-  ids: { projectId?: string; boardId?: string },
-) {
-  return buildHlsUrl('/media/hls/manifest', path, ids, { quality })
-}
-
-export function buildThumbnailsUrl(
-  path: string,
-  ids: { projectId?: string; boardId?: string },
-) {
-  return buildHlsUrl('/media/thumbnails', path, ids)
-}
-
 /** Build a direct stream URL for video playback. */
 export function buildStreamUrl(
   sourcePath: string,
@@ -77,6 +41,26 @@ export function buildStreamUrl(
     return `${prefix}?${query.toString()}`
   }
   const query = new URLSearchParams({ path: sourcePath })
+  if (ids.projectId) query.set('projectId', ids.projectId)
+  return `${prefix}?${query.toString()}`
+}
+
+/** Build a URL to extract a single JPEG frame at the given time. */
+export function buildFrameUrl(
+  sourcePath: string,
+  ids: { projectId?: string; boardId?: string },
+  time: number,
+  width = 160,
+) {
+  const baseUrl = resolveServerUrl()
+  const prefix = baseUrl ? `${baseUrl}/media/video-frame` : '/media/video-frame'
+  const query = new URLSearchParams({ time: String(time), width: String(width) })
+  if (ids.boardId) {
+    query.set('boardId', ids.boardId)
+    query.set('file', sourcePath)
+  } else {
+    query.set('path', sourcePath)
+  }
   if (ids.projectId) query.set('projectId', ids.projectId)
   return `${prefix}?${query.toString()}`
 }

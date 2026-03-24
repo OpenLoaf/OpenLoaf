@@ -16,12 +16,18 @@ import { fixPath } from './fixPath';
 import { installAutoUpdate } from './autoUpdate';
 import { applyPendingSwaps, getComponentInfo, installIncrementalUpdate } from './incrementalUpdate';
 import { resolveUpdateChannel, switchUpdateChannel } from './updateConfig';
+import { startMemoryMonitor } from './debug/memoryMonitor';
 
 // 中文注释：在最早期修复 PATH，确保后续 spawn 的进程能找到用户级命令（npm global、homebrew 等）。
 // 必须在 app.isPackaged 检查之前执行，因为 fixPath 内部会根据打包状态选择策略。
 if (app.isPackaged) {
   fixPath();
 }
+
+// 缓解 Chromium 视频播放原生内存暴涨（macOS VideoToolbox 硬件解码帧累积在 GPU 共享内存）。
+// 禁用硬件加速视频解码，退回 FFmpeg 软件解码——内存可控，代价是 CPU 使用率上升。
+// 参见 https://github.com/electron/electron/issues/18277
+app.commandLine.appendSwitch('disable-accelerated-video-decode');
 
 // 打包后原生模块（sharp、@libsql 等）位于 Resources/node_modules 目录。
 // Node.js 标准解析会从 asar 向上查找到 Resources/node_modules/，
@@ -420,7 +426,7 @@ function installApplicationMenu() {
       submenu: [
         { role: 'reload' },
         { role: 'forceReload' },
-        { role: 'toggleDevTools' },
+        ...(app.isPackaged ? [] : [{ role: 'toggleDevTools' as const }]),
         { type: 'separator' },
         { role: 'togglefullscreen' },
       ],
@@ -580,9 +586,22 @@ async function boot() {
   installIncrementalUpdate({ log });
 
   if (!app.isPackaged) {
-    // 逻辑：开发环境默认打开 DevTools，方便调试。
-    mainWindow.webContents.openDevTools({ mode: 'detach' });
-    log('DevTools opened (dev mode).');
+    // 逻辑：开发环境可通过菜单 View → Toggle DevTools (Cmd+Alt+I) 手动打开。
+    // 默认不自动打开，避免 DevTools Network 缓存视频流导致 V8 OOM。
+    log('DevTools available via Cmd+Alt+I (dev mode).');
+
+    // DevTools 打开时自动禁用 Network 录制，防止缓存视频流响应体导致 V8 OOM。
+    // Console/Elements/Sources 等面板不受影响。
+    mainWindow.webContents.on('devtools-opened', () => {
+      try {
+        mainWindow?.webContents.debugger.attach('1.3');
+        mainWindow?.webContents.debugger.sendCommand('Network.disable');
+        mainWindow?.webContents.debugger.detach();
+        log('DevTools Network recording disabled via CDP.');
+      } catch {
+        // debugger 可能已经被附加，忽略。
+      }
+    });
   }
 }
 
@@ -647,6 +666,8 @@ if (!gotTheLock) {
 
   app.whenReady().then(() => {
     log('App ready.');
+    // 内存监控：dev 每 5 秒 + 控制台，prod 每 60 秒仅写文件 ~/.openloaf/debug/memory-monitor.log
+    startMemoryMonitor();
     if (process.platform === 'darwin' && app.dock) {
       const iconInfo = resolveWindowIconInfo();
       if (iconInfo) {

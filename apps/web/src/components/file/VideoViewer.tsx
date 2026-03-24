@@ -56,17 +56,8 @@ function buildStreamUrl(input: StreamUrlInput) {
   return `${prefix}?${query.toString()}`;
 }
 
-/** Build a VTT thumbnails URL for the backend endpoint. */
-function buildThumbnailsUrl(input: StreamUrlInput) {
-  const baseUrl = resolveServerUrl();
-  const query = new URLSearchParams({ path: input.path });
-  if (input.projectId) query.set("projectId", input.projectId);
-  if (input.boardId) query.set("boardId", input.boardId);
-  const prefix = baseUrl ? `${baseUrl}/media/thumbnails` : "/media/thumbnails";
-  return `${prefix}?${query.toString()}`;
-}
 
-/** Render a video preview panel backed by HLS. */
+/** Render a video preview panel. */
 export default function VideoViewer({
   uri,
   openUri,
@@ -117,7 +108,6 @@ export default function VideoViewer({
     };
     return {
       url: buildStreamUrl({ path: relativePath, ...ids }),
-      thumbnails: buildThumbnailsUrl({ path: relativePath, ...ids }),
       projectId: resolvedProjectId,
       relativePath,
     };
@@ -125,41 +115,11 @@ export default function VideoViewer({
 
   useEffect(() => {
     if (thumbnailSrc) {
-      // 逻辑：已有列表缩略图时直接用作背景，避免重复解析 VTT。
       setPreviewBackground(thumbnailSrc);
-      return;
-    }
-    if (!manifest?.thumbnails) {
+    } else {
       setPreviewBackground(null);
-      return;
     }
-    let cancelled = false;
-    const resolveFirstThumbnail = async () => {
-      try {
-        const response = await fetch(manifest.thumbnails, { cache: "no-store" });
-        if (!response.ok) return;
-        const text = await response.text();
-        if (cancelled) return;
-        const first = text
-          .split(/\r?\n/)
-          .map((line) => line.trim())
-          .find(
-            (line) => line && line !== "WEBVTT" && !line.startsWith("#") && !line.includes("-->")
-          );
-        if (first) {
-          // 逻辑：优先使用首张缩略图作为转码中的背景。
-          const resolved = new URL(first, manifest.thumbnails).toString();
-          setPreviewBackground(resolved);
-        }
-      } catch {
-        // 逻辑：缩略图获取失败时不阻塞主流程。
-      }
-    };
-    resolveFirstThumbnail();
-    return () => {
-      cancelled = true;
-    };
-  }, [manifest?.thumbnails, thumbnailSrc]);
+  }, [thumbnailSrc]);
 
   const canClose = Boolean(tabId && panelKey);
 
@@ -209,7 +169,6 @@ export default function VideoViewer({
         <VideoPlayer
           src={manifest?.url ?? null}
           poster={thumbnailSrc ?? previewBackground ?? undefined}
-          thumbnails={manifest?.thumbnails}
           title={displayTitle}
           clipStartTime={clipStartProp}
           clipEndTime={clipEndProp && clipEndProp > 0 ? clipEndProp : undefined}

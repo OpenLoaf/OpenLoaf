@@ -2787,7 +2787,7 @@ export class CanvasEngine {
     text:  new Set(["text", "image", "video", "audio"]),
     image: new Set(["text", "image", "video"]),
     video: new Set(["text", "image", "video", "audio"]),
-    audio: new Set(["text", "audio"]),
+    audio: new Set(["text", "audio", "video"]),
   };
 
   /** Check whether a connection from source to target is type-compatible. */

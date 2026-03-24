@@ -26,7 +26,6 @@ import { registerFileSseRoutes } from "@/modules/fs/fileSseRoutes";
 import { registerAuthRoutes } from "@/modules/auth/authRoutes";
 import { registerS3TestRoutes } from "@/modules/storage/s3TestRoutes";
 import { registerCloudModelRoutes } from "@/ai/models/cloudModelRoutes";
-import { registerHlsRoutes } from "@/modules/media/hlsRoutes";
 import { registerVideoDownloadRoutes } from "@/modules/media/videoDownloadRoutes";
 import { registerVideoStreamRoutes } from "@/modules/media/videoStreamRoutes";
 import { registerEmailOAuthRoutes } from "@/modules/email/oauth/emailOAuthRoutes";
@@ -73,7 +72,13 @@ export function createApp() {
   const corsOrigins = getCorsOrigins();
   const isDev = process.env.NODE_ENV !== "production";
 
-  app.use(honoLogger());
+  const quietPaths = ["/ai/v3/capabilities", "/api/public/ai/chat/models"];
+  app.use(
+    honoLogger((message, ...rest) => {
+      if (quietPaths.some((p) => message.includes(p))) return;
+      console.log(message, ...rest);
+    }),
+  );
   app.use(
     "/*",
     cors({
@@ -112,7 +117,6 @@ export function createApp() {
   registerLocalAuthRoutes(app);
   registerCloudModelRoutes(app);
   registerS3TestRoutes(app);
-  registerHlsRoutes(app);
   registerVideoDownloadRoutes(app);
   registerVideoStreamRoutes(app);
   registerEmailOAuthRoutes(app);

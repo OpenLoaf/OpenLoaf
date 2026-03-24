@@ -58,7 +58,10 @@ const timeoutFetcher: typeof fetch = (input, init) => {
   const method = init?.method ?? "GET";
   const t0 = Date.now();
 
-  if (isDev) {
+  const isQuiet =
+    url.includes("/ai/v3/capabilities") || url.includes("/api/public/ai/chat/models");
+
+  if (isDev && !isQuiet) {
     const body = extractBody(init);
     const headers = init?.headers
       ? Object.fromEntries(
@@ -70,7 +73,7 @@ const timeoutFetcher: typeof fetch = (input, init) => {
         )
       : undefined;
     logger.debug({ method, url, headers, body }, "[saas-fetch] >>> request");
-  } else {
+  } else if (!isDev && !isQuiet) {
     logger.info({ url }, "[saas-fetch] start");
   }
 
@@ -80,7 +83,7 @@ const timeoutFetcher: typeof fetch = (input, init) => {
   }).then(
     async (res) => {
       const ms = Date.now() - t0;
-      if (isDev) {
+      if (isDev && !isQuiet) {
         // 克隆响应以读取 body，不影响下游消费
         const cloned = res.clone();
         let resBody: unknown;
@@ -98,7 +101,7 @@ const timeoutFetcher: typeof fetch = (input, init) => {
           { method, url, status: res.status, ms, resBody },
           "[saas-fetch] <<< response",
         );
-      } else {
+      } else if (!isQuiet) {
         logger.info({ url, status: res.status, ms }, "[saas-fetch] ok");
       }
       return res;

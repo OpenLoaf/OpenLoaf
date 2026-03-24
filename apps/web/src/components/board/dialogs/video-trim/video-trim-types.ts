@@ -9,13 +9,12 @@
  */
 
 export type VideoTrimPayload = {
-  hlsPath: string
+  videoPath: string
   ids: { projectId?: string; boardId?: string }
   duration: number
   clipStart: number
   clipEnd: number
   posterSrc?: string
-  thumbnailsUrl?: string
   onConfirm: (clipStart: number, clipEnd: number, posterDataUrl?: string) => void
 }
 

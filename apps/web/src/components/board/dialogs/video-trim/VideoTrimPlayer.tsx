@@ -15,12 +15,11 @@ import i18next from 'i18next'
 import type { DragTarget, VideoTrimPayload } from './video-trim-types'
 import {
   buildStreamUrl,
-  buildThumbnailsUrl,
   clamp,
   formatTime,
   formatTimePrecise,
 } from './video-trim-utils'
-import { useVttThumbnails } from './use-vtt-thumbnails'
+import { useFilmstripFrames } from './use-filmstrip-frames'
 
 const TRACK_HEIGHT = 48
 
@@ -99,7 +98,7 @@ export type VideoTrimPlayerProps = {
 }
 
 export function VideoTrimPlayer({ payload, onConfirm, onClose }: VideoTrimPlayerProps) {
-  const { hlsPath, ids, posterSrc } = payload
+  const { videoPath, ids, posterSrc } = payload
 
   // ---- refs ----
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -125,14 +124,9 @@ export function VideoTrimPlayer({ payload, onConfirm, onClose }: VideoTrimPlayer
   clipEndRef.current = clipEnd
 
   // ---- Stream URL ----
-  const streamUrl = useMemo(() => buildStreamUrl(hlsPath, ids), [hlsPath, ids])
-  const thumbnailsUrl = useMemo(
-    () => payload.thumbnailsUrl || buildThumbnailsUrl(hlsPath, ids),
-    [hlsPath, ids, payload.thumbnailsUrl],
-  )
-  const images = useVttThumbnails(thumbnailsUrl)
-
+  const streamUrl = useMemo(() => buildStreamUrl(videoPath, ids), [videoPath, ids])
   const effectiveDuration = duration > 0 ? duration : payload.duration
+  const images = useFilmstripFrames(videoPath, ids, effectiveDuration)
 
   // ---- Update clipEnd when duration first becomes known ----
   const prevDurationRef = useRef(0)

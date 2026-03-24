@@ -90,6 +90,8 @@ export async function captureBoardImageBlob(target: HTMLElement): Promise<Blob |
     skipFonts: true,
     filter: (node) => {
       if (!(node instanceof Element)) return true;
+      // video 元素无法序列化为静态图像，排除以避免导出失败。
+      if (node instanceof HTMLVideoElement) return false;
       if (isCrossOriginMediaElement(node)) return false;
       return !node.closest(BOARD_EXPORT_IGNORE_SELECTOR);
     },
