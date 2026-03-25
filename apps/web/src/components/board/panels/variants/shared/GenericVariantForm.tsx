@@ -30,7 +30,7 @@ import {
 } from '@openloaf/ui/collapsible'
 import type {
   VariantUpstream,
-  VariantParamsSnapshot,
+  VariantSnapshot,
   ParamField,
   SelectField,
   BooleanField,
@@ -59,9 +59,9 @@ export interface GenericVariantFormProps {
   nodeResourceUrl?: string
   nodeResourcePath?: string
   disabled?: boolean
-  initialParams?: VariantParamsSnapshot
+  initialParams?: VariantSnapshot
   resolvedSlots?: Record<string, MediaReference[]>
-  onParamsChange: (params: VariantParamsSnapshot) => void
+  onParamsChange: (params: VariantSnapshot) => void
   onWarningChange?: (warning: string | null) => void
   /** Override params from remote schema (takes precedence over definition.params). */
   overrideParams?: ParamField[]
