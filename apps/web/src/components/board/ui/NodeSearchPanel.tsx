@@ -98,8 +98,9 @@ function getSearchableText(element: CanvasNodeElement): string {
 
   // AI prompt
   const aiConfig = props.aiConfig as Record<string, unknown> | undefined
-  if (aiConfig && typeof aiConfig.prompt === "string" && aiConfig.prompt) {
-    parts.push(aiConfig.prompt)
+  const lastGeneration = aiConfig?.lastGeneration as Record<string, unknown> | undefined
+  if (aiConfig && typeof lastGeneration?.prompt === 'string' && lastGeneration.prompt) {
+    parts.push(lastGeneration.prompt)
   }
 
   // Link node
@@ -129,8 +130,9 @@ function buildLabel(element: CanvasNodeElement): string {
   }
 
   const aiConfig = props.aiConfig as Record<string, unknown> | undefined
-  if (aiConfig && typeof aiConfig.prompt === "string" && aiConfig.prompt) {
-    return truncate(aiConfig.prompt)
+  const lastGeneration = aiConfig?.lastGeneration as Record<string, unknown> | undefined
+  if (aiConfig && typeof lastGeneration?.prompt === 'string' && lastGeneration.prompt) {
+    return truncate(lastGeneration.prompt)
   }
 
   return element.type

@@ -39,7 +39,6 @@ export type BaseGenerateParams = {
   inputs?: Record<string, unknown>
   params?: Record<string, unknown>
   count?: number
-  seed?: number
   prompt?: string
 }
 
