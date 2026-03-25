@@ -18,10 +18,10 @@ import { serializeForGenerate } from './variants/serialize'
 import type { MediaReference, MediaType, PersistedSlotMap } from './variants/slot-types'
 import type { ResolvedSlotInputs } from './variants/shared/InputSlotBar'
 import { InputSlotBar } from './variants/shared'
-import type { BoardFileContext } from '../board-contracts'
+import type { BoardFileContext, VariantSnapshot } from '../board-contracts'
 import { GenericVariantForm } from './variants/shared/GenericVariantForm'
 import { useVariantPanel } from './hooks/useVariantPanel'
-import { useVariantParamsCache } from './hooks/useVariantParamsCache'
+import { useVariantCache } from './hooks/useVariantCache'
 import { CapabilitiesFallback } from './shared/CapabilitiesFallback'
 import { FeatureTabBar } from './shared/FeatureTabBar'
 
@@ -151,40 +151,32 @@ export function AudioAiPanel({
   const cacheKey = selectedFeatureId && selectedVariant?.id
     ? `${selectedFeatureId}:${selectedVariant.id}`
     : ''
-  const cache = useVariantParamsCache({ activeKey: cacheKey, onPersist: undefined })
+  const cache = useVariantCache({
+    onFlush: () => {}, // no-op: audio nodes don't persist aiConfig yet
+  })
 
   const [hasParams, setHasParams] = useState(false)
   const [pricingParams, setPricingParams] = useState<Record<string, unknown>>({})
 
   const handleParamsChange = useCallback(
-    (snapshot: {
-      inputs: Record<string, unknown>
-      params: Record<string, unknown>
-      count?: number
-      seed?: number
-      slotAssignment?: PersistedSlotMap
-    }) => {
-      cache.updateParams({
-        ...cache.paramsRef.current,
-        params: snapshot.params,
-        count: snapshot.count,
-        seed: snapshot.seed,
-      })
+    (snapshot: VariantSnapshot) => {
+      if (cacheKey) {
+        cache.update(cacheKey, { params: snapshot.params })
+      }
       setPricingParams(snapshot.params ?? {})
       setHasParams(true)
     },
-    [cache],
+    [cache, cacheKey],
   )
 
   // ── Slot system ──
-  const cachedSlotAssignment = cache.paramsRef.current?.slotAssignment
+  const cachedSlotAssignment = cache.get(cacheKey)?.slotAssignment
 
   const handleSlotAssignmentPersist = useCallback((map: PersistedSlotMap) => {
-    const cur = cache.paramsRef.current
-    cache.updateParams(cur
-      ? { ...cur, slotAssignment: map }
-      : { inputs: {}, params: {}, slotAssignment: map })
-  }, [cache])
+    if (cacheKey) {
+      cache.update(cacheKey, { slotAssignment: map })
+    }
+  }, [cache, cacheKey])
 
   const [resolvedSlots, setResolvedSlots] = useState<Record<string, MediaReference[]>>({})
 
@@ -192,14 +184,10 @@ export function AudioAiPanel({
   const handleSlotInputsChange = useCallback((resolved: ResolvedSlotInputs) => {
     setResolvedSlots(resolved.mediaRefs)
     setSlotsValid(resolved.isValid)
-    const cur = cache.paramsRef.current
-    if (cur) {
-      cache.updateParams({
-        ...cur,
-        inputs: { ...cur.inputs, ...resolved.inputs },
-      })
+    if (cacheKey) {
+      cache.update(cacheKey, { inputs: resolved.inputs })
     }
-  }, [cache])
+  }, [cache, cacheKey])
 
   // ── Derived state ──
   const variants = selectedFeature?.variants ?? []
@@ -228,9 +216,9 @@ export function AudioAiPanel({
 
   // ── Generate handlers ──
   const buildGenerateParams = useCallback((): AudioGenerateParams | null => {
-    if (!selectedFeature || !resolvedVariantId || !cache.paramsRef.current) return null
+    const p = cacheKey ? cache.get(cacheKey) : undefined
+    if (!selectedFeature || !resolvedVariantId || !p) return null
 
-    const p = cache.paramsRef.current
     const slotAssignments: Record<string, { path?: string; url?: string }[]> = {}
     for (const [key, refs] of Object.entries(resolvedSlots)) {
       slotAssignments[key] = refs.map((r) => (r.path ? { path: r.path } : { url: r.url }))
@@ -243,7 +231,6 @@ export function AudioAiPanel({
       taskRefs: {},
       params: p.params ?? {},
       count: p.count,
-      seed: p.seed,
     })
 
     return {
@@ -251,7 +238,7 @@ export function AudioAiPanel({
       variant: resolvedVariantId,
       ...v3Result,
     }
-  }, [selectedFeature, resolvedVariantId, resolvedSlots, upstream?.referenceAudioSrc, mergedSlots, cache.paramsRef])
+  }, [selectedFeature, resolvedVariantId, resolvedSlots, upstream?.referenceAudioSrc, mergedSlots, cache, cacheKey])
 
   const handleGenerate = useCallback(() => {
     const params = buildGenerateParams()
@@ -333,7 +320,7 @@ export function AudioAiPanel({
           variantId={selectedVariant.id}
           upstream={variantUpstream}
           disabled={readonly && !editing}
-          initialParams={cache.getCached(cacheKey)}
+          initialParams={cache.get(cacheKey)}
           onParamsChange={handleParamsChange}
           onWarningChange={setVariantWarning}
           resolvedSlots={resolvedSlots}
