@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import type { VariantParamsSnapshot } from './panels/variants/types'
+import type { PersistedSlotMap } from './panels/variants/slot-types'
 
 export type { BoardFileContext } from './engine/types'
 
@@ -44,38 +44,28 @@ export type LinkNodeProps = {
 /** Node content origin — tracks how the node was created. */
 export type NodeOrigin = 'user' | 'upload' | 'ai-generate' | 'paste'
 
+/** Snapshot of variant form params — used for caching and restoring. */
+export interface VariantSnapshot {
+  inputs: Record<string, unknown>
+  params: Record<string, unknown>
+  count?: number
+  slotAssignment?: PersistedSlotMap
+}
+
 /** AI generation configuration stored on nodes created by AI. */
 export type AiGenerateConfig = {
-  /** Feature that produced this generation (v3 + v2 compat values). */
-  feature?: 'imageGenerate' | 'imageEdit' | 'imageInpaint' | 'imageStyleTransfer' | 'upscale' | 'outpaint' | 'materialExtract'
-    | 'videoGenerate' | 'lipSync' | 'digitalHuman' | 'videoFaceSwap' | 'videoTranslate'
-    | 'tts' | 'speechToText'
-    // v2 compat (may exist in old data)
-    | 'poster' | 'matting' | 'videoEdit' | 'motionTransfer' | 'music' | 'sfx'
-  /** @deprecated v2 uses feature-based routing. Kept for backward compat. */
-  modelId?: string
-  /** Text prompt used for generation. */
-  prompt: string
-  /** Negative prompt (optional). */
-  negativePrompt?: string
-  /** Style preset applied during generation. */
-  style?: string
-  /** Aspect ratio used for generation. */
-  aspectRatio?: 'auto' | '1:1' | '16:9' | '9:16' | '4:3' | '3:2'
-  /** Generation quality level. */
-  quality?: 'draft' | 'standard' | 'hd'
-  /** Number of results generated. */
-  count?: number
-  /** Seed for reproducibility. */
-  seed?: number
-  /** Upstream node ids used as input references. */
-  inputNodeIds?: string[]
-  /** Timestamp when the generation completed. */
-  generatedAt?: number
+  /** Last used feature + variant — restored when panel opens. */
+  lastUsed?: { feature: string; variant: string }
   /** Cached variant form params keyed by "feature:variantId". */
-  paramsCache?: Record<string, VariantParamsSnapshot>
-  /** Preselect hint written by GroupedNodePicker to auto-open a specific variant. */
-  preselect?: { featureId: string; variantId: string }
+  cache?: Record<string, VariantSnapshot>
+  /** Metadata written only when a generation completes. */
+  lastGeneration?: {
+    prompt: string
+    feature: string
+    variant: string
+    aspectRatio?: string
+    generatedAt: number
+  }
 }
 
 // ---------------------------------------------------------------------------

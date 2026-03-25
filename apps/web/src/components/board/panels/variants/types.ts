@@ -8,10 +8,13 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import type { V3Variant } from '@/lib/saas-media'
+import type { VariantSnapshot } from '../../board-contracts'
 import type {
   MediaReference,
   PersistedSlotMap,
 } from './slot-types'
+
+export type { VariantSnapshot }
 
 /** Upstream data piped from connected nodes. */
 export interface VariantUpstream {
@@ -28,14 +31,8 @@ export interface VariantUpstream {
   boardFolderUri?: string
 }
 
-/** Snapshot of variant form params — used for caching and restoring. */
-export interface VariantParamsSnapshot {
-  inputs: Record<string, unknown>
-  params: Record<string, unknown>
-  count?: number
-  seed?: number
-  slotAssignment?: PersistedSlotMap  // 新增
-}
+/** @deprecated Use VariantSnapshot */
+export type VariantParamsSnapshot = VariantSnapshot
 
 /** Common props shared by all variant form components. */
 export interface VariantFormProps {
@@ -50,9 +47,9 @@ export interface VariantFormProps {
   /** When true, all inputs are disabled (readonly / generating state). */
   disabled?: boolean
   /** Previously cached params for this variant — used to restore form state. */
-  initialParams?: VariantParamsSnapshot
+  initialParams?: VariantSnapshot
   /** Called whenever any form field changes with the latest params snapshot. */
-  onParamsChange: (params: VariantParamsSnapshot) => void
+  onParamsChange: (params: VariantSnapshot) => void
   /** Report a blocking warning (e.g. "需要源图片"). Set to null/undefined to clear. */
   onWarningChange?: (warning: string | null) => void
   /** 框架层分配结果：slotId → 已分配的媒体引用列表 */
