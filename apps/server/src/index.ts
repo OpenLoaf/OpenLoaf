@@ -9,7 +9,13 @@
  */
 import dns from "node:dns";
 import { mkdirSync } from "node:fs";
+import { EventSource as EventSourcePolyfill } from "eventsource";
 import "dotenv/config";
+
+// Node.js 没有原生 EventSource，SDK v0.1.29 的 v3TaskEvents 需要它。
+if (typeof globalThis.EventSource === "undefined") {
+  (globalThis as any).EventSource = EventSourcePolyfill;
+}
 import { fixServerPath } from "@/common/fixServerPath";
 import { initFfmpegPaths } from "@/common/ffmpegPaths";
 

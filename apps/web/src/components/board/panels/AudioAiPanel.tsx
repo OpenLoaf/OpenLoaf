@@ -7,25 +7,23 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import {
-  Loader2,
-  Mic,
-  Music,
-  Volume2,
-} from 'lucide-react'
+import { useCallback, useMemo, useState } from 'react'
+import { Mic, Music, Volume2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@udecode/cn'
-import { MEDIA_FEATURES, type MediaFeatureId } from '@openloaf-saas/sdk'
-import { useCapabilities } from '@/hooks/use-capabilities'
-import type { V3Feature, V3Variant } from '@/lib/saas-media'
+import type { V3Variant } from '@/lib/saas-media'
 import type { UpstreamData } from '../engine/upstream-data'
 import { GenerateActionBar } from './GenerateActionBar'
-import { AUDIO_VARIANTS } from './variants/audio'
-import type { VariantContext } from './variants/types'
-import type { MediaReference, PersistedSlotMap } from './variants/slot-types'
+import { serializeForGenerate } from './variants/serialize'
+import type { MediaReference, MediaType, PersistedSlotMap } from './variants/slot-types'
 import type { ResolvedSlotInputs } from './variants/shared/InputSlotBar'
-import { ScrollableTabBar } from '../ui/ScrollableTabBar'
+import { InputSlotBar } from './variants/shared'
+import type { BoardFileContext } from '../board-contracts'
+import { GenericVariantForm } from './variants/shared/GenericVariantForm'
+import { useVariantPanel } from './hooks/useVariantPanel'
+import { useVariantParamsCache } from './hooks/useVariantParamsCache'
+import { CapabilitiesFallback } from './shared/CapabilitiesFallback'
+import { FeatureTabBar } from './shared/FeatureTabBar'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -101,7 +99,7 @@ const WELL_KNOWN_FEATURES = ['tts', 'music', 'sfx'] as const
 /** Audio AI generation panel driven by v3 capabilities. */
 export function AudioAiPanel({
   upstream,
-  rawUpstream: _rawUpstream,
+  rawUpstream,
   onGenerate,
   onGenerateNewNode,
   hasResource = false,
@@ -112,62 +110,103 @@ export function AudioAiPanel({
   onCancelEdit,
   className,
 }: AudioAiPanelProps) {
-  const { t, i18n } = useTranslation('board')
-  const prefLang = i18n.language.startsWith('zh') ? 'zh' : 'en'
+  const { t } = useTranslation('board')
+
+  // ── Compute node media type & upstream types ──
+  const nodeHasAudio = Boolean(upstream?.referenceAudioSrc)
+  const nodeMediaType: MediaType | undefined = nodeHasAudio ? 'audio' : undefined
+  const upstreamTypes = useMemo(() => {
+    const types = new Set<MediaType>()
+    if (nodeHasAudio) types.add('audio')
+    return types
+  }, [nodeHasAudio])
+
+  // ── Shared panel hook ──
+  const { features: apiFeatures, ...panel } = useVariantPanel({
+    category: 'audio',
+    nodeMediaType,
+    upstreamTypes,
+    initialFeatureId: 'tts',
+  })
+
+  // Well-known features fallback
+  const features = apiFeatures.length
+    ? apiFeatures
+    : WELL_KNOWN_FEATURES.map((id) => ({
+        id,
+        displayName: id,
+        variants: [] as V3Variant[],
+      }))
+
   const {
-    data: capabilities,
-    loading: capLoading,
-    error: capError,
-    refresh: capRefresh,
-  } = useCapabilities('audio')
+    capsLoading, capsError, capsRefresh,
+    selectedFeatureId, setSelectedFeatureId, selectedFeature,
+    selectedVariantId, setSelectedVariantId, selectedVariant,
+    isVariantApplicable,
+    mergedSlots, remoteParams, prefLang,
+    variantWarning, setVariantWarning,
+  } = panel
 
-  // Build feature list: use capabilities if available, otherwise show all well-known tabs
-  const featureTabs = useMemo(() => {
-    if (capabilities?.features?.length) {
-      return capabilities.features
+  // ── Params cache (S1 FIX — in-memory cache, no persist) ──
+  const cacheKey = selectedFeatureId && selectedVariant?.id
+    ? `${selectedFeatureId}:${selectedVariant.id}`
+    : ''
+  const cache = useVariantParamsCache({ activeKey: cacheKey, onPersist: undefined })
+
+  const [hasParams, setHasParams] = useState(false)
+  const [pricingParams, setPricingParams] = useState<Record<string, unknown>>({})
+
+  const handleParamsChange = useCallback(
+    (snapshot: {
+      inputs: Record<string, unknown>
+      params: Record<string, unknown>
+      count?: number
+      seed?: number
+      slotAssignment?: PersistedSlotMap
+    }) => {
+      cache.updateParams({
+        ...cache.paramsRef.current,
+        params: snapshot.params,
+        count: snapshot.count,
+        seed: snapshot.seed,
+      })
+      setPricingParams(snapshot.params ?? {})
+      setHasParams(true)
+    },
+    [cache],
+  )
+
+  // ── Slot system ──
+  const cachedSlotAssignment = cache.paramsRef.current?.slotAssignment
+
+  const handleSlotAssignmentPersist = useCallback((map: PersistedSlotMap) => {
+    const cur = cache.paramsRef.current
+    cache.updateParams(cur
+      ? { ...cur, slotAssignment: map }
+      : { inputs: {}, params: {}, slotAssignment: map })
+  }, [cache])
+
+  const [resolvedSlots, setResolvedSlots] = useState<Record<string, MediaReference[]>>({})
+
+  const [slotsValid, setSlotsValid] = useState(false)
+  const handleSlotInputsChange = useCallback((resolved: ResolvedSlotInputs) => {
+    setResolvedSlots(resolved.mediaRefs)
+    setSlotsValid(resolved.isValid)
+    const cur = cache.paramsRef.current
+    if (cur) {
+      cache.updateParams({
+        ...cur,
+        inputs: { ...cur.inputs, ...resolved.inputs },
+      })
     }
-    // Fallback: show well-known features with empty variants
-    return WELL_KNOWN_FEATURES.map((id) => ({
-      id,
-      displayName: id,
-      variants: [] as V3Variant[],
-    })) as V3Feature[]
-  }, [capabilities])
+  }, [cache])
 
-  // State
-  const [selectedFeatureId, setSelectedFeatureId] = useState<string>('tts')
-  const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null)
-  const [variantWarning, setVariantWarning] = useState<string | null>(null)
-
-  // Clear warning when feature/variant changes
-  useEffect(() => {
-    setVariantWarning(null)
-  }, [selectedFeatureId, selectedVariantId])
-  const latestParamsRef = useRef<{
-    inputs: Record<string, unknown>
-    params: Record<string, unknown>
-    count?: number
-    seed?: number
-    slotAssignment?: PersistedSlotMap
-  } | null>(null)
-
-  // Resolve selected feature and variant
-  const selectedFeature = featureTabs.find((f) => f.id === selectedFeatureId) ?? featureTabs[0]
+  // ── Derived state ──
   const variants = selectedFeature?.variants ?? []
-  const resolvedVariantId = selectedVariantId && variants.find((v) => v.id === selectedVariantId)
-    ? selectedVariantId
-    : variants[0]?.id ?? null
-  const selectedVariant = variants.find((v) => v.id === resolvedVariantId) ?? null
-
-  // Get the variant form component from the registry
-  const VariantForm = resolvedVariantId
-    ? AUDIO_VARIANTS[resolvedVariantId]?.component ?? null
-    : null
-
-  // Is this a coming-soon feature (no variants)?
   const isComingSoon = variants.length === 0
+  const resolvedVariantId = selectedVariant?.id ?? null
 
-  // Upstream adapter
+  // ── Upstream adapter ──
   const variantUpstream = useMemo(
     () => ({
       textContent: upstream?.textContent,
@@ -179,67 +218,40 @@ export function AudioAiPanel({
     [upstream?.textContent, upstream?.referenceAudioSrc, upstream?.boardId, upstream?.projectId, upstream?.boardFolderUri],
   )
 
-  // ── Variant context & applicability ──
-  const variantCtx: VariantContext = useMemo(() => ({
-    nodeHasImage: false, // audio nodes don't have a "current image"
-    hasImage: false,
-    hasAudio: Boolean(upstream?.referenceAudioSrc),
-    hasVideo: false,
-  }), [upstream?.referenceAudioSrc])
-
-  const isVariantApplicable = useCallback((variantId: string) => {
-    const def = AUDIO_VARIANTS[variantId]
-    return !def || def.isApplicable(variantCtx)
-  }, [variantCtx])
-
-  // Credits from selected variant
-  const creditsPerCall = selectedVariant?.creditsPerCall ?? null
-
-  // Params change handler
-  const handleParamsChange = useCallback(
-    (params: {
-      inputs: Record<string, unknown>
-      params: Record<string, unknown>
-      count?: number
-      seed?: number
-      slotAssignment?: PersistedSlotMap
-    }) => {
-      latestParamsRef.current = params
-    },
-    [],
+  // ── File context for InputSlotBar ──
+  const fileContext = useMemo<BoardFileContext | undefined>(
+    () => (upstream?.boardId || upstream?.projectId || upstream?.boardFolderUri
+      ? { boardId: upstream.boardId, projectId: upstream.projectId, boardFolderUri: upstream.boardFolderUri }
+      : undefined),
+    [upstream?.boardId, upstream?.projectId, upstream?.boardFolderUri],
   )
 
-  // ── Slot system ──
-
-  /** Persist slot assignment so it survives panel close/reopen. */
-  const handleSlotAssignmentPersist = useCallback((map: PersistedSlotMap) => {
-    latestParamsRef.current = latestParamsRef.current
-      ? { ...latestParamsRef.current, slotAssignment: map }
-      : { inputs: {}, params: {}, slotAssignment: map }
-  }, [])
-
-  /** Receive resolved slot inputs from InputSlotBar and merge into state. */
-  const [resolvedSlots, setResolvedSlots] = useState<Record<string, MediaReference[]>>({})
-
-  const handleSlotInputsChange = useCallback((resolved: ResolvedSlotInputs) => {
-    setResolvedSlots(resolved.mediaRefs)
-    if (latestParamsRef.current) {
-      latestParamsRef.current = {
-        ...latestParamsRef.current,
-        inputs: { ...latestParamsRef.current.inputs, ...resolved.inputs },
-      }
-    }
-  }, [])
-
-  // Generate handlers
+  // ── Generate handlers ──
   const buildGenerateParams = useCallback((): AudioGenerateParams | null => {
-    if (!selectedFeature || !resolvedVariantId || !latestParamsRef.current) return null
+    if (!selectedFeature || !resolvedVariantId || !cache.paramsRef.current) return null
+
+    const p = cache.paramsRef.current
+    const slotAssignments: Record<string, { path?: string; url?: string }[]> = {}
+    for (const [key, refs] of Object.entries(resolvedSlots)) {
+      slotAssignments[key] = refs.map((r) => (r.path ? { path: r.path } : { url: r.url }))
+    }
+
+    const v3Result = serializeForGenerate(mergedSlots ?? [], {
+      prompt: (p.inputs?.prompt as string) ?? (p.params?.prompt as string),
+      paintResults: {},
+      slotAssignments,
+      taskRefs: {},
+      params: p.params ?? {},
+      count: p.count,
+      seed: p.seed,
+    })
+
     return {
       feature: selectedFeature.id,
       variant: resolvedVariantId,
-      ...latestParamsRef.current,
+      ...v3Result,
     }
-  }, [selectedFeature, resolvedVariantId])
+  }, [selectedFeature, resolvedVariantId, resolvedSlots, upstream?.referenceAudioSrc, mergedSlots, cache.paramsRef])
 
   const handleGenerate = useCallback(() => {
     const params = buildGenerateParams()
@@ -251,111 +263,82 @@ export function AudioAiPanel({
     if (params) onGenerateNewNode?.(params)
   }, [onGenerateNewNode, buildGenerateParams])
 
-  const isGenerateDisabled = isComingSoon || !resolvedVariantId || !latestParamsRef.current
+  const isGenerateDisabled = isComingSoon || !resolvedVariantId || !hasParams || !slotsValid
 
-  const showFallback = !capabilities?.features?.length
+  const showFallback = !features.length
+
+  // ── Render badge for coming-soon features ──
+  const renderBadge = useCallback((feat: { variants: unknown[] }) => {
+    if (feat.variants.length === 0) {
+      return (
+        <span className="ml-1 rounded bg-muted-foreground/10 px-1 py-px text-[9px] text-muted-foreground/50">
+          {t('audioPanel.tabBadgeSoon')}
+        </span>
+      )
+    }
+    return null
+  }, [t])
 
   return (
     <div
       className={cn(
-        'flex w-[420px] flex-col gap-3 rounded-3xl border border-border bg-card p-3 shadow-lg',
-        readonly && !editing && 'pointer-events-none',
+        'flex w-[480px] flex-col gap-3 rounded-3xl border border-border bg-card p-3 shadow-lg',
         className,
       )}
     >
       {/* ---- Fallback: loading / error / empty ---- */}
       {showFallback ? (
-        <div className="flex min-h-[120px] flex-col items-center justify-center gap-2 py-6">
-          {capLoading ? (
-            <>
-              <Loader2 size={20} className="animate-spin text-muted-foreground/60" />
-              <span className="text-xs text-muted-foreground">{t('v3.common.loading')}</span>
-            </>
-          ) : capError ? (
-            <>
-              <span className="text-sm font-medium text-muted-foreground">{t('v3.common.loadError')}</span>
-              <span className="text-[11px] text-muted-foreground/60">{t('v3.common.loadErrorHint')}</span>
-              <button
-                type="button"
-                className="mt-1 rounded-full border border-border px-3.5 py-1 text-xs text-muted-foreground hover:bg-foreground/5 transition-colors duration-150"
-                onClick={() => capRefresh()}
-              >
-                {t('v3.common.retry')}
-              </button>
-            </>
-          ) : (
-            <>
-              <span className="text-sm font-medium text-muted-foreground">{t('v3.common.loadError')}</span>
-              <span className="text-[11px] text-muted-foreground/60">{t('v3.common.loadErrorHint')}</span>
-              <button
-                type="button"
-                className="mt-1 rounded-full border border-border px-3.5 py-1 text-xs text-muted-foreground hover:bg-foreground/5 transition-colors duration-150"
-                onClick={() => capRefresh()}
-              >
-                {t('v3.common.retry')}
-              </button>
-            </>
-          )}
-        </div>
+        <CapabilitiesFallback
+          loading={capsLoading}
+          error={capsError}
+          onRetry={capsRefresh}
+        />
       ) : null}
 
       {/* ---- Feature Tab Row ---- */}
-      {!showFallback ? <ScrollableTabBar className="items-center">
-        {featureTabs
-          .filter((feature) => {
-            // In readonly mode only show the active tab
-            if (readonly && !editing) return feature.id === selectedFeatureId
-            // Hide features where no variant is applicable
-            if (feature.variants.length > 0 && feature.variants.every((v) => !isVariantApplicable(v.id))) return false
-            return true
-          })
-          .map((feature) => {
-          const Icon = FEATURE_ICON_MAP[feature.id] ?? Mic
-          const hasNoVariants = feature.variants.length === 0
-          return (
-            <button
-              key={feature.id}
-              type="button"
-              disabled={readonly}
-              className={cn(
-                'flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-3xl px-2 py-1.5',
-                'text-xs font-medium transition-colors duration-150',
-                readonly
-                  ? 'cursor-not-allowed text-muted-foreground/40'
-                  : selectedFeatureId === feature.id
-                    ? 'bg-background text-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground',
-              )}
-              onClick={() => {
-                if (!readonly) {
-                  setSelectedFeatureId(feature.id)
-                  setSelectedVariantId(null)
-                }
-              }}
-            >
-              <Icon size={13} />
-              <span>
-                {MEDIA_FEATURES[feature.id as MediaFeatureId]?.label[prefLang] ?? feature.id}
-              </span>
-              {hasNoVariants ? (
-                <span className="ml-1 rounded bg-muted-foreground/10 px-1 py-px text-[9px] text-muted-foreground/50">
-                  {t('audioPanel.tabBadgeSoon')}
-                </span>
-              ) : null}
-            </button>
-          )
-        })}
-      </ScrollableTabBar> : null}
+      {!showFallback ? (
+        <FeatureTabBar
+          features={features}
+          selectedFeatureId={selectedFeatureId}
+          onSelect={(id) => {
+            setSelectedFeatureId(id)
+            setSelectedVariantId(null)
+          }}
+          isVariantApplicable={isVariantApplicable}
+          prefLang={prefLang}
+          disabled={readonly && !editing}
+          iconMap={FEATURE_ICON_MAP}
+          renderBadge={renderBadge}
+          showEmpty
+        />
+      ) : null}
+
+      {/* ---- InputSlotBar ---- */}
+      {mergedSlots?.length && selectedVariant ? (
+        <InputSlotBar
+          slots={mergedSlots}
+          upstream={rawUpstream ?? { textList: [], imageList: [], videoList: [], audioList: [], entries: [] }}
+          fileContext={fileContext}
+          cachedAssignment={cachedSlotAssignment}
+          onAssignmentChange={handleSlotInputsChange}
+          onSlotAssignmentChange={handleSlotAssignmentPersist}
+          disabled={readonly && !editing}
+        />
+      ) : null}
 
       {/* ---- Variant Form ---- */}
-      {VariantForm && selectedVariant ? (
-        <VariantForm
-          variant={selectedVariant}
+      {selectedVariant ? (
+        <GenericVariantForm
+          key={selectedVariant.id || resolvedVariantId}
+          definition={{ isApplicable: () => true } as any}
+          variantId={selectedVariant.id}
           upstream={variantUpstream}
-          disabled={readonly || generating}
+          disabled={readonly && !editing}
+          initialParams={cache.getCached(cacheKey)}
           onParamsChange={handleParamsChange}
           onWarningChange={setVariantWarning}
           resolvedSlots={resolvedSlots}
+          overrideParams={remoteParams}
         />
       ) : null}
 
@@ -385,7 +368,7 @@ export function AudioAiPanel({
       ) : null}
 
       {/* ---- Generate Action Bar ---- */}
-      {!isComingSoon && !showFallback ? (
+      {!isComingSoon && !(capsLoading || capsError) ? (
         <GenerateActionBar
           hasResource={hasResource}
           generating={generating}
@@ -397,12 +380,11 @@ export function AudioAiPanel({
           editing={editing}
           onUnlock={onUnlock}
           onCancelEdit={onCancelEdit}
-          creditsPerCall={creditsPerCall ?? undefined}
+          estimateParams={pricingParams}
           warningMessage={variantWarning}
           variants={variants.length > 0 ? variants.filter((v) => isVariantApplicable(v.id)).map((v) => ({
             id: v.id,
-            displayName: v.featureTabName ?? v.id,
-            creditsPerCall: v.creditsPerCall,
+            displayName: v.displayName || v.featureTabName || v.id,
           })) : undefined}
           selectedVariantId={resolvedVariantId ?? undefined}
           onVariantChange={setSelectedVariantId}

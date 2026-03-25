@@ -18,6 +18,27 @@
       "artifactName": "${productName}-${version}-MacOS-${arch}.${ext}",
       "timestamp": "http://timestamp.apple.com/ts01"
     },
+    "dmg": {
+      "background": "resources/dmg-background.png",
+      "iconSize": 80,
+      "iconTextSize": 14,
+      "window": {
+        "width": 540,
+        "height": 380
+      },
+      "contents": [
+        {
+          "x": 150,
+          "y": 240
+        },
+        {
+          "x": 390,
+          "y": 240,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    },
     "linux": {
       "target": [
         "AppImage"

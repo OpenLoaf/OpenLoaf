@@ -44,6 +44,20 @@ type PromptDetail = {
   text: string;
 };
 
+type PromptDetailCacheEntry = {
+  /** Cached prompt detail payload. */
+  value: PromptDetail | null;
+  /** Cache expiration timestamp. */
+  expiresAt: number;
+};
+
+/** Cache lifetime for prompt detail requests. */
+const PROMPT_DETAIL_CACHE_TTL_MS = 30_000;
+/** In-flight prompt detail requests keyed by endpoint set. */
+const promptDetailRequestCache = new Map<string, Promise<PromptDetail | null>>();
+/** Resolved prompt detail cache keyed by endpoint set. */
+const promptDetailResultCache = new Map<string, PromptDetailCacheEntry>();
+
 /** Resolve preview endpoint for metadata extraction. */
 function resolveMetadataEndpoint(source?: string, projectId?: string): string | null {
   if (!source) return null;
@@ -51,6 +65,25 @@ function resolveMetadataEndpoint(source?: string, projectId?: string): string | 
   const base = getPreviewEndpoint(source, { projectId });
   const separator = base.includes("?") ? "&" : "?";
   return `${base}${separator}${PREVIEW_METADATA_QUERY}`;
+}
+
+/** Build a stable cache key for endpoint lists. */
+function buildPromptDetailCacheKey(endpoints: string[]): string {
+  return endpoints.join("\n");
+}
+
+/** Normalize endpoints for metadata loading and remove duplicates. */
+function resolveMetadataEndpoints(
+  sources: Array<string | undefined>,
+  projectId?: string
+): string[] {
+  const uniqueEndpoints = new Set<string>();
+  for (const source of sources) {
+    const endpoint = resolveMetadataEndpoint(source, projectId);
+    if (!endpoint) continue;
+    uniqueEndpoints.add(endpoint);
+  }
+  return Array.from(uniqueEndpoints);
 }
 
 /** Extract boundary string from content type. */
@@ -124,27 +157,55 @@ function resolvePromptDetail(metadata: OpenLoafImageMetadataV1 | null): PromptDe
   return null;
 }
 
+/** Load prompt detail from a single metadata endpoint. */
+async function loadPromptDetailFromEndpoint(endpoint: string): Promise<PromptDetail | null> {
+  // 逻辑：metadata 详情与图片文件一一对应，开发态重复挂载时复用同一请求结果。
+  const response = await fetch(endpoint);
+  if (!response.ok) return null;
+  const contentType = response.headers.get("content-type") ?? "";
+  if (!contentType.includes("multipart/mixed")) return null;
+  const boundary = extractBoundary(contentType);
+  if (!boundary) return null;
+  const buffer = await response.arrayBuffer();
+  const metadata = parseMultipartMetadata(buffer, boundary);
+  return resolvePromptDetail(metadata);
+}
+
 /** Load prompt detail from a preview endpoint list. */
 async function loadPromptDetailFromSources(
   sources: Array<string | undefined>,
   projectId?: string
 ): Promise<PromptDetail | null> {
-  for (const source of sources) {
-    const endpoint = resolveMetadataEndpoint(source, projectId);
-    if (!endpoint) continue;
-    // 逻辑：仅在预览接口返回 multipart/mixed 时解析元信息。
-    const response = await fetch(endpoint);
-    if (!response.ok) continue;
-    const contentType = response.headers.get("content-type") ?? "";
-    if (!contentType.includes("multipart/mixed")) continue;
-    const boundary = extractBoundary(contentType);
-    if (!boundary) continue;
-    const buffer = await response.arrayBuffer();
-    const metadata = parseMultipartMetadata(buffer, boundary);
-    const detail = resolvePromptDetail(metadata);
-    if (detail) return detail;
+  const endpoints = resolveMetadataEndpoints(sources, projectId);
+  if (endpoints.length === 0) return null;
+  const cacheKey = buildPromptDetailCacheKey(endpoints);
+  const now = Date.now();
+  const cached = promptDetailResultCache.get(cacheKey);
+  if (cached && cached.expiresAt > now) {
+    return cached.value;
   }
-  return null;
+  const inflight = promptDetailRequestCache.get(cacheKey);
+  if (inflight) return inflight;
+
+  const request = (async () => {
+    for (const endpoint of endpoints) {
+      const detail = await loadPromptDetailFromEndpoint(endpoint);
+      if (detail) return detail;
+    }
+    return null;
+  })();
+
+  promptDetailRequestCache.set(cacheKey, request);
+  try {
+    const detail = await request;
+    promptDetailResultCache.set(cacheKey, {
+      value: detail,
+      expiresAt: now + PROMPT_DETAIL_CACHE_TTL_MS,
+    });
+    return detail;
+  } finally {
+    promptDetailRequestCache.delete(cacheKey);
+  }
 }
 
 /** Render a readonly detail panel for image metadata. */

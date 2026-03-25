@@ -12,13 +12,9 @@ import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { mapSaasError } from "@/modules/saas/core/errors";
 import { logger } from "@/common/logger";
 import {
-  fetchMediaModelsProxy,
   isMediaProxyHttpError,
-  fetchCapabilitiesProxy,
   submitV3GenerateProxy,
   pollV3TaskProxy,
-  cancelV3TaskProxy,
-  pollV3TaskGroupProxy,
   uploadOrInlineBuffer,
   MEDIA_TYPE_MAP,
 } from "@/modules/saas/modules/media/mediaProxy";
@@ -95,7 +91,7 @@ async function handleSaasMediaRoute(
         "SaaS request failed",
       );
       return c.json(
-        buildSaasErrorPayload(mapped.code, "SaaS 请求失败"),
+        buildSaasErrorPayload(mapped.code, "连接服务器失败，请稍后重试"),
         normalizeStatus(mapped.status),
       );
     }
@@ -105,29 +101,7 @@ async function handleSaasMediaRoute(
 
 /** Register SaaS media proxy routes. */
 export function registerSaasMediaRoutes(app: Hono): void {
-  // 逻辑：v2 models 路由保留，供 AI 聊天模型偏好使用。
-  app.get("/ai/media/models", async (c) => {
-    const feature = c.req.query("feature") || undefined;
-    return handleSaasMediaRoute(
-      c,
-      async (accessToken) => fetchMediaModelsProxy(accessToken, feature),
-      { allowAnonymous: true },
-    );
-  });
-
-  // ── v3 routes ──
-
-  app.get("/ai/v3/capabilities/:category", async (c) => {
-    const category = c.req.param("category");
-    if (!["image", "video", "audio"].includes(category)) {
-      return c.json(buildSaasErrorPayload("invalid_category", "无效的能力类别"), 400);
-    }
-    return handleSaasMediaRoute(
-      c,
-      async (accessToken) => fetchCapabilitiesProxy(category as any, accessToken),
-      { allowAnonymous: true },
-    );
-  });
+  // ── v3 routes (models/capabilities/estimate-price/cancel/task-group moved to web direct SDK calls) ──
 
   app.post("/ai/v3/generate", async (c) => {
     return handleSaasMediaRoute(c, async (accessToken) => {
@@ -142,18 +116,6 @@ export function registerSaasMediaRoutes(app: Hono): void {
       const saveDir = c.req.query("saveDir") || undefined;
       const boardId = c.req.query("boardId") || undefined;
       return pollV3TaskProxy(c.req.param("taskId"), accessToken, { projectId, saveDir, boardId });
-    });
-  });
-
-  app.post("/ai/v3/task/:taskId/cancel", async (c) => {
-    return handleSaasMediaRoute(c, async (accessToken) => {
-      return cancelV3TaskProxy(c.req.param("taskId"), accessToken);
-    });
-  });
-
-  app.get("/ai/v3/task-group/:groupId", async (c) => {
-    return handleSaasMediaRoute(c, async (accessToken) => {
-      return pollV3TaskGroupProxy(c.req.param("groupId"), accessToken);
     });
   });
 

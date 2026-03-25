@@ -17,7 +17,6 @@ import { VideoNodeDefinition } from "../nodes/VideoNode";
 import { LinkNodeDefinition } from "../nodes/LinkNode";
 import { StrokeNodeDefinition } from "../nodes/StrokeNode";
 import { TextNodeDefinition } from "../nodes/TextNode";
-import { LoadingNodeDefinition } from "../nodes/LoadingNode";
 
 /** Default node definitions registered for board canvases. */
 export const BOARD_NODE_DEFINITIONS = [
@@ -29,7 +28,6 @@ export const BOARD_NODE_DEFINITIONS = [
   LinkNodeDefinition,
   StrokeNodeDefinition,
   TextNodeDefinition,
-  LoadingNodeDefinition,
   GroupNodeDefinition,
   ImageGroupNodeDefinition,
   ...DEPRECATED_NODE_TYPES.map(createFallbackNodeDefinition),

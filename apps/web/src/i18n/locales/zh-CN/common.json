@@ -175,6 +175,7 @@
     "subtitlePolling": "已在浏览器中打开，等待登录完成…",
     "subtitleError": "登录失败，请重试",
     "subtitleDefault": "连接你的云端账号",
+    "reopenLogin": "重新打开",
     "cancelLogin": "取消登录",
     "loginWithGoogle": "使用 Google 登录",
     "loginWithWechat": "使用微信登录",

@@ -23,6 +23,10 @@ export type GeneratingOverlayProps = {
   serverProgress?: number
   /** Semantic accent color. */
   color?: 'blue' | 'purple' | 'green'
+  /** Called when the user clicks the cancel button. When provided, a cancel button is shown. */
+  onCancel?: () => void
+  /** Whether a cancel request is in flight. */
+  cancelling?: boolean
 }
 
 // ---------------------------------------------------------------------------
@@ -62,6 +66,8 @@ export function GeneratingOverlay({
   estimatedSeconds,
   serverProgress,
   color = 'blue',
+  onCancel,
+  cancelling,
 }: GeneratingOverlayProps) {
   const { t } = useTranslation('board')
   const [now, setNow] = useState(Date.now)
@@ -128,6 +134,22 @@ export function GeneratingOverlay({
       <span className="text-[11px] tabular-nums text-ol-text-secondary">
         {t('generatingOverlay.status', { duration: formatDuration(estimatedSeconds) })}
       </span>
+      {/* Cancel button */}
+      {onCancel ? (
+        <button
+          type="button"
+          disabled={cancelling}
+          className="mt-1 inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium text-ol-text-secondary hover:text-foreground hover:bg-foreground/5 transition-colors duration-150 disabled:opacity-50"
+          onClick={(e) => {
+            e.stopPropagation()
+            onCancel()
+          }}
+        >
+          {cancelling
+            ? t('generatingOverlay.cancelling', { defaultValue: '取消中...' })
+            : t('generatingOverlay.cancel', { defaultValue: '取消' })}
+        </button>
+      ) : null}
     </div>
   )
 }

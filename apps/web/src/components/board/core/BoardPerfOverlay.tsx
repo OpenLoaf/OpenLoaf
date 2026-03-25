@@ -8,6 +8,7 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import { useEffect, useRef, useState } from "react";
+import { refreshAllCapabilities } from "@/hooks/use-capabilities";
 import { useBoardEngine } from "./BoardProvider";
 import { useBoardViewState } from "./useBoardViewState";
 
@@ -155,6 +156,15 @@ export function BoardPerfOverlay({ stats, gpuStats }: BoardPerfOverlayProps) {
               <span>图片纹理</span>
               <span className="font-mono">{gpuStats.imageTextures}</span>
             </div>
+            <button
+              type="button"
+              className="mt-1.5 w-full rounded-full bg-white/20 px-2 py-0.5 text-[10px] text-white/80 transition-colors duration-150 hover:bg-white/30 active:bg-white/40"
+              onClick={() => {
+                refreshAllCapabilities()
+              }}
+            >
+              刷新能力接口
+            </button>
           </>
         )}
       </div>

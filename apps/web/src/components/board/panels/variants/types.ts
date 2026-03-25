@@ -7,9 +7,12 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import type { ComponentType } from 'react'
 import type { V3Variant } from '@/lib/saas-media'
-import type { MediaReference, PersistedSlotMap, MediaType, InputSlotDefinition } from './slot-types'
+import type {
+  MediaReference,
+  PersistedSlotMap,
+  MediaType,
+} from './slot-types'
 
 /** Upstream data piped from connected nodes. */
 export interface VariantUpstream {
@@ -28,41 +31,35 @@ export interface VariantUpstream {
 
 /** Context passed to variant methods for applicability / capability checks. */
 export interface VariantContext {
-  /** Whether the node already has an image resource. */
+  /** Whether the node itself has an image resource (not upstream). */
   nodeHasImage: boolean
+  /** Whether the node itself has a video resource (not upstream). */
+  nodeHasVideo: boolean
+  /** Whether the node itself has an audio resource (not upstream). */
+  nodeHasAudio: boolean
   /** Whether image input is available (node resource or upstream). */
   hasImage: boolean
-  /** Whether audio input is available. */
+  /** Whether audio input is available (node resource or upstream). */
   hasAudio: boolean
-  /** Whether video input is available. */
+  /** Whether video input is available (node resource or upstream). */
   hasVideo: boolean
 }
 
 /**
- * Object-oriented variant definition.
- * Each variant decides its own applicability and capabilities.
+ * @deprecated VariantDefinition is no longer used.
+ * The system is now fully API-driven (SDK v0.1.26+).
+ * Applicability is inferred from inputSlots, slots come from API directly.
+ * Kept temporarily for type compat during migration.
  */
 export interface VariantDefinition {
-  /** Feature ID（来自 capabilities API，如 "imageGenerate"）。 */
   featureId?: string
-  /** The React form component for this variant. */
-  component: ComponentType<VariantFormProps>
-  /** Whether this variant is applicable in the given context.
-   *  Inapplicable variants are hidden from the UI entirely. */
   isApplicable: (ctx: VariantContext) => boolean
-  /** Whether the generate button should be disabled for this variant.
-   *  Called only when the variant is applicable. */
   isDisabled?: (ctx: VariantContext) => boolean
-  /** Whether this variant uses mask painting on the node image. */
   maskPaint?: boolean
-  /** Whether mask painting is required (generate disabled without mask). */
-  maskRequired?: boolean
-  /** Input media types this variant accepts (for connection validation + NodePicker). */
   acceptsInputTypes?: MediaType[]
-  /** Output media type produced by this variant. */
   producesOutputType?: MediaType
-  /** Declarative input slots for InputSlotBar rendering. */
-  inputSlots?: InputSlotDefinition[]
+  params?: ParamField[]
+  supportsSeed?: boolean
 }
 
 
@@ -95,4 +92,85 @@ export interface VariantFormProps {
   onWarningChange?: (warning: string | null) => void
   /** 框架层分配结果：slotId → 已分配的媒体引用列表 */
   resolvedSlots?: Record<string, MediaReference[]>  // 新增：框架层分配结果
+}
+
+// ---------------------------------------------------------------------------
+// V3 辅助类型
+// ---------------------------------------------------------------------------
+
+/** @deprecated No longer used — slots are API-driven, no source distinction. */
+export type SlotSource = 'pool' | 'self' | 'paint'
+
+export interface ResolveContext {
+  params: Record<string, unknown>
+  variantId: string
+  slots: Record<string, boolean>
+  modes: Record<string, string>
+}
+
+export interface ParamOption {
+  value: string | number | boolean
+  label: string
+  thumbnail?: string
+}
+
+export interface ParamFieldBase {
+  key: string
+  label: string
+  default?: unknown
+  group?: 'primary' | 'advanced'
+  visible?: (ctx: ResolveContext) => boolean
+  clientOnly?: boolean
+  hint?: string
+}
+
+export interface SelectField extends ParamFieldBase {
+  type: 'select'
+  options?: ParamOption[]
+  catalog?: string
+  display?: 'dropdown' | 'grid' | 'pills'
+  searchable?: boolean
+}
+
+export interface BooleanField extends ParamFieldBase {
+  type: 'boolean'
+}
+
+export interface TextField extends ParamFieldBase {
+  type: 'text'
+  multiline?: boolean
+  placeholder?: string
+}
+
+export interface SliderField extends ParamFieldBase {
+  type: 'slider'
+  min: number
+  max: number
+  step?: number
+}
+
+export interface NumberField extends ParamFieldBase {
+  type: 'number'
+  min?: number
+  max?: number
+  step?: number
+}
+
+export interface TabField extends ParamFieldBase {
+  type: 'tab'
+  options: ParamOption[]
+}
+
+export type ParamField =
+  | SelectField
+  | BooleanField
+  | TextField
+  | SliderField
+  | NumberField
+  | TabField
+
+/** V3 媒体输入引用 */
+export interface MediaInput {
+  url?: string
+  path?: string
 }

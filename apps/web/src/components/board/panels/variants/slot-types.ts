@@ -57,16 +57,8 @@ export interface MediaReference {
   path?: string
 }
 
-/** Result of assigning upstream data to slots */
-export interface SlotAssignment {
-  assigned: Record<string, (TextReference | MediaReference)[]>
-  overflow: Record<string, (TextReference | MediaReference)[]>
-  missingRequired: string[]
-}
-
 /**
  * 持久化的插槽分配映射（存入 paramsCache，跨会话恢复）
- * 与运行时的 SlotAssignment 区分：本类型仅记录 slotId → 来源标识
  */
 export type PersistedSlotMap = Record<string, string | string[]>
 // key: slotId (如 'image', 'mask', 'startFrame')
@@ -78,3 +70,60 @@ export type PoolReference = TextReference | MediaReference
 
 /** Type pools keyed by MediaType */
 export type ReferencePools = Record<MediaType, PoolReference[]>
+
+// ---------------------------------------------------------------------------
+// V3 Slot 类型（纯 API 驱动，SDK v0.1.26+）
+// ---------------------------------------------------------------------------
+
+/** V3 单值插槽 */
+export interface V3InputSlotDefinition {
+  /** Semantic role, also used as request `inputs[role]` field name. */
+  role: string
+  label: string
+  accept: MediaType | 'file'
+  min?: number  // 默认 1（required）
+  max?: number  // 默认 1
+  allowUpload?: boolean  // 默认 true
+  referenceMode?: 'inline' | 'replace'
+  /** Hint text displayed as tooltip next to label. */
+  hint?: string
+  /** Cross-slot capacity group name. */
+  sharedGroup?: string
+  /** Total max count across all slots in the same sharedGroup. */
+  sharedMaxCount?: number
+  // ---- Input constraints (SDK v0.1.27) ----
+  /** Text: minimum character length. */
+  minLength?: number
+  /** Text: maximum character length. */
+  maxLength?: number
+  /** Media: maximum file size in bytes. */
+  maxFileSize?: number
+  /** Media: allowed file format extensions. */
+  acceptFormats?: string[]
+  /** Image/Video: minimum pixel dimension (px). */
+  minResolution?: number
+  /** Image/Video: maximum pixel dimension (px). */
+  maxResolution?: number
+  /** Audio/Video: minimum duration in seconds. */
+  minDuration?: number
+  /** Audio/Video: maximum duration in seconds. */
+  maxDuration?: number
+}
+
+/** V3 多元素插槽 */
+export interface MultiSlotDefinition extends Omit<V3InputSlotDefinition, 'max'> {
+  kind: 'multi'
+  max: number
+  refPrefix?: string
+}
+
+/** 任务引用插槽 */
+export interface TaskRefSlot {
+  kind: 'taskRef'
+  role: string
+  label: string
+  fromVariants?: string[]
+  required?: boolean
+}
+
+export type AnySlot = V3InputSlotDefinition | MultiSlotDefinition | TaskRefSlot

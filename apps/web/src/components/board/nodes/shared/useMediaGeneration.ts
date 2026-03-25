@@ -9,7 +9,6 @@
  */
 
 import { useCallback } from 'react'
-import i18next from 'i18next'
 import type { CanvasEngine } from '../../engine/CanvasEngine'
 import type { InputSnapshot, VersionStack, VersionStackEntry } from '../../engine/types'
 import type { BoardFileContext } from '../../board-contracts'
@@ -21,7 +20,7 @@ import {
   pushVersion,
   removeFailedEntry,
 } from '../../engine/version-stack'
-import { mapErrorToMessageKey } from '../../hooks/useVersionStack'
+import { resolveErrorMessage } from '../../hooks/useVersionStack'
 import type { VersionFailure } from '../../hooks/useVersionStack'
 import { deriveNode } from '../../utils/derive-node'
 import { resolveAllMediaInputs } from '@/lib/media-upload'
@@ -74,14 +73,19 @@ export type BuildGeneratePatchFn<P extends BaseGenerateParams> = (
   params: P,
 ) => Record<string, unknown>
 
+/** Result from a generate submission — single task or grouped tasks. */
+export type GenerateSubmitResult =
+  | { taskId: string }
+  | { groupId: string; taskIds: string[] }
+
 /**
  * Submit the generation request to the backend.
- * Returns `{ taskId }` on success, throws on failure.
+ * Returns `{ taskId }` or `{ groupId, taskIds }` on success, throws on failure.
  */
 export type SubmitGenerateFn<P extends BaseGenerateParams> = (
   params: P,
   options: SubmitOptions,
-) => Promise<{ taskId: string }>
+) => Promise<GenerateSubmitResult>
 
 /**
  * Build retry params from a failed input snapshot.
@@ -222,9 +226,10 @@ export function useMediaGeneration<P extends BaseGenerateParams>(
         // 注意：必须用 pushVersion 重建 entries，因为闭包中的 versionStack 是旧值，
         // 不包含第一次 onUpdate 推入的 pendingEntry。直接读 versionStack?.entries
         // 会导致 pendingEntry 丢失、taskId 无法回填、轮询不启动。
+        const firstTaskId = 'taskId' in result ? result.taskId : result.taskIds[0]
         const pushedStack = pushVersion(versionStack, pendingEntry)
         const updatedEntries = pushedStack.entries.map(e =>
-          e.id === pendingEntry.id ? { ...e, taskId: result.taskId } : e,
+          e.id === pendingEntry.id ? { ...e, taskId: firstTaskId } : e,
         )
         onUpdate({
           versionStack: {
@@ -235,7 +240,6 @@ export function useMediaGeneration<P extends BaseGenerateParams>(
       } catch (error) {
         console.error(`[${deriveNodeType}Node] generation failed:`, error)
         // 逻辑：提交失败时从 stack 中移除 pending entry，设置 lastFailure 显示错误浮层。
-        const msgKey = mapErrorToMessageKey(error)
         const { stack: cleaned } = removeFailedEntry(
           pushVersion(versionStack, pendingEntry),
           pendingEntry.id,
@@ -245,7 +249,7 @@ export function useMediaGeneration<P extends BaseGenerateParams>(
           input: inputSnapshot,
           error: {
             code: 'SUBMIT_FAILED',
-            message: i18next.t(msgKey, { defaultValue: '生成失败，请重试' }),
+            message: resolveErrorMessage(error),
           },
         })
       }
@@ -312,9 +316,10 @@ export function useMediaGeneration<P extends BaseGenerateParams>(
         })
 
         // 逻辑：API 返回后补上 taskId。
+        const deriveTaskId = 'taskId' in result ? result.taskId : result.taskIds[0]
         engine.doc.updateNodeProps(newNodeId, {
           versionStack: {
-            entries: [{ ...pendingEntry, taskId: result.taskId }],
+            entries: [{ ...pendingEntry, taskId: deriveTaskId }],
             primaryId: pendingEntry.id,
           },
           ...derivePatch,
@@ -323,8 +328,7 @@ export function useMediaGeneration<P extends BaseGenerateParams>(
         console.error(`[${deriveNodeType}Node] new node generation failed:`, error)
         // 逻辑：提交失败时在新节点上写入失败的 version stack entry，让新节点显示错误浮层。
         if (newNodeId) {
-          const msgKey = mapErrorToMessageKey(error)
-          const msg = i18next.t(msgKey, { defaultValue: '生成失败，请重试' })
+          const msg = resolveErrorMessage(error)
           const snapshot = buildSnapshot(params, null)
           const failedEntry: VersionStackEntry = {
             id: `fail-${Date.now()}`,

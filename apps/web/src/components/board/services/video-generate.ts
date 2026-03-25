@@ -52,9 +52,9 @@ export type VideoGenerateRequest = {
   negativePrompt?: string
 }
 
-export type VideoGenerateResult = {
-  taskId: string
-}
+export type VideoGenerateResult =
+  | { taskId: string }
+  | { groupId: string; taskIds: string[] }
 
 /**
  * Submit a video generation task via v3 endpoint.
@@ -81,12 +81,19 @@ export async function submitVideoGenerate(
       sourceNodeId: options.sourceNodeId,
     })
 
-    if (!result || result.success !== true || !result.data?.taskId) {
+    if (!result || result.success !== true) {
       const message = result?.message || 'Video generation task submission failed'
       throw new Error(message)
     }
 
-    return { taskId: result.data.taskId as string }
+    const data = result.data
+    if (data.groupId && Array.isArray(data.taskIds)) {
+      return { groupId: data.groupId as string, taskIds: data.taskIds as string[] }
+    }
+    if (!data.taskId) {
+      throw new Error(result.message || 'Video generation task submission failed')
+    }
+    return { taskId: data.taskId as string }
   }
 
   // ── Legacy fallback (old callers without variant) ──
@@ -140,10 +147,17 @@ export async function submitVideoGenerate(
     sourceNodeId: options.sourceNodeId,
   })
 
-  if (!result || result.success !== true || !result.data?.taskId) {
+  if (!result || result.success !== true) {
     const message = result?.message || 'Video generation task submission failed'
     throw new Error(message)
   }
 
-  return { taskId: result.data.taskId as string }
+  const v2data = result.data
+  if (v2data.groupId && Array.isArray(v2data.taskIds)) {
+    return { groupId: v2data.groupId as string, taskIds: v2data.taskIds as string[] }
+  }
+  if (!v2data.taskId) {
+    throw new Error(result.message || 'Video generation task submission failed')
+  }
+  return { taskId: v2data.taskId as string }
 }

@@ -24,9 +24,9 @@ export type AudioGenerateRequest = {
   seed?: number
 }
 
-export type AudioGenerateResult = {
-  taskId: string
-}
+export type AudioGenerateResult =
+  | { taskId: string }
+  | { groupId: string; taskIds: string[] }
 
 /**
  * Submit a TTS task via v3 unified endpoint.
@@ -47,10 +47,17 @@ export async function submitAudioGenerate(
     sourceNodeId: options.sourceNodeId,
   })
 
-  if (!result || result.success !== true || !result.data?.taskId) {
+  if (!result || result.success !== true) {
     const message = result?.message || 'Audio generation task creation failed'
     throw new Error(message)
   }
 
-  return { taskId: result.data.taskId as string }
+  const data = result.data
+  if (data.groupId && Array.isArray(data.taskIds)) {
+    return { groupId: data.groupId as string, taskIds: data.taskIds as string[] }
+  }
+  if (!data.taskId) {
+    throw new Error(result.message || 'Audio generation task creation failed')
+  }
+  return { taskId: data.taskId as string }
 }

@@ -8,6 +8,7 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import { useEffect, useState } from 'react'
+import i18next from 'i18next'
 import { getPrimaryEntry, getGeneratingEntry, removeFailedEntry } from '../engine/version-stack'
 import type { InputSnapshot, VersionStack, VersionStackEntry } from '../engine/types'
 
@@ -48,6 +49,23 @@ export function mapErrorToMessageKey(error: Error | unknown): string {
     return 'board:polling.errorServer'
   }
   return 'board:polling.errorGeneric'
+}
+
+/**
+ * Resolve a human-readable error message from a generation error.
+ * Prefers the server's original message when no specific i18n category matches.
+ */
+export function resolveErrorMessage(error: Error | unknown): string {
+  const msgKey = mapErrorToMessageKey(error)
+  if (msgKey !== 'board:polling.errorGeneric') {
+    return i18next.t(msgKey, { defaultValue: '生成失败，请重试' })
+  }
+  // 当无法归类时，优先使用服务端返回的原始错误消息
+  const serverMsg = error instanceof Error ? error.message : ''
+  if (serverMsg && serverMsg !== 'Request failed') {
+    return serverMsg
+  }
+  return i18next.t(msgKey, { defaultValue: '生成失败，请重试' })
 }
 
 // ---------------------------------------------------------------------------

@@ -24,7 +24,6 @@
 | FileAttachmentNode | `file-attachment` | 文件附件 |
 | CalendarNode | `calendar` | 日历事件 |
 | StrokeNode | `stroke` | 手写笔画 |
-| LoadingNode | `loading` | AI 异步任务占位符 |
 | GroupNode | `group` / `image-group` | 节点分组容器 |
 
 ## 文本便签节点（核心设计）

@@ -14,7 +14,7 @@ import path from "node:path";
 import { prisma } from "@openloaf/db";
 import { type ChatModelSource, type ModelDefinition } from "@openloaf/api/common";
 import type { ImageGenerateOptions, OpenLoafImageMetadataV1 } from "@openloaf/api/types/image";
-import { submitV3Generate, pollV3Task, cancelV3Task } from "@/modules/saas/modules/media/client";
+import { submitV3Generate, waitV3TaskComplete, cancelV3Task } from "@/modules/saas/modules/media/client";
 import type { OpenLoafUIMessage, TokenUsage } from "@openloaf/api/types/message";
 import { createMasterAgentRunner, createPMAgentRunner } from "@/ai";
 import { getTemplate, isTemplateId } from "@/ai/agent-templates";
@@ -103,8 +103,6 @@ import {
 
 /** Max wait time for SaaS image tasks (ms). */
 const SAAS_IMAGE_TASK_TIMEOUT_MS = 5 * 60 * 1000;
-/** Poll interval for SaaS image tasks (ms). */
-const SAAS_IMAGE_TASK_POLL_MS = 1500;
 
 type ImageModelRequest = {
   /** Session id. */
@@ -1310,25 +1308,8 @@ async function resolveSaasImageInputs(input: {
   };
 }
 
-/** Sleep for a short duration or abort early. */
-async function sleepWithAbort(ms: number, abortSignal: AbortSignal): Promise<void> {
-  if (abortSignal.aborted) {
-    throw new ChatImageRequestError("请求已取消。", 499);
-  }
-  await new Promise<void>((resolve, reject) => {
-    const onAbort = () => {
-      abortSignal.removeEventListener("abort", onAbort);
-      reject(new ChatImageRequestError("请求已取消。", 499));
-    };
-    const timer = setTimeout(() => {
-      abortSignal.removeEventListener("abort", onAbort);
-      resolve();
-    }, ms);
-    abortSignal.addEventListener("abort", onAbort);
-  });
-}
 
-/** Poll SaaS image task until completion. */
+/** Wait for SaaS image task via SSE + GET until completion. */
 async function waitForSaasImageTask(input: {
   accessToken: string;
   taskId: string;
@@ -1338,36 +1319,39 @@ async function waitForSaasImageTask(input: {
   resultUrls?: string[];
   error?: { message?: string; code?: string };
 }> {
-  const startAt = Date.now();
-  while (true) {
-    if (input.abortSignal.aborted) {
-      try {
-        await cancelV3Task(input.taskId, input.accessToken);
-      } catch {
-        // 忽略取消失败。
-      }
-      throw new ChatImageRequestError("请求已取消。", 499);
-    }
-    const response = await pollV3Task(input.taskId, input.accessToken);
-    if (!response?.data) {
-      throw new ChatImageRequestError("任务查询失败。", 502);
-    }
-    const data = response.data;
-    if (data.status === "succeeded") {
+  if (input.abortSignal.aborted) {
+    try { await cancelV3Task(input.taskId, input.accessToken); } catch { /* ignore */ }
+    throw new ChatImageRequestError("请求已取消。", 499);
+  }
+
+  try {
+    // waitV3TaskComplete: SSE 等终态 → GET 取完整结果
+    const result = await waitV3TaskComplete(input.taskId, input.accessToken, {
+      abortSignal: input.abortSignal,
+      timeoutMs: SAAS_IMAGE_TASK_TIMEOUT_MS,
+    });
+
+    if (result.status === "succeeded") {
       return {
-        status: data.status,
-        resultUrls: data.resultUrls ?? undefined,
-        error: data.error ?? undefined,
+        status: result.status,
+        resultUrls: result.resultUrls ?? undefined,
+        error: result.error ?? undefined,
       };
     }
-    if (data.status === "failed" || data.status === "canceled") {
-      const message = data.error?.message || "图片生成失败。";
-      throw new ChatImageRequestError(message, 502);
+
+    const message = result.error?.message || "图片生成失败。";
+    throw new ChatImageRequestError(message, 502);
+  } catch (err) {
+    if (err instanceof ChatImageRequestError) throw err;
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg === "已取消") {
+      try { await cancelV3Task(input.taskId, input.accessToken); } catch { /* ignore */ }
+      throw new ChatImageRequestError("请求已取消。", 499);
     }
-    if (Date.now() - startAt > SAAS_IMAGE_TASK_TIMEOUT_MS) {
+    if (msg === "SSE 等待超时") {
       throw new ChatImageRequestError("图片生成超时。", 504);
     }
-    await sleepWithAbort(SAAS_IMAGE_TASK_POLL_MS, input.abortSignal);
+    throw new ChatImageRequestError(`任务查询失败：${msg}`, 502);
   }
 }
 

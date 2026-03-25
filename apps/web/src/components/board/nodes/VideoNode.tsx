@@ -64,6 +64,14 @@ import { VersionStackOverlay } from './VersionStackOverlay';
 import { GeneratingOverlay } from './GeneratingOverlay';
 import { deriveNode } from '../utils/derive-node';
 import type { CanvasEngine } from '../engine/CanvasEngine';
+import { useCancelGeneration } from './shared/useCancelGeneration';
+import {
+  cancelVideoDownload,
+  pollVideoDownloadProgress,
+  startVideoDownload,
+  type VideoDownloadPhase,
+} from "../services/video-download";
+import { BOARD_ASSETS_DIR_NAME } from "@/lib/file-name";
 
 export type VideoNodeProps = {
   /** Project-relative path for the video. */
@@ -88,7 +96,20 @@ export type VideoNodeProps = {
   aiConfig?: import("../board-contracts").AiGenerateConfig;
   /** Version stack tracking AI generation history. */
   versionStack?: import("../engine/types").VersionStack;
+  /** 平台视频下载任务 id。 */
+  downloadTaskId?: string;
+  /** 平台视频原始链接，用于失败重试。 */
+  downloadUrl?: string;
+  /** 平台视频下载失败信息。 */
+  downloadError?: string;
 };
+
+/** 下载完成后按比例拟合视频节点尺寸。 */
+function fitVideoSize(width: number, height: number, maxDimension: number): [number, number] {
+  if (width <= 0 || height <= 0) return [maxDimension, Math.round(maxDimension * (9 / 16))];
+  const scale = Math.min(maxDimension / width, maxDimension / height);
+  return [Math.round(width * scale), Math.round(height * scale)];
+}
 
 
 /** Open video in the file preview dialog (same as double-click). */
@@ -203,7 +224,9 @@ export async function extractAudioFromVideo(params: {
 /** Build toolbar items for video nodes. */
 function createVideoToolbarItems(ctx: CanvasToolbarContext<VideoNodeProps>) {
   const { clipStart, clipEnd, duration, sourcePath } = ctx.element.props;
-  const isEmpty = !sourcePath?.trim();
+  const isEmpty = !sourcePath?.trim()
+    && !ctx.element.props.downloadTaskId?.trim()
+    && !ctx.element.props.downloadError?.trim();
 
   // 逻辑：空节点的自定义工具仅保留上传，删除走右侧通用工具组。
   if (isEmpty) {
@@ -453,7 +476,13 @@ export function VideoNodeView({
         boardId: ctx.boardId,
         boardFolderUri: ctx.boardFolderUri,
       })
-      onUpdate({ sourcePath: relativePath, fileName: file.name })
+      onUpdate({
+        sourcePath: relativePath,
+        fileName: file.name,
+        downloadTaskId: "",
+        downloadUrl: "",
+        downloadError: "",
+      })
       const nodeId = element.id
       void (async () => {
         try {
@@ -496,6 +525,13 @@ export function VideoNodeView({
   const [playing, setPlaying] = useState(false);
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [downloadProgress, setDownloadProgress] = useState(-1);
+  const [downloadPhase, setDownloadPhase] = useState<VideoDownloadPhase>("extracting");
+  const [downloadTitle, setDownloadTitle] = useState("");
+  const [retryingDownload, setRetryingDownload] = useState(false);
+  const downloadAbortRef = useRef<AbortController | null>(null);
+  const xywhRef = useRef(element.xywh);
+  xywhRef.current = element.xywh;
 
   const resolvedPath = useMemo(
     () => resolveProjectRelativePath(element.props.sourcePath, fileContext) || element.props.sourcePath,
@@ -503,6 +539,11 @@ export function VideoNodeView({
   );
   const displayName = element.props.fileName || resolvedPath.split("/").pop() || i18next.t('board:nodeLabel.video');
   const posterSrc = element.props.posterPath?.trim() || "";
+  const downloadTaskId = element.props.downloadTaskId?.trim() || "";
+  const downloadUrl = element.props.downloadUrl?.trim() || "";
+  const downloadError = element.props.downloadError?.trim() || "";
+  const isDownloading = Boolean(downloadTaskId && !downloadError && !element.props.sourcePath?.trim());
+  const hasDownloadFailure = Boolean(downloadError);
 
   const effectiveProjectId = useMemo(() => {
     if (fileContext?.projectId) return fileContext.projectId;
@@ -542,6 +583,180 @@ export function VideoNodeView({
     });
     return () => { cancelled = true; };
   }, [videoPath, ids, posterSrc, onUpdate]);
+
+  useEffect(() => {
+    if (!isDownloading || !downloadTaskId) return;
+    if (downloadAbortRef.current) return;
+
+    const controller = new AbortController();
+    downloadAbortRef.current = controller;
+
+    const run = async () => {
+      try {
+        for (let attempt = 0; attempt < 300; attempt += 1) {
+          if (controller.signal.aborted) return;
+          const status = await pollVideoDownloadProgress(downloadTaskId);
+
+          if (status.info?.title) {
+            setDownloadTitle(status.info.title);
+          }
+          if (typeof status.progress === "number") {
+            setDownloadProgress(status.progress);
+          }
+          if (status.phase) {
+            setDownloadPhase(status.phase);
+          }
+
+          if (status.status === "completed" && status.result) {
+            const fileName = status.result.fileName || "";
+            const nextSourcePath = `${BOARD_ASSETS_DIR_NAME}/${fileName}`;
+            const naturalWidth = status.result.width || 16;
+            const naturalHeight = status.result.height || 9;
+            const [nodeW, nodeH] = fitVideoSize(naturalWidth, naturalHeight, 420);
+            const [x, y, w, h] = xywhRef.current;
+            const centerX = x + w / 2;
+            const centerY = y + h / 2;
+
+            engine.doc.updateElement(element.id, {
+              xywh: [
+                Math.round(centerX - nodeW / 2),
+                Math.round(centerY - nodeH / 2),
+                nodeW,
+                nodeH,
+              ],
+            });
+            engine.doc.updateNodeProps(element.id, {
+              sourcePath: nextSourcePath,
+              fileName: fileName || undefined,
+              posterPath: status.result.posterDataUrl || undefined,
+              naturalWidth,
+              naturalHeight,
+              downloadTaskId: "",
+              downloadUrl: "",
+              downloadError: "",
+            });
+            void (async () => {
+              try {
+                const metadata = await fetchVideoMetadata({
+                  projectId: fileContext?.projectId,
+                  boardId: fileContext?.boardId,
+                  uri: nextSourcePath,
+                });
+                if (!metadata?.duration) return;
+                engine.doc.updateNodeProps(element.id, {
+                  duration: metadata.duration,
+                });
+              } catch {
+                // 逻辑：下载成功后的补充元数据失败不影响节点落盘。
+              }
+            })();
+            setDownloadProgress(100);
+            return;
+          }
+
+          if (status.status === "failed") {
+            throw new Error(
+              status.error
+                || i18next.t('board:loading.downloadFailed', { defaultValue: '视频下载失败' }),
+            );
+          }
+
+          await new Promise((resolve) =>
+            setTimeout(resolve, attempt < 30 ? 2000 : attempt < 60 ? 5000 : 10000),
+          );
+        }
+
+        throw new Error(i18next.t('board:loading.videoTimeout', { defaultValue: '视频下载超时' }));
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        const message = error instanceof Error
+          ? error.message
+          : i18next.t('board:loading.downloadFailed', { defaultValue: '视频下载失败' });
+        engine.doc.updateNodeProps(element.id, { downloadError: message });
+      } finally {
+        if (downloadAbortRef.current === controller) {
+          downloadAbortRef.current = null;
+        }
+      }
+    };
+
+    run();
+
+    return () => {
+      controller.abort();
+      if (downloadAbortRef.current === controller) {
+        downloadAbortRef.current = null;
+      }
+    };
+  }, [
+    downloadTaskId,
+    element.id,
+    element.props.sourcePath,
+    engine,
+    fileContext?.projectId,
+    fileContext?.boardId,
+    isDownloading,
+  ]);
+
+  const handleCancelDownload = useCallback(async () => {
+    if (!downloadTaskId) return;
+    if (downloadAbortRef.current) {
+      downloadAbortRef.current.abort();
+      downloadAbortRef.current = null;
+    }
+    try {
+      await cancelVideoDownload(downloadTaskId);
+    } catch (error) {
+      console.warn("[VideoNode] cancel download failed:", error);
+    } finally {
+      engine.doc.deleteElement(element.id);
+    }
+  }, [downloadTaskId, element.id, engine]);
+
+  const handleRetryDownload = useCallback(async () => {
+    if (!downloadUrl || retryingDownload) return;
+    setRetryingDownload(true);
+    try {
+      const nextTaskId = await startVideoDownload({
+        url: downloadUrl,
+        boardFolderUri: fileContext?.boardFolderUri,
+        projectId: fileContext?.projectId,
+        boardId: fileContext?.boardId,
+      });
+      setDownloadProgress(-1);
+      setDownloadPhase("extracting");
+      setDownloadTitle("");
+      engine.doc.updateNodeProps(element.id, {
+        downloadTaskId: nextTaskId,
+        downloadError: "",
+      });
+    } catch (error) {
+      const message = error instanceof Error
+        ? error.message
+        : i18next.t('board:loading.downloadFailed', { defaultValue: '视频下载失败' });
+      engine.doc.updateNodeProps(element.id, { downloadError: message });
+    } finally {
+      setRetryingDownload(false);
+    }
+  }, [
+    downloadUrl,
+    retryingDownload,
+    fileContext?.boardFolderUri,
+    fileContext?.projectId,
+    fileContext?.boardId,
+    engine,
+    element.id,
+  ]);
+
+  const downloadStatusText = (() => {
+    if (downloadPhase === "extracting" || downloadProgress < 0) {
+      return i18next.t('board:loading.statusExtracting', { defaultValue: '解析视频信息...' });
+    }
+    if (downloadPhase === "merging") {
+      return i18next.t('board:loading.statusMerging', { defaultValue: '合并音视频...' });
+    }
+    return `${i18next.t('board:loading.statusDownloading', { defaultValue: '下载中' })} ${Math.max(downloadProgress, 0)}%`;
+  })();
 
   // 逻辑：用 ref 持有 clip 值，避免放入 useEffect deps 导致拖滑块时重建播放。
   const clipStartRef = useRef(element.props.clipStart);
@@ -635,6 +850,7 @@ export function VideoNodeView({
   // Version-stack based generation
   // ---------------------------------------------------------------------------
   const { primaryEntry, generatingEntry, isGenerating: isGeneratingVersion } = useVersionStackState(element.props.versionStack)
+  const { handleCancel: handleCancelGeneration, cancelling: cancellingGeneration } = useCancelGeneration(generatingEntry?.taskId);
 
   // 逻辑：有生成记录时使用冻结的上游数据，版本切换时自动跟随。
   const effectiveUpstream = useEffectiveUpstream(primaryEntry, upstream, fileContext);
@@ -874,7 +1090,7 @@ export function VideoNodeView({
         ].join(" ")}
         onDoubleClick={(event) => {
           event.stopPropagation();
-          if (isGenerating || isFailed) return;
+          if (isGenerating || isDownloading || isFailed || hasDownloadFailure) return;
           // 逻辑：空节点双击打开文件选择器（展开态跳过因为面板已可见），有内容时双击始终打开预览。
           if (!element.props.sourcePath?.trim()) {
             if (expanded) return;
@@ -892,8 +1108,40 @@ export function VideoNodeView({
             estimatedSeconds={90}
             serverProgress={pollingResult.progress}
             color="blue"
+            onCancel={handleCancelGeneration}
+            cancelling={cancellingGeneration}
           />
         )}
+        {isDownloading ? (
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 rounded-3xl bg-background/80 px-4 text-center backdrop-blur-sm">
+            <Loader2 className="h-6 w-6 animate-spin text-ol-text-secondary" />
+            <span className="text-xs font-medium text-ol-text-secondary">
+              {downloadStatusText}
+            </span>
+            <span
+              className="line-clamp-1 max-w-full text-[11px] text-ol-text-auxiliary"
+              title={downloadTitle || downloadUrl || displayName}
+            >
+              {downloadTitle || downloadUrl || displayName}
+            </span>
+            <div className="h-1.5 w-40 overflow-hidden rounded-full bg-border/40">
+              <div
+                className="h-full rounded-full bg-ol-blue transition-all duration-300"
+                style={{ width: `${Math.max(Math.min(downloadProgress, 100), 0)}%` }}
+              />
+            </div>
+            <button
+              type="button"
+              className="mt-1 inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium text-ol-text-secondary hover:bg-foreground/5 hover:text-foreground transition-colors duration-150"
+              onClick={(e) => {
+                e.stopPropagation();
+                void handleCancelDownload();
+              }}
+            >
+              {i18next.t('board:loading.cancel', { defaultValue: '取消' })}
+            </button>
+          </div>
+        ) : null}
 
         {/* Failed / Cancelled overlay */}
         <FailureOverlay
@@ -906,6 +1154,15 @@ export function VideoNodeView({
           onRetry={handleRetry}
           canDismiss={Boolean(posterSrc)}
           onDismiss={() => setDismissedFailure(true)}
+        />
+        <FailureOverlay
+          visible={hasDownloadFailure}
+          isCancelled={false}
+          message={downloadError}
+          cancelledKey="board:videoNode.cancelled"
+          retryKey="board:loading.retry"
+          resendKey="board:loading.retry"
+          onRetry={() => void handleRetryDownload()}
         />
 
         {playing ? (
@@ -982,7 +1239,7 @@ export function VideoNodeView({
               </button>
             </div>
           </div>
-        ) : !element.props.sourcePath?.trim() && !isGenerating ? (
+        ) : !element.props.sourcePath?.trim() && !isGenerating && !isDownloading ? (
           <div className="flex h-full w-full items-center justify-center rounded-3xl border border-dashed border-ol-divider bg-ol-surface-muted">
             <div className="flex flex-col items-center gap-2 text-muted-foreground/40 px-4">
               <Video size={36} strokeWidth={1.2} />
@@ -1076,10 +1333,16 @@ export const VideoNodeDefinition: CanvasNodeDefinition<VideoNodeProps> = {
       generatedAt: z.number().optional(),
     }).optional(),
     versionStack: z.any().optional(),
+    downloadTaskId: z.string().optional(),
+    downloadUrl: z.string().optional(),
+    downloadError: z.string().optional(),
   }),
   defaultProps: {
     sourcePath: "",
     fileName: "",
+    downloadTaskId: "",
+    downloadUrl: "",
+    downloadError: "",
   },
   view: VideoNodeView,
   capabilities: {

@@ -10,8 +10,14 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { CircleAlert } from 'lucide-react'
 import { cn } from '@udecode/cn'
 import { useTranslation } from 'react-i18next'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@openloaf/ui/tooltip'
 import type { TextReference } from '../slot-types'
 import { ReferenceChip } from './ReferenceChip'
 import { ReferenceDropdown } from './ReferenceDropdown'
@@ -31,6 +37,12 @@ export type TextSlotFieldProps = {
   required?: boolean
   disabled?: boolean
   mode: 'inline' | 'replace'
+  /** Text: minimum character length (SDK v0.1.27). */
+  minLength?: number
+  /** Text: maximum character length (SDK v0.1.27). */
+  maxLength?: number
+  /** Hint text displayed as tooltip next to label. */
+  hint?: string
   onUserTextChange: (text: string) => void
   onAddReference: (ref: TextReference) => void
   onRemoveReference: (nodeId: string) => void
@@ -60,6 +72,9 @@ export function TextSlotField({
   required,
   disabled,
   mode,
+  minLength,
+  maxLength,
+  hint,
   onUserTextChange,
   onAddReference,
   onRemoveReference,
@@ -181,7 +196,7 @@ export function TextSlotField({
       <div className="flex flex-col gap-1">
         {/* Label row */}
         <div className="flex items-center justify-between">
-          <span className="text-[11px] font-medium text-muted-foreground">
+          <span className="text-xs font-medium text-muted-foreground">
             {label}
             {required ? (
               <span className="ml-0.5 text-[10px] text-red-400">*</span>
@@ -232,13 +247,36 @@ export function TextSlotField({
       onDragOver={handleDragOver}
       onDrop={handleDrop}
     >
-      {/* Label */}
-      <span className="text-[11px] font-medium text-muted-foreground">
-        {label}
-        {required ? (
-          <span className="ml-0.5 text-[10px] text-red-400">*</span>
+      {/* Label + character counter */}
+      <div className="flex items-center justify-between">
+        <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
+          {label}
+          {required ? (
+            <span className="text-[10px] text-red-400">*</span>
+          ) : null}
+          {hint ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <CircleAlert className="size-3 text-neutral-400 dark:text-neutral-500" />
+              </TooltipTrigger>
+              <TooltipContent side="top" className="max-w-[320px] text-xs">{hint}</TooltipContent>
+            </Tooltip>
+          ) : null}
+        </span>
+        {(minLength != null || maxLength != null) ? (
+          <span className={cn(
+            'text-[10px] tabular-nums',
+            maxLength != null && userText.length > maxLength
+              ? 'text-red-500'
+              : minLength != null && userText.length > 0 && userText.length < minLength
+                ? 'text-amber-500'
+                : 'text-muted-foreground/50',
+          )}>
+            {userText.length}
+            {maxLength != null ? `/${maxLength}` : null}
+          </span>
         ) : null}
-      </span>
+      </div>
 
       {/* Chips row (inline mode only, when chips exist) */}
       {mode === 'inline' && references.length > 0 ? (
@@ -262,11 +300,14 @@ export function TextSlotField({
         placeholder={resolvedPlaceholder}
         disabled={disabled}
         rows={3}
+        maxLength={maxLength}
         className={cn(
           'min-h-[60px] w-full resize-none rounded-2xl bg-muted/30 px-3 py-2 text-xs outline-none',
           'placeholder:text-muted-foreground/40 transition-colors duration-150',
           'focus:bg-muted/50',
           disabled ? 'opacity-50 cursor-not-allowed' : '',
+          maxLength != null && userText.length > maxLength ? 'ring-1 ring-red-400' : '',
+          minLength != null && userText.length > 0 && userText.length < minLength ? 'ring-1 ring-amber-400' : '',
         )}
         onChange={handleTextareaChange}
         onKeyDown={handleKeyDown}

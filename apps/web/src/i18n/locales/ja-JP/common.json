@@ -175,6 +175,7 @@
     "subtitlePolling": "ブラウザで開きました。サインインをお待ちしています…",
     "subtitleError": "サインインに失敗しました。もう一度お試しください",
     "subtitleDefault": "クラウドアカウントに接続",
+    "reopenLogin": "再度開く",
     "cancelLogin": "サインインをキャンセル",
     "loginWithGoogle": "Google でサインイン",
     "loginWithWechat": "WeChat でサインイン",

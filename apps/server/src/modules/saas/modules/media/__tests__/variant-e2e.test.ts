@@ -244,6 +244,22 @@ async function submitAndPoll(
         }
         process.stdout.write('.')
       } else {
+        // v0.1.30: SSE 等终态 → GET 取完整结果
+        await new Promise<void>((resolve, reject) => {
+          const es = client.ai.v3TaskEvents(taskId)
+          es.addEventListener('status', ((e: MessageEvent) => {
+            try {
+              const data = JSON.parse(e.data)
+              if (data.status === 'succeeded' || data.status === 'failed' || data.status === 'canceled') {
+                es.close()
+                resolve()
+              }
+            } catch { /* ignore */ }
+          }) as EventListener)
+          es.onerror = () => { es.close(); reject(new Error('SSE error')) }
+          setTimeout(() => { es.close(); reject(new Error('SSE timeout')) }, TASK_TIMEOUT - (Date.now() - t0))
+        })
+        // GET 完整结果
         const taskResp = await client.ai.v3Task(taskId)
         const task = taskResp.data
         if (task.status === 'succeeded') {
@@ -254,14 +270,11 @@ async function submitAndPoll(
             durationMs: Date.now() - t0,
           }
         }
-        if (task.status === 'failed' || task.status === 'canceled') {
-          return {
-            status: 'failed', taskId,
-            error: task.error?.message ?? `Task ${task.status}`,
-            durationMs: Date.now() - t0,
-          }
+        return {
+          status: 'failed', taskId,
+          error: task.error?.message ?? `Task ${task.status}`,
+          durationMs: Date.now() - t0,
         }
-        process.stdout.write('.')
       }
     } catch (pollErr: unknown) {
       const pollErrMsg = extractErrorMessage(pollErr)

@@ -78,7 +78,8 @@ import { useInlinePanelSync } from './shared/useInlinePanelSync';
 import { useEffectiveUpstream } from './shared/useEffectiveUpstream';
 import { FailureOverlay } from './shared/FailureOverlay';
 import { InlinePanelPortal } from './shared/InlinePanelPortal';
-import { useMediaGeneration, type SubmitOptions } from './shared/useMediaGeneration';
+import { useMediaGeneration, type GenerateSubmitResult, type SubmitOptions } from './shared/useMediaGeneration';
+import { useCancelGeneration } from './shared/useCancelGeneration';
 
 /** Max bytes for image node preview fetches. */
 const IMAGE_NODE_PREVIEW_MAX_BYTES = 100 * 1024;
@@ -318,6 +319,7 @@ export function ImageNodeView({
   // ---------------------------------------------------------------------------
 
   const { primaryEntry, generatingEntry, isGenerating: isGeneratingVersion } = useVersionStackState(element.props.versionStack);
+  const { handleCancel: handleCancelGeneration, cancelling: cancellingGeneration } = useCancelGeneration(generatingEntry?.taskId);
 
   // 逻辑：有生成记录（ready）且存储了 upstreamRefs 时，使用冻结的上游数据；
   // 版本切换时 primaryEntry 变化，插槽内容自动跟随。
@@ -447,7 +449,7 @@ export function ImageNodeView({
   )
   /** Route generation to the correct service based on variant. */
   const imageSubmitGenerate = useCallback(
-    (params: ImageGenerateParams, options: SubmitOptions): Promise<{ taskId: string }> => {
+    (params: ImageGenerateParams, options: SubmitOptions): Promise<GenerateSubmitResult> => {
       // v3 path: when variant is provided, route through v3 unified endpoint
       if (params.variant) {
         // Upscale variants: use dedicated submitUpscale for compat
@@ -1024,6 +1026,8 @@ export function ImageNodeView({
             estimatedSeconds={45}
             serverProgress={pollingResult.progress}
             color="blue"
+            onCancel={handleCancelGeneration}
+            cancelling={cancellingGeneration}
           />
         ) : null}
         {/* ── Mask paint overlay (inpaint/erase) ── */}

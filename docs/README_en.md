@@ -2,7 +2,7 @@
   <img src="../apps/web/public/logo.png" alt="OpenLoaf Logo" width="120" />
   <h1>OpenLoaf</h1>
   <p><strong>Open-Source AI Productivity Desktop - Project-Centric, Multi-Agent, Local-First</strong></p>
-  <p>Each project gets its own AI agent team, memory, and skills. Projects link to share knowledge. A Secretary Agent orchestrates everything. Your data never leaves your device.</p>
+  <p>Each project gets its own AI agent team, memory, and skills. Projects link to share knowledge. A Secretary Agent orchestrates everything. The agent runtime, memory system, skills loading, and tool routing are native OpenLoaf capabilities - not a thin wrapper around Claude Code. Your data never leaves your device.</p>
 
   <p>AI Secretary &nbsp;|&nbsp; Independent Projects &nbsp;|&nbsp; Project Linking &nbsp;|&nbsp; Multi-Agent &nbsp;|&nbsp; Canvas &nbsp;|&nbsp; Email &nbsp;|&nbsp; Calendar &nbsp;|&nbsp; Tasks</p>
 
@@ -29,6 +29,8 @@
 OpenLoaf is a local-first AI productivity desktop app built around **projects as independent workspaces**. Each project opens in its own dedicated window with a full-featured environment: AI assistant, file tree, terminal, task board, and canvas.
 
 A **Secretary Agent** lives in the main window as your personal assistant - it can answer questions, manage your calendar and email, and route complex tasks to the right project's AI agent. For cross-project work, projects **link** to each other to share memory and skills.
+
+> **Built natively into OpenLoaf:** the Secretary / Project / Worker agent system, project memory injection, skills discovery, runtime tool execution, and multi-window orchestration are all part of OpenLoaf's own product architecture - not a Claude Code reskin or thin wrapper.
 
 ### How It Works
 
@@ -67,7 +69,7 @@ Secretary Agent (Main Window - your personal assistant)
 
 ### Multi-Agent Architecture
 
-OpenLoaf's AI isn't a single chatbot - it's a **layered agent system** modeled after how companies work:
+OpenLoaf's AI isn't a single chatbot - it's a **layered agent system** modeled after how companies work and built specifically for OpenLoaf's project-centric workflow:
 
 | Agent | Role | Scope |
 |-------|------|-------|
@@ -75,7 +77,7 @@ OpenLoaf's AI isn't a single chatbot - it's a **layered agent system** modeled a
 | **Project Agent** | Dedicated assistant per project | Project: files, code, docs, terminal, tasks |
 | **Worker Agents** | Specialized sub-agents spawned on demand | Focused: explore, plan, code, review |
 
-The Secretary decides the most efficient path - simple questions get answered immediately, project-specific tasks get routed to the right Project Agent, and complex multi-project tasks spawn parallel agents.
+The Secretary decides the most efficient path - simple questions get answered immediately, project-specific tasks get routed to the right Project Agent, and complex multi-project tasks spawn parallel agents. Agent roles, project routing, memory injection, skills loading, MCP access, and runtime tool execution are first-class OpenLoaf capabilities rather than a thin layer on top of Claude Code.
 
 ### Independent Project Windows
 
@@ -156,6 +158,7 @@ Everything in one app - no more window-switching:
 
 ### OpenLoaf's Approach
 
+- **Self-developed agent stack** - The Secretary / Project / Worker architecture, memory pipeline, skills system, MCP integration, and tool runtime are built natively in OpenLoaf instead of being a Claude Code reskin or wrapper.
 - **Project-centric** - Each project is a self-contained environment with its own AI agent, memory, and skills.
 - **Linked knowledge** - Projects share context through explicit links. A knowledge base enriches every project it's linked to.
 - **Multi-agent routing** - The Secretary Agent handles the orchestration. Simple tasks are fast; complex tasks get the right specialist.

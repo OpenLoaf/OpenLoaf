@@ -128,6 +128,25 @@ if (isMacTarget) {
   if (fs.existsSync(icnsPath)) {
     extraFlags.push(`--config.mac.icon=${icnsPath}`)
   }
+  // DMG 背景图使用绝对路径，避免 monorepo 下 projectDir 解析错误
+  const dmgBgPath = path.resolve('resources', 'dmg-background.png')
+  if (fs.existsSync(dmgBgPath)) {
+    extraFlags.push(`--config.dmg.background=${dmgBgPath}`)
+  }
+  // electron-builder 在 arm64 上错误地强制 APFS（#4606），而 APFS DMG 不支持背景图。
+  // 实际上 Apple Silicon 的 hdiutil 仍然支持 HFS+，这里 patch 回 HFS+。
+  const dmgJs = path.resolve('..', '..', 'node_modules', 'dmg-builder', 'out', 'dmg.js')
+  if (fs.existsSync(dmgJs)) {
+    let code = fs.readFileSync(dmgJs, 'utf-8')
+    if (code.includes('process.arch === "arm64"')) {
+      code = code.replace(
+        /if \(process\.arch === "arm64"\) \{[^}]+\}/,
+        '/* patched: force HFS+ on arm64 for DMG background support */'
+      )
+      fs.writeFileSync(dmgJs, code)
+      console.log('[dist] Patched dmg-builder to use HFS+ on arm64 (APFS does not support background images)')
+    }
+  }
   // CI 环境下传递公证配置，避免 electron-builder 因缺少 notarize 选项而报错
   if (process.env.APPLE_TEAM_ID) {
     extraFlags.push(`--config.mac.notarize.teamId=${process.env.APPLE_TEAM_ID}`)
@@ -162,3 +181,85 @@ console.log(`[dist] ${pnpmBin} ${args.join(' ')}`)
 
 // .cmd files on Windows must be invoked via cmd.exe (shell:true).
 execFileSync(pnpmBin, args, { stdio: 'inherit', shell: process.platform === 'win32' })
+
+// macOS DMG 背景图后处理：
+// macOS Tahoe+ 的 Finder 不再通过 DS_Store alias 渲染 DMG 背景图，
+// 必须用 AppleScript 挂载后直接设置 Finder 窗口属性，再重新封装。
+if (isMacTarget && process.platform === 'darwin') {
+  const dmgBgPath = path.resolve('resources', 'dmg-background.png')
+  if (fs.existsSync(dmgBgPath)) {
+    const distDir = path.resolve('dist')
+    const dmgFiles = fs.readdirSync(distDir).filter((f) => f.endsWith('.dmg') && !f.endsWith('.blockmap'))
+    for (const dmgFile of dmgFiles) {
+      const dmgPath = path.join(distDir, dmgFile)
+      const rwDmg = path.join(os.tmpdir(), `openloaf-rw-${Date.now()}.dmg`)
+      try {
+        console.log(`[dist] Applying DMG background via AppleScript: ${dmgFile}`)
+
+        // 1. 转为可读写格式
+        execFileSync('hdiutil', ['convert', dmgPath, '-format', 'UDRW', '-o', rwDmg], { stdio: 'inherit' })
+
+        // 2. 挂载
+        const attachOut = execFileSync('hdiutil', ['attach', rwDmg, '-noverify'], { encoding: 'utf-8' })
+        const volMatch = attachOut.match(/\/Volumes\/.+/)
+        if (!volMatch) {
+          console.error('[dist] Failed to find volume path from hdiutil attach output')
+          continue
+        }
+        const volPath = volMatch[0].trim()
+        const volName = path.basename(volPath)
+
+        // 3. 读取 DMG 配置
+        const pkg = JSON.parse(fs.readFileSync('package.json', 'utf-8'))
+        const dmgCfg = pkg.build?.dmg || {}
+        const contents = dmgCfg.contents || []
+        const appEntry = contents.find((c) => !c.type || c.type !== 'link') || { x: 150, y: 240 }
+        const linkEntry = contents.find((c) => c.type === 'link') || { x: 390, y: 240 }
+        const winCfg = dmgCfg.window || {}
+        const winW = winCfg.width || 540
+        const winH = winCfg.height || 380
+        const iconSize = dmgCfg.iconSize || 80
+        const iconTextSize = dmgCfg.iconTextSize || 14
+        const productName = pkg.build?.productName || pkg.productName || 'OpenLoaf'
+
+        // 4. 用 AppleScript 设置 Finder 窗口属性
+        const script = `
+tell application "Finder"
+  tell disk "${volName}"
+    open
+    set current view of container window to icon view
+    set toolbar visible of container window to false
+    set statusbar visible of container window to false
+    set the bounds of container window to {100, 100, ${100 + winW}, ${100 + winH}}
+    set viewOptions to the icon view options of container window
+    set arrangement of viewOptions to not arranged
+    set icon size of viewOptions to ${iconSize}
+    set text size of viewOptions to ${iconTextSize}
+    set background picture of viewOptions to file ".background:1.tiff"
+    set position of item "${productName}.app" of container window to {${appEntry.x}, ${appEntry.y}}
+    set position of item "Applications" of container window to {${linkEntry.x}, ${linkEntry.y}}
+    close
+    open
+    update without registering applications
+    delay 2
+    close
+  end tell
+end tell`
+        execFileSync('osascript', ['-e', script], { stdio: 'inherit', timeout: 30000 })
+
+        // 5. 卸载
+        execFileSync('hdiutil', ['detach', volPath], { stdio: 'inherit' })
+
+        // 6. 重新转为只读压缩格式，覆盖原 DMG
+        fs.unlinkSync(dmgPath)
+        execFileSync('hdiutil', ['convert', rwDmg, '-format', 'UDZO', '-o', dmgPath], { stdio: 'inherit' })
+
+        console.log(`[dist] DMG background applied: ${dmgFile}`)
+      } catch (err) {
+        console.error(`[dist] Failed to apply DMG background: ${err.message}`)
+      } finally {
+        try { fs.unlinkSync(rwDmg) } catch {}
+      }
+    }
+  }
+}

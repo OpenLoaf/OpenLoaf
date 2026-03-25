@@ -134,7 +134,7 @@ export async function submitMediaTask(
 }
 
 /**
- * @deprecated v2 task poll — delegates to v3 task poll.
+ * @deprecated v2 task poll — delegates to v3 GET.
  */
 export async function pollMediaTask(
   taskId: string,
@@ -165,22 +165,6 @@ export async function cancelMediaTask(
   accessToken: string,
 ) {
   return cancelV3Task(taskId, accessToken)
-}
-
-/**
- * @deprecated v2 media models — delegates to v3 capabilities.
- * Returns capabilities for the given feature category.
- */
-export async function fetchMediaModelsV2(
-  accessToken: string,
-  feature?: string,
-): Promise<any> {
-  const category = feature?.startsWith('video')
-    ? 'video'
-    : feature === 'tts' || feature === 'music' || feature === 'sfx'
-      ? 'audio'
-      : 'image'
-  return fetchCapabilitiesV3(category, accessToken)
 }
 
 /**
@@ -268,23 +252,127 @@ export async function submitV3Generate(
   return withNetworkRetry(() => client.ai.v3Generate(payload as any))
 }
 
-/** Poll a v3 media task by id. */
+/** Poll a v3 media task by id (simple GET). */
 export async function pollV3Task(taskId: string, accessToken: string) {
   const client = getSaasClient(accessToken)
   return withNetworkRetry(() => client.ai.v3Task(taskId))
+}
+
+/**
+ * Subscribe to v3 task SSE events (lightweight: only { taskId, status }).
+ * Returns a cleanup function that closes the EventSource.
+ */
+export function subscribeV3TaskEvents(
+  taskId: string,
+  accessToken: string,
+  handlers: {
+    onStatus: (event: import('@openloaf-saas/sdk').V3TaskSSEEvent) => void
+    onError?: (err: Event) => void
+  },
+): () => void {
+  const client = getSaasClient(accessToken)
+  const es = client.ai.v3TaskEvents(taskId)
+  es.addEventListener('status', ((e: MessageEvent) => {
+    try {
+      handlers.onStatus(JSON.parse(e.data))
+    } catch {
+      // ignore parse errors
+    }
+  }) as EventListener)
+  if (handlers.onError) {
+    es.onerror = handlers.onError as (ev: Event) => void
+  }
+  return () => es.close()
+}
+
+/** Task full result from v3Task GET. */
+export type V3TaskFullResult = {
+  taskId: string
+  status: 'queued' | 'running' | 'succeeded' | 'failed' | 'canceled'
+  resultUrls?: string[]
+  resultText?: string
+  creditsConsumed?: number
+  error?: { code?: string; message: string }
+}
+
+/**
+ * Wait for a v3 task to reach a terminal status via SSE, then GET full result.
+ * Supports AbortSignal and timeout.
+ */
+export async function waitV3TaskComplete(
+  taskId: string,
+  accessToken: string,
+  opts: { abortSignal?: AbortSignal; timeoutMs?: number } = {},
+): Promise<V3TaskFullResult> {
+  // 1. SSE 等待终态（deferred pattern，避免 new Promise(async ...) 反模式）
+  let resolve!: () => void
+  let reject!: (err: Error) => void
+  const ssePromise = new Promise<void>((res, rej) => { resolve = res; reject = rej })
+
+  let settled = false
+  let timer: ReturnType<typeof setTimeout> | undefined
+  let abortHandler: (() => void) | undefined
+  let closeEs: (() => void) | undefined
+
+  const teardown = () => {
+    if (timer) { clearTimeout(timer); timer = undefined }
+    if (abortHandler && opts.abortSignal) {
+      opts.abortSignal.removeEventListener('abort', abortHandler)
+      abortHandler = undefined
+    }
+    closeEs?.()
+  }
+
+  const settle = (fn: () => void) => {
+    if (settled) return
+    settled = true
+    teardown()
+    fn()
+  }
+
+  // abort/timeout 注册在 SSE 连接建立前，防止竞态
+  if (opts.abortSignal) {
+    abortHandler = () => settle(() => reject(new Error('已取消')))
+    if (opts.abortSignal.aborted) {
+      settle(() => reject(new Error('已取消')))
+    } else {
+      opts.abortSignal.addEventListener('abort', abortHandler, { once: true })
+    }
+  }
+
+  if (opts.timeoutMs && opts.timeoutMs > 0) {
+    timer = setTimeout(() => settle(() => reject(new Error('SSE 等待超时'))), opts.timeoutMs)
+  }
+
+  if (!settled) {
+    closeEs = subscribeV3TaskEvents(taskId, accessToken, {
+      onStatus(event) {
+        if (
+          event.status === 'succeeded' ||
+          event.status === 'failed' ||
+          event.status === 'canceled'
+        ) {
+          settle(() => resolve())
+        }
+      },
+      onError() {
+        settle(() => reject(new Error('SSE 连接失败')))
+      },
+    })
+  }
+
+  await ssePromise
+
+  // 2. GET 取完整结果
+  const response = await pollV3Task(taskId, accessToken)
+  if (!response?.data) {
+    throw new Error('任务结果查询失败')
+  }
+  return response.data as V3TaskFullResult
 }
 
 /** Cancel a v3 media task by id. */
 export async function cancelV3Task(taskId: string, accessToken: string) {
   const client = getSaasClient(accessToken)
   return withNetworkRetry(() => client.ai.v3CancelTask(taskId))
-}
-
-/** Poll a v3 media task group by group id. */
-export async function pollV3TaskGroup(
-  groupId: string,
-  accessToken: string,
-) {
-  const client = getSaasClient(accessToken)
-  return withNetworkRetry(() => client.ai.v3TaskGroup(groupId))
 }

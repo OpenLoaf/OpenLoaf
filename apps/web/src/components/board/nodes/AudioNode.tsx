@@ -60,6 +60,7 @@ import {
 import { VersionStackOverlay } from './VersionStackOverlay';
 import { GeneratingOverlay } from './GeneratingOverlay';
 import { AudioWavePlayer } from './AudioWavePlayer';
+import { useCancelGeneration } from './shared/useCancelGeneration';
 
 export type AudioNodeProps = {
   /** Board-relative path for the audio file. */
@@ -200,6 +201,7 @@ export function AudioNodeView({
   // Version-stack based generation
   // ---------------------------------------------------------------------------
   const { primaryEntry, generatingEntry, isGenerating } = useVersionStackState(element.props.versionStack)
+  const { handleCancel: handleCancelGeneration, cancelling: cancellingGeneration } = useCancelGeneration(generatingEntry?.taskId);
 
   // 逻辑：有生成记录时使用冻结的上游数据，版本切换时自动跟随。
   const effectiveUpstream = useEffectiveUpstream(primaryEntry, upstream, fileContext);
@@ -404,6 +406,8 @@ export function AudioNodeView({
             estimatedSeconds={30}
             serverProgress={pollingResult.progress}
             color="green"
+            onCancel={handleCancelGeneration}
+            cancelling={cancellingGeneration}
           />
         )}
 

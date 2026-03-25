@@ -9,9 +9,9 @@
 ```
 用户粘贴 URL → BoardCanvasInteraction.insertVideoFromUrl()
   → POST /media/video-download/start（返回 taskId）
-  → 创建 LoadingNode（taskId + promptText=url）
-  → pollVideoDownload 轮询进度
-  → 下载完成 → 创建 VideoNode + 清理 LoadingNode
+  → 创建 VideoNode（downloadTaskId + downloadUrl）
+  → VideoNode 内部轮询下载进度
+  → 下载完成 → 回填 sourcePath/posterPath/尺寸并清空下载任务字段
   → 服务端自动触发 HLS 预转码
 ```
 
@@ -20,8 +20,8 @@
 | 模块 | 文件 | 职责 |
 |------|------|------|
 | 前端入口 | `apps/web/src/components/board/core/BoardCanvasInteraction.tsx` | `insertVideoFromUrl()` 发起下载 |
-| 前端加载节点 | `apps/web/src/components/board/nodes/LoadingNode.tsx` | 下载进度轮询 + 404 自动重启 |
-| 前端视频节点 | `apps/web/src/components/board/nodes/VideoNode.tsx` | 播放、裁剪 UI、导出 |
+| 前端下载服务 | `apps/web/src/components/board/services/video-download.ts` | 下载启动 / 进度查询 / 取消 |
+| 前端视频节点 | `apps/web/src/components/board/nodes/VideoNode.tsx` | 下载进度轮询、播放、裁剪 UI、导出 |
 | 前端裁剪控件 | `apps/web/src/components/board/nodes/VideoTrimBar.tsx` | 双滑块时间范围选择器 |
 | 服务端路由 | `apps/server/src/modules/media/videoDownloadRoutes.ts` | 下载/进度/取消/导出/下载片段路由 |
 | 服务端服务 | `apps/server/src/modules/media/videoDownloadService.ts` | yt-dlp 下载 + ffmpeg 海报提取 + 裁剪导出 |
@@ -90,13 +90,13 @@ yt-dlp 的 `bestvideo+bestaudio` 模式分两次下载再合并：
 
 ### 404 自动重启机制
 
-当 `pollVideoDownload` 收到 404（服务重启丢失内存任务）：
+当 `VideoNode` 轮询下载任务收到 404 或其他失败结果时：
 
-1. 从 `LoadingNode.props.promptText` 中取回原始下载 URL
-2. 调用 `restartVideoDownload()` 重新发起 `POST /media/video-download/start`
-3. 更新 LoadingNode 的 `taskId` prop
-4. 重置进度和 attempt 计数器
-5. 限制最多 3 次自动重启，防止循环崩溃
+1. 从 `VideoNode.downloadUrl` 中取回原始下载 URL
+2. 重新发起 `POST /media/video-download/start`
+3. 更新 `VideoNode.downloadTaskId`
+4. 清空 `downloadError`，重置本地进度显示
+5. 若用户主动取消，则直接删除当前占位 VideoNode
 
 ## 视频裁剪（Trim/Clip）
 
@@ -184,12 +184,12 @@ project-scoped 路径（如 @[proj_xxx]/video.mp4）→ 提取 relativePath + pr
 | ffmpeg 无 `-y` 标志重复导出 | 始终加 `-y` 允许覆盖 |
 | Hono 路由用 `new Response(nodeStream)` | 用 `c.body(buffer)` 或正确转换为 Web ReadableStream |
 | HLS task 的 catch 中 throw error | 不 re-throw，logger.error 后返回空值 |
-| 404 重启无限循环 | 限制 maxRestarts（当前 3 次） |
-| downloadProgress 轮询 attempt 重启后不重置 | 重启后 `attempt = 0` 重新开始 |
+| 下载失败后仍保留旧 taskId | 重试时必须写入新的 `downloadTaskId` 并清空 `downloadError` |
+| 继续创建独立下载占位节点 | 直接创建 VideoNode，占位与下载进度都放在同一个节点里 |
 
 ## Debugging
 
-1. **下载卡住**：检查 LoadingNode 是否写入了 taskId，看服务端 yt-dlp 日志
+1. **下载卡住**：检查 `VideoNode.downloadTaskId` 是否存在，看服务端 yt-dlp 日志
 2. **下载完成但节点不出现**：检查 `result.fileName` 是否为空、`posterDataUrl` 提取是否成功
 3. **HLS 播放不了**：检查服务端 ffmpeg 日志，看 `ensureHlsAssets` 是否报错
 4. **裁剪滑块不动**：确认 document 级 pointermove/pointerup listener 已注册

@@ -125,6 +125,16 @@ export function SaasLoginDialog({ open, onOpenChange }: SaasLoginDialogProps) {
     await startLogin(provider);
   };
 
+  /** Restart the current provider login flow and reopen the login page. */
+  const handleReopenLogin = async () => {
+    if (selectedProvider == null || isClosingAfterLogin) {
+      return;
+    }
+    // 关键流程：重新打开前先停止当前轮询，否则 startLogin 会因进行中状态被短路。
+    cancelLogin();
+    await handleLogin(selectedProvider);
+  };
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
@@ -191,18 +201,30 @@ export function SaasLoginDialog({ open, onOpenChange }: SaasLoginDialogProps) {
             {isLoginInProgress ? (
               <div className="space-y-3">
                 {isClosingAfterLogin ? null : (
-                  <button
-                    type="button"
-                    className={cn(
-                      "flex w-full items-center justify-center gap-2 rounded-3xl border border-border/70 bg-muted/40 px-4 py-3 text-foreground transition-colors",
-                      "hover:bg-muted/60",
-                    )}
-                    onClick={() => {
-                      onOpenChange(false);
-                    }}
-                  >
-                    {t('login.cancelLogin')}
-                  </button>
+                  <div className="space-y-3">
+                    <button
+                      type="button"
+                      className={cn(
+                        "flex w-full items-center justify-center gap-2 rounded-3xl border border-border/70 bg-muted/40 px-4 py-3 text-foreground transition-colors",
+                        "hover:bg-muted/60",
+                      )}
+                      onClick={() => void handleReopenLogin()}
+                    >
+                      {t('login.reopenLogin')}
+                    </button>
+                    <button
+                      type="button"
+                      className={cn(
+                        "flex w-full items-center justify-center gap-2 rounded-3xl border border-border/70 bg-muted/40 px-4 py-3 text-foreground transition-colors",
+                        "hover:bg-muted/60",
+                      )}
+                      onClick={() => {
+                        onOpenChange(false);
+                      }}
+                    >
+                      {t('login.cancelLogin')}
+                    </button>
+                  </div>
                 )}
               </div>
             ) : (

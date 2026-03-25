@@ -105,6 +105,13 @@ export function SidebarUserAccount() {
     void refreshSession()
   }, [refreshSession])
 
+  // 打开用户面板时立即刷新 SaaS 用户信息（积分、等级等）
+  React.useEffect(() => {
+    if (dropdownOpen && authLoggedIn) {
+      void userProfileQuery.refetch()
+    }
+  }, [dropdownOpen]) // eslint-disable-line react-hooks/exhaustive-deps
+
   React.useEffect(() => {
     if (authLoggedIn) {
       setLoginOpen(false)
@@ -452,6 +459,13 @@ export function CompactUserAvatar() {
   React.useEffect(() => {
     void refreshSession()
   }, [refreshSession])
+
+  // 打开用户面板时立即刷新 SaaS 用户信息（积分、等级等）
+  React.useEffect(() => {
+    if (dropdownOpen && authLoggedIn) {
+      void userProfileQuery.refetch()
+    }
+  }, [dropdownOpen]) // eslint-disable-line react-hooks/exhaustive-deps
 
   React.useEffect(() => {
     if (authLoggedIn) setLoginOpen(false)

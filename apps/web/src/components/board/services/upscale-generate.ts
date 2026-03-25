@@ -17,9 +17,9 @@ export type UpscaleRequest = {
   variant?: string
 }
 
-export type UpscaleResult = {
-  taskId: string
-}
+export type UpscaleResult =
+  | { taskId: string }
+  | { groupId: string; taskIds: string[] }
 
 /** 将 legacy number scale 映射为 v3 string scale */
 export function normalizeScale(scale: 2 | 4 | '4K' | '8K'): '4K' | '8K' {
@@ -49,10 +49,17 @@ export async function submitUpscale(
     sourceNodeId: options.sourceNodeId,
   })
 
-  if (!result || result.success !== true || !result.data?.taskId) {
+  if (!result || result.success !== true) {
     const message = result?.message || 'Upscale task submission failed'
     throw new Error(message)
   }
 
-  return { taskId: result.data.taskId as string }
+  const data = result.data
+  if (data.groupId && Array.isArray(data.taskIds)) {
+    return { groupId: data.groupId as string, taskIds: data.taskIds as string[] }
+  }
+  if (!data.taskId) {
+    throw new Error(result.message || 'Upscale task submission failed')
+  }
+  return { taskId: data.taskId as string }
 }

@@ -29,6 +29,11 @@ import type {
   CanvasPoint,
   CanvasSnapshot,
 } from "../engine/types";
+import {
+  createGeneratingEntry,
+  createInputSnapshot,
+  pushVersion,
+} from "../engine/version-stack";
 import { getClipboardInsertPayload } from "../engine/clipboard";
 import { isBoardUiTarget } from "../utils/dom";
 import { toScreenPoint } from "../utils/coordinates";
@@ -73,10 +78,10 @@ import {
 import type { ImageNodeProps } from "../nodes/ImageNode";
 import type { VideoNodeProps } from "../nodes/VideoNode";
 import type { LinkNodeProps } from "../nodes/LinkNode";
-import { deriveNode, avoidNodeCollisions } from "../utils/derive-node";
-import { submitUpscale } from "../services/upscale-generate";
-import { DEFAULT_NODE_SIZE } from "../engine/constants";
-import { BOARD_ASSETS_DIR_NAME } from "@/lib/file-name";
+import { deriveNode } from "../utils/derive-node";
+import { submitUpscale, normalizeScale } from "../services/upscale-generate";
+import { resolveErrorMessage } from "../hooks/useVersionStack";
+import { startVideoDownload } from "../services/video-download";
 import { openFilePreview } from "@/components/file/lib/file-preview-store";
 import { fetchVideoMetadata } from "@/components/file/lib/video-metadata";
 import {
@@ -90,7 +95,6 @@ import {
 } from "./boardFilePath";
 import { buildLinkNodePayloadFromUrl } from "../utils/link";
 import { isVideoPlatformUrl } from "../utils/video-url";
-import { resolveServerUrl } from "@/utils/server-url";
 import { useLayoutState } from "@/hooks/use-layout-state";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -1043,39 +1047,28 @@ export function BoardCanvasInteraction({
     }
   };
 
-  /** Insert a video from a platform URL: create loading node and start server-side download. */
+  /** Insert a video from a platform URL: create a video node and start server-side download. */
   const insertVideoFromUrl = async (url: string, center: CanvasPoint) => {
     const bfUri = fileContext?.boardFolderUri ?? boardFolderUri;
     const w = DEFAULT_VIDEO_NODE_MAX;
     const h = Math.round(w * (9 / 16));
 
-    const baseUrl = resolveServerUrl();
-    const prefix = baseUrl || "";
-
     try {
-      const startRes = await fetch(`${prefix}/media/video-download/start`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          url,
-          boardFolderUri: bfUri,
-          projectId: fileContext?.projectId,
-          boardId: fileContext?.boardId,
-        }),
+      const taskId = await startVideoDownload({
+        url,
+        boardFolderUri: bfUri,
+        projectId: fileContext?.projectId,
+        boardId: fileContext?.boardId,
       });
-      const startJson = await startRes.json();
-      if (!startJson.success || !startJson.data?.taskId) {
-        throw new Error(startJson.error || "Failed to start download");
-      }
 
       engine.addNodeElement(
-        "loading",
+        "video",
         {
-          taskId: startJson.data.taskId,
-          taskType: "video_download",
-          promptText: url,
-          projectId: fileContext?.projectId || "",
-          saveDir: bfUri ? `${bfUri}/asset` : "",
+          sourcePath: "",
+          fileName: "",
+          downloadTaskId: taskId,
+          downloadUrl: url,
+          downloadError: "",
         },
         [center[0] - w / 2, center[1] - h / 2, w, h],
       );
@@ -1564,56 +1557,74 @@ export function BoardCanvasInteraction({
             ? (resolveNodeFileInfo(node as CanvasNodeElement, fileContext)?.href || originalSrc)
             : previewSrc;
           if (!sourceImageSrc) return;
+          const promptText = "upscale 2x";
+          const variant = "OL-UP-001";
+          const scale = 2 as const;
+          const inputSnapshot = createInputSnapshot({
+            prompt: promptText,
+            parameters: {
+              feature: "upscale",
+              variant,
+              inputs: {
+                image: { url: sourceImageSrc },
+              },
+              params: {
+                scale: normalizeScale(scale),
+              },
+            },
+          });
+          const pendingEntry = createGeneratingEntry(inputSnapshot, "");
+          const derivedNodeId = deriveNode({
+            engine,
+            sourceNodeId: nodeId,
+            targetType: "image",
+            targetProps: {
+              fileName: promptText,
+              aiConfig: {
+                feature: "upscale",
+                prompt: promptText,
+              },
+              versionStack: pushVersion(undefined, pendingEntry),
+            },
+          });
+          if (!derivedNodeId) return;
+
           submitUpscale(
-            { sourceImageSrc, scale: 2 },
-            { projectId: fileContext?.projectId },
+            { sourceImageSrc, scale, variant },
+            {
+              projectId: fileContext?.projectId,
+              boardId: fileContext?.boardId,
+              sourceNodeId: derivedNodeId,
+            },
           )
             .then((result) => {
-              // 逻辑：重新读取源节点，避免 async 期间位置变化导致放置位置过时。
-              const currentNode = engine.doc.getElementById(nodeId);
-              if (!currentNode || currentNode.kind !== "node") return;
-              const sourceXywh = currentNode.xywh;
-              const [loadingW, loadingH] = DEFAULT_NODE_SIZE;
-              const existingOutputs = collectOutboundTargetRects(engine, nodeId);
-              const placement = resolveDirectionalStackPlacement(
-                sourceXywh,
-                existingOutputs,
-                { direction: 'right', sideGap: 60, stackGap: 16, outputSize: [loadingW, loadingH] },
-              );
-              const x = placement ? placement.x : sourceXywh[0] + sourceXywh[2] + 60;
-              const y = placement ? placement.y : sourceXywh[1];
-              const proposed: [number, number, number, number] = [x, y, loadingW, loadingH];
-              const allNodes = engine.doc
-                .getElements()
-                .filter((el): el is CanvasNodeElement => el.kind === 'node');
-              const finalXywh = avoidNodeCollisions(proposed, allNodes, nodeId, 'right');
-              const loadingNodeId = engine.addNodeElement(
-                'loading',
-                {
-                  taskId: result.taskId,
-                  taskType: 'upscale',
-                  sourceNodeId: nodeId,
-                  promptText: 'upscale 2x',
-                  projectId: fileContext?.projectId ?? '',
-                  saveDir: fileContext?.boardFolderUri
-                    ? `${fileContext.boardFolderUri}/${BOARD_ASSETS_DIR_NAME}`
-                    : '',
+              const upscaleTaskId = 'taskId' in result ? result.taskId : result.taskIds[0];
+              engine.doc.updateNodeProps(derivedNodeId, {
+                versionStack: {
+                  entries: [{ ...pendingEntry, taskId: upscaleTaskId }],
+                  primaryId: pendingEntry.id,
                 },
-                finalXywh,
-              );
-              if (loadingNodeId) {
-                engine.addConnectorElement(
-                  {
-                    source: { elementId: nodeId },
-                    target: { elementId: loadingNodeId },
-                    style: engine.getConnectorStyle(),
-                  },
-                  { skipHistory: true, select: false },
-                );
-              }
+              });
             })
             .catch((err: unknown) => {
               console.error('[board] upscale failed:', err);
+              const message = resolveErrorMessage(err);
+              const failedEntryId = `fail-${Date.now()}`;
+              engine.doc.updateNodeProps(derivedNodeId, {
+                versionStack: {
+                  entries: [{
+                    id: failedEntryId,
+                    status: 'failed',
+                    input: inputSnapshot,
+                    createdAt: Date.now(),
+                    error: {
+                      code: 'SUBMIT_FAILED',
+                      message,
+                    },
+                  }],
+                  primaryId: failedEntryId,
+                },
+              });
             });
         }}
         onNodeDownload={(nodeId) => {

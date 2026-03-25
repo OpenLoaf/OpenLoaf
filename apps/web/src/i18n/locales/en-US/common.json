@@ -175,6 +175,7 @@
     "subtitlePolling": "Opened in browser, waiting for sign-in…",
     "subtitleError": "Sign-in failed, please try again",
     "subtitleDefault": "Connect your cloud account",
+    "reopenLogin": "Reopen",
     "cancelLogin": "Cancel sign-in",
     "loginWithGoogle": "Sign in with Google",
     "loginWithWechat": "Sign in with WeChat",

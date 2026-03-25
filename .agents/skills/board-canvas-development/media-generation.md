@@ -68,24 +68,21 @@ SaaS 仓库参考文档：`OpenLoaf-saas/.agents/skills/openloaf-saas-sdk-refere
 | **输入** | 提示词必需，多图可选，最多 9 张 | 提示词和图片至少一项 | 单张图片必需 |
 | **输出** | ImageNode 1-5 张 | VideoNode 1 个 | `resultText` 文本 |
 | **接口** | `POST /ai/image` | `POST /ai/vedio` | `POST /ai/execute` SSE |
-| **异步模式** | LoadingNode 轮询 | LoadingNode 轮询 | SSE 流式更新 |
+| **异步模式** | `versionStack + useMediaTaskPolling` | `versionStack + useMediaTaskPolling` | SSE 流式更新 |
 
 > 备注：Board 节点走 SaaS HTTP 接口，不再走旧的 tRPC `ai` 路由。
 
 ## 输入解析与异步任务
 
-- 图片和视频节点都通过 connector 动态收集上游输入，不把媒体输入冗余存进 props。
-- 异步生成流程固定为：
-  1. 先创建 LoadingNode
-  2. 建立 source → loading 的连接
+- 图片、视频、音频节点都通过 connector 动态收集上游输入，不把媒体输入冗余存进 props。
+- 当前异步生成流程固定为：
+  1. 先向目标媒体节点写入 `versionStack.generating`（立即显示 loading）
+  2. 异步上传输入媒体（mask、图片、音频等）
   3. 提交任务
-  4. 将返回的 `taskId` 写回 LoadingNode
-  5. 轮询直到创建最终节点并清理 LoadingNode
-- LoadingNode 和提交 payload 当前都只使用：
-  - `projectId`
-  - `saveDir`
-  - `sourceNodeId`
-- 不要再向 Board 媒体链路写入历史工作空间字段。
+  4. 将返回的 `taskId` 回填到 generating entry
+  5. 节点内部通过 `useMediaTaskPolling()` 监听 SSE / GET 轮询
+  6. 成功时 `markVersionReady()` 并回填资源；失败时移除 generating entry 并显示 `FailureOverlay`
+- 平台视频下载现在也复用 `VideoNode` 本身的下载任务字段。
 
 ## 媒体保存路径规则（重要）
 
@@ -193,32 +190,27 @@ const imageSaveDir = useMemo(() => {
 ## 动态参数与运行时字段
 
 - 视频节点的高级参数来自模型定义里的 `parameters.fields`。
-- LoadingNode 关注的核心运行时字段包括：
-  - `taskId`
-  - `taskType`
-  - `sourceNodeId`
-  - `promptText`
-  - `chatModelId`
-  - `projectId`
-  - `saveDir`
+- `VideoNode` 的 URL 下载运行时字段包括：
+  - `downloadTaskId`
+  - `downloadUrl`
+  - `downloadError`
 
 ## Common Mistakes
 
 | 错误 | 正确做法 |
 |------|----------|
-| 直接提交任务，不先建 LoadingNode | 先建 LoadingNode，再提交并写回 `taskId` |
-| LoadingNode 没有 connector | 必须保留源节点到 LoadingNode 的连接 |
+| 直接提交任务，不先写入 `versionStack.generating` | 先让目标媒体节点进入 generating，再异步提交并回填 `taskId` |
+| 为异步任务额外新增占位节点类型 | 统一复用媒体节点自身状态；AI 用 `versionStack + useMediaTaskPolling`，平台视频下载用 `VideoNode` 下载任务字段 |
 | 图片未转 `{ base64, mediaType }` | SaaS 提交前统一转成 base64 payload |
 | 视频不区分普通模式与首尾帧模式 | 根据 `supportsStartEnd` 决定 `inputs` 结构 |
 | 新模型未补过滤规则 | 同步更新图片/视频节点的过滤逻辑 |
-| 清理 LoadingNode 时遗留 connector | 保证节点和连线一起清理 |
 | 前端判断 `boardFolderScope.projectId` 再选路径策略 | 始终用相对路径，服务端处理 projectId 有无的 fallback |
 | 临时画布用 `file://` URI 作为 saveDir | 统一用相对路径，服务端 fallback 到 `appTempStorageDir` |
 
 ## Debugging
 
 1. 模型为空时先检查 SaaS 登录态和模型接口响应。
-2. 任务卡住时先看 LoadingNode 上是否写入 `taskId`。
+2. 平台视频下载卡住时先看 `VideoNode.downloadTaskId` 是否存在，以及 `/media/video-download/progress` 是否持续返回进度。
 3. 图片或视频不显示时检查最终节点 payload 是否完整。
 4. 连线输入未识别时重点检查 connector 的 target/source 关系。
 5. SSE 中断时优先确认 `[DONE]` 处理和 AbortController 生命周期。

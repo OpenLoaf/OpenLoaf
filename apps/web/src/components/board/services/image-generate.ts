@@ -38,9 +38,9 @@ export type ImageGenerateRequest = {
   quality?: 'draft' | 'standard' | 'hd'
 }
 
-export type ImageGenerateResult = {
-  taskId: string
-}
+export type ImageGenerateResult =
+  | { taskId: string }
+  | { groupId: string; taskIds: string[] }
 
 /**
  * Submit an image generation task via v3 endpoint.
@@ -71,12 +71,19 @@ export async function submitImageGenerate(
       sourceNodeId: options.sourceNodeId,
     })
 
-    if (!result || result.success !== true || !result.data?.taskId) {
+    if (!result || result.success !== true) {
       const message = result?.message || 'Image generation task creation failed'
       throw new Error(message)
     }
 
-    return { taskId: result.data.taskId as string }
+    const data = result.data
+    if (data.groupId && Array.isArray(data.taskIds)) {
+      return { groupId: data.groupId as string, taskIds: data.taskIds as string[] }
+    }
+    if (!data.taskId) {
+      throw new Error(result.message || 'Image generation task creation failed')
+    }
+    return { taskId: data.taskId as string }
   }
 
   // v2 fallback: build v3 payload from legacy fields
@@ -111,10 +118,17 @@ export async function submitImageGenerate(
     sourceNodeId: options.sourceNodeId,
   })
 
-  if (!result || result.success !== true || !result.data?.taskId) {
+  if (!result || result.success !== true) {
     const message = result?.message || 'Image generation task creation failed'
     throw new Error(message)
   }
 
-  return { taskId: result.data.taskId as string }
+  const v2data = result.data
+  if (v2data.groupId && Array.isArray(v2data.taskIds)) {
+    return { groupId: v2data.groupId as string, taskIds: v2data.taskIds as string[] }
+  }
+  if (!v2data.taskId) {
+    throw new Error(result.message || 'Image generation task creation failed')
+  }
+  return { taskId: v2data.taskId as string }
 }

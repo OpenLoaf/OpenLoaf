@@ -27,13 +27,9 @@ import { readBasicConf, readS3Providers } from "@/modules/settings/openloafConfS
 import { createS3StorageService, resolveS3ProviderConfig } from "@/modules/storage/s3StorageService";
 import { logger } from "@/common/logger";
 import {
-  fetchMediaModelsV2,
   uploadMediaFile,
-  fetchCapabilitiesV3,
   submitV3Generate,
   pollV3Task,
-  cancelV3Task,
-  pollV3TaskGroup,
 } from "./client";
 import {
   clearMediaTask,
@@ -129,7 +125,6 @@ async function splitMediaSubmitBody(body: unknown): Promise<{
     },
   };
 }
-
 // ---------------------------------------------------------------------------
 // Local URL → S3 public URL / base64 resolution
 // ---------------------------------------------------------------------------
@@ -419,14 +414,6 @@ function inferResultType(feature: string): "image" | "video" | "audio" {
   }
 }
 
-/** Fetch v2 media models (unified, with optional feature filter). */
-export async function fetchMediaModelsProxy(
-  accessToken: string,
-  feature?: string,
-): Promise<unknown> {
-  return fetchMediaModelsV2(accessToken, feature);
-}
-
 export type PollRecoveryHint = {
   /** Project id for lazy loading board tasks. */
   projectId?: string
@@ -437,14 +424,6 @@ export type PollRecoveryHint = {
 }
 
 // ═══════════ Media v3 proxy functions ═══════════
-
-/** Fetch v3 capabilities for a given media category. */
-export async function fetchCapabilitiesProxy(
-  category: 'image' | 'video' | 'audio',
-  accessToken: string,
-): Promise<unknown> {
-  return fetchCapabilitiesV3(category, accessToken);
-}
 
 /** Submit v3 media generation task with local URL resolution. */
 export async function submitV3GenerateProxy(
@@ -621,27 +600,5 @@ export async function pollV3TaskProxy(
       error: data.error,
     },
   };
-}
-
-/** Cancel v3 media task. */
-export async function cancelV3TaskProxy(
-  taskId: string,
-  accessToken: string,
-): Promise<unknown> {
-  if (!taskId) {
-    throw new MediaProxyHttpError(400, "invalid_payload", "任务编号无效");
-  }
-  return cancelV3Task(taskId, accessToken);
-}
-
-/** Poll v3 task group. */
-export async function pollV3TaskGroupProxy(
-  groupId: string,
-  accessToken: string,
-): Promise<unknown> {
-  if (!groupId) {
-    throw new MediaProxyHttpError(400, "invalid_payload", "任务组编号无效");
-  }
-  return pollV3TaskGroup(groupId, accessToken);
 }
 

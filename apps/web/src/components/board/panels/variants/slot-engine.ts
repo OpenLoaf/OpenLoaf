@@ -16,15 +16,18 @@ import type { BoardFileContext } from '../../board-contracts'
 import type { UpstreamData, UpstreamEntry } from '../../engine/upstream-data'
 import { resolveMediaSource } from '../../nodes/shared/resolveMediaSource'
 import type {
+  AnySlot,
   InputSlotDefinition,
   MediaReference,
   MediaType,
+  MultiSlotDefinition,
   PersistedSlotMap,
   PoolReference,
   ReferencePools,
-  SlotAssignment,
   TextReference,
+  V3InputSlotDefinition,
 } from './slot-types'
+import type { ResolveContext } from './types'
 
 // ---------------------------------------------------------------------------
 // Type guards
@@ -109,86 +112,7 @@ export function buildReferencePools(
 }
 
 // ---------------------------------------------------------------------------
-// assignUpstreamToSlots
-// ---------------------------------------------------------------------------
-
-/**
- * Distribute reference pools across declared input slots.
- *
- * Algorithm:
- * 1. Clone pools to avoid mutating the caller's data.
- * 2. Sort slots: required (min > 0) first, then optional — ensures required
- *    slots are filled before optional ones compete for the same media type.
- * 3. For each slot:
- *    - Text slots with overflowStrategy='merge' and more items than max:
- *      merge all text into one synthetic TextReference.
- *    - Otherwise: splice up to max items from the pool for that media type.
- * 4. Collect missingRequired for slots where assigned.length < min.
- * 5. Remaining pool items become overflow entries.
- */
-export function assignUpstreamToSlots(
-  slots: InputSlotDefinition[],
-  pools: ReferencePools,
-): SlotAssignment {
-  if (slots.length === 0) {
-    return { assigned: {}, overflow: {}, missingRequired: [] }
-  }
-
-  // Clone pools so we can splice without side effects
-  const workPools: ReferencePools = {
-    text: [...pools.text],
-    image: [...pools.image],
-    video: [...pools.video],
-    audio: [...pools.audio],
-  }
-
-  const assigned: Record<string, PoolReference[]> = {}
-  const missingRequired: string[] = []
-
-  // Required slots first
-  const sorted = [...slots].sort((a, b) => {
-    const aRequired = a.min > 0 ? 0 : 1
-    const bRequired = b.min > 0 ? 0 : 1
-    return aRequired - bRequired
-  })
-
-  for (const slot of sorted) {
-    const pool = workPools[slot.mediaType] as PoolReference[]
-
-    if (
-      slot.mediaType === 'text' &&
-      slot.overflowStrategy === 'merge' &&
-      pool.length > slot.max
-    ) {
-      // Merge all text entries into one synthetic TextReference
-      const textRefs = pool.filter(isTextReference)
-      const merged = mergeTextReferences(textRefs, slot.id)
-      pool.length = 0 // consume entire pool
-      assigned[slot.id] = [merged]
-    } else {
-      const take = Math.min(pool.length, slot.max)
-      assigned[slot.id] = pool.splice(0, take)
-    }
-
-    if (assigned[slot.id].length < slot.min) {
-      missingRequired.push(slot.id)
-    }
-  }
-
-  // Any remaining pool items become overflow, keyed by media type
-  const overflow: Record<string, PoolReference[]> = {}
-  for (const mediaType of ['text', 'image', 'video', 'audio'] as MediaType[]) {
-    const remaining = workPools[mediaType]
-    if (remaining.length > 0) {
-      overflow[mediaType] = remaining
-    }
-  }
-
-  return { assigned, overflow, missingRequired }
-}
-
-// ---------------------------------------------------------------------------
-// restoreOrAssign
+// restoreOrAssign (legacy)
 // ---------------------------------------------------------------------------
 
 export type UnifiedSlotResult = {
@@ -201,7 +125,7 @@ export type UnifiedSlotResult = {
 }
 
 /**
- * Unified slot assignment with cache restore support.
+ * Unified slot assignment with cache restore support (legacy v2).
  *
  * Algorithm:
  * 1. Build a nodeId → MediaReference lookup from the pools.
@@ -234,16 +158,12 @@ export function restoreOrAssign(
   }
 
   // Pass 1: Restore from cache
-  // First validate that all required slots' cached values are still connected.
-  // If any required slot's cache is stale (non-manual and nodeId not in pool),
-  // abandon the entire cache restore and fall through to full auto-assignment.
   if (cachedAssignment) {
     let cacheValid = true
     for (const slot of slots) {
-      if (slot.min === 0) continue // optional slots don't invalidate the cache
+      if (slot.min === 0) continue
       const cachedValue = cachedAssignment[slot.id]
       if (!cachedValue) continue
-      // Normalize to array for uniform validation
       const values = Array.isArray(cachedValue) ? cachedValue : [cachedValue]
       const hasValidRef = values.some((v) => v.startsWith('manual:') || mediaRefMap.has(v))
       if (!hasValidRef) {
@@ -257,7 +177,6 @@ export function restoreOrAssign(
         const cachedValue = cachedAssignment[slot.id]
         if (!cachedValue) continue
 
-        // Normalize to array for uniform processing
         const values = Array.isArray(cachedValue) ? cachedValue : [cachedValue]
         const refs: PoolReference[] = []
 
@@ -333,6 +252,177 @@ export function restoreOrAssign(
 }
 
 // ---------------------------------------------------------------------------
+// restoreOrAssignV3
+// ---------------------------------------------------------------------------
+
+// Type guards for V3 slot kinds
+function isTaskRefSlot(slot: AnySlot): slot is import('./slot-types').TaskRefSlot {
+  return 'kind' in slot && (slot as any).kind === 'taskRef'
+}
+
+function isMultiSlot(slot: AnySlot): slot is MultiSlotDefinition {
+  return 'kind' in slot && (slot as any).kind === 'multi'
+}
+
+function getSlotMax(slot: V3InputSlotDefinition | MultiSlotDefinition): number {
+  if (isMultiSlot(slot)) return slot.max
+  return slot.max ?? 1
+}
+
+function getSlotMin(slot: V3InputSlotDefinition | MultiSlotDefinition): number {
+  return slot.min ?? 0
+}
+
+/**
+ * V3 slot assignment engine (API-driven, no source/visible/hidden).
+ *
+ * All slots go through pool assignment, EXCEPT:
+ * - TaskRefSlot: skipped entirely (not pool-assigned)
+ * - role === 'mask': skipped from auto-assignment, kept empty (user paints manually)
+ *
+ * Node resource is already included in the pool via buildReferencePools.
+ */
+export function restoreOrAssignV3(
+  slots: AnySlot[],
+  pools: ReferencePools,
+  resolveContext: ResolveContext,
+  cache?: PersistedSlotMap,
+): UnifiedSlotResult {
+  const assigned: Record<string, PoolReference[]> = {}
+  const usedNodeIds = new Set<string>()
+
+  // Build nodeId → MediaReference lookup
+  const mediaRefMap = new Map<string, MediaReference>()
+  for (const type of ['image', 'video', 'audio'] as const) {
+    for (const ref of pools[type] ?? []) {
+      if (isMediaReference(ref)) {
+        mediaRefMap.set(ref.nodeId, ref)
+      }
+    }
+  }
+
+  // Filter: skip taskRef slots
+  const activeSlots: (V3InputSlotDefinition | MultiSlotDefinition)[] = []
+  for (const slot of slots) {
+    if (isTaskRefSlot(slot)) continue
+    activeSlots.push(slot as V3InputSlotDefinition | MultiSlotDefinition)
+  }
+
+  // Separate mask slots (user paints manually) from pool slots
+  const poolSlots: typeof activeSlots = []
+  for (const slot of activeSlots) {
+    if (slot.role === 'mask') {
+      // Mask slots stay empty — user paints manually
+      assigned[slot.role] = []
+    } else {
+      poolSlots.push(slot)
+    }
+  }
+
+  // Pass 1: Restore pool slots from cache
+  if (cache) {
+    let cacheValid = true
+    for (const slot of poolSlots) {
+      if (getSlotMin(slot) === 0) continue
+      const cachedValue = cache[slot.role]
+      if (!cachedValue) continue
+      const values = Array.isArray(cachedValue) ? cachedValue : [cachedValue]
+      const hasValidRef = values.some((v) => v.startsWith('manual:') || mediaRefMap.has(v))
+      if (!hasValidRef) {
+        cacheValid = false
+        break
+      }
+    }
+
+    if (cacheValid) {
+      for (const slot of poolSlots) {
+        const cachedValue = cache[slot.role]
+        if (!cachedValue) continue
+
+        const values = Array.isArray(cachedValue) ? cachedValue : [cachedValue]
+        const refs: PoolReference[] = []
+
+        for (let i = 0; i < values.length; i++) {
+          const v = values[i]
+          if (v.startsWith('manual:')) {
+            const manualPath = v.slice('manual:'.length)
+            refs.push({
+              nodeId: `__manual_${slot.role}_${i}__`,
+              nodeType: slot.accept,
+              url: manualPath,
+              path: manualPath,
+            } as MediaReference)
+          } else {
+            const ref = mediaRefMap.get(v)
+            if (ref && !usedNodeIds.has(v)) {
+              refs.push(ref)
+              usedNodeIds.add(v)
+            }
+          }
+        }
+
+        if (refs.length > 0) {
+          assigned[slot.role] = refs
+        }
+      }
+    }
+  }
+
+  // Pass 2: Auto-assign unassigned pool slots
+  for (const slot of poolSlots) {
+    if (assigned[slot.role]?.length) continue
+    assigned[slot.role] = []
+
+    if (slot.accept === 'text') {
+      const textRefs = (pools.text ?? []).filter(isTextReference)
+      if (textRefs.length > 0) {
+        assigned[slot.role] = textRefs.slice(0, getSlotMax(slot))
+      }
+      continue
+    }
+
+    const acceptKey = slot.accept as MediaType
+    if (!(acceptKey in pools)) continue
+    const pool = (pools[acceptKey] ?? []).filter(isMediaReference)
+    const available = pool.filter(
+      (r: MediaReference) => !usedNodeIds.has(r.nodeId),
+    )
+    const toAssign = available.slice(0, getSlotMax(slot))
+    assigned[slot.role] = toAssign
+    for (const ref of toAssign) {
+      usedNodeIds.add(ref.nodeId)
+    }
+  }
+
+  // Pass 3: Collect associated (unassigned media refs)
+  const associated: MediaReference[] = []
+  const seenAssocIds = new Set<string>()
+  for (const type of ['image', 'video', 'audio'] as const) {
+    for (const ref of pools[type] ?? []) {
+      if (
+        isMediaReference(ref) &&
+        !usedNodeIds.has(ref.nodeId) &&
+        !seenAssocIds.has(ref.nodeId)
+      ) {
+        associated.push(ref)
+        seenAssocIds.add(ref.nodeId)
+      }
+    }
+  }
+
+  // Pass 4: Collect missingRequired
+  const missingRequired: string[] = []
+  for (const slot of activeSlots) {
+    const min = getSlotMin(slot)
+    if (min > 0 && (!assigned[slot.role] || assigned[slot.role].length < min)) {
+      missingRequired.push(slot.role)
+    }
+  }
+
+  return { assigned, associated, missingRequired }
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
@@ -352,19 +442,5 @@ function nodeTypeToMediaType(nodeType: string): MediaType | null {
       return 'audio'
     default:
       return null
-  }
-}
-
-/**
- * Merge multiple TextReferences into a single synthetic one.
- * Contents are joined with double newlines.
- */
-function mergeTextReferences(refs: TextReference[], slotId: string): TextReference {
-  const content = refs.map((r) => r.content).join('\n\n')
-  return {
-    nodeId: `merged:${slotId}`,
-    label: `Merged (${refs.length})`,
-    content,
-    charCount: content.length,
   }
 }

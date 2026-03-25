@@ -7,30 +7,28 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
-import {
-  Lock,
-  Loader2,
-} from 'lucide-react'
+import { Lock } from 'lucide-react'
 import { toast } from 'sonner'
 import type { CanvasNodeElement } from '../engine/types'
 import type { UpstreamData } from '../engine/upstream-data'
 import type { VideoNodeProps } from '../nodes/VideoNode'
 import type { AiGenerateConfig } from '../board-contracts'
-import { MEDIA_FEATURES, type MediaFeatureId } from '@openloaf-saas/sdk'
 import { useSaasAuth } from '@/hooks/use-saas-auth'
 import { fetchUserProfile } from '@/lib/saas-auth'
 import { PricingDialog } from '@/components/billing/PricingDialog'
-import { useCapabilities } from '@/hooks/use-capabilities'
 import { GenerateActionBar } from './GenerateActionBar'
-import { VIDEO_VARIANTS } from './variants/video'
-import type { VariantContext } from './variants/types'
-import type { MediaReference, PersistedSlotMap } from './variants/slot-types'
+import { serializeForGenerate } from './variants/serialize'
+import type { MediaReference, MediaType, PersistedSlotMap } from './variants/slot-types'
 import { InputSlotBar, type ResolvedSlotInputs } from './variants/shared/InputSlotBar'
-import { ScrollableTabBar } from '../ui/ScrollableTabBar'
+import { GenericVariantForm } from './variants/shared/GenericVariantForm'
 import type { BoardFileContext } from '../board-contracts'
+import { useVariantPanel } from './hooks/useVariantPanel'
+import { useVariantParamsCache } from './hooks/useVariantParamsCache'
+import { CapabilitiesFallback } from './shared/CapabilitiesFallback'
+import { FeatureTabBar } from './shared/FeatureTabBar'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -50,9 +48,6 @@ export type VideoGenerateParams = {
   count?: number
   /** Seed for reproducibility. */
   seed?: number
-  /** Credits per call for this variant (informational). */
-  creditsPerCall?: number
-
   // ── Legacy fields kept for backward compat with VideoNode caller ──
   /** @deprecated Use inputs/params instead. */
   prompt?: string
@@ -130,8 +125,7 @@ export function VideoAiPanel({
   onUnlock,
   onCancelEdit,
 }: VideoAiPanelProps) {
-  const { t, i18n } = useTranslation('board')
-  const prefLang = i18n.language.startsWith('zh') ? 'zh' : 'en'
+  const { t } = useTranslation('board')
 
   // ── Membership gate: free/lite users cannot use video generation ──
   const loggedIn = useSaasAuth((s) => s.loggedIn)
@@ -142,217 +136,143 @@ export function VideoAiPanel({
     staleTime: 60_000,
   })
   const membershipLevel = profileQuery.data?.membershipLevel
-  const isVideoLocked = loggedIn && membershipLevel != null && (membershipLevel === 'free' || membershipLevel === 'lite')
+  const isVideoLocked =
+    loggedIn &&
+    membershipLevel != null &&
+    (membershipLevel === 'free' || membershipLevel === 'lite')
   const [pricingOpen, setPricingOpen] = useState(false)
-
-  if (isVideoLocked) {
-    return (
-      <div className="flex w-[420px] flex-col items-center justify-center gap-3 rounded-3xl border border-border bg-card px-6 py-10 shadow-lg">
-        <Lock size={24} className="text-muted-foreground" />
-        <div className="text-center">
-          <div className="text-sm font-medium text-foreground">{t('videoLocked.title')}</div>
-          <div className="mt-1 text-xs text-muted-foreground">{t('videoLocked.description')}</div>
-        </div>
-        <button
-          type="button"
-          className="mt-1 inline-flex items-center gap-1 rounded-full bg-foreground px-4 py-1.5 text-xs font-medium text-background transition-colors duration-150 hover:bg-foreground/90"
-          onClick={() => setPricingOpen(true)}
-        >
-          {t('videoLocked.upgrade')}
-        </button>
-        <PricingDialog open={pricingOpen} onOpenChange={setPricingOpen} />
-      </div>
-    )
-  }
 
   const aiConfig = element.props.aiConfig
 
-  // ── v3 Capabilities ──
+  // ── Compute node media type & upstream types ──
+  const nodeHasVideo = Boolean(element.props.sourcePath)
+  const nodeMediaType: MediaType | undefined = nodeHasVideo ? 'video' : undefined
+  const upstreamTypes = useMemo(() => {
+    const types = new Set<MediaType>()
+    if (upstreamImages?.length) types.add('image')
+    if (upstreamAudioUrl) types.add('audio')
+    if (upstreamVideoUrl) types.add('video')
+    return types
+  }, [upstreamImages?.length, upstreamAudioUrl, upstreamVideoUrl])
+
+  // ── Shared variant panel hook ──
+  const panel = useVariantPanel({
+    category: 'video',
+    nodeMediaType,
+    upstreamTypes,
+    initialFeatureId: (aiConfig?.feature as string) ?? '',
+    cachedFeatureId: aiConfig?.feature as string | undefined,
+  })
+
   const {
-    data: capsData,
-    loading: capsLoading,
-    error: capsError,
-    refresh: capsRefresh,
-  } = useCapabilities('video')
+    features,
+    capsLoading,
+    capsError,
+    capsRefresh,
+    selectedFeatureId,
+    setSelectedFeatureId,
+    selectedFeature,
+    selectedVariantId,
+    setSelectedVariantId,
+    selectedVariant,
+    isVariantApplicable,
+    mergedSlots,
+    remoteParams,
+    prefLang,
+    variantWarning,
+    setVariantWarning,
+  } = panel
 
-  const features = useMemo(() => capsData?.features ?? [], [capsData])
-
-  // ── Feature tab state ──
-  const [selectedFeatureId, setSelectedFeatureId] = useState<string>(
-    (aiConfig?.feature as string) ?? '',
-  )
-
-  // Auto-select first feature when caps load.
-  useEffect(() => {
-    if (features.length > 0 && !features.find((f) => f.id === selectedFeatureId)) {
-      setSelectedFeatureId(features[0].id)
-    }
-  }, [features, selectedFeatureId])
-
-  const selectedFeature = useMemo(
-    () => features.find((f) => f.id === selectedFeatureId) ?? null,
-    [features, selectedFeatureId],
-  )
-
-  // ── Variant context & applicability ──
-  const variantCtx: VariantContext = useMemo(() => ({
-    nodeHasImage: false, // video nodes don't have a "current image"
-    hasImage: Boolean(upstreamImages?.length),
-    hasAudio: Boolean(upstreamAudioUrl),
-    hasVideo: Boolean(upstreamVideoUrl),
-  }), [upstreamImages?.length, upstreamAudioUrl, upstreamVideoUrl])
-
-  const isVariantApplicable = useCallback((variantId: string) => {
-    const def = VIDEO_VARIANTS[variantId]
-    return !def || def.isApplicable(variantCtx)
-  }, [variantCtx])
-
-  // ── Variant selector state ──
-  const [selectedVariantId, setSelectedVariantId] = useState<string>('')
-
-  // Auto-select first applicable variant when feature changes.
-  useEffect(() => {
-    if (selectedFeature?.variants?.length) {
-      const current = selectedFeature.variants.find((v) => v.id === selectedVariantId && isVariantApplicable(v.id))
-      if (!current) {
-        const first = selectedFeature.variants.find(v => isVariantApplicable(v.id))
-        setSelectedVariantId(first?.id ?? selectedFeature.variants[0].id)
-      }
-    }
-  }, [selectedFeature, selectedVariantId, isVariantApplicable])
-
-  const selectedVariant = useMemo(
-    () => {
-      if (!selectedFeature?.variants?.length) return null
-      if (selectedVariantId) {
-        const found = selectedFeature.variants.find((v) => v.id === selectedVariantId && isVariantApplicable(v.id))
-        if (found) return found
-      }
-      return selectedFeature.variants.find(v => isVariantApplicable(v.id))
-        ?? selectedFeature.variants[0]
-    },
-    [selectedFeature, selectedVariantId, isVariantApplicable],
-  )
-
-  // ── Variant warning ──
-  const [variantWarning, setVariantWarning] = useState<string | null>(null)
-
-  // Clear warning when feature/variant changes
-  useEffect(() => {
-    setVariantWarning(null)
-  }, [selectedFeatureId, selectedVariantId])
-
-  // ── Variant form params (updated by variant component) ──
-  const latestParams = useRef<{
-    inputs: Record<string, unknown>
-    params: Record<string, unknown>
-    count?: number
-    seed?: number
-    slotAssignment?: PersistedSlotMap
-  }>({ inputs: {}, params: {} })
-
-  // ── Params cache — in-memory map for instant reads, async persist to node ──
+  // ── Params cache ──
   const aiConfigRef = useRef(aiConfig)
   aiConfigRef.current = aiConfig
-  const activeKeyRef = useRef('')
-  const paramsCacheLocal = useRef(
-    (aiConfig?.paramsCache ?? {}) as Record<string, typeof latestParams.current>,
-  )
 
-  const persistCacheToNode = useCallback(() => {
-    const key = activeKeyRef.current
-    if (key) paramsCacheLocal.current[key] = latestParams.current
-    onUpdate({
-      aiConfig: {
-        prompt: '',
-        ...aiConfigRef.current,
-        paramsCache: { ...paramsCacheLocal.current },
-      },
-    })
-  }, [onUpdate])
+  const cacheKey = selectedVariant ? `${selectedFeatureId}:${selectedVariant.id}` : ''
 
-  // Save old variant to local cache before switching
-  useEffect(() => {
-    const newKey = selectedVariant ? `${selectedFeatureId}:${selectedVariant.id}` : ''
-    const prevKey = activeKeyRef.current
-    if (prevKey && prevKey !== newKey) {
-      paramsCacheLocal.current[prevKey] = { ...latestParams.current }
-      persistCacheToNode()
-    }
-    activeKeyRef.current = newKey
-  }, [selectedFeatureId, selectedVariant?.id, persistCacheToNode])
-
-  // Persist to node when panel unmounts
-  useEffect(() => {
-    return () => persistCacheToNode()
-  }, [persistCacheToNode])
-
-  const handleParamsChange = useCallback(
-    (params: {
-      inputs: Record<string, unknown>
-      params: Record<string, unknown>
-      count?: number
-      seed?: number
-      slotAssignment?: PersistedSlotMap
-    }) => {
-      latestParams.current = params
-      const key = activeKeyRef.current
-      if (key) paramsCacheLocal.current[key] = params
+  const cache = useVariantParamsCache({
+    activeKey: cacheKey,
+    initialCache: (aiConfig?.paramsCache ?? {}) as Record<string, any>,
+    onPersist: (cacheMap) => {
+      onUpdate({
+        aiConfig: {
+          prompt: '',
+          ...aiConfigRef.current,
+          paramsCache: cacheMap,
+        },
+      })
     },
-    [],
-  )
+  })
+
+  // ── Pricing params (reactive for estimate API) ──
+  const [pricingParams, setPricingParams] = useState<Record<string, unknown>>({})
 
   // ── Slot system ──
-
-  /** Persist slot assignment to paramsCache so it survives panel close/reopen. */
-  const handleSlotAssignmentPersist = useCallback((map: PersistedSlotMap) => {
-    latestParams.current = { ...latestParams.current, slotAssignment: map }
-    const key = activeKeyRef.current
-    if (key) {
-      paramsCacheLocal.current[key] = { ...latestParams.current, slotAssignment: map }
-    }
-  }, [])
-
-  /** Receive resolved slot inputs from InputSlotBar and merge into state. */
   const [resolvedSlots, setResolvedSlots] = useState<Record<string, MediaReference[]>>({})
 
-  const handleSlotInputsChange = useCallback((resolved: ResolvedSlotInputs) => {
-    setResolvedSlots(resolved.mediaRefs)
-    // Merge slot-resolved inputs into the current params
-    latestParams.current = {
-      ...latestParams.current,
-      inputs: { ...latestParams.current.inputs, ...resolved.inputs },
-    }
-    const key = activeKeyRef.current
-    if (key) paramsCacheLocal.current[key] = latestParams.current
-  }, [])
+  const handleSlotInputsChange = useCallback(
+    (resolved: ResolvedSlotInputs) => {
+      setResolvedSlots(resolved.mediaRefs)
+      setSlotsValid(resolved.isValid)
+      cache.updateParams({
+        ...cache.paramsRef.current,
+        inputs: { ...cache.paramsRef.current.inputs, ...resolved.inputs },
+      })
+    },
+    [cache],
+  )
+
+  const handleSlotAssignmentPersist = useCallback(
+    (map: PersistedSlotMap) => {
+      cache.updateParams({
+        ...cache.paramsRef.current,
+        slotAssignment: map,
+      })
+    },
+    [cache],
+  )
 
   // ── Generation state ──
   const [isGenerating, setIsGenerating] = useState(false)
+  const [slotsValid, setSlotsValid] = useState(false)
 
   const isGenerateDisabled = useMemo(() => {
     if (!selectedFeature || !selectedVariant) return true
-    const def = VIDEO_VARIANTS[selectedVariant.id]
-    if (def?.isDisabled?.(variantCtx)) return true
+    if (!slotsValid) return true
     return false
-  }, [selectedFeature, selectedVariant, variantCtx])
+  }, [selectedFeature, selectedVariant, slotsValid])
 
   /** Collect params without uploading media — fast, for immediate node creation. */
   const collectParams = useCallback((): VideoGenerateParams => {
-    const p = latestParams.current
+    const vid = selectedVariant?.id ?? selectedVariantId ?? ''
+    if (!vid) throw new Error('No variant definition available')
+
+    const p = cache.paramsRef.current
     const promptValue =
-      (p.params?.prompt as string) ??
-      (p.inputs?.prompt as string) ??
-      ''
+      (p.params?.prompt as string) ?? (p.inputs?.prompt as string) ?? ''
+
+    // V3 path: use serializeForGenerate with declarative slots
+    const slotAssignments: Record<string, { path?: string; url?: string }[]> = {}
+    for (const [key, refs] of Object.entries(resolvedSlots)) {
+      slotAssignments[key] = refs.map((r) => (r.path ? { path: r.path } : { url: r.url }))
+    }
+
+    const v3Result = serializeForGenerate(
+      mergedSlots ?? [],
+      {
+        prompt: promptValue,
+        paintResults: {},
+        slotAssignments,
+        taskRefs: {},
+        params: p.params ?? {},
+        count: p.count,
+        seed: p.seed,
+      },
+    )
 
     return {
       feature: selectedFeatureId,
-      variant: selectedVariantId,
-      inputs: { ...p.inputs },
-      params: p.params,
-      count: p.count,
-      seed: p.seed,
-      creditsPerCall: selectedVariant?.creditsPerCall,
+      variant: vid,
+      ...v3Result,
       // Legacy compat fields
       prompt: promptValue,
       aspectRatio: (p.params?.aspectRatio as string) ?? 'auto',
@@ -360,26 +280,32 @@ export function VideoAiPanel({
       quality: (p.params?.quality as string) ?? undefined,
       mode: (p.params?.mode as string) ?? undefined,
     }
-  }, [selectedFeatureId, selectedVariantId, selectedVariant])
+  }, [
+    selectedFeatureId,
+    selectedVariantId,
+    selectedVariant,
+    resolvedSlots,
+    element.props.sourcePath,
+    mergedSlots,
+    cache,
+  ])
 
   const handleGenerate = useCallback(async () => {
     if (isGenerating) return
     setIsGenerating(true)
 
     try {
-      // 逻辑：使用 collectParams（不上传媒体），让节点立即进入 loading 状态。
-      // 媒体上传由 useMediaGeneration.handleGenerate 在 loading 之后执行。
       const params = collectParams()
 
-      // Snapshot current variant params into local cache before persisting
-      const key = activeKeyRef.current
-      if (key) paramsCacheLocal.current[key] = latestParams.current
       const config: AiGenerateConfig = {
         ...aiConfigRef.current,
         feature: params.feature as AiGenerateConfig['feature'],
         prompt: params.prompt ?? '',
         aspectRatio: params.aspectRatio as AiGenerateConfig['aspectRatio'],
-        paramsCache: { ...paramsCacheLocal.current },
+        paramsCache: {
+          ...((aiConfigRef.current?.paramsCache as any) ?? {}),
+          ...(cacheKey ? { [cacheKey]: cache.paramsRef.current } : {}),
+        },
       }
       onUpdate({
         origin: 'ai-generate',
@@ -389,7 +315,9 @@ export function VideoAiPanel({
       onGenerate?.(params)
     } catch (err) {
       console.error('[VideoAiPanel] handleGenerate failed:', err)
-      toast.error(t('v3.errors.prepareFailed', { defaultValue: '准备生成参数失败，请重试' }))
+      toast.error(
+        t('v3.errors.prepareFailed', { defaultValue: '准备生成参数失败，请重试' }),
+      )
     } finally {
       setTimeout(() => setIsGenerating(false), 300)
     }
@@ -400,12 +328,13 @@ export function VideoAiPanel({
     setIsGenerating(true)
 
     try {
-      // Use collectParams (no S3 upload) so the child node is created immediately.
       const params = collectParams()
       onGenerateNewNode?.(params)
     } catch (err) {
       console.error('[VideoAiPanel] handleGenerateNew failed:', err)
-      toast.error(t('v3.errors.prepareFailed', { defaultValue: '准备生成参数失败，请重试' }))
+      toast.error(
+        t('v3.errors.prepareFailed', { defaultValue: '准备生成参数失败，请重试' }),
+      )
     } finally {
       setTimeout(() => setIsGenerating(false), 300)
     }
@@ -425,107 +354,98 @@ export function VideoAiPanel({
       projectId,
       boardFolderUri,
     }),
-    [upstreamText, upstreamImages, upstreamImagePaths, upstreamAudioUrl, upstreamVideoUrl, boardId, projectId, boardFolderUri],
+    [
+      upstreamText,
+      upstreamImages,
+      upstreamImagePaths,
+      upstreamAudioUrl,
+      upstreamVideoUrl,
+      boardId,
+      projectId,
+      boardFolderUri,
+    ],
   )
 
   // ── Derive fileContext from props ──
   const fileContext = useMemo<BoardFileContext | undefined>(
-    () => fileContextProp ?? (boardId || projectId || boardFolderUri
-      ? { boardId, projectId, boardFolderUri }
-      : undefined),
+    () =>
+      fileContextProp ??
+      (boardId || projectId || boardFolderUri
+        ? { boardId, projectId, boardFolderUri }
+        : undefined),
     [fileContextProp, boardId, projectId, boardFolderUri],
   )
 
-  // ── Current variant definition (for inputSlots) ──
-  const variantDef = selectedVariant ? VIDEO_VARIANTS[selectedVariant.id] : undefined
-
-  // ── Resolve variant form component ──
-  const VariantForm = selectedVariant
-    ? VIDEO_VARIANTS[selectedVariant.id]?.component ?? null
-    : null
-
   const showFallback = !features.length
 
+  if (isVideoLocked) {
+    return (
+      <div className="flex w-[480px] flex-col items-center justify-center gap-3 rounded-3xl border border-border bg-card px-6 py-10 shadow-lg">
+        <Lock size={24} className="text-muted-foreground" />
+        <div className="text-center">
+          <div className="text-sm font-medium text-foreground">
+            {t('videoLocked.title')}
+          </div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            {t('videoLocked.description')}
+          </div>
+        </div>
+        <button
+          type="button"
+          className="mt-1 inline-flex items-center gap-1 rounded-full bg-foreground px-4 py-1.5 text-xs font-medium text-background transition-colors duration-150 hover:bg-foreground/90"
+          onClick={() => setPricingOpen(true)}
+        >
+          {t('videoLocked.upgrade')}
+        </button>
+        <PricingDialog open={pricingOpen} onOpenChange={setPricingOpen} />
+      </div>
+    )
+  }
+
   return (
-    <div
-      className={[
-        'flex w-[420px] flex-col gap-2.5 rounded-3xl border border-border bg-card p-3 shadow-lg',
-        '',
-      ].join(' ')}
-    >
+    <div className="flex w-[480px] flex-col gap-2.5 rounded-3xl border border-border bg-card p-3 shadow-lg">
       {/* -- Fallback: loading / error / empty -- */}
       {showFallback ? (
-        <div className="flex min-h-[120px] flex-col items-center justify-center gap-2 py-6">
-          {capsLoading ? (
-            <>
-              <Loader2 size={20} className="animate-spin text-muted-foreground/60" />
-              <span className="text-xs text-muted-foreground">{t('v3.common.loading')}</span>
-            </>
-          ) : capsError ? (
-            <>
-              <span className="text-sm font-medium text-muted-foreground">{t('v3.common.loadError')}</span>
-              <span className="text-[11px] text-muted-foreground/60">{t('v3.common.loadErrorHint')}</span>
-              <button
-                type="button"
-                className="mt-1 rounded-full border border-border px-3.5 py-1 text-xs text-muted-foreground hover:bg-foreground/5 transition-colors duration-150"
-                onClick={() => capsRefresh()}
-              >
-                {t('v3.common.retry')}
-              </button>
-            </>
-          ) : (
-            <>
-              <span className="text-sm font-medium text-muted-foreground">{t('v3.common.loadError')}</span>
-              <span className="text-[11px] text-muted-foreground/60">{t('v3.common.loadErrorHint')}</span>
-              <button
-                type="button"
-                className="mt-1 rounded-full border border-border px-3.5 py-1 text-xs text-muted-foreground hover:bg-foreground/5 transition-colors duration-150"
-                onClick={() => capsRefresh()}
-              >
-                {t('v3.common.retry')}
-              </button>
-            </>
-          )}
-        </div>
+        <CapabilitiesFallback
+          loading={capsLoading}
+          error={capsError}
+          onRetry={capsRefresh}
+        />
       ) : null}
 
-      {/* -- Feature Tabs (dynamic from capabilities) -- */}
+      {/* -- Feature Tabs -- */}
       {!showFallback ? (
-        <ScrollableTabBar className="items-center">
-          {features
-            .filter((f) => {
-              if (readonly && !editing) return f.id === selectedFeatureId
-              if (f.variants.every(v => !isVariantApplicable(v.id))) return false
-              return true
-            })
-            .map((f) => (
-              <button
-                key={f.id}
-                type="button"
-                disabled={readonly && !editing}
-                className={[
-                  'shrink-0 whitespace-nowrap rounded-3xl px-3 py-1.5 text-xs font-medium transition-colors duration-150',
-                  selectedFeatureId === f.id
-                    ? 'bg-background text-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground',
-                ].join(' ')}
-                onClick={() => setSelectedFeatureId(f.id)}
-              >
-                {MEDIA_FEATURES[f.id as MediaFeatureId]?.label[prefLang] ?? f.id}
-              </button>
-            ))}
-        </ScrollableTabBar>
+        <FeatureTabBar
+          features={features}
+          selectedFeatureId={selectedFeatureId}
+          onSelect={(id) => {
+            setSelectedFeatureId(id)
+            setSelectedVariantId(null)
+          }}
+          isVariantApplicable={isVariantApplicable}
+          prefLang={prefLang}
+          disabled={readonly && !editing}
+        />
       ) : null}
 
-      {/* -- InputSlotBar (declarative slot assignment) -- */}
-      {variantDef?.inputSlots?.length && selectedVariant ? (
+      {/* -- InputSlotBar (V3 declarative slot assignment) -- */}
+      {mergedSlots?.length && selectedVariant ? (
         <InputSlotBar
-          slots={variantDef.inputSlots}
-          upstream={rawUpstream ?? { textList: [], imageList: [], videoList: [], audioList: [], entries: [] }}
+          slots={mergedSlots}
+          upstream={
+            rawUpstream ?? {
+              textList: [],
+              imageList: [],
+              videoList: [],
+              audioList: [],
+              entries: [],
+            }
+          }
           fileContext={fileContext}
           disabled={readonly && !editing}
           cachedAssignment={
-            (paramsCacheLocal.current[`${selectedFeatureId}:${selectedVariant.id}`]?.slotAssignment as PersistedSlotMap | undefined)
+            cache.getCached(`${selectedFeatureId}:${selectedVariant.id}`)
+              ?.slotAssignment as PersistedSlotMap | undefined
           }
           onAssignmentChange={handleSlotInputsChange}
           onSlotAssignmentChange={handleSlotAssignmentPersist}
@@ -533,57 +453,58 @@ export function VideoAiPanel({
       ) : null}
 
       {/* -- Variant Form -- */}
-      {selectedVariant && VariantForm ? (
-        <VariantForm
-          variant={selectedVariant}
+      {selectedVariant ? (
+        <GenericVariantForm
+          key={selectedVariant.id}
+          definition={{ isApplicable: () => true } as any}
+          variantId={selectedVariant.id}
           upstream={upstream}
           nodeResourceUrl={undefined}
           disabled={readonly && !editing}
-          initialParams={paramsCacheLocal.current[`${selectedFeatureId}:${selectedVariant.id}`] ?? aiConfig?.paramsCache?.[`${selectedFeatureId}:${selectedVariant.id}`]}
-          onParamsChange={handleParamsChange}
+          initialParams={
+            cache.getCached(`${selectedFeatureId}:${selectedVariant.id}`) ??
+            aiConfig?.paramsCache?.[`${selectedFeatureId}:${selectedVariant.id}`]
+          }
+          onParamsChange={(snapshot) => {
+            cache.updateParams({
+              ...cache.paramsRef.current,
+              params: snapshot.params,
+              count: snapshot.count,
+              seed: snapshot.seed,
+            })
+            setPricingParams(snapshot.params ?? {})
+          }}
           onWarningChange={setVariantWarning}
           resolvedSlots={resolvedSlots}
+          overrideParams={remoteParams}
         />
-      ) : selectedVariant ? (
-        // Fallback for unknown variants
-        <div className="flex flex-col items-center justify-center gap-1 rounded-3xl bg-ol-surface-muted px-3 py-4">
-          <span className="text-xs text-muted-foreground">
-            {t('v3.unknownVariant', {
-              defaultValue: 'This variant is not yet supported in the UI',
-            })}
-          </span>
-          <span className="text-[10px] text-muted-foreground/50">
-            {selectedVariant.id}
-          </span>
-        </div>
       ) : null}
 
       {/* -- Generate Action Bar -- */}
-      {!showFallback ? <GenerateActionBar
-        hasResource={hasResource}
-        generating={isGenerating}
-        disabled={isGenerateDisabled}
-        buttonClassName="bg-foreground text-background hover:bg-foreground/90"
-        onGenerate={handleGenerate}
-        onGenerateNewNode={handleGenerateNew}
-        readonly={readonly}
-        editing={editing}
-        onUnlock={onUnlock}
-        onCancelEdit={onCancelEdit}
-        creditsPerCall={selectedVariant?.creditsPerCall}
-        warningMessage={variantWarning}
-        variants={selectedFeature?.variants
-          ?.filter((v) => isVariantApplicable(v.id))
-          .map((v) => {
-            return {
+      {!showFallback ? (
+        <GenerateActionBar
+          hasResource={hasResource}
+          generating={isGenerating}
+          disabled={isGenerateDisabled}
+          buttonClassName="bg-foreground text-background hover:bg-foreground/90"
+          onGenerate={handleGenerate}
+          onGenerateNewNode={handleGenerateNew}
+          readonly={readonly}
+          editing={editing}
+          onUnlock={onUnlock}
+          onCancelEdit={onCancelEdit}
+          estimateParams={pricingParams}
+          warningMessage={variantWarning}
+          variants={selectedFeature?.variants
+            ?.filter((v) => isVariantApplicable(v.id))
+            .map((v) => ({
               id: v.id,
-              displayName: v.featureTabName ?? v.id,
-              creditsPerCall: v.creditsPerCall,
-            }
-          })}
-        selectedVariantId={selectedVariant?.id ?? undefined}
-        onVariantChange={setSelectedVariantId}
-      /> : null}
+              displayName: v.displayName || v.featureTabName || v.id,
+            }))}
+          selectedVariantId={selectedVariant?.id ?? undefined}
+          onVariantChange={setSelectedVariantId}
+        />
+      ) : null}
     </div>
   )
 }

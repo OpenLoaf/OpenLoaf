@@ -175,6 +175,7 @@
     "subtitlePolling": "已在瀏覽器中開啟，等待登入完成…",
     "subtitleError": "登入失敗，請重試",
     "subtitleDefault": "連接你的雲端帳號",
+    "reopenLogin": "重新開啟",
     "cancelLogin": "取消登入",
     "loginWithGoogle": "使用 Google 登入",
     "loginWithWechat": "使用微信登入",
