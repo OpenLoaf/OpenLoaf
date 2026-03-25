@@ -20,7 +20,6 @@ export type VariantFixture = {
   inputs: Record<string, unknown>
   params: Record<string, unknown>
   count?: 1 | 2 | 4
-  seed?: number
 }
 
 export const VARIANT_FIXTURES: Record<string, VariantFixture> = {

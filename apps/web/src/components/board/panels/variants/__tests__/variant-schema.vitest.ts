@@ -54,7 +54,6 @@ describe('Layer 1: v3GenerateRequest Schema 校验', () => {
         inputs: Object.keys(fixture.inputs).length ? fixture.inputs : undefined,
         params: Object.keys(fixture.params).length ? fixture.params : undefined,
         ...(fixture.count != null ? { count: fixture.count } : {}),
-        ...(fixture.seed != null ? { seed: fixture.seed } : {}),
       }
       const result = v3GenerateRequestSchema.safeParse(payload)
       if (!result.success) {

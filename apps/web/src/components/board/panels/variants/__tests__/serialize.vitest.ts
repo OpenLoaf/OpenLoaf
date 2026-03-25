@@ -149,18 +149,16 @@ describe('serializeForGenerate', () => {
     expect(result.inputs.img).toBeUndefined()
   })
 
-  // 9. count 和 seed
-  it('should include count and seed when present', () => {
-    const state = makeState({ count: 4, seed: 42 })
+  // 9. count
+  it('should include count when present', () => {
+    const state = makeState({ count: 4 })
     const result = serializeForGenerate([], state)
     expect(result.count).toBe(4)
-    expect(result.seed).toBe(42)
   })
 
-  it('should omit count and seed when undefined', () => {
+  it('should omit count when undefined', () => {
     const result = serializeForGenerate([], makeState())
     expect(result).not.toHaveProperty('count')
-    expect(result).not.toHaveProperty('seed')
   })
 
   // 10. max > 1 on regular slot produces array
