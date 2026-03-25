@@ -24,14 +24,12 @@ interface FormState {
   taskRefs: Record<string, string>
   params: Record<string, unknown>
   count?: number
-  seed?: number
 }
 
 interface V3GenerateRequest {
   inputs: Record<string, unknown>
   params: Record<string, unknown>
   count?: number
-  seed?: number
   ticketId?: string
 }
 
@@ -103,7 +101,6 @@ export function serializeForGenerate(
     inputs,
     params,
     ...(state.count !== undefined && { count: state.count }),
-    ...(state.seed !== undefined && { seed: state.seed }),
   }
 }
 

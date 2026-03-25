@@ -20,8 +20,6 @@ export type ImageGenerateRequest = {
   params?: Record<string, unknown>
   /** Number of results to generate. */
   count?: number
-  /** Seed for reproducibility. */
-  seed?: number
 }
 
 export type ImageGenerateResult =
@@ -47,7 +45,6 @@ export async function submitImageGenerate(
     inputs: request.inputs,
     params: request.params,
     count: request.count,
-    seed: request.seed,
     projectId: options.projectId,
     boardId: options.boardId,
     sourceNodeId: options.sourceNodeId,

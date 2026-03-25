@@ -196,7 +196,6 @@ export type V3GenerateRequest = {
   inputs?: Record<string, unknown>
   params?: Record<string, unknown>
   count?: number
-  seed?: number
   ticketId?: string
 }
 

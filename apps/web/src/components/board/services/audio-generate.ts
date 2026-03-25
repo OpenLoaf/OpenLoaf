@@ -20,8 +20,6 @@ export type AudioGenerateRequest = {
   params: Record<string, unknown>
   /** Number of outputs. */
   count?: number
-  /** Seed for reproducibility. */
-  seed?: number
 }
 
 export type AudioGenerateResult =
@@ -41,7 +39,6 @@ export async function submitAudioGenerate(
     inputs: request.inputs,
     params: request.params,
     count: request.count,
-    seed: request.seed,
     projectId: options.projectId,
     boardId: options.boardId,
     sourceNodeId: options.sourceNodeId,
