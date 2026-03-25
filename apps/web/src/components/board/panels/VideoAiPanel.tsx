@@ -14,8 +14,7 @@ import { Lock } from 'lucide-react'
 import { toast } from 'sonner'
 import type { CanvasNodeElement } from '../engine/types'
 import type { UpstreamData } from '../engine/upstream-data'
-import type { VideoNodeProps } from '../nodes/VideoNode'
-import type { AiGenerateConfig } from '../board-contracts'
+import type { VideoNodeProps } from '../nodes/node-types'
 import { useSaasAuth } from '@/hooks/use-saas-auth'
 import { fetchUserProfile } from '@/lib/saas-auth'
 import { PricingDialog } from '@/components/billing/PricingDialog'
@@ -26,7 +25,7 @@ import { InputSlotBar, type ResolvedSlotInputs } from './variants/shared/InputSl
 import { GenericVariantForm } from './variants/shared/GenericVariantForm'
 import type { BoardFileContext } from '../board-contracts'
 import { useVariantPanel } from './hooks/useVariantPanel'
-import { useVariantParamsCache } from './hooks/useVariantParamsCache'
+import { useVariantCache } from './hooks/useVariantCache'
 import { CapabilitiesFallback } from './shared/CapabilitiesFallback'
 import { FeatureTabBar } from './shared/FeatureTabBar'
 
@@ -46,8 +45,6 @@ export type VideoGenerateParams = {
   params?: Record<string, unknown>
   /** Number of results to generate. */
   count?: number
-  /** Seed for reproducibility. */
-  seed?: number
   // 便于节点快照与 aiConfig 记录的附加元数据
   prompt?: string
   aspectRatio?: string
@@ -144,8 +141,8 @@ export function VideoAiPanel({
     category: 'video',
     nodeMediaType,
     upstreamTypes,
-    initialFeatureId: (aiConfig?.feature as string) ?? '',
-    cachedFeatureId: aiConfig?.feature as string | undefined,
+    initialFeatureId: aiConfig?.lastUsed?.feature ?? '',
+    cachedFeatureId: aiConfig?.lastUsed?.feature,
   })
 
   const {
@@ -173,15 +170,13 @@ export function VideoAiPanel({
 
   const cacheKey = selectedVariant ? `${selectedFeatureId}:${selectedVariant.id}` : ''
 
-  const cache = useVariantParamsCache({
-    activeKey: cacheKey,
-    initialCache: (aiConfig?.paramsCache ?? {}) as Record<string, any>,
-    onPersist: (cacheMap) => {
+  const cache = useVariantCache({
+    initialCache: aiConfig?.cache,
+    onFlush: (cacheMap) => {
       onUpdate({
         aiConfig: {
-          prompt: '',
           ...aiConfigRef.current,
-          paramsCache: cacheMap,
+          cache: cacheMap,
         },
       })
     },
@@ -197,20 +192,14 @@ export function VideoAiPanel({
     (resolved: ResolvedSlotInputs) => {
       setResolvedSlots(resolved.mediaRefs)
       setSlotsValid(resolved.isValid)
-      cache.updateParams({
-        ...cache.paramsRef.current,
-        inputs: { ...cache.paramsRef.current.inputs, ...resolved.inputs },
-      })
+      cache.update(cacheKey, { inputs: resolved.inputs })
     },
     [cache],
   )
 
   const handleSlotAssignmentPersist = useCallback(
     (map: PersistedSlotMap) => {
-      cache.updateParams({
-        ...cache.paramsRef.current,
-        slotAssignment: map,
-      })
+      cache.update(cacheKey, { slotAssignment: map })
     },
     [cache],
   )
@@ -230,7 +219,7 @@ export function VideoAiPanel({
     const vid = selectedVariant?.id ?? selectedVariantId ?? ''
     if (!vid) throw new Error('No variant definition available')
 
-    const p = cache.paramsRef.current
+    const p = cache.get(cacheKey) ?? { inputs: {}, params: {} }
     const promptValue =
       (p.params?.prompt as string) ?? (p.inputs?.prompt as string) ?? ''
 
@@ -249,7 +238,6 @@ export function VideoAiPanel({
         taskRefs: {},
         params: p.params ?? {},
         count: p.count,
-        seed: p.seed,
       },
     )
 
@@ -272,6 +260,7 @@ export function VideoAiPanel({
     element.props.sourcePath,
     mergedSlots,
     cache,
+    cacheKey,
   ])
 
   const handleGenerate = useCallback(async () => {
@@ -281,19 +270,20 @@ export function VideoAiPanel({
     try {
       const params = collectParams()
 
-      const config: AiGenerateConfig = {
-        ...aiConfigRef.current,
-        feature: params.feature as AiGenerateConfig['feature'],
-        prompt: params.prompt ?? '',
-        aspectRatio: params.aspectRatio as AiGenerateConfig['aspectRatio'],
-        paramsCache: {
-          ...((aiConfigRef.current?.paramsCache as any) ?? {}),
-          ...(cacheKey ? { [cacheKey]: cache.paramsRef.current } : {}),
-        },
-      }
+      cache.flushNow()
       onUpdate({
         origin: 'ai-generate',
-        aiConfig: config,
+        aiConfig: {
+          ...aiConfigRef.current,
+          lastUsed: { feature: params.feature, variant: params.variant },
+          lastGeneration: {
+            prompt: params.prompt ?? '',
+            feature: params.feature,
+            variant: params.variant,
+            aspectRatio: params.aspectRatio,
+            generatedAt: Date.now(),
+          },
+        },
       })
 
       onGenerate?.(params)
@@ -305,7 +295,7 @@ export function VideoAiPanel({
     } finally {
       setTimeout(() => setIsGenerating(false), 300)
     }
-  }, [isGenerating, collectParams, onUpdate, onGenerate, t])
+  }, [isGenerating, collectParams, onUpdate, onGenerate, t, cache])
 
   const handleGenerateNew = useCallback(async () => {
     if (isGenerating) return
@@ -428,7 +418,7 @@ export function VideoAiPanel({
           fileContext={fileContext}
           disabled={readonly && !editing}
           cachedAssignment={
-            cache.getCached(`${selectedFeatureId}:${selectedVariant.id}`)
+            cache.get(`${selectedFeatureId}:${selectedVariant.id}`)
               ?.slotAssignment as PersistedSlotMap | undefined
           }
           onAssignmentChange={handleSlotInputsChange}
@@ -444,17 +434,9 @@ export function VideoAiPanel({
           upstream={upstream}
           nodeResourceUrl={undefined}
           disabled={readonly && !editing}
-          initialParams={
-            cache.getCached(`${selectedFeatureId}:${selectedVariant.id}`) ??
-            aiConfig?.paramsCache?.[`${selectedFeatureId}:${selectedVariant.id}`]
-          }
+          initialParams={cache.get(`${selectedFeatureId}:${selectedVariant.id}`)}
           onParamsChange={(snapshot) => {
-            cache.updateParams({
-              ...cache.paramsRef.current,
-              params: snapshot.params,
-              count: snapshot.count,
-              seed: snapshot.seed,
-            })
+            cache.update(cacheKey, { params: snapshot.params })
             setPricingParams(snapshot.params ?? {})
           }}
           onWarningChange={setVariantWarning}
