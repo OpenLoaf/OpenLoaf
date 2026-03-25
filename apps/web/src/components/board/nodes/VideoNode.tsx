@@ -1298,7 +1298,6 @@ export const VideoNodeDefinition: CanvasNodeDefinition<VideoNodeProps> = {
       aspectRatio: z.enum(['auto', '1:1', '16:9', '9:16', '4:3', '3:2']).optional(),
       quality: z.enum(['draft', 'standard', 'hd']).optional(),
       count: z.number().optional(),
-      seed: z.number().optional(),
       inputNodeIds: z.array(z.string()).optional(),
       taskId: z.string().optional(),
       generatedAt: z.number().optional(),
