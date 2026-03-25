@@ -10,45 +10,8 @@
 import { SaaSNetworkError } from '@openloaf-saas/sdk'
 import { getSaasClient } from '../../client'
 
-export type SaasMediaSubmitArgs = {
-  /** Media task kind. */
-  kind: 'image' | 'video' | 'audio'
-  /** Input payload to SaaS. */
-  payload: Record<string, unknown>
-}
-
-export type SaasMediaTaskResult = {
-  /** Task identifier. */
-  taskId: string
-  /** Task status. */
-  status: 'queued' | 'running' | 'succeeded' | 'failed' | 'canceled'
-  /** Task progress when available. */
-  progress?: number
-  /** Result type when available. */
-  resultType?: 'image' | 'video' | 'audio'
-  /** Result asset URLs. */
-  resultUrls?: string[]
-  /** STT 识别结果文本 */
-  resultText?: string
-  /** Error payload when failed. */
-  error?: { code?: string; message: string }
-}
-
-type FetchMediaModelOptions = {
-  /** Force bypass in-memory cache. */
-  force?: boolean
-}
-
-/** Cache ttl for media model lists. */
+/** Cache ttl for media capabilities responses. */
 const MODELS_TTL_MS = 24 * 60 * 60 * 1000
-const cachedImageModels = new Map<
-  string,
-  { updatedAt: number; payload: unknown }
->()
-const cachedVideoModels = new Map<
-  string,
-  { updatedAt: number; payload: unknown }
->()
 const cachedCapabilities = new Map<
   string,
   { updatedAt: number; payload: unknown }
@@ -120,81 +83,6 @@ async function withNetworkRetry<T>(
   }
   // 逻辑：不可达，TypeScript 需要返回值。
   throw new Error('unreachable')
-}
-
-/**
- * @deprecated v2 media submit — delegates to v3 generate.
- * AI agent tools still call this; the payload is forwarded as-is to v3Generate.
- */
-export async function submitMediaTask(
-  input: SaasMediaSubmitArgs,
-  accessToken: string,
-) {
-  return submitV3Generate(input.payload, accessToken)
-}
-
-/**
- * @deprecated v2 task poll — delegates to v3 GET.
- */
-export async function pollMediaTask(
-  taskId: string,
-  accessToken: string,
-): Promise<SaasMediaTaskResult> {
-  const response = await pollV3Task(taskId, accessToken)
-  if (!response || response.success !== true) {
-    return {
-      taskId,
-      status: 'failed',
-      error: { message: (response as any)?.message ?? '任务查询失败' },
-    }
-  }
-  return {
-    taskId,
-    status: response.data.status,
-    resultUrls: response.data.resultUrls,
-    resultText: response.data.resultText,
-    error: response.data.error,
-  }
-}
-
-/**
- * @deprecated v2 task cancel — delegates to v3 cancel.
- */
-export async function cancelMediaTask(
-  taskId: string,
-  accessToken: string,
-) {
-  return cancelV3Task(taskId, accessToken)
-}
-
-/**
- * @deprecated v1 image models — delegates to v3 image capabilities.
- */
-export async function fetchImageModels(
-  accessToken: string,
-  options: FetchMediaModelOptions = {},
-) {
-  const force = options.force === true
-  const cached = force ? null : readCache(cachedImageModels, accessToken)
-  if (cached) return cached
-  const payload = await fetchCapabilitiesV3('image', accessToken)
-  writeCache(cachedImageModels, accessToken, payload)
-  return payload
-}
-
-/**
- * @deprecated v1 video models — delegates to v3 video capabilities.
- */
-export async function fetchVideoModels(
-  accessToken: string,
-  options: FetchMediaModelOptions = {},
-) {
-  const force = options.force === true
-  const cached = force ? null : readCache(cachedVideoModels, accessToken)
-  if (cached) return cached
-  const payload = await fetchCapabilitiesV3('video', accessToken)
-  writeCache(cachedVideoModels, accessToken, payload)
-  return payload
 }
 
 // ---------------------------------------------------------------------------

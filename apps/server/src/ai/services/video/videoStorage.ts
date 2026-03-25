@@ -11,14 +11,9 @@ import { createWriteStream, promises as fs } from "node:fs";
 import path from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
-import { getResolvedTempStorageDir, sanitizeFileName } from "@/ai/services/image/imageStorage";
-import {
-  getProjectRootPath,
-  resolveFilePathFromUri,
-} from "@openloaf/api/services/vfsService";
+import { sanitizeFileName } from "@/ai/services/image/imageStorage";
+import { resolveSaveDirectory } from "@/ai/services/mediaStorageShared";
 
-/** Scoped project path matcher like @{projectId/path/to/dir}. */
-const PROJECT_SCOPE_REGEX = /^@?\[([^\]]+)\]\/(.+)$/;
 /** Supported video extensions for directory inference. */
 const VIDEO_SAVE_EXTENSIONS = new Set([".mp4", ".webm", ".mov", ".mkv"]);
 /** Supported audio extensions. */
@@ -30,46 +25,6 @@ function isMediaSaveExtension(ext: string): boolean {
   return VIDEO_SAVE_EXTENSIONS.has(lower) || AUDIO_SAVE_EXTENSIONS.has(lower);
 }
 
-/** Normalize a target path into a directory. */
-async function normalizeVideoSaveDirectory(targetPath: string): Promise<string> {
-  try {
-    const stat = await fs.stat(targetPath);
-    // 已存在文件时使用其所在目录，避免覆盖文件。
-    if (stat.isFile()) return path.dirname(targetPath);
-    return targetPath;
-  } catch {
-    const ext = path.extname(targetPath).toLowerCase();
-    // 兼容传入文件路径时自动取目录。
-    if (isMediaSaveExtension(ext)) return path.dirname(targetPath);
-    return targetPath;
-  }
-}
-
-/** Resolve local directory from a project-relative path. */
-function resolveRelativeSaveDirectory(input: {
-  /** Relative path input. */
-  path: string;
-  /** Optional project id fallback. */
-  projectId?: string | null;
-}): string | null {
-  const normalized = input.path.replace(/\\/g, "/").replace(/^(\.\/)+/, "").replace(/^\/+/, "");
-  if (!normalized) return null;
-  if (normalized.split("/").some((segment) => segment === "..")) return null;
-  // 逻辑：有 projectId 时解析到项目根目录；否则回退到全局临时存储目录。
-  const rootPath = input.projectId
-    ? getProjectRootPath(input.projectId)
-    : getResolvedTempStorageDir();
-  if (!rootPath) return null;
-
-  const targetPath = path.resolve(rootPath, normalized);
-  const rootPathResolved = path.resolve(rootPath);
-  // 限制在根目录内，避免路径穿越。
-  if (targetPath !== rootPathResolved && !targetPath.startsWith(rootPathResolved + path.sep)) {
-    return null;
-  }
-  return targetPath;
-}
-
 /** Resolve local directory from video save directory input. */
 export async function resolveVideoSaveDirectory(input: {
   /** Raw save directory uri. */
@@ -77,41 +32,11 @@ export async function resolveVideoSaveDirectory(input: {
   /** Optional project id fallback. */
   projectId?: string | null;
 }): Promise<string | null> {
-  const raw = input.saveDir.trim();
-  if (!raw) return null;
-
-  if (raw.startsWith("file://")) {
-    try {
-      const filePath = resolveFilePathFromUri(raw);
-      return normalizeVideoSaveDirectory(filePath);
-    } catch {
-      return null;
-    }
-  }
-
-  const scopeMatch = raw.match(PROJECT_SCOPE_REGEX);
-  if (scopeMatch) {
-    const scopedProjectId = scopeMatch[1]?.trim();
-    const scopedRelativePath = scopeMatch[2] ?? "";
-    if (!scopedProjectId) return null;
-    const dirPath = resolveRelativeSaveDirectory({
-      path: scopedRelativePath,
-      projectId: scopedProjectId,
-    });
-    if (!dirPath) return null;
-    return normalizeVideoSaveDirectory(dirPath);
-  }
-
-  if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(raw)) {
-    const dirPath = resolveRelativeSaveDirectory({
-      path: raw,
-      projectId: input.projectId,
-    });
-    if (!dirPath) return null;
-    return normalizeVideoSaveDirectory(dirPath);
-  }
-
-  return null;
+  return resolveSaveDirectory({
+    saveDir: input.saveDir,
+    projectId: input.projectId,
+    isKnownExtension: isMediaSaveExtension,
+  });
 }
 
 /** Resolve extension from media type or url. */

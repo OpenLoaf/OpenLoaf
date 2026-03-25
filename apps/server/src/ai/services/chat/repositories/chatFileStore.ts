@@ -787,8 +787,8 @@ function collectSubtreeIds(tree: MessageTreeIndex, startId: string): string[] {
   return result
 }
 
-// 逻辑：媒体生成工具的 output 很小（仅含 urls），刷新后需要用于渲染预览。
-const KEEP_OUTPUT_TOOLS = new Set(['image-generate', 'video-generate', 'request-user-input'])
+// 逻辑：仅保留交互类工具 output，避免刷新后丢失等待用户输入的状态。
+const KEEP_OUTPUT_TOOLS = new Set(['request-user-input'])
 
 /** Strip tool output payloads from parts. */
 function stripToolOutputs(parts: unknown[]): unknown[] {

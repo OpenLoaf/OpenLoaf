@@ -11,11 +11,6 @@ import { resolveServerUrl } from "@/utils/server-url";
 import { getAccessToken } from "@/lib/saas-auth";
 import { getSaasMediaClient } from "@/lib/saas-media-client";
 
-type FetchMediaModelsOptions = {
-  /** Force bypass server cache. */
-  force?: boolean;
-};
-
 /** Build auth headers for SaaS proxy. */
 export async function buildAuthHeaders(): Promise<Record<string, string>> {
   const token = await getAccessToken();
@@ -36,24 +31,9 @@ async function parseJsonResponse(response: Response): Promise<any> {
   return response.json();
 }
 
-/** Fetch media models via SDK (kept for AI chat model preferences). */
-export async function fetchMediaModels(feature?: string, _options?: FetchMediaModelsOptions) {
-  const client = getSaasMediaClient()
-  const category = feature?.startsWith('video')
-    ? 'video'
-    : feature === 'tts' || feature === 'music' || feature === 'sfx'
-      ? 'audio'
-      : 'image'
-  if (category === 'image') return client.ai.imageCapabilities()
-  if (category === 'video') return client.ai.videoCapabilities()
-  return client.ai.audioCapabilities()
-}
-
 type PollTaskOptions = {
   /** Project id for server-side context recovery. */
   projectId?: string;
-  /** @deprecated Use boardId instead. */
-  saveDir?: string;
   /** Board id — server resolves save path automatically. */
   boardId?: string;
 };
@@ -64,7 +44,6 @@ export async function pollTask(taskId: string, options?: PollTaskOptions) {
   const authHeaders = await buildAuthHeaders();
   const url = new URL(`${base}/ai/v3/task/${taskId}`);
   if (options?.projectId) url.searchParams.set("projectId", options.projectId);
-  if (options?.saveDir) url.searchParams.set("saveDir", options.saveDir);
   if (options?.boardId) url.searchParams.set("boardId", options.boardId);
   const response = await fetch(url.toString(), {
     credentials: "include",
@@ -238,18 +217,6 @@ export async function submitV3Generate(
     body: JSON.stringify(payload),
   })
   return parseJsonResponse(response)
-}
-
-/** Cancel a v3 task (direct SDK call). */
-export async function cancelV3Task(taskId: string) {
-  const client = getSaasMediaClient()
-  return client.ai.v3CancelTask(taskId)
-}
-
-/** Poll a v3 task group (direct SDK call). */
-export async function pollV3TaskGroup(groupId: string) {
-  const client = getSaasMediaClient()
-  return client.ai.v3TaskGroup(groupId)
 }
 
 // ═══════════ Queue API ═══════════

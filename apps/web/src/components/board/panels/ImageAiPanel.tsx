@@ -37,7 +37,7 @@ export type ImageGenerateParams = {
   params: Record<string, unknown>
   count?: number
   seed?: number
-  // Backward compat fields
+  // 便于节点快照与 aiConfig 记录的附加元数据
   prompt?: string
   aspectRatio?: string
 }
@@ -270,9 +270,9 @@ export function ImageAiPanel({
 
     return {
       feature: selectedFeature?.id ?? 'imageGenerate',
-      variant: selectedVariant?.id ?? '',
+      variant: selectedVariant.id,
       ...v3Result,
-      // Backward compat
+      // 便于节点快照与 aiConfig 记录的附加元数据
       prompt: effectivePrompt,
       aspectRatio: (vp.params.aspectRatio as string | undefined),
     }
@@ -433,7 +433,6 @@ export function ImageAiPanel({
       {selectedVariant ? (
         <GenericVariantForm
           key={selectedVariant.id}
-          definition={{ isApplicable: () => true } as any}
           variantId={selectedVariant.id}
           upstream={variantUpstream}
           nodeResourceUrl={resolvedImageSrc}

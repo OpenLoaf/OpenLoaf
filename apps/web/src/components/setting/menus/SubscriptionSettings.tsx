@@ -11,7 +11,7 @@
 
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
-import { useQuery, useInfiniteQuery } from "@tanstack/react-query"
+import { useQuery, useInfiniteQuery, useMutation } from "@tanstack/react-query"
 import {
   Crown,
   Sparkles,
@@ -19,20 +19,28 @@ import {
   Calendar,
   Receipt,
   ChevronDown,
+  Ticket,
 } from "lucide-react"
+import { SaaSHttpError } from "@openloaf-saas/sdk"
 import { Button } from "@openloaf/ui/button"
+import { Input } from "@openloaf/ui/input"
 import { OpenLoafSettingsField } from "@openloaf/ui/openloaf/OpenLoafSettingsField"
 import { OpenLoafSettingsGroup } from "@openloaf/ui/openloaf/OpenLoafSettingsGroup"
+import { toast } from "sonner"
 import { useSaasAuth } from "@/hooks/use-saas-auth"
 import {
   fetchUserProfile,
   fetchCurrentSubscription,
   fetchCreditsTransactions,
+  fetchRedeemCodeRecords,
+  redeemCode,
 } from "@/lib/saas-auth"
 import { PricingDialog } from "@/components/billing/PricingDialog"
 import { RechargeDialog } from "@/components/billing/RechargeDialog"
+import { queryClient } from "@/utils/trpc"
 
 const TX_PAGE_SIZE = 15
+const REDEEM_RECORD_PAGE_SIZE = 5
 
 const TX_TYPES = [
   "consumption",
@@ -58,6 +66,37 @@ function SettingIcon({
   )
 }
 
+/**
+ * Normalize redeem code text before sending it to SaaS.
+ */
+function normalizeRedeemCodeInput(value: string): string {
+  return value.trim().replace(/\s+/g, "").toUpperCase()
+}
+
+/**
+ * Resolve a human-readable error message from SaaS HTTP errors.
+ */
+function getRedeemErrorMessage(error: unknown): string | null {
+  if (error instanceof SaaSHttpError) {
+    const payload = error.payload as {
+      message?: unknown
+      error?: unknown
+    } | undefined
+    if (typeof payload?.message === "string" && payload.message.trim()) {
+      return payload.message
+    }
+    if (typeof payload?.error === "string" && payload.error.trim()) {
+      return payload.error
+    }
+  }
+  if (error instanceof Error && error.message === "not_authenticated") {
+    return null
+  }
+  return error instanceof Error && error.message.trim()
+    ? error.message
+    : null
+}
+
 export function SubscriptionSettings() {
   const { t } = useTranslation("settings")
   const { t: tProject } = useTranslation("project", { keyPrefix: "global" })
@@ -66,6 +105,7 @@ export function SubscriptionSettings() {
   const [pricingOpen, setPricingOpen] = useState(false)
   const [rechargeOpen, setRechargeOpen] = useState(false)
   const [txTypeFilter, setTxTypeFilter] = useState<string | undefined>(undefined)
+  const [redeemCodeValue, setRedeemCodeValue] = useState("")
 
   const profileQuery = useQuery({
     queryKey: ["saas", "userProfile"],
@@ -99,8 +139,42 @@ export function SubscriptionSettings() {
     staleTime: 30_000,
   })
 
+  const redeemRecordsQuery = useQuery({
+    queryKey: ["saas", "redeemCodeRecords", { page: 1, pageSize: REDEEM_RECORD_PAGE_SIZE }],
+    queryFn: () =>
+      fetchRedeemCodeRecords({
+        page: 1,
+        pageSize: REDEEM_RECORD_PAGE_SIZE,
+      }),
+    enabled: loggedIn,
+    staleTime: 30_000,
+  })
+
+  const redeemMutation = useMutation({
+    mutationFn: async (code: string) => redeemCode({ code }),
+    onSuccess: async (result) => {
+      setRedeemCodeValue("")
+      toast.success(
+        t("account.redeemSuccess", {
+          credits: Math.floor(result.creditsAmount).toLocaleString(),
+          balance: Math.floor(result.newBalance).toLocaleString(),
+        }),
+      )
+      // 逻辑：兑换成功后统一刷新积分余额、兑换记录与积分流水，避免多个区域显示不同步。
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["saas", "userProfile"] }),
+        queryClient.invalidateQueries({ queryKey: ["saas", "creditsTransactions"] }),
+        queryClient.invalidateQueries({ queryKey: ["saas", "redeemCodeRecords"] }),
+      ])
+    },
+    onError: (error) => {
+      toast.error(getRedeemErrorMessage(error) ?? t("account.redeemFailed"))
+    },
+  })
+
   const sub = subscriptionQuery.data
   const allTx = transactionsQuery.data?.pages.flatMap((p) => p?.items ?? []) ?? []
+  const redeemRecords = redeemRecordsQuery.data?.items ?? []
 
   const planLabels: Record<string, string> = {
     free: t("account.plan.free"),
@@ -175,6 +249,83 @@ export function SubscriptionSettings() {
             </OpenLoafSettingsField>
           </div>
         </div>
+      </OpenLoafSettingsGroup>
+
+      <OpenLoafSettingsGroup title={t("account.redeemCodeSection")}>
+        <form
+          className="space-y-4"
+          onSubmit={(event) => {
+            event.preventDefault()
+            const normalizedCode = normalizeRedeemCodeInput(redeemCodeValue)
+            if (!normalizedCode) {
+              toast.error(t("account.redeemEmpty"))
+              return
+            }
+            redeemMutation.mutate(normalizedCode)
+          }}
+        >
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <Input
+              value={redeemCodeValue}
+              onChange={(event) => setRedeemCodeValue(event.target.value)}
+              placeholder={t("account.redeemCodePlaceholder")}
+              autoCapitalize="characters"
+              autoCorrect="off"
+              spellCheck={false}
+              className="h-9 rounded-3xl border-border/60 font-mono text-sm tracking-[0.12em] uppercase"
+            />
+            <Button
+              type="submit"
+              size="sm"
+              className="rounded-3xl shadow-none"
+              disabled={redeemMutation.isPending}
+            >
+              {redeemMutation.isPending ? t("account.redeeming") : t("account.redeemNow")}
+            </Button>
+          </div>
+
+          <p className="text-xs text-muted-foreground">
+            {t("account.redeemCodeHint")}
+          </p>
+
+          <div className="divide-y divide-border/40 rounded-3xl border border-border/40 px-3">
+            {redeemRecordsQuery.isLoading && (
+              <div className="py-4 text-center text-sm text-muted-foreground">
+                {t("account.loading")}
+              </div>
+            )}
+
+            {!redeemRecordsQuery.isLoading && redeemRecords.length === 0 && (
+              <div className="py-4 text-center text-sm text-muted-foreground">
+                {redeemRecordsQuery.isError
+                  ? t("account.loadError")
+                  : t("account.noRedeemRecords")}
+              </div>
+            )}
+
+            {redeemRecords.map((record) => (
+              <div key={record.id} className="flex items-center gap-3 py-3">
+                <SettingIcon icon={Ticket} bg="bg-secondary" fg="text-foreground" />
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-xs font-medium">
+                    {record.redeemCode.title}
+                  </div>
+                  <div className="truncate font-mono text-[11px] text-muted-foreground">
+                    {record.redeemCode.code}
+                  </div>
+                </div>
+                <div className="shrink-0 text-right">
+                  <div className="text-xs font-medium text-green-600 dark:text-green-400">
+                    +{Math.floor(record.creditsAmount).toLocaleString()}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground">
+                    {new Date(record.createdAt).toLocaleDateString()}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </form>
       </OpenLoafSettingsGroup>
 
       {/* Subscription Status */}

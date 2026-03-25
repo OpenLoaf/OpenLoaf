@@ -55,7 +55,7 @@ export const masterTemplate: AgentTemplate = {
     'browser-wait',
     'browser-screenshot',
     'browser-download-image',
-    // media (image-generate / video-generate / list-media-models 暂时关闭，v1 API 已废弃)
+    // media download (AI media generation moved to board v3 flow)
     'video-download',
     // chart
     'chart-render',

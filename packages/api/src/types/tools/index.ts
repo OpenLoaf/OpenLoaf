@@ -21,7 +21,6 @@ export * from "./excel";
 export * from "./word";
 export * from "./pptx";
 export * from "./pdf";
-export * from "./mediaGenerate";
 export * from "./jsxCreate";
 export * from "./toolCatalog";
 export * from "./toolSearch";

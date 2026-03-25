@@ -11,7 +11,6 @@ import type { V3Variant } from '@/lib/saas-media'
 import type {
   MediaReference,
   PersistedSlotMap,
-  MediaType,
 } from './slot-types'
 
 /** Upstream data piped from connected nodes. */
@@ -28,40 +27,6 @@ export interface VariantUpstream {
   projectId?: string
   boardFolderUri?: string
 }
-
-/** Context passed to variant methods for applicability / capability checks. */
-export interface VariantContext {
-  /** Whether the node itself has an image resource (not upstream). */
-  nodeHasImage: boolean
-  /** Whether the node itself has a video resource (not upstream). */
-  nodeHasVideo: boolean
-  /** Whether the node itself has an audio resource (not upstream). */
-  nodeHasAudio: boolean
-  /** Whether image input is available (node resource or upstream). */
-  hasImage: boolean
-  /** Whether audio input is available (node resource or upstream). */
-  hasAudio: boolean
-  /** Whether video input is available (node resource or upstream). */
-  hasVideo: boolean
-}
-
-/**
- * @deprecated VariantDefinition is no longer used.
- * The system is now fully API-driven (SDK v0.1.26+).
- * Applicability is inferred from inputSlots, slots come from API directly.
- * Kept temporarily for type compat during migration.
- */
-export interface VariantDefinition {
-  featureId?: string
-  isApplicable: (ctx: VariantContext) => boolean
-  isDisabled?: (ctx: VariantContext) => boolean
-  maskPaint?: boolean
-  acceptsInputTypes?: MediaType[]
-  producesOutputType?: MediaType
-  params?: ParamField[]
-  supportsSeed?: boolean
-}
-
 
 /** Snapshot of variant form params — used for caching and restoring. */
 export interface VariantParamsSnapshot {

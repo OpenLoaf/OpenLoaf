@@ -11,12 +11,8 @@ import { Buffer } from "node:buffer";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import type { GeneratedFile } from "ai";
-import {
-  getProjectRootPath,
-  resolveFilePathFromUri,
-} from "@openloaf/api/services/vfsService";
-import { getResolvedTempStorageDir } from "@openloaf/api/services/appConfigService";
 import { getOpenLoafRootDir } from "@openloaf/config";
+import { resolveSaveDirectory } from "@/ai/services/mediaStorageShared";
 import { readBasicConf, readS3Providers } from "@/modules/settings/openloafConfStore";
 import { createS3StorageService, resolveS3ProviderConfig } from "@/modules/storage/s3StorageService";
 import type { OpenLoafImageMetadataV1 } from "@openloaf/api/types/image";
@@ -153,56 +149,14 @@ export async function resolveImageInputBuffer(input: {
 
 /** Supported image extensions for directory inference. */
 const IMAGE_SAVE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".webp"]);
-/** Scoped project path matcher like @{projectId/path/to/dir}. */
-const PROJECT_SCOPE_REGEX = /^@?\[([^\]]+)\]\/(.+)$/;
 
 /** Check whether extension is a known image extension. */
 function isImageSaveExtension(ext: string): boolean {
   return IMAGE_SAVE_EXTENSIONS.has(ext.toLowerCase());
 }
 
-/** Normalize a target path into a directory. */
-async function normalizeImageSaveDirectory(targetPath: string): Promise<string> {
-  try {
-    const stat = await fs.stat(targetPath);
-    // 已存在文件时使用其所在目录，避免覆盖文件。
-    if (stat.isFile()) return path.dirname(targetPath);
-    return targetPath;
-  } catch {
-    const ext = path.extname(targetPath).toLowerCase();
-    // 兼容传入文件路径时自动取目录。
-    if (isImageSaveExtension(ext)) return path.dirname(targetPath);
-    return targetPath;
-  }
-}
-
 // Re-export from appConfigService for backward compat (videoStorage imports from here).
 export { getResolvedTempStorageDir } from "@openloaf/api/services/appConfigService";
-
-/** Resolve local directory from a project-relative path. */
-function resolveRelativeSaveDirectory(input: {
-  /** Relative path input. */
-  path: string;
-  /** Optional project id. */
-  projectId?: string | null;
-}): string | null {
-  const normalized = input.path.replace(/\\/g, "/").replace(/^(\.\/)+/, "").replace(/^\/+/, "");
-  if (!normalized) return null;
-  if (normalized.split("/").some((segment) => segment === "..")) return null;
-  // 逻辑：有 projectId 时解析到项目根目录；否则回退到全局临时存储目录。
-  const rootPath = input.projectId
-    ? getProjectRootPath(input.projectId)
-    : getResolvedTempStorageDir();
-  if (!rootPath) return null;
-
-  const targetPath = path.resolve(rootPath, normalized);
-  const rootPathResolved = path.resolve(rootPath);
-  // 限制在根目录内，避免路径穿越。
-  if (targetPath !== rootPathResolved && !targetPath.startsWith(rootPathResolved + path.sep)) {
-    return null;
-  }
-  return targetPath;
-}
 
 /** Resolve local directory from imageSaveDir input. */
 export async function resolveImageSaveDirectory(input: {
@@ -211,41 +165,11 @@ export async function resolveImageSaveDirectory(input: {
   /** Optional project id fallback. */
   projectId?: string | null;
 }): Promise<string | null> {
-  const raw = input.imageSaveDir.trim();
-  if (!raw) return null;
-
-  if (raw.startsWith("file://")) {
-    try {
-      const filePath = resolveFilePathFromUri(raw);
-      return normalizeImageSaveDirectory(filePath);
-    } catch {
-      return null;
-    }
-  }
-
-  const scopeMatch = raw.match(PROJECT_SCOPE_REGEX);
-  if (scopeMatch) {
-    const scopedProjectId = scopeMatch[1]?.trim();
-    const scopedRelativePath = scopeMatch[2] ?? "";
-    if (!scopedProjectId) return null;
-    const dirPath = resolveRelativeSaveDirectory({
-      path: scopedRelativePath,
-      projectId: scopedProjectId,
-    });
-    if (!dirPath) return null;
-    return normalizeImageSaveDirectory(dirPath);
-  }
-
-  if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(raw)) {
-    const dirPath = resolveRelativeSaveDirectory({
-      path: raw,
-      projectId: input.projectId,
-    });
-    if (!dirPath) return null;
-    return normalizeImageSaveDirectory(dirPath);
-  }
-
-  return null;
+  return resolveSaveDirectory({
+    saveDir: input.imageSaveDir,
+    projectId: input.projectId,
+    isKnownExtension: isImageSaveExtension,
+  });
 }
 
 /** Download image urls and save into a local directory. */

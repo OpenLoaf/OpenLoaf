@@ -29,17 +29,7 @@ export type { MediaSlotGroupProps } from './MediaSlotGroup'
 export { InputSlotBar } from './InputSlotBar'
 export type { InputSlotBarProps, ResolvedSlotInputs } from './InputSlotBar'
 
-/**
- * Convert a media source string to the correct API input format.
- * - data: / http(s): / blob: URLs -> { url: src }
- * - Board-relative paths (e.g. "asset/xxx.jpg") -> { path: src }
- */
-export function toMediaInput(src: string): { url: string } | { path: string } {
-  if (/^(data:|https?:|blob:)/i.test(src)) {
-    return { url: src }
-  }
-  return { path: src }
-}
+export { toMediaInput } from './toMediaInput'
 
 /**
  * Resolve the node/upstream source image for variants that require a single image input.
@@ -66,7 +56,7 @@ export function useSourceImage(
 
 /**
  * Manage manual image uploads + compute display/API image lists.
- * Used by variants that accept multiple reference images (ImgGenRef, ImgEditWan, ImgEditPlus).
+ * Used by legacy multi-image variant forms that accept multiple reference images.
  *
  * @param max - Maximum total images allowed
  * @param nodeResourcePath - Current node's image path (highest priority)

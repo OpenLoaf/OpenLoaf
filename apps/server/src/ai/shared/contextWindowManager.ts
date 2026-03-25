@@ -149,8 +149,6 @@ const TOOL_RESULT_IMPORTANCE: Record<string, ToolImportance> = {
   // 写入/生成类 — 确认即可
   'apply-patch': 'drop',
   'edit-document': 'drop',
-  'image-generate': 'drop',
-  'video-generate': 'drop',
   'generate-widget': 'drop',
   'jsx-create': 'drop',
   'chart-render': 'drop',

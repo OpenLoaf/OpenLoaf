@@ -296,12 +296,12 @@ Not by task type, but by **capability boundary**:
     - Maybe should use project-mutate to create
     - Tell user: "This project doesn't exist currently, should I create it?"
 
-- `image-generate` returns `success: false, error: "Not logged in"`
+- A cloud media capability returns `"Not logged in"`
   - ❌ Reaction: Retry
   - ✅ Thinking:
     - This is permission issue, not temporary error
     - Retry is meaningless
-    - Tell user: "Image generation requires logging in first"
+    - Tell user: "This media capability requires logging in first"
 
 ## Output Quality Self-Check
 

@@ -10,7 +10,29 @@
 "use client";
 
 import type * as React from "react";
-import type { DesktopBreakpoint } from "./desktop-breakpoints";
+export type DesktopBreakpoint = "sm" | "md" | "lg";
+
+export type DesktopBreakpointLock = "auto" | DesktopBreakpoint;
+
+export type DesktopBreakpointConfig = {
+  /** Minimum width for this breakpoint (px). */
+  minWidth: number;
+  /** Grid columns. */
+  columns: number;
+  /** Grid cell height (px). */
+  rowHeight: number;
+  /** Grid gap size (px). */
+  gap: number;
+  /** Grid padding (px). */
+  padding: number;
+};
+
+/** Desktop breakpoint configs (three-size layout). */
+export const DESKTOP_BREAKPOINTS: Record<DesktopBreakpoint, DesktopBreakpointConfig> = {
+  sm: { minWidth: 0, columns: 4, rowHeight: 78, gap: 4, padding: 16 },
+  md: { minWidth: 560, columns: 6, rowHeight: 82, gap: 6, padding: 20 },
+  lg: { minWidth: 960, columns: 10, rowHeight: 88, gap: 8, padding: 24 },
+};
 
 export type DesktopItemKind = "icon" | "widget";
 

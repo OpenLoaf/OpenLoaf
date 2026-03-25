@@ -83,18 +83,6 @@ const RAW_CAPABILITY_GROUPS = [
     toolIds: ['excel-query', 'excel-mutate', 'word-query', 'word-mutate', 'pptx-query', 'pptx-mutate', 'pdf-query', 'pdf-mutate'],
   },
   {
-    id: 'image-generate',
-    label: '图片生成',
-    description: '生成图片内容',
-    toolIds: ['list-media-models', 'image-generate'],
-  },
-  {
-    id: 'video-generate',
-    label: '视频生成',
-    description: '生成视频内容',
-    toolIds: ['list-media-models', 'video-generate'],
-  },
-  {
     id: 'video-download',
     label: '视频下载',
     description: '通过视频网址下载媒体文件到当前会话或画布资源目录',

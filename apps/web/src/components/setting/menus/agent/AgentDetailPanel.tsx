@@ -165,6 +165,19 @@ type SkillSummary = {
   isDeletable: boolean
 }
 
+const REMOVED_MEDIA_TOOL_IDS = new Set([
+  'image-generate',
+  'video-generate',
+  'list-media-models',
+])
+
+function normalizeAgentToolIds(value: string[]): string[] {
+  const normalized = value.map((id) => id.trim()).filter(Boolean)
+  return Array.from(new Set(normalized)).filter(
+    (id) => !REMOVED_MEDIA_TOOL_IDS.has(id),
+  )
+}
+
 /** Snapshot of form values for dirty comparison. */
 type FormSnapshot = {
   name: string
@@ -853,9 +866,12 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
     setAuxiliaryModelCloudIds(
       Array.isArray(d.auxiliaryModelCloudIds) ? d.auxiliaryModelCloudIds : [],
     )
+    const sanitizedToolIds = Array.isArray(d.toolIds)
+      ? normalizeAgentToolIds(d.toolIds)
+      : []
     setImageModelIds(Array.isArray(d.imageModelIds) ? d.imageModelIds : [])
     setVideoModelIds(Array.isArray(d.videoModelIds) ? d.videoModelIds : [])
-    setToolIds(Array.isArray(d.toolIds) ? d.toolIds : [])
+    setToolIds(sanitizedToolIds)
     // 逻辑：主助手默认全选技能 — 如果 config 中 skills 为空数组，初始化为所有可用技能。
     const resolvedSkills =
       isMasterAgent && Array.isArray(d.skills) && d.skills.length === 0 && availableSkills.length > 0
@@ -882,7 +898,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
         : [],
       imageModelIds: Array.isArray(d.imageModelIds) ? d.imageModelIds : [],
       videoModelIds: Array.isArray(d.videoModelIds) ? d.videoModelIds : [],
-      toolIds: Array.isArray(d.toolIds) ? d.toolIds : [],
+      toolIds: sanitizedToolIds,
       skills: resolvedSkills,
       allowSubAgents: d.allowSubAgents,
       maxDepth: d.maxDepth,
@@ -905,13 +921,18 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
         : [],
       imageModelIds: Array.isArray(d.imageModelIds) ? d.imageModelIds : [],
       videoModelIds: Array.isArray(d.videoModelIds) ? d.videoModelIds : [],
-      toolIds: Array.isArray(d.toolIds) ? d.toolIds : [],
+      toolIds: sanitizedToolIds,
       skills: resolvedSkills,
       allowSubAgents: d.allowSubAgents,
       maxDepth: d.maxDepth,
       systemPrompt: d.systemPrompt,
     }))
-  }, [availableSkills, basic.chatSource, detailQuery.data, isMasterAgent])
+  }, [
+    availableSkills,
+    basic.chatSource,
+    detailQuery.data,
+    isMasterAgent,
+  ])
 
   // 逻辑：新建模式初始化空快照。
   useEffect(() => {
@@ -964,7 +985,6 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
     return Array.from(new Set(normalized))
   }, [])
 
-
   const handleResetToDefault = useCallback(() => {
     if (!defaultSnapshot) return
     const parsed = JSON.parse(defaultSnapshot) as FormSnapshot
@@ -978,7 +998,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
     setAuxiliaryModelCloudIds(parsed.auxiliaryModelCloudIds)
     setImageModelIds(parsed.imageModelIds)
     setVideoModelIds(parsed.videoModelIds)
-    setToolIds(parsed.toolIds)
+    setToolIds(normalizeAgentToolIds(parsed.toolIds))
     setSkills(parsed.skills)
     setAllowSubAgents(parsed.allowSubAgents)
     setMaxDepth(parsed.maxDepth)
@@ -1105,7 +1125,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
         auxiliaryModelCloudIds: normalizeIds(nextSnapshot.auxiliaryModelCloudIds),
         imageModelIds: normalizeIds(nextSnapshot.imageModelIds),
         videoModelIds: normalizeIds(nextSnapshot.videoModelIds),
-        toolIds: normalizeIds(nextSnapshot.toolIds),
+        toolIds: normalizeAgentToolIds(nextSnapshot.toolIds),
         skills: nextSnapshot.skills,
         allowSubAgents: nextSnapshot.allowSubAgents,
         maxDepth: nextSnapshot.maxDepth,
@@ -1150,7 +1170,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
     const normalizedAuxCloudIds = normalizeIds(auxiliaryModelCloudIds)
     const normalizedImageModelIds = normalizeIds(imageModelIds)
     const normalizedVideoModelIds = normalizeIds(videoModelIds)
-    const normalizedToolIds = normalizeIds(toolIds)
+    const normalizedToolIds = normalizeAgentToolIds(toolIds)
     saveMutation.mutate({
       scope,
       projectId,

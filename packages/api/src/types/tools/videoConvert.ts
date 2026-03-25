@@ -24,7 +24,7 @@ export const videoConvertToolDef = {
     'get-info — 无额外必填参数，返回时长、分辨率、编解码器、流信息。' +
     '返回：convert/extract-audio 返回 { ok, data: { action, outputPath, format, duration, fileSize } }，' +
     'get-info 返回 { ok, data: { action, duration, resolution, codecs, fileSize, streams } }。' +
-    '不适用：需要 AI 生成全新视频时不要使用，改用 video-generate。',
+    '不适用：需要 AI 生成全新视频时不要使用，改用画布 v3 媒体生成流程。',
   parameters: z.object({
     action: z
       .enum(['convert', 'extract-audio', 'get-info'])

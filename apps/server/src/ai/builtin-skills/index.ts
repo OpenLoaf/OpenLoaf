@@ -176,11 +176,11 @@ export const BUILTIN_SKILLS: BuiltinSkill[] = [
   {
     name: 'media-ops',
     description:
-      'AI 媒体生成与处理——图片生成、视频生成、图片编辑（缩放/裁剪/旋转/格式转换）、视频格式转换、音频提取、视频下载。当用户提到生成图片、画图、AI 画画、创建插画、设计海报、做视频、视频转码、提取音频、视频下载、图片处理、调整大小、裁剪、旋转、格式转换、"帮我画"、"生成一张"、"做个视频"、"下载这个视频"、"把图片转成 PNG"、"提取背景音乐"、"这个视频转 MP4"、resize、crop、blur、convert、generate image、create video 时激活。',
+      '媒体处理与下载——图片编辑（缩放/裁剪/旋转/格式转换）、视频格式转换、音频提取、视频下载。AI 图片/视频生成已迁移到画布 v3，server agent 不再直接提供对应工具。',
     content: stripFrontMatter(mediaOpsMd),
     icon: '🎬',
     colorIndex: 6,
-    // image-generate / video-generate / list-media-models 暂时关闭（v1 API 已废弃，画布已迁移到 v3）
+    // 旧媒体生成工具已移除，聊天侧仅保留处理/下载
     tools: ['image-process', 'video-convert', 'video-download'],
   },
   {

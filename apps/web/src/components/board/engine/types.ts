@@ -9,9 +9,20 @@
  */
 import type { ComponentType, ReactNode } from "react";
 import type { ZodType } from "zod";
-import type { BoardFileContext } from "../core/BoardProvider";
 import type { MediaType } from "../panels/variants/slot-types";
 import type { ConnectionValidation } from "./connection-validator";
+
+/** File scope metadata for board nodes (canonical definition in board-contracts.ts). */
+export type BoardFileContext = {
+  /** Project id used for file resolution. */
+  projectId?: string
+  /** Project root uri for file resolution. */
+  rootUri?: string
+  /** Board id used for chat/session association. */
+  boardId?: string
+  /** Board folder uri for attachment storage. */
+  boardFolderUri?: string
+}
 
 /** 2D point in canvas space. */
 export type CanvasPoint = [number, number];

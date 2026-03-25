@@ -987,23 +987,12 @@ export function VideoNodeView({
     (params: VideoGenerateParams, options: SubmitOptions) =>
       submitVideoGenerate(
         {
-          // v3 fields
           feature: params.feature,
           variant: params.variant,
           inputs: params.inputs,
           params: params.params,
           count: params.count,
           seed: params.seed,
-          // legacy fields (backward compat)
-          prompt: params.prompt,
-          aspectRatio: params.aspectRatio,
-          duration: params.duration,
-          mode: params.mode as any,
-          firstFrameImageSrc: params.firstFrameImageSrc,
-          endFrameImageSrc: params.endFrameImageSrc,
-          referenceImageSrcs: params.referenceImageSrcs,
-          withAudio: params.withAudio,
-          quality: params.quality,
         },
         options,
       ),
@@ -1012,7 +1001,7 @@ export function VideoNodeView({
   const buildRetryParams = useCallback(
     (input: InputSnapshot): VideoGenerateParams => ({
       feature: (input.parameters?.feature as VideoGenerateParams['feature']) ?? 'videoGenerate',
-      variant: input.parameters?.variant as string | undefined,
+      variant: (input.parameters?.variant as string) ?? '',
       inputs: input.parameters?.inputs as Record<string, unknown> | undefined,
       params: input.parameters?.params as Record<string, unknown> | undefined,
       mode: (input.parameters?.mode as VideoGenerateParams['mode']) ?? 'text',

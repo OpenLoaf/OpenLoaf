@@ -37,7 +37,7 @@ type DomNodeLayerProps = {
 // ---------------------------------------------------------------------------
 
 /** Node types that should not display an above-node label. */
-const LABEL_EXCLUDED_TYPES = new Set(['loading'])
+const LABEL_EXCLUDED_TYPES = new Set<string>()
 
 /**
  * Compute a dampened label scale so labels grow slightly with zoom but cap out.

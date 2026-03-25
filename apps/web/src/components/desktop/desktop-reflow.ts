@@ -7,11 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import type { DesktopItemLayout } from "./types"
-import {
-  DESKTOP_BREAKPOINTS,
-  type DesktopBreakpoint,
-} from "./desktop-breakpoints"
+import { DESKTOP_BREAKPOINTS, type DesktopBreakpoint, type DesktopItemLayout } from "./types"
 
 /**
  * Find the lowest available position in the heightmap where an item of the

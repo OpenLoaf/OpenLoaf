@@ -38,8 +38,8 @@ import { FeatureTabBar } from './shared/FeatureTabBar'
 export type VideoGenerateParams = {
   /** v3 feature id (e.g. 'videoGenerate', 'lipSync'). */
   feature: string
-  /** v3 variant id (e.g. 'OL-VG-001'). Optional for legacy callers. */
-  variant?: string
+  /** v3 variant id (e.g. 'OL-VG-001'). */
+  variant: string
   /** v3 inputs (images, audio, prompt etc.). */
   inputs?: Record<string, unknown>
   /** v3 params (style, duration, aspectRatio etc.). */
@@ -48,29 +48,13 @@ export type VideoGenerateParams = {
   count?: number
   /** Seed for reproducibility. */
   seed?: number
-  // ── Legacy fields kept for backward compat with VideoNode caller ──
-  /** @deprecated Use inputs/params instead. */
+  // 便于节点快照与 aiConfig 记录的附加元数据
   prompt?: string
-  /** @deprecated Use params.aspectRatio instead. */
   aspectRatio?: string
-  /** @deprecated Use params.duration instead. */
   duration?: number
-  /** @deprecated Use params.quality instead. */
   quality?: string
-  /** @deprecated Use params.mode instead. */
   mode?: string
-  /** @deprecated Use params.withAudio instead. */
   withAudio?: boolean
-  /** @deprecated Use inputs.startImage instead. */
-  firstFrameImageSrc?: string
-  /** @deprecated Use inputs.endImage instead. */
-  endFrameImageSrc?: string
-  /** @deprecated Use inputs.images instead. */
-  referenceImageSrcs?: string[]
-  /** @deprecated Use inputs.person instead. */
-  personSrc?: string
-  /** @deprecated Use inputs.audio instead. */
-  audioSrc?: string
 }
 
 export type VideoAiPanelProps = {
@@ -273,7 +257,7 @@ export function VideoAiPanel({
       feature: selectedFeatureId,
       variant: vid,
       ...v3Result,
-      // Legacy compat fields
+      // 便于节点快照与 aiConfig 记录的附加元数据
       prompt: promptValue,
       aspectRatio: (p.params?.aspectRatio as string) ?? 'auto',
       duration: (p.params?.duration as number) ?? 5,
@@ -456,7 +440,6 @@ export function VideoAiPanel({
       {selectedVariant ? (
         <GenericVariantForm
           key={selectedVariant.id}
-          definition={{ isApplicable: () => true } as any}
           variantId={selectedVariant.id}
           upstream={upstream}
           nodeResourceUrl={undefined}

@@ -330,7 +330,6 @@ export function AudioAiPanel({
       {selectedVariant ? (
         <GenericVariantForm
           key={selectedVariant.id || resolvedVariantId}
-          definition={{ isApplicable: () => true } as any}
           variantId={selectedVariant.id}
           upstream={variantUpstream}
           disabled={readonly && !editing}

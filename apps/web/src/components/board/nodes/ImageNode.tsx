@@ -83,6 +83,8 @@ import { useCancelGeneration } from './shared/useCancelGeneration';
 
 /** Max bytes for image node preview fetches. */
 const IMAGE_NODE_PREVIEW_MAX_BYTES = 100 * 1024;
+/** Upscale v3 variant id prefix. */
+const UPSCALE_VARIANT_PREFIX = 'OL-UP-';
 
 /** Render a neutral gray loading skeleton for image nodes. */
 function ImageNodeSkeleton() {
@@ -450,38 +452,27 @@ export function ImageNodeView({
   /** Route generation to the correct service based on variant. */
   const imageSubmitGenerate = useCallback(
     (params: ImageGenerateParams, options: SubmitOptions): Promise<GenerateSubmitResult> => {
-      // v3 path: when variant is provided, route through v3 unified endpoint
-      if (params.variant) {
-        // Upscale variants: use dedicated submitUpscale for compat
-        if (params.variant.startsWith('upscale-')) {
-          const imageUrl = (params.inputs?.image as { url: string })?.url ?? ''
-          const scale = (params.params?.scale as 2 | 4) ?? 2
-          return submitUpscale(
-            { sourceImageSrc: imageUrl, scale, variant: params.variant },
-            options,
-          )
-        }
-        // All other v3 variants: use submitImageGenerate (which calls submitV3Generate)
-        return submitImageGenerate(
-          {
-            feature: params.feature,
-            variant: params.variant,
-            inputs: params.inputs,
-            params: params.params,
-            count: params.count,
-            seed: params.seed,
-          },
+      // 逻辑：upscale 统一按 feature 判断，并兼容 OL-UP-* 与历史 upscale-* variant。
+      const isUpscaleVariant =
+        params.variant.startsWith(UPSCALE_VARIANT_PREFIX) ||
+        params.variant.startsWith('upscale-')
+      if (params.feature === 'upscale' || isUpscaleVariant) {
+        const imageUrl = (params.inputs?.image as { url: string })?.url ?? ''
+        const scale = (params.params?.scale as 2 | 4) ?? 2
+        return submitUpscale(
+          { sourceImageSrc: imageUrl, scale, variant: params.variant },
           options,
         )
       }
 
-      // v2 fallback: legacy params without variant
       return submitImageGenerate(
         {
-          feature: params.feature || 'imageGenerate',
-          variant: '',
-          prompt: params.prompt ?? '',
-          aspectRatio: params.aspectRatio,
+          feature: params.feature,
+          variant: params.variant,
+          inputs: params.inputs,
+          params: params.params,
+          count: params.count,
+          seed: params.seed,
         },
         options,
       )
@@ -496,7 +487,7 @@ export function ImageNodeView({
       params: (input.parameters?.params as Record<string, unknown>) ?? {},
       count: input.parameters?.count as number | undefined,
       seed: input.parameters?.seed as number | undefined,
-      // Backward compat
+      // 便于重试时保留提示词与展示配置
       prompt: input.prompt,
       aspectRatio: (input.parameters?.aspectRatio as string) ?? '1:1',
     }),

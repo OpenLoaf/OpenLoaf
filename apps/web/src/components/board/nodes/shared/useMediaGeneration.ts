@@ -35,7 +35,7 @@ import { resolveAllMediaInputs } from '@/lib/media-upload'
  */
 export type BaseGenerateParams = {
   feature: string
-  variant?: string
+  variant: string
   inputs?: Record<string, unknown>
   params?: Record<string, unknown>
   count?: number

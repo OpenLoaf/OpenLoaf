@@ -31,7 +31,7 @@ export const imageProcessToolDef = {
     '限制：gif 仅处理第一帧；svg 仅支持作为输入（可转 png/jpg 等），不支持输出为 svg；png 转 jpeg 时透明区域会变白底。' +
     '输出：未指定 outputPath 时自动在源文件名后添加操作后缀（如 photo_resize.png），不会覆盖原图；设置 overwrite=true 可覆盖源文件。' +
     '返回：{ ok, data: { action, outputPath, width, height, format, fileSize } }。' +
-    '不适用：需要 AI 生成全新图片时不要使用，改用 image-generate。',
+    '不适用：需要 AI 生成全新图片时不要使用，改用画布 v3 媒体生成流程。',
   parameters: z.object({
     action: z
       .enum(['get-info', 'resize', 'crop', 'rotate', 'flip', 'grayscale', 'blur', 'sharpen', 'tint', 'convert'])

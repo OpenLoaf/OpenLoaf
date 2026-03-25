@@ -21,7 +21,6 @@ import { calendarQueryToolDef, calendarMutateToolDef } from "./calendar";
 import { projectQueryToolDef, projectMutateToolDef } from "./db";
 import { boardQueryToolDef, boardMutateToolDef } from "./board";
 import { emailQueryToolDef, emailMutateToolDef } from "./email";
-import { imageGenerateToolDef, videoGenerateToolDef, listMediaModelsToolDef } from "./mediaGenerate";
 import { excelQueryToolDef, excelMutateToolDef } from "./excel";
 import { wordQueryToolDef, wordMutateToolDef } from "./word";
 import { pptxQueryToolDef, pptxMutateToolDef } from "./pptx";
@@ -107,9 +106,6 @@ const TOOL_DEFS: ToolDefLike[] = [
   pptxMutateToolDef,
   pdfQueryToolDef,
   pdfMutateToolDef,
-  listMediaModelsToolDef,
-  imageGenerateToolDef,
-  videoGenerateToolDef,
   widgetInitToolDef,
   widgetListToolDef,
   widgetGetToolDef,
@@ -185,9 +181,6 @@ const TOOL_KEYWORDS: Record<string, { keywords: string[]; group: string }> = {
   'browser-wait': { keywords: ['browser', 'wait', 'load', 'ready', 'page'], group: 'web' },
   'browser-screenshot': { keywords: ['browser', 'screenshot', 'capture', 'page', 'image', 'photo'], group: 'web' },
   'browser-download-image': { keywords: ['browser', 'download', 'image', 'picture', 'save', 'photo', 'img'], group: 'web' },
-  'image-generate': { keywords: ['image', 'picture', 'photo', 'draw', 'generate', 'art', 'illustration'], group: 'media' },
-  'video-generate': { keywords: ['video', 'clip', 'animation', 'generate', 'motion', 'movie'], group: 'media' },
-  'list-media-models': { keywords: ['media', 'model', 'list', 'available', 'image', 'video'], group: 'media' },
   'chart-render': { keywords: ['chart', 'graph', 'plot', 'data', 'visualization', 'diagram'], group: 'ui' },
   'js-repl': { keywords: ['javascript', 'repl', 'eval', 'calculate', 'code', 'script', 'compute'], group: 'code' },
   'js-repl-reset': { keywords: ['repl', 'reset', 'clear', 'javascript', 'context'], group: 'code' },

@@ -44,7 +44,7 @@ import type {
   V3InputSlotDefinition,
 } from '../slot-types'
 import type { ResolveContext } from '../types'
-import { toMediaInput } from './index'
+import { toMediaInput } from './toMediaInput'
 import { MediaSlot } from './MediaSlot'
 
 // ---------------------------------------------------------------------------

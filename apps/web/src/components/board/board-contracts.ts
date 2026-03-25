@@ -9,6 +9,8 @@
  */
 import type { VariantParamsSnapshot } from './panels/variants/types'
 
+export type { BoardFileContext } from './engine/types'
+
 export type ImagePreviewPayload = {
   /** Original image uri. */
   originalSrc: string;
@@ -18,17 +20,6 @@ export type ImagePreviewPayload = {
   fileName: string;
   /** MIME type for the original image. */
   mimeType?: string;
-}
-
-export type BoardFileContext = {
-  /** Project id used for file resolution. */
-  projectId?: string
-  /** Project root uri for file resolution. */
-  rootUri?: string
-  /** Board id used for chat/session association. */
-  boardId?: string
-  /** Board folder uri for attachment storage. */
-  boardFolderUri?: string
 }
 
 export type LinkNodeProps = {

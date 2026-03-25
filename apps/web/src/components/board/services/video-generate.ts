@@ -14,10 +14,10 @@ import { submitV3Generate } from '@/lib/saas-media'
 // ---------------------------------------------------------------------------
 
 export type VideoGenerateRequest = {
-  /** v3 feature id (e.g. 'videoGenerate', 'lipSync'). Defaults to 'videoGenerate'. */
-  feature?: string
-  /** v3 variant id (e.g. 'OL-VG-001'). Optional for legacy callers. */
-  variant?: string
+  /** v3 feature id (e.g. 'videoGenerate', 'lipSync'). */
+  feature: string
+  /** v3 variant id (e.g. 'OL-VG-001'). */
+  variant: string
   /** v3 inputs (images, audio, prompt, person etc.). */
   inputs?: Record<string, unknown>
   /** v3 params (style, duration, aspectRatio etc.). */
@@ -26,120 +26,26 @@ export type VideoGenerateRequest = {
   count?: number
   /** Seed for reproducibility. */
   seed?: number
-
-  // ── Legacy fields (backward compat -- mapped to v3 format) ──
-  /** @deprecated Use params.prompt or inputs.prompt instead. */
-  prompt?: string
-  /** @deprecated Use params.aspectRatio instead. */
-  aspectRatio?: string
-  /** @deprecated Use params.duration instead. */
-  duration?: number
-  /** @deprecated Use variant-specific mode in params. */
-  mode?: string
-  /** @deprecated Use inputs.startImage instead. */
-  firstFrameImageSrc?: string
-  /** @deprecated Use inputs.endImage instead. */
-  endFrameImageSrc?: string
-  /** @deprecated Use inputs.images instead. */
-  referenceImageSrcs?: string[]
-  /** @deprecated Use params.withAudio instead. */
-  withAudio?: boolean
-  /** @deprecated Use params.quality instead. */
-  quality?: string
-  /** @deprecated Use params.style instead. */
-  style?: string
-  /** @deprecated Use params.negativePrompt instead. */
-  negativePrompt?: string
 }
 
 export type VideoGenerateResult =
   | { taskId: string }
   | { groupId: string; taskIds: string[] }
 
-/**
- * Submit a video generation task via v3 endpoint.
- *
- * When `variant` is present the request is forwarded directly to the v3 API.
- * For backward compatibility, legacy fields are mapped to v3 format when
- * `variant` is not provided (e.g. retry from old version stack entries).
- */
+/** Submit a video generation task via v3 endpoint. */
 export async function submitVideoGenerate(
   request: VideoGenerateRequest,
   options: { projectId?: string; boardId?: string; sourceNodeId?: string },
 ): Promise<VideoGenerateResult> {
-  // ── v3 path (new callers supply feature + variant) ──
-  if (request.variant) {
-    const result = await submitV3Generate({
-      feature: request.feature || 'videoGenerate',
-      variant: request.variant,
-      inputs: request.inputs,
-      params: request.params,
-      count: request.count,
-      seed: request.seed,
-      projectId: options.projectId,
-      boardId: options.boardId,
-      sourceNodeId: options.sourceNodeId,
-    })
-
-    if (!result || result.success !== true) {
-      const message = result?.message || 'Video generation task submission failed'
-      throw new Error(message)
-    }
-
-    const data = result.data
-    if (data.groupId && Array.isArray(data.taskIds)) {
-      return { groupId: data.groupId as string, taskIds: data.taskIds as string[] }
-    }
-    if (!data.taskId) {
-      throw new Error(result.message || 'Video generation task submission failed')
-    }
-    return { taskId: data.taskId as string }
-  }
-
-  // ── Legacy fallback (old callers without variant) ──
-  // Build v3 inputs/params from legacy fields so the server can route.
-  const inputs: Record<string, unknown> = { ...request.inputs }
-  const params: Record<string, unknown> = { ...request.params }
-
-  if (request.prompt) {
-    params.prompt = request.prompt
-  }
-  if (request.aspectRatio && request.aspectRatio !== 'auto') {
-    params.aspectRatio = request.aspectRatio
-  }
-  if (request.duration) {
-    params.duration = request.duration
-  }
-  if (request.style) {
-    params.style = request.style
-  }
-  if (request.quality) {
-    params.quality = request.quality
-  }
-  if (request.withAudio) {
-    params.withAudio = true
-  }
-  if (request.negativePrompt) {
-    params.negativePrompt = request.negativePrompt
-  }
-  if (request.mode) {
-    params.mode = request.mode
-  }
-  if (request.firstFrameImageSrc) {
-    inputs.startImage = { url: request.firstFrameImageSrc }
-  }
-  if (request.endFrameImageSrc) {
-    inputs.endImage = { url: request.endFrameImageSrc }
-  }
-  if (request.referenceImageSrcs?.length) {
-    inputs.images = request.referenceImageSrcs.map((url) => ({ url }))
+  if (!request.variant.trim()) {
+    throw new Error('Video generation requires a variant id')
   }
 
   const result = await submitV3Generate({
-    feature: request.feature || 'videoGenerate',
-    variant: 'OL-VG-003', // Default variant for legacy callers
-    inputs: Object.keys(inputs).length > 0 ? inputs : undefined,
-    params: Object.keys(params).length > 0 ? params : undefined,
+    feature: request.feature,
+    variant: request.variant,
+    inputs: request.inputs,
+    params: request.params,
     count: request.count,
     seed: request.seed,
     projectId: options.projectId,
@@ -152,12 +58,12 @@ export async function submitVideoGenerate(
     throw new Error(message)
   }
 
-  const v2data = result.data
-  if (v2data.groupId && Array.isArray(v2data.taskIds)) {
-    return { groupId: v2data.groupId as string, taskIds: v2data.taskIds as string[] }
+  const data = result.data
+  if (data.groupId && Array.isArray(data.taskIds)) {
+    return { groupId: data.groupId as string, taskIds: data.taskIds as string[] }
   }
-  if (!v2data.taskId) {
+  if (!data.taskId) {
     throw new Error(result.message || 'Video generation task submission failed')
   }
-  return { taskId: v2data.taskId as string }
+  return { taskId: data.taskId as string }
 }

@@ -411,6 +411,55 @@ export async function fetchCreditsTransactions(input: {
   }
 }
 
+/** Redeem one code for current user. */
+export async function redeemCode(input: {
+  code: string;
+}): Promise<{
+  id: string;
+  code: string;
+  title: string;
+  creditsAmount: number;
+  newBalance: number;
+  createdAt: string;
+}> {
+  const token = await getAccessToken();
+  if (!token) {
+    throw new Error("not_authenticated");
+  }
+  const client = createSaasClient(async () => token);
+  return client.redeemCode.redeem(input);
+}
+
+/** Fetch redeem code records for current user. */
+export async function fetchRedeemCodeRecords(input: {
+  page: number;
+  pageSize: number;
+}): Promise<{
+  items: Array<{
+    id: string;
+    creditsAmount: number;
+    createdAt: string;
+    redeemCode: {
+      id: string;
+      code: string;
+      title: string;
+    };
+  }>;
+  total: number;
+  page: number;
+  pageSize: number;
+  pageCount: number;
+} | null> {
+  const token = await getAccessToken();
+  if (!token) return null;
+  try {
+    const client = createSaasClient(async () => token);
+    return await client.redeemCode.records(input);
+  } catch {
+    return null;
+  }
+}
+
 /** Resolve auth user from cached token or storage. */
 export async function resolveAuthUser(): Promise<SaasAuthUser | null> {
   const cached = getStoredUser();

@@ -29,7 +29,6 @@ import {
   CollapsibleTrigger,
 } from '@openloaf/ui/collapsible'
 import type {
-  VariantDefinition,
   VariantUpstream,
   VariantParamsSnapshot,
   ParamField,
@@ -55,7 +54,6 @@ import { useCatalog } from '../../../hooks/useCatalog'
 // ---------------------------------------------------------------------------
 
 export interface GenericVariantFormProps {
-  definition: VariantDefinition
   variantId: string
   upstream: VariantUpstream
   nodeResourceUrl?: string
@@ -447,7 +445,6 @@ function FieldRow({
 // ---------------------------------------------------------------------------
 
 export function GenericVariantForm({
-  definition,
   variantId,
   upstream,
   nodeResourceUrl,
@@ -461,8 +458,8 @@ export function GenericVariantForm({
 }: GenericVariantFormProps) {
   const { t } = useTranslation()
 
-  // Use overrideParams when provided (remote schema), otherwise fall back to definition.params
-  const effectiveParamFields = overrideParams ?? definition.params ?? []
+  // 参数字段完全来自远端 schema（API 驱动）
+  const effectiveParamFields = overrideParams ?? []
 
   // ---- State ----
   const [params, setParams] = useState<Record<string, unknown>>(() => ({

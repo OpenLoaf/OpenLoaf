@@ -30,9 +30,7 @@ const TOOL_TIMEOUT_MAP: Record<string, number> = {
   'browser-act': 60_000,
   'browser-wait': 60_000,
 
-  // Media generation — can be slow
-  'image-generate': 120_000,
-  'video-generate': 180_000,
+  // Media download — network-dependent
   'video-download': 600_000,
 
   // Office document tools — ZIP I/O + XML parsing can be slow for large files

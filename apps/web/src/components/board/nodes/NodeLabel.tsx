@@ -12,7 +12,6 @@ import {
   Image,
   Layers,
   Link2,
-  Loader2,
   Music,
   Paperclip,
   Video,
@@ -40,8 +39,6 @@ function getNodeTypeIcon(type: string) {
       return <Link2 size={12} className="shrink-0 opacity-60" />
     case 'calendar':
       return <Calendar size={12} className="shrink-0 opacity-60" />
-    case 'loading':
-      return <Loader2 size={12} className="shrink-0 opacity-60" />
     default:
       return <Layers size={12} className="shrink-0 opacity-60" />
   }

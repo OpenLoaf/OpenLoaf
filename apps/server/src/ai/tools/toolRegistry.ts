@@ -34,7 +34,6 @@ import { excelQueryTool, excelMutateTool } from "@/ai/tools/excelTools";
 import { wordQueryTool, wordMutateTool } from "@/ai/tools/wordTools";
 import { pptxQueryTool, pptxMutateTool } from "@/ai/tools/pptxTools";
 import { pdfQueryTool, pdfMutateTool } from "@/ai/tools/pdfTools";
-import { imageGenerateTool, videoGenerateTool, listMediaModelsTool } from "@/ai/tools/mediaGenerateTools";
 import { imageProcessTool } from "@/ai/tools/imageProcessTools";
 import { videoConvertTool } from "@/ai/tools/videoConvertTools";
 import { videoDownloadTool } from "@/ai/tools/videoDownloadTool";
@@ -79,11 +78,6 @@ import { excelQueryToolDef, excelMutateToolDef } from "@openloaf/api/types/tools
 import { wordQueryToolDef, wordMutateToolDef } from "@openloaf/api/types/tools/word";
 import { pptxQueryToolDef, pptxMutateToolDef } from "@openloaf/api/types/tools/pptx";
 import { pdfQueryToolDef, pdfMutateToolDef } from "@openloaf/api/types/tools/pdf";
-import {
-  imageGenerateToolDef,
-  videoGenerateToolDef,
-  listMediaModelsToolDef,
-} from "@openloaf/api/types/tools/mediaGenerate";
 import { imageProcessToolDef } from "@openloaf/api/types/tools/imageProcess";
 import { videoConvertToolDef } from "@openloaf/api/types/tools/videoConvert";
 import { videoDownloadToolDef } from "@openloaf/api/types/tools/videoDownload";
@@ -305,15 +299,6 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
   [widgetCheckToolDef.id]: {
     tool: widgetCheckTool,
   },
-  [listMediaModelsToolDef.id]: {
-    tool: listMediaModelsTool,
-  },
-  [imageGenerateToolDef.id]: {
-    tool: imageGenerateTool,
-  },
-  [videoGenerateToolDef.id]: {
-    tool: videoGenerateTool,
-  },
   [requestUserInputToolDef.id]: {
     tool: requestUserInputTool,
   },
@@ -417,9 +402,6 @@ const TOOL_DEF_REGISTRY: Record<string, { parameters?: any }> = {
   [widgetListToolDef.id]: widgetListToolDef,
   [widgetGetToolDef.id]: widgetGetToolDef,
   [widgetCheckToolDef.id]: widgetCheckToolDef,
-  [listMediaModelsToolDef.id]: listMediaModelsToolDef,
-  [imageGenerateToolDef.id]: imageGenerateToolDef,
-  [videoGenerateToolDef.id]: videoGenerateToolDef,
   [requestUserInputToolDef.id]: requestUserInputToolDef,
   [jsxCreateToolDef.id]: jsxCreateToolDef,
   [chartRenderToolDef.id]: chartRenderToolDef,

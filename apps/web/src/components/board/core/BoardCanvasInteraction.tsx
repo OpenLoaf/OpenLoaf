@@ -125,6 +125,10 @@ const DEFAULT_AUDIO_NODE_WIDTH = 320;
 const DEFAULT_AUDIO_NODE_HEIGHT = 120;
 const DEFAULT_FILE_NODE_WIDTH = 260;
 const DEFAULT_FILE_NODE_HEIGHT = 80;
+/** Default feature id for image upscale flow. */
+const UPSCALE_FEATURE_ID = "upscale";
+/** Default v3 variant id for image upscale flow. */
+const UPSCALE_VARIANT_ID = "OL-UP-001";
 /** Cursor assets for board drawing tools. */
 const PEN_CURSOR_DOWN_URL = "/board/brush-cursor.svg";
 const PEN_CURSOR_UP_URL = "/board/brush-cursor-up.svg";
@@ -1558,12 +1562,12 @@ export function BoardCanvasInteraction({
             : previewSrc;
           if (!sourceImageSrc) return;
           const promptText = "upscale 2x";
-          const variant = "OL-UP-001";
+          const variant = UPSCALE_VARIANT_ID;
           const scale = 2 as const;
           const inputSnapshot = createInputSnapshot({
             prompt: promptText,
             parameters: {
-              feature: "upscale",
+              feature: UPSCALE_FEATURE_ID,
               variant,
               inputs: {
                 image: { url: sourceImageSrc },
@@ -1581,7 +1585,7 @@ export function BoardCanvasInteraction({
             targetProps: {
               fileName: promptText,
               aiConfig: {
-                feature: "upscale",
+                feature: UPSCALE_FEATURE_ID,
                 prompt: promptText,
               },
               versionStack: pushVersion(undefined, pendingEntry),

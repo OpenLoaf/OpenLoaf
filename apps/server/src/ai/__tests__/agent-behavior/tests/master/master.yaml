@@ -226,19 +226,6 @@
           ? { pass: true, score: 1, reason: '未误用 shell-command' }
           : { pass: false, score: 0, reason: 'JS 计算不应使用 shell-command' };
 
-- description: "master-005: 图片生成应使用 image-generate"
-  vars:
-    prompt: "生成一张宇宙星空的图片"
-  assert:
-    - type: javascript
-      weight: 2
-      metric: tool_selection
-      value: |
-        const tools = context.providerResponse?.metadata?.toolNames || [];
-        return tools.includes('image-generate')
-          ? { pass: true, score: 1, reason: '正确调用了 image-generate' }
-          : { pass: false, score: 0, reason: `未调用 image-generate，实际: [${tools}]` };
-
 - description: "master-006: 目录列表应使用 list-dir 而非 project-query"
   vars:
     prompt: "列出 /tmp 目录有哪些文件"
@@ -774,4 +761,3 @@
       weight: 1
       metric: output_quality
       value: "回复应展示明天的日程安排或说明暂无安排，不应创建新任务"
-

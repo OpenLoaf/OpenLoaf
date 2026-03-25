@@ -297,6 +297,9 @@ importers:
       marked:
         specifier: ^17.0.4
         version: 17.0.4
+      nanoid:
+        specifier: ^3.3.11
+        version: 3.3.11
       node-pty:
         specifier: ^1.1.0
         version: 1.1.0
@@ -442,9 +445,6 @@ importers:
       '@openloaf/widget-sdk':
         specifier: workspace:*
         version: link:../../packages/widget-sdk
-      '@phosphor-icons/react':
-        specifier: ^2.1.7
-        version: 2.1.10(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@platejs/ai':
         specifier: ^52.1.0
         version: 52.3.1(platejs@52.3.2(@types/react@19.2.3)(immer@11.1.4)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(scheduler@0.27.0)(use-sync-external-store@1.6.0(react@19.2.3)))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3)
@@ -538,6 +538,9 @@ importers:
       '@radix-ui/react-use-controllable-state':
         specifier: ^1.2.2
         version: 1.2.2(@types/react@19.2.3)(react@19.2.3)
+      '@radix-ui/react-visually-hidden':
+        specifier: ^1.2.3
+        version: 1.2.3(@types/react-dom@19.2.3(@types/react@19.2.3))(@types/react@19.2.3)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@syncfusion/ej2-base':
         specifier: 31.2.18
         version: 31.2.18
@@ -571,9 +574,6 @@ importers:
       '@uploadthing/react':
         specifier: 7.3.3
         version: 7.3.3(next@16.1.6(@babel/core@7.29.0)(@opentelemetry/api@1.9.0)(babel-plugin-macros@3.1.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(sass@1.97.3))(react@19.2.3)(uploadthing@7.7.4(express@5.2.1)(next@16.1.6(@babel/core@7.29.0)(@opentelemetry/api@1.9.0)(babel-plugin-macros@3.1.0)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(sass@1.97.3))(tailwindcss@4.2.1))
-      '@vidstack/react':
-        specifier: ^1.12.13
-        version: 1.12.13(@types/react@19.2.3)(react@19.2.3)
       '@wavesurfer/react':
         specifier: ^1.0.12
         version: 1.0.12(react@19.2.3)(wavesurfer.js@7.12.4)
@@ -2261,8 +2261,8 @@ packages:
     resolution: {integrity: sha512-F+nKc0xW+kVbBRhFzaMgPy3KwmuNTYX1fx6+FxxoSnNgwYX6LD7AKBTWkU0MQ6IBoe7dz069CNkR673sPAgkCQ==}
     engines: {node: '>=14'}
 
-  '@electron/node-gyp@https://codeload.github.com/electron/node-gyp/tar.gz/06b29aafb7708acef8b3669835c8a7857ebc92d2':
-    resolution: {tarball: https://codeload.github.com/electron/node-gyp/tar.gz/06b29aafb7708acef8b3669835c8a7857ebc92d2}
+  '@electron/node-gyp@git+https://git@github.com:electron/node-gyp.git#06b29aafb7708acef8b3669835c8a7857ebc92d2':
+    resolution: {commit: 06b29aafb7708acef8b3669835c8a7857ebc92d2, repo: git@github.com:electron/node-gyp.git, type: git}
     version: 10.2.0-electron.1
     engines: {node: '>=12.13.0'}
     hasBin: true
@@ -4066,13 +4066,6 @@ packages:
 
   '@pdf-lib/upng@1.0.1':
     resolution: {integrity: sha512-dQK2FUMQtowVP00mtIksrlZhdFXQZPC+taih1q4CvPZ5vqdxR/LKBaFg0oAfzd1GlHZXXSPdQfzQnt+ViGvEIQ==}
-
-  '@phosphor-icons/react@2.1.10':
-    resolution: {integrity: sha512-vt8Tvq8GLjheAZZYa+YG/pW7HDbov8El/MANW8pOAz4eGxrwhnbfrQZq0Cp4q8zBEu8NIhHdnr+r8thnfRSNYA==}
-    engines: {node: '>=10'}
-    peerDependencies:
-      react: '>= 16.8'
-      react-dom: '>= 16.8'
 
   '@pierre/diffs@1.0.11':
     resolution: {integrity: sha512-j6zIEoyImQy1HfcJqbrDwP0O5I7V2VNXAaw53FqQ+SykRfaNwABeZHs9uibXO4supaXPmTx6LEH9Lffr03e1Tw==}
@@ -19996,7 +19989,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@electron/node-gyp@https://codeload.github.com/electron/node-gyp/tar.gz/06b29aafb7708acef8b3669835c8a7857ebc92d2':
+  '@electron/node-gyp@git+https://git@github.com:electron/node-gyp.git#06b29aafb7708acef8b3669835c8a7857ebc92d2':
     dependencies:
       env-paths: 2.2.1
       exponential-backoff: 3.1.3
@@ -20078,7 +20071,7 @@ snapshots:
 
   '@electron/rebuild@3.7.2':
     dependencies:
-      '@electron/node-gyp': https://codeload.github.com/electron/node-gyp/tar.gz/06b29aafb7708acef8b3669835c8a7857ebc92d2
+      '@electron/node-gyp': git+https://git@github.com:electron/node-gyp.git#06b29aafb7708acef8b3669835c8a7857ebc92d2
       '@malept/cross-spawn-promise': 2.0.0
       chalk: 4.1.2
       debug: 4.4.3
@@ -21987,11 +21980,6 @@ snapshots:
   '@pdf-lib/upng@1.0.1':
     dependencies:
       pako: 1.0.11
-
-  '@phosphor-icons/react@2.1.10(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
-    dependencies:
-      react: 19.2.3
-      react-dom: 19.2.3(react@19.2.3)
 
   '@pierre/diffs@1.0.11(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
     dependencies:
@@ -28015,13 +28003,6 @@ snapshots:
       react: 19.2.3
 
   '@vercel/oidc@3.1.0': {}
-
-  '@vidstack/react@1.12.13(@types/react@19.2.3)(react@19.2.3)':
-    dependencies:
-      '@floating-ui/dom': 1.7.5
-      '@types/react': 19.2.3
-      media-captions: 1.0.4
-      react: 19.2.3
 
   '@vidstack/react@1.12.13(@types/react@19.2.3)(react@19.2.4)':
     dependencies:

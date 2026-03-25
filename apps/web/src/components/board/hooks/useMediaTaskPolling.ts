@@ -33,8 +33,6 @@ export type UseMediaTaskPollingOptions = {
   taskId: string | undefined
   taskType: MediaTaskType
   projectId?: string
-  /** @deprecated Use boardId instead. */
-  saveDir?: string
   /** Board id — server resolves the save path automatically. */
   boardId?: string
   /** Set to `false` to pause polling. Defaults to `true`. */
@@ -64,7 +62,7 @@ const MAX_SSE_ERROR_RETRIES = 3
 export function useMediaTaskPolling(
   options: UseMediaTaskPollingOptions,
 ): TaskPollingResult {
-  const { taskId, taskType, projectId, saveDir, boardId, enabled = true, onSuccess, onFailure } = options
+  const { taskId, taskType, projectId, boardId, enabled = true, onSuccess, onFailure } = options
 
   const [result, setResult] = useState<TaskPollingResult>({ status: 'idle' })
 
@@ -195,7 +193,6 @@ export function useMediaTaskPolling(
       if (controller.signal.aborted) return
       pollTask(taskId, {
         projectId: projectId || undefined,
-        saveDir: saveDir || undefined,
         boardId: boardId || undefined,
       })
         .then(handlePollResult)
@@ -238,7 +235,7 @@ export function useMediaTaskPolling(
         activeRef.current = null
       }
     }
-  }, [taskId, taskType, projectId, saveDir, boardId, enabled])
+  }, [taskId, taskType, projectId, boardId, enabled])
 
   return result
 }
