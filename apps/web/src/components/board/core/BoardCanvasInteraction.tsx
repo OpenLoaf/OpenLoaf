@@ -104,7 +104,7 @@ import {
   emitSidebarOpenRequest,
   getLeftSidebarOpen,
 } from "@/lib/sidebar-state";
-import { TEXT_NODE_DEFAULT_HEIGHT } from "../nodes/TextNode";
+import { TEXT_NODE_DEFAULT_HEIGHT } from "../nodes/text-node-constants";
 import { isGroupNodeType } from "../engine/grouping";
 import {
   ProjectFilePickerDialog,
@@ -1460,8 +1460,10 @@ export function BoardCanvasInteraction({
     const props: Record<string, unknown> = {};
     if (item.preselect.featureId && item.preselect.variantId) {
       props.aiConfig = {
-        feature: item.preselect.featureId,
-        preselect: item.preselect,
+        lastUsed: {
+          feature: item.preselect.featureId,
+          variant: item.preselect.variantId,
+        },
       };
     }
     // 逻辑：text 节点创建时设置默认便签样式。
@@ -1585,8 +1587,13 @@ export function BoardCanvasInteraction({
             targetProps: {
               fileName: promptText,
               aiConfig: {
-                feature: UPSCALE_FEATURE_ID,
-                prompt: promptText,
+                lastUsed: { feature: UPSCALE_FEATURE_ID, variant: '' },
+                lastGeneration: {
+                  feature: UPSCALE_FEATURE_ID,
+                  variant: '',
+                  prompt: promptText,
+                  generatedAt: Date.now(),
+                },
               },
               versionStack: pushVersion(undefined, pendingEntry),
             },
