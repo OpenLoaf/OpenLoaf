@@ -192,16 +192,20 @@ export function VideoAiPanel({
     (resolved: ResolvedSlotInputs) => {
       setResolvedSlots(resolved.mediaRefs)
       setSlotsValid(resolved.isValid)
-      cache.update(cacheKey, { inputs: resolved.inputs })
+      if (cacheKey) {
+        cache.update(cacheKey, { inputs: resolved.inputs })
+      }
     },
-    [cache],
+    [cache, cacheKey],
   )
 
   const handleSlotAssignmentPersist = useCallback(
     (map: PersistedSlotMap) => {
-      cache.update(cacheKey, { slotAssignment: map })
+      if (cacheKey) {
+        cache.update(cacheKey, { slotAssignment: map })
+      }
     },
-    [cache],
+    [cache, cacheKey],
   )
 
   // ── Generation state ──
@@ -303,6 +307,20 @@ export function VideoAiPanel({
 
     try {
       const params = collectParams()
+      cache.flushNow()
+      onUpdate({
+        aiConfig: {
+          ...aiConfigRef.current,
+          lastUsed: { feature: params.feature, variant: params.variant },
+          lastGeneration: {
+            prompt: params.prompt ?? '',
+            feature: params.feature,
+            variant: params.variant,
+            aspectRatio: params.aspectRatio,
+            generatedAt: Date.now(),
+          },
+        },
+      })
       onGenerateNewNode?.(params)
     } catch (err) {
       console.error('[VideoAiPanel] handleGenerateNew failed:', err)
@@ -312,7 +330,7 @@ export function VideoAiPanel({
     } finally {
       setTimeout(() => setIsGenerating(false), 300)
     }
-  }, [isGenerating, collectParams, onGenerateNewNode, t])
+  }, [isGenerating, collectParams, onGenerateNewNode, onUpdate, t, cache])
 
   const hasResource = Boolean(element.props.sourcePath)
 
