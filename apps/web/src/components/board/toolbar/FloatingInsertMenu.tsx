@@ -25,7 +25,7 @@ import type { CanvasEngine } from "../engine/CanvasEngine";
 import type { CanvasPoint, CanvasSnapshot } from "../engine/types";
 import { toolbarSurfaceClassName } from "../ui/ToolbarParts";
 import { DEFAULT_NODE_SIZE } from "../engine/constants";
-import { TEXT_NODE_DEFAULT_HEIGHT } from "../nodes/TextNode";
+import { TEXT_NODE_DEFAULT_HEIGHT } from "../nodes/text-node-constants";
 
 /** Custom event name for opening the floating insert menu. */
 export const FLOATING_INSERT_MENU_EVENT = "openloaf:board-floating-insert-menu";

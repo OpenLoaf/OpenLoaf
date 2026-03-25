@@ -68,17 +68,23 @@ import { TextAiPanel, type TextGenerateParams } from "../panels/TextAiPanel";
 // Types
 // ---------------------------------------------------------------------------
 
-/** Text value stored on the text node (rich text Value or legacy string). */
-export type TextNodeValue = string | Value;
-
-/** Supported text alignment for text nodes. */
-export type TextNodeTextAlign = "left" | "center" | "right";
-
-/** Visual style variant for text nodes. */
-export type TextNodeStyle = "plain" | "sticky" | "shape";
-
-/** Preset sticky note colors. */
-export type StickyColor = "yellow" | "blue" | "green" | "pink" | "purple" | "orange";
+// Re-export types from leaf file so existing imports continue to work
+export type {
+  TextNodeValue,
+  TextNodeTextAlign,
+  TextNodeStyle,
+  StickyColor,
+  ShapeType,
+  TextNodeProps,
+} from "./text-node-types";
+import type {
+  TextNodeValue,
+  TextNodeTextAlign,
+  TextNodeStyle,
+  StickyColor,
+  ShapeType,
+  TextNodeProps,
+} from "./text-node-types";
 
 /** Sticky note color definitions (light + dark background/text). */
 export const STICKY_COLORS: Record<StickyColor, { bg: string; darkBg: string }> = {
@@ -89,9 +95,6 @@ export const STICKY_COLORS: Record<StickyColor, { bg: string; darkBg: string }> 
   purple:  { bg: "bg-neutral-100",  darkBg: "dark:bg-neutral-800/60" },
   orange:  { bg: "bg-neutral-100",  darkBg: "dark:bg-neutral-800/60" },
 };
-
-/** Shape sub-types for style='shape'. */
-export type ShapeType = "rectangle" | "rounded_rectangle" | "ellipse" | "diamond" | "triangle";
 
 /** CSS clip-path for each shape. "none" means use border-radius instead. */
 const SHAPE_CLIP_PATHS: Record<ShapeType, string | null> = {
@@ -113,46 +116,6 @@ function getShapeTextColor(hex: string): string {
   return luminance > 0.5 ? "#000000" : "#ffffff";
 }
 
-export type TextNodeProps = {
-  /** Text content stored on the node. */
-  value: TextNodeValue;
-  /** Whether the node should auto-enter edit mode on mount. */
-  autoFocus?: boolean;
-  /** Collapsed height stored as view baseline size. */
-  collapsedHeight?: number;
-  /** Font size for the text node. */
-  fontSize?: number;
-  /** Font weight for the text node (legacy — kept for backward compat). */
-  fontWeight?: number;
-  /** Font style for the text node (legacy — kept for backward compat). */
-  fontStyle?: "normal" | "italic";
-  /** Text decoration for the text node (legacy — kept for backward compat). */
-  textDecoration?: "none" | "underline" | "line-through";
-  /** Text alignment for the text node. */
-  textAlign?: TextNodeTextAlign;
-  /** Custom text color for the text node. */
-  color?: string;
-  /** Custom background color for the text node. */
-  backgroundColor?: string;
-  /** Render the node as a read-only chat projection. */
-  readOnlyProjection?: boolean;
-  /** Markdown text shown in read-only chat projection mode. */
-  markdownText?: string;
-  /** Visual style variant: 'plain' (default), 'sticky' (colored note), or 'shape'. */
-  style?: TextNodeStyle;
-  /** Sticky note color preset. Only used when style is 'sticky'. */
-  stickyColor?: StickyColor;
-  /** Shape sub-type. Only used when style is 'shape'. */
-  shapeType?: ShapeType;
-  /** Shape fill color. Only used when style is 'shape'. */
-  shapeFill?: string;
-  /** Shape stroke color. Only used when style is 'shape'. */
-  shapeStroke?: string;
-  /** Shape stroke width in px. Only used when style is 'shape'. */
-  shapeStrokeWidth?: number;
-  /** How the text node was created. */
-  origin?: import("../board-contracts").NodeOrigin;
-};
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -162,24 +125,24 @@ export type TextNodeProps = {
 const DEFAULT_TEXT_VALUE: Value = [{ type: 'p', children: [{ text: '' }] }];
 /** Placeholder copy for empty text nodes – resolved at render time. */
 const getTextNodePlaceholder = () => i18next.t('board:textNode.placeholder');
-/** Vertical padding used by the text node container (matches p-2.5 = 10px * 2). */
-const TEXT_NODE_VERTICAL_PADDING = 20;
+import {
+  TEXT_NODE_DEFAULT_FONT_SIZE,
+  TEXT_NODE_DEFAULT_HEIGHT,
+  TEXT_NODE_LINE_HEIGHT,
+  TEXT_NODE_VERTICAL_PADDING,
+} from "./text-node-constants";
+
+// Re-export for backward compatibility (prefer importing from text-node-constants directly)
+export { TEXT_NODE_DEFAULT_HEIGHT } from "./text-node-constants";
+
 /** Ignore tiny resize deltas to avoid jitter. */
 const TEXT_NODE_RESIZE_EPSILON = 2;
-/** Default font size for text nodes. */
-const TEXT_NODE_DEFAULT_FONT_SIZE = 18;
-/** Default line height multiplier for text nodes. */
-const TEXT_NODE_LINE_HEIGHT = 1.4;
 /** Default font weight for board text nodes. */
 const TEXT_NODE_DEFAULT_FONT_WEIGHT = 430;
 /** Subtle tracking tweak so board copy feels less loose. */
 const TEXT_NODE_DEFAULT_LETTER_SPACING = "-0.012em";
 /** Maximum font size for text nodes. */
 const TEXT_NODE_MAX_FONT_SIZE = 52;
-/** Default height for a single-line text node. */
-export const TEXT_NODE_DEFAULT_HEIGHT = Math.ceil(
-  TEXT_NODE_DEFAULT_FONT_SIZE * TEXT_NODE_LINE_HEIGHT + TEXT_NODE_VERTICAL_PADDING
-);
 /** Minimum size for text nodes. */
 const TEXT_NODE_MIN_SIZE = { w: 200, h: TEXT_NODE_DEFAULT_HEIGHT };
 /** Maximum size for text nodes. */

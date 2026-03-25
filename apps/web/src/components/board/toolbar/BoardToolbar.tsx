@@ -28,7 +28,7 @@ import { cn } from "@udecode/cn";
 import type { CanvasEngine } from "../engine/CanvasEngine";
 import type { CanvasInsertRequest, CanvasSnapshot } from "../engine/types";
 import { HoverPanel, IconBtn, PanelItem, toolbarSurfaceClassName } from "../ui/ToolbarParts";
-import { TEXT_NODE_DEFAULT_HEIGHT } from "../nodes/TextNode";
+import { TEXT_NODE_DEFAULT_HEIGHT } from "../nodes/text-node-constants";
 import { useBoardContext } from "../core/BoardProvider";
 import {
   AUDIO_EXTS,

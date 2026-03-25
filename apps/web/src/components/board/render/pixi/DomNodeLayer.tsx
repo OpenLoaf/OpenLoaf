@@ -128,6 +128,10 @@ const DomNodeItem = memo(function DomNodeItem({
               : baseZ,
         '--node-rotate': `${element.rotate ?? 0}deg`,
         transformOrigin: 'center',
+        // 逻辑：节点尺寸变化（如空→有内容）时平滑过渡；拖拽/框选时禁用避免延迟感。
+        transition: dragging || boxSelecting
+          ? 'none'
+          : 'left 300ms ease-out, top 300ms ease-out, width 300ms ease-out, height 300ms ease-out',
       } as React.CSSProperties}
     >
       {showLabel && (

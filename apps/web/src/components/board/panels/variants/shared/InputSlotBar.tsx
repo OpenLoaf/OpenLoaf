@@ -23,7 +23,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@openloaf/ui/tooltip'
-import { TextSlotField } from './TextSlotField'
+import { TextSlotField, parseRefTokenNodeIds, expandRefTokens } from './TextSlotField'
 import type { BoardFileContext } from '../../../board-contracts'
 import type { UpstreamData } from '../../../engine/upstream-data'
 import {
@@ -155,10 +155,17 @@ function resolveSlotInput(
   slot: RenderableSlot,
   refs: PoolReference[],
   userTexts: Record<string, string>,
+  allTextRefs?: TextReference[],
 ): unknown {
   if (slot.accept === 'text') {
-    const refTexts = refs.filter(isTextReference).map((r) => r.content)
     const user = userTexts[slot.role] ?? ''
+    // Expand embedded @ref{nodeId} tokens to actual content
+    if (allTextRefs && allTextRefs.length > 0) {
+      const expanded = expandRefTokens(user, allTextRefs)
+      return expanded.trim() || undefined
+    }
+    // Fallback: legacy separate refs + user text
+    const refTexts = refs.filter(isTextReference).map((r) => r.content)
     const parts = [...refTexts, user].filter((s) => s.trim().length > 0)
     return parts.join('\n\n')
   }
@@ -251,11 +258,27 @@ export function InputSlotBar({
   }, [rawSlots, pools, defaultResolveContext, acceptedMediaTypes])
 
   const [slotAssignments, setSlotAssignments] = useState<Record<string, PoolReference[]>>(() => unifiedResult.assigned)
-  const [userTexts, setUserTexts] = useState<Record<string, string>>({})
+  const [userTexts, setUserTexts] = useState<Record<string, string>>(() => {
+    // Only auto-fill on first mount when no cached assignment exists
+    if (cachedAssignment && Object.keys(cachedAssignment).length > 0) return {}
+    const textRefs = pools.text.filter(isTextReference)
+    if (textRefs.length === 0) return {}
+    const texts: Record<string, string> = {}
+    for (const slot of slots) {
+      if (slot.accept !== 'text') continue
+      const tokens = textRefs
+        .slice(0, slot.max)
+        .map((r) => `@ref{${r.nodeId}}`)
+        .join(' ')
+      if (tokens) texts[slot.role] = `${tokens} `
+    }
+    return texts
+  })
   const [associatedRefs, setAssociatedRefs] = useState<MediaReference[]>(() => unifiedResult.associated)
 
   const prevPoolsRef = useRef(pools)
   const prevSlotsRef = useRef(rawSlots)
+  const prevTextRefIdsRef = useRef<Set<string>>(new Set(pools.text.filter(isTextReference).map((r) => r.nodeId)))
   useEffect(() => {
     const poolsChanged = prevPoolsRef.current !== pools
     const slotsChanged = prevSlotsRef.current !== rawSlots
@@ -266,20 +289,40 @@ export function InputSlotBar({
       const fresh = restoreOrAssignV3(rawSlots, pools, defaultResolveContext, initialCacheRef.current)
       setSlotAssignments(fresh.assigned)
       setAssociatedRefs(fresh.associated.filter((r: MediaReference) => acceptedMediaTypes.has(r.nodeType)))
+
+      // Auto-insert newly connected upstream text refs into text slots
+      if (poolsChanged) {
+        const freshTextRefs = pools.text.filter(isTextReference)
+        const prevIds = prevTextRefIdsRef.current
+        const newRefs = freshTextRefs.filter((r) => !prevIds.has(r.nodeId))
+        prevTextRefIdsRef.current = new Set(freshTextRefs.map((r) => r.nodeId))
+        if (newRefs.length > 0) {
+          setUserTexts((prev) => {
+            const next = { ...prev }
+            for (const slot of slots) {
+              if (slot.accept !== 'text') continue
+              const existing = prev[slot.role] ?? ''
+              const tokens = newRefs.map((r) => `@ref{${r.nodeId}}`).join(' ')
+              next[slot.role] = existing ? `${tokens} ${existing}` : `${tokens} `
+            }
+            return next
+          })
+        }
+      }
     }
-  }, [rawSlots, pools, cachedAssignment, acceptedMediaTypes, defaultResolveContext])
+  }, [rawSlots, pools, cachedAssignment, acceptedMediaTypes, defaultResolveContext, slots])
 
   // Unassigned text references
   const unassignedTextRefs = useMemo(() => {
     const assignedIds = new Set<string>()
     for (const slot of slots) {
       if (slot.accept !== 'text') continue
-      for (const ref of slotAssignments[slot.role] ?? []) {
-        if (isTextReference(ref)) assignedIds.add(ref.nodeId)
+      for (const id of parseRefTokenNodeIds(userTexts[slot.role] ?? '')) {
+        assignedIds.add(id)
       }
     }
     return pools.text.filter(isTextReference).filter((r) => !assignedIds.has(r.nodeId))
-  }, [slots, pools.text, slotAssignments])
+  }, [slots, pools.text, userTexts])
 
   // Persistence
   const onSlotAssignmentChangeRef = useRef(onSlotAssignmentChange)
@@ -440,6 +483,8 @@ export function InputSlotBar({
     [],
   )
 
+  const allTextRefs = useMemo(() => pools.text.filter(isTextReference), [pools.text])
+
   // Resolve + emit (debounced)
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => {
@@ -450,7 +495,7 @@ export function InputSlotBar({
       let isValid = true
       for (const slot of slots) {
         const refs = slotAssignments[slot.role] ?? []
-        const resolved = resolveSlotInput(slot, refs, userTexts)
+        const resolved = resolveSlotInput(slot, refs, userTexts, allTextRefs)
         inputs[slot.role] = resolved
         if (slot.min > 0) {
           if (slot.accept === 'text') {
@@ -477,14 +522,12 @@ export function InputSlotBar({
       onAssignmentChange({ inputs, mediaRefs, isValid })
     }, DEBOUNCE_MS)
     return () => { if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current) }
-  }, [slots, rawSlots, slotAssignments, userTexts, onAssignmentChange])
+  }, [slots, rawSlots, slotAssignments, userTexts, allTextRefs, onAssignmentChange])
 
   const variantUpstream = useMemo(
     () => ({ boardId: fileContext?.boardId, projectId: fileContext?.projectId, boardFolderUri: fileContext?.boardFolderUri }),
     [fileContext?.boardId, fileContext?.projectId, fileContext?.boardFolderUri],
   )
-
-  const allTextRefs = useMemo(() => pools.text.filter(isTextReference), [pools.text])
   const textSlots = useMemo(() => slots.filter((s) => s.accept === 'text'), [slots])
   const mediaSlots = useMemo(() => slots.filter((s) => s.accept !== 'text' && !s.isPaintable), [slots])
   const paintableSlots = useMemo(() => slots.filter((s) => s.isPaintable), [slots])
@@ -687,14 +730,13 @@ export function InputSlotBar({
 
       {/* ── Text slot fields (prompt, etc.) ── */}
       {textSlots.map((slot) => {
-        const refs = (slotAssignments[slot.role] ?? []).filter(isTextReference)
-        const assignedNodeIds = new Set(refs.map((r) => r.nodeId))
+        const text = userTexts[slot.role] ?? ''
+        const assignedNodeIds = new Set(parseRefTokenNodeIds(text))
         return (
           <TextSlotField
             key={slot.role}
             label={slot.label}
-            references={refs}
-            userText={userTexts[slot.role] ?? ''}
+            userText={text}
             allReferences={allTextRefs}
             assignedNodeIds={assignedNodeIds}
             required={slot.min > 0}

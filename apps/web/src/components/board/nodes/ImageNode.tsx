@@ -411,7 +411,7 @@ export function ImageNodeView({
       }),
     [],
   )
-  // Panel's handleGenerate already persists aiConfig (with paramsCache).
+  // Panel's handleGenerate already persists aiConfig (with cache).
   // Returning {} avoids a stale-closure overwrite from useMediaGeneration.
   const buildGeneratePatch = useCallback(
     (_params: ImageGenerateParams) => ({}),
@@ -1149,16 +1149,15 @@ export const ImageNodeDefinition: CanvasNodeDefinition<ImageNodeProps> = {
     transcodingId: z.string().optional(),
     origin: z.enum(['user', 'upload', 'ai-generate', 'paste']).optional(),
     aiConfig: z.object({
-      feature: z.enum(['imageGenerate', 'imageEdit', 'imageInpaint', 'imageStyleTransfer', 'upscale', 'outpaint', 'videoGenerate', 'lipSync', 'tts', 'poster', 'matting', 'videoEdit', 'digitalHuman', 'motionTransfer', 'music', 'sfx']).optional(),
-      modelId: z.string().optional(),
-      prompt: z.string(),
-      negativePrompt: z.string().optional(),
-      style: z.string().optional(),
-      aspectRatio: z.enum(['auto', '1:1', '16:9', '9:16', '4:3', '3:2']).optional(),
-      quality: z.enum(['draft', 'standard', 'hd']).optional(),
-      count: z.number().optional(),
-      inputNodeIds: z.array(z.string()).optional(),
-      generatedAt: z.number().optional(),
+      lastUsed: z.object({ feature: z.string(), variant: z.string() }).optional(),
+      cache: z.record(z.string(), z.any()).optional(),
+      lastGeneration: z.object({
+        prompt: z.string(),
+        feature: z.string(),
+        variant: z.string(),
+        aspectRatio: z.string().optional(),
+        generatedAt: z.number(),
+      }).optional(),
     }).optional(),
     versionStack: z.any().optional(),
     rawOriginalSrc: z.string().optional(),

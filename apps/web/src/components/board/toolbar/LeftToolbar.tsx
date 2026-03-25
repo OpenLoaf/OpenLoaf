@@ -32,7 +32,7 @@ import {
 import type { CanvasEngine } from "../engine/CanvasEngine";
 import type { CanvasInsertRequest, CanvasSnapshot } from "../engine/types";
 import { IconBtn, toolbarSurfaceClassName } from "../ui/ToolbarParts";
-import { TEXT_NODE_DEFAULT_HEIGHT } from "../nodes/TextNode";
+import { TEXT_NODE_DEFAULT_HEIGHT } from "../nodes/text-node-constants";
 import { DEFAULT_NODE_SIZE } from "../engine/constants";
 
 export interface LeftToolbarProps {

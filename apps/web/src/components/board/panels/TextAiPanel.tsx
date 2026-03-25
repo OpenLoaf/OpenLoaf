@@ -11,7 +11,7 @@ import { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ArrowUp, Sparkles, Wand2 } from 'lucide-react'
 import type { CanvasNodeElement } from '../engine/types'
-import type { TextNodeProps } from '../nodes/TextNode'
+import type { TextNodeProps } from '../nodes/text-node-types'
 import {
   BOARD_GENERATE_INPUT,
 } from '../ui/board-style-system'

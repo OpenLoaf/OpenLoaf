@@ -132,7 +132,7 @@ export const ReferenceDropdown = forwardRef<
     <div
       ref={listRef}
       className={cn(
-        'fixed z-50 w-64 overflow-y-auto rounded-2xl border border-border bg-card py-1 shadow-lg',
+        'absolute z-50 w-64 overflow-y-auto rounded-2xl border border-border bg-card py-1 shadow-lg',
         'max-h-[240px]',
       )}
       style={{ left: position.left, top: position.top }}

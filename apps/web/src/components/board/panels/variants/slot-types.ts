@@ -58,7 +58,7 @@ export interface MediaReference {
 }
 
 /**
- * 持久化的插槽分配映射（存入 paramsCache，跨会话恢复）
+ * 持久化的插槽分配映射（存入 cache，跨会话恢复）
  */
 export type PersistedSlotMap = Record<string, string | string[]>
 // key: slotId (如 'image', 'mask', 'startFrame')

@@ -107,15 +107,16 @@ export function useMediaTaskPolling(
 
       if (!status || status.success !== true || !status.data) {
         const msg = 'Failed to query task status'
-        setResult({ status: 'failed', error: msg })
+        // 先回调让节点更新 versionStack，再暴露终态，避免 overlay 出现中间态闪烁。
         onFailureRef.current?.(msg)
+        setResult({ status: 'failed', error: msg })
         return
       }
 
       if (status.data.status === 'not_found') {
         const msg = 'Task not found'
-        setResult({ status: 'failed', error: msg })
         onFailureRef.current?.(msg)
+        setResult({ status: 'failed', error: msg })
         return
       }
 
@@ -129,13 +130,16 @@ export function useMediaTaskPolling(
 
         if (resultUrls.length === 0) {
           const msg = i18next.t('board:polling.errorNoResults', { defaultValue: '生成完成但未返回结果，请重试' })
-          setResult({ status: 'failed', error: msg })
           onFailureRef.current?.(msg)
+          setResult({ status: 'failed', error: msg })
           return
         }
 
-        setResult({ status: 'succeeded', resultUrls })
+        // 先回调让节点 markVersionReady（移除 generatingEntry），
+        // 再 setResult，这样 overlay 的 isGenerating 条件已经为 false，
+        // 不会渲染出进度归零的中间态。
         onSuccessRef.current?.(resultUrls, status.data.metadata ?? undefined)
+        setResult({ status: 'succeeded', resultUrls })
         return
       }
 
@@ -154,8 +158,8 @@ export function useMediaTaskPolling(
         } else {
           msg = rawMsg || i18next.t('board:polling.errorGeneric', { defaultValue: '生成失败，请重试' })
         }
-        setResult({ status: 'failed', error: msg })
         onFailureRef.current?.(msg)
+        setResult({ status: 'failed', error: msg })
         return
       }
 
@@ -184,8 +188,8 @@ export function useMediaTaskPolling(
         }
       }
       const msg = i18next.t(msgKey, { defaultValue: '生成失败，请重试' })
-      setResult({ status: 'failed', error: msg })
       onFailureRef.current?.(msg)
+      setResult({ status: 'failed', error: msg })
     }
 
     /** 终态时 GET 取完整结果（含资产持久化）。 */

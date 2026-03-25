@@ -13,7 +13,7 @@ import type {
   CanvasElement,
   CanvasNodeElement,
 } from "./types";
-import type { TextNodeValue } from "../nodes/TextNode";
+import type { TextNodeValue } from "../nodes/text-node-types";
 
 // ---------------------------------------------------------------------------
 // Types

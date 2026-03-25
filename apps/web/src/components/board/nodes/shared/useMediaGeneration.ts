@@ -131,7 +131,7 @@ export type UseMediaGenerationConfig<P extends BaseGenerateParams> = {
 
   /**
    * Optional: build extra aiConfig patch for derived nodes.
-   * Used by ImageNode to copy paramsCache to new nodes.
+   * Used by ImageNode to copy cache to new nodes.
    * Falls back to `buildGeneratePatch` when not provided.
    */
   buildDeriveNodePatch?: (params: P) => Record<string, unknown>

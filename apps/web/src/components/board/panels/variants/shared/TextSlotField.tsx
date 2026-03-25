@@ -19,9 +19,142 @@ import {
   TooltipTrigger,
 } from '@openloaf/ui/tooltip'
 import type { TextReference } from '../slot-types'
-import { ReferenceChip } from './ReferenceChip'
 import { ReferenceDropdown } from './ReferenceDropdown'
 import type { ReferenceDropdownHandle } from './ReferenceDropdown'
+
+// ---------------------------------------------------------------------------
+// Constants & token helpers
+// ---------------------------------------------------------------------------
+
+/** Token format embedded in value: @ref{nodeId} */
+const REF_TOKEN_RE = /@ref\{([^}]+)\}/g
+
+const CHIP_CLASS = 'ol-text-ref-chip'
+const LINK_ICON_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" ' +
+  'stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" ' +
+  'style="flex-shrink:0"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>' +
+  '<path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>'
+
+const CHIP_STYLE_ID = 'ol-text-ref-chip-styles'
+const CHIP_STYLES = `
+.${CHIP_CLASS}{position:relative;display:inline-flex;align-items:center;gap:3px;padding:1px 6px;margin:0 1px;border-radius:9999px;font-size:11px;font-weight:500;line-height:18px;vertical-align:baseline;cursor:default;user-select:none;white-space:nowrap;max-width:180px;background:var(--ol-blue-bg);color:var(--ol-blue);transition:background-color .15s}
+.${CHIP_CLASS}:hover{background:var(--ol-blue-bg-hover)}
+.${CHIP_CLASS}>span{overflow:hidden;text-overflow:ellipsis}
+.${CHIP_CLASS} .ol-ref-x{display:inline-flex;align-items:center;justify-content:center;width:12px;height:12px;margin-left:1px;border-radius:9999px;cursor:pointer;font-size:9px;line-height:1}
+.${CHIP_CLASS} .ol-ref-x:hover{background:color-mix(in srgb,var(--ol-blue) 20%,transparent)}
+.${CHIP_CLASS}::after{content:attr(data-ref-content);position:absolute;left:0;top:100%;margin-top:4px;z-index:100;max-width:280px;max-height:120px;padding:6px 10px;border-radius:8px;background:var(--popover);color:var(--popover-foreground);border:1px solid var(--border);font-size:11px;font-weight:400;line-height:1.5;white-space:pre-wrap;word-break:break-word;overflow:hidden;display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;box-shadow:0 4px 12px rgba(0,0,0,.15);pointer-events:none;opacity:0;transition:opacity .15s}
+.${CHIP_CLASS}:hover::after{opacity:1}
+`
+
+function ensureChipStyles() {
+  if (typeof document === 'undefined') return
+  let el = document.getElementById(CHIP_STYLE_ID) as HTMLStyleElement | null
+  if (!el) {
+    el = document.createElement('style')
+    el.id = CHIP_STYLE_ID
+    document.head.appendChild(el)
+  }
+  el.textContent = CHIP_STYLES
+}
+
+// ---------------------------------------------------------------------------
+// Token ↔ HTML conversion
+// ---------------------------------------------------------------------------
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\n/g, '<br>')
+}
+
+function escapeAttr(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
+/** Build a chip HTML string for a text reference */
+function chipHtml(nodeId: string, label: string, content: string): string {
+  const token = `@ref{${nodeId}}`
+  return (
+    `<span class="${CHIP_CLASS}" data-token="${escapeAttr(token)}" data-ref-content="${escapeAttr(content)}" contenteditable="false">` +
+    `${LINK_ICON_SVG}<span>${escapeHtml(label)}</span>` +
+    `<span class="ol-ref-x" data-ref-remove="${escapeAttr(nodeId)}">×</span>` +
+    '</span>'
+  )
+}
+
+/** Convert value string (with @ref{nodeId} tokens) to innerHTML */
+function valueToHtml(value: string, refMap: Map<string, TextReference>): string {
+  if (!value) return ''
+  let html = ''
+  let lastIndex = 0
+  const re = new RegExp(REF_TOKEN_RE.source, 'g')
+  let match: RegExpExecArray | null
+  // biome-ignore lint/suspicious/noAssignInExpressions: intentional loop
+  while ((match = re.exec(value)) !== null) {
+    html += escapeHtml(value.slice(lastIndex, match.index))
+    const nodeId = match[1]
+    const ref = refMap.get(nodeId)
+    if (ref) {
+      html += chipHtml(nodeId, ref.label, ref.content)
+    } else {
+      html += escapeHtml(match[0])
+    }
+    lastIndex = match.index + match[0].length
+  }
+  html += escapeHtml(value.slice(lastIndex))
+  return html
+}
+
+/** Walk DOM tree and reconstruct the value string */
+function domToValue(node: Node): string {
+  let result = ''
+  for (const child of node.childNodes) {
+    if (child.nodeType === Node.TEXT_NODE) {
+      result += child.textContent ?? ''
+    } else if (child.nodeType === Node.ELEMENT_NODE) {
+      const el = child as HTMLElement
+      if (el.classList.contains(CHIP_CLASS)) {
+        result += el.dataset.token ?? ''
+      } else if (el.tagName === 'BR') {
+        result += '\n'
+      } else if (el.tagName === 'DIV' || el.tagName === 'P') {
+        const inner = domToValue(el)
+        if (inner) {
+          if (result && !result.endsWith('\n')) result += '\n'
+          result += inner
+        }
+      } else {
+        result += domToValue(el)
+      }
+    }
+  }
+  return result
+}
+
+/** Parse @ref{nodeId} tokens from text and return nodeIds */
+export function parseRefTokenNodeIds(text: string): string[] {
+  const ids: string[] = []
+  const re = new RegExp(REF_TOKEN_RE.source, 'g')
+  let m: RegExpExecArray | null
+  // biome-ignore lint/suspicious/noAssignInExpressions: intentional loop
+  while ((m = re.exec(text)) !== null) ids.push(m[1])
+  return ids
+}
+
+/** Expand @ref{nodeId} tokens to actual content text */
+export function expandRefTokens(text: string, refs: TextReference[]): string {
+  const map = new Map(refs.map((r) => [r.nodeId, r.content]))
+  return text.replace(new RegExp(REF_TOKEN_RE.source, 'g'), (_, id) => map.get(id) ?? '')
+}
+
+// ---------------------------------------------------------------------------
+// @ trigger detection
+// ---------------------------------------------------------------------------
+
+const AT_TRIGGER_RE = /@(\S*)$/
 
 // ---------------------------------------------------------------------------
 // Types
@@ -29,7 +162,7 @@ import type { ReferenceDropdownHandle } from './ReferenceDropdown'
 
 export type TextSlotFieldProps = {
   label: string
-  references: TextReference[]
+  /** The combined value: plain text + embedded @ref{nodeId} tokens */
   userText: string
   allReferences: TextReference[]
   assignedNodeIds: Set<string>
@@ -37,41 +170,28 @@ export type TextSlotFieldProps = {
   required?: boolean
   disabled?: boolean
   mode: 'inline' | 'replace'
-  /** Text: minimum character length (SDK v0.1.27). */
   minLength?: number
-  /** Text: maximum character length (SDK v0.1.27). */
   maxLength?: number
-  /** Hint text displayed as tooltip next to label. */
   hint?: string
   onUserTextChange: (text: string) => void
   onAddReference: (ref: TextReference) => void
   onRemoveReference: (nodeId: string) => void
+  /** @deprecated kept for compat — references are now embedded in userText */
+  references?: TextReference[]
 }
 
-// @ trigger regex: '@' followed by optional non-whitespace at end of string
-const AT_TRIGGER_RE = /@(\S*)$/
-
 // ---------------------------------------------------------------------------
-// TextSlotField
+// TextSlotField (contentEditable)
 // ---------------------------------------------------------------------------
 
-/**
- * Text input component supporting inline ReferenceChip tokens (@ mentions).
- *
- * - **inline** mode: chips row above a plain textarea; user can type freely
- * - **replace** mode: when a reference is assigned, show read-only preview;
- *   clear the reference to return to manual textarea input
- */
 export function TextSlotField({
   label,
-  references,
   userText,
   allReferences,
   assignedNodeIds,
   placeholder,
   required,
   disabled,
-  mode,
   minLength,
   maxLength,
   hint,
@@ -81,77 +201,172 @@ export function TextSlotField({
 }: TextSlotFieldProps) {
   const { t } = useTranslation('board')
 
+  const editorRef = useRef<HTMLDivElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const dropdownRef = useRef<ReferenceDropdownHandle>(null)
+  const valueRef = useRef(userText)
+  const suppressSyncRef = useRef(false)
+  const composingRef = useRef(false)
+
   // @ dropdown state
   const [atQuery, setAtQuery] = useState<string | null>(null)
   const [dropdownPos, setDropdownPos] = useState<{ left: number; top: number }>({ left: 0, top: 0 })
 
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
-  const dropdownRef = useRef<ReferenceDropdownHandle>(null)
+  // Build ref map for chip rendering
+  const refMap = useRef(new Map<string, TextReference>())
+  refMap.current = new Map(allReferences.map((r) => [r.nodeId, r]))
 
-  // ---------------------------------------------------------------------------
-  // @ detection helpers
-  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    ensureChipStyles()
+  }, [])
 
-  const detectAtTrigger = useCallback((value: string) => {
-    const match = AT_TRIGGER_RE.exec(value)
-    if (match) {
-      setAtQuery(match[1])
-      // Position dropdown at textarea bottom edge
-      const ta = textareaRef.current
-      if (ta) {
-        const rect = ta.getBoundingClientRect()
-        setDropdownPos({ left: rect.left, top: rect.bottom + 4 })
-      }
-    } else {
-      setAtQuery(null)
+  // Compute plain text length (excluding tokens) for char counter
+  const plainTextLength = userText.replace(new RegExp(REF_TOKEN_RE.source, 'g'), '').length
+
+  // ── Sync external value → DOM ──
+  useEffect(() => {
+    if (suppressSyncRef.current) {
+      suppressSyncRef.current = false
+      return
     }
+    const el = editorRef.current
+    if (!el) return
+    if (valueRef.current === userText) return
+    valueRef.current = userText
+    const html = valueToHtml(userText, refMap.current)
+    el.innerHTML = html || ''
+  }, [userText])
+
+  // ── Input handler ──
+  const handleInput = useCallback(() => {
+    if (composingRef.current) return
+    const el = editorRef.current
+    if (!el) return
+    const newValue = domToValue(el)
+    valueRef.current = newValue
+    suppressSyncRef.current = true
+    onUserTextChange(newValue)
+
+    // Detect @ trigger
+    const sel = window.getSelection()
+    if (sel && sel.rangeCount > 0) {
+      const range = sel.getRangeAt(0)
+      // Get text before cursor
+      const preRange = range.cloneRange()
+      preRange.collapse(true)
+      preRange.setStart(el, 0)
+      const textBefore = preRange.toString()
+      const match = AT_TRIGGER_RE.exec(textBefore)
+      if (match) {
+        setAtQuery(match[1])
+        // Position dropdown relative to container
+        const container = containerRef.current
+        const editorEl = editorRef.current
+        if (container && editorEl) {
+          const editorRect = editorEl.getBoundingClientRect()
+          const containerRect = container.getBoundingClientRect()
+          setDropdownPos({
+            left: editorRect.left - containerRect.left,
+            top: editorRect.bottom - containerRect.top + 4,
+          })
+        }
+      } else {
+        setAtQuery(null)
+      }
+    }
+  }, [onUserTextChange])
+
+  // ── Composition (IME) ──
+  const handleCompositionStart = useCallback(() => {
+    composingRef.current = true
   }, [])
+  const handleCompositionEnd = useCallback(() => {
+    composingRef.current = false
+    handleInput()
+  }, [handleInput])
 
-  const closeDropdown = useCallback(() => {
-    setAtQuery(null)
-  }, [])
-
-  // ---------------------------------------------------------------------------
-  // Handlers
-  // ---------------------------------------------------------------------------
-
-  const handleTextareaChange = useCallback(
-    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      const value = e.target.value
-      onUserTextChange(value)
-      detectAtTrigger(value)
-    },
-    [onUserTextChange, detectAtTrigger],
-  )
-
+  // ── Keyboard ──
   const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
       if (atQuery !== null && dropdownRef.current) {
         const consumed = dropdownRef.current.handleKeyDown(e.nativeEvent)
-        if (consumed) return
+        if (consumed) {
+          e.preventDefault()
+          return
+        }
       }
     },
     [atQuery],
   )
 
-  const handleSelectReference = useCallback(
-    (ref: TextReference) => {
-      // Strip the @query from the current text
-      const stripped = userText.replace(AT_TRIGGER_RE, '')
-      onUserTextChange(stripped)
-      onAddReference(ref)
-      closeDropdown()
+  // ── Click handler (for chip × button) ──
+  const handleClick = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      const target = e.target as HTMLElement
+      const removeId = target.dataset?.refRemove ?? target.closest('[data-ref-remove]')?.getAttribute('data-ref-remove')
+      if (removeId) {
+        e.preventDefault()
+        e.stopPropagation()
+        // Remove the token from value
+        const token = `@ref{${removeId}}`
+        const newValue = valueRef.current.replace(token, '')
+        valueRef.current = newValue
+        // Force DOM re-render immediately since the value changed externally
+        const el = editorRef.current
+        if (el) {
+          el.innerHTML = valueToHtml(newValue, refMap.current)
+        }
+        suppressSyncRef.current = true
+        onUserTextChange(newValue)
+        onRemoveReference(removeId)
+      }
     },
-    [userText, onUserTextChange, onAddReference, closeDropdown],
+    [onUserTextChange, onRemoveReference],
   )
 
-  // ---------------------------------------------------------------------------
-  // Drag-drop from TextReferencePool
-  // ---------------------------------------------------------------------------
+  // ── Select reference from dropdown ──
+  const handleSelectReference = useCallback(
+    (ref: TextReference) => {
+      const el = editorRef.current
+      if (!el) return
 
+      // Strip the @query from the current value
+      const currentValue = domToValue(el)
+      const stripped = currentValue.replace(AT_TRIGGER_RE, '')
+      const token = `@ref{${ref.nodeId}} `
+      const newValue = stripped + token
+
+      valueRef.current = newValue
+      suppressSyncRef.current = false
+      onUserTextChange(newValue)
+      onAddReference(ref)
+      setAtQuery(null)
+
+      // Re-render and focus
+      requestAnimationFrame(() => {
+        if (!el) return
+        el.innerHTML = valueToHtml(newValue, refMap.current)
+        el.focus()
+        // Move caret to end
+        const sel = window.getSelection()
+        if (sel) {
+          const range = document.createRange()
+          range.selectNodeContents(el)
+          range.collapse(false)
+          sel.removeAllRanges()
+          sel.addRange(range)
+        }
+      })
+    },
+    [onUserTextChange, onAddReference],
+  )
+
+  const closeDropdown = useCallback(() => {
+    setAtQuery(null)
+  }, [])
+
+  // ── Drag-drop from TextReferencePool ──
   const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
-    // Allow drop
     e.preventDefault()
   }, [])
 
@@ -164,86 +379,51 @@ export function TextSlotField({
         const payload = JSON.parse(raw) as { type: string; nodeId: string }
         if (payload.type !== 'text-reference') return
         const ref = allReferences.find((r) => r.nodeId === payload.nodeId)
-        if (ref) onAddReference(ref)
+        if (!ref) return
+        const token = `@ref{${ref.nodeId}} `
+        const newValue = valueRef.current + token
+        valueRef.current = newValue
+        suppressSyncRef.current = false
+        onUserTextChange(newValue)
+        onAddReference(ref)
       } catch {
-        // ignore malformed drag data
+        // ignore
       }
     },
-    [allReferences, onAddReference],
+    [allReferences, onUserTextChange, onAddReference],
   )
 
-  // Close dropdown when clicking outside the textarea
+  // ── Paste: strip HTML, keep plain text ──
+  const handlePaste = useCallback(
+    (e: React.ClipboardEvent<HTMLDivElement>) => {
+      e.preventDefault()
+      const text = e.clipboardData.getData('text/plain')
+      if (text) document.execCommand('insertText', false, text)
+    },
+    [],
+  )
+
+  // ── Close dropdown on outside click ──
   useEffect(() => {
     if (atQuery === null) return
     const handler = (e: PointerEvent) => {
-      if (textareaRef.current && !textareaRef.current.contains(e.target as Node)) {
-        closeDropdown()
+      if (
+        editorRef.current && !editorRef.current.contains(e.target as Node) &&
+        !(e.target as HTMLElement).closest('[data-ref-item]')
+      ) {
+        setAtQuery(null)
       }
     }
     document.addEventListener('pointerdown', handler)
     return () => document.removeEventListener('pointerdown', handler)
-  }, [atQuery, closeDropdown])
-
-  // ---------------------------------------------------------------------------
-  // Replace mode: single reference assigned
-  // ---------------------------------------------------------------------------
-
-  const hasReference = references.length > 0
-
-  if (mode === 'replace' && hasReference) {
-    const ref = references[0]
-    return (
-      <div className="flex flex-col gap-1">
-        {/* Label row */}
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-medium text-muted-foreground">
-            {label}
-            {required ? (
-              <span className="ml-0.5 text-[10px] text-red-400">*</span>
-            ) : null}
-          </span>
-          <button
-            type="button"
-            className="text-[10px] text-muted-foreground/60 hover:text-muted-foreground transition-colors duration-150"
-            onPointerDown={(e) => {
-              e.stopPropagation()
-              onRemoveReference(ref.nodeId)
-            }}
-          >
-            {t('slot.clearReference')}
-          </button>
-        </div>
-
-        {/* Reference chip */}
-        <div className="rounded-2xl bg-muted/30 px-3 py-2">
-          <div className="mb-1.5">
-            <ReferenceChip
-              reference={ref}
-              mode="inline"
-              removable
-              onRemove={() => onRemoveReference(ref.nodeId)}
-            />
-          </div>
-          {/* Full content preview */}
-          <p className="whitespace-pre-wrap break-words text-xs text-foreground/70 leading-relaxed">
-            {ref.content}
-          </p>
-        </div>
-      </div>
-    )
-  }
-
-  // ---------------------------------------------------------------------------
-  // Replace mode: no reference — show plain textarea
-  // Inline mode: chips row + textarea
-  // ---------------------------------------------------------------------------
+  }, [atQuery])
 
   const resolvedPlaceholder = placeholder ?? t('slot.textPlaceholder')
 
   return (
     <div
       ref={containerRef}
-      className="flex flex-col gap-1"
+      className="relative flex flex-col gap-1"
       onDragOver={handleDragOver}
       onDrop={handleDrop}
     >
@@ -266,51 +446,39 @@ export function TextSlotField({
         {(minLength != null || maxLength != null) ? (
           <span className={cn(
             'text-[10px] tabular-nums',
-            maxLength != null && userText.length > maxLength
+            maxLength != null && plainTextLength > maxLength
               ? 'text-red-500'
-              : minLength != null && userText.length > 0 && userText.length < minLength
+              : minLength != null && plainTextLength > 0 && plainTextLength < minLength
                 ? 'text-amber-500'
                 : 'text-muted-foreground/50',
           )}>
-            {userText.length}
+            {plainTextLength}
             {maxLength != null ? `/${maxLength}` : null}
           </span>
         ) : null}
       </div>
 
-      {/* Chips row (inline mode only, when chips exist) */}
-      {mode === 'inline' && references.length > 0 ? (
-        <div className="flex flex-wrap gap-1">
-          {references.map((ref) => (
-            <ReferenceChip
-              key={ref.nodeId}
-              reference={ref}
-              mode="inline"
-              removable
-              onRemove={() => onRemoveReference(ref.nodeId)}
-            />
-          ))}
-        </div>
-      ) : null}
-
-      {/* Textarea */}
-      <textarea
-        ref={textareaRef}
-        value={userText}
-        placeholder={resolvedPlaceholder}
-        disabled={disabled}
-        rows={3}
-        maxLength={maxLength}
+      {/* contentEditable editor */}
+      <div
+        ref={editorRef}
+        contentEditable={!disabled}
+        suppressContentEditableWarning
+        role="textbox"
+        data-placeholder={resolvedPlaceholder}
         className={cn(
-          'min-h-[60px] w-full resize-none rounded-2xl bg-muted/30 px-3 py-2 text-xs outline-none',
-          'placeholder:text-muted-foreground/40 transition-colors duration-150',
-          'focus:bg-muted/50',
+          'min-h-[60px] w-full rounded-2xl bg-muted/30 px-3 py-2 text-xs outline-none',
+          'transition-colors duration-150 focus:bg-muted/50',
+          'empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground/40',
           disabled ? 'opacity-50 cursor-not-allowed' : '',
-          maxLength != null && userText.length > maxLength ? 'ring-1 ring-red-400' : '',
-          minLength != null && userText.length > 0 && userText.length < minLength ? 'ring-1 ring-amber-400' : '',
+          maxLength != null && plainTextLength > maxLength ? 'ring-1 ring-red-400' : '',
+          minLength != null && plainTextLength > 0 && plainTextLength < minLength ? 'ring-1 ring-amber-400' : '',
         )}
-        onChange={handleTextareaChange}
+        onInput={handleInput}
+        onCompositionStart={handleCompositionStart}
+        onCompositionEnd={handleCompositionEnd}
         onKeyDown={handleKeyDown}
+        onClick={handleClick}
+        onPaste={handlePaste}
       />
 
       {/* @ mention dropdown */}

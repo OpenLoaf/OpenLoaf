@@ -39,7 +39,7 @@ export interface VariantCacheReturn {
 export function useVariantCache(options: VariantCacheOptions): VariantCacheReturn {
   const cacheRef = useRef<Record<string, VariantSnapshot>>(options.initialCache ?? {})
   const dirtyRef = useRef(false)
-  const flushTimer = useRef<ReturnType<typeof setTimeout>>()
+  const flushTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
   const onFlushRef = useRef(options.onFlush)
   onFlushRef.current = options.onFlush
 
