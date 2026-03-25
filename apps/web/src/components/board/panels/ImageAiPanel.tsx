@@ -13,15 +13,15 @@ import { toast } from 'sonner'
 import { saveBoardAssetFile } from '../utils/board-asset'
 import type { CanvasNodeElement } from '../engine/types'
 import type { UpstreamData } from '../engine/upstream-data'
-import type { ImageNodeProps } from '../nodes/ImageNode'
-import type { AiGenerateConfig, BoardFileContext } from '../board-contracts'
+import type { ImageNodeProps } from '../nodes/node-types'
+import type { BoardFileContext } from '../board-contracts'
 import { serializeForGenerate } from './variants/serialize'
 import type { MediaReference, MediaType, PersistedSlotMap } from './variants/slot-types'
 import { InputSlotBar, type ResolvedSlotInputs } from './variants/shared/InputSlotBar'
 import { GenericVariantForm } from './variants/shared/GenericVariantForm'
 import { GenerateActionBar } from './GenerateActionBar'
 import { useVariantPanel } from './hooks/useVariantPanel'
-import { useVariantParamsCache } from './hooks/useVariantParamsCache'
+import { useVariantCache } from './hooks/useVariantCache'
 import { CapabilitiesFallback } from './shared/CapabilitiesFallback'
 import { FeatureTabBar } from './shared/FeatureTabBar'
 
@@ -36,7 +36,6 @@ export type ImageGenerateParams = {
   inputs: Record<string, unknown>
   params: Record<string, unknown>
   count?: number
-  seed?: number
   // 便于节点快照与 aiConfig 记录的附加元数据
   prompt?: string
   aspectRatio?: string
@@ -133,7 +132,7 @@ export function ImageAiPanel({
   }, [upstreamImages?.length, upstreamAudioUrl, upstreamVideoUrl])
 
   // ── Shared panel hook ──
-  const initialFeatureId = (aiConfig?.feature as string | undefined)
+  const initialFeatureId = aiConfig?.lastUsed?.feature
     ?? (nodeHasImage ? 'imageEdit' : 'imageGenerate')
 
   const {
@@ -158,7 +157,7 @@ export function ImageAiPanel({
     nodeMediaType,
     upstreamTypes,
     initialFeatureId,
-    cachedFeatureId: aiConfig?.feature as string | undefined,
+    cachedFeatureId: aiConfig?.lastUsed?.feature,
   })
 
   // ── Params cache ──
@@ -167,15 +166,13 @@ export function ImageAiPanel({
 
   const activeKey = selectedVariant ? `${selectedFeatureId}:${selectedVariant.id}` : ''
 
-  const cache = useVariantParamsCache({
-    activeKey,
-    initialCache: aiConfig?.paramsCache as Record<string, import('./hooks/useVariantParamsCache').VariantParamsSnapshot> | undefined,
-    onPersist: (cacheMap) => {
+  const cache = useVariantCache({
+    initialCache: aiConfig?.cache,
+    onFlush: (cacheMap) => {
       onUpdate({
         aiConfig: {
-          prompt: '',
           ...aiConfigRef.current,
-          paramsCache: cacheMap,
+          cache: cacheMap,
         },
       })
     },
@@ -238,7 +235,7 @@ export function ImageAiPanel({
   /** Collect params without uploading media — fast, for immediate node creation. */
   const collectParams = useCallback(async (): Promise<ImageGenerateParams> => {
     if (!selectedVariant) throw new Error('No variant definition available')
-    const vp = cache.paramsRef.current
+    const vp = cache.get(activeKey) ?? { inputs: {}, params: {} }
 
     // Prepend upstream text to prompt for submission (variants store user prompt only)
     const userPromptFromInputs = (vp.inputs.prompt as string) ?? ''
@@ -265,7 +262,6 @@ export function ImageAiPanel({
       taskRefs: {},
       params: vp.params,
       count: vp.count,
-      seed: vp.seed,
     })
 
     return {
@@ -276,23 +272,27 @@ export function ImageAiPanel({
       prompt: effectivePrompt,
       aspectRatio: (vp.params.aspectRatio as string | undefined),
     }
-  }, [selectedFeature, selectedVariant, upstreamText, resolvedSlots, element.props.originalSrc, resolveMaskInput, mergedSlots, cache.paramsRef])
+  }, [selectedFeature, selectedVariant, upstreamText, resolvedSlots, element.props.originalSrc, resolveMaskInput, mergedSlots, cache, activeKey])
 
   const handleGenerate = useCallback(async () => {
     if (isGenerating) return
     setIsGenerating(true)
     try {
       const params = await collectParams()
-      const config: AiGenerateConfig = {
-        ...aiConfigRef.current,
-        feature: params.feature as AiGenerateConfig['feature'],
-        prompt: params.prompt ?? '',
-        aspectRatio: params.aspectRatio as AiGenerateConfig['aspectRatio'],
-        paramsCache: { ...(aiConfigRef.current?.paramsCache as Record<string, unknown> ?? {}), [activeKey]: cache.paramsRef.current } as AiGenerateConfig['paramsCache'],
-      }
+      cache.flushNow()
       onUpdate({
         origin: 'ai-generate',
-        aiConfig: config,
+        aiConfig: {
+          ...aiConfigRef.current,
+          lastUsed: { feature: params.feature, variant: params.variant },
+          lastGeneration: {
+            prompt: params.prompt ?? '',
+            feature: params.feature,
+            variant: params.variant,
+            aspectRatio: params.aspectRatio,
+            generatedAt: Date.now(),
+          },
+        },
       })
       onGenerate?.(params)
     } catch (err) {
@@ -301,7 +301,7 @@ export function ImageAiPanel({
     } finally {
       setTimeout(() => setIsGenerating(false), 600)
     }
-  }, [isGenerating, collectParams, onUpdate, onGenerate, t, activeKey, cache.paramsRef])
+  }, [isGenerating, collectParams, onUpdate, onGenerate, t, cache])
 
   const handleGenerateNewNode = useCallback(async () => {
     if (isGenerating) return
@@ -311,9 +311,14 @@ export function ImageAiPanel({
       onUpdate({
         aiConfig: {
           ...aiConfig,
-          feature: params.feature as AiGenerateConfig['feature'],
-          prompt: params.prompt ?? '',
-          aspectRatio: params.aspectRatio as AiGenerateConfig['aspectRatio'],
+          lastUsed: { feature: params.feature, variant: params.variant },
+          lastGeneration: {
+            prompt: params.prompt ?? '',
+            feature: params.feature,
+            variant: params.variant,
+            aspectRatio: params.aspectRatio,
+            generatedAt: Date.now(),
+          },
         },
       })
       onGenerateNewNode?.(params)
@@ -364,18 +369,16 @@ export function ImageAiPanel({
   const handleSlotInputsChange = useCallback((resolved: ResolvedSlotInputs) => {
     setResolvedSlots(resolved.mediaRefs)
     setSlotsValid(resolved.isValid)
-    cache.updateParams({
-      ...cache.paramsRef.current,
-      inputs: { ...cache.paramsRef.current.inputs, ...resolved.inputs },
-    })
-  }, [cache])
+    if (activeKey) {
+      cache.update(activeKey, { inputs: resolved.inputs })
+    }
+  }, [cache, activeKey])
 
   const handleSlotAssignmentPersist = useCallback((map: PersistedSlotMap) => {
-    cache.paramsRef.current = {
-      ...cache.paramsRef.current,
-      slotAssignment: map,
+    if (activeKey) {
+      cache.update(activeKey, { slotAssignment: map })
     }
-  }, [cache.paramsRef])
+  }, [cache, activeKey])
 
   const variantUpstream = useMemo(() => ({
     textContent: upstreamText,
@@ -417,7 +420,7 @@ export function ImageAiPanel({
           nodeResource={nodeResource}
           disabled={readonly && !editing}
           cachedAssignment={
-            cache.getCached(`${selectedFeatureId}:${selectedVariant.id}`)?.slotAssignment as PersistedSlotMap | undefined
+            cache.get(`${selectedFeatureId}:${selectedVariant.id}`)?.slotAssignment as PersistedSlotMap | undefined
           }
           onAssignmentChange={handleSlotInputsChange}
           onSlotAssignmentChange={handleSlotAssignmentPersist}
@@ -438,14 +441,11 @@ export function ImageAiPanel({
           nodeResourceUrl={resolvedImageSrc}
           nodeResourcePath={element.props.originalSrc}
           disabled={readonly && !editing}
-          initialParams={cache.getCached(`${selectedFeatureId}:${selectedVariant.id}`) ?? aiConfig?.paramsCache?.[`${selectedFeatureId}:${selectedVariant.id}`]}
+          initialParams={cache.get(`${selectedFeatureId}:${selectedVariant.id}`)}
           onParamsChange={(snapshot) => {
-            cache.updateParams({
-              ...cache.paramsRef.current,
-              params: snapshot.params,
-              count: snapshot.count,
-              seed: snapshot.seed,
-            })
+            if (activeKey) {
+              cache.update(activeKey, { params: snapshot.params })
+            }
             setPricingParams(snapshot.params ?? {})
           }}
           onWarningChange={setVariantWarning}
