@@ -59,6 +59,7 @@ export function useVariantCache(options: VariantCacheOptions): VariantCacheRetur
         params: patch.params !== undefined ? { ...prev.params, ...patch.params } : prev.params,
         count: patch.count !== undefined ? patch.count : prev.count,
         slotAssignment: patch.slotAssignment !== undefined ? patch.slotAssignment : prev.slotAssignment,
+        userTexts: patch.userTexts !== undefined ? { ...prev.userTexts, ...patch.userTexts } : prev.userTexts,
       }
       dirtyRef.current = true
       clearTimeout(flushTimer.current)

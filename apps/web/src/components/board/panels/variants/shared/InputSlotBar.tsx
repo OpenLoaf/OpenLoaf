@@ -136,7 +136,11 @@ export type InputSlotBarProps = {
   disabled?: boolean
   onAssignmentChange?: (resolved: ResolvedSlotInputs) => void
   cachedAssignment?: PersistedSlotMap
+  /** Cached raw user texts for text slots (with @ref{} tokens preserved). */
+  cachedUserTexts?: Record<string, string>
   onSlotAssignmentChange?: (map: PersistedSlotMap) => void
+  /** Called when userTexts change — persists raw text with @ref{} tokens to cache. */
+  onUserTextsChange?: (texts: Record<string, string>) => void
   maskPaintRef?: React.RefObject<MaskPaintHandle | null>
   maskPainting?: boolean
   maskResult?: MaskPaintResult | null
@@ -198,7 +202,9 @@ export function InputSlotBar({
   disabled,
   onAssignmentChange,
   cachedAssignment,
+  cachedUserTexts,
   onSlotAssignmentChange,
+  onUserTextsChange,
   maskPaintRef,
   maskPainting,
   maskResult,
@@ -259,6 +265,8 @@ export function InputSlotBar({
 
   const [slotAssignments, setSlotAssignments] = useState<Record<string, PoolReference[]>>(() => unifiedResult.assigned)
   const [userTexts, setUserTexts] = useState<Record<string, string>>(() => {
+    // Restore from cache if available
+    if (cachedUserTexts && Object.keys(cachedUserTexts).length > 0) return { ...cachedUserTexts }
     // Only auto-fill on first mount when no cached assignment exists
     if (cachedAssignment && Object.keys(cachedAssignment).length > 0) return {}
     const textRefs = pools.text.filter(isTextReference)
@@ -302,7 +310,11 @@ export function InputSlotBar({
             for (const slot of slots) {
               if (slot.accept !== 'text') continue
               const existing = prev[slot.role] ?? ''
-              const tokens = newRefs.map((r) => `@ref{${r.nodeId}}`).join(' ')
+              // Skip refs already present in text (prevents duplication on cache restore)
+              const existingIds = new Set(parseRefTokenNodeIds(existing))
+              const deduped = newRefs.filter((r) => !existingIds.has(r.nodeId))
+              if (deduped.length === 0) continue
+              const tokens = deduped.map((r) => `@ref{${r.nodeId}}`).join(' ')
               next[slot.role] = existing ? `${tokens} ${existing}` : `${tokens} `
             }
             return next
@@ -348,7 +360,17 @@ export function InputSlotBar({
     onSlotAssignmentChangeRef.current(map)
   }, [slots, slotAssignments])
 
-  // Text callbacks (kept for future text slot rendering)
+  // Persist userTexts to cache when they change
+  const onUserTextsChangeRef = useRef(onUserTextsChange)
+  onUserTextsChangeRef.current = onUserTextsChange
+  const prevUserTextsRef = useRef(userTexts)
+  useEffect(() => {
+    if (prevUserTextsRef.current === userTexts) return
+    prevUserTextsRef.current = userTexts
+    onUserTextsChangeRef.current?.(userTexts)
+  }, [userTexts])
+
+  // Text callbacks
   const handleTextUserChange = useCallback((slotKey: string, text: string) => {
     setUserTexts((prev) => ({ ...prev, [slotKey]: text }))
   }, [])

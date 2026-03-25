@@ -208,6 +208,15 @@ export function VideoAiPanel({
     [cache, cacheKey],
   )
 
+  const handleUserTextsChange = useCallback(
+    (texts: Record<string, string>) => {
+      if (cacheKey) {
+        cache.update(cacheKey, { userTexts: texts })
+      }
+    },
+    [cache, cacheKey],
+  )
+
   // ── Generation state ──
   const [isGenerating, setIsGenerating] = useState(false)
   const [slotsValid, setSlotsValid] = useState(false)
@@ -239,6 +248,7 @@ export function VideoAiPanel({
         prompt: promptValue,
         paintResults: {},
         slotAssignments,
+        textInputs: p.inputs ?? {},
         taskRefs: {},
         params: p.params ?? {},
         count: p.count,
@@ -439,8 +449,10 @@ export function VideoAiPanel({
             cache.get(`${selectedFeatureId}:${selectedVariant.id}`)
               ?.slotAssignment as PersistedSlotMap | undefined
           }
+          cachedUserTexts={cache.get(`${selectedFeatureId}:${selectedVariant.id}`)?.userTexts}
           onAssignmentChange={handleSlotInputsChange}
           onSlotAssignmentChange={handleSlotAssignmentPersist}
+          onUserTextsChange={handleUserTextsChange}
         />
       ) : null}
 

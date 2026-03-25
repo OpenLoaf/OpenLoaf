@@ -259,6 +259,7 @@ export function ImageAiPanel({
       prompt: effectivePrompt,
       paintResults,
       slotAssignments,
+      textInputs: vp.inputs ?? {},
       taskRefs: {},
       params: vp.params,
       count: vp.count,
@@ -380,6 +381,12 @@ export function ImageAiPanel({
     }
   }, [cache, activeKey])
 
+  const handleUserTextsChange = useCallback((texts: Record<string, string>) => {
+    if (activeKey) {
+      cache.update(activeKey, { userTexts: texts })
+    }
+  }, [cache, activeKey])
+
   const variantUpstream = useMemo(() => ({
     textContent: upstreamText,
     images: upstreamImages?.length ? upstreamImages : undefined,
@@ -422,8 +429,10 @@ export function ImageAiPanel({
           cachedAssignment={
             cache.get(`${selectedFeatureId}:${selectedVariant.id}`)?.slotAssignment as PersistedSlotMap | undefined
           }
+          cachedUserTexts={cache.get(`${selectedFeatureId}:${selectedVariant.id}`)?.userTexts}
           onAssignmentChange={handleSlotInputsChange}
           onSlotAssignmentChange={handleSlotAssignmentPersist}
+          onUserTextsChange={handleUserTextsChange}
           maskPaintRef={hasMaskSlot ? maskPaintRef : undefined}
           maskPainting={hasMaskSlot ? maskPainting : undefined}
           maskResult={hasMaskSlot ? maskResult : undefined}

@@ -188,6 +188,12 @@ export function AudioAiPanel({
     }
   }, [cache, cacheKey])
 
+  const handleUserTextsChange = useCallback((texts: Record<string, string>) => {
+    if (cacheKey) {
+      cache.update(cacheKey, { userTexts: texts })
+    }
+  }, [cache, cacheKey])
+
   // ── Derived state ──
   const variants = selectedFeature?.variants ?? []
   const isComingSoon = variants.length === 0
@@ -227,6 +233,7 @@ export function AudioAiPanel({
       prompt: (p.inputs?.prompt as string) ?? (p.params?.prompt as string),
       paintResults: {},
       slotAssignments,
+      textInputs: p.inputs ?? {},
       taskRefs: {},
       params: p.params ?? {},
       count: p.count,
@@ -306,8 +313,10 @@ export function AudioAiPanel({
           upstream={rawUpstream ?? { textList: [], imageList: [], videoList: [], audioList: [], entries: [] }}
           fileContext={fileContext}
           cachedAssignment={cachedSlotAssignment}
+          cachedUserTexts={cache.get(cacheKey)?.userTexts}
           onAssignmentChange={handleSlotInputsChange}
           onSlotAssignmentChange={handleSlotAssignmentPersist}
+          onUserTextsChange={handleUserTextsChange}
           disabled={readonly && !editing}
         />
       ) : null}

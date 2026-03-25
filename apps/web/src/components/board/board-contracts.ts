@@ -50,6 +50,8 @@ export interface VariantSnapshot {
   params: Record<string, unknown>
   count?: number
   slotAssignment?: PersistedSlotMap
+  /** Raw user-typed text per text slot (preserves @ref{nodeId} tokens). */
+  userTexts?: Record<string, string>
 }
 
 /** AI generation configuration stored on nodes created by AI. */
