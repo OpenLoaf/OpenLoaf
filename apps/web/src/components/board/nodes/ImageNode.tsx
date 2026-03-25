@@ -95,42 +95,8 @@ function ImageNodeSkeleton() {
   );
 }
 
-export type ImageNodeProps = {
-  /** Compressed preview for rendering on the canvas. */
-  previewSrc: string;
-  /** Original image uri used for download/copy actions. */
-  originalSrc: string;
-  /** MIME type for the original image. */
-  mimeType: string;
-  /** Suggested file name for downloads. */
-  fileName: string;
-  /** Original image width in pixels. */
-  naturalWidth: number;
-  /** Original image height in pixels. */
-  naturalHeight: number;
-  /** Whether the node is waiting on a transcode job. */
-  isTranscoding?: boolean;
-  /** Label shown while the image is transcoding. */
-  transcodingLabel?: string;
-  /** Transcoding task id for async updates. */
-  transcodingId?: string;
-  /** How the image was created. Defaults to 'upload'. */
-  origin?: import("../board-contracts").NodeOrigin;
-  /** AI generation config. Present only when origin is 'ai-generate'. */
-  aiConfig?: import("../board-contracts").AiGenerateConfig;
-  /** Version stack tracking AI generation history. */
-  versionStack?: import("../engine/types").VersionStack;
-  /** Original untransformed image URI — backed up on first image adjust. */
-  rawOriginalSrc?: string;
-  /** Image adjustment state preserved for re-editing. */
-  imageAdjust?: {
-    rotation: number;
-    flipH: boolean;
-    flipV: boolean;
-    cropRect?: { x: number; y: number; width: number; height: number };
-    aspectRatio?: string;
-  };
-};
+export type { ImageNodeProps } from './node-types'
+import type { ImageNodeProps } from './node-types'
 
 /** Trigger a download for the original image. */
 async function downloadOriginalImage(
@@ -356,8 +322,11 @@ export function ImageNodeView({
         // 从生成快照恢复 aiConfig，确保 prompt 等元数据不丢失
         const snapshot = generatingEntry.input;
         const refreshedAiConfig: import("../board-contracts").AiGenerateConfig = {
-          ...(element.props.aiConfig ?? {} as import("../board-contracts").AiGenerateConfig),
-          prompt: snapshot?.prompt || element.props.aiConfig?.prompt || '',
+          ...(element.props.aiConfig ?? {}),
+          lastGeneration: {
+            ...(element.props.aiConfig?.lastGeneration ?? { prompt: '', feature: '', variant: '', generatedAt: 0 }),
+            prompt: snapshot?.prompt || element.props.aiConfig?.lastGeneration?.prompt || '',
+          },
         };
         onUpdate({
           versionStack: markVersionReady(stack, generatingEntry.id, { urls: resultUrls }),
@@ -437,7 +406,6 @@ export function ImageNodeView({
           params: params.params,
           aspectRatio: params.aspectRatio,
           count: params.count,
-          seed: params.seed,
         },
         upstreamRefs: up?.entries ?? [],
       }),
@@ -472,7 +440,6 @@ export function ImageNodeView({
           inputs: params.inputs,
           params: params.params,
           count: params.count,
-          seed: params.seed,
         },
         options,
       )
@@ -486,37 +453,39 @@ export function ImageNodeView({
       inputs: (input.parameters?.inputs as Record<string, unknown>) ?? { prompt: input.prompt },
       params: (input.parameters?.params as Record<string, unknown>) ?? {},
       count: input.parameters?.count as number | undefined,
-      seed: input.parameters?.seed as number | undefined,
       // 便于重试时保留提示词与展示配置
       prompt: input.prompt,
       aspectRatio: (input.parameters?.aspectRatio as string) ?? '1:1',
     }),
     [],
   )
-  /** Build derive-node patch with paramsCache copying. */
+  /** Build derive-node patch with cache copying. */
   const buildDeriveNodePatch = useCallback(
     (params: ImageGenerateParams) => {
-      // 逻辑：将源节点的参数缓存拷贝到新节点，使新节点面板可恢复生成参数。
       const cacheKey = `${params.feature}:${params.variant}`
-      const copiedParamsCache = {
-        ...(element.props.aiConfig?.paramsCache ?? {}),
+      const copiedCache = {
+        ...(element.props.aiConfig?.cache ?? {}),
         [cacheKey]: {
           inputs: params.inputs,
           params: params.params,
           count: params.count,
-          seed: params.seed,
         },
       }
       return {
         aiConfig: {
-          feature: params.feature as import("../board-contracts").AiGenerateConfig['feature'],
-          prompt: params.prompt ?? '',
-          aspectRatio: params.aspectRatio as import("../board-contracts").AiGenerateConfig['aspectRatio'],
-          paramsCache: copiedParamsCache,
+          lastUsed: { feature: params.feature, variant: params.variant },
+          cache: copiedCache,
+          lastGeneration: {
+            prompt: params.prompt ?? '',
+            feature: params.feature,
+            variant: params.variant,
+            aspectRatio: params.aspectRatio,
+            generatedAt: Date.now(),
+          },
         },
       }
     },
-    [element.props.aiConfig?.paramsCache],
+    [element.props.aiConfig?.cache],
   )
 
   const {
@@ -821,12 +790,48 @@ export function ImageNodeView({
         if ((!element.props.fileName || element.props.fileName === 'image.png') && payload.props.fileName) {
           patch.fileName = payload.props.fileName;
         }
+        // 逻辑：首次获取图片尺寸后，先预加载图片再调整节点宽高，
+        // 避免「先变大显示空白/骨架，再显示图片」的跳变体验。
+        // 预加载成功后同时更新 props + xywh，配合 DomNodeLayer 的 CSS transition
+        // 实现空节点 → 平滑展开 + 图片立即显示的效果。
+        const previewUrl = patch.previewSrc || element.props.previewSrc || '';
+        const shouldPreload = needsSizeInit && payload.props.naturalWidth > 1 && payload.props.naturalHeight > 1 && previewUrl;
+
+        if (shouldPreload) {
+          // 预加载图片，就绪后再一起更新 props + 尺寸
+          await new Promise<void>((resolve) => {
+            const img = new Image();
+            img.onload = () => resolve();
+            img.onerror = () => resolve(); // 失败也继续，走原有骨架逻辑
+            img.src = previewUrl;
+          });
+          if (cancelled) return;
+          if (!engine.doc.getElementById(nodeId)) return;
+        }
+
         if (Object.keys(patch).length > 0) {
           engine.doc.updateNodeProps(nodeId, patch);
         }
-        // 逻辑：首次获取图片尺寸后，自动调整节点宽高以适配图片比例。
-        // ew 继承自源节点宽度（由 deriveNode 设定），作为最大宽度上限。
-        if (needsSizeInit && payload.props.naturalWidth > 1 && payload.props.naturalHeight > 1) {
+        if (shouldPreload) {
+          const el = engine.doc.getElementById(nodeId);
+          if (el && el.kind === "node") {
+            const [ex, ey, ew, eh] = el.xywh;
+            const ratio = payload.props.naturalWidth / payload.props.naturalHeight;
+            const newW = Math.max(ew, IMAGE_NODE_MIN_SIZE.w);
+            const newH = Math.round(newW / ratio);
+            const cx = ex + ew / 2;
+            const cy = ey + eh / 2;
+            engine.doc.updateElement(nodeId, {
+              xywh: [
+                Math.round(cx - newW / 2),
+                Math.round(cy - newH / 2),
+                newW,
+                newH,
+              ],
+            });
+          }
+        } else if (needsSizeInit && payload.props.naturalWidth > 1 && payload.props.naturalHeight > 1) {
+          // 没有预览图但有尺寸信息，直接调整尺寸
           const el = engine.doc.getElementById(nodeId);
           if (el && el.kind === "node") {
             const [ex, ey, ew, eh] = el.xywh;

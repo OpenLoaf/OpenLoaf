@@ -233,14 +233,17 @@ export function AudioNodeView({
         })()
         const snapshot = generatingEntry.input
         const promptLabel = snapshot?.prompt?.slice(0, 30).trim()
-          || element.props.aiConfig?.prompt?.slice(0, 30).trim()
+          || element.props.aiConfig?.lastGeneration?.prompt?.slice(0, 30).trim()
         onUpdate({
           versionStack: markVersionReady(stack, generatingEntry.id, { urls: resultUrls }),
           sourcePath: scopedPath,
           fileName: promptLabel || savedPath.split('/').pop() || undefined,
           aiConfig: {
-            ...(element.props.aiConfig ?? {} as AiGenerateConfig),
-            prompt: snapshot?.prompt || element.props.aiConfig?.prompt || '',
+            ...(element.props.aiConfig ?? {}),
+            lastGeneration: {
+              ...(element.props.aiConfig?.lastGeneration ?? { prompt: '', feature: '', variant: '', generatedAt: 0 }),
+              prompt: snapshot?.prompt || element.props.aiConfig?.lastGeneration?.prompt || '',
+            },
           },
         })
       },
@@ -287,17 +290,20 @@ export function AudioNodeView({
   const buildGeneratePatch = useCallback(
     (params: AudioGenerateParams) => {
       const promptText = (params.inputs?.text as string) ?? ''
-      const promptLabel = promptText.slice(0, 30).trim() || undefined
       return {
-        fileName: promptLabel,
+        fileName: promptText.slice(0, 30).trim() || undefined,
         aiConfig: {
-          feature: params.feature as AiGenerateConfig['feature'],
-          prompt: promptText,
-          paramsCache: element.props.aiConfig?.paramsCache,
+          lastUsed: { feature: params.feature, variant: params.variant },
+          lastGeneration: {
+            prompt: promptText,
+            feature: params.feature,
+            variant: params.variant,
+            generatedAt: Date.now(),
+          },
         },
       }
     },
-    [element.props.aiConfig?.paramsCache],
+    [],
   )
   const audioSubmitGenerate = useCallback(
     (params: AudioGenerateParams, options: SubmitOptions) =>
@@ -308,7 +314,6 @@ export function AudioNodeView({
           inputs: params.inputs,
           params: params.params,
           count: params.count,
-          seed: params.seed,
         },
         options,
       ),

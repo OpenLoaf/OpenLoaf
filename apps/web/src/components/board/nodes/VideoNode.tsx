@@ -73,36 +73,8 @@ import {
 } from "../services/video-download";
 import { BOARD_ASSETS_DIR_NAME } from "@/lib/file-name";
 
-export type VideoNodeProps = {
-  /** Project-relative path for the video. */
-  sourcePath: string;
-  /** Display name for the video. */
-  fileName?: string;
-  /** Optional poster path for preview. */
-  posterPath?: string;
-  /** Optional duration in seconds. */
-  duration?: number;
-  /** Optional video width in pixels. */
-  naturalWidth?: number;
-  /** Optional video height in pixels. */
-  naturalHeight?: number;
-  /** Clip start time in seconds (default 0). */
-  clipStart?: number;
-  /** Clip end time in seconds (default duration). */
-  clipEnd?: number;
-  /** How the video was created. Defaults to 'upload'. */
-  origin?: import("../board-contracts").NodeOrigin;
-  /** AI generation config. Present only when origin is 'ai-generate'. */
-  aiConfig?: import("../board-contracts").AiGenerateConfig;
-  /** Version stack tracking AI generation history. */
-  versionStack?: import("../engine/types").VersionStack;
-  /** 平台视频下载任务 id。 */
-  downloadTaskId?: string;
-  /** 平台视频原始链接，用于失败重试。 */
-  downloadUrl?: string;
-  /** 平台视频下载失败信息。 */
-  downloadError?: string;
-};
+export type { VideoNodeProps } from './node-types'
+import type { VideoNodeProps } from './node-types'
 
 /** 下载完成后按比例拟合视频节点尺寸。 */
 function fitVideoSize(width: number, height: number, maxDimension: number): [number, number] {
@@ -500,13 +472,13 @@ export function VideoNodeView({
           const newH = Math.round(newW / ratio)
           const cx = ex + ew / 2
           const cy = ey + eh / 2
-          engine.doc.updateElement(nodeId, {
-            xywh: [Math.round(cx - newW / 2), Math.round(cy - newH / 2), newW, newH],
-          })
           engine.doc.updateNodeProps(nodeId, {
             naturalWidth: metadata.width,
             naturalHeight: metadata.height,
             duration: metadata.duration,
+          })
+          engine.doc.updateElement(nodeId, {
+            xywh: [Math.round(cx - newW / 2), Math.round(cy - newH / 2), newW, newH],
           })
         } catch { /* ignore metadata fetch failure */ }
       })()
@@ -617,14 +589,8 @@ export function VideoNodeView({
             const centerX = x + w / 2;
             const centerY = y + h / 2;
 
-            engine.doc.updateElement(element.id, {
-              xywh: [
-                Math.round(centerX - nodeW / 2),
-                Math.round(centerY - nodeH / 2),
-                nodeW,
-                nodeH,
-              ],
-            });
+            // 逻辑：先更新 props（让 poster 渲染出来），再更新 xywh（触发尺寸动画），
+            // 避免「先变大显示空白，再显示 poster」的跳变体验。
             engine.doc.updateNodeProps(element.id, {
               sourcePath: nextSourcePath,
               fileName: fileName || undefined,
@@ -634,6 +600,14 @@ export function VideoNodeView({
               downloadTaskId: "",
               downloadUrl: "",
               downloadError: "",
+            });
+            engine.doc.updateElement(element.id, {
+              xywh: [
+                Math.round(centerX - nodeW / 2),
+                Math.round(centerY - nodeH / 2),
+                nodeW,
+                nodeH,
+              ],
             });
             void (async () => {
               try {
@@ -903,13 +877,14 @@ export function VideoNodeView({
             const newH = Math.round(newW / ratio)
             const cx = ex + ew / 2
             const cy = ey + eh / 2
-            engine.doc.updateElement(nodeId, {
-              xywh: [Math.round(cx - newW / 2), Math.round(cy - newH / 2), newW, newH],
-            })
+            // 逻辑：先更新 props 再更新 xywh，让内容先渲染再触发尺寸动画。
             engine.doc.updateNodeProps(nodeId, {
               naturalWidth: metadata.width,
               naturalHeight: metadata.height,
               duration: metadata.duration,
+            })
+            engine.doc.updateElement(nodeId, {
+              xywh: [Math.round(cx - newW / 2), Math.round(cy - newH / 2), newW, newH],
             })
           } catch { /* ignore metadata fetch failure */ }
         })()
@@ -979,7 +954,15 @@ export function VideoNodeView({
   // Derive nodes need aiConfig for initial setup (no panel involved).
   const buildDeriveNodePatch = useCallback(
     (params: VideoGenerateParams) => ({
-      aiConfig: { feature: params.feature, prompt: params.prompt ?? '' },
+      aiConfig: {
+        lastUsed: { feature: params.feature, variant: params.variant },
+        lastGeneration: {
+          prompt: params.prompt ?? '',
+          feature: params.feature,
+          variant: params.variant,
+          generatedAt: Date.now(),
+        },
+      },
     }),
     [],
   )
@@ -992,7 +975,6 @@ export function VideoNodeView({
           inputs: params.inputs,
           params: params.params,
           count: params.count,
-          seed: params.seed,
         },
         options,
       ),
