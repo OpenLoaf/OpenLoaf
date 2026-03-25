@@ -50,7 +50,6 @@ export type AudioGenerateParams = {
   inputs: Record<string, unknown>
   params: Record<string, unknown>
   count?: number
-  seed?: number
 }
 
 /** Props for the AudioAiPanel component. */
