@@ -76,7 +76,7 @@
     "@hocuspocus/server": "^3.4.3",
     "@hono/node-server": "^1.19.9",
     "@hono/trpc-server": "^0.4.2",
-    "@openloaf-saas/sdk": "file:../../../OpenLoaf-saas/packages/sdk",
+    "@openloaf-saas/sdk": "^0.1.31",
     "@openloaf/api": "workspace:*",
     "@openloaf/config": "workspace:*",
     "@openloaf/db": "workspace:*",
