@@ -560,7 +560,7 @@ export function BoardCanvas({
     nodesRegisteredRef.current = true;
   }
 
-  const openImagePreview = (payload: ImagePreviewPayload) => {
+  const openImagePreview = useCallback((payload: ImagePreviewPayload) => {
     // 逻辑：画布预览统一走全屏弹窗，避免节点内各自实现。
     const previewUri = payload.originalSrc || payload.previewSrc;
     if (!previewUri) return;
@@ -579,13 +579,30 @@ export function BoardCanvas({
       showSave: false,
       enableEdit: false,
     });
-  };
+  }, [previewSourceId]);
 
-  const closeImagePreview = () => {
+  const closeImagePreview = useCallback(() => {
     // 逻辑：仅关闭由画布触发的预览，避免干扰其他弹窗。
     if (activePreviewSourceId !== previewSourceId) return;
     closeFilePreview();
-  };
+  }, [activePreviewSourceId, previewSourceId]);
+
+  // 逻辑：稳定 actions / fileContext 引用，避免 BoardProvider context value 每帧重建，
+  // 导致所有 useBoardContext() 消费者（ImageNodeView 等）无差别 re-render。
+  const actions = useMemo(
+    () => ({ openImagePreview, closeImagePreview }),
+    [openImagePreview, closeImagePreview],
+  );
+  const resolvedBoardIdForCtx = resolvedBoardId || undefined;
+  const fileContext = useMemo(
+    () => ({
+      projectId,
+      rootUri: resolvedRootUri,
+      boardId: resolvedBoardIdForCtx,
+      boardFolderUri,
+    }),
+    [projectId, resolvedRootUri, resolvedBoardIdForCtx, boardFolderUri],
+  );
 
   /** Resolve the current board DOM element for exports. */
   const resolveExportTarget = useCallback(() => {
@@ -952,16 +969,8 @@ export function BoardCanvas({
     <BoardErrorBoundary>
       <BoardProvider
         engine={engine}
-        actions={{
-          openImagePreview,
-          closeImagePreview,
-        }}
-        fileContext={{
-          projectId,
-          rootUri: resolvedRootUri,
-          boardId: resolvedBoardId || undefined,
-          boardFolderUri,
-        }}
+        actions={actions}
+        fileContext={fileContext}
       >
         <BoardCanvasCollab
           engine={engine}

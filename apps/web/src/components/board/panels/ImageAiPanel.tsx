@@ -259,7 +259,7 @@ export function ImageAiPanel({
       prompt: effectivePrompt,
       paintResults,
       slotAssignments,
-      textInputs: vp.inputs ?? {},
+      resolvedInputs: vp.inputs ?? {},
       taskRefs: {},
       params: vp.params,
       count: vp.count,

@@ -25,6 +25,8 @@ export class ViewportController {
   private offset: CanvasPoint = [0, 0];
   /** Viewport size in screen pixels. */
   private size: CanvasPoint = [0, 0];
+  /** Cached state snapshot — same reference when viewport unchanged. */
+  private cachedState: CanvasViewportState | null = null;
   /** Change emitter used to notify subscribers. */
   private readonly emitChange: () => void;
 
@@ -33,23 +35,31 @@ export class ViewportController {
     this.emitChange = emitChange;
   }
 
+  /** Invalidate the cached state snapshot on any mutation. */
+  private invalidateCache(): void {
+    this.cachedState = null;
+  }
+
   /** Update viewport size based on container layout. */
   setSize(width: number, height: number): void {
     // 逻辑：尺寸未变化时不触发更新，避免 ResizeObserver 触发循环刷新。
     if (this.size[0] === width && this.size[1] === height) return;
     this.size = [width, height];
+    this.invalidateCache();
     this.emitChange();
   }
 
   /** Set viewport offset directly. */
   setOffset(offset: CanvasPoint): void {
     this.offset = offset;
+    this.invalidateCache();
     this.emitChange();
   }
 
   /** Pan the viewport by a screen delta. */
   panBy(dx: number, dy: number): void {
     this.offset = [this.offset[0] + dx, this.offset[1] + dy];
+    this.invalidateCache();
     this.emitChange();
   }
 
@@ -57,6 +67,7 @@ export class ViewportController {
   setViewport(zoom: number, offset: CanvasPoint): void {
     this.zoom = clamp(zoom, this.minZoom, this.maxZoom);
     this.offset = offset;
+    this.invalidateCache();
     this.emitChange();
   }
 
@@ -65,6 +76,7 @@ export class ViewportController {
     const clamped = clamp(nextZoom, this.minZoom, this.maxZoom);
     if (!anchor) {
       this.zoom = clamped;
+      this.invalidateCache();
       this.emitChange();
       return;
     }
@@ -77,6 +89,7 @@ export class ViewportController {
       this.offset[0] + (anchor[0] - after[0]),
       this.offset[1] + (anchor[1] - after[1]),
     ];
+    this.invalidateCache();
     this.emitChange();
   }
 
@@ -96,13 +109,16 @@ export class ViewportController {
     ];
   }
 
-  /** Return a snapshot of the current viewport state. */
+  /** Return a snapshot of the current viewport state (cached reference). */
   getState(): CanvasViewportState {
-    return {
-      zoom: this.zoom,
-      offset: this.offset,
-      size: this.size,
-    };
+    if (!this.cachedState) {
+      this.cachedState = {
+        zoom: this.zoom,
+        offset: this.offset,
+        size: this.size,
+      };
+    }
+    return this.cachedState;
   }
 
   /** Return the zoom limits for the viewport. */

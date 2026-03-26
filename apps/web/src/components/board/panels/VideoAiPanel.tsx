@@ -248,7 +248,7 @@ export function VideoAiPanel({
         prompt: promptValue,
         paintResults: {},
         slotAssignments,
-        textInputs: p.inputs ?? {},
+        resolvedInputs: p.inputs ?? {},
         taskRefs: {},
         params: p.params ?? {},
         count: p.count,

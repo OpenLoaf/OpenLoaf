@@ -233,7 +233,7 @@ export function AudioAiPanel({
       prompt: (p.inputs?.prompt as string) ?? (p.params?.prompt as string),
       paintResults: {},
       slotAssignments,
-      textInputs: p.inputs ?? {},
+      resolvedInputs: p.inputs ?? {},
       taskRefs: {},
       params: p.params ?? {},
       count: p.count,

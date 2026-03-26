@@ -9,7 +9,7 @@
  */
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { CircleAlert } from 'lucide-react'
 import { cn } from '@udecode/cn'
 import { useTranslation } from 'react-i18next'
@@ -204,7 +204,7 @@ export function TextSlotField({
   const editorRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const dropdownRef = useRef<ReferenceDropdownHandle>(null)
-  const valueRef = useRef(userText)
+  const valueRef = useRef<string | null>(null)
   const suppressSyncRef = useRef(false)
   const composingRef = useRef(false)
 
@@ -223,19 +223,21 @@ export function TextSlotField({
   // Compute plain text length (excluding tokens) for char counter
   const plainTextLength = userText.replace(new RegExp(REF_TOKEN_RE.source, 'g'), '').length
 
-  // ── Sync external value → DOM ──
-  useEffect(() => {
+  // ── Sync external value → DOM (useLayoutEffect: runs synchronously before paint) ──
+  const prevRefCountRef = useRef(allReferences.length)
+  useLayoutEffect(() => {
     if (suppressSyncRef.current) {
       suppressSyncRef.current = false
       return
     }
     const el = editorRef.current
     if (!el) return
-    if (valueRef.current === userText) return
+    const refsChanged = prevRefCountRef.current !== allReferences.length
+    prevRefCountRef.current = allReferences.length
+    if (valueRef.current === userText && !refsChanged) return
     valueRef.current = userText
-    const html = valueToHtml(userText, refMap.current)
-    el.innerHTML = html || ''
-  }, [userText])
+    el.innerHTML = valueToHtml(userText, refMap.current) || ''
+  }, [userText, allReferences.length])
 
   // ── Input handler ──
   const handleInput = useCallback(() => {
@@ -243,6 +245,8 @@ export function TextSlotField({
     const el = editorRef.current
     if (!el) return
     const newValue = domToValue(el)
+    // Skip if value hasn't actually changed (prevents feedback from programmatic innerHTML set)
+    if (newValue === valueRef.current) return
     valueRef.current = newValue
     suppressSyncRef.current = true
     onUserTextChange(newValue)
@@ -309,7 +313,7 @@ export function TextSlotField({
         e.stopPropagation()
         // Remove the token from value
         const token = `@ref{${removeId}}`
-        const newValue = valueRef.current.replace(token, '')
+        const newValue = (valueRef.current ?? '').replace(token, '')
         valueRef.current = newValue
         // Force DOM re-render immediately since the value changed externally
         const el = editorRef.current
@@ -381,7 +385,7 @@ export function TextSlotField({
         const ref = allReferences.find((r) => r.nodeId === payload.nodeId)
         if (!ref) return
         const token = `@ref{${ref.nodeId}} `
-        const newValue = valueRef.current + token
+        const newValue = (valueRef.current ?? '') + token
         valueRef.current = newValue
         suppressSyncRef.current = false
         onUserTextChange(newValue)

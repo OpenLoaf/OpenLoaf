@@ -266,9 +266,13 @@ export function InputSlotBar({
   const [slotAssignments, setSlotAssignments] = useState<Record<string, PoolReference[]>>(() => unifiedResult.assigned)
   const [userTexts, setUserTexts] = useState<Record<string, string>>(() => {
     // Restore from cache if available
-    if (cachedUserTexts && Object.keys(cachedUserTexts).length > 0) return { ...cachedUserTexts }
+    if (cachedUserTexts && Object.keys(cachedUserTexts).length > 0) {
+      return { ...cachedUserTexts }
+    }
     // Only auto-fill on first mount when no cached assignment exists
-    if (cachedAssignment && Object.keys(cachedAssignment).length > 0) return {}
+    if (cachedAssignment && Object.keys(cachedAssignment).length > 0) {
+      return {}
+    }
     const textRefs = pools.text.filter(isTextReference)
     if (textRefs.length === 0) return {}
     const texts: Record<string, string> = {}
@@ -284,9 +288,29 @@ export function InputSlotBar({
   })
   const [associatedRefs, setAssociatedRefs] = useState<MediaReference[]>(() => unifiedResult.associated)
 
+  // When cachedUserTexts arrives after initial mount (variant loads async),
+  // sync it into state since useState initializer already ran with empty data.
+  const appliedCacheRef = useRef(false)
+  useEffect(() => {
+    if (appliedCacheRef.current) return
+    if (cachedUserTexts && Object.keys(cachedUserTexts).length > 0) {
+      appliedCacheRef.current = true
+      setUserTexts((prev) => {
+        // Only apply if current state is empty (wasn't initialized from cache)
+        if (Object.keys(prev).length > 0) return prev
+        restoredFromCacheRef.current = true
+        return { ...cachedUserTexts }
+      })
+    }
+  }, [cachedUserTexts])
+
   const prevPoolsRef = useRef(pools)
   const prevSlotsRef = useRef(rawSlots)
   const prevTextRefIdsRef = useRef<Set<string>>(new Set(pools.text.filter(isTextReference).map((r) => r.nodeId)))
+  // Track whether this is the first pools change after mount.
+  // When restored from cache, skip auto-insert on the first pools change
+  // to prevent re-adding refs the user previously deleted.
+  const restoredFromCacheRef = useRef(Boolean(cachedUserTexts && Object.keys(cachedUserTexts).length > 0))
   useEffect(() => {
     const poolsChanged = prevPoolsRef.current !== pools
     const slotsChanged = prevSlotsRef.current !== rawSlots
@@ -304,6 +328,11 @@ export function InputSlotBar({
         const prevIds = prevTextRefIdsRef.current
         const newRefs = freshTextRefs.filter((r) => !prevIds.has(r.nodeId))
         prevTextRefIdsRef.current = new Set(freshTextRefs.map((r) => r.nodeId))
+        // Skip auto-insert on first pools change when restored from cache.
+        // Prevents re-adding @ref tokens the user previously deleted.
+        if (restoredFromCacheRef.current) {
+          restoredFromCacheRef.current = false
+        } else
         if (newRefs.length > 0) {
           setUserTexts((prev) => {
             const next = { ...prev }

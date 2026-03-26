@@ -9,7 +9,7 @@
  */
 "use client";
 
-import { createContext, useContext } from "react";
+import { createContext, useContext, useMemo } from "react";
 import type { ReactNode } from "react";
 
 import type {
@@ -62,8 +62,12 @@ export function BoardProvider({
   panelOverlayRef,
   children,
 }: BoardProviderProps) {
+  const value = useMemo(
+    () => ({ engine, actions, fileContext, panelOverlayRef }),
+    [engine, actions, fileContext, panelOverlayRef],
+  )
   return (
-    <BoardContext.Provider value={{ engine, actions, fileContext, panelOverlayRef }}>
+    <BoardContext.Provider value={value}>
       {children}
     </BoardContext.Provider>
   );

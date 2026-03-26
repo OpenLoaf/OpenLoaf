@@ -21,6 +21,9 @@ interface FormState {
   prompt?: string
   paintResults: Record<string, MediaInput>
   slotAssignments: Record<string, MediaInput[]>
+  /** Pre-resolved slot values keyed by role (from InputSlotBar resolved.inputs).
+   *  Already in API-ready format: text slots → string, media slots → {url}/{path}. */
+  resolvedInputs?: Record<string, unknown>
   taskRefs: Record<string, string>
   params: Record<string, unknown>
   count?: number
@@ -69,14 +72,21 @@ export function serializeForGenerate(
 
     const s = slot as V3InputSlotDefinition | MultiSlotDefinition
 
-    // mask slot: read from paintResults
+    // mask slot: paint result overrides resolved input
     if (isMaskSlot(s.role)) {
       const media = toMediaInput(state.paintResults.mask)
       if (media) inputs[s.role] = media
       continue
     }
 
-    // pool slots
+    // Use pre-resolved value from InputSlotBar (already API-ready)
+    const resolved = state.resolvedInputs?.[s.role]
+    if (resolved !== undefined && resolved !== null && resolved !== '') {
+      inputs[s.role] = resolved
+      continue
+    }
+
+    // Fallback: reconstruct from slotAssignments (legacy path)
     const refs = state.slotAssignments[s.role] ?? []
     if (isMultiSlot(slot) || (s.max ?? 1) > 1) {
       const mapped = refs.map((r) => toMediaInput(r)).filter(Boolean)
