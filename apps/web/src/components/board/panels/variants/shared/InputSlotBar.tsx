@@ -295,12 +295,8 @@ export function InputSlotBar({
     if (appliedCacheRef.current) return
     if (cachedUserTexts && Object.keys(cachedUserTexts).length > 0) {
       appliedCacheRef.current = true
-      setUserTexts((prev) => {
-        // Only apply if current state is empty (wasn't initialized from cache)
-        if (Object.keys(prev).length > 0) return prev
-        restoredFromCacheRef.current = true
-        return { ...cachedUserTexts }
-      })
+      restoredFromCacheRef.current = true
+      setUserTexts({ ...cachedUserTexts })
     }
   }, [cachedUserTexts])
 
