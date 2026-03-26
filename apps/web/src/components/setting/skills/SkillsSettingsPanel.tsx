@@ -180,22 +180,11 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
     });
   }, [skills, searchQuery, statusFilter]);
 
-  /** Group skills: global first, then each project separately. */
+  /** Group skills: project first, then global. */
   const skillGroups = useMemo((): SkillGroup[] => {
     const globalSkills = filteredSkills.filter((s) => s.scope === "global");
     const projectSkills = filteredSkills.filter((s) => s.scope === "project");
     const groups: SkillGroup[] = [];
-
-    // Global group
-    if (globalSkills.length > 0) {
-      groups.push({
-        key: "global",
-        label: t('skills.scopeGlobal'),
-        icon: Globe,
-        skills: globalSkills,
-        folderUri: globalSkillsRootUri || undefined,
-      });
-    }
 
     // Group project skills by ownerProjectId
     if (projectSkills.length > 0) {
@@ -236,6 +225,17 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
           });
         }
       }
+    }
+
+    // Global group
+    if (globalSkills.length > 0) {
+      groups.push({
+        key: "global",
+        label: t('skills.scopeGlobal'),
+        icon: Globe,
+        skills: globalSkills,
+        folderUri: globalSkillsRootUri || undefined,
+      });
     }
 
     return groups;

@@ -79,6 +79,17 @@ function buildMembershipLabels(input: Record<SidebarMembershipLevel, string>) {
   return input
 }
 
+/** Resolve sidebar membership labels from billing plan translations. */
+function buildSidebarMembershipLabels(translate: (key: string) => string) {
+  return buildMembershipLabels({
+    free: translate("account.plan.free"),
+    lite: translate("account.plan.lite"),
+    pro: translate("account.plan.pro"),
+    premium: translate("account.plan.premium"),
+    infinity: translate("account.plan.infinity"),
+  })
+}
+
 type SidebarAccountBadgesProps = {
   membershipLevel: SidebarMembershipLevel | null
   membershipLabel: string | null
@@ -153,13 +164,7 @@ export function SidebarUserAccount() {
     }
   }, [authLoggedIn])
 
-  const membershipLabels = buildMembershipLabels({
-    free: t('membership.free'),
-    lite: t('membership.lite'),
-    pro: t('membership.pro'),
-    premium: t('membership.premium'),
-    infinity: t('membership.infinity'),
-  })
+  const membershipLabels = buildSidebarMembershipLabels(tSettings)
 
   const isWechatLogin = Boolean(authUser?.email?.endsWith("@wechat.local"))
   const baseAccountLabel =
@@ -504,13 +509,7 @@ export function CompactUserAvatar() {
     if (authLoggedIn) setLoginOpen(false)
   }, [authLoggedIn])
 
-  const membershipLabels = buildMembershipLabels({
-    free: t('membership.free'),
-    lite: t('membership.lite'),
-    pro: t('membership.pro'),
-    premium: t('membership.premium'),
-    infinity: t('membership.infinity'),
-  })
+  const membershipLabels = buildSidebarMembershipLabels(tSettings)
   const isWechatLogin = Boolean(authUser?.email?.endsWith("@wechat.local"))
   const baseAccountLabel =
     authUser?.email ?? authUser?.name ?? (authLoggedIn ? t('loggedIn') : undefined)
