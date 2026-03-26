@@ -1,8 +1,0 @@
-{
-  "name": "提示词查找",
-  "description": "当用户询问AI提示词、需要提示词模板、想搜索提示词或提及 prompts.chat 时激活。用于发现、检索和优化提示词。",
-  "icon": "🔍",
-  "sourceLanguage": "en",
-  "targetLanguage": "zh-CN",
-  "translatedAt": "2026-03-16T09:27:40.881Z"
-}

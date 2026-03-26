@@ -58,6 +58,7 @@ temp
 .trae
 
 .codex/
+.agents/skills/
 
 # START Ruler Generated Files
 /.cursor/mcp.json

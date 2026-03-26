@@ -1,8 +1,0 @@
-{
-  "name": "浏览器全栈开发",
-  "description": "用于在网页UI、Electron WebContentsView/IPC、服务器工具、CDP自动化或标签页快照/打开URL确认流程中构建、扩展或调试内置浏览器系统（处理viewKey不匹配、cdpTargetId缺失、加载卡住、工具确认超时等问题）。",
-  "icon": "🌐",
-  "sourceLanguage": "en",
-  "targetLanguage": "zh-CN",
-  "translatedAt": "2026-03-16T09:27:55.879Z"
-}

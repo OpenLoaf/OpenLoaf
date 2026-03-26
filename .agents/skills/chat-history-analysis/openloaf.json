@@ -1,8 +1,0 @@
-{
-  "name": "聊天记录分析",
-  "description": "分析存储在包含“chat_history”路径下的 .jsonl 文件中的AI聊天历史。当用户提供的文件系统路径包含“chat_history”且以“.jsonl”结尾，或请求分析OpenLoaf/Codex的聊天日志、工具调用及结果时使用。",
-  "icon": "💬",
-  "sourceLanguage": "en",
-  "targetLanguage": "zh-CN",
-  "translatedAt": "2026-03-16T09:28:00.177Z"
-}

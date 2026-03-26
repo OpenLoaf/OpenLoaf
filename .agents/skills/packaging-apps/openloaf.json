@@ -1,8 +1,0 @@
-{
-  "name": "打包应用",
-  "description": "当被询问如何打包或捆绑此仓库的 Electron Forge/Builder 应用、Next.js 静态导出应用，或包含原生依赖的服务器 esbuild 构建时使用，包括产物存放位置及依赖项分发方式。",
-  "icon": "📦",
-  "sourceLanguage": "en",
-  "targetLanguage": "zh-CN",
-  "translatedAt": "2026-03-16T09:28:17.477Z"
-}

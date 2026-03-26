@@ -1,8 +1,0 @@
-{
-  "name": "网页布局结构",
-  "description": "用于在 apps/web/src/components/layout 中工作或调试网页应用布局，包括头部、侧边栏、单视图分割、左侧停靠面板、右侧聊天面板或布局控制点。",
-  "icon": "🧩",
-  "sourceLanguage": "en",
-  "targetLanguage": "zh-CN",
-  "translatedAt": "2026-03-16T09:28:29.965Z"
-}

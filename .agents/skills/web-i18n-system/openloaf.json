@@ -1,9 +1,0 @@
-{
-  "name": "网页国际化系统",
-  "description": "用于支持多语言内容展示与切换的网页系统，确保不同地区用户获得本地化体验。",
-  "version": "0.1.0",
-  "icon": "🌍",
-  "sourceLanguage": "en",
-  "targetLanguage": "zh-CN",
-  "translatedAt": "2026-03-16T09:28:22.901Z"
-}

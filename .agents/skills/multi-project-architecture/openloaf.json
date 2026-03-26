@@ -1,9 +1,0 @@
-{
-  "name": "多项目架构设计",
-  "description": "用于跨项目协作、项目类型模板管理、管理层调度、群组通信及侧边栏重构等场景的多项目组织架构设计。",
-  "version": "0.1.0",
-  "icon": "🏗️",
-  "sourceLanguage": "zh-CN",
-  "targetLanguage": "zh-CN",
-  "translatedAt": "2026-03-16T09:28:12.568Z"
-}

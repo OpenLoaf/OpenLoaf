@@ -1,8 +1,0 @@
-{
-  "name": "AI测试自动修复",
-  "description": "AI代理行为测试的自动诊断与修复知识库，支持输出JSON结构解析、失败分类及修复策略矩阵，可通过 /ai-test-autofix 命令调用。",
-  "icon": "🔧",
-  "sourceLanguage": "zh-CN",
-  "targetLanguage": "zh-CN",
-  "translatedAt": "2026-03-16T09:27:44.555Z"
-}

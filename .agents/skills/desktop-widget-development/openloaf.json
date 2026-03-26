@@ -1,8 +1,0 @@
-{
-  "name": "桌面小部件开发",
-  "description": "桌面区域与小部件组件开发指南。用于在 apps/web/src/components/desktop 中添加或修改小部件组件、调整桌面布局与交互编辑、更新小部件目录或持久化逻辑时使用；也用于快速理解桌面的基本架构与数据流。",
-  "icon": "🧩",
-  "sourceLanguage": "zh-CN",
-  "targetLanguage": "zh-CN",
-  "translatedAt": "2026-03-16T09:28:03.949Z"
-}
