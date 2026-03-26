@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { Mic, Music, Volume2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@udecode/cn'
@@ -18,7 +18,8 @@ import { serializeForGenerate } from './variants/serialize'
 import type { MediaReference, MediaType, PersistedSlotMap } from './variants/slot-types'
 import type { ResolvedSlotInputs } from './variants/shared/InputSlotBar'
 import { InputSlotBar } from './variants/shared'
-import type { BoardFileContext, VariantSnapshot } from '../board-contracts'
+import type { AiGenerateConfig, BoardFileContext, VariantSnapshot } from '../board-contracts'
+import type { AudioNodeProps } from '../nodes/AudioNode'
 import { GenericVariantForm } from './variants/shared/GenericVariantForm'
 import { useVariantPanel } from './hooks/useVariantPanel'
 import { useVariantCache } from './hooks/useVariantCache'
@@ -54,6 +55,10 @@ export type AudioGenerateParams = {
 
 /** Props for the AudioAiPanel component. */
 export type AudioAiPanelProps = {
+  /** Canvas element for reading/writing aiConfig. */
+  element: import('../engine/types').CanvasNodeElement<AudioNodeProps>
+  /** Callback to patch node props (persists aiConfig). */
+  onUpdate: (patch: Partial<AudioNodeProps>) => void
   /** Upstream data from connected nodes. */
   upstream?: AudioPanelUpstream
   /** Raw upstream data for InputSlotBar (with entries for slot assignment). */
@@ -97,6 +102,8 @@ const WELL_KNOWN_FEATURES = ['tts', 'music', 'sfx'] as const
 
 /** Audio AI generation panel driven by v3 capabilities. */
 export function AudioAiPanel({
+  element,
+  onUpdate,
   upstream,
   rawUpstream,
   onGenerate,
@@ -146,12 +153,24 @@ export function AudioAiPanel({
     variantWarning, setVariantWarning,
   } = panel
 
-  // ── Params cache (S1 FIX — in-memory cache, no persist) ──
+  // ── Params cache ──
+  const aiConfig = element.props.aiConfig
+  const aiConfigRef = useRef(aiConfig)
+  aiConfigRef.current = aiConfig
+
   const cacheKey = selectedFeatureId && selectedVariant?.id
     ? `${selectedFeatureId}:${selectedVariant.id}`
     : ''
   const cache = useVariantCache({
-    onFlush: () => {}, // no-op: audio nodes don't persist aiConfig yet
+    initialCache: aiConfig?.cache,
+    onFlush: (cacheMap) => {
+      onUpdate({
+        aiConfig: {
+          ...aiConfigRef.current,
+          cache: cacheMap,
+        },
+      })
+    },
   })
 
   const [hasParams, setHasParams] = useState(false)

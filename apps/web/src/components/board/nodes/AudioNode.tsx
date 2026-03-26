@@ -459,6 +459,8 @@ export function AudioNodeView({
         engine={engine}
       >
         <AudioAiPanel
+          element={element}
+          onUpdate={onUpdate}
           upstream={{
             textContent: effectiveUpstream.text,
             referenceAudioSrc: effectiveUpstream.audioUrl,
