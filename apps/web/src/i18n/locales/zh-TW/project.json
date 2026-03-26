@@ -22,7 +22,8 @@
       "lite": "Lite",
       "pro": "Pro",
       "premium": "Premium",
-      "infinity": "Infinity"
+      "infinity": "Infinity",
+      "internal": "內部"
     },
     "settings": {
       "accountInfo": "帳戶資訊",

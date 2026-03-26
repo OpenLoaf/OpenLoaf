@@ -330,6 +330,7 @@ export async function fetchUserProfile(): Promise<{
   id: string;
   membershipLevel: "free" | "lite" | "pro" | "premium" | "infinity";
   creditsBalance: number;
+  isInternal?: boolean;
 } | null> {
   const token = await getAccessToken();
   if (!token) return null;
@@ -340,6 +341,7 @@ export async function fetchUserProfile(): Promise<{
       id: result.user.id,
       membershipLevel: result.user.membershipLevel,
       creditsBalance: result.user.creditsBalance,
+      isInternal: result.user.isInternal,
     };
   } catch {
     return null;

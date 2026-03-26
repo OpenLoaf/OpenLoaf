@@ -117,9 +117,11 @@ export function VideoAiPanel({
     staleTime: 60_000,
   })
   const membershipLevel = profileQuery.data?.membershipLevel
+  const isInternalUser = profileQuery.data?.isInternal === true
   const isVideoLocked =
     loggedIn &&
     membershipLevel != null &&
+    !isInternalUser &&
     (membershipLevel === 'free' || membershipLevel === 'lite')
   const [pricingOpen, setPricingOpen] = useState(false)
 

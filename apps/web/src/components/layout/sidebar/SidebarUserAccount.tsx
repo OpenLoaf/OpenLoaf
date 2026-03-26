@@ -66,6 +66,8 @@ const SIDEBAR_MEMBERSHIP_BADGE_STYLES = {
 
 const SIDEBAR_MEMBERSHIP_BADGE_DEFAULT_STYLE =
   "bg-foreground/[0.05] text-foreground/65 dark:bg-foreground/[0.06] dark:text-foreground/65"
+const SIDEBAR_INTERNAL_BADGE_STYLE =
+  "bg-emerald-500/10 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-300"
 
 const SIDEBAR_CREDITS_TEXT_STYLE = "text-foreground"
 const SIDEBAR_CREDITS_ICON_STYLE = "text-foreground"
@@ -75,6 +77,39 @@ type SidebarMembershipLevel = keyof typeof SIDEBAR_MEMBERSHIP_BADGE_STYLES
 /** Build localized membership labels for sidebar account surfaces. */
 function buildMembershipLabels(input: Record<SidebarMembershipLevel, string>) {
   return input
+}
+
+type SidebarAccountBadgesProps = {
+  membershipLevel: SidebarMembershipLevel | null
+  membershipLabel: string | null
+  internalLabel: string | null
+}
+
+function SidebarAccountBadges({
+  membershipLevel,
+  membershipLabel,
+  internalLabel,
+}: SidebarAccountBadgesProps) {
+  if (!membershipLabel && !internalLabel) return null
+
+  return (
+    <span className="inline-flex shrink-0 items-center gap-1">
+      {membershipLabel ? (
+        <span
+          className={`inline-flex items-center rounded-3xl px-1.5 py-px text-[10px] font-medium leading-4 transition-colors duration-150 ${SIDEBAR_MEMBERSHIP_BADGE_STYLES[membershipLevel ?? "free"] ?? SIDEBAR_MEMBERSHIP_BADGE_DEFAULT_STYLE}`}
+        >
+          {membershipLabel}
+        </span>
+      ) : null}
+      {internalLabel ? (
+        <span
+          className={`inline-flex items-center rounded-3xl px-1.5 py-px text-[10px] font-medium leading-4 transition-colors duration-150 ${SIDEBAR_INTERNAL_BADGE_STYLE}`}
+        >
+          {internalLabel}
+        </span>
+      ) : null}
+    </span>
+  )
 }
 
 export function SidebarUserAccount() {
@@ -137,6 +172,8 @@ export function SidebarUserAccount() {
   const membershipLabel = membershipLevel
     ? (membershipLabels[membershipLevel] ?? membershipLevel)
     : null
+  const isInternalUser = userProfileQuery.data?.isInternal === true
+  const internalBadgeLabel = isInternalUser ? t('membership.internal') : null
   const creditsBalanceLabel = userProfileQuery.data
     ? Math.floor(userProfileQuery.data.creditsBalance).toLocaleString()
     : null
@@ -249,13 +286,11 @@ export function SidebarUserAccount() {
                   <span className="min-w-0 flex-1 truncate text-sm font-medium">
                     {sidebarDisplayName}
                   </span>
-                  {membershipLabel ? (
-                    <span
-                      className={`inline-flex shrink-0 items-center rounded-3xl px-1.5 py-px text-[10px] font-medium leading-4 transition-colors duration-150 ${SIDEBAR_MEMBERSHIP_BADGE_STYLES[membershipLevel ?? "free"] ?? SIDEBAR_MEMBERSHIP_BADGE_DEFAULT_STYLE}`}
-                    >
-                      {membershipLabel}
-                    </span>
-                  ) : null}
+                  <SidebarAccountBadges
+                    membershipLevel={membershipLevel}
+                    membershipLabel={membershipLabel}
+                    internalLabel={internalBadgeLabel}
+                  />
                 </div>
                 <div className="flex w-full items-center gap-1.5 overflow-hidden text-muted-foreground leading-4">
                   <span className="truncate text-[11px]">{sidebarLoginMethodLabel}</span>
@@ -293,13 +328,11 @@ export function SidebarUserAccount() {
                       <span className="min-w-0 flex-1 truncate text-sm font-medium">
                         {authUser?.name || t('currentAccount')}
                       </span>
-                      {membershipLabel ? (
-                        <span
-                          className={`inline-flex shrink-0 items-center rounded-3xl px-1.5 py-px text-[10px] font-medium leading-4 transition-colors duration-150 ${SIDEBAR_MEMBERSHIP_BADGE_STYLES[membershipLevel ?? "free"] ?? SIDEBAR_MEMBERSHIP_BADGE_DEFAULT_STYLE}`}
-                        >
-                          {membershipLabel}
-                        </span>
-                      ) : null}
+                      <SidebarAccountBadges
+                        membershipLevel={membershipLevel}
+                        membershipLabel={membershipLabel}
+                        internalLabel={internalBadgeLabel}
+                      />
                     </div>
                     <div className="flex items-center gap-1.5 overflow-hidden text-xs text-muted-foreground leading-4">
                       <span className="truncate">{sidebarLoginMethodLabel}</span>
@@ -491,6 +524,8 @@ export function CompactUserAvatar() {
   const membershipLabel = membershipLevel
     ? (membershipLabels[membershipLevel] ?? membershipLevel)
     : null
+  const isInternalUser = userProfileQuery.data?.isInternal === true
+  const internalBadgeLabel = isInternalUser ? t('membership.internal') : null
   const creditsBalanceLabel = userProfileQuery.data
     ? Math.floor(userProfileQuery.data.creditsBalance).toLocaleString()
     : null
@@ -616,13 +651,11 @@ export function CompactUserAvatar() {
                     <span className="min-w-0 flex-1 truncate text-sm font-medium">
                       {authUser?.name || t('currentAccount')}
                     </span>
-                    {membershipLabel ? (
-                      <span
-                        className={`inline-flex shrink-0 items-center rounded-3xl px-1.5 py-px text-[10px] font-medium leading-4 transition-colors duration-150 ${SIDEBAR_MEMBERSHIP_BADGE_STYLES[membershipLevel ?? "free"] ?? SIDEBAR_MEMBERSHIP_BADGE_DEFAULT_STYLE}`}
-                      >
-                        {membershipLabel}
-                      </span>
-                    ) : null}
+                    <SidebarAccountBadges
+                      membershipLevel={membershipLevel}
+                      membershipLabel={membershipLabel}
+                      internalLabel={internalBadgeLabel}
+                    />
                   </div>
                   <div className="flex items-center gap-1.5 overflow-hidden text-xs text-muted-foreground leading-4">
                     <span className="truncate">{sidebarLoginMethodLabel}</span>

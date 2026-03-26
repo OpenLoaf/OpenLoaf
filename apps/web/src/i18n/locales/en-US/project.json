@@ -22,7 +22,8 @@
       "lite": "Lite",
       "pro": "Pro",
       "premium": "Premium",
-      "infinity": "Infinity"
+      "infinity": "Infinity",
+      "internal": "Internal"
     },
     "settings": {
       "accountInfo": "Account Information",

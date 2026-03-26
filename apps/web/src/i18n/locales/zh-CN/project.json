@@ -22,7 +22,8 @@
       "lite": "Lite",
       "pro": "Pro",
       "premium": "Premium",
-      "infinity": "Infinity"
+      "infinity": "Infinity",
+      "internal": "内部"
     },
     "settings": {
       "accountInfo": "账户信息",
