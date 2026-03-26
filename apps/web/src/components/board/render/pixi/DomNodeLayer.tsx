@@ -5,6 +5,10 @@
  * LICENSE file in the root directory of this source tree.
  */
 'use client'
+// React Compiler bypasses React.memo custom compare functions.
+// This file relies on custom compare for DomNodeItem and DomNodeLayerBase
+// to prevent all nodes from re-rendering on every snapshot change.
+'use no memo'
 
 import {
   memo,
