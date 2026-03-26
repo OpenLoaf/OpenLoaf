@@ -23,6 +23,12 @@ import {
 } from "lucide-react"
 import { SaaSHttpError } from "@openloaf-saas/sdk"
 import { Button } from "@openloaf/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@openloaf/ui/dialog"
 import { Input } from "@openloaf/ui/input"
 import { OpenLoafSettingsField } from "@openloaf/ui/openloaf/OpenLoafSettingsField"
 import { OpenLoafSettingsGroup } from "@openloaf/ui/openloaf/OpenLoafSettingsGroup"
@@ -104,6 +110,8 @@ export function SubscriptionSettings() {
 
   const [pricingOpen, setPricingOpen] = useState(false)
   const [rechargeOpen, setRechargeOpen] = useState(false)
+  const [redeemDialogOpen, setRedeemDialogOpen] = useState(false)
+  const [redeemHistoryOpen, setRedeemHistoryOpen] = useState(false)
   const [txTypeFilter, setTxTypeFilter] = useState<string | undefined>(undefined)
   const [redeemCodeValue, setRedeemCodeValue] = useState("")
 
@@ -146,7 +154,7 @@ export function SubscriptionSettings() {
         page: 1,
         pageSize: REDEEM_RECORD_PAGE_SIZE,
       }),
-    enabled: loggedIn,
+    enabled: loggedIn && redeemHistoryOpen,
     staleTime: 30_000,
   })
 
@@ -154,6 +162,7 @@ export function SubscriptionSettings() {
     mutationFn: async (code: string) => redeemCode({ code }),
     onSuccess: async (result) => {
       setRedeemCodeValue("")
+      setRedeemDialogOpen(false)
       toast.success(
         t("account.redeemSuccess", {
           credits: Math.floor(result.creditsAmount).toLocaleString(),
@@ -240,7 +249,6 @@ export function SubscriptionSettings() {
               </span>
               <Button
                 size="sm"
-                variant="outline"
                 className="rounded-3xl shadow-none"
                 onClick={() => setRechargeOpen(true)}
               >
@@ -248,84 +256,28 @@ export function SubscriptionSettings() {
               </Button>
             </OpenLoafSettingsField>
           </div>
+          <div className="flex flex-wrap items-center gap-2 py-3">
+            <SettingIcon icon={Ticket} bg="bg-secondary" fg="text-foreground" />
+            <div className="text-sm font-medium">{t("account.redeemCodeSection")}</div>
+            <OpenLoafSettingsField className="gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                className="rounded-3xl shadow-none"
+                onClick={() => setRedeemHistoryOpen(true)}
+              >
+                {t("account.redeemHistoryAction")}
+              </Button>
+              <Button
+                size="sm"
+                className="rounded-3xl shadow-none"
+                onClick={() => setRedeemDialogOpen(true)}
+              >
+                {t("account.redeemCodeAction")}
+              </Button>
+            </OpenLoafSettingsField>
+          </div>
         </div>
-      </OpenLoafSettingsGroup>
-
-      <OpenLoafSettingsGroup title={t("account.redeemCodeSection")}>
-        <form
-          className="space-y-4"
-          onSubmit={(event) => {
-            event.preventDefault()
-            const normalizedCode = normalizeRedeemCodeInput(redeemCodeValue)
-            if (!normalizedCode) {
-              toast.error(t("account.redeemEmpty"))
-              return
-            }
-            redeemMutation.mutate(normalizedCode)
-          }}
-        >
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <Input
-              value={redeemCodeValue}
-              onChange={(event) => setRedeemCodeValue(event.target.value)}
-              placeholder={t("account.redeemCodePlaceholder")}
-              autoCapitalize="characters"
-              autoCorrect="off"
-              spellCheck={false}
-              className="h-9 rounded-3xl border-border/60 font-mono text-sm tracking-[0.12em] uppercase"
-            />
-            <Button
-              type="submit"
-              size="sm"
-              className="rounded-3xl shadow-none"
-              disabled={redeemMutation.isPending}
-            >
-              {redeemMutation.isPending ? t("account.redeeming") : t("account.redeemNow")}
-            </Button>
-          </div>
-
-          <p className="text-xs text-muted-foreground">
-            {t("account.redeemCodeHint")}
-          </p>
-
-          <div className="divide-y divide-border/40 rounded-3xl border border-border/40 px-3">
-            {redeemRecordsQuery.isLoading && (
-              <div className="py-4 text-center text-sm text-muted-foreground">
-                {t("account.loading")}
-              </div>
-            )}
-
-            {!redeemRecordsQuery.isLoading && redeemRecords.length === 0 && (
-              <div className="py-4 text-center text-sm text-muted-foreground">
-                {redeemRecordsQuery.isError
-                  ? t("account.loadError")
-                  : t("account.noRedeemRecords")}
-              </div>
-            )}
-
-            {redeemRecords.map((record) => (
-              <div key={record.id} className="flex items-center gap-3 py-3">
-                <SettingIcon icon={Ticket} bg="bg-secondary" fg="text-foreground" />
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-xs font-medium">
-                    {record.redeemCode.title}
-                  </div>
-                  <div className="truncate font-mono text-[11px] text-muted-foreground">
-                    {record.redeemCode.code}
-                  </div>
-                </div>
-                <div className="shrink-0 text-right">
-                  <div className="text-xs font-medium text-green-600 dark:text-green-400">
-                    +{Math.floor(record.creditsAmount).toLocaleString()}
-                  </div>
-                  <div className="text-[10px] text-muted-foreground">
-                    {new Date(record.createdAt).toLocaleDateString()}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </form>
       </OpenLoafSettingsGroup>
 
       {/* Subscription Status */}
@@ -463,6 +415,105 @@ export function SubscriptionSettings() {
 
       <PricingDialog open={pricingOpen} onOpenChange={setPricingOpen} />
       <RechargeDialog open={rechargeOpen} onOpenChange={setRechargeOpen} />
+      <Dialog
+        open={redeemDialogOpen}
+        onOpenChange={(open) => {
+          setRedeemDialogOpen(open)
+          if (!open) setRedeemCodeValue("")
+        }}
+      >
+        <DialogContent className="gap-0 overflow-hidden p-0 sm:max-w-lg sm:rounded-3xl">
+          <DialogHeader className="border-b border-border/40 px-5 py-4">
+            <DialogTitle className="text-sm font-medium">
+              {t("account.redeemCodeDialogTitle")}
+            </DialogTitle>
+          </DialogHeader>
+          <form
+            className="space-y-4 px-5 py-5"
+            onSubmit={(event) => {
+              event.preventDefault()
+              const normalizedCode = normalizeRedeemCodeInput(redeemCodeValue)
+              if (!normalizedCode) {
+                toast.error(t("account.redeemEmpty"))
+                return
+              }
+              redeemMutation.mutate(normalizedCode)
+            }}
+          >
+            <Input
+              value={redeemCodeValue}
+              onChange={(event) => setRedeemCodeValue(event.target.value)}
+              placeholder={t("account.redeemCodePlaceholder")}
+              autoCapitalize="characters"
+              autoCorrect="off"
+              spellCheck={false}
+              className="h-10 rounded-3xl border-border/60 font-mono text-sm tracking-[0.12em] uppercase"
+            />
+            <p className="text-xs text-muted-foreground">
+              {t("account.redeemCodeHint")}
+            </p>
+            <div className="flex justify-end">
+              <Button
+                type="submit"
+                size="sm"
+                className="rounded-3xl shadow-none"
+                disabled={redeemMutation.isPending}
+              >
+                {redeemMutation.isPending ? t("account.redeeming") : t("account.redeemNow")}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={redeemHistoryOpen} onOpenChange={setRedeemHistoryOpen}>
+        <DialogContent className="gap-0 overflow-hidden p-0 sm:max-w-lg sm:rounded-3xl">
+          <DialogHeader className="border-b border-border/40 px-5 py-4">
+            <DialogTitle className="text-sm font-medium">
+              {t("account.redeemHistoryDialogTitle")}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="max-h-[420px] overflow-auto px-5 py-4">
+            <div className="divide-y divide-border/40 rounded-3xl border border-border/40 px-3">
+              {redeemRecordsQuery.isLoading && (
+                <div className="py-4 text-center text-sm text-muted-foreground">
+                  {t("account.loading")}
+                </div>
+              )}
+
+              {!redeemRecordsQuery.isLoading && redeemRecords.length === 0 && (
+                <div className="py-4 text-center text-sm text-muted-foreground">
+                  {redeemRecordsQuery.isError
+                    ? t("account.loadError")
+                    : t("account.noRedeemRecords")}
+                </div>
+              )}
+
+              {redeemRecords.map((record) => (
+                <div key={record.id} className="flex items-center gap-3 py-3">
+                  <SettingIcon icon={Ticket} bg="bg-secondary" fg="text-foreground" />
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-xs font-medium">
+                      {record.redeemCode.title}
+                    </div>
+                    <div className="truncate font-mono text-[11px] text-muted-foreground">
+                      {record.redeemCode.code}
+                    </div>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <div className="text-xs font-medium text-green-600 dark:text-green-400">
+                      +{Math.floor(record.creditsAmount).toLocaleString()}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground">
+                      {new Date(record.createdAt).toLocaleDateString()}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

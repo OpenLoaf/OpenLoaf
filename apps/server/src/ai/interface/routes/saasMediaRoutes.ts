@@ -90,8 +90,15 @@ async function handleSaasMediaRoute(
         },
         "SaaS request failed",
       );
+      const saasMsg =
+        mapped.payload &&
+        typeof mapped.payload === "object" &&
+        "message" in mapped.payload &&
+        typeof (mapped.payload as Record<string, unknown>).message === "string"
+          ? ((mapped.payload as Record<string, unknown>).message as string)
+          : undefined;
       return c.json(
-        buildSaasErrorPayload(mapped.code, "连接服务器失败，请稍后重试"),
+        buildSaasErrorPayload(mapped.code, saasMsg || "连接服务器失败，请稍后重试"),
         normalizeStatus(mapped.status),
       );
     }
