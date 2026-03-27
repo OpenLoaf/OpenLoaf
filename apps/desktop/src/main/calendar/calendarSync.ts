@@ -130,10 +130,18 @@ function resolveProvider() {
   return null;
 }
 
-export function createCalendarSync(args: { log: Logger; calendarService: CalendarService }) {
+export function createCalendarSync(args: {
+  log: Logger;
+  calendarService: CalendarService;
+  getPermissionCache: () => { event: string; reminder: string } | null;
+  onWatchExit: (cb: () => void) => () => void;
+  tryStartWatch: () => void;
+}) {
   let lastContext: SyncContext | null = null;
   let timer: NodeJS.Timeout | null = null;
   let syncing = false;
+  const SYNC_THROTTLE_MS = 1500;
+  let lastSyncAt = 0;
 
   const setSyncContext = (context: SyncContext) => {
     lastContext = context;
@@ -141,6 +149,15 @@ export function createCalendarSync(args: { log: Logger; calendarService: Calenda
 
   const syncNow = async (override?: SyncContext) => {
     if (syncing) return;
+    // Permission guard.
+    const cache = args.getPermissionCache();
+    if (!cache || cache.event !== "granted") {
+      args.log("[calendar-sync] skipping sync: permission not granted");
+      stopTimer();
+      return;
+    }
+    // Main-process throttle.
+    if (Date.now() - lastSyncAt < SYNC_THROTTLE_MS) return;
     const context = override ?? lastContext;
     if (!context) return;
     const provider = resolveProvider();
@@ -241,6 +258,7 @@ export function createCalendarSync(args: { log: Logger; calendarService: Calenda
           items,
         },
       });
+      lastSyncAt = Date.now();
     } catch (error) {
       args.log(`[calendar-sync] failed: ${String(error)}`);
     } finally {
@@ -248,12 +266,15 @@ export function createCalendarSync(args: { log: Logger; calendarService: Calenda
     }
   };
 
-  const startTimer = () => {
+  const FALLBACK_INTERVAL_MS = 5 * 60_000;
+
+  const startFallbackTimer = () => {
     if (timer) return;
-    // 逻辑：每分钟触发一次系统日历同步。
+    args.log("[calendar-sync] watch exited unexpectedly, starting 5-min fallback timer");
     timer = setInterval(() => {
+      args.tryStartWatch();
       void syncNow();
-    }, 60_000);
+    }, FALLBACK_INTERVAL_MS);
   };
 
   const stopTimer = () => {
@@ -262,10 +283,18 @@ export function createCalendarSync(args: { log: Logger; calendarService: Calenda
     timer = null;
   };
 
+  // Subscribe to watch-exit events from calendarService.
+  const unsubWatchExit = args.onWatchExit(() => {
+    startFallbackTimer();
+  });
+
   return {
     setSyncContext,
     syncNow,
-    startTimer,
     stopTimer,
+    destroy: () => {
+      stopTimer();
+      unsubWatchExit();
+    },
   };
 }
