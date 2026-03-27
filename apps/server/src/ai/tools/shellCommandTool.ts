@@ -14,6 +14,17 @@ import { resolveToolWorkdir } from "@/ai/tools/toolScope";
 import { buildExecEnv, formatFreeformOutput } from "@/ai/tools/execUtils";
 import { needsApprovalForCommand } from "@/ai/tools/commandApproval";
 
+/** Detect likely unquoted paths with CJK characters + spaces in failed commands. */
+function detectUnquotedCjkPaths(command: string): string | null {
+  // Mask properly quoted strings to avoid false positives
+  const masked = command.replace(/"[^"]*"/g, '""').replace(/'[^']*'/g, "''")
+  // Check for CJK chars near unquoted spaces (common in Chinese filenames)
+  if (/[\u4e00-\u9fff][^\s"']*\s+[^\-|>]/.test(masked)) {
+    return '[HINT] 命令中可能包含未加引号的中文路径。请用双引号包裹含空格或中文的文件路径。'
+  }
+  return null
+}
+
 type ShellCommandInput = {
   /** Shell command string. */
   command: string;
@@ -109,6 +120,14 @@ export const shellCommandTool = tool({
       sections.push(`Total output lines: ${truncated.totalLines}`);
     }
     sections.push("Output:", truncated.text);
+
+    // Warn about likely unquoted CJK paths on failed commands
+    if (code !== 0) {
+      const unquotedWarning = detectUnquotedCjkPaths(command)
+      if (unquotedWarning) {
+        sections.push(unquotedWarning)
+      }
+    }
 
     return sections.join("\n");
   },

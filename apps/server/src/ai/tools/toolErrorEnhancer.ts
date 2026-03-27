@@ -29,7 +29,7 @@ import { logger } from '@/common/logger'
 type FailureKey = string // `${toolId}:${errorPattern}`
 const consecutiveFailures = new Map<FailureKey, { count: number; lastAt: number }>()
 
-const MAX_CONSECUTIVE_FAILURES = 3
+const MAX_CONSECUTIVE_FAILURES = 2
 const FAILURE_WINDOW_MS = 60_000 // reset counter after 1 minute of no failures
 
 function getFailureKey(toolId: string, errorMsg: string): FailureKey {
@@ -78,7 +78,7 @@ const RECOVERY_RULES: RecoveryRule[] = [
   // File system errors
   {
     pattern: /ENOENT|no such file|not found|does not exist/i,
-    hint: '请先用 list-dir 确认路径是否正确，或检查文件名拼写。',
+    hint: '文件不存在。请先用 list-dir 浏览目录确认正确路径。若此路径在之前的对话中成功使用过，请从之前的工具返回结果中精确复制。',
   },
   {
     pattern: /EACCES|permission denied/i,
@@ -214,8 +214,8 @@ function enhanceToolError(toolId: string, errorMsg: string): string {
 
   const retryTag =
     failureCount >= MAX_CONSECUTIVE_FAILURES
-      ? `[STOP_RETRY] 此工具已连续失败 ${failureCount} 次。请停止重试相同操作，换一种策略或使用其他工具。`
-      : '[RETRY_SUGGESTED]'
+      ? `[STOP_RETRY] 此工具已连续失败 ${failureCount} 次，请换一种策略。`
+      : '[RETRY_SUGGESTED] 重试时请使用不同的参数。相同参数会产生相同错误。'
 
   return [
     `[TOOL_ERROR] ${toolId}: ${errorMsg}`,

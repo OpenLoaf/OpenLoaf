@@ -71,6 +71,21 @@ export function createToolSearchTool(
         // 2. Try as skill name
         const skill = await resolveSkill(name)
         if (skill) {
+          // If skill's declared tools are already active, return a short confirmation
+          // instead of re-transmitting the full SKILL.md content (saves ~500-2000 tokens)
+          if (
+            skill.tools &&
+            skill.tools.length > 0 &&
+            skill.tools.every((id) => activatedSet.isActive(id))
+          ) {
+            loadedSkills.push({
+              name: skill.name,
+              scope: skill.scope,
+              basePath: skill.basePath,
+              content: `[已加载] 技能 "${skill.name}" 在本会话中已加载且工具仍处于激活状态。请参考之前的 tool-search 返回结果获取完整说明。`,
+            })
+            continue
+          }
           loadedSkills.push(skill)
           // Auto-activate tools declared by the skill
           if (skill.tools && skill.tools.length > 0) {
