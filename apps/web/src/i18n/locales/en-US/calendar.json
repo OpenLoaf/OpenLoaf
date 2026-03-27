@@ -34,5 +34,10 @@
   "errUpdateReminder": "Failed to update reminder.",
   "errEventIdNotFound": "System event ID not found.",
   "tasks": "Tasks",
-  "taskCount": "Show {{count}} tasks"
+  "taskCount": "Show {{count}} tasks",
+  "connectSystemCalendar": "Connect System Calendar",
+  "connectSystemCalendarDesc": "Authorize access to macOS Calendar and Reminders to manage your schedule in OpenLoaf.",
+  "connectReminders": "Connect Reminders",
+  "remindersNotConnected": "Reminders not connected",
+  "connectionTimeout": "Unable to connect to system calendar. Please try again later."
 }

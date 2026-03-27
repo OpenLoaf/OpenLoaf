@@ -435,6 +435,8 @@ export default function CalendarPage({
     selectedCalendarIds,
     selectedReminderListIds,
     permissionState,
+    eventPermission,
+    reminderPermission,
     isLoading,
     selectedCalendarIdList,
     selectedReminderListIdList,
@@ -602,7 +604,7 @@ export default function CalendarPage({
     [reminderLists]
   );
   const hasSystemSources = hasSystemCalendars || hasSystemReminders;
-  const shouldShowImportButton = !hasSystemSources && permissionState !== "unsupported";
+  const shouldShowImportButton = eventPermission !== "granted" && eventPermission !== "unsupported";
 
   const [showPermissionDialog, setShowPermissionDialog] = useState(false);
 
@@ -610,14 +612,17 @@ export default function CalendarPage({
     try {
       const result = await handleRequestPermission();
       if (!result.ok) {
-        toast.error(result.reason || t('importCalendarFailed'));
+        if (result.code === "timeout") {
+          toast.error(t('connectionTimeout'));
+        } else {
+          toast.error(result.reason || t('importCalendarFailed'));
+        }
         return;
       }
-      if (result.data === "granted") {
+      if (result.data.event === "granted") {
         toast.success(t('authSuccess'));
         return;
       }
-      // 权限被拒绝，弹出引导对话框
       if (isElectronEnv()) {
         setShowPermissionDialog(true);
         window.openloafElectron?.openExternal?.(
@@ -629,7 +634,7 @@ export default function CalendarPage({
     } catch {
       toast.error(t('importFailedRetry'));
     }
-  }, [handleRequestPermission]);
+  }, [handleRequestPermission, t]);
 
   const handleRelaunchApp = useCallback(async () => {
     if (window.openloafElectron?.relaunchApp) {

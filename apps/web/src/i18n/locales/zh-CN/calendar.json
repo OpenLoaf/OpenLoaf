@@ -34,5 +34,10 @@
   "errUpdateReminder": "更新提醒事项失败。",
   "errEventIdNotFound": "未找到系统事件 ID。",
   "tasks": "任务",
-  "taskCount": "显示 {{count}} 个任务"
+  "taskCount": "显示 {{count}} 个任务",
+  "connectSystemCalendar": "连接系统日历",
+  "connectSystemCalendarDesc": "授权访问 macOS 日历和提醒事项，在 OpenLoaf 中统一管理你的日程。",
+  "connectReminders": "连接提醒事项",
+  "remindersNotConnected": "提醒事项未连接",
+  "connectionTimeout": "无法连接系统日历，请稍后重试。"
 }
