@@ -15,12 +15,14 @@ import { skipToken, useMutation, useQuery, useQueryClient } from "@tanstack/reac
 import dayjs from "@openloaf/ui/calendar/lib/configs/dayjs-config";
 import { trpc } from "@/utils/trpc";
 import {
+  checkCalendarPermission,
   createSystemEvent,
   createSystemReminder,
   deleteSystemEvent,
   deleteSystemReminder,
   requestCalendarPermission,
   setCalendarSyncRange,
+  subscribePermissionChanges,
   subscribeSystemCalendarChanges,
   syncSystemCalendars,
   updateSystemEvent,
@@ -80,12 +82,17 @@ type CalendarPageStateResult = {
   selectedCalendarIds: Set<string>;
   selectedReminderListIds: Set<string>;
   permissionState: CalendarPermissionState;
+  eventPermission: CalendarPermissionState;
+  reminderPermission: CalendarPermissionState;
   errorMessage: string | null;
   isLoading: boolean;
   activeRange: CalendarRange;
   selectedCalendarIdList: string[];
   selectedReminderListIdList: string[];
-  handleRequestPermission: () => Promise<OpenLoafCalendarResult<CalendarPermissionState>>;
+  handleRequestPermission: () => Promise<OpenLoafCalendarResult<{
+    event: OpenLoafCalendarPermissionState;
+    reminder: OpenLoafCalendarPermissionState;
+  }>>;
   handleDateChange: (date: dayjs.Dayjs) => void;
   handleEventAdd: (event: CalendarEvent) => void;
   handleEventUpdate: (event: CalendarEvent) => void;
@@ -142,13 +149,17 @@ export function useCalendarPageState({
   const [selectedReminderListIds, setSelectedReminderListIds] = useState<Set<string>>(
     new Set()
   );
-  const [permissionState, setPermissionState] = useState<CalendarPermissionState>("prompt");
+  const [eventPermission, setEventPermission] = useState<CalendarPermissionState>("prompt");
+  const [reminderPermission, setReminderPermission] = useState<CalendarPermissionState>("prompt");
+  // Derived for backward compat — existing consumers use single `permissionState`.
+  const permissionState = eventPermission;
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [activeRange, setActiveRange] = useState<CalendarRange>(() => buildDefaultRange());
   const pendingRangeRef = useRef<CalendarRange | null>(null);
   const rangeUpdateScheduledRef = useRef(false);
   const initialSyncRef = useRef(false);
   const permissionRequestedRef = useRef(false);
+  const permissionCheckedRef = useRef(false);
   const syncInFlightRef = useRef(false);
   const syncQueuedRef = useRef(false);
   const lastSyncAtRef = useRef(0);
@@ -315,29 +326,41 @@ export function useCalendarPageState({
     [activeRange, activeSourceIds, permissionState, queryClient]
   );
 
-  const handleRequestPermission = useCallback(async (): Promise<OpenLoafCalendarResult<CalendarPermissionState>> => {
+  const triggerSyncRef = useRef(triggerSync);
+  triggerSyncRef.current = triggerSync;
+
+  const handleRequestPermission = useCallback(async (): Promise<
+    OpenLoafCalendarResult<{ event: OpenLoafCalendarPermissionState; reminder: OpenLoafCalendarPermissionState }>
+  > => {
     const result = await requestCalendarPermission();
     if (!result.ok) {
-      setPermissionState("unsupported");
+      setEventPermission("unsupported");
+      setReminderPermission("unsupported");
       setErrorMessage(result.reason);
       return result;
     }
-    setPermissionState(result.data);
-    if (result.data !== "granted") {
+    setEventPermission(result.data.event);
+    setReminderPermission(result.data.reminder);
+    if (result.data.event !== "granted") {
       setErrorMessage(i18next.t('calendar:errUnauthorized'));
       return result;
     }
     setErrorMessage(null);
-    await triggerSync("permission");
+    await triggerSyncRef.current("permission");
     return result;
-  }, [triggerSync]);
+  }, []);
 
   useEffect(() => {
-    if (permissionState !== "prompt") return;
-    if (permissionRequestedRef.current) return;
-    permissionRequestedRef.current = true;
-    void handleRequestPermission();
-  }, [handleRequestPermission, permissionState]);
+    if (permissionCheckedRef.current) return;
+    permissionCheckedRef.current = true;
+    void (async () => {
+      const result = await checkCalendarPermission();
+      if (result.ok) {
+        setEventPermission(result.data.event);
+        setReminderPermission(result.data.reminder);
+      }
+    })();
+  }, []);
 
   useEffect(() => {
     // 逻辑：进入日历页面时触发一次同步。
@@ -356,6 +379,13 @@ export function useCalendarPageState({
       void triggerSync("watch");
     });
   }, [triggerSync]);
+
+  useEffect(() => {
+    return subscribePermissionChanges((state) => {
+      setEventPermission(state.event);
+      setReminderPermission(state.reminder);
+    });
+  }, []);
 
   const handleDateChange = useCallback((date: dayjs.Dayjs) => {
     const range = buildRangeFromDate(date);
@@ -685,6 +715,8 @@ export function useCalendarPageState({
     selectedCalendarIds,
     selectedReminderListIds,
     permissionState,
+    eventPermission,
+    reminderPermission,
     errorMessage,
     isLoading,
     activeRange,
