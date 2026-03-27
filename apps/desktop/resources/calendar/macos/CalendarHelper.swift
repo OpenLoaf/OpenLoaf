@@ -152,6 +152,8 @@ struct CalendarHelper {
         let payload = args.count >= 3 ? args[2] : "{}"
 
         switch action {
+        case "check-permission":
+            handleCheckPermission()
         case "permission":
             handlePermission()
         case "list-calendars":
@@ -182,17 +184,29 @@ struct CalendarHelper {
         }
     }
 
-    /// Handle permission request flow.
+    /// Handle lightweight permission status check (no access request).
+    private static func handleCheckPermission() {
+        let eventStatus = authorizationStatus()
+        let reminderStatus = reminderAuthorizationStatus()
+        writeSuccess(["event": eventStatus, "reminder": reminderStatus])
+    }
+
+    /// Handle permission request flow — requests both event and reminder access.
     private static func handlePermission() {
         let eventStore = EKEventStore()
-        let status = authorizationStatus()
-        if status == "prompt" {
+        let eventStatus = authorizationStatus()
+        var finalEventStatus = eventStatus
+        if eventStatus == "prompt" {
             let granted = requestEventAccess(eventStore)
-            let newStatus = granted ? "granted" : "denied"
-            writeSuccess(newStatus)
-            return
+            finalEventStatus = granted ? "granted" : "denied"
         }
-        writeSuccess(status)
+        let reminderStatus = reminderAuthorizationStatus()
+        var finalReminderStatus = reminderStatus
+        if reminderStatus == "prompt" {
+            let granted = requestReminderAccess(eventStore)
+            finalReminderStatus = granted ? "granted" : "denied"
+        }
+        writeSuccess(["event": finalEventStatus, "reminder": finalReminderStatus])
     }
 
     /// Handle listing calendars.
@@ -654,7 +668,11 @@ struct CalendarHelper {
         }
 
         let eventStore = EKEventStore()
-        guard ensureAuthorized(eventStore) else { return }
+        let status = authorizationStatus()
+        if status != "granted" {
+            writeError("未授权系统日历访问权限。", code: "not_authorized")
+            return
+        }
 
         setbuf(stdout, nil)
         let center = NotificationCenter.default
@@ -770,6 +788,7 @@ struct CalendarHelper {
     }
 
     /// Request system calendar access based on OS version.
+    /// Timeout after 20 seconds to avoid hanging when the system dialog is not shown.
     private static func requestEventAccess(_ store: EKEventStore) -> Bool {
         let semaphore = DispatchSemaphore(value: 0)
         var granted = false
@@ -784,11 +803,16 @@ struct CalendarHelper {
                 semaphore.signal()
             }
         }
-        semaphore.wait()
+        let result = semaphore.wait(timeout: .now() + 20)
+        if result == .timedOut {
+            writeDebug("requestEventAccess timed out after 20s")
+            return false
+        }
         return granted
     }
 
     /// Request system reminder access based on OS version.
+    /// Timeout after 20 seconds to avoid hanging when the system dialog is not shown.
     private static func requestReminderAccess(_ store: EKEventStore) -> Bool {
         let semaphore = DispatchSemaphore(value: 0)
         var granted = false
@@ -803,7 +827,11 @@ struct CalendarHelper {
                 semaphore.signal()
             }
         }
-        semaphore.wait()
+        let result = semaphore.wait(timeout: .now() + 20)
+        if result == .timedOut {
+            writeDebug("requestReminderAccess timed out after 20s")
+            return false
+        }
         return granted
     }
 
