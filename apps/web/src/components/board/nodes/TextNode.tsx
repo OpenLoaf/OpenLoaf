@@ -135,8 +135,6 @@ import {
 // Re-export for backward compatibility (prefer importing from text-node-constants directly)
 export { TEXT_NODE_DEFAULT_HEIGHT } from "./text-node-constants";
 
-/** Ignore tiny resize deltas to avoid jitter. */
-const TEXT_NODE_RESIZE_EPSILON = 2;
 /** Default font weight for board text nodes. */
 const TEXT_NODE_DEFAULT_FONT_WEIGHT = 430;
 /** Subtle tracking tweak so board copy feels less loose. */
@@ -327,30 +325,6 @@ function ReadOnlyMarkdownProjection(props: {
   const { engine } = useBoardContext();
   const contentRef = useRef<HTMLDivElement | null>(null);
   const isAnimating = false;
-
-  useEffect(() => {
-    const content = contentRef.current;
-    if (!content || typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(() => {
-      const node = engine.doc.getElementById(props.elementId);
-      if (!node || node.kind !== "node") return;
-      const nextHeight = Math.max(
-        TEXT_NODE_DEFAULT_HEIGHT,
-        Math.ceil(content.scrollHeight + TEXT_NODE_VERTICAL_PADDING),
-      );
-      const [, , width, currentHeight] = node.xywh;
-      if (Math.abs(nextHeight - currentHeight) < TEXT_NODE_RESIZE_EPSILON) return;
-      engine.batch(() => {
-        engine.doc.transact(() => {
-          engine.doc.updateElement(props.elementId, {
-            xywh: [node.xywh[0], node.xywh[1], width, nextHeight],
-          });
-        });
-      });
-    });
-    observer.observe(content);
-    return () => observer.disconnect();
-  }, [engine, props.elementId]);
 
   return (
     <div
@@ -1041,29 +1015,6 @@ function EditableTextNodeView({
     isEditingRef.current = isEditing;
   }, [isEditing, isGhost]);
 
-  // ---- Auto-resize height while editing ----
-  useEffect(() => {
-    if (isGhost || !isEditing) return;
-    const content = contentRef.current;
-    if (!content || typeof ResizeObserver === "undefined") return;
-    const sync = () => {
-      const node = engine.doc.getElementById(element.id);
-      if (!node || node.kind !== "node") return;
-      const nextHeight = Math.max(
-        TEXT_NODE_DEFAULT_HEIGHT,
-        Math.ceil(content.scrollHeight + TEXT_NODE_VERTICAL_PADDING),
-      );
-      const [x, y, w, currentHeight] = node.xywh;
-      if (Math.abs(nextHeight - currentHeight) < TEXT_NODE_RESIZE_EPSILON) return;
-      engine.doc.updateElement(element.id, {
-        xywh: [x, y, w, nextHeight],
-      });
-    };
-    const observer = new ResizeObserver(sync);
-    observer.observe(content);
-    return () => observer.disconnect();
-  }, [engine, element.id, isEditing, isGhost]);
-
   // ---- Event handlers ----
 
   const handleDoubleClick = useCallback(
@@ -1184,7 +1135,7 @@ function EditableTextNodeView({
         borderRadius: shapeType === "rounded_rectangle" ? 12 : shapeType === "rectangle" ? 4 : 0,
         color: getShapeTextColor(shapeFill),
       }
-    : backgroundColor && !isSticky
+    : backgroundColor
       ? { backgroundColor }
       : undefined;
 
@@ -1201,7 +1152,7 @@ function EditableTextNodeView({
     isShape ? (hasClipPath ? "p-[15%]" : "p-2.5") : "p-2.5",
     isSticky ? "rounded-3xl shadow-sm" : isShape ? "" : "rounded-3xl",
     isSticky
-      ? stickyBg
+      ? (backgroundColor ? "" : stickyBg)
       : isShape
         ? ""
         : defaultBg,
@@ -1374,7 +1325,7 @@ export const TextNodeDefinition: CanvasNodeDefinition<TextNodeProps> = {
     return createTextToolbarItems(ctx);
   },
   capabilities: {
-    resizable: true,
+    resizable: false,
     rotatable: false,
     connectable: "anchors",
     minSize: TEXT_NODE_MIN_SIZE,

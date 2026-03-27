@@ -619,7 +619,8 @@ export function BoardCanvasInteraction({
 
   const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (!showUi) return;
-    const rect = containerRef.current?.getBoundingClientRect();
+    // 逻辑：复用 ToolManager 的 rect 缓存，避免每帧调用 getBoundingClientRect 触发 ScheduleStyleRecalculation。
+    const rect = engine.getContainerRect();
     if (!rect) return;
     lastPointerWorldRef.current = engine.screenToWorld([
       event.clientX - rect.left,

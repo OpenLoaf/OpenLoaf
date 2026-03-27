@@ -9,7 +9,7 @@
  */
 'use client'
 
-import { useEffect } from 'react'
+import { memo, useEffect } from 'react'
 import { create } from 'zustand'
 import { XIcon } from 'lucide-react'
 import i18next from 'i18next'
@@ -105,8 +105,8 @@ function VideoTrimDialogContent({ payload }: { payload: VideoTrimPayload }) {
 // Export: always-mounted shell driven by Zustand
 // ---------------------------------------------------------------------------
 
-export function VideoTrimDialog() {
+export const VideoTrimDialog = memo(function VideoTrimDialog() {
   const payload = useVideoTrimDialogStore((s) => s.payload)
   if (!payload) return null
   return <VideoTrimDialogContent payload={payload} />
-}
+})

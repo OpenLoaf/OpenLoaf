@@ -90,15 +90,22 @@ function useFileSystemSelection({
   const isUriSelectableRef = useRef(isUriSelectable);
   isUriSelectableRef.current = isUriSelectable;
 
-  /** Register entry nodes for hit testing. */
+  /** Register entry nodes for hit testing. Caches callbacks to avoid new closures per render. */
+  const entryRefCallbacks = useRef(new Map<string, (node: HTMLElement | null) => void>());
   const registerEntryRef = useCallback((uri: string) => {
-    return (node: HTMLElement | null) => {
-      if (node) {
-        entryRefs.current.set(uri, node);
-      } else {
-        entryRefs.current.delete(uri);
-      }
-    };
+    let cb = entryRefCallbacks.current.get(uri);
+    if (!cb) {
+      cb = (node: HTMLElement | null) => {
+        if (node) {
+          entryRefs.current.set(uri, node);
+        } else {
+          entryRefs.current.delete(uri);
+          entryRefCallbacks.current.delete(uri);
+        }
+      };
+      entryRefCallbacks.current.set(uri, cb);
+    }
+    return cb;
   }, []);
 
   /** Update selection based on a drag rectangle. */

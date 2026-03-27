@@ -40,8 +40,7 @@ export const CalendarNodeDefinition: CanvasNodeDefinition<CalendarNodeProps> = {
   defaultProps: {},
   view: CalendarNodeView,
   capabilities: {
-    resizable: true,
-    resizeMode: "ratio-range",
+    resizable: false,
     rotatable: false,
     connectable: "anchors",
     minSize: { w: 240, h: 280 },

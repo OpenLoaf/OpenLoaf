@@ -91,6 +91,10 @@ export class SelectTool implements CanvasTool {
   private cachedDragGroupBounds: CanvasRect | null = null;
   /** Cached set of dragging ids. */
   private cachedDraggingSet: Set<string> | null = null;
+  /** Last pointer position for frame-to-frame velocity calculation. */
+  private lastMovePoint: CanvasPoint | null = null;
+  /** Tilt auto-reset debounce timer id. */
+  private tiltResetTimer: number | null = null;
 
   /** Handle pointer down to perform hit testing and selection. */
   onPointerDown(ctx: ToolContext): void {
@@ -435,9 +439,12 @@ export class SelectTool implements CanvasTool {
     if (!group) return;
     let finalDx = dx;
     let finalDy = dy;
-    // 逻辑：3D 透视倾斜 — 根据拖拽速度方向计算 tilt，直接写 DOM CSS 变量绕过 React。
-    const tiltX = Math.max(-4, Math.min(4, dy * 0.015));
-    const tiltY = Math.max(-4, Math.min(4, -dx * 0.015));
+    // 逻辑：3D 透视倾斜 — 基于帧间速度（非总位移）计算 tilt，停止移动后防抖归零。
+    const frameDx = this.lastMovePoint ? ctx.worldPoint[0] - this.lastMovePoint[0] : 0;
+    const frameDy = this.lastMovePoint ? ctx.worldPoint[1] - this.lastMovePoint[1] : 0;
+    this.lastMovePoint = ctx.worldPoint;
+    const tiltX = Math.max(-4, Math.min(4, frameDy * 0.15));
+    const tiltY = Math.max(-4, Math.min(4, -frameDx * 0.15));
     for (const id of this.draggingIds) {
       const el = document.querySelector(`[data-element-id="${id}"]`) as HTMLElement | null;
       if (el) {
@@ -445,6 +452,18 @@ export class SelectTool implements CanvasTool {
         el.style.setProperty('--drag-tilt-y', `${tiltY}deg`);
       }
     }
+    // 逻辑：150ms 无移动 → tilt 归零，CSS transition 驱动平滑回正动画。
+    if (this.tiltResetTimer !== null) clearTimeout(this.tiltResetTimer);
+    this.tiltResetTimer = window.setTimeout(() => {
+      for (const id of this.draggingIds) {
+        const el = document.querySelector(`[data-element-id="${id}"]`) as HTMLElement | null;
+        if (el) {
+          el.style.setProperty('--drag-tilt-x', '0deg');
+          el.style.setProperty('--drag-tilt-y', '0deg');
+        }
+      }
+      this.tiltResetTimer = null;
+    }, 150) as unknown as number;
 
     ctx.engine.batch(() => {
       ctx.engine.doc.transact(() => {
@@ -601,6 +620,11 @@ export class SelectTool implements CanvasTool {
     this.dragActivated = false;
     this.cachedDragGroupBounds = null;
     this.cachedDraggingSet = null;
+    this.lastMovePoint = null;
+    if (this.tiltResetTimer !== null) {
+      clearTimeout(this.tiltResetTimer);
+      this.tiltResetTimer = null;
+    }
     this.cancelHoverClear();
   }
 

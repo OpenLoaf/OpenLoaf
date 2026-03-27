@@ -490,6 +490,16 @@ export class CanvasEngine {
     return this.container;
   }
 
+  /**
+   * Return the cached container bounding rect.
+   * Delegates to ToolManager's rect cache to avoid redundant `getBoundingClientRect` calls
+   * that trigger ScheduleStyleRecalculation on every pointer event.
+   */
+  getContainerRect(): DOMRect | null {
+    if (!this.container) return null;
+    return this.tools.getContainerRect(this.container);
+  }
+
   /** Return the DOM element for a rendered node, or null if not mounted/culled. */
   getNodeDomElement(elementId: string): HTMLElement | null {
     if (!this.container) return null;

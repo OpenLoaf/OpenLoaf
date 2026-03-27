@@ -21,8 +21,12 @@ export function useFileSelection() {
 
   /** Replace current selection with next uris. */
   const replaceSelection = useCallback((uris: string[]) => {
-    // 中文注释：用新的集合覆盖当前选中。
-    setSelectedUris(new Set(uris));
+    // 中文注释：用新的集合覆盖当前选中，若内容相同则跳过更新。
+    setSelectedUris((prev) => {
+      if (uris.length === 0 && prev.size === 0) return prev;
+      if (uris.length === prev.size && uris.every((uri) => prev.has(uri))) return prev;
+      return new Set(uris);
+    });
   }, []);
 
   /** Toggle selection for a single uri. */
@@ -52,8 +56,8 @@ export function useFileSelection() {
 
   /** Clear all selections. */
   const clearSelection = useCallback(() => {
-    // 中文注释：清空选中用于空白处交互。
-    setSelectedUris(new Set());
+    // 中文注释：清空选中用于空白处交互，已空则跳过。
+    setSelectedUris((prev) => (prev.size === 0 ? prev : new Set()));
   }, []);
 
   /** Apply drag selection results with a mode. */
@@ -72,6 +76,17 @@ export function useFileSelection() {
           } else {
             next.add(uri);
           }
+        }
+        // 中文注释：内容相同时返回旧引用，避免不必要的重渲染。
+        if (next.size === prev.size) {
+          let same = true;
+          for (const uri of next) {
+            if (!prev.has(uri)) {
+              same = false;
+              break;
+            }
+          }
+          if (same) return prev;
         }
         return next;
       });

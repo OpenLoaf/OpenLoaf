@@ -11,9 +11,11 @@
 
 import {
   Fragment,
+  memo,
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type MouseEvent as ReactMouseEvent,
 } from "react";
@@ -137,9 +139,15 @@ function normalizePageTreeProjects(nodes?: ProjectTreeNode[]): ProjectTreeNode[]
   return walk(nodes);
 }
 
-/** Project file picker dialog for selecting a single file. */
-export function ProjectFilePickerDialog({
-  open,
+/** Empty set singleton to avoid creating new references. */
+const EMPTY_SET = new Set<string>();
+
+/**
+ * Inner content component — only mounted when the dialog is open.
+ * This avoids running heavy hooks (tRPC queries, thumbnails, selection) when
+ * the dialog is closed.
+ */
+const ProjectFilePickerDialogInner = memo(function ProjectFilePickerDialogInner({
   onOpenChange,
   title,
   filterHint,
@@ -155,7 +163,7 @@ export function ProjectFilePickerDialog({
   confirmButtonLabel,
   folderSelectMode = false,
   onSelectFolder,
-}: ProjectFilePickerDialogProps) {
+}: Omit<ProjectFilePickerDialogProps, 'open'>) {
   const { t } = useTranslation(['project']);
   const projectListQuery = useProjects();
   const projectOptions = useMemo(
@@ -189,32 +197,45 @@ export function ProjectFilePickerDialog({
     []
   );
 
+  // 初始化：仅在首次挂载时设定初始路径。
+  const initializedRef = useRef(false);
   useEffect(() => {
-    if (!open) return;
+    if (initializedRef.current) return;
+    if (projectOptions.length === 0) return;
+    initializedRef.current = true;
     const nextRoot = defaultRootUri ?? projectOptions[0]?.rootUri ?? null;
     setActiveRootUri(nextRoot);
     setActiveUri(resolveInitialActiveUri(nextRoot, defaultActiveUri ?? null));
-  }, [defaultActiveUri, defaultRootUri, open, projectOptions, resolveInitialActiveUri]);
+  }, [defaultActiveUri, defaultRootUri, projectOptions, resolveInitialActiveUri]);
 
   const activeProjectId = useMemo(
     () => (activeRootUri ? projectIdByRootUri.get(activeRootUri) : undefined),
     [activeRootUri, projectIdByRootUri]
   );
+
+  // 缩略图仅由 FileSystemGrid 内部获取，此处通过 ref 在 confirm 时读取。
+  const thumbnailByUriRef = useRef<Map<string, string>>(new Map());
   const { thumbnailByUri } = useFolderThumbnails({
     currentUri: activeUri,
     projectId: activeProjectId,
   });
+  thumbnailByUriRef.current = thumbnailByUri;
 
-  const listQuery = useQuery(
-    trpc.fs.list.queryOptions(
+  // 只订阅 query 的 data 部分，避免 isFetching/status 变化触发重渲染。
+  const listQueryData = useQuery({
+    ...trpc.fs.list.queryOptions(
       activeUri !== null
         ? { projectId: activeProjectId, uri: activeUri }
         : skipToken
-    )
-  );
+    ),
+    select: (data) => data?.entries,
+  });
+
+  const listEntries = listQueryData.data;
+  const isListLoading = listQueryData.isLoading;
 
   const gridEntries = useMemo(() => {
-    const entries = (listQuery.data?.entries ?? []) as FileSystemEntry[];
+    const entries = (listEntries ?? []) as FileSystemEntry[];
     const filtered = filterFilePickerEntries(entries, {
       excludeBoardEntries,
       currentBoardFolderUri: currentBoardFolderUri
@@ -228,7 +249,7 @@ export function ProjectFilePickerDialog({
     activeUri,
     currentBoardFolderUri,
     excludeBoardEntries,
-    listQuery.data?.entries,
+    listEntries,
   ]);
 
   const parentUri = useMemo(() => {
@@ -243,9 +264,28 @@ export function ProjectFilePickerDialog({
     applySelectionChange,
   } = useFileSelection();
 
+  // 稳定 selectedUris 引用：仅在内容实际变化时更新。
+  const stableSelectedUrisRef = useRef<Set<string>>(EMPTY_SET);
+  const stableSelectedUris = useMemo(() => {
+    const prev = stableSelectedUrisRef.current;
+    if (selectedUris.size === 0 && prev.size === 0) return prev;
+    if (selectedUris.size === prev.size) {
+      let same = true;
+      for (const uri of selectedUris) {
+        if (!prev.has(uri)) {
+          same = false;
+          break;
+        }
+      }
+      if (same) return prev;
+    }
+    stableSelectedUrisRef.current = selectedUris;
+    return selectedUris;
+  }, [selectedUris]);
+
   const selectedEntries = useMemo(
-    () => gridEntries.filter((entry) => selectedUris.has(entry.uri)),
-    [gridEntries, selectedUris]
+    () => gridEntries.filter((entry) => stableSelectedUris.has(entry.uri)),
+    [gridEntries, stableSelectedUris]
   );
   const selectedFileEntries = useMemo(
     () => selectedEntries.filter((entry) => entry.kind === "file"),
@@ -265,14 +305,14 @@ export function ProjectFilePickerDialog({
     [allowedExtensions]
   );
 
-  const handleSelectProject = (uri: string) => {
+  const handleSelectProject = useCallback((uri: string) => {
     setActiveRootUri(uri);
     setActiveUri("");
-  };
+  }, []);
 
-  const handleNavigate = (uri: string) => {
+  const handleNavigate = useCallback((uri: string) => {
     setActiveUri(uri);
-  };
+  }, []);
 
   const resolveSelectionMode = useCallback(
     (event: ReactMouseEvent<HTMLDivElement>) => {
@@ -319,6 +359,7 @@ export function ProjectFilePickerDialog({
     (entry?: FileSystemEntry | null) => {
       const targetEntries = entry ? [entry] : selectedFileEntries;
       if (targetEntries.length === 0) return;
+      const currentThumbnails = thumbnailByUriRef.current;
       const selections = targetEntries
         .filter((target) => target.kind === "file")
         .map((target) => {
@@ -327,7 +368,7 @@ export function ProjectFilePickerDialog({
           const selection: ProjectFilePickerSelection = {
             fileRef,
             entry: target,
-            thumbnailSrc: thumbnailByUri.get(target.uri),
+            thumbnailSrc: currentThumbnails.get(target.uri),
             projectId: activeProjectId,
             rootUri: activeRootUri ?? undefined,
           };
@@ -360,7 +401,7 @@ export function ProjectFilePickerDialog({
       onSelectFiles,
       resolveFileRefFromEntry,
       selectedFileEntries,
-      thumbnailByUri,
+      t,
     ]
   );
 
@@ -415,148 +456,175 @@ export function ProjectFilePickerDialog({
     }, 0);
   }, [onImportFromComputer, onOpenChange]);
 
+  const handleConfirmClick = useCallback(() => {
+    handleConfirm();
+  }, [handleConfirm]);
+
+  const handleOpenEntry = useCallback(
+    (entry: FileSystemEntry) => {
+      if (entry.kind === "folder") {
+        handleNavigate(entry.uri);
+      } else {
+        handleConfirm(entry);
+      }
+    },
+    [handleConfirm, handleNavigate]
+  );
+
+  const handleContextMenuStop = useCallback(
+    (e: ReactMouseEvent) => e.stopPropagation(),
+    []
+  );
+
+  const handleResetToDefault = useCallback(() => {
+    if (!defaultRootUri) return;
+    setActiveRootUri(defaultRootUri);
+    setActiveUri(resolveInitialActiveUri(defaultRootUri, defaultActiveUri ?? null));
+  }, [defaultRootUri, defaultActiveUri, resolveInitialActiveUri]);
+
+  return (
+    <DialogContent
+      className="w-[70vw] h-[80vh] max-w-none sm:max-w-none flex flex-col"
+      onContextMenu={handleContextMenuStop}
+    >
+      <DialogHeader>
+        <DialogTitle>{title ?? t('project:filesystem.selectFileTitle')}</DialogTitle>
+      </DialogHeader>
+      <div className="grid gap-2 md:grid-cols-[280px_minmax(0,1fr)] flex-1 min-h-0 overflow-hidden">
+        <div className="rounded-2xl border border-border/60 bg-card/60 p-3 min-h-0 overflow-y-auto">
+          {defaultRootUri && defaultActiveUri != null ? (
+            <>
+              <button
+                type="button"
+                className="mb-2 flex w-full items-center gap-2 rounded-3xl px-2 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors duration-150"
+                onClick={handleResetToDefault}
+              >
+                <FolderOpen size={14} className="shrink-0" />
+                <span>{t('project:filesystem.currentFolder')}</span>
+              </button>
+              <div className="mb-2 border-t border-border/40" />
+            </>
+          ) : null}
+          <div className="mb-2 flex h-6 items-center text-xs text-muted-foreground">{t('project:filesystem.projectLabel')}</div>
+          {projectOptions.length === 0 ? (
+            <div className="text-xs text-muted-foreground">{t('project:filesystem.noProject')}</div>
+          ) : (
+            <PageTreePicker
+              projects={projectTree}
+              activeUri={activeRootUri}
+              onSelect={handleSelectProject}
+            />
+          )}
+        </div>
+        <div className="min-h-[360px] rounded-2xl border border-border/60 bg-card/60 p-3 min-h-0 flex flex-col">
+          <div className="mb-2 flex h-6 items-center justify-between gap-2 text-xs text-muted-foreground">
+            <Breadcrumb>
+              <BreadcrumbList>
+                {breadcrumbItems.length === 0 ? (
+                  <BreadcrumbItem>
+                    <BreadcrumbPage>{t('project:filesystem.selectProject')}</BreadcrumbPage>
+                  </BreadcrumbItem>
+                ) : (
+                  breadcrumbItems.map((item, index) => {
+                    const isLast = index === breadcrumbItems.length - 1;
+                    return (
+                      <Fragment key={item.uri}>
+                        <BreadcrumbItem>
+                          {isLast ? (
+                            <BreadcrumbPage>{item.label}</BreadcrumbPage>
+                          ) : (
+                            <BreadcrumbLink asChild className="cursor-pointer">
+                              <button type="button" onClick={() => handleNavigate(item.uri)}>
+                                {item.label}
+                              </button>
+                            </BreadcrumbLink>
+                          )}
+                        </BreadcrumbItem>
+                        {!isLast ? <BreadcrumbSeparator /> : null}
+                      </Fragment>
+                    );
+                  })
+                )}
+              </BreadcrumbList>
+            </Breadcrumb>
+            <div className="text-[11px] text-muted-foreground">
+              {filterHint ?? t('project:filesystem.filterHintDefault')}
+            </div>
+          </div>
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            <FileSystemGrid
+              entries={gridEntries}
+              isLoading={isListLoading}
+              parentUri={parentUri}
+              rootUri={activeRootUri ?? undefined}
+              currentUri={activeUri}
+              projectId={activeProjectId ?? undefined}
+              showEmptyActions={false}
+              onNavigate={handleNavigate}
+              selectedUris={stableSelectedUris}
+              onEntryClick={handleEntryClick}
+              onSelectionChange={handleSelectionChange}
+              resolveSelectionMode={resolveSelectionMode}
+              isEntrySelectable={isEntrySelectable}
+              onOpenEntry={handleOpenEntry}
+            />
+          </div>
+        </div>
+      </div>
+      <DialogFooter className="flex w-full items-center justify-start gap-3">
+        {shouldShowImportButton ? (
+          <Button
+            type="button"
+            variant="outline"
+            className="rounded-3xl shadow-none transition-colors duration-150"
+            onClick={handleImportFromComputer}
+          >
+            {actionButtonLabel ?? t('project:filesystem.importFromComputer')}
+          </Button>
+        ) : (
+          <span />
+        )}
+        <div className="ml-auto flex items-center gap-2">
+          <DialogClose asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              className="rounded-3xl shadow-none transition-colors duration-150"
+            >
+              {t('project:filesystem.cancel')}
+            </Button>
+          </DialogClose>
+          <Button
+            type="button"
+            disabled={confirmDisabled}
+            className="rounded-3xl bg-foreground/10 text-foreground hover:bg-foreground/20 shadow-none transition-colors duration-150"
+            onClick={folderSelectMode ? handleFolderConfirm : handleConfirmClick}
+          >
+            {confirmButtonLabel ?? t('project:filesystem.selectConfirmLabel')}
+          </Button>
+        </div>
+      </DialogFooter>
+    </DialogContent>
+  );
+});
+
+/** Project file picker dialog for selecting a single file. */
+export function ProjectFilePickerDialog({
+  open,
+  onOpenChange,
+  ...rest
+}: ProjectFilePickerDialogProps) {
   return (
     <Dialog
       open={open}
-      onOpenChange={(nextOpen) => {
-        if (!nextOpen) {
-          onOpenChange(false);
-          return;
-        }
-        onOpenChange(true);
-      }}
+      onOpenChange={onOpenChange}
     >
-      <DialogContent
-        className="w-[70vw] h-[80vh] max-w-none sm:max-w-none flex flex-col"
-        onContextMenu={(e) => e.stopPropagation()}
-      >
-        <DialogHeader>
-          <DialogTitle>{title ?? t('project:filesystem.selectFileTitle')}</DialogTitle>
-        </DialogHeader>
-        <div className="grid gap-2 md:grid-cols-[280px_minmax(0,1fr)] flex-1 min-h-0 overflow-hidden">
-          <div className="rounded-2xl border border-border/60 bg-card/60 p-3 min-h-0 overflow-y-auto">
-            {defaultRootUri && defaultActiveUri != null ? (
-              <>
-                <button
-                  type="button"
-                  className="mb-2 flex w-full items-center gap-2 rounded-3xl px-2 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors duration-150"
-                  onClick={() => {
-                    setActiveRootUri(defaultRootUri);
-                    setActiveUri(resolveInitialActiveUri(defaultRootUri, defaultActiveUri));
-                  }}
-                >
-                  <FolderOpen size={14} className="shrink-0" />
-                  <span>{t('project:filesystem.currentFolder')}</span>
-                </button>
-                <div className="mb-2 border-t border-border/40" />
-              </>
-            ) : null}
-            <div className="mb-2 flex h-6 items-center text-xs text-muted-foreground">{t('project:filesystem.projectLabel')}</div>
-            {projectOptions.length === 0 ? (
-              <div className="text-xs text-muted-foreground">{t('project:filesystem.noProject')}</div>
-            ) : (
-              <PageTreePicker
-                projects={projectTree}
-                activeUri={activeRootUri}
-                onSelect={handleSelectProject}
-              />
-            )}
-          </div>
-          <div className="min-h-[360px] rounded-2xl border border-border/60 bg-card/60 p-3 min-h-0 flex flex-col">
-            <div className="mb-2 flex h-6 items-center justify-between gap-2 text-xs text-muted-foreground">
-              <Breadcrumb>
-                <BreadcrumbList>
-                  {breadcrumbItems.length === 0 ? (
-                    <BreadcrumbItem>
-                      <BreadcrumbPage>{t('project:filesystem.selectProject')}</BreadcrumbPage>
-                    </BreadcrumbItem>
-                  ) : (
-                    breadcrumbItems.map((item, index) => {
-                      const isLast = index === breadcrumbItems.length - 1;
-                      return (
-                        <Fragment key={item.uri}>
-                          <BreadcrumbItem>
-                            {isLast ? (
-                              <BreadcrumbPage>{item.label}</BreadcrumbPage>
-                            ) : (
-                              <BreadcrumbLink asChild className="cursor-pointer">
-                                <button type="button" onClick={() => handleNavigate(item.uri)}>
-                                  {item.label}
-                                </button>
-                              </BreadcrumbLink>
-                            )}
-                          </BreadcrumbItem>
-                          {!isLast ? <BreadcrumbSeparator /> : null}
-                        </Fragment>
-                      );
-                    })
-                  )}
-                </BreadcrumbList>
-              </Breadcrumb>
-              <div className="text-[11px] text-muted-foreground">
-                {filterHint ?? t('project:filesystem.filterHintDefault')}
-              </div>
-            </div>
-            <div className="flex-1 min-h-0 overflow-y-auto">
-              <FileSystemGrid
-                entries={gridEntries}
-                isLoading={listQuery.isLoading}
-                parentUri={parentUri}
-                rootUri={activeRootUri ?? undefined}
-                currentUri={activeUri}
-                projectId={activeProjectId ?? undefined}
-                showEmptyActions={false}
-                onNavigate={handleNavigate}
-                selectedUris={selectedUris}
-                onEntryClick={handleEntryClick}
-                onSelectionChange={handleSelectionChange}
-                resolveSelectionMode={resolveSelectionMode}
-                isEntrySelectable={isEntrySelectable}
-                onOpenEntry={(entry) => {
-                  if (entry.kind === "folder") {
-                    handleNavigate(entry.uri);
-                  } else {
-                    handleConfirm(entry);
-                  }
-                }}
-              />
-            </div>
-          </div>
-        </div>
-        <DialogFooter className="flex w-full items-center justify-start gap-3">
-          {shouldShowImportButton ? (
-            <Button
-              type="button"
-              variant="outline"
-              className="rounded-3xl shadow-none transition-colors duration-150"
-              onClick={handleImportFromComputer}
-            >
-              {actionButtonLabel ?? t('project:filesystem.importFromComputer')}
-            </Button>
-          ) : (
-            <span />
-          )}
-          <div className="ml-auto flex items-center gap-2">
-            <DialogClose asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                className="rounded-3xl shadow-none transition-colors duration-150"
-              >
-                {t('project:filesystem.cancel')}
-              </Button>
-            </DialogClose>
-            <Button
-              type="button"
-              disabled={confirmDisabled}
-              className="rounded-3xl bg-foreground/10 text-foreground hover:bg-foreground/20 shadow-none transition-colors duration-150"
-              onClick={() => folderSelectMode ? handleFolderConfirm() : handleConfirm()}
-            >
-              {confirmButtonLabel ?? t('project:filesystem.selectConfirmLabel')}
-            </Button>
-          </div>
-        </DialogFooter>
-      </DialogContent>
+      {open ? (
+        <ProjectFilePickerDialogInner
+          onOpenChange={onOpenChange}
+          {...rest}
+        />
+      ) : null}
     </Dialog>
   );
 }

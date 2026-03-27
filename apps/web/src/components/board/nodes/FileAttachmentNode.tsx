@@ -226,7 +226,7 @@ export const FileAttachmentNodeDefinition: CanvasNodeDefinition<FileAttachmentNo
     },
     view: FileAttachmentNodeView,
     capabilities: {
-      resizable: true,
+      resizable: false,
       rotatable: false,
       connectable: "anchors",
       minSize: { w: 200, h: 80 },

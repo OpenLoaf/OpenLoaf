@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import { useCallback, useMemo } from 'react'
+import { memo, useCallback, useMemo } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import i18next from 'i18next'
@@ -45,7 +45,7 @@ export const STACK_CARD_SCALE = 0.84
  * When thumbnails are provided, renders background photo-cards with rotation behind the primary.
  * The parent is expected to scale the primary content to STACK_CARD_SCALE.
  */
-export function VersionStackOverlay({
+export const VersionStackOverlay = memo(function VersionStackOverlay({
   stack,
   semanticColor,
   onSwitchPrimary,
@@ -178,4 +178,4 @@ export function VersionStackOverlay({
       ) : null}
     </>
   )
-}
+})

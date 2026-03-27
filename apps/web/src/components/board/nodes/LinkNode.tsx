@@ -334,7 +334,7 @@ export const LinkNodeDefinition: CanvasNodeDefinition<LinkNodeProps> = {
   },
   view: LinkNodeView,
   capabilities: {
-    resizable: true,
+    resizable: false,
     rotatable: false,
     connectable: "anchors",
     minSize: { w: 300, h: 60 },

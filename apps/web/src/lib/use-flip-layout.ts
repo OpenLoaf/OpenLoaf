@@ -9,7 +9,7 @@
  */
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
 
 /** Configure FLIP transition behavior for a layout container. */
 type UseFlipLayoutOptions = {
@@ -45,6 +45,9 @@ export function useFlipLayout({
   const reduceMotionRef = useRef(false);
   const [layoutTick, setLayoutTick] = useState(0);
   const containerEl = containerRef.current;
+  // 将外部 deps 序列化为稳定的字符串 key，避免展开数组引用变化导致 effect 重复执行。
+  // biome-ignore lint/correctness/useExhaustiveDependencies: deps serialized into depsKey
+  const depsKey = useMemo(() => JSON.stringify(deps), deps);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -129,7 +132,8 @@ export function useFlipLayout({
 
     // 记录本次布局供下次对比。
     previousRectsRef.current = nextRects;
-  }, [containerEl, enabled, selector, durationMs, easing, layoutTick, ...deps]);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: depsKey encodes external deps
+  }, [containerEl, enabled, selector, durationMs, easing, layoutTick, depsKey]);
 
   useEffect(() => {
     return () => {

@@ -903,7 +903,7 @@ export function BoardCanvas({
         </div>,
         effectiveTarget
       )}
-      <SaasLoginDialog open={loginOpen} onOpenChange={setLoginOpen} />
+      {loginOpen && <SaasLoginDialog open={loginOpen} onOpenChange={setLoginOpen} />}
       <Dialog open={saveToProjectOpen} onOpenChange={(open) => {
         setSaveToProjectOpen(open);
         if (!open) setSaveToProjectTargetId('');

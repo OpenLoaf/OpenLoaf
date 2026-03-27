@@ -49,9 +49,26 @@ export class ToolManager {
   /** Whether the current pointer interaction started inside a board UI target (e.g. text editor). */
   private boardUiInteraction = false;
 
+  // ── Rect cache fields ──────────────────────────────────────────────
+  /** Cached container bounding rect to avoid layout thrashing on every pointer event. */
+  private cachedRect: DOMRect | null = null;
+  /** The container element currently being observed for rect invalidation. */
+  private observedContainer: HTMLElement | null = null;
+  /** ResizeObserver watching the container for size changes. */
+  private rectResizeObserver: ResizeObserver | null = null;
+  /** Bound handler for window scroll / resize invalidation. */
+  private readonly invalidateRect = () => {
+    this.cachedRect = null;
+  };
+
   /** Create a new tool manager. */
   constructor(engine: CanvasToolHost) {
     this.engine = engine;
+  }
+
+  /** Dispose observers and cached state. Call when the engine detaches. */
+  dispose(): void {
+    this.teardownRectObservers();
   }
 
   /** Register a tool instance. */
@@ -282,8 +299,12 @@ export class ToolManager {
   /** Build tool context for pointer events. */
   private buildContext(event: PointerEvent): ToolContext | null {
     const container = this.engine.getContainer();
-    if (!container) return null;
-    const rect = container.getBoundingClientRect();
+    if (!container) {
+      // 逻辑：容器已卸载时清理 rect 缓存的 observer，避免泄漏。
+      if (this.observedContainer) this.teardownRectObservers();
+      return null;
+    }
+    const rect = this.getContainerRect(container);
     // 将浏览器事件坐标转换为画布屏幕坐标与世界坐标。
     const screenPoint: CanvasPoint = [
       event.clientX - rect.left,
@@ -296,6 +317,46 @@ export class ToolManager {
       screenPoint,
       worldPoint,
     };
+  }
+
+  /**
+   * Return the cached container bounding rect, refreshing only when invalidated.
+   * Automatically sets up observers when the container changes.
+   */
+  getContainerRect(container: HTMLElement): DOMRect {
+    // 逻辑：容器变化时重新绑定 observer 并清除缓存。
+    if (container !== this.observedContainer) {
+      this.teardownRectObservers();
+      this.setupRectObservers(container);
+    }
+    if (!this.cachedRect) {
+      this.cachedRect = container.getBoundingClientRect();
+    }
+    return this.cachedRect;
+  }
+
+  /** Set up ResizeObserver and window event listeners to invalidate the cached rect. */
+  private setupRectObservers(container: HTMLElement): void {
+    this.observedContainer = container;
+    this.cachedRect = null;
+
+    this.rectResizeObserver = new ResizeObserver(this.invalidateRect);
+    this.rectResizeObserver.observe(container);
+
+    window.addEventListener('resize', this.invalidateRect);
+    window.addEventListener('scroll', this.invalidateRect, true);
+  }
+
+  /** Remove all rect cache observers and listeners. */
+  private teardownRectObservers(): void {
+    if (this.rectResizeObserver) {
+      this.rectResizeObserver.disconnect();
+      this.rectResizeObserver = null;
+    }
+    window.removeEventListener('resize', this.invalidateRect);
+    window.removeEventListener('scroll', this.invalidateRect, true);
+    this.observedContainer = null;
+    this.cachedRect = null;
   }
 
   /** Resolve the element that should receive pointer capture. */

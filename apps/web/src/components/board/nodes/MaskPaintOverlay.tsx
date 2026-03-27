@@ -4,7 +4,7 @@
  * Inline mask painting overlay for image nodes.
  * Rendered on top of the image content when inpaint/erase mode is active.
  */
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react'
+import { forwardRef, memo, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react'
 import { buildStrokeOutline } from '@/components/board/utils/stroke-path'
 import type { CanvasStrokeTool } from '@/components/board/engine/types'
 
@@ -59,7 +59,7 @@ export type MaskPaintOverlayProps = {
  * Brush controls (size slider, undo/redo) are exposed via ref
  * so the panel can render them inline.
  */
-export const MaskPaintOverlay = forwardRef<MaskPaintHandle, MaskPaintOverlayProps>(
+export const MaskPaintOverlay = memo(forwardRef<MaskPaintHandle, MaskPaintOverlayProps>(
   function MaskPaintOverlay({ active, imageWidth, imageHeight, onMaskChange, onBrushSizeChange }, ref) {
     const containerRef = useRef<HTMLDivElement>(null)
     const overlayRef = useRef<HTMLCanvasElement>(null)
@@ -451,4 +451,4 @@ export const MaskPaintOverlay = forwardRef<MaskPaintHandle, MaskPaintOverlayProp
       </>
     )
   },
-)
+))

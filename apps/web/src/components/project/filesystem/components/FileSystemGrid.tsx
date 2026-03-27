@@ -19,6 +19,7 @@ import {
   type DragEvent,
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
+  type RefObject,
 } from "react";
 import { useFlipLayout } from "@/lib/use-flip-layout";
 import { isBoardFolderName, isDocFolderName } from "@/lib/file-name";
@@ -39,6 +40,30 @@ const isBoardFolderEntry = (entry: FileSystemEntry) =>
 /** Return true when the entry represents a document folder. */
 const isDocFolderEntry = (entry: FileSystemEntry) =>
   entry.kind === "folder" && isDocFolderName(entry.name);
+
+/** Overlay for the drag selection rectangle, cached to avoid redundant getBoundingClientRect calls. */
+const SelectionRectOverlay = memo(function SelectionRectOverlay({
+  selectionRect,
+  gridRef,
+}: {
+  selectionRect: { left: number; top: number; right: number; bottom: number }
+  gridRef: RefObject<HTMLDivElement | null>
+}) {
+  const gridEl = gridRef.current
+  if (!gridEl) return null
+  const gridRect = gridEl.getBoundingClientRect()
+  return (
+    <div
+      className="pointer-events-none absolute z-10 rounded-3xl border border-primary/40 bg-primary/10"
+      style={{
+        left: selectionRect.left - gridRect.left,
+        top: selectionRect.top - gridRect.top,
+        width: selectionRect.right - selectionRect.left,
+        height: selectionRect.bottom - selectionRect.top,
+      }}
+    />
+  )
+})
 
 type FileSystemGridProps = {
   entries: FileSystemEntry[];
@@ -276,21 +301,34 @@ const FileSystemGrid = memo(function FileSystemGrid({
     []
   );
 
+  const isUriSelectableCb = useCallback((uri: string) => {
+    const entry = entryByUriRef.current.get(uri);
+    if (!entry) return false;
+    return isEntrySelectableRef.current ? isEntrySelectableRef.current(entry) : true;
+  }, []);
+
   const { selectionRect, registerEntryRef, handleGridMouseDown } =
     useFileSystemSelection({
       gridRef,
       entriesRef,
-      isUriSelectable: (uri) => {
-        const entry = entryByUriRef.current.get(uri);
-        if (!entry) return false;
-        return isEntrySelectableRef.current ? isEntrySelectableRef.current(entry) : true;
-      },
+      isUriSelectable: isUriSelectableCb,
       onSelectionChange,
       resolveSelectionMode,
       renamingUri,
       onRenamingSubmit,
       shouldBlockPointerEvent,
     });
+
+  const thumbnailByUriRef = useRef(thumbnailByUri);
+  thumbnailByUriRef.current = thumbnailByUri;
+  const resolveThumbnailSrc = useCallback(
+    (uri: string) => thumbnailByUriRef.current.get(uri),
+    []
+  );
+  const isBoardOrDocFolderEntry = useCallback(
+    (entry: FileSystemEntry) => isBoardFolderEntry(entry) || isDocFolderEntry(entry),
+    []
+  );
 
   const {
     dragOverFolderUri,
@@ -305,11 +343,11 @@ const FileSystemGrid = memo(function FileSystemGrid({
     selectedUrisRef,
     dragProjectIdRef,
     dragRootUriRef,
-    resolveThumbnailSrc: (uri) => thumbnailByUri.get(uri),
+    resolveThumbnailSrc,
     onEntryDragStartRef,
     onEntryDropRef,
     resolveEntryFromEvent,
-    isBoardFolderEntry: (entry: FileSystemEntry) => isBoardFolderEntry(entry) || isDocFolderEntry(entry),
+    isBoardFolderEntry: isBoardOrDocFolderEntry,
     shouldBlockPointerEvent,
   });
 
@@ -326,6 +364,8 @@ const FileSystemGrid = memo(function FileSystemGrid({
   );
 
   /** Handle entry double click without recreating per-card closures. */
+  const rootUriRef = useRef(rootUri);
+  rootUriRef.current = rootUri;
   const handleEntryDoubleClick = useCallback(
     (event: ReactMouseEvent<HTMLButtonElement>) => {
       if (shouldBlockPointerEvent(event)) return;
@@ -334,10 +374,10 @@ const FileSystemGrid = memo(function FileSystemGrid({
       const entry = resolveEntryFromEvent(event);
       if (!entry) return;
       if (isEntrySelectableRef.current && !isEntrySelectableRef.current(entry)) return;
-      const thumbnailSrc = thumbnailByUri.get(entry.uri);
+      const thumbnailSrc = thumbnailByUriRef.current.get(entry.uri);
       handleFileSystemEntryOpen({
         entry,
-        rootUri,
+        rootUri: rootUriRef.current,
         thumbnailSrc,
         handlers: {
           onOpenEntry: onOpenEntryRef.current,
@@ -353,7 +393,7 @@ const FileSystemGrid = memo(function FileSystemGrid({
         },
       });
     },
-    [resolveEntryFromEvent, shouldBlockPointerEvent, thumbnailByUri]
+    [resolveEntryFromEvent, shouldBlockPointerEvent]
   );
 
   /** Handle entry context menu without recreating per-card closures. */
@@ -433,17 +473,9 @@ const FileSystemGrid = memo(function FileSystemGrid({
           onContextMenuCapture={handleGridContextMenuCapture}
         >
           {selectionRect && gridRef.current ? (
-            <div
-              className="pointer-events-none absolute z-10 rounded-3xl border border-primary/40 bg-primary/10"
-              style={{
-                left:
-                  selectionRect.left -
-                  gridRef.current.getBoundingClientRect().left,
-                top:
-                  selectionRect.top - gridRef.current.getBoundingClientRect().top,
-                width: selectionRect.right - selectionRect.left,
-                height: selectionRect.bottom - selectionRect.top,
-              }}
+            <SelectionRectOverlay
+              selectionRect={selectionRect}
+              gridRef={gridRef}
             />
           ) : null}
           <div

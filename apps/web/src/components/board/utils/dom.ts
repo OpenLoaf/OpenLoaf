@@ -35,12 +35,43 @@ function isBoardUiTarget(
  * regardless of pointer-events CSS.  This catches the case where an AI panel
  * lives inside a pointer-events-none overlay: the event.target is the canvas,
  * but the cursor is visually on top of the panel.
+ *
+ * Uses a spatial + temporal cache: if the pointer hasn't moved more than
+ * {@link BOARD_UI_HIT_MOVE_THRESHOLD} pixels and less than
+ * {@link BOARD_UI_HIT_TTL_MS} ms have elapsed, the previous result is reused.
+ * This avoids calling `document.elementsFromPoint` on every pointermove frame
+ * (which triggers ScheduleStyleRecalculation in Chromium).
  */
+
+/** Max pixel distance before re-checking elementsFromPoint. */
+const BOARD_UI_HIT_MOVE_THRESHOLD = 4;
+/** Max time (ms) before re-checking elementsFromPoint. */
+const BOARD_UI_HIT_TTL_MS = 100;
+
+let _boardUiHitX = 0;
+let _boardUiHitY = 0;
+let _boardUiHitResult = false;
+let _boardUiHitTime = 0;
+
 function isPointerOverBoardUi(event: PointerEvent): boolean {
+  const now = performance.now();
+  const dx = event.clientX - _boardUiHitX;
+  const dy = event.clientY - _boardUiHitY;
+  if (
+    now - _boardUiHitTime < BOARD_UI_HIT_TTL_MS &&
+    dx * dx + dy * dy < BOARD_UI_HIT_MOVE_THRESHOLD * BOARD_UI_HIT_MOVE_THRESHOLD
+  ) {
+    return _boardUiHitResult;
+  }
   const elements = document.elementsFromPoint(event.clientX, event.clientY);
-  return elements.some(el =>
+  const result = elements.some(el =>
     BOARD_UI_SELECTORS.some(sel => el.matches(sel) || el.closest(sel) !== null)
   );
+  _boardUiHitX = event.clientX;
+  _boardUiHitY = event.clientY;
+  _boardUiHitResult = result;
+  _boardUiHitTime = now;
+  return result;
 }
 
 export { isBoardUiTarget, isPointerOverBoardUi };

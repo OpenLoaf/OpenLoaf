@@ -9,10 +9,6 @@
  */
 export const DEFAULT_NODE_SIZE: [number, number] = [320, 180];
 
-export const SNAP_PIXEL = 8;
-export const GUIDE_MARGIN = 16;
-/** Canvas-unit radius for nearby-node snap queries (avoids global scan). */
-export const SNAP_NEARBY_RANGE = 2000;
 /** Grid size in canvas units for snap-to-grid. */
 export const GRID_SIZE = 24;
 export const DRAG_ACTIVATION_DISTANCE = 2;
@@ -69,7 +65,6 @@ export const PAN_SOFT_PADDING_MIN = 800;
 export const PAN_SOFT_RESISTANCE_RATIO = 0.6;
 
 export const MULTI_SELECTION_OUTLINE_PADDING = 12;
-export const MULTI_SELECTION_HANDLE_SIZE = 22;
 
 // ── Anchor magnetic animation ──
 /** Screen-px: rest offset pushing anchor icon outward when visible but idle. */

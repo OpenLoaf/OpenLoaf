@@ -132,13 +132,15 @@ export function useAnchorMagnetic(
         el.style.transform = targetTransform
         el.style.opacity = '1'
       } else {
-        // 首次出现：无过渡直接就位，再淡入。
+        // 首次出现：第一帧无过渡直接就位并隐藏，
+        // 第二帧再启用 transition 淡入——完全避免同步布局刷新。
         el.style.transition = 'none'
         el.style.transform = targetTransform
         el.style.opacity = '0'
-        el.getBoundingClientRect()
-        el.style.transition = 'opacity 150ms ease-out'
-        el.style.opacity = '1'
+        requestAnimationFrame(() => {
+          el.style.transition = 'opacity 150ms ease-out'
+          el.style.opacity = '1'
+        })
       }
       prevInHotzoneMap.current.set(entry.anchorId, inHotzone)
     }

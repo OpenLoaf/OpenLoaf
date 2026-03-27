@@ -9,7 +9,7 @@
  */
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import { memo, useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { cn } from "@udecode/cn";
 import type { CanvasEngine } from "../engine/CanvasEngine";
 import type { CanvasElement, CanvasSnapshot } from "../engine/types";
@@ -342,7 +342,7 @@ function WorldToolbarLayer({ engine, children }: { engine: CanvasEngine; childre
 /** Fade-in wrapper: delayed entrance prevents flash; exit is instant (no ghost). */
 const FADE_ENTER_DELAY = 80;
 const FADE_IN_DURATION = 150;
-function BoardDragFade({ visible, children }: {
+const BoardDragFade = memo(function BoardDragFade({ visible, children }: {
   visible: boolean;
   children: React.ReactNode;
 }) {
@@ -375,7 +375,7 @@ function BoardDragFade({ visible, children }: {
       {children}
     </div>
   );
-}
+}, (prev, next) => prev.visible === next.visible);
 
 type MiniMapLayerProps = {
   /** Canvas engine instance. */

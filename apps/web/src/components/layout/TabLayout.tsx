@@ -329,7 +329,7 @@ export function TabLayout() {
         cancelAnimationFrame(minLeftEnableRafRef.current)
         minLeftEnableRafRef.current = null
       }
-      if (minLeftEnabled) setMinLeftEnabled(false)
+      setMinLeftEnabled(false)
       return
     }
 
@@ -344,10 +344,10 @@ export function TabLayout() {
       return
     }
 
-    if (prevLeftVisible === null && !minLeftEnabled) {
+    if (prevLeftVisible === null) {
       setMinLeftEnabled(true)
     }
-  }, [isLeftVisible, reduceMotion, minLeftEnabled])
+  }, [isLeftVisible, reduceMotion])
 
   React.useEffect(() => {
     const handleComplete = () => {
