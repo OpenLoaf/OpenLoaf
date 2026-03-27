@@ -317,7 +317,15 @@ declare global {
       /** Calendar API (system calendars). */
       calendar?: {
         /** Request calendar permission from OS. */
-        requestPermission: () => Promise<OpenLoafCalendarResult<OpenLoafCalendarPermissionState>>;
+        requestPermission: () => Promise<OpenLoafCalendarResult<{
+          event: OpenLoafCalendarPermissionState;
+          reminder: OpenLoafCalendarPermissionState;
+        }>>;
+        /** Check calendar permission status without triggering OS dialog. */
+        checkPermission?: () => Promise<OpenLoafCalendarResult<{
+          event: OpenLoafCalendarPermissionState;
+          reminder: OpenLoafCalendarPermissionState;
+        }>>;
         /** List available system calendars. */
         getCalendars: () => Promise<OpenLoafCalendarResult<OpenLoafCalendarItem[]>>;
         /** Update calendar sync range for system pull. */
@@ -347,6 +355,10 @@ declare global {
         /** Subscribe to system calendar changes. */
         subscribeChanges: (
           handler: (detail: { source: "system" }) => void
+        ) => () => void;
+        /** Subscribe to permission state changes. */
+        subscribePermissionChanges?: (
+          handler: (state: { event: OpenLoafCalendarPermissionState; reminder: OpenLoafCalendarPermissionState }) => void
         ) => () => void;
         /** List reminder calendars (macOS only). */
         getReminderLists?: () => Promise<OpenLoafCalendarResult<OpenLoafCalendarItem[]>>;

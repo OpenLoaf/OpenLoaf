@@ -263,7 +263,13 @@ export function registerIpcHandlers(args: { log: Logger }) {
   ipcHandlersRegistered = true;
   const speechManager = createSpeechRecognitionManager({ log: args.log });
   const calendarService = createCalendarService({ log: args.log });
-  const calendarSync = createCalendarSync({ log: args.log, calendarService });
+  const calendarSync = createCalendarSync({
+    log: args.log,
+    calendarService,
+    getPermissionCache: () => calendarService.getPermissionCache(),
+    onWatchExit: (cb) => calendarService.onWatchExit(cb),
+    tryStartWatch: () => calendarService.tryRestartWatch(),
+  });
 
   // 提供应用版本号给渲染端展示。
   ipcMain.handle('openloaf:app:version', async () => app.getVersion());
@@ -444,6 +450,11 @@ export function registerIpcHandlers(args: { log: Logger }) {
     return await speechManager.stop('user');
   });
 
+  // 轻量级日历权限状态检查（不触发权限弹窗）。
+  ipcMain.handle('openloaf:calendar:check-permission', async () => {
+    return await calendarService.checkPermission();
+  });
+
   // 系统日历权限请求。
   ipcMain.handle('openloaf:calendar:permission', async () => {
     return await calendarService.requestPermission();
@@ -464,7 +475,6 @@ export function registerIpcHandlers(args: { log: Logger }) {
     range?: { start: string; end: string };
   }) => {
     calendarSync.setSyncContext({ viewRange: payload?.range });
-    calendarSync.startTimer();
     return { ok: true as const };
   });
 
@@ -473,7 +483,6 @@ export function registerIpcHandlers(args: { log: Logger }) {
     range?: { start: string; end: string };
   }) => {
     calendarSync.setSyncContext({ viewRange: payload?.range });
-    calendarSync.startTimer();
     await calendarSync.syncNow({ viewRange: payload?.range });
     return { ok: true as const };
   });

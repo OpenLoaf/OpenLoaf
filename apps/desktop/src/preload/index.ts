@@ -267,8 +267,10 @@ contextBridge.exposeInMainWorld('openloafElectron', {
   },
   // System calendar access.
   calendar: {
-    requestPermission: (): Promise<CalendarResult<CalendarPermissionState>> =>
+    requestPermission: (): Promise<CalendarResult<{ event: CalendarPermissionState; reminder: CalendarPermissionState }>> =>
       ipcRenderer.invoke('openloaf:calendar:permission'),
+    checkPermission: (): Promise<CalendarResult<{ event: CalendarPermissionState; reminder: CalendarPermissionState }>> =>
+      ipcRenderer.invoke('openloaf:calendar:check-permission'),
     getCalendars: (): Promise<CalendarResult<CalendarItem[]>> =>
       ipcRenderer.invoke('openloaf:calendar:list-calendars'),
     getReminderLists: (): Promise<CalendarResult<CalendarItem[]>> =>
@@ -303,6 +305,15 @@ contextBridge.exposeInMainWorld('openloafElectron', {
       return () => {
         ipcRenderer.removeListener('openloaf:calendar:changed', listener);
         ipcRenderer.invoke('openloaf:calendar:unwatch').catch((): void => {});
+      };
+    },
+    subscribePermissionChanges: (handler: (state: { event: CalendarPermissionState; reminder: CalendarPermissionState }) => void): (() => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, state: { event: CalendarPermissionState; reminder: CalendarPermissionState }) => {
+        handler(state);
+      };
+      ipcRenderer.on('openloaf:calendar:permission-changed', listener);
+      return () => {
+        ipcRenderer.removeListener('openloaf:calendar:permission-changed', listener);
       };
     },
   },
