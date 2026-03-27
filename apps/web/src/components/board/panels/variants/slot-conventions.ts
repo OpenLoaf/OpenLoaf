@@ -31,22 +31,13 @@ export function isTextSlot(accept: string): boolean {
 /**
  * Infer variant applicability from its inputSlots and current context.
  *
- * A variant is applicable if all required non-text, non-mask slots
- * can be satisfied by either the node's own resource or upstream connections.
+ * All variants are always applicable — required slots that lack upstream
+ * input are shown as empty with a required indicator (asterisk) in the form.
  */
 export function inferApplicability(
-  inputSlots: V3RemoteInputSlot[],
-  ctx: { nodeMediaType?: MediaType; upstreamTypes: Set<MediaType> },
+  _inputSlots: V3RemoteInputSlot[],
+  _ctx: { nodeMediaType?: MediaType; upstreamTypes: Set<MediaType> },
 ): boolean {
-  for (const slot of inputSlots) {
-    if (slot.required === false) continue
-    if (slot.accept === 'text' || slot.accept === 'file') continue
-    if (slot.role === 'mask') continue
-    const accept = slot.accept as MediaType
-    const hasSelf = ctx.nodeMediaType === accept
-    const hasUpstream = ctx.upstreamTypes.has(accept)
-    if (!hasSelf && !hasUpstream) return false
-  }
   return true
 }
 

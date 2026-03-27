@@ -48,6 +48,7 @@ import { getDisplayPathFromUri } from "@/components/project/filesystem/utils/fil
 import type { ProjectListItem } from "@openloaf/api/services/projectTreeService";
 import { Button } from "@openloaf/ui/button";
 import { Checkbox } from "@openloaf/ui/checkbox";
+
 import { Input } from "@openloaf/ui/input";
 import { Label } from "@openloaf/ui/label";
 import {
@@ -85,6 +86,13 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@openloaf/ui/tooltip";
+
+/** Check whether a string looks like an emoji icon (not a plain ASCII word like "code"). */
+function isEmojiIcon(value: string | undefined | null): value is string {
+  if (!value) return false;
+  // Pure ASCII strings (e.g. "code", "document") are not emoji icons.
+  return /[^\u0000-\u007F]/.test(value);
+}
 
 /** Card gradients — order matches ColorPickerSubMenu & PREVIEW_GRADIENTS in CanvasListPage. */
 const CARD_GRADIENTS = [
@@ -184,8 +192,10 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
   /** "create" = new empty project, "git" = clone from git, null = mode selection screen. */
   const [addMode, setAddMode] = useState<"create" | "git" | null>(null);
   const [createTitle, setCreateTitle] = useState("");
+  /** Title committed after IME composition — used for auto-path so pinyin doesn't leak. */
+  const [committedTitle, setCommittedTitle] = useState("");
+  const composingRef = useRef(false);
   const [createFolderPath, setCreateFolderPath] = useState("");
-  const [autoCreateFolder, setAutoCreateFolder] = useState(true);
   const [isBusy, setIsBusy] = useState(false);
   const storageRootQuery = useProjectStorageRootQuery({ enabled: isCreateOpen });
   const [gitUrl, setGitUrl] = useState("");
@@ -196,6 +206,8 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
   const dragCounterRef = useRef(0);
   const gitSubRef = useRef<{ unsubscribe: () => void } | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const [removeTarget, setRemoveTarget] = useState<string | null>(null);
+  const [removeAlsoDestroy, setRemoveAlsoDestroy] = useState(false);
 
   const pagedProjectsInput = useMemo(
     () => ({
@@ -267,6 +279,14 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
     }),
   );
 
+  const destroyMutation = useMutation(
+    trpc.project.destroy.mutationOptions({
+      onSuccess: () => {
+        invalidateProjects();
+      },
+    }),
+  );
+
   const toggleFavoriteMutation = useMutation(
     trpc.project.toggleFavorite.mutationOptions({
       onSuccess: () => {
@@ -283,8 +303,8 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
   const openAddDialog = useCallback(() => {
     setAddMode(null);
     setCreateTitle("");
+    setCommittedTitle("");
     setCreateFolderPath("");
-    setAutoCreateFolder(true);
     setGitUrl("");
     setGitTargetDir("");
     setGitProgress([]);
@@ -359,23 +379,24 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
     return null;
   };
 
-  /** Compute the resolved folder path for auto-create mode. */
+  /** Compute the resolved folder path for auto-create mode (uses committedTitle to avoid IME pinyin). */
   const autoCreatePath = useMemo(() => {
-    if (!autoCreateFolder || !createTitle.trim()) return "";
+    if (!committedTitle.trim()) return "";
     const tempUri = storageRootQuery.data?.tempRootUri;
     if (!tempUri) return "";
     try {
       const basePath = decodeURIComponent(new URL(tempUri).pathname);
-      return `${basePath}/${createTitle.trim()}`;
+      return `${basePath}/${committedTitle.trim()}`;
     } catch {
       return "";
     }
-  }, [autoCreateFolder, createTitle, storageRootQuery.data?.tempRootUri]);
+  }, [committedTitle, storageRootQuery.data?.tempRootUri]);
 
   /** Submit handler for creating a project at the selected folder. */
   const handleCreateProject = useCallback(async () => {
     const title = createTitle.trim();
-    const folderPath = autoCreateFolder ? autoCreatePath : createFolderPath.trim();
+    const isAutoPath = !createFolderPath.trim();
+    const folderPath = isAutoPath ? autoCreatePath : createFolderPath.trim();
     if (!folderPath) return;
     try {
       setIsBusy(true);
@@ -383,7 +404,7 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
       const autoIcon = (result.isCodeProject && !result.hasIcon) ? "💻" : undefined;
       const res = await createMutation.mutateAsync({
         ...(title ? { title } : {}),
-        ...(autoCreateFolder ? { folderName: title } : {}),
+        ...(isAutoPath ? { folderName: title } : {}),
         rootUri: folderPath,
         enableVersionControl: true,
         icon: autoIcon,
@@ -391,8 +412,8 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
       invalidateProjects();
       setIsCreateOpen(false);
       setCreateTitle("");
+      setCommittedTitle("");
       setCreateFolderPath("");
-      setAutoCreateFolder(false);
       // Fire-and-forget: infer project type via auxiliary model.
       if (res.project?.projectId) {
         trpcClient.settings.inferProjectType
@@ -405,7 +426,7 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
     } finally {
       setIsBusy(false);
     }
-  }, [createTitle, createFolderPath, autoCreateFolder, autoCreatePath, createMutation, invalidateProjects, t]);
+  }, [createTitle, createFolderPath, autoCreatePath, createMutation, invalidateProjects, t]);
 
   /** Start git clone via SSE subscription. */
   const handleCloneFromGit = useCallback(() => {
@@ -457,16 +478,19 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
     setIsBusy(false);
   }, []);
 
-  const handleProjectClick = useCallback(
+  const handleProjectOpenDefault = useCallback(
     (project: ProjectListItem) => {
+      // 逻辑：项目列表中的默认打开行为固定优先走独立窗口，侧栏打开保留为显式次级入口。
       openProject({
         projectId: project.projectId,
         title: project.title || t("projectListPage.untitled"),
         rootUri: project.rootUri,
         icon: project.icon ?? undefined,
+      }, {
+        mode: canOpenProjectWindow ? "window" : "preference",
       });
     },
-    [openProject, t],
+    [canOpenProjectWindow, openProject, t],
   );
 
   const handleProjectOpenInSidebar = useCallback(
@@ -479,21 +503,6 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
           icon: project.icon ?? undefined,
         },
         { mode: "sidebar" },
-      );
-    },
-    [openProject, t],
-  );
-
-  const handleProjectOpenInWindow = useCallback(
-    (project: ProjectListItem) => {
-      openProject(
-        {
-          projectId: project.projectId,
-          title: project.title || t("projectListPage.untitled"),
-          rootUri: project.rootUri,
-          icon: project.icon ?? undefined,
-        },
-        { mode: "window" },
       );
     },
     [openProject, t],
@@ -543,12 +552,21 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
 
   const handleRemove = useCallback(
     (projectId: string) => {
-      if (confirm(t("projectListPage.confirmRemove"))) {
-        removeMutation.mutate({ projectId });
-      }
+      setRemoveTarget(projectId);
+      setRemoveAlsoDestroy(false);
     },
-    [removeMutation, t],
+    [],
   );
+
+  const confirmRemove = useCallback(() => {
+    if (!removeTarget) return;
+    if (removeAlsoDestroy) {
+      destroyMutation.mutate({ projectId: removeTarget });
+    } else {
+      removeMutation.mutate({ projectId: removeTarget });
+    }
+    setRemoveTarget(null);
+  }, [removeTarget, removeAlsoDestroy, destroyMutation, removeMutation]);
 
   const handleChangeProjectColor = useCallback(
     (projectId: string, colorIndex: number | null) => {
@@ -598,7 +616,7 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
                   ? "border-foreground/30 bg-foreground/[0.04] dark:bg-foreground/[0.08]"
                   : "border-border/70"
               }`}
-              onClick={() => handleProjectClick(project)}
+              onClick={() => handleProjectOpenDefault(project)}
             >
               {/* Preview area */}
               <div
@@ -651,22 +669,27 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
                       <DropdownMenuItem
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleProjectOpenInSidebar(project);
+                          handleProjectOpenDefault(project);
                         }}
                       >
-                        <FolderOpen className="mr-2 h-4 w-4" />
+                        {canOpenProjectWindow ? (
+                          <ExternalLink className="mr-2 h-4 w-4" />
+                        ) : (
+                          <FolderOpen className="mr-2 h-4 w-4" />
+                        )}
                         {t("projectTree.open")}
                       </DropdownMenuItem>
-                      <DropdownMenuItem
-                        disabled={!canOpenProjectWindow}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleProjectOpenInWindow(project);
-                        }}
-                      >
-                        <ExternalLink className="mr-2 h-4 w-4" />
-                        {t("projectListPage.openInNewWindow")}
-                      </DropdownMenuItem>
+                      {canOpenProjectWindow ? (
+                        <DropdownMenuItem
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleProjectOpenInSidebar(project);
+                          }}
+                        >
+                          <FolderOpen className="mr-2 h-4 w-4" />
+                          {tSettings("basicSettings.projectOpenModeSidebar")}
+                        </DropdownMenuItem>
+                      ) : null}
                       <DropdownMenuItem
                         disabled={!window.openloafElectron?.openPath}
                         onClick={(e) => {
@@ -746,17 +769,20 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
             </motion.div>
           </ContextMenuTrigger>
           <ContextMenuContent className="w-48">
-            <ContextMenuItem onSelect={() => handleProjectOpenInSidebar(project)}>
-              <FolderOpen className="mr-2 h-4 w-4" />
+            <ContextMenuItem onSelect={() => handleProjectOpenDefault(project)}>
+              {canOpenProjectWindow ? (
+                <ExternalLink className="mr-2 h-4 w-4" />
+              ) : (
+                <FolderOpen className="mr-2 h-4 w-4" />
+              )}
               {t("projectTree.open")}
             </ContextMenuItem>
-            <ContextMenuItem
-              disabled={!canOpenProjectWindow}
-              onSelect={() => handleProjectOpenInWindow(project)}
-            >
-              <ExternalLink className="mr-2 h-4 w-4" />
-              {t("projectListPage.openInNewWindow")}
-            </ContextMenuItem>
+            {canOpenProjectWindow ? (
+              <ContextMenuItem onSelect={() => handleProjectOpenInSidebar(project)}>
+                <FolderOpen className="mr-2 h-4 w-4" />
+                {tSettings("basicSettings.projectOpenModeSidebar")}
+              </ContextMenuItem>
+            ) : null}
             <ContextMenuItem
               disabled={!window.openloafElectron?.openPath}
               onSelect={() => {
@@ -817,9 +843,8 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
     [
       canOpenProjectWindow,
       activeProjectBaseId,
-      handleProjectClick,
+      handleProjectOpenDefault,
       handleProjectOpenInSidebar,
-      handleProjectOpenInWindow,
       handleCopyProjectAddress,
       handleToggleFavorite,
       handleChangeProjectColor,
@@ -1058,6 +1083,49 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* Remove project confirmation dialog */}
+      <Dialog
+        open={!!removeTarget}
+        onOpenChange={(open) => {
+          if (!open) setRemoveTarget(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t("projectListPage.removeTitle")}</DialogTitle>
+            <DialogDescription>
+              {t("projectListPage.removeDesc")}
+            </DialogDescription>
+          </DialogHeader>
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <Checkbox
+              checked={removeAlsoDestroy}
+              onCheckedChange={(v) => setRemoveAlsoDestroy(v === true)}
+            />
+            <span className="text-sm text-destructive">
+              {t("projectListPage.removeAlsoDestroy")}
+            </span>
+          </label>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button
+                variant="ghost"
+                className="rounded-3xl text-muted-foreground shadow-none transition-colors duration-150"
+              >
+                {t("cancel")}
+              </Button>
+            </DialogClose>
+            <Button
+              variant="ghost"
+              className="rounded-3xl bg-destructive/10 text-destructive hover:bg-destructive/20 shadow-none transition-colors duration-150"
+              onClick={confirmRemove}
+              disabled={removeMutation.isPending || destroyMutation.isPending}
+            >
+              {removeAlsoDestroy ? t("projectListPage.destroyConfirm") : t("projectTree.remove")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       {/* Create project dialog (3 options: new / import / git clone) */}
       <Dialog
         open={isCreateOpen}
@@ -1116,65 +1184,35 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
                 <Input
                   id="add-project-title"
                   value={createTitle}
-                  onChange={(e) => setCreateTitle(e.target.value)}
+                  onChange={(e) => {
+                    setCreateTitle(e.target.value);
+                    if (!composingRef.current) setCommittedTitle(e.target.value);
+                  }}
+                  onCompositionStart={() => { composingRef.current = true; }}
+                  onCompositionEnd={(e) => {
+                    composingRef.current = false;
+                    setCommittedTitle((e.target as HTMLInputElement).value);
+                  }}
                   className="h-9 rounded-3xl"
                   placeholder={t("sidebar.projectNamePlaceholder")}
                   autoFocus
                   onKeyDown={(e) => {
-                    if (e.key === "Enter" && (autoCreateFolder ? autoCreatePath : createFolderPath.trim()) && !isBusy) {
+                    if (e.key === "Enter" && !e.nativeEvent.isComposing && (createFolderPath.trim() || autoCreatePath) && !isBusy) {
                       handleCreateProject();
                     }
                   }}
                 />
               </div>
 
-              {/* Auto-create folder checkbox */}
-              <label className="flex items-center gap-2 cursor-pointer select-none">
-                <Checkbox
-                  checked={autoCreateFolder}
-                  onCheckedChange={(v) => {
-                    setAutoCreateFolder(v === true);
-                    if (v === true) setCreateFolderPath("");
-                  }}
-                  className="rounded-[6px]"
-                />
-                <span className="text-sm text-foreground">{t("sidebar.autoCreateFolder")}</span>
-              </label>
-
-              {/* Auto-create path preview */}
-              {autoCreateFolder && (
-                <div className="flex items-start gap-2 rounded-2xl bg-muted/50 px-3 py-2.5">
-                  <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs text-muted-foreground/60">{t("sidebar.autoCreateFolderHint")}</p>
-                    <p className="mt-1 truncate text-xs font-mono text-foreground/70" dir="ltr" title={autoCreatePath}>
-                      {autoCreatePath || t("sidebar.autoCreateFolderEnterName")}
-                    </p>
-                  </div>
-                  {autoCreatePath && (
-                    <button
-                      type="button"
-                      className="mt-0.5 shrink-0 rounded-lg p-1 text-muted-foreground/60 hover:bg-accent hover:text-foreground transition-colors"
-                      onClick={() => {
-                        const tempUri = storageRootQuery.data?.tempRootUri;
-                        if (tempUri) window.openloafElectron?.openPath?.({ uri: tempUri });
-                      }}
-                    >
-                      <FolderOpen className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                </div>
-              )}
-
-              {/* Manual folder picker */}
-              {!autoCreateFolder && (
-                <div>
-                  <Label className="mb-1.5 block text-sm font-medium text-foreground">
-                    {t("sidebar.storageLocation")}
-                  </Label>
+              {/* Location: button shows auto-path or user-picked path */}
+              <div>
+                <Label className="mb-1.5 block text-sm font-medium text-foreground">
+                  {t("sidebar.storageLocation")}
+                </Label>
+                <div className="flex h-9 w-full items-center gap-1.5">
                   <button
                     type="button"
-                    className="flex h-9 w-full items-center rounded-3xl border border-input bg-background px-3 text-xs text-muted-foreground hover:bg-accent/50 transition-colors"
+                    className="flex h-9 min-w-0 flex-1 items-center rounded-3xl border border-input bg-background px-3 text-xs hover:bg-accent/50 transition-colors"
                     onClick={async () => {
                       const dir = await pickDirectory(createFolderPath || undefined);
                       if (dir) {
@@ -1186,13 +1224,34 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
                       }
                     }}
                   >
-                    <FolderOpen className="mr-2 h-3.5 w-3.5 shrink-0" />
-                    <span dir="rtl" className="truncate text-left">
-                      {createFolderPath || t("sidebar.selectFolder")}
-                    </span>
+                    <FolderOpen className="mr-2 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    {createFolderPath ? (
+                      <span dir="rtl" className="truncate text-left font-mono text-foreground/70">{createFolderPath}</span>
+                    ) : (
+                      <span className="truncate text-muted-foreground">
+                        {autoCreatePath || t("sidebar.selectFolder")}
+                      </span>
+                    )}
                   </button>
+                  {createFolderPath && (
+                    <button
+                      type="button"
+                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                      onClick={() => setCreateFolderPath("")}
+                      title={t("sidebar.resetToDefault")}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
                 </div>
-              )}
+                {!createFolderPath && storageRootQuery.data?.tempRootUri && (
+                  <p className="mt-1 px-1 text-[11px] text-muted-foreground/60">
+                    {t("sidebar.defaultLocationHint", {
+                      path: (() => { try { return decodeURIComponent(new URL(storageRootQuery.data.tempRootUri).pathname); } catch { return ""; } })(),
+                    })}
+                  </p>
+                )}
+              </div>
             </div>
           )}
 
@@ -1259,14 +1318,14 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
                 variant="outline"
                 type="button"
                 className="h-9 rounded-3xl px-5 text-[13px] text-muted-foreground hover:bg-accent"
-                onClick={() => { setAddMode(null); setCreateTitle(""); setCreateFolderPath(""); setAutoCreateFolder(false); }}
+                onClick={() => { setAddMode(null); setCreateTitle(""); setCommittedTitle(""); setCreateFolderPath(""); }}
               >
                 {t("sidebar.back")}
               </Button>
               <Button
                 variant="ghost"
                 onClick={handleCreateProject}
-                disabled={isBusy || !(autoCreateFolder ? autoCreatePath : createFolderPath.trim())}
+                disabled={isBusy || !(createFolderPath.trim() || autoCreatePath)}
                 className="h-9 rounded-3xl px-5 text-[13px] bg-foreground text-background shadow-none hover:bg-foreground hover:text-background hover:opacity-90"
               >
                 {isBusy ? t("sidebar.creating") : t("sidebar.create")}

@@ -185,10 +185,34 @@ struct CalendarHelper {
     }
 
     /// Handle lightweight permission status check (no access request).
+    /// Checks both event and reminder status in parallel with a shared timeout.
     private static func handleCheckPermission() {
-        let eventStatus = authorizationStatus()
-        let reminderStatus = reminderAuthorizationStatus()
-        writeSuccess(["event": eventStatus, "reminder": reminderStatus])
+        let semaphore = DispatchSemaphore(value: 0)
+        var eventResult = "prompt"
+        var reminderResult = "prompt"
+        let group = DispatchGroup()
+
+        group.enter()
+        DispatchQueue.global(qos: .userInitiated).async {
+            let status = EKEventStore.authorizationStatus(for: .event)
+            eventResult = mapAuthorizationStatus(status)
+            group.leave()
+        }
+
+        group.enter()
+        DispatchQueue.global(qos: .userInitiated).async {
+            let status = EKEventStore.authorizationStatus(for: .reminder)
+            reminderResult = mapAuthorizationStatus(status)
+            group.leave()
+        }
+
+        group.notify(queue: .global()) { semaphore.signal() }
+
+        let waitResult = semaphore.wait(timeout: .now() + AUTH_STATUS_TIMEOUT)
+        if waitResult == .timedOut {
+            writeDebug("handleCheckPermission timed out after \(AUTH_STATUS_TIMEOUT)s")
+        }
+        writeSuccess(["event": eventResult, "reminder": reminderResult])
     }
 
     /// Handle permission request flow — requests both event and reminder access.
@@ -733,36 +757,41 @@ struct CalendarHelper {
         return store.defaultCalendarForNewReminders()
     }
 
-    /// Determine current permission state.
+    /// Timeout for EKEventStore.authorizationStatus() calls (seconds).
+    /// This API can block indefinitely when a system proxy (e.g. Clash) is active,
+    /// because CalendarAgent's XPC connection hangs through the proxy.
+    private static let AUTH_STATUS_TIMEOUT: Double = 5
+
+    /// Determine current permission state with timeout protection.
     private static func authorizationStatus() -> String {
-        let status = EKEventStore.authorizationStatus(for: .event)
-        if #available(macOS 14.0, *) {
-            switch status {
-            case .authorized, .fullAccess, .writeOnly:
-                return "granted"
-            case .restricted, .denied:
-                return "denied"
-            case .notDetermined:
-                return "prompt"
-            @unknown default:
-                return "unsupported"
-            }
-        }
-        switch status {
-        case .authorized:
-            return "granted"
-        case .restricted, .denied, .fullAccess, .writeOnly:
-            return "denied"
-        case .notDetermined:
-            return "prompt"
-        @unknown default:
-            return "unsupported"
-        }
+        return authorizationStatusWithTimeout(for: .event)
     }
 
-    /// Determine reminder permission state.
+    /// Determine reminder permission state with timeout protection.
     private static func reminderAuthorizationStatus() -> String {
-        let status = EKEventStore.authorizationStatus(for: .reminder)
+        return authorizationStatusWithTimeout(for: .reminder)
+    }
+
+    /// Query EKEventStore.authorizationStatus on a background thread with timeout.
+    /// Returns "prompt" if the call hangs (safe fallback — UI shows connect button).
+    private static func authorizationStatusWithTimeout(for entityType: EKEntityType) -> String {
+        let semaphore = DispatchSemaphore(value: 0)
+        var result = "prompt"
+        DispatchQueue.global(qos: .userInitiated).async {
+            let status = EKEventStore.authorizationStatus(for: entityType)
+            result = mapAuthorizationStatus(status)
+            semaphore.signal()
+        }
+        let waitResult = semaphore.wait(timeout: .now() + AUTH_STATUS_TIMEOUT)
+        if waitResult == .timedOut {
+            writeDebug("authorizationStatus(for: \(entityType == .event ? "event" : "reminder")) timed out after \(AUTH_STATUS_TIMEOUT)s")
+            return "prompt"
+        }
+        return result
+    }
+
+    /// Map EKAuthorizationStatus enum to string.
+    private static func mapAuthorizationStatus(_ status: EKAuthorizationStatus) -> String {
         if #available(macOS 14.0, *) {
             switch status {
             case .authorized, .fullAccess, .writeOnly:

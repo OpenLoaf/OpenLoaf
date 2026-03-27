@@ -237,9 +237,9 @@ function normalizeProjectListType(projectType?: string | null): string {
   return projectType?.trim() || "general";
 }
 
-/** Compare sibling project rows while preserving stored sort order. */
+/** Compare sibling project rows — higher sortIndex (newer) first. */
 function compareProjectListRows(a: ProjectListDbRow, b: ProjectListDbRow): number {
-  if (a.sortIndex !== b.sortIndex) return a.sortIndex - b.sortIndex;
+  if (a.sortIndex !== b.sortIndex) return b.sortIndex - a.sortIndex;
   const titleCompare = a.title.localeCompare(b.title);
   if (titleCompare !== 0) return titleCompare;
   return a.id.localeCompare(b.id);

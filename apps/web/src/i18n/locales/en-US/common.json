@@ -170,6 +170,8 @@
     "dialogTitle": "Sign in to cloud account",
     "dialogDesc": "Choose a sign-in method to continue",
     "welcome": "Welcome to OpenLoaf",
+    "welcomePrefix": "Welcome to ",
+    "welcomeSuffix": "",
     "subtitleSuccess": "Signed in, closing…",
     "subtitleOpening": "Opening system browser…",
     "subtitlePolling": "Opened in browser, waiting for sign-in…",

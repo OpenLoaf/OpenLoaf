@@ -9,7 +9,7 @@
  */
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import i18next from "i18next";
 import { useTranslation } from "react-i18next";
 import { isWorkbenchDockContextComponent } from "@/components/layout/global-entry-dock";
@@ -80,45 +80,50 @@ function IconNavItem({
   );
 }
 
-/* ── 滑动指示器布局常量 ── */
-// h-10 = 40px, gap-1 = 4px → 每个按钮步进 44px
-const ITEM = 40;
-const GAP = 4;
-const STEP = ITEM + GAP; // 44
-// 分隔线: gap(4) + my-1(4) + h-px(1) + my-1(4) + gap(4) = 17
-const SEP = GAP + 4 + 1 + 4 + GAP; // 17
-
-/** Content 区 7 个按钮的 Y 偏移（AI=0, Canvas=1, Project=2, [sep], Workbench=3, Calendar=4, Email=5, Tasks=6） */
-const CONTENT_Y = [
-  0,
-  STEP,
-  STEP * 2,
-  STEP * 2 + ITEM + SEP,
-  STEP * 2 + ITEM + SEP + STEP,
-  STEP * 2 + ITEM + SEP + STEP * 2,
-  STEP * 2 + ITEM + SEP + STEP * 3,
-];
-/** Footer 区 4 个按钮（Search=0, Agents=1, Skills=2, Settings=3） */
-const FOOTER_Y = [0, STEP, STEP * 2, STEP * 3];
-
 /**
- * 纯 CSS transform 驱动的滑动指示器。
+ * 基于 DOM 测量的滑动指示器，自动适配缩放和布局变化。
  * - 持续可见时：transform 滑动
  * - 隐藏→显示：直接出现在目标位置（仅 opacity 过渡）
  * - 显示→隐藏：原地淡出（仅 opacity 过渡）
  */
-function SlidingIndicator({ activeIdx, offsets }: { activeIdx: number; offsets: number[] }) {
-  const isVisible = activeIdx >= 0 && activeIdx < offsets.length;
-  const state = useRef({ wasVisible: false, lastY: 0 });
+function SlidingIndicator({
+  activeIdx,
+  containerRef,
+}: {
+  activeIdx: number;
+  containerRef: React.RefObject<HTMLUListElement | null>;
+}) {
+  const isVisible = activeIdx >= 0;
+  const stateRef = useRef({ wasVisible: false, lastY: 0 });
+  const [measuredY, setMeasuredY] = useState(0);
 
-  const targetY = isVisible ? offsets[activeIdx] : state.current.lastY;
-  const shouldSlide = state.current.wasVisible && isVisible;
+  const measure = useCallback(() => {
+    const container = containerRef.current;
+    if (!container || activeIdx < 0) return;
+    const items = container.querySelectorAll<HTMLElement>(
+      ':scope > [data-sidebar="menu-item"]',
+    );
+    const item = items[activeIdx];
+    if (!item) return;
+    setMeasuredY(item.offsetTop);
+  }, [activeIdx, containerRef]);
+
+  useLayoutEffect(measure, [measure]);
 
   useEffect(() => {
-    state.current.wasVisible = isVisible;
-    if (isVisible) {
-      state.current.lastY = offsets[activeIdx];
-    }
+    const container = containerRef.current;
+    if (!container) return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(container);
+    return () => ro.disconnect();
+  }, [containerRef, measure]);
+
+  const displayY = isVisible ? measuredY : stateRef.current.lastY;
+  const shouldSlide = stateRef.current.wasVisible && isVisible;
+
+  useEffect(() => {
+    stateRef.current.wasVisible = isVisible;
+    if (isVisible) stateRef.current.lastY = measuredY;
   });
 
   const transition = shouldSlide
@@ -127,11 +132,12 @@ function SlidingIndicator({ activeIdx, offsets }: { activeIdx: number; offsets: 
 
   return (
     <>
-      {/* 背景高亮 */}
+      {/* 背景高亮 — 用单一 transform 同时处理居中和 Y 偏移，避免与 Tailwind translate 冲突 */}
       <div
-        className="pointer-events-none absolute z-0 left-1/2 -translate-x-1/2 w-10 h-10 rounded-3xl bg-sidebar-accent"
+        className="pointer-events-none absolute z-0 w-10 h-10 rounded-3xl bg-sidebar-accent"
         style={{
-          transform: `translateY(${targetY}px)`,
+          left: "50%",
+          transform: `translate(-50%, ${displayY}px)`,
           opacity: isVisible ? 1 : 0,
           transition,
         }}
@@ -141,7 +147,7 @@ function SlidingIndicator({ activeIdx, offsets }: { activeIdx: number; offsets: 
         className="pointer-events-none absolute z-10 h-5 w-[3px] rounded-full bg-sidebar-foreground"
         style={{
           left: "calc(50% - 20px)",
-          transform: `translateY(${targetY + (ITEM - 20) / 2}px)`,
+          transform: `translateY(${displayY + 10}px)`,
           opacity: isVisible ? 1 : 0,
           transition,
         }}
@@ -158,6 +164,8 @@ export const AppSidebar = ({
   const layoutView = useMemo(() => resolveLayoutViewState(appState), [appState]);
   const isNarrow = useIsNarrowScreen(900);
   const nav = useSidebarNavigation();
+  const contentMenuRef = useRef<HTMLUListElement>(null);
+  const footerMenuRef = useRef<HTMLUListElement>(null);
   const setSearchOpen = useGlobalOverlay((s) => s.setSearchOpen);
 
   const activeBaseId = appState.base?.id;
@@ -279,8 +287,8 @@ export const AppSidebar = ({
       </SidebarHeader>
 
       <SidebarContent className="items-center px-0">
-        <SidebarMenu className="relative items-center gap-1 px-1.5">
-          <SlidingIndicator activeIdx={activeContentIdx} offsets={CONTENT_Y} />
+        <SidebarMenu ref={contentMenuRef} className="relative items-center gap-1 px-1.5">
+          <SlidingIndicator activeIdx={activeContentIdx} containerRef={contentMenuRef} />
           {/* Core */}
           <IconNavItem
             icon={Sparkles}
@@ -346,8 +354,8 @@ export const AppSidebar = ({
       </SidebarContent>
 
       <SidebarFooter className="items-center px-0 py-2 gap-1">
-        <SidebarMenu className="relative items-center gap-1 px-1.5">
-          <SlidingIndicator activeIdx={activeFooterIdx} offsets={FOOTER_Y} />
+        <SidebarMenu ref={footerMenuRef} className="relative items-center gap-1 px-1.5">
+          <SlidingIndicator activeIdx={activeFooterIdx} containerRef={footerMenuRef} />
           <IconNavItem
             icon={Search}
             tooltip={`${t("search")} (⌘K)`}

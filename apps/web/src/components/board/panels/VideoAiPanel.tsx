@@ -9,6 +9,7 @@
  */
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { AnimatePresence, motion } from 'framer-motion'
 import { useQuery } from '@tanstack/react-query'
 import { Lock } from 'lucide-react'
 import { toast } from 'sonner'
@@ -459,23 +460,32 @@ export function VideoAiPanel({
       ) : null}
 
       {/* -- Variant Form -- */}
-      {selectedVariant ? (
-        <GenericVariantForm
-          key={selectedVariant.id}
-          variantId={selectedVariant.id}
-          upstream={upstream}
-          nodeResourceUrl={undefined}
-          disabled={readonly && !editing}
-          initialParams={cache.get(`${selectedFeatureId}:${selectedVariant.id}`)}
-          onParamsChange={(snapshot) => {
-            cache.update(cacheKey, { params: snapshot.params })
-            setPricingParams(snapshot.params ?? {})
-          }}
-          onWarningChange={setVariantWarning}
-          resolvedSlots={resolvedSlots}
-          overrideParams={remoteParams}
-        />
-      ) : null}
+      <AnimatePresence mode="wait">
+        {selectedVariant ? (
+          <motion.div
+            key={selectedVariant.id}
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.15, ease: 'easeOut' }}
+          >
+            <GenericVariantForm
+              variantId={selectedVariant.id}
+              upstream={upstream}
+              nodeResourceUrl={undefined}
+              disabled={readonly && !editing}
+              initialParams={cache.get(`${selectedFeatureId}:${selectedVariant.id}`)}
+              onParamsChange={(snapshot) => {
+                cache.update(cacheKey, { params: snapshot.params })
+                setPricingParams(snapshot.params ?? {})
+              }}
+              onWarningChange={setVariantWarning}
+              resolvedSlots={resolvedSlots}
+              overrideParams={remoteParams}
+            />
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
 
       {/* -- Generate Action Bar -- */}
       {!showFallback ? (

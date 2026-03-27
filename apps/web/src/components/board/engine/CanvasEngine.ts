@@ -8,6 +8,7 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import { CanvasDoc } from "./CanvasDoc";
+import i18next from 'i18next';
 import { toast } from "sonner";
 import type {
   CanvasAnchorHit,
@@ -656,6 +657,55 @@ export class CanvasEngine {
       viewport: this.viewport.getState(),
       panning: this.panning,
     };
+  }
+
+  /**
+   * Return elements visible within the current viewport (with buffer).
+   * Uses the SpatialIndex for fast spatial queries.
+   * Elements that are being edited, expanded, or dragged are always included.
+   */
+  getVisibleElements(bufferRatio = 0.25): CanvasElement[] {
+    const { zoom, offset, size } = this.viewport.getState()
+
+    // 将屏幕坐标转换为世界坐标
+    const worldX = -offset[0] / zoom
+    const worldY = -offset[1] / zoom
+    const worldW = size[0] / zoom
+    const worldH = size[1] / zoom
+
+    // 扩展 buffer 区域
+    const bw = worldW * bufferRatio
+    const bh = worldH * bufferRatio
+
+    const viewportRect = {
+      x: worldX - bw,
+      y: worldY - bh,
+      w: worldW + bw * 2,
+      h: worldH + bh * 2,
+    }
+
+    // 使用 SpatialIndex 查询可见节点
+    const visibleNodes = this.doc.getNodeCandidatesInRect(viewportRect)
+    const visibleIds = new Set(visibleNodes.map((n) => n.id))
+
+    // 始终包含特殊状态的节点
+    if (this.editingNodeId) visibleIds.add(this.editingNodeId)
+    if (this.expandedNodeId) visibleIds.add(this.expandedNodeId)
+    if (this.draggingElementId) visibleIds.add(this.draggingElementId)
+    // 拖拽时选中的节点也要包含
+    if (this.draggingElementId) {
+      for (const id of this.selection.getSelectedIds()) {
+        visibleIds.add(id)
+      }
+    }
+
+    // 从全量元素中过滤
+    const allElements = this.getOrderedElements()
+    return allElements.filter((el) => {
+      // 连线元素暂时全部保留（需要两端节点都可见才能准确判断）
+      if (el.kind !== 'node') return true
+      return visibleIds.has(el.id)
+    })
   }
 
   /** Return the node id currently in edit mode. */
@@ -2788,7 +2838,7 @@ export class CanvasEngine {
     const now = Date.now();
     if (now - this.lastCycleToastAt < 600) return;
     this.lastCycleToastAt = now;
-    toast.error("禁止连接形成环");
+    toast.error(i18next.t('board:connectorError.cycleBlocked'));
   }
 
   /**
@@ -2819,7 +2869,7 @@ export class CanvasEngine {
     const now = Date.now();
     if (now - this.lastCycleToastAt < 600) return;
     this.lastCycleToastAt = now;
-    toast.error("不支持此类型的连接");
+    toast.error(i18next.t('board:connectorError.incompatibleType'));
   }
 
   /** Check whether a connection already exists between two nodes (in either direction). */

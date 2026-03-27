@@ -8,6 +8,7 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import { useState, useRef, useMemo, type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import { createPortal } from 'react-dom'
 import { Link2, Plus, X } from 'lucide-react'
 import { saveBoardAssetFile } from '../../../utils/board-asset'
@@ -237,15 +238,16 @@ export function MediaSlot({
 
 /** Compact badge showing upstream text content. */
 export function UpstreamTextBadge({ text }: { text: string }) {
+  const { t } = useTranslation('board')
   const maxLen = 20
   const truncated = text.length > maxLen ? `${text.slice(0, maxLen)}...` : text
   return (
     <div className="flex items-center gap-1 text-[11px] text-muted-foreground/70">
       <Link2 size={11} className="shrink-0 text-blue-500" />
       <span className="min-w-0 truncate">
-        文本:{truncated}
+        {t('mediaSlot.textPrefix', { text: truncated, defaultValue: 'Text:{{text}}' })}
       </span>
-      <span className="shrink-0 text-muted-foreground/50">({text.length}字)</span>
+      <span className="shrink-0 text-muted-foreground/50">{t('mediaSlot.charCount', { count: text.length, defaultValue: '({{count}} chars)' })}</span>
     </div>
   )
 }

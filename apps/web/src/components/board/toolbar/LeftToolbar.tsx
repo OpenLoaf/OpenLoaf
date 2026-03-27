@@ -9,7 +9,7 @@
  */
 "use client";
 
-import { memo, useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@udecode/cn";
 import {
@@ -19,6 +19,7 @@ import {
   FileText,
   Link,
   StickyNote,
+  Table2,
   Upload,
   MousePointer2,
   Hand,
@@ -27,6 +28,7 @@ import {
   Pen,
   Highlighter,
   Eraser,
+  Download,
 } from "lucide-react";
 
 import type { CanvasEngine } from "../engine/CanvasEngine";
@@ -60,8 +62,27 @@ function buildTitle(label: string, key: string): string {
 // ---------------------------------------------------------------------------
 
 function SidePanel({ open, children }: { open: boolean; children: React.ReactNode }) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [offsetY, setOffsetY] = useState(0);
+
+  // 逻辑：面板打开后测量是否溢出视口底部，如果溢出则向上偏移。
+  // 保留 12px 底部安全边距，避免紧贴视口边缘。
+  useLayoutEffect(() => {
+    if (!open) {
+      setOffsetY(0);
+      return;
+    }
+    const el = panelRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const margin = 80;
+    const overflow = rect.bottom - (window.innerHeight - margin);
+    setOffsetY(overflow > 0 ? -overflow : 0);
+  }, [open]);
+
   return (
     <div
+      ref={panelRef}
       className={cn(
         // 逻辑：外层 wrapper 用 pl-2 padding 创建透明桥，
         // 鼠标从按钮滑到面板时不会离开父 relative div 的后代。
@@ -70,6 +91,7 @@ function SidePanel({ open, children }: { open: boolean; children: React.ReactNod
         "absolute left-full top-0 z-50 pl-4",
         open ? "pointer-events-auto" : "pointer-events-none",
       )}
+      style={offsetY ? { top: offsetY } : undefined}
     >
       <div
         className={cn(
@@ -355,6 +377,21 @@ const LeftToolbar = memo(function LeftToolbar({
               description={t("insertTools.audioDesc") || undefined}
               onClick={() => placeAiNode("audio")}
             />
+            <PanelItem
+              icon={<Table2 size={panelIconSize} />}
+              title={t("insertTools.table")}
+              description={t("insertTools.tableDesc") || undefined}
+              active={snapshot.pendingInsert?.type === "table"}
+              onClick={() => {
+                handleInsertRequest({
+                  id: "table",
+                  type: "table",
+                  props: {},
+                  size: [400, 200],
+                  title: t("insertTools.table"),
+                });
+              }}
+            />
 
             {/* ── 添加资源 ── */}
             <PanelSection title={t("insertTools.addResource") || "添加资源"} />
@@ -366,6 +403,17 @@ const LeftToolbar = memo(function LeftToolbar({
                 engine
                   .getContainer()
                   ?.dispatchEvent(new Event("openloaf:board-open-file-picker"));
+                setInsertPanelOpen(false);
+              }}
+            />
+            <PanelItem
+              icon={<Download size={panelIconSize} />}
+              title={t("insertTools.videoDownload") || "视频下载"}
+              description={t("insertTools.videoDownloadDesc") || undefined}
+              onClick={() => {
+                engine
+                  .getContainer()
+                  ?.dispatchEvent(new Event("openloaf:board-video-url-download"));
                 setInsertPanelOpen(false);
               }}
             />

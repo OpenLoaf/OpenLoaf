@@ -61,6 +61,7 @@
     "videoDesc": "AI 生成影片",
     "audio": "音訊",
     "audioDesc": "AI 生成音訊",
+    "tableDesc": "結構化資料表格",
     "file": "檔案",
     "link": "連結",
     "linkDesc": "新增網頁連結",
@@ -71,7 +72,8 @@
     "imagePromptGenerate": "影片圖片理解",
     "imageGenerate": "圖片生成",
     "videoGenerate": "生成影片",
-    "aiChat": "AI 對話"
+    "aiChat": "AI 對話",
+    "table": "表格"
   },
   "bottomBar": {
     "aiImage": "AI 圖片",
@@ -98,7 +100,8 @@
     "imagePromptGenerate": "分析圖片/影片並生成描述",
     "imageGenerate": "輸入圖片與文字生成新圖",
     "videoGenerate": "基於圖片與提示詞生成影片",
-    "aiChat": "在畫布中與 AI 對話"
+    "aiChat": "在畫布中與 AI 對話",
+    "table": "結構化資料表格"
   },
   "picker": {
     "imageTitle": "選擇圖片檔案",
@@ -940,7 +943,8 @@
     "file-attachment": "檔案",
     "calendar": "行事曆",
     "group": "群組",
-    "image-group": "圖片群組"
+    "image-group": "圖片群組",
+    "table": "表格"
   },
   "textPanel": {
     "upstreamPreview": "上游文字",
@@ -962,7 +966,9 @@
     "regenerate": "重新生成",
     "cancel": "取消",
     "locked": "參數已鎖定",
-    "unlock": "解鎖編輯"
+    "unlock": "解鎖編輯",
+    "model": "模型:",
+    "advancedOptions": "進階選項"
   },
   "generatingOverlay": {
     "status": "生成中，約需 {{duration}}"
@@ -1249,5 +1255,93 @@
     "title": "影片生成需要 Pro 及以上方案",
     "description": "升級後即可使用全部影片功能",
     "upgrade": "升級方案"
+  },
+  "tableNode": {
+    "defaultColHeader": "欄 {{index}}",
+    "toolbar": {
+      "addRow": "新增列",
+      "addColumn": "新增欄",
+      "deleteLastRow": "刪除末列",
+      "deleteLastColumn": "刪除末欄",
+      "hideHeader": "隱藏表頭",
+      "showHeader": "顯示表頭",
+      "style": "樣式",
+      "merge": "合併",
+      "split": "拆分"
+    },
+    "variant": {
+      "default": "預設",
+      "striped": "斑馬紋",
+      "bordered": "邊框"
+    }
+  },
+  "noCanvasSelected": "未選擇畫布",
+  "connectorError": {
+    "cycleBlocked": "禁止連接形成環",
+    "incompatibleType": "不支援此類型的連接"
+  },
+  "extractAudio": "分離音訊",
+  "imageAdjust": {
+    "aspectRatioFree": "自由"
+  },
+  "common": {
+    "default": "預設"
+  },
+  "strokeColors": {
+    "black": "黑",
+    "blue": "藍",
+    "orange": "橙",
+    "red": "紅",
+    "green": "綠"
+  },
+  "cameraAngle": {
+    "presets": {
+      "front": "正面",
+      "left": "左側",
+      "right": "右側",
+      "back": "背面",
+      "top": "俯視",
+      "bottom": "仰視",
+      "frontLeft": "左前",
+      "frontRight": "右前"
+    },
+    "faces": {
+      "front": "前",
+      "back": "後",
+      "left": "左",
+      "right": "右",
+      "top": "上",
+      "bottom": "下"
+    }
+  },
+  "mediaSlot": {
+    "textPrefix": "文字:{{text}}",
+    "charCount": "({{count}}字)"
+  },
+  "styleSuggestions": {
+    "realistic": "寫實",
+    "anime": "動漫",
+    "illustration": "插畫",
+    "3d": "3D",
+    "cyberpunk": "賽博龐克",
+    "watercolor": "水彩",
+    "oilPainting": "油畫",
+    "cinematic": "電影感",
+    "vintage": "復古",
+    "pixelArt": "像素風",
+    "lowPoly": "低多邊形",
+    "minimal": "極簡",
+    "flat": "扁平",
+    "chinese": "國風",
+    "japanese": "日系",
+    "steampunk": "蒸汽龐克",
+    "futuristic": "未來科技",
+    "paperCut": "剪紙",
+    "handDrawn": "手繪",
+    "sketch": "素描",
+    "surreal": "超現實",
+    "dreamy": "夢幻",
+    "blackAndWhite": "黑白",
+    "highSaturation": "高飽和"
   }
 }

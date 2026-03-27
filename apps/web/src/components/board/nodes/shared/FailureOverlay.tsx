@@ -19,11 +19,11 @@ export type FailureOverlayProps = {
   isCancelled: boolean
   /** The error message to display (ignored when isCancelled is true). */
   message?: string
-  /** i18n key for the cancelled label. Falls back to '已取消'. */
+  /** i18n key for the cancelled label. Falls back to 'Cancelled'. */
   cancelledKey: string
   /** i18n key for the retry button label. Falls back to 'Retry'. */
   retryKey: string
-  /** i18n key for the resend button label (shown when isCancelled). Falls back to '重新发送'. */
+  /** i18n key for the resend button label (shown when isCancelled). Falls back to 'Resend'. */
   resendKey: string
   /** Called when the retry / resend button is clicked. */
   onRetry: () => void
@@ -56,11 +56,11 @@ export function FailureOverlay({
   if (!visible) return null
 
   const errorLabel = isCancelled
-    ? i18next.t(cancelledKey, { defaultValue: '已取消' })
+    ? i18next.t(cancelledKey, { defaultValue: 'Cancelled' })
     : (message || i18next.t('board:generateFailed', { defaultValue: 'Generation failed' }))
 
   const retryLabel = isCancelled
-    ? i18next.t(resendKey, { defaultValue: '重新发送' })
+    ? i18next.t(resendKey, { defaultValue: 'Resend' })
     : i18next.t(retryKey, { defaultValue: 'Retry' })
 
   return (

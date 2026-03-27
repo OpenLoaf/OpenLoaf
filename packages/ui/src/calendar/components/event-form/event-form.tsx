@@ -36,11 +36,11 @@ import { cn } from '@openloaf/ui/calendar/lib/utils'
 
 const COLOR_OPTIONS = [
 	{
-		value: `bg-secondary text-foreground`,
+		value: `bg-blue-100 text-blue-800`,
 		label: 'Blue',
 	},
 	{
-		value: `bg-secondary text-foreground`,
+		value: `bg-green-100 text-green-800`,
 		label: 'Green',
 	},
 	{
@@ -60,23 +60,23 @@ const COLOR_OPTIONS = [
 		label: 'Pink',
 	},
 	{
-		value: `bg-secondary text-foreground`,
+		value: `bg-indigo-100 text-indigo-800`,
 		label: 'Indigo',
 	},
 	{
-		value: `bg-secondary text-foreground`,
+		value: `bg-amber-100 text-amber-800`,
 		label: 'Amber',
 	},
 	{
-		value: `bg-secondary text-foreground`,
+		value: `bg-emerald-100 text-emerald-800`,
 		label: 'Emerald',
 	},
 	{
-		value: `bg-secondary text-foreground`,
+		value: `bg-sky-100 text-sky-800`,
 		label: 'Sky',
 	},
 	{
-		value: `bg-secondary text-foreground`,
+		value: `bg-violet-100 text-violet-800`,
 		label: 'Violet',
 	},
 	{
@@ -88,7 +88,7 @@ const COLOR_OPTIONS = [
 		label: 'Teal',
 	},
 	{
-		value: `bg-secondary text-foreground`,
+		value: `bg-orange-100 text-orange-800`,
 		label: 'Orange',
 	},
 ]

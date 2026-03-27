@@ -20,11 +20,11 @@ import { cn } from "@udecode/cn";
 
 /** 笔迹工具条颜色预设。 */
 const STROKE_COLORS = [
-  { label: "黑", value: "#171717" },
-  { label: "蓝", value: "#1d4ed8" },
-  { label: "橙", value: "#f59e0b" },
-  { label: "红", value: "#ef4444" },
-  { label: "绿", value: "#16a34a" },
+  { label: "black", value: "#171717" },
+  { label: "blue", value: "#1d4ed8" },
+  { label: "orange", value: "#f59e0b" },
+  { label: "red", value: "#ef4444" },
+  { label: "green", value: "#16a34a" },
 ] as const;
 
 /** Build a smooth SVG path from stroke outline points. */

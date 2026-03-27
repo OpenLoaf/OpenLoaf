@@ -53,6 +53,55 @@ function snapshotEqual(a: CanvasSnapshot, b: CanvasSnapshot): boolean {
   return true;
 }
 
+/**
+ * 只比较数据字段，不含 viewport/panning/nodeHoverId/connectorHoverId/connectorHover
+ * 等高频视觉状态。适用于 DomNodeLayer 等只关心节点数据的组件。
+ */
+export function snapshotDataEqual(
+  a: CanvasSnapshot,
+  b: CanvasSnapshot,
+): boolean {
+  if (a === b) return true;
+  if (a.docRevision !== b.docRevision) return false;
+  if (a.elements !== b.elements) return false;
+  if (a.selectedIds !== b.selectedIds) return false;
+  if (a.editingNodeId !== b.editingNodeId) return false;
+  if (a.expandedNodeId !== b.expandedNodeId) return false;
+  if (a.anchors !== b.anchors) return false;
+  if (a.alignmentGuides !== b.alignmentGuides) return false;
+  if (a.selectionBox !== b.selectionBox) return false;
+  if (a.canUndo !== b.canUndo) return false;
+  if (a.canRedo !== b.canRedo) return false;
+  if (a.activeToolId !== b.activeToolId) return false;
+  if (a.draggingId !== b.draggingId) return false;
+  if (a.locked !== b.locked) return false;
+  if (a.connectorDraft !== b.connectorDraft) return false;
+  if (a.connectorDrop !== b.connectorDrop) return false;
+  if (a.pendingInsert !== b.pendingInsert) return false;
+  if (a.pendingInsertPoint !== b.pendingInsertPoint) return false;
+  if (a.toolbarDragging !== b.toolbarDragging) return false;
+  if (a.colorHistory !== b.colorHistory) return false;
+  if (a.selectionClickPoint !== b.selectionClickPoint) return false;
+  if (a.connectorValidation !== b.connectorValidation) return false;
+  if (a.connectorStyle !== b.connectorStyle) return false;
+  if (a.connectorDashed !== b.connectorDashed) return false;
+  return true;
+}
+
+/**
+ * 只比较视图字段（viewport + panning）。
+ * 适用于仅需响应缩放/平移变化的组件。
+ */
+export function snapshotViewEqual(
+  a: CanvasSnapshot,
+  b: CanvasSnapshot,
+): boolean {
+  if (a === b) return true;
+  if (a.viewport !== b.viewport) return false;
+  if (a.panning !== b.panning) return false;
+  return true;
+}
+
 /** Subscribe to engine updates and return the latest snapshot. */
 export function useBoardSnapshot(engine: CanvasEngine): CanvasSnapshot {
   const [snapshot, setSnapshot] = useState(() => engine.getSnapshot());

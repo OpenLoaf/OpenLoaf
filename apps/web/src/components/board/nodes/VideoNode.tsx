@@ -431,6 +431,7 @@ function captureVideoPoster(streamUrl: string): Promise<string | null> {
 /** Render a video node card with inline direct-stream playback. */
 export function VideoNodeView({
   element,
+  selected,
   expanded,
   onUpdate,
 }: CanvasNodeViewProps<VideoNodeProps>) {
@@ -1053,6 +1054,8 @@ export function VideoNodeView({
         stack={element.props.versionStack}
         semanticColor="purple"
         onSwitchPrimary={handleSwitchPrimary}
+        engine={engine}
+        selected={selected}
       />
       <div
         className={[

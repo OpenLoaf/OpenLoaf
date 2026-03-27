@@ -182,7 +182,7 @@ export function SaasLoginDialog({ open, onOpenChange }: SaasLoginDialogProps) {
               <h1 className="text-[1.9rem] font-semibold leading-tight tracking-tight">
                 {isLoginInProgress
                   ? <span className="sr-only">{t('login.welcome')}</span>
-                  : <>欢迎使用 <span className="text-foreground">Open</span><span className="text-te-accent">Loaf</span></>
+                  : <>{t('login.welcomePrefix')}<span className="text-foreground">Open</span><span className="text-te-accent">Loaf</span>{t('login.welcomeSuffix')}</>
                 }
               </h1>
               <p

@@ -184,7 +184,7 @@ const groupCapabilities = {
 
 /** Background color presets for group nodes. */
 const GROUP_BG_PRESETS = [
-  { label: '默认', value: undefined },
+  { label: 'default', value: undefined },
   { label: '#3b82f6', value: '#3b82f6' },
   { label: '#a855f7', value: '#a855f7' },
   { label: '#22c55e', value: '#22c55e' },
@@ -238,7 +238,7 @@ function createGroupToolbarItems(ctx: CanvasToolbarContext<GroupNodeProps>) {
                 <button
                   type="button"
                   key={preset.label}
-                  title={preset.label}
+                  title={preset.value ? preset.label : t('board:common.default')}
                   onPointerDown={e => {
                     e.preventDefault();
                     e.stopPropagation();

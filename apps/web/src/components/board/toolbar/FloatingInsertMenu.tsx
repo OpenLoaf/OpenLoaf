@@ -17,8 +17,10 @@ import {
   Video,
   Music,
   StickyNote,
+  Table2,
   Upload,
   Link,
+  Download,
 } from "lucide-react";
 
 import type { CanvasEngine } from "../engine/CanvasEngine";
@@ -213,6 +215,12 @@ const FloatingInsertMenu = memo(function FloatingInsertMenu({
           description={t("insertTools.audioDesc") || undefined}
           onClick={() => placeAiNode("audio")}
         />
+        <MenuItem
+          icon={<Table2 size={iconSize} />}
+          title={t("insertTools.table")}
+          description={t("insertTools.tableDesc") || undefined}
+          onClick={() => placeNode("table", {}, [400, 200])}
+        />
 
         {/* ── 添加资源 ── */}
         <h4 className="px-3.5 pt-2.5 pb-1.5 text-[13px] font-semibold text-ol-text-secondary">
@@ -226,6 +234,17 @@ const FloatingInsertMenu = memo(function FloatingInsertMenu({
             engine
               .getContainer()
               ?.dispatchEvent(new Event("openloaf:board-open-file-picker"));
+            close();
+          }}
+        />
+        <MenuItem
+          icon={<Download size={iconSize} />}
+          title={t("insertTools.videoDownload") || "视频下载"}
+          description={t("insertTools.videoDownloadDesc") || undefined}
+          onClick={() => {
+            engine
+              .getContainer()
+              ?.dispatchEvent(new Event("openloaf:board-video-url-download"));
             close();
           }}
         />

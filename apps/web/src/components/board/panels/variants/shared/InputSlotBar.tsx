@@ -10,6 +10,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { CircleAlert, Paintbrush, Plus, Redo2, Undo2, Upload } from 'lucide-react'
 import { cn } from '@udecode/cn'
@@ -147,6 +148,8 @@ export type InputSlotBarProps = {
   brushSize?: number
   onMaskPaintToggle?: (active: boolean) => void
   resolveContext?: ResolveContext
+  /** When provided, text slots render via portal into this element instead of inline. */
+  textSlotPortalTarget?: HTMLElement | null
 }
 
 // ---------------------------------------------------------------------------
@@ -211,6 +214,7 @@ export function InputSlotBar({
   brushSize: brushSizeProp,
   onMaskPaintToggle,
   resolveContext,
+  textSlotPortalTarget,
 }: InputSlotBarProps) {
   const { t } = useTranslation('board')
 
@@ -776,28 +780,33 @@ export function InputSlotBar({
       ) : null}
 
       {/* ── Text slot fields (prompt, etc.) ── */}
-      {textSlots.map((slot) => {
-        const text = userTexts[slot.role] ?? ''
-        const assignedNodeIds = new Set(parseRefTokenNodeIds(text))
-        return (
-          <TextSlotField
-            key={slot.role}
-            label={slot.label}
-            userText={text}
-            allReferences={allTextRefs}
-            assignedNodeIds={assignedNodeIds}
-            required={slot.min > 0}
-            disabled={disabled}
-            mode={slot.referenceMode ?? 'inline'}
-            minLength={slot.minLength}
-            maxLength={slot.maxLength}
-            hint={slot.hint}
-            onUserTextChange={(text) => handleTextUserChange(slot.role, text)}
-            onAddReference={(ref) => handleTextAddRef(slot.role, ref)}
-            onRemoveReference={(nodeId) => handleTextRemoveRef(slot.role, nodeId)}
-          />
-        )
-      })}
+      {(() => {
+        const textContent = textSlots.map((slot) => {
+          const text = userTexts[slot.role] ?? ''
+          const assignedNodeIds = new Set(parseRefTokenNodeIds(text))
+          return (
+            <TextSlotField
+              key={slot.role}
+              label={slot.label}
+              userText={text}
+              allReferences={allTextRefs}
+              assignedNodeIds={assignedNodeIds}
+              required={slot.min > 0}
+              disabled={disabled}
+              mode={slot.referenceMode ?? 'inline'}
+              minLength={slot.minLength}
+              maxLength={slot.maxLength}
+              hint={slot.hint}
+              onUserTextChange={(text) => handleTextUserChange(slot.role, text)}
+              onAddReference={(ref) => handleTextAddRef(slot.role, ref)}
+              onRemoveReference={(nodeId) => handleTextRemoveRef(slot.role, nodeId)}
+            />
+          )
+        })
+        if (!textContent.length) return null
+        if (textSlotPortalTarget) return createPortal(textContent, textSlotPortalTarget)
+        return textContent
+      })()}
     </div>
   )
 }

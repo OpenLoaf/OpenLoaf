@@ -9,6 +9,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { AnimatePresence, motion } from 'framer-motion'
 import { toast } from 'sonner'
 import { saveBoardAssetFile } from '../utils/board-asset'
 import type { CanvasNodeElement } from '../engine/types'
@@ -19,6 +20,7 @@ import { serializeForGenerate } from './variants/serialize'
 import type { MediaReference, MediaType, PersistedSlotMap } from './variants/slot-types'
 import { InputSlotBar, type ResolvedSlotInputs } from './variants/shared/InputSlotBar'
 import { GenericVariantForm } from './variants/shared/GenericVariantForm'
+import { isCameraAngleParams } from './variants/shared/CameraAngleControl'
 import { GenerateActionBar } from './GenerateActionBar'
 import { useVariantPanel } from './hooks/useVariantPanel'
 import { useVariantCache } from './hooks/useVariantCache'
@@ -203,6 +205,13 @@ export function ImageAiPanel({
       onToggleMaskPaint?.(false)
     }
   }, [hasMaskSlot, onToggleMaskPaint])
+
+  // ── Camera angle detection → text slot portal ──
+  const hasCameraAngle = useMemo(() => {
+    if (!remoteParams?.length) return false
+    return isCameraAngleParams(remoteParams)
+  }, [remoteParams])
+  const [textSlotPortalEl, setTextSlotPortalEl] = useState<HTMLElement | null>(null)
 
   // ── Resolved slot inputs (populated by InputSlotBar callback) ──
   const [resolvedSlots, setResolvedSlots] = useState<Record<string, MediaReference[]>>({})
@@ -438,30 +447,43 @@ export function ImageAiPanel({
           maskResult={hasMaskSlot ? maskResult : undefined}
           brushSize={hasMaskSlot ? brushSizeProp : undefined}
           onMaskPaintToggle={hasMaskSlot ? onToggleMaskPaint : undefined}
+          textSlotPortalTarget={hasCameraAngle ? textSlotPortalEl : undefined}
         />
       ) : null}
 
       {/* ── Variant-specific form ── */}
-      {selectedVariant ? (
-        <GenericVariantForm
-          key={selectedVariant.id}
-          variantId={selectedVariant.id}
-          upstream={variantUpstream}
-          nodeResourceUrl={resolvedImageSrc}
-          nodeResourcePath={element.props.originalSrc}
-          disabled={readonly && !editing}
-          initialParams={cache.get(`${selectedFeatureId}:${selectedVariant.id}`)}
-          onParamsChange={(snapshot) => {
-            if (activeKey) {
-              cache.update(activeKey, { params: snapshot.params })
-            }
-            setPricingParams(snapshot.params ?? {})
-          }}
-          onWarningChange={setVariantWarning}
-          resolvedSlots={resolvedSlots}
-          overrideParams={remoteParams}
-        />
-      ) : null}
+      <AnimatePresence mode="wait">
+        {selectedVariant ? (
+          <motion.div
+            key={selectedVariant.id}
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.15, ease: 'easeOut' }}
+          >
+            <GenericVariantForm
+              variantId={selectedVariant.id}
+              upstream={variantUpstream}
+              nodeResourceUrl={resolvedImageSrc}
+              nodeResourcePath={element.props.originalSrc}
+              disabled={readonly && !editing}
+              initialParams={cache.get(`${selectedFeatureId}:${selectedVariant.id}`)}
+              onParamsChange={(snapshot) => {
+                if (activeKey) {
+                  cache.update(activeKey, { params: snapshot.params })
+                }
+                setPricingParams(snapshot.params ?? {})
+              }}
+              onWarningChange={setVariantWarning}
+              resolvedSlots={resolvedSlots}
+              overrideParams={remoteParams}
+              cameraChildren={
+                hasCameraAngle ? <div ref={setTextSlotPortalEl} className="flex flex-col gap-3" /> : undefined
+              }
+            />
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
 
       {/* ── Generate Action Bar ── */}
       {!showFallback ? <GenerateActionBar

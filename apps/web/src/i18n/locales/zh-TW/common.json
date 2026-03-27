@@ -170,6 +170,8 @@
     "dialogTitle": "登入雲端帳號",
     "dialogDesc": "選擇登入方式並繼續",
     "welcome": "歡迎使用 OpenLoaf",
+    "welcomePrefix": "歡迎使用 ",
+    "welcomeSuffix": "",
     "subtitleSuccess": "登入成功，正在關閉…",
     "subtitleOpening": "正在開啟系統瀏覽器…",
     "subtitlePolling": "已在瀏覽器中開啟，等待登入完成…",

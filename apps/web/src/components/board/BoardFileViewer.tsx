@@ -10,6 +10,7 @@
 "use client";
 
 import { memo } from "react";
+import { useTranslation } from "react-i18next";
 import { BoardCanvas } from "./core/BoardCanvas";
 import { BOARD_NODE_DEFINITIONS } from "./core/board-nodes";
 import { useLayoutState } from "@/hooks/use-layout-state";
@@ -43,6 +44,7 @@ const BoardFileViewer = memo(function BoardFileViewer({
   panelKey,
   tabId,
 }: BoardFileViewerProps) {
+  const { t } = useTranslation('board');
   const runtimeStack = useLayoutState((state) => state.stack);
   const runtimeActiveStackId = useLayoutState((state) => state.activeStackItemId);
   const stackHidden = useLayoutState((state) => Boolean(state.stackHidden));
@@ -55,7 +57,7 @@ const BoardFileViewer = memo(function BoardFileViewer({
   const uiHidden = stackHidden && isStackItem && activeStackId === panelKey;
 
   if (!boardFolderUri || !boardFileUri) {
-    return <div className="h-full w-full p-4 text-muted-foreground">未选择画布</div>;
+    return <div className="h-full w-full p-4 text-muted-foreground">{t('noCanvasSelected')}</div>;
   }
 
   return (

@@ -167,7 +167,7 @@ export async function batchDownloadNodes(
   toast.info(
     i18next.t('board:selection.toolbar.batchDownloadProgress', {
       count: downloads.length,
-      defaultValue: `正在下载 ${downloads.length} 个文件`,
+      defaultValue: `Downloading ${downloads.length} files`,
     }),
   )
 

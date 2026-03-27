@@ -10,6 +10,7 @@
 "use client";
 
 import {
+  memo,
   useEffect,
   useCallback,
   useMemo,
@@ -22,6 +23,7 @@ import {
 } from "react";
 import { cn } from "@udecode/cn";
 import type { CanvasEngine } from "../engine/CanvasEngine";
+import { useBoardSnapshot } from "./useBoardSnapshot";
 import type {
   CanvasConnectorEnd,
   CanvasElement,
@@ -448,8 +450,6 @@ function resolveColoredCursor(
 type BoardCanvasInteractionProps = {
   /** Canvas engine instance. */
   engine: CanvasEngine;
-  /** Snapshot for current scene. */
-  snapshot: CanvasSnapshot;
   /** Container ref for pointer calculations. */
   containerRef: RefObject<HTMLDivElement | null>;
   /** Project id for file resolution. */
@@ -477,9 +477,8 @@ type BoardCanvasInteractionProps = {
 };
 
 /** Handle board interactions and pointer events. */
-export function BoardCanvasInteraction({
+function BoardCanvasInteractionInner({
   engine,
-  snapshot,
   containerRef,
   projectId,
   rootUri,
@@ -493,6 +492,7 @@ export function BoardCanvasInteraction({
   onOpenImagePreview,
   onEnterGroup,
 }: BoardCanvasInteractionProps) {
+  const snapshot = useBoardSnapshot(engine);
   const { t } = useTranslation('project');
   const { fileContext } = useBoardContext();
   const { data: allCapabilities, loading: capLoading, error: capError } = useAllCapabilities();
@@ -1929,6 +1929,8 @@ export function BoardCanvasInteraction({
   );
 }
 
+export const BoardCanvasInteraction = memo(BoardCanvasInteractionInner);
+
 type ConnectorDropPanelProps = {
   /** Canvas engine instance. */
   engine: CanvasEngine;
@@ -2003,3 +2005,6 @@ function ConnectorDropPanel({
     />
   );
 }
+
+export const _interactionHasMemo = true
+export const _snapshotSubscribedInternally = true

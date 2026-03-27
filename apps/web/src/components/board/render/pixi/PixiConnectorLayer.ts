@@ -61,6 +61,7 @@ export class PixiConnectorLayer {
   private lastRevision = -1
   private hadUiOverlay = false
   private lastSelectedKey = ''
+  private wasDragging = false
   private flowConnectors: FlowConnectorData[] = []
   private flowOffset = 0
   private flowAnimationId: number | null = null
@@ -84,14 +85,18 @@ export class PixiConnectorLayer {
     const hasUiOverlay = !!(snapshot.connectorDraft || snapshot.connectorDrop)
     const selectedKey = snapshot.selectedIds.join(',')
     const selectionChanged = selectedKey !== this.lastSelectedKey
+    const isDragging = snapshot.draggingId !== null || snapshot.panning
+    const draggingChanged = isDragging !== this.wasDragging
     if (
       snapshot.docRevision === this.lastRevision
       && !hasUiOverlay && !this.hadUiOverlay
       && !selectionChanged
+      && !draggingChanged
     ) return
     this.lastRevision = snapshot.docRevision
     this.hadUiOverlay = hasUiOverlay
     this.lastSelectedKey = selectedKey
+    this.wasDragging = isDragging
 
     const palette = this.theme.getPalette()
     const g = this.graphics
@@ -164,8 +169,8 @@ export class PixiConnectorLayer {
       const targetNodeId = 'elementId' in connector.target ? connector.target.elementId : null
       const hasFlowAnimation = isSelected || (sourceNodeId && selectedSet.has(sourceNodeId)) || (targetNodeId && selectedSet.has(targetNodeId))
 
-      // 流动动画时隐藏主线，但保留箭头
-      if (!hasFlowAnimation) {
+      // 流动动画时隐藏主线（拖拽时回退为普通线段显示）
+      if (!hasFlowAnimation || isDragging) {
         const lineAlpha = isHovered ? STROKE_ALPHA_ACTIVE : STROKE_ALPHA
 
         if (isHovered) {
@@ -247,9 +252,9 @@ export class PixiConnectorLayer {
       }
     }
 
-    // 管理流动动画生命周期
+    // 管理流动动画生命周期 —— 拖拽/平移时暂停，避免动画干扰视觉
     this.flowConnectors = nextFlowConnectors
-    if (nextFlowConnectors.length > 0) {
+    if (nextFlowConnectors.length > 0 && !isDragging) {
       if (this.flowAnimationId === null) this.startFlowAnimation()
     } else {
       this.stopFlowAnimation()

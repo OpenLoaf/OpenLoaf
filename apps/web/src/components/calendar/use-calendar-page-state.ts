@@ -357,12 +357,15 @@ export function useCalendarPageState({
       if (result.ok) {
         setEventPermission(result.data.event);
         setReminderPermission(result.data.reminder);
+        if (result.data.event === "granted") {
+          initialSyncRef.current = true;
+          await triggerSyncRef.current("permission");
+        }
       }
     })();
   }, []);
 
   useEffect(() => {
-    // 逻辑：进入日历页面时触发一次同步。
     if (!initialSyncRef.current) {
       initialSyncRef.current = true;
       void triggerSync("enter");

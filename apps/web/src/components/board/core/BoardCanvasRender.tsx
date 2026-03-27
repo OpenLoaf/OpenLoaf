@@ -41,12 +41,11 @@ import {
 } from "./SelectionOverlay";
 import { PendingInsertPreview, PENDING_INSERT_DOM_TYPES } from "./PendingInsertPreview";
 import { useBoardViewState } from "./useBoardViewState";
+import { useBoardSnapshot } from "./useBoardSnapshot";
 
 export type BoardCanvasRenderProps = {
   /** Canvas engine instance. */
   engine: CanvasEngine;
-  /** Snapshot for current scene. */
-  snapshot: CanvasSnapshot;
   /** Whether the UI is visible. */
   showUi: boolean;
   /** Whether the performance overlay is visible. */
@@ -66,7 +65,6 @@ export type BoardCanvasRenderProps = {
 /** Render board layers and overlays. */
 export function BoardCanvasRender({
   engine,
-  snapshot,
   showUi,
   showPerfOverlay,
   containerRef,
@@ -75,6 +73,7 @@ export function BoardCanvasRender({
   onEnterGroup,
   minimal,
 }: BoardCanvasRenderProps) {
+  const snapshot = useBoardSnapshot(engine);
   /** Culling stats for the performance overlay. */
   const [cullingStats, setCullingStats] = useState({
     totalNodes: 0,
@@ -200,6 +199,12 @@ export function BoardCanvasRender({
   return (
     <>
       {showUi && !minimal && snapshot.elements.length > 0 ? <MiniMapLayer engine={engine} snapshot={snapshot} /> : null}
+      {/* 剪刀放在节点层之前（DOM 顺序更低），节点自然遮挡剪刀 */}
+      {showUi && !isDragging && !snapshot.connectorDraft ? (
+        <ConnectorHoverScissorsLayer engine={engine}>
+          <ConnectorHoverScissors snapshot={snapshot} engine={engine} />
+        </ConnectorHoverScissorsLayer>
+      ) : null}
       {/* 逻辑：minimal 模式（子画布对话框）不加载 PixiJS，避免销毁时破坏全局 PixiJS 共享状态。 */}
       {minimal ? <DomNodeLayer engine={engine} snapshot={snapshot} /> : <PixiCanvas engine={engine} snapshot={snapshot} />}
       {showUi && !minimal && snapshot.pendingInsert && snapshot.pendingInsertPoint && PENDING_INSERT_DOM_TYPES.has(snapshot.pendingInsert.type) ? (
@@ -217,7 +222,7 @@ export function BoardCanvasRender({
       ) : null}
       {/* AnchorOverlay 已移入下方 WorldToolbarLayer 内渲染 */}
       {showUi && !minimal ? (
-        <div className={cn("pointer-events-none absolute inset-0 z-20 transition-all duration-500 ease-out", toolbarsReady ? "opacity-100 -translate-x-0" : "opacity-0 -translate-x-4")}>
+        <div className={cn("pointer-events-none absolute inset-0 z-[10001] transition-all duration-500 ease-out", toolbarsReady ? "opacity-100 -translate-x-0" : "opacity-0 -translate-x-4")}>
           <LeftToolbar engine={engine} snapshot={snapshot} />
         </div>
       ) : null}
@@ -225,7 +230,7 @@ export function BoardCanvasRender({
         <FloatingInsertMenu engine={engine} snapshot={snapshot} containerRef={containerRef} />
       ) : null}
       {showUi && !minimal ? (
-        <div className={cn("pointer-events-none absolute inset-0 z-20 transition-all duration-500 ease-out", toolbarsReady ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4")}>
+        <div className={cn("pointer-events-none absolute inset-0 z-[10001] transition-all duration-500 ease-out", toolbarsReady ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4")}>
           <BottomBar engine={engine} snapshot={snapshot} />
         </div>
       ) : null}
@@ -244,7 +249,7 @@ export function BoardCanvasRender({
         */}
       {showUi && !minimal ? (
         <div className="pointer-events-none absolute inset-0 z-10 opacity-0" aria-hidden="true">
-          <BoardToolbar engine={engine} snapshot={snapshot} />
+          <BoardToolbar engine={engine} snapshot={snapshot} containerRef={containerRef} />
         </div>
       ) : null}
       {showUi && !minimal ? (
@@ -258,9 +263,6 @@ export function BoardCanvasRender({
       {showUi && snapshot.connectorDraft ? <ConnectorDropTargetHighlight engine={engine} snapshot={snapshot} /> : null}
       <WorldToolbarLayer engine={engine}>
         {showUi && !isDragging && !snapshot.selectionBox ? <AnchorOverlay snapshot={snapshot} engine={engine} /> : null}
-        {showUi && !isDragging && !snapshot.connectorDraft ? (
-          <ConnectorHoverScissors snapshot={snapshot} engine={engine} />
-        ) : null}
         {showUi && !isDragging && !snapshot.selectionBox && selectedNode && selectedNode.type !== "stroke" ? (
           <SingleSelectionToolbar
             snapshot={snapshot}
@@ -332,6 +334,49 @@ function WorldToolbarLayer({ engine, children }: { engine: CanvasEngine; childre
     <div
       ref={layerRef}
       className="pointer-events-none absolute inset-0 z-20 origin-top-left"
+      style={{ transform: `translate(${offset[0]}px, ${offset[1]}px) scale(${zoom})` }}
+    >
+      {children}
+    </div>
+  );
+}
+
+/**
+ * Scissors layer: same viewport transform as WorldToolbarLayer but at a lower
+ * z-index so scissors hide behind nodes instead of floating above them.
+ */
+function ConnectorHoverScissorsLayer({ engine, children }: { engine: CanvasEngine; children: React.ReactNode }) {
+  const layerRef = useRef<HTMLDivElement | null>(null);
+  const rafRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const handler = () => {
+      if (rafRef.current !== null) return;
+      rafRef.current = window.requestAnimationFrame(() => {
+        rafRef.current = null;
+        const layer = layerRef.current;
+        if (!layer) return;
+        const { zoom, offset } = engine.getViewState().viewport;
+        layer.style.transform = `translate(${offset[0]}px, ${offset[1]}px) scale(${zoom})`;
+      });
+    };
+    handler();
+    const unsub = engine.subscribeView(handler);
+    return () => {
+      unsub();
+      if (rafRef.current !== null) {
+        window.cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+    };
+  }, [engine]);
+
+  const { zoom, offset } = engine.getViewState().viewport;
+
+  return (
+    <div
+      ref={layerRef}
+      className="pointer-events-none absolute inset-0 origin-top-left"
       style={{ transform: `translate(${offset[0]}px, ${offset[1]}px) scale(${zoom})` }}
     >
       {children}
@@ -482,3 +527,5 @@ function getSingleSelectedElement<TKind extends CanvasElement["kind"]>(
   if (!element || element.kind !== kind) return null;
   return element as Extract<CanvasElement, { kind: TKind }>;
 }
+
+export const _snapshotSubscribedInternally = true

@@ -56,7 +56,7 @@ export function ScrollableTabBar({
       <div
         ref={scrollRef}
         className={cn(
-          'no-scrollbar flex gap-1 overflow-x-auto rounded-3xl bg-ol-surface-muted p-0.5',
+          'no-scrollbar flex gap-0.5 overflow-x-auto rounded-3xl bg-ol-surface-muted p-0.5',
           className,
         )}
         onWheel={(e) => {

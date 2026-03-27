@@ -61,6 +61,7 @@
     "videoDesc": "AI video generation",
     "audio": "Audio",
     "audioDesc": "AI audio generation",
+    "tableDesc": "Structured data table",
     "file": "File",
     "link": "Link",
     "linkDesc": "Add web link",
@@ -71,7 +72,10 @@
     "imagePromptGenerate": "Image/Video Analysis",
     "imageGenerate": "Image Generation",
     "videoGenerate": "Video Generation",
-    "aiChat": "AI Chat"
+    "aiChat": "AI Chat",
+    "table": "Table",
+    "videoDownload": "Video Download",
+    "videoDownloadDesc": "Download video from URL"
   },
   "bottomBar": {
     "aiImage": "AI Image",
@@ -98,7 +102,17 @@
     "imagePromptGenerate": "Analyze images/videos and generate descriptions",
     "imageGenerate": "Generate new images from images and text",
     "videoGenerate": "Generate videos from images and prompts",
-    "aiChat": "Chat with AI on canvas"
+    "aiChat": "Chat with AI on canvas",
+    "table": "Structured data table"
+  },
+  "videoUrlDownload": {
+    "title": "Download Video",
+    "placeholder": "Paste video URL from YouTube, Bilibili, TikTok, etc.",
+    "confirm": "Download",
+    "errorEmpty": "Please enter a video URL",
+    "errorInvalidUrl": "Please enter a valid URL",
+    "errorUnsupported": "Unsupported platform. Supports YouTube, Bilibili, TikTok, Vimeo and more",
+    "supportedPlatforms": "Supports YouTube, Bilibili, TikTok, Vimeo, Twitter/X, Douyin, Kuaishou, QQ Video, Youku and more"
   },
   "picker": {
     "imageTitle": "Select Image File",
@@ -946,7 +960,8 @@
     "file-attachment": "File",
     "calendar": "Calendar",
     "group": "Group",
-    "image-group": "Image Group"
+    "image-group": "Image Group",
+    "table": "Table"
   },
   "textPanel": {
     "upstreamPreview": "Upstream Text",
@@ -968,7 +983,9 @@
     "regenerate": "Regenerate",
     "cancel": "Cancel",
     "locked": "Parameters Locked",
-    "unlock": "Unlock"
+    "unlock": "Unlock",
+    "model": "Model:",
+    "advancedOptions": "Advanced Options"
   },
   "generatingOverlay": {
     "status": "Generating, ~{{duration}}"
@@ -1255,5 +1272,93 @@
     "title": "Video generation requires Pro plan or above",
     "description": "Upgrade to unlock all video features",
     "upgrade": "Upgrade"
+  },
+  "tableNode": {
+    "defaultColHeader": "Col {{index}}",
+    "toolbar": {
+      "addRow": "Add Row",
+      "addColumn": "Add Column",
+      "deleteLastRow": "Delete Last Row",
+      "deleteLastColumn": "Delete Last Column",
+      "hideHeader": "Hide Header",
+      "showHeader": "Show Header",
+      "style": "Style",
+      "merge": "Merge",
+      "split": "Split"
+    },
+    "variant": {
+      "default": "Default",
+      "striped": "Striped",
+      "bordered": "Bordered"
+    }
+  },
+  "noCanvasSelected": "No canvas selected",
+  "connectorError": {
+    "cycleBlocked": "Cycle connections are not allowed",
+    "incompatibleType": "This connection type is not supported"
+  },
+  "extractAudio": "Extract Audio",
+  "imageAdjust": {
+    "aspectRatioFree": "Free"
+  },
+  "common": {
+    "default": "Default"
+  },
+  "strokeColors": {
+    "black": "Black",
+    "blue": "Blue",
+    "orange": "Orange",
+    "red": "Red",
+    "green": "Green"
+  },
+  "cameraAngle": {
+    "presets": {
+      "front": "Front",
+      "left": "Left",
+      "right": "Right",
+      "back": "Back",
+      "top": "Top",
+      "bottom": "Bottom",
+      "frontLeft": "Front Left",
+      "frontRight": "Front Right"
+    },
+    "faces": {
+      "front": "F",
+      "back": "B",
+      "left": "L",
+      "right": "R",
+      "top": "T",
+      "bottom": "D"
+    }
+  },
+  "mediaSlot": {
+    "textPrefix": "Text:{{text}}",
+    "charCount": "({{count}} chars)"
+  },
+  "styleSuggestions": {
+    "realistic": "Realistic",
+    "anime": "Anime",
+    "illustration": "Illustration",
+    "3d": "3D",
+    "cyberpunk": "Cyberpunk",
+    "watercolor": "Watercolor",
+    "oilPainting": "Oil Painting",
+    "cinematic": "Cinematic",
+    "vintage": "Vintage",
+    "pixelArt": "Pixel Art",
+    "lowPoly": "Low Poly",
+    "minimal": "Minimal",
+    "flat": "Flat",
+    "chinese": "Chinese Style",
+    "japanese": "Japanese Style",
+    "steampunk": "Steampunk",
+    "futuristic": "Futuristic",
+    "paperCut": "Paper Cut",
+    "handDrawn": "Hand Drawn",
+    "sketch": "Sketch",
+    "surreal": "Surreal",
+    "dreamy": "Dreamy",
+    "blackAndWhite": "Black & White",
+    "highSaturation": "High Saturation"
   }
 }

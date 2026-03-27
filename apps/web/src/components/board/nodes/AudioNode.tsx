@@ -134,6 +134,7 @@ function createAudioToolbarItems(
 /** Render an audio node card with inline playback. */
 export function AudioNodeView({
   element,
+  selected,
   expanded,
   onUpdate,
 }: CanvasNodeViewProps<AudioNodeProps>) {
@@ -385,6 +386,8 @@ export function AudioNodeView({
         stack={element.props.versionStack}
         semanticColor="green"
         onSwitchPrimary={handleSwitchPrimary}
+        engine={engine}
+        selected={selected}
       />
       <div
         className={[

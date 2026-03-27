@@ -120,3 +120,4 @@ apps/openloaf-office-plugins
 .npm-cache
 .openloaf
 .superpowers/
+.plans

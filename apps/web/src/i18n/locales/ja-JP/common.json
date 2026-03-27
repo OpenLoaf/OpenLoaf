@@ -170,6 +170,8 @@
     "dialogTitle": "クラウドアカウントにサインイン",
     "dialogDesc": "サインイン方法を選択して続行してください",
     "welcome": "OpenLoaf へようこそ",
+    "welcomePrefix": "",
+    "welcomeSuffix": " へようこそ",
     "subtitleSuccess": "サインイン完了、閉じています…",
     "subtitleOpening": "システムブラウザを起動中…",
     "subtitlePolling": "ブラウザで開きました。サインインをお待ちしています…",

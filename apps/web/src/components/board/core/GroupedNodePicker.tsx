@@ -11,6 +11,7 @@
 
 import { forwardRef } from 'react'
 import { useTranslation } from 'react-i18next'
+import i18next from 'i18next'
 import { cn } from '@udecode/cn'
 import {
   Brush,
@@ -91,13 +92,10 @@ function resolveFeatureIcon(featureId: string, nodeType: string) {
   return <Fallback size={14} />
 }
 
-const FIXED_FEATURE_LABELS: Record<string, Record<string, string>> = {
-  extractAudio: { zh: '分离音频', en: 'Extract Audio', ja: 'オーディオ抽出' },
-}
-
 function resolveFeatureLabel(featureId: string, lang: string): string {
-  const fixed = FIXED_FEATURE_LABELS[featureId]
-  if (fixed) return fixed[lang] ?? fixed.en ?? featureId
+  if (featureId === 'extractAudio') {
+    return i18next.t('board:extractAudio', { defaultValue: 'Extract Audio' })
+  }
   const entry = MEDIA_FEATURES[featureId as MediaFeatureId]
   if (!entry) return featureId
   const label = (entry.label as Record<string, string>)[lang]

@@ -28,7 +28,7 @@ type RecordEntityVisitPayload = {
 /** Record a unified entity visit without interrupting the current UI action. */
 export function useRecordEntityVisit() {
   const queryClient = useQueryClient();
-  const mutation = useMutation(
+  const { mutate } = useMutation(
     trpc.visit.record.mutationOptions({
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: trpc.visit.listSidebarHistory.pathKey() });
@@ -41,14 +41,14 @@ export function useRecordEntityVisit() {
       const entityId = input.entityId?.trim();
       if (!entityId) return;
       const projectId = input.projectId?.trim();
-      mutation.mutate({
+      mutate({
         entityType: input.entityType,
         entityId,
         ...(projectId ? { projectId } : {}),
         trigger: input.trigger,
       });
     },
-    [mutation],
+    [mutate],
   );
 
   return { recordEntityVisit };

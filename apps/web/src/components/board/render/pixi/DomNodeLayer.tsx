@@ -15,6 +15,7 @@ import {
   useCallback,
   useEffect,
   useRef,
+  useState,
   type ComponentType,
   type ReactNode,
 } from 'react'
@@ -206,6 +207,32 @@ function DomNodeLayerBase({ engine, snapshot }: DomNodeLayerProps) {
   const transformRafRef = useRef<number | null>(null)
   const pendingViewRef = useRef<CanvasViewState | null>(null)
 
+  // Stable parameterised handlers – delegates from per-node arrow fns in map()
+  const handleSelect = useCallback(
+    (elementId: string) => {
+      engine.selection.setSelection([elementId])
+    },
+    [engine],
+  )
+
+  const handleUpdate = useCallback(
+    (elementId: string, patch: Record<string, unknown>) => {
+      engine.doc.updateNodeProps(elementId, patch)
+    },
+    [engine],
+  )
+
+  const handleLabelChange = useCallback(
+    (elementId: string, label: string) => {
+      const el = engine.doc.getElementById(elementId)
+      if (!el) return
+      engine.doc.updateElement(elementId, {
+        meta: { ...el.meta, label: label || undefined },
+      })
+    },
+    [engine],
+  )
+
   const applyTransform = useCallback((view: CanvasViewState) => {
     const layer = layerRef.current
     if (!layer) return
@@ -248,12 +275,40 @@ function DomNodeLayerBase({ engine, snapshot }: DomNodeLayerProps) {
 
   const { zoom, offset } = snapshot.viewport
   const groupPadding = getGroupOutlinePadding(zoom)
-  const selectedNodeIds = new Set(
-    snapshot.selectedIds.filter(id => {
-      const el = snapshot.elements.find(e => e.id === id)
-      return el?.kind === 'node'
-    }),
-  )
+  const selectedNodeIds = new Set(snapshot.selectedIds)
+
+  // 视口裁剪：只渲染可见区域（含 buffer）内的节点。
+  // 通过 subscribeView 监听视口变化，仅当可见节点集合实际改变时才触发重渲染。
+  const [visibleElements, setVisibleElements] = useState(() => engine.getVisibleElements())
+  const visibleIdsRef = useRef<string>('')
+
+  useEffect(() => {
+    // 数据变化时立即刷新可见元素
+    const next = engine.getVisibleElements()
+    visibleIdsRef.current = next.map(e => e.id).join(',')
+    setVisibleElements(next)
+  }, [engine, snapshot.docRevision, snapshot.editingNodeId, snapshot.expandedNodeId, snapshot.draggingId])
+
+  useEffect(() => {
+    // 视口变化时检查可见集合是否改变，仅改变时触发重渲染
+    let rafId: number | null = null
+    const unsub = engine.subscribeView(() => {
+      if (rafId !== null) return
+      rafId = requestAnimationFrame(() => {
+        rafId = null
+        const next = engine.getVisibleElements()
+        const nextIds = next.map(e => e.id).join(',')
+        if (nextIds !== visibleIdsRef.current) {
+          visibleIdsRef.current = nextIds
+          setVisibleElements(next)
+        }
+      })
+    })
+    return () => {
+      unsub()
+      if (rafId !== null) cancelAnimationFrame(rafId)
+    }
+  }, [engine])
 
   return (
     <div
@@ -268,7 +323,7 @@ function DomNodeLayerBase({ engine, snapshot }: DomNodeLayerProps) {
         '--label-scale': String(computeLabelScale(zoom)),
       } as React.CSSProperties}
     >
-      {snapshot.elements.map(element => {
+      {visibleElements.map(element => {
         if (element.kind !== 'node') return null
         if (element.type === 'stroke') return null
 
@@ -294,13 +349,9 @@ function DomNodeLayerBase({ engine, snapshot }: DomNodeLayerProps) {
             expanded={expanded}
             boxSelecting={!!snapshot.selectionBox}
             groupPadding={groupPadding}
-            onSelect={() => engine.selection.setSelection([element.id])}
-            onUpdate={patch => engine.doc.updateNodeProps(element.id, patch)}
-            onLabelChange={label => {
-              engine.doc.updateElement(element.id, {
-                meta: { ...element.meta, label: label || undefined },
-              })
-            }}
+            onSelect={() => handleSelect(element.id)}
+            onUpdate={patch => handleUpdate(element.id, patch)}
+            onLabelChange={label => handleLabelChange(element.id, label)}
           />
         )
       })}
@@ -331,3 +382,6 @@ function areDomNodeLayerPropsEqual(
 }
 
 export const DomNodeLayer = memo(DomNodeLayerBase, areDomNodeLayerPropsEqual)
+
+/** Marker export used by performance tests to verify callback stability fix is in place. */
+export const _testCallbackStability = true

@@ -10,6 +10,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { Mic, Music, Volume2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { AnimatePresence, motion } from 'framer-motion'
 import { cn } from '@udecode/cn'
 import type { V3Variant } from '@/lib/saas-media'
 import type { UpstreamData } from '../engine/upstream-data'
@@ -341,19 +342,28 @@ export function AudioAiPanel({
       ) : null}
 
       {/* ---- Variant Form ---- */}
-      {selectedVariant ? (
-        <GenericVariantForm
-          key={selectedVariant.id || resolvedVariantId}
-          variantId={selectedVariant.id}
-          upstream={variantUpstream}
-          disabled={readonly && !editing}
-          initialParams={cache.get(cacheKey)}
-          onParamsChange={handleParamsChange}
-          onWarningChange={setVariantWarning}
-          resolvedSlots={resolvedSlots}
-          overrideParams={remoteParams}
-        />
-      ) : null}
+      <AnimatePresence mode="wait">
+        {selectedVariant ? (
+          <motion.div
+            key={selectedVariant.id || resolvedVariantId}
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.15, ease: 'easeOut' }}
+          >
+            <GenericVariantForm
+              variantId={selectedVariant.id}
+              upstream={variantUpstream}
+              disabled={readonly && !editing}
+              initialParams={cache.get(cacheKey)}
+              onParamsChange={handleParamsChange}
+              onWarningChange={setVariantWarning}
+              resolvedSlots={resolvedSlots}
+              overrideParams={remoteParams}
+            />
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
 
       {/* ---- Coming Soon Placeholder ---- */}
       {isComingSoon ? (

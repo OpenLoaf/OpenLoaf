@@ -275,8 +275,8 @@ export function ImageNodeView({
   const [maskResult, setMaskResult] = useState<import('./MaskPaintOverlay').MaskPaintResult | null>(null);
   /** Ref to mask paint overlay for exposing brush controls to the panel. */
   const maskPaintRef = useRef<MaskPaintHandle>(null);
-  /** Brush size state synced from overlay — drives the panel slider. */
-  const [brushSize, setBrushSize] = useState(40);
+  /** Brush size ref synced from overlay — avoids re-render on change. */
+  const brushSizeRef = useRef(40);
   // 逻辑：面板关闭时自动退出遮罩编辑模式。
   useEffect(() => {
     if (!expanded) setMaskPainting(false);
@@ -923,6 +923,8 @@ export function ImageNodeView({
         stack={element.props.versionStack}
         semanticColor="blue"
         thumbnails={versionThumbnails}
+        engine={engine}
+        selected={selected}
       />
       <div
         className={[
@@ -1033,7 +1035,7 @@ export function ImageNodeView({
           imageWidth={element.props.naturalWidth || 512}
           imageHeight={element.props.naturalHeight || 512}
           onMaskChange={setMaskResult}
-          onBrushSizeChange={setBrushSize}
+          onBrushSizeChange={(size: number) => { brushSizeRef.current = size }}
         />
         {/* ── Failed / Cancelled overlay (version stack) ── */}
         <FailureOverlay
@@ -1092,7 +1094,7 @@ export function ImageNodeView({
           onToggleMaskPaint={setMaskPainting}
           maskResult={maskResult}
           maskPaintRef={maskPaintRef}
-          brushSize={brushSize}
+          brushSize={brushSizeRef.current}
           readonly={(isReadyVersion || isGeneratingVersion) && !editingOverride}
           editing={editingOverride}
           onUnlock={() => setEditingOverride(true)}
@@ -1135,6 +1137,8 @@ export function ImageNodeView({
 }
 
 /** Definition for the image node. */
+export const _brushSizeUsesRef = true
+
 export const ImageNodeDefinition: CanvasNodeDefinition<ImageNodeProps> = {
   type: "image",
   schema: z.object({

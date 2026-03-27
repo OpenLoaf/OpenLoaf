@@ -99,9 +99,14 @@ export function createCalendarService(args: { log: Logger }) {
   /** Lightweight permission check — uses cache or spawns Swift check-permission. */
   const checkPermission = async (): Promise<CalendarResult<{ event: CalendarPermissionState; reminder: CalendarPermissionState }>> => {
     if (permissionCache) {
+      args.log(`[calendar] checkPermission: cache hit (event=${permissionCache.event}, reminder=${permissionCache.reminder})`);
       return { ok: true, data: permissionCache };
     }
-    if (checkInflight) return checkInflight;
+    if (checkInflight) {
+      args.log('[calendar] checkPermission: dedup — reusing in-flight request');
+      return checkInflight;
+    }
+    args.log('[calendar] checkPermission: spawning Swift check-permission');
     checkInflight = invokeCalendarHelper<{ event: CalendarPermissionState; reminder: CalendarPermissionState }>(
       "check-permission",
       {},
@@ -204,6 +209,8 @@ export function createCalendarService(args: { log: Logger }) {
 
   /** Active renderer listeners for calendar change events. */
   const listeners = new Set<Electron.WebContents>();
+  /** WebContents that already have a "destroyed" auto-cleanup listener. */
+  const destroyedListenerAttached = new WeakSet<Electron.WebContents>();
   /** Active watch session with helper process. */
   let watchSession: WatchSession | null = null;
   /** 标记 watch 正在关闭中，防止重复启动。 */
@@ -221,6 +228,7 @@ export function createCalendarService(args: { log: Logger }) {
 
   /** Emit a change event to subscribed renderers. */
   const emitChange = () => {
+    args.log(`[calendar] emitChange: broadcasting to ${listeners.size} listener(s)`);
     for (const webContents of listeners) {
       if (webContents.isDestroyed()) {
         listeners.delete(webContents);
@@ -243,12 +251,19 @@ export function createCalendarService(args: { log: Logger }) {
 
   /** Start helper watch process if not running. */
   const startWatch = () => {
-    if (watchSession || watchStopping) return;
-    if (permissionCache && permissionCache.event !== "granted") return;
+    if (watchSession || watchStopping) {
+      args.log(`[calendar] startWatch: skipped (session=${!!watchSession}, stopping=${watchStopping})`);
+      return;
+    }
+    if (permissionCache && permissionCache.event !== "granted") {
+      args.log(`[calendar] startWatch: skipped — permission not granted (event=${permissionCache.event})`);
+      return;
+    }
     const helperPath = resolveCalendarHelperPath();
     if (!helperPath || !fs.existsSync(helperPath)) {
       return;
     }
+    args.log(`[calendar] startWatch: spawning watch process (listeners=${listeners.size})`);
     // 逻辑：stdin 设为 pipe，当本进程退出时管道断开，Swift 子进程检测到 stdin EOF
     // 后自动退出，防止成为孤儿进程。对 watch 尤其重要——它是长驻进程。
     const child = spawn(helperPath, ["watch"], { stdio: ["pipe", "pipe", "pipe"] });
@@ -263,9 +278,15 @@ export function createCalendarService(args: { log: Logger }) {
         const trimmed = line.trim();
         if (!trimmed) continue;
         try {
-          const payload = JSON.parse(trimmed) as { type?: string };
+          const payload = JSON.parse(trimmed) as { type?: string; ok?: boolean; code?: string };
           if (payload.type === "changed") {
             emitChange();
+          } else if (payload.ok === false && payload.code === "not_authorized") {
+            args.log('[calendar] watch reported not_authorized');
+            if (permissionCache?.event !== "denied") {
+              permissionCache = { event: "denied", reminder: "denied" };
+              broadcastPermissionChange(permissionCache);
+            }
           }
         } catch {
           // 逻辑：忽略无法解析的输出，避免影响主进程稳定性。
@@ -277,10 +298,11 @@ export function createCalendarService(args: { log: Logger }) {
       args.log(`[calendar] watch stderr: ${chunk.toString().trim()}`);
     });
 
-    child.on("exit", () => {
+    child.on("exit", (code) => {
       const wasExpected = watchStopping;
       watchSession = null;
       watchStopping = false;
+      args.log(`[calendar] watch process exited (code=${code}, expected=${wasExpected})`);
       if (!wasExpected) {
         for (const cb of watchExitCallbacks) cb();
       }
@@ -290,6 +312,7 @@ export function createCalendarService(args: { log: Logger }) {
   /** 关闭 watch 进程。先 SIGTERM，宽限期后 SIGKILL。 */
   const killWatch = () => {
     if (!watchSession) return;
+    args.log('[calendar] killWatch: sending SIGTERM');
     const session = watchSession;
     watchStopping = true;
     try {
@@ -308,11 +331,25 @@ export function createCalendarService(args: { log: Logger }) {
     session.process.once("exit", () => clearTimeout(killTimer));
   };
 
-  /** Stop watch process when no listeners remain. */
+  /** Debounce timer for stopping watch when listeners drop to zero. */
+  let stopWatchTimer: ReturnType<typeof setTimeout> | null = null;
+  const STOP_WATCH_DELAY_MS = 500;
+
+  /** Stop watch process when no listeners remain (debounced). */
   const stopWatchIfIdle = () => {
     pruneDestroyedListeners();
-    if (listeners.size > 0) return;
-    killWatch();
+    if (listeners.size > 0) {
+      if (stopWatchTimer) { clearTimeout(stopWatchTimer); stopWatchTimer = null; }
+      return;
+    }
+    if (stopWatchTimer) return;
+    stopWatchTimer = setTimeout(() => {
+      stopWatchTimer = null;
+      pruneDestroyedListeners();
+      if (listeners.size > 0) return;
+      args.log('[calendar] stopWatchIfIdle: no listeners after debounce, killing watch');
+      killWatch();
+    }, STOP_WATCH_DELAY_MS);
   };
 
   /** In-flight permission request for deduplication. */
@@ -320,7 +357,11 @@ export function createCalendarService(args: { log: Logger }) {
 
   /** Request system permission (deduplicated). Updates cache and auto-starts watch. */
   const requestPermission = async (): Promise<CalendarResult<{ event: CalendarPermissionState; reminder: CalendarPermissionState }>> => {
-    if (permissionInflight) return permissionInflight;
+    if (permissionInflight) {
+      args.log('[calendar] requestPermission: dedup — reusing in-flight request');
+      return permissionInflight;
+    }
+    args.log('[calendar] requestPermission: spawning Swift permission request');
     permissionInflight = (async () => {
       const result = await invokeCalendarHelper<{ event: CalendarPermissionState; reminder: CalendarPermissionState }>(
         "permission",
@@ -329,9 +370,12 @@ export function createCalendarService(args: { log: Logger }) {
       if (result.ok) {
         permissionCache = result.data;
         broadcastPermissionChange(result.data);
+        args.log(`[calendar] requestPermission: granted (event=${result.data.event}, reminder=${result.data.reminder}), listeners=${listeners.size}`);
         if (result.data.event === "granted" && listeners.size > 0 && !watchSession) {
           startWatch();
         }
+      } else {
+        args.log(`[calendar] requestPermission: failed — ${(result as { reason?: string }).reason ?? "unknown"}`);
       }
       return result;
     })().finally(() => {
@@ -389,28 +433,41 @@ export function createCalendarService(args: { log: Logger }) {
   /** Start watching calendar changes for a renderer. */
   const startWatching = (webContents: Electron.WebContents): CalendarResult<{ ok: true }> => {
     if (webContents.isDestroyed()) {
+      args.log('[calendar] startWatching: webContents already destroyed, skipping');
       return { ok: false, reason: "目标窗口已关闭。", code: "webcontents_destroyed" };
     }
-    listeners.add(webContents);
-    // 当 webContents 销毁时自动移除，防止泄漏。
-    webContents.once("destroyed", () => {
-      listeners.delete(webContents);
-      stopWatchIfIdle();
-    });
+    // Cancel pending debounced stop.
+    if (stopWatchTimer) { clearTimeout(stopWatchTimer); stopWatchTimer = null; }
+    if (!listeners.has(webContents)) {
+      listeners.add(webContents);
+      args.log(`[calendar] startWatching: added listener (id=${webContents.id}, total=${listeners.size})`);
+      if (!destroyedListenerAttached.has(webContents)) {
+        destroyedListenerAttached.add(webContents);
+        webContents.once("destroyed", () => {
+          listeners.delete(webContents);
+          args.log(`[calendar] listener destroyed (id=${webContents.id}, remaining=${listeners.size})`);
+          stopWatchIfIdle();
+        });
+      }
+    } else {
+      args.log(`[calendar] startWatching: already registered (id=${webContents.id}), skipping duplicate`);
+    }
     startWatch();
     return { ok: true, data: { ok: true } };
   };
 
   /** Stop watching calendar changes for a renderer. */
   const stopWatching = (webContents: Electron.WebContents): CalendarResult<{ ok: true }> => {
-    listeners.delete(webContents);
+    const had = listeners.delete(webContents);
+    args.log(`[calendar] stopWatching: removed=${had}, remaining=${listeners.size}`);
     stopWatchIfIdle();
     return { ok: true, data: { ok: true } };
   };
 
   /** 销毁所有日历子进程。在应用退出时调用。 */
   const destroy = () => {
-    // 杀掉 watch 进程。
+    args.log(`[calendar] destroy: cleaning up (listeners=${listeners.size}, activeChildren=${activeChildren.size}, watch=${!!watchSession})`);
+    if (stopWatchTimer) { clearTimeout(stopWatchTimer); stopWatchTimer = null; }
     killWatch();
     // 杀掉所有一次性子进程。
     for (const child of activeChildren) {

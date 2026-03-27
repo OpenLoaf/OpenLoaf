@@ -61,6 +61,7 @@
     "videoDesc": "AI動画生成",
     "audio": "オーディオ",
     "audioDesc": "AIオーディオ生成",
+    "tableDesc": "構造化データテーブル",
     "file": "ファイル",
     "link": "リンク",
     "linkDesc": "Webリンクを追加",
@@ -71,7 +72,8 @@
     "imagePromptGenerate": "画像/動画分析",
     "imageGenerate": "画像生成",
     "videoGenerate": "動画生成",
-    "aiChat": "AIチャット"
+    "aiChat": "AIチャット",
+    "table": "テーブル"
   },
   "bottomBar": {
     "aiImage": "AI画像",
@@ -98,7 +100,8 @@
     "imagePromptGenerate": "画像/動画を分析して説明を生成",
     "imageGenerate": "画像とテキストから新しい画像を生成",
     "videoGenerate": "画像とプロンプトから動画を生成",
-    "aiChat": "キャンバス上でAIとチャット"
+    "aiChat": "キャンバス上でAIとチャット",
+    "table": "構造化データテーブル"
   },
   "picker": {
     "imageTitle": "画像ファイルを選択",
@@ -940,7 +943,8 @@
     "file-attachment": "ファイル",
     "calendar": "カレンダー",
     "group": "グループ",
-    "image-group": "画像グループ"
+    "image-group": "画像グループ",
+    "table": "テーブル"
   },
   "textPanel": {
     "upstreamPreview": "上流テキスト",
@@ -960,7 +964,9 @@
     "locked": "パラメータがロックされています",
     "unlock": "ロック解除",
     "currentNode": "現在のノード",
-    "regenerate": "再生成"
+    "regenerate": "再生成",
+    "model": "モデル:",
+    "advancedOptions": "詳細オプション"
   },
   "generatingOverlay": {
     "status": "生成中、約 {{duration}}"
@@ -1235,5 +1241,93 @@
     "title": "動画生成にはProプラン以上が必要です",
     "description": "アップグレードして全ての動画機能をご利用ください",
     "upgrade": "アップグレード"
+  },
+  "tableNode": {
+    "defaultColHeader": "列 {{index}}",
+    "toolbar": {
+      "addRow": "行を追加",
+      "addColumn": "列を追加",
+      "deleteLastRow": "最終行を削除",
+      "deleteLastColumn": "最終列を削除",
+      "hideHeader": "ヘッダーを非表示",
+      "showHeader": "ヘッダーを表示",
+      "style": "スタイル",
+      "merge": "結合",
+      "split": "分割"
+    },
+    "variant": {
+      "default": "デフォルト",
+      "striped": "縞模様",
+      "bordered": "枠線"
+    }
+  },
+  "noCanvasSelected": "キャンバスが選択されていません",
+  "connectorError": {
+    "cycleBlocked": "循環接続は禁止されています",
+    "incompatibleType": "このタイプの接続はサポートされていません"
+  },
+  "extractAudio": "オーディオ抽出",
+  "imageAdjust": {
+    "aspectRatioFree": "自由"
+  },
+  "common": {
+    "default": "デフォルト"
+  },
+  "strokeColors": {
+    "black": "黒",
+    "blue": "青",
+    "orange": "橙",
+    "red": "赤",
+    "green": "緑"
+  },
+  "cameraAngle": {
+    "presets": {
+      "front": "正面",
+      "left": "左側",
+      "right": "右側",
+      "back": "背面",
+      "top": "俯瞰",
+      "bottom": "仰角",
+      "frontLeft": "左前",
+      "frontRight": "右前"
+    },
+    "faces": {
+      "front": "前",
+      "back": "後",
+      "left": "左",
+      "right": "右",
+      "top": "上",
+      "bottom": "下"
+    }
+  },
+  "mediaSlot": {
+    "textPrefix": "テキスト:{{text}}",
+    "charCount": "({{count}}文字)"
+  },
+  "styleSuggestions": {
+    "realistic": "リアル",
+    "anime": "アニメ",
+    "illustration": "イラスト",
+    "3d": "3D",
+    "cyberpunk": "サイバーパンク",
+    "watercolor": "水彩",
+    "oilPainting": "油絵",
+    "cinematic": "シネマティック",
+    "vintage": "ヴィンテージ",
+    "pixelArt": "ドット絵",
+    "lowPoly": "ローポリ",
+    "minimal": "ミニマル",
+    "flat": "フラット",
+    "chinese": "中国風",
+    "japanese": "和風",
+    "steampunk": "スチームパンク",
+    "futuristic": "フューチャリスティック",
+    "paperCut": "切り絵",
+    "handDrawn": "手描き",
+    "sketch": "スケッチ",
+    "surreal": "シュール",
+    "dreamy": "ドリーミー",
+    "blackAndWhite": "モノクロ",
+    "highSaturation": "高彩度"
   }
 }

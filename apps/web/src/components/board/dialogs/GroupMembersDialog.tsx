@@ -317,7 +317,6 @@ function GroupCanvasRenderLayer({
       ) : null}
       <BoardCanvasRender
         engine={engine}
-        snapshot={snapshot}
         showUi
         showPerfOverlay={false}
         containerRef={dummyContainerRef}

@@ -99,12 +99,64 @@ const boardAutoformatLists: AutoformatRule[] = [
 ]
 
 /**
- * Lightweight Plate plugin kit for Board TextNode.
+ * Read-only Plate plugin kit for Board TextNode.
  *
- * Includes: Bold, Italic, Underline, Strikethrough, List (ul/ol/todo),
- * Indent, Autoformat (markdown shortcuts), ExitBreak.
+ * Only includes rendering-essential plugins: Headings (H1–H6), Indent, List.
+ * Mark plugins (Bold, Italic, etc.) are omitted because Slate handles mark
+ * rendering natively. Autoformat and ExitBreak are omitted because users
+ * do not type or edit in read-only mode.
  */
-export const BoardTextEditorKit = [
+export const ReadOnlyBoardTextEditorKit = [
+  // Headings — render only, no break rules needed
+  H1Plugin.configure({
+    node: { component: BoardH1Element },
+  }),
+  H2Plugin.configure({
+    node: { component: BoardH2Element },
+  }),
+  H3Plugin.configure({
+    node: { component: BoardH3Element },
+  }),
+  H4Plugin.configure({
+    node: { component: BoardH4Element },
+  }),
+  H5Plugin.configure({
+    node: { component: BoardH5Element },
+  }),
+  H6Plugin.configure({
+    node: { component: BoardH6Element },
+  }),
+
+  // Indent (required by ListPlugin)
+  IndentPlugin.configure({
+    inject: {
+      targetPlugins: [
+        ...KEYS.heading,
+        KEYS.p,
+      ],
+    },
+    options: { offset: 24 },
+  }),
+
+  // List
+  ListPlugin.configure({
+    inject: {
+      targetPlugins: [
+        ...KEYS.heading,
+        KEYS.p,
+      ],
+    },
+    render: { belowNodes: BoardBlockList },
+  }),
+]
+
+/**
+ * Full Plate plugin kit for editable Board TextNode.
+ *
+ * Includes: Bold, Italic, Underline, Strikethrough, Headings (H1–H6),
+ * Indent, List (ul/ol/todo), Autoformat (markdown shortcuts), ExitBreak.
+ */
+export const EditableBoardTextEditorKit = [
   // Inline marks
   BoldPlugin,
   ItalicPlugin,
@@ -205,3 +257,6 @@ export const BoardTextEditorKit = [
     },
   }),
 ]
+
+/** Backward-compatible alias — points to the full editable kit. */
+export const BoardTextEditorKit = EditableBoardTextEditorKit

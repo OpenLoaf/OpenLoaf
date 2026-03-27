@@ -692,9 +692,20 @@ export async function translateSkillTitle(
   }
 }
 
+/** Map raw connection/SDK errors to user-friendly messages. */
+const FRIENDLY_ERROR_PATTERNS: [RegExp, string][] = [
+  [/reconnect/i, 'AI 模型连接失败，请检查模型配置或网络连接'],
+  [/ECONNREFUSED/i, 'AI 模型服务未启动，请先启动本地模型'],
+  [/ECONNRESET|EPIPE/i, 'AI 模型连接中断，请稍后重试'],
+  [/ETIMEDOUT|timeout|aborted/i, 'AI 模型响应超时，请检查模型是否正常运行'],
+  [/fetch failed|network/i, '网络连接失败，请检查网络设置'],
+  [/unauthorized|401/i, '认证失败，请检查 API 密钥配置'],
+  [/rate.?limit|429/i, '请求过于频繁，请稍后重试'],
+]
+
 /** Extract a human-readable error message, including nested SDK payload messages. */
 function extractErrorMessage(err: unknown): string {
-  if (!err || typeof err !== 'object') return String(err)
+  if (!err || typeof err !== 'object') return mapFriendlyError(String(err))
   const e = err as Record<string, unknown>
   // SDK errors may carry a payload with a message (e.g. { payload: { message: "今日配额已用完" } })
   if (e.payload && typeof e.payload === 'object') {
@@ -704,9 +715,17 @@ function extractErrorMessage(err: unknown): string {
   // Some errors have a cause with a message
   if (e.cause && typeof e.cause === 'object') {
     const cause = e.cause as Record<string, unknown>
-    if (typeof cause.message === 'string' && cause.message) return cause.message
+    if (typeof cause.message === 'string' && cause.message) return mapFriendlyError(cause.message)
   }
-  if (err instanceof Error) return err.message
-  return String(err)
+  if (err instanceof Error) return mapFriendlyError(err.message)
+  return mapFriendlyError(String(err))
+}
+
+/** Replace raw technical error messages with user-friendly text. */
+function mapFriendlyError(message: string): string {
+  for (const [pattern, friendly] of FRIENDLY_ERROR_PATTERNS) {
+    if (pattern.test(message)) return friendly
+  }
+  return message
 }
 

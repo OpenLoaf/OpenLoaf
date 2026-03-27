@@ -7,9 +7,9 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { AlertCircle, ArrowRight, ChevronDown, Layers, Lock, Sparkles, Zap } from 'lucide-react'
+import { AlertCircle, ArrowRight, Check, ChevronDown, Layers, Lock, Sparkles, Zap } from 'lucide-react'
 import { useSaasAuth } from '@/hooks/use-saas-auth'
 import { SaasLoginDialog } from '@/components/auth/SaasLoginDialog'
 import { useEstimatePrice } from './hooks/useEstimatePrice'
@@ -62,6 +62,96 @@ export type GenerateActionBarProps = {
   selectedVariantId?: string
   /** Called when user selects a different variant. */
   onVariantChange?: (variantId: string) => void
+}
+
+/** Custom dropdown for >2 variants — replaces native <select>. */
+function VariantDropdown({
+  variants,
+  selectedId,
+  disabled,
+  onChange,
+}: {
+  variants: GenerateActionVariant[]
+  selectedId?: string
+  disabled?: boolean
+  onChange: (id: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [open])
+
+  const selectedLabel =
+    variants.find((v) => v.id === selectedId)?.displayName ?? selectedId ?? ''
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        disabled={disabled}
+        className={[
+          'inline-flex items-center gap-1 rounded-full bg-ol-surface-muted pl-2.5 pr-1.5 py-1 text-[11px] font-medium text-foreground transition-colors duration-150',
+          disabled
+            ? 'opacity-60 cursor-not-allowed'
+            : 'cursor-pointer hover:bg-ol-surface-muted/80',
+        ].join(' ')}
+        onClick={() => !disabled && setOpen((p) => !p)}
+      >
+        <span className="truncate">{selectedLabel}</span>
+        <ChevronDown
+          size={11}
+          className={[
+            'shrink-0 text-muted-foreground transition-transform duration-150',
+            open ? 'rotate-180' : '',
+          ].join(' ')}
+        />
+      </button>
+      {open ? (
+        <div className="absolute left-0 top-full mt-1 z-50 flex flex-col rounded-xl border border-border bg-card py-0.5 shadow-lg min-w-[110px] max-h-[200px] overflow-y-auto">
+          {variants.map((v) => (
+            <button
+              key={v.id}
+              type="button"
+              disabled={v.incompatible}
+              title={v.incompatibleReason}
+              className={[
+                'flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] text-left transition-colors',
+                v.incompatible
+                  ? 'opacity-30 cursor-not-allowed text-muted-foreground'
+                  : 'hover:bg-foreground/5',
+                selectedId === v.id
+                  ? 'text-foreground font-medium'
+                  : 'text-muted-foreground',
+              ].join(' ')}
+              onClick={() => {
+                if (v.incompatible) return
+                onChange(v.id)
+                setOpen(false)
+              }}
+            >
+              <Check
+                size={10}
+                className={[
+                  'shrink-0',
+                  selectedId === v.id ? 'opacity-100' : 'opacity-0',
+                ].join(' ')}
+              />
+              <span>{v.displayName}</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  )
 }
 
 /**
@@ -186,8 +276,13 @@ export function GenerateActionBar({
       ) : null}
 
       <div className="flex items-center gap-2">
-        {/* Left: Variant tab selector */}
-        {variants && variants.length > 1 && onVariantChange ? (
+        {/* Left: Variant label / tab selector */}
+        {variants && variants.length >= 1 ? (
+          <span className="text-[11px] text-muted-foreground/70">{t('generateAction.model')}</span>
+        ) : null}
+        {variants && variants.length === 1 ? (
+          <span className="text-[11px] font-medium text-muted-foreground">{variants[0].displayName}</span>
+        ) : variants && variants.length > 1 && onVariantChange ? (
           variants.length <= 2 ? (
             /* ≤2 个 variant：tab 胶囊样式 */
             <div className="flex items-center gap-0.5 rounded-full bg-ol-surface-muted p-0.5">
@@ -198,7 +293,7 @@ export function GenerateActionBar({
                   disabled={v.incompatible || generating}
                   title={v.incompatibleReason}
                   className={[
-                    'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors duration-150',
+                    'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium transition-colors duration-150',
                     v.incompatible
                       ? 'opacity-30 cursor-not-allowed text-muted-foreground'
                       : selectedVariantId === v.id
@@ -215,22 +310,13 @@ export function GenerateActionBar({
               ))}
             </div>
           ) : (
-            /* >2 个 variant：下拉框 */
-            <div className="relative">
-              <select
-                value={selectedVariantId ?? ''}
-                disabled={disabled || generating}
-                onChange={(e) => onVariantChange(e.target.value)}
-                className="appearance-none rounded-full bg-ol-surface-muted pl-2.5 pr-6 py-1 text-[11px] font-medium text-foreground border-none outline-none cursor-pointer transition-colors duration-150 hover:bg-ol-surface-muted/80"
-              >
-                {variants.map((v) => (
-                  <option key={v.id} value={v.id} disabled={v.incompatible}>
-                    {v.displayName}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown size={12} className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            </div>
+            /* >2 个 variant：自定义下拉 */
+            <VariantDropdown
+              variants={variants}
+              selectedId={selectedVariantId}
+              disabled={generating}
+              onChange={onVariantChange}
+            />
           )
         ) : null}
 

@@ -47,8 +47,8 @@ export function ColorPickerSubMenu({
 }: ColorPickerSubMenuProps) {
   return (
     <ContextMenuSub>
-      <ContextMenuSubTrigger className="gap-2">
-        <Paintbrush className="h-4 w-4" />
+      <ContextMenuSubTrigger>
+        <Paintbrush className="mr-2 h-4 w-4" />
         {label}
       </ContextMenuSubTrigger>
       <ContextMenuSubContent className="p-2">

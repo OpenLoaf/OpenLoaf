@@ -48,6 +48,12 @@ import {
 } from '@openloaf/ui/tooltip'
 import { PillSelect } from './PillSelect'
 import { useCatalog } from '../../../hooks/useCatalog'
+import {
+  CameraAngleControl,
+  CAMERA_ANGLE_DEFAULTS,
+  isCameraAngleParams,
+  splitCameraAngleFields,
+} from './CameraAngleControl'
 
 // ---------------------------------------------------------------------------
 // Props
@@ -65,6 +71,8 @@ export interface GenericVariantFormProps {
   onWarningChange?: (warning: string | null) => void
   /** Override params from remote schema (takes precedence over definition.params). */
   overrideParams?: ParamField[]
+  /** Content injected into the CameraAngleControl right column (e.g. prompt text slot). */
+  cameraChildren?: React.ReactNode
 }
 
 // ---------------------------------------------------------------------------
@@ -74,7 +82,9 @@ export interface GenericVariantFormProps {
 function getDefaultParams(fields: ParamField[]): Record<string, unknown> {
   const result: Record<string, unknown> = {}
   for (const f of fields) {
-    if (f.default !== undefined) {
+    if (f.key in CAMERA_ANGLE_DEFAULTS) {
+      result[f.key] = CAMERA_ANGLE_DEFAULTS[f.key]
+    } else if (f.default !== undefined) {
       result[f.key] = f.default
     }
   }
@@ -244,7 +254,7 @@ function ParamFieldRenderer({
                 type="button"
                 disabled={disabled}
                 className={cn(
-                  'px-3 py-1 text-xs font-medium transition-colors duration-150 first:rounded-l-3xl last:rounded-r-3xl',
+                  'px-2.5 py-0.5 text-[11px] font-medium transition-colors duration-150 first:rounded-l-3xl last:rounded-r-3xl',
                   isActive
                     ? 'bg-foreground text-background'
                     : 'text-muted-foreground hover:text-foreground',
@@ -282,7 +292,7 @@ function AdvancedSection({
   disabled?: boolean
   resolveCtx: ResolveContext
 }) {
-  const { t } = useTranslation()
+  const { t } = useTranslation('board')
   const [open, setOpen] = useState(false)
 
   const visibleFields = fields.filter(
@@ -294,7 +304,7 @@ function AdvancedSection({
     <Collapsible open={open} onOpenChange={setOpen}>
       <CollapsibleTrigger className="group flex w-full items-center gap-1.5 py-1 text-[11px] font-medium text-neutral-400 transition-colors hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300">
         <span className="h-px flex-1 bg-neutral-200 dark:bg-neutral-700" />
-        {t('board.variant.advanced', '高级选项')}
+        {t('generateAction.advancedOptions')}
         <ChevronRight
           className={cn(
             'size-3 transition-transform duration-150',
@@ -455,6 +465,7 @@ export function GenericVariantForm({
   onParamsChange,
   onWarningChange,
   overrideParams,
+  cameraChildren,
 }: GenericVariantFormProps) {
   const { t } = useTranslation()
 
@@ -535,13 +546,37 @@ export function GenericVariantForm({
   )
   const advancedFields = allParams.filter((f) => f.group === 'advanced')
 
+  // ---- Camera angle detection ----
+  const hasCameraAngle = isCameraAngleParams(primaryFields)
+  const { cameraFields, otherFields: normalPrimaryFields } = hasCameraAngle
+    ? splitCameraAngleFields(primaryFields)
+    : { cameraFields: [], otherFields: primaryFields }
+
+  // Derive source image URL for camera angle preview (from resolved slots or node resource)
+  const cameraSourceImageUrl = hasCameraAngle
+    ? (resolvedSlots?.source?.[0]?.url ?? nodeResourceUrl)
+    : undefined
+
   return (
     <div className="flex flex-col gap-3">
 
-      {/* 5. Primary Params */}
-      {renderFieldRows(primaryFields, params, handleFieldChange, resolveCtx, disabled)}
+      {/* Camera angle control (replaces default sliders when detected) */}
+      {hasCameraAngle && cameraFields.length > 0 ? (
+        <CameraAngleControl
+          fields={cameraFields}
+          params={params}
+          onChange={handleFieldChange}
+          disabled={disabled}
+          sourceImageUrl={cameraSourceImageUrl}
+        >
+          {cameraChildren}
+        </CameraAngleControl>
+      ) : null}
 
-      {/* 7. Advanced */}
+      {/* Remaining primary params */}
+      {renderFieldRows(normalPrimaryFields, params, handleFieldChange, resolveCtx, disabled)}
+
+      {/* Advanced */}
       {advancedFields.length > 0 && (
         <AdvancedSection
           fields={advancedFields}

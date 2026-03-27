@@ -54,7 +54,7 @@ type ImageAdjustOverlayProps = {
 }
 
 const ASPECT_RATIOS: { key: string; label: string; value?: number }[] = [
-  { key: 'free', label: '自由' },
+  { key: 'free', label: 'free' },
   { key: '1:1', label: '1:1', value: 1 },
   { key: '4:3', label: '4:3', value: 4 / 3 },
   { key: '3:4', label: '3:4', value: 3 / 4 },
@@ -278,7 +278,7 @@ export function ImageAdjustOverlay({
               )}
               onClick={() => handleRatioChange(ratio.key)}
             >
-              {ratio.label}
+              {ratio.key === 'free' ? i18next.t('board:imageAdjust.aspectRatioFree', { defaultValue: 'Free' }) : ratio.label}
             </button>
           ))}
         </div>

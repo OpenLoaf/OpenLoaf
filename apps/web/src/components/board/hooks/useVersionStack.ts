@@ -58,14 +58,14 @@ export function mapErrorToMessageKey(error: Error | unknown): string {
 export function resolveErrorMessage(error: Error | unknown): string {
   const msgKey = mapErrorToMessageKey(error)
   if (msgKey !== 'board:polling.errorGeneric') {
-    return i18next.t(msgKey, { defaultValue: '生成失败，请重试' })
+    return i18next.t(msgKey, { defaultValue: 'Generation failed, please retry' })
   }
   // 当无法归类时，优先使用服务端返回的原始错误消息
   const serverMsg = error instanceof Error ? error.message : ''
   if (serverMsg && serverMsg !== 'Request failed') {
     return serverMsg
   }
-  return i18next.t(msgKey, { defaultValue: '生成失败，请重试' })
+  return i18next.t(msgKey, { defaultValue: 'Generation failed, please retry' })
 }
 
 // ---------------------------------------------------------------------------

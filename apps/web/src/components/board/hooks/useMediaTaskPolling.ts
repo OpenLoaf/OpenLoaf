@@ -187,7 +187,7 @@ export function useMediaTaskPolling(
           msgKey = 'board:polling.errorServer'
         }
       }
-      const msg = i18next.t(msgKey, { defaultValue: '生成失败，请重试' })
+      const msg = i18next.t(msgKey, { defaultValue: 'Generation failed, please retry' })
       onFailureRef.current?.(msg)
       setResult({ status: 'failed', error: msg })
     }

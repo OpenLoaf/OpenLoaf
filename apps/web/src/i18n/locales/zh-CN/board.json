@@ -61,6 +61,7 @@
     "videoDesc": "AI 生成视频",
     "audio": "音频",
     "audioDesc": "AI 生成音频",
+    "tableDesc": "结构化数据表格",
     "file": "文件",
     "link": "链接",
     "linkDesc": "添加网页链接",
@@ -71,7 +72,10 @@
     "imagePromptGenerate": "视频图片理解",
     "imageGenerate": "图片生成",
     "videoGenerate": "生成视频",
-    "aiChat": "AI 对话"
+    "aiChat": "AI 对话",
+    "table": "表格",
+    "videoDownload": "视频下载",
+    "videoDownloadDesc": "从网址下载视频"
   },
   "bottomBar": {
     "aiImage": "AI 图片",
@@ -98,7 +102,17 @@
     "imagePromptGenerate": "分析图片/视频并生成描述",
     "imageGenerate": "输入图片与文字生成新图",
     "videoGenerate": "基于图片与提示词生成视频",
-    "aiChat": "在画布中与 AI 对话"
+    "aiChat": "在画布中与 AI 对话",
+    "table": "结构化数据表格"
+  },
+  "videoUrlDownload": {
+    "title": "下载视频",
+    "placeholder": "粘贴视频网址，如 YouTube、Bilibili、抖音等",
+    "confirm": "下载",
+    "errorEmpty": "请输入视频地址",
+    "errorInvalidUrl": "请输入有效的网址",
+    "errorUnsupported": "不支持该平台，目前支持 YouTube、Bilibili、抖音、TikTok、Vimeo 等主流平台",
+    "supportedPlatforms": "支持 YouTube、Bilibili、抖音、TikTok、Vimeo、Twitter/X、小红书、快手、腾讯视频、优酷等平台"
   },
   "picker": {
     "imageTitle": "选择图片文件",
@@ -947,7 +961,8 @@
     "file-attachment": "文件",
     "calendar": "日历",
     "group": "分组",
-    "image-group": "图片组"
+    "image-group": "图片组",
+    "table": "表格"
   },
   "textPanel": {
     "upstreamPreview": "上游文本",
@@ -969,7 +984,9 @@
     "regenerate": "重新生成",
     "cancel": "取消",
     "locked": "参数已锁定",
-    "unlock": "解锁编辑"
+    "unlock": "解锁编辑",
+    "model": "模型:",
+    "advancedOptions": "高级选项"
   },
   "generatingOverlay": {
     "status": "生成中，约需 {{duration}}"
@@ -1260,5 +1277,93 @@
     "title": "视频生成需要 Pro 及以上套餐",
     "description": "升级后即可使用全部视频功能",
     "upgrade": "升级套餐"
+  },
+  "tableNode": {
+    "defaultColHeader": "列 {{index}}",
+    "toolbar": {
+      "addRow": "添加行",
+      "addColumn": "添加列",
+      "deleteLastRow": "删除末行",
+      "deleteLastColumn": "删除末列",
+      "hideHeader": "隐藏表头",
+      "showHeader": "显示表头",
+      "style": "样式",
+      "merge": "合并",
+      "split": "拆分"
+    },
+    "variant": {
+      "default": "默认",
+      "striped": "斑马纹",
+      "bordered": "边框"
+    }
+  },
+  "noCanvasSelected": "未选择画布",
+  "connectorError": {
+    "cycleBlocked": "禁止连接形成环",
+    "incompatibleType": "不支持此类型的连接"
+  },
+  "extractAudio": "分离音频",
+  "imageAdjust": {
+    "aspectRatioFree": "自由"
+  },
+  "common": {
+    "default": "默认"
+  },
+  "strokeColors": {
+    "black": "黑",
+    "blue": "蓝",
+    "orange": "橙",
+    "red": "红",
+    "green": "绿"
+  },
+  "cameraAngle": {
+    "presets": {
+      "front": "正面",
+      "left": "左侧",
+      "right": "右侧",
+      "back": "背面",
+      "top": "俯视",
+      "bottom": "仰视",
+      "frontLeft": "左前",
+      "frontRight": "右前"
+    },
+    "faces": {
+      "front": "前",
+      "back": "后",
+      "left": "左",
+      "right": "右",
+      "top": "上",
+      "bottom": "下"
+    }
+  },
+  "mediaSlot": {
+    "textPrefix": "文本:{{text}}",
+    "charCount": "({{count}}字)"
+  },
+  "styleSuggestions": {
+    "realistic": "写实",
+    "anime": "动漫",
+    "illustration": "插画",
+    "3d": "3D",
+    "cyberpunk": "赛博朋克",
+    "watercolor": "水彩",
+    "oilPainting": "油画",
+    "cinematic": "电影感",
+    "vintage": "复古",
+    "pixelArt": "像素风",
+    "lowPoly": "低多边形",
+    "minimal": "极简",
+    "flat": "扁平",
+    "chinese": "国风",
+    "japanese": "日系",
+    "steampunk": "蒸汽朋克",
+    "futuristic": "未来科技",
+    "paperCut": "剪纸",
+    "handDrawn": "手绘",
+    "sketch": "素描",
+    "surreal": "超现实",
+    "dreamy": "梦幻",
+    "blackAndWhite": "黑白",
+    "highSaturation": "高饱和"
   }
 }

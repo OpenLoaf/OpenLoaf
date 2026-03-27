@@ -59,7 +59,7 @@ import { createPortal } from "react-dom";
 import { deriveNode } from "../utils/derive-node";
 import { MINDMAP_META } from "../engine/mindmap-layout";
 import { HueSlider, buildColorSwatches, DEFAULT_COLOR_PRESETS } from "../ui/HueSlider";
-import { BoardTextEditorKit } from "./text-editor-kit";
+import { EditableBoardTextEditorKit, ReadOnlyBoardTextEditorKit } from "./text-editor-kit";
 import { useUpstreamData } from "../hooks/useUpstreamData";
 import { usePanelOverlay } from "../render/pixi/PixiApplication";
 import { TextAiPanel, type TextGenerateParams } from "../panels/TextAiPanel";
@@ -920,8 +920,9 @@ function EditableTextNodeView({
   const isEmpty = useMemo(() => isSlateValueEmpty(slateValue), [slateValue]);
 
   // ---- Plate editor instance ----
+  // 非编辑节点使用轻量只读插件集（无 autoformat/exitBreak），减少初始化开销。
   const editor = usePlateEditor({
-    plugins: BoardTextEditorKit,
+    plugins: isEditing ? EditableBoardTextEditorKit : ReadOnlyBoardTextEditorKit,
     value: slateValue,
   });
 

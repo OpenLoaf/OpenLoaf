@@ -7,10 +7,11 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import { memo, useCallback, useMemo } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import i18next from 'i18next'
+import type { CanvasEngine } from '../engine/CanvasEngine'
 import type { VersionStack } from '../engine/types'
 import { getVersionCount, getPrimaryEntry } from '../engine/version-stack'
 
@@ -22,6 +23,10 @@ export type VersionStackOverlayProps = {
   onSwitchPrimary?: (entryId: string) => void
   /** Resolved thumbnail URLs for animated card stacking effect. */
   thumbnails?: Array<{ id: string; src: string }>
+  /** Canvas engine instance — used to keep badge size constant across zoom levels. */
+  engine: CanvasEngine
+  /** Whether the parent node is selected — badge shows index/total when selected, total only otherwise. */
+  selected?: boolean
 }
 
 const badgeColorMap = {
@@ -50,15 +55,35 @@ export const VersionStackOverlay = memo(function VersionStackOverlay({
   semanticColor,
   onSwitchPrimary,
   thumbnails,
+  engine,
+  selected,
 }: VersionStackOverlayProps) {
   const count = getVersionCount(stack)
   const primaryEntry = getPrimaryEntry(stack)
+  const badgeRef = useRef<HTMLDivElement>(null)
 
   const currentIndex = useMemo(() => {
     if (!stack || !primaryEntry) return 0
     const idx = stack.entries.findIndex((e) => e.id === primaryEntry.id)
     return idx >= 0 ? idx : 0
   }, [stack, primaryEntry])
+
+  // 逻辑：通过 subscribeView 直接操作 DOM，让 badge 在画布缩放时保持恒定屏幕大小。
+  const BADGE_OFFSET_PX = 6 // 对应 Tailwind top-1.5 / right-1.5
+  useEffect(() => {
+    if (count <= 1) return
+    const syncBadgeScale = () => {
+      const badge = badgeRef.current
+      if (!badge) return
+      const zoom = engine.viewport.getState().zoom
+      badge.style.transform = `scale(${1 / zoom})`
+      badge.style.top = `${BADGE_OFFSET_PX / zoom}px`
+      badge.style.right = `${BADGE_OFFSET_PX / zoom}px`
+    }
+    syncBadgeScale()
+    const unsub = engine.subscribeView(syncBadgeScale)
+    return unsub
+  }, [engine, count])
 
   // 逻辑：背景卡片按渲染顺序（离 primary 的距离）确定性地递增角度，统一向左倾斜。
   // 不依赖 random，切换 primary 时卡片位置稳定不跳动。
@@ -132,17 +157,19 @@ export const VersionStackOverlay = memo(function VersionStackOverlay({
         </>
       )}
 
-      {/* Version badge (top-right corner) — shows current/total */}
+      {/* Version badge (top-right corner) — shows current/total, zoom-independent size */}
       <div
+        ref={badgeRef}
         className={[
-          'pointer-events-auto absolute top-1.5 right-1.5 z-20',
+          'pointer-events-auto absolute z-20',
           'flex items-center justify-center rounded-full',
           'min-w-[24px] h-[24px] px-1.5 text-[11px] font-semibold shadow-sm',
           badgeColorMap[semanticColor],
         ].join(' ')}
+        style={{ transformOrigin: 'top right' }}
         title={i18next.t('board:versionStack.badge', { count })}
       >
-        {currentIndex + 1}/{count}
+        {selected ? `${currentIndex + 1}/${count}` : count}
       </div>
 
       {/* Hover version navigator (bottom center) — only shown when onSwitchPrimary is provided */}

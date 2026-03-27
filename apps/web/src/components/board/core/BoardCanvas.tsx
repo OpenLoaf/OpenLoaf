@@ -985,7 +985,6 @@ export function BoardCanvas({
         />
         <BoardCanvasInteraction
           engine={engine}
-          snapshot={snapshot}
           containerRef={containerRef}
           projectId={projectId}
           rootUri={resolvedRootUri}
@@ -1000,7 +999,6 @@ export function BoardCanvas({
         >
           <BoardCanvasRender
             engine={engine}
-            snapshot={snapshot}
             showUi={showUi}
             showPerfOverlay={showPerfOverlay}
             containerRef={containerRef}

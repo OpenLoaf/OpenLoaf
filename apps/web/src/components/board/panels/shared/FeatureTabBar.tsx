@@ -63,7 +63,7 @@ export function FeatureTabBar({
             type="button"
             disabled={disabled}
             className={[
-              'relative shrink-0 whitespace-nowrap rounded-3xl px-3 py-1.5 text-xs font-medium transition-colors duration-150',
+              'relative shrink-0 whitespace-nowrap rounded-3xl px-2.5 py-1 text-[11px] font-medium transition-colors duration-150',
               'flex items-center gap-1',
               disabled
                 ? 'cursor-not-allowed text-muted-foreground/40'

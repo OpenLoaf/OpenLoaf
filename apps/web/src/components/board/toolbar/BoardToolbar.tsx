@@ -20,8 +20,9 @@ import {
   type ChangeEvent,
 } from "react";
 import { useTranslation } from "react-i18next";
-import type { ComponentType, CSSProperties, ForwardRefExoticComponent } from "react";
+import type { ComponentType, CSSProperties, ForwardRefExoticComponent, RefObject } from "react";
 import type { LucideProps } from "lucide-react";
+import { Table2 as TableIcon } from "lucide-react";
 
 import { cn } from "@udecode/cn";
 
@@ -55,12 +56,19 @@ import {
   resolveViewerType,
 } from "../utils/board-asset";
 import { HueSlider, buildColorSwatches, DEFAULT_COLOR_PRESETS } from "../ui/HueSlider";
+import { VideoUrlDownloadDialog } from "../dialogs/VideoUrlDownloadDialog";
+import { startVideoDownload } from "../services/video-download";
 
 export interface BoardToolbarProps {
   /** Canvas engine instance. */
   engine: CanvasEngine;
   /** Snapshot used for tool state. */
   snapshot: CanvasSnapshot;
+  /** Container ref — used instead of engine.getContainer() because child
+   *  effects run before the parent's engine.attach(), so the engine container
+   *  is null on the first effect pass. containerRef.current is assigned during
+   *  the commit phase and is available immediately. */
+  containerRef?: RefObject<HTMLDivElement | null>;
 }
 
 type ToolMode = "select" | "hand" | "pen" | "highlighter" | "eraser";
@@ -309,8 +317,26 @@ function EraserToolIcon({ className }: { className?: string }) {
 
 
 
+/** Snapshot comparison for BoardToolbar – only checks toolbar-relevant fields. */
+export function toolbarSnapshotEqual(
+  a: Record<string, unknown>,
+  b: Record<string, unknown>,
+): boolean {
+  if (a.activeToolId !== b.activeToolId) return false
+  if (a.locked !== b.locked) return false
+  if (a.pendingInsert !== b.pendingInsert) return false
+  if (a.colorHistory !== b.colorHistory) return false
+  if (a.connectorStyle !== b.connectorStyle) return false
+  if (a.connectorDashed !== b.connectorDashed) return false
+  // 不比较 viewport、panning、elements、selectedIds 等
+  return true
+}
+
+/** Marker for tests to verify custom compare is installed. */
+export const _toolbarHasCustomCompare = true
+
 /** Render the bottom toolbar for the board canvas. */
-const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolbarProps) {
+const BoardToolbar = memo(function BoardToolbar({ engine, snapshot, containerRef }: BoardToolbarProps) {
   const { t } = useTranslation('board');
   // 悬停展开的组 id（用字符串常量标识）
   const [hoverGroup, setHoverGroup] = useState<string | null>(null);
@@ -321,6 +347,7 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
   const { fileContext } = useBoardContext();
   const [videoPickerOpen, setVideoPickerOpen] = useState(false);
   const [filePickerOpen, setFilePickerOpen] = useState(false);
+  const [videoUrlDialogOpen, setVideoUrlDialogOpen] = useState(false);
   const imageImportInputRef = useRef<HTMLInputElement | null>(null);
   const videoImportInputRef = useRef<HTMLInputElement | null>(null);
   const fileImportInputRef = useRef<HTMLInputElement | null>(null);
@@ -365,6 +392,15 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
       size: [260, 80],
       opensPicker: true,
     },
+    {
+      id: "table",
+      title: t('insertTools.table'),
+      description: t('descriptions.table'),
+      icon: TableIcon,
+      nodeType: "table",
+      props: {},
+      size: [400, 200],
+    },
   ], [t]);
   const toolbarDragRef = useRef<{
     request: CanvasInsertRequest;
@@ -398,8 +434,11 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
     setHoverGroup(null);
   }, [isLocked]);
 
+  // 逻辑：使用 containerRef.current 而非 engine.getContainer()，因为子组件
+  // 的 useEffect 执行早于父组件的 engine.attach()，此时 engine 容器尚未设置。
+  // containerRef.current 在 commit 阶段即已赋值，不受 effect 执行顺序影响。
   useEffect(() => {
-    const container = engine.getContainer();
+    const container = containerRef?.current ?? engine.getContainer();
     if (!container) return;
     const handleOpenFilePicker = () => {
       if (isLocked) return;
@@ -409,7 +448,20 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
     return () => {
       container.removeEventListener("openloaf:board-open-file-picker", handleOpenFilePicker);
     };
-  }, [engine, isLocked]);
+  }, [engine, isLocked, containerRef]);
+
+  useEffect(() => {
+    const container = containerRef?.current ?? engine.getContainer();
+    if (!container) return;
+    const handleOpenVideoUrlDialog = () => {
+      if (isLocked) return;
+      setVideoUrlDialogOpen(true);
+    };
+    container.addEventListener("openloaf:board-video-url-download", handleOpenVideoUrlDialog);
+    return () => {
+      container.removeEventListener("openloaf:board-video-url-download", handleOpenVideoUrlDialog);
+    };
+  }, [engine, isLocked, containerRef]);
 
   useEffect(() => {
     if (!hoverGroup) return;
@@ -1505,9 +1557,57 @@ const BoardToolbar = memo(function BoardToolbar({ engine, snapshot }: BoardToolb
           className="hidden"
           onChange={handleImportFileInputChange}
         />
+        <VideoUrlDownloadDialog
+          open={videoUrlDialogOpen}
+          onOpenChange={setVideoUrlDialogOpen}
+          onConfirm={async (url) => {
+            const bfUri = fileContext?.boardFolderUri;
+            const w = DEFAULT_VIDEO_NODE_MAX;
+            const h = Math.round(w * (9 / 16));
+            const center = engine.getViewportCenterWorld();
+            try {
+              const taskId = await startVideoDownload({
+                url,
+                boardFolderUri: bfUri,
+                projectId: fileContext?.projectId,
+                boardId: fileContext?.boardId,
+              });
+              engine.addNodeElement(
+                "video",
+                {
+                  sourcePath: "",
+                  fileName: "",
+                  downloadTaskId: taskId,
+                  downloadUrl: url,
+                  downloadError: "",
+                },
+                [center[0] - w / 2, center[1] - h / 2, w, h],
+              );
+            } catch {
+              engine.addNodeElement(
+                "link",
+                {
+                  url,
+                  title: url,
+                  description: "",
+                  logoSrc: "",
+                  imageSrc: "",
+                  refreshToken: Date.now(),
+                },
+                [center[0] - 180, center[1] - 60, 360, 120],
+              );
+            }
+          }}
+        />
       </div>
     </div>
   );
+}, (prev, next) => {
+  if (prev.engine !== next.engine) return false
+  return toolbarSnapshotEqual(
+    prev.snapshot as unknown as Record<string, unknown>,
+    next.snapshot as unknown as Record<string, unknown>,
+  )
 });
 
 export default BoardToolbar;

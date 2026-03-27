@@ -170,6 +170,8 @@
     "dialogTitle": "登录云端账号",
     "dialogDesc": "选择登录方式并继续",
     "welcome": "欢迎使用 OpenLoaf",
+    "welcomePrefix": "欢迎使用 ",
+    "welcomeSuffix": "",
     "subtitleSuccess": "登录成功，正在关闭…",
     "subtitleOpening": "正在打开系统浏览器…",
     "subtitlePolling": "已在浏览器中打开，等待登录完成…",

@@ -7,6 +7,8 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
+import i18next from 'i18next'
+
 /** 集中管理主要节点配置，避免分散在各模块。 */
 
 /** ImageNode 预览最大边长。 */
@@ -40,34 +42,40 @@ const GENERATE_ASPECT_RATIO_OPTIONS = ["auto", "1:1", "16:9", "9:16", "4:3", "3:
 export const IMAGE_GENERATE_ASPECT_RATIO_OPTIONS = GENERATE_ASPECT_RATIO_OPTIONS;
 export const VIDEO_GENERATE_ASPECT_RATIO_OPTIONS = GENERATE_ASPECT_RATIO_OPTIONS;
 export const IMAGE_GENERATE_COUNT_OPTIONS = Array.from({ length: 5 }, (_, index) => index + 1);
-const GENERATE_STYLE_SUGGESTIONS = [
-  "写实",
-  "动漫",
-  "插画",
-  "3D",
-  "赛博朋克",
-  "水彩",
-  "油画",
-  "电影感",
-  "复古",
-  "像素风",
-  "低多边形",
-  "极简",
-  "扁平",
-  "国风",
-  "日系",
-  "蒸汽朋克",
-  "未来科技",
-  "剪纸",
-  "手绘",
-  "素描",
-  "超现实",
-  "梦幻",
-  "黑白",
-  "高饱和",
+const STYLE_SUGGESTION_KEYS = [
+  'realistic',
+  'anime',
+  'illustration',
+  '3d',
+  'cyberpunk',
+  'watercolor',
+  'oilPainting',
+  'cinematic',
+  'vintage',
+  'pixelArt',
+  'lowPoly',
+  'minimal',
+  'flat',
+  'chinese',
+  'japanese',
+  'steampunk',
+  'futuristic',
+  'paperCut',
+  'handDrawn',
+  'sketch',
+  'surreal',
+  'dreamy',
+  'blackAndWhite',
+  'highSaturation',
 ] as const;
-export const IMAGE_GENERATE_STYLE_SUGGESTIONS = GENERATE_STYLE_SUGGESTIONS;
-export const VIDEO_GENERATE_STYLE_SUGGESTIONS = GENERATE_STYLE_SUGGESTIONS;
+
+/** Get localized style suggestion labels. */
+export function getStyleSuggestions(): string[] {
+  return STYLE_SUGGESTION_KEYS.map(key => i18next.t(`board:styleSuggestions.${key}`));
+}
+
+export const IMAGE_GENERATE_STYLE_SUGGESTIONS = STYLE_SUGGESTION_KEYS;
+export const VIDEO_GENERATE_STYLE_SUGGESTIONS = STYLE_SUGGESTION_KEYS;
 
 /** Maximum number of input images supported by video generation by default. */
 export const VIDEO_GENERATE_DEFAULT_MAX_INPUT_IMAGES = 1;
