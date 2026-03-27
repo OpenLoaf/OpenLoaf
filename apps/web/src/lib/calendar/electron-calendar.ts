@@ -21,12 +21,34 @@ function getCalendarApi() {
   return window.openloafElectron?.calendar ?? null;
 }
 
-/** Request system calendar permission. */
-export async function requestCalendarPermission(): Promise<CalendarResult<CalendarPermissionState>> {
+/** Request system calendar permission (shows OS dialog). */
+export async function requestCalendarPermission(): Promise<
+  OpenLoafCalendarResult<{ event: OpenLoafCalendarPermissionState; reminder: OpenLoafCalendarPermissionState }>
+> {
   if (!isElectronEnv() || !getCalendarApi()?.requestPermission) {
     return { ok: false, reason: "当前仅支持桌面端日历。", code: "unsupported" };
   }
   return await getCalendarApi()!.requestPermission();
+}
+
+/** Check system calendar permission status (no OS dialog). */
+export async function checkCalendarPermission(): Promise<
+  OpenLoafCalendarResult<{ event: OpenLoafCalendarPermissionState; reminder: OpenLoafCalendarPermissionState }>
+> {
+  if (!isElectronEnv() || !getCalendarApi()?.checkPermission) {
+    return { ok: false, reason: "当前仅支持桌面端日历。", code: "unsupported" };
+  }
+  return await getCalendarApi()!.checkPermission!();
+}
+
+/** Subscribe to calendar permission state changes from main process. */
+export function subscribePermissionChanges(
+  handler: (state: { event: OpenLoafCalendarPermissionState; reminder: OpenLoafCalendarPermissionState }) => void
+): () => void {
+  if (!isElectronEnv() || !getCalendarApi()?.subscribePermissionChanges) {
+    return () => null;
+  }
+  return getCalendarApi()!.subscribePermissionChanges!(handler);
 }
 
 /** List system calendars. */
