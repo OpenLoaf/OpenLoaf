@@ -93,19 +93,27 @@ export function createCalendarService(args: { log: Logger }) {
   /** Main-process permission cache. Reset on app restart. */
   let permissionCache: PermissionCache = null;
 
+  /** In-flight check-permission request for deduplication. */
+  let checkInflight: Promise<CalendarResult<{ event: CalendarPermissionState; reminder: CalendarPermissionState }>> | null = null;
+
   /** Lightweight permission check — uses cache or spawns Swift check-permission. */
   const checkPermission = async (): Promise<CalendarResult<{ event: CalendarPermissionState; reminder: CalendarPermissionState }>> => {
     if (permissionCache) {
       return { ok: true, data: permissionCache };
     }
-    const result = await invokeCalendarHelper<{ event: CalendarPermissionState; reminder: CalendarPermissionState }>(
+    if (checkInflight) return checkInflight;
+    checkInflight = invokeCalendarHelper<{ event: CalendarPermissionState; reminder: CalendarPermissionState }>(
       "check-permission",
       {},
-    );
-    if (result.ok) {
-      permissionCache = result.data;
-    }
-    return result;
+    ).then((result) => {
+      if (result.ok) {
+        permissionCache = result.data;
+      }
+      return result;
+    }).finally(() => {
+      checkInflight = null;
+    });
+    return checkInflight;
   };
 
   /** Invoke the calendar helper with one-shot JSON request/response. */
@@ -167,13 +175,7 @@ export function createCalendarService(args: { log: Logger }) {
         }
         if (code !== 0) {
           const reason = stderr.trim() || `helper exited with code ${code ?? 0}`;
-          const isNotAuthorized = reason.includes("not_authorized") || stderr.includes("not_authorized");
-          if (isNotAuthorized && permissionCache?.event !== "denied") {
-            permissionCache = { event: "denied", reminder: "denied" };
-            killWatch();
-            broadcastPermissionChange(permissionCache);
-          }
-          settle({ ok: false, reason, code: isNotAuthorized ? "not_authorized" : "helper_failed" });
+          settle({ ok: false, reason, code: "helper_failed" });
           return;
         }
         const raw = stdout.trim();
@@ -183,6 +185,14 @@ export function createCalendarService(args: { log: Logger }) {
         }
         try {
           const parsed = JSON.parse(raw) as CalendarResult<T>;
+          // Intercept not_authorized from parsed JSON response.
+          if (!parsed.ok && "code" in parsed && parsed.code === "not_authorized") {
+            if (permissionCache?.event !== "denied") {
+              permissionCache = { event: "denied", reminder: "denied" };
+              killWatch();
+              broadcastPermissionChange(permissionCache);
+            }
+          }
           settle(parsed);
         } catch (error) {
           args.log(`[calendar] helper parse error: ${String(error)}`);
@@ -234,6 +244,7 @@ export function createCalendarService(args: { log: Logger }) {
   /** Start helper watch process if not running. */
   const startWatch = () => {
     if (watchSession || watchStopping) return;
+    if (permissionCache && permissionCache.event !== "granted") return;
     const helperPath = resolveCalendarHelperPath();
     if (!helperPath || !fs.existsSync(helperPath)) {
       return;

@@ -158,7 +158,6 @@ export function useCalendarPageState({
   const pendingRangeRef = useRef<CalendarRange | null>(null);
   const rangeUpdateScheduledRef = useRef(false);
   const initialSyncRef = useRef(false);
-  const permissionRequestedRef = useRef(false);
   const permissionCheckedRef = useRef(false);
   const syncInFlightRef = useRef(false);
   const syncQueuedRef = useRef(false);
