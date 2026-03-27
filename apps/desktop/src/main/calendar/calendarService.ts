@@ -39,6 +39,11 @@ type CalendarResult<T> =
   | { ok: true; data: T }
   | { ok: false; reason: string; code?: string };
 
+type PermissionCache = {
+  event: CalendarPermissionState;
+  reminder: CalendarPermissionState;
+} | null;
+
 type WatchSession = {
   process: ChildProcessWithoutNullStreams;
 };
@@ -84,6 +89,24 @@ function forceKill(child: ChildProcessWithoutNullStreams): void {
 export function createCalendarService(args: { log: Logger }) {
   /** 跟踪所有活跃的一次性子进程，用于 destroy() 时统一清理。 */
   const activeChildren = new Set<ChildProcessWithoutNullStreams>();
+
+  /** Main-process permission cache. Reset on app restart. */
+  let permissionCache: PermissionCache = null;
+
+  /** Lightweight permission check — uses cache or spawns Swift check-permission. */
+  const checkPermission = async (): Promise<CalendarResult<{ event: CalendarPermissionState; reminder: CalendarPermissionState }>> => {
+    if (permissionCache) {
+      return { ok: true, data: permissionCache };
+    }
+    const result = await invokeCalendarHelper<{ event: CalendarPermissionState; reminder: CalendarPermissionState }>(
+      "check-permission",
+      {},
+    );
+    if (result.ok) {
+      permissionCache = result.data;
+    }
+    return result;
+  };
 
   /** Invoke the calendar helper with one-shot JSON request/response. */
   function invokeCalendarHelper<T>(
@@ -144,7 +167,13 @@ export function createCalendarService(args: { log: Logger }) {
         }
         if (code !== 0) {
           const reason = stderr.trim() || `helper exited with code ${code ?? 0}`;
-          settle({ ok: false, reason, code: "helper_failed" });
+          const isNotAuthorized = reason.includes("not_authorized") || stderr.includes("not_authorized");
+          if (isNotAuthorized && permissionCache?.event !== "denied") {
+            permissionCache = { event: "denied", reminder: "denied" };
+            killWatch();
+            broadcastPermissionChange(permissionCache);
+          }
+          settle({ ok: false, reason, code: isNotAuthorized ? "not_authorized" : "helper_failed" });
           return;
         }
         const raw = stdout.trim();
@@ -170,6 +199,9 @@ export function createCalendarService(args: { log: Logger }) {
   /** 标记 watch 正在关闭中，防止重复启动。 */
   let watchStopping = false;
 
+  /** Callbacks invoked when watch exits unexpectedly. */
+  const watchExitCallbacks = new Set<() => void>();
+
   /** 清理已销毁的 webContents 引用。 */
   const pruneDestroyedListeners = () => {
     for (const wc of listeners) {
@@ -185,6 +217,17 @@ export function createCalendarService(args: { log: Logger }) {
         continue;
       }
       webContents.send("openloaf:calendar:changed", { source: "system" });
+    }
+  };
+
+  /** Broadcast permission state change to all subscribed renderers. */
+  const broadcastPermissionChange = (state: NonNullable<PermissionCache>) => {
+    for (const webContents of listeners) {
+      if (webContents.isDestroyed()) {
+        listeners.delete(webContents);
+        continue;
+      }
+      webContents.send("openloaf:calendar:permission-changed", state);
     }
   };
 
@@ -224,8 +267,12 @@ export function createCalendarService(args: { log: Logger }) {
     });
 
     child.on("exit", () => {
+      const wasExpected = watchStopping;
       watchSession = null;
       watchStopping = false;
+      if (!wasExpected) {
+        for (const cb of watchExitCallbacks) cb();
+      }
     });
   };
 
@@ -257,9 +304,30 @@ export function createCalendarService(args: { log: Logger }) {
     killWatch();
   };
 
-  /** Request system permission. */
-  const requestPermission = async (): Promise<CalendarResult<CalendarPermissionState>> =>
-    invokeCalendarHelper<CalendarPermissionState>("permission", {});
+  /** In-flight permission request for deduplication. */
+  let permissionInflight: Promise<CalendarResult<{ event: CalendarPermissionState; reminder: CalendarPermissionState }>> | null = null;
+
+  /** Request system permission (deduplicated). Updates cache and auto-starts watch. */
+  const requestPermission = async (): Promise<CalendarResult<{ event: CalendarPermissionState; reminder: CalendarPermissionState }>> => {
+    if (permissionInflight) return permissionInflight;
+    permissionInflight = (async () => {
+      const result = await invokeCalendarHelper<{ event: CalendarPermissionState; reminder: CalendarPermissionState }>(
+        "permission",
+        {},
+      );
+      if (result.ok) {
+        permissionCache = result.data;
+        broadcastPermissionChange(result.data);
+        if (result.data.event === "granted" && listeners.size > 0 && !watchSession) {
+          startWatch();
+        }
+      }
+      return result;
+    })().finally(() => {
+      permissionInflight = null;
+    });
+    return permissionInflight;
+  };
 
   /** Fetch available calendars. */
   const listCalendars = async (): Promise<CalendarResult<CalendarItem[]>> =>
@@ -342,7 +410,9 @@ export function createCalendarService(args: { log: Logger }) {
   };
 
   return {
+    checkPermission,
     requestPermission,
+    getPermissionCache: () => permissionCache,
     listCalendars,
     listReminders,
     getEvents,
@@ -355,6 +425,13 @@ export function createCalendarService(args: { log: Logger }) {
     deleteReminder,
     startWatching,
     stopWatching,
+    onWatchExit: (cb: () => void) => {
+      watchExitCallbacks.add(cb);
+      return () => { watchExitCallbacks.delete(cb); };
+    },
+    tryRestartWatch: () => {
+      if (listeners.size > 0) startWatch();
+    },
     destroy,
   };
 }
