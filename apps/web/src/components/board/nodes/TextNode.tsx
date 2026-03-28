@@ -1264,11 +1264,16 @@ function EditableTextNodeView({
       ) : null}
       {isOverflowing && !isEditing && (
         <div
-          className="pointer-events-none absolute bottom-0 left-0 right-0 h-12 rounded-b-3xl"
+          className={cn(
+            "pointer-events-none absolute bottom-0 left-0 right-0 h-12",
+            !isShape && "rounded-b-3xl",
+          )}
           style={{
-            background: backgroundColor
-              ? `linear-gradient(to bottom, transparent, ${backgroundColor})`
-              : 'linear-gradient(to bottom, transparent, var(--ol-surface-muted))',
+            background: isSticky
+              ? 'linear-gradient(to bottom, transparent, var(--ol-surface-neutral, #f5f5f5))'
+              : backgroundColor
+                ? `linear-gradient(to bottom, transparent, ${backgroundColor})`
+                : 'linear-gradient(to bottom, transparent, var(--ol-surface-muted))',
           }}
         />
       )}

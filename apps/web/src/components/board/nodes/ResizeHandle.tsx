@@ -93,7 +93,6 @@ export function ResizeHandle({
   const onPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
     const drag = dragRef.current
     if (!drag) return
-    dragRef.current = null
 
     const dx = (e.clientX - drag.startX) / drag.zoom
     const dy = (e.clientY - drag.startY) / drag.zoom
@@ -111,9 +110,9 @@ export function ResizeHandle({
       xywh: [x, y, Math.round(nextW), Math.round(nextH)],
     })
     engine.commitHistory()
-
-    // Restore CSS transitions after commit
     drag.nodeDiv.style.transition = ''
+    // 清空 dragRef 放在最后，确保 onLostPointerCapture 能安全跳过
+    dragRef.current = null
   }
 
   const onLostPointerCapture = () => {
