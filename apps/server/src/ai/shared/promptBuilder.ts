@@ -11,27 +11,20 @@ import type { PromptContext } from '@/ai/shared/types'
 
 const UNKNOWN_VALUE = 'unknown'
 
-/** Build skills summary section for a session preface. */
+/** Build skills summary section — each skill as a self-closing <skill /> tag. */
 export function buildSkillsSummarySection(
   summaries: PromptContext['skillSummaries'],
-  title = '# Skills',
 ): string {
-  const lines = [
-    title,
-    '需要完整说明时，用 tool-search(names: "技能name") 加载。',
-  ]
+  if (summaries.length === 0) return ''
 
-  if (summaries.length === 0) {
-    lines.push('（无）')
-    return lines.join('\n')
-  }
+  return summaries
+    .map((s) => `<skill tool-name="${s.originalName}" desc="${escapeAttr(s.description)}" />`)
+    .join('\n')
+}
 
-  for (const summary of summaries) {
-    lines.push(
-      `<${summary.originalName}>${summary.description}</${summary.originalName}>`,
-    )
-  }
-  return lines.join('\n')
+/** Escape double quotes in XML attribute values. */
+function escapeAttr(value: string): string {
+  return value.replace(/"/g, '&quot;')
 }
 
 /** Build Python runtime section for a session preface. */

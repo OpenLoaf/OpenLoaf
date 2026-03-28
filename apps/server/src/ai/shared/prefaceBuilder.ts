@@ -365,7 +365,9 @@ function buildBuiltinSkillsSystemBlock(
 ): string {
   const builtinSkills = summaries.filter((s) => s.scope === "builtin");
   if (builtinSkills.length === 0) return "";
-  return `<system-skills desc="内置技能，始终可用">\n${buildSkillsSummarySection(builtinSkills, '# Skills（内置）')}\n</system-skills>`;
+  const content = buildSkillsSummarySection(builtinSkills);
+  if (!content) return "";
+  return `<system-skills desc="内置技能，需要加载时使用 tool-search 加载">\n${content}\n</system-skills>`;
 }
 
 /**
@@ -380,14 +382,20 @@ function buildUserProjectSkillsBlocks(
   const blocks: string[] = [];
 
   if (globalSkills.length > 0) {
-    blocks.push(
-      `<system-user-skills desc="用户全局技能">\n${buildSkillsSummarySection(globalSkills, '# Skills（用户）')}\n</system-user-skills>`,
-    );
+    const content = buildSkillsSummarySection(globalSkills);
+    if (content) {
+      blocks.push(
+        `<system-user-skills desc="用户全局技能，需要加载时使用 tool-search 加载">\n${content}\n</system-user-skills>`,
+      );
+    }
   }
   if (projectSkills.length > 0) {
-    blocks.push(
-      `<system-project-skills desc="项目技能">\n${buildSkillsSummarySection(projectSkills, '# Skills（项目）')}\n</system-project-skills>`,
-    );
+    const content = buildSkillsSummarySection(projectSkills);
+    if (content) {
+      blocks.push(
+        `<system-project-skills desc="项目技能，需要加载时使用 tool-search 加载">\n${content}\n</system-project-skills>`,
+      );
+    }
   }
   return blocks;
 }
