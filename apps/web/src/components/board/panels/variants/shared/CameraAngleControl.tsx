@@ -13,6 +13,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import i18next from 'i18next'
 import { cn } from '@udecode/cn'
+import { Video } from 'lucide-react'
 import { Slider } from '@openloaf/ui/slider'
 import type { ParamField, SelectField, SliderField } from '../types'
 
@@ -362,6 +363,22 @@ function drawScene(
 
   ctx.clearRect(0, 0, w, h)
 
+  // ── Spotlight beam from camera ──
+  const beamTip = { x: cx, y: h + 6 * dpr } // camera icon position (below canvas)
+  const spread = baseScale * 1.1
+  ctx.save()
+  ctx.beginPath()
+  ctx.moveTo(beamTip.x, beamTip.y)
+  ctx.lineTo(cx - spread, cy - baseScale * 0.3)
+  ctx.lineTo(cx + spread, cy - baseScale * 0.3)
+  ctx.closePath()
+  const beamGrad = ctx.createLinearGradient(cx, beamTip.y, cx, cy - baseScale * 0.3)
+  beamGrad.addColorStop(0, isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)')
+  beamGrad.addColorStop(1, 'rgba(128,128,128,0)')
+  ctx.fillStyle = beamGrad
+  ctx.fill()
+  ctx.restore()
+
   // Rotate all verts
   const rotated = CUBE_VERTS.map((v) => rotatePoint(v, hAngle, vAngle))
 
@@ -436,43 +453,6 @@ function drawScene(
     ctx.restore()
   }
 
-  // ── Camera icon ──
-  // Place at the "front-bottom" of the cube and orbit with angles
-  const camOrbitR = 0.78
-  const camPt: Vec3 = [
-    Math.sin(-hAngle * DEG) * camOrbitR,
-    -0.62 + Math.sin(vAngle * DEG) * 0.15,
-    Math.cos(-hAngle * DEG) * camOrbitR,
-  ]
-  const camScreen = projectAndDistort(
-    camPt, perspDist, distortK, cx, cy, baseScale, maxR,
-  )
-  const iconSize = 6 * dpr
-  const camAlpha = camPt[2] > 0 ? 0.8 : 0.3 // fade when behind the cube
-  ctx.save()
-  ctx.translate(camScreen.x, camScreen.y)
-  // Rotate icon to face the cube center
-  const angleToCube = Math.atan2(cy - camScreen.y, cx - camScreen.x)
-  ctx.rotate(angleToCube - Math.PI / 2)
-  ctx.globalAlpha = camAlpha
-  ctx.fillStyle = isDark ? '#fff' : '#000'
-  // Camera body
-  const bw = iconSize * 1.4
-  const bh = iconSize * 1.0
-  ctx.beginPath()
-  ctx.roundRect(-bw / 2, -bh / 2, bw, bh, iconSize * 0.18)
-  ctx.fill()
-  // Lens circle
-  ctx.beginPath()
-  ctx.arc(0, 0, iconSize * 0.32, 0, Math.PI * 2)
-  ctx.fillStyle = isDark ? '#333' : '#ddd'
-  ctx.fill()
-  // Inner lens highlight
-  ctx.beginPath()
-  ctx.arc(0, 0, iconSize * 0.15, 0, Math.PI * 2)
-  ctx.fillStyle = isDark ? '#555' : '#bbb'
-  ctx.fill()
-  ctx.restore()
 }
 
 // ---------------------------------------------------------------------------
@@ -634,18 +614,21 @@ function CubePreview({
   }, [])
 
   return (
-    <canvas
-      ref={canvasRef}
-      className={cn(
-        'aspect-square w-full rounded-2xl border border-border/50 bg-muted/20',
-        !disabled && 'cursor-grab active:cursor-grabbing',
-        disabled && 'opacity-50',
-      )}
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
-      onPointerCancel={handlePointerUp}
-    />
+    <div className="flex flex-col items-center">
+      <canvas
+        ref={canvasRef}
+        className={cn(
+          'aspect-square w-full rounded-2xl border border-border/50 bg-muted/20',
+          !disabled && 'cursor-grab active:cursor-grabbing',
+          disabled && 'opacity-50',
+        )}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+      />
+      <Video className="-mt-1.5 size-6 -rotate-90 text-muted-foreground/30" />
+    </div>
   )
 }
 
