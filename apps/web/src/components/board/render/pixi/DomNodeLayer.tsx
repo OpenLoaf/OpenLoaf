@@ -30,6 +30,7 @@ import type {
 } from '../../engine/types'
 import { getGroupOutlinePadding, isGroupNodeType } from '../../engine/grouping'
 import { NodeLabel } from '../../nodes/NodeLabel'
+import { ResizeHandle } from '../../nodes/ResizeHandle'
 import './board-node-drag.css'
 
 type DomNodeLayerProps = {
@@ -115,7 +116,7 @@ const DomNodeItem = memo(function DomNodeItem({
       data-expanded={expanded || undefined}
       data-dragging={dragging || undefined}
       className={cn(
-        'absolute overflow-visible',
+        'group/node absolute overflow-visible',
         editing ? 'select-text' : 'select-none',
         isGroup ? 'pointer-events-none' : 'pointer-events-auto',
       )}
@@ -173,6 +174,16 @@ const DomNodeItem = memo(function DomNodeItem({
         <div className="pointer-events-none absolute bottom-1 left-1 flex items-center justify-center rounded-md bg-black/40 p-0.5">
           <Lock size={10} className="text-white" />
         </div>
+      )}
+      {selected && !isGroup && !element.locked && engine.nodes.getDefinition(element.type)?.capabilities?.resizable && (
+        <ResizeHandle
+          engine={engine}
+          element={element}
+          minW={engine.nodes.getDefinition(element.type)?.capabilities?.minSize?.w}
+          maxW={engine.nodes.getDefinition(element.type)?.capabilities?.maxSize?.w}
+          minH={engine.nodes.getDefinition(element.type)?.capabilities?.minSize?.h}
+          maxH={engine.nodes.getDefinition(element.type)?.capabilities?.maxSize?.h}
+        />
       )}
     </div>
   )

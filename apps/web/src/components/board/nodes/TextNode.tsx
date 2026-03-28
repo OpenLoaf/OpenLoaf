@@ -1326,7 +1326,7 @@ export const TextNodeDefinition: CanvasNodeDefinition<TextNodeProps> = {
     return createTextToolbarItems(ctx);
   },
   capabilities: {
-    resizable: false,
+    resizable: true,
     rotatable: false,
     connectable: "anchors",
     minSize: TEXT_NODE_MIN_SIZE,
