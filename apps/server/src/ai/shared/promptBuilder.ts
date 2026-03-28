@@ -18,7 +18,7 @@ export function buildSkillsSummarySection(
   if (summaries.length === 0) return ''
 
   return summaries
-    .map((s) => `<skill tool-name="${s.originalName}" desc="${escapeAttr(s.description)}" />`)
+    .map((s) => `\t<skill tool-name="${s.originalName}" desc="${escapeAttr(s.description)}" />`)
     .join('\n')
 }
 

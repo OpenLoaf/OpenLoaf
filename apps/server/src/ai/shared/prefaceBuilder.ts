@@ -558,7 +558,7 @@ function buildMcpToolsBlocks(projectRoot?: string): string[] {
       lines.push(`## ${serverName}`);
       for (const t of tools) {
         const toolDesc = t.description ? ` — ${t.description}` : '';
-        lines.push(`<${t.id}>${t.label}${toolDesc}</${t.id}>`);
+        lines.push(`\t<${t.id}>${t.label}${toolDesc}</${t.id}>`);
       }
       lines.push('');
     }
