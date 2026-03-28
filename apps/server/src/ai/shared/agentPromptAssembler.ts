@@ -50,8 +50,16 @@ export function assembleMemoryBlocks(
     parentProjectRootPaths: input.parentProjectRootPaths,
   })
 
+  const scopeTagMap: Record<string, { tag: string; desc: string }> = {
+    user: { tag: 'system-user-memory', desc: '用户记忆，跨会话持久化' },
+    'parent-project': { tag: 'system-parent-project-memory', desc: '父项目记忆' },
+    project: { tag: 'system-project-memory', desc: '当前项目记忆' },
+    agent: { tag: 'system-agent-memory', desc: 'Agent 专属记忆' },
+  }
+
   return blocks.map((block) => {
+    const { tag, desc } = scopeTagMap[block.scope] ?? { tag: 'system-memory', desc: block.label }
     const header = `# 记忆（${block.label}）\n来源: ${block.filePath}\n需要保存/更新/删除记忆时，加载 memory-ops 技能。`
-    return `<system-reminder>\n${header}\n\n${block.content}\n</system-reminder>`
+    return `<${tag} desc="${desc}">\n${header}\n\n${block.content}\n</${tag}>`
   })
 }

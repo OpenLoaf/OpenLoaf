@@ -105,6 +105,8 @@ type CreateMasterAgentInput = {
   instructions?: string
   /** Historical messages for rehydrating dynamically activated tools. */
   messages?: { role: string; parts?: unknown[] }[]
+  /** Builtin skills text appended to the end of system prompt. */
+  skillsSystemText?: string
 }
 
 // ---------------------------------------------------------------------------
@@ -310,7 +312,9 @@ export function createMasterAgent(input: CreateMasterAgentInput) {
   // ★ Append Hard Rules to instructions (Layer 2)
   // ToolSearch guidance is injected via session preface (platform-aware).
   const hardRules = buildHardRules()
-  const finalInstructions = `${instructions}\n\n${hardRules}`
+  // ★ Builtin skills appended at the very end of system prompt (Layer 3)
+  const skillsSuffix = input.skillsSystemText ? `\n\n${input.skillsSystemText}` : ''
+  const finalInstructions = `${instructions}\n\n${hardRules}${skillsSuffix}`
 
   const baseSettings = {
     model: wrappedModel,

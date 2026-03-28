@@ -26,6 +26,8 @@ type MasterAgentRunnerInput = {
   instructions?: string
   /** Historical messages for rehydrating dynamically activated tools. */
   messages?: { role: string; parts?: unknown[] }[]
+  /** Builtin skills text appended to the end of system prompt. */
+  skillsSystemText?: string
 }
 
 export type MasterAgentRunner = {
@@ -44,6 +46,7 @@ export function createMasterAgentRunner(input: MasterAgentRunnerInput): MasterAg
       model: input.model,
       instructions: input.instructions,
       messages: input.messages,
+      skillsSystemText: input.skillsSystemText,
     }),
     frame: createMasterAgentFrame({ model: input.modelInfo }),
   }

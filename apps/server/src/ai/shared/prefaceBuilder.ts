@@ -14,6 +14,7 @@ import {
   getProjectRootPath,
 } from "@openloaf/api/services/vfsService";
 import { getOpenLoafRootDir } from "@openloaf/config";
+import { getResolvedTempStorageDir } from "@openloaf/api/services/appConfigService";
 import type { PromptContext } from "@/ai/shared/types";
 import type { ClientPlatform } from "@openloaf/api/types/platform";
 import { loadSkillSummaries, type SkillSummary } from "@/ai/services/skillsLoader";
@@ -31,7 +32,8 @@ import { assembleMemoryBlocks } from "@/ai/shared/agentPromptAssembler";
 import { getMcpToolIds } from "@/ai/tools/toolRegistry";
 import { getMcpCatalogEntries } from "@openloaf/api/types/tools/toolCatalog";
 import { mcpClientManager } from "@/ai/services/mcpClientManager";
-import { collectAvailableAgents, buildSubAgentListSection } from "@/ai/shared/subAgentPrefaceBuilder";
+// import { collectAvailableAgents, buildSubAgentListSection } from "@/ai/shared/subAgentPrefaceBuilder";
+import { getEnabledMcpServers } from "@/services/mcpConfigService";
 
 /** Unknown value fallback. */
 const UNKNOWN_VALUE = "unknown";
@@ -355,74 +357,86 @@ async function resolvePromptContext(input: {
 }
 
 /**
- * Build skills reminder blocks — builtin and user skills in separate <system-reminder> blocks.
+ * Build builtin skills block for system prompt injection.
+ * Returns a single <system-skills> block string, or empty string if none.
+ */
+function buildBuiltinSkillsSystemBlock(
+  summaries: PromptContext["skillSummaries"],
+): string {
+  const builtinSkills = summaries.filter((s) => s.scope === "builtin");
+  if (builtinSkills.length === 0) return "";
+  return `<system-skills desc="内置技能，始终可用">\n${buildSkillsSummarySection(builtinSkills, '# Skills（内置）')}\n</system-skills>`;
+}
+
+/**
+ * Build user (global) and project skills blocks for chat preface.
  * Returns an array of blocks (0-2 items).
  */
-function buildSkillsReminderBlocks(
+function buildUserProjectSkillsBlocks(
   summaries: PromptContext["skillSummaries"],
 ): string[] {
-  if (summaries.length === 0) return [];
-
-  const builtinSkills = summaries.filter((s) => s.scope === "builtin");
-  const userSkills = summaries.filter((s) => s.scope !== "builtin");
+  const globalSkills = summaries.filter((s) => s.scope === "global");
+  const projectSkills = summaries.filter((s) => s.scope === "project");
   const blocks: string[] = [];
 
-  if (builtinSkills.length > 0) {
+  if (globalSkills.length > 0) {
     blocks.push(
-      `<system-reminder>\n${buildSkillsSummarySection(builtinSkills, '# Skills（内置）')}\n</system-reminder>`,
+      `<system-user-skills desc="用户全局技能">\n${buildSkillsSummarySection(globalSkills, '# Skills（用户）')}\n</system-user-skills>`,
     );
   }
-  if (userSkills.length > 0) {
+  if (projectSkills.length > 0) {
     blocks.push(
-      `<system-reminder>\n${buildSkillsSummarySection(userSkills, '# Skills（用户）')}\n</system-reminder>`,
+      `<system-project-skills desc="项目技能">\n${buildSkillsSummarySection(projectSkills, '# Skills（项目）')}\n</system-project-skills>`,
     );
   }
   return blocks;
 }
 
-/** Build context reminder blocks — each h1 section wrapped in its own <system-reminder>. */
-function buildContextReminderBlocks(input: {
+/** Build context blocks — each section wrapped in its own semantic tag. */
+function buildContextBlocks(input: {
   sessionId: string;
   context: PromptContext;
   parentProjectRootPaths: string[];
   clientPlatform?: ClientPlatform;
 }): string[] {
   const { sessionId, context, parentProjectRootPaths } = input;
-  const sections: string[] = [];
+  const blocks: string[] = [];
 
   // 项目规则（仅有内容时）
   if (context.project.rules && context.project.rules !== "未找到") {
-    sections.push(buildProjectRulesSection(context));
+    blocks.push(
+      `<system-project-rules desc="项目规则，来自 AGENTS.md">\n${buildProjectRulesSection(context)}\n</system-project-rules>`,
+    );
   }
 
   // TODO: 可用子 Agent 列表 — 暂时禁用，待后续重新整理后恢复
-  // sections.push(
-  //   buildSubAgentListSection(
-  //     collectAvailableAgents({
-  //       projectRootPath: context.project.rootPath !== UNKNOWN_VALUE ? context.project.rootPath : undefined,
-  //       parentProjectRootPaths,
-  //     }),
-  //   ),
-  // );
 
   // NOTE: 执行规则 + 任务分工已移至 hardRules.ts <agent-directives>
 
   // 会话上下文（含语言设置，放到最底部）
-  // chatHistoryDir: 有项目 → <projectRoot>/.openloaf/chat-history/<sessionId>，否则 ~/.openloaf/chat-history/<sessionId>
+  // chatHistoryDir: 有项目 → <projectRoot>/.openloaf/chat-history/<sessionId>，否则 <tempDir>/chat-history/<sessionId>
   let chatHistoryDir: string | undefined
   try {
     const projectRoot = context.project.rootPath !== UNKNOWN_VALUE ? context.project.rootPath : undefined
     const base = projectRoot
       ? `${projectRoot}/.openloaf/chat-history`
-      : `${getOpenLoafRootDir()}/chat-history`
+      : `${getResolvedTempStorageDir()}/chat-history`
     chatHistoryDir = `${base}/${sessionId}`
   } catch { /* fallback: omit */ }
-  sections.push(buildSessionContextSection(sessionId, context, chatHistoryDir));
+  blocks.push(
+    `<system-session-context desc="当前会话环境信息">\n${buildSessionContextSection(sessionId, context, chatHistoryDir)}\n</system-session-context>`,
+  );
 
-  return sections
-    .filter((s) => s.trim())
-    .map((s) => `<system-reminder>\n${s}\n</system-reminder>`);
+  return blocks.filter((s) => s.trim());
 }
+
+/** Result of building session preface. */
+export type SessionPrefaceResult = {
+  /** Preface text injected as user message (skills/MCP/context/memory). */
+  prefaceText: string;
+  /** Builtin skills text appended to system prompt (instructions). */
+  builtinSkillsText: string;
+};
 
 /** Build session preface text for chat context. */
 export async function buildSessionPrefaceText(input: {
@@ -432,7 +446,7 @@ export async function buildSessionPrefaceText(input: {
   parentProjectRootPaths: string[];
   timezone?: string;
   clientPlatform?: ClientPlatform;
-}): Promise<string> {
+}): Promise<SessionPrefaceResult> {
   // Ensure MCP servers are connected so getMcpToolIds() returns tools
   const projectRoot = input.projectId
     ? getProjectRootPath(input.projectId) ?? undefined
@@ -446,18 +460,24 @@ export async function buildSessionPrefaceText(input: {
     timezone: input.timezone,
   });
 
-  // Block 1: Skills（builtin 和用户分开的 <system-reminder>）
-  const skillsBlocks = buildSkillsReminderBlocks(context.skillSummaries);
+  // ★ 内置 skills → system prompt（instructions 末尾）
+  const builtinSkillsText = buildBuiltinSkillsSystemBlock(context.skillSummaries);
 
-  // Block 2+: 会话上下文 + 项目配置（每个一级标题独立 <system-reminder>）
-  const contextBlocks = buildContextReminderBlocks({
+  // ★ 用户/项目 skills → preface（user message）
+  const skillsBlocks = buildUserProjectSkillsBlocks(context.skillSummaries);
+
+  // MCP tools — 按 scope 分组
+  const mcpBlocks = buildMcpToolsBlocks(projectRoot);
+
+  // 会话上下文 + 项目配置
+  const contextBlocks = buildContextBlocks({
     sessionId: input.sessionId,
     context,
     parentProjectRootPaths: input.parentProjectRootPaths,
     clientPlatform: input.clientPlatform,
   });
 
-  // Memory 独立块（每个 scope 独立的 <system-reminder>）
+  // Memory 独立块
   let userHomePath: string | undefined;
   try {
     userHomePath = getOpenLoafRootDir();
@@ -470,52 +490,79 @@ export async function buildSessionPrefaceText(input: {
     parentProjectRootPaths: input.parentProjectRootPaths,
   });
 
-  // Block: MCP tools（独立 <system-reminder>，紧跟 Skills 之后）
-  const mcpBlock = buildMcpToolsReminderBlock();
+  const prefaceText = [...skillsBlocks, ...mcpBlocks, ...contextBlocks, ...memoryBlocks]
+    .filter(Boolean)
+    .join("\n\n");
 
-  return [...skillsBlocks, ...mcpBlock, ...contextBlocks, ...memoryBlocks].filter(Boolean).join("\n\n");
+  return { prefaceText, builtinSkillsText };
 }
 
 /**
- * Build MCP tools reminder block.
- * Lists all connected MCP server tools so the agent knows they can be
- * loaded via tool-search(names: "mcp__server__tool").
+ * Build MCP tools blocks, split by scope (global → system-user-mcp, project → system-project-mcp).
+ * Each MCP tool entry uses its own XML tag for consistency.
  */
-function buildMcpToolsReminderBlock(): string[] {
+function buildMcpToolsBlocks(projectRoot?: string): string[] {
   const mcpToolIds = getMcpToolIds();
   if (mcpToolIds.length === 0) return [];
 
   const mcpEntries = getMcpCatalogEntries();
 
-  // Group by server name
-  const byServer = new Map<string, { id: string; label: string; description: string }[]>();
+  // Build server name → scope map from config
+  let serverScopeMap: Map<string, 'global' | 'project'>;
+  try {
+    const servers = getEnabledMcpServers(projectRoot);
+    serverScopeMap = new Map(servers.map((s) => [s.name, s.scope]));
+  } catch {
+    serverScopeMap = new Map();
+  }
+
+  // Group by server name, then split by scope
+  type ToolEntry = { id: string; label: string; description: string };
+  const globalTools = new Map<string, ToolEntry[]>();
+  const projectTools = new Map<string, ToolEntry[]>();
+
   for (const id of mcpToolIds) {
     const parts = id.split('__');
     const serverName = parts[1] ?? 'unknown';
     const entry = mcpEntries.find((e) => e.id === id);
-    if (!byServer.has(serverName)) byServer.set(serverName, []);
-    byServer.get(serverName)!.push({
+    const toolEntry: ToolEntry = {
       id,
       label: entry?.label ?? id,
       description: entry?.description ?? '',
-    });
+    };
+    const scope = serverScopeMap.get(serverName) ?? 'global';
+    const target = scope === 'project' ? projectTools : globalTools;
+    if (!target.has(serverName)) target.set(serverName, []);
+    target.get(serverName)!.push(toolEntry);
   }
 
-  const lines: string[] = [
-    '# MCP 外部工具',
-    '以下 MCP 工具由用户配置的外部服务提供。使用前需先通过 tool-search 工具加载。',
-    '加载方式：调用 tool-search 工具，在 names 参数中传入下方工具 ID（逗号分隔多个）。',
-    '',
-  ];
-
-  for (const [serverName, tools] of byServer) {
-    lines.push(`## ${serverName}`);
-    for (const t of tools) {
-      const desc = t.description ? ` — ${t.description}` : '';
-      lines.push(`- ${t.id}${desc}`);
+  const buildBlock = (
+    tag: string,
+    desc: string,
+    toolsByServer: Map<string, ToolEntry[]>,
+  ): string => {
+    const lines: string[] = [
+      '# MCP 外部工具',
+      '使用前需先通过 tool-search 工具加载（在 names 参数中传入工具 ID）。',
+      '',
+    ];
+    for (const [serverName, tools] of toolsByServer) {
+      lines.push(`## ${serverName}`);
+      for (const t of tools) {
+        const toolDesc = t.description ? ` — ${t.description}` : '';
+        lines.push(`<${t.id}>${t.label}${toolDesc}</${t.id}>`);
+      }
+      lines.push('');
     }
-    lines.push('');
-  }
+    return `<${tag} desc="${desc}">\n${lines.join('\n').trim()}\n</${tag}>`;
+  };
 
-  return [`<system-reminder>\n${lines.join('\n').trim()}\n</system-reminder>`];
+  const blocks: string[] = [];
+  if (globalTools.size > 0) {
+    blocks.push(buildBlock('system-user-mcp', '用户全局 MCP 工具', globalTools));
+  }
+  if (projectTools.size > 0) {
+    blocks.push(buildBlock('system-project-mcp', '项目 MCP 工具', projectTools));
+  }
+  return blocks;
 }

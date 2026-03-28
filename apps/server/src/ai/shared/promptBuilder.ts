@@ -22,13 +22,13 @@ export function buildSkillsSummarySection(
   ]
 
   if (summaries.length === 0) {
-    lines.push('- 未发现可用 skills。')
+    lines.push('（无）')
     return lines.join('\n')
   }
 
   for (const summary of summaries) {
     lines.push(
-      `- ${summary.originalName}: ${summary.description}`,
+      `<${summary.originalName}>${summary.description}</${summary.originalName}>`,
     )
   }
   return lines.join('\n')

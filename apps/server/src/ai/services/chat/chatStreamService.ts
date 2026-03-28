@@ -440,16 +440,17 @@ export async function runChatStream(input: {
   // 逻辑：在首条用户消息前确保 preface 已落库。
   const parentProjectRootPaths = await resolveParentProjectRootPaths(projectId);
   const resolvedProjectId = getProjectId() ?? projectId ?? undefined;
+  const sessionPrefaceResult = await buildSessionPrefaceText({
+    sessionId,
+    projectId: resolvedProjectId,
+    selectedSkills,
+    parentProjectRootPaths,
+    timezone,
+    clientPlatform: input.request.clientPlatform,
+  });
   await ensureSessionPreface({
     sessionId,
-    text: await buildSessionPrefaceText({
-      sessionId,
-      projectId: resolvedProjectId,
-      selectedSkills,
-      parentProjectRootPaths,
-      timezone,
-      clientPlatform: input.request.clientPlatform,
-    }),
+    text: sessionPrefaceResult.prefaceText,
     createdAt: requestStartAt,
     projectId: resolvedProjectId,
     boardId: boardId ?? undefined,
@@ -711,6 +712,7 @@ export async function runChatStream(input: {
           modelInfo: resolved.modelInfo,
           instructions,
           messages: modelMessages,
+          skillsSystemText: sessionPrefaceResult.builtinSkillsText,
         });
       }
     }
@@ -753,8 +755,9 @@ export async function runChatStream(input: {
       if (basicConf.chatPrefaceEnabled) {
         const jsonlPath = await resolveMessagesJsonlPath(sessionId)
         const sessionDir = path.dirname(jsonlPath)
-        // 完整指令 = prompt + hardRules（toolSearchGuidance 已移至 preface）
-        const fullPrompt = `${instructions}\n\n${buildHardRules()}`
+        // 完整指令 = prompt + hardRules + builtinSkills
+        const skillsSuffix = sessionPrefaceResult.builtinSkillsText ? `\n\n${sessionPrefaceResult.builtinSkillsText}` : ''
+        const fullPrompt = `${instructions}\n\n${buildHardRules()}${skillsSuffix}`
         await fs.writeFile(path.join(sessionDir, 'PROMPT.md'), fullPrompt, 'utf-8')
         // sessionPreface → 独立 PREFACE.md
         const prefaceText = await resolveSessionPrefaceText(sessionId)
@@ -844,16 +847,17 @@ export async function runChatImageRequest(input: {
   // 逻辑：在首条用户消息前确保 preface 已落库。
   const parentProjectRootPaths = await resolveParentProjectRootPaths(projectId);
   const resolvedProjectId = getProjectId() ?? projectId ?? undefined;
+  const imagePrefaceResult = await buildSessionPrefaceText({
+    sessionId,
+    projectId: resolvedProjectId,
+    selectedSkills,
+    parentProjectRootPaths,
+    timezone,
+    clientPlatform: input.request.clientPlatform,
+  });
   await ensureSessionPreface({
     sessionId,
-    text: await buildSessionPrefaceText({
-      sessionId,
-      projectId: resolvedProjectId,
-      selectedSkills,
-      parentProjectRootPaths,
-      timezone,
-      clientPlatform: input.request.clientPlatform,
-    }),
+    text: imagePrefaceResult.prefaceText,
     createdAt: requestStartAt,
     projectId: resolvedProjectId,
     boardId: boardId ?? undefined,
