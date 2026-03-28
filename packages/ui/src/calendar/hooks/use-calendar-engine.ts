@@ -187,7 +187,14 @@ export const useCalendarEngine = (
 		if (events) {
 			setCurrentEvents((prev) => {
 				if (prev === events) return prev
-				if (prev.length === events.length && prev.every((e, i) => e === events[i])) return prev
+				// normalizeEvents 每次创建新 dayjs 对象导致引用永远不等，用值比较代替。
+				if (
+					prev.length === events.length &&
+					prev.every((e, i) => {
+						const n = events[i]
+						return e.id === n.id && e.title === n.title && e.start.valueOf() === n.start.valueOf() && e.end.valueOf() === n.end.valueOf()
+					})
+				) return prev
 				return events
 			})
 		}

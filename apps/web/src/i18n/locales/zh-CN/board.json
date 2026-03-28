@@ -986,7 +986,9 @@
     "locked": "参数已锁定",
     "unlock": "解锁编辑",
     "model": "模型:",
-    "advancedOptions": "高级选项"
+    "advancedOptions": "高级选项",
+    "confirmStackHint": "将在当前节点上堆叠生成",
+    "confirmRegenerate": "确认重新生成"
   },
   "generatingOverlay": {
     "status": "生成中，约需 {{duration}}"

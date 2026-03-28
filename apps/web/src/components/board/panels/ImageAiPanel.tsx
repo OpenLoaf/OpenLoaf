@@ -7,6 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
+import { type GenerateTarget } from './GenerateActionBar'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AnimatePresence, motion } from 'framer-motion'
@@ -15,7 +16,8 @@ import { saveBoardAssetFile } from '../utils/board-asset'
 import type { CanvasNodeElement } from '../engine/types'
 import type { UpstreamData } from '../engine/upstream-data'
 import type { ImageNodeProps } from '../nodes/node-types'
-import type { BoardFileContext } from '../board-contracts'
+import type { BoardFileContext, VariantSnapshot } from '../board-contracts'
+import { getPrimaryEntry } from '../engine/version-stack'
 import { serializeForGenerate } from './variants/serialize'
 import type { MediaReference, MediaType, PersistedSlotMap } from './variants/slot-types'
 import { InputSlotBar, type ResolvedSlotInputs } from './variants/shared/InputSlotBar'
@@ -170,6 +172,7 @@ export function ImageAiPanel({
 
   const cache = useVariantCache({
     initialCache: aiConfig?.cache,
+    paused: editing,
     onFlush: (cacheMap) => {
       onUpdate({
         aiConfig: {
@@ -179,6 +182,75 @@ export function ImageAiPanel({
       })
     },
   })
+
+  // ── R2: Draft mode — snapshot/restore on edit cancel ──
+  const editSnapshotRef = useRef<Record<string, VariantSnapshot> | null>(null)
+  const [cancelCounter, setCancelCounter] = useState(0)
+
+  useEffect(() => {
+    if (editing) {
+      editSnapshotRef.current = cache.takeSnapshot()
+    }
+  }, [editing, cache])
+
+  const handleCancelEdit = useCallback(() => {
+    if (editSnapshotRef.current) {
+      cache.restoreSnapshot(editSnapshotRef.current)
+      cache.flushNow()
+      editSnapshotRef.current = null
+    }
+    setCancelCounter(c => c + 1)
+    onCancelEdit?.()
+  }, [cache, onCancelEdit])
+
+  // ── R3: Per-version params — derive effective snapshot from version entry ──
+  const primaryEntry = useMemo(
+    () => getPrimaryEntry(element.props.versionStack),
+    [element.props.versionStack],
+  )
+
+  const effectiveSnapshot = useMemo<VariantSnapshot | undefined>(() => {
+    if (readonly && !editing && primaryEntry?.input?.parameters) {
+      const p = primaryEntry.input.parameters as {
+        feature?: string
+        variant?: string
+        inputs?: Record<string, unknown>
+        params?: Record<string, unknown>
+        count?: number
+      }
+      return {
+        inputs: p.inputs ?? {},
+        params: p.params ?? {},
+        count: p.count,
+      }
+    }
+    return cache.get(activeKey)
+  }, [readonly, editing, primaryEntry, cache, activeKey])
+
+  // Auto-select feature/variant matching the viewed version (readonly mode)
+  useEffect(() => {
+    if (!readonly || editing) return
+    const params = primaryEntry?.input?.parameters as {
+      feature?: string
+      variant?: string
+    } | undefined
+    if (params?.feature && params.feature !== selectedFeatureId) {
+      setSelectedFeatureId(params.feature)
+    }
+    if (params?.variant && params.variant !== selectedVariantId) {
+      setSelectedVariantId(params.variant)
+    }
+  }, [readonly, editing, primaryEntry, selectedFeatureId, selectedVariantId, setSelectedFeatureId, setSelectedVariantId])
+
+  // ── Generate target persistence ──
+  const handleTargetChange = useCallback((next: GenerateTarget) => {
+    onUpdate({
+      aiConfig: {
+        ...aiConfigRef.current,
+        generateTarget: next,
+      },
+    })
+  }, [onUpdate])
 
   // ── Pricing params (reactive for estimate API) ──
   const [pricingParams, setPricingParams] = useState<Record<string, unknown>>({})
@@ -430,15 +502,14 @@ export function ImageAiPanel({
       {/* ── InputSlotBar (V3 declarative slot assignment) ── */}
       {mergedSlots?.length && selectedVariant ? (
         <InputSlotBar
+          key={`${selectedFeatureId}:${selectedVariant.id}:${readonly && !editing ? primaryEntry?.id : 'edit'}:${cancelCounter}`}
           slots={mergedSlots}
           upstream={rawUpstream ?? { textList: [], imageList: [], videoList: [], audioList: [], entries: [] }}
           fileContext={fileContext}
           nodeResource={nodeResource}
           disabled={readonly && !editing}
-          cachedAssignment={
-            cache.get(`${selectedFeatureId}:${selectedVariant.id}`)?.slotAssignment as PersistedSlotMap | undefined
-          }
-          cachedUserTexts={cache.get(`${selectedFeatureId}:${selectedVariant.id}`)?.userTexts}
+          cachedAssignment={effectiveSnapshot?.slotAssignment as PersistedSlotMap | undefined}
+          cachedUserTexts={effectiveSnapshot?.userTexts}
           onAssignmentChange={handleSlotInputsChange}
           onSlotAssignmentChange={handleSlotAssignmentPersist}
           onUserTextsChange={handleUserTextsChange}
@@ -455,7 +526,7 @@ export function ImageAiPanel({
       <AnimatePresence mode="wait">
         {selectedVariant ? (
           <motion.div
-            key={selectedVariant.id}
+            key={`${selectedVariant.id}:${readonly && !editing ? primaryEntry?.id : 'edit'}:${cancelCounter}`}
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
@@ -467,7 +538,7 @@ export function ImageAiPanel({
               nodeResourceUrl={resolvedImageSrc}
               nodeResourcePath={element.props.originalSrc}
               disabled={readonly && !editing}
-              initialParams={cache.get(`${selectedFeatureId}:${selectedVariant.id}`)}
+              initialParams={effectiveSnapshot}
               onParamsChange={(snapshot) => {
                 if (activeKey) {
                   cache.update(activeKey, { params: snapshot.params })
@@ -496,9 +567,11 @@ export function ImageAiPanel({
         readonly={readonly}
         editing={editing}
         onUnlock={onUnlock}
-        onCancelEdit={onCancelEdit}
+        onCancelEdit={handleCancelEdit}
         estimateParams={pricingParams}
         warningMessage={effectiveWarning}
+        initialTarget={aiConfig?.generateTarget}
+        onTargetChange={handleTargetChange}
         variants={selectedFeature?.variants
           ?.filter((v) => isVariantApplicable(v.id))
           .map((v) => {

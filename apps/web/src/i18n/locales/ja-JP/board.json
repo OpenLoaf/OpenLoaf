@@ -966,7 +966,9 @@
     "currentNode": "現在のノード",
     "regenerate": "再生成",
     "model": "モデル:",
-    "advancedOptions": "詳細オプション"
+    "advancedOptions": "詳細オプション",
+    "confirmStackHint": "現在のノードにスタック生成されます",
+    "confirmRegenerate": "再生成を確認"
   },
   "generatingOverlay": {
     "status": "生成中、約 {{duration}}"

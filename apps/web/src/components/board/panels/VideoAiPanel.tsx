@@ -7,6 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
+import { type GenerateTarget } from './GenerateActionBar'
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AnimatePresence, motion } from 'framer-motion'
@@ -184,6 +185,16 @@ export function VideoAiPanel({
       })
     },
   })
+
+  // ── Generate target persistence ──
+  const handleTargetChange = useCallback((next: GenerateTarget) => {
+    onUpdate({
+      aiConfig: {
+        ...aiConfigRef.current,
+        generateTarget: next,
+      },
+    })
+  }, [onUpdate])
 
   // ── Pricing params (reactive for estimate API) ──
   const [pricingParams, setPricingParams] = useState<Record<string, unknown>>({})
@@ -502,6 +513,8 @@ export function VideoAiPanel({
           onCancelEdit={onCancelEdit}
           estimateParams={pricingParams}
           warningMessage={variantWarning}
+          initialTarget={aiConfig?.generateTarget}
+          onTargetChange={handleTargetChange}
           variants={selectedFeature?.variants
             ?.filter((v) => isVariantApplicable(v.id))
             .map((v) => ({

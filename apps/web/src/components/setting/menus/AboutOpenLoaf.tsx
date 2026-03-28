@@ -388,17 +388,20 @@ export function AboutOpenLoaf() {
   }, [isElectron, isDevDesktop, isDesktopUpdating, updateStatus, downloadPercent, t]);
 
   const isChecking = updateStatus?.state === "checking" || autoUpdateStatus?.state === "checking";
+  const isDesktopDownloaded = autoUpdateStatus?.state === "downloaded";
   const updateActionLabel = isDevDesktop
     ? t('aboutAdditions.devModeUnavailable')
-    : updateStatus?.state === "ready"
-      ? t('aboutAdditions.updateReady')
-      : isChecking
-        ? t('aboutAdditions.checking')
-        : t('aboutAdditions.checkUpdate');
+    : isDesktopDownloaded
+      ? t('aboutAdditions.installNow')
+      : updateStatus?.state === "ready"
+        ? t('aboutAdditions.updateReady')
+        : isChecking
+          ? t('aboutAdditions.checking')
+          : t('aboutAdditions.checkUpdate');
   const updateActionDisabled =
     !isElectron ||
     isDevDesktop ||
-    isDesktopUpdating ||
+    (isDesktopUpdating && !isDesktopDownloaded) ||
     isChecking ||
     updateStatus?.state === "downloading" ||
     updateStatus?.state === "ready";
@@ -440,7 +443,9 @@ export function AboutOpenLoaf() {
                     size="sm"
                     className="h-8 rounded-3xl bg-secondary text-secondary-foreground hover:bg-accent shadow-none"
                     disabled={updateActionDisabled}
-                    onClick={() => void triggerUpdateAction()}
+                    onClick={() => void (isDesktopDownloaded
+                      ? window.openloafElectron?.relaunchApp?.()
+                      : triggerUpdateAction())}
                   >
                     {isChecking && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                     {updateActionLabel}
@@ -459,7 +464,7 @@ export function AboutOpenLoaf() {
                     </span>
                     <Button
                       size="sm"
-                      className="rounded-3xl bg-secondary text-secondary-foreground hover:bg-accent shadow-none"
+                      className="ml-auto rounded-3xl bg-secondary text-secondary-foreground hover:bg-accent shadow-none"
                       onClick={() => void window.openloafElectron?.relaunchApp?.()}
                     >
                       {t('aboutAdditions.installNow')}

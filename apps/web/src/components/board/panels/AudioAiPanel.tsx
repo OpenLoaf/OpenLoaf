@@ -7,6 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
+import { type GenerateTarget } from './GenerateActionBar'
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { Mic, Music, Volume2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -173,6 +174,16 @@ export function AudioAiPanel({
       })
     },
   })
+
+  // ── Generate target persistence ──
+  const handleTargetChange = useCallback((next: GenerateTarget) => {
+    onUpdate({
+      aiConfig: {
+        ...aiConfigRef.current,
+        generateTarget: next,
+      },
+    })
+  }, [onUpdate])
 
   const [hasParams, setHasParams] = useState(false)
   const [pricingParams, setPricingParams] = useState<Record<string, unknown>>({})
@@ -405,6 +416,8 @@ export function AudioAiPanel({
           onCancelEdit={onCancelEdit}
           estimateParams={pricingParams}
           warningMessage={variantWarning}
+          initialTarget={aiConfig?.generateTarget}
+          onTargetChange={handleTargetChange}
           variants={variants.length > 0 ? variants.filter((v) => isVariantApplicable(v.id)).map((v) => ({
             id: v.id,
             displayName: v.displayName || v.featureTabName || v.id,

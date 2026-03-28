@@ -866,26 +866,10 @@ function EditableTextNodeView({
 
   const [isEditing, setIsEditing] = useState(Boolean(editing) && !isGhost);
   const [shouldFocus, setShouldFocus] = useState(false);
-  const [isOverflowing, setIsOverflowing] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const contentRef = useRef<HTMLDivElement | null>(null);
   const autoFocusConsumedRef = useRef(false);
   const isEditingRef = useRef(false);
-
-  // Detect content overflow for fade mask
-  useEffect(() => {
-    const container = containerRef.current
-    if (!container) return
-
-    const checkOverflow = () => {
-      setIsOverflowing(container.scrollHeight > container.clientHeight + 2)
-    }
-
-    checkOverflow()
-    const observer = new ResizeObserver(checkOverflow)
-    observer.observe(container)
-    return () => observer.disconnect()
-  }, [element.xywh])
 
   // Normalize stored value to Slate Value (handles legacy string migration)
   const incomingSlateValue = useMemo(
@@ -1174,7 +1158,7 @@ function EditableTextNodeView({
         ? ""
         : defaultBg,
     isShape ? "" : "text-ol-text-secondary",
-    "overflow-y-hidden",
+    "overflow-y-auto board-text-scrollbar",
     isEditing ? "cursor-text" : "cursor-default",
   ].join(" ");
 
@@ -1262,21 +1246,6 @@ function EditableTextNodeView({
         </div>,
         panelOverlay,
       ) : null}
-      {isOverflowing && !isEditing && (
-        <div
-          className={cn(
-            "pointer-events-none absolute bottom-0 left-0 right-0 h-12",
-            !isShape && "rounded-b-3xl",
-          )}
-          style={{
-            background: isSticky
-              ? 'linear-gradient(to bottom, transparent, var(--ol-surface-neutral, #f5f5f5))'
-              : backgroundColor
-                ? `linear-gradient(to bottom, transparent, ${backgroundColor})`
-                : 'linear-gradient(to bottom, transparent, var(--ol-surface-muted))',
-          }}
-        />
-      )}
     </div>
   );
 }

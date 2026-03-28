@@ -968,7 +968,9 @@
     "locked": "參數已鎖定",
     "unlock": "解鎖編輯",
     "model": "模型:",
-    "advancedOptions": "進階選項"
+    "advancedOptions": "進階選項",
+    "confirmStackHint": "將在當前節點上堆疊生成",
+    "confirmRegenerate": "確認重新生成"
   },
   "generatingOverlay": {
     "status": "生成中，約需 {{duration}}"

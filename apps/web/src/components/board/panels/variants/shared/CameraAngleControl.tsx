@@ -493,6 +493,8 @@ function CubePreview({
     distortK: focal.distortK,
     cubeScale: focal.scale,
     raf: 0,
+    nudgePhase: 0,
+    nudgeDone: false,
   })
 
   // Load image
@@ -546,11 +548,23 @@ function CubePreview({
       if (anim.h > 180) anim.h -= 360
       if (anim.h < -180) anim.h += 360
 
+      // Initial nudge: small wobble to hint draggability
+      let nudgeOffset = 0
+      if (!anim.nudgeDone && !isDragging.current) {
+        anim.nudgePhase += 0.07
+        if (anim.nudgePhase < Math.PI * 2) {
+          nudgeOffset = Math.sin(anim.nudgePhase) * 12
+        } else {
+          anim.nudgeDone = true
+        }
+      }
+      if (isDragging.current) anim.nudgeDone = true
+
       drawScene(
         ctx,
         canvas.width,
         canvas.height,
-        anim.h,
+        anim.h + nudgeOffset,
         anim.v,
         anim.perspDist,
         anim.distortK,
@@ -565,7 +579,7 @@ function CubePreview({
         Math.abs(focal.perspDist - anim.perspDist) < 0.01 &&
         Math.abs(focal.distortK - anim.distortK) < 0.001
 
-      if (!settled) {
+      if (!settled || !anim.nudgeDone) {
         anim.raf = requestAnimationFrame(tick)
       } else {
         anim.h = hAngle

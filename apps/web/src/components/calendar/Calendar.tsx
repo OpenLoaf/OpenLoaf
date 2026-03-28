@@ -608,33 +608,37 @@ export default function CalendarPage({
 
   const [showPermissionDialog, setShowPermissionDialog] = useState(false);
 
+  /** 引导用户前往系统设置授权日历权限。 */
+  const openCalendarPrivacySettings = useCallback(() => {
+    if (isElectronEnv()) {
+      setShowPermissionDialog(true);
+      window.openloafElectron?.openExternal?.(
+        "x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars"
+      );
+    } else {
+      toast.error(t('accessDenied'));
+    }
+  }, [t]);
+
   const handleImportCalendar = useCallback(async () => {
     try {
       const result = await handleRequestPermission();
       if (!result.ok) {
-        if (result.code === "timeout") {
-          toast.error(t('connectionTimeout'));
-        } else {
-          toast.error(result.reason || t('importCalendarFailed'));
-        }
+        // 超时或失败 → 直接引导用户去系统设置手动授权。
+        // 常见原因：系统代理导致 EventKit 通信阻塞。
+        openCalendarPrivacySettings();
         return;
       }
       if (result.data.event === "granted") {
         toast.success(t('authSuccess'));
         return;
       }
-      if (isElectronEnv()) {
-        setShowPermissionDialog(true);
-        window.openloafElectron?.openExternal?.(
-          "x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars"
-        );
-      } else {
-        toast.error(t('accessDenied'));
-      }
+      // 用户在 macOS 弹窗中拒绝了授权。
+      openCalendarPrivacySettings();
     } catch {
-      toast.error(t('importFailedRetry'));
+      openCalendarPrivacySettings();
     }
-  }, [handleRequestPermission, t]);
+  }, [handleRequestPermission, openCalendarPrivacySettings, t]);
 
   const handleRelaunchApp = useCallback(async () => {
     if (window.openloafElectron?.relaunchApp) {

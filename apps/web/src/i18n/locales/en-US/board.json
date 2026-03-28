@@ -985,7 +985,9 @@
     "locked": "Parameters Locked",
     "unlock": "Unlock",
     "model": "Model:",
-    "advancedOptions": "Advanced Options"
+    "advancedOptions": "Advanced Options",
+    "confirmStackHint": "Will stack on the current node",
+    "confirmRegenerate": "Confirm Regenerate"
   },
   "generatingOverlay": {
     "status": "Generating, ~{{duration}}"

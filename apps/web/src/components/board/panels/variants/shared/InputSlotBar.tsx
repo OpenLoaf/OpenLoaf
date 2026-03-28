@@ -317,7 +317,9 @@ export function InputSlotBar({
     if (poolsChanged || slotsChanged) {
       prevPoolsRef.current = pools
       prevSlotsRef.current = rawSlots
-      if (slotsChanged) initialCacheRef.current = cachedAssignment
+      // Always sync cache ref so pool-reference-only changes (same content,
+      // new object identity) don't reset manual slot assignments.
+      initialCacheRef.current = cachedAssignment
       const fresh = restoreOrAssignV3(rawSlots, pools, defaultResolveContext, initialCacheRef.current)
       setSlotAssignments(fresh.assigned)
       setAssociatedRefs(fresh.associated.filter((r: MediaReference) => acceptedMediaTypes.has(r.nodeType)))
@@ -755,7 +757,7 @@ export function InputSlotBar({
               {slotGroups}
             </div>
             {/* Row 2: associated (unassigned upstream refs) */}
-            {hasAssociated && (
+            {hasAssociated && !disabled && (
               <div className="flex flex-col gap-1">
                 <span className="text-xs font-medium text-neutral-600 dark:text-neutral-400">
                   {t('slot.associatedRefs')}

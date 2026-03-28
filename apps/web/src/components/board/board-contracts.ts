@@ -60,6 +60,8 @@ export type AiGenerateConfig = {
   lastUsed?: { feature: string; variant: string }
   /** Cached variant form params keyed by "feature:variantId". */
   cache?: Record<string, VariantSnapshot>
+  /** Persisted generate target — 'current' (stack) or 'new-node'. */
+  generateTarget?: 'current' | 'new-node'
   /** Metadata written only when a generation completes. */
   lastGeneration?: {
     prompt: string

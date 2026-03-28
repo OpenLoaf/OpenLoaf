@@ -13,9 +13,13 @@
  *
  * All param/slot updates go through `update()`. Flushes to node after 300ms
  * of inactivity, or immediately via `flushNow()` (call before generate).
+ *
+ * When `paused` is true (editing mode), `update()` still modifies the in-memory
+ * ref so the UI works, but the debounced auto-flush is suppressed. Use
+ * `takeSnapshot()` / `restoreSnapshot()` to implement cancel-edit semantics.
  */
 
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import type { VariantSnapshot } from '../../board-contracts'
 
 export interface VariantCacheOptions {
@@ -23,6 +27,8 @@ export interface VariantCacheOptions {
   initialCache?: Record<string, VariantSnapshot>
   /** Called when dirty cache needs to persist to node */
   onFlush: (cache: Record<string, VariantSnapshot>) => void
+  /** When true, update() changes in-memory state but does NOT schedule auto-flush. */
+  paused?: boolean
 }
 
 export interface VariantCacheReturn {
@@ -34,6 +40,10 @@ export interface VariantCacheReturn {
   flushNow: () => void
   /** Direct ref access for collectParams (read-only) */
   cacheRef: React.MutableRefObject<Record<string, VariantSnapshot>>
+  /** Capture current cache state for later restore (deep copy). */
+  takeSnapshot: () => Record<string, VariantSnapshot>
+  /** Restore a previously captured snapshot (discards current in-memory draft). */
+  restoreSnapshot: (snapshot: Record<string, VariantSnapshot>) => void
 }
 
 export function useVariantCache(options: VariantCacheOptions): VariantCacheReturn {
@@ -42,6 +52,8 @@ export function useVariantCache(options: VariantCacheOptions): VariantCacheRetur
   const flushTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
   const onFlushRef = useRef(options.onFlush)
   onFlushRef.current = options.onFlush
+  const pausedRef = useRef(options.paused ?? false)
+  pausedRef.current = options.paused ?? false
 
   const flushNow = useCallback(() => {
     clearTimeout(flushTimer.current)
@@ -63,20 +75,42 @@ export function useVariantCache(options: VariantCacheOptions): VariantCacheRetur
       }
       dirtyRef.current = true
       clearTimeout(flushTimer.current)
-      flushTimer.current = setTimeout(() => {
-        if (dirtyRef.current) {
-          onFlushRef.current({ ...cacheRef.current })
-          dirtyRef.current = false
-        }
-      }, 300)
+      // Only schedule auto-flush when not paused (editing mode suppresses)
+      if (!pausedRef.current) {
+        flushTimer.current = setTimeout(() => {
+          if (dirtyRef.current) {
+            onFlushRef.current({ ...cacheRef.current })
+            dirtyRef.current = false
+          }
+        }, 300)
+      }
     },
     [],
   )
 
-  // Flush on unmount
-  useEffect(() => () => { flushNow() }, [flushNow])
+  // Flush on unmount — skip if paused (discard editing draft)
+  useEffect(() => () => {
+    if (!pausedRef.current) flushNow()
+  }, [flushNow])
 
   const get = useCallback((key: string) => cacheRef.current[key], [])
 
-  return { update, get, flushNow, cacheRef }
+  const takeSnapshot = useCallback(
+    () => JSON.parse(JSON.stringify(cacheRef.current)) as Record<string, VariantSnapshot>,
+    [],
+  )
+
+  const restoreSnapshot = useCallback(
+    (snapshot: Record<string, VariantSnapshot>) => {
+      cacheRef.current = snapshot
+      dirtyRef.current = true
+      clearTimeout(flushTimer.current)
+    },
+    [],
+  )
+
+  return useMemo(
+    () => ({ update, get, flushNow, cacheRef, takeSnapshot, restoreSnapshot }),
+    [update, get, flushNow, takeSnapshot, restoreSnapshot],
+  )
 }

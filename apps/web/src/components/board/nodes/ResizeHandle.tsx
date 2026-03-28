@@ -68,6 +68,9 @@ export function ResizeHandle({
 
     // Disable CSS transitions during drag for instant visual feedback
     nodeDiv.style.transition = 'none'
+
+    // Mark as dragging so AnchorOverlay / toolbar hide during resize
+    engine.setDraggingElementId(element.id)
   }
 
   const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -111,6 +114,7 @@ export function ResizeHandle({
     })
     engine.commitHistory()
     drag.nodeDiv.style.transition = ''
+    engine.setDraggingElementId(null)
     // 清空 dragRef 放在最后，确保 onLostPointerCapture 能安全跳过
     dragRef.current = null
   }
@@ -122,6 +126,7 @@ export function ResizeHandle({
 
     // Restore transition
     drag.nodeDiv.style.transition = ''
+    engine.setDraggingElementId(null)
     // Revert to original size (cancel the resize operation)
     drag.nodeDiv.style.width = `${drag.startW}px`
     drag.nodeDiv.style.height = `${drag.startH}px`

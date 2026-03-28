@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AlertCircle, ArrowRight, Check, ChevronDown, Layers, Lock, Sparkles, Zap } from 'lucide-react'
 import { useSaasAuth } from '@/hooks/use-saas-auth'
@@ -56,6 +56,10 @@ export type GenerateActionBarProps = {
   warningMessage?: string | null
   /** Pricing-relevant params for dynamic credit estimation (aspectRatio, duration, count, etc.). */
   estimateParams?: Record<string, unknown>
+  /** Initial generate target restored from aiConfig. */
+  initialTarget?: GenerateTarget
+  /** Called when generate target changes — persist to aiConfig. */
+  onTargetChange?: (target: GenerateTarget) => void
   /** Available variants for the current feature. */
   variants?: GenerateActionVariant[]
   /** Currently selected variant ID. */
@@ -177,6 +181,8 @@ export function GenerateActionBar({
   generatingLabel,
   warningMessage,
   estimateParams,
+  initialTarget,
+  onTargetChange,
   variants,
   selectedVariantId,
   onVariantChange,
@@ -191,14 +197,34 @@ export function GenerateActionBar({
   }, [loggedIn, loginOpen])
 
   // 逻辑：已有资源时默认先生成到当前节点；右侧切换按钮可改为新节点生成。
-  const [target, setTarget] = useState<GenerateTarget>('current')
+  // 从 aiConfig.generateTarget 恢复上次选择。
+  const [target, setTarget] = useState<GenerateTarget>(initialTarget ?? 'current')
   const effectiveTarget = hasResource ? target : 'current'
+
+  const updateTarget = useCallback((next: GenerateTarget) => {
+    setTarget(next)
+    onTargetChange?.(next)
+  }, [onTargetChange])
 
   useEffect(() => {
     if (!hasResource) {
       setTarget('current')
     }
   }, [hasResource])
+
+  // ── Regenerate confirmation popover ──
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const confirmRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!confirmOpen) return
+    const handler = (e: MouseEvent) => {
+      if (confirmRef.current && !confirmRef.current.contains(e.target as Node)) {
+        setConfirmOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [confirmOpen])
 
   // Dynamic credit estimation via API
   const { totalCredits: estimatedCredits } = useEstimatePrice({
@@ -219,6 +245,14 @@ export function GenerateActionBar({
           ? t('generateAction.regenerate', { defaultValue: '重新生成' })
           : (generateLabel ?? t('generateAction.generate'))
 
+  const executeGenerate = useCallback(() => {
+    if (effectiveTarget === 'current') {
+      onGenerate()
+    } else {
+      onGenerateNewNode()
+    }
+  }, [effectiveTarget, onGenerate, onGenerateNewNode])
+
   const handleClick = () => {
     if (generating || disabled) return
     // Intercept for login
@@ -230,11 +264,12 @@ export function GenerateActionBar({
       onGenerate()
       return
     }
-    if (effectiveTarget === 'current') {
-      onGenerate()
-    } else {
-      onGenerateNewNode()
+    // 有资源 + 堆叠到当前节点 + editing → 弹出确认
+    if (editing && effectiveTarget === 'current') {
+      setConfirmOpen(true)
+      return
     }
+    executeGenerate()
   }
 
   const isButtonDisabled = !!warningMessage || generating || (disabled && loggedIn)
@@ -373,7 +408,7 @@ export function GenerateActionBar({
                 ].join(' ')}
                 onClick={() => {
                   if (isButtonDisabled) return
-                  setTarget((prev) => (prev === 'current' ? 'new-node' : 'current'))
+                  updateTarget(target === 'current' ? 'new-node' : 'current')
                 }}
                 title={switchTargetLabel}
                 aria-label={switchTargetLabel}
@@ -396,6 +431,46 @@ export function GenerateActionBar({
               {label}
             </button>
           )}
+
+          {/* Regenerate confirmation popover */}
+          {confirmOpen ? (
+            <div
+              ref={confirmRef}
+              className="absolute right-0 bottom-full mb-2 z-50 flex flex-col gap-1.5 rounded-xl border border-border bg-card p-2.5 shadow-lg min-w-[180px]"
+            >
+              <span className="text-[11px] text-muted-foreground">
+                {t('generateAction.confirmStackHint', { defaultValue: '将在当前节点上堆叠生成' })}
+              </span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  className={[
+                    'flex-1 inline-flex items-center justify-center gap-1 rounded-full px-3 py-1.5 text-[11px] font-medium transition-colors duration-150',
+                    buttonClassName,
+                  ].join(' ')}
+                  onClick={() => {
+                    setConfirmOpen(false)
+                    onGenerate()
+                  }}
+                >
+                  <Sparkles size={10} />
+                  {t('generateAction.confirmRegenerate', { defaultValue: '确认重新生成' })}
+                </button>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1 rounded-full px-2.5 py-1.5 text-[11px] font-medium text-muted-foreground border border-border hover:bg-foreground/5 transition-colors duration-150"
+                  onClick={() => {
+                    setConfirmOpen(false)
+                    updateTarget('new-node')
+                    onGenerateNewNode()
+                  }}
+                >
+                  <ArrowRight size={10} />
+                  {t('generateAction.newNode', { defaultValue: '生成新节点' })}
+                </button>
+              </div>
+            </div>
+          ) : null}
         </div>
 
         <SaasLoginDialog open={loginOpen} onOpenChange={setLoginOpen} />
