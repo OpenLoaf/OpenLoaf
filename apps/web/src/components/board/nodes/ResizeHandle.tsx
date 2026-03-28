@@ -4,8 +4,6 @@
  * This source code is licensed under the AGPLv3 license found in the
  * LICENSE file in the root directory of this source tree.
  */
-'use no memo'
-
 import { useRef } from 'react'
 import type { CanvasEngine } from '../engine/CanvasEngine'
 import type { CanvasNodeElement } from '../engine/types'
@@ -25,6 +23,7 @@ type DragState = {
   startW: number
   startH: number
   zoom: number
+  nodeDiv: HTMLElement
 }
 
 /**
@@ -49,7 +48,11 @@ export function ResizeHandle({
 
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     e.stopPropagation()
+    e.preventDefault()
     e.currentTarget.setPointerCapture(e.pointerId)
+
+    const nodeDiv = e.currentTarget.closest<HTMLElement>('[data-board-node]')
+    if (!nodeDiv) return
 
     const [, , w, h] = element.xywh
     const zoom = engine.viewport.getState().zoom
@@ -60,6 +63,7 @@ export function ResizeHandle({
       startW: w,
       startH: h,
       zoom,
+      nodeDiv,
     }
   }
 
@@ -79,11 +83,8 @@ export function ResizeHandle({
     if (maxH != null) nextH = Math.min(nextH, maxH)
 
     // Direct DOM mutation for zero-latency feedback
-    const node = e.currentTarget.closest<HTMLElement>('[data-board-node]')
-    if (node) {
-      node.style.width = `${nextW}px`
-      node.style.height = `${nextH}px`
-    }
+    drag.nodeDiv.style.width = `${nextW}px`
+    drag.nodeDiv.style.height = `${nextH}px`
   }
 
   const onPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -112,8 +113,7 @@ export function ResizeHandle({
   return (
     <div
       data-resize-handle
-      className="pointer-events-auto absolute bottom-0 right-0 z-10 flex cursor-nwse-resize items-center justify-center opacity-0 transition-opacity duration-150 group-data-[selected]/node:opacity-100"
-      style={{ width: 16, height: 16 }}
+      className="pointer-events-auto absolute bottom-0 right-0 z-10 flex h-5 w-5 cursor-nwse-resize items-center justify-center opacity-0 transition-opacity duration-150 group-data-[selected]/node:opacity-100"
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}

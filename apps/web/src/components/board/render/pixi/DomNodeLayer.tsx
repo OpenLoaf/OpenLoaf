@@ -105,6 +105,7 @@ const DomNodeItem = memo(function DomNodeItem({
   const baseZ = element.zIndex ?? 0
   const isGroup = isGroupNodeType(element.type)
   const showLabel = !isGroup && !LABEL_EXCLUDED_TYPES.has(element.type)
+  const caps = engine.nodes.getDefinition(element.type)?.capabilities
 
   return (
     <div
@@ -175,14 +176,14 @@ const DomNodeItem = memo(function DomNodeItem({
           <Lock size={10} className="text-white" />
         </div>
       )}
-      {selected && !isGroup && !element.locked && engine.nodes.getDefinition(element.type)?.capabilities?.resizable && (
+      {selected && !isGroup && !element.locked && caps?.resizable && (
         <ResizeHandle
           engine={engine}
           element={element}
-          minW={engine.nodes.getDefinition(element.type)?.capabilities?.minSize?.w}
-          maxW={engine.nodes.getDefinition(element.type)?.capabilities?.maxSize?.w}
-          minH={engine.nodes.getDefinition(element.type)?.capabilities?.minSize?.h}
-          maxH={engine.nodes.getDefinition(element.type)?.capabilities?.maxSize?.h}
+          minW={caps?.minSize?.w}
+          maxW={caps?.maxSize?.w}
+          minH={caps?.minSize?.h}
+          maxH={caps?.maxSize?.h}
         />
       )}
     </div>
