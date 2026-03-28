@@ -110,6 +110,38 @@ export function ResizeHandle({
     engine.commitHistory()
   }
 
+  const onDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.stopPropagation()
+    e.preventDefault()
+
+    const nodeDiv = e.currentTarget.closest<HTMLElement>('[data-board-node]')
+    if (!nodeDiv) return
+
+    const contentDiv = nodeDiv.querySelector(
+      '.board-node-content',
+    ) as HTMLElement | null
+    if (!contentDiv) return
+
+    // Temporarily remove height constraints to measure natural content height
+    const prevHeight = nodeDiv.style.height
+    const prevOverflow = contentDiv.style.overflow
+    nodeDiv.style.height = 'auto'
+    contentDiv.style.overflow = 'visible'
+    const naturalHeight = contentDiv.scrollHeight
+    nodeDiv.style.height = prevHeight
+    contentDiv.style.overflow = prevOverflow
+
+    let clampedH = naturalHeight
+    if (minH != null) clampedH = Math.max(clampedH, minH)
+    if (maxH != null) clampedH = Math.min(clampedH, maxH)
+
+    const [x, y, w] = element.xywh
+    engine.doc.updateElement(element.id, {
+      xywh: [x, y, w, Math.round(clampedH)],
+    })
+    engine.commitHistory()
+  }
+
   return (
     <div
       data-resize-handle
@@ -117,6 +149,7 @@ export function ResizeHandle({
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
+      onDoubleClick={onDoubleClick}
     >
       <svg
         width="8"
