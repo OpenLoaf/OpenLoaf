@@ -11,20 +11,15 @@ import type { PromptContext } from '@/ai/shared/types'
 
 const UNKNOWN_VALUE = 'unknown'
 
-/** Build skills summary section — each skill as a self-closing <skill /> tag. */
+/** Build skills summary section — each skill as a <skill> tag with description inside. */
 export function buildSkillsSummarySection(
   summaries: PromptContext['skillSummaries'],
 ): string {
   if (summaries.length === 0) return ''
 
   return summaries
-    .map((s) => `\t<skill tool-name="${s.originalName}" desc="${escapeAttr(s.description)}" />`)
+    .map((s) => `\t<skill tool-name="${s.originalName}">\n\t\t${s.description}\n\t</skill>`)
     .join('\n')
-}
-
-/** Escape double quotes in XML attribute values. */
-function escapeAttr(value: string): string {
-  return value.replace(/"/g, '&quot;')
 }
 
 /** Build Python runtime section for a session preface. */
