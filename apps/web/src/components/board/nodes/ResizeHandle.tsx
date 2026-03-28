@@ -65,6 +65,9 @@ export function ResizeHandle({
       zoom,
       nodeDiv,
     }
+
+    // Disable CSS transitions during drag for instant visual feedback
+    nodeDiv.style.transition = 'none'
   }
 
   const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -108,6 +111,21 @@ export function ResizeHandle({
       xywh: [x, y, Math.round(nextW), Math.round(nextH)],
     })
     engine.commitHistory()
+
+    // Restore CSS transitions after commit
+    drag.nodeDiv.style.transition = ''
+  }
+
+  const onLostPointerCapture = () => {
+    const drag = dragRef.current
+    if (!drag) return
+    dragRef.current = null
+
+    // Restore transition
+    drag.nodeDiv.style.transition = ''
+    // Revert to original size (cancel the resize operation)
+    drag.nodeDiv.style.width = `${drag.startW}px`
+    drag.nodeDiv.style.height = `${drag.startH}px`
   }
 
   const onDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -149,6 +167,7 @@ export function ResizeHandle({
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
+      onLostPointerCapture={onLostPointerCapture}
       onDoubleClick={onDoubleClick}
     >
       <svg
