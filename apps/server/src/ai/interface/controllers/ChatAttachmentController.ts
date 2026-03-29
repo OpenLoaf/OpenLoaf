@@ -12,10 +12,10 @@ import path from "node:path";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import {
   getFilePreview,
+  resolveChatAttachmentRoot,
   saveChatImageAttachment,
   saveChatImageAttachmentFromPath,
 } from "@/ai/services/image/attachmentResolver";
-import { getProjectRootPath } from "@openloaf/api/services/vfsService";
 import { getOpenLoafRootDir } from "@openloaf/config";
 import { getResolvedTempStorageDir } from "@openloaf/api/services/appConfigService";
 import { resolveSessionFilesDir } from "@/ai/services/chat/repositories/chatFileStore";
@@ -314,10 +314,8 @@ export class ChatAttachmentController {
       const destPath = path.join(filesDir, destName);
       const buffer = Buffer.from(await file.arrayBuffer());
       await fs.writeFile(destPath, buffer);
-      const scopeRootPath = projectId ? getProjectRootPath(projectId) : null;
-      // 临时会话（无 projectId）的文件存储在 tempDir 下，必须用 tempDir 作为相对根，
-      // 否则 path.relative 产出含 ".." 的路径，normalizeGlobalScopedPath 会拒绝。
-      const rootPath = scopeRootPath || getResolvedTempStorageDir();
+      const root = await resolveChatAttachmentRoot({ projectId: projectId ?? undefined });
+      const rootPath = root?.rootPath ?? getResolvedTempStorageDir();
       const relativePath = path.relative(rootPath, destPath).split(path.sep).join("/");
 
       // 逻辑：统一返回相对路径，避免消息持久化后绑定绝对磁盘路径。

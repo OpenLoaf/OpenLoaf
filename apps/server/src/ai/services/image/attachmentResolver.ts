@@ -337,7 +337,7 @@ async function resolveImageMetadataText(filePath: string): Promise<string | null
  * - 普通聊天：`<scopeRoot>/.openloaf/chat-history/`
  * - 画布内聊天（boardId 存在）：通过 DB 查询 folderUri 解析实际路径
  */
-async function resolveChatAttachmentRoot(input: {
+export async function resolveChatAttachmentRoot(input: {
   /** Project id. */
   projectId?: string;
   /** Optional board id — when present, chat files live under the board directory. */
