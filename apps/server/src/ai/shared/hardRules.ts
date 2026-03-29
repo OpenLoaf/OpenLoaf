@@ -62,9 +62,10 @@ function buildOutputFormatRules(): string {
 export function buildFileReferenceRules(): string {
   return [
     '# 输入中的文件引用',
-    '- 用户输入里的 `@{...}` 代表文件引用，花括号内为项目相对路径。',
-    '- 标准格式：`@{path/to/file}`（默认当前项目根目录）。',
-    '- 跨项目格式：`@{[projectId]/path}`。',
+    '- 用户输入里的 `@{...}` 代表文件引用。',
+    '- 项目文件：`@{path/to/file}`（当前项目根目录相对路径）。',
+    '- 跨项目文件：`@{[projectId]/path}`。',
+    '- 会话资源文件：`@{[sessionId]/asset/filename}`（对话过程中产生的文件，sessionId 见会话上下文）。',
     '- 可选行号范围：`@{path/to/file:start-end}`，表示关注指定行区间。',
     '',
     '# 输入中的技能引用',
