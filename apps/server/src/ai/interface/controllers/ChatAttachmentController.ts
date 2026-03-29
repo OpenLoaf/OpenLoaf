@@ -12,12 +12,9 @@ import path from "node:path";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import {
   getFilePreview,
-  resolveChatAttachmentRoot,
   saveChatImageAttachment,
   saveChatImageAttachmentFromPath,
 } from "@/ai/services/image/attachmentResolver";
-import { getOpenLoafRootDir } from "@openloaf/config";
-import { getResolvedTempStorageDir } from "@openloaf/api/services/appConfigService";
 import { resolveSessionFilesDir } from "@/ai/services/chat/repositories/chatFileStore";
 
 /** Max upload size for chat images. */
@@ -314,12 +311,9 @@ export class ChatAttachmentController {
       const destPath = path.join(filesDir, destName);
       const buffer = Buffer.from(await file.arrayBuffer());
       await fs.writeFile(destPath, buffer);
-      const root = await resolveChatAttachmentRoot({ projectId: projectId ?? undefined });
-      const rootPath = root?.rootPath ?? getResolvedTempStorageDir();
-      const relativePath = path.relative(rootPath, destPath).split(path.sep).join("/");
 
-      // 逻辑：统一返回相对路径，避免消息持久化后绑定绝对磁盘路径。
-      return { type: "json", status: 200, body: { path: relativePath } };
+      // 统一返回 [sessionId]/asset/filename 格式，由 preview endpoint 解析物理路径。
+      return { type: "json", status: 200, body: { path: `[${sessionId}]/asset/${destName}` } };
     } catch (error) {
       return {
         type: "json",

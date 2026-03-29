@@ -127,7 +127,7 @@ async function main() {
       assert.equal(result.data.destination, 'chat')
       assert.match(
         result.data.filePath,
-        /^\.openloaf\/chat-history\/video-download-test\/asset\//,
+        /^\[video-download-test\]\/asset\//,
       )
 
       const stat = await fs.stat(result.data.absolutePath)

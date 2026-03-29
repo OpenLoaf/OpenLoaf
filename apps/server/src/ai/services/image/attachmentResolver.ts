@@ -18,6 +18,7 @@ import { resolveBoardAbsPath, resolveBoardScopedRoot, resolveBoardRootPath, look
 import { getOpenLoafRootDir, resolveScopedOpenLoafPath } from "@openloaf/config";
 import { getResolvedTempStorageDir } from "@openloaf/api/services/appConfigService";
 import { getProjectId } from "@/ai/shared/context/requestContext";
+import { resolveSessionDir } from "@/ai/services/chat/repositories/chatFileStore";
 
 /** Max image edge length for chat. */
 const CHAT_IMAGE_MAX_EDGE = 1024;
@@ -444,13 +445,26 @@ async function resolveProjectFilePathWithRoot(input: {
     }
   }
 
+  // Session-scoped 路径：[chat_xxx]/asset/file → 通过 resolveSessionDir 解析物理目录
+  if (parsed.projectId && /^chat_/.test(parsed.projectId)) {
+    const sessionDir = await resolveSessionDir(parsed.projectId);
+    const subPath = normalizeRelativePath(parsed.relativePath);
+    if (!subPath || hasParentTraversal(subPath)) return null;
+    const absPath = path.resolve(sessionDir, subPath);
+    const sessionDirResolved = path.resolve(sessionDir);
+    if (absPath !== sessionDirResolved && !absPath.startsWith(sessionDirResolved + path.sep)) {
+      return null;
+    }
+    return { absPath, relativePath: `[${parsed.projectId}]/${subPath}`, rootPath: sessionDir };
+  }
+
+  // 兼容旧格式：.openloaf/chat-history/xxx 和 chat-history/xxx
   const root = await resolveChatAttachmentRoot({
     projectId: parsed.projectId ?? input.projectId ?? getProjectId(),
   });
   if (!root) return null;
   const targetPath = path.resolve(root.rootPath, relativePath);
   const rootPathResolved = path.resolve(root.rootPath);
-  // 逻辑：必须限制在 rootPath 内，避免路径穿越。
   if (targetPath !== rootPathResolved && !targetPath.startsWith(rootPathResolved + path.sep)) {
     return null;
   }
@@ -699,7 +713,6 @@ export async function saveChatImageAttachment(input: {
   }
 
   const targetPath = path.join(root.chatHistoryDir, input.sessionId, "asset", fileName);
-  const relativePath = path.relative(root.rootPath, targetPath).split(path.sep).join("/");
   await fs.mkdir(path.dirname(targetPath), { recursive: true });
   // 逻辑：PNG 写入 iTXt，其他格式仅写 sidecar。
   const metadataPayload = input.metadata ? serializeImageMetadata(input.metadata) : null;
@@ -714,7 +727,7 @@ export async function saveChatImageAttachment(input: {
   }
 
   return {
-    url: relativePath,
+    url: `[${input.sessionId}]/asset/${fileName}`,
     mediaType: compressed.mediaType,
   };
 }
@@ -745,7 +758,6 @@ export async function saveChatImageAttachmentFromPath(input: {
   if (!format || !isSupportedImageMime(format.mediaType)) {
     throw new Error("Unsupported image type");
   }
-  // 中文注释：相对路径来源仍需压缩转码，统一 chat 侧尺寸与质量。
   const compressed = await compressImageBuffer(buffer, format);
   const fileName = buildChatAttachmentFileName(compressed.ext);
   const root = await resolveChatAttachmentRoot({
@@ -756,9 +768,7 @@ export async function saveChatImageAttachmentFromPath(input: {
     throw new Error("Project not found");
   }
   const targetPath = path.join(root.chatHistoryDir, input.sessionId, "asset", fileName);
-  const relativePath = path.relative(root.rootPath, targetPath).split(path.sep).join("/");
   await fs.mkdir(path.dirname(targetPath), { recursive: true });
-  // 逻辑：PNG 写入 iTXt，其他格式仅写 sidecar。
   const metadataPayload = input.metadata ? serializeImageMetadata(input.metadata) : null;
   const outputBuffer =
     compressed.ext === "png" && metadataPayload
@@ -771,7 +781,7 @@ export async function saveChatImageAttachmentFromPath(input: {
   }
 
   return {
-    url: relativePath,
+    url: `[${input.sessionId}]/asset/${fileName}`,
     mediaType: compressed.mediaType,
   };
 }

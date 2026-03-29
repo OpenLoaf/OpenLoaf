@@ -93,36 +93,38 @@ async function fetchMentionEntry(input: {
   }
 }
 
+/** Strip @{...} wrapper from a mention value. */
+function stripMentionWrapper(value: string): string {
+  const trimmed = value.trim();
+  if (trimmed.startsWith("@{") && trimmed.endsWith("}")) return trimmed.slice(2, -1);
+  if (trimmed.startsWith("@")) return trimmed.slice(1);
+  return trimmed;
+}
+
+/** Session-scoped path regex: [chat_xxx]/asset/file.pdf */
+const SESSION_SCOPE_REGEX = /^\[(chat_[^\]]+)\]\/(.+)$/;
+
+/** Extract session-scoped path: [sessionId]/subpath, or null. */
+function extractSessionScopedPath(value: string): { sessionId: string; subPath: string } | null {
+  const normalized = stripMentionWrapper(value).replace(/:\d+-\d+$/, "");
+  const match = normalized.match(SESSION_SCOPE_REGEX);
+  if (!match) return null;
+  return { sessionId: match[1]!, subPath: match[2]! };
+}
+
 /** Parse a mention value into a project file reference. */
 function parseMentionFileRef(value: string, defaultProjectId?: string): MentionFileRef | null {
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-  let normalized: string;
-  if (trimmed.startsWith("@{") && trimmed.endsWith("}")) {
-    normalized = trimmed.slice(2, -1);
-  } else if (trimmed.startsWith("@")) {
-    normalized = trimmed.slice(1);
-  } else {
-    normalized = trimmed;
-  }
+  const normalized = stripMentionWrapper(value);
+  if (!normalized) return null;
   const match = normalized.match(/^(.*?)(?::(\d+)-(\d+))?$/);
   const baseValue = match?.[1] ?? normalized;
-  // 绝对路径不走项目文件解析。
   if (baseValue.startsWith("/")) return null;
+  // [sessionId] 格式由 extractSessionScopedPath 处理，不走项目文件解析。
+  if (SESSION_SCOPE_REGEX.test(baseValue)) return null;
   const parsed = parseScopedProjectPath(baseValue);
   const projectId = parsed?.projectId ?? defaultProjectId;
   if (!projectId) return null;
-
-  let relativePath = parsed?.relativePath ?? "";
-
-  // 兼容历史数据：../chat-history/xxx → .openloaf/chat-history/xxx
-  if (relativePath.match(/^(?:\.\.\/)+/) && relativePath.includes("chat-history/")) {
-    const stripped = relativePath.replace(/^(?:\.\.\/)+/, "");
-    if (stripped.startsWith("chat-history/")) {
-      relativePath = `.openloaf/${stripped}`;
-    }
-  }
-
+  const relativePath = parsed?.relativePath ?? "";
   if (!relativePath) return null;
   return {
     projectId,
@@ -130,33 +132,6 @@ function parseMentionFileRef(value: string, defaultProjectId?: string): MentionF
     lineStart: match?.[2],
     lineEnd: match?.[3],
   };
-}
-
-/** Extract a normalized chat-history relative path, or null if not a chat-history path. */
-function extractChatHistoryPath(value: string): string | null {
-  let normalized = value.trim();
-  if (normalized.startsWith("@{") && normalized.endsWith("}")) {
-    normalized = normalized.slice(2, -1);
-  } else if (normalized.startsWith("@")) {
-    normalized = normalized.slice(1);
-  }
-  normalized = normalized.replace(/:\d+-\d+$/, "");
-  // .openloaf/chat-history/... (project chat, new format)
-  if (normalized.includes(".openloaf/") && normalized.includes("chat-history/")) {
-    return normalized;
-  }
-  // ../chat-history/... (project chat, legacy format)
-  if (/^(?:\.\.\/)+/.test(normalized) && normalized.includes("chat-history/")) {
-    const stripped = normalized.replace(/^(?:\.\.\/)+/, "");
-    if (stripped.startsWith("chat-history/")) {
-      return `.openloaf/${stripped}`;
-    }
-  }
-  // chat-history/... (temp chat)
-  if (normalized.startsWith("chat-history/")) {
-    return normalized;
-  }
-  return null;
 }
 
 /** Handle pointer down on file mentions to open the viewer stack. */
@@ -178,25 +153,23 @@ export function handleChatMentionPointerDown(
     mentionEl.getAttribute("data-slate-value") ||
     "";
 
-  // chat-history 文件：跳过 VFS，直接用 preview endpoint 打开。
-  // 兼容项目 chat（.openloaf/chat-history/...、../chat-history/...）和临时 chat（chat-history/...）。
-  const chatHistoryRelPath = extractChatHistoryPath(value);
-  if (chatHistoryRelPath) {
+  // Session-scoped 路径：[chat_xxx]/asset/file → 直接传给 preview endpoint
+  const sessionScoped = extractSessionScopedPath(value);
+  if (sessionScoped) {
     event.preventDefault();
     event.stopPropagation();
-    const fileName = chatHistoryRelPath.split("/").pop() ?? "file";
+    const fileName = sessionScoped.subPath.split("/").pop() ?? "file";
     const ext = fileName.includes(".") ? fileName.split(".").pop()?.toLowerCase() : undefined;
-    const rootUri = defaultProjectId ? resolveProjectRootUri(projects, defaultProjectId) : undefined;
+    const sessionPath = `[${sessionScoped.sessionId}]/${sessionScoped.subPath}`;
     openFilePreview({
       entry: {
-        uri: chatHistoryRelPath,
+        uri: sessionPath,
         name: decodeURIComponent(fileName),
         kind: "file" as const,
         ext,
       },
       tabId: activeTabId,
       projectId: defaultProjectId,
-      rootUri: rootUri || undefined,
     });
     return;
   }

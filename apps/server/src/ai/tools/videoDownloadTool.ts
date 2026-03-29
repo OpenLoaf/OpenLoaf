@@ -10,21 +10,19 @@
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
 import { tool, zodSchema } from 'ai'
-import { getProjectRootPath } from '@openloaf/api/services/vfsService'
 import { videoDownloadToolDef } from '@openloaf/api/types/tools/videoDownload'
 import {
-  buildBoardAssetRelativePath,
   lookupBoardRecord,
   resolveBoardAssetDir,
   resolveBoardScopedRoot,
 } from '@openloaf/api/common/boardPaths'
-import { getResolvedTempStorageDir } from '@openloaf/api/services/appConfigService'
 import {
   getAbortSignal,
   getBoardId,
   getProjectId,
   getSessionId,
 } from '@/ai/shared/context/requestContext'
+import { resolveSessionAssetDir } from '@/ai/services/chat/repositories/chatFileStore'
 import { logger } from '@/common/logger'
 import {
   cancelDownloadTask,
@@ -36,12 +34,14 @@ import {
 const POLL_INTERVAL_MS = 1_000
 
 type VideoStorageTarget = {
-  /** Root path used to build relative file paths for follow-up tools. */
+  /** Root path used to build relative file paths for follow-up tools (board only). */
   rootPath: string
   /** Directory where the video file should be saved. */
   saveDirPath: string
   /** Logical destination label returned to the AI. */
   destination: 'board' | 'chat'
+  /** Session id for chat destination (used for [sessionId] path format). */
+  sessionId?: string
 }
 
 /** Ensure sessionId exists when saving into chat history. */
@@ -64,7 +64,6 @@ async function resolveVideoStorageTarget(): Promise<VideoStorageTarget> {
   const boardId = getBoardId()
 
   if (boardId) {
-    // 逻辑：前端可能未传 projectId，从 DB 查询画布的真实 projectId
     if (!projectId) {
       const board = await lookupBoardRecord(boardId)
       if (board?.projectId) projectId = board.projectId
@@ -77,24 +76,13 @@ async function resolveVideoStorageTarget(): Promise<VideoStorageTarget> {
     }
   }
 
+  // Chat 会话：通过 resolveSessionAssetDir 统一解析物理目录
   const sessionId = requireSessionId()
-  if (projectId) {
-    const projectRoot = getProjectRootPath(projectId)
-    if (projectRoot) {
-      const relativeDir = path.join('.openloaf', 'chat-history', sessionId, 'asset')
-      return {
-        rootPath: projectRoot,
-        saveDirPath: path.join(projectRoot, relativeDir),
-        destination: 'chat',
-      }
-    }
-  }
-  // 临时对话 / 项目已删除：文件存储在 tempDir/chat-history/ 下（无 .openloaf 前缀）
-  const tempRoot = getResolvedTempStorageDir()
-  const relativeDir = path.join('chat-history', sessionId, 'asset')
+  const assetDir = await resolveSessionAssetDir(sessionId)
   return {
-    rootPath: tempRoot,
-    saveDirPath: path.join(tempRoot, relativeDir),
+    rootPath: assetDir,
+    saveDirPath: assetDir,
+    sessionId,
     destination: 'chat',
   }
 }
@@ -180,7 +168,10 @@ export const videoDownloadTool = tool({
       }
 
       const stat = await fs.stat(filePath)
-      const relativePath = toPosixRelativePath(storage.rootPath, filePath)
+      // Chat 使用 [sessionId]/asset/filename 格式，Board 使用 rootPath 相对路径
+      const relativePath = storage.sessionId
+        ? `[${storage.sessionId}]/asset/${fileName}`
+        : toPosixRelativePath(storage.rootPath, filePath)
 
       return {
         ok: true,

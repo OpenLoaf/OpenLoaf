@@ -188,7 +188,7 @@ async function resolveChatHistoryRoot(
   return path.join(getResolvedTempStorageDir(), CHAT_HISTORY_DIR)
 }
 
-async function resolveSessionDir(sessionId: string): Promise<string> {
+export async function resolveSessionDir(sessionId: string): Promise<string> {
   const cached = sessionDirCache.get(sessionId)
   if (cached) {
     touchSessionDirCache(sessionId)
