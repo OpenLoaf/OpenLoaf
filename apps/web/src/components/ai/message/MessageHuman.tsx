@@ -24,17 +24,8 @@ import { useChatSession } from "@/components/ai/context";
 import { setImageDragPayload } from "@/lib/image/drag";
 import { fetchBlobFromUri, resolveBaseName, resolveFileName } from "@/lib/image/uri";
 import { handleChatMentionPointerDown } from "@/lib/chat/mention-pointer";
-import { resolveProjectRootUri } from "@/lib/chat/mention-pointer";
-import {
-  buildUriFromRoot,
-  parseScopedProjectPath,
-} from "@/components/project/filesystem/utils/file-system-utils";
-import { IMAGE_EXTS } from "@/components/project/filesystem/components/FileSystemEntryVisual";
-import { queryClient, trpc } from "@/utils/trpc";
 import { cn } from "@/lib/utils";
 import ChatMessageText from "./ChatMessageText";
-import MessageFile from "./tools/MessageFile";
-import { FILE_TOKEN_REGEX } from "../input/chat-input-utils";
 import {
   Message,
   MessageContent,
@@ -56,17 +47,6 @@ type ImagePreviewState = {
   src?: string;
 };
 
-type FileTokenMatch = {
-  /** Raw token string with leading "@". */
-  token: string;
-  /** Token string without line range. */
-  pathToken: string;
-  /** Resolved project id. */
-  projectId: string;
-  /** Project-relative path. */
-  relativePath: string;
-};
-
 type HumanTextPart = {
   type: "text";
   text: string;
@@ -80,40 +60,6 @@ function isImageFilePart(
 
 function isImageMediaType(mediaType?: string) {
   return typeof mediaType === "string" && mediaType.startsWith("image/");
-}
-
-/** Parse a text block that only contains a single file token. */
-function parseSingleFileToken(text: string, defaultProjectId?: string): FileTokenMatch | null {
-  const trimmed = text.trim();
-  if (!trimmed) return null;
-  FILE_TOKEN_REGEX.lastIndex = 0;
-  const match = FILE_TOKEN_REGEX.exec(trimmed);
-  if (!match) return null;
-  if (match[0] !== trimmed) return null;
-  const rawToken = match[0] ?? "";
-  const normalizedValue = match[1] ?? "";
-  const rangeMatch = normalizedValue.match(/^(.*?)(?::(\d+)-(\d+))?$/);
-  const baseValue = rangeMatch?.[1] ?? normalizedValue;
-  // 绝对路径不走项目文件解析，交由 ChatMessageText 渲染 chip。
-  if (baseValue.startsWith("/")) return null;
-  const parsed = parseScopedProjectPath(baseValue);
-  const projectId = parsed?.projectId ?? defaultProjectId;
-  if (!projectId || !parsed?.relativePath) return null;
-  return {
-    token: rawToken,
-    pathToken: `@{${baseValue}}`,
-    projectId,
-    relativePath: parsed.relativePath,
-  };
-}
-
-/** Resolve image media type from a relative path. */
-function resolveImageMediaType(relativePath: string): string {
-  const ext = relativePath.split(".").pop()?.toLowerCase() ?? "";
-  if (!IMAGE_EXTS.has(ext)) return "";
-  if (ext === "jpg") return "image/jpeg";
-  if (ext === "svg") return "image/svg+xml";
-  return `image/${ext}`;
 }
 
 /** Resolve the base file name from a url. */
@@ -144,74 +90,13 @@ function collectHumanTextChunks(parts: unknown[]): string[] {
   return chunks;
 }
 
-/** Render a human text part with optional file preview. */
+/** Render a human text part as inline chips via ChatMessageText. */
 function MessageHumanTextPart(props: {
-  /** Raw text content. */
   text: string;
-  /** Shared text class name. */
   className?: string;
-  /** Default project id for scoped path resolve. */
   projectId?: string;
-  /** Project tree for resolving root uri. */
-  projects: Array<{ projectId?: string; rootUri?: string; title?: string; children?: any[] }>;
 }) {
-  const { text, className, projectId, projects } = props;
-  const fileToken = React.useMemo(
-    () => parseSingleFileToken(text, projectId),
-    [text, projectId],
-  );
-  // 中文注释：缓存文件存在性查询结果，存在时渲染为 MessageFile。
-  const [fileEntry, setFileEntry] = React.useState<any | null>();
-
-  React.useEffect(() => {
-    if (!fileToken) {
-      setFileEntry(undefined);
-      return;
-    }
-    const rootUri = resolveProjectRootUri(projects, fileToken.projectId);
-    if (!rootUri) {
-      setFileEntry(null);
-      return;
-    }
-    const uri = buildUriFromRoot(rootUri, fileToken.relativePath);
-    if (!uri) {
-      setFileEntry(null);
-      return;
-    }
-    let cancelled = false;
-    // 中文注释：异步校验文件是否存在，存在时再切换为 MessageFile 渲染。
-    void queryClient
-      .fetchQuery(
-        trpc.fs.stat.queryOptions({
-          projectId: fileToken.projectId,
-          uri,
-        }),
-      )
-      .then((entry) => {
-        if (cancelled) return;
-        setFileEntry(entry ?? null);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setFileEntry(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [fileToken, projects]);
-
-  if (fileToken && fileEntry?.kind === "file") {
-    const mediaType = resolveImageMediaType(fileToken.relativePath);
-    return (
-      <MessageFile
-        url={fileToken.pathToken}
-        mediaType={mediaType}
-        title={resolveFileName(fileToken.relativePath)}
-        className={className}
-      />
-    );
-  }
-
+  const { text, className, projectId } = props;
   return <ChatMessageText value={text} className={className} projectId={projectId} />;
 }
 
@@ -468,7 +353,6 @@ export default function MessageHuman({
               text={text}
               className={cn(USER_MESSAGE_TEXT_CLASS, "text-[12px] leading-4 break-words")}
               projectId={projectId}
-              projects={projects}
             />
           ))}
       </MessageContent>
