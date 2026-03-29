@@ -64,6 +64,9 @@ function isPathInside(root: string, target: string): boolean {
   return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
 }
 
+/** Session-scoped path regex: [chat_xxx]/subpath */
+const SESSION_PATH_REGEX = /^\[(chat_[^\]]+)\]\/(.+)$/;
+
 /** Resolve a tool path (always allows outside scope; caller handles approval). */
 export function resolveToolPath(input: {
   target: string;
@@ -72,11 +75,20 @@ export function resolveToolPath(input: {
   const { projectRoot } = resolveToolRoots();
 
   let absPath: string;
-  // 临时会话（无 projectId 有 sessionId）：相对路径解析基于 tempDir，
-  // 不走 resolveScopedPath 的 globalRoot fallback（会错误地解析到 ~/.openloaf/）。
-  if (!projectId && getSessionId()) {
-    const raw = input.target.trim();
-    const stripped = raw.startsWith("@{") && raw.endsWith("}") ? raw.slice(2, -1) : raw;
+
+  // 先处理 [sessionId]/... 格式：解析为会话物理目录
+  const raw = input.target.trim();
+  const stripped = raw.startsWith("@{") && raw.endsWith("}") ? raw.slice(2, -1) : raw;
+  const sessionMatch = stripped.match(SESSION_PATH_REGEX);
+  if (sessionMatch) {
+    const targetSessionId = sessionMatch[1]!;
+    const subPath = sessionMatch[2]!;
+    const sessionDir = projectRoot
+      ? path.join(projectRoot, ".openloaf", "chat-history", targetSessionId)
+      : path.join(getResolvedTempStorageDir(), "chat-history", targetSessionId);
+    absPath = path.resolve(sessionDir, subPath);
+  } else if (!projectId && getSessionId()) {
+    // 临时会话（无 projectId 有 sessionId）：相对路径解析基于 tempDir
     if (!path.isAbsolute(stripped) && !stripped.startsWith("~") && !stripped.startsWith("file:")) {
       absPath = path.resolve(getResolvedTempStorageDir(), stripped);
     } else {
