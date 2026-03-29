@@ -14,7 +14,6 @@ import {
   getProjectRootPath,
 } from "@openloaf/api/services/vfsService";
 import { getOpenLoafRootDir } from "@openloaf/config";
-import { getResolvedTempStorageDir } from "@openloaf/api/services/appConfigService";
 import type { PromptContext } from "@/ai/shared/types";
 import type { ClientPlatform } from "@openloaf/api/types/platform";
 import { loadSkillSummaries, type SkillSummary } from "@/ai/services/skillsLoader";
@@ -422,17 +421,8 @@ function buildContextBlocks(input: {
   // NOTE: 执行规则 + 任务分工已移至 hardRules.ts <agent-directives>
 
   // 会话上下文（含语言设置，放到最底部）
-  // chatHistoryDir: 有项目 → <projectRoot>/.openloaf/chat-history/<sessionId>，否则 <tempDir>/chat-history/<sessionId>
-  let chatHistoryDir: string | undefined
-  try {
-    const projectRoot = context.project.rootPath !== UNKNOWN_VALUE ? context.project.rootPath : undefined
-    const base = projectRoot
-      ? `${projectRoot}/.openloaf/chat-history`
-      : `${getResolvedTempStorageDir()}/chat-history`
-    chatHistoryDir = `${base}/${sessionId}`
-  } catch { /* fallback: omit */ }
   blocks.push(
-    `<system-session-context desc="当前会话环境信息">\n${buildSessionContextSection(sessionId, context, chatHistoryDir)}\n</system-session-context>`,
+    `<system-session-context desc="当前会话环境信息">\n${buildSessionContextSection(sessionId, context)}\n</system-session-context>`,
   );
 
   return blocks.filter((s) => s.trim());

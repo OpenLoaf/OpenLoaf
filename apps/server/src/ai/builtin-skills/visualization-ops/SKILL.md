@@ -114,7 +114,7 @@ Message, MessageContent, Panel, Snippet, SnippetAddon, SnippetText, SnippetInput
 - 校验失败仍会写入文件，错误信息包含 path，用 `apply-patch` 修正后刷新预览
 - 失败后必须用 `apply-patch` 修正，不要重新调用 jsx-create
 
-**写入位置**：`.openloaf/chat-history/<sessionId>/jsx/<messageId>.jsx`
+**写入位置**：`[<sessionId>]/jsx/<messageId>.jsx`
 
 **交互式表单**：需要收集用户输入时用 `request-user-input`，jsx-create 仅负责展示。
 

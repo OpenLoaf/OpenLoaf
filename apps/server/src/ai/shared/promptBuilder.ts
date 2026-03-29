@@ -71,22 +71,18 @@ function isUnknown(value: string): boolean {
 export function buildSessionContextSection(
   sessionId: string,
   context: PromptContext,
-  chatHistoryDir?: string,
 ): string {
   const isTempChat = isUnknown(context.project.id) || isUnknown(context.project.name)
   const lines = [
     '# 会话上下文',
     `- chatSessionId: ${sessionId}`,
+    `- assetPathPrefix: [${sessionId}]/asset/（对话产生的资源文件使用此路径前缀引用）`,
   ]
   if (isTempChat) {
     lines.push('- 临时对话（未绑定项目）')
   } else {
     lines.push(`- project: ${context.project.name} (${context.project.id})`)
     lines.push(`- projectRootPath: ${context.project.rootPath}`)
-  }
-  if (chatHistoryDir) {
-    lines.push(`- chatHistoryDir: ${chatHistoryDir}`)
-    lines.push(`- assetDir: ${chatHistoryDir}/asset（对话产生的资源文件存放于此）`)
   }
   lines.push(`- platform: ${context.platform}`)
   if (context.python.installed) {
