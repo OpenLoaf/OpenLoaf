@@ -111,10 +111,22 @@ function parseMentionFileRef(value: string, defaultProjectId?: string): MentionF
   if (baseValue.startsWith("/")) return null;
   const parsed = parseScopedProjectPath(baseValue);
   const projectId = parsed?.projectId ?? defaultProjectId;
-  if (!projectId || !parsed?.relativePath) return null;
+  if (!projectId) return null;
+
+  let relativePath = parsed?.relativePath ?? "";
+
+  // 兼容历史数据：../chat-history/xxx → .openloaf/chat-history/xxx
+  if (relativePath.match(/^(?:\.\.\/)+/) && relativePath.includes("chat-history/")) {
+    const stripped = relativePath.replace(/^(?:\.\.\/)+/, "");
+    if (stripped.startsWith("chat-history/")) {
+      relativePath = `.openloaf/${stripped}`;
+    }
+  }
+
+  if (!relativePath) return null;
   return {
     projectId,
-    relativePath: parsed.relativePath,
+    relativePath,
     lineStart: match?.[2],
     lineEnd: match?.[3],
   };
