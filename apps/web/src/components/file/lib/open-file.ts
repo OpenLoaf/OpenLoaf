@@ -283,10 +283,6 @@ export function buildStackItemForEntry(input: {
         },
       };
     case "pdf":
-      if (!input.rootUri) {
-        toast.error("未找到项目路径");
-        return null;
-      }
       return {
         id: input.entry.uri,
         component: "pdf-viewer",
