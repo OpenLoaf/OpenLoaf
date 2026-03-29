@@ -33,6 +33,7 @@ import {
   formatSize,
   resolveFileUriFromRoot,
 } from "@/components/project/filesystem/utils/file-system-utils";
+import { resolveMediaTypeFromPath } from "@/lib/format-utils";
 import { FILE_DRAG_REF_MIME } from "@/components/project/filesystem/utils/file-system-utils";
 
 interface MessageFileProps {
@@ -189,7 +190,7 @@ export default function MessageFile({ url, mediaType, title, className }: Messag
 
   if (isImage && !resolvedSrc) return null;
   const attachmentUrl = isImage ? resolvedSrc : url;
-  const attachmentMediaType = mediaType || (isImage ? "image/png" : "application/octet-stream");
+  const attachmentMediaType = mediaType || resolveMediaTypeFromPath(url);
   const variant = isImage ? "grid" : "inline";
 
   return (
