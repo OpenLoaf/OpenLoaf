@@ -12,6 +12,7 @@
  * Doc Convert Tool — mammoth/turndown/marked/xlsx/pdf-lib/pdf-parse 封装，
  * 提供文档格式互转能力。
  */
+import '@/ai/tools/office/pdfPolyfill'
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
 import { tool, zodSchema } from 'ai'

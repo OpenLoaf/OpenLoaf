@@ -14,12 +14,12 @@ export const pdfQueryToolDef = {
   id: 'pdf-query',
   name: 'PDF 查询',
   description:
-    '触发：当用户提到 PDF 文件，或询问"读取 PDF"、"查看 PDF"时调用。用途：读取 PDF 文件的结构化概览、文本内容或表单字段。返回：{ ok: true, data: { mode, ... } }。模式说明：read-structure 返回页数、元数据、表单信息；read-text 提取全文或指定页文本；read-form-fields 返回表单字段列表（名称、类型、当前值）。不适用：需要创建、修改 PDF 时不要使用，改用 pdf-mutate。',
+    '触发：当用户提到 PDF 文件，或询问"读取 PDF"、"查看 PDF"时调用。用途：读取 PDF 文件的结构化概览、文本内容、表单字段，或将页面渲染为图片。返回：{ ok: true, data: { mode, ... } }。模式说明：read-structure 返回页数、元数据、表单信息；read-text 提取全文或指定页文本；read-form-fields 返回表单字段列表（名称、类型、当前值）；read-screenshot 将指定页渲染为 PNG 图片（适合查看布局、图表、排版效果）。不适用：需要创建、修改 PDF 时不要使用，改用 pdf-mutate。',
   parameters: z.object({
     mode: z
-      .enum(['read-structure', 'read-text', 'read-form-fields', 'structure', 'text', 'form-fields'])
+      .enum(['read-structure', 'read-text', 'read-form-fields', 'read-screenshot', 'structure', 'text', 'form-fields', 'screenshot'])
       .describe(
-        '查询模式：read-structure 获取页数/元数据/表单信息，read-text 提取纯文本内容，read-form-fields 获取可填写表单字段列表',
+        '查询模式：read-structure 获取页数/元数据/表单信息，read-text 提取纯文本内容，read-form-fields 获取可填写表单字段列表，read-screenshot 将指定页渲染为 PNG 图片',
       ),
     filePath: z
       .string()
@@ -29,6 +29,18 @@ export const pdfQueryToolDef = {
       .string()
       .optional()
       .describe('read-text 模式时可选，指定页码范围（如 "1-5" 或 "3"），不指定则提取全部页面'),
+    page: z
+      .number()
+      .int()
+      .min(1)
+      .optional()
+      .describe('read-screenshot 模式时必填，要截图的页码（从 1 开始）'),
+    scale: z
+      .number()
+      .min(0.5)
+      .max(4)
+      .optional()
+      .describe('read-screenshot 模式时可选，缩放倍数（默认 2，范围 0.5-4）'),
   }),
   component: null,
 } as const

@@ -182,7 +182,7 @@ function ReadCellsView({ data }: { data: ExcelOutputData }) {
   return <DataTable columns={columns} rows={cells} startRow={startRow} />
 }
 
-/** get-info view */
+/** get-info / read-structure view */
 function GetInfoView({
   data,
   t,
@@ -191,10 +191,10 @@ function GetInfoView({
   t: (key: string, opts?: Record<string, unknown>) => string
 }) {
   const fileName = typeof data.fileName === 'string' ? data.fileName : ''
-  const sheetCount = typeof data.sheetCount === 'number' ? data.sheetCount : 0
   const sheets = Array.isArray(data.sheets)
     ? (data.sheets as Record<string, unknown>[])
     : []
+  const sheetCount = typeof data.sheetCount === 'number' ? data.sheetCount : sheets.length
 
   return (
     <div className="space-y-2">
@@ -230,13 +230,13 @@ function GetInfoView({
                     {String(sheet.name ?? '')}
                   </td>
                   <td className="border-r border-border/30 px-2 py-0.5 tabular-nums">
-                    {String(sheet.rows ?? '')}
+                    {String(sheet.rows ?? sheet.rowCount ?? '')}
                   </td>
                   <td className="border-r border-border/30 px-2 py-0.5 tabular-nums">
-                    {String(sheet.cols ?? '')}
+                    {String(sheet.cols ?? sheet.colCount ?? '')}
                   </td>
                   <td className="px-2 py-0.5 text-muted-foreground">
-                    {String(sheet.ref ?? '')}
+                    {String(sheet.ref ?? sheet.range ?? '')}
                   </td>
                 </tr>
               ))}
@@ -244,6 +244,47 @@ function GetInfoView({
           </table>
         </div>
       )}
+    </div>
+  )
+}
+
+/** read-xml view */
+function ReadXmlView({ data }: { data: ExcelOutputData }) {
+  const xml = typeof data.xml === 'string' ? data.xml : ''
+  const xmlPath = typeof data.xmlPath === 'string' ? data.xmlPath : ''
+  // list mode: entries is string[]
+  const entries = Array.isArray(data.entries) ? (data.entries as string[]) : []
+
+  if (entries.length > 0) {
+    return (
+      <div className="max-h-[320px] space-y-0.5 overflow-auto rounded border border-border/40 p-2 text-xs font-mono">
+        {entries.map((entry) => (
+          <div key={entry} className="text-muted-foreground">{entry}</div>
+        ))}
+      </div>
+    )
+  }
+
+  if (!xml) return <EmptyView />
+  return (
+    <div className="space-y-1">
+      {xmlPath && (
+        <div className="text-[10px] text-muted-foreground">{xmlPath}</div>
+      )}
+      <div className="max-h-[320px] overflow-auto whitespace-pre-wrap rounded border border-border/40 p-2 text-xs font-mono">
+        {xml}
+      </div>
+    </div>
+  )
+}
+
+/** read-text view */
+function ReadTextView({ data }: { data: ExcelOutputData }) {
+  const text = typeof data.text === 'string' ? data.text : ''
+  if (!text) return <EmptyView />
+  return (
+    <div className="max-h-[320px] overflow-auto whitespace-pre-wrap rounded border border-border/40 p-2 text-xs font-mono">
+      {text}
     </div>
   )
 }
@@ -490,11 +531,13 @@ export default function ExcelTool({
         <div className="px-3 py-2.5">
           {mode === 'read-sheet' && <ReadSheetView data={data} t={t} />}
           {mode === 'read-cells' && <ReadCellsView data={data} />}
-          {mode === 'get-info' && <GetInfoView data={data} t={t} />}
+          {(mode === 'get-info' || mode === 'read-structure') && <GetInfoView data={data} t={t} />}
+          {mode === 'read-xml' && <ReadXmlView data={data} />}
+          {mode === 'read-text' && <ReadTextView data={data} />}
           {mode === 'list-sheets' && <ListSheetsView data={data} />}
           {mode === 'export-csv' && <MutateSummaryView data={data} t={t} />}
           {isMutate && isDone && <MutateSummaryView data={data} t={t} />}
-          {!['read-sheet', 'read-cells', 'get-info', 'list-sheets', 'export-csv'].includes(mode) &&
+          {!['read-sheet', 'read-cells', 'get-info', 'read-structure', 'read-xml', 'read-text', 'list-sheets', 'export-csv'].includes(mode) &&
             !isMutate && <EmptyView />}
         </div>
       )

@@ -52,6 +52,7 @@
       "clearCanvasSuccess": "已清除 {{count}} 個未綁定專案的畫布",
       "clearCanvasEmpty": "沒有可清除的未綁定專案畫布",
       "clearCanvasError": "清除畫布失敗",
+      "clearChatError": "清除聊天記錄失敗",
       "sessionsClearedSuccess": "已清除：{{count}} 個工作階段"
     },
     "checkingUpdate": "正在檢查更新...",
@@ -142,6 +143,7 @@
     "openInFileManager": "在檔案管理員中開啟",
     "reveal": "在 Finder 中顯示",
     "open": "開啟",
+    "openInEditor": "用編輯器開啟",
     "openWith": "開啟方式",
     "download": "下載",
     "upload": "上傳",

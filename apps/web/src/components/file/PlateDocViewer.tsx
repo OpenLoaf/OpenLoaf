@@ -82,9 +82,11 @@ export default function PlateDocViewer({
     Boolean(readUri) &&
     (!/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(readUri) || readUri.startsWith('file://'))
 
+  const fsRootUri = !projectId && rootUri ? rootUri : undefined
   const fileQuery = useQuery({
     ...trpc.fs.readFile.queryOptions({
       projectId,
+      rootUri: fsRootUri,
       uri: readUri,
     }),
     enabled: shouldUseFs && Boolean(readUri),
@@ -138,6 +140,7 @@ export default function PlateDocViewer({
       const md = serializeMd(editor)
       await writeFileMutation.mutateAsync({
         projectId,
+        rootUri: fsRootUri,
         uri: readUri,
         content: md,
       })

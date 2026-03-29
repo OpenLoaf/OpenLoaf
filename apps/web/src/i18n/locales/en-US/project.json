@@ -52,6 +52,7 @@
       "clearCanvasSuccess": "Cleared {{count}} canvases that were not attached to any project",
       "clearCanvasEmpty": "No canvases without a project attachment to clear",
       "clearCanvasError": "Failed to clear canvases",
+      "clearChatError": "Failed to clear chat records",
       "sessionsClearedSuccess": "Cleared: {{count}} sessions"
     },
     "checkingUpdate": "Checking for updates...",
@@ -142,6 +143,7 @@
     "openInFileManager": "Open in File Manager",
     "reveal": "Reveal in Finder",
     "open": "Open",
+    "openInEditor": "Open in Editor",
     "openWith": "Open With",
     "download": "Download",
     "upload": "Upload",

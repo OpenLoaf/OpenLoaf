@@ -10,9 +10,11 @@
 import { useState, useRef, useMemo, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { createPortal } from 'react-dom'
-import { Link2, Plus, X } from 'lucide-react'
+import { Film, Link2, Play, Plus, Volume2, X } from 'lucide-react'
 import { saveBoardAssetFile } from '../../../utils/board-asset'
 import { getBoardPreviewEndpoint } from '@/lib/image/uri'
+import type { MediaType } from '../slot-types'
+import { type MediaConstraints, type ValidationError, validateMediaFileAsync } from './media-constraints'
 
 export type MediaSlotProps = {
   /** Label shown below the slot. */
@@ -43,6 +45,12 @@ export type MediaSlotProps = {
   associated?: boolean
   /** Whether to show a pulse animation (hints user can assign). */
   pulse?: boolean
+  /** Media type of this slot (for constraint validation). */
+  mediaType?: MediaType
+  /** Constraints to validate uploaded files against. */
+  constraints?: MediaConstraints
+  /** Called when a file fails constraint validation. */
+  onValidationError?: (errors: ValidationError[]) => void
 }
 
 export function MediaSlot({
@@ -60,10 +68,14 @@ export function MediaSlot({
   boardFolderUri,
   associated,
   pulse,
+  mediaType,
+  constraints,
+  onValidationError,
 }: MediaSlotProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const slotRef = useRef<HTMLDivElement>(null)
   const [imgFailed, setImgFailed] = useState(false)
+  const [videoFailed, setVideoFailed] = useState(false)
   const [hovered, setHovered] = useState(false)
   const [rect, setRect] = useState<DOMRect | null>(null)
 
@@ -72,12 +84,18 @@ export function MediaSlot({
   if (prevSrcRef.current !== src) {
     prevSrcRef.current = src
     if (imgFailed) setImgFailed(false)
+    if (videoFailed) setVideoFailed(false)
   }
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
     e.target.value = ''
+
+    if (constraints && mediaType) {
+      const errors = await validateMediaFileAsync(file, mediaType, constraints)
+      if (errors.length > 0) { onValidationError?.(errors); return }
+    }
 
     if (boardId || boardFolderUri) {
       try {
@@ -113,7 +131,9 @@ export function MediaSlot({
     return src
   }, [src, boardId, projectId])
 
-  const isNonImageSlot = uploadAccept !== 'image/*'
+  const isVideoSlot = mediaType === 'video' || (!mediaType && uploadAccept.startsWith('video'))
+  const isAudioSlot = mediaType === 'audio' || (!mediaType && uploadAccept.startsWith('audio'))
+  const isNonImageSlot = isVideoSlot || isAudioSlot
   const hasSrc = isNonImageSlot ? Boolean(src) : (displaySrc && !imgFailed)
   const size = compact ? 'h-[44px] w-[44px]' : 'h-[52px] w-[52px]'
 
@@ -152,9 +172,26 @@ export function MediaSlot({
           onClick={() => !disabled && !hasSrc && inputRef.current?.click()}
         >
           {hasSrc ? (
-            isNonImageSlot ? (
+            isVideoSlot && displaySrc && !videoFailed ? (
+              <>
+                <video
+                  src={`${displaySrc}#t=0.1`}
+                  className="h-full w-full object-cover"
+                  preload="metadata"
+                  muted
+                  playsInline
+                  draggable={false}
+                  onError={() => setVideoFailed(true)}
+                />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-black/50">
+                    <Play size={12} className="ml-0.5 text-white" fill="white" />
+                  </div>
+                </div>
+              </>
+            ) : isNonImageSlot ? (
               <div className="flex h-full w-full items-center justify-center text-foreground/70">
-                {icon ?? <Plus size={16} />}
+                {icon ?? (isVideoSlot ? <Film size={16} /> : isAudioSlot ? <Volume2 size={16} /> : <Plus size={16} />)}
               </div>
             ) : (
               <img
@@ -214,7 +251,7 @@ export function MediaSlot({
         />
       ) : null}
       {/* Hover preview portaled to body to escape stacking context */}
-      {hasSrc && hovered && rect && createPortal(
+      {hasSrc && hovered && rect && !isAudioSlot && displaySrc && createPortal(
         <div
           className="pointer-events-none fixed z-[9999]"
           style={{
@@ -223,12 +260,25 @@ export function MediaSlot({
             transform: 'translate(-50%, -100%)',
           }}
         >
-          <img
-            src={displaySrc}
-            alt={label}
-            className="max-h-40 max-w-48 rounded-lg border border-border object-contain shadow-lg"
-            draggable={false}
-          />
+          {isVideoSlot && !videoFailed ? (
+            <video
+              src={displaySrc}
+              className="max-h-40 max-w-48 rounded-lg border border-border object-contain shadow-lg"
+              preload="auto"
+              autoPlay
+              loop
+              muted
+              playsInline
+              draggable={false}
+            />
+          ) : !isNonImageSlot ? (
+            <img
+              src={displaySrc}
+              alt={label}
+              className="max-h-40 max-w-48 rounded-lg border border-border object-contain shadow-lg"
+              draggable={false}
+            />
+          ) : null}
         </div>,
         document.body,
       )}

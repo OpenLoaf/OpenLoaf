@@ -410,7 +410,7 @@ export function AudioNodeView({
         {/* Generating overlay */}
         {isGenerating && (
           <GeneratingOverlay
-            startedAt={pollingResult.startedAt}
+            startedAt={generatingEntry?.createdAt ?? pollingResult.startedAt}
             estimatedSeconds={30}
             serverProgress={pollingResult.progress}
             color="green"

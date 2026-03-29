@@ -70,6 +70,9 @@ export function ObjectStorageService() {
         );
         queryClient.invalidateQueries();
       },
+      onError: () => {
+        toast.error(tProject("settings.clearChatError"));
+      },
     }),
   );
   const clearUnboundBoards = useMutation(

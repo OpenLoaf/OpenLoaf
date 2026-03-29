@@ -1020,7 +1020,7 @@ export function ImageNodeView({
         {/* ── Generating overlay (version stack) ── */}
         {isGeneratingVersion ? (
           <GeneratingOverlay
-            startedAt={pollingResult.startedAt}
+            startedAt={generatingEntry?.createdAt ?? pollingResult.startedAt}
             estimatedSeconds={45}
             serverProgress={pollingResult.progress}
             color="blue"

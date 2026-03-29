@@ -329,7 +329,21 @@
     "image_analysis": "图像分析",
     "video_generation": "视频生成",
     "video_analysis": "视频理解",
-    "audio_analysis": "音频分析"
+    "audio_analysis": "音频分析",
+    "audio_tts": "语音合成",
+    "media:imageGenerate": "AI绘图",
+    "media:poster": "海报生成",
+    "media:imageEdit": "AI图像编辑",
+    "media:upscale": "图像放大",
+    "media:outpaint": "图像扩展",
+    "media:matting": "智能抠图",
+    "media:videoGenerate": "AI视频生成",
+    "media:videoEdit": "AI视频编辑",
+    "media:digitalHuman": "数字人",
+    "media:motionTransfer": "动作迁移",
+    "media:tts": "文字转语音",
+    "media:music": "AI音乐",
+    "media:sfx": "音效生成"
   },
   "dock": {
     "aiAssistant": "AI秘书",
@@ -432,7 +446,8 @@
       "fieldOptions": "选项",
       "fillForm": "填充表单字段",
       "mergePdfs": "合并 PDF",
-      "addText": "添加文本叠加"
+      "addText": "添加文本叠加",
+      "screenshotPage": "第 {{page}} 页 / 共 {{total}} 页"
     }
   },
   "error": {

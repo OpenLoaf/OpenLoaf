@@ -588,6 +588,7 @@
     "statusGenerating": "生成中…",
     "statusWaiting": "等待任務",
     "transcoding": "轉碼中",
+    "downloadFailed": "影片下載失敗",
     "cancel": "取消",
     "retry": "重試",
     "delete": "刪除",
@@ -631,7 +632,9 @@
     "position": "位置",
     "size": "尺寸",
     "titleLabel": "標題",
-    "description": "描述"
+    "description": "描述",
+    "charCount": "字數",
+    "lineCount": "行數"
   },
   "nodePicker": {
     "title": "選擇節點",
@@ -1204,7 +1207,15 @@
     "associatedRefs": "未使用的素材（點擊可替換到插槽）",
     "swapHint": "點擊選擇替換",
     "uploadFile": "上傳檔案",
-    "emptySlot": "點擊上傳或從關聯節點拖入"
+    "emptySlot": "點擊上傳或從關聯節點拖入",
+    "constraints": {
+      "fileTooLarge": "檔案大小 ({{actual}}) 超過上限 {{max}}",
+      "formatNotAllowed": "不支援 .{{ext}} 格式，允許：{{formats}}",
+      "resolutionTooLow": "解析度 {{actual}}px 低於最小要求 {{min}}px",
+      "resolutionTooHigh": "解析度 {{actual}}px 超過最大限制 {{max}}px",
+      "durationTooShort": "時長 {{actual}} 低於最短要求 {{min}}",
+      "durationTooLong": "時長 {{actual}} 超過最長限制 {{max}}"
+    }
   },
   "dynamicTemplates": {
     "group": {

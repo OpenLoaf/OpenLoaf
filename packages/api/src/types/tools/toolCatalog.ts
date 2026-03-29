@@ -200,7 +200,7 @@ const TOOL_KEYWORDS: Record<string, { keywords: string[]; group: string }> = {
   'word-mutate': { keywords: ['word', 'docx', 'document', 'create', 'write', 'edit', 'xml'], group: 'office' },
   'pptx-query': { keywords: ['pptx', 'ppt', 'powerpoint', 'slide', 'presentation', 'read'], group: 'office' },
   'pptx-mutate': { keywords: ['pptx', 'ppt', 'powerpoint', 'slide', 'presentation', 'create', 'edit'], group: 'office' },
-  'pdf-query': { keywords: ['pdf', 'document', 'read', 'text', 'form', 'structure'], group: 'office' },
+  'pdf-query': { keywords: ['pdf', 'document', 'read', 'text', 'form', 'structure', 'screenshot', 'page', 'image', 'render'], group: 'office' },
   'pdf-mutate': { keywords: ['pdf', 'document', 'create', 'fill', 'merge', 'write', 'form'], group: 'office' },
   'generate-widget': { keywords: ['widget', 'generate', 'create', 'component', 'ui'], group: 'ui' },
   'widget-init': { keywords: ['widget', 'init', 'initialize', 'setup'], group: 'ui' },

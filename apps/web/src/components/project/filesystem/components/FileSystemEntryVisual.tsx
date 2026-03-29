@@ -406,6 +406,104 @@ const MarkdownIcon = memo(function MarkdownIcon({
   );
 });
 
+/** HTML browser icon palette. */
+function resolveHtmlIconStyle() {
+  return {
+    color: "#E8F5E9",
+    gradientColor: "#C8E6C9",
+    gradientOpacity: 0.65,
+    glyphColor: "#2E7D32",
+    accentColor: "#43A047",
+  };
+}
+
+/** HTML icon render options. */
+type HtmlIconProps = {
+  /** Tailwind class names for sizing. */
+  className?: string;
+};
+
+/** Render a browser-style icon for HTML entries. */
+const HtmlIcon = memo(function HtmlIcon({
+  className = "h-full w-full",
+}: HtmlIconProps) {
+  const { color, gradientColor, gradientOpacity, glyphColor, accentColor } =
+    resolveHtmlIconStyle();
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      aria-hidden="true"
+      focusable="false"
+    >
+      {/* 浏览器窗口底板 */}
+      <rect x="3" y="4" width="18" height="15.5" rx="3" fill={color} />
+      {/* 标题栏 */}
+      <rect
+        x="3"
+        y="4"
+        width="18"
+        height="4.5"
+        rx="3"
+        fill={gradientColor}
+        opacity={gradientOpacity}
+      />
+      {/* 标题栏三个圆点 */}
+      <circle cx="6" cy="6.3" r="0.9" fill="#EF5350" opacity={0.85} />
+      <circle cx="8.5" cy="6.3" r="0.9" fill="#FFC107" opacity={0.85} />
+      <circle cx="11" cy="6.3" r="0.9" fill="#4CAF50" opacity={0.85} />
+      {/* 地址栏 */}
+      <rect x="13" y="5.3" width="6.5" height="2" rx="1" fill={glyphColor} opacity={0.15} />
+      {/* 分割线 */}
+      <path
+        d="M3 8.5h18"
+        stroke={glyphColor}
+        strokeOpacity={0.2}
+        strokeWidth={0.6}
+      />
+      {/* HTML 尖括号 < / > */}
+      <path
+        d="M8.5 12.5L6.2 14.2l2.3 1.7"
+        stroke={accentColor}
+        strokeWidth={1.4}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+      <path
+        d="M15.5 12.5l2.3 1.7-2.3 1.7"
+        stroke={accentColor}
+        strokeWidth={1.4}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+      <path
+        d="M13 11.5l-2 5"
+        stroke={glyphColor}
+        strokeWidth={1.2}
+        strokeLinecap="round"
+        opacity={0.7}
+      />
+      {/* 边框 */}
+      <rect
+        x="3"
+        y="4"
+        width="18"
+        height="15.5"
+        rx="3"
+        fill="none"
+        stroke={glyphColor}
+        strokeOpacity={0.18}
+        strokeWidth={0.8}
+      />
+    </svg>
+  );
+});
+
+/** HTML file extensions that open in the browser component. */
+export const HTML_EXTS = new Set(["html", "htm"]);
+
 /** Render a thumbnail preview for image files. */
 const ImageThumbnail = memo(function ImageThumbnail({
   src,
@@ -546,6 +644,9 @@ export function getEntryVisual({
   }
   if (MARKDOWN_EXTS.has(normalizedExt)) {
     return <MarkdownIcon className={sizeClassName} />;
+  }
+  if (HTML_EXTS.has(normalizedExt)) {
+    return <HtmlIcon className={sizeClassName} />;
   }
   if (IMAGE_EXTS.has(normalizedExt)) {
     return (

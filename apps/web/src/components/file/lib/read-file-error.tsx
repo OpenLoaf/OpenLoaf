@@ -113,8 +113,9 @@ export function ReadFileErrorFallback({
     if (isWorking) return;
     setIsWorking(true);
     try {
+      const dlRootUri = !projectId && rootUri ? rootUri : undefined;
       const result = await queryClient.fetchQuery(
-        trpc.fs.readBinary.queryOptions({ projectId, uri })
+        trpc.fs.readBinary.queryOptions({ projectId, rootUri: dlRootUri, uri })
       );
       if (!result?.contentBase64) {
         toast.error("下载失败");

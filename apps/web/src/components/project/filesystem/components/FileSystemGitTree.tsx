@@ -281,11 +281,14 @@ const FileSystemGitTreeNode = memo(function FileSystemGitTreeNode({
   // 逻辑：根目录节点不渲染行，只展示其子项。
   const shouldRenderRow = !node.isRoot;
   // 逻辑：仅在展开时拉取子目录，避免深层目录导致请求爆炸。
+  // 非项目场景：将 rootUri 传给 fs 路由覆盖默认的 ~/.openloaf/ 根。
+  const fsRootUri = !projectId && rootUri ? rootUri : undefined;
   const listQuery = useQuery(
     trpc.fs.list.queryOptions(
       shouldFetchChildren
         ? {
             projectId,
+            rootUri: fsRootUri,
             uri: node.entry.uri,
             includeHidden: showHidden,
             sort:

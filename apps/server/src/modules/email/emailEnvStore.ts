@@ -9,21 +9,15 @@
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+
+import { getOpenLoafRootDir } from "@openloaf/config";
 
 /** Environment variable key for overriding server env path. */
 const SERVER_ENV_PATH_KEY = "OPENLOAF_SERVER_ENV_PATH";
 
-/** Resolve repository root path from current file location. */
-function resolveRepoRoot(): string {
-  const currentDir = path.dirname(fileURLToPath(import.meta.url));
-  return path.resolve(currentDir, "../../../../..");
-}
-
-/** Resolve default server .env path. */
+/** Resolve default server .env path under ~/.openloaf/. */
 function resolveDefaultEnvPath(): string {
-  const repoRoot = resolveRepoRoot();
-  return path.join(repoRoot, "apps/server/.env");
+  return path.join(getOpenLoafRootDir(), ".env");
 }
 
 /** Escape text for use in RegExp. */

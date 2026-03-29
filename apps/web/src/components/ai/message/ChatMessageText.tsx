@@ -34,7 +34,7 @@ interface ChatMessageTextProps {
 }
 
 const MESSAGE_TOKEN_CHIP_BASE_CLASS = cn(
-  "inline-flex items-center gap-[3px] align-middle px-1.5 py-px mx-0.5 rounded-3xl border border-transparent",
+  "inline-flex items-center gap-[3px] align-middle px-1.5 py-px mx-0.5 rounded border border-transparent",
   "text-xs font-medium leading-[18px] cursor-pointer select-none whitespace-nowrap max-w-[200px] transition-colors",
 );
 
@@ -45,7 +45,7 @@ const SKILL_TOKEN_CHIP_CLASS = cn(
 
 const MENTION_TOKEN_CHIP_CLASS = cn(
   MESSAGE_TOKEN_CHIP_BASE_CLASS,
-  "bg-secondary text-foreground hover:bg-secondary/80",
+  "bg-[var(--ol-blue-bg)] text-[var(--ol-blue)] hover:bg-[var(--ol-blue-bg-hover)]",
 );
 
 export default function ChatMessageText({ value, className, projectId }: ChatMessageTextProps) {

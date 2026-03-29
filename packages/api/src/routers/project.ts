@@ -543,7 +543,7 @@ export const projectRouter = t.router({
               title: rawTitle || fallbackTitle,
               icon: input.icon ?? undefined,
               projects: {},
-              initializedFeatures: ["canvas"],
+              initializedFeatures: [],
             },
       );
       const metaPath = getProjectMetaPath(projectRootPath);
@@ -1260,7 +1260,7 @@ export const projectRouter = t.router({
         title: projectTitle,
         icon: "💬", // 默认对话图标
         projects: {},
-        initializedFeatures: ["canvas"],
+        initializedFeatures: [],
       });
 
       const metaPath = getProjectMetaPath(projectRootPath);

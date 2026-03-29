@@ -950,10 +950,10 @@ function BoardCanvasInteractionInner({
     onAutoLayout?.();
   };
 
-  /** Refresh the board panel to match header refresh behavior. */
+  /** Reload the entire canvas engine by triggering a panel remount. */
   const handlePanelRefresh = () => {
-    if (tabId && panelKey) {
-      // 逻辑：通过 __refreshKey 触发 panel remount，保持与右上角刷新一致。
+    if (panelKey) {
+      // 逻辑：通过 __refreshKey 触发 panel remount，整个画布引擎（CanvasEngine）会被销毁并重建。
       useLayoutState
         .getState()
         .setStackItemParams(panelKey, { __refreshKey: Date.now() });

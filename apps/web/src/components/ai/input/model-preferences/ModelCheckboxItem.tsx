@@ -74,7 +74,7 @@ export function ModelCheckboxItem({
     tags && tags.length > 0
       ? tags.map((tag) => ({
           key: tag,
-          label: t(`modelTags.${tag}`, { defaultValue: tag }),
+          label: t(`modelTags.${tag}`, { defaultValue: tag, nsSeparator: false }),
         }))
       : []
 

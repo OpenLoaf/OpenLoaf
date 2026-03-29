@@ -229,6 +229,7 @@ export type ProjectFileSystemModel = {
   handleOpenImage: (entry: FileSystemEntry, thumbnailSrc?: string) => void;
   handleOpenMarkdown: (entry: FileSystemEntry) => void;
   handleOpenCode: (entry: FileSystemEntry) => void;
+  handleOpenInEditor: (entry: FileSystemEntry) => void;
   handleOpenPdf: (entry: FileSystemEntry) => void;
   handleOpenDoc: (entry: FileSystemEntry) => void;
   handleOpenSpreadsheet: (entry: FileSystemEntry) => void;
@@ -321,6 +322,8 @@ export function useProjectFileSystemModel({
     ? getRelativePathFromUri(rootUri ?? "", currentUri)
     : null;
   const activeUri = normalizedCurrentUri ?? (rootUri ? normalizedRootUri : null);
+  // 非项目场景（临时对话）：将 rootUri 传给 fs 路由覆盖默认的 ~/.openloaf/ 根。
+  const fsRootUri = !projectId && rootUri ? rootUri : undefined;
   const isElectron = useMemo(() => isElectronEnv(), []);
   const terminalStatus = useTerminalStatus();
   const isTerminalEnabled = terminalStatus.enabled;
@@ -376,6 +379,7 @@ export function useProjectFileSystemModel({
       activeUri !== null
         ? {
             projectId,
+            rootUri: fsRootUri,
             uri: activeUri,
             includeHidden: showHidden,
             sort:
@@ -404,7 +408,7 @@ export function useProjectFileSystemModel({
             limit: 500,
             maxDepth: 12,
           }
-        : skipToken
+        : skipToken  // fsSearchSchema 已有 rootUri 字段（用途不同），此处不追加 fsRootUri
     ),
     placeholderData: (previous) => previous,
   });
@@ -553,6 +557,7 @@ export function useProjectFileSystemModel({
     queryClient.invalidateQueries({
       queryKey: trpc.fs.list.queryOptions({
         projectId,
+        rootUri: fsRootUri,
         uri: targetUri,
         includeHidden: showHidden,
       }).queryKey,
@@ -560,11 +565,12 @@ export function useProjectFileSystemModel({
     queryClient.invalidateQueries({
       queryKey: trpc.fs.folderThumbnails.queryOptions({
         projectId,
+        rootUri: fsRootUri,
         uri: targetUri,
         includeHidden: showHidden,
       }).queryKey,
     });
-  }, [activeUri, projectId, queryClient, showHidden]);
+  }, [activeUri, fsRootUri, projectId, queryClient, showHidden]);
 
   const {
     canUndo,
@@ -936,6 +942,26 @@ export function useProjectFileSystemModel({
         entry,
         projectId,
         rootUri,
+      });
+    },
+    [projectId, rootUri]
+  );
+
+  /** Force open a file in the code editor (bypasses browser preview for HTML). */
+  const handleOpenInEditor = useCallback(
+    (entry: FileSystemEntry) => {
+      useLayoutState.getState().pushStackItem({
+        id: entry.uri,
+        component: "code-viewer",
+        title: entry.name,
+        params: {
+          uri: entry.uri,
+          openUri: entry.uri,
+          name: entry.name,
+          ext: entry.ext,
+          rootUri,
+          projectId,
+        },
       });
     },
     [projectId, rootUri]
@@ -1338,6 +1364,7 @@ export function useProjectFileSystemModel({
               await queryClient.fetchQuery(
                 trpc.fs.list.queryOptions({
                   projectId,
+                  rootUri: fsRootUri,
                   uri: targetUri,
                   includeHidden: showHidden,
                 })
@@ -1592,6 +1619,7 @@ export function useProjectFileSystemModel({
       const targetList = await queryClient.fetchQuery(
         trpc.fs.list.queryOptions({
           projectId,
+          rootUri: fsRootUri,
           uri: target.uri,
           includeHidden: showHidden,
         })
@@ -1624,6 +1652,7 @@ export function useProjectFileSystemModel({
       const targetList = await queryClient.fetchQuery(
         trpc.fs.list.queryOptions({
           projectId,
+          rootUri: fsRootUri,
           uri: target.uri,
           includeHidden: showHidden,
         })
@@ -1651,7 +1680,7 @@ export function useProjectFileSystemModel({
         let source = fileEntries.find((item) => item.uri === sourceUri);
         if (!source) {
           const stat = await queryClient.fetchQuery(
-            trpc.fs.stat.queryOptions({ projectId, uri: sourceUri })
+            trpc.fs.stat.queryOptions({ projectId, rootUri: fsRootUri, uri: sourceUri })
           );
           if (!stat) continue;
           source = {
@@ -1886,6 +1915,7 @@ export function useProjectFileSystemModel({
     handleOpenImage,
     handleOpenMarkdown,
     handleOpenCode,
+    handleOpenInEditor,
     handleOpenPdf,
     handleOpenDoc,
     handleOpenSpreadsheet,

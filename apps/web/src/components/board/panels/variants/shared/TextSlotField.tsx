@@ -433,7 +433,7 @@ export function TextSlotField({
     >
       {/* Label + character counter */}
       <div className="flex items-center justify-between">
-        <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
+        <span className="inline-flex items-center gap-1 text-xs font-medium text-neutral-600 dark:text-neutral-400">
           {label}
           {required ? (
             <span className="text-[10px] text-red-400">*</span>

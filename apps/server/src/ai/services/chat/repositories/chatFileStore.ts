@@ -256,29 +256,24 @@ export async function resolveSessionAssetDir(sessionId: string): Promise<string>
 }
 
 /**
- * 解析 session 的文件存储子目录：<sessionDir>/root/
- * 用于存储用户拖拽上传的任意类型文件和 AI 生成的文件。
- * 兼容旧数据：如果 root/ 不存在，回退到 files/。
+ * 解析 session 的文件存储子目录：<sessionDir>/asset/
+ * 用于存储用户拖拽上传的任意类型文件和 AI 生成的文件（统一到 asset/）。
+ * 兼容旧数据：如果 asset/ 不存在但 root/ 或 files/ 存在，回退到旧目录。
  */
 export async function resolveSessionFilesDir(sessionId: string): Promise<string> {
   const sessionDir = await resolveSessionDir(sessionId)
-  const rootDir = path.join(sessionDir, 'root')
-  const filesDir = path.join(sessionDir, 'files')
+  const assetDir = path.join(sessionDir, 'asset')
+  const legacyRootDir = path.join(sessionDir, 'root')
+  const legacyFilesDir = path.join(sessionDir, 'files')
 
-  // 优先使用 root/，不存在则回退到 files/（兼容旧数据）
-  try {
-    await fs.access(rootDir)
-    return rootDir
-  } catch {
-    try {
-      await fs.access(filesDir)
-      return filesDir
-    } catch {
-      // 都不存在，创建 root/
-      await fs.mkdir(rootDir, { recursive: true })
-      return rootDir
-    }
-  }
+  // 优先使用 asset/（新标准），回退 root/ → files/（兼容旧数据）
+  try { await fs.access(assetDir); return assetDir } catch {}
+  try { await fs.access(legacyRootDir); return legacyRootDir } catch {}
+  try { await fs.access(legacyFilesDir); return legacyFilesDir } catch {}
+
+  // 都不存在，创建 asset/
+  await fs.mkdir(assetDir, { recursive: true })
+  return assetDir
 }
 
 /** 清除 session 目录缓存 */

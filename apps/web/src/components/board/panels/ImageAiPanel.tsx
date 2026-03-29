@@ -10,7 +10,7 @@
 import { type GenerateTarget } from './GenerateActionBar'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { AnimatePresence, motion } from 'framer-motion'
+import { VariantFormTransition } from './variants/shared/VariantFormTransition'
 import { toast } from 'sonner'
 import { saveBoardAssetFile } from '../utils/board-asset'
 import type { CanvasNodeElement } from '../engine/types'
@@ -20,12 +20,13 @@ import type { BoardFileContext, VariantSnapshot } from '../board-contracts'
 import { getPrimaryEntry } from '../engine/version-stack'
 import { serializeForGenerate } from './variants/serialize'
 import type { MediaReference, MediaType, PersistedSlotMap } from './variants/slot-types'
-import { InputSlotBar, type ResolvedSlotInputs } from './variants/shared/InputSlotBar'
+import { InputSlotBar } from './variants/shared/InputSlotBar'
 import { GenericVariantForm } from './variants/shared/GenericVariantForm'
 import { isCameraAngleParams } from './variants/shared/CameraAngleControl'
 import { GenerateActionBar } from './GenerateActionBar'
 import { useVariantPanel } from './hooks/useVariantPanel'
 import { useVariantCache } from './hooks/useVariantCache'
+import { useSlotHandlers } from './hooks/useSlotHandlers'
 import { CapabilitiesFallback } from './shared/CapabilitiesFallback'
 import { FeatureTabBar } from './shared/FeatureTabBar'
 
@@ -257,7 +258,6 @@ export function ImageAiPanel({
 
   // ── Generation state ──
   const [isGenerating, setIsGenerating] = useState(false)
-  const [slotsValid, setSlotsValid] = useState(false)
 
   /** Whether the node currently has a resource. */
   const hasResource = Boolean(element.props.previewSrc || element.props.originalSrc)
@@ -285,8 +285,8 @@ export function ImageAiPanel({
   }, [remoteParams])
   const [textSlotPortalEl, setTextSlotPortalEl] = useState<HTMLElement | null>(null)
 
-  // ── Resolved slot inputs (populated by InputSlotBar callback) ──
-  const [resolvedSlots, setResolvedSlots] = useState<Record<string, MediaReference[]>>({})
+  // ── Slot handlers ──
+  const { resolvedSlots, slotsValid, handleSlotInputsChange, handleSlotAssignmentPersist, handleUserTextsChange } = useSlotHandlers(cache, activeKey)
 
   // ── Callbacks ──
 
@@ -448,26 +448,6 @@ export function ImageAiPanel({
     return { type: 'image' as const, path, url: resolvedImageSrc }
   }, [element.props.originalSrc, resolvedImageSrc])
 
-  const handleSlotInputsChange = useCallback((resolved: ResolvedSlotInputs) => {
-    setResolvedSlots(resolved.mediaRefs)
-    setSlotsValid(resolved.isValid)
-    if (activeKey) {
-      cache.update(activeKey, { inputs: resolved.inputs })
-    }
-  }, [cache, activeKey])
-
-  const handleSlotAssignmentPersist = useCallback((map: PersistedSlotMap) => {
-    if (activeKey) {
-      cache.update(activeKey, { slotAssignment: map })
-    }
-  }, [cache, activeKey])
-
-  const handleUserTextsChange = useCallback((texts: Record<string, string>) => {
-    if (activeKey) {
-      cache.update(activeKey, { userTexts: texts })
-    }
-  }, [cache, activeKey])
-
   const variantUpstream = useMemo(() => ({
     textContent: upstreamText,
     images: upstreamImages?.length ? upstreamImages : undefined,
@@ -523,38 +503,28 @@ export function ImageAiPanel({
       ) : null}
 
       {/* ── Variant-specific form ── */}
-      <AnimatePresence mode="wait">
-        {selectedVariant ? (
-          <motion.div
-            key={`${selectedVariant.id}:${readonly && !editing ? primaryEntry?.id : 'edit'}:${cancelCounter}`}
-            initial={{ opacity: 0, y: 4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.15, ease: 'easeOut' }}
-          >
-            <GenericVariantForm
-              variantId={selectedVariant.id}
-              upstream={variantUpstream}
-              nodeResourceUrl={resolvedImageSrc}
-              nodeResourcePath={element.props.originalSrc}
-              disabled={readonly && !editing}
-              initialParams={effectiveSnapshot}
-              onParamsChange={(snapshot) => {
-                if (activeKey) {
-                  cache.update(activeKey, { params: snapshot.params })
-                }
-                setPricingParams(snapshot.params ?? {})
-              }}
-              onWarningChange={setVariantWarning}
-              resolvedSlots={resolvedSlots}
-              overrideParams={remoteParams}
-              cameraChildren={
-                hasCameraAngle ? <div ref={setTextSlotPortalEl} className="flex flex-col gap-3" /> : undefined
-              }
-            />
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
+      <VariantFormTransition variantKey={selectedVariant ? `${selectedVariant.id}:${readonly && !editing ? primaryEntry?.id : 'edit'}:${cancelCounter}` : null}>
+        <GenericVariantForm
+          variantId={selectedVariant!.id}
+          upstream={variantUpstream}
+          nodeResourceUrl={resolvedImageSrc}
+          nodeResourcePath={element.props.originalSrc}
+          disabled={readonly && !editing}
+          initialParams={effectiveSnapshot}
+          onParamsChange={(snapshot) => {
+            if (activeKey) {
+              cache.update(activeKey, { params: snapshot.params })
+            }
+            setPricingParams(snapshot.params ?? {})
+          }}
+          onWarningChange={setVariantWarning}
+          resolvedSlots={resolvedSlots}
+          overrideParams={remoteParams}
+          cameraChildren={
+            hasCameraAngle ? <div ref={setTextSlotPortalEl} className="flex flex-col gap-3" /> : undefined
+          }
+        />
+      </VariantFormTransition>
 
       {/* ── Generate Action Bar ── */}
       {!showFallback ? <GenerateActionBar

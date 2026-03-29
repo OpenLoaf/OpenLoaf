@@ -396,10 +396,13 @@ const FileSystemColumns = memo(function FileSystemColumns({
     () => columnUris.map((_, index) => columnUris[index + 1] ?? null),
     [columnUris]
   );
+  // 非项目场景：将 rootUri 传给 fs 路由覆盖默认的 ~/.openloaf/ 根。
+  const fsRootUri = !projectId && rootUri ? rootUri : undefined;
   const columnQueries = useQueries({
     queries: columnUris.map((uri) => ({
       ...trpc.fs.list.queryOptions({
         projectId,
+        rootUri: fsRootUri,
         uri,
         includeHidden,
         sort:

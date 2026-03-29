@@ -83,12 +83,13 @@ description: 可视化渲染——JSX 组件渲染和 ECharts 图表。当用户
 4. 每条回复只调用一次 jsx-create
 5. 调用后不要再向用户重复输出 JSX 代码——工具会在前端直接展示渲染结果
 
-**配色规范（Apple 扁平色风格）**：
+**配色规范**：
 
-基底色（自动适配 light/dark）：
-- `bg-card`、`bg-muted`、`text-foreground`、`text-muted-foreground`
+OpenLoaf 采用 Apple 扁平色系，所有颜色通过语义 token 适配 light/dark 主题。直接写 `bg-white` 或 `text-gray-800` 在深色模式下会变成刺眼的白块或不可见的文字——所以只用语义 token：
 
-语义强调色（低透明度背景 + 扁平文字色）：
+基底色：`bg-card`、`bg-muted`、`text-foreground`、`text-muted-foreground`
+
+语义强调色（低透明度背景 + 扁平文字，在两种主题下都清晰可读）：
 - 蓝/信息：`bg-ol-blue/10 text-ol-blue`
 - 绿/成功：`bg-ol-green/10 text-ol-green`
 - 黄/警告：`bg-ol-amber/10 text-ol-amber`
@@ -97,17 +98,11 @@ description: 可视化渲染——JSX 组件渲染和 ECharts 图表。当用户
 
 标签/徽章：`rounded-full px-2.5 py-0.5 text-xs` + 上述扁平色组合
 
-**禁止**：
-- `bg-white`、`bg-gray-50`、`text-gray-800` 等硬编码颜色
-- 渐变背景 `bg-gradient-*`
-- `shadow-*` / `box-shadow`
-- 外框 `border` / `ring` / `outline`（外层容器不加）
+不使用渐变（`bg-gradient-*`）、阴影（`shadow-*`）和外框（`border`/`ring`）——JSX 组件嵌入在聊天消息流中，这些装饰会让卡片看起来像独立弹窗而非消息的一部分，破坏阅读连贯性。
 
 **风格规范**：
-- 圆角用 `rounded-lg` 或 `rounded-xl`
-- 间距紧凑（`p-3`~`p-4`、`gap-2`~`gap-3`）
-- 优先使用 `text-sm`/`text-xs` 小字号
-- 优先横向宽布局，避免纵向过长
+- 圆角 `rounded-lg`/`rounded-xl`，间距紧凑（`p-3`~`p-4`、`gap-2`~`gap-3`）
+- 优先 `text-sm`/`text-xs` 小字号、横向宽布局——聊天窗口宽度有限，纵向过长会让用户滚动很久才能看完
 
 **可用组件白名单**（大小写敏感）：
 Message, MessageContent, Panel, Snippet, SnippetAddon, SnippetText, SnippetInput, SnippetCopyButton, CodeBlock, Checkpoint, Task, TaskTrigger, TaskContent, TaskItem, TaskItemFile, Image, Attachments, Attachment, AudioPlayer, AudioPlayerElement, AudioPlayerControlBar, AudioPlayerPlayButton, AudioPlayerSeekBackwardButton, AudioPlayerSeekForwardButton, AudioPlayerTimeDisplay, AudioPlayerTimeRange, AudioPlayerDurationDisplay, AudioPlayerMuteButton, AudioPlayerVolumeRange, WebPreview, WebPreviewNavigation, WebPreviewNavigationButton, WebPreviewUrl, WebPreviewBody, WebPreviewConsole

@@ -25,7 +25,7 @@ import { useAppState } from "@/hooks/use-app-state";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { useSaasAuth } from "@/hooks/use-saas-auth";
 import { useProject } from "@/hooks/use-project";
-import { useProjectStorageRootUri } from "@/hooks/use-project-storage-root-uri";
+import { useProjectStorageRootUri, useTempStorageRootUri } from "@/hooks/use-project-storage-root-uri";
 import { toast } from "sonner";
 import { SaaSClient, SaaSHttpError } from "@openloaf-saas/sdk";
 import { MessageAction, MessageActions } from "@/components/ai-elements/message";
@@ -141,6 +141,7 @@ export default function ChatHeader({
   }, [appState?.chatParams]);
   const projectQuery = useProject(quickLaunchProjectId || undefined);
   const globalRootUri = useProjectStorageRootUri();
+  const tempRootUri = useTempStorageRootUri();
   /** Resolve icon tone classes for header actions. */
   const resolveActionIconClass = React.useCallback(
     (action: keyof typeof CHAT_HEADER_EMAIL_ICON_CLASS) =>
@@ -184,13 +185,17 @@ export default function ChatHeader({
     if (quickLaunchProjectId) {
       return shellRootUri || projectQuery.data?.project?.rootUri?.trim() || "";
     }
-    return globalRootUri?.trim() || "";
-  }, [globalRootUri, projectQuery.data?.project?.rootUri, projectShell?.rootUri, quickLaunchProjectId]);
+    // 临时对话：文件存储在 tempDir 下，不是 ~/.openloaf/
+    return tempRootUri?.trim() || globalRootUri?.trim() || "";
+  }, [globalRootUri, tempRootUri, projectQuery.data?.project?.rootUri, projectShell?.rootUri, quickLaunchProjectId]);
+  // 临时对话（无 projectId）：通过 rootUri 告知 fs 路由使用 tempDir 而非 ~/.openloaf/ 作为根。
+  const fsRootUri = !quickLaunchProjectId && tempRootUri ? tempRootUri : undefined;
   const assetFolderQuery = useQuery(
     trpc.fs.list.queryOptions(
       assetFolder?.relativePath
         ? {
             projectId: quickLaunchProjectId || undefined,
+            rootUri: fsRootUri,
             uri: assetFolder.relativePath,
           }
         : skipToken,

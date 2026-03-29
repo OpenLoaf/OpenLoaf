@@ -56,6 +56,8 @@ const READ_FILE_MAX_BYTES = 50 * 1024 * 1024;
 const fsScopeSchema = z.object({
   projectId: z.string().trim().optional(),
   boardId: z.string().trim().optional(),
+  /** Override root path for non-project contexts (e.g. temp storage). Accepts file:// URI. */
+  rootUri: z.string().trim().optional(),
 });
 
 const fsUriSchema = fsScopeSchema.extend({
@@ -136,6 +138,7 @@ type ResolvedFsReadScope = {
 type BoardFsScope = {
   projectId?: string;
   boardId?: string;
+  rootUri?: string;
 };
 
 /** Return true when the thrown error indicates a stale project scope. */
@@ -145,7 +148,7 @@ function isMissingProjectScopeError(error: unknown): boolean {
 
 /** Resolve scoped paths for read-only fs queries and tolerate removed projects. */
 function resolveFsReadScope(
-  scope: { projectId?: string },
+  scope: { projectId?: string; rootUri?: string },
   target: string
 ): ResolvedFsReadScope | null {
   try {
@@ -360,11 +363,20 @@ async function buildVideoThumbnail(input: {
 
 /** Resolve a filesystem path for the scoped input. */
 function resolveFsTarget(
-  scope: { projectId?: string },
+  scope: { projectId?: string; rootUri?: string },
   target: string
 ): string {
   if (!target?.trim()) {
     return resolveFsRootPath(scope);
+  }
+  // rootUri 覆盖：无 projectId 时用 rootUri 指定的路径作为相对解析基目录。
+  if (!scope.projectId && scope.rootUri) {
+    const rootPath = resolveFilePathFromUri(scope.rootUri);
+    const normalized = target.replace(/\\/g, "/").replace(/^(\.\/)+/, "").replace(/^\/+/, "");
+    if (normalized.split("/").some((s) => s === "..")) {
+      throw new Error("Path traversal is not allowed.");
+    }
+    return path.resolve(rootPath, normalized);
   }
   return resolveScopedPath({
     projectId: scope.projectId,
@@ -373,7 +385,11 @@ function resolveFsTarget(
 }
 
 /** Resolve root path for scoped file system operations. */
-function resolveFsRootPath(scope: { projectId?: string }): string {
+function resolveFsRootPath(scope: { projectId?: string; rootUri?: string }): string {
+  // rootUri 覆盖：非项目场景（临时对话）使用调用方指定的根路径。
+  if (!scope.projectId && scope.rootUri) {
+    return resolveFilePathFromUri(scope.rootUri);
+  }
   return resolveScopedRootPath(scope);
 }
 

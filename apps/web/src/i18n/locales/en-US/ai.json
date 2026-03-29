@@ -337,7 +337,21 @@
     "image_analysis": "Image Analysis",
     "video_generation": "Video Generation",
     "video_analysis": "Video Analysis",
-    "audio_analysis": "Audio Analysis"
+    "audio_analysis": "Audio Analysis",
+    "audio_tts": "Text-to-Speech",
+    "media:imageGenerate": "AI Image Generation",
+    "media:poster": "Poster Generation",
+    "media:imageEdit": "AI Image Edit",
+    "media:upscale": "Image Upscale",
+    "media:outpaint": "Image Outpaint",
+    "media:matting": "Image Matting",
+    "media:videoGenerate": "AI Video Generation",
+    "media:videoEdit": "AI Video Edit",
+    "media:digitalHuman": "Digital Human",
+    "media:motionTransfer": "Motion Transfer",
+    "media:tts": "Text-to-Speech",
+    "media:music": "AI Music",
+    "media:sfx": "Sound Effects"
   },
   "tool": {
     "writeFile": "Write File",
@@ -432,7 +446,8 @@
       "fieldOptions": "Options",
       "fillForm": "Fill form fields",
       "mergePdfs": "Merge PDFs",
-      "addText": "Add text overlays"
+      "addText": "Add text overlays",
+      "screenshotPage": "Page {{page}} of {{total}}"
     }
   },
   "error": {

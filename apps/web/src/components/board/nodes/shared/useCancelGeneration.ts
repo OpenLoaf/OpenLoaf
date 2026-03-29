@@ -30,5 +30,5 @@ export function useCancelGeneration(taskId: string | undefined) {
     }
   }, [taskId, cancelling])
 
-  return { handleCancel: taskId ? handleCancel : undefined, cancelling }
+  return { handleCancel, cancelling }
 }

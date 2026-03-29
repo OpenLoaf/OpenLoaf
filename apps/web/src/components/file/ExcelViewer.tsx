@@ -206,10 +206,12 @@ export default function ExcelViewer({
     typeof uri === "string" &&
     uri.trim().length > 0 &&
     (!/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(uri) || uri.startsWith("file://"));
+  const fsRootUri = !projectId && rootUri ? rootUri : undefined;
   /** Holds the binary payload fetched from the fs API. */
   const fileQuery = useQuery({
     ...trpc.fs.readBinary.queryOptions({
       projectId,
+      rootUri: fsRootUri,
       uri: uri ?? "",
     }),
     enabled: shouldUseFs && Boolean(uri),
@@ -373,6 +375,7 @@ export default function ExcelViewer({
       const contentBase64 = encodeArrayBufferToBase64(arrayBuffer as ArrayBuffer);
       await writeBinaryMutation.mutateAsync({
         projectId,
+        rootUri: fsRootUri,
         uri,
         contentBase64,
       });

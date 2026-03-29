@@ -414,6 +414,18 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
       setCreateTitle("");
       setCommittedTitle("");
       setCreateFolderPath("");
+      // 创建成功后自动在新窗口打开项目。
+      if (res.project?.projectId && res.project.rootUri) {
+        openProject(
+          {
+            projectId: res.project.projectId,
+            title: res.project.title || title || t("projectListPage.untitled"),
+            rootUri: res.project.rootUri,
+            icon: res.project.icon ?? undefined,
+          },
+          { mode: canOpenProjectWindow ? "window" : "preference" },
+        );
+      }
       // Fire-and-forget: infer project type via auxiliary model.
       if (res.project?.projectId) {
         trpcClient.settings.inferProjectType
@@ -426,7 +438,7 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
     } finally {
       setIsBusy(false);
     }
-  }, [createTitle, createFolderPath, autoCreatePath, createMutation, invalidateProjects, t]);
+  }, [createTitle, createFolderPath, autoCreatePath, createMutation, invalidateProjects, openProject, canOpenProjectWindow, t]);
 
   /** Start git clone via SSE subscription. */
   const handleCloneFromGit = useCallback(() => {

@@ -588,6 +588,7 @@
     "statusGenerating": "生成中…",
     "statusWaiting": "待機中",
     "transcoding": "トランスコード中",
+    "downloadFailed": "動画のダウンロードに失敗しました",
     "cancel": "キャンセル",
     "retry": "再試行",
     "delete": "削除",
@@ -631,7 +632,9 @@
     "position": "位置",
     "size": "サイズ",
     "titleLabel": "タイトル",
-    "description": "説明"
+    "description": "説明",
+    "charCount": "文字数",
+    "lineCount": "行数"
   },
   "nodePicker": {
     "title": "ノードを選択",
@@ -1190,7 +1193,15 @@
     "associatedRefs": "未使用の素材（クリックでスロットに割り当て）",
     "swapHint": "クリックして交換",
     "uploadFile": "ファイルをアップロード",
-    "emptySlot": "アップロードまたは割り当て"
+    "emptySlot": "アップロードまたは割り当て",
+    "constraints": {
+      "fileTooLarge": "ファイルサイズ ({{actual}}) が上限 {{max}} を超えています",
+      "formatNotAllowed": ".{{ext}} 形式はサポートされていません。許可：{{formats}}",
+      "resolutionTooLow": "解像度 {{actual}}px が最小要件 {{min}}px を下回っています",
+      "resolutionTooHigh": "解像度 {{actual}}px が最大制限 {{max}}px を超えています",
+      "durationTooShort": "再生時間 {{actual}} が最短要件 {{min}} を下回っています",
+      "durationTooLong": "再生時間 {{actual}} が最長制限 {{max}} を超えています"
+    }
   },
   "dynamicTemplates": {
     "group": {

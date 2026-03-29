@@ -11,20 +11,20 @@ import { type GenerateTarget } from './GenerateActionBar'
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { Mic, Music, Volume2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { AnimatePresence, motion } from 'framer-motion'
+import { VariantFormTransition } from './variants/shared/VariantFormTransition'
 import { cn } from '@udecode/cn'
 import type { V3Variant } from '@/lib/saas-media'
 import type { UpstreamData } from '../engine/upstream-data'
 import { GenerateActionBar } from './GenerateActionBar'
 import { serializeForGenerate } from './variants/serialize'
-import type { MediaReference, MediaType, PersistedSlotMap } from './variants/slot-types'
-import type { ResolvedSlotInputs } from './variants/shared/InputSlotBar'
+import type { MediaReference, MediaType } from './variants/slot-types'
 import { InputSlotBar } from './variants/shared'
 import type { AiGenerateConfig, BoardFileContext, VariantSnapshot } from '../board-contracts'
 import type { AudioNodeProps } from '../nodes/AudioNode'
 import { GenericVariantForm } from './variants/shared/GenericVariantForm'
 import { useVariantPanel } from './hooks/useVariantPanel'
 import { useVariantCache } from './hooks/useVariantCache'
+import { useSlotHandlers } from './hooks/useSlotHandlers'
 import { CapabilitiesFallback } from './shared/CapabilitiesFallback'
 import { FeatureTabBar } from './shared/FeatureTabBar'
 
@@ -201,29 +201,7 @@ export function AudioAiPanel({
 
   // ── Slot system ──
   const cachedSlotAssignment = cache.get(cacheKey)?.slotAssignment
-
-  const handleSlotAssignmentPersist = useCallback((map: PersistedSlotMap) => {
-    if (cacheKey) {
-      cache.update(cacheKey, { slotAssignment: map })
-    }
-  }, [cache, cacheKey])
-
-  const [resolvedSlots, setResolvedSlots] = useState<Record<string, MediaReference[]>>({})
-
-  const [slotsValid, setSlotsValid] = useState(false)
-  const handleSlotInputsChange = useCallback((resolved: ResolvedSlotInputs) => {
-    setResolvedSlots(resolved.mediaRefs)
-    setSlotsValid(resolved.isValid)
-    if (cacheKey) {
-      cache.update(cacheKey, { inputs: resolved.inputs })
-    }
-  }, [cache, cacheKey])
-
-  const handleUserTextsChange = useCallback((texts: Record<string, string>) => {
-    if (cacheKey) {
-      cache.update(cacheKey, { userTexts: texts })
-    }
-  }, [cache, cacheKey])
+  const { resolvedSlots, slotsValid, handleSlotInputsChange, handleSlotAssignmentPersist, handleUserTextsChange } = useSlotHandlers(cache, cacheKey)
 
   // ── Derived state ──
   const variants = selectedFeature?.variants ?? []
@@ -353,28 +331,18 @@ export function AudioAiPanel({
       ) : null}
 
       {/* ---- Variant Form ---- */}
-      <AnimatePresence mode="wait">
-        {selectedVariant ? (
-          <motion.div
-            key={selectedVariant.id || resolvedVariantId}
-            initial={{ opacity: 0, y: 4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.15, ease: 'easeOut' }}
-          >
-            <GenericVariantForm
-              variantId={selectedVariant.id}
-              upstream={variantUpstream}
-              disabled={readonly && !editing}
-              initialParams={cache.get(cacheKey)}
-              onParamsChange={handleParamsChange}
-              onWarningChange={setVariantWarning}
-              resolvedSlots={resolvedSlots}
-              overrideParams={remoteParams}
-            />
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
+      <VariantFormTransition variantKey={selectedVariant ? (selectedVariant.id || resolvedVariantId) : null}>
+        <GenericVariantForm
+          variantId={selectedVariant!.id}
+          upstream={variantUpstream}
+          disabled={readonly && !editing}
+          initialParams={cache.get(cacheKey)}
+          onParamsChange={handleParamsChange}
+          onWarningChange={setVariantWarning}
+          resolvedSlots={resolvedSlots}
+          overrideParams={remoteParams}
+        />
+      </VariantFormTransition>
 
       {/* ---- Coming Soon Placeholder ---- */}
       {isComingSoon ? (

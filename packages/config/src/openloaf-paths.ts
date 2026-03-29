@@ -124,6 +124,7 @@ export function migrateLegacyServerData(
   moveFile("auth.json");
   moveFile("local.db", "openloaf.db");
   moveFile("local-auth.json");
+  moveFile(".env");
 
   if (options.logger) {
     options.logger(

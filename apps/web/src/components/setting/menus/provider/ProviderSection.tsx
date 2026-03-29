@@ -82,7 +82,7 @@ export function ProviderSection({
 }: ProviderSectionProps) {
   const { t } = useTranslation('settings');
   const { t: tAi } = useTranslation('ai');
-  const getTagLabel = (tag: string) => tAi(`modelTags.${tag}`, { defaultValue: tag });
+  const getTagLabel = (tag: string) => tAi(`modelTags.${tag}`, { defaultValue: tag, nsSeparator: false });
   return (
     <>
       <OpenLoafSettingsGroup

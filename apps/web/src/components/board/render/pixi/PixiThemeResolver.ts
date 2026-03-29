@@ -95,6 +95,7 @@ export class PixiThemeResolver {
   private palette: CanvasThemePalette
   private observer: MutationObserver | null = null
   private element: HTMLElement
+  private listeners = new Set<() => void>()
 
   constructor(element: HTMLElement) {
     this.element = element
@@ -106,6 +107,12 @@ export class PixiThemeResolver {
   /** Get the current resolved palette. */
   getPalette(): CanvasThemePalette {
     return this.palette
+  }
+
+  /** Subscribe to theme changes. Returns an unsubscribe function. */
+  onChange(listener: () => void): () => void {
+    this.listeners.add(listener)
+    return () => { this.listeners.delete(listener) }
   }
 
   /** Re-resolve CSS variables from DOM. */
@@ -130,6 +137,7 @@ export class PixiThemeResolver {
   private observe(): void {
     this.observer = new MutationObserver(() => {
       this.resolve()
+      for (const fn of this.listeners) fn()
     })
     this.observer.observe(document.documentElement, {
       attributes: true,
@@ -140,5 +148,6 @@ export class PixiThemeResolver {
   destroy(): void {
     this.observer?.disconnect()
     this.observer = null
+    this.listeners.clear()
   }
 }

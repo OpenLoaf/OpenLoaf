@@ -85,7 +85,7 @@ export function ConnectorHoverScissors({ snapshot, engine }: ConnectorHoverSciss
     >
       <button
         type="button"
-        className="pointer-events-auto absolute flex items-center justify-center rounded-full border border-ol-divider bg-background text-ol-text-auxiliary shadow-md transition-all duration-150 hover:scale-110 hover:bg-red-50 hover:text-red-500 hover:border-red-300 active:scale-95 dark:hover:bg-red-950"
+        className="pointer-events-auto absolute flex items-center justify-center rounded-full border border-red-300 bg-red-50 text-red-500 shadow-md transition-all duration-150 hover:scale-110 hover:bg-red-100 hover:text-red-600 active:scale-95 dark:bg-red-950 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-900 dark:hover:text-red-300"
         style={{
           width: size,
           height: size,

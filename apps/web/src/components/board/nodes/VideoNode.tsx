@@ -498,6 +498,9 @@ export function VideoNodeView({
   const [playing, setPlaying] = useState(false);
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [hoverPreview, setHoverPreview] = useState(false);
+  const hoverVideoRef = useRef<HTMLVideoElement>(null);
+  const hoverContainerRef = useRef<HTMLDivElement>(null);
   const [downloadProgress, setDownloadProgress] = useState(-1);
   const [downloadPhase, setDownloadPhase] = useState<VideoDownloadPhase>("extracting");
   const [downloadTitle, setDownloadTitle] = useState("");
@@ -556,6 +559,29 @@ export function VideoNodeView({
     });
     return () => { cancelled = true; };
   }, [videoPath, ids, posterSrc, onUpdate]);
+
+  // 逻辑：pointerLeave 在 pointer capture 或画布变换时可能不触发，
+  // 用全局 pointermove 做安全守卫，确保鼠标离开后暂停预览。
+  useEffect(() => {
+    if (!hoverPreview) return;
+    const container = hoverContainerRef.current;
+    if (!container) return;
+    const onMove = (e: PointerEvent) => {
+      const rect = container.getBoundingClientRect();
+      if (
+        e.clientX < rect.left ||
+        e.clientX > rect.right ||
+        e.clientY < rect.top ||
+        e.clientY > rect.bottom
+      ) {
+        setHoverPreview(false);
+        const v = hoverVideoRef.current;
+        if (v) { v.pause(); v.currentTime = 0; }
+      }
+    };
+    document.addEventListener('pointermove', onMove);
+    return () => document.removeEventListener('pointermove', onMove);
+  }, [hoverPreview]);
 
   useEffect(() => {
     if (!isDownloading || !downloadTaskId) return;
@@ -644,9 +670,11 @@ export function VideoNodeView({
         throw new Error(i18next.t('board:loading.videoTimeout', { defaultValue: '视频下载超时' }));
       } catch (error) {
         if (controller.signal.aborted) return;
-        const message = error instanceof Error
-          ? error.message
-          : i18next.t('board:loading.downloadFailed', { defaultValue: '视频下载失败' });
+        const raw = error instanceof Error ? error.message : '';
+        const isTechnical = /\/|\\|EACCES|ENOENT|spawn|node_modules/.test(raw);
+        const message = isTechnical || !raw
+          ? i18next.t('board:loading.downloadFailed', { defaultValue: '视频下载失败' })
+          : raw;
         engine.doc.updateNodeProps(element.id, { downloadError: message });
       } finally {
         if (downloadAbortRef.current === controller) {
@@ -757,6 +785,17 @@ export function VideoNodeView({
     setPlaying(true);
     setLoading(true);
   }, [videoPath]);
+
+  // 拖拽期间暂停视频播放
+  useEffect(() => {
+    if (!playing) return;
+    return engine.subscribe(() => {
+      const snap = engine.getSnapshot();
+      if (snap.draggingId != null) {
+        handleStop();
+      }
+    });
+  }, [engine, playing, handleStop]);
 
   // 逻辑：playing 时通过 stream 端点播放视频。
   useEffect(() => {
@@ -1078,7 +1117,7 @@ export function VideoNodeView({
         {/* Generating overlay */}
         {isGenerating && (
           <GeneratingOverlay
-            startedAt={pollingResult.startedAt}
+            startedAt={generatingEntry?.createdAt ?? pollingResult.startedAt}
             estimatedSeconds={90}
             serverProgress={pollingResult.progress}
             color="blue"
@@ -1190,7 +1229,20 @@ export function VideoNodeView({
             )}
           </div>
         ) : posterSrc ? (
-          <div className="relative h-full w-full overflow-hidden rounded-3xl">
+          <div
+            ref={hoverContainerRef}
+            className="relative h-full w-full overflow-hidden rounded-3xl"
+            onPointerEnter={() => {
+              if (!playing && videoPath) setHoverPreview(true)
+            }}
+            onPointerLeave={() => {
+              if (hoverPreview) {
+                setHoverPreview(false)
+                const v = hoverVideoRef.current
+                if (v) { v.pause(); v.currentTime = 0 }
+              }
+            }}
+          >
             <img
               src={posterSrc}
               alt={displayName}
@@ -1198,20 +1250,34 @@ export function VideoNodeView({
               loading="lazy"
               decoding="async"
             />
-            <div className="absolute inset-0 bg-gradient-to-b from-neutral-900/50 via-neutral-900/10 to-transparent" />
-            <div className="absolute inset-0 flex items-center justify-center">
-              <button
-                type="button"
-                data-board-controls
-                className="flex h-14 w-14 cursor-pointer items-center justify-center rounded-3xl border border-white/40 bg-black/40 text-white transition-transform duration-200 ease-out hover:scale-125"
-                onPointerDown={(e) => {
-                  e.stopPropagation();
-                  handlePlayInline();
-                }}
-              >
-                <Play className="h-[50%] w-[50%] min-h-2.5 min-w-2.5 translate-x-[0.5px] fill-current" />
-              </button>
-            </div>
+            {/* Hover auto-play preview */}
+            {videoPath ? (
+              <video
+                ref={hoverVideoRef}
+                src={hoverPreview ? buildStreamUrl(videoPath, ids) : undefined}
+                className={`absolute inset-0 h-full w-full object-contain transition-opacity duration-200 ${hoverPreview ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+                autoPlay
+                muted
+                loop
+                playsInline
+                preload="none"
+              />
+            ) : null}
+            {!hoverPreview ? (
+              <div className="absolute inset-0 flex items-center justify-center transition-opacity duration-200 group-hover/node:opacity-0">
+                  <button
+                    type="button"
+                    data-board-controls
+                    className="flex h-14 w-14 cursor-pointer items-center justify-center rounded-3xl border border-white/40 bg-black/40 text-white"
+                    onPointerDown={(e) => {
+                      e.stopPropagation();
+                      handlePlayInline();
+                    }}
+                  >
+                    <Play className="h-[50%] w-[50%] min-h-2.5 min-w-2.5 translate-x-[0.5px] fill-current" />
+                  </button>
+              </div>
+            ) : null}
           </div>
         ) : !element.props.sourcePath?.trim() && !isGenerating && !isDownloading ? (
           <div className="flex h-full w-full items-center justify-center rounded-3xl border border-dashed border-ol-divider bg-ol-surface-muted">
@@ -1224,11 +1290,11 @@ export function VideoNodeView({
           </div>
         ) : isGenerating ? null : (
           <div className="relative h-full w-full">
-            <div className="absolute inset-0 flex items-center justify-center">
+            <div className="absolute inset-0 flex items-center justify-center transition-opacity duration-200 group-hover/node:opacity-0">
               <button
                 type="button"
                 data-board-controls
-                className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-3xl bg-ol-surface-muted text-ol-text-auxiliary transition-transform duration-200 ease-out hover:scale-125"
+                className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-3xl bg-ol-surface-muted text-ol-text-auxiliary"
                 onPointerDown={(e) => {
                   e.stopPropagation();
                   handlePlayInline();

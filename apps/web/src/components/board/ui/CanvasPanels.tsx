@@ -316,17 +316,34 @@ type NodeDetailItem = {
   onClick?: () => void;
 };
 
-function formatDuration(seconds: number): string {
-  if (!Number.isFinite(seconds) || seconds <= 0) return '-';
-  const m = Math.floor(seconds / 60);
-  const s = Math.floor(seconds % 60);
-  return `${m}:${s.toString().padStart(2, '0')}`;
-}
+import { formatDuration, formatFileSize } from '@/lib/format-utils'
 
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+/** Extract word count and line count from a text node. */
+function extractTextNodeDetails(
+  element: CanvasNodeElement,
+  t: (key: string) => string,
+): NodeDetailItem[] {
+  const props = (element.props ?? {}) as Record<string, unknown>;
+  const value = props.value as Array<Record<string, unknown>> | undefined;
+
+  let charCount = 0;
+  let lineCount = 0;
+
+  if (value && Array.isArray(value)) {
+    lineCount = value.length;
+    for (const block of value) {
+      const children = block.children as Array<{ text?: string }> | undefined;
+      if (!children) continue;
+      for (const child of children) {
+        if (child.text) charCount += child.text.length;
+      }
+    }
+  }
+
+  return [
+    { label: t('nodeInspector.charCount'), value: String(charCount) },
+    { label: t('nodeInspector.lineCount'), value: String(lineCount) },
+  ];
 }
 
 /** Extract details from a video/audio node. */
@@ -404,6 +421,11 @@ function extractNodeDetails(
   // 媒体/文件节点使用专属详情
   if (element.type === 'video' || element.type === 'audio' || element.type === 'image') {
     return extractMediaNodeDetails(element, t, fileContext);
+  }
+
+  // 文字节点：显示字数和行数
+  if (element.type === 'text') {
+    return extractTextNodeDetails(element, t);
   }
 
   const [x, y, w, h] = element.xywh;

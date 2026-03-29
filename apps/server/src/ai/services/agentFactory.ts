@@ -23,6 +23,7 @@ import {
   wrapLanguageModel,
   addToolInputExamplesMiddleware,
   extractReasoningMiddleware,
+  pruneMessages,
 } from 'ai'
 import type {
   LanguageModelV3,
@@ -48,6 +49,7 @@ import {
 } from '@/ai/services/agentConfigService'
 import { resolveAgentByName } from '@/ai/tools/AgentSelector'
 import { buildHardRules } from '@/ai/shared/hardRules'
+import { tryAutoCompact } from '@/ai/shared/autoCompact'
 import { buildToolSearchGuidance } from '@/ai/shared/toolSearchGuidance'
 import { isWebSearchConfigured } from '@/ai/tools/webSearchTool'
 
@@ -171,18 +173,39 @@ function applyActivationGuard(
 }
 
 /**
- * Creates a prepareStep that only exposes tool-search + dynamically activated tools.
+ * Creates a prepareStep that:
+ * 1. Controls tool visibility via ToolSearch pull mode
+ * 2. Prunes historical reasoning & old tool calls to reduce token overhead
+ * 3. Auto-compacts long conversations via LLM summarization (step 0 only)
  */
 function createToolSearchPrepareStep(
   allToolIds: readonly string[],
   activatedSet: ActivatedToolSet,
+  options?: { modelId?: string },
 ): PrepareStepFunction {
-  return () => {
+  return async ({ messages, stepNumber, model }) => {
+    // 1. ToolSearch pull — dynamic tool visibility
     const activeToolIds = activatedSet.getActiveToolIds()
     const activeTools = allToolIds.filter((id) => activeToolIds.includes(id))
-    // Ensure tool-search is always visible
     if (!activeTools.includes('tool-search')) activeTools.push('tool-search')
-    return { activeTools }
+
+    // 2. Prune old tool calls — lightweight, runs every step
+    // NOTE: reasoning 设为 'none'，因为 DeepSeek 等 provider 要求开启 thinking 时
+    // 每条 assistant 消息必须包含 reasoning_content，移除会导致 400 错误。
+    const pruned = pruneMessages({
+      messages,
+      reasoning: 'none',
+      toolCalls: 'before-last-2-messages',
+      emptyMessages: 'remove',
+    })
+
+    // 3. Auto-compact — LLM summarization on step 0 when context is long
+    let finalMessages = pruned
+    if (stepNumber === 0) {
+      finalMessages = await tryAutoCompact(pruned, options?.modelId, model as any)
+    }
+
+    return { activeTools, messages: finalMessages }
   }
 }
 
@@ -324,9 +347,11 @@ export function createMasterAgent(input: CreateMasterAgentInput) {
     experimental_repairToolCall: createToolCallRepair(),
     ...buildResponsesApiProviderOptions(input.model),
   }
-  // Inject prepareStep — ToolSearch pull mode
+  // Inject prepareStep — ToolSearch pull mode + context compression
   Object.assign(baseSettings, {
-    prepareStep: createToolSearchPrepareStep(allToolIds, activatedSet),
+    prepareStep: createToolSearchPrepareStep(allToolIds, activatedSet, {
+      modelId: input.model.modelId,
+    }),
   })
 
   return new ToolLoopAgent(baseSettings)
@@ -405,7 +430,9 @@ export function createPMAgent(input: CreatePMAgentInput) {
     tools,
     stopWhen: [stepCountIs(PM_AGENT_MAX_STEPS), dynamicStepLimit()] as StopCondition<any>[],
     experimental_repairToolCall: createToolCallRepair(),
-    prepareStep: createToolSearchPrepareStep(allToolIds, activatedSet),
+    prepareStep: createToolSearchPrepareStep(allToolIds, activatedSet, {
+      modelId: input.model.modelId,
+    }),
     ...buildResponsesApiProviderOptions(input.model),
   })
 }
@@ -511,7 +538,9 @@ function createGeneralPurposeSubAgent(model: LanguageModelV3): ToolLoopAgent {
     tools,
     stopWhen: stepCountIs(SUB_AGENT_MAX_STEPS),
     experimental_repairToolCall: createToolCallRepair(),
-    prepareStep: createToolSearchPrepareStep(allToolIds, activatedSet),
+    prepareStep: createToolSearchPrepareStep(allToolIds, activatedSet, {
+      modelId: model.modelId,
+    }),
   })
 }
 

@@ -30,10 +30,8 @@ type ToolRoots = {
   globalRoot: string;
   /** Project root path if available. */
   projectRoot?: string;
-  /** Chat asset directory for global conversations (no projectId). */
+  /** Chat asset directory for global conversations (no projectId). User uploads and AI-generated files both go here. */
   chatAssetRoot?: string;
-  /** Session files root ({sessionDir}/root/) for resolving user-attached files. */
-  sessionFilesRoot?: string;
 };
 
 /** Resolve global/project roots for current request context. */
@@ -45,13 +43,11 @@ export function resolveToolRoots(): ToolRoots {
   // 临时会话（无 projectRoot）：通过 sessionId 计算正确的会话存储路径。
   // 文件存储在 {tempDir}/chat-history/{sessionId}/ 下，不是 ~/.openloaf/。
   let chatAssetRoot: string | undefined;
-  let sessionFilesRoot: string | undefined;
   if (!projectRoot) {
     const sessionId = getSessionId();
     if (sessionId) {
       const sessionDir = path.join(getResolvedTempStorageDir(), "chat-history", sessionId);
       chatAssetRoot = path.join(sessionDir, "asset");
-      sessionFilesRoot = path.join(sessionDir, "root");
     }
   }
 
@@ -59,7 +55,6 @@ export function resolveToolRoots(): ToolRoots {
     globalRoot: path.resolve(globalRoot),
     projectRoot: projectRoot ? path.resolve(projectRoot) : undefined,
     chatAssetRoot,
-    sessionFilesRoot,
   };
 }
 

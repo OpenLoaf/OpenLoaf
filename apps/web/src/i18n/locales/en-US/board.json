@@ -599,6 +599,7 @@
     "statusGenerating": "Generating…",
     "statusWaiting": "Waiting",
     "transcoding": "Transcoding",
+    "downloadFailed": "Video download failed",
     "cancel": "Cancel",
     "retry": "Retry",
     "delete": "Delete",
@@ -648,7 +649,9 @@
     "duration": "Duration",
     "resolution": "Resolution",
     "fileSize": "Size",
-    "storagePath": "Location"
+    "storagePath": "Location",
+    "charCount": "Characters",
+    "lineCount": "Lines"
   },
   "nodePicker": {
     "title": "Select Node",
@@ -1221,7 +1224,15 @@
     "associatedRefs": "Unused media (click to assign to a slot)",
     "swapHint": "Click to swap",
     "uploadFile": "Upload file",
-    "emptySlot": "Click to upload or assign"
+    "emptySlot": "Click to upload or assign",
+    "constraints": {
+      "fileTooLarge": "File size ({{actual}}) exceeds limit {{max}}",
+      "formatNotAllowed": ".{{ext}} format not supported. Allowed: {{formats}}",
+      "resolutionTooLow": "Resolution {{actual}}px is below minimum {{min}}px",
+      "resolutionTooHigh": "Resolution {{actual}}px exceeds maximum {{max}}px",
+      "durationTooShort": "Duration {{actual}} is below minimum {{min}}",
+      "durationTooLong": "Duration {{actual}} exceeds maximum {{max}}"
+    }
   },
   "dynamicTemplates": {
     "group": {

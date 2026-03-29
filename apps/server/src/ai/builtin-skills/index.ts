@@ -167,7 +167,7 @@ export const BUILTIN_SKILLS: BuiltinSkill[] = [
   {
     name: 'memory-ops',
     description:
-      '记忆管理——当用户说"记住"、"别忘了"、表达个人偏好/习惯（"我不爱吃..."、"我喜欢..."、"我习惯..."等），或要求忘记/更新某条记忆，或需要回忆之前保存的信息时激活。',
+      '记忆管理——当用户说"记住"、"别忘了"、"以后都…"、表达个人偏好/习惯（"我不爱吃..."、"我喜欢..."、"我习惯..."、"不要再…"等），或要求忘记/更新某条记忆，或需要回忆之前保存的信息（"你还记得吗"、"之前说过什么"、"我的偏好"、"do you remember"、"what did I tell you"），或在新会话开始时需要延续上次对话的用户偏好时激活。',
     content: stripFrontMatter(memoryOpsMd),
     icon: '🧠',
     colorIndex: 5,
@@ -176,7 +176,7 @@ export const BUILTIN_SKILLS: BuiltinSkill[] = [
   {
     name: 'media-ops',
     description:
-      '媒体处理与下载——图片编辑（缩放/裁剪/旋转/格式转换）、视频格式转换、音频提取、视频下载。AI 图片/视频生成已迁移到画布 v3，server agent 不再直接提供对应工具。',
+      '媒体处理与下载——图片编辑（缩放、裁剪、旋转、格式转换、压缩）、视频格式转换、音频提取、视频下载。当用户提到视频下载、图片处理、调整大小、裁剪、旋转、格式转换、提取音频、视频转码、"下载这个视频"、"把图片转成 PNG"、"压缩图片"、"提取背景音乐"、"这个视频转 MP4"、resize、crop、blur、convert、"图片太大了"、"转成 webp"、"视频怎么这么大" 时激活。注意：AI 图片/视频生成已迁移到画布 v3，本 skill 仅处理已有文件和网络视频下载。',
     content: stripFrontMatter(mediaOpsMd),
     icon: '🎬',
     colorIndex: 6,

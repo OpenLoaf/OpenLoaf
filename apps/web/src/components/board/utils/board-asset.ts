@@ -95,7 +95,11 @@ export async function saveBoardAssetFile(input: {
     (existing.entries ?? []).map((entry) => entry.name),
   );
   const safeName =
-    (file.name || fallbackName).replace(/[\\/]/g, "-") || fallbackName;
+    (file.name || fallbackName)
+      .replace(/[<>:"/\\|?*#@!$%^&()+=\[\]{};',~`\x00-\x1f]/g, "")
+      .replace(/\s+/g, "_")
+      .replace(/_+/g, "_")
+      .replace(/^_|_$/g, "") || fallbackName;
   const uniqueName = getUniqueName(safeName, existingNames);
   const targetUri = boardId
     ? `${BOARD_ASSETS_DIR_NAME}/${uniqueName}`

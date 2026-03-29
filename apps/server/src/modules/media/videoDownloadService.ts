@@ -18,6 +18,39 @@ import { logger } from '@/common/logger'
 let ytdlp: YtDlp | null = null
 let initPromise: Promise<YtDlp> | null = null
 
+const errorPatterns: [RegExp, string][] = [
+  [/EACCES/i, 'video_download_permission_denied'],
+  [/ENOENT/i, 'video_download_tool_missing'],
+  [/ETIMEDOUT|ESOCKETTIMEDOUT|ECONNABORTED/i, 'video_download_network_timeout'],
+  [/ECONNREFUSED|ECONNRESET|ENOTFOUND/i, 'video_download_network_error'],
+  [/Unsupported URL|is not a valid URL/i, 'video_download_unsupported_url'],
+  [/Video unavailable|Private video|removed/i, 'video_download_unavailable'],
+  [/Sign in to confirm/i, 'video_download_auth_required'],
+  [/HTTP Error 403|HTTP Error 429/i, 'video_download_blocked'],
+  [/No video formats found|Requested format/i, 'video_download_no_format'],
+  [/ENOSPC/i, 'video_download_disk_full'],
+]
+
+const friendlyMessages: Record<string, string> = {
+  video_download_permission_denied: '下载工具权限不足，请重启应用后重试',
+  video_download_tool_missing: '下载工具未正确安装，请重启应用后重试',
+  video_download_network_timeout: '网络连接超时，请检查网络后重试',
+  video_download_network_error: '网络连接失败，请检查网络后重试',
+  video_download_unsupported_url: '不支持的视频链接',
+  video_download_unavailable: '视频不可用（可能已删除或设为私密）',
+  video_download_auth_required: '该视频需要登录才能访问',
+  video_download_blocked: '请求被目标网站拒绝，请稍后重试',
+  video_download_no_format: '未找到可下载的视频格式',
+  video_download_disk_full: '磁盘空间不足',
+}
+
+function friendlyDownloadError(raw: string): string {
+  for (const [pattern, code] of errorPatterns) {
+    if (pattern.test(raw)) return friendlyMessages[code]!
+  }
+  return '视频下载失败'
+}
+
 /**
  * Normalize video URLs that yt-dlp cannot handle directly.
  * e.g. Douyin modal URLs like `douyin.com/jingxuan?modal_id=XXX`
@@ -325,10 +358,12 @@ async function runDownload(
       }
       task.phase = 'downloading'
 
-      // Sanitize filename
+      // Sanitize filename: remove special chars (#, @, etc.), replace spaces with _
       const safeTitle = data.title
-        .replace(/[<>:"/\\|?*\x00-\x1f]/g, '')
-        .replace(/\s+/g, ' ')
+        .replace(/[<>:"/\\|?*#@!$%^&()+=\[\]{};',~`\x00-\x1f]/g, '')
+        .replace(/\s+/g, '_')
+        .replace(/_+/g, '_')
+        .replace(/^_|_$/g, '')
         .trim()
         .slice(0, 100) || 'douyin_video'
       const fileName = `${safeTitle}.mp4`
@@ -468,7 +503,8 @@ async function runDownload(
   } catch (error) {
     if ((task.status as string) === 'failed') return
     task.status = 'failed'
-    task.error = error instanceof Error ? error.message : 'Download failed'
+    const rawMsg = error instanceof Error ? error.message : String(error)
+    task.error = friendlyDownloadError(rawMsg)
     logger.error({ taskId: task.id, err: error instanceof Error ? { message: error.message, stack: error.stack } : error }, 'Video download failed')
   } finally {
     scheduleCleanup(task.id)

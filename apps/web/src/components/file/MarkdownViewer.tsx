@@ -383,9 +383,10 @@ export default function MarkdownViewer({
     typeof __chatHistorySessionId === "string" ? __chatHistorySessionId.trim() : "";
   const chatHistoryJsonlPath =
     typeof __chatHistoryJsonlPath === "string" ? __chatHistoryJsonlPath.trim() : "";
+  const fsRootUri = !projectId && rootUri ? rootUri : undefined;
   const fileQuery = useQuery(
     trpc.fs.readFile.queryOptions(
-      !hasInlineContent && uri ? { projectId, uri } : skipToken
+      !hasInlineContent && uri ? { projectId, rootUri: fsRootUri, uri } : skipToken
     )
   );
   const resolvedDefaultMode: MarkdownViewerMode =

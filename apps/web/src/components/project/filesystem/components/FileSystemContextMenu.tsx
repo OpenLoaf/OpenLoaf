@@ -24,6 +24,7 @@ import {
   ArrowUpRight,
   ClipboardCopy,
   ClipboardPaste,
+  Code,
   Copy,
   Eye,
   EyeOff,
@@ -39,6 +40,8 @@ import {
   Trash2,
 } from "lucide-react";
 import type { FileSystemEntry } from "../utils/file-system-utils";
+import { getEntryExt } from "../utils/file-system-utils";
+import { HTML_EXTS } from "./FileSystemEntryVisual";
 
 /** Actions for file system context menu items. */
 /** Generic menu action signature. */
@@ -53,6 +56,8 @@ type MenuEntriesAction = (entries: FileSystemEntry[]) => void | Promise<void>;
 export type FileSystemContextMenuActions = {
   /** Open the entry. */
   openEntry: MenuEntryAction;
+  /** Open the entry in the code editor (for HTML files). */
+  openInEditor?: MenuEntryAction;
   /** Open the entry in the OS file manager. */
   openInFileManager: MenuEntryAction;
   /** Enter the board folder in the file list. */
@@ -149,6 +154,10 @@ const FileSystemContextMenu = memo(function FileSystemContextMenu({
   const toggleHiddenLabel = showHidden ? t('project:filesystem.showHiddenActive') : t('project:filesystem.showHidden');
   const shouldShowEnterBoardFolder =
     menuContextEntry?.kind === "folder" && isBoardFolderName(menuContextEntry.name);
+  const shouldShowOpenInEditor =
+    actions.openInEditor &&
+    menuContextEntry?.kind === "file" &&
+    HTML_EXTS.has(getEntryExt(menuContextEntry));
   const shouldShowEntryFileManager =
     menuContextEntry?.kind === "folder";
   const shouldShowEntryTerminal =
@@ -220,6 +229,17 @@ const FileSystemContextMenu = memo(function FileSystemContextMenu({
               >
                 {t('project:filesystem.open')}
               </ContextMenuItem>
+              {shouldShowOpenInEditor ? (
+                <ContextMenuItem
+                  icon={Code}
+                  iconClassName={FILESYSTEM_MENU_ICON_CLASS.info}
+                  onSelect={withMenuSelectGuard(() =>
+                    actions.openInEditor!(menuContextEntry)
+                  )}
+                >
+                  {t('project:filesystem.openInEditor')}
+                </ContextMenuItem>
+              ) : null}
               {shouldShowEnterBoardFolder ? (
                 <ContextMenuItem
                   icon={LayoutGrid}

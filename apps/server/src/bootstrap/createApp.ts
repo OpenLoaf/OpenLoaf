@@ -23,6 +23,7 @@ import { registerFrontendToolAckRoutes } from "@/ai/interface/routes/frontendToo
 import { registerSecretStoreRoutes } from "@/ai/interface/routes/secretStoreRoutes";
 import { registerSaasMediaRoutes } from "@/ai/interface/routes/saasMediaRoutes";
 import { registerFileSseRoutes } from "@/modules/fs/fileSseRoutes";
+import { registerFileServeRoutes } from "@/modules/fs/fileServeRoutes";
 import { registerAuthRoutes } from "@/modules/auth/authRoutes";
 import { registerS3TestRoutes } from "@/modules/storage/s3TestRoutes";
 import { registerCloudModelRoutes } from "@/ai/models/cloudModelRoutes";
@@ -113,6 +114,7 @@ export function createApp() {
   registerSecretStoreRoutes(app);
   registerSaasMediaRoutes(app);
   registerFileSseRoutes(app);
+  registerFileServeRoutes(app);
   registerAuthRoutes(app);
   registerLocalAuthRoutes(app);
   registerCloudModelRoutes(app);

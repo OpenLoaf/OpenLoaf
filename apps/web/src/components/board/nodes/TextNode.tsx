@@ -24,23 +24,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import i18next from "i18next";
 import { z } from "zod";
 import {
-  AlignCenter,
-  AlignLeft,
-  AlignRight,
-  Bold,
   CheckSquare,
-  ChevronDown,
-  Italic,
   List,
   ListOrdered,
-  MessageSquare,
   Palette,
   PaintBucket,
-  Sparkles,
-  Strikethrough,
-  Type,
-  Underline,
-  Wand2,
 } from "lucide-react";
 import { cn } from "@udecode/cn";
 import { KEYS } from 'platejs';
@@ -56,7 +44,6 @@ import {
 } from "../ui/board-style-system";
 import { useBoardContext } from "../core/BoardProvider";
 import { createPortal } from "react-dom";
-import { deriveNode } from "../utils/derive-node";
 import { MINDMAP_META } from "../engine/mindmap-layout";
 import { HueSlider, buildColorSwatches, DEFAULT_COLOR_PRESETS } from "../ui/HueSlider";
 import { EditableBoardTextEditorKit, ReadOnlyBoardTextEditorKit } from "./text-editor-kit";
@@ -540,127 +527,10 @@ function createTextToolbarItems(ctx: CanvasToolbarContext<TextNodeProps>) {
     return buildColorToolbarItems(t, ctx, { textColor, backgroundColor, autoTextColor, colorPresets, backgroundPresets, addColorHistory });
   }
 
-  const fontSize = resolveHeadingFontSize(ctx.element.props.fontSize);
-  const textAlign = ctx.element.props.textAlign ?? TEXT_NODE_DEFAULT_TEXT_ALIGN;
-
   // Get the Plate editor instance for inline formatting
   const editor = textEditorRefs.get(ctx.element.id);
 
-  // Helper: check if a mark is active on current selection
-  const isMarkActive = (key: string) => {
-    if (!editor) return false;
-    try {
-      const marks = editor.api.marks();
-      return Boolean(marks?.[key as keyof typeof marks]);
-    } catch {
-      return false;
-    }
-  };
-
-  // Helper: toggle an inline mark
-  const toggleMark = (key: string) => {
-    if (!editor) return;
-    editor.tf.toggleMark(key);
-  };
-
   return [
-    // ---- AI Polish dropdown ----
-    {
-      id: 'ai-polish',
-      label: t('board:textNode.aiPolish.title'),
-      icon: <><Wand2 size={14} /><ChevronDown size={10} className="ml-0.5 opacity-60" /></>,
-      className: BOARD_TOOLBAR_ITEM_DEFAULT,
-      panel: (
-        <div className="flex flex-col gap-0.5 min-w-[120px]">
-          <TextToolbarPanelButton
-            title={t('board:textNode.aiPolish.polish')}
-            onSelect={() => {
-              deriveNode({ engine: ctx.engine, sourceNodeId: ctx.element.id, targetType: 'text', targetProps: { style: 'sticky', stickyColor: 'yellow' } })
-            }}
-          >
-            <Sparkles size={12} className="mr-1.5" />{t('board:textNode.aiPolish.polish')}
-          </TextToolbarPanelButton>
-          <TextToolbarPanelButton
-            title={t('board:textNode.aiPolish.translate')}
-            onSelect={() => {
-              deriveNode({ engine: ctx.engine, sourceNodeId: ctx.element.id, targetType: 'text', targetProps: { style: 'sticky', stickyColor: 'blue' } })
-            }}
-          >
-            <MessageSquare size={12} className="mr-1.5" />{t('board:textNode.aiPolish.translate')}
-          </TextToolbarPanelButton>
-          <TextToolbarPanelButton
-            title={t('board:textNode.aiPolish.rewrite')}
-            onSelect={() => {
-              deriveNode({ engine: ctx.engine, sourceNodeId: ctx.element.id, targetType: 'text', targetProps: { style: 'sticky', stickyColor: 'green' } })
-            }}
-          >
-            <Type size={12} className="mr-1.5" />{t('board:textNode.aiPolish.rewrite')}
-          </TextToolbarPanelButton>
-        </div>
-      ),
-    },
-    // ---- Node-level: Font size ----
-    {
-      id: 'text-size',
-      label: t('board:textNode.toolbar.fontSize'),
-      showLabel: true,
-      icon: <Type size={14} />,
-      className: BOARD_TOOLBAR_ITEM_DEFAULT,
-      panel: (
-        <div className="flex items-center gap-1">
-          {TEXT_NODE_FONT_SIZES.map(size => (
-            <TextToolbarPanelButton
-              key={size.label}
-              title={size.label}
-              active={fontSize === size.value}
-              onSelect={() => ctx.updateNodeProps({ fontSize: size.value })}
-            >
-              {size.label}
-            </TextToolbarPanelButton>
-          ))}
-        </div>
-      ),
-    },
-    // ---- Inline: Bold / Italic / Underline / Strikethrough ----
-    {
-      id: 'text-inline-style',
-      label: t('board:textNode.toolbar.style'),
-      showLabel: true,
-      icon: <Bold size={14} />,
-      className: BOARD_TOOLBAR_ITEM_DEFAULT,
-      panel: (
-        <div className="flex items-center gap-1">
-          <TextToolbarPanelButton
-            title={t('board:textNode.format.bold')}
-            active={isMarkActive('bold')}
-            onSelect={() => toggleMark('bold')}
-          >
-            <Bold size={14} />
-          </TextToolbarPanelButton>
-          <TextToolbarPanelButton
-            title={t('board:textNode.format.italic')}
-            active={isMarkActive('italic')}
-            onSelect={() => toggleMark('italic')}
-          >
-            <Italic size={14} />
-          </TextToolbarPanelButton>
-          <TextToolbarPanelButton
-            title={t('board:textNode.format.underline')}
-            active={isMarkActive('underline')}
-            onSelect={() => toggleMark('underline')}
-          >
-            <Underline size={14} />
-          </TextToolbarPanelButton>
-          <TextToolbarPanelButton
-            title={t('board:textNode.format.strikethrough')}
-            active={isMarkActive('strikethrough')}
-            onSelect={() => toggleMark('strikethrough')}
-          >
-            <Strikethrough size={14} />
-          </TextToolbarPanelButton>
-        </div>
-      ),
-    },
     // ---- Inline: Lists (ul / ol / todo) ----
     {
       id: 'text-list',
@@ -755,39 +625,6 @@ function createTextToolbarItems(ctx: CanvasToolbarContext<TextNodeProps>) {
           </div>
         );
       })(),
-    },
-    // ---- Node-level: Text align ----
-    {
-      id: 'text-align',
-      label: t('board:textNode.toolbar.align'),
-      showLabel: true,
-      icon: <AlignLeft size={14} />,
-      className: BOARD_TOOLBAR_ITEM_DEFAULT,
-      panel: (
-        <div className="flex items-center gap-1">
-          <TextToolbarPanelButton
-            title={t('board:textNode.format.alignLeft')}
-            active={textAlign === "left"}
-            onSelect={() => ctx.updateNodeProps({ textAlign: "left" })}
-          >
-            <AlignLeft size={14} />
-          </TextToolbarPanelButton>
-          <TextToolbarPanelButton
-            title={t('board:textNode.format.alignCenter')}
-            active={textAlign === "center"}
-            onSelect={() => ctx.updateNodeProps({ textAlign: "center" })}
-          >
-            <AlignCenter size={14} />
-          </TextToolbarPanelButton>
-          <TextToolbarPanelButton
-            title={t('board:textNode.format.alignRight')}
-            active={textAlign === "right"}
-            onSelect={() => ctx.updateNodeProps({ textAlign: "right" })}
-          >
-            <AlignRight size={14} />
-          </TextToolbarPanelButton>
-        </div>
-      ),
     },
     // ---- Node-level: Text color & Background color ----
     ...buildColorToolbarItems(t, ctx, { textColor, backgroundColor, autoTextColor, colorPresets, backgroundPresets, addColorHistory }),

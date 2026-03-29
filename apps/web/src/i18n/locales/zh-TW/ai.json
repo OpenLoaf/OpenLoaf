@@ -337,7 +337,21 @@
     "image_analysis": "圖像分析",
     "video_generation": "影片生成",
     "video_analysis": "影片理解",
-    "audio_analysis": "音訊分析"
+    "audio_analysis": "音訊分析",
+    "audio_tts": "語音合成",
+    "media:imageGenerate": "AI繪圖",
+    "media:poster": "海報生成",
+    "media:imageEdit": "AI圖像編輯",
+    "media:upscale": "圖像放大",
+    "media:outpaint": "圖像擴展",
+    "media:matting": "智慧去背",
+    "media:videoGenerate": "AI影片生成",
+    "media:videoEdit": "AI影片編輯",
+    "media:digitalHuman": "數位人",
+    "media:motionTransfer": "動作遷移",
+    "media:tts": "文字轉語音",
+    "media:music": "AI音樂",
+    "media:sfx": "音效生成"
   },
   "tool": {
     "writeFile": "寫入檔案",
@@ -432,7 +446,8 @@
       "fieldOptions": "選項",
       "fillForm": "填充表單欄位",
       "mergePdfs": "合併 PDF",
-      "addText": "新增文字疊加"
+      "addText": "新增文字疊加",
+      "screenshotPage": "第 {{page}} 頁 / 共 {{total}} 頁"
     }
   },
   "error": {

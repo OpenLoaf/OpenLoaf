@@ -14,18 +14,23 @@ export type MediaUploadResult =
   | { url: string }
   | { base64: string; mediaType: string }
 
-/** Maximum image size for upload (1 MB). */
-const MAX_IMAGE_BYTES = 1024 * 1024
+/** Default maximum image size for upload (1 MB). */
+const DEFAULT_MAX_IMAGE_BYTES = 1024 * 1024
 
 /**
- * Compress an image blob to fit within MAX_IMAGE_BYTES.
+ * Compress an image blob to fit within the target size.
  * - PNG: 保持 PNG 格式（保留透明通道），仅通过缩小尺寸压缩
  * - 其他格式: 转 JPEG，先降 quality 再缩小尺寸
  * Non-image blobs and already-small images are returned as-is.
+ *
+ * @param maxBytes - Target max bytes. When derived from a slot constraint,
+ *                   callers should pass `maxFileSize * 0.7` so the result
+ *                   sits comfortably below the hard limit.
  */
-async function compressImageBlob(blob: Blob): Promise<Blob> {
+async function compressImageBlob(blob: Blob, maxBytes?: number): Promise<Blob> {
+  const limit = maxBytes ?? DEFAULT_MAX_IMAGE_BYTES
   if (!blob.type.startsWith('image/')) return blob
-  if (blob.size <= MAX_IMAGE_BYTES) return blob
+  if (blob.size <= limit) return blob
 
   const img = new Image()
   const objectUrl = URL.createObjectURL(blob)
@@ -57,7 +62,7 @@ async function compressImageBlob(blob: Blob): Promise<Blob> {
       const compressed = await new Promise<Blob | null>((resolve) =>
         canvas.toBlob((b) => resolve(b), 'image/png'),
       )
-      if (compressed && compressed.size <= MAX_IMAGE_BYTES) return compressed
+      if (compressed && compressed.size <= limit) return compressed
     }
     // 兜底
     const fallback = await new Promise<Blob | null>((resolve) =>
@@ -80,7 +85,7 @@ async function compressImageBlob(blob: Blob): Promise<Blob> {
       const compressed = await new Promise<Blob | null>((resolve) =>
         canvas.toBlob((b) => resolve(b), 'image/jpeg', quality),
       )
-      if (compressed && compressed.size <= MAX_IMAGE_BYTES) return compressed
+      if (compressed && compressed.size <= limit) return compressed
     }
   }
   const fallback = await new Promise<Blob | null>((resolve) =>
@@ -112,14 +117,18 @@ export async function uploadBoardAsset(
 
 /**
  * Upload a blob/file to get a public URL.
- * Images are compressed to ≤300KB before upload.
+ * Images are compressed before upload.
  * Calls POST /ai/v3/media/upload with multipart body.
+ *
+ * @param maxImageBytes - When provided (typically `slot.maxFileSize * 0.7`),
+ *                        image compression targets this size instead of the default 1MB.
  */
 export async function uploadBlob(
   blob: Blob,
   fileName?: string,
+  maxImageBytes?: number,
 ): Promise<MediaUploadResult> {
-  const compressed = await compressImageBlob(blob)
+  const compressed = await compressImageBlob(blob, maxImageBytes)
   // 非 PNG 压缩后格式变为 JPEG，需更新后缀
   let name = fileName || 'upload'
   if (compressed !== blob && blob.type !== 'image/png') {

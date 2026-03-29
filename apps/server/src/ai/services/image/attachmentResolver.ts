@@ -14,16 +14,15 @@ import sharp from "sharp";
 import type { UIMessage } from "ai";
 import type { OpenLoafImageMetadataV1 } from "@openloaf/api/types/image";
 import { getProjectRootPath } from "@openloaf/api/services/vfsService";
-import { resolveBoardAbsPath, resolveBoardScopedRoot, resolveBoardRootPath, lookupBoardRecord, BOARD_CHAT_HISTORY_DIR, resolveBoardFolderName } from "@openloaf/api/common/boardPaths";
+import { resolveBoardAbsPath, resolveBoardScopedRoot, resolveBoardRootPath, lookupBoardRecord, BOARD_CHAT_HISTORY_DIR } from "@openloaf/api/common/boardPaths";
 import { getOpenLoafRootDir, resolveScopedOpenLoafPath } from "@openloaf/config";
+import { getResolvedTempStorageDir } from "@openloaf/api/services/appConfigService";
 import { getProjectId } from "@/ai/shared/context/requestContext";
 
 /** Max image edge length for chat. */
 const CHAT_IMAGE_MAX_EDGE = 1024;
 /** Image output quality for chat. */
 const CHAT_IMAGE_QUALITY = 80;
-/** Max bytes for chat binary attachments. */
-const CHAT_ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024;
 /** Max bytes for chat attachment preview payloads. */
 const CHAT_ATTACHMENT_PREVIEW_MAX_BYTES = 30 * 1024 * 1024;
 /** Supported image types. */
@@ -360,74 +359,17 @@ async function resolveChatAttachmentRoot(input: {
 
   // 普通聊天
   const projectId = input.projectId?.trim();
-  let scopeRoot: string | null = null;
   if (projectId) {
-    scopeRoot = await getProjectRootPath(projectId);
+    const projectRoot = await getProjectRootPath(projectId);
+    if (projectRoot) {
+      const chatHistoryDir = resolveScopedOpenLoafPath(projectRoot, "chat-history");
+      return { rootPath: projectRoot, chatHistoryDir };
+    }
   }
-  if (!scopeRoot) {
-    scopeRoot = getOpenLoafRootDir();
-  }
-  if (!scopeRoot) return null;
-  const chatHistoryDir = resolveScopedOpenLoafPath(scopeRoot, "chat-history");
-  return { rootPath: scopeRoot, chatHistoryDir };
-}
-
-type ChatBinaryAttachmentResult = {
-  /** Relative path for the saved attachment. */
-  url: string;
-  /** Media type for the attachment. */
-  mediaType: string;
-  /** Stored file name. */
-  fileName: string;
-  /** Relative path within the project storage root. */
-  relativePath: string;
-  /** File size in bytes. */
-  bytes: number;
-};
-
-/** Save a binary attachment for the current chat session. */
-export async function saveChatBinaryAttachment(input: {
-  /** Project id. */
-  projectId?: string;
-  /** Optional board id — chat files stored under board directory when present. */
-  boardId?: string;
-  /** Session id. */
-  sessionId: string;
-  /** Source file name. */
-  fileName: string;
-  /** File buffer. */
-  buffer: Buffer;
-  /** Optional media type. */
-  mediaType?: string;
-}): Promise<ChatBinaryAttachmentResult> {
-  const sessionId = input.sessionId?.trim();
-  if (!sessionId) {
-    throw new Error("sessionId is required.");
-  }
-  if (input.buffer.length > CHAT_ATTACHMENT_MAX_BYTES) {
-    throw new Error("Attachment too large.");
-  }
-  const root = await resolveChatAttachmentRoot({
-    projectId: input.projectId,
-    boardId: input.boardId,
-  });
-  if (!root) {
-    throw new Error("Project or root directory not found");
-  }
-  const ext = path.extname(input.fileName).toLowerCase().replace(/^\./, "") || "bin";
-  const storedName = buildChatAttachmentFileName(ext);
-  const targetPath = path.join(root.chatHistoryDir, sessionId, "asset", storedName);
-  const relativePath = path.relative(root.rootPath, targetPath).split(path.sep).join("/");
-  // 逻辑：确保目录存在后再写入文件，避免落盘失败。
-  await fs.mkdir(path.dirname(targetPath), { recursive: true });
-  await fs.writeFile(targetPath, input.buffer);
-  return {
-    url: relativePath,
-    mediaType: input.mediaType ?? "application/octet-stream",
-    fileName: storedName,
-    relativePath,
-    bytes: input.buffer.length,
-  };
+  // 临时对话：文件存储在 tempDir/chat-history/ 下（无 .openloaf 前缀）
+  const tempRoot = getResolvedTempStorageDir();
+  const chatHistoryDir = path.join(tempRoot, "chat-history");
+  return { rootPath: tempRoot, chatHistoryDir };
 }
 
 /** Scoped project path matcher like [projectId]/path/to/file. */

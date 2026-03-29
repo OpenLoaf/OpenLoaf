@@ -52,6 +52,7 @@
       "clearCanvasSuccess": "プロジェクトに紐付いていないキャンバスを{{count}}件削除しました",
       "clearCanvasEmpty": "削除対象のキャンバスはありません",
       "clearCanvasError": "キャンバスの削除に失敗しました",
+      "clearChatError": "チャット履歴の削除に失敗しました",
       "sessionsClearedSuccess": "削除完了: {{count}}セッション"
     },
     "checkingUpdate": "アップデートを確認中...",
@@ -142,6 +143,7 @@
     "openInFileManager": "ファイルマネージャーで開く",
     "reveal": "Finderで表示",
     "open": "開く",
+    "openInEditor": "エディタで開く",
     "openWith": "アプリケーションで開く",
     "download": "ダウンロード",
     "upload": "アップロード",

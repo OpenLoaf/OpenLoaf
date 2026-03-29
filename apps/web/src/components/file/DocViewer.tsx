@@ -218,10 +218,12 @@ export default function DocViewer({
     Boolean(readUri) &&
     (!/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(readUri) || readUri.startsWith("file://"));
 
+  const fsRootUri = !projectId && rootUri ? rootUri : undefined;
   /** Load binary payload from file system API. */
   const fileQuery = useQuery({
     ...trpc.fs.readBinary.queryOptions({
       projectId,
+      rootUri: fsRootUri,
       uri: readUri,
     }),
     enabled: shouldUseFs && Boolean(readUri),
@@ -328,6 +330,7 @@ export default function DocViewer({
       const contentBase64 = encodeArrayBufferToBase64(buffer);
       await writeBinaryMutation.mutateAsync({
         projectId,
+        rootUri: fsRootUri,
         uri,
         contentBase64,
       });

@@ -187,6 +187,16 @@ export function PixiCanvas({ engine, snapshot }: PixiApplicationProps) {
       overlayRenderer.syncView()
     })
 
+    // 逻辑：主题切换时，PixiJS 层的缓存守卫基于 docRevision，不会自动重绘。
+    // 需要 invalidate 缓存并强制 sync，让连线和笔画使用新主题色。
+    const unsubTheme = themeResolver.onChange(() => {
+      connectorRenderer.invalidate()
+      connectorRenderer.sync()
+      strokeRenderer.invalidate()
+      strokeRenderer.sync()
+      overlayRenderer.sync()
+    })
+
     // 初始同步
     bottomViewportSync.sync()
     topViewportSync.sync()
@@ -199,6 +209,7 @@ export function PixiCanvas({ engine, snapshot }: PixiApplicationProps) {
       stopPixiApp(topApp)
       unsubSnapshot()
       unsubView()
+      unsubTheme()
       bottomViewportSync.destroy()
       topViewportSync.destroy()
       connectorRenderer.destroy()

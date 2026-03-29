@@ -181,7 +181,7 @@ function PanelFrame({
       >
         <div
           className={cn(
-            "flex w-full flex-col overflow-hidden rounded-3xl",
+            "flex w-full flex-col overflow-hidden",
             opaquePanel ? "bg-background" : "ol-glass-float",
             fillHeight && "h-full",
           )}

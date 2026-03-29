@@ -75,7 +75,7 @@ export function ModelDialog({
   const { t: tAi } = useTranslation('ai');
   const modelTagOptions = AI_MODEL_TAGS.map((value) => ({
     value: value as ModelTag,
-    label: tAi(`modelTags.${value}`, { defaultValue: value }),
+    label: tAi(`modelTags.${value}`, { defaultValue: value, nsSeparator: false }),
   }));
   const isEditing = Boolean(editingModelId);
 

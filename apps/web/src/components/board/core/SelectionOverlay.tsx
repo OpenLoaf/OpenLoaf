@@ -582,6 +582,29 @@ export function SingleSelectionOutline(_props: SingleSelectionOutlineProps) {
   return null;
 }
 
+/** Check whether a node has no meaningful content. */
+function isNodeContentEmpty(element: CanvasNodeElement): boolean {
+  const props = (element.props ?? {}) as Record<string, unknown>
+  switch (element.type) {
+    case 'text': {
+      const value = props.value
+      if (!value || !Array.isArray(value) || value.length === 0) return true
+      return (value as Array<Record<string, unknown>>).every(node => {
+        const children = node.children as Array<{ text?: string }> | undefined
+        if (!children) return true
+        return children.every(child => !child.text || child.text.trim().length === 0)
+      })
+    }
+    case 'image':
+      return !props.originalSrc && !props.previewSrc
+    case 'video':
+    case 'audio':
+      return !props.sourcePath
+    default:
+      return false
+  }
+}
+
 /** Build shared toolbar items for every node, keeping destructive actions in the shared right-side group. */
 function buildCommonToolbarItems(
   t: TFunction,
@@ -621,7 +644,7 @@ function buildCommonToolbarItems(
         },
       },
     ] : []),
-    ...(options?.onInspect && element.type !== 'file-attachment' ? [{
+    ...(options?.onInspect && element.type !== 'file-attachment' && !isNodeContentEmpty(element) ? [{
       id: 'inspect',
       label: t('selection.toolbar.detail', { defaultValue: '详情' }),
       showLabel: false,

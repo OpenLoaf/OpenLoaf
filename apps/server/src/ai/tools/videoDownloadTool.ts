@@ -18,7 +18,7 @@ import {
   resolveBoardAssetDir,
   resolveBoardScopedRoot,
 } from '@openloaf/api/common/boardPaths'
-import { getOpenLoafRootDir } from '@openloaf/config'
+import { getResolvedTempStorageDir } from '@openloaf/api/services/appConfigService'
 import {
   getAbortSignal,
   getBoardId,
@@ -77,14 +77,24 @@ async function resolveVideoStorageTarget(): Promise<VideoStorageTarget> {
     }
   }
 
-  const rootPath = projectId
-    ? (getProjectRootPath(projectId) ?? getOpenLoafRootDir())
-    : getOpenLoafRootDir()
   const sessionId = requireSessionId()
-  const relativeDir = path.join('.openloaf', 'chat-history', sessionId, 'asset')
+  if (projectId) {
+    const projectRoot = getProjectRootPath(projectId)
+    if (projectRoot) {
+      const relativeDir = path.join('.openloaf', 'chat-history', sessionId, 'asset')
+      return {
+        rootPath: projectRoot,
+        saveDirPath: path.join(projectRoot, relativeDir),
+        destination: 'chat',
+      }
+    }
+  }
+  // 临时对话 / 项目已删除：文件存储在 tempDir/chat-history/ 下（无 .openloaf 前缀）
+  const tempRoot = getResolvedTempStorageDir()
+  const relativeDir = path.join('chat-history', sessionId, 'asset')
   return {
-    rootPath,
-    saveDirPath: path.join(rootPath, relativeDir),
+    rootPath: tempRoot,
+    saveDirPath: path.join(tempRoot, relativeDir),
     destination: 'chat',
   }
 }

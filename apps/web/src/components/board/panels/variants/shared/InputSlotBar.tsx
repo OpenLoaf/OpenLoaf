@@ -12,7 +12,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
-import { CircleAlert, Paintbrush, Plus, Redo2, Undo2, Upload } from 'lucide-react'
+import { CircleAlert, Film, ImageIcon, Paintbrush, Plus, Redo2, Undo2, Upload, Volume2 } from 'lucide-react'
 import { cn } from '@udecode/cn'
 import {
   Popover,
@@ -24,7 +24,15 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@openloaf/ui/tooltip'
+import { toast } from 'sonner'
 import { TextSlotField, parseRefTokenNodeIds, expandRefTokens } from './TextSlotField'
+import {
+  type MediaConstraints,
+  type ValidationError,
+  buildAcceptAttribute,
+  pickConstraints,
+  validateMediaFileAsync,
+} from './media-constraints'
 import type { BoardFileContext } from '../../../board-contracts'
 import type { UpstreamData } from '../../../engine/upstream-data'
 import {
@@ -185,11 +193,11 @@ function resolveSlotInput(
   return mediaRefs.map((ref) => (ref.path ? toMediaInput(ref.path) : toMediaInput(ref.url)))
 }
 
-function uploadAcceptForType(mediaType: MediaType): string {
+function slotIconForType(mediaType: MediaType) {
   switch (mediaType) {
-    case 'video': return 'video/*'
-    case 'audio': return 'audio/*'
-    default: return 'image/*'
+    case 'video': return <Film size={14} className="text-muted-foreground/50" />
+    case 'audio': return <Volume2 size={14} className="text-muted-foreground/50" />
+    default: return <ImageIcon size={14} className="text-muted-foreground/50" />
   }
 }
 
@@ -314,43 +322,130 @@ export function InputSlotBar({
   useEffect(() => {
     const poolsChanged = prevPoolsRef.current !== pools
     const slotsChanged = prevSlotsRef.current !== rawSlots
-    if (poolsChanged || slotsChanged) {
-      prevPoolsRef.current = pools
-      prevSlotsRef.current = rawSlots
-      // Always sync cache ref so pool-reference-only changes (same content,
-      // new object identity) don't reset manual slot assignments.
+    if (!poolsChanged && !slotsChanged) return
+
+    const prevPools = prevPoolsRef.current
+    prevPoolsRef.current = pools
+    prevSlotsRef.current = rawSlots
+
+    // ── Variant / slot change: full re-assignment with cache ──
+    if (slotsChanged) {
       initialCacheRef.current = cachedAssignment
       const fresh = restoreOrAssignV3(rawSlots, pools, defaultResolveContext, initialCacheRef.current)
       setSlotAssignments(fresh.assigned)
       setAssociatedRefs(fresh.associated.filter((r: MediaReference) => acceptedMediaTypes.has(r.nodeType)))
+    }
 
-      // Auto-insert newly connected upstream text refs into text slots
-      if (poolsChanged) {
-        const freshTextRefs = pools.text.filter(isTextReference)
-        const prevIds = prevTextRefIdsRef.current
-        const newRefs = freshTextRefs.filter((r) => !prevIds.has(r.nodeId))
-        prevTextRefIdsRef.current = new Set(freshTextRefs.map((r) => r.nodeId))
-        // Skip auto-insert on first pools change when restored from cache.
-        // Prevents re-adding @ref tokens the user previously deleted.
-        if (restoredFromCacheRef.current) {
-          restoredFromCacheRef.current = false
-        } else
-        if (newRefs.length > 0) {
-          setUserTexts((prev) => {
-            const next = { ...prev }
-            for (const slot of slots) {
-              if (slot.accept !== 'text') continue
-              const existing = prev[slot.role] ?? ''
-              // Skip refs already present in text (prevents duplication on cache restore)
-              const existingIds = new Set(parseRefTokenNodeIds(existing))
-              const deduped = newRefs.filter((r) => !existingIds.has(r.nodeId))
-              if (deduped.length === 0) continue
-              const tokens = deduped.map((r) => `@ref{${r.nodeId}}`).join(' ')
-              next[slot.role] = existing ? `${tokens} ${existing}` : `${tokens} `
+    // ── Pools-only change: incremental delta update ──
+    // Only auto-assign genuinely NEW upstream entries. Never re-run full
+    // auto-assignment — this preserves user modifications (slot removals,
+    // manual re-arrangements) across pool reference changes.
+    if (poolsChanged && !slotsChanged) {
+      const currentMediaMap = new Map<string, MediaReference>()
+      for (const type of ['image', 'video', 'audio'] as const) {
+        for (const ref of pools[type]) {
+          if (isMediaReference(ref)) currentMediaMap.set(ref.nodeId, ref)
+        }
+      }
+      const prevMediaIds = new Set<string>()
+      for (const type of ['image', 'video', 'audio'] as const) {
+        for (const ref of prevPools[type]) {
+          if (isMediaReference(ref)) prevMediaIds.add(ref.nodeId)
+        }
+      }
+      const currentIds = new Set(currentMediaMap.keys())
+      const addedIds = [...currentIds].filter((id) => !prevMediaIds.has(id))
+      const removedIds = [...prevMediaIds].filter((id) => !currentIds.has(id))
+
+      if (addedIds.length > 0 || removedIds.length > 0) {
+        // Remove disconnected upstream entries from slots and associated
+        if (removedIds.length > 0) {
+          const removedSet = new Set(removedIds)
+          setSlotAssignments((prev) => {
+            let changed = false
+            const next: Record<string, PoolReference[]> = {}
+            for (const [key, refs] of Object.entries(prev)) {
+              const filtered = refs.filter((r) => !(isMediaReference(r) && removedSet.has(r.nodeId)))
+              if (filtered.length !== refs.length) changed = true
+              next[key] = filtered
             }
-            return next
+            return changed ? next : prev
+          })
+          setAssociatedRefs((prev) => {
+            const filtered = prev.filter((r) => !removedSet.has(r.nodeId))
+            return filtered.length !== prev.length ? filtered : prev
           })
         }
+
+        // Auto-assign newly connected upstream entries to empty matching slots
+        if (addedIds.length > 0) {
+          const addedRefs = addedIds.map((id) => currentMediaMap.get(id)!).filter(Boolean)
+          setSlotAssignments((prev) => {
+            const next = { ...prev }
+            const usedNodeIds = new Set<string>()
+            for (const refs of Object.values(next)) {
+              for (const r of refs) {
+                if (isMediaReference(r)) usedNodeIds.add(r.nodeId)
+              }
+            }
+            let changed = false
+            const remaining: MediaReference[] = []
+            for (const ref of addedRefs) {
+              if (usedNodeIds.has(ref.nodeId)) continue
+              const slot = slots.find((s) => {
+                if (s.accept !== ref.nodeType || s.isPaintable) return false
+                return (next[s.role] ?? []).filter(isMediaReference).length < s.max
+              })
+              if (slot) {
+                next[slot.role] = [...(next[slot.role] ?? []), ref]
+                usedNodeIds.add(ref.nodeId)
+                changed = true
+              } else {
+                remaining.push(ref)
+              }
+            }
+            if (remaining.length > 0) {
+              const toAssoc = remaining.filter((r) => acceptedMediaTypes.has(r.nodeType))
+              if (toAssoc.length > 0) {
+                setAssociatedRefs((prevAssoc) => {
+                  const existingIds = new Set(prevAssoc.map((r) => r.nodeId))
+                  const newAssoc = toAssoc.filter((r) => !existingIds.has(r.nodeId))
+                  return newAssoc.length > 0 ? [...prevAssoc, ...newAssoc] : prevAssoc
+                })
+              }
+            }
+            return changed ? next : prev
+          })
+        }
+      }
+    }
+
+    // ── Auto-insert newly connected upstream text refs into text slots ──
+    if (poolsChanged) {
+      const freshTextRefs = pools.text.filter(isTextReference)
+      const prevIds = prevTextRefIdsRef.current
+      const newRefs = freshTextRefs.filter((r) => !prevIds.has(r.nodeId))
+      prevTextRefIdsRef.current = new Set(freshTextRefs.map((r) => r.nodeId))
+      // Skip auto-insert on first pools change when restored from cache.
+      // Prevents re-adding @ref tokens the user previously deleted.
+      if (restoredFromCacheRef.current) {
+        restoredFromCacheRef.current = false
+      } else
+      if (newRefs.length > 0) {
+        setUserTexts((prev) => {
+          const next = { ...prev }
+          for (const slot of slots) {
+            if (slot.accept !== 'text') continue
+            const existing = prev[slot.role] ?? ''
+            // Skip refs already present in text (prevents duplication on cache restore)
+            const existingIds = new Set(parseRefTokenNodeIds(existing))
+            const deduped = newRefs.filter((r) => !existingIds.has(r.nodeId))
+            if (deduped.length === 0) continue
+            const tokens = deduped.map((r) => `@ref{${r.nodeId}}`).join(' ')
+            next[slot.role] = existing ? `${tokens} ${existing}` : `${tokens} `
+          }
+          return next
+        })
       }
     }
   }, [rawSlots, pools, cachedAssignment, acceptedMediaTypes, defaultResolveContext, slots])
@@ -466,6 +561,15 @@ export function InputSlotBar({
       })
     },
     [slotMaxMap],
+  )
+
+  const handleValidationError = useCallback(
+    (errors: ValidationError[]) => {
+      for (const err of errors) {
+        toast.error(t(`slot.constraints.${err.messageKey}`, err.params))
+      }
+    },
+    [t],
   )
 
   const handleMediaRemove = useCallback((slotKey: string, removeNodeId?: string) => {
@@ -617,15 +721,15 @@ export function InputSlotBar({
               <div key={`group:${slot.role}`} className="flex flex-col gap-1">
                 <span className="inline-flex items-center gap-1 text-xs font-medium text-neutral-600 dark:text-neutral-400">
                   {slotLabel}
-                  {slot.min > 0 ? <span className="text-amber-500"> *</span> : null}
                   {slot.hint ? (
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <CircleAlert className="size-3 text-neutral-400 dark:text-neutral-500" />
                       </TooltipTrigger>
-                      <TooltipContent side="top" className="max-w-[320px] text-xs">{slot.hint}</TooltipContent>
+                      <TooltipContent side="top" className="max-w-[240px] whitespace-normal text-xs">{slot.hint}</TooltipContent>
                     </Tooltip>
                   ) : null}
+                  {slot.min > 0 ? <span className="text-amber-500">*</span> : null}
                 </span>
                 <div className="relative h-[44px] w-[44px] shrink-0">
                   <button
@@ -658,7 +762,8 @@ export function InputSlotBar({
           const assignedMedia = (slotAssignments[slot.role] ?? []).filter(isMediaReference)
           const matchingAssociated = matchingAssociatedForSlot(slot)
           const slotLabel = slot.label
-          const uploadAccept = uploadAcceptForType(slot.accept)
+          const slotConstraints = pickConstraints(slot)
+          const uploadAccept = buildAcceptAttribute(slot.accept, slot.acceptFormats)
           const isMulti = slot.max > 1
           const positions: React.ReactNode[] = []
 
@@ -673,10 +778,11 @@ export function InputSlotBar({
                   <FilledSlotWithPopover
                     key={chipKey} slotKey={slot.role} label="" currentRef={ref}
                     required={false} disabled={disabled} uploadAccept={uploadAccept}
-                    mediaType={slot.accept} candidates={matchingAssociated} variantUpstream={variantUpstream}
+                    mediaType={slot.accept} constraints={slotConstraints} candidates={matchingAssociated} variantUpstream={variantUpstream}
                     onSwap={(newRef) => isMulti ? handleAssociatedToSlot(newRef, slot.role) : handleSlotSwapWithAssociated(slot.role, newRef)}
                     onUpload={(v) => handleMediaUpload(slot.role, slot.accept, v)}
                     onRemove={() => isMulti ? handleMediaRemove(slot.role, ref.nodeId) : handleMediaRemove(slot.role)}
+                    onValidationError={handleValidationError}
                     t={t}
                   />,
                 )
@@ -685,8 +791,10 @@ export function InputSlotBar({
                   <MediaSlot
                     key={chipKey} label="" src={ref.url}
                     uploadAccept={uploadAccept} disabled={disabled}
+                    mediaType={slot.accept} constraints={slotConstraints}
                     onUpload={(v) => handleMediaUpload(slot.role, slot.accept, v)}
                     onRemove={() => isMulti ? handleMediaRemove(slot.role, ref.nodeId) : handleMediaRemove(slot.role)}
+                    onValidationError={handleValidationError}
                     boardId={variantUpstream.boardId} projectId={variantUpstream.projectId}
                     boardFolderUri={variantUpstream.boardFolderUri} compact
                   />,
@@ -699,18 +807,21 @@ export function InputSlotBar({
                   <ActiveSlotWithPopover
                     key={`${slot.role}:empty:${i}`} slotKey={slot.role} label=""
                     required={false} disabled={disabled} pulse={false}
-                    uploadAccept={uploadAccept} mediaType={slot.accept} candidates={matchingAssociated}
-                    variantUpstream={variantUpstream}
+                    uploadAccept={uploadAccept} mediaType={slot.accept} constraints={slotConstraints}
+                    candidates={matchingAssociated} variantUpstream={variantUpstream}
                     onSelect={(r) => handleAssociatedToSlot(r, slot.role)}
-                    onUpload={(v) => handleMediaUpload(slot.role, slot.accept, v)} t={t}
+                    onUpload={(v) => handleMediaUpload(slot.role, slot.accept, v)}
+                    onValidationError={handleValidationError} t={t}
                   />,
                 )
               } else {
                 positions.push(
                   <MediaSlot
-                    key={`${slot.role}:empty:${i}`} label="" icon={<Plus size={14} />}
+                    key={`${slot.role}:empty:${i}`} label="" icon={slotIconForType(slot.accept)}
                     uploadAccept={uploadAccept} disabled={disabled}
+                    mediaType={slot.accept} constraints={slotConstraints}
                     onUpload={(v) => handleMediaUpload(slot.role, slot.accept, v)}
+                    onValidationError={handleValidationError}
                     boardId={variantUpstream.boardId} projectId={variantUpstream.projectId}
                     boardFolderUri={variantUpstream.boardFolderUri} compact
                   />,
@@ -724,15 +835,15 @@ export function InputSlotBar({
             <div key={`group:${slot.role}`} className="flex flex-col gap-1">
               <span className="inline-flex items-center gap-1 text-xs font-medium text-neutral-600 dark:text-neutral-400">
                 {slotLabel}
-                {slot.min > 0 ? <span className="text-amber-500"> *</span> : null}
                 {slot.hint ? (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <CircleAlert className="size-3 text-neutral-400 dark:text-neutral-500" />
                     </TooltipTrigger>
-                    <TooltipContent side="top" className="max-w-[320px] text-xs">{slot.hint}</TooltipContent>
+                    <TooltipContent side="top" className="max-w-[240px] whitespace-normal text-xs">{slot.hint}</TooltipContent>
                   </Tooltip>
                 ) : null}
+                {slot.min > 0 ? <span className="text-amber-500">*</span> : null}
               </span>
               <div className="flex flex-wrap items-start gap-1.5">
                 {positions}
@@ -825,20 +936,26 @@ type ActiveSlotWithPopoverProps = {
   pulse: boolean
   uploadAccept: string
   mediaType: MediaType
+  constraints?: MediaConstraints
   candidates: MediaReference[]
   variantUpstream: { boardId?: string; projectId?: string; boardFolderUri?: string }
   onSelect: (ref: MediaReference) => void
   onUpload: (value: string) => void
+  onValidationError?: (errors: ValidationError[]) => void
   t: (key: string, options?: Record<string, unknown>) => string
 }
 
-function ActiveSlotWithPopover({ label, required, disabled, pulse, uploadAccept, candidates, onSelect, onUpload, t }: ActiveSlotWithPopoverProps) {
+function ActiveSlotWithPopover({ label, required, disabled, pulse, uploadAccept, mediaType, constraints, candidates, onSelect, onUpload, onValidationError, t }: ActiveSlotWithPopoverProps) {
   const [open, setOpen] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
     e.target.value = ''
+    if (constraints) {
+      const errors = await validateMediaFileAsync(file, mediaType, constraints)
+      if (errors.length > 0) { onValidationError?.(errors); return }
+    }
     const reader = new FileReader()
     reader.onload = () => { if (typeof reader.result === 'string') { onUpload(reader.result); setOpen(false) } }
     reader.readAsDataURL(file)
@@ -885,21 +1002,27 @@ type FilledSlotWithPopoverProps = {
   disabled?: boolean
   uploadAccept: string
   mediaType: MediaType
+  constraints?: MediaConstraints
   candidates: MediaReference[]
   variantUpstream: { boardId?: string; projectId?: string; boardFolderUri?: string }
   onSwap: (ref: MediaReference) => void
   onUpload: (value: string) => void
   onRemove: () => void
+  onValidationError?: (errors: ValidationError[]) => void
   t: (key: string, options?: Record<string, unknown>) => string
 }
 
-function FilledSlotWithPopover({ label, currentRef, required, disabled, uploadAccept, candidates, variantUpstream, onSwap, onUpload, onRemove, t }: FilledSlotWithPopoverProps) {
+function FilledSlotWithPopover({ label, currentRef, required, disabled, uploadAccept, mediaType, constraints, candidates, variantUpstream, onSwap, onUpload, onRemove, onValidationError, t }: FilledSlotWithPopoverProps) {
   const [open, setOpen] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
     e.target.value = ''
+    if (constraints) {
+      const errors = await validateMediaFileAsync(file, mediaType, constraints)
+      if (errors.length > 0) { onValidationError?.(errors); return }
+    }
     const reader = new FileReader()
     reader.onload = () => { if (typeof reader.result === 'string') { onUpload(reader.result); setOpen(false) } }
     reader.readAsDataURL(file)
@@ -957,7 +1080,7 @@ function AssociatedRefSlot({ ref_, mediaSlots, slotAssignments, variantUpstream,
       <Tooltip>
         <TooltipTrigger asChild>
           <div role="button" tabIndex={disabled ? -1 : 0} onClick={handleClick} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleClick() }}>
-            <MediaSlot label="" src={ref_.url} disabled={disabled} boardId={variantUpstream.boardId} projectId={variantUpstream.projectId} boardFolderUri={variantUpstream.boardFolderUri} compact associated />
+            <MediaSlot label="" src={ref_.url} uploadAccept={buildAcceptAttribute(ref_.nodeType as MediaType)} disabled={disabled} boardId={variantUpstream.boardId} projectId={variantUpstream.projectId} boardFolderUri={variantUpstream.boardFolderUri} compact associated />
           </div>
         </TooltipTrigger>
         <TooltipContent side="top">{t('slot.swapHint')}</TooltipContent>
@@ -968,7 +1091,7 @@ function AssociatedRefSlot({ ref_, mediaSlots, slotAssignments, variantUpstream,
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild disabled={disabled}>
         <div role="button" tabIndex={disabled ? -1 : 0}>
-          <MediaSlot label="" src={ref_.url} disabled={disabled} boardId={variantUpstream.boardId} projectId={variantUpstream.projectId} boardFolderUri={variantUpstream.boardFolderUri} compact associated />
+          <MediaSlot label="" src={ref_.url} uploadAccept={buildAcceptAttribute(ref_.nodeType as MediaType)} disabled={disabled} boardId={variantUpstream.boardId} projectId={variantUpstream.projectId} boardFolderUri={variantUpstream.boardFolderUri} compact associated />
         </div>
       </PopoverTrigger>
       <PopoverContent className="w-auto min-w-[140px] max-w-[260px] p-2" side="top" align="start">

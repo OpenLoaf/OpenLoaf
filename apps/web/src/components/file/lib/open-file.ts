@@ -11,6 +11,7 @@
 
 import { type ReactNode } from "react";
 import { toast } from "sonner";
+import { BROWSER_WINDOW_COMPONENT, BROWSER_WINDOW_PANEL_ID } from "@openloaf/api/common";
 import { useLayoutState } from "@/hooks/use-layout-state";
 import {
   buildChildUri,
@@ -21,6 +22,7 @@ import {
   type FileSystemEntry,
 } from "@/components/project/filesystem/utils/file-system-utils";
 import { DOC_EXTS, SPREADSHEET_EXTS } from "@/components/project/filesystem/components/FileSystemEntryVisual";
+import { resolveServerUrl } from "@/utils/server-url";
 import {
   BOARD_INDEX_FILE_NAME,
   DOC_INDEX_FILE_NAME,
@@ -281,7 +283,7 @@ export function buildStackItemForEntry(input: {
         },
       };
     case "pdf":
-      if (!input.projectId || !input.rootUri) {
+      if (!input.rootUri) {
         toast.error("未找到项目路径");
         return null;
       }
@@ -490,6 +492,30 @@ export function openFilePreview(input: FileOpenInput): boolean | ReactNode | nul
     if (!shouldOpen) return true;
     recordFileOpen();
     openWithDefaultApp(input.entry, input.rootUri);
+    return true;
+  }
+
+  // HTML 文件默认用浏览器组件打开（通过 server 代理提供 HTTP URL）
+  if ((target.ext === "html" || target.ext === "htm") && mode === "stack" && input.projectId) {
+    const relativePath = input.entry.uri.startsWith("file://") && input.rootUri
+      ? getRelativePathFromUri(input.rootUri, input.entry.uri) || input.entry.uri
+      : input.entry.uri;
+    const serverUrl = resolveServerUrl();
+    const serveUrl = `${serverUrl}/fs/serve/${encodeURIComponent(input.projectId)}/${relativePath}`;
+    recordFileOpen();
+    useLayoutState.getState().pushStackItem(
+      {
+        id: BROWSER_WINDOW_PANEL_ID,
+        sourceKey: BROWSER_WINDOW_PANEL_ID,
+        component: BROWSER_WINDOW_COMPONENT,
+        title: input.entry.name,
+        params: {
+          __customHeader: true,
+          __open: { url: serveUrl, title: input.entry.name, viewKey: `html:${input.entry.uri}` },
+        },
+      } as any,
+      70,
+    );
     return true;
   }
 

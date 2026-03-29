@@ -46,6 +46,11 @@ export class PixiStrokeLayer {
     this.theme = theme
   }
 
+  /** Invalidate cache so next sync() forces a full redraw. */
+  invalidate(): void {
+    this.lastRevision = -1
+  }
+
   /** 同步笔画渲染与引擎状态 */
   sync(): void {
     if (this.destroyed) return

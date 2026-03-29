@@ -11,6 +11,7 @@
 /**
  * PDF Engine — 封装 pdf-lib + pdf-parse，提供 PDF 读写能力。
  */
+import './pdfPolyfill'
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
 import {
@@ -96,6 +97,38 @@ export async function extractPdfText(
     pageCount: totalPages,
     truncated,
     characterCount: text.length,
+  }
+}
+
+/** Render PDF page(s) to PNG screenshot(s). */
+export async function renderPageScreenshot(
+  absPath: string,
+  page: number,
+  scale?: number,
+): Promise<{ data: Buffer; width: number; height: number; pageNumber: number; pageCount: number }> {
+  const buf = await fs.readFile(absPath)
+  const { PDFParse } = await import('pdf-parse')
+  const parser = new PDFParse(new Uint8Array(buf))
+  try {
+    const result = await parser.getScreenshot({
+      partial: [page],
+      scale: scale ?? 2,
+      imageBuffer: true,
+      imageDataUrl: false,
+    })
+    const shot = result.pages[0]
+    if (!shot?.data) {
+      throw new Error(`Failed to render page ${page}`)
+    }
+    return {
+      data: Buffer.from(shot.data),
+      width: shot.width,
+      height: shot.height,
+      pageNumber: shot.pageNumber,
+      pageCount: result.total,
+    }
+  } finally {
+    await parser.destroy()
   }
 }
 

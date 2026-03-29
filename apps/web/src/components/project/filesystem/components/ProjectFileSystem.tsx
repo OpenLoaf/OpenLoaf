@@ -42,6 +42,7 @@ import {
 } from "./ProjectFileSystemHeader";
 import { useHeaderSlot } from "@/hooks/use-header-slot";
 import { DragDropOverlay } from "@openloaf/ui/openloaf/drag-drop-overlay";
+import { Upload } from "lucide-react";
 import { useProjectFileSystemModel } from "../models/file-system-model";
 import { useFileSystemContextMenu } from "@/hooks/use-file-system-context-menu";
 import { useFileSelection } from "@/hooks/use-file-selection";
@@ -597,6 +598,7 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
           withMenuSelectGuard={withMenuSelectGuard}
           actions={{
             openEntry: model.handleOpen,
+            openInEditor: model.handleOpenInEditor,
             openInFileManager: model.handleOpenInFileManager,
             openInFileManagerAtCurrent: model.handleOpenInFileManagerAtCurrent,
             enterBoardFolder: (entry) => model.handleNavigate(entry.uri),
@@ -821,6 +823,7 @@ const ProjectFileSystem = memo(function ProjectFileSystem({
         </FileSystemContextMenu>
         <DragDropOverlay
           open={model.isDragActive}
+          icon={<Upload className="h-8 w-8" />}
           title={t('project:filesystem.dropToAdd')}
           radiusClassName="rounded-2xl"
         />

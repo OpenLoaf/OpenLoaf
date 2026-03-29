@@ -173,6 +173,41 @@ function PdfFormFieldsView({
   )
 }
 
+function PdfScreenshotView({
+  data,
+  t,
+}: {
+  data: Record<string, unknown>
+  t: TFunction
+}) {
+  const url = typeof data.url === 'string' ? data.url : ''
+  const pageNumber = typeof data.pageNumber === 'number' ? data.pageNumber : 1
+  const pageCount = typeof data.pageCount === 'number' ? data.pageCount : undefined
+  const width = typeof data.width === 'number' ? data.width : 0
+  const height = typeof data.height === 'number' ? data.height : 0
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-3 text-[10px] text-muted-foreground">
+        <span>
+          {t('tool.pdf.screenshotPage', { page: pageNumber, total: pageCount ?? '?' })}
+        </span>
+        <span>{width}×{height}px</span>
+      </div>
+      {url && (
+        <div className="max-h-[400px] overflow-auto rounded border border-border/40">
+          <img
+            src={url}
+            alt={`PDF page ${pageNumber}`}
+            className="w-full"
+            loading="lazy"
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
 function ContentSummaryView({
   content,
   t,
@@ -399,6 +434,9 @@ export default function PdfTool({
           }
           if (mode === 'read-form-fields') {
             return <PdfFormFieldsView data={data} t={t} />
+          }
+          if (mode === 'read-screenshot') {
+            return <PdfScreenshotView data={data} t={t} />
           }
         }
 

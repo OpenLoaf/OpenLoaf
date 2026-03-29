@@ -3,15 +3,21 @@
   --node-rotate: 0deg;
   --drag-tilt-x: 0deg;
   --drag-tilt-y: 0deg;
-  transform: rotate(var(--node-rotate));
-  transition: transform 0.15s ease-out, filter 0.15s linear, left 0.15s ease-out, top 0.15s ease-out;
-  /* 静止阴影 elevation-1 */
-  filter: drop-shadow(0 1px 2px rgba(51, 61, 78, 0.25));
+  transition: transform 0.15s ease-out, box-shadow 0.15s linear, left 0.15s ease-out, top 0.15s ease-out;
+  /* 静止阴影 elevation-1 — 使用 box-shadow 替代 filter: drop-shadow 以保留文字子像素渲染 */
+  border-radius: 1.5rem;
+  box-shadow: 0 1px 2px rgba(51, 61, 78, 0.25);
 }
 
-/* 拖拽阴影 elevation-3 */
+/* 有旋转的节点 */
+[data-board-node][data-rotated] {
+  transform: rotate(var(--node-rotate));
+}
+
+/* 拖拽阴影 elevation-3 — 拖拽状态使用 filter 实现 3D 阴影效果（短暂状态可接受） */
 [data-board-node][data-dragging] {
-  transform: rotate(var(--node-rotate)) rotateX(var(--drag-tilt-x)) rotateY(var(--drag-tilt-y));
+  transform: perspective(2000px) rotate(var(--node-rotate)) rotateX(var(--drag-tilt-x)) rotateY(var(--drag-tilt-y));
+  box-shadow: none;
   filter:
     drop-shadow(0 11px 15px rgba(51, 61, 78, 0.15))
     drop-shadow(0 4px 6px rgba(51, 61, 78, 0.1));
@@ -21,7 +27,7 @@
 
 /* 暗色主题 */
 :is(.dark, [data-theme="dark"]) [data-board-node] {
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.4));
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
 }
 
 /* 拖拽时隐藏节点内的播放/暂停等控件按钮 */

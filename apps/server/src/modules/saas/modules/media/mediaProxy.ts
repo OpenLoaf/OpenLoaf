@@ -7,6 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
+import { createHash } from "node:crypto";
 import { promises as fsPromises } from "node:fs";
 import path from "node:path";
 import {
@@ -16,7 +17,6 @@ import {
   resolveBoardScopedRoot,
 } from "@openloaf/api/common/boardPaths";
 import { isRecord } from "@/ai/shared/util";
-import { resolveImageSaveDirectory, saveImageUrlsToDirectory } from "@/ai/services/image/imageStorage";
 import { loadProjectImageBuffer } from "@/ai/services/image/attachmentResolver";
 import {
   resolveVideoSaveDirectory,
@@ -282,7 +282,9 @@ export async function uploadOrInlineBuffer(
   const s3 = resolveActiveS3();
   if (s3) {
     try {
-      const key = `temp/media-input/${Date.now()}_${fileName}`;
+      const hash = createHash('md5').update(buffer).digest('hex')
+      const ext = path.extname(fileName) || '.bin'
+      const key = `temp/media-input/${hash}${ext}`;
       const ref = await s3.putObject({
         key,
         body: buffer,
@@ -396,14 +398,20 @@ function inferResultType(feature: string): "image" | "video" | "audio" {
     case "imageGenerate":
     case "poster":
     case "imageEdit":
+    case "imageInpaint":
+    case "imageStyleTransfer":
     case "upscale":
     case "outpaint":
     case "matting":
+    case "materialExtract":
       return "image";
     case "videoGenerate":
     case "videoEdit":
     case "digitalHuman":
     case "motionTransfer":
+    case "lipSync":
+    case "videoFaceSwap":
+    case "videoTranslate":
       return "video";
     case "tts":
     case "music":
@@ -522,63 +530,25 @@ export async function pollV3TaskProxy(
       };
     }
 
-    if (resultType === "image") {
-      const resolvedDir = await resolveImageSaveDirectory({
-        imageSaveDir: saveDir,
-        projectId: ctx?.projectId ?? null,
-      });
-      if (!resolvedDir) {
-        throw new Error("保存目录无效");
-      }
-      // 逻辑：图片结果需要下载并落库到画布资产目录。
-      const savedPaths = await saveImageUrlsToDirectory({
-        urls: resultUrls,
-        directory: resolvedDir,
-      });
-      // 逻辑：统一返回 board-relative 路径（如 "asset/xxx.png"），
-      // 前端通过 isBoardRelativePath 识别并使用画布预览端点，避免路径二次拼接。
-      const imgAssetDirName = path.basename(saveDir.replace(/\/+$/, ""));
-      resultUrls = savedPaths.map((filePath) => {
-        const fileName = path.basename(filePath);
-        return `${imgAssetDirName}/${fileName}`;
-      });
+    // 逻辑：统一下载保存逻辑 — 直接下载原文件，保留 URL 中的原始文件名。
+    const resolvedDir = await resolveVideoSaveDirectory({
+      saveDir,
+      projectId: ctx?.projectId ?? null,
+    });
+    if (!resolvedDir) {
+      throw new Error("保存目录无效");
     }
-
-    if (resultType === "audio") {
-      const resolvedDir = await resolveVideoSaveDirectory({
-        saveDir,
-        projectId: ctx?.projectId ?? null,
-      });
-      if (!resolvedDir) {
-        throw new Error("保存目录无效");
-      }
-      // 逻辑：音频仅保存首个结果，复用视频下载逻辑。
+    const assetDirName = path.basename(saveDir.replace(/\/+$/, ""));
+    const savedRelPaths: string[] = [];
+    for (const url of resultUrls) {
       const saved = await saveGeneratedVideoFromUrl({
-        url: resultUrls[0]!,
+        url,
         directory: resolvedDir,
         fileNameBase: taskId,
       });
-      const audioAssetDirName = path.basename(saveDir.replace(/\/+$/, ""));
-      resultUrls = [`${audioAssetDirName}/${saved.fileName}`];
+      savedRelPaths.push(`${assetDirName}/${saved.fileName}`);
     }
-
-    if (resultType === "video") {
-      const resolvedDir = await resolveVideoSaveDirectory({
-        saveDir,
-        projectId: ctx?.projectId ?? null,
-      });
-      if (!resolvedDir) {
-        throw new Error("保存目录无效");
-      }
-      // 逻辑：视频仅保存首个结果，保持与现有前端流程一致。
-      const saved = await saveGeneratedVideoFromUrl({
-        url: resultUrls[0]!,
-        directory: resolvedDir,
-        fileNameBase: taskId,
-      });
-      const vidAssetDirName = path.basename(saveDir.replace(/\/+$/, ""));
-      resultUrls = [`${vidAssetDirName}/${saved.fileName}`];
-    }
+    resultUrls = savedRelPaths;
 
     // 逻辑：任务完成后清理上下文缓存。
     clearMediaTask(taskId);

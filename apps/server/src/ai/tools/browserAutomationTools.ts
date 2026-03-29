@@ -18,11 +18,13 @@ import {
   browserDownloadImageToolDef,
 } from "@openloaf/api/types/tools/browserAutomation";
 import { logger } from "@/common/logger";
-import { getClientId, getSessionId, getProjectId } from "@/ai/shared/context/requestContext";
+import { getClientId, getSessionId } from "@/ai/shared/context/requestContext";
 import { requireTabId } from "@/common/tabContext";
 import { sendCdpCommand } from "@/modules/browser/cdpClient";
 import { getActiveBrowserTargetId, tabSnapshotStore } from "@/modules/tab/TabSnapshotStoreAdapter";
-import { saveChatBinaryAttachment } from "@/ai/services/image/attachmentResolver";
+import { promises as fs } from "node:fs";
+import path from "node:path";
+import { resolveSessionAssetDir } from "@/ai/services/chat/repositories/chatFileStore";
 
 // 页面文本截断上限，避免快照过大。
 const MAX_TEXT_LENGTH = 10_000;
@@ -602,20 +604,14 @@ export const browserScreenshotTool = tool({
     })) as { data: string };
     const buffer = Buffer.from(result.data, "base64");
     const ext = fmt === "jpeg" ? "jpg" : fmt;
-    const mediaType = fmt === "jpeg" ? "image/jpeg" : fmt === "webp" ? "image/webp" : "image/png";
     const sessionId = requireSessionId();
-    const projectId = getProjectId();
-    const saved = await saveChatBinaryAttachment({
-      projectId,
-      sessionId,
-      fileName: `screenshot.${ext}`,
-      buffer,
-      mediaType,
-    });
+    const assetDir = await resolveSessionAssetDir(sessionId);
+    const fileName = `screenshot-${Date.now()}.${ext}`;
+    await fs.writeFile(path.join(assetDir, fileName), buffer);
     return {
       ok: true,
       data: {
-        url: saved.url,
+        url: fileName,
         format: fmt,
         bytes: buffer.length,
       },
@@ -661,7 +657,7 @@ export const browserDownloadImageTool = tool({
 
     urls = urls.slice(0, limit);
     const sessionId = requireSessionId();
-    const projectId = getProjectId();
+    const assetDir = await resolveSessionAssetDir(sessionId);
 
     const images: Array<{ url: string; sourceUrl: string; fileName: string; bytes: number }> = [];
     const errors: Array<{ sourceUrl: string; error: string }> = [];
@@ -697,17 +693,12 @@ export const browserDownloadImageTool = tool({
           }
         }
 
-        const saved = await saveChatBinaryAttachment({
-          projectId,
-          sessionId,
-          fileName: `download.${ext}`,
-          buffer,
-          mediaType: contentType,
-        });
+        const storedName = `download-${Date.now()}-${images.length}.${ext}`;
+        await fs.writeFile(path.join(assetDir, storedName), buffer);
         images.push({
-          url: saved.url,
+          url: storedName,
           sourceUrl,
-          fileName: saved.fileName,
+          fileName: storedName,
           bytes: buffer.length,
         });
       } catch (err) {

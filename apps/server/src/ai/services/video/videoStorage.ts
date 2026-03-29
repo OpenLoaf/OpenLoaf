@@ -18,11 +18,13 @@ import { resolveSaveDirectory } from "@/ai/services/mediaStorageShared";
 const VIDEO_SAVE_EXTENSIONS = new Set([".mp4", ".webm", ".mov", ".mkv"]);
 /** Supported audio extensions. */
 const AUDIO_SAVE_EXTENSIONS = new Set([".mp3", ".wav", ".ogg", ".flac", ".opus"]);
+/** Supported image extensions. */
+const IMAGE_SAVE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".webp"]);
 
-/** Check whether extension is a known video or audio extension. */
+/** Check whether extension is a known media extension (video/audio/image). */
 function isMediaSaveExtension(ext: string): boolean {
   const lower = ext.toLowerCase();
-  return VIDEO_SAVE_EXTENSIONS.has(lower) || AUDIO_SAVE_EXTENSIONS.has(lower);
+  return VIDEO_SAVE_EXTENSIONS.has(lower) || AUDIO_SAVE_EXTENSIONS.has(lower) || IMAGE_SAVE_EXTENSIONS.has(lower);
 }
 
 /** Resolve local directory from video save directory input. */
@@ -42,6 +44,10 @@ export async function resolveVideoSaveDirectory(input: {
 /** Resolve extension from media type or url. */
 function resolveMediaExtension(input: { mediaType: string; url: string }): string {
   const mediaType = input.mediaType.toLowerCase();
+  // image
+  if (mediaType.includes("image/jpeg")) return "jpg";
+  if (mediaType.includes("image/webp")) return "webp";
+  if (mediaType.includes("image/png")) return "png";
   // video
   if (mediaType.includes("webm")) return "webm";
   if (mediaType.includes("quicktime")) return "mov";
@@ -60,8 +66,21 @@ function resolveMediaExtension(input: { mediaType: string; url: string }): strin
     // ignore invalid url
   }
   // default based on media type prefix
+  if (mediaType.startsWith("image/")) return "png";
   if (mediaType.startsWith("audio/")) return "mp3";
   return "mp4";
+}
+
+/** Extract original filename from a URL path (without query string). */
+function extractFileNameFromUrl(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    const basename = path.basename(decodeURIComponent(parsed.pathname));
+    if (basename && basename.includes(".")) return basename;
+  } catch {
+    // ignore
+  }
+  return null;
 }
 
 /** Download a video and save to directory. */
@@ -70,7 +89,7 @@ export async function saveGeneratedVideoFromUrl(input: {
   url: string;
   /** Target directory path. */
   directory: string;
-  /** Base file name (without extension). */
+  /** Base file name (without extension), used as fallback. */
   fileNameBase: string;
 }): Promise<{ filePath: string; fileName: string; mediaType: string }> {
   const response = await fetch(input.url);
@@ -79,9 +98,21 @@ export async function saveGeneratedVideoFromUrl(input: {
     throw new Error(`下载视频失败: ${response.status} ${text}`);
   }
   const mediaType = response.headers.get("content-type") || "video/mp4";
-  const ext = resolveMediaExtension({ mediaType, url: input.url });
-  const safeBase = sanitizeFileName(input.fileNameBase) || "video";
-  const fileName = `${safeBase}.${ext}`;
+
+  // Prefer original filename from URL; fall back to fileNameBase + inferred extension.
+  const urlFileName = extractFileNameFromUrl(input.url);
+  let fileName: string;
+  if (urlFileName) {
+    fileName = sanitizeFileName(path.basename(urlFileName, path.extname(urlFileName)))
+      + path.extname(urlFileName);
+    if (!fileName || fileName === path.extname(urlFileName)) {
+      fileName = `${sanitizeFileName(input.fileNameBase) || "video"}.${resolveMediaExtension({ mediaType, url: input.url })}`;
+    }
+  } else {
+    const ext = resolveMediaExtension({ mediaType, url: input.url });
+    fileName = `${sanitizeFileName(input.fileNameBase) || "video"}.${ext}`;
+  }
+
   const filePath = path.join(input.directory, fileName);
   await fs.mkdir(input.directory, { recursive: true });
   const stream = Readable.fromWeb(response.body as any);

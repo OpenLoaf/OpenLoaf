@@ -53,7 +53,7 @@ export function SaasLoginDialog({ open, onOpenChange }: SaasLoginDialogProps) {
 
   const isBusy = loginStatus === "opening" || loginStatus === "polling";
   const isClosingAfterLogin = open && loggedIn && selectedProvider !== null && loginStatus === "idle";
-  const isLoginInProgress = isBusy || isClosingAfterLogin;
+  const isLoginInProgress = isBusy || isClosingAfterLogin || (isClosing && selectedProvider !== null);
   const providerMeta =
     selectedProvider === "google"
       ? { src: "/icons/google.png", alt: "Google" }

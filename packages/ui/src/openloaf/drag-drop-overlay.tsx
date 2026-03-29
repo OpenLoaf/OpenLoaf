@@ -14,6 +14,7 @@ import type { ReactNode } from "react";
 type DragDropOverlayProps = {
   open: boolean;
   title: string;
+  icon?: ReactNode;
   description?: ReactNode;
   radiusClassName?: string;
   variant?: "default" | "warning";
@@ -23,6 +24,7 @@ type DragDropOverlayProps = {
 export function DragDropOverlay({
   open,
   title,
+  icon,
   description,
   radiusClassName = "rounded-[inherit]",
   variant = "default",
@@ -32,31 +34,33 @@ export function DragDropOverlay({
 
   return (
     <div
-      className={`pointer-events-none absolute inset-0 z-50 grid place-items-center overflow-hidden ${radiusClassName}`}
+      className={`pointer-events-none absolute inset-0 z-50 flex items-center justify-center overflow-hidden border-2 border-dashed backdrop-blur-sm ${radiusClassName} ${
+        isWarning
+          ? "border-destructive/60 bg-destructive/5"
+          : "border-foreground/25 bg-secondary/50"
+      }`}
     >
-      <div
-        className={`absolute inset-0 bg-background/35 backdrop-blur-xl ${radiusClassName}`}
-      />
-      <div
-        className={`relative mx-6 w-full max-w-md rounded-2xl border bg-background/70 px-5 py-4 shadow-lg backdrop-blur-xl ${
-          isWarning ? "border-destructive/50 bg-destructive/5" : ""
-        }`}
-      >
-        <div
+      <div className="flex flex-col items-center gap-2">
+        {icon ? (
+          <div className={isWarning ? "text-destructive" : "text-foreground"}>
+            {icon}
+          </div>
+        ) : null}
+        <p
           className={`text-sm font-medium ${
             isWarning ? "text-destructive" : "text-foreground"
           }`}
         >
           {title}
-        </div>
+        </p>
         {description ? (
-          <div
-            className={`mt-1 text-xs ${
+          <p
+            className={`text-xs ${
               isWarning ? "text-destructive/80" : "text-muted-foreground"
             }`}
           >
             {description}
-          </div>
+          </p>
         ) : null}
       </div>
     </div>

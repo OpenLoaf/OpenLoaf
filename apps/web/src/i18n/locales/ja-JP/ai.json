@@ -337,7 +337,21 @@
     "image_analysis": "画像分析",
     "video_generation": "動画生成",
     "video_analysis": "動画分析",
-    "audio_analysis": "音声分析"
+    "audio_analysis": "音声分析",
+    "audio_tts": "テキスト読み上げ",
+    "media:imageGenerate": "AI画像生成",
+    "media:poster": "ポスター生成",
+    "media:imageEdit": "AI画像編集",
+    "media:upscale": "画像アップスケール",
+    "media:outpaint": "画像拡張",
+    "media:matting": "画像切り抜き",
+    "media:videoGenerate": "AI動画生成",
+    "media:videoEdit": "AI動画編集",
+    "media:digitalHuman": "デジタルヒューマン",
+    "media:motionTransfer": "モーション転送",
+    "media:tts": "テキスト読み上げ",
+    "media:music": "AI音楽",
+    "media:sfx": "効果音生成"
   },
   "tool": {
     "writeFile": "ファイルを書き込み",
@@ -432,7 +446,8 @@
       "fieldOptions": "オプション",
       "fillForm": "フォームフィールドに入力",
       "mergePdfs": "PDFを結合",
-      "addText": "テキストオーバーレイを追加"
+      "addText": "テキストオーバーレイを追加",
+      "screenshotPage": "{{page}} / {{total}} ページ"
     }
   },
   "error": {

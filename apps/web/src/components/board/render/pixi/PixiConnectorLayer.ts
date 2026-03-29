@@ -79,6 +79,11 @@ export class PixiConnectorLayer {
     this.container.addChild(this.flowGraphics)
   }
 
+  /** Invalidate cache so next sync() forces a full redraw. */
+  invalidate(): void {
+    this.lastRevision = -1
+  }
+
   /** Re-render all connectors from the current snapshot. */
   sync(): void {
     const snapshot = this.engine.getSnapshot()

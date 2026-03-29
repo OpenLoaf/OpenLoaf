@@ -302,16 +302,10 @@ function AdvancedSection({
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
-      <CollapsibleTrigger className="group flex w-full items-center gap-1.5 py-1 text-[11px] font-medium text-neutral-400 transition-colors hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300">
-        <span className="h-px flex-1 bg-neutral-200 dark:bg-neutral-700" />
+      <CollapsibleTrigger className="group flex w-full items-center gap-1.5 py-1 text-[11px] font-medium text-neutral-300 transition-colors hover:text-neutral-400 dark:text-neutral-600 dark:hover:text-neutral-500">
+        <span className="h-px flex-1 bg-neutral-100 dark:bg-neutral-800" />
         {t('generateAction.advancedOptions')}
-        <ChevronRight
-          className={cn(
-            'size-3 transition-transform duration-150',
-            open && 'rotate-90',
-          )}
-        />
-        <span className="h-px flex-1 bg-neutral-200 dark:bg-neutral-700" />
+        <span className="h-px flex-1 bg-neutral-100 dark:bg-neutral-800" />
       </CollapsibleTrigger>
       <CollapsibleContent className="max-h-[200px] overflow-y-auto px-0 py-2.5">
         <div className="flex flex-col gap-1.5">

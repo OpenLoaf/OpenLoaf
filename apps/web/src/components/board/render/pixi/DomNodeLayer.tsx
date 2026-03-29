@@ -19,6 +19,7 @@ import {
   type ComponentType,
   type ReactNode,
 } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Lock } from 'lucide-react'
 import { cn } from '@udecode/cn'
 import type { CanvasEngine } from '../../engine/CanvasEngine'
@@ -76,6 +77,8 @@ type DomNodeItemProps = {
   onUpdate: (patch: Record<string, unknown>) => void
   dragging: boolean
   onLabelChange: (label: string) => void
+  /** Current i18n language – used to bust memo cache on language switch. */
+  language: string
 }
 
 /** Z-index boost applied to selected nodes so they render above siblings. */
@@ -116,6 +119,7 @@ const DomNodeItem = memo(function DomNodeItem({
       data-selected={selected || undefined}
       data-expanded={expanded || undefined}
       data-dragging={dragging || undefined}
+      data-rotated={(element.rotate ?? 0) !== 0 || undefined}
       className={cn(
         'group/node absolute overflow-visible',
         editing ? 'select-text' : 'select-none',
@@ -146,7 +150,7 @@ const DomNodeItem = memo(function DomNodeItem({
       )}
       <div
         className={cn(
-          'board-node-content h-full w-full',
+          'board-node-content h-full w-full rounded-3xl',
           // 逻辑：展开的节点使用 overflow-visible 让内嵌面板溢出节点边界，
           // 不修改 Yjs xywh，面板展开是纯本地 UI 状态。
           expanded ? 'overflow-visible' : 'overflow-hidden',
@@ -198,6 +202,7 @@ const DomNodeItem = memo(function DomNodeItem({
   if (prev.expanded !== next.expanded) return false
   if (prev.boxSelecting !== next.boxSelecting) return false
   if (prev.groupPadding !== next.groupPadding) return false
+  if (prev.language !== next.language) return false
   return true
 })
 
@@ -215,6 +220,7 @@ const DomNodeItem = memo(function DomNodeItem({
  * 其他节点完全跳过 React 协调。
  */
 function DomNodeLayerBase({ engine, snapshot }: DomNodeLayerProps) {
+  const { i18n } = useTranslation()
   const layerRef = useRef<HTMLDivElement | null>(null)
   const transformRafRef = useRef<number | null>(null)
   const pendingViewRef = useRef<CanvasViewState | null>(null)
@@ -331,7 +337,6 @@ function DomNodeLayerBase({ engine, snapshot }: DomNodeLayerProps) {
       )}
       style={{
         transform: `translate(${offset[0]}px, ${offset[1]}px) scale(${zoom})`,
-        perspective: '2000px',
         '--label-scale': String(computeLabelScale(zoom)),
       } as React.CSSProperties}
     >
@@ -361,6 +366,7 @@ function DomNodeLayerBase({ engine, snapshot }: DomNodeLayerProps) {
             expanded={expanded}
             boxSelecting={!!snapshot.selectionBox}
             groupPadding={groupPadding}
+            language={i18n.language}
             onSelect={() => handleSelect(element.id)}
             onUpdate={patch => handleUpdate(element.id, patch)}
             onLabelChange={label => handleLabelChange(element.id, label)}

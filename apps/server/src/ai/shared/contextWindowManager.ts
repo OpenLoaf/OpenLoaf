@@ -250,6 +250,9 @@ function compressMessages(messages: any[]): any[] {
 // Public API
 // ---------------------------------------------------------------------------
 
+/** Re-export for use by autoCompact and other modules. */
+export { estimateMessagesTokens, getModelContextSize }
+
 /**
  * Trim model messages to fit within context window.
  *

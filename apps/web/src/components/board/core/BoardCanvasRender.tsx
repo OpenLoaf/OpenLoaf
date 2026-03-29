@@ -199,14 +199,14 @@ export function BoardCanvasRender({
   return (
     <>
       {showUi && !minimal && snapshot.elements.length > 0 ? <MiniMapLayer engine={engine} snapshot={snapshot} /> : null}
-      {/* 剪刀放在节点层之前（DOM 顺序更低），节点自然遮挡剪刀 */}
+      {/* 逻辑：minimal 模式（子画布对话框）不加载 PixiJS，避免销毁时破坏全局 PixiJS 共享状态。 */}
+      {minimal ? <DomNodeLayer engine={engine} snapshot={snapshot} /> : <PixiCanvas engine={engine} snapshot={snapshot} />}
+      {/* 剪刀放在 PixiCanvas 之后（DOM 顺序更高），确保剪刀在连接线之上 */}
       {showUi && !isDragging && !snapshot.connectorDraft ? (
         <ConnectorHoverScissorsLayer engine={engine}>
           <ConnectorHoverScissors snapshot={snapshot} engine={engine} />
         </ConnectorHoverScissorsLayer>
       ) : null}
-      {/* 逻辑：minimal 模式（子画布对话框）不加载 PixiJS，避免销毁时破坏全局 PixiJS 共享状态。 */}
-      {minimal ? <DomNodeLayer engine={engine} snapshot={snapshot} /> : <PixiCanvas engine={engine} snapshot={snapshot} />}
       {showUi && !minimal && snapshot.pendingInsert && snapshot.pendingInsertPoint && PENDING_INSERT_DOM_TYPES.has(snapshot.pendingInsert.type) ? (
         <PendingInsertPreview
           engine={engine}

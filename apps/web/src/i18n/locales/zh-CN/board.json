@@ -600,6 +600,7 @@
     "statusGenerating": "生成中…",
     "statusWaiting": "等待任务",
     "transcoding": "转码中",
+    "downloadFailed": "视频下载失败",
     "cancel": "取消",
     "retry": "重试",
     "delete": "删除",
@@ -649,7 +650,9 @@
     "duration": "时长",
     "resolution": "分辨率",
     "fileSize": "文件大小",
-    "storagePath": "存储路径"
+    "storagePath": "存储路径",
+    "charCount": "字数",
+    "lineCount": "行数"
   },
   "nodePicker": {
     "title": "选择节点",
@@ -1226,7 +1229,15 @@
     "associatedRefs": "未使用的素材（点击可替换到插槽）",
     "swapHint": "点击选择替换",
     "uploadFile": "上传文件",
-    "emptySlot": "点击上传或从关联节点拖入"
+    "emptySlot": "点击上传或从关联节点拖入",
+    "constraints": {
+      "fileTooLarge": "文件大小 ({{actual}}) 超过上限 {{max}}",
+      "formatNotAllowed": "不支持 .{{ext}} 格式，允许：{{formats}}",
+      "resolutionTooLow": "分辨率 {{actual}}px 低于最小要求 {{min}}px",
+      "resolutionTooHigh": "分辨率 {{actual}}px 超过最大限制 {{max}}px",
+      "durationTooShort": "时长 {{actual}} 低于最短要求 {{min}}",
+      "durationTooLong": "时长 {{actual}} 超过最长限制 {{max}}"
+    }
   },
   "dynamicTemplates": {
     "group": {

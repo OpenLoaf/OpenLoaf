@@ -10,7 +10,7 @@
 import { type GenerateTarget } from './GenerateActionBar'
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { AnimatePresence, motion } from 'framer-motion'
+import { VariantFormTransition } from './variants/shared/VariantFormTransition'
 import { useQuery } from '@tanstack/react-query'
 import { Lock } from 'lucide-react'
 import { toast } from 'sonner'
@@ -23,11 +23,12 @@ import { PricingDialog } from '@/components/billing/PricingDialog'
 import { GenerateActionBar } from './GenerateActionBar'
 import { serializeForGenerate } from './variants/serialize'
 import type { MediaReference, MediaType, PersistedSlotMap } from './variants/slot-types'
-import { InputSlotBar, type ResolvedSlotInputs } from './variants/shared/InputSlotBar'
+import { InputSlotBar } from './variants/shared/InputSlotBar'
 import { GenericVariantForm } from './variants/shared/GenericVariantForm'
 import type { BoardFileContext } from '../board-contracts'
 import { useVariantPanel } from './hooks/useVariantPanel'
 import { useVariantCache } from './hooks/useVariantCache'
+import { useSlotHandlers } from './hooks/useSlotHandlers'
 import { CapabilitiesFallback } from './shared/CapabilitiesFallback'
 import { FeatureTabBar } from './shared/FeatureTabBar'
 
@@ -200,40 +201,10 @@ export function VideoAiPanel({
   const [pricingParams, setPricingParams] = useState<Record<string, unknown>>({})
 
   // ── Slot system ──
-  const [resolvedSlots, setResolvedSlots] = useState<Record<string, MediaReference[]>>({})
-
-  const handleSlotInputsChange = useCallback(
-    (resolved: ResolvedSlotInputs) => {
-      setResolvedSlots(resolved.mediaRefs)
-      setSlotsValid(resolved.isValid)
-      if (cacheKey) {
-        cache.update(cacheKey, { inputs: resolved.inputs })
-      }
-    },
-    [cache, cacheKey],
-  )
-
-  const handleSlotAssignmentPersist = useCallback(
-    (map: PersistedSlotMap) => {
-      if (cacheKey) {
-        cache.update(cacheKey, { slotAssignment: map })
-      }
-    },
-    [cache, cacheKey],
-  )
-
-  const handleUserTextsChange = useCallback(
-    (texts: Record<string, string>) => {
-      if (cacheKey) {
-        cache.update(cacheKey, { userTexts: texts })
-      }
-    },
-    [cache, cacheKey],
-  )
+  const { resolvedSlots, slotsValid, handleSlotInputsChange, handleSlotAssignmentPersist, handleUserTextsChange } = useSlotHandlers(cache, cacheKey)
 
   // ── Generation state ──
   const [isGenerating, setIsGenerating] = useState(false)
-  const [slotsValid, setSlotsValid] = useState(false)
 
   const isGenerateDisabled = useMemo(() => {
     if (!selectedFeature || !selectedVariant) return true
@@ -471,32 +442,22 @@ export function VideoAiPanel({
       ) : null}
 
       {/* -- Variant Form -- */}
-      <AnimatePresence mode="wait">
-        {selectedVariant ? (
-          <motion.div
-            key={selectedVariant.id}
-            initial={{ opacity: 0, y: 4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.15, ease: 'easeOut' }}
-          >
-            <GenericVariantForm
-              variantId={selectedVariant.id}
-              upstream={upstream}
-              nodeResourceUrl={undefined}
-              disabled={readonly && !editing}
-              initialParams={cache.get(`${selectedFeatureId}:${selectedVariant.id}`)}
-              onParamsChange={(snapshot) => {
-                cache.update(cacheKey, { params: snapshot.params })
-                setPricingParams(snapshot.params ?? {})
-              }}
-              onWarningChange={setVariantWarning}
-              resolvedSlots={resolvedSlots}
-              overrideParams={remoteParams}
-            />
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
+      <VariantFormTransition variantKey={selectedVariant ? selectedVariant.id : null}>
+        <GenericVariantForm
+          variantId={selectedVariant!.id}
+          upstream={upstream}
+          nodeResourceUrl={undefined}
+          disabled={readonly && !editing}
+          initialParams={cache.get(`${selectedFeatureId}:${selectedVariant!.id}`)}
+          onParamsChange={(snapshot) => {
+            cache.update(cacheKey, { params: snapshot.params })
+            setPricingParams(snapshot.params ?? {})
+          }}
+          onWarningChange={setVariantWarning}
+          resolvedSlots={resolvedSlots}
+          overrideParams={remoteParams}
+        />
+      </VariantFormTransition>
 
       {/* -- Generate Action Bar -- */}
       {!showFallback ? (

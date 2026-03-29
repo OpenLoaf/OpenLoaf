@@ -21,7 +21,7 @@ import i18next from "i18next";
 import { generateId } from "ai";
 import * as React from "react";
 import { motion } from "motion/react";
-import { LayoutDashboard, CalendarDays, Mail, Clock, Folder, Palette, Settings } from "lucide-react";
+import { LayoutDashboard, CalendarDays, Mail, Clock, Folder, Palette, Settings, Upload, ImagePlus, Ban } from "lucide-react";
 import { QUICK_LAUNCH_ITEMS, PROJECT_QUICK_LAUNCH_ITEMS } from "./quick-launch-items";
 import { openProjectShellTab } from "@/lib/project-shell";
 import {
@@ -1234,6 +1234,13 @@ export function Chat({
 
       <DragDropOverlay
         open={isDragActive}
+        icon={
+          dragMode === "deny"
+            ? <Ban className="h-8 w-8" />
+            : dragHint === "image"
+              ? <ImagePlus className="h-8 w-8" />
+              : <Upload className="h-8 w-8" />
+        }
         title={
           dragMode === "deny"
             ? dragHint === "image"

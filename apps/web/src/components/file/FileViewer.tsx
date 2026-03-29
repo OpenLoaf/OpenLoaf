@@ -124,9 +124,10 @@ export default function FileViewer({ uri, name, ext, projectId, rootUri }: FileV
   const resolvedExt = ext ?? name?.split(".").pop();
   // 逻辑：二进制文件不走文本读取，直接提示使用系统程序或下载查看。
   const isBinaryFallback = shouldUseBinaryFallback(resolvedExt);
+  const fsRootUri = !projectId && rootUri ? rootUri : undefined;
   const fileQuery = useQuery(
     trpc.fs.readFile.queryOptions(
-      uri && !isBinaryFallback ? { projectId, uri } : skipToken
+      uri && !isBinaryFallback ? { projectId, rootUri: fsRootUri, uri } : skipToken
     )
   );
 

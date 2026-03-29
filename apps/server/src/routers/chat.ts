@@ -295,8 +295,9 @@ class ChatRouterImpl extends BaseChatRouter {
 
       // clearAllChat — 同时清理文件
       clearAllChat: shieldedProcedure.mutation(async ({ ctx }) => {
-        const sessions = await ctx.prisma.chatSession.deleteMany({})
+        // 先删文件（deleteAllChatFiles 内部依赖 DB 查询 session 列表来定位目录）
         await deleteAllChatFiles()
+        const sessions = await ctx.prisma.chatSession.deleteMany({})
         return { deletedSessions: sessions.count }
       }),
 

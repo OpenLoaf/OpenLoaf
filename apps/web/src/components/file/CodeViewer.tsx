@@ -176,10 +176,11 @@ export default function CodeViewer({
   hidePlaceholder,
 }: CodeViewerProps) {
   const { t } = useTranslation('common');
+  const fsRootUri = !projectId && rootUri ? rootUri : undefined;
   /** File content query. */
   const fileQuery = useQuery(
     trpc.fs.readFile.queryOptions(
-      uri ? { projectId, uri } : skipToken
+      uri ? { projectId, rootUri: fsRootUri, uri } : skipToken
     )
   );
   const queryClient = useQueryClient();
@@ -519,13 +520,13 @@ export default function CodeViewer({
     if (!isDirty) return;
     const nextContent = draftContent;
     writeFileMutation.mutate(
-      { projectId, uri, content: nextContent },
+      { projectId, rootUri: fsRootUri, uri, content: nextContent },
       {
         onSuccess: () => {
           lastSavedRef.current = nextContent;
           setIsDirty(false);
           queryClient.invalidateQueries({
-            queryKey: trpc.fs.readFile.queryOptions({ projectId, uri })
+            queryKey: trpc.fs.readFile.queryOptions({ projectId, rootUri: fsRootUri, uri })
               .queryKey,
           });
           toast.success(t('saved'));

@@ -42,6 +42,8 @@ interface ImageViewerProps {
   name?: string;
   ext?: string;
   projectId?: string;
+  /** Root uri for non-project file access. */
+  rootUri?: string;
   /** Optional thumbnail placeholder to show before full image loads. */
   thumbnailSrc?: string;
   /** Optional header title for modal usage. */
@@ -197,6 +199,7 @@ export default function ImageViewer({
   name,
   ext,
   projectId: projectIdProp,
+  rootUri,
   thumbnailSrc,
   title,
   saveName,
@@ -266,9 +269,11 @@ export default function ImageViewer({
     return s3ProviderItems.some((item) => item.id === basic.activeS3Id);
   }, [basic.activeS3Id, s3ProviderItems]);
 
+  const fsRootUri = !projectId && rootUri ? rootUri : undefined;
   const imageQuery = useQuery({
     ...trpc.fs.readBinary.queryOptions({
       projectId,
+      rootUri: fsRootUri,
       uri: uri ?? "",
     }),
     enabled: shouldUseBinary,
