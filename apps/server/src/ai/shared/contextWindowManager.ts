@@ -26,19 +26,24 @@ import { logger } from '@/common/logger'
 
 /**
  * Rough token estimation using character count heuristic.
- * - English: ~4 chars per token
- * - Chinese: ~2 chars per token
- * - Mixed content: ~3 chars per token (conservative)
  *
- * This avoids a tiktoken dependency while being reasonably accurate.
+ * Conservative ratios to avoid underestimation (which causes API 400 errors):
+ * - CJK: ~1.5 tokens per char (unchanged — reasonably accurate)
+ * - ASCII: ~0.4 tokens per char (was 0.25 — too low for JSON, code, punctuation)
+ *
+ * Applied a 1.15x safety multiplier to account for BPE edge cases and
+ * structural overhead (role tokens, separators, etc.) that pure text
+ * estimation misses.
  */
 function estimateTokenCount(text: string): number {
   if (!text) return 0
   // Count CJK characters
   const cjkChars = (text.match(/[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/g) || []).length
   const nonCjkChars = text.length - cjkChars
-  // CJK: ~1.5 tokens per char, ASCII: ~0.25 tokens per char
-  return Math.ceil(cjkChars * 1.5 + nonCjkChars * 0.25)
+  // CJK: ~1.5 tokens per char, ASCII: ~0.4 tokens per char (conservative)
+  const raw = cjkChars * 1.5 + nonCjkChars * 0.4
+  // Safety multiplier to account for BPE edge cases
+  return Math.ceil(raw * 1.15)
 }
 
 /** Estimate token count for a message array. */
@@ -50,20 +55,45 @@ function estimateMessagesTokens(messages: any[]): number {
       for (const part of msg.parts) {
         if (typeof part === 'string') {
           total += estimateTokenCount(part)
-        } else if (part?.text) {
-          total += estimateTokenCount(String(part.text))
         } else if (part?.type === 'tool-invocation') {
           // Tool invocations include input + output
           total += estimateTokenCount(JSON.stringify(part.input ?? ''))
           total += estimateTokenCount(JSON.stringify(part.output ?? ''))
+        } else if (part?.text) {
+          total += estimateTokenCount(String(part.text))
+        } else if (part?.type === 'image') {
+          // Image tokens vary by model; use a conservative fixed estimate
+          total += 1000
+        } else if (part?.type === 'file') {
+          // File content — estimate from data length or use fixed fallback
+          const data = part.data ?? part.content ?? ''
+          total += typeof data === 'string'
+            ? estimateTokenCount(data)
+            : 500
+        } else if (part != null && typeof part === 'object') {
+          // Catch-all for unknown part types — JSON serialize to estimate
+          total += estimateTokenCount(JSON.stringify(part))
         }
       }
     } else if (Array.isArray(msg.content)) {
       for (const part of msg.content) {
         if (typeof part === 'string') {
           total += estimateTokenCount(part)
+        } else if (part?.type === 'image') {
+          total += 1000
+        } else if (part?.type === 'file') {
+          const data = part.data ?? part.content ?? ''
+          total += typeof data === 'string'
+            ? estimateTokenCount(data)
+            : 500
+        } else if (part?.type === 'tool-call') {
+          total += estimateTokenCount(JSON.stringify(part.args ?? ''))
+        } else if (part?.type === 'tool-result') {
+          total += estimateTokenCount(JSON.stringify(part.result ?? ''))
         } else if (part?.text) {
           total += estimateTokenCount(String(part.text))
+        } else if (part != null && typeof part === 'object') {
+          total += estimateTokenCount(JSON.stringify(part))
         }
       }
     } else if (typeof msg.content === 'string') {
@@ -251,13 +281,33 @@ function compressMessages(messages: any[]): any[] {
 // ---------------------------------------------------------------------------
 
 /** Re-export for use by autoCompact and other modules. */
-export { estimateMessagesTokens, getModelContextSize }
+export { estimateMessagesTokens, getModelContextSize, computeHardLimit }
+
+/**
+ * Compute the hard token limit for a given context size.
+ *
+ * Strategy:
+ * - Models ≤ 200K or unknown: hard limit = 120K (leave room for system prompt + response)
+ *   Capped at contextSize - 2K for very small models (e.g. GPT-4 8K)
+ * - Models > 200K (e.g. 1M): hard limit = 85% of context size
+ */
+function computeHardLimit(contextSize: number): number {
+  if (contextSize > 200_000) {
+    return Math.floor(contextSize * 0.85)
+  }
+  return Math.min(120_000, contextSize - 2_000)
+}
 
 /**
  * Trim model messages to fit within context window.
  *
  * Call this after `buildModelMessages()` and before passing to the model.
  * Returns the (possibly compressed) message array.
+ *
+ * Three-pass strategy:
+ * 1. Heuristic compression (truncate old messages to summaries)
+ * 2. Progressive drop (remove oldest messages one-by-one)
+ * 3. Hard tail-keep (keep only the most recent N messages that fit)
  */
 export function trimToContextWindow(
   messages: any[],
@@ -265,6 +315,7 @@ export function trimToContextWindow(
 ): any[] {
   const contextSize = getModelContextSize(options?.modelId)
   const threshold = Math.floor(contextSize * COMPRESSION_THRESHOLD)
+  const hardLimit = computeHardLimit(contextSize)
   const tokenCount = estimateMessagesTokens(messages)
 
   if (tokenCount <= threshold) return messages
@@ -274,8 +325,42 @@ export function trimToContextWindow(
     '[context-window] messages exceed threshold, compressing',
   )
 
-  const compressed = compressMessages(messages)
-  const newTokenCount = estimateMessagesTokens(compressed)
+  // Pass 1: Heuristic compression (summarize old messages)
+  let result = compressMessages(messages)
+  let newTokenCount = estimateMessagesTokens(result)
+
+  // Pass 2: Progressive drop — remove oldest non-summary messages until under hard limit
+  if (newTokenCount > hardLimit && result.length > 2) {
+    logger.warn(
+      { tokenCount: newTokenCount, hardLimit },
+      '[context-window] pass 1 insufficient, progressively dropping old messages',
+    )
+    // Keep the first message (summary) and progressively remove from index 1
+    while (newTokenCount > hardLimit && result.length > 2) {
+      result.splice(1, 1)
+      newTokenCount = estimateMessagesTokens(result)
+    }
+  }
+
+  // Pass 3: Hard tail-keep — if still over, keep only the last N messages that fit
+  if (newTokenCount > hardLimit && result.length > 1) {
+    logger.warn(
+      { tokenCount: newTokenCount, hardLimit, remaining: result.length },
+      '[context-window] pass 2 insufficient, applying hard tail-keep',
+    )
+    const kept: any[] = []
+    let keptTokens = 0
+    // Walk backwards, adding messages until we'd exceed the limit
+    for (let i = result.length - 1; i >= 0; i--) {
+      const msgTokens = estimateMessagesTokens([result[i]])
+      if (keptTokens + msgTokens > hardLimit) break
+      kept.unshift(result[i])
+      keptTokens += msgTokens
+    }
+    // Always keep at least the last message
+    result = kept.length > 0 ? kept : [result[result.length - 1]]
+    newTokenCount = estimateMessagesTokens(result)
+  }
 
   logger.info(
     {
@@ -283,10 +368,10 @@ export function trimToContextWindow(
       after: newTokenCount,
       saved: tokenCount - newTokenCount,
       messagesBefore: messages.length,
-      messagesAfter: compressed.length,
+      messagesAfter: result.length,
     },
     '[context-window] compression complete',
   )
 
-  return compressed
+  return result
 }

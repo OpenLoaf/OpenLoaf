@@ -788,6 +788,46 @@
       "copied": "スキルをコピーしました",
       "moved": "スキルを移動しました",
       "failed": "操作に失敗しました"
+    },
+    "marketplace": {
+      "tabMySkills": "マイスキル",
+      "tabMarketplace": "マーケットプレイス",
+      "searchPlaceholder": "マーケットプレイスを検索...",
+      "official": "公式",
+      "install": "インストール",
+      "installed": "インストール済み",
+      "installing": "インストール中...",
+      "update": "更新",
+      "uninstall": "アンインストール",
+      "ratingTooltip": "{{rating}} / 5（{{count}} 件の評価）",
+      "updatedAt": "{{date}} に更新",
+      "noContent": "コンテンツなし",
+      "yourRating": "あなたの評価",
+      "updatesAvailable": "{{count}} 件のスキル更新があります",
+      "updateAll": "すべて更新",
+      "updatingAll": "更新中...",
+      "loadFailed": "マーケットプレイスの読み込みに失敗しました：{{error}}",
+      "retry": "再試行",
+      "noResults": "検索に一致するスキルが見つかりません",
+      "empty": "マーケットプレイスにはまだスキルがありません",
+      "loadMore": "もっと読み込む",
+      "loadingMore": "読み込み中...",
+      "category": {
+        "all": "すべて",
+        "development": "開発",
+        "productivity": "生産性",
+        "data": "データ",
+        "creative": "クリエイティブ",
+        "devops": "DevOps",
+        "documentation": "ドキュメント",
+        "testing": "テスト",
+        "other": "その他"
+      },
+      "sort": {
+        "popular": "人気",
+        "newest": "最新",
+        "rating": "評価順"
+      }
     }
   },
   "modelSelector": {

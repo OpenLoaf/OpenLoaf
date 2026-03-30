@@ -34,6 +34,14 @@ type SkillSummary = {
   icon?: string;
   /** Tool IDs that this skill depends on (auto-activated when skill is loaded). */
   tools?: string[];
+  /** Marketplace installation metadata (only present for marketplace-installed skills). */
+  marketplace?: {
+    skillId: string
+    repoId: string
+    folderName: string
+    version: string
+    installedAt: string
+  };
 };
 
 type SkillSource = {
@@ -243,12 +251,14 @@ export function readSkillSummaryFromPath(filePath: string, scope: SkillScope): S
     const meta = readOpenLoafMeta(path.dirname(filePath));
     let colorIndex: number | null | undefined;
     let icon: string | undefined;
+    let marketplace: SkillSummary['marketplace'];
     const hasMeta = meta !== null;
     if (meta) {
       if (meta.name) name = meta.name;
       if (meta.description) description = meta.description;
       colorIndex = meta.colorIndex;
       icon = meta.icon;
+      marketplace = meta.marketplace;
     }
 
     return {
@@ -262,6 +272,7 @@ export function readSkillSummaryFromPath(filePath: string, scope: SkillScope): S
       hasMeta,
       icon,
       ...(frontMatter.tools?.length ? { tools: frontMatter.tools } : {}),
+      ...(marketplace ? { marketplace } : {}),
     };
   } catch {
     return null;
@@ -276,6 +287,13 @@ function readOpenLoafMeta(folderPath: string): {
   sourceLanguage?: string
   colorIndex?: number | null
   icon?: string
+  marketplace?: {
+    skillId: string
+    repoId: string
+    folderName: string
+    version: string
+    installedAt: string
+  }
 } | null {
   const metaPath = path.join(folderPath, "openloaf.json");
   if (!existsSync(metaPath)) return null;
@@ -290,6 +308,7 @@ function readOpenLoafMeta(folderPath: string): {
       sourceLanguage: typeof parsed.sourceLanguage === "string" ? parsed.sourceLanguage : undefined,
       colorIndex: typeof parsed.colorIndex === "number" ? parsed.colorIndex : null,
       icon: typeof parsed.icon === "string" ? parsed.icon.trim() || undefined : undefined,
+      marketplace: parseMarketplaceMeta(parsed.marketplace),
     };
   } catch {
     return null;
@@ -445,6 +464,30 @@ function parseFrontMatter(content: string): SkillFrontMatter {
   }
 
   return result;
+}
+
+/** Parse marketplace metadata from openloaf.json. */
+function parseMarketplaceMeta(
+  value: unknown,
+): { skillId: string; repoId: string; folderName: string; version: string; installedAt: string } | undefined {
+  if (typeof value !== 'object' || value === null) return undefined
+  const v = value as Record<string, unknown>
+  if (
+    typeof v.skillId !== 'string' || !v.skillId ||
+    typeof v.repoId !== 'string' || !v.repoId ||
+    typeof v.folderName !== 'string' || !v.folderName ||
+    typeof v.version !== 'string' || !v.version ||
+    typeof v.installedAt !== 'string' || !v.installedAt
+  ) {
+    return undefined
+  }
+  return {
+    skillId: v.skillId,
+    repoId: v.repoId,
+    folderName: v.folderName,
+    version: v.version,
+    installedAt: v.installedAt,
+  }
 }
 
 /** Normalize scalar values from YAML front matter. */

@@ -185,6 +185,7 @@ function PanelFrame({
             opaquePanel ? "bg-background" : "ol-glass-float",
             fillHeight && "h-full",
           )}
+          style={!opaquePanel && floating ? { border: "none", boxShadow: "none" } : undefined}
         >
           {!customHeader ? (
             <StackHeader

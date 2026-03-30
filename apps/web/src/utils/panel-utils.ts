@@ -57,6 +57,9 @@ const LazyAgentManagement = React.lazy(() =>
 const LazySkillSettings = React.lazy(() =>
   import("@/components/setting/menus/SkillSettings").then(m => ({ default: m.SkillSettings })),
 );
+const LazySkillMarketplace = React.lazy(() =>
+  import("@/components/setting/skills/SkillMarketplace").then(m => ({ default: m.SkillMarketplace })),
+);
 const LazyScheduledTasksPage = React.lazy(() => import("@/components/tasks/ScheduledTasksPage"));
 const LazyStreamingCodeViewer = React.lazy(() => import("@/components/file/StreamingCodeViewer"));
 const LazyDynamicWidgetStackPanel = React.lazy(() => import("@/components/desktop/dynamic-widgets/DynamicWidgetStackPanel"));
@@ -158,6 +161,7 @@ export const ComponentMap: Record<string, PanelComponent> = {
   "agent-detail": LazyAgentDetailPanel,
   "agent-management": AgentManagementStack,
   "skill-settings": SkillSettingsStack,
+  "skill-marketplace": LazySkillMarketplace,
   "streaming-code-viewer": LazyStreamingCodeViewer,
   "plate-doc-viewer": LazyPlateDocViewer,
   "streaming-plate-viewer": LazyStreamingPlateViewer,

@@ -152,7 +152,7 @@ async function detectLanguage(
 
   if (conf.modelSource === 'saas') {
     const token = saasAccessToken
-    if (!token) throw new Error('未登录云端账号，请先登录')
+    if (!token) throw new Error('未登录云端账号，请先登录后再翻译技能')
     const saasClient = getSaasClient(token)
     const res = await saasClient.auxiliary.infer({
       capabilityKey: 'text.translate',
@@ -160,17 +160,23 @@ async function detectLanguage(
       context: sample,
       outputMode: 'text',
     })
-    if (!res.ok) throw new Error(res.message)
+    if (!res.ok) throw new Error(res.message || '云端翻译服务暂时不可用，请稍后重试')
     responseText = String(res.result)
   } else {
     const modelIds =
       conf.modelSource === 'cloud' ? conf.cloudModelIds : conf.localModelIds
     const chatModelId = modelIds[0]?.trim() || undefined
 
-    const resolved = await resolveChatModel({
-      chatModelId,
-      chatModelSource: conf.modelSource,
-    })
+    let resolved: Awaited<ReturnType<typeof resolveChatModel>>
+    try {
+      resolved = await resolveChatModel({
+        chatModelId,
+        chatModelSource: conf.modelSource,
+      })
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      throw new Error(mapFriendlyError(msg))
+    }
 
     const abortController = new AbortController()
     const timeout = setTimeout(() => abortController.abort(), 30_000)
@@ -506,27 +512,44 @@ async function callTranslation(
   // SaaS branch
   if (conf.modelSource === 'saas') {
     const token = saasAccessToken
-    if (!token) throw new Error('未登录云端账号，请先登录')
+    if (!token) throw new Error('未登录云端账号，请先登录后再翻译技能')
     const saasClient = getSaasClient(token)
-    const res = await saasClient.auxiliary.infer({
-      capabilityKey: 'text.translate',
-      systemPrompt,
-      context: content,
-      outputMode: 'text',
-    })
-    if (!res.ok) throw new Error(res.message)
+    let res: Awaited<ReturnType<typeof saasClient.auxiliary.infer>>
+    try {
+      res = await saasClient.auxiliary.infer({
+        capabilityKey: 'text.translate',
+        systemPrompt,
+        context: content,
+        outputMode: 'text',
+      })
+    } catch (err) {
+      // Network-level errors from SaaS
+      const msg = err instanceof Error ? err.message : String(err)
+      throw new Error(mapFriendlyError(msg))
+    }
+    if (!res.ok) {
+      // SaaS returned a business error (quota, model unavailable, etc.)
+      throw new Error(res.message || '云端翻译服务暂时不可用，请稍后重试')
+    }
     return String(res.result)
   }
 
-  // Local/Cloud branch
+  // Local/Cloud branch — pre-check model configuration
   const modelIds =
     conf.modelSource === 'cloud' ? conf.cloudModelIds : conf.localModelIds
   const chatModelId = modelIds[0]?.trim() || undefined
 
-  const resolved = await resolveChatModel({
-    chatModelId,
-    chatModelSource: conf.modelSource,
-  })
+  let resolved: Awaited<ReturnType<typeof resolveChatModel>>
+  try {
+    resolved = await resolveChatModel({
+      chatModelId,
+      chatModelSource: conf.modelSource,
+    })
+  } catch (err) {
+    // Wrap model resolution errors with friendly messages
+    const msg = err instanceof Error ? err.message : String(err)
+    throw new Error(mapFriendlyError(msg))
+  }
 
   const abortController = new AbortController()
   const timeout = setTimeout(() => abortController.abort(), 120_000)
@@ -694,6 +717,12 @@ export async function translateSkillTitle(
 
 /** Map raw connection/SDK errors to user-friendly messages. */
 const FRIENDLY_ERROR_PATTERNS: [RegExp, string][] = [
+  [/未找到可用模型配置/, '未配置辅助模型，请在设置 → 辅助模型中选择一个模型'],
+  [/模型服务商未配置/, '模型服务商未配置，请在设置 → 辅助模型中添加服务商'],
+  [/模型未在服务商配置中启用/, '所选模型未启用，请在设置 → 辅助模型中检查模型配置'],
+  [/模型构建失败/, '模型初始化失败，请检查辅助模型的 API 地址和密钥配置'],
+  [/模型服务商配置不完整/, '模型配置不完整，请在设置 → 辅助模型中补全 API 地址和密钥'],
+  [/云端模型列表获取失败/, '云端模型列表获取失败，请检查网络连接或重新登录'],
   [/reconnect/i, 'AI 模型连接失败，请检查模型配置或网络连接'],
   [/ECONNREFUSED/i, 'AI 模型服务未启动，请先启动本地模型'],
   [/ECONNRESET|EPIPE/i, 'AI 模型连接中断，请稍后重试'],

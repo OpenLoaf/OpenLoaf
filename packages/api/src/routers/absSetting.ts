@@ -99,6 +99,16 @@ const skillSummarySchema = z.object({
   hasMeta: z.boolean().optional(),
   /** Emoji icon for the skill (from openloaf.json). */
   icon: z.string().optional(),
+  /** Tool IDs that this skill depends on (auto-activated when skill is loaded). */
+  tools: z.array(z.string()).optional(),
+  /** Marketplace installation metadata (only present for marketplace-installed skills). */
+  marketplace: z.object({
+    skillId: z.string(),
+    repoId: z.string(),
+    folderName: z.string(),
+    version: z.string(),
+    installedAt: z.string(),
+  }).optional(),
 });
 
 /** Capability group payload. */
@@ -664,7 +674,7 @@ export const settingSchemas = {
   /** Import a skill from an uploaded archive (base64). */
   importSkillFromArchive: {
     input: z.object({
-      contentBase64: z.string(),
+      contentBase64: z.string().max(67_108_864),
       fileName: z.string(),
       scope: mutableScopeSchema,
       projectId: z.string().optional(),

@@ -218,6 +218,10 @@ async function importFromZipBuffer(
       if (!relativePath) continue
 
       const targetPath = path.join(destDir, relativePath)
+      const resolved = path.resolve(targetPath)
+      if (!resolved.startsWith(path.resolve(destDir) + path.sep) && resolved !== path.resolve(destDir)) {
+        continue // Skip malicious entries with path traversal
+      }
       await fs.mkdir(path.dirname(targetPath), { recursive: true })
       const content = await zipEntry.async('nodebuffer')
       await fs.writeFile(targetPath, content)
@@ -346,7 +350,7 @@ export async function importSkillFromBuffer(input: {
     // Write buffer to temp file and import
     const tmpDir = path.join(targetSkillsDir, '.tmp-import')
     await fs.mkdir(tmpDir, { recursive: true })
-    const tmpPath = path.join(tmpDir, fileName)
+    const tmpPath = path.join(tmpDir, path.basename(fileName))
     await fs.writeFile(tmpPath, buffer)
 
     try {

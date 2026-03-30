@@ -29,6 +29,8 @@ import { logger } from '@/common/logger'
 import {
   estimateMessagesTokens,
   getModelContextSize,
+  computeHardLimit,
+  trimToContextWindow,
 } from '@/ai/shared/contextWindowManager'
 
 // ---------------------------------------------------------------------------
@@ -136,13 +138,13 @@ export async function tryAutoCompact(
 
   if (tokenCount <= threshold) return mutableMessages
 
-  // No model available — fall back to original (heuristic compression already applied)
+  // No model available — fall back to hard trim (heuristic compression)
   if (!model) {
     logger.warn(
       { tokenCount, threshold },
-      '[auto-compact] context exceeds threshold but no model available for summarization',
+      '[auto-compact] context exceeds threshold but no model available, falling back to hard trim',
     )
-    return mutableMessages
+    return trimToContextWindow(mutableMessages, { modelId }) as ModelMessage[]
   }
 
   logger.info(
@@ -184,7 +186,7 @@ export async function tryAutoCompact(
       ],
     }
 
-    const compacted = [summaryMessage, ...recentMessages]
+    let compacted = [summaryMessage, ...recentMessages] as ModelMessage[]
     const newTokenCount = estimateMessagesTokens(compacted)
 
     logger.info(
@@ -198,10 +200,20 @@ export async function tryAutoCompact(
       '[auto-compact] compression complete',
     )
 
+    // Safety net: if LLM summary + recent messages still exceed context, hard trim
+    const hardLimit = computeHardLimit(contextSize)
+    if (newTokenCount > hardLimit) {
+      logger.warn(
+        { newTokenCount, hardLimit },
+        '[auto-compact] compacted result still exceeds hard limit, applying trim',
+      )
+      compacted = trimToContextWindow(compacted, { modelId }) as ModelMessage[]
+    }
+
     return compacted
   } catch (err) {
-    // Graceful fallback — auto-compact is best-effort
-    logger.warn({ err }, '[auto-compact] summarization failed, keeping original messages')
-    return mutableMessages
+    // Graceful fallback — summarization failed, apply hard trim as safety net
+    logger.warn({ err }, '[auto-compact] summarization failed, falling back to hard trim')
+    return trimToContextWindow(mutableMessages, { modelId }) as ModelMessage[]
   }
 }

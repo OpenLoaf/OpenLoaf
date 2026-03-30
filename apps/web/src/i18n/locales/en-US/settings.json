@@ -788,6 +788,46 @@
       "copied": "Skill copied",
       "moved": "Skill moved",
       "failed": "Operation failed"
+    },
+    "marketplace": {
+      "tabMySkills": "My Skills",
+      "tabMarketplace": "Marketplace",
+      "searchPlaceholder": "Search marketplace...",
+      "official": "Official",
+      "install": "Install",
+      "installed": "Installed",
+      "installing": "Installing...",
+      "update": "Update",
+      "uninstall": "Uninstall",
+      "ratingTooltip": "{{rating}} / 5 ({{count}} ratings)",
+      "updatedAt": "Updated {{date}}",
+      "noContent": "No content available",
+      "yourRating": "Your rating",
+      "updatesAvailable": "{{count}} skill update(s) available",
+      "updateAll": "Update All",
+      "updatingAll": "Updating...",
+      "loadFailed": "Failed to load marketplace: {{error}}",
+      "retry": "Retry",
+      "noResults": "No skills found matching your search",
+      "empty": "No skills available in the marketplace yet",
+      "loadMore": "Load More",
+      "loadingMore": "Loading...",
+      "category": {
+        "all": "All",
+        "development": "Development",
+        "productivity": "Productivity",
+        "data": "Data",
+        "creative": "Creative",
+        "devops": "DevOps",
+        "documentation": "Documentation",
+        "testing": "Testing",
+        "other": "Other"
+      },
+      "sort": {
+        "popular": "Popular",
+        "newest": "Newest",
+        "rating": "Top Rated"
+      }
     }
   },
   "modelSelector": {

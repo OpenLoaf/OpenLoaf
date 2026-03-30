@@ -788,6 +788,46 @@
       "copied": "已複製技能",
       "moved": "已移動技能",
       "failed": "操作失敗"
+    },
+    "marketplace": {
+      "tabMySkills": "我的技能",
+      "tabMarketplace": "技能市場",
+      "searchPlaceholder": "搜尋技能市場...",
+      "official": "官方",
+      "install": "安裝",
+      "installed": "已安裝",
+      "installing": "安裝中...",
+      "update": "更新",
+      "uninstall": "解除安裝",
+      "ratingTooltip": "{{rating}} / 5（{{count}} 個評分）",
+      "updatedAt": "更新於 {{date}}",
+      "noContent": "暫無內容",
+      "yourRating": "你的評分",
+      "updatesAvailable": "{{count}} 個技能可更新",
+      "updateAll": "全部更新",
+      "updatingAll": "更新中...",
+      "loadFailed": "載入市場失敗：{{error}}",
+      "retry": "重試",
+      "noResults": "沒有找到符合的技能",
+      "empty": "市場暫無可用技能",
+      "loadMore": "載入更多",
+      "loadingMore": "載入中...",
+      "category": {
+        "all": "全部",
+        "development": "開發",
+        "productivity": "效率",
+        "data": "資料",
+        "creative": "創意",
+        "devops": "DevOps",
+        "documentation": "文件",
+        "testing": "測試",
+        "other": "其他"
+      },
+      "sort": {
+        "popular": "最熱門",
+        "newest": "最新",
+        "rating": "最高評分"
+      }
     }
   },
   "modelSelector": {

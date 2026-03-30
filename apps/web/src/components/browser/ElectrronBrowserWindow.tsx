@@ -913,7 +913,7 @@ export default function ElectrronBrowserWindow({
 
           <div
             ref={hostRef}
-            className="relative min-h-0 flex-1 overflow-hidden rounded-b-xl"
+            className="relative min-h-0 flex-1 overflow-hidden rounded-b-3xl"
           >
             {showHome ? (
               <BrowserHome onOpenUrl={onOpenUrl} />

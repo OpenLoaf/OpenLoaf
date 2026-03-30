@@ -52,11 +52,15 @@ function toOptionalText(value: unknown): string | undefined {
 }
 
 function buildDeviceInfo(): { platform?: string; userAgent?: string } | undefined {
-  const platform = typeof navigator !== "undefined" ? navigator.platform : "";
-  const userAgent = typeof navigator !== "undefined" ? navigator.userAgent : "";
+  if (typeof navigator === "undefined") return undefined;
+  const uaData = (navigator as any).userAgentData;
+  const platform = uaData
+    ? `${uaData.platform ?? ""}${uaData.architecture ? ` (${uaData.architecture})` : ""}`
+    : navigator.platform;
+  const userAgent = navigator.userAgent;
   const device: { platform?: string; userAgent?: string } = {};
-  if (platform.trim()) device.platform = platform;
-  if (userAgent.trim()) device.userAgent = userAgent;
+  if (platform?.trim()) device.platform = platform;
+  if (userAgent?.trim()) device.userAgent = userAgent;
   return Object.keys(device).length > 0 ? device : undefined;
 }
 

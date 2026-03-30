@@ -33,6 +33,7 @@ import {
   RefreshCw,
   RotateCcw,
   Search,
+  Store,
   Trash2,
   X,
 } from "lucide-react";
@@ -74,6 +75,8 @@ import {
 import { useGlobalOverlay } from "@/lib/globalShortcuts";
 import { ColorPickerSubMenu } from "@/components/shared/ColorPickerSubMenu";
 import { TranslateTitlesDialog } from "./TranslateTitlesDialog";
+import { SkillUpdateBanner } from "./SkillUpdateBanner";
+import { useInstallMarketSkill, useSkillUpdateCheck } from "@/hooks/use-skill-market";
 
 type SkillScope = "builtin" | "project" | "global";
 
@@ -272,6 +275,64 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
     }),
   );
   const [translateDialogOpen, setTranslateDialogOpen] = useState(false);
+
+  // --- Marketplace update banner ---
+  const updateCheckQuery = useSkillUpdateCheck(projectId);
+  const updatableSkills = useMemo(() =>
+    (updateCheckQuery.data?.updates ?? [])
+      .filter((u) => u.hasUpdate)
+      .map((u) => {
+        const local = skills.find(
+          (s) => (s as any).marketplace?.skillId === u.skillId,
+        )
+        return {
+          id: u.skillId,
+          folderName: local?.folderName ?? u.skillId,
+          name: local?.name ?? u.skillId,
+          description: local?.description ?? '',
+          tags: [] as string[],
+          repoLabel: '',
+          isOfficial: false,
+          downloadCount: 0,
+          rating: 0,
+          ratingCount: 0,
+          version: '',
+          updatedAt: '',
+          hasUpdate: true,
+        }
+      }),
+  [updateCheckQuery.data?.updates, skills]);
+  const installMarketSkill = useInstallMarketSkill();
+  const [updatingIds, setUpdatingIds] = useState<Set<string>>(new Set());
+  const [isUpdatingAll, setIsUpdatingAll] = useState(false);
+  const handleUpdateOneMarket = (skillId: string) => {
+    setUpdatingIds((prev) => new Set(prev).add(skillId));
+    installMarketSkill.mutate(
+      { skillId, scope: projectId ? 'project' : 'global', projectId },
+      {
+        onSettled: () => {
+          setUpdatingIds((prev) => {
+            const next = new Set(prev);
+            next.delete(skillId);
+            return next;
+          });
+        },
+      },
+    );
+  };
+  const handleUpdateAllMarket = async () => {
+    setIsUpdatingAll(true);
+    for (const skill of updatableSkills) {
+      try {
+        await installMarketSkill.mutateAsync({
+          skillId: skill.id,
+          scope: projectId ? 'project' : 'global',
+          projectId,
+        });
+      } catch { /* continue */ }
+    }
+    setIsUpdatingAll(false);
+  };
 
   // --- Transfer (copy/move) skill dialog ---
   const { data: projectList } = useQuery({
@@ -582,35 +643,56 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
 
   const totalCount = filteredSkills.length;
 
-  return (
-    <div
-      className="relative flex h-full min-h-0 flex-col"
-      onDragEnter={handleDragEnter}
-      onDragLeave={handleDragLeave}
-      onDragOver={handleDragOver}
-      onDrop={(e) => void handleDrop(e)}
-    >
-      {/* Drag overlay */}
-      {isDragOver ? (
-        <div className="absolute inset-0 z-50 flex items-center justify-center rounded-3xl border-2 border-dashed border-foreground bg-secondary/50 backdrop-blur-sm">
-          <div className="flex flex-col items-center gap-2 text-foreground">
-            <Import className="h-8 w-8" />
-            <p className="text-sm font-medium">{t('skills.import.dropHint')}</p>
-            <p className="text-xs text-muted-foreground">{t('skills.import.dropSubHint')}</p>
-          </div>
-        </div>
-      ) : null}
-      {isImporting ? (
-        <div className="absolute inset-0 z-50 flex items-center justify-center rounded-3xl bg-background/60 backdrop-blur-sm">
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Loader2 className="h-5 w-5 animate-spin" />
-            <span className="text-sm">{t('skills.import.importing')}</span>
-          </div>
-        </div>
-      ) : null}
+  const openMarketplace = useCallback(() => {
+    pushStackItem({
+      id: 'skill-marketplace',
+      sourceKey: 'skill-marketplace',
+      component: 'skill-marketplace',
+      title: t('skills.marketplace.tabMarketplace', { defaultValue: 'Marketplace' }),
+      params: { projectId },
+    })
+    setSettingsOpen(false)
+  }, [pushStackItem, setSettingsOpen, t, projectId])
 
-      {/* Header */}
-      <div className="flex items-center justify-between border-b px-6 py-4">
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+        <div
+          className="relative flex h-full min-h-0 flex-col"
+          onDragEnter={handleDragEnter}
+          onDragLeave={handleDragLeave}
+          onDragOver={handleDragOver}
+          onDrop={(e) => void handleDrop(e)}
+        >
+          {/* Drag overlay */}
+          {isDragOver ? (
+            <div className="absolute inset-0 z-50 flex items-center justify-center rounded-3xl border-2 border-dashed border-foreground bg-secondary/50 backdrop-blur-sm">
+              <div className="flex flex-col items-center gap-2 text-foreground">
+                <Import className="h-8 w-8" />
+                <p className="text-sm font-medium">{t('skills.import.dropHint')}</p>
+                <p className="text-xs text-muted-foreground">{t('skills.import.dropSubHint')}</p>
+              </div>
+            </div>
+          ) : null}
+          {isImporting ? (
+            <div className="absolute inset-0 z-50 flex items-center justify-center rounded-3xl bg-background/60 backdrop-blur-sm">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                <span className="text-sm">{t('skills.import.importing')}</span>
+              </div>
+            </div>
+          ) : null}
+
+          {/* Update banner */}
+          <SkillUpdateBanner
+            updatableSkills={updatableSkills}
+            onUpdateOne={handleUpdateOneMarket}
+            onUpdateAll={() => void handleUpdateAllMarket()}
+            updatingIds={updatingIds}
+            isUpdatingAll={isUpdatingAll}
+          />
+
+          {/* Header */}
+          <div className="flex items-center justify-between border-b px-6 py-4">
         <div className="flex min-w-0 items-center gap-3">
           {/* Search */}
           <div className="relative max-w-52">
@@ -681,6 +763,16 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
           >
             <Languages className="mr-1.5 h-4 w-4" />
             {t('skills.translateTitles.button', { defaultValue: '翻译标题' })}
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="rounded-3xl bg-secondary text-secondary-foreground hover:bg-accent"
+            onClick={openMarketplace}
+          >
+            <Store className="mr-1.5 h-3.5 w-3.5" />
+            {t('skills.marketplace.tabMarketplace', { defaultValue: 'Marketplace' })}
           </Button>
         </div>
       </div>
@@ -810,6 +902,7 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+        </div>
     </div>
   );
 }
