@@ -109,7 +109,7 @@ export function registerUrlDownloadRoutes(app: Hono) {
       }
 
       const contentType = response.headers.get('content-type') || 'application/octet-stream'
-      const mimeType = contentType.split(';')[0].trim()
+      const mimeType = (contentType.split(';')[0] ?? contentType).trim()
 
       // 从 URL 推断文件名
       let urlFileName = ''

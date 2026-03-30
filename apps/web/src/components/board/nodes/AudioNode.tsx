@@ -468,9 +468,10 @@ export function AudioNodeView({
             startedAt={generatingEntry?.createdAt ?? pollingResult.startedAt}
             estimatedSeconds={30}
             serverProgress={pollingResult.progress}
-            color="green"
+            color="blue"
             onCancel={handleCancelGeneration}
             cancelling={cancellingGeneration}
+            compact
           />
         )}
 

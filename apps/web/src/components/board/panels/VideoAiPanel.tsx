@@ -8,7 +8,7 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import { type GenerateTarget } from './GenerateActionBar'
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { VariantFormTransition } from './variants/shared/VariantFormTransition'
 import { useQuery } from '@tanstack/react-query'
@@ -22,10 +22,11 @@ import { fetchUserProfile } from '@/lib/saas-auth'
 import { PricingDialog } from '@/components/billing/PricingDialog'
 import { GenerateActionBar } from './GenerateActionBar'
 import { serializeForGenerate } from './variants/serialize'
-import type { MediaReference, MediaType, PersistedSlotMap } from './variants/slot-types'
+import type { MediaType, PersistedSlotMap } from './variants/slot-types'
 import { InputSlotBar } from './variants/shared/InputSlotBar'
 import { GenericVariantForm } from './variants/shared/GenericVariantForm'
-import type { BoardFileContext } from '../board-contracts'
+import type { BoardFileContext, VariantSnapshot } from '../board-contracts'
+import { getPrimaryEntry } from '../engine/version-stack'
 import { useVariantPanel } from './hooks/useVariantPanel'
 import { useVariantCache } from './hooks/useVariantCache'
 import { useSlotHandlers } from './hooks/useSlotHandlers'
@@ -178,6 +179,7 @@ export function VideoAiPanel({
 
   const cache = useVariantCache({
     initialCache: aiConfig?.cache,
+    paused: editing,
     onFlush: (cacheMap) => {
       onUpdate({
         aiConfig: {
@@ -187,6 +189,65 @@ export function VideoAiPanel({
       })
     },
   })
+
+  // ── Draft mode — snapshot/restore on edit cancel ──
+  const editSnapshotRef = useRef<Record<string, VariantSnapshot> | null>(null)
+  const [cancelCounter, setCancelCounter] = useState(0)
+
+  useEffect(() => {
+    if (editing) {
+      editSnapshotRef.current = cache.takeSnapshot()
+    }
+  }, [editing, cache])
+
+  const handleCancelEdit = useCallback(() => {
+    if (editSnapshotRef.current) {
+      cache.restoreSnapshot(editSnapshotRef.current)
+      cache.flushNow()
+      editSnapshotRef.current = null
+    }
+    setCancelCounter(c => c + 1)
+    onCancelEdit?.()
+  }, [cache, onCancelEdit])
+
+  // ── Per-version params — derive effective snapshot from version entry ──
+  const primaryEntry = useMemo(
+    () => getPrimaryEntry(element.props.versionStack),
+    [element.props.versionStack],
+  )
+
+  const effectiveSnapshot = useMemo<VariantSnapshot | undefined>(() => {
+    if (readonly && !editing && primaryEntry?.input?.parameters) {
+      const p = primaryEntry.input.parameters as {
+        feature?: string
+        variant?: string
+        inputs?: Record<string, unknown>
+        params?: Record<string, unknown>
+        count?: number
+      }
+      return {
+        inputs: p.inputs ?? {},
+        params: p.params ?? {},
+        count: p.count,
+      }
+    }
+    return cache.get(cacheKey)
+  }, [readonly, editing, primaryEntry, cache, cacheKey])
+
+  // Auto-select feature/variant matching the viewed version (readonly OR editing mode)
+  useEffect(() => {
+    if (!readonly) return
+    const params = primaryEntry?.input?.parameters as {
+      feature?: string
+      variant?: string
+    } | undefined
+    if (params?.feature && params.feature !== selectedFeatureId) {
+      setSelectedFeatureId(params.feature)
+    }
+    if (params?.variant && params.variant !== selectedVariantId) {
+      setSelectedVariantId(params.variant)
+    }
+  }, [readonly, editing, primaryEntry, selectedFeatureId, selectedVariantId, setSelectedFeatureId, setSelectedVariantId])
 
   // ── Generate target persistence ──
   const handleTargetChange = useCallback((next: GenerateTarget) => {
@@ -429,6 +490,7 @@ export function VideoAiPanel({
       {/* -- InputSlotBar (V3 declarative slot assignment) -- */}
       {mergedSlots?.length && selectedVariant ? (
         <InputSlotBar
+          key={`${selectedFeatureId}:${selectedVariant.id}:${readonly && !editing ? primaryEntry?.id : 'edit'}:${cancelCounter}`}
           slots={mergedSlots}
           upstream={
             rawUpstream ?? {
@@ -441,11 +503,8 @@ export function VideoAiPanel({
           }
           fileContext={fileContext}
           disabled={readonly && !editing}
-          cachedAssignment={
-            cache.get(`${selectedFeatureId}:${selectedVariant.id}`)
-              ?.slotAssignment as PersistedSlotMap | undefined
-          }
-          cachedUserTexts={cache.get(`${selectedFeatureId}:${selectedVariant.id}`)?.userTexts}
+          cachedAssignment={effectiveSnapshot?.slotAssignment as PersistedSlotMap | undefined}
+          cachedUserTexts={effectiveSnapshot?.userTexts}
           onAssignmentChange={handleSlotInputsChange}
           onSlotAssignmentChange={handleSlotAssignmentPersist}
           onUserTextsChange={handleUserTextsChange}
@@ -453,14 +512,14 @@ export function VideoAiPanel({
       ) : null}
 
       {/* -- Variant Form -- */}
-      <VariantFormTransition variantKey={selectedVariant ? selectedVariant.id : null}>
+      <VariantFormTransition variantKey={selectedVariant ? `${selectedVariant.id}:${readonly && !editing ? primaryEntry?.id : 'edit'}:${cancelCounter}` : null}>
         {selectedVariant ? (
           <GenericVariantForm
             variantId={selectedVariant.id}
             upstream={upstream}
             nodeResourceUrl={undefined}
             disabled={readonly && !editing}
-            initialParams={cache.get(`${selectedFeatureId}:${selectedVariant.id}`)}
+            initialParams={effectiveSnapshot}
             onParamsChange={(snapshot) => {
               cache.update(cacheKey, { params: snapshot.params })
               setPricingParams(snapshot.params ?? {})
@@ -484,7 +543,7 @@ export function VideoAiPanel({
           readonly={readonly}
           editing={editing}
           onUnlock={onUnlock}
-          onCancelEdit={onCancelEdit}
+          onCancelEdit={handleCancelEdit}
           estimateParams={pricingParams}
           warningMessage={variantWarning}
           initialTarget={aiConfig?.generateTarget}

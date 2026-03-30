@@ -199,7 +199,8 @@ export function GenerateActionBar({
   // 逻辑：已有资源时默认先生成到当前节点；右侧切换按钮可改为新节点生成。
   // 从 aiConfig.generateTarget 恢复上次选择。
   const [target, setTarget] = useState<GenerateTarget>(initialTarget ?? 'current')
-  const effectiveTarget = hasResource ? target : 'current'
+  // Editing mode always targets the current node (no new-node option).
+  const effectiveTarget = editing ? 'current' : (hasResource ? target : 'current')
 
   const updateTarget = useCallback((next: GenerateTarget) => {
     setTarget(next)
@@ -211,20 +212,6 @@ export function GenerateActionBar({
       setTarget('current')
     }
   }, [hasResource])
-
-  // ── Regenerate confirmation popover ──
-  const [confirmOpen, setConfirmOpen] = useState(false)
-  const confirmRef = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    if (!confirmOpen) return
-    const handler = (e: MouseEvent) => {
-      if (confirmRef.current && !confirmRef.current.contains(e.target as Node)) {
-        setConfirmOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [confirmOpen])
 
   // Dynamic credit estimation via API
   const { totalCredits: estimatedCredits, billingType } = useEstimatePrice({
@@ -266,11 +253,6 @@ export function GenerateActionBar({
     }
     if (!hasResource) {
       onGenerate()
-      return
-    }
-    // 有资源 + 堆叠到当前节点 + editing → 弹出确认
-    if (editing && effectiveTarget === 'current') {
-      setConfirmOpen(true)
       return
     }
     executeGenerate()
@@ -386,8 +368,9 @@ export function GenerateActionBar({
 
         {/* Generate button (+ target toggle when node has resource) */}
         <div className="relative">
-          {hasResource ? (
+          {hasResource && !editing ? (
             // 逻辑：有资源时显示两个并排按钮；主按钮执行当前模式，右侧按钮切换目标。
+            // 编辑模式下只能重新生成到当前节点，不显示 target 切换。
             <div className={[
               'inline-flex items-stretch overflow-hidden rounded-full',
               isButtonDisabled ? 'opacity-50' : '',
@@ -439,45 +422,6 @@ export function GenerateActionBar({
             </button>
           )}
 
-          {/* Regenerate confirmation popover */}
-          {confirmOpen ? (
-            <div
-              ref={confirmRef}
-              className="absolute right-0 bottom-[calc(100%+8px)] z-50 flex flex-col gap-1.5 rounded-xl border border-border bg-card p-2.5 shadow-lg min-w-[180px]"
-            >
-              <span className="text-[11px] text-muted-foreground">
-                {t('generateAction.confirmStackHint', { defaultValue: '将在当前节点上堆叠生成' })}
-              </span>
-              <div className="flex flex-col gap-1">
-                <button
-                  type="button"
-                  className={[
-                    'inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-[11px] font-medium transition-colors duration-150',
-                    buttonClassName,
-                  ].join(' ')}
-                  onClick={() => {
-                    setConfirmOpen(false)
-                    onGenerate()
-                  }}
-                >
-                  <Sparkles size={10} />
-                  {t('generateAction.confirmRegenerate', { defaultValue: '确认重新生成' })}
-                </button>
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-1 rounded-full px-2.5 py-1.5 text-[11px] font-medium text-muted-foreground border border-border hover:bg-foreground/5 transition-colors duration-150"
-                  onClick={() => {
-                    setConfirmOpen(false)
-                    updateTarget('new-node')
-                    onGenerateNewNode()
-                  }}
-                >
-                  <ArrowRight size={10} />
-                  {t('generateAction.newNode', { defaultValue: '在新节点中生成' })}
-                </button>
-              </div>
-            </div>
-          ) : null}
         </div>
 
         <SaasLoginDialog open={loginOpen} onOpenChange={setLoginOpen} />

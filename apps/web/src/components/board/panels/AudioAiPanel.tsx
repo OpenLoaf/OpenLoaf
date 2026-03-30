@@ -8,7 +8,7 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import { type GenerateTarget } from './GenerateActionBar'
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Mic, Music, Volume2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { VariantFormTransition } from './variants/shared/VariantFormTransition'
@@ -17,9 +17,10 @@ import type { V3Variant } from '@/lib/saas-media'
 import type { UpstreamData } from '../engine/upstream-data'
 import { GenerateActionBar } from './GenerateActionBar'
 import { serializeForGenerate } from './variants/serialize'
-import type { MediaReference, MediaType } from './variants/slot-types'
+import type { MediaType, PersistedSlotMap } from './variants/slot-types'
 import { InputSlotBar } from './variants/shared'
-import type { AiGenerateConfig, BoardFileContext, VariantSnapshot } from '../board-contracts'
+import type { BoardFileContext, VariantSnapshot } from '../board-contracts'
+import { getPrimaryEntry } from '../engine/version-stack'
 import type { AudioNodeProps } from '../nodes/AudioNode'
 import { GenericVariantForm } from './variants/shared/GenericVariantForm'
 import { useVariantPanel } from './hooks/useVariantPanel'
@@ -27,6 +28,7 @@ import { useVariantCache } from './hooks/useVariantCache'
 import { useSlotHandlers } from './hooks/useSlotHandlers'
 import { CapabilitiesFallback } from './shared/CapabilitiesFallback'
 import { FeatureTabBar } from './shared/FeatureTabBar'
+import { MEDIA_FEATURES, type MediaFeatureId } from '@openloaf-saas/sdk'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -165,6 +167,7 @@ export function AudioAiPanel({
     : ''
   const cache = useVariantCache({
     initialCache: aiConfig?.cache,
+    paused: editing,
     onFlush: (cacheMap) => {
       onUpdate({
         aiConfig: {
@@ -174,6 +177,65 @@ export function AudioAiPanel({
       })
     },
   })
+
+  // ── Draft mode — snapshot/restore on edit cancel ──
+  const editSnapshotRef = useRef<Record<string, VariantSnapshot> | null>(null)
+  const [cancelCounter, setCancelCounter] = useState(0)
+
+  useEffect(() => {
+    if (editing) {
+      editSnapshotRef.current = cache.takeSnapshot()
+    }
+  }, [editing, cache])
+
+  const handleCancelEdit = useCallback(() => {
+    if (editSnapshotRef.current) {
+      cache.restoreSnapshot(editSnapshotRef.current)
+      cache.flushNow()
+      editSnapshotRef.current = null
+    }
+    setCancelCounter(c => c + 1)
+    onCancelEdit?.()
+  }, [cache, onCancelEdit])
+
+  // ── Per-version params — derive effective snapshot from version entry ──
+  const primaryEntry = useMemo(
+    () => getPrimaryEntry(element.props.versionStack),
+    [element.props.versionStack],
+  )
+
+  const effectiveSnapshot = useMemo<VariantSnapshot | undefined>(() => {
+    if (readonly && !editing && primaryEntry?.input?.parameters) {
+      const p = primaryEntry.input.parameters as {
+        feature?: string
+        variant?: string
+        inputs?: Record<string, unknown>
+        params?: Record<string, unknown>
+        count?: number
+      }
+      return {
+        inputs: p.inputs ?? {},
+        params: p.params ?? {},
+        count: p.count,
+      }
+    }
+    return cache.get(cacheKey)
+  }, [readonly, editing, primaryEntry, cache, cacheKey])
+
+  // Auto-select feature/variant matching the viewed version (readonly OR editing mode)
+  useEffect(() => {
+    if (!readonly) return
+    const params = primaryEntry?.input?.parameters as {
+      feature?: string
+      variant?: string
+    } | undefined
+    if (params?.feature && params.feature !== selectedFeatureId) {
+      setSelectedFeatureId(params.feature)
+    }
+    if (params?.variant && params.variant !== selectedVariantId) {
+      setSelectedVariantId(params.variant)
+    }
+  }, [readonly, editing, primaryEntry, selectedFeatureId, selectedVariantId, setSelectedFeatureId, setSelectedVariantId])
 
   // ── Generate target persistence ──
   const handleTargetChange = useCallback((next: GenerateTarget) => {
@@ -200,7 +262,6 @@ export function AudioAiPanel({
   )
 
   // ── Slot system ──
-  const cachedSlotAssignment = cache.get(cacheKey)?.slotAssignment
   const { resolvedSlots, slotsValid, handleSlotInputsChange, handleSlotAssignmentPersist, handleUserTextsChange } = useSlotHandlers(cache, cacheKey)
 
   // ── Derived state ──
@@ -297,32 +358,43 @@ export function AudioAiPanel({
         />
       ) : null}
 
-      {/* ---- Feature Tab Row ---- */}
+      {/* ---- Feature Tab Row / locked label ---- */}
       {!showFallback ? (
-        <FeatureTabBar
-          features={features}
-          selectedFeatureId={selectedFeatureId}
-          onSelect={(id) => {
-            setSelectedFeatureId(id)
-            setSelectedVariantId(null)
-          }}
-          isVariantApplicable={isVariantApplicable}
-          prefLang={prefLang}
-          disabled={readonly && !editing}
-          iconMap={FEATURE_ICON_MAP}
-          renderBadge={renderBadge}
-          showEmpty
-        />
+        editing ? (
+          <div className="px-1 py-1">
+            <span className="text-[12px] font-medium text-muted-foreground">
+              {selectedFeature?.displayName
+                || MEDIA_FEATURES[selectedFeatureId as MediaFeatureId]?.label[prefLang]
+                || selectedFeatureId}
+            </span>
+          </div>
+        ) : (
+          <FeatureTabBar
+            features={features}
+            selectedFeatureId={selectedFeatureId}
+            onSelect={(id) => {
+              setSelectedFeatureId(id)
+              setSelectedVariantId(null)
+            }}
+            isVariantApplicable={isVariantApplicable}
+            prefLang={prefLang}
+            disabled={readonly}
+            iconMap={FEATURE_ICON_MAP}
+            renderBadge={renderBadge}
+            showEmpty
+          />
+        )
       ) : null}
 
       {/* ---- InputSlotBar ---- */}
       {mergedSlots?.length && selectedVariant ? (
         <InputSlotBar
+          key={`${selectedFeatureId}:${selectedVariant.id}:${readonly && !editing ? primaryEntry?.id : 'edit'}:${cancelCounter}`}
           slots={mergedSlots}
           upstream={rawUpstream ?? { textList: [], imageList: [], videoList: [], audioList: [], entries: [] }}
           fileContext={fileContext}
-          cachedAssignment={cachedSlotAssignment}
-          cachedUserTexts={cache.get(cacheKey)?.userTexts}
+          cachedAssignment={effectiveSnapshot?.slotAssignment as PersistedSlotMap | undefined}
+          cachedUserTexts={effectiveSnapshot?.userTexts}
           onAssignmentChange={handleSlotInputsChange}
           onSlotAssignmentChange={handleSlotAssignmentPersist}
           onUserTextsChange={handleUserTextsChange}
@@ -331,12 +403,12 @@ export function AudioAiPanel({
       ) : null}
 
       {/* ---- Variant Form ---- */}
-      <VariantFormTransition variantKey={selectedVariant ? (selectedVariant.id || resolvedVariantId) : null}>
+      <VariantFormTransition variantKey={selectedVariant ? `${selectedVariant.id}:${readonly && !editing ? primaryEntry?.id : 'edit'}:${cancelCounter}` : null}>
         <GenericVariantForm
           variantId={selectedVariant!.id}
           upstream={variantUpstream}
           disabled={readonly && !editing}
-          initialParams={cache.get(cacheKey)}
+          initialParams={effectiveSnapshot}
           onParamsChange={handleParamsChange}
           onWarningChange={setVariantWarning}
           resolvedSlots={resolvedSlots}
@@ -381,7 +453,7 @@ export function AudioAiPanel({
           readonly={readonly}
           editing={editing}
           onUnlock={onUnlock}
-          onCancelEdit={onCancelEdit}
+          onCancelEdit={handleCancelEdit}
           estimateParams={pricingParams}
           warningMessage={variantWarning}
           initialTarget={aiConfig?.generateTarget}
@@ -391,7 +463,7 @@ export function AudioAiPanel({
             displayName: v.displayName || v.featureTabName || v.id,
           })) : undefined}
           selectedVariantId={resolvedVariantId ?? undefined}
-          onVariantChange={setSelectedVariantId}
+          onVariantChange={editing ? undefined : setSelectedVariantId}
         />
       ) : null}
     </div>
