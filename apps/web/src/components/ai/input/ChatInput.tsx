@@ -438,6 +438,31 @@ export function ChatInputBox({
     };
   }, [insertFileMention, normalizeFileRef]);
 
+  // 监听从 Chat 容器转发的系统文件拖拽事件，上传并插入 mention。
+  useEffect(() => {
+    const handleDropFiles = async (event: Event) => {
+      const files = (event as CustomEvent<{ files?: File[] }>).detail?.files;
+      if (!files?.length) return;
+      if (uploadFileToSession) {
+        for (const file of files) {
+          const storedPath = await uploadFileToSession(file);
+          if (storedPath) {
+            insertTextAtSelection(`@{${storedPath}}`, {
+              ensureLeadingSpace: true,
+              ensureTrailingSpace: true,
+            });
+          }
+        }
+      } else if (onAddAttachments) {
+        onAddAttachments(files as unknown as FileList);
+      }
+    };
+    window.addEventListener("openloaf:chat-drop-files", handleDropFiles);
+    return () => {
+      window.removeEventListener("openloaf:chat-drop-files", handleDropFiles);
+    };
+  }, [uploadFileToSession, insertTextAtSelection, onAddAttachments]);
+
   return (
     <div
       ref={inputContainerRef}

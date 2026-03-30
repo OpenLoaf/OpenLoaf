@@ -29,6 +29,7 @@ import { useVariantCache } from './hooks/useVariantCache'
 import { useSlotHandlers } from './hooks/useSlotHandlers'
 import { CapabilitiesFallback } from './shared/CapabilitiesFallback'
 import { FeatureTabBar } from './shared/FeatureTabBar'
+import { MEDIA_FEATURES, type MediaFeatureId } from '@openloaf-saas/sdk'
 
 // ---------------------------------------------------------------------------
 // Exported types
@@ -228,9 +229,10 @@ export function ImageAiPanel({
     return cache.get(activeKey)
   }, [readonly, editing, primaryEntry, cache, activeKey])
 
-  // Auto-select feature/variant matching the viewed version (readonly mode)
+  // Auto-select feature/variant matching the viewed version (readonly OR editing mode)
+  // In editing mode, lock to the previously generated feature/variant.
   useEffect(() => {
-    if (!readonly || editing) return
+    if (!readonly) return
     const params = primaryEntry?.input?.parameters as {
       feature?: string
       variant?: string
@@ -442,11 +444,14 @@ export function ImageAiPanel({
   )
 
   // ── Node resource descriptor for InputSlotBar ──
+  // In editing mode the current node's own source should NOT auto-fill slots;
+  // it is the output being re-generated, not an input reference.
   const nodeResource = useMemo(() => {
+    if (editing) return undefined
     const path = element.props.originalSrc
     if (!path) return undefined
     return { type: 'image' as const, path, url: resolvedImageSrc }
-  }, [element.props.originalSrc, resolvedImageSrc])
+  }, [element.props.originalSrc, resolvedImageSrc, editing])
 
   const variantUpstream = useMemo(() => ({
     textContent: upstreamText,
@@ -469,15 +474,25 @@ export function ImageAiPanel({
         <CapabilitiesFallback loading={capsLoading} error={capsError} onRetry={capsRefresh} />
       ) : null}
 
-      {/* ── Feature Tabs ── */}
-      <FeatureTabBar
-        features={features}
-        selectedFeatureId={selectedFeatureId}
-        onSelect={handleFeatureSelect}
-        isVariantApplicable={isVariantApplicable}
-        prefLang={prefLang}
-        disabled={readonly && !editing}
-      />
+      {/* ── Feature Tabs / locked label ── */}
+      {editing ? (
+        <div className="px-1 py-1">
+          <span className="text-[12px] font-medium text-muted-foreground">
+            {selectedFeature?.displayName
+              || MEDIA_FEATURES[selectedFeatureId as MediaFeatureId]?.label[prefLang]
+              || selectedFeatureId}
+          </span>
+        </div>
+      ) : (
+        <FeatureTabBar
+          features={features}
+          selectedFeatureId={selectedFeatureId}
+          onSelect={handleFeatureSelect}
+          isVariantApplicable={isVariantApplicable}
+          prefLang={prefLang}
+          disabled={readonly}
+        />
+      )}
 
       {/* ── InputSlotBar (V3 declarative slot assignment) ── */}
       {mergedSlots?.length && selectedVariant ? (
@@ -551,7 +566,7 @@ export function ImageAiPanel({
             }
           })}
         selectedVariantId={selectedVariant?.id}
-        onVariantChange={setSelectedVariantId}
+        onVariantChange={editing ? undefined : setSelectedVariantId}
       /> : null}
     </div>
   )

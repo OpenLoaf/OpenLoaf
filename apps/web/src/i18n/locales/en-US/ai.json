@@ -448,6 +448,17 @@
       "mergePdfs": "Merge PDFs",
       "addText": "Add text overlays",
       "screenshotPage": "Page {{page}} of {{total}}"
+    },
+    "fileInfo": {
+      "colorSpace": "Color Space",
+      "density": "Density",
+      "animated": "Animated",
+      "codec": "Codec",
+      "bitRate": "Bit Rate",
+      "pageCount": "{{count}} pages",
+      "formFields": "{{count}} form fields",
+      "sheetCount": "{{count}} sheets",
+      "moreSheets": "more"
     }
   },
   "error": {

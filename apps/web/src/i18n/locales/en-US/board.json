@@ -1161,6 +1161,13 @@
       "selectVariant": "Select Model Variant",
       "credits": "Credits",
       "creditsPerCall": "{{credits}} credits/call",
+      "creditsWithUnit": "≈{{credits}} credits{{unit}}",
+      "billingUnit": {
+        "per_call": "",
+        "per_second": "/s",
+        "per_character": "/char",
+        "per_token": "/token"
+      },
       "membershipRequired": "Requires {{level}} membership",
       "noVariants": "No variants available",
       "loading": "Loading capabilities...",

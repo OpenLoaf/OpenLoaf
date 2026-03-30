@@ -43,6 +43,7 @@ import ClaudeCodeEditTool from './ClaudeCodeEditTool'
 import ClaudeCodeSearchTool from './ClaudeCodeSearchTool'
 import ClaudeCodeWebTool from './ClaudeCodeWebTool'
 import ClaudeCodeTaskTool from './ClaudeCodeTaskTool'
+import FileInfoTool from './FileInfoTool'
 
 export type ToolComponentProps = {
   part: AnyToolPart
@@ -118,6 +119,7 @@ export const TOOL_REGISTRY: ToolRegistryEntry[] = [
   { match: 'browser-screenshot', component: BrowserScreenshotTool as ComponentType<ToolComponentProps> },
   { match: ['task-manage', 'create-task'], component: TaskTool as ComponentType<ToolComponentProps> },
   { match: 'project-mutate', component: ProjectTool as ComponentType<ToolComponentProps> },
+  { match: 'file-info', component: FileInfoTool as ComponentType<ToolComponentProps> },
 ]
 
 /** Look up a registry entry by tool kind. */

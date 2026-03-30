@@ -110,6 +110,7 @@ function parseAiExecuteRequest(body: unknown): { request?: AiExecuteRequest; err
       serverVersion: toText(raw.serverVersion) || undefined,
       desktopVersion: toText(raw.desktopVersion) || undefined,
       messageIdChain: normalizeMessageIdChain(raw.messageIdChain),
+      autoApproveTools: raw.autoApproveTools === true ? true : undefined,
     },
   };
 }

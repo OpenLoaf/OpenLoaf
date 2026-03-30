@@ -63,13 +63,15 @@ import {
   buildVideoPosterFromFile,
   getAudioDuration,
   resolveViewerType,
+  getMediaTypeFromUrl,
 } from "../utils/board-asset";
+import { IMAGE_NODE_DEFAULT_MAX_SIZE } from "../nodes/node-config";
+import { resolveServerUrl } from "@/utils/server-url";
 import { GroupedNodePicker } from "./GroupedNodePicker";
-import { extractAudioFromVideo } from "../nodes/VideoNode";
 import {
   computeOutputTemplates,
   computeInputTemplates,
-  type TemplateGroup,
+  type TemplateList,
   type TemplateItem,
 } from "../engine/dynamic-templates";
 import { useAllCapabilities, ensureAllCapabilitiesLoaded, refreshAllCapabilities } from "@/hooks/use-capabilities";
@@ -733,6 +735,35 @@ function BoardCanvasInteractionInner({
     return () => unsubscribe();
   }, [engine]);
 
+  // 逻辑：注册 URL 插入处理器，让 CanvasEngine 的 paste 也走媒体 URL 检测。
+  useEffect(() => {
+    const handler = async (url: string): Promise<boolean> => {
+      const center = engine.getViewportCenterWorld()
+      const mediaType = getMediaTypeFromUrl(url)
+      if (mediaType === 'image') {
+        void insertImageFromUrl(url, center)
+        return true
+      }
+      if (mediaType === 'video') {
+        void insertVideoFromUrl(url, center)
+        return true
+      }
+      if (mediaType === 'audio') {
+        void insertAudioFromUrl(url, center)
+        return true
+      }
+      if (isVideoPlatformUrl(url)) {
+        void insertVideoFromUrl(url, center)
+        return true
+      }
+      return false
+    }
+    engine.setUrlInsertHandler(handler)
+    return () => {
+      engine.setUrlInsertHandler(null)
+    }
+  }, [engine])
+
   useEffect(() => {
     if (!showUi) return;
     const handleGlobalPaste = (event: ClipboardEvent) => {
@@ -771,18 +802,7 @@ function BoardCanvasInteractionInner({
         event.stopPropagation();
         const center =
           lastPointerWorldRef.current ?? engine.getViewportCenterWorld();
-        if (isVideoPlatformUrl(urlPayload.url)) {
-          void insertVideoFromUrl(urlPayload.url, center);
-        } else {
-          const linkPayload = buildLinkNodePayloadFromUrl(urlPayload.url);
-          const [width, height] = linkPayload.size;
-          engine.addNodeElement("link", linkPayload.props, [
-            center[0] - width / 2,
-            center[1] - height / 2,
-            width,
-            height,
-          ]);
-        }
+        void insertUrlAtPoint(urlPayload.url, center);
       }
     };
     document.addEventListener("paste", handleGlobalPaste, { capture: true });
@@ -1090,20 +1110,118 @@ function BoardCanvasInteractionInner({
     }
   };
 
-  /** Insert a URL at a canvas point: known video platforms go to download, others create link node. */
-  const insertUrlAtPoint = async (url: string, center: CanvasPoint) => {
-    if (isVideoPlatformUrl(url)) {
-      await insertVideoFromUrl(url, center);
-      return;
+  /** Download a URL via server and save to board assets. Returns file metadata. */
+  const downloadUrlViaServer = async (url: string) => {
+    const bfUri = fileContext?.boardFolderUri ?? boardFolderUri
+    const baseUrl = resolveServerUrl() || ''
+    const response = await fetch(`${baseUrl}/media/url-download`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        url,
+        boardFolderUri: bfUri,
+        projectId: fileContext?.projectId,
+        boardId: fileContext?.boardId,
+      }),
+    })
+    const json = await response.json()
+    if (!json.success || !json.data) {
+      throw new Error(json.error || 'Download failed')
     }
-    const linkPayload = buildLinkNodePayloadFromUrl(url);
-    const [width, height] = linkPayload.size;
+    return json.data as {
+      relativePath: string
+      fileName: string
+      mimeType: string
+      width?: number
+      height?: number
+    }
+  }
+
+  /** Insert an image node from a remote URL via server-side download. */
+  const insertImageFromUrl = async (url: string, center: CanvasPoint) => {
+    try {
+      // 逻辑：通过服务端下载图片到 board assets，避免 CORS 限制。
+      const data = await downloadUrlViaServer(url)
+      const w = data.width || 300
+      const h = data.height || 300
+      const [nodeW, nodeH] = fitSize(w, h, IMAGE_NODE_DEFAULT_MAX_SIZE)
+      engine.addNodeElement("image", {
+        previewSrc: '',
+        originalSrc: data.relativePath,
+        mimeType: data.mimeType,
+        fileName: data.fileName,
+        naturalWidth: w,
+        naturalHeight: h,
+      }, [
+        center[0] - nodeW / 2,
+        center[1] - nodeH / 2,
+        nodeW,
+        nodeH,
+      ])
+    } catch {
+      // 逻辑：下载失败时回退为普通链接节点。
+      insertLinkAtPoint(url, center)
+    }
+  }
+
+  /** Insert an audio node from a remote URL via server-side download. */
+  const insertAudioFromUrl = async (url: string, center: CanvasPoint) => {
+    try {
+      // 逻辑：通过服务端下载音频到 board assets，避免 CORS 限制。
+      const data = await downloadUrlViaServer(url)
+      engine.addNodeElement(
+        "audio",
+        {
+          sourcePath: data.relativePath,
+          fileName: data.fileName,
+          mimeType: data.mimeType,
+        },
+        [
+          center[0] - DEFAULT_AUDIO_NODE_WIDTH / 2,
+          center[1] - DEFAULT_AUDIO_NODE_HEIGHT / 2,
+          DEFAULT_AUDIO_NODE_WIDTH,
+          DEFAULT_AUDIO_NODE_HEIGHT,
+        ],
+      )
+    } catch {
+      // 逻辑：音频下载失败时回退为普通链接节点。
+      insertLinkAtPoint(url, center)
+    }
+  }
+
+  /** Insert a plain link node at a canvas point. */
+  const insertLinkAtPoint = (url: string, center: CanvasPoint) => {
+    const linkPayload = buildLinkNodePayloadFromUrl(url)
+    const [width, height] = linkPayload.size
     engine.addNodeElement("link", linkPayload.props, [
       center[0] - width / 2,
       center[1] - height / 2,
       width,
       height,
-    ]);
+    ])
+  }
+
+  /** Insert a URL at a canvas point: detect media type, video platforms, or fall back to link. */
+  const insertUrlAtPoint = async (url: string, center: CanvasPoint) => {
+    // 逻辑：优先检测 URL 扩展名判断媒体类型，直接创建对应节点。
+    const mediaType = getMediaTypeFromUrl(url)
+    if (mediaType === 'image') {
+      await insertImageFromUrl(url, center)
+      return
+    }
+    if (mediaType === 'video') {
+      await insertVideoFromUrl(url, center)
+      return
+    }
+    if (mediaType === 'audio') {
+      await insertAudioFromUrl(url, center)
+      return
+    }
+    if (isVideoPlatformUrl(url)) {
+      await insertVideoFromUrl(url, center);
+      return;
+    }
+    insertLinkAtPoint(url, center)
   };
 
   /** Insert audio files at a canvas point: save to board assets, get duration, add nodes. */
@@ -1408,7 +1526,7 @@ function BoardCanvasInteractionInner({
     }
   };
 
-  const availableTemplateGroups = useMemo((): TemplateGroup[] => {
+  const availableTemplateItems = useMemo((): TemplateList => {
     if (!snapshot.connectorDrop) return [];
     const isBackward = snapshot.connectorDrop.direction === 'backward';
     const sourceElementId =
@@ -1421,7 +1539,6 @@ function BoardCanvasInteractionInner({
     if (!source || source.kind !== "node") return [];
     const definition = engine.nodes.getDefinition(source.type);
     if (!definition) return [];
-    // 逻辑：forward 拖拽根据源节点 outputTypes 动态计算可连目标；backward 拖拽根据目标节点类型反推上游。
     if (isBackward) {
       return computeInputTemplates(source.type);
     }
@@ -1438,35 +1555,9 @@ function BoardCanvasInteractionInner({
         ? snapshot.connectorDrop.source.elementId
         : "";
 
-    // 固定操作：分离音频
-    if (item.featureId === 'extractAudio' && sourceElementId) {
-      const sourceEl = engine.doc.getElementById(sourceElementId);
-      if (sourceEl?.kind === 'node' && sourceEl.type === 'video') {
-        void extractAudioFromVideo({
-          engine,
-          sourceNodeId: sourceElementId,
-          props: sourceEl.props as import('../nodes/VideoNode').VideoNodeProps,
-          fileContext,
-        });
-      }
-      engine.setConnectorDrop(null);
-      engine.setConnectorDraft(null);
-      engine.setConnectorHover(null);
-      return;
-    }
-
     const type = item.nodeType;
     const [width, height] = item.nodeSize;
-    // 逻辑：根据 preselect 设置 aiConfig，面板打开时自动选中对应 feature/variant。
     const props: Record<string, unknown> = {};
-    if (item.preselect.featureId && item.preselect.variantId) {
-      props.aiConfig = {
-        lastUsed: {
-          feature: item.preselect.featureId,
-          variant: item.preselect.variantId,
-        },
-      };
-    }
     // 逻辑：text 节点创建时设置默认便签样式。
     if (type === 'text') {
       props.style = 'sticky';
@@ -1846,7 +1937,7 @@ function BoardCanvasInteractionInner({
           <ConnectorDropPanel
             engine={engine}
             snapshot={snapshot}
-            groups={availableTemplateGroups}
+            items={availableTemplateItems}
             loading={capLoading}
             error={capError}
             onRetry={refreshAllCapabilities}
@@ -1932,29 +2023,20 @@ function BoardCanvasInteractionInner({
 export const BoardCanvasInteraction = memo(BoardCanvasInteractionInner);
 
 type ConnectorDropPanelProps = {
-  /** Canvas engine instance. */
   engine: CanvasEngine;
-  /** Snapshot used for drop positioning. */
   snapshot: CanvasSnapshot;
-  /** Template groups for the grouped picker. */
-  groups: TemplateGroup[];
-  /** capabilities 加载中。 */
+  items: TemplateList;
   loading?: boolean;
-  /** capabilities 加载错误。 */
   error?: string | null;
-  /** 重试加载。 */
   onRetry?: () => void;
-  /** Selection handler for template items. */
   onSelect: (item: TemplateItem) => void;
-  /** Ref for the picker panel element. */
   panelRef: RefObject<HTMLDivElement | null>;
 };
 
-/** Render the connector drop picker at the correct viewport position. */
 function ConnectorDropPanel({
   engine,
   snapshot,
-  groups,
+  items,
   loading,
   error,
   onRetry,
@@ -1985,7 +2067,7 @@ function ConnectorDropPanel({
       ref={panelRef}
       position={screen}
       align={align}
-      groups={groups}
+      items={items}
       loading={loading}
       error={error}
       onRetry={onRetry}

@@ -1129,8 +1129,12 @@ export function Chat({
         dragCounterRef.current = 0;
         setIsDragActive(false);
         setDragMode("allow");
-        if (!canAttachImage) return;
-        addAttachments(droppedFiles);
+        // 将系统文件拖拽转发给 ChatInput 处理（上传 + 插入 mention）
+        window.dispatchEvent(
+          new CustomEvent("openloaf:chat-drop-files", {
+            detail: { files: droppedFiles },
+          })
+        );
         return;
       }
       if (!fileRef) return;

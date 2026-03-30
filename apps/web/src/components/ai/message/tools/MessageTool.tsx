@@ -66,7 +66,7 @@ export default function MessageTool({
   const entry = findToolEntry(toolKind, providerExecuted, resolvedPart);
   if (entry) {
     return (
-      <div className="max-w-sm">
+      <div className="max-w-lg">
         {createElement(entry.component, {
           part: resolvedPart,
           className,
@@ -84,7 +84,7 @@ export default function MessageTool({
     const nonProviderEntry = findToolEntry(toolKind, false, resolvedPart);
     if (nonProviderEntry) {
       return (
-        <div className="max-w-sm">
+        <div className="max-w-lg">
           {createElement(nonProviderEntry.component, {
             part: resolvedPart,
             className,
@@ -106,7 +106,7 @@ export default function MessageTool({
   if (isCompleted && !hasError && !basic.chatShowAllToolResults) return null
 
   return (
-    <div className="max-w-sm">
+    <div className="max-w-lg">
       <UnifiedTool part={resolvedPart} className={className} variant={variant} messageId={messageId} />
     </div>
   );

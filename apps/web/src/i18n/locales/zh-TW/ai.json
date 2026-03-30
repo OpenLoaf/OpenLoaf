@@ -448,6 +448,17 @@
       "mergePdfs": "合併 PDF",
       "addText": "新增文字疊加",
       "screenshotPage": "第 {{page}} 頁 / 共 {{total}} 頁"
+    },
+    "fileInfo": {
+      "colorSpace": "色彩空間",
+      "density": "密度",
+      "animated": "動畫",
+      "codec": "編碼",
+      "bitRate": "位元率",
+      "pageCount": "{{count}} 頁",
+      "formFields": "{{count}} 個表單欄位",
+      "sheetCount": "{{count}} 個工作表",
+      "moreSheets": "更多"
     }
   },
   "error": {

@@ -863,6 +863,7 @@ export async function getFilePreview(input: {
     ".mov": "video/quicktime",
     ".mp3": "audio/mpeg",
     ".wav": "audio/wav",
+    ".x-wav": "audio/wav",
     ".ogg": "audio/ogg",
     ".flac": "audio/flac",
     ".opus": "audio/opus",

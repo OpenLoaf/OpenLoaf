@@ -17,6 +17,8 @@ import type { UpstreamData } from "../engine/upstream-data";
 import { useCallback, useEffect, useMemo } from "react";
 import { z } from "zod";
 import {
+  ChevronLeft,
+  ChevronRight,
   Download,
   Music,
   Play,
@@ -24,7 +26,8 @@ import {
 } from "lucide-react";
 import i18next from "i18next";
 import { openFilePreview } from "@/components/file/lib/file-preview-store";
-import type { BoardFileContext, AiGenerateConfig } from "../board-contracts";
+import type { BoardFileContext } from "../board-contracts";
+import { BOARD_TOOLBAR_ITEM_DEFAULT } from "../ui/board-style-system";
 import { useBoardContext } from "../core/BoardProvider";
 import {
   formatScopedProjectPath,
@@ -47,6 +50,7 @@ import { useEffectiveUpstream } from './shared/useEffectiveUpstream';
 import { useMediaGeneration, type SubmitOptions } from './shared/useMediaGeneration';
 import {
   createInputSnapshot,
+  getPrimaryEntry,
   markVersionReady,
   removeFailedEntry,
   switchPrimary,
@@ -90,6 +94,20 @@ async function downloadAudioFile(
   await downloadMediaFile({ src: sourcePath, fileName, fileContext, filterLabel: 'Audio' })
 }
 
+/** Build the props patch for switching audio version stack primary. */
+function buildAudioSwitchPrimaryPatch(
+  stack: import("../engine/types").VersionStack,
+  entryId: string,
+): Partial<AudioNodeProps> {
+  const newStack = switchPrimary(stack, entryId)
+  const newPrimary = newStack.entries.find((e) => e.id === entryId)
+  const patch: Partial<AudioNodeProps> = { versionStack: newStack }
+  if (newPrimary?.output?.urls[0]) {
+    patch.sourcePath = newPrimary.output.urls[0]
+  }
+  return patch
+}
+
 /** Build toolbar items for audio nodes. */
 function createAudioToolbarItems(
   ctx: CanvasToolbarContext<AudioNodeProps>,
@@ -103,6 +121,7 @@ function createAudioToolbarItems(
         id: 'upload',
         label: i18next.t('board:toolbar.upload', { defaultValue: '上传' }),
         icon: <Upload size={14} />,
+        className: BOARD_TOOLBAR_ITEM_DEFAULT,
         onSelect: () => {
           document.dispatchEvent(new CustomEvent('board:trigger-upload', { detail: ctx.element.id }));
         },
@@ -110,19 +129,55 @@ function createAudioToolbarItems(
     ]
   }
 
-  const items: ReturnType<typeof Array<any>>  = []
+  const items: import("../engine/types").CanvasToolbarItem[] = []
+
+  // 逻辑：版本堆叠 > 1 时在工具栏添加上一个/下一个导航按钮。
+  const stack = ctx.element.props.versionStack
+  const count = stack?.entries.length ?? 0
+  if (stack && count > 1) {
+    const primary = getPrimaryEntry(stack)
+    const currentIdx = primary
+      ? stack.entries.findIndex((e) => e.id === primary.id)
+      : 0
+    items.push(
+      {
+        id: 'version-prev',
+        label: i18next.t('board:versionStack.prev'),
+        showLabel: true,
+        icon: <ChevronLeft size={14} />,
+        className: [BOARD_TOOLBAR_ITEM_DEFAULT, currentIdx <= 0 ? 'opacity-30' : ''].join(' '),
+        onSelect: () => {
+          if (currentIdx <= 0) return
+          ctx.updateNodeProps(buildAudioSwitchPrimaryPatch(stack, stack.entries[currentIdx - 1].id))
+        },
+      },
+      {
+        id: 'version-next',
+        label: i18next.t('board:versionStack.next'),
+        showLabel: true,
+        icon: <ChevronRight size={14} />,
+        className: [BOARD_TOOLBAR_ITEM_DEFAULT, currentIdx >= count - 1 ? 'opacity-30' : ''].join(' '),
+        onSelect: () => {
+          if (currentIdx >= count - 1) return
+          ctx.updateNodeProps(buildAudioSwitchPrimaryPatch(stack, stack.entries[currentIdx + 1].id))
+        },
+      },
+    )
+  }
 
   items.push(
     {
       id: 'play',
       label: i18next.t('board:audioNode.toolbar.play'),
       icon: <Play size={14} />,
+      className: BOARD_TOOLBAR_ITEM_DEFAULT,
       onSelect: () => ctx.openInspector(ctx.element.id),
     },
     {
       id: 'download',
       label: i18next.t('board:audioNode.toolbar.download'),
       icon: <Download size={14} />,
+      className: BOARD_TOOLBAR_ITEM_DEFAULT,
       onSelect: () =>
         void downloadAudioFile(ctx.element.props, ctx.fileContext),
     },
@@ -388,12 +443,12 @@ export function AudioNodeView({
         onSwitchPrimary={handleSwitchPrimary}
         engine={engine}
         selected={selected}
+        compact
       />
       <div
         className={[
-          "relative flex h-full w-full flex-col rounded-3xl border box-border",
-          "border-ol-divider bg-background text-ol-text-primary",
-          "",
+          "relative flex h-full w-full flex-col rounded-3xl box-border",
+          "bg-background text-ol-text-primary",
         ].join(" ")}
         onDoubleClick={(event) => {
           event.stopPropagation();

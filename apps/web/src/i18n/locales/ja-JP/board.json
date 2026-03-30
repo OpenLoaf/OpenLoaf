@@ -1130,6 +1130,13 @@
       "selectVariant": "モデルバリアントを選択",
       "credits": "クレジット",
       "creditsPerCall": "{{credits}} クレジット/回",
+      "creditsWithUnit": "≈{{credits}} クレジット{{unit}}",
+      "billingUnit": {
+        "per_call": "",
+        "per_second": "/s",
+        "per_character": "/char",
+        "per_token": "/token"
+      },
       "membershipRequired": "{{level}} メンバーシップが必要",
       "noVariants": "利用可能なバリアントがありません",
       "loading": "機能リストを読み込み中...",

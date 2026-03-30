@@ -695,6 +695,141 @@ export function InputSlotBar({
     [associatedRefs],
   )
 
+  // ---------------------------------------------------------------------------
+  // Drag-and-drop between media slots
+  // ---------------------------------------------------------------------------
+
+  const [dragOverSlot, setDragOverSlot] = useState<string | null>(null)
+  /** Media type of the item currently being dragged (null when idle). */
+  const [draggingMediaType, setDraggingMediaType] = useState<MediaType | null>(null)
+
+  const dragGhostRef = useRef<HTMLDivElement | null>(null)
+
+  const handleSlotDragStart = useCallback(
+    (e: React.DragEvent, ref: MediaReference, sourceSlot: string | null) => {
+      e.dataTransfer.setData(
+        'application/x-slot-media',
+        JSON.stringify({ ref, sourceSlot }),
+      )
+      e.dataTransfer.effectAllowed = 'move'
+      setDraggingMediaType(ref.nodeType as MediaType)
+
+      // Custom drag ghost: small thumbnail only
+      const ghost = document.createElement('div')
+      ghost.style.cssText = 'width:36px;height:36px;border-radius:8px;overflow:hidden;position:fixed;left:-9999px;top:-9999px;pointer-events:none;'
+      if (ref.nodeType === 'image') {
+        const img = document.createElement('img')
+        img.src = ref.url
+        img.style.cssText = 'width:100%;height:100%;object-fit:cover;'
+        ghost.appendChild(img)
+      } else {
+        ghost.style.cssText += 'background:rgba(0,0,0,0.1);display:flex;align-items:center;justify-content:center;font-size:14px;'
+        ghost.textContent = ref.nodeType === 'video' ? '🎬' : '🔊'
+      }
+      document.body.appendChild(ghost)
+      e.dataTransfer.setDragImage(ghost, 18, 18)
+      dragGhostRef.current = ghost
+    },
+    [],
+  )
+
+  const handleSlotDragEnd = useCallback(() => {
+    setDraggingMediaType(null)
+    setDragOverSlot(null)
+    if (dragGhostRef.current) {
+      dragGhostRef.current.remove()
+      dragGhostRef.current = null
+    }
+  }, [])
+
+  const handleSlotDragOver = useCallback(
+    (e: React.DragEvent, targetSlotKey: string, acceptType: MediaType) => {
+      if (!e.dataTransfer.types.includes('application/x-slot-media')) return
+      e.preventDefault()
+      if (draggingMediaType && draggingMediaType !== acceptType) {
+        e.dataTransfer.dropEffect = 'none'
+      } else {
+        e.dataTransfer.dropEffect = 'move'
+      }
+      setDragOverSlot(targetSlotKey)
+    },
+    [draggingMediaType],
+  )
+
+  const handleSlotDragLeave = useCallback(() => {
+    setDragOverSlot(null)
+  }, [])
+
+  const handleSlotDrop = useCallback(
+    (e: React.DragEvent, targetSlotKey: string, targetIndex?: number) => {
+      setDragOverSlot(null)
+      const raw = e.dataTransfer.getData('application/x-slot-media')
+      if (!raw) return
+      e.preventDefault()
+      try {
+        const { ref, sourceSlot } = JSON.parse(raw) as { ref: MediaReference; sourceSlot: string | null }
+
+        // Validate target slot accepts this media type
+        const targetSlot = slots.find((s) => s.role === targetSlotKey)
+        if (!targetSlot || targetSlot.accept !== ref.nodeType) return
+
+        if (sourceSlot === null) {
+          // From associated → slot (reuse existing handler)
+          handleAssociatedToSlot(ref, targetSlotKey)
+          return
+        }
+
+        if (sourceSlot === targetSlotKey) {
+          // Same slot group — reorder within multi-slot (or no-op for single)
+          if (targetSlot.max <= 1 || targetIndex == null) return
+          setSlotAssignments((prev) => {
+            const current = [...(prev[targetSlotKey] ?? [])]
+            const fromIdx = current.findIndex((r) => isMediaReference(r) && r.nodeId === ref.nodeId)
+            if (fromIdx < 0 || fromIdx === targetIndex) return prev
+            current.splice(fromIdx, 1)
+            current.splice(targetIndex, 0, ref)
+            return { ...prev, [targetSlotKey]: current }
+          })
+          return
+        }
+
+        // Different slot groups — move (swap if target is full)
+        setSlotAssignments((prev) => {
+          const next = { ...prev }
+          // Remove from source
+          const sourceRefs = [...(next[sourceSlot] ?? [])]
+          next[sourceSlot] = sourceRefs.filter((r) => !isMediaReference(r) || r.nodeId !== ref.nodeId)
+
+          const targetRefs = (next[targetSlotKey] ?? []).filter(isMediaReference)
+          if (targetSlot.max > 1 && targetRefs.length < targetSlot.max) {
+            // Multi-slot with space — just add
+            next[targetSlotKey] = [...(next[targetSlotKey] ?? []), ref]
+          } else if (targetRefs.length > 0) {
+            // Full — swap: evict first target ref back to source or associated
+            const evicted = targetRefs[0]
+            const srcSlot = slots.find((s) => s.role === sourceSlot)
+            if (srcSlot && srcSlot.accept === evicted.nodeType) {
+              // Put evicted into source slot
+              next[sourceSlot] = [...next[sourceSlot], evicted]
+            } else {
+              // Put evicted into associated
+              setAssociatedRefs((prevAssoc) => {
+                if (prevAssoc.some((r) => r.nodeId === evicted.nodeId)) return prevAssoc
+                return [...prevAssoc, evicted]
+              })
+            }
+            next[targetSlotKey] = [ref]
+          } else {
+            // Empty target
+            next[targetSlotKey] = [ref]
+          }
+          return next
+        })
+      } catch { /* ignore malformed data */ }
+    },
+    [slots, handleAssociatedToSlot],
+  )
+
   if (!slots || slots.length === 0) return null
 
   return (
@@ -767,64 +902,92 @@ export function InputSlotBar({
           const isMulti = slot.max > 1
           const positions: React.ReactNode[] = []
 
-          // Render filled positions
+          // Render filled positions (with drag-and-drop wrappers)
+          const isIncompatibleDrag = draggingMediaType != null && draggingMediaType !== slot.accept
           for (let i = 0; i < slot.max; i++) {
             const ref = assignedMedia[i]
+            const isDragOver = dragOverSlot === `${slot.role}:${i}`
+            const dropTargetKey = `${slot.role}:${i}`
+            const dropProps = {
+              onDragOver: (e: React.DragEvent) => handleSlotDragOver(e, dropTargetKey, slot.accept),
+              onDragLeave: handleSlotDragLeave,
+              onDrop: (e: React.DragEvent) => handleSlotDrop(e, slot.role, i),
+            }
+            const dropHighlight = isDragOver
+              ? isIncompatibleDrag
+                ? 'ring-2 ring-destructive/50 cursor-not-allowed opacity-50'
+                : 'ring-2 ring-primary/50'
+              : isIncompatibleDrag
+                ? 'opacity-40'
+                : ''
             if (ref) {
-              // Filled position
+              // Filled position — draggable + droppable
               const chipKey = `${slot.role}:${ref.nodeId}`
+              const dragProps = {
+                draggable: !disabled,
+                onDragStart: (e: React.DragEvent) => handleSlotDragStart(e, ref, slot.role),
+                onDragEnd: handleSlotDragEnd,
+              }
               if (matchingAssociated.length > 0) {
                 positions.push(
-                  <FilledSlotWithPopover
-                    key={chipKey} slotKey={slot.role} label="" currentRef={ref}
-                    required={false} disabled={disabled} uploadAccept={uploadAccept}
-                    mediaType={slot.accept} constraints={slotConstraints} candidates={matchingAssociated} variantUpstream={variantUpstream}
-                    onSwap={(newRef) => isMulti ? handleAssociatedToSlot(newRef, slot.role) : handleSlotSwapWithAssociated(slot.role, newRef)}
-                    onUpload={(v) => handleMediaUpload(slot.role, slot.accept, v)}
-                    onRemove={() => isMulti ? handleMediaRemove(slot.role, ref.nodeId) : handleMediaRemove(slot.role)}
-                    onValidationError={handleValidationError}
-                    t={t}
-                  />,
+                  <div key={chipKey} {...dragProps} {...dropProps} className={cn('rounded-xl transition-all duration-150', dropHighlight)}>
+                    <FilledSlotWithPopover
+                      slotKey={slot.role} label="" currentRef={ref}
+                      required={false} disabled={disabled} uploadAccept={uploadAccept}
+                      mediaType={slot.accept} constraints={slotConstraints} candidates={matchingAssociated} variantUpstream={variantUpstream}
+                      onSwap={(newRef) => isMulti ? handleAssociatedToSlot(newRef, slot.role) : handleSlotSwapWithAssociated(slot.role, newRef)}
+                      onUpload={(v) => handleMediaUpload(slot.role, slot.accept, v)}
+                      onRemove={() => isMulti ? handleMediaRemove(slot.role, ref.nodeId) : handleMediaRemove(slot.role)}
+                      onValidationError={handleValidationError}
+                      t={t}
+                    />
+                  </div>,
                 )
               } else {
                 positions.push(
-                  <MediaSlot
-                    key={chipKey} label="" src={ref.url}
-                    uploadAccept={uploadAccept} disabled={disabled}
-                    mediaType={slot.accept} constraints={slotConstraints}
-                    onUpload={(v) => handleMediaUpload(slot.role, slot.accept, v)}
-                    onRemove={() => isMulti ? handleMediaRemove(slot.role, ref.nodeId) : handleMediaRemove(slot.role)}
-                    onValidationError={handleValidationError}
-                    boardId={variantUpstream.boardId} projectId={variantUpstream.projectId}
-                    boardFolderUri={variantUpstream.boardFolderUri} compact
-                  />,
+                  <div key={chipKey} {...dragProps} {...dropProps} className={cn('rounded-xl transition-all duration-150', dropHighlight)}>
+                    <MediaSlot
+                      label="" src={ref.url}
+                      uploadAccept={uploadAccept} disabled={disabled}
+                      mediaType={slot.accept} constraints={slotConstraints}
+                      onUpload={(v) => handleMediaUpload(slot.role, slot.accept, v)}
+                      onRemove={() => isMulti ? handleMediaRemove(slot.role, ref.nodeId) : handleMediaRemove(slot.role)}
+                      onValidationError={handleValidationError}
+                      boardId={variantUpstream.boardId} projectId={variantUpstream.projectId}
+                      boardFolderUri={variantUpstream.boardFolderUri} compact
+                    />
+                  </div>,
                 )
               }
             } else {
-              // Empty position
+              // Empty position — droppable only
               if (matchingAssociated.length > 0 && !disabled) {
                 positions.push(
-                  <ActiveSlotWithPopover
-                    key={`${slot.role}:empty:${i}`} slotKey={slot.role} label=""
-                    required={false} disabled={disabled} pulse={false}
-                    uploadAccept={uploadAccept} mediaType={slot.accept} constraints={slotConstraints}
-                    candidates={matchingAssociated} variantUpstream={variantUpstream}
-                    onSelect={(r) => handleAssociatedToSlot(r, slot.role)}
-                    onUpload={(v) => handleMediaUpload(slot.role, slot.accept, v)}
-                    onValidationError={handleValidationError} t={t}
-                  />,
+                  <div key={`${slot.role}:empty:${i}`} {...dropProps} className={cn('rounded-xl transition-all duration-150', dropHighlight)}>
+                    <ActiveSlotWithPopover
+                      slotKey={slot.role} label=""
+                      required={false} disabled={disabled} pulse={false}
+                      uploadAccept={uploadAccept} mediaType={slot.accept} constraints={slotConstraints}
+                      candidates={matchingAssociated} variantUpstream={variantUpstream}
+                      onSelect={(r) => handleAssociatedToSlot(r, slot.role)}
+                      onUpload={(v) => handleMediaUpload(slot.role, slot.accept, v)}
+                      onValidationError={handleValidationError} t={t}
+                    />
+                  </div>,
                 )
               } else {
                 positions.push(
-                  <MediaSlot
-                    key={`${slot.role}:empty:${i}`} label="" icon={slotIconForType(slot.accept)}
-                    uploadAccept={uploadAccept} disabled={disabled}
-                    mediaType={slot.accept} constraints={slotConstraints}
-                    onUpload={(v) => handleMediaUpload(slot.role, slot.accept, v)}
-                    onValidationError={handleValidationError}
-                    boardId={variantUpstream.boardId} projectId={variantUpstream.projectId}
-                    boardFolderUri={variantUpstream.boardFolderUri} compact
-                  />,
+                  <div key={`${slot.role}:empty:${i}`} {...dropProps} className={cn('rounded-xl transition-all duration-150', dropHighlight)}>
+                    <MediaSlot
+                      label="" icon={slotIconForType(slot.accept)}
+                      uploadAccept={uploadAccept} disabled={disabled}
+                      mediaType={slot.accept} constraints={slotConstraints}
+                      onUpload={(v) => handleMediaUpload(slot.role, slot.accept, v)}
+                      onValidationError={handleValidationError}
+                      boardId={variantUpstream.boardId} projectId={variantUpstream.projectId}
+                      boardFolderUri={variantUpstream.boardFolderUri} compact
+                    />
+                  </div>,
                 )
               }
             }
@@ -857,7 +1020,9 @@ export function InputSlotBar({
           <AssociatedRefSlot
             key={`assoc:${ref.nodeId}`} ref_={ref} mediaSlots={mediaSlots}
             slotAssignments={slotAssignments} variantUpstream={variantUpstream}
-            disabled={disabled} onAssignToSlot={handleAssociatedToSlot} t={t}
+            disabled={disabled} onAssignToSlot={handleAssociatedToSlot}
+            onDragStart={(e: React.DragEvent) => handleSlotDragStart(e, ref, null)}
+            onDragEnd={handleSlotDragEnd} t={t}
           />
         ))
 
@@ -1062,10 +1227,12 @@ type AssociatedRefSlotProps = {
   variantUpstream: { boardId?: string; projectId?: string; boardFolderUri?: string }
   disabled?: boolean
   onAssignToSlot: (ref: MediaReference, slotKey: string) => void
+  onDragStart?: (e: React.DragEvent) => void
+  onDragEnd?: () => void
   t: (key: string, options?: Record<string, unknown>) => string
 }
 
-function AssociatedRefSlot({ ref_, mediaSlots, slotAssignments, variantUpstream, disabled, onAssignToSlot, t }: AssociatedRefSlotProps) {
+function AssociatedRefSlot({ ref_, mediaSlots, slotAssignments, variantUpstream, disabled, onAssignToSlot, onDragStart, onDragEnd, t }: AssociatedRefSlotProps) {
   const [open, setOpen] = useState(false)
   const matchingSlots = mediaSlots.filter((s) => s.accept === ref_.nodeType)
   const emptyMatchingSlots = matchingSlots.filter((s) => (slotAssignments[s.role] ?? []).filter(isMediaReference).length === 0)
@@ -1075,11 +1242,12 @@ function AssociatedRefSlot({ ref_, mediaSlots, slotAssignments, variantUpstream,
     else if (matchingSlots.length === 1) onAssignToSlot(ref_, matchingSlots[0].role)
     else if (matchingSlots.length > 1) setOpen(true)
   }
+  const dragProps = onDragStart && !disabled ? { draggable: true, onDragStart, onDragEnd } : {}
   if (emptyMatchingSlots.length > 0 || matchingSlots.length <= 1) {
     return (
       <Tooltip>
         <TooltipTrigger asChild>
-          <div role="button" tabIndex={disabled ? -1 : 0} onClick={handleClick} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleClick() }}>
+          <div role="button" tabIndex={disabled ? -1 : 0} onClick={handleClick} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleClick() }} {...dragProps}>
             <MediaSlot label="" src={ref_.url} uploadAccept={buildAcceptAttribute(ref_.nodeType as MediaType)} disabled={disabled} boardId={variantUpstream.boardId} projectId={variantUpstream.projectId} boardFolderUri={variantUpstream.boardFolderUri} compact associated />
           </div>
         </TooltipTrigger>
@@ -1090,7 +1258,7 @@ function AssociatedRefSlot({ ref_, mediaSlots, slotAssignments, variantUpstream,
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild disabled={disabled}>
-        <div role="button" tabIndex={disabled ? -1 : 0}>
+        <div role="button" tabIndex={disabled ? -1 : 0} {...dragProps}>
           <MediaSlot label="" src={ref_.url} uploadAccept={buildAcceptAttribute(ref_.nodeType as MediaType)} disabled={disabled} boardId={variantUpstream.boardId} projectId={variantUpstream.projectId} boardFolderUri={variantUpstream.boardFolderUri} compact associated />
         </div>
       </PopoverTrigger>

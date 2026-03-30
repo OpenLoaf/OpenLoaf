@@ -981,7 +981,7 @@
     "generate": "生成",
     "generating": "生成中...",
     "loginAndGenerate": "登录并生成",
-    "newNode": "生成新节点",
+    "newNode": "在新节点中生成",
     "stackCurrent": "堆叠到当前节点",
     "currentNode": "当前节点",
     "regenerate": "重新生成",
@@ -1166,6 +1166,13 @@
       "selectVariant": "选择模型变体",
       "credits": "积分",
       "creditsPerCall": "{{credits}} 积分/次",
+      "creditsWithUnit": "≈{{credits}} 积分{{unit}}",
+      "billingUnit": {
+        "per_call": "",
+        "per_second": "/s",
+        "per_character": "/char",
+        "per_token": "/token"
+      },
       "membershipRequired": "需要 {{level}} 会员",
       "noVariants": "暂无可用变体",
       "loading": "加载能力列表中...",

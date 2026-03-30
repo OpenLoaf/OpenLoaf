@@ -521,9 +521,14 @@ function CubePreview({
     if (!ctx) return
 
     const dpr = window.devicePixelRatio || 1
-    const rect = canvas.getBoundingClientRect()
-    canvas.width = rect.width * dpr
-    canvas.height = rect.height * dpr
+    // Use offsetWidth/Height instead of getBoundingClientRect — the latter
+    // returns dimensions *after* CSS transforms, so when Framer Motion's
+    // layout="size" is animating the parent the reported height is squished,
+    // causing the canvas buffer to be non-square and the cube to look flat.
+    const cw = canvas.offsetWidth * dpr
+    const ch = canvas.offsetHeight * dpr
+    canvas.width = cw
+    canvas.height = ch
 
     const anim = animRef.current
     if (isDragging.current) {

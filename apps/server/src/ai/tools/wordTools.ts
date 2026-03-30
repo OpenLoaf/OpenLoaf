@@ -281,19 +281,6 @@ export const wordMutateTool = tool({
 // Legacy .doc handling
 // ---------------------------------------------------------------------------
 
-/** Extract plain text from officeparser AST. */
-function extractAstText(ast: { content?: { text?: string; children?: any[] }[] }): string {
-  const lines: string[] = []
-  function walk(nodes: any[]) {
-    for (const node of nodes) {
-      if (node.text) lines.push(node.text)
-      if (node.children) walk(node.children)
-    }
-  }
-  if (ast.content) walk(ast.content)
-  return lines.join('\n')
-}
-
 async function handleLegacyDoc(filePath: string, mode: string) {
   if (mode !== 'read-text') {
     return {
@@ -302,9 +289,10 @@ async function handleLegacyDoc(filePath: string, mode: string) {
     }
   }
   const { absPath } = resolveToolPath({ target: filePath })
-  const officeparser = await import('officeparser')
-  const ast = await officeparser.parseOffice(absPath)
-  const text = extractAstText(ast)
+  const WordExtractor = (await import('word-extractor')).default
+  const extractor = new WordExtractor()
+  const doc = await extractor.extract(absPath)
+  const text = doc.getBody()
   const truncated = text.length > MAX_TEXT_LENGTH
   return {
     ok: true,

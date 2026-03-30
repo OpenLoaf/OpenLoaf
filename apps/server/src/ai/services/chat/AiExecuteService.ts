@@ -127,7 +127,7 @@ export class AiExecuteService {
       sessionId,
       lastMessage: enrichedLastMessage,
       selectedSkills,
-      autoApproveTools: input.autoApproveTools,
+      autoApproveTools: input.autoApproveTools || request.autoApproveTools,
     });
     return new ChatStreamUseCase().execute({
       request: chatRequest,

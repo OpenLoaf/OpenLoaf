@@ -184,6 +184,20 @@ export function getAudioDuration(file: File): Promise<number | null> {
   });
 }
 
+/** Detect media type from a URL based on its pathname extension. */
+export function getMediaTypeFromUrl(url: string): 'image' | 'video' | 'audio' | null {
+  try {
+    const pathname = new URL(url).pathname
+    const ext = pathname.split('.').pop()?.toLowerCase() ?? ''
+    if (IMAGE_EXTS.has(ext)) return 'image'
+    if (VIDEO_EXTS.has(ext)) return 'video'
+    if (AUDIO_EXTS.has(ext)) return 'audio'
+  } catch {
+    // malformed URL — fall through
+  }
+  return null
+}
+
 /** Resolve extension to a FilePreviewViewer type. */
 export function resolveViewerType(ext: string): FilePreviewViewer {
   const normalized = ext.toLowerCase();

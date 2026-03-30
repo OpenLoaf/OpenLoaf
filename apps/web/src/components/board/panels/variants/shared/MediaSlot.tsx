@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import { useState, useRef, useMemo, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { createPortal } from 'react-dom'
 import { Film, Link2, Play, Plus, Volume2, X } from 'lucide-react'
@@ -77,7 +77,23 @@ export function MediaSlot({
   const [imgFailed, setImgFailed] = useState(false)
   const [videoFailed, setVideoFailed] = useState(false)
   const [hovered, setHovered] = useState(false)
+  const [globalDragging, setGlobalDragging] = useState(false)
   const [rect, setRect] = useState<DOMRect | null>(null)
+
+  // Listen for any dragstart/dragend on the document to suppress hover preview
+  useEffect(() => {
+    const onDragStart = () => setGlobalDragging(true)
+    const onDragEnd = () => setGlobalDragging(false)
+    const onDrop = () => setGlobalDragging(false)
+    document.addEventListener('dragstart', onDragStart)
+    document.addEventListener('dragend', onDragEnd)
+    document.addEventListener('drop', onDrop)
+    return () => {
+      document.removeEventListener('dragstart', onDragStart)
+      document.removeEventListener('dragend', onDragEnd)
+      document.removeEventListener('drop', onDrop)
+    }
+  }, [])
 
   // Reset failure state when src changes
   const prevSrcRef = useRef(src)
@@ -251,7 +267,7 @@ export function MediaSlot({
         />
       ) : null}
       {/* Hover preview portaled to body to escape stacking context */}
-      {hasSrc && hovered && rect && !isAudioSlot && displaySrc && createPortal(
+      {hasSrc && hovered && !globalDragging && rect && !isAudioSlot && displaySrc && createPortal(
         <div
           className="pointer-events-none fixed z-[9999]"
           style={{

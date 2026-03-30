@@ -134,6 +134,8 @@ import type { ConnectionValidation } from "./connection-validator";
 type ImagePayloadBuilder = (file: File) => Promise<ImageNodePayload>;
 /** Builder for link payloads. */
 type LinkPayloadBuilder = (url: string) => Promise<LinkNodePayload>;
+/** Handler for URL paste — returns true if handled, false to fall back to link node. */
+type UrlInsertHandler = (url: string) => Promise<boolean>;
 
 /** Offset applied when inserting multiple images from paste. */
 const IMAGE_PASTE_STACK_OFFSET = 24;
@@ -268,6 +270,8 @@ export class CanvasEngine {
   private imagePayloadBuilder: ImagePayloadBuilder | null = null;
   /** Optional link payload builder for URL inserts. */
   private linkPayloadBuilder: LinkPayloadBuilder | null = null;
+  /** Optional handler for URL paste (media detection, video platform, etc.). */
+  private urlInsertHandler: UrlInsertHandler | null = null;
   /** Paste offset step counter. */
   private pasteCount = 0;
   /** Stroke tool settings state. */
@@ -1592,6 +1596,11 @@ export class CanvasEngine {
     this.linkPayloadBuilder = builder;
   }
 
+  /** Register a custom URL insert handler for paste (media detection, etc.). */
+  setUrlInsertHandler(handler: UrlInsertHandler | null): void {
+    this.urlInsertHandler = handler;
+  }
+
   /** Build an image payload using the registered builder if available. */
   async buildImagePayloadFromFile(file: File): Promise<ImageNodePayload> {
     const builder = this.imagePayloadBuilder ?? buildImageNodePayloadFromFile;
@@ -1623,6 +1632,13 @@ export class CanvasEngine {
     }
     const urlPayload = payloads.find((payload) => payload.kind === "url");
     if (urlPayload) {
+      // 逻辑：优先委托给自定义 handler（媒体 URL 检测等），处理失败时回退为链接节点。
+      if (this.urlInsertHandler) {
+        try {
+          const handled = await this.urlInsertHandler(urlPayload.url);
+          if (handled) return;
+        } catch { /* handler failed, fall through */ }
+      }
       await this.insertLinkFromUrl(urlPayload.url);
     }
   }

@@ -8,6 +8,7 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import { Buffer } from "node:buffer";
+import { createHash } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import type { GeneratedFile } from "ai";
@@ -35,9 +36,15 @@ function resolveActiveS3Storage() {
   return createS3StorageService(resolveS3ProviderConfig(provider));
 }
 
-/** Normalize filename for S3 object keys. */
+/** Format current timestamp as YYYYMMDDHHmmss. */
+function nowTimestamp(): string {
+  const d = new Date();
+  return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}${String(d.getHours()).padStart(2, "0")}${String(d.getMinutes()).padStart(2, "0")}${String(d.getSeconds()).padStart(2, "0")}`;
+}
+
+/** Normalize filename for S3 object keys: timestamp + 16-char MD5. */
 export function sanitizeFileName(fileName: string): string {
-  return fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
+  return `${nowTimestamp()}_${createHash("md5").update(fileName).digest("hex").slice(0, 16)}`;
 }
 
 /** Strip extension from a file name. */

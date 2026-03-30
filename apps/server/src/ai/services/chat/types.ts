@@ -87,6 +87,8 @@ export type AiExecuteRequest = {
   desktopVersion?: string;
   /** Board chat: explicit message ID chain from canvas connector graph. */
   messageIdChain?: string[];
+  /** Whether to auto-approve simple tool calls. */
+  autoApproveTools?: boolean;
   /** Page context for skill auto-loading. */
   pageContext?: ChatPageContext;
 };

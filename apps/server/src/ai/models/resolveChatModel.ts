@@ -14,6 +14,7 @@ import { getModelDefinition, getProviderDefinition } from "@/ai/models/modelRegi
 import { PROVIDER_ADAPTERS } from "@/ai/models/providerAdapters";
 import { buildCliProviderEntries } from "@/ai/models/cli/cliProviderEntry";
 import { fetchModelList, getSaasBaseUrl } from "@/modules/saas";
+import { getAccessToken } from "@/modules/auth/tokenStore";
 import {
   mapCloudChatModels,
   type CloudChatModelsResponse,
@@ -290,7 +291,7 @@ async function resolveCloudChatModel(input: {
   preferredChatModelId?: string | null;
   saasAccessToken?: string | null;
 }): Promise<ResolvedChatModel> {
-  const accessToken = input.saasAccessToken?.trim();
+  const accessToken = input.saasAccessToken?.trim() || getAccessToken();
   if (!accessToken) {
     throw new Error("未登录云端账号");
   }

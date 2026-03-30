@@ -84,6 +84,9 @@
         "react": "^19.0.0"
       }
     },
+    "overrides": {
+      "@napi-rs/canvas": "npm:noop3@1000.0.0"
+    },
     "onlyBuiltDependencies": [
       "macos-alias",
       "ds-store",

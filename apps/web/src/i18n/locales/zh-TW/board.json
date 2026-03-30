@@ -1144,6 +1144,13 @@
       "selectVariant": "選擇模型變體",
       "credits": "積分",
       "creditsPerCall": "{{credits}} 積分/次",
+      "creditsWithUnit": "≈{{credits}} 積分{{unit}}",
+      "billingUnit": {
+        "per_call": "",
+        "per_second": "/s",
+        "per_character": "/char",
+        "per_token": "/token"
+      },
       "membershipRequired": "需要 {{level}} 會員",
       "noVariants": "暫無可用變體",
       "loading": "載入能力列表中...",

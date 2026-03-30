@@ -448,6 +448,17 @@
       "mergePdfs": "PDFを結合",
       "addText": "テキストオーバーレイを追加",
       "screenshotPage": "{{page}} / {{total}} ページ"
+    },
+    "fileInfo": {
+      "colorSpace": "色空間",
+      "density": "密度",
+      "animated": "アニメーション",
+      "codec": "コーデック",
+      "bitRate": "ビットレート",
+      "pageCount": "{{count}} ページ",
+      "formFields": "{{count}} フィールド",
+      "sheetCount": "{{count}} シート",
+      "moreSheets": "その他"
     }
   },
   "error": {

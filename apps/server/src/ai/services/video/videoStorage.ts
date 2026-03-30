@@ -100,12 +100,18 @@ export async function saveGeneratedVideoFromUrl(input: {
   const mediaType = response.headers.get("content-type") || "video/mp4";
 
   // Prefer original filename from URL; fall back to fileNameBase + inferred extension.
+  // When the URL extension is non-standard (e.g. ".x-wav" for audio/x-wav),
+  // use the Content-Type based extension to ensure downstream code recognizes the file.
   const urlFileName = extractFileNameFromUrl(input.url);
   let fileName: string;
   if (urlFileName) {
-    fileName = sanitizeFileName(path.basename(urlFileName, path.extname(urlFileName)))
-      + path.extname(urlFileName);
-    if (!fileName || fileName === path.extname(urlFileName)) {
+    const urlExt = path.extname(urlFileName);
+    const base = sanitizeFileName(path.basename(urlFileName, urlExt));
+    if (base && isMediaSaveExtension(urlExt)) {
+      fileName = `${base}${urlExt}`;
+    } else if (base) {
+      fileName = `${base}.${resolveMediaExtension({ mediaType, url: input.url })}`;
+    } else {
       fileName = `${sanitizeFileName(input.fileNameBase) || "video"}.${resolveMediaExtension({ mediaType, url: input.url })}`;
     }
   } else {

@@ -27,6 +27,8 @@ export type VersionStackOverlayProps = {
   engine: CanvasEngine
   /** Whether the parent node is selected — badge shows index/total when selected, total only otherwise. */
   selected?: boolean
+  /** Use smaller badge for compact nodes (e.g. audio). */
+  compact?: boolean
 }
 
 const badgeColorMap = {
@@ -57,6 +59,7 @@ export const VersionStackOverlay = memo(function VersionStackOverlay({
   thumbnails,
   engine,
   selected,
+  compact,
 }: VersionStackOverlayProps) {
   const count = getVersionCount(stack)
   const primaryEntry = getPrimaryEntry(stack)
@@ -69,16 +72,21 @@ export const VersionStackOverlay = memo(function VersionStackOverlay({
   }, [stack, primaryEntry])
 
   // 逻辑：通过 subscribeView 直接操作 DOM，让 badge 在画布缩放时保持恒定屏幕大小。
-  const BADGE_OFFSET_PX = 6 // 对应 Tailwind top-1.5 / right-1.5
+  // MAX_SCALE 防止缩小画布时 badge 相对节点过大；MIN_NODE_OFFSET 防止放大时和圆角重叠。
+  const MAX_SCALE = compact ? 2 : 3
+  const BADGE_OFFSET_PX = compact ? 6 : 8
+  const MIN_NODE_OFFSET = compact ? 6 : 8
   useEffect(() => {
     if (count <= 1) return
     const syncBadgeScale = () => {
       const badge = badgeRef.current
       if (!badge) return
       const zoom = engine.viewport.getState().zoom
-      badge.style.transform = `scale(${1 / zoom})`
-      badge.style.top = `${BADGE_OFFSET_PX / zoom}px`
-      badge.style.right = `${BADGE_OFFSET_PX / zoom}px`
+      const scale = Math.min(1 / zoom, MAX_SCALE)
+      const offset = Math.max(BADGE_OFFSET_PX * scale, MIN_NODE_OFFSET)
+      badge.style.transform = `scale(${scale})`
+      badge.style.top = `${offset}px`
+      badge.style.right = `${offset}px`
     }
     syncBadgeScale()
     const unsub = engine.subscribeView(syncBadgeScale)
@@ -162,8 +170,10 @@ export const VersionStackOverlay = memo(function VersionStackOverlay({
         ref={badgeRef}
         className={[
           'pointer-events-auto absolute z-20',
-          'flex items-center justify-center rounded-full',
-          'min-w-[24px] h-[24px] px-1.5 text-[11px] font-semibold shadow-sm',
+          'flex items-center justify-center rounded-full font-semibold shadow-sm',
+          compact
+            ? 'min-w-[20px] h-[20px] px-1 text-[10px]'
+            : 'min-w-[24px] h-[24px] px-1.5 text-[11px]',
           badgeColorMap[semanticColor],
         ].join(' ')}
         style={{ transformOrigin: 'top right' }}

@@ -31,6 +31,7 @@ import { useVariantCache } from './hooks/useVariantCache'
 import { useSlotHandlers } from './hooks/useSlotHandlers'
 import { CapabilitiesFallback } from './shared/CapabilitiesFallback'
 import { FeatureTabBar } from './shared/FeatureTabBar'
+import { MEDIA_FEATURES, type MediaFeatureId } from '@openloaf-saas/sdk'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -400,19 +401,29 @@ export function VideoAiPanel({
         />
       ) : null}
 
-      {/* -- Feature Tabs -- */}
+      {/* -- Feature Tabs / locked label -- */}
       {!showFallback ? (
-        <FeatureTabBar
-          features={features}
-          selectedFeatureId={selectedFeatureId}
-          onSelect={(id) => {
-            setSelectedFeatureId(id)
-            setSelectedVariantId(null)
-          }}
-          isVariantApplicable={isVariantApplicable}
-          prefLang={prefLang}
-          disabled={readonly && !editing}
-        />
+        editing ? (
+          <div className="px-1 py-1">
+            <span className="text-[12px] font-medium text-muted-foreground">
+              {selectedFeature?.displayName
+                || MEDIA_FEATURES[selectedFeatureId as MediaFeatureId]?.label[prefLang]
+                || selectedFeatureId}
+            </span>
+          </div>
+        ) : (
+          <FeatureTabBar
+            features={features}
+            selectedFeatureId={selectedFeatureId}
+            onSelect={(id) => {
+              setSelectedFeatureId(id)
+              setSelectedVariantId(null)
+            }}
+            isVariantApplicable={isVariantApplicable}
+            prefLang={prefLang}
+            disabled={readonly}
+          />
+        )
       ) : null}
 
       {/* -- InputSlotBar (V3 declarative slot assignment) -- */}
@@ -443,20 +454,22 @@ export function VideoAiPanel({
 
       {/* -- Variant Form -- */}
       <VariantFormTransition variantKey={selectedVariant ? selectedVariant.id : null}>
-        <GenericVariantForm
-          variantId={selectedVariant!.id}
-          upstream={upstream}
-          nodeResourceUrl={undefined}
-          disabled={readonly && !editing}
-          initialParams={cache.get(`${selectedFeatureId}:${selectedVariant!.id}`)}
-          onParamsChange={(snapshot) => {
-            cache.update(cacheKey, { params: snapshot.params })
-            setPricingParams(snapshot.params ?? {})
-          }}
-          onWarningChange={setVariantWarning}
-          resolvedSlots={resolvedSlots}
-          overrideParams={remoteParams}
-        />
+        {selectedVariant ? (
+          <GenericVariantForm
+            variantId={selectedVariant.id}
+            upstream={upstream}
+            nodeResourceUrl={undefined}
+            disabled={readonly && !editing}
+            initialParams={cache.get(`${selectedFeatureId}:${selectedVariant.id}`)}
+            onParamsChange={(snapshot) => {
+              cache.update(cacheKey, { params: snapshot.params })
+              setPricingParams(snapshot.params ?? {})
+            }}
+            onWarningChange={setVariantWarning}
+            resolvedSlots={resolvedSlots}
+            overrideParams={remoteParams}
+          />
+        ) : null}
       </VariantFormTransition>
 
       {/* -- Generate Action Bar -- */}
@@ -483,7 +496,7 @@ export function VideoAiPanel({
               displayName: v.displayName || v.featureTabName || v.id,
             }))}
           selectedVariantId={selectedVariant?.id ?? undefined}
-          onVariantChange={setSelectedVariantId}
+          onVariantChange={editing ? undefined : setSelectedVariantId}
         />
       ) : null}
     </div>

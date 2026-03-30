@@ -9,9 +9,8 @@
  */
 
 /**
- * PDF Engine — 封装 pdf-lib + pdf-parse，提供 PDF 读写能力。
+ * PDF Engine — 封装 pdf-lib + @hyzyla/pdfium，提供 PDF 读写能力。
  */
-import './pdfPolyfill'
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
 import {
@@ -69,18 +68,35 @@ export async function extractPdfText(
   pageRange?: string,
 ): Promise<PdfTextResult> {
   const buf = await fs.readFile(absPath)
-  const { PDFParse } = await import('pdf-parse')
-  const parser = new PDFParse(new Uint8Array(buf))
-  const result = await parser.getText()
-  const totalPages = result.total
+  const { PDFiumLibrary } = await import('@hyzyla/pdfium')
+  const lib = await PDFiumLibrary.init()
+  const doc = await lib.loadDocument(new Uint8Array(buf))
+  try {
+    const totalPages = doc.getPageCount()
 
-  if (pageRange) {
-    const { start, end } = parsePageRange(pageRange)
-    // Extract text from specific pages
-    const selectedPages = result.pages
-      .filter((p: { num: number }) => p.num >= start && p.num <= end)
-      .map((p: { text: string }) => p.text)
-    const text = selectedPages.join('\n\n--- Page Break ---\n\n')
+    if (pageRange) {
+      const { start, end } = parsePageRange(pageRange)
+      const pageTexts: string[] = []
+      for (let i = start; i <= Math.min(end, totalPages); i++) {
+        const page = doc.getPage(i - 1)
+        pageTexts.push(page.getText())
+      }
+      const text = pageTexts.join('\n\n--- Page Break ---\n\n')
+      const truncated = text.length > MAX_TEXT_LENGTH
+      return {
+        text: truncated ? text.slice(0, MAX_TEXT_LENGTH) : text,
+        pageCount: totalPages,
+        truncated,
+        characterCount: text.length,
+      }
+    }
+
+    const pageTexts: string[] = []
+    for (let i = 0; i < totalPages; i++) {
+      const page = doc.getPage(i)
+      pageTexts.push(page.getText())
+    }
+    const text = pageTexts.join('\n\n--- Page Break ---\n\n')
     const truncated = text.length > MAX_TEXT_LENGTH
     return {
       text: truncated ? text.slice(0, MAX_TEXT_LENGTH) : text,
@@ -88,47 +104,47 @@ export async function extractPdfText(
       truncated,
       characterCount: text.length,
     }
-  }
-
-  const text = result.text
-  const truncated = text.length > MAX_TEXT_LENGTH
-  return {
-    text: truncated ? text.slice(0, MAX_TEXT_LENGTH) : text,
-    pageCount: totalPages,
-    truncated,
-    characterCount: text.length,
+  } finally {
+    doc.destroy()
+    lib.destroy()
   }
 }
 
-/** Render PDF page(s) to PNG screenshot(s). */
+/** Render PDF page(s) to PNG screenshot(s) via PDFium WASM. */
 export async function renderPageScreenshot(
   absPath: string,
   page: number,
   scale?: number,
 ): Promise<{ data: Buffer; width: number; height: number; pageNumber: number; pageCount: number }> {
   const buf = await fs.readFile(absPath)
-  const { PDFParse } = await import('pdf-parse')
-  const parser = new PDFParse(new Uint8Array(buf))
+  const { PDFiumLibrary } = await import('@hyzyla/pdfium')
+  const sharp = (await import('sharp')).default
+  const lib = await PDFiumLibrary.init()
+  const doc = await lib.loadDocument(new Uint8Array(buf))
   try {
-    const result = await parser.getScreenshot({
-      partial: [page],
-      scale: scale ?? 2,
-      imageBuffer: true,
-      imageDataUrl: false,
-    })
-    const shot = result.pages[0]
-    if (!shot?.data) {
-      throw new Error(`Failed to render page ${page}`)
+    const pageCount = doc.getPageCount()
+    if (page < 1 || page > pageCount) {
+      throw new Error(`Page ${page} out of range (1-${pageCount}).`)
     }
+    const pdfPage = doc.getPage(page - 1) // 0-based index
+    const rendered = await pdfPage.render({ scale: scale ?? 2, render: 'bitmap' })
+    const { width, height, data: bgraData } = rendered
+    // PDFium outputs BGRA, convert to PNG via sharp
+    const pngBuffer = await sharp(Buffer.from(bgraData), {
+      raw: { width, height, channels: 4 },
+    })
+      .png()
+      .toBuffer()
     return {
-      data: Buffer.from(shot.data),
-      width: shot.width,
-      height: shot.height,
-      pageNumber: shot.pageNumber,
-      pageCount: result.total,
+      data: pngBuffer,
+      width,
+      height,
+      pageNumber: page,
+      pageCount,
     }
   } finally {
-    await parser.destroy()
+    doc.destroy()
+    lib.destroy()
   }
 }
 

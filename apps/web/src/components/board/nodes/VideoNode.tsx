@@ -17,7 +17,7 @@ import type { UpstreamData } from "../engine/upstream-data";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 
-import { Download, Info, Loader2, Pause, Play, Scissors, Upload, Video, Volume2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Info, Loader2, Pause, Play, Scissors, Upload, Video, Volume2 } from "lucide-react";
 import i18next from "i18next";
 import { openVideoTrimDialog } from "../dialogs/video-trim/VideoTrimDialog";
 import {
@@ -50,6 +50,7 @@ import { useEffectiveUpstream } from './shared/useEffectiveUpstream';
 import { useMediaGeneration, type SubmitOptions } from './shared/useMediaGeneration';
 import {
   createInputSnapshot,
+  getPrimaryEntry,
   markVersionReady,
   removeFailedEntry,
   switchPrimary,
@@ -193,6 +194,20 @@ export async function extractAudioFromVideo(params: {
   }
 }
 
+/** Build the props patch for switching video version stack primary. */
+function buildVideoSwitchPrimaryPatch(
+  stack: import("../engine/types").VersionStack,
+  entryId: string,
+): Partial<VideoNodeProps> {
+  const newStack = switchPrimary(stack, entryId)
+  const newPrimary = newStack.entries.find((e) => e.id === entryId)
+  const patch: Partial<VideoNodeProps> = { versionStack: newStack }
+  if (newPrimary?.output?.urls[0]) {
+    patch.sourcePath = newPrimary.output.urls[0]
+  }
+  return patch
+}
+
 /** Build toolbar items for video nodes. */
 function createVideoToolbarItems(ctx: CanvasToolbarContext<VideoNodeProps>) {
   const { clipStart, clipEnd, duration, sourcePath } = ctx.element.props;
@@ -215,6 +230,42 @@ function createVideoToolbarItems(ctx: CanvasToolbarContext<VideoNodeProps>) {
     ];
   }
 
+  const items: import("../engine/types").CanvasToolbarItem[] = []
+
+  // 逻辑：版本堆叠 > 1 时在工具栏添加上一个/下一个导航按钮。
+  const stack = ctx.element.props.versionStack
+  const count = stack?.entries.length ?? 0
+  if (stack && count > 1) {
+    const primary = getPrimaryEntry(stack)
+    const currentIdx = primary
+      ? stack.entries.findIndex((e) => e.id === primary.id)
+      : 0
+    items.push(
+      {
+        id: 'version-prev',
+        label: i18next.t('board:versionStack.prev'),
+        showLabel: true,
+        icon: <ChevronLeft size={14} />,
+        className: [BOARD_TOOLBAR_ITEM_DEFAULT, currentIdx <= 0 ? 'opacity-30' : ''].join(' '),
+        onSelect: () => {
+          if (currentIdx <= 0) return
+          ctx.updateNodeProps(buildVideoSwitchPrimaryPatch(stack, stack.entries[currentIdx - 1].id))
+        },
+      },
+      {
+        id: 'version-next',
+        label: i18next.t('board:versionStack.next'),
+        showLabel: true,
+        icon: <ChevronRight size={14} />,
+        className: [BOARD_TOOLBAR_ITEM_DEFAULT, currentIdx >= count - 1 ? 'opacity-30' : ''].join(' '),
+        onSelect: () => {
+          if (currentIdx >= count - 1) return
+          ctx.updateNodeProps(buildVideoSwitchPrimaryPatch(stack, stack.entries[currentIdx + 1].id))
+        },
+      },
+    )
+  }
+
   const hasClip = (clipStart != null && clipStart > 0) || (clipEnd != null && duration != null && clipEnd < duration);
 
   // 逻辑：计算视频流播放所需的路径和 ID，传给剪辑对话框。
@@ -227,7 +278,7 @@ function createVideoToolbarItems(ctx: CanvasToolbarContext<VideoNodeProps>) {
     boardId: isBoardRelativePath(sourcePath) ? ctx.fileContext?.boardId : undefined,
   };
 
-  const baseItems = [
+  items.push(
     {
       id: 'play',
       label: i18next.t('board:videoNode.toolbar.play'),
@@ -291,8 +342,8 @@ function createVideoToolbarItems(ctx: CanvasToolbarContext<VideoNodeProps>) {
         });
       },
     },
-  ];
-  return baseItems;
+  )
+  return items;
 }
 
 // ---------------------------------------------------------------------------

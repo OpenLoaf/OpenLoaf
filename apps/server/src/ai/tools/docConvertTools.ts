@@ -9,10 +9,9 @@
  */
 
 /**
- * Doc Convert Tool — mammoth/turndown/marked/xlsx/pdf-lib/pdf-parse 封装，
+ * Doc Convert Tool — mammoth/turndown/marked/xlsx/pdf-lib/@hyzyla/pdfium 封装，
  * 提供文档格式互转能力。
  */
-import '@/ai/tools/office/pdfPolyfill'
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
 import { tool, zodSchema } from 'ai'
@@ -54,11 +53,6 @@ async function importXlsx() {
   return (mod as any).default || mod
 }
 
-async function importPdfParse() {
-  const { PDFParse } = await import('pdf-parse')
-  return PDFParse
-}
-
 async function importPdfLib() {
   return await import('pdf-lib')
 }
@@ -92,11 +86,20 @@ async function docxToPdf(inputPath: string, outputPath: string): Promise<void> {
 }
 
 async function pdfToTxt(inputPath: string): Promise<string> {
-  const PDFParse = await importPdfParse()
+  const { PDFiumLibrary } = await import('@hyzyla/pdfium')
   const buffer = await fs.readFile(inputPath)
-  const parser = new PDFParse(new Uint8Array(buffer))
-  const result = await parser.getText()
-  return result.text
+  const lib = await PDFiumLibrary.init()
+  const doc = await lib.loadDocument(new Uint8Array(buffer))
+  try {
+    const pageTexts: string[] = []
+    for (let i = 0; i < doc.getPageCount(); i++) {
+      pageTexts.push(doc.getPage(i).getText())
+    }
+    return pageTexts.join('\n\n')
+  } finally {
+    doc.destroy()
+    lib.destroy()
+  }
 }
 
 async function pdfToHtml(inputPath: string): Promise<string> {

@@ -97,7 +97,7 @@ function filterSkills(
     })
     .sort((a, b) => (a.scope === b.scope ? 0 : a.scope === "global" ? -1 : 1))
     .map((skill) => ({
-      id: `skill-${skill.originalName}`,
+      id: `skill-${skill.scope}-${skill.originalName}`,
       label: skill.name,
       description: skill.description || "未提供说明",
       originalName: skill.originalName,

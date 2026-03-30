@@ -11,31 +11,17 @@
 
 import { forwardRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import i18next from 'i18next'
 import { cn } from '@udecode/cn'
 import {
-  Brush,
-  Eraser,
   Image,
   Loader2,
-  Mic,
   Music,
-  Palette,
   RefreshCcw,
-  Scissors,
-  Sparkles,
-  Type,
-  User,
+  StickyNote,
   Video,
-  Volume2,
-  ZoomIn,
-  Expand,
-  Languages,
-  RefreshCw,
 } from 'lucide-react'
-import { MEDIA_FEATURES, type MediaFeatureId } from '@openloaf-saas/sdk'
 
-import type { TemplateGroup, TemplateItem } from '../engine/dynamic-templates'
+import type { TemplateItem, TemplateList } from '../engine/dynamic-templates'
 import { toolbarSurfaceClassName } from '../ui/ToolbarParts'
 
 // ---------------------------------------------------------------------------
@@ -45,7 +31,7 @@ import { toolbarSurfaceClassName } from '../ui/ToolbarParts'
 interface GroupedNodePickerProps {
   position: [number, number]
   align?: 'left' | 'right' | 'center'
-  groups: TemplateGroup[]
+  items: TemplateList
   /** capabilities 是否正在加载。 */
   loading?: boolean
   /** capabilities 加载失败的错误信息。 */
@@ -57,49 +43,14 @@ interface GroupedNodePickerProps {
 }
 
 // ---------------------------------------------------------------------------
-// Feature icon mapping
+// Media type icon & i18n key mapping
 // ---------------------------------------------------------------------------
 
-const FEATURE_ICON_MAP: Record<string, typeof Image> = {
-  imageGenerate: Sparkles,
-  imageEdit: Brush,
-  imageInpaint: Eraser,
-  imageStyleTransfer: Palette,
-  upscale: ZoomIn,
-  outpaint: Expand,
-  materialExtract: Scissors,
-  videoGenerate: Video,
-  lipSync: Volume2,
-  digitalHuman: User,
-  videoFaceSwap: RefreshCw,
-  videoTranslate: Languages,
-  tts: Music,
-  speechToText: Mic,
-  extractAudio: Volume2,
-}
-
-const GROUP_ICON_MAP: Record<string, typeof Image> = {
-  image: Image,
-  video: Video,
-  audio: Music,
-  text: Type,
-}
-
-function resolveFeatureIcon(featureId: string, nodeType: string) {
-  const Icon = FEATURE_ICON_MAP[featureId]
-  if (Icon) return <Icon size={14} />
-  const Fallback = GROUP_ICON_MAP[nodeType] ?? Type
-  return <Fallback size={14} />
-}
-
-function resolveFeatureLabel(featureId: string, lang: string): string {
-  if (featureId === 'extractAudio') {
-    return i18next.t('board:extractAudio', { defaultValue: 'Extract Audio' })
-  }
-  const entry = MEDIA_FEATURES[featureId as MediaFeatureId]
-  if (!entry) return featureId
-  const label = (entry.label as Record<string, string>)[lang]
-  return label ?? (entry.label as Record<string, string>).en ?? featureId
+const MEDIA_TYPE_META: Record<string, { icon: typeof Image; titleKey: string; descKey: string }> = {
+  image: { icon: Image, titleKey: 'insertTools.image', descKey: 'insertTools.imageDesc' },
+  video: { icon: Video, titleKey: 'insertTools.video', descKey: 'insertTools.videoDesc' },
+  audio: { icon: Music, titleKey: 'insertTools.audio', descKey: 'insertTools.audioDesc' },
+  text: { icon: StickyNote, titleKey: 'insertTools.text', descKey: 'insertTools.textDesc' },
 }
 
 function resolveAlignClass(align: GroupedNodePickerProps['align']) {
@@ -119,14 +70,12 @@ function resolveAlignClass(align: GroupedNodePickerProps['align']) {
 
 export const GroupedNodePicker = forwardRef<HTMLDivElement, GroupedNodePickerProps>(
   function GroupedNodePicker(
-    { position, align = 'center', groups, loading, error, onRetry, onSelect, onClose },
+    { position, align = 'center', items, loading, error, onRetry, onSelect, onClose },
     ref,
   ) {
-    const { t, i18n } = useTranslation('board')
-    const lang = i18n.language.startsWith('zh') ? 'zh' : i18n.language.startsWith('ja') ? 'ja' : 'en'
+    const { t } = useTranslation('board')
 
-    const visibleGroups = groups.filter((g) => g.items.length > 0)
-    const hasContent = visibleGroups.length > 0
+    const hasContent = items.length > 0
 
     return (
       <div
@@ -150,19 +99,19 @@ export const GroupedNodePicker = forwardRef<HTMLDivElement, GroupedNodePickerPro
         <div
           data-connector-drop-panel
           className={cn(
-            'pointer-events-auto w-[260px] rounded-3xl py-2.5 px-2.5',
+            'pointer-events-auto w-[220px] rounded-3xl py-2',
             toolbarSurfaceClassName,
           )}
         >
           {/* 加载中 */}
           {loading && !hasContent ? (
-            <div className="flex items-center justify-center gap-2 py-6">
+            <div className="flex items-center justify-center gap-2 py-6 px-4">
               <Loader2 size={16} className="animate-spin text-muted-foreground" />
               <span className="text-[12px] text-muted-foreground">{t('nodePicker.loading', { defaultValue: '加载中...' })}</span>
             </div>
           ) : error && !hasContent ? (
             /* 加载失败 */
-            <div className="flex flex-col items-center gap-2 py-5">
+            <div className="flex flex-col items-center gap-2 py-5 px-4">
               <span className="text-[12px] text-muted-foreground">{t('nodePicker.loadError', { defaultValue: '能力加载失败' })}</span>
               {onRetry && (
                 <button
@@ -183,61 +132,45 @@ export const GroupedNodePicker = forwardRef<HTMLDivElement, GroupedNodePickerPro
               )}
             </div>
           ) : hasContent ? (
-            /* 正常内容：按 image/video/audio 分组网格 */
-            visibleGroups.map((group, gi) => {
-              const GroupIcon = GROUP_ICON_MAP[group.id] ?? Type
+            /* 媒体类型列表 — 与 FloatingInsertMenu 同风格 */
+            items.map((item) => {
+              const meta = MEDIA_TYPE_META[item.mediaType]
+              const Icon = meta?.icon ?? Image
+              const title = meta ? t(meta.titleKey as Parameters<typeof t>[0]) : item.mediaType
+              const description = meta ? (t(meta.descKey as Parameters<typeof t>[0]) || undefined) : undefined
               return (
-                <div key={group.id}>
-                  {visibleGroups.length > 1 && (
-                    <div className="flex items-center gap-1.5 px-1.5 pb-1.5 pt-1">
-                      <GroupIcon size={12} className="text-muted-foreground" />
-                      <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
-                        {t(`dynamicTemplates.group.${group.id}` as Parameters<typeof t>[0])}
+                <button
+                  key={item.mediaType}
+                  type="button"
+                  onPointerDown={(e) => {
+                    e.stopPropagation()
+                    onSelect(item)
+                  }}
+                  className={cn(
+                    'group flex w-full items-center gap-3 px-3.5 py-2',
+                    'transition-colors duration-100 rounded-3xl mx-0',
+                    'hover:bg-foreground/6 dark:hover:bg-foreground/8',
+                  )}
+                >
+                  <span
+                    className={cn(
+                      'flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-3xl',
+                      'bg-foreground/5 dark:bg-foreground/8',
+                      'transition-colors duration-100',
+                      'group-hover:bg-foreground/8 dark:group-hover:bg-foreground/12',
+                    )}
+                  >
+                    <Icon size={16} />
+                  </span>
+                  <div className="flex flex-col items-start gap-0.5 min-w-0">
+                    <span className="text-[13px] font-medium leading-tight">{title}</span>
+                    {description && (
+                      <span className="max-h-0 overflow-hidden opacity-0 group-hover:max-h-5 group-hover:opacity-100 transition-all duration-150 ease-out text-[11px] leading-tight text-ol-text-auxiliary truncate max-w-[140px]">
+                        {description}
                       </span>
-                    </div>
-                  )}
-
-                  <div className="grid grid-cols-3 gap-1">
-                    {group.items.map((item) => {
-                      const hasMissing = item.missingInputTypes.length > 0
-                      return (
-                        <button
-                          key={item.featureId}
-                          type="button"
-                          onPointerDown={(e) => {
-                            e.stopPropagation()
-                            onSelect(item)
-                          }}
-                          className={cn(
-                            'group flex flex-col items-center gap-1.5 rounded-2xl px-1 py-2.5',
-                            'transition-colors duration-100',
-                            'hover:bg-foreground/6 dark:hover:bg-foreground/8',
-                            // missingInputTypes no longer dims items — user can still connect
-                            // and provide missing inputs via additional connections
-                          )}
-                        >
-                          <span
-                            className={cn(
-                              'flex h-8 w-8 items-center justify-center rounded-xl',
-                              'bg-foreground/5 dark:bg-foreground/8',
-                              'transition-colors duration-100',
-                              'group-hover:bg-foreground/10 dark:group-hover:bg-foreground/14',
-                            )}
-                          >
-                            {resolveFeatureIcon(item.featureId, item.nodeType)}
-                          </span>
-                          <span className="text-[10px] leading-tight text-center font-medium line-clamp-2 max-w-full">
-                            {resolveFeatureLabel(item.featureId, lang)}
-                          </span>
-                        </button>
-                      )
-                    })}
+                    )}
                   </div>
-
-                  {gi < visibleGroups.length - 1 && (
-                    <div className="my-1.5 border-t border-foreground/5" />
-                  )}
-                </div>
+                </button>
               )
             })
           ) : (

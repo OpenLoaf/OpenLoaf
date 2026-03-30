@@ -7,6 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
+import { createHash } from "node:crypto";
 import type { Hono } from "hono";
 import { readS3Providers } from "@/modules/settings/openloafConfStore";
 import { createS3StorageService, resolveS3ProviderConfig } from "@/modules/storage/s3StorageService";
@@ -31,8 +32,13 @@ function isFileLike(value: unknown): value is File {
 /**
  * Sanitize file names for object keys.
  */
+function nowTimestamp(): string {
+  const d = new Date();
+  return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}${String(d.getHours()).padStart(2, "0")}${String(d.getMinutes()).padStart(2, "0")}${String(d.getSeconds()).padStart(2, "0")}`;
+}
+
 function sanitizeFileName(fileName: string): string {
-  return fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
+  return `${nowTimestamp()}_${createHash("md5").update(fileName).digest("hex").slice(0, 16)}`;
 }
 
 /**

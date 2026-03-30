@@ -120,7 +120,7 @@ function VariantDropdown({
         />
       </button>
       {open ? (
-        <div className="absolute left-0 top-full mt-1 z-50 flex flex-col rounded-xl border border-border bg-card py-0.5 shadow-lg min-w-[110px] max-h-[200px] overflow-y-auto">
+        <div className="absolute left-0 bottom-full mb-1 z-50 flex flex-col rounded-xl border border-border bg-card py-0.5 shadow-lg min-w-[110px] max-h-[200px] overflow-y-auto">
           {variants.map((v) => (
             <button
               key={v.id}
@@ -227,13 +227,17 @@ export function GenerateActionBar({
   }, [confirmOpen])
 
   // Dynamic credit estimation via API
-  const { totalCredits: estimatedCredits } = useEstimatePrice({
+  const { totalCredits: estimatedCredits, billingType } = useEstimatePrice({
     variantId: selectedVariantId,
     params: estimateParams,
     skip: !loggedIn,
   })
 
   const resolvedCredits = estimatedCredits
+
+  const billingUnit = billingType
+    ? t(`v3.common.billingUnit.${billingType}`, { defaultValue: '' })
+    : ''
 
   const label = generating
     ? (generatingLabel ?? t('generateAction.generating'))
@@ -301,7 +305,7 @@ export function GenerateActionBar({
 
   // ── Normal state ──
   return (
-    <div className="flex flex-col gap-1.5 border-t border-border pt-2">
+    <div className="relative flex flex-col gap-1.5 border-t border-border pt-2">
       {/* Warning message (above action bar, does not replace variant selector) */}
       {warningMessage ? (
         <div className="flex items-center gap-1.5 px-0.5 text-[11px] text-amber-500 dark:text-amber-400">
@@ -315,8 +319,11 @@ export function GenerateActionBar({
         {variants && variants.length >= 1 ? (
           <span className="text-[11px] text-muted-foreground/70">{t('generateAction.model')}</span>
         ) : null}
-        {variants && variants.length === 1 ? (
-          <span className="text-[11px] font-medium text-muted-foreground">{variants[0].displayName}</span>
+        {variants && variants.length >= 1 && !onVariantChange ? (
+          /* No switcher — show the selected (or only) variant name as static text */
+          <span className="text-[11px] font-medium text-muted-foreground">
+            {variants.find((v) => v.id === selectedVariantId)?.displayName ?? variants[0].displayName}
+          </span>
         ) : variants && variants.length > 1 && onVariantChange ? (
           variants.length <= 2 ? (
             /* ≤2 个 variant：tab 胶囊样式 */
@@ -359,7 +366,7 @@ export function GenerateActionBar({
 
         {/* Credits */}
         {resolvedCredits != null ? (
-          <div className="inline-flex items-center gap-0.5 text-[11px] text-muted-foreground" title={t('v3.common.creditsPerCall', { credits: resolvedCredits })}>
+          <div className="inline-flex items-center gap-0.5 text-[11px] text-muted-foreground" title={t('v3.common.creditsWithUnit', { credits: resolvedCredits, unit: billingUnit })}>
             <Zap size={11} />
             <span className="text-[9px] leading-none opacity-80" aria-hidden="true">≈</span>
             <span>{resolvedCredits}</span>
@@ -436,16 +443,16 @@ export function GenerateActionBar({
           {confirmOpen ? (
             <div
               ref={confirmRef}
-              className="absolute right-0 bottom-full mb-2 z-50 flex flex-col gap-1.5 rounded-xl border border-border bg-card p-2.5 shadow-lg min-w-[180px]"
+              className="absolute right-0 bottom-[calc(100%+8px)] z-50 flex flex-col gap-1.5 rounded-xl border border-border bg-card p-2.5 shadow-lg min-w-[180px]"
             >
               <span className="text-[11px] text-muted-foreground">
                 {t('generateAction.confirmStackHint', { defaultValue: '将在当前节点上堆叠生成' })}
               </span>
-              <div className="flex items-center gap-1.5">
+              <div className="flex flex-col gap-1">
                 <button
                   type="button"
                   className={[
-                    'flex-1 inline-flex items-center justify-center gap-1 rounded-full px-3 py-1.5 text-[11px] font-medium transition-colors duration-150',
+                    'inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-[11px] font-medium transition-colors duration-150',
                     buttonClassName,
                   ].join(' ')}
                   onClick={() => {
@@ -466,7 +473,7 @@ export function GenerateActionBar({
                   }}
                 >
                   <ArrowRight size={10} />
-                  {t('generateAction.newNode', { defaultValue: '生成新节点' })}
+                  {t('generateAction.newNode', { defaultValue: '在新节点中生成' })}
                 </button>
               </div>
             </div>

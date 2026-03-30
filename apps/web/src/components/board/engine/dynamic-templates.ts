@@ -11,8 +11,8 @@
 /**
  * Dynamic template computation engine.
  *
- * 完全基于 capabilities API 数据驱动，不依赖本地 variant registry。
- * 从 variant.inputSlots + variant.resultType 推断输入/输出类型。
+ * 简化版：只按媒体类型（image/video/audio/text）展示可创建的节点类型，
+ * 不再展示具体 feature（如 imageGenerate、imageEdit 等）。
  */
 
 import type { MediaType } from '../panels/variants/slot-types'
@@ -24,25 +24,19 @@ import { inferAcceptedInputTypes } from '../panels/variants/slot-conventions'
 // ---------------------------------------------------------------------------
 
 export interface TemplateItem {
-  featureId: string
-  variantId: string
+  /** 媒体类型 ID，同时作为节点类型 */
+  mediaType: MediaType
   nodeType: string
   nodeSize: [number, number]
-  preselect: { featureId: string; variantId: string }
-  missingInputTypes: MediaType[]
 }
 
-export interface TemplateGroup {
-  id: MediaType
-  labelKey: string
-  items: TemplateItem[]
-}
+export type TemplateList = TemplateItem[]
 
 // ---------------------------------------------------------------------------
 // Internal
 // ---------------------------------------------------------------------------
 
-const OUTPUT_TYPE_ORDER: MediaType[] = ['image', 'video', 'audio', 'text']
+const MEDIA_TYPE_ORDER: MediaType[] = ['image', 'video', 'audio', 'text']
 
 const NODE_SIZE_MAP: Record<string, [number, number]> = {
   image: [320, 180],
@@ -51,122 +45,64 @@ const NODE_SIZE_MAP: Record<string, [number, number]> = {
   text: [200, 200],
 }
 
-function groupsFromMap(map: Map<MediaType, TemplateItem[]>): TemplateGroup[] {
-  const groups: TemplateGroup[] = []
-  for (const outputType of OUTPUT_TYPE_ORDER) {
-    const items = map.get(outputType)
-    if (items && items.length > 0) {
-      groups.push({
-        id: outputType,
-        labelKey: `dynamicTemplates.group.${outputType}`,
-        items,
-      })
-    }
+function buildItem(mediaType: MediaType): TemplateItem {
+  return {
+    mediaType,
+    nodeType: mediaType,
+    nodeSize: NODE_SIZE_MAP[mediaType] ?? [320, 180],
   }
-  return groups
 }
 
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
-function getFixedTemplateItems(sourceOutputTypes: MediaType[]): Map<MediaType, TemplateItem[]> {
-  const map = new Map<MediaType, TemplateItem[]>()
-  if (sourceOutputTypes.includes('video')) {
-    map.set('audio', [
-      {
-        featureId: 'extractAudio',
-        variantId: '__fixed-extract-audio',
-        nodeType: 'audio',
-        nodeSize: NODE_SIZE_MAP.audio,
-        preselect: { featureId: 'extractAudio', variantId: '' },
-        missingInputTypes: [],
-      },
-    ])
-  }
-  return map
-}
-
+/**
+ * 前向拖拽：根据源节点 outputTypes 和 capabilities 计算可创建的目标媒体类型。
+ * 只要存在至少一个 feature 能接受源类型输入并产出该目标类型，就显示该类型。
+ */
 export function computeOutputTemplates(
   sourceOutputTypes: MediaType[],
   capabilities: V3CapabilitiesData[],
-): TemplateGroup[] {
-  const groupMap = new Map<MediaType, TemplateItem[]>()
+): TemplateList {
+  const reachable = new Set<MediaType>()
 
-  for (const [type, items] of getFixedTemplateItems(sourceOutputTypes)) {
-    groupMap.set(type, [...items])
+  // video 节点可分离出 audio
+  if (sourceOutputTypes.includes('video')) {
+    reachable.add('audio')
   }
 
-  if (!capabilities || capabilities.length === 0) return groupsFromMap(groupMap)
-  const seenFeatures = new Set<string>()
+  if (capabilities && capabilities.length > 0) {
+    for (const cap of capabilities) {
+      for (const feature of cap.features) {
+        for (const v of feature.variants) {
+          const outputType = v.resultType as MediaType | undefined
+          if (!outputType || !v.inputSlots?.length) continue
+          if (reachable.has(outputType)) continue
 
-  for (const cap of capabilities) {
-    for (const feature of cap.features) {
-      if (seenFeatures.has(feature.id)) continue
-
-      let matchedVariantId: string | undefined
-      let matchedOutputType: MediaType | undefined
-      let matchedAcceptedTypes: Set<MediaType> | undefined
-
-      for (const v of feature.variants) {
-        const outputType = v.resultType as MediaType | undefined
-        if (!outputType || !v.inputSlots?.length) continue
-        const acceptedTypes = inferAcceptedInputTypes(v.inputSlots)
-        if (acceptedTypes.size === 0 && v.inputSlots.every(s => s.accept === 'text')) {
-          // Text-only variant (e.g. text-to-image) — always compatible
-          matchedVariantId = v.id
-          matchedOutputType = outputType
-          matchedAcceptedTypes = acceptedTypes
-          break
-        }
-        const hasOverlap = [...acceptedTypes].some((t) => sourceOutputTypes.includes(t))
-        if (hasOverlap) {
-          matchedVariantId = v.id
-          matchedOutputType = outputType
-          matchedAcceptedTypes = acceptedTypes
-          break
+          const acceptedTypes = inferAcceptedInputTypes(v.inputSlots)
+          // text-only input slots → always compatible (e.g. text-to-image)
+          const isTextOnly = acceptedTypes.size === 0 && v.inputSlots.every(s => s.accept === 'text')
+          const hasOverlap = [...acceptedTypes].some((t) => sourceOutputTypes.includes(t))
+          if (isTextOnly || hasOverlap) {
+            reachable.add(outputType)
+          }
         }
       }
-
-      if (!matchedVariantId || !matchedOutputType) continue
-
-      seenFeatures.add(feature.id)
-
-      const nodeType = matchedOutputType as string
-      const nodeSize = NODE_SIZE_MAP[nodeType] ?? [320, 180]
-      const missingInputTypes = matchedAcceptedTypes
-        ? [...matchedAcceptedTypes].filter((t) => !sourceOutputTypes.includes(t))
-        : []
-
-      const item: TemplateItem = {
-        featureId: feature.id,
-        variantId: matchedVariantId,
-        nodeType,
-        nodeSize,
-        preselect: { featureId: feature.id, variantId: matchedVariantId },
-        missingInputTypes,
-      }
-
-      const bucket = groupMap.get(matchedOutputType) ?? []
-      bucket.push(item)
-      groupMap.set(matchedOutputType, bucket)
     }
   }
 
-  return groupsFromMap(groupMap)
+  return MEDIA_TYPE_ORDER.filter((t) => reachable.has(t)).map(buildItem)
 }
 
 /**
- * 计算后向拖拽菜单（"什么上游节点能喂给这个节点？"）。
- *
- * Now driven by capabilities data instead of local registry.
+ * 后向拖拽：根据目标节点类型计算可创建的上游媒体类型。
  */
 export function computeInputTemplates(
   targetNodeType: string,
   capabilities?: V3CapabilitiesData[],
-): TemplateGroup[] {
+): TemplateList {
   if (!capabilities || capabilities.length === 0) {
-    // Fallback: assume standard input types based on node type
     const defaultAccepted: Record<string, MediaType[]> = {
       image: ['text', 'image'],
       video: ['text', 'image', 'audio'],
@@ -174,26 +110,9 @@ export function computeInputTemplates(
     }
     const acceptedTypes = defaultAccepted[targetNodeType]
     if (!acceptedTypes) return []
-
-    const groupMap = new Map<MediaType, TemplateItem[]>()
-    for (const mediaType of acceptedTypes) {
-      const nodeSize = NODE_SIZE_MAP[mediaType] ?? [320, 180]
-      const item: TemplateItem = {
-        featureId: mediaType,
-        variantId: `upstream-${mediaType}`,
-        nodeType: mediaType,
-        nodeSize,
-        preselect: { featureId: mediaType, variantId: '' },
-        missingInputTypes: [],
-      }
-      const bucket = groupMap.get(mediaType) ?? []
-      bucket.push(item)
-      groupMap.set(mediaType, bucket)
-    }
-    return groupsFromMap(groupMap)
+    return acceptedTypes.map(buildItem)
   }
 
-  // Collect all accepted input types from matching category's variants
   const acceptedTypes = new Set<MediaType>()
   for (const cap of capabilities) {
     if (cap.category !== targetNodeType) continue
@@ -207,21 +126,5 @@ export function computeInputTemplates(
     }
   }
 
-  const groupMap = new Map<MediaType, TemplateItem[]>()
-  for (const mediaType of acceptedTypes) {
-    const nodeSize = NODE_SIZE_MAP[mediaType] ?? [320, 180]
-    const item: TemplateItem = {
-      featureId: mediaType,
-      variantId: `upstream-${mediaType}`,
-      nodeType: mediaType,
-      nodeSize,
-      preselect: { featureId: mediaType, variantId: '' },
-      missingInputTypes: [],
-    }
-    const bucket = groupMap.get(mediaType) ?? []
-    bucket.push(item)
-    groupMap.set(mediaType, bucket)
-  }
-
-  return groupsFromMap(groupMap)
+  return MEDIA_TYPE_ORDER.filter((t) => acceptedTypes.has(t)).map(buildItem)
 }

@@ -29,6 +29,7 @@ import { registerS3TestRoutes } from "@/modules/storage/s3TestRoutes";
 import { registerCloudModelRoutes } from "@/ai/models/cloudModelRoutes";
 import { registerVideoDownloadRoutes } from "@/modules/media/videoDownloadRoutes";
 import { registerVideoStreamRoutes } from "@/modules/media/videoStreamRoutes";
+import { registerUrlDownloadRoutes } from "@/modules/media/urlDownloadRoutes";
 import { registerEmailOAuthRoutes } from "@/modules/email/oauth/emailOAuthRoutes";
 import { registerEmailAttachmentRoutes } from "@/modules/email/emailAttachmentRoutes";
 import { registerLocalAuthRoutes } from "@/modules/local-auth/localAuthRoutes";
@@ -121,6 +122,7 @@ export function createApp() {
   registerS3TestRoutes(app);
   registerVideoDownloadRoutes(app);
   registerVideoStreamRoutes(app);
+  registerUrlDownloadRoutes(app);
   registerEmailOAuthRoutes(app);
   registerEmailAttachmentRoutes(app);
   registerOfficeAddinRoutes(app);

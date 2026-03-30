@@ -185,6 +185,7 @@ export function useEstimatePrice({
   return {
     estimate,
     totalCredits: estimate?.totalCredits ?? null,
+    billingType: estimate?.billingType ?? null,
     loading,
   }
 }

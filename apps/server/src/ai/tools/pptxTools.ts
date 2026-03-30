@@ -345,41 +345,9 @@ export const pptxMutateTool = tool({
 // Legacy .ppt handling
 // ---------------------------------------------------------------------------
 
-/** Extract plain text from officeparser AST. */
-function extractAstText(ast: { content?: { text?: string; children?: any[] }[] }): string {
-  const lines: string[] = []
-  function walk(nodes: any[]) {
-    for (const node of nodes) {
-      if (node.text) lines.push(node.text)
-      if (node.children) walk(node.children)
-    }
-  }
-  if (ast.content) walk(ast.content)
-  return lines.join('\n')
-}
-
-async function handleLegacyPpt(filePath: string, mode: string) {
-  if (mode !== 'read-text') {
-    return {
-      ok: false,
-      error: '该文件为旧版 .ppt 格式，仅支持 read-text 模式提取纯文本。如需编辑，请使用 pptx-mutate(create) 创建新的 .pptx 文件。',
-    }
-  }
-  const { absPath } = resolveToolPath({ target: filePath })
-  const officeparser = await import('officeparser')
-  const ast = await officeparser.parseOffice(absPath)
-  const text = extractAstText(ast)
-  const truncated = text.length > MAX_TEXT_LENGTH
+function handleLegacyPpt(_filePath: string, _mode: string) {
   return {
-    ok: true,
-    data: {
-      mode,
-      fileName: path.basename(filePath),
-      text: truncated ? text.slice(0, MAX_TEXT_LENGTH) : text,
-      truncated,
-      characterCount: text.length,
-      legacy: true,
-      hint: '该文件为旧版 .ppt 格式。如需编辑，请使用 pptx-mutate(create) 创建新的 .pptx 文件。',
-    },
+    ok: false,
+    error: '该文件为旧版 .ppt 格式，不支持直接读取。请先将文件转换为 .pptx 格式后重试，或使用 doc-convert 工具转换。',
   }
 }

@@ -27,6 +27,8 @@ export type GeneratingOverlayProps = {
   onCancel?: () => void
   /** Whether a cancel request is in flight. */
   cancelling?: boolean
+  /** Compact layout for small nodes (e.g. audio). Reduces ring size and uses inline layout. */
+  compact?: boolean
 }
 
 // ---------------------------------------------------------------------------
@@ -43,6 +45,11 @@ const RING_RADIUS = 28
 const RING_STROKE = 3
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS
 const SVG_SIZE = (RING_RADIUS + RING_STROKE) * 2
+
+const COMPACT_RING_RADIUS = 14
+const COMPACT_RING_STROKE = 2
+const COMPACT_RING_CIRCUMFERENCE = 2 * Math.PI * COMPACT_RING_RADIUS
+const COMPACT_SVG_SIZE = (COMPACT_RING_RADIUS + COMPACT_RING_STROKE) * 2
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -68,6 +75,7 @@ export function GeneratingOverlay({
   color = 'blue',
   onCancel,
   cancelling,
+  compact,
 }: GeneratingOverlayProps) {
   const { t } = useTranslation('board')
   const [now, setNow] = useState(Date.now)
@@ -89,6 +97,68 @@ export function GeneratingOverlay({
     serverProgress != null ? Math.min(serverProgress / 100, 0.99) : timeProgress
 
   const colors = COLOR_MAP[color]
+
+  if (compact) {
+    const cDashOffset = COMPACT_RING_CIRCUMFERENCE * (1 - progress)
+    return (
+      <div className="absolute inset-0 z-10 flex items-center justify-center gap-3 rounded-3xl bg-background/80 backdrop-blur-sm">
+        {/* Compact circular ring */}
+        <div className="relative shrink-0">
+          <svg
+            width={COMPACT_SVG_SIZE}
+            height={COMPACT_SVG_SIZE}
+            className="-rotate-90"
+          >
+            <circle
+              cx={COMPACT_SVG_SIZE / 2}
+              cy={COMPACT_SVG_SIZE / 2}
+              r={COMPACT_RING_RADIUS}
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={COMPACT_RING_STROKE}
+              className="text-foreground/8"
+            />
+            <circle
+              cx={COMPACT_SVG_SIZE / 2}
+              cy={COMPACT_SVG_SIZE / 2}
+              r={COMPACT_RING_RADIUS}
+              fill="none"
+              strokeWidth={COMPACT_RING_STROKE}
+              strokeLinecap="round"
+              strokeDasharray={COMPACT_RING_CIRCUMFERENCE}
+              strokeDashoffset={cDashOffset}
+              className={`${colors.ring} transition-[stroke-dashoffset] duration-1000 ease-linear`}
+            />
+          </svg>
+        </div>
+        {/* Inline text + cancel */}
+        <div className="flex flex-col gap-0.5">
+          <span className={`text-xs font-medium tabular-nums ${colors.text}`}>
+            {Math.round(progress * 100)}%
+            <span className="ml-1.5 text-[11px] font-normal text-ol-text-secondary">
+              {t('generatingOverlay.status', { duration: formatDuration(estimatedSeconds) })}
+            </span>
+          </span>
+          {onCancel ? (
+            <button
+              type="button"
+              disabled={cancelling}
+              className="inline-flex items-center text-[11px] font-medium text-ol-text-secondary hover:text-foreground transition-colors duration-150 disabled:opacity-50"
+              onClick={(e) => {
+                e.stopPropagation()
+                onCancel()
+              }}
+            >
+              {cancelling
+                ? t('generatingOverlay.cancelling', { defaultValue: '取消中...' })
+                : t('generatingOverlay.cancel', { defaultValue: '取消' })}
+            </button>
+          ) : null}
+        </div>
+      </div>
+    )
+  }
+
   const dashOffset = RING_CIRCUMFERENCE * (1 - progress)
 
   return (
