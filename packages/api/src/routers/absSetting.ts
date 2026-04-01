@@ -685,6 +685,55 @@ export const settingSchemas = {
       error: z.string().optional(),
     }),
   },
+  /** Detect external skills from Claude Code, Codex, Cursor, Windsurf, Copilot, and legacy paths. */
+  detectExternalSkills: {
+    input: z.object({
+      projectId: z.string().optional(),
+    }),
+    output: z.object({
+      sources: z.array(z.object({
+        /** Source identifier (e.g. "claude-code", "codex", "cursor"). */
+        sourceId: z.string(),
+        /** Human-readable label. */
+        label: z.string(),
+        /** Skills found in this source. */
+        skills: z.array(z.object({
+          /** Original skill name/folder. */
+          name: z.string(),
+          /** Target name with source prefix (e.g. "claude-my-skill"). */
+          targetName: z.string(),
+          /** Skill description extracted from SKILL.md or file content. */
+          description: z.string(),
+          /** Absolute path to the skill folder. */
+          sourcePath: z.string(),
+          /** Whether this skill is already imported (symlink or copy exists). */
+          alreadyImported: z.boolean(),
+        })),
+      })),
+    }),
+  },
+  /** Import external skills via symlink (macOS/Linux) or copy (Windows). */
+  importExternalSkills: {
+    input: z.object({
+      skills: z.array(z.object({
+        /** Source identifier for naming prefix. */
+        sourceId: z.string(),
+        /** Absolute path to the source skill folder. */
+        sourcePath: z.string(),
+        /** Target name (with prefix, e.g. "claude-my-skill"). */
+        targetName: z.string(),
+      })),
+      /** Import method: "link" for symlink, "copy" for file copy. */
+      method: z.enum(["link", "copy"]),
+      scope: mutableScopeSchema,
+      projectId: z.string().optional(),
+    }),
+    output: z.object({
+      ok: z.boolean(),
+      importedSkills: z.array(z.string()),
+      errors: z.array(z.string()).optional(),
+    }),
+  },
 };
 
 export abstract class BaseSettingRouter {
@@ -976,6 +1025,18 @@ export abstract class BaseSettingRouter {
       importSkillFromArchive: shieldedProcedure
         .input(settingSchemas.importSkillFromArchive.input)
         .output(settingSchemas.importSkillFromArchive.output)
+        .mutation(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      detectExternalSkills: shieldedProcedure
+        .input(settingSchemas.detectExternalSkills.input)
+        .output(settingSchemas.detectExternalSkills.output)
+        .query(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      importExternalSkills: shieldedProcedure
+        .input(settingSchemas.importExternalSkills.input)
+        .output(settingSchemas.importExternalSkills.output)
         .mutation(async () => {
           throw new Error("Not implemented in base class");
         }),

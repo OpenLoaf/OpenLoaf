@@ -60,7 +60,8 @@ type SkillFrontMatter = {
   tools?: string[];
 };
 
-const AGENTS_META_DIR = ".agents";
+const OPENLOAF_META_DIR = ".openloaf";
+const AGENTS_DIR_NAME = "agents";
 const SKILLS_DIR_NAME = "skills";
 const SKILL_FILE_NAME = "SKILL.md";
 const FRONT_MATTER_DELIMITER = "---";
@@ -96,11 +97,11 @@ export function loadSkillSummaries(input: {
   // 1. 全局 skills → 2. 父项目 skills → 3. 项目 skills
   // 同名去重：builtin 不可被覆盖；其余后来者覆盖前者（project > parent > global）。
   for (const source of sources) {
-    // 全局技能目录直接就是 skills 根目录，无需拼接 .agents/skills。
+    // 全局技能目录直接就是 skills 根目录，无需拼接 .openloaf/agents/skills。
     const skillsRootPath =
       source.scope === "global"
         ? source.rootPath
-        : path.join(source.rootPath, AGENTS_META_DIR, SKILLS_DIR_NAME);
+        : path.join(source.rootPath, OPENLOAF_META_DIR, AGENTS_DIR_NAME, SKILLS_DIR_NAME);
     const skillFiles = findSkillFiles(skillsRootPath);
 
     for (const filePath of skillFiles) {

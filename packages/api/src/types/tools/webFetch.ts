@@ -10,25 +10,29 @@
 import { z } from "zod";
 
 export const webFetchToolDef = {
-  id: "web-fetch",
+  id: "WebFetch",
   name: "获取网页内容",
-  description:
-    "触发：当你需要获取指定 URL 的内容（JSON API、HTML 网页、纯文本）时调用。用途：发起 HTTP GET 请求，返回响应内容；HTML 自动转为 Markdown 便于阅读。返回：{ ok, url, content, contentType, title?, length }。不适用：不要用于需要交互的网页（使用 browser 子代理）；不要用于搜索（使用 web-search）；不要用于仅打开页面让用户查看（使用 open-url）。",
+  description: `Fetches a web page and returns its content as markdown.
+
+Usage:
+- Provide a URL and a prompt describing what information you need from the page
+- HTML pages are automatically converted to markdown for easy reading
+- JSON responses are pretty-printed
+- Content is truncated to 100,000 characters if too long
+- HTTP to HTTPS upgrade is automatic
+- Redirects within the same host are followed automatically (up to 10)
+- Cross-host redirects are reported back so you can fetch the new URL
+
+IMPORTANT: WebFetch WILL FAIL for authenticated or private URLs. Before using this tool, check if the URL points to an authenticated service (e.g. Google Docs, Confluence, Jira, GitHub). If so, look for a specialized MCP tool or browser automation that provides authenticated access.`,
   parameters: z.object({
     url: z
       .string()
       .min(1)
-      .describe("要获取的 URL（含协议，如 https://example.com）"),
-    headers: z
-      .record(z.string(), z.string())
-      .optional()
-      .describe("可选：自定义请求头"),
-    maxLength: z
-      .number()
-      .int()
-      .positive()
-      .optional()
-      .describe("可选：返回内容最大字符数，默认 50000"),
+      .describe("The URL to fetch content from"),
+    prompt: z
+      .string()
+      .min(1)
+      .describe("A prompt describing what information you need from this page. This helps focus the extraction."),
   }),
   component: null,
 } as const;

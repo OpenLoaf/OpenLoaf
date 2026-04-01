@@ -64,7 +64,7 @@ export const PAN_SOFT_PADDING_RATIO = 0.9;
 export const PAN_SOFT_PADDING_MIN = 800;
 export const PAN_SOFT_RESISTANCE_RATIO = 0.6;
 
-export const MULTI_SELECTION_OUTLINE_PADDING = 12;
+export const MULTI_SELECTION_OUTLINE_PADDING = 18;
 
 // ── Anchor magnetic animation ──
 /** Screen-px: rest offset pushing anchor icon outward when visible but idle. */

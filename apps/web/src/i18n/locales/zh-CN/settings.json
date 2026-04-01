@@ -744,7 +744,7 @@
     "useSkill": "使用技能",
     "deleteSkill": "删除技能",
     "loading": "正在加载技能列表...",
-    "empty": "暂无可用技能，请在 `.agents/skills` 或 `~/.agents/skills` 中添加 `SKILL.md`。",
+    "empty": "暂无可用技能，请在 `.openloaf/agents/skills` 或 `~/.openloaf/agents/skills` 中添加 `SKILL.md`。",
     "noMatch": "没有匹配的技能，请调整筛选条件后重试。",
     "readFailed": "读取失败：{{error}}",
     "unknownError": "未知错误",
@@ -828,6 +828,27 @@
         "newest": "最新",
         "rating": "最高评分"
       }
+    },
+    "external": {
+      "bannerTitle": "发现 {{count}} 个外部技能可以导入",
+      "bannerAction": "导入技能",
+      "bannerDismiss": "暂不需要",
+      "dialogTitle": "导入外部技能",
+      "dialogDesc": "从其他 AI 工具导入技能到 OpenLoaf",
+      "filterAll": "全部",
+      "methodLink": "创建链接（推荐）",
+      "methodCopy": "复制文件",
+      "methodLabel": "导入方式",
+      "alreadyImported": "已导入",
+      "importSelected": "导入选中 ({{count}})",
+      "importing": "导入中...",
+      "success": "成功导入 {{count}} 个技能",
+      "partialSuccess": "导入 {{imported}} 个，{{errors}} 个失败",
+      "failed": "导入失败",
+      "noSkills": "未检测到外部技能",
+      "detecting": "正在检测...",
+      "selectAll": "全选 ({{count}})",
+      "deselectAll": "取消全选"
     }
   },
   "modelSelector": {

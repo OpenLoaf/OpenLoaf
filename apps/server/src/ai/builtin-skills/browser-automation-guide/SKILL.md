@@ -17,11 +17,11 @@ open-url → snapshot → 分析 → act → wait → snapshot → 分析 → ..
 
 这是最关键的选择。选错工具 = 白费力气。
 
-**用 `web-search`** 当：
+**用 `WebSearch`** 当：
 - 用户问的是事实性问题（"XXX 是什么"、"最新的 YYY"）
 - 不需要访问特定页面，而是需要综合多来源信息
 
-**用 `web-fetch`** 当：
+**用 `WebFetch`** 当：
 - 有明确 URL，只需读取静态内容
 - 页面不需要 JS 渲染（博客、文档、新闻文章）
 - 不需要交互（不点击、不登录、不翻页）
@@ -29,12 +29,12 @@ open-url → snapshot → 分析 → act → wait → snapshot → 分析 → ..
 
 **用 `browser-*`** 当：
 - 需要登录或维持会话状态
-- 页面是 SPA / JS 动态渲染（web-fetch 拿到空壳）
+- 页面是 SPA / JS 动态渲染（WebFetch 拿到空壳）
 - 需要点击、填表单、翻页等交互
 - 需要截图查看视觉布局
 - 需要下载页面中的图片
 
-**不确定？** 先试 `web-fetch`。如果返回内容为空或不完整，切换到 `browser-*`。
+**不确定？** 先试 `WebFetch`。如果返回内容为空或不完整，切换到 `browser-*`。
 
 ## 三大核心工作流
 
@@ -75,7 +75,7 @@ open-url → snapshot → 分析 → act → wait → snapshot → 分析 → ..
 
 ### 图片下载生命周期
 
-`browser-download-image` 下载的图片保存到当前项目的文件目录中，下载完成后返回文件路径。该路径可直接在后续操作中引用——如嵌入文档、作为 AI 输入、或通过 `read-file` 查看。如需指定保存位置，在调用时提供目标路径参数。
+`browser-download-image` 下载的图片保存到当前项目的文件目录中，下载完成后返回文件路径。该路径可直接在后续操作中引用——如嵌入文档、作为 AI 输入、或通过 `Read` 查看。如需指定保存位置，在调用时提供目标路径参数。
 
 ## Selector 选择策略
 
@@ -150,6 +150,6 @@ snapshot 和 observe 会返回可交互元素列表，**从中选择 selector，
 2. **先观察再行动**。snapshot/observe 是免费的，错误操作代价很大。
 3. **等待页面就绪**。SPA 页面尤其需要 `networkidle` 或 `textIncludes`。
 4. **当文本不够时用截图**。`browser-screenshot` 是你的眼睛。
-5. **选对工具层级**。`web-search` 用于事实性问题，`web-fetch` 用于已知 URL 的静态内容（快且轻量），`browser-*` 用于需要交互或 JS 渲染的场景。
+5. **选对工具层级**。`WebSearch` 用于事实性问题，`WebFetch` 用于已知 URL 的静态内容（快且轻量），`browser-*` 用于需要交互或 JS 渲染的场景。
 6. **不要暴露敏感信息**。密码、token 等填写后不要 snapshot 确认内容。
 7. **遇到反爬立即停止**。CAPTCHA、频率限制不要盲目重试，告知用户。

@@ -11,7 +11,6 @@ import type {
   CanvasNodeElement,
   CanvasPoint,
   CanvasRect,
-  CanvasSnapshot,
 } from '../../engine/types'
 import { getGroupOutlinePadding, isGroupNodeType } from '../../engine/grouping'
 import { applyGroupAnchorPadding } from '../../engine/anchors'
@@ -62,6 +61,13 @@ export class PixiConnectorLayer {
   private hadUiOverlay = false
   private lastSelectedKey = ''
   private wasDragging = false
+  /** 拖拽期间缓存：与被拖拽节点关联的连线 ID 集合 */
+  private draggingConnectorIds: Set<string> | null = null
+  /** 拖拽期间缓存：boundsMap / connectorElements */
+  private cachedBoundsMap: Record<string, CanvasRect | undefined> | null = null
+  private cachedConnectorElements: CanvasConnectorElement[] | null = null
+  /** 拖拽期间缓存：不关联连线的预计算路径 */
+  private staticConnectorCache: Map<string, { path: CanvasConnectorPath; points: CanvasPoint[]; dashed: boolean; color: number | null; isSelected: boolean; isHovered: boolean }> | null = null
   private flowConnectors: FlowConnectorData[] = []
   private flowOffset = 0
   private flowAnimationId: number | null = null
@@ -82,6 +88,10 @@ export class PixiConnectorLayer {
   /** Invalidate cache so next sync() forces a full redraw. */
   invalidate(): void {
     this.lastRevision = -1
+    this.draggingConnectorIds = null
+    this.cachedBoundsMap = null
+    this.cachedConnectorElements = null
+    this.staticConnectorCache = null
   }
 
   /** Re-render all connectors from the current snapshot. */
@@ -98,6 +108,15 @@ export class PixiConnectorLayer {
       && !selectionChanged
       && !draggingChanged
     ) return
+
+    // 拖拽状态变化时清除拖拽期间缓存
+    if (draggingChanged) {
+      this.draggingConnectorIds = null
+      this.cachedBoundsMap = null
+      this.cachedConnectorElements = null
+      this.staticConnectorCache = null
+    }
+
     this.lastRevision = snapshot.docRevision
     this.hadUiOverlay = hasUiOverlay
     this.lastSelectedKey = selectedKey
@@ -107,20 +126,48 @@ export class PixiConnectorLayer {
     const g = this.graphics
     g.clear()
 
-    // 计算节点包围盒
+    // 计算节点包围盒 — 拖拽期间仅更新被拖拽节点的 bounds
     const groupPadding = getGroupOutlinePadding(1)
-    const boundsMap: Record<string, CanvasRect | undefined> = {}
-    const connectorElements: CanvasConnectorElement[] = []
+    let boundsMap: Record<string, CanvasRect | undefined>
+    let connectorElements: CanvasConnectorElement[]
 
-    for (const element of snapshot.elements) {
-      if (element.kind === 'node') {
-        boundsMap[element.id] = getNodeBounds(
-          element as CanvasNodeElement,
-          groupPadding,
-        )
-      } else if (element.kind === 'connector') {
-        connectorElements.push(element)
+    if (isDragging && this.cachedBoundsMap && this.cachedConnectorElements) {
+      // 拖拽期间复用缓存，仅更新被拖拽节点和选中节点的 bounds
+      boundsMap = this.cachedBoundsMap
+      connectorElements = this.cachedConnectorElements
+      const draggingId = snapshot.draggingId
+      for (const element of snapshot.elements) {
+        if (element.kind === 'node' && (element.id === draggingId || snapshot.selectedIds.includes(element.id))) {
+          boundsMap[element.id] = getNodeBounds(element as CanvasNodeElement, groupPadding)
+        }
       }
+    } else {
+      boundsMap = {}
+      connectorElements = []
+      for (const element of snapshot.elements) {
+        if (element.kind === 'node') {
+          boundsMap[element.id] = getNodeBounds(element as CanvasNodeElement, groupPadding)
+        } else if (element.kind === 'connector') {
+          connectorElements.push(element)
+        }
+      }
+      this.cachedBoundsMap = boundsMap
+      this.cachedConnectorElements = connectorElements
+    }
+
+    // 拖拽期间：识别与被拖拽节点关联的连线，只重算这些连线的路径
+    if (isDragging && !this.draggingConnectorIds) {
+      const dragIds = new Set(snapshot.selectedIds)
+      if (snapshot.draggingId) dragIds.add(snapshot.draggingId)
+      const related = new Set<string>()
+      for (const c of connectorElements) {
+        const srcId = 'elementId' in c.source ? c.source.elementId : null
+        const tgtId = 'elementId' in c.target ? c.target.elementId : null
+        if ((srcId && dragIds.has(srcId)) || (tgtId && dragIds.has(tgtId))) {
+          related.add(c.id)
+        }
+      }
+      this.draggingConnectorIds = related
     }
 
     // 应用组节点锚点偏移
@@ -139,35 +186,71 @@ export class PixiConnectorLayer {
     // 选中节点 ID 集合（用于检测关联连线）
     const selectedSet = new Set(snapshot.selectedIds)
     const nextFlowConnectors: FlowConnectorData[] = []
+    const isDragOptimized = isDragging && this.draggingConnectorIds !== null
+
+    // 拖拽开始时构建静态连线缓存
+    if (isDragOptimized && !this.staticConnectorCache) {
+      this.staticConnectorCache = new Map()
+      for (const connector of connectorElements) {
+        if (this.draggingConnectorIds!.has(connector.id)) continue
+        const resolved = resolveConnectorEndpointsSmart(
+          connector.source, connector.target, anchors, boundsMap,
+          { sourceAxisPreference },
+        )
+        if (!resolved.source || !resolved.target) continue
+        const style = connector.style ?? snapshot.connectorStyle
+        const path = buildConnectorPath(style, resolved.source, resolved.target, {
+          sourceAnchorId: resolved.sourceAnchorId,
+          targetAnchorId: resolved.targetAnchorId,
+        })
+        this.staticConnectorCache.set(connector.id, {
+          path,
+          points: flattenConnectorPath(path),
+          dashed: connector.dashed ?? snapshot.connectorDashed,
+          color: connector.color ? this.parseCssColor(connector.color) : null,
+          isSelected: snapshot.selectedIds.includes(connector.id),
+          isHovered: connector.id === snapshot.connectorHoverId,
+        })
+      }
+    }
 
     // 绘制所有连线
     for (const connector of connectorElements) {
-      const resolved = resolveConnectorEndpointsSmart(
-        connector.source,
-        connector.target,
-        anchors,
-        boundsMap,
-        { sourceAxisPreference },
-      )
-      if (!resolved.source || !resolved.target) continue
+      let path: CanvasConnectorPath
+      let points: CanvasPoint[]
+      let isSelected: boolean
+      let isHovered: boolean
+      let dashed: boolean
+      let color: number
 
-      const style = connector.style ?? snapshot.connectorStyle
-      const path = buildConnectorPath(style, resolved.source, resolved.target, {
-        sourceAnchorId: resolved.sourceAnchorId,
-        targetAnchorId: resolved.targetAnchorId,
-      })
-      const points = flattenConnectorPath(path)
-
-      const isSelected = snapshot.selectedIds.includes(connector.id)
-      const isHovered = connector.id === snapshot.connectorHoverId
-      const dashed = connector.dashed ?? snapshot.connectorDashed
-      // 确定颜色
-      const color = connector.color
-        ? this.parseCssColor(connector.color) ?? palette.connector
-        : palette.connector
-
-      // 逻辑：选中态只改变高亮描边，不改变主线实际粗细。
-      const width = STROKE_WIDTH
+      // 拖拽期间：不关联连线使用缓存，跳过昂贵的路径重算
+      const cached = isDragOptimized ? this.staticConnectorCache?.get(connector.id) : undefined
+      if (cached) {
+        path = cached.path
+        points = cached.points
+        isSelected = cached.isSelected
+        isHovered = cached.isHovered
+        dashed = cached.dashed
+        color = cached.color ?? palette.connector
+      } else {
+        const resolved = resolveConnectorEndpointsSmart(
+          connector.source, connector.target, anchors, boundsMap,
+          { sourceAxisPreference },
+        )
+        if (!resolved.source || !resolved.target) continue
+        const style = connector.style ?? snapshot.connectorStyle
+        path = buildConnectorPath(style, resolved.source, resolved.target, {
+          sourceAnchorId: resolved.sourceAnchorId,
+          targetAnchorId: resolved.targetAnchorId,
+        })
+        points = flattenConnectorPath(path)
+        isSelected = snapshot.selectedIds.includes(connector.id)
+        isHovered = connector.id === snapshot.connectorHoverId
+        dashed = connector.dashed ?? snapshot.connectorDashed
+        color = connector.color
+          ? this.parseCssColor(connector.color) ?? palette.connector
+          : palette.connector
+      }
 
       // 判断是否会播放流动动画（选中连线自身 或 关联到选中节点）
       const sourceNodeId = 'elementId' in connector.source ? connector.source.elementId : null
@@ -180,7 +263,7 @@ export class PixiConnectorLayer {
 
         if (isHovered) {
           this.drawConnectorPath(g, path, points, dashed, {
-            width: width + STROKE_OUTLINE_HOVER,
+            width: STROKE_WIDTH + STROKE_OUTLINE_HOVER,
             color: palette.selectionBorder,
             alpha: 0.14,
           })
@@ -188,7 +271,7 @@ export class PixiConnectorLayer {
 
         // 主线
         this.drawConnectorPath(g, path, points, dashed, {
-          width,
+          width: STROKE_WIDTH,
           color,
           alpha: lineAlpha,
         })
@@ -205,7 +288,7 @@ export class PixiConnectorLayer {
             points[points.length - 1]!,
             ARROW_SIZE,
             palette.selectionBorder,
-            width + STROKE_OUTLINE_HOVER,
+            STROKE_WIDTH + STROKE_OUTLINE_HOVER,
             0.14,
           )
         }
@@ -215,7 +298,7 @@ export class PixiConnectorLayer {
           points[points.length - 1]!,
           activeArrowSize,
           color,
-          width,
+          STROKE_WIDTH,
           arrowAlpha,
         )
       }

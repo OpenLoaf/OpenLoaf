@@ -52,10 +52,14 @@ export type CanvasToolDocHost = {
   getElementById: (elementId: string) => CanvasElement | null | undefined;
   /** Update one element patch in-place. */
   updateElement: (elementId: string, patch: Partial<CanvasElement>) => void;
+  /** 仅更新节点位置（拖拽热路径专用，避免 spread 整个对象）。 */
+  updateElementPosition: (elementId: string, xywh: [number, number, number, number]) => void;
   /** Run a document transaction. */
   transact: (fn: () => void) => void;
   /** Query node candidates intersecting a rect. */
   getNodeCandidatesInRect: (rect: CanvasRect) => CanvasNodeElement[];
+  /** Return the current document revision. */
+  getRevision: () => number;
 };
 
 export type CanvasToolViewportHost = {

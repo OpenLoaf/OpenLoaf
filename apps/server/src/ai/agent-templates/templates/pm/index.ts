@@ -16,24 +16,26 @@ import { getStandardPrompt } from '../master'
  * 排除 task-manage（PM 不创建 Task，用 spawn-agent 同步调度 Specialist）。
  */
 export const PM_AGENT_TOOL_IDS = [
-  // system
+  // core (always available)
   'tool-search',
-  'update-plan',
+  'Bash',
+  'Read',
+  'Glob',
+  'Grep',
+  'Edit',
+  'Write',
+  'request-user-input',
   // agent collaboration (PM's core capability)
   'spawn-agent',
   'send-input',
   'wait-agent',
   'abort-agent',
-  // file (read + write)
-  'read-file',
-  'list-dir',
-  'grep-files',
-  'apply-patch',
-  // shell-command is a core tool (always available)
+  // system (deferred)
+  'update-plan',
   // web
   'open-url',
-  'web-search',
-  'web-fetch',
+  'WebSearch',
+  'WebFetch',
   // project (query only)
   'project-query',
   // document

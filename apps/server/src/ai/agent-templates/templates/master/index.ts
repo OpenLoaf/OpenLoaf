@@ -24,29 +24,30 @@ export const masterTemplate: AgentTemplate = {
   description: 'AI 秘书，负责全局调度、即时问答、委派复杂任务',
   icon: 'sparkles',
   toolIds: [
+    // Core tools — always loaded (like Claude Code)
     'tool-search',
+    'Bash',
+    'Read',
+    'Glob',
+    'Grep',
+    'Edit',
+    'Write',
+    'request-user-input',
+    // agent collaboration
+    'spawn-agent',
+    'send-input',
+    'wait-agent',
+    'abort-agent',
   ],
   deferredToolIds: [
     // system
     'update-plan',
     'jsx-create',
-    'request-user-input',
-    // agent
-    'spawn-agent',
-    'send-input',
-    'wait-agent',
-    'abort-agent',
-    // file
-    'read-file',
-    'list-dir',
-    'grep-files',
-    'apply-patch',
     'file-info',
-    // shell-command is now a core tool (always available)
     // web
     'open-url',
-    'web-search',
-    'web-fetch',
+    'WebSearch',
+    'WebFetch',
     // browser automation
     'browser-snapshot',
     'browser-observe',

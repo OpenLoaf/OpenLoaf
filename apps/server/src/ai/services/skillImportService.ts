@@ -46,12 +46,12 @@ function hasDoubleExt(name: string): boolean {
 /** Resolve the target skills directory for the given scope. */
 function resolveSkillsDir(scope: 'global' | 'project', projectId?: string): string {
   if (scope === 'global') {
-    return path.join(homedir(), '.agents', 'skills')
+    return path.join(homedir(), '.openloaf', 'agents', 'skills')
   }
   if (!projectId) throw new Error('项目 ID 不能为空')
   const rootPath = getProjectRootPath(projectId)
   if (!rootPath) throw new Error('未找到项目')
-  return path.join(rootPath, '.agents', 'skills')
+  return path.join(rootPath, '.openloaf', 'agents', 'skills')
 }
 
 /** Check if a directory contains SKILL.md (case-insensitive). */

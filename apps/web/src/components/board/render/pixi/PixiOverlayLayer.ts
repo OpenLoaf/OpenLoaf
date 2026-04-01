@@ -20,6 +20,13 @@ export class PixiOverlayLayer {
   private theme: PixiThemeResolver
   private selectionBoxGfx = new Graphics()
   private selectionOutlineGfx = new Graphics()
+  /** 脏检查缓存 */
+  private lastSelectionBox: import("../../engine/types").CanvasSelectionBox | null = null
+  private lastSelectedKey = ''
+  private lastDocRevision = -1
+  private lastZoom = -1
+  private lastOffsetX = -1
+  private lastOffsetY = -1
 
   constructor(
     engine: CanvasEngine,
@@ -39,8 +46,27 @@ export class PixiOverlayLayer {
   /** Sync overlays with engine snapshot (called on snapshot change). */
   sync(): void {
     const snapshot = this.engine.getSnapshot()
-    const palette = this.theme.getPalette()
+    const selectedKey = snapshot.selectedIds.join(',')
     const { zoom, offset } = snapshot.viewport
+
+    // 脏检查：内容和视口都未变化时跳过重绘
+    if (
+      snapshot.selectionBox === this.lastSelectionBox
+      && selectedKey === this.lastSelectedKey
+      && snapshot.docRevision === this.lastDocRevision
+      && zoom === this.lastZoom
+      && offset[0] === this.lastOffsetX
+      && offset[1] === this.lastOffsetY
+    ) return
+
+    this.lastSelectionBox = snapshot.selectionBox
+    this.lastSelectedKey = selectedKey
+    this.lastDocRevision = snapshot.docRevision
+    this.lastZoom = zoom
+    this.lastOffsetX = offset[0]
+    this.lastOffsetY = offset[1]
+
+    const palette = this.theme.getPalette()
 
     // 选区框（虚线直角）
     this.selectionBoxGfx.clear()

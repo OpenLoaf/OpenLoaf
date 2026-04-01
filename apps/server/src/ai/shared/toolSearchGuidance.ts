@@ -67,7 +67,7 @@ export function buildToolSearchGuidance(
     if (allowedIds && !allowedIds.has(tool.id)) return false
     const excluded = PLATFORM_EXCLUDED[tool.id]
     if (excluded && platform && excluded.includes(platform)) return false
-    if (tool.id === 'web-search' && !isWebSearchConfigured()) return false
+    if (tool.id === 'WebSearch' && !isWebSearchConfigured()) return false
     return true
   })
 
@@ -86,14 +86,14 @@ export function buildToolSearchGuidance(
   }
 
   return `# 工具与技能
-**你初始没有任何可用工具。必须先用 tool-search 加载后才能调用。**
-
-调用方式：tool-search(names: "name1,name2") — 传入技能或工具名称，逗号分隔。
+你有一组始终可用的核心工具（Bash、Read、Glob、Grep、Edit、Write、request-user-input、spawn-agent 等），可直接调用。
+其余专业工具需通过 tool-search 加载后才能调用：tool-search(names: "name1,name2")。
 
 工作流程：
-1. 先从 Skills 列表中找匹配的技能 → 加载技能（会自动激活相关工具）
-2. 若无匹配技能 → 从下方分类中判断方向，加载对应工具
+1. 核心工具（文件操作、Shell、子代理）→ 直接使用，无需加载
+2. 专业工具 → 先从 Skills 列表中找匹配的技能 → 加载技能（会自动激活相关工具）
+3. 若无匹配技能 → 从下方分类中判断方向，加载对应工具
 
-可用工具分类：
+可按需加载的工具分类：
 ${groupLines.join('\n')}`
 }

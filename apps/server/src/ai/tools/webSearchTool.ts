@@ -6,6 +6,16 @@
  *
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
+ *
+ * WebSearch tool — searches the web via configurable providers.
+ * Architecture modeled after Claude Code's WebSearchTool:
+ *   - Schema: query + allowed_domains/blocked_domains (mutually exclusive)
+ *   - Input validation with error codes
+ *   - Output includes results + mandatory Sources reminder
+ *
+ * Unlike Claude Code (which uses Anthropic's native web_search_20250305 server tool),
+ * OpenLoaf uses pluggable search providers (currently Jina) since it supports
+ * multiple AI model providers.
  */
 import { tool, zodSchema } from 'ai'
 import { webSearchToolDef } from '@openloaf/api/types/tools/webSearch'
@@ -15,6 +25,11 @@ import { readBasicConf } from '@/modules/settings/openloafConfStore'
 // Search Provider Abstraction
 // ---------------------------------------------------------------------------
 
+export interface SearchHit {
+  title: string
+  url: string
+}
+
 export interface WebSearchResult {
   title: string
   url: string
@@ -22,12 +37,17 @@ export interface WebSearchResult {
 }
 
 export interface WebSearchProvider {
-  search(query: string, maxResults: number): Promise<WebSearchResult[]>
+  search(query: string, options?: {
+    allowedDomains?: string[]
+    blockedDomains?: string[]
+  }): Promise<WebSearchResult[]>
 }
 
 // ---------------------------------------------------------------------------
 // Jina Search Provider
 // ---------------------------------------------------------------------------
+
+const MAX_SEARCH_RESULTS = 8 // matching Claude Code's max_uses: 8
 
 class JinaSearchProvider implements WebSearchProvider {
   private apiKey: string
@@ -36,8 +56,21 @@ class JinaSearchProvider implements WebSearchProvider {
     this.apiKey = apiKey
   }
 
-  async search(query: string, maxResults: number): Promise<WebSearchResult[]> {
-    const url = `https://s.jina.ai/${encodeURIComponent(query)}`
+  async search(
+    query: string,
+    options?: { allowedDomains?: string[]; blockedDomains?: string[] },
+  ): Promise<WebSearchResult[]> {
+    // Build search query with domain filters
+    let searchQuery = query
+    if (options?.allowedDomains?.length) {
+      const siteFilter = options.allowedDomains.map((d) => `site:${d}`).join(' OR ')
+      searchQuery = `${query} (${siteFilter})`
+    } else if (options?.blockedDomains?.length) {
+      const excludeFilter = options.blockedDomains.map((d) => `-site:${d}`).join(' ')
+      searchQuery = `${query} ${excludeFilter}`
+    }
+
+    const url = `https://s.jina.ai/${encodeURIComponent(searchQuery)}`
     const headers: Record<string, string> = {
       Accept: 'application/json',
       'X-Retain-Images': 'none',
@@ -50,33 +83,19 @@ class JinaSearchProvider implements WebSearchProvider {
     const response = await fetch(url, { headers })
 
     if (!response.ok) {
-      throw new Error(`Jina search failed: ${response.status} ${response.statusText}`)
+      throw new Error(`Search failed: ${response.status} ${response.statusText}`)
     }
 
-    const data = await response.json() as any
-
-    // Jina returns { code, status, data: [...] }
+    const data = (await response.json()) as any
     const items: any[] = Array.isArray(data.data) ? data.data : Array.isArray(data) ? data : []
 
-    return items.slice(0, maxResults).map((item: any) => ({
+    return items.slice(0, MAX_SEARCH_RESULTS).map((item: any) => ({
       title: item.title ?? '',
       url: item.url ?? '',
       content: item.content ?? item.description ?? '',
     }))
   }
 }
-
-// ---------------------------------------------------------------------------
-// SaaS Search Provider (placeholder for future implementation)
-// ---------------------------------------------------------------------------
-
-// class SaasSearchProvider implements WebSearchProvider {
-//   constructor(private apiKey: string) {}
-//   async search(query: string, maxResults: number): Promise<WebSearchResult[]> {
-//     // TODO: Implement SaaS search provider via @openloaf-saas/sdk
-//     throw new Error('SaaS search provider not yet implemented')
-//   }
-// }
 
 // ---------------------------------------------------------------------------
 // Provider Selection
@@ -108,36 +127,71 @@ export function isWebSearchConfigured(): boolean {
 export const webSearchTool = tool({
   description: webSearchToolDef.description,
   inputSchema: zodSchema(webSearchToolDef.parameters),
-  execute: async ({ query, maxResults }) => {
-    const limit = maxResults ?? 5
+  execute: async (input): Promise<string> => {
+    const {
+      query,
+      allowed_domains: allowedDomains,
+      blocked_domains: blockedDomains,
+    } = input as {
+      query: string
+      allowed_domains?: string[]
+      blocked_domains?: string[]
+    }
 
+    const startTime = performance.now()
+
+    // Input validation (matching Claude Code's validateInput)
+    if (!query || query.length < 2) {
+      return 'Error: Missing or too short query (minimum 2 characters)'
+    }
+
+    if (allowedDomains?.length && blockedDomains?.length) {
+      return 'Error: Cannot specify both allowed_domains and blocked_domains in the same request'
+    }
+
+    // Check configuration
     if (!isWebSearchConfigured()) {
-      return {
-        ok: false,
-        query,
-        error: '网页搜索未配置。请在设置中选择搜索提供商并填写 API Key。',
-        results: [],
-      }
+      return 'Error: Web search is not configured. Please set up a search provider and API key in Settings → Web Search.'
     }
 
     const provider = getSearchProvider()
 
     try {
-      const results = await provider.search(query, limit)
-      return {
-        ok: true,
-        query,
-        resultCount: results.length,
-        results,
+      const results = await provider.search(query, {
+        allowedDomains,
+        blockedDomains,
+      })
+
+      const endTime = performance.now()
+      const durationSeconds = ((endTime - startTime) / 1000).toFixed(1)
+
+      if (results.length === 0) {
+        return `Web search results for query: "${query}"\n\nNo results found.\n\nSearch completed in ${durationSeconds}s`
       }
+
+      // Format output matching Claude Code's mapToolResultToToolResultBlockParam
+      let output = `Web search results for query: "${query}"\n\n`
+
+      for (const result of results) {
+        output += `### ${result.title}\n`
+        output += `URL: ${result.url}\n`
+        if (result.content) {
+          // Truncate individual result content to keep total size reasonable
+          const snippet = result.content.length > 500
+            ? result.content.slice(0, 500) + '...'
+            : result.content
+          output += `${snippet}\n`
+        }
+        output += '\n'
+      }
+
+      output += `\nSearch completed in ${durationSeconds}s (${results.length} results)`
+      output += '\n\nREMINDER: You MUST include the sources above in your response to the user using markdown hyperlinks.'
+
+      return output
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      return {
-        ok: false,
-        query,
-        error: message,
-        results: [],
-      }
+      return `Error searching for "${query}": ${message}`
     }
   },
 })

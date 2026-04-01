@@ -151,11 +151,17 @@
     "pptx-mutate": "PPTX Operations",
     "pdf-query": "PDF Query",
     "pdf-mutate": "PDF Operations",
+    "Bash": "Shell Command",
     "shell-command": "Shell Command",
+    "Read": "Read File",
     "read-file": "Read File",
+    "Edit": "Edit File",
     "apply-patch": "Edit File",
+    "Write": "Write File",
     "edit-document": "Edit Document",
+    "Glob": "List Directory",
     "list-dir": "List Directory",
+    "Grep": "Search Files",
     "grep-files": "Search Files",
     "update-plan": "Update Plan",
     "js-repl": "JavaScript REPL",
@@ -175,7 +181,8 @@
     "video-convert": "Video Convert",
     "doc-convert": "Document Convert",
     "file-info": "File Info",
-    "web-fetch": "Fetch Web Content"
+    "WebFetch": "Fetch Web Content",
+    "WebSearch": "Web Search"
   },
   "session": {
     "renameTitle": "Rename Session",

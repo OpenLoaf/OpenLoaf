@@ -598,6 +598,46 @@ export function VideoNodeView({
     [effectiveProjectId, fileContext?.boardId, element.props.sourcePath],
   );
 
+  // 逻辑：挂载时检测已有视频节点的尺寸是否正确——
+  // 修复历史节点因 ffprobe 未返回尺寸而回退 16:9 导致的黑边问题。
+  useEffect(() => {
+    if (!videoPath) return;
+    // 已有合理的 naturalWidth/Height 且 > 16（排除 16x9 回退值）则认为尺寸已正确
+    const nw = element.props.naturalWidth;
+    const nh = element.props.naturalHeight;
+    if (nw && nh && !(nw === 16 && nh === 9)) return;
+    if (!ids.projectId && !ids.boardId) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const metadata = await fetchVideoMetadata({
+          projectId: ids.projectId,
+          boardId: ids.boardId,
+          uri: videoPath,
+        });
+        if (cancelled || !metadata?.width || !metadata?.height) return;
+        engine.doc.updateNodeProps(element.id, {
+          naturalWidth: metadata.width,
+          naturalHeight: metadata.height,
+          ...(metadata.duration ? { duration: metadata.duration } : {}),
+        });
+        const el = engine.doc.getElementById(element.id);
+        if (el && el.kind === 'node') {
+          const [ex, ey, ew, eh] = el.xywh;
+          const ratio = metadata.width / metadata.height;
+          const newW = Math.max(ew, 240);
+          const newH = Math.round(newW / ratio);
+          const cx = ex + ew / 2;
+          const cy = ey + eh / 2;
+          engine.doc.updateElement(element.id, {
+            xywh: [Math.round(cx - newW / 2), Math.round(cy - newH / 2), newW, newH],
+          });
+        }
+      } catch { /* 元数据获取失败时不阻断渲染 */ }
+    })();
+    return () => { cancelled = true; };
+  }, [element.id, videoPath, element.props.naturalWidth, element.props.naturalHeight, ids.projectId, ids.boardId, engine]);
+
   // 逻辑：有视频但无 poster 时自动提取首帧作为缩略图。
   useEffect(() => {
     if (!videoPath || posterSrc || !ids.boardId && !ids.projectId) return;
@@ -687,6 +727,8 @@ export function VideoNodeView({
                 nodeH,
               ],
             });
+            // 逻辑：下载完成后用 ffprobe 补充精确的视频尺寸和时长，
+            // 修正初始 result.width/height 为 0 时回退 16:9 导致的黑边问题。
             void (async () => {
               try {
                 const metadata = await fetchVideoMetadata({
@@ -694,10 +736,32 @@ export function VideoNodeView({
                   boardId: fileContext?.boardId,
                   uri: nextSourcePath,
                 });
-                if (!metadata?.duration) return;
-                engine.doc.updateNodeProps(element.id, {
-                  duration: metadata.duration,
-                });
+                if (!metadata) return;
+                const propsPatch: Partial<VideoNodeProps> = {};
+                if (metadata.duration) propsPatch.duration = metadata.duration;
+                if (metadata.width && metadata.height) {
+                  propsPatch.naturalWidth = metadata.width;
+                  propsPatch.naturalHeight = metadata.height;
+                }
+                if (Object.keys(propsPatch).length > 0) {
+                  engine.doc.updateNodeProps(element.id, propsPatch);
+                }
+                // 当 ffprobe 返回的真实尺寸与初始回退值不同时，重新调整节点比例
+                if (metadata.width && metadata.height &&
+                    (metadata.width !== naturalWidth || metadata.height !== naturalHeight)) {
+                  const el = engine.doc.getElementById(element.id);
+                  if (el && el.kind === 'node') {
+                    const [ex, ey, ew, eh] = el.xywh;
+                    const ratio = metadata.width / metadata.height;
+                    const newW = Math.max(ew, 240);
+                    const newH = Math.round(newW / ratio);
+                    const cx = ex + ew / 2;
+                    const cy = ey + eh / 2;
+                    engine.doc.updateElement(element.id, {
+                      xywh: [Math.round(cx - newW / 2), Math.round(cy - newH / 2), newW, newH],
+                    });
+                  }
+                }
               } catch {
                 // 逻辑：下载成功后的补充元数据失败不影响节点落盘。
               }

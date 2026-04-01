@@ -25,7 +25,7 @@ const projectTypeEnum = z.enum([
 const suggestionTypeEnum = z.enum(['completion', 'question', 'action'])
 
 // ---------------------------------------------------------------------------
-// Per-capability Zod schemas (used by auxiliaryInfer + generateObject)
+// Per-capability Zod schemas (used by auxiliaryInfer + Output.object)
 // ---------------------------------------------------------------------------
 
 export const CAPABILITY_SCHEMAS = {

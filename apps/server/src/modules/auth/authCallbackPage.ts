@@ -10,6 +10,7 @@
 type AuthCallbackPageOptions = {
   message: string;
   returnUrl?: string;
+  saasUrl?: string;
 };
 
 // 中文注释：默认回到桌面端协议地址。
@@ -41,6 +42,7 @@ export function renderAuthCallbackPage(options: AuthCallbackPageOptions): string
   const safeMessage = escapeHtml(rawMessage);
   const returnUrl = (options.returnUrl ?? DEFAULT_RETURN_URL).trim() || DEFAULT_RETURN_URL;
   const safeReturnUrl = escapeHtml(returnUrl);
+  const saasUrl = options.saasUrl ? escapeHtml(options.saasUrl.trim().replace(/\/$/, "")) : "";
   const isSuccess = rawMessage.includes("成功");
 
   return `<!doctype html>
@@ -250,7 +252,10 @@ export function renderAuthCallbackPage(options: AuthCallbackPageOptions): string
         <span class="progress-label">${isSuccess ? "Done" : "Processing"}</span>
       </div>
 
-      <a class="btn" href="${safeReturnUrl}" data-open-app>返回 OpenLoaf</a>
+      <div style="display:flex;gap:12px;animation:fadeIn 0.6s 1.2s ease-out both">
+        ${saasUrl ? `<a class="btn" href="${saasUrl}" target="_blank" rel="noopener noreferrer" style="animation:none">打开官网</a>` : ""}
+        <a class="btn" href="${safeReturnUrl}" data-open-app style="animation:none">回到应用</a>
+      </div>
     </div>
     <script>
       (() => {

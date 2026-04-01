@@ -68,12 +68,19 @@ function getToolIcon(kind: string): React.ReactNode {
     case "abort-agent":
     case "resume-agent":
       return <BotIcon className={iconCls} />;
+    case "Edit":
     case "apply-patch":
+    case "Write":
       return <FileTextIcon className={iconCls} />;
+    case "Read":
     case "read-file":
       return <FileTextIcon className={iconCls} />;
+    case "Glob":
     case "list-dir":
       return <FolderOpenIcon className={iconCls} />;
+    case "Grep":
+    case "grep-files":
+      return <SearchIcon className={iconCls} />;
     case "open-url":
       return <GlobeIcon className={iconCls} />;
     case "image-generate":
@@ -81,6 +88,7 @@ function getToolIcon(kind: string): React.ReactNode {
       return <ImageIcon className={iconCls} />;
     case "update-plan":
       return <ListChecksIcon className={iconCls} />;
+    case "Bash":
     case "shell-command":
       return <TerminalIcon className={iconCls} />;
     default:
@@ -202,8 +210,8 @@ export default function UnifiedTool({
     return <OpenUrlTool part={part} className={className} />;
   }
 
-  // 逻辑：read-file 读取 .env 文件时使用专用渲染器
-  if (toolKind === "read-file" && part.output != null) {
+  // 逻辑：Read / read-file 读取 .env 文件时使用专用渲染器
+  if ((toolKind === "read" || toolKind === "read-file") && part.output != null) {
     const inputObj = asPlainObject(normalizeToolInput(part.input))
     const filePath = typeof inputObj?.path === 'string' ? inputObj.path : ''
     if (filePath && isEnvFilePath(filePath)) {

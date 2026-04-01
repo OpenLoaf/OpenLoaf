@@ -151,11 +151,17 @@
     "pptx-mutate": "PPTX操作",
     "pdf-query": "PDF検索",
     "pdf-mutate": "PDF操作",
+    "Bash": "シェルコマンド",
     "shell-command": "シェルコマンド",
+    "Read": "ファイルを読み取り",
     "read-file": "ファイルを読み取り",
+    "Edit": "ファイルを編集",
     "apply-patch": "ファイルを編集",
+    "Write": "ファイルを書き込み",
     "edit-document": "ドキュメントを編集",
+    "Glob": "ディレクトリ一覧",
     "list-dir": "ディレクトリ一覧",
+    "Grep": "ファイルを検索",
     "grep-files": "ファイルを検索",
     "update-plan": "プランを更新",
     "js-repl": "JavaScript REPL",
@@ -175,7 +181,8 @@
     "video-convert": "動画変換",
     "doc-convert": "ドキュメント変換",
     "file-info": "ファイル情報",
-    "web-fetch": "ウェブコンテンツを取得"
+    "WebFetch": "ウェブコンテンツを取得",
+    "WebSearch": "ウェブ検索"
   },
   "session": {
     "renameTitle": "セッション名を変更",

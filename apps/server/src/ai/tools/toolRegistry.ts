@@ -14,9 +14,10 @@ import {
   waitAgentTool,
   abortAgentTool,
 } from "@/ai/tools/agentTools";
-import { shellCommandTool } from "@/ai/tools/shellCommandTool";
-import { listDirTool, readFileTool, applyPatchTool } from "@/ai/tools/fileTools";
-import { grepFilesTool } from "@/ai/tools/grepFilesTool";
+import { bashTool } from "@/ai/tools/shellCommandTool";
+import { readTool, editTool, writeTool } from "@/ai/tools/fileTools";
+import { grepTool } from "@/ai/tools/grepTool";
+import { globTool } from "@/ai/tools/globTool";
 import { editDocumentTool } from "@/ai/tools/documentTools";
 import { generateWidgetTool } from "@/ai/tools/widgetTools";
 import {
@@ -99,12 +100,13 @@ import {
   memoryGetToolDef,
 } from "@openloaf/api/types/tools/memory";
 import {
-  listDirToolDef,
-  readFileToolDef,
-  applyPatchToolDef,
+  bashToolDef,
+  readToolDef,
+  editToolDef,
+  writeToolDef,
+  globToolDef,
+  grepToolDef,
   editDocumentToolDef,
-  grepFilesToolDef,
-  shellCommandToolDef,
   updatePlanToolDef,
   jsReplToolDef,
   jsReplResetToolDef,
@@ -215,23 +217,26 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
   [browserDownloadImageToolDef.id]: {
     tool: browserDownloadImageTool,
   },
-  [shellCommandToolDef.id]: {
-    tool: shellCommandTool,
+  [bashToolDef.id]: {
+    tool: bashTool,
   },
-  [readFileToolDef.id]: {
-    tool: readFileTool,
+  [readToolDef.id]: {
+    tool: readTool,
   },
-  [applyPatchToolDef.id]: {
-    tool: applyPatchTool,
+  [editToolDef.id]: {
+    tool: editTool,
+  },
+  [writeToolDef.id]: {
+    tool: writeTool,
   },
   [editDocumentToolDef.id]: {
     tool: editDocumentTool,
   },
-  [listDirToolDef.id]: {
-    tool: listDirTool,
+  [globToolDef.id]: {
+    tool: globTool,
   },
-  [grepFilesToolDef.id]: {
-    tool: grepFilesTool,
+  [grepToolDef.id]: {
+    tool: grepTool,
   },
   [updatePlanToolDef.id]: {
     tool: updatePlanTool,
@@ -374,12 +379,13 @@ const TOOL_DEF_REGISTRY: Record<string, { parameters?: any }> = {
   [browserWaitToolDef.id]: browserWaitToolDef,
   [browserScreenshotToolDef.id]: browserScreenshotToolDef,
   [browserDownloadImageToolDef.id]: browserDownloadImageToolDef,
-  [shellCommandToolDef.id]: shellCommandToolDef,
-  [readFileToolDef.id]: readFileToolDef,
-  [applyPatchToolDef.id]: applyPatchToolDef,
+  [bashToolDef.id]: bashToolDef,
+  [readToolDef.id]: readToolDef,
+  [editToolDef.id]: editToolDef,
+  [writeToolDef.id]: writeToolDef,
   [editDocumentToolDef.id]: editDocumentToolDef,
-  [listDirToolDef.id]: listDirToolDef,
-  [grepFilesToolDef.id]: grepFilesToolDef,
+  [globToolDef.id]: globToolDef,
+  [grepToolDef.id]: grepToolDef,
   [updatePlanToolDef.id]: updatePlanToolDef,
   [projectQueryToolDef.id]: projectQueryToolDef,
   [projectMutateToolDef.id]: projectMutateToolDef,
@@ -430,7 +436,8 @@ const TOOL_DEF_REGISTRY: Record<string, { parameters?: any }> = {
 export function getToolJsonSchemas(toolIds: string[]): Record<string, object> {
   const result: Record<string, object> = {}
   for (const id of toolIds) {
-    const def = TOOL_DEF_REGISTRY[id]
+    const resolved = resolveToolId(id)
+    const def = TOOL_DEF_REGISTRY[resolved]
     if (!def?.parameters) continue
     try {
       const full = zodSchema(def.parameters).jsonSchema as Record<string, unknown>
@@ -467,12 +474,33 @@ function wrapToolWithAutoApproval(toolId: string, tool: any): any {
   };
 }
 
+// ---------------------------------------------------------------------------
+// 工具 ID 别名 — 旧 ID → 新 ID 映射，兼容旧代码和已有对话历史
+// ---------------------------------------------------------------------------
+
+const TOOL_ALIASES: Record<string, string> = {
+  'shell-command': 'Bash',
+  'read-file': 'Read',
+  'apply-patch': 'Edit',
+  'list-dir': 'Glob',
+  'grep-files': 'Grep',
+  'web-search': 'WebSearch',
+  'web-fetch': 'WebFetch',
+}
+
+/** 解析工具 ID，优先使用别名映射到新 ID。 */
+function resolveToolId(toolId: string): string {
+  return TOOL_ALIASES[toolId] ?? toolId
+}
+
 /**
  * Returns the tool instance by ToolDef.id.
  * Checks the static native registry first, then the dynamic MCP registry.
+ * Supports legacy tool ID aliases for backward compatibility.
  */
 function getToolById(toolId: string): ToolEntry | undefined {
-  return TOOL_REGISTRY[toolId] ?? MCP_TOOL_REGISTRY.get(toolId);
+  const resolved = resolveToolId(toolId)
+  return TOOL_REGISTRY[resolved] ?? MCP_TOOL_REGISTRY.get(resolved);
 }
 
 /**
@@ -485,7 +513,8 @@ function getToolById(toolId: string): ToolEntry | undefined {
  */
 export function buildToolset(toolIds: readonly string[] = []) {
   const toolset: Record<string, any> = {};
-  for (const toolId of toolIds) {
+  for (const rawToolId of toolIds) {
+    const toolId = resolveToolId(rawToolId)
     const entry = getToolById(toolId);
     if (!entry) continue;
 

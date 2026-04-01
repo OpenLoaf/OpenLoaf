@@ -25,8 +25,8 @@ import path from 'node:path'
 import os from 'node:os'
 import { runWithContext } from '@/ai/shared/context/requestContext'
 import { isTargetOutsideScope, resolveToolPath } from '@/ai/tools/toolScope'
-import { readFileTool, listDirTool } from '@/ai/tools/fileTools'
-import { grepFilesTool } from '@/ai/tools/grepFilesTool'
+import { readTool } from '@/ai/tools/fileTools'
+import { grepTool } from '@/ai/tools/grepTool'
 import { setupE2eTestEnv } from '@/ai/__tests__/helpers/testEnv'
 
 // ---------------------------------------------------------------------------
@@ -137,48 +137,34 @@ async function main() {
   )
 
   // -----------------------------------------------------------------------
-  // C 层：needsApproval 集成（readFileTool / listDirTool / grepFilesTool）
+  // C 层：needsApproval 集成（readTool / grepTool）
   // -----------------------------------------------------------------------
   console.log('\nC 层 — needsApproval 集成')
 
-  await test('readFileTool: project 内相对路径 → needsApproval = false', () =>
+  await test('readTool: project 内相对路径 → needsApproval = false', () =>
     withCtx(() => {
-      const result = callNeedsApproval(readFileTool, { path: 'readme.md' })
+      const result = callNeedsApproval(readTool, { file_path: 'readme.md' })
       assert.equal(result, false)
     }),
   )
 
-  await test('readFileTool: project 外绝对路径 → needsApproval = true', () =>
+  await test('readTool: project 外绝对路径 → needsApproval = true', () =>
     withCtx(() => {
-      const result = callNeedsApproval(readFileTool, { path: '/etc/hosts' })
+      const result = callNeedsApproval(readTool, { file_path: '/etc/hosts' })
       assert.equal(result, true)
     }),
   )
 
-  await test('listDirTool: project 内相对路径 → needsApproval = false', () =>
+  await test('grepTool: 无 path（默认 project 根）→ needsApproval = false', () =>
     withCtx(() => {
-      const result = callNeedsApproval(listDirTool, { path: '.' })
+      const result = callNeedsApproval(grepTool, { pattern: 'TODO' })
       assert.equal(result, false)
     }),
   )
 
-  await test('listDirTool: project 外绝对路径 → needsApproval = true', () =>
+  await test('grepTool: project 外绝对路径 → needsApproval = true', () =>
     withCtx(() => {
-      const result = callNeedsApproval(listDirTool, { path: outsidePath })
-      assert.equal(result, true)
-    }),
-  )
-
-  await test('grepFilesTool: 无 path（默认 project 根）→ needsApproval = false', () =>
-    withCtx(() => {
-      const result = callNeedsApproval(grepFilesTool, { pattern: 'TODO' })
-      assert.equal(result, false)
-    }),
-  )
-
-  await test('grepFilesTool: project 外绝对路径 → needsApproval = true', () =>
-    withCtx(() => {
-      const result = callNeedsApproval(grepFilesTool, {
+      const result = callNeedsApproval(grepTool, {
         pattern: 'TODO',
         path: '/etc',
       })

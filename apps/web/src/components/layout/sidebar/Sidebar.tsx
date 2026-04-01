@@ -286,7 +286,7 @@ export const AppSidebar = ({
         <CompactUserAvatar />
       </SidebarHeader>
 
-      <SidebarContent className="items-center px-0">
+      <SidebarContent className="items-center px-0 overflow-visible">
         <SidebarMenu ref={contentMenuRef} className="relative items-center gap-1 px-1.5">
           <SlidingIndicator activeIdx={activeContentIdx} containerRef={contentMenuRef} />
           {/* Core */}

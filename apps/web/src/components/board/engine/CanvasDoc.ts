@@ -120,6 +120,21 @@ export class CanvasDoc {
     this.queueChange();
   }
 
+  /**
+   * 仅更新节点位置（拖拽热路径专用）。
+   * 避免展开整个节点对象，大幅减少 GC 压力。
+   */
+  updateElementPosition(id: string, xywh: [number, number, number, number]): void {
+    const current = this.elements.get(id);
+    if (!current || current.kind !== "node") return;
+    this.elementsCache = null;
+    // 浅拷贝节点对象，只替换 xywh，props 保持引用不变
+    const next = { ...current, xywh } as CanvasElement;
+    this.elements.set(id, next);
+    this.nodeSpatialIndex.update(id, { x: xywh[0], y: xywh[1], w: xywh[2], h: xywh[3] });
+    this.queueChange();
+  }
+
   /** Update node props for a node element. */
   updateNodeProps<P extends Record<string, unknown>>(
     id: string,

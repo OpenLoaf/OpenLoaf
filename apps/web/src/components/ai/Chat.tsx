@@ -412,73 +412,62 @@ function ChatFullPageLayout({
       {isHistoryLoading ? (
         <div className="flex-1" />
       ) : isEmpty ? (
-        <div className="flex flex-1 flex-col min-h-0">
-          <div className="flex flex-1 flex-col items-center justify-center min-h-0">
-            <div className="flex w-full max-w-3xl flex-col items-center gap-4 px-6 -mt-20">
-              <motion.div
-                className="mb-2 select-none font-bold leading-none tracking-widest"
-                style={{ fontSize: 'clamp(2rem, 5vw, 3rem)' }}
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.25 }}
-              >
-                <span className="text-foreground">Open</span>
-                <span className="text-te-accent">Loaf</span>
-              </motion.div>
-              <motion.p
-                className="mb-4 text-base text-muted-foreground"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1, duration: 0.2 }}
-              >
-                {t('chat.welcomeMessage')}
-              </motion.p>
-              <ChatInput
-                className="w-full !max-h-none !mt-0"
-                large
-                attachments={attachments}
-                onAddAttachments={onAddAttachments}
-                onRemoveAttachment={onRemoveAttachment}
-                onClearAttachments={onClearAttachments}
-                onReplaceMaskedAttachment={onReplaceMaskedAttachment}
-                canAttachAll={canAttachAll}
-                canAttachImage={canAttachImage}
-                model={model}
-                isAutoModel={isAutoModel}
-                canImageGeneration={canImageGeneration}
-                canImageEdit={canImageEdit}
-                isCodexProvider={isCodexProvider}
-                onDropHandled={onDropHandled}
-                blockedCompact
-              />
-              <div className="mt-4">
-                <MessageHelper compact projectId={projectId} />
-              </div>
-            </div>
+        <div className="flex flex-1 flex-col items-center justify-center min-h-0">
+          <div className="flex w-full max-w-3xl flex-col items-center gap-4 px-6 -mt-20">
+            <motion.div
+              className="mb-2 select-none font-bold leading-none tracking-widest"
+              style={{ fontSize: 'clamp(2rem, 5vw, 3rem)' }}
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.25 }}
+            >
+              <span className="text-foreground">Open</span>
+              <span className="text-te-accent">Loaf</span>
+            </motion.div>
+            <motion.p
+              className="mb-4 text-base text-muted-foreground"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1, duration: 0.2 }}
+            >
+              {t('chat.welcomeMessage')}
+            </motion.p>
           </div>
-          <QuickLaunchBar projectId={projectId} />
         </div>
       ) : (
-        <div className="flex flex-1 flex-col min-h-0">
+        <>
           <MessageList className="flex-1 min-h-0" projectId={projectId} />
           <RecentSessionsBar />
-          <ChatInput
-            className="mx-2 mb-2"
-            attachments={attachments}
-            onAddAttachments={onAddAttachments}
-            onRemoveAttachment={onRemoveAttachment}
-            onClearAttachments={onClearAttachments}
-            onReplaceMaskedAttachment={onReplaceMaskedAttachment}
-            canAttachAll={canAttachAll}
-            canAttachImage={canAttachImage}
-            model={model}
-            isAutoModel={isAutoModel}
-            canImageGeneration={canImageGeneration}
-            canImageEdit={canImageEdit}
-            isCodexProvider={isCodexProvider}
-            onDropHandled={onDropHandled}
-          />
-        </div>
+        </>
+      )}
+      {/* 单一 ChatInput 实例，避免 empty→non-empty 切换时重新挂载导致模型选中状态丢失 */}
+      <div className={isEmpty ? "w-full max-w-3xl mx-auto px-6" : ""}>
+        <ChatInput
+          className={isEmpty ? "w-full !max-h-none !mt-0" : "mx-2 mb-2"}
+          large={isEmpty}
+          attachments={attachments}
+          onAddAttachments={onAddAttachments}
+          onRemoveAttachment={onRemoveAttachment}
+          onClearAttachments={onClearAttachments}
+          onReplaceMaskedAttachment={onReplaceMaskedAttachment}
+          canAttachAll={canAttachAll}
+          canAttachImage={canAttachImage}
+          model={model}
+          isAutoModel={isAutoModel}
+          canImageGeneration={canImageGeneration}
+          canImageEdit={canImageEdit}
+          isCodexProvider={isCodexProvider}
+          onDropHandled={onDropHandled}
+          blockedCompact={isEmpty}
+        />
+      </div>
+      {isEmpty && (
+        <>
+          <div className="flex justify-center mt-4 mb-2">
+            <MessageHelper compact projectId={projectId} />
+          </div>
+          <QuickLaunchBar projectId={projectId} />
+        </>
       )}
     </div>
   )

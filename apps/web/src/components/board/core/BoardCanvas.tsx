@@ -50,7 +50,6 @@ import type { CanvasElement, CanvasNodeDefinition } from "../engine/types";
 import { BoardCanvasInteraction } from "./BoardCanvasInteraction";
 import { BoardCanvasCollab } from "./BoardCanvasCollab";
 import { BoardCanvasRender } from "./BoardCanvasRender";
-import { useBoardSnapshot } from "./useBoardSnapshot";
 import { blobToBase64 } from "../utils/base64";
 import {
   captureBoardImageBlob,
@@ -277,9 +276,16 @@ export function BoardCanvas({
   const engine = externalEngine ?? engineRef.current;
   /** Current board element count (kept in sync for thumbnail guard). */
   const elementCountRef = useRef(0);
-  /** Latest snapshot from the engine. */
-  const snapshot = useBoardSnapshot(engine);
-  elementCountRef.current = snapshot.elements.length;
+  /** 轻量订阅元素数量，避免每帧因 snapshot 变化导致整个 BoardCanvas 重渲染 */
+  const [elementCount, setElementCount] = useState(() => engine.doc.getElements().length);
+  useEffect(() => {
+    const unsub = engine.subscribe(() => {
+      const count = engine.doc.getElements().length;
+      setElementCount(prev => prev === count ? prev : count);
+    });
+    return unsub;
+  }, [engine]);
+  elementCountRef.current = elementCount;
   const showUi = !uiHidden;
   /** Basic settings for UI toggles. */
   const { basic } = useBasicConfig();
@@ -685,7 +691,6 @@ export function BoardCanvas({
   }, [engine]);
 
   /** Initial thumbnail capture: fires once when elements are first loaded from collab sync. */
-  const elementCount = snapshot.elements.length;
   useEffect(() => {
     if (elementCount === 0) return;
     if (thumbnailInitDoneRef.current) return;
@@ -791,7 +796,7 @@ export function BoardCanvas({
   // 逻辑：预览优先使用原图地址，缺失时回退到压缩预览。
   return (
     <>
-      {effectiveTarget && snapshot.elements.length > 0 && createPortal(
+      {effectiveTarget && elementCount > 0 && createPortal(
         <div className="flex items-center justify-end">
           <Dialog open={renameOpen} onOpenChange={handleRenameOpen}>
             <DialogContent className="sm:max-w-md">
@@ -818,14 +823,14 @@ export function BoardCanvas({
                   variant="ghost"
                   size="icon"
                   className={`h-9 w-9 shrink-0 rounded-3xl shadow-none transition-colors duration-150 ${
-                    aiNaming || snapshot.elements.length === 0
+                    aiNaming || elementCount === 0
                       ? "text-muted-foreground opacity-50"
                       : saasLoggedIn
                         ? "bg-ol-amber/10 text-ol-amber hover:bg-ol-amber/20"
                         : "text-muted-foreground"
                   }`}
                   title={i18next.t('nav:canvasList.aiName')}
-                  disabled={aiNaming || snapshot.elements.length === 0}
+                  disabled={aiNaming || elementCount === 0}
                   onClick={handleAiName}
                 >
                   {aiNaming ? (

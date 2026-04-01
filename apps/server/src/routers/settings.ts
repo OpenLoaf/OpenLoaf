@@ -92,14 +92,14 @@ function buildGlobalIgnoreKey(folderName: string): string {
   return trimmed ? `global:${trimmed}` : "";
 }
 
-/** Resolve the global skills directory path (~/.agents/skills). */
+/** Resolve the global skills directory path (~/.openloaf/agents/skills). */
 function resolveGlobalSkillsPath(): string {
-  return path.join(homedir(), ".agents", "skills");
+  return path.join(homedir(), ".openloaf", "agents", "skills");
 }
 
-/** Resolve the global agents directory path (~/.agents/agents). */
+/** Resolve the global agents directory path (~/.openloaf/agents/agents). */
 function resolveGlobalAgentsPath(): string {
-  return path.join(homedir(), ".agents", "agents");
+  return path.join(homedir(), ".openloaf", "agents", "agents");
 }
 
 /** Build project ignore key from folder name. */
@@ -213,24 +213,29 @@ function resolveSkillDeleteTarget(input: {
   projectId?: string;
   skillPath: string;
 }): { skillDir: string; skillsRoot: string } {
-  const baseRootPath =
-    input.scope === "global"
-      ? getOpenLoafRootDir()
-      : input.projectId
-        ? getProjectRootPath(input.projectId) ?? ""
-        : "";
-  if (!baseRootPath) {
-    throw new Error("Project not found.");
-  }
   const normalizedSkillPath = normalizeSkillPath(input.skillPath);
   if (!normalizedSkillPath || path.basename(normalizedSkillPath) !== "SKILL.md") {
     // 只允许删除技能目录，必须传入 SKILL.md 的路径。
     throw new Error("Invalid skill path.");
   }
   const skillDir = normalizeFsPath(path.dirname(normalizedSkillPath));
-  const skillsRoot = normalizeFsPath(path.join(baseRootPath, ".agents", "skills"));
+
+  // global scope 直接用 resolveGlobalSkillsPath()，避免 getOpenLoafRootDir() + ".openloaf" 双重拼接。
+  let skillsRoot: string;
+  if (input.scope === "global") {
+    skillsRoot = normalizeFsPath(resolveGlobalSkillsPath());
+  } else {
+    const projectRootPath = input.projectId
+      ? getProjectRootPath(input.projectId) ?? ""
+      : "";
+    if (!projectRootPath) {
+      throw new Error("Project not found.");
+    }
+    skillsRoot = normalizeFsPath(path.join(projectRootPath, ".openloaf", "agents", "skills"));
+  }
+
   if (skillDir === skillsRoot || !skillDir.startsWith(`${skillsRoot}${path.sep}`)) {
-    // 仅允许删除 .agents/skills 目录内的技能。
+    // 仅允许删除 .openloaf/agents/skills 目录内的技能。
     throw new Error("Skill path is outside scope.");
   }
   return { skillDir, skillsRoot };
@@ -1377,7 +1382,7 @@ class SettingRouterImpl extends BaseSettingRouter {
             }
 
             // Reuse the same model resolution logic as auxiliaryInfer.
-            const { generateObject, generateText } = await import("ai");
+            const { generateText, Output } = await import("ai");
             const { resolveChatModel } = await import(
               "@/ai/models/resolveChatModel"
             );
@@ -1492,16 +1497,16 @@ class SettingRouterImpl extends BaseSettingRouter {
               };
             }
 
-            const result = await generateObject({
+            const result = await generateText({
               model: resolved.model,
-              schema,
+              output: Output.object({ schema: schema as any }),
               system: systemPrompt,
               prompt: input.context,
             });
 
             return {
               ok: true,
-              result: result.object,
+              result: result.output,
               durationMs: Date.now() - start,
               usage: {
                 inputTokens: result.usage?.inputTokens ?? 0,
@@ -1849,7 +1854,7 @@ class SettingRouterImpl extends BaseSettingRouter {
             if (!projectRootPath) {
               return { ok: false, error: "未找到目标项目" };
             }
-            targetSkillsDir = path.join(projectRootPath, ".agents", "skills");
+            targetSkillsDir = path.join(projectRootPath, ".openloaf", "agents", "skills");
           }
           await fs.mkdir(targetSkillsDir, { recursive: true });
           let destDir = path.join(targetSkillsDir, folderName);
@@ -1897,6 +1902,29 @@ class SettingRouterImpl extends BaseSettingRouter {
           return importSkillFromBuffer({
             buffer,
             fileName: input.fileName,
+            scope: input.scope,
+            projectId: input.projectId,
+          });
+        }),
+      detectExternalSkills: shieldedProcedure
+        .input(settingSchemas.detectExternalSkills.input)
+        .output(settingSchemas.detectExternalSkills.output)
+        .query(async ({ input }) => {
+          const { detectExternalSkills } = await import(
+            "@/ai/services/externalSkillsService"
+          );
+          return detectExternalSkills({ projectId: input.projectId });
+        }),
+      importExternalSkills: shieldedProcedure
+        .input(settingSchemas.importExternalSkills.input)
+        .output(settingSchemas.importExternalSkills.output)
+        .mutation(async ({ input }) => {
+          const { importExternalSkills } = await import(
+            "@/ai/services/externalSkillsService"
+          );
+          return importExternalSkills({
+            skills: input.skills,
+            method: input.method,
             scope: input.scope,
             projectId: input.projectId,
           });

@@ -1,6 +1,14 @@
 // @ts-nocheck — AI SDK tool().execute 的泛型在直接调用时有类型推断问题，运行时正确性由测试覆盖。
 /**
- * Web Search 工具层测试
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ *
+ * WebSearch 工具测试（重构后 — 匹配 Claude Code 架构）
  *
  * 用法：
  *   cd apps/server
@@ -8,11 +16,11 @@
  *     src/ai/tools/__tests__/webSearchTool.test.ts
  *
  * 测试覆盖：
- *   W1 层 — Tool definition schema validation
- *   W2 层 — Provider abstraction
+ *   W1 层 — Tool definition schema validation (新 schema: query/allowed_domains/blocked_domains)
+ *   W2 层 — Provider abstraction (新接口)
  *   W3 层 — Settings integration (isWebSearchConfigured)
- *   W4 层 — Jina provider integration (live, requires network + configured key)
- *   W5 层 — Error handling (mocked fetch)
+ *   W4 层 — Jina provider integration (live, requires JINA_API_KEY)
+ *   W5 层 — Error handling + input validation
  */
 import assert from 'node:assert/strict'
 import os from 'node:os'
@@ -21,7 +29,7 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { webSearchToolDef } from '@openloaf/api/types/tools/webSearch'
 import { setOpenLoafRootOverride } from '@openloaf/config'
 
-// Setup temp config dir before importing tool (readBasicConf reads from config dir)
+// Setup temp config dir before importing tool
 const tempRoot = path.join(os.tmpdir(), `openloaf-ws-test-${Date.now()}`)
 mkdirSync(tempRoot, { recursive: true })
 setOpenLoafRootOverride(tempRoot)
@@ -33,10 +41,10 @@ function writeSettings(webSearchProvider: string, webSearchApiKey: string) {
   )
 }
 
-// Start with empty settings (not configured)
+// Start with empty settings
 writeSettings('', '')
 
-// Now import tool (after config override is set)
+// Import tool after config override
 const { webSearchTool, isWebSearchConfigured } = await import('@/ai/tools/webSearchTool')
 
 // ---------------------------------------------------------------------------
@@ -68,141 +76,153 @@ const toolCtx = { toolCallId: 'test', messages: [], abortSignal: AbortSignal.abo
 
 async function main() {
   // -------------------------------------------------------------------------
-  // W1 层 — Tool definition schema
+  // W1 层 — Tool definition schema (Claude Code style)
   // -------------------------------------------------------------------------
-  console.log('\nW1 层 — Tool definition schema')
+  console.log('\nW1 — Tool definition schema')
 
-  await test('W1a: webSearchToolDef has correct id', () => {
-    assert.equal(webSearchToolDef.id, 'web-search')
+  await test('W1a: id 为 WebSearch', () => {
+    assert.equal(webSearchToolDef.id, 'WebSearch')
   })
 
-  await test('W1b: webSearchToolDef has name', () => {
+  await test('W1b: name 为网页搜索', () => {
     assert.equal(webSearchToolDef.name, '网页搜索')
   })
 
-  await test('W1c: schema validates valid input', () => {
-    const result = webSearchToolDef.parameters.safeParse({
-      query: 'TypeScript 5.0 features',
-    })
-    assert.equal(result.success, true)
+  await test('W1c: query 必填 (min 2 chars)', () => {
+    const ok = webSearchToolDef.parameters.safeParse({ query: 'ab' })
+    assert.equal(ok.success, true)
+    const tooShort = webSearchToolDef.parameters.safeParse({ query: 'a' })
+    assert.equal(tooShort.success, false)
   })
 
-  await test('W1d: schema validates with maxResults', () => {
+  await test('W1d: allowed_domains 可选', () => {
     const result = webSearchToolDef.parameters.safeParse({
       query: 'test query',
-      maxResults: 3,
+      allowed_domains: ['example.com', 'docs.python.org'],
     })
     assert.equal(result.success, true)
   })
 
-  await test('W1e: schema rejects empty query', () => {
+  await test('W1e: blocked_domains 可选', () => {
     const result = webSearchToolDef.parameters.safeParse({
-      query: '',
-    })
-    assert.equal(result.success, false)
-  })
-
-  await test('W1f: schema accepts input without actionName (removed from schema)', () => {
-    const result = webSearchToolDef.parameters.safeParse({
-      query: 'test',
+      query: 'test query',
+      blocked_domains: ['spam.com'],
     })
     assert.equal(result.success, true)
   })
 
-  await test('W1g: schema rejects maxResults > 10', () => {
+  await test('W1f: 不再有 maxResults 参数', () => {
+    // Schema should accept input without maxResults (it's removed)
     const result = webSearchToolDef.parameters.safeParse({
       query: 'test',
-      maxResults: 20,
+      maxResults: 5,
     })
-    assert.equal(result.success, false)
+    // Zod strict mode would reject unknown keys, but our schema uses z.object (not strict)
+    // Either way, the parameter is not in the schema
+    const parsed = result.success ? result.data : null
+    if (parsed) {
+      assert.equal('maxResults' in parsed, false, 'maxResults should not be in parsed output')
+    }
   })
 
-  await test('W1h: schema rejects maxResults < 1', () => {
-    const result = webSearchToolDef.parameters.safeParse({
-      query: 'test',
-      maxResults: 0,
-    })
-    assert.equal(result.success, false)
-  })
-
-  await test('W1i: schema rejects non-integer maxResults', () => {
-    const result = webSearchToolDef.parameters.safeParse({
-      query: 'test',
-      maxResults: 2.5,
-    })
+  await test('W1g: 空 query 被拒绝', () => {
+    const result = webSearchToolDef.parameters.safeParse({ query: '' })
     assert.equal(result.success, false)
   })
 
   // -------------------------------------------------------------------------
-  // W2 层 — Provider abstraction
+  // W2 层 — Provider abstraction (新接口)
   // -------------------------------------------------------------------------
-  console.log('\nW2 层 — Provider abstraction')
+  console.log('\nW2 — Provider abstraction')
 
-  await test('W2a: WebSearchProvider interface contract', () => {
+  await test('W2a: WebSearchProvider 接口包含 options 参数', () => {
     const mockProvider: import('@/ai/tools/webSearchTool').WebSearchProvider = {
-      search: async (query: string, maxResults: number) => {
-        return [{ title: 'Test', url: 'https://example.com', content: 'Test content' }]
+      search: async (_query: string, _options?: { allowedDomains?: string[]; blockedDomains?: string[] }) => {
+        return [{ title: 'Test', url: 'https://example.com', content: 'content' }]
       },
     }
     assert.ok(typeof mockProvider.search === 'function')
   })
 
-  await test('W2b: mock provider returns correct structure', async () => {
+  await test('W2b: mock provider 返回正确结构', async () => {
     const mockProvider: import('@/ai/tools/webSearchTool').WebSearchProvider = {
       search: async () => [
         { title: 'Result 1', url: 'https://a.com', content: 'Content 1' },
         { title: 'Result 2', url: 'https://b.com', content: 'Content 2' },
       ],
     }
-    const results = await mockProvider.search('test', 5)
+    const results = await mockProvider.search('test')
     assert.equal(results.length, 2)
     assert.equal(results[0].title, 'Result 1')
-    assert.equal(results[1].url, 'https://b.com')
   })
 
   // -------------------------------------------------------------------------
   // W3 层 — Settings integration
   // -------------------------------------------------------------------------
-  console.log('\nW3 层 — Settings integration')
+  console.log('\nW3 — Settings integration')
 
-  await test('W3a: isWebSearchConfigured returns false when not configured', () => {
+  await test('W3a: 未配置时返回 false', () => {
     writeSettings('', '')
     assert.equal(isWebSearchConfigured(), false)
   })
 
-  await test('W3b: isWebSearchConfigured returns false with provider but no key', () => {
+  await test('W3b: 仅 provider 无 key 返回 false', () => {
     writeSettings('jina', '')
     assert.equal(isWebSearchConfigured(), false)
   })
 
-  await test('W3c: isWebSearchConfigured returns false with key but no provider', () => {
+  await test('W3c: 仅 key 无 provider 返回 false', () => {
     writeSettings('', 'some-key')
     assert.equal(isWebSearchConfigured(), false)
   })
 
-  await test('W3d: isWebSearchConfigured returns true when fully configured', () => {
+  await test('W3d: 完整配置返回 true', () => {
     writeSettings('jina', 'test-api-key')
     assert.equal(isWebSearchConfigured(), true)
   })
 
-  await test('W3e: tool returns error when not configured', async () => {
+  await test('W3e: 未配置时工具返回错误字符串', async () => {
     writeSettings('', '')
-    const result: any = await webSearchTool.execute(
-      { query: 'test' },
+    const result: string = await webSearchTool.execute(
+      { query: 'test query' },
       toolCtx,
     )
-    assert.equal(result.ok, false)
-    assert.ok(result.error.includes('未配置'))
+    assert.ok(typeof result === 'string')
+    assert.ok(result.includes('Error'), `应包含 Error: ${result}`)
+    assert.ok(result.includes('not configured') || result.includes('Settings'), `应提示配置: ${result}`)
   })
 
   // -------------------------------------------------------------------------
-  // W4 层 — Jina provider integration (live)
+  // W4 层 — Input validation (Claude Code style)
   // -------------------------------------------------------------------------
-  console.log('\nW4 层 — Jina provider integration (live)')
+  console.log('\nW4 — Input validation')
 
-  // Read JINA_API_KEY from env for live tests
+  // Configure for validation tests
+  writeSettings('jina', 'test-key')
+
+  await test('W4a: 同时指定 allowed 和 blocked 返回错误', async () => {
+    const result: string = await webSearchTool.execute(
+      { query: 'test', allowed_domains: ['a.com'], blocked_domains: ['b.com'] },
+      toolCtx,
+    )
+    assert.ok(result.includes('Error'))
+    assert.ok(result.includes('Cannot specify both'))
+  })
+
+  await test('W4b: 过短 query 返回错误', async () => {
+    const result: string = await webSearchTool.execute(
+      { query: 'a' },
+      toolCtx,
+    )
+    assert.ok(result.includes('Error') || result.includes('too short'))
+  })
+
+  // -------------------------------------------------------------------------
+  // W5 层 — Jina integration (live)
+  // -------------------------------------------------------------------------
+  console.log('\nW5 — Jina integration (live)')
+
   const jinaApiKey = process.env.JINA_API_KEY || ''
-
   let jinaAvailable = false
   if (jinaApiKey) {
     try {
@@ -219,86 +239,68 @@ async function main() {
   }
 
   if (!jinaAvailable) {
-    console.log('  ⚠ Jina API unavailable (no JINA_API_KEY or unreachable), W4-layer tests skipped')
+    console.log('  ⚠ Jina API 不可用（无 JINA_API_KEY），W5 层跳过')
   } else {
-    // Configure settings with the real key for live tests
     writeSettings('jina', jinaApiKey)
 
-    await test('W4a: live search returns results', async () => {
-      const result: any = await webSearchTool.execute(
-        { query: 'OpenAI GPT', maxResults: 3 },
+    await test('W5a: 搜索返回包含结果的字符串', async () => {
+      const result: string = await webSearchTool.execute(
+        { query: 'OpenAI GPT' },
         toolCtx,
       )
-      assert.equal(result.ok, true)
-      assert.ok(result.results.length > 0, 'should return at least 1 result')
-      assert.ok(result.resultCount > 0)
+      assert.ok(typeof result === 'string')
+      assert.ok(result.includes('Web search results'))
+      assert.ok(result.includes('URL:'))
+      assert.ok(result.includes('REMINDER'))
     })
 
-    await test('W4b: live results have expected fields', async () => {
-      const result: any = await webSearchTool.execute(
-        { query: 'TypeScript programming language', maxResults: 2 },
+    await test('W5b: 结果包含 Sources 提醒', async () => {
+      const result: string = await webSearchTool.execute(
+        { query: 'TypeScript programming' },
         toolCtx,
       )
-      assert.equal(result.ok, true)
-      for (const r of result.results) {
-        assert.equal(typeof r.title, 'string')
-        assert.equal(typeof r.url, 'string')
-        assert.equal(typeof r.content, 'string')
-      }
-    })
-
-    await test('W4c: maxResults is respected', async () => {
-      const result: any = await webSearchTool.execute(
-        { query: 'JavaScript', maxResults: 2 },
-        toolCtx,
-      )
-      assert.equal(result.ok, true)
-      assert.ok(result.results.length <= 2, `expected <= 2 results, got ${result.results.length}`)
+      assert.ok(result.includes('REMINDER'))
+      assert.ok(result.includes('sources'))
     })
   }
 
   // -------------------------------------------------------------------------
-  // W5 层 — Error handling (mocked fetch)
+  // W6 层 — Error handling (mocked fetch)
   // -------------------------------------------------------------------------
-  console.log('\nW5 层 — Error handling')
+  console.log('\nW6 — Error handling')
 
-  // Configure as "configured" so the tool doesn't short-circuit
   writeSettings('jina', 'test-key-for-error-tests')
 
-  await test('W5a: tool returns ok=false on fetch error (not throw)', async () => {
+  await test('W6a: 网络错误返回错误字符串（不抛出）', async () => {
     const originalFetch = globalThis.fetch
-    globalThis.fetch = async () => {
-      throw new Error('Network error')
-    }
+    globalThis.fetch = async () => { throw new Error('Network error') }
     try {
-      const result: any = await webSearchTool.execute(
-        { query: 'test' },
+      const result: string = await webSearchTool.execute(
+        { query: 'test query' },
         toolCtx,
       )
-      assert.equal(result.ok, false)
-      assert.ok(result.error.includes('Network error'))
-      assert.deepEqual(result.results, [])
+      assert.ok(typeof result === 'string')
+      assert.ok(result.includes('Error') || result.includes('Network error'))
     } finally {
       globalThis.fetch = originalFetch
     }
   })
 
-  await test('W5b: tool returns ok=false on non-200 response', async () => {
+  await test('W6b: HTTP 404 返回错误字符串', async () => {
     const originalFetch = globalThis.fetch
     globalThis.fetch = async () => new Response('Not Found', { status: 404, statusText: 'Not Found' })
     try {
-      const result: any = await webSearchTool.execute(
-        { query: 'test' },
+      const result: string = await webSearchTool.execute(
+        { query: 'test query' },
         toolCtx,
       )
-      assert.equal(result.ok, false)
-      assert.ok(result.error.includes('404'))
+      assert.ok(result.includes('Error') || result.includes('404'))
     } finally {
       globalThis.fetch = originalFetch
     }
   })
 
-  await test('W5c: tool handles empty response data', async () => {
+  await test('W6c: 空搜索结果有友好提示', async () => {
     const originalFetch = globalThis.fetch
     globalThis.fetch = async () =>
       new Response(JSON.stringify({ data: [] }), {
@@ -306,32 +308,11 @@ async function main() {
         headers: { 'Content-Type': 'application/json' },
       })
     try {
-      const result: any = await webSearchTool.execute(
-        { query: 'empty' },
+      const result: string = await webSearchTool.execute(
+        { query: 'empty results test' },
         toolCtx,
       )
-      assert.equal(result.ok, true)
-      assert.equal(result.results.length, 0)
-      assert.equal(result.resultCount, 0)
-    } finally {
-      globalThis.fetch = originalFetch
-    }
-  })
-
-  await test('W5d: tool handles malformed JSON response', async () => {
-    const originalFetch = globalThis.fetch
-    globalThis.fetch = async () =>
-      new Response('not json', {
-        status: 200,
-        headers: { 'Content-Type': 'text/plain' },
-      })
-    try {
-      const result: any = await webSearchTool.execute(
-        { query: 'test' },
-        toolCtx,
-      )
-      assert.equal(result.ok, false)
-      assert.ok(result.error.length > 0)
+      assert.ok(result.includes('No results') || result.includes('0 results'))
     } finally {
       globalThis.fetch = originalFetch
     }

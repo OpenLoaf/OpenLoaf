@@ -16,7 +16,8 @@ import {
 } from "@/ai/services/skillsLoader";
 import { BUILTIN_SKILLS } from "@/ai/builtin-skills";
 
-const AGENTS_META_DIR = ".agents";
+const OPENLOAF_META_DIR = ".openloaf";
+const AGENTS_DIR_NAME = "agents";
 const SKILLS_DIR_NAME = "skills";
 const SKILL_FILE_NAME = "SKILL.md";
 
@@ -63,11 +64,11 @@ export class SkillSelector {
 
     // 逻辑：按 project -> parent -> global 顺序搜索技能。
     for (const searchRoot of searchRoots) {
-      // 全局技能目录直接就是 skills 根目录，无需拼接 .agents/skills。
+      // 全局技能目录直接就是 skills 根目录，无需拼接 .openloaf/agents/skills。
       const skillsRootPath =
         searchRoot.scope === "global"
           ? searchRoot.rootPath
-          : path.join(searchRoot.rootPath, AGENTS_META_DIR, SKILLS_DIR_NAME);
+          : path.join(searchRoot.rootPath, OPENLOAF_META_DIR, AGENTS_DIR_NAME, SKILLS_DIR_NAME);
       const skillFiles = findSkillFiles(skillsRootPath);
       for (const filePath of skillFiles) {
         const summary = readSkillSummaryFromPath(
@@ -148,7 +149,7 @@ export class SkillSelector {
 function buildSearchRoots(roots: SkillRoots): SkillSearchRoot[] {
   const projectRoot = normalizeRootPath(roots.projectRoot);
   const parentRoots = normalizeRootPathList(roots.parentRoots);
-  const globalSkillsPath = path.join(homedir(), ".agents", "skills");
+  const globalSkillsPath = path.join(homedir(), ".openloaf", "agents", "skills");
   const ordered: SkillSearchRoot[] = [];
 
   if (projectRoot) {

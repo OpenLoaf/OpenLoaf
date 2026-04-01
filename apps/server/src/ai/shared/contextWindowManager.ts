@@ -166,10 +166,10 @@ const TOOL_RESULT_IMPORTANCE: Record<string, ToolImportance> = {
   'wait-agent': 'keep',
   'send-input': 'keep',
   // 读取类 — 可能被引用
-  'read-file': 'summarize',
-  'grep-files': 'summarize',
-  'list-dir': 'summarize',
-  'shell-command': 'summarize',
+  'Read': 'summarize',
+  'Grep': 'summarize',
+  'Glob': 'summarize',
+  'Bash': 'summarize',
   'js-repl': 'summarize',
   'project-query': 'summarize',
   'calendar-query': 'summarize',
@@ -177,7 +177,8 @@ const TOOL_RESULT_IMPORTANCE: Record<string, ToolImportance> = {
   'browser-extract': 'summarize',
   'browser-snapshot': 'summarize',
   // 写入/生成类 — 确认即可
-  'apply-patch': 'drop',
+  'Edit': 'drop',
+  'Write': 'drop',
   'edit-document': 'drop',
   'generate-widget': 'drop',
   'jsx-create': 'drop',
@@ -279,6 +280,16 @@ function compressMessages(messages: any[]): any[] {
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Tool result interception constants (used by toolResultInterceptor.ts)
+// ---------------------------------------------------------------------------
+
+/** XML tag name used to wrap truncated tool output in the message stream. */
+export const TRUNCATED_OUTPUT_TAG = 'truncated-output'
+
+/** Placeholder text for cleared (micro-compacted) old tool results. */
+export const TOOL_RESULT_CLEARED_MESSAGE = '[旧工具结果已清除]'
 
 /** Re-export for use by autoCompact and other modules. */
 export { estimateMessagesTokens, getModelContextSize, computeHardLimit }

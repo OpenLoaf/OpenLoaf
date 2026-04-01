@@ -19,8 +19,8 @@ import { logger } from '@/common/logger'
 
 /** Per-category timeout settings (milliseconds). */
 const TOOL_TIMEOUT_MAP: Record<string, number> = {
-  // Shell tool — already has process-level timeout but needs a fallback
-  'shell-command': 120_000,
+  // Shell 工具 — 进程级超时兜底
+  'Bash': 120_000,
 
   // Browser tools — network-dependent
   'open-url': 60_000,

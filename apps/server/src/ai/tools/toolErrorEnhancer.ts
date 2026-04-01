@@ -78,7 +78,7 @@ const RECOVERY_RULES: RecoveryRule[] = [
   // File system errors
   {
     pattern: /ENOENT|no such file|not found|does not exist/i,
-    hint: '文件不存在。请先用 list-dir 浏览目录确认正确路径。若此路径在之前的对话中成功使用过，请从之前的工具返回结果中精确复制。',
+    hint: '文件不存在。请先用 Glob 浏览目录确认正确路径。若此路径在之前的对话中成功使用过，请从之前的工具返回结果中精确复制。',
   },
   {
     pattern: /EACCES|permission denied/i,
@@ -86,7 +86,7 @@ const RECOVERY_RULES: RecoveryRule[] = [
   },
   {
     pattern: /EISDIR|is a directory/i,
-    hint: '目标是目录而非文件。请使用 list-dir 查看目录内容，或指定具体文件路径。',
+    hint: '目标是目录而非文件。请使用 Glob 查看目录内容，或指定具体文件路径。',
   },
   {
     pattern: /ENOSPC|no space/i,

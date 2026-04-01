@@ -35,7 +35,7 @@
 
 /* 拖拽阴影 elevation-3 — 拖拽状态使用 filter 实现 3D 阴影效果（短暂状态可接受） */
 [data-board-node][data-dragging] {
-  transform: perspective(2000px) rotate(var(--node-rotate)) rotateX(var(--drag-tilt-x)) rotateY(var(--drag-tilt-y));
+  transform: perspective(800px) rotate(var(--node-rotate)) rotateX(var(--drag-tilt-x)) rotateY(var(--drag-tilt-y));
   box-shadow: none;
   filter:
     drop-shadow(0 11px 15px rgba(51, 61, 78, 0.15))

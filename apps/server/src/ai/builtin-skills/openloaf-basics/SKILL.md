@@ -26,23 +26,24 @@ description: >
 ## 工具发现：先搜再用
 
 你的工具集是动态的——不同页面、不同 Agent 拥有不同工具。**不要猜测工具是否存在**，用 `tool-search` 按名称加载：
-- `tool-search(names: "read-file,apply-patch")` — 直接传名称，逗号分隔
+- `tool-search(names: "Read,Edit")` — 直接传名称，逗号分隔
 - 技能和工具共用同一接口，名称来自系统上下文中的工具目录和技能列表
 
 ## 工具选择决策树
 
 ```
 需要操作什么？
-├─ 读取文件/代码 → read-file（支持分段、缩进折叠）
-├─ 修改/创建/删除文件 → apply-patch（unified diff，一次可改多文件）
-│   ⚠ 不要用 shell echo/sed/cat 写文件——apply-patch 有审批保护且不易出错
-├─ 编辑富文本文稿（tndoc_） → edit-document（专用工具，非 apply-patch）
-├─ 浏览目录 → list-dir
-├─ 搜索代码内容 → grep-files
-├─ 执行 shell 命令 → shell-command
+├─ 读取文件/代码 → Read（支持分段、offset/limit）
+├─ 修改已有文件 → Edit（old_string/new_string 精确替换）
+│   ⚠ 不要用 shell echo/sed/cat 写文件——Edit 有审批保护且不易出错
+├─ 创建新文件/完全重写 → Write（写入完整内容）
+├─ 编辑富文本文稿（tndoc_） → edit-document（专用工具，非 Edit）
+├─ 按文件名模式搜索 → Glob（pattern 匹配，如 "**/*.ts"）
+├─ 搜索代码内容 → Grep（支持正则、上下文行、多种输出模式）
+├─ 执行 shell 命令 → Bash
 ├─ 计算/数据处理 → js-repl（持久化 Node.js 沙箱）
-├─ 网页搜索 → web-search
-├─ 抓取网页 → web-fetch（自动转 Markdown）
+├─ 网页搜索 → WebSearch
+├─ 抓取网页 → WebFetch（自动转 Markdown）
 ├─ 操作画布 → tool-search canvas
 ├─ 创建/管理任务 → tool-search task
 └─ 操作邮件/日历/项目 → tool-search 对应关键词

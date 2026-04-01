@@ -9,6 +9,7 @@
  */
 import type {
   CanvasAnchorHit,
+  CanvasElement,
   CanvasNodeElement,
   CanvasPoint,
   CanvasRect,
@@ -443,8 +444,8 @@ export class SelectTool implements CanvasTool {
     const frameDx = this.lastMovePoint ? ctx.worldPoint[0] - this.lastMovePoint[0] : 0;
     const frameDy = this.lastMovePoint ? ctx.worldPoint[1] - this.lastMovePoint[1] : 0;
     this.lastMovePoint = ctx.worldPoint;
-    const tiltX = Math.max(-4, Math.min(4, frameDy * 0.15));
-    const tiltY = Math.max(-4, Math.min(4, -frameDx * 0.15));
+    const tiltX = Math.max(-10, Math.min(10, frameDy * 0.4));
+    const tiltY = Math.max(-10, Math.min(10, -frameDx * 0.4));
     for (const id of this.draggingIds) {
       const el = document.querySelector(`[data-element-id="${id}"]`) as HTMLElement | null;
       if (el) {
@@ -470,16 +471,13 @@ export class SelectTool implements CanvasTool {
         this.draggingIds.forEach(id => {
           const startRect = this.dragStartRects.get(id);
           if (!startRect) return;
-          const element = ctx.engine.doc.getElementById(id);
-          if (!element) return;
-          ctx.engine.doc.updateElement(id, {
-            xywh: [
-              startRect[0] + finalDx,
-              startRect[1] + finalDy,
-              startRect[2],
-              startRect[3],
-            ],
-          });
+          // 使用位置专用更新方法，避免每帧 spread 整个节点对象
+          ctx.engine.doc.updateElementPosition(id, [
+            startRect[0] + finalDx,
+            startRect[1] + finalDy,
+            startRect[2],
+            startRect[3],
+          ]);
         });
       });
       ctx.engine.setAlignmentGuides([]);
@@ -792,6 +790,10 @@ export class SelectTool implements CanvasTool {
     this.selectionPendingWorld = null;
   }
 
+  /** Cached sorted elements for hover detection (invalidated on doc revision change). */
+  private hoverSortedCache: CanvasElement[] | null = null;
+  private hoverSortedRevision = -1;
+
   /** Find the top-most hovered large-anchor node with expanded hit area. */
   private getHoverAnchorNode(
     engine: CanvasToolHost,
@@ -801,7 +803,13 @@ export class SelectTool implements CanvasTool {
     const { zoom } = engine.viewport.getState();
     // 逻辑：悬停范围比节点大一圈，便于拖出锚点。
     const padding = IMAGE_HOVER_PADDING / Math.max(zoom, MIN_ZOOM);
-    const elements = sortElementsByZIndex(engine.doc.getElements());
+    // 使用缓存的有序数组，仅在文档 revision 变化时重建
+    const rev = engine.doc.getRevision();
+    if (rev !== this.hoverSortedRevision || !this.hoverSortedCache) {
+      this.hoverSortedCache = sortElementsByZIndex(engine.doc.getElements());
+      this.hoverSortedRevision = rev;
+    }
+    const elements = this.hoverSortedCache;
     for (let i = elements.length - 1; i >= 0; i -= 1) {
       const element = elements[i];
       if (!element || element.kind !== "node") continue;

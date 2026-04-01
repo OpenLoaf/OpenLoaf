@@ -139,10 +139,13 @@ const DomNodeItem = memo(function DomNodeItem({
               : baseZ,
         '--node-rotate': `${element.rotate ?? 0}deg`,
         transformOrigin: 'center',
-        // 逻辑：节点位置变化时平滑过渡；拖拽/框选时禁用避免延迟感。
-        transition: dragging || boxSelecting
+        // 逻辑：节点位置变化时平滑过渡；拖拽时保留 transform/filter 过渡（3D tilt 动画），
+        // 但禁用 left/top 过渡避免延迟感；框选时全部禁用。
+        transition: boxSelecting
           ? 'none'
-          : 'left 300ms ease-out, top 300ms ease-out',
+          : dragging
+            ? 'transform 0.15s ease-out, filter 0.15s linear'
+            : 'left 300ms ease-out, top 300ms ease-out',
       } as React.CSSProperties}
     >
       {showLabel && (

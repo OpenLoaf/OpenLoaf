@@ -69,7 +69,7 @@ export class SupervisionService {
 
     // Read-only tools are always safe
     const readOnlyTools = new Set([
-      'read-file', 'list-dir', 'grep-files',
+      'Read', 'Glob', 'Grep',
       'browser-snapshot', 'browser-observe', 'browser-extract',
       'project-query', 'calendar-query', 'email-query',
       'wait-agent', 'task-status',
@@ -79,7 +79,7 @@ export class SupervisionService {
     }
 
     // Shell commands: check whitelist
-    if (toolName === 'shell' || toolName === 'shell-command') {
+    if (toolName === 'Bash' || toolName === 'shell') {
       const command = toolArgs.command as string | string[] | undefined
       if (!needsApprovalForCommand(command)) {
         return { decision: 'approve', reason: '只读 shell 命令，自动放行' }

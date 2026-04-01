@@ -7,781 +7,288 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import path from "node:path";
-import { promises as fs } from "node:fs";
-import { tool, zodSchema } from "ai";
+import path from 'node:path'
+import { promises as fs } from 'node:fs'
+import { tool, zodSchema } from 'ai'
 import {
-  listDirToolDef,
-  readFileToolDef,
-  applyPatchToolDef,
-} from "@openloaf/api/types/tools/runtime";
-import {
-  parsePatch,
-  computeReplacements,
-  applyReplacements,
-} from "@/ai/tools/applyPatch";
-import picomatch from "picomatch";
-import { resolveToolPath, resolveToolRoots, isTargetOutsideScope, ensureTempProject } from "@/ai/tools/toolScope";
-import { resolveSecretTokens } from "@/ai/tools/secretStore";
-import { buildGitignoreMatcher } from "@/ai/tools/gitignoreMatcher";
-import { getProjectId } from "@/ai/shared/context/requestContext";
-import { getProjectRootPath } from "@openloaf/api/services/vfsService";
-import { getOpenLoafRootDir } from "@openloaf/config";
+  readToolDef,
+  editToolDef,
+  writeToolDef,
+} from '@openloaf/api/types/tools/runtime'
+import { resolveToolPath, ensureTempProject } from '@/ai/tools/toolScope'
+import { resolveSecretTokens } from '@/ai/tools/secretStore'
+import { getProjectId } from '@/ai/shared/context/requestContext'
+import { getProjectRootPath } from '@openloaf/api/services/vfsService'
 
-const MAX_LINE_LENGTH = 500;
-const DEFAULT_READ_LIMIT = 2000;
-const TAB_WIDTH = 4;
-const COMMENT_PREFIXES = ["#", "//", "--"];
+const MAX_LINE_LENGTH = 500
+const DEFAULT_READ_LIMIT = 2000
 
-const MAX_ENTRY_LENGTH = 500;
-const DEFAULT_LIST_LIMIT = 25;
-const DEFAULT_LIST_DEPTH = 2;
-
-/** Blocked binary extensions for read file tools. */
+/** 常见二进制文件扩展名，读取时直接拒绝。 */
 const BINARY_FILE_EXTENSIONS = new Set([
-  ".7z",
-  ".avi",
-  ".bin",
-  ".bmp",
-  ".bz2",
-  ".dat",
-  ".db",
-  ".dll",
-  ".dmg",
-  ".doc",
-  ".docx",
-  ".exe",
-  ".flac",
-  ".gif",
-  ".gz",
-  ".iso",
-  ".jar",
-  ".jpeg",
-  ".jpg",
-  ".mkv",
-  ".mov",
-  ".mp3",
-  ".mp4",
-  ".ogg",
-  ".otf",
-  ".pdf",
-  ".png",
-  ".ppt",
-  ".pptx",
-  ".psd",
-  ".rar",
-  ".so",
-  ".sqlite",
-  ".tar",
-  ".ttf",
-  ".wav",
-  ".webm",
-  ".webp",
-  ".xls",
-  ".xlsx",
-  ".xz",
-  ".zip",
-]);
-type ReadMode = "slice" | "indentation";
+  '.7z', '.avi', '.bin', '.bmp', '.bz2', '.dat', '.db', '.dll',
+  '.dmg', '.doc', '.docx', '.exe', '.flac', '.gif', '.gz', '.iso',
+  '.jar', '.jpeg', '.jpg', '.mkv', '.mov', '.mp3', '.mp4', '.ogg',
+  '.otf', '.pdf', '.png', '.ppt', '.pptx', '.psd', '.rar', '.so',
+  '.sqlite', '.tar', '.ttf', '.wav', '.webm', '.webp', '.xls',
+  '.xlsx', '.xz', '.zip',
+])
 
-type IndentationOptions = {
-  /** Anchor line to center the indentation lookup on. */
-  anchorLine: number;
-  /** How many parent indentation levels to include. */
-  maxLevels: number;
-  /** Whether to include sibling blocks at the same indentation. */
-  includeSiblings: boolean;
-  /** Whether to include header lines above the anchor block. */
-  includeHeader: boolean;
-  /** Hard cap on returned lines. */
-  maxLines: number;
-};
-
-type LineRecord = {
-  /** 1-based line number. */
-  number: number;
-  /** Raw line text. */
-  raw: string;
-  /** Display text (possibly truncated). */
-  display: string;
-  /** Measured indentation. */
-  indent: number;
-  /** Effective indentation for blank lines. */
-  effectiveIndent: number;
-  /** Whether line is blank. */
-  isBlank: boolean;
-  /** Whether line is a comment. */
-  isComment: boolean;
-};
-
-type DirEntryKind = "directory" | "file" | "symlink" | "other";
-
-type DirEntry = {
-  /** Sort key (relative path). */
-  name: string;
-  /** Display name (last segment). */
-  displayName: string;
-  /** Depth for indentation. */
-  depth: number;
-  /** Entry kind. */
-  kind: DirEntryKind;
-  /** File size in bytes. */
-  sizeBytes?: number | null;
-  /** Last modified time. */
-  modifiedAt?: Date | null;
-};
-
-type DirStats = {
-  ignored: number;
-  dirCount: number;
-  fileCount: number;
-  symlinkCount: number;
-  otherCount: number;
-};
-
-/** Check whether a target path stays inside a root path. */
+/** 检查路径是否属于某个根路径内。 */
 function isPathInside(root: string, target: string): boolean {
-  const relative = path.relative(root, target);
-  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
+  const relative = path.relative(root, target)
+  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative))
 }
 
-/** Resolve a write target path within the current project root. Auto-creates temp project if needed. */
+/** 解析写入目标路径，确保在项目 scope 内。未绑定项目时自动创建临时项目。 */
 async function resolveWriteTargetPath(targetPath: string): Promise<{ absPath: string; rootPath: string }> {
-  let projectId = getProjectId();
+  let projectId = getProjectId()
   let rootPath = projectId
     ? getProjectRootPath(projectId)
-    : undefined;
+    : undefined
 
-  // Auto-create temp project when no project scope is available.
+  // 无项目 scope 时自动创建临时项目
   if (!rootPath) {
     if (!projectId) {
-      const temp = await ensureTempProject();
-      projectId = temp.projectId;
-      rootPath = temp.projectRoot;
+      const temp = await ensureTempProject()
+      projectId = temp.projectId
+      rootPath = temp.projectRoot
     } else {
-      throw new Error("Project not found.");
+      throw new Error('Project not found.')
     }
   }
 
-  const trimmed = targetPath.trim();
-  if (!trimmed) throw new Error("path is required.");
-  if (trimmed.startsWith("file:")) throw new Error("file:// URIs are not allowed.");
-  // Strip @{...} wrapper from new format, then check for project-scoped paths.
-  let normalized: string;
-  if (trimmed.startsWith("@{") && trimmed.endsWith("}")) {
-    normalized = trimmed.slice(2, -1);
-  } else if (trimmed.startsWith("@")) {
-    normalized = trimmed.slice(1);
-  } else {
-    normalized = trimmed;
-  }
-  if (normalized.startsWith("[")) throw new Error("Project-scoped paths are not allowed.");
-  if (!normalized.trim()) throw new Error("path is required.");
+  const trimmed = targetPath.trim()
+  if (!trimmed) throw new Error('file_path is required.')
+  if (trimmed.startsWith('file:')) throw new Error('file:// URIs are not allowed.')
 
-  const resolvedRoot = path.resolve(rootPath);
+  // 剥离 @{...} 或 @ 前缀
+  let normalized: string
+  if (trimmed.startsWith('@{') && trimmed.endsWith('}')) {
+    normalized = trimmed.slice(2, -1)
+  } else if (trimmed.startsWith('@')) {
+    normalized = trimmed.slice(1)
+  } else {
+    normalized = trimmed
+  }
+  if (normalized.startsWith('[')) throw new Error('Project-scoped paths are not allowed.')
+  if (!normalized.trim()) throw new Error('file_path is required.')
+
+  const resolvedRoot = path.resolve(rootPath)
   const absPath = path.isAbsolute(normalized)
     ? path.resolve(normalized)
-    : path.resolve(resolvedRoot, normalized);
+    : path.resolve(resolvedRoot, normalized)
   if (!isPathInside(resolvedRoot, absPath)) {
-    throw new Error("Path is outside the current project scope.");
+    throw new Error('Path is outside the current project scope.')
   }
-  return { absPath, rootPath: resolvedRoot };
+  return { absPath, rootPath: resolvedRoot }
 }
 
-/** Clamp a byte index to a UTF-8 boundary. */
+/** UTF-8 边界裁剪，避免多字节字符被截断。 */
 function clampUtf8End(buffer: Buffer, index: number): number {
-  let cursor = Math.max(0, Math.min(index, buffer.length));
+  let cursor = Math.max(0, Math.min(index, buffer.length))
   while (cursor > 0) {
-    const byte = buffer[cursor - 1];
-    if (byte === undefined) break;
-    if ((byte & 0b1100_0000) !== 0b1000_0000) break;
-    cursor -= 1;
+    const byte = buffer[cursor - 1]
+    if (byte === undefined) break
+    if ((byte & 0b1100_0000) !== 0b1000_0000) break
+    cursor -= 1
   }
-  return cursor;
+  return cursor
 }
 
-/** Truncate a string to the max byte length without breaking characters. */
+/** 按最大字节长度截断字符串，不破坏多字节字符。 */
 function truncateLine(line: string, maxLength: number): string {
-  const bytes = Buffer.from(line, "utf8");
-  if (bytes.length <= maxLength) return line;
-  const end = clampUtf8End(bytes, maxLength);
-  return bytes.toString("utf8", 0, end);
+  const bytes = Buffer.from(line, 'utf8')
+  if (bytes.length <= maxLength) return line
+  const end = clampUtf8End(bytes, maxLength)
+  return bytes.toString('utf8', 0, end)
 }
 
-/** Split file contents into lines while matching Codex newline handling. */
+/** 按换行符拆分文件内容。 */
 function splitLines(raw: string): string[] {
-  if (!raw) return [];
-  const lines = raw.split(/\r?\n/);
-  if (raw.endsWith("\n") || raw.endsWith("\r\n")) {
-    lines.pop();
+  if (!raw) return []
+  const lines = raw.split(/\r?\n/)
+  if (raw.endsWith('\n') || raw.endsWith('\r\n')) {
+    lines.pop()
   }
-  return lines;
+  return lines
 }
 
-/** Format a line record to output format. */
-function formatLineRecord(record: LineRecord): string {
-  return `L${record.number}: ${record.display}`;
+/** 检查路径是否为已屏蔽的二进制扩展名。 */
+function hasBlockedBinaryExtension(targetPath: string): boolean {
+  const ext = path.extname(targetPath).toLowerCase()
+  return Boolean(ext) && BINARY_FILE_EXTENSIONS.has(ext)
 }
 
-/** Measure indentation width (tabs are TAB_WIDTH). */
-function measureIndent(line: string): number {
-  let count = 0;
-  for (const ch of line) {
-    if (ch === " ") {
-      count += 1;
-      continue;
-    }
-    if (ch === "\t") {
-      count += TAB_WIDTH;
-      continue;
-    }
-    break;
-  }
-  return count;
-}
+// ─── Read 工具 ─────────────────────────────────────────────────────────────
 
-/** Build line records with effective indentation. */
-function collectLineRecords(lines: string[]): LineRecord[] {
-  const records: LineRecord[] = [];
-  let previousIndent = 0;
-  lines.forEach((raw, index) => {
-    const indent = measureIndent(raw);
-    const isBlank = raw.trim().length === 0;
-    const effectiveIndent = isBlank ? previousIndent : indent;
-    if (!isBlank) previousIndent = indent;
-    const isComment = COMMENT_PREFIXES.some((prefix) => raw.trim().startsWith(prefix));
-    records.push({
-      number: index + 1,
-      raw,
-      display: truncateLine(raw, MAX_LINE_LENGTH),
-      indent,
-      effectiveIndent,
-      isBlank,
-      isComment,
-    });
-  });
-  return records;
-}
-
-/** Trim empty lines from both ends of the index list. */
-function trimEmptyLines(indices: number[], records: LineRecord[]): number[] {
-  let start = 0;
-  let end = indices.length - 1;
-  while (start <= end) {
-    const index = indices[start];
-    if (index == null || !records[index]?.isBlank) break;
-    start += 1;
-  }
-  while (end >= start) {
-    const index = indices[end];
-    if (index == null || !records[index]?.isBlank) break;
-    end -= 1;
-  }
-  return indices.slice(start, end + 1);
-}
-
-/** Build indentation-aware output lines. */
-function readIndentationBlock(
-  records: LineRecord[],
-  offset: number,
-  limit: number,
-  options: IndentationOptions,
-): string[] {
-  const anchorLine = options.anchorLine || offset;
-  if (anchorLine <= 0) throw new Error("anchorLine must be a 1-indexed line number");
-  if (!records.length || anchorLine > records.length) {
-    throw new Error("anchorLine exceeds file length");
-  }
-
-  const anchorIndex = anchorLine - 1;
-  const anchorIndent = records[anchorIndex]?.effectiveIndent ?? 0;
-  const minIndent = options.maxLevels === 0 ? 0 : Math.max(0, anchorIndent - options.maxLevels * TAB_WIDTH);
-  const finalLimit = Math.min(limit, options.maxLines, records.length);
-
-  if (finalLimit === 1) {
-    return [formatLineRecord(records[anchorIndex]!)];
-  }
-
-  let i = anchorIndex - 1;
-  let j = anchorIndex + 1;
-  let iCounterMinIndent = 0;
-  let jCounterMinIndent = 0;
-  const outputIndices: number[] = [anchorIndex];
-
-  while (outputIndices.length < finalLimit) {
-    let progressed = 0;
-
-    // 向上扩展：遇到小于 minIndent 的缩进就停止。
-    if (i >= 0) {
-      const index = i;
-      const record = records[index];
-      if (record && record.effectiveIndent >= minIndent) {
-        outputIndices.unshift(index);
-        progressed += 1;
-        i -= 1;
-
-        if (record.effectiveIndent === minIndent && !options.includeSiblings) {
-          const allowHeaderComment = options.includeHeader && record.isComment;
-          const canTakeLine = allowHeaderComment || iCounterMinIndent === 0;
-          if (canTakeLine) {
-            iCounterMinIndent += 1;
-          } else {
-            outputIndices.shift();
-            progressed -= 1;
-            i = -1;
-          }
-        }
-
-        if (outputIndices.length >= finalLimit) break;
-      } else {
-        i = -1;
-      }
-    }
-
-    // 向下扩展：与向上逻辑保持一致。
-    if (j < records.length) {
-      const index = j;
-      const record = records[index];
-      if (record && record.effectiveIndent >= minIndent) {
-        outputIndices.push(index);
-        progressed += 1;
-        j += 1;
-
-        if (record.effectiveIndent === minIndent && !options.includeSiblings) {
-          if (jCounterMinIndent > 0) {
-            outputIndices.pop();
-            progressed -= 1;
-            j = records.length;
-          }
-          jCounterMinIndent += 1;
-        }
-      } else {
-        j = records.length;
-      }
-    }
-
-    if (progressed === 0) break;
-  }
-
-  const trimmed = trimEmptyLines(outputIndices, records);
-  return trimmed.map((index) => formatLineRecord(records[index]!));
-}
-
-/** Execute file read tool with slice or indentation mode. */
-export const readFileTool = tool({
-  description: readFileToolDef.description,
-  inputSchema: zodSchema(readFileToolDef.parameters),
+/** 读取文件内容，返回带行号的文本。 */
+export const readTool = tool({
+  description: readToolDef.description,
+  inputSchema: zodSchema(readToolDef.parameters),
   needsApproval: false,
   execute: async ({
-    path: filePath,
+    file_path: filePath,
     offset,
     limit,
-    mode,
-    anchorLine,
-    maxLevels,
-    includeSiblings,
-    includeHeader,
-    maxLines,
+    pages,
   }): Promise<string> => {
-    const { absPath } = resolveToolPath({ target: filePath });
-    // 过滤常见二进制文件后缀，避免读取非文本文件内容。
+    const { absPath } = resolveToolPath({ target: filePath })
+
+    // 二进制文件检查：引导使用专用工具
     if (hasBlockedBinaryExtension(absPath)) {
       const ext = path.extname(absPath).toLowerCase()
       if (ext === '.xlsx' || ext === '.xls') {
-        throw new Error("This file is in Excel format. Use tool-search(names: \"excel-query\") to load the excel-query tool, then use it to read this file.")
+        throw new Error('This file is in Excel format. Use tool-search(names: "excel-query") to load the excel-query tool, then use it to read this file.')
       }
       if (ext === '.docx' || ext === '.doc') {
-        throw new Error("This file is in Word format. Use tool-search(names: \"word-query\") to load the word-query tool, then use it to read this file.")
+        throw new Error('This file is in Word format. Use tool-search(names: "word-query") to load the word-query tool, then use it to read this file.')
       }
       if (ext === '.pdf') {
-        throw new Error("This file is in PDF format. Use tool-search(names: \"pdf-query\") to load the pdf-query tool, then use it to read this file.")
+        throw new Error('This file is in PDF format. Use tool-search(names: "pdf-query") to load the pdf-query tool, then use it to read this file.')
       }
       if (ext === '.pptx' || ext === '.ppt') {
-        throw new Error("This file is in PowerPoint format. Use tool-search(names: \"pptx-query\") to load the pptx-query tool, then use it to read this file.")
+        throw new Error('This file is in PowerPoint format. Use tool-search(names: "pptx-query") to load the pptx-query tool, then use it to read this file.')
       }
-      throw new Error("Only text files are supported; binary file extensions are not allowed.");
-    }
-    const stat = await fs.stat(absPath);
-    if (!stat.isFile()) throw new Error("Path is not a file.");
-
-    const raw = await fs.readFile(absPath, "utf-8");
-    const lines = splitLines(raw);
-    const records = collectLineRecords(lines);
-    const resolvedOffset = typeof offset === "number" ? offset : 1;
-    const resolvedLimit = typeof limit === "number" ? limit : DEFAULT_READ_LIMIT;
-
-    if (resolvedOffset <= 0) throw new Error("offset must be a 1-indexed line number");
-    if (resolvedLimit <= 0) throw new Error("limit must be greater than zero");
-
-    const resolvedMode: ReadMode = mode === "indentation" ? "indentation" : "slice";
-
-    if (resolvedMode === "indentation") {
-      const options: IndentationOptions = {
-        anchorLine: anchorLine ?? resolvedOffset,
-        maxLevels: typeof maxLevels === "number" ? Math.max(0, maxLevels) : 0,
-        includeSiblings: Boolean(includeSiblings),
-        includeHeader: includeHeader !== false,
-        maxLines: typeof maxLines === "number" ? Math.max(1, maxLines) : resolvedLimit,
-      };
-      return readIndentationBlock(records, resolvedOffset, resolvedLimit, options).join("\n");
+      throw new Error('Only text files are supported; binary file extensions are not allowed.')
     }
 
-    if (resolvedOffset > records.length) throw new Error("offset exceeds file length");
+    // PDF pages 参数提示（尚未实现原生 PDF 解析）
+    if (pages) {
+      throw new Error('PDF reading is not yet implemented natively. Use tool-search(names: "pdf-query") to load the pdf-query tool.')
+    }
 
-    const startIndex = resolvedOffset - 1;
-    const endIndex = Math.min(startIndex + resolvedLimit - 1, records.length - 1);
-    const slice = records.slice(startIndex, endIndex + 1).map(formatLineRecord);
-    return slice.join("\n");
+    const stat = await fs.stat(absPath)
+    if (!stat.isFile()) throw new Error('Path is not a file.')
+
+    const raw = await fs.readFile(absPath, 'utf-8')
+    const lines = splitLines(raw)
+    const resolvedOffset = typeof offset === 'number' ? offset : 1
+    const resolvedLimit = typeof limit === 'number' ? limit : DEFAULT_READ_LIMIT
+
+    if (resolvedOffset <= 0) throw new Error('offset must be a 1-indexed line number')
+    if (resolvedLimit <= 0) throw new Error('limit must be greater than zero')
+    if (resolvedOffset > lines.length) throw new Error('offset exceeds file length')
+
+    const startIndex = resolvedOffset - 1
+    const endIndex = Math.min(startIndex + resolvedLimit, lines.length)
+    const result: string[] = []
+    for (let i = startIndex; i < endIndex; i++) {
+      const lineNum = i + 1
+      const display = truncateLine(lines[i]!, MAX_LINE_LENGTH)
+      result.push(`${lineNum}\t${display}`)
+    }
+    return result.join('\n')
   },
-});
+})
 
-/** Execute apply-patch tool with patch-based file operations. */
-export const applyPatchTool = tool({
-  description: applyPatchToolDef.description,
-  inputSchema: zodSchema(applyPatchToolDef.parameters),
-  inputExamples: [
-    {
-      input: {
-        patch: `*** Begin Patch
-*** Update File: src/config.ts
-@@ export const config
- export const config = {
--  port: 3000,
-+  port: 8080,
-   host: 'localhost',
- }
-*** End Patch`,
-      },
-    },
-    {
-      input: {
-        patch: `*** Begin Patch
-*** Add File: src/utils/format.ts
-+export function formatDate(date: Date): string {
-+  return date.toISOString().slice(0, 10)
-+}
-*** End Patch`,
-      },
-    },
-  ],
-  execute: async ({ patch: patchText }): Promise<string> => {
-    // 逻辑：替换 secret 令牌为真实值，确保磁盘文件包含真实密钥
-    const resolvedPatch = resolveSecretTokens(patchText);
-    const hunks = parsePatch(resolvedPatch);
-    if (hunks.length === 0) throw new Error("No files were modified.");
-    const affected: string[] = [];
+// ─── Edit 工具 ─────────────────────────────────────────────────────────────
 
-    for (const hunk of hunks) {
-      const { absPath, rootPath } = await resolveWriteTargetPath(hunk.path);
-
-      if (hunk.type === "add") {
-        await fs.mkdir(path.dirname(absPath), { recursive: true });
-        await fs.writeFile(absPath, hunk.contents, "utf-8");
-        affected.push(`A ${path.relative(rootPath, absPath)}`);
-      } else if (hunk.type === "delete") {
-        await fs.unlink(absPath);
-        affected.push(`D ${path.relative(rootPath, absPath)}`);
-      } else if (hunk.type === "update") {
-        const original = await fs.readFile(absPath, "utf-8");
-        let lines = original.split("\n");
-        // 逻辑：移除末尾空行以匹配 Codex 行为。
-        if (lines.at(-1) === "") lines.pop();
-        const replacements = computeReplacements(lines, hunk.path, hunk.chunks);
-        lines = applyReplacements(lines, replacements);
-        // 逻辑：确保文件以换行符结尾。
-        if (lines.at(-1) !== "") lines.push("");
-        const newContent = lines.join("\n");
-
-        if (hunk.movePath) {
-          const { absPath: newAbsPath } = await resolveWriteTargetPath(hunk.movePath);
-          await fs.mkdir(path.dirname(newAbsPath), { recursive: true });
-          await fs.writeFile(newAbsPath, newContent, "utf-8");
-          await fs.unlink(absPath);
-          affected.push(
-            `R ${path.relative(rootPath, absPath)} → ${path.relative(rootPath, newAbsPath)}`,
-          );
-        } else {
-          await fs.writeFile(absPath, newContent, "utf-8");
-          affected.push(`M ${path.relative(rootPath, absPath)}`);
-        }
-      }
-    }
-
-    return `Updated files:\n${affected.join("\n")}`;
-  },
-});
-
-/** Execute list directory tool with scope enforcement. */
-export const listDirTool = tool({
-  description: listDirToolDef.description,
-  inputSchema: zodSchema(listDirToolDef.parameters),
-  needsApproval: false,
+/** 精确字符串替换编辑文件。 */
+export const editTool = tool({
+  description: editToolDef.description,
+  inputSchema: zodSchema(editToolDef.parameters),
+  needsApproval: true,
   execute: async ({
-    path: targetPath, offset, limit, depth, ignoreGitignore,
-    format, pattern, sort, showModified,
+    file_path: filePath,
+    old_string: oldString,
+    new_string: newString,
+    replace_all: replaceAll,
   }): Promise<string> => {
-    const { absPath } = resolveToolPath({ target: targetPath });
-    const stat = await fs.stat(absPath);
-    if (!stat.isDirectory()) throw new Error("Path is not a directory.");
-
-    const isFlat = format === "flat";
-    const resolvedOffset = typeof offset === "number" ? offset : 1;
-    const resolvedLimit = typeof limit === "number" ? limit : DEFAULT_LIST_LIMIT;
-    const resolvedDepth = typeof depth === "number" ? depth : DEFAULT_LIST_DEPTH;
-    const resolvedSort = sort ?? (isFlat ? "modified" : "name");
-    const resolvedShowModified = showModified ?? isFlat;
-
-    if (resolvedOffset <= 0) throw new Error("offset must be >= 1");
-    if (resolvedLimit <= 0) throw new Error("limit must be > 0");
-    if (resolvedDepth <= 0) throw new Error("depth must be > 0");
-
-    const ignoreMatcher = ignoreGitignore === false
-      ? null
-      : await buildGitignoreMatcher({ rootPath: absPath });
-    const { entries, stats } = await collectDirEntries(absPath, resolvedDepth, ignoreMatcher);
-
-    // Compute relative path from project/global root
-    const { projectRoot, globalRoot } = resolveToolRoots();
-    const rootPath = projectRoot ?? globalRoot;
-    const relativePath = path.relative(rootPath, absPath) || ".";
-
-    const output: string[] = [
-      `Path: ${relativePath}`,
-      `Total: ${stats.dirCount} dirs, ${stats.fileCount} files` +
-        (stats.ignored > 0 ? ` (${stats.ignored} gitignored)` : ""),
-    ];
-
-    if (entries.length === 0) return output.join("\n");
-
-    // Sort
-    sortEntries(entries, resolvedSort);
-
-    // Glob filter
-    let filtered = entries;
-    if (pattern) {
-      filtered = filterEntriesByGlob(entries, pattern);
-      const fileCount = filtered.filter((e) => e.kind !== "directory").length;
-      output.push(`Filter: ${pattern} → ${fileCount} files matched`);
+    // 校验 old_string 与 new_string 不同
+    if (oldString === newString) {
+      throw new Error('old_string and new_string must be different.')
     }
 
-    // Pagination
-    const paginationSource = isFlat
-      ? filtered.filter((e) => e.kind !== "directory")
-      : filtered;
-    const startIndex = resolvedOffset - 1;
-    if (startIndex >= paginationSource.length) {
-      throw new Error("offset exceeds entry count");
-    }
-    const endIndex = Math.min(startIndex + resolvedLimit, paginationSource.length);
-    const selected = paginationSource.slice(startIndex, endIndex);
+    const { absPath, rootPath } = await resolveWriteTargetPath(filePath)
 
-    // Render
-    const lines = isFlat
-      ? renderFlatLines(selected, resolvedShowModified)
-      : renderTreeLines(selected, resolvedShowModified);
-    output.push(...lines);
+    // 读取文件
+    const content = await fs.readFile(absPath, 'utf-8')
 
-    // Truncation hint
-    if (endIndex < paginationSource.length) {
-      const remaining = paginationSource.length - endIndex;
-      output.push(`... ${remaining} more entries (use offset: ${endIndex + 1} to continue)`);
+    // 统计出现次数
+    let occurrences = 0
+    let searchIndex = 0
+    const matchLines: number[] = []
+    while (true) {
+      const pos = content.indexOf(oldString, searchIndex)
+      if (pos === -1) break
+      occurrences += 1
+      // 计算所在行号（1-based）
+      const lineNum = content.substring(0, pos).split('\n').length
+      matchLines.push(lineNum)
+      searchIndex = pos + oldString.length
     }
 
-    return output.join("\n");
-  },
-});
-
-/** Collect directory entries in BFS order with depth. */
-async function collectDirEntries(
-  basePath: string,
-  depth: number,
-  ignoreMatcher: import("ignore").Ignore | null,
-): Promise<{ entries: DirEntry[]; stats: DirStats }> {
-  const entries: DirEntry[] = [];
-  const stats: DirStats = {
-    ignored: 0,
-    dirCount: 0,
-    fileCount: 0,
-    symlinkCount: 0,
-    otherCount: 0,
-  };
-  const queue: Array<{ dirPath: string; prefix: string; remaining: number }> = [
-    { dirPath: basePath, prefix: "", remaining: depth },
-  ];
-
-  while (queue.length > 0) {
-    const current = queue.shift();
-    if (!current) break;
-
-    const dirEntries = await fs.readdir(current.dirPath, { withFileTypes: true });
-    const collected: Array<{ entryPath: string; relativePath: string; entry: DirEntry; kind: DirEntryKind }> = [];
-
-    for (const entry of dirEntries) {
-      // 固定过滤 .DS_Store 与 .openloaf* 目录，避免噪声泄露到工具输出。
-      if (entry.name === ".DS_Store" || (entry.isDirectory() && entry.name.startsWith(".openloaf"))) {
-        continue;
-      }
-      const relativePath = current.prefix ? path.join(current.prefix, entry.name) : entry.name;
-      const normalized = relativePath.split(path.sep).join("/");
-      if (ignoreMatcher) {
-        const ignoreTarget = entry.isDirectory() ? `${normalized}/` : normalized;
-        if (ignoreMatcher.ignores(ignoreTarget)) {
-          stats.ignored += 1;
-          continue;
+    // 没找到：尝试 trimEnd 容错
+    if (occurrences === 0) {
+      const trimmedOld = oldString.trimEnd()
+      let trimOccurrences = 0
+      searchIndex = 0
+      const trimMatchLines: number[] = []
+      // 按行匹配 trimEnd 后的内容
+      const lines = content.split('\n')
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i]!.trimEnd().includes(trimmedOld)) {
+          trimOccurrences += 1
+          trimMatchLines.push(i + 1)
         }
       }
-      const depthLevel = current.prefix ? current.prefix.split(path.sep).length : 0;
-      const displayName = truncateLine(entry.name, MAX_ENTRY_LENGTH);
-      const kind: DirEntryKind = entry.isDirectory()
-        ? "directory"
-        : entry.isSymbolicLink()
-          ? "symlink"
-          : entry.isFile()
-            ? "file"
-            : "other";
-      let sizeBytes: number | null | undefined;
-      let modifiedAt: Date | null | undefined;
-      try {
-        const fileStat = await fs.stat(path.join(current.dirPath, entry.name));
-        sizeBytes = kind === "file" ? fileStat.size : undefined;
-        modifiedAt = fileStat.mtime;
-      } catch {
-        sizeBytes = kind === "file" ? null : undefined;
-        modifiedAt = null;
+      if (trimOccurrences === 0) {
+        throw new Error(
+          `old_string not found in file. Make sure the string exactly matches the file content, including whitespace and indentation.`,
+        )
       }
-      collected.push({
-        entryPath: path.join(current.dirPath, entry.name),
-        relativePath,
-        kind,
-        entry: {
-          name: truncateLine(normalized, MAX_ENTRY_LENGTH),
-          displayName,
-          depth: depthLevel,
-          kind,
-          sizeBytes,
-          modifiedAt,
-        },
-      });
+      // trimEnd 也只是提示，不自动执行替换
+      throw new Error(
+        `old_string not found (exact match). A trimmed version was found on line(s): ${trimMatchLines.join(', ')}. Please provide the exact string including trailing whitespace.`,
+      )
     }
 
-    collected.sort((a, b) => a.entry.name.localeCompare(b.entry.name));
-
-    for (const item of collected) {
-      entries.push(item.entry);
-      if (item.kind === "directory") stats.dirCount += 1;
-      if (item.kind === "file") stats.fileCount += 1;
-      if (item.kind === "symlink") stats.symlinkCount += 1;
-      if (item.kind === "other") stats.otherCount += 1;
-      if (item.kind === "directory" && current.remaining > 1) {
-        queue.push({ dirPath: item.entryPath, prefix: item.relativePath, remaining: current.remaining - 1 });
-      }
+    // 非 replaceAll 且多次出现时报错
+    if (!replaceAll && occurrences > 1) {
+      throw new Error(
+        `old_string appears ${occurrences} times in the file (lines: ${matchLines.join(', ')}). Use replace_all: true to replace all occurrences, or provide more context to make the match unique.`,
+      )
     }
-  }
 
-  return { entries, stats };
-}
-
-/** Format bytes to human-readable size (B / KB / MB / GB). */
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
-}
-
-/** Format date to compact timestamp. */
-function formatDate(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  const h = String(date.getHours()).padStart(2, "0");
-  const min = String(date.getMinutes()).padStart(2, "0");
-  return `${y}-${m}-${d} ${h}:${min}`;
-}
-
-/** Sort entries: directories first, then by field. */
-function sortEntries(entries: DirEntry[], sortField: "name" | "size" | "modified"): void {
-  entries.sort((a, b) => {
-    if (a.kind === "directory" && b.kind !== "directory") return -1;
-    if (a.kind !== "directory" && b.kind === "directory") return 1;
-    switch (sortField) {
-      case "size":
-        return (b.sizeBytes ?? 0) - (a.sizeBytes ?? 0);
-      case "modified":
-        return (b.modifiedAt?.getTime() ?? 0) - (a.modifiedAt?.getTime() ?? 0);
-      default:
-        return a.name.localeCompare(b.name);
+    // 执行替换
+    let newContent: string
+    if (replaceAll) {
+      newContent = content.replaceAll(oldString, newString)
+    } else {
+      newContent = content.replace(oldString, newString)
     }
-  });
-}
 
-/** Filter entries by glob pattern (directories always kept). */
-function filterEntriesByGlob(entries: DirEntry[], pattern: string): DirEntry[] {
-  const isMatch = picomatch(pattern);
-  return entries.filter(
-    (e) => e.kind === "directory" || isMatch(e.displayName),
-  );
-}
+    // 解析 secret token 后写入
+    newContent = resolveSecretTokens(newContent)
+    await fs.writeFile(absPath, newContent, 'utf-8')
 
-/** Render tree-style output lines with connectors. */
-function renderTreeLines(
-  entries: DirEntry[],
-  showModified: boolean,
-): string[] {
-  const lines: string[] = [];
-  const lastAtDepth: boolean[] = [];
+    const relativePath = path.relative(rootPath, absPath)
+    const replacedCount = replaceAll ? occurrences : 1
+    return `Edited ${relativePath}: replaced ${replacedCount} occurrence(s).`
+  },
+})
 
-  for (let i = 0; i < entries.length; i++) {
-    const entry = entries[i]!;
-    const nextEntry = entries[i + 1];
-    const isLast = !nextEntry || nextEntry.depth <= entry.depth;
-    lastAtDepth[entry.depth] = isLast;
+// ─── Write 工具 ────────────────────────────────────────────────────────────
 
-    let prefix = "";
-    for (let d = 0; d < entry.depth; d++) {
-      prefix += lastAtDepth[d] ? "    " : "│   ";
-    }
-    const connector = entry.depth === 0 ? "" : isLast ? "└── " : "├── ";
+/** 写入文件（创建新文件或完全覆盖）。 */
+export const writeTool = tool({
+  description: writeToolDef.description,
+  inputSchema: zodSchema(writeToolDef.parameters),
+  needsApproval: true,
+  execute: async ({
+    file_path: filePath,
+    content,
+  }): Promise<string> => {
+    const { absPath, rootPath } = await resolveWriteTargetPath(filePath)
 
-    let name = entry.displayName;
-    if (entry.kind === "directory") name += "/";
-    else if (entry.kind === "symlink") name += " →";
-    else if (entry.kind === "other") name += " ?";
+    // 自动创建父目录
+    await fs.mkdir(path.dirname(absPath), { recursive: true })
 
-    const meta: string[] = [];
-    if (entry.kind === "file" && entry.sizeBytes != null) {
-      meta.push(formatBytes(entry.sizeBytes));
-    }
-    if (showModified && entry.modifiedAt) {
-      meta.push(formatDate(entry.modifiedAt));
-    }
-    const metaStr = meta.length > 0 ? `  (${meta.join(", ")})` : "";
+    // 解析 secret token 后写入
+    const resolvedContent = resolveSecretTokens(content)
+    await fs.writeFile(absPath, resolvedContent, 'utf-8')
 
-    lines.push(`${prefix}${connector}${name}${metaStr}`);
-  }
-
-  return lines;
-}
-
-/** Render flat-style output lines (files only, relative paths). */
-function renderFlatLines(
-  entries: DirEntry[],
-  showModified: boolean,
-): string[] {
-  return entries
-    .filter((e) => e.kind !== "directory")
-    .map((entry) => {
-      const meta: string[] = [];
-      if (entry.sizeBytes != null) meta.push(formatBytes(entry.sizeBytes));
-      if (showModified && entry.modifiedAt) meta.push(formatDate(entry.modifiedAt));
-      const metaStr = meta.length > 0 ? `  (${meta.join(", ")})` : "";
-      const suffix = entry.kind === "symlink" ? " →" : entry.kind === "other" ? " ?" : "";
-      return `${entry.name}${suffix}${metaStr}`;
-    });
-}
-
-/** Check whether a path ends with a blocked binary extension. */
-function hasBlockedBinaryExtension(targetPath: string): boolean {
-  const ext = path.extname(targetPath).toLowerCase();
-  return Boolean(ext) && BINARY_FILE_EXTENSIONS.has(ext);
-}
+    const relativePath = path.relative(rootPath, absPath)
+    return `Wrote file: ${relativePath}`
+  },
+})

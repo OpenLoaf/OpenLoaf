@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import { generateObject, generateText } from 'ai'
+import { generateText, Output } from 'ai'
 import { createHash } from 'node:crypto'
 import type { z } from 'zod'
 import { resolveChatModel } from '@/ai/models/resolveChatModel'
@@ -91,7 +91,7 @@ type AuxiliaryInferTextInput = {
  * Unified auxiliary inference entry point.
  *
  * Reads config from auxiliary-model.json, resolves the model,
- * calls generateObject with the capability prompt + user context,
+ * calls generateText with Output.object() for the capability prompt + user context,
  * and returns the structured result.
  *
  * On any error, silently returns the provided fallback.
@@ -186,15 +186,15 @@ export async function auxiliaryInfer<T extends z.ZodType>({
     const timeout = setTimeout(() => abortController.abort(), 10_000)
 
     try {
-      const result = await generateObject({
+      const result = await generateText({
         model: resolved.model,
-        schema,
+        output: Output.object({ schema }),
         system: systemPrompt,
         prompt: context,
         abortSignal: abortController.signal,
       })
 
-      const value = result.object as z.infer<T>
+      const value = result.output as z.infer<T>
       if (!noCache) setCache(key, value)
       console.log(
         `${LOG_PREFIX} [${capabilityKey}] 本地/云端推理完成`,

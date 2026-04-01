@@ -281,7 +281,7 @@ function resolveFilteredSkillSummaries(input: {
   parentProjectRootPaths: string[];
   selectedSkills: string[];
 }): { summaries: SkillSummary[]; selectedSkills: string[] } {
-  const globalSkillsPath = path.join(os.homedir(), ".agents", "skills");
+  const globalSkillsPath = path.join(os.homedir(), ".openloaf", "agents", "skills");
   const skillSummaries = loadSkillSummaries({
     projectRootPath: input.projectRootPath || undefined,
     parentProjectRootPaths: input.parentProjectRootPaths,
@@ -366,7 +366,7 @@ function buildBuiltinSkillsSystemBlock(
   if (builtinSkills.length === 0) return "";
   const content = buildSkillsSummarySection(builtinSkills);
   if (!content) return "";
-  return `<system-skills desc="内置技能，需要加载时使用 tool-search 加载">\n${content}\n</system-skills>`;
+  return `<system-skills desc="内置技能，通过 tool-search 按需加载">\n${content}\n</system-skills>`;
 }
 
 /**
@@ -384,7 +384,7 @@ function buildUserProjectSkillsBlocks(
     const content = buildSkillsSummarySection(globalSkills);
     if (content) {
       blocks.push(
-        `<system-user-skills desc="用户全局技能，需要加载时使用 tool-search 加载">\n${content}\n</system-user-skills>`,
+        `<system-user-skills desc="用户全局技能，通过 tool-search 按需加载">\n${content}\n</system-user-skills>`,
       );
     }
   }
@@ -392,7 +392,7 @@ function buildUserProjectSkillsBlocks(
     const content = buildSkillsSummarySection(projectSkills);
     if (content) {
       blocks.push(
-        `<system-project-skills desc="项目技能，需要加载时使用 tool-search 加载">\n${content}\n</system-project-skills>`,
+        `<system-project-skills desc="项目技能，通过 tool-search 按需加载">\n${content}\n</system-project-skills>`,
       );
     }
   }
@@ -541,7 +541,7 @@ function buildMcpToolsBlocks(projectRoot?: string): string[] {
   ): string => {
     const lines: string[] = [
       '# MCP 外部工具',
-      '使用前需先通过 tool-search 工具加载（在 names 参数中传入工具 ID）。',
+      '使用前需通过 tool-search 加载（在 names 参数中传入工具 ID）。',
       '',
     ];
     for (const [serverName, tools] of toolsByServer) {

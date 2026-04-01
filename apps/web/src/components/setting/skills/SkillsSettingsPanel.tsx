@@ -76,6 +76,7 @@ import { useGlobalOverlay } from "@/lib/globalShortcuts";
 import { ColorPickerSubMenu } from "@/components/shared/ColorPickerSubMenu";
 import { TranslateTitlesDialog } from "./TranslateTitlesDialog";
 import { SkillUpdateBanner } from "./SkillUpdateBanner";
+import { ExternalSkillsBanner } from "./ExternalSkillsBanner";
 import { useInstallMarketSkill, useSkillUpdateCheck } from "@/hooks/use-skill-market";
 
 type SkillScope = "builtin" | "project" | "global";
@@ -199,7 +200,7 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
           label: t('skills.scopeProject'),
           icon: FolderCog,
           skills: projectSkills,
-          folderUri: projectRootUri ? buildFileUriFromRoot(projectRootUri, ".agents/skills") : undefined,
+          folderUri: projectRootUri ? buildFileUriFromRoot(projectRootUri, ".openloaf/agents/skills") : undefined,
         });
       } else {
         // In global page, group by each project
@@ -690,6 +691,9 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
             updatingIds={updatingIds}
             isUpdatingAll={isUpdatingAll}
           />
+
+          {/* External skills detection banner */}
+          <ExternalSkillsBanner projectId={projectId} />
 
           {/* Header */}
           <div className="flex items-center justify-between border-b px-6 py-4">

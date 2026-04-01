@@ -744,7 +744,7 @@
     "useSkill": "使用技能",
     "deleteSkill": "刪除技能",
     "loading": "正在載入技能列表...",
-    "empty": "暫無可用技能，請在 `.agents/skills` 或 `~/.agents/skills` 中新增 `SKILL.md`。",
+    "empty": "暫無可用技能，請在 `.openloaf/agents/skills` 或 `~/.openloaf/agents/skills` 中新增 `SKILL.md`。",
     "noMatch": "沒有符合的技能，請調整篩選條件後重試。",
     "readFailed": "讀取失敗：{{error}}",
     "unknownError": "未知錯誤",

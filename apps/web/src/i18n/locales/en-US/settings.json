@@ -744,7 +744,7 @@
     "useSkill": "Use skill",
     "deleteSkill": "Delete skill",
     "loading": "Loading skills...",
-    "empty": "No skills available. Add a `SKILL.md` in `.agents/skills` or `~/.agents/skills`.",
+    "empty": "No skills available. Add a `SKILL.md` in `.openloaf/agents/skills` or `~/.openloaf/agents/skills`.",
     "noMatch": "No matching skills. Adjust filters and try again.",
     "readFailed": "Failed to read: {{error}}",
     "unknownError": "Unknown error",
@@ -828,6 +828,27 @@
         "newest": "Newest",
         "rating": "Top Rated"
       }
+    },
+    "external": {
+      "bannerTitle": "Found {{count}} external skills available for import",
+      "bannerAction": "Import Skills",
+      "bannerDismiss": "Not Now",
+      "dialogTitle": "Import External Skills",
+      "dialogDesc": "Import skills from other AI tools into OpenLoaf",
+      "filterAll": "All",
+      "methodLink": "Create Link (Recommended)",
+      "methodCopy": "Copy Files",
+      "methodLabel": "Import Method",
+      "alreadyImported": "Imported",
+      "importSelected": "Import Selected ({{count}})",
+      "importing": "Importing...",
+      "success": "Successfully imported {{count}} skills",
+      "partialSuccess": "Imported {{imported}}, {{errors}} failed",
+      "failed": "Import failed",
+      "noSkills": "No external skills detected",
+      "detecting": "Detecting...",
+      "selectAll": "Select All ({{count}})",
+      "deselectAll": "Deselect All"
     }
   },
   "modelSelector": {

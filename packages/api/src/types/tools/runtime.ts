@@ -11,76 +11,87 @@ import { z } from "zod";
 
 // 中文注释：运行时工具的审批策略由 server 侧 tool 实现决定，API 定义只描述参数与展示信息。
 
-export const shellCommandToolDef = {
-  id: "shell-command",
-  name: "Shell 命令（字符串）",
-  description: `触发：当你需要执行一条字符串命令并得到可读文本输出时调用。用途：执行 shell 命令并返回包含退出码与耗时的文本输出。返回：文本块（含 Exit code、Wall time、Output；输出可能截断）。不适用：需要结构化 JSON 输出用 shell；需要持续交互用 exec-command/write-stdin。
+export const bashToolDef = {
+  id: "Bash",
+  name: "执行命令",
+  description: `Executes a given bash command and returns its output.
 
-Runs a shell command and returns its output.
-- Unix: runs via the user's default shell.
-- Windows: runs via Powershell.
-- Always set the \`workdir\` param when using the shell_command function. Do not use \`cd\` unless absolutely necessary.`,
+The working directory persists between commands, but shell state does not.
+
+IMPORTANT: Avoid using this tool to run \`find\`, \`grep\`, \`cat\`, \`head\`, \`tail\`, \`sed\`, \`awk\`, or \`echo\` commands. Instead, use the appropriate dedicated tool:
+ - File search: Use Glob (NOT find or ls)
+ - Content search: Use Grep (NOT grep or rg)
+ - Read files: Use Read (NOT cat/head/tail)
+ - Edit files: Use Edit (NOT sed/awk)
+ - Write files: Use Write (NOT echo >/cat <<EOF)
+
+Instructions:
+ - Always quote file paths that contain spaces with double quotes.
+ - Try to maintain your current working directory by using absolute paths.
+ - You may specify an optional timeout in milliseconds (up to 600000ms / 10 minutes). Default timeout is 120000ms (2 minutes).`,
   parameters: z.object({
-    command: z.string().min(1),
-    workdir: z.string().optional(),
-    login: z.boolean().optional(),
-    timeout: z.number().int().min(1000).max(600000).optional().describe("可选：命令超时时间（毫秒），默认 120000（2 分钟），最大 600000（10 分钟）"),
+    command: z.string().min(1).describe("The command to execute"),
+    description: z.string().optional().describe("Clear, concise description of what this command does"),
+    timeout: z.number().int().min(1000).max(600000).optional().describe("Optional timeout in milliseconds (max 600000)"),
+    run_in_background: z.boolean().optional().describe("Set to true to run this command in the background"),
   }),
   component: null,
 } as const;
 
-export const readFileToolDef = {
-  id: "read-file",
+export const readToolDef = {
+  id: "Read",
   name: "读取文件",
-  description:
-    "触发：当你需要读取本地文本文件内容并保留行号时调用。用途：按 slice/indentation 模式读取文本文件。返回：带行号的文本行（例如 L1: ...）；仅支持文本文件，二进制会报错。不适用：要查看目录结构请用 list-dir。",
+  description: `Reads a file from the local filesystem. You can access any file directly by using this tool.
+
+Usage:
+- The file_path parameter must be an absolute path, not a relative path
+- By default, it reads up to 2000 lines starting from the beginning of the file
+- When you already know which part of the file you need, only read that part
+- Results are returned with line numbers starting at 1
+- This tool can read images (PNG, JPG, etc). When reading an image file the contents are presented visually.
+- This tool can read PDF files (.pdf). For large PDFs (more than 10 pages), you MUST provide the pages parameter. Maximum 20 pages per request.
+- This tool can only read files, not directories. To list a directory, use the Glob tool or Bash ls.`,
   parameters: z.object({
-    path: z.string().min(1),
-    offset: z.number().int().min(1).optional(),
-    limit: z.number().int().min(1).optional(),
-    mode: z.enum(["slice", "indentation"]).optional(),
-    anchorLine: z.number().int().min(1).optional(),
-    maxLevels: z.number().int().min(0).optional(),
-    includeSiblings: z.boolean().optional(),
-    includeHeader: z.boolean().optional(),
-    maxLines: z.number().int().min(1).optional(),
+    file_path: z.string().min(1).describe("The absolute path to the file to read"),
+    offset: z.number().int().min(1).optional().describe("The line number to start reading from"),
+    limit: z.number().int().min(1).optional().describe("The number of lines to read"),
+    pages: z.string().optional().describe('Page range for PDF files (e.g., "1-5", "3", "10-20"). Only applicable to PDF files.'),
   }),
   component: null,
 } as const;
 
-export const applyPatchToolDef = {
-  id: "apply-patch",
+export const editToolDef = {
+  id: "Edit",
   name: "编辑文件",
-  description: `触发：当你需要创建、修改或删除文件时调用。
-用途：通过 diff 补丁格式操作文件。
+  description: `Performs exact string replacements in files.
 
-补丁格式：
-*** Begin Patch
-*** Update File: <相对路径>
-@@ <可选上下文标识符>
- <上下文行（不变）>
--<要删除的行>
-+<要添加的行>
- <上下文行（不变）>
-*** End Patch
-
-规则：
-- 默认显示 3 行上下文（变更前后各 3 行）
-- 若 3 行不足以唯一定位，用 @@ 指定类/函数名
-- 每行前缀：空格=上下文，-=删除，+=添加
-- 文件路径必须是相对路径
-- 可在一个补丁中组合多个文件操作
-- *** Add File: <path> 创建新文件（每行以 + 开头）
-- *** Delete File: <path> 删除文件
-- *** Move to: <new path> 重命名（跟在 Update File 后）
-- *** End of File 标记 chunk 在文件末尾
-
-返回：操作结果摘要。不适用：只读任务不要调用。`,
+Usage:
+- You must use the Read tool at least once before editing a file. This tool will error if you attempt an edit without reading the file.
+- The edit will FAIL if old_string is not unique in the file. Either provide a larger string with more surrounding context to make it unique or use replace_all to change every instance.
+- Use replace_all for replacing and renaming strings across the file.
+- ALWAYS prefer editing existing files to creating new ones.
+- old_string and new_string must be different.`,
   parameters: z.object({
-    patch: z
-      .string()
-      .min(1)
-      .describe("补丁文本，以 *** Begin Patch 开头，*** End Patch 结尾。"),
+    file_path: z.string().min(1).describe("The absolute path to the file to modify"),
+    old_string: z.string().min(1).describe("The text to replace"),
+    new_string: z.string().describe("The text to replace it with (must be different from old_string)"),
+    replace_all: z.boolean().optional().default(false).describe("Replace all occurrences of old_string (default false)"),
+  }),
+  component: null,
+} as const;
+
+export const writeToolDef = {
+  id: "Write",
+  name: "写入文件",
+  description: `Writes a file to the local filesystem.
+
+Usage:
+- This tool will overwrite the existing file if there is one at the provided path.
+- If this is an existing file, you MUST use the Read tool first to read the file's contents. This tool will fail if you did not read the file first.
+- Prefer the Edit tool for modifying existing files — it only sends the diff. Only use this tool to create new files or for complete rewrites.`,
+  parameters: z.object({
+    file_path: z.string().min(1).describe("The absolute path to the file to write (must be absolute, not relative)"),
+    content: z.string().describe("The content to write to the file"),
   }),
   component: null,
 } as const;
@@ -97,41 +108,47 @@ export const editDocumentToolDef = {
   component: null,
 } as const;
 
-export const listDirToolDef = {
-  id: "list-dir",
-  name: "列出目录",
-  description:
-    "触发：当你需要列出目录内容并查看统计信息时调用。用途：按深度/分页列出条目并标注类型，支持两种输出格式（tree 树形层级 / flat 扁平路径列表）、glob 过滤（pattern）、多种排序（sort: name/size/modified）、显示修改时间（showModified）。返回：文本（含统计信息、条目列表，可能提示还有更多条目及续读参数）。不适用：需要文件内容时请用 read-file；搜索文件内容请用 grep-files。",
+export const globToolDef = {
+  id: "Glob",
+  name: "搜索文件",
+  description: `Fast file pattern matching tool that works with any codebase size.
+
+- Supports glob patterns like "**/*.js" or "src/**/*.ts"
+- Returns matching file paths sorted by modification time
+- Use this tool when you need to find files by name patterns
+- When you are doing an open ended search that may require multiple rounds of globbing and grepping, use the Agent tool instead`,
   parameters: z.object({
-    path: z.string().min(1),
-    offset: z.number().int().min(1).optional(),
-    limit: z.number().int().min(1).optional(),
-    depth: z.number().int().min(1).optional(),
-    ignoreGitignore: z.boolean().optional().default(true),
-    format: z.enum(["tree", "flat"]).optional().describe("输出格式：tree=树形层级结构（默认），flat=扁平路径列表（类 Glob，按修改时间排序）"),
-    pattern: z.string().optional().describe("glob 模式过滤文件名，如 '*.ts'、'*.{ts,tsx}'"),
-    sort: z.enum(["name", "size", "modified"]).optional().describe("排序字段，默认 name（flat 模式默认 modified）"),
-    showModified: z.boolean().optional().describe("是否显示修改时间，默认 false（flat 模式默认 true）"),
+    pattern: z.string().min(1).describe('The glob pattern to match files against'),
+    path: z.string().optional().describe("The directory to search in. Defaults to the project root."),
   }),
   component: null,
 } as const;
 
-export const grepFilesToolDef = {
-  id: "grep-files",
-  name: "搜索文件内容",
-  description:
-    "触发：当你需要在项目中搜索包含特定模式的文件时调用。用途：使用正则表达式搜索文件内容，返回匹配的文件路径列表（按修改时间排序）。返回：每行一个文件路径；无匹配返回 \"No matches found.\"。不适用：搜索文件名请用 list-dir；读取文件内容请用 read-file。",
+export const grepToolDef = {
+  id: "Grep",
+  name: "搜索内容",
+  description: `A powerful search tool built on ripgrep.
+
+Usage:
+- Supports full regex syntax (e.g., "log.*Error", "function\\s+\\w+")
+- Filter files with glob parameter (e.g., "*.js", "**/*.tsx") or type parameter (e.g., "js", "py")
+- Output modes: "content" shows matching lines, "files_with_matches" shows only file paths (default), "count" shows match counts
+- Pattern syntax: Uses ripgrep - literal braces need escaping
+- Multiline matching: For cross-line patterns, use multiline: true`,
   parameters: z.object({
-    pattern: z.string().min(1).describe("正则表达式搜索模式。"),
-    include: z.string().optional().describe("Glob 过滤，如 \"*.ts\" 或 \"*.{ts,tsx}\"。"),
-    path: z.string().optional().describe("搜索路径，默认当前项目根目录。"),
-    limit: z
-      .number()
-      .int()
-      .min(1)
-      .max(2000)
-      .optional()
-      .describe("最大返回文件数，默认 100。"),
+    pattern: z.string().min(1).describe("The regular expression pattern to search for in file contents"),
+    path: z.string().optional().describe("File or directory to search in. Defaults to project root."),
+    glob: z.string().optional().describe('Glob pattern to filter files (e.g. "*.js", "*.{ts,tsx}")'),
+    type: z.string().optional().describe('File type to search (e.g., "js", "py", "rust", "go")'),
+    output_mode: z.enum(["content", "files_with_matches", "count"]).optional().describe('Output mode. Defaults to "files_with_matches"'),
+    "-A": z.number().optional().describe("Number of lines to show after each match. Requires output_mode: content"),
+    "-B": z.number().optional().describe("Number of lines to show before each match. Requires output_mode: content"),
+    "-C": z.number().optional().describe("Number of lines to show before and after each match. Requires output_mode: content"),
+    "-n": z.boolean().optional().describe("Show line numbers in output. Defaults to true"),
+    "-i": z.boolean().optional().describe("Case insensitive search"),
+    head_limit: z.number().optional().describe("Limit output to first N lines/entries. Defaults to 250"),
+    offset: z.number().optional().describe("Skip first N lines/entries before applying head_limit. Defaults to 0"),
+    multiline: z.boolean().optional().describe("Enable multiline mode where . matches newlines. Default: false"),
   }),
   component: null,
 } as const;
@@ -209,7 +226,7 @@ At most one step can be in_progress at a time.`,
 export const jsReplToolDef = {
   id: "js-repl",
   name: "JavaScript REPL",
-  description: `触发：当你需要执行 JavaScript 代码进行计算、数据处理、原型验证或调试时调用。用途：在持久化的 Node.js 沙箱中执行代码，变量和函数在多次调用间保留。返回：console.log 输出和最终表达式的值。不适用：需要访问文件系统或网络请求时请用 shell-command。
+  description: `触发：当你需要执行 JavaScript 代码进行计算、数据处理、原型验证或调试时调用。用途：在持久化的 Node.js 沙箱中执行代码，变量和函数在多次调用间保留。返回：console.log 输出和最终表达式的值。不适用：需要访问文件系统或网络请求时请用 Bash。
 
 Executes JavaScript code in a persistent Node.js VM sandbox.
 - Variables and functions persist across calls within the same session.

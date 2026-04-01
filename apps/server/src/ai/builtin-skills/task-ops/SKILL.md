@@ -86,7 +86,7 @@ task-manage { action: "resolve", taskId: "xxx", resolveAction: "rework", reason:
 
 你需要推断：
 1. **调度类型** → `once`（"明天早上"是一次性的）
-2. **scheduleAt** → 用 `shell-command` 执行 `date` 拿当前时间和时区，推算"明天早上"为次日 09:00，转换为 ISO 8601
+2. **scheduleAt** → 用 `Bash` 执行 `date` 拿当前时间和时区，推算"明天早上"为次日 09:00，转换为 ISO 8601
 3. **skipPlanConfirm** → `true`（"看一下"是只读操作，无副作用）
 4. **agentName** → 不指定，让系统根据"部署情况"自动选择（可能是 shell Agent）
 5. **title** → 不要照搬用户原话，提炼为"检查部署状态"
@@ -97,7 +97,7 @@ task-manage { action: "resolve", taskId: "xxx", resolveAction: "rework", reason:
 
 ### 创建定时任务
 1. 分析用户需求，确定调度类型（once / interval / cron）
-2. 用 `shell-command` 执行 `date` 确认当前时间和时区
+2. 用 `Bash` 执行 `date` 确认当前时间和时区
 3. 调用 `task-manage` 的 create 动作，带上 schedule 配置
 4. 告知用户任务已创建、调度方式及下次执行时间
 
@@ -124,7 +124,7 @@ task-manage { action: "resolve", taskId: "xxx", resolveAction: "rework", reason:
 
 **不该创建任务却创建了** — 如果用户说「帮我查一下天气」「现在几点了」，直接做就行，不要创建任务。原因：任务系统有调度和状态管理开销，只有需要定时、重复、延后执行或审批流程时才值得创建。
 
-**scheduleAt 已过期** — once 类型的 `scheduleAt` 必须是未来时间。原因：已过期的时间无法调度，会被系统拒绝。创建前务必用 `shell-command` 执行 `date` 核实当前时间。
+**scheduleAt 已过期** — once 类型的 `scheduleAt` 必须是未来时间。原因：已过期的时间无法调度，会被系统拒绝。创建前务必用 `Bash` 执行 `date` 核实当前时间。
 
 **delete 活跃任务** — 只有 done 和 cancelled 状态的任务才能删除。原因：运行中的任务需要先 cancel 终止 Agent 执行，再 delete 清理记录。
 

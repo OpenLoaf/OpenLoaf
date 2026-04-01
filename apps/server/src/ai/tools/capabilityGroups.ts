@@ -48,20 +48,20 @@ const RAW_CAPABILITY_GROUPS = [
     id: 'file-read',
     label: '文件读取',
     description: '读取文件、列出目录、搜索文件内容',
-    toolIds: ['read-file', 'list-dir', 'grep-files', 'file-info'],
+    toolIds: ['Read', 'Glob', 'Grep', 'file-info'],
   },
   {
     id: 'file-write',
     label: '文件写入',
     description: '创建和修改文件',
-    toolIds: ['apply-patch', 'edit-document'],
+    toolIds: ['Edit', 'Write', 'edit-document'],
   },
   {
     id: 'shell',
     label: '终端命令',
     description: '执行 Shell 命令和脚本',
     toolIds: [
-      'shell-command',
+      'Bash',
     ],
   },
   {
@@ -116,7 +116,7 @@ const RAW_CAPABILITY_GROUPS = [
     id: 'web',
     label: '网络请求',
     description: '发起 HTTP 请求和链接预览',
-    toolIds: ['open-url', 'web-fetch'],
+    toolIds: ['open-url', 'WebFetch'],
   },
   {
     id: 'agent',

@@ -194,6 +194,7 @@ interface BoardCardProps {
   onRename: (boardId: string, title: string, folderUri?: string) => void;
   projectInfo?: { name: string; icon?: string };
   rootUri?: string;
+  skipAnimation?: boolean;
   thumb?: string;
 }
 
@@ -276,6 +277,7 @@ function BoardCard({
   onRename,
   projectInfo,
   rootUri,
+  skipAnimation,
   thumb,
 }: BoardCardProps) {
   const cardRef = useRef<HTMLDivElement>(null);
@@ -323,9 +325,9 @@ function BoardCard({
       <ContextMenuTrigger asChild>
         <motion.div
           ref={inViewRef}
-          initial={{ opacity: 0 }}
+          initial={skipAnimation ? false : { opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ duration: 0.25, delay: Math.min(index * 0.03, 0.3) }}
+          transition={skipAnimation ? undefined : { duration: 0.25, delay: Math.min(index * 0.03, 0.3) }}
           className={`group relative flex flex-col overflow-hidden rounded-3xl border cursor-pointer transition-all duration-200 hover:shadow-none hover:border-foreground/30 ${
             isActive
               ? "border-foreground/20 shadow-none ring-1 ring-foreground/20"
@@ -891,6 +893,12 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
   // Global mode: always allow (dialog handles project selection); project mode: check root URI
   const canCreateBoard = projectId ? Boolean(resolveBoardRootUri(projectId)) : true;
   const isInitialLoading = boardsQuery.isPending && displayedBoards.length === 0;
+  // Skip stagger animation when data was already available (e.g. cache hit, refetch)
+  const hasRenderedDataRef = useRef(false);
+  const skipCardAnimation = hasRenderedDataRef.current;
+  if (displayedBoards.length > 0) {
+    hasRenderedDataRef.current = true;
+  }
 
   return (
     <div className="flex h-full flex-col">
@@ -1042,6 +1050,7 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
                       onRename={handleRename}
                       projectInfo={board.projectId ? projectInfoById.get(board.projectId) : undefined}
                       rootUri={resolveBoardRootUri(board.projectId)}
+                      skipAnimation={skipCardAnimation}
                       thumb={thumbMap[board.id]}
                     />
                   ))}
@@ -1078,6 +1087,7 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
                   onRename={handleRename}
                   projectInfo={board.projectId ? projectInfoById.get(board.projectId) : undefined}
                   rootUri={resolveBoardRootUri(board.projectId)}
+                  skipAnimation={skipCardAnimation}
                   thumb={thumbMap[board.id]}
                 />
               ))}

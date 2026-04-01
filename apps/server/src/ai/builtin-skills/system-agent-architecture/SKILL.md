@@ -154,7 +154,7 @@ type ChatPageContext = {
 openloaf-basics 的完整内容见 `apps/server/src/ai/builtin-skills/openloaf-basics/SKILL.md`。核心作用：为 Agent 提供 OpenLoaf 产品地图、工具选择决策树和跨模块导航框架。
 
 关键文件：
-- Skill 文件存放：`apps/server/src/ai/builtin-skills/`（内置）或 `.agents/skills/`（自定义覆盖）
+- Skill 文件存放：`apps/server/src/ai/builtin-skills/`（内置）或 `.openloaf/agents/skills/`（自定义覆盖）
 - 自动加载映射：`apps/server/src/ai/services/chat/pageContextSkillMap.ts`
 - 自动加载调用：`AiExecuteService.ts` 中 `resolveAutoSkillsByPageContext()` + `resolveSkillMatches()`
 
@@ -275,26 +275,26 @@ UI 浮现轻提示："文件已保存到临时项目"
 #### 📝 文档编辑专家 (Doc Editor)
 - **触发时机**：主 Agent 判断用户意图是编辑/创建文档
 - **能力**：富文本编辑（Plate.js）、Markdown/Word/PDF 转换、长文档改写、模板应用
-- **工具集**：write-file, read-file, list-dir
+- **工具集**：Write, Read, Glob
 - **步数限制**：15 步 — 文档编辑通常是「读取 → 修改 → 写回」的短流程，15 步足够覆盖多文件场景
 - **对用户可见性**：不可见（主 Agent 无缝委派）
 
 #### 🌐 浏览器操作专家 (Browser)
 - **触发时机**：用户要求网页操作、截图、表单填写
 - **能力**：网页导航与截图、表单自动填写、数据抓取、页面交互
-- **工具集**：browser-navigate, browser-click, browser-fill, browser-screenshot, browser-read, web-search
+- **工具集**：browser-navigate, browser-click, browser-fill, browser-screenshot, browser-read, WebSearch
 - **步数限制**：20 步 — 网页导航天然是多步骤的（打开页面 → 等待加载 → 点击 → 填表 → 截图），每个交互动作至少消耗 1 步，复杂页面流程需要更多余量
 
 #### 📊 数据分析专家 (Data Analyst)
 - **触发时机**：涉及 CSV/Excel 分析、数据可视化、统计
 - **能力**：表格数据分析、图表生成（ECharts/Mermaid）、数据清洗、趋势分析
-- **工具集**：read-file, write-file, js-repl
+- **工具集**：Read, Write, js-repl
 - **步数限制**：15 步 — 数据分析的核心循环是「读取数据 → 计算 → 生成图表」，15 步覆盖大多数分析场景
 
 #### 🔍 信息提取专家 (Extractor)
 - **触发时机**：从文档/网页/图片中提取结构化信息
 - **能力**：PDF/图片 OCR、表格提取、关键信息摘要、多文档对比提取
-- **工具集**：read-file, office-read, web-fetch
+- **工具集**：Read, office-read, WebFetch
 - **步数限制**：10 步 — 提取任务是聚焦的单一目标工作（从 A 中提取 B），不需要多轮探索
 
 #### 🎨 画布设计专家 (Canvas Designer)
@@ -306,7 +306,7 @@ UI 浮现轻提示："文件已保存到临时项目"
 #### 💻 代码工程师 (Coder)
 - **触发时机**：编写/调试/重构代码（非项目模式下由 Master 委派）
 - **能力**：多语言代码编写、代码审查、Bug 诊断、测试用例生成
-- **工具集**：write-file, read-file, grep-files, list-dir, shell-command
+- **工具集**：Write, Read, Grep, Glob, Bash
 - **步数限制**：20 步 — 代码工程涉及「阅读现有代码 → 理解结构 → 编写 → 调试」的长链路，与浏览器类似需要较多余量
 - **注意**：项目模式下 PM 自己有代码能力，不必委派
 

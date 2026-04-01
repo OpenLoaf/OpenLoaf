@@ -47,9 +47,9 @@ export function syncToolPartsFromMessages({
       const current = useChatRuntime.getState().toolPartsByTabId[tabId]?.[toolKey];
       upsertToolPart(tabId, toolKey, { ...current, ...part } as any);
 
-      // 逻辑：检测 apply-patch 工具流式状态，自动在 stack 中打开 StreamingCodeViewer。
+      // 逻辑：检测 Edit/apply-patch/Write 工具流式状态，自动在 stack 中打开 StreamingCodeViewer。
       // 同文件的多次 apply-patch 合并到同一个 stack panel（通过 toolCallIds 数组）。
-      const isWriteFile = type === "tool-apply-patch";
+      const isWriteFile = type === "tool-apply-patch" || type === "tool-Edit" || type === "tool-Write";
       const state = typeof part?.state === "string" ? part.state : "";
       if (
         isWriteFile &&
@@ -58,8 +58,13 @@ export function syncToolPartsFromMessages({
       ) {
         processedWriteFileTools.add(toolKey);
         const input = part?.input;
+        // 逻辑：Edit 工具直接从 file_path 获取路径；apply-patch 从 patch 文本解析；Write 从 file_path 获取。
+        const directPath = typeof input?.file_path === "string" ? input.file_path : "";
         const patchText = typeof input?.patch === "string" ? input.patch : "";
-        const { fileName, firstPath } = extractPatchFileInfo(patchText);
+        const extracted = directPath
+          ? { fileName: directPath.split("/").pop() || directPath, firstPath: directPath }
+          : extractPatchFileInfo(patchText)
+        const { fileName, firstPath } = extracted;
         const baseParams = useLayoutState.getState().base?.params as Record<string, unknown> | undefined;
         const projectId = typeof baseParams?.projectId === "string" ? baseParams.projectId : undefined;
 
@@ -96,14 +101,18 @@ export function syncToolPartsFromMessages({
           if (firstPath) writeFileStackByPath.set(firstPath, stackId);
         }
       }
-      // 逻辑：patch 路径延迟可用时，更新标题并检查是否需要合并到已有 stack。
+      // 逻辑：路径延迟可用时，更新标题并检查是否需要合并到已有 stack。
       if (
         isWriteFile &&
         processedWriteFileTools.has(toolKey) &&
-        part?.input?.patch
+        (part?.input?.patch || part?.input?.file_path)
       ) {
-        const patchText = String(part.input.patch);
-        const { fileName, firstPath } = extractPatchFileInfo(patchText);
+        const directPath2 = typeof part.input?.file_path === "string" ? part.input.file_path : "";
+        const patchText2 = typeof part.input?.patch === "string" ? String(part.input.patch) : "";
+        const extracted2 = directPath2
+          ? { fileName: directPath2.split("/").pop() || directPath2, firstPath: directPath2 }
+          : extractPatchFileInfo(patchText2)
+        const { fileName, firstPath } = extracted2;
         if (firstPath) {
           const myStackId = toolCallIdToStackId.get(toolKey);
           const existingStackId = writeFileStackByPath.get(firstPath);
@@ -151,7 +160,7 @@ export function syncToolPartsFromMessages({
           }
         }
       }
-      // 逻辑：apply-patch 完成时，检查该 stack 的所有 toolCallIds 是否全部完成。
+      // 逻辑：Edit/apply-patch/Write 完成时，检查该 stack 的所有 toolCallIds 是否全部完成。
       if (
         isWriteFile &&
         processedWriteFileTools.has(toolKey) &&

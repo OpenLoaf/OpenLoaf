@@ -103,7 +103,8 @@ export default function StreamingCodeViewer({
       const st = typeof tp.state === 'string' ? tp.state : ''
       const input = tp.input as Record<string, unknown> | undefined
       const pLen = typeof input?.patch === 'string' ? input.patch.length : 0
-      return `${id}:${st}:${pLen}`
+      const fpLen = typeof input?.file_path === 'string' ? input.file_path.length : 0
+      return `${id}:${st}:${pLen}:${fpLen}`
     }).join('|')
   })
 
@@ -119,8 +120,15 @@ export default function StreamingCodeViewer({
         for (const id of allToolCallIds) {
           const tp = tabParts[id]
           const input = tp?.input as Record<string, unknown> | undefined
+          // 逻辑：兼容 apply-patch（patch 字段）和 Edit/Write（file_path + old_string/new_string 或 content）
           const p = typeof input?.patch === 'string' ? input.patch : ''
           if (p) patches.push(p)
+          // 逻辑：Edit 工具没有 patch 字段，记录 file_path 供路径提取用
+          if (!p && typeof input?.file_path === 'string') {
+            // 用特殊前缀标记 Edit/Write 输入以便后续区分
+            const editMarker = `*** Edit ${input.file_path}\n`
+            patches.push(editMarker)
+          }
           const st = typeof tp?.state === 'string' ? tp.state : ''
           if (st === 'input-streaming' || st === 'output-streaming') anyStreaming = true
           if (st !== 'input-available' && st !== 'output-available' && st !== 'output-error') allDone = false
@@ -141,8 +149,15 @@ export default function StreamingCodeViewer({
   // 逻辑：用第一个 patch 提取文件路径（所有 patch 应为同一文件）。
   const combinedPatch = patches[0] ?? ''
 
-  // 逻辑：从 patch 文本提取文件路径。
-  const { firstPath } = useMemo(() => extractPatchFileInfo(combinedPatch), [combinedPatch])
+  // 逻辑：从 patch 文本或 Edit 标记提取文件路径。
+  const { firstPath } = useMemo(() => {
+    // 兼容 Edit/Write 工具的特殊标记
+    if (combinedPatch.startsWith('*** Edit ')) {
+      const fp = combinedPatch.slice('*** Edit '.length).trim()
+      return { firstPath: fp, fileName: fp.split('/').pop() || fp }
+    }
+    return extractPatchFileInfo(combinedPatch)
+  }, [combinedPatch])
   const languageId = firstPath ? detectLanguageFromPath(firstPath) : 'plaintext'
 
   // 逻辑：读取原文件内容。null = 未加载，string = 已加载。

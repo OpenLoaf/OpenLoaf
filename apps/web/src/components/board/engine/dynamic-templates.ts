@@ -92,6 +92,15 @@ export function computeOutputTemplates(
     }
   }
 
+  // 排除自身类型（同类型节点间无意义连接）
+  for (const t of sourceOutputTypes) {
+    reachable.delete(t)
+  }
+  // 音频节点额外排除 image（audio→image 无意义）
+  if (sourceOutputTypes.includes('audio')) {
+    reachable.delete('image')
+  }
+
   return MEDIA_TYPE_ORDER.filter((t) => reachable.has(t)).map(buildItem)
 }
 

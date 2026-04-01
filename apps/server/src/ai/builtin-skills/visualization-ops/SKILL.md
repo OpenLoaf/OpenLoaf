@@ -111,8 +111,8 @@ Message, MessageContent, Panel, Snippet, SnippetAddon, SnippetText, SnippetInput
 
 **校验与修正**：
 - 服务端会校验 JSX 语法，违规直接报错
-- 校验失败仍会写入文件，错误信息包含 path，用 `apply-patch` 修正后刷新预览
-- 失败后必须用 `apply-patch` 修正，不要重新调用 jsx-create
+- 校验失败仍会写入文件，错误信息包含 path，用 `Edit` 修正后刷新预览
+- 失败后必须用 `Edit` 修正，不要重新调用 jsx-create
 
 **写入位置**：`[<sessionId>]/jsx/<messageId>.jsx`
 

@@ -10,22 +10,39 @@
 import { z } from "zod";
 
 export const webSearchToolDef = {
-  id: "web-search",
+  id: "WebSearch",
   name: "网页搜索",
-  description:
-    "触发：当你需要搜索互联网获取最新信息、查找事实、验证数据，但没有明确的目标网页 URL 时调用。用途：根据关键词搜索网页，返回相关结果的标题、链接和内容摘要。返回：{ ok: true, results: [{ title, url, content }] }。不适用：不要用于已知信息或可从本地文件获取的内容；当已有明确 URL 需要打开或浏览时使用 open-url 或 browser 子代理，而非本工具。与 browser 工具的区别：web-search 用于「搜索信息」（不知道在哪），browser 系列用于「访问网页」（已知 URL 或需要交互）。",
+  description: `Search the web for real-time information.
+
+Usage:
+- Use this tool to find current information, verify facts, or research topics
+- Supports domain filtering: use allowed_domains to restrict results, or blocked_domains to exclude specific sites
+- Cannot specify both allowed_domains and blocked_domains in the same request
+- After searching, you MUST include Sources with URLs in your response
+
+When to use:
+- Current events or information beyond your knowledge cutoff
+- Fact-checking or verifying claims
+- Finding documentation, tutorials, or references
+- Researching products, services, or technologies
+
+When NOT to use:
+- Information you already know and are confident about
+- Data available from local files (use Read/Grep instead)
+- When you have a specific URL to visit (use WebFetch instead)`,
   parameters: z.object({
     query: z
       .string()
-      .min(1)
-      .describe("搜索关键词或查询语句。"),
-    maxResults: z
-      .number()
-      .int()
-      .min(1)
-      .max(10)
+      .min(2)
+      .describe("The search query to use"),
+    allowed_domains: z
+      .array(z.string())
       .optional()
-      .describe("可选：返回结果数量上限，默认 5，最大 10。"),
+      .describe("Optional: only include results from these domains"),
+    blocked_domains: z
+      .array(z.string())
+      .optional()
+      .describe("Optional: exclude results from these domains"),
   }),
   component: null,
 } as const;

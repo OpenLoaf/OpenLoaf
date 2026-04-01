@@ -2521,6 +2521,10 @@ export class CanvasEngine {
 
   /** Build anchor positions for all connectable nodes. */
   getAnchorMap(): CanvasAnchorMap {
+    // 拖拽期间锚点 UI 不显示，跳过重建直接复用缓存
+    if (this.draggingElementId !== null && this.anchorMapCache) {
+      return this.anchorMapCache;
+    }
     if (!this.anchorMapDirty && this.anchorMapCache) {
       return this.anchorMapCache;
     }

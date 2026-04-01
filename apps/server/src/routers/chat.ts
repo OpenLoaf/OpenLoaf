@@ -165,8 +165,14 @@ function extractUsageTotals(metadata: unknown): UsageTotals {
     inputTokens: toNumber(usage.inputTokens ?? usage.promptTokens ?? usage.input_tokens),
     outputTokens: toNumber(usage.outputTokens ?? usage.completionTokens ?? usage.output_tokens),
     totalTokens: toNumber(usage.totalTokens ?? usage.total_tokens),
-    reasoningTokens: toNumber(usage.reasoningTokens ?? usage.reasoning_tokens),
-    cachedInputTokens: toNumber(usage.cachedInputTokens ?? usage.cached_input_tokens),
+    reasoningTokens: toNumber(
+      usage.outputTokenDetails?.reasoningTokens
+      ?? usage.reasoningTokens ?? usage.reasoning_tokens,
+    ),
+    cachedInputTokens: toNumber(
+      usage.inputTokenDetails?.cacheReadTokens
+      ?? usage.cachedInputTokens ?? usage.cached_input_tokens,
+    ),
   }
 }
 

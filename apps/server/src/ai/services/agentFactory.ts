@@ -50,8 +50,11 @@ import {
 import { resolveAgentByName } from '@/ai/tools/AgentSelector'
 import { buildHardRules } from '@/ai/shared/hardRules'
 import { tryAutoCompact } from '@/ai/shared/autoCompact'
+import { microcompactMessages, extractLastAssistantTimestamp } from '@/ai/shared/microCompact'
+import { ContextCollapseManager, type CollapseResult } from '@/ai/shared/contextCollapse'
 import { buildToolSearchGuidance } from '@/ai/shared/toolSearchGuidance'
 import { isWebSearchConfigured } from '@/ai/tools/webSearchTool'
+import { applyToolResultInterception } from '@/ai/tools/toolResultInterceptor'
 
 // ---------------------------------------------------------------------------
 // 子 Agent 行为类型
@@ -70,7 +73,7 @@ export type BuiltinSubAgentType =
   | 'coder'
 
 /** explore / plan 共用的只读工具集。 */
-const READ_ONLY_TOOL_IDS = ['read-file', 'list-dir', 'grep-files', 'project-query'] as const
+const READ_ONLY_TOOL_IDS = ['Read', 'Glob', 'Grep', 'project-query'] as const
 
 /** 内置子 Agent 类型集合。 */
 const BUILTIN_SUB_AGENT_TYPES = new Set<string>([
@@ -121,8 +124,21 @@ const SUB_AGENT_MAX_STEPS = 15
 // ToolSearch Pull 模式 — prepareStep + ActivatedToolSet
 // ---------------------------------------------------------------------------
 
-/** Core tool IDs that are always visible (never deferred). */
-const CORE_TOOL_IDS = ['tool-search', 'shell-command'] as const
+/** Core tool IDs that are always visible (never deferred). Like Claude Code. */
+const CORE_TOOL_IDS = [
+  'tool-search',
+  'Bash',
+  'Read',
+  'Glob',
+  'Grep',
+  'Edit',
+  'Write',
+  'request-user-input',
+  'spawn-agent',
+  'send-input',
+  'wait-agent',
+  'abort-agent',
+] as const
 
 /**
  * Activation guard for ToolSearch pull mode.
@@ -176,12 +192,17 @@ function applyActivationGuard(
  * Creates a prepareStep that:
  * 1. Controls tool visibility via ToolSearch pull mode
  * 2. Prunes historical reasoning & old tool calls to reduce token overhead
- * 3. Auto-compacts long conversations via LLM summarization (step 0 only)
+ * 3. Microcompacts old tool results after idle gaps (step 0 only)
+ * 4. Auto-compacts long conversations via LLM summarization (step 0 only)
  */
 function createToolSearchPrepareStep(
   allToolIds: readonly string[],
   activatedSet: ActivatedToolSet,
-  options?: { modelId?: string },
+  options?: {
+    modelId?: string
+    lastAssistantTimestamp?: number | null
+    collapseManager?: ContextCollapseManager
+  },
 ): PrepareStepFunction {
   return async ({ messages, stepNumber, model }) => {
     // 1. ToolSearch pull — dynamic tool visibility
@@ -199,10 +220,30 @@ function createToolSearchPrepareStep(
       emptyMessages: 'remove',
     })
 
-    // 3. Auto-compact — LLM summarization on step 0 when context is long
+    // Step 0 only: microcompact + context collapse (or auto-compact fallback)
     let finalMessages = pruned
     if (stepNumber === 0) {
-      finalMessages = await tryAutoCompact(pruned, options?.modelId, model as any)
+      // 3. Microcompact — clear old tool results after idle gap
+      const mcResult = microcompactMessages(pruned, options?.lastAssistantTimestamp)
+      finalMessages = mcResult.messages
+
+      // 4. Context Collapse — non-destructive incremental summarization
+      //    Replaces auto-compact when collapseManager is provided.
+      if (options?.collapseManager) {
+        const collapseResult: CollapseResult = await options.collapseManager.applyIfNeeded(
+          finalMessages,
+          model as any,
+        )
+        if (collapseResult.collapsed) {
+          finalMessages = collapseResult.messages
+        } else {
+          // Collapse didn't trigger — fall back to auto-compact as safety net
+          finalMessages = await tryAutoCompact(finalMessages, options?.modelId, model as any)
+        }
+      } else {
+        // No collapse manager — use legacy auto-compact
+        finalMessages = await tryAutoCompact(finalMessages, options?.modelId, model as any)
+      }
     }
 
     return { activeTools, messages: finalMessages }
@@ -306,7 +347,7 @@ export function createMasterAgent(input: CreateMasterAgentInput) {
   )
   // web-search requires configured provider + API key
   if (!isWebSearchConfigured()) {
-    filteredDeferredToolIds = filteredDeferredToolIds.filter((id) => id !== 'web-search')
+    filteredDeferredToolIds = filteredDeferredToolIds.filter((id) => id !== 'WebSearch')
   }
 
   // Inject MCP tool IDs (dynamically registered by MCPClientManager)
@@ -332,6 +373,9 @@ export function createMasterAgent(input: CreateMasterAgentInput) {
   // ★ Activation guard — block unloaded tool calls with clear error
   applyActivationGuard(tools, activatedSet, coreToolIds)
 
+  // ★ Tool result interception — persist oversized results to disk
+  applyToolResultInterception(tools, getSessionId)
+
   // ★ Append Hard Rules to instructions (Layer 2)
   // ToolSearch guidance is injected via session preface (platform-aware).
   const hardRules = buildHardRules()
@@ -347,10 +391,22 @@ export function createMasterAgent(input: CreateMasterAgentInput) {
     experimental_repairToolCall: createToolCallRepair(),
     ...buildResponsesApiProviderOptions(input.model),
   }
+  // Extract last assistant timestamp for time-based microcompact
+  const lastAssistantTimestamp = input.messages
+    ? extractLastAssistantTimestamp(input.messages as any)
+    : null
+
+  // Create per-agent ContextCollapseManager for non-destructive context folding
+  const collapseManager = new ContextCollapseManager({
+    modelId: input.model.modelId,
+  })
+
   // Inject prepareStep — ToolSearch pull mode + context compression
   Object.assign(baseSettings, {
     prepareStep: createToolSearchPrepareStep(allToolIds, activatedSet, {
       modelId: input.model.modelId,
+      lastAssistantTimestamp,
+      collapseManager,
     }),
   })
 
@@ -400,7 +456,11 @@ export function createPMAgent(input: CreatePMAgentInput) {
   const wrappedModel = wrapModelWithExamples(input.model)
 
   const ctx = getRequestContext()
-  const coreToolIds = ['tool-search'] as string[]
+  // PM agent shares the same core tools as master
+  const coreToolIds = [
+    'tool-search', 'Bash', 'Read', 'Glob', 'Grep', 'Edit', 'Write',
+    'request-user-input', 'spawn-agent', 'send-input', 'wait-agent', 'abort-agent',
+  ] as string[]
 
   // Filter PM agent tools by platform
   let deferredToolIds = filterToolIdsByPlatform(
@@ -408,7 +468,7 @@ export function createPMAgent(input: CreatePMAgentInput) {
     ctx?.clientPlatform,
   )
   if (!isWebSearchConfigured()) {
-    deferredToolIds = deferredToolIds.filter((id) => id !== 'web-search')
+    deferredToolIds = deferredToolIds.filter((id) => id !== 'WebSearch')
   }
 
   // Inject MCP tool IDs
@@ -419,6 +479,7 @@ export function createPMAgent(input: CreatePMAgentInput) {
   const activatedSet = new ActivatedToolSet(coreToolIds)
   tools['tool-search'] = createToolSearchTool(activatedSet, new Set(allToolIds), getToolJsonSchemas)
   applyActivationGuard(tools, activatedSet, coreToolIds)
+  applyToolResultInterception(tools, getSessionId)
 
   const hardRules = buildHardRules()
   const toolSearchGuidance = buildToolSearchGuidance(ctx?.clientPlatform, deferredToolIds)
@@ -432,6 +493,9 @@ export function createPMAgent(input: CreatePMAgentInput) {
     experimental_repairToolCall: createToolCallRepair(),
     prepareStep: createToolSearchPrepareStep(allToolIds, activatedSet, {
       modelId: input.model.modelId,
+      collapseManager: new ContextCollapseManager({
+        modelId: input.model.modelId,
+      }),
     }),
     ...buildResponsesApiProviderOptions(input.model),
   })
@@ -509,13 +573,16 @@ export function createSubAgent(input: CreateSubAgentInput): ToolLoopAgent {
 function createGeneralPurposeSubAgent(model: LanguageModelV3): ToolLoopAgent {
   const masterTpl = getPrimaryTemplate()
   const ctx = getRequestContext()
-  const coreToolIds = ['tool-search'] as string[]
+  // General-purpose sub-agents get core file tools but NOT agent collaboration tools
+  const coreToolIds = [
+    'tool-search', 'Bash', 'Read', 'Glob', 'Grep', 'Edit', 'Write', 'request-user-input',
+  ] as string[]
   let deferredToolIds = filterToolIdsByPlatform(
     (masterTpl.deferredToolIds ?? []).filter((id) => !AGENT_TOOL_IDS_TO_EXCLUDE.has(id)),
     ctx?.clientPlatform,
   )
   if (!isWebSearchConfigured()) {
-    deferredToolIds = deferredToolIds.filter((id) => id !== 'web-search')
+    deferredToolIds = deferredToolIds.filter((id) => id !== 'WebSearch')
   }
 
   // Inject MCP tool IDs
@@ -526,6 +593,7 @@ function createGeneralPurposeSubAgent(model: LanguageModelV3): ToolLoopAgent {
   const activatedSet = new ActivatedToolSet(coreToolIds)
   tools['tool-search'] = createToolSearchTool(activatedSet, new Set(allToolIds), getToolJsonSchemas)
   applyActivationGuard(tools, activatedSet, coreToolIds)
+  applyToolResultInterception(tools, getSessionId)
 
   // 使用与主 Agent 相同的完整 instructions（sub-agent 不共享 preface，需自带 guidance）
   const basePrompt = masterTpl.systemPrompt
@@ -550,9 +618,9 @@ function createExploreSubAgent(model: LanguageModelV3): ToolLoopAgent {
     '你是一个代码库探索专用子代理。你的任务是快速搜索和分析代码库。',
     '',
     '你可以使用以下工具：',
-    '- read-file: 读取文件内容',
-    '- list-dir: 列出目录内容',
-    '- grep-files: 搜索文件内容',
+    '- Read: 读取文件内容',
+    '- Glob: 搜索文件路径',
+    '- Grep: 搜索文件内容',
     '- project-query: 查询项目数据',
     '',
     '注意：你是只读的，不能修改任何文件。专注于搜索、分析和回答问题。',
@@ -574,9 +642,9 @@ function createPlanSubAgent(model: LanguageModelV3): ToolLoopAgent {
     '你是一个架构方案设计专用子代理。你的任务是分析代码库并设计实现方案。',
     '',
     '你可以使用以下工具：',
-    '- read-file: 读取文件内容',
-    '- list-dir: 列出目录内容',
-    '- grep-files: 搜索文件内容',
+    '- Read: 读取文件内容',
+    '- Glob: 搜索文件路径',
+    '- Grep: 搜索文件内容',
     '- project-query: 查询项目数据',
     '',
     '注意：你是只读的，不能修改任何文件。专注于分析架构、识别关键文件、评估权衡，输出分步实现计划。',
@@ -610,13 +678,13 @@ const SPECIALIST_CONFIGS: Record<string, SpecialistConfig> = {
       '你是文档编辑专用子代理，负责富文本和 Markdown 文档的创建与编辑。',
       '',
       '你可以使用以下工具：',
-      '- write-file: 创建或覆写文件',
-      '- read-file: 读取文件内容',
-      '- list-dir: 浏览目录结构',
+      '- Write: 创建或覆写文件',
+      '- Read: 读取文件内容',
+      '- Glob: 浏览目录结构',
       '',
       '注意：专注于文档编辑任务。输出格式优先使用 Markdown，富文本场景使用 Plate.js 兼容格式。',
     ].join('\n'),
-    toolIds: ['write-file', 'read-file', 'list-dir'],
+    toolIds: ['Write', 'Read', 'Glob'],
     maxSteps: 15,
   },
   'browser': {
@@ -629,11 +697,11 @@ const SPECIALIST_CONFIGS: Record<string, SpecialistConfig> = {
       '- browser-click: 点击元素',
       '- browser-fill: 填写表单',
       '- browser-screenshot: 截图',
-      '- web-search: 搜索网页',
+      '- WebSearch: 搜索网页',
       '',
       '注意：操作网页时注意加载等待，避免操作未渲染的元素。',
     ].join('\n'),
-    toolIds: ['browser-navigate', 'browser-click', 'browser-fill', 'browser-screenshot', 'browser-read', 'web-search'],
+    toolIds: ['browser-navigate', 'browser-click', 'browser-fill', 'browser-screenshot', 'browser-read', 'WebSearch'],
     maxSteps: 20,
   },
   'data-analyst': {
@@ -642,13 +710,13 @@ const SPECIALIST_CONFIGS: Record<string, SpecialistConfig> = {
       '你是数据分析专用子代理，负责数据处理、统计和可视化。',
       '',
       '你可以使用以下工具：',
-      '- read-file: 读取数据文件（CSV、JSON、Excel 等）',
-      '- write-file: 输出分析结果',
+      '- Read: 读取数据文件（CSV、JSON、Excel 等）',
+      '- Write: 输出分析结果',
       '- js-repl: 执行 JavaScript 代码进行数据处理',
       '',
       '注意：优先使用 js-repl 进行数据处理。大数据集使用流式处理避免内存溢出。',
     ].join('\n'),
-    toolIds: ['read-file', 'write-file', 'js-repl'],
+    toolIds: ['Read', 'Write', 'js-repl'],
     maxSteps: 15,
   },
   'extractor': {
@@ -657,13 +725,13 @@ const SPECIALIST_CONFIGS: Record<string, SpecialistConfig> = {
       '你是信息提取专用子代理，负责从文件、网页中提取结构化信息。',
       '',
       '你可以使用以下工具：',
-      '- read-file: 读取文件内容',
+      '- Read: 读取文件内容',
       '- office-read: 读取 Office 文档',
-      '- web-fetch: 获取网页内容',
+      '- WebFetch: 获取网页内容',
       '',
       '注意：提取结果使用结构化格式（JSON/表格）呈现。长文档先摘要再详述。',
     ].join('\n'),
-    toolIds: ['read-file', 'office-read', 'web-fetch'],
+    toolIds: ['Read', 'office-read', 'WebFetch'],
     maxSteps: 10,
   },
   'canvas-designer': {
@@ -688,15 +756,15 @@ const SPECIALIST_CONFIGS: Record<string, SpecialistConfig> = {
       '你是代码工程师专用子代理，负责代码编写、调试和分析。',
       '',
       '你可以使用以下工具：',
-      '- write-file: 创建或修改代码文件',
-      '- read-file: 读取源代码',
-      '- grep-files: 搜索代码',
-      '- list-dir: 浏览项目结构',
-      '- shell-command: 执行构建、测试等命令',
+      '- Write: 创建或修改代码文件',
+      '- Read: 读取源代码',
+      '- Grep: 搜索代码',
+      '- Glob: 浏览项目结构',
+      '- Bash: 执行构建、测试等命令',
       '',
       '注意：遵循项目代码规范。修改前先阅读相关代码。测试驱动开发。',
     ].join('\n'),
-    toolIds: ['write-file', 'read-file', 'grep-files', 'list-dir', 'shell-command'],
+    toolIds: ['Write', 'Read', 'Grep', 'Glob', 'Bash'],
     maxSteps: 20,
   },
 }

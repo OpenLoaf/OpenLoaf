@@ -20,17 +20,19 @@ import {
 } from "@openloaf/api/types/tools/browserAutomation";
 import { projectMutateToolDef, projectQueryToolDef } from "@openloaf/api/types/tools/db";
 import {
-  grepFilesToolDef,
-  listDirToolDef,
-  readFileToolDef,
-  applyPatchToolDef,
-  shellCommandToolDef,
+  bashToolDef,
+  readToolDef,
+  editToolDef,
+  writeToolDef,
+  globToolDef,
+  grepToolDef,
   updatePlanToolDef,
 } from "@openloaf/api/types/tools/runtime";
 import { jsxCreateToolDef } from "@openloaf/api/types/tools/jsxCreate";
 import { chartRenderToolDef } from "@openloaf/api/types/tools/chart";
 import { videoDownloadToolDef } from "@openloaf/api/types/tools/videoDownload";
 import { webFetchToolDef } from "@openloaf/api/types/tools/webFetch";
+import { webSearchToolDef } from "@openloaf/api/types/tools/webSearch";
 import {
   spawnAgentToolDef,
   sendInputToolDef,
@@ -61,14 +63,15 @@ const TOOL_DEFS: ToolNameSource[] = [
   browserObserveToolDef,
   browserSnapshotToolDef,
   browserWaitToolDef,
-  grepFilesToolDef,
-  listDirToolDef,
+  bashToolDef,
+  readToolDef,
+  editToolDef,
+  writeToolDef,
+  globToolDef,
+  grepToolDef,
   openUrlToolDef,
   projectQueryToolDef,
   projectMutateToolDef,
-  readFileToolDef,
-  applyPatchToolDef,
-  shellCommandToolDef,
   spawnAgentToolDef,
   sendInputToolDef,
   waitAgentToolDef,
@@ -78,6 +81,7 @@ const TOOL_DEFS: ToolNameSource[] = [
   chartRenderToolDef,
   videoDownloadToolDef,
   webFetchToolDef,
+  webSearchToolDef,
 ];
 
 /** Tool id to display name map. */

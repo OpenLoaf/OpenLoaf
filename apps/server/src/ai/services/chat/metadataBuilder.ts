@@ -23,8 +23,14 @@ export function buildTokenUsageMetadata(
     inputTokens: toNumberOrUndefined((totalUsage as any).inputTokens),
     outputTokens: toNumberOrUndefined((totalUsage as any).outputTokens),
     totalTokens: toNumberOrUndefined((totalUsage as any).totalTokens),
-    reasoningTokens: toNumberOrUndefined((totalUsage as any).reasoningTokens),
-    cachedInputTokens: toNumberOrUndefined((totalUsage as any).cachedInputTokens),
+    reasoningTokens: toNumberOrUndefined(
+      (totalUsage as any).outputTokenDetails?.reasoningTokens
+      ?? (totalUsage as any).reasoningTokens,
+    ),
+    cachedInputTokens: toNumberOrUndefined(
+      (totalUsage as any).inputTokenDetails?.cacheReadTokens
+      ?? (totalUsage as any).cachedInputTokens,
+    ),
   };
 
   if (Object.values(usage).every((value) => value === undefined)) return;

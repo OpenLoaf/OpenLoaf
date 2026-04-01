@@ -63,7 +63,7 @@ export const BUILTIN_SKILLS: BuiltinSkill[] = [
     content: stripFrontMatter(fileOpsMd),
     icon: '📄',
     colorIndex: 1,
-    tools: ['read-file', 'list-dir', 'grep-files', 'apply-patch', 'file-info', 'edit-document'],
+    tools: ['Read', 'Glob', 'Grep', 'Edit', 'Write', 'file-info', 'edit-document'],
   },
   {
     name: 'email-ops',
@@ -117,7 +117,7 @@ export const BUILTIN_SKILLS: BuiltinSkill[] = [
     content: stripFrontMatter(workbenchOpsMd),
     icon: '🧩',
     colorIndex: 7,
-    tools: ['widget-init', 'widget-list', 'widget-get', 'widget-check', 'generate-widget', 'read-file', 'apply-patch'],
+    tools: ['widget-init', 'widget-list', 'widget-get', 'widget-check', 'generate-widget', 'Read', 'Edit'],
   },
   {
     name: 'settings-guide',
@@ -153,7 +153,7 @@ export const BUILTIN_SKILLS: BuiltinSkill[] = [
     content: stripFrontMatter(browserAutomationGuideMd),
     icon: '🌐',
     colorIndex: 3,
-    tools: ['open-url', 'web-search', 'web-fetch', 'browser-snapshot', 'browser-observe', 'browser-act', 'browser-wait', 'browser-extract', 'browser-screenshot', 'browser-download-image'],
+    tools: ['open-url', 'WebSearch', 'WebFetch', 'browser-snapshot', 'browser-observe', 'browser-act', 'browser-wait', 'browser-extract', 'browser-screenshot', 'browser-download-image'],
   },
   {
     name: 'office-document-guide',

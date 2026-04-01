@@ -9,6 +9,7 @@
  */
 import type { Hono } from "hono";
 import { logger } from "@/common/logger";
+import { getEnvString } from "@openloaf/config";
 import { renderAuthCallbackPage } from "./authCallbackPage";
 import { consumeLoginCode, storeLoginCode } from "./loginCodeStore";
 
@@ -26,6 +27,8 @@ function extractLoginState(returnTo?: string | null): string | null {
 
 /** Register SaaS login callback routes. */
 export function registerAuthRoutes(app: Hono): void {
+  const saasUrl = getEnvString(process.env, "OPENLOAF_SAAS_URL") || "";
+
   app.get("/auth/callback", (c) => {
     const loginCode = c.req.query("code");
     const returnTo = c.req.query("returnTo");
@@ -35,6 +38,7 @@ export function registerAuthRoutes(app: Hono): void {
         renderAuthCallbackPage({
           message: "OpenLoaf 登录失败，缺少回调参数",
           returnUrl: "openloaf://open",
+          saasUrl,
         })
       );
     }
@@ -46,6 +50,7 @@ export function registerAuthRoutes(app: Hono): void {
       renderAuthCallbackPage({
         message: "已成功登录 OpenLoaf",
         returnUrl: "openloaf://open",
+        saasUrl,
       })
     );
   });

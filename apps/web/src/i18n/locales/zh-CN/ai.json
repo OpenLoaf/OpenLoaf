@@ -151,11 +151,17 @@
     "pptx-mutate": "PPTX 操作",
     "pdf-query": "PDF 查询",
     "pdf-mutate": "PDF 操作",
+    "Bash": "Shell 命令",
     "shell-command": "Shell 命令",
+    "Read": "读取文件",
     "read-file": "读取文件",
+    "Edit": "编辑文件",
     "apply-patch": "编辑文件",
+    "Write": "写入文件",
     "edit-document": "编辑文稿",
+    "Glob": "列出目录",
     "list-dir": "列出目录",
+    "Grep": "搜索文件内容",
     "grep-files": "搜索文件内容",
     "update-plan": "更新计划",
     "js-repl": "JavaScript REPL",
@@ -175,7 +181,8 @@
     "video-convert": "视频转换",
     "doc-convert": "文档转换",
     "file-info": "文件信息",
-    "web-fetch": "获取网页内容"
+    "WebFetch": "获取网页内容",
+    "WebSearch": "网页搜索"
   },
   "session": {
     "renameTitle": "重命名会话",
