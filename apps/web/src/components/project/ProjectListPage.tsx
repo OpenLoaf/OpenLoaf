@@ -602,11 +602,19 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
   const isInitialLoading = projectsQuery.isPending && filteredProjects.length === 0;
   const hasActiveFilter =
     Boolean(searchQuery.trim()) || filterProjectType !== "__all__";
+  // Skip stagger animation when data was already available (e.g. cache hit, refetch).
+  // Read ref before setting it — first render with data plays animation, subsequent renders skip.
+  const hasRenderedDataRef = useRef(false);
+  const skipCardAnimation = hasRenderedDataRef.current;
+  if (filteredProjects.length > 0) {
+    hasRenderedDataRef.current = true;
+  }
 
   const renderProjectCard = useCallback(
     (
       project: ProjectListItem,
       index: number,
+      skipAnim: boolean,
     ) => {
       const baseId = `project:${project.projectId}`;
       const isActive = activeProjectBaseId === baseId;
@@ -620,9 +628,9 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
         <ContextMenu key={project.projectId}>
           <ContextMenuTrigger asChild>
             <motion.div
-              initial={{ opacity: 0 }}
+              initial={skipAnim ? false : { opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ duration: 0.25, delay: Math.min(index * 0.03, 0.3) }}
+              transition={skipAnim ? undefined : { duration: 0.25, delay: Math.min(index * 0.03, 0.3) }}
               className={`group relative flex flex-col overflow-hidden rounded-3xl ol-glass-float cursor-pointer shadow-none transition-colors duration-200 hover:border-foreground/30 dark:bg-background/30 ${
                 isActive
                   ? "border-foreground/30 bg-foreground/[0.04] dark:bg-foreground/[0.08]"
@@ -1009,7 +1017,7 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
                 </div>
                 <div className="grid grid-cols-[repeat(auto-fill,minmax(248px,1fr))] gap-3.5">
                   {group.projects.map((project, i) =>
-                    renderProjectCard(project, i),
+                    renderProjectCard(project, i, skipCardAnimation),
                   )}
                 </div>
               </div>
@@ -1030,7 +1038,7 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
           <>
             <div className="grid grid-cols-[repeat(auto-fill,minmax(248px,1fr))] gap-3.5">
               {filteredProjects.map((project, i) =>
-                renderProjectCard(project, i),
+                renderProjectCard(project, i, skipCardAnimation),
               )}
             </div>
             {hasMoreProjects ? (

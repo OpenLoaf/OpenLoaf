@@ -441,26 +441,24 @@ function ChatFullPageLayout({
         </>
       )}
       {/* 单一 ChatInput 实例，避免 empty→non-empty 切换时重新挂载导致模型选中状态丢失 */}
-      <div className={isEmpty ? "w-full max-w-3xl mx-auto px-6" : ""}>
-        <ChatInput
-          className={isEmpty ? "w-full !max-h-none !mt-0" : "mx-2 mb-2"}
-          large={isEmpty}
-          attachments={attachments}
-          onAddAttachments={onAddAttachments}
-          onRemoveAttachment={onRemoveAttachment}
-          onClearAttachments={onClearAttachments}
-          onReplaceMaskedAttachment={onReplaceMaskedAttachment}
-          canAttachAll={canAttachAll}
-          canAttachImage={canAttachImage}
-          model={model}
-          isAutoModel={isAutoModel}
-          canImageGeneration={canImageGeneration}
-          canImageEdit={canImageEdit}
-          isCodexProvider={isCodexProvider}
-          onDropHandled={onDropHandled}
-          blockedCompact={isEmpty}
-        />
-      </div>
+      <ChatInput
+        className={isEmpty ? "w-full max-w-3xl mx-auto px-6 !max-h-none !mt-0" : "mx-2 mb-2"}
+        large={isEmpty}
+        attachments={attachments}
+        onAddAttachments={onAddAttachments}
+        onRemoveAttachment={onRemoveAttachment}
+        onClearAttachments={onClearAttachments}
+        onReplaceMaskedAttachment={onReplaceMaskedAttachment}
+        canAttachAll={canAttachAll}
+        canAttachImage={canAttachImage}
+        model={model}
+        isAutoModel={isAutoModel}
+        canImageGeneration={canImageGeneration}
+        canImageEdit={canImageEdit}
+        isCodexProvider={isCodexProvider}
+        onDropHandled={onDropHandled}
+        blockedCompact={isEmpty}
+      />
       {isEmpty && (
         <>
           <div className="flex justify-center mt-4 mb-2">
