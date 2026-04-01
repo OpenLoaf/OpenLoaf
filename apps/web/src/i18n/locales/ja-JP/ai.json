@@ -117,10 +117,8 @@
     "tool": "ツール"
   },
   "toolNames": {
-    "spawn-agent": "サブエージェントを起動",
-    "send-input": "入力を送信",
-    "wait-agent": "エージェントを待機",
-    "abort-agent": "エージェントを中止",
+    "Agent": "サブエージェント",
+    "SendMessage": "メッセージを送信",
     "open-url": "URLを開く",
     "browser-snapshot": "ブラウザスナップショット",
     "browser-observe": "ページを監視",

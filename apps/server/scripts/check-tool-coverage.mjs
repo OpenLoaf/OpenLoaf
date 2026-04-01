@@ -29,7 +29,6 @@ const INTERNAL_TOOLS = new Set([
   'sub-agent',        // Internal delegation
   'update-plan',      // Internal planning state
   'test-approval',    // Test-only
-  'send-input',       // Helper (paired with spawn-agent)
   'create-task',      // Deprecated alias for task-manage
 ])
 

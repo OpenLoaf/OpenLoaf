@@ -34,10 +34,8 @@ export const masterTemplate: AgentTemplate = {
     'Write',
     'request-user-input',
     // agent collaboration
-    'spawn-agent',
-    'send-input',
-    'wait-agent',
-    'abort-agent',
+    'Agent',
+    'SendMessage',
   ],
   deferredToolIds: [
     // system

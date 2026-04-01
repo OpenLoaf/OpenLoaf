@@ -117,10 +117,8 @@
     "tool": "工具"
   },
   "toolNames": {
-    "spawn-agent": "啟動子智能體",
-    "send-input": "發送輸入",
-    "wait-agent": "等待子智能體",
-    "abort-agent": "中止子智能體",
+    "Agent": "子智能體",
+    "SendMessage": "發送訊息",
     "open-url": "開啟網頁",
     "browser-snapshot": "瀏覽器快照",
     "browser-observe": "頁面觀察",

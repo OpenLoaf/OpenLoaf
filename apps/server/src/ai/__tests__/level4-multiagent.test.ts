@@ -8,7 +8,7 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 /**
- * Level 4 — Multi-agent spawn/wait/abort 集成测试。
+ * Level 4 — Multi-agent Agent/SendMessage 集成测试。
  *
  * 用法：
  *   OPENLOAF_TEST_CHAT_MODEL_ID="profileId:modelId" pnpm run test:ai:multiagent
@@ -102,10 +102,8 @@ async function runAgentTest(input: {
 }
 
 const AGENT_TOOL_IDS = [
-  'spawn-agent',
-  'wait-agent',
-  'abort-agent',
-  'send-input',
+  'Agent',
+  'SendMessage',
 ] as const
 
 async function main() {
@@ -126,19 +124,16 @@ async function main() {
   setMinimalRequestContext()
   setChatModel(resolved.model)
 
-  // ── Test 1: 单个 spawn + wait ──
+  // ── Test 1: 单个 Agent 调用（同步等待） ──
   const t1 = await runAgentTest({
-    name: 'Single spawn + wait',
+    name: 'Single Agent call',
     prompt: '请启动一个子代理来查询当前时间，等待它完成后告诉我结果。',
     toolIds: AGENT_TOOL_IDS,
     model: resolved.model,
     modelInfo: resolved.modelInfo,
     assertions: ({ outputText, toolNames, toolCallCount }) => {
-      if (!toolNames.includes('spawn-agent')) {
-        throw new Error(`期望调用 spawn-agent，实际: ${toolNames.join(', ')}`)
-      }
-      if (!toolNames.includes('wait-agent')) {
-        throw new Error(`期望调用 wait-agent，实际: ${toolNames.join(', ')}`)
+      if (!toolNames.includes('Agent')) {
+        throw new Error(`期望调用 Agent，实际: ${toolNames.join(', ')}`)
       }
       if (!outputText || outputText.trim().length === 0) {
         throw new Error('输出文本为空')
@@ -148,21 +143,18 @@ async function main() {
   if (t1) passed++
   else failed++
 
-  // ── Test 2: 并行 spawn ──
+  // ── Test 2: 并行 Agent 调用 ──
   const t2 = await runAgentTest({
-    name: 'Parallel spawn',
+    name: 'Parallel Agent calls',
     prompt:
       '请同时启动两个子代理，一个查询当前时间，一个也查询当前时间，等待它们都完成后汇总结果。',
     toolIds: AGENT_TOOL_IDS,
     model: resolved.model,
     modelInfo: resolved.modelInfo,
     assertions: ({ outputText, toolNames }) => {
-      const spawnCount = toolNames.filter((n) => n === 'spawn-agent').length
-      if (spawnCount < 2) {
-        throw new Error(`期望 spawn-agent >= 2 次，实际: ${spawnCount}`)
-      }
-      if (!toolNames.includes('wait-agent')) {
-        throw new Error(`期望调用 wait-agent，实际: ${toolNames.join(', ')}`)
+      const agentCount = toolNames.filter((n) => n === 'Agent').length
+      if (agentCount < 2) {
+        throw new Error(`期望 Agent >= 2 次，实际: ${agentCount}`)
       }
       if (!outputText || outputText.trim().length === 0) {
         throw new Error('输出文本为空')
@@ -172,22 +164,16 @@ async function main() {
   if (t2) passed++
   else failed++
 
-  // ── Test 3: abort 生命周期 ──
+  // ── Test 3: Agent 调用 + 结果验证 ──
   const t3 = await runAgentTest({
-    name: 'Spawn + wait + abort lifecycle',
-    prompt: '启动一个子代理查询时间，等待完成后中止它，告诉我结果。',
+    name: 'Agent call with result verification',
+    prompt: '启动一个子代理查询时间，告诉我结果。',
     toolIds: AGENT_TOOL_IDS,
     model: resolved.model,
     modelInfo: resolved.modelInfo,
     assertions: ({ outputText, toolNames }) => {
-      if (!toolNames.includes('spawn-agent')) {
-        throw new Error(`期望调用 spawn-agent，实际: ${toolNames.join(', ')}`)
-      }
-      if (!toolNames.includes('wait-agent')) {
-        throw new Error(`期望调用 wait-agent，实际: ${toolNames.join(', ')}`)
-      }
-      if (!toolNames.includes('abort-agent')) {
-        throw new Error(`期望调用 abort-agent，实际: ${toolNames.join(', ')}`)
+      if (!toolNames.includes('Agent')) {
+        throw new Error(`期望调用 Agent，实际: ${toolNames.join(', ')}`)
       }
       if (!outputText || outputText.trim().length === 0) {
         throw new Error('输出文本为空')

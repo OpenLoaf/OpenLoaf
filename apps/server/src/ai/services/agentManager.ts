@@ -89,6 +89,8 @@ export type ManagedAgent = {
   prefaceInjected?: boolean
   /** Whether an empty-output retry has been attempted. */
   retried?: boolean
+  /** AI SDK tool call id (for frontend mapping during "calling" state). */
+  masterToolUseId?: string
 }
 
 const MAX_DEPTH = 2
@@ -198,6 +200,7 @@ class AgentManager {
     subagentType?: string
     context: SpawnContext
     depth?: number
+    masterToolUseId?: string
   }): string {
     const depth = input.depth ?? 0
     if (depth >= MAX_DEPTH) {
@@ -237,6 +240,7 @@ class AgentManager {
       responseParts: [],
       depth,
       isResumed: false,
+      masterToolUseId: input.masterToolUseId,
     }
     this.agents.set(id, agent)
 
@@ -371,7 +375,7 @@ class AgentManager {
         if (writer) {
           writer.write({
             type: 'data-sub-agent-start',
-            data: { toolCallId, name: agent.name, task: agent.task },
+            data: { toolCallId, name: agent.name, task: agent.task, masterToolUseId: agent.masterToolUseId },
           } as any)
         }
 
@@ -675,6 +679,7 @@ class AgentManager {
   async wait(
     ids: string[],
     timeoutMs = 300000,
+    abortSignal?: AbortSignal,
   ): Promise<{
     completedId: string | null
     status: Record<string, AgentStatus>
@@ -701,12 +706,19 @@ class AgentManager {
       return { completedId, status }
     }
 
+    // 检查 abort signal 是否已触发
+    if (abortSignal?.aborted) {
+      for (const id of ids) this.abort(id)
+      const final = buildSnapshot()
+      return { ...final, timedOut: false }
+    }
+
     const snap = buildSnapshot()
     if (snap.completedId !== null) {
       return { ...snap, timedOut: false }
     }
 
-    // 逻辑：异步等待任一 agent 到达终态。
+    // 逻辑：异步等待任一 agent 到达终态，或被 abort。
     let timedOut = false
     await Promise.race([
       new Promise<void>((resolve) => {
@@ -726,6 +738,15 @@ class AgentManager {
           }
           agent.statusListeners.add(listener)
           cleanup.push(() => agent.statusListeners.delete(listener))
+        }
+        // 监听 abort signal — 终止所有等待的子 agent
+        if (abortSignal) {
+          const onAbort = () => {
+            for (const id of ids) this.abort(id)
+            onDone()
+          }
+          abortSignal.addEventListener('abort', onAbort, { once: true })
+          cleanup.push(() => abortSignal.removeEventListener('abort', onAbort))
         }
       }),
       new Promise<void>((resolve) => {

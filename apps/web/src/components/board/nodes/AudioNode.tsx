@@ -14,14 +14,16 @@ import type {
   InputSnapshot,
 } from "../engine/types";
 import type { UpstreamData } from "../engine/upstream-data";
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { z } from "zod";
 import {
   ChevronLeft,
   ChevronRight,
   Download,
+  Mic,
   Music,
   Play,
+  Square,
   Upload,
 } from "lucide-react";
 import i18next from "i18next";
@@ -34,6 +36,11 @@ import {
   normalizeProjectRelativePath,
   parseScopedProjectPath,
 } from "@/components/project/filesystem/utils/file-system-utils";
+import {
+  ProjectFilePickerDialog,
+  type ProjectFilePickerSelection,
+} from "@/components/project/filesystem/components/ProjectFilePickerDialog";
+import { AUDIO_EXTS } from "@/components/project/filesystem/components/FileSystemEntryVisual";
 import { resolveProjectRelativePath, resolveMediaSource } from './shared/resolveMediaSource';
 import { downloadMediaFile } from './shared/downloadMediaFile';
 import { NodeFrame } from "./NodeFrame";
@@ -65,6 +72,14 @@ import { VersionStackOverlay } from './VersionStackOverlay';
 import { GeneratingOverlay } from './GeneratingOverlay';
 import { AudioWavePlayer } from './AudioWavePlayer';
 import { useCancelGeneration } from './shared/useCancelGeneration';
+import { useAudioRecorder } from './shared/useAudioRecorder';
+
+/** Format elapsed seconds as mm:ss. */
+function formatRecordingTime(seconds: number): string {
+  const m = Math.floor(seconds / 60)
+  const s = seconds % 60
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+}
 
 export type AudioNodeProps = {
   /** Board-relative path for the audio file. */
@@ -114,7 +129,7 @@ function createAudioToolbarItems(
 ) {
   const isEmpty = !ctx.element.props.sourcePath?.trim()
 
-  // 逻辑：空节点的自定义工具仅保留上传，删除走右侧通用工具组。
+  // 逻辑：空节点的自定义工具保留上传和录音，删除走右侧通用工具组。
   if (isEmpty) {
     return [
       {
@@ -124,6 +139,15 @@ function createAudioToolbarItems(
         className: BOARD_TOOLBAR_ITEM_DEFAULT,
         onSelect: () => {
           document.dispatchEvent(new CustomEvent('board:trigger-upload', { detail: ctx.element.id }));
+        },
+      },
+      {
+        id: 'record',
+        label: i18next.t('board:audioNode.toolbar.record', { defaultValue: '录音' }),
+        icon: <Mic size={14} />,
+        className: BOARD_TOOLBAR_ITEM_DEFAULT,
+        onSelect: () => {
+          document.dispatchEvent(new CustomEvent('board:trigger-record', { detail: ctx.element.id }));
         },
       },
     ]
@@ -201,8 +225,78 @@ export function AudioNodeView({
     fileContext,
     onUpdate,
     fallbackName: 'audio.mp3',
+    skipTriggerEvent: true,
   });
   const { panelRef } = useInlinePanelSync({ engine, xywh: element.xywh, expanded });
+
+  const [pickerOpen, setPickerOpen] = useState(false);
+
+  /** Open the project file picker dialog to select an audio file. */
+  const requestPickAudio = useCallback(() => {
+    setPickerOpen(true);
+  }, []);
+
+  // ── Audio recording ──
+  const handleRecordingSaved = useCallback(
+    (relativePath: string, fileName: string, _duration: number) => {
+      onUpdate({ sourcePath: relativePath, fileName, origin: 'user' as const });
+    },
+    [onUpdate],
+  );
+  const recorder = useAudioRecorder({ fileContext, onSaved: handleRecordingSaved });
+
+  /** Handle file selected from ProjectFilePickerDialog. */
+  const handlePickerSelected = useCallback(
+    (selection: ProjectFilePickerSelection | ProjectFilePickerSelection[]) => {
+      const item = Array.isArray(selection) ? selection[0] : selection;
+      if (!item) return;
+      const parsed = parseScopedProjectPath(item.fileRef);
+      const relativePath = parsed
+        ? normalizeProjectRelativePath(parsed.relativePath)
+        : item.fileRef;
+      const scopedPath = formatScopedProjectPath({
+        relativePath,
+        projectId: item.projectId ?? fileContext?.projectId,
+        currentProjectId: fileContext?.projectId,
+      });
+      onUpdate({
+        sourcePath: scopedPath,
+        fileName: relativePath.split('/').pop() || '',
+      });
+    },
+    [fileContext, onUpdate],
+  );
+
+  /** Handle "import from computer" in the picker dialog. */
+  const handleImportFromComputer = useCallback(() => {
+    fileInputRef.current?.click();
+  }, [fileInputRef]);
+
+  // 逻辑：监听工具栏上传按钮的自定义事件，打开文件选择器对话框。
+  useEffect(() => {
+    const handler = (e: Event) => {
+      if ((e as CustomEvent).detail === element.id) {
+        requestPickAudio();
+      }
+    };
+    document.addEventListener('board:trigger-upload', handler);
+    return () => document.removeEventListener('board:trigger-upload', handler);
+  }, [element.id, requestPickAudio]);
+
+  // 逻辑：监听工具栏录音按钮的自定义事件，开始/停止录音。
+  useEffect(() => {
+    const handler = (e: Event) => {
+      if ((e as CustomEvent).detail === element.id) {
+        if (recorder.state === 'recording') {
+          recorder.stopRecording();
+        } else {
+          void recorder.startRecording();
+        }
+      }
+    };
+    document.addEventListener('board:trigger-record', handler);
+    return () => document.removeEventListener('board:trigger-record', handler);
+  }, [element.id, recorder]);
 
   const projectRelativePath = useMemo(
     () => resolveProjectRelativePath(element.props.sourcePath, fileContext),
@@ -452,13 +546,13 @@ export function AudioNodeView({
         ].join(" ")}
         onDoubleClick={(event) => {
           event.stopPropagation();
-          if (expanded) return;
           if (isGenerating || isFailed) return;
-          // 逻辑：空节点双击打开文件选择器，有内容时双击打开预览。
+          // 逻辑：空节点双击打开文件选择器对话框，有内容时双击打开预览。
           if (!element.props.sourcePath?.trim()) {
-            fileInputRef.current?.click();
+            requestPickAudio();
             return;
           }
+          if (expanded) return;
           handleOpenPreview();
         }}
       >
@@ -499,10 +593,52 @@ export function AudioNodeView({
           {audioSrc ? (
             <AudioWavePlayer src={audioSrc} />
           ) : !isGenerating ? (
-            <div className="flex h-full w-full items-center justify-center rounded-3xl border border-dashed border-ol-divider bg-ol-surface-muted">
-              <div className="flex flex-col items-center gap-2 text-muted-foreground/40 px-4">
-                <Music size={36} strokeWidth={1.2} />
-                <span className="text-xs text-center leading-relaxed whitespace-pre-line">
+            <div className="flex h-full w-full items-center rounded-3xl border border-dashed border-ol-divider bg-ol-surface-muted">
+              {/* 左侧：录音按钮区域 */}
+              <div className="flex flex-col items-center justify-center gap-1.5 pl-5 pr-4">
+                {recorder.state === 'recording' ? (
+                  <>
+                    <button
+                      type="button"
+                      className="flex items-center justify-center w-11 h-11 rounded-full bg-red-500 text-white hover:bg-red-600 transition-colors duration-150"
+                      onClick={() => recorder.stopRecording()}
+                    >
+                      <Square size={14} fill="currentColor" />
+                    </button>
+                    <span className="text-[10px] text-red-500 tabular-nums font-medium">
+                      {formatRecordingTime(recorder.elapsed)}
+                    </span>
+                  </>
+                ) : recorder.state === 'saving' ? (
+                  <>
+                    <div className="flex items-center justify-center w-11 h-11 rounded-full bg-ol-surface-hover animate-pulse">
+                      <Mic size={18} className="text-muted-foreground/60" />
+                    </div>
+                    <span className="text-[10px] text-muted-foreground/50">
+                      {i18next.t('board:audioNode.saving', { defaultValue: '保存中' })}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      className="flex items-center justify-center w-11 h-11 rounded-full border border-ol-divider text-muted-foreground/40 hover:text-muted-foreground hover:border-muted-foreground/40 hover:bg-ol-surface-hover transition-colors duration-150"
+                      onClick={() => void recorder.startRecording()}
+                    >
+                      <Mic size={18} />
+                    </button>
+                    <span className="text-[10px] text-muted-foreground/30">
+                      {i18next.t('board:audioNode.startRecord', { defaultValue: '录音' })}
+                    </span>
+                  </>
+                )}
+              </div>
+              {/* 分隔线 */}
+              <div className="w-px self-stretch my-5 bg-ol-divider/60" />
+              {/* 右侧：上传 / AI 提示区域 */}
+              <div className="flex flex-1 flex-col items-center justify-center gap-1 min-w-0">
+                <Music size={28} strokeWidth={1.2} className="text-muted-foreground/30" />
+                <span className="text-[11px] text-muted-foreground/40 text-center leading-relaxed whitespace-pre-line">
                   {i18next.t('board:audioNode.emptyHint', { defaultValue: '双击上传音频\n或选中后 AI 生成' })}
                 </span>
               </div>
@@ -537,6 +673,20 @@ export function AudioNodeView({
           onCancelEdit={() => setEditingOverride(false)}
         />
       </InlinePanelPortal>
+      <ProjectFilePickerDialog
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        title={i18next.t('board:audioNode.pickTitle', { defaultValue: '选择音频文件' })}
+        filterHint={i18next.t('board:audioNode.pickHint', { defaultValue: '支持 mp3、wav、flac、ogg、m4a、aac' })}
+        allowedExtensions={AUDIO_EXTS}
+        excludeBoardEntries
+        currentBoardFolderUri={fileContext?.boardFolderUri}
+        defaultRootUri={fileContext?.rootUri}
+        defaultActiveUri={fileContext?.boardFolderUri}
+        onSelectFile={handlePickerSelected}
+        onSelectFiles={handlePickerSelected}
+        onImportFromComputer={handleImportFromComputer}
+      />
       <input
         ref={fileInputRef}
         type="file"

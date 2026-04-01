@@ -105,7 +105,7 @@ export function startMemoryMonitor(): void {
   if (timer) return
 
   const isDev = !app.isPackaged
-  const intervalMs = isDev ? 5_000 : 60_000
+  const intervalMs = 60_000
 
   fs.mkdirSync(LOG_DIR, { recursive: true })
   fs.writeFileSync(LOG_FILE, `=== Memory Monitor Started at ${new Date().toISOString()} (${isDev ? 'dev' : 'prod'}) ===\n`)

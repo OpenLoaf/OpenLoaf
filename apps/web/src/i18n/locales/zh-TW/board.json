@@ -957,7 +957,31 @@
     "generate": "生成",
     "generating": "生成中...",
     "translate": "翻譯",
-    "credits": "積分"
+    "credits": "積分",
+    "stop": "停止",
+    "apply": "套用",
+    "derive": "派生新節點",
+    "discard": "捨棄",
+    "copy": "複製",
+    "feature": {
+      "generate": "生成",
+      "polish": "潤色",
+      "translate": "翻譯",
+      "promptEnhance": "優化提示詞",
+      "imageUnderstand": "圖片理解",
+      "videoUnderstand": "影片理解",
+      "audioTranscribe": "音訊轉寫"
+    },
+    "placeholder": {
+      "generate": "描述你想生成的內容...",
+      "polish": "潤色要求（可選）...",
+      "translate": "目標語言或翻譯要求...",
+      "promptEnhance": "優化方向（可選）...",
+      "imageUnderstand": "描述你想了解這張圖片的什麼...",
+      "videoUnderstand": "描述你想分析這個影片的什麼...",
+      "audioTranscribe": "轉寫要求（如標注說話人）..."
+    },
+    "noModelForFeature": "沒有支援此功能的模型，請在設定中配置"
   },
   "generateAction": {
     "generate": "生成",

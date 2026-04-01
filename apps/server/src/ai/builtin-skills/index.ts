@@ -131,11 +131,11 @@ export const BUILTIN_SKILLS: BuiltinSkill[] = [
   {
     name: 'multi-agent-routing',
     description:
-      '【必读】当你需要：调用 spawn-agent 创建子 Agent、决定是否委派子 Agent、创建跨项目 Task、处理 @mention 路由、规划多 Agent 并行任务、理解页面上下文驱动 Agent 选择、处理 task-report 回报、理解三种交互模式、实现消息路由逻辑、处理 Chat↔Task 双向流转时，立即加载此 skill。',
+      '【必读】当你需要：调用 Agent 工具创建子 Agent、决定是否委派子 Agent、创建跨项目 Task、处理 @mention 路由、规划多 Agent 并行任务、理解页面上下文驱动 Agent 选择、处理 task-report 回报、理解三种交互模式、实现消息路由逻辑、处理 Chat↔Task 双向流转时，立即加载此 skill。',
     content: stripFrontMatter(multiAgentRoutingMd),
     icon: '🔀',
     colorIndex: 1,
-    tools: ['spawn-agent', 'send-input', 'wait-agent', 'abort-agent', 'task-manage', 'task-status'],
+    tools: ['Agent', 'SendMessage', 'task-manage', 'task-status'],
   },
   {
     name: 'system-agent-architecture',

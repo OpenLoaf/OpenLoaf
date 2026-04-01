@@ -21,6 +21,10 @@ export type SubAgentStreamState = {
   parts?: unknown[];
   state: "output-streaming" | "output-available" | "output-error";
   streaming?: boolean;
+  masterToolUseId?: string;
+  toolUseCount?: number;
+  recentTools?: string[];
+  startedAt?: number;
 };
 
 export type ChatToolContextValue = {

@@ -495,7 +495,7 @@ function isImageOrVideoMediaType(mediaType: string): boolean {
  * Strip image/video file parts from messages when the model does not support vision.
  *
  * Replaces each image/video `file` part with a text reference that hints at using
- * the vision sub-agent via spawn-agent.
+ * the vision sub-agent via Agent tool.
  */
 export function stripImagePartsForNonVisionModel(
   messages: UIMessage[],
@@ -530,7 +530,7 @@ export function stripImagePartsForNonVisionModel(
       const readablePath = (part as any).originalUrl || (part as any).url || "(unknown)";
       replaced.push({
         type: "text",
-        text: `[Image attached: ${readablePath}] (Note: Current model does not support direct image analysis. Use spawn-agent with agentType "vision" to analyze this image.)`,
+        text: `[Image attached: ${readablePath}] (Note: Current model does not support direct image analysis. Use Agent with subagent_type "vision" to analyze this image.)`,
       });
       changed = true;
     }

@@ -974,7 +974,31 @@
     "generate": "Generate",
     "generating": "Generating...",
     "translate": "Translate",
-    "credits": "Credits"
+    "credits": "Credits",
+    "stop": "Stop",
+    "apply": "Apply",
+    "derive": "Derive New Node",
+    "discard": "Discard",
+    "copy": "Copy",
+    "feature": {
+      "generate": "Generate",
+      "polish": "Polish",
+      "translate": "Translate",
+      "promptEnhance": "Enhance Prompt",
+      "imageUnderstand": "Image Understand",
+      "videoUnderstand": "Video Understand",
+      "audioTranscribe": "Audio Transcribe"
+    },
+    "placeholder": {
+      "generate": "Describe what you want to generate...",
+      "polish": "Polish instructions (optional)...",
+      "translate": "Target language or translation instructions...",
+      "promptEnhance": "Enhancement direction (optional)...",
+      "imageUnderstand": "Describe what you want to know about this image...",
+      "videoUnderstand": "Describe what you want to analyze about this video...",
+      "audioTranscribe": "Transcription requirements (e.g. label speakers)..."
+    },
+    "noModelForFeature": "No model available for this feature. Please configure one in Settings."
   },
   "generateAction": {
     "generate": "Generate",

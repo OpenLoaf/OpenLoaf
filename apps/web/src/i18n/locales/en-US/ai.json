@@ -117,10 +117,8 @@
     "tool": "Tool"
   },
   "toolNames": {
-    "spawn-agent": "Spawn Sub-agent",
-    "send-input": "Send Input",
-    "wait-agent": "Wait for Agent",
-    "abort-agent": "Abort Agent",
+    "Agent": "Sub-agent",
+    "SendMessage": "Send Message",
     "open-url": "Open URL",
     "browser-snapshot": "Browser Snapshot",
     "browser-observe": "Observe Page",

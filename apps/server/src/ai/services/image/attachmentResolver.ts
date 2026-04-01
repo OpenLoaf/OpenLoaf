@@ -402,7 +402,7 @@ function parseScopedRelativePath(raw: string): { projectId?: string; relativePat
 }
 
 /** Resolve a relative path into an absolute file path within the project root. */
-async function resolveProjectFilePath(input: {
+export async function resolveProjectFilePath(input: {
   /** Raw relative path string. */
   path: string;
   /** Optional project id override. */

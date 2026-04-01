@@ -162,9 +162,8 @@ type ToolImportance = 'keep' | 'summarize' | 'drop'
 
 const TOOL_RESULT_IMPORTANCE: Record<string, ToolImportance> = {
   // 协作类 — 子代理结果关键
-  'spawn-agent': 'keep',
-  'wait-agent': 'keep',
-  'send-input': 'keep',
+  'Agent': 'keep',
+  'SendMessage': 'keep',
   // 读取类 — 可能被引用
   'Read': 'summarize',
   'Grep': 'summarize',
@@ -188,7 +187,6 @@ const TOOL_RESULT_IMPORTANCE: Record<string, ToolImportance> = {
   'email-mutate': 'drop',
   'excel-query': 'summarize',
   'excel-mutate': 'drop',
-  'abort-agent': 'drop',
 }
 
 /** 按工具类型获取结果的截断长度。 */

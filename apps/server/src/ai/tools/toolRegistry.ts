@@ -9,10 +9,8 @@
  */
 import { openUrlTool } from "@/ai/tools/openUrl";
 import {
-  spawnAgentTool,
-  sendInputTool,
-  waitAgentTool,
-  abortAgentTool,
+  agentTool,
+  sendMessageTool,
 } from "@/ai/tools/agentTools";
 import { bashTool } from "@/ai/tools/shellCommandTool";
 import { readTool, editTool, writeTool } from "@/ai/tools/fileTools";
@@ -60,10 +58,8 @@ import {
   browserDownloadImageToolDef,
 } from "@openloaf/api/types/tools/browserAutomation";
 import {
-  spawnAgentToolDef,
-  sendInputToolDef,
-  waitAgentToolDef,
-  abortAgentToolDef,
+  agentToolDef,
+  sendMessageToolDef,
 } from "@openloaf/api/types/tools/agent";
 import { projectMutateToolDef, projectQueryToolDef } from "@openloaf/api/types/tools/db";
 import { boardQueryToolDef, boardMutateToolDef } from "@openloaf/api/types/tools/board";
@@ -184,17 +180,11 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
   [openUrlToolDef.id]: {
     tool: openUrlTool,
   },
-  [spawnAgentToolDef.id]: {
-    tool: spawnAgentTool,
+  [agentToolDef.id]: {
+    tool: agentTool,
   },
-  [sendInputToolDef.id]: {
-    tool: sendInputTool,
-  },
-  [waitAgentToolDef.id]: {
-    tool: waitAgentTool,
-  },
-  [abortAgentToolDef.id]: {
-    tool: abortAgentTool,
+  [sendMessageToolDef.id]: {
+    tool: sendMessageTool,
   },
   [browserSnapshotToolDef.id]: {
     tool: browserSnapshotTool,
@@ -368,10 +358,8 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
 
 const TOOL_DEF_REGISTRY: Record<string, { parameters?: any }> = {
   [openUrlToolDef.id]: openUrlToolDef,
-  [spawnAgentToolDef.id]: spawnAgentToolDef,
-  [sendInputToolDef.id]: sendInputToolDef,
-  [waitAgentToolDef.id]: waitAgentToolDef,
-  [abortAgentToolDef.id]: abortAgentToolDef,
+  [agentToolDef.id]: agentToolDef,
+  [sendMessageToolDef.id]: sendMessageToolDef,
   [browserSnapshotToolDef.id]: browserSnapshotToolDef,
   [browserObserveToolDef.id]: browserObserveToolDef,
   [browserExtractToolDef.id]: browserExtractToolDef,

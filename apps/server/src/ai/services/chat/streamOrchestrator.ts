@@ -120,10 +120,10 @@ function parseToolResultPayload(result: unknown): ToolResultPayload | null {
   }
 }
 
-/** Check whether wait-agent result should be marked as transient. */
-function shouldMarkWaitAgentTransient(payload: ToolResultPayload | null): boolean {
+/** Check whether Agent result should be marked as transient (async mode with running agents). */
+function shouldMarkAgentTransient(payload: ToolResultPayload | null): boolean {
   if (!payload) return false;
-  // 中文注释：wait-agent 超时（仍在运行）时标记为 transient。
+  // 中文注释：Agent 异步模式超时（仍在运行）时标记为 transient。
   if (payload.timed_out === true || payload.timedOut === true) return true;
   const completedId =
     typeof payload.completed_id === "string"
@@ -132,7 +132,7 @@ function shouldMarkWaitAgentTransient(payload: ToolResultPayload | null): boolea
         ? payload.completedId.trim()
         : "";
   if (completedId) return false;
-  // 中文注释：completedId 为空且存在 running 状态时，视为仍在运行。
+  // 中文注释：Agent 异步模式下 completedId 为空且存在 running 状态时，视为仍在运行。
   if (payload.status && typeof payload.status === "object") {
     const statuses = Object.values(payload.status);
     return statuses.some((value) => String(value).toLowerCase() === "running");
@@ -145,9 +145,9 @@ function applyTransientFlag(chunk: any): any {
   if (!chunk || typeof chunk !== "object") return chunk;
   if (chunk.type !== "tool-result") return chunk;
   const toolName = typeof chunk.toolName === "string" ? chunk.toolName : "";
-  if (toolName !== "wait-agent") return chunk;
+  if (toolName !== "Agent") return chunk;
   const payload = parseToolResultPayload(chunk.output ?? chunk.result);
-  if (!shouldMarkWaitAgentTransient(payload)) return chunk;
+  if (!shouldMarkAgentTransient(payload)) return chunk;
   return { ...chunk, isTransient: true };
 }
 
@@ -163,9 +163,9 @@ function applyTransientFlagToParts(parts: unknown[]): unknown[] {
         : rawType.startsWith("tool-")
           ? rawType.slice("tool-".length)
           : "";
-    if (toolName !== "wait-agent") return part;
+    if (toolName !== "Agent") return part;
     const payload = parseToolResultPayload((part as any).output ?? (part as any).result);
-    if (!shouldMarkWaitAgentTransient(payload)) return part;
+    if (!shouldMarkAgentTransient(payload)) return part;
     return { ...(part as any), isTransient: true };
   });
 }
@@ -471,6 +471,16 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
 
         // 逻辑：拦截 step 事件，通过 writer.write() + transient 发送思考信号，
         // 避免 data-step-thinking 被累积到 responseMessage.parts 中持久化。
+        // 关键：不在 start-step 时立即清除 thinking，而是等首个内容 chunk 到达后再清除，
+        // 避免 start-step → 首 token 之间的空白期让用户感觉卡住。
+        let stepThinkingActive = false;
+        const CONTENT_CHUNK_TYPES = new Set([
+          "text-delta",
+          "reasoning",
+          "tool-call-streaming-start",
+          "tool-call-delta",
+          "tool-call",
+        ]);
         const wrappedStream = (uiStream as ReadableStream).pipeThrough(
           new TransformStream({
             transform(chunk: any, controller) {
@@ -478,8 +488,14 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
               controller.enqueue(normalized);
               const type = chunk?.type;
               if (type === "finish-step") {
+                stepThinkingActive = true;
                 writer.write({ type: "data-step-thinking", data: { active: true }, transient: true } as any);
-              } else if (type === "start-step" || type === "finish") {
+              } else if (type === "finish") {
+                stepThinkingActive = false;
+                writer.write({ type: "data-step-thinking", data: { active: false }, transient: true } as any);
+              } else if (stepThinkingActive && CONTENT_CHUNK_TYPES.has(type)) {
+                // 新步骤的首个内容 chunk 到达，清除思考指示器
+                stepThinkingActive = false;
                 writer.write({ type: "data-step-thinking", data: { active: false }, transient: true } as any);
               }
             },

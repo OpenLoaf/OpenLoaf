@@ -26,10 +26,8 @@ import { wordQueryToolDef, wordMutateToolDef } from "./word";
 import { pptxQueryToolDef, pptxMutateToolDef } from "./pptx";
 import { pdfQueryToolDef, pdfMutateToolDef } from "./pdf";
 import {
-  spawnAgentToolDef,
-  sendInputToolDef,
-  waitAgentToolDef,
-  abortAgentToolDef,
+  agentToolDef,
+  sendMessageToolDef,
 } from "./agent";
 import {
   bashToolDef,
@@ -117,10 +115,8 @@ const TOOL_DEFS: ToolDefLike[] = [
   projectMutateToolDef,
   boardQueryToolDef,
   boardMutateToolDef,
-  spawnAgentToolDef,
-  sendInputToolDef,
-  waitAgentToolDef,
-  abortAgentToolDef,
+  agentToolDef,
+  sendMessageToolDef,
   jsReplToolDef,
   jsReplResetToolDef,
   updatePlanToolDef,
@@ -165,10 +161,8 @@ const TOOL_KEYWORDS: Record<string, { keywords: string[]; group: string }> = {
   'update-plan': { keywords: ['plan', 'step', 'progress', 'update', 'track'], group: 'core' },
   'request-user-input': { keywords: ['ask', 'input', 'confirm', 'choice', 'question', 'user', 'approval'], group: 'core' },
   'jsx-create': { keywords: ['jsx', 'component', 'ui', 'render', 'display', 'card', 'layout'], group: 'ui' },
-  'spawn-agent': { keywords: ['spawn', 'agent', 'delegate', 'sub', 'dispatch', 'create'], group: 'agent' },
-  'send-input': { keywords: ['send', 'input', 'agent', 'message', 'communicate'], group: 'agent' },
-  'wait-agent': { keywords: ['wait', 'agent', 'result', 'response', 'poll'], group: 'agent' },
-  'abort-agent': { keywords: ['abort', 'cancel', 'stop', 'kill', 'agent', 'terminate'], group: 'agent' },
+  'Agent': { keywords: ['agent', 'spawn', 'delegate', 'sub', 'dispatch', 'create', 'background'], group: 'agent' },
+  'SendMessage': { keywords: ['send', 'message', 'agent', 'communicate', 'resume', 'continue'], group: 'agent' },
   'Read': { keywords: ['read', 'file', 'open', 'cat', 'content', 'view', 'text', 'pdf', 'image'], group: 'fileRead' },
   'Edit': { keywords: ['edit', 'modify', 'replace', 'change', 'update', 'file', 'string'], group: 'fileWrite' },
   'Write': { keywords: ['write', 'create', 'file', 'new', 'overwrite', 'save'], group: 'fileWrite' },

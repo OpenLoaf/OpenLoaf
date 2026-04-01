@@ -261,6 +261,7 @@ export default function ChatCoreProvider({
     () => ({
       id: sessionId,
       resume: false,
+      experimental_throttle: 50,
       sendAutomaticallyWhen: () => false,
       transport,
       onToolCall: (payload: { toolCall: any }) => {

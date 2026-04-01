@@ -325,7 +325,7 @@ async function main() {
       } as ModelMessage,
       {
         role: 'tool' as any,
-        content: [{ type: 'tool-result', toolName: 'spawn-agent', result: 'r2' } as any],
+        content: [{ type: 'tool-result', toolName: 'Agent', result: 'r2' } as any],
       } as ModelMessage,
       assistantMsg('answer'),
     ]

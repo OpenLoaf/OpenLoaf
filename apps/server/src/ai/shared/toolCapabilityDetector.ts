@@ -43,8 +43,8 @@ export function detectPrefaceCapabilities(
     needsPythonRuntime: hasAnyTool(toolSet, SHELL_TOOL_IDS),
     needsProjectRules: hasAnyTool(toolSet, FILE_TOOL_IDS),
     needsFileReferenceRules: hasAnyTool(toolSet, FILE_TOOL_IDS),
-    needsSubAgentList: toolSet.has('spawn-agent'),
-    needsTaskDelegationRules: toolSet.has('spawn-agent'),
+    needsSubAgentList: toolSet.has('Agent'),
+    needsTaskDelegationRules: toolSet.has('Agent'),
     needsShellContext: hasAnyTool(toolSet, SHELL_TOOL_IDS),
   }
 }

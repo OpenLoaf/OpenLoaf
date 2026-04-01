@@ -22,6 +22,7 @@ import { registerChatAttachmentRoutes } from "@/ai/interface/routes/chatAttachme
 import { registerFrontendToolAckRoutes } from "@/ai/interface/routes/frontendToolAckRoutes";
 import { registerSecretStoreRoutes } from "@/ai/interface/routes/secretStoreRoutes";
 import { registerSaasMediaRoutes } from "@/ai/interface/routes/saasMediaRoutes";
+import { registerBoardAgentRoutes } from "@/ai/interface/routes/aiBoardAgentRoutes";
 import { registerFileSseRoutes } from "@/modules/fs/fileSseRoutes";
 import { registerFileServeRoutes } from "@/modules/fs/fileServeRoutes";
 import { registerAuthRoutes } from "@/modules/auth/authRoutes";
@@ -114,6 +115,7 @@ export function createApp() {
   registerFrontendToolAckRoutes(app);
   registerSecretStoreRoutes(app);
   registerSaasMediaRoutes(app);
+  registerBoardAgentRoutes(app);
   registerFileSseRoutes(app);
   registerFileServeRoutes(app);
   registerAuthRoutes(app);

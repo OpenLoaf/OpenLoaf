@@ -89,6 +89,12 @@ let cachedLog: Logger | null = null
 /** 定时检查计时器。 */
 let checkTimer: NodeJS.Timeout | null = null
 
+/**
+ * 可选的预下载钩子。Desktop 更新下载完成后，先执行此钩子（例如预下载
+ * 增量 web/server），钩子完成后才向前端发送 `downloaded` 状态。
+ */
+let preDownloadHook: ((version: string) => Promise<void>) | null = null
+
 /** 最近一次状态快照。 */
 let lastStatus: AutoUpdateStatus = {
   state: 'idle',
@@ -261,6 +267,15 @@ export function getAutoUpdateStatus(): AutoUpdateStatus {
   return lastStatus
 }
 
+/**
+ * 注册 Desktop 更新下载完成后的预下载钩子。
+ * 钩子在 `update-downloaded` 事件后执行，完成后才向前端发送 `downloaded` 状态。
+ * 用于让增量更新模块预下载差量 web/server，避免用户看到提示时 web 还没下好。
+ */
+export function registerPreDownloadHook(hook: (version: string) => Promise<void>): void {
+  preDownloadHook = hook
+}
+
 /** Triggers an update check (packaged builds only). */
 export async function checkForUpdates(reason = 'manual'): Promise<AutoUpdateResult> {
   if (!app.isPackaged) {
@@ -401,12 +416,32 @@ export function installAutoUpdate(options: AutoUpdateOptions): void {
   })
   autoUpdater.on('update-downloaded', (info) => {
     log('Update downloaded. It will be installed on quit.')
-    emitStatus({
-      state: 'downloaded',
-      nextVersion: info.version,
-      releaseNotes: normalizeReleaseNotes(info),
-      progress: undefined,
-    })
+
+    const emitDownloaded = () => {
+      emitStatus({
+        state: 'downloaded',
+        nextVersion: info.version,
+        releaseNotes: normalizeReleaseNotes(info),
+        progress: undefined,
+      })
+    }
+
+    // 如果有预下载钩子（增量更新模块注册），先等它完成再通知前端。
+    // 这样用户看到更新提示时，web/server 差量已下载好，重启后一步到位。
+    if (preDownloadHook && info.version) {
+      preDownloadHook(info.version)
+        .then(() => {
+          log('[auto-update] Pre-download hook completed. Emitting downloaded status.')
+          emitDownloaded()
+        })
+        .catch((error) => {
+          const message = error instanceof Error ? error.message : String(error)
+          log(`[auto-update] Pre-download hook failed (non-fatal): ${message}`)
+          emitDownloaded()
+        })
+    } else {
+      emitDownloaded()
+    }
   })
 
   emitStatus({ state: 'idle', progress: undefined })

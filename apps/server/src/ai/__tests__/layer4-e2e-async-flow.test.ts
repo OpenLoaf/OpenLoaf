@@ -11,7 +11,7 @@
  * Layer 4 — E2E 异步协作完整流程测试。
  *
  * 模拟完整异步流程：
- * 1. 用户发消息 → Master spawn → 回复 → SSE 关闭
+ * 1. 用户发消息 → Master Agent 调用 → 回复 → SSE 关闭
  * 2. 子 Agent 后台运行 → 完成 → taskEventBus emit → tRPC 推送
  * 3. 用户在子 Agent 运行期间发第二条消息
  * 4. 子 Agent 失败 → 错误推送
@@ -84,7 +84,7 @@ function buildMockMasterResponse(opts: {
   const chunks: unknown[] = [
     { type: 'start', messageId: opts.messageId },
   ]
-  // 模拟 spawn-agent tool calls
+  // 模拟 Agent tool calls
   for (const agentId of opts.spawnedAgentIds) {
     chunks.push({
       type: 'data-sub-agent-start',

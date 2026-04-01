@@ -15,6 +15,7 @@ import type { SubAgentStreamState } from "../context/ChatToolContext";
 
 type SubAgentDataPayload = {
   toolCallId?: string;
+  masterToolUseId?: string;
   name?: string;
   task?: string;
   delta?: string;
@@ -22,6 +23,17 @@ type SubAgentDataPayload = {
   errorText?: string;
   chunk?: UIMessageChunk;
 };
+
+// masterToolUseId (AI SDK tool call id) → sub-agent toolCallId 映射
+const masterToolUseIdToAgentId = new Map<string, string>()
+
+export function getAgentIdByMasterToolUseId(masterToolUseId: string): string | undefined {
+  return masterToolUseIdToAgentId.get(masterToolUseId)
+}
+
+export function clearMasterToolUseIdMap(): void {
+  masterToolUseIdToAgentId.clear()
+}
 
 export function handleSubAgentDataPart(input: {
   dataPart: any;
@@ -66,7 +78,7 @@ export function handleSubAgentDataPart(input: {
   }
 
   setSubAgentStreams((prev) => {
-    const current = prev[toolCallId] ?? {
+    const current: SubAgentStreamState = prev[toolCallId] ?? {
       toolCallId,
       output: "",
       state: "output-streaming",
@@ -75,14 +87,21 @@ export function handleSubAgentDataPart(input: {
     if (type === "data-sub-agent-start") {
       const name = typeof payload?.name === "string" ? payload?.name : "";
       const task = typeof payload?.task === "string" ? payload?.task : "";
+      const masterToolUseId =
+        typeof payload?.masterToolUseId === "string" ? payload.masterToolUseId : undefined;
+      if (masterToolUseId) {
+        masterToolUseIdToAgentId.set(masterToolUseId, toolCallId);
+      }
       return {
         ...prev,
         [toolCallId]: {
           ...current,
           name: name || current.name,
           task: task || current.task,
+          masterToolUseId: masterToolUseId || current.masterToolUseId,
           state: "output-streaming",
           streaming: true,
+          startedAt: current.startedAt ?? Date.now(),
         },
       };
     }

@@ -647,7 +647,7 @@
       metric: tool_selection
       value: |
         const tools = context.providerResponse?.metadata?.toolNames || [];
-        const forbidden = ['shell-command', 'open-url', 'spawn-agent'];
+        const forbidden = ['shell-command', 'open-url', 'Agent'];
         const used = forbidden.filter(t => tools.includes(t));
         return used.length === 0
           ? { pass: true, score: 1, reason: '未尝试用不适合的工具模拟天气查询' }

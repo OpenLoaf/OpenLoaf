@@ -86,7 +86,7 @@ export function buildToolSearchGuidance(
   }
 
   return `# 工具与技能
-你有一组始终可用的核心工具（Bash、Read、Glob、Grep、Edit、Write、request-user-input、spawn-agent 等），可直接调用。
+你有一组始终可用的核心工具（Bash、Read、Glob、Grep、Edit、Write、request-user-input、Agent 等），可直接调用。
 其余专业工具需通过 tool-search 加载后才能调用：tool-search(names: "name1,name2")。
 
 工作流程：

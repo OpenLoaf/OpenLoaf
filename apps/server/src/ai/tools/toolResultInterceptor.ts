@@ -41,10 +41,8 @@ const TOOL_PERSISTENCE_OVERRIDES: Record<string, number> = {
 /** Tools whose output is metadata/summary — never needs persistence. */
 const SKIP_PERSISTENCE_TOOLS = new Set([
   'tool-search',       // Tool search results are metadata
-  'spawn-agent',       // Sub-agent results already compressed
-  'wait-agent',
-  'send-input',
-  'abort-agent',
+  'Agent',             // Sub-agent results already compressed
+  'SendMessage',
   'request-user-input',
   'load-skill',
 ])

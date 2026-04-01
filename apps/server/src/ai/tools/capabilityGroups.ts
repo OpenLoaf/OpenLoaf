@@ -122,12 +122,7 @@ const RAW_CAPABILITY_GROUPS = [
     id: 'agent',
     label: '子 Agent',
     description: '创建和管理子 Agent',
-    toolIds: [
-      'spawn-agent',
-      'send-input',
-      'wait-agent',
-      'abort-agent',
-    ],
+    toolIds: ['Agent', 'SendMessage'],
   },
   {
     id: 'code-interpreter',

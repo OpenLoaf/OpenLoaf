@@ -149,7 +149,7 @@ export function buildAiDebugFetch(): typeof fetch {
           const bodyStr = typeof init.body === "string" ? init.body : String(init.body);
           const parsed = JSON.parse(bodyStr);
           logger.info(
-            { url, requestBody: JSON.stringify(parsed, null, 2) },
+            { url, requestBody: parsed },
             "[ai-debug] >>> REQUEST BODY",
           );
         } catch {

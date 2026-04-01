@@ -106,7 +106,7 @@ export function buildExecutionRules(): string {
     '# 执行规则',
     '',
     '## 工具与技能加载',
-    '- 你有一组始终可用的核心工具（Bash、Read、Glob、Grep、Edit、Write、request-user-input、spawn-agent 等），可直接调用。',
+    '- 你有一组始终可用的核心工具（Bash、Read、Glob、Grep、Edit、Write、request-user-input、Agent 等），可直接调用。',
     '- 其余专业工具（邮件、日历、画布、Office、浏览器等）需通过 tool-search 加载后才能调用。',
     '- 调用方式：tool-search(names: "name1,name2") — 传入逗号分隔的技能/工具名称。',
     '',

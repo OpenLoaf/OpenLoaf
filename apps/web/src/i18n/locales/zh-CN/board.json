@@ -975,7 +975,31 @@
     "generate": "生成",
     "generating": "生成中...",
     "translate": "翻译",
-    "credits": "积分"
+    "credits": "积分",
+    "stop": "停止",
+    "apply": "应用",
+    "derive": "派生新节点",
+    "discard": "丢弃",
+    "copy": "复制",
+    "feature": {
+      "generate": "生成",
+      "polish": "润色",
+      "translate": "翻译",
+      "promptEnhance": "优化提示词",
+      "imageUnderstand": "图片理解",
+      "videoUnderstand": "视频理解",
+      "audioTranscribe": "音频转写"
+    },
+    "placeholder": {
+      "generate": "描述你想生成的内容...",
+      "polish": "润色要求（可选）...",
+      "translate": "目标语言或翻译要求...",
+      "promptEnhance": "优化方向（可选）...",
+      "imageUnderstand": "描述你想了解这张图片的什么...",
+      "videoUnderstand": "描述你想分析这个视频的什么...",
+      "audioTranscribe": "转写要求（如标注说话人）..."
+    },
+    "noModelForFeature": "没有支持此功能的模型，请在设置中配置"
   },
   "generateAction": {
     "generate": "生成",

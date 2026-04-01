@@ -957,7 +957,31 @@
     "generate": "生成",
     "generating": "生成中...",
     "translate": "翻訳",
-    "credits": "クレジット"
+    "credits": "クレジット",
+    "stop": "停止",
+    "apply": "適用",
+    "derive": "新ノードを作成",
+    "discard": "破棄",
+    "copy": "コピー",
+    "feature": {
+      "generate": "生成",
+      "polish": "推敲",
+      "translate": "翻訳",
+      "promptEnhance": "プロンプト最適化",
+      "imageUnderstand": "画像理解",
+      "videoUnderstand": "動画理解",
+      "audioTranscribe": "音声書き起こし"
+    },
+    "placeholder": {
+      "generate": "生成したい内容を記述...",
+      "polish": "推敲の要件（任意）...",
+      "translate": "翻訳先の言語や要件...",
+      "promptEnhance": "最適化の方向性（任意）...",
+      "imageUnderstand": "この画像について知りたいことを記述...",
+      "videoUnderstand": "この動画について分析したいことを記述...",
+      "audioTranscribe": "書き起こしの要件（例：話者ラベル）..."
+    },
+    "noModelForFeature": "この機能に対応するモデルがありません。設定で構成してください。"
   },
   "generateAction": {
     "generate": "生成",

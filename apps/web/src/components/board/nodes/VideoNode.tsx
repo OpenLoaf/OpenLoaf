@@ -30,6 +30,11 @@ import {
   normalizeProjectRelativePath,
   parseScopedProjectPath,
 } from "@/components/project/filesystem/utils/file-system-utils";
+import {
+  ProjectFilePickerDialog,
+  type ProjectFilePickerSelection,
+} from "@/components/project/filesystem/components/ProjectFilePickerDialog";
+import { VIDEO_EXTS } from "@/components/project/filesystem/components/FileSystemEntryVisual";
 import { useBoardContext, type BoardFileContext } from "../core/BoardProvider";
 import { isBoardRelativePath } from "../core/boardFilePath";
 import { resolveServerUrl } from "@/utils/server-url";
@@ -543,8 +548,57 @@ export function VideoNodeView({
     onUpdate,
     fallbackName: 'video.mp4',
     saveFn: uploadSaveFn,
+    skipTriggerEvent: true,
   });
   const { panelRef } = useInlinePanelSync({ engine, xywh: element.xywh, expanded });
+
+  const [pickerOpen, setPickerOpen] = useState(false);
+
+  /** Open the project file picker dialog to select a video file. */
+  const requestPickVideo = useCallback(() => {
+    setPickerOpen(true);
+  }, []);
+
+  /** Handle file selected from ProjectFilePickerDialog. */
+  const handlePickerSelected = useCallback(
+    (selection: ProjectFilePickerSelection | ProjectFilePickerSelection[]) => {
+      const item = Array.isArray(selection) ? selection[0] : selection;
+      if (!item) return;
+      const parsed = parseScopedProjectPath(item.fileRef);
+      const relativePath = parsed
+        ? normalizeProjectRelativePath(parsed.relativePath)
+        : item.fileRef;
+      const scopedPath = formatScopedProjectPath({
+        relativePath,
+        projectId: item.projectId ?? fileContext?.projectId,
+        currentProjectId: fileContext?.projectId,
+      });
+      onUpdate({
+        sourcePath: scopedPath,
+        fileName: relativePath.split('/').pop() || '',
+        downloadTaskId: '',
+        downloadUrl: '',
+        downloadError: '',
+      });
+    },
+    [fileContext, onUpdate],
+  );
+
+  /** Handle "import from computer" in the picker dialog. */
+  const handleImportFromComputer = useCallback(() => {
+    fileInputRef.current?.click();
+  }, [fileInputRef]);
+
+  // 逻辑：监听工具栏上传按钮的自定义事件，打开文件选择器对话框。
+  useEffect(() => {
+    const handler = (e: Event) => {
+      if ((e as CustomEvent).detail === element.id) {
+        requestPickVideo();
+      }
+    };
+    document.addEventListener('board:trigger-upload', handler);
+    return () => document.removeEventListener('board:trigger-upload', handler);
+  }, [element.id, requestPickVideo]);
 
   const [playing, setPlaying] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -1219,10 +1273,9 @@ export function VideoNodeView({
         onDoubleClick={(event) => {
           event.stopPropagation();
           if (isGenerating || isDownloading || isFailed || hasDownloadFailure) return;
-          // 逻辑：空节点双击打开文件选择器（展开态跳过因为面板已可见），有内容时双击始终打开预览。
+          // 逻辑：空节点双击打开文件选择器对话框，有内容时双击打开视频预览。
           if (!element.props.sourcePath?.trim()) {
-            if (expanded) return;
-            fileInputRef.current?.click();
+            requestPickVideo();
             return;
           }
           if (playing) handleStop();
@@ -1448,6 +1501,20 @@ export function VideoNodeView({
           onCancelEdit={() => setEditingOverride(false)}
         />
       </InlinePanelPortal>
+      <ProjectFilePickerDialog
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        title={i18next.t('board:videoNode.pickTitle', { defaultValue: '选择视频文件' })}
+        filterHint={i18next.t('board:videoNode.pickHint', { defaultValue: '支持 mp4、mov、avi、mkv、webm' })}
+        allowedExtensions={VIDEO_EXTS}
+        excludeBoardEntries
+        currentBoardFolderUri={fileContext?.boardFolderUri}
+        defaultRootUri={fileContext?.rootUri}
+        defaultActiveUri={fileContext?.boardFolderUri}
+        onSelectFile={handlePickerSelected}
+        onSelectFiles={handlePickerSelected}
+        onImportFromComputer={handleImportFromComputer}
+      />
       <input
         ref={fileInputRef}
         type="file"

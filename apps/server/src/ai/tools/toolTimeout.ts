@@ -44,10 +44,8 @@ const TOOL_TIMEOUT_MAP: Record<string, number> = {
   'pdf-query': 60_000,
 
   // Agent collaboration — delegates to sub-agents which have their own lifecycle
-  'spawn-agent': 10_000,
-  'wait-agent': 310_000, // slightly above the max 300s wait timeout
-  'send-input': 10_000,
-  'abort-agent': 10_000,
+  'Agent': 310_000,        // 同步模式需覆盖子 agent 的 5min 超时
+  'SendMessage': 30_000,   // 包含可能的 resume 时间
 }
 
 const DEFAULT_TIMEOUT_MS = 30_000

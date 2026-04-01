@@ -8,7 +8,7 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import { app, BrowserWindow, net } from 'electron'
-import { autoUpdater } from 'electron-updater'
+
 import { execFile } from 'node:child_process'
 import crypto from 'node:crypto'
 import fs from 'node:fs'
@@ -20,7 +20,7 @@ import { resolveOpenLoafDbPath } from '@openloaf/config'
 
 const execFileAsync = promisify(execFile)
 import type { Logger } from './logging/startupLogger'
-import { getAutoUpdateStatus } from './autoUpdate'
+import { getAutoUpdateStatus, registerPreDownloadHook } from './autoUpdate'
 import { getUpdatesRoot } from './incrementalUpdatePaths'
 import { resolveUpdateBaseUrl, resolveUpdateChannel } from './updateConfig'
 import {
@@ -1193,11 +1193,8 @@ export function installIncrementalUpdate(options: { log: Logger }): void {
   }
 
   // Desktop 更新下载完成时，预下载差量的 web/server，避免二次重启。
-  autoUpdater.on('update-downloaded', (info) => {
-    if (info.version) {
-      void preDownloadForDesktopUpdate(info.version)
-    }
-  })
+  // 通过钩子注册而非独立 listener，确保预下载完成后才通知前端弹出更新提示。
+  registerPreDownloadHook((version) => preDownloadForDesktopUpdate(version))
 
   log('[incremental-update] Initialized.')
 }

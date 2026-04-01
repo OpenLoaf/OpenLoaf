@@ -2,7 +2,7 @@
 name: multi-agent-routing
 description: >
   【必读】当你需要做以下任何事情时，立即加载此 skill：
-  ① 调用 spawn-agent 创建子 Agent 执行子任务；
+  ① 调用 Agent 工具创建子 Agent 执行子任务；
   ② 决定是否将当前请求委派给子 Agent（coder/email/calendar/shell/document/vision）；
   ③ 创建跨项目 Task 或在其他项目中执行异步任务；
   ④ 用户消息中 @mention 了另一个项目的 Agent（如 @项目A）；
@@ -12,7 +12,7 @@ description: >
   ⑧ 理解同步对话、异步任务、异步群组三种交互模式的区别与选择；
   ⑨ 实现或修改消息路由逻辑（哪条消息该发给哪个 Agent）；
   ⑩ 处理对话与 Task 的双向流转（Chat→Task 或 Task→Chat）。
-  涵盖：路由决策树、Agent 切换规则、spawn 协议、@mention 路由、
+  涵盖：路由决策树、Agent 切换规则、Agent 协作协议、@mention 路由、
   跨项目任务创建、异步群组聊天机制、task-report 生命周期。
 version: 3.1.0
 ---
@@ -36,7 +36,7 @@ version: 3.1.0
 │             │  → 完成后回报到源 Chat Session          │
 │             │  （Task 系统的核心模式）               │
 ├─────────────┼───────────────────────────────────────┤
-│  异步群组    │  主 Agent 拆解任务 → spawn 多个子 Agent │
+│  异步群组    │  主 Agent 拆解任务 → 创建多个子 Agent   │
 │             │  → 各自并行执行 → 汇总回报              │
 │             │  （多 Agent 协作模式）                  │
 └─────────────┴───────────────────────────────────────┘
@@ -96,14 +96,14 @@ Skill 自动加载映射的完整表格见 `system-agent-architecture` skill 第
 
 | 工具 ID | 用途 | 约束 |
 |---------|------|------|
-| `spawn-agent` | 创建子 Agent | 最大深度 2、并发上限 4 |
-| `send-input` | 向子 Agent 发消息 | 子 Agent 必须已 spawn |
-| `wait-agent` | 等待子 Agent 完成 | ANY 语义，任一完成即返回 |
-| `abort-agent` | 中止子 Agent | 立即终止 |
+| `Agent` | 创建子 Agent 并同步等待结果 | 最大深度 2、并发上限 4 |
+| `SendMessage` | 向已有子 Agent 发消息（自动恢复已停止的 agent） | 子 Agent 必须已创建 |
 
-**深度与并发限制的设计理由**：最大深度 2（主 → 子，子不可继续 spawn）是为了控制 token 预算——每级 spawn 都会复制上下文，层级越深 token 消耗指数增长；同时避免级联失败（子 Agent 出错时，调用链越深越难定位和恢复）。并发上限 4 是在响应速度与系统资源（内存、API 并发连接）之间的权衡点。
+**深度与并发限制的设计理由**：最大深度 2（主 → 子，子不可继续创建子 Agent）是为了控制 token 预算——每级创建都会复制上下文，层级越深 token 消耗指数增长；同时避免级联失败（子 Agent 出错时，调用链越深越难定位和恢复）。并发上限 4 是在响应速度与系统资源（内存、API 并发连接）之间的权衡点。
 
-### 3.2 spawn-agent 使用策略
+### 3.2 Agent 工具使用策略
+
+Agent 工具**默认同步等待**子代理完成并返回结果，无需额外的等待步骤。调用 Agent 后直接获取子代理的输出。
 
 #### subagent_type 选择
 
@@ -114,52 +114,37 @@ Skill 自动加载映射的完整表格见 `system-agent-architecture` skill 第
 | `plan` | 架构/方案设计 | 只读工具 |
 | 自定义 Agent 名称 | 调用已注册的专业 Agent | Agent 定义的工具集 |
 
-#### 并行 spawn 模式
+#### 并行调用模式
 
-当任务可并行拆解时，一次 spawn 多个子 Agent：
+当任务可并行拆解时，同时调用多个 Agent（各自同步等待）：
 
 ```
-// 主 Agent 拆解任务后依次 spawn
-spawn-agent { description: "分析 CSV", prompt: "...", subagent_type: "general-purpose" }
-→ 返回 agentId-1
+// 主 Agent 拆解任务后并行调用（各自同步等待结果）
+Agent { description: "分析 CSV", prompt: "...", subagent_type: "general-purpose" }
+→ 同步返回分析结果
 
-spawn-agent { description: "生成报告模板", prompt: "...", subagent_type: "general-purpose" }
-→ 返回 agentId-2
-
-// 等待所有完成
-wait-agent { ids: ["agentId-1", "agentId-2"], timeoutMs: 120000 }
-→ ANY 语义：任一完成即返回，需多次 wait 等待全部
+Agent { description: "生成报告模板", prompt: "...", subagent_type: "general-purpose" }
+→ 同步返回报告模板
 ```
 
 #### 扇出-汇总模式
 
 ```
 主 Agent
-  ├─ spawn Agent-A（子任务 1）
-  ├─ spawn Agent-B（子任务 2）
-  ├─ spawn Agent-C（子任务 3）
-  ↓
-wait-agent { ids: ["A", "B", "C"] }  → A 完成，读取结果
-wait-agent { ids: ["B", "C"] }       → B 完成，读取结果
-wait-agent { ids: ["C"] }            → C 完成，读取结果
+  ├─ Agent-A（子任务 1）→ 同步返回结果 A
+  ├─ Agent-B（子任务 2）→ 同步返回结果 B
+  ├─ Agent-C（子任务 3）→ 同步返回结果 C
   ↓
 主 Agent 汇总所有子 Agent 结果 → 输出最终回复
 ```
 
-**wait-agent ANY 语义的设计理由**：使用 ANY（任一完成即返回）而非 ALL（全部完成才返回），是因为主 Agent 可以在子 Agent 陆续完成时增量处理结果，而不必阻塞在最慢的那个子 Agent 上。这使得主 Agent 可以尽早开始汇总、发现问题时及时 abort 剩余子 Agent、并向用户提供渐进式反馈。
+#### 追加指令与修正
 
-#### wait-agent timeoutMs 建议
-
-| 任务类型 | 建议 timeoutMs |
-|---------|---------------|
-| 简单查询/读取 | 30000 (30s) |
-| 文件编辑/代码生成 | 120000 (2min) |
-| 浏览器操作/网页抓取 | 180000 (3min) |
-| 复杂分析/多步骤任务 | 300000 (5min, 最大值) |
+当子 Agent 已创建但需要追加指令或修正时，使用 `SendMessage` 向其发送消息。SendMessage 会自动恢复已停止的 agent，无需重新创建。
 
 ### 3.3 群组协作 UI 展示
 
-当主 Agent 委派多个子 Agent 时，前端展示类似群组讨论：
+当主 Agent 通过 Agent 工具委派多个子 Agent 时，前端展示类似群组讨论：
 
 ```
 [PM] 好的，我来安排团队协作：
@@ -183,7 +168,7 @@ wait-agent { ids: ["C"] }            → C 完成，读取结果
 
 ### 3.4 子 Agent 上下文继承
 
-主 Agent spawn 子 Agent 时，子 Agent 自动继承：
+主 Agent 通过 Agent 工具创建子 Agent 时，子 Agent 自动继承：
 - `projectId` → 子 Agent 在同一项目沙箱中工作
 - 对应 pageContext 的 skill → 子 Agent 拥有相同的能力认知
 - 临时项目路径 → 如果主 Agent 已创建临时项目
@@ -266,7 +251,7 @@ TaskScheduler 按触发条件（cron/interval/condition）启动 TaskExecutor：
 
 ### 5.4 Task 中的群组协作
 
-复杂 Task 执行时，Agent 可以 spawn 子 Agent 协作。例如「整理项目技术文档」任务中，PM 可依次 spawn Coder（扫描代码结构）、Extractor（提取文档信息）、Doc Editor（生成最终文档），wait-agent 等待各阶段完成后汇总，最终 task-report 包含协作摘要和产物链接。
+复杂 Task 执行时，Agent 可以创建子 Agent 协作。例如「整理项目技术文档」任务中，PM 可依次通过 Agent 工具创建 Coder（扫描代码结构）、Extractor（提取文档信息）、Doc Editor（生成最终文档），各自同步等待完成后汇总，最终 task-report 包含协作摘要和产物链接。
 
 ### 5.5 Task 完成通知体验
 
@@ -294,10 +279,9 @@ Task 系统的详细规则（执行模式、触发模式、会话隔离、错误
 
 [用户]："分析 reports/ 下的 CSV，生成趋势报告，做成画布"
   → PM 分析：数据分析 + 文档生成 + 画布设计
-  → spawn Data Analyst → 分析 CSV
-  → Data Analyst 完成 → PM 整合
-  → spawn Doc Editor → 生成报告
-  → spawn Canvas Designer → 创建画布
+  → Agent(Data Analyst) → 同步返回分析结果 → PM 整合
+  → Agent(Doc Editor) → 同步返回报告
+  → Agent(Canvas Designer) → 同步返回画布
   → PM 汇总回复 + 文件链接 + 画布链接
 ```
 

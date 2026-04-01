@@ -30,6 +30,11 @@ export type UseFileUploadHandlerOptions<TProps extends Record<string, unknown>> 
    * The caller is responsible for calling onUpdate.
    */
   saveFn?: (file: File, ctx: BoardFileContext) => Promise<void>
+  /**
+   * When true, skip listening for the `board:trigger-upload` CustomEvent.
+   * Useful when the caller handles the event itself (e.g. to open a dialog).
+   */
+  skipTriggerEvent?: boolean
 }
 
 export type UseFileUploadHandlerReturn = {
@@ -58,6 +63,7 @@ export function useFileUploadHandler<TProps extends Record<string, unknown>>({
   pathProp = 'sourcePath' as keyof TProps & string,
   nameProp = 'fileName' as keyof TProps & string,
   saveFn,
+  skipTriggerEvent,
 }: UseFileUploadHandlerOptions<TProps>): UseFileUploadHandlerReturn {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -89,6 +95,7 @@ export function useFileUploadHandler<TProps extends Record<string, unknown>>({
 
   // 逻辑：监听工具栏上传按钮的自定义事件，触发隐藏文件选择器。
   useEffect(() => {
+    if (skipTriggerEvent) return
     const handler = (e: Event) => {
       if ((e as CustomEvent).detail === elementId) {
         fileInputRef.current?.click()
@@ -96,7 +103,7 @@ export function useFileUploadHandler<TProps extends Record<string, unknown>>({
     }
     document.addEventListener('board:trigger-upload', handler)
     return () => document.removeEventListener('board:trigger-upload', handler)
-  }, [elementId])
+  }, [elementId, skipTriggerEvent])
 
   return { fileInputRef, handleFileInputChange }
 }

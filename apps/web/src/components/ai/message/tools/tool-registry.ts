@@ -24,8 +24,7 @@ import WidgetTool from './WidgetTool'
 import WidgetInitTool from './WidgetInitTool'
 import WidgetCheckTool from './WidgetCheckTool'
 import JsxCreateTool from './JsxCreateTool'
-import SpawnAgentTool from './SpawnAgentTool'
-import WaitAgentTool from './WaitAgentTool'
+import SubAgentPanel from './SubAgentPanel'
 import ChartTool from './ChartTool'
 import ExcelTool from './ExcelTool'
 import WordTool from './WordTool'
@@ -94,8 +93,7 @@ export const TOOL_REGISTRY: ToolRegistryEntry[] = [
   { match: 'generate-widget', component: WidgetTool as ComponentType<ToolComponentProps> },
   { match: 'widget-init', component: WidgetInitTool as ComponentType<ToolComponentProps> },
   { match: 'widget-check', component: WidgetCheckTool as ComponentType<ToolComponentProps> },
-  { match: 'spawn-agent', component: SpawnAgentTool as ComponentType<ToolComponentProps> },
-  { match: 'wait-agent', component: WaitAgentTool as ComponentType<ToolComponentProps> },
+  { match: 'Agent', component: SubAgentPanel as ComponentType<ToolComponentProps> },
   { match: 'chart-render', component: ChartTool as ComponentType<ToolComponentProps> },
   { match: ['excel-query', 'excel-mutate'], component: ExcelTool as ComponentType<ToolComponentProps> },
   {
@@ -136,7 +134,7 @@ export function findToolEntry(
     if (entry.providerOnly && !providerExecuted) return false
     if (!entry.providerOnly && providerExecuted) return false
     const matches = Array.isArray(entry.match) ? entry.match : [entry.match]
-    if (!matches.includes(toolKind)) return false
+    if (!matches.some(m => m.toLowerCase() === toolKind.toLowerCase())) return false
     if (entry.guard && !entry.guard(part)) return false
     return true
   })

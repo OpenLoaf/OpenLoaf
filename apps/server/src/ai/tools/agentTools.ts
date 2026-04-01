@@ -9,10 +9,8 @@
  */
 import { tool, zodSchema } from 'ai'
 import {
-  spawnAgentToolDef,
-  sendInputToolDef,
-  waitAgentToolDef,
-  abortAgentToolDef,
+  agentToolDef,
+  sendMessageToolDef,
 } from '@openloaf/api/types/tools/agent'
 import { agentManager, type SpawnContext } from '@/ai/services/agentManager'
 import {
@@ -24,10 +22,10 @@ import {
 } from '@/ai/shared/context/requestContext'
 import { resolveEffectiveAgentName } from '@/ai/services/agentFactory'
 
-/** Spawn a new sub-agent. */
-export const spawnAgentTool = tool({
-  description: spawnAgentToolDef.description,
-  inputSchema: zodSchema(spawnAgentToolDef.parameters),
+/** Launch a sub-agent (sync by default, async with run_in_background). */
+export const agentTool = tool({
+  description: agentToolDef.description,
+  inputSchema: zodSchema(agentToolDef.parameters),
   inputExamples: [
     {
       input: {
@@ -44,7 +42,16 @@ export const spawnAgentTool = tool({
       },
     },
   ],
-  execute: async ({ description: _desc, prompt, subagent_type }): Promise<string> => {
+  execute: async (
+    {
+      description: _desc,
+      prompt,
+      subagent_type,
+      model: _modelOverride,
+      run_in_background,
+    },
+    { toolCallId: masterToolUseId, abortSignal },
+  ): Promise<string> => {
     const requestContext = getRequestContext()
     if (!requestContext) throw new Error('request context is not available.')
 
@@ -86,20 +93,35 @@ export const spawnAgentTool = tool({
       subagentType: subagent_type,
       context,
       depth: currentDepth,
+      masterToolUseId,
     })
-    return JSON.stringify({ agent_id: agentId })
+
+    // Sync mode (default): wait for agent to complete (abort-aware)
+    if (run_in_background !== true) {
+      const result = await agentManager.wait([agentId], 300_000, abortSignal)
+      const agent = agentManager.getAgent(agentId)
+      return JSON.stringify({
+        status: result.status[agentId] ?? 'unknown',
+        output: agent?.outputText || null,
+        error: agent?.error || null,
+        agent_id: agentId,
+      })
+    }
+
+    // Async mode: return immediately
+    return JSON.stringify({ agent_id: agentId, status: 'async_launched' })
   },
 })
 
-/** Send input to an existing sub-agent (auto-recovers from JSONL if not in memory). */
-export const sendInputTool = tool({
-  description: sendInputToolDef.description,
-  inputSchema: zodSchema(sendInputToolDef.parameters),
-  execute: async ({ id, message, interrupt }): Promise<string> => {
+/** Send a message to an existing sub-agent (auto-recovers stopped agents). */
+export const sendMessageTool = tool({
+  description: sendMessageToolDef.description,
+  inputSchema: zodSchema(sendMessageToolDef.parameters),
+  execute: async ({ to, message }): Promise<string> => {
     const model = getChatModel()
     const requestContext = getRequestContext()
 
-    // 构建 SpawnContext 供 JSONL 恢复使用
+    // 构建 SpawnContext 供恢复使用
     const context: SpawnContext | undefined =
       model && requestContext
         ? {
@@ -111,40 +133,7 @@ export const sendInputTool = tool({
           }
         : undefined
 
-    const submissionId = await agentManager.sendInput(id, message, interrupt, context)
+    const submissionId = await agentManager.sendInput(to, message, false, context)
     return JSON.stringify({ submission_id: submissionId })
-  },
-})
-
-/** Wait for sub-agents to complete (ANY semantics). */
-export const waitAgentTool = tool({
-  description: waitAgentToolDef.description,
-  inputSchema: zodSchema(waitAgentToolDef.parameters),
-  execute: async ({ ids, timeoutMs }): Promise<string> => {
-    const result = await agentManager.wait(ids, timeoutMs)
-    const outputs: Record<string, string | null> = {}
-    const errors: Record<string, string | null> = {}
-    for (const id of ids) {
-      const agent = agentManager.getAgent(id)
-      outputs[id] = agent?.outputText || null
-      errors[id] = agent?.error || null
-    }
-    return JSON.stringify({
-      completed_id: result.completedId,
-      status: result.status,
-      outputs,
-      errors,
-      timed_out: result.timedOut,
-    })
-  },
-})
-
-/** Abort a sub-agent and return its output. */
-export const abortAgentTool = tool({
-  description: abortAgentToolDef.description,
-  inputSchema: zodSchema(abortAgentToolDef.parameters),
-  execute: async ({ id }): Promise<string> => {
-    const result = agentManager.abort(id)
-    return JSON.stringify({ status: result.status, output: result.output })
   },
 })

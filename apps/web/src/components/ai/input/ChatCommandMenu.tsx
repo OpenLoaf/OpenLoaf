@@ -12,7 +12,6 @@
 import {
   forwardRef,
   useCallback,
-  useEffect,
   useImperativeHandle,
   useLayoutEffect,
   useMemo,
@@ -23,7 +22,8 @@ import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
-import { FolderOpen, Globe, Sparkles } from "lucide-react";
+import { FolderOpen, Globe, Terminal } from "lucide-react";
+import { CHAT_COMMANDS } from "@openloaf/api/common/chatCommands";
 import { cn } from "@/lib/utils";
 import { useTabActive } from "@/components/layout/TabActiveContext";
 import { buildSkillCommandText } from "./chat-input-utils";
@@ -36,7 +36,7 @@ type SkillSummary = {
   isEnabled: boolean;
 };
 
-type SkillItem = {
+type MenuItem = {
   id: string;
   /** Display label (translated name). */
   label: string;
@@ -45,7 +45,9 @@ type SkillItem = {
   originalName: string;
   /** Display name (may differ from originalName when translated). */
   displayName: string;
-  scope: SkillSummary["scope"];
+  scope: SkillSummary["scope"] | "command";
+  /** Slash command token (only for command items). */
+  commandToken?: string;
 };
 
 type MenuIndexState = {
@@ -78,12 +80,47 @@ function resolveSlashQuery(value: string): string | null {
   return token.slice(1);
 }
 
+/** Command display names (zh-CN). */
+const COMMAND_LABELS: Record<string, { title: string; description: string }> = {
+  compact: {
+    title: "压缩上下文",
+    description: "压缩对话历史，释放 token 空间以继续更长的对话",
+  },
+};
+
+/** Build command menu items from CHAT_COMMANDS. */
+function buildCommandItems(query: string): MenuItem[] {
+  const keyword = query.trim().toLowerCase();
+  return CHAT_COMMANDS
+    .filter((cmd) => cmd.showInMenu)
+    .filter((cmd) => {
+      if (!keyword) return true;
+      const labels = COMMAND_LABELS[cmd.id];
+      return (
+        cmd.id.includes(keyword) ||
+        cmd.command.includes(keyword) ||
+        (labels?.title.toLowerCase().includes(keyword) ?? false)
+      );
+    })
+    .map((cmd) => {
+      const labels = COMMAND_LABELS[cmd.id];
+      return {
+        id: `command-${cmd.id}`,
+        label: labels?.title ?? cmd.title,
+        description: labels?.description ?? cmd.description,
+        originalName: cmd.id,
+        displayName: labels?.title ?? cmd.title,
+        scope: "command" as const,
+        commandToken: cmd.command,
+      };
+    });
+}
+
 /** Filter skills by query. */
 function filterSkills(
   skills: SkillSummary[],
   query: string,
-  scopeLabels: Record<SkillSummary["scope"], string>,
-): SkillItem[] {
+): MenuItem[] {
   const keyword = query.trim().toLowerCase();
   return skills
     .filter((skill) => skill.isEnabled)
@@ -128,7 +165,7 @@ function SkillMenuItem({
   onClick,
   onPointerMove,
 }: {
-  item: SkillItem;
+  item: MenuItem;
   isActive: boolean;
   onClick: () => void;
   onPointerMove: () => void;
@@ -181,20 +218,21 @@ const ChatCommandMenu = forwardRef<ChatCommandMenuHandle, ChatCommandMenuProps>(
       enabled: isTabActive,
     });
     const skills = (skillsQuery.data ?? EMPTY_SKILLS) as SkillSummary[];
-    const scopeLabels = useMemo<Record<SkillSummary["scope"], string>>(
-      () => ({
-        global: t("projectSelector.projectSpace"),
-        project: tNav("project"),
-      }),
-      [t, tNav],
-    );
 
-    const items = useMemo(
-      () => filterSkills(skills, query ?? "", scopeLabels),
-      [skills, query, scopeLabels],
+    const commandItems = useMemo(
+      () => buildCommandItems(query ?? ""),
+      [query],
     );
-    const globalItems = useMemo(() => items.filter((i) => i.scope === "global"), [items]);
-    const projectItems = useMemo(() => items.filter((i) => i.scope === "project"), [items]);
+    const skillItems = useMemo(
+      () => filterSkills(skills, query ?? ""),
+      [skills, query],
+    );
+    const items = useMemo(
+      () => [...commandItems, ...skillItems],
+      [commandItems, skillItems],
+    );
+    const globalItems = useMemo(() => skillItems.filter((i) => i.scope === "global"), [skillItems]);
+    const projectItems = useMemo(() => skillItems.filter((i) => i.scope === "project"), [skillItems]);
     const isOpen = Boolean(isFocused && query !== null);
     const menuIndexKey = `${isOpen ? "open" : "closed"}:${query ?? ""}`;
     const activeIndex =
@@ -235,9 +273,12 @@ const ChatCommandMenu = forwardRef<ChatCommandMenuHandle, ChatCommandMenuProps>(
       [menuIndexKey],
     );
 
-    /** Apply the selected skill item. */
-    const selectItem = useCallback((item: SkillItem) => {
-      onChange(replaceSlashToken(value, buildSkillCommandText(item.originalName, item.displayName)));
+    /** Apply the selected menu item. */
+    const selectItem = useCallback((item: MenuItem) => {
+      const replacement = item.commandToken
+        ? item.commandToken
+        : buildSkillCommandText(item.originalName, item.displayName);
+      onChange(replaceSlashToken(value, replacement));
       onRequestFocus?.();
       setMenuActiveIndex(0);
     }, [onChange, onRequestFocus, setMenuActiveIndex, value]);
@@ -295,26 +336,20 @@ const ChatCommandMenu = forwardRef<ChatCommandMenuHandle, ChatCommandMenuProps>(
         aria-label="Slash menu"
         onMouseDown={(e) => e.preventDefault()}
       >
-        <div className="shrink-0 px-2.5 py-2 border-b border-border">
-          <span className="inline-flex items-center gap-1 rounded-3xl px-2 py-0.5 text-[11px] font-medium bg-[var(--ol-skill-chip-bg)] text-[var(--ol-skill-chip-text)]">
-            <Sparkles className="size-3" />
-            技能
-          </span>
-        </div>
         <div className="flex-1 min-h-0 overflow-y-auto py-1">
           {items.length === 0 ? (
             <div className="px-2.5 py-4 text-center text-xs text-muted-foreground">
-              暂无可用技能
+              {t("projectSelector.noResults", "无匹配结果")}
             </div>
           ) : (
             <>
-              {globalItems.length > 0 && (
+              {commandItems.length > 0 && (
                 <>
                   <div className="sticky top-0 z-10 flex items-center gap-1.5 px-3 pt-1.5 pb-1 text-[11px] font-medium text-muted-foreground bg-popover">
-                    <Globe className="size-3" />
-                    {scopeLabels.global}
+                    <Terminal className="size-3" />
+                    {t("slashMenu.commands", "命令")}
                   </div>
-                  {globalItems.map((item, i) => {
+                  {commandItems.map((item, i) => {
                     const isActive = i === activeIndex;
                     return (
                       <SkillMenuItem
@@ -328,17 +363,41 @@ const ChatCommandMenu = forwardRef<ChatCommandMenuHandle, ChatCommandMenuProps>(
                   })}
                 </>
               )}
+              {globalItems.length > 0 && (
+                <>
+                  {commandItems.length > 0 && (
+                    <div className="mx-2.5 my-1 border-t border-border" />
+                  )}
+                  <div className="sticky top-0 z-10 flex items-center gap-1.5 px-3 pt-1.5 pb-1 text-[11px] font-medium text-muted-foreground bg-popover">
+                    <Globe className="size-3" />
+                    {t("projectSelector.projectSpace")}
+                  </div>
+                  {globalItems.map((item, i) => {
+                    const flatIndex = commandItems.length + i;
+                    const isActive = flatIndex === activeIndex;
+                    return (
+                      <SkillMenuItem
+                        key={item.id}
+                        item={item}
+                        isActive={isActive}
+                        onClick={() => selectItem(item)}
+                        onPointerMove={() => setMenuActiveIndex(flatIndex)}
+                      />
+                    );
+                  })}
+                </>
+              )}
               {projectItems.length > 0 && (
                 <>
-                  {globalItems.length > 0 && (
+                  {(commandItems.length > 0 || globalItems.length > 0) && (
                     <div className="mx-2.5 my-1 border-t border-border" />
                   )}
                   <div className="sticky top-0 z-10 flex items-center gap-1.5 px-3 pt-1.5 pb-1 text-[11px] font-medium text-muted-foreground bg-popover">
                     <FolderOpen className="size-3" />
-                    {scopeLabels.project}
+                    {tNav("project")}
                   </div>
                   {projectItems.map((item, i) => {
-                    const flatIndex = globalItems.length + i;
+                    const flatIndex = commandItems.length + globalItems.length + i;
                     const isActive = flatIndex === activeIndex;
                     return (
                       <SkillMenuItem

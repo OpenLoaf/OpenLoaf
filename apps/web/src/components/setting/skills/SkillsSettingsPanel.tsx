@@ -76,7 +76,7 @@ import { useGlobalOverlay } from "@/lib/globalShortcuts";
 import { ColorPickerSubMenu } from "@/components/shared/ColorPickerSubMenu";
 import { TranslateTitlesDialog } from "./TranslateTitlesDialog";
 import { SkillUpdateBanner } from "./SkillUpdateBanner";
-import { ExternalSkillsBanner } from "./ExternalSkillsBanner";
+import { ExternalSkillsBanner, ExternalSkillsIconButton } from "./ExternalSkillsBanner";
 import { useInstallMarketSkill, useSkillUpdateCheck } from "@/hooks/use-skill-market";
 
 type SkillScope = "builtin" | "project" | "global";
@@ -692,94 +692,97 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
             isUpdatingAll={isUpdatingAll}
           />
 
-          {/* External skills detection banner */}
-          <ExternalSkillsBanner projectId={projectId} />
-
           {/* Header */}
-          <div className="flex items-center justify-between border-b px-6 py-4">
-        <div className="flex min-w-0 items-center gap-3">
-          {/* Search */}
-          <div className="relative max-w-52">
-            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/60" />
-            <Input
-              type="text"
-              placeholder={t('skills.searchPlaceholder')}
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              className="h-8 rounded-3xl border-transparent bg-muted/40 pl-8 pr-7 text-sm focus:border-border"
-            />
-            {searchQuery ? (
-              <button
-                type="button"
-                onClick={() => setSearchQuery("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground/60 hover:text-foreground"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            ) : null}
-          </div>
+          <div className="border-b">
+            <div className="flex items-center justify-between px-6 py-4">
+              <div className="flex min-w-0 items-center gap-3">
+                {/* Search */}
+                <div className="relative max-w-52">
+                  <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/60" />
+                  <Input
+                    type="text"
+                    placeholder={t('skills.searchPlaceholder')}
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    className="h-8 rounded-3xl border-transparent bg-muted/40 pl-8 pr-7 text-sm focus:border-border"
+                  />
+                  {searchQuery ? (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery("")}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground/60 hover:text-foreground"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  ) : null}
+                </div>
 
-          {/* Status filter pills */}
-          <div className="flex items-center gap-1">
-            {(["all", "enabled", "disabled"] as StatusFilter[]).map((value) => (
-              <Button
-                key={value}
-                type="button"
-                size="sm"
-                variant={statusFilter === value ? "secondary" : "ghost"}
-                className={cn(
-                  "h-7 rounded-3xl px-2.5 text-xs",
-                  statusFilter === value && "bg-secondary text-foreground hover:bg-accent",
-                )}
-                onClick={() => setStatusFilter(value)}
-              >
-                {value === "all" ? t('skills.statusAll') : value === "enabled" ? t('skills.statusEnabled') : t('skills.statusDisabled')}
-              </Button>
-            ))}
-          </div>
-        </div>
+                {/* Status filter pills */}
+                <div className="flex items-center gap-1">
+                  {(["all", "enabled", "disabled"] as StatusFilter[]).map((value) => (
+                    <Button
+                      key={value}
+                      type="button"
+                      size="sm"
+                      variant={statusFilter === value ? "secondary" : "ghost"}
+                      className={cn(
+                        "h-7 rounded-3xl px-2.5 text-xs",
+                        statusFilter === value && "bg-secondary text-foreground hover:bg-accent",
+                      )}
+                      onClick={() => setStatusFilter(value)}
+                    >
+                      {value === "all" ? t('skills.statusAll') : value === "enabled" ? t('skills.statusEnabled') : t('skills.statusDisabled')}
+                    </Button>
+                  ))}
+                </div>
+              </div>
 
-        {/* Right side */}
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">{t('skills.totalCount', { count: totalCount, defaultValue: `${totalCount} 个技能` })}</span>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                type="button"
-                size="icon"
-                variant="ghost"
-                className="h-8 w-8 rounded-3xl text-muted-foreground hover:text-foreground"
-                onClick={() => invalidateSkillQueries()}
-                disabled={skillsQuery.isLoading}
-              >
-                <RefreshCw className={cn("h-3.5 w-3.5", skillsQuery.isFetching && "animate-spin")} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>{t('skills.refresh', { defaultValue: '刷新' })}</TooltipContent>
-          </Tooltip>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="rounded-3xl bg-secondary text-secondary-foreground hover:bg-accent"
-            onClick={() => setTranslateDialogOpen(true)}
-            disabled={skills.length === 0}
-          >
-            <Languages className="mr-1.5 h-4 w-4" />
-            {t('skills.translateTitles.button', { defaultValue: '翻译标题' })}
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="rounded-3xl bg-secondary text-secondary-foreground hover:bg-accent"
-            onClick={openMarketplace}
-          >
-            <Store className="mr-1.5 h-3.5 w-3.5" />
-            {t('skills.marketplace.tabMarketplace', { defaultValue: 'Marketplace' })}
-          </Button>
-        </div>
-      </div>
+              {/* Right side */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">{t('skills.totalCount', { count: totalCount, defaultValue: `${totalCount} 个技能` })}</span>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8 rounded-3xl text-muted-foreground hover:text-foreground"
+                      onClick={() => invalidateSkillQueries()}
+                      disabled={skillsQuery.isLoading}
+                    >
+                      <RefreshCw className={cn("h-3.5 w-3.5", skillsQuery.isFetching && "animate-spin")} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>{t('skills.refresh', { defaultValue: '刷新' })}</TooltipContent>
+                </Tooltip>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="rounded-3xl bg-secondary text-secondary-foreground hover:bg-accent"
+                  onClick={() => setTranslateDialogOpen(true)}
+                  disabled={skills.length === 0}
+                >
+                  <Languages className="mr-1.5 h-4 w-4" />
+                  {t('skills.translateTitles.button', { defaultValue: '翻译标题' })}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="rounded-3xl bg-secondary text-secondary-foreground hover:bg-accent"
+                  onClick={openMarketplace}
+                >
+                  <Store className="mr-1.5 h-3.5 w-3.5" />
+                  {t('skills.marketplace.tabMarketplace', { defaultValue: 'Marketplace' })}
+                </Button>
+                <ExternalSkillsIconButton projectId={projectId} />
+              </div>
+            </div>
+
+            {/* External skills detection banner */}
+            <ExternalSkillsBanner projectId={projectId} />
+          </div>
 
       {/* Body */}
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
@@ -794,8 +797,55 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
             {t('skills.readFailed', { error: skillsQuery.error?.message ?? t('skills.unknownError') })}
           </div>
         ) : skills.length === 0 ? (
-          <div className="py-9 text-center text-sm text-muted-foreground">
-            {t('skills.empty')}
+          <div className="flex flex-col items-center justify-center gap-6 py-12">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted/60">
+              <FolderCog className="h-7 w-7 text-muted-foreground/60" />
+            </div>
+            <div className="space-y-1.5 text-center">
+              <p className="text-sm font-medium text-foreground">{t('skills.emptyTitle')}</p>
+              <p className="text-xs text-muted-foreground">{t('skills.emptyDesc')}</p>
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-2.5">
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-full"
+                onClick={openMarketplace}
+              >
+                <Store className="mr-1.5 h-3.5 w-3.5" />
+                {t('skills.emptyMarketplace')}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-full"
+                onClick={() => {
+                  const input = document.createElement('input');
+                  input.type = 'file';
+                  input.accept = '.zip,.tar.gz,.skill';
+                  input.multiple = true;
+                  input.onchange = async (e) => {
+                    const files = (e.target as HTMLInputElement).files;
+                    if (!files?.length) return;
+                    const scope = isProjectList ? 'project' as const : 'global' as const;
+                    for (const file of Array.from(files)) {
+                      if (isArchiveFile(file.name)) {
+                        const buffer = await file.arrayBuffer();
+                        const base64 = btoa(new Uint8Array(buffer).reduce((data, byte) => data + String.fromCharCode(byte), ''));
+                        importArchiveMutation.mutate({ contentBase64: base64, fileName: file.name, scope, projectId: scope === 'project' ? projectId : undefined });
+                      } else {
+                        toast.error(t('skills.import.unsupportedFormat'));
+                      }
+                    }
+                  };
+                  input.click();
+                }}
+              >
+                <Import className="mr-1.5 h-3.5 w-3.5" />
+                {t('skills.emptyImport')}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground/60">{t('skills.emptyDragHint')}</p>
           </div>
         ) : filteredSkills.length === 0 ? (
           <div className="py-9 text-center text-sm text-muted-foreground">

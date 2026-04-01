@@ -43,13 +43,15 @@ import {
   BOARD_TOOLBAR_ITEM_DEFAULT,
 } from "../ui/board-style-system";
 import { useBoardContext } from "../core/BoardProvider";
-import { createPortal } from "react-dom";
 import { MINDMAP_META } from "../engine/mindmap-layout";
 import { HueSlider, buildColorSwatches, DEFAULT_COLOR_PRESETS } from "../ui/HueSlider";
 import { EditableBoardTextEditorKit, ReadOnlyBoardTextEditorKit } from "./text-editor-kit";
 import { useUpstreamData } from "../hooks/useUpstreamData";
 import { usePanelOverlay } from "../render/pixi/PixiApplication";
-import { TextAiPanel, type TextGenerateParams } from "../panels/TextAiPanel";
+import { TextAiPanel } from "../panels/TextAiPanel";
+import { InlinePanelPortal } from "./shared/InlinePanelPortal";
+import { useInlinePanelSync } from "./shared/useInlinePanelSync";
+import { deriveNode } from "../utils/derive-node";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -75,12 +77,12 @@ import type {
 
 /** Sticky note color definitions (light + dark background/text). */
 export const STICKY_COLORS: Record<StickyColor, { bg: string; darkBg: string }> = {
-  yellow:  { bg: "bg-neutral-100",  darkBg: "dark:bg-neutral-800/60" },
-  blue:    { bg: "bg-neutral-100",  darkBg: "dark:bg-neutral-800/60" },
-  green:   { bg: "bg-neutral-100",  darkBg: "dark:bg-neutral-800/60" },
-  pink:    { bg: "bg-neutral-100",  darkBg: "dark:bg-neutral-800/60" },
-  purple:  { bg: "bg-neutral-100",  darkBg: "dark:bg-neutral-800/60" },
-  orange:  { bg: "bg-neutral-100",  darkBg: "dark:bg-neutral-800/60" },
+  yellow:  { bg: "bg-neutral-100",  darkBg: "dark:bg-neutral-800" },
+  blue:    { bg: "bg-neutral-100",  darkBg: "dark:bg-neutral-800" },
+  green:   { bg: "bg-neutral-100",  darkBg: "dark:bg-neutral-800" },
+  pink:    { bg: "bg-neutral-100",  darkBg: "dark:bg-neutral-800" },
+  purple:  { bg: "bg-neutral-100",  darkBg: "dark:bg-neutral-800" },
+  orange:  { bg: "bg-neutral-100",  darkBg: "dark:bg-neutral-800" },
 };
 
 /** CSS clip-path for each shape. "none" means use border-radius instead. */
@@ -635,9 +637,6 @@ function createTextToolbarItems(ctx: CanvasToolbarContext<TextNodeProps>) {
 // TextNodeView — main component
 // ---------------------------------------------------------------------------
 
-/** Gap in px between the node bottom and the panel (screen-space constant). */
-const TEXT_PANEL_GAP_PX = 16;
-
 /** Render the editable text node with Plate rich-text editing. */
 function EditableTextNodeView({
   element,
@@ -668,37 +667,29 @@ function EditableTextNodeView({
   // Upstream data for AI panel (only resolve when expanded)
   const upstream = useUpstreamData(engine, expanded ? element.id : null);
   const panelOverlay = usePanelOverlay();
-  const panelRef = useRef<HTMLDivElement | null>(null);
 
-  // 逻辑：检查是否有上游 text→text 连接（用于显示 AI 面板）。
-  const hasUpstreamTextConnection = useMemo(() => {
-    if (!upstream) return false;
-    return upstream.textList.length > 0;
-  }, [upstream]);
+  // 逻辑：面板通过 useInlinePanelSync 同步缩放和位置。
+  const { panelRef } = useInlinePanelSync({ engine, xywh: element.xywh, expanded });
 
-  // 逻辑：面板通过 subscribeView 同步缩放和位置。
-  const xywhRef = useRef(element.xywh);
-  xywhRef.current = element.xywh;
-  useEffect(() => {
-    if (!expanded || !hasUpstreamTextConnection) return;
-    const syncPanelScale = () => {
-      const el = panelRef.current;
-      if (!el) return;
-      const zoom = engine.viewport.getState().zoom;
-      const gap = TEXT_PANEL_GAP_PX / zoom;
-      const [, ny, , nh] = xywhRef.current;
-      el.style.top = `${ny + nh + gap}px`;
-      el.style.transform = `translateX(-50%) scale(${1 / zoom})`;
-    };
-    syncPanelScale();
-    return engine.subscribeView(syncPanelScale);
-  }, [engine, expanded, hasUpstreamTextConnection]);
-
-  const handleTextAiGenerate = useCallback(
-    (_params: TextGenerateParams) => {
-      // TODO: wire to actual AI generation
+  // Apply generated text to current node (replace mode).
+  const handleApplyReplace = useCallback(
+    (text: string) => {
+      onUpdate({ value: text });
     },
-    [],
+    [onUpdate],
+  );
+
+  // Create a new downstream text node with generated text (derive mode).
+  const handleApplyDerive = useCallback(
+    (text: string) => {
+      deriveNode({
+        engine,
+        sourceNodeId: element.id,
+        targetType: 'text',
+        targetProps: { value: text, origin: 'ai-generate' as const },
+      });
+    },
+    [engine, element.id],
   );
 
   const [isEditing, setIsEditing] = useState(Boolean(editing) && !isGhost);
@@ -974,8 +965,8 @@ function EditableTextNodeView({
         color: getShapeTextColor(shapeFill),
       }
     : backgroundColor
-      ? { backgroundColor }
-      : undefined;
+      ? { backgroundColor, clipPath: 'inset(0 round var(--radius-3xl))' }
+      : { clipPath: 'inset(0 round var(--radius-3xl))' };
 
   const defaultBg = isSticky || isShape
     ? ""
@@ -1058,31 +1049,20 @@ function EditableTextNodeView({
           {getTextNodePlaceholder()}
         </div>
       ) : null}
-      {expanded && hasUpstreamTextConnection && panelOverlay ? createPortal(
-        <div
-          ref={panelRef}
-          className="pointer-events-auto absolute"
-          data-board-editor
-          style={{
-            left: element.xywh[0] + element.xywh[2] / 2,
-            top: element.xywh[1] + element.xywh[3],
-            transformOrigin: 'top center',
-          }}
-          onPointerDown={event => {
-            event.stopPropagation();
-          }}
-          onContextMenu={event => {
-            event.stopPropagation();
-          }}
-        >
-          <TextAiPanel
-            element={element}
-            upstreamText={upstream?.textList.join('\n')}
-            onGenerate={handleTextAiGenerate}
-          />
-        </div>,
-        panelOverlay,
-      ) : null}
+      <InlinePanelPortal
+        expanded={expanded}
+        panelOverlay={panelOverlay}
+        panelRef={panelRef}
+        xywh={element.xywh}
+        engine={engine}
+      >
+        <TextAiPanel
+          element={element}
+          upstream={upstream}
+          onApplyReplace={handleApplyReplace}
+          onApplyDerive={handleApplyDerive}
+        />
+      </InlinePanelPortal>
     </div>
   );
 }
@@ -1169,6 +1149,6 @@ export const TextNodeDefinition: CanvasNodeDefinition<TextNodeProps> = {
     minSize: TEXT_NODE_MIN_SIZE,
     maxSize: TEXT_NODE_MAX_SIZE,
   },
-  inlinePanel: { width: 420, height: 360, autoExpand: false },
+  inlinePanel: { width: 420, height: 360 },
   outputTypes: ['text'],
 };

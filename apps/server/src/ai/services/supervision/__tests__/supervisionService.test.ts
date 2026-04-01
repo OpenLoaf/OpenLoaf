@@ -77,10 +77,10 @@ async function main() {
   console.log('\n--- A: Read-only tools auto-approve ---')
 
   const readOnlyTools = [
-    'read-file', 'list-dir', 'grep-files',
+    'Read', 'Glob', 'Grep',
     'browser-snapshot', 'browser-observe', 'browser-extract',
     'project-query', 'calendar-query', 'email-query',
-    'wait-agent', 'task-status',
+    'task-status',
   ]
 
   for (const toolName of readOnlyTools) {
@@ -94,7 +94,7 @@ async function main() {
 
   console.log('\n--- B: Agent tools auto-approve ---')
 
-  const agentTools = ['spawn-agent', 'send-input', 'abort-agent']
+  const agentTools = ['Agent', 'SendMessage']
 
   for (const toolName of agentTools) {
     await test(`B: ${toolName} is auto-approved`, async () => {

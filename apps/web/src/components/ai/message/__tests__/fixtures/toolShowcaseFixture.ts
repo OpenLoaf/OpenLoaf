@@ -71,9 +71,9 @@ const systemAgentParts: ToolShowcasePart[] = [
     output: { ok: true },
   },
   {
-    type: 'tool-spawn-agent',
+    type: 'tool-Agent',
     toolCallId: callId(),
-    toolName: 'spawn-agent',
+    toolName: 'Agent',
     state: 'output-available',
     input: {
       agentType: 'coder',
@@ -82,27 +82,11 @@ const systemAgentParts: ToolShowcasePart[] = [
     output: { ok: true, data: { agent_id: 'agent_abc123' } },
   },
   {
-    type: 'tool-wait-agent',
+    type: 'tool-SendMessage',
     toolCallId: callId(),
-    toolName: 'wait-agent',
+    toolName: 'SendMessage',
     state: 'output-available',
-    input: { ids: ['agent_abc123'] },
-    output: { ok: true, data: { completed_id: 'agent_abc123', timed_out: false, status: { agent_abc123: 'completed' } } },
-  },
-  {
-    type: 'tool-send-input',
-    toolCallId: callId(),
-    toolName: 'send-input',
-    state: 'output-available',
-    input: { actionName: '发送输入', agentId: 'agent_abc123', text: '使用 TypeORM 替代 Prisma' },
-    output: { ok: true },
-  },
-  {
-    type: 'tool-abort-agent',
-    toolCallId: callId(),
-    toolName: 'abort-agent',
-    state: 'output-available',
-    input: { actionName: '中止 Agent', agentId: 'agent_abc123' },
+    input: { actionName: '发送消息', agentId: 'agent_abc123', text: '使用 TypeORM 替代 Prisma' },
     output: { ok: true },
   },
 ]

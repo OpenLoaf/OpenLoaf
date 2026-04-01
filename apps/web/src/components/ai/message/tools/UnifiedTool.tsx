@@ -61,11 +61,9 @@ const iconCls = "size-3.5 text-muted-foreground";
 /** Resolve icon for tool kind. */
 function getToolIcon(kind: string): React.ReactNode {
   switch (kind) {
-    case "spawn-agent":
-    case "send-input":
-    case "wait-agent":
+    case "Agent":
+    case "SendMessage":
     case "close-agent":
-    case "abort-agent":
     case "resume-agent":
       return <BotIcon className={iconCls} />;
     case "Edit":

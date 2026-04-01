@@ -57,7 +57,7 @@ type SubAgentEntry = {
 export function buildSubAgentListSection(agents: SubAgentEntry[]): string {
   const lines = [
     '可用子 Agent',
-    '- 以下是可通过 spawn-agent 工具调用的 agent 列表。',
+    '- 以下是可通过 Agent 工具调用的 agent 列表。',
   ]
   if (agents.length === 0) {
     lines.push('- 无可用子 Agent。')

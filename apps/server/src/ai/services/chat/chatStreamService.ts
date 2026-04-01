@@ -213,7 +213,7 @@ function isCompactCommandMessage(message: OpenLoafUIMessage | undefined): boolea
   if ((message as any)?.messageKind === "compact_prompt") return true;
   const text = extractTextFromParts(message.parts ?? []);
   const command = parseCommandAtStart(text);
-  return command?.id === "summary-history";
+  return command?.id === "summary-history" || command?.id === "compact";
 }
 
 /** Build the compact prompt text sent to the model. */

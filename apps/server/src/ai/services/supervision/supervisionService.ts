@@ -72,7 +72,7 @@ export class SupervisionService {
       'Read', 'Glob', 'Grep',
       'browser-snapshot', 'browser-observe', 'browser-extract',
       'project-query', 'calendar-query', 'email-query',
-      'wait-agent', 'task-status',
+      'task-status',
     ])
     if (readOnlyTools.has(toolName)) {
       return { decision: 'approve', reason: '只读工具，自动放行' }
@@ -87,7 +87,7 @@ export class SupervisionService {
     }
 
     // Agent tools: generally safe within depth limits
-    if (toolName === 'spawn-agent' || toolName === 'send-input' || toolName === 'abort-agent') {
+    if (toolName === 'Agent' || toolName === 'SendMessage') {
       return { decision: 'approve', reason: 'Agent 协作工具，自动放行' }
     }
 

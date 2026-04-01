@@ -371,6 +371,16 @@ function resolveFsTarget(
   }
   // rootUri 覆盖：无 projectId 时用 rootUri 指定的路径作为相对解析基目录。
   if (!scope.projectId && scope.rootUri) {
+    // target 本身是 file:// URI 时直接解析，避免 path.resolve 将 URI 当作相对路径拼接。
+    if (target.startsWith("file:")) {
+      const targetPath = resolveFilePathFromUri(target);
+      const rootPath = resolveFilePathFromUri(scope.rootUri);
+      // 安全检查：解析后的路径必须在 rootPath 内或等于 rootPath。
+      if (targetPath !== rootPath && !targetPath.startsWith(rootPath + path.sep)) {
+        throw new Error("Path traversal is not allowed.");
+      }
+      return targetPath;
+    }
     const rootPath = resolveFilePathFromUri(scope.rootUri);
     const normalized = target.replace(/\\/g, "/").replace(/^(\.\/)+/, "").replace(/^\/+/, "");
     if (normalized.split("/").some((s) => s === "..")) {

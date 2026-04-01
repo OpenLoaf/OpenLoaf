@@ -12,8 +12,8 @@ import PM_IDENTITY_EN from './identity.en.md'
 import { getStandardPrompt } from '../master'
 
 /**
- * PM Agent 工具集 — 继承 Project Agent 工具集 + spawn-agent 协作工具。
- * 排除 task-manage（PM 不创建 Task，用 spawn-agent 同步调度 Specialist）。
+ * PM Agent 工具集 — 继承 Project Agent 工具集 + Agent/SendMessage 协作工具。
+ * 排除 task-manage（PM 不创建 Task，用 Agent 同步调度 Specialist）。
  */
 export const PM_AGENT_TOOL_IDS = [
   // core (always available)
@@ -26,10 +26,8 @@ export const PM_AGENT_TOOL_IDS = [
   'Write',
   'request-user-input',
   // agent collaboration (PM's core capability)
-  'spawn-agent',
-  'send-input',
-  'wait-agent',
-  'abort-agent',
+  'Agent',
+  'SendMessage',
   // system (deferred)
   'update-plan',
   // web

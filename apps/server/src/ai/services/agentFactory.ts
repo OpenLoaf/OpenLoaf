@@ -134,10 +134,8 @@ const CORE_TOOL_IDS = [
   'Edit',
   'Write',
   'request-user-input',
-  'spawn-agent',
-  'send-input',
-  'wait-agent',
-  'abort-agent',
+  'Agent',
+  'SendMessage',
 ] as const
 
 /**
@@ -260,7 +258,7 @@ function createToolSearchPrepareStep(
  *
  * - 无工具调用（纯文本对话）→ 5 步上限
  * - 1-3 个工具调用（中等任务）→ 15 步上限
- * - 4+ 个工具调用或含 spawn-agent（复杂任务）→ 不额外限制（由硬上限控制）
+ * - 4+ 个工具调用或含 Agent（复杂任务）→ 不额外限制（由硬上限控制）
  */
 function dynamicStepLimit(): StopCondition<Record<string, never>> {
   return ({ steps }: { steps: ReadonlyArray<{ toolCalls: ReadonlyArray<{ toolName: string }> }> }) => {
@@ -270,7 +268,7 @@ function dynamicStepLimit(): StopCondition<Record<string, never>> {
     )
     const hasAgentSpawn = steps.some(
       (s: { toolCalls: ReadonlyArray<{ toolName: string }> }) =>
-        s.toolCalls.some((tc: { toolName: string }) => tc.toolName === 'spawn-agent'),
+        s.toolCalls.some((tc: { toolName: string }) => tc.toolName === 'Agent'),
     )
     const currentStep = steps.length
 
@@ -459,7 +457,7 @@ export function createPMAgent(input: CreatePMAgentInput) {
   // PM agent shares the same core tools as master
   const coreToolIds = [
     'tool-search', 'Bash', 'Read', 'Glob', 'Grep', 'Edit', 'Write',
-    'request-user-input', 'spawn-agent', 'send-input', 'wait-agent', 'abort-agent',
+    'request-user-input', 'Agent', 'SendMessage',
   ] as string[]
 
   // Filter PM agent tools by platform
@@ -800,10 +798,10 @@ function tryCreateDynamicAgent(
 }
 
 /** Agent 协作工具 ID（general-purpose 子 agent 不可用）。 */
-const AGENT_TOOL_IDS_TO_EXCLUDE = new Set(['spawn-agent', 'send-input', 'wait-agent', 'abort-agent'])
+const AGENT_TOOL_IDS_TO_EXCLUDE = new Set(['Agent', 'SendMessage'])
 
 /** Agent collaboration tool IDs that are auto-injected when allowSubAgents is true. */
-const AGENT_COLLAB_TOOL_IDS = ['spawn-agent', 'send-input', 'wait-agent', 'abort-agent']
+const AGENT_COLLAB_TOOL_IDS = ['Agent', 'SendMessage']
 
 /** Ensure agent collaboration tools are included when allowSubAgents is enabled. */
 function ensureAgentToolIds(toolIds: readonly string[], allowSubAgents?: boolean): string[] {

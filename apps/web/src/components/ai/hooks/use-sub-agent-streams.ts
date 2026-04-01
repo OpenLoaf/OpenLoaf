@@ -13,6 +13,7 @@ import React from "react";
 import { readUIMessageStream, type UIMessageChunk } from "ai";
 import { useChatRuntime, type ToolPartSnapshot } from "@/hooks/use-chat-runtime";
 import { handleSubAgentToolParts } from "@/lib/chat/sub-agent-tool-parts";
+import { clearMasterToolUseIdMap } from "../utils/chat-data-handlers";
 import type { SubAgentStreamState } from "../context/ChatToolContext";
 import type { useChatToolStream } from "./use-chat-tool-stream";
 
@@ -70,6 +71,40 @@ export function useSubAgentStreams({ tabIdRef, toolStream }: UseSubAgentStreamsO
                 },
               };
             });
+
+            // 累计 toolUseCount 和 recentTools
+            if (Array.isArray(message.parts)) {
+              const toolNames: string[] = [];
+              for (const p of message.parts) {
+                const candidate = p as { type?: string; toolName?: string } | null;
+                const type = candidate?.type ?? "";
+                const toolName = candidate?.toolName;
+                if (
+                  toolName != null ||
+                  type === "dynamic-tool" ||
+                  (type && type.startsWith("tool-"))
+                ) {
+                  toolNames.push(toolName ?? type);
+                }
+              }
+              if (toolNames.length > 0) {
+                setSubAgentStreams((prev) => {
+                  const current = prev[toolCallId];
+                  if (!current) return prev;
+                  const prevCount = current.toolUseCount ?? 0;
+                  const prevRecent = current.recentTools ?? [];
+                  const merged = [...prevRecent, ...toolNames];
+                  return {
+                    ...prev,
+                    [toolCallId]: {
+                      ...current,
+                      toolUseCount: prevCount + toolNames.length,
+                      recentTools: merged.slice(-5),
+                    },
+                  };
+                });
+              }
+            }
 
             const tabId = tabIdRef.current ?? undefined;
             if (tabId && Array.isArray(message.parts)) {
@@ -164,6 +199,7 @@ export function useSubAgentStreams({ tabIdRef, toolStream }: UseSubAgentStreamsO
       controller.close();
     });
     subAgentStreamControllersRef.current.clear();
+    clearMasterToolUseIdMap();
   }, []);
 
   return {

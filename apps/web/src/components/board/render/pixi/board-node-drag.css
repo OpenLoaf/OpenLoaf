@@ -4,9 +4,11 @@
   --drag-tilt-x: 0deg;
   --drag-tilt-y: 0deg;
   transition: transform 0.15s ease-out, box-shadow 0.15s linear, left 0.15s ease-out, top 0.15s ease-out;
-  /* 静止阴影 elevation-1 — 使用 box-shadow 替代 filter: drop-shadow 以保留文字子像素渲染 */
+  /* 静止阴影 elevation-1 */
   border-radius: var(--radius-3xl);
   box-shadow: 0 1px 2px rgba(51, 61, 78, 0.25);
+  /* 始终使用灰度抗锯齿，避免拖拽时子像素→灰度切换导致文字模糊跳变 */
+  -webkit-font-smoothing: antialiased;
 }
 
 /* 媒体节点：用 ::after 伪元素叠加边框，不影响布局且始终可见 */
@@ -33,7 +35,7 @@
   transform: rotate(var(--node-rotate));
 }
 
-/* 拖拽阴影 elevation-3 — 拖拽状态使用 filter 实现 3D 阴影效果（短暂状态可接受） */
+/* 拖拽阴影 elevation-3 */
 [data-board-node][data-dragging] {
   transform: perspective(800px) rotate(var(--node-rotate)) rotateX(var(--drag-tilt-x)) rotateY(var(--drag-tilt-y));
   box-shadow: none;

@@ -34,10 +34,8 @@ import { videoDownloadToolDef } from "@openloaf/api/types/tools/videoDownload";
 import { webFetchToolDef } from "@openloaf/api/types/tools/webFetch";
 import { webSearchToolDef } from "@openloaf/api/types/tools/webSearch";
 import {
-  spawnAgentToolDef,
-  sendInputToolDef,
-  waitAgentToolDef,
-  abortAgentToolDef,
+  agentToolDef,
+  sendMessageToolDef,
 } from "@openloaf/api/types/tools/agent";
 
 type ToolNameTarget = {
@@ -72,10 +70,8 @@ const TOOL_DEFS: ToolNameSource[] = [
   openUrlToolDef,
   projectQueryToolDef,
   projectMutateToolDef,
-  spawnAgentToolDef,
-  sendInputToolDef,
-  waitAgentToolDef,
-  abortAgentToolDef,
+  agentToolDef,
+  sendMessageToolDef,
   updatePlanToolDef,
   jsxCreateToolDef,
   chartRenderToolDef,

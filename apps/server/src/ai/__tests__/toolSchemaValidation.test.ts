@@ -40,10 +40,8 @@ import { videoDownloadToolDef } from "@openloaf/api/types/tools/videoDownload";
 import { excelQueryToolDef, excelMutateToolDef } from "@openloaf/api/types/tools/excel";
 import { wordQueryToolDef, wordMutateToolDef } from "@openloaf/api/types/tools/word";
 import {
-  spawnAgentToolDef,
-  sendInputToolDef,
-  waitAgentToolDef,
-  abortAgentToolDef,
+  agentToolDef,
+  sendMessageToolDef,
 } from "@openloaf/api/types/tools/agent";
 import {
   bashToolDef,
@@ -104,10 +102,8 @@ const ALL_TOOL_DEFS: ToolDefLike[] = [
   generateWidgetToolDef,
   projectQueryToolDef,
   projectMutateToolDef,
-  spawnAgentToolDef,
-  sendInputToolDef,
-  waitAgentToolDef,
-  abortAgentToolDef,
+  agentToolDef,
+  sendMessageToolDef,
   jsReplToolDef,
   jsReplResetToolDef,
   updatePlanToolDef,

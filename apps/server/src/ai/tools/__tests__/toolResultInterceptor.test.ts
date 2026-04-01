@@ -183,10 +183,8 @@ async function main() {
 
   const skipTools = [
     'tool-search',
-    'spawn-agent',
-    'wait-agent',
-    'send-input',
-    'abort-agent',
+    'Agent',
+    'SendMessage',
     'request-user-input',
     'load-skill',
   ]
@@ -376,7 +374,7 @@ async function main() {
     const originalExecute = async () => chars(100_000)
     const tools: Record<string, any> = {
       'tool-search': { execute: originalExecute },
-      'spawn-agent': { execute: originalExecute },
+      'Agent': { execute: originalExecute },
       'load-skill': { execute: originalExecute },
     }
 
@@ -384,7 +382,7 @@ async function main() {
 
     // The execute function should remain unchanged (not wrapped)
     assert.equal(tools['tool-search'].execute, originalExecute)
-    assert.equal(tools['spawn-agent'].execute, originalExecute)
+    assert.equal(tools['Agent'].execute, originalExecute)
     assert.equal(tools['load-skill'].execute, originalExecute)
   })
 

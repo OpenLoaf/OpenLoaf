@@ -137,7 +137,7 @@ async function main() {
 
   printSection('Layer 2: 消息链一致性集成测试')
 
-  // ── A: spawn-agent → SSE 关闭 → 子 Agent 完成 → task-report 写入 JSONL ──
+  // ── A: Agent 调用 → SSE 关闭 → 子 Agent 完成 → task-report 写入 JSONL ──
   printSection('A: task-report 消息写入 JSONL')
 
   await test('A1: task-report 消息可正确追加到 session 的 messages.jsonl', async () => {
@@ -149,7 +149,7 @@ async function main() {
       createdAt: new Date().toISOString(),
     })
 
-    // 模拟对话链：user → assistant（含 spawn-agent 工具调用）
+    // 模拟对话链：user → assistant（含 Agent 工具调用）
     const userMsg = makeMsg('msg-u1', null, 'user', '帮我分析代码')
     const assistantMsg = makeMsg('msg-a1', 'msg-u1', 'assistant', '好的，已安排子代理分析代码。')
 
