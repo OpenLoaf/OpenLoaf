@@ -17,7 +17,7 @@ date: 2026-03-02
 
 - 优化 AI Agent 能力，新增图标资源
 - 任务详情面板迁移至 i18n 多语言支持
-- 任务创建工具重命名为 task-manage
+- 任务创建工具重命名为 TaskManage
 - UI 设计系统按钮配色语义优化
 - ChatInputBox 中文占位符文本修复
 

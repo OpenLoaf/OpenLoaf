@@ -40,7 +40,7 @@ export function ChatModelCheckboxList({
     )
   }
   return (
-    <div className="max-h-[min(28rem,40vh)] space-y-0.5 overflow-y-auto">
+    <div className="max-h-[min(28rem,40vh)] space-y-0.5 overflow-y-auto show-scrollbar-thin">
       {models.map((option) => {
         const label = option.modelDefinition
           ? getModelLabel(option.modelDefinition)
@@ -91,7 +91,7 @@ export function MediaModelCheckboxList({
     )
   }
   return (
-    <div className="max-h-[min(28rem,40vh)] space-y-0.5 overflow-y-auto">
+    <div className="max-h-[min(28rem,40vh)] space-y-0.5 overflow-y-auto show-scrollbar-thin">
       {models.map((model) => (
         <ModelCheckboxItem
           key={`${model.providerId ?? 'unknown'}-${model.id}`}

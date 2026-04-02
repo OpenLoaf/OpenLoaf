@@ -108,7 +108,7 @@ export default function JsxCreateTool({
     const jsxParts = parts.filter((item: any) => {
       if (!item || typeof item !== 'object') return false
       const id = getToolId(item as AnyToolPart)
-      return id === 'jsx-create' || id === 'jsx-preview'
+      return id === 'JsxCreate' || id === 'jsx-preview'
     })
     if (jsxParts.length <= 1) return false
     const last = jsxParts.at(-1) as AnyToolPart | undefined
@@ -190,7 +190,7 @@ export default function JsxCreateTool({
     return null
   }
   if (shouldHideDuplicate) {
-    // 逻辑：同一消息内仅展示最后一次 jsx-create 调用结果。
+    // 逻辑：同一消息内仅展示最后一次 JsxCreate 调用结果。
     return null
   }
 

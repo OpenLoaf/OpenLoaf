@@ -495,7 +495,7 @@ function isImageOrVideoMediaType(mediaType: string): boolean {
  * Strip image/video file parts from messages when the model does not support vision.
  *
  * Replaces each image/video `file` part with a text reference that hints at using
- * the vision sub-agent via Agent tool.
+ * the vision SubAgent via Agent tool.
  */
 export function stripImagePartsForNonVisionModel(
   messages: UIMessage[],

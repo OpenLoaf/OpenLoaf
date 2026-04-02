@@ -8,7 +8,7 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 /**
- * memory-save domain tests.
+ * MemorySave domain tests.
  *
  * 基于领域驱动测试理论，按以下层次组织：
  *   A — 纯函数单元测试（无 I/O）
@@ -163,7 +163,7 @@ async function testPureFunctions() {
   })
 
   await test('A8: needsApproval should be false', () => {
-    assert.equal(_memorySaveTool.needsApproval, false, 'memory-save should not require approval')
+    assert.equal(_memorySaveTool.needsApproval, false, 'MemorySave should not require approval')
   })
 }
 
@@ -320,7 +320,7 @@ async function testFileIO() {
   })
 
   // B8: 缓存失效验证
-  await test('B8: after save, memory-search can find the new entry', async () => {
+  await test('B8: after save, MemorySearch can find the new entry', async () => {
     const { root, memoryDir } = createTempMemoryDir()
     setContextWithProject(root)
 
@@ -875,7 +875,7 @@ async function testScopeIsolation() {
 // ---------------------------------------------------------------------------
 
 async function main() {
-  console.log('\n🧪 memory-save domain tests')
+  console.log('\n🧪 MemorySave domain tests')
 
   await testPureFunctions()
   await testFileIO()

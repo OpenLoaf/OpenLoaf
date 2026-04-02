@@ -11,7 +11,7 @@
  * 统一 Agent 工厂 — Master Agent + 行为驱动子 Agent。
  *
  * 子 Agent 类型：
- * - general-purpose: 通用（tool-search + 全量工具）
+ * - general-purpose: 通用（ToolSearch + 全量工具）
  * - explore: 只读代码库探索（固定工具集）
  * - plan: 只读架构方案设计（固定工具集）
  * - dynamic: 从文件系统 AGENT.md 加载
@@ -73,7 +73,7 @@ export type BuiltinSubAgentType =
   | 'coder'
 
 /** explore / plan 共用的只读工具集。 */
-const READ_ONLY_TOOL_IDS = ['Read', 'Glob', 'Grep', 'project-query'] as const
+const READ_ONLY_TOOL_IDS = ['Read', 'Glob', 'Grep', 'ProjectQuery'] as const
 
 /** 内置子 Agent 类型集合。 */
 const BUILTIN_SUB_AGENT_TYPES = new Set<string>([
@@ -126,7 +126,7 @@ const SUB_AGENT_MAX_STEPS = 50
 
 /** Core tool IDs that are always visible (never deferred). Like Claude Code. */
 const CORE_TOOL_IDS = [
-  'tool-search',
+  'ToolSearch',
   'Bash',
   'Read',
   'Glob',
@@ -144,11 +144,11 @@ const CORE_TOOL_IDS = [
  * Problem: AI SDK's activeTools only controls which tool schemas are SENT to the
  * model, but doesn't prevent execution of non-active tools. When a model calls a
  * registered-but-unloaded tool, the SDK still validates/executes it — and the model
- * gets generic validation errors instead of "load this tool first via tool-search".
- * Weak models then repeatedly guess parameters instead of calling tool-search.
+ * gets generic validation errors instead of "load this tool first via ToolSearch".
+ * Weak models then repeatedly guess parameters instead of calling ToolSearch.
  *
  * Solution: Wrap execute() so that calling an unloaded tool immediately returns a
- * clear error directing the model to use tool-search. Also bypass needsApproval
+ * clear error directing the model to use ToolSearch. Also bypass needsApproval
  * for unloaded tools so the error surfaces directly (no broken approval UI).
  */
 function applyActivationGuard(
@@ -169,7 +169,7 @@ function applyActivationGuard(
       execute: async (input: any, options: any) => {
         if (!activatedSet.isActive(toolId)) {
           throw new Error(
-            `Tool "${toolId}" has not been loaded. You must call tool-search(names: "${toolId}") to load it first, then call it again with the correct parameters.`
+            `Tool "${toolId}" has not been loaded. You must call ToolSearch(names: "${toolId}") to load it first, then call it again with the correct parameters.`
           )
         }
         return originalExecute(input, options)
@@ -206,7 +206,7 @@ function createToolSearchPrepareStep(
     // 1. ToolSearch pull — dynamic tool visibility
     const activeToolIds = activatedSet.getActiveToolIds()
     const activeTools = allToolIds.filter((id) => activeToolIds.includes(id))
-    if (!activeTools.includes('tool-search')) activeTools.push('tool-search')
+    if (!activeTools.includes('ToolSearch')) activeTools.push('ToolSearch')
 
     // 2. Prune old tool calls — lightweight, runs every step
     // NOTE: reasoning 设为 'none'，因为 DeepSeek 等 provider 要求开启 thinking 时
@@ -365,8 +365,8 @@ export function createMasterAgent(input: CreateMasterAgentInput) {
     ActivatedToolSet.rehydrateFromMessages(activatedSet, input.messages, allToolIdSet)
   }
 
-  // Inject tool-search (dynamically created, closes over activatedSet)
-  tools['tool-search'] = createToolSearchTool(activatedSet, allToolIdSet, getToolJsonSchemas)
+  // Inject ToolSearch (dynamically created, closes over activatedSet)
+  tools['ToolSearch'] = createToolSearchTool(activatedSet, allToolIdSet, getToolJsonSchemas)
 
   // ★ Activation guard — block unloaded tool calls with clear error
   applyActivationGuard(tools, activatedSet, coreToolIds)
@@ -456,7 +456,7 @@ export function createPMAgent(input: CreatePMAgentInput) {
   const ctx = getRequestContext()
   // PM agent shares the same core tools as master
   const coreToolIds = [
-    'tool-search', 'Bash', 'Read', 'Glob', 'Grep', 'Edit', 'Write',
+    'ToolSearch', 'Bash', 'Read', 'Glob', 'Grep', 'Edit', 'Write',
     'AskUserQuestion', 'Agent', 'SendMessage',
   ] as string[]
 
@@ -475,7 +475,7 @@ export function createPMAgent(input: CreatePMAgentInput) {
 
   const tools = buildToolset(allToolIds)
   const activatedSet = new ActivatedToolSet(coreToolIds)
-  tools['tool-search'] = createToolSearchTool(activatedSet, new Set(allToolIds), getToolJsonSchemas)
+  tools['ToolSearch'] = createToolSearchTool(activatedSet, new Set(allToolIds), getToolJsonSchemas)
   applyActivationGuard(tools, activatedSet, coreToolIds)
   applyToolResultInterception(tools, getSessionId)
 
@@ -567,13 +567,13 @@ export function createSubAgent(input: CreateSubAgentInput): ToolLoopAgent {
   return createGeneralPurposeSubAgent(wrappedModel)
 }
 
-/** Create a general-purpose sub-agent with tool-search + full deferred toolset (excluding agent collaboration tools). */
+/** Create a general-purpose SubAgent with ToolSearch + full deferred toolset (excluding agent collaboration tools). */
 function createGeneralPurposeSubAgent(model: LanguageModelV3): ToolLoopAgent {
   const masterTpl = getPrimaryTemplate()
   const ctx = getRequestContext()
   // General-purpose sub-agents get core file tools but NOT agent collaboration tools
   const coreToolIds = [
-    'tool-search', 'Bash', 'Read', 'Glob', 'Grep', 'Edit', 'Write', 'AskUserQuestion',
+    'ToolSearch', 'Bash', 'Read', 'Glob', 'Grep', 'Edit', 'Write', 'AskUserQuestion',
   ] as string[]
   let deferredToolIds = filterToolIdsByPlatform(
     (masterTpl.deferredToolIds ?? []).filter((id) => !AGENT_TOOL_IDS_TO_EXCLUDE.has(id)),
@@ -589,16 +589,16 @@ function createGeneralPurposeSubAgent(model: LanguageModelV3): ToolLoopAgent {
 
   const tools = buildToolset(allToolIds)
   const activatedSet = new ActivatedToolSet(coreToolIds)
-  tools['tool-search'] = createToolSearchTool(activatedSet, new Set(allToolIds), getToolJsonSchemas)
+  tools['ToolSearch'] = createToolSearchTool(activatedSet, new Set(allToolIds), getToolJsonSchemas)
   applyActivationGuard(tools, activatedSet, coreToolIds)
   applyToolResultInterception(tools, getSessionId)
 
-  // 使用与主 Agent 相同的完整 instructions（sub-agent 不共享 preface，需自带 guidance）
+  // 使用与主 Agent 相同的完整 instructions（SubAgent 不共享 preface，需自带 guidance）
   const basePrompt = masterTpl.systemPrompt
   const finalInstructions = `${basePrompt}\n\n${buildHardRules()}\n\n${buildToolSearchGuidance(ctx?.clientPlatform, deferredToolIds)}`
 
   return new ToolLoopAgent({
-    id: `sub-agent-general-${Date.now()}`,
+    id: `SubAgent-general-${Date.now()}`,
     model,
     instructions: finalInstructions,
     tools,
@@ -610,7 +610,7 @@ function createGeneralPurposeSubAgent(model: LanguageModelV3): ToolLoopAgent {
   })
 }
 
-/** Create an explore sub-agent (read-only, fixed tools). */
+/** Create an explore SubAgent (read-only, fixed tools). */
 function createExploreSubAgent(model: LanguageModelV3): ToolLoopAgent {
   const instructions = [
     '你是一个代码库探索专用子代理。你的任务是快速搜索和分析代码库。',
@@ -619,13 +619,13 @@ function createExploreSubAgent(model: LanguageModelV3): ToolLoopAgent {
     '- Read: 读取文件内容',
     '- Glob: 搜索文件路径',
     '- Grep: 搜索文件内容',
-    '- project-query: 查询项目数据',
+    '- ProjectQuery: 查询项目数据',
     '',
     '注意：你是只读的，不能修改任何文件。专注于搜索、分析和回答问题。',
   ].join('\n')
 
   return new ToolLoopAgent({
-    id: `sub-agent-explore-${Date.now()}`,
+    id: `SubAgent-explore-${Date.now()}`,
     model,
     instructions,
     tools: buildToolset([...READ_ONLY_TOOL_IDS]),
@@ -634,7 +634,7 @@ function createExploreSubAgent(model: LanguageModelV3): ToolLoopAgent {
   })
 }
 
-/** Create a plan sub-agent (read-only, fixed tools, architecture focus). */
+/** Create a plan SubAgent (read-only, fixed tools, architecture focus). */
 function createPlanSubAgent(model: LanguageModelV3): ToolLoopAgent {
   const instructions = [
     '你是一个架构方案设计专用子代理。你的任务是分析代码库并设计实现方案。',
@@ -643,13 +643,13 @@ function createPlanSubAgent(model: LanguageModelV3): ToolLoopAgent {
     '- Read: 读取文件内容',
     '- Glob: 搜索文件路径',
     '- Grep: 搜索文件内容',
-    '- project-query: 查询项目数据',
+    '- ProjectQuery: 查询项目数据',
     '',
     '注意：你是只读的，不能修改任何文件。专注于分析架构、识别关键文件、评估权衡，输出分步实现计划。',
   ].join('\n')
 
   return new ToolLoopAgent({
-    id: `sub-agent-plan-${Date.now()}`,
+    id: `SubAgent-plan-${Date.now()}`,
     model,
     instructions,
     tools: buildToolset([...READ_ONLY_TOOL_IDS]),
@@ -694,12 +694,12 @@ const SPECIALIST_CONFIGS: Record<string, SpecialistConfig> = {
       '- browser-navigate: 打开网页',
       '- browser-click: 点击元素',
       '- browser-fill: 填写表单',
-      '- browser-screenshot: 截图',
+      '- BrowserScreenshot: 截图',
       '- WebSearch: 搜索网页',
       '',
       '注意：操作网页时注意加载等待，避免操作未渲染的元素。',
     ].join('\n'),
-    toolIds: ['browser-navigate', 'browser-click', 'browser-fill', 'browser-screenshot', 'browser-read', 'WebSearch'],
+    toolIds: ['browser-navigate', 'browser-click', 'browser-fill', 'BrowserScreenshot', 'browser-read', 'WebSearch'],
     maxSteps: 40,
   },
   'data-analyst': {
@@ -710,11 +710,11 @@ const SPECIALIST_CONFIGS: Record<string, SpecialistConfig> = {
       '你可以使用以下工具：',
       '- Read: 读取数据文件（CSV、JSON、Excel 等）',
       '- Write: 输出分析结果',
-      '- js-repl: 执行 JavaScript 代码进行数据处理',
+      '- JsRepl: 执行 JavaScript 代码进行数据处理',
       '',
-      '注意：优先使用 js-repl 进行数据处理。大数据集使用流式处理避免内存溢出。',
+      '注意：优先使用 JsRepl 进行数据处理。大数据集使用流式处理避免内存溢出。',
     ].join('\n'),
-    toolIds: ['Read', 'Write', 'js-repl'],
+    toolIds: ['Read', 'Write', 'JsRepl'],
     maxSteps: 30,
   },
   'extractor': {
@@ -775,7 +775,7 @@ const SPECIALIST_FACTORIES: Record<string, (model: LanguageModelV3) => ToolLoopA
       (model: LanguageModelV3) => {
         const toolIds = config.toolIds.filter((id) => !AGENT_TOOL_IDS_TO_EXCLUDE.has(id))
         return new ToolLoopAgent({
-          id: `sub-agent-${config.id}-${Date.now()}`,
+          id: `SubAgent-${config.id}-${Date.now()}`,
           model,
           instructions: config.instructions,
           tools: buildToolset(toolIds),
@@ -832,7 +832,7 @@ function createDynamicAgentFromConfig(
   })
 }
 
-/** Resolve the effective sub-agent type for display/logging. */
+/** Resolve the effective SubAgent type for display/logging. */
 export function resolveEffectiveAgentName(raw?: string): string {
   if (!raw) return 'general-purpose'
   return raw.toLowerCase().trim()

@@ -85,24 +85,24 @@ export const TOOL_REGISTRY: ToolRegistryEntry[] = [
   { match: 'task', component: ClaudeCodeTaskTool as ComponentType<ToolComponentProps>, providerOnly: true },
 
   // ── Standard tools ──
-  { match: 'update-plan', component: PlanTool as ComponentType<ToolComponentProps> },
+  { match: 'UpdatePlan', component: PlanTool as ComponentType<ToolComponentProps> },
   { match: 'AskUserQuestion', component: RequestUserInputTool as ComponentType<ToolComponentProps> },
-  { match: ['jsx-create', 'jsx-preview'], component: JsxCreateTool as ComponentType<ToolComponentProps> },
+  { match: ['JsxCreate', 'jsx-preview'], component: JsxCreateTool as ComponentType<ToolComponentProps> },
   { match: ['Edit', 'apply-patch'], component: WriteFileTool as ComponentType<ToolComponentProps> },
   { match: ['Bash', 'shell-command'], component: ShellTool as ComponentType<ToolComponentProps> },
   { match: ['Read', 'read-file'], component: ReadTool as ComponentType<ToolComponentProps> },
   { match: ['Grep', 'grep-files'], component: GrepTool as ComponentType<ToolComponentProps> },
   { match: ['Glob', 'list-dir'], component: GlobTool as ComponentType<ToolComponentProps> },
   { match: 'Write', component: WriteFileTool as ComponentType<ToolComponentProps> },
-  { match: 'generate-widget', component: WidgetTool as ComponentType<ToolComponentProps> },
-  { match: 'widget-init', component: WidgetInitTool as ComponentType<ToolComponentProps> },
-  { match: 'widget-check', component: WidgetCheckTool as ComponentType<ToolComponentProps> },
+  { match: 'GenerateWidget', component: WidgetTool as ComponentType<ToolComponentProps> },
+  { match: 'WidgetInit', component: WidgetInitTool as ComponentType<ToolComponentProps> },
+  { match: 'WidgetCheck', component: WidgetCheckTool as ComponentType<ToolComponentProps> },
   { match: 'Agent', component: SubAgentPanel as ComponentType<ToolComponentProps> },
   { match: 'SendMessage', component: SendMessageTool as ComponentType<ToolComponentProps> },
-  { match: 'chart-render', component: ChartTool as ComponentType<ToolComponentProps> },
-  { match: ['excel-query', 'excel-mutate'], component: ExcelTool as ComponentType<ToolComponentProps> },
+  { match: 'ChartRender', component: ChartTool as ComponentType<ToolComponentProps> },
+  { match: ['ExcelQuery', 'ExcelMutate'], component: ExcelTool as ComponentType<ToolComponentProps> },
   {
-    match: ['word-query', 'word-mutate'],
+    match: ['WordQuery', 'WordMutate'],
     component: WordTool as ComponentType<ToolComponentProps>,
     guard: (part) => {
       const input = normalizeToolInput(part.input)
@@ -111,7 +111,7 @@ export const TOOL_REGISTRY: ToolRegistryEntry[] = [
     },
   },
   {
-    match: ['pptx-query', 'pptx-mutate'],
+    match: ['PptxQuery', 'PptxMutate'],
     component: PptxTool as ComponentType<ToolComponentProps>,
     guard: (part) => {
       const input = normalizeToolInput(part.input)
@@ -119,14 +119,14 @@ export const TOOL_REGISTRY: ToolRegistryEntry[] = [
       return obj?.mode !== 'read-xml'
     },
   },
-  { match: ['pdf-query', 'pdf-mutate'], component: PdfTool as ComponentType<ToolComponentProps> },
-  { match: 'image-process', component: ImageProcessTool as ComponentType<ToolComponentProps> },
-  { match: 'video-download', component: VideoDownloadTool as ComponentType<ToolComponentProps> },
-  { match: ['browser-snapshot', 'browser-observe'], component: BrowserSnapshotTool as ComponentType<ToolComponentProps> },
-  { match: 'browser-screenshot', component: BrowserScreenshotTool as ComponentType<ToolComponentProps> },
-  { match: ['task-manage', 'create-task'], component: TaskTool as ComponentType<ToolComponentProps> },
-  { match: 'project-mutate', component: ProjectTool as ComponentType<ToolComponentProps> },
-  { match: 'file-info', component: FileInfoTool as ComponentType<ToolComponentProps> },
+  { match: ['PdfQuery', 'PdfMutate'], component: PdfTool as ComponentType<ToolComponentProps> },
+  { match: 'ImageProcess', component: ImageProcessTool as ComponentType<ToolComponentProps> },
+  { match: 'VideoDownload', component: VideoDownloadTool as ComponentType<ToolComponentProps> },
+  { match: ['BrowserSnapshot', 'BrowserObserve'], component: BrowserSnapshotTool as ComponentType<ToolComponentProps> },
+  { match: 'BrowserScreenshot', component: BrowserScreenshotTool as ComponentType<ToolComponentProps> },
+  { match: ['TaskManage', 'CreateTask'], component: TaskTool as ComponentType<ToolComponentProps> },
+  { match: 'ProjectMutate', component: ProjectTool as ComponentType<ToolComponentProps> },
+  { match: 'FileInfo', component: FileInfoTool as ComponentType<ToolComponentProps> },
 ]
 
 /** Look up a registry entry by tool kind. */

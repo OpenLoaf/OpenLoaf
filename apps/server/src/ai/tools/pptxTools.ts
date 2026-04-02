@@ -348,6 +348,6 @@ export const pptxMutateTool = tool({
 function handleLegacyPpt(_filePath: string, _mode: string) {
   return {
     ok: false,
-    error: '该文件为旧版 .ppt 格式，不支持直接读取。请先将文件转换为 .pptx 格式后重试，或使用 doc-convert 工具转换。',
+    error: '该文件为旧版 .ppt 格式，不支持直接读取。请先将文件转换为 .pptx 格式后重试，或使用 DocConvert 工具转换。',
   }
 }

@@ -36,7 +36,7 @@
 不复用 Master Agent。Board Agent 是专用的画布任务执行者：
 
 - **无会话**：每次独立任务，不维护聊天历史
-- **画布工具集**：`board-query`、`board-create-node`、`board-derive-node`、`board-update-node`、`board-batch-derive`、`read-file`
+- **画布工具集**：`BoardQuery`、`board-create-node`、`board-derive-node`、`board-update-node`、`board-batch-derive`、`read-file`
 - **轻量**：maxSteps=10，maxDepth=0（不 spawn 子 agent）
 - **预加载 Skill**：Skill 内容在创建时注入 system prompt，非运行时 loadSkill
 

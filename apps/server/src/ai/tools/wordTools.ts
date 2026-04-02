@@ -285,7 +285,7 @@ async function handleLegacyDoc(filePath: string, mode: string) {
   if (mode !== 'read-text') {
     return {
       ok: false,
-      error: '该文件为旧版 .doc 格式，仅支持 read-text 模式提取纯文本。如需编辑，请使用 word-mutate(create) 创建新的 .docx 文件。',
+      error: '该文件为旧版 .doc 格式，仅支持 read-text 模式提取纯文本。如需编辑，请使用 WordMutate(create) 创建新的 .docx 文件。',
     }
   }
   const { absPath } = resolveToolPath({ target: filePath })
@@ -303,7 +303,7 @@ async function handleLegacyDoc(filePath: string, mode: string) {
       truncated,
       characterCount: text.length,
       legacy: true,
-      hint: '该文件为旧版 .doc 格式。如需编辑，请使用 word-mutate(create) 创建新的 .docx 文件。',
+      hint: '该文件为旧版 .doc 格式。如需编辑，请使用 WordMutate(create) 创建新的 .docx 文件。',
     },
   }
 }

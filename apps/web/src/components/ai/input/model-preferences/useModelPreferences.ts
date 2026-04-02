@@ -114,8 +114,11 @@ export function useModelPreferences() {
   )
 
   // 本地 override：仅在 master agent 不存在时提供即时反馈。
-  // 当缓存数据到达后自动清除。
-  const [overrideChatIds, setOverrideChatIds] = useState<string[] | null>(null)
+  // 按 cloud/local 分开存储，避免切换源时旧 ID 污染新源。
+  const [overrideCloudChatIds, setOverrideCloudChatIds] = useState<string[] | null>(null)
+  const [overrideLocalChatIds, setOverrideLocalChatIds] = useState<string[] | null>(null)
+  const overrideChatIds = isCloudSource ? overrideCloudChatIds : overrideLocalChatIds
+  const setOverrideChatIds = isCloudSource ? setOverrideCloudChatIds : setOverrideLocalChatIds
   const [overrideImageIds, setOverrideImageIds] = useState<string[] | null>(null)
   const [overrideVideoIds, setOverrideVideoIds] = useState<string[] | null>(null)
   const [overrideCodeIds, setOverrideCodeIds] = useState<string[] | null>(null)

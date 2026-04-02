@@ -70,7 +70,7 @@ function normalizeParts(parts: unknown): unknown[] {
 }
 
 // From: apps/web/src/lib/chat/message-parts.ts
-const HIDDEN_TOOL_NAMES = new Set(['tool-search'])
+const HIDDEN_TOOL_NAMES = new Set(['ToolSearch'])
 
 function resolveToolName(part: { type?: unknown; toolName?: unknown }): string {
   if (typeof part.toolName === 'string' && part.toolName.trim()) return part.toolName.trim()
@@ -257,7 +257,7 @@ async function main() {
     assert.equal(result.length, 1, '仅空格的文本不应被过滤')
   })
 
-  await test('NP5: 过滤 sub-agent 中间产物', () => {
+  await test('NP5: 过滤 SubAgent 中间产物', () => {
     const result = normalizeParts([
       { type: 'data-sub-agent-chunk', data: {} },
       { type: 'data-sub-agent-delta', delta: 'x' },
@@ -334,8 +334,8 @@ async function main() {
     assert.equal(isToolPart('string'), false)
   })
 
-  await test('TP6: tool-search 是隐藏工具', () => {
-    assert.equal(isHiddenToolPart({ toolName: 'tool-search' }), true)
+  await test('TP6: ToolSearch 是隐藏工具', () => {
+    assert.equal(isHiddenToolPart({ toolName: 'ToolSearch' }), true)
     assert.equal(isHiddenToolPart({ toolName: 'Tool-Search' }), true)
   })
 
@@ -378,7 +378,7 @@ async function main() {
   })
 
   await test('VC6: 只有隐藏工具 → false', () => {
-    assert.equal(messageHasVisibleContent({ parts: [{ toolName: 'tool-search' }] }), false)
+    assert.equal(messageHasVisibleContent({ parts: [{ toolName: 'ToolSearch' }] }), false)
   })
 
   await test('VC7: undefined/null → false', () => {
@@ -392,7 +392,7 @@ async function main() {
       messageHasVisibleContent({
         parts: [
           { type: 'text', text: '' },
-          { toolName: 'tool-search' },
+          { toolName: 'ToolSearch' },
           { type: 'text', text: 'visible' },
         ],
       }),

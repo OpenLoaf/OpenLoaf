@@ -282,13 +282,13 @@ UI 浮现轻提示："文件已保存到临时项目"
 #### 🌐 浏览器操作专家 (Browser)
 - **触发时机**：用户要求网页操作、截图、表单填写
 - **能力**：网页导航与截图、表单自动填写、数据抓取、页面交互
-- **工具集**：browser-navigate, browser-click, browser-fill, browser-screenshot, browser-read, WebSearch
+- **工具集**：browser-navigate, browser-click, browser-fill, BrowserScreenshot, browser-read, WebSearch
 - **步数限制**：20 步 — 网页导航天然是多步骤的（打开页面 → 等待加载 → 点击 → 填表 → 截图），每个交互动作至少消耗 1 步，复杂页面流程需要更多余量
 
 #### 📊 数据分析专家 (Data Analyst)
 - **触发时机**：涉及 CSV/Excel 分析、数据可视化、统计
 - **能力**：表格数据分析、图表生成（ECharts/Mermaid）、数据清洗、趋势分析
-- **工具集**：Read, Write, js-repl
+- **工具集**：Read, Write, JsRepl
 - **步数限制**：15 步 — 数据分析的核心循环是「读取数据 → 计算 → 生成图表」，15 步覆盖大多数分析场景
 
 #### 🔍 信息提取专家 (Extractor)
@@ -371,5 +371,5 @@ UI 浮现轻提示："文件已保存到临时项目"
 - 在日历页说"把这个会议相关的文档整理到项目 X 里"
 - 在项目里说"帮我发邮件给同事通知进度"
 
-**策略**：主 Agent 通过 tool-search 按需激活跨模块工具，无需切换子 Agent。`openloaf-basics` skill 告诉 Agent 其他模块的存在和能力边界。
+**策略**：主 Agent 通过 ToolSearch 按需激活跨模块工具，无需切换子 Agent。`openloaf-basics` skill 告诉 Agent 其他模块的存在和能力边界。
 

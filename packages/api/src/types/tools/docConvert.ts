@@ -10,7 +10,7 @@
 import { z } from 'zod'
 
 export const docConvertToolDef = {
-  id: 'doc-convert',
+  id: 'DocConvert',
   name: '文档转换',
   description:
     '触发：当用户需要将文档从一种格式转换为另一种格式时调用。' +
@@ -27,7 +27,7 @@ export const docConvertToolDef = {
     'txt → pdf、docx、html。' +
     '重要限制：PDF↔DOCX 为有损文本级转换，不保留原始排版、图片和样式，结果中 lossyConversion: true 会标明。Excel 多 sheet 文件转 CSV 时默认取第一个 sheet。' +
     '返回：{ ok, data: { outputPath, sourceFormat, outputFormat, fileSize, lossyConversion? } }。' +
-    '不适用：需要读取/编辑文档内容（不转换格式）时，使用 word-query/excel-query/pdf-query 等专用工具。',
+    '不适用：需要读取/编辑文档内容（不转换格式）时，使用 WordQuery/excel-query/pdf-query 等专用工具。',
   parameters: z.object({
     filePath: z
       .string()

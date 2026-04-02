@@ -37,7 +37,7 @@ export type AgentTemplate = {
   isPrimary: boolean
   /** 系统提示词。 */
   systemPrompt: string
-  /** 延迟工具 ID 列表（需通过 tool-search 发现后才可用）。仅 Master Agent 使用。 */
+  /** 延迟工具 ID 列表（需通过 ToolSearch 发现后才可用）。仅 Master Agent 使用。 */
   deferredToolIds?: readonly string[]
   /** true = 仅内置使用，不生成文件、不出现在 UI。 */
   isBuiltinOnly?: boolean

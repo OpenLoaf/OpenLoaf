@@ -182,11 +182,11 @@ async function main() {
   console.log('\n  --- C. Skip persistence for metadata tools ---')
 
   const skipTools = [
-    'tool-search',
+    'ToolSearch',
     'Agent',
     'SendMessage',
     'AskUserQuestion',
-    'load-skill',
+    'LoadSkill',
   ]
 
   for (const toolName of skipTools) {
@@ -373,17 +373,17 @@ async function main() {
   await test('SKIP_PERSISTENCE_TOOLS 中的工具不被包装', async () => {
     const originalExecute = async () => chars(100_000)
     const tools: Record<string, any> = {
-      'tool-search': { execute: originalExecute },
+      'ToolSearch': { execute: originalExecute },
       'Agent': { execute: originalExecute },
-      'load-skill': { execute: originalExecute },
+      'LoadSkill': { execute: originalExecute },
     }
 
     applyToolResultInterception(tools, () => TEST_SESSION_ID)
 
     // The execute function should remain unchanged (not wrapped)
-    assert.equal(tools['tool-search'].execute, originalExecute)
+    assert.equal(tools['ToolSearch'].execute, originalExecute)
     assert.equal(tools['Agent'].execute, originalExecute)
-    assert.equal(tools['load-skill'].execute, originalExecute)
+    assert.equal(tools['LoadSkill'].execute, originalExecute)
   })
 
   await test('没有 execute 函数的工具不会被包装', async () => {

@@ -23,7 +23,7 @@ type HandleSubAgentToolPartsInput = {
   executeToolPart: (input: { part: any; tabId?: string }) => Promise<boolean> | boolean;
 };
 
-/** Handle sub-agent tool parts and forward frontend tool execution. */
+/** Handle SubAgent tool parts and forward frontend tool execution. */
 export function handleSubAgentToolParts(input: HandleSubAgentToolPartsInput): void {
   if (!input.tabId || !input.subAgentToolCallId) return;
   if (!Array.isArray(input.parts) || input.parts.length === 0) return;
@@ -41,9 +41,9 @@ export function handleSubAgentToolParts(input: HandleSubAgentToolPartsInput): vo
     if (!isTool) continue;
     if (isHiddenToolPart(part)) continue;
 
-    if (toolName === "open-url") {
-      // 逻辑：记录子代理 open-url 原始入参，便于排查 url 丢失问题。
-      console.warn("[sub-agent] open-url tool part", {
+    if (toolName === "OpenUrl") {
+      // 逻辑：记录子代理 OpenUrl 原始入参，便于排查 url 丢失问题。
+      console.warn("[SubAgent] OpenUrl tool part", {
         toolCallId: toolCallIdValue,
         part: part as any,
       });

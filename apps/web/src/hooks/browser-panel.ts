@@ -62,7 +62,7 @@ export function normalizeBrowserWindowItem(
   const currentTabs = getBrowserTabs(existing);
   const currentActive = getActiveBrowserTabId(existing);
 
-  // 1) params.__open：追加/激活一个浏览器子标签（open-url / agent 事件使用）
+  // 1) params.__open：追加/激活一个浏览器子标签（OpenUrl / agent 事件使用）
   // 2) params.browserTabs：整体覆盖（由 ElectrronBrowserWindow 内部切换/关闭使用）
   const providedTabs = Array.isArray(incomingParams.browserTabs)
     ? (incomingParams.browserTabs as BrowserTab[])

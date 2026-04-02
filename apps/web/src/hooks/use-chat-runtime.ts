@@ -130,11 +130,11 @@ export type ChatRuntimeState = {
   clearSessionChatStatus: (sessionId: string) => void;
   /** Set dictation status for a tab. */
   setTabDictationStatus: (tabId: string, isListening: boolean) => void;
-  /** Set sub-agent streams for a tab (full replace). */
+  /** Set SubAgent streams for a tab (full replace). */
   setSubAgentStreams: (tabId: string, streams: Record<string, SubAgentStreamState>) => void;
-  /** Incrementally update a single sub-agent stream entry. */
+  /** Incrementally update a single SubAgent stream entry. */
   updateSubAgentStream: (tabId: string, toolCallId: string, patch: Partial<SubAgentStreamState>) => void;
-  /** Clear all sub-agent streams for a tab. */
+  /** Clear all SubAgent streams for a tab. */
   clearSubAgentStreams: (tabId: string) => void;
   /** Claude Code runtime state grouped by tab id. */
   ccRuntimeByTabId: Record<string, ClaudeCodeRuntimeState>;

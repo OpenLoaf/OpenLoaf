@@ -52,7 +52,7 @@ function buildAgentResultXml(input: {
   return lines.join('\n')
 }
 
-/** Launch a sub-agent (sync by default, async with run_in_background). */
+/** Launch a SubAgent (sync by default, async with run_in_background). */
 export const agentTool = tool({
   description: agentToolDef.description,
   inputSchema: zodSchema(agentToolDef.parameters),
@@ -100,7 +100,7 @@ export const agentTool = tool({
 
     // 禁止 spawn master agent 作为子 agent
     if (effectiveName === 'master') {
-      throw new Error('Cannot spawn master agent as a sub-agent.')
+      throw new Error('Cannot spawn master agent as a SubAgent.')
     }
 
     // 禁止 agent 创建和自己同类型的子 agent
@@ -109,7 +109,7 @@ export const agentTool = tool({
       const parentName = resolveEffectiveAgentName(stack[stack.length - 1]!.name)
       if (parentName === effectiveName) {
         throw new Error(
-          `Agent "${subagent_type}" cannot spawn a sub-agent of the same type. Try a different approach or use available tools directly.`,
+          `Agent "${subagent_type}" cannot spawn a SubAgent of the same type. Try a different approach or use available tools directly.`,
         )
       }
     }
@@ -153,7 +153,7 @@ export const agentTool = tool({
   },
 })
 
-/** Send a message to an existing sub-agent (auto-recovers stopped agents). */
+/** Send a message to an existing SubAgent (auto-recovers stopped agents). */
 export const sendMessageTool = tool({
   description: sendMessageToolDef.description,
   inputSchema: zodSchema(sendMessageToolDef.parameters),

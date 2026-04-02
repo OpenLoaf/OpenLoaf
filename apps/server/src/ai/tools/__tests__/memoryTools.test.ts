@@ -10,7 +10,7 @@
 /**
  * memoryTools unit tests.
  *
- * Tests memory-search and memory-get tool execute functions.
+ * Tests MemorySearch and MemoryGet tool execute functions.
  *
  * 用法:
  *   cd apps/server

@@ -210,14 +210,14 @@ export async function createPdf(
   for (const item of content) {
     if ('text' in item && hasNonLatinChars(item.text)) {
       throw new Error(
-        'PDF 创建目前使用标准字体，不支持中日韩（CJK）等非拉丁字符。请使用英文内容，或改用 Word (word-mutate) 创建文档。',
+        'PDF 创建目前使用标准字体，不支持中日韩（CJK）等非拉丁字符。请使用英文内容，或改用 Word (WordMutate) 创建文档。',
       )
     }
     if ('items' in item) {
       for (const text of item.items) {
         if (hasNonLatinChars(text)) {
           throw new Error(
-            'PDF 创建目前使用标准字体，不支持中日韩（CJK）等非拉丁字符。请使用英文内容，或改用 Word (word-mutate) 创建文档。',
+            'PDF 创建目前使用标准字体，不支持中日韩（CJK）等非拉丁字符。请使用英文内容，或改用 Word (WordMutate) 创建文档。',
           )
         }
       }
@@ -226,7 +226,7 @@ export async function createPdf(
       for (const h of item.headers) {
         if (hasNonLatinChars(h)) {
           throw new Error(
-            'PDF 创建目前使用标准字体，不支持中日韩（CJK）等非拉丁字符。请使用英文内容，或改用 Word (word-mutate) 创建文档。',
+            'PDF 创建目前使用标准字体，不支持中日韩（CJK）等非拉丁字符。请使用英文内容，或改用 Word (WordMutate) 创建文档。',
           )
         }
       }
@@ -234,7 +234,7 @@ export async function createPdf(
         for (const cell of row) {
           if (hasNonLatinChars(cell)) {
             throw new Error(
-              'PDF 创建目前使用标准字体，不支持中日韩（CJK）等非拉丁字符。请使用英文内容，或改用 Word (word-mutate) 创建文档。',
+              'PDF 创建目前使用标准字体，不支持中日韩（CJK）等非拉丁字符。请使用英文内容，或改用 Word (WordMutate) 创建文档。',
             )
           }
         }

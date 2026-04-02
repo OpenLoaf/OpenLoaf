@@ -119,7 +119,7 @@ async function main() {
 
     await test('P1: 普通聊天上下文下载到 chat-history asset', async () => {
       const result: any = await withCtx(
-        { sessionId: 'video-download-test' },
+        { sessionId: 'VideoDownload-test' },
         () => videoDownloadTool.execute({ url: server.url }, toolCtx),
       )
 
@@ -127,7 +127,7 @@ async function main() {
       assert.equal(result.data.destination, 'chat')
       assert.match(
         result.data.filePath,
-        /^\[video-download-test\]\/asset\//,
+        /^\[VideoDownload-test\]\/asset\//,
       )
 
       const stat = await fs.stat(result.data.absolutePath)
@@ -140,7 +140,7 @@ async function main() {
 
     await test('Q1: 画布上下文下载到 board asset', async () => {
       const result: any = await withCtx(
-        { sessionId: 'video-download-board-test', boardId: 'board_test_001' },
+        { sessionId: 'VideoDownload-board-test', boardId: 'board_test_001' },
         () => videoDownloadTool.execute({ url: server.url }, toolCtx),
       )
 

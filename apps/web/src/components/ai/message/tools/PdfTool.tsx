@@ -364,7 +364,7 @@ export default function PdfTool({
   className?: string
 }) {
   const toolKind = getToolKind(part)
-  const isMutate = toolKind === 'pdf-mutate'
+  const isMutate = toolKind === 'PdfMutate'
 
   return (
     <OfficeToolShell

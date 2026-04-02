@@ -235,7 +235,7 @@ export default function TaskTool({
     }
   }, [part.output])
 
-  // 向后兼容：旧的 create-task 工具没有 action 字段，默认为 create
+  // 向后兼容：旧的 CreateTask 工具没有 action 字段，默认为 create
   const action: TaskAction = input.action ?? 'create'
   const config = ACTION_CONFIG[action] ?? ACTION_CONFIG.create
   const ActionIcon = config.icon

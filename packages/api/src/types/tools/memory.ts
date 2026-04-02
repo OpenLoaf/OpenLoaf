@@ -11,7 +11,7 @@ import { z } from "zod";
 import { RiskType } from "../toolResult";
 
 export const memorySaveToolDef = {
-  id: "memory-save",
+  id: "MemorySave",
   name: "保存记忆",
   description:
     "将信息持久化保存到记忆系统（跨会话可检索）。支持新建、更新、追加、删除记忆。" +
@@ -55,7 +55,7 @@ export const memorySaveToolDef = {
 } as const;
 
 export const memorySearchToolDef = {
-  id: "memory-search",
+  id: "MemorySearch",
   name: "记忆搜索",
   description:
     "搜索记忆文件。输入查询关键词，返回匹配的记忆片段列表（文件路径 + 摘要 + 日期 + 衰减权重），按相关性排序。用于在运行时按需检索历史记忆。",
@@ -81,15 +81,15 @@ export const memorySearchToolDef = {
 } as const;
 
 export const memoryGetToolDef = {
-  id: "memory-get",
+  id: "MemoryGet",
   name: "读取记忆",
   description:
-    "按路径读取一个记忆文件的完整内容。通常在 memory-search 返回结果后，选择感兴趣的记忆使用本工具读取完整内容。",
+    "按路径读取一个记忆文件的完整内容。通常在 MemorySearch 返回结果后，选择感兴趣的记忆使用本工具读取完整内容。",
   parameters: z.object({
     filePath: z
       .string()
       .min(1)
-      .describe("记忆文件的完整路径（从 memory-search 结果中获取）"),
+      .describe("记忆文件的完整路径（从 MemorySearch 结果中获取）"),
   }),
   component: null,
 } as const;

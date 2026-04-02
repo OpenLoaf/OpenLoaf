@@ -62,8 +62,8 @@ export type ToolOutputState = {
 export function getToolName(part: AnyToolPart): string {
   const inputPayload = normalizeToolInput(part.input);
   const inputObject = asPlainObject(inputPayload);
-  // Legacy: actionName 仅用于兼容历史消息数据和 update-plan 工具的语义化显示名称。
-  // 新工具 schema 已不再包含 actionName 字段（除 update-plan 外）。
+  // Legacy: actionName 仅用于兼容历史消息数据和 UpdatePlan 工具的语义化显示名称。
+  // 新工具 schema 已不再包含 actionName 字段（除 UpdatePlan 外）。
   const actionName = typeof inputObject?.actionName === "string" ? inputObject.actionName.trim() : "";
   if (actionName) return actionName;
 

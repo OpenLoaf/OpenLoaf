@@ -210,7 +210,7 @@ date: 2026-03-15
 ## 🚀 Improvements
 
 - Enhance AI Agent capabilities with new icon assets
-- Rename task creation tool to task-manage
+- Rename task creation tool to TaskManage
 
 ## 💄 UI/UX
 

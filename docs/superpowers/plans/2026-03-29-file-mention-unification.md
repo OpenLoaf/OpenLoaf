@@ -375,7 +375,7 @@ Test in running app:
 1. Project chat: upload a PDF → confirm path is `.openloaf/chat-history/...` (no `../`)
 2. Human message: PDF mention shows as blue chip with correct filename
 3. Click the chip → file preview opens
-4. AI tool output (e.g., pdf-query result) → still renders as `MessageFile` card
+4. AI tool output (e.g., PdfQuery result) → still renders as `MessageFile` card
 5. Temporary chat (no project): upload file → works normally
 6. Historical messages with `../chat-history/...` paths → chip is clickable
 

@@ -451,7 +451,7 @@ class TaskExecutor {
       parts.push('')
     }
     parts.push(`### 要求`)
-    parts.push(`1. 使用 update-plan 工具生成分步骤的执行计划`)
+    parts.push(`1. 使用 UpdatePlan 工具生成分步骤的执行计划`)
     parts.push(`2. 每个步骤应清晰、可执行`)
     parts.push(`3. 生成计划后停止，等待确认后再执行`)
     parts.push(`4. 如需使用其他 Agent（如 shell、document），可通过 Agent 工具调度`)

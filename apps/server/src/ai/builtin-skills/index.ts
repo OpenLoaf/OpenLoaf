@@ -54,7 +54,7 @@ export const BUILTIN_SKILLS: BuiltinSkill[] = [
     content: stripFrontMatter(openloafBasicsMd),
     icon: '📚',
     colorIndex: 0,
-    tools: ['AskUserQuestion', 'update-plan'],
+    tools: ['AskUserQuestion', 'UpdatePlan'],
   },
   {
     name: 'file-ops',
@@ -63,7 +63,7 @@ export const BUILTIN_SKILLS: BuiltinSkill[] = [
     content: stripFrontMatter(fileOpsMd),
     icon: '📄',
     colorIndex: 1,
-    tools: ['Read', 'Glob', 'Grep', 'Edit', 'Write', 'file-info', 'edit-document'],
+    tools: ['Read', 'Glob', 'Grep', 'Edit', 'Write', 'FileInfo', 'EditDocument'],
   },
   {
     name: 'email-ops',
@@ -72,7 +72,7 @@ export const BUILTIN_SKILLS: BuiltinSkill[] = [
     content: stripFrontMatter(emailOpsMd),
     icon: '📧',
     colorIndex: 2,
-    tools: ['email-query', 'email-mutate'],
+    tools: ['EmailQuery', 'EmailMutate'],
   },
   {
     name: 'calendar-ops',
@@ -81,7 +81,7 @@ export const BUILTIN_SKILLS: BuiltinSkill[] = [
     content: stripFrontMatter(calendarOpsMd),
     icon: '📅',
     colorIndex: 3,
-    tools: ['calendar-query', 'calendar-mutate'],
+    tools: ['CalendarQuery', 'CalendarMutate'],
   },
   {
     name: 'task-ops',
@@ -90,7 +90,7 @@ export const BUILTIN_SKILLS: BuiltinSkill[] = [
     content: stripFrontMatter(taskOpsMd),
     icon: '✅',
     colorIndex: 4,
-    tools: ['task-manage', 'task-status'],
+    tools: ['TaskManage', 'TaskStatus'],
   },
   {
     name: 'canvas-ops',
@@ -99,7 +99,7 @@ export const BUILTIN_SKILLS: BuiltinSkill[] = [
     content: stripFrontMatter(canvasOpsMd),
     icon: '🎨',
     colorIndex: 5,
-    tools: ['board-query', 'board-mutate'],
+    tools: ['BoardQuery', 'BoardMutate'],
   },
   {
     name: 'project-ops',
@@ -108,7 +108,7 @@ export const BUILTIN_SKILLS: BuiltinSkill[] = [
     content: stripFrontMatter(projectOpsMd),
     icon: '📁',
     colorIndex: 6,
-    tools: ['project-query', 'project-mutate'],
+    tools: ['ProjectQuery', 'ProjectMutate'],
   },
   {
     name: 'workbench-ops',
@@ -117,7 +117,7 @@ export const BUILTIN_SKILLS: BuiltinSkill[] = [
     content: stripFrontMatter(workbenchOpsMd),
     icon: '🧩',
     colorIndex: 7,
-    tools: ['widget-init', 'widget-list', 'widget-get', 'widget-check', 'generate-widget', 'Read', 'Edit'],
+    tools: ['WidgetInit', 'WidgetList', 'WidgetGet', 'WidgetCheck', 'GenerateWidget', 'Read', 'Edit'],
   },
   {
     name: 'settings-guide',
@@ -135,7 +135,7 @@ export const BUILTIN_SKILLS: BuiltinSkill[] = [
     content: stripFrontMatter(multiAgentRoutingMd),
     icon: '🔀',
     colorIndex: 1,
-    tools: ['Agent', 'SendMessage', 'task-manage', 'task-status'],
+    tools: ['Agent', 'SendMessage', 'TaskManage', 'TaskStatus'],
   },
   {
     name: 'system-agent-architecture',
@@ -153,7 +153,7 @@ export const BUILTIN_SKILLS: BuiltinSkill[] = [
     content: stripFrontMatter(browserAutomationGuideMd),
     icon: '🌐',
     colorIndex: 3,
-    tools: ['open-url', 'WebSearch', 'WebFetch', 'browser-snapshot', 'browser-observe', 'browser-act', 'browser-wait', 'browser-extract', 'browser-screenshot', 'browser-download-image'],
+    tools: ['OpenUrl', 'WebSearch', 'WebFetch', 'BrowserSnapshot', 'BrowserObserve', 'BrowserAct', 'BrowserWait', 'BrowserExtract', 'BrowserScreenshot', 'BrowserDownloadImage'],
   },
   {
     name: 'office-document-guide',
@@ -162,7 +162,7 @@ export const BUILTIN_SKILLS: BuiltinSkill[] = [
     content: stripFrontMatter(officeDocumentGuideMd),
     icon: '📊',
     colorIndex: 4,
-    tools: ['excel-query', 'excel-mutate', 'word-query', 'word-mutate', 'pptx-query', 'pptx-mutate', 'pdf-query', 'pdf-mutate', 'doc-convert'],
+    tools: ['ExcelQuery', 'ExcelMutate', 'WordQuery', 'WordMutate', 'PptxQuery', 'PptxMutate', 'PdfQuery', 'PdfMutate', 'DocConvert'],
   },
   {
     name: 'memory-ops',
@@ -171,7 +171,7 @@ export const BUILTIN_SKILLS: BuiltinSkill[] = [
     content: stripFrontMatter(memoryOpsMd),
     icon: '🧠',
     colorIndex: 5,
-    tools: ['memory-save', 'memory-search', 'memory-get'],
+    tools: ['MemorySave', 'MemorySearch', 'MemoryGet'],
   },
   {
     name: 'media-ops',
@@ -181,7 +181,7 @@ export const BUILTIN_SKILLS: BuiltinSkill[] = [
     icon: '🎬',
     colorIndex: 6,
     // 旧媒体生成工具已移除，聊天侧仅保留处理/下载
-    tools: ['image-process', 'video-convert', 'video-download'],
+    tools: ['ImageProcess', 'VideoConvert', 'VideoDownload'],
   },
   {
     name: 'visualization-ops',
@@ -190,6 +190,6 @@ export const BUILTIN_SKILLS: BuiltinSkill[] = [
     content: stripFrontMatter(visualizationOpsMd),
     icon: '📈',
     colorIndex: 7,
-    tools: ['jsx-create', 'chart-render'],
+    tools: ['JsxCreate', 'ChartRender'],
   },
 ]

@@ -138,23 +138,23 @@ export const readTool = tool({
     if (hasBlockedBinaryExtension(absPath)) {
       const ext = path.extname(absPath).toLowerCase()
       if (ext === '.xlsx' || ext === '.xls') {
-        throw new Error('This file is in Excel format. Use tool-search(names: "excel-query") to load the excel-query tool, then use it to read this file.')
+        throw new Error('This file is in Excel format. Use ToolSearch(names: "ExcelQuery") to load the ExcelQuery tool, then use it to read this file.')
       }
       if (ext === '.docx' || ext === '.doc') {
-        throw new Error('This file is in Word format. Use tool-search(names: "word-query") to load the word-query tool, then use it to read this file.')
+        throw new Error('This file is in Word format. Use ToolSearch(names: "WordQuery") to load the WordQuery tool, then use it to read this file.')
       }
       if (ext === '.pdf') {
-        throw new Error('This file is in PDF format. Use tool-search(names: "pdf-query") to load the pdf-query tool, then use it to read this file.')
+        throw new Error('This file is in PDF format. Use ToolSearch(names: "PdfQuery") to load the PdfQuery tool, then use it to read this file.')
       }
       if (ext === '.pptx' || ext === '.ppt') {
-        throw new Error('This file is in PowerPoint format. Use tool-search(names: "pptx-query") to load the pptx-query tool, then use it to read this file.')
+        throw new Error('This file is in PowerPoint format. Use ToolSearch(names: "PptxQuery") to load the PptxQuery tool, then use it to read this file.')
       }
       throw new Error('Only text files are supported; binary file extensions are not allowed.')
     }
 
     // PDF pages 参数提示（尚未实现原生 PDF 解析）
     if (pages) {
-      throw new Error('PDF reading is not yet implemented natively. Use tool-search(names: "pdf-query") to load the pdf-query tool.')
+      throw new Error('PDF reading is not yet implemented natively. Use ToolSearch(names: "PdfQuery") to load the PdfQuery tool.')
     }
 
     const stat = await fs.stat(absPath)

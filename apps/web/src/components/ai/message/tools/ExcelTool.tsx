@@ -460,7 +460,7 @@ export default function ExcelTool({
 }) {
   const { t } = useTranslation('ai')
   const toolKind = getToolKind(part)
-  const isMutate = toolKind === 'excel-mutate'
+  const isMutate = toolKind === 'ExcelMutate'
   const title = getToolName(part)
 
   const isStreaming = isToolStreaming(part)

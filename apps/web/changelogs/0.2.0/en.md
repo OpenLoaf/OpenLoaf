@@ -17,7 +17,7 @@ date: 2026-03-02
 
 - Enhance AI Agent capabilities with new icon assets
 - Migrate task detail panel to i18n multi-language support
-- Rename task creation tool to task-manage
+- Rename task creation tool to TaskManage
 - Refine UI design system button color semantics
 - Fix Chinese placeholder text in ChatInputBox
 

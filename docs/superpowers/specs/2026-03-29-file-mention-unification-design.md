@@ -86,7 +86,7 @@
 - 画布 chat 中上传文件，确认路径正确（不含 `../`）
 - human message 中 PDF mention 显示为蓝色 chip + 正确文件名
 - 点击 chip 能打开文件预览
-- AI 工具输出的文件（如 pdf-query 结果）仍正常使用 `MessageFile` 渲染
+- AI 工具输出的文件（如 PdfQuery 结果）仍正常使用 `MessageFile` 渲染
 - 临时 chat（无 projectId）上传文件仍正常工作
 - 历史消息中 `../chat-history/...` 路径的 mention 可点击打开
 

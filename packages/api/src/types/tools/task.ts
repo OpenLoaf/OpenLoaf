@@ -11,7 +11,7 @@ import { z } from 'zod'
 import { RiskType } from '../toolResult'
 
 export const taskManageToolDef = {
-  id: 'task-manage',
+  id: 'TaskManage',
   name: '任务管理',
   description: `管理后台任务的全生命周期。通过 action 参数选择操作：
 
@@ -123,11 +123,11 @@ export function getTaskManageToolDef(lang?: string) {
  */
 export const createTaskToolDef = {
   ...taskManageToolDef,
-  id: 'create-task',
+  id: 'CreateTask',
 } as const
 
 export const taskStatusToolDef = {
-  id: 'task-status',
+  id: 'TaskStatus',
   name: '查询任务状态',
   description:
     '查询后台任务的状态和进度。不传 taskId 返回所有活跃任务概览。',

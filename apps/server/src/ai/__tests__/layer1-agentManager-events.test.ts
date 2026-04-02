@@ -58,7 +58,7 @@ async function test(name: string, fn: () => Promise<void> | void) {
 type AgentStatus = 'pending' | 'running' | 'completed' | 'failed' | 'shutdown' | 'not_found'
 
 type SubAgentEvent = {
-  type: 'sub-agent-complete' | 'sub-agent-failed'
+  type: 'SubAgent-complete' | 'SubAgent-failed'
   agentId: string
   sessionId: string
   agentName: string
@@ -113,14 +113,14 @@ class MockAgentManagerWithEvents {
     }
     // emit 事件到 eventBus
     const event: SubAgentEvent = {
-      type: 'sub-agent-complete',
+      type: 'SubAgent-complete',
       agentId: id,
       sessionId: agent.sessionId,
       agentName: agent.name,
       result,
       timestamp: Date.now(),
     }
-    this.eventBus.emit('sub-agent-complete', event)
+    this.eventBus.emit('SubAgent-complete', event)
   }
 
   fail(id: string, error: string): void {
@@ -132,14 +132,14 @@ class MockAgentManagerWithEvents {
       try { listener('failed') } catch {}
     }
     const event: SubAgentEvent = {
-      type: 'sub-agent-failed',
+      type: 'SubAgent-failed',
       agentId: id,
       sessionId: agent.sessionId,
       agentName: agent.name,
       error,
       timestamp: Date.now(),
     }
-    this.eventBus.emit('sub-agent-failed', event)
+    this.eventBus.emit('SubAgent-failed', event)
   }
 
   delete(id: string): void {
@@ -151,13 +151,13 @@ class MockAgentManagerWithEvents {
   }
 
   onComplete(listener: (event: SubAgentEvent) => void): () => void {
-    this.eventBus.on('sub-agent-complete', listener)
-    return () => this.eventBus.off('sub-agent-complete', listener)
+    this.eventBus.on('SubAgent-complete', listener)
+    return () => this.eventBus.off('SubAgent-complete', listener)
   }
 
   onFailed(listener: (event: SubAgentEvent) => void): () => void {
-    this.eventBus.on('sub-agent-failed', listener)
-    return () => this.eventBus.off('sub-agent-failed', listener)
+    this.eventBus.on('SubAgent-failed', listener)
+    return () => this.eventBus.off('SubAgent-failed', listener)
   }
 }
 
@@ -169,9 +169,9 @@ async function main() {
   printSection('Layer 1: AgentManager Event Emit')
 
   // ── A: complete() emit 事件 ──
-  printSection('A: complete() emit sub-agent-complete')
+  printSection('A: complete() emit SubAgent-complete')
 
-  await test('A1: complete() 调用时 emit sub-agent-complete 事件', () => {
+  await test('A1: complete() 调用时 emit SubAgent-complete 事件', () => {
     const bus = new EventEmitter()
     const manager = new MockAgentManagerWithEvents(bus)
 
@@ -185,7 +185,7 @@ async function main() {
 
     assert.ok(received, 'complete 事件应被触发')
     const receivedEvent = received as SubAgentEvent
-    assert.equal(receivedEvent.type, 'sub-agent-complete')
+    assert.equal(receivedEvent.type, 'SubAgent-complete')
     assert.equal(receivedEvent.agentId, 'agent-1')
     assert.equal(receivedEvent.sessionId, 'session-abc')
     assert.equal(receivedEvent.agentName, 'coder')
@@ -196,9 +196,9 @@ async function main() {
   })
 
   // ── B: fail() emit 事件 ──
-  printSection('B: fail() emit sub-agent-failed')
+  printSection('B: fail() emit SubAgent-failed')
 
-  await test('B1: fail() 调用时 emit sub-agent-failed 事件', () => {
+  await test('B1: fail() 调用时 emit SubAgent-failed 事件', () => {
     const bus = new EventEmitter()
     const manager = new MockAgentManagerWithEvents(bus)
 
@@ -212,7 +212,7 @@ async function main() {
 
     assert.ok(received, 'fail 事件应被触发')
     const receivedEvent = received as SubAgentEvent
-    assert.equal(receivedEvent.type, 'sub-agent-failed')
+    assert.equal(receivedEvent.type, 'SubAgent-failed')
     assert.equal(receivedEvent.agentId, 'agent-2')
     assert.equal(receivedEvent.sessionId, 'session-def')
     assert.equal(receivedEvent.agentName, 'explore')
@@ -435,7 +435,7 @@ async function main() {
     const received: SubAgentEvent[] = []
 
     // 第一个 listener 会抛异常
-    bus.on('sub-agent-complete', () => {
+    bus.on('SubAgent-complete', () => {
       throw new Error('bad listener')
     })
     // 第二个 listener 应正常收到

@@ -13,8 +13,8 @@ Don't mechanically trigger a tool just because the user said a certain word. Ask
 **Examples**:
 - "Translate: I have a meeting tomorrow morning" → Primary intent is **translation**, the rest is content to translate → translate directly, don't create a task
 - "Summarize yesterday's meeting notes" → Primary intent is **summarization** → read file if available, otherwise ask for content
-- "I have a meeting at 8am tomorrow" → Primary intent is **capturing a future event** → use `task-manage`
-- "Create a meeting for 10am tomorrow" → Primary intent is **creating a calendar event** → use `calendar-mutate`
+- "I have a meeting at 8am tomorrow" → Primary intent is **capturing a future event** → use `TaskManage`
+- "Create a meeting for 10am tomorrow" → Primary intent is **creating a calendar event** → use `CalendarMutate`
 - "Help me organize desktop" → Not "immediately move files", but: see what's there first → analyze characteristics → propose plan → ask confirmation → execute
 
 ### Clarify Ambiguity: Ask When Uncertain
@@ -26,7 +26,7 @@ When a request has multiple reasonable interpretations, **confirm before acting*
 - If intent can be clearly inferred from conversation history or project state, no need to ask
 
 **Examples**:
-- "Create an agent" → Ambiguous: create a persistent agent definition in the project, or spawn a temporary sub-agent in this chat? → Use choice mode to let the user pick
+- "Create an agent" → Ambiguous: create a persistent agent definition in the project, or spawn a temporary SubAgent in this chat? → Use choice mode to let the user pick
 - "Delete this file" → Context already makes clear which file → No ambiguity, proceed (just confirm deletion)
 - "Analyze the data" → Which data? → First list files in the current project, then ask user which one to analyze
 

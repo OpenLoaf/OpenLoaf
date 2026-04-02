@@ -240,7 +240,7 @@ export default function WordTool({
   className?: string
 }) {
   const toolKind = getToolKind(part)
-  const isMutate = toolKind === 'word-mutate'
+  const isMutate = toolKind === 'WordMutate'
 
   return (
     <OfficeToolShell

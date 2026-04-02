@@ -299,9 +299,9 @@ export default function SubAgentPanel({
   const handleClick = React.useCallback(() => {
     if (!agentId) return
     useLayoutState.getState().pushStackItem({
-      id: `sub-agent-chat:${agentId}`,
-      sourceKey: `sub-agent-chat:${agentId}`,
-      component: 'sub-agent-chat',
+      id: `SubAgent-chat:${agentId}`,
+      sourceKey: `SubAgent-chat:${agentId}`,
+      component: 'SubAgent-chat',
       title: agentName,
       params: { agentId, sessionId },
     })

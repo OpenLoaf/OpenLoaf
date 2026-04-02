@@ -12,7 +12,7 @@
  * MCP Client Manager
  *
  * Manages MCP client connections with:
- * - Lazy initialization (connect on first tool-search activation)
+ * - Lazy initialization (connect on first ToolSearch activation)
  * - Connection pooling (shared across chat sessions)
  * - Idle timeout (disconnect after inactivity)
  * - PID tracking for stdio processes (orphan cleanup)

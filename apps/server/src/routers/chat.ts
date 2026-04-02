@@ -560,7 +560,7 @@ class ChatRouterImpl extends BaseChatRouter {
           const cleanupStatus = taskEventBus.onStatusChange((event) => {
             if (event.sourceSessionId !== input.sessionId) return
             queue.push({
-              type: 'task-status-change',
+              type: 'TaskStatus-change',
               taskId: event.taskId,
               status: event.status,
               previousStatus: event.previousStatus,

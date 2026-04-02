@@ -22,7 +22,7 @@ function resolveTaskInput(part: AnyToolPart): { description: string; prompt: str
   }
 }
 
-/** Tool card for Claude Code CLI-executed Task (sub-agent) calls (providerExecuted: true). */
+/** Tool card for Claude Code CLI-executed Task (SubAgent) calls (providerExecuted: true). */
 export default function ClaudeCodeTaskTool({
   part,
   className,

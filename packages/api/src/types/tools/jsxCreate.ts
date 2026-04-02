@@ -11,7 +11,7 @@ import { z } from 'zod'
 
 /** JSX create tool definition. */
 export const jsxCreateToolDef = {
-  id: 'jsx-create',
+  id: 'JsxCreate',
   name: '组件渲染',
   description:
     '用途：渲染 JSX 组件并直接在聊天界面中展示给用户查看（自动渲染，无需用户操作），同时把内容写入会话目录的 jsx 文件。\n'
@@ -39,7 +39,7 @@ export const jsxCreateToolDef = {
     + '- 交互式表单收集请用 AskUserQuestion，本工具仅负责展示。\n'
     + '- 服务端会校验 JSX 语法，违规会直接报错。\n'
     + '- 校验失败仍会写入文件，错误信息中会包含 path，请用 apply-patch 修正后刷新预览。\n'
-    + '- 每条回复只调用一次 jsx-create；若失败必须用 apply-patch 修正，不要重新调用。\n'
+    + '- 每条回复只调用一次 JsxCreate；若失败必须用 apply-patch 修正，不要重新调用。\n'
     + '可用组件白名单（大小写敏感，包含但不建议用作外框）：\n'
     + '- Message, MessageContent\n'
     + '- Panel\n'

@@ -105,7 +105,7 @@ export function collectAvailableAgents(input: {
       })
     }
   } catch (err) {
-    logger.warn({ err }, '[sub-agent-preface] loadAgentSummaries failed')
+    logger.warn({ err }, '[SubAgent-preface] loadAgentSummaries failed')
   }
 
   return entries

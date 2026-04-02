@@ -70,9 +70,9 @@ export class SupervisionService {
     // Read-only tools are always safe
     const readOnlyTools = new Set([
       'Read', 'Glob', 'Grep',
-      'browser-snapshot', 'browser-observe', 'browser-extract',
-      'project-query', 'calendar-query', 'email-query',
-      'task-status',
+      'BrowserSnapshot', 'BrowserObserve', 'BrowserExtract',
+      'ProjectQuery', 'CalendarQuery', 'EmailQuery',
+      'TaskStatus',
     ])
     if (readOnlyTools.has(toolName)) {
       return { decision: 'approve', reason: '只读工具，自动放行' }
@@ -92,7 +92,7 @@ export class SupervisionService {
     }
 
     // Plan and file tools are generally safe in task context
-    if (toolName === 'update-plan') {
+    if (toolName === 'UpdatePlan') {
       return { decision: 'approve', reason: '计划更新工具，自动放行' }
     }
 

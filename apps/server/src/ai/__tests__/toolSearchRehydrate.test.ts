@@ -11,12 +11,12 @@
  * ToolSearch Rehydrate — 回归测试。
  *
  * 复现问题：
- * 1. AI 调用 tool-search 加载了 memory-save 和 memory-search
- * 2. AI 调用 memory-save，触发 needsApproval，流中断等待用户审批
+ * 1. AI 调用 ToolSearch 加载了 MemorySave 和 MemorySearch
+ * 2. AI 调用 MemorySave，触发 needsApproval，流中断等待用户审批
  * 3. 用户批准后，新请求创建了全新 ActivatedToolSet，之前激活的工具丢失
- * 4. Activation Guard 拦截 memory-save，报错 "Tool has not been loaded"
+ * 4. Activation Guard 拦截 MemorySave，报错 "Tool has not been loaded"
  *
- * 修复方案：从消息历史中的 tool-search 结果回放激活状态。
+ * 修复方案：从消息历史中的 ToolSearch 结果回放激活状态。
  *
  * 用法：
  *   pnpm run test:tool:rehydrate
@@ -29,14 +29,14 @@ import {
 import { ActivatedToolSet } from '@/ai/tools/toolSearchState'
 
 // ---------------------------------------------------------------------------
-// 辅助：构造包含 tool-search 结果的消息历史（模拟 UIMessage 格式）
+// 辅助：构造包含 ToolSearch 结果的消息历史（模拟 UIMessage 格式）
 // ---------------------------------------------------------------------------
 
 function makeToolSearchResultPart(toolIds: string[]) {
   return {
     type: 'tool-tool-search',
     toolCallId: `call_${Date.now()}`,
-    toolName: 'tool-search',
+    toolName: 'ToolSearch',
     state: 'output-available',
     output: {
       tools: toolIds.map((id) => ({
@@ -63,15 +63,15 @@ function makeApprovalRequestedPart(toolId: string, toolCallId: string) {
 function makeFakeMessages(toolSearchToolIds: string[], approvalToolId?: string, approvalToolCallId?: string) {
   const parts: any[] = []
 
-  // tool-search 结果
+  // ToolSearch 结果
   parts.push(makeToolSearchResultPart(toolSearchToolIds))
 
-  // memory-search 成功结果
-  if (toolSearchToolIds.includes('memory-search')) {
+  // MemorySearch 成功结果
+  if (toolSearchToolIds.includes('MemorySearch')) {
     parts.push({
       type: 'tool-memory-search',
       toolCallId: `call_search_${Date.now()}`,
-      toolName: 'memory-search',
+      toolName: 'MemorySearch',
       state: 'output-available',
       output: { ok: true, results: [] },
     })
@@ -97,7 +97,7 @@ function makeFakeMessages(toolSearchToolIds: string[], approvalToolId?: string, 
 }
 
 // ---------------------------------------------------------------------------
-// 提取 tool-search 结果中已激活的工具 ID（与修复代码逻辑一致）
+// 提取 ToolSearch 结果中已激活的工具 ID（与修复代码逻辑一致）
 // ---------------------------------------------------------------------------
 
 function extractActivatedToolIdsFromMessages(messages: any[]): string[] {
@@ -110,7 +110,7 @@ function extractActivatedToolIdsFromMessages(messages: any[]): string[] {
       const toolName = (part as any).toolName
       const state = (part as any).state
       const output = (part as any).output
-      if (toolName === 'tool-search' && state === 'output-available' && output?.tools) {
+      if (toolName === 'ToolSearch' && state === 'output-available' && output?.tools) {
         for (const t of output.tools) {
           if (typeof t?.id === 'string') ids.push(t.id)
         }
@@ -129,35 +129,35 @@ async function main() {
   let passed = 0
   let failed = 0
 
-  const CORE_TOOL_IDS = ['tool-search', 'load-skill'] as const
+  const CORE_TOOL_IDS = ['ToolSearch', 'LoadSkill'] as const
 
   // ── Test 1: 复现 BUG — 新建 ActivatedToolSet 丢失动态激活状态 ──
   printSection('Test 1: 复现 BUG — 新 ActivatedToolSet 丢失动态工具')
 
   try {
-    // 模拟第一次请求：tool-search 激活了 memory-search 和 memory-save
+    // 模拟第一次请求：ToolSearch 激活了 MemorySearch 和 MemorySave
     const set1 = new ActivatedToolSet(CORE_TOOL_IDS)
-    set1.activate(['memory-search', 'memory-save'])
+    set1.activate(['MemorySearch', 'MemorySave'])
 
     // 验证第一次请求中工具已激活
-    if (!set1.isActive('memory-save')) throw new Error('第一次请求中 memory-save 应该已激活')
-    if (!set1.isActive('memory-search')) throw new Error('第一次请求中 memory-search 应该已激活')
+    if (!set1.isActive('MemorySave')) throw new Error('第一次请求中 MemorySave 应该已激活')
+    if (!set1.isActive('MemorySearch')) throw new Error('第一次请求中 MemorySearch 应该已激活')
     console.log('  第一次请求 activeTools:', set1.getActiveToolIds())
 
     // 模拟审批流：创建全新的 ActivatedToolSet（这是 bug 的根源）
     const set2 = new ActivatedToolSet(CORE_TOOL_IDS)
     console.log('  第二次请求 activeTools:', set2.getActiveToolIds())
 
-    // ★ 这就是 bug：memory-save 在新 set 中不存在
-    const lostMemorySave = !set2.isActive('memory-save')
-    const lostMemorySearch = !set2.isActive('memory-search')
+    // ★ 这就是 bug：MemorySave 在新 set 中不存在
+    const lostMemorySave = !set2.isActive('MemorySave')
+    const lostMemorySearch = !set2.isActive('MemorySearch')
 
     if (!lostMemorySave || !lostMemorySearch) {
       throw new Error('预期工具丢失，但它们意外存在 — bug 已被修复或测试有误')
     }
 
-    console.log('  确认：memory-save 已丢失 =', lostMemorySave)
-    console.log('  确认：memory-search 已丢失 =', lostMemorySearch)
+    console.log('  确认：MemorySave 已丢失 =', lostMemorySave)
+    console.log('  确认：MemorySearch 已丢失 =', lostMemorySearch)
     printPass('成功复现 BUG — 新 ActivatedToolSet 丢失了动态工具')
     passed++
   } catch (err) {
@@ -166,12 +166,12 @@ async function main() {
   }
 
   // ── Test 2: 从消息历史提取已激活工具 ID ──
-  printSection('Test 2: 从消息历史提取 tool-search 结果中的工具 ID')
+  printSection('Test 2: 从消息历史提取 ToolSearch 结果中的工具 ID')
 
   try {
     const messages = makeFakeMessages(
-      ['memory-search', 'memory-save'],
-      'memory-save',
+      ['MemorySearch', 'MemorySave'],
+      'MemorySave',
       'call_YCgnxT7bVh7NIdyWFSD4AXUW',
     )
 
@@ -181,11 +181,11 @@ async function main() {
     if (extracted.length !== 2) {
       throw new Error(`预期提取 2 个工具 ID，实际 ${extracted.length}`)
     }
-    if (!extracted.includes('memory-search')) {
-      throw new Error('缺少 memory-search')
+    if (!extracted.includes('MemorySearch')) {
+      throw new Error('缺少 MemorySearch')
     }
-    if (!extracted.includes('memory-save')) {
-      throw new Error('缺少 memory-save')
+    if (!extracted.includes('MemorySave')) {
+      throw new Error('缺少 MemorySave')
     }
 
     printPass('从消息历史成功提取工具 ID')
@@ -200,8 +200,8 @@ async function main() {
 
   try {
     const messages = makeFakeMessages(
-      ['memory-search', 'memory-save'],
-      'memory-save',
+      ['MemorySearch', 'MemorySave'],
+      'MemorySave',
       'call_YCgnxT7bVh7NIdyWFSD4AXUW',
     )
 
@@ -214,17 +214,17 @@ async function main() {
 
     console.log('  rehydrate 后 activeTools:', set.getActiveToolIds())
 
-    if (!set.isActive('memory-save')) {
-      throw new Error('rehydrate 后 memory-save 应该已激活')
+    if (!set.isActive('MemorySave')) {
+      throw new Error('rehydrate 后 MemorySave 应该已激活')
     }
-    if (!set.isActive('memory-search')) {
-      throw new Error('rehydrate 后 memory-search 应该已激活')
+    if (!set.isActive('MemorySearch')) {
+      throw new Error('rehydrate 后 MemorySearch 应该已激活')
     }
-    if (!set.isActive('tool-search')) {
-      throw new Error('core tool tool-search 应始终激活')
+    if (!set.isActive('ToolSearch')) {
+      throw new Error('core tool ToolSearch 应始终激活')
     }
-    if (!set.isActive('load-skill')) {
-      throw new Error('core tool load-skill 应始终激活')
+    if (!set.isActive('LoadSkill')) {
+      throw new Error('core tool LoadSkill 应始终激活')
     }
 
     printPass('rehydrateFromMessages 成功恢复工具激活状态')
@@ -234,8 +234,8 @@ async function main() {
     failed++
   }
 
-  // ── Test 4: 多轮 tool-search 调用的累积恢复 ──
-  printSection('Test 4: 多轮 tool-search 调用的累积恢复')
+  // ── Test 4: 多轮 ToolSearch 调用的累积恢复 ──
+  printSection('Test 4: 多轮 ToolSearch 调用的累积恢复')
 
   try {
     // 模拟：第一轮加载 memory 工具，第二轮加载 file 工具
@@ -249,7 +249,7 @@ async function main() {
         id: 'msg-assistant-1',
         role: 'assistant',
         parts: [
-          makeToolSearchResultPart(['memory-search', 'memory-save']),
+          makeToolSearchResultPart(['MemorySearch', 'MemorySave']),
         ],
       },
       {
@@ -272,7 +272,7 @@ async function main() {
     const set = new ActivatedToolSet(CORE_TOOL_IDS)
     set.activate(extracted)
 
-    const expected = ['memory-search', 'memory-save', 'read-file', 'list-dir']
+    const expected = ['MemorySearch', 'MemorySave', 'read-file', 'list-dir']
     for (const id of expected) {
       if (!set.isActive(id)) {
         throw new Error(`多轮累积后 ${id} 应该已激活`)
@@ -280,7 +280,7 @@ async function main() {
     }
 
     console.log('  activeTools:', set.getActiveToolIds())
-    printPass('多轮 tool-search 累积恢复正确')
+    printPass('多轮 ToolSearch 累积恢复正确')
     passed++
   } catch (err) {
     printFail('多轮累积恢复', err)
@@ -291,7 +291,7 @@ async function main() {
   printSection('Test 5: ActivatedToolSet.rehydrateFromMessages 静态方法')
 
   try {
-    const messages = makeFakeMessages(['memory-search', 'memory-save'])
+    const messages = makeFakeMessages(['MemorySearch', 'MemorySave'])
 
     // 检查是否存在 rehydrateFromMessages 静态方法
     if (typeof (ActivatedToolSet as any).rehydrateFromMessages !== 'function') {
@@ -303,11 +303,11 @@ async function main() {
     const set = new ActivatedToolSet(CORE_TOOL_IDS)
     ;(ActivatedToolSet as any).rehydrateFromMessages(set, messages)
 
-    if (!set.isActive('memory-save')) {
-      throw new Error('rehydrateFromMessages 后 memory-save 应已激活')
+    if (!set.isActive('MemorySave')) {
+      throw new Error('rehydrateFromMessages 后 MemorySave 应已激活')
     }
-    if (!set.isActive('memory-search')) {
-      throw new Error('rehydrateFromMessages 后 memory-search 应已激活')
+    if (!set.isActive('MemorySearch')) {
+      throw new Error('rehydrateFromMessages 后 MemorySearch 应已激活')
     }
 
     printPass('ActivatedToolSet.rehydrateFromMessages 方法正常工作')

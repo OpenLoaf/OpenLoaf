@@ -25,8 +25,8 @@ description: >
 
 ## 工具发现：先搜再用
 
-你的工具集是动态的——不同页面、不同 Agent 拥有不同工具。**不要猜测工具是否存在**，用 `tool-search` 按名称加载：
-- `tool-search(names: "Read,Edit")` — 直接传名称，逗号分隔
+你的工具集是动态的——不同页面、不同 Agent 拥有不同工具。**不要猜测工具是否存在**，用 `ToolSearch` 按名称加载：
+- `ToolSearch(names: "Read,Edit")` — 直接传名称，逗号分隔
 - 技能和工具共用同一接口，名称来自系统上下文中的工具目录和技能列表
 
 ## 工具选择决策树
@@ -37,16 +37,16 @@ description: >
 ├─ 修改已有文件 → Edit（old_string/new_string 精确替换）
 │   ⚠ 不要用 shell echo/sed/cat 写文件——Edit 有审批保护且不易出错
 ├─ 创建新文件/完全重写 → Write（写入完整内容）
-├─ 编辑富文本文稿（tndoc_） → edit-document（专用工具，非 Edit）
+├─ 编辑富文本文稿（tndoc_） → EditDocument（专用工具，非 Edit）
 ├─ 按文件名模式搜索 → Glob（pattern 匹配，如 "**/*.ts"）
 ├─ 搜索代码内容 → Grep（支持正则、上下文行、多种输出模式）
 ├─ 执行 shell 命令 → Bash
-├─ 计算/数据处理 → js-repl（持久化 Node.js 沙箱）
+├─ 计算/数据处理 → JsRepl（持久化 Node.js 沙箱）
 ├─ 网页搜索 → WebSearch
 ├─ 抓取网页 → WebFetch（自动转 Markdown）
-├─ 操作画布 → tool-search canvas
-├─ 创建/管理任务 → tool-search task
-└─ 操作邮件/日历/项目 → tool-search 对应关键词
+├─ 操作画布 → ToolSearch canvas
+├─ 创建/管理任务 → ToolSearch task
+└─ 操作邮件/日历/项目 → ToolSearch 对应关键词
 ```
 
 ## 临时项目机制
@@ -56,15 +56,15 @@ description: >
 ## 跨模块路由示例
 
 用户在日历页说"把会议纪要发邮件给与会者" →
-1. `tool-search email` → 找到 `email-mutate`
+1. `ToolSearch email` → 找到 `EmailMutate`
 2. 从日历事件中提取与会者邮箱和会议内容
-3. `email-mutate` 发送邮件
+3. `EmailMutate` 发送邮件
 
-不需要让用户切换页面——直接用 tool-search 找到跨模块工具并执行。
+不需要让用户切换页面——直接用 ToolSearch 找到跨模块工具并执行。
 
 ## 常见误判与纠正
 
 - **用户说「项目」「工作区」** → 都指代码中的 Project，不是 Workspace
 - **重复性需求**（每天/每周/定时做某事） → 建议创建 Task 而非每次手动执行，Task 支持 cron/interval/条件触发
-- **跨模块请求**（如在日历页说"把会议纪要发邮件"） → 直接用 tool-search 找跨模块工具，不需要让用户切换页面
-- **不确定能否做到** → 先 tool-search 探索可用工具，而非直接说做不到
+- **跨模块请求**（如在日历页说"把会议纪要发邮件"） → 直接用 ToolSearch 找跨模块工具，不需要让用户切换页面
+- **不确定能否做到** → 先 ToolSearch 探索可用工具，而非直接说做不到

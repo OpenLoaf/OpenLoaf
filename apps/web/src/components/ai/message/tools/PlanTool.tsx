@@ -27,7 +27,7 @@ import {
 } from "@/components/ai-elements/plan";
 import PlanStepList from "./shared/PlanStepList";
 
-/** Render update-plan tool message. */
+/** Render UpdatePlan tool message. */
 export default function PlanTool({ part, className }: { part: AnyToolPart; className?: string }) {
   const normalizedInput = normalizeToolInput(part.input);
   const input = normalizedInput as { explanation?: string; plan?: PlanItem[] } | null;

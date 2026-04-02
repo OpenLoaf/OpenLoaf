@@ -8,7 +8,7 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 /**
- * Memory tools — memory-search, memory-get and memory-save.
+ * Memory tools — MemorySearch, MemoryGet and MemorySave.
  */
 import { tool, zodSchema } from 'ai'
 import {
@@ -90,7 +90,7 @@ export const memorySearchTool = tool({
         })),
       }
     } catch (err) {
-      logger.error({ err }, '[memory-search] Failed to search memory')
+      logger.error({ err }, '[MemorySearch] Failed to search memory')
       return { ok: false, error: String(err) }
     }
   },
@@ -115,7 +115,7 @@ export const memoryGetTool = tool({
   },
 })
 
-// ─── memory-save ────────────────────────────────────────────────────────────
+// ─── MemorySave ────────────────────────────────────────────────────────────
 
 /** Resolve the target write directory based on scope + request context. Returns null if scope cannot be satisfied. */
 function resolveWriteDir(scope: 'user' | 'project' | 'agent'): string | null {
@@ -358,7 +358,7 @@ export const memorySaveTool = tool({
           : {}),
       }
     } catch (err) {
-      logger.error({ err, key, scope: effectiveScope, mode: effectiveMode }, '[memory-save] Failed')
+      logger.error({ err, key, scope: effectiveScope, mode: effectiveMode }, '[MemorySave] Failed')
       return { ok: false, error: String(err) }
     }
   },

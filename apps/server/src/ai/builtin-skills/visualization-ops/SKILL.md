@@ -5,22 +5,22 @@ description: 可视化渲染——JSX 组件渲染和 ECharts 图表。当用户
 
 # 可视化渲染
 
-本 skill 覆盖两个渲染工具：`jsx-create`（JSX 组件实时渲染）和 `chart-render`（ECharts 图表渲染）。它们都能在聊天消息中直接展示视觉内容，无需用户额外操作。
+本 skill 覆盖两个渲染工具：`JsxCreate`（JSX 组件实时渲染）和 `ChartRender`（ECharts 图表渲染）。它们都能在聊天消息中直接展示视觉内容，无需用户额外操作。
 
 ## 决策树
 
 ```
 需要可视化输出
 ├── 数据图表（折线/柱状/饼图/散点/雷达/热力图/地图）？
-│   └── chart-render（ECharts option）
+│   └── ChartRender（ECharts option）
 ├── 自定义卡片/面板/布局/状态展示/信息汇总？
-│   └── jsx-create（JSX 组件）
+│   └── JsxCreate（JSX 组件）
 └── 不确定？
-    ├── 有数值趋势/对比/分布数据 → chart-render
-    └── 其他结构化信息展示 → jsx-create
+    ├── 有数值趋势/对比/分布数据 → ChartRender
+    └── 其他结构化信息展示 → JsxCreate
 ```
 
-## chart-render — ECharts 图表渲染
+## ChartRender — ECharts 图表渲染
 
 提交 ECharts option 在消息中渲染图表。前端使用 ECharts 库渲染，支持 ECharts 全部图表类型。
 
@@ -69,7 +69,7 @@ description: 可视化渲染——JSX 组件渲染和 ECharts 图表。当用户
 }
 ```
 
-## jsx-create — JSX 组件渲染
+## JsxCreate — JSX 组件渲染
 
 在聊天界面中实时渲染 JSX 组件。适合展示自定义卡片、状态面板、信息汇总等结构化内容。
 
@@ -80,7 +80,7 @@ description: 可视化渲染——JSX 组件渲染和 ECharts 图表。当用户
 1. 只写 JSX 片段，不要写 `import`/`export`/`const`/函数定义
 2. 允许 `{}` 表达式、`map`、条件渲染、`style={{...}}`
 3. 不支持 `{...props}` 展开语法
-4. 每条回复只调用一次 jsx-create
+4. 每条回复只调用一次 JsxCreate
 5. 调用后不要再向用户重复输出 JSX 代码——工具会在前端直接展示渲染结果
 
 **配色规范**：
@@ -112,18 +112,18 @@ Message, MessageContent, Panel, Snippet, SnippetAddon, SnippetText, SnippetInput
 **校验与修正**：
 - 服务端会校验 JSX 语法，违规直接报错
 - 校验失败仍会写入文件，错误信息包含 path，用 `Edit` 修正后刷新预览
-- 失败后必须用 `Edit` 修正，不要重新调用 jsx-create
+- 失败后必须用 `Edit` 修正，不要重新调用 JsxCreate
 
 **写入位置**：`[<sessionId>]/jsx/<messageId>.jsx`
 
-**交互式表单**：需要收集用户输入时用 `AskUserQuestion`，jsx-create 仅负责展示。
+**交互式表单**：需要收集用户输入时用 `AskUserQuestion`，JsxCreate 仅负责展示。
 
-## 何时用 chart-render vs jsx-create
+## 何时用 ChartRender vs JsxCreate
 
 | 场景 | 推荐工具 |
 |------|---------|
-| 数值趋势/对比/分布 | chart-render |
-| 自定义卡片/面板 | jsx-create |
-| 统计数据 + 图表混合 | 先 chart-render 出图表，再 jsx-create 做汇总卡片 |
-| 简单数据（2-3 个指标） | jsx-create 即可，无需图表 |
-| 复杂交互式图表 | chart-render（ECharts 自带交互） |
+| 数值趋势/对比/分布 | ChartRender |
+| 自定义卡片/面板 | JsxCreate |
+| 统计数据 + 图表混合 | 先 ChartRender 出图表，再 JsxCreate 做汇总卡片 |
+| 简单数据（2-3 个指标） | JsxCreate 即可，无需图表 |
+| 复杂交互式图表 | ChartRender（ECharts 自带交互） |

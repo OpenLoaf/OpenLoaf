@@ -40,9 +40,9 @@ const COMPACTABLE_TOOLS = new Set([
   'WebSearch',
   'Edit',
   'Write',
-  'js-repl',
-  'browser-snapshot',
-  'excel-query',
+  'JsRepl',
+  'BrowserSnapshot',
+  'ExcelQuery',
   'office-read',
 ])
 

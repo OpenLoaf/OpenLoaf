@@ -163,7 +163,7 @@ function countToolInvocations(messages: UIMessage[]): number {
   return count
 }
 
-/** Resolve skills from a sub-agent's config (empty = no skills). */
+/** Resolve skills from a SubAgent's config (empty = no skills). */
 function resolveSubAgentSkills(
   agentName: string,
   requestContext: RequestContext,
@@ -238,9 +238,9 @@ function sanitizeRestoredMessages(messages: UIMessage[]): UIMessage[] {
 }
 
 /**
- * AgentManager — manages sub-agent lifecycle with real execution.
+ * AgentManager — manages SubAgent lifecycle with real execution.
  *
- * Each sub-agent runs in an independent async context via runWithContext.
+ * Each SubAgent runs in an independent async context via runWithContext.
  * Status changes are observable via listeners or the wait() method.
  */
 class AgentManager {
@@ -260,7 +260,7 @@ class AgentManager {
     return this.runningCount > 0
   }
 
-  /** Spawn a new sub-agent and return its id immediately. */
+  /** Spawn a new SubAgent and return its id immediately. */
   spawn(input: {
     task: string
     name: string
@@ -367,7 +367,7 @@ class AgentManager {
     }
   }
 
-  /** Core execution loop for a sub-agent. */
+  /** Core execution loop for a SubAgent. */
   private async executeAgent(
     id: string,
     subagentType?: string,
@@ -530,7 +530,7 @@ class AgentManager {
 
         this.complete(id, agent.finalOutput)
       } catch (err) {
-        const errorText = err instanceof Error ? err.message : 'sub-agent failed'
+        const errorText = err instanceof Error ? err.message : 'SubAgent failed'
         logger.error({ agentId: id, err }, '[agent-manager] agent execution failed')
 
         if (writer) {

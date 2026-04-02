@@ -15,7 +15,7 @@ export type ApprovalGate = {
   part: any
 }
 
-/** Resolve approval gate from sub-agent parts. */
+/** Resolve approval gate from SubAgent parts. */
 export function resolveApprovalGate(parts: unknown[]): ApprovalGate | null {
   for (const part of parts) {
     if (!part || typeof part !== 'object') continue

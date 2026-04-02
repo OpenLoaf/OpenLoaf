@@ -233,7 +233,7 @@ export type TargetAgent = {
 
 ### 5.1 对话 → Task（从对话中创建任务）
 
-Agent 识别到重复性/定时性需求时，调用 `task-manage.create` 创建 Task。创建时自动从当前对话快照 `pageContext`，并关联相关 skill（如 `email-ops`）。Agent 回复确认信息，告知用户执行计划和回报位置。
+Agent 识别到重复性/定时性需求时，调用 `TaskManage.create` 创建 Task。创建时自动从当前对话快照 `pageContext`，并关联相关 skill（如 `email-ops`）。Agent 回复确认信息，告知用户执行计划和回报位置。
 
 ### 5.2 Task → 对话（任务结果回报）
 

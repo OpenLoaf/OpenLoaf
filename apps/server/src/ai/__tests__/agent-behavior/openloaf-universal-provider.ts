@@ -243,7 +243,7 @@ export default class OpenLoafUniversalProvider implements ApiProvider {
         commandEvents: parsed.commandEvents,
         subAgentEvents: parsed.subAgentEvents,
         hasSubAgentDispatch: parsed.subAgentEvents.some((e) =>
-          e.type.includes('sub-agent-start'),
+          e.type.includes('SubAgent-start'),
         ),
         finishReason: parsed.finishReason,
         sessionId,

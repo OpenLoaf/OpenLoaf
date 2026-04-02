@@ -40,7 +40,7 @@ const systemAgentParts: ToolShowcasePart[] = [
   {
     type: 'tool-tool-search',
     toolCallId: callId(),
-    toolName: 'tool-search',
+    toolName: 'ToolSearch',
     state: 'output-available',
     input: { query: '文件管理' },
     output: { ok: true, data: { tools: ['read-file', 'list-dir', 'grep-files', 'apply-patch'] } },
@@ -56,7 +56,7 @@ const systemAgentParts: ToolShowcasePart[] = [
   {
     type: 'tool-update-plan',
     toolCallId: callId(),
-    toolName: 'update-plan',
+    toolName: 'UpdatePlan',
     state: 'output-available',
     input: {
       explanation: '分析需求后制定的执行计划',
@@ -175,7 +175,7 @@ const fileOpParts: ToolShowcasePart[] = [
   {
     type: 'tool-file-info',
     toolCallId: callId(),
-    toolName: 'file-info',
+    toolName: 'FileInfo',
     state: 'output-available',
     input: { actionName: '获取文件信息', filePath: '/project-root/assets/logo.png' },
     output: {
@@ -226,7 +226,7 @@ const shellCodeParts: ToolShowcasePart[] = [
   {
     type: 'tool-js-repl',
     toolCallId: callId(),
-    toolName: 'js-repl',
+    toolName: 'JsRepl',
     state: 'output-available',
     input: {
       actionName: '执行 JavaScript',
@@ -242,7 +242,7 @@ const shellCodeParts: ToolShowcasePart[] = [
   {
     type: 'tool-js-repl-reset',
     toolCallId: callId(),
-    toolName: 'js-repl-reset',
+    toolName: 'JsReplReset',
     state: 'output-available',
     input: { actionName: '重置 REPL' },
     output: { ok: true, data: { message: 'REPL context reset successfully' } },
@@ -255,7 +255,7 @@ const browserParts: ToolShowcasePart[] = [
   {
     type: 'tool-open-url',
     toolCallId: callId(),
-    toolName: 'open-url',
+    toolName: 'OpenUrl',
     state: 'output-available',
     input: { actionName: '打开网页', url: 'https://github.com/OpenLoaf/OpenLoaf' },
     output: { ok: true, data: { url: 'https://github.com/OpenLoaf/OpenLoaf', title: 'OpenLoaf - AI Productivity App' } },
@@ -263,7 +263,7 @@ const browserParts: ToolShowcasePart[] = [
   {
     type: 'tool-browser-snapshot',
     toolCallId: callId(),
-    toolName: 'browser-snapshot',
+    toolName: 'BrowserSnapshot',
     state: 'output-available',
     input: { actionName: '获取页面快照' },
     output: {
@@ -286,7 +286,7 @@ const browserParts: ToolShowcasePart[] = [
   {
     type: 'tool-browser-observe',
     toolCallId: callId(),
-    toolName: 'browser-observe',
+    toolName: 'BrowserObserve',
     state: 'output-available',
     input: { actionName: '观察页面', task: '查找登录按钮' },
     output: {
@@ -306,7 +306,7 @@ const browserParts: ToolShowcasePart[] = [
   {
     type: 'tool-browser-screenshot',
     toolCallId: callId(),
-    toolName: 'browser-screenshot',
+    toolName: 'BrowserScreenshot',
     state: 'output-available',
     input: { actionName: '页面截图' },
     output: {
@@ -321,7 +321,7 @@ const browserParts: ToolShowcasePart[] = [
   {
     type: 'tool-browser-act',
     toolCallId: callId(),
-    toolName: 'browser-act',
+    toolName: 'BrowserAct',
     state: 'output-available',
     input: { actionName: '点击按钮', action: 'click', selector: 'button[type=submit]' },
     output: { ok: true, data: { action: 'click', selector: 'button[type=submit]', success: true } },
@@ -329,7 +329,7 @@ const browserParts: ToolShowcasePart[] = [
   {
     type: 'tool-browser-extract',
     toolCallId: callId(),
-    toolName: 'browser-extract',
+    toolName: 'BrowserExtract',
     state: 'output-available',
     input: { actionName: '提取数据', instruction: '提取所有产品名称和价格' },
     output: {
@@ -346,7 +346,7 @@ const browserParts: ToolShowcasePart[] = [
   {
     type: 'tool-browser-wait',
     toolCallId: callId(),
-    toolName: 'browser-wait',
+    toolName: 'BrowserWait',
     state: 'output-available',
     input: { actionName: '等待元素', selector: '.loading-spinner', waitFor: 'hidden', timeout: 5000 },
     output: { ok: true, data: { waited: true, elapsed: 1200 } },
@@ -354,7 +354,7 @@ const browserParts: ToolShowcasePart[] = [
   {
     type: 'tool-browser-download-image',
     toolCallId: callId(),
-    toolName: 'browser-download-image',
+    toolName: 'BrowserDownloadImage',
     state: 'output-available',
     input: { actionName: '下载图片', url: 'https://example.com/photo.jpg' },
     output: { ok: true, data: { filePath: '/project-root/downloads/photo.jpg', size: 524288, format: 'jpeg' } },
@@ -367,7 +367,7 @@ const officeParts: ToolShowcasePart[] = [
   {
     type: 'tool-excel-query',
     toolCallId: callId(),
-    toolName: 'excel-query',
+    toolName: 'ExcelQuery',
     state: 'output-available',
     input: { action: 'read-sheet', filePath: '/project-root/budget.xlsx', sheetName: 'Q1 Budget' },
     output: {
@@ -389,7 +389,7 @@ const officeParts: ToolShowcasePart[] = [
   {
     type: 'tool-excel-mutate',
     toolCallId: callId(),
-    toolName: 'excel-mutate',
+    toolName: 'ExcelMutate',
     state: 'output-available',
     input: {
       action: 'write-cells',
@@ -406,7 +406,7 @@ const officeParts: ToolShowcasePart[] = [
   {
     type: 'tool-word-query',
     toolCallId: callId(),
-    toolName: 'word-query',
+    toolName: 'WordQuery',
     state: 'output-available',
     input: { action: 'read-structure', filePath: '/project-root/meeting-notes.docx' },
     output: {
@@ -428,7 +428,7 @@ const officeParts: ToolShowcasePart[] = [
   {
     type: 'tool-word-mutate',
     toolCallId: callId(),
-    toolName: 'word-mutate',
+    toolName: 'WordMutate',
     state: 'output-available',
     input: {
       action: 'edit',
@@ -443,7 +443,7 @@ const officeParts: ToolShowcasePart[] = [
   {
     type: 'tool-pptx-query',
     toolCallId: callId(),
-    toolName: 'pptx-query',
+    toolName: 'PptxQuery',
     state: 'output-available',
     input: { action: 'read-structure', filePath: '/project-root/presentation.pptx' },
     output: {
@@ -461,7 +461,7 @@ const officeParts: ToolShowcasePart[] = [
   {
     type: 'tool-pptx-mutate',
     toolCallId: callId(),
-    toolName: 'pptx-mutate',
+    toolName: 'PptxMutate',
     state: 'output-available',
     input: {
       action: 'edit',
@@ -476,7 +476,7 @@ const officeParts: ToolShowcasePart[] = [
   {
     type: 'tool-pdf-query',
     toolCallId: callId(),
-    toolName: 'pdf-query',
+    toolName: 'PdfQuery',
     state: 'output-available',
     input: { action: 'read-structure', filePath: '/project-root/invoice.pdf' },
     output: {
@@ -493,7 +493,7 @@ const officeParts: ToolShowcasePart[] = [
   {
     type: 'tool-pdf-mutate',
     toolCallId: callId(),
-    toolName: 'pdf-mutate',
+    toolName: 'PdfMutate',
     state: 'output-available',
     input: {
       action: 'fill-form',
@@ -529,7 +529,7 @@ const mediaParts: ToolShowcasePart[] = [
   {
     type: 'tool-image-process',
     toolCallId: callId(),
-    toolName: 'image-process',
+    toolName: 'ImageProcess',
     state: 'output-available',
     input: { action: 'get-info', filePath: '/project-root/assets/banner.png' },
     output: {
@@ -550,7 +550,7 @@ const mediaParts: ToolShowcasePart[] = [
   {
     type: 'tool-video-download',
     toolCallId: callId(),
-    toolName: 'video-download',
+    toolName: 'VideoDownload',
     state: 'output-available',
     input: {
       actionName: '下载公开视频',
@@ -578,7 +578,7 @@ const mediaParts: ToolShowcasePart[] = [
   {
     type: 'tool-video-convert',
     toolCallId: callId(),
-    toolName: 'video-convert',
+    toolName: 'VideoConvert',
     state: 'output-available',
     input: { actionName: '视频转换', inputPath: '/project-root/video.mov', outputFormat: 'mp4' },
     output: {
@@ -593,7 +593,7 @@ const mediaParts: ToolShowcasePart[] = [
   {
     type: 'tool-doc-convert',
     toolCallId: callId(),
-    toolName: 'doc-convert',
+    toolName: 'DocConvert',
     state: 'output-available',
     input: { actionName: '文档转换', inputPath: '/project-root/report.docx', outputFormat: 'pdf' },
     output: {
@@ -613,7 +613,7 @@ const projectTaskEmailParts: ToolShowcasePart[] = [
   {
     type: 'tool-project-query',
     toolCallId: callId(),
-    toolName: 'project-query',
+    toolName: 'ProjectQuery',
     state: 'output-available',
     input: { mode: 'list' },
     output: {
@@ -631,7 +631,7 @@ const projectTaskEmailParts: ToolShowcasePart[] = [
   {
     type: 'tool-project-mutate',
     toolCallId: callId(),
-    toolName: 'project-mutate',
+    toolName: 'ProjectMutate',
     state: 'output-available',
     input: { actionName: '创建项目', mode: 'create', title: 'Mobile App', icon: '📱', rootUri: '/project-root/mobile' },
     output: {
@@ -644,7 +644,7 @@ const projectTaskEmailParts: ToolShowcasePart[] = [
   {
     type: 'tool-task-manage',
     toolCallId: callId(),
-    toolName: 'task-manage',
+    toolName: 'TaskManage',
     state: 'output-available',
     input: {
       action: 'create',
@@ -666,7 +666,7 @@ const projectTaskEmailParts: ToolShowcasePart[] = [
   {
     type: 'tool-task-status',
     toolCallId: callId(),
-    toolName: 'task-status',
+    toolName: 'TaskStatus',
     state: 'output-available',
     input: { actionName: '查看任务状态', taskId: 'task_001' },
     output: {
@@ -681,7 +681,7 @@ const projectTaskEmailParts: ToolShowcasePart[] = [
   {
     type: 'tool-calendar-query',
     toolCallId: callId(),
-    toolName: 'calendar-query',
+    toolName: 'CalendarQuery',
     state: 'output-available',
     input: { actionName: '查询日历', mode: 'list-events', startDate: '2026-03-09', endDate: '2026-03-15' },
     output: {
@@ -698,7 +698,7 @@ const projectTaskEmailParts: ToolShowcasePart[] = [
   {
     type: 'tool-email-query',
     toolCallId: callId(),
-    toolName: 'email-query',
+    toolName: 'EmailQuery',
     state: 'output-available',
     input: { mode: 'list-messages', accountId: 'acc_1', mailbox: 'INBOX', limit: 5 },
     output: {
@@ -723,7 +723,7 @@ const uiWidgetParts: ToolShowcasePart[] = [
   {
     type: 'tool-jsx-create',
     toolCallId: callId(),
-    toolName: 'jsx-create',
+    toolName: 'JsxCreate',
     state: 'output-available',
     input: {
       content: '<div className="p-4 rounded-lg bg-blue-50 dark:bg-blue-950">\n  <h2 className="text-lg font-semibold">Hello OpenLoaf</h2>\n  <p>This is a JSX preview component.</p>\n</div>',
@@ -733,7 +733,7 @@ const uiWidgetParts: ToolShowcasePart[] = [
   {
     type: 'tool-chart-render',
     toolCallId: callId(),
-    toolName: 'chart-render',
+    toolName: 'ChartRender',
     state: 'output-available',
     input: {
       title: '月度用户增长',
@@ -753,7 +753,7 @@ const uiWidgetParts: ToolShowcasePart[] = [
   {
     type: 'tool-generate-widget',
     toolCallId: callId(),
-    toolName: 'generate-widget',
+    toolName: 'GenerateWidget',
     state: 'output-available',
     input: {
       widgetId: 'widget_clock',
@@ -765,7 +765,7 @@ const uiWidgetParts: ToolShowcasePart[] = [
   {
     type: 'tool-widget-init',
     toolCallId: callId(),
-    toolName: 'widget-init',
+    toolName: 'WidgetInit',
     state: 'output-available',
     input: { widgetName: 'Weather Dashboard' },
     output: {
@@ -780,7 +780,7 @@ const uiWidgetParts: ToolShowcasePart[] = [
   {
     type: 'tool-widget-check',
     toolCallId: callId(),
-    toolName: 'widget-check',
+    toolName: 'WidgetCheck',
     state: 'output-available',
     input: { widgetId: 'widget_clock' },
     output: {
@@ -791,7 +791,7 @@ const uiWidgetParts: ToolShowcasePart[] = [
   {
     type: 'tool-widget-list',
     toolCallId: callId(),
-    toolName: 'widget-list',
+    toolName: 'WidgetList',
     state: 'output-available',
     input: { actionName: '列出小组件' },
     output: {
@@ -807,7 +807,7 @@ const uiWidgetParts: ToolShowcasePart[] = [
   {
     type: 'tool-widget-get',
     toolCallId: callId(),
-    toolName: 'widget-get',
+    toolName: 'WidgetGet',
     state: 'output-available',
     input: { actionName: '获取小组件', widgetId: 'widget_clock' },
     output: {
@@ -844,7 +844,7 @@ const uiWidgetParts: ToolShowcasePart[] = [
   {
     type: 'tool-edit-document',
     toolCallId: callId(),
-    toolName: 'edit-document',
+    toolName: 'EditDocument',
     state: 'output-available',
     input: { actionName: '编辑文档', documentId: 'doc_1', content: '# Updated Title\n\nNew content here.' },
     output: { ok: true, data: { documentId: 'doc_1', saved: true } },

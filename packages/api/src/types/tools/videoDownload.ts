@@ -10,7 +10,7 @@
 import { z } from 'zod'
 
 export const videoDownloadToolDef = {
-  id: 'video-download',
+  id: 'VideoDownload',
   name: '视频下载',
   description:
     '触发：当用户明确要求根据公开视频网址直接下载视频时调用。' +
@@ -18,7 +18,7 @@ export const videoDownloadToolDef = {
     '若当前在画布上下文，则保存到当前画布的 asset 目录；否则保存到当前会话的 chat-history/asset 目录。' +
     '支持常见视频平台链接以及可直接访问的视频文件 URL。' +
     '返回：{ ok, data: { url, destination, fileName, filePath, absolutePath, fileSize, title, duration, width, height, ext } }。' +
-    '不适用：需要生成全新视频时不要使用，改用画布 v3 媒体生成流程；需要转换本地已有视频时改用 video-convert。',
+    '不适用：需要生成全新视频时不要使用，改用画布 v3 媒体生成流程；需要转换本地已有视频时改用 VideoConvert。',
   parameters: z.object({
     url: z
       .string()

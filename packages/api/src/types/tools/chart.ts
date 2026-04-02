@@ -11,7 +11,7 @@ import { z } from "zod";
 
 /** Chart render tool definition. */
 export const chartRenderToolDef = {
-  id: "chart-render",
+  id: "ChartRender",
   name: "图表渲染",
   description: `触发：当你需要生成并展示图表时调用。用途：提交 ECharts option 并在消息中渲染图表。
 参数说明：

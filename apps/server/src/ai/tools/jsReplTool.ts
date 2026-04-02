@@ -91,7 +91,7 @@ function createSandboxContext(logs: string[]): vm.Context {
     atob,
     btoa,
   }
-  return vm.createContext(sandbox, { name: 'js-repl-sandbox' })
+  return vm.createContext(sandbox, { name: 'JsRepl-sandbox' })
 }
 
 function resolveSessionKey(): string {
@@ -150,7 +150,7 @@ export const jsReplTool = tool({
       const errorMessage =
         err instanceof Error ? `${err.name}: ${err.message}` : String(err)
       sections.push(`Error: ${errorMessage}`)
-      logger.warn({ err, sessionKey: key }, '[js-repl] execution error')
+      logger.warn({ err, sessionKey: key }, '[JsRepl] execution error')
       return sections.join('\n')
     }
   },
@@ -163,7 +163,7 @@ export const jsReplResetTool = tool({
   execute: async (): Promise<string> => {
     const key = resolveSessionKey()
     replContexts.delete(key)
-    logger.info({ sessionKey: key }, '[js-repl] context reset')
+    logger.info({ sessionKey: key }, '[JsRepl] context reset')
     return JSON.stringify({ ok: true, message: 'REPL context has been reset.' })
   },
 })

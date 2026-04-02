@@ -41,7 +41,7 @@ export function syncToolPartsFromMessages({
       const type = typeof part?.type === "string" ? part.type : "";
       const isTool = type === "dynamic-tool" || type.startsWith("tool-");
       if (!isTool) continue;
-      // 中文注释：tool-search 属于内部工具加载流程，不同步到 Web 侧工具面板。
+      // 中文注释：ToolSearch 属于内部工具加载流程，不同步到 Web 侧工具面板。
       if (isHiddenToolPart(part)) continue;
       const toolKey = String(part.toolCallId ?? `${messageId}:${index}`);
       const current = useChatRuntime.getState().toolPartsByTabId[tabId]?.[toolKey];
@@ -184,7 +184,7 @@ export function syncToolPartsFromMessages({
         }
       }
 
-      // 逻辑：检测 edit-document 工具流式状态，自动在 stack 中打开 StreamingPlateViewer。
+      // 逻辑：检测 EditDocument 工具流式状态，自动在 stack 中打开 StreamingPlateViewer。
       const isEditDocument = type === "tool-edit-document";
       if (
         isEditDocument &&
@@ -209,7 +209,7 @@ export function syncToolPartsFromMessages({
           params: { toolCallId: toolKey, __isStreaming: true },
         }, undefined, editUserHasNonStreaming);
       }
-      // 逻辑：edit-document path 可能在后续 delta 中才解析出来，更新标题。
+      // 逻辑：EditDocument path 可能在后续 delta 中才解析出来，更新标题。
       if (
         isEditDocument &&
         pushedEditDocViewers.has(toolKey) &&
@@ -233,7 +233,7 @@ export function syncToolPartsFromMessages({
           }, undefined, true);
         }
       }
-      // 逻辑：edit-document 完成时，关闭 stack 面板的流式边框。
+      // 逻辑：EditDocument 完成时，关闭 stack 面板的流式边框。
       if (
         isEditDocument &&
         pushedEditDocViewers.has(toolKey) &&

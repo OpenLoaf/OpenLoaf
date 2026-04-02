@@ -433,7 +433,7 @@ export const settingSchemas = {
       deletedCount: z.number(),
     }),
   },
-  /** Get skills for a sub-agent by name. */
+  /** Get skills for a SubAgent by name. */
   getAgentSkillsByName: {
     input: z.object({
       agentName: z.string(),
@@ -442,7 +442,7 @@ export const settingSchemas = {
       skills: z.array(z.string()),
     }),
   },
-  /** Save skills for a sub-agent by name. */
+  /** Save skills for a SubAgent by name. */
   saveAgentSkillsByName: {
     input: z.object({
       agentName: z.string(),

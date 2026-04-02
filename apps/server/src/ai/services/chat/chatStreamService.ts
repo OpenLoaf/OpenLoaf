@@ -770,7 +770,7 @@ export async function runChatStream(input: {
     }
   }
 
-  // 逻辑：非视觉模型剥离图片 parts，替换为文本引用提示（vision sub-agent 委派）。
+  // 逻辑：非视觉模型剥离图片 parts，替换为文本引用提示（vision SubAgent 委派）。
   if (!directCli) {
     modelMessages = stripImagePartsForNonVisionModel(modelMessages, resolvedModelDef);
   }

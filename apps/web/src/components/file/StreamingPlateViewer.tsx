@@ -27,7 +27,7 @@ export default function StreamingPlateViewer({
   toolCallId,
   tabId,
 }: StreamingPlateViewerProps) {
-  // 逻辑：从 toolPartsByTabId 读取 edit-document 工具的实时状态。
+  // 逻辑：从 toolPartsByTabId 读取 EditDocument 工具的实时状态。
   const toolPart = useChatRuntime((s) => {
     if (!tabId || !toolCallId) return undefined
     return s.toolPartsByTabId[tabId]?.[toolCallId]

@@ -250,7 +250,7 @@ export const fileInfoTool = tool({
         }
 
         case 'document': {
-          details = { hint: '使用 word-query 工具获取文档详细内容。' }
+          details = { hint: '使用 WordQuery 工具获取文档详细内容。' }
           break
         }
 

@@ -15,7 +15,7 @@ type JsxCreateRefreshPayload = {
 };
 
 /** Event name for JSX create refresh. */
-const JSX_CREATE_EVENT_NAME = "jsx-create-refresh";
+const JSX_CREATE_EVENT_NAME = "JsxCreate-refresh";
 /** Event target for JSX create refresh notifications. */
 const jsxCreateEventTarget = new EventTarget();
 

@@ -34,7 +34,7 @@ type SkillSummary = {
 
 const EMPTY_SKILL_NAMES: string[] = []
 
-/** Inline skills popover for a sub-agent. */
+/** Inline skills popover for a SubAgent. */
 function SubAgentSkillsPopover({ agentName, projectId }: { agentName: string; projectId?: string }) {
   const skillsQuery = useQuery(
     trpc.settings.getSkills.queryOptions(projectId ? { projectId } : undefined),

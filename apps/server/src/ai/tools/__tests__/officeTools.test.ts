@@ -812,7 +812,7 @@ async function main() {
   // -----------------------------------------------------------------------
   console.log('\nH 层 — 错误处理和边界情况')
 
-  await test('H1: word-query: 不存在的文件抛出错误', async () => {
+  await test('H1: WordQuery: 不存在的文件抛出错误', async () => {
     await assert.rejects(
       () =>
         withCtx(() =>
@@ -825,7 +825,7 @@ async function main() {
     )
   })
 
-  await test('H2: word-query: 未知 mode 抛出错误', async () => {
+  await test('H2: WordQuery: 未知 mode 抛出错误', async () => {
     // Create a file first
     const filePath = rel('h2.docx')
     await withCtx(async () => {
@@ -851,7 +851,7 @@ async function main() {
     )
   })
 
-  await test('H3: word-mutate: 未知 action 抛出错误', async () => {
+  await test('H3: WordMutate: 未知 action 抛出错误', async () => {
     await assert.rejects(
       () =>
         withCtx(() =>
@@ -864,7 +864,7 @@ async function main() {
     )
   })
 
-  await test('H4: excel-mutate: 未知 action 抛出错误', async () => {
+  await test('H4: ExcelMutate: 未知 action 抛出错误', async () => {
     await assert.rejects(
       () =>
         withCtx(() =>
@@ -877,7 +877,7 @@ async function main() {
     )
   })
 
-  await test('H5: pptx-mutate: 未知 action 抛出错误', async () => {
+  await test('H5: PptxMutate: 未知 action 抛出错误', async () => {
     await assert.rejects(
       () =>
         withCtx(() =>
@@ -890,7 +890,7 @@ async function main() {
     )
   })
 
-  await test('H6: word-query: .doc 文件 read-structure 返回 ok=false', async () => {
+  await test('H6: WordQuery: .doc 文件 read-structure 返回 ok=false', async () => {
     // Create a dummy .doc file
     const docFile = rel('h6.doc')
     const absPath = path.join(projectRoot, docFile)
@@ -905,7 +905,7 @@ async function main() {
     assert.ok(result.error, 'should have error message')
   })
 
-  await test('H7: pptx-query: .ppt 文件 read-structure 返回 ok=false', async () => {
+  await test('H7: PptxQuery: .ppt 文件 read-structure 返回 ok=false', async () => {
     const pptFile = rel('h7.ppt')
     const absPath = path.join(projectRoot, pptFile)
     await fs.writeFile(absPath, 'dummy ppt content', 'utf-8')

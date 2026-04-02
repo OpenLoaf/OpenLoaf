@@ -4,7 +4,7 @@ description: >
   记忆管理——当用户说"记住"、"别忘了"、"以后都…"、表达个人偏好/习惯（"我不爱吃..."、"我喜欢..."、"我习惯..."、"不要再…"等），
   或要求忘记/更新某条记忆，或需要回忆之前保存的信息（"你还记得吗"、"之前说过什么"、"我的偏好"、"do you remember"、"what did I tell you"），
   或在新会话开始时需要延续上次对话的用户偏好时激活。
-tools: [memory-save, memory-search, memory-get]
+tools: [MemorySave, MemorySearch, MemoryGet]
 ---
 
 # Auto Memory
@@ -15,17 +15,17 @@ tools: [memory-save, memory-search, memory-get]
 
 | 工具 | 用途 | 何时用 |
 |------|------|--------|
-| `memory-save` | 保存/更新/删除记忆 | mode: `upsert`（写入）、`delete`（删除） |
-| `memory-search` | 按关键词搜索已有记忆 | 回忆用户偏好、查找历史约定 |
-| `memory-get` | 读取指定 key 的完整内容 | 已知 key 时直接获取 |
+| `MemorySave` | 保存/更新/删除记忆 | mode: `upsert`（写入）、`delete`（删除） |
+| `MemorySearch` | 按关键词搜索已有记忆 | 回忆用户偏好、查找历史约定 |
+| `MemoryGet` | 读取指定 key 的完整内容 | 已知 key 时直接获取 |
 
-`MEMORY.md` 索引由 memory-save 自动维护，无需手动编辑。
+`MEMORY.md` 索引由 MemorySave 自动维护，无需手动编辑。
 
 ## 核心工作流
 
 ### 保存前先搜索
 
-写入前用 memory-search 检查是否已存在相关记忆。找到了就 upsert 更新而非重复创建——重复记忆会在搜索时产生噪音，让后续回忆变得不可靠。
+写入前用 MemorySearch 检查是否已存在相关记忆。找到了就 upsert 更新而非重复创建——重复记忆会在搜索时产生噪音，让后续回忆变得不可靠。
 
 ### key 命名
 
@@ -35,19 +35,19 @@ tools: [memory-save, memory-search, memory-get]
 
 | 信号 | 行动 | 为什么 |
 |------|------|--------|
-| 用户说"记住"、"别忘了"、"以后都…" | 立即 memory-save | 明确的持久化请求 |
+| 用户说"记住"、"别忘了"、"以后都…" | 立即 MemorySave | 明确的持久化请求 |
 | 用户表达偏好（"我喜欢…"、"我习惯…"、"别给我…"） | 主动保存 | 偏好是跨会话稳定的，不需要每次重新沟通 |
 | 用户纠正了你的行为模式（"不要这样做"、"以后用 X 方式"） | 保存纠正 | 避免同一个错误反复出现 |
-| 用户要求忘记 | memory-save(mode: "delete") | 尊重用户隐私 |
-| 用户更新了之前的偏好 | memory-save(mode: "upsert") | 保持记忆新鲜 |
+| 用户要求忘记 | MemorySave(mode: "delete") | 尊重用户隐私 |
+| 用户更新了之前的偏好 | MemorySave(mode: "upsert") | 保持记忆新鲜 |
 
 ### 回忆时机
 
 | 信号 | 行动 | 为什么 |
 |------|------|--------|
-| 用户问"你还记得…"、"之前说过…"、"我的偏好是什么" | memory-search → memory-get | 用户在测试或依赖记忆 |
-| 新会话开始，用户给出与历史偏好相关的请求 | 主动 memory-search | 延续跨会话一致性 |
-| 执行任务前，领域涉及已知偏好（如写代码前搜 coding-style） | 主动 memory-search | 用偏好指导行为，减少返工 |
+| 用户问"你还记得…"、"之前说过…"、"我的偏好是什么" | MemorySearch → MemoryGet | 用户在测试或依赖记忆 |
+| 新会话开始，用户给出与历史偏好相关的请求 | 主动 MemorySearch | 延续跨会话一致性 |
+| 执行任务前，领域涉及已知偏好（如写代码前搜 coding-style） | 主动 MemorySearch | 用偏好指导行为，减少返工 |
 
 ## 保存什么 vs 不保存什么
 

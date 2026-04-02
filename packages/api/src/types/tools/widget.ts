@@ -12,7 +12,7 @@ import { z } from 'zod'
 // ─── 新工具定义 ───
 
 export const widgetInitToolDef = {
-  id: 'widget-init',
+  id: 'WidgetInit',
   name: '初始化 Widget 脚手架',
   description:
     '创建 widget 目录脚手架（package.json + 占位 widget.tsx + 占位 functions.ts + 可选 .env）。返回 widgetId 和文件路径，随后用 apply-patch 写入实际代码。',
@@ -58,7 +58,7 @@ export const widgetInitToolDef = {
 } as const
 
 export const widgetListToolDef = {
-  id: 'widget-list',
+  id: 'WidgetList',
   name: '列出所有 Widget',
   description:
     '列出当前可见范围内所有动态 Widget 的基本信息（widgetId、名称、描述、函数列表等）。',
@@ -68,7 +68,7 @@ export const widgetListToolDef = {
 } as const
 
 export const widgetGetToolDef = {
-  id: 'widget-get',
+  id: 'WidgetGet',
   name: '获取 Widget 详情',
   description:
     '获取单个 Widget 的详细信息，包括元数据、函数列表、尺寸约束、环境变量等。',
@@ -83,7 +83,7 @@ export const widgetGetToolDef = {
 } as const
 
 export const widgetCheckToolDef = {
-  id: 'widget-check',
+  id: 'WidgetCheck',
   name: '验证 Widget',
   description:
     '验证 Widget 文件结构并编译 widget.tsx。成功时前端会显示 Widget 预览。',
@@ -100,7 +100,7 @@ export const widgetCheckToolDef = {
 // ─── 旧工具定义（向后兼容） ───
 
 export const generateWidgetToolDef = {
-  id: 'generate-widget',
+  id: 'GenerateWidget',
   name: '生成动态 Widget',
   description:
     '触发：当你需要生成一个可用的动态桌面 Widget，并把完整文件写入本地时调用。用途：写入 package.json/widget.tsx/functions.ts/.env 等文件并注册到桌面组件库。返回：JSON（含 widgetId）；失败会报错。不适用：仅需示例代码或不希望写入文件时不要使用。',

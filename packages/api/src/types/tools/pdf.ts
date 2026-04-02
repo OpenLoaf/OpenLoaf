@@ -11,10 +11,10 @@ import { z } from 'zod'
 import { jsonArrayPreprocess } from './office'
 
 export const pdfQueryToolDef = {
-  id: 'pdf-query',
+  id: 'PdfQuery',
   name: 'PDF 查询',
   description:
-    '触发：当用户提到 PDF 文件，或询问"读取 PDF"、"查看 PDF"时调用。用途：读取 PDF 文件的结构化概览、文本内容、表单字段，或将页面渲染为图片。返回：{ ok: true, data: { mode, ... } }。模式说明：read-structure 返回页数、元数据、表单信息；read-text 提取全文或指定页文本；read-form-fields 返回表单字段列表（名称、类型、当前值）；read-screenshot 将指定页渲染为 PNG 图片（适合查看布局、图表、排版效果）。不适用：需要创建、修改 PDF 时不要使用，改用 pdf-mutate。',
+    '触发：当用户提到 PDF 文件，或询问"读取 PDF"、"查看 PDF"时调用。用途：读取 PDF 文件的结构化概览、文本内容、表单字段，或将页面渲染为图片。返回：{ ok: true, data: { mode, ... } }。模式说明：read-structure 返回页数、元数据、表单信息；read-text 提取全文或指定页文本；read-form-fields 返回表单字段列表（名称、类型、当前值）；read-screenshot 将指定页渲染为 PNG 图片（适合查看布局、图表、排版效果）。不适用：需要创建、修改 PDF 时不要使用，改用 PdfMutate。',
   parameters: z.object({
     mode: z
       .enum(['read-structure', 'read-text', 'read-form-fields', 'read-screenshot', 'structure', 'text', 'form-fields', 'screenshot'])
@@ -95,10 +95,10 @@ const pdfTextOverlaySchema = z.object({
 })
 
 export const pdfMutateToolDef = {
-  id: 'pdf-mutate',
+  id: 'PdfMutate',
   name: 'PDF 操作',
   description:
-    '触发：当你需要创建 PDF 文件、填充表单、合并 PDF 或在 PDF 上叠加文字时调用。用途：create 创建新的 PDF 文件（含结构化内容），fill-form 填充已有 PDF 的表单字段，merge 合并多个 PDF 文件，add-text 在已有 PDF 页面上叠加文字。返回：{ ok: true, data: { action, ... } }。注意：create 使用标准字体，不支持 CJK 字符（中日韩文），如需包含中文内容请告知用户。不适用：仅需读取时不要使用，改用 pdf-query。',
+    '触发：当你需要创建 PDF 文件、填充表单、合并 PDF 或在 PDF 上叠加文字时调用。用途：create 创建新的 PDF 文件（含结构化内容），fill-form 填充已有 PDF 的表单字段，merge 合并多个 PDF 文件，add-text 在已有 PDF 页面上叠加文字。返回：{ ok: true, data: { action, ... } }。注意：create 使用标准字体，不支持 CJK 字符（中日韩文），如需包含中文内容请告知用户。不适用：仅需读取时不要使用，改用 PdfQuery。',
   parameters: z.object({
     action: z
       .enum(['create', 'fill-form', 'merge', 'add-text'])

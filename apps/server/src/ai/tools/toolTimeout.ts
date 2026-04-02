@@ -23,25 +23,25 @@ const TOOL_TIMEOUT_MAP: Record<string, number> = {
   'Bash': 120_000,
 
   // Browser tools — network-dependent
-  'open-url': 60_000,
-  'browser-snapshot': 60_000,
-  'browser-observe': 60_000,
-  'browser-extract': 60_000,
-  'browser-act': 60_000,
-  'browser-wait': 60_000,
+  'OpenUrl': 60_000,
+  'BrowserSnapshot': 60_000,
+  'BrowserObserve': 60_000,
+  'BrowserExtract': 60_000,
+  'BrowserAct': 60_000,
+  'BrowserWait': 60_000,
 
   // Media download — network-dependent
-  'video-download': 600_000,
+  'VideoDownload': 600_000,
 
   // Office document tools — ZIP I/O + XML parsing can be slow for large files
-  'word-mutate': 120_000,
-  'excel-mutate': 120_000,
-  'pptx-mutate': 120_000,
-  'pdf-mutate': 120_000,
-  'word-query': 60_000,
-  'excel-query': 60_000,
-  'pptx-query': 60_000,
-  'pdf-query': 60_000,
+  'WordMutate': 120_000,
+  'ExcelMutate': 120_000,
+  'PptxMutate': 120_000,
+  'PdfMutate': 120_000,
+  'WordQuery': 60_000,
+  'ExcelQuery': 60_000,
+  'PptxQuery': 60_000,
+  'PdfQuery': 60_000,
 
   // Agent collaboration — delegates to sub-agents which have their own lifecycle
   'Agent': 310_000,        // 同步模式需覆盖子 agent 的 5min 超时

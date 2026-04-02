@@ -302,7 +302,7 @@ async function main() {
       // Non-compactable tool
       {
         role: 'tool' as any,
-        content: [{ type: 'tool-result', toolName: 'tool-search', result: 'tool list' } as any],
+        content: [{ type: 'tool-result', toolName: 'ToolSearch', result: 'tool list' } as any],
       } as ModelMessage,
       toolResultMsg('Read', 'k1'),           // compactable → kept
       toolResultMsg('Bash', 'k2'),           // compactable → kept
@@ -311,7 +311,7 @@ async function main() {
     ]
     const result = microcompactMessages(msgs, minutesAgo(60))
     assert.equal(result.toolsCleared, 2)
-    // Non-compactable tool-search result should be unchanged
+    // Non-compactable ToolSearch result should be unchanged
     const toolSearchResult = (result.messages[3] as any).content[0].result
     assert.equal(toolSearchResult, 'tool list', 'non-compactable tool result should be unchanged')
   })
@@ -321,7 +321,7 @@ async function main() {
       userMsg('q1'),
       {
         role: 'tool' as any,
-        content: [{ type: 'tool-result', toolName: 'tool-search', result: 'r1' } as any],
+        content: [{ type: 'tool-result', toolName: 'ToolSearch', result: 'r1' } as any],
       } as ModelMessage,
       {
         role: 'tool' as any,

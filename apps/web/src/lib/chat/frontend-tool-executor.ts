@@ -88,7 +88,7 @@ function resolveFileEntryFromUrl(input: {
   const rootUri = projectHierarchy.rootUriById.get(projectId);
   if (!rootUri) return null;
 
-  // 逻辑：open-url 的 file:// url 需要映射回项目内相对路径。
+  // 逻辑：OpenUrl 的 file:// url 需要映射回项目内相对路径。
   const relativeUri = getRelativePathFromUri(rootUri, input.url);
   if (!relativeUri) return null;
 
@@ -278,7 +278,7 @@ type OpenUrlInput = {
 
 /** Register builtin frontend tool handlers. */
 export function registerDefaultFrontendToolHandlers(executor: FrontendToolExecutor) {
-  executor.register("open-url", async ({ input, tabId }) => {
+  executor.register("OpenUrl", async ({ input, tabId }) => {
     const rawUrl = (input as OpenUrlInput)?.url;
     const url = typeof rawUrl === "string" ? rawUrl : "";
     const title = typeof (input as OpenUrlInput)?.title === "string"
@@ -287,18 +287,18 @@ export function registerDefaultFrontendToolHandlers(executor: FrontendToolExecut
     const normalizedUrl = normalizeUrl(url);
 
     if (!tabId) {
-      console.warn("[frontend-tool] open-url missing tabId");
+      console.warn("[frontend-tool] OpenUrl missing tabId");
       return { status: "failed", errorText: "tabId is required." };
     }
     if (!normalizedUrl) {
       // 逻辑：记录原始 input，方便排查子代理传参缺失的问题。
-      console.warn("[frontend-tool] open-url missing url", {
+      console.warn("[frontend-tool] OpenUrl missing url", {
         input,
         rawUrl: url,
       });
       // 逻辑：console 对象可能被覆盖，追加字符串化输出保证可见。
       console.warn(
-        "[frontend-tool] open-url missing url payload",
+        "[frontend-tool] OpenUrl missing url payload",
         JSON.stringify({ input, rawUrl: url }),
       );
       return { status: "failed", errorText: "url is required." };

@@ -64,7 +64,7 @@ function findFirstIssue(root: unknown): JsxValidationIssue | null {
   return null
 }
 
-/** Validate JSX input for jsx-create tool. */
+/** Validate JSX input for JsxCreate tool. */
 export function validateJsxCreateInput(input: string): void {
   const trimmed = input.trim()
   if (!trimmed) {

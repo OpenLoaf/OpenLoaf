@@ -71,7 +71,7 @@ async function resolveWriteTargetPath(targetPath: string): Promise<{ absPath: st
   return { absPath, rootPath: resolvedRoot }
 }
 
-/** Execute edit-document tool: write MDX content to a document's index.mdx. */
+/** Execute EditDocument tool: write MDX content to a document's index.mdx. */
 export const editDocumentTool = tool({
   description: editDocumentToolDef.description,
   inputSchema: zodSchema(editDocumentToolDef.parameters),

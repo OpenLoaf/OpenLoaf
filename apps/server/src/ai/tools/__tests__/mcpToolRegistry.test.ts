@@ -11,7 +11,7 @@
  * MCP Tool Registry + ToolSearch + ActivatedToolSet unit tests.
  *
  * Tests dynamic MCP tool registration, catalog integration, and
- * tool-search discovery of MCP tools.
+ * ToolSearch discovery of MCP tools.
  *
  * 用法:
  *   cd apps/server
@@ -100,7 +100,7 @@ async function runTests() {
   await test('isMcpTool returns false for native tool IDs', () => {
     assert.equal(isMcpTool('read-file'), false)
     assert.equal(isMcpTool('shell-command'), false)
-    assert.equal(isMcpTool('tool-search'), false)
+    assert.equal(isMcpTool('ToolSearch'), false)
   })
 
   // -----------------------------------------------------------------------
@@ -235,14 +235,14 @@ async function runTests() {
   console.log('\n=== ActivatedToolSet Tests ===\n')
 
   await test('activate and isActive work for MCP tool IDs', () => {
-    const set = new ActivatedToolSet(['tool-search'])
+    const set = new ActivatedToolSet(['ToolSearch'])
     assert.equal(set.isActive('mcp__github__create-issue'), false)
     set.activate(['mcp__github__create-issue'])
     assert.equal(set.isActive('mcp__github__create-issue'), true)
   })
 
   await test('deactivate removes a specific tool', () => {
-    const set = new ActivatedToolSet(['tool-search'])
+    const set = new ActivatedToolSet(['ToolSearch'])
     set.activate(['mcp__github__tool-a', 'mcp__github__tool-b'])
     assert.equal(set.isActive('mcp__github__tool-a'), true)
     set.deactivate('mcp__github__tool-a')
@@ -251,7 +251,7 @@ async function runTests() {
   })
 
   await test('deactivateByPrefix removes all tools with a prefix', () => {
-    const set = new ActivatedToolSet(['tool-search'])
+    const set = new ActivatedToolSet(['ToolSearch'])
     set.activate([
       'mcp__github__tool-a',
       'mcp__github__tool-b',
@@ -264,17 +264,17 @@ async function runTests() {
   })
 
   await test('core tools are always active and cannot be deactivated', () => {
-    const set = new ActivatedToolSet(['tool-search', 'load-skill'])
-    assert.equal(set.isActive('tool-search'), true)
-    set.deactivate('tool-search') // should not affect core tools
-    assert.equal(set.isActive('tool-search'), true)
+    const set = new ActivatedToolSet(['ToolSearch', 'LoadSkill'])
+    assert.equal(set.isActive('ToolSearch'), true)
+    set.deactivate('ToolSearch') // should not affect core tools
+    assert.equal(set.isActive('ToolSearch'), true)
   })
 
   await test('getActiveToolIds returns core + activated tools', () => {
-    const set = new ActivatedToolSet(['tool-search'])
+    const set = new ActivatedToolSet(['ToolSearch'])
     set.activate(['mcp__test__tool1', 'read-file'])
     const active = set.getActiveToolIds()
-    assert.ok(active.includes('tool-search'))
+    assert.ok(active.includes('ToolSearch'))
     assert.ok(active.includes('mcp__test__tool1'))
     assert.ok(active.includes('read-file'))
   })
@@ -283,13 +283,13 @@ async function runTests() {
   // 6. rehydrateFromMessages with availability filter
   // -----------------------------------------------------------------------
   await test('rehydrateFromMessages filters out unavailable MCP tools', () => {
-    const set = new ActivatedToolSet(['tool-search'])
+    const set = new ActivatedToolSet(['ToolSearch'])
     const messages = [
       {
         role: 'assistant',
         parts: [
           {
-            toolName: 'tool-search',
+            toolName: 'ToolSearch',
             state: 'output-available',
             output: {
               tools: [
@@ -304,7 +304,7 @@ async function runTests() {
     ]
 
     // Only these tools are currently available
-    const available = new Set(['mcp__github__create-issue', 'read-file', 'tool-search'])
+    const available = new Set(['mcp__github__create-issue', 'read-file', 'ToolSearch'])
 
     ActivatedToolSet.rehydrateFromMessages(set, messages, available)
 
@@ -315,13 +315,13 @@ async function runTests() {
   })
 
   await test('rehydrateFromMessages without filter activates all tools', () => {
-    const set = new ActivatedToolSet(['tool-search'])
+    const set = new ActivatedToolSet(['ToolSearch'])
     const messages = [
       {
         role: 'assistant',
         parts: [
           {
-            toolName: 'tool-search',
+            toolName: 'ToolSearch',
             state: 'output-available',
             output: {
               tools: [

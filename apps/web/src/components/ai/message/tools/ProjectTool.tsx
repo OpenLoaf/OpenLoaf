@@ -25,7 +25,7 @@ import {
 } from "./shared/tool-utils";
 
 /** Project tools that should trigger project tree refresh. */
-const PROJECT_TOOL_MUTATIONS = new Set(["project-mutate"]);
+const PROJECT_TOOL_MUTATIONS = new Set(["ProjectMutate"]);
 
 /** Extract project info from tool output. */
 function extractProjectInfo(output: unknown):

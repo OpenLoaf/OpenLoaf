@@ -13,11 +13,11 @@ import { getStandardPrompt } from '../master'
 
 /**
  * PM Agent 工具集 — 继承 Project Agent 工具集 + Agent/SendMessage 协作工具。
- * 排除 task-manage（PM 不创建 Task，用 Agent 同步调度 Specialist）。
+ * 排除 TaskManage（PM 不创建 Task，用 Agent 同步调度 Specialist）。
  */
 export const PM_AGENT_TOOL_IDS = [
   // core (always available)
-  'tool-search',
+  'ToolSearch',
   'Bash',
   'Read',
   'Glob',
@@ -29,20 +29,20 @@ export const PM_AGENT_TOOL_IDS = [
   'Agent',
   'SendMessage',
   // system (deferred)
-  'update-plan',
+  'UpdatePlan',
   // web
-  'open-url',
+  'OpenUrl',
   'WebSearch',
   'WebFetch',
   // project (query only)
-  'project-query',
+  'ProjectQuery',
   // document
-  'edit-document',
+  'EditDocument',
   // file info
-  'file-info',
+  'FileInfo',
   // memory
-  'memory-search',
-  'memory-get',
+  'MemorySearch',
+  'MemoryGet',
 ] as const
 
 /** Get PM agent prompt (PM identity + standard framework) in specified language. */

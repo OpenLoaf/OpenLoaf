@@ -12,7 +12,7 @@
 import { useChatRuntime } from "@/hooks/use-chat-runtime";
 import { useLayoutState } from "@/hooks/use-layout-state";
 
-const HIDDEN_TOOL_NAME = "tool-search";
+const HIDDEN_TOOL_NAME = "ToolSearch";
 const hiddenToolCallIds = new Set<string>();
 
 /** Check whether the tool stream chunk marks the end of a tool call. */
@@ -34,7 +34,7 @@ function shouldIgnoreToolChunk(dataPart: any): boolean {
 
   if (toolName === HIDDEN_TOOL_NAME) {
     if (toolCallId) {
-      // 中文注释：记录 tool-search 的 toolCallId，忽略后续 delta/output 事件。
+      // 中文注释：记录 ToolSearch 的 toolCallId，忽略后续 delta/output 事件。
       if (isTerminalToolChunk(type)) hiddenToolCallIds.delete(toolCallId);
       else hiddenToolCallIds.add(toolCallId);
     }
@@ -260,7 +260,7 @@ function handleToolChunk({
 }) {
   // MVP：tool parts（用于 ToolResultPanel 渲染）
   if (!tabId) return;
-  // 中文注释：tool-search 仅用于动态加载工具，不在 Web 聊天界面展示。
+  // 中文注释：ToolSearch 仅用于动态加载工具，不在 Web 聊天界面展示。
   if (shouldIgnoreToolChunk(dataPart)) return;
   switch (dataPart?.type) {
     case "data-cli-thinking-delta": {

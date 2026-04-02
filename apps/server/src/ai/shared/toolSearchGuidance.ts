@@ -24,9 +24,9 @@ import { isWebSearchConfigured } from '@/ai/tools/webSearchTool'
 
 /** Platform-specific tool exclusions. */
 const PLATFORM_EXCLUDED: Partial<Record<string, ClientPlatform[]>> = {
-  'open-url': ['web'],
-  'jsx-create': ['cli'],
-  'chart-render': ['cli'],
+  'OpenUrl': ['web'],
+  'JsxCreate': ['cli'],
+  'ChartRender': ['cli'],
 }
 
 /** Group → Chinese label (no tool IDs exposed to model). */
@@ -87,7 +87,7 @@ export function buildToolSearchGuidance(
 
   return `# 工具与技能
 你有一组始终可用的核心工具（Bash、Read、Glob、Grep、Edit、Write、AskUserQuestion、Agent 等），可直接调用。
-其余专业工具需通过 tool-search 加载后才能调用：tool-search(names: "name1,name2")。
+其余专业工具需通过 ToolSearch 加载后才能调用：ToolSearch(names: "name1,name2")。
 
 工作流程：
 1. 核心工具（文件操作、Shell、子代理）→ 直接使用，无需加载

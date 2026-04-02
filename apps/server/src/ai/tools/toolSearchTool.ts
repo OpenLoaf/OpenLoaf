@@ -82,7 +82,7 @@ export function createToolSearchTool(
               name: skill.name,
               scope: skill.scope,
               basePath: skill.basePath,
-              content: `[已加载] 技能 "${skill.name}" 在本会话中已加载且工具仍处于激活状态。请参考之前的 tool-search 返回结果获取完整说明。`,
+              content: `[已加载] 技能 "${skill.name}" 在本会话中已加载且工具仍处于激活状态。请参考之前的 ToolSearch 返回结果获取完整说明。`,
             })
             continue
           }

@@ -34,7 +34,7 @@ type BoardView = {
   updatedAt: string
 }
 
-/** Output payload for board-query tool. */
+/** Output payload for BoardQuery tool. */
 type BoardQueryToolOutput = {
   ok: true
   data:
@@ -42,7 +42,7 @@ type BoardQueryToolOutput = {
     | { mode: 'get'; board: BoardView | null }
 }
 
-/** Output payload for board-mutate tool. */
+/** Output payload for BoardMutate tool. */
 type BoardMutateToolOutput = {
   ok: true
   data:

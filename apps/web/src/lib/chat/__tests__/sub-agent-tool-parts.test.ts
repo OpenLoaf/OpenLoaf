@@ -21,10 +21,10 @@ async function run() {
       {
         type: "tool-open-url",
         toolCallId: "tool-1",
-        toolName: "open-url",
+        toolName: "OpenUrl",
         input: { url: "https://example.com" },
       },
-      { type: "tool-open-url", toolName: "open-url" },
+      { type: "tool-open-url", toolName: "OpenUrl" },
     ],
     tabId: "tab-1",
     subAgentToolCallId: "sub-1",
@@ -44,14 +44,14 @@ async function run() {
   assert.equal(upsert.tabId, "tab-1");
   assert.equal(upsert.toolCallId, "tool-1");
   assert.equal(upsert.next.subAgentToolCallId, "sub-1");
-  assert.equal(upsert.next.toolName, "open-url");
+  assert.equal(upsert.next.toolName, "OpenUrl");
 
   const [execute] = executeCalls;
   assert.equal(execute.tabId, "tab-1");
   assert.equal(execute.part.toolCallId, "tool-1");
-  assert.equal(execute.part.toolName, "open-url");
+  assert.equal(execute.part.toolName, "OpenUrl");
 
-  console.log("sub-agent tool parts handling tests passed.");
+  console.log("SubAgent tool parts handling tests passed.");
 }
 
 run().catch((error) => {

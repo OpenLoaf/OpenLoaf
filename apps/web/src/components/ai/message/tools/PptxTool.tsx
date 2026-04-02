@@ -202,7 +202,7 @@ export default function PptxTool({
   className?: string
 }) {
   const toolKind = getToolKind(part)
-  const isMutate = toolKind === 'pptx-mutate'
+  const isMutate = toolKind === 'PptxMutate'
 
   return (
     <OfficeToolShell

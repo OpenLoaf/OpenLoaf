@@ -409,7 +409,7 @@ function parseFrontMatter(content: string): SkillFrontMatter {
       break;
     }
 
-    // Handle YAML list items for tools (e.g. "  - calendar-query")
+    // Handle YAML list items for tools (e.g. "  - CalendarQuery")
     if (inToolsList) {
       const listItem = /^\s+-\s+(.+)$/u.exec(line);
       if (listItem) {
@@ -438,8 +438,8 @@ function parseFrontMatter(content: string): SkillFrontMatter {
     // Handle tools field: inline array or YAML list
     if (key === "tools") {
       if (rawValue) {
-        // Inline format: tools: calendar-query, calendar-mutate, time-now
-        // or bracket format: tools: [calendar-query, calendar-mutate]
+        // Inline format: tools: CalendarQuery, CalendarMutate, time-now
+        // or bracket format: tools: [CalendarQuery, CalendarMutate]
         const cleaned = rawValue.replace(/^\[|\]$/g, "");
         result.tools = cleaned.split(",").map((s) => s.trim()).filter(Boolean);
       } else {

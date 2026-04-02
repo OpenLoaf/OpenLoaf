@@ -223,7 +223,7 @@ date: 2026-03-15
 ## 🚀 改进
 
 - 优化 AI Agent 能力，新增图标资源
-- 任务创建工具重命名为 task-manage
+- 任务创建工具重命名为 TaskManage
 
 ## 💄 界面优化
 
@@ -253,7 +253,7 @@ date: 2026-03-15
 ## 🚀 Improvements
 
 - Enhance AI Agent capabilities with new icon assets
-- Rename task creation tool to task-manage
+- Rename task creation tool to TaskManage
 
 ## 💄 UI/UX
 

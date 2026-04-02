@@ -10,7 +10,7 @@
 import { z } from 'zod'
 
 export const videoConvertToolDef = {
-  id: 'video-convert',
+  id: 'VideoConvert',
   name: '视频转换',
   description:
     '触发：当用户需要转换视频/音频格式、从视频中提取音频、或查看视频文件信息时调用。' +

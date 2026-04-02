@@ -100,7 +100,7 @@ export default function WidgetInitTool({
         <div className="flex items-center gap-3 border-b bg-muted/50 px-3 py-2">
           <TrafficLights state={windowState} />
           <span className="flex-1 truncate text-[10px] text-muted-foreground/60">
-            widget-init
+            WidgetInit
           </span>
           <span className="shrink-0 text-xs font-medium text-muted-foreground">
             {widgetName}

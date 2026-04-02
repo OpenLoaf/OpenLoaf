@@ -9,11 +9,11 @@
  */
 import { z } from "zod";
 
-/** Browser sub-agent display name. */
+/** Browser SubAgent display name. */
 export const browserSubAgentName = "BrowserSubAgent" as const;
-/** Document analysis sub-agent display name. */
+/** Document analysis SubAgent display name. */
 export const documentAnalysisSubAgentName = "DocumentAnalysisSubAgent" as const;
-/** Allowed sub-agent names. */
+/** Allowed SubAgent names. */
 export const subAgentNames = [
   browserSubAgentName,
   documentAnalysisSubAgentName,
@@ -21,7 +21,7 @@ export const subAgentNames = [
 
 /** Sub-agent tool definition. */
 export const subAgentToolDef = {
-  id: "sub-agent",
+  id: "SubAgent",
   name: "子代理",
   description:
     "触发：当任务需要交给子代理独立执行（例如分离浏览/文档分析），且你需要获得其最终结果时调用。用途：创建指定子代理执行任务，过程会产生流式事件供系统展示。返回：子代理最后一个响应 part（可能是 text 或工具 part），也可能为 null。不适用：简单任务无需拆分时不要使用。",

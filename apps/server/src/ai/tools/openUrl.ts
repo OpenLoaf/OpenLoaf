@@ -38,8 +38,8 @@ export const openUrlTool = tool({
     });
     if (result.status === "success") return result;
     if (result.status === "timeout") {
-      throw new Error("open-url timeout");
+      throw new Error("OpenUrl timeout");
     }
-    throw new Error(result.errorText || "open-url failed");
+    throw new Error(result.errorText || "OpenUrl failed");
   },
 });

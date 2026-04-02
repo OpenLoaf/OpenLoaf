@@ -25,7 +25,7 @@
     "test:p0-regression": "node --enable-source-maps --import tsx/esm --import ./scripts/registerMdTextLoader.mjs src/ai/__tests__/p0-regression.test.ts",
     "test:ai:multiagent": "node --env-file=.env --enable-source-maps --import tsx/esm --import ./scripts/registerMdTextLoader.mjs src/ai/__tests__/level4-multiagent.test.ts",
     "test:ai:pm": "node --env-file=.env --enable-source-maps --import tsx/esm --import ./scripts/registerMdTextLoader.mjs src/ai/__tests__/level4-pm-agent.test.ts",
-    "test:ai:jsx-create-validator": "node --enable-source-maps --import tsx/esm --import ./scripts/registerMdTextLoader.mjs src/ai/__tests__/jsxCreateValidator.test.ts",
+    "test:ai:JsxCreate-validator": "node --enable-source-maps --import tsx/esm --import ./scripts/registerMdTextLoader.mjs src/ai/__tests__/jsxCreateValidator.test.ts",
     "test:ai:ask-user-question": "node --env-file=.env --enable-source-maps --import tsx/esm --import ./scripts/registerMdTextLoader.mjs src/ai/__tests__/level5-ask-user-question.test.ts",
     "test:task:config": "node --enable-source-maps --import tsx/esm --import ./scripts/registerMdTextLoader.mjs src/services/__tests__/taskConfigService.test.ts",
     "test:task:event-bus": "node --enable-source-maps --import tsx/esm --import ./scripts/registerMdTextLoader.mjs src/services/__tests__/taskEventBus.test.ts",

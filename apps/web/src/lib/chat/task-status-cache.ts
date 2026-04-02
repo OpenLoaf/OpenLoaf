@@ -11,7 +11,7 @@
 /**
  * 全局 task status 缓存 — 用于 TaskTool 卡片实时更新状态。
  *
- * ChatCoreProvider 的 onSessionUpdate 订阅收到 task-status-change 事件后
+ * ChatCoreProvider 的 onSessionUpdate 订阅收到 TaskStatus-change 事件后
  * 调用 set()，TaskTool 组件通过 useTaskStatus() 订阅变化。
  */
 

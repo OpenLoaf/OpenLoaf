@@ -112,7 +112,7 @@ function makeTaskReportMsg(
       agentId,
       agentName,
       status,
-      reportType: 'sub-agent-result',
+      reportType: 'SubAgent-result',
     } as any,
     createdAt: createdAt ?? new Date().toISOString(),
   }

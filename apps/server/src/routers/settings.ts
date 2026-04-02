@@ -1249,7 +1249,7 @@ class SettingRouterImpl extends BaseSettingRouter {
             return { ok: true, deletedCount: 0 };
           }
         }),
-      /** Get skills for a sub-agent by name. */
+      /** Get skills for a SubAgent by name. */
       getAgentSkillsByName: shieldedProcedure
         .input(settingSchemas.getAgentSkillsByName.input)
         .output(settingSchemas.getAgentSkillsByName.output)
@@ -1264,7 +1264,7 @@ class SettingRouterImpl extends BaseSettingRouter {
           }
           return { skills: [] };
         }),
-      /** Save skills for a sub-agent by name. */
+      /** Save skills for a SubAgent by name. */
       saveAgentSkillsByName: shieldedProcedure
         .input(settingSchemas.saveAgentSkillsByName.input)
         .output(settingSchemas.saveAgentSkillsByName.output)

@@ -38,7 +38,7 @@ type ProjectListItem = {
   depth: number;
 };
 
-/** Output payload for project-query tool. */
+/** Output payload for ProjectQuery tool. */
 type ProjectQueryToolOutput = {
   /** Success flag. */
   ok: true;
@@ -69,7 +69,7 @@ type ProjectQueryToolOutput = {
       };
 };
 
-/** Output payload for project-mutate tool. */
+/** Output payload for ProjectMutate tool. */
 type ProjectMutateToolOutput = {
   /** Success flag. */
   ok: true;
@@ -146,7 +146,7 @@ function normalizeProjectSummary(project: {
   };
 }
 
-/** Input payload for project-query tool. */
+/** Input payload for ProjectQuery tool. */
 type ProjectQueryInput = {
   /** Query mode. */
   mode?: "list" | "get";
@@ -154,7 +154,7 @@ type ProjectQueryInput = {
   projectId?: string;
 };
 
-/** Input payload for project-mutate tool. */
+/** Input payload for ProjectMutate tool. */
 type ProjectMutateInput = {
   /** Mutation action. */
   action: "create" | "update" | "move" | "remove";
@@ -358,7 +358,7 @@ async function executeProjectRemove(projectId?: string) {
   return { projectId: resolvedId };
 }
 
-/** Execute project-query tool logic. */
+/** Execute ProjectQuery tool logic. */
 export async function executeProjectQuery(
   input: ProjectQueryInput,
 ): Promise<ProjectQueryToolOutput> {
@@ -384,7 +384,7 @@ export async function executeProjectQuery(
   };
 }
 
-/** Execute project-mutate tool logic. */
+/** Execute ProjectMutate tool logic. */
 export async function executeProjectMutate(
   input: ProjectMutateInput,
 ): Promise<ProjectMutateToolOutput> {

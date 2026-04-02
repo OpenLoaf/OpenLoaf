@@ -16,7 +16,7 @@ type AnyPart = {
   errorText?: unknown;
 };
 
-const HIDDEN_TOOL_NAMES = new Set(["tool-search"]);
+const HIDDEN_TOOL_NAMES = new Set(["ToolSearch"]);
 
 /** Resolve normalized tool name from a message part. */
 function resolveToolName(part: AnyPart): string {

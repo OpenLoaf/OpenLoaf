@@ -193,7 +193,7 @@ export type SessionUpdateEvent =
       summary: string
     }
   | {
-      type: 'task-status-change'
+      type: 'TaskStatus-change'
       taskId: string
       status: string
       previousStatus: string
@@ -308,7 +308,7 @@ export const chatRouter = t.router({
     }),
 
   /**
-   * Get sub-agent history — 实现放在 server（tRPC router override）。
+   * Get SubAgent history — 实现放在 server（tRPC router override）。
    */
   getSubAgentHistory: shieldedProcedure
     .input(getSubAgentHistoryInputSchema)

@@ -10,7 +10,7 @@
 import { z } from 'zod'
 
 export const fileInfoToolDef = {
-  id: 'file-info',
+  id: 'FileInfo',
   name: '文件信息',
   description:
     '触发：当用户需要查看文件的元信息时调用——获取文件大小、MIME 类型、修改时间等基本信息，以及根据文件类型返回的专属元数据。' +

@@ -48,7 +48,7 @@ export type AgentConfig = {
   skills: string[]
   /** Whether sub-agents are allowed. */
   allowSubAgents: boolean
-  /** Max sub-agent depth. */
+  /** Max SubAgent depth. */
   maxDepth: number
   /** System prompt (markdown body). */
   systemPrompt: string

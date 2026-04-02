@@ -78,9 +78,9 @@ async function main() {
 
   const readOnlyTools = [
     'Read', 'Glob', 'Grep',
-    'browser-snapshot', 'browser-observe', 'browser-extract',
-    'project-query', 'calendar-query', 'email-query',
-    'task-status',
+    'BrowserSnapshot', 'BrowserObserve', 'BrowserExtract',
+    'ProjectQuery', 'CalendarQuery', 'EmailQuery',
+    'TaskStatus',
   ]
 
   for (const toolName of readOnlyTools) {
@@ -105,11 +105,11 @@ async function main() {
     })
   }
 
-  console.log('\n--- C: update-plan auto-approve ---')
+  console.log('\n--- C: UpdatePlan auto-approve ---')
 
-  await test('C1: update-plan is auto-approved', async () => {
+  await test('C1: UpdatePlan is auto-approved', async () => {
     const svc = createTestService()
-    const result = await svc.evaluate(makeRequest('update-plan'))
+    const result = await svc.evaluate(makeRequest('UpdatePlan'))
     assert.equal(result.decision, 'approve')
     assert.ok(result.reason.includes('计划'))
   })

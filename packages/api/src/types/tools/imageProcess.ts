@@ -10,7 +10,7 @@
 import { z } from 'zod'
 
 export const imageProcessToolDef = {
-  id: 'image-process',
+  id: 'ImageProcess',
   name: '图片处理',
   description:
     '触发：当用户需要对已有图片进行处理时调用——调整大小、裁剪、旋转、翻转、灰度化、模糊、锐化、着色或格式转换。' +

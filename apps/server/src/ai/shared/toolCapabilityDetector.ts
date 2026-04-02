@@ -23,7 +23,7 @@ const FILE_TOOL_IDS = [
   'Write',
   'Glob',
   'Grep',
-  'edit-document',
+  'EditDocument',
 ] as const
 
 /** 检查工具集合中是否包含指定工具之一。 */

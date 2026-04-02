@@ -353,7 +353,7 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
 
 // ---------------------------------------------------------------------------
 // Tool definition registry — maps toolId → ToolDef (with parameters zod schema).
-// Used by tool-search to return full parameter schemas to the model.
+// Used by ToolSearch to return full parameter schemas to the model.
 // ---------------------------------------------------------------------------
 
 const TOOL_DEF_REGISTRY: Record<string, { parameters?: any }> = {
@@ -418,7 +418,7 @@ const TOOL_DEF_REGISTRY: Record<string, { parameters?: any }> = {
 
 /**
  * Returns simplified JSON schemas for the requested tool IDs.
- * Used by tool-search to include parameter definitions in its response,
+ * Used by ToolSearch to include parameter definitions in its response,
  * so the model knows exactly what parameters to pass.
  */
 export function getToolJsonSchemas(toolIds: string[]): Record<string, object> {

@@ -12,17 +12,17 @@
 | 8 | ShellTool (TestResults) | shell 运行测试命令 |
 | 9 | WriteFileTool (Copy) | apply-patch |
 | 10 | EnvFileTool | read-file on .env |
-| 11 | WidgetTool (JSXPreview) | generate-widget |
-| 4 | Confirmation | generate-widget 自带 needsApproval |
+| 11 | WidgetTool (JSXPreview) | GenerateWidget |
+| 4 | Confirmation | GenerateWidget 自带 needsApproval |
 
 ## 无法自然触发的工具（4/12）
 
 | # | 工具 | 原因 | 测试方式 |
 |---|------|------|---------|
-| 1 | PlanTool (isStreaming fix) | update-plan 已注释 | 需取消注释或手动编辑历史 |
+| 1 | PlanTool (isStreaming fix) | UpdatePlan 已注释 | 需取消注释或手动编辑历史 |
 | 2 | PlanStepList (key fix) | 同上 | 同上 |
-| 3 | SubAgentTool (Agent) | sub-agent 已注释 | 需取消注释或手动编辑历史 |
-| 4 | Confirmation (Accepted/Rejected) | 需要审批后状态 | 在 generate-widget 审批后观察 |
+| 3 | SubAgentTool (Agent) | SubAgent 已注释 | 需取消注释或手动编辑历史 |
+| 4 | Confirmation (Accepted/Rejected) | 需要审批后状态 | 在 GenerateWidget 审批后观察 |
 
 ---
 
@@ -47,11 +47,11 @@
 
 对于无法自然触发的工具，可以在对话历史的 message parts 中手动插入以下 mock 数据：
 
-### update-plan (PlanTool)
+### UpdatePlan (PlanTool)
 ```json
 {
   "type": "tool-invocation",
-  "toolName": "update-plan",
+  "toolName": "UpdatePlan",
   "toolCallId": "test-plan-001",
   "state": "output-available",
   "input": {
@@ -70,11 +70,11 @@
 }
 ```
 
-### sub-agent (SubAgentTool)
+### SubAgent (SubAgentTool)
 ```json
 {
   "type": "tool-invocation",
-  "toolName": "sub-agent",
+  "toolName": "SubAgent",
   "toolCallId": "test-subagent-001",
   "state": "output-available",
   "input": {

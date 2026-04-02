@@ -55,7 +55,7 @@ export function createToolCallRepair(): ToolCallRepairFunction<any> {
     if (NoSuchToolError.isInstance(error)) {
       logger.info(
         { toolCallId: toolCall.toolCallId, toolName: toolCall.toolName },
-        "[tool-repair] tool not active; LLM should use tool-search to load it",
+        "[tool-repair] tool not active; LLM should use ToolSearch to load it",
       );
       return null;
     }

@@ -79,12 +79,12 @@ function getToolIcon(kind: string): React.ReactNode {
     case "Grep":
     case "grep-files":
       return <SearchIcon className={iconCls} />;
-    case "open-url":
+    case "OpenUrl":
       return <GlobeIcon className={iconCls} />;
     case "image-generate":
     case "video-generate":
       return <ImageIcon className={iconCls} />;
-    case "update-plan":
+    case "UpdatePlan":
       return <ListChecksIcon className={iconCls} />;
     case "Bash":
     case "shell-command":
@@ -204,7 +204,7 @@ export default function UnifiedTool({
     return <MediaGenerateTool part={part} messageId={messageId} />;
   }
 
-  if (toolKind === "open-url" && part.state !== "output-error" && part.state !== "output-denied") {
+  if (toolKind === "OpenUrl" && part.state !== "output-error" && part.state !== "output-denied") {
     return <OpenUrlTool part={part} className={className} />;
   }
 

@@ -127,7 +127,7 @@ async function main() {
     const instruction = buildFn(task)
     assert.ok(instruction.includes('开发邮件功能'))
     assert.ok(instruction.includes('实现发送邮件的 API'))
-    assert.ok(instruction.includes('update-plan'))
+    assert.ok(instruction.includes('UpdatePlan'))
     assert.ok(instruction.includes('Agent'))
   })
 

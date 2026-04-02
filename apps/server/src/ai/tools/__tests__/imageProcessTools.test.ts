@@ -48,7 +48,7 @@ async function test(name: string, fn: () => Promise<void> | void) {
 
 function withCtx<T>(fn: () => T | Promise<T>): Promise<T> {
   return runWithContext(
-    { sessionId: 'image-process-test', cookies: {} },
+    { sessionId: 'ImageProcess-test', cookies: {} },
     fn as () => Promise<T>,
   )
 }

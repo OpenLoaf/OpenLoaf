@@ -27,14 +27,14 @@ type SnapshotData = {
   elements?: SnapshotElement[]
 }
 
-/** Extract snapshot data — handles both browser-snapshot and browser-observe shapes. */
+/** Extract snapshot data — handles both BrowserSnapshot and BrowserObserve shapes. */
 function resolveSnapshot(data: Record<string, unknown> | null): { task?: string; snapshot: SnapshotData } {
   if (!data) return { snapshot: {} }
-  // browser-observe wraps snapshot inside { task, snapshot }
+  // BrowserObserve wraps snapshot inside { task, snapshot }
   if (typeof data.task === 'string' && data.snapshot && typeof data.snapshot === 'object') {
     return { task: data.task, snapshot: data.snapshot as SnapshotData }
   }
-  // browser-snapshot returns snapshot fields directly
+  // BrowserSnapshot returns snapshot fields directly
   return { snapshot: data as unknown as SnapshotData }
 }
 

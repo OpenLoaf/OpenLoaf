@@ -10,10 +10,10 @@
 import { z } from 'zod'
 
 export const emailQueryToolDef = {
-  id: 'email-query',
+  id: 'EmailQuery',
   name: '邮件查询',
   description:
-    '触发：当用户提到邮件、收件箱、邮箱、未读邮件，或询问"有没有新邮件"、"查看邮件"、"搜索邮件"时调用。用途：查询邮件账户、邮箱文件夹、邮件列表、邮件详情、搜索邮件、未读统计。返回：{ ok: true, data: { mode, ... } }。不适用：需要发送、删除、移动邮件时不要使用，改用 email-mutate。',
+    '触发：当用户提到邮件、收件箱、邮箱、未读邮件，或询问"有没有新邮件"、"查看邮件"、"搜索邮件"时调用。用途：查询邮件账户、邮箱文件夹、邮件列表、邮件详情、搜索邮件、未读统计。返回：{ ok: true, data: { mode, ... } }。不适用：需要发送、删除、移动邮件时不要使用，改用 EmailMutate。',
   parameters: z.object({
     mode: z
       .enum([
@@ -66,10 +66,10 @@ export const emailQueryToolDef = {
 } as const
 
 export const emailMutateToolDef = {
-  id: 'email-mutate',
+  id: 'EmailMutate',
   name: '邮件操作',
   description:
-    '触发：当你需要发送邮件、标记已读、标记星标、删除邮件、移动邮件，或批量操作邮件时调用。用途：执行邮件变更操作。返回：{ ok: true, data: { action, ... } }。不适用：仅需读取邮件时不要使用，改用 email-query。',
+    '触发：当你需要发送邮件、标记已读、标记星标、删除邮件、移动邮件，或批量操作邮件时调用。用途：执行邮件变更操作。返回：{ ok: true, data: { action, ... } }。不适用：仅需读取邮件时不要使用，改用 EmailQuery。',
   parameters: z.object({
     action: z
       .enum([

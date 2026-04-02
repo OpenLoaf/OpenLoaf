@@ -22,7 +22,7 @@ type SubAgentDataPayload = {
   chunk?: UIMessageChunk;
 };
 
-// masterToolUseId (AI SDK tool call id) → sub-agent toolCallId 映射
+// masterToolUseId (AI SDK tool call id) → SubAgent toolCallId 映射
 const masterToolUseIdToAgentId = new Map<string, string>()
 
 export function getAgentIdByMasterToolUseId(masterToolUseId: string): string | undefined {

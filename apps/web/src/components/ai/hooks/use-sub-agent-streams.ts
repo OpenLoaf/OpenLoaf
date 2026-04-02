@@ -175,7 +175,7 @@ export function useSubAgentStreams({ tabIdRef, toolStream }: UseSubAgentStreamsO
     [tabIdRef],
   );
 
-  /** Reset all sub-agent streams (e.g. on session change). */
+  /** Reset all SubAgent streams (e.g. on session change). */
   const resetSubAgentStreams = React.useCallback(() => {
     const tabId = tabIdRef.current ?? undefined;
     if (tabId) {
@@ -189,7 +189,7 @@ export function useSubAgentStreams({ tabIdRef, toolStream }: UseSubAgentStreamsO
   }, [tabIdRef]);
 
   /**
-   * Abort all active sub-agent streams without clearing history.
+   * Abort all active SubAgent streams without clearing history.
    * Called when user clicks Stop — marks streaming entries as completed
    * so cards don't remain stuck in "running" state.
    */

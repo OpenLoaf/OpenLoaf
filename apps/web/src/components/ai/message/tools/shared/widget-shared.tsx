@@ -234,5 +234,5 @@ export function WidgetPreview({
   )
 }
 
-/** widget-check 去重：同一 widgetId 只有最新的 check 显示完整预览 */
+/** WidgetCheck 去重：同一 widgetId 只有最新的 check 显示完整预览 */
 export const latestCheckByWidgetId = new Map<string, string>()

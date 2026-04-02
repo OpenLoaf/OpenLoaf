@@ -166,7 +166,7 @@ export const ComponentMap: Record<string, PanelComponent> = {
   "plate-doc-viewer": LazyPlateDocViewer,
   "streaming-plate-viewer": LazyStreamingPlateViewer,
   "dynamic-widget-viewer": LazyDynamicWidgetStackPanel,
-  "sub-agent-chat": LazySubAgentChatPanel,
+  "SubAgent-chat": LazySubAgentChatPanel,
   "ai-debug-viewer": LazyAiDebugViewer,
   "task-detail": LazyTaskDetailPanel,
   "canvas-list-page": LazyCanvasListPage,

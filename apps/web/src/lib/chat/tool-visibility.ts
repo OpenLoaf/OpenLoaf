@@ -31,7 +31,7 @@ type AnyPart = {
  * 判断一个 tool part 是否应该显示。
  *
  * 判断优先级：
- * 1. 黑名单工具（如 tool-search）且无错误 → 不显示
+ * 1. 黑名单工具（如 ToolSearch）且无错误 → 不显示
  * 2. showAllToolResults 为 true → 显示
  * 3. 未完成（streaming 中）→ 显示
  * 4. 有错误 → 显示

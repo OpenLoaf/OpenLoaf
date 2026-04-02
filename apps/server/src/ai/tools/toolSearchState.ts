@@ -9,12 +9,12 @@
  */
 
 /**
- * Per-session state tracking which tools have been activated via tool-search.
+ * Per-session state tracking which tools have been activated via ToolSearch.
  */
 export class ActivatedToolSet {
-  /** Core tools that are always available (e.g. tool-search). */
+  /** Core tools that are always available (e.g. ToolSearch). */
   private readonly coreToolIds: ReadonlySet<string>
-  /** Tools dynamically activated via tool-search. */
+  /** Tools dynamically activated via ToolSearch. */
   private readonly activatedIds = new Set<string>()
 
   constructor(coreToolIds: readonly string[]) {
@@ -48,13 +48,13 @@ export class ActivatedToolSet {
   /**
    * Rehydrate activated tool IDs from message history.
    *
-   * Scans assistant messages for tool-search results (state: output-available)
+   * Scans assistant messages for ToolSearch results (state: output-available)
    * and re-activates the tools that were previously loaded. This restores the
    * dynamic tool activation state that would otherwise be lost when a new
    * ActivatedToolSet is created (e.g., after an approval flow interruption).
    *
    * Handles two message formats:
-   * - AI SDK format: part.toolName === 'tool-search'
+   * - AI SDK format: part.toolName === 'ToolSearch'
    * - Stored/JSONL format: part.type === 'tool-tool-search' (toolName derived from type)
    *
    * @param availableToolIds - If provided, only rehydrate IDs that are still
@@ -82,7 +82,7 @@ export class ActivatedToolSet {
               : ''
 
         if (
-          toolName === 'tool-search' &&
+          toolName === 'ToolSearch' &&
           p.state === 'output-available' &&
           p.output &&
           typeof p.output === 'object'

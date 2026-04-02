@@ -102,7 +102,7 @@ function extractPlanUpdateFromMetadata(metadata: unknown): NormalizedPlanUpdate 
   return { actionName, explanation: explanation || undefined, plan: normalizedPlan };
 }
 
-/** Normalize update-plan tool input payload. */
+/** Normalize UpdatePlan tool input payload. */
 function extractPlanUpdateFromToolInput(
   input: unknown,
   basePlan?: PlanItem[] | null,
@@ -133,7 +133,7 @@ function extractPlanUpdateFromToolInput(
   return { actionName, explanation: explanation || undefined, plan: normalizedPlan };
 }
 
-/** Find update-plan tool part from message parts. */
+/** Find UpdatePlan tool part from message parts. */
 function findPlanToolParts(parts?: unknown[]) {
   const collected: any[] = [];
   if (!Array.isArray(parts)) return null;
@@ -141,7 +141,7 @@ function findPlanToolParts(parts?: unknown[]) {
     const part = parts[i] as any;
     const toolName = typeof part?.toolName === "string" ? part.toolName : "";
     const type = typeof part?.type === "string" ? part.type : "";
-    if (toolName === "update-plan" || type === "tool-update-plan") {
+    if (toolName === "UpdatePlan" || type === "tool-update-plan") {
       collected.push(part);
     }
   }
@@ -168,7 +168,7 @@ export default function MessagePlan({ metadata, parts }: MessagePlanProps) {
     let explanation = metadataPlan?.explanation;
 
     for (const part of planToolParts) {
-      // 中文注释：按消息顺序合并 update-plan，确保 patch 可以覆盖最新状态。
+      // 中文注释：按消息顺序合并 UpdatePlan，确保 patch 可以覆盖最新状态。
       const nextPlanUpdate = extractPlanUpdateFromToolInput(
         (part as any)?.input,
         currentPlan ?? undefined,

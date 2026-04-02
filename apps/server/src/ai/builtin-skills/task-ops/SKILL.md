@@ -8,18 +8,18 @@ description: >
 
 # 任务操作技能
 
-本技能通过两个工具完成所有任务操作：`task-manage`（创建与管理）和 `task-status`（查询）。
+本技能通过两个工具完成所有任务操作：`TaskManage`（创建与管理）和 `TaskStatus`（查询）。
 
 ## 什么时候用哪个工具
 
-- **用户在问任务情况**（"有什么任务"、"进度怎么样"、"哪些待审批"）→ `task-status`
-- **用户要创建、取消、删除任务** → `task-manage`（create / cancel / delete / archive 等）
-- **用户要审批或打回某个任务** → `task-manage` 的 `resolve` 动作（approve / reject / rework）
-- **用户既问又改**（"看看有什么任务，把过期的都取消掉"）→ 先 `task-status` 拿列表，再逐一 `task-manage`
+- **用户在问任务情况**（"有什么任务"、"进度怎么样"、"哪些待审批"）→ `TaskStatus`
+- **用户要创建、取消、删除任务** → `TaskManage`（create / cancel / delete / archive 等）
+- **用户要审批或打回某个任务** → `TaskManage` 的 `resolve` 动作（approve / reject / rework）
+- **用户既问又改**（"看看有什么任务，把过期的都取消掉"）→ 先 `TaskStatus` 拿列表，再逐一 `TaskManage`
 
 ## 歧义消解
 
-用户说"我有什么要处理的"、"what's on my plate"、"今天有什么事"——可能指任务、日历日程或未读邮件。优先用 `task-status` 检查任务，但**同时告知用户**你只查了任务维度。如果上下文暗示日程或邮件（如"今天有什么会"），应建议调用对应技能而非猜测。
+用户说"我有什么要处理的"、"what's on my plate"、"今天有什么事"——可能指任务、日历日程或未读邮件。优先用 `TaskStatus` 检查任务，但**同时告知用户**你只查了任务维度。如果上下文暗示日程或邮件（如"今天有什么会"），应建议调用对应技能而非猜测。
 
 ---
 
@@ -75,7 +75,7 @@ description: >
 - **rework** — 打回修改，**必须**附 `reason` 说明需要改什么，Agent 会根据意见重新制定计划
 
 ```
-task-manage { action: "resolve", taskId: "xxx", resolveAction: "rework", reason: "请增加错误处理逻辑" }
+TaskManage { action: "resolve", taskId: "xxx", resolveAction: "rework", reason: "请增加错误处理逻辑" }
 ```
 
 ---
@@ -98,17 +98,17 @@ task-manage { action: "resolve", taskId: "xxx", resolveAction: "rework", reason:
 ### 创建定时任务
 1. 分析用户需求，确定调度类型（once / interval / cron）
 2. 用 `Bash` 执行 `date` 确认当前时间和时区
-3. 调用 `task-manage` 的 create 动作，带上 schedule 配置
+3. 调用 `TaskManage` 的 create 动作，带上 schedule 配置
 4. 告知用户任务已创建、调度方式及下次执行时间
 
 ### 处理待审批任务
-1. 调用 `task-status {}` 获取所有活跃任务
+1. 调用 `TaskStatus {}` 获取所有活跃任务
 2. 找到 status 为 `review` 的任务
 3. 向用户展示 Agent 生成的计划或执行结果
 4. 根据用户指示调用 resolve（approve / reject / rework）
 
 ### 批量清理
-1. **先查后删**：调用 `task-status {}` 展示当前所有任务，确认影响范围
+1. **先查后删**：调用 `TaskStatus {}` 展示当前所有任务，确认影响范围
 2. 选择合适的批量操作：cancelAll（取消活跃任务）、deleteAll（删除已终结任务）、archiveAll（归档已完成任务）
 3. 向用户报告操作结果
 
@@ -120,7 +120,7 @@ task-manage { action: "resolve", taskId: "xxx", resolveAction: "rework", reason:
 
 **cron 不带时区** — 不指定 `timezone` 会按 UTC 执行，用户说「早上 9 点」结果凌晨 1 点就跑了。原因：服务端默认 UTC，与用户本地时间有时差。始终询问或根据上下文推断用户时区，然后显式传入。
 
-**deleteAll 前不检查** — `deleteAll` 只删除已终结任务（done / cancelled），不会误删活跃任务。但仍应先用 `task-status` 让用户确认列表。原因：用户可能忘了某个已完成的任务里有重要的执行日志。
+**deleteAll 前不检查** — `deleteAll` 只删除已终结任务（done / cancelled），不会误删活跃任务。但仍应先用 `TaskStatus` 让用户确认列表。原因：用户可能忘了某个已完成的任务里有重要的执行日志。
 
 **不该创建任务却创建了** — 如果用户说「帮我查一下天气」「现在几点了」，直接做就行，不要创建任务。原因：任务系统有调度和状态管理开销，只有需要定时、重复、延后执行或审批流程时才值得创建。
 

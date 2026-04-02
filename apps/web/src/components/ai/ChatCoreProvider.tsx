@@ -507,7 +507,7 @@ export default function ChatCoreProvider({
       if (!isTool) continue;
       if (isHiddenToolPart(part)) continue;
       const toolName = typeof part?.toolName === "string" ? part.toolName : "";
-      const isFrontendTool = toolName === "open-url" || type === "tool-open-url";
+      const isFrontendTool = toolName === "OpenUrl" || type === "tool-open-url";
       if (isFrontendTool) continue;
       void toolStream.executeFromToolPart({ part, tabId });
     }
@@ -544,7 +544,7 @@ export default function ChatCoreProvider({
       { sessionId },
       {
         onData(event) {
-          if (event.type === 'task-status-change') {
+          if (event.type === 'TaskStatus-change') {
             // 更新 task status → TaskTool 卡片通过 useSyncExternalStore 监听
             taskStatusCache.set(event.taskId, event.status)
             return

@@ -76,7 +76,7 @@ export default function ToolApprovalActions({ approvalId, size = "sm" }: ToolApp
     [messages, updateMessage, approvalId],
   );
 
-  /** Submit approval ack for sub-agent flow. */
+  /** Submit approval ack for SubAgent flow. */
   const postSubAgentApprovalAck = React.useCallback(
     async (approved: boolean, subAgentToolCallId: string) => {
       const baseUrl = resolveServerUrl();
@@ -94,7 +94,7 @@ export default function ToolApprovalActions({ approvalId, size = "sm" }: ToolApp
       });
       if (!response.ok) {
         const text = await response.text().catch(() => "");
-        throw new Error(text || "sub-agent approval ack failed");
+        throw new Error(text || "SubAgent approval ack failed");
       }
     },
     [approvalId],

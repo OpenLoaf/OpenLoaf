@@ -41,7 +41,7 @@ export function registerVideoDownloadRoutes(app: Hono) {
       return c.json({ success: true, data: info })
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to get video info'
-      logger.error({ error }, 'video-download/info failed')
+      logger.error({ error }, 'VideoDownload/info failed')
       return c.json({ error: message }, 500)
     }
   })
@@ -94,7 +94,7 @@ export function registerVideoDownloadRoutes(app: Hono) {
       return c.json({ success: true, data: { taskId } })
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to start download'
-      logger.error({ error }, 'video-download/start failed')
+      logger.error({ error }, 'VideoDownload/start failed')
       return c.json({ error: message }, 500)
     }
   })
