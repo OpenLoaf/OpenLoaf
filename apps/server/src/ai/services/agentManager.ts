@@ -91,10 +91,77 @@ export type ManagedAgent = {
   retried?: boolean
   /** AI SDK tool call id (for frontend mapping during "calling" state). */
   masterToolUseId?: string
+  /** Final output text extracted from the last assistant message. */
+  finalOutput?: string
+  /** Total tool invocation count across all steps. */
+  toolUseCount: number
+  /** Execution start time (for duration tracking). */
+  startedAt?: number
 }
 
 const MAX_DEPTH = 2
 const MAX_CONCURRENT = 4
+
+// ---------------------------------------------------------------------------
+// 输出提取辅助函数
+// ---------------------------------------------------------------------------
+
+/**
+ * Extract the final summary text from the last assistant message.
+ *
+ * AI SDK's ToolLoopAgent merges all steps into a single assistant message,
+ * so the parts array contains interleaved text (transition phrases) and
+ * tool-invocations. We only want the **last text part** — that's the
+ * model's final summary after all tool calls are done.
+ */
+function extractLastAssistantText(messages: UIMessage[]): string {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i]
+    if (msg?.role !== 'assistant') continue
+    const parts = Array.isArray((msg as any).parts) ? (msg as any).parts : []
+    // Walk backwards to find the last text part (the final summary)
+    for (let j = parts.length - 1; j >= 0; j--) {
+      const p = parts[j]
+      if (p?.type === 'text' && typeof p.text === 'string' && p.text.trim().length > 0) {
+        return p.text
+      }
+    }
+  }
+  return ''
+}
+
+/** Check if the last response ended on a tool call (no trailing text). */
+function lastResponseEndsWithToolCall(responseParts: unknown[]): boolean {
+  if (responseParts.length === 0) return false
+  // Find the last non-empty part
+  for (let i = responseParts.length - 1; i >= 0; i--) {
+    const part = responseParts[i] as any
+    if (!part || typeof part !== 'object') continue
+    const type = typeof part.type === 'string' ? part.type : ''
+    // If the last meaningful part is a tool invocation, there's no trailing summary
+    if (type === 'tool-invocation' || type.startsWith('tool-')) return true
+    if (type === 'text') return false
+    // tool-name present = tool part
+    if (typeof part.toolName === 'string') return true
+  }
+  return false
+}
+
+/** Count tool invocations across all assistant messages. */
+function countToolInvocations(messages: UIMessage[]): number {
+  let count = 0
+  for (const msg of messages) {
+    if (msg?.role !== 'assistant') continue
+    const parts = Array.isArray((msg as any).parts) ? (msg as any).parts : []
+    for (const p of parts) {
+      const type = typeof (p as any)?.type === 'string' ? (p as any).type : ''
+      if (type === 'tool-invocation' || type.startsWith('tool-') || typeof (p as any)?.toolName === 'string') {
+        count++
+      }
+    }
+  }
+  return count
+}
 
 /** Resolve skills from a sub-agent's config (empty = no skills). */
 function resolveSubAgentSkills(
@@ -241,6 +308,8 @@ class AgentManager {
       depth,
       isResumed: false,
       masterToolUseId: input.masterToolUseId,
+      toolUseCount: 0,
+      startedAt: Date.now(),
     }
     this.agents.set(id, agent)
 
@@ -397,13 +466,6 @@ class AgentManager {
 
         // 逻辑：子 agent 完整历史已保存在 agents/<agentId>.jsonl，不再写入 messages.jsonl。
 
-        if (writer) {
-          writer.write({
-            type: 'data-sub-agent-end',
-            data: { toolCallId, output: agent.outputText },
-          } as any)
-        }
-
         // 逻辑：验证子 Agent 输出有效性（MAST FM-3.2 — 不完整验证）。
         // 空输出且无工具结果时：首次自动重试一次，仍失败则标记为 failed。
         const hasOutput = agent.outputText.trim().length > 0
@@ -424,24 +486,49 @@ class AgentManager {
             agent.messages.push(retryMessage)
             await this.appendToAgentHistory(agent, retryMessage)
             await this.runAgentStreamWithApproval(id, agent, toolLoopAgent)
-
-            const retryHasOutput = agent.outputText.trim().length > 0
-            const retryHasToolResults = agent.responseParts.some(
-              (p: any) => p?.type === 'tool-invocation' && p?.state === 'output-available',
-            )
-            if (retryHasOutput || retryHasToolResults) {
-              this.complete(id, agent.outputText || agent.responseParts)
-              return
-            }
           }
-          this.fail(
-            id,
-            'Agent completed without producing any output or tool results after retry.',
+          // Re-check after retry
+          const retryHasOutput = agent.outputText.trim().length > 0
+          const retryHasToolResults = agent.responseParts.some(
+            (p: any) => p?.type === 'tool-invocation' && p?.state === 'output-available',
           )
-          return
+          if (!retryHasOutput && !retryHasToolResults) {
+            this.fail(
+              id,
+              'Agent completed without producing any output or tool results after retry.',
+            )
+            return
+          }
         }
 
-        this.complete(id, agent.outputText || agent.responseParts)
+        // 逻辑：补偿总结 — 如果最后一步是 tool call（无尾部文字），追加一轮强制总结。
+        if (lastResponseEndsWithToolCall(agent.responseParts)) {
+          logger.info({ agentId: id }, '[agent-manager] last response ends with tool call, requesting summary')
+          const summaryMessage: UIMessage = {
+            id: generateId(),
+            role: 'user',
+            parts: [{ type: 'text', text:
+              '你已完成所有工具调用。现在请输出一段简明的总结文本，概括你的发现和结论。不要再调用任何工具。' }],
+          }
+          agent.messages.push(summaryMessage)
+          await this.appendToAgentHistory(agent, summaryMessage)
+          await this.runAgentStreamWithApproval(id, agent, toolLoopAgent)
+        }
+
+        // 统计 tool use count
+        agent.toolUseCount = countToolInvocations(agent.messages)
+
+        // 提取最后一条 assistant 消息的文字作为 finalOutput
+        agent.finalOutput = extractLastAssistantText(agent.messages) || agent.outputText
+
+        if (writer) {
+          writer.write({
+            type: 'data-sub-agent-end',
+            data: { toolCallId, output: agent.finalOutput },
+          } as any)
+        }
+
+        this.complete(id, agent.finalOutput)
       } catch (err) {
         const errorText = err instanceof Error ? err.message : 'sub-agent failed'
         logger.error({ agentId: id, err }, '[agent-manager] agent execution failed')
@@ -847,6 +934,8 @@ class AgentManager {
         // 逻辑：从 session.json 恢复 preface，标记为已注入（恢复的消息链中已包含 preface 效果）。
         preface: (meta.preface as string) || undefined,
         prefaceInjected: Boolean(meta.preface),
+        toolUseCount: 0,
+        startedAt: Date.now(),
       }
       this.agents.set(id, restored)
       this.setStatus(id, 'running')

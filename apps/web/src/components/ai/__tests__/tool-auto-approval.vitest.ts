@@ -20,7 +20,7 @@ import { describe, it, expect, vi } from 'vitest'
 // Reproduce the core algorithm from toolRegistry.ts with injectable context
 // ---------------------------------------------------------------------------
 
-const AUTO_APPROVE_EXCLUDED_TOOLS = new Set(['request-user-input'])
+const AUTO_APPROVE_EXCLUDED_TOOLS = new Set(['AskUserQuestion'])
 
 type RequestContext = {
   autoApproveTools?: boolean
@@ -58,9 +58,9 @@ function wrapToolWithAutoApproval(
 describe('wrapToolWithAutoApproval', () => {
   const noop = () => undefined
 
-  it('returns original tool for excluded tool id (request-user-input)', () => {
+  it('returns original tool for excluded tool id (AskUserQuestion)', () => {
     const tool = { needsApproval: true, execute: vi.fn() }
-    const result = wrapToolWithAutoApproval('request-user-input', tool, noop)
+    const result = wrapToolWithAutoApproval('AskUserQuestion', tool, noop)
     expect(result).toBe(tool)
   })
 

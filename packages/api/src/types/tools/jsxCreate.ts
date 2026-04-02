@@ -36,7 +36,7 @@ export const jsxCreateToolDef = {
     + '  - 标签/徽章：使用 `rounded-full px-2.5 py-0.5 text-xs` + 上述扁平色组合。\n'
     + '  - 禁止：`bg-white`、`bg-gray-50`、`text-gray-800` 等硬编码颜色；禁止渐变背景 `bg-gradient-*`。使用 `ol-*` 语义令牌替代。\n'
     + '- **风格规范**：圆角用 `rounded-lg` 或 `rounded-xl`；禁止 `shadow-*`/`box-shadow`；间距紧凑（`p-3`~`p-4`、`gap-2`~`gap-3`）；优先使用 `text-sm`/`text-xs` 小字号。\n'
-    + '- 交互式表单收集请用 request-user-input，本工具仅负责展示。\n'
+    + '- 交互式表单收集请用 AskUserQuestion，本工具仅负责展示。\n'
     + '- 服务端会校验 JSX 语法，违规会直接报错。\n'
     + '- 校验失败仍会写入文件，错误信息中会包含 path，请用 apply-patch 修正后刷新预览。\n'
     + '- 每条回复只调用一次 jsx-create；若失败必须用 apply-patch 修正，不要重新调用。\n'

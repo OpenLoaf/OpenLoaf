@@ -38,6 +38,7 @@ import { useInfiniteQuery, useMutation, keepPreviousData } from "@tanstack/react
 import { queryClient, trpc, trpcClient } from "@/utils/trpc";
 import { toast } from "sonner";
 import { getCachedAccessToken } from "@/lib/saas-auth";
+import { cleanupProjectCache } from "@/lib/project-cache-cleanup";
 
 import { useIsInView } from "@/hooks/use-is-in-view";
 import { ColorPickerSubMenu } from "@/components/shared/ColorPickerSubMenu";
@@ -577,6 +578,7 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
     } else {
       removeMutation.mutate({ projectId: removeTarget });
     }
+    cleanupProjectCache(removeTarget);
     setRemoveTarget(null);
   }, [removeTarget, removeAlsoDestroy, destroyMutation, removeMutation]);
 
@@ -795,12 +797,14 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
               ) : (
                 <FolderOpen className="mr-2 h-4 w-4" />
               )}
-              {t("projectTree.open")}
+              {canOpenProjectWindow
+                ? t("projectTree.openInNewWindow")
+                : t("projectTree.open")}
             </ContextMenuItem>
             {canOpenProjectWindow ? (
               <ContextMenuItem onSelect={() => handleProjectOpenInSidebar(project)}>
                 <FolderOpen className="mr-2 h-4 w-4" />
-                {tSettings("basicSettings.projectOpenModeSidebar")}
+                {t("projectTree.openInCurrentWindow")}
               </ContextMenuItem>
             ) : null}
             <ContextMenuItem

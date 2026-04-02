@@ -86,6 +86,8 @@
   },
   "projectTree": {
     "open": "打开",
+    "openInNewWindow": "新建窗口打开",
+    "openInCurrentWindow": "当前窗口打开",
     "openInFileManager": "在文件管理器中打开",
     "copyPath": "复制路径",
     "favorite": "收藏",

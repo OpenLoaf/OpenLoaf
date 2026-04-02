@@ -8,10 +8,8 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 
-import type React from "react";
 import type { UIMessageChunk } from "ai";
-import type { ToolPartSnapshot } from "@/hooks/use-chat-runtime";
-import type { SubAgentStreamState } from "../context/ChatToolContext";
+import { useChatRuntime } from "@/hooks/use-chat-runtime";
 
 type SubAgentDataPayload = {
   toolCallId?: string;
@@ -37,14 +35,12 @@ export function clearMasterToolUseIdMap(): void {
 
 export function handleSubAgentDataPart(input: {
   dataPart: any;
-  setSubAgentStreams?: React.Dispatch<React.SetStateAction<Record<string, SubAgentStreamState>>>;
+  tabId?: string;
   enqueueSubAgentChunk?: (toolCallId: string, chunk: UIMessageChunk) => void;
   closeSubAgentStream?: (
     toolCallId: string,
     state: "output-available" | "output-error",
   ) => void;
-  tabId?: string;
-  upsertToolPart?: (tabId: string, toolCallId: string, next: ToolPartSnapshot) => void;
 }) {
   const type = input.dataPart?.type;
   if (
@@ -68,8 +64,11 @@ export function handleSubAgentDataPart(input: {
     return true;
   }
 
-  const setSubAgentStreams = input.setSubAgentStreams;
-  if (!setSubAgentStreams) return true;
+  const tabId = input.tabId;
+  if (!tabId) return true;
+
+  const { updateSubAgentStream } = useChatRuntime.getState();
+
   if (type === "data-sub-agent-end") {
     input.closeSubAgentStream?.(toolCallId, "output-available");
   }
@@ -77,76 +76,62 @@ export function handleSubAgentDataPart(input: {
     input.closeSubAgentStream?.(toolCallId, "output-error");
   }
 
-  setSubAgentStreams((prev) => {
-    const current: SubAgentStreamState = prev[toolCallId] ?? {
-      toolCallId,
-      output: "",
+  if (type === "data-sub-agent-start") {
+    const name = typeof payload?.name === "string" ? payload?.name : "";
+    const task = typeof payload?.task === "string" ? payload?.task : "";
+    const masterToolUseId =
+      typeof payload?.masterToolUseId === "string" ? payload.masterToolUseId : undefined;
+    if (masterToolUseId) {
+      masterToolUseIdToAgentId.set(masterToolUseId, toolCallId);
+    }
+    updateSubAgentStream(tabId, toolCallId, {
+      name: name || undefined,
+      task: task || undefined,
+      masterToolUseId: masterToolUseId || undefined,
       state: "output-streaming",
-    };
-
-    if (type === "data-sub-agent-start") {
-      const name = typeof payload?.name === "string" ? payload?.name : "";
-      const task = typeof payload?.task === "string" ? payload?.task : "";
-      const masterToolUseId =
-        typeof payload?.masterToolUseId === "string" ? payload.masterToolUseId : undefined;
-      if (masterToolUseId) {
-        masterToolUseIdToAgentId.set(masterToolUseId, toolCallId);
-      }
+      streaming: true,
+      startedAt: Date.now(),
+    });
+  } else if (type === "data-sub-agent-delta") {
+    const delta = typeof payload?.delta === "string" ? payload?.delta : "";
+    // delta 需要读旧值拼接，使用 Zustand set 的函数式更新
+    useChatRuntime.setState((state) => {
+      const tabStreams = state.subAgentStreamsByTabId[tabId] ?? {};
+      const current = tabStreams[toolCallId] ?? {
+        toolCallId,
+        output: "",
+        state: "output-streaming" as const,
+      };
       return {
-        ...prev,
-        [toolCallId]: {
-          ...current,
-          name: name || current.name,
-          task: task || current.task,
-          masterToolUseId: masterToolUseId || current.masterToolUseId,
-          state: "output-streaming",
-          streaming: true,
-          startedAt: current.startedAt ?? Date.now(),
+        subAgentStreamsByTabId: {
+          ...state.subAgentStreamsByTabId,
+          [tabId]: {
+            ...tabStreams,
+            [toolCallId]: {
+              ...current,
+              output: `${current.output}${delta}`,
+              state: "output-streaming",
+              streaming: true,
+            },
+          },
         },
       };
-    }
-
-    if (type === "data-sub-agent-delta") {
-      const delta = typeof payload?.delta === "string" ? payload?.delta : "";
-      return {
-        ...prev,
-        [toolCallId]: {
-          ...current,
-          output: `${current.output}${delta}`,
-          state: "output-streaming",
-          streaming: true,
-        },
-      };
-    }
-
-    if (type === "data-sub-agent-end") {
-      const output = typeof payload?.output === "string" ? payload?.output : "";
-      return {
-        ...prev,
-        [toolCallId]: {
-          ...current,
-          output: output || current.output,
-          state: "output-available",
-          streaming: false,
-        },
-      };
-    }
-
-    if (type === "data-sub-agent-error") {
-      const errorText = typeof payload?.errorText === "string" ? payload?.errorText : "";
-      return {
-        ...prev,
-        [toolCallId]: {
-          ...current,
-          errorText: errorText || current.errorText,
-          state: "output-error",
-          streaming: false,
-        },
-      };
-    }
-
-    return prev;
-  });
+    });
+  } else if (type === "data-sub-agent-end") {
+    const output = typeof payload?.output === "string" ? payload?.output : "";
+    updateSubAgentStream(tabId, toolCallId, {
+      output: output || undefined,
+      state: "output-available",
+      streaming: false,
+    });
+  } else if (type === "data-sub-agent-error") {
+    const errorText = typeof payload?.errorText === "string" ? payload?.errorText : "";
+    updateSubAgentStream(tabId, toolCallId, {
+      errorText: errorText || undefined,
+      state: "output-error",
+      streaming: false,
+    });
+  }
 
   return true;
 }

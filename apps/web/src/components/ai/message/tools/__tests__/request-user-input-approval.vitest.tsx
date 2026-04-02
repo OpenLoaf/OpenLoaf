@@ -109,8 +109,8 @@ describe('RequestUserInputTool approval flow', () => {
 
   it('submits answers and triggers continuation', async () => {
     const part = {
-      type: 'tool-request-user-input',
-      toolName: 'request-user-input',
+      type: 'tool-AskUserQuestion',
+      toolName: 'AskUserQuestion',
       toolCallId: 'call-1',
       state: 'approval-requested',
       approval: { id: 'approval-1' },
@@ -163,8 +163,8 @@ describe('RequestUserInputTool approval flow', () => {
 
   it('does not continue when validation fails', async () => {
     const part = {
-      type: 'tool-request-user-input',
-      toolName: 'request-user-input',
+      type: 'tool-AskUserQuestion',
+      toolName: 'AskUserQuestion',
       toolCallId: 'call-2',
       state: 'approval-requested',
       approval: { id: 'approval-2' },

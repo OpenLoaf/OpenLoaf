@@ -9,7 +9,7 @@
  */
 'use client'
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSettingsValues } from '@/hooks/use-settings'
 import { useBasicConfig } from '@/hooks/use-basic-config'
@@ -137,11 +137,6 @@ export function useModelPreferences() {
   const preferredVideoIds = normalizeSinglePreferredIds(resolvedVideoIds)
   const preferredCodeIds = normalizeSinglePreferredIds(resolvedCodeIds)
 
-  const isAuto = preferredChatIds.length === 0
-  const isImageAuto = preferredImageIds.length === 0
-  const isVideoAuto = preferredVideoIds.length === 0
-  const isCodeAuto = preferredCodeIds.length === 0
-
   const hasConfiguredProviders = useMemo(
     () =>
       providerItems.some(
@@ -198,77 +193,22 @@ export function useModelPreferences() {
     [masterDetail, setCodeModelIds],
   )
 
-  const setIsAuto = useCallback(
-    (auto: boolean) => {
-      if (auto) {
-        if (preferredChatIds.length === 0) return
-        if (!masterDetail) setOverrideChatIds([])
-        setModelIds([])
-        return
-      }
-      if (preferredChatIds.length > 0) return
-      const fallback = chatModels[0]?.id
-      if (fallback) {
-        if (!masterDetail) setOverrideChatIds([fallback])
-        setModelIds([fallback])
-      }
-    },
-    [chatModels, masterDetail, preferredChatIds, setModelIds],
+  // 空选或选中模型不在当前列表中时，自动选第一个（删除了 auto 模式）。
+  const chatModelIds = useMemo(
+    () => new Set(chatModels.map((m) => m.id)),
+    [chatModels],
   )
-
-  const setImageAuto = useCallback(
-    (auto: boolean) => {
-      if (auto) {
-        if (preferredImageIds.length === 0) return
-        if (!masterDetail) setOverrideImageIds([])
-        setImageModelIds([])
-        return
-      }
-      if (preferredImageIds.length > 0) return
-      const fallback = imageModels[0]?.id
-      if (fallback) {
-        if (!masterDetail) setOverrideImageIds([fallback])
-        setImageModelIds([fallback])
-      }
-    },
-    [imageModels, masterDetail, preferredImageIds, setImageModelIds],
-  )
-
-  const setVideoAuto = useCallback(
-    (auto: boolean) => {
-      if (auto) {
-        if (preferredVideoIds.length === 0) return
-        if (!masterDetail) setOverrideVideoIds([])
-        setVideoModelIds([])
-        return
-      }
-      if (preferredVideoIds.length > 0) return
-      const fallback = videoModels[0]?.id
-      if (fallback) {
-        if (!masterDetail) setOverrideVideoIds([fallback])
-        setVideoModelIds([fallback])
-      }
-    },
-    [masterDetail, preferredVideoIds, setVideoModelIds, videoModels],
-  )
-
-  const setCodeAuto = useCallback(
-    (auto: boolean) => {
-      if (auto) {
-        if (preferredCodeIds.length === 0) return
-        if (!masterDetail) setOverrideCodeIds([])
-        setCodeModelIds([])
-        return
-      }
-      if (preferredCodeIds.length > 0) return
-      const fallback = codeModels[0]?.id
-      if (fallback) {
-        if (!masterDetail) setOverrideCodeIds([fallback])
-        setCodeModelIds([fallback])
-      }
-    },
-    [codeModels, masterDetail, preferredCodeIds, setCodeModelIds],
-  )
+  useEffect(() => {
+    if (chatModels.length === 0) return
+    const hasValidSelection = preferredChatIds.some((id) =>
+      chatModelIds.has(id),
+    )
+    if (!hasValidSelection) {
+      const fallback = chatModels[0].id
+      if (!masterDetail) setOverrideChatIds([fallback])
+      setModelIds([fallback])
+    }
+  }, [chatModelIds, chatModels, masterDetail, preferredChatIds, setModelIds])
 
   const setCloudSource = useCallback(
     (next: string) => {
@@ -373,10 +313,6 @@ export function useModelPreferences() {
     videoModels,
     codeModels,
     isCloudSource,
-    isAuto,
-    isImageAuto,
-    isVideoAuto,
-    isCodeAuto,
     preferredChatIds,
     preferredImageIds,
     preferredVideoIds,
@@ -391,10 +327,6 @@ export function useModelPreferences() {
     toggleVideoModel,
     toggleCodeModel,
     selectCodeModel,
-    setIsAuto,
-    setImageAuto,
-    setVideoAuto,
-    setCodeAuto,
     setCloudSource,
     refreshOnOpen,
     syncCloudModelsOnOpen,

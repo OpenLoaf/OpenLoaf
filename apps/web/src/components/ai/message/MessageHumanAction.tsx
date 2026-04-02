@@ -16,6 +16,7 @@ import { Check, Copy, Pencil, X } from "lucide-react";
 import MessageBranchNav from "./MessageBranchNav";
 import { getMessagePlainText } from "@/lib/chat/message-text";
 import { MessageAction, MessageActions } from "@/components/ai-elements/message";
+import { TooltipProvider } from "@openloaf/ui/tooltip";
 import { useChatActions } from "../context";
 
 interface MessageHumanActionProps {
@@ -47,6 +48,7 @@ export default function MessageHumanAction({
 
   return (
     <div className={className}>
+      <TooltipProvider delayDuration={300}>
       <MessageActions className={cn("mt-1 justify-end", actionsClassName)}>
         <MessageBranchNav messageId={message.id} />
 
@@ -116,6 +118,7 @@ export default function MessageHumanAction({
           </MessageAction>
         ) : null}
       </MessageActions>
+      </TooltipProvider>
     </div>
   );
 }

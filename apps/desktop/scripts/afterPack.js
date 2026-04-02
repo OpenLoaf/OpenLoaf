@@ -277,17 +277,33 @@ function directCopyNativeModules(resourcesDir, targetPlatform, arch) {
   }
 
   // 4) node-pty prebuilds
-  const prebuildsSrc = path.join(MONOREPO_NODE_MODULES, 'node-pty', 'prebuilds')
-  if (fs.existsSync(prebuildsSrc)) {
-    const targetPrebuild = `${targetPlatform}-${arch}`
-    const targetPrebuildSrc = path.join(prebuildsSrc, targetPrebuild)
-    if (fs.existsSync(targetPrebuildSrc)) {
-      const prebuildsDest = path.join(resourcesDir, 'prebuilds', targetPrebuild)
+  //    macOS/Windows: npm 包自带 prebuilds/{platform}-{arch}/pty.node
+  //    Linux: npm 包不含预编译，pnpm install 时从源码编译到 build/Release/pty.node
+  const nodePtyRoot = path.join(MONOREPO_NODE_MODULES, 'node-pty')
+  const prebuildsSrc = path.join(nodePtyRoot, 'prebuilds')
+  const targetPrebuild = `${targetPlatform}-${arch}`
+  const targetPrebuildSrc = path.join(prebuildsSrc, targetPrebuild)
+  const prebuildsDest = path.join(resourcesDir, 'prebuilds', targetPrebuild)
+
+  if (fs.existsSync(targetPrebuildSrc)) {
+    // prebuilds 目录存在（macOS/Windows），直接复制
+    fs.mkdirSync(prebuildsDest, { recursive: true })
+    fs.cpSync(targetPrebuildSrc, prebuildsDest, { recursive: true })
+    console.log(`  [afterPack]   + prebuilds/${targetPrebuild}/ (node-pty)`)
+  } else {
+    // 回退：从源码编译产物 build/Release/ 复制（Linux）
+    const buildReleaseSrc = path.join(nodePtyRoot, 'build', 'Release', 'pty.node')
+    if (fs.existsSync(buildReleaseSrc)) {
       fs.mkdirSync(prebuildsDest, { recursive: true })
-      fs.cpSync(targetPrebuildSrc, prebuildsDest, { recursive: true })
-      console.log(`  [afterPack]   + prebuilds/${targetPrebuild}/ (node-pty)`)
+      fs.copyFileSync(buildReleaseSrc, path.join(prebuildsDest, 'pty.node'))
+      // spawn-helper 也需要（Unix 平台 fork 子进程用）
+      const spawnHelperSrc = path.join(nodePtyRoot, 'build', 'Release', 'spawn-helper')
+      if (fs.existsSync(spawnHelperSrc)) {
+        fs.copyFileSync(spawnHelperSrc, path.join(prebuildsDest, 'spawn-helper'))
+      }
+      console.log(`  [afterPack]   + prebuilds/${targetPrebuild}/ (node-pty, from build/Release)`)
     } else {
-      console.warn(`  [afterPack] node-pty prebuild not found for ${targetPrebuild}`)
+      console.warn(`  [afterPack] node-pty: no prebuild or build/Release found for ${targetPrebuild}`)
     }
   }
 }

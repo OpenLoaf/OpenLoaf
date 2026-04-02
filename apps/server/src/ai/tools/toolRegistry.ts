@@ -440,7 +440,7 @@ export function getToolJsonSchemas(toolIds: string[]): Record<string, object> {
 }
 
 /** Tool IDs excluded from auto-approval (complex/interactive). */
-const AUTO_APPROVE_EXCLUDED_TOOLS = new Set(["request-user-input"]);
+const AUTO_APPROVE_EXCLUDED_TOOLS = new Set(["AskUserQuestion"]);
 
 /** Wrap tool to skip needsApproval when autoApproveTools is enabled. */
 function wrapToolWithAutoApproval(toolId: string, tool: any): any {

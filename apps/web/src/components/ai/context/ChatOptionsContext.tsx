@@ -9,7 +9,7 @@
  */
 "use client";
 
-import React, { createContext, useContext, type ReactNode } from "react";
+import { createContext, useContext, type ReactNode } from "react";
 import type { ImageGenerateOptions } from "@openloaf/api/types/image";
 import type { CodexOptions } from "@/lib/chat/codex-options";
 import type { ClaudeCodeOptions } from "@/lib/chat/claude-code-options";

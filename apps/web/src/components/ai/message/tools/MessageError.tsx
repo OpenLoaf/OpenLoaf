@@ -12,7 +12,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { motion, useReducedMotion } from "motion/react";
-import { useChatActions, useChatState } from "../../context";
+import { useChatActions, useChatStatus } from "../../context";
 import { CheckIcon, CopyIcon, RotateCcw } from "lucide-react";
 
 interface MessageErrorProps {
@@ -92,7 +92,7 @@ export default function MessageError({ error }: MessageErrorProps) {
   const { t } = useTranslation('ai')
   const reduceMotion = useReducedMotion();
   const { regenerate, clearError } = useChatActions();
-  const { status } = useChatState();
+  const { status } = useChatStatus();
   const parsed = parseChatError(error, t('error.title'), t('error.unknown'));
   const [copied, setCopied] = useState(false);
   const timerRef = useRef<number>(0);

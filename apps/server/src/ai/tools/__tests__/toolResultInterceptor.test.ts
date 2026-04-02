@@ -185,7 +185,7 @@ async function main() {
     'tool-search',
     'Agent',
     'SendMessage',
-    'request-user-input',
+    'AskUserQuestion',
     'load-skill',
   ]
 

@@ -25,12 +25,13 @@ import {
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useChatActions, useChatSession, useChatState } from "../context";
+import { useChatActions, useChatSession, useChatStatus } from "../context";
 import MessageBranchNav from "./MessageBranchNav";
 import { getMessageTextWithToolCalls } from "@/lib/chat/message-text";
 import { messageToMarkdown } from "@/lib/chat/message-to-markdown";
 import { SaveMessageDialog } from "./SaveMessageDialog";
 import { MessageAction, MessageActions } from "@/components/ai-elements/message";
+import { TooltipProvider } from "@openloaf/ui/tooltip";
 import {
   PromptInputButton,
   PromptInputHoverCard,
@@ -167,7 +168,7 @@ export default function MessageAiAction({
   const { t } = useTranslation(["ai", "common"]);
   const { retryAssistantMessage, clearError, sendMessage, deleteMessageSubtree, readOnly } =
     useChatActions();
-  const { status } = useChatState();
+  const { status } = useChatStatus();
   const { leafMessageId, sessionId } = useChatSession();
   const { projectId: chatProjectId } = useChatSession();
   const [isCopying, setIsCopying] = React.useState(false);
@@ -262,7 +263,8 @@ export default function MessageAiAction({
 
   return (
     <>
-    <MessageActions className={cn("group select-none justify-start gap-0.5", className)}>
+      <TooltipProvider delayDuration={300}>
+        <MessageActions className={cn("group select-none justify-start gap-0.5", className)}>
       <MessageAction
         onClick={handleCopy}
         disabled={!text || isCopying}
@@ -474,7 +476,8 @@ export default function MessageAiAction({
           {Math.floor(creditsConsumed)}
         </span>
       ) : null}
-    </MessageActions>
+        </MessageActions>
+      </TooltipProvider>
 
       <SaveMessageDialog
         open={saveOpen}

@@ -302,9 +302,9 @@ export default function SubAgentChatPanel({
         <StatusBadge stream={stream} hasHistory={!!historyData} />
       </div>
 
-      {/* Task description */}
+      {/* Task description — max 10 lines, scrollable */}
       {taskText ? (
-        <div className="shrink-0 border-b bg-muted/30 px-3 py-1.5 text-xs text-muted-foreground line-clamp-2">
+        <div className="show-scrollbar-thin shrink-0 overflow-y-auto whitespace-pre-wrap border-b bg-muted/30 px-3 py-1.5 text-xs leading-relaxed text-muted-foreground" style={{ maxHeight: 'calc(10 * 1.625em)' }}>
           {taskText}
         </div>
       ) : null}
@@ -312,7 +312,7 @@ export default function SubAgentChatPanel({
       {/* Message content */}
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto px-3 py-3"
+        className="show-scrollbar-thin flex-1 overflow-y-auto px-3 py-3"
         onScroll={handleScroll}
       >
         {hasMessages ? (
@@ -321,7 +321,9 @@ export default function SubAgentChatPanel({
               <ChatActionsProvider value={chatActionsStub}>
                 <ChatToolProvider value={chatToolStub}>
                   <div className="space-y-3">
-                    {historyMessages.map((msg) => {
+                    {historyMessages.map((msg, idx) => {
+                      // 跳过第一条 user 消息（和顶部 task description 重复）
+                      if (idx === 0 && msg.role === 'user' && taskText) return null
                       const msgParts = Array.isArray(msg.parts) ? msg.parts : []
                       if (msgParts.length === 0) return null
                       return (

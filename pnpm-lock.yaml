@@ -550,6 +550,9 @@ importers:
       '@radix-ui/react-visually-hidden':
         specifier: ^1.2.3
         version: 1.2.3(@types/react-dom@19.2.3(@types/react@19.2.3))(@types/react@19.2.3)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      '@streamdown/code':
+        specifier: ^1.1.1
+        version: 1.1.1(react@19.2.3)
       '@syncfusion/ej2-base':
         specifier: 31.2.18
         version: 31.2.18
@@ -740,8 +743,8 @@ importers:
         specifier: ^2.0.7
         version: 2.0.7(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       streamdown:
-        specifier: ^1.6.11
-        version: 1.6.11(@types/mdast@4.0.4)(micromark-util-types@2.0.2)(micromark@4.0.2)(react@19.2.3)
+        specifier: ^2.5.0
+        version: 2.5.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       superjson:
         specifier: ^2.2.6
         version: 2.2.6
@@ -2282,8 +2285,8 @@ packages:
     resolution: {integrity: sha512-F+nKc0xW+kVbBRhFzaMgPy3KwmuNTYX1fx6+FxxoSnNgwYX6LD7AKBTWkU0MQ6IBoe7dz069CNkR673sPAgkCQ==}
     engines: {node: '>=14'}
 
-  '@electron/node-gyp@https://codeload.github.com/electron/node-gyp/tar.gz/06b29aafb7708acef8b3669835c8a7857ebc92d2':
-    resolution: {tarball: https://codeload.github.com/electron/node-gyp/tar.gz/06b29aafb7708acef8b3669835c8a7857ebc92d2}
+  '@electron/node-gyp@git+https://git@github.com:electron/node-gyp.git#06b29aafb7708acef8b3669835c8a7857ebc92d2':
+    resolution: {commit: 06b29aafb7708acef8b3669835c8a7857ebc92d2, repo: git@github.com:electron/node-gyp.git, type: git}
     version: 10.2.0-electron.1
     engines: {node: '>=12.13.0'}
     hasBin: true
@@ -6995,6 +6998,11 @@ packages:
 
   '@streamdown/code@1.0.3':
     resolution: {integrity: sha512-3Ym5TCLcGhrHY2qBaUVWpqNRtxnZvqh4Y5Qm/pTIKA4AmEWwAAoYjZnxG7mOsvOpWVWiDwETjUtchNL1XzQEAw==}
+    peerDependencies:
+      react: ^18.0.0 || ^19.0.0
+
+  '@streamdown/code@1.1.1':
+    resolution: {integrity: sha512-i7HTNuDgZWb+VdrNVOam9gQhIc5MSSDXKWXgbUrn/4vSRaSMM+Rtl10MQj4wLWPNpF7p80waJsAqFP8HZfb0Jg==}
     peerDependencies:
       react: ^18.0.0 || ^19.0.0
 
@@ -15296,6 +15304,9 @@ packages:
   remend@1.2.1:
     resolution: {integrity: sha512-4wC12bgXsfKAjF1ewwkNIQz5sqewz/z1xgIgjEMb3r1pEytQ37F0Cm6i+OhbTWEvguJD7lhOUJhK5fSasw9f0w==}
 
+  remend@1.3.0:
+    resolution: {integrity: sha512-iIhggPkhW3hFImKtB10w0dz4EZbs28mV/dmbcYVonWEJ6UGHHpP+bFZnTh6GNWJONg5m+U56JrL+8IxZRdgWjw==}
+
   renderkid@3.0.0:
     resolution: {integrity: sha512-q/7VIQA8lmM1hF+jn+sFSPWGlMkSAeNYcPLmDQx2zzuiDfaLrOmumR8iaUKlenFgh0XRPIUeSPlH3A+AW3Z5pg==}
 
@@ -16037,6 +16048,12 @@ packages:
     resolution: {integrity: sha512-Y38fwRx5kCKTluwM+Gf27jbbi9q6Qy+WC9YrC1YbCpMkktT3PsRBJHMWiqYeF8y/JzLpB1IzDoeaB6qkQEDnAA==}
     peerDependencies:
       react: ^18.0.0 || ^19.0.0
+
+  streamdown@2.5.0:
+    resolution: {integrity: sha512-/tTnURfIOxZK/pqJAxsfCvETG/XCJHoWnk3jq9xLcuz6CSpnjjuxSRBTTL4PKGhxiZQf0lqPxGhImdpwcZ2XwA==}
+    peerDependencies:
+      react: ^18.0.0 || ^19.0.0
+      react-dom: ^18.0.0 || ^19.0.0
 
   strict-event-emitter@0.5.1:
     resolution: {integrity: sha512-vMgjE/GGEPEFnhFub6pa4FmJBRBVOLpIII2hvCZ8Kzb7K0hlHo7mQv6xYrBvCL2LtAIBwFUK8wvuJgTVSQ5MFQ==}
@@ -19864,7 +19881,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@electron/node-gyp@https://codeload.github.com/electron/node-gyp/tar.gz/06b29aafb7708acef8b3669835c8a7857ebc92d2':
+  '@electron/node-gyp@git+https://git@github.com:electron/node-gyp.git#06b29aafb7708acef8b3669835c8a7857ebc92d2':
     dependencies:
       env-paths: 2.2.1
       exponential-backoff: 3.1.3
@@ -19946,7 +19963,7 @@ snapshots:
 
   '@electron/rebuild@3.7.2':
     dependencies:
-      '@electron/node-gyp': https://codeload.github.com/electron/node-gyp/tar.gz/06b29aafb7708acef8b3669835c8a7857ebc92d2
+      '@electron/node-gyp': git+https://git@github.com:electron/node-gyp.git#06b29aafb7708acef8b3669835c8a7857ebc92d2
       '@malept/cross-spawn-promise': 2.0.0
       chalk: 4.1.2
       debug: 4.4.3
@@ -21972,7 +21989,7 @@ snapshots:
       react-compiler-runtime: 1.0.0(react@19.2.3)
       react-dom: 19.2.3(react@19.2.3)
       slate: 0.120.0
-      slate-dom: 0.119.0(slate@0.120.0)
+      slate-dom: 0.119.0(slate@0.123.0)
       slate-hyperscript: 0.100.0(slate@0.120.0)
       slate-react: 0.120.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(slate-dom@0.119.0(slate@0.120.0))(slate@0.120.0)
       use-deep-compare: 1.3.0(react@19.2.3)
@@ -22009,7 +22026,7 @@ snapshots:
       slate-react: 0.120.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(slate-dom@0.119.0(slate@0.120.0))(slate@0.120.0)
       use-deep-compare: 1.3.0(react@19.2.4)
       zustand: 5.0.11(@types/react@19.2.3)(immer@11.1.4)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4))
-      zustand-x: 6.2.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(scheduler@0.27.0)(zustand@5.0.11(@types/react@19.2.3)(immer@11.1.4)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4)))
+      zustand-x: 6.2.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(scheduler@0.27.0)(zustand@5.0.11(@types/react@19.2.14)(immer@11.1.4)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4)))
     transitivePeerDependencies:
       - '@types/react'
       - immer
@@ -26637,6 +26654,11 @@ snapshots:
   '@streamdown/code@1.0.3(react@19.2.4)':
     dependencies:
       react: 19.2.4
+      shiki: 3.23.0
+
+  '@streamdown/code@1.1.1(react@19.2.3)':
+    dependencies:
+      react: 19.2.3
       shiki: 3.23.0
 
   '@streamdown/math@1.0.2(react@19.2.4)':
@@ -33841,10 +33863,6 @@ snapshots:
     dependencies:
       react: 19.2.3
 
-  lucide-react@0.542.0(react@19.2.3):
-    dependencies:
-      react: 19.2.3
-
   lucide-react@0.542.0(react@19.2.4):
     dependencies:
       react: 19.2.4
@@ -37749,6 +37767,8 @@ snapshots:
 
   remend@1.2.1: {}
 
+  remend@1.3.0: {}
+
   renderkid@3.0.0:
     dependencies:
       css-select: 4.3.0
@@ -38480,6 +38500,17 @@ snapshots:
       slate: 0.120.0
       tiny-invariant: 1.3.1
 
+  slate-dom@0.119.0(slate@0.123.0):
+    dependencies:
+      '@juggle/resize-observer': 3.4.0
+      direction: 1.0.4
+      is-hotkey: 0.2.0
+      is-plain-object: 5.0.0
+      lodash: 4.17.23
+      scroll-into-view-if-needed: 3.1.0
+      slate: 0.123.0
+      tiny-invariant: 1.3.1
+
   slate-hyperscript@0.100.0(slate@0.120.0):
     dependencies:
       is-plain-object: 5.0.0
@@ -38495,7 +38526,7 @@ snapshots:
       react-dom: 19.2.3(react@19.2.3)
       scroll-into-view-if-needed: 3.1.0
       slate: 0.120.0
-      slate-dom: 0.119.0(slate@0.120.0)
+      slate-dom: 0.119.0(slate@0.123.0)
       tiny-invariant: 1.3.1
 
   slate-react@0.120.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(slate-dom@0.119.0(slate@0.120.0))(slate@0.120.0):
@@ -38763,38 +38794,6 @@ snapshots:
     dependencies:
       any-promise: 1.3.0
 
-  streamdown@1.6.11(@types/mdast@4.0.4)(micromark-util-types@2.0.2)(micromark@4.0.2)(react@19.2.3):
-    dependencies:
-      clsx: 2.1.1
-      hast: 1.0.0
-      hast-util-to-jsx-runtime: 2.3.6
-      html-url-attributes: 3.0.1
-      katex: 0.16.33
-      lucide-react: 0.542.0(react@19.2.3)
-      marked: 16.4.2
-      mermaid: 11.12.3
-      react: 19.2.3
-      rehype-harden: 1.1.8
-      rehype-katex: 7.0.1
-      rehype-raw: 7.0.0
-      rehype-sanitize: 6.0.0
-      remark-cjk-friendly: 1.2.3(@types/mdast@4.0.4)(micromark-util-types@2.0.2)(micromark@4.0.2)(unified@11.0.5)
-      remark-cjk-friendly-gfm-strikethrough: 1.2.3(@types/mdast@4.0.4)(micromark-util-types@2.0.2)(micromark@4.0.2)(unified@11.0.5)
-      remark-gfm: 4.0.1
-      remark-math: 6.0.0
-      remark-parse: 11.0.0
-      remark-rehype: 11.1.2
-      remend: 1.0.1
-      shiki: 3.23.0
-      tailwind-merge: 3.5.0
-      unified: 11.0.5
-      unist-util-visit: 5.1.0
-    transitivePeerDependencies:
-      - '@types/mdast'
-      - micromark
-      - micromark-util-types
-      - supports-color
-
   streamdown@1.6.11(@types/mdast@4.0.4)(micromark-util-types@2.0.2)(micromark@4.0.2)(react@19.2.4):
     dependencies:
       clsx: 2.1.1
@@ -38825,6 +38824,29 @@ snapshots:
       - '@types/mdast'
       - micromark
       - micromark-util-types
+      - supports-color
+
+  streamdown@2.5.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3):
+    dependencies:
+      clsx: 2.1.1
+      hast-util-to-jsx-runtime: 2.3.6
+      html-url-attributes: 3.0.1
+      marked: 17.0.4
+      mermaid: 11.12.3
+      react: 19.2.3
+      react-dom: 19.2.3(react@19.2.3)
+      rehype-harden: 1.1.8
+      rehype-raw: 7.0.0
+      rehype-sanitize: 6.0.0
+      remark-gfm: 4.0.1
+      remark-parse: 11.0.0
+      remark-rehype: 11.1.2
+      remend: 1.3.0
+      tailwind-merge: 3.5.0
+      unified: 11.0.5
+      unist-util-visit: 5.1.0
+      unist-util-visit-parents: 6.0.2
+    transitivePeerDependencies:
       - supports-color
 
   strict-event-emitter@0.5.1: {}
@@ -40507,20 +40529,6 @@ snapshots:
       react-tracked: 1.7.14(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(scheduler@0.27.0)
       use-sync-external-store: 1.4.0(react@19.2.4)
       zustand: 5.0.11(@types/react@19.2.14)(immer@11.1.4)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4))
-    transitivePeerDependencies:
-      - react
-      - react-dom
-      - react-native
-      - scheduler
-
-  zustand-x@6.2.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(scheduler@0.27.0)(zustand@5.0.11(@types/react@19.2.3)(immer@11.1.4)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4))):
-    dependencies:
-      immer: 10.2.0
-      lodash.mapvalues: 4.6.0
-      mutative: 1.1.0
-      react-tracked: 1.7.14(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(scheduler@0.27.0)
-      use-sync-external-store: 1.4.0(react@19.2.4)
-      zustand: 5.0.11(@types/react@19.2.3)(immer@11.1.4)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4))
     transitivePeerDependencies:
       - react
       - react-dom

@@ -739,6 +739,27 @@ body {
   background: transparent;
 }
 
+/* 细滚动条变体 — 适用于小面板 */
+.show-scrollbar-thin {
+  scrollbar-width: thin;
+  -ms-overflow-style: auto;
+}
+.show-scrollbar-thin::-webkit-scrollbar {
+  width: 3px;
+  height: 3px;
+  display: block;
+}
+.show-scrollbar-thin::-webkit-scrollbar-thumb {
+  background: var(--ol-scrollbar-thumb);
+  border-radius: 3px;
+}
+.show-scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: var(--ol-scrollbar-thumb-hover);
+}
+.show-scrollbar-thin::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 /* Board text node: always-visible square scrollbar.
    scrollbar-width must be reverted (not set to auto/thin) so that
    ::-webkit-scrollbar custom styles take effect in Chrome 121+. */

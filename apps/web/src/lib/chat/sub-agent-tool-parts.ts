@@ -49,13 +49,17 @@ export function handleSubAgentToolParts(input: HandleSubAgentToolPartsInput): vo
       });
     }
 
-    input.upsertToolPart(input.tabId, toolCallIdValue, {
+    // 给子 agent 的 toolCallId 加前缀，避免和主 agent 的 toolCallId 冲突
+    const namespacedToolCallId = `${input.subAgentToolCallId}:${toolCallIdValue}`;
+
+    input.upsertToolPart(input.tabId, namespacedToolCallId, {
       ...(part as any),
+      toolCallId: namespacedToolCallId,
       subAgentToolCallId: input.subAgentToolCallId,
     } as any);
 
     void input.executeToolPart({
-      part: part as any,
+      part: { ...(part as any), toolCallId: namespacedToolCallId },
       tabId: input.tabId,
     });
   }

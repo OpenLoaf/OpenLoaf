@@ -19,6 +19,9 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
+import ChatCommandMenu, {
+  type ChatCommandMenuHandle,
+} from "@/components/ai/input/ChatCommandMenu";
 import { AnimatePresence, motion, type Transition } from "framer-motion";
 import type { LucideIcon } from "lucide-react";
 import { ClipboardList, Code2, File, FileText, FolderOpen, Layers, Send, Sparkles } from "lucide-react";
@@ -317,6 +320,8 @@ export function ExpandableDockTabs({
   const altLabel = isMac ? '⌥' : 'Alt';
   const dockRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const commandMenuRef = useRef<ChatCommandMenuHandle | null>(null);
+  const [isInputFocused, setIsInputFocused] = useState(false);
   const measureRef = useRef<HTMLDivElement>(null);
   const baseMeasureRef = useRef<HTMLDivElement>(null);
   const countMeasureRef = useRef<HTMLDivElement>(null);
@@ -494,6 +499,7 @@ export function ExpandableDockTabs({
       const next = !prev;
       if (!next) {
         setInputValue("");
+        setIsInputFocused(false);
       }
       return next;
     });
@@ -940,11 +946,25 @@ export function ExpandableDockTabs({
                 exit={{ opacity: 0, y: 30 }}
                 transition={{ duration: 0.22, ease: "easeOut" }}
               >
+                <ChatCommandMenu
+                  ref={commandMenuRef}
+                  value={inputValue}
+                  onChange={setInputValue}
+                  onRequestFocus={() => inputRef.current?.focus()}
+                  isFocused={isInputFocused}
+                  assistantMessageCount={0}
+                />
                 <motion.input
                   ref={inputRef}
                   value={inputValue}
                   onChange={(event) => setInputValue(event.target.value)}
+                  onFocus={() => setIsInputFocused(true)}
+                  onBlur={() => setIsInputFocused(false)}
                   onKeyDown={(event) => {
+                    // Let the command menu handle keyboard events first (slash commands)
+                    if (commandMenuRef.current?.handleKeyDown(event as unknown as React.KeyboardEvent)) {
+                      return;
+                    }
                     if (event.key === 'ArrowUp') {
                       event.preventDefault();
                       setSuggestionIndex((prev) =>

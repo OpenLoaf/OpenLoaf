@@ -18,7 +18,7 @@ import {
   JSXPreviewError,
 } from '@/components/ai-elements/jsx-preview'
 import { RefreshCw } from 'lucide-react'
-import { useChatActions, useChatSession, useChatState, useChatTools } from '../../context'
+import { useChatActions, useChatMessages, useChatSession, useChatTools } from '../../context'
 import { JSX_PREVIEW_COMPONENTS } from './shared/jsx-preview-components'
 import { TrafficLights } from '@openloaf/ui/traffic-lights'
 import { onJsxCreateRefresh } from '@/lib/chat/jsx-create-events'
@@ -42,7 +42,7 @@ export default function JsxCreateTool({
   className?: string
   messageId?: string
 }) {
-  const { messages } = useChatState()
+  const { messages } = useChatMessages()
   const { updateMessage } = useChatActions()
   const { upsertToolPart } = useChatTools()
   const { sessionId, projectId } = useChatSession()

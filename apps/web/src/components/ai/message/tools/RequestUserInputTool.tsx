@@ -13,9 +13,9 @@ import * as React from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { cn } from '@/lib/utils'
 import { CollapsibleTrigger } from '@openloaf/ui/collapsible'
-import { CheckIcon } from 'lucide-react'
+import { CheckIcon, ChevronLeftIcon, ChevronRightIcon } from 'lucide-react'
 import { trpc } from '@/utils/trpc'
-import { useChatActions, useChatSession, useChatState, useChatTools } from '../../context'
+import { useChatActions, useChatSession, useChatMessages, useChatStatus, useChatTools } from '../../context'
 import {
   Tool,
   ToolContent,
@@ -212,17 +212,19 @@ function QuestionField({
   )
 }
 
-/** Render a choice group (single or multi select). */
-function ChoiceGroup({
+/** Render a single choice step (single or multi select). */
+function ChoiceStep({
   choice,
   selected,
   onChange,
   disabled,
+  onAutoAdvance,
 }: {
   choice: Choice
   selected: string | string[]
   onChange: (value: string | string[]) => void
   disabled: boolean
+  onAutoAdvance?: () => void
 }) {
   const isMulti = choice.multiSelect === true
   const selectedSet = new Set(Array.isArray(selected) ? selected : selected ? [selected] : [])
@@ -235,18 +237,22 @@ function ChoiceGroup({
       else next.add(label)
       onChange(Array.from(next))
     } else {
-      onChange(selectedSet.has(label) ? '' : label)
+      const newValue = selectedSet.has(label) ? '' : label
+      onChange(newValue)
+      if (newValue && onAutoAdvance) {
+        setTimeout(onAutoAdvance, 280)
+      }
     }
   }
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="text-xs text-foreground/80">
+    <div className="flex flex-col gap-2.5">
+      <div className="text-sm font-medium text-foreground">
         {choice.question}
-        {isMulti ? <span className="ml-1 text-muted-foreground">(可多选)</span> : null}
+        {isMulti ? <span className="ml-1.5 text-xs font-normal text-muted-foreground">(可多选)</span> : null}
       </div>
       <div className="flex flex-col gap-1.5">
-        {choice.options.map((opt, idx) => {
+        {choice.options?.map((opt, idx) => {
           const isSelected = selectedSet.has(opt.label)
           return (
             <button
@@ -276,7 +282,134 @@ function ChoiceGroup({
   )
 }
 
-/** Render request-user-input tool UI. */
+/** Auto-animating height container. */
+function AnimateHeight({ children }: { children: React.ReactNode }) {
+  const outerRef = React.useRef<HTMLDivElement>(null)
+  const innerRef = React.useRef<HTMLDivElement>(null)
+
+  React.useLayoutEffect(() => {
+    const outer = outerRef.current
+    const inner = innerRef.current
+    if (!outer || !inner) return
+
+    const observer = new ResizeObserver(() => {
+      const h = inner.scrollHeight
+      outer.style.height = `${h}px`
+    })
+    observer.observe(inner)
+    // set initial height without transition
+    outer.style.height = `${inner.scrollHeight}px`
+    return () => observer.disconnect()
+  }, [])
+
+  return (
+    <div
+      ref={outerRef}
+      className="overflow-hidden transition-[height] duration-250 ease-out"
+    >
+      <div ref={innerRef}>{children}</div>
+    </div>
+  )
+}
+
+/** Wizard component for step-by-step choice mode. */
+function ChoiceWizard({
+  choices,
+  selections,
+  onSelectionChange,
+  disabled,
+  errors,
+}: {
+  choices: Choice[]
+  selections: Record<string, string | string[]>
+  onSelectionChange: (key: string, value: string | string[]) => void
+  disabled: boolean
+  errors: Record<string, string>
+}) {
+  const [step, setStep] = React.useState(0)
+  const total = choices.length
+  const isLastStep = step >= total - 1
+  const current = choices[step]
+
+  const goNext = React.useCallback(() => {
+    if (!isLastStep) setStep((s) => s + 1)
+  }, [isLastStep])
+
+  const goPrev = React.useCallback(() => {
+    if (step > 0) setStep((s) => s - 1)
+  }, [step])
+
+  if (!current) return null
+
+  return (
+    <div className="flex flex-col gap-3">
+      {/* Step indicator */}
+      <div className="flex items-center gap-1.5">
+        {choices.map((_, i) => (
+          <button
+            key={`dot-${i}`}
+            type="button"
+            onClick={() => setStep(i)}
+            className={cn(
+              'h-1.5 rounded-full transition-all duration-200',
+              i === step
+                ? 'w-5 bg-foreground/60'
+                : i < step
+                  ? 'w-1.5 bg-foreground/30'
+                  : 'w-1.5 bg-foreground/10',
+            )}
+          />
+        ))}
+        <span className="ml-auto text-[10px] tabular-nums text-muted-foreground">
+          {step + 1}/{total}
+        </span>
+      </div>
+
+      {/* Animated height wrapper */}
+      <AnimateHeight>
+        <ChoiceStep
+          key={step}
+          choice={current}
+          selected={selections[current.key] ?? (current.multiSelect ? [] : '')}
+          onChange={(v) => onSelectionChange(current.key, v)}
+          disabled={disabled}
+          onAutoAdvance={!isLastStep && !current.multiSelect ? goNext : undefined}
+        />
+
+        {errors[current.key] ? (
+          <div className="mt-1.5 text-[11px] text-destructive">{errors[current.key]}</div>
+        ) : null}
+      </AnimateHeight>
+
+      {/* Nav buttons */}
+      {total > 1 ? (
+        <div className="flex items-center justify-between pt-0.5">
+          <button
+            type="button"
+            disabled={step === 0}
+            onClick={goPrev}
+            className={cn(styles.actionButton, styles.secondaryButton, 'h-7 gap-1 px-2.5 text-[11px]')}
+          >
+            <ChevronLeftIcon className="size-3" />
+            上一步
+          </button>
+          {!isLastStep ? (
+            <button
+              type="button"
+              onClick={goNext}
+              className={cn(styles.actionButton, styles.secondaryButton, 'h-7 gap-1 px-2.5 text-[11px]')}
+            >
+              下一步
+              <ChevronRightIcon className="size-3" />
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+/** Render AskUserQuestion tool UI. */
 export default function RequestUserInputTool({
   part,
   className,
@@ -284,7 +417,8 @@ export default function RequestUserInputTool({
   part: AnyToolPart
   className?: string
 }) {
-  const { messages, status } = useChatState()
+  const { messages } = useChatMessages()
+  const { status } = useChatStatus()
   const { updateMessage, addToolApprovalResponse } = useChatActions()
   const {
     toolParts,
@@ -799,21 +933,13 @@ export default function RequestUserInputTool({
               ? (choices.length > 0 ? renderChoiceReadonly() : renderCompactSummary())
               : (questions.length > 0 ? renderFormReadonly() : renderCompactSummary())
           ) : mode === 'choice' ? (
-            <div className="flex flex-col gap-3">
-              {choices.map((c, idx) => (
-                <div key={c.key || `choice-${idx}`} className="flex flex-col gap-1">
-                  <ChoiceGroup
-                    choice={c}
-                    selected={selections[c.key] ?? (c.multiSelect ? [] : '')}
-                    onChange={(v) => handleSelectionChange(c.key, v)}
-                    disabled={isActionDisabled}
-                  />
-                  {errors[c.key] ? (
-                    <div className="text-[11px] text-destructive">{errors[c.key]}</div>
-                  ) : null}
-                </div>
-              ))}
-            </div>
+            <ChoiceWizard
+              choices={choices}
+              selections={selections}
+              onSelectionChange={handleSelectionChange}
+              disabled={isActionDisabled}
+              errors={errors}
+            />
           ) : (
             <div className="flex flex-col gap-3">
               {questions.map((q, idx) => (

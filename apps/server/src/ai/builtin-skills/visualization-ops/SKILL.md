@@ -116,7 +116,7 @@ Message, MessageContent, Panel, Snippet, SnippetAddon, SnippetText, SnippetInput
 
 **写入位置**：`[<sessionId>]/jsx/<messageId>.jsx`
 
-**交互式表单**：需要收集用户输入时用 `request-user-input`，jsx-create 仅负责展示。
+**交互式表单**：需要收集用户输入时用 `AskUserQuestion`，jsx-create 仅负责展示。
 
 ## 何时用 chart-render vs jsx-create
 

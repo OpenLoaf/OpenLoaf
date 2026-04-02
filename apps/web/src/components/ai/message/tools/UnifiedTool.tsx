@@ -11,7 +11,7 @@
 
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { useChatActions, useChatSession, useChatState, useChatTools } from "@/components/ai/context";
+import { useChatActions, useChatSession, useChatStatus, useChatTools } from "@/components/ai/context";
 import { queryClient, trpc } from "@/utils/trpc";
 import { cn } from "@/lib/utils";
 import {
@@ -117,7 +117,7 @@ export default function UnifiedTool({
   const { tabId: contextTabId, sessionId } = useChatSession();
   const { upsertToolPart } = useChatTools();
   const { updateMessage } = useChatActions();
-  const { status } = useChatState();
+  const { status } = useChatStatus();
   const tabId = contextTabId;
 
   const toolKind = getToolKind(part).toLowerCase();

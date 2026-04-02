@@ -56,6 +56,7 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { Streamdown, defaultRemarkPlugins, type StreamdownProps } from 'streamdown'
+import { code } from '@streamdown/code'
 import { toast } from 'sonner'
 
 import '@/components/file/style/streamdown-viewer.css'
@@ -1815,6 +1816,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
                           mode="static"
                           className="streamdown-viewer space-y-3"
                           remarkPlugins={PROMPT_REMARK_PLUGINS}
+                          plugins={{ code }}
                           shikiTheme={PROMPT_SHIKI_THEME}
                         >
                           {systemPrompt || t('settings:agent.panel.promptPlaceholder')}

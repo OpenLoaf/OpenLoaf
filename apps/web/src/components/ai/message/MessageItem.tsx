@@ -20,7 +20,7 @@ import MessageAi from "./MessageAi";
 import MessageHuman from "./MessageHuman";
 import MessageHumanAction from "./MessageHumanAction";
 import MessageTaskReport from "./MessageTaskReport";
-import { useChatActions, useChatSession, useChatState, useChatTools } from "../context";
+import { useChatActions, useChatSession, useChatStatus, useChatTools } from "../context";
 import { messageHasVisibleContent } from "@/lib/chat/message-visible";
 import type { ChatAttachment } from "../input/chat-attachments";
 import { fetchBlobFromUri, resolveBaseName, resolveFileName } from "@/lib/image/uri";
@@ -54,7 +54,7 @@ function MessageItem({
 }: MessageItemProps) {
   const { t } = useTranslation('ai')
   const { resendUserMessage, clearError } = useChatActions();
-  const { status } = useChatState();
+  const { status } = useChatStatus();
   const { siblingNav, projectId, tabId } = useChatSession();
   const { toolParts } = useChatTools();
   const [isEditing, setIsEditing] = React.useState(false);

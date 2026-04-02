@@ -86,6 +86,8 @@
   },
   "projectTree": {
     "open": "Open",
+    "openInNewWindow": "Open in New Window",
+    "openInCurrentWindow": "Open in Current Window",
     "openInFileManager": "Open in File Manager",
     "copyPath": "Copy Path",
     "favorite": "Favorite",

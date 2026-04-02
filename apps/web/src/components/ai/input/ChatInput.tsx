@@ -9,11 +9,11 @@
  */
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { FocusEvent, ReactNode } from "react";
 import { Mic, Paperclip } from "lucide-react";
-import { useChatActions, useChatOptions, useChatSession, useChatState } from "../context";
+import { useChatActions, useChatOptions, useChatSession, useChatStatus, useChatMessageMeta } from "../context";
 import { cn } from "@/lib/utils";
 import SelectMode from "./SelectMode";
 import { useHasPreferredReasoningModel } from "./model-preferences/useHasPreferredReasoningModel";
@@ -170,6 +170,9 @@ export interface ChatInputBoxProps {
   hasCliTools?: boolean;
   /** Whether the conversation has started (has messages). */
   conversationStarted?: boolean;
+  /** Number of assistant (AI) messages — used to hide commands like "compact"
+   *  when the conversation is too short. */
+  assistantMessageCount?: number;
   /** Display label for the selected CLI tool (e.g. "Claude Code"). */
   cliToolLabel?: string;
   /** Fallback label shown when no project is selected. */
@@ -234,6 +237,7 @@ export function ChatInputBox({
   onChatModeChange,
   hasCliTools = false,
   conversationStarted = false,
+  assistantMessageCount,
   cliToolLabel,
   blockedCompact = false,
   uploadFileToSession,
@@ -507,6 +511,7 @@ export function ChatInputBox({
           onRequestFocus={() => focusInputSafely("keep")}
           isFocused={isFocused}
           projectId={defaultProjectId}
+          assistantMessageCount={assistantMessageCount}
         />
       ) : null}
       {!isBlocked ? (
@@ -756,7 +761,7 @@ export function ChatInputBox({
   );
 }
 
-export default function ChatInput({
+function ChatInputInner({
   className,
   large,
   attachments,
@@ -776,8 +781,9 @@ export default function ChatInput({
 }: ChatInputProps) {
   const { t } = useTranslation('ai');
   const { sendMessage, stopGenerating, clearError, setPendingCloudMessage } = useChatActions();
-  const { status, isHistoryLoading, messages } = useChatState();
-  const conversationStarted = messages.length > 0;
+  const { status } = useChatStatus();
+  const { messageCount, assistantMessageCount, isHistoryLoading } = useChatMessageMeta();
+  const conversationStarted = messageCount > 0;
   const { input, setInput, imageOptions, codexOptions, claudeCodeOptions, addMaskedAttachment } = useChatOptions();
   const { projectId, tabId, sessionId } = useChatSession();
   const hasReasoningModel = useHasPreferredReasoningModel(projectId);
@@ -1248,6 +1254,7 @@ export default function ChatInput({
         onChatModeChange={handleChatModeChange}
         hasCliTools={hasCliTools}
         conversationStarted={conversationStarted}
+        assistantMessageCount={assistantMessageCount}
         cliToolLabel={cliToolLabel}
         blockedCompact={blockedCompact}
         uploadFileToSession={uploadFileToSession}
@@ -1288,3 +1295,6 @@ export default function ChatInput({
     </>
   );
 }
+
+const ChatInput = memo(ChatInputInner);
+export default ChatInput;

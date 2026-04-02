@@ -27,7 +27,6 @@ const EMPTY_TOOL_PARTS: Record<string, ToolPartSnapshot> = {};
 type UseChatApprovalOptions = {
   sessionId: string;
   tabId?: string;
-  toolParts: Record<string, ToolPartSnapshot>;
   chat: {
     messages: UIMessage[];
     sendMessage: (...args: any[]) => any;
@@ -38,18 +37,19 @@ type UseChatApprovalOptions = {
   updateMessage: (id: string, updates: Partial<UIMessage>) => void;
   upsertToolPartForTab: (toolCallId: string, next: any) => void;
   setStepThinking: React.Dispatch<React.SetStateAction<boolean>>;
+  abortSubAgentStreams?: () => void;
 };
 
 export function useChatApproval({
   sessionId,
   tabId,
-  toolParts,
   chat,
   basicRef,
   resetBranchSnapshotReceipt,
   updateMessage,
   upsertToolPartForTab,
   setStepThinking,
+  abortSubAgentStreams,
 }: UseChatApprovalOptions) {
   /** Queued approval payloads keyed by tool call id. */
   const approvalPayloadsRef = React.useRef<Record<string, Record<string, unknown>>>({});
@@ -97,7 +97,7 @@ export function useChatApproval({
 
     const runtimeToolParts = tabId
       ? useChatRuntime.getState().toolPartsByTabId[tabId] ?? EMPTY_TOOL_PARTS
-      : toolParts;
+      : EMPTY_TOOL_PARTS;
     const toolPartById = mapToolPartsFromMessage(lastAssistant);
     const approvalToolCallIds = collectApprovalToolCallIds(lastAssistant, runtimeToolParts);
     const payloadToolCallIds = Object.keys(approvalPayloadsRef.current);
@@ -147,7 +147,7 @@ export function useChatApproval({
     } finally {
       approvalSubmitInFlightRef.current = false;
     }
-  }, [chat, resetBranchSnapshotReceipt, tabId, toolParts, basicRef]);
+  }, [chat, resetBranchSnapshotReceipt, tabId, basicRef]);
 
   /** Reject pending tool approvals after manual stop. */
   const rejectPendingToolApprovals = React.useCallback(async () => {
@@ -209,7 +209,8 @@ export function useChatApproval({
     chat.stop();
     setStepThinking(false);
     void rejectPendingToolApprovals();
-  }, [chat, rejectPendingToolApprovals, setStepThinking]);
+    abortSubAgentStreams?.();
+  }, [chat, rejectPendingToolApprovals, setStepThinking, abortSubAgentStreams]);
 
   return {
     queueToolApprovalPayload,

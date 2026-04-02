@@ -66,6 +66,9 @@ type ChatCommandMenuProps = {
   isFocused: boolean;
   projectId?: string;
   className?: string;
+  /** Number of assistant (AI) messages in the conversation. Commands like
+   *  "compact" are hidden when this is below a threshold (< 2). */
+  assistantMessageCount?: number;
 };
 
 /** Slash trigger for the last token. */
@@ -88,11 +91,17 @@ const COMMAND_LABELS: Record<string, { title: string; description: string }> = {
   },
 };
 
+/** Commands that require a minimum number of assistant messages to be shown. */
+const COMMAND_MIN_MESSAGES: Record<string, number> = {
+  compact: 2,
+};
+
 /** Build command menu items from CHAT_COMMANDS. */
-function buildCommandItems(query: string): MenuItem[] {
+function buildCommandItems(query: string, assistantMessageCount = Number.POSITIVE_INFINITY): MenuItem[] {
   const keyword = query.trim().toLowerCase();
   return CHAT_COMMANDS
     .filter((cmd) => cmd.showInMenu)
+    .filter((cmd) => assistantMessageCount >= (COMMAND_MIN_MESSAGES[cmd.id] ?? 0))
     .filter((cmd) => {
       if (!keyword) return true;
       const labels = COMMAND_LABELS[cmd.id];
@@ -199,7 +208,7 @@ function SkillMenuItem({
 }
 
 const ChatCommandMenu = forwardRef<ChatCommandMenuHandle, ChatCommandMenuProps>(
-  ({ value, onChange, onRequestFocus, isFocused, projectId, className }, ref) => {
+  ({ value, onChange, onRequestFocus, isFocused, projectId, className, assistantMessageCount }, ref) => {
     const { t } = useTranslation("ai");
     const { t: tNav } = useTranslation("nav");
     const query = resolveSlashQuery(value);
@@ -220,8 +229,8 @@ const ChatCommandMenu = forwardRef<ChatCommandMenuHandle, ChatCommandMenuProps>(
     const skills = (skillsQuery.data ?? EMPTY_SKILLS) as SkillSummary[];
 
     const commandItems = useMemo(
-      () => buildCommandItems(query ?? ""),
-      [query],
+      () => buildCommandItems(query ?? "", assistantMessageCount),
+      [query, assistantMessageCount],
     );
     const skillItems = useMemo(
       () => filterSkills(skills, query ?? ""),

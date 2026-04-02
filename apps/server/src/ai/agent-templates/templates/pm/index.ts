@@ -24,7 +24,7 @@ export const PM_AGENT_TOOL_IDS = [
   'Grep',
   'Edit',
   'Write',
-  'request-user-input',
+  'AskUserQuestion',
   // agent collaboration (PM's core capability)
   'Agent',
   'SendMessage',

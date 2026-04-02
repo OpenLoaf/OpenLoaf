@@ -17,6 +17,7 @@ import { useAppState, getAppState } from "@/hooks/use-app-state";
 import { isElectronEnv } from "@/utils/is-electron-env";
 import { resolveProjectModeProjectShell } from "@/lib/project-mode";
 import { openProjectShell } from "@/lib/project-shell";
+import { cleanupProjectCache } from "@/lib/project-cache-cleanup";
 import { skipToken, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   SidebarMenuAction,
@@ -1060,6 +1061,7 @@ export const PageTreeMenu = ({
     try {
       setIsRemoveBusy(true);
       await removeProject.mutateAsync({ projectId: removeTarget.projectId });
+      cleanupProjectCache(removeTarget.projectId);
       toast.success(t("nav:projectTree.removed"));
       resetRemoveDialogState();
       await queryClient.invalidateQueries({
@@ -1089,6 +1091,7 @@ export const PageTreeMenu = ({
     try {
       setIsRemoveBusy(true);
       await destroyProject.mutateAsync({ projectId: removeTarget.projectId });
+      cleanupProjectCache(removeTarget.projectId);
       toast.success(t("nav:projectTree.permanentlyDeleted"));
       resetRemoveDialogState();
       await queryClient.invalidateQueries({

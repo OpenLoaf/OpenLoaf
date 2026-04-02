@@ -1,0 +1,126 @@
+/**
+ * Copyright (c) OpenLoaf. All rights reserved.
+ *
+ * This source code is licensed under the AGPLv3 license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ * Project: OpenLoaf
+ * Repository: https://github.com/OpenLoaf/OpenLoaf
+ */
+'use client'
+
+import { SearchIcon, LoaderCircleIcon, XCircleIcon } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@openloaf/ui/tooltip'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@openloaf/ui/collapsible'
+import { CodeBlock } from '@/components/ai-elements/code-block'
+import {
+  asPlainObject,
+  getDisplayPath,
+  isToolStreaming,
+  normalizeToolInput,
+  safeStringify,
+  type AnyToolPart,
+  type ToolVariant,
+} from './shared/tool-utils'
+import { useChatSession } from '@/components/ai/context'
+import { useProject } from '@/hooks/use-project'
+
+function resolveGrepInput(part: AnyToolPart) {
+  const inputObj = asPlainObject(normalizeToolInput(part.input))
+  const pattern = typeof inputObj?.pattern === 'string' ? inputObj.pattern.trim() : ''
+  const path = typeof inputObj?.path === 'string' ? inputObj.path.trim() : ''
+  const include = typeof inputObj?.include === 'string' ? inputObj.include.trim() : ''
+  return { pattern, path, include }
+}
+
+export default function GrepTool({
+  part,
+  className,
+}: {
+  part: AnyToolPart
+  className?: string
+  variant?: ToolVariant
+  messageId?: string
+}) {
+  const { pattern, path, include } = resolveGrepInput(part)
+  const streaming = isToolStreaming(part)
+  const hasError = part.state === 'output-error' || part.state === 'output-denied'
+
+  const { projectId } = useChatSession()
+  const projectQuery = useProject(projectId)
+  const projectRootUri = projectQuery.data?.project?.rootUri ?? undefined
+
+  const displayPath = getDisplayPath(path, projectRootUri)
+  const secondary = [displayPath, include].filter(Boolean).join(' ')
+  const inlineText = [pattern, secondary].filter(Boolean).join(' in ')
+  const tooltipText = [
+    pattern && `pattern: ${pattern}`,
+    displayPath && `path: ${displayPath}`,
+    include && `include: ${include}`,
+  ].filter(Boolean).join('\n')
+
+  const output = typeof part.output === 'string' ? part.output : safeStringify(part.output)
+  const hasOutput = output.trim().length > 0
+  const errorText =
+    typeof part.errorText === 'string' && part.errorText.trim()
+      ? part.errorText
+      : undefined
+
+  return (
+    <Collapsible className={cn('min-w-0 text-xs', className)}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <CollapsibleTrigger
+            className={cn(
+              'flex w-full items-center gap-1.5 rounded-full px-2.5 py-1',
+              'transition-colors duration-150 hover:bg-muted/60',
+            )}
+          >
+            <SearchIcon className="size-3.5 shrink-0 text-muted-foreground" />
+            <span className="shrink-0 text-xs font-medium text-muted-foreground">Grep</span>
+            {inlineText ? (
+              <span className="min-w-0 truncate font-mono text-xs text-muted-foreground/50">
+                {inlineText}
+              </span>
+            ) : null}
+            {streaming ? (
+              <LoaderCircleIcon className="size-3 shrink-0 animate-spin text-muted-foreground" />
+            ) : hasError ? (
+              <XCircleIcon className="size-3 shrink-0 text-destructive" />
+            ) : null}
+          </CollapsibleTrigger>
+        </TooltipTrigger>
+        {tooltipText ? (
+          <TooltipContent side="top" className="max-w-sm whitespace-pre-wrap font-mono text-xs">
+            {tooltipText}
+          </TooltipContent>
+        ) : null}
+      </Tooltip>
+      <CollapsibleContent className="px-2.5 py-2 text-xs">
+        {hasOutput ? (
+          <div className="max-h-[320px] overflow-auto rounded-2xl bg-muted/50">
+            <CodeBlock code={output} language={"json" as any} />
+          </div>
+        ) : errorText ? (
+          <div className="rounded-2xl bg-destructive/10 p-2 text-xs text-destructive">
+            {errorText}
+          </div>
+        ) : streaming ? (
+          <div className="flex items-center gap-1.5 py-1 text-xs text-muted-foreground">
+            <LoaderCircleIcon className="size-3 animate-spin" />
+            <span>搜索中...</span>
+          </div>
+        ) : null}
+      </CollapsibleContent>
+    </Collapsible>
+  )
+}

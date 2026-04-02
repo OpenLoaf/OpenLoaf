@@ -821,9 +821,9 @@ const uiWidgetParts: ToolShowcasePart[] = [
     },
   },
   {
-    type: 'tool-request-user-input',
+    type: 'tool-AskUserQuestion',
     toolCallId: callId(),
-    toolName: 'request-user-input',
+    toolName: 'AskUserQuestion',
     state: 'output-available',
     input: {
       actionName: '收集配置信息',

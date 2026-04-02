@@ -22,6 +22,36 @@ import {
 } from '@/ai/shared/context/requestContext'
 import { resolveEffectiveAgentName } from '@/ai/services/agentFactory'
 
+/** Build XML task-notification result for agent tool output. */
+function buildAgentResultXml(input: {
+  agentId: string
+  status: string
+  summary: string | null
+  error: string | null
+  toolUseCount: number
+  durationMs: number
+}): string {
+  const lines = [
+    '<task-notification>',
+    `<task-id>${input.agentId}</task-id>`,
+    `<status>${input.status}</status>`,
+  ]
+  if (input.summary) {
+    lines.push(`<summary>${input.summary}</summary>`)
+  }
+  if (input.error) {
+    lines.push(`<error>${input.error}</error>`)
+  }
+  if (input.toolUseCount > 0 || input.durationMs > 0) {
+    lines.push('<usage>')
+    lines.push(`<tool_uses>${input.toolUseCount}</tool_uses>`)
+    lines.push(`<duration_ms>${input.durationMs}</duration_ms>`)
+    lines.push('</usage>')
+  }
+  lines.push('</task-notification>')
+  return lines.join('\n')
+}
+
 /** Launch a sub-agent (sync by default, async with run_in_background). */
 export const agentTool = tool({
   description: agentToolDef.description,
@@ -100,16 +130,26 @@ export const agentTool = tool({
     if (run_in_background !== true) {
       const result = await agentManager.wait([agentId], 300_000, abortSignal)
       const agent = agentManager.getAgent(agentId)
-      return JSON.stringify({
-        status: result.status[agentId] ?? 'unknown',
-        output: agent?.outputText || null,
+      const status = result.status[agentId] ?? 'unknown'
+      return buildAgentResultXml({
+        agentId,
+        status,
+        summary: agent?.finalOutput || agent?.outputText || null,
         error: agent?.error || null,
-        agent_id: agentId,
+        toolUseCount: agent?.toolUseCount ?? 0,
+        durationMs: agent?.startedAt ? Date.now() - agent.startedAt : 0,
       })
     }
 
     // Async mode: return immediately
-    return JSON.stringify({ agent_id: agentId, status: 'async_launched' })
+    return buildAgentResultXml({
+      agentId,
+      status: 'async_launched',
+      summary: null,
+      error: null,
+      toolUseCount: 0,
+      durationMs: 0,
+    })
   },
 })
 

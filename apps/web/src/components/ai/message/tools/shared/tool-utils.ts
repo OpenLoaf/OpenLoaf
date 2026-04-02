@@ -180,6 +180,19 @@ export function isApprovalPending(part: AnyToolPart): boolean {
   return part.state === "approval-requested" || part.state === "input-available" || part.state == null;
 }
 
+/**
+ * Trim absolute file path to a display-friendly relative path.
+ * - If the path starts with projectRoot, strip it to show a relative path.
+ * - Otherwise return the original path.
+ */
+export function getDisplayPath(filePath: string, projectRootUri?: string): string {
+  if (!filePath || !projectRootUri) return filePath
+  const root = projectRootUri.endsWith('/') ? projectRootUri : `${projectRootUri}/`
+  if (filePath.startsWith(root)) return filePath.slice(root.length)
+  if (filePath === projectRootUri) return '.'
+  return filePath
+}
+
 /** Resolve output state for tool rendering. */
 export function getToolOutputState(part: AnyToolPart): ToolOutputState {
   const outputText = safeStringify(part.output);

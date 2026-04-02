@@ -19,7 +19,7 @@ Don't mechanically trigger a tool just because the user said a certain word. Ask
 
 When a request has multiple reasonable interpretations, **confirm before acting**:
 
-- Load `request-user-input` tool, use **choice mode** to present options
+- Load `AskUserQuestion` tool, use **choice mode** to present options
 - Or gather context with tools first to narrow down ambiguity
 - If intent is clear from conversation history or project state, no need to ask
 

@@ -118,7 +118,7 @@ type CreateMasterAgentInput = {
 // Step limits — prevent infinite tool loops (MAST FM-1.3)
 // ---------------------------------------------------------------------------
 const MASTER_HARD_MAX_STEPS = 30
-const SUB_AGENT_MAX_STEPS = 15
+const SUB_AGENT_MAX_STEPS = 50
 
 // ---------------------------------------------------------------------------
 // ToolSearch Pull 模式 — prepareStep + ActivatedToolSet
@@ -133,7 +133,7 @@ const CORE_TOOL_IDS = [
   'Grep',
   'Edit',
   'Write',
-  'request-user-input',
+  'AskUserQuestion',
   'Agent',
   'SendMessage',
 ] as const
@@ -457,7 +457,7 @@ export function createPMAgent(input: CreatePMAgentInput) {
   // PM agent shares the same core tools as master
   const coreToolIds = [
     'tool-search', 'Bash', 'Read', 'Glob', 'Grep', 'Edit', 'Write',
-    'request-user-input', 'Agent', 'SendMessage',
+    'AskUserQuestion', 'Agent', 'SendMessage',
   ] as string[]
 
   // Filter PM agent tools by platform
@@ -573,7 +573,7 @@ function createGeneralPurposeSubAgent(model: LanguageModelV3): ToolLoopAgent {
   const ctx = getRequestContext()
   // General-purpose sub-agents get core file tools but NOT agent collaboration tools
   const coreToolIds = [
-    'tool-search', 'Bash', 'Read', 'Glob', 'Grep', 'Edit', 'Write', 'request-user-input',
+    'tool-search', 'Bash', 'Read', 'Glob', 'Grep', 'Edit', 'Write', 'AskUserQuestion',
   ] as string[]
   let deferredToolIds = filterToolIdsByPlatform(
     (masterTpl.deferredToolIds ?? []).filter((id) => !AGENT_TOOL_IDS_TO_EXCLUDE.has(id)),
@@ -683,7 +683,7 @@ const SPECIALIST_CONFIGS: Record<string, SpecialistConfig> = {
       '注意：专注于文档编辑任务。输出格式优先使用 Markdown，富文本场景使用 Plate.js 兼容格式。',
     ].join('\n'),
     toolIds: ['Write', 'Read', 'Glob'],
-    maxSteps: 15,
+    maxSteps: 30,
   },
   'browser': {
     id: 'browser',
@@ -700,7 +700,7 @@ const SPECIALIST_CONFIGS: Record<string, SpecialistConfig> = {
       '注意：操作网页时注意加载等待，避免操作未渲染的元素。',
     ].join('\n'),
     toolIds: ['browser-navigate', 'browser-click', 'browser-fill', 'browser-screenshot', 'browser-read', 'WebSearch'],
-    maxSteps: 20,
+    maxSteps: 40,
   },
   'data-analyst': {
     id: 'data-analyst',
@@ -715,7 +715,7 @@ const SPECIALIST_CONFIGS: Record<string, SpecialistConfig> = {
       '注意：优先使用 js-repl 进行数据处理。大数据集使用流式处理避免内存溢出。',
     ].join('\n'),
     toolIds: ['Read', 'Write', 'js-repl'],
-    maxSteps: 15,
+    maxSteps: 30,
   },
   'extractor': {
     id: 'extractor',
@@ -730,7 +730,7 @@ const SPECIALIST_CONFIGS: Record<string, SpecialistConfig> = {
       '注意：提取结果使用结构化格式（JSON/表格）呈现。长文档先摘要再详述。',
     ].join('\n'),
     toolIds: ['Read', 'office-read', 'WebFetch'],
-    maxSteps: 10,
+    maxSteps: 20,
   },
   'canvas-designer': {
     id: 'canvas-designer',
@@ -746,7 +746,7 @@ const SPECIALIST_CONFIGS: Record<string, SpecialistConfig> = {
       '注意：节点布局注意视觉平衡，合理利用空间。批量操作分步进行。',
     ].join('\n'),
     toolIds: ['canvas-add-node', 'canvas-update-node', 'canvas-remove-node', 'canvas-layout', 'canvas-add-edge', 'canvas-read'],
-    maxSteps: 15,
+    maxSteps: 30,
   },
   'coder': {
     id: 'coder',
@@ -763,7 +763,7 @@ const SPECIALIST_CONFIGS: Record<string, SpecialistConfig> = {
       '注意：遵循项目代码规范。修改前先阅读相关代码。测试驱动开发。',
     ].join('\n'),
     toolIds: ['Write', 'Read', 'Grep', 'Glob', 'Bash'],
-    maxSteps: 20,
+    maxSteps: 40,
   },
 }
 

@@ -514,8 +514,9 @@ export function ChatInputEditor({
       sel.removeAllRanges();
       sel.addRange(range);
       triggerChange(el);
+      updateDomEmpty();
     },
-    [onPasteFiles, triggerChange],
+    [onPasteFiles, triggerChange, updateDomEmpty],
   );
 
   const handleCompositionStart = useCallback(() => {

@@ -168,7 +168,7 @@
     "time-now": "当前时间",
     "task-manage": "任务管理",
     "task-status": "查询任务状态",
-    "request-user-input": "请求用户输入",
+    "AskUserQuestion": "请求用户输入",
     "widget-init": "初始化 Widget",
     "widget-list": "列出 Widget",
     "widget-get": "获取 Widget",
@@ -353,7 +353,7 @@
   "dock": {
     "aiAssistant": "AI秘书",
     "pmAgent": "管理员",
-    "inputPlaceholder": "输入内容",
+    "inputPlaceholder": "提问或输入 / 使用技能…",
     "suggestion1": "帮我总结今天的工作进展",
     "suggestion2": "分析当前项目的代码质量",
     "suggestion3": "生成一份本周工作周报"

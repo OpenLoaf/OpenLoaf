@@ -49,12 +49,15 @@ export function useHasPreferredReasoningModel(projectId?: string): boolean {
       ),
     )
 
-    // 逻辑：Auto 或未解析到当前模型时，回退检查全部模型。
-    if (normalizedIds.length === 0) {
-      return chatModels.some((m) => m.tags?.includes('reasoning'))
-    }
+    // 无显式选择时 fallback 到第一个模型（已删除 auto 模式）。
+    const effectiveIds =
+      normalizedIds.length > 0
+        ? normalizedIds
+        : chatModels[0]
+          ? [chatModels[0].id]
+          : []
 
-    const selected = normalizedIds
+    const selected = effectiveIds
       .map((id) => chatModels.find((m) => m.id === id))
       .filter(Boolean)
 

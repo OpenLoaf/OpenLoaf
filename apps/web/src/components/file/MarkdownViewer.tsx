@@ -20,6 +20,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { skipToken, useQuery } from "@tanstack/react-query";
 import { Streamdown, defaultRemarkPlugins, type StreamdownProps } from "streamdown";
+import { code } from "@streamdown/code";
 import remarkMdx from "remark-mdx";
 import { Copy, Eye, FolderOpen, PencilLine, Save, Undo2 } from "lucide-react";
 import { StackHeader } from "@/components/layout/StackHeader";
@@ -560,6 +561,7 @@ export default function MarkdownViewer({
         mode="static"
         className="streamdown-viewer space-y-3"
         remarkPlugins={remarkPlugins}
+        plugins={{ code }}
         shikiTheme={STREAMDOWN_SHIKI_THEME}
       >
         {previewMarkdown}

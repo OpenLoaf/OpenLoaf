@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 import { Bug, FolderOpen, History, Lightbulb, MessageSquarePlus, Palette, X } from "lucide-react";
 import SessionList from "@/components/ai/session/SessionList";
 import * as React from "react";
-import { useChatActions, useChatSession, useChatState } from "./context";
+import { useChatActions, useChatSession, useChatStatus, useChatMessageMeta } from "./context";
 import { skipToken, useInfiniteQuery, useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient, trpc, trpcClient } from "@/utils/trpc";
 import { useAppView } from "@/hooks/use-app-view";
@@ -29,6 +29,7 @@ import { useProjectStorageRootUri, useTempStorageRootUri } from "@/hooks/use-pro
 import { toast } from "sonner";
 import { SaaSClient, SaaSHttpError } from "@openloaf-saas/sdk";
 import { MessageAction, MessageActions } from "@/components/ai-elements/message";
+import { TooltipProvider } from "@openloaf/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@openloaf/ui/popover";
 import {
   Dialog,
@@ -67,7 +68,7 @@ const CHAT_HEADER_EMAIL_ICON_CLASS = {
   close: "text-muted-foreground",
 } as const;
 
-export default function ChatHeader({
+function ChatHeaderInner({
   onNewSession,
   onCloseSession,
   iconPalette = "default",
@@ -76,7 +77,8 @@ export default function ChatHeader({
   const { t: tAi } = useTranslation('ai');
   const { sessionId: activeSessionId, tabId, leafMessageId: activeLeafMessageId } = useChatSession();
   const { newSession, selectSession } = useChatActions();
-  const { messages, status } = useChatState();
+  const { status } = useChatStatus();
+  const { messageCount, lastUserMessageId: metaLastUserMessageId } = useChatMessageMeta();
   const [historyOpen, setHistoryOpen] = React.useState(false);
   /** Preface button loading state. */
   const [prefaceLoading, setPrefaceLoading] = React.useState(false);
@@ -154,21 +156,14 @@ export default function ChatHeader({
     const activeLeafId =
       typeof activeLeafMessageId === "string" ? activeLeafMessageId.trim() : "";
     if (activeLeafId) return activeLeafId;
-
-    for (let index = messages.length - 1; index >= 0; index -= 1) {
-      const message = messages[index];
-      if (message?.role !== "user") continue;
-      const id = typeof message.id === "string" ? message.id.trim() : "";
-      if (id) return id;
-    }
-    return undefined;
-  }, [activeLeafMessageId, messages]);
+    return metaLastUserMessageId;
+  }, [activeLeafMessageId, metaLastUserMessageId]);
 
   // 逻辑：仅在存在历史消息时显示 Preface 查看按钮。
-  const showPrefaceButton = Boolean(basic.chatPrefaceEnabled) && messages.length > 0;
+  const showPrefaceButton = Boolean(basic.chatPrefaceEnabled) && messageCount > 0;
 
   // 新建会话按钮显示条件：只要当前会话已有消息就始终显示，避免单会话场景缺少重开入口。
-  const shouldShowNewSessionButton = messages.length > 0;
+  const shouldShowNewSessionButton = messageCount > 0;
 
   const shouldShowHistoryButton = enableMultiSession ?? true;
   const assetFolder = React.useMemo(
@@ -204,7 +199,7 @@ export default function ChatHeader({
   const assetEntries = assetFolderQuery.data?.entries ?? [];
   const refetchAssetFolder = assetFolderQuery.refetch;
   const shouldShowAssetFolderButton =
-    messages.length > 0 &&
+    messageCount > 0 &&
     Boolean(assetFolder?.relativePath) &&
     Boolean(assetRootUri) &&
     assetEntries.length > 0;
@@ -225,9 +220,9 @@ export default function ChatHeader({
 
   React.useEffect(() => {
     if (!assetFolder?.relativePath) return;
-    if (messages.length === 0) return;
+    if (messageCount === 0) return;
     void refetchAssetFolder();
-  }, [activeSessionId, assetFolder?.relativePath, messages.length, refetchAssetFolder, status]);
+  }, [activeSessionId, assetFolder?.relativePath, messageCount, refetchAssetFolder, status]);
 
   /**
    * Open the current session preface in a markdown stack panel.
@@ -297,7 +292,7 @@ export default function ChatHeader({
       sessionId: activeSessionId || undefined,
       leafMessageId: requestLeafMessageId,
       projectId: quickLaunchProjectId || undefined,
-      messageCount: messages.length,
+      messageCount: messageCount,
       chatSessionZipUrl: zipInfo.url,
       chatSessionZipKey: zipInfo.key,
       chatSessionZipBytes: zipInfo.bytes,
@@ -309,7 +304,7 @@ export default function ChatHeader({
     );
   }, [
     activeSessionId,
-    messages.length,
+    messageCount,
     quickLaunchProjectId,
     requestLeafMessageId,
     tabId,
@@ -444,11 +439,12 @@ export default function ChatHeader({
   return (
     <>
       <div className="flex items-center px-2 pt-1.5 gap-1">
-        {sessionTitle && messages.length > 0 ? (
+        {sessionTitle && messageCount > 0 ? (
           <span className="min-w-0 flex-1 truncate text-xs font-medium text-muted-foreground pl-1">
             {sessionTitle}
           </span>
         ) : <div className="flex-1" />}
+        <TooltipProvider delayDuration={300}>
         <MessageActions className="min-w-0 shrink-0 justify-end gap-0">
           {showPrefaceButton ? (
             <MessageAction
@@ -462,7 +458,7 @@ export default function ChatHeader({
               <Bug size={16} />
             </MessageAction>
           ) : null}
-          {saasLoggedIn && messages.length > 0 ? (
+          {saasLoggedIn && messageCount > 0 ? (
             <MessageAction
               aria-label={tAi("chatFeedback.button")}
               onClick={() => setChatFeedbackOpen(true)}
@@ -474,7 +470,7 @@ export default function ChatHeader({
               <Lightbulb size={16} />
             </MessageAction>
           ) : null}
-          {messages.length > 0 && activeSessionId ? (
+          {messageCount > 0 && activeSessionId ? (
             <MessageAction
               aria-label={tAi("copyToCanvas.button")}
               onClick={() => setCopyToCanvasOpen(true)}
@@ -591,6 +587,7 @@ export default function ChatHeader({
             </MessageAction>
           ) : null}
         </MessageActions>
+        </TooltipProvider>
       </div>
       <Dialog
         open={effectiveChatFeedbackOpen}
@@ -639,11 +636,16 @@ export default function ChatHeader({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <CopyChatToCanvasDialog
-        open={copyToCanvasOpen}
-        onOpenChange={setCopyToCanvasOpen}
-        sourceSessionId={activeSessionId ?? ""}
-      />
+      {copyToCanvasOpen ? (
+        <CopyChatToCanvasDialog
+          open={copyToCanvasOpen}
+          onOpenChange={setCopyToCanvasOpen}
+          sourceSessionId={activeSessionId ?? ""}
+        />
+      ) : null}
     </>
   );
 }
+
+const ChatHeader = React.memo(ChatHeaderInner);
+export default ChatHeader;

@@ -9,7 +9,7 @@
  */
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { memo, useEffect, useMemo, useState } from 'react'
 import { Cloud, HardDrive } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
@@ -42,7 +42,7 @@ interface SelectModeProps {
   disabled?: boolean
 }
 
-export default function SelectMode({
+function SelectModeInner({
   className,
   triggerVariant = 'text',
   chatMode = 'agent',
@@ -227,3 +227,6 @@ export default function SelectMode({
     </>
   )
 }
+
+const SelectMode = memo(SelectModeInner)
+export default SelectMode

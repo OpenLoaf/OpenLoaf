@@ -48,6 +48,11 @@ function buildOutputFormatRules(): string {
     '- 不要在文本中提及工具名称、参数、搜索结果数量等内部细节。用户不关心工具实现。',
     '- 工具报错时直接换方案或告知用户结论，不复述错误消息。',
     '',
+    '# 提问必须用工具',
+    '- 需要向用户提问或收集信息时，**必须调用 `AskUserQuestion` 工具**，禁止用纯文本列选项或追问。',
+    '- 适用场景：歧义澄清、需求调研、方案确认、信息收集（如询问城市、偏好、选项等）。',
+    '- 唯一例外：纯开放式闲聊追问（如"能说得更具体一点吗？"）可以用文本。',
+    '',
     '# 禁止重复输出',
     '- 工具已产生可见结果（渲染组件、图片、文件、表格等）时，禁止用文字重复描述相同内容。',
     '- 工具调用后最多 1 句结果点评；结果已清晰可见时，直接不说。',
@@ -86,7 +91,11 @@ export function buildAgentsDynamicLoadingRules(): string {
 
 /** Build completion criteria rules. */
 export function buildCompletionCriteria(): string {
-  return ['# 完成条件', '- 用户问题被解决，或给出明确可执行的下一步操作。'].join('\n')
+  return [
+    '# 完成条件',
+    '- 用户问题被解决，或给出明确可执行的下一步操作。',
+    '- **你必须以文字总结结束回复。** 完成所有工具调用后，输出一段简明的总结文本，概括你的发现、结论或操作结果。绝对不要以工具调用作为最后的输出。',
+  ].join('\n')
 }
 
 /** Build intent judgment rules. */
@@ -106,7 +115,7 @@ export function buildExecutionRules(): string {
     '# 执行规则',
     '',
     '## 工具与技能加载',
-    '- 你有一组始终可用的核心工具（Bash、Read、Glob、Grep、Edit、Write、request-user-input、Agent 等），可直接调用。',
+    '- 你有一组始终可用的核心工具（Bash、Read、Glob、Grep、Edit、Write、AskUserQuestion、Agent 等），可直接调用。',
     '- 其余专业工具（邮件、日历、画布、Office、浏览器等）需通过 tool-search 加载后才能调用。',
     '- 调用方式：tool-search(names: "name1,name2") — 传入逗号分隔的技能/工具名称。',
     '',

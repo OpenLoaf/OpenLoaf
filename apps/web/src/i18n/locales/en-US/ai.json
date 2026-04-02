@@ -168,7 +168,7 @@
     "time-now": "Current Time",
     "task-manage": "Task Manage",
     "task-status": "Task Status",
-    "request-user-input": "Request User Input",
+    "AskUserQuestion": "Request User Input",
     "widget-init": "Initialize Widget",
     "widget-list": "List Widgets",
     "widget-get": "Get Widget",
@@ -324,7 +324,7 @@
   "dock": {
     "aiAssistant": "AI Assistant",
     "pmAgent": "Project Manager",
-    "inputPlaceholder": "Enter text",
+    "inputPlaceholder": "Ask or type / for skills…",
     "suggestion1": "Summarize today's work progress",
     "suggestion2": "Analyze the current project's code quality",
     "suggestion3": "Generate a weekly work report"

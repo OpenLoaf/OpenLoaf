@@ -10,7 +10,7 @@
 "use client";
 
 import * as React from "react";
-import { useChatActions, useChatSession, useChatState, useChatTools } from "../../../context";
+import { useChatActions, useChatSession, useChatMessages, useChatStatus, useChatTools } from "../../../context";
 import { trpc } from "@/utils/trpc";
 import { useMutation } from "@tanstack/react-query";
 import { resolveServerUrl } from "@/utils/server-url";
@@ -25,7 +25,8 @@ interface ToolApprovalActionsProps {
 
 /** Render approval actions for a tool request. */
 export default function ToolApprovalActions({ approvalId, size = "sm" }: ToolApprovalActionsProps) {
-  const { messages, status } = useChatState();
+  const { messages } = useChatMessages();
+  const { status } = useChatStatus();
   const { updateMessage, addToolApprovalResponse } = useChatActions();
   const {
     toolParts,

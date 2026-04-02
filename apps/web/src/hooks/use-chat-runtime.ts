@@ -130,8 +130,12 @@ export type ChatRuntimeState = {
   clearSessionChatStatus: (sessionId: string) => void;
   /** Set dictation status for a tab. */
   setTabDictationStatus: (tabId: string, isListening: boolean) => void;
-  /** Set sub-agent streams for a tab. */
+  /** Set sub-agent streams for a tab (full replace). */
   setSubAgentStreams: (tabId: string, streams: Record<string, SubAgentStreamState>) => void;
+  /** Incrementally update a single sub-agent stream entry. */
+  updateSubAgentStream: (tabId: string, toolCallId: string, patch: Partial<SubAgentStreamState>) => void;
+  /** Clear all sub-agent streams for a tab. */
+  clearSubAgentStreams: (tabId: string) => void;
   /** Claude Code runtime state grouped by tab id. */
   ccRuntimeByTabId: Record<string, ClaudeCodeRuntimeState>;
   /** Shallow-merge a patch into Claude Code runtime state for a tab. */
@@ -159,7 +163,7 @@ function computeTabChatStatus(
   return "ready";
 }
 
-export const useChatRuntime = create<ChatRuntimeState>()((set, get) => ({
+export const useChatRuntime = create<ChatRuntimeState>()((set) => ({
   toolPartsByTabId: {},
   chatStatusByTabId: {},
   chatStatusBySessionId: {},
@@ -304,6 +308,33 @@ export const useChatRuntime = create<ChatRuntimeState>()((set, get) => ({
         [tabId]: streams,
       },
     }));
+  },
+  updateSubAgentStream: (tabId, toolCallId, patch) => {
+    set((state) => {
+      const tabStreams = state.subAgentStreamsByTabId[tabId] ?? {};
+      const current = tabStreams[toolCallId] ?? {
+        toolCallId,
+        output: "",
+        state: "output-streaming" as const,
+      };
+      return {
+        subAgentStreamsByTabId: {
+          ...state.subAgentStreamsByTabId,
+          [tabId]: {
+            ...tabStreams,
+            [toolCallId]: { ...current, ...patch },
+          },
+        },
+      };
+    });
+  },
+  clearSubAgentStreams: (tabId) => {
+    set((state) => {
+      if (!state.subAgentStreamsByTabId[tabId]) return state;
+      const next = { ...state.subAgentStreamsByTabId };
+      delete next[tabId];
+      return { subAgentStreamsByTabId: next };
+    });
   },
   updateCcRuntime: (tabId, patch) => {
     set((state) => {

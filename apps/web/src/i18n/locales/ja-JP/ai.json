@@ -168,7 +168,7 @@
     "time-now": "現在時刻",
     "task-manage": "タスク管理",
     "task-status": "タスクステータス",
-    "request-user-input": "ユーザー入力を要求",
+    "AskUserQuestion": "ユーザー入力を要求",
     "widget-init": "ウィジェットを初期化",
     "widget-list": "ウィジェット一覧",
     "widget-get": "ウィジェットを取得",
@@ -324,7 +324,7 @@
   "dock": {
     "aiAssistant": "AIアシスタント",
     "pmAgent": "プロジェクトマネージャー",
-    "inputPlaceholder": "テキストを入力",
+    "inputPlaceholder": "質問または / でスキルを使用…",
     "suggestion1": "今日の作業進捗をまとめてください",
     "suggestion2": "現在のプロジェクトのコード品質を分析してください",
     "suggestion3": "週間業務レポートを作成してください"

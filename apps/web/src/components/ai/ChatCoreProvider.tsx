@@ -132,11 +132,10 @@ export default function ChatCoreProvider({
 
   // ── Sub-agent streams ──
   const {
-    subAgentStreams,
-    setSubAgentStreams,
     enqueueSubAgentChunk,
     closeSubAgentStream,
     resetSubAgentStreams,
+    abortSubAgentStreams,
   } = useSubAgentStreams({ tabIdRef, toolStream });
 
   React.useEffect(() => {
@@ -261,7 +260,7 @@ export default function ChatCoreProvider({
     () => ({
       id: sessionId,
       resume: false,
-      experimental_throttle: 50,
+      experimental_throttle: 100,
       sendAutomaticallyWhen: () => false,
       transport,
       onToolCall: (payload: { toolCall: any }) => {
@@ -313,11 +312,9 @@ export default function ChatCoreProvider({
         if (
           handleSubAgentDataPart({
             dataPart,
-            setSubAgentStreams,
+            tabId,
             enqueueSubAgentChunk,
             closeSubAgentStream,
-            tabId,
-            upsertToolPart,
           })
         ) return;
         toolStream.handleDataPart({ dataPart, tabId, upsertToolPartMerged });
@@ -329,18 +326,34 @@ export default function ChatCoreProvider({
       transport,
       upsertToolPartMerged,
       onFinish,
-      setSubAgentStreams,
       setStepThinking,
       queryClient,
       toolStream,
       enqueueSubAgentChunk,
       closeSubAgentStream,
-      upsertToolPart,
     ]
   );
 
   const chat = useChat(chatConfig);
   setMessagesRef.current = chat.setMessages;
+
+  // Stable wrappers for chat functions that get new references on every
+  // useChat state update.  Without this, actionsValue changes on every
+  // throttled SSE chunk, causing all useChatActions() consumers to re-render.
+  const chatRef = React.useRef(chat);
+  chatRef.current = chat;
+  const stableRegenerate = React.useCallback(
+    (...args: Parameters<typeof chat.regenerate>) => chatRef.current.regenerate(...args),
+    [],
+  );
+  const stableAddToolApprovalResponse = React.useCallback(
+    (...args: Parameters<typeof chat.addToolApprovalResponse>) => chatRef.current.addToolApprovalResponse(...args),
+    [],
+  );
+  const stableClearError = React.useCallback(
+    () => chatRef.current.clearError(),
+    [],
+  );
 
   // ── Branch state ──
   const isTabActive = useTabActive();
@@ -634,12 +647,6 @@ export default function ChatCoreProvider({
     }
   }, [chat.messages?.length, leafMessageId, patchSnapshot]);
 
-  // ── Tool parts ──
-  const toolParts = useChatRuntime((state) => {
-    if (!tabId) return EMPTY_TOOL_PARTS;
-    return state.toolPartsByTabId[tabId] ?? EMPTY_TOOL_PARTS;
-  });
-
   const upsertToolPartForTab = React.useCallback(
     (toolCallId: string, next: Parameters<typeof upsertToolPart>[2]) => {
       if (!tabId) return;
@@ -657,13 +664,13 @@ export default function ChatCoreProvider({
   } = useChatApproval({
     sessionId,
     tabId,
-    toolParts,
     chat,
     basicRef,
     resetBranchSnapshotReceipt,
     updateMessage,
     upsertToolPartForTab,
     setStepThinking,
+    abortSubAgentStreams,
   });
 
   const markToolStreaming = React.useCallback(
@@ -678,12 +685,6 @@ export default function ChatCoreProvider({
     },
     [tabId, upsertToolPart]
   );
-
-  // ── Sync sub-agent streams to global store ──
-  React.useEffect(() => {
-    if (!tabId) return;
-    useChatRuntime.getState().setSubAgentStreams(tabId, subAgentStreams);
-  }, [tabId, subAgentStreams]);
 
   // ── Context values ──
   const stateValue = React.useMemo(
@@ -713,9 +714,9 @@ export default function ChatCoreProvider({
   const actionsValue = React.useMemo(
     () => ({
       sendMessage,
-      regenerate: chat.regenerate,
-      addToolApprovalResponse: chat.addToolApprovalResponse,
-      clearError: chat.clearError,
+      regenerate: stableRegenerate,
+      addToolApprovalResponse: stableAddToolApprovalResponse,
+      clearError: stableClearError,
       stopGenerating,
       updateMessage,
       newSession,
@@ -729,9 +730,9 @@ export default function ChatCoreProvider({
     }),
     [
       sendMessage,
-      chat.regenerate,
-      chat.addToolApprovalResponse,
-      chat.clearError,
+      stableRegenerate,
+      stableAddToolApprovalResponse,
+      stableClearError,
       stopGenerating,
       updateMessage,
       newSession,
@@ -761,9 +762,8 @@ export default function ChatCoreProvider({
     [input, imageOptions, codexOptions, claudeCodeOptions, addAttachments, addMaskedAttachment]
   );
 
-  const toolsValue = React.useMemo(
+  const toolCallbacks = React.useMemo(
     () => ({
-      toolParts,
       upsertToolPart: upsertToolPartForTab,
       markToolStreaming,
       queueToolApprovalPayload,
@@ -771,7 +771,6 @@ export default function ChatCoreProvider({
       continueAfterToolApprovals,
     }),
     [
-      toolParts,
       upsertToolPartForTab,
       markToolStreaming,
       queueToolApprovalPayload,
@@ -785,12 +784,48 @@ export default function ChatCoreProvider({
       <ChatSessionProvider value={sessionValue}>
         <ChatActionsProvider value={actionsValue}>
           <ChatOptionsProvider value={optionsValue}>
-            <ChatToolProvider value={toolsValue}>
+            <ChatToolBridge tabId={tabId} callbacks={toolCallbacks}>
               {children}
-            </ChatToolProvider>
+            </ChatToolBridge>
           </ChatOptionsProvider>
         </ChatActionsProvider>
       </ChatSessionProvider>
     </ChatStateProvider>
+  );
+}
+
+/**
+ * Inner bridge that subscribes to the zustand tool-parts store
+ * so that ChatCoreProvider itself does not re-render on every tool-part update.
+ */
+function ChatToolBridge({
+  tabId,
+  callbacks,
+  children,
+}: {
+  tabId?: string;
+  callbacks: {
+    upsertToolPart: (toolCallId: string, next: any) => void;
+    markToolStreaming: (toolCallId: string) => void;
+    queueToolApprovalPayload: (toolCallId: string, payload: Record<string, unknown>) => void;
+    clearToolApprovalPayload: (toolCallId: string) => void;
+    continueAfterToolApprovals: () => void;
+  };
+  children: React.ReactNode;
+}) {
+  const toolParts = useChatRuntime((state) => {
+    if (!tabId) return EMPTY_TOOL_PARTS;
+    return state.toolPartsByTabId[tabId] ?? EMPTY_TOOL_PARTS;
+  });
+
+  const toolsValue = React.useMemo(
+    () => ({ toolParts, ...callbacks }),
+    [toolParts, callbacks],
+  );
+
+  return (
+    <ChatToolProvider value={toolsValue}>
+      {children}
+    </ChatToolProvider>
   );
 }

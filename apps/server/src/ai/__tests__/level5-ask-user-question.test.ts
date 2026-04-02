@@ -8,17 +8,17 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 /**
- * Level 5 — 测试 request-user-input 工具的审批流程。
+ * Level 5 — 测试 AskUserQuestion 工具的审批流程。
  *
  * 问题复现：
- * 1. AI 调用 request-user-input 工具
+ * 1. AI 调用 AskUserQuestion 工具
  * 2. 流以 finishReason: "tool-calls" 结束
  * 3. Assistant 消息应该被保存（包含工具调用 part）
  * 4. 用户提交后，续接请求应该携带 toolApprovalPayloads
  * 5. 工具 execute 函数应该获取用户输入
  *
  * 用法：
- *   OPENLOAF_TEST_CHAT_MODEL_ID="profileId:modelId" pnpm run test:ai:request-user-input
+ *   OPENLOAF_TEST_CHAT_MODEL_ID="profileId:modelId" pnpm run test:ai:ask-user-question
  */
 import {
   resolveTestModel,
@@ -39,7 +39,7 @@ import { setRequestContext } from '@/ai/shared/context/requestContext'
 import { buildModelChain } from '@/ai/services/chat/chatStreamHelpers'
 import { buildModelMessages } from '@/ai/shared/messageConverter'
 
-const TEST_PROMPT = '请使用 request-user-input 工具收集我的个人信息（姓名和邮箱）'
+const TEST_PROMPT = '请使用 AskUserQuestion 工具收集我的个人信息（姓名和邮箱）'
 
 async function main() {
   const start = Date.now()
@@ -55,16 +55,16 @@ async function main() {
     chatModelId: resolved.chatModelId,
   })
 
-  // ── 检查 request-user-input 工具是否可用 ──
-  printSection('Check request-user-input tool')
+  // ── 检查 AskUserQuestion 工具是否可用 ──
+  printSection('Check AskUserQuestion tool')
   const runner0 = createMasterAgentRunner({
     model: resolved.model,
     modelInfo: resolved.modelInfo,
   })
   const tools = runner0.agent.tools ?? {}
-  const hasRequestUserInput = 'request-user-input' in tools || Object.keys(tools).some((k) => k.includes('request-user-input') || k.includes('requestUserInput'))
+  const hasRequestUserInput = 'AskUserQuestion' in tools || Object.keys(tools).some((k) => k.includes('AskUserQuestion') || k.includes('requestUserInput'))
   console.log(`  available tools: ${Object.keys(tools).join(', ')}`)
-  console.log(`  has request-user-input: ${hasRequestUserInput}`)
+  console.log(`  has AskUserQuestion: ${hasRequestUserInput}`)
 
   // ── 设置上下文 ──
   const sessionId = `test-${Date.now()}`
@@ -73,7 +73,7 @@ async function main() {
   const ac = new AbortController()
   setAbortSignal(ac.signal)
 
-  // ── Test 1: 第一次请求，AI 调用 request-user-input 工具（需要 LLM，可选） ──
+  // ── Test 1: 第一次请求，AI 调用 AskUserQuestion 工具（需要 LLM，可选） ──
   printSection('Test 1: First request — verify onFinish responseMessage (optional, needs LLM)')
   console.log(`  prompt: "${TEST_PROMPT}"`)
   console.log('  [info] 此测试需要 LLM 正确响应，失败不影响核心逻辑验证')
@@ -165,7 +165,7 @@ async function main() {
 
     // 断言
     if (!hasInputStart && !hasToolCall) {
-      throw new Error('AI 没有调用 request-user-input 工具')
+      throw new Error('AI 没有调用 AskUserQuestion 工具')
     }
     if (!toolCallId) {
       throw new Error('没有获取到 toolCallId')
@@ -205,9 +205,9 @@ async function main() {
       parts: [
         { type: 'text', text: '我来收集您的信息。' },
         {
-          type: 'tool-request-user-input',
+          type: 'tool-AskUserQuestion',
           toolCallId: syntheticToolCallId,
-          toolName: 'request-user-input',
+          toolName: 'AskUserQuestion',
           state: 'approval-requested',
           input: {
             title: '个人信息',
@@ -309,9 +309,9 @@ async function main() {
       parts: [
         { type: 'text', text: '我来收集您的信息。' },
         {
-          type: 'tool-request-user-input',
+          type: 'tool-AskUserQuestion',
           toolCallId: syntheticToolCallId,
-          toolName: 'request-user-input',
+          toolName: 'AskUserQuestion',
           state: 'approval-requested',
           input: {
             title: '个人信息',

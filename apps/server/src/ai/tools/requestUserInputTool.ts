@@ -25,7 +25,6 @@ export const requestUserInputTool = tool({
   inputExamples: [
     {
       input: {
-        mode: 'choice' as const,
         title: '文件整理',
         description: '是否按上述方案整理文件？',
         choices: [

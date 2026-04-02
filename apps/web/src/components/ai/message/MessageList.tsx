@@ -10,7 +10,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { useChatState } from "../context";
+import { useChatMessages, useChatStatus } from "../context";
 import MessageHelper from "./MessageHelper";
 import * as React from "react";
 import MessageItem from "./MessageItem";
@@ -38,8 +38,8 @@ interface MessageListProps {
 export default function MessageList({ className, projectId }: MessageListProps) {
   // 中文注释：统计渲染频率，用于定位流式渲染压力。
   incrementChatPerf("render.messageList");
-  const { messages, status, error, isHistoryLoading, stepThinking, pendingCloudMessage } =
-    useChatState();
+  const { messages, isHistoryLoading, pendingCloudMessage } = useChatMessages();
+  const { status, error, stepThinking } = useChatStatus();
   const { staticMessages, streamingMessage, isStreamingActive } = useStreamingMessageBuffer({
     messages,
     status,
@@ -169,6 +169,10 @@ export default function MessageList({ className, projectId }: MessageListProps) 
               description="输入消息开始与 AI 交互"
               className="flex-1"
             >
+              <div className="mb-2 select-none font-bold leading-none tracking-widest" style={{ fontSize: 'clamp(1.5rem, 4vw, 2.5rem)' }}>
+                <span className="text-foreground">Open</span>
+                <span className="text-te-accent">Loaf</span>
+              </div>
               <MessageHelper projectId={projectId} />
             </ConversationEmptyState>
           ) : null}

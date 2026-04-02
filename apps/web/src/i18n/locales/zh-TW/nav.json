@@ -86,6 +86,8 @@
   },
   "projectTree": {
     "open": "開啟",
+    "openInNewWindow": "新建視窗開啟",
+    "openInCurrentWindow": "目前視窗開啟",
     "openInFileManager": "在檔案管理器中開啟",
     "copyPath": "複製路徑",
     "favorite": "收藏",

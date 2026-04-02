@@ -83,6 +83,57 @@ async function walkDir(
   }
 }
 
+/**
+ * 将扁平路径列表转为 tab 缩进的树形格式，减少重复前缀的 token 消耗。
+ *
+ * 输入: ['src/a/1.ts', 'src/a/2.ts', 'src/b/3.ts']
+ * 输出:
+ *   src/
+ *   	a/
+ *   		1.ts
+ *   		2.ts
+ *   	b/
+ *   		3.ts
+ */
+function formatAsTree(paths: string[]): string {
+  if (paths.length === 0) return ''
+  if (paths.length === 1) return paths[0]!
+
+  // 按字典序排序以聚合同目录文件
+  const sorted = [...paths].sort()
+
+  const lines: string[] = []
+  let prevParts: string[] = []
+
+  for (const p of sorted) {
+    const parts = p.split('/')
+    const fileName = parts.pop()!
+    const dirParts = parts
+
+    // 找到与上一条路径共享的目录层级深度
+    let commonDepth = 0
+    while (
+      commonDepth < dirParts.length
+      && commonDepth < prevParts.length
+      && dirParts[commonDepth] === prevParts[commonDepth]
+    ) {
+      commonDepth++
+    }
+
+    // 输出新出现的目录层级
+    for (let i = commonDepth; i < dirParts.length; i++) {
+      lines.push(`${'\t'.repeat(i)}${dirParts[i]}/`)
+    }
+
+    // 输出文件名
+    lines.push(`${'\t'.repeat(dirParts.length)}${fileName}`)
+
+    prevParts = dirParts
+  }
+
+  return lines.join('\n')
+}
+
 /** 文件搜索工具：按 glob 模式匹配文件，按修改时间排序返回。 */
 export const globTool = tool({
   description: globToolDef.description,
@@ -129,7 +180,7 @@ export const globTool = tool({
 
     // 截断到限制
     const truncated = results.slice(0, DEFAULT_LIMIT)
-    const output = truncated.map((r) => r.relativePath).join('\n')
+    const output = formatAsTree(truncated.map((r) => r.relativePath))
 
     if (results.length > DEFAULT_LIMIT) {
       return `${output}\n... (${results.length - DEFAULT_LIMIT} more files, showing first ${DEFAULT_LIMIT})`

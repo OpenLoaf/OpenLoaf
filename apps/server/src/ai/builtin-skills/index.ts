@@ -54,7 +54,7 @@ export const BUILTIN_SKILLS: BuiltinSkill[] = [
     content: stripFrontMatter(openloafBasicsMd),
     icon: '📚',
     colorIndex: 0,
-    tools: ['request-user-input', 'update-plan'],
+    tools: ['AskUserQuestion', 'update-plan'],
   },
   {
     name: 'file-ops',

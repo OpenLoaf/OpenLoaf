@@ -783,7 +783,7 @@ function collectSubtreeIds(tree: MessageTreeIndex, startId: string): string[] {
 }
 
 // 逻辑：仅保留交互类工具 output，避免刷新后丢失等待用户输入的状态。
-const KEEP_OUTPUT_TOOLS = new Set(['request-user-input'])
+const KEEP_OUTPUT_TOOLS = new Set(['AskUserQuestion'])
 
 /** Strip tool output payloads from parts. */
 function stripToolOutputs(parts: unknown[]): unknown[] {

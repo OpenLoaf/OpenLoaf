@@ -11,7 +11,7 @@
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import { useChatActions, useChatSession, useChatState } from "../context";
+import { useChatActions, useChatSession, useChatStatus } from "../context";
 import {
   MessageBranch,
   MessageBranchContent,
@@ -22,7 +22,7 @@ import {
 } from "@/components/ai-elements/message";
 
 export default function MessageBranchNav({ messageId }: { messageId: string }) {
-  const { status } = useChatState();
+  const { status } = useChatStatus();
   const { siblingNav } = useChatSession();
   const { switchSibling } = useChatActions();
 

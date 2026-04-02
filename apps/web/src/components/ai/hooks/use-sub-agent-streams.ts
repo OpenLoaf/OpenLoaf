@@ -11,21 +11,17 @@
 
 import React from "react";
 import { readUIMessageStream, type UIMessageChunk } from "ai";
-import { useChatRuntime, type ToolPartSnapshot } from "@/hooks/use-chat-runtime";
+import { useChatRuntime } from "@/hooks/use-chat-runtime";
 import { handleSubAgentToolParts } from "@/lib/chat/sub-agent-tool-parts";
 import { clearMasterToolUseIdMap } from "../utils/chat-data-handlers";
-import type { SubAgentStreamState } from "../context/ChatToolContext";
 import type { useChatToolStream } from "./use-chat-tool-stream";
 
 type UseSubAgentStreamsOptions = {
-  tabIdRef: React.MutableRefObject<string | null | undefined>;
+  tabIdRef: React.RefObject<string | null | undefined>;
   toolStream: ReturnType<typeof useChatToolStream>;
 };
 
 export function useSubAgentStreams({ tabIdRef, toolStream }: UseSubAgentStreamsOptions) {
-  const [subAgentStreams, setSubAgentStreams] = React.useState<
-    Record<string, SubAgentStreamState>
-  >({});
   const subAgentStreamControllersRef = React.useRef(
     new Map<string, ReadableStreamDefaultController<UIMessageChunk>>(),
   );
@@ -55,26 +51,13 @@ export function useSubAgentStreams({ tabIdRef, toolStream }: UseSubAgentStreamsO
             parts?: unknown[];
           }>) {
             if (!subAgentStreamControllersRef.current.has(toolCallId)) break;
-            setSubAgentStreams((prev) => {
-              const current = prev[toolCallId] ?? {
-                toolCallId,
-                output: "",
-                state: "output-streaming",
-              };
-              return {
-                ...prev,
-                [toolCallId]: {
-                  ...current,
-                  parts: Array.isArray(message.parts) ? message.parts : current.parts,
-                  state: "output-streaming",
-                  streaming: true,
-                },
-              };
-            });
 
-            // 累计 toolUseCount 和 recentTools
+            const tabId = tabIdRef.current ?? undefined;
+            if (!tabId) continue;
+
+            // 合并 parts + toolUseCount 为单次 Zustand 写入
+            const toolNames: string[] = [];
             if (Array.isArray(message.parts)) {
-              const toolNames: string[] = [];
               for (const p of message.parts) {
                 const candidate = p as { type?: string; toolName?: string } | null;
                 const type = candidate?.type ?? "";
@@ -87,26 +70,41 @@ export function useSubAgentStreams({ tabIdRef, toolStream }: UseSubAgentStreamsO
                   toolNames.push(toolName ?? type);
                 }
               }
-              if (toolNames.length > 0) {
-                setSubAgentStreams((prev) => {
-                  const current = prev[toolCallId];
-                  if (!current) return prev;
-                  const prevCount = current.toolUseCount ?? 0;
-                  const prevRecent = current.recentTools ?? [];
-                  const merged = [...prevRecent, ...toolNames];
-                  return {
-                    ...prev,
-                    [toolCallId]: {
-                      ...current,
-                      toolUseCount: prevCount + toolNames.length,
-                      recentTools: merged.slice(-5),
-                    },
-                  };
-                });
-              }
             }
 
-            const tabId = tabIdRef.current ?? undefined;
+            // 单次 Zustand 写入（合并 parts、state、toolUseCount、recentTools）
+            useChatRuntime.setState((state) => {
+              const tabStreams = state.subAgentStreamsByTabId[tabId] ?? {};
+              const current = tabStreams[toolCallId] ?? {
+                toolCallId,
+                output: "",
+                state: "output-streaming" as const,
+              };
+              const prevCount = current.toolUseCount ?? 0;
+              const prevRecent = current.recentTools ?? [];
+              // toolNames 来自完整消息快照（structuredClone），不是增量，不能累加
+              // 有 tool parts 时直接以快照总数替换；无 tool parts 时保持原值不变
+              const nextCount = toolNames.length > 0 ? toolNames.length : prevCount;
+              // recentTools 同理：直接替换为当前快照中最新的 tool 列表
+              const nextRecent = toolNames.length > 0 ? toolNames : prevRecent;
+              return {
+                subAgentStreamsByTabId: {
+                  ...state.subAgentStreamsByTabId,
+                  [tabId]: {
+                    ...tabStreams,
+                    [toolCallId]: {
+                      ...current,
+                      parts: Array.isArray(message.parts) ? message.parts : current.parts,
+                      state: "output-streaming",
+                      streaming: true,
+                      toolUseCount: nextCount,
+                      recentTools: nextRecent.slice(-5),
+                    },
+                  },
+                },
+              };
+            });
+
             if (tabId && Array.isArray(message.parts)) {
               handleSubAgentToolParts({
                 parts: message.parts,
@@ -119,23 +117,18 @@ export function useSubAgentStreams({ tabIdRef, toolStream }: UseSubAgentStreamsO
           }
         } finally {
           subAgentStreamControllersRef.current.delete(toolCallId);
-          setSubAgentStreams((prev) => {
-            const current = prev[toolCallId];
-            if (!current) return prev;
-            return {
-              ...prev,
-              [toolCallId]: {
-                ...current,
-                streaming: false,
-              },
-            };
-          });
+          const tabId = tabIdRef.current ?? undefined;
+          if (tabId) {
+            useChatRuntime.getState().updateSubAgentStream(tabId, toolCallId, {
+              streaming: false,
+            });
+          }
         }
       })();
 
       return controller;
     },
-    [setSubAgentStreams, toolStream, upsertToolPart, tabIdRef],
+    [toolStream, upsertToolPart, tabIdRef],
   );
 
   const enqueueSubAgentChunk = React.useCallback(
@@ -152,21 +145,16 @@ export function useSubAgentStreams({ tabIdRef, toolStream }: UseSubAgentStreamsO
       if (type === "finish" || type === "error" || type === "abort") {
         controller.close();
         subAgentStreamControllersRef.current.delete(toolCallId);
-        setSubAgentStreams((prev) => {
-          const current = prev[toolCallId];
-          if (!current) return prev;
-          return {
-            ...prev,
-            [toolCallId]: {
-              ...current,
-              streaming: false,
-              state: type === "error" || type === "abort" ? "output-error" : "output-available",
-            },
-          };
-        });
+        const tabId = tabIdRef.current ?? undefined;
+        if (tabId) {
+          useChatRuntime.getState().updateSubAgentStream(tabId, toolCallId, {
+            streaming: false,
+            state: type === "error" || type === "abort" ? "output-error" : "output-available",
+          });
+        }
       }
     },
-    [ensureSubAgentStreamController, setSubAgentStreams],
+    [ensureSubAgentStreamController, tabIdRef],
   );
 
   const closeSubAgentStream = React.useCallback(
@@ -176,37 +164,74 @@ export function useSubAgentStreams({ tabIdRef, toolStream }: UseSubAgentStreamsO
         controller.close();
         subAgentStreamControllersRef.current.delete(toolCallId);
       }
-      setSubAgentStreams((prev) => {
-        const current = prev[toolCallId];
-        if (!current) return prev;
-        return {
-          ...prev,
-          [toolCallId]: {
-            ...current,
-            streaming: false,
-            state,
-          },
-        };
-      });
+      const tabId = tabIdRef.current ?? undefined;
+      if (tabId) {
+        useChatRuntime.getState().updateSubAgentStream(tabId, toolCallId, {
+          streaming: false,
+          state,
+        });
+      }
     },
-    [setSubAgentStreams],
+    [tabIdRef],
   );
 
   /** Reset all sub-agent streams (e.g. on session change). */
   const resetSubAgentStreams = React.useCallback(() => {
-    setSubAgentStreams({});
+    const tabId = tabIdRef.current ?? undefined;
+    if (tabId) {
+      useChatRuntime.getState().clearSubAgentStreams(tabId);
+    }
     subAgentStreamControllersRef.current.forEach((controller) => {
       controller.close();
     });
     subAgentStreamControllersRef.current.clear();
     clearMasterToolUseIdMap();
-  }, []);
+  }, [tabIdRef]);
+
+  /**
+   * Abort all active sub-agent streams without clearing history.
+   * Called when user clicks Stop — marks streaming entries as completed
+   * so cards don't remain stuck in "running" state.
+   */
+  const abortSubAgentStreams = React.useCallback(() => {
+    // Close all active ReadableStream controllers first.
+    subAgentStreamControllersRef.current.forEach((controller) => {
+      try { controller.close(); } catch { /* already closed */ }
+    });
+    subAgentStreamControllersRef.current.clear();
+
+    // Mark every streaming entry as completed (preserve output/parts).
+    const tabId = tabIdRef.current ?? undefined;
+    if (!tabId) return;
+    useChatRuntime.setState((state) => {
+      const tabStreams = state.subAgentStreamsByTabId[tabId];
+      if (!tabStreams) return state;
+      let changed = false;
+      const nextTabStreams = { ...tabStreams };
+      for (const [toolCallId, entry] of Object.entries(tabStreams)) {
+        if (entry.streaming) {
+          nextTabStreams[toolCallId] = {
+            ...entry,
+            streaming: false,
+            state: "output-available",
+          };
+          changed = true;
+        }
+      }
+      if (!changed) return state;
+      return {
+        subAgentStreamsByTabId: {
+          ...state.subAgentStreamsByTabId,
+          [tabId]: nextTabStreams,
+        },
+      };
+    });
+  }, [tabIdRef]);
 
   return {
-    subAgentStreams,
-    setSubAgentStreams,
     enqueueSubAgentChunk,
     closeSubAgentStream,
     resetSubAgentStreams,
+    abortSubAgentStreams,
   };
 }

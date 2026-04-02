@@ -9,7 +9,7 @@
  */
 "use client";
 
-import React, { createContext, useContext, type ReactNode } from "react";
+import { createContext, useContext, type ReactNode } from "react";
 import type { UIMessage, UseChatHelpers } from "@ai-sdk/react";
 import type { PendingCloudMessage } from "./ChatStateContext";
 

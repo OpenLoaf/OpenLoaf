@@ -250,12 +250,13 @@ export const QueueSectionLabel = ({
   className,
   ...props
 }: QueueSectionLabelProps) => (
-  <span className={cn("flex items-center gap-2", className)} {...props}>
+  <span className={cn("flex w-full items-center gap-2", className)} {...props}>
     <ChevronDownIcon className="size-4 transition-transform group-data-[state=closed]:-rotate-90" />
     {icon}
-    <span>
-      {count} {label}
-    </span>
+    <span className="flex-1">{label}</span>
+    {count != null && (
+      <span className="ml-auto text-xs text-muted-foreground/70">{count}</span>
+    )}
   </span>
 );
 

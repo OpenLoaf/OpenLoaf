@@ -12,7 +12,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { motion, useReducedMotion } from 'motion/react'
 import { Cloud, HardDrive, Settings2, Sparkles } from 'lucide-react'
-import { useChatActions, useChatSession, useChatState } from '../context'
+import { useChatActions, useChatMessages, useChatSession } from '../context'
 import { useBasicConfig } from '@/hooks/use-basic-config'
 import { useSettingsValues } from '@/hooks/use-settings'
 import { useLayoutState } from '@/hooks/use-layout-state'
@@ -23,7 +23,7 @@ import { cn } from '@/lib/utils'
 import AssistantMessageHeader from './AssistantMessageHeader'
 
 export default function PendingCloudLoginPrompt() {
-  const { pendingCloudMessage } = useChatState()
+  const { pendingCloudMessage } = useChatMessages()
   const { sendPendingCloudMessage } = useChatActions()
   const { basic, setBasic } = useBasicConfig()
   const { providerItems } = useSettingsValues()

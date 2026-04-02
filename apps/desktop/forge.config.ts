@@ -205,19 +205,29 @@ const postPackageHook: ForgeConfig['hooks'] = {
       // 4) node-pty prebuilds：按目标平台只复制对应的 prebuild
       //    node-pty 被 esbuild 打包进 server.mjs，加载 pty.node 时用
       //    相对于 server.mjs 的路径 ./prebuilds/{platform}-{arch}/pty.node
-      const prebuildsSrc = path.join(MONOREPO_NODE_MODULES, 'node-pty', 'prebuilds');
-      if (fs.existsSync(prebuildsSrc)) {
-        const prebuildsDest = path.join(resourcesDir, 'prebuilds');
-        const targetPrebuild = `${platform}-${arch}`;
-        const targetPrebuildSrc = path.join(prebuildsSrc, targetPrebuild);
+      //    Linux: npm 包不含预编译，pnpm install 时从源码编译到 build/Release/
+      const nodePtyRoot = path.join(MONOREPO_NODE_MODULES, 'node-pty');
+      const targetPrebuild = `${platform}-${arch}`;
+      const targetPrebuildSrc = path.join(nodePtyRoot, 'prebuilds', targetPrebuild);
+      const targetPrebuildDest = path.join(resourcesDir, 'prebuilds', targetPrebuild);
 
-        if (fs.existsSync(targetPrebuildSrc)) {
-          const targetPrebuildDest = path.join(prebuildsDest, targetPrebuild);
+      if (fs.existsSync(targetPrebuildSrc)) {
+        fs.mkdirSync(targetPrebuildDest, { recursive: true });
+        fs.cpSync(targetPrebuildSrc, targetPrebuildDest, { recursive: true });
+        console.log(`[postPackage]   + prebuilds/${targetPrebuild}/ (node-pty)`);
+      } else {
+        // 回退：从源码编译产物 build/Release/ 复制（Linux）
+        const buildReleasePty = path.join(nodePtyRoot, 'build', 'Release', 'pty.node');
+        if (fs.existsSync(buildReleasePty)) {
           fs.mkdirSync(targetPrebuildDest, { recursive: true });
-          fs.cpSync(targetPrebuildSrc, targetPrebuildDest, { recursive: true });
-          console.log(`[postPackage]   + prebuilds/${targetPrebuild}/ (node-pty)`);
+          fs.copyFileSync(buildReleasePty, path.join(targetPrebuildDest, 'pty.node'));
+          const spawnHelperSrc = path.join(nodePtyRoot, 'build', 'Release', 'spawn-helper');
+          if (fs.existsSync(spawnHelperSrc)) {
+            fs.copyFileSync(spawnHelperSrc, path.join(targetPrebuildDest, 'spawn-helper'));
+          }
+          console.log(`[postPackage]   + prebuilds/${targetPrebuild}/ (node-pty, from build/Release)`);
         } else {
-          console.warn(`[postPackage] node-pty prebuild not found for ${targetPrebuild}`);
+          console.warn(`[postPackage] node-pty: no prebuild or build/Release found for ${targetPrebuild}`);
         }
       }
 

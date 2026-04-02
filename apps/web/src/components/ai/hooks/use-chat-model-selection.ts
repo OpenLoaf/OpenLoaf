@@ -56,9 +56,12 @@ export function useChatModelSelection(_tabId?: string, projectId?: string) {
         return { selectedModel: option, selectedModelId: id };
       }
     }
+    // 无显式选择时 fallback 到第一个可用模型（已删除 auto 模式）。
+    const first = modelOptions[0];
+    if (first) return { selectedModel: first, selectedModelId: first.id };
     return { selectedModel: undefined, selectedModelId: "" };
   }, [modelOptions, normalizedMasterIds]);
-  const isAutoModel = normalizedMasterIds.length === 0 || !selectedModel;
+  const isAutoModel = !selectedModel;
   const isCodeModel = supportsCode(selectedModel);
   const canAttachAll = isAutoModel || supportsToolCall(selectedModel) || isCodeModel;
   // 始终允许图片上传：非视觉模型由后端剥离图片并委派 vision sub-agent 处理。

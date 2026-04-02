@@ -168,7 +168,7 @@
     "time-now": "目前時間",
     "task-manage": "任務管理",
     "task-status": "查詢任務狀態",
-    "request-user-input": "請求使用者輸入",
+    "AskUserQuestion": "請求使用者輸入",
     "widget-init": "初始化 Widget",
     "widget-list": "列出 Widget",
     "widget-get": "取得 Widget",
@@ -324,7 +324,7 @@
   "dock": {
     "aiAssistant": "AI秘書",
     "pmAgent": "管理員",
-    "inputPlaceholder": "輸入內容",
+    "inputPlaceholder": "提問或輸入 / 使用技能…",
     "suggestion1": "幫我總結今天的工作進展",
     "suggestion2": "分析目前專案的程式碼品質",
     "suggestion3": "產生一份本週工作週報"

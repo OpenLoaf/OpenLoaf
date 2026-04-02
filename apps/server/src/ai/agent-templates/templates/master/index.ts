@@ -32,7 +32,7 @@ export const masterTemplate: AgentTemplate = {
     'Grep',
     'Edit',
     'Write',
-    'request-user-input',
+    'AskUserQuestion',
     // agent collaboration
     'Agent',
     'SendMessage',

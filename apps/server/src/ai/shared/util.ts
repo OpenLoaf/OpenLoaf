@@ -243,9 +243,9 @@ async function collectSseStream(stream: ReadableStream<Uint8Array>, url: string)
       parsed.push(dataLine);
     }
   }
-  logger.info(
-    { url, eventCount: parsed.length, events: JSON.stringify(parsed, null, 2) },
-    "[ai-debug] <<< SSE RESPONSE (all events)",
+  logger.debug(
+    { url, eventCount: parsed.length },
+    "[ai-debug] <<< SSE RESPONSE done",
   );
 }
 

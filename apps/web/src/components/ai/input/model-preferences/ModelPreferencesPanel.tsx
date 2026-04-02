@@ -75,28 +75,10 @@ export function ModelPreferencesPanel({
   const { t } = useTranslation('ai')
   const [activeTab, setActiveTab] = useState('chat')
   const isChatTab = activeTab === 'chat'
-  const isImageTab = activeTab === 'image'
   const isCliTab = activeTab === 'cli'
-  const isAuto = isChatTab
-    ? prefs.isAuto
-    : isImageTab
-      ? prefs.isImageAuto
-      : prefs.isVideoAuto
 
   const handleCloudSourceChange = (cloud: boolean) => {
     prefs.setCloudSource(cloud ? 'cloud' : 'local')
-  }
-
-  const handleAutoChange = (auto: boolean) => {
-    if (isChatTab) {
-      prefs.setIsAuto(auto)
-      return
-    }
-    if (isImageTab) {
-      prefs.setImageAuto(auto)
-      return
-    }
-    prefs.setVideoAuto(auto)
   }
 
   const selectedCliToolId = useMemo<'codex' | 'claudeCode' | undefined>(() => {
@@ -164,12 +146,9 @@ export function ModelPreferencesPanel({
       {!isCliTab && (
         <ModelPreferencesHeader
           isCloudSource={prefs.isCloudSource}
-          isAuto={isAuto}
           showCloudSwitch={isChatTab}
           showManageButton={isChatTab}
-          disableAuto={needsLogin}
           onCloudSourceChange={handleCloudSourceChange}
-          onAutoChange={handleAutoChange}
           onManageModels={() => {
             onClose()
             requestAnimationFrame(() => {

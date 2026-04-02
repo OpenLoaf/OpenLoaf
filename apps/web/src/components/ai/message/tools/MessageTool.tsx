@@ -10,7 +10,7 @@
 "use client";
 
 import { createElement } from "react";
-import { useChatState, useChatTools } from "../../context";
+import { useChatStatus, useChatTools } from "../../context";
 import { getToolKind, type AnyToolPart, type ToolVariant } from "./shared/tool-utils";
 import { findToolEntry, CliThinkingTool, UnifiedTool } from "./tool-registry";
 import { useBasicConfig } from "@/hooks/use-basic-config";
@@ -30,7 +30,7 @@ export default function MessageTool({
   variant?: ToolVariant;
   messageId?: string;
 }) {
-  const { status } = useChatState();
+  const { status } = useChatStatus();
   const { toolParts } = useChatTools();
   const { basic } = useBasicConfig();
   if (!part) return null;
@@ -66,7 +66,7 @@ export default function MessageTool({
   const entry = findToolEntry(toolKind, providerExecuted, resolvedPart);
   if (entry) {
     return (
-      <div className="max-w-lg">
+      <div>
         {createElement(entry.component, {
           part: resolvedPart,
           className,
@@ -84,7 +84,7 @@ export default function MessageTool({
     const nonProviderEntry = findToolEntry(toolKind, false, resolvedPart);
     if (nonProviderEntry) {
       return (
-        <div className="max-w-lg">
+        <div>
           {createElement(nonProviderEntry.component, {
             part: resolvedPart,
             className,
@@ -106,7 +106,7 @@ export default function MessageTool({
   if (isCompleted && !hasError && !basic.chatShowAllToolResults) return null
 
   return (
-    <div className="max-w-lg">
+    <div>
       <UnifiedTool part={resolvedPart} className={className} variant={variant} messageId={messageId} />
     </div>
   );

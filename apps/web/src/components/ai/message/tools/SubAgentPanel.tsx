@@ -13,7 +13,6 @@ import * as React from 'react'
 import { cn } from '@/lib/utils'
 import {
   BotIcon,
-  ChevronRightIcon,
   LoaderCircleIcon,
   WrenchIcon,
   AlertCircleIcon,
@@ -94,6 +93,102 @@ function getOutputPreview(output: string, maxLines = 3): string {
   return `...${lines.slice(-maxLines).join('\n')}`
 }
 
+/** Extract the latest part info from stream parts for preview display. */
+function getLatestPartInfo(parts: unknown[] | undefined): {
+  type: 'tool' | 'text' | null
+  toolName?: string
+  text?: string
+} {
+  if (!parts || parts.length === 0) return { type: null }
+  // Walk backwards to find the latest meaningful part
+  for (let i = parts.length - 1; i >= 0; i--) {
+    const p = parts[i] as { type?: string; toolName?: string; text?: string } | null
+    if (!p?.type) continue
+    if (
+      p.type === 'tool-invocation' ||
+      p.type === 'dynamic-tool' ||
+      p.type.startsWith('tool-')
+    ) {
+      return { type: 'tool', toolName: p.toolName ?? p.type }
+    }
+    if (p.type === 'text' && p.text) {
+      return { type: 'text', text: p.text }
+    }
+  }
+  return { type: null }
+}
+
+/** Get last N lines of text for preview. */
+function getLastLines(text: string, maxLines = 3): string {
+  if (!text) return ''
+  const lines = text.trimEnd().split('\n')
+  if (lines.length <= maxLines) return text.trimEnd()
+  return lines.slice(-maxLines).join('\n')
+}
+
+/** Show the latest streaming part: tool name or text content. */
+function LatestPartPreview({
+  stream,
+  isStreaming,
+  isDone,
+}: {
+  stream: { parts?: unknown[]; output?: string; recentTools?: string[] } | undefined
+  isStreaming: boolean
+  isDone: boolean
+}) {
+  const latestPart = getLatestPartInfo(stream?.parts)
+
+  // Determine what to show: latest part from parts, or fallback to recentTools/output
+  // Tool part → show tool name
+  if (latestPart.type === 'tool') {
+    return (
+      <div className="flex items-center gap-1.5 border-t px-3 py-1.5 text-[11px] text-muted-foreground">
+        <WrenchIcon className="size-3 shrink-0" />
+        <span className="min-w-0 flex-1 truncate">{latestPart.toolName}</span>
+        {isStreaming && <LoaderCircleIcon className="size-3 shrink-0 animate-spin" />}
+      </div>
+    )
+  }
+
+  // Text part → show last 3 lines (like thinking component)
+  if (latestPart.type === 'text') {
+    const preview = getLastLines(latestPart.text ?? '', 3)
+    return (
+      <div className="border-t px-3 py-1.5">
+        <pre className="whitespace-pre-wrap text-[11px] leading-relaxed text-muted-foreground/80 line-clamp-3">
+          {preview}
+        </pre>
+      </div>
+    )
+  }
+
+  // No parts info — fallback to recentTools (streaming) or output (done)
+  if (isStreaming && stream?.recentTools && stream.recentTools.length > 0) {
+    const lastTool = stream.recentTools[stream.recentTools.length - 1]
+    return (
+      <div className="flex items-center gap-1.5 border-t px-3 py-1.5 text-[11px] text-muted-foreground">
+        <WrenchIcon className="size-3 shrink-0" />
+        <span className="min-w-0 flex-1 truncate">{lastTool}</span>
+        <LoaderCircleIcon className="size-3 shrink-0 animate-spin" />
+      </div>
+    )
+  }
+
+  if (isDone) {
+    const outputPreview = getOutputPreview(stream?.output ?? '', 3)
+    if (!outputPreview) return null
+    return (
+      <div className="border-t bg-muted/30 px-3 py-1.5">
+        <pre className="whitespace-pre-wrap text-[11px] leading-relaxed text-muted-foreground/80 line-clamp-3">
+          {outputPreview}
+        </pre>
+      </div>
+    )
+  }
+
+  return null
+}
+
 /** Render Agent tool as an interactive agent card with real-time progress. */
 export default function SubAgentPanel({
   part,
@@ -103,17 +198,45 @@ export default function SubAgentPanel({
 
   // 从 input / output 解析 agent 信息
   const inputObj = asPlainObject(normalizeToolInput(part.input))
-  const outputObj = asPlainObject(normalizeToolInput(part.output))
 
-  // agent_id 来自 Agent 的 output，也是 subAgentStreams 的 key
-  const agentIdFromOutput =
-    typeof outputObj?.agent_id === 'string' ? outputObj.agent_id : ''
+  // 从 XML output 解析 agentId 和元数据
+  const outputMeta = React.useMemo(() => {
+    const result = { agentId: '', toolUseCount: 0, durationMs: 0 }
+    const extractFromXml = (xml: string) => {
+      const idMatch = xml.match(/<task-id>([^<]+)<\/task-id>/)
+      if (idMatch?.[1]) result.agentId = idMatch[1]
+      const toolMatch = xml.match(/<tool_uses>(\d+)<\/tool_uses>/)
+      if (toolMatch?.[1]) result.toolUseCount = Number.parseInt(toolMatch[1], 10)
+      const durMatch = xml.match(/<duration_ms>(\d+)<\/duration_ms>/)
+      if (durMatch?.[1]) result.durationMs = Number.parseInt(durMatch[1], 10)
+    }
+    const raw = part.output
+    if (typeof raw === 'string') {
+      extractFromXml(raw)
+      if (result.agentId) return result
+    }
+    const outputObj = asPlainObject(normalizeToolInput(raw))
+    if (typeof outputObj?.agent_id === 'string') {
+      result.agentId = outputObj.agent_id
+      return result
+    }
+    if (Array.isArray(raw)) {
+      for (const item of raw) {
+        const text = typeof item === 'string' ? item : (item as any)?.text
+        if (typeof text === 'string') {
+          extractFromXml(text)
+          if (result.agentId) return result
+        }
+      }
+    }
+    return result
+  }, [part.output])
 
   // 从 zustand 响应式查找 agentId（只在 agentId 变化时 re-render，不受 stream 内容变化影响）
   const masterToolCallId = part.toolCallId || ''
 
   const resolvedAgentId = useChatRuntime((s) => {
-    if (agentIdFromOutput) return agentIdFromOutput
+    if (outputMeta.agentId) return outputMeta.agentId
     if (!contextTabId || !masterToolCallId) return ''
     const tabStreams = s.subAgentStreamsByTabId[contextTabId]
     if (!tabStreams) return ''
@@ -123,7 +246,7 @@ export default function SubAgentPanel({
     return ''
   })
 
-  const agentId = resolvedAgentId || agentIdFromOutput || ''
+  const agentId = resolvedAgentId || outputMeta.agentId || ''
 
   // 独立 selector 订阅 stream 状态（引用稳定，只在该 agent 的 stream 变化时触发）
   const stream = useChatRuntime((s) => {
@@ -133,10 +256,13 @@ export default function SubAgentPanel({
 
   const agentName =
     stream?.name ||
+    (typeof inputObj?.subagent_type === 'string' ? inputObj.subagent_type : '') ||
     (typeof inputObj?.agentType === 'string' ? inputObj.agentType : '') ||
     '子智能体'
   const task =
     stream?.task ||
+    (typeof inputObj?.prompt === 'string' ? (inputObj.prompt as string).slice(0, 200) : '') ||
+    (typeof inputObj?.description === 'string' ? inputObj.description as string : '') ||
     (Array.isArray(inputObj?.items)
       ? (inputObj!.items as any[])
           .filter((i: any) => i?.type === 'text')
@@ -152,14 +278,15 @@ export default function SubAgentPanel({
   const isDone = effectiveState === 'output-available' || (streamEnded && effectiveState !== 'output-error')
   const hasError = effectiveState === 'output-error' || Boolean(stream?.errorText)
   const isAborted = !isStreaming && !isDone && !hasError && part.state === 'output-denied'
-  const outputPreview = getOutputPreview(stream?.output ?? '', 3)
 
-  // 实时经过时间
-  const [elapsed, setElapsed] = React.useState(0)
+  // 实时经过时间（stream 优先，fallback 到 outputMeta）
+  const [elapsed, setElapsed] = React.useState(outputMeta.durationMs)
   React.useEffect(() => {
     if (!stream?.startedAt || !isStreaming) {
       if (stream?.startedAt && (isDone || hasError)) {
         setElapsed(Date.now() - stream.startedAt)
+      } else if (!stream && outputMeta.durationMs > 0) {
+        setElapsed(outputMeta.durationMs)
       }
       return
     }
@@ -167,7 +294,7 @@ export default function SubAgentPanel({
     update()
     const timer = setInterval(update, 1000)
     return () => clearInterval(timer)
-  }, [stream?.startedAt, isStreaming, isDone, hasError])
+  }, [stream?.startedAt, isStreaming, isDone, hasError, outputMeta.durationMs])
 
   const handleClick = React.useCallback(() => {
     if (!agentId) return
@@ -200,53 +327,26 @@ export default function SubAgentPanel({
           {agentName}
         </span>
         <AgentStatusBadge isStreaming={isStreaming} isDone={isDone} hasError={hasError} isAborted={isAborted} />
-        <ChevronRightIcon className="size-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
       </div>
 
       {/* Task description */}
       {task ? (
-        <div className="border-t px-3 py-1.5 text-[11px] leading-relaxed text-muted-foreground line-clamp-2">
+        <div className="show-scrollbar-thin max-h-30 overflow-y-auto whitespace-pre-wrap border-t px-3 py-1.5 text-[11px] leading-relaxed text-muted-foreground">
           {task}
         </div>
       ) : null}
 
-      {/* Recent tools activity (shown while running) */}
-      {isStreaming &&
-      stream?.recentTools &&
-      stream.recentTools.length > 0 ? (
-        <div className="border-t px-3 py-1.5 space-y-0.5">
-          {stream.recentTools.map((tool, i) => (
-            <div
-              key={`${tool}-${i}`}
-              className="flex items-center gap-1.5 text-[11px] text-muted-foreground"
-            >
-              <WrenchIcon className="size-3 shrink-0" />
-              <span className="truncate">{tool}</span>
-              {i === stream.recentTools!.length - 1 && (
-                <LoaderCircleIcon className="size-3 shrink-0 animate-spin" />
-              )}
-            </div>
-          ))}
-        </div>
-      ) : null}
-
-      {/* Output preview (shown when done) */}
-      {isDone && outputPreview ? (
-        <div className="border-t bg-muted/30 px-3 py-1.5">
-          <pre className="whitespace-pre-wrap text-[11px] leading-relaxed text-muted-foreground/80 line-clamp-3">
-            {outputPreview}
-          </pre>
-        </div>
-      ) : null}
+      {/* Latest part preview */}
+      <LatestPartPreview stream={stream} isStreaming={isStreaming} isDone={isDone} />
 
       {/* Footer stats */}
       {(elapsed > 0 ||
-        (stream?.toolUseCount != null && stream.toolUseCount > 0) ||
+        (stream?.toolUseCount ?? outputMeta.toolUseCount) > 0 ||
         agentId) && (
         <div className="flex items-center gap-3 border-t px-3 py-1 text-[10px] text-muted-foreground/50">
           {elapsed > 0 && <span>{formatElapsed(elapsed)}</span>}
-          {stream?.toolUseCount != null && stream.toolUseCount > 0 && (
-            <span>{stream.toolUseCount} tools</span>
+          {(stream?.toolUseCount ?? outputMeta.toolUseCount) > 0 && (
+            <span>{stream?.toolUseCount ?? outputMeta.toolUseCount} tools</span>
           )}
           {agentId && (
             <span className="ml-auto truncate">{agentId}</span>

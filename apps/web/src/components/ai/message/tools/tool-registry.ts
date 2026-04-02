@@ -43,6 +43,10 @@ import ClaudeCodeSearchTool from './ClaudeCodeSearchTool'
 import ClaudeCodeWebTool from './ClaudeCodeWebTool'
 import ClaudeCodeTaskTool from './ClaudeCodeTaskTool'
 import FileInfoTool from './FileInfoTool'
+import GlobTool from './GlobTool'
+import ReadTool from './ReadTool'
+import GrepTool from './GrepTool'
+import SendMessageTool from './SendMessageTool'
 
 export type ToolComponentProps = {
   part: AnyToolPart
@@ -82,18 +86,19 @@ export const TOOL_REGISTRY: ToolRegistryEntry[] = [
 
   // ── Standard tools ──
   { match: 'update-plan', component: PlanTool as ComponentType<ToolComponentProps> },
-  { match: 'request-user-input', component: RequestUserInputTool as ComponentType<ToolComponentProps> },
+  { match: 'AskUserQuestion', component: RequestUserInputTool as ComponentType<ToolComponentProps> },
   { match: ['jsx-create', 'jsx-preview'], component: JsxCreateTool as ComponentType<ToolComponentProps> },
   { match: ['Edit', 'apply-patch'], component: WriteFileTool as ComponentType<ToolComponentProps> },
   { match: ['Bash', 'shell-command'], component: ShellTool as ComponentType<ToolComponentProps> },
-  { match: ['Read', 'read-file'], component: UnifiedTool as ComponentType<ToolComponentProps> },
-  { match: ['Grep', 'grep-files'], component: UnifiedTool as ComponentType<ToolComponentProps> },
-  { match: ['Glob', 'list-dir'], component: UnifiedTool as ComponentType<ToolComponentProps> },
+  { match: ['Read', 'read-file'], component: ReadTool as ComponentType<ToolComponentProps> },
+  { match: ['Grep', 'grep-files'], component: GrepTool as ComponentType<ToolComponentProps> },
+  { match: ['Glob', 'list-dir'], component: GlobTool as ComponentType<ToolComponentProps> },
   { match: 'Write', component: WriteFileTool as ComponentType<ToolComponentProps> },
   { match: 'generate-widget', component: WidgetTool as ComponentType<ToolComponentProps> },
   { match: 'widget-init', component: WidgetInitTool as ComponentType<ToolComponentProps> },
   { match: 'widget-check', component: WidgetCheckTool as ComponentType<ToolComponentProps> },
   { match: 'Agent', component: SubAgentPanel as ComponentType<ToolComponentProps> },
+  { match: 'SendMessage', component: SendMessageTool as ComponentType<ToolComponentProps> },
   { match: 'chart-render', component: ChartTool as ComponentType<ToolComponentProps> },
   { match: ['excel-query', 'excel-mutate'], component: ExcelTool as ComponentType<ToolComponentProps> },
   {

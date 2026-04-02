@@ -9,29 +9,23 @@
  */
 'use client'
 
-import { Cloud, HardDrive, Settings2, Sparkles } from 'lucide-react'
+import { Cloud, HardDrive, Settings2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 
 interface ModelPreferencesHeaderProps {
   isCloudSource: boolean
-  isAuto: boolean
   showCloudSwitch?: boolean
   showManageButton?: boolean
-  disableAuto?: boolean
   onCloudSourceChange: (cloud: boolean) => void
-  onAutoChange: (auto: boolean) => void
   onManageModels?: () => void
 }
 
 export function ModelPreferencesHeader({
   isCloudSource,
-  isAuto,
   showCloudSwitch = true,
   showManageButton,
-  disableAuto,
   onCloudSourceChange,
-  onAutoChange,
   onManageModels,
 }: ModelPreferencesHeaderProps) {
   const { t } = useTranslation('ai')
@@ -99,21 +93,6 @@ export function ModelPreferencesHeader({
             </span>
           </div>
         )}
-        <button
-          type="button"
-          disabled={disableAuto}
-          className={cn(
-            'inline-flex h-6 items-center gap-1 rounded-3xl px-2 text-[11px] transition-colors',
-            disableAuto && 'cursor-not-allowed opacity-40',
-            isAuto
-              ? 'bg-secondary text-foreground'
-              : 'bg-muted/60 text-muted-foreground hover:text-foreground',
-          )}
-          onClick={() => onAutoChange(true)}
-        >
-          <Sparkles className="h-3 w-3" />
-          {t('mode.auto')}
-        </button>
       </div>
     </div>
   )

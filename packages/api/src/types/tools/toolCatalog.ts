@@ -159,7 +159,7 @@ export function resolveToolCatalogItem(id: string): ToolCatalogItem {
 const TOOL_KEYWORDS: Record<string, { keywords: string[]; group: string }> = {
   'tool-search': { keywords: ['search', 'find', 'discover', 'load', 'tool'], group: 'core' },
   'update-plan': { keywords: ['plan', 'step', 'progress', 'update', 'track'], group: 'core' },
-  'request-user-input': { keywords: ['ask', 'input', 'confirm', 'choice', 'question', 'user', 'approval'], group: 'core' },
+  'AskUserQuestion': { keywords: ['ask', 'input', 'confirm', 'choice', 'question', 'user', 'approval'], group: 'core' },
   'jsx-create': { keywords: ['jsx', 'component', 'ui', 'render', 'display', 'card', 'layout'], group: 'ui' },
   'Agent': { keywords: ['agent', 'spawn', 'delegate', 'sub', 'dispatch', 'create', 'background'], group: 'agent' },
   'SendMessage': { keywords: ['send', 'message', 'agent', 'communicate', 'resume', 'continue'], group: 'agent' },

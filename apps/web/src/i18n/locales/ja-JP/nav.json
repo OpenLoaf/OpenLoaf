@@ -86,6 +86,8 @@
   },
   "projectTree": {
     "open": "開く",
+    "openInNewWindow": "新しいウィンドウで開く",
+    "openInCurrentWindow": "現在のウィンドウで開く",
     "openInFileManager": "ファイルマネージャーで開く",
     "copyPath": "パスをコピー",
     "favorite": "お気に入りに追加",

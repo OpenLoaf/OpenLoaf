@@ -15,7 +15,7 @@ import ChatCoreProvider from "./ChatCoreProvider";
 import MessageList from "./message/MessageList";
 import ChatInput from "./input/ChatInput";
 import ChatHeader from "./ChatHeader";
-import { useChatActions, useChatSession, useChatState } from "./context";
+import { useChatActions, useChatSession, useChatMessageMeta } from "./context";
 import { useChatSessions } from "@/hooks/use-chat-sessions";
 import i18next from "i18next";
 import { generateId } from "ai";
@@ -94,12 +94,12 @@ type ChatProps = {
 
 /** 最近会话列表，紧贴 ChatInput 上方，仅空会话时显示 */
 function RecentSessionsBar() {
-  const { messages } = useChatState()
+  const { messageCount } = useChatMessageMeta()
   const { selectSession } = useChatActions()
   const { tabId } = useChatSession()
   const { recentSessions } = useChatSessions({ tabId })
 
-  const isEmpty = !messages || messages.length === 0
+  const isEmpty = messageCount === 0
   if (!isEmpty || recentSessions.length === 0) return null
 
   return (
@@ -392,8 +392,8 @@ function ChatFullPageLayout({
   enableMultiSession?: boolean
 }) {
   const { t } = useTranslation('ai')
-  const { messages, pendingCloudMessage, isHistoryLoading } = useChatState()
-  const isEmpty = messages.length === 0 && !pendingCloudMessage
+  const { messageCount, isHistoryLoading, hasPendingCloudMessage } = useChatMessageMeta()
+  const isEmpty = messageCount === 0 && !hasPendingCloudMessage
 
   return (
     <div
@@ -413,7 +413,7 @@ function ChatFullPageLayout({
         <div className="flex-1" />
       ) : isEmpty ? (
         <div className="flex flex-1 flex-col items-center justify-center min-h-0">
-          <div className="flex w-full max-w-3xl flex-col items-center gap-4 px-6 -mt-20">
+          <div className="flex w-full max-w-3xl flex-col items-center gap-4 px-6 mb-4">
             <motion.div
               className="mb-2 select-none font-bold leading-none tracking-widest"
               style={{ fontSize: 'clamp(2rem, 5vw, 3rem)' }}
@@ -425,7 +425,7 @@ function ChatFullPageLayout({
               <span className="text-te-accent">Loaf</span>
             </motion.div>
             <motion.p
-              className="mb-4 text-base text-muted-foreground"
+              className="text-base text-muted-foreground"
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1, duration: 0.2 }}
@@ -433,6 +433,29 @@ function ChatFullPageLayout({
               {t('chat.welcomeMessage')}
             </motion.p>
           </div>
+          {/* isEmpty 时 ChatInput 放在居中容器内，与标题一起整体居中 */}
+          <ChatInput
+            className="w-full max-w-3xl !max-h-none !mt-0"
+            large
+            attachments={attachments}
+            onAddAttachments={onAddAttachments}
+            onRemoveAttachment={onRemoveAttachment}
+            onClearAttachments={onClearAttachments}
+            onReplaceMaskedAttachment={onReplaceMaskedAttachment}
+            canAttachAll={canAttachAll}
+            canAttachImage={canAttachImage}
+            model={model}
+            isAutoModel={isAutoModel}
+            canImageGeneration={canImageGeneration}
+            canImageEdit={canImageEdit}
+            isCodexProvider={isCodexProvider}
+            onDropHandled={onDropHandled}
+            blockedCompact
+          />
+          <div className="flex justify-center mt-4 mb-2">
+            <MessageHelper compact projectId={projectId} />
+          </div>
+          <QuickLaunchBar projectId={projectId} />
         </div>
       ) : (
         <>
@@ -440,32 +463,24 @@ function ChatFullPageLayout({
           <RecentSessionsBar />
         </>
       )}
-      {/* 单一 ChatInput 实例，避免 empty→non-empty 切换时重新挂载导致模型选中状态丢失 */}
-      <ChatInput
-        className={isEmpty ? "w-full max-w-3xl mx-auto px-6 !max-h-none !mt-0" : "mx-2 mb-2"}
-        large={isEmpty}
-        attachments={attachments}
-        onAddAttachments={onAddAttachments}
-        onRemoveAttachment={onRemoveAttachment}
-        onClearAttachments={onClearAttachments}
-        onReplaceMaskedAttachment={onReplaceMaskedAttachment}
-        canAttachAll={canAttachAll}
-        canAttachImage={canAttachImage}
-        model={model}
-        isAutoModel={isAutoModel}
-        canImageGeneration={canImageGeneration}
-        canImageEdit={canImageEdit}
-        isCodexProvider={isCodexProvider}
-        onDropHandled={onDropHandled}
-        blockedCompact={isEmpty}
-      />
-      {isEmpty && (
-        <>
-          <div className="flex justify-center mt-4 mb-2">
-            <MessageHelper compact projectId={projectId} />
-          </div>
-          <QuickLaunchBar projectId={projectId} />
-        </>
+      {/* 非 empty 时的 ChatInput */}
+      {!isEmpty && (
+        <ChatInput
+          className="mx-2 mb-2"
+          attachments={attachments}
+          onAddAttachments={onAddAttachments}
+          onRemoveAttachment={onRemoveAttachment}
+          onClearAttachments={onClearAttachments}
+          onReplaceMaskedAttachment={onReplaceMaskedAttachment}
+          canAttachAll={canAttachAll}
+          canAttachImage={canAttachImage}
+          model={model}
+          isAutoModel={isAutoModel}
+          canImageGeneration={canImageGeneration}
+          canImageEdit={canImageEdit}
+          isCodexProvider={isCodexProvider}
+          onDropHandled={onDropHandled}
+        />
       )}
     </div>
   )
@@ -1140,7 +1155,7 @@ export function Chat({
   );
 
   // 共享的 ChatInput / drag 相关 props，避免重复。
-  const sharedInputProps = {
+  const sharedInputProps = React.useMemo(() => ({
     attachments,
     onAddAttachments: addAttachments,
     onRemoveAttachment: removeAttachment,
@@ -1154,7 +1169,21 @@ export function Chat({
     canImageEdit,
     isCodexProvider,
     onDropHandled: resetDragState,
-  };
+  }), [
+    attachments,
+    addAttachments,
+    removeAttachment,
+    clearAttachments,
+    replaceMaskedAttachment,
+    canAttachAll,
+    canAttachImage,
+    selectedModel,
+    isAutoModel,
+    canImageGeneration,
+    canImageEdit,
+    isCodexProvider,
+    resetDragState,
+  ]);
 
   // 渲染单个会话内容（活跃状态）
   const renderActiveSession = () => (
