@@ -19,12 +19,12 @@ async function run() {
     parts: [
       { type: "text", text: "hello" },
       {
-        type: "tool-open-url",
+        type: "tool-OpenUrl",
         toolCallId: "tool-1",
         toolName: "OpenUrl",
         input: { url: "https://example.com" },
       },
-      { type: "tool-open-url", toolName: "OpenUrl" },
+      { type: "tool-OpenUrl", toolName: "OpenUrl" },
     ],
     tabId: "tab-1",
     subAgentToolCallId: "sub-1",

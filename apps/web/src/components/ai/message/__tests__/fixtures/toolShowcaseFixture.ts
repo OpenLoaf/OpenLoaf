@@ -38,7 +38,7 @@ function callId() {
 
 const systemAgentParts: ToolShowcasePart[] = [
   {
-    type: 'tool-tool-search',
+    type: 'tool-ToolSearch',
     toolCallId: callId(),
     toolName: 'ToolSearch',
     state: 'output-available',
@@ -54,7 +54,7 @@ const systemAgentParts: ToolShowcasePart[] = [
     output: { ok: true, data: { iso: '2026-03-09T10:30:00+08:00', unix: 1773041400, timezone: 'Asia/Shanghai' } },
   },
   {
-    type: 'tool-update-plan',
+    type: 'tool-UpdatePlan',
     toolCallId: callId(),
     toolName: 'UpdatePlan',
     state: 'output-available',
@@ -173,7 +173,7 @@ const fileOpParts: ToolShowcasePart[] = [
     output: { ok: true, data: { applied: true } },
   },
   {
-    type: 'tool-file-info',
+    type: 'tool-FileInfo',
     toolCallId: callId(),
     toolName: 'FileInfo',
     state: 'output-available',
@@ -224,7 +224,7 @@ const shellCodeParts: ToolShowcasePart[] = [
     },
   },
   {
-    type: 'tool-js-repl',
+    type: 'tool-JsRepl',
     toolCallId: callId(),
     toolName: 'JsRepl',
     state: 'output-available',
@@ -240,7 +240,7 @@ const shellCodeParts: ToolShowcasePart[] = [
     },
   },
   {
-    type: 'tool-js-repl-reset',
+    type: 'tool-JsReplReset',
     toolCallId: callId(),
     toolName: 'JsReplReset',
     state: 'output-available',
@@ -253,7 +253,7 @@ const shellCodeParts: ToolShowcasePart[] = [
 
 const browserParts: ToolShowcasePart[] = [
   {
-    type: 'tool-open-url',
+    type: 'tool-OpenUrl',
     toolCallId: callId(),
     toolName: 'OpenUrl',
     state: 'output-available',
@@ -261,7 +261,7 @@ const browserParts: ToolShowcasePart[] = [
     output: { ok: true, data: { url: 'https://github.com/OpenLoaf/OpenLoaf', title: 'OpenLoaf - AI Productivity App' } },
   },
   {
-    type: 'tool-browser-snapshot',
+    type: 'tool-BrowserSnapshot',
     toolCallId: callId(),
     toolName: 'BrowserSnapshot',
     state: 'output-available',
@@ -284,7 +284,7 @@ const browserParts: ToolShowcasePart[] = [
     },
   },
   {
-    type: 'tool-browser-observe',
+    type: 'tool-BrowserObserve',
     toolCallId: callId(),
     toolName: 'BrowserObserve',
     state: 'output-available',
@@ -304,7 +304,7 @@ const browserParts: ToolShowcasePart[] = [
     },
   },
   {
-    type: 'tool-browser-screenshot',
+    type: 'tool-BrowserScreenshot',
     toolCallId: callId(),
     toolName: 'BrowserScreenshot',
     state: 'output-available',
@@ -319,7 +319,7 @@ const browserParts: ToolShowcasePart[] = [
     },
   },
   {
-    type: 'tool-browser-act',
+    type: 'tool-BrowserAct',
     toolCallId: callId(),
     toolName: 'BrowserAct',
     state: 'output-available',
@@ -327,7 +327,7 @@ const browserParts: ToolShowcasePart[] = [
     output: { ok: true, data: { action: 'click', selector: 'button[type=submit]', success: true } },
   },
   {
-    type: 'tool-browser-extract',
+    type: 'tool-BrowserExtract',
     toolCallId: callId(),
     toolName: 'BrowserExtract',
     state: 'output-available',
@@ -344,7 +344,7 @@ const browserParts: ToolShowcasePart[] = [
     },
   },
   {
-    type: 'tool-browser-wait',
+    type: 'tool-BrowserWait',
     toolCallId: callId(),
     toolName: 'BrowserWait',
     state: 'output-available',
@@ -352,7 +352,7 @@ const browserParts: ToolShowcasePart[] = [
     output: { ok: true, data: { waited: true, elapsed: 1200 } },
   },
   {
-    type: 'tool-browser-download-image',
+    type: 'tool-BrowserDownloadImage',
     toolCallId: callId(),
     toolName: 'BrowserDownloadImage',
     state: 'output-available',
@@ -365,7 +365,7 @@ const browserParts: ToolShowcasePart[] = [
 
 const officeParts: ToolShowcasePart[] = [
   {
-    type: 'tool-excel-query',
+    type: 'tool-ExcelQuery',
     toolCallId: callId(),
     toolName: 'ExcelQuery',
     state: 'output-available',
@@ -387,7 +387,7 @@ const officeParts: ToolShowcasePart[] = [
     },
   },
   {
-    type: 'tool-excel-mutate',
+    type: 'tool-ExcelMutate',
     toolCallId: callId(),
     toolName: 'ExcelMutate',
     state: 'output-available',
@@ -404,7 +404,7 @@ const officeParts: ToolShowcasePart[] = [
     },
   },
   {
-    type: 'tool-word-query',
+    type: 'tool-WordQuery',
     toolCallId: callId(),
     toolName: 'WordQuery',
     state: 'output-available',
@@ -426,7 +426,7 @@ const officeParts: ToolShowcasePart[] = [
     },
   },
   {
-    type: 'tool-word-mutate',
+    type: 'tool-WordMutate',
     toolCallId: callId(),
     toolName: 'WordMutate',
     state: 'output-available',
@@ -441,7 +441,7 @@ const officeParts: ToolShowcasePart[] = [
     },
   },
   {
-    type: 'tool-pptx-query',
+    type: 'tool-PptxQuery',
     toolCallId: callId(),
     toolName: 'PptxQuery',
     state: 'output-available',
@@ -459,7 +459,7 @@ const officeParts: ToolShowcasePart[] = [
     },
   },
   {
-    type: 'tool-pptx-mutate',
+    type: 'tool-PptxMutate',
     toolCallId: callId(),
     toolName: 'PptxMutate',
     state: 'output-available',
@@ -474,7 +474,7 @@ const officeParts: ToolShowcasePart[] = [
     },
   },
   {
-    type: 'tool-pdf-query',
+    type: 'tool-PdfQuery',
     toolCallId: callId(),
     toolName: 'PdfQuery',
     state: 'output-available',
@@ -491,7 +491,7 @@ const officeParts: ToolShowcasePart[] = [
     },
   },
   {
-    type: 'tool-pdf-mutate',
+    type: 'tool-PdfMutate',
     toolCallId: callId(),
     toolName: 'PdfMutate',
     state: 'output-available',
@@ -527,7 +527,7 @@ const mediaParts: ToolShowcasePart[] = [
     output: { ok: true },
   },
   {
-    type: 'tool-image-process',
+    type: 'tool-ImageProcess',
     toolCallId: callId(),
     toolName: 'ImageProcess',
     state: 'output-available',
@@ -548,7 +548,7 @@ const mediaParts: ToolShowcasePart[] = [
     },
   },
   {
-    type: 'tool-video-download',
+    type: 'tool-VideoDownload',
     toolCallId: callId(),
     toolName: 'VideoDownload',
     state: 'output-available',
@@ -576,7 +576,7 @@ const mediaParts: ToolShowcasePart[] = [
     },
   },
   {
-    type: 'tool-video-convert',
+    type: 'tool-VideoConvert',
     toolCallId: callId(),
     toolName: 'VideoConvert',
     state: 'output-available',
@@ -591,7 +591,7 @@ const mediaParts: ToolShowcasePart[] = [
     },
   },
   {
-    type: 'tool-doc-convert',
+    type: 'tool-DocConvert',
     toolCallId: callId(),
     toolName: 'DocConvert',
     state: 'output-available',
@@ -611,7 +611,7 @@ const mediaParts: ToolShowcasePart[] = [
 
 const projectTaskEmailParts: ToolShowcasePart[] = [
   {
-    type: 'tool-project-query',
+    type: 'tool-ProjectQuery',
     toolCallId: callId(),
     toolName: 'ProjectQuery',
     state: 'output-available',
@@ -629,7 +629,7 @@ const projectTaskEmailParts: ToolShowcasePart[] = [
     },
   },
   {
-    type: 'tool-project-mutate',
+    type: 'tool-ProjectMutate',
     toolCallId: callId(),
     toolName: 'ProjectMutate',
     state: 'output-available',
@@ -642,7 +642,7 @@ const projectTaskEmailParts: ToolShowcasePart[] = [
     },
   },
   {
-    type: 'tool-task-manage',
+    type: 'tool-TaskManage',
     toolCallId: callId(),
     toolName: 'TaskManage',
     state: 'output-available',
@@ -664,7 +664,7 @@ const projectTaskEmailParts: ToolShowcasePart[] = [
     },
   },
   {
-    type: 'tool-task-status',
+    type: 'tool-TaskStatus',
     toolCallId: callId(),
     toolName: 'TaskStatus',
     state: 'output-available',
@@ -679,7 +679,7 @@ const projectTaskEmailParts: ToolShowcasePart[] = [
     },
   },
   {
-    type: 'tool-calendar-query',
+    type: 'tool-CalendarQuery',
     toolCallId: callId(),
     toolName: 'CalendarQuery',
     state: 'output-available',
@@ -696,7 +696,7 @@ const projectTaskEmailParts: ToolShowcasePart[] = [
     },
   },
   {
-    type: 'tool-email-query',
+    type: 'tool-EmailQuery',
     toolCallId: callId(),
     toolName: 'EmailQuery',
     state: 'output-available',
@@ -721,7 +721,7 @@ const projectTaskEmailParts: ToolShowcasePart[] = [
 
 const uiWidgetParts: ToolShowcasePart[] = [
   {
-    type: 'tool-jsx-create',
+    type: 'tool-JsxCreate',
     toolCallId: callId(),
     toolName: 'JsxCreate',
     state: 'output-available',
@@ -731,7 +731,7 @@ const uiWidgetParts: ToolShowcasePart[] = [
     output: { ok: true },
   },
   {
-    type: 'tool-chart-render',
+    type: 'tool-ChartRender',
     toolCallId: callId(),
     toolName: 'ChartRender',
     state: 'output-available',
@@ -751,7 +751,7 @@ const uiWidgetParts: ToolShowcasePart[] = [
     output: { ok: true, data: { rawOption: {} } },
   },
   {
-    type: 'tool-generate-widget',
+    type: 'tool-GenerateWidget',
     toolCallId: callId(),
     toolName: 'GenerateWidget',
     state: 'output-available',
@@ -763,7 +763,7 @@ const uiWidgetParts: ToolShowcasePart[] = [
     output: { ok: true, data: { widgetId: 'widget_clock', widgetName: 'Digital Clock' } },
   },
   {
-    type: 'tool-widget-init',
+    type: 'tool-WidgetInit',
     toolCallId: callId(),
     toolName: 'WidgetInit',
     state: 'output-available',
@@ -778,7 +778,7 @@ const uiWidgetParts: ToolShowcasePart[] = [
     },
   },
   {
-    type: 'tool-widget-check',
+    type: 'tool-WidgetCheck',
     toolCallId: callId(),
     toolName: 'WidgetCheck',
     state: 'output-available',
@@ -789,7 +789,7 @@ const uiWidgetParts: ToolShowcasePart[] = [
     },
   },
   {
-    type: 'tool-widget-list',
+    type: 'tool-WidgetList',
     toolCallId: callId(),
     toolName: 'WidgetList',
     state: 'output-available',
@@ -805,7 +805,7 @@ const uiWidgetParts: ToolShowcasePart[] = [
     },
   },
   {
-    type: 'tool-widget-get',
+    type: 'tool-WidgetGet',
     toolCallId: callId(),
     toolName: 'WidgetGet',
     state: 'output-available',
@@ -842,7 +842,7 @@ const uiWidgetParts: ToolShowcasePart[] = [
     },
   },
   {
-    type: 'tool-edit-document',
+    type: 'tool-EditDocument',
     toolCallId: callId(),
     toolName: 'EditDocument',
     state: 'output-available',

@@ -507,7 +507,7 @@ export default function ChatCoreProvider({
       if (!isTool) continue;
       if (isHiddenToolPart(part)) continue;
       const toolName = typeof part?.toolName === "string" ? part.toolName : "";
-      const isFrontendTool = toolName === "OpenUrl" || type === "tool-open-url";
+      const isFrontendTool = toolName === "OpenUrl" || type === "tool-OpenUrl";
       if (isFrontendTool) continue;
       void toolStream.executeFromToolPart({ part, tabId });
     }

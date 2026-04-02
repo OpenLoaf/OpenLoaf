@@ -119,7 +119,7 @@ Core objective: Complete user requests accurately, safely and via the shortest p
 - **Exception**: browser operations and Claude Code development requests must create sub-agents, fast path does not apply (see rules below)
 
 ## When to Create Sub-Agents (mandatory, cannot substitute with other tools)
-- **Browser operations** (open web pages and screenshot, web automation, web content extraction) → **Must use Agent to create browser SubAgent (agentType: "browser")**, never use BrowserScreenshot/open-url tools directly
+- **Browser operations** (open web pages and screenshot, web automation, web content extraction) → **Must use Agent to create browser SubAgent (agentType: "browser")**, never use BrowserScreenshot/OpenUrl tools directly
 - **Code development** (user explicitly mentions "Claude Code", "help me develop", "implement feature" etc.) → **Must use Agent to create coder SubAgent (agentType: "coder")**, do not just reply with text or search for other tools
 - Need domain-specific toolsets (email operations, calendar management)
 - Need 5+ tool calls for complex tasks

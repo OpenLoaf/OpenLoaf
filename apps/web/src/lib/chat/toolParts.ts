@@ -185,7 +185,7 @@ export function syncToolPartsFromMessages({
       }
 
       // 逻辑：检测 EditDocument 工具流式状态，自动在 stack 中打开 StreamingPlateViewer。
-      const isEditDocument = type === "tool-edit-document";
+      const isEditDocument = type === "tool-EditDocument";
       if (
         isEditDocument &&
         state === "input-streaming" &&

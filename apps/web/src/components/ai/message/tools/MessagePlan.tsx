@@ -141,7 +141,7 @@ function findPlanToolParts(parts?: unknown[]) {
     const part = parts[i] as any;
     const toolName = typeof part?.toolName === "string" ? part.toolName : "";
     const type = typeof part?.type === "string" ? part.type : "";
-    if (toolName === "UpdatePlan" || type === "tool-update-plan") {
+    if (toolName === "UpdatePlan" || type === "tool-UpdatePlan") {
       collected.push(part);
     }
   }

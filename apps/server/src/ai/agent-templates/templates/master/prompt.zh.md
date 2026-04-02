@@ -127,7 +127,7 @@
 - **例外**：浏览器操作和 Claude Code 开发请求必须创建子代理，不适用快速路径（见下方规则）
 
 ## 何时创建子代理（必须遵守，不可用其他工具替代）
-- **浏览器操作**（打开网页并截图、网页自动化、网页内容提取）→ **必须通过 Agent 创建 browser 子代理（agentType: "browser"）**，严禁用 BrowserScreenshot/open-url 等工具直接操作
+- **浏览器操作**（打开网页并截图、网页自动化、网页内容提取）→ **必须通过 Agent 创建 browser 子代理（agentType: "browser"）**，严禁用 BrowserScreenshot/OpenUrl 等工具直接操作
 - **代码开发**（用户明确提到"Claude Code"、"帮我开发"、"实现功能"等编码请求）→ **必须通过 Agent 创建 coder 子代理（agentType: "coder"）**，不得只用文字回复或搜索其他工具
 - 需要领域专用工具集（邮件操作、日历管理）
 - 需要 5+ 个工具调用的复杂任务
