@@ -8,7 +8,7 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import type { ChatImageRequest } from "@/ai/services/image/types";
-import { runChatImageRequest } from "@/ai/services/chat/chatStreamService";
+import { runChatImageRequest } from "@/ai/services/chat/imageRequestOrchestrator";
 
 type ImageRequestUseCaseInput = {
   /** Image request payload. */

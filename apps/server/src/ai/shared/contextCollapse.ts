@@ -37,6 +37,7 @@ import {
   computeHardLimit,
   trimToContextWindow,
 } from '@/ai/shared/contextWindowManager'
+import { formatMessagesAsText } from '@/ai/shared/messageFormatting'
 
 // ---------------------------------------------------------------------------
 // Configuration defaults
@@ -110,50 +111,6 @@ export interface ContextCollapseOptions {
   keepRecentMessages?: number
   /** Model ID for context window size lookup. */
   modelId?: string
-}
-
-// ---------------------------------------------------------------------------
-// Message formatting (similar to autoCompact but more concise)
-// ---------------------------------------------------------------------------
-
-/** Extract readable text from a model message content part. */
-function extractPartText(part: unknown): string | null {
-  if (!part || typeof part !== 'object') return null
-  const p = part as Record<string, unknown>
-  if (typeof p.text === 'string') {
-    const text = p.text
-    return text.length > 300 ? `${text.slice(0, 300)}...` : text
-  }
-  if (p.type === 'tool-call') return `[Tool call: ${p.toolName ?? 'unknown'}]`
-  if (p.type === 'tool-result') return `[Tool result: ${p.toolName ?? 'unknown'}]`
-  return null
-}
-
-/** Format model messages into readable text for collapse summarization. */
-function formatMessagesForCollapse(messages: ReadonlyArray<ModelMessage>): string {
-  const parts: string[] = []
-  for (const msg of messages) {
-    const role =
-      msg.role === 'user' ? 'User' : msg.role === 'assistant' ? 'Assistant' : msg.role
-    const contentParts: string[] = []
-    const content = (msg as any).content
-
-    if (Array.isArray(content)) {
-      for (const part of content) {
-        const text = extractPartText(part)
-        if (text) contentParts.push(text)
-      }
-    } else if (typeof content === 'string') {
-      contentParts.push(
-        content.length > 300 ? `${content.slice(0, 300)}...` : content,
-      )
-    }
-
-    if (contentParts.length > 0) {
-      parts.push(`${role}: ${contentParts.join(' | ')}`)
-    }
-  }
-  return parts.join('\n\n')
 }
 
 // ---------------------------------------------------------------------------
@@ -303,7 +260,7 @@ export class ContextCollapseManager {
     }
 
     // Format old messages for summarization
-    const formattedOld = formatMessagesForCollapse(oldMessages)
+    const formattedOld = formatMessagesAsText(oldMessages, 300)
     if (formattedOld) {
       inputParts.push(formattedOld)
     }

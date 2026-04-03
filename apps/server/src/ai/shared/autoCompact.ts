@@ -32,6 +32,7 @@ import {
   computeHardLimit,
   trimToContextWindow,
 } from '@/ai/shared/contextWindowManager'
+import { formatMessagesAsText } from '@/ai/shared/messageFormatting'
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -68,47 +69,6 @@ const COMPACT_SYSTEM_PROMPT = [
   '## 待办',
   '## 涉及文件',
 ].join('\n')
-
-// ---------------------------------------------------------------------------
-// Message formatting
-// ---------------------------------------------------------------------------
-
-/** Extract readable text from a model message content part. */
-function extractPartText(part: unknown): string | null {
-  if (!part || typeof part !== 'object') return null
-  const p = part as Record<string, unknown>
-  if (typeof p.text === 'string') {
-    const text = p.text
-    return text.length > 500 ? `${text.slice(0, 500)}...` : text
-  }
-  if (p.type === 'tool-call') return `[Tool call: ${p.toolName ?? 'unknown'}]`
-  if (p.type === 'tool-result') return `[Tool result: ${p.toolName ?? 'unknown'}]`
-  return null
-}
-
-/** Format old model messages into readable text for summarization. */
-function formatMessagesForSummary(messages: ReadonlyArray<ModelMessage>): string {
-  const parts: string[] = []
-  for (const msg of messages) {
-    const role = msg.role === 'user' ? 'User' : msg.role === 'assistant' ? 'Assistant' : msg.role
-    const contentParts: string[] = []
-    const content = (msg as any).content
-
-    if (Array.isArray(content)) {
-      for (const part of content) {
-        const text = extractPartText(part)
-        if (text) contentParts.push(text)
-      }
-    } else if (typeof content === 'string') {
-      contentParts.push(content.length > 500 ? `${content.slice(0, 500)}...` : content)
-    }
-
-    if (contentParts.length > 0) {
-      parts.push(`${role}: ${contentParts.join(' | ')}`)
-    }
-  }
-  return parts.join('\n\n')
-}
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -155,7 +115,7 @@ export async function tryAutoCompact(
   try {
     const recentMessages = mutableMessages.slice(-KEEP_RECENT_MESSAGES)
     const oldMessages = mutableMessages.slice(0, -KEEP_RECENT_MESSAGES)
-    const formattedOld = formatMessagesForSummary(oldMessages)
+    const formattedOld = formatMessagesAsText(oldMessages, 500)
 
     const abortController = new AbortController()
     const timeout = setTimeout(() => abortController.abort(), SUMMARY_TIMEOUT_MS)

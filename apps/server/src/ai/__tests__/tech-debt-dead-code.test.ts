@@ -65,35 +65,6 @@ function countOccurrences(content: string, identifier: string): number {
   return count
 }
 
-/**
- * 提取函数体（从 `function name(` 到配对的 `}` 闭括号），
- * 用于比较两处实现的结构相似性。
- * 返回函数体字符串（去除空白归一化后）。
- */
-function extractFunctionBody(content: string, functionName: string): string | null {
-  const startMarker = `function ${functionName}(`
-  const startIdx = content.indexOf(startMarker)
-  if (startIdx === -1) return null
-
-  // 找到函数体起始 `{`
-  const braceStart = content.indexOf('{', startIdx)
-  if (braceStart === -1) return null
-
-  let depth = 0
-  let i = braceStart
-  while (i < content.length) {
-    if (content[i] === '{') depth++
-    else if (content[i] === '}') {
-      depth--
-      if (depth === 0) {
-        return content.slice(braceStart, i + 1).replace(/\s+/g, ' ').trim()
-      }
-    }
-    i++
-  }
-  return null
-}
-
 // ---------------------------------------------------------------------------
 // 1. agentFactory.ts — 死代码（私有函数定义后从未被调用）
 // ---------------------------------------------------------------------------
@@ -306,26 +277,24 @@ function extractFunctionBody(content: string, functionName: string): string | nu
   // subAgentPrefaceBuilder.ts 的 JWT 解码情况
   const subAgentPrefaceContent = readSrc('ai/shared/subAgentPrefaceBuilder.ts')
 
-  // 验证 subAgentPrefaceBuilder 中存在内联的 JWT 解码逻辑（重复实现而非复用）
+  // [FIXED] subAgentPrefaceBuilder 已改用共享的 resolveAccountSnapshot，不再有内联 JWT 解码
   const subAgentHasInlineJwtDecode =
     subAgentPrefaceContent.includes("parts[1]") &&
     subAgentPrefaceContent.includes('Buffer.from') &&
-    subAgentPrefaceContent.includes('JSON.parse') &&
-    subAgentPrefaceContent.includes(".replace(/-/g, '+')")
+    subAgentPrefaceContent.includes('JSON.parse')
 
   assert.ok(
-    subAgentHasInlineJwtDecode,
-    '[6-C] 技术债确认：subAgentPrefaceBuilder.ts 中存在内联 JWT 解码逻辑（parts[1] + Buffer.from + JSON.parse），' +
-    '而非复用 prefaceBuilder.ts 中的 decodeJwtPayloadUnsafe 函数。应将该函数提取到共享模块。',
+    !subAgentHasInlineJwtDecode,
+    '[6-C] [FIXED] subAgentPrefaceBuilder.ts 不再有内联 JWT 解码逻辑',
   )
 
-  // 同时验证 subAgentPrefaceBuilder 没有导入 decodeJwtPayloadUnsafe（即确认是重复而非复用）
-  const subAgentUsesSharedJwt = subAgentPrefaceContent.includes('decodeJwtPayloadUnsafe')
-  assert.equal(
-    subAgentUsesSharedJwt,
-    false,
-    '[6-D] 技术债确认：subAgentPrefaceBuilder.ts 未复用 decodeJwtPayloadUnsafe，' +
-    '自行内联实现了相同的 JWT 解码逻辑，构成重复代码。',
+  // [FIXED] subAgentPrefaceBuilder 现在使用共享的 resolveAccountSnapshot
+  const subAgentUsesSharedAccount =
+    subAgentPrefaceContent.includes('resolveAccountSnapshot') ||
+    subAgentPrefaceContent.includes('decodeJwtPayloadUnsafe')
+  assert.ok(
+    subAgentUsesSharedAccount,
+    '[6-D] [FIXED] subAgentPrefaceBuilder.ts 复用了共享的 account 解析逻辑',
   )
 
   // 验证 prefaceBuilder 中 decodeJwtPayloadUnsafe 是被内部使用的（不是死代码）
@@ -346,94 +315,41 @@ function extractFunctionBody(content: string, functionName: string): string | nu
 {
   const skillsLoaderContent = readSrc('ai/services/skillsLoader.ts')
   const agentConfigContent = readSrc('ai/services/agentConfigService.ts')
+  const sharedContent = readSrc('ai/shared/frontMatterUtils.ts')
 
-  // 7-A: normalizeRootPath 在两处都有定义
+  // [FIXED] normalize* 函数已提取到 shared/frontMatterUtils.ts
   assert.ok(
-    skillsLoaderContent.includes('function normalizeRootPath('),
-    '[7-A1] skillsLoader.ts 应包含 normalizeRootPath 函数定义',
+    sharedContent.includes('function normalizeRootPath('),
+    '[7-A1] [FIXED] frontMatterUtils.ts 包含 normalizeRootPath 定义',
   )
   assert.ok(
-    agentConfigContent.includes('function normalizeRootPath('),
-    '[7-A2] agentConfigService.ts 应包含 normalizeRootPath 函数定义',
-  )
-
-  const rootPathBody1 = extractFunctionBody(skillsLoaderContent, 'normalizeRootPath')
-  const rootPathBody2 = extractFunctionBody(agentConfigContent, 'normalizeRootPath')
-
-  assert.ok(rootPathBody1 !== null, '[7-A3] 应能从 skillsLoader.ts 提取 normalizeRootPath 函数体')
-  assert.ok(rootPathBody2 !== null, '[7-A4] 应能从 agentConfigService.ts 提取 normalizeRootPath 函数体')
-
-  // 两处实现语义相同（引号风格和三元表达式写法略有差异，但核心逻辑一致）：
-  // 均检查 typeof !== 'string'、trim() 后若为空返回 null
-  assert.ok(
-    rootPathBody1!.includes('typeof value') &&
-    rootPathBody1!.includes('trim()') &&
-    rootPathBody1!.includes('null'),
-    '[7-A5a] skillsLoader.ts 的 normalizeRootPath 应包含 typeof value、trim()、null',
+    sharedContent.includes('function normalizeDescription('),
+    '[7-B1] [FIXED] frontMatterUtils.ts 包含 normalizeDescription 定义',
   )
   assert.ok(
-    rootPathBody2!.includes('typeof value') &&
-    rootPathBody2!.includes('trim()') &&
-    rootPathBody2!.includes('null'),
-    '[7-A5b] agentConfigService.ts 的 normalizeRootPath 应包含 typeof value、trim()、null。' +
-    '两处实现语义等价，属于重复代码。',
+    sharedContent.includes('function normalizeScalar('),
+    '[7-C1] [FIXED] frontMatterUtils.ts 包含 normalizeScalar 定义',
   )
 
-  // 7-B: normalizeDescription 在两处都有定义且相同
+  // 原文件不再有本地定义，改为从共享模块导入
   assert.ok(
-    skillsLoaderContent.includes('function normalizeDescription('),
-    '[7-B1] skillsLoader.ts 应包含 normalizeDescription 函数定义',
+    !skillsLoaderContent.includes('function normalizeRootPath('),
+    '[7-A2] [FIXED] skillsLoader.ts 不再有本地 normalizeRootPath 定义',
   )
   assert.ok(
-    agentConfigContent.includes('function normalizeDescription('),
-    '[7-B2] agentConfigService.ts 应包含 normalizeDescription 函数定义',
-  )
-
-  const descBody1 = extractFunctionBody(skillsLoaderContent, 'normalizeDescription')
-  const descBody2 = extractFunctionBody(agentConfigContent, 'normalizeDescription')
-
-  assert.ok(descBody1 !== null, '[7-B3] 应能从 skillsLoader.ts 提取 normalizeDescription 函数体')
-  assert.ok(descBody2 !== null, '[7-B4] 应能从 agentConfigService.ts 提取 normalizeDescription 函数体')
-
-  // 两处实现语义相同：均 trim() 后判空，再 replace(/\s+/gu, ' ')
-  assert.ok(
-    descBody1!.includes('trim()') && descBody1!.includes("replace(") && descBody1!.includes('未提供'),
-    '[7-B5a] skillsLoader.ts 的 normalizeDescription 应包含 trim()、replace、"未提供"',
+    !agentConfigContent.includes('function normalizeRootPath('),
+    '[7-A3] [FIXED] agentConfigService.ts 不再有本地 normalizeRootPath 定义',
   )
   assert.ok(
-    descBody2!.includes('trim()') && descBody2!.includes("replace(") && descBody2!.includes('未提供'),
-    '[7-B5b] agentConfigService.ts 的 normalizeDescription 应包含 trim()、replace、"未提供"。' +
-    '两处实现语义等价，属于重复代码。',
-  )
-
-  // 7-C: normalizeScalar 在两处都有定义且相同
-  assert.ok(
-    skillsLoaderContent.includes('function normalizeScalar('),
-    '[7-C1] skillsLoader.ts 应包含 normalizeScalar 函数定义',
+    skillsLoaderContent.includes('frontMatterUtils'),
+    '[7-A4] [FIXED] skillsLoader.ts 从 frontMatterUtils 导入',
   )
   assert.ok(
-    agentConfigContent.includes('function normalizeScalar('),
-    '[7-C2] agentConfigService.ts 应包含 normalizeScalar 函数定义',
+    agentConfigContent.includes('frontMatterUtils'),
+    '[7-A5] [FIXED] agentConfigService.ts 从 frontMatterUtils 导入',
   )
 
-  const scalarBody1 = extractFunctionBody(skillsLoaderContent, 'normalizeScalar')
-  const scalarBody2 = extractFunctionBody(agentConfigContent, 'normalizeScalar')
-
-  assert.ok(scalarBody1 !== null, '[7-C3] 应能从 skillsLoader.ts 提取 normalizeScalar 函数体')
-  assert.ok(scalarBody2 !== null, '[7-C4] 应能从 agentConfigService.ts 提取 normalizeScalar 函数体')
-
-  // 两处实现语义相同：均 trim()、检测引号包裹、strip 引号、返回 trim 后的值
-  assert.ok(
-    scalarBody1!.includes('trim()') && scalarBody1!.includes('startsWith') && scalarBody1!.includes('slice'),
-    '[7-C5a] skillsLoader.ts 的 normalizeScalar 应包含 trim()、startsWith、slice',
-  )
-  assert.ok(
-    scalarBody2!.includes('trim()') && scalarBody2!.includes('startsWith') && scalarBody2!.includes('slice'),
-    '[7-C5b] agentConfigService.ts 的 normalizeScalar 应包含 trim()、startsWith、slice。' +
-    '两处实现语义等价，属于重复代码。应提取到共享工具模块（如 ai/services/agentFrontMatterUtils.ts）。',
-  )
-
-  console.log('✓ [7] normalize* 函数重复验证通过（normalizeRootPath + normalizeDescription + normalizeScalar）')
+  console.log('✓ [7] [FIXED] normalize* 函数已提取到 shared/frontMatterUtils.ts')
 }
 
 // ---------------------------------------------------------------------------
@@ -443,68 +359,47 @@ function extractFunctionBody(content: string, functionName: string): string | nu
 {
   const autoCompactContent = readSrc('ai/shared/autoCompact.ts')
   const contextCollapseContent = readSrc('ai/shared/contextCollapse.ts')
+  const sharedContent = readSrc('ai/shared/messageFormatting.ts')
 
-  // 8-A: 两文件都定义了 extractPartText
+  // [FIXED] extractPartText 和 formatMessages 已提取到 shared/messageFormatting.ts
   assert.ok(
-    autoCompactContent.includes('function extractPartText('),
-    '[8-A1] autoCompact.ts 应包含 extractPartText 函数定义',
+    sharedContent.includes('function extractPartText('),
+    '[8-A1] [FIXED] messageFormatting.ts 包含 extractPartText 定义',
   )
   assert.ok(
-    contextCollapseContent.includes('function extractPartText('),
-    '[8-A2] contextCollapse.ts 应包含 extractPartText 函数定义',
+    sharedContent.includes('function formatMessagesAsText('),
+    '[8-A2] [FIXED] messageFormatting.ts 包含 formatMessagesAsText 定义',
   )
 
-  // 8-B: 两处实现结构相似（都包含 p.text、tool-result、tool-call 的处理分支）
-  const autoExtractBody = extractFunctionBody(autoCompactContent, 'extractPartText')
-  const collapseExtractBody = extractFunctionBody(contextCollapseContent, 'extractPartText')
-
-  assert.ok(autoExtractBody !== null, '[8-B1] 应能从 autoCompact.ts 提取 extractPartText 函数体')
-  assert.ok(collapseExtractBody !== null, '[8-B2] 应能从 contextCollapse.ts 提取 extractPartText 函数体')
-
-  // 两处都包含相同的分支逻辑（核心判断相同，截断长度不同）
+  // 原文件不再有本地定义
   assert.ok(
-    autoExtractBody!.includes('p.text') && autoExtractBody!.includes('tool-result'),
-    '[8-B3] autoCompact.ts 的 extractPartText 应包含 p.text 和 tool-result 处理分支',
+    !autoCompactContent.includes('function extractPartText('),
+    '[8-B1] [FIXED] autoCompact.ts 不再有本地 extractPartText 定义',
   )
   assert.ok(
-    collapseExtractBody!.includes('p.text') && collapseExtractBody!.includes('tool-result'),
-    '[8-B4] contextCollapse.ts 的 extractPartText 应包含 p.text 和 tool-result 处理分支',
-  )
-
-  // 两处实现的差异仅是截断长度（500 vs 300），核心逻辑重叠
-  assert.ok(
-    autoExtractBody !== collapseExtractBody,
-    '[8-B5] autoCompact 和 contextCollapse 的 extractPartText 实现略有不同（截断长度 500 vs 300），' +
-    '但核心逻辑重叠，属于可合并的重复代码。',
-  )
-
-  // 8-C: formatMessagesForSummary（autoCompact）与 formatMessagesForCollapse（contextCollapse）结构高度相似
-  assert.ok(
-    autoCompactContent.includes('function formatMessagesForSummary('),
-    '[8-C1] autoCompact.ts 应包含 formatMessagesForSummary 函数定义',
+    !contextCollapseContent.includes('function extractPartText('),
+    '[8-B2] [FIXED] contextCollapse.ts 不再有本地 extractPartText 定义',
   )
   assert.ok(
-    contextCollapseContent.includes('function formatMessagesForCollapse('),
-    '[8-C2] contextCollapse.ts 应包含 formatMessagesForCollapse 函数定义',
-  )
-
-  const summaryBody = extractFunctionBody(autoCompactContent, 'formatMessagesForSummary')
-  const collapseBody = extractFunctionBody(contextCollapseContent, 'formatMessagesForCollapse')
-
-  assert.ok(summaryBody !== null, '[8-C3] 应能从 autoCompact.ts 提取 formatMessagesForSummary 函数体')
-  assert.ok(collapseBody !== null, '[8-C4] 应能从 contextCollapse.ts 提取 formatMessagesForCollapse 函数体')
-
-  // 两者都迭代 messages、处理 content 为数组或字符串的情况
-  assert.ok(
-    summaryBody!.includes('Array.isArray') && summaryBody!.includes('msg.role'),
-    '[8-C5] formatMessagesForSummary 应包含 Array.isArray 和 msg.role 处理',
+    !autoCompactContent.includes('function formatMessagesForSummary('),
+    '[8-C1] [FIXED] autoCompact.ts 不再有本地 formatMessagesForSummary 定义',
   )
   assert.ok(
-    collapseBody!.includes('Array.isArray') && collapseBody!.includes('msg.role'),
-    '[8-C6] formatMessagesForCollapse 应包含 Array.isArray 和 msg.role 处理',
+    !contextCollapseContent.includes('function formatMessagesForCollapse('),
+    '[8-C2] [FIXED] contextCollapse.ts 不再有本地 formatMessagesForCollapse 定义',
   )
 
-  console.log('✓ [8] autoCompact/contextCollapse 功能重叠验证通过')
+  // 两文件从共享模块导入
+  assert.ok(
+    autoCompactContent.includes('messageFormatting'),
+    '[8-D1] [FIXED] autoCompact.ts 从 messageFormatting 导入',
+  )
+  assert.ok(
+    contextCollapseContent.includes('messageFormatting'),
+    '[8-D2] [FIXED] contextCollapse.ts 从 messageFormatting 导入',
+  )
+
+  console.log('✓ [8] [FIXED] extractPartText/formatMessages 已提取到 shared/messageFormatting.ts')
 }
 
 // ---------------------------------------------------------------------------
@@ -514,29 +409,19 @@ function extractFunctionBody(content: string, functionName: string): string | nu
 {
   const content = readSrc('ai/shared/toolSearchGuidance.ts')
 
-  // 验证 ToolCatalogExtendedItem 确实被导入
+  // [FIXED] ToolCatalogExtendedItem 死代码导入已移除
   assert.ok(
-    content.includes('type ToolCatalogExtendedItem'),
-    '[9-A] ToolCatalogExtendedItem 应以 type import 形式出现在 toolSearchGuidance.ts',
+    !content.includes('ToolCatalogExtendedItem'),
+    '[9-A] [FIXED] ToolCatalogExtendedItem 死代码导入已从 toolSearchGuidance.ts 移除',
   )
 
-  // 验证 ToolCatalogExtendedItem 在文件中只出现 1 次（仅 import 行，未被引用）
-  const occurrences = countOccurrences(content, 'ToolCatalogExtendedItem')
-  assert.equal(
-    occurrences,
-    1,
-    `[9-B] ToolCatalogExtendedItem 应只出现 1 次（仅 import type 行），` +
-    `实际出现 ${occurrences} 次。` +
-    '该类型被导入但从未在函数签名、变量类型注解等位置使用，属于死代码导入。',
-  )
-
-  // 验证文件中实际使用的是 TOOL_CATALOG_EXTENDED（值），而非 ToolCatalogExtendedItem（类型）
+  // 文件仍正常使用 TOOL_CATALOG_EXTENDED 值
   assert.ok(
     content.includes('TOOL_CATALOG_EXTENDED'),
-    '[9-C] toolSearchGuidance.ts 应使用 TOOL_CATALOG_EXTENDED 值（而非 ToolCatalogExtendedItem 类型）',
+    '[9-B] toolSearchGuidance.ts 正常使用 TOOL_CATALOG_EXTENDED 值',
   )
 
-  console.log('✓ [9] toolSearchGuidance.ts ToolCatalogExtendedItem 未使用验证通过')
+  console.log('✓ [9] [FIXED] ToolCatalogExtendedItem 死代码导入已清理')
 }
 
 // ---------------------------------------------------------------------------
