@@ -15,7 +15,7 @@ let cachedClient: SaaSClient | null = null
 let cachedBaseUrl = ''
 let cachedLang = ''
 
-/** Resolve current app language for Accept-Language header. */
+/** Resolve current app language. */
 function getAppLang(): string {
   return i18n.language || 'en-US'
 }
@@ -40,9 +40,7 @@ export function getSaasMediaClient(): SaaSClient {
       const token = await getAccessToken()
       return token ?? ''
     },
-    headers: {
-      'Accept-Language': lang,
-    },
+    locale: lang,
   })
   cachedBaseUrl = baseUrl
   cachedLang = lang

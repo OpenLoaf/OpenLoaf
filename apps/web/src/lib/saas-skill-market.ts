@@ -29,7 +29,7 @@ let cachedClient: SaaSClient | null = null
 let cachedBaseUrl = ''
 let cachedLang = ''
 
-/** Resolve current app language for Accept-Language header. */
+/** Resolve current app language. */
 function getAppLang(): string {
   return i18n.language || 'en-US'
 }
@@ -54,9 +54,7 @@ export function getSkillMarketClient(): SaaSClient {
       const token = await getAccessToken()
       return token ?? ''
     },
-    headers: {
-      'Accept-Language': lang,
-    },
+    locale: lang,
   })
   cachedBaseUrl = baseUrl
   cachedLang = lang
@@ -74,19 +72,17 @@ export async function listMarketSkills(
 /** Fetch marketplace skill detail by id. */
 export async function getMarketSkillDetail(
   skillId: string,
-  lang?: string,
 ): Promise<SkillMarketDetailResponse> {
   const client = getSkillMarketClient()
-  return client.skillMarket.detail(skillId, lang)
+  return client.skillMarket.detail(skillId)
 }
 
 /** Download a marketplace skill as ZIP archive. Returns ArrayBuffer + fileName. */
 export async function downloadMarketSkill(
   skillId: string,
-  lang?: string,
 ): Promise<{ data: ArrayBuffer; fileName: string }> {
   const client = getSkillMarketClient()
-  return client.skillMarket.download(skillId, lang)
+  return client.skillMarket.download(skillId)
 }
 
 /** Batch check installed skills for available updates. */

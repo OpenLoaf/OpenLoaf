@@ -11,6 +11,7 @@
 
 import { SaaSClient } from "@openloaf-saas/sdk";
 import { resolveServerUrl } from "@/utils/server-url";
+import i18n from "@/i18n";
 
 type StorageType = "local" | "session";
 
@@ -198,7 +199,7 @@ function createSaasClient(getAccessToken?: () => string | Promise<string>) {
   if (!baseUrl) {
     throw new Error("saas_url_missing");
   }
-  return new SaaSClient({ baseUrl, getAccessToken });
+  return new SaaSClient({ baseUrl, getAccessToken, locale: i18n.language || 'en-US' });
 }
 
 /** Exchange login code for access/refresh tokens. */
