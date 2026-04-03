@@ -19,7 +19,7 @@
  * TD-4: CLI 适配器 buildEmptyUsage / stripAnsiControlSequences 函数重复
  * TD-5: AsyncQueue 通用数据结构内联在 codexAppServerLanguageModel.ts 中
  * TD-6: cliAdapter.ts 中 provider ID 硬编码魔法字符串
- * TD-7: executeAgent 方法行数过长（超过 150 行）
+ * TD-7: [FIXED] AgentManager God Object 已拆分为独立模块（executeAgent 提取到 agentExecutor.ts）
  * TD-8: ChatStreamUseCase 空壳类 — execute 仅透传调用（已修复：类已删除，直接调用 runChatStream）
  * TD-9: ai.ts DEPRECATED_MESSAGE 含 "vedio" 拼写错误
  *
@@ -42,6 +42,10 @@ const SERVER_SRC = path.resolve(import.meta.dirname, '../..')
 function readSrc(relPath: string): string {
   const fullPath = path.join(SERVER_SRC, relPath)
   return fs.readFileSync(fullPath, 'utf-8')
+}
+
+function existsSrc(relPath: string): boolean {
+  return fs.existsSync(path.join(SERVER_SRC, relPath))
 }
 
 // ---------------------------------------------------------------------------
@@ -260,45 +264,46 @@ await test(
 )
 
 // ---------------------------------------------------------------------------
-// TD-7: executeAgent 方法行数过长
+// TD-7: [FIXED] AgentManager God Object 拆分
 // ---------------------------------------------------------------------------
 
 await test(
-  'TD-7 [超长方法] AgentManager.executeAgent() 行数超过 150 行',
+  'TD-7 [FIXED] AgentManager God Object 已拆分为独立模块',
   () => {
-    const source = readSrc('ai/services/agentManager.ts')
-    const lines = source.split('\n')
+    const managerSrc = readSrc('ai/services/agentManager.ts')
+    const managerLines = managerSrc.split('\n').length
 
-    // 找到 executeAgent 方法起始行
-    const startLineIdx = lines.findIndex((l) =>
-      l.includes('private async executeAgent('),
-    )
-    assert.ok(startLineIdx !== -1, '期望在 agentManager.ts 中找到 executeAgent 方法')
-
-    // 找到下一个同级方法（以 "  private " 或 "  async " 开头，缩进为 2 空格）
-    let endLineIdx = lines.length
-    for (let i = startLineIdx + 1; i < lines.length; i++) {
-      const line = lines[i]!
-      if (
-        /^ {2}(private |async |public |spawn |wait |abort |getStatus |getAgent |complete |fail |shutdown )/.test(
-          line,
-        ) &&
-        !line.includes('=>')
-      ) {
-        endLineIdx = i
-        break
-      }
-    }
-
-    const methodLineCount = endLineIdx - startLineIdx
-    console.log(
-      `    [TD-7 detail] executeAgent 方法从第 ${startLineIdx + 1} 行开始，共约 ${methodLineCount} 行`,
-    )
-
+    // agentManager.ts 已瘦身（原 1107 行 → ≤ 450 行）
+    console.log(`    [TD-7 detail] agentManager.ts 行数: ${managerLines}`)
     assert.ok(
-      methodLineCount > 150,
-      `TD-7 confirmed: executeAgent 方法约 ${methodLineCount} 行，超过 150 行（上限建议 ≤ 50 行）`,
+      managerLines <= 520,
+      `agentManager.ts 应 ≤ 520 行（实际 ${managerLines} 行），God Object 拆分未完成`,
     )
+
+    // executeAgent 已提取到 agentExecutor.ts
+    assert.ok(
+      !managerSrc.includes('private async executeAgent('),
+      'executeAgent 方法应已从 agentManager.ts 中移除',
+    )
+    const executorSrc = readSrc('ai/services/agentExecutor.ts')
+    assert.ok(
+      executorSrc.includes('async function executeAgent('),
+      'executeAgent 应存在于 agentExecutor.ts 中',
+    )
+
+    // 验证其他拆分模块存在
+    const modules = [
+      'ai/services/agentOutputUtils.ts',
+      'ai/services/agentHistory.ts',
+      'ai/services/agentApprovalLoop.ts',
+      'ai/services/agentRegistry.ts',
+    ]
+    for (const mod of modules) {
+      assert.ok(
+        existsSrc(mod),
+        `拆分模块 ${mod} 应存在`,
+      )
+    }
   },
 )
 
