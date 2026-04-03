@@ -12,4 +12,5 @@ model Board {
   @@index([deletedAt])
   @@index([projectId])
   @@index([deletedAt, updatedAt])
+  @@index([projectId, deletedAt, createdAt])
 }

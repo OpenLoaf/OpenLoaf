@@ -17,5 +17,6 @@ model ChatSession {
   @@index([deletedAt, createdAt])
   @@index([isPin, updatedAt])
   @@index([projectId])
+  @@index([projectId, deletedAt, createdAt])
   @@unique([cliId])
 }

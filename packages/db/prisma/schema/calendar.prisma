@@ -39,5 +39,6 @@ model CalendarItem {
 
   @@index([startAt])
   @@index([sourceId])
+  @@index([sourceId, startAt])
   @@unique([sourceId, externalId])
 }
