@@ -1004,7 +1004,7 @@ export const projectRouter = t.router({
     .input(
       z.object({
         projectId: z.string(),
-        data: z.any(),
+        data: z.record(z.string(), z.unknown()),
       })
     )
     .mutation(async ({ input }) => {
@@ -1090,9 +1090,9 @@ export const projectRouter = t.router({
       z.object({
         projectId: z.string(),
         schemaVersion: z.number().optional().nullable(),
-        nodes: z.any(),
-        connectors: z.any(),
-        viewport: z.any(),
+        nodes: z.array(z.record(z.string(), z.unknown())),
+        connectors: z.array(z.record(z.string(), z.unknown())),
+        viewport: z.record(z.string(), z.unknown()),
         version: z.number().optional().nullable(),
       })
     )

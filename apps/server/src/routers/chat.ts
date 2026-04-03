@@ -334,7 +334,7 @@ class ChatRouterImpl extends BaseChatRouter {
         .input(z.object({
           sessionId: z.string().min(1),
           messageId: z.string().min(1),
-          parts: z.any(),
+          parts: z.array(z.unknown()),
         }))
         .mutation(async ({ input }) => {
           const parts = Array.isArray(input.parts) ? input.parts : []
@@ -350,7 +350,7 @@ class ChatRouterImpl extends BaseChatRouter {
         .input(z.object({
           sessionId: z.string().min(1),
           messageId: z.string().min(1),
-          metadata: z.any(),
+          metadata: z.record(z.string(), z.unknown()),
         }))
         .mutation(async ({ input }) => {
           const metadata = (input.metadata && typeof input.metadata === 'object')

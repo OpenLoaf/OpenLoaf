@@ -130,13 +130,13 @@ export async function resolveSessionPrefaceText(sessionId: string): Promise<stri
 
 /** Save a chat message node — now writes to JSONL via chatFileStore. */
 export async function saveMessage(input: SaveMessageInput): Promise<SaveMessageResult> {
-  const messageId = String((input.message as any)?.id ?? '').trim()
+  const messageId = String(input.message.id ?? '').trim()
   if (!messageId) throw new Error('message.id is required.')
 
-  const messageKind = normalizeMessageKind((input.message as any)?.messageKind)
-  const role = normalizeRole((input.message as any)?.role)
-  const parts = normalizeParts((input.message as any)?.parts)
-  const metadata = sanitizeMetadata((input.message as any)?.metadata)
+  const messageKind = normalizeMessageKind(input.message.messageKind)
+  const role = normalizeRole(input.message.role)
+  const parts = normalizeParts(input.message.parts)
+  const metadata = sanitizeMetadata(input.message.metadata)
   const title =
     role === 'user' && messageKind !== 'compact_prompt'
       ? normalizeTitle(extractTitleTextFromParts(parts))
@@ -174,13 +174,13 @@ export async function saveMessage(input: SaveMessageInput): Promise<SaveMessageR
     // assistant/system 续跑时更新 parts/metadata
     if (role !== 'user') {
       const mergedMetadata = mergeMetadataWithAccumulatedUsage(
-        existing.metadata as any,
+        existing.metadata,
         metadata,
       )
       const updated: StoredMessage = {
         ...existing,
-        ...(parts.length ? { parts: parts as any } : {}),
-        ...(mergedMetadata ? { metadata: mergedMetadata as any } : {}),
+        ...(parts.length ? { parts } : {}),
+        ...(mergedMetadata ? { metadata: mergedMetadata } : {}),
         ...(messageKind ? { messageKind } : {}),
       }
       await updateMessage({ sessionId: input.sessionId, message: updated })
@@ -200,8 +200,8 @@ export async function saveMessage(input: SaveMessageInput): Promise<SaveMessageR
     parentMessageId: parentId,
     role,
     messageKind: messageKind ?? 'normal',
-    parts: parts as any,
-    metadata: (metadata as any) ?? undefined,
+    parts,
+    metadata: metadata ?? undefined,
     createdAt: now.toISOString(),
   }
 
@@ -236,10 +236,10 @@ export async function appendMessagePart(input: {
   const existing = tree.byId.get(input.messageId)
   if (!existing) return false
   const parts = Array.isArray(existing.parts) ? [...existing.parts] : []
-  parts.push(input.part as any)
+  parts.push(input.part)
   const updated: StoredMessage = {
     ...existing,
-    parts: parts as any,
+    parts,
     ...(input.messageKind ? { messageKind: input.messageKind } : {}),
   }
   await updateMessage({ sessionId: input.sessionId, message: updated })
@@ -263,7 +263,7 @@ function normalizeParts(parts: unknown): unknown[] {
   return arr
     .filter((part) => {
       if (!part || typeof part !== 'object') return true
-      const record = part as any
+      const record = part as Record<string, unknown>
       if (record.type === 'step-start') return false
       if (record.state === 'streaming') return false
       // 安全网：过滤 transient UI 信号（data-step-thinking 等）
@@ -279,7 +279,7 @@ function normalizeParts(parts: unknown): unknown[] {
     })
     .map((part) => {
       if (!part || typeof part !== 'object') return part
-      const record = part as any
+      const record = part as Record<string, unknown>
       // input-streaming 但有 input → 模型流不完整，提升状态为 input-available
       if (record.state === 'input-streaming' && record.input != null) {
         return { ...record, state: 'input-available' }
@@ -363,17 +363,18 @@ function mergeMetadataWithAccumulatedUsage(
 /** Extract title text from message parts. */
 function extractTitleTextFromParts(parts: unknown[]): string {
   const chunks: string[] = []
-  for (const part of parts as any[]) {
+  for (const part of parts) {
     if (!part || typeof part !== 'object') continue
+    const p = part as Record<string, unknown>
     // 跳过 data-skill 等数据类型的 parts，它们不适合作为标题
-    if (typeof part.type === 'string' && part.type.startsWith('data-')) continue
-    if (part.type === 'text' && typeof part.text === 'string') {
-      let text = replaceFileTokensWithNames(part.text)
+    if (typeof p.type === 'string' && p.type.startsWith('data-')) continue
+    if (p.type === 'text' && typeof p.text === 'string') {
+      let text = replaceFileTokensWithNames(p.text)
       text = replaceSkillRefsWithNames(text)
       text = replaceBarePathsWithNames(text)
       chunks.push(text)
-    } else if (typeof part.text === 'string') {
-      let text = replaceFileTokensWithNames(part.text)
+    } else if (typeof p.text === 'string') {
+      let text = replaceFileTokensWithNames(p.text)
       text = replaceSkillRefsWithNames(text)
       text = replaceBarePathsWithNames(text)
       chunks.push(text)
@@ -500,11 +501,12 @@ async function ensureSession(
 }
 
 /** Minimal message shape for persistence. */
-type UIMessageLike = {
+export type UIMessageLike = {
   id: string
   role: 'system' | 'user' | 'assistant' | 'subagent' | 'task-report'
   parts?: unknown[]
   metadata?: unknown
+  messageKind?: ChatMessageKind
 }
 
 // ---------------------------------------------------------------------------
@@ -538,8 +540,8 @@ export async function saveAgentMessage(input: {
   if (existing) {
     const updated: StoredMessage = {
       ...existing,
-      ...(parts.length ? { parts: parts as any } : {}),
-      ...(metadata ? { metadata: metadata as any } : {}),
+      ...(parts.length ? { parts } : {}),
+      ...(metadata ? { metadata } : {}),
     }
     await updateMessage({ sessionId: input.agentId, message: updated })
   } else {
@@ -548,8 +550,8 @@ export async function saveAgentMessage(input: {
       parentMessageId: input.parentMessageId,
       role,
       messageKind: 'normal',
-      parts: parts as any,
-      metadata: (metadata as any) ?? undefined,
+      parts,
+      metadata: metadata ?? undefined,
       createdAt: now.toISOString(),
     }
     await appendMessage({ sessionId: input.agentId, message: stored })
@@ -573,9 +575,9 @@ export async function writeAgentSessionJson(input: {
     id: input.agentId,
     title: input.name,
     createdAt: input.createdAt.toISOString(),
-    // 扩展字段存入 session.json
-    ...(input.agentType ? { agentType: input.agentType } as any : {}),
-    ...(input.task ? { task: input.task } as any : {}),
-    ...(input.preface ? { sessionPreface: input.preface } as any : {}),
+    // 扩展字段存入 session.json（超出 SessionJson 类型定义，writeSessionJson 接受 Partial）
+    ...(input.agentType ? { agentType: input.agentType } : {}),
+    ...(input.task ? { task: input.task } : {}),
+    ...(input.preface ? { sessionPreface: input.preface } : {}),
   })
 }
