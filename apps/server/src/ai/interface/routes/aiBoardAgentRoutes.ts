@@ -20,19 +20,11 @@ import {
   resolveProjectFilePath,
 } from '@/ai/services/image/attachmentResolver'
 import { logger } from '@/common/logger'
+import { resolveBearerToken } from '../helpers/resolveToken'
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-/** Extract bearer token from request headers. */
-function resolveBearerToken(c: any): string | null {
-  const authHeader =
-    c.req.header('authorization') ?? c.req.header('Authorization')
-  if (!authHeader) return null
-  const match = authHeader.match(/^Bearer\s+(.+)$/i)
-  return match?.[1]?.trim() || null
-}
 
 /** Assemble system prompt from skills or feature default. */
 function assembleSystemPrompt(

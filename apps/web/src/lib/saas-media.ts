@@ -9,12 +9,15 @@
  */
 import { resolveServerUrl } from "@/utils/server-url";
 import { getAccessToken } from "@/lib/saas-auth";
+import { CLIENT_HEADERS } from "@/lib/client-headers";
 import { getSaasMediaClient } from "@/lib/saas-media-client";
 
-/** Build auth headers for SaaS proxy. */
+/** Build auth headers for SaaS proxy (includes client guard header). */
 export async function buildAuthHeaders(): Promise<Record<string, string>> {
   const token = await getAccessToken();
-  return token ? { Authorization: `Bearer ${token}` } : {};
+  return token
+    ? { ...CLIENT_HEADERS, Authorization: `Bearer ${token}` }
+    : { ...CLIENT_HEADERS };
 }
 
 /** Validate HTTP response and parse JSON. */

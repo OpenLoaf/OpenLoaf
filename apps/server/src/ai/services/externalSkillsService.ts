@@ -42,30 +42,36 @@ type DetectedSource = {
   skills: DetectedSkill[]
 }
 
-/** Build the list of external sources to scan. */
-export function buildExternalSources(projectRootPath?: string): ExternalSkillSource[] {
+/**
+ * Build the list of external sources to scan.
+ * When `projectOnly` is true, only project-level paths are included (skip global ~/.claude/skills etc.).
+ */
+export function buildExternalSources(projectRootPath?: string, projectOnly = false): ExternalSkillSource[] {
   const home = homedir()
   const sources: ExternalSkillSource[] = []
 
   // Claude Code — user skills + project skills + marketplace skills
-  const claudePaths = [path.join(home, '.claude', 'skills')]
+  const claudePaths: string[] = []
+  if (!projectOnly) {
+    claudePaths.push(path.join(home, '.claude', 'skills'))
+    // Expand marketplace repos: ~/.claude/plugins/marketplaces/{repo}/skills/
+    const marketplacesDir = path.join(home, '.claude', 'plugins', 'marketplaces')
+    if (existsSync(marketplacesDir)) {
+      try {
+        for (const repo of readdirSync(marketplacesDir, { withFileTypes: true })) {
+          if (!repo.isDirectory()) continue
+          const repoSkillsDir = path.join(marketplacesDir, repo.name, 'skills')
+          if (existsSync(repoSkillsDir)) {
+            claudePaths.push(repoSkillsDir)
+          }
+        }
+      } catch {
+        // ignore read errors
+      }
+    }
+  }
   if (projectRootPath) {
     claudePaths.push(path.join(projectRootPath, '.claude', 'skills'))
-  }
-  // Expand marketplace repos: ~/.claude/plugins/marketplaces/{repo}/skills/
-  const marketplacesDir = path.join(home, '.claude', 'plugins', 'marketplaces')
-  if (existsSync(marketplacesDir)) {
-    try {
-      for (const repo of readdirSync(marketplacesDir, { withFileTypes: true })) {
-        if (!repo.isDirectory()) continue
-        const repoSkillsDir = path.join(marketplacesDir, repo.name, 'skills')
-        if (existsSync(repoSkillsDir)) {
-          claudePaths.push(repoSkillsDir)
-        }
-      }
-    } catch {
-      // ignore read errors
-    }
   }
   sources.push({
     sourceId: 'claude-code',
@@ -76,7 +82,10 @@ export function buildExternalSources(projectRootPath?: string): ExternalSkillSou
   })
 
   // Codex (uses .agents/skills — the old OpenLoaf path, and ~/.codex/skills)
-  const codexPaths = [path.join(home, '.codex', 'skills')]
+  const codexPaths: string[] = []
+  if (!projectOnly) {
+    codexPaths.push(path.join(home, '.codex', 'skills'))
+  }
   if (projectRootPath) {
     codexPaths.push(path.join(projectRootPath, '.agents', 'skills'))
   }
@@ -102,7 +111,10 @@ export function buildExternalSources(projectRootPath?: string): ExternalSkillSou
   })
 
   // Windsurf
-  const windsurfPaths = [path.join(home, '.codeium', 'windsurf', 'memories')]
+  const windsurfPaths: string[] = []
+  if (!projectOnly) {
+    windsurfPaths.push(path.join(home, '.codeium', 'windsurf', 'memories'))
+  }
   if (projectRootPath) {
     windsurfPaths.push(path.join(projectRootPath, '.windsurf', 'rules'))
   }
@@ -127,14 +139,16 @@ export function buildExternalSources(projectRootPath?: string): ExternalSkillSou
     mode: 'file',
   })
 
-  // Legacy OpenLoaf (old global path)
-  sources.push({
-    sourceId: 'other',
-    label: '其他',
-    paths: [path.join(home, '.agents', 'skills')],
-    skillIndicator: 'SKILL.md',
-    mode: 'folder',
-  })
+  // Legacy OpenLoaf (old global path) — global only
+  if (!projectOnly) {
+    sources.push({
+      sourceId: 'other',
+      label: '其他',
+      paths: [path.join(home, '.agents', 'skills')],
+      skillIndicator: 'SKILL.md',
+      mode: 'folder',
+    })
+  }
 
   return sources
 }
@@ -290,10 +304,11 @@ export async function detectExternalSkills(input: {
   const projectRootPath = input.projectId
     ? getProjectRootPath(input.projectId) ?? undefined
     : undefined
-  const sources = buildExternalSources(projectRootPath)
+  const isProjectScope = Boolean(input.projectId && projectRootPath)
+  const sources = buildExternalSources(projectRootPath, isProjectScope)
 
   // Determine target skills dir (project-scoped if projectId, otherwise global)
-  const targetSkillsDir = input.projectId && projectRootPath
+  const targetSkillsDir = isProjectScope
     ? resolveCurrentSkillsDir('project', projectRootPath)
     : resolveCurrentSkillsDir('global')
 

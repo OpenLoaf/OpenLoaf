@@ -127,6 +127,7 @@ export async function openSkillInStack(skillName: string, projectId?: string) {
       sourceKey: "skill-settings",
       component: "skill-settings",
       title: "技能",
+      ...(projectId ? { params: { projectId } } : {}),
     });
     return;
   }

@@ -12,7 +12,7 @@ import type { OpenLoafUIMessage } from "@openloaf/api/types/message";
 import type { ChatStreamRequest } from "@/ai/services/chat/types";
 import type { ChatImageMessageInput, ChatImageRequest } from "@/ai/services/image/types";
 import type { AiExecuteRequest } from "@/ai/services/chat/types";
-import { ChatStreamUseCase } from "@/ai/services/chat/ChatStreamUseCase";
+import { runChatStream } from "@/ai/services/chat/chatStreamService";
 import { SummaryTitleUseCase } from "@/ai/services/summary/SummaryTitleUseCase";
 import { ImageRequestUseCase } from "@/ai/services/image/ImageRequestUseCase";
 import {
@@ -23,6 +23,7 @@ import { resolveParentProjectRootPaths } from "@/ai/shared/util";
 import { CommandParser } from "@/ai/tools/CommandParser";
 import { SkillSelector, type SkillMatch } from "@/ai/tools/SkillSelector";
 import { resolveAutoSkillsByPageContext } from "@/ai/services/chat/pageContextSkillMap";
+import { extractTextFromParts, toSseChunk } from "@/ai/services/chat/chatStreamUtils";
 
 type AiExecuteServiceInput = {
   /** Unified AI request payload. */
@@ -129,23 +130,13 @@ export class AiExecuteService {
       selectedSkills,
       autoApproveTools: input.autoApproveTools || request.autoApproveTools,
     });
-    return new ChatStreamUseCase().execute({
+    return runChatStream({
       request: chatRequest,
       cookies: input.cookies,
       requestSignal: input.requestSignal,
       saasAccessToken: input.saasAccessToken,
     });
   }
-}
-
-/** Extract plain text from message parts. */
-function extractTextFromParts(parts: unknown[]): string {
-  const items = Array.isArray(parts) ? (parts as any[]) : [];
-  return items
-    .filter((part) => part?.type === "text" && typeof part.text === "string")
-    .map((part) => String(part.text))
-    .join("\n")
-    .trim();
 }
 
 /** Build chat request for streaming pipeline. */
@@ -302,10 +293,7 @@ function createCommandStreamResponse(input: {
   return new Response(stream, { headers: UI_MESSAGE_STREAM_HEADERS });
 }
 
-/** Convert JSON payload into SSE chunk. */
-function toSseChunk(value: unknown): string {
-  return `data: ${JSON.stringify(value)}\n\n`;
-}
+
 
 /** Build an invalid request response by response mode. */
 function createInvalidResponse(errorText: string, expectsJson: boolean): Response {

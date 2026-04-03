@@ -10,6 +10,7 @@
 import type { ProviderAdapter } from "@/ai/models/providerAdapters";
 import { buildCodexAppServerLanguageModel } from "@/ai/models/cli/codex/codexAppServerLanguageModel";
 import { buildClaudeCodeLanguageModel } from "@/ai/models/cli/claudeCode";
+import { CODEX_CLI_PROVIDER_ID, CLAUDE_CODE_CLI_PROVIDER_ID } from "@/ai/models/cli/cliShared";
 
 /** Resolve common CLI auth config. */
 function resolveCliAuthConfig(provider: { apiUrl: string; authConfig?: Record<string, unknown> }, providerDefinition?: { apiUrl?: string }) {
@@ -30,7 +31,7 @@ export const cliAdapter: ProviderAdapter = {
   buildAiSdkModel: ({ provider, modelId, providerDefinition }) => {
     const resolvedProviderId = providerDefinition?.id ?? provider.providerId;
     const { resolvedApiUrl, apiKey, forceCustomApiKey } = resolveCliAuthConfig(provider, providerDefinition);
-    if (resolvedProviderId === "codex-cli") {
+    if (resolvedProviderId === CODEX_CLI_PROVIDER_ID) {
       return buildCodexAppServerLanguageModel({
         providerId: resolvedProviderId,
         modelId,
@@ -39,7 +40,7 @@ export const cliAdapter: ProviderAdapter = {
         forceCustomApiKey,
       });
     }
-    if (resolvedProviderId === "claude-code-cli") {
+    if (resolvedProviderId === CLAUDE_CODE_CLI_PROVIDER_ID) {
       return buildClaudeCodeLanguageModel({
         providerId: resolvedProviderId,
         modelId,

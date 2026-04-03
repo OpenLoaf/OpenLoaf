@@ -14,6 +14,13 @@ import {
   readAgentJson,
 } from '@/ai/shared/defaultAgentResolver'
 import { isSystemAgentId } from '@/ai/shared/systemAgentDefinitions'
+import {
+  normalizeScalar,
+  normalizeDescription,
+  normalizeRootPath,
+  normalizeRootPathList,
+  stripFrontMatter,
+} from '@/ai/shared/frontMatterUtils'
 
 export type AgentScope = 'project' | 'global'
 
@@ -302,26 +309,6 @@ function resolveAgentSources(input: {
   return sources
 }
 
-function normalizeRootPath(value?: string): string | null {
-  if (typeof value !== 'string') return null
-  const trimmed = value.trim()
-  return trimmed || null
-}
-
-function normalizeRootPathList(values?: string[]): string[] {
-  if (!Array.isArray(values)) return []
-  const normalized = values
-    .map((v) => normalizeRootPath(v))
-    .filter((v): v is string => Boolean(v))
-  const unique = new Set<string>()
-  return normalized
-    .filter((v) => {
-      if (unique.has(v)) return false
-      unique.add(v)
-      return true
-    })
-    .reverse()
-}
 
 function findAgentFiles(rootPath: string): string[] {
   if (!existsSync(rootPath)) return []
@@ -340,19 +327,6 @@ function findAgentFiles(rootPath: string): string[] {
   return files
 }
 
-function stripFrontMatter(content: string): string {
-  const lines = content.split(/\r?\n/u)
-  if (lines.length === 0) return ''
-  const firstLine = lines[0] ?? ''
-  if (firstLine.trim() !== FRONT_MATTER_DELIMITER) return content.trim()
-  for (let i = 1; i < lines.length; i += 1) {
-    const line = lines[i] ?? ''
-    if (line.trim() === FRONT_MATTER_DELIMITER) {
-      return lines.slice(i + 1).join('\n').trim()
-    }
-  }
-  return ''
-}
 
 /** Parse YAML front matter for agent fields. */
 function parseAgentFrontMatter(content: string): AgentFrontMatter {
@@ -493,23 +467,6 @@ function setField(
   }
 }
 
-function normalizeScalar(value: string): string {
-  const trimmed = value.trim()
-  if (!trimmed) return ''
-  if (
-    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
-    (trimmed.startsWith("'") && trimmed.endsWith("'"))
-  ) {
-    return trimmed.slice(1, -1).trim()
-  }
-  return trimmed
-}
-
-function normalizeDescription(value?: string): string {
-  const trimmed = typeof value === 'string' ? value.trim() : ''
-  if (!trimmed) return '未提供'
-  return trimmed.replace(/\s+/gu, ' ')
-}
 
 function normalizeIdList(value?: string | string[] | null): string[] {
   if (!value) return []

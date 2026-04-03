@@ -224,6 +224,21 @@ class MCPClientManagerImpl {
       const transport = this.createTransport(config)
       const client = await createMCPClient({ transport })
 
+      // Track PID for stdio processes (orphan cleanup safety net).
+      // `process` is a TS-private field on StdioMCPTransport but accessible at runtime.
+      if (config.transport === 'stdio') {
+        const childProcess = (transport as any).process as
+          | { pid?: number }
+          | undefined
+        if (childProcess?.pid) {
+          entry.pid = childProcess.pid
+          logger.debug(
+            { serverId: config.id, pid: entry.pid },
+            '[mcp-manager] Tracked stdio child process PID',
+          )
+        }
+      }
+
       entry.client = client
       entry.status = 'connected'
       entry.error = undefined
@@ -271,6 +286,7 @@ class MCPClientManagerImpl {
 
   private async doDisconnect(entry: MCPClientEntry): Promise<void> {
     const { config, client } = entry
+    const trackedPid = entry.pid
 
     // Unregister tools
     unregisterMcpToolsByServer(config.name)
@@ -288,10 +304,26 @@ class MCPClientManagerImpl {
       }
     }
 
+    // Safety net: kill orphan stdio process if still running after client.close()
+    if (trackedPid) {
+      try {
+        // process.kill(pid, 0) throws if process doesn't exist — used as liveness check
+        process.kill(trackedPid, 0)
+        logger.warn(
+          { serverId: config.id, pid: trackedPid },
+          '[mcp-manager] Stdio process still alive after close, sending SIGTERM',
+        )
+        process.kill(trackedPid, 'SIGTERM')
+      } catch {
+        // Process already exited — expected path
+      }
+    }
+
     entry.client = null
     entry.status = 'disconnected'
     entry.toolIds = []
     entry.error = undefined
+    entry.pid = undefined
 
     logger.info(
       { serverId: config.id, name: config.name },

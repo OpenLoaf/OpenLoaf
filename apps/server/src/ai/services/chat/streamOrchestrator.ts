@@ -9,6 +9,7 @@
  */
 import {
   createUIMessageStream,
+  type InferUIMessageChunk,
   JsonToSseTransformStream,
   smoothStream,
   UI_MESSAGE_STREAM_HEADERS,
@@ -17,7 +18,7 @@ import {
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { logger } from "@/common/logger";
-import type { ChatMessageKind, TokenUsage } from "@openloaf/api";
+import type { ChatMessageKind, OpenLoafUIMessage, TokenUsage } from "@openloaf/api";
 import { readBasicConf } from "@/modules/settings/openloafConfStore";
 import { resolveMessagesJsonlPath } from "@/ai/services/chat/repositories/chatFileStore";
 import {
@@ -32,6 +33,7 @@ import {
 import { prisma } from "@openloaf/db";
 import { setCachedCcSession } from "@/ai/models/cli/claudeCode/claudeCodeSessionStore";
 import type { MasterAgentRunner } from "@/ai/services/masterAgentRunner";
+import { toSseChunk } from "@/ai/services/chat/chatStreamUtils";
 import { buildModelMessages } from "@/ai/shared/messageConverter";
 import { getChatViewFromFile } from "@/ai/services/chat/repositories/chatFileStore";
 import {
@@ -39,6 +41,7 @@ import {
   clearSessionErrorMessage,
   saveMessage,
   setSessionErrorMessage,
+  type UIMessageLike,
 } from "@/ai/services/chat/repositories/messageStore";
 import { buildBranchLogMessages } from "@/ai/services/chat/chatHistoryLogMessageBuilder";
 import { buildTokenUsageMetadata, buildTimingMetadata, mergeAbortMetadata } from "./metadataBuilder";
@@ -49,6 +52,42 @@ type ToolResultPayload = {
   completed_id?: string | null;
   completedId?: string | null;
   status?: Record<string, unknown>;
+};
+
+/**
+ * CLI provider 在 finish-step 事件 providerMetadata 中注入的业务字段。
+ * SDK 的 TextStreamPart['finish-step'] 已包含 providerMetadata，但其类型
+ * 为 ProviderMetadata（索引签名），我们在此显式声明预期的业务 key。
+ */
+type CliProviderMetadata = {
+  sdkAssistantUuid?: string;
+  sdkSessionId?: string;
+  [key: string]: unknown;
+};
+
+/**
+ * messageMetadata 回调中 part 的 providerMetadata 形状（仅 CLI provider 注入）。
+ * part 类型是 TextStreamPart<ToolSet>，其 finish-step 成员包含 providerMetadata。
+ * 通过此接口明确字段，避免 as any。
+ */
+type PartWithCliProviderMeta = {
+  type: string;
+  providerMetadata?: CliProviderMetadata;
+  [key: string]: unknown;
+};
+
+/**
+ * CLI thinking part：在流完成后注入到 baseParts 中，
+ * 使刷新后仍可显示 CLI 执行历史。
+ */
+type CliThinkingPart = {
+  type: "tool-cli-thinking";
+  toolCallId: string;
+  toolName: string;
+  variant: string;
+  title: string;
+  output: unknown;
+  state: string;
 };
 
 /** 构建错误 SSE 响应的输入。 */
@@ -141,7 +180,7 @@ function shouldMarkAgentTransient(payload: ToolResultPayload | null): boolean {
 }
 
 /** Annotate tool-result chunks with transient flag. */
-function applyTransientFlag(chunk: any): any {
+function applyTransientFlag(chunk: Record<string, unknown>): Record<string, unknown> {
   if (!chunk || typeof chunk !== "object") return chunk;
   if (chunk.type !== "tool-result") return chunk;
   const toolName = typeof chunk.toolName === "string" ? chunk.toolName : "";
@@ -156,17 +195,18 @@ function applyTransientFlagToParts(parts: unknown[]): unknown[] {
   if (!Array.isArray(parts)) return parts;
   return parts.map((part) => {
     if (!part || typeof part !== "object") return part;
-    const rawType = typeof (part as any).type === "string" ? String((part as any).type) : "";
+    const p = part as Record<string, unknown>;
+    const rawType = typeof p.type === "string" ? String(p.type) : "";
     const toolName =
-      typeof (part as any).toolName === "string"
-        ? String((part as any).toolName)
+      typeof p.toolName === "string"
+        ? String(p.toolName)
         : rawType.startsWith("tool-")
           ? rawType.slice("tool-".length)
           : "";
     if (toolName !== "Agent") return part;
-    const payload = parseToolResultPayload((part as any).output ?? (part as any).result);
+    const payload = parseToolResultPayload(p.output ?? p.result);
     if (!shouldMarkAgentTransient(payload)) return part;
-    return { ...(part as any), isTransient: true };
+    return { ...p, isTransient: true };
   });
 }
 
@@ -227,6 +267,7 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
   })();
 
   const stream = createUIMessageStream({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- SDK type boundary: OpenLoafUIMessage[] is structurally compatible but generic inference requires any[]
     originalMessages: input.modelMessages as any[],
     onError: (err) => {
       // 只记录一次错误，避免 SDK 内部重复日志。
@@ -243,6 +284,7 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
       return err instanceof Error ? err.message : "Unknown error";
     },
     execute: async ({ writer }) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- SDK type boundary: writer generic param is constrained to UIMessage but setUiWriter accepts UIMessageStreamWriter<any>
       setUiWriter(writer as any);
       setAbortSignal(input.abortController.signal);
       pushAgentFrame(input.agentRunner.frame);
@@ -310,6 +352,7 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
           } : {}),
         });
         const uiStream = agentStream.toUIMessageStream({
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- SDK type boundary: see createUIMessageStream above
           originalMessages: input.modelMessages as any[],
           generateMessageId: () => input.assistantMessageId,
           messageMetadata: ({ part }) => {
@@ -327,7 +370,8 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
               mergedMetadata.agent = input.agentMetadata;
             }
             // CLI provider 传回的 SDK UUID（用于 rewind/resume）
-            const sdkMeta = (part as any)?.providerMetadata;
+            // TextStreamPart 的各成员均含 providerMetadata，用 PartWithCliProviderMeta 明确字段。
+            const sdkMeta = (part as unknown as PartWithCliProviderMeta).providerMetadata;
             if (sdkMeta?.sdkAssistantUuid) {
               mergedMetadata.sdkAssistantUuid = sdkMeta.sdkAssistantUuid;
             }
@@ -347,7 +391,7 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
               });
               const baseMetadata =
                 responseMessage && typeof responseMessage === "object"
-                  ? ((responseMessage as any).metadata as unknown)
+                  ? (responseMessage.metadata as unknown)
                   : undefined;
               const baseRecord =
                 baseMetadata && typeof baseMetadata === "object" && !Array.isArray(baseMetadata)
@@ -371,11 +415,11 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
 
               const finalizedMetadata =
                 mergeAbortMetadata(mergedMetadata, { isAborted, finishReason }) ?? {};
-              const baseParts = applyTransientFlagToParts((responseMessage as any).parts ?? []);
+              const baseParts = applyTransientFlagToParts(responseMessage.parts ?? []);
 
               // 注入 CLI 摘要 part，使刷新后仍可显示 CLI 执行历史。
               if (cliSummary) {
-                (baseParts as any[]).push({
+                const cliThinkingPart: CliThinkingPart = {
                   type: "tool-cli-thinking",
                   toolCallId: "cc-summary",
                   toolName: "cli-thinking",
@@ -383,13 +427,17 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
                   title: "CLI 输出",
                   output: cliSummary,
                   state: "output-available",
-                });
+                };
+                (baseParts as CliThinkingPart[]).push(cliThinkingPart);
               }
 
+              // OpenLoafUIMessage extends UIMessage and adds parentMessageId / messageKind.
+              // responseMessage is typed as UIMessage (SDK), so we spread via unknown to
+              // carry over those extra fields that the SDK passes at runtime.
               const normalizedResponseMessage = {
-                ...(responseMessage as any),
+                ...(responseMessage as unknown as OpenLoafUIMessage),
                 parts: baseParts,
-              } as UIMessage;
+              };
               const branchLogMessages = buildBranchLogMessages({
                 modelMessages: input.modelMessages as UIMessage[],
                 assistantResponseMessage: normalizedResponseMessage as UIMessage,
@@ -402,8 +450,9 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
 
               await saveMessage({
                 sessionId: currentSessionId,
-                message: (finalizedAssistantMessage as any) ?? {
-                  ...(responseMessage as any),
+                message: finalizedAssistantMessage ?? {
+                  // Fallback: build a minimal UIMessageLike when buildBranchLogMessages returns nothing.
+                  ...(responseMessage as unknown as OpenLoafUIMessage),
                   id: input.assistantMessageId,
                   metadata: finalizedMetadata,
                 },
@@ -425,6 +474,7 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
                 });
                 // 中文注释：流完成后主动下发 canonical branch snapshot，
                 // 让前端用服务端真相覆盖 retry/resend 期间的本地临时切链。
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any -- SDK type boundary: data-branch-snapshot is a business-defined transient chunk not registered in OpenLoafUIDataTypes
                 writer.write({
                   type: "data-branch-snapshot",
                   data: {
@@ -432,7 +482,7 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
                     snapshot,
                   },
                   transient: true,
-                } as any);
+                } as unknown as InferUIMessageChunk<UIMessage>);
               } catch (error) {
                 logger.warn(
                   {
@@ -445,7 +495,10 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
               }
 
               // SDK 返回的真正 session ID 更新到 DB（CLI persist/resume）
-              const sdkSessionId = (finalizedMetadata as any)?.sdkSessionId as string | undefined;
+              // finalizedMetadata is Record<string, unknown>; extract field with explicit cast.
+              const sdkSessionId = typeof finalizedMetadata.sdkSessionId === "string"
+                ? finalizedMetadata.sdkSessionId
+                : undefined;
               if (sdkSessionId && currentSessionId) {
                 try {
                   await prisma.chatSession.update({
@@ -481,27 +534,35 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
           "tool-call-delta",
           "tool-call",
         ]);
-        const wrappedStream = (uiStream as ReadableStream).pipeThrough(
-          new TransformStream({
-            transform(chunk: any, controller) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- SDK type boundary: uiStream is AsyncIterableStream; pipeThrough requires ReadableStream
+        const wrappedStream = (uiStream as ReadableStream<Record<string, unknown>>).pipeThrough(
+          new TransformStream<Record<string, unknown>, Record<string, unknown>>({
+            transform(chunk, controller) {
               const normalized = applyTransientFlag(chunk);
               controller.enqueue(normalized);
-              const type = chunk?.type;
+              const type = typeof chunk.type === "string" ? chunk.type : "";
+              type StepThinkingChunk = { type: "data-step-thinking"; data: { active: boolean }; transient: true };
+              const mkStepThinking = (active: boolean): StepThinkingChunk => ({
+                type: "data-step-thinking",
+                data: { active },
+                transient: true,
+              });
               if (type === "finish-step") {
                 stepThinkingActive = true;
-                writer.write({ type: "data-step-thinking", data: { active: true }, transient: true } as any);
+                writer.write(mkStepThinking(true) as unknown as InferUIMessageChunk<UIMessage>);
               } else if (type === "finish") {
                 stepThinkingActive = false;
-                writer.write({ type: "data-step-thinking", data: { active: false }, transient: true } as any);
+                writer.write(mkStepThinking(false) as unknown as InferUIMessageChunk<UIMessage>);
               } else if (stepThinkingActive && CONTENT_CHUNK_TYPES.has(type)) {
                 // 新步骤的首个内容 chunk 到达，清除思考指示器
                 stepThinkingActive = false;
-                writer.write({ type: "data-step-thinking", data: { active: false }, transient: true } as any);
+                writer.write(mkStepThinking(false) as unknown as InferUIMessageChunk<UIMessage>);
               }
             },
           }),
         );
-        writer.merge(wrappedStream as any);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- SDK type boundary: wrappedStream is ReadableStream<any> after pipeThrough; SDK merge expects ReadableStream<InferUIMessageChunk<UI_MESSAGE>>
+        writer.merge(wrappedStream as unknown as ReadableStream<InferUIMessageChunk<UIMessage>>);
       } catch (err) {
         popAgentFrameOnce();
         throw err;
@@ -510,7 +571,8 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
   });
 
   const sseStream = stream.pipeThrough(new JsonToSseTransformStream());
-  return new Response(sseStream as any, { headers: UI_MESSAGE_STREAM_HEADERS });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- SDK type boundary: ReadableStream<Uint8Array> is assignable to BodyInit at runtime but TS overloads don't accept it directly
+  return new Response(sseStream as unknown as BodyInit, { headers: UI_MESSAGE_STREAM_HEADERS });
 }
 
 /** 构建图片输出的 SSE 响应。 */
@@ -546,7 +608,7 @@ export async function createImageStreamResponse(
       role: "assistant",
       parts: messageParts,
       metadata: mergedMetadata,
-    } as any,
+    } satisfies UIMessageLike,
     parentMessageId: input.parentMessageId,
     allowEmpty: false,
     createdAt: input.requestStartAt,
@@ -592,14 +654,17 @@ async function saveErrorMessage(input: ErrorStreamInput) {
   if (appended) return;
   if (!input.parentMessageId) return;
   // 找不到目标消息时，新建一条 assistant 错误消息。
+  // messageKind is a business extension beyond UIMessageLike's declared fields;
+  // the messageStore normalizer reads it via `(input.message as any)?.messageKind`.
+  const errorMessage = {
+    id: input.assistantMessageId,
+    role: "assistant" as const,
+    parts: [part],
+    messageKind: "error",
+  };
   await saveMessage({
     sessionId: input.sessionId,
-    message: {
-      id: input.assistantMessageId,
-      role: "assistant",
-      parts: [part],
-      messageKind: "error",
-    } as any,
+    message: errorMessage as UIMessageLike,
     parentMessageId: input.parentMessageId,
     allowEmpty: false,
   });
@@ -636,7 +701,3 @@ async function writeDebugStepFile(input: {
   }
 }
 
-/** 将 JSON 转为 SSE chunk。 */
-function toSseChunk(value: unknown): string {
-  return `data: ${JSON.stringify(value)}\n\n`;
-}

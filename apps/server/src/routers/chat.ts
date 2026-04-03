@@ -40,7 +40,7 @@ import { promises as fsPromises } from 'node:fs'
 import nodePath from 'node:path'
 import { getErrorMessage } from '@/shared/errorMessages'
 
-const TITLE_MAX_CHARS = 16
+const TITLE_MAX_CHARS = 30
 const TITLE_CONTEXT_TAKE = 24
 
 function isRenderableRow(row: {

@@ -79,11 +79,13 @@ export default function DesktopTileContent({
         return;
       }
       if (iconKey === "skill-settings") {
+        const projectId = scope === "project" ? webContext?.projectId : undefined;
         useLayoutState.getState().pushStackItem({
           id: "skill-settings",
           sourceKey: "skill-settings",
           component: "skill-settings",
           title: t('iconCatalog.skill-settings'),
+          ...(projectId ? { params: { projectId } } : {}),
         });
         return;
       }

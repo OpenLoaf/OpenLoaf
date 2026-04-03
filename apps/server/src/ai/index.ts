@@ -12,7 +12,6 @@
 export * from "./services/masterAgentRunner";
 export * from "./bootstrap";
 export * from "./services/chat/AiExecuteService";
-export * from "./services/chat/ChatStreamUseCase";
 export * from "./services/image/ImageRequestUseCase";
 export * from "./services/summary/SummaryTitleUseCase";
 export * from "./tools/CommandParser";

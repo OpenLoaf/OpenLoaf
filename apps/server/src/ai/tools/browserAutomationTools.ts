@@ -573,6 +573,53 @@ export const browserWaitTool = tool({
   },
 });
 
+/** Validate that a URL is safe for server-side fetch (SSRF prevention). */
+function assertSafeFetchUrl(url: string): URL {
+  let parsed: URL
+  try {
+    parsed = new URL(url)
+  } catch {
+    throw new Error(`Invalid URL: "${url}"`)
+  }
+
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw new Error(`Unsupported protocol: ${parsed.protocol}`)
+  }
+
+  const hostname = parsed.hostname.toLowerCase()
+
+  if (
+    hostname === 'localhost' ||
+    hostname === '127.0.0.1' ||
+    hostname === '0.0.0.0' ||
+    hostname === '[::1]' ||
+    hostname === '::1'
+  ) {
+    throw new Error(`Blocked request to loopback address: ${hostname}`)
+  }
+
+  if (hostname === '169.254.169.254') {
+    throw new Error('Blocked request to cloud metadata endpoint')
+  }
+
+  const ipv4Match = hostname.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/)
+  if (ipv4Match) {
+    const parts = ipv4Match.map(Number)
+    const a = parts[1]!
+    const b = parts[2]!
+    if (
+      a === 10 ||
+      (a === 172 && b >= 16 && b <= 31) ||
+      (a === 192 && b === 168) ||
+      (a === 169 && b === 254)
+    ) {
+      throw new Error(`Blocked request to private network address: ${hostname}`)
+    }
+  }
+
+  return parsed
+}
+
 /** Max bytes for a single downloaded image. */
 const MAX_IMAGE_DOWNLOAD_BYTES = 10 * 1024 * 1024;
 
@@ -664,6 +711,7 @@ export const browserDownloadImageTool = tool({
 
     for (const sourceUrl of urls) {
       try {
+        assertSafeFetchUrl(sourceUrl);
         const response = await fetch(sourceUrl);
         if (!response.ok) {
           errors.push({ sourceUrl, error: `HTTP ${response.status}` });

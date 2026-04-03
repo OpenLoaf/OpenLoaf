@@ -21,6 +21,7 @@ import {
 import { resolveBoardDirFromDb } from "@openloaf/api/common/boardPaths";
 import { promises as fsPromises } from "node:fs";
 import nodePath from "node:path";
+import { resolveBearerToken } from "../helpers/resolveToken";
 
 type SaasErrorPayload = {
   /** Marks response as failure. */
@@ -37,14 +38,6 @@ function normalizeStatus(status: number): ContentfulStatusCode {
     return status as ContentfulStatusCode;
   }
   return 502;
-}
-
-/** Extract bearer token from request headers. */
-function resolveBearerToken(c: Context): string | null {
-  const authHeader = c.req.header("authorization") ?? c.req.header("Authorization");
-  if (!authHeader) return null;
-  const match = authHeader.match(/^Bearer\s+(.+)$/i);
-  return match?.[1]?.trim() || null;
 }
 
 /** Build a standard SaaS error response payload. */

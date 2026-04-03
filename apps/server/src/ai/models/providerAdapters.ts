@@ -19,6 +19,7 @@ import { createVercel } from "@ai-sdk/vercel";
 import { createXai } from "@ai-sdk/xai";
 import type { ModelDefinition, ProviderDefinition } from "@openloaf/api/common";
 import { cliAdapter } from "@/ai/models/cli/cliAdapter";
+import { CODEX_CLI_PROVIDER_ID, CLAUDE_CODE_CLI_PROVIDER_ID } from "@/ai/models/cli/cliShared";
 import { qwenAdapter } from "@/ai/models/qwen/qwenAdapter";
 import {
   buildAiDebugFetch,
@@ -252,8 +253,8 @@ export const PROVIDER_ADAPTERS: Record<string, ProviderAdapter> = {
   ),
   "openloaf-saas": buildSaasAdapter(),
   cli: cliAdapter,
-  "claude-code-cli": cliAdapter,
-  "codex-cli": cliAdapter,
+  [CLAUDE_CODE_CLI_PROVIDER_ID]: cliAdapter,
+  [CODEX_CLI_PROVIDER_ID]: cliAdapter,
   qwen: qwenAdapter,
   dashscope: qwenAdapter,
   "openai-compatible": qwenAdapter,

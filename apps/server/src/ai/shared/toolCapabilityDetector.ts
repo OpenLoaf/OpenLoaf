@@ -40,7 +40,7 @@ export function detectPrefaceCapabilities(
 ): PrefaceCapabilities {
   const toolSet = new Set(toolIds)
   return {
-    needsPythonRuntime: hasAnyTool(toolSet, SHELL_TOOL_IDS),
+    needsShellRuntime: hasAnyTool(toolSet, SHELL_TOOL_IDS),
     needsProjectRules: hasAnyTool(toolSet, FILE_TOOL_IDS),
     needsFileReferenceRules: hasAnyTool(toolSet, FILE_TOOL_IDS),
     needsSubAgentList: toolSet.has('Agent'),

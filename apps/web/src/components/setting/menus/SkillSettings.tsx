@@ -11,7 +11,7 @@
 
 import { SkillsSettingsPanel } from "@/components/setting/skills/SkillsSettingsPanel";
 
-/** Global skill settings page. */
-export function SkillSettings() {
-  return <SkillsSettingsPanel />;
+/** Skill settings page — renders project-scoped when projectId is provided. */
+export function SkillSettings({ projectId }: { projectId?: string }) {
+  return <SkillsSettingsPanel projectId={projectId} />;
 }

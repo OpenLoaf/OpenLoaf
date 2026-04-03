@@ -13,6 +13,7 @@ import type { OpenLoafUIMessage } from "@openloaf/api/types/message";
 import type { AiExecuteRequest } from "@/ai/services/chat/types";
 import { resolveChatModel } from "@/ai/models/resolveChatModel";
 import { readAgentJson, resolveAgentDir } from "@/ai/shared/defaultAgentResolver";
+import { toSseChunk } from "@/ai/services/chat/chatStreamUtils";
 import { readBasicConf } from "@/modules/settings/openloafConfStore";
 import {
   getProjectRootPath,
@@ -268,7 +269,4 @@ function createCommandStreamResponse(input: {
   return new Response(stream, { headers: UI_MESSAGE_STREAM_HEADERS });
 }
 
-/** Convert JSON payload into SSE chunk. */
-function toSseChunk(value: unknown): string {
-  return `data: ${JSON.stringify(value)}\n\n`;
-}
+

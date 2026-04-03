@@ -92,6 +92,7 @@ function isSafeCommand(token: string): boolean {
  */
 function maskQuotedStrings(command: string): string {
   return command
+    .replace(/\$'(?:[^'\\]|\\.)*'/g, "'_Q_'")
     .replace(/'[^']*'/g, "'_Q_'")
     .replace(/"(?:[^"\\]|\\.)*"/g, '"_Q_"');
 }

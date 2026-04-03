@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import type { Context, Hono } from "hono";
+import type { Hono } from "hono";
 import { logger } from "@/common/logger";
 import { fetchModelList, fetchModelsUpdatedAt } from "@/modules/saas";
 import type { ModelDefinition } from "@openloaf/api/common";
@@ -15,6 +15,7 @@ import {
   normalizeCloudChatModels,
   type CloudChatModelsResponse,
 } from "@/ai/models/cloudModelMapper";
+import { resolveBearerToken } from "@/ai/interface/helpers/resolveToken";
 
 type CloudModelResponse = {
   /** Response success flag. */
@@ -47,14 +48,6 @@ type CloudModelRouteDeps = {
   /** Override SaaS updated-at fetcher for tests. */
   fetchModelsUpdatedAt?: typeof fetchModelsUpdatedAt;
 };
-
-/** Extract bearer token from request headers. */
-function resolveBearerToken(c: Context): string | null {
-  const authHeader = c.req.header("authorization") ?? c.req.header("Authorization");
-  if (!authHeader) return null;
-  const match = authHeader.match(/^Bearer\s+(.+)$/i);
-  return match?.[1]?.trim() || null;
-}
 
 /** Resolve force refresh query flag. */
 function resolveForceRefresh(queryValue?: string): boolean {

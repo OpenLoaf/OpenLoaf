@@ -36,6 +36,7 @@ import { registerEmailAttachmentRoutes } from "@/modules/email/emailAttachmentRo
 import { registerLocalAuthRoutes } from "@/modules/local-auth/localAuthRoutes";
 import { registerOfficeAddinRoutes } from "@/modules/office/officeAddinRoutes";
 import { localAuthGuard } from "@/modules/local-auth/localAuthGuard";
+import { aiRouteGuard } from "@/middleware/aiRouteGuard";
 import { tabRouterImplementation } from "@/routers/tab";
 import { chatRouterImplementation } from "@/routers/chat";
 import { settingsRouterImplementation } from "@/routers/settings";
@@ -100,11 +101,15 @@ export function createApp() {
         return null;
       },
       allowMethods: ["GET", "POST", "OPTIONS"],
+      allowHeaders: ["Content-Type", "Authorization", "X-OpenLoaf-Client"],
       credentials: true,
     }),
   );
 
   app.use("/*", localAuthGuard);
+
+  // AI 路由额外鉴权：要求 X-OpenLoaf-Client header（CSRF 防护）。
+  app.use("/ai/*", aiRouteGuard);
 
   registerAiExecuteRoutes(app);
   registerAiChatAsyncRoutes(app);

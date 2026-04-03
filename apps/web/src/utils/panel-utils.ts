@@ -112,7 +112,7 @@ function AgentManagementStack(props: Record<string, unknown>) {
 function SkillSettingsStack(props: Record<string, unknown>) {
   return React.createElement(React.Fragment, null,
     React.createElement(SettingsStackSlotButton, { settingsMenu: "skills" }),
-    React.createElement(LazySkillSettings),
+    React.createElement(LazySkillSettings, { projectId: props.projectId as string | undefined }),
   );
 }
 

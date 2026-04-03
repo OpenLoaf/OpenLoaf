@@ -12,7 +12,7 @@ import {
   agentToolDef,
   sendMessageToolDef,
 } from '@openloaf/api/types/tools/agent'
-import { agentManager, type SpawnContext } from '@/ai/services/agentManager'
+import { getAgentManager, type SpawnContext } from '@/ai/services/agentManager'
 import {
   getChatModel,
   getUiWriter,
@@ -117,7 +117,8 @@ export const agentTool = tool({
     // Derive current depth from agentStack
     const currentDepth = requestContext.agentStack?.length ?? 0
 
-    const agentId = agentManager.spawn({
+    const manager = getAgentManager()
+    const agentId = manager.spawn({
       task: prompt,
       name: effectiveName,
       subagentType: subagent_type,
@@ -128,8 +129,8 @@ export const agentTool = tool({
 
     // Sync mode (default): wait for agent to complete (abort-aware)
     if (run_in_background !== true) {
-      const result = await agentManager.wait([agentId], 300_000, abortSignal)
-      const agent = agentManager.getAgent(agentId)
+      const result = await manager.wait([agentId], 300_000, abortSignal)
+      const agent = manager.getAgent(agentId)
       const status = result.status[agentId] ?? 'unknown'
       return buildAgentResultXml({
         agentId,
@@ -173,7 +174,7 @@ export const sendMessageTool = tool({
           }
         : undefined
 
-    const submissionId = await agentManager.sendInput(to, message, false, context)
+    const submissionId = await getAgentManager().sendInput(to, message, false, context)
     return JSON.stringify({ submission_id: submissionId })
   },
 })

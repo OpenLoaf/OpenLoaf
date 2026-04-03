@@ -10,6 +10,13 @@
 import path from "node:path";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { BUILTIN_SKILLS } from "@/ai/builtin-skills";
+import {
+  normalizeScalar,
+  normalizeDescription,
+  normalizeRootPath,
+  normalizeRootPathList,
+  stripFrontMatter as stripFrontMatterShared,
+} from "@/ai/shared/frontMatterUtils";
 
 type SkillScope = "builtin" | "project" | "global";
 
@@ -145,28 +152,6 @@ function resolveSkillSources(input: {
   return sources;
 }
 
-/** Normalize root path input into a usable string. */
-function normalizeRootPath(value?: string): string | null {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  return trimmed ? trimmed : null;
-}
-
-/** Normalize parent project root paths in priority order. */
-function normalizeRootPathList(values?: string[]): string[] {
-  if (!Array.isArray(values)) return [];
-  const normalized = values
-    .map((value) => normalizeRootPath(value))
-    .filter((value): value is string => Boolean(value));
-  const unique = new Set<string>();
-  const deduped = normalized.filter((value) => {
-    if (unique.has(value)) return false;
-    unique.add(value);
-    return true;
-  });
-  // 逻辑：父级 rootPath 需从顶层到近层排序，确保当前项目覆盖父级技能。
-  return deduped.reverse();
-}
 
 /** Recursively find SKILL.md files under the skills root, sorted by folder mtime (oldest first). */
 function findSkillFiles(rootPath: string): string[] {
@@ -350,21 +335,8 @@ export function readSkillContentFromPath(filePath: string, preferredLanguage?: s
   }
 }
 
-function stripSkillFrontMatter(content: string): string {
-  const lines = content.split(/\r?\n/u);
-  if (lines.length === 0) return "";
-  const firstLine = lines[0] ?? "";
-  if (firstLine.trim() !== FRONT_MATTER_DELIMITER) {
-    return content.trim();
-  }
-  for (let index = 1; index < lines.length; index += 1) {
-    const line = lines[index] ?? "";
-    if (line.trim() === FRONT_MATTER_DELIMITER) {
-      return lines.slice(index + 1).join("\n").trim();
-    }
-  }
-  return "";
-}
+/** Alias for shared stripFrontMatter. */
+const stripSkillFrontMatter = stripFrontMatterShared;
 
 /** Parse YAML front matter for name/description/tools. */
 function parseFrontMatter(content: string): SkillFrontMatter {
@@ -489,26 +461,6 @@ function parseMarketplaceMeta(
     version: v.version,
     installedAt: v.installedAt,
   }
-}
-
-/** Normalize scalar values from YAML front matter. */
-function normalizeScalar(value: string): string {
-  const trimmed = value.trim();
-  if (!trimmed) return "";
-  if (
-    (trimmed.startsWith("\"") && trimmed.endsWith("\"")) ||
-    (trimmed.startsWith("'") && trimmed.endsWith("'"))
-  ) {
-    return trimmed.slice(1, -1).trim();
-  }
-  return trimmed;
-}
-
-/** Normalize description into a single-line string. */
-function normalizeDescription(value?: string): string {
-  const trimmed = typeof value === "string" ? value.trim() : "";
-  if (!trimmed) return "未提供";
-  return trimmed.replace(/\s+/gu, " ");
 }
 
 export type { SkillSummary, SkillScope };

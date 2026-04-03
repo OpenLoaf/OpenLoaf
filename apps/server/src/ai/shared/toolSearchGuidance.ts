@@ -18,7 +18,6 @@
 import type { ClientPlatform } from '@openloaf/api/types/platform'
 import {
   TOOL_CATALOG_EXTENDED,
-  type ToolCatalogExtendedItem,
 } from '@openloaf/api/types/tools/toolCatalog'
 import { isWebSearchConfigured } from '@/ai/tools/webSearchTool'
 

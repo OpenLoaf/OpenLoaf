@@ -240,12 +240,11 @@ export class ContextCollapseManager {
         { tokenCount, blockingLimit },
         '[context-collapse] above blocking threshold with no model, falling back to hard trim',
       )
+      const trimmed = trimToContextWindow(mutableMessages, { modelId: this.modelId }) as ModelMessage[]
       return {
-        messages: trimToContextWindow(mutableMessages, { modelId: this.modelId }) as ModelMessage[],
+        messages: trimmed,
         collapsed: true,
-        tokensSaved: tokenCount - estimateMessagesTokens(
-          trimToContextWindow(mutableMessages, { modelId: this.modelId }),
-        ),
+        tokensSaved: tokenCount - estimateMessagesTokens(trimmed),
       }
     }
 
@@ -255,12 +254,11 @@ export class ContextCollapseManager {
         { tokenCount, commitLimit },
         '[context-collapse] no model available for summarization, falling back to hard trim',
       )
+      const trimmed = trimToContextWindow(mutableMessages, { modelId: this.modelId }) as ModelMessage[]
       return {
-        messages: trimToContextWindow(mutableMessages, { modelId: this.modelId }) as ModelMessage[],
+        messages: trimmed,
         collapsed: true,
-        tokensSaved: tokenCount - estimateMessagesTokens(
-          trimToContextWindow(mutableMessages, { modelId: this.modelId }),
-        ),
+        tokensSaved: tokenCount - estimateMessagesTokens(trimmed),
       }
     }
 

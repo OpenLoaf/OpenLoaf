@@ -41,10 +41,8 @@ import {
   getPMPrompt,
   PM_AGENT_TOOL_IDS,
 } from '@/ai/agent-templates'
-import type { AgentTemplate } from '@/ai/agent-templates'
 import { logger } from '@/common/logger'
 import {
-  readAgentConfigFromPath,
   type AgentConfig,
 } from '@/ai/services/agentConfigService'
 import { resolveAgentByName } from '@/ai/tools/AgentSelector'
@@ -55,6 +53,11 @@ import { ContextCollapseManager, type CollapseResult } from '@/ai/shared/context
 import { buildToolSearchGuidance } from '@/ai/shared/toolSearchGuidance'
 import { isWebSearchConfigured } from '@/ai/tools/webSearchTool'
 import { applyToolResultInterception } from '@/ai/tools/toolResultInterceptor'
+import {
+  MASTER_CORE_TOOL_IDS,
+  PM_CORE_TOOL_IDS,
+  SUB_AGENT_CORE_TOOL_IDS,
+} from '@/ai/shared/coreToolIds'
 
 // ---------------------------------------------------------------------------
 // 子 Agent 行为类型
@@ -100,11 +103,6 @@ export type MasterAgentModelInfo = {
   modelId: string
 }
 
-/** Read base system prompt markdown content. */
-function readMasterAgentBasePrompt(lang?: string): string {
-  return getMasterPrompt(lang)
-}
-
 type CreateMasterAgentInput = {
   model: LanguageModelV3
   instructions?: string
@@ -125,18 +123,7 @@ const SUB_AGENT_MAX_STEPS = 50
 // ---------------------------------------------------------------------------
 
 /** Core tool IDs that are always visible (never deferred). Like Claude Code. */
-const CORE_TOOL_IDS = [
-  'ToolSearch',
-  'Bash',
-  'Read',
-  'Glob',
-  'Grep',
-  'Edit',
-  'Write',
-  'AskUserQuestion',
-  'Agent',
-  'SendMessage',
-] as const
+const CORE_TOOL_IDS = MASTER_CORE_TOOL_IDS
 
 /**
  * Activation guard for ToolSearch pull mode.
@@ -443,11 +430,6 @@ export type CreatePMAgentInput = {
   instructions?: string
 }
 
-/** Read PM agent base prompt. */
-function readPMAgentBasePrompt(lang?: string): string {
-  return getPMPrompt(lang)
-}
-
 /** Creates a PM agent instance for project management and specialist coordination. */
 export function createPMAgent(input: CreatePMAgentInput) {
   const instructions = input.instructions || getPMPrompt(input.lang)
@@ -455,10 +437,7 @@ export function createPMAgent(input: CreatePMAgentInput) {
 
   const ctx = getRequestContext()
   // PM agent shares the same core tools as master
-  const coreToolIds = [
-    'ToolSearch', 'Bash', 'Read', 'Glob', 'Grep', 'Edit', 'Write',
-    'AskUserQuestion', 'Agent', 'SendMessage',
-  ] as string[]
+  const coreToolIds = [...PM_CORE_TOOL_IDS] as string[]
 
   // Filter PM agent tools by platform
   let deferredToolIds = filterToolIdsByPlatform(
@@ -572,9 +551,7 @@ function createGeneralPurposeSubAgent(model: LanguageModelV3): ToolLoopAgent {
   const masterTpl = getPrimaryTemplate()
   const ctx = getRequestContext()
   // General-purpose sub-agents get core file tools but NOT agent collaboration tools
-  const coreToolIds = [
-    'ToolSearch', 'Bash', 'Read', 'Glob', 'Grep', 'Edit', 'Write', 'AskUserQuestion',
-  ] as string[]
+  const coreToolIds = [...SUB_AGENT_CORE_TOOL_IDS] as string[]
   let deferredToolIds = filterToolIdsByPlatform(
     (masterTpl.deferredToolIds ?? []).filter((id) => !AGENT_TOOL_IDS_TO_EXCLUDE.has(id)),
     ctx?.clientPlatform,

@@ -14,16 +14,9 @@ import type { AiExecuteRequest, AiIntent, AiResponseMode } from "@/ai/services/c
 import { bootstrapAi } from "@/ai/bootstrap";
 import { logger } from "@/common/logger";
 import { toText } from "@/routers/route-utils";
+import { resolveBearerToken } from "../helpers/resolveToken";
 
 const { aiExecuteController: controller } = bootstrapAi();
-
-/** Extract bearer token from request headers. */
-function resolveBearerToken(c: Context): string | null {
-  const authHeader = c.req.header("authorization") ?? c.req.header("Authorization");
-  if (!authHeader) return null;
-  const match = authHeader.match(/^Bearer\s+(.+)$/i);
-  return match?.[1]?.trim() || null;
-}
 
 /** Register unified AI execute route. */
 export function registerAiExecuteRoutes(app: Hono) {

@@ -169,7 +169,12 @@ async function consumeResponseStream(sessionId: string, response: Response): Pro
             isErrorFinish = true
           }
           streamSessionManager.pushChunk(sessionId, chunk)
-        } catch {}
+        } catch (parseErr) {
+          logger.warn(
+            { sessionId, error: parseErr, buffer: trimmed.slice(0, 200) },
+            '[chat-stream-async] failed to parse SSE chunk',
+          )
+        }
       }
     }
 

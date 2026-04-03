@@ -8,8 +8,7 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import type { PromptContext } from '@/ai/shared/types'
-
-const UNKNOWN_VALUE = 'unknown'
+import { UNKNOWN_VALUE } from '@/ai/shared/constants'
 
 /** Build skills summary section — each skill as a <skill> tag with description inside. */
 export function buildSkillsSummarySection(

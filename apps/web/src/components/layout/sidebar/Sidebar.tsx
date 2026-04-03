@@ -374,7 +374,13 @@ export const AppSidebar = ({
             tooltip={t("skills")}
             color="black"
             isActive={!isInProject && isSkillsActive}
-            onClick={() => openPrimaryPageTab({ ...SKILLS_TAB_INPUT, preserveCurrentView: true })}
+            onClick={() => openPrimaryPageTab({
+              ...SKILLS_TAB_INPUT,
+              preserveCurrentView: true,
+              baseParams: layoutView.isProjectContext && layoutView.projectId
+                ? { projectId: layoutView.projectId }
+                : undefined,
+            })}
           />
           <IconNavItem
             icon={Settings}

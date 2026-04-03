@@ -518,9 +518,10 @@ export function ImageAiPanel({
       ) : null}
 
       {/* ── Variant-specific form ── */}
-      <VariantFormTransition variantKey={selectedVariant ? `${selectedVariant.id}:${readonly && !editing ? primaryEntry?.id : 'edit'}:${cancelCounter}` : null}>
+      {selectedVariant ? (
+      <VariantFormTransition variantKey={`${selectedVariant.id}:${readonly && !editing ? primaryEntry?.id : 'edit'}:${cancelCounter}`}>
         <GenericVariantForm
-          variantId={selectedVariant!.id}
+          variantId={selectedVariant.id}
           upstream={variantUpstream}
           nodeResourceUrl={resolvedImageSrc}
           nodeResourcePath={element.props.originalSrc}
@@ -540,6 +541,7 @@ export function ImageAiPanel({
           }
         />
       </VariantFormTransition>
+      ) : null}
 
       {/* ── Generate Action Bar ── */}
       {!showFallback ? <GenerateActionBar

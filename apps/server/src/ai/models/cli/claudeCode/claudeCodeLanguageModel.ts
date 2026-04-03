@@ -10,12 +10,10 @@
 import type {
   LanguageModelV3,
   LanguageModelV3CallOptions,
-  LanguageModelV3FinishReason,
   LanguageModelV3GenerateResult,
   LanguageModelV3StreamPart,
   LanguageModelV3StreamResult,
   LanguageModelV3Usage,
-  SharedV3Warning,
 } from "@ai-sdk/provider";
 import { convertAsyncIteratorToReadableStream } from "@ai-sdk/provider-utils";
 import { logger } from "@/common/logger";
@@ -34,11 +32,12 @@ import { z } from "zod";
 import {
   registerPendingCliQuestion,
 } from "./pendingCliQuestions";
-
-/** Default empty warnings payload. */
-const EMPTY_WARNINGS: SharedV3Warning[] = [];
-/** Default finish reason for completed turns. */
-const STOP_FINISH_REASON: LanguageModelV3FinishReason = { unified: "stop", raw: "stop" };
+import {
+  EMPTY_WARNINGS,
+  STOP_FINISH_REASON,
+  buildEmptyUsage,
+  stripAnsiControlSequences,
+} from "../cliShared";
 
 type ClaudeCodeLanguageModelInput = {
   /** Provider id. */
@@ -52,23 +51,6 @@ type ClaudeCodeLanguageModelInput = {
   /** Force using custom API key. */
   forceCustomApiKey: boolean;
 };
-
-/** Build an empty usage payload when token counts are unavailable. */
-function buildEmptyUsage(): LanguageModelV3Usage {
-  return {
-    inputTokens: {
-      total: undefined,
-      noCache: undefined,
-      cacheRead: undefined,
-      cacheWrite: undefined,
-    },
-    outputTokens: {
-      total: undefined,
-      text: undefined,
-      reasoning: undefined,
-    },
-  };
-}
 
 /** Map SDK result usage to AI SDK usage. */
 function buildUsageFromResult(usage: {
@@ -196,11 +178,6 @@ function buildSdkEnv(input: ClaudeCodeLanguageModelInput): Record<string, string
     env.ANTHROPIC_BASE_URL = input.apiUrl.trim();
   }
   return env;
-}
-
-/** Strip ANSI control sequences from CLI output. */
-function stripAnsiControlSequences(value: string): string {
-  return value.replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, "");
 }
 
 /** Create a stream of AI SDK parts from Claude Code Agent SDK events. */

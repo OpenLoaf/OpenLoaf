@@ -12,15 +12,7 @@ import { generateText } from 'ai'
 import type { ChatModelSource } from '@openloaf/api/common'
 import { resolveChatModel } from '@/ai/models/resolveChatModel'
 import { logger } from '@/common/logger'
-
-/** Extract bearer token from request headers. */
-function resolveBearerToken(c: any): string | null {
-  const authHeader =
-    c.req.header('authorization') ?? c.req.header('Authorization')
-  if (!authHeader) return null
-  const match = authHeader.match(/^Bearer\s+(.+)$/i)
-  return match?.[1]?.trim() || null
-}
+import { resolveBearerToken } from '../helpers/resolveToken'
 
 /** Register /api/ai/copilot route for Plate.js inline completion. */
 export function registerAiCopilotRoutes(app: Hono) {

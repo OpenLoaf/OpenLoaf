@@ -13,6 +13,7 @@ import * as React from "react";
 import { useChatActions, useChatSession, useChatMessages, useChatStatus, useChatTools } from "../../../context";
 import { trpc } from "@/utils/trpc";
 import { useMutation } from "@tanstack/react-query";
+import { CLIENT_HEADERS } from "@/lib/client-headers";
 import { resolveServerUrl } from "@/utils/server-url";
 import { ConfirmationAction } from "@/components/ai-elements/confirmation";
 
@@ -83,7 +84,7 @@ export default function ToolApprovalActions({ approvalId, size = "sm" }: ToolApp
       const endpoint = baseUrl ? `${baseUrl}/ai/tools/ack` : "/ai/tools/ack";
       const response = await fetch(endpoint, {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: { "content-type": "application/json", ...CLIENT_HEADERS },
         credentials: "include",
         body: JSON.stringify({
           toolCallId: approvalId,

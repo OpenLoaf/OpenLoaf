@@ -10,7 +10,6 @@
 import type {
   LanguageModelV3,
   LanguageModelV3CallOptions,
-  LanguageModelV3FinishReason,
   LanguageModelV3GenerateResult,
   LanguageModelV3Prompt,
   LanguageModelV3StreamPart,
@@ -22,7 +21,6 @@ import type {
   LanguageModelV3ToolResultPart,
   LanguageModelV3ToolApprovalResponsePart,
   LanguageModelV3Usage,
-  SharedV3Warning,
 } from "@ai-sdk/provider";
 import { convertAsyncIteratorToReadableStream } from "@ai-sdk/provider-utils";
 import { createHash } from "crypto";
@@ -47,6 +45,13 @@ import {
   type CodexMode,
   type CodexReasoningEffort,
 } from "@/ai/models/cli/codex/codexOptions";
+import {
+  EMPTY_WARNINGS,
+  STOP_FINISH_REASON,
+  AsyncQueue,
+  buildEmptyUsage,
+  stripAnsiControlSequences,
+} from "../cliShared";
 
 /** Prompt part union used for Codex prompt serialization. */
 type CliPromptPart =
@@ -110,10 +115,6 @@ type CodexServerNotification = {
   params?: Record<string, unknown>;
 };
 
-/** Default empty warnings payload. */
-const EMPTY_WARNINGS: SharedV3Warning[] = [];
-/** Default finish reason for completed turns. */
-const STOP_FINISH_REASON: LanguageModelV3FinishReason = { unified: "stop", raw: "stop" };
 /** Default sandbox mode for Codex. */
 const DEFAULT_SANDBOX_MODE: CodexSandboxMode = "read-only";
 /** Default reasoning effort for Codex. */
@@ -297,29 +298,6 @@ async function resolveCodexInput(prompt: LanguageModelV3Prompt): Promise<CodexIn
   return items;
 }
 
-/** Strip ANSI control sequences from CLI output. */
-function stripAnsiControlSequences(value: string): string {
-  // 逻辑：剔除常见 ANSI CSI 控制序列，避免 UI 看到乱码。
-  return value.replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, "");
-}
-
-/** Build an empty usage payload when token counts are unavailable. */
-function buildEmptyUsage(): LanguageModelV3Usage {
-  return {
-    inputTokens: {
-      total: undefined,
-      noCache: undefined,
-      cacheRead: undefined,
-      cacheWrite: undefined,
-    },
-    outputTokens: {
-      total: undefined,
-      text: undefined,
-      reasoning: undefined,
-    },
-  };
-}
-
 /** Map token usage notification into AI SDK usage. */
 function buildUsageFromTokenUsage(tokenUsage: Record<string, unknown> | null | undefined):
   LanguageModelV3Usage {
@@ -350,53 +328,6 @@ function buildUsageFromTokenUsage(tokenUsage: Record<string, unknown> | null | u
       reasoning: reasoningOutput,
     },
   };
-}
-
-/** Async queue for streaming notifications. */
-class AsyncQueue<T> {
-  /** Buffered items. */
-  private items: T[] = [];
-  /** Pending resolvers. */
-  private resolvers: Array<(value: IteratorResult<T>) => void> = [];
-  /** Closed flag. */
-  private closed = false;
-
-  /** Push a new item into the queue. */
-  push(item: T): void {
-    if (this.closed) return;
-    const resolver = this.resolvers.shift();
-    if (resolver) {
-      resolver({ value: item, done: false });
-      return;
-    }
-    this.items.push(item);
-  }
-
-  /** Close the queue and resolve pending waits. */
-  close(): void {
-    if (this.closed) return;
-    this.closed = true;
-    while (this.resolvers.length > 0) {
-      const resolver = this.resolvers.shift();
-      if (resolver) resolver({ value: undefined as T, done: true });
-    }
-  }
-
-  /** Create an async iterator for the queue. */
-  async *iterate(): AsyncGenerator<T> {
-    while (true) {
-      if (this.items.length > 0) {
-        yield this.items.shift() as T;
-        continue;
-      }
-      if (this.closed) return;
-      const item = await new Promise<IteratorResult<T>>((resolve) => {
-        this.resolvers.push(resolve);
-      });
-      if (item.done) return;
-      yield item.value;
-    }
-  }
 }
 
 /** Resolve or start a Codex thread for the current session. */

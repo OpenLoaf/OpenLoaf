@@ -12,6 +12,7 @@ import type { ProviderSettingEntry } from "@/modules/settings/settingsService";
 import { readBasicConf } from "@/modules/settings/openloafConfStore";
 import { getProviderDefinition } from "@/ai/models/modelRegistry";
 import { getCliToolStatus } from "@/ai/models/cli/cliToolService";
+import { CODEX_CLI_PROVIDER_ID, CLAUDE_CODE_CLI_PROVIDER_ID } from "@/ai/models/cli/cliShared";
 type CliProviderBinding = {
   /** Provider id in registry. */
   providerId: string;
@@ -21,8 +22,8 @@ type CliProviderBinding = {
 
 /** CLI provider bindings for registry injection. */
 const CLI_PROVIDER_BINDINGS: CliProviderBinding[] = [
-  { providerId: "codex-cli", configKey: "codex" },
-  { providerId: "claude-code-cli", configKey: "claudeCode" },
+  { providerId: CODEX_CLI_PROVIDER_ID, configKey: "codex" },
+  { providerId: CLAUDE_CODE_CLI_PROVIDER_ID, configKey: "claudeCode" },
 ];
 
 type CliModelSelection = {
@@ -34,8 +35,8 @@ type CliModelSelection = {
 
 /** Hardcoded fallback definitions for CLI providers (used when SaaS API has no entry). */
 const CLI_PROVIDER_FALLBACKS: Record<string, ProviderDefinition> = {
-  "claude-code-cli": {
-    id: "claude-code-cli",
+  [CLAUDE_CODE_CLI_PROVIDER_ID]: {
+    id: CLAUDE_CODE_CLI_PROVIDER_ID,
     label: "Claude Code",
     adapterId: "cli",
     models: [
@@ -44,8 +45,8 @@ const CLI_PROVIDER_FALLBACKS: Record<string, ProviderDefinition> = {
       { id: "claude-haiku-4-5", name: "Haiku 4.5", tags: ["code"] },
     ],
   } as ProviderDefinition,
-  "codex-cli": {
-    id: "codex-cli",
+  [CODEX_CLI_PROVIDER_ID]: {
+    id: CODEX_CLI_PROVIDER_ID,
     label: "Codex CLI",
     adapterId: "cli",
     models: [
@@ -169,14 +170,14 @@ export async function resolveCliChatModelId(
 
 /** Get available Codex CLI models from fallback definition. */
 export function getCodexCliModels() {
-  const definition = CLI_PROVIDER_FALLBACKS["codex-cli"];
+  const definition = CLI_PROVIDER_FALLBACKS[CODEX_CLI_PROVIDER_ID];
   if (!definition) return [];
   return Array.isArray(definition.models) ? definition.models : [];
 }
 
 /** Get available Claude Code CLI models from fallback definition. */
 export function getClaudeCodeCliModels() {
-  const definition = CLI_PROVIDER_FALLBACKS["claude-code-cli"];
+  const definition = CLI_PROVIDER_FALLBACKS[CLAUDE_CODE_CLI_PROVIDER_ID];
   if (!definition) return [];
   return Array.isArray(definition.models) ? definition.models : [];
 }

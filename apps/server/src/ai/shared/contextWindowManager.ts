@@ -46,8 +46,67 @@ function estimateTokenCount(text: string): number {
   return Math.ceil(raw * 1.15)
 }
 
+/**
+ * Estimate token cost for a single image part.
+ *
+ * Pricing logic (conservative, per provider docs):
+ *
+ * OpenAI vision models (gpt-4o, gpt-4-turbo, o1, o3, o4 …):
+ *   - low-detail: flat 85 tokens
+ *   - high-detail / unknown: 85 base + 170 tokens per 512×512 tile.
+ *     A typical "medium" image (≤2048px) uses ~4 tiles → ~765 tokens.
+ *     Without resolution info we conservatively assume 4 tiles.
+ *
+ * Anthropic Claude vision models:
+ *   - Approx 1500–1600 tokens for a standard image (per Anthropic docs).
+ *
+ * Google Gemini:
+ *   - Approx 258 tokens per image (fixed, per Gemini docs).
+ *
+ * Other / unknown models: fall back to 1000 tokens (previous default).
+ *
+ * Resolution hint: if `part.width` and `part.height` are available (some
+ * SDKs surface this), we compute tiles directly. Otherwise we use the
+ * per-model default tile assumption.
+ */
+function estimateImageTokens(part: any, modelId?: string): number {
+  const id = (modelId ?? '').toLowerCase()
+
+  // OpenAI / Azure OpenAI vision models
+  if (
+    id.includes('gpt-4o') ||
+    id.includes('gpt-4-turbo') ||
+    id.startsWith('o1') ||
+    id.startsWith('o3') ||
+    id.startsWith('o4')
+  ) {
+    if (part?.detail === 'low') return 85
+    // high-detail: 85 base + 170 per 512×512 tile
+    if (part?.width && part?.height) {
+      const tilesW = Math.ceil(part.width / 512)
+      const tilesH = Math.ceil(part.height / 512)
+      return 85 + tilesW * tilesH * 170
+    }
+    // No resolution info — assume 4 tiles (≤1024×1024 image)
+    return 85 + 4 * 170 // 765
+  }
+
+  // Anthropic Claude vision models
+  if (id.includes('claude')) {
+    return 1_500
+  }
+
+  // Google Gemini vision models
+  if (id.includes('gemini')) {
+    return 258
+  }
+
+  // Unknown model — conservative fallback (original default)
+  return 1_000
+}
+
 /** Estimate token count for a message array. */
-function estimateMessagesTokens(messages: any[]): number {
+function estimateMessagesTokens(messages: any[], modelId?: string): number {
   let total = 0
   for (const msg of messages) {
     // Handle both UIMessage (parts) and ModelMessage (content) formats
@@ -62,8 +121,8 @@ function estimateMessagesTokens(messages: any[]): number {
         } else if (part?.text) {
           total += estimateTokenCount(String(part.text))
         } else if (part?.type === 'image') {
-          // Image tokens vary by model; use a conservative fixed estimate
-          total += 1000
+          // Image tokens vary by model and resolution — see estimateImageTokens
+          total += estimateImageTokens(part, modelId)
         } else if (part?.type === 'file') {
           // File content — estimate from data length or use fixed fallback
           const data = part.data ?? part.content ?? ''
@@ -80,7 +139,7 @@ function estimateMessagesTokens(messages: any[]): number {
         if (typeof part === 'string') {
           total += estimateTokenCount(part)
         } else if (part?.type === 'image') {
-          total += 1000
+          total += estimateImageTokens(part, modelId)
         } else if (part?.type === 'file') {
           const data = part.data ?? part.content ?? ''
           total += typeof data === 'string'
@@ -124,6 +183,17 @@ const MODEL_CONTEXT_SIZES: Record<string, number> = {
   'deepseek-reasoner': 128_000,
   'qwen-plus': 128_000,
   'qwen-max': 128_000,
+  'gemini-2.5-pro': 1_048_576,
+  'gemini-2.5-flash': 1_048_576,
+  'gemini-2.0-flash': 1_048_576,
+  'gemini-1.5-pro': 1_048_576,
+  'gemini-1.5-flash': 1_048_576,
+  'claude-sonnet-4': 200_000,
+  'claude-opus-4': 200_000,
+  'o1': 200_000,
+  'o3': 200_000,
+  'o3-mini': 200_000,
+  'o4-mini': 200_000,
 }
 
 const DEFAULT_CONTEXT_SIZE = 128_000
@@ -322,10 +392,11 @@ export function trimToContextWindow(
   messages: any[],
   options?: { modelId?: string },
 ): any[] {
-  const contextSize = getModelContextSize(options?.modelId)
+  const modelId = options?.modelId
+  const contextSize = getModelContextSize(modelId)
   const threshold = Math.floor(contextSize * COMPRESSION_THRESHOLD)
   const hardLimit = computeHardLimit(contextSize)
-  const tokenCount = estimateMessagesTokens(messages)
+  const tokenCount = estimateMessagesTokens(messages, modelId)
 
   if (tokenCount <= threshold) return messages
 
@@ -336,7 +407,7 @@ export function trimToContextWindow(
 
   // Pass 1: Heuristic compression (summarize old messages)
   let result = compressMessages(messages)
-  let newTokenCount = estimateMessagesTokens(result)
+  let newTokenCount = estimateMessagesTokens(result, modelId)
 
   // Pass 2: Progressive drop — remove oldest non-summary messages until under hard limit
   if (newTokenCount > hardLimit && result.length > 2) {
@@ -347,7 +418,7 @@ export function trimToContextWindow(
     // Keep the first message (summary) and progressively remove from index 1
     while (newTokenCount > hardLimit && result.length > 2) {
       result.splice(1, 1)
-      newTokenCount = estimateMessagesTokens(result)
+      newTokenCount = estimateMessagesTokens(result, modelId)
     }
   }
 
@@ -361,14 +432,14 @@ export function trimToContextWindow(
     let keptTokens = 0
     // Walk backwards, adding messages until we'd exceed the limit
     for (let i = result.length - 1; i >= 0; i--) {
-      const msgTokens = estimateMessagesTokens([result[i]])
+      const msgTokens = estimateMessagesTokens([result[i]], modelId)
       if (keptTokens + msgTokens > hardLimit) break
       kept.unshift(result[i])
       keptTokens += msgTokens
     }
     // Always keep at least the last message
     result = kept.length > 0 ? kept : [result[result.length - 1]]
-    newTokenCount = estimateMessagesTokens(result)
+    newTokenCount = estimateMessagesTokens(result, modelId)
   }
 
   logger.info(

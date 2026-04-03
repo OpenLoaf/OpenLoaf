@@ -62,6 +62,7 @@
     "test:context-window": "node --enable-source-maps --import tsx/esm --import ./scripts/registerMdTextLoader.mjs src/ai/__tests__/contextWindowManager.test.ts",
     "test:microcompact": "node --enable-source-maps --import tsx/esm --import ./scripts/registerMdTextLoader.mjs src/ai/__tests__/microCompact.test.ts",
     "test:context-collapse": "node --enable-source-maps --import tsx/esm --import ./scripts/registerMdTextLoader.mjs src/ai/__tests__/contextCollapse.test.ts",
+    "test:tech-debt": "node --enable-source-maps --import tsx/esm --import ./scripts/registerMdTextLoader.mjs src/ai/__tests__/tech-debt-context.test.ts",
     "test:tool-interceptor": "node --enable-source-maps --import tsx/esm --import ./scripts/registerMdTextLoader.mjs src/ai/tools/__tests__/toolResultInterceptor.test.ts",
     "check:tool-coverage": "node scripts/check-tool-coverage.mjs",
     "sync:email-fixture": "node --env-file=.env scripts/sync-email-fixture.mjs",

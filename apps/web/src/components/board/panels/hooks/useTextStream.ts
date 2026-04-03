@@ -16,6 +16,7 @@
  */
 
 import { useCallback, useRef, useState } from 'react'
+import { CLIENT_HEADERS } from '@/lib/client-headers'
 import { resolveServerUrl } from '@/utils/server-url'
 import { getAccessToken } from '@/lib/saas-auth'
 
@@ -80,6 +81,7 @@ export function useTextStream(): TextStreamState {
         const token = await getAccessToken()
         const headers: Record<string, string> = {
           'Content-Type': 'application/json',
+          ...CLIENT_HEADERS,
         }
         if (token) headers.Authorization = `Bearer ${token}`
 

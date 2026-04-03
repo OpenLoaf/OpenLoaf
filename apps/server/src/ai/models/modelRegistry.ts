@@ -15,6 +15,9 @@ import type {
 } from "@openloaf/api/common";
 import { getSaasClient } from "@/modules/saas/client";
 
+/** Cache TTL: 5 minutes. */
+const CACHE_TTL_MS = 300_000;
+
 type RegistryCache = {
   /** Provider definitions. */
   providers: ProviderDefinition[];
@@ -24,6 +27,8 @@ type RegistryCache = {
   modelByKey: Map<string, ModelDefinition>;
   /** Lookup map for provider definitions. */
   providerById: Map<string, ProviderDefinition>;
+  /** Timestamp when this cache entry was created. */
+  cachedAt: number;
 };
 
 let cachedRegistry: RegistryCache | null = null;
@@ -53,7 +58,7 @@ function toProviderDefinition(
 }
 
 /** Build registry cache from provider definitions. */
-function buildCache(providers: ProviderDefinition[]): RegistryCache {
+function buildCache(providers: ProviderDefinition[], cachedAt = Date.now()): RegistryCache {
   const normalizedProviders = providers.map((provider) => ({
     ...provider,
     models: Array.isArray(provider.models) ? provider.models : [],
@@ -74,6 +79,7 @@ function buildCache(providers: ProviderDefinition[]): RegistryCache {
     providerById: new Map(
       normalizedProviders.map((provider) => [provider.id, provider]),
     ),
+    cachedAt,
   };
 }
 
@@ -99,7 +105,13 @@ async function fetchRegistry(): Promise<RegistryCache> {
 
 /** Load registry with deduplication — concurrent callers share one fetch. */
 async function loadRegistryCache(): Promise<RegistryCache> {
-  if (cachedRegistry) return cachedRegistry;
+  if (cachedRegistry && Date.now() - cachedRegistry.cachedAt <= CACHE_TTL_MS) {
+    return cachedRegistry;
+  }
+  // Stale or missing — drop the old entry and re-fetch.
+  if (cachedRegistry) {
+    cachedRegistry = null;
+  }
   if (!fetchPromise) {
     fetchPromise = fetchRegistry().then((registry) => {
       cachedRegistry = registry;
@@ -108,6 +120,12 @@ async function loadRegistryCache(): Promise<RegistryCache> {
     });
   }
   return fetchPromise;
+}
+
+/** Manually invalidate the registry cache so the next read triggers a fresh fetch. */
+export function invalidateCache(): void {
+  cachedRegistry = null;
+  fetchPromise = null;
 }
 
 /** Resolve provider definition by id. */

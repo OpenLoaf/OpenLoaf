@@ -15,6 +15,7 @@ import { CopilotPlugin } from '@platejs/ai/react';
 import { serializeMd, stripMarkdown } from '@platejs/markdown';
 
 import { GhostText } from '@openloaf/ui/ghost-text';
+import { CLIENT_HEADERS } from '@/lib/client-headers';
 import { resolveServerUrl } from '@/utils/server-url';
 
 import { MarkdownKit } from './markdown-kit';
@@ -30,7 +31,13 @@ export const CopilotKit = [
             ? `${resolveServerUrl()}${input}`
             : input
 
-          const response = await fetch(url, init)
+          const initHeaders = init?.headers instanceof Headers
+            ? Object.fromEntries(init.headers.entries())
+            : (init?.headers as Record<string, string> | undefined) ?? {}
+          const response = await fetch(url, {
+            ...init,
+            headers: { ...initHeaders, ...CLIENT_HEADERS },
+          })
 
           if (!response.ok) {
             let msg = 'AI 补全请求失败'

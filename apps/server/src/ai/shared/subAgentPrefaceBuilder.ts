@@ -32,8 +32,7 @@ import {
 import { loadSkillSummaries } from '@/ai/services/skillsLoader'
 import { loadAgentSummaries } from '@/ai/services/agentConfigService'
 import { resolvePythonInstallInfo } from '@/ai/models/cli/pythonTool'
-import { getAuthSessionSnapshot } from '@/modules/auth/tokenStore'
-import { getSaasAccessToken } from '@/ai/shared/context/requestContext'
+import { resolveAccountSnapshot } from '@/ai/shared/prefaceBuilder'
 import { readBasicConf } from '@/modules/settings/openloafConfStore'
 
 import {
@@ -42,8 +41,7 @@ import {
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { logger } from '@/common/logger'
-
-const UNKNOWN_VALUE = 'unknown'
+import { UNKNOWN_VALUE } from '@/ai/shared/constants'
 const ROOT_RULES_FILE = 'AGENTS.md'
 
 /** 子 agent 可用 agent 摘要（用于 preface 注入）。 */
@@ -135,39 +133,8 @@ async function resolveSubAgentPromptContext(input: {
     }
   }
 
-  // account
-  let account = { id: '未登录', name: '未登录', email: '未登录' }
-  try {
-    const snapshot = getAuthSessionSnapshot()
-    if (snapshot.loggedIn && snapshot.user) {
-      account = {
-        id: snapshot.user.sub ?? UNKNOWN_VALUE,
-        name: snapshot.user.name ?? UNKNOWN_VALUE,
-        email: snapshot.user.email ?? UNKNOWN_VALUE,
-      }
-    } else {
-      // 回退：从当前请求的 SaaS access token 解析用户信息。
-      const saasToken = getSaasAccessToken()
-      if (saasToken) {
-        const parts = saasToken.split('.')
-        if (parts.length >= 2 && parts[1]) {
-          const raw = parts[1].replace(/-/g, '+').replace(/_/g, '/')
-          const padded = raw.padEnd(Math.ceil(raw.length / 4) * 4, '=')
-          const payload = JSON.parse(Buffer.from(padded, 'base64').toString('utf-8')) as Record<string, unknown>
-          const sub = typeof payload.sub === 'string' ? payload.sub : undefined
-          const name = typeof payload.name === 'string' ? payload.name : undefined
-          const email = typeof payload.email === 'string' ? payload.email : undefined
-          if (sub || name || email) {
-            account = {
-              id: sub ?? UNKNOWN_VALUE,
-              name: name ?? UNKNOWN_VALUE,
-              email: email ?? UNKNOWN_VALUE,
-            }
-          }
-        }
-      }
-    }
-  } catch { /* fallback */ }
+  // account — 复用 prefaceBuilder 的统一实现
+  const account = resolveAccountSnapshot()
 
   // language
   let responseLanguage = UNKNOWN_VALUE
@@ -242,7 +209,7 @@ export async function buildSubAgentPrefaceText(input: {
   sections.push(buildLanguageSection(context))
 
   // Python 运行时（可选）
-  if (capabilities.needsPythonRuntime) {
+  if (capabilities.needsShellRuntime) {
     sections.push(buildPythonRuntimeSection(context))
   }
 

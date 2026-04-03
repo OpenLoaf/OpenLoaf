@@ -19,6 +19,7 @@ import { isElectronEnv } from "@/utils/is-electron-env";
 import { getClientTimeZone } from "@/utils/time-zone";
 import { getAccessToken } from "@/lib/saas-auth";
 import { getDesktopVersion, getWebVersion, getServerVersion } from "@/lib/app-version";
+import { CLIENT_HEADERS } from "@/lib/client-headers";
 
 function stripTotalUsageFromMetadata(message: any) {
   if (!message || typeof message !== "object") return message;
@@ -50,10 +51,10 @@ export function createChatTransport({
       const accessToken = await getAccessToken();
       const nextHeaders =
         accessToken && headers
-          ? { ...headers, Authorization: `Bearer ${accessToken}` }
+          ? { ...headers, ...CLIENT_HEADERS, Authorization: `Bearer ${accessToken}` }
           : accessToken
-            ? { Authorization: `Bearer ${accessToken}` }
-            : headers;
+            ? { ...CLIENT_HEADERS, Authorization: `Bearer ${accessToken}` }
+            : { ...CLIENT_HEADERS, ...headers };
       const baseParams = { ...(paramsRef.current ?? {}) };
       const clientId = getWebClientId();
       const [webVersion, desktopVersion, serverVersion] = await Promise.all([

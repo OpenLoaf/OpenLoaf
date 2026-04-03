@@ -8,13 +8,11 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import { promises as fs } from 'node:fs'
-import fsSync from 'node:fs'
 import path from 'node:path'
 import { resolveOpenLoafPath, resolveScopedOpenLoafPath } from '@openloaf/config'
 import { getResolvedTempStorageDir } from '@openloaf/api/services/appConfigService'
 import {
   lookupBoardRecord,
-  resolveBoardAbsPath,
   resolveBoardScopedRoot,
   resolveBoardRootPath,
 } from '@openloaf/api/common/boardPaths'
@@ -349,8 +347,11 @@ async function appendJsonlLine(sessionId: string, message: StoredMessage): Promi
 
 async function rewriteJsonl(sessionId: string, messages: StoredMessage[]): Promise<void> {
   await ensureSessionDir(sessionId)
+  const filePath = await messagesPath(sessionId)
+  const tmpPath = `${filePath}.tmp`
   const content = messages.map((m) => `${JSON.stringify(m)}\n`).join('')
-  await fs.writeFile(await messagesPath(sessionId), content, 'utf8')
+  await fs.writeFile(tmpPath, content, 'utf8')
+  await fs.rename(tmpPath, filePath)
 }
 
 /** 原地替换 JSONL 中的消息（按 id 匹配），若不存在则追加。 */
@@ -537,7 +538,6 @@ export function buildSiblingNavForChain(
   chainIds: string[],
 ): Record<string, SiblingNavEntry> {
   const nav: Record<string, SiblingNavEntry> = {}
-  const chainIdSet = new Set(chainIds)
 
   for (const msgId of chainIds) {
     const msg = tree.byId.get(msgId)
@@ -730,10 +730,6 @@ function resolveLatestRenderableLeafInSubtree(
 ): string | null {
   if (!tree.byId.has(startId)) return null
 
-  // DFS 从最右子节点开始，找到第一个 renderable 叶子
-  const stack: string[] = [startId]
-  let bestLeaf: string | null = null
-
   // 逻辑：递归选最后一个子节点直到叶子
   let currentId = startId
   while (true) {
@@ -917,7 +913,9 @@ export async function writeSessionJson(
       // 文件不存在或解析失败，使用空对象
     }
     const merged = { ...existing, ...data, id: sessionId }
-    await fs.writeFile(filePath, JSON.stringify(merged, null, 2), 'utf8')
+    const tmpPath = `${filePath}.tmp`
+    await fs.writeFile(tmpPath, JSON.stringify(merged, null, 2), 'utf8')
+    await fs.rename(tmpPath, filePath)
   })
 }
 

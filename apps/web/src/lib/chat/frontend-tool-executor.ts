@@ -10,6 +10,7 @@
 "use client";
 
 import { useChatRuntime } from "@/hooks/use-chat-runtime";
+import { CLIENT_HEADERS } from "@/lib/client-headers";
 import { resolveServerUrl } from "@/utils/server-url";
 import { isElectronEnv } from "@/utils/is-electron-env";
 import { queryClient } from "@/utils/trpc";
@@ -109,7 +110,7 @@ async function postFrontendToolAck(payload: FrontendToolAckPayload): Promise<voi
     try {
       const response = await fetch(resolveAckEndpoint(), {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: { "content-type": "application/json", ...CLIENT_HEADERS },
         credentials: "include",
         body: JSON.stringify(payload),
       });

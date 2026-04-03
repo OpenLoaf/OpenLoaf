@@ -22,6 +22,7 @@ import { useEditorRef, usePluginOption } from 'platejs/react';
 
 import { aiChatPlugin } from '@/components/editor/plugins/ai-kit';
 import { useBasicConfig } from '@/hooks/use-basic-config';
+import { CLIENT_HEADERS } from '@/lib/client-headers';
 import { resolveServerUrl } from '@/utils/server-url';
 
 import { discussionPlugin } from './plugins/discussion-kit';
@@ -100,8 +101,12 @@ export const useChat = () => {
           ...(normalizedChatModelSource ? { chatModelSource: normalizedChatModelSource } : {}),
         };
 
+        const initHeaders = init?.headers instanceof Headers
+          ? Object.fromEntries(init.headers.entries())
+          : (init?.headers as Record<string, string> | undefined) ?? {}
         const response = await fetch(input, {
           ...init,
+          headers: { ...initHeaders, ...CLIENT_HEADERS },
           body: JSON.stringify(body),
         });
 

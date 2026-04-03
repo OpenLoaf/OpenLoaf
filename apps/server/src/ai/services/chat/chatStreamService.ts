@@ -22,6 +22,7 @@ import { resolveChatModel } from "@/ai/models/resolveChatModel";
 import { resolveCliChatModelId } from "@/ai/models/cli/cliProviderEntry";
 import { resolveAgentModelIdsFromConfig } from "@/ai/shared/resolveAgentModelFromConfig";
 import { readAgentJson, resolveAgentDir } from "@/ai/shared/defaultAgentResolver";
+import { extractTextFromParts } from "@/ai/services/chat/chatStreamUtils";
 import {
   setChatModel,
   setAbortSignal,
@@ -195,16 +196,6 @@ function resolveAgentSkills(input: {
     if (Array.isArray(descriptor.skills)) return descriptor.skills
   }
   return []
-}
-
-/** Extract plain text from UI message parts. */
-function extractTextFromParts(parts: unknown[]): string {
-  const items = Array.isArray(parts) ? (parts as any[]) : [];
-  return items
-    .filter((part) => part?.type === "text" && typeof part.text === "string")
-    .map((part) => String(part.text))
-    .join("\n")
-    .trim();
 }
 
 /** Check whether the message is a compact command request. */

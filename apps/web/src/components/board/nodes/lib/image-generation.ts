@@ -11,6 +11,7 @@ import type { ModelTag } from "@openloaf/api/common";
 import type { AiModel } from "@openloaf-saas/sdk";
 
 import type { ProviderModelOption } from "@/lib/provider-models";
+import { CLIENT_HEADERS } from "@/lib/client-headers";
 import { resolveServerUrl } from "@/utils/server-url";
 import { getAccessToken } from "@/lib/saas-auth";
 import {
@@ -49,6 +50,7 @@ export async function runChatSseRequest({ payload, signal, onEvent }: ChatSseReq
   const token = await getAccessToken();
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
+    ...CLIENT_HEADERS,
   };
   if (token) {
     headers.Authorization = `Bearer ${token}`;

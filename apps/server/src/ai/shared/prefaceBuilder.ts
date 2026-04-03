@@ -34,8 +34,7 @@ import { mcpClientManager } from "@/ai/services/mcpClientManager";
 // import { collectAvailableAgents, buildSubAgentListSection } from "@/ai/shared/subAgentPrefaceBuilder";
 import { getEnabledMcpServers } from "@/services/mcpConfigService";
 
-/** Unknown value fallback. */
-const UNKNOWN_VALUE = "unknown";
+import { UNKNOWN_VALUE } from '@/ai/shared/constants'
 /** Project metadata folder name. */
 const PROJECT_META_DIR = ".openloaf";
 /** Project metadata file name. */
@@ -54,7 +53,7 @@ type ProjectSnapshot = {
   rules: string;
 };
 
-type AccountSnapshot = {
+export type AccountSnapshot = {
   /** Account id. */
   id: string;
   /** Account display name. */
@@ -199,7 +198,7 @@ function resolveProjectSnapshot(projectId?: string): ProjectSnapshot {
 }
 
 /** Decode JWT payload without signature verification. */
-function decodeJwtPayloadUnsafe(token: string): Record<string, unknown> | null {
+export function decodeJwtPayloadUnsafe(token: string): Record<string, unknown> | null {
   const parts = token.split(".");
   if (parts.length < 2 || !parts[1]) return null;
   try {
@@ -212,7 +211,7 @@ function decodeJwtPayloadUnsafe(token: string): Record<string, unknown> | null {
 }
 
 /** Resolve account snapshot for prompt injection. */
-function resolveAccountSnapshot(): AccountSnapshot {
+export function resolveAccountSnapshot(): AccountSnapshot {
   // 优先从 tokenStore 内存获取（适用于服务端直接持有 token 的场景）。
   const snapshot = getAuthSessionSnapshot();
   if (snapshot.loggedIn && snapshot.user) {

@@ -17,6 +17,7 @@ import { resolveServerUrl } from '@/utils/server-url'
 import { isElectronEnv } from '@/utils/is-electron-env'
 import { getClientTimeZone } from '@/utils/time-zone'
 import { getAccessToken } from '@/lib/saas-auth'
+import { CLIENT_HEADERS } from '@/lib/client-headers'
 
 /** 最大重连次数。 */
 const MAX_RECONNECT_ATTEMPTS = 5
@@ -65,6 +66,7 @@ export function createChatTransportAsync({
       const accessToken = await getAccessToken()
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
+        ...CLIENT_HEADERS,
         ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         ...(extraHeaders instanceof Headers
           ? Object.fromEntries(extraHeaders.entries())
@@ -140,6 +142,7 @@ export function createChatTransportAsync({
       const asyncBase = getAsyncBase()
       const accessToken = await getAccessToken()
       const headers: Record<string, string> = {
+        ...CLIENT_HEADERS,
         ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         ...(extraHeaders instanceof Headers
           ? Object.fromEntries(extraHeaders.entries())
@@ -356,6 +359,7 @@ export async function abortAsyncStream(sessionId: string): Promise<void> {
       credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
+        ...CLIENT_HEADERS,
         ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
       },
       body: JSON.stringify({ sessionId }),

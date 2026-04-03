@@ -12,7 +12,7 @@ import { storeSecret } from "@/ai/tools/secretStore";
 import { resolvePendingCliQuestion } from "@/ai/models/cli/claudeCode/pendingCliQuestions";
 
 /** Deprecated message for local AI media routes. */
-const DEPRECATED_MESSAGE = "已迁移到 SaaS 媒体接口，请使用 /ai/image /ai/vedio";
+const DEPRECATED_MESSAGE = "已迁移到 SaaS 媒体接口，请使用 /ai/image /ai/video";
 
 /** Throw a deprecated error for legacy routes. */
 function throwDeprecated(): never {
