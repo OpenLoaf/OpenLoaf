@@ -252,9 +252,9 @@ function normalizeRole(role: unknown): 'user' | 'assistant' | 'system' | 'subage
     return role
   }
   if (role != null && role !== '') {
-    logger.error({ role }, '[messageStore] unknown role, falling back to "system"')
+    logger.warn({ role }, '[messageStore] unknown role, falling back to "user"')
   }
-  return 'system'
+  return 'user'
 }
 
 /** Filter message parts for persistence. */
@@ -460,7 +460,7 @@ async function ensureSession(
 ) {
   const projectId = normalizeOptionalId(input.projectId)
   const boardId = normalizeOptionalId(input.boardId)
-  const session = await prisma.chatSession.upsert({
+  await prisma.chatSession.upsert({
     where: { id: sessionId },
     update: {
       ...(projectId ? { projectId } : {}),
@@ -474,30 +474,33 @@ async function ensureSession(
     },
   })
 
-  // 逻辑：session.json 双写，直接使用 upsert 返回值
+  // 逻辑：session.json 双写，从数据库读取完整字段写入
   try {
-    await writeSessionJson(sessionId, {
-      id: session.id,
-      title: session.title,
-      isUserRename: session.isUserRename,
-      isPin: session.isPin,
-      errorMessage: session.errorMessage,
-      sessionPreface: session.sessionPreface,
-      projectId: session.projectId,
-      boardId: session.boardId,
-      cliId: session.cliId,
-      createdAt: session.createdAt.toISOString(),
-      updatedAt: session.updatedAt.toISOString(),
-      deletedAt: session.deletedAt?.toISOString() ?? null,
-      messageCount: session.messageCount,
-    })
+    const full = await prisma.chatSession.findUnique({ where: { id: sessionId } })
+    if (full) {
+      await writeSessionJson(sessionId, {
+        id: full.id,
+        title: full.title,
+        isUserRename: full.isUserRename,
+        isPin: full.isPin,
+        errorMessage: full.errorMessage,
+        sessionPreface: full.sessionPreface,
+        projectId: full.projectId,
+        boardId: full.boardId,
+        cliId: full.cliId,
+        createdAt: full.createdAt.toISOString(),
+        updatedAt: full.updatedAt.toISOString(),
+        deletedAt: full.deletedAt?.toISOString() ?? null,
+        messageCount: full.messageCount,
+      })
+    }
   } catch {
     // 非关键操作，忽略错误
   }
 }
 
 /** Minimal message shape for persistence. */
-export type UIMessageLike = {
+type UIMessageLike = {
   id: string
   role: 'system' | 'user' | 'assistant' | 'subagent' | 'task-report'
   parts?: unknown[]
