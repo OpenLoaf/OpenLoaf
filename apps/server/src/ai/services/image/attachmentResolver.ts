@@ -375,6 +375,25 @@ export async function resolveChatAttachmentRoot(input: {
 
 /** Scoped project path matcher like [projectId]/path/to/file. */
 const PROJECT_SCOPE_REGEX = /^\[([^\]]+)\]\/(.+)$/;
+
+/**
+ * Expand the `${CURRENT_CHAT_DIR}` template variable in a preview path.
+ * Unlike AI-tool path expansion, the HTTP preview route has no AsyncLocalStorage
+ * context — the sessionId arrives as a query param and must be passed in.
+ */
+async function expandChatDirTemplate(
+  inputPath: string,
+  sessionId: string | undefined,
+  _projectId: string | undefined,
+): Promise<string> {
+  if (!inputPath.includes("${CURRENT_CHAT_DIR}")) return inputPath;
+  if (!sessionId) return inputPath; // fall through; downstream resolver will error clearly
+  const assetDir = await resolveSessionDir(sessionId);
+  return inputPath.replace(
+    /\$\{CURRENT_CHAT_DIR\}/g,
+    path.resolve(assetDir, "asset"),
+  );
+}
 /** Scheme matcher for absolute URLs. */
 const SCHEME_REGEX = /^[a-zA-Z][a-zA-Z0-9+.-]*:/;
 
@@ -383,7 +402,7 @@ function parseScopedRelativePath(raw: string): { projectId?: string; relativePat
   const trimmed = raw.trim();
   if (!trimmed) return null;
   let normalized: string;
-  if (trimmed.startsWith("@{") && trimmed.endsWith("}")) {
+  if (trimmed.startsWith("@[") && trimmed.endsWith("]")) {
     normalized = trimmed.slice(2, -1);
   } else if (trimmed.startsWith("@")) {
     normalized = trimmed.slice(1);
@@ -443,19 +462,6 @@ async function resolveProjectFilePathWithRoot(input: {
       const absPath = resolveBoardAbsPath(rootPath, board.folderUri, subPath);
       return { absPath, relativePath, rootPath };
     }
-  }
-
-  // Session-scoped 路径：[chat_xxx]/asset/file → 通过 resolveSessionDir 解析物理目录
-  if (parsed.projectId && /^chat_/.test(parsed.projectId)) {
-    const sessionDir = await resolveSessionDir(parsed.projectId);
-    const subPath = normalizeRelativePath(parsed.relativePath);
-    if (!subPath || hasParentTraversal(subPath)) return null;
-    const absPath = path.resolve(sessionDir, subPath);
-    const sessionDirResolved = path.resolve(sessionDir);
-    if (absPath !== sessionDirResolved && !absPath.startsWith(sessionDirResolved + path.sep)) {
-      return null;
-    }
-    return { absPath, relativePath: `[${parsed.projectId}]/${subPath}`, rootPath: sessionDir };
   }
 
   // 兼容旧格式：.openloaf/chat-history/xxx 和 chat-history/xxx
@@ -727,7 +733,7 @@ export async function saveChatImageAttachment(input: {
   }
 
   return {
-    url: `[${input.sessionId}]/asset/${fileName}`,
+    url: `\${CURRENT_CHAT_DIR}/${fileName}`,
     mediaType: compressed.mediaType,
   };
 }
@@ -781,7 +787,7 @@ export async function saveChatImageAttachmentFromPath(input: {
   }
 
   return {
-    url: `[${input.sessionId}]/asset/${fileName}`,
+    url: `\${CURRENT_CHAT_DIR}/${fileName}`,
     mediaType: compressed.mediaType,
   };
 }
@@ -820,6 +826,8 @@ export async function getFilePreview(input: {
   path: string;
   /** Project id for resolving path. */
   projectId?: string;
+  /** Session id (required when path uses ${CURRENT_CHAT_DIR} template). */
+  sessionId?: string;
   /** Whether to include metadata. */
   includeMetadata?: boolean;
   /** Target byte size for preview compression. */
@@ -827,14 +835,17 @@ export async function getFilePreview(input: {
   /** Pre-resolved absolute path — skips internal path resolution when provided. */
   resolved?: { absPath: string; rootPath: string; relativePath: string };
 }): Promise<FilePreviewResult | null> {
+  // Expand ${CURRENT_CHAT_DIR} using the provided sessionId (no requestContext
+  // inside HTTP preview route, so sessionId must come from the query string).
+  const pathInput = await expandChatDirTemplate(input.path, input.sessionId, input.projectId);
   // 若调用方已解析路径，直接使用；否则走内部解析。
   let resolved = input.resolved ?? null;
   if (!resolved) {
-    const absoluteResolved = resolveAbsoluteOpenLoafPath(input.path);
+    const absoluteResolved = resolveAbsoluteOpenLoafPath(pathInput);
     resolved = absoluteResolved
       ? { absPath: absoluteResolved.absPath, rootPath: absoluteResolved.rootPath, relativePath: path.relative(absoluteResolved.rootPath, absoluteResolved.absPath) }
       : await resolveProjectFilePathWithRoot({
-          path: input.path,
+          path: pathInput,
           projectId: input.projectId,
         });
   }

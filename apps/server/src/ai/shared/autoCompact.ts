@@ -62,7 +62,7 @@ const COMPACT_SYSTEM_PROMPT = [
   '- 保留：明确需求、约束、决策、关键事实',
   '- 保留：重要数据、参数、文件路径、命令、接口信息',
   '- 标注：未完成事项与风险',
-  '- 保留：如果对话中存在 UpdatePlan 工具调用或计划（plan），必须在摘要中完整保留当前计划的步骤列表和每步状态（pending/in_progress/completed/failed）',
+  '- 保留：如果对话中存在 SubmitPlan 工具调用或计划（plan），必须在摘要中完整保留当前计划的步骤列表和每步状态（pending/in_progress/completed/failed）',
   '- 格式：精简要点，不展开推理过程',
   '',
   '输出格式：',

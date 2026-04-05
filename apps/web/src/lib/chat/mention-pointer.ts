@@ -30,6 +30,7 @@ type ProjectTreeNode = {
 type MentionPointerDownOptions = {
   activeTabId?: string | null;
   projectId?: string;
+  sessionId?: string;
   projects: ProjectTreeNode[];
   pushStackItem: (tabId: string, item: any) => void;
 };
@@ -93,23 +94,26 @@ async function fetchMentionEntry(input: {
   }
 }
 
-/** Strip @{...} wrapper from a mention value. */
+/** Strip @[...] wrapper from a mention value. */
 function stripMentionWrapper(value: string): string {
   const trimmed = value.trim();
-  if (trimmed.startsWith("@{") && trimmed.endsWith("}")) return trimmed.slice(2, -1);
+  if (trimmed.startsWith("@[") && trimmed.endsWith("]")) return trimmed.slice(2, -1);
   if (trimmed.startsWith("@")) return trimmed.slice(1);
   return trimmed;
 }
 
-/** Session-scoped path regex: [chat_xxx]/asset/file.pdf */
-const SESSION_SCOPE_REGEX = /^\[(chat_[^\]]+)\]\/(.+)$/;
+/** Template var prefix for session-scoped paths: ${CURRENT_CHAT_DIR}/subpath */
+const CHAT_DIR_PREFIX = "${CURRENT_CHAT_DIR}/";
 
-/** Extract session-scoped path: [sessionId]/subpath, or null. */
-function extractSessionScopedPath(value: string): { sessionId: string; subPath: string } | null {
+/** Extract session-scoped path from ${CURRENT_CHAT_DIR}/subpath, or null. */
+function extractSessionScopedPath(
+  value: string,
+  sessionId: string | undefined,
+): { sessionId: string; subPath: string } | null {
+  if (!sessionId) return null;
   const normalized = stripMentionWrapper(value).replace(/:\d+-\d+$/, "");
-  const match = normalized.match(SESSION_SCOPE_REGEX);
-  if (!match) return null;
-  return { sessionId: match[1]!, subPath: match[2]! };
+  if (!normalized.startsWith(CHAT_DIR_PREFIX)) return null;
+  return { sessionId, subPath: normalized.slice(CHAT_DIR_PREFIX.length) };
 }
 
 /** Parse a mention value into a project file reference. */
@@ -119,8 +123,8 @@ function parseMentionFileRef(value: string, defaultProjectId?: string): MentionF
   const match = normalized.match(/^(.*?)(?::(\d+)-(\d+))?$/);
   const baseValue = match?.[1] ?? normalized;
   if (baseValue.startsWith("/")) return null;
-  // [sessionId] 格式由 extractSessionScopedPath 处理，不走项目文件解析。
-  if (SESSION_SCOPE_REGEX.test(baseValue)) return null;
+  // ${CURRENT_CHAT_DIR}/ 格式由 extractSessionScopedPath 处理，不走项目文件解析。
+  if (baseValue.startsWith(CHAT_DIR_PREFIX)) return null;
   const parsed = parseScopedProjectPath(baseValue);
   const projectId = parsed?.projectId ?? defaultProjectId;
   if (!projectId) return null;
@@ -139,7 +143,7 @@ export function handleChatMentionPointerDown(
   event: PointerEvent<HTMLElement>,
   options: MentionPointerDownOptions
 ) {
-  const { activeTabId, projectId: defaultProjectId, projects, pushStackItem } =
+  const { activeTabId, projectId: defaultProjectId, sessionId: defaultSessionId, projects, pushStackItem } =
     options;
   if (!activeTabId) return;
   const target = event.target as HTMLElement | null;
@@ -153,14 +157,14 @@ export function handleChatMentionPointerDown(
     mentionEl.getAttribute("data-slate-value") ||
     "";
 
-  // Session-scoped 路径：[chat_xxx]/asset/file → 直接传给 preview endpoint
-  const sessionScoped = extractSessionScopedPath(value);
+  // Session-scoped 路径：${CURRENT_CHAT_DIR}/file → 传给 preview endpoint（带 sessionId）
+  const sessionScoped = extractSessionScopedPath(value, defaultSessionId);
   if (sessionScoped) {
     event.preventDefault();
     event.stopPropagation();
     const fileName = sessionScoped.subPath.split("/").pop() ?? "file";
     const ext = fileName.includes(".") ? fileName.split(".").pop()?.toLowerCase() : undefined;
-    const sessionPath = `[${sessionScoped.sessionId}]/${sessionScoped.subPath}`;
+    const sessionPath = `\${CURRENT_CHAT_DIR}/${sessionScoped.subPath}`;
     openFilePreview({
       entry: {
         uri: sessionPath,
@@ -178,7 +182,7 @@ export function handleChatMentionPointerDown(
 
   // 绝对路径：直接用 file:// URI 打开，不走项目解析。
   if (!fileRef) {
-    const normalized = value.startsWith("@{") && value.endsWith("}")
+    const normalized = value.startsWith("@[") && value.endsWith("]")
       ? value.slice(2, -1)
       : value.startsWith("@") ? value.slice(1) : value;
     const baseValue = normalized.replace(/:\d+-\d+$/, "");

@@ -18,7 +18,6 @@ import {
   setRequestContext,
   setSaasAccessToken,
   setMediaModelIds,
-  setPlanUpdate,
 } from "@/ai/shared/context/requestContext";
 import { loadMessageChain, loadMessageChainByIds } from "@/ai/services/chat/repositories/messageChainLoader";
 import {
@@ -461,7 +460,6 @@ function stripPendingToolParts(messages: UIMessage[]): UIMessage[] {
         if (payload) {
           const toolNameRaw = (part as any).toolName ?? type?.replace?.("tool-", "") ?? "";
           const isSubmitPlan = toolNameRaw === "SubmitPlan";
-          const isUpdatePlan = toolNameRaw === "UpdatePlan";
           let output: unknown = payload;
 
           if (isSubmitPlan) {
@@ -474,7 +472,7 @@ function stripPendingToolParts(messages: UIMessage[]): UIMessage[] {
               output = {
                 ok: true,
                 data: { approved: true },
-                message: `用户已批准计划（${planFilePathInput}）。请按步骤执行。\n\nPlan approved (${planFilePathInput}). Start executing.`,
+                message: `Plan approved (${planFilePathInput}). Start executing.`,
               };
             } else if (payload.approved === false) {
               const feedback = typeof payload.feedback === "string" ? payload.feedback : "";
@@ -482,37 +480,7 @@ function stripPendingToolParts(messages: UIMessage[]): UIMessage[] {
                 ok: true,
                 data: { approved: false },
                 feedback,
-                message: `用户对计划提出修改意见。请用 Read 读取 "${planFilePathInput}"，用 Edit 修改后再次调用 SubmitPlan(planFilePath="${planFilePathInput}")。\n${feedback ? `\n用户反馈：${feedback}` : ""}\n\nUser requested changes. Edit "${planFilePathInput}" and call SubmitPlan(planFilePath="${planFilePathInput}") again.\n${feedback ? `\nFeedback: ${feedback}` : ""}`,
-              };
-            }
-          } else if (isUpdatePlan) {
-            // Legacy UpdatePlan: plan content in tool args (backward compat).
-            const planInput = (part as any).input;
-            if (payload.approved === true) {
-              output = {
-                ok: true,
-                data: { updated: true },
-                message: "用户已批准此计划。请立即按步骤执行。\n\nPlan approved. Start executing now.",
-              };
-              if (planInput && ctx) {
-                const rawPlan = Array.isArray(planInput.plan) ? planInput.plan : [];
-                const steps = rawPlan
-                  .map((item: any) => (typeof item === "string" ? item : typeof item?.step === "string" ? item.step : ""))
-                  .filter((s: string) => s.trim().length > 0);
-                if (steps.length > 0) {
-                  setPlanUpdate({
-                    actionName: typeof planInput.actionName === "string" ? planInput.actionName : "计划",
-                    explanation: typeof planInput.explanation === "string" ? planInput.explanation : undefined,
-                    plan: steps,
-                  });
-                }
-              }
-            } else if (payload.approved === false) {
-              const feedback = typeof payload.feedback === "string" ? payload.feedback : "";
-              output = {
-                ok: true,
-                data: { updated: false },
-                message: `用户对计划提出修改意见。\n${feedback ? `用户反馈：${feedback}` : ""}`,
+                message: `User requested changes. Edit "${planFilePathInput}" and call SubmitPlan(planFilePath="${planFilePathInput}") again.${feedback ? `\n\nFeedback: ${feedback}` : ""}`,
               };
             }
           }

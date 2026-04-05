@@ -107,7 +107,7 @@ export default function MessageHuman({
 }: MessageHumanProps) {
   const { t } = useTranslation('ai')
   const { data: projects = [] } = useProjects();
-  const { projectId } = useChatSession();
+  const { projectId, sessionId } = useChatSession();
   const pushStackItem = useLayoutState((s) => s.pushStackItem);
   const [imageState, setImageState] = React.useState<Record<string, ImagePreviewState>>({});
   const imageStateRef = React.useRef<Record<string, ImagePreviewState>>({});
@@ -119,11 +119,12 @@ export default function MessageHuman({
       handleChatMentionPointerDown(event, {
         activeTabId: "main",
         projectId,
+        sessionId,
         projects,
         pushStackItem: (_tabId: string, item: any) => pushStackItem(item),
       });
     },
-    [projectId, projects, pushStackItem]
+    [projectId, sessionId, projects, pushStackItem]
   );
 
   React.useEffect(() => {

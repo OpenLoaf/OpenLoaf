@@ -26,7 +26,7 @@ import {
 
 const PROJECT_META_DIR = ".openloaf";
 const PROJECT_META_FILE = "project.json";
-/** Scoped project path matcher like [projectId]/path/to/file (inner path after stripping @{...} wrapper). */
+/** Scoped project path matcher like [projectId]/path/to/file (inner path after stripping @[...] wrapper). */
 const PROJECT_SCOPE_REGEX = /^@?\[([^\]]+)\]\/(.+)$/;
 /** Global metadata prefix used by cross-scope relative paths. */
 const GLOBAL_META_PREFIX = ".openloaf/";
@@ -198,7 +198,8 @@ export function resolveScopedPath(input: {
   if (!raw) {
     throw new Error("Path is required.");
   }
-  if (raw.startsWith("@{") && raw.endsWith("}")) {
+  // Strip @[...] user-mention wrapper.
+  if (raw.startsWith("@[") && raw.endsWith("]")) {
     raw = raw.slice(2, -1);
   }
   // Expand tilde to home directory.

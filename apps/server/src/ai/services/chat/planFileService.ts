@@ -66,15 +66,30 @@ export function renderPlanMarkdown(input: {
     lines.push('## 方案说明', '', input.explanation, '')
   }
 
-  lines.push('## 步骤', '')
-  for (let i = 0; i < input.plan.length; i++) {
-    const step = input.plan[i]
+  // 机器可读的步骤块——UI 卡片以此为权威步骤来源（避免和正文其他编号列表混淆）。
+  // 正文不再输出 `## 步骤` 编号列表，避免与 XML 重复。
+  lines.push('<plan-steps>')
+  for (const step of input.plan) {
     if (!step) continue
-    lines.push(`${i + 1}. ${step}`)
+    lines.push(`  <step>${escapeXml(step)}</step>`)
   }
-  lines.push('')
+  lines.push('</plan-steps>', '')
 
   return lines.join('\n')
+}
+
+function escapeXml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+}
+
+function unescapeXml(s: string): string {
+  return s
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
 }
 
 // ---------------------------------------------------------------------------
@@ -101,14 +116,35 @@ export function parsePlanFrontMatter(markdown: string): Partial<PlanFileMeta> {
   }
 }
 
-/** Parse numbered step list from plan markdown body (matches `N. text` lines). */
+/**
+ * Parse steps from plan markdown.
+ *
+ * Priority order:
+ * 1. `<plan-steps><step>...</step></plan-steps>` XML block (authoritative, machine-readable).
+ * 2. Numbered lines under `## 步骤` / `## Steps` heading (fallback for legacy files).
+ * 3. Numbered lines anywhere in the document (last-resort fallback).
+ */
 export function parsePlanStepsFromMarkdown(markdown: string): string[] {
+  // 1. Prefer machine-readable XML block.
+  const xmlBlock = markdown.match(/<plan-steps>([\s\S]*?)<\/plan-steps>/i)?.[1]
+  if (xmlBlock != null) {
+    const steps: string[] = []
+    const stepRegex = /<step>([\s\S]*?)<\/step>/gi
+    let m: RegExpExecArray | null
+    while ((m = stepRegex.exec(xmlBlock)) !== null) {
+      const raw = m[1]?.trim()
+      if (raw) steps.push(unescapeXml(raw))
+    }
+    if (steps.length > 0) return steps
+  }
+
+  // 2. Match numbered lines under "## 步骤" / "## Steps" heading.
+  const headingMatch = markdown.match(/##\s*(?:步骤|Steps)\s*\n([\s\S]*?)(?:\n##|\n---|\n<plan-steps>|$)/i)
+  const scope = headingMatch?.[1] ?? markdown
   const steps: string[] = []
-  // Match lines like "1. Step text" after the "## 步骤" heading
-  const stepsSection = markdown.match(/##\s*步骤\s*\n([\s\S]*?)(?:\n##|\n---|\z)/)?.[1] ?? markdown
   const lineRegex = /^\d+\.\s+(.+)$/gm
   let match: RegExpExecArray | null
-  while ((match = lineRegex.exec(stepsSection)) !== null) {
+  while ((match = lineRegex.exec(scope)) !== null) {
     const step = match[1]?.trim()
     if (step) steps.push(step)
   }
@@ -149,7 +185,10 @@ export async function readPlanFileFromAbsPath(
   const resolvedNo = meta.planNo ?? planNoHint ?? 0
   const headingMatch = content.match(/^#\s+(.+)$/m)
   const actionName = headingMatch?.[1]?.trim() ?? (resolvedNo ? `计划 #${resolvedNo}` : '计划')
-  const explanationMatch = content.match(/##\s*方案说明\s*\n\n([\s\S]*?)(?:\n##|\n---)/)?.[1]?.trim()
+  // 放宽匹配：支持中英文标题 + 单/双换行；结束条件包含 XML 步骤块。
+  const explanationMatch = content
+    .match(/##\s*(?:方案说明|Approach)\s*\n+([\s\S]*?)(?:\n##|\n---|\n<plan-steps>)/i)?.[1]
+    ?.trim()
   const steps = parsePlanStepsFromMarkdown(content)
   return { content, meta, actionName, explanation: explanationMatch, steps, filePath: absPath }
 }
@@ -167,9 +206,9 @@ export async function resolvePlanFileAbsPath(
 ): Promise<string> {
   const trimmed = planFilePath.trim()
   if (!trimmed) throw new Error('planFilePath is required')
-  // Strip @{...} / @ prefixes (match Write tool behavior).
+  // Strip @[...] / @ prefixes (match Write tool behavior).
   let normalized: string
-  if (trimmed.startsWith('@{') && trimmed.endsWith('}')) {
+  if (trimmed.startsWith('@[') && trimmed.endsWith(']')) {
     normalized = trimmed.slice(2, -1)
   } else if (trimmed.startsWith('@')) {
     normalized = trimmed.slice(1)

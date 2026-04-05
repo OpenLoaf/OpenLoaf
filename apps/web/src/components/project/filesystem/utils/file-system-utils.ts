@@ -43,8 +43,8 @@ export {
 
 /** Scoped project path matcher like [projectId]/path/to/file or [projectId]/. */
 const PROJECT_SCOPE_REGEX = /^\[([^\]]+)\](?:\/(.*))?$/;
-/** Project-scoped absolute path matcher like @{[projectId]/path/to/file} or @{[projectId]/}. */
-const PROJECT_ABSOLUTE_REGEX = /^@\{\[[^\]]+\](?:\/|$)/;
+/** Project-scoped absolute path matcher like @[[projectId]/path/to/file] or @[[projectId]/]. */
+const PROJECT_ABSOLUTE_REGEX = /^@\[\[[^\]]+\](?:\/|\])/;
 /** Scheme matcher for absolute URLs. */
 const SCHEME_REGEX = /^[a-zA-Z][a-zA-Z0-9+.-]*:/;
 
@@ -180,7 +180,7 @@ export function parseScopedProjectPath(
   const trimmed = value.trim();
   if (!trimmed) return null;
   let normalized: string;
-  if (trimmed.startsWith("@{") && trimmed.endsWith("}")) {
+  if (trimmed.startsWith("@[") && trimmed.endsWith("]")) {
     normalized = trimmed.slice(2, -1);
   } else if (trimmed.startsWith("@")) {
     normalized = trimmed.slice(1);
@@ -188,7 +188,7 @@ export function parseScopedProjectPath(
     normalized = trimmed;
   }
   if (SCHEME_REGEX.test(normalized)) return null;
-  // 逻辑：支持 @{[projectId]/path} 形式的跨项目引用。
+  // 逻辑：支持 @[[projectId]/path] 形式的跨项目引用。
   const match = normalized.match(PROJECT_SCOPE_REGEX);
   const relativePath = normalizeProjectRelativePath(match ? match[2] ?? "" : normalized);
   if (!relativePath && !match) return null;
@@ -208,7 +208,7 @@ export function formatScopedProjectPath(input: {
 }) {
   const relativePath = normalizeProjectRelativePath(input.relativePath);
   if (!relativePath) {
-    if (input.includeAt && input.projectId) return `@{[${input.projectId}]/}`;
+    if (input.includeAt && input.projectId) return `@[[${input.projectId}]/]`;
     return "";
   }
   const shouldScope =
@@ -216,7 +216,7 @@ export function formatScopedProjectPath(input: {
     (!input.currentProjectId || input.projectId !== input.currentProjectId);
   const prefix = shouldScope ? `[${input.projectId}]/` : "";
   const scoped = `${prefix}${relativePath}`;
-  if (input.includeAt) return `@{${scoped}}`;
+  if (input.includeAt) return `@[${scoped}]`;
   return scoped;
 }
 

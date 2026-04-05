@@ -43,7 +43,7 @@ export function OpenLoafMentionElement(
   const readOnly = useReadOnly();
   const rawValue = element.value ?? "";
   const normalizedValue =
-    rawValue.startsWith("@{") && rawValue.endsWith("}")
+    rawValue.startsWith("@[") && rawValue.endsWith("]")
       ? rawValue.slice(2, -1)
       : rawValue.startsWith("@") ? rawValue.slice(1) : rawValue;
   const match = normalizedValue.match(/^(.*?)(?::(\d+)-(\d+))?$/);

@@ -24,7 +24,6 @@ import {
   widgetInitTool,
   widgetListTool,
 } from "@/ai/tools/widgetTools";
-import { updatePlanTool } from "@/ai/tools/updatePlanTool";
 import { taskCreateTool, taskUpdateTool, taskReadTool } from "@/ai/tools/runtimeTaskTools";
 import {
   taskCreateToolDef,
@@ -50,7 +49,6 @@ import { webFetchTool } from "@/ai/tools/webFetchTool";
 import { loadSkillTool } from "@/ai/tools/loadSkillTool";
 import { requestUserInputTool } from "@/ai/tools/requestUserInputTool";
 import { jsxCreateTool } from "@/ai/tools/jsxCreateTool";
-import { jsReplTool, jsReplResetTool } from "@/ai/tools/jsReplTool";
 import { chartRenderTool } from "@/ai/tools/chartTools";
 import { taskManageTool, taskStatusTool } from "@/ai/tools/taskTools";
 import { memorySaveTool, memorySearchTool, memoryGetTool } from "@/ai/tools/memoryTools";
@@ -110,10 +108,7 @@ import {
   globToolDef,
   grepToolDef,
   editDocumentToolDef,
-  updatePlanToolDef,
   submitPlanToolDef,
-  jsReplToolDef,
-  jsReplResetToolDef,
 } from "@openloaf/api/types/tools/runtime";
 import { generateWidgetToolDef } from "@openloaf/api/types/tools/widget";
 import {
@@ -236,9 +231,6 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
   [grepToolDef.id]: {
     tool: grepTool,
   },
-  [updatePlanToolDef.id]: {
-    tool: updatePlanTool,
-  },
   [taskCreateToolDef.id]: {
     tool: taskCreateTool,
   },
@@ -323,12 +315,6 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
   [chartRenderToolDef.id]: {
     tool: chartRenderTool,
   },
-  [jsReplToolDef.id]: {
-    tool: jsReplTool,
-  },
-  [jsReplResetToolDef.id]: {
-    tool: jsReplResetTool,
-  },
   [taskManageToolDef.id]: {
     tool: taskManageTool,
   },
@@ -394,7 +380,6 @@ const TOOL_DEF_REGISTRY: Record<string, { parameters?: any }> = {
   [editDocumentToolDef.id]: editDocumentToolDef,
   [globToolDef.id]: globToolDef,
   [grepToolDef.id]: grepToolDef,
-  [updatePlanToolDef.id]: updatePlanToolDef,
   [taskCreateToolDef.id]: taskCreateToolDef,
   [taskUpdateToolDef.id]: taskUpdateToolDef,
   [taskReadToolDef.id]: taskReadToolDef,
@@ -423,8 +408,6 @@ const TOOL_DEF_REGISTRY: Record<string, { parameters?: any }> = {
   [requestUserInputToolDef.id]: requestUserInputToolDef,
   [jsxCreateToolDef.id]: jsxCreateToolDef,
   [chartRenderToolDef.id]: chartRenderToolDef,
-  [jsReplToolDef.id]: jsReplToolDef,
-  [jsReplResetToolDef.id]: jsReplResetToolDef,
   [taskManageToolDef.id]: taskManageToolDef,
   [taskStatusToolDef.id]: taskStatusToolDef,
   [imageProcessToolDef.id]: imageProcessToolDef,

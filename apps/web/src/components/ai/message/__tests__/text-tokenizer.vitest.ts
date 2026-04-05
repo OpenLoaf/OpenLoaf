@@ -17,7 +17,7 @@ describe("text-tokenizer", () => {
   });
 
   it("parses mention and command tokens", () => {
-    const tokens = parseChatTextTokens("/help 查看 @{project/file.ts:1-2}");
+    const tokens = parseChatTextTokens("/help 查看 @[project/file.ts:1-2]");
     expect(tokens).toEqual([
       { type: "command", value: "/help" },
       { type: "text", value: " 查看 " },

@@ -534,7 +534,7 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
               relativePath,
               includeAt: true,
             })
-          : `@{[${projectId}]/}`;
+          : `@[[${projectId}]/]`;
         onSelectTarget?.(resolvedTarget);
       }
       onOpenChange(false);

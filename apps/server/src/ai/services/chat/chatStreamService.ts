@@ -79,18 +79,16 @@ import {
 } from "./streamOrchestrator";
 import { resolveAgentModelIds, resolveAgentSkills } from "./agentConfigResolver";
 import { isCompactCommandMessage, buildCompactPromptText } from "./chatMessageUtils";
-import { resolveSessionDir } from "./repositories/chatFileStore";
 
 /** Re-export runChatImageRequest from its new module for backward compatibility. */
 export { runChatImageRequest } from "./imageRequestOrchestrator";
 
 /**
- * Restore plan + planNo from the last UpdatePlan tool call in the message chain.
+ * Restore plan + planNo from the last SubmitPlan tool call in the message chain.
  * Scans tool parts (not metadata) to find the most recent plan,
  * then restores it into RequestContext for plan context injection in prepareStep.
- * Also restores planNo from session.json so rejection-then-resubmit reuses the same PLAN file.
  */
-async function restoreBasePlanFromChain(messages: UIMessage[], sessionId: string): Promise<void> {
+async function restoreBasePlanFromChain(messages: UIMessage[]): Promise<void> {
   for (let i = messages.length - 1; i >= 0; i--) {
     const msg = messages[i] as any;
     if (msg?.role !== "assistant") continue;
@@ -98,66 +96,35 @@ async function restoreBasePlanFromChain(messages: UIMessage[], sessionId: string
     for (let j = parts.length - 1; j >= 0; j--) {
       const part = parts[j] as any;
       const toolName = part?.toolName ?? part?.type?.replace?.("tool-", "") ?? "";
-      if (toolName !== "SubmitPlan" && toolName !== "UpdatePlan") continue;
+      if (toolName !== "SubmitPlan") continue;
       // Skip rejected plans (output-error) — look for approved/active ones.
       if (part.state === "output-error") continue;
 
-      if (toolName === "SubmitPlan") {
-        // SubmitPlan: read plan from PLAN file on disk, resolving path via Write's logic.
-        const planFilePathInput = typeof part.input?.planFilePath === "string" ? part.input.planFilePath : "";
-        if (planFilePathInput) {
-          try {
-            const { readPlanFileFromAbsPath, derivePlanNoFromPath } = await import("@/ai/services/chat/planFileService");
-            const { resolveWriteTargetPath } = await import("@/ai/tools/fileTools");
-            const { absPath } = await resolveWriteTargetPath(planFilePathInput);
-            const planNoFromPath = derivePlanNoFromPath(planFilePathInput);
-            const planData = await readPlanFileFromAbsPath(absPath, planNoFromPath);
-            if (planData && planData.steps.length > 0) {
-              setPlanUpdate({
-                actionName: planData.actionName,
-                explanation: planData.explanation,
-                plan: planData.steps,
-              });
-              if (planNoFromPath > 0) {
-                setCurrentPlanNo(planNoFromPath);
-                markPlanNoAllocated();
-              }
-              return;
+      // SubmitPlan: read plan from PLAN file on disk, resolving path via Write's logic.
+      const planFilePathInput = typeof part.input?.planFilePath === "string" ? part.input.planFilePath : "";
+      if (planFilePathInput) {
+        try {
+          const { readPlanFileFromAbsPath, derivePlanNoFromPath } = await import("@/ai/services/chat/planFileService");
+          const { resolveWriteTargetPath } = await import("@/ai/tools/fileTools");
+          const { absPath } = await resolveWriteTargetPath(planFilePathInput);
+          const planNoFromPath = derivePlanNoFromPath(planFilePathInput);
+          const planData = await readPlanFileFromAbsPath(absPath, planNoFromPath);
+          if (planData && planData.steps.length > 0) {
+            setPlanUpdate({
+              actionName: planData.actionName,
+              explanation: planData.explanation,
+              plan: planData.steps,
+            });
+            if (planNoFromPath > 0) {
+              setCurrentPlanNo(planNoFromPath);
+              markPlanNoAllocated();
             }
-          } catch {
-            // Path resolution or file read failed, continue scanning
+            return;
           }
+        } catch {
+          // Path resolution or file read failed, continue scanning
         }
-        continue;
       }
-
-      // Legacy UpdatePlan: read plan from tool input args.
-      const input = part.input;
-      if (!input || typeof input !== "object") continue;
-      const rawPlan = Array.isArray(input.plan) ? input.plan : [];
-      const steps = rawPlan
-        .map((item: any) => (typeof item === "string" ? item : typeof item?.step === "string" ? item.step : ""))
-        .filter((s: string) => s.trim().length > 0);
-      if (steps.length === 0) continue;
-      setPlanUpdate({
-        actionName: typeof input.actionName === "string" ? input.actionName : "计划",
-        explanation: typeof input.explanation === "string" ? input.explanation : undefined,
-        plan: steps,
-      });
-      // Restore planNo from session.json.
-      try {
-        const sessionDir = await resolveSessionDir(sessionId);
-        const sessionJsonPath = path.join(sessionDir, "session.json");
-        const raw = await fs.readFile(sessionJsonPath, "utf-8");
-        const sessionJson = JSON.parse(raw);
-        if (typeof sessionJson.lastPlanNo === "number" && sessionJson.lastPlanNo > 0) {
-          setCurrentPlanNo(sessionJson.lastPlanNo);
-          markPlanNoAllocated();
-        }
-      } catch {
-        // skip
-      }
-      return;
     }
   }
 }
@@ -555,7 +522,7 @@ export async function runChatStream(input: {
   }
   // 从历史消息链恢复 plan + planNo，使跨请求 plan context 注入和 planNo 复用可用。
   if (!directCli && messages.length > 0) {
-    await restoreBasePlanFromChain(messages, sessionId);
+    await restoreBasePlanFromChain(messages);
   }
 
   // 逻辑：从当前请求用户消息中解析 CLI 参数，兼容 directCli 与普通模式。

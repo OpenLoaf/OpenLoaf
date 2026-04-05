@@ -217,7 +217,7 @@ function createToolSearchPrepareStep(
     })
 
     // 2.5 Plan context injection — pruneMessages 会在多步执行中删除早期的
-    // UpdatePlan tool calls，导致模型丢失计划上下文。在 pruning 后注入当前
+    // SubmitPlan tool calls，导致模型丢失计划上下文。在 pruning 后注入当前
     // 计划状态作为 user 提醒消息，确保模型始终知道活跃计划的存在和进度。
     let prunedWithPlan = pruned
     if (stepNumber > 0) {
@@ -727,11 +727,11 @@ const SPECIALIST_CONFIGS: Record<string, SpecialistConfig> = {
       '你可以使用以下工具：',
       '- Read: 读取数据文件（CSV、JSON、Excel 等）',
       '- Write: 输出分析结果',
-      '- JsRepl: 执行 JavaScript 代码进行数据处理',
+      '- Bash: 执行 shell 命令进行数据处理',
       '',
-      '注意：优先使用 JsRepl 进行数据处理。大数据集使用流式处理避免内存溢出。',
+      '注意：大数据集使用流式处理避免内存溢出。',
     ].join('\n'),
-    toolIds: ['Read', 'Write', 'JsRepl'],
+    toolIds: ['Read', 'Write', 'Bash'],
     maxSteps: 30,
   },
   'extractor': {
@@ -741,12 +741,12 @@ const SPECIALIST_CONFIGS: Record<string, SpecialistConfig> = {
       '',
       '你可以使用以下工具：',
       '- Read: 读取文件内容',
-      '- office-read: 读取 Office 文档',
+      '- WordQuery / ExcelQuery / PptxQuery / PdfQuery: 读取 Office / PDF 文档',
       '- WebFetch: 获取网页内容',
       '',
       '注意：提取结果使用结构化格式（JSON/表格）呈现。长文档先摘要再详述。',
     ].join('\n'),
-    toolIds: ['Read', 'office-read', 'WebFetch'],
+    toolIds: ['Read', 'WordQuery', 'ExcelQuery', 'PptxQuery', 'PdfQuery', 'WebFetch'],
     maxSteps: 20,
   },
   'canvas-designer': {

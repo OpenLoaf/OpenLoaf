@@ -963,7 +963,7 @@ export function Chat({
       (Boolean(fileRef || fileName) && isImageFileRef(fileRef || fileName));
     const wantsImage = hasImageUpload || hasOpenLoafImage || isFileRefImage;
     // 系统文件（hasFiles）现在通过 /chat/files 端点统一处理，无需 deny。
-    // 非图片文件引用统一以 @{path} mention 插入，不依赖 canAttachAll。
+    // 非图片文件引用统一以 @[path] mention 插入，不依赖 canAttachAll。
     const shouldDeny = wantsImage && !canAttachImage && !hasFiles;
     if (shouldDeny) {
       event.preventDefault();
@@ -994,7 +994,7 @@ export function Chat({
       hasOpenLoafImage ||
       (Boolean(fileRef || fileName) && isImageFileRef(fileRef || fileName));
     const wantsImage = hasImageUpload || hasOpenLoafImage || isFileRefImage;
-    // 非图片文件引用统一以 @{path} mention 插入，不依赖 canAttachAll。
+    // 非图片文件引用统一以 @[path] mention 插入，不依赖 canAttachAll。
     const shouldDeny = wantsImage && !canAttachImage && !hasFiles;
     event.preventDefault();
     if (shouldDeny) {
@@ -1065,7 +1065,7 @@ export function Chat({
         const isPayloadImage =
           Boolean(imagePayload.maskUri) || IMAGE_FILE_NAME_REGEX.test(payloadFileName);
         if (!isPayloadImage) {
-          // 非图片文件统一以 @{path} mention 插入，不依赖 canAttachAll。
+          // 非图片文件统一以 @[path] mention 插入，不依赖 canAttachAll。
           const resolvedFileRef =
             fileRef || (isRelativePath(imagePayload.baseUri) ? imagePayload.baseUri : "");
           if (resolvedFileRef && isRelativePath(resolvedFileRef)) {

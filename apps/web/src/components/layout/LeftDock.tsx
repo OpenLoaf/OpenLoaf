@@ -262,7 +262,7 @@ function parseRenamePath(uri: string) {
     if (!parsed.projectId) return null;
     return { projectId: parsed.projectId, relativePath: parsed.relativePath };
   }
-  // 中文注释：非 @{} 形式一律视为项目相对路径，避免拼出完整 file:// 路径。
+  // 中文注释：非 @[] 形式一律视为项目相对路径，避免拼出完整 file:// 路径。
   return { projectId: undefined as string | undefined, relativePath: normalizeProjectRelativePath(trimmed) };
 }
 

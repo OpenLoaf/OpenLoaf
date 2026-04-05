@@ -160,7 +160,10 @@ function ResultView({
 
   const filePath = typeof data.filePath === 'string' ? data.filePath : ''
   const previewProjectId = typeof data.projectId === 'string' ? data.projectId : undefined
-  const previewUrl = filePath ? getPreviewEndpoint(filePath, { projectId: previewProjectId }) : ''
+  const previewSessionId = typeof data.sessionId === 'string' ? data.sessionId : undefined
+  const previewUrl = filePath
+    ? getPreviewEndpoint(filePath, { projectId: previewProjectId, sessionId: previewSessionId })
+    : ''
   const resolvedFileName = resolveFileName(data)
   const title = typeof data.title === 'string' && data.title.trim() ? data.title : resolvedFileName
   const url = typeof data.url === 'string' ? data.url : ''

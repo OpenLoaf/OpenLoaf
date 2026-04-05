@@ -14,7 +14,13 @@ import type { CodexRequestOptions } from "@/ai/models/cli/codex/codexOptions";
 import type { ClaudeCodeRequestOptions } from "@/ai/services/chat/messageOptionResolver";
 import type { ChatPageContext } from "@openloaf/api/types/message";
 import type { ClientPlatform } from "@openloaf/api/types/platform";
-import type { UpdatePlanArgs } from "@openloaf/api/types/tools/runtime";
+
+/** Plan state stored in request context (name + steps + optional rationale). */
+export type PlanUpdate = {
+  actionName?: string;
+  explanation?: string;
+  plan: string[];
+};
 
 export type AgentKind = "master" | "secretary" | "pm" | "specialist";
 
@@ -62,7 +68,7 @@ export type RequestContext = {
   /** Assistant message path for the current streaming response. */
   assistantMessagePath?: string;
   /** Latest plan update for the current request. */
-  planUpdate?: UpdatePlanArgs;
+  planUpdate?: PlanUpdate;
   /** Current plan number for PLAN_{no}.md file naming. */
   currentPlanNo?: number;
   /** Whether a full plan has already been created in this request (prevents planNo increment on re-full). */
@@ -262,7 +268,7 @@ export function getAssistantParentMessageId(): string | null | undefined {
 /**
  * Sets the latest plan update for this request.
  */
-export function setPlanUpdate(planUpdate: UpdatePlanArgs) {
+export function setPlanUpdate(planUpdate: PlanUpdate) {
   const ctx = getRequestContext();
   if (!ctx) return;
   ctx.planUpdate = planUpdate;
@@ -271,7 +277,7 @@ export function setPlanUpdate(planUpdate: UpdatePlanArgs) {
 /**
  * Gets the latest plan update for this request.
  */
-export function getPlanUpdate(): UpdatePlanArgs | undefined {
+export function getPlanUpdate(): PlanUpdate | undefined {
   return getRequestContext()?.planUpdate;
 }
 

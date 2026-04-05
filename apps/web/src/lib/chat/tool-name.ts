@@ -26,7 +26,7 @@ import {
   writeToolDef,
   globToolDef,
   grepToolDef,
-  updatePlanToolDef,
+  submitPlanToolDef,
 } from "@openloaf/api/types/tools/runtime";
 import { jsxCreateToolDef } from "@openloaf/api/types/tools/jsxCreate";
 import { chartRenderToolDef } from "@openloaf/api/types/tools/chart";
@@ -72,7 +72,7 @@ const TOOL_DEFS: ToolNameSource[] = [
   projectMutateToolDef,
   agentToolDef,
   sendMessageToolDef,
-  updatePlanToolDef,
+  submitPlanToolDef,
   jsxCreateToolDef,
   chartRenderToolDef,
   videoDownloadToolDef,

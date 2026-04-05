@@ -13,6 +13,7 @@ import { bashToolDef } from '@openloaf/api/types/tools/runtime'
 import { expandPathTemplateVars, resolveToolWorkdir } from '@/ai/tools/toolScope'
 import { buildExecEnv, formatFreeformOutput } from '@/ai/tools/execUtils'
 import { needsApprovalForCommand } from '@/ai/tools/commandApproval'
+import { resolveCommandSandboxDirs } from '@/ai/tools/commandSandbox'
 
 /** 检测命令中可能存在的未加引号的中文路径。 */
 function detectUnquotedCjkPaths(command: string): string | null {
@@ -42,7 +43,14 @@ function buildShellCommand(command: string): { file: string; args: string[] } {
 export const bashTool = tool({
   description: bashToolDef.description,
   inputSchema: zodSchema(bashToolDef.parameters),
-  needsApproval: ({ command }) => needsApprovalForCommand(command),
+  needsApproval: ({ command }) => {
+    // 先展开 ${CURRENT_CHAT_DIR} 等模板变量，再判定：展开后路径是否落在
+    // 当前会话沙箱内决定了是否需要审批。
+    const expanded = typeof command === 'string' ? expandPathTemplateVars(command) : command
+    return needsApprovalForCommand(expanded, {
+      sandboxDirs: resolveCommandSandboxDirs(),
+    })
+  },
   execute: async ({ command, timeout, run_in_background }): Promise<string> => {
     // 后台运行模式暂未支持
     if (run_in_background) {

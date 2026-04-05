@@ -686,7 +686,7 @@ class ChatRouterImpl extends BaseChatRouter {
             sessionId: z.string().min(1),
             // New API: resolve by AI-provided path (same as Write tool). Preferred for SubmitPlan.
             planFilePath: z.string().min(1).optional(),
-            // Legacy API: lookup by planNo in sessionDir (for UpdatePlan backward compat).
+            // Legacy API: lookup by planNo in sessionDir.
             planNo: z.number().int().min(1).optional(),
           }),
         )

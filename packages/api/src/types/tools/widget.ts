@@ -108,7 +108,7 @@ export const generateWidgetToolDef = {
   readonly: false,
   name: '生成动态 Widget',
   description:
-    '触发：当你需要生成一个可用的动态桌面 Widget，并把完整文件写入本地时调用。用途：写入 package.json/widget.tsx/functions.ts/.env 等文件并注册到桌面组件库。返回：JSON（含 widgetId）；失败会报错。不适用：仅需示例代码或不希望写入文件时不要使用。',
+    'Generates a complete dynamic desktop Widget and writes all files to disk (package.json, widget.tsx, functions.ts, .env) and registers it in the Widget library. Returns the `widgetId`. Do NOT use for sample code or when you do not want files written.',
   needsApproval: true,
   parameters: z.object({
     widgetName: z

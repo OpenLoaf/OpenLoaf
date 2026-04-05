@@ -10,6 +10,8 @@
 import { generateText } from 'ai'
 import type { LanguageModelV3 } from '@ai-sdk/provider'
 import { needsApprovalForCommand } from '@/ai/tools/commandApproval'
+import { resolveCommandSandboxDirs } from '@/ai/tools/commandSandbox'
+import { expandPathTemplateVars } from '@/ai/tools/toolScope'
 import { registerFrontendToolPending, resolveFrontendToolPending } from '@/ai/tools/pendingRegistry'
 import { taskEventBus } from '@/services/taskEventBus'
 
@@ -81,19 +83,15 @@ export class SupervisionService {
     // Shell commands: check whitelist
     if (toolName === 'Bash' || toolName === 'shell') {
       const command = toolArgs.command as string | string[] | undefined
-      if (!needsApprovalForCommand(command)) {
-        return { decision: 'approve', reason: '只读 shell 命令，自动放行' }
+      const expanded = typeof command === 'string' ? expandPathTemplateVars(command) : command
+      if (!needsApprovalForCommand(expanded, { sandboxDirs: resolveCommandSandboxDirs() })) {
+        return { decision: 'approve', reason: '沙箱内或只读 shell 命令，自动放行' }
       }
     }
 
     // Agent tools: generally safe within depth limits
     if (toolName === 'Agent' || toolName === 'SendMessage') {
       return { decision: 'approve', reason: 'Agent 协作工具，自动放行' }
-    }
-
-    // Plan and file tools are generally safe in task context
-    if (toolName === 'UpdatePlan') {
-      return { decision: 'approve', reason: '计划更新工具，自动放行' }
     }
 
     return null // Needs further evaluation

@@ -65,6 +65,8 @@ type PreviewQueryInput = {
   path?: string;
   /** Project id query string. */
   projectId?: string;
+  /** Session id query string (required when path uses ${CURRENT_CHAT_DIR}). */
+  sessionId?: string;
   /** Include metadata query flag. */
   includeMetadata?: string;
   /** Max bytes query string. */
@@ -76,6 +78,8 @@ type PreviewQueryResult = {
   path?: string;
   /** Normalized project id. */
   projectId?: string;
+  /** Normalized session id. */
+  sessionId?: string;
   /** Include metadata flag. */
   includeMetadata?: boolean;
   /** Max bytes limit. */
@@ -87,6 +91,8 @@ type PreviewRequestInput = {
   path?: string;
   /** Project id. */
   projectId?: string;
+  /** Session id (for ${CURRENT_CHAT_DIR} resolution). */
+  sessionId?: string;
   /** Include metadata flag. */
   includeMetadata?: boolean;
   /** Max bytes limit. */
@@ -216,6 +222,7 @@ export class ChatAttachmentController {
   async preview(input: PreviewRequestInput): Promise<ChatAttachmentResponse> {
     const pathValue = input.path?.trim() ?? "";
     const projectId = input.projectId?.trim() || undefined;
+    const sessionId = input.sessionId?.trim() || undefined;
     const includeMetadata = Boolean(input.includeMetadata);
     const maxBytes = input.maxBytes;
     if (!pathValue) {
@@ -226,6 +233,7 @@ export class ChatAttachmentController {
       const preview = await getFilePreview({
         path: pathValue,
         projectId,
+        sessionId,
         includeMetadata,
         maxBytes,
       });
@@ -312,8 +320,14 @@ export class ChatAttachmentController {
       const buffer = Buffer.from(await file.arrayBuffer());
       await fs.writeFile(destPath, buffer);
 
-      // 统一返回 [sessionId]/asset/filename 格式，由 preview endpoint 解析物理路径。
-      return { type: "json", status: 200, body: { path: `[${sessionId}]/asset/${destName}` } };
+      // 返回 ${CURRENT_CHAT_DIR}/filename 模板变量 + sessionId：
+      //   - AI 用 path 直接在 Read/Grep/Bash 等工具中操作该文件（自动展开）
+      //   - 前端拼接 @[...] mention 并构造 preview URL（需带 sessionId 才能解析）
+      return {
+        type: "json",
+        status: 200,
+        body: { path: `\${CURRENT_CHAT_DIR}/${destName}`, sessionId },
+      };
     } catch (error) {
       return {
         type: "json",
@@ -328,6 +342,7 @@ export class ChatAttachmentController {
     return {
       path: query.path,
       projectId: query.projectId,
+      sessionId: query.sessionId,
       includeMetadata: query.includeMetadata === "1",
       maxBytes: parsePositiveInt(query.maxBytes),
     };

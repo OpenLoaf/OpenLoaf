@@ -40,10 +40,11 @@ const COMPACTABLE_TOOLS = new Set([
   'WebSearch',
   'Edit',
   'Write',
-  'JsRepl',
   'BrowserSnapshot',
   'ExcelQuery',
-  'office-read',
+  'WordQuery',
+  'PptxQuery',
+  'PdfQuery',
 ])
 
 /** Placeholder text that replaces cleared tool results. */

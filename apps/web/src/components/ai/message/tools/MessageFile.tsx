@@ -72,9 +72,9 @@ function isRelativePath(value: string) {
 function buildFileRefText(value: string) {
   const trimmed = value.trim();
   if (!trimmed) return "";
-  if (!isRelativePath(trimmed) && !trimmed.startsWith("@{")) return "";
-  if (trimmed.startsWith("@{")) return trimmed;
-  return `@{${trimmed}}`;
+  if (!isRelativePath(trimmed) && !trimmed.startsWith("@[")) return "";
+  if (trimmed.startsWith("@[")) return trimmed;
+  return `@[${trimmed}]`;
 }
 
 /** Render file part for AI messages. */
@@ -83,7 +83,7 @@ export default function MessageFile({ url, mediaType, title, className }: Messag
   const isImage = isImageMediaType(mediaType);
   const shouldFetchPreview = isImage && isRelativePath(url);
   const fileRefText = React.useMemo(() => buildFileRefText(url), [url]);
-  const { projectId } = useChatSession();
+  const { projectId, sessionId } = useChatSession();
   const projectQuery = useProject(projectId);
   const projectRootUri = projectQuery.data?.project?.rootUri;
 
@@ -119,7 +119,7 @@ export default function MessageFile({ url, mediaType, title, className }: Messag
     const run = async () => {
       setPreview({ status: "loading" });
       try {
-        const blob = await fetchBlobFromUri(url, { projectId });
+        const blob = await fetchBlobFromUri(url, { projectId, sessionId });
         objectUrl = URL.createObjectURL(blob);
         if (aborted) return;
         setPreview({ status: "ready", src: objectUrl });

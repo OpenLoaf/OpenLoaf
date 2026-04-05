@@ -239,7 +239,6 @@ const TOOL_RESULT_IMPORTANCE: Record<string, ToolImportance> = {
   'Grep': 'summarize',
   'Glob': 'summarize',
   'Bash': 'summarize',
-  'JsRepl': 'summarize',
   'ProjectQuery': 'summarize',
   'CalendarQuery': 'summarize',
   'EmailQuery': 'summarize',

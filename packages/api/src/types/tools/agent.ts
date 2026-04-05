@@ -14,26 +14,15 @@ export const agentToolDef = {
   readonly: false,
   name: '子代理',
   description:
-    '启动一个新的子代理来处理复杂的多步骤任务。\n'
+    'Launches a sub-agent to handle complex multi-step tasks in an isolated LLM session, protecting the main conversation\'s context window from intermediate results. Defaults to synchronous (`run_in_background=false`) and returns the full result. Async mode returns the agent_id immediately — use SendMessage to push further instructions.\n'
     + '\n'
-    + '子代理在独立的 LLM 会话中运行，保护主对话的上下文窗口不被大量中间结果淹没。\n'
-    + '默认同步等待子代理执行完成并返回结果（run_in_background=false），无需额外等待。\n'
-    + '异步模式（run_in_background=true）下立即返回 agent_id，可通过 SendMessage 向子代理发送后续指令。\n'
+    + 'Built-in subagent types: `general-purpose` (default, full toolset), `explore` (read-only codebase exploration), `plan` (read-only implementation design). You may also pass custom agent names defined in the project.\n'
     + '\n'
-    + '可用子代理类型：\n'
-    + '- general-purpose: 通用子代理（默认值，不传 subagent_type 时使用）。用于执行复杂多步骤任务，包括文件操作、Shell 命令、Web 浏览、代码开发等。拥有完整工具发现能力（ToolSearch）。当你需要搜索代码或执行多步操作且不确定能在几次尝试内完成时，使用此类型。（工具：全部）\n'
-    + '- explore: 代码库探索专用（只读）。用于快速按模式查找文件、搜索关键词或回答关于代码库的问题。（工具：read-file, list-dir, grep-files, ProjectQuery）\n'
-    + '- plan: 架构方案设计专用（只读）。用于设计实现策略、识别关键文件、评估架构权衡。（工具：read-file, list-dir, grep-files, ProjectQuery）\n'
-    + '\n'
-    + '你也可以传入项目中定义的自定义 Agent 名称作为 subagent_type。\n'
-    + '\n'
-    + '使用注意：\n'
-    + '- 尽可能并行启动多个独立的子代理以提高效率；要做到这一点，在一次回复中同时调用多个 Agent\n'
-    + '- 简单任务不需要子代理 — 1-2 个工具调用能完成的事情直接做\n'
-    + '- 子代理不能再创建子代理（嵌套深度上限为 1），最大并发为 4\n'
-    + '- 不要启动和自己同类型的子代理\n'
-    + '- 同步模式返回：{status, output, error, agent_id}\n'
-    + '- 异步模式返回：{agent_id, status: "async_launched"}',
+    + 'Rules:\n'
+    + '- Launch multiple independent sub-agents IN PARALLEL (multiple Agent calls in one reply) for efficiency.\n'
+    + '- Do NOT spawn a sub-agent for 1-2 tool-call tasks you can do directly.\n'
+    + '- Sub-agents cannot spawn further sub-agents (nesting depth = 1), max concurrency = 4.\n'
+    + '- Do NOT launch a sub-agent of the same type as yourself.',
   parameters: z.object({
     description: z
       .string()

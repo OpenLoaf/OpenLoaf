@@ -15,7 +15,7 @@ import {
 } from '@openloaf/api/services/vfsService'
 import { getResolvedTempStorageDir } from '@openloaf/api/services/appConfigService'
 
-/** Scoped project path matcher like @{projectId/path/to/dir}. */
+/** Scoped project path matcher for [projectId]/path/to/dir (unwrapped). */
 const PROJECT_SCOPE_REGEX = /^@?\[([^\]]+)\]\/(.+)$/
 
 /** Normalize a target path into a directory, using an extension checker to decide if a path looks like a file. */

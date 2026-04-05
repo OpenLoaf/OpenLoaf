@@ -111,7 +111,7 @@ export const taskCreateToolDef = {
   id: "TaskCreate",
   readonly: false,
   name: "创建任务",
-  description: `触发：当你需要追踪一个多步骤或大型任务的进度时调用。用途：创建一个 Runtime Task，在输入框上方以进度条形式展示给用户，也供你自己追踪任务状态。返回：任务 ID。
+  description: `Creates a Runtime Task to track the progress of a multi-step or large task. Shows a progress bar above the input box so the user can see what's happening.
 
 When to call: Use when tracking progress of a multi-step or large task (estimated 3+ steps or >2 minutes of work).
 When NOT to call: Simple Q&A, single-step operations.
@@ -119,8 +119,7 @@ When NOT to call: Simple Q&A, single-step operations.
 Notes:
 - Runtime Tasks are session-scoped (disappear when conversation ends).
 - Use \`blockedBy\` to express dependencies (this task waits for others to complete).
-- After creating tasks, call TaskUpdate to transition status to 'in_progress' when you start working.
-- Prefer Runtime Tasks over UpdatePlan for dynamic task tracking. If you already used UpdatePlan, no need to duplicate.`,
+- After creating tasks, call TaskUpdate to transition status to 'in_progress' when you start working.`,
   parameters: z.object({
     subject: z
       .string()
@@ -150,7 +149,7 @@ export const taskUpdateToolDef = {
   id: "TaskUpdate",
   readonly: false,
   name: "更新任务",
-  description: `触发：当任务状态变化（开始/完成/失败）或需要更新进度描述时调用。用途：更新 Runtime Task 的状态、activeForm（当前在做什么的实时文本）或其他字段。
+  description: `Updates a Runtime Task's status, \`activeForm\` (live "what I'm doing right now" text), or other fields. Call when a task's state changes (start/complete/fail) or its progress text needs updating.
 
 State transitions allowed:
 - pending → in_progress / failed / deleted
@@ -204,7 +203,7 @@ export const taskReadToolDef = {
   id: "TaskRead",
   readonly: true,
   name: "查询任务",
-  description: `触发：当你需要检查任务列表状态或查询单个任务详情时调用。用途：列出当前活跃任务或读取指定任务详情。
+  description: `Lists active Runtime Tasks or reads details of a single task. Call when you need to check task status or retrieve a specific task.
 
 Defaults:
 - When no taskId: returns pending + in_progress tasks (excludes completed/failed history).

@@ -40,7 +40,7 @@ type VideoStorageTarget = {
   saveDirPath: string
   /** Logical destination label returned to the AI. */
   destination: 'board' | 'chat'
-  /** Session id for chat destination (used for [sessionId] path format). */
+  /** Session id for chat destination (returned alongside ${CURRENT_CHAT_DIR}/... filePath so frontend can build preview URL). */
   sessionId?: string
 }
 
@@ -168,11 +168,12 @@ export const videoDownloadTool = tool({
       }
 
       const stat = await fs.stat(filePath)
-      // Chat 使用 [sessionId]/asset/filename 格式（前端预览 endpoint 需要从
-      // 路径中读 sessionId），Board 使用 rootPath 相对路径。AI 读这个路径时
-      // 会被 resolveToolPath/expandPathTemplateVars 自动展开为绝对路径。
+      // Chat 会话返回 ${CURRENT_CHAT_DIR}/filename 模板变量：AI 可直接在 Read/
+      // Grep/Bash 等任意工具中复用（expandPathTemplateVars 自动展开为绝对路径）；
+      // 前端构造预览 URL 时需另外附带 sessionId（data.sessionId 字段已提供）。
+      // Board 场景仍返回 rootPath 相对路径。
       const relativePath = storage.sessionId
-        ? `[${storage.sessionId}]/asset/${fileName}`
+        ? `\${CURRENT_CHAT_DIR}/${fileName}`
         : toPosixRelativePath(storage.rootPath, filePath)
 
       return {

@@ -15,7 +15,7 @@ export const wordQueryToolDef = {
   readonly: true,
   name: 'Word 查询',
   description:
-    '触发：当用户提到 Word、docx、文档，或询问"读取文档"、"查看 Word 内容"时调用。用途：读取 Word 文件的结构化概览、原始 XML 或纯文本。返回：{ ok: true, data: { mode, ... } }。模式说明：read-structure 返回段落/表格/图片的结构化 JSON；read-xml 读取 ZIP 内任意文件（xmlPath="*" 列出所有 entry）；read-text 提取纯文本。不适用：需要创建、修改 Word 时不要使用，改用 WordMutate。',
+    'Read-only access to a .docx file: `read-structure` (paragraphs / tables / images as JSON), `read-xml` (raw XML from any ZIP entry; pass `xmlPath="*"` to list all entries), `read-text` (plain text). For create/edit use WordMutate.',
   parameters: z.object({
     mode: z
       .enum(['read-structure', 'read-xml', 'read-text'])
@@ -66,7 +66,7 @@ export const wordMutateToolDef = {
   readonly: false,
   name: 'Word 操作',
   description:
-    '触发：当你需要创建或编辑 Word 文件时调用。用途：create 从结构化内容创建新 .docx 文件，edit 使用 XPath 定位 + XML 编辑修改已有文件（支持修改文本/样式/表格/图片等任意内容）。返回：{ ok: true, data: { action, ... } }。编辑流程：先用 WordQuery(read-structure 或 read-xml) 查看文档结构，然后用 edit 的 edits 数组批量操作。不适用：仅需读取时不要使用，改用 WordQuery。',
+    'Creates or edits .docx files. `create` builds a new file from structured content; `edit` applies XPath+XML edits (text/styles/tables/images) to an existing file. Workflow: call WordQuery (read-structure / read-xml) first to find targets, then batch edits in the `edits` array. For read-only access, use WordQuery.',
   parameters: z.object({
     action: z
       .enum(['create', 'edit'])

@@ -85,7 +85,7 @@ export const TOOL_REGISTRY: ToolRegistryEntry[] = [
   { match: 'task', component: ClaudeCodeTaskTool as ComponentType<ToolComponentProps>, providerOnly: true },
 
   // ── Standard tools ──
-  { match: ['UpdatePlan', 'SubmitPlan'], component: PlanTool as ComponentType<ToolComponentProps> },
+  { match: 'SubmitPlan', component: PlanTool as ComponentType<ToolComponentProps> },
   { match: 'AskUserQuestion', component: RequestUserInputTool as ComponentType<ToolComponentProps> },
   { match: ['JsxCreate', 'jsx-preview'], component: JsxCreateTool as ComponentType<ToolComponentProps> },
   { match: ['Edit', 'apply-patch'], component: WriteFileTool as ComponentType<ToolComponentProps> },

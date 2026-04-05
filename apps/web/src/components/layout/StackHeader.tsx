@@ -66,7 +66,7 @@ export function StackHeader({
       const hasScheme = /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmedUri);
       if (hasScheme) return trimmedUri;
       if (!openRootUri) return "";
-      const scopedMatch = trimmedUri.match(/^@\{\[[^\]]+\]\/?(.*)?\}$/);
+      const scopedMatch = trimmedUri.match(/^@\[\[[^\]]+\]\/?(.*?)\]$/);
       const relativePath = scopedMatch ? scopedMatch[1] ?? "" : trimmedUri;
       return resolveFileUriFromRoot(openRootUri, relativePath);
     })();
@@ -94,7 +94,7 @@ export function StackHeader({
       const hasScheme = /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmedUri);
       if (hasScheme) return trimmedUri;
       if (!openRootUri) return "";
-      const scopedMatch = trimmedUri.match(/^@\{\[[^\]]+\]\/?(.*)?\}$/);
+      const scopedMatch = trimmedUri.match(/^@\[\[[^\]]+\]\/?(.*?)\]$/);
       const relativePath = scopedMatch ? scopedMatch[1] ?? "" : trimmedUri;
       return resolveFileUriFromRoot(openRootUri, relativePath);
     })();

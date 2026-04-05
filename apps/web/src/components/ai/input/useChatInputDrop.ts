@@ -111,12 +111,12 @@ export function useChatInputDrop({
         ensureTrailingSpace: options?.ensureTrailingSpace,
       };
       // Single mention token → insert as chip
-      if (/^@\{[^}]+\}$/.test(rawText)) {
+      if (/^@\[(?:\[[^\]]*\]|[^\]])+\]$/.test(rawText)) {
         handle.insertMention(rawText, insertOpts);
         return;
       }
       // Plain text (no mention tokens) → insert as text
-      if (!/@\{[^}]+\}/.test(rawText)) {
+      if (!/@\[(?:\[[^\]]*\]|[^\]])+\]/.test(rawText)) {
         handle.insertText(rawText, insertOpts);
         return;
       }
@@ -147,7 +147,7 @@ export function useChatInputDrop({
     const trimmed = value.trim();
     if (!trimmed) return "";
     let normalized: string;
-    if (trimmed.startsWith("@{") && trimmed.endsWith("}")) {
+    if (trimmed.startsWith("@[") && trimmed.endsWith("]")) {
       normalized = trimmed.slice(2, -1);
     } else if (trimmed.startsWith("@")) {
       normalized = trimmed.slice(1);
@@ -175,7 +175,7 @@ export function useChatInputDrop({
     (fileRef: string, options?: { skipFocus?: boolean }) => {
       const normalizedRef = normalizeFileRef(fileRef);
       if (!normalizedRef) return;
-      insertTextAtSelection(`@{${normalizedRef}}`, {
+      insertTextAtSelection(`@[${normalizedRef}]`, {
         skipFocus: options?.skipFocus,
         ensureLeadingSpace: true,
         ensureTrailingSpace: true,
@@ -242,11 +242,11 @@ export function useChatInputDrop({
         const pId = parsed?.projectId ?? defaultProjectId ?? "";
         const relativePath = parsed?.relativePath ?? "";
         if (!pId || !relativePath) continue;
-        // 所有文件统一以 @{path} mention 插入（包括图片）。
+        // 所有文件统一以 @[path] mention 插入（包括图片）。
         mentionRefs.push(fileRef);
       }
       if (mentionRefs.length > 0) {
-        const mentionText = mentionRefs.map((item) => `@{${item}}`).join(" ");
+        const mentionText = mentionRefs.map((item) => `@[${item}]`).join(" ");
         insertTextAtSelection(mentionText, {
           ensureLeadingSpace: true,
           ensureTrailingSpace: true,
@@ -323,7 +323,7 @@ export function useChatInputDrop({
       }
       if (!uploadFileToSession) return;
       try {
-        // 处理从消息中拖拽的图片，上传到 session 目录后以 @{path} mention 插入。
+        // 处理从消息中拖拽的图片，上传到 session 目录后以 @[path] mention 插入。
         const fileName = payloadFileName;
         const isImageByName = isImageFileName(fileName);
         const blob = await fetchBlobFromUri(imagePayload.baseUri, {
@@ -336,21 +336,21 @@ export function useChatInputDrop({
         });
         const storedPath = await uploadFileToSession(file);
         if (storedPath) {
-          insertTextAtSelection(`@{${storedPath}}`, { ensureLeadingSpace: true, ensureTrailingSpace: true });
+          insertTextAtSelection(`@[${storedPath}]`, { ensureLeadingSpace: true, ensureTrailingSpace: true });
         }
       } catch {
         return;
       }
       return;
     }
-    // 优先级 3：系统文件拖拽 — 上传到 session files 目录，插入 @{relative/path} mention
+    // 优先级 3：系统文件拖拽 — 上传到 session files 目录，插入 @[relative/path] mention
     const files = Array.from(event.dataTransfer.files ?? []);
     if (files.length > 0) {
       if (uploadFileToSession) {
         for (const file of files) {
           const storedPath = await uploadFileToSession(file);
           if (storedPath) {
-            insertTextAtSelection(`@{${storedPath}}`, { ensureLeadingSpace: true, ensureTrailingSpace: true });
+            insertTextAtSelection(`@[${storedPath}]`, { ensureLeadingSpace: true, ensureTrailingSpace: true });
           }
         }
         return;

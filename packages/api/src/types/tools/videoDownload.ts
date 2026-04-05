@@ -14,12 +14,7 @@ export const videoDownloadToolDef = {
   readonly: false,
   name: '视频下载',
   description:
-    '触发：当用户明确要求根据公开视频网址直接下载视频时调用。' +
-    '用途：通过服务端 yt-dlp 下载视频，并自动保存到当前上下文的资源目录。' +
-    '若当前在画布上下文，则保存到当前画布的 asset 目录；否则保存到当前会话的 chat-history/asset 目录。' +
-    '支持常见视频平台链接以及可直接访问的视频文件 URL。' +
-    '返回：{ ok, data: { url, destination, fileName, filePath, absolutePath, fileSize, title, duration, width, height, ext } }。' +
-    '不适用：需要生成全新视频时不要使用，改用画布 v3 媒体生成流程；需要转换本地已有视频时改用 VideoConvert。',
+    'Downloads a video from a public URL via server-side yt-dlp. Supports common video platforms and direct video file URLs. Saves to the current board\'s asset dir (in canvas context) or the session\'s chat-history asset dir. Use only when the user explicitly asks to download. Do NOT use for generating new video (use canvas v3 media flow) or converting local videos (use VideoConvert).',
   parameters: z.object({
     url: z
       .string()

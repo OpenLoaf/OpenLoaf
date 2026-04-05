@@ -50,7 +50,7 @@ async function resolveWriteTargetPath(targetPath: string): Promise<{ absPath: st
   if (!trimmed) throw new Error("path is required.")
   if (trimmed.startsWith("file:")) throw new Error("file:// URIs are not allowed.")
   let normalized: string
-  if (trimmed.startsWith("@{") && trimmed.endsWith("}")) {
+  if (trimmed.startsWith("@[") && trimmed.endsWith("]")) {
     normalized = trimmed.slice(2, -1)
   } else if (trimmed.startsWith("@")) {
     normalized = trimmed.slice(1)

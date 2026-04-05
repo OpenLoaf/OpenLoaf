@@ -15,7 +15,7 @@ export const pdfQueryToolDef = {
   readonly: true,
   name: 'PDF 查询',
   description:
-    '触发：当用户提到 PDF 文件，或询问"读取 PDF"、"查看 PDF"时调用。用途：读取 PDF 文件的结构化概览、文本内容、表单字段，或将页面渲染为图片。返回：{ ok: true, data: { mode, ... } }。模式说明：read-structure 返回页数、元数据、表单信息；read-text 提取全文或指定页文本；read-form-fields 返回表单字段列表（名称、类型、当前值）；read-screenshot 将指定页渲染为 PNG 图片（适合查看布局、图表、排版效果）。不适用：需要创建、修改 PDF 时不要使用，改用 PdfMutate。',
+    'Read-only access to a PDF: `read-structure` (page count, metadata, form info), `read-text` (full text or a specific page), `read-form-fields` (fillable form fields with name/type/current value), `read-screenshot` (renders a page as PNG — useful for layout/charts/formatting). For create/edit use PdfMutate.',
   parameters: z.object({
     mode: z
       .enum(['read-structure', 'read-text', 'read-form-fields', 'read-screenshot', 'structure', 'text', 'form-fields', 'screenshot'])
@@ -100,7 +100,7 @@ export const pdfMutateToolDef = {
   readonly: false,
   name: 'PDF 操作',
   description:
-    '触发：当你需要创建 PDF 文件、填充表单、合并 PDF 或在 PDF 上叠加文字时调用。用途：create 创建新的 PDF 文件（含结构化内容），fill-form 填充已有 PDF 的表单字段，merge 合并多个 PDF 文件，add-text 在已有 PDF 页面上叠加文字。返回：{ ok: true, data: { action, ... } }。注意：create 使用标准字体，不支持 CJK 字符（中日韩文），如需包含中文内容请告知用户。不适用：仅需读取时不要使用，改用 PdfQuery。',
+    'Mutates PDF files: `create` (new PDF from structured content), `fill-form` (fill form fields in an existing PDF), `merge` (combine multiple PDFs), `add-text` (overlay text on an existing page). Note: `create` uses standard fonts and does NOT support CJK (Chinese/Japanese/Korean) characters — inform the user if CJK is needed. For read-only access use PdfQuery.',
   parameters: z.object({
     action: z
       .enum(['create', 'fill-form', 'merge', 'add-text'])

@@ -19,7 +19,7 @@
 
 | # | 工具 | 原因 | 测试方式 |
 |---|------|------|---------|
-| 1 | PlanTool (isStreaming fix) | UpdatePlan 已注释 | 需取消注释或手动编辑历史 |
+| 1 | PlanTool (isStreaming fix) | SubmitPlan 需要审批流程 | 需手动编辑历史 |
 | 2 | PlanStepList (key fix) | 同上 | 同上 |
 | 3 | SubAgentTool (Agent) | SubAgent 已注释 | 需取消注释或手动编辑历史 |
 | 4 | Confirmation (Accepted/Rejected) | 需要审批后状态 | 在 GenerateWidget 审批后观察 |
@@ -47,26 +47,15 @@
 
 对于无法自然触发的工具，可以在对话历史的 message parts 中手动插入以下 mock 数据：
 
-### UpdatePlan (PlanTool)
+### SubmitPlan (PlanTool)
 ```json
 {
   "type": "tool-invocation",
-  "toolName": "UpdatePlan",
+  "toolName": "SubmitPlan",
   "toolCallId": "test-plan-001",
-  "state": "output-available",
-  "input": {
-    "actionName": "同步当前计划",
-    "mode": "full",
-    "explanation": "测试计划渲染",
-    "plan": [
-      { "step": "读取配置文件", "status": "completed" },
-      { "step": "分析依赖关系", "status": "completed" },
-      { "step": "生成代码变更", "status": "in_progress" },
-      { "step": "运行测试验证", "status": "pending" },
-      { "step": "提交变更", "status": "pending" }
-    ]
-  },
-  "output": { "ok": true, "data": { "updated": true } }
+  "state": "approval-requested",
+  "input": { "planFilePath": "PLAN_1.md" },
+  "approval": { "id": "approval-001", "approved": null }
 }
 ```
 

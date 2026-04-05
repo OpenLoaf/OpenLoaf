@@ -14,7 +14,7 @@ export const calendarQueryToolDef = {
   readonly: true,
   name: '日历查询',
   description:
-    '触发：当用户**查询**日历日程（"今天/本周/这个月有什么日程/安排/会议"）时调用。仅用于读取/查询已有日程，不用于创建任务。不适用：用户说"帮我创建任务"/"创建一个任务"/"记一个任务"等创建意图时，改用 TaskManage；用户查询应用项目列表时，改用 ProjectQuery。用途：list-sources 返回所有日历源，list-items 返回指定时间范围内的日程事项。返回：{ ok: true, data: { mode, sources|items } }。',
+    'Read-only queries on calendar data: list-sources returns calendar sources, list-items returns events/reminders in a time range. Use when the user asks "what do I have today/this week/this month". For creating/updating/deleting events, use CalendarMutate. For creating TODO tasks, use TaskManage.',
   parameters: z.object({
     mode: z
       .enum(['list-sources', 'list-items'])
@@ -40,7 +40,7 @@ export const calendarMutateToolDef = {
   readonly: false,
   name: '日历变更',
   description:
-    '触发：当你需要创建、更新、删除日程/任务/提醒事项/会议/约会，或切换任务/提醒完成状态时调用。用途：执行日历数据变更操作。返回：{ ok: true, data: { action, item|id } }。不适用：仅需读取时不要使用。action 选择：用户说"取消/撤销/删除"日程或提醒 → 使用 delete；用户说"完成/标记完成" → 使用 toggle-completed。',
+    'Creates, updates, deletes calendar events/reminders, or toggles completion state. Action mapping: user says "cancel/remove/delete" → `delete`; user says "done/complete/mark done" → `toggle-completed`. For read-only queries, use CalendarQuery.',
   parameters: z.object({
     action: z
       .enum(['create', 'update', 'delete', 'toggle-completed'])

@@ -12,8 +12,9 @@
 import { SKILL_COMMAND_PREFIX } from "@openloaf/api/common";
 import { parseScopedProjectPath } from "@/components/project/filesystem/utils/file-system-utils";
 
-// 逻辑：匹配 @{...} 花括号包裹的文件引用格式。
-export const FILE_TOKEN_REGEX = /@\{([^}]+)\}/g;
+// 逻辑：匹配 @[...] 方括号包裹的文件引用格式。使用分支匹配内部 [projectId]/...
+// 这种嵌套方括号的情况，同时不与 ${CURRENT_*} 路径模板冲突。
+export const FILE_TOKEN_REGEX = /@\[((?:\[[^\]]*\]|[^\]])+)\]/g;
 
 export const MAX_CHARS = 20000;
 export const ONLINE_SEARCH_GLOBAL_STORAGE_KEY = "openloaf:chat-online-search:global-enabled";
@@ -27,10 +28,10 @@ export function getPlainTextFromInput(value: string): string {
   );
 }
 
-/** Normalize mention value by trimming @{...} or leading "@". */
+/** Normalize mention value by trimming @[...] or leading "@". */
 const normalizeMentionValue = (value: string) => {
   const trimmed = value.trim();
-  if (trimmed.startsWith("@{") && trimmed.endsWith("}")) return trimmed.slice(2, -1);
+  if (trimmed.startsWith("@[") && trimmed.endsWith("]")) return trimmed.slice(2, -1);
   if (trimmed.startsWith("@")) return trimmed.slice(1);
   return trimmed;
 };
@@ -39,13 +40,13 @@ const normalizeMentionValue = (value: string) => {
 export const normalizeFileMentionSpacing = (value: string) => {
   FILE_TOKEN_REGEX.lastIndex = 0;
   if (!FILE_TOKEN_REGEX.test(value)) return value;
-  // @{...} 有明确边界，只需处理紧贴前文的情况
+  const tokenPattern = /@\[(?:\[[^\]]*\]|[^\]])+\]/g;
   const withLeadingSpace = value.replace(
-    /(\S)(@\{[^}]+\})/g,
+    new RegExp(`(\\S)(${tokenPattern.source})`, "g"),
     (_match, lead, token) => `${lead} ${token}`,
   );
   return withLeadingSpace.replace(
-    /(@\{[^}]+\})(?=\S)/g,
+    new RegExp(`(${tokenPattern.source})(?=\\S)`, "g"),
     (_match, token) => `${token} `,
   );
 };

@@ -53,7 +53,7 @@ export default function PptxViewer({
       const hasScheme = /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmedUri);
       if (hasScheme) return trimmedUri;
       if (!rootUri) return "";
-      const scopedMatch = trimmedUri.match(/^@\{\[[^\]]+\]\/?(.*)?\}$/);
+      const scopedMatch = trimmedUri.match(/^@\[\[[^\]]+\]\/?(.*?)\]$/);
       const relativePath = scopedMatch ? scopedMatch[1] ?? "" : trimmedUri;
       return resolveFileUriFromRoot(rootUri, relativePath);
     })();

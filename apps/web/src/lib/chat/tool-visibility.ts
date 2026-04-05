@@ -45,8 +45,8 @@ export function shouldShowToolPart(
   const p = part as AnyPart;
 
   // 1. 黑名单工具（无错误且非审批相关状态时隐藏）
-  // approval-requested 的 UpdatePlan 需要显示审批 UI，不能隐藏。
-  // 已决定（approved/rejected）的 UpdatePlan 需要显示决定结果，也不能隐藏。
+  // approval-requested 的 SubmitPlan 需要显示审批 UI，不能隐藏。
+  // 已决定（approved/rejected）的 SubmitPlan 需要显示决定结果，也不能隐藏。
   const hasApprovalDecision = (p as any).approval?.approved === true || (p as any).approval?.approved === false;
   if (isHiddenToolPart(p) && !isToolPartError(p) && p.state !== "approval-requested" && !hasApprovalDecision) return false;
 

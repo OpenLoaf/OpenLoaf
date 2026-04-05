@@ -8,8 +8,8 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 /** File token matcher for file placeholders. */
-// 逻辑：匹配形如 @{path/to/file} 或 @{[projectId]/path/to/file} 的文件引用。
-const FILE_TOKEN_REGEX = /@\{([^}]+)\}/g;
+// 逻辑：匹配形如 @[path/to/file] 或 @[[projectId]/path/to/file] 的文件引用。
+const FILE_TOKEN_REGEX = /@\[((?:\[[^\]]*\]|[^\]])+)\]/g;
 
 /** Skill reference matcher: /skill/[originalName|displayName] or /skill/[originalName] or /skill/name */
 const SKILL_REF_REGEX =
@@ -23,7 +23,7 @@ function extractFileLabel(token: string): string {
   const trimmed = token.trim();
   if (!trimmed) return token;
   let normalized: string;
-  if (trimmed.startsWith("@{") && trimmed.endsWith("}")) {
+  if (trimmed.startsWith("@[") && trimmed.endsWith("]")) {
     normalized = trimmed.slice(2, -1);
   } else if (trimmed.startsWith("@")) {
     normalized = trimmed.slice(1);

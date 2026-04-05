@@ -11,22 +11,23 @@
 
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
+import { LoaderCircleIcon, TerminalIcon, XCircleIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { TrafficLights } from '@openloaf/ui/traffic-lights'
 import {
-  Terminal,
-  TerminalActions,
-  TerminalContent,
-  TerminalCopyButton,
-  TerminalHeader,
-  TerminalStatus,
-  TerminalTitle,
-} from '@/components/ai-elements/terminal'
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@openloaf/ui/tooltip'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@openloaf/ui/collapsible'
+import { CodeBlock } from '@/components/ai-elements/code-block'
 import {
   asPlainObject,
   formatCommand,
   getApprovalId,
-  getToolName,
   isApprovalPending,
   isToolStreaming,
   normalizeToolInput,
@@ -131,6 +132,12 @@ function resolveOutput(part: AnyToolPart): {
   return { output: safeStringify(raw) }
 }
 
+function formatDuration(duration: number): string {
+  return duration < 1
+    ? `${Math.round(duration * 1000)}ms`
+    : `${Math.round(duration * 10) / 10}s`
+}
+
 export default function ShellTool({
   part,
   className,
@@ -140,21 +147,18 @@ export default function ShellTool({
 }) {
   const { t } = useTranslation('ai')
   const command = resolveCommand(part)
-  const isStreaming = isToolStreaming(part)
-  const hasError =
+  const streaming = isToolStreaming(part)
+  const hasErrorText =
     typeof part.errorText === 'string' && part.errorText.trim().length > 0
+  const hasError =
+    hasErrorText ||
+    part.state === 'output-error' ||
+    part.state === 'output-denied'
   const { output, exitCode, duration } = resolveOutput(part)
-  const displayOutput = hasError ? (part.errorText ?? '') : output
-  const title = getToolName(part)
-  const toolKind = typeof part.toolName === 'string' && part.toolName.trim()
-    ? part.toolName
-    : part.type?.startsWith('tool-')
-      ? part.type.slice('tool-'.length)
-      : part.type ?? ''
-  const showToolKind = Boolean(toolKind) && title !== toolKind
+  const displayOutput = hasErrorText ? (part.errorText ?? '') : output
   const approvalId = getApprovalId(part)
   const isPending = isApprovalPending(part)
-  const hasOutput = displayOutput.length > 0 || isStreaming
+  const hasOutput = displayOutput.length > 0
 
   const stackTrace = React.useMemo(
     () => (displayOutput ? detectStackTrace(displayOutput) : null),
@@ -165,97 +169,117 @@ export default function ShellTool({
     [displayOutput],
   )
 
-  // 逻辑：窗口状态映射
-  const windowState = hasError
-    ? 'error' as const
-    : isStreaming
-      ? 'running' as const
-      : exitCode === 0 || part.state === 'output-available'
-        ? 'success' as const
-        : 'idle' as const
+  const tooltipText = [
+    command && `$ ${command}`,
+    exitCode != null && `exit ${exitCode}`,
+    duration != null && formatDuration(duration),
+  ].filter(Boolean).join('\n')
+
+  // 审批状态：使用 PlanTool 风格的整合卡片（命令 + 确认按钮连成一张带边框的卡片）
+  if (isPending && approvalId) {
+    return (
+      <div
+        className={cn(
+          'min-w-0 overflow-hidden rounded-xl border border-border/60 bg-muted/10',
+          className,
+        )}
+      >
+        {command ? (
+          <div className="flex max-h-[120px] items-start gap-2 overflow-auto px-3 py-2 font-mono text-xs">
+            <span className="sticky top-0 shrink-0 text-muted-foreground">$</span>
+            <span className="min-w-0 flex-1 whitespace-pre-wrap break-all text-foreground/90">
+              {command}
+            </span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5 px-3 py-2 text-xs text-muted-foreground">
+            <TerminalIcon className="size-3.5" />
+            <span>Shell</span>
+          </div>
+        )}
+        <div className="flex items-center justify-between gap-2 border-t border-border/30 px-3 py-2">
+          <span className="text-xs text-muted-foreground">{t('tool.confirmExec')}</span>
+          <ToolApprovalActions approvalId={approvalId} size="sm" />
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <div className={cn('w-full min-w-0', className)}>
-      <div className="overflow-hidden rounded-3xl border bg-card text-card-foreground">
-        {/* macOS 风格标题栏 */}
-        <div className="flex items-center gap-3 border-b bg-muted/50 px-3 py-2">
-          <TrafficLights state={windowState} />
-          <span className="flex-1 truncate text-[10px] text-muted-foreground/60">
-            {showToolKind ? toolKind : title}
-          </span>
-          {showToolKind ? (
-            <span className="shrink-0 text-xs font-medium text-muted-foreground">
-              {title}
-            </span>
-          ) : null}
-        </div>
-
-        {/* 命令区域 */}
-        {command ? (
-          <div className="border-b bg-muted/20 px-3 py-2">
-            <div className="flex items-center gap-2 font-mono text-xs">
-              <span className="text-muted-foreground">$</span>
-              <span className="flex-1 break-all text-foreground">{command}</span>
-              <div className="flex shrink-0 items-center gap-2 text-[10px] text-muted-foreground">
-                {exitCode != null && !isStreaming ? (
-                  <span className={exitCode === 0 ? 'text-foreground' : 'text-destructive'}>
-                    exit {exitCode}
-                  </span>
-                ) : null}
-                {duration != null && !isStreaming ? (
-                  <span>
-                    {duration < 1
-                      ? `${Math.round(duration * 1000)}ms`
-                      : `${Math.round(duration * 10) / 10}s`}
-                  </span>
-                ) : null}
-              </div>
-              <button
-                type="button"
-                className="shrink-0 rounded p-0.5 text-muted-foreground hover:text-foreground"
-                onClick={() => void navigator.clipboard.writeText(command)}
-              >
-                <svg className="size-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <rect x="9" y="9" width="13" height="13" rx="2" />
-                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                </svg>
-              </button>
-            </div>
-          </div>
-        ) : null}
-
-        {/* 审批区域 */}
-        {isPending && approvalId ? (
-          <div className="flex items-center justify-between px-3 py-2.5">
-            <span className="text-xs text-muted-foreground">{t('tool.confirmExec')}</span>
-            <ToolApprovalActions approvalId={approvalId} size="default" />
-          </div>
-        ) : null}
-
-        {/* 输出区域 */}
-        {hasOutput ? (
-          <div className="p-0">
-            {testResults ? (
-              <div className="p-3">
-                <ShellTestResults results={testResults} />
-              </div>
-            ) : stackTrace ? (
-              <div className="p-0">
-                <ShellStackTrace trace={stackTrace} />
-              </div>
-            ) : (
-              <Terminal
-                output={displayOutput}
-                isStreaming={isStreaming}
-                className="rounded-none border-0 bg-transparent text-foreground text-xs"
-              >
-                <TerminalContent className="max-h-64 px-3 py-2 font-mono text-xs" />
-              </Terminal>
+    <Collapsible className={cn('min-w-0 text-xs', className)}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <CollapsibleTrigger
+            className={cn(
+              'flex w-full items-center gap-1.5 rounded-full px-2.5 py-1',
+              'transition-colors duration-150 hover:bg-muted/60',
             )}
+          >
+            <TerminalIcon className="size-3.5 shrink-0 text-muted-foreground" />
+            <span className="shrink-0 text-xs font-medium text-muted-foreground">Shell</span>
+            {command ? (
+              <span className="min-w-0 truncate font-mono text-xs text-muted-foreground/50">
+                {command}
+              </span>
+            ) : null}
+            {exitCode != null && !streaming ? (
+              <span
+                className={cn(
+                  'shrink-0 font-mono text-[10px]',
+                  exitCode === 0 ? 'text-muted-foreground/60' : 'text-destructive',
+                )}
+              >
+                exit {exitCode}
+              </span>
+            ) : null}
+            {duration != null && !streaming ? (
+              <span className="shrink-0 font-mono text-[10px] text-muted-foreground/60">
+                {formatDuration(duration)}
+              </span>
+            ) : null}
+            {streaming ? (
+              <LoaderCircleIcon className="size-3 shrink-0 animate-spin text-muted-foreground" />
+            ) : hasError ? (
+              <XCircleIcon className="size-3 shrink-0 text-destructive" />
+            ) : null}
+          </CollapsibleTrigger>
+        </TooltipTrigger>
+        {tooltipText ? (
+          <TooltipContent
+            side="top"
+            className="max-w-sm max-h-[200px] overflow-auto whitespace-pre-wrap break-all font-mono text-xs"
+          >
+            {tooltipText}
+          </TooltipContent>
+        ) : null}
+      </Tooltip>
+      <CollapsibleContent className="px-2.5 py-2 text-xs">
+        {testResults ? (
+          <div className="rounded-2xl bg-muted/50 p-2">
+            <ShellTestResults results={testResults} />
+          </div>
+        ) : stackTrace ? (
+          <div className="overflow-hidden rounded-2xl bg-muted/50">
+            <ShellStackTrace trace={stackTrace} />
+          </div>
+        ) : hasError && hasErrorText ? (
+          <div className="whitespace-pre-wrap break-all rounded-2xl bg-destructive/10 p-2 text-xs text-destructive">
+            {displayOutput}
+          </div>
+        ) : hasOutput ? (
+          <CodeBlock
+            code={displayOutput}
+            language={'bash' as any}
+            className="max-h-[320px] overflow-auto"
+          />
+        ) : streaming ? (
+          <div className="flex items-center gap-1.5 py-1 text-xs text-muted-foreground">
+            <LoaderCircleIcon className="size-3 animate-spin" />
+            <span>执行中...</span>
           </div>
         ) : null}
-      </div>
-    </div>
+      </CollapsibleContent>
+    </Collapsible>
   )
 }
 
@@ -283,12 +307,12 @@ function ShellStackTrace({ trace }: { trace: string }) {
 /** Render test results using TestResults component. */
 function ShellTestResults({ results }: { results: ParsedTestResults }) {
   return (
-    <TestResults summary={results} className="rounded-none border-0 text-xs">
-      <TestResultsHeader className="px-3 py-2">
+    <TestResults summary={results} className="rounded-none border-0 bg-transparent text-xs">
+      <TestResultsHeader className="px-1 py-1">
         <TestResultsSummaryComponent />
         <TestResultsDuration />
       </TestResultsHeader>
-      <TestResultsProgress className="px-3 py-2" />
+      <TestResultsProgress className="px-1 py-1" />
     </TestResults>
   )
 }

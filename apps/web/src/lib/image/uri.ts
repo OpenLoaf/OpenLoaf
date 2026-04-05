@@ -12,6 +12,8 @@ import { resolveServerUrl } from "@/utils/server-url";
 export type PreviewEndpointOptions = {
   /** Project scope for preview resolution. */
   projectId?: string;
+  /** Session id — required when path contains ${CURRENT_CHAT_DIR} template. */
+  sessionId?: string;
   /** Max preview payload size. */
   maxBytes?: number;
   /** Board id — when present, uses board attachment endpoint for board-relative paths. */
@@ -44,10 +46,12 @@ export function getPreviewEndpoint(
   const apiBase = resolveServerUrl();
   const encodedPath = encodeURIComponent(path);
   const projectParam = options?.projectId ? `&projectId=${encodeURIComponent(options.projectId)}` : "";
+  const sessionParam = options?.sessionId ? `&sessionId=${encodeURIComponent(options.sessionId)}` : "";
   const maxBytesParam = options?.maxBytes ? `&maxBytes=${options.maxBytes}` : "";
+  const query = `path=${encodedPath}${projectParam}${sessionParam}${maxBytesParam}`;
   return apiBase
-    ? `${apiBase}/chat/attachments/preview?path=${encodedPath}${projectParam}${maxBytesParam}`
-    : `/chat/attachments/preview?path=${encodedPath}${projectParam}${maxBytesParam}`;
+    ? `${apiBase}/chat/attachments/preview?${query}`
+    : `/chat/attachments/preview?${query}`;
 }
 
 /** Resolve board-scoped preview endpoint. Accepts a board-relative file path (e.g. "asset/foo.jpg"). */

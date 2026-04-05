@@ -65,9 +65,6 @@ function isPathInside(root: string, target: string): boolean {
   return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
 }
 
-/** Session-scoped path regex: [chat_xxx]/subpath */
-const SESSION_PATH_REGEX = /^\[(chat_[^\]]+)\]\/(.+)$/;
-
 /**
  * Template variable expansion for tool inputs (paths, bash commands, etc.).
  *
@@ -152,32 +149,23 @@ export function resolveToolPath(input: {
   const projectId = getProjectId();
   const { projectRoot } = resolveToolRoots();
 
-  let absPath: string;
-
-  // 先处理 [sessionId]/... 格式：解析为会话物理目录
-  // Template variables (${CURRENT_CHAT_DIR}, etc.) are expanded up-front so
-  // every downstream branch (session regex, project-scope resolution, absolute
-  // path handling) sees a plain resolved path.
+  // Template variables (${CURRENT_CHAT_DIR}, ${CURRENT_PROJECT_ROOT}, etc.)
+  // are expanded up-front so downstream layers see plain absolute paths.
   const expanded = expandPathTemplateVars(input.target);
   const raw = expanded.trim();
-  const stripped = raw.startsWith("@{") && raw.endsWith("}") ? raw.slice(2, -1) : raw;
-  const sessionMatch = stripped.match(SESSION_PATH_REGEX);
-  if (sessionMatch) {
-    const targetSessionId = sessionMatch[1]!;
-    const subPath = sessionMatch[2]!;
-    const sessionDir = projectRoot
-      ? path.join(projectRoot, ".openloaf", "chat-history", targetSessionId)
-      : path.join(getResolvedTempStorageDir(), "chat-history", targetSessionId);
-    absPath = path.resolve(sessionDir, subPath);
-  } else if (!projectId && getSessionId()) {
+  // Strip @[...] user-mention wrapper (emitted by ChatInput drop handler).
+  const stripped = raw.startsWith("@[") && raw.endsWith("]") ? raw.slice(2, -1) : raw;
+
+  let absPath: string;
+  if (!projectId && getSessionId()) {
     // 临时会话（无 projectId 有 sessionId）：相对路径解析基于 tempDir
     if (!path.isAbsolute(stripped) && !stripped.startsWith("~") && !stripped.startsWith("file:")) {
       absPath = path.resolve(getResolvedTempStorageDir(), stripped);
     } else {
-      absPath = path.resolve(resolveScopedPath({ projectId, target: expanded }));
+      absPath = path.resolve(resolveScopedPath({ projectId, target: stripped }));
     }
   } else {
-    absPath = path.resolve(resolveScopedPath({ projectId, target: expanded }));
+    absPath = path.resolve(resolveScopedPath({ projectId, target: stripped }));
   }
 
   const insideProject = projectRoot ? isPathInside(projectRoot, absPath) : false;

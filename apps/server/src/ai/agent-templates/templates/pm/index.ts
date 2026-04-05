@@ -28,8 +28,6 @@ export const PM_AGENT_TOOL_IDS = [
   // agent collaboration (PM's core capability)
   'Agent',
   'SendMessage',
-  // system (deferred)
-  'UpdatePlan',
   // web
   'OpenUrl',
   'WebSearch',

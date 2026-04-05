@@ -307,7 +307,7 @@ export function AudioNodeView({
     element.props.fileName || resolvedPath.split("/").pop() || i18next.t('board:nodeLabel.audio');
   const boardId = fileContext?.boardId ?? "";
 
-  // 逻辑：从 @{[proj_xxx]/path} 格式中提取 projectId 作为 fallback。
+  // 逻辑：从 @[[proj_xxx]/path] 格式中提取 projectId 作为 fallback。
   const effectiveProjectId = useMemo(() => {
     if (fileContext?.projectId) return fileContext.projectId;
     const parsed = parseScopedProjectPath(element.props.sourcePath);

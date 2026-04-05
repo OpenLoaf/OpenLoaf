@@ -66,9 +66,9 @@ export async function resolveWriteTargetPath(targetPath: string): Promise<{ absP
   if (!trimmed) throw new Error('file_path is required.')
   if (trimmed.startsWith('file:')) throw new Error('file:// URIs are not allowed.')
 
-  // 剥离 @{...} 或 @ 前缀
+  // 剥离 @[...] 或 @ 前缀
   let normalized: string
-  if (trimmed.startsWith('@{') && trimmed.endsWith('}')) {
+  if (trimmed.startsWith('@[') && trimmed.endsWith(']')) {
     normalized = trimmed.slice(2, -1)
   } else if (trimmed.startsWith('@')) {
     normalized = trimmed.slice(1)

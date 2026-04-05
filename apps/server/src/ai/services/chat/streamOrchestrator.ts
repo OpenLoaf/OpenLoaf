@@ -33,7 +33,7 @@ import {
   setAbortSignal,
   setUiWriter,
 } from "@/ai/shared/context/requestContext";
-import { savePlanFile, getNextPlanNo, markPlanFileStatus } from "@/ai/services/chat/planFileService";
+import { savePlanFile, markPlanFileStatus } from "@/ai/services/chat/planFileService";
 import { emitSnapshot as emitRuntimeTaskSnapshot, clearSessionActiveForms } from "@/ai/services/chat/runtimeTaskService";
 import { reconcileRuntimeTasksOnSessionStart, abortSessionRuntimeTasks } from "@/ai/services/chat/runtimeTaskRecovery";
 import { prisma } from "@openloaf/db";
@@ -455,68 +455,39 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
               if (cliSummary) {
                 mergedMetadata.cliSummary = cliSummary;
               }
-              // 检测 approval-requested 的计划工具调用（SubmitPlan 或旧版 UpdatePlan）。
+              // 检测 approval-requested 的 SubmitPlan 工具调用。
               const pendingPlanPart = (responseMessage.parts ?? []).find(
                 (p: any) =>
-                  (p?.toolName === "SubmitPlan" || p?.type === "tool-SubmitPlan" ||
-                   p?.toolName === "UpdatePlan" || p?.type === "tool-UpdatePlan") &&
+                  (p?.toolName === "SubmitPlan" || p?.type === "tool-SubmitPlan") &&
                   p?.state === "approval-requested",
               ) as any;
               if (pendingPlanPart && !getPlanUpdate()) {
                 try {
-                  const toolName = pendingPlanPart.toolName ?? pendingPlanPart.type?.replace?.("tool-", "") ?? "";
-                  const isSubmitPlan = toolName === "SubmitPlan";
                   const planInput = pendingPlanPart.input;
-
-                  if (isSubmitPlan) {
-                    // SubmitPlan: PLAN file already exists on disk (AI wrote it with Write tool).
-                    // Resolve path via Write's resolver so it matches where AI actually wrote the file.
-                    const planFilePathInput = typeof planInput?.planFilePath === "string" ? planInput.planFilePath : "";
-                    if (planFilePathInput) {
-                      const { readPlanFileFromAbsPath, derivePlanNoFromPath } = await import("@/ai/services/chat/planFileService");
-                      const { resolveWriteTargetPath } = await import("@/ai/tools/fileTools");
-                      try {
-                        const { absPath } = await resolveWriteTargetPath(planFilePathInput);
-                        const planNoFromPath = derivePlanNoFromPath(planFilePathInput);
-                        const planData = await readPlanFileFromAbsPath(absPath, planNoFromPath);
-                        if (planData) {
-                          if (planNoFromPath > 0) {
-                            setCurrentPlanNo(planNoFromPath);
-                            markPlanNoAllocated();
-                            await markPlanFileStatus(currentSessionId, planNoFromPath, "pending").catch(() => {});
-                          }
-                          writer.write({
-                            type: "data-plan-file",
-                            data: { planNo: planNoFromPath, filePath: planData.filePath, actionName: planData.actionName, status: "pending" },
-                            transient: true,
-                          } as unknown as InferUIMessageChunk<UIMessage>);
+                  // SubmitPlan: PLAN file already exists on disk (AI wrote it with Write tool).
+                  // Resolve path via Write's resolver so it matches where AI actually wrote the file.
+                  const planFilePathInput = typeof planInput?.planFilePath === "string" ? planInput.planFilePath : "";
+                  if (planFilePathInput) {
+                    const { readPlanFileFromAbsPath, derivePlanNoFromPath } = await import("@/ai/services/chat/planFileService");
+                    const { resolveWriteTargetPath } = await import("@/ai/tools/fileTools");
+                    try {
+                      const { absPath } = await resolveWriteTargetPath(planFilePathInput);
+                      const planNoFromPath = derivePlanNoFromPath(planFilePathInput);
+                      const planData = await readPlanFileFromAbsPath(absPath, planNoFromPath);
+                      if (planData) {
+                        if (planNoFromPath > 0) {
+                          setCurrentPlanNo(planNoFromPath);
+                          markPlanNoAllocated();
+                          await markPlanFileStatus(currentSessionId, planNoFromPath, "pending").catch(() => {});
                         }
-                      } catch (err) {
-                        logger.warn({ err, sessionId: currentSessionId, planFilePathInput }, "[chat] resolve SubmitPlan file failed");
+                        writer.write({
+                          type: "data-plan-file",
+                          data: { planNo: planNoFromPath, filePath: planData.filePath, actionName: planData.actionName, status: "pending" },
+                          transient: true,
+                        } as unknown as InferUIMessageChunk<UIMessage>);
                       }
-                    }
-                  } else {
-                    // Legacy UpdatePlan: plan content is in tool args, save to file.
-                    const planSteps = Array.isArray(planInput?.plan)
-                      ? planInput.plan.filter((s: any) => typeof s === "string" && s.trim())
-                      : [];
-                    if (planSteps.length > 0) {
-                      const pendingPlanNo = await getNextPlanNo(currentSessionId);
-                      setCurrentPlanNo(pendingPlanNo);
-                      markPlanNoAllocated();
-                      const actionName = typeof planInput?.actionName === "string" ? planInput.actionName : "计划";
-                      const explanation = typeof planInput?.explanation === "string" ? planInput.explanation : undefined;
-                      const planFilePath = await savePlanFile(currentSessionId, pendingPlanNo, {
-                        actionName,
-                        explanation,
-                        plan: planSteps,
-                        status: "pending",
-                      });
-                      writer.write({
-                        type: "data-plan-file",
-                        data: { planNo: pendingPlanNo, filePath: planFilePath, actionName, status: "pending" },
-                        transient: true,
-                      } as unknown as InferUIMessageChunk<UIMessage>);
+                    } catch (err) {
+                      logger.warn({ err, sessionId: currentSessionId, planFilePathInput }, "[chat] resolve SubmitPlan file failed");
                     }
                   }
                 } catch (err) {

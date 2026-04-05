@@ -443,10 +443,10 @@ async function copyDirectoryWithMapping(input: {
     input.replacementMap.set(sourceRelativePath, targetRelativePath);
     input.replacementMap.set(sourcePath, targetRelativePath);
     input.replacementMap.set(sourceFileUri, targetRelativePath);
-    // 逻辑：旧 mention 文本常包在 @{...} 中，这里预先登记包装形式以减少字符串重写歧义。
-    input.replacementMap.set(`@{${sourceRelativePath}}`, `@{${targetRelativePath}}`);
-    input.replacementMap.set(`@{${sourcePath}}`, `@{${targetRelativePath}}`);
-    input.replacementMap.set(`@{${sourceFileUri}}`, `@{${targetRelativePath}}`);
+    // 逻辑：mention 文本包在 @[...] 中，这里预先登记包装形式以减少字符串重写歧义。
+    input.replacementMap.set(`@[${sourceRelativePath}]`, `@[${targetRelativePath}]`);
+    input.replacementMap.set(`@[${sourcePath}]`, `@[${targetRelativePath}]`);
+    input.replacementMap.set(`@[${sourceFileUri}]`, `@[${targetRelativePath}]`);
   }
   return copied;
 }

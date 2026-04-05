@@ -125,12 +125,6 @@ const RAW_CAPABILITY_GROUPS = [
     toolIds: ['Agent', 'SendMessage'],
   },
   {
-    id: 'code-interpreter',
-    label: 'JavaScript REPL',
-    description: '在沙箱中执行 JavaScript 代码，支持持久化变量',
-    toolIds: ['JsRepl', 'JsReplReset'],
-  },
-  {
     id: 'convert',
     label: '格式转换',
     description: '图片处理、视频转换、文档格式转换',
@@ -139,9 +133,8 @@ const RAW_CAPABILITY_GROUPS = [
   {
     id: 'system',
     label: '系统工具',
-    description: '计划更新等',
+    description: 'JSX 等',
     toolIds: [
-      'UpdatePlan',
       'JsxCreate',
     ],
   },

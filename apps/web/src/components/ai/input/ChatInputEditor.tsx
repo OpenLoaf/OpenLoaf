@@ -92,16 +92,17 @@ function valueToHtml(value: string): string {
   if (!value) return "";
   let html = "";
   let lastIndex = 0;
-  // Match @{...} file mentions, /skill/[xxx|yyy] or /skill/[xxx] skill commands (new format),
-  // legacy /skill/xxx skill commands, and @agents/.../pm agent mentions.
-  const re = /@\{([^}]+)\}|\/skill\/\[([\w-]+)(?:\|([^\]]*))?\]|\/skill\/([\w-]+)(?=\s|[^\x00-\x7F])|@agents\/([^/\s]+)\/pm(?=\s|$)/g;
+  // Match @[...] file mentions (supports nested [projectId]/... via alternation),
+  // /skill/[xxx|yyy] or /skill/[xxx] skill commands (new format), legacy /skill/xxx
+  // skill commands, and @agents/.../pm agent mentions.
+  const re = /@\[((?:\[[^\]]*\]|[^\]])+)\]|\/skill\/\[([\w-]+)(?:\|([^\]]*))?\]|\/skill\/([\w-]+)(?=\s|[^\x00-\x7F])|@agents\/([^/\s]+)\/pm(?=\s|$)/g;
   let match: RegExpExecArray | null;
   // biome-ignore lint/suspicious/noAssignInExpressions: intentional loop pattern
   while ((match = re.exec(value)) !== null) {
     html += escapeHtml(value.slice(lastIndex, match.index));
     const token = match[0];
     if (match[1] !== undefined) {
-      // File mention: @{...}
+      // File mention: @[...]
       const label = getFileLabel(match[1]);
       html +=
         `<span class="${CHIP_CLASS}" data-token="${escapeAttr(token)}" contenteditable="false">` +
@@ -216,7 +217,7 @@ export interface ChatInputEditorHandle {
     text: string,
     options?: { ensureLeadingSpace?: boolean; ensureTrailingSpace?: boolean },
   ) => void;
-  /** Insert a mention chip at the current caret position. Token format: @{path}. */
+  /** Insert a mention chip at the current caret position. Token format: @[path]. */
   insertMention: (
     token: string,
     options?: { ensureLeadingSpace?: boolean; ensureTrailingSpace?: boolean },
@@ -480,7 +481,7 @@ export function ChatInputEditor({
       if (!el) return;
 
       // Check if pasted text contains tokens that need chip rendering
-      const hasTokens = /@\{[^}]+\}|\/skill\/[\[a-zA-Z]|@agents\//.test(text);
+      const hasTokens = /@\[(?:\[[^\]]*\]|[^\]])+\]|\/skill\/[\[a-zA-Z]|@agents\//.test(text);
       if (hasTokens) {
         // Merge pasted text into the value string and let valueToHtml render chips
         const currentValue = domToValue(el);

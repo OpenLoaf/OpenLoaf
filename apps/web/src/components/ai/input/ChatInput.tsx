@@ -185,7 +185,7 @@ export interface ChatInputBoxProps {
   afterProjectSelector?: ReactNode;
   /**
    * 上传文件到 session files 目录，返回绝对路径。
-   * 用于系统文件拖拽场景，生成 @{/abs/path} mention。
+   * 用于系统文件拖拽场景，生成 @[/abs/path] mention。
    */
   uploadFileToSession?: (file: File) => Promise<string | null>;
   /** Callback when an @agents/ mention is selected or cleared. */
@@ -451,7 +451,7 @@ export function ChatInputBox({
         for (const file of files) {
           const storedPath = await uploadFileToSession(file);
           if (storedPath) {
-            insertTextAtSelection(`@{${storedPath}}`, {
+            insertTextAtSelection(`@[${storedPath}]`, {
               ensureLeadingSpace: true,
               ensureTrailingSpace: true,
             });
@@ -599,7 +599,7 @@ export function ChatInputBox({
                   for (const file of files) {
                     const storedPath = await uploadFileToSession(file);
                     if (storedPath) {
-                      insertTextAtSelection(`@{${storedPath}}`, { ensureLeadingSpace: true, ensureTrailingSpace: true });
+                      insertTextAtSelection(`@[${storedPath}]`, { ensureLeadingSpace: true, ensureTrailingSpace: true });
                     }
                   }
                 } : undefined}
@@ -1135,13 +1135,13 @@ function ChatInputInner({
       return;
     }
     if (status === "error") clearError();
-    // 将上传的图片路径以 @{path} 格式嵌入到文本中，
+    // 将上传的图片路径以 @[path] 格式嵌入到文本中，
     // AI agent 通过文本直接获取路径，自行决定如何处理文件（读取、修改等）。
     const imageRefTokens = readyImages.flatMap((item) => {
       if (!item.remoteUrl) return [];
-      const tokens = [`@{${item.remoteUrl}}`];
+      const tokens = [`@[${item.remoteUrl}]`];
       if (item.mask?.remoteUrl) {
-        tokens.push(`@{${item.mask.remoteUrl}}`);
+        tokens.push(`@[${item.mask.remoteUrl}]`);
       }
       return tokens;
     });

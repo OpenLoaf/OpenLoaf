@@ -20,7 +20,6 @@ import {
   FolderOpenIcon,
   GlobeIcon,
   ImageIcon,
-  ListChecksIcon,
   LoaderCircleIcon,
   SearchIcon,
   TerminalIcon,
@@ -84,8 +83,6 @@ function getToolIcon(kind: string): React.ReactNode {
     case "image-generate":
     case "video-generate":
       return <ImageIcon className={iconCls} />;
-    case "UpdatePlan":
-      return <ListChecksIcon className={iconCls} />;
     case "Bash":
     case "shell-command":
       return <TerminalIcon className={iconCls} />;

@@ -25,10 +25,7 @@ import {
 } from "./shared/tool-utils";
 
 /**
- * UpdatePlan / SubmitPlan tool renderer.
- *
- * - SubmitPlan: reads plan content from PLAN file via tRPC
- * - UpdatePlan (legacy): reads plan content from tool input
+ * SubmitPlan tool renderer — reads plan content from PLAN file via tRPC.
  */
 export default function PlanTool({ part, className }: { part: AnyToolPart; className?: string }) {
   const isApprovalState = part.state === "approval-requested" || isApprovalPending(part);
@@ -95,7 +92,6 @@ function PlanApprovalCard({ part, className }: { part: AnyToolPart; className?: 
   // Fetch plan file content for SubmitPlan
   const [planFileData, setPlanFileData] = React.useState<{
     actionName: string;
-    explanation?: string;
     steps: string[];
     filePath?: string;
   } | null>(null);
@@ -110,7 +106,6 @@ function PlanApprovalCard({ part, className }: { part: AnyToolPart; className?: 
         if (cancelled || !data) return;
         setPlanFileData({
           actionName: data.actionName,
-          explanation: data.explanation ?? undefined,
           steps: data.steps,
           filePath: data.filePath,
         });
@@ -120,13 +115,10 @@ function PlanApprovalCard({ part, className }: { part: AnyToolPart; className?: 
     return () => { cancelled = true; };
   }, [isSubmitPlan, sessionId, planFilePathInput]);
 
-  // Resolve display data (SubmitPlan: from file, UpdatePlan: from input)
+  // Resolve display data from plan file
   const actionName = isSubmitPlan
     ? (planFileData?.actionName ?? tAi("plan.title"))
     : (typeof inputObj?.actionName === "string" ? inputObj.actionName : tAi("plan.title"));
-  const explanation = isSubmitPlan
-    ? (planFileData?.explanation ?? "")
-    : (typeof inputObj?.explanation === "string" ? inputObj.explanation.trim() : "");
   const planSteps: string[] = React.useMemo(() => {
     if (isSubmitPlan) return planFileData?.steps ?? [];
     const raw = inputObj?.plan;
@@ -328,11 +320,6 @@ function PlanApprovalCard({ part, className }: { part: AnyToolPart; className?: 
             <span>{planDisplayName}</span>
           </button>
         </div>
-
-        {/* Explanation */}
-        {explanation && (
-          <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap">{explanation}</p>
-        )}
 
         {/* Steps */}
         <ol className="space-y-1 text-xs text-foreground/80">

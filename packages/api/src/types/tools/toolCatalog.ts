@@ -37,9 +37,6 @@ import {
   globToolDef,
   grepToolDef,
   editDocumentToolDef,
-  updatePlanToolDef,
-  jsReplToolDef,
-  jsReplResetToolDef,
 } from "./runtime";
 import { requestUserInputToolDef } from "./userInput";
 import { jsxCreateToolDef } from "./jsxCreate";
@@ -117,9 +114,6 @@ const TOOL_DEFS: ToolDefLike[] = [
   boardMutateToolDef,
   agentToolDef,
   sendMessageToolDef,
-  jsReplToolDef,
-  jsReplResetToolDef,
-  updatePlanToolDef,
   requestUserInputToolDef,
   jsxCreateToolDef,
   subAgentToolDef,
@@ -158,7 +152,6 @@ export function resolveToolCatalogItem(id: string): ToolCatalogItem {
 /** Extended tool catalog with keywords and groups for ToolSearch. */
 const TOOL_KEYWORDS: Record<string, { keywords: string[]; group: string }> = {
   'ToolSearch': { keywords: ['search', 'find', 'discover', 'load', 'tool'], group: 'core' },
-  'UpdatePlan': { keywords: ['plan', 'step', 'progress', 'update', 'track'], group: 'core' },
   'AskUserQuestion': { keywords: ['ask', 'input', 'confirm', 'choice', 'question', 'user', 'approval'], group: 'core' },
   'JsxCreate': { keywords: ['jsx', 'component', 'ui', 'render', 'display', 'card', 'layout'], group: 'ui' },
   'Agent': { keywords: ['agent', 'spawn', 'delegate', 'sub', 'dispatch', 'create', 'background'], group: 'agent' },
@@ -179,8 +172,6 @@ const TOOL_KEYWORDS: Record<string, { keywords: string[]; group: string }> = {
   'BrowserScreenshot': { keywords: ['browser', 'screenshot', 'capture', 'page', 'image', 'photo'], group: 'web' },
   'BrowserDownloadImage': { keywords: ['browser', 'download', 'image', 'picture', 'save', 'photo', 'img'], group: 'web' },
   'ChartRender': { keywords: ['chart', 'graph', 'plot', 'data', 'visualization', 'diagram'], group: 'ui' },
-  'JsRepl': { keywords: ['javascript', 'repl', 'eval', 'calculate', 'code', 'script', 'compute'], group: 'code' },
-  'JsReplReset': { keywords: ['repl', 'reset', 'clear', 'javascript', 'context'], group: 'code' },
   'EmailQuery': { keywords: ['email', 'mail', 'inbox', 'message', 'search', 'folder', 'read'], group: 'email' },
   'EmailMutate': { keywords: ['email', 'mail', 'send', 'reply', 'forward', 'draft', 'compose', 'write'], group: 'email' },
   'CalendarQuery': { keywords: ['calendar', 'event', 'schedule', 'meeting', 'date', 'agenda'], group: 'calendar' },

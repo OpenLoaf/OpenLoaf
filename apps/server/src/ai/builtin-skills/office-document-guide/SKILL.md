@@ -127,7 +127,7 @@ x/y 坐标原点在页面左下角。需精确定位时先 `PdfQuery { mode: "re
 
 ### "分析这个 Excel 并生成报告"
 1. `ExcelQuery { mode: "read-structure" }` — 读数据
-2. 用 `JsRepl` 分析数据、计算统计指标
+2. 用 `Bash`（node/python）分析数据、计算统计指标
 3. `WordMutate { action: "create" }` — 生成 Word 报告
 4. `DocConvert` → PDF（如果用户要 PDF）
 

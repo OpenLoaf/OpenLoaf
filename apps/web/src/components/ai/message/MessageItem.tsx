@@ -144,18 +144,18 @@ function MessageItem({
       if (!normalizedValue.trim() && !hasReadyAttachments) return;
       if (status === "error") clearError();
 
-      // 将附件路径以 @{path} 格式嵌入到文本中，
+      // 将附件路径以 @[path] 格式嵌入到文本中，
       // AI agent 通过文本直接获取路径，自行决定如何处理文件。
       const imageRefTokens: string[] = [];
       for (const attachment of editAttachmentsRef.current) {
         if (attachment.status !== "ready") continue;
         const url = attachment.remoteUrl || attachment.objectUrl;
         if (!url) continue;
-        imageRefTokens.push(`@{${url}}`);
+        imageRefTokens.push(`@[${url}]`);
         if (attachment.mask && attachment.mask.status === "ready") {
           const maskUrl = attachment.mask.remoteUrl || attachment.mask.objectUrl;
           if (maskUrl) {
-            imageRefTokens.push(`@{${maskUrl}}`);
+            imageRefTokens.push(`@[${maskUrl}]`);
           }
         }
       }

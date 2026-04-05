@@ -41,7 +41,7 @@ description: >
 ├─ 按文件名模式搜索 → Glob（pattern 匹配，如 "**/*.ts"）
 ├─ 搜索代码内容 → Grep（支持正则、上下文行、多种输出模式）
 ├─ 执行 shell 命令 → Bash
-├─ 计算/数据处理 → JsRepl（持久化 Node.js 沙箱）
+├─ 计算/数据处理 → Bash（调用 node/python 等）
 ├─ 网页搜索 → WebSearch
 ├─ 抓取单个静态网页 → `ToolSearch(names: "WebFetch")` 直接按工具名加载
 │   ⚠ 不要为此加载 browser-automation-guide skill——那套是为页面交互（点击/填表/登录/截图）设计的

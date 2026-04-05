@@ -139,10 +139,81 @@ function allSegmentsSafe(command: string): boolean {
   return true;
 }
 
+// ─── 沙箱目录检测 ──────────────────────────────────────────────────────────
+
+/** 判断 target 路径是否在 root 下（或等于 root）。 */
+function isPathInside(root: string, target: string): boolean {
+  const relative = path.relative(root, target);
+  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
+}
+
+/**
+ * 提取命令字符串中所有"看起来是绝对路径"的 token。
+ * 支持：/abs/path、~/rel、C:\foo\bar 等。
+ * 只在空白/分隔符之后出现的才算，避免误匹配 URL 中的 //。
+ */
+function extractAbsolutePaths(command: string): string[] {
+  const found: string[] = [];
+  const pattern =
+    /(?:^|[\s"'=:,;|&<>()`])(~\/[^\s"'`;|&<>()]*|\/[^\s"'`;|&<>():]*|[a-zA-Z]:\\[^\s"'`;|&<>()]*)/g;
+  let m: RegExpExecArray | null;
+  while ((m = pattern.exec(command)) !== null) {
+    const p = m[1];
+    if (p && p.length > 1) found.push(p);
+  }
+  return found;
+}
+
+/** 系统二进制路径前缀（工具调用时硬引用，不算用户文件）。 */
+const SYSTEM_PATH_PREFIXES = [
+  "/bin/", "/sbin/", "/usr/", "/opt/", "/etc/",
+  "/dev/null", "/dev/stdin", "/dev/stdout", "/dev/stderr",
+  "/tmp/", "/System/", "/Library/", "/var/",
+];
+
+function isSystemPath(absPath: string): boolean {
+  return SYSTEM_PATH_PREFIXES.some(
+    (prefix) => absPath === prefix.replace(/\/$/, "") || absPath.startsWith(prefix),
+  );
+}
+
+/**
+ * 命令中出现的所有绝对/home 路径是否都落在 sandboxDirs 集合内。
+ * 系统路径（/bin、/usr 等）不影响判断；若命令里没有出现任何绝对路径，
+ * 返回 false（让调用方走常规判定，不特权化纯相对路径命令）。
+ */
+function commandStaysInSandbox(command: string, sandboxDirs: string[]): boolean {
+  if (sandboxDirs.length === 0) return false;
+  const home = process.env.HOME || process.env.USERPROFILE || "";
+  const resolvedSandboxes = sandboxDirs.map((d) => path.resolve(d));
+  const found = extractAbsolutePaths(command);
+  if (found.length === 0) return false;
+  for (const raw of found) {
+    const expanded = raw.startsWith("~") ? raw.replace(/^~/, home) : raw;
+    const abs = path.resolve(expanded);
+    if (isSystemPath(abs)) continue;
+    const insideAny = resolvedSandboxes.some((sb) => isPathInside(sb, abs));
+    if (!insideAny) return false;
+  }
+  return true;
+}
+
 // ─── 导出 ───────────────────────────────────────────────────────────────────
 
+export interface ApprovalOptions {
+  /**
+   * 沙箱目录白名单（绝对路径）。若命令里所有用户路径都落在这些目录内，
+   * 即使命令含有重定向、分号等"危险"操作符，也无需审批。典型值：
+   * CURRENT_CHAT_DIR / CURRENT_BOARD_DIR 对应的绝对路径。
+   */
+  sandboxDirs?: string[];
+}
+
 /** 判断 shell 命令是否需要用户审批。false = 安全，true = 需要审批。 */
-export function needsApprovalForCommand(command: string | string[] | undefined): boolean {
+export function needsApprovalForCommand(
+  command: string | string[] | undefined,
+  options?: ApprovalOptions,
+): boolean {
   // 数组形式：只看第一个 token
   if (Array.isArray(command)) {
     return !isSafeCommand(extractLeadCommand(command[0] ?? ""));
@@ -155,8 +226,23 @@ export function needsApprovalForCommand(command: string | string[] | undefined):
   const masked = maskQuotedStrings(trimmed);
 
   // 2. 检查 shell 操作符
-  if (hasUnsafeShellOps(masked)) return true;
-
+  const hasUnsafeOps = hasUnsafeShellOps(masked);
   // 3. 检查每段命令是否在白名单中
-  return !allSegmentsSafe(masked);
+  const hasUnsafeSegment = !allSegmentsSafe(masked);
+
+  if (!hasUnsafeOps && !hasUnsafeSegment) return false;
+
+  // 沙箱豁免：命令虽有"危险"操作符（重定向、分号、管道等），但若所有用户
+  // 路径均在沙箱目录内，放行。命令段落本身不安全（sudo、shell 等）时不豁免，
+  // 沙箱只豁免 I/O 限定的危险性，不豁免命令能力。
+  if (
+    options?.sandboxDirs?.length &&
+    hasUnsafeOps &&
+    !hasUnsafeSegment &&
+    commandStaysInSandbox(trimmed, options.sandboxDirs)
+  ) {
+    return false;
+  }
+
+  return true;
 }

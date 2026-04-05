@@ -98,9 +98,11 @@ export default function ClaudeCodeWebTool({
       </Tooltip>
       <CollapsibleContent className="px-2.5 py-2 text-xs">
         {hasOutput ? (
-          <div className="max-h-[320px] overflow-auto rounded-2xl bg-muted/50">
-            <CodeBlock code={output} language="json" />
-          </div>
+          <CodeBlock
+            code={output}
+            language="json"
+            className="max-h-[320px] overflow-auto"
+          />
         ) : errorText ? (
           <div className="whitespace-pre-wrap break-all rounded-2xl bg-destructive/10 p-2 text-xs text-destructive">
             {errorText}

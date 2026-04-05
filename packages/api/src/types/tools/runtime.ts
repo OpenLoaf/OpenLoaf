@@ -105,7 +105,7 @@ export const editDocumentToolDef = {
   readonly: false,
   name: "编辑文稿",
   description:
-    "触发：当用户要求修改文稿（tndoc_ 文件夹中的 index.mdx）时调用。用途：将修改后的完整 MDX 内容写入文稿的 index.mdx 文件。返回：`Wrote document: <relative-path>`。不适用：非文稿文件请用 write-file。",
+    "Writes the full updated MDX content to a document's `index.mdx` (inside a `tndoc_` folder). Use when the user asks to modify a document. For non-document files, use Write instead.",
   parameters: z.object({
     path: z.string().min(1).describe("文稿文件夹路径或 index.mdx 路径（相对当前项目或全局根目录）。"),
     content: z.string().describe("修改后的完整 MDX 内容。"),
@@ -160,48 +160,39 @@ Usage:
   component: null,
 } as const;
 
-const planItemSchema = z.string().min(1).describe("Plan step text.");
-
-/** Update-plan tool definition for storing assistant plans. */
-export const updatePlanToolDef = {
-  id: "UpdatePlan",
-  readonly: true,
-  name: "创建计划",
-  description: `触发：当任务涉及多文件修改、多步骤流程、或需要先调研再执行时使用。创建完整计划后系统会暂停等待用户审批。用户批准后直接按计划执行，不需要再调用此工具。不适用：1-2 步的简单任务不要调用。
-
-Creates a task plan and waits for user approval.
-- explanation field is REQUIRED: include background, approach rationale, key file paths, caveats, and verification method.
-- Each step should be specific (include file names and concrete actions).
-- All steps should initially be "pending".
-- After user approval, execute the plan directly — do NOT call this tool again to report progress.`,
-  parameters: z.object({
-    actionName: z
-      .string()
-      .optional()
-      .describe("Plan title, e.g. 'Refactor UserService'"),
-    explanation: z.string().optional().describe("Full approach description: background, rationale, key files, caveats, verification method."),
-    plan: z.array(planItemSchema).min(1).describe("Plan step list (3-10 steps)."),
-  }),
-  component: null,
-} as const;
-
 /** Submit-plan tool definition — lightweight approval gate for plan files. */
 export const submitPlanToolDef = {
   id: "SubmitPlan",
   readonly: true,
   name: "提交计划审批",
-  description: `触发：当你用 Write 创建了 PLAN 文件后，调用此工具提交给用户审批。系统会暂停等待用户批准或拒绝。
-- 用户批准：你会收到完整的计划内容，按步骤执行即可。
-- 用户拒绝并提供反馈：你会收到文件路径和反馈，用 Read + Edit 修改同一个文件后再次调用 SubmitPlan（使用相同路径）。
+  description: `Use this tool when you have finished writing your plan to a PLAN file and are ready for user approval.
 
-Submit a PLAN file for user approval. The system will pause until the user approves or rejects.
-- On approval: you receive the full plan content. Start executing immediately.
-- On rejection: you receive the file path and feedback. Use Read + Edit to revise, then call SubmitPlan again with the same planFilePath.`,
+## How This Tool Works
+- You should have already written your plan to a PLAN file using the Write tool (e.g. "PLAN_1.md")
+- This tool reads the plan from the file — pass the same path you gave to Write
+- This tool simply signals that you're done planning and ready for the user to review and approve
+- The user will see the contents of your plan file when they review it
+
+## When to Use This Tool
+IMPORTANT: Only use this tool when the task requires planning the implementation steps of a task that requires **writing code**. For research tasks where you're gathering information, searching files, reading files or in general trying to understand the codebase — **do NOT use this tool**.
+
+## Before Using This Tool
+Ensure your plan is complete and unambiguous:
+- If you have unresolved questions about requirements or approach, use AskUserQuestion first (in earlier phases)
+- Once your plan is finalized, use THIS tool to request approval
+
+**Important:** Do NOT use AskUserQuestion to ask "Is this plan okay?" or "Should I proceed?" — that's exactly what THIS tool does. SubmitPlan inherently requests user approval of your plan.
+
+## Examples
+
+1. Initial task: "Search for and understand the implementation of vim mode in the codebase" — Do not use SubmitPlan because you are not planning the implementation steps of a task.
+2. Initial task: "Help me implement yank mode for vim" — Use SubmitPlan after you have finished planning the implementation steps of the task.
+3. Initial task: "Add a new feature to handle user authentication" — If unsure about auth method (OAuth, JWT, etc.), use AskUserQuestion first, then use SubmitPlan after clarifying the approach.`,
   parameters: z.object({
     planFilePath: z
       .string()
       .min(1)
-      .describe("PLAN 文件路径。必须与你传给 Write 工具时完全相同的路径（可以是相对路径，如 \"PLAN_1.md\"）。The exact file path you passed to the Write tool (relative paths like \"PLAN_1.md\" are supported)."),
+      .describe("The exact file path you passed to the Write tool (relative paths like \"PLAN_1.md\" are supported)."),
   }),
   component: null,
 } as const;
@@ -209,37 +200,5 @@ Submit a PLAN file for user approval. The system will pause until the user appro
 /** Submit-plan payload type. */
 export type SubmitPlanArgs = z.infer<typeof submitPlanToolDef.parameters>;
 
-export const jsReplToolDef = {
-  id: "JsRepl",
-  readonly: true,
-  name: "JavaScript REPL",
-  description: `触发：当你需要执行 JavaScript 代码进行计算、数据处理、原型验证或调试时调用。用途：在持久化的 Node.js 沙箱中执行代码，变量和函数在多次调用间保留。返回：console.log 输出和最终表达式的值。不适用：需要访问文件系统或网络请求时请用 Bash。
-
-Executes JavaScript code in a persistent Node.js VM sandbox.
-- Variables and functions persist across calls within the same session.
-- console.log/warn/error output is captured and returned.
-- The last expression value is included in the output.
-- Execution has a timeout to prevent infinite loops.
-- No access to file system, network, or child_process.`,
-  parameters: z.object({
-    code: z.string().min(1).describe("要执行的 JavaScript 代码。"),
-  }),
-  component: null,
-} as const;
-
-export const jsReplResetToolDef = {
-  id: "JsReplReset",
-  readonly: true,
-  name: "重置 JavaScript REPL",
-  description: `触发：当你需要清除 REPL 中所有已定义的变量和状态，恢复到初始环境时调用。用途：重置沙箱上下文。返回：{ ok: true, message: string }。不适用：不需要清除状态时不要调用。
-
-Resets the JavaScript REPL sandbox to a clean state, clearing all variables and functions.`,
-  parameters: z.object({}),
-  component: null,
-} as const;
-
 /** Plan step item — a plain string describing the step. */
-export type PlanItem = z.infer<typeof planItemSchema>;
-
-/** Update-plan payload type for UpdatePlan tool. */
-export type UpdatePlanArgs = z.infer<typeof updatePlanToolDef.parameters>;
+export type PlanItem = string;

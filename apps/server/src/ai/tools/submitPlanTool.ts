@@ -82,7 +82,7 @@ export const submitPlanTool = tool({
         planFilePathInput,
         planNo: planNoFromPath || undefined,
         feedback,
-        message: `用户对计划提出修改意见。请用 Read 读取计划文件 "${planFilePathInput}"，用 Edit 修改后再次调用 SubmitPlan(planFilePath="${planFilePathInput}")。\n${feedback ? `\n用户反馈：${feedback}` : ""}\n\nUser requested changes. Read "${planFilePathInput}", edit it, then call SubmitPlan(planFilePath="${planFilePathInput}") again.\n${feedback ? `\nFeedback: ${feedback}` : ""}`,
+        message: `User requested changes. Read "${planFilePathInput}", edit it, then call SubmitPlan(planFilePath="${planFilePathInput}") again.${feedback ? `\n\nFeedback: ${feedback}` : ""}`,
       };
     }
 
@@ -114,7 +114,12 @@ export const submitPlanTool = tool({
       planFilePath: absPath,
       planFilePathInput,
       planNo: planNoFromPath || undefined,
-      message: `用户已批准计划（${planData.steps.length} 个步骤）。请立即按步骤执行，不要再调用 SubmitPlan。\n\n${planData.content}\n\nPlan approved (${planData.steps.length} steps). Start executing now. Do NOT call SubmitPlan again.`,
+      message: `Plan approved. Start working now — do NOT call SubmitPlan again.
+
+- Follow the plan's **direction**; do NOT mechanically map each step to one tool call.
+- Use tools only for things that actually need to run (edit files, run commands, fetch data, process content).
+- Analysis findings, tech stack summaries, list outputs — **write them directly in your conversation reply**, do NOT echo them via Bash.
+- If a step fails, explain why and continue to the next, or stop and tell the user.`,
     };
   },
 });

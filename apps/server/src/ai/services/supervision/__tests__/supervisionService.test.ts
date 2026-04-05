@@ -105,15 +105,6 @@ async function main() {
     })
   }
 
-  console.log('\n--- C: UpdatePlan auto-approve ---')
-
-  await test('C1: UpdatePlan is auto-approved', async () => {
-    const svc = createTestService()
-    const result = await svc.evaluate(makeRequest('UpdatePlan'))
-    assert.equal(result.decision, 'approve')
-    assert.ok(result.reason.includes('计划'))
-  })
-
   console.log('\n--- D: Shell command checks ---')
 
   await test('D1: shell with safe read-only command auto-approves', async () => {

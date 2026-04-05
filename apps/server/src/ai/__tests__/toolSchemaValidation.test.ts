@@ -51,9 +51,6 @@ import {
   editDocumentToolDef,
   globToolDef,
   grepToolDef,
-  updatePlanToolDef,
-  jsReplToolDef,
-  jsReplResetToolDef,
 } from "@openloaf/api/types/tools/runtime";
 import { requestUserInputToolDef } from "@openloaf/api/types/tools/userInput";
 import { jsxCreateToolDef } from "@openloaf/api/types/tools/jsxCreate";
@@ -104,9 +101,6 @@ const ALL_TOOL_DEFS: ToolDefLike[] = [
   projectMutateToolDef,
   agentToolDef,
   sendMessageToolDef,
-  jsReplToolDef,
-  jsReplResetToolDef,
-  updatePlanToolDef,
   requestUserInputToolDef,
   jsxCreateToolDef,
   subAgentToolDef,

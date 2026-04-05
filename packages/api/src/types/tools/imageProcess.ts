@@ -14,25 +14,12 @@ export const imageProcessToolDef = {
   readonly: false,
   name: '图片处理',
   description:
-    '触发：当用户需要对已有图片进行处理时调用——调整大小、裁剪、旋转、翻转、灰度化、模糊、锐化、着色或格式转换。' +
-    '典型场景："查看这张图片的尺寸"、"把这张图缩小到 800x600"、"把 PNG 转成 WebP"、"把照片旋转 90 度"、"裁剪图片左上角 200x200 区域"、"给图片加模糊效果"。' +
-    '支持的输入格式：jpeg/jpg, png, webp, avif, tiff, gif, bmp, svg, heif/heic（iPhone 照片）。' +
-    '支持的输出格式（convert action）：jpeg, png, webp, avif, tiff, gif。' +
-    'action 说明与必填参数：' +
-    'get-info — 无额外必填参数，返回 { width, height, format, colorSpace, channels, depth, hasAlpha, density, isAnimated, fileSize }；' +
-    'resize — 需 width 和/或 height（至少一个），可选 fit（cover/contain/fill/inside/outside）；' +
-    'crop — 需 left, top, cropWidth, cropHeight 四个参数；' +
-    'rotate — 可选 angle（默认 90 度顺时针）；' +
-    'flip — 可选 direction（horizontal/vertical，默认 vertical）；' +
-    'grayscale — 无额外参数；' +
-    'blur — 可选 sigma（0.3-100，默认 3）；' +
-    'sharpen — 无额外参数；' +
-    'tint — 需 tintColor（十六进制如 "#FF6600"）；' +
-    'convert — 需 format（jpeg/png/webp/avif/tiff/gif）和 outputPath，可选 quality（1-100，默认 80）。' +
-    '限制：gif 仅处理第一帧；svg 仅支持作为输入（可转 png/jpg 等），不支持输出为 svg；png 转 jpeg 时透明区域会变白底。' +
-    '输出：未指定 outputPath 时自动在源文件名后添加操作后缀（如 photo_resize.png），不会覆盖原图；设置 overwrite=true 可覆盖源文件。' +
-    '返回：{ ok, data: { action, outputPath, width, height, format, fileSize } }。' +
-    '不适用：需要 AI 生成全新图片时不要使用，改用画布 v3 媒体生成流程。',
+    'Processes an existing image: get-info / resize / crop / rotate / flip / grayscale / blur / sharpen / tint / convert (format). ' +
+    'Input formats: jpeg/png/webp/avif/tiff/gif/bmp/svg/heif. Output formats (for convert): jpeg/png/webp/avif/tiff/gif. ' +
+    'Per-action required params are defined in each parameter\'s describe() — check there for specifics. ' +
+    'Limits: gif only processes first frame; svg input-only (cannot output svg); png→jpeg makes transparent areas white. ' +
+    'If outputPath is omitted, writes to `<source>_<action>.<ext>` (does not overwrite); set overwrite=true to replace source. ' +
+    'Do NOT use for generating new images from scratch — use the canvas v3 media generation flow instead.',
   parameters: z.object({
     action: z
       .enum(['get-info', 'resize', 'crop', 'rotate', 'flip', 'grayscale', 'blur', 'sharpen', 'tint', 'convert'])

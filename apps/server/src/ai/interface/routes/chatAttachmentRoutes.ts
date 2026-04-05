@@ -167,6 +167,7 @@ export function registerChatAttachmentRoutes(app: Hono) {
     const query = controller.parsePreviewQuery({
       path: c.req.query("path")?.trim(),
       projectId: c.req.query("projectId")?.trim(),
+      sessionId: c.req.query("sessionId")?.trim(),
       includeMetadata: c.req.query("includeMetadata")?.trim(),
       maxBytes: c.req.query("maxBytes")?.trim(),
     });

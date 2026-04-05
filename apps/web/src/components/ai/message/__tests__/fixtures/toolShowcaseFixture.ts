@@ -54,23 +54,6 @@ const systemAgentParts: ToolShowcasePart[] = [
     output: { ok: true, data: { iso: '2026-03-09T10:30:00+08:00', unix: 1773041400, timezone: 'Asia/Shanghai' } },
   },
   {
-    type: 'tool-UpdatePlan',
-    toolCallId: callId(),
-    toolName: 'UpdatePlan',
-    state: 'output-available',
-    input: {
-      explanation: '分析需求后制定的执行计划',
-      plan: [
-        { id: '1', title: '分析现有代码结构', status: 'completed' },
-        { id: '2', title: '创建数据库 migration', status: 'completed' },
-        { id: '3', title: '实现 API 端点', status: 'in_progress' },
-        { id: '4', title: '编写前端组件', status: 'pending' },
-        { id: '5', title: '添加单元测试', status: 'pending' },
-      ],
-    },
-    output: { ok: true },
-  },
-  {
     type: 'tool-Agent',
     toolCallId: callId(),
     toolName: 'Agent',
@@ -222,30 +205,6 @@ const shellCodeParts: ToolShowcasePart[] = [
         metadata: { exit_code: 0, duration_seconds: 8.421 },
       },
     },
-  },
-  {
-    type: 'tool-JsRepl',
-    toolCallId: callId(),
-    toolName: 'JsRepl',
-    state: 'output-available',
-    input: {
-      actionName: '执行 JavaScript',
-      code: 'const arr = [3, 1, 4, 1, 5, 9, 2, 6];\nconst sorted = arr.sort((a, b) => a - b);\nconsole.log("Sorted:", sorted);\nconst sum = sorted.reduce((a, b) => a + b, 0);\nconsole.log("Sum:", sum);',
-    },
-    output: {
-      ok: true,
-      data: {
-        result: 'Sorted: [1, 1, 2, 3, 4, 5, 6, 9]\nSum: 31',
-      },
-    },
-  },
-  {
-    type: 'tool-JsReplReset',
-    toolCallId: callId(),
-    toolName: 'JsReplReset',
-    state: 'output-available',
-    input: { actionName: '重置 REPL' },
-    output: { ok: true, data: { message: 'REPL context reset successfully' } },
   },
 ]
 
