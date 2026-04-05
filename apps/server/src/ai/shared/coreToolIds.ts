@@ -23,11 +23,12 @@ export const CORE_TOOL_IDS = [
   'AskUserQuestion',
 ] as const
 
-/** Full core tool set for master agents (includes agent collaboration tools). */
+/** Full core tool set for master agents (includes agent collaboration + planning tools). */
 export const MASTER_CORE_TOOL_IDS = [
   ...CORE_TOOL_IDS,
   'Agent',
   'SendMessage',
+  'SubmitPlan',
 ] as const
 
 /** Core tool set for PM agents — identical to master (PM coordinates sub-agents). */

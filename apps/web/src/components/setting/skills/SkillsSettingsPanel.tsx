@@ -77,6 +77,7 @@ import { ColorPickerSubMenu } from "@/components/shared/ColorPickerSubMenu";
 import { TranslateTitlesDialog } from "./TranslateTitlesDialog";
 import { SkillUpdateBanner } from "./SkillUpdateBanner";
 import { ExternalSkillsBanner, ExternalSkillsIconButton } from "./ExternalSkillsBanner";
+import { ExternalSkillsImportDialog } from "./ExternalSkillsImportDialog";
 import { useInstallMarketSkill, useSkillUpdateCheck } from "@/hooks/use-skill-market";
 
 type SkillScope = "builtin" | "project" | "global";
@@ -200,7 +201,7 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
           label: t('skills.scopeProject'),
           icon: FolderCog,
           skills: projectSkills,
-          folderUri: projectRootUri ? buildFileUriFromRoot(projectRootUri, ".openloaf/agents/skills") : undefined,
+          folderUri: projectRootUri ? buildFileUriFromRoot(projectRootUri, ".openloaf/skills") : undefined,
         });
       } else {
         // In global page, group by each project
@@ -276,6 +277,7 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
     }),
   );
   const [translateDialogOpen, setTranslateDialogOpen] = useState(false);
+  const [emptyImportDialogOpen, setEmptyImportDialogOpen] = useState(false);
 
   // --- Marketplace update banner ---
   const updateCheckQuery = useSkillUpdateCheck(projectId);
@@ -819,27 +821,7 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
                 variant="outline"
                 size="sm"
                 className="rounded-full"
-                onClick={() => {
-                  const input = document.createElement('input');
-                  input.type = 'file';
-                  input.accept = '.zip,.tar.gz,.skill';
-                  input.multiple = true;
-                  input.onchange = async (e) => {
-                    const files = (e.target as HTMLInputElement).files;
-                    if (!files?.length) return;
-                    const scope = isProjectList ? 'project' as const : 'global' as const;
-                    for (const file of Array.from(files)) {
-                      if (isArchiveFile(file.name)) {
-                        const buffer = await file.arrayBuffer();
-                        const base64 = btoa(new Uint8Array(buffer).reduce((data, byte) => data + String.fromCharCode(byte), ''));
-                        importArchiveMutation.mutate({ contentBase64: base64, fileName: file.name, scope, projectId: scope === 'project' ? projectId : undefined });
-                      } else {
-                        toast.error(t('skills.import.unsupportedFormat'));
-                      }
-                    }
-                  };
-                  input.click();
-                }}
+                onClick={() => setEmptyImportDialogOpen(true)}
               >
                 <Import className="mr-1.5 h-3.5 w-3.5" />
                 {t('skills.emptyImport')}
@@ -896,6 +878,11 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
         skills={skills.filter((s) => !s.hasMeta)}
         allSkills={skills}
         invalidateSkillQueries={invalidateSkillQueries}
+      />
+      <ExternalSkillsImportDialog
+        open={emptyImportDialogOpen}
+        onOpenChangeAction={setEmptyImportDialogOpen}
+        projectId={projectId}
       />
 
       {/* Transfer (copy/move) skill dialog */}

@@ -20,7 +20,7 @@ import {
   getProjectRootPath,
 } from '@openloaf/api/services/vfsService'
 import { getOpenLoafRootDir } from '@openloaf/config'
-import { ensureTempProject } from '@/ai/tools/toolScope'
+import { ensureWritableRoot } from '@/ai/tools/toolScope'
 import { resolveMessagesJsonlPath } from '@/ai/services/chat/repositories/chatFileStore'
 import { validateJsxCreateInput } from '@/ai/tools/jsxCreateValidator'
 
@@ -70,14 +70,15 @@ export const jsxCreateTool = tool({
     const messageId = getAssistantMessageId()
     if (!messageId) throw new Error('assistantMessageId is required.')
 
-    let projectId = getProjectId()
-    let rootPath = projectId
-      ? getProjectRootPath(projectId)
-      : undefined
-    if (!rootPath) {
-      const temp = await ensureTempProject()
-      projectId = temp.projectId
-      rootPath = temp.projectRoot
+    const projectId = getProjectId()
+    let rootPath: string
+    if (projectId) {
+      const projRoot = getProjectRootPath(projectId)
+      if (!projRoot) throw new Error('Project not found.')
+      rootPath = projRoot
+    } else {
+      const writable = await ensureWritableRoot()
+      rootPath = writable.rootPath
     }
 
     const jsx = input.content

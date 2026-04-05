@@ -39,7 +39,10 @@ export async function loadMessageChain(input: {
     role: row.role as OpenLoafUIMessage['role'],
     parentMessageId: row.parentMessageId ?? null,
     parts: (row.parts ?? []) as OpenLoafUIMessage['parts'],
-    metadata: row.metadata ?? undefined,
+    metadata: {
+      ...(row.metadata && typeof row.metadata === 'object' ? row.metadata as Record<string, unknown> : {}),
+      _createdAt: row.createdAt,
+    },
     messageKind: (row.messageKind ?? 'normal') as ChatMessageKind,
   }))
 }

@@ -24,8 +24,9 @@ import {
 } from "@openloaf/ui/select";
 import { Badge } from "@openloaf/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@openloaf/ui/tooltip";
-import { Loader2, Link2, Copy, Check, Search, X } from "lucide-react";
+import { Loader2, Link2, Copy, Check, Search, X, FolderOpen } from "lucide-react";
 import { toast } from "sonner";
+import { isElectronEnv } from "@/utils/is-electron-env";
 
 type ExternalSkill = {
   name: string;
@@ -87,6 +88,19 @@ export function ExternalSkillsImportDialog({
   });
 
   const sources: ExternalSource[] = detectQuery.data?.sources ?? EMPTY_SOURCES;
+  const homePath = detectQuery.data?.homePath;
+  const projectRootPath = detectQuery.data?.projectRootPath;
+
+  const shortenPath = useCallback((fullPath: string) => {
+    if (projectRootPath && fullPath.startsWith(projectRootPath)) {
+      const rel = fullPath.slice(projectRootPath.length);
+      return `.${rel}`;
+    }
+    if (homePath && fullPath.startsWith(homePath)) {
+      return `~${fullPath.slice(homePath.length)}`;
+    }
+    return fullPath;
+  }, [homePath, projectRootPath]);
 
   const filteredSources = useMemo(() => {
     if (sourceFilter === "all") return sources;
@@ -171,6 +185,48 @@ export function ExternalSkillsImportDialog({
       },
     }),
   );
+
+  const localImportMutation = useMutation(
+    trpc.settings.importSkill.mutationOptions({
+      onSuccess: (data) => {
+        if (data.ok && data.importedSkills.length > 0) {
+          toast.success(t("skills.external.localImportSuccess", {
+            count: data.importedSkills.length,
+            defaultValue: `成功从本地导入 ${data.importedSkills.length} 个技能`,
+          }));
+          queryClient.invalidateQueries({
+            queryKey: trpc.settings.getSkills.queryOptions().queryKey,
+          });
+          if (projectId) {
+            queryClient.invalidateQueries({
+              queryKey: trpc.settings.getSkills.queryOptions({ projectId }).queryKey,
+            });
+          }
+          queryClient.invalidateQueries({
+            queryKey: trpc.settings.detectExternalSkills.queryOptions({ projectId }).queryKey,
+          });
+        } else if (data.error) {
+          toast.error(data.error);
+        }
+      },
+      onError: (error) => {
+        toast.error(error.message ?? t("skills.external.failed"));
+      },
+    }),
+  );
+
+  const handleLocalFolderImport = useCallback(async () => {
+    const api = window.openloafElectron;
+    if (!api?.pickDirectory) return;
+    const result = await api.pickDirectory();
+    if (!result?.ok) return;
+    const scope = projectId ? ("project" as const) : ("global" as const);
+    localImportMutation.mutate({
+      sourcePath: result.path,
+      scope,
+      projectId,
+    });
+  }, [projectId, localImportMutation]);
 
   const handleImport = useCallback(() => {
     const skillsToImport = allSkills
@@ -311,7 +367,7 @@ export function ExternalSkillsImportDialog({
                     </label>
                   </TooltipTrigger>
                   <TooltipContent side="bottom" align="start" className="max-w-sm text-xs">
-                    {skill.sourcePath}
+                    {shortenPath(skill.sourcePath)}
                   </TooltipContent>
                 </Tooltip>
               ))}
@@ -338,6 +394,20 @@ export function ExternalSkillsImportDialog({
               </SelectItem>
             </SelectContent>
           </Select>
+          {isElectronEnv() && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="shrink-0 rounded-3xl"
+              onClick={handleLocalFolderImport}
+              disabled={localImportMutation.isPending}
+            >
+              <FolderOpen className="mr-1.5 h-3.5 w-3.5" />
+              {localImportMutation.isPending
+                ? t("skills.external.importing")
+                : t("skills.external.localFolderImport", { defaultValue: "从本地文件夹导入" })}
+            </Button>
+          )}
           <div className="flex-1" />
           <Button
             variant="ghost"

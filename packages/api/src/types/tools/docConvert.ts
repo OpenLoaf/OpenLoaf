@@ -11,6 +11,7 @@ import { z } from 'zod'
 
 export const docConvertToolDef = {
   id: 'DocConvert',
+  readonly: false,
   name: '文档转换',
   description:
     '触发：当用户需要将文档从一种格式转换为另一种格式时调用。' +

@@ -11,18 +11,20 @@ import { z } from "zod";
 
 export const browserSnapshotToolDef = {
   id: "BrowserSnapshot",
+  readonly: true,
   name: "浏览器快照",
   description:
-    "触发：当你需要了解当前可控页面的整体状态（URL/标题/可见文本/可交互元素）以决定下一步操作时调用。用途：抓取页面快照。返回：{ ok: true, data: { url, title, readyState, text, elements, frames? } }（文本/元素可能被截断）；无可用页面或执行失败会报错。",
+    "触发：当你需要了解当前可控页面的整体状态（URL/标题/可见文本/可交互元素）以决定下一步操作时调用。用途：抓取页面快照。返回：{ ok: true, data: { url, title, readyState, text, elements, frames?, rawHtmlPath?, rawHtmlBytes? } }（文本/元素会按 32KB/120 项截断）。需要原始 DOM 结构（标签/属性/selector 精确匹配）时，用 Read/Grep 读取 rawHtmlPath 指向的完整 outerHTML 文件；无可用页面或执行失败会报错。",
   parameters: z.object({}),
   component: null,
 } as const;
 
 export const browserObserveToolDef = {
   id: "BrowserObserve",
+  readonly: true,
   name: "页面观察",
   description:
-    "触发：当你围绕特定目标观察页面（例如找按钮/表单/关键区块）时调用。用途：基于 task 生成更聚焦的页面快照。返回：{ ok: true, data: { task, snapshot: { url, title, readyState, text, elements, frames? } } }；失败会报错。",
+    "触发：当你围绕特定目标观察页面（例如找按钮/表单/关键区块）时调用。用途：基于 task 生成更聚焦的页面快照。返回：{ ok: true, data: { task, snapshot: { url, title, readyState, text, elements, frames? }, rawHtmlPath?, rawHtmlBytes? } }；快照字段按 32KB/120 项截断，需要原始 DOM 时 Read/Grep rawHtmlPath；失败会报错。",
   parameters: z.object({
     task: z.string().describe("观察目标/关注点。"),
   }),
@@ -31,9 +33,10 @@ export const browserObserveToolDef = {
 
 export const browserExtractToolDef = {
   id: "BrowserExtract",
+  readonly: true,
   name: "页面提取",
   description:
-    "触发：当你需要从页面提取与 query 相关的文本信息时调用。用途：抓取页面文本并围绕 query 提取内容。返回：{ ok: true, data: { query, text } }（text 可能被截断）；失败会报错。",
+    "触发：当你需要从页面提取与 query 相关的文本信息时调用。用途：抓取页面文本并围绕 query 提取内容。返回：{ ok: true, data: { query, text, rawHtmlPath?, rawHtmlBytes? } }（text 按 32KB 截断；rawHtmlPath 指向完整 outerHTML，供需要 DOM 结构/标签/属性时 Read/Grep）；失败会报错。",
   parameters: z.object({
     query: z.string().describe("要提取的信息描述。"),
   }),
@@ -42,6 +45,7 @@ export const browserExtractToolDef = {
 
 export const browserActToolDef = {
   id: "BrowserAct",
+  readonly: false,
   name: "页面动作",
   description:
     "触发：当你需要在当前页面执行点击/输入/滚动/按键等具体动作时调用（通常先用 snapshot/observe 获取 selector）。用途：按 action 执行动作并返回结果。返回：{ ok: true, data: { action, ... } }（字段随 action 变化，例如 click/press/scroll）；元素不存在或参数不匹配会报错。",
@@ -84,6 +88,7 @@ export const browserActToolDef = {
 
 export const browserWaitToolDef = {
   id: "BrowserWait",
+  readonly: true,
   name: "页面等待",
   description:
     "触发：当你需要等待页面加载完成、网络空闲、URL/文本出现，或仅需等待一段时间时调用。用途：等待条件满足后返回。返回：timeout 返回 { waitedMs }；load/networkidle 返回 { type, approx? }；urlIncludes/textIncludes 返回 { type, urlIncludes?/textIncludes? }。若超过 timeoutMs 或参数缺失会报错。",
@@ -98,6 +103,7 @@ export const browserWaitToolDef = {
 
 export const browserScreenshotToolDef = {
   id: "BrowserScreenshot",
+  readonly: true,
   name: "页面截图",
   description:
     "触发：当你需要截取当前浏览器页面的截图时调用。用途：捕获页面可视区域或完整页面的截图并保存为图片文件。返回：{ ok: true, data: { url, format, bytes } }；无可用页面或截图失败会报错。不适用：仅需提取文本时使用 BrowserExtract。",
@@ -123,6 +129,7 @@ export const browserScreenshotToolDef = {
 
 export const browserDownloadImageToolDef = {
   id: "BrowserDownloadImage",
+  readonly: false,
   name: "下载网页图片",
   description:
     "触发：当你需要下载当前页面上的图片文件时调用。用途：通过提供图片 URL 列表或 CSS 选择器从页面中查找 img 元素并下载图片。返回：{ ok: true, data: { images: [{ url, sourceUrl, fileName, bytes }], errors? } }；全部失败会报错。不适用：需要截取整个页面请用 BrowserScreenshot。",

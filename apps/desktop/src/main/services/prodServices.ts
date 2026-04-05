@@ -27,7 +27,7 @@ export type ServerCrashInfo = {
   rolledBack: boolean;
 };
 
-function parseEnvFile(filePath: string): Record<string, string> {
+export function parseEnvFile(filePath: string): Record<string, string> {
   try {
     if (!fs.existsSync(filePath)) return {};
     const raw = fs.readFileSync(filePath, 'utf-8');

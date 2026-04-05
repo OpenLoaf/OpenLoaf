@@ -25,9 +25,15 @@ import { getActiveBrowserTargetId, tabSnapshotStore } from "@/modules/tab/TabSna
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { resolveSessionAssetDir } from "@/ai/services/chat/repositories/chatFileStore";
+import {
+  hostSlug,
+  saveRawArtifact,
+  timestampPrefix,
+  type SavedRawArtifact,
+} from "@/ai/tools/shared/saveRawArtifact";
 
 // 页面文本截断上限，避免快照过大。
-const MAX_TEXT_LENGTH = 10_000;
+const MAX_TEXT_LENGTH = 32_768;
 // 交互元素快照上限，优先覆盖弹窗/菜单等场景。
 const MAX_SNAPSHOT_ELEMENTS = 120;
 
@@ -350,6 +356,36 @@ function buildSnapshotExpression() {
   })()`;
 }
 
+/**
+ * Capture the full `outerHTML` + page URL from the active browser target and
+ * persist them to the session's asset dir. Returns undefined on any failure
+ * so the caller can degrade gracefully — the lossy summary is still useful.
+ *
+ * Rationale: browserExtract/Snapshot/Observe all drop DOM structure when
+ * returning their summary. Keeping raw HTML on disk lets the model recover
+ * structural info via Read/Grep when the summary is insufficient.
+ */
+async function capturePageRawHtml(targetId: string): Promise<SavedRawArtifact | undefined> {
+  try {
+    const captured = await evalInTarget<{ html: string; url: string }>(
+      targetId,
+      `(() => ({ html: (document.documentElement && document.documentElement.outerHTML) || '', url: (location && location.href) || '' }))()`,
+    );
+    if (!captured?.html) return undefined;
+    const filename = `${timestampPrefix()}_${hostSlug(captured.url || 'page')}.html`;
+    return await saveRawArtifact({ subdir: 'browser', filename, content: captured.html });
+  } catch (err) {
+    logger.warn({ err, targetId }, '[browser] failed to capture/persist outerHTML');
+    return undefined;
+  }
+}
+
+/** Build the `rawHtmlPath` field for tool outputs. */
+function rawHtmlField(artifact: SavedRawArtifact | undefined): { rawHtmlPath?: string; rawHtmlBytes?: number } {
+  if (!artifact) return {};
+  return { rawHtmlPath: artifact.relPath, rawHtmlBytes: artifact.bytes };
+}
+
 /** Poll until a condition matches or a timeout occurs. */
 async function waitUntil(input: { targetId: string; timeoutMs: number; check: () => Promise<boolean> }) {
   const start = Date.now();
@@ -365,8 +401,17 @@ export const browserSnapshotTool = tool({
   inputSchema: zodSchema(browserSnapshotToolDef.parameters),
   execute: async () => {
     const targetId = pickActiveTargetId();
-    const data = await evalInTarget<SnapshotPayload>(targetId, buildSnapshotExpression());
-    return { ok: true, data: mergeSnapshotData(data, { maxTextLength: MAX_TEXT_LENGTH, maxElements: MAX_SNAPSHOT_ELEMENTS }) };
+    const [data, rawHtml] = await Promise.all([
+      evalInTarget<SnapshotPayload>(targetId, buildSnapshotExpression()),
+      capturePageRawHtml(targetId),
+    ]);
+    return {
+      ok: true,
+      data: {
+        ...mergeSnapshotData(data, { maxTextLength: MAX_TEXT_LENGTH, maxElements: MAX_SNAPSHOT_ELEMENTS }),
+        ...rawHtmlField(rawHtml),
+      },
+    };
   },
 });
 
@@ -375,12 +420,16 @@ export const browserObserveTool = tool({
   inputSchema: zodSchema(browserObserveToolDef.parameters),
   execute: async ({ task }) => {
     const targetId = pickActiveTargetId();
-    const data = await evalInTarget<SnapshotPayload>(targetId, buildSnapshotExpression());
+    const [data, rawHtml] = await Promise.all([
+      evalInTarget<SnapshotPayload>(targetId, buildSnapshotExpression()),
+      capturePageRawHtml(targetId),
+    ]);
     return {
       ok: true,
       data: {
         task,
         snapshot: mergeSnapshotData(data, { maxTextLength: MAX_TEXT_LENGTH, maxElements: MAX_SNAPSHOT_ELEMENTS }),
+        ...rawHtmlField(rawHtml),
       },
     };
   },
@@ -391,12 +440,15 @@ export const browserExtractTool = tool({
   inputSchema: zodSchema(browserExtractToolDef.parameters),
   execute: async ({ query }) => {
     const targetId = pickActiveTargetId();
-    const text = await evalInTarget<string>(
-      targetId,
-      `(() => (document.body && (document.body.innerText || document.body.textContent) || '').toString())()`,
-    );
+    const [text, rawHtml] = await Promise.all([
+      evalInTarget<string>(
+        targetId,
+        `(() => (document.body && (document.body.innerText || document.body.textContent) || '').toString())()`,
+      ),
+      capturePageRawHtml(targetId),
+    ]);
     const trimmed = text.length > MAX_TEXT_LENGTH ? text.slice(0, MAX_TEXT_LENGTH) : text;
-    return { ok: true, data: { query, text: trimmed } };
+    return { ok: true, data: { query, text: trimmed, ...rawHtmlField(rawHtml) } };
   },
 });
 

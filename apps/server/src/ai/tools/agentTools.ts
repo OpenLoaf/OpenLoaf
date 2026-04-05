@@ -21,6 +21,11 @@ import {
   getRequestContext,
 } from '@/ai/shared/context/requestContext'
 import { resolveEffectiveAgentName } from '@/ai/services/agentFactory'
+import {
+  getRuntimeTask,
+  updateRuntimeTask,
+} from '@/ai/services/chat/runtimeTaskService'
+import { logger } from '@/common/logger'
 
 /** Build XML task-notification result for agent tool output. */
 function buildAgentResultXml(input: {
@@ -79,6 +84,7 @@ export const agentTool = tool({
       subagent_type,
       model: _modelOverride,
       run_in_background,
+      task_id,
     },
     { toolCallId: masterToolUseId, abortSignal },
   ): Promise<string> => {
@@ -88,14 +94,7 @@ export const agentTool = tool({
     const model = getChatModel()
     if (!model) throw new Error('chat model is not available.')
 
-    const context: SpawnContext = {
-      model,
-      writer: getUiWriter(),
-      sessionId: getSessionId(),
-      parentMessageId: getAssistantParentMessageId() ?? null,
-      requestContext,
-    }
-
+    const sessionId = getSessionId()
     const effectiveName = resolveEffectiveAgentName(subagent_type)
 
     // 禁止 spawn master agent 作为子 agent
@@ -114,6 +113,30 @@ export const agentTool = tool({
       }
     }
 
+    // Validate runtime task_id if provided.
+    let runtimeTaskValidated = false
+    if (task_id && sessionId) {
+      const task = await getRuntimeTask(sessionId, task_id)
+      if (!task) {
+        throw new Error(`Runtime Task ${task_id} not found. Use TaskRead to list available tasks.`)
+      }
+      if (task.status === 'completed' || task.status === 'failed') {
+        throw new Error(`Runtime Task ${task_id} is already ${task.status} and cannot be assigned.`)
+      }
+      runtimeTaskValidated = true
+    }
+
+    // Child context: clear runtimeTaskId so sub-sub-agents don't inherit parent's task association.
+    // The sub-agent itself doesn't need runtimeTaskId in context (it's tracked via owner.agentId).
+    const childRequestContext = { ...requestContext, runtimeTaskId: undefined }
+    const context: SpawnContext = {
+      model,
+      writer: getUiWriter(),
+      sessionId,
+      parentMessageId: getAssistantParentMessageId() ?? null,
+      requestContext: childRequestContext,
+    }
+
     // Derive current depth from agentStack
     const currentDepth = requestContext.agentStack?.length ?? 0
 
@@ -127,11 +150,29 @@ export const agentTool = tool({
       masterToolUseId,
     })
 
+    // Link the runtime task to the newly spawned sub-agent.
+    if (runtimeTaskValidated && task_id && sessionId) {
+      const displayName = deriveDisplayName(effectiveName, subagent_type)
+      await updateRuntimeTask(sessionId, task_id, {
+        status: 'in_progress',
+        activeForm: `由 ${displayName} 执行中`,
+        owner: { agentId, name: effectiveName, displayName },
+      }).catch((err) => {
+        logger.warn({ err, task_id, agentId }, '[runtime-task] failed to link task to sub-agent')
+      })
+    }
+
     // Sync mode (default): wait for agent to complete (abort-aware)
     if (run_in_background !== true) {
       const result = await manager.wait([agentId], 300_000, abortSignal)
       const agent = manager.getAgent(agentId)
       const status = result.status[agentId] ?? 'unknown'
+
+      // Auto-transition task based on sub-agent outcome.
+      if (runtimeTaskValidated && task_id && sessionId) {
+        await transitionTaskForAgentOutcome(sessionId, task_id, status, agent?.error)
+      }
+
       return buildAgentResultXml({
         agentId,
         status,
@@ -142,7 +183,26 @@ export const agentTool = tool({
       })
     }
 
-    // Async mode: return immediately
+    // Async mode: attach status listener to auto-update task when agent finishes.
+    if (runtimeTaskValidated && task_id && sessionId) {
+      const agent = manager.getAgent(agentId)
+      if (agent) {
+        agent.statusListeners.add((newStatus) => {
+          if (newStatus === 'pending' || newStatus === 'running') return
+          // Terminal status reached; update task.
+          const liveAgent = manager.getAgent(agentId)
+          void transitionTaskForAgentOutcome(
+            sessionId,
+            task_id,
+            newStatus,
+            liveAgent?.error,
+          ).catch((err) => {
+            logger.warn({ err, task_id }, '[runtime-task] async task update failed')
+          })
+        })
+      }
+    }
+
     return buildAgentResultXml({
       agentId,
       status: 'async_launched',
@@ -153,6 +213,51 @@ export const agentTool = tool({
     })
   },
 })
+
+/** Derive a user-friendly displayName for an agent type. */
+function deriveDisplayName(effectiveName: string, subagentType: string | undefined): string {
+  const map: Record<string, string> = {
+    'general-purpose': '通用助手',
+    explore: '探索助手',
+    plan: '规划助手',
+    'doc-editor': '文档助手',
+    browser: '浏览器助手',
+  }
+  return map[effectiveName] ?? subagentType ?? effectiveName
+}
+
+/** Transition a runtime task based on sub-agent terminal status. */
+async function transitionTaskForAgentOutcome(
+  sessionId: string,
+  taskId: string,
+  agentStatus: string,
+  agentError: string | null | undefined,
+): Promise<void> {
+  if (agentStatus === 'completed' || agentStatus === 'finished') {
+    await updateRuntimeTask(sessionId, taskId, { status: 'completed' })
+    return
+  }
+  if (agentStatus === 'shutdown' || agentStatus === 'aborted' || agentStatus === 'cancelled') {
+    await updateRuntimeTask(sessionId, taskId, {
+      status: 'failed',
+      failReason: 'abortedByUser',
+    })
+    return
+  }
+  if (agentStatus === 'timeout' || agentStatus === 'timed_out') {
+    await updateRuntimeTask(sessionId, taskId, {
+      status: 'failed',
+      failReason: 'timeout',
+    })
+    return
+  }
+  // failed, error, unknown, etc.
+  await updateRuntimeTask(sessionId, taskId, {
+    status: 'failed',
+    failReason: 'agentFailed',
+    description: agentError ? `Sub-agent error: ${agentError}` : undefined,
+  })
+}
 
 /** Send a message to an existing SubAgent (auto-recovers stopped agents). */
 export const sendMessageTool = tool({

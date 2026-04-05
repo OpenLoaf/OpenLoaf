@@ -10,17 +10,21 @@
 /**
  * 通用 Agent 模型解析 — 从指定 agent 的配置读取模型 ID。
  *
- * 支持系统 agent（.openloaf/agents/）和动态 agent（.agents/agents/）。
+ * 搜索顺序：项目 .openloaf/agents/ → 全局 ~/.openloaf/agents/。
  * chatStreamService 和 agentTools 共用此函数，避免重复逻辑。
  */
 
+import path from 'node:path'
+import { existsSync } from 'node:fs'
 import type { ChatModelSource } from '@openloaf/api/common'
 import { readAgentJson, resolveAgentDir } from '@/ai/shared/defaultAgentResolver'
+import { readAgentConfigFromPath } from '@/ai/services/agentConfigService'
 import { getTemplate } from '@/ai/agent-templates'
 import { resolveEffectiveAgentName } from '@/ai/services/agentFactory'
 import { isSystemAgentId } from '@/ai/shared/systemAgentDefinitions'
 import { resolveAgentByName } from '@/ai/tools/AgentSelector'
 import { readBasicConf } from '@/modules/settings/openloafConfStore'
+import { resolveGlobalAgentsPath } from '@/routers/settingsHelpers'
 import {
   getProjectRootPath,
 } from '@openloaf/api/services/vfsService'
@@ -89,6 +93,39 @@ export function resolveAgentModelIdsFromConfig(input: {
           : undefined) ?? (getTemplate(effectiveName)?.requiredModelTags as string[] | undefined)
 
       return { chatModelId, chatModelSource, imageModelId, videoModelId, codeModelIds, requiredModelTags }
+    }
+
+    // 全局 fallback：搜索 ~/.openloaf/agents/<name>/（agent.json 或 AGENT.md）。
+    const globalAgentDir = path.join(resolveGlobalAgentsPath(), effectiveName)
+    const globalDescriptor = readAgentJson(globalAgentDir)
+    if (globalDescriptor) {
+      const modelIds =
+        chatModelSource === 'cloud'
+          ? globalDescriptor.modelCloudIds
+          : globalDescriptor.modelLocalIds
+      const chatModelId = Array.isArray(modelIds) ? modelIds[0]?.trim() || undefined : undefined
+      const imageModelId = Array.isArray(globalDescriptor.imageModelIds) ? globalDescriptor.imageModelIds[0]?.trim() || undefined : undefined
+      const videoModelId = Array.isArray(globalDescriptor.videoModelIds) ? globalDescriptor.videoModelIds[0]?.trim() || undefined : undefined
+      const codeModelIds = Array.isArray(globalDescriptor.codeModelIds) ? globalDescriptor.codeModelIds.filter((s) => s.trim()) : undefined
+      const requiredModelTags =
+        (Array.isArray(globalDescriptor.requiredModelTags) && globalDescriptor.requiredModelTags.length > 0
+          ? globalDescriptor.requiredModelTags.filter((s) => s.trim())
+          : undefined) ?? (getTemplate(effectiveName)?.requiredModelTags as string[] | undefined)
+      return { chatModelId, chatModelSource, imageModelId, videoModelId, codeModelIds, requiredModelTags }
+    }
+    // 兼容旧 AGENT.md 格式。
+    const agentMdPath = path.join(globalAgentDir, 'AGENT.md')
+    if (existsSync(agentMdPath)) {
+      const mdConfig = readAgentConfigFromPath(agentMdPath, 'global')
+      if (mdConfig) {
+        const modelIds = chatModelSource === 'cloud' ? mdConfig.modelCloudIds : mdConfig.modelLocalIds
+        const chatModelId = Array.isArray(modelIds) ? modelIds[0]?.trim() || undefined : undefined
+        const imageModelId = Array.isArray(mdConfig.imageModelIds) ? mdConfig.imageModelIds[0]?.trim() || undefined : undefined
+        const videoModelId = Array.isArray(mdConfig.videoModelIds) ? mdConfig.videoModelIds[0]?.trim() || undefined : undefined
+        const codeModelIds = Array.isArray(mdConfig.codeModelIds) ? mdConfig.codeModelIds.filter((s) => s.trim()) : undefined
+        const requiredModelTags = (getTemplate(effectiveName)?.requiredModelTags as string[] | undefined)
+        return { chatModelId, chatModelSource, imageModelId, videoModelId, codeModelIds, requiredModelTags }
+      }
     }
   }
 

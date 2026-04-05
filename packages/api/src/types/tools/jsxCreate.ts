@@ -12,6 +12,7 @@ import { z } from 'zod'
 /** JSX create tool definition. */
 export const jsxCreateToolDef = {
   id: 'JsxCreate',
+  readonly: false,
   name: '组件渲染',
   description:
     '用途：渲染 JSX 组件并直接在聊天界面中展示给用户查看（自动渲染，无需用户操作），同时把内容写入会话目录的 jsx 文件。\n'

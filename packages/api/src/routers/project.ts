@@ -534,9 +534,14 @@ export const projectRouter = t.router({
       // 判断是否需要补充 icon 或 projects
       const needIconPatch = existingConfig && !existingConfig.icon && input.icon;
       const needProjectsPatch = existingConfig && !existingConfig.projects;
+      const needTitlePatch = existingConfig && rawTitle && existingConfig.title !== rawTitle;
       const config = projectConfigSchema.parse(
         existingConfig
-          ? { ...existingConfig, ...(needIconPatch ? { icon: input.icon } : {}) }
+          ? {
+              ...existingConfig,
+              ...(needTitlePatch ? { title: rawTitle } : {}),
+              ...(needIconPatch ? { icon: input.icon } : {}),
+            }
           : {
               schema: 1,
               projectId,
@@ -549,7 +554,7 @@ export const projectRouter = t.router({
       const metaPath = getProjectMetaPath(projectRootPath);
       if (!existingConfig) {
         await writeJsonAtomic(metaPath, config);
-      } else if (needProjectsPatch || needIconPatch) {
+      } else if (needProjectsPatch || needIconPatch || needTitlePatch) {
         await writeJsonAtomic(metaPath, config);
       }
       const enableVersionControl = input.enableVersionControl ?? true;
@@ -1288,20 +1293,6 @@ export const projectRouter = t.router({
         projectTitle,
         rootUri: projectRootUri,
       };
-    }),
-
-  /** Promote a temp project to a permanent project. */
-  promoteTempProject: shieldedProcedure
-    .input(
-      z.object({
-        projectId: z.string(),
-        title: z.string().optional(),
-      })
-    )
-    .mutation(async ({ input }) => {
-      const { promoteTempProject } = await import("../services/tempProjectService");
-      await promoteTempProject(input.projectId, { title: input.title });
-      return { ok: true };
     }),
 
 });

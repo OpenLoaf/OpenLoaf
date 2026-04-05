@@ -20,6 +20,7 @@ import { getClientTimeZone } from "@/utils/time-zone";
 import { getAccessToken } from "@/lib/saas-auth";
 import { getDesktopVersion, getWebVersion, getServerVersion } from "@/lib/app-version";
 import { CLIENT_HEADERS } from "@/lib/client-headers";
+import { snapshotStackForPageContext } from "@/lib/ai/transport-stack";
 
 function stripTotalUsageFromMetadata(message: any) {
   if (!message || typeof message !== "object") return message;
@@ -73,7 +74,7 @@ export function createChatTransport({
         ...restBody
       } = bodyRecord;
       // 中文注释：自定义字段直接合并到顶层，不再使用 params。
-      const basePayload = { ...baseParams, ...restBody };
+      const basePayload = snapshotStackForPageContext({ ...baseParams, ...restBody });
       // 关键：优先使用 sessionIdRef（来自 ChatCoreProvider 的最新 sessionId），
       // 避免 AI SDK Chat 实例的 id 在 session 切换时因 React 渲染时序未及时更新而发送旧 sessionId。
       const resolvedSessionId = sessionIdRef?.current ?? id;

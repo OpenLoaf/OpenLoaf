@@ -11,6 +11,7 @@ import { z } from 'zod'
 
 export const toolSearchToolDef = {
   id: 'ToolSearch',
+  readonly: true,
   name: 'Tool Search',
   description: `Load tools and skills by name. You start with ZERO tools. Every tool/skill MUST be loaded through this function first.
 

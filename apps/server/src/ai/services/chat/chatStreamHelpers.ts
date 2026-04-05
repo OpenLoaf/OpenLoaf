@@ -18,6 +18,7 @@ import {
   setRequestContext,
   setSaasAccessToken,
   setMediaModelIds,
+  setPlanUpdate,
 } from "@/ai/shared/context/requestContext";
 import { loadMessageChain, loadMessageChainByIds } from "@/ai/services/chat/repositories/messageChainLoader";
 import {
@@ -298,16 +299,117 @@ export function buildModelChain(
     : baseSlice.filter((message: any) => message?.messageKind !== "compact_prompt");
 
   const sanitized = stripTransientParts(stripPendingToolParts(trimmed));
+  const withTimestamps = injectUserMessageTimestamps(sanitized);
+  const split = splitUserMessageParts(withTimestamps);
 
-  if (!sessionPrefaceText) return sanitized;
+  if (!sessionPrefaceText) return split;
   return [
     {
       id: "__session_preface__",
       role: "user",
       parts: [{ type: "text", text: sessionPrefaceText }],
     } as UIMessage,
-    ...sanitized,
+    ...split,
   ];
+}
+
+/**
+ * Backfill data-msg-context for old messages saved before the persist-on-save change.
+ * New messages already have data-msg-context persisted via AiExecuteService.
+ */
+function injectUserMessageTimestamps(messages: UIMessage[]): UIMessage[] {
+  const ctx = getRequestContext();
+  const tz = ctx?.timezone || 'UTC';
+  return messages.map((msg) => {
+    if (msg.role !== 'user') return msg;
+    // 已有 data-msg-context 的消息跳过。
+    const firstType = (msg.parts?.[0] as any)?.type;
+    if (firstType === 'data-msg-context') return msg;
+    // 兼容旧的 text 前缀格式。
+    const firstText = (msg.parts?.[0] as any)?.text;
+    if (typeof firstText === 'string' && firstText.startsWith('<msg-context ')) return msg;
+    // 旧消息：从 metadata._createdAt 补注入 data-msg-context part。
+    const createdAt = (msg as any).metadata?._createdAt;
+    if (!createdAt) return msg;
+    const date = new Date(createdAt);
+    const timeStr = formatDateForTimezone(date, tz);
+    return {
+      ...msg,
+      parts: [{ type: "data-msg-context", data: { datetime: timeStr } }, ...(msg.parts ?? [])],
+    } as UIMessage;
+  });
+}
+
+/**
+ * Split mixed-concern user messages into separate messages so the LLM
+ * sees system-injected metadata (msg-time, data-skill) and user text
+ * as distinct entries. Non-user messages pass through unchanged.
+ *
+ * One user message with parts [msg-time, data-skill, data-skill, text, file, text]
+ * becomes:
+ *   user: [msg-time]
+ *   user: [data-skill]
+ *   user: [data-skill]
+ *   user: [text, file, text]   ← user original content stays together
+ */
+function splitUserMessageParts(messages: UIMessage[]): UIMessage[] {
+  const result: UIMessage[] = [];
+  for (const msg of messages) {
+    if (msg.role !== 'user') {
+      result.push(msg);
+      continue;
+    }
+    const parts = Array.isArray(msg.parts) ? msg.parts : [];
+    if (parts.length <= 1) {
+      result.push(msg);
+      continue;
+    }
+
+    const prefixParts: unknown[] = []; // data-msg-context + data-skill (each becomes its own message)
+    const userParts: unknown[] = [];   // everything else stays together
+
+    for (const part of parts) {
+      const type = (part as any)?.type;
+      if (type === 'data-msg-context' || type === 'data-skill') {
+        prefixParts.push(part);
+      } else {
+        userParts.push(part);
+      }
+    }
+
+    // Nothing to split — keep as-is.
+    if (prefixParts.length === 0) {
+      result.push(msg);
+      continue;
+    }
+
+    // Emit each prefix part as its own message.
+    for (const part of prefixParts) {
+      result.push({
+        id: `${msg.id}__split`,
+        role: 'user',
+        parts: [part],
+      } as UIMessage);
+    }
+
+    // Emit user content as the final message (skip if empty).
+    if (userParts.length > 0) {
+      result.push({
+        ...msg,
+        parts: userParts,
+      } as UIMessage);
+    }
+  }
+  return result;
+}
+
+/** Format a Date to a readable string in the given timezone. */
+function formatDateForTimezone(date: Date, tz: string): string {
+  try {
+    return date.toLocaleString('sv-SE', { timeZone: tz }).replace('T', ' ');
+  } catch {
+    return date.toISOString().slice(0, 19).replace('T', ' ');
+  }
 }
 
 /** Remove tool parts without results from the model chain. */
@@ -357,10 +459,67 @@ function stripPendingToolParts(messages: UIMessage[]): UIMessage[] {
         const toolCallId = (part as any).toolCallId;
         const payload = toolCallId && approvalPayloads?.[toolCallId];
         if (payload) {
+          const toolNameRaw = (part as any).toolName ?? type?.replace?.("tool-", "") ?? "";
+          const isSubmitPlan = toolNameRaw === "SubmitPlan";
+          const isUpdatePlan = toolNameRaw === "UpdatePlan";
+          let output: unknown = payload;
+
+          if (isSubmitPlan) {
+            // SubmitPlan: file-based plan approval.
+            // 正常审批流程中 execute() 会被 AI SDK 调用（它能 async 读文件）。
+            // stripPendingToolParts 只处理历史消息恢复场景，构造简化 output。
+            const planInput = (part as any).input;
+            const planFilePathInput = typeof planInput?.planFilePath === "string" ? planInput.planFilePath : "";
+            if (payload.approved === true) {
+              output = {
+                ok: true,
+                data: { approved: true },
+                message: `用户已批准计划（${planFilePathInput}）。请按步骤执行。\n\nPlan approved (${planFilePathInput}). Start executing.`,
+              };
+            } else if (payload.approved === false) {
+              const feedback = typeof payload.feedback === "string" ? payload.feedback : "";
+              output = {
+                ok: true,
+                data: { approved: false },
+                feedback,
+                message: `用户对计划提出修改意见。请用 Read 读取 "${planFilePathInput}"，用 Edit 修改后再次调用 SubmitPlan(planFilePath="${planFilePathInput}")。\n${feedback ? `\n用户反馈：${feedback}` : ""}\n\nUser requested changes. Edit "${planFilePathInput}" and call SubmitPlan(planFilePath="${planFilePathInput}") again.\n${feedback ? `\nFeedback: ${feedback}` : ""}`,
+              };
+            }
+          } else if (isUpdatePlan) {
+            // Legacy UpdatePlan: plan content in tool args (backward compat).
+            const planInput = (part as any).input;
+            if (payload.approved === true) {
+              output = {
+                ok: true,
+                data: { updated: true },
+                message: "用户已批准此计划。请立即按步骤执行。\n\nPlan approved. Start executing now.",
+              };
+              if (planInput && ctx) {
+                const rawPlan = Array.isArray(planInput.plan) ? planInput.plan : [];
+                const steps = rawPlan
+                  .map((item: any) => (typeof item === "string" ? item : typeof item?.step === "string" ? item.step : ""))
+                  .filter((s: string) => s.trim().length > 0);
+                if (steps.length > 0) {
+                  setPlanUpdate({
+                    actionName: typeof planInput.actionName === "string" ? planInput.actionName : "计划",
+                    explanation: typeof planInput.explanation === "string" ? planInput.explanation : undefined,
+                    plan: steps,
+                  });
+                }
+              }
+            } else if (payload.approved === false) {
+              const feedback = typeof payload.feedback === "string" ? payload.feedback : "";
+              output = {
+                ok: true,
+                data: { updated: false },
+                message: `用户对计划提出修改意见。\n${feedback ? `用户反馈：${feedback}` : ""}`,
+              };
+            }
+          }
           filtered.push({
             ...part,
             state: "output-available",
-            output: payload,
+            output,
           });
           changed = true;
           continue;

@@ -144,13 +144,15 @@ export const globTool = tool({
     path: searchPath,
   }): Promise<string> => {
     // 解析搜索目录
-    const { projectRoot } = resolveToolRoots()
+    const { projectRoot, chatAssetRoot } = resolveToolRoots()
     let basePath: string
 
     if (searchPath) {
       basePath = resolveToolPath({ target: searchPath }).absPath
     } else if (projectRoot) {
       basePath = projectRoot
+    } else if (chatAssetRoot) {
+      basePath = chatAssetRoot
     } else {
       basePath = resolveToolPath({ target: '.' }).absPath
     }

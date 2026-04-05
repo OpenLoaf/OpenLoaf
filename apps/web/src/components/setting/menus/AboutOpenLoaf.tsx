@@ -18,7 +18,6 @@ import type { LucideIcon } from "lucide-react";
 import {
   ArrowDownToLine,
   BookOpen,
-  Bug,
   ChevronRight,
   CircleAlert,
   Code2,
@@ -276,10 +275,6 @@ export function AboutOpenLoaf() {
   /**
    * Toggle chat preface viewer button.
    */
-  const handleToggleChatPreface = React.useCallback((checked: boolean) => {
-    // 逻辑：实时控制 Chat Header 是否展示 Preface 查看按钮。
-    void setBasic({ chatPrefaceEnabled: checked });
-  }, [setBasic]);
 
   const currentVersion = appVersion ?? "—";
   const serverVersion = updateStatus?.server?.version ?? "—";
@@ -538,20 +533,6 @@ export function AboutOpenLoaf() {
               <Button type="button" size="sm" className="rounded-3xl bg-secondary text-secondary-foreground hover:bg-accent shadow-none" onClick={reloadPage}>
                 {t('aboutAdditions.reload')}
               </Button>
-            </OpenLoafSettingsField>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 py-3">
-            <SettingIcon icon={Bug} bg="bg-secondary" fg="text-foreground" />
-            <div className="min-w-0 flex-1">
-              <div className="text-sm font-medium">{t('aboutAdditions.aiDebugMode')}</div>
-              <div className="text-xs text-muted-foreground">{t('aboutAdditions.aiDebugModeDesc')}</div>
-            </div>
-            <OpenLoafSettingsField className="shrink-0 justify-end">
-              <Switch
-                checked={Boolean(basic.chatPrefaceEnabled)}
-                onCheckedChange={handleToggleChatPreface}
-                aria-label={t('aboutAdditions.aiDebugMode')}
-              />
             </OpenLoafSettingsField>
           </div>
           {isElectron ? (

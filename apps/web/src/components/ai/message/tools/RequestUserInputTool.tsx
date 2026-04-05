@@ -12,8 +12,8 @@
 import * as React from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { cn } from '@/lib/utils'
-import { CollapsibleTrigger } from '@openloaf/ui/collapsible'
 import { CheckIcon, ChevronLeftIcon, ChevronRightIcon } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { trpc } from '@/utils/trpc'
 import { useChatActions, useChatSession, useChatMessages, useChatStatus, useChatTools } from '../../context'
 import {
@@ -71,20 +71,20 @@ type RequestUserInputInput = {
 const SECRET_TOKEN_RE = /\{\{secret:[0-9a-f-]{36}\}\}/
 
 /** Validate a single field value. Returns error message or empty string. */
-function validateField(question: Question, value: string): string {
+function validateField(question: Question, value: string, t: (key: string, opts?: Record<string, unknown>) => string): string {
   const trimmed = value.trim()
-  if (question.required !== false && !trimmed) return '此项为必填'
+  if (question.required !== false && !trimmed) return t('userInput.required')
   if (!trimmed) return ''
   if (question.minLength != null && trimmed.length < question.minLength) {
-    return `最少需要 ${question.minLength} 个字符`
+    return t('userInput.minLength', { min: question.minLength })
   }
   if (question.maxLength != null && trimmed.length > question.maxLength) {
-    return `最多允许 ${question.maxLength} 个字符`
+    return t('userInput.maxLength', { max: question.maxLength })
   }
   if (question.pattern) {
     try {
       const re = new RegExp(question.pattern)
-      if (!re.test(trimmed)) return question.patternMessage ?? '格式不正确'
+      if (!re.test(trimmed)) return question.patternMessage ?? t('userInput.invalidFormat')
     } catch {
       // 逻辑：正则无效时跳过校验
     }
@@ -122,8 +122,9 @@ function QuestionField({
     ? 'border-destructive focus-visible:ring-destructive'
     : 'border-border'
 
+  const { t } = useTranslation('ai')
   const placeholderText = question.placeholder
-    ?? (question.defaultValue ? `默认: ${question.defaultValue}` : undefined)
+    ?? (question.defaultValue ? t('userInput.defaultPrefix', { value: question.defaultValue }) : undefined)
 
   if (fieldType === 'select' && question.options?.length) {
     return (
@@ -144,7 +145,7 @@ function QuestionField({
           )}
           onChange={(e) => onChange(e.target.value)}
         >
-          <option value="">请选择...</option>
+          <option value="">{t('userInput.selectPlaceholder')}</option>
           {question.options.map((opt) => (
             <option key={opt} value={opt}>{opt}</option>
           ))}
@@ -226,6 +227,7 @@ function ChoiceStep({
   disabled: boolean
   onAutoAdvance?: () => void
 }) {
+  const { t } = useTranslation('ai')
   const isMulti = choice.multiSelect === true
   const selectedSet = new Set(Array.isArray(selected) ? selected : selected ? [selected] : [])
 
@@ -249,7 +251,7 @@ function ChoiceStep({
     <div className="flex flex-col gap-2.5">
       <div className="text-sm font-medium text-foreground">
         {choice.question}
-        {isMulti ? <span className="ml-1.5 text-xs font-normal text-muted-foreground">(可多选)</span> : null}
+        {isMulti ? <span className="ml-1.5 text-xs font-normal text-muted-foreground">({t('userInput.multiSelect')})</span> : null}
       </div>
       <div className="flex flex-col gap-1.5">
         {choice.options?.map((opt, idx) => {
@@ -319,52 +321,29 @@ function ChoiceWizard({
   onSelectionChange,
   disabled,
   errors,
+  step,
+  onStepChange,
 }: {
   choices: Choice[]
   selections: Record<string, string | string[]>
   onSelectionChange: (key: string, value: string | string[]) => void
   disabled: boolean
   errors: Record<string, string>
+  step: number
+  onStepChange: (step: number) => void
 }) {
-  const [step, setStep] = React.useState(0)
   const total = choices.length
   const isLastStep = step >= total - 1
   const current = choices[step]
 
   const goNext = React.useCallback(() => {
-    if (!isLastStep) setStep((s) => s + 1)
-  }, [isLastStep])
-
-  const goPrev = React.useCallback(() => {
-    if (step > 0) setStep((s) => s - 1)
-  }, [step])
+    if (!isLastStep) onStepChange(step + 1)
+  }, [isLastStep, step, onStepChange])
 
   if (!current) return null
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Step indicator */}
-      <div className="flex items-center gap-1.5">
-        {choices.map((_, i) => (
-          <button
-            key={`dot-${i}`}
-            type="button"
-            onClick={() => setStep(i)}
-            className={cn(
-              'h-1.5 rounded-full transition-all duration-200',
-              i === step
-                ? 'w-5 bg-foreground/60'
-                : i < step
-                  ? 'w-1.5 bg-foreground/30'
-                  : 'w-1.5 bg-foreground/10',
-            )}
-          />
-        ))}
-        <span className="ml-auto text-[10px] tabular-nums text-muted-foreground">
-          {step + 1}/{total}
-        </span>
-      </div>
-
       {/* Animated height wrapper */}
       <AnimateHeight>
         <ChoiceStep
@@ -381,30 +360,30 @@ function ChoiceWizard({
         ) : null}
       </AnimateHeight>
 
-      {/* Nav buttons */}
+      {/* Step indicator – hidden when there's only one step */}
       {total > 1 ? (
-        <div className="flex items-center justify-between pt-0.5">
-          <button
-            type="button"
-            disabled={step === 0}
-            onClick={goPrev}
-            className={cn(styles.actionButton, styles.secondaryButton, 'h-7 gap-1 px-2.5 text-[11px]')}
-          >
-            <ChevronLeftIcon className="size-3" />
-            上一步
-          </button>
-          {!isLastStep ? (
+        <div className="flex items-center gap-1.5">
+          {choices.map((_, i) => (
             <button
+              key={`dot-${i}`}
               type="button"
-              onClick={goNext}
-              className={cn(styles.actionButton, styles.secondaryButton, 'h-7 gap-1 px-2.5 text-[11px]')}
-            >
-              下一步
-              <ChevronRightIcon className="size-3" />
-            </button>
-          ) : null}
+              onClick={() => onStepChange(i)}
+              className={cn(
+                'h-1.5 rounded-full border-0 p-0 transition-all duration-200',
+                i === step
+                  ? 'w-5 bg-foreground/60'
+                  : i < step
+                    ? 'w-1.5 bg-foreground/30'
+                    : 'w-1.5 bg-foreground/10',
+              )}
+            />
+          ))}
+          <span className="ml-auto text-[10px] tabular-nums text-muted-foreground">
+            {step + 1}/{total}
+          </span>
         </div>
       ) : null}
+
     </div>
   )
 }
@@ -428,6 +407,7 @@ export default function RequestUserInputTool({
     continueAfterToolApprovals,
   } = useChatTools()
   const { sessionId } = useChatSession()
+  const { t } = useTranslation('ai')
 
   /** Synthetic approval id for legacy input-available parts. */
   const syntheticApprovalIdRef = React.useRef<string | null>(null)
@@ -450,9 +430,10 @@ export default function RequestUserInputTool({
 
   const normalizedInput = normalizeToolInput(part.input)
   const inputObject = asPlainObject(normalizedInput) as RequestUserInputInput | null
-  const mode = inputObject?.mode ?? 'form'
   const questions: Question[] = Array.isArray(inputObject?.questions) ? inputObject!.questions : []
   const choices: Choice[] = Array.isArray(inputObject?.choices) ? inputObject!.choices : []
+  // TODO: form 模式仅用于兼容历史数据（旧版 questions 字段），新版工具只有 choices。历史数据清理后可删除 form 相关代码。
+  const mode = choices.length > 0 ? 'choice' : 'form'
   const formTitle = inputObject?.title
   const formDescription = inputObject?.description
 
@@ -488,9 +469,8 @@ export default function RequestUserInputTool({
   })
 
   const [errors, setErrors] = React.useState<Record<string, string>>({})
+  const [choiceStep, setChoiceStep] = React.useState(0)
   const [touched, setTouched] = React.useState(false)
-  // 逻辑：保持工具卡片默认展开，避免审批后自动折叠。
-  const [isOpen, setIsOpen] = React.useState(true)
 
   /** Ensure this tool part has an approval id and approval-requested state. */
   const ensureApprovalRequested = React.useCallback((): string | undefined => {
@@ -550,7 +530,7 @@ export default function RequestUserInputTool({
       setErrors((prev) => {
         const q = questions.find((item) => item.key === key)
         if (!q) return prev
-        const err = validateField(q, value)
+        const err = validateField(q, value, t)
         if (!err) {
           const next = { ...prev }
           delete next[key]
@@ -572,14 +552,14 @@ export default function RequestUserInputTool({
       for (const c of choices) {
         const sel = selections[c.key]
         const isEmpty = Array.isArray(sel) ? sel.length === 0 : !sel
-        if (isEmpty) nextErrors[c.key] = '请至少选择一项'
+        if (isEmpty) nextErrors[c.key] = t('userInput.selectAtLeastOne')
       }
       setErrors(nextErrors)
       return Object.keys(nextErrors).length === 0
     }
     const nextErrors: Record<string, string> = {}
     for (const q of questions) {
-      const err = validateField(q, answers[q.key] ?? '')
+      const err = validateField(q, answers[q.key] ?? '', t)
       if (err) nextErrors[q.key] = err
     }
     setErrors(nextErrors)
@@ -841,7 +821,7 @@ export default function RequestUserInputTool({
       entries.push({ key, label, value })
     }
     if (entries.length === 0) {
-      return <div className="text-[11px] text-muted-foreground">暂无内容</div>
+      return <div className="text-[11px] text-muted-foreground">{t('userInput.noContent')}</div>
     }
     return (
       <div className="flex flex-col gap-2">
@@ -889,45 +869,37 @@ export default function RequestUserInputTool({
 
   return (
     <Tool
-      open={isOpen}
-      onOpenChange={setIsOpen}
+      open
       className={cn(
         'w-full min-w-0 text-xs overflow-hidden rounded-3xl border bg-card text-card-foreground',
         className,
         isStreaming && 'openloaf-tool-streaming',
       )}
     >
-      <CollapsibleTrigger
-        type="button"
+      <div
         className="flex w-full items-center gap-3 border-b bg-muted/50 px-3 py-2 text-left"
       >
         <TrafficLights state={windowState} />
         <span className="flex-1 truncate text-[10px] text-muted-foreground/60">
           {showToolKind ? toolKind : toolTitle}
         </span>
-        {showToolKind ? (
-          <span className="shrink-0 text-xs font-medium text-muted-foreground">
-            {toolTitle}
-          </span>
-        ) : null}
-      </CollapsibleTrigger>
+        <span className="shrink-0 text-xs font-medium text-muted-foreground">
+          {formTitle || toolTitle}
+        </span>
+      </div>
       <ToolContent className="space-y-0 p-0 text-xs">
-        {formTitle || formDescription ? (
-          <div className="space-y-1 border-b bg-muted/20 px-3 py-2">
-            {formTitle ? (
-              <div className="text-xs font-semibold text-foreground/80">{formTitle}</div>
-            ) : null}
-            {formDescription ? (
-              <div className="text-[11px] text-muted-foreground/70">{formDescription}</div>
-            ) : null}
+        {/* TODO: description 已从工具定义中移除，保留兼容历史数据渲染，后续可删除 */}
+        {!formTitle && formDescription ? (
+          <div className="border-b bg-muted/20 px-3 py-2">
+            <div className="text-[11px] text-muted-foreground/70">{formDescription}</div>
           </div>
         ) : null}
 
         <div className="px-3 py-3">
           {isError ? (
-            <div className="text-[11px] text-destructive/80">参数格式错误，已反馈给模型重试</div>
+            <div className="text-[11px] text-destructive/80">{t('userInput.paramError')}</div>
           ) : isRejected ? (
-            <div className="text-[11px] text-muted-foreground">已跳过</div>
+            <div className="text-[11px] text-muted-foreground">{t('userInput.skipped')}</div>
           ) : isReadonly ? (
             mode === 'choice'
               ? (choices.length > 0 ? renderChoiceReadonly() : renderCompactSummary())
@@ -939,6 +911,8 @@ export default function RequestUserInputTool({
               onSelectionChange={handleSelectionChange}
               disabled={isActionDisabled}
               errors={errors}
+              step={choiceStep}
+              onStepChange={setChoiceStep}
             />
           ) : (
             <div className="flex flex-col gap-3">
@@ -958,23 +932,49 @@ export default function RequestUserInputTool({
 
         {/* 操作按钮 */}
         {!isReadonly && !isRejected ? (
-          <div className="flex items-center justify-end gap-2 border-t bg-muted/20 px-3 py-2">
-            <button
-              type="button"
-              disabled={isActionDisabled}
-              onClick={handleSubmit}
-              className={cn(styles.actionButton, styles.primaryButton)}
-            >
-              {isSubmitting ? '确定中...' : '确定'}
-            </button>
-            <button
-              type="button"
-              disabled={isActionDisabled}
-              onClick={handleSkip}
-              className={cn(styles.actionButton, styles.secondaryButton)}
-            >
-              跳过
-            </button>
+          <div className="flex items-center gap-2 border-t bg-muted/20 px-3 py-2">
+            {mode === 'choice' && choices.length > 1 ? (
+              <div className="flex items-center gap-1.5">
+                {choiceStep > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => setChoiceStep((s) => s - 1)}
+                    className={cn(styles.actionButton, styles.secondaryButton)}
+                  >
+                    <ChevronLeftIcon className="size-3" />
+                    {t('userInput.prevStep')}
+                  </button>
+                ) : null}
+                {choiceStep < choices.length - 1 ? (
+                  <button
+                    type="button"
+                    onClick={() => setChoiceStep((s) => s + 1)}
+                    className={cn(styles.actionButton, styles.secondaryButton)}
+                  >
+                    {t('userInput.nextStep')}
+                    <ChevronRightIcon className="size-3" />
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
+            <div className="ml-auto flex items-center gap-2">
+              <button
+                type="button"
+                disabled={isActionDisabled}
+                onClick={handleSubmit}
+                className={cn(styles.actionButton, styles.primaryButton)}
+              >
+                {isSubmitting ? t('userInput.confirming') : t('userInput.confirm')}
+              </button>
+              <button
+                type="button"
+                disabled={isActionDisabled}
+                onClick={handleSkip}
+                className={cn(styles.actionButton, styles.secondaryButton)}
+              >
+                {t('userInput.skip')}
+              </button>
+            </div>
           </div>
         ) : null}
       </ToolContent>

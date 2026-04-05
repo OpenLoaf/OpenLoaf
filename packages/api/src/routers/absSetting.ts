@@ -710,6 +710,10 @@ export const settingSchemas = {
           alreadyImported: z.boolean(),
         })),
       })),
+      /** User home directory for display path shortening. */
+      homePath: z.string().optional(),
+      /** Project root path for display path shortening. */
+      projectRootPath: z.string().optional(),
     }),
   },
   /** Import external skills via symlink (macOS/Linux) or copy (Windows). */

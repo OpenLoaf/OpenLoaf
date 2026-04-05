@@ -213,6 +213,17 @@ export type ChatPageContext = {
   projectId?: string
   /** Board id when on a board/canvas page. */
   boardId?: string
+  /** Currently open stack panels (component + title). */
+  stack?: ChatPageStackItem[]
+}
+
+export type ChatPageStackItem = {
+  /** Component registry key (e.g. 'file-viewer', 'terminal-viewer'). */
+  component: string
+  /** Panel display title. */
+  title?: string
+  /** Panel params subset relevant to AI (e.g. filePath, uri). */
+  params?: Record<string, unknown>
 }
 
 export type TokenUsage = {

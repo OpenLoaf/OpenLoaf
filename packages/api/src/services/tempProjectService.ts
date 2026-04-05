@@ -60,30 +60,3 @@ export async function createTempProject(opts?: {
   return { projectId, rootPath: projectRoot };
 }
 
-/** Promote a temp project to a permanent project. */
-export async function promoteTempProject(
-  projectId: string,
-  opts?: { title?: string },
-): Promise<void> {
-  const tempRoot = getTempStorageRoot();
-  const projectRoot = path.join(tempRoot, projectId);
-  const metaPath = path.join(projectRoot, PROJECT_META_DIR, PROJECT_META_FILE);
-
-  let raw: string;
-  try {
-    raw = await fs.readFile(metaPath, "utf-8");
-  } catch {
-    throw new Error("Temp project not found.");
-  }
-
-  const config = JSON.parse(raw) as Record<string, unknown>;
-  if (opts?.title) {
-    config.title = opts.title;
-  }
-  config.projectType = "general";
-  delete config.tempMeta;
-
-  const tmpPath = `${metaPath}.${Date.now()}.tmp`;
-  await fs.writeFile(tmpPath, JSON.stringify(config, null, 2), "utf-8");
-  await fs.rename(tmpPath, metaPath);
-}

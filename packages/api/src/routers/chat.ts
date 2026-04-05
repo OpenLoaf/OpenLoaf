@@ -376,6 +376,28 @@ export const chatRouter = t.router({
     }),
 
   /**
+   * Read all messages from messages.jsonl for debug inspection.
+   * - Implemented in server chat router.
+   */
+  getSessionMessages: shieldedProcedure
+    .input(chatSchemas.getSessionMessages.input)
+    .output(chatSchemas.getSessionMessages.output)
+    .query(async () => {
+      throw new Error('Not implemented: override in server chat router.')
+    }),
+
+  /**
+   * Read debug step files for a specific assistant message.
+   * - Implemented in server chat router.
+   */
+  getMessageDebugSteps: shieldedProcedure
+    .input(chatSchemas.getMessageDebugSteps.input)
+    .output(chatSchemas.getMessageDebugSteps.output)
+    .query(async () => {
+      throw new Error('Not implemented: override in server chat router.')
+    }),
+
+  /**
    * 清除所有聊天数据
    */
   clearAllChat: shieldedProcedure.mutation(async ({ ctx }) => {
@@ -571,6 +593,41 @@ export const chatRouter = t.router({
       })
 
       return session
+    }),
+  /** List plan files for a session — implementation in server. */
+  listPlanFiles: shieldedProcedure
+    .input(z.object({ sessionId: z.string().min(1) }))
+    .query(async (): Promise<
+      Array<{
+        planNo: number
+        status: string
+        actionName: string
+        createdAt: string
+        updatedAt: string
+        fileName: string
+        filePath: string
+      }>
+    > => {
+      throw new Error('Not implemented in base router')
+    }),
+  /** Read a single PLAN file — implementation in server. Accepts either planFilePath (preferred) or legacy planNo. */
+  readPlanFile: shieldedProcedure
+    .input(
+      z.object({
+        sessionId: z.string().min(1),
+        planFilePath: z.string().min(1).optional(),
+        planNo: z.number().int().min(1).optional(),
+      }),
+    )
+    .query(async (): Promise<{
+      content: string
+      actionName: string
+      explanation?: string
+      steps: string[]
+      filePath: string
+      meta: Record<string, unknown>
+    } | null> => {
+      throw new Error('Not implemented in base router')
     }),
 })
 

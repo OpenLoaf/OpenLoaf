@@ -128,14 +128,14 @@ export default function PendingCloudLoginPrompt() {
                   </span>
                   <div className="min-w-0">
                     <p className="truncate text-[12px] font-medium text-foreground">
-                      {isLoggedInLocalEmpty ? '本地模型未配置' : '需要登录后继续'}
+                      {isLoggedInLocalEmpty ? '本地模型未配置' : '需要登录'}
                     </p>
                     <p className="truncate text-[10px] text-muted-foreground">
                       {isLoggedInLocalEmpty
-                        ? '切换到云端模型继续对话，或先完成本地模型配置'
+                        ? '切换到云端，或配置本地模型'
                         : hasConfiguredProviders
-                          ? '登录云端模型，或切换至本地模型后继续对话'
-                          : '登录云端模型，或先完成本地模型配置'}
+                          ? '登录云端，或切换到本地'
+                          : '登录云端，或配置本地模型'}
                     </p>
                   </div>
                 </div>
@@ -149,7 +149,7 @@ export default function PendingCloudLoginPrompt() {
                         className="inline-flex h-7 flex-1 items-center justify-center gap-1.5 rounded-3xl bg-foreground px-3 text-[11px] font-medium text-background transition-colors duration-150 hover:bg-foreground/90"
                       >
                         <Cloud className="size-3" />
-                        使用云端模型
+                        云端
                       </button>
                       <button
                         type="button"
@@ -157,7 +157,7 @@ export default function PendingCloudLoginPrompt() {
                         className="inline-flex h-7 flex-1 items-center justify-center gap-1.5 rounded-3xl border border-border bg-background px-3 text-[11px] font-medium text-foreground transition-colors duration-150 hover:bg-secondary"
                       >
                         <Settings2 className="size-3" />
-                        前往模型配置
+                        配置本地
                       </button>
                     </>
                   ) : (
@@ -168,7 +168,7 @@ export default function PendingCloudLoginPrompt() {
                         className="inline-flex h-7 flex-1 items-center justify-center gap-1.5 rounded-3xl bg-foreground px-3 text-[11px] font-medium text-background transition-colors duration-150 hover:bg-foreground/90"
                       >
                         <Cloud className="size-3" />
-                        登录云端模型
+                        登录云端
                       </button>
                       <button
                         type="button"
@@ -180,7 +180,7 @@ export default function PendingCloudLoginPrompt() {
                         ) : (
                           <Settings2 className="size-3" />
                         )}
-                        {hasConfiguredProviders ? '切换本地模型' : '前往模型配置'}
+                        {hasConfiguredProviders ? '本地' : '配置本地'}
                       </button>
                     </>
                   )}

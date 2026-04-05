@@ -71,10 +71,14 @@ export function buildTreeFromMessages(messages: StoredMessage[]): MessageTreeInd
   })
 
   for (const msg of sorted) {
-    const parentKey = msg.parentMessageId ?? '__root__'
-    if (msg.parentMessageId === null) {
+    // 孤儿消息（parentMessageId 指向已不存在的消息）按 root 处理，避免
+    // 整段子树被静默丢弃。常见于写入竞态或旧数据被部分截断的场景。
+    const parentExists =
+      msg.parentMessageId !== null && byId.has(msg.parentMessageId)
+    if (msg.parentMessageId === null || !parentExists) {
       rootIds.push(msg.id)
     } else {
+      const parentKey = msg.parentMessageId
       const children = childrenOf.get(parentKey) ?? []
       children.push(msg.id)
       childrenOf.set(parentKey, children)

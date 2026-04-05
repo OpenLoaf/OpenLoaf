@@ -33,6 +33,7 @@ import {
   trimToContextWindow,
 } from '@/ai/shared/contextWindowManager'
 import { formatMessagesAsText } from '@/ai/shared/messageFormatting'
+import { getPlanUpdate } from '@/ai/shared/context/requestContext'
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -61,12 +62,14 @@ const COMPACT_SYSTEM_PROMPT = [
   '- 保留：明确需求、约束、决策、关键事实',
   '- 保留：重要数据、参数、文件路径、命令、接口信息',
   '- 标注：未完成事项与风险',
+  '- 保留：如果对话中存在 UpdatePlan 工具调用或计划（plan），必须在摘要中完整保留当前计划的步骤列表和每步状态（pending/in_progress/completed/failed）',
   '- 格式：精简要点，不展开推理过程',
   '',
   '输出格式：',
   '## 摘要',
   '## 关键决策',
   '## 待办',
+  '## 当前计划（如有）',
   '## 涉及文件',
 ].join('\n')
 
@@ -130,10 +133,21 @@ export async function tryAutoCompact(
 
     clearTimeout(timeout)
 
-    const summaryText = result.text?.trim()
+    let summaryText = result.text?.trim()
     if (!summaryText) {
       logger.warn('[auto-compact] model returned empty summary, keeping original messages')
       return mutableMessages
+    }
+
+    // 硬注入当前活跃 plan 状态，不依赖 LLM 保留。
+    const currentPlan = getPlanUpdate()
+    if (currentPlan && Array.isArray(currentPlan.plan) && currentPlan.plan.length > 0) {
+      const planLines = currentPlan.plan
+        .filter((s) => typeof s === 'string' && s.trim())
+        .map((s, i) => `${i + 1}. ${s}`)
+      if (planLines.length > 0) {
+        summaryText += `\n\n## 当前计划\n\n${currentPlan.actionName ?? '计划'}\n\n${planLines.join('\n')}`
+      }
     }
 
     const summaryMessage: ModelMessage = {

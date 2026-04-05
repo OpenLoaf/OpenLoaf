@@ -10,10 +10,9 @@
 import fsSync from "node:fs";
 import path from "node:path";
 import {
+  getBoardId,
   getProjectId,
-  getRequestContext,
   getSessionId,
-  getUiWriter,
 } from "@/ai/shared/context/requestContext";
 import {
   getProjectRootPath,
@@ -21,9 +20,11 @@ import {
 } from "@openloaf/api/services/vfsService";
 import { getOpenLoafRootDir } from "@openloaf/config";
 import { getResolvedTempStorageDir } from "@openloaf/api/services/appConfigService";
-import { createTempProject } from "@openloaf/api/services/tempProjectService";
-import { migrateSessionDirToProject } from "@/ai/services/chat/repositories/chatFileStore";
-import { updateSessionProjectId } from "@/ai/services/chat/repositories/messageStore";
+import {
+  resolveBoardAssetDir,
+  resolveBoardScopedRoot,
+} from "@openloaf/api/common/boardPaths";
+import { resolveSessionAssetDir } from "@/ai/services/chat/repositories/chatSessionPathResolver";
 
 type ToolRoots = {
   /** Global root path (~/.openloaf/). */
@@ -67,6 +68,83 @@ function isPathInside(root: string, target: string): boolean {
 /** Session-scoped path regex: [chat_xxx]/subpath */
 const SESSION_PATH_REGEX = /^\[(chat_[^\]]+)\]\/(.+)$/;
 
+/**
+ * Template variable expansion for tool inputs (paths, bash commands, etc.).
+ *
+ * Supported variables:
+ *   - ${CURRENT_PROJECT_ROOT}  → absolute project root (if bound)
+ *   - ${CURRENT_CHAT_DIR}      → absolute chat asset directory (session sandbox)
+ *   - ${CURRENT_BOARD_DIR}     → absolute board asset directory (canvas sandbox)
+ *   - ${HOME}                  → user home directory
+ *
+ * Variables that cannot resolve in the current context (e.g. CURRENT_PROJECT_ROOT
+ * in a temp chat) are left untouched — the downstream tool will surface a clear
+ * error rather than silently producing a garbage path.
+ *
+ * This function is safe to call on arbitrary strings (paths OR shell commands);
+ * it only replaces exact `${NAME}` tokens and does not interfere with other
+ * shell substitution syntax ($VAR, $(...), backticks, etc.).
+ *
+ * NOTE: paths are resolved by CONVENTION (no DB lookup), which is authoritative
+ * for temp chats, project-bound chats, and standard boards. Legacy boards with
+ * custom folderUri are extremely rare and fall back to the tool-level regex
+ * resolver; those cases still work through the absolute-path escape hatch.
+ */
+export function expandPathTemplateVars(input: string): string {
+  if (!input || input.indexOf("${") === -1) return input;
+  const projectId = getProjectId();
+  const projectRoot = projectId ? getProjectRootPath(projectId) : undefined;
+  const sessionId = getSessionId();
+  const boardId = getBoardId();
+
+  // Board asset dir: {boardRoot}/boards/{boardId}/asset/
+  // (boardRoot = projectRoot for project boards, tempDir for temp boards)
+  let boardAssetDir: string | undefined;
+  if (boardId) {
+    const boardRoot = resolveBoardScopedRoot(projectId);
+    boardAssetDir = resolveBoardAssetDir(boardRoot, boardId);
+  }
+
+  // Chat session asset dir. When chat is bound to a board the asset dir lives
+  // under the board's directory; otherwise it's at the standard chat-history
+  // location (project or temp).
+  let chatAssetDir: string | undefined;
+  if (sessionId) {
+    if (boardAssetDir) {
+      // Canvas-bound chats: sessionId typically equals boardId, so the chat
+      // asset dir IS the board asset dir. (chatSessionPathResolver stores the
+      // physical folder by the same convention.) This is deliberately the same
+      // directory as CURRENT_BOARD_DIR — the two tokens are synonyms when a
+      // chat is inside a canvas, letting AI pick whichever reads better.
+      chatAssetDir = boardAssetDir;
+    } else {
+      const sessionDir = projectRoot
+        ? path.join(projectRoot, ".openloaf", "chat-history", sessionId)
+        : path.join(getResolvedTempStorageDir(), "chat-history", sessionId);
+      chatAssetDir = path.join(sessionDir, "asset");
+    }
+  }
+
+  const home = process.env.HOME || process.env.USERPROFILE;
+  return input.replace(
+    /\$\{(CURRENT_PROJECT_ROOT|CURRENT_CHAT_DIR|CURRENT_BOARD_DIR|HOME)\}/g,
+    (token, name) => {
+      switch (name) {
+        case "CURRENT_PROJECT_ROOT":
+          return projectRoot ? path.resolve(projectRoot) : token;
+        case "CURRENT_CHAT_DIR":
+          return chatAssetDir ? path.resolve(chatAssetDir) : token;
+        case "CURRENT_BOARD_DIR":
+          return boardAssetDir ? path.resolve(boardAssetDir) : token;
+        case "HOME":
+          return home ? path.resolve(home) : token;
+        default:
+          return token;
+      }
+    },
+  );
+}
+
 /** Resolve a tool path (always allows outside scope; caller handles approval). */
 export function resolveToolPath(input: {
   target: string;
@@ -77,7 +155,11 @@ export function resolveToolPath(input: {
   let absPath: string;
 
   // 先处理 [sessionId]/... 格式：解析为会话物理目录
-  const raw = input.target.trim();
+  // Template variables (${CURRENT_CHAT_DIR}, etc.) are expanded up-front so
+  // every downstream branch (session regex, project-scope resolution, absolute
+  // path handling) sees a plain resolved path.
+  const expanded = expandPathTemplateVars(input.target);
+  const raw = expanded.trim();
   const stripped = raw.startsWith("@{") && raw.endsWith("}") ? raw.slice(2, -1) : raw;
   const sessionMatch = stripped.match(SESSION_PATH_REGEX);
   if (sessionMatch) {
@@ -92,10 +174,10 @@ export function resolveToolPath(input: {
     if (!path.isAbsolute(stripped) && !stripped.startsWith("~") && !stripped.startsWith("file:")) {
       absPath = path.resolve(getResolvedTempStorageDir(), stripped);
     } else {
-      absPath = path.resolve(resolveScopedPath({ projectId, target: input.target }));
+      absPath = path.resolve(resolveScopedPath({ projectId, target: expanded }));
     }
   } else {
-    absPath = path.resolve(resolveScopedPath({ projectId, target: input.target }));
+    absPath = path.resolve(resolveScopedPath({ projectId, target: expanded }));
   }
 
   const insideProject = projectRoot ? isPathInside(projectRoot, absPath) : false;
@@ -108,7 +190,9 @@ export function isTargetOutsideScope(target: string): boolean {
   try {
     const projectId = getProjectId();
     const { projectRoot } = resolveToolRoots();
-    const absPath = path.resolve(resolveScopedPath({ projectId, target }));
+    const absPath = path.resolve(
+      resolveScopedPath({ projectId, target: expandPathTemplateVars(target) }),
+    );
     const insideProject = projectRoot ? isPathInside(projectRoot, absPath) : false;
     return !insideProject;
   } catch {
@@ -139,53 +223,27 @@ export function resolveToolWorkdir(input: {
 }
 
 /**
- * Ensure a writable project scope exists.
- * If no projectId in context, lazily create a temp project and bind it to the session.
+ * Ensure a writable root directory for tool output exists.
+ * - If a project is bound to the session → use the project root.
+ * - Otherwise (temp conversation) → use {chat-history}/{sessionId}/asset/.
+ * No side effects: no project is created, no DB updates, no frontend events.
  */
-export async function ensureTempProject(): Promise<{
-  projectId: string;
-  projectRoot: string;
+export async function ensureWritableRoot(): Promise<{
+  projectId: string | null;
+  rootPath: string;
 }> {
-  const existingProjectId = getProjectId();
-  if (existingProjectId) {
-    const root = getProjectRootPath(existingProjectId);
+  const projectId = getProjectId();
+  if (projectId) {
+    const root = getProjectRootPath(projectId);
     if (root) {
-      return { projectId: existingProjectId, projectRoot: path.resolve(root) };
+      return { projectId, rootPath: path.resolve(root) };
     }
   }
 
   const sessionId = getSessionId();
-  const temp = await createTempProject({ sessionId });
-
-  // Update RequestContext so sub-agents inherit the new project scope.
-  const ctx = getRequestContext();
-  if (ctx) {
-    ctx.projectId = temp.projectId;
+  if (!sessionId) {
+    throw new Error("sessionId is required to resolve a writable root.");
   }
-
-  // Migrate existing JSONL files from global path to the new project path,
-  // so messages written before temp project creation are not orphaned.
-  if (sessionId) {
-    await migrateSessionDirToProject(sessionId, temp.projectId);
-    // Sync the new projectId to DB so ChatSession.projectId is no longer null.
-    await updateSessionProjectId({ sessionId, projectId: temp.projectId });
-  }
-
-  // Notify frontend about the temp project creation
-  const writer = getUiWriter();
-  if (writer) {
-    writer.write({
-      type: 'data-temp-project',
-      data: {
-        projectId: temp.projectId,
-        projectRoot: path.resolve(temp.rootPath),
-        isTemp: true,
-      },
-    } as any);
-  }
-
-  return {
-    projectId: temp.projectId,
-    projectRoot: path.resolve(temp.rootPath),
-  };
+  const assetDir = await resolveSessionAssetDir(sessionId);
+  return { projectId: null, rootPath: path.resolve(assetDir) };
 }

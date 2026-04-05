@@ -12,7 +12,7 @@
 import { isHiddenToolPart, isToolPart } from "./message-parts";
 
 /**
- * 判断消息是否有“可见内容”（文本/工具卡片等）。
+ * 判断消息是否有"可见内容"（文本/工具卡片等）。
  * - 用于控制：MessageActions 是否显示、Thinking 是否显示等 UI 逻辑
  */
 export function messageHasVisibleContent(
@@ -43,23 +43,5 @@ export function messageHasVisibleContent(
   });
   if (hasFile) return true;
 
-  if (hasPlanMetadata(message)) return true;
-
   return parts.some((part: any) => isToolPart(part) && !isHiddenToolPart(part));
-}
-
-/** Check whether message metadata carries a non-empty plan update. */
-function hasPlanMetadata(message: { metadata?: unknown } | undefined): boolean {
-  const metadata = message?.metadata;
-  if (!metadata || typeof metadata !== "object") return false;
-  const planUpdate = (metadata as Record<string, unknown>)?.plan;
-  if (!planUpdate || typeof planUpdate !== "object") return false;
-  const planItems = (planUpdate as Record<string, unknown>)?.plan;
-  if (!Array.isArray(planItems)) return false;
-
-  return planItems.some((item) => {
-    if (!item || typeof item !== "object") return false;
-    const step = typeof (item as any).step === "string" ? (item as any).step.trim() : "";
-    return Boolean(step);
-  });
 }

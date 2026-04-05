@@ -1,15 +1,15 @@
 {
   "blocked": {
-    "titleCloudLogin": "登录后使用云端模型",
+    "titleCloudLogin": "需要登录",
     "titleLocalEmpty": "本地模型未配置",
     "titleDefault": "开始智能对话",
-    "descCloudLogin": "当前选择的是云端模型，登录后即可使用",
-    "descLocalEmptySwitch": "切换到云端模型，或配置本地 AI 服务商",
-    "descDefault": "登录云端或配置本地 AI 服务商",
-    "btnSwitchCloud": "使用云端模型",
-    "btnLoginCloud": "登录 OpenLoaf 云端",
-    "btnSwitchLocal": "切换到本地模型",
-    "btnConfigLocal": "自定义AI服务商"
+    "descCloudLogin": "登录后使用云端模型",
+    "descLocalEmptySwitch": "切换到云端，或配置本地模型",
+    "descDefault": "登录云端或配置本地模型",
+    "btnSwitchCloud": "云端",
+    "btnLoginCloud": "登录云端",
+    "btnSwitchLocal": "本地",
+    "btnConfigLocal": "配置本地"
   },
   "chat": {
     "newChat": "新对话",
@@ -289,7 +289,46 @@
     "chatPreface": "对话前言",
     "noPreface": "暂无对话前言",
     "copySuccess": "已复制聊天日志路径",
-    "copyError": "未找到聊天日志文件"
+    "copyError": "未找到聊天日志文件",
+    "messages": "消息记录",
+    "noMessages": "暂无消息记录",
+    "noDebugSteps": "无调试数据",
+    "loadingMessages": "正在加载消息…",
+    "messageCount": "条消息",
+    "copiedJson": "已复制 JSON",
+    "refresh": "刷新",
+    "expandAll": "全部展开",
+    "collapseAll": "全部收起",
+    "role": {
+      "user": "用户",
+      "assistant": "助手",
+      "system": "系统",
+      "subagent": "子智能体",
+      "task-report": "任务报告"
+    },
+    "meta": {
+      "tokens": "Token 用量",
+      "in": "输入",
+      "out": "输出",
+      "reasoning": "推理",
+      "cached": "缓存",
+      "elapsed": "耗时",
+      "credits": "积分",
+      "started": "开始",
+      "finished": "结束",
+      "agent": "智能体",
+      "model": "模型",
+      "webSearch": "联网搜索",
+      "enabled": "已启用",
+      "disabled": "已禁用",
+      "reasoningMode": "推理模式"
+    },
+    "scope": {
+      "builtin": "内置",
+      "project": "项目",
+      "global": "全局",
+      "user": "用户"
+    }
   },
   "helper": {
     "tryAskMe": "你可以试着问我：",
@@ -504,5 +543,49 @@
     "noProjectFound": "未找到项目",
     "projects": "项目列表",
     "current": "当前"
+  },
+  "plan": {
+    "title": "计划",
+    "progress": "计划进度 {{completed}}/{{total}}",
+    "interrupted": "已中断",
+    "statusPending": "待办",
+    "statusInProgress": "进行中",
+    "statusCompleted": "已完成",
+    "statusFailed": "失败",
+    "viewHistory": "查看历史计划",
+    "noPlan": "暂无计划",
+    "approved": "计划已批准",
+    "rejected": "计划已拒绝",
+    "execute": "执行计划",
+    "modify": "修改计划",
+    "feedbackPlaceholder": "请输入修改意见...",
+    "submitFeedback": "提交修改意见",
+    "cancel": "取消"
+  },
+  "userInput": {
+    "required": "此项为必填",
+    "minLength": "最少需要 {{min}} 个字符",
+    "maxLength": "最多允许 {{max}} 个字符",
+    "invalidFormat": "格式不正确",
+    "defaultPrefix": "默认: {{value}}",
+    "selectPlaceholder": "请选择...",
+    "multiSelect": "可多选",
+    "selectAtLeastOne": "请至少选择一项",
+    "noContent": "暂无内容",
+    "paramError": "参数格式错误，已反馈给模型重试",
+    "skipped": "已跳过",
+    "prevStep": "上一步",
+    "nextStep": "下一步",
+    "confirm": "确定",
+    "confirming": "确定中...",
+    "skip": "跳过"
+  },
+  "runtimeTask": {
+    "allDone": "全部完成",
+    "master": "主对话",
+    "ready": "就绪",
+    "waitingFor": "等待 {{names}}",
+    "aiSelfReport": "AI 自述",
+    "failedBadge": "{{count}} 失败"
   }
 }

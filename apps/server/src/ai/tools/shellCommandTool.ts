@@ -10,7 +10,7 @@
 import { spawn } from 'node:child_process'
 import { tool, zodSchema } from 'ai'
 import { bashToolDef } from '@openloaf/api/types/tools/runtime'
-import { resolveToolWorkdir } from '@/ai/tools/toolScope'
+import { expandPathTemplateVars, resolveToolWorkdir } from '@/ai/tools/toolScope'
 import { buildExecEnv, formatFreeformOutput } from '@/ai/tools/execUtils'
 import { needsApprovalForCommand } from '@/ai/tools/commandApproval'
 
@@ -49,9 +49,15 @@ export const bashTool = tool({
       // 目前仍然同步执行，后续可扩展
     }
 
+    // Expand template variables (${CURRENT_CHAT_DIR}, ${CURRENT_PROJECT_ROOT},
+    // ${HOME}) in the command string so AI can write readable commands like
+    //   grep -oE 'src="[^"]+"' ${CURRENT_CHAT_DIR}/webfetch/foo.html
+    // instead of having to paste a 28-char session id into the path.
+    const expandedCommand = expandPathTemplateVars(command)
+
     // 使用项目根目录作为 cwd
     const { cwd } = resolveToolWorkdir({})
-    const { file, args } = buildShellCommand(command)
+    const { file, args } = buildShellCommand(expandedCommand)
 
     const timeoutMs = Math.min(timeout ?? 120_000, 600_000)
     const startAt = Date.now()
@@ -104,7 +110,7 @@ export const bashTool = tool({
 
     // 命令失败时检测可能的中文路径问题
     if (code !== 0) {
-      const unquotedWarning = detectUnquotedCjkPaths(command)
+      const unquotedWarning = detectUnquotedCjkPaths(expandedCommand)
       if (unquotedWarning) {
         sections.push(unquotedWarning)
       }

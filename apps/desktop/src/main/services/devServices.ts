@@ -13,6 +13,7 @@ import path from 'node:path';
 import { delay, isUrlOk, waitForUrlOk } from './urlHealth';
 import type { Logger } from '../logging/startupLogger';
 import { getFreePort, isPortFree } from './portAllocation';
+import { parseEnvFile } from './prodServices';
 
 /**
  * 从当前工作目录向上查找 monorepo 根目录。
@@ -250,7 +251,9 @@ export async function ensureDevServices(args: {
 
   const pnpm = commandName('pnpm');
   const node = commandName('node');
-  const envBase = { ...process.env };
+  // 开发态加载 apps/server/.env.local，与 pnpm dev:server 行为一致。
+  const serverEnvLocal = parseEnvFile(path.join(repoRoot, 'apps', 'server', '.env.local'));
+  const envBase = { ...process.env, ...serverEnvLocal };
 
   const serverHost = new URL(serverUrl).hostname || '127.0.0.1';
   let serverPort = Number(new URL(serverUrl).port || 23333);

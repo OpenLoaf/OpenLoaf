@@ -11,6 +11,7 @@ import { z } from 'zod'
 
 export const videoDownloadToolDef = {
   id: 'VideoDownload',
+  readonly: false,
   name: '视频下载',
   description:
     '触发：当用户明确要求根据公开视频网址直接下载视频时调用。' +

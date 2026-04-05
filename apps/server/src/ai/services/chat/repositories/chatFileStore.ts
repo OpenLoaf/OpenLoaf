@@ -9,11 +9,7 @@
  */
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
-import { resolveOpenLoafPath, resolveScopedOpenLoafPath } from '@openloaf/config'
-import { getResolvedTempStorageDir } from '@openloaf/api/services/appConfigService'
-import { getProjectRootPath } from '@openloaf/api/services/vfsService'
 import { prisma } from '@openloaf/db'
-import { logger } from '@/common/logger'
 
 import { resolveSessionDir, registerSessionDir, _getSessionDirCache } from './chatSessionPathResolver'
 import { loadMessageTree, invalidateCache, _clearAllTreeCaches } from './chatMessageTreeIndex'
@@ -96,6 +92,8 @@ type SessionJson = {
   updatedAt: string
   deletedAt: string | null
   messageCount: number
+  /** Last allocated plan number for PLAN_{no}.md naming. */
+  lastPlanNo?: number
 }
 
 export type SiblingNavEntry = {
@@ -242,141 +240,6 @@ export async function deleteSessionFiles(sessionId: string): Promise<void> {
   if (idx >= 0) sessionDirOrder.splice(idx, 1)
 }
 
-// ---------------------------------------------------------------------------
-// Migration
-// ---------------------------------------------------------------------------
-
-/**
- * Migrate the entire session directory from global path to a project-scoped path.
- * Called when ensureTempProject() binds a session to a newly created project,
- * so that all files (messages.jsonl, session.json, root/, files/, agents/, etc.)
- * written before the project existed are not orphaned.
- */
-export async function migrateSessionDirToProject(
-  sessionId: string,
-  projectId: string,
-): Promise<void> {
-  const { sessionDirCache, touchSessionDirCache } = _getSessionDirCache()
-
-  // 1. 全局路径（无 projectId 时的默认路径）
-  const globalRoot = resolveOpenLoafPath(CHAT_HISTORY_DIR)
-  const globalDir = path.join(globalRoot, sessionId)
-
-  // 2. 目标项目路径
-  const projectRoot = getProjectRootPath(projectId)
-  if (!projectRoot) return
-  const targetRoot = resolveScopedOpenLoafPath(projectRoot, CHAT_HISTORY_DIR)
-  const targetDir = path.join(targetRoot, sessionId)
-
-  // 3. 路径相同则跳过
-  if (globalDir === targetDir) return
-
-  // 4. 全局目录不存在则跳过
-  try {
-    await fs.stat(globalDir)
-  } catch {
-    return
-  }
-
-  // 5. 目标目录不存在 → 直接 rename 整个目录（最高效）
-  await fs.mkdir(targetRoot, { recursive: true })
-  try {
-    await fs.stat(targetDir)
-  } catch {
-    // 目标不存在，直接移动整个目录
-    await fs.rename(globalDir, targetDir)
-    sessionDirCache.set(sessionId, targetDir)
-    touchSessionDirCache(sessionId)
-    invalidateCache(sessionId)
-    logger.info(
-      { sessionId, from: globalDir, to: targetDir },
-      '[chat-file-store] migrated session dir to project scope (rename)',
-    )
-    return
-  }
-
-  // 6. 目标目录已存在 → 逐个合并文件
-  const entries = await fs.readdir(globalDir, { withFileTypes: true })
-  for (const entry of entries) {
-    const srcPath = path.join(globalDir, entry.name)
-    const dstPath = path.join(targetDir, entry.name)
-
-    if (entry.isDirectory()) {
-      // 子目录：目标不存在则直接移动，已存在则跳过（保留目标）
-      try {
-        await fs.stat(dstPath)
-      } catch {
-        await fs.rename(srcPath, dstPath)
-      }
-    } else if (entry.name === MESSAGES_FILE) {
-      // messages.jsonl：去重合并
-      const globalContent = await fs.readFile(srcPath, 'utf8')
-      if (globalContent.trim()) {
-        // 读取目标文件已有消息的 ID 集合
-        const existingIds = new Set<string>()
-        try {
-          const dstContent = await fs.readFile(dstPath, 'utf8')
-          for (const line of dstContent.split('\n')) {
-            const trimmed = line.trim()
-            if (!trimmed) continue
-            try {
-              const msg = JSON.parse(trimmed)
-              if (msg.id) existingIds.add(msg.id)
-            } catch {
-              /* skip malformed lines */
-            }
-          }
-        } catch {
-          /* dst file doesn't exist yet */
-        }
-
-        // 只追加不存在的消息
-        const newLines: string[] = []
-        for (const line of globalContent.split('\n')) {
-          const trimmed = line.trim()
-          if (!trimmed) continue
-          try {
-            const msg = JSON.parse(trimmed)
-            if (msg.id && !existingIds.has(msg.id)) {
-              newLines.push(trimmed)
-            }
-          } catch {
-            newLines.push(trimmed) // 保留无法解析的行
-          }
-        }
-        if (newLines.length > 0) {
-          await fs.appendFile(dstPath, newLines.map((l) => `${l}\n`).join(''))
-        }
-      }
-      await fs.unlink(srcPath)
-    } else {
-      // 其他文件（session.json 等）：目标不存在则移动
-      try {
-        await fs.stat(dstPath)
-        await fs.unlink(srcPath) // 目标已有，删除源文件
-      } catch {
-        await fs.rename(srcPath, dstPath)
-      }
-    }
-  }
-
-  // 7. 清理空的全局目录
-  try {
-    await fs.rmdir(globalDir)
-  } catch {
-    /* 目录非空则忽略 */
-  }
-
-  // 8. 更新缓存
-  sessionDirCache.set(sessionId, targetDir)
-  touchSessionDirCache(sessionId)
-  invalidateCache(sessionId)
-
-  logger.info(
-    { sessionId, from: globalDir, to: targetDir },
-    '[chat-file-store] migrated session dir to project scope (merge)',
-  )
-}
 
 /** Delete all chat history files for all sessions. */
 export async function deleteAllChatFiles(): Promise<void> {

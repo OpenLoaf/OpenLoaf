@@ -373,7 +373,7 @@ async function testPathTraversal() {
   })
 
   await test('destPath inside targetSkillsDir passes startsWith check', () => {
-    const targetDir = '/home/user/.openloaf/agents/skills'
+    const targetDir = '/home/user/.openloaf/skills'
     const destPath = path.join(targetDir, 'my-skill')
     assert.ok(path.resolve(destPath).startsWith(path.resolve(targetDir) + path.sep))
   })
@@ -407,27 +407,27 @@ async function testDeleteTargetPath() {
 
   await test('global scope should NOT double .openloaf', () => {
     const globalRoot = path.join(os.homedir(), '.openloaf')
-    const correctPath = path.join(os.homedir(), '.openloaf', 'agents', 'skills')
-    const buggyPath = path.join(globalRoot, '.openloaf', 'agents', 'skills')
+    const correctPath = path.join(os.homedir(), '.openloaf', 'skills')
+    const buggyPath = path.join(globalRoot, '.openloaf', 'skills')
     assert.notEqual(correctPath, buggyPath, 'Bug would cause double .openloaf')
-    assert.equal(correctPath, path.join(globalRoot, 'agents', 'skills'))
+    assert.equal(correctPath, path.join(globalRoot, 'skills'))
   })
 
   await test('project scope path uses .openloaf subdirectory', () => {
     const projectRoot = '/home/user/projects/my-project'
-    const skillsPath = path.join(projectRoot, '.openloaf', 'agents', 'skills')
+    const skillsPath = path.join(projectRoot, '.openloaf', 'skills')
     assert.ok(skillsPath.includes('.openloaf'))
-    assert.ok(skillsPath.endsWith('agents/skills') || skillsPath.endsWith('agents\\skills'))
+    assert.ok(skillsPath.endsWith('skills'))
   })
 
   await test('skill path inside skillsRoot passes validation', () => {
-    const skillsRoot = '/home/user/.openloaf/agents/skills'
-    const skillDir = '/home/user/.openloaf/agents/skills/my-skill'
+    const skillsRoot = '/home/user/.openloaf/skills'
+    const skillDir = '/home/user/.openloaf/skills/my-skill'
     assert.ok(skillDir.startsWith(`${skillsRoot}${path.sep}`))
   })
 
   await test('skill path outside skillsRoot fails validation', () => {
-    const skillsRoot = '/home/user/.openloaf/agents/skills'
+    const skillsRoot = '/home/user/.openloaf/skills'
     const skillDir = '/home/user/.openloaf/agents/other-dir'
     assert.ok(!skillDir.startsWith(`${skillsRoot}${path.sep}`))
   })

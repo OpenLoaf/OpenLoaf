@@ -36,10 +36,15 @@ export const masterTemplate: AgentTemplate = {
     // agent collaboration
     'Agent',
     'SendMessage',
+    // planning
+    'UpdatePlan',
+    // runtime task tracking (Master-only)
+    'TaskCreate',
+    'TaskUpdate',
+    'TaskRead',
   ],
   deferredToolIds: [
     // system
-    'UpdatePlan',
     'JsxCreate',
     'FileInfo',
     // web

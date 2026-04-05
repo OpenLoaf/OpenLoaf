@@ -13,6 +13,7 @@ import { z } from "zod";
 
 export const bashToolDef = {
   id: "Bash",
+  readonly: false,
   name: "执行命令",
   description: `Executes a given bash command and returns its output.
 
@@ -40,6 +41,7 @@ Instructions:
 
 export const readToolDef = {
   id: "Read",
+  readonly: true,
   name: "读取文件",
   description: `Reads a file from the local filesystem. You can access any file directly by using this tool.
 
@@ -62,6 +64,7 @@ Usage:
 
 export const editToolDef = {
   id: "Edit",
+  readonly: false,
   name: "编辑文件",
   description: `Performs exact string replacements in files.
 
@@ -82,6 +85,7 @@ Usage:
 
 export const writeToolDef = {
   id: "Write",
+  readonly: false,
   name: "写入文件",
   description: `Writes a file to the local filesystem.
 
@@ -98,6 +102,7 @@ Usage:
 
 export const editDocumentToolDef = {
   id: "EditDocument",
+  readonly: false,
   name: "编辑文稿",
   description:
     "触发：当用户要求修改文稿（tndoc_ 文件夹中的 index.mdx）时调用。用途：将修改后的完整 MDX 内容写入文稿的 index.mdx 文件。返回：`Wrote document: <relative-path>`。不适用：非文稿文件请用 write-file。",
@@ -110,6 +115,7 @@ export const editDocumentToolDef = {
 
 export const globToolDef = {
   id: "Glob",
+  readonly: true,
   name: "搜索文件",
   description: `Fast file pattern matching tool that works with any codebase size.
 
@@ -126,6 +132,7 @@ export const globToolDef = {
 
 export const grepToolDef = {
   id: "Grep",
+  readonly: true,
   name: "搜索内容",
   description: `A powerful search tool built on ripgrep.
 
@@ -153,78 +160,58 @@ Usage:
   component: null,
 } as const;
 
-const planStepStatusSchema = z
-  .enum(["pending", "in_progress", "completed"])
-  .describe("Plan step status: pending, in_progress, or completed.");
-
-/** Update-plan mode schema. */
-const planUpdateModeSchema = z.enum(["full", "patch"]).describe("Plan update mode.");
-
-const planItemSchema = z.object({
-  step: z.string().min(1).describe("Plan step text."),
-  status: planStepStatusSchema.describe("Plan step status."),
-});
-
-const planPatchItemSchema = z.object({
-  index: z.number().int().min(1).describe("1-based index of the plan step."),
-  status: planStepStatusSchema.describe("Plan step status."),
-});
-
-const planUpdateItemSchema = z.object({
-  step: z.string().min(1).optional().describe("Plan step text."),
-  index: z.number().int().min(1).optional().describe("1-based index of the plan step."),
-  status: planStepStatusSchema.describe("Plan step status."),
-});
+const planItemSchema = z.string().min(1).describe("Plan step text.");
 
 /** Update-plan tool definition for storing assistant plans. */
 export const updatePlanToolDef = {
   id: "UpdatePlan",
-  name: "更新计划",
-  description: `触发：当你需要把当前计划写入工具状态，以便 UI 展示或后续 patch 更新时调用。用途：提交 full/patch 计划步骤及状态。返回：{ ok: true, data: { updated: true } }。不适用：未维护计划时不要调用。
+  readonly: true,
+  name: "创建计划",
+  description: `触发：当任务涉及多文件修改、多步骤流程、或需要先调研再执行时使用。创建完整计划后系统会暂停等待用户审批。用户批准后直接按计划执行，不需要再调用此工具。不适用：1-2 步的简单任务不要调用。
 
-Updates the task plan for the current assistant turn.
-Provide an optional explanation and a list of plan items, each with a step and status.
-When mode is patch, provide step index and status only.
-At most one step can be in_progress at a time.`,
-  parameters: z
-    .object({
-      mode: planUpdateModeSchema.optional().default("full"),
-      actionName: z
+Creates a task plan and waits for user approval.
+- explanation field is REQUIRED: include background, approach rationale, key file paths, caveats, and verification method.
+- Each step should be specific (include file names and concrete actions).
+- All steps should initially be "pending".
+- After user approval, execute the plan directly — do NOT call this tool again to report progress.`,
+  parameters: z.object({
+    actionName: z
       .string()
       .optional()
-        .describe("由调用的 LLM 传入，用于说明本次工具调用目的，例如：同步当前计划。"),
-      explanation: z.string().optional().describe("Optional plan summary."),
-      plan: z.array(planUpdateItemSchema).min(1).describe("Plan step list."),
-    })
-    .superRefine((value, ctx) => {
-      const mode = value.mode ?? "full";
-      for (let index = 0; index < value.plan.length; index += 1) {
-        const item = value.plan[index];
-        if (!item) continue;
-        if (mode === "patch") {
-          if (typeof item.index !== "number") {
-            // 中文注释：patch 模式必须提供序号，用于定位更新项。
-            ctx.addIssue({
-              code: "custom",
-              path: ["plan", index, "index"],
-              message: "Patch mode requires plan item index.",
-            });
-          }
-        } else if (!item.step) {
-          // 中文注释：full 模式必须提供 step 文本。
-          ctx.addIssue({
-            code: "custom",
-            path: ["plan", index, "step"],
-            message: "Full mode requires plan item step.",
-          });
-        }
-      }
-    }),
+      .describe("Plan title, e.g. 'Refactor UserService'"),
+    explanation: z.string().optional().describe("Full approach description: background, rationale, key files, caveats, verification method."),
+    plan: z.array(planItemSchema).min(1).describe("Plan step list (3-10 steps)."),
+  }),
   component: null,
 } as const;
 
+/** Submit-plan tool definition — lightweight approval gate for plan files. */
+export const submitPlanToolDef = {
+  id: "SubmitPlan",
+  readonly: true,
+  name: "提交计划审批",
+  description: `触发：当你用 Write 创建了 PLAN 文件后，调用此工具提交给用户审批。系统会暂停等待用户批准或拒绝。
+- 用户批准：你会收到完整的计划内容，按步骤执行即可。
+- 用户拒绝并提供反馈：你会收到文件路径和反馈，用 Read + Edit 修改同一个文件后再次调用 SubmitPlan（使用相同路径）。
+
+Submit a PLAN file for user approval. The system will pause until the user approves or rejects.
+- On approval: you receive the full plan content. Start executing immediately.
+- On rejection: you receive the file path and feedback. Use Read + Edit to revise, then call SubmitPlan again with the same planFilePath.`,
+  parameters: z.object({
+    planFilePath: z
+      .string()
+      .min(1)
+      .describe("PLAN 文件路径。必须与你传给 Write 工具时完全相同的路径（可以是相对路径，如 \"PLAN_1.md\"）。The exact file path you passed to the Write tool (relative paths like \"PLAN_1.md\" are supported)."),
+  }),
+  component: null,
+} as const;
+
+/** Submit-plan payload type. */
+export type SubmitPlanArgs = z.infer<typeof submitPlanToolDef.parameters>;
+
 export const jsReplToolDef = {
   id: "JsRepl",
+  readonly: true,
   name: "JavaScript REPL",
   description: `触发：当你需要执行 JavaScript 代码进行计算、数据处理、原型验证或调试时调用。用途：在持久化的 Node.js 沙箱中执行代码，变量和函数在多次调用间保留。返回：console.log 输出和最终表达式的值。不适用：需要访问文件系统或网络请求时请用 Bash。
 
@@ -242,6 +229,7 @@ Executes JavaScript code in a persistent Node.js VM sandbox.
 
 export const jsReplResetToolDef = {
   id: "JsReplReset",
+  readonly: true,
   name: "重置 JavaScript REPL",
   description: `触发：当你需要清除 REPL 中所有已定义的变量和状态，恢复到初始环境时调用。用途：重置沙箱上下文。返回：{ ok: true, message: string }。不适用：不需要清除状态时不要调用。
 
@@ -250,14 +238,8 @@ Resets the JavaScript REPL sandbox to a clean state, clearing all variables and 
   component: null,
 } as const;
 
-/** Plan step status type for UpdatePlan payloads. */
-export type PlanStepStatus = z.infer<typeof planStepStatusSchema>;
-
-/** Plan step item type for UpdatePlan payloads. */
+/** Plan step item — a plain string describing the step. */
 export type PlanItem = z.infer<typeof planItemSchema>;
-
-/** Plan step patch item type for UpdatePlan payloads. */
-export type PlanPatchItem = z.infer<typeof planPatchItemSchema>;
 
 /** Update-plan payload type for UpdatePlan tool. */
 export type UpdatePlanArgs = z.infer<typeof updatePlanToolDef.parameters>;

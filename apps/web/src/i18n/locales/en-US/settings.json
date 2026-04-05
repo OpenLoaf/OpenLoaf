@@ -744,7 +744,7 @@
     "useSkill": "Use skill",
     "deleteSkill": "Delete skill",
     "loading": "Loading skills...",
-    "empty": "No skills available. Add a `SKILL.md` in `.openloaf/agents/skills` or `~/.openloaf/agents/skills`.",
+    "empty": "No skills available. Add a `SKILL.md` in `.openloaf/skills` or `~/.openloaf/skills`.",
     "emptyTitle": "No skills yet",
     "emptyDesc": "Download from marketplace, import skill files, or drag & drop here",
     "emptyMarketplace": "Marketplace",
@@ -853,7 +853,27 @@
       "noSkills": "No external skills detected",
       "detecting": "Detecting...",
       "selectAll": "Select All ({{count}})",
-      "deselectAll": "Deselect All"
+      "deselectAll": "Deselect All",
+      "localFolderImport": "Import from Local Folder",
+      "localImportSuccess": "Successfully imported {{count}} skill(s) from local folder"
+    },
+    "translateTitles": {
+      "button": "Translate Titles",
+      "dialogTitle": "Translate Skill Titles",
+      "dialogDesc": "Will translate titles and descriptions of {{count}} skill(s)",
+      "dialogDescDone": "Translation complete: {{translated}} translated, {{skipped}} skipped",
+      "dialogDescError": "Translated {{translated}}, interrupted by error",
+      "retranslateAll": "Re-translate all skills (overwrite existing translations)",
+      "translated": "{{count}} translated",
+      "skipped": "{{count}} skipped",
+      "errors": "{{count}} failed",
+      "stoppedAt": "Processed {{processed}}/{{total}}, interrupted by error",
+      "allSkipped": "All skill titles are up to date, no translation needed",
+      "noPending": "No skills need translation, check the option above to re-translate all",
+      "cancel": "Cancel",
+      "start": "Start Translation",
+      "stop": "Stop",
+      "close": "Close"
     }
   },
   "modelSelector": {

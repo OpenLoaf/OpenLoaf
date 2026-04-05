@@ -43,15 +43,13 @@ description: >
 ├─ 执行 shell 命令 → Bash
 ├─ 计算/数据处理 → JsRepl（持久化 Node.js 沙箱）
 ├─ 网页搜索 → WebSearch
-├─ 抓取网页 → WebFetch（自动转 Markdown）
+├─ 抓取单个静态网页 → `ToolSearch(names: "WebFetch")` 直接按工具名加载
+│   ⚠ 不要为此加载 browser-automation-guide skill——那套是为页面交互（点击/填表/登录/截图）设计的
+├─ 需要页面交互（点击/填表/登录/截图/翻页） → `ToolSearch(names: "browser-automation-guide")`
 ├─ 操作画布 → ToolSearch canvas
 ├─ 创建/管理任务 → ToolSearch task
 └─ 操作邮件/日历/项目 → ToolSearch 对应关键词
 ```
-
-## 临时项目机制
-
-当用户在非项目上下文中请求生成文件（写代码、创建文档），系统会自动创建临时项目作为沙箱。这是设计意图——避免文件散落，用户之后可以将其转为正式项目。不需要你主动提示此机制，它是透明的。但如果用户问"我的文件去哪了"或"为什么多了个项目"，需要解释临时项目机制。
 
 ## 跨模块路由示例
 

@@ -43,6 +43,34 @@ export const chatSchemas = {
       promptContent: z.string().optional(),
     }),
   },
+  /**
+   * Read all messages from messages.jsonl for debug inspection.
+   */
+  getSessionMessages: {
+    input: z.object({
+      sessionId: z.string().min(1),
+    }),
+    output: z.object({
+      messages: z.array(z.any()),
+    }),
+  },
+  /**
+   * Read debug step files (request/response JSON) for a specific assistant message.
+   */
+  getMessageDebugSteps: {
+    input: z.object({
+      sessionId: z.string().min(1),
+      messageId: z.string().min(1),
+    }),
+    output: z.object({
+      steps: z.array(z.object({
+        stepNumber: z.number(),
+        attemptTag: z.string(),
+        request: z.any(),
+        response: z.any(),
+      })),
+    }),
+  },
 };
 
 export abstract class BaseChatRouter {
@@ -59,6 +87,18 @@ export abstract class BaseChatRouter {
       getSessionPreface: shieldedProcedure
         .input(chatSchemas.getSessionPreface.input)
         .output(chatSchemas.getSessionPreface.output)
+        .query(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      getSessionMessages: shieldedProcedure
+        .input(chatSchemas.getSessionMessages.input)
+        .output(chatSchemas.getSessionMessages.output)
+        .query(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      getMessageDebugSteps: shieldedProcedure
+        .input(chatSchemas.getMessageDebugSteps.input)
+        .output(chatSchemas.getMessageDebugSteps.output)
         .query(async () => {
           throw new Error("Not implemented in base class");
         }),

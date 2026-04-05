@@ -26,7 +26,6 @@ import type { ImageGenerateOptions } from "@openloaf/api/types/image";
 import type { CodexOptions } from "@/lib/chat/codex-options";
 import type { ClaudeCodeOptions } from "@/lib/chat/claude-code-options";
 import { invalidateChatSessions } from "@/hooks/use-chat-sessions";
-import { getProjectsQueryKey } from "@/hooks/use-projects";
 import { incrementChatPerf } from "@/lib/chat/chat-perf";
 import { isHiddenToolPart } from "@/lib/chat/message-parts";
 import type { ChatAttachmentInput, MaskedAttachmentInput } from "./input/chat-attachments";
@@ -49,8 +48,9 @@ import {
   handleSubAgentDataPart,
   handleStepThinkingDataPart,
   handleBranchSnapshotDataPart,
+  handlePlanFileDataPart,
   handleMediaGenerateDataPart,
-  handleTempProjectDataPart,
+  handleRuntimeTaskDataPart,
 } from "./utils/chat-data-handlers";
 import { isSaasUnauthorizedErrorMessage } from "./utils/message-predicates";
 import { taskStatusCache } from "@/lib/chat/task-status-cache";
@@ -287,19 +287,6 @@ export default function ChatCoreProvider({
           return;
         }
         if (
-          handleTempProjectDataPart({
-            dataPart,
-            onTempProject: ({ projectId: newProjectId }) => {
-              // 更新 paramsRef，使后续 transport 请求携带新的 projectId
-              paramsRef.current = { ...(paramsRef.current ?? {}), projectId: newProjectId };
-              // 刷新项目列表，使侧栏显示新创建的临时项目
-              void queryClient.invalidateQueries({ queryKey: getProjectsQueryKey() });
-              // 刷新会话列表，因为会话现在关联到了新项目
-              invalidateChatSessions(queryClient);
-            },
-          })
-        ) return;
-        if (
           handleBranchSnapshotDataPart({
             dataPart,
             sessionId,
@@ -307,6 +294,29 @@ export default function ChatCoreProvider({
             markReceived: () => { branchSnapshotReceivedRef.current = true },
           })
         ) return;
+        if (
+          handlePlanFileDataPart({
+            dataPart,
+            sessionId,
+            onPlanFile: ({ planNo, filePath }) => {
+              useLayoutState.getState().pushStackItem({
+                id: `plan-${sessionId}-${planNo}`,
+                sourceKey: `plan-${sessionId}-${planNo}`,
+                component: "markdown-viewer",
+                params: {
+                  // NOTE: filePath is a server-side absolute path; works in Electron
+                  // (same machine), but requires API-based file read for web deployment.
+                  uri: filePath,
+                  name: `PLAN_${planNo}.md`,
+                  ext: "md",
+                  readOnly: true,
+                  __customHeader: true,
+                },
+              });
+            },
+          })
+        ) return;
+        if (handleRuntimeTaskDataPart({ dataPart, sessionId })) return;
         if (handleStepThinkingDataPart({ dataPart, setStepThinking })) return;
         if (handleMediaGenerateDataPart({ dataPart, upsertToolPartMerged })) return;
         if (

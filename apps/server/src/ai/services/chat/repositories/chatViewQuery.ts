@@ -302,6 +302,7 @@ export async function loadMessageChainFromFile(input: {
     parts: unknown[]
     metadata?: unknown
     messageKind?: string
+    createdAt?: string
   }>
 > {
   const maxMessages = Number.isFinite(input.maxMessages) ? input.maxMessages! : 80
@@ -314,8 +315,8 @@ export async function loadMessageChainFromFile(input: {
 
   return limited
     .filter((msg) => msg.role !== 'subagent')
-    .map((msg) =>
-      normalizeTaskReportForModel({
+    .map((msg) => ({
+      ...normalizeTaskReportForModel({
         id: msg.id,
         role: msg.role,
         parentMessageId: msg.parentMessageId,
@@ -323,5 +324,6 @@ export async function loadMessageChainFromFile(input: {
         metadata: msg.metadata ?? undefined,
         messageKind: msg.messageKind ?? 'normal',
       }),
-    )
+      createdAt: msg.createdAt,
+    }))
 }

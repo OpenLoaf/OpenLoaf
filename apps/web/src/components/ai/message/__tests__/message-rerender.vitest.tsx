@@ -23,9 +23,6 @@ mockMotion()
 mockSyntaxHighlighter()
 
 // Mock heavy transitive dependencies that MessageAi pulls in (Plate.js → virtual-dom)
-vi.mock('../tools/MessagePlan', () => ({
-  default: () => null,
-}))
 vi.mock('../tools/MessageTool', () => ({
   default: () => null,
 }))

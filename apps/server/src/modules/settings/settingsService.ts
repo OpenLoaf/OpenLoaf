@@ -71,8 +71,6 @@ const MODEL_PROVIDER_CATEGORY = "provider";
 const S3_PROVIDER_CATEGORY = "s3Provider";
 /** Setting key for chat model source. */
 const CHAT_SOURCE_KEY = "model.chatSource";
-/** Setting key for model chat quality. */
-const MODEL_CHAT_QUALITY_KEY = "model.chatQuality";
 
 /** Read basic config from config. */
 function readBasicConfig(): BasicConfig {
@@ -313,10 +311,6 @@ export async function setBasicConfigFromWeb(update: BasicConfigUpdate): Promise<
     ...current,
     ...update,
   };
-  const modelQuality =
-    next.modelQuality === "high" || next.modelQuality === "medium" || next.modelQuality === "low"
-      ? next.modelQuality
-      : current.modelQuality;
   const chatThinkingMode =
     next.chatThinkingMode === "deep" || next.chatThinkingMode === "fast"
       ? next.chatThinkingMode
@@ -396,11 +390,6 @@ export async function setBasicConfigFromWeb(update: BasicConfigUpdate): Promise<
     typeof next.modelDefaultChatModelId === "string"
       ? next.modelDefaultChatModelId
       : current.modelDefaultChatModelId;
-  const toolModelSource = next.toolModelSource === "cloud" ? "cloud" : "local";
-  const modelDefaultToolModelId =
-    typeof next.modelDefaultToolModelId === "string"
-      ? next.modelDefaultToolModelId
-      : current.modelDefaultToolModelId;
   const appProjectRule =
     typeof next.appProjectRule === "string" ? next.appProjectRule : current.appProjectRule;
   const autoApproveTools =
@@ -437,13 +426,11 @@ export async function setBasicConfigFromWeb(update: BasicConfigUpdate): Promise<
   const normalized: BasicConfig = {
     chatSource: next.chatSource === "cloud" ? "cloud" : "local",
     chatThinkingMode,
-    toolModelSource,
     activeS3Id: typeof next.activeS3Id === "string" && next.activeS3Id.trim()
       ? next.activeS3Id.trim()
       : undefined,
     s3AutoUpload: Boolean(next.s3AutoUpload),
     s3AutoDeleteHours: Math.min(168, Math.max(1, Math.floor(next.s3AutoDeleteHours))),
-    modelQuality,
     chatOnlineSearchMemoryScope,
     modelSoundEnabled,
     autoSummaryEnabled,
@@ -463,7 +450,6 @@ export async function setBasicConfigFromWeb(update: BasicConfigUpdate): Promise<
     appCustomRules,
     appNotificationSoundEnabled,
     modelDefaultChatModelId,
-    modelDefaultToolModelId,
     appProjectRule,
     autoApproveTools,
     stepUpInitialized,
@@ -570,15 +556,6 @@ export async function setSettingValueFromWeb(
     writeBasicConf({ ...readBasicConfig(), chatSource: value === "cloud" ? "cloud" : "local" });
     return;
   }
-  if (key === MODEL_CHAT_QUALITY_KEY) {
-    const basic = readBasicConfig();
-    const next =
-      value === "high" || value === "medium" || value === "low"
-        ? value
-        : basic.modelQuality;
-    writeBasicConf({ ...basic, modelQuality: next });
-    return;
-  }
 }
 
 /** Delete setting value from web. */
@@ -593,10 +570,6 @@ export async function deleteSettingValueFromWeb(key: string, category?: string) 
   }
   if (key === CHAT_SOURCE_KEY) {
     writeBasicConf({ ...readBasicConfig(), chatSource: "local" });
-    return;
-  }
-  if (key === MODEL_CHAT_QUALITY_KEY) {
-    writeBasicConf({ ...readBasicConfig(), modelQuality: "medium" });
     return;
   }
 }

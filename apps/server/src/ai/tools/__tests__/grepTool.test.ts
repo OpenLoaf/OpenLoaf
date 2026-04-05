@@ -279,7 +279,10 @@ async function main() {
       pattern: 'ZZZZZ_NONEXISTENT_PATTERN',
       path: path.join(testDir, 'grep-src'),
     })
-    assert.ok(result.includes('No matches'), `应返回 no match 提示: ${result}`)
+    assert.ok(
+      result.includes('No matches') || result.includes('No files found'),
+      `应返回 no match 提示: ${result}`,
+    )
   })
 
   // -----------------------------------------------------------------------

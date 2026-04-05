@@ -104,7 +104,8 @@ export default function StreamingCodeViewer({
       const input = tp.input as Record<string, unknown> | undefined
       const pLen = typeof input?.patch === 'string' ? input.patch.length : 0
       const fpLen = typeof input?.file_path === 'string' ? input.file_path.length : 0
-      return `${id}:${st}:${pLen}:${fpLen}`
+      const cLen = typeof input?.content === 'string' ? input.content.length : 0
+      return `${id}:${st}:${pLen}:${fpLen}:${cLen}`
     }).join('|')
   })
 
@@ -123,11 +124,16 @@ export default function StreamingCodeViewer({
           // 逻辑：兼容 apply-patch（patch 字段）和 Edit/Write（file_path + old_string/new_string 或 content）
           const p = typeof input?.patch === 'string' ? input.patch : ''
           if (p) patches.push(p)
-          // 逻辑：Edit 工具没有 patch 字段，记录 file_path 供路径提取用
+          // 逻辑：Edit/Write 工具没有 patch 字段，构造伪 patch 供路径提取和内容渲染。
           if (!p && typeof input?.file_path === 'string') {
-            // 用特殊前缀标记 Edit/Write 输入以便后续区分
-            const editMarker = `*** Edit ${input.file_path}\n`
-            patches.push(editMarker)
+            // 逻辑：Write 工具有 content → 嵌入 content，标记为 Write；Edit 工具无完整内容 → 仅记录路径。
+            if (typeof input?.content === 'string') {
+              const writeMarker = `*** Write ${input.file_path}\n${input.content}`
+              patches.push(writeMarker)
+            } else {
+              const editMarker = `*** Edit ${input.file_path}\n`
+              patches.push(editMarker)
+            }
           }
           const st = typeof tp?.state === 'string' ? tp.state : ''
           if (st === 'input-streaming' || st === 'output-streaming') anyStreaming = true
@@ -149,11 +155,18 @@ export default function StreamingCodeViewer({
   // 逻辑：用第一个 patch 提取文件路径（所有 patch 应为同一文件）。
   const combinedPatch = patches[0] ?? ''
 
-  // 逻辑：从 patch 文本或 Edit 标记提取文件路径。
+  // 逻辑：从 patch 文本或 Edit/Write 标记提取文件路径。
   const { firstPath } = useMemo(() => {
-    // 兼容 Edit/Write 工具的特殊标记
+    // 兼容 Edit 工具的特殊标记
     if (combinedPatch.startsWith('*** Edit ')) {
       const fp = combinedPatch.slice('*** Edit '.length).trim()
+      return { firstPath: fp, fileName: fp.split('/').pop() || fp }
+    }
+    // 兼容 Write 工具的特殊标记（首行含路径，后续为 content）
+    if (combinedPatch.startsWith('*** Write ')) {
+      const nl = combinedPatch.indexOf('\n')
+      const header = nl >= 0 ? combinedPatch.slice('*** Write '.length, nl) : combinedPatch.slice('*** Write '.length)
+      const fp = header.trim()
       return { firstPath: fp, fileName: fp.split('/').pop() || fp }
     }
     return extractPatchFileInfo(combinedPatch)
@@ -189,6 +202,16 @@ export default function StreamingCodeViewer({
       let isDelete = false
 
       for (const pText of patches) {
+        // 逻辑：Write 工具的伪 patch（*** Write path\n<content>），直接作为整文件内容。
+        if (pText.startsWith('*** Write ')) {
+          const nl = pText.indexOf('\n')
+          const content = nl >= 0 ? pText.slice(nl + 1) : ''
+          currentLines = content.split('\n')
+          isAdd = true
+          changedLines.clear()
+          for (let i = 1; i <= currentLines.length; i++) changedLines.add(i)
+          continue
+        }
         const hunks = parsePatch(pText)
         if (hunks.length === 0) continue
         const hunk = hunks[0]!
@@ -225,9 +248,14 @@ export default function StreamingCodeViewer({
   // 逻辑：决定 Monaco 显示的内容。
   const displayContent = useMemo(() => {
     if (isDone && patchResult) return patchResult.content
+    // 逻辑：Write 工具流式阶段直接显示已接收的 content（即使还没完成）。
+    if (combinedPatch.startsWith('*** Write ')) {
+      const nl = combinedPatch.indexOf('\n')
+      return nl >= 0 ? combinedPatch.slice(nl + 1) : ''
+    }
     if (originalContent !== null) return originalContent
     return ''
-  }, [isDone, patchResult, originalContent])
+  }, [isDone, patchResult, originalContent, combinedPatch])
 
   contentRef.current = displayContent
 

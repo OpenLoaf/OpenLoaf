@@ -127,12 +127,24 @@ const RULES_L10N = {
 
   fileReference: {
     zh: [
-      '# 输入中的文件引用',
-      '- 用户输入里的 `@{...}` 代表文件引用。',
-      '- 项目文件：`@{path/to/file}`（当前项目根目录相对路径）。',
-      '- 跨项目文件：`@{[projectId]/path}`（projectId 格式如 `proj_xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`）。',
-      '- 会话资源文件：`@{[sessionId]/asset/filename}`（sessionId 格式如 `chat_YYYYMMDD_HHmmss_xxxxxxxx`，见会话上下文的 chatSessionId）。',
-      '- 可选行号范围：`@{path/to/file:start-end}`，表示关注指定行区间。',
+      '# 文件路径引用',
+      '## 你写路径时（所有工具入参和 Bash 命令）',
+      '使用路径模板变量，系统会自动展开为绝对路径：',
+      '- `${CURRENT_CHAT_DIR}` — 当前会话资源目录',
+      '- `${CURRENT_PROJECT_ROOT}` — 当前项目根目录',
+      '- `${CURRENT_BOARD_DIR}` — 当前画布资源目录',
+      '- `${HOME}` — 用户主目录',
+      '示例：',
+      '- `${CURRENT_CHAT_DIR}/webfetch/foo.html`',
+      '- `${CURRENT_PROJECT_ROOT}/src/main.ts`',
+      '- `Bash: grep -oE \'src="[^"]+"\' ${CURRENT_CHAT_DIR}/foo.html | sort -u`',
+      '绝不要把 sessionId / projectId / boardId 拷贝进路径；也不要在 Bash 里硬编码 `/Users/.../` 绝对路径前缀。',
+      '',
+      '## 用户消息里的 `@{...}` 引用（只读）',
+      '这是用户在聊天框 @-mention 文件时的**序列化格式**，你只读取不写入：',
+      '- `@{path/to/file}` — 当前项目文件',
+      '- `@{path:start-end}` — 指定行区间',
+      'AI 工具会自动解析这种引用，你直接把 `@{...}` 里的 path 传给 Read/Grep 即可。',
       '',
       '# 输入中的技能引用',
       '- 用户输入里的 `/skill/[originalName|displayName]` 代表技能引用。',
@@ -141,17 +153,50 @@ const RULES_L10N = {
     ].join('\n'),
     // TODO: verify English translation with native speaker
     en: [
-      '# File References in Input',
-      '- `@{...}` in user input represents a file reference.',
-      '- Project file: `@{path/to/file}` (relative to the current project root).',
-      '- Cross-project file: `@{[projectId]/path}` (projectId format: `proj_xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`).',
-      '- Session asset: `@{[sessionId]/asset/filename}` (sessionId format: `chat_YYYYMMDD_HHmmss_xxxxxxxx`; see chatSessionId in session context).',
-      '- Optional line range: `@{path/to/file:start-end}` — focus on the specified line interval.',
+      '# File Path References',
+      '## When YOU write paths (all tool inputs + bash commands)',
+      'Use path template variables — the system expands them to absolute paths:',
+      '- `${CURRENT_CHAT_DIR}` — current chat session asset directory',
+      '- `${CURRENT_PROJECT_ROOT}` — current project root',
+      '- `${CURRENT_BOARD_DIR}` — current canvas/board asset directory',
+      '- `${HOME}` — user home directory',
+      'Examples:',
+      '- `${CURRENT_CHAT_DIR}/webfetch/foo.html`',
+      '- `${CURRENT_PROJECT_ROOT}/src/main.ts`',
+      '- `Bash: grep -oE \'src="[^"]+"\' ${CURRENT_CHAT_DIR}/foo.html | sort -u`',
+      'NEVER paste sessionId / projectId / boardId into paths, and never hard-code `/Users/.../` absolute prefixes in Bash.',
+      '',
+      '## `@{...}` references in user messages (read-only)',
+      'This is the **serialization format** when the user @-mentions a file in the input box — read it, do not write it:',
+      '- `@{path/to/file}` — current project file',
+      '- `@{path:start-end}` — line range',
+      'AI file tools resolve these automatically — just pass the path from inside `@{...}` to Read/Grep.',
       '',
       '# Skill References in Input',
       '- `/skill/[originalName|displayName]` in user input represents a skill reference.',
       '- A `data-skill` message block is also attached, containing the skill\'s full content (name, path, scope, content).',
       '- When a `data-skill` block is present, the skill is already loaded — read its content and act; no need to call ToolSearch again.',
+    ].join('\n'),
+  },
+
+  msgContext: {
+    zh: [
+      '# 消息上下文标签',
+      '- 每条用户消息的开头都有一个 `<msg-context>` 标签，包含该消息的实时环境信息。',
+      '- `datetime` 属性：消息发送的精确时间（用户时区）。利用多条消息的时间差感知对话节奏。',
+      '- `page` 属性：用户当前所在页面（如 `ai-chat`、`project-files`、`email`、`calendar`）。',
+      '- `projectId`、`boardId`：当前项目/画布（仅在项目上下文中存在）。',
+      '- `<stack-item>` 子节点：用户当前打开的面板（如文件预览、终端），包含 component、title 和关键参数。',
+      '- 利用这些信息理解用户的工作上下文，避免重复询问"你在哪个页面"或"你打开了什么文件"。',
+    ].join('\n'),
+    en: [
+      '# Message Context Tag',
+      '- Each user message begins with a `<msg-context>` tag containing real-time environment info for that message.',
+      '- `datetime`: exact send time (user timezone). Use time deltas across messages to sense conversation pace.',
+      '- `page`: current page (e.g. `ai-chat`, `project-files`, `email`, `calendar`).',
+      '- `projectId`, `boardId`: current project/board (only in project context).',
+      '- `<stack-item>` children: currently open panels (file viewer, terminal, etc.) with component, title, and key params.',
+      '- Use this info to understand the user\'s working context without asking "which page are you on" or "which file is open".',
     ].join('\n'),
   },
 
@@ -301,6 +346,11 @@ export function buildFileReferenceRules(locale: HardRulesLocale = 'zh'): string 
   return RULES_L10N.fileReference[locale]
 }
 
+/** Build message context tag rules. */
+function buildMsgContextRules(locale: HardRulesLocale = 'zh'): string {
+  return RULES_L10N.msgContext[locale]
+}
+
 /** Build AGENTS.md dynamic loading rules (used by subAgentPrefaceBuilder). */
 export function buildAgentsDynamicLoadingRules(locale: HardRulesLocale = 'zh'): string {
   return RULES_L10N.agentsDynamicLoading[locale]
@@ -333,6 +383,7 @@ export function buildHardRules(locale: HardRulesLocale = 'zh'): string {
     buildOutputFormatRules(locale),
     buildIntentJudgmentRules(locale),
     buildFileReferenceRules(locale),
+    buildMsgContextRules(locale),
     buildCompletionCriteria(locale),
     buildExecutionRules(locale),
     buildTaskDelegationRules(locale),

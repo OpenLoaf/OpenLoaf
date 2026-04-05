@@ -2,6 +2,37 @@
   "$schema": "https://unpkg.com/knip@latest/schema.json",
   "include": ["files", "dependencies", "unlisted", "duplicates"],
   "workspaces": {
+    "apps/desktop": {
+      "entry": [
+        "src/main/index.ts",
+        "src/main/webpackEntries.ts",
+        "src/preload/index.ts",
+        "src/preload/browserTabBar.ts",
+        "src/renderer/loading.ts",
+        "src/renderer/fallback.ts",
+        "src/renderer/browser-tab-bar.ts",
+        "forge.config.ts",
+        "webpack.main.config.ts",
+        "webpack.renderer.config.ts",
+        "webpack.plugins.ts",
+        "webpack.rules.ts",
+        "scripts/**/*.{mjs,js,ts}"
+      ],
+      "project": ["src/**/*.{ts,tsx}", "scripts/**/*.{mjs,js,ts}"],
+      "ignoreDependencies": [
+        "@openloaf/api",
+        "@openloaf/config",
+        "@electron-forge/maker-dmg",
+        "@electron-forge/maker-zip",
+        "@electron-forge/plugin-webpack",
+        "@electron-forge/shared-types",
+        "electron-builder",
+        "electron-devtools-installer",
+        "electron-updater",
+        "ts-loader",
+        "dotenv-cli"
+      ]
+    },
     "apps/web": {
       "entry": [
         "src/app/**/*.{ts,tsx}",

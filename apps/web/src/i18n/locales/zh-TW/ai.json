@@ -289,7 +289,46 @@
     "chatPreface": "對話前言",
     "noPreface": "暫無對話前言",
     "copySuccess": "已複製聊天日誌路徑",
-    "copyError": "未找到聊天日誌檔案"
+    "copyError": "未找到聊天日誌檔案",
+    "messages": "訊息記錄",
+    "noMessages": "暫無訊息記錄",
+    "noDebugSteps": "無偵錯資料",
+    "loadingMessages": "正在載入訊息…",
+    "messageCount": "則訊息",
+    "copiedJson": "已複製 JSON",
+    "refresh": "重新整理",
+    "expandAll": "全部展開",
+    "collapseAll": "全部收起",
+    "role": {
+      "user": "使用者",
+      "assistant": "助手",
+      "system": "系統",
+      "subagent": "子智慧體",
+      "task-report": "任務報告"
+    },
+    "meta": {
+      "tokens": "Token 用量",
+      "in": "輸入",
+      "out": "輸出",
+      "reasoning": "推理",
+      "cached": "快取",
+      "elapsed": "耗時",
+      "credits": "積分",
+      "started": "開始",
+      "finished": "結束",
+      "agent": "智慧體",
+      "model": "模型",
+      "webSearch": "網路搜尋",
+      "enabled": "已啟用",
+      "disabled": "已停用",
+      "reasoningMode": "推理模式"
+    },
+    "scope": {
+      "builtin": "內建",
+      "project": "專案",
+      "global": "全域",
+      "user": "使用者"
+    }
   },
   "helper": {
     "tryAskMe": "你可以試著問我：",
@@ -504,5 +543,49 @@
     "noProjectFound": "未找到專案",
     "projects": "專案列表",
     "current": "目前"
+  },
+  "plan": {
+    "title": "計畫",
+    "progress": "計畫進度 {{completed}}/{{total}}",
+    "interrupted": "已中斷",
+    "statusPending": "待辦",
+    "statusInProgress": "進行中",
+    "statusCompleted": "已完成",
+    "statusFailed": "失敗",
+    "viewHistory": "查看歷史計畫",
+    "noPlan": "暫無計畫",
+    "approved": "計畫已批準",
+    "rejected": "計畫已拒絕",
+    "execute": "執行計畫",
+    "modify": "修改計畫",
+    "feedbackPlaceholder": "請輸入修改意見...",
+    "submitFeedback": "提交修改意見",
+    "cancel": "取消"
+  },
+  "userInput": {
+    "required": "此項為必填",
+    "minLength": "至少需要 {{min}} 個字符",
+    "maxLength": "最多允許 {{max}} 個字符",
+    "invalidFormat": "格式不正確",
+    "defaultPrefix": "預設: {{value}}",
+    "selectPlaceholder": "請選擇...",
+    "multiSelect": "可多選",
+    "selectAtLeastOne": "請至少選擇一項",
+    "noContent": "暫無內容",
+    "paramError": "參數格式錯誤，已回饋給模型重試",
+    "skipped": "已跳過",
+    "prevStep": "上一步",
+    "nextStep": "下一步",
+    "confirm": "確定",
+    "confirming": "確定中...",
+    "skip": "跳過"
+  },
+  "runtimeTask": {
+    "allDone": "全部完成",
+    "master": "主對話",
+    "ready": "就緒",
+    "waitingFor": "等待 {{names}}",
+    "aiSelfReport": "AI 自述",
+    "failedBadge": "{{count}} 失敗"
   }
 }

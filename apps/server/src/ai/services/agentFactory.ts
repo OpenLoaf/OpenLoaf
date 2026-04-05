@@ -29,7 +29,7 @@ import type {
   LanguageModelV3,
 } from '@ai-sdk/provider'
 import type { PrepareStepFunction, StopCondition } from 'ai'
-import { getRequestContext, getSessionId, type AgentFrame } from '@/ai/shared/context/requestContext'
+import { getRequestContext, getSessionId, getPlanUpdate, type AgentFrame } from '@/ai/shared/context/requestContext'
 import { buildToolset, getToolJsonSchemas, getMcpToolIds } from '@/ai/tools/toolRegistry'
 import { filterToolIdsByPlatform } from '@/ai/tools/toolPlatformFilter'
 import { createToolCallRepair } from '@/ai/shared/repairToolCall'
@@ -195,21 +195,61 @@ function createToolSearchPrepareStep(
     const activeTools = allToolIds.filter((id) => activeToolIds.includes(id))
     if (!activeTools.includes('ToolSearch')) activeTools.push('ToolSearch')
 
-    // 2. Prune old tool calls — lightweight, runs every step
+    // 2. Prune stale content — runs every step.
+    //
+    // IMPORTANT: 不要再用 `toolCalls: 'before-last-2-messages'`。那种设置会
+    // 把早于"最近 2 条消息"的所有 tool-call / tool-result 剥离，导致模型在
+    // 多轮工具循环中完全看不到自己刚刚做过什么 — 典型症状：反复执行相同
+    // 的 Bash/Grep 命令，每步 text 为空，直到撞上步数上限。
+    //
+    // 上下文压力另由 3 层兜底处理（各自带阈值）：
+    //   - microcompactMessages: 空闲 30 min 清理旧工具结果
+    //   - tryAutoCompact: 60% 阈值触发 LLM 摘要
+    //   - ContextCollapseManager: 80%/90% 阈值触发渐进式压缩
+    //
     // NOTE: reasoning 设为 'none'，因为 DeepSeek 等 provider 要求开启 thinking 时
     // 每条 assistant 消息必须包含 reasoning_content，移除会导致 400 错误。
     const pruned = pruneMessages({
       messages,
       reasoning: 'none',
-      toolCalls: 'before-last-2-messages',
+      toolCalls: 'none',
       emptyMessages: 'remove',
     })
 
+    // 2.5 Plan context injection — pruneMessages 会在多步执行中删除早期的
+    // UpdatePlan tool calls，导致模型丢失计划上下文。在 pruning 后注入当前
+    // 计划状态作为 user 提醒消息，确保模型始终知道活跃计划的存在和进度。
+    let prunedWithPlan = pruned
+    if (stepNumber > 0) {
+      const currentPlan = getPlanUpdate()
+      if (currentPlan && Array.isArray(currentPlan.plan) && currentPlan.plan.length > 0) {
+        const planLines = currentPlan.plan
+          .filter((s) => typeof s === 'string' && s.trim())
+          .map((s, i) => `${i + 1}. ${s}`)
+        if (planLines.length > 0) {
+          const planReminder = {
+            role: 'user' as const,
+            content: [{
+              type: 'text' as const,
+              text: `[Plan Context] 你正在执行以下已批准的计划「${currentPlan.actionName ?? ''}」，请继续按步骤顺序执行，不要重新创建计划：\n${planLines.join('\n')}`,
+            }],
+          } as (typeof prunedWithPlan)[number]
+          // 插入到倒数第2条之前（在最近的 assistant+tool 对之前），确保不被下一轮 prune 删除
+          const insertIdx = Math.max(0, prunedWithPlan.length - 2)
+          prunedWithPlan = [
+            ...prunedWithPlan.slice(0, insertIdx),
+            planReminder,
+            ...prunedWithPlan.slice(insertIdx),
+          ]
+        }
+      }
+    }
+
     // Step 0 only: microcompact + context collapse (or auto-compact fallback)
-    let finalMessages = pruned
+    let finalMessages = prunedWithPlan
     if (stepNumber === 0) {
       // 3. Microcompact — clear old tool results after idle gap
-      const mcResult = microcompactMessages(pruned, options?.lastAssistantTimestamp)
+      const mcResult = microcompactMessages(prunedWithPlan, options?.lastAssistantTimestamp)
       finalMessages = mcResult.messages
 
       // 4. Context Collapse — non-destructive incremental summarization

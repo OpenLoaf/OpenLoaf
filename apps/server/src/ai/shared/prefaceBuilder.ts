@@ -280,7 +280,7 @@ function resolveFilteredSkillSummaries(input: {
   parentProjectRootPaths: string[];
   selectedSkills: string[];
 }): { summaries: SkillSummary[]; selectedSkills: string[] } {
-  const globalSkillsPath = path.join(os.homedir(), ".openloaf", "agents", "skills");
+  const globalSkillsPath = path.join(os.homedir(), ".openloaf", "skills");
   const skillSummaries = loadSkillSummaries({
     projectRootPath: input.projectRootPath || undefined,
     parentProjectRootPaths: input.parentProjectRootPaths,

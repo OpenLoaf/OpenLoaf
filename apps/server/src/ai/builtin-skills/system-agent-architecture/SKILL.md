@@ -154,7 +154,7 @@ type ChatPageContext = {
 openloaf-basics 的完整内容见 `apps/server/src/ai/builtin-skills/openloaf-basics/SKILL.md`。核心作用：为 Agent 提供 OpenLoaf 产品地图、工具选择决策树和跨模块导航框架。
 
 关键文件：
-- Skill 文件存放：`apps/server/src/ai/builtin-skills/`（内置）或 `.openloaf/agents/skills/`（自定义覆盖）
+- Skill 文件存放：`apps/server/src/ai/builtin-skills/`（内置）或 `.openloaf/skills/`（自定义覆盖）
 - 自动加载映射：`apps/server/src/ai/services/chat/pageContextSkillMap.ts`
 - 自动加载调用：`AiExecuteService.ts` 中 `resolveAutoSkillsByPageContext()` + `resolveSkillMatches()`
 
@@ -253,7 +253,7 @@ UI 浮现轻提示："文件已保存到临时项目"
 ┌──────────────────────────────────────────────────┐
 │            用户自定义 Agent                        │
 │                                                    │
-│  通过 .agents/AGENT.md 或 .openloaf/agents/ 定义  │
+│  通过 .openloaf/agents/agent.json 定义             │
 │  出现在 Agent 列表中，用户可手动切换               │
 └──────────────────────────────────────────────────┘
 ```

@@ -34,6 +34,20 @@ import {
 import { useChatSession } from '@/components/ai/context'
 import { useProject } from '@/hooks/use-project'
 
+/**
+ * Grep/ripgrep 后端会把结果包裹在 <truncated-output path="..."> ... </truncated-output>
+ * 标签中（超长时标识截断）。前端展示时剥离标签，只显示命中内容，并返回是否截断。
+ */
+function stripTruncatedWrapper(text: string): { body: string; truncated: boolean } {
+  if (!text) return { body: text, truncated: false }
+  const trimmed = text.trim()
+  const match = trimmed.match(
+    /^<truncated-output\b[^>]*>([\s\S]*?)<\/truncated-output>\s*$/,
+  )
+  if (!match) return { body: text, truncated: false }
+  return { body: match[1].replace(/^\n+/, '').replace(/\n+$/, ''), truncated: true }
+}
+
 function resolveGrepInput(part: AnyToolPart) {
   const inputObj = asPlainObject(normalizeToolInput(part.input))
   const pattern = typeof inputObj?.pattern === 'string' ? inputObj.pattern.trim() : ''
@@ -68,7 +82,9 @@ export default function GrepTool({
     include && `include: ${include}`,
   ].filter(Boolean).join('\n')
 
-  const output = typeof part.output === 'string' ? part.output : safeStringify(part.output)
+  const rawOutput =
+    typeof part.output === 'string' ? part.output : safeStringify(part.output)
+  const { body: output, truncated } = stripTruncatedWrapper(rawOutput)
   const hasOutput = output.trim().length > 0
   const errorText =
     typeof part.errorText === 'string' && part.errorText.trim()
@@ -108,10 +124,15 @@ export default function GrepTool({
       <CollapsibleContent className="px-2.5 py-2 text-xs">
         {hasOutput ? (
           <div className="max-h-[320px] overflow-auto rounded-2xl bg-muted/50">
-            <CodeBlock code={output} language={"json" as any} />
+            <CodeBlock code={output} language={"text" as any} />
+            {truncated ? (
+              <div className="px-3 py-1 text-[10px] text-muted-foreground/60">
+                结果已截断
+              </div>
+            ) : null}
           </div>
         ) : errorText ? (
-          <div className="rounded-2xl bg-destructive/10 p-2 text-xs text-destructive">
+          <div className="whitespace-pre-wrap break-all rounded-2xl bg-destructive/10 p-2 text-xs text-destructive">
             {errorText}
           </div>
         ) : streaming ? (

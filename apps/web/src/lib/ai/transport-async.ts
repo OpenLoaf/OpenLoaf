@@ -18,6 +18,7 @@ import { isElectronEnv } from '@/utils/is-electron-env'
 import { getClientTimeZone } from '@/utils/time-zone'
 import { getAccessToken } from '@/lib/saas-auth'
 import { CLIENT_HEADERS } from '@/lib/client-headers'
+import { snapshotStackForPageContext } from '@/lib/ai/transport-stack'
 
 /** 最大重连次数。 */
 const MAX_RECONNECT_ATTEMPTS = 5
@@ -85,7 +86,7 @@ export function createChatTransportAsync({
         messages: _ignoredMessages,
         ...restBody
       } = bodyRecord
-      const basePayload = { ...baseParams, ...restBody }
+      const basePayload = snapshotStackForPageContext({ ...baseParams, ...restBody })
       const resolvedSessionId = sessionIdRef?.current ?? (bodyRecord.id as string)
 
       const lastMessage = messages.length > 0

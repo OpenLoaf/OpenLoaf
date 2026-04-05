@@ -472,7 +472,7 @@ export function ChatInputBox({
       ref={inputContainerRef}
       className={cn(
         "relative shrink-0 rounded-3xl bg-background transition-all duration-200 flex flex-col overflow-hidden border",
-        variant === "default" ? "mt-4 max-h-[30%]" : "max-h-none",
+        variant === "default" ? "mt-1 max-h-[30%]" : "max-h-none",
         isFocused && "border-foreground/25",
         isOverLimit && "border-destructive",
         className

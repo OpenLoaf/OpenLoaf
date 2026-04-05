@@ -7,9 +7,11 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
+import path from 'node:path'
 import type { ChatModelSource } from '@openloaf/api/common'
 import { resolveAgentModelIdsFromConfig } from '@/ai/shared/resolveAgentModelFromConfig'
 import { readAgentJson, resolveAgentDir } from '@/ai/shared/defaultAgentResolver'
+import { resolveGlobalAgentsPath } from '@/routers/settingsHelpers'
 import { getProjectRootPath } from '@openloaf/api/services/vfsService'
 
 /** Resolve model IDs from master agent config + global chatSource. */
@@ -60,5 +62,12 @@ export function resolveAgentSkills(input: {
     if (!descriptor) continue
     if (Array.isArray(descriptor.skills)) return descriptor.skills
   }
+
+  // 全局 fallback：搜索 ~/.openloaf/agents/master/。
+  const globalDescriptor = readAgentJson(path.join(resolveGlobalAgentsPath(), 'master'))
+  if (globalDescriptor && Array.isArray(globalDescriptor.skills)) {
+    return globalDescriptor.skills
+  }
+
   return []
 }

@@ -128,9 +128,17 @@ export default function WriteFileTool({
   const input = normalizeToolInput(resolved.input)
   const inputObj = asPlainObject(input)
   const patch = typeof inputObj?.patch === 'string' ? inputObj.patch : ''
-  const { fileName, fileCount, firstPath } = patch
+  // 逻辑：Write 工具使用 { file_path, content } schema，不含 patch 字段。
+  const writeFilePath = typeof inputObj?.file_path === 'string' ? inputObj.file_path : ''
+  const writeContent = typeof inputObj?.content === 'string' ? inputObj.content : ''
+  const { fileName, firstPath } = patch
     ? extractPatchFileInfo(patch)
-    : { fileName: t('tool.writeFile'), fileCount: 1, firstPath: '' }
+    : writeFilePath
+      ? {
+          fileName: writeFilePath.split('/').pop() || writeFilePath,
+          firstPath: writeFilePath,
+        }
+      : { fileName: t('tool.writeFile'), firstPath: '' }
   const patchFiles = patch ? parsePatchFiles(patch) : []
   const state = typeof resolved.state === 'string' ? resolved.state : ''
   const errorText =
@@ -141,8 +149,24 @@ export default function WriteFileTool({
   const isStreaming = isToolStreaming(resolved)
   const isDone = state === 'output-available'
   const isError = state === 'output-error'
-  const diffStats = patch ? extractPatchDiffStats(patch) : null
-  const diffLines = patch ? extractPatchDiffLines(patch, 10) : []
+  // 逻辑：Write 工具无 patch，用 content 行数作为 added 计数，并生成预览 diff 行。
+  const writeContentLineCount = writeContent
+    ? writeContent.split('\n').length - (writeContent.endsWith('\n') ? 1 : 0)
+    : 0
+  const diffStats = patch
+    ? extractPatchDiffStats(patch)
+    : writeFilePath
+      ? { added: writeContentLineCount, removed: 0, type: 'add' as const }
+      : null
+  const diffLines = patch
+    ? extractPatchDiffLines(patch, 10)
+    : writeContent
+      ? writeContent.split('\n').slice(0, 10).map((text, i) => ({
+          type: '+' as const,
+          text,
+          lineNo: i + 1,
+        }))
+      : []
   const totalDiffLines = diffStats ? diffStats.added + diffStats.removed : 0
 
   const title = getToolName(part)
@@ -289,7 +313,7 @@ export default function WriteFileTool({
           ))}
 
           {/* diff 预览 */}
-          {isDone && !isError && diffLines.length > 0 ? (
+          {(isDone || isPending) && !isError && diffLines.length > 0 ? (
             <div className="mt-1.5 overflow-hidden rounded border border-border/40">
               <pre className="overflow-x-auto p-0 leading-5">
                 {diffLines.map((line, i) => (

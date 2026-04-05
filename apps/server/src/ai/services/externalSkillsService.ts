@@ -156,10 +156,10 @@ export function buildExternalSources(projectRootPath?: string, projectOnly = fal
 /** Resolve the current OpenLoaf skills directory for a given scope. */
 function resolveCurrentSkillsDir(scope: 'global' | 'project', projectRootPath?: string): string {
   if (scope === 'global') {
-    return path.join(homedir(), '.openloaf', 'agents', 'skills')
+    return path.join(homedir(), '.openloaf', 'skills')
   }
   if (!projectRootPath) return ''
-  return path.join(projectRootPath, '.openloaf', 'agents', 'skills')
+  return path.join(projectRootPath, '.openloaf', 'skills')
 }
 
 /** Check if a skill is already imported (exists as symlink or folder in target dir). */
@@ -300,7 +300,7 @@ export async function scanFileSource(
  */
 export async function detectExternalSkills(input: {
   projectId?: string
-}): Promise<{ sources: DetectedSource[] }> {
+}): Promise<{ sources: DetectedSource[]; homePath?: string; projectRootPath?: string }> {
   const projectRootPath = input.projectId
     ? getProjectRootPath(input.projectId) ?? undefined
     : undefined
@@ -349,7 +349,11 @@ export async function detectExternalSkills(input: {
   }
 
   console.log(`${LOG_PREFIX} 检测到 ${results.reduce((n, s) => n + s.skills.length, 0)} 个外部技能`)
-  return { sources: results }
+  return {
+    sources: results,
+    homePath: homedir(),
+    projectRootPath: projectRootPath ?? undefined,
+  }
 }
 
 /**

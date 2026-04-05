@@ -11,7 +11,7 @@ import path from "node:path"
 import { promises as fs } from "node:fs"
 import { tool, zodSchema } from "ai"
 import { editDocumentToolDef } from "@openloaf/api/types/tools/runtime"
-import { resolveToolPath, ensureTempProject } from "@/ai/tools/toolScope"
+import { resolveToolPath, ensureWritableRoot } from "@/ai/tools/toolScope"
 import { readBasicConf } from "@/modules/settings/openloafConfStore"
 import { getProjectId } from "@/ai/shared/context/requestContext"
 import { getProjectRootPath } from "@openloaf/api/services/vfsService"
@@ -35,19 +35,15 @@ function resolveDocIndexPath(targetPath: string): string {
 
 /** Resolve write target path within project scope. Auto-creates temp project if needed. */
 async function resolveWriteTargetPath(targetPath: string): Promise<{ absPath: string; rootPath: string }> {
-  let projectId = getProjectId()
-  let rootPath = projectId
-    ? getProjectRootPath(projectId)
-    : undefined
-
-  if (!rootPath) {
-    if (!projectId) {
-      const temp = await ensureTempProject()
-      projectId = temp.projectId
-      rootPath = temp.projectRoot
-    } else {
-      throw new Error("Project not found.")
-    }
+  const projectId = getProjectId()
+  let rootPath: string
+  if (projectId) {
+    const projRoot = getProjectRootPath(projectId)
+    if (!projRoot) throw new Error("Project not found.")
+    rootPath = projRoot
+  } else {
+    const writable = await ensureWritableRoot()
+    rootPath = writable.rootPath
   }
 
   const trimmed = targetPath.trim()

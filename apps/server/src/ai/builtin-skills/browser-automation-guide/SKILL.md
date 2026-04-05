@@ -1,6 +1,6 @@
 ---
 name: browser-automation-guide
-description: 浏览器自动化操作指南：页面导航、信息提取、表单填写、截图、网页抓取、登录、下载图片。当用户提到 browse、open website、fill form、scrape、extract from page、screenshot、click button、login、navigate、web page、URL、download from site、automate browser、"打开这个网站"、"看看这个页面"、"这个网站写了什么" 时触发。
+description: 浏览器自动化交互指南：表单填写、点击、登录、截图、翻页、下载图片。**仅在需要页面交互时触发**，不要仅因出现 URL/网址就触发。触发关键词：fill form、click button、login、截图、screenshot、翻页、scrape（多页抓取）、download image、automate、"登录这个网站"、"点一下"、"填表单"、"截个图"。**反例**（不要触发）：单次读取静态网页内容 → 用 WebFetch；事实性问题 → 用 WebSearch。
 ---
 
 # 浏览器自动化指南
@@ -35,6 +35,8 @@ OpenUrl → snapshot → 分析 → act → wait → snapshot → 分析 → ...
 - 需要下载页面中的图片
 
 **不确定？** 先试 `WebFetch`。如果返回内容为空或不完整，切换到 `browser-*`。
+
+**需要原始结构？** `WebFetch` 和 `BrowserExtract/Snapshot/Observe` 都把**原始 body/outerHTML 存盘**，在返回的 `Raw saved → ...` / `rawHtmlPath` 字段给出路径。Summary 是有损的（丢 `<script>/<link>/<meta>`、属性、DOM 层级），需要分析依赖、selector、attr 时用 `Read`/`Grep` 读这个路径，**不要**反复调工具重抓。
 
 ## 三大核心工作流
 

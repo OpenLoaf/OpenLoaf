@@ -75,7 +75,11 @@ export function buildSessionContextSection(
   const lines = [
     '# 会话上下文',
     `- chatSessionId: ${sessionId}`,
-    `- assetPathPrefix: [${sessionId}]/asset/（对话产生的资源文件使用此路径前缀引用）`,
+    '- 路径模板变量（在工具入参/Bash 命令里直接使用，会被自动展开为绝对路径）：',
+    '  - `${CURRENT_CHAT_DIR}` — 当前会话资源目录（WebFetch 原文、上传文件、生成文件都在这里）',
+    '  - `${CURRENT_PROJECT_ROOT}` — 当前项目根目录（仅项目会话可用）',
+    '  - `${CURRENT_BOARD_DIR}` — 当前画布资源目录（仅画布会话可用，画布内与 ${CURRENT_CHAT_DIR} 等价）',
+    '  - `${HOME}` — 用户主目录',
   ]
   if (isTempChat) {
     lines.push('- 临时对话（未绑定项目）')
@@ -89,7 +93,7 @@ export function buildSessionContextSection(
     const pyPath = context.python.path ?? 'unknown'
     lines.push(`- python: ${version} (${pyPath})`)
   }
-  lines.push(`- date: ${context.date} | timezone: ${context.timezone}`)
+  lines.push(`- timezone: ${context.timezone}`)
   lines.push(`- language: ${context.responseLanguage}`)
   if (context.account.id !== '未登录' && context.account.name !== '未登录') {
     const email = context.account.email

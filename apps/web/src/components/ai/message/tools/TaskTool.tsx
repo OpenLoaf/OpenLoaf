@@ -395,7 +395,7 @@ export default function TaskTool({
 
         {/* 错误信息 */}
         {(part.errorText || (output?.ok === false && output?.error)) && (
-          <div className="mt-2 rounded-3xl bg-destructive/10 p-2 text-xs text-destructive">
+          <div className="mt-2 whitespace-pre-wrap break-all rounded-3xl bg-destructive/10 p-2 text-xs text-destructive">
             {part.errorText || output?.error}
           </div>
         )}

@@ -63,6 +63,7 @@ const CHAT_HEADER_EMAIL_ICON_CLASS = {
     "text-muted-foreground hover:text-foreground",
   asset: "text-muted-foreground hover:text-foreground",
   closeDock: "text-muted-foreground",
+  plan: "text-muted-foreground hover:text-foreground",
   clear: "text-muted-foreground",
   history: "text-muted-foreground",
   close: "text-muted-foreground",
@@ -492,7 +493,7 @@ function ChatHeaderInner({
               <FolderOpen size={18} />
             </MessageAction>
           ) : null}
-          {shouldShowNewSessionButton ? (
+{shouldShowNewSessionButton ? (
             <MessageAction
               aria-label="重新开始会话"
               className={resolveActionIconClass("clear")}

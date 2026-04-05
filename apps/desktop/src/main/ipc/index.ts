@@ -44,7 +44,7 @@ import { convertDocxToSfdt } from '../docxSfdt';
 import { resolveLocalPath } from '../resolveLocalPath';
 import { resolveWindowIconInfo } from '../resolveWindowIcon';
 import { updateTrayBadge, refreshTrayMenu } from '../tray';
-import { setLanguage, getMinimizeToTray, setMinimizeToTray } from '../updateConfig';
+import { getMinimizeToTray, setMinimizeToTray } from '../updateConfig';
 import { createProjectWindow } from '../windows/projectWindow';
 import { createBoardWindow } from '../windows/boardWindow';
 import { openUrlInBrowserWindow } from '../windows/browserWindow';
@@ -932,11 +932,10 @@ export function registerIpcHandlers(args: { log: Logger }) {
   });
 
   // 同步 UI 语言到主进程（用于托盘菜单、对话框等原生 UI 翻译）。
+  // 语言已由 server 持久化到 settings.json，这里只需刷新托盘菜单。
   ipcMain.handle('openloaf:app:set-language', async (_event, payload: { language: string }) => {
     const lang = String(payload?.language ?? '').trim();
     if (!lang) return { ok: false as const, reason: 'Missing language' };
-    setLanguage(lang);
-    // 刷新托盘菜单文本。
     refreshTrayMenu();
     args.log(`[i18n] Language synced: ${lang}`);
     return { ok: true as const };

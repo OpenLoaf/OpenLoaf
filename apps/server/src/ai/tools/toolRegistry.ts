@@ -25,6 +25,13 @@ import {
   widgetListTool,
 } from "@/ai/tools/widgetTools";
 import { updatePlanTool } from "@/ai/tools/updatePlanTool";
+import { taskCreateTool, taskUpdateTool, taskReadTool } from "@/ai/tools/runtimeTaskTools";
+import {
+  taskCreateToolDef,
+  taskUpdateToolDef,
+  taskReadToolDef,
+} from "@openloaf/api/types/tools/runtimeTask";
+import { submitPlanTool } from "@/ai/tools/submitPlanTool";
 import { projectMutateTool, projectQueryTool } from "@/ai/tools/projectTools";
 import { boardQueryTool, boardMutateTool } from "@/ai/tools/boardTools";
 import { calendarMutateTool, calendarQueryTool } from "@/ai/tools/calendarTools";
@@ -104,6 +111,7 @@ import {
   grepToolDef,
   editDocumentToolDef,
   updatePlanToolDef,
+  submitPlanToolDef,
   jsReplToolDef,
   jsReplResetToolDef,
 } from "@openloaf/api/types/tools/runtime";
@@ -230,6 +238,18 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
   },
   [updatePlanToolDef.id]: {
     tool: updatePlanTool,
+  },
+  [taskCreateToolDef.id]: {
+    tool: taskCreateTool,
+  },
+  [taskUpdateToolDef.id]: {
+    tool: taskUpdateTool,
+  },
+  [taskReadToolDef.id]: {
+    tool: taskReadTool,
+  },
+  [submitPlanToolDef.id]: {
+    tool: submitPlanTool,
   },
   [projectQueryToolDef.id]: {
     tool: projectQueryTool,
@@ -375,6 +395,10 @@ const TOOL_DEF_REGISTRY: Record<string, { parameters?: any }> = {
   [globToolDef.id]: globToolDef,
   [grepToolDef.id]: grepToolDef,
   [updatePlanToolDef.id]: updatePlanToolDef,
+  [taskCreateToolDef.id]: taskCreateToolDef,
+  [taskUpdateToolDef.id]: taskUpdateToolDef,
+  [taskReadToolDef.id]: taskReadToolDef,
+  [submitPlanToolDef.id]: submitPlanToolDef,
   [projectQueryToolDef.id]: projectQueryToolDef,
   [projectMutateToolDef.id]: projectMutateToolDef,
   [boardQueryToolDef.id]: boardQueryToolDef,

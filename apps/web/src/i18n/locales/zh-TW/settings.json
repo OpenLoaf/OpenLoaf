@@ -744,7 +744,7 @@
     "useSkill": "使用技能",
     "deleteSkill": "刪除技能",
     "loading": "正在載入技能列表...",
-    "empty": "暫無可用技能，請在 `.openloaf/agents/skills` 或 `~/.openloaf/agents/skills` 中新增 `SKILL.md`。",
+    "empty": "暫無可用技能，請在 `.openloaf/skills` 或 `~/.openloaf/skills` 中新增 `SKILL.md`。",
     "emptyTitle": "還沒有技能",
     "emptyDesc": "從技能市場下載、匯入技能檔案，或直接拖入此區域",
     "emptyMarketplace": "技能市場",

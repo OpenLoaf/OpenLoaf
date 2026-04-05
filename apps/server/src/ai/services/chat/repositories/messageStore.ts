@@ -409,22 +409,6 @@ export function normalizeSessionTitle(raw: string): string {
   return normalizeTitle(raw)
 }
 
-/** Update chat session projectId (e.g. after temp project creation). */
-export async function updateSessionProjectId(input: {
-  sessionId: string
-  projectId: string
-}): Promise<void> {
-  await prisma.chatSession.updateMany({
-    where: { id: input.sessionId },
-    data: { projectId: input.projectId },
-  })
-  try {
-    await writeSessionJson(input.sessionId, { projectId: input.projectId })
-  } catch {
-    // 非关键操作，忽略错误
-  }
-}
-
 /** Update chat session title. */
 export async function updateSessionTitle(input: {
   sessionId: string

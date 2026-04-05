@@ -744,7 +744,7 @@
     "useSkill": "使用技能",
     "deleteSkill": "删除技能",
     "loading": "正在加载技能列表...",
-    "empty": "暂无可用技能，请在 `.openloaf/agents/skills` 或 `~/.openloaf/agents/skills` 中添加 `SKILL.md`。",
+    "empty": "暂无可用技能，请在 `.openloaf/skills` 或 `~/.openloaf/skills` 中添加 `SKILL.md`。",
     "emptyTitle": "还没有技能",
     "emptyDesc": "从技能市场下载、导入技能文件，或直接拖入此区域",
     "emptyMarketplace": "技能市场",
@@ -853,7 +853,27 @@
       "noSkills": "未检测到外部技能",
       "detecting": "正在检测...",
       "selectAll": "全选 ({{count}})",
-      "deselectAll": "取消全选"
+      "deselectAll": "取消全选",
+      "localFolderImport": "从本地文件夹导入",
+      "localImportSuccess": "成功从本地导入 {{count}} 个技能"
+    },
+    "translateTitles": {
+      "button": "翻译标题",
+      "dialogTitle": "翻译技能标题",
+      "dialogDesc": "将翻译 {{count}} 个技能的标题和描述",
+      "dialogDescDone": "翻译完成：{{translated}} 个已翻译，{{skipped}} 个已跳过",
+      "dialogDescError": "已翻译 {{translated}} 个，因错误中断",
+      "retranslateAll": "重新翻译全部技能（覆盖已有翻译）",
+      "translated": "{{count}} 已翻译",
+      "skipped": "{{count}} 跳过",
+      "errors": "{{count}} 失败",
+      "stoppedAt": "已处理 {{processed}}/{{total}}，因错误中断",
+      "allSkipped": "所有技能标题已是最新，无需翻译",
+      "noPending": "没有需要翻译的技能，勾选上方选项可重新翻译全部",
+      "cancel": "取消",
+      "start": "开始翻译",
+      "stop": "停止",
+      "close": "关闭"
     }
   },
   "modelSelector": {

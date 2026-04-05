@@ -44,11 +44,9 @@ type CliToolsConfig = BasicConf["cliTools"];
 const DEFAULT_BASIC_CONF: BasicConf = {
   chatSource: "local",
   chatThinkingMode: "fast",
-  toolModelSource: "cloud",
   activeS3Id: undefined,
   s3AutoUpload: true,
   s3AutoDeleteHours: 2,
-  modelQuality: "medium",
   chatOnlineSearchMemoryScope: "tab",
   modelSoundEnabled: true,
   autoSummaryEnabled: true,
@@ -70,7 +68,6 @@ const DEFAULT_BASIC_CONF: BasicConf = {
   appCustomRules: "",
   appNotificationSoundEnabled: true,
   modelDefaultChatModelId: "codex-cli:gpt-5.2-codex",
-  modelDefaultToolModelId: "",
   appProjectRule: "按项目划分",
   autoApproveTools: false,
   stepUpInitialized: false,
@@ -159,12 +156,6 @@ function normalizeBasicConf(raw?: Partial<BasicConf>, fallback?: Partial<BasicCo
       : fallbackSource.chatThinkingMode === "deep" || fallbackSource.chatThinkingMode === "fast"
         ? fallbackSource.chatThinkingMode
         : DEFAULT_BASIC_CONF.chatThinkingMode;
-  const toolModelSource: ChatModelSource =
-    source.toolModelSource === "cloud" || source.toolModelSource === "local"
-      ? source.toolModelSource
-      : fallbackSource.toolModelSource === "cloud" || fallbackSource.toolModelSource === "local"
-        ? fallbackSource.toolModelSource
-        : DEFAULT_BASIC_CONF.toolModelSource;
   const activeS3Id =
     typeof source.activeS3Id === "string" && source.activeS3Id.trim()
       ? source.activeS3Id.trim()
@@ -184,14 +175,6 @@ function normalizeBasicConf(raw?: Partial<BasicConf>, fallback?: Partial<BasicCo
         ? fallbackSource.s3AutoDeleteHours
         : DEFAULT_BASIC_CONF.s3AutoDeleteHours;
   const s3AutoDeleteHours = Math.min(168, Math.max(1, Math.floor(rawDeleteHours)));
-  const modelQuality =
-    source.modelQuality === "high" || source.modelQuality === "medium" || source.modelQuality === "low"
-      ? source.modelQuality
-      : fallbackSource.modelQuality === "high" ||
-          fallbackSource.modelQuality === "medium" ||
-          fallbackSource.modelQuality === "low"
-        ? fallbackSource.modelQuality
-        : DEFAULT_BASIC_CONF.modelQuality;
   const chatOnlineSearchMemoryScope =
     source.chatOnlineSearchMemoryScope === "global" || source.chatOnlineSearchMemoryScope === "tab"
       ? source.chatOnlineSearchMemoryScope
@@ -319,12 +302,6 @@ function normalizeBasicConf(raw?: Partial<BasicConf>, fallback?: Partial<BasicCo
       : typeof fallbackSource.modelDefaultChatModelId === "string"
         ? fallbackSource.modelDefaultChatModelId
         : DEFAULT_BASIC_CONF.modelDefaultChatModelId;
-  const modelDefaultToolModelId =
-    typeof source.modelDefaultToolModelId === "string"
-      ? source.modelDefaultToolModelId
-      : typeof fallbackSource.modelDefaultToolModelId === "string"
-        ? fallbackSource.modelDefaultToolModelId
-        : DEFAULT_BASIC_CONF.modelDefaultToolModelId;
   const appProjectRule =
     typeof source.appProjectRule === "string"
       ? source.appProjectRule
@@ -406,11 +383,9 @@ function normalizeBasicConf(raw?: Partial<BasicConf>, fallback?: Partial<BasicCo
   return {
     chatSource,
     chatThinkingMode,
-    toolModelSource,
     activeS3Id,
     s3AutoUpload,
     s3AutoDeleteHours,
-    modelQuality,
     chatOnlineSearchMemoryScope,
     modelSoundEnabled,
     autoSummaryEnabled,
@@ -430,7 +405,6 @@ function normalizeBasicConf(raw?: Partial<BasicConf>, fallback?: Partial<BasicCo
     appCustomRules,
     appNotificationSoundEnabled,
     modelDefaultChatModelId,
-    modelDefaultToolModelId,
     appProjectRule,
     autoApproveTools,
     stepUpInitialized,
@@ -542,6 +516,33 @@ export function writeAuthRefreshToken(token: string): void {
       updatedAt: new Date().toISOString(),
     },
   });
+}
+
+// ─── Tool Approval Rules ──────────────────────────────────────────────────
+
+type ToolApprovalRules = {
+  allow?: string[]
+  deny?: string[]
+}
+
+type ToolApprovalFile = {
+  toolApprovalRules?: ToolApprovalRules
+}
+
+/** Resolve tool-approval.json path. */
+function getToolApprovalPath(): string {
+  return path.join(getConfigDir(), "tool-approval.json")
+}
+
+/** Read tool approval rules from tool-approval.json. */
+export function readToolApprovalRules(): ToolApprovalRules {
+  const conf = readJsonSafely<ToolApprovalFile>(getToolApprovalPath(), {})
+  return conf.toolApprovalRules ?? {}
+}
+
+/** Persist tool approval rules into tool-approval.json. */
+export function writeToolApprovalRules(rules: ToolApprovalRules): void {
+  writeJson(getToolApprovalPath(), { toolApprovalRules: rules })
 }
 
 /** Clear SaaS refresh token from auth.json. */

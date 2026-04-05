@@ -23,7 +23,7 @@ import {
 } from '@/services/taskConfigService'
 import { taskOrchestrator } from '@/services/taskOrchestrator'
 import { taskScheduler } from '@/services/taskScheduler'
-import { resolveToolRoots, ensureTempProject } from '@/ai/tools/toolScope'
+import { resolveToolRoots, ensureWritableRoot } from '@/ai/tools/toolScope'
 import { getSessionId, getSaasAccessToken, getProjectId } from '@/ai/shared/context/requestContext'
 import { extractSourceContextSnapshot } from '@/services/taskContextExtractor'
 
@@ -63,10 +63,10 @@ export const taskManageTool = tool({
       case 'create': {
         if (!input.title) return errMsg('create 操作必须提供 title 参数')
 
-        // Auto-create temp project when no project scope is available.
+        // 未绑定项目时回退到会话 asset 目录
         if (!projectRoot) {
-          const temp = await ensureTempProject()
-          projectRoot = temp.projectRoot
+          const writable = await ensureWritableRoot()
+          projectRoot = writable.rootPath
         }
 
 

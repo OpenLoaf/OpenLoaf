@@ -301,7 +301,7 @@ export default function GlobTool({
           {hasOutput ? (
             <FileTreeView output={output} />
           ) : errorText ? (
-            <div className="rounded-2xl bg-destructive/10 p-2 text-xs text-destructive">
+            <div className="whitespace-pre-wrap break-all rounded-2xl bg-destructive/10 p-2 text-xs text-destructive">
               {errorText}
             </div>
           ) : streaming ? (

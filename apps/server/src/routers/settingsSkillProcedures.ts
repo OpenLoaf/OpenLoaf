@@ -326,7 +326,7 @@ export const skillProcedures = {
         if (!projectRootPath) {
           return { ok: false, error: "未找到目标项目" }
         }
-        targetSkillsDir = path.join(projectRootPath, ".openloaf", "agents", "skills")
+        targetSkillsDir = path.join(projectRootPath, ".openloaf", "skills")
       }
       await fs.mkdir(targetSkillsDir, { recursive: true })
       let destDir = path.join(targetSkillsDir, folderName)

@@ -9,15 +9,70 @@
  */
 import { createRequire } from 'node:module'
 import path from 'node:path'
-import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { getOpenLoafRootDir, resolveScopedOpenLoafPath } from '@openloaf/config'
 /** Migration version marker file. */
 const MIGRATION_VERSION_FILE = '.agents-migration-version'
-/** Minimum version that no longer scaffolds system agents. */
-const MIN_CLEAN_VERSION = '0.2.8'
+/** Minimum version that triggers path flattening migration. */
+const MIN_FLATTEN_VERSION = '0.2.10'
 
 /**
- * Clean up legacy system agent folders scaffolded by older versions.
+ * Migrate legacy nested paths to flattened structure:
+ * - ~/.openloaf/agents/agents/* → ~/.openloaf/agents/*
+ * - ~/.openloaf/agents/skills/* → ~/.openloaf/skills/*
+ */
+function migrateNestedPaths(rootPath: string): void {
+  const agentsAgentsDir = path.join(rootPath, 'agents', 'agents')
+  const agentsDir = path.join(rootPath, 'agents')
+  const agentsSkillsDir = path.join(rootPath, 'agents', 'skills')
+  const skillsDir = path.join(rootPath, 'skills')
+
+  // 迁移 agents/agents/* → agents/*
+  if (existsSync(agentsAgentsDir)) {
+    try {
+      const entries = readdirSync(agentsAgentsDir, { withFileTypes: true })
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue
+        const src = path.join(agentsAgentsDir, entry.name)
+        const dest = path.join(agentsDir, entry.name)
+        if (existsSync(dest)) continue
+        renameSync(src, dest)
+      }
+      // 清理空目录
+      const remaining = readdirSync(agentsAgentsDir)
+      if (remaining.length === 0 || (remaining.length === 1 && remaining[0] === '.DS_Store')) {
+        rmSync(agentsAgentsDir, { recursive: true, force: true })
+      }
+    } catch {
+      // 迁移失败时静默忽略。
+    }
+  }
+
+  // 迁移 agents/skills/* → skills/*
+  if (existsSync(agentsSkillsDir)) {
+    mkdirSync(skillsDir, { recursive: true })
+    try {
+      const entries = readdirSync(agentsSkillsDir, { withFileTypes: true })
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue
+        const src = path.join(agentsSkillsDir, entry.name)
+        const dest = path.join(skillsDir, entry.name)
+        if (existsSync(dest)) continue
+        renameSync(src, dest)
+      }
+      // 清理空目录
+      const remaining = readdirSync(agentsSkillsDir)
+      if (remaining.length === 0 || (remaining.length === 1 && remaining[0] === '.DS_Store')) {
+        rmSync(agentsSkillsDir, { recursive: true, force: true })
+      }
+    } catch {
+      // 迁移失败时静默忽略。
+    }
+  }
+}
+
+/**
+ * Clean up legacy system agent folders and flatten nested paths.
  * Reads `.openloaf/.agents-migration-version` to determine if cleanup is needed.
  */
 function cleanupLegacySystemAgents(rootPath: string): void {
@@ -28,21 +83,14 @@ function cleanupLegacySystemAgents(rootPath: string): void {
   if (existsSync(versionFile)) {
     try {
       const existing = readFileSync(versionFile, 'utf8').trim()
-      if (existing >= MIN_CLEAN_VERSION) return
+      if (existing >= MIN_FLATTEN_VERSION) return
     } catch {
       // 读取失败则继续清理。
     }
   }
 
-  // Remove legacy master agent folder.
-  const masterDir = path.join(metaDir, 'agents', 'master')
-  try {
-    if (existsSync(masterDir)) {
-      rmSync(masterDir, { recursive: true, force: true })
-    }
-  } catch {
-    // 删除失败时静默忽略。
-  }
+  // 扁平化嵌套路径。
+  migrateNestedPaths(rootPath)
 
   // Write current server version as migration marker.
   try {
@@ -55,21 +103,13 @@ function cleanupLegacySystemAgents(rootPath: string): void {
 }
 
 /**
- * Initialize global agent cleanup:
- * Clean up legacy system agent folders from older versions.
- */
-function initAgentCleanup(rootPath: string): void {
-  cleanupLegacySystemAgents(rootPath)
-}
-
-/**
  * Ensure the global OpenLoaf directory has been migrated.
  * Called at server startup.
  */
 export function ensureDefaultAgentCleanup(): void {
   try {
     const rootPath = getOpenLoafRootDir()
-    initAgentCleanup(rootPath)
+    cleanupLegacySystemAgents(rootPath)
   } catch {
     // 逻辑：启动时静默忽略，不影响服务启动。
   }

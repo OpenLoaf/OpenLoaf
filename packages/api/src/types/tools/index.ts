@@ -26,6 +26,7 @@ export * from "./toolCatalog";
 export * from "./toolSearch";
 export * from "./chart";
 export * from "./task";
+export * from "./runtimeTask";
 export * from "./imageProcess";
 export * from "./videoConvert";
 export * from "./videoDownload";

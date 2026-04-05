@@ -24,7 +24,7 @@ import {
   getProjectId,
 } from '@/ai/shared/context/requestContext'
 import { getOpenLoafRootDir } from '@openloaf/config'
-import { ensureTempProject } from '@/ai/tools/toolScope'
+import { ensureWritableRoot } from '@/ai/tools/toolScope'
 import { logger } from '@/common/logger'
 import { compileWidget } from '@/modules/dynamic-widget/widgetCompiler'
 import {
@@ -38,7 +38,7 @@ import {
   renderWidgetTsx,
 } from './widgetTemplates'
 
-/** Resolve the dynamic widgets root directory. Auto-creates temp project if needed. */
+/** Resolve the dynamic widgets root directory. Falls back to session asset dir. */
 async function getDynamicWidgetsDir(): Promise<string> {
   const projectId = getProjectId()
   if (projectId) {
@@ -48,9 +48,9 @@ async function getDynamicWidgetsDir(): Promise<string> {
     }
     return path.join(projectRoot, '.openloaf', 'dynamic-widgets')
   }
-  // No project scope — create a temp project for widget storage.
-  const temp = await ensureTempProject()
-  return path.join(temp.projectRoot, '.openloaf', 'dynamic-widgets')
+  // 未绑定项目 → 写入会话 asset 目录
+  const writable = await ensureWritableRoot()
+  return path.join(writable.rootPath, 'dynamic-widgets')
 }
 
 /** 生成 snake_case widgetId */

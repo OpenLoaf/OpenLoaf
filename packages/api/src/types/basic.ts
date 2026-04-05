@@ -9,7 +9,6 @@
  */
 import { z } from "zod";
 
-export const modelQualitySchema = z.enum(["high", "medium", "low"]);
 export const chatOnlineSearchMemoryScopeSchema = z.enum(["tab", "global"]);
 export const chatThinkingModeSchema = z.enum(["fast", "deep"]);
 
@@ -72,13 +71,9 @@ export const basicConfigSchema = z.object({
   chatSource: z.enum(["local", "cloud"]),
   /** Chat reasoning mode for master agent. */
   chatThinkingMode: chatThinkingModeSchema,
-  /** @deprecated Use per-agent model config instead. */
-  toolModelSource: z.enum(["local", "cloud"]),
   activeS3Id: z.string().optional(),
   s3AutoUpload: z.boolean(),
   s3AutoDeleteHours: z.number().int().min(1).max(168),
-  /** @deprecated Use per-agent model config instead. */
-  modelQuality: modelQualitySchema,
   chatOnlineSearchMemoryScope: chatOnlineSearchMemoryScopeSchema,
   modelSoundEnabled: z.boolean(),
   /** @deprecated Use scheduled tasks instead. */
@@ -106,8 +101,6 @@ export const basicConfigSchema = z.object({
   appNotificationSoundEnabled: z.boolean(),
   /** @deprecated Use per-agent model config instead. */
   modelDefaultChatModelId: z.string(),
-  /** @deprecated Use per-agent model config instead. */
-  modelDefaultToolModelId: z.string(),
   appProjectRule: z.string(),
   /** Auto-approve simple tool calls without manual confirmation. */
   autoApproveTools: z.boolean(),

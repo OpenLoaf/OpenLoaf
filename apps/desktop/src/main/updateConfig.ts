@@ -27,7 +27,6 @@ export type UpdateChannel = 'stable' | 'beta'
 type SettingsJson = {
   updateChannel?: UpdateChannel
   minimizeToTray?: boolean
-  language?: string
   [key: string]: unknown
 }
 
@@ -133,20 +132,21 @@ export function setMinimizeToTray(value: boolean): void {
 }
 
 // ---------------------------------------------------------------------------
-// 语言偏好
+// 语言偏好（从 settings.json 的 basic.uiLanguage 读取，单一来源）
 // ---------------------------------------------------------------------------
 
-/** 读取 UI 语言偏好。优先使用用户显式设置，其次 fallback 为 'en-US'。 */
+/** 读取 UI 语言偏好。从 settings.json → basic.uiLanguage 读取，fallback 为 'en-US'。 */
 export function getLanguage(): string {
-  const settings = readSettings()
-  return settings.language || 'en-US'
-}
-
-/** 持久化 UI 语言偏好（由 web 端通过 IPC 同步）。 */
-export function setLanguage(lang: string): void {
-  const settings = readSettings()
-  settings.language = lang
-  writeSettings(settings)
+  try {
+    const raw = fs.readFileSync(
+      path.join(getOpenLoafRootDir(), 'settings.json'),
+      'utf-8',
+    )
+    const parsed = JSON.parse(raw) as { basic?: { uiLanguage?: string | null } }
+    return parsed?.basic?.uiLanguage || 'en-US'
+  } catch {
+    return 'en-US'
+  }
 }
 
 // ---------------------------------------------------------------------------

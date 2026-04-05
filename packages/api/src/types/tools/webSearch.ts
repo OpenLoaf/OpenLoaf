@@ -11,6 +11,7 @@ import { z } from "zod";
 
 export const webSearchToolDef = {
   id: "WebSearch",
+  readonly: true,
   name: "网页搜索",
   description: `Search the web for real-time information.
 

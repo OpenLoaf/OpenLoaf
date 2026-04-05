@@ -12,6 +12,7 @@ import { RiskType } from '../toolResult'
 
 export const taskManageToolDef = {
   id: 'TaskManage',
+  readonly: false,
   name: '任务管理',
   description: `管理后台任务的全生命周期。通过 action 参数选择操作：
 
@@ -128,6 +129,7 @@ export const createTaskToolDef = {
 
 export const taskStatusToolDef = {
   id: 'TaskStatus',
+  readonly: true,
   name: '查询任务状态',
   description:
     '查询后台任务的状态和进度。不传 taskId 返回所有活跃任务概览。',

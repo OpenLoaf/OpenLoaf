@@ -32,6 +32,7 @@ import {
   getMessageById,
   deleteAllChatFiles,
   resolveMessagesJsonlPath,
+  readJsonlRaw,
   registerAgentDir,
   readSessionJson,
 } from '@/ai/services/chat/repositories/chatFileStore'
@@ -425,6 +426,83 @@ class ChatRouterImpl extends BaseChatRouter {
           return { content, jsonlPath, promptContent }
         }),
 
+      getSessionMessages: shieldedProcedure
+        .input(chatSchemas.getSessionMessages.input)
+        .output(chatSchemas.getSessionMessages.output)
+        .query(async ({ ctx, input }) => {
+          const session = await ctx.prisma.chatSession.findUnique({
+            where: { id: input.sessionId },
+            select: { id: true, deletedAt: true },
+          })
+          if (!session || session.deletedAt) throw new Error(getErrorMessage('CHAT_SESSION_NOT_FOUND', ctx.lang))
+
+          const messages = await readJsonlRaw(input.sessionId)
+          return { messages }
+        }),
+
+      getMessageDebugSteps: shieldedProcedure
+        .input(chatSchemas.getMessageDebugSteps.input)
+        .output(chatSchemas.getMessageDebugSteps.output)
+        .query(async ({ ctx, input }) => {
+          const session = await ctx.prisma.chatSession.findUnique({
+            where: { id: input.sessionId },
+            select: { id: true, deletedAt: true },
+          })
+          if (!session || session.deletedAt) throw new Error(getErrorMessage('CHAT_SESSION_NOT_FOUND', ctx.lang))
+
+          const jsonlPath = await resolveMessagesJsonlPath(input.sessionId)
+          const sessionDir = nodePath.dirname(jsonlPath)
+          const debugDir = nodePath.join(sessionDir, 'debug')
+
+          type DebugStepRow = { stepNumber: number; attemptTag: string; request: unknown; response: unknown }
+          const emptyResult = { steps: [] as DebugStepRow[] }
+
+          // Find ALL subdirectories matching *_<messageId>, sorted by timestamp
+          let entries: string[] = []
+          try {
+            entries = await fsPromises.readdir(debugDir)
+          } catch {
+            return emptyResult
+          }
+          const matchDirs = entries
+            .filter((e) => e.endsWith(`_${input.messageId}`))
+            .sort() // timestamp prefix ensures chronological order
+
+          if (matchDirs.length === 0) return emptyResult
+
+          // Merge steps from all attempt directories with continuous numbering
+          const allSteps: { stepNumber: number; attemptTag: string; request: unknown; response: unknown }[] = []
+          let globalStep = 0
+
+          for (const dir of matchDirs) {
+            const underscoreIdx = dir.indexOf('_')
+            const attemptTag = underscoreIdx > 0 ? dir.slice(0, underscoreIdx) : dir
+            const stepDir = nodePath.join(debugDir, dir)
+            const files = await fsPromises.readdir(stepDir)
+
+            const stepNumbers = new Set<number>()
+            for (const f of files) {
+              const m = f.match(/^step(\d+)_(request|response)\.json$/)
+              if (m) stepNumbers.add(Number(m[1]))
+            }
+
+            const sorted = [...stepNumbers].sort((a, b) => a - b)
+            for (const n of sorted) {
+              let request: unknown = null
+              let response: unknown = null
+              try {
+                request = JSON.parse(await fsPromises.readFile(nodePath.join(stepDir, `step${n}_request.json`), 'utf-8'))
+              } catch {}
+              try {
+                response = JSON.parse(await fsPromises.readFile(nodePath.join(stepDir, `step${n}_response.json`), 'utf-8'))
+              } catch {}
+              allSteps.push({ stepNumber: globalStep++, attemptTag, request, response })
+            }
+          }
+
+          return { steps: allSteps }
+        }),
+
       autoTitle: shieldedProcedure
         .input(chatSchemas.autoTitle.input)
         .output(chatSchemas.autoTitle.output)
@@ -584,6 +662,72 @@ class ChatRouterImpl extends BaseChatRouter {
             cleanupReport()
             cleanupStatus()
           }
+        }),
+
+      listPlanFiles: shieldedProcedure
+        .input(z.object({ sessionId: z.string().min(1) }))
+        .query(async ({ input }) => {
+          const { listPlanFiles } = await import('@/ai/services/chat/planFileService')
+          const entries = await listPlanFiles(input.sessionId)
+          return entries.map((e) => ({
+            planNo: e.planNo,
+            status: e.status,
+            actionName: e.actionName,
+            createdAt: e.createdAt,
+            updatedAt: e.updatedAt,
+            fileName: e.fileName,
+            filePath: e.filePath,
+          }))
+        }),
+
+      readPlanFile: shieldedProcedure
+        .input(
+          z.object({
+            sessionId: z.string().min(1),
+            // New API: resolve by AI-provided path (same as Write tool). Preferred for SubmitPlan.
+            planFilePath: z.string().min(1).optional(),
+            // Legacy API: lookup by planNo in sessionDir (for UpdatePlan backward compat).
+            planNo: z.number().int().min(1).optional(),
+          }),
+        )
+        .query(async ({ input }) => {
+          const {
+            readPlanFile,
+            readPlanFileFromAbsPath,
+            resolvePlanFileAbsPath,
+            derivePlanNoFromPath,
+          } = await import('@/ai/services/chat/planFileService')
+          if (input.planFilePath) {
+            try {
+              const absPath = await resolvePlanFileAbsPath(input.sessionId, input.planFilePath)
+              const planNoHint = derivePlanNoFromPath(input.planFilePath)
+              const data = await readPlanFileFromAbsPath(absPath, planNoHint)
+              if (!data) return null
+              return {
+                content: data.content,
+                actionName: data.actionName,
+                explanation: data.explanation,
+                steps: data.steps,
+                filePath: data.filePath,
+                meta: data.meta,
+              }
+            } catch {
+              return null
+            }
+          }
+          if (typeof input.planNo === 'number') {
+            const data = await readPlanFile(input.sessionId, input.planNo)
+            if (!data) return null
+            return {
+              content: data.content,
+              actionName: data.actionName,
+              explanation: data.explanation,
+              steps: data.steps,
+              filePath: data.filePath,
+              meta: data.meta,
+            }
+          }
+          return null
         }),
 
       updateSession: shieldedProcedure

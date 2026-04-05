@@ -150,11 +150,11 @@ function SessionItem({
       >
         <button
           type="button"
-          disabled={isActive}
+          aria-current={isActive ? "true" : undefined}
           onClick={() => onSelect?.(session)}
           className={cn(
             "min-w-0 flex-1 truncate px-2 py-1.5 text-left text-sm",
-            "disabled:cursor-not-allowed disabled:opacity-60"
+            isActive && "font-medium text-foreground"
           )}
         >
           <span className="flex min-w-0 items-center gap-1.5">

@@ -60,6 +60,18 @@ function formatRange(offset?: number, limit?: number): string {
   return ''
 }
 
+/**
+ * 剥离 Read 工具返回内容中的 `cat -n` 前缀（行号 + Tab）。
+ * 因为前端 CodeBlock 有自己的行号展示（或不需要原生行号），避免双重显示。
+ */
+function stripCatNPrefix(text: string): string {
+  if (!text) return text
+  return text
+    .split('\n')
+    .map((line) => line.replace(/^\s*\d+\t/, ''))
+    .join('\n')
+}
+
 /** Guess language from file extension for syntax highlighting. */
 function guessLanguage(filePath: string): any {
   const ext = filePath.split('.').pop()?.toLowerCase() ?? ''
@@ -107,7 +119,9 @@ export default function ReadTool({
 
   const inlineText = [displayPath, range].filter(Boolean).join(' ')
 
-  const output = typeof part.output === 'string' ? part.output : safeStringify(part.output)
+  const rawOutput =
+    typeof part.output === 'string' ? part.output : safeStringify(part.output)
+  const output = stripCatNPrefix(rawOutput)
   const hasOutput = output.trim().length > 0
   const errorText =
     typeof part.errorText === 'string' && part.errorText.trim()
@@ -157,7 +171,7 @@ export default function ReadTool({
             <CodeBlock code={output} language={language} />
           </div>
         ) : errorText ? (
-          <div className="rounded-2xl bg-destructive/10 p-2 text-xs text-destructive">
+          <div className="whitespace-pre-wrap break-all rounded-2xl bg-destructive/10 p-2 text-xs text-destructive">
             {errorText}
           </div>
         ) : streaming ? (

@@ -16,10 +16,7 @@ import {
   projectQueryToolDef,
 } from "@openloaf/api/types/tools/db";
 import { getProjectId } from "@/ai/shared/context/requestContext";
-import {
-  createTempProject,
-  getTempStorageRoot,
-} from "@openloaf/api/services/tempProjectService";
+import { createTempProject } from "@openloaf/api/services/tempProjectService";
 import { toFileUriWithoutEncoding } from "@openloaf/api/services/fileUri";
 
 /** Flattened project entry for tool output. */

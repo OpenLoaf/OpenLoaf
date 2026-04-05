@@ -53,14 +53,14 @@ export function buildGlobalIgnoreKey(folderName: string): string {
   return trimmed ? `global:${trimmed}` : ""
 }
 
-/** Resolve the global skills directory path (~/.openloaf/agents/skills). */
+/** Resolve the global skills directory path (~/.openloaf/skills). */
 export function resolveGlobalSkillsPath(): string {
-  return path.join(homedir(), ".openloaf", "agents", "skills")
+  return path.join(homedir(), ".openloaf", "skills")
 }
 
-/** Resolve the global agents directory path (~/.openloaf/agents/agents). */
+/** Resolve the global agents directory path (~/.openloaf/agents). */
 export function resolveGlobalAgentsPath(): string {
-  return path.join(homedir(), ".openloaf", "agents", "agents")
+  return path.join(homedir(), ".openloaf", "agents")
 }
 
 /** Build project ignore key from folder name. */
@@ -192,11 +192,11 @@ export function resolveSkillDeleteTarget(input: {
     if (!projectRootPath) {
       throw new Error("Project not found.")
     }
-    skillsRoot = normalizeFsPath(path.join(projectRootPath, ".openloaf", "agents", "skills"))
+    skillsRoot = normalizeFsPath(path.join(projectRootPath, ".openloaf", "skills"))
   }
 
   if (skillDir === skillsRoot || !skillDir.startsWith(`${skillsRoot}${path.sep}`)) {
-    // 仅允许删除 .openloaf/agents/skills 目录内的技能。
+    // 仅允许删除 .openloaf/skills 目录内的技能。
     throw new Error("Skill path is outside scope.")
   }
   return { skillDir, skillsRoot }
@@ -222,16 +222,17 @@ export function resolveAgentDeleteTarget(input: {
     throw new Error("Invalid agent path.")
   }
   const baseName = path.basename(normalizedAgentPath)
-  // 逻辑：支持 .openloaf/agents/<name>/agent.json 和 .agents/agents/<name>/AGENT.md 两种路径。
+  // 支持 agent.json（新结构）和 AGENT.md（旧兼容）两种路径。
   const isOpenLoafAgent = baseName === "agent.json"
   const isLegacyAgent = baseName === "AGENT.md"
   if (!isOpenLoafAgent && !isLegacyAgent) {
     throw new Error("Invalid agent path.")
   }
   const agentDir = normalizeFsPath(path.dirname(normalizedAgentPath))
+  // 新结构统一在 .openloaf/agents/ 下，旧结构兼容 .agents/agents/。
   const agentsRoot = isOpenLoafAgent
     ? normalizeFsPath(resolveScopedOpenLoafPath(baseRootPath, "agents"))
-    : normalizeFsPath(path.join(baseRootPath, ".agents", "agents"))
+    : normalizeFsPath(path.join(baseRootPath, ".openloaf", "agents"))
   if (agentDir === agentsRoot || !agentDir.startsWith(`${agentsRoot}${path.sep}`)) {
     throw new Error("Agent path is outside scope.")
   }

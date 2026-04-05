@@ -127,7 +127,7 @@ export function AuxiliaryModelSettings() {
     trpc.settings.getAuxiliaryCapabilities.queryOptions(),
   )
 
-  const [modelSource, setModelSource] = useState<'local' | 'saas'>('local')
+  const [modelSource, setModelSource] = useState<'local' | 'saas'>('saas')
   const [localModelIds, setLocalModelIds] = useState<string[]>([])
   const [customPrompts, setCustomPrompts] = useState<
     Record<string, string | null>

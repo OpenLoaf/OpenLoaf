@@ -63,6 +63,10 @@ export type RequestContext = {
   assistantMessagePath?: string;
   /** Latest plan update for the current request. */
   planUpdate?: UpdatePlanArgs;
+  /** Current plan number for PLAN_{no}.md file naming. */
+  currentPlanNo?: number;
+  /** Whether a full plan has already been created in this request (prevents planNo increment on re-full). */
+  planNoAllocated?: boolean;
   /** Selected skills for this request. */
   selectedSkills?: string[];
   /** Tool approval payloads keyed by toolCallId. */
@@ -83,6 +87,8 @@ export type RequestContext = {
   supervisionMode?: boolean;
   /** Task ID when running within an autonomous task. */
   taskId?: string;
+  /** Runtime Task ID (session-scoped) currently owned by this Agent. Only Master or direct sub-agents have this set. Do NOT propagate to sub-sub-agents. */
+  runtimeTaskId?: string;
   /** CLI tool execution summary buffer. */
   cliSummary?: string;
   /** Claude Code SDK session UUID (for persist/resume). */
@@ -269,6 +275,30 @@ export function getPlanUpdate(): UpdatePlanArgs | undefined {
   return getRequestContext()?.planUpdate;
 }
 
+/** Get current plan number. */
+export function getCurrentPlanNo(): number | undefined {
+  return getRequestContext()?.currentPlanNo;
+}
+
+/** Set current plan number. */
+export function setCurrentPlanNo(planNo: number) {
+  const ctx = getRequestContext();
+  if (!ctx) return;
+  ctx.currentPlanNo = planNo;
+}
+
+/** Check if a plan number has been allocated in this request. */
+export function isPlanNoAllocated(): boolean {
+  return getRequestContext()?.planNoAllocated === true;
+}
+
+/** Mark that a plan number has been allocated in this request. */
+export function markPlanNoAllocated() {
+  const ctx = getRequestContext();
+  if (!ctx) return;
+  ctx.planNoAllocated = true;
+}
+
 /** 获取 agent 栈（MVP：用于打标消息来源）。 */
 function getAgentStack(): AgentFrame[] {
   const ctx = getRequestContext();
@@ -367,3 +397,26 @@ export function getCreditsConsumed(): number | undefined {
 export function getPageContext(): ChatPageContext | undefined {
   return getRequestContext()?.pageContext;
 }
+
+/** Get Runtime Task ID currently owned by this Agent frame. */
+export function getRuntimeTaskId(): string | undefined {
+  return getRequestContext()?.runtimeTaskId;
+}
+
+/** Set Runtime Task ID for this Agent frame (used when Agent tool assigns a task to a sub-agent). */
+export function setRuntimeTaskId(taskId: string | undefined): void {
+  const ctx = getRequestContext();
+  if (!ctx) return;
+  ctx.runtimeTaskId = taskId;
+}
+
+/** Check if current Agent frame is the Master Agent (stack depth 1 = top-level master). */
+export function isMasterAgent(): boolean {
+  const ctx = getRequestContext();
+  if (!ctx) return false;
+  const stack = ctx.agentStack ?? [];
+  // Master runs at stack depth exactly 1 (its own frame pushed). Sub-agents are at depth >= 2.
+  // Depth 0 means no agent frame pushed yet (tool called outside stream context) — deny.
+  return stack.length === 1;
+}
+

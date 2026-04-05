@@ -211,7 +211,7 @@ export async function registerAgentDir(
 // Internal accessors for sibling modules
 // ---------------------------------------------------------------------------
 
-/** @internal — used by chatFileStore.ts for deleteSessionFiles / migrateSessionDirToProject */
+/** @internal — used by chatFileStore.ts for deleteSessionFiles */
 export function _getSessionDirCache() {
   return { sessionDirCache, sessionDirOrder, touchSessionDirCache }
 }

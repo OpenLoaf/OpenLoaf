@@ -1,15 +1,15 @@
 {
   "blocked": {
-    "titleCloudLogin": "Sign in to use cloud models",
+    "titleCloudLogin": "Sign in required",
     "titleLocalEmpty": "Local model not configured",
     "titleDefault": "Start AI conversation",
-    "descCloudLogin": "You selected a cloud model. Sign in to get started",
-    "descLocalEmptySwitch": "Switch to cloud models, or configure a local AI provider",
-    "descDefault": "Sign in to cloud or configure a local AI provider",
-    "btnSwitchCloud": "Use cloud models",
-    "btnLoginCloud": "Sign in to OpenLoaf Cloud",
-    "btnSwitchLocal": "Switch to local model",
-    "btnConfigLocal": "Custom AI provider"
+    "descCloudLogin": "Sign in to use cloud models",
+    "descLocalEmptySwitch": "Switch to cloud or configure local model",
+    "descDefault": "Sign in to cloud or configure local model",
+    "btnSwitchCloud": "Cloud",
+    "btnLoginCloud": "Cloud sign in",
+    "btnSwitchLocal": "Local",
+    "btnConfigLocal": "Local setup"
   },
   "chat": {
     "newChat": "New Chat",
@@ -289,7 +289,46 @@
     "chatPreface": "Chat Preface",
     "noPreface": "No preface yet",
     "copySuccess": "Chat log path copied",
-    "copyError": "Chat log file not found"
+    "copyError": "Chat log file not found",
+    "messages": "Messages",
+    "noMessages": "No messages yet",
+    "noDebugSteps": "No debug data",
+    "loadingMessages": "Loading messages…",
+    "messageCount": "messages",
+    "copiedJson": "JSON copied",
+    "refresh": "Refresh",
+    "expandAll": "Expand all",
+    "collapseAll": "Collapse all",
+    "role": {
+      "user": "User",
+      "assistant": "Assistant",
+      "system": "System",
+      "subagent": "Sub-agent",
+      "task-report": "Task Report"
+    },
+    "meta": {
+      "tokens": "Tokens",
+      "in": "In",
+      "out": "Out",
+      "reasoning": "Reasoning",
+      "cached": "Cached",
+      "elapsed": "Elapsed",
+      "credits": "Credits",
+      "started": "Started",
+      "finished": "Finished",
+      "agent": "Agent",
+      "model": "Model",
+      "webSearch": "Web Search",
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "reasoningMode": "Reasoning Mode"
+    },
+    "scope": {
+      "builtin": "Built-in",
+      "project": "Project",
+      "global": "Global",
+      "user": "User"
+    }
   },
   "helper": {
     "tryAskMe": "You can try asking me:",
@@ -504,5 +543,49 @@
     "noProjectFound": "No projects found",
     "projects": "Project list",
     "current": "Current"
+  },
+  "plan": {
+    "title": "Plan",
+    "progress": "Plan progress {{completed}}/{{total}}",
+    "interrupted": "Interrupted",
+    "statusPending": "Pending",
+    "statusInProgress": "In Progress",
+    "statusCompleted": "Completed",
+    "statusFailed": "Failed",
+    "viewHistory": "View plan history",
+    "noPlan": "No plan",
+    "approved": "Plan approved",
+    "rejected": "Plan rejected",
+    "execute": "Execute plan",
+    "modify": "Modify plan",
+    "feedbackPlaceholder": "Enter your feedback...",
+    "submitFeedback": "Submit feedback",
+    "cancel": "Cancel"
+  },
+  "userInput": {
+    "required": "This field is required",
+    "minLength": "At least {{min}} characters required",
+    "maxLength": "Maximum {{max}} characters allowed",
+    "invalidFormat": "Invalid format",
+    "defaultPrefix": "Default: {{value}}",
+    "selectPlaceholder": "Select...",
+    "multiSelect": "Multiple",
+    "selectAtLeastOne": "Please select at least one",
+    "noContent": "No content",
+    "paramError": "Invalid parameters, retrying with model",
+    "skipped": "Skipped",
+    "prevStep": "Previous",
+    "nextStep": "Next",
+    "confirm": "Confirm",
+    "confirming": "Confirming...",
+    "skip": "Skip"
+  },
+  "runtimeTask": {
+    "allDone": "All done",
+    "master": "Main",
+    "ready": "ready",
+    "waitingFor": "waiting on {{names}}",
+    "aiSelfReport": "AI self-reported",
+    "failedBadge": "{{count}} failed"
   }
 }

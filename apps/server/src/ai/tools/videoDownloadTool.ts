@@ -168,7 +168,9 @@ export const videoDownloadTool = tool({
       }
 
       const stat = await fs.stat(filePath)
-      // Chat 使用 [sessionId]/asset/filename 格式，Board 使用 rootPath 相对路径
+      // Chat 使用 [sessionId]/asset/filename 格式（前端预览 endpoint 需要从
+      // 路径中读 sessionId），Board 使用 rootPath 相对路径。AI 读这个路径时
+      // 会被 resolveToolPath/expandPathTemplateVars 自动展开为绝对路径。
       const relativePath = storage.sessionId
         ? `[${storage.sessionId}]/asset/${fileName}`
         : toPosixRelativePath(storage.rootPath, filePath)

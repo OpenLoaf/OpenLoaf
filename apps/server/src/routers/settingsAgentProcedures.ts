@@ -472,8 +472,8 @@ export const agentProcedures = {
         const sanitizedName = input.name.replace(/[^a-zA-Z0-9_-]/g, "-").toLowerCase()
         const agentDir = path.join(rootPath, sanitizedName)
         mkdirSync(agentDir, { recursive: true })
-        const filePath = path.join(agentDir, "AGENT.md")
-        const content = serializeAgentToMarkdown({
+        // 统一写 agent.json 格式（与项目 scope 一致）。
+        const descriptor = {
           name: input.name,
           description: input.description,
           icon: input.icon,
@@ -482,14 +482,26 @@ export const agentProcedures = {
           auxiliaryModelSource: input.auxiliaryModelSource,
           auxiliaryModelLocalIds: input.auxiliaryModelLocalIds,
           auxiliaryModelCloudIds: input.auxiliaryModelCloudIds,
+          imageModelIds: input.imageModelIds,
+          videoModelIds: input.videoModelIds,
+          codeModelIds: input.codeModelIds,
           toolIds: input.toolIds,
           skills: input.skills,
           allowSubAgents: input.allowSubAgents,
           maxDepth: input.maxDepth,
-          systemPrompt: input.systemPrompt,
-        })
-        writeFsSync(filePath, content, "utf8")
-        return { ok: true, agentPath: filePath }
+        }
+        const jsonPath = path.join(agentDir, "agent.json")
+        writeFsSync(jsonPath, JSON.stringify(descriptor, null, 2), "utf8")
+        if (input.systemPrompt?.trim()) {
+          writeFsSync(path.join(agentDir, "prompt.md"), input.systemPrompt.trim(), "utf8")
+        }
+        // 清理旧 AGENT.md（如果存在）。
+        const { existsSync: existsFsSync2, unlinkSync } = await import("node:fs")
+        const oldMdPath = path.join(agentDir, "AGENT.md")
+        if (existsFsSync2(oldMdPath)) {
+          try { unlinkSync(oldMdPath) } catch { /* ignore */ }
+        }
+        return { ok: true, agentPath: jsonPath }
       } else {
         rootPath = getOpenLoafRootDir()
       }

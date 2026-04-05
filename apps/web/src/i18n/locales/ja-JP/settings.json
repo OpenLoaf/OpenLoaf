@@ -744,7 +744,7 @@
     "useSkill": "スキルを使用",
     "deleteSkill": "スキルを削除",
     "loading": "スキルを読み込み中...",
-    "empty": "利用可能なスキルがありません。`.openloaf/agents/skills`または`~/.openloaf/agents/skills`に`SKILL.md`を追加してください。",
+    "empty": "利用可能なスキルがありません。`.openloaf/skills`または`~/.openloaf/skills`に`SKILL.md`を追加してください。",
     "emptyTitle": "スキルがありません",
     "emptyDesc": "マーケットプレイスからダウンロード、ファイルをインポート、またはここにドラッグ＆ドロップ",
     "emptyMarketplace": "マーケットプレイス",

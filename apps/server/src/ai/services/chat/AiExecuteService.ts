@@ -24,6 +24,7 @@ import { CommandParser } from "@/ai/tools/CommandParser";
 import { SkillSelector, type SkillMatch } from "@/ai/tools/SkillSelector";
 import { resolveAutoSkillsByPageContext } from "@/ai/services/chat/pageContextSkillMap";
 import { extractTextFromParts, toSseChunk } from "@/ai/services/chat/chatStreamUtils";
+import { loadMessageTree } from "@/ai/services/chat/repositories/chatFileStore";
 
 type AiExecuteServiceInput = {
   /** Unified AI request payload. */
@@ -79,8 +80,13 @@ export class AiExecuteService {
       // Merge manual + auto, deduplicate
       const allSkillNames = [...new Set([...manualSkills, ...autoSkills])];
       selectedSkills = allSkillNames;
+
+      // 去重：跳过 session 历史中已注入过的 skill（LRU 缓存，开销极低）。
+      const alreadyLoaded = await getSessionLoadedSkillNames(sessionId);
+      const newSkillNames = allSkillNames.filter((n) => !alreadyLoaded.has(n));
+
       const skillMatches = await resolveSkillMatches({
-        names: allSkillNames,
+        names: newSkillNames,
         request,
       });
       if (skillMatches.length > 0) {
@@ -95,6 +101,28 @@ export class AiExecuteService {
           parts: nextParts,
         };
       }
+    }
+
+    // 逻辑：为用户消息注入 data-msg-context（结构化，持久化到 JSONL）。
+    if (enrichedLastMessage.role === "user") {
+      const tz = request.timezone || "UTC";
+      const now = new Date();
+      const timeStr = formatMsgTime(now, tz);
+      const pc = request.pageContext;
+      const contextPart = {
+        type: "data-msg-context" as const,
+        data: {
+          datetime: timeStr,
+          ...(pc?.page ? { page: pc.page } : {}),
+          ...(pc?.projectId ? { projectId: pc.projectId } : {}),
+          ...(pc?.boardId ? { boardId: pc.boardId } : {}),
+          ...(pc?.stack?.length ? { stack: pc.stack } : {}),
+        },
+      };
+      enrichedLastMessage = {
+        ...enrichedLastMessage,
+        parts: [contextPart, ...(enrichedLastMessage.parts ?? [])],
+      };
     }
 
     // 逻辑：image+json 走图片接口，其他走聊天流。
@@ -229,6 +257,40 @@ async function resolveSkillMatches(input: {
     if (match) matches.push(match);
   }
   return matches;
+}
+
+/** Scan session history for already-injected skill names (LRU-cached, cheap). */
+async function getSessionLoadedSkillNames(sessionId: string): Promise<Set<string>> {
+  const names = new Set<string>();
+  try {
+    const tree = await loadMessageTree(sessionId);
+    for (const msg of tree.byId.values()) {
+      if (msg.role !== "user") continue;
+      const parts = Array.isArray(msg.parts) ? msg.parts : [];
+      for (const part of parts) {
+        if (
+          part &&
+          typeof part === "object" &&
+          (part as any).type === "data-skill" &&
+          typeof (part as any).data?.name === "string"
+        ) {
+          names.add((part as any).data.name);
+        }
+      }
+    }
+  } catch {
+    // 首条消息时 JSONL 不存在，返回空集合即可。
+  }
+  return names;
+}
+
+/** Format a Date to a readable string in the given timezone. */
+function formatMsgTime(date: Date, tz: string): string {
+  try {
+    return date.toLocaleString("sv-SE", { timeZone: tz }).replace("T", " ");
+  } catch {
+    return date.toISOString().slice(0, 19).replace("T", " ");
+  }
 }
 
 /** Filter non-skill parts from a message. */

@@ -17,7 +17,7 @@ import CliThinkingTool from './CliThinkingTool'
 import RequestUserInputTool from './RequestUserInputTool'
 import UnifiedTool from './UnifiedTool'
 import PlanTool from './PlanTool'
-import ProjectTool from './ProjectTool'
+import ProjectMutateTool from './ProjectMutateTool'
 import WriteFileTool from './WriteFileTool'
 import ShellTool from './ShellTool'
 import WidgetTool from './WidgetTool'
@@ -85,7 +85,7 @@ export const TOOL_REGISTRY: ToolRegistryEntry[] = [
   { match: 'task', component: ClaudeCodeTaskTool as ComponentType<ToolComponentProps>, providerOnly: true },
 
   // ── Standard tools ──
-  { match: 'UpdatePlan', component: PlanTool as ComponentType<ToolComponentProps> },
+  { match: ['UpdatePlan', 'SubmitPlan'], component: PlanTool as ComponentType<ToolComponentProps> },
   { match: 'AskUserQuestion', component: RequestUserInputTool as ComponentType<ToolComponentProps> },
   { match: ['JsxCreate', 'jsx-preview'], component: JsxCreateTool as ComponentType<ToolComponentProps> },
   { match: ['Edit', 'apply-patch'], component: WriteFileTool as ComponentType<ToolComponentProps> },
@@ -125,8 +125,10 @@ export const TOOL_REGISTRY: ToolRegistryEntry[] = [
   { match: ['BrowserSnapshot', 'BrowserObserve'], component: BrowserSnapshotTool as ComponentType<ToolComponentProps> },
   { match: 'BrowserScreenshot', component: BrowserScreenshotTool as ComponentType<ToolComponentProps> },
   { match: ['TaskManage', 'CreateTask'], component: TaskTool as ComponentType<ToolComponentProps> },
-  { match: 'ProjectMutate', component: ProjectTool as ComponentType<ToolComponentProps> },
+  { match: 'ProjectMutate', component: ProjectMutateTool as ComponentType<ToolComponentProps> },
   { match: 'FileInfo', component: FileInfoTool as ComponentType<ToolComponentProps> },
+  { match: 'WebFetch', component: ClaudeCodeWebTool as ComponentType<ToolComponentProps>, extraProps: { kind: 'webfetch' } },
+  { match: 'WebSearch', component: ClaudeCodeWebTool as ComponentType<ToolComponentProps>, extraProps: { kind: 'websearch' } },
 ]
 
 /** Look up a registry entry by tool kind. */

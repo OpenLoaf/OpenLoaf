@@ -591,6 +591,29 @@ async function main() {
       assert.ok(!ids.includes('c_cp'), 'compact_prompt should be filtered')
     })
 
+    // C7: orphan messages (parent id missing) must still be returned
+    // Regression: when messages.jsonl is truncated and a message points at a
+    // no-longer-present parent, the whole branch used to be silently dropped
+    // (tree.rootIds empty → getChatView returned messages: []). Now we treat
+    // orphans as roots so the history still shows up.
+    await test('C7: orphan message resolved as root', async () => {
+      const sidO = `test_cfs_orphan_${crypto.randomUUID()}`
+      await prisma.chatSession.create({ data: { id: sidO } })
+      await registerSessionDir(sidO)
+      // Only the assistant reply persisted; its parent user message is gone.
+      const orphan: StoredMessage = {
+        ...msg('orphan_a1', 'missing_parent_xyz', 'assistant'),
+        createdAt: new Date().toISOString(),
+      }
+      await appendMessage({ sessionId: sidO, message: orphan })
+      const view = await getChatViewFromFile({ sessionId: sidO })
+      assert.equal(view.leafMessageId, 'orphan_a1')
+      assert.deepEqual(view.branchMessageIds, ['orphan_a1'])
+      assert.equal(view.messages?.length, 1)
+      await deleteSessionFiles(sidO)
+      await prisma.chatSession.delete({ where: { id: sidO } }).catch(() => {})
+    })
+
     // Cleanup C-layer session
     await deleteSessionFiles(cSid)
     await prisma.chatSession.delete({ where: { id: cSid } }).catch(() => {})

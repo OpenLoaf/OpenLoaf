@@ -11,6 +11,7 @@ import { z } from "zod";
 
 export const openUrlToolDef = {
   id: "OpenUrl",
+  readonly: true,
   name: "打开网页",
   description:
     "触发：当你需要在应用内浏览器打开页面，让用户查看或继续操作（如登录、确认页面内容）时调用。用途：打开指定 URL（可省略协议）并等待前端回执。返回：前端回执对象 { toolCallId, status: success|failed|timeout, output?, errorText?, requestedAt }。不适用：不要用它截图、抓取网页内容或自动化操作；截图和网页自动化任务必须通过 Agent 工具派发 browser 子代理完成。",

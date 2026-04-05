@@ -126,7 +126,7 @@ type AgentFrontMatter = {
   maxDepth?: number
 }
 
-const AGENTS_META_DIR = '.agents'
+const OPENLOAF_META_DIR = '.openloaf'
 const AGENTS_DIR_NAME = 'agents'
 const AGENT_FILE_NAME = 'AGENT.md'
 const AGENT_JSON_FILE = 'agent.json'
@@ -199,7 +199,7 @@ export function loadAgentSummaries(input: {
     const agentsRootPath =
       source.scope === 'global'
         ? source.rootPath
-        : path.join(source.rootPath, AGENTS_META_DIR, AGENTS_DIR_NAME)
+        : path.join(source.rootPath, OPENLOAF_META_DIR, AGENTS_DIR_NAME)
     const agentFiles = findAgentFiles(agentsRootPath)
 
     for (const filePath of agentFiles) {

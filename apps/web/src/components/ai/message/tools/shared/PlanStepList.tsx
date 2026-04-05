@@ -10,37 +10,46 @@
 "use client";
 
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import type { PlanItem } from "@openloaf/api/types/tools/runtime";
-import { CheckCircle2, Circle, CircleDashed, Loader2 } from "lucide-react";
+import { CheckCircle2, Circle, CircleDashed, Loader2, XCircle } from "lucide-react";
 import { Task, TaskContent, TaskItem, TaskTrigger } from "@/components/ai-elements/task";
 
+/** i18n key for each status label + visual config. */
 const PLAN_STATUS_META: Record<
   PlanItem["status"],
   {
-    label: string;
+    /** i18n key under "ai" namespace (e.g. "plan.statusPending"). */
+    labelKey: string;
     Icon: React.ComponentType<{ className?: string }>;
     badgeClassName: string;
     iconClassName: string;
   }
 > = {
   pending: {
-    label: "待办",
+    labelKey: "plan.statusPending",
     Icon: CircleDashed,
     badgeClassName: "bg-muted text-muted-foreground",
     iconClassName: "text-muted-foreground",
   },
   in_progress: {
-    label: "进行中",
+    labelKey: "plan.statusInProgress",
     Icon: Loader2,
     badgeClassName: "bg-primary/10 text-primary",
     iconClassName: "text-primary animate-spin",
   },
   completed: {
-    label: "已完成",
+    labelKey: "plan.statusCompleted",
     Icon: CheckCircle2,
     badgeClassName: "bg-secondary text-foreground",
     iconClassName: "text-foreground",
+  },
+  failed: {
+    labelKey: "plan.statusFailed",
+    Icon: XCircle,
+    badgeClassName: "bg-destructive/10 text-destructive",
+    iconClassName: "text-destructive",
   },
 };
 
@@ -50,12 +59,13 @@ type PlanStepListProps = {
 };
 
 export default function PlanStepList({ plan, className }: PlanStepListProps) {
+  const { t: tAi } = useTranslation("ai");
   const completedCount = plan.filter((item) => item.status === "completed").length;
 
   return (
     <Task defaultOpen className={cn("space-y-0", className)}>
       <TaskTrigger
-        title={`计划进度 ${completedCount}/${plan.length}`}
+        title={tAi("plan.progress", { completed: completedCount, total: plan.length })}
         className="mb-1 text-xs text-muted-foreground"
       />
       <TaskContent className="mt-2 space-y-2 border-l-0 pl-0">
@@ -64,7 +74,7 @@ export default function PlanStepList({ plan, className }: PlanStepListProps) {
           const Icon = meta.Icon ?? Circle;
           return (
             <TaskItem
-              key={item.step}
+              key={`step-${index}`}
               className="px-2.5 py-2"
             >
               <div className="flex items-start gap-2">
@@ -76,7 +86,7 @@ export default function PlanStepList({ plan, className }: PlanStepListProps) {
                       meta.badgeClassName,
                     )}
                   >
-                    {meta.label}
+                    {tAi(meta.labelKey)}
                   </span>
                   <p className="text-sm leading-relaxed text-foreground break-words [overflow-wrap:anywhere]">
                     {item.step}

@@ -15,7 +15,7 @@ import {
   type AgentConfig,
 } from '@/ai/services/agentConfigService'
 
-const AGENTS_META_DIR = '.agents'
+const OPENLOAF_META_DIR = '.openloaf'
 const AGENTS_DIR_NAME = 'agents'
 const AGENT_FILE_NAME = 'AGENT.md'
 
@@ -50,7 +50,7 @@ export function resolveAgentByName(
     const agentsRootPath =
       searchRoot.scope === 'global'
         ? searchRoot.rootPath
-        : path.join(searchRoot.rootPath, AGENTS_META_DIR, AGENTS_DIR_NAME)
+        : path.join(searchRoot.rootPath, OPENLOAF_META_DIR, AGENTS_DIR_NAME)
     const agentFiles = findAgentFiles(agentsRootPath)
     for (const filePath of agentFiles) {
       const scope =
@@ -84,7 +84,7 @@ function buildSearchRoots(roots: AgentRoots): AgentSearchRoot[] {
   }
   ordered.push({
     scope: 'global',
-    rootPath: path.join(homedir(), '.agents', 'agents'),
+    rootPath: path.join(homedir(), '.openloaf', 'agents'),
   })
   return ordered
 }

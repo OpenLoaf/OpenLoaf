@@ -10,6 +10,8 @@
 
 import type { UIMessageChunk } from "ai";
 import { useChatRuntime } from "@/hooks/use-chat-runtime";
+import { useRuntimeTasks } from "@/hooks/use-runtime-tasks";
+import type { RuntimeTask } from "@openloaf/api/types/tools/runtimeTask";
 
 type SubAgentDataPayload = {
   toolCallId?: string;
@@ -150,6 +152,63 @@ export function handleStepThinkingDataPart(input: {
   return true;
 }
 
+/** Handle plan file data parts from SSE stream — auto-opens plan in stack. */
+export function handlePlanFileDataPart(input: {
+  dataPart: any;
+  sessionId: string;
+  onPlanFile?: (data: { planNo: number; filePath: string; actionName: string; status: string }) => void;
+}) {
+  if (input.dataPart?.type !== "data-plan-file") return false;
+  const data = input.dataPart?.data;
+  if (!data || typeof data !== "object") return true;
+  const planNo = typeof data.planNo === "number" ? data.planNo : 0;
+  const filePath = typeof data.filePath === "string" ? data.filePath : "";
+  const actionName = typeof data.actionName === "string" ? data.actionName : "计划";
+  const status = typeof data.status === "string" ? data.status : "active";
+  if (planNo > 0 && filePath && input.onPlanFile) {
+    input.onPlanFile({ planNo, filePath, actionName, status });
+  }
+  return true;
+}
+
+/** Validate that an incoming task payload has the minimum required shape. */
+function isValidTaskPayload(v: unknown): v is RuntimeTask {
+  if (!v || typeof v !== "object") return false;
+  const t = v as Record<string, unknown>;
+  return (
+    typeof t.id === "string" &&
+    t.id.length > 0 &&
+    typeof t.subject === "string" &&
+    typeof t.status === "string" &&
+    Array.isArray(t.blocks) &&
+    Array.isArray(t.blockedBy)
+  );
+}
+
+/** Handle runtime task data parts from SSE stream — updates runtime tasks store. */
+export function handleRuntimeTaskDataPart(input: {
+  dataPart: any;
+  sessionId: string;
+}) {
+  if (input.dataPart?.type !== "data-runtime-task") return false;
+  const data = input.dataPart?.data;
+  if (!data || typeof data !== "object") return true;
+  const seq = typeof data.seq === "number" ? data.seq : 0;
+  const event = typeof data.event === "string" ? data.event : "";
+  const store = useRuntimeTasks.getState();
+  if (event === "created" && isValidTaskPayload(data.task)) {
+    store.applyEvent(input.sessionId, { seq, kind: "created", task: data.task });
+  } else if (event === "updated" && isValidTaskPayload(data.task)) {
+    store.applyEvent(input.sessionId, { seq, kind: "updated", task: data.task });
+  } else if (event === "deleted" && typeof data.taskId === "string") {
+    store.applyEvent(input.sessionId, { seq, kind: "deleted", taskId: data.taskId });
+  } else if (event === "snapshot" && data.snapshot && Array.isArray(data.snapshot.tasks)) {
+    const validTasks = (data.snapshot.tasks as unknown[]).filter(isValidTaskPayload);
+    store.applyEvent(input.sessionId, { seq, kind: "snapshot", tasks: validTasks });
+  }
+  return true;
+}
+
 /** Handle canonical branch snapshot data parts from SSE stream. */
 export function handleBranchSnapshotDataPart(input: {
   dataPart: any;
@@ -175,31 +234,6 @@ export function handleBranchSnapshotDataPart(input: {
 
   input.markReceived?.();
   input.commitServerSnapshot(snapshot);
-  return true;
-}
-
-/**
- * Handle `data-temp-project` data part.
- *
- * When the backend creates a temporary project during a global chat
- * (via `ensureTempProject()`), it emits this event so the frontend
- * can update its params / context to the newly created project.
- *
- * Returns `true` if the data part was consumed.
- */
-export function handleTempProjectDataPart(input: {
-  dataPart: any;
-  onTempProject?: (data: { projectId: string; projectRoot: string; isTemp: boolean }) => void;
-}): boolean {
-  if (input.dataPart?.type !== "data-temp-project") return false;
-  const data = input.dataPart?.data;
-  if (!data || typeof data !== "object") return true;
-
-  const projectId = typeof data.projectId === "string" ? data.projectId : "";
-  const projectRoot = typeof data.projectRoot === "string" ? data.projectRoot : "";
-  if (!projectId) return true;
-
-  input.onTempProject?.({ projectId, projectRoot, isTemp: Boolean(data.isTemp) });
   return true;
 }
 

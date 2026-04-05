@@ -15,13 +15,22 @@ import {
   editToolDef,
   writeToolDef,
 } from '@openloaf/api/types/tools/runtime'
-import { resolveToolPath, ensureTempProject } from '@/ai/tools/toolScope'
+import { resolveToolPath, ensureWritableRoot } from '@/ai/tools/toolScope'
 import { resolveSecretTokens } from '@/ai/tools/secretStore'
-import { getProjectId } from '@/ai/shared/context/requestContext'
+import { getProjectId, getSessionId } from '@/ai/shared/context/requestContext'
 import { getProjectRootPath } from '@openloaf/api/services/vfsService'
+import {
+  recordRead,
+  getReadEntry,
+  type ReadEntry,
+} from '@/ai/tools/fileReadState'
 
 const MAX_LINE_LENGTH = 500
 const DEFAULT_READ_LIMIT = 2000
+/** Chunk size (in UTF-8 bytes) used when splitting a line that exceeds MAX_LINE_LENGTH. */
+const LONG_LINE_CHUNK_BYTES = 2000
+/** Overall output byte budget to prevent minified single-line files from exploding context. */
+const MAX_READ_OUTPUT_BYTES = 80_000
 
 /** 常见二进制文件扩展名，读取时直接拒绝。 */
 const BINARY_FILE_EXTENSIONS = new Set([
@@ -39,22 +48,18 @@ function isPathInside(root: string, target: string): boolean {
   return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative))
 }
 
-/** 解析写入目标路径，确保在项目 scope 内。未绑定项目时自动创建临时项目。 */
-async function resolveWriteTargetPath(targetPath: string): Promise<{ absPath: string; rootPath: string }> {
-  let projectId = getProjectId()
-  let rootPath = projectId
-    ? getProjectRootPath(projectId)
-    : undefined
-
-  // 无项目 scope 时自动创建临时项目
-  if (!rootPath) {
-    if (!projectId) {
-      const temp = await ensureTempProject()
-      projectId = temp.projectId
-      rootPath = temp.projectRoot
-    } else {
-      throw new Error('Project not found.')
-    }
+/** 解析写入目标路径，确保在项目 scope 内。未绑定项目时使用会话 asset 目录。 */
+export async function resolveWriteTargetPath(targetPath: string): Promise<{ absPath: string; rootPath: string }> {
+  const projectId = getProjectId()
+  let rootPath: string
+  if (projectId) {
+    const projRoot = getProjectRootPath(projectId)
+    if (!projRoot) throw new Error('Project not found.')
+    rootPath = projRoot
+  } else {
+    // 未绑定项目 → 回退到会话 asset 目录
+    const writable = await ensureWritableRoot()
+    rootPath = writable.rootPath
   }
 
   const trimmed = targetPath.trim()
@@ -95,12 +100,36 @@ function clampUtf8End(buffer: Buffer, index: number): number {
   return cursor
 }
 
-/** 按最大字节长度截断字符串，不破坏多字节字符。 */
-function truncateLine(line: string, maxLength: number): string {
-  const bytes = Buffer.from(line, 'utf8')
-  if (bytes.length <= maxLength) return line
-  const end = clampUtf8End(bytes, maxLength)
-  return bytes.toString('utf8', 0, end)
+/**
+ * Split a long line into UTF-8-safe chunks of at most `chunkBytes` bytes.
+ * Returns chunks with explicit byte ranges so the model knows exactly which
+ * slice of the original line it is looking at.
+ *
+ * For minified HTML/JS/CSS (single-line files), this prevents the model from
+ * interpreting `--max-line-length` truncation as "file truncated" and looping.
+ */
+function splitLongLine(
+  line: string,
+  chunkBytes: number,
+): Array<{ start: number; end: number; text: string }> {
+  const buf = Buffer.from(line, 'utf8')
+  const total = buf.length
+  const chunks: Array<{ start: number; end: number; text: string }> = []
+  let cursor = 0
+  while (cursor < total) {
+    const rawEnd = Math.min(cursor + chunkBytes, total)
+    const end = clampUtf8End(buf, rawEnd)
+    // clampUtf8End can return a position equal to cursor if a multi-byte char
+    // crosses the boundary; fall back to a wider slice in that pathological case.
+    const safeEnd = end > cursor ? end : Math.min(cursor + chunkBytes + 4, total)
+    chunks.push({
+      start: cursor,
+      end: safeEnd,
+      text: buf.toString('utf8', cursor, safeEnd),
+    })
+    cursor = safeEnd
+  }
+  return chunks
 }
 
 /** 按换行符拆分文件内容。 */
@@ -117,6 +146,62 @@ function splitLines(raw: string): string[] {
 function hasBlockedBinaryExtension(targetPath: string): boolean {
   const ext = path.extname(targetPath).toLowerCase()
   return Boolean(ext) && BINARY_FILE_EXTENSIONS.has(ext)
+}
+
+/** Check if a file path is a PLAN file (PLAN_N.md) — bypass guard/approval. */
+function isPlanFilePath(filePath: string): boolean {
+  return /PLAN_\d+\.md$/.test(filePath ?? '')
+}
+
+/**
+ * Read-before-Write guard: enforces that Write/Edit has a fresh Read entry.
+ * Throws with a Claude-Code-aligned message on violation. Caller handles
+ * ENOENT (new file creation) separately before calling this.
+ */
+async function assertReadBeforeModify(
+  absPath: string,
+  currentMtimeMs: number,
+  mode: 'write' | 'edit',
+): Promise<void> {
+  const sessionId = getSessionId()
+  if (!sessionId) return // no session → cannot track; skip guard
+  const entry = getReadEntry(sessionId, absPath)
+  if (!entry) {
+    throw new Error(
+      'File has not been read yet. Read it first before writing to it.',
+    )
+  }
+  // Partial view blocks Write (full overwrite) but not Edit (surgical).
+  if (mode === 'write' && entry.isPartialView) {
+    throw new Error(
+      'File was only partially read. Re-read the whole file (without offset/limit) before writing it.',
+    )
+  }
+  if (Math.floor(currentMtimeMs) > entry.mtime) {
+    throw new Error(
+      'File has been modified since read, either by the user or by a linter. Read it again before attempting to write it.',
+    )
+  }
+}
+
+/** Snapshot post-write state so subsequent Edits on same file don't trip the mtime check. */
+async function recordPostWriteState(
+  absPath: string,
+  content: string,
+): Promise<void> {
+  const sessionId = getSessionId()
+  if (!sessionId) return
+  const stat = await fs.stat(absPath)
+  const totalLines = splitLines(content).length
+  const entry: ReadEntry = {
+    mtime: Math.floor(stat.mtimeMs),
+    offset: 1,
+    limit: Number.MAX_SAFE_INTEGER,
+    totalLines,
+    isPartialView: false,
+    recordedAt: Date.now(),
+  }
+  recordRead(sessionId, absPath, entry)
 }
 
 // ─── Read 工具 ─────────────────────────────────────────────────────────────
@@ -172,12 +257,92 @@ export const readTool = tool({
     const startIndex = resolvedOffset - 1
     const endIndex = Math.min(startIndex + resolvedLimit, lines.length)
     const result: string[] = []
-    for (let i = startIndex; i < endIndex; i++) {
+    let outputBytes = 0
+    let longLineCount = 0
+    let chunkedLineCount = 0
+    let budgetExhaustedAtLine: number | null = null
+    let lastEmittedLineIndex = startIndex - 1
+    outer: for (let i = startIndex; i < endIndex; i++) {
       const lineNum = i + 1
-      const display = truncateLine(lines[i]!, MAX_LINE_LENGTH)
-      result.push(`${lineNum}\t${display}`)
+      const original = lines[i]!
+      const byteLength = Buffer.byteLength(original, 'utf8')
+      if (byteLength <= MAX_LINE_LENGTH) {
+        const entry = `${lineNum}\t${original}`
+        if (outputBytes + entry.length > MAX_READ_OUTPUT_BYTES) {
+          budgetExhaustedAtLine = lineNum
+          break
+        }
+        result.push(entry)
+        outputBytes += entry.length + 1
+        lastEmittedLineIndex = i
+        continue
+      }
+      // Long line → split into byte-range chunks so the model can see the full
+      // content across multiple labeled slices instead of losing everything
+      // past MAX_LINE_LENGTH. Label: `<lineNum>[<start>-<end>/<total>]`.
+      longLineCount++
+      const chunks = splitLongLine(original, LONG_LINE_CHUNK_BYTES)
+      chunkedLineCount += chunks.length
+      for (const chunk of chunks) {
+        const label = `${lineNum}[chars ${chunk.start}-${chunk.end}/${byteLength}]`
+        const entry = `${label}\t${chunk.text}`
+        if (outputBytes + entry.length > MAX_READ_OUTPUT_BYTES) {
+          budgetExhaustedAtLine = lineNum
+          break outer
+        }
+        result.push(entry)
+        outputBytes += entry.length + 1
+      }
+      lastEmittedLineIndex = i
     }
-    return result.join('\n')
+
+    // Claude Code-style non-negative range metadata: tells the model exactly
+    // what it has and how to get more, avoiding the "truncated = data lost"
+    // misinterpretation that triggers retry loops.
+    const meta: string[] = []
+    const displayedStart = resolvedOffset
+    const displayedEnd = Math.min(lastEmittedLineIndex + 1, endIndex)
+    if (lines.length === 0) {
+      meta.push('Empty file (0 lines).')
+    } else if (displayedStart === 1 && displayedEnd === lines.length && budgetExhaustedAtLine === null) {
+      meta.push(`Displaying all ${lines.length} lines of the file.`)
+    } else {
+      meta.push(
+        `Displaying lines ${displayedStart}-${displayedEnd} of ${lines.length} total. Use offset/limit to read other parts.`,
+      )
+    }
+    if (longLineCount > 0) {
+      meta.push(
+        `Note: ${longLineCount} line(s) exceeded ${MAX_LINE_LENGTH} bytes and were split into ${chunkedLineCount} chunks of up to ${LONG_LINE_CHUNK_BYTES} bytes each (labels: "<line>[chars A-B/total]"). The file on disk is unchanged.`,
+      )
+      // Heuristic: very few lines with huge length → minified/compressed file.
+      // Nudge the model toward Bash tools instead of looping on Read/Grep.
+      if (lines.length < 20) {
+        meta.push(
+          'This looks like a minified/single-line file. For structural extraction prefer `Bash` with `grep -oE`, `sed`, `cut`, or `tr` over Read/Grep.',
+        )
+      }
+    }
+    if (budgetExhaustedAtLine !== null) {
+      meta.push(
+        `Output capped at ~${MAX_READ_OUTPUT_BYTES} bytes to protect context; stopped inside line ${budgetExhaustedAtLine}. Call Read again with offset=${budgetExhaustedAtLine} to continue, or use Bash for targeted extraction.`,
+      )
+    }
+
+    // Record Read state for subsequent Write/Edit guard checks (bypass PLAN files).
+    const sessionId = getSessionId()
+    if (sessionId && !isPlanFilePath(filePath)) {
+      recordRead(sessionId, absPath, {
+        mtime: Math.floor(stat.mtimeMs),
+        offset: resolvedOffset,
+        limit: resolvedLimit,
+        totalLines: lines.length,
+        isPartialView: endIndex < lines.length,
+        recordedAt: Date.now(),
+      })
+    }
+
+    return [...result, '', meta.join(' ')].join('\n')
   },
 })
 
@@ -187,7 +352,7 @@ export const readTool = tool({
 export const editTool = tool({
   description: editToolDef.description,
   inputSchema: zodSchema(editToolDef.parameters),
-  needsApproval: true,
+  needsApproval: ({ file_path }: { file_path: string }) => !isPlanFilePath(file_path),
   execute: async ({
     file_path: filePath,
     old_string: oldString,
@@ -200,6 +365,12 @@ export const editTool = tool({
     }
 
     const { absPath, rootPath } = await resolveWriteTargetPath(filePath)
+
+    // Read-before-Write guard (Edit always targets an existing file).
+    if (!isPlanFilePath(filePath)) {
+      const stat = await fs.stat(absPath)
+      await assertReadBeforeModify(absPath, stat.mtimeMs, 'edit')
+    }
 
     // 读取文件
     const content = await fs.readFile(absPath, 'utf-8')
@@ -262,6 +433,11 @@ export const editTool = tool({
     newContent = resolveSecretTokens(newContent)
     await fs.writeFile(absPath, newContent, 'utf-8')
 
+    // Snapshot post-edit state so subsequent Edits don't trip the mtime check.
+    if (!isPlanFilePath(filePath)) {
+      await recordPostWriteState(absPath, newContent)
+    }
+
     const relativePath = path.relative(rootPath, absPath)
     const replacedCount = replaceAll ? occurrences : 1
     return `Edited ${relativePath}: replaced ${replacedCount} occurrence(s).`
@@ -274,12 +450,27 @@ export const editTool = tool({
 export const writeTool = tool({
   description: writeToolDef.description,
   inputSchema: zodSchema(writeToolDef.parameters),
-  needsApproval: true,
+  needsApproval: ({ file_path }: { file_path: string }) => !isPlanFilePath(file_path),
   execute: async ({
     file_path: filePath,
     content,
   }): Promise<string> => {
     const { absPath, rootPath } = await resolveWriteTargetPath(filePath)
+
+    // Read-before-Write guard: only enforced when overwriting an existing file.
+    // New file creation (ENOENT) is allowed without a prior Read.
+    if (!isPlanFilePath(filePath)) {
+      let existingMtimeMs: number | undefined
+      try {
+        const stat = await fs.stat(absPath)
+        existingMtimeMs = stat.mtimeMs
+      } catch (e: any) {
+        if (e?.code !== 'ENOENT') throw e
+      }
+      if (existingMtimeMs !== undefined) {
+        await assertReadBeforeModify(absPath, existingMtimeMs, 'write')
+      }
+    }
 
     // 自动创建父目录
     await fs.mkdir(path.dirname(absPath), { recursive: true })
@@ -287,6 +478,11 @@ export const writeTool = tool({
     // 解析 secret token 后写入
     const resolvedContent = resolveSecretTokens(content)
     await fs.writeFile(absPath, resolvedContent, 'utf-8')
+
+    // Snapshot post-write state so subsequent Edits/Writes don't trip the mtime check.
+    if (!isPlanFilePath(filePath)) {
+      await recordPostWriteState(absPath, resolvedContent)
+    }
 
     const relativePath = path.relative(rootPath, absPath)
     return `Wrote file: ${relativePath}`

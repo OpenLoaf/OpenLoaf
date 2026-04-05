@@ -21,7 +21,6 @@ mockMotion()
 mockSyntaxHighlighter()
 
 // Mock heavy transitive deps
-vi.mock('./message/tools/MessagePlan', () => ({ default: () => null }))
 vi.mock('./message/tools/MessageTool', () => ({ default: () => null }))
 vi.mock('./message/tools/MessageFile', () => ({ default: () => null }))
 

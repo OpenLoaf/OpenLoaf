@@ -289,7 +289,46 @@
     "chatPreface": "チャット前文",
     "noPreface": "前文はまだありません",
     "copySuccess": "チャットログのパスをコピーしました",
-    "copyError": "チャットログファイルが見つかりません"
+    "copyError": "チャットログファイルが見つかりません",
+    "messages": "メッセージ",
+    "noMessages": "メッセージはまだありません",
+    "noDebugSteps": "デバッグデータなし",
+    "loadingMessages": "メッセージを読み込み中…",
+    "messageCount": "件のメッセージ",
+    "copiedJson": "JSONをコピーしました",
+    "refresh": "更新",
+    "expandAll": "すべて展開",
+    "collapseAll": "すべて折りたたむ",
+    "role": {
+      "user": "ユーザー",
+      "assistant": "アシスタント",
+      "system": "システム",
+      "subagent": "サブエージェント",
+      "task-report": "タスクレポート"
+    },
+    "meta": {
+      "tokens": "トークン使用量",
+      "in": "入力",
+      "out": "出力",
+      "reasoning": "推論",
+      "cached": "キャッシュ",
+      "elapsed": "経過時間",
+      "credits": "クレジット",
+      "started": "開始",
+      "finished": "終了",
+      "agent": "エージェント",
+      "model": "モデル",
+      "webSearch": "Web検索",
+      "enabled": "有効",
+      "disabled": "無効",
+      "reasoningMode": "推論モード"
+    },
+    "scope": {
+      "builtin": "組み込み",
+      "project": "プロジェクト",
+      "global": "グローバル",
+      "user": "ユーザー"
+    }
   },
   "helper": {
     "tryAskMe": "こんなことを聞いてみてください：",
@@ -504,5 +543,49 @@
     "noProjectFound": "プロジェクトが見つかりません",
     "projects": "プロジェクト一覧",
     "current": "現在"
+  },
+  "plan": {
+    "title": "プラン",
+    "progress": "プラン進捗 {{completed}}/{{total}}",
+    "interrupted": "中断済み",
+    "statusPending": "未着手",
+    "statusInProgress": "進行中",
+    "statusCompleted": "完了",
+    "statusFailed": "失敗",
+    "viewHistory": "プラン履歴を表示",
+    "noPlan": "プランなし",
+    "approved": "プラン承認済み",
+    "rejected": "プラン却下済み",
+    "execute": "プラン実行",
+    "modify": "プラン修正",
+    "feedbackPlaceholder": "修正内容を入力...",
+    "submitFeedback": "フィードバック送信",
+    "cancel": "キャンセル"
+  },
+  "userInput": {
+    "required": "この項目は必須です",
+    "minLength": "最低 {{min}} 文字必要です",
+    "maxLength": "最大 {{max}} 文字まで",
+    "invalidFormat": "形式が正しくありません",
+    "defaultPrefix": "デフォルト: {{value}}",
+    "selectPlaceholder": "選択してください...",
+    "multiSelect": "複数選択可",
+    "selectAtLeastOne": "少なくとも1つ選択してください",
+    "noContent": "コンテンツなし",
+    "paramError": "パラメータ形式エラー、モデルに再試行をフィードバック済み",
+    "skipped": "スキップ済み",
+    "prevStep": "前へ",
+    "nextStep": "次へ",
+    "confirm": "確定",
+    "confirming": "確定中...",
+    "skip": "スキップ"
+  },
+  "runtimeTask": {
+    "allDone": "すべて完了",
+    "master": "メイン",
+    "ready": "準備完了",
+    "waitingFor": "{{names}} 待ち",
+    "aiSelfReport": "AI 自己報告",
+    "failedBadge": "{{count}} 失敗"
   }
 }

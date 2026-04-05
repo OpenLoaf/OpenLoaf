@@ -49,6 +49,7 @@ export type UserInputChoiceOption = z.infer<typeof choiceOptionSchema>
 
 export const requestUserInputToolDef = {
   id: 'AskUserQuestion',
+  readonly: true,
   name: '请求用户输入',
   description:
     'Asks the user questions to gather information, clarify ambiguity, understand preferences, or offer choices.\n'
@@ -58,8 +59,7 @@ export const requestUserInputToolDef = {
     + '- If you recommend a specific option, add "（推荐）" at the end of its label\n'
     + 'Returns: { answers: { key1: "value1", ... } }',
   parameters: z.object({
-    title: z.string().optional().describe('标题（可选）。'),
-    description: z.string().optional().describe('描述说明（可选）。'),
+    title: z.string().describe('简短的行动导向标题，让用户一眼知道要做什么（如"选择测试类型"而非"测试计划能力"）。'),
     choices: z.array(choiceSchema).min(1).max(4).describe('1-4 组问题，每组包含问题文本和选项。'),
   }),
   needsApproval: true,

@@ -25,11 +25,17 @@ import {
   getCliSummary,
   getSessionId,
   getPlanUpdate,
+  getCurrentPlanNo,
+  setCurrentPlanNo,
+  markPlanNoAllocated,
   popAgentFrame,
   pushAgentFrame,
   setAbortSignal,
   setUiWriter,
 } from "@/ai/shared/context/requestContext";
+import { savePlanFile, getNextPlanNo, markPlanFileStatus } from "@/ai/services/chat/planFileService";
+import { emitSnapshot as emitRuntimeTaskSnapshot, clearSessionActiveForms } from "@/ai/services/chat/runtimeTaskService";
+import { reconcileRuntimeTasksOnSessionStart, abortSessionRuntimeTasks } from "@/ai/services/chat/runtimeTaskRecovery";
 import { prisma } from "@openloaf/db";
 import { setCachedCcSession } from "@/ai/models/cli/claudeCode/claudeCodeSessionStore";
 import type { MasterAgentRunner } from "@/ai/services/masterAgentRunner";
@@ -45,6 +51,31 @@ import {
 } from "@/ai/services/chat/repositories/messageStore";
 import { buildBranchLogMessages } from "@/ai/services/chat/chatHistoryLogMessageBuilder";
 import { buildTokenUsageMetadata, buildTimingMetadata, mergeAbortMetadata } from "./metadataBuilder";
+import { APICallError } from "@ai-sdk/provider";
+
+/** 从 AI SDK 错误中提取用户可读的错误信息（优先使用 responseBody 中的详情）。 */
+function extractErrorText(err: unknown): string {
+  if (APICallError.isInstance(err)) {
+    if (err.responseBody) {
+      try {
+        const body = JSON.parse(err.responseBody) as Record<string, unknown>;
+        const msg = typeof body.error === "string"
+          ? body.error
+          : typeof (body.error as Record<string, unknown>)?.message === "string"
+            ? (body.error as Record<string, unknown>).message as string
+            : typeof body.message === "string"
+              ? body.message
+              : undefined;
+        if (msg) return msg;
+      } catch {
+        return err.responseBody;
+      }
+    }
+    return err.message;
+  }
+  if (err instanceof Error) return err.message;
+  return "Unknown error";
+}
 
 type ToolResultPayload = {
   timed_out?: boolean;
@@ -272,22 +303,39 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
     onError: (err) => {
       // 只记录一次错误，避免 SDK 内部重复日志。
       logger.error({ err }, "[chat] ui stream error");
-      if (input.abortController.signal.aborted) return "aborted";
+      if (input.abortController.signal.aborted) {
+        if (input.sessionId) {
+          void abortSessionRuntimeTasks(input.sessionId);
+        }
+        return "aborted";
+      }
+      const errorText = extractErrorText(err);
       void saveErrorMessage({
         sessionId: input.sessionId,
         assistantMessageId: input.assistantMessageId,
         parentMessageId: input.parentMessageId,
-        errorText: err instanceof Error ? err.message : "Unknown error",
+        errorText,
       }).catch((error) => {
         logger.error({ err: error }, "[chat] save stream error failed");
       });
-      return err instanceof Error ? err.message : "Unknown error";
+      return errorText;
     },
     execute: async ({ writer }) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- SDK type boundary: writer generic param is constrained to UIMessage but setUiWriter accepts UIMessageStreamWriter<any>
       setUiWriter(writer as any);
       setAbortSignal(input.abortController.signal);
       pushAgentFrame(input.agentRunner.frame);
+
+      // Reconcile orphaned runtime tasks + push snapshot for SSE sync.
+      if (input.sessionId) {
+        const sid = input.sessionId;
+        void (async () => {
+          await reconcileRuntimeTasksOnSessionStart(sid);
+          await emitRuntimeTaskSnapshot(sid);
+        })().catch((err) => {
+          logger.debug({ err, sessionId: sid }, "[runtime-task] reconcile/snapshot failed at stream start");
+        });
+      }
 
       try {
         const modelMessages = await buildModelMessages(
@@ -407,10 +455,101 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
               if (cliSummary) {
                 mergedMetadata.cliSummary = cliSummary;
               }
-              const planUpdate = getPlanUpdate();
-              if (planUpdate) {
-                // 逻辑：将本次请求的 plan 挂到 assistant metadata，方便后续回放。
-                mergedMetadata.plan = planUpdate;
+              // 检测 approval-requested 的计划工具调用（SubmitPlan 或旧版 UpdatePlan）。
+              const pendingPlanPart = (responseMessage.parts ?? []).find(
+                (p: any) =>
+                  (p?.toolName === "SubmitPlan" || p?.type === "tool-SubmitPlan" ||
+                   p?.toolName === "UpdatePlan" || p?.type === "tool-UpdatePlan") &&
+                  p?.state === "approval-requested",
+              ) as any;
+              if (pendingPlanPart && !getPlanUpdate()) {
+                try {
+                  const toolName = pendingPlanPart.toolName ?? pendingPlanPart.type?.replace?.("tool-", "") ?? "";
+                  const isSubmitPlan = toolName === "SubmitPlan";
+                  const planInput = pendingPlanPart.input;
+
+                  if (isSubmitPlan) {
+                    // SubmitPlan: PLAN file already exists on disk (AI wrote it with Write tool).
+                    // Resolve path via Write's resolver so it matches where AI actually wrote the file.
+                    const planFilePathInput = typeof planInput?.planFilePath === "string" ? planInput.planFilePath : "";
+                    if (planFilePathInput) {
+                      const { readPlanFileFromAbsPath, derivePlanNoFromPath } = await import("@/ai/services/chat/planFileService");
+                      const { resolveWriteTargetPath } = await import("@/ai/tools/fileTools");
+                      try {
+                        const { absPath } = await resolveWriteTargetPath(planFilePathInput);
+                        const planNoFromPath = derivePlanNoFromPath(planFilePathInput);
+                        const planData = await readPlanFileFromAbsPath(absPath, planNoFromPath);
+                        if (planData) {
+                          if (planNoFromPath > 0) {
+                            setCurrentPlanNo(planNoFromPath);
+                            markPlanNoAllocated();
+                            await markPlanFileStatus(currentSessionId, planNoFromPath, "pending").catch(() => {});
+                          }
+                          writer.write({
+                            type: "data-plan-file",
+                            data: { planNo: planNoFromPath, filePath: planData.filePath, actionName: planData.actionName, status: "pending" },
+                            transient: true,
+                          } as unknown as InferUIMessageChunk<UIMessage>);
+                        }
+                      } catch (err) {
+                        logger.warn({ err, sessionId: currentSessionId, planFilePathInput }, "[chat] resolve SubmitPlan file failed");
+                      }
+                    }
+                  } else {
+                    // Legacy UpdatePlan: plan content is in tool args, save to file.
+                    const planSteps = Array.isArray(planInput?.plan)
+                      ? planInput.plan.filter((s: any) => typeof s === "string" && s.trim())
+                      : [];
+                    if (planSteps.length > 0) {
+                      const pendingPlanNo = await getNextPlanNo(currentSessionId);
+                      setCurrentPlanNo(pendingPlanNo);
+                      markPlanNoAllocated();
+                      const actionName = typeof planInput?.actionName === "string" ? planInput.actionName : "计划";
+                      const explanation = typeof planInput?.explanation === "string" ? planInput.explanation : undefined;
+                      const planFilePath = await savePlanFile(currentSessionId, pendingPlanNo, {
+                        actionName,
+                        explanation,
+                        plan: planSteps,
+                        status: "pending",
+                      });
+                      writer.write({
+                        type: "data-plan-file",
+                        data: { planNo: pendingPlanNo, filePath: planFilePath, actionName, status: "pending" },
+                        transient: true,
+                      } as unknown as InferUIMessageChunk<UIMessage>);
+                    }
+                  }
+                } catch (err) {
+                  logger.warn({ err, sessionId: currentSessionId }, "[chat] save pending PLAN file failed");
+                }
+              }
+
+              const rawPlanUpdate = getPlanUpdate();
+              if (rawPlanUpdate) {
+                const planNo = getCurrentPlanNo();
+                // 衍生文件写入 + 通知前端打开 stack。
+                if (planNo) {
+                  try {
+                    const planFilePath = await savePlanFile(currentSessionId, planNo, {
+                      actionName: rawPlanUpdate.actionName ?? "计划",
+                      explanation: rawPlanUpdate.explanation,
+                      plan: rawPlanUpdate.plan,
+                      status: "active",
+                    });
+                    writer.write({
+                      type: "data-plan-file",
+                      data: {
+                        planNo,
+                        filePath: planFilePath,
+                        actionName: rawPlanUpdate.actionName ?? "计划",
+                        status: "active",
+                      },
+                      transient: true,
+                    } as unknown as InferUIMessageChunk<UIMessage>);
+                  } catch (err) {
+                    logger.warn({ err, sessionId: currentSessionId, planNo }, "[chat] save PLAN file failed");
+                  }
+                }
               }
 
               const finalizedMetadata =
@@ -518,6 +657,10 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
               logger.error({ err }, "[chat] save assistant failed");
             } finally {
               popAgentFrameOnce();
+              // Release in-memory activeForm entries for this session.
+              if (input.sessionId) {
+                clearSessionActiveForms(input.sessionId);
+              }
             }
           },
         });

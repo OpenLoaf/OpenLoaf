@@ -25,7 +25,7 @@ export type AuxiliaryModelConf = {
 }
 
 const DEFAULT_CONF: AuxiliaryModelConf = {
-  modelSource: 'local',
+  modelSource: 'saas',
   localModelIds: [],
   cloudModelIds: [],
   capabilities: {},

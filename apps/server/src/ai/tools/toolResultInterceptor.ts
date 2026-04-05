@@ -113,7 +113,7 @@ export async function interceptToolResult(
   let persistedPath: string | undefined
   try {
     const sessionDir = await resolveSessionDir(sessionId)
-    const toolResultsDir = path.join(sessionDir, 'tool-results')
+    const toolResultsDir = path.join(sessionDir, 'asset', 'tool-results')
     await fs.mkdir(toolResultsDir, { recursive: true })
 
     // Sanitize toolCallId for use as filename
@@ -144,7 +144,15 @@ export async function interceptToolResult(
   // Build truncated preview
   const preview = text.slice(0, PREVIEW_LENGTH)
   const pathAttr = persistedPath ? ` path="${persistedPath}"` : ''
-  const content = `<${TRUNCATED_OUTPUT_TAG}${pathAttr} original-length="${originalLength}">\n${preview}\n</${TRUNCATED_OUTPUT_TAG}>`
+  // Non-negative guidance: tell the model exactly what it has, where the rest
+  // lives, and how to get more — without using "truncated"/"lost" language
+  // that triggers repeated-retry loops. The preview frequently already
+  // contains the information needed; the model should try extracting from it
+  // first before issuing a follow-up Read.
+  const guidance = persistedPath
+    ? `[Preview: first ${preview.length} of ${originalLength} chars. Full output saved to ${persistedPath} — use Read(file_path="${persistedPath}", offset, limit) to view other sections if the preview below is not enough. Often the preview already contains what you need.]`
+    : `[Preview: first ${preview.length} of ${originalLength} chars. Often the preview already contains what you need; only request more if the answer is clearly not present.]`
+  const content = `<${TRUNCATED_OUTPUT_TAG}${pathAttr} original-length="${originalLength}">\n${guidance}\n\n${preview}\n</${TRUNCATED_OUTPUT_TAG}>`
 
   return {
     content,

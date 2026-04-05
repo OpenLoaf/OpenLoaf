@@ -11,6 +11,7 @@ import { z } from 'zod'
 
 export const boardQueryToolDef = {
   id: 'BoardQuery',
+  readonly: true,
   name: '画布查询',
   description:
     '触发：当用户查询画布列表或获取某个画布详情时调用（"有哪些画布"、"列出画布"、"查看画布信息"）。用途：list 返回画布列表（支持按项目筛选），get 返回指定画布详情。返回：{ ok: true, data: { mode: "list", boards } | { mode: "get", board } }。不适用：需要创建/修改/删除画布时不要使用，改用 BoardMutate。',
@@ -41,6 +42,7 @@ export const boardQueryToolDef = {
 
 export const boardMutateToolDef = {
   id: 'BoardMutate',
+  readonly: false,
   name: '画布变更',
   description:
     '触发：当你需要创建、更新、删除、复制画布，或清除所有空画布时调用。用途：执行画布数据变更操作。返回：{ ok: true, data: { action, ... } }。action 选择：create 创建新画布，update 更新标题/置顶/关联项目，delete 软删除（可恢复），hard-delete 永久删除（含磁盘文件），duplicate 复制画布，clear-unbound 清除所有未关联项目的画布。不适用：仅需读取时不要使用，改用 BoardQuery。',
