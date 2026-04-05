@@ -1,0 +1,39 @@
+# 排除 host 的 node_modules（macOS 的 native binaries 在 Linux 不兼容）
+**/node_modules
+**/.next
+**/.turbo
+**/dist
+**/build
+**/out
+**/.cache
+
+# Git
+.git
+.github
+
+# Editor
+.vscode
+.idea
+*.swp
+.DS_Store
+
+# Env（容器内使用独立 env）
+**/.env
+**/.env.local
+**/.env.prod
+
+# Logs
+*.log
+logs
+
+# Docs / plans
+docs
+.plans
+.agents
+.claude
+chat-history
+
+# Electron（源码保留以满足 workspace 解析，但不会启动 GUI）
+
+# Tests cache
+**/coverage

@@ -1,0 +1,26 @@
+services:
+  openloaf-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    image: openloaf-dev:latest
+    container_name: openloaf-dev
+    working_dir: /app
+    ports:
+      - "3100:3001"   # web (Next.js) — host:3100 → container:3001
+      - "13333:23333" # server (Hono) — host:13333 → container:23333
+    environment:
+      - NODE_ENV=development
+      - HOST=0.0.0.0
+      - PORT=23333
+      - CI=1
+    volumes:
+      # 只持久化数据库，代码全部在镜像内（避免 Mac bind mount 问题）
+      - openloaf-data:/root/.openloaf
+    # 保持容器运行，用 docker exec 手动启动服务（避开 Turbopack 崩溃问题）
+    command: sleep infinity
+    stdin_open: true
+    tty: true
+
+volumes:
+  openloaf-data:

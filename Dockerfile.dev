@@ -1,0 +1,54 @@
+# OpenLoaf 开发环境 Docker 镜像（Linux）
+# 策略：把代码 COPY 进镜像（不用 bind mount），避免 Mac Docker 的 VirtioFS 性能问题
+FROM node:22-bookworm-slim
+
+# 安装 native 依赖所需系统库
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    python3 \
+    pkg-config \
+    git \
+    curl \
+    ca-certificates \
+    libvips-dev \
+    ffmpeg \
+    libnss3 \
+    libatk-bridge2.0-0 \
+    libdrm2 \
+    libxkbcommon0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxfixes3 \
+    libxrandr2 \
+    libgbm1 \
+    libasound2 \
+    libpango-1.0-0 \
+    libcairo2 \
+    procps \
+  && rm -rf /var/lib/apt/lists/*
+
+RUN corepack enable && corepack prepare pnpm@10.32.1 --activate
+
+WORKDIR /app
+
+# 直接复制全部源代码（.dockerignore 已排除 node_modules）
+COPY . .
+
+# 安装依赖
+ENV npm_config_network_concurrency=4
+RUN pnpm install --no-frozen-lockfile
+
+# 为 Linux 平台重建 native 模块
+RUN for pkg in sharp better-sqlite3 node-pty @parcel/watcher esbuild @swc/core prisma @prisma/engines; do \
+      (cd node_modules/$pkg 2>/dev/null && npm rebuild 2>&1 | tail -2) || echo "skip $pkg"; \
+    done
+
+# 预构建 widget-sdk（web 需要它）
+RUN pnpm --filter @openloaf/widget-sdk build
+
+# 写入 server 的 env 覆盖
+RUN echo "HOST=0.0.0.0\nPORT=23333\n" > apps/server/.env
+
+EXPOSE 3001 23333
+
+CMD ["pnpm", "run", "dev"]
