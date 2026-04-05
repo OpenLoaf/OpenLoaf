@@ -189,39 +189,18 @@ async function main() {
     fixedItems.push('contextCollapse no-model 分支已消除 trimToContextWindow 重复调用')
   })
 
-  // ── 债务 4：hardRules.ts 中文硬编码 ── [FIXED] ────────────────────────────
-  // 已修复：规则内容提取到 RULES_L10N locale-keyed 常量对象；
-  // 所有 builder 函数添加 locale: HardRulesLocale = 'zh' 参数；
-  // 已提供英文翻译（en）作为备选，默认仍为中文（zh）以保持兼容。
-  console.log('\n  --- [债务 4] hardRules.ts 中文硬编码 --- [FIXED]')
+  // ── 债务 4：hardRules.ts 中文硬编码 ── [设计决策：zh-only] ─────────────────
+  // 决策：hardRules 作为系统级 AI 指令，保持中文单语实现。
+  // 所有调用方实际都使用默认中文，英文分支是死代码（TODO 未完成翻译）。
+  // 若未来需要多语言，考虑把内容提到 i18n 层并由调用方传入 locale。
+  console.log('\n  --- [债务 4] hardRules.ts 保持中文单语 --- [设计决策]')
 
   const hardRulesSrc = readSrc('ai/shared/hardRules.ts')
 
-  await test('[债务 4-A] [FIXED] buildHardRules 接受 locale 参数', () => {
-    // 债务已修复：验证 locale 参数已存在
-    const hasLocaleParam = /export function buildHardRules\(locale/.test(hardRulesSrc)
-    assert.ok(hasLocaleParam, 'buildHardRules 应接受 locale 参数')
-    fixedItems.push('hardRules.ts buildHardRules 现已支持 locale 参数，默认 zh 保持向后兼容')
-  })
-
-  await test('[债务 4-B] [FIXED] 各 build* exported 函数均有语言参数', () => {
-    // 债务已修复：验证所有 exported builder 均有 locale 参数
-    const exportedBuilders = hardRulesSrc.match(/export function build\w+\([^)]*\)/g) ?? []
-    const withLangParam = exportedBuilders.filter((sig) => /locale|lang|language/i.test(sig))
-    assert.ok(
-      withLangParam.length > 0,
-      `期望至少 1 个带 locale 参数的 exported build* 函数，实际找到 ${withLangParam.length} 个`,
-    )
-    fixedItems.push(
-      `hardRules.ts 共 ${withLangParam.length}/${exportedBuilders.length} 个 exported builder 函数有 locale 参数`,
-    )
-  })
-
-  await test('[债务 4-C] [FIXED] 规则内容通过 RULES_L10N 常量对象管理', () => {
-    // 债务已修复：验证 locale-keyed 常量对象存在
-    const hasL10nConst = /const RULES_L10N/.test(hardRulesSrc)
-    assert.ok(hasL10nConst, 'RULES_L10N locale-keyed 常量对象应存在')
-    fixedItems.push('hardRules.ts 规则内容已提取为 RULES_L10N 常量，支持 zh/en 双语')
+  await test('[债务 4-A] hardRules.ts 已移除 locale 参数（zh-only 设计）', () => {
+    const hasLocaleType = /HardRulesLocale/.test(hardRulesSrc)
+    assert.ok(!hasLocaleType, 'HardRulesLocale 类型应已删除')
+    fixedItems.push('hardRules.ts 已回归中文单语实现，移除未使用的 locale 参数和 en 死代码')
   })
 
   // ── 债务 5：UNKNOWN_VALUE ── [FIXED] ──────────────────────────────────────

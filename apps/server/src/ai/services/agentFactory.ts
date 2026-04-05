@@ -37,7 +37,6 @@ import { ActivatedToolSet } from '@/ai/tools/toolSearchState'
 import { createToolSearchTool } from '@/ai/tools/toolSearchTool'
 import {
   getPrimaryTemplate,
-  getMasterPrompt,
   getPMPrompt,
   PM_AGENT_TOOL_IDS,
 } from '@/ai/agent-templates'
