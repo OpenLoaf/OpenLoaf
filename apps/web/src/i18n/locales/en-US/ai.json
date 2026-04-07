@@ -407,6 +407,9 @@
     "outputLoading": "Loading output…",
     "executing": "Executing…",
     "confirmExec": "Confirm executing this command?",
+    "approve": "Allow",
+    "alwaysAllow": "Always Allow",
+    "reject": "Reject",
     "processing": "Processing...",
     "thinkingStreaming": "Thinking...",
     "thinkingDone": "Thought",
@@ -584,5 +587,15 @@
     "waitingFor": "waiting on {{names}}",
     "aiSelfReport": "AI self-reported",
     "failedBadge": "{{count}} failed"
+  },
+  "subAgentPanel": {
+    "label": "Sub-agent: ",
+    "defaultName": "Sub-agent",
+    "status": {
+      "error": "Error",
+      "aborted": "Aborted",
+      "done": "Done",
+      "running": "Running"
+    }
   }
 }

@@ -72,7 +72,7 @@ export const agentTool = tool({
     {
       input: {
         description: '设计重构方案',
-        prompt: '阅读 src/components/Dashboard.tsx 及其依赖文件，设计组件拆分的重构方案。',
+        prompt: '阅读 src/components/Dashboard.tsx 及其依赖文件，设计组件拆分的重构方案，保存到 PLAN 文件并返回路径。',
         subagent_type: 'plan',
       },
     },

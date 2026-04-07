@@ -401,6 +401,8 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
     if (projectId) {
       queryClient.invalidateQueries({ queryKey: trpc.settings.getSkills.queryOptions({ projectId }).queryKey });
     }
+    // Also invalidate external skills detection so the import dialog reflects current state
+    queryClient.invalidateQueries({ queryKey: trpc.settings.detectExternalSkills.queryOptions({ projectId }).queryKey });
   }, [projectId]);
 
   const resolveFilePath = useCallback((file: File): string | null => {

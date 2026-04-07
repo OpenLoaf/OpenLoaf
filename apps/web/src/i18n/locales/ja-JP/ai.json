@@ -407,6 +407,9 @@
     "outputLoading": "出力を読み込み中...",
     "executing": "実行中…",
     "confirmExec": "このコマンドを実行しますか？",
+    "approve": "許可",
+    "alwaysAllow": "常に許可",
+    "reject": "拒否",
     "processing": "処理中...",
     "thinkingStreaming": "思考中...",
     "thinkingDone": "思考完了",
@@ -584,5 +587,15 @@
     "waitingFor": "{{names}} 待ち",
     "aiSelfReport": "AI 自己報告",
     "failedBadge": "{{count}} 失敗"
+  },
+  "subAgentPanel": {
+    "label": "サブエージェント：",
+    "defaultName": "サブエージェント",
+    "status": {
+      "error": "エラー",
+      "aborted": "中止",
+      "done": "完了",
+      "running": "実行中"
+    }
   }
 }

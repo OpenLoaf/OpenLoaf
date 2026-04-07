@@ -16,9 +16,16 @@ import { useLayoutState } from '@/hooks/use-layout-state'
 import { trpcClient } from '@/utils/trpc'
 import { MessageStreamMarkdown, MESSAGE_STREAM_MARKDOWN_CLASSNAME } from '@/components/ai/message/markdown/MessageStreamMarkdown'
 
+/** Returns true when the user has an active text selection (i.e. drag-select). */
+function hasTextSelection(): boolean {
+  const sel = window.getSelection()
+  return sel != null && sel.toString().length > 0
+}
+
 
 import { Copy, FolderOpen, RefreshCw, ChevronsDownUp, ChevronsUpDown, Bug } from 'lucide-react'
 import { Button } from '@openloaf/ui/button'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@openloaf/ui/dialog'
 import { toast } from 'sonner'
 
 interface AiDebugViewerProps {
@@ -957,7 +964,212 @@ function DebugResponseView({ data }: { data: Record<string, unknown> }) {
   )
 }
 
-function DebugStepsSection({ sessionId, messageId }: { sessionId: string; messageId: string }) {
+// ---------------------------------------------------------------------------
+// Sub-Agent Viewer — dialog content for Agent tool calls
+// ---------------------------------------------------------------------------
+
+function SubAgentViewer({ parentSessionId, agentId }: { parentSessionId: string; agentId: string }) {
+  const { t } = useTranslation('ai')
+  const [messages, setMessages] = useState<StoredMessageView[] | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [promptContent, setPromptContent] = useState<string | undefined>()
+  const [prefaceContent, setPrefaceContent] = useState<string | undefined>()
+  const [agentMeta, setAgentMeta] = useState<{ name?: string; task?: string; agentType?: string } | null>(null)
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
+
+  useEffect(() => {
+    let cancelled = false
+    // Load agent metadata from session.json via getSubAgentHistory
+    trpcClient.chat.getSubAgentHistory.query({ sessionId: parentSessionId, toolCallId: agentId })
+      .then((res: any) => {
+        if (cancelled) return
+        if (res.agentMeta) setAgentMeta(res.agentMeta)
+      })
+      .catch(() => {})
+
+    // Load messages
+    trpcClient.chat.getSessionMessages.query({ sessionId: agentId, parentSessionId, isAgentSession: true })
+      .then((res: any) => {
+        if (cancelled) return
+        setMessages(res.messages)
+      })
+      .catch(() => { if (!cancelled) setMessages([]) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+
+    // Load PROMPT.md / PREFACE.md
+    trpcClient.chat.getSessionPreface.query({ sessionId: agentId, parentSessionId, isAgentSession: true })
+      .then((res: any) => {
+        if (cancelled) return
+        if (res.promptContent) setPromptContent(res.promptContent)
+        if (res.content) setPrefaceContent(res.content)
+      })
+      .catch(() => {})
+
+    return () => { cancelled = true }
+  }, [parentSessionId, agentId])
+
+  const toggleExpand = useCallback((id: string) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }, [])
+
+  return (
+    <div className="bg-purple-500/5">
+      {/* Agent metadata header */}
+      {agentMeta && (
+        <div className="px-3 py-2 border-b border-purple-500/20 flex items-center gap-2 flex-wrap">
+          <span className="inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold bg-purple-500/15 text-purple-700 dark:text-purple-300">
+            {agentMeta.agentType ?? 'agent'}
+          </span>
+          {agentMeta.name && (
+            <span className="text-[11px] font-medium text-foreground/80">{agentMeta.name}</span>
+          )}
+          {agentMeta.task && (
+            <span className="text-[10px] text-muted-foreground truncate max-w-[400px]" title={agentMeta.task}>
+              {agentMeta.task.slice(0, 100)}{agentMeta.task.length > 100 ? '...' : ''}
+            </span>
+          )}
+        </div>
+      )}
+      {/* PROMPT.md / PREFACE.md */}
+      {promptContent?.trim() && (
+        <StaticRow
+          label={t('debug.systemPrompt')}
+          content={promptContent!}
+          badgeClass="bg-red-500/15 text-red-700 dark:text-red-300"
+          borderClass="border-l-red-400"
+        />
+      )}
+      {prefaceContent?.trim() && (
+        <StaticRow
+          label={t('debug.chatPreface')}
+          content={prefaceContent!}
+          badgeClass="bg-amber-500/15 text-amber-700 dark:text-amber-300"
+          borderClass="border-l-amber-400"
+        />
+      )}
+      {/* Messages */}
+      {loading ? (
+        <p className="px-3 py-2 text-[11px] text-muted-foreground">{t('debug.loadingMessages')}</p>
+      ) : !messages || messages.length === 0 ? (
+        <p className="px-3 py-2 text-[11px] text-muted-foreground">{t('debug.noMessages')}</p>
+      ) : (
+        <div>
+          {(() => {
+            const idToIndex = new Map(messages.map((m, i) => [m.id, i]))
+            return messages.map((msg, idx) => (
+              <MessageRow
+                key={msg.id}
+                msg={msg}
+                idx={idx}
+                expanded={expandedIds.has(msg.id)}
+                onToggle={() => toggleExpand(msg.id)}
+                idToIndex={idToIndex}
+                sessionId={agentId}
+                parentSessionId={parentSessionId}
+                isAgentSession
+              />
+            ))
+          })()}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Sub-Agent Index — top-level panel listing all sub-agents
+// ---------------------------------------------------------------------------
+
+type SubAgentInfo = {
+  agentId: string
+  name?: string
+  task?: string
+  agentType?: string
+  messageCount: number
+  hasDebug: boolean
+}
+
+function SubAgentIndex({ sessionId }: { sessionId: string }) {
+  const [agents, setAgents] = useState<SubAgentInfo[] | null>(null)
+  const [open, setOpen] = useState(false)
+  const [dialogAgent, setDialogAgent] = useState<string | null>(null)
+  const fetchedRef = useRef(false)
+
+  const handleToggle = useCallback(() => {
+    setOpen((v) => !v)
+    if (!fetchedRef.current) {
+      fetchedRef.current = true
+      trpcClient.chat.listSubAgents.query({ sessionId })
+        .then((res: any) => setAgents(res.agents))
+        .catch(() => setAgents([]))
+    }
+  }, [sessionId])
+
+  if (agents !== null && agents.length === 0 && !open) return null
+
+  return (
+    <div className="border-b border-purple-500/30">
+      <div
+        className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-purple-500/5 transition-colors"
+        onClick={handleToggle}
+      >
+        <span className="text-[11px] text-purple-600 dark:text-purple-400 font-semibold">
+          {open ? '▾' : '▸'} Sub-Agents
+          {agents ? ` (${agents.length})` : ''}
+        </span>
+      </div>
+      {open && agents && agents.length > 0 && (
+        <div className="px-1 pb-1">
+          {agents.map((a) => (
+            <div
+              key={a.agentId}
+              className="flex items-center gap-2 px-2 py-1 rounded cursor-pointer transition-colors text-[11px] hover:bg-purple-500/10"
+              onClick={() => setDialogAgent(a.agentId)}
+            >
+              <span className="inline-flex rounded-full px-1.5 py-px text-[9px] font-semibold bg-purple-500/15 text-purple-700 dark:text-purple-300 shrink-0">
+                {a.agentType ?? 'agent'}
+              </span>
+              <span className="font-mono text-muted-foreground/60 shrink-0 text-[10px]">{a.agentId.slice(0, 16)}</span>
+              {a.name && <span className="text-foreground/70 shrink-0">{a.name}</span>}
+              <span className="text-muted-foreground truncate min-w-0 flex-1">
+                {a.task?.slice(0, 80)}{(a.task?.length ?? 0) > 80 ? '...' : ''}
+              </span>
+              <span className="text-muted-foreground/50 shrink-0 tabular-nums">{a.messageCount} msgs</span>
+              {a.hasDebug && <span className="text-amber-600 dark:text-amber-400 shrink-0">debug</span>}
+            </div>
+          ))}
+        </div>
+      )}
+      {open && agents && agents.length === 0 && (
+        <p className="px-3 py-1.5 text-[10px] text-muted-foreground">No sub-agents found</p>
+      )}
+      {open && !agents && (
+        <p className="px-3 py-1.5 text-[10px] text-muted-foreground">Loading...</p>
+      )}
+      {/* Sub-agent dialog */}
+      <Dialog open={!!dialogAgent} onOpenChange={(v) => { if (!v) setDialogAgent(null) }}>
+        <DialogContent className="max-w-[70vw] w-[70vw] max-h-[60vh] h-[60vh] p-0 gap-0 overflow-hidden flex flex-col rounded-xl sm:max-w-[70vw]" showCloseButton>
+          <DialogHeader className="px-4 py-3 border-b shrink-0">
+            <DialogTitle className="text-sm font-medium flex items-center gap-2">
+              <span className="inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold bg-purple-500/15 text-purple-700 dark:text-purple-300">sub-agent</span>
+              <span className="font-mono text-muted-foreground text-xs">{dialogAgent}</span>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 min-h-0 overflow-y-auto ![scrollbar-width:thin]">
+            {dialogAgent && <SubAgentViewer parentSessionId={sessionId} agentId={dialogAgent} />}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
+
+function DebugStepsSection({ sessionId, messageId, parentSessionId, isAgentSession }: { sessionId: string; messageId: string; parentSessionId?: string; isAgentSession?: boolean }) {
   const { t } = useTranslation('ai')
   const [steps, setSteps] = useState<DebugStep[] | null>(null)
   const [loading, setLoading] = useState(false)
@@ -971,7 +1183,7 @@ function DebugStepsSection({ sessionId, messageId }: { sessionId: string; messag
     if (!fetchedRef.current) {
       fetchedRef.current = true
       setLoading(true)
-      trpcClient.chat.getMessageDebugSteps.query({ sessionId, messageId })
+      trpcClient.chat.getMessageDebugSteps.query({ sessionId, messageId, ...(isAgentSession ? { parentSessionId, isAgentSession: true } : {}) })
         .then((res) => setSteps(res.steps as DebugStep[]))
         .catch(() => setSteps([]))
         .finally(() => setLoading(false))
@@ -1134,13 +1346,14 @@ function DebugStepsSection({ sessionId, messageId }: { sessionId: string; messag
   )
 }
 
-function MessageRow({ msg, idx, expanded, onToggle, idToIndex, sessionId }: { msg: StoredMessageView; idx: number; expanded: boolean; onToggle: () => void; idToIndex: Map<string, number>; sessionId: string }) {
+function MessageRow({ msg, idx, expanded, onToggle, idToIndex, sessionId, parentSessionId, isAgentSession }: { msg: StoredMessageView; idx: number; expanded: boolean; onToggle: () => void; idToIndex: Map<string, number>; sessionId: string; parentSessionId?: string; isAgentSession?: boolean }) {
   const { t } = useTranslation('ai')
   const colors = ROLE_COLORS[msg.role] ?? DEFAULT_ROLE_COLOR
   const usage = msg.metadata?.totalUsage as Record<string, number> | undefined
   const preview = extractPreview(msg.parts)
   const [selectedPart, setSelectedPart] = useState(0)
   const [detailTab, setDetailTab] = useState<'parsed' | 'json'>('parsed')
+  const [subAgentDialog, setSubAgentDialog] = useState<string | null>(null)
 
   const activePart = msg.parts[selectedPart] ?? null
   const activePartJson = activePart != null ? JSON.stringify(activePart, null, 2) : ''
@@ -1149,8 +1362,8 @@ function MessageRow({ msg, idx, expanded, onToggle, idToIndex, sessionId }: { ms
     <div className={`group/row border-b border-l-4 ${colors.border} ${expanded ? 'bg-muted/20' : ''}`}>
       {/* Header bar — always visible */}
       <div
-        className="flex items-center gap-2 px-1.5 py-2 cursor-pointer hover:bg-muted/40 transition-colors"
-        onClick={onToggle}
+        className="flex items-center gap-2 px-1.5 py-2 cursor-pointer hover:bg-muted/40 transition-colors select-text"
+        onClick={() => { if (!hasTextSelection()) onToggle() }}
       >
         <span className="text-[11px] text-muted-foreground/50 w-3 text-right shrink-0 tabular-nums">
           {idx + 1}
@@ -1226,6 +1439,14 @@ function MessageRow({ msg, idx, expanded, onToggle, idToIndex, sessionId }: { ms
                   const isErrorPart = part && typeof part === 'object'
                     && typeof (part as Record<string, unknown>).state === 'string'
                     && String((part as Record<string, unknown>).state).includes('error')
+                  // Detect Agent tool for sub-agent drill-down button on the row
+                  const isAgentToolPart = typeLabel === 'tool-Agent'
+                  const partObj = (part && typeof part === 'object') ? part as Record<string, unknown> : null
+                  const rawToolCallId = isAgentToolPart && partObj ? String(partObj.toolCallId ?? '') : ''
+                  const agentIdFromPart = isAgentToolPart && partObj
+                    ? (rawToolCallId.startsWith('agent_') ? rawToolCallId : '')
+                      || (typeof partObj.output === 'string' ? (partObj.output.match(/<task-id>(agent_[^<]+)<\/task-id>/)?.[1] ?? '') : '')
+                    : ''
                   return (
                     <div
                       key={i}
@@ -1242,6 +1463,16 @@ function MessageRow({ msg, idx, expanded, onToggle, idToIndex, sessionId }: { ms
                         <span className="rounded bg-muted px-1 py-px text-[9px] text-muted-foreground shrink-0">
                           {skillScope}
                         </span>
+                      )}
+                      {isAgentToolPart && agentIdFromPart && (
+                        <button
+                          type="button"
+                          className="rounded px-1.5 py-px text-[9px] font-medium bg-purple-500/15 text-purple-700 dark:text-purple-300 hover:bg-purple-500/25 transition-colors shrink-0"
+                          onClick={(e) => { e.stopPropagation(); setSubAgentDialog(agentIdFromPart) }}
+                          title="View Sub-Agent"
+                        >
+                          <Bug className="h-3 w-3 inline mr-0.5" />debug
+                        </button>
                       )}
                       <span className={`rounded px-1 py-px text-[10px] font-medium shrink-0 ${typeStyle}`}>
                         {typeLabel}
@@ -1291,9 +1522,25 @@ function MessageRow({ msg, idx, expanded, onToggle, idToIndex, sessionId }: { ms
           </div>
           {/* API Debug steps — only for assistant messages */}
           {msg.role === 'assistant' && (
-            <DebugStepsSection sessionId={sessionId} messageId={msg.id} />
+            <DebugStepsSection sessionId={sessionId} messageId={msg.id} parentSessionId={parentSessionId} isAgentSession={isAgentSession} />
           )}
         </div>
+      )}
+      {/* Sub-agent detail dialog */}
+      {subAgentDialog && (
+        <Dialog open onOpenChange={(v) => { if (!v) setSubAgentDialog(null) }}>
+          <DialogContent className="max-w-[70vw] w-[70vw] max-h-[60vh] h-[60vh] p-0 gap-0 overflow-hidden flex flex-col rounded-xl sm:max-w-[70vw] allow-text-select" showCloseButton>
+            <DialogHeader className="px-4 py-3 border-b shrink-0">
+              <DialogTitle className="text-sm font-medium flex items-center gap-2">
+                <span className="inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold bg-purple-500/15 text-purple-700 dark:text-purple-300">sub-agent</span>
+                <span className="font-mono text-muted-foreground text-xs">{subAgentDialog}</span>
+              </DialogTitle>
+            </DialogHeader>
+            <div className="flex-1 min-h-0 overflow-y-auto ![scrollbar-width:thin]">
+              <SubAgentViewer parentSessionId={isAgentSession ? parentSessionId! : sessionId} agentId={subAgentDialog} />
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   )
@@ -1331,11 +1578,11 @@ function StaticRow({ label, content, defaultExpanded, badgeClass, borderClass }:
   return (
     <div className={`group/row border-b border-l-4 ${borderClass ?? 'border-l-gray-300 dark:border-l-gray-600'}`}>
       <div
-        className="flex items-center gap-2 px-1.5 py-2 cursor-pointer hover:bg-muted/40 transition-colors"
-        onClick={() => setExpanded((v) => !v)}
+        className="flex items-center gap-2 px-1.5 py-2 cursor-pointer hover:bg-muted/40 transition-colors select-text"
+        onClick={() => { if (!hasTextSelection()) setExpanded((v) => !v) }}
       >
         <span className="text-[11px] text-muted-foreground/50 w-3 text-right shrink-0">—</span>
-        <span className={`inline-flex w-[72px] justify-center rounded-full px-2 py-0.5 text-[11px] font-semibold shrink-0 ${badgeClass ?? 'bg-gray-500/15 text-gray-700 dark:text-gray-300'}`}>
+        <span className={`inline-flex justify-center rounded-full px-2 py-0.5 text-[11px] font-semibold shrink-0 whitespace-nowrap ${badgeClass ?? 'bg-gray-500/15 text-gray-700 dark:text-gray-300'}`}>
           {label}
         </span>
         <span className="min-w-0 flex-1 truncate text-xs text-foreground/60">
@@ -1465,6 +1712,7 @@ function MessagesPanel({ sessionId, promptContent, prefaceContent }: { sessionId
         </div>
       </div>
       <div className="flex-1 overflow-y-auto ![scrollbar-width:thin]">
+        <SubAgentIndex sessionId={sessionId} />
         {promptContent?.trim() && (
           <StaticRow
             label={t('debug.systemPrompt')}
@@ -1543,7 +1791,7 @@ export default function AiDebugViewer({
   }, [logFolderPath])
 
   return (
-    <div className="flex h-full w-full flex-col overflow-hidden">
+    <div className="flex h-full w-full flex-col overflow-hidden allow-text-select">
       {shouldRenderStackHeader ? (
         <StackHeader
           title={t('debug.title')}

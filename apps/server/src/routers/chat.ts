@@ -36,6 +36,7 @@ import {
   registerAgentDir,
   readSessionJson,
 } from '@/ai/services/chat/repositories/chatFileStore'
+import { resolveSessionDir } from '@/ai/services/chat/repositories/chatSessionPathResolver'
 import { copySessionToBoard } from '@/ai/services/chat/copySessionToBoard'
 import { promises as fsPromises } from 'node:fs'
 import nodePath from 'node:path'
@@ -398,13 +399,20 @@ class ChatRouterImpl extends BaseChatRouter {
         .input(chatSchemas.getSessionPreface.input)
         .output(chatSchemas.getSessionPreface.output)
         .query(async ({ ctx, input }) => {
-          const session = await ctx.prisma.chatSession.findUnique({
-            where: { id: input.sessionId },
-            select: { id: true, deletedAt: true },
-          })
-          if (!session || session.deletedAt) throw new Error(getErrorMessage('CHAT_SESSION_NOT_FOUND', ctx.lang))
+          if (input.isAgentSession && input.parentSessionId) {
+            await registerAgentDir(input.parentSessionId, input.sessionId)
+          } else {
+            const session = await ctx.prisma.chatSession.findUnique({
+              where: { id: input.sessionId },
+              select: { id: true, deletedAt: true },
+            })
+            if (!session || session.deletedAt) throw new Error(getErrorMessage('CHAT_SESSION_NOT_FOUND', ctx.lang))
+          }
 
-          const content = await resolveSessionPrefaceText(ctx.prisma, input.sessionId)
+          let content = ''
+          if (!input.isAgentSession) {
+            content = await resolveSessionPrefaceText(ctx.prisma, input.sessionId)
+          }
           let jsonlPath: string | undefined
           let promptContent: string | undefined
           try {
@@ -420,6 +428,12 @@ class ChatRouterImpl extends BaseChatRouter {
                 if (typeof parsed.instructions === 'string') promptContent = parsed.instructions
               } catch { /* ignore */ }
             }
+            // 子 agent 从文件读取 PREFACE.md
+            if (input.isAgentSession && !content) {
+              try {
+                content = await fsPromises.readFile(nodePath.join(sessionDir, 'PREFACE.md'), 'utf-8')
+              } catch { /* ignore */ }
+            }
           } catch {
             // 非关键操作
           }
@@ -430,11 +444,15 @@ class ChatRouterImpl extends BaseChatRouter {
         .input(chatSchemas.getSessionMessages.input)
         .output(chatSchemas.getSessionMessages.output)
         .query(async ({ ctx, input }) => {
-          const session = await ctx.prisma.chatSession.findUnique({
-            where: { id: input.sessionId },
-            select: { id: true, deletedAt: true },
-          })
-          if (!session || session.deletedAt) throw new Error(getErrorMessage('CHAT_SESSION_NOT_FOUND', ctx.lang))
+          if (input.isAgentSession && input.parentSessionId) {
+            await registerAgentDir(input.parentSessionId, input.sessionId)
+          } else {
+            const session = await ctx.prisma.chatSession.findUnique({
+              where: { id: input.sessionId },
+              select: { id: true, deletedAt: true },
+            })
+            if (!session || session.deletedAt) throw new Error(getErrorMessage('CHAT_SESSION_NOT_FOUND', ctx.lang))
+          }
 
           const messages = await readJsonlRaw(input.sessionId)
           return { messages }
@@ -444,11 +462,15 @@ class ChatRouterImpl extends BaseChatRouter {
         .input(chatSchemas.getMessageDebugSteps.input)
         .output(chatSchemas.getMessageDebugSteps.output)
         .query(async ({ ctx, input }) => {
-          const session = await ctx.prisma.chatSession.findUnique({
-            where: { id: input.sessionId },
-            select: { id: true, deletedAt: true },
-          })
-          if (!session || session.deletedAt) throw new Error(getErrorMessage('CHAT_SESSION_NOT_FOUND', ctx.lang))
+          if (input.isAgentSession && input.parentSessionId) {
+            await registerAgentDir(input.parentSessionId, input.sessionId)
+          } else {
+            const session = await ctx.prisma.chatSession.findUnique({
+              where: { id: input.sessionId },
+              select: { id: true, deletedAt: true },
+            })
+            if (!session || session.deletedAt) throw new Error(getErrorMessage('CHAT_SESSION_NOT_FOUND', ctx.lang))
+          }
 
           const jsonlPath = await resolveMessagesJsonlPath(input.sessionId)
           const sessionDir = nodePath.dirname(jsonlPath)
@@ -501,6 +523,62 @@ class ChatRouterImpl extends BaseChatRouter {
           }
 
           return { steps: allSteps }
+        }),
+
+      listSubAgents: shieldedProcedure
+        .input(chatSchemas.listSubAgents.input)
+        .output(chatSchemas.listSubAgents.output)
+        .query(async ({ input }) => {
+          const sessionDir = await resolveSessionDir(input.sessionId)
+          const agentsDir = nodePath.join(sessionDir, 'agents')
+          let agentDirs: string[] = []
+          try {
+            agentDirs = (await fsPromises.readdir(agentsDir, { withFileTypes: true }))
+              .filter((d) => d.isDirectory() && d.name.startsWith('agent_'))
+              .map((d) => d.name)
+              .sort()
+          } catch {
+            return { agents: [] }
+          }
+
+          const agents: Array<{
+            agentId: string
+            name?: string
+            task?: string
+            agentType?: string
+            messageCount: number
+            hasDebug: boolean
+          }> = []
+
+          for (const agentId of agentDirs) {
+            const agentDir = nodePath.join(agentsDir, agentId)
+            let name: string | undefined
+            let task: string | undefined
+            let agentType: string | undefined
+            try {
+              const raw = await fsPromises.readFile(nodePath.join(agentDir, 'session.json'), 'utf-8')
+              const meta = JSON.parse(raw)
+              name = meta.title
+              task = meta.task
+              agentType = meta.agentType
+            } catch { /* no session.json */ }
+
+            let messageCount = 0
+            try {
+              const content = await fsPromises.readFile(nodePath.join(agentDir, 'messages.jsonl'), 'utf-8')
+              messageCount = content.split('\n').filter((l) => l.trim()).length
+            } catch { /* no messages.jsonl */ }
+
+            let hasDebug = false
+            try {
+              const stat = await fsPromises.stat(nodePath.join(agentDir, 'debug'))
+              hasDebug = stat.isDirectory()
+            } catch { /* no debug dir */ }
+
+            agents.push({ agentId, name, task, agentType, messageCount, hasDebug })
+          }
+
+          return { agents }
         }),
 
       autoTitle: shieldedProcedure

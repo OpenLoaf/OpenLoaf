@@ -66,6 +66,12 @@ const SAFE_COMMANDS_WIN = new Set([
 
 const SHELL_BINARIES = new Set(["sh", "bash", "zsh", "fish", "powershell", "pwsh", "cmd"]);
 
+/**
+ * 沙箱限定安全命令：这些命令在沙箱目录内操作时免审批。
+ * 它们对用户源码/系统文件有破坏性，但在会话私有目录（CURRENT_CHAT_DIR 等）内是安全的。
+ */
+const SANDBOX_ONLY_COMMANDS = new Set(["rm", "mv", "rmdir"]);
+
 // ─── 核心逻辑 ───────────────────────────────────────────────────────────────
 
 /** 提取命令的首个 token（归一化为小写、去扩展名）。 */
@@ -134,6 +140,24 @@ function allSegmentsSafe(command: string): boolean {
     for (const pipeSeg of pipeSegments) {
       const token = extractLeadCommand(pipeSeg);
       if (!isSafeCommand(token)) return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * 检查所有命令段是否为白名单命令或沙箱限定安全命令。
+ * 用于沙箱豁免判定：即使命令本身（rm/mv 等）不在全局白名单中，
+ * 只要路径都在沙箱内就可以放行。
+ */
+function allSegmentsSafeOrSandboxSafe(command: string): boolean {
+  const chainSegments = command.split(/\s*(?:\&\&|\|\|)\s*/);
+  for (const segment of chainSegments) {
+    if (!segment.trim()) continue;
+    const pipeSegments = segment.split(/\s*\|\s*/);
+    for (const pipeSeg of pipeSegments) {
+      const token = extractLeadCommand(pipeSeg);
+      if (!isSafeCommand(token) && !SANDBOX_ONLY_COMMANDS.has(token)) return false;
     }
   }
   return true;
@@ -232,13 +256,13 @@ export function needsApprovalForCommand(
 
   if (!hasUnsafeOps && !hasUnsafeSegment) return false;
 
-  // 沙箱豁免：命令虽有"危险"操作符（重定向、分号、管道等），但若所有用户
-  // 路径均在沙箱目录内，放行。命令段落本身不安全（sudo、shell 等）时不豁免，
-  // 沙箱只豁免 I/O 限定的危险性，不豁免命令能力。
+  // 沙箱豁免：命令中所有用户路径均在沙箱目录内时，放行以下两种情况：
+  // 1. 白名单命令 + 危险 I/O 操作符（重定向、分号等）
+  // 2. 沙箱限定命令（rm、mv 等）— 对用户源码有破坏性，但在会话沙箱内安全
+  // 注意：sudo、shell 二进制等不在任何安全集合中，始终需要审批。
   if (
     options?.sandboxDirs?.length &&
-    hasUnsafeOps &&
-    !hasUnsafeSegment &&
+    allSegmentsSafeOrSandboxSafe(masked) &&
     commandStaysInSandbox(trimmed, options.sandboxDirs)
   ) {
     return false;

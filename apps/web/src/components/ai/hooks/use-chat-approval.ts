@@ -125,6 +125,9 @@ export function useChatApproval({
 
     approvalSubmitInFlightRef.current = true;
     try {
+      // 中文注释：审批通过后立即显示 thinking 指示器，避免用户等待期间无反馈。
+      // 服务端会通过 data-step-thinking { active: false } 或 onFinish 自动关闭。
+      setStepThinking(true);
       resetBranchSnapshotReceipt();
       const autoApproveBody = basicRef.current.autoApproveTools ? { autoApproveTools: true } : {};
       if (Object.keys(payloads).length > 0) {
@@ -143,11 +146,12 @@ export function useChatApproval({
         delete approvalPayloadsRef.current[toolCallId];
       }
     } catch {
-      // 发送失败时保留暂存
+      // 发送失败时保留暂存，并关闭 thinking 指示器
+      setStepThinking(false);
     } finally {
       approvalSubmitInFlightRef.current = false;
     }
-  }, [chat, resetBranchSnapshotReceipt, tabId, basicRef]);
+  }, [chat, resetBranchSnapshotReceipt, tabId, basicRef, setStepThinking]);
 
   /** Reject pending tool approvals after manual stop. */
   const rejectPendingToolApprovals = React.useCallback(async () => {
@@ -216,6 +220,7 @@ export function useChatApproval({
     queueToolApprovalPayload,
     clearToolApprovalPayload,
     continueAfterToolApprovals,
+    rejectPendingToolApprovals,
     stopGenerating,
   };
 }

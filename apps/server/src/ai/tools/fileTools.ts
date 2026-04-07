@@ -15,7 +15,8 @@ import {
   editToolDef,
   writeToolDef,
 } from '@openloaf/api/types/tools/runtime'
-import { resolveToolPath, ensureWritableRoot } from '@/ai/tools/toolScope'
+import { resolveToolPath, ensureWritableRoot, expandPathTemplateVars } from '@/ai/tools/toolScope'
+import { resolveCommandSandboxDirs } from '@/ai/tools/commandSandbox'
 import { resolveSecretTokens } from '@/ai/tools/secretStore'
 import { getProjectId, getSessionId } from '@/ai/shared/context/requestContext'
 import { getProjectRootPath } from '@openloaf/api/services/vfsService'
@@ -62,7 +63,9 @@ export async function resolveWriteTargetPath(targetPath: string): Promise<{ absP
     rootPath = writable.rootPath
   }
 
-  const trimmed = targetPath.trim()
+  // 展开路径模板变量（${CURRENT_CHAT_DIR} 等），与 Read/Glob/Grep 保持一致
+  const expanded = expandPathTemplateVars(targetPath)
+  const trimmed = expanded.trim()
   if (!trimmed) throw new Error('file_path is required.')
   if (trimmed.startsWith('file:')) throw new Error('file:// URIs are not allowed.')
 
@@ -151,6 +154,20 @@ function hasBlockedBinaryExtension(targetPath: string): boolean {
 /** Check if a file path is a PLAN file (PLAN_N.md) — bypass guard/approval. */
 function isPlanFilePath(filePath: string): boolean {
   return /PLAN_\d+\.md$/.test(filePath ?? '')
+}
+
+/**
+ * Check if a file path falls inside the session sandbox (CURRENT_CHAT_DIR / CURRENT_BOARD_DIR).
+ * Files in sandbox are session-private — Write/Edit there should not require approval.
+ */
+function isFileInSandbox(filePath: string): boolean {
+  if (isPlanFilePath(filePath)) return true
+  const sandboxDirs = resolveCommandSandboxDirs()
+  if (sandboxDirs.length === 0) return false
+  const expanded = expandPathTemplateVars(filePath)
+  if (!path.isAbsolute(expanded)) return false
+  const abs = path.resolve(expanded)
+  return sandboxDirs.some(dir => isPathInside(dir, abs))
 }
 
 /**
@@ -352,7 +369,7 @@ export const readTool = tool({
 export const editTool = tool({
   description: editToolDef.description,
   inputSchema: zodSchema(editToolDef.parameters),
-  needsApproval: ({ file_path }: { file_path: string }) => !isPlanFilePath(file_path),
+  needsApproval: ({ file_path }: { file_path: string }) => !isFileInSandbox(file_path),
   execute: async ({
     file_path: filePath,
     old_string: oldString,
@@ -450,7 +467,7 @@ export const editTool = tool({
 export const writeTool = tool({
   description: writeToolDef.description,
   inputSchema: zodSchema(writeToolDef.parameters),
-  needsApproval: ({ file_path }: { file_path: string }) => !isPlanFilePath(file_path),
+  needsApproval: ({ file_path }: { file_path: string }) => !isFileInSandbox(file_path),
   execute: async ({
     file_path: filePath,
     content,

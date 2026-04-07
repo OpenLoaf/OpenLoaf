@@ -398,6 +398,17 @@ export const chatRouter = t.router({
     }),
 
   /**
+   * List sub-agents for a chat session.
+   * - Implemented in server chat router.
+   */
+  listSubAgents: shieldedProcedure
+    .input(chatSchemas.listSubAgents.input)
+    .output(chatSchemas.listSubAgents.output)
+    .query(async () => {
+      throw new Error('Not implemented: override in server chat router.')
+    }),
+
+  /**
    * 清除所有聊天数据
    */
   clearAllChat: shieldedProcedure.mutation(async ({ ctx }) => {

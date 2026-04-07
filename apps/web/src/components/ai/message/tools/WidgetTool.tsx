@@ -171,8 +171,8 @@ export default function WidgetTool({
 
         {/* 审批区域 */}
         {isPending && approvalId ? (
-          <div className="flex items-center justify-between px-3 py-2.5">
-            <span className="text-xs text-muted-foreground">确认生成此 Widget？</span>
+          <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5 px-3 py-2.5">
+            <span className="shrink-0 text-xs text-muted-foreground">确认生成此 Widget？</span>
             <ToolApprovalActions approvalId={approvalId} size="default" />
           </div>
         ) : null}

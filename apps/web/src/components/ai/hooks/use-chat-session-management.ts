@@ -91,9 +91,9 @@ export function useChatSessionManagement({
   );
 
   const newSession = React.useCallback(() => {
-    // If left dock only has stack (no base panel), clear the stack
+    // Clear all stack items when creating a new session
     const ls = useLayoutState.getState()
-    if (!ls.base && ls.stack.length > 0) {
+    if (ls.stack.length > 0) {
       ls.clearStack()
     }
 
@@ -114,6 +114,12 @@ export function useChatSessionManagement({
 
   const selectSession = React.useCallback(
     (nextSessionId: string) => {
+      // Clear all stack items when switching sessions
+      const ls = useLayoutState.getState()
+      if (ls.stack.length > 0) {
+        ls.clearStack()
+      }
+
       stopAndResetSession(true);
       sessionIdRef.current = nextSessionId;
       onSessionChange?.(nextSessionId, {

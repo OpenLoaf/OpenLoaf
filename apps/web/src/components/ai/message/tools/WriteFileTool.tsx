@@ -360,8 +360,8 @@ export default function WriteFileTool({
 
         {/* 审批区域（仅 pending 时显示） */}
         {isPending && approvalId ? (
-          <div className="flex items-center justify-between border-t px-3 py-2.5">
-            <span className="text-xs text-muted-foreground">{t('tool.confirmWrite')}</span>
+          <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5 border-t px-3 py-2.5">
+            <span className="shrink-0 text-xs text-muted-foreground">{t('tool.confirmWrite')}</span>
             <ToolApprovalActions approvalId={approvalId} size="default" />
           </div>
         ) : null}

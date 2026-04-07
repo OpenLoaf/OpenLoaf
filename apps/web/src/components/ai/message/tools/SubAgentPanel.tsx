@@ -18,6 +18,7 @@ import {
   AlertCircleIcon,
   CheckCircleIcon,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useLayoutState } from '@/hooks/use-layout-state'
 import { useChatRuntime } from '@/hooks/use-chat-runtime'
 import { useChatSession } from '../../context'
@@ -44,17 +45,19 @@ function AgentStatusBadge({
   isDone,
   hasError,
   isAborted,
+  t,
 }: {
   isStreaming: boolean
   isDone: boolean
   hasError: boolean
   isAborted: boolean
+  t: (key: string) => string
 }) {
   if (hasError) {
     return (
       <span className="inline-flex items-center gap-1 text-[11px] text-destructive">
         <AlertCircleIcon className="size-3" />
-        出错
+        {t('subAgentPanel.status.error')}
       </span>
     )
   }
@@ -62,7 +65,7 @@ function AgentStatusBadge({
     return (
       <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
         <AlertCircleIcon className="size-3" />
-        已中止
+        {t('subAgentPanel.status.aborted')}
       </span>
     )
   }
@@ -70,7 +73,7 @@ function AgentStatusBadge({
     return (
       <span className="inline-flex items-center gap-1 text-[11px] text-foreground">
         <CheckCircleIcon className="size-3" />
-        已完成
+        {t('subAgentPanel.status.done')}
       </span>
     )
   }
@@ -78,7 +81,7 @@ function AgentStatusBadge({
     return (
       <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
         <LoaderCircleIcon className="size-3 animate-spin" />
-        运行中
+        {t('subAgentPanel.status.running')}
       </span>
     )
   }
@@ -194,6 +197,7 @@ export default function SubAgentPanel({
   part,
   className,
 }: ToolComponentProps) {
+  const { t } = useTranslation('ai')
   const { tabId: contextTabId, sessionId } = useChatSession()
 
   // 从 input / output 解析 agent 信息
@@ -258,7 +262,7 @@ export default function SubAgentPanel({
     stream?.name ||
     (typeof inputObj?.subagent_type === 'string' ? inputObj.subagent_type : '') ||
     (typeof inputObj?.agentType === 'string' ? inputObj.agentType : '') ||
-    '子智能体'
+    t('subAgentPanel.defaultName')
   const task =
     stream?.task ||
     (typeof inputObj?.prompt === 'string' ? (inputObj.prompt as string).slice(0, 200) : '') ||
@@ -323,10 +327,11 @@ export default function SubAgentPanel({
       {/* Header */}
       <div className="flex items-center gap-2 px-3 py-2">
         <BotIcon className="size-4 shrink-0 text-muted-foreground" />
+        <span className="shrink-0 text-muted-foreground">{t('subAgentPanel.label')}</span>
         <span className="min-w-0 flex-1 truncate font-medium text-foreground/90">
           {agentName}
         </span>
-        <AgentStatusBadge isStreaming={isStreaming} isDone={isDone} hasError={hasError} isAborted={isAborted} />
+        <AgentStatusBadge isStreaming={isStreaming} isDone={isDone} hasError={hasError} isAborted={isAborted} t={t} />
       </div>
 
       {/* Task description */}

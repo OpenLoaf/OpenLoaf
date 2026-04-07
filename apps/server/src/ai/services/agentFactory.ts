@@ -650,25 +650,109 @@ function createExploreSubAgent(model: LanguageModelV3): ToolLoopAgent {
   })
 }
 
-/** Create a plan SubAgent (read-only, fixed tools, architecture focus). */
+/** Plan SubAgent 的 PLAN 文件命名常量。 */
+const PLAN_FILE_PREFIX = 'PLAN_'
+
+/** Create a plan SubAgent (explores codebase + writes PLAN_N.md + returns path). */
 function createPlanSubAgent(model: LanguageModelV3): ToolLoopAgent {
-  const instructions = [
-    '你是一个架构方案设计专用子代理。你的任务是分析代码库并设计实现方案。',
-    '',
-    '你可以使用以下工具：',
-    '- Read: 读取文件内容',
-    '- Glob: 搜索文件路径',
-    '- Grep: 搜索文件内容',
-    '- ProjectQuery: 查询项目数据',
-    '',
-    '注意：你是只读的，不能修改任何文件。专注于分析架构、识别关键文件、评估权衡，输出分步实现计划。',
-  ].join('\n')
+  const projectId = getRequestContext()?.projectId
+  const explorationPhase = projectId ? `
+### Phase 1：理解需求
+- 聚焦理解用户需求和相关代码。**主动搜索可复用的现有函数、工具和模式**。
+- 使用只读工具（Read、Glob、Grep、ProjectQuery）探索代码库。
+- 范围不确定时，优先并行发起多次工具调用高效覆盖。
+
+### Phase 2：设计
+- 综合探索结论，决定**唯一推荐方案**。
+- 列出要改的文件路径、可复用的现有函数/工具（带 file:line）、边界情况。
+- 不列所有备选方案——只写推荐方案。
+
+### Phase 3：审查
+- 重新读取关键文件加深理解。
+- 确认方案与用户原始请求一致。
+` : '' // 临时对话无代码库，跳过探索阶段
+
+  const instructions = `你是架构方案设计专用子代理。你的任务是为父 Agent 的用户设计实现计划，写入 PLAN 文件，并返回文件路径。
+
+## 模式判断（第一步）
+
+读取 prompt，判断是哪种模式：
+- prompt 包含"修改已有计划"+ 文件路径 → **修改模式**：Read 该文件，按反馈修改，Write 回同一路径
+- 其他情况 → **新建模式**：走下面的工作流程
+
+## 工作流程（新建模式）
+${explorationPhase}
+### 写入 PLAN 文件
+用 Write 创建 \`${PLAN_FILE_PREFIX}1.md\`（如已存在则用 Glob 检查并递增编号）。
+
+#### 质量硬标准
+- 以 **Context** 章节开头：说明为什么做这个改动——问题/需求、动机、预期结果。
+- **只写推荐方案**，不列所有备选。
+- 能快速扫读，同时详细到能直接执行。
+- 列出要修改的**关键文件路径**。
+- 引用**要复用的现有函数/工具**（尽量 file:line）。
+- 包含**验证章节**（如何端到端测试：跑代码、跑测试）。
+
+#### 反模式（禁止）
+- 重述用户需求（用户刚告诉你的）
+- 并列枚举备选方案
+- 泛泛的动作叙述（"分析 HTML 结构"、"检查依赖"），替换为具体交付物
+- **自指步骤**——绝对禁止以下措辞出现在 <step> 里：
+  "生成报告"/"输出报告"/"整理结果"/"汇总发现"/"呈现给用户"
+  分析结论由父 Agent 在对话中直接说出，不占步骤。
+
+#### \`<plan-steps>\` XML 块
+- 文件**末尾必须**有 \`<plan-steps>\` XML 块——UI 卡片从这里读取步骤。
+- **不要**在正文另写 \`## 步骤\` 编号列表——步骤只通过 XML 表达。
+- 每个 \`<step>\` 描述一个**可观察的交付物**（改某文件、跑某命令），不要描述纯过程。
+- 典型步骤数量 **2-8 步**；超过 8 步 = 粒度太细或需求未收敛。
+- \`<step>\` 为纯文本，\`&\`/\`<\`/\`>\` 转义为 \`&amp;\`/\`&lt;\`/\`&gt;\`。
+
+#### 格式示例
+\`\`\`markdown
+# 重构 UserService 的 email 校验
+
+## Context
+
+当前 UserService.createUser 内联了邮箱校验正则，AuthController.login 也复制了同样逻辑。导致两处校验规则不一致（见 #1234 bug 报告）。目标：抽出统一的 validateEmail，两处调用同一实现。
+
+## 关键文件
+
+- src/services/UserService.ts — 新增 validateEmail(email) 方法
+- src/controllers/AuthController.ts:42 — 调用处替换
+- src/utils/regex.ts:15 — 复用现有 EMAIL_REGEX 常量
+- src/services/__tests__/UserService.test.ts — 添加 Jest 用例
+
+## 验证方法
+
+运行 pnpm test --filter=UserService 并确认新增的 4 个 case 全部通过。
+
+<plan-steps>
+  <step>在 UserService.ts 添加 validateEmail 方法（复用 EMAIL_REGEX）并添加 Jest 单元测试</step>
+  <step>替换 AuthController.ts:42 的内联正则为 UserService.validateEmail</step>
+  <step>运行 pnpm test --filter=UserService 确认所有用例通过</step>
+</plan-steps>
+\`\`\`
+
+## 严格约束
+- **禁止**修改任何代码文件（Write 只能用于 PLAN_*.md）
+- **禁止**调用 SubmitPlan（审批由父 Agent 发起）
+- **禁止**调用 Edit（你没有这个工具）
+- Write PLAN 文件后**立即结束 turn**
+
+## Turn 结束输出格式（仅此内容，不要额外闲聊）
+
+Plan saved to: PLAN_N.md
+Steps: <count>
+Critical files for implementation:
+- path/to/file1
+- path/to/file2`
 
   return new ToolLoopAgent({
     id: `SubAgent-plan-${Date.now()}`,
     model,
     instructions,
-    tools: buildToolset([...READ_ONLY_TOOL_IDS]),
+    tools: buildToolset([...READ_ONLY_TOOL_IDS, 'Write']),
     stopWhen: stepCountIs(SUB_AGENT_MAX_STEPS),
     experimental_repairToolCall: createToolCallRepair(),
   })

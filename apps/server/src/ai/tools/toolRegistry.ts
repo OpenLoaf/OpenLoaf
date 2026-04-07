@@ -31,6 +31,7 @@ import {
   taskReadToolDef,
 } from "@openloaf/api/types/tools/runtimeTask";
 import { submitPlanTool } from "@/ai/tools/submitPlanTool";
+import { savePlanDraftTool } from "@/ai/tools/savePlanDraftTool";
 import { projectMutateTool, projectQueryTool } from "@/ai/tools/projectTools";
 import { boardQueryTool, boardMutateTool } from "@/ai/tools/boardTools";
 import { calendarMutateTool, calendarQueryTool } from "@/ai/tools/calendarTools";
@@ -109,6 +110,7 @@ import {
   grepToolDef,
   editDocumentToolDef,
   submitPlanToolDef,
+  savePlanDraftToolDef,
 } from "@openloaf/api/types/tools/runtime";
 import { generateWidgetToolDef } from "@openloaf/api/types/tools/widget";
 import {
@@ -242,6 +244,9 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
   },
   [submitPlanToolDef.id]: {
     tool: submitPlanTool,
+  },
+  [savePlanDraftToolDef.id]: {
+    tool: savePlanDraftTool,
   },
   [projectQueryToolDef.id]: {
     tool: projectQueryTool,
@@ -384,6 +389,7 @@ const TOOL_DEF_REGISTRY: Record<string, { parameters?: any }> = {
   [taskUpdateToolDef.id]: taskUpdateToolDef,
   [taskReadToolDef.id]: taskReadToolDef,
   [submitPlanToolDef.id]: submitPlanToolDef,
+  [savePlanDraftToolDef.id]: savePlanDraftToolDef,
   [projectQueryToolDef.id]: projectQueryToolDef,
   [projectMutateToolDef.id]: projectMutateToolDef,
   [boardQueryToolDef.id]: boardQueryToolDef,

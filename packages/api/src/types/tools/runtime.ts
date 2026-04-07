@@ -200,5 +200,57 @@ Ensure your plan is complete and unambiguous:
 /** Submit-plan payload type. */
 export type SubmitPlanArgs = z.infer<typeof submitPlanToolDef.parameters>;
 
+/** Save-plan-draft tool definition — used exclusively by the plan subagent to
+ * persist its designed plan to a PLAN_N.md file and return the path to the
+ * parent agent for approval via SubmitPlan. */
+export const savePlanDraftToolDef = {
+  id: "SavePlanDraft",
+  readonly: false,
+  name: "保存计划草稿",
+  description: `Save a plan draft to PLAN_N.md (auto-numbered) for the current session.
+
+## When to Use This Tool
+Call this tool ONCE at the end of your planning work, after you have:
+1. Explored the codebase thoroughly
+2. Designed a concrete, step-by-step implementation approach
+3. Identified critical files and architectural trade-offs
+
+## What This Tool Does
+- Auto-assigns the next available plan number (e.g. PLAN_1.md, PLAN_2.md)
+- Writes the plan file with YAML front-matter and machine-readable step block
+- Returns the file path and plan number to you
+
+## After Calling This Tool
+Your turn ENDS. Respond with ONLY this summary (no extra chatter):
+
+    Plan saved to: <planFilePath>
+    Steps: <count>
+    Critical files for implementation:
+    - path/to/file1
+    - path/to/file2
+
+The parent agent will then call SubmitPlan(planFilePath) to request user approval.
+DO NOT call SubmitPlan yourself — approval is the parent agent's responsibility.`,
+  parameters: z.object({
+    actionName: z
+      .string()
+      .min(1)
+      .max(60)
+      .describe("Short plan title, <= 60 chars (Chinese or English)"),
+    explanation: z
+      .string()
+      .optional()
+      .describe("Approach rationale, trade-offs, or architectural notes"),
+    steps: z
+      .array(z.string().min(1))
+      .min(1)
+      .describe("Ordered implementation steps (1 sentence each)"),
+  }),
+  component: null,
+} as const;
+
+/** Save-plan-draft payload type. */
+export type SavePlanDraftArgs = z.infer<typeof savePlanDraftToolDef.parameters>;
+
 /** Plan step item — a plain string describing the step. */
 export type PlanItem = string;

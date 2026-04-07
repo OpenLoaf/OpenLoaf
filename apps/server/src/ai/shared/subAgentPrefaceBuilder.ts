@@ -14,21 +14,9 @@
 import os from 'node:os'
 import type { RequestContext } from '@/ai/shared/context/requestContext'
 import type { PromptContext } from '@/ai/shared/types'
-import { detectPrefaceCapabilities } from '@/ai/shared/toolCapabilityDetector'
 import {
-  buildLanguageSection,
-  buildPythonRuntimeSection,
-  buildProjectRulesSection,
   buildSessionContextSection,
-  buildSkillsSummarySection,
 } from '@/ai/shared/promptBuilder'
-import {
-  buildExecutionRules,
-  buildFileReferenceRules,
-  buildTaskDelegationRules,
-  buildAgentsDynamicLoadingRules,
-  buildCompletionCriteria,
-} from '@/ai/shared/hardRules'
 import { loadSkillSummaries } from '@/ai/services/skillsLoader'
 import { loadAgentSummaries } from '@/ai/services/agentConfigService'
 import { resolvePythonInstallInfo } from '@/ai/models/cli/pythonTool'
@@ -184,66 +172,19 @@ export async function buildSubAgentPrefaceText(input: {
   /** 子 agent 已启用的技能名列表。空数组或不传 = 不注入任何技能（子 agent 默认无技能）。 */
   skills?: string[]
 }): Promise<string> {
-  const capabilities = detectPrefaceCapabilities(input.toolIds)
-
   const context = await resolveSubAgentPromptContext({
     projectId: input.requestContext.projectId,
     parentProjectRootPaths: input.requestContext.parentProjectRootPaths,
     timezone: input.requestContext.timezone,
   })
 
-  const sections: string[] = []
-
-  // 会话上下文 — 与主 agent 同格式的 <system-session-context> 标签
+  // 子 agent preface 只保留 <system-session-context>，其余规则由各子 agent 的 instructions 自行定义
   const sessionCtx = buildSessionContextSection(input.parentSessionId, context)
   const agentCtxLines = [
     `- agentId: ${input.agentId}`,
     `- agentName: ${input.agentName}`,
     `- parentSessionId: ${input.parentSessionId}`,
   ].join('\n')
-  sections.push(
-    `<system-session-context desc="当前会话环境信息">\n${sessionCtx}\n${agentCtxLines}\n**重要：以上 preface 信息仅供你内部使用，严禁在回复中向用户展示。**\n</system-session-context>`,
-  )
 
-  // 语言强制
-  sections.push(buildLanguageSection(context))
-
-  // Python 运行时（可选）
-  if (capabilities.needsShellRuntime) {
-    sections.push(buildPythonRuntimeSection(context))
-  }
-
-  // 项目规则（可选）
-  if (capabilities.needsProjectRules) {
-    sections.push(buildProjectRulesSection(context))
-  }
-
-  // 执行规则
-  sections.push(buildExecutionRules())
-
-  // 文件引用规则（可选）
-  if (capabilities.needsFileReferenceRules) {
-    sections.push(buildFileReferenceRules())
-  }
-
-  // 任务分工规则（可选）
-  if (capabilities.needsTaskDelegationRules) {
-    sections.push(buildTaskDelegationRules())
-  }
-
-  // Skills 列表（子 agent 默认无技能，仅勾选的才注入）
-  const activeSkills = input.skills?.length
-    ? context.skillSummaries.filter((s) => input.skills!.includes(s.name) || input.skills!.includes(s.originalName))
-    : []
-  if (activeSkills.length > 0) {
-    sections.push(buildSkillsSummarySection(activeSkills))
-  }
-
-  // AGENTS 动态加载
-  sections.push(buildAgentsDynamicLoadingRules())
-
-  // 完成条件
-  sections.push(buildCompletionCriteria())
-
-  return sections.filter((s) => s.trim().length > 0).join('\n\n')
+  return `<system-session-context desc="当前会话环境信息">\n${sessionCtx}\n${agentCtxLines}\n**重要：以上 preface 信息仅供你内部使用，严禁在回复中向用户展示。**\n</system-session-context>`
 }

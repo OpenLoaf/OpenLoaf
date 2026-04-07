@@ -197,8 +197,8 @@ export default function ShellTool({
             <span>Shell</span>
           </div>
         )}
-        <div className="flex items-center justify-between gap-2 border-t border-border/30 px-3 py-2">
-          <span className="text-xs text-muted-foreground">{t('tool.confirmExec')}</span>
+        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5 border-t border-border/30 px-3 py-2">
+          <span className="shrink-0 text-xs text-muted-foreground">{t('tool.confirmExec')}</span>
           <ToolApprovalActions approvalId={approvalId} size="sm" />
         </div>
       </div>

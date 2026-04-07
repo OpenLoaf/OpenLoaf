@@ -16,7 +16,7 @@ export const agentToolDef = {
   description:
     'Launches a sub-agent to handle complex multi-step tasks in an isolated LLM session, protecting the main conversation\'s context window from intermediate results. Defaults to synchronous (`run_in_background=false`) and returns the full result. Async mode returns the agent_id immediately — use SendMessage to push further instructions.\n'
     + '\n'
-    + 'Built-in subagent types: `general-purpose` (default, full toolset), `explore` (read-only codebase exploration), `plan` (read-only implementation design). You may also pass custom agent names defined in the project.\n'
+    + 'Built-in subagent types: `general-purpose` (default, full toolset), `explore` (read-only codebase exploration), `plan` (read-only exploration + designs an implementation plan, saves it to `PLAN_N.md`, returns the file path — the parent agent then calls `SubmitPlan(planFilePath)` to request user approval). You may also pass custom agent names defined in the project.\n'
     + '\n'
     + 'Rules:\n'
     + '- Launch multiple independent sub-agents IN PARALLEL (multiple Agent calls in one reply) for efficiency.\n'

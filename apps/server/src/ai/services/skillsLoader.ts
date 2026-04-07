@@ -160,7 +160,9 @@ function findSkillFiles(rootPath: string): string[] {
 
   for (const entry of entries) {
     const entryPath = path.join(rootPath, entry.name);
-    if (entry.isDirectory()) {
+    // Follow symlinks: isDirectory() returns false for symlinks, so resolve them first
+    const isDir = entry.isDirectory() || (entry.isSymbolicLink() && existsSync(entryPath) && statSync(entryPath).isDirectory());
+    if (isDir) {
       // Check if this directory directly contains SKILL.md
       const skillMdPath = path.join(entryPath, SKILL_FILE_NAME);
       if (existsSync(skillMdPath)) {

@@ -584,8 +584,8 @@ export default function ExcelTool({
 
             {/* Approval footer */}
             {isMutate && isPending && approvalId ? (
-              <div className="flex items-center justify-between border-t px-3 py-2.5">
-                <span className="text-xs text-muted-foreground">
+              <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5 border-t px-3 py-2.5">
+                <span className="shrink-0 text-xs text-muted-foreground">
                   {t('tool.excel.confirmAction')}
                 </span>
                 <ToolApprovalActions approvalId={approvalId} size="default" />

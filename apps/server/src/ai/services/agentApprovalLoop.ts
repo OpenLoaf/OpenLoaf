@@ -8,6 +8,8 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import { generateId, smoothStream, type UIMessage } from 'ai'
+import fs from 'node:fs/promises'
+import path from 'node:path'
 import type { ManagedAgent } from '@/ai/services/agentManager'
 import type { createSubAgent } from '@/ai/services/agentFactory'
 import { buildModelMessages } from '@/ai/shared/messageConverter'
@@ -15,7 +17,43 @@ import { resolveApprovalGate, applyApprovalDecision } from '@/ai/tools/approvalU
 import { registerFrontendToolPending } from '@/ai/tools/pendingRegistry'
 import { appendToAgentHistory } from '@/ai/services/agentHistory'
 import { agentRegistry } from '@/ai/services/agentRegistry'
+import { resolveSessionDir } from '@/ai/services/chat/repositories/chatSessionPathResolver'
+import { readBasicConf } from '@/modules/settings/openloafConfStore'
 import { logger } from '@/common/logger'
+
+// ---------------------------------------------------------------------------
+// Debug Step File Writer (for sub-agents)
+// ---------------------------------------------------------------------------
+
+function makeAttemptTag(): string {
+  const now = new Date()
+  const hh = String(now.getHours()).padStart(2, '0')
+  const mm = String(now.getMinutes()).padStart(2, '0')
+  const ss = String(now.getSeconds()).padStart(2, '0')
+  return `${hh}${mm}${ss}`
+}
+
+async function writeAgentDebugStepFile(input: {
+  agentId: string
+  assistantMessageId: string
+  attemptTag: string
+  stepNumber: number
+  kind: 'request' | 'response'
+  data: unknown
+}): Promise<void> {
+  try {
+    const agentDir = await resolveSessionDir(input.agentId)
+    const debugDir = path.join(agentDir, 'debug', `${input.attemptTag}_${input.assistantMessageId}`)
+    await fs.mkdir(debugDir, { recursive: true })
+    const fileName = `step${input.stepNumber}_${input.kind}.json`
+    await fs.writeFile(path.join(debugDir, fileName), JSON.stringify(input.data, null, 2), 'utf-8')
+  } catch (err) {
+    logger.warn(
+      { err, agentId: input.agentId, step: input.stepNumber, kind: input.kind },
+      '[agent-debug] failed to write debug step file',
+    )
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Stream + Approval Loop
@@ -42,6 +80,13 @@ async function runAgentStream(
     agent.prefaceInjected = true
   }
 
+  // AI 调试模式 — 子代理每步 LLM 请求/响应写入 agents/<agentId>/debug/
+  const isDebugMode = readBasicConf().chatPrefaceEnabled
+  const debugAttemptTag = makeAttemptTag()
+  const debugMessageId = agent.messages.length > 0
+    ? agent.messages[agent.messages.length - 1]!.id
+    : generateId()
+
   const agentStream = await toolLoopAgent.stream({
     messages: modelMessages as any,
     abortSignal: agent.abortController.signal,
@@ -49,6 +94,42 @@ async function runAgentStream(
       delayInMs: 10,
       chunking: new Intl.Segmenter('zh', { granularity: 'word' }),
     }),
+    ...(isDebugMode ? {
+      experimental_onStepStart: (event: any) => {
+        void writeAgentDebugStepFile({
+          agentId: agent.id,
+          assistantMessageId: debugMessageId,
+          attemptTag: debugAttemptTag,
+          stepNumber: event.stepNumber,
+          kind: 'request',
+          data: {
+            stepNumber: event.stepNumber,
+            model: event.model,
+            system: event.system,
+            messages: event.messages,
+            activeTools: event.activeTools,
+            toolChoice: event.toolChoice,
+          },
+        })
+      },
+      onStepFinish: (event: any) => {
+        void writeAgentDebugStepFile({
+          agentId: agent.id,
+          assistantMessageId: debugMessageId,
+          attemptTag: debugAttemptTag,
+          stepNumber: event.stepNumber,
+          kind: 'response',
+          data: {
+            stepNumber: event.stepNumber,
+            text: event.text,
+            toolCalls: event.toolCalls,
+            toolResults: event.toolResults,
+            finishReason: event.finishReason,
+            usage: event.usage,
+          },
+        })
+      },
+    } : {}),
   })
 
   const uiStream = agentStream.toUIMessageStream({

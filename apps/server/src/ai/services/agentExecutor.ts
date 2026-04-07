@@ -8,11 +8,15 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import { generateId, type UIMessage } from 'ai'
+import fsPromises from 'node:fs/promises'
+import nodePath from 'node:path'
 import type { RequestContext } from '@/ai/shared/context/requestContext'
 import { runWithContext, getSessionId } from '@/ai/shared/context/requestContext'
 import { createSubAgent } from '@/ai/services/agentFactory'
 import { writeAgentSessionJson } from '@/ai/services/chat/repositories/messageStore'
 import { buildSubAgentPrefaceText } from '@/ai/shared/subAgentPrefaceBuilder'
+import { resolveSessionDir } from '@/ai/services/chat/repositories/chatSessionPathResolver'
+import { readBasicConf } from '@/modules/settings/openloafConfStore'
 import { logger } from '@/common/logger'
 import type { AgentManager, ManagedAgent } from '@/ai/services/agentManager'
 import { appendToAgentHistory } from '@/ai/services/agentHistory'
@@ -115,6 +119,30 @@ async function executeAgent(
           // 写入初始 user 消息
           if (agent.messages.length > 0) {
             await appendToAgentHistory(agent, agent.messages[0]!)
+          }
+
+          // AI 调试模式 — 写入子代理 PROMPT.md（系统 prompt）和 PREFACE.md
+          if (readBasicConf().chatPrefaceEnabled) {
+            const agentDir = await resolveSessionDir(agent.id)
+            const systemPrompt = (toolLoopAgent as any).settings?.instructions ?? (toolLoopAgent as any).instructions ?? ''
+            if (systemPrompt) {
+              fsPromises.writeFile(
+                nodePath.join(agentDir, 'PROMPT.md'),
+                typeof systemPrompt === 'string' ? systemPrompt : JSON.stringify(systemPrompt, null, 2),
+                'utf-8',
+              ).catch((err) => {
+                logger.warn({ agentId: id, err }, '[agent-debug] failed to write PROMPT.md')
+              })
+            }
+            if (agent.preface) {
+              fsPromises.writeFile(
+                nodePath.join(agentDir, 'PREFACE.md'),
+                agent.preface,
+                'utf-8',
+              ).catch((err) => {
+                logger.warn({ agentId: id, err }, '[agent-debug] failed to write PREFACE.md')
+              })
+            }
           }
         }
       }

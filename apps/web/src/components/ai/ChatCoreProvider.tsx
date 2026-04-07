@@ -670,6 +670,7 @@ export default function ChatCoreProvider({
     queueToolApprovalPayload,
     clearToolApprovalPayload,
     continueAfterToolApprovals,
+    rejectPendingToolApprovals,
     stopGenerating,
   } = useChatApproval({
     sessionId,
@@ -721,9 +722,22 @@ export default function ChatCoreProvider({
     [sessionId, tabId, projectId, leafMessageId, branchMessageIds, siblingNav]
   );
 
+  // 用户发送新消息时，自动 reject 所有未决审批（避免旧审批 UI 仍可操作）
+  const sendMessageWithApprovalCleanup = React.useCallback(
+    (...args: Parameters<typeof sendMessage>) => {
+      const [message] = args;
+      // message 有值 = 用户主动发消息；message 为空 = 审批 continuation，不需要 reject
+      if (message) {
+        void rejectPendingToolApprovals();
+      }
+      return sendMessage(...args);
+    },
+    [sendMessage, rejectPendingToolApprovals]
+  );
+
   const actionsValue = React.useMemo(
     () => ({
-      sendMessage,
+      sendMessage: sendMessageWithApprovalCleanup,
       regenerate: stableRegenerate,
       addToolApprovalResponse: stableAddToolApprovalResponse,
       clearError: stableClearError,
@@ -739,7 +753,7 @@ export default function ChatCoreProvider({
       sendPendingCloudMessage,
     }),
     [
-      sendMessage,
+      sendMessageWithApprovalCleanup,
       stableRegenerate,
       stableAddToolApprovalResponse,
       stableClearError,

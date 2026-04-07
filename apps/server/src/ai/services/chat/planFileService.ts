@@ -289,7 +289,7 @@ export async function markPlanFileStatus(
   const filePath = await resolvePlanFilePath(sessionId, planNo)
   try {
     let content = await fs.readFile(filePath, 'utf-8')
-    content = content.replace(/status:\s*(active|completed|abandoned)/, `status: ${status}`)
+    content = content.replace(/status:\s*(pending|active|completed|abandoned)/, `status: ${status}`)
     content = content.replace(/updatedAt:\s*.+/, `updatedAt: ${new Date().toISOString()}`)
     await fs.writeFile(filePath, content, 'utf-8')
   } catch (err: any) {

@@ -34,6 +34,8 @@ export const chatSchemas = {
       sessionId: z.string().min(1),
       /** Optional leaf message id from the currently displayed branch. */
       leafMessageId: z.string().min(1).optional(),
+      parentSessionId: z.string().min(1).optional(),
+      isAgentSession: z.boolean().optional(),
     }),
     output: z.object({
       content: z.string(),
@@ -45,10 +47,13 @@ export const chatSchemas = {
   },
   /**
    * Read all messages from messages.jsonl for debug inspection.
+   * When isAgentSession=true, reads from agents/<sessionId>/ using parentSessionId for path resolution.
    */
   getSessionMessages: {
     input: z.object({
       sessionId: z.string().min(1),
+      parentSessionId: z.string().min(1).optional(),
+      isAgentSession: z.boolean().optional(),
     }),
     output: z.object({
       messages: z.array(z.any()),
@@ -56,11 +61,14 @@ export const chatSchemas = {
   },
   /**
    * Read debug step files (request/response JSON) for a specific assistant message.
+   * When isAgentSession=true, reads from agents/<sessionId>/debug/ using parentSessionId for path resolution.
    */
   getMessageDebugSteps: {
     input: z.object({
       sessionId: z.string().min(1),
       messageId: z.string().min(1),
+      parentSessionId: z.string().min(1).optional(),
+      isAgentSession: z.boolean().optional(),
     }),
     output: z.object({
       steps: z.array(z.object({
@@ -68,6 +76,24 @@ export const chatSchemas = {
         attemptTag: z.string(),
         request: z.any(),
         response: z.any(),
+      })),
+    }),
+  },
+  /**
+   * List sub-agents for a chat session.
+   */
+  listSubAgents: {
+    input: z.object({
+      sessionId: z.string().min(1),
+    }),
+    output: z.object({
+      agents: z.array(z.object({
+        agentId: z.string(),
+        name: z.string().optional(),
+        task: z.string().optional(),
+        agentType: z.string().optional(),
+        messageCount: z.number(),
+        hasDebug: z.boolean(),
       })),
     }),
   },
@@ -99,6 +125,12 @@ export abstract class BaseChatRouter {
       getMessageDebugSteps: shieldedProcedure
         .input(chatSchemas.getMessageDebugSteps.input)
         .output(chatSchemas.getMessageDebugSteps.output)
+        .query(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      listSubAgents: shieldedProcedure
+        .input(chatSchemas.listSubAgents.input)
+        .output(chatSchemas.listSubAgents.output)
         .query(async () => {
           throw new Error("Not implemented in base class");
         }),

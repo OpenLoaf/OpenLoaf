@@ -118,38 +118,64 @@ const INTENT_JUDGMENT_RULES = [
   '- 用户消息中出现时间、事件等词汇不等于要创建任务——"翻译：我明天要开会"是翻译请求，不是日程请求。',
 ].join('\n')
 
-const EXECUTION_RULES = [
-  '# 执行规则',
-  '',
-  '## 工具与技能加载',
-  '- 你有一组始终可用的核心工具（Bash、Read、Glob、Grep、Edit、Write、AskUserQuestion、Agent 等），可直接调用。',
-  '- 其余专业工具（邮件、日历、画布、Office、浏览器等）需通过 ToolSearch 加载后才能调用。',
-  '- 调用方式：ToolSearch(names: "name1,name2") — 传入逗号分隔的技能/工具名称。',
-  '',
-  '## 技能优先（严格遵守）',
-  '- 收到任务后，**必须先查看 Skills 列表**，找到匹配的技能名称。',
-  '- 若有匹配 → ToolSearch 加载技能名称。技能会自动激活其依赖的工具，无需手动加载。',
-  '- 若用户消息中已有 `data-skill` 块 → 该技能已加载，直接按指南行动。',
-  '- **仅当 Skills 列表中无匹配项时**，才直接加载工具。',
-  '- 禁止跳过 skill 直接加载工具 — skill 提供操作指南和最佳实践，缺少 skill 会导致错误操作。',
-  '- 通过 ToolSearch 加载的技能在整个会话中保持有效，无需每轮重新加载。如需参考说明，查看之前的 ToolSearch 返回结果。',
-  '',
-  '## 一般规则',
-  '- 工具优先：先用工具获取事实，再输出结论。',
-  '- 文件与命令工具仅允许访问会话上下文中 projectRootPath 指定的路径范围。',
-  '- 路径参数禁止使用 URL Encoding 编码，必须保持原始路径字符。',
-  '- 引用之前操作中使用过的文件路径时，从之前的工具返回结果中精确复制，不要凭记忆重构。',
-  '',
-  '## Shell 路径安全',
-  '- 在 Bash 中引用文件路径时，**必须用双引号包裹**完整路径，尤其是包含空格、中文、括号的路径。',
-  '- 正确：`python3 script.py --output "合同文件.docx"` / `open "文件路径.pdf"`',
-  '- 错误：`python3 script.py --output 合同 文件.docx`（空格导致参数拆分）',
-  '',
-  '## 审批与破坏性操作',
-  '- 写入、删除或破坏性操作必须先请求用户批准，不得绕过。',
-  '- 需要审批的工具一次只能调用一个。',
-  '- 用户拒绝审批视为无结果，停止该路径。',
-].join('\n')
+/** 生成执行规则文本。传入 toolIds 时根据实际工具集裁剪；不传时返回完整版（主 Agent 用）。 */
+function buildExecutionRulesText(toolIds?: readonly string[]): string {
+  const toolSet = toolIds ? new Set(toolIds) : null
+  const hasTool = (id: string) => !toolSet || toolSet.has(id)
+
+  const lines: string[] = ['# 执行规则', '']
+
+  // ── 工具与技能加载 ──
+  if (toolSet) {
+    const toolNames = toolIds!.join('、')
+    lines.push('## 可用工具')
+    lines.push(`- 你的可用工具：${toolNames}。**只能调用这些工具**，不要尝试调用其他工具。`)
+  } else {
+    lines.push('## 工具与技能加载')
+    lines.push('- 你有一组始终可用的核心工具（Bash、Read、Glob、Grep、Edit、Write、AskUserQuestion、Agent 等），可直接调用。')
+  }
+
+  if (hasTool('ToolSearch')) {
+    lines.push('- 其余专业工具（邮件、日历、画布、Office、浏览器等）需通过 ToolSearch 加载后才能调用。')
+    lines.push('- 调用方式：ToolSearch(names: "name1,name2") — 传入逗号分隔的技能/工具名称。')
+    lines.push('')
+    lines.push('## 技能优先（严格遵守）')
+    lines.push('- 收到任务后，**必须先查看 Skills 列表**，找到匹配的技能名称。')
+    lines.push('- 若有匹配 → ToolSearch 加载技能名称。技能会自动激活其依赖的工具，无需手动加载。')
+    lines.push('- 若用户消息中已有 `data-skill` 块 → 该技能已加载，直接按指南行动。')
+    lines.push('- **仅当 Skills 列表中无匹配项时**，才直接加载工具。')
+    lines.push('- 禁止跳过 skill 直接加载工具 — skill 提供操作指南和最佳实践，缺少 skill 会导致错误操作。')
+    lines.push('- 通过 ToolSearch 加载的技能在整个会话中保持有效，无需每轮重新加载。如需参考说明，查看之前的 ToolSearch 返回结果。')
+  }
+
+  // ── 一般规则（始终包含）──
+  lines.push('')
+  lines.push('## 一般规则')
+  lines.push('- 工具优先：先用工具获取事实，再输出结论。')
+  lines.push('- 文件与命令工具仅允许访问会话上下文中 projectRootPath 指定的路径范围。')
+  lines.push('- 路径参数禁止使用 URL Encoding 编码，必须保持原始路径字符。')
+  lines.push('- 引用之前操作中使用过的文件路径时，从之前的工具返回结果中精确复制，不要凭记忆重构。')
+
+  // ── Shell 路径安全（仅有 Bash 时）──
+  if (hasTool('Bash')) {
+    lines.push('')
+    lines.push('## Shell 路径安全')
+    lines.push('- 在 Bash 中引用文件路径时，**必须用双引号包裹**完整路径，尤其是包含空格、中文、括号的路径。')
+    lines.push('- 正确：`python3 script.py --output "合同文件.docx"` / `open "文件路径.pdf"`')
+    lines.push('- 错误：`python3 script.py --output 合同 文件.docx`（空格导致参数拆分）')
+  }
+
+  // ── 审批与破坏性操作（有写工具时）──
+  if (hasTool('Write') || hasTool('Edit') || hasTool('Bash')) {
+    lines.push('')
+    lines.push('## 审批与破坏性操作')
+    lines.push('- 写入、删除或破坏性操作必须先请求用户批准，不得绕过。')
+    lines.push('- 需要审批的工具一次只能调用一个。')
+    lines.push('- 用户拒绝审批视为无结果，停止该路径。')
+  }
+
+  return lines.join('\n')
+}
 
 const TASK_DELEGATION_RULES = [
   '# 任务分工',
@@ -174,9 +200,9 @@ export function buildCompletionCriteria(): string {
   return COMPLETION_CRITERIA
 }
 
-/** Build execution rules (skill-first, path constraints, approval). */
-export function buildExecutionRules(): string {
-  return EXECUTION_RULES
+/** Build execution rules (skill-first, path constraints, approval). Pass toolIds for sub-agents to get accurate tool list. */
+export function buildExecutionRules(toolIds?: readonly string[]): string {
+  return buildExecutionRulesText(toolIds)
 }
 
 /** Build task delegation rules. */
@@ -193,7 +219,7 @@ export function buildHardRules(): string {
     FILE_REFERENCE_RULES,
     MSG_CONTEXT_RULES,
     COMPLETION_CRITERIA,
-    EXECUTION_RULES,
+    buildExecutionRulesText(),
     TASK_DELEGATION_RULES,
   ].join('\n\n')
 }

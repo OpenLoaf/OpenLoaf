@@ -120,6 +120,8 @@ export function expandPathTemplateVars(input: string): string {
         : path.join(getResolvedTempStorageDir(), "chat-history", sessionId);
       chatAssetDir = path.join(sessionDir, "asset");
     }
+    // 提前创建目录，避免 Glob/Grep 首次使用 ${CURRENT_CHAT_DIR} 时 ENOENT
+    fsSync.mkdirSync(chatAssetDir, { recursive: true });
   }
 
   const home = process.env.HOME || process.env.USERPROFILE;

@@ -10,6 +10,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import { useChatActions, useChatSession, useChatMessages, useChatStatus, useChatTools } from "../../../context";
 import { trpc } from "@/utils/trpc";
 import { useMutation } from "@tanstack/react-query";
@@ -24,8 +25,39 @@ interface ToolApprovalActionsProps {
   size?: "sm" | "default";
 }
 
+/** Extract tool ID from snapshot type (e.g. "tool-Write" → "Write"). */
+function extractToolId(type?: string): string | null {
+  if (!type) return null;
+  if (type.startsWith("tool-")) return type.slice(5);
+  return null;
+}
+
+/** Generate a suggested allow rule from a tool call (frontend mirror of server suggestRule). */
+function suggestAllowRule(toolId: string, input: Record<string, unknown>): string | null {
+  if (toolId === "Bash" && typeof input.command === "string") {
+    const tokens = input.command.trim().split(/\s+/);
+    if (tokens.length >= 2) {
+      const first = tokens[0]!;
+      const second = tokens[1]!;
+      if (/^[a-zA-Z][\w-]*$/.test(second) && second.length < 20) {
+        return `Bash(${first} ${second} *)`;
+      }
+    }
+    if (tokens[0]) return `Bash(${tokens[0]} *)`;
+    return "Bash";
+  }
+  const filePath = typeof input.file_path === "string" ? input.file_path : null;
+  if ((toolId === "Edit" || toolId === "Write") && filePath) {
+    const lastSlash = filePath.lastIndexOf("/");
+    if (lastSlash > 0) return `${toolId}(${filePath.substring(0, lastSlash)}/**)`;
+    return toolId;
+  }
+  return toolId;
+}
+
 /** Render approval actions for a tool request. */
 export default function ToolApprovalActions({ approvalId, size = "sm" }: ToolApprovalActionsProps) {
+  const { t } = useTranslation("ai");
   const { messages } = useChatMessages();
   const { status } = useChatStatus();
   const { updateMessage, addToolApprovalResponse } = useChatActions();
@@ -54,6 +86,16 @@ export default function ToolApprovalActions({ approvalId, size = "sm" }: ToolApp
   const updateApprovalMutation = useMutation({
     ...trpc.chat.updateMessageParts.mutationOptions(),
   });
+  const suggestedRule = React.useMemo(() => {
+    if (!toolSnapshot) return null;
+    const toolId = extractToolId(toolSnapshot.type);
+    if (!toolId) return null;
+    const input =
+      typeof toolSnapshot.input === "object" && toolSnapshot.input
+        ? (toolSnapshot.input as Record<string, unknown>)
+        : {};
+    return suggestAllowRule(toolId, input);
+  }, [toolSnapshot]);
 
   const updateApprovalInMessages = React.useCallback(
     (approved: boolean) => {
@@ -116,45 +158,72 @@ export default function ToolApprovalActions({ approvalId, size = "sm" }: ToolApp
     [toolParts, upsertToolPart, approvalId],
   );
 
+  /** Core approve logic shared between "允许" and "始终允许". */
+  const performApprove = React.useCallback(async () => {
+    updateApprovalSnapshot(true);
+    updateApprovalInMessages(true);
+    const subAgentToolCallId =
+      typeof toolSnapshot?.subAgentToolCallId === "string"
+        ? toolSnapshot.subAgentToolCallId
+        : "";
+    if (subAgentToolCallId) {
+      await postSubAgentApprovalAck(true, subAgentToolCallId);
+    } else {
+      await addToolApprovalResponse({ id: approvalId, approved: true });
+      clearToolApprovalPayload(toolCallId);
+      await continueAfterToolApprovals();
+    }
+  }, [
+    approvalId,
+    updateApprovalSnapshot,
+    updateApprovalInMessages,
+    addToolApprovalResponse,
+    postSubAgentApprovalAck,
+    toolSnapshot?.subAgentToolCallId,
+    clearToolApprovalPayload,
+    continueAfterToolApprovals,
+    toolCallId,
+  ]);
+
   const handleApprove = React.useCallback(
     async (event: React.MouseEvent) => {
-      // 中文注释：summary 内点击按钮不应触发折叠开关。
       event.preventDefault();
       event.stopPropagation();
       if (isSubmitting || isDecided) return;
       setIsSubmitting(true);
-      updateApprovalSnapshot(true);
-      updateApprovalInMessages(true);
-      const subAgentToolCallId =
-        typeof toolSnapshot?.subAgentToolCallId === "string"
-          ? toolSnapshot.subAgentToolCallId
-          : "";
       try {
-        if (subAgentToolCallId) {
-          // 中文注释：子代理审批走前端 ack 回传，阻塞子代理工具继续执行。
-          await postSubAgentApprovalAck(true, subAgentToolCallId);
-        } else {
-          await addToolApprovalResponse({ id: approvalId, approved: true });
-          clearToolApprovalPayload(toolCallId);
-          await continueAfterToolApprovals();
-        }
+        await performApprove();
       } finally {
         setIsSubmitting(false);
       }
     },
-    [
-      approvalId,
-      isSubmitting,
-      isDecided,
-      updateApprovalSnapshot,
-      updateApprovalInMessages,
-      addToolApprovalResponse,
-      postSubAgentApprovalAck,
-      toolSnapshot?.subAgentToolCallId,
-      clearToolApprovalPayload,
-      continueAfterToolApprovals,
-      toolCallId,
-    ],
+    [isSubmitting, isDecided, performApprove],
+  );
+
+  const handleAlwaysAllow = React.useCallback(
+    async (event: React.MouseEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (isSubmitting || isDecided || !suggestedRule) return;
+      setIsSubmitting(true);
+      try {
+        // Fire-and-forget: 添加规则到全局设置
+        const baseUrl = resolveServerUrl();
+        const endpoint = baseUrl
+          ? `${baseUrl}/api/trpc/settings.addToolApprovalRule`
+          : "/api/trpc/settings.addToolApprovalRule";
+        fetch(endpoint, {
+          method: "POST",
+          credentials: "include",
+          headers: { "content-type": "application/json", ...CLIENT_HEADERS },
+          body: JSON.stringify({ rule: suggestedRule, behavior: "allow" }),
+        }).catch(() => {});
+        await performApprove();
+      } finally {
+        setIsSubmitting(false);
+      }
+    },
+    [isSubmitting, isDecided, suggestedRule, performApprove],
   );
 
   const handleReject = React.useCallback(
@@ -214,7 +283,7 @@ export default function ToolApprovalActions({ approvalId, size = "sm" }: ToolApp
   const isLarge = size === "default";
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="ml-auto flex flex-wrap items-center gap-2">
       <ConfirmationAction
         type="button"
         size={size}
@@ -227,8 +296,25 @@ export default function ToolApprovalActions({ approvalId, size = "sm" }: ToolApp
         disabled={disabled}
         onClick={handleApprove}
       >
-        允许
+        {t('tool.approve')}
       </ConfirmationAction>
+      {suggestedRule && (
+        <ConfirmationAction
+          type="button"
+          size={size}
+          variant="outline"
+          className={
+            isLarge
+              ? "h-8 rounded-3xl px-3 text-xs"
+              : "h-6 px-2 text-[10px]"
+          }
+          disabled={disabled}
+          onClick={handleAlwaysAllow}
+          title={suggestedRule}
+        >
+          {t('tool.alwaysAllow')}
+        </ConfirmationAction>
+      )}
       <ConfirmationAction
         type="button"
         size={size}
@@ -241,7 +327,7 @@ export default function ToolApprovalActions({ approvalId, size = "sm" }: ToolApp
         disabled={disabled}
         onClick={handleReject}
       >
-        拒绝
+        {t('tool.reject')}
       </ConfirmationAction>
     </div>
   );

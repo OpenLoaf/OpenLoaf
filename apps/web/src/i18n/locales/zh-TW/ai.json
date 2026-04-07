@@ -407,6 +407,9 @@
     "outputLoading": "輸出載入中…",
     "executing": "執行中…",
     "confirmExec": "確認執行此命令？",
+    "approve": "允許",
+    "alwaysAllow": "始終允許",
+    "reject": "拒絕",
     "processing": "處理中...",
     "thinkingStreaming": "深度思考中...",
     "thinkingDone": "深度思考",
@@ -584,5 +587,15 @@
     "waitingFor": "等待 {{names}}",
     "aiSelfReport": "AI 自述",
     "failedBadge": "{{count}} 失敗"
+  },
+  "subAgentPanel": {
+    "label": "子代理：",
+    "defaultName": "子智慧體",
+    "status": {
+      "error": "出錯",
+      "aborted": "已中止",
+      "done": "已完成",
+      "running": "運行中"
+    }
   }
 }

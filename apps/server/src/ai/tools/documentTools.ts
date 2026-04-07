@@ -11,7 +11,7 @@ import path from "node:path"
 import { promises as fs } from "node:fs"
 import { tool, zodSchema } from "ai"
 import { editDocumentToolDef } from "@openloaf/api/types/tools/runtime"
-import { resolveToolPath, ensureWritableRoot } from "@/ai/tools/toolScope"
+import { resolveToolPath, ensureWritableRoot, expandPathTemplateVars } from "@/ai/tools/toolScope"
 import { readBasicConf } from "@/modules/settings/openloafConfStore"
 import { getProjectId } from "@/ai/shared/context/requestContext"
 import { getProjectRootPath } from "@openloaf/api/services/vfsService"
@@ -46,7 +46,9 @@ async function resolveWriteTargetPath(targetPath: string): Promise<{ absPath: st
     rootPath = writable.rootPath
   }
 
-  const trimmed = targetPath.trim()
+  // 展开路径模板变量（${CURRENT_CHAT_DIR} 等），与 Read/Glob/Grep 保持一致
+  const expanded = expandPathTemplateVars(targetPath)
+  const trimmed = expanded.trim()
   if (!trimmed) throw new Error("path is required.")
   if (trimmed.startsWith("file:")) throw new Error("file:// URIs are not allowed.")
   let normalized: string
