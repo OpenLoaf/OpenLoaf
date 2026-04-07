@@ -295,8 +295,8 @@ export function BoardCanvas({
   useEffect(() => {
     engine.setSnapEnabled(Boolean(basic.boardSnapEnabled));
   }, [engine, basic.boardSnapEnabled]);
-  /** Guard for first-time node registration. */
-  const nodesRegisteredRef = useRef(false);
+  /** Track last registered nodes reference for HMR re-registration. */
+  const registeredNodesRef = useRef<typeof nodes>(null);
   /** Preview source id for board modal coordination. */
   const previewSourceId = useId();
   const activePreviewSourceId = useFilePreviewStore((state) => state.payload?.sourceId);
@@ -560,10 +560,11 @@ export function BoardCanvas({
     writeThumbnailRef.current = writeThumbnailMutation.mutateAsync;
   }, [writeThumbnailMutation.mutateAsync]);
 
-  if (!nodesRegisteredRef.current && nodes && nodes.length > 0) {
+  if (nodes && nodes.length > 0 && registeredNodesRef.current !== nodes) {
     // 逻辑：在首帧前注册节点定义，避免协作数据先到导致空白渲染。
+    // 当 nodes 引用变化时（如 HMR 重载模块）重新注册，确保定义不会陈旧。
     engine.registerNodes(nodes);
-    nodesRegisteredRef.current = true;
+    registeredNodesRef.current = nodes;
   }
 
   const openImagePreview = useCallback((payload: ImagePreviewPayload) => {

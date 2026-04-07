@@ -24,6 +24,7 @@ import type { UpstreamData } from '../engine/upstream-data'
 import {
   BOARD_GENERATE_INPUT,
 } from '../ui/board-style-system'
+import { serializeTextNodeValue } from '../engine/upstream-data'
 import { TEXT_FEATURES, getApplicableFeatures, getTextFeature } from './text-features'
 import { TextFeatureTabBar } from './shared/TextFeatureTabBar'
 import { useTextModelOptions } from './hooks/useTextModelOptions'
@@ -55,16 +56,37 @@ export type TextAiPanelProps = {
 
 /** AI text generation panel displayed below text nodes. */
 export function TextAiPanel({
+  element,
   upstream,
   onApplyReplace,
   onApplyDerive,
 }: TextAiPanelProps) {
   const { t } = useTranslation('board')
 
+  // ── Self text (node's own content) ──
+  const selfText = useMemo(
+    () => serializeTextNodeValue(element.props.value),
+    [element.props.value],
+  )
+
+  // ── Effective upstream: include node's own text for feature applicability ──
+  const effectiveUpstream = useMemo(() => {
+    if (selfText.trim()) {
+      return {
+        textList: [selfText, ...(upstream?.textList ?? [])],
+        imageList: upstream?.imageList ?? [],
+        videoList: upstream?.videoList ?? [],
+        audioList: upstream?.audioList ?? [],
+        entries: upstream?.entries ?? [],
+      }
+    }
+    return upstream
+  }, [selfText, upstream])
+
   // ── Feature selection ──
   const applicableFeatures = useMemo(
-    () => getApplicableFeatures(upstream),
-    [upstream],
+    () => getApplicableFeatures(effectiveUpstream),
+    [effectiveUpstream],
   )
   const [selectedFeatureId, setSelectedFeatureId] = useState(
     () => applicableFeatures[0]?.id ?? TEXT_FEATURES[0].id,
@@ -93,10 +115,10 @@ export function TextAiPanel({
   // ── Stream state ──
   const stream = useTextStream()
 
-  // ── Upstream text ──
+  // ── Upstream text (includes self text for polish/translate/enhance) ──
   const upstreamText = useMemo(
-    () => upstream?.textList.join('\n') || undefined,
-    [upstream],
+    () => effectiveUpstream?.textList.join('\n') || undefined,
+    [effectiveUpstream],
   )
 
   // ── Generate handler ──

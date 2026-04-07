@@ -36,7 +36,7 @@ export type TemplateList = TemplateItem[]
 // Internal
 // ---------------------------------------------------------------------------
 
-const MEDIA_TYPE_ORDER: MediaType[] = ['image', 'video', 'audio', 'text']
+const MEDIA_TYPE_ORDER: MediaType[] = ['text', 'image', 'video', 'audio']
 
 const NODE_SIZE_MAP: Record<string, [number, number]> = {
   image: [320, 180],
@@ -67,9 +67,17 @@ export function computeOutputTemplates(
 ): TemplateList {
   const reachable = new Set<MediaType>()
 
+  // text 节点始终可达（基础便签节点，不依赖 AI 能力）
+  reachable.add('text')
+
   // video 节点可分离出 audio
   if (sourceOutputTypes.includes('video')) {
     reachable.add('audio')
+  }
+
+  // text 源可直接创建 video（text-to-video）
+  if (sourceOutputTypes.includes('text')) {
+    reachable.add('video')
   }
 
   if (capabilities && capabilities.length > 0) {
@@ -92,11 +100,7 @@ export function computeOutputTemplates(
     }
   }
 
-  // 排除自身类型（同类型节点间无意义连接）
-  for (const t of sourceOutputTypes) {
-    reachable.delete(t)
-  }
-  // 音频节点额外排除 image（audio→image 无意义）
+  // 音频节点排除 image（audio→image 无意义）
   if (sourceOutputTypes.includes('audio')) {
     reachable.delete('image')
   }

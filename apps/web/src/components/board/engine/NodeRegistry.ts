@@ -13,11 +13,8 @@ export class NodeRegistry {
   /** Node definitions mapped by type. */
   private readonly definitions = new Map<string, CanvasNodeDefinition<unknown>>();
 
-  /** Register a single node definition. */
+  /** Register a single node definition (upsert — safe for HMR re-registration). */
   register<P>(definition: CanvasNodeDefinition<P>): void {
-    if (this.definitions.has(definition.type)) {
-      throw new Error(`Node type already registered: ${definition.type}`);
-    }
     this.definitions.set(definition.type, definition as CanvasNodeDefinition<unknown>);
   }
 
