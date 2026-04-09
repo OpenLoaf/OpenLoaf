@@ -156,21 +156,41 @@ export type V3Variant = {
 
 /** v3 capabilities response. */
 export type V3CapabilitiesData = {
-  category: 'image' | 'video' | 'audio'
+  category: 'image' | 'video' | 'audio' | 'text'
   features: V3Feature[]
   updatedAt: string
 }
 
-/** Fetch v3 capabilities for a media category (direct SDK call). */
+/** All supported capabilities categories. */
+export type CapabilitiesCategory = 'image' | 'video' | 'audio' | 'text'
+
+/** Fetch v3 capabilities for a category (direct SDK call). */
 export async function fetchCapabilities(
-  category: 'image' | 'video' | 'audio',
+  category: CapabilitiesCategory,
 ): Promise<V3CapabilitiesData> {
   const client = getSaasMediaClient()
   let result: any
   if (category === 'image') result = await client.ai.imageCapabilities()
   else if (category === 'video') result = await client.ai.videoCapabilities()
-  else result = await client.ai.audioCapabilities()
+  else if (category === 'audio') result = await client.ai.audioCapabilities()
+  else result = await client.ai.textCapabilities()
   return result?.data ?? result
+}
+
+/** v3 text generate request. */
+export type V3TextGenerateRequest = {
+  feature: string
+  variant: string
+  inputs?: Record<string, unknown>
+  params?: Record<string, unknown>
+}
+
+/** Submit a v3 text generate request in streaming mode. Returns raw Response (SSE). */
+export async function submitV3TextStream(
+  payload: V3TextGenerateRequest,
+): Promise<Response> {
+  const client = getSaasMediaClient()
+  return client.ai.v3TextGenerateStream(payload)
 }
 
 /** Estimate price result from server. */

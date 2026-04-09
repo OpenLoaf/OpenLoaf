@@ -98,6 +98,7 @@ export function BoardCanvasRender({
   // 逻辑：拖拽结束后 UI（边框、工具栏、面板）延迟 500ms 再浮现，避免松手瞬间闪烁。
   // 使用 useLayoutEffect 在浏览器绘制前同步设置 recentlyDropped，
   // 避免 useEffect 的一帧延迟导致 AnchorOverlay 短暂挂载后又卸载的闪烁。
+  // resize 操作无 grid snap，无需延迟。
   const DROP_SETTLE_DELAY = 500;
   const [recentlyDropped, setRecentlyDropped] = useState(false);
   const prevDraggingRef = useRef(snapshot.draggingId);
@@ -105,12 +106,12 @@ export function BoardCanvasRender({
     const wasDragging = prevDraggingRef.current != null;
     const isDragging = snapshot.draggingId != null;
     prevDraggingRef.current = snapshot.draggingId;
-    if (wasDragging && !isDragging) {
+    if (wasDragging && !isDragging && !snapshot.resizing) {
       setRecentlyDropped(true);
       const timer = window.setTimeout(() => setRecentlyDropped(false), DROP_SETTLE_DELAY);
       return () => window.clearTimeout(timer);
     }
-  }, [snapshot.draggingId]);
+  }, [snapshot.draggingId, snapshot.resizing]);
   const isDragging = !!snapshot.draggingId || recentlyDropped;
 
   // 逻辑：Cmd+F / Ctrl+F 打开节点搜索面板，Escape 关闭。

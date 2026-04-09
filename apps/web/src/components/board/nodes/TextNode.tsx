@@ -48,10 +48,12 @@ import { HueSlider, buildColorSwatches, DEFAULT_COLOR_PRESETS } from "../ui/HueS
 import { EditableBoardTextEditorKit, ReadOnlyBoardTextEditorKit } from "./text-editor-kit";
 import { useUpstreamData } from "../hooks/useUpstreamData";
 import { usePanelOverlay } from "../render/pixi/PixiApplication";
-import { TextAiPanel } from "../panels/TextAiPanel";
+import { TextAiPanel, type TextGenerateParams } from "../panels/TextAiPanel";
 import { InlinePanelPortal } from "./shared/InlinePanelPortal";
 import { useInlinePanelSync } from "./shared/useInlinePanelSync";
 import { deriveNode } from "../utils/derive-node";
+import { useTextV3Stream } from "../panels/hooks/useTextV3Stream";
+import { resolveAllMediaInputs } from "@/lib/media-upload";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -134,6 +136,42 @@ const TEXT_NODE_MAX_FONT_SIZE = 52;
 const TEXT_NODE_MIN_SIZE = { w: 200, h: TEXT_NODE_DEFAULT_HEIGHT };
 /** Maximum size for text nodes. */
 const TEXT_NODE_MAX_SIZE = { w: 720, h: 10000 };
+/** Absolute floor for min height. */
+const TEXT_NODE_ABSOLUTE_MIN_H = TEXT_NODE_DEFAULT_HEIGHT;
+/** Absolute cap for max height. */
+const TEXT_NODE_ABSOLUTE_MAX_H = 10000;
+
+/** Extract plain text length from TextNode props. */
+function estimateTextLength(props: TextNodeProps): number {
+  const { value, markdownText } = props;
+  if (markdownText) return markdownText.length;
+  if (typeof value === 'string') return value.length;
+  if (Array.isArray(value)) {
+    const extract = (nodes: unknown[]): string => {
+      let result = '';
+      for (const node of nodes) {
+        const n = node as Record<string, unknown>;
+        if (typeof n.text === 'string') result += n.text;
+        if (Array.isArray(n.children)) result += extract(n.children);
+      }
+      return result;
+    };
+    return extract(value).length;
+  }
+  return 0;
+}
+
+/** Estimate content height based on text length, font size and current node width. */
+function estimateContentHeight(
+  textLen: number,
+  fontSize: number,
+  nodeWidth: number,
+): number {
+  const avgCharWidth = fontSize * 0.55;
+  const charsPerLine = Math.max(1, Math.floor(nodeWidth / avgCharWidth));
+  const lines = Math.max(1, Math.ceil(textLen / charsPerLine));
+  return Math.ceil(lines * fontSize * TEXT_NODE_LINE_HEIGHT + TEXT_NODE_VERTICAL_PADDING);
+}
 /** Default text alignment for text nodes. */
 const TEXT_NODE_DEFAULT_TEXT_ALIGN: TextNodeTextAlign = "left";
 /** Auto text color when background is light. */
@@ -661,7 +699,7 @@ function EditableTextNodeView({
       ? (meta?.[MINDMAP_META.ghostCount] as number)
       : 0;
 
-  const { engine } = useBoardContext();
+  const { engine, fileContext } = useBoardContext();
   const isLocked = engine.isLocked() || element.locked;
 
   // Upstream data for AI panel (only resolve when expanded)
@@ -671,26 +709,61 @@ function EditableTextNodeView({
   // 逻辑：面板通过 useInlinePanelSync 同步缩放和位置。
   const { panelRef } = useInlinePanelSync({ engine, xywh: element.xywh, expanded });
 
-  // Apply generated text to current node (replace mode).
-  const handleApplyReplace = useCallback(
-    (text: string) => {
-      onUpdate({ value: text });
-    },
-    [onUpdate],
-  );
+  // ── AI text generation (streaming) ──
+  const stream = useTextV3Stream()
+  const generateTargetRef = useRef<'current' | 'new-node'>('current')
 
-  // Create a new downstream text node with generated text (derive mode).
-  const handleApplyDerive = useCallback(
-    (text: string) => {
+  const handleTextGenerate = useCallback(async (params: TextGenerateParams) => {
+    generateTargetRef.current = 'current'
+    try {
+      const resolvedInputs = await resolveAllMediaInputs(
+        params.inputs ?? {},
+        fileContext?.boardId,
+      )
+      stream.startStream({
+        feature: params.feature,
+        variant: params.variant,
+        inputs: resolvedInputs,
+        params: params.params,
+      })
+    } catch (err) {
+      console.error('[TextNode] generate failed:', err)
+    }
+  }, [stream, fileContext?.boardId])
+
+  const handleTextGenerateNewNode = useCallback(async (params: TextGenerateParams) => {
+    generateTargetRef.current = 'new-node'
+    try {
+      const resolvedInputs = await resolveAllMediaInputs(
+        params.inputs ?? {},
+        fileContext?.boardId,
+      )
+      stream.startStream({
+        feature: params.feature,
+        variant: params.variant,
+        inputs: resolvedInputs,
+        params: params.params,
+      })
+    } catch (err) {
+      console.error('[TextNode] generate new node failed:', err)
+    }
+  }, [stream, fileContext?.boardId])
+
+  // Auto-apply when stream completes
+  useEffect(() => {
+    if (stream.isStreaming || !stream.text || stream.error) return
+    if (generateTargetRef.current === 'new-node') {
       deriveNode({
         engine,
         sourceNodeId: element.id,
         targetType: 'text',
-        targetProps: { value: text, origin: 'ai-generate' as const },
-      });
-    },
-    [engine, element.id],
-  );
+        targetProps: { value: stream.text, origin: 'ai-generate' as const },
+      })
+    } else {
+      onUpdate({ value: stream.text })
+    }
+    stream.clear()
+  }, [stream.isStreaming, stream.text, stream.error, engine, element.id, onUpdate, stream])
 
   const [isEditing, setIsEditing] = useState(Boolean(editing) && !isGhost);
   const [shouldFocus, setShouldFocus] = useState(false);
@@ -1019,36 +1092,55 @@ function EditableTextNodeView({
       onPointerDown={isEditing ? stopEditorPointerPropagation : handleCheckboxPointerDown}
       onPointerMove={isEditing ? stopEditorPointerPropagation : undefined}
     >
-      <Plate editor={editor} onChange={handleEditorChange}>
-        <PlateContent
-          ref={contentRef}
-          readOnly={!isEditing}
+      {/* During AI streaming, show the streaming text in the node */}
+      {stream.isStreaming || stream.text ? (
+        <div
           className={cn(
-            "w-full bg-transparent outline-none p-0",
-            "text-ol-text-secondary",
-            "[&>[data-slate-node=element]+[data-slate-node=element]]:mt-1",
-            // 逻辑：view 模式下整体禁止指针交互，但 checkbox 保留可点击。
-            !isEditing && "pointer-events-none [&_[data-slot=checkbox]]:!pointer-events-auto",
+            "w-full",
+            MESSAGE_STREAM_MARKDOWN_CLASSNAME,
+            "text-ol-text-secondary text-sm leading-relaxed",
           )}
           style={textStyle}
-          onBlur={isEditing ? handleEditorBlur : undefined}
-          data-allow-context-menu
-        />
-      </Plate>
-      {isEmpty && !isEditing ? (
-        <div
-          className="pointer-events-none absolute inset-0 flex items-start px-4 pt-2.5 text-muted-foreground"
-          style={{
-            textAlign,
-            fontSize: textStyle.fontSize,
-            lineHeight: textStyle.lineHeight,
-            fontWeight: TEXT_NODE_DEFAULT_FONT_WEIGHT,
-            letterSpacing: TEXT_NODE_DEFAULT_LETTER_SPACING,
-          }}
         >
-          {getTextNodePlaceholder()}
+          <MessageStreamMarkdown markdown={stream.text} />
+          {stream.error ? (
+            <div className="mt-1 text-xs text-destructive">{stream.error}</div>
+          ) : null}
         </div>
-      ) : null}
+      ) : (
+        <>
+          <Plate editor={editor} onChange={handleEditorChange}>
+            <PlateContent
+              ref={contentRef}
+              readOnly={!isEditing}
+              className={cn(
+                "w-full bg-transparent outline-none p-0",
+                "text-ol-text-secondary",
+                "[&>[data-slate-node=element]+[data-slate-node=element]]:mt-1",
+                // 逻辑：view 模式下整体禁止指针交互，但 checkbox 保留可点击。
+                !isEditing && "pointer-events-none [&_[data-slot=checkbox]]:!pointer-events-auto",
+              )}
+              style={textStyle}
+              onBlur={isEditing ? handleEditorBlur : undefined}
+              data-allow-context-menu
+            />
+          </Plate>
+          {isEmpty && !isEditing ? (
+            <div
+              className="pointer-events-none absolute inset-0 flex items-start px-4 pt-2.5 text-muted-foreground"
+              style={{
+                textAlign,
+                fontSize: textStyle.fontSize,
+                lineHeight: textStyle.lineHeight,
+                fontWeight: TEXT_NODE_DEFAULT_FONT_WEIGHT,
+                letterSpacing: TEXT_NODE_DEFAULT_LETTER_SPACING,
+              }}
+            >
+              {getTextNodePlaceholder()}
+            </div>
+          ) : null}
+        </>
+      )}
       <InlinePanelPortal
         expanded={expanded}
         panelOverlay={panelOverlay}
@@ -1059,8 +1151,11 @@ function EditableTextNodeView({
         <TextAiPanel
           element={element}
           upstream={upstream}
-          onApplyReplace={handleApplyReplace}
-          onApplyDerive={handleApplyDerive}
+          fileContext={fileContext}
+          onGenerate={handleTextGenerate}
+          onGenerateNewNode={handleTextGenerateNewNode}
+          generating={stream.isStreaming}
+          onStop={stream.abort}
         />
       </InlinePanelPortal>
     </div>
@@ -1129,13 +1224,33 @@ export const TextNodeDefinition: CanvasNodeDefinition<TextNodeProps> = {
     markdownText: "",
   },
   view: TextNodeView,
-  getMinSize: (element) => ({
-    w: TEXT_NODE_MIN_SIZE.w,
-    h: Math.ceil(
-      resolveHeadingFontSize(element.props.fontSize) * TEXT_NODE_LINE_HEIGHT
-        + TEXT_NODE_VERTICAL_PADDING,
-    ),
-  }),
+  getMinSize: (element) => {
+    const fontSize = resolveHeadingFontSize(element.props.fontSize);
+    const [, , w] = element.xywh;
+    const textLen = estimateTextLength(element.props);
+    const contentH = estimateContentHeight(textLen, fontSize, w);
+    const minW = Math.max(TEXT_NODE_MIN_SIZE.w, Math.ceil(fontSize * 6));
+    // Min height = 30% of content height, floored at absolute minimum
+    const minH = Math.max(TEXT_NODE_ABSOLUTE_MIN_H, Math.ceil(contentH * 0.3));
+    return { w: minW, h: minH };
+  },
+  getMaxSize: (element) => {
+    const fontSize = resolveHeadingFontSize(element.props.fontSize);
+    const [, , w] = element.xywh;
+    const textLen = estimateTextLength(element.props);
+    const contentH = estimateContentHeight(textLen, fontSize, w);
+    // Max width based on content
+    const avgCharWidth = fontSize * 0.55;
+    const contentWidth = Math.ceil(textLen * avgCharWidth);
+    const minReadableWidth = Math.ceil(fontSize * 16);
+    const maxW = Math.min(
+      TEXT_NODE_MAX_SIZE.w,
+      Math.max(minReadableWidth, contentWidth + 32),
+    );
+    // Max height = 150% of content height, capped at absolute maximum
+    const maxH = Math.min(TEXT_NODE_ABSOLUTE_MAX_H, Math.max(TEXT_NODE_ABSOLUTE_MIN_H, Math.ceil(contentH * 1.5)));
+    return { w: maxW, h: maxH };
+  },
   toolbar: (ctx) => {
     if (ctx.element.props.readOnlyProjection) {
       return [];

@@ -57,6 +57,10 @@ const defaultCorsOrigins = [
   "http://localhost:3001",
   "http://127.0.0.1:3000",
   "http://127.0.0.1:3001",
+  "https://localhost:3000",
+  "https://localhost:3001",
+  "https://127.0.0.1:3000",
+  "https://127.0.0.1:3001",
 ];
 
 function getCorsOrigins(): string[] {
@@ -94,7 +98,7 @@ export function createApp() {
           const url = new URL(origin);
           const isLocalhost =
             url.hostname === "localhost" || url.hostname === "127.0.0.1";
-          if (url.protocol === "http:" && isLocalhost) return origin;
+          if ((url.protocol === "http:" || url.protocol === "https:") && isLocalhost) return origin;
         } catch {
           return null;
         }

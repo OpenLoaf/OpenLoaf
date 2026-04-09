@@ -187,7 +187,6 @@ export async function runChatStream(input: {
     serverVersion: input.request.serverVersion,
     desktopVersion: input.request.desktopVersion,
     pageContext: input.request.pageContext,
-    sessionToolRules: input.request.sessionToolRules,
   });
 
   const lastMessage = incomingMessages.at(-1) as OpenLoafUIMessage | undefined;

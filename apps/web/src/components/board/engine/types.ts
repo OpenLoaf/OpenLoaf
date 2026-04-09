@@ -309,6 +309,8 @@ export type CanvasSnapshot = {
   activeToolId: string | null;
   /** Currently dragging element id. */
   draggingId: string | null;
+  /** Whether the current drag is a resize operation (skip settle delay). */
+  resizing: boolean;
   /** Whether the viewport is being panned. */
   panning: boolean;
   /** Whether the canvas is locked. */
@@ -448,6 +450,20 @@ export function resolveNodeMinSize(
   return dynamic ?? staticMin ?? fallback;
 }
 
+/** Resolve dynamic or static max size for a node definition. */
+export function resolveNodeMaxSize(
+  definition: CanvasNodeDefinition<unknown> | null | undefined,
+  element: CanvasNodeElement,
+  fallback: { w: number; h: number } = { w: 10000, h: 10000 },
+): { w: number; h: number } {
+  const dynamic = definition?.getMaxSize?.(element as CanvasNodeElement<never>);
+  const staticMax = definition?.capabilities?.maxSize;
+  if (dynamic && staticMax) {
+    return { w: Math.min(dynamic.w, staticMax.w), h: Math.min(dynamic.h, staticMax.h) };
+  }
+  return dynamic ?? staticMax ?? fallback;
+}
+
 /** Inline panel configuration for node editing state. */
 export type CanvasInlinePanelConfig = {
   /** Panel width when expanded (in px). */
@@ -470,6 +486,8 @@ export type CanvasNodeDefinition<P> = {
   view: ComponentType<CanvasNodeViewProps<P>>;
   /** Dynamic min size resolver based on current element state. */
   getMinSize?: (element: CanvasNodeElement<P>) => { w: number; h: number };
+  /** Dynamic max size resolver based on current element state. */
+  getMaxSize?: (element: CanvasNodeElement<P>) => { w: number; h: number };
   /** Measure function used to auto-resize nodes. */
   measure?: (props: P, ctx: { viewport: CanvasViewportState }) => {
     /** Measured width in world coordinates. */

@@ -403,12 +403,12 @@ export default function ChatCoreProvider({
   // ── Replace & commit helpers ──
   const replaceChatMessages = React.useCallback(
     (messages: UIMessage[]) => {
-      chat.setMessages(messages);
+      chatRef.current.setMessages(messages);
       if (!tabId) return;
       clearToolPartsForTab(tabId);
       toolStream.syncFromMessages({ tabId, messages });
     },
-    [chat.setMessages, tabId, clearToolPartsForTab, toolStream],
+    [tabId, clearToolPartsForTab, toolStream],
   );
 
   const applyServerSnapshotToChat = React.useCallback(
@@ -443,7 +443,7 @@ export default function ChatCoreProvider({
     tabId,
     projectId,
     sessionIdRef,
-    chat,
+    chatRef,
     pendingUserMessageIdRef,
     needsBranchMetaRefreshRef,
     branchSnapshotReceivedRef,
@@ -476,10 +476,10 @@ export default function ChatCoreProvider({
           toast.error("登录失败，请重新登录");
           return;
         }
-        chat.clearError();
+        chatRef.current.clearError();
         try {
           resetBranchSnapshotReceipt();
-          await chat.regenerate();
+          await chatRef.current.regenerate();
         } catch {}
       } catch {
         useSaasAuth.getState().logout();
@@ -490,9 +490,7 @@ export default function ChatCoreProvider({
     })();
   }, [
     basic.chatSource,
-    chat.clearError,
     chat.error,
-    chat.regenerate,
     chat.status,
     resetBranchSnapshotReceipt,
     sessionSnapshot.errorMessage,
@@ -576,8 +574,8 @@ export default function ChatCoreProvider({
                 // 缓冲：streaming 期间 setMessages 会被 useChat 内部更新覆盖
                 pendingTaskReportsRef.current.push(newMessage);
               } else {
-                chat.setMessages((prev) => {
-                  if (prev.some((m) => m.id === msg.id)) return prev;
+                chatRef.current.setMessages((prev: any) => {
+                  if (prev.some((m: any) => m.id === msg.id)) return prev;
                   return [...prev, newMessage];
                 });
               }
@@ -588,15 +586,15 @@ export default function ChatCoreProvider({
       },
     );
     return () => { subscription.unsubscribe() };
-  }, [sessionId, isTabActive, chat.setMessages]);
+  }, [sessionId, isTabActive]);
 
   const updateMessage = React.useCallback(
     (id: string, updates: Partial<UIMessage>) => {
-      chat.setMessages((messages) =>
-        messages.map((msg) => (msg.id === id ? { ...msg, ...updates } : msg))
+      chatRef.current.setMessages((messages: any) =>
+        messages.map((msg: any) => (msg.id === id ? { ...msg, ...updates } : msg))
       );
     },
-    [chat.setMessages]
+    []
   );
 
   // ── Message operations ──
@@ -610,7 +608,7 @@ export default function ChatCoreProvider({
     sessionId,
     tabId,
     projectId,
-    chat,
+    chatRef,
     leafMessageId,
     siblingNav,
     paramsRef,
@@ -675,7 +673,7 @@ export default function ChatCoreProvider({
   } = useChatApproval({
     sessionId,
     tabId,
-    chat,
+    chatRef,
     basicRef,
     resetBranchSnapshotReceipt,
     updateMessage,
@@ -698,16 +696,48 @@ export default function ChatCoreProvider({
   );
 
   // ── Context values ──
+  // rAF + startTransition: SSE 期间用 requestAnimationFrame 合并多次 useChat 更新为每帧一次，
+  // 再通过 startTransition 以可中断的 Transition 优先级传播给 consumer。
+  // 比 useDeferredValue 更好：rAF 减少渲染次数，startTransition 确保可中断。
+  const [contextMessages, setContextMessages] = React.useState<UIMessage[]>(
+    () => chat.messages as UIMessage[],
+  );
+  const messageRafRef = React.useRef(0);
+
+  React.useEffect(() => {
+    // 非流式状态（初始加载、历史恢复、结束）直接同步更新，不走 rAF
+    if (chat.status === "ready" || chat.status === "error") {
+      if (messageRafRef.current) {
+        cancelAnimationFrame(messageRafRef.current);
+        messageRafRef.current = 0;
+      }
+      setContextMessages(chat.messages as UIMessage[]);
+      return;
+    }
+    // 流式状态：rAF 合并 + startTransition 可中断
+    if (messageRafRef.current) return;
+    messageRafRef.current = requestAnimationFrame(() => {
+      messageRafRef.current = 0;
+      React.startTransition(() => {
+        setContextMessages(chatRef.current.messages as UIMessage[]);
+      });
+    });
+  }, [chat.messages, chat.status]);
+
+  React.useEffect(() => () => {
+    if (messageRafRef.current) cancelAnimationFrame(messageRafRef.current);
+  }, []);
+
   const stateValue = React.useMemo(
     () => ({
-      messages: chat.messages as UIMessage[],
+      messages: contextMessages,
       status: chat.status,
       error: effectiveError,
       isHistoryLoading,
       stepThinking,
       pendingCloudMessage,
     }),
-    [chat.messages, chat.status, effectiveError, isHistoryLoading, stepThinking, pendingCloudMessage]
+    [contextMessages, chat.status, effectiveError, isHistoryLoading, stepThinking, pendingCloudMessage]
   );
 
   const sessionValue = React.useMemo(
@@ -735,39 +765,46 @@ export default function ChatCoreProvider({
     [sendMessage, rejectPendingToolApprovals]
   );
 
+  // Ref-getter proxy: context value 对象引用永远不变，消除 ChatActionsContext 级联。
+  // 消费者调用 actions.sendMessage() 时通过 getter 取到最新函数，无需 context 重渲染。
+  const _actionsLatest = React.useRef({
+    sendMessage: sendMessageWithApprovalCleanup,
+    regenerate: stableRegenerate,
+    addToolApprovalResponse: stableAddToolApprovalResponse,
+    clearError: stableClearError,
+    stopGenerating,
+    updateMessage,
+    newSession,
+    selectSession,
+    switchSibling,
+    retryAssistantMessage,
+    resendUserMessage,
+    deleteMessageSubtree,
+    setPendingCloudMessage,
+    sendPendingCloudMessage,
+  });
+  _actionsLatest.current = {
+    sendMessage: sendMessageWithApprovalCleanup,
+    regenerate: stableRegenerate,
+    addToolApprovalResponse: stableAddToolApprovalResponse,
+    clearError: stableClearError,
+    stopGenerating,
+    updateMessage,
+    newSession,
+    selectSession,
+    switchSibling,
+    retryAssistantMessage,
+    resendUserMessage,
+    deleteMessageSubtree,
+    setPendingCloudMessage,
+    sendPendingCloudMessage,
+  };
   const actionsValue = React.useMemo(
-    () => ({
-      sendMessage: sendMessageWithApprovalCleanup,
-      regenerate: stableRegenerate,
-      addToolApprovalResponse: stableAddToolApprovalResponse,
-      clearError: stableClearError,
-      stopGenerating,
-      updateMessage,
-      newSession,
-      selectSession,
-      switchSibling,
-      retryAssistantMessage,
-      resendUserMessage,
-      deleteMessageSubtree,
-      setPendingCloudMessage,
-      sendPendingCloudMessage,
-    }),
-    [
-      sendMessageWithApprovalCleanup,
-      stableRegenerate,
-      stableAddToolApprovalResponse,
-      stableClearError,
-      stopGenerating,
-      updateMessage,
-      newSession,
-      selectSession,
-      switchSibling,
-      retryAssistantMessage,
-      resendUserMessage,
-      deleteMessageSubtree,
-      setPendingCloudMessage,
-      sendPendingCloudMessage,
-    ]
+    () =>
+      new Proxy({} as typeof _actionsLatest.current, {
+        get: (_, prop) => (_actionsLatest.current as any)?.[prop],
+      }),
+    [],
   );
 
   const optionsValue = React.useMemo(
@@ -786,21 +823,32 @@ export default function ChatCoreProvider({
     [input, imageOptions, codexOptions, claudeCodeOptions, addAttachments, addMaskedAttachment]
   );
 
+  const _toolCallbacksLatest = React.useRef({
+    upsertToolPart: upsertToolPartForTab,
+    markToolStreaming,
+    queueToolApprovalPayload,
+    clearToolApprovalPayload,
+    continueAfterToolApprovals,
+  });
+  _toolCallbacksLatest.current = {
+    upsertToolPart: upsertToolPartForTab,
+    markToolStreaming,
+    queueToolApprovalPayload,
+    clearToolApprovalPayload,
+    continueAfterToolApprovals,
+  };
   const toolCallbacks = React.useMemo(
-    () => ({
-      upsertToolPart: upsertToolPartForTab,
-      markToolStreaming,
-      queueToolApprovalPayload,
-      clearToolApprovalPayload,
-      continueAfterToolApprovals,
-    }),
-    [
-      upsertToolPartForTab,
-      markToolStreaming,
-      queueToolApprovalPayload,
-      clearToolApprovalPayload,
-      continueAfterToolApprovals,
-    ]
+    () =>
+      new Proxy({} as typeof _toolCallbacksLatest.current, {
+        get: (_, prop) => (_toolCallbacksLatest.current as any)?.[prop],
+        ownKeys: () => Object.keys(_toolCallbacksLatest.current),
+        getOwnPropertyDescriptor: (_, prop) => ({
+          configurable: true,
+          enumerable: true,
+          get: () => (_toolCallbacksLatest.current as any)?.[prop as string],
+        }),
+      }),
+    [],
   );
 
   return (
@@ -842,9 +890,26 @@ function ChatToolBridge({
     return state.toolPartsByTabId[tabId] ?? EMPTY_TOOL_PARTS;
   });
 
+  // rAF + startTransition: 与 messages 同样的策略。
+  // zustand 的 toolParts 更新频繁，通过 rAF 合并 + startTransition 可中断。
+  const [contextToolParts, setContextToolParts] = React.useState(toolParts);
+  const toolRafRef = React.useRef(0);
+  React.useEffect(() => {
+    if (toolRafRef.current) return;
+    toolRafRef.current = requestAnimationFrame(() => {
+      toolRafRef.current = 0;
+      React.startTransition(() => {
+        setContextToolParts(useChatRuntime.getState().toolPartsByTabId[tabId ?? ""] ?? EMPTY_TOOL_PARTS);
+      });
+    });
+  }, [toolParts, tabId]);
+  React.useEffect(() => () => {
+    if (toolRafRef.current) cancelAnimationFrame(toolRafRef.current);
+  }, []);
+
   const toolsValue = React.useMemo(
-    () => ({ toolParts, ...callbacks }),
-    [toolParts, callbacks],
+    () => ({ toolParts: contextToolParts, ...callbacks }),
+    [contextToolParts, callbacks],
   );
 
   return (

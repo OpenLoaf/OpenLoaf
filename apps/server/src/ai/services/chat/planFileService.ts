@@ -45,7 +45,7 @@ export function renderPlanMarkdown(input: {
   status: PlanFileStatus
   actionName: string
   explanation?: string
-  plan: PlanItem[]
+  plan: (string | PlanItem)[]
   createdAt?: string
 }): string {
   const now = new Date().toISOString()
@@ -69,9 +69,10 @@ export function renderPlanMarkdown(input: {
   // 机器可读的步骤块——UI 卡片以此为权威步骤来源（避免和正文其他编号列表混淆）。
   // 正文不再输出 `## 步骤` 编号列表，避免与 XML 重复。
   lines.push('<plan-steps>')
-  for (const step of input.plan) {
-    if (!step) continue
-    lines.push(`  <step>${escapeXml(step)}</step>`)
+  for (const item of input.plan) {
+    if (!item) continue
+    const text = typeof item === 'string' ? item : item.step
+    lines.push(`  <step>${escapeXml(text)}</step>`)
   }
   lines.push('</plan-steps>', '')
 
@@ -262,7 +263,7 @@ export async function savePlanFile(
   input: {
     actionName: string
     explanation?: string
-    plan: PlanItem[]
+    plan: (string | PlanItem)[]
     status?: PlanFileStatus
     createdAt?: string
   },

@@ -25,6 +25,7 @@ import { useBasicConfig } from "@/hooks/use-basic-config";
 import AutoUpdateGate from "@/components/layout/AutoUpdateGate";
 import { clearThemeOverride, readThemeOverride } from "@/lib/theme-override";
 import FilePreviewDialog from "@/components/file/FilePreviewDialog";
+import { TooltipProvider } from "@openloaf/ui/tooltip";
 import LocalAuthGate from "@/components/local-auth/LocalAuthGate";
 import { isElectronEnv } from "@/utils/is-electron-env";
 import { initOverlayDetector } from "@/lib/overlay-detector";
@@ -375,26 +376,28 @@ export default function Providers({ children }: { children: React.ReactNode }) {
       disableTransitionOnChange
     >
       <QueryClientProvider client={queryClient}>
-        <LanguageSettingsBootstrap />
-        <ThemeSettingsBootstrap />
-        <FontSizeSettingsBootstrap />
-        <AnimationSettingsBootstrap />
-        <SaasAuthBootstrap />
-        <ModelRegistryBootstrap />
-        <NativeThemeSyncBootstrap />
-        <WindowsTitlebarSymbolColorBootstrap />
-        <WindowsTitlebarHeightBootstrap />
-        <MotionSettingsBootstrap>
-          <LocalAuthGate>
-            {children}
-            <FilePreviewDialog />
-            <AutoUpdateGate />
-            <CloseConfirmDialog />
-            <TrayNavigationListener />
-            <DevNoticeDialog />
-          </LocalAuthGate>
-          {/* <ReactQueryDevtools initialIsOpen={false} /> */}
-        </MotionSettingsBootstrap>
+        <TooltipProvider delayDuration={500}>
+          <LanguageSettingsBootstrap />
+          <ThemeSettingsBootstrap />
+          <FontSizeSettingsBootstrap />
+          <AnimationSettingsBootstrap />
+          <SaasAuthBootstrap />
+          <ModelRegistryBootstrap />
+          <NativeThemeSyncBootstrap />
+          <WindowsTitlebarSymbolColorBootstrap />
+          <WindowsTitlebarHeightBootstrap />
+          <MotionSettingsBootstrap>
+            <LocalAuthGate>
+              {children}
+              <FilePreviewDialog />
+              <AutoUpdateGate />
+              <CloseConfirmDialog />
+              <TrayNavigationListener />
+              <DevNoticeDialog />
+            </LocalAuthGate>
+            {/* <ReactQueryDevtools initialIsOpen={false} /> */}
+          </MotionSettingsBootstrap>
+        </TooltipProvider>
       </QueryClientProvider>
     </ThemeProvider>
   );

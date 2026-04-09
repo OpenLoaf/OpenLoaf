@@ -664,6 +664,20 @@ if (!gotTheLock) {
     log(`Unhandled rejection (non-fatal): ${String(reason)}`);
   });
 
+  // 接受本地 HTTP/2 server 的自签名证书（仅 localhost / 127.0.0.1）。
+  // 生产环境前端走 app:// 协议，但 API 请求走 https://127.0.0.1，仍需此处理。
+  app.on('certificate-error', (event, _webContents, url, _error, _cert, callback) => {
+    try {
+      const u = new URL(url);
+      if (u.hostname === 'localhost' || u.hostname === '127.0.0.1') {
+        event.preventDefault();
+        callback(true);
+        return;
+      }
+    } catch {}
+    callback(false);
+  });
+
   app.whenReady().then(() => {
     log('App ready.');
     // 内存监控：dev 每 5 秒 + 控制台，prod 每 60 秒仅写文件 ~/.openloaf/debug/memory-monitor.log

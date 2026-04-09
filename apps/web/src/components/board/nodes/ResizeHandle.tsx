@@ -24,17 +24,15 @@ type DragState = {
   startH: number
   zoom: number
   nodeDiv: HTMLElement
+  pointerId: number
 }
 
 /**
  * Right-bottom resize handle rendered inside a board node.
  *
- * Placed inside `DomNodeItem` so it follows the CSS transform layer
- * and stays perfectly synchronised with the node DOM (no frame lag).
- *
- * During drag the handle directly mutates the parent node's DOM style
- * for zero-latency visual feedback, then commits the final size to
- * `engine.doc` + history on pointer-up.
+ * Uses window-level event listeners instead of pointer capture so that
+ * React re-renders (which may replace the DOM element) cannot interrupt
+ * an in-progress drag operation.
  */
 export function ResizeHandle({
   engine,
@@ -46,10 +44,57 @@ export function ResizeHandle({
 }: ResizeHandleProps) {
   const dragRef = useRef<DragState | null>(null)
 
+  const clamp = (nextW: number, nextH: number) => {
+    if (minW != null) nextW = Math.max(nextW, minW)
+    if (maxW != null) nextW = Math.min(nextW, maxW)
+    if (minH != null) nextH = Math.max(nextH, minH)
+    if (maxH != null) nextH = Math.min(nextH, maxH)
+    return [nextW, nextH] as const
+  }
+
+  const onWindowPointerMove = (e: PointerEvent) => {
+    const drag = dragRef.current
+    if (!drag || e.pointerId !== drag.pointerId) return
+
+    const dx = (e.clientX - drag.startX) / drag.zoom
+    const dy = (e.clientY - drag.startY) / drag.zoom
+
+    const [nextW, nextH] = clamp(drag.startW + dx, drag.startH + dy)
+
+    // Direct DOM mutation for zero-latency feedback
+    drag.nodeDiv.style.width = `${nextW}px`
+    drag.nodeDiv.style.height = `${nextH}px`
+  }
+
+  const onWindowPointerUp = (e: PointerEvent) => {
+    const drag = dragRef.current
+    if (!drag || e.pointerId !== drag.pointerId) return
+
+    // Clean up window listeners immediately
+    window.removeEventListener('pointermove', onWindowPointerMove)
+    window.removeEventListener('pointerup', onWindowPointerUp)
+
+    const dx = (e.clientX - drag.startX) / drag.zoom
+    const dy = (e.clientY - drag.startY) / drag.zoom
+
+    const [nextW, nextH] = clamp(drag.startW + dx, drag.startH + dy)
+
+    const [x, y] = element.xywh
+    engine.doc.updateElement(element.id, {
+      xywh: [x, y, Math.round(nextW), Math.round(nextH)],
+    })
+    engine.commitHistory()
+    drag.nodeDiv.style.transition = ''
+    // setDraggingElementId(null) calls emitChange() which snapshots state.
+    // resizing must still be true at that point so BoardCanvasRender skips the settle delay.
+    engine.setDraggingElementId(null)
+    engine.setResizing(false)
+    dragRef.current = null
+  }
+
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     e.stopPropagation()
     e.preventDefault()
-    e.currentTarget.setPointerCapture(e.pointerId)
 
     const nodeDiv = e.currentTarget.closest<HTMLElement>('[data-board-node]')
     if (!nodeDiv) return
@@ -64,72 +109,19 @@ export function ResizeHandle({
       startH: h,
       zoom,
       nodeDiv,
+      pointerId: e.pointerId,
     }
 
     // Disable CSS transitions during drag for instant visual feedback
     nodeDiv.style.transition = 'none'
 
     // Mark as dragging so AnchorOverlay / toolbar hide during resize
+    engine.setResizing(true)
     engine.setDraggingElementId(element.id)
-  }
 
-  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    const drag = dragRef.current
-    if (!drag) return
-
-    const dx = (e.clientX - drag.startX) / drag.zoom
-    const dy = (e.clientY - drag.startY) / drag.zoom
-
-    let nextW = drag.startW + dx
-    let nextH = drag.startH + dy
-
-    if (minW != null) nextW = Math.max(nextW, minW)
-    if (maxW != null) nextW = Math.min(nextW, maxW)
-    if (minH != null) nextH = Math.max(nextH, minH)
-    if (maxH != null) nextH = Math.min(nextH, maxH)
-
-    // Direct DOM mutation for zero-latency feedback
-    drag.nodeDiv.style.width = `${nextW}px`
-    drag.nodeDiv.style.height = `${nextH}px`
-  }
-
-  const onPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
-    const drag = dragRef.current
-    if (!drag) return
-
-    const dx = (e.clientX - drag.startX) / drag.zoom
-    const dy = (e.clientY - drag.startY) / drag.zoom
-
-    let nextW = drag.startW + dx
-    let nextH = drag.startH + dy
-
-    if (minW != null) nextW = Math.max(nextW, minW)
-    if (maxW != null) nextW = Math.min(nextW, maxW)
-    if (minH != null) nextH = Math.max(nextH, minH)
-    if (maxH != null) nextH = Math.min(nextH, maxH)
-
-    const [x, y] = element.xywh
-    engine.doc.updateElement(element.id, {
-      xywh: [x, y, Math.round(nextW), Math.round(nextH)],
-    })
-    engine.commitHistory()
-    drag.nodeDiv.style.transition = ''
-    engine.setDraggingElementId(null)
-    // 清空 dragRef 放在最后，确保 onLostPointerCapture 能安全跳过
-    dragRef.current = null
-  }
-
-  const onLostPointerCapture = () => {
-    const drag = dragRef.current
-    if (!drag) return
-    dragRef.current = null
-
-    // Restore transition
-    drag.nodeDiv.style.transition = ''
-    engine.setDraggingElementId(null)
-    // Revert to original size (cancel the resize operation)
-    drag.nodeDiv.style.width = `${drag.startW}px`
-    drag.nodeDiv.style.height = `${drag.startH}px`
+    // Use window-level listeners so React DOM reconciliation cannot break the drag
+    window.addEventListener('pointermove', onWindowPointerMove)
+    window.addEventListener('pointerup', onWindowPointerUp)
   }
 
   const onDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -169,9 +161,6 @@ export function ResizeHandle({
       data-resize-handle
       className="pointer-events-auto absolute bottom-0 right-0 z-10 flex h-5 w-5 cursor-nwse-resize items-center justify-center opacity-0 transition-opacity duration-150 group-data-[selected]/node:opacity-100"
       onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
-      onLostPointerCapture={onLostPointerCapture}
       onDoubleClick={onDoubleClick}
     >
       <svg

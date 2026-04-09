@@ -56,6 +56,8 @@ export type GenerateActionBarProps = {
   warningMessage?: string | null
   /** Pricing-relevant params for dynamic credit estimation (aspectRatio, duration, count, etc.). */
   estimateParams?: Record<string, unknown>
+  /** Skip credit estimation (e.g. text category where estimate API is not supported). */
+  skipEstimate?: boolean
   /** Initial generate target restored from aiConfig. */
   initialTarget?: GenerateTarget
   /** Called when generate target changes — persist to aiConfig. */
@@ -181,6 +183,7 @@ export function GenerateActionBar({
   generatingLabel,
   warningMessage,
   estimateParams,
+  skipEstimate = false,
   initialTarget,
   onTargetChange,
   variants,
@@ -217,7 +220,7 @@ export function GenerateActionBar({
   const { totalCredits: estimatedCredits, billingType } = useEstimatePrice({
     variantId: selectedVariantId,
     params: estimateParams,
-    skip: !loggedIn,
+    skip: !loggedIn || skipEstimate,
   })
 
   const resolvedCredits = estimatedCredits

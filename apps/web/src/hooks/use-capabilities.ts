@@ -11,54 +11,60 @@
 
 import { useEffect } from 'react'
 import { create } from 'zustand'
-import type { V3CapabilitiesData } from '@/lib/saas-media'
+import type { V3CapabilitiesData, CapabilitiesCategory } from '@/lib/saas-media'
 import { fetchCapabilities } from '@/lib/saas-media'
-
-type MediaCategory = 'image' | 'video' | 'audio'
 
 type CapabilitiesState = {
   /** Cached capabilities per category. */
   image: V3CapabilitiesData | null
   video: V3CapabilitiesData | null
   audio: V3CapabilitiesData | null
+  text: V3CapabilitiesData | null
   /** Loading flag per category. */
   loadingImage: boolean
   loadingVideo: boolean
   loadingAudio: boolean
+  loadingText: boolean
   /** Error message per category. */
   errorImage: string | null
   errorVideo: string | null
   errorAudio: string | null
+  errorText: string | null
   /** Load once if not already loaded. */
-  load: (category: MediaCategory) => Promise<void>
+  load: (category: CapabilitiesCategory) => Promise<void>
   /** Force reload capabilities for a category. */
-  refresh: (category: MediaCategory) => Promise<void>
+  refresh: (category: CapabilitiesCategory) => Promise<void>
 }
 
-function loadingKey(category: MediaCategory) {
+function loadingKey(category: CapabilitiesCategory) {
   return `loading${category[0].toUpperCase()}${category.slice(1)}` as
     | 'loadingImage'
     | 'loadingVideo'
     | 'loadingAudio'
+    | 'loadingText'
 }
 
-function errorKey(category: MediaCategory) {
+function errorKey(category: CapabilitiesCategory) {
   return `error${category[0].toUpperCase()}${category.slice(1)}` as
     | 'errorImage'
     | 'errorVideo'
     | 'errorAudio'
+    | 'errorText'
 }
 
 const useCapabilitiesStore = create<CapabilitiesState>((set, get) => ({
   image: null,
   video: null,
   audio: null,
+  text: null,
   loadingImage: false,
   loadingVideo: false,
   loadingAudio: false,
+  loadingText: false,
   errorImage: null,
   errorVideo: null,
   errorAudio: null,
+  errorText: null,
 
   load: async (category) => {
     const lk = loadingKey(category)
@@ -81,7 +87,7 @@ const useCapabilitiesStore = create<CapabilitiesState>((set, get) => ({
   },
 }))
 
-/** 确保所有 3 个 category 的 capabilities 都已加载（首次）。 */
+/** 确保所有 3 个媒体 category 的 capabilities 都已加载（首次）。text 按需加载。 */
 export function ensureAllCapabilitiesLoaded(): void {
   const { load } = useCapabilitiesStore.getState()
   void load('image')
@@ -122,8 +128,8 @@ export function useAllCapabilities() {
   return { data, loading, error }
 }
 
-/** React hook for v3 media capabilities. */
-export function useCapabilities(category: MediaCategory) {
+/** React hook for v3 capabilities (supports all categories including text). */
+export function useCapabilities(category: CapabilitiesCategory) {
   const data = useCapabilitiesStore((state) => state[category])
   const loading = useCapabilitiesStore((state) => state[loadingKey(category)])
   const error = useCapabilitiesStore((state) => state[errorKey(category)])

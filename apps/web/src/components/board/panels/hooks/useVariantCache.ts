@@ -44,6 +44,13 @@ export interface VariantCacheReturn {
   takeSnapshot: () => Record<string, VariantSnapshot>
   /** Restore a previously captured snapshot (discards current in-memory draft). */
   restoreSnapshot: (snapshot: Record<string, VariantSnapshot>) => void
+  /**
+   * Migrate userTexts from a sibling variant within the same feature.
+   * Call synchronously before reading the snapshot so that InputSlotBar
+   * receives the migrated texts on its initial mount.
+   * Only migrates when the target key has no userTexts yet.
+   */
+  migrateUserTexts: (fromKey: string, toKey: string) => void
 }
 
 export function useVariantCache(options: VariantCacheOptions): VariantCacheReturn {
@@ -95,6 +102,33 @@ export function useVariantCache(options: VariantCacheOptions): VariantCacheRetur
 
   const get = useCallback((key: string) => cacheRef.current[key], [])
 
+  const migrateUserTexts = useCallback(
+    (fromKey: string, toKey: string) => {
+      if (!fromKey || !toKey || fromKey === toKey) return
+      // Only migrate within the same feature (model switch, not feature switch)
+      const fromFeature = fromKey.split(':')[0]
+      const toFeature = toKey.split(':')[0]
+      if (fromFeature !== toFeature) return
+      const existing = cacheRef.current[toKey]
+      if (existing?.userTexts && Object.keys(existing.userTexts).length > 0) return
+      const prev = cacheRef.current[fromKey]
+      if (!prev?.userTexts || Object.keys(prev.userTexts).length === 0) return
+      const target = cacheRef.current[toKey] ?? { inputs: {}, params: {} }
+      cacheRef.current[toKey] = { ...target, userTexts: { ...prev.userTexts } }
+      dirtyRef.current = true
+      if (!pausedRef.current) {
+        clearTimeout(flushTimer.current)
+        flushTimer.current = setTimeout(() => {
+          if (dirtyRef.current) {
+            onFlushRef.current({ ...cacheRef.current })
+            dirtyRef.current = false
+          }
+        }, 300)
+      }
+    },
+    [],
+  )
+
   const takeSnapshot = useCallback(
     () => JSON.parse(JSON.stringify(cacheRef.current)) as Record<string, VariantSnapshot>,
     [],
@@ -110,7 +144,7 @@ export function useVariantCache(options: VariantCacheOptions): VariantCacheRetur
   )
 
   return useMemo(
-    () => ({ update, get, flushNow, cacheRef, takeSnapshot, restoreSnapshot }),
-    [update, get, flushNow, takeSnapshot, restoreSnapshot],
+    () => ({ update, get, flushNow, cacheRef, takeSnapshot, restoreSnapshot, migrateUserTexts }),
+    [update, get, flushNow, takeSnapshot, restoreSnapshot, migrateUserTexts],
   )
 }

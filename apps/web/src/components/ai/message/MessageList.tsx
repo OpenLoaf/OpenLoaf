@@ -10,7 +10,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { useChatMessages, useChatStatus } from "../context";
+import { useChatMessages, useChatStatus, useChatTools } from "../context";
 import MessageHelper from "./MessageHelper";
 import * as React from "react";
 import MessageItem from "./MessageItem";
@@ -22,6 +22,8 @@ import { messageHasVisibleContent } from "@/lib/chat/message-visible";
 import { getMessagePlainText } from "@/lib/chat/message-text";
 import { incrementChatPerf } from "@/lib/chat/chat-perf";
 import { useStreamingMessageBuffer } from "../hooks/use-streaming-message-buffer";
+import { isToolPart } from "@/lib/chat/message-parts";
+import { isApprovalPending } from "./tools/shared/tool-utils";
 import {
   Conversation,
   ConversationContent,
@@ -40,6 +42,7 @@ export default function MessageList({ className, projectId }: MessageListProps) 
   incrementChatPerf("render.messageList");
   const { messages, isHistoryLoading, pendingCloudMessage } = useChatMessages();
   const { status, error, stepThinking } = useChatStatus();
+  const { toolParts } = useChatTools();
   const { staticMessages, streamingMessage, isStreamingActive } = useStreamingMessageBuffer({
     messages,
     status,
@@ -127,32 +130,50 @@ export default function MessageList({ className, projectId }: MessageListProps) 
   // 空态时展示提示卡片。
   const shouldShowHelper = !isHistoryLoading && messages.length === 0 && !pendingCloudMessage;
 
-  const messageNodes = React.useMemo(
-    () =>
-      (displayMessages as any[]).map((message, index) => {
-        const prevRole = index > 0 ? (displayMessages[index - 1] as any)?.role : undefined;
-        const isGroupStart = message?.role !== prevRole;
-        return (
-          <MessageItem
-            key={message?.id ?? `m_${index}`}
-            message={message}
-            isGroupStart={isGroupStart}
-            isLastHumanMessage={index === lastHumanIndex}
-            isLastAiMessage={index === lastAiIndex}
-            isLastAiActionMessage={index === lastAiActionIndex}
-            hideAiActions={hideAiActions && lastMessageIsAssistant && index === lastAiIndex}
-          />
-        );
-      }),
-    [
-      displayMessages,
-      lastHumanIndex,
-      lastAiIndex,
-      lastAiActionIndex,
-      hideAiActions,
-      lastMessageIsAssistant,
-    ]
-  );
+  // 预计算 tab 级别的 pending approval（避免每个 MessageItem 订阅 toolParts context）
+  const hasPendingApprovalInTab = React.useMemo(() => {
+    if (!toolParts) return false;
+    return Object.values(toolParts).some((part) => isApprovalPending(part as any));
+  }, [toolParts]);
+
+  // 不使用 useMemo 包装 messageNodes — 让 React.memo(MessageItem) 按 key 逐项优化。
+  // status / shouldHideForApproval 作为 props 传入，避免 MessageItem 内部订阅高频 Context。
+  const messageNodes = (displayMessages as any[]).map((message, index) => {
+    const prevRole = index > 0 ? (displayMessages[index - 1] as any)?.role : undefined;
+    const isGroupStart = message?.role !== prevRole;
+    const isLast = index === lastAiIndex;
+
+    // 逐消息计算 approval 状态（从 message.parts + toolParts snapshot 合并判定）
+    let shouldHideForApproval = false;
+    if (message?.role !== "user") {
+      const parts = Array.isArray(message?.parts) ? message.parts : [];
+      const msgToolParts = parts.filter((p: any) => isToolPart(p));
+      if (msgToolParts.length > 0) {
+        shouldHideForApproval = msgToolParts.some((part: any) => {
+          const toolCallId = typeof part?.toolCallId === "string" ? String(part.toolCallId) : "";
+          const snapshot = toolCallId ? toolParts?.[toolCallId] : undefined;
+          const merged = snapshot ? { ...part, ...snapshot } : part;
+          return isApprovalPending(merged as any);
+        });
+      } else if (isLast && hasPendingApprovalInTab) {
+        shouldHideForApproval = true;
+      }
+    }
+
+    return (
+      <MessageItem
+        key={message?.id ?? `m_${index}`}
+        message={message}
+        isGroupStart={isGroupStart}
+        isLastHumanMessage={index === lastHumanIndex}
+        isLastAiMessage={isLast}
+        isLastAiActionMessage={index === lastAiActionIndex}
+        hideAiActions={hideAiActions && lastMessageIsAssistant && isLast}
+        status={status}
+        shouldHideForApproval={shouldHideForApproval}
+      />
+    );
+  });
 
   return (
     <div

@@ -106,23 +106,40 @@ export function snapshotViewEqual(
 export function useBoardSnapshot(engine: CanvasEngine): CanvasSnapshot {
   const [snapshot, setSnapshot] = useState(() => engine.getSnapshot());
   const rafRef = useRef<number | null>(null);
+  const prevDraggingIdRef = useRef<string | null>(snapshot.draggingId);
 
   useEffect(() => {
     // 逻辑：effect 运行时同步最新快照，处理 React Strict Mode 下引擎状态
     // 在 cleanup（取消 rAF）和 re-mount 之间发生变更的情况。
     setSnapshot(prev => {
       const current = engine.getSnapshot();
+      prevDraggingIdRef.current = current.draggingId;
       return snapshotEqual(prev, current) ? prev : current;
     });
 
     // 逻辑：通过 rAF 节流快照刷新，确保每帧最多更新一次，避免拖拽时多次重渲染。
     // 使用 updater function 进行浅比较，只有快照内容真正变化时才触发 re-render。
+    //
+    // 例外：draggingId 变化时同步更新，确保拖拽/resize 结束后工具栏
+    // 与 AI 面板（由 expandedNodeId 控制，全程不变）同帧出现，无一帧延迟。
     const unsubscribe = engine.subscribe(() => {
+      const next = engine.getSnapshot();
+      // 拖拽状态变化时绕过 rAF 节流，同步更新快照
+      if (next.draggingId !== prevDraggingIdRef.current) {
+        prevDraggingIdRef.current = next.draggingId;
+        if (rafRef.current !== null) {
+          cancelAnimationFrame(rafRef.current);
+          rafRef.current = null;
+        }
+        setSnapshot(prev => snapshotEqual(prev, next) ? prev : next);
+        return;
+      }
       if (rafRef.current !== null) return;
       rafRef.current = requestAnimationFrame(() => {
         rafRef.current = null;
         setSnapshot(prev => {
           const current = engine.getSnapshot();
+          prevDraggingIdRef.current = current.draggingId;
           return snapshotEqual(prev, current) ? prev : current;
         });
       });

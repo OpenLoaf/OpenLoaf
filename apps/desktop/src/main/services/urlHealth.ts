@@ -18,12 +18,20 @@ const sleep = (ms: number) =>
 
 /**
  * Checks whether a URL responds within a short timeout.
+ * For HTTPS localhost URLs with self-signed certs, temporarily disables TLS verification.
  */
 export async function isUrlOk(
   url: string,
   timeoutMs: number = DEFAULT_TIMEOUT_MS
 ): Promise<boolean> {
   if (!canFetch) return false;
+
+  // Self-signed cert: temporarily disable TLS verification for localhost.
+  const isLocalHttps =
+    url.startsWith('https://localhost') || url.startsWith('https://127.0.0.1');
+  const origTls = process.env.NODE_TLS_REJECT_UNAUTHORIZED;
+  if (isLocalHttps) process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
   const controller = typeof AbortController === 'function' ? new AbortController() : null;
   const timeoutId = controller
     ? setTimeout(() => controller.abort(), timeoutMs)
@@ -36,6 +44,10 @@ export async function isUrlOk(
     return false;
   } finally {
     if (timeoutId) clearTimeout(timeoutId);
+    if (isLocalHttps) {
+      if (origTls === undefined) delete process.env.NODE_TLS_REJECT_UNAUTHORIZED;
+      else process.env.NODE_TLS_REJECT_UNAUTHORIZED = origTls;
+    }
   }
 }
 

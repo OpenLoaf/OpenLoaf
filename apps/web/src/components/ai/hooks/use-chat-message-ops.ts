@@ -37,13 +37,13 @@ type UseChatMessageOpsOptions = {
   sessionId: string;
   tabId?: string;
   projectId?: string;
-  chat: {
+  chatRef: React.RefObject<{
     messages: UIMessage[];
     sendMessage: (...args: any[]) => any;
     regenerate: (...args: any[]) => any;
     stop: () => void;
     setMessages: (updater: UIMessage[] | ((prev: UIMessage[]) => UIMessage[])) => void;
-  };
+  }>;
   leafMessageId: string | null | undefined;
   siblingNav: Record<string, any> | undefined;
   paramsRef: React.MutableRefObject<Record<string, unknown> | undefined>;
@@ -69,7 +69,7 @@ export function useChatMessageOps({
   sessionId,
   tabId,
   projectId,
-  chat,
+  chatRef,
   leafMessageId,
   siblingNav,
   paramsRef,
@@ -98,7 +98,8 @@ export function useChatMessageOps({
   );
 
   const sendMessage = React.useCallback(
-    (...args: Parameters<typeof chat.sendMessage>) => {
+    (...args: any[]) => {
+      const chat = chatRef.current!;
       const [message, options] = args as any[];
       if (!message) return (chat.sendMessage as any)(message, options);
 
@@ -143,7 +144,7 @@ export function useChatMessageOps({
       }
       if (
         nextMessage.role === "user" &&
-        !(chat.messages ?? []).some((m) => (m as any)?.role === "user") &&
+        !(chat.messages ?? []).some((m: any) => m?.role === "user") &&
         !isCompactCommandMessage(nextMessage) &&
         !isSessionCommandMessage(nextMessage)
       ) {
@@ -182,7 +183,7 @@ export function useChatMessageOps({
       const result = (chat.sendMessage as any)(nextMessage, mergedOptions);
       return result;
     },
-    [chat.sendMessage, chat.messages, leafMessageId, resetBranchSnapshotReceipt, paramsRef, tabIdRef, sessionIdRef, basicRef, pendingUserMessageIdRef, pendingCompactRequestRef, pendingSessionCommandRef, pendingInitialTitleRefreshRef, recordEntityVisit]
+    [leafMessageId, resetBranchSnapshotReceipt, paramsRef, tabIdRef, sessionIdRef, basicRef, pendingUserMessageIdRef, pendingCompactRequestRef, pendingSessionCommandRef, pendingInitialTitleRefreshRef, recordEntityVisit]
   );
 
   const switchSibling = React.useCallback(
@@ -196,7 +197,7 @@ export function useChatMessageOps({
       const targetId = direction === "prev" ? nav.prevSiblingId : nav.nextSiblingId;
       if (!targetId) return;
 
-      chat.stop();
+      chatRef.current!.stop();
 
       const nextSnapshot = await refreshSnapshot({
         anchor: { messageId: targetId, strategy: "latestLeafInSubtree" },
@@ -207,7 +208,6 @@ export function useChatMessageOps({
     },
     [
       siblingNav,
-      chat.stop,
       applyServerSnapshotToChat,
       refreshSnapshot,
     ]
@@ -215,7 +215,8 @@ export function useChatMessageOps({
 
   const retryAssistantMessage = React.useCallback(
     async (assistantMessageId: string) => {
-      const assistant = (chat.messages as any[]).find((m) => String(m?.id) === assistantMessageId);
+      const chat = chatRef.current!;
+      const assistant = (chat.messages as any[]).find((m: any) => String(m?.id) === assistantMessageId);
       if (!assistant) return;
 
       const parentUserMessageId = findParentUserForRetryPure({
@@ -227,7 +228,7 @@ export function useChatMessageOps({
       if (!parentUserMessageId) return;
 
       const isDirectCli = !!(
-        (chat.messages as any[]).find((m) => String(m?.id) === parentUserMessageId)
+        (chat.messages as any[]).find((m: any) => String(m?.id) === parentUserMessageId)
           ?.metadata as any
       )?.directCli;
       const originalChatModelId =
@@ -237,7 +238,7 @@ export function useChatMessageOps({
       let prevAssistantUuid: string | undefined;
       if (isDirectCli) {
         const parentIdx = (chat.messages as any[]).findIndex(
-          (m) => String(m?.id) === parentUserMessageId,
+          (m: any) => String(m?.id) === parentUserMessageId,
         );
         if (parentIdx > 0) {
           for (let i = parentIdx - 1; i >= 0; i--) {
@@ -281,21 +282,17 @@ export function useChatMessageOps({
       });
     },
     [
-      chat.stop,
-      chat.messages,
-      chat.regenerate,
       siblingNav,
       patchSnapshot,
       replaceChatMessages,
       resetBranchSnapshotReceipt,
-      pendingUserMessageIdRef,
-      needsBranchMetaRefreshRef,
     ]
   );
 
   const resendUserMessage = React.useCallback(
     async (userMessageId: string, nextText: string, nextParts?: any[]) => {
-      const user = (chat.messages as any[]).find((m) => String(m?.id) === userMessageId);
+      const chat = chatRef.current!;
+      const user = (chat.messages as any[]).find((m: any) => String(m?.id) === userMessageId);
       if (!user || user.role !== "user") return;
       const parentMessageId = resolveResendParentMessageIdPure(user as any);
 
@@ -337,13 +334,10 @@ export function useChatMessageOps({
       });
     },
     [
-      chat.stop,
-      chat.messages,
       sendMessage,
       patchSnapshot,
       replaceChatMessages,
       resetSnapshot,
-      needsBranchMetaRefreshRef,
     ]
   );
 
@@ -352,7 +346,7 @@ export function useChatMessageOps({
       const normalizedId = String(messageId ?? "").trim();
       if (!normalizedId) return false;
 
-      chat.stop();
+      chatRef.current!.stop();
 
       const result = await deleteMessageSubtreeMutation.mutateAsync({
         sessionId,
@@ -366,7 +360,6 @@ export function useChatMessageOps({
       return true;
     },
     [
-      chat.stop,
       commitServerSnapshot,
       deleteMessageSubtreeMutation.mutateAsync,
       sessionId,

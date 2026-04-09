@@ -53,10 +53,11 @@ export const savePlanDraftTool = tool({
     }
 
     const planNo = await getNextPlanNo(sessionId);
+    const planItems = input.steps.map((s: string) => ({ step: s, status: "pending" as const }));
     const planAbsPath = await savePlanFile(sessionId, planNo, {
       actionName: input.actionName,
       explanation: input.explanation,
-      plan: input.steps,
+      plan: planItems,
       status: "pending",
     });
 

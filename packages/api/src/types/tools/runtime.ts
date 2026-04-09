@@ -252,5 +252,8 @@ DO NOT call SubmitPlan yourself — approval is the parent agent's responsibilit
 /** Save-plan-draft payload type. */
 export type SavePlanDraftArgs = z.infer<typeof savePlanDraftToolDef.parameters>;
 
-/** Plan step item — a plain string describing the step. */
-export type PlanItem = string;
+/** Plan step item with tracking status. */
+export type PlanItem = {
+  step: string;
+  status: "pending" | "in_progress" | "completed" | "failed";
+};

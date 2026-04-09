@@ -272,6 +272,8 @@ export async function startProductionServices(args: {
             userEnv.OPENLOAF_DOCX_SFDT_HELPER_ROOT ??
             packagedEnv.OPENLOAF_DOCX_SFDT_HELPER_ROOT ??
             path.join(resourcesPath, 'docx-sfdt'),
+          // HTTP/2 证书目录（prod 使用 ~/.openloaf/certs/）
+          OPENLOAF_CERT_DIR: path.join(getOpenLoafRootDir(), 'certs'),
           // 中文注释：强制对齐 Electron 与 Server 的 CDP 端口，避免运行时不一致。
           OPENLOAF_REMOTE_DEBUGGING_PORT: String(args.cdpPort),
         },

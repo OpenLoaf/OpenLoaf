@@ -265,7 +265,8 @@ export async function ensureDevServices(args: {
     if (!(await isPortFree(serverHost, serverPort))) {
       // 清理失败，换端口。
       serverPort = await getFreePort(serverHost);
-      serverUrl = `http://${serverHost}:${serverPort}`;
+      const serverProto = new URL(serverUrl).protocol.replace(':', '');
+      serverUrl = `${serverProto}://${serverHost}:${serverPort}`;
       args.log(`Server port still in use; switched to ${serverUrl}`);
     }
   }
@@ -320,6 +321,8 @@ export async function ensureDevServices(args: {
         envBase.OPENLOAF_DOCX_SFDT_HELPER_ROOT ??
         path.join(repoRoot, 'apps', 'desktop', 'resources', 'docx-sfdt'),
       TSX_TSCONFIG_PATH: serverTsconfig,
+      // HTTP/2 证书目录（dev 使用 monorepo 根目录的 .certs/）
+      OPENLOAF_CERT_DIR: path.join(repoRoot, '.certs'),
       // 允许 web dev server 作为 Origin 访问后端。
       CORS_ORIGIN: `${webUrl},${envBase.CORS_ORIGIN ?? ''}`,
     };

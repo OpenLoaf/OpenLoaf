@@ -7,9 +7,13 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
+import { createSecureServer } from "node:http2";
+import { createServer as createTcpServer } from "node:net";
 import { createAdaptorServer } from "@hono/node-server";
 import { createApp } from "./createApp";
+import { ensureCerts } from "./ensureCerts";
 import { logger } from "@/common/logger";
+import { resolveOpenLoafPath } from "@openloaf/config";
 import { attachTerminalWebSocket } from "@/modules/terminal/terminalWebSocket";
 import { attachBoardCollabWebSocket } from "@/modules/board/boardCollabWebSocket";
 import { startEmailIdleManager } from "@/modules/email/emailIdleManager";
@@ -17,8 +21,13 @@ import { taskScheduler } from "@/services/taskScheduler";
 import { taskOrchestrator } from "@/services/taskOrchestrator";
 
 /**
- * 启动 HTTP server（MVP）：
- * - 绑定 Hono fetch handler
+ * 启动 HTTP/2（默认）或 HTTP/1.1（降级）server。
+ *
+ * HTTP/2 需要 TLS 证书，首次启动时自动生成。
+ * 当 HTTP/2 启用时，同一端口同时接受两种连接：
+ *   - TLS 连接 → HTTP/2 (HTTPS) — Electron 内部使用
+ *   - 明文 HTTP → HTTP/1.1 fallback — OAuth 回调等外部浏览器场景
+ * 设置 OPENLOAF_HTTP2=0 可强制降级到纯 HTTP/1.1。
  */
 export function startServer() {
   const app = createApp();
@@ -26,27 +35,93 @@ export function startServer() {
   const port = Number(process.env.PORT ?? 23333);
   const hostname = process.env.HOST ?? "127.0.0.1";
 
-  const server = createAdaptorServer({
-    fetch: app.fetch,
-    hostname,
-  });
+  // ── HTTP/2 with TLS (default) ──
+  const h2Enabled = process.env.OPENLOAF_HTTP2 !== "0";
+  let certs: ReturnType<typeof ensureCerts> = null;
 
-  attachTerminalWebSocket(server);
-  attachBoardCollabWebSocket(server);
+  if (h2Enabled) {
+    const certDir =
+      process.env.OPENLOAF_CERT_DIR || resolveOpenLoafPath("certs");
+    certs = ensureCerts(certDir);
+    if (!certs) {
+      logger.warn("HTTP/2 disabled: certificate generation failed. Falling back to HTTP/1.1.");
+    }
+  }
 
-  server.listen(port, hostname, () => {
-    const info = server.address();
-    const actualPort =
-      typeof info === "object" && info && "port" in info
-        ? (info as any).port
-        : port;
-    logger.info({ hostname, port: actualPort }, `Server listening on http://${hostname}:${actualPort}`);
-    // 启动完成后输出统一成功日志，便于启动脚本/监控识别。
-    logger.info({ hostname, port: actualPort }, "Server started successfully");
-    void startEmailIdleManager();
-    void taskScheduler.start();
-    taskOrchestrator.start();
-  });
+  const useH2 = h2Enabled && certs !== null;
 
-  return { app, server };
+  // HTTPS/H2 server（Electron 内部连接，支持多路复用）
+  const h2Server = useH2
+    ? createAdaptorServer({
+        fetch: app.fetch,
+        hostname,
+        createServer: createSecureServer as any,
+        serverOptions: {
+          key: certs!.key,
+          cert: certs!.cert,
+          allowHTTP1: true, // WebSocket upgrade 需要 HTTP/1.1 握手
+        },
+      })
+    : null;
+
+  // HTTP/1.1 server（降级模式 或 双协议模式下的明文 fallback）
+  // OAuth 回调在外部浏览器打开，外部浏览器不信任自签名证书，必须走 HTTP。
+  const httpServer = createAdaptorServer({ fetch: app.fetch, hostname });
+
+  const primaryServer = h2Server ?? httpServer;
+  attachTerminalWebSocket(primaryServer);
+  attachBoardCollabWebSocket(primaryServer);
+
+  if (useH2 && h2Server) {
+    // 单端口双协议：TCP 层嗅探第一个字节判断 TLS vs 明文 HTTP。
+    // TLS ClientHello 以 0x16 开头 → HTTPS/H2 server（Electron 连接）。
+    // 明文 HTTP → HTTP/1.1 fallback（外部浏览器 OAuth 回调等）。
+    const tcpServer = createTcpServer((socket) => {
+      socket.on("error", () => socket.destroy());
+      socket.once("readable", () => {
+        const buf: Buffer | null = socket.read(1);
+        if (!buf || buf.length === 0) { socket.destroy(); return; }
+        socket.unshift(buf);
+
+        if (buf[0] === 0x16) {
+          h2Server.emit("connection", socket);
+        } else {
+          httpServer.emit("connection", socket);
+        }
+      });
+    });
+    tcpServer.on("error", (err) => logger.error(err, "TCP server error"));
+
+    tcpServer.listen(port, hostname, () => {
+      const info = tcpServer.address();
+      const actualPort =
+        typeof info === "object" && info && "port" in info ? info.port : port;
+      logger.info(
+        { hostname, port: actualPort, protocol: "h2 + http/1.1" },
+        `Server listening on https://${hostname}:${actualPort} (also accepts plain HTTP)`,
+      );
+      logger.info({ hostname, port: actualPort }, "Server started successfully");
+      void startEmailIdleManager();
+      void taskScheduler.start();
+      taskOrchestrator.start();
+    });
+  } else {
+    httpServer.listen(port, hostname, () => {
+      const info = httpServer.address();
+      const actualPort =
+        typeof info === "object" && info && "port" in info
+          ? (info as any).port
+          : port;
+      logger.info(
+        { hostname, port: actualPort, protocol: "http/1.1" },
+        `Server listening on http://${hostname}:${actualPort}`,
+      );
+      logger.info({ hostname, port: actualPort }, "Server started successfully");
+      void startEmailIdleManager();
+      void taskScheduler.start();
+      taskOrchestrator.start();
+    });
+  }
+
+  return { app, server: primaryServer };
 }

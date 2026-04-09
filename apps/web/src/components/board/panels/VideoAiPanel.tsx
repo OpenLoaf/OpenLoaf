@@ -190,6 +190,13 @@ export function VideoAiPanel({
     },
   })
 
+  // Migrate text slot content when switching models within the same feature
+  const prevCacheKeyRef = useRef(cacheKey)
+  if (cacheKey && cacheKey !== prevCacheKeyRef.current) {
+    cache.migrateUserTexts(prevCacheKeyRef.current, cacheKey)
+  }
+  prevCacheKeyRef.current = cacheKey
+
   // ── Draft mode — snapshot/restore on edit cancel ──
   const editSnapshotRef = useRef<Record<string, VariantSnapshot> | null>(null)
   const [cancelCounter, setCancelCounter] = useState(0)

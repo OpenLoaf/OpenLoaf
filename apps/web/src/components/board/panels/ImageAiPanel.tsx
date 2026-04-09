@@ -185,6 +185,13 @@ export function ImageAiPanel({
     },
   })
 
+  // Migrate text slot content when switching models within the same feature
+  const prevActiveKeyRef = useRef(activeKey)
+  if (activeKey && activeKey !== prevActiveKeyRef.current) {
+    cache.migrateUserTexts(prevActiveKeyRef.current, activeKey)
+  }
+  prevActiveKeyRef.current = activeKey
+
   // ── R2: Draft mode — snapshot/restore on edit cancel ──
   const editSnapshotRef = useRef<Record<string, VariantSnapshot> | null>(null)
   const [cancelCounter, setCancelCounter] = useState(0)

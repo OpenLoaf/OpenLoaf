@@ -114,7 +114,8 @@ export async function resolveRuntimePorts(args: {
       ? preferredPort
       : await getUniqueFreePort(defaultHost, usedPorts);
     if (canUsePreferred) usedPorts.add(preferredPort);
-    serverUrl = `http://${defaultHost}:${serverPort}`;
+    const serverProto = process.env.OPENLOAF_NO_HTTP2 === '1' ? 'http' : 'https';
+    serverUrl = `${serverProto}://${defaultHost}:${serverPort}`;
   } else {
     const port = tryExtractPort(serverUrl);
     if (port != null) usedPorts.add(port);

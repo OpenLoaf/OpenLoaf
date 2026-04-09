@@ -75,9 +75,11 @@ export function computeOutputTemplates(
     reachable.add('audio')
   }
 
-  // text 源可直接创建 video（text-to-video）
+  // text 源可直接创建所有媒体类型（text-to-image/video/audio）
   if (sourceOutputTypes.includes('text')) {
+    reachable.add('image')
     reachable.add('video')
+    reachable.add('audio')
   }
 
   if (capabilities && capabilities.length > 0) {

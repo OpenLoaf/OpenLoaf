@@ -35,7 +35,7 @@ import type {
   CanvasViewState,
   VersionStack,
 } from "./types";
-import { resolveNodeMinSize } from "./types";
+import { resolveNodeMinSize, resolveNodeMaxSize } from "./types";
 import type { CanvasHistoryState } from "./history-utils";
 import type { CanvasClipboard, ClipboardInsertPayload } from "./clipboard";
 import type { StrokeSettingsState } from "./strokes";
@@ -236,6 +236,8 @@ export class CanvasEngine {
   private elementsBoundsDirty = true;
   /** Active dragging element id. */
   private draggingElementId: string | null = null;
+  /** Whether the current drag is a resize (skip settle delay on drop). */
+  private resizing = false;
   /** Batch depth counter — when > 0, emitChange is deferred. */
   private batchDepth = 0;
   /** Whether a deferred emitChange is pending inside a batch. */
@@ -636,6 +638,7 @@ export class CanvasEngine {
       canRedo: this.canRedo(),
       activeToolId: this.tools.getActiveToolId(),
       draggingId: this.draggingElementId,
+      resizing: this.resizing,
       panning: this.panning,
       locked: this.locked,
       connectorDraft: this.connectorDraft,
@@ -857,6 +860,11 @@ export class CanvasEngine {
   setPendingInsertPoint(point: CanvasPoint | null): void {
     this.pendingInsertPoint = point;
     this.emitChange();
+  }
+
+  /** Mark the current drag as a resize operation (skips settle delay). */
+  setResizing(value: boolean): void {
+    this.resizing = value;
   }
 
   /** Mark the currently dragging element id. */
@@ -1327,17 +1335,13 @@ export class CanvasEngine {
       nodes.forEach(node => {
         const definition = this.nodes.getDefinition(node.type);
         const minSize = resolveNodeMinSize(definition, node);
-        const maxSize = definition?.capabilities?.maxSize;
+        const maxSize = resolveNodeMaxSize(definition, node);
         let nextW = targetW;
         let nextH = targetH;
-        if (minSize) {
-          nextW = Math.max(nextW, minSize.w);
-          nextH = Math.max(nextH, minSize.h);
-        }
-        if (maxSize) {
-          nextW = Math.min(nextW, maxSize.w);
-          nextH = Math.min(nextH, maxSize.h);
-        }
+        nextW = Math.max(nextW, minSize.w);
+        nextH = Math.max(nextH, minSize.h);
+        nextW = Math.min(nextW, maxSize.w);
+        nextH = Math.min(nextH, maxSize.h);
         const [x, y] = node.xywh;
         this.doc.updateElement(node.id, { xywh: [x, y, nextW, nextH] });
         minX = Math.min(minX, x);

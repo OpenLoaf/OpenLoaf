@@ -20,7 +20,7 @@ import MessageAi from "./MessageAi";
 import MessageHuman from "./MessageHuman";
 import MessageHumanAction from "./MessageHumanAction";
 import MessageTaskReport from "./MessageTaskReport";
-import { useChatActions, useChatSession, useChatStatus, useChatTools } from "../context";
+import { useChatActions, useChatSession } from "../context";
 import { messageHasVisibleContent } from "@/lib/chat/message-visible";
 import type { ChatAttachment } from "../input/chat-attachments";
 import { fetchBlobFromUri, resolveBaseName, resolveFileName } from "@/lib/image/uri";
@@ -28,9 +28,6 @@ import type { ChatMessageKind } from "@openloaf/api";
 import { getMessagePlainText } from "@/lib/chat/message-text";
 import { normalizeFileMentionSpacing } from "@/components/ai/input/chat-input-utils";
 import CompactSummaryDivider from "./CompactSummaryDivider";
-import { isToolPart } from "@/lib/chat/message-parts";
-import { isApprovalPending } from "./tools/shared/tool-utils";
-
 type ChatMessage = UIMessage & { messageKind?: ChatMessageKind };
 
 interface MessageItemProps {
@@ -42,6 +39,10 @@ interface MessageItemProps {
   /** Whether this assistant message should show actions by default. */
   isLastAiActionMessage?: boolean;
   hideAiActions?: boolean;
+  /** Chat status — passed from MessageList to avoid Context subscription in each item. */
+  status?: string;
+  /** Whether this message has pending approval blocking actions — pre-computed by MessageList. */
+  shouldHideForApproval?: boolean;
 }
 
 function MessageItem({
@@ -51,12 +52,15 @@ function MessageItem({
   isLastAiMessage,
   isLastAiActionMessage,
   hideAiActions,
+  status: statusProp,
+  shouldHideForApproval = false,
 }: MessageItemProps) {
   const { t } = useTranslation('ai')
   const { resendUserMessage, clearError } = useChatActions();
-  const { status } = useChatStatus();
-  const { siblingNav, projectId, tabId } = useChatSession();
-  const { toolParts } = useChatTools();
+  // status 和 toolParts 从 props 获取，避免每个 MessageItem 订阅高频变化的 Context。
+  // useChatActions/useChatSession 的 context value 使用 useMemo 稳定化，不会高频触发。
+  const status = statusProp ?? "ready";
+  const { siblingNav, projectId } = useChatSession();
   const [isEditing, setIsEditing] = React.useState(false);
   const [draft, setDraft] = React.useState("");
   const [editAttachments, setEditAttachments] = React.useState<ChatAttachment[]>([]);
@@ -86,29 +90,7 @@ function MessageItem({
     return messageHasVisibleContent(message);
   }, [message]);
 
-  const toolPartsByTab = toolParts;
-  const toolPartsInMessage = React.useMemo(() => {
-    const parts = Array.isArray(message.parts) ? message.parts : [];
-    return parts.filter((part) => isToolPart(part));
-  }, [message.parts]);
-  const hasPendingApprovalInMessage = React.useMemo(() => {
-    if (toolPartsInMessage.length === 0) return false;
-    for (const part of toolPartsInMessage) {
-      const toolCallId =
-        typeof (part as any)?.toolCallId === "string" ? String((part as any).toolCallId) : "";
-      const snapshot = toolCallId ? toolPartsByTab?.[toolCallId] : undefined;
-      const mergedPart = snapshot ? { ...(part as any), ...snapshot } : part;
-      if (isApprovalPending(mergedPart as any)) return true;
-    }
-    return false;
-  }, [toolPartsInMessage, toolPartsByTab]);
-  const hasPendingApprovalInTab = React.useMemo(() => {
-    if (!toolPartsByTab) return false;
-    return Object.values(toolPartsByTab).some((part) => isApprovalPending(part as any));
-  }, [toolPartsByTab]);
-  const shouldHideAiActionsForApproval =
-    hasPendingApprovalInMessage ||
-    (isLastAiMessage && toolPartsInMessage.length === 0 && hasPendingApprovalInTab);
+  const shouldHideAiActionsForApproval = shouldHideForApproval;
 
   // Only depend on siblingNav; do NOT gate on branchMessageIds
   // (it may not yet contain the new message ID during async refresh).

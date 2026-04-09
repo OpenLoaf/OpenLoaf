@@ -1,6 +1,9 @@
 # Dependencies
 node_modules
 
+# Local dev certificates
+.certs/
+
 # Docs
 docs/plans/
 docs/canvas-discussion/

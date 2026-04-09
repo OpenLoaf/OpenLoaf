@@ -21,10 +21,10 @@ type UseChatSessionManagementOptions = {
   tabId?: string;
   projectId?: string;
   sessionIdRef: React.MutableRefObject<string>;
-  chat: {
+  chatRef: React.RefObject<{
     stop: () => void;
     setMessages: (messages: UIMessage[] | ((prev: UIMessage[]) => UIMessage[])) => void;
-  };
+  }>;
   pendingUserMessageIdRef: React.MutableRefObject<string | null>;
   needsBranchMetaRefreshRef: React.MutableRefObject<boolean>;
   branchSnapshotReceivedRef: React.MutableRefObject<boolean>;
@@ -43,7 +43,7 @@ export function useChatSessionManagement({
   tabId,
   projectId,
   sessionIdRef,
-  chat,
+  chatRef,
   pendingUserMessageIdRef,
   needsBranchMetaRefreshRef,
   branchSnapshotReceivedRef,
@@ -60,8 +60,8 @@ export function useChatSessionManagement({
   /** Stop streaming and reset local state before switching sessions. */
   const stopAndResetSession = React.useCallback(
     (clearTools: boolean) => {
-      chat.stop();
-      chat.setMessages([]);
+      chatRef.current!.stop();
+      chatRef.current!.setMessages([]);
       pendingUserMessageIdRef.current = null;
       needsBranchMetaRefreshRef.current = false;
       branchSnapshotReceivedRef.current = false;
@@ -75,18 +75,12 @@ export function useChatSessionManagement({
       }
     },
     [
-      chat.stop,
-      chat.setMessages,
       tabId,
       clearToolPartsForTab,
       clearCcRuntime,
       resetSnapshot,
       resetSubAgentStreams,
       setStepThinking,
-      pendingUserMessageIdRef,
-      needsBranchMetaRefreshRef,
-      branchSnapshotReceivedRef,
-      pendingCompactRequestRef,
     ]
   );
 

@@ -27,12 +27,12 @@ const EMPTY_TOOL_PARTS: Record<string, ToolPartSnapshot> = {};
 type UseChatApprovalOptions = {
   sessionId: string;
   tabId?: string;
-  chat: {
+  chatRef: React.RefObject<{
     messages: UIMessage[];
     sendMessage: (...args: any[]) => any;
     stop: () => void;
-  };
-  basicRef: React.MutableRefObject<{ autoApproveTools?: boolean }>;
+  }>;
+  basicRef: React.RefObject<{ autoApproveTools?: boolean }>;
   resetBranchSnapshotReceipt: () => void;
   updateMessage: (id: string, updates: Partial<UIMessage>) => void;
   upsertToolPartForTab: (toolCallId: string, next: any) => void;
@@ -43,7 +43,7 @@ type UseChatApprovalOptions = {
 export function useChatApproval({
   sessionId,
   tabId,
-  chat,
+  chatRef,
   basicRef,
   resetBranchSnapshotReceipt,
   updateMessage,
@@ -86,6 +86,7 @@ export function useChatApproval({
 
   /** Attempt to continue chat after all approvals are resolved. */
   const continueAfterToolApprovals = React.useCallback(async () => {
+    const chat = chatRef.current!;
     const messages = (chat.messages ?? []) as UIMessage[];
     const lastAssistant = findLastAssistantMessage(messages);
     if (!lastAssistant) return;
@@ -131,15 +132,15 @@ export function useChatApproval({
       resetBranchSnapshotReceipt();
       const autoApproveBody = basicRef.current.autoApproveTools ? { autoApproveTools: true } : {};
       if (Object.keys(payloads).length > 0) {
-        await chat.sendMessage(undefined as any, {
+        await chatRef.current!.sendMessage(undefined as any, {
           body: { toolApprovalPayloads: payloads, ...autoApproveBody },
         });
       } else if (Object.keys(autoApproveBody).length > 0) {
-        await chat.sendMessage(undefined as any, {
+        await chatRef.current!.sendMessage(undefined as any, {
           body: autoApproveBody,
         });
       } else {
-        await chat.sendMessage(undefined as any);
+        await chatRef.current!.sendMessage(undefined as any);
       }
       lastApprovalSubmittedKeyRef.current = currentKey;
       for (const toolCallId of mergedToolCallIds) {
@@ -151,11 +152,11 @@ export function useChatApproval({
     } finally {
       approvalSubmitInFlightRef.current = false;
     }
-  }, [chat, resetBranchSnapshotReceipt, tabId, basicRef, setStepThinking]);
+  }, [resetBranchSnapshotReceipt, tabId, setStepThinking]);
 
   /** Reject pending tool approvals after manual stop. */
   const rejectPendingToolApprovals = React.useCallback(async () => {
-    const messages = (chat.messages ?? []) as UIMessage[];
+    const messages = (chatRef.current!.messages ?? []) as UIMessage[];
     if (messages.length === 0) return;
     const updates: Array<{ messageId: string; nextParts: unknown[] }> = [];
     for (const message of messages) {
@@ -206,15 +207,15 @@ export function useChatApproval({
         // 落库失败时保留本地状态
       }
     }
-  }, [chat.messages, updateMessage, upsertToolPartForTab, updateApprovalMutation, sessionId]);
+  }, [updateMessage, upsertToolPartForTab, updateApprovalMutation, sessionId]);
 
   /** Stop generating and reject pending approvals. */
   const stopGenerating = React.useCallback(() => {
-    chat.stop();
+    chatRef.current!.stop();
     setStepThinking(false);
     void rejectPendingToolApprovals();
     abortSubAgentStreams?.();
-  }, [chat, rejectPendingToolApprovals, setStepThinking, abortSubAgentStreams]);
+  }, [rejectPendingToolApprovals, setStepThinking, abortSubAgentStreams]);
 
   return {
     queueToolApprovalPayload,

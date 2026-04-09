@@ -11,388 +11,239 @@
 /**
  * TextAiPanel — AI panel for text nodes on the canvas.
  *
- * Unlike media panels (image/video/audio) that use SaaS v3 capabilities,
- * this panel uses local feature definitions + Board Agent + chat models.
+ * Uses the same v3 capabilities API pattern as Image/Video/Audio panels:
+ * FeatureTabBar → InputSlotBar → GenericVariantForm → GenerateActionBar.
+ *
+ * Text generation uses streaming mode via v3TextGenerateStream.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useTranslation } from 'react-i18next'
-import { ArrowUp, Check, Copy, Film, GitBranch, Loader2, Mic, Square, X } from 'lucide-react'
-import type { CanvasNodeElement } from '../engine/types'
+import { useCallback, useMemo, useRef } from 'react'
+import type { CanvasNodeElement, BoardFileContext } from '../engine/types'
 import type { TextNodeProps } from '../nodes/text-node-types'
 import type { UpstreamData } from '../engine/upstream-data'
-import {
-  BOARD_GENERATE_INPUT,
-} from '../ui/board-style-system'
-import { serializeTextNodeValue } from '../engine/upstream-data'
-import { TEXT_FEATURES, getApplicableFeatures, getTextFeature } from './text-features'
-import { TextFeatureTabBar } from './shared/TextFeatureTabBar'
-import { useTextModelOptions } from './hooks/useTextModelOptions'
-import { useTextStream, type BoardAgentRequestBody } from './hooks/useTextStream'
+import type { MediaType } from './variants/slot-types'
+import { VariantFormTransition } from './variants/shared/VariantFormTransition'
+import { InputSlotBar } from './variants/shared/InputSlotBar'
+import { GenericVariantForm } from './variants/shared/GenericVariantForm'
+import { GenerateActionBar } from './GenerateActionBar'
+import { FeatureTabBar } from './shared/FeatureTabBar'
+import { CapabilitiesFallback } from './shared/CapabilitiesFallback'
+import { useVariantPanel } from './hooks/useVariantPanel'
+import { useVariantCache } from './hooks/useVariantCache'
+import { useSlotHandlers } from './hooks/useSlotHandlers'
+import { serializeForGenerate } from './variants/serialize'
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
+/** Parameters passed to the onGenerate callback (v3-compatible). */
 export type TextGenerateParams = {
-  featureId: string
-  instruction: string
-  chatModelId: string
-  chatModelSource: 'local' | 'cloud'
-  upstreamText?: string
-  skillContents?: { name: string; content: string }[]
+  feature: string
+  variant: string
+  inputs?: Record<string, unknown>
+  params?: Record<string, unknown>
 }
 
 export type TextAiPanelProps = {
   element: CanvasNodeElement<TextNodeProps>
   upstream: UpstreamData | null
-  onApplyReplace: (text: string) => void
-  onApplyDerive: (text: string) => void
+  /** Board file context for resolving media paths in InputSlotBar. */
+  fileContext?: BoardFileContext
+  /** Callback to trigger text generation on the current node. */
+  onGenerate?: (params: TextGenerateParams) => void
+  /** Callback to generate into a new derived node. */
+  onGenerateNewNode?: (params: TextGenerateParams) => void
+  /** Whether a generation is in progress (controlled by parent). */
+  generating?: boolean
+  /** Abort the current generation. */
+  onStop?: () => void
 }
 
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
-/** AI text generation panel displayed below text nodes. */
+/** AI text generation parameter panel displayed below text nodes (v3 capabilities). */
 export function TextAiPanel({
-  element,
   upstream,
-  onApplyReplace,
-  onApplyDerive,
+  fileContext,
+  onGenerate,
+  onGenerateNewNode,
+  generating = false,
+  onStop,
 }: TextAiPanelProps) {
-  const { t } = useTranslation('board')
+  // ── Upstream types for variant applicability ──
+  const upstreamTypes = useMemo(() => {
+    const types = new Set<MediaType>()
+    if (upstream?.imageList.length) types.add('image')
+    if (upstream?.videoList.length) types.add('video')
+    if (upstream?.audioList.length) types.add('audio')
+    return types
+  }, [upstream?.imageList.length, upstream?.videoList.length, upstream?.audioList.length])
 
-  // ── Self text (node's own content) ──
-  const selfText = useMemo(
-    () => serializeTextNodeValue(element.props.value),
-    [element.props.value],
-  )
+  // ── Shared panel hook (v3 capabilities) ──
+  const {
+    features,
+    capsLoading,
+    capsError,
+    capsRefresh,
+    selectedFeatureId,
+    setSelectedFeatureId,
+    selectedFeature,
+    setSelectedVariantId,
+    selectedVariant,
+    isVariantApplicable,
+    mergedSlots,
+    remoteParams,
+    prefLang,
+    variantWarning,
+    setVariantWarning,
+  } = useVariantPanel({
+    category: 'text',
+    upstreamTypes,
+  })
 
-  // ── Effective upstream: include node's own text for feature applicability ──
-  const effectiveUpstream = useMemo(() => {
-    if (selfText.trim()) {
-      return {
-        textList: [selfText, ...(upstream?.textList ?? [])],
-        imageList: upstream?.imageList ?? [],
-        videoList: upstream?.videoList ?? [],
-        audioList: upstream?.audioList ?? [],
-        entries: upstream?.entries ?? [],
-      }
+  // ── Params cache (in-memory only, text nodes have no persistent aiConfig) ──
+  const activeKey = selectedVariant ? `${selectedFeatureId}:${selectedVariant.id}` : ''
+
+  const cache = useVariantCache({
+    onFlush: () => {},
+  })
+
+  // Migrate text slot content when switching models within the same feature
+  const prevActiveKeyRef = useRef('')
+  if (activeKey && activeKey !== prevActiveKeyRef.current) {
+    cache.migrateUserTexts(prevActiveKeyRef.current, activeKey)
+  }
+  prevActiveKeyRef.current = activeKey
+
+  // ── Slot handlers ──
+  const { resolvedSlots, slotsValid, handleSlotInputsChange, handleSlotAssignmentPersist, handleUserTextsChange } = useSlotHandlers(cache, activeKey)
+
+  // ── Collect params for generation ──
+  const collectParams = useCallback((): TextGenerateParams | null => {
+    if (!selectedVariant || !selectedFeature) return null
+    const vp = cache.get(activeKey) ?? { inputs: {}, params: {} }
+    const v3Result = serializeForGenerate(mergedSlots ?? [], {
+      prompt: (vp.inputs.prompt as string) ?? '',
+      paintResults: {},
+      slotAssignments: {},
+      resolvedInputs: vp.inputs ?? {},
+      taskRefs: {},
+      params: vp.params,
+      count: vp.count,
+    })
+    return {
+      feature: selectedFeature.id,
+      variant: selectedVariant.id,
+      inputs: v3Result.inputs,
+      params: v3Result.params,
     }
-    return upstream
-  }, [selfText, upstream])
+  }, [selectedVariant, selectedFeature, mergedSlots, cache, activeKey])
 
-  // ── Feature selection ──
-  const applicableFeatures = useMemo(
-    () => getApplicableFeatures(effectiveUpstream),
-    [effectiveUpstream],
-  )
-  const [selectedFeatureId, setSelectedFeatureId] = useState(
-    () => applicableFeatures[0]?.id ?? TEXT_FEATURES[0].id,
-  )
-
-  // Auto-update selected feature when applicability changes
-  useEffect(() => {
-    if (applicableFeatures.some((f) => f.id === selectedFeatureId)) return
-    if (applicableFeatures.length > 0) {
-      setSelectedFeatureId(applicableFeatures[0].id)
-    }
-  }, [applicableFeatures, selectedFeatureId])
-
-  const selectedFeature = getTextFeature(selectedFeatureId)
-  const outputMode = selectedFeature?.outputMode ?? 'replace'
-
-  // ── Model selection ──
-  const { modelOptions, chatModelSource } = useTextModelOptions(
-    selectedFeature?.requiredModelTags,
-  )
-  const [selectedModelId, setSelectedModelId] = useState('auto')
-
-  // ── Instruction input ──
-  const [instruction, setInstruction] = useState('')
-
-  // ── Stream state ──
-  const stream = useTextStream()
-
-  // ── Upstream text (includes self text for polish/translate/enhance) ──
-  const upstreamText = useMemo(
-    () => effectiveUpstream?.textList.join('\n') || undefined,
-    [effectiveUpstream],
-  )
-
-  // ── Generate handler ──
-  const canGenerate = instruction.trim().length > 0 && !stream.isStreaming
-
+  // ── Generate handlers — delegate to parent ──
   const handleGenerate = useCallback(() => {
-    if (!canGenerate) return
-    const body: BoardAgentRequestBody = {
-      featureId: selectedFeatureId,
-      instruction: instruction.trim(),
-      upstreamText,
-      upstreamImages: upstream?.imageList.length ? upstream.imageList : undefined,
-      upstreamVideos: upstream?.videoList.length ? upstream.videoList : undefined,
-      upstreamAudios: upstream?.audioList.length ? upstream.audioList : undefined,
-      chatModelId: selectedModelId === 'auto' ? undefined : selectedModelId,
-      chatModelSource,
-    }
-    stream.startStream(body)
-  }, [canGenerate, selectedFeatureId, instruction, upstreamText, upstream, selectedModelId, chatModelSource, stream])
+    if (generating) return
+    const params = collectParams()
+    if (params) onGenerate?.(params)
+  }, [generating, collectParams, onGenerate])
 
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
-        e.preventDefault()
-        handleGenerate()
-      }
-    },
-    [handleGenerate],
+  const handleGenerateNewNode = useCallback(() => {
+    if (generating) return
+    const params = collectParams()
+    if (params) onGenerateNewNode?.(params)
+  }, [generating, collectParams, onGenerateNewNode])
+
+  const handleFeatureSelect = useCallback((featureId: string) => {
+    setSelectedFeatureId(featureId)
+    setSelectedVariantId(null)
+    onStop?.()
+  }, [setSelectedFeatureId, setSelectedVariantId, onStop])
+
+  // ── Upstream for InputSlotBar ──
+  const upstreamForSlots = useMemo(
+    () => upstream ?? { textList: [], imageList: [], videoList: [], audioList: [], entries: [] },
+    [upstream],
   )
 
-  // ── Apply / discard ──
-  const handleApply = useCallback(() => {
-    if (!stream.text) return
-    if (outputMode === 'derive') {
-      onApplyDerive(stream.text)
-    } else {
-      onApplyReplace(stream.text)
-    }
-    stream.clear()
-    setInstruction('')
-  }, [stream, outputMode, onApplyReplace, onApplyDerive])
+  // ── Generate disabled ──
+  const isGenerateDisabled = !selectedVariant || !slotsValid || generating
 
-  const handleDerive = useCallback(() => {
-    if (!stream.text) return
-    onApplyDerive(stream.text)
-    stream.clear()
-    setInstruction('')
-  }, [stream, onApplyDerive])
-
-  const handleDiscard = useCallback(() => {
-    stream.abort()
-    stream.clear()
-  }, [stream])
-
-  const handleCopy = useCallback(() => {
-    if (stream.text) {
-      void navigator.clipboard.writeText(stream.text)
-    }
-  }, [stream.text])
-
-  // ── No model available warning ──
-  const noModelAvailable =
-    modelOptions.length === 0 &&
-    (selectedFeature?.requiredModelTags?.length ?? 0) > 0
-
-  // ── Result visible ──
-  const hasResult = stream.text.length > 0 || stream.isStreaming || stream.error
+  // ── Loading / Error fallback ──
+  const showFallback = !features.length
 
   return (
-    <div className="flex w-[420px] flex-col gap-3 rounded-3xl border border-border bg-card p-4 shadow-lg">
+    <div className="flex w-[480px] flex-col gap-2.5 rounded-3xl border border-border bg-card p-3 shadow-lg">
+      {/* ── Fallback: loading / error / empty ── */}
+      {showFallback ? (
+        <CapabilitiesFallback loading={capsLoading} error={capsError} onRetry={capsRefresh} />
+      ) : null}
+
       {/* ── Feature Tabs ── */}
-      <TextFeatureTabBar
-        features={applicableFeatures}
+      <FeatureTabBar
+        features={features}
         selectedFeatureId={selectedFeatureId}
-        onSelect={(id) => {
-          setSelectedFeatureId(id)
-          stream.clear()
-        }}
-        disabled={stream.isStreaming}
+        onSelect={handleFeatureSelect}
+        isVariantApplicable={isVariantApplicable}
+        prefLang={prefLang}
+        disabled={generating}
       />
 
-      {/* ── Upstream Preview ── */}
-      {upstreamText || upstream?.imageList.length || upstream?.videoList.length || upstream?.audioList.length ? (
-        <div className="flex flex-col gap-2">
-          {/* Text preview */}
-          {upstreamText ? (
-            <div className="relative">
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                {t('textPanel.upstreamPreview')}
-              </label>
-              <div className="relative max-h-[120px] overflow-hidden rounded-2xl bg-muted/50 p-3 text-xs leading-relaxed text-muted-foreground">
-                {upstreamText}
-                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-muted/50 to-transparent" />
-              </div>
-            </div>
-          ) : null}
-          {/* Image thumbnails */}
-          {upstream?.imageList.length ? (
-            <div className="flex flex-wrap gap-1.5">
-              {upstream.imageList.slice(0, 4).map((src, i) => (
-                <img
-                  key={i}
-                  src={src}
-                  alt=""
-                  className="h-[60px] w-[60px] rounded-xl border border-border object-cover"
-                />
-              ))}
-              {upstream.imageList.length > 4 ? (
-                <div className="flex h-[60px] w-[60px] items-center justify-center rounded-xl border border-border bg-muted/50 text-xs text-muted-foreground">
-                  +{upstream.imageList.length - 4}
-                </div>
-              ) : null}
-            </div>
-          ) : null}
-          {/* Video files */}
-          {upstream?.videoList.length ? (
-            <div className="flex flex-wrap gap-1.5">
-              {upstream.videoList.map((p, i) => (
-                <div
-                  key={i}
-                  className="flex items-center gap-1 rounded-xl border border-border bg-muted/50 px-2 py-1 text-xs text-muted-foreground"
-                >
-                  <Film size={12} />
-                  <span className="max-w-[120px] truncate">{p.split('/').pop()}</span>
-                </div>
-              ))}
-            </div>
-          ) : null}
-          {/* Audio files */}
-          {upstream?.audioList.length ? (
-            <div className="flex flex-wrap gap-1.5">
-              {upstream.audioList.map((p, i) => (
-                <div
-                  key={i}
-                  className="flex items-center gap-1 rounded-xl border border-border bg-muted/50 px-2 py-1 text-xs text-muted-foreground"
-                >
-                  <Mic size={12} />
-                  <span className="max-w-[120px] truncate">{p.split('/').pop()}</span>
-                </div>
-              ))}
-            </div>
-          ) : null}
-        </div>
+      {/* ── InputSlotBar (V3 declarative slot assignment) ── */}
+      {mergedSlots?.length && selectedVariant ? (
+        <InputSlotBar
+          key={`${selectedFeatureId}:${selectedVariant.id}`}
+          slots={mergedSlots}
+          upstream={upstreamForSlots}
+          fileContext={fileContext}
+          disabled={generating}
+          onAssignmentChange={handleSlotInputsChange}
+          onSlotAssignmentChange={handleSlotAssignmentPersist}
+          onUserTextsChange={handleUserTextsChange}
+        />
       ) : null}
 
-      {/* ── No model warning ── */}
-      {noModelAvailable ? (
-        <div className="rounded-2xl bg-destructive/10 px-3 py-2 text-xs text-destructive">
-          {t('textPanel.noModelForFeature')}
-        </div>
+      {/* ── Variant-specific form (paramsSchema) ── */}
+      {selectedVariant ? (
+        <VariantFormTransition variantKey={selectedVariant.id}>
+          <GenericVariantForm
+            variantId={selectedVariant.id}
+            upstream={{}}
+            disabled={generating}
+            initialParams={cache.get(activeKey)}
+            onParamsChange={(snapshot) => {
+              if (activeKey) {
+                cache.update(activeKey, { params: snapshot.params })
+              }
+            }}
+            onWarningChange={setVariantWarning}
+            resolvedSlots={resolvedSlots}
+            overrideParams={remoteParams}
+          />
+        </VariantFormTransition>
       ) : null}
 
-      {/* ── Instruction Input ── */}
-      <textarea
-        className={[
-          'min-h-[60px] w-full resize-none rounded-2xl border px-3 py-2 text-sm leading-relaxed',
-          BOARD_GENERATE_INPUT,
-        ].join(' ')}
-        placeholder={
-          selectedFeature?.placeholderKey
-            ? t(selectedFeature.placeholderKey)
-            : t('textPanel.instructionPlaceholder')
-        }
-        value={instruction}
-        onChange={(e) => setInstruction(e.target.value)}
-        onKeyDown={handleKeyDown}
-        rows={2}
-        disabled={stream.isStreaming}
-      />
-
-      {/* ── Bottom Bar: Model + Generate ── */}
-      <div className="flex items-center justify-between gap-2">
-        <select
-          className={[
-            'max-w-[180px] truncate rounded-3xl border px-2.5 py-1.5 text-xs',
-            BOARD_GENERATE_INPUT,
-          ].join(' ')}
-          value={selectedModelId}
-          onChange={(e) => setSelectedModelId(e.target.value)}
-          disabled={stream.isStreaming}
-        >
-          <option value="auto">{t('textPanel.autoRecommend')}</option>
-          {modelOptions.map((opt) => (
-            <option key={opt.id} value={opt.id}>
-              {opt.providerName} / {opt.modelId}
-            </option>
-          ))}
-        </select>
-
-        {stream.isStreaming ? (
-          <button
-            type="button"
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-destructive text-destructive-foreground transition-colors duration-150 hover:bg-destructive/90"
-            onClick={stream.abort}
-            title={t('textPanel.stop')}
-          >
-            <Square size={14} />
-          </button>
-        ) : (
-          <button
-            type="button"
-            disabled={!canGenerate}
-            className={[
-              'inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium transition-colors duration-150',
-              'bg-foreground text-background',
-              !canGenerate ? 'cursor-not-allowed opacity-50' : 'hover:bg-foreground/90',
-            ].join(' ')}
-            onClick={handleGenerate}
-          >
-            <ArrowUp size={16} />
-          </button>
-        )}
-      </div>
-
-      {/* ── Result Preview ── */}
-      {hasResult ? (
-        <div className="flex flex-col gap-2">
-          <div className="relative max-h-[200px] overflow-y-auto rounded-2xl bg-muted/50 p-3 text-sm leading-relaxed">
-            {stream.isStreaming && !stream.text ? (
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Loader2 size={14} className="animate-spin" />
-                <span className="text-xs">{t('textPanel.generating')}</span>
-              </div>
-            ) : null}
-            {stream.text ? (
-              <div className="whitespace-pre-wrap text-foreground">{stream.text}</div>
-            ) : null}
-            {stream.error ? (
-              <div className="text-xs text-destructive">{stream.error}</div>
-            ) : null}
-          </div>
-
-          {/* Action buttons — only when stream is done and has text */}
-          {!stream.isStreaming && stream.text ? (
-            <div className="flex items-center justify-end gap-1.5">
-              <button
-                type="button"
-                className="inline-flex items-center gap-1 rounded-3xl px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors duration-150 hover:bg-foreground/8 dark:hover:bg-foreground/10"
-                onClick={handleCopy}
-                title={t('textPanel.copy')}
-              >
-                <Copy size={12} />
-                {t('textPanel.copy')}
-              </button>
-              {outputMode === 'replace' ? (
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-1 rounded-3xl px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors duration-150 hover:bg-foreground/8 dark:hover:bg-foreground/10"
-                  onClick={handleDerive}
-                  title={t('textPanel.derive')}
-                >
-                  <GitBranch size={12} />
-                  {t('textPanel.derive')}
-                </button>
-              ) : null}
-              <button
-                type="button"
-                className="inline-flex items-center gap-1 rounded-3xl px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors duration-150 hover:bg-foreground/8 dark:hover:bg-foreground/10"
-                onClick={handleDiscard}
-              >
-                <X size={12} />
-                {t('textPanel.discard')}
-              </button>
-              <button
-                type="button"
-                className="inline-flex items-center gap-1 rounded-3xl bg-foreground px-3 py-1 text-xs font-medium text-background transition-colors duration-150 hover:bg-foreground/90"
-                onClick={handleApply}
-              >
-                <Check size={12} />
-                {t('textPanel.apply')}
-              </button>
-            </div>
-          ) : null}
-        </div>
+      {/* ── Generate Action Bar ── */}
+      {!showFallback ? (
+        <GenerateActionBar
+          hasResource={false}
+          generating={generating}
+          disabled={isGenerateDisabled}
+          buttonClassName="bg-foreground text-background hover:bg-foreground/90"
+          onGenerate={handleGenerate}
+          onGenerateNewNode={handleGenerateNewNode}
+          skipEstimate
+          warningMessage={variantWarning}
+          variants={selectedFeature?.variants
+            ?.filter((v) => isVariantApplicable(v.id))
+            .map((v) => ({
+              id: v.id,
+              displayName: v.displayName || v.featureTabName || v.id,
+            }))}
+          selectedVariantId={selectedVariant?.id}
+          onVariantChange={setSelectedVariantId}
+        />
       ) : null}
     </div>
   )

@@ -23,11 +23,13 @@ import { useTranslation } from 'react-i18next'
 import { Lock } from 'lucide-react'
 import { cn } from '@udecode/cn'
 import type { CanvasEngine } from '../../engine/CanvasEngine'
-import type {
-  CanvasNodeElement,
-  CanvasNodeViewProps,
-  CanvasSnapshot,
-  CanvasViewState,
+import {
+  resolveNodeMinSize,
+  resolveNodeMaxSize,
+  type CanvasNodeElement,
+  type CanvasNodeViewProps,
+  type CanvasSnapshot,
+  type CanvasViewState,
 } from '../../engine/types'
 import { getGroupOutlinePadding, isGroupNodeType } from '../../engine/grouping'
 import { NodeLabel } from '../../nodes/NodeLabel'
@@ -108,7 +110,10 @@ const DomNodeItem = memo(function DomNodeItem({
   const baseZ = element.zIndex ?? 0
   const isGroup = isGroupNodeType(element.type)
   const showLabel = !isGroup && !LABEL_EXCLUDED_TYPES.has(element.type)
-  const caps = engine.nodes.getDefinition(element.type)?.capabilities
+  const def = engine.nodes.getDefinition(element.type)
+  const caps = def?.capabilities
+  const dynamicMin = resolveNodeMinSize(def, element)
+  const dynamicMax = resolveNodeMaxSize(def, element)
 
   return (
     <div
@@ -174,7 +179,7 @@ const DomNodeItem = memo(function DomNodeItem({
           style={{
             boxShadow: 'inset 0 0 0 1.5px var(--canvas-selection-border)',
             opacity: dragging ? 0 : 0.7,
-            transition: dragging ? 'opacity 0.05s' : 'opacity 0.15s ease 0.5s',
+            transition: dragging ? 'opacity 0.05s' : 'opacity 0.15s ease',
           }}
         />
       )}
@@ -187,10 +192,10 @@ const DomNodeItem = memo(function DomNodeItem({
         <ResizeHandle
           engine={engine}
           element={element}
-          minW={caps?.minSize?.w}
-          maxW={caps?.maxSize?.w}
-          minH={caps?.minSize?.h}
-          maxH={caps?.maxSize?.h}
+          minW={dynamicMin.w}
+          maxW={dynamicMax.w}
+          minH={dynamicMin.h}
+          maxH={dynamicMax.h}
         />
       )}
     </div>
