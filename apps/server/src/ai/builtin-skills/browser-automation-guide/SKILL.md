@@ -50,9 +50,9 @@ OpenUrl → snapshot → 分析 → act → wait → snapshot → 分析 → ...
 
 需要翻页抓取时，循环：`BrowserExtract` → `BrowserAct { action: "click-text", text: "下一页" }` → `BrowserWait { type: "networkidle" }` → 重复。每页都要 extract，别等到最后。
 
-### 工作流 2：表单填写
+### 工作流 2：表单填写与登录
 
-场景：用户需要在网页上填写并提交表单。
+场景：用户需要在网页上填写并提交表单——包括登录、注册、搜索、数据录入。
 
 关键洞察：**必须先 snapshot 看到表单结构**才能填写。不要猜 selector。
 
@@ -64,6 +64,8 @@ OpenUrl → snapshot → 分析 → act → wait → snapshot → 分析 → ...
 5. `BrowserSnapshot` 最终确认
 
 为什么用 `fill` 而不是 `click-css` + `type`？`fill` 原子性地聚焦+清空+输入，避免残留旧值。`type` 只在当前焦点追加字符，适合搜索框等简单场景。
+
+**登录场景的独特点**：登录是特殊的表单填写。Cookie 在浏览器会话期间持久——登录一次后续操作都自动带认证，这是浏览器自动化相对 WebFetch 的核心优势。登录后用 `urlIncludes` 等待跳转到登录后的页面，然后就可以继续访问需要认证的内容。**安全注意**：填写密码后立即操作下一步，**不要** snapshot 或 extract 密码字段——这些结果可能被日志或屏幕共享暴露。
 
 ### 工作流 3：截图与视觉分析
 
@@ -131,14 +133,6 @@ snapshot 和 observe 会返回可交互元素列表，**从中选择 selector，
 **SPA 页面 snapshot 内容为空？**
 → JS 还没渲染完。`BrowserWait { type: "networkidle" }` 后再 snapshot
 → 还是空？尝试 `BrowserWait { type: "textIncludes", text: "预期内容关键词" }`
-
-## 登录与会话保持
-
-浏览器自动化的独特优势之一是维持登录态。Cookie 在会话期间持久——登录一次后续操作都带认证。
-
-流程：`OpenUrl` 打开登录页 → `BrowserSnapshot` 看表单 → `fill` 用户名/密码 → 点击登录 → `BrowserWait { type: "urlIncludes" }` 确认跳转到登录后页面 → 后续操作自动带 Cookie。
-
-注意：**不要在 snapshot 或 extract 结果中暴露用户密码**。填写密码后立即操作下一步，不要 snapshot 密码字段。
 
 ## 审批机制
 

@@ -59,7 +59,7 @@ export function assembleMemoryBlocks(
 
   return blocks.map((block) => {
     const { tag, desc } = scopeTagMap[block.scope] ?? { tag: 'system-memory', desc: block.label }
-    const header = `# 记忆（${block.label}）\n来源: ${block.filePath}\n需要保存/更新/删除记忆时，加载 memory-ops 技能。`
+    const header = `# 记忆（${block.label}）\n来源: ${block.filePath}\n需要保存/更新/删除记忆时使用 MemorySave 工具。`
     return `<${tag} desc="${desc}">\n${header}\n\n${block.content}\n</${tag}>`
   })
 }

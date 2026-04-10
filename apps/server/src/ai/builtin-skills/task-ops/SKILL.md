@@ -80,19 +80,6 @@ TaskManage { action: "resolve", taskId: "xxx", resolveAction: "rework", reason: 
 
 ---
 
-## 推理示例：模糊输入的决策
-
-用户说："提醒我明天早上看一下部署的情况"
-
-你需要推断：
-1. **调度类型** → `once`（"明天早上"是一次性的）
-2. **scheduleAt** → 用 `Bash` 执行 `date` 拿当前时间和时区，推算"明天早上"为次日 09:00，转换为 ISO 8601
-3. **skipPlanConfirm** → `true`（"看一下"是只读操作，无副作用）
-4. **agentName** → 不指定，让系统根据"部署情况"自动选择（可能是 shell Agent）
-5. **title** → 不要照搬用户原话，提炼为"检查部署状态"
-
----
-
 ## 典型工作流
 
 ### 创建定时任务
@@ -100,6 +87,8 @@ TaskManage { action: "resolve", taskId: "xxx", resolveAction: "rework", reason: 
 2. 用 `Bash` 执行 `date` 确认当前时间和时区
 3. 调用 `TaskManage` 的 create 动作，带上 schedule 配置
 4. 告知用户任务已创建、调度方式及下次执行时间
+
+**title 和 description 的写法**：`title` 是简短摘要（5-15 字，提炼用户意图而非照搬原话）；`description` 是 Agent 的执行手册，必须明确**目标**（做什么）、**交付物**（产物格式，如"保存 `report.md` 到项目根目录"）、**完成标准**（可客观判断的条件，不要写"效果好"这类模糊表述）。`skipPlanConfirm: false` 的任务 description 必须详尽（加上约束和硬红线），`skipPlanConfirm: true` 的任务 description 可精简但目标和交付物不能省。
 
 ### 处理待审批任务
 1. 调用 `TaskStatus {}` 获取所有活跃任务
@@ -127,43 +116,3 @@ TaskManage { action: "resolve", taskId: "xxx", resolveAction: "rework", reason: 
 **scheduleAt 已过期** — once 类型的 `scheduleAt` 必须是未来时间。原因：已过期的时间无法调度，会被系统拒绝。创建前务必用 `Bash` 执行 `date` 核实当前时间。
 
 **delete 活跃任务** — 只有 done 和 cancelled 状态的任务才能删除。原因：运行中的任务需要先 cancel 终止 Agent 执行，再 delete 清理记录。
-
----
-
-## 任务描述编写规范
-
-`title` 是简短摘要（5-15 字），`description` 是 Agent 的执行手册——Agent 完全依赖它理解该做什么。
-
-### 模板
-
-复杂任务（有副作用）用完整结构：
-
-```markdown
-## 目标
-一句话：做什么 + 为什么。聚焦结果而非过程。
-
-## 执行步骤
-1. 获取数据（祈使句，写具体路径/命令）
-2. 分析处理
-3. 输出结果
-
-## 交付物
-- `report.md` 保存到项目根目录（格式明确，可验证）
-
-## 完成标准
-- 可客观判断的条件（"覆盖近 7 天，无缺失日期"）
-- 避免"效果好"、"正确完成"等模糊表述
-
-## 约束
-- 硬红线（"不删除用户数据"）
-- 需确认的操作（"修改配置前先问用户"）
-```
-
-只读任务可精简为一段话：`**目标：** ... **交付物：** ... **完成标准：** ...`
-
-### 编写核心原则
-
-- **目标**：提炼用户意图，不照抄原话
-- **交付物**：格式明确（"`summary.md`，Markdown"），不写"一份报告"
-- **完成标准**：写 Agent 能客观判断的条件
-- **skipPlanConfirm: false** 的任务描述必须详尽（约束+完成标准），**skipPlanConfirm: true** 可精简但目标和交付物不能省

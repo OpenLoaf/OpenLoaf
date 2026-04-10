@@ -73,13 +73,6 @@ Write 工具参数：
 
 用法：创建新文件或完全重写已有文件。修改已有文件的局部内容请用 Edit。
 
-## `Edit` vs `EditDocument` 关键区别
-
-- **Edit**：精确替换，适用于所有普通文件（.ts, .py, .json, .yaml, .md, ...）。通过 old_string 精确定位修改位置并替换为 new_string。
-- **EditDocument**：全量覆写，仅用于 `tndoc_` 文稿目录下的 `index.mdx`。因为 MDX 富文本结构复杂，差量编辑容易破坏格式，所以采用整体写入。
-
-判断标准很简单：**路径中包含 `tndoc_` → EditDocument，其他一切 → Edit**。
-
 ## `Grep` vs `Glob` 选择
 
 - **Grep**：搜索文件**内容**。你知道文件里有什么（函数名、类名、错误文本、TODO 标记），但不知道在哪个文件。支持 output_mode（content/files_with_matches/count）和上下文行参数（-A/-B/-C）。

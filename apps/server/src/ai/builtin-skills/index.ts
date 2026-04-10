@@ -20,11 +20,9 @@ import canvasOpsMd from './canvas-ops/SKILL.md'
 import projectOpsMd from './project-ops/SKILL.md'
 import workbenchOpsMd from './workbench-ops/SKILL.md'
 import settingsGuideMd from './settings-guide/SKILL.md'
-import multiAgentRoutingMd from './multi-agent-routing/SKILL.md'
-import systemAgentArchitectureMd from './system-agent-architecture/SKILL.md'
+import agentOrchestrationMd from './agent-orchestration/SKILL.md'
 import browserAutomationGuideMd from './browser-automation-guide/SKILL.md'
 import officeDocumentGuideMd from './office-document-guide/SKILL.md'
-import memoryOpsMd from './memory-ops/SKILL.md'
 import mediaOpsMd from './media-ops/SKILL.md'
 import visualizationOpsMd from './visualization-ops/SKILL.md'
 
@@ -129,22 +127,13 @@ export const BUILTIN_SKILLS: BuiltinSkill[] = [
     // 纯引导型，无直接工具
   },
   {
-    name: 'multi-agent-routing',
+    name: 'agent-orchestration',
     description:
-      '【必读】当你需要：调用 Agent 工具创建子 Agent、决定是否委派子 Agent、创建跨项目 Task、处理 @mention 路由、规划多 Agent 并行任务、理解页面上下文驱动 Agent 选择、处理 task-report 回报、理解三种交互模式、实现消息路由逻辑、处理 Chat↔Task 双向流转时，立即加载此 skill。',
-    content: stripFrontMatter(multiAgentRoutingMd),
+      '子代理委派与 Agent 工具用法——何时委派、选择哪个内置子代理（doc-editor/browser/data-analyst/extractor/canvas-designer/coder 或 general-purpose/explore/plan）、怎么调用 Agent 与 SendMessage、并行扇出汇总、上下文继承、以及系统深度/并发/步数硬限制。触发词：Agent 工具、委派、分工、子代理、subagent、subagent_type、并行执行、fan-out、SendMessage、追加指令、扇出汇总、深度限制、并发上限、步数限制。',
+    content: stripFrontMatter(agentOrchestrationMd),
     icon: '🔀',
     colorIndex: 1,
-    tools: ['Agent', 'SendMessage', 'TaskManage', 'TaskStatus'],
-  },
-  {
-    name: 'system-agent-architecture',
-    description:
-      '【必读】当你需要：判断请求由哪个 Agent 处理（Master vs PM vs 子 Agent）、了解 Agent 职责与切换条件、查询子 Agent 能力范围、理解 pageContext 上下文机制、决定是否创建临时项目、理解 Skill 自动加载、处理会话切换逻辑、查阅 Agent 层级拓扑时，立即加载此 skill。',
-    content: stripFrontMatter(systemAgentArchitectureMd),
-    icon: '🏗️',
-    colorIndex: 2,
-    // 架构认知层，无直接工具
+    tools: ['Agent', 'SendMessage'],
   },
   {
     name: 'browser-automation-guide',
@@ -163,15 +152,6 @@ export const BUILTIN_SKILLS: BuiltinSkill[] = [
     icon: '📊',
     colorIndex: 4,
     tools: ['ExcelQuery', 'ExcelMutate', 'WordQuery', 'WordMutate', 'PptxQuery', 'PptxMutate', 'PdfQuery', 'PdfMutate', 'DocConvert'],
-  },
-  {
-    name: 'memory-ops',
-    description:
-      '记忆管理——当用户说"记住"、"别忘了"、"以后都…"、表达个人偏好/习惯（"我不爱吃..."、"我喜欢..."、"我习惯..."、"不要再…"等），或要求忘记/更新某条记忆，或需要回忆之前保存的信息（"你还记得吗"、"之前说过什么"、"我的偏好"、"do you remember"、"what did I tell you"），或在新会话开始时需要延续上次对话的用户偏好时激活。',
-    content: stripFrontMatter(memoryOpsMd),
-    icon: '🧠',
-    colorIndex: 5,
-    tools: ['MemorySave', 'MemorySearch', 'MemoryGet'],
   },
   {
     name: 'media-ops',
