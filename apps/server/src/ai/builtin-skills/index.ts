@@ -11,11 +11,11 @@
 import type { BuiltinSkill } from './types'
 
 // 静态导入所有 SKILL.md（esbuild/tsdown .md: "text" 内联）
-import openloafBasicsMd from './openloaf-basics/SKILL.md'
 import fileOpsMd from './file-ops/SKILL.md'
 import emailOpsMd from './email-ops/SKILL.md'
 import calendarOpsMd from './calendar-ops/SKILL.md'
 import taskOpsMd from './task-ops/SKILL.md'
+import runtimeTaskOpsMd from './runtime-task-ops/SKILL.md'
 import canvasOpsMd from './canvas-ops/SKILL.md'
 import projectOpsMd from './project-ops/SKILL.md'
 import workbenchOpsMd from './workbench-ops/SKILL.md'
@@ -47,15 +47,6 @@ function stripFrontMatter(md: string): string {
 }
 
 export const BUILTIN_SKILLS: BuiltinSkill[] = [
-  {
-    name: 'openloaf-basics',
-    description:
-      'OpenLoaf 产品全局认知——始终加载。当 AI 需要理解自身所处环境、判断应该用哪类工具、在模块间导航用户、解释 OpenLoaf 功能、回答"你能做什么"、"what features do you have"、"how does OpenLoaf work"、"can you help me with..."、"what tools are available"、"I\'m new here"、"show me around"、"where do I find..."、处理跨模块请求、或在任何页面上下文中工作时，都依赖此 skill 提供的产品地图和决策框架。',
-    content: stripFrontMatter(openloafBasicsMd),
-    icon: '📚',
-    colorIndex: 0,
-    tools: ['AskUserQuestion', 'SubmitPlan'],
-  },
   {
     name: 'file-ops',
     description:
@@ -91,6 +82,15 @@ export const BUILTIN_SKILLS: BuiltinSkill[] = [
     icon: '✅',
     colorIndex: 4,
     tools: ['TaskManage', 'TaskStatus'],
+  },
+  {
+    name: 'runtime-task-ops',
+    description:
+      'Runtime Task 运行时任务追踪——session 级别的多步骤进度可视化。当用户要求的任务预计 >3 步或 >2 分钟、需要并行委派给多个子代理、或明确要求"显示进度/分步骤/让我看到你在做什么"时激活。触发词：分成 N 步、分 X 个步骤、step 1/2/3、并行处理、同时做、批量处理、跟踪进度、显示进度、多步骤、复杂任务、大任务、实时展示、并发执行。注意与 SubmitPlan（一次性审批计划）和 TaskManage（持久化定时任务）区分，三者不可混用。',
+    content: stripFrontMatter(runtimeTaskOpsMd),
+    icon: '📋',
+    colorIndex: 5,
+    tools: ['TaskCreate', 'TaskUpdate', 'TaskRead'],
   },
   {
     name: 'canvas-ops',

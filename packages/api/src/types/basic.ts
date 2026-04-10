@@ -23,6 +23,9 @@ export const uiLanguageSchema = z.enum([
   "es-ES",
 ]);
 
+/** AI prompt language — language used when loading built-in agent system prompts. */
+export const promptLanguageSchema = z.enum(["zh", "en"]);
+
 export const uiFontSizeSchema = z.enum(["small", "medium", "large", "xlarge"]);
 
 export const uiThemeSchema = z.enum(["system", "light", "dark"]);
@@ -120,6 +123,8 @@ export const basicConfigSchema = z.object({
   chatShowAllToolResults: z.boolean(),
   /** Show the dev-stage notice dialog on startup. */
   showDevNoticeDialog: z.boolean(),
+  /** Language for AI prompts (agent system prompts). */
+  promptLanguage: promptLanguageSchema,
 });
 
 export const basicConfigUpdateSchema = basicConfigSchema.partial();

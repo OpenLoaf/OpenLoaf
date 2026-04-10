@@ -28,6 +28,8 @@ type MasterAgentRunnerInput = {
   messages?: { role: string; parts?: unknown[] }[]
   /** Builtin skills text appended to the end of system prompt. */
   skillsSystemText?: string
+  /** Optional prompt language override (defaults to BasicConfig.promptLanguage). */
+  lang?: 'zh' | 'en'
 }
 
 export type MasterAgentRunner = {
@@ -47,6 +49,7 @@ export function createMasterAgentRunner(input: MasterAgentRunnerInput): MasterAg
       instructions: input.instructions,
       messages: input.messages,
       skillsSystemText: input.skillsSystemText,
+      lang: input.lang,
     }),
     frame: createMasterAgentFrame({ model: input.modelInfo }),
   }

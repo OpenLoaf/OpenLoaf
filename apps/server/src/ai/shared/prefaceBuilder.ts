@@ -27,6 +27,7 @@ import {
   buildProjectRulesSection,
   buildSkillsSummarySection,
 } from "@/ai/shared/promptBuilder";
+import type { PromptLang } from "@/ai/shared/hardRules";
 import { assembleMemoryBlocks } from "@/ai/shared/agentPromptAssembler";
 import { getMcpToolIds } from "@/ai/tools/toolRegistry";
 import { getMcpCatalogEntries } from "@openloaf/api/types/tools/toolCatalog";
@@ -35,6 +36,8 @@ import { mcpClientManager } from "@/ai/services/mcpClientManager";
 import { getEnabledMcpServers } from "@/services/mcpConfigService";
 
 import { UNKNOWN_VALUE } from '@/ai/shared/constants'
+/** Sentinel value for project rules when AGENTS.md is absent. */
+const PROJECT_RULES_NOT_FOUND = "__NOT_FOUND__";
 /** Project metadata folder name. */
 const PROJECT_META_DIR = ".openloaf";
 /** Project metadata file name. */
@@ -183,12 +186,12 @@ function resolveProjectSnapshot(projectId?: string): ProjectSnapshot {
       id: resolvedId,
       name: resolvedId,
       rootPath: UNKNOWN_VALUE,
-      rules: "未找到",
+      rules: PROJECT_RULES_NOT_FOUND,
     };
   }
   const rulesPath = path.join(rootPath, ROOT_RULES_FILE);
   // 逻辑：直接读取项目根目录 AGENTS.md 并注入到提示词。
-  const rules = readTextFileIfExists(rulesPath).trim() || "未找到";
+  const rules = readTextFileIfExists(rulesPath).trim() || PROJECT_RULES_NOT_FOUND;
   return {
     id: resolvedId,
     name: resolveProjectName(rootPath, resolvedId),
@@ -240,7 +243,7 @@ export function resolveAccountSnapshot(): AccountSnapshot {
       }
     }
   } catch { /* fallback */ }
-  return { id: "未登录", name: "未登录", email: "未登录" };
+  return { id: "not logged in", name: "not logged in", email: "not logged in" };
 }
 
 /** Resolve response language configuration for prompt injection. */
@@ -356,16 +359,27 @@ async function resolvePromptContext(input: {
 
 /**
  * Build builtin skills block for system prompt injection.
- * Returns a single <system-skills> block string, or empty string if none.
+ *
+ * Every builtin skill is listed with its full description — AI needs the
+ * complete trigger vocabulary to match user intent to the right skill.
+ * Skills are loaded on demand via `ToolSearch(names: "skill-name")`, which
+ * takes an exact skill/tool name (comma-separated for multiple). The
+ * ToolSearch tool does not support fuzzy/keyword matching, so the full name
+ * list must be visible in the prompt.
  */
 function buildBuiltinSkillsSystemBlock(
   summaries: PromptContext["skillSummaries"],
+  lang?: PromptLang,
 ): string {
   const builtinSkills = summaries.filter((s) => s.scope === "builtin");
   if (builtinSkills.length === 0) return "";
   const content = buildSkillsSummarySection(builtinSkills);
   if (!content) return "";
-  return `<system-skills desc="内置技能，通过 ToolSearch 按需加载">\n${content}\n</system-skills>`;
+  const desc =
+    lang === "zh"
+      ? "内置技能，通过 `ToolSearch(names: 'skill-name')` 按需加载"
+      : "Built-in skills, load on demand via `ToolSearch(names: 'skill-name')`";
+  return `<system-skills desc="${desc}">\n${content}\n</system-skills>`;
 }
 
 /**
@@ -374,16 +388,25 @@ function buildBuiltinSkillsSystemBlock(
  */
 function buildUserProjectSkillsBlocks(
   summaries: PromptContext["skillSummaries"],
+  lang?: PromptLang,
 ): string[] {
   const globalSkills = summaries.filter((s) => s.scope === "global");
   const projectSkills = summaries.filter((s) => s.scope === "project");
   const blocks: string[] = [];
+  const userDesc =
+    lang === "zh"
+      ? "用户全局技能，通过 ToolSearch 按需加载"
+      : "User-global skills, loaded on demand via ToolSearch";
+  const projectDesc =
+    lang === "zh"
+      ? "项目技能，通过 ToolSearch 按需加载"
+      : "Project skills, loaded on demand via ToolSearch";
 
   if (globalSkills.length > 0) {
     const content = buildSkillsSummarySection(globalSkills);
     if (content) {
       blocks.push(
-        `<system-user-skills desc="用户全局技能，通过 ToolSearch 按需加载">\n${content}\n</system-user-skills>`,
+        `<system-user-skills desc="${userDesc}">\n${content}\n</system-user-skills>`,
       );
     }
   }
@@ -391,7 +414,7 @@ function buildUserProjectSkillsBlocks(
     const content = buildSkillsSummarySection(projectSkills);
     if (content) {
       blocks.push(
-        `<system-project-skills desc="项目技能，通过 ToolSearch 按需加载">\n${content}\n</system-project-skills>`,
+        `<system-project-skills desc="${projectDesc}">\n${content}\n</system-project-skills>`,
       );
     }
   }
@@ -404,14 +427,20 @@ function buildContextBlocks(input: {
   context: PromptContext;
   parentProjectRootPaths: string[];
   clientPlatform?: ClientPlatform;
+  lang?: PromptLang;
 }): string[] {
-  const { sessionId, context, parentProjectRootPaths } = input;
+  const { sessionId, context, lang } = input;
   const blocks: string[] = [];
+  const isZh = lang === "zh";
 
   // 项目规则（仅有内容时）
-  if (context.project.rules && context.project.rules !== "未找到") {
+  if (
+    context.project.rules &&
+    context.project.rules !== PROJECT_RULES_NOT_FOUND
+  ) {
+    const rulesDesc = isZh ? "项目规则，来自 AGENTS.md" : "Project rules from AGENTS.md";
     blocks.push(
-      `<system-project-rules desc="项目规则，来自 AGENTS.md">\n${buildProjectRulesSection(context)}\n</system-project-rules>`,
+      `<system-project-rules desc="${rulesDesc}">\n${buildProjectRulesSection(context, lang)}\n</system-project-rules>`,
     );
   }
 
@@ -420,8 +449,9 @@ function buildContextBlocks(input: {
   // NOTE: 执行规则 + 任务分工已移至 hardRules.ts <agent-directives>
 
   // 会话上下文（含语言设置，放到最底部）
+  const sessionDesc = isZh ? "当前会话环境信息" : "Current session environment info";
   blocks.push(
-    `<system-session-context desc="当前会话环境信息">\n${buildSessionContextSection(sessionId, context)}\n</system-session-context>`,
+    `<system-session-context desc="${sessionDesc}">\n${buildSessionContextSection(sessionId, context, lang)}\n</system-session-context>`,
   );
 
   return blocks.filter((s) => s.trim());
@@ -443,7 +473,11 @@ export async function buildSessionPrefaceText(input: {
   parentProjectRootPaths: string[];
   timezone?: string;
   clientPlatform?: ClientPlatform;
+  /** AI prompt language (en/zh); defaults to user's BasicConfig.promptLanguage. */
+  lang?: PromptLang;
 }): Promise<SessionPrefaceResult> {
+  const lang: PromptLang =
+    input.lang ?? (readBasicConf().promptLanguage === "zh" ? "zh" : "en");
   // Ensure MCP servers are connected so getMcpToolIds() returns tools
   const projectRoot = input.projectId
     ? getProjectRootPath(input.projectId) ?? undefined
@@ -458,13 +492,13 @@ export async function buildSessionPrefaceText(input: {
   });
 
   // ★ 内置 skills → system prompt（instructions 末尾）
-  const builtinSkillsText = buildBuiltinSkillsSystemBlock(context.skillSummaries);
+  const builtinSkillsText = buildBuiltinSkillsSystemBlock(context.skillSummaries, lang);
 
   // ★ 用户/项目 skills → preface（user message）
-  const skillsBlocks = buildUserProjectSkillsBlocks(context.skillSummaries);
+  const skillsBlocks = buildUserProjectSkillsBlocks(context.skillSummaries, lang);
 
   // MCP tools — 按 scope 分组
-  const mcpBlocks = buildMcpToolsBlocks(projectRoot);
+  const mcpBlocks = buildMcpToolsBlocks(projectRoot, lang);
 
   // 会话上下文 + 项目配置
   const contextBlocks = buildContextBlocks({
@@ -472,6 +506,7 @@ export async function buildSessionPrefaceText(input: {
     context,
     parentProjectRootPaths: input.parentProjectRootPaths,
     clientPlatform: input.clientPlatform,
+    lang,
   });
 
   // Memory 独立块
@@ -498,9 +533,10 @@ export async function buildSessionPrefaceText(input: {
  * Build MCP tools blocks, split by scope (global → system-user-mcp, project → system-project-mcp).
  * Each MCP tool entry uses its own XML tag for consistency.
  */
-function buildMcpToolsBlocks(projectRoot?: string): string[] {
+function buildMcpToolsBlocks(projectRoot?: string, lang?: PromptLang): string[] {
   const mcpToolIds = getMcpToolIds();
   if (mcpToolIds.length === 0) return [];
+  const isZh = lang === "zh";
 
   const mcpEntries = getMcpCatalogEntries();
 
@@ -533,16 +569,17 @@ function buildMcpToolsBlocks(projectRoot?: string): string[] {
     target.get(serverName)!.push(toolEntry);
   }
 
+  const header = isZh ? '# MCP 外部工具' : '# MCP External Tools';
+  const headerHint = isZh
+    ? '使用前需通过 ToolSearch 加载（在 names 参数中传入工具 ID）。'
+    : 'Load via ToolSearch before use (pass the tool ID in the `names` parameter).';
+
   const buildBlock = (
     tag: string,
     desc: string,
     toolsByServer: Map<string, ToolEntry[]>,
   ): string => {
-    const lines: string[] = [
-      '# MCP 外部工具',
-      '使用前需通过 ToolSearch 加载（在 names 参数中传入工具 ID）。',
-      '',
-    ];
+    const lines: string[] = [header, headerHint, ''];
     for (const [serverName, tools] of toolsByServer) {
       lines.push(`## ${serverName}`);
       for (const t of tools) {
@@ -554,12 +591,14 @@ function buildMcpToolsBlocks(projectRoot?: string): string[] {
     return `<${tag} desc="${desc}">\n${lines.join('\n').trim()}\n</${tag}>`;
   };
 
+  const userMcpDesc = isZh ? '用户全局 MCP 工具' : 'User-global MCP tools';
+  const projectMcpDesc = isZh ? '项目 MCP 工具' : 'Project MCP tools';
   const blocks: string[] = [];
   if (globalTools.size > 0) {
-    blocks.push(buildBlock('system-user-mcp', '用户全局 MCP 工具', globalTools));
+    blocks.push(buildBlock('system-user-mcp', userMcpDesc, globalTools));
   }
   if (projectTools.size > 0) {
-    blocks.push(buildBlock('system-project-mcp', '项目 MCP 工具', projectTools));
+    blocks.push(buildBlock('system-project-mcp', projectMcpDesc, projectTools));
   }
   return blocks;
 }

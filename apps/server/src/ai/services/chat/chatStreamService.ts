@@ -322,6 +322,8 @@ export async function runChatStream(input: {
   // 逻辑：在首条用户消息前确保 preface 已落库。
   const parentProjectRootPaths = await resolveParentProjectRootPaths(projectId);
   const resolvedProjectId = getProjectId() ?? projectId ?? undefined;
+  // 提示词语言：整条请求链路共用，preface/hardRules/agent instructions 保持一致。
+  const promptLang: 'zh' | 'en' = readBasicConf().promptLanguage === 'zh' ? 'zh' : 'en';
   const sessionPrefaceResult = await buildSessionPrefaceText({
     sessionId,
     projectId: resolvedProjectId,
@@ -329,6 +331,7 @@ export async function runChatStream(input: {
     parentProjectRootPaths,
     timezone,
     clientPlatform: input.request.clientPlatform,
+    lang: promptLang,
   });
   await ensureSessionPreface({
     sessionId,
@@ -580,10 +583,11 @@ export async function runChatStream(input: {
           modelInfo: resolved.modelInfo,
           taskId,
           projectId: input.request.projectId,
+          lang: promptLang,
         });
       } else {
         // 逻辑：组装默认 agent instructions（template.systemPrompt）。
-        instructions = assembleDefaultAgentInstructions();
+        instructions = assembleDefaultAgentInstructions({ lang: promptLang });
 
         // agentHint：当请求 params 中包含 agentHint 时，使用对应模版的 systemPrompt 替换 instructions
         const agentHint = input.request.params?.agentHint;
@@ -600,6 +604,7 @@ export async function runChatStream(input: {
           instructions,
           messages: modelMessages,
           skillsSystemText: sessionPrefaceResult.builtinSkillsText,
+          lang: promptLang,
         });
       }
     }
@@ -644,7 +649,7 @@ export async function runChatStream(input: {
         const sessionDir = path.dirname(jsonlPath)
         // 完整指令 = prompt + hardRules + builtinSkills
         const skillsSuffix = sessionPrefaceResult.builtinSkillsText ? `\n\n${sessionPrefaceResult.builtinSkillsText}` : ''
-        const fullPrompt = `${instructions}\n\n${buildHardRules()}${skillsSuffix}`
+        const fullPrompt = `${instructions}\n\n${buildHardRules(promptLang)}${skillsSuffix}`
         await fs.writeFile(path.join(sessionDir, 'PROMPT.md'), fullPrompt, 'utf-8')
         // sessionPreface → 独立 PREFACE.md
         const prefaceText = await resolveSessionPrefaceText(sessionId)

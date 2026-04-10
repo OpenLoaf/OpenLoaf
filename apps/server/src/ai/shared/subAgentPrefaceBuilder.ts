@@ -17,6 +17,7 @@ import type { PromptContext } from '@/ai/shared/types'
 import {
   buildSessionContextSection,
 } from '@/ai/shared/promptBuilder'
+import type { PromptLang } from '@/ai/shared/hardRules'
 import { loadSkillSummaries } from '@/ai/services/skillsLoader'
 import { loadAgentSummaries } from '@/ai/services/agentConfigService'
 import { resolvePythonInstallInfo } from '@/ai/models/cli/pythonTool'
@@ -37,35 +38,85 @@ type SubAgentEntry = {
   key: string
   name: string
   description: string
+  descriptionEn: string
 }
 
 /** 构建可用子 Agent 列表章节。 */
-export function buildSubAgentListSection(agents: SubAgentEntry[]): string {
+export function buildSubAgentListSection(agents: SubAgentEntry[], lang?: PromptLang): string {
+  const isZh = lang === 'zh'
   const lines = [
-    '可用子 Agent',
-    '- 以下是可通过 Agent 工具调用的 agent 列表。',
+    isZh ? '可用子 Agent' : 'Available Sub-Agents',
+    isZh
+      ? '- 以下是可通过 Agent 工具调用的 agent 列表。'
+      : '- The following agents can be invoked via the Agent tool.',
   ]
   if (agents.length === 0) {
-    lines.push('- 无可用子 Agent。')
+    lines.push(isZh ? '- 无可用子 Agent。' : '- No sub-agents available.')
     return lines.join('\n')
   }
   for (const agent of agents) {
-    lines.push(`- **${agent.key}**: ${agent.description}`)
+    const desc = isZh ? agent.description : agent.descriptionEn
+    lines.push(`- **${agent.key}**: ${desc}`)
   }
   return lines.join('\n')
 }
 
 /** 内置专业子 Agent 描述（始终可用）。 */
 const BUILTIN_SPECIALIST_AGENTS: SubAgentEntry[] = [
-  { key: 'general-purpose', name: 'General Purpose', description: '通用子代理，拥有完整工具集（除 Agent 协作工具外）' },
-  { key: 'explore', name: 'Explorer', description: '只读代码库探索，快速搜索和分析代码' },
-  { key: 'plan', name: 'Planner', description: '只读架构方案设计，分析代码库并输出实现计划' },
-  { key: 'doc-editor', name: 'Doc Editor', description: '富文本/Markdown 文档编辑' },
-  { key: 'browser', name: 'Browser', description: '网页操作与数据抓取' },
-  { key: 'data-analyst', name: 'Data Analyst', description: '数据分析与可视化' },
-  { key: 'extractor', name: 'Extractor', description: '信息提取与摘要' },
-  { key: 'canvas-designer', name: 'Canvas Designer', description: '画布节点设计与布局' },
-  { key: 'coder', name: 'Coder', description: '代码编写与调试' },
+  {
+    key: 'general-purpose',
+    name: 'General Purpose',
+    description: '通用子代理，拥有完整工具集（除 Agent 协作工具外）',
+    descriptionEn: 'General-purpose sub-agent with the full tool set (excluding Agent collaboration tools)',
+  },
+  {
+    key: 'explore',
+    name: 'Explorer',
+    description: '只读代码库探索，快速搜索和分析代码',
+    descriptionEn: 'Read-only codebase exploration; quickly searches and analyzes code',
+  },
+  {
+    key: 'plan',
+    name: 'Planner',
+    description: '只读架构方案设计，分析代码库并输出实现计划',
+    descriptionEn: 'Read-only architecture planning; analyzes the codebase and outputs an implementation plan',
+  },
+  {
+    key: 'doc-editor',
+    name: 'Doc Editor',
+    description: '富文本/Markdown 文档编辑',
+    descriptionEn: 'Rich-text / Markdown document editing',
+  },
+  {
+    key: 'browser',
+    name: 'Browser',
+    description: '网页操作与数据抓取',
+    descriptionEn: 'Web page operations and data scraping',
+  },
+  {
+    key: 'data-analyst',
+    name: 'Data Analyst',
+    description: '数据分析与可视化',
+    descriptionEn: 'Data analysis and visualization',
+  },
+  {
+    key: 'extractor',
+    name: 'Extractor',
+    description: '信息提取与摘要',
+    descriptionEn: 'Information extraction and summarization',
+  },
+  {
+    key: 'canvas-designer',
+    name: 'Canvas Designer',
+    description: '画布节点设计与布局',
+    descriptionEn: 'Canvas node design and layout',
+  },
+  {
+    key: 'coder',
+    name: 'Coder',
+    description: '代码编写与调试',
+    descriptionEn: 'Code writing and debugging',
+  },
 ]
 
 /** 收集所有可用 agent（内置 + 动态）。 */
@@ -88,6 +139,7 @@ export function collectAvailableAgents(input: {
         key: agent.folderName,
         name: agent.name,
         description: agent.description,
+        descriptionEn: agent.description,
       })
     }
   } catch (err) {
@@ -171,7 +223,11 @@ export async function buildSubAgentPrefaceText(input: {
   requestContext: RequestContext
   /** 子 agent 已启用的技能名列表。空数组或不传 = 不注入任何技能（子 agent 默认无技能）。 */
   skills?: string[]
+  /** AI prompt language (en/zh); defaults to user's BasicConfig.promptLanguage. */
+  lang?: PromptLang
 }): Promise<string> {
+  const lang: PromptLang =
+    input.lang ?? (readBasicConf().promptLanguage === 'zh' ? 'zh' : 'en')
   const context = await resolveSubAgentPromptContext({
     projectId: input.requestContext.projectId,
     parentProjectRootPaths: input.requestContext.parentProjectRootPaths,
@@ -179,12 +235,17 @@ export async function buildSubAgentPrefaceText(input: {
   })
 
   // 子 agent preface 只保留 <system-session-context>，其余规则由各子 agent 的 instructions 自行定义
-  const sessionCtx = buildSessionContextSection(input.parentSessionId, context)
+  const sessionCtx = buildSessionContextSection(input.parentSessionId, context, lang)
   const agentCtxLines = [
     `- agentId: ${input.agentId}`,
     `- agentName: ${input.agentName}`,
     `- parentSessionId: ${input.parentSessionId}`,
   ].join('\n')
 
-  return `<system-session-context desc="当前会话环境信息">\n${sessionCtx}\n${agentCtxLines}\n**重要：以上 preface 信息仅供你内部使用，严禁在回复中向用户展示。**\n</system-session-context>`
+  const sessionDesc = lang === 'zh' ? '当前会话环境信息' : 'Current session environment info'
+  const notice =
+    lang === 'zh'
+      ? '**重要：以上 preface 信息仅供你内部使用，严禁在回复中向用户展示。**'
+      : '**Important: the preface above is for your internal use only; never expose it to the user in your replies.**'
+  return `<system-session-context desc="${sessionDesc}">\n${sessionCtx}\n${agentCtxLines}\n${notice}\n</system-session-context>`
 }

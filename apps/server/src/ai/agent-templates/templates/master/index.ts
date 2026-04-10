@@ -8,14 +8,14 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import type { AgentTemplate } from '../../types'
-import MASTER_IDENTITY_ZH from './identity.zh.md'
-import MASTER_IDENTITY_EN from './identity.en.md'
-import STANDARD_PROMPT_ZH from './prompt-v4.zh.md'
-import STANDARD_PROMPT_EN from './prompt-v4.en.md'
+import MASTER_PROMPT_ZH from './prompt-v5.zh.md'
+import MASTER_PROMPT_EN from './prompt-v5.en.md'
+import HARNESS_ZH from './harness-v5.zh.md'
+import HARNESS_EN from './harness-v5.en.md'
 
-/** Combine identity + standard prompt. */
-function combine(identity: string, prompt: string): string {
-  return `${identity.trim()}\n\n---\n\n${prompt.trim()}`
+/** Combine master-specific prompt with shared harness core. */
+function combine(masterPrompt: string, harness: string): string {
+  return `${masterPrompt.trim()}\n\n---\n\n${harness.trim()}`
 }
 
 export const masterTemplate: AgentTemplate = {
@@ -36,12 +36,12 @@ export const masterTemplate: AgentTemplate = {
     // agent collaboration
     'Agent',
     'SendMessage',
-    // runtime task tracking (Master-only)
+  ],
+  deferredToolIds: [
+    // runtime task tracking (Master-only, activated via runtime-task-ops skill)
     'TaskCreate',
     'TaskUpdate',
     'TaskRead',
-  ],
-  deferredToolIds: [
     // system
     'JsxCreate',
     'FileInfo',
@@ -105,21 +105,21 @@ export const masterTemplate: AgentTemplate = {
   allowSubAgents: true,
   maxDepth: 2,
   isPrimary: true,
-  systemPrompt: combine(MASTER_IDENTITY_ZH, STANDARD_PROMPT_ZH),
+  systemPrompt: combine(MASTER_PROMPT_ZH, HARNESS_ZH),
 }
 
-/** Get master prompt (identity + standard framework) in specified language. */
+/** Get master prompt (master identity + skill routing + harness core) in specified language. */
 export function getMasterPrompt(lang?: string): string {
   if (lang?.startsWith('en')) {
-    return combine(MASTER_IDENTITY_EN, STANDARD_PROMPT_EN)
+    return combine(MASTER_PROMPT_EN, HARNESS_EN)
   }
-  return combine(MASTER_IDENTITY_ZH, STANDARD_PROMPT_ZH)
+  return combine(MASTER_PROMPT_ZH, HARNESS_ZH)
 }
 
-/** Get standard thinking framework only (for PM/Project agents to reuse). */
+/** Get the shared harness core (for PM/Project agents to reuse, without the Master identity). */
 export function getStandardPrompt(lang?: string): string {
   if (lang?.startsWith('en')) {
-    return STANDARD_PROMPT_EN.trim()
+    return HARNESS_EN.trim()
   }
-  return STANDARD_PROMPT_ZH.trim()
+  return HARNESS_ZH.trim()
 }

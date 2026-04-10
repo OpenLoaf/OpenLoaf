@@ -97,6 +97,7 @@ const DEFAULT_BASIC_CONF: BasicConf = {
   webSearchApiKey: "",
   chatShowAllToolResults: false,
   showDevNoticeDialog: true,
+  promptLanguage: "en",
 };
 
 /** Normalize CLI tool config. */
@@ -379,6 +380,12 @@ function normalizeBasicConf(raw?: Partial<BasicConf>, fallback?: Partial<BasicCo
       : typeof fallbackSource.showDevNoticeDialog === "boolean"
         ? fallbackSource.showDevNoticeDialog
         : DEFAULT_BASIC_CONF.showDevNoticeDialog;
+  const promptLanguage =
+    source.promptLanguage === "zh" || source.promptLanguage === "en"
+      ? source.promptLanguage
+      : fallbackSource.promptLanguage === "zh" || fallbackSource.promptLanguage === "en"
+        ? fallbackSource.promptLanguage
+        : DEFAULT_BASIC_CONF.promptLanguage;
 
   return {
     chatSource,
@@ -418,6 +425,7 @@ function normalizeBasicConf(raw?: Partial<BasicConf>, fallback?: Partial<BasicCo
     webSearchApiKey,
     chatShowAllToolResults,
     showDevNoticeDialog,
+    promptLanguage,
   };
 }
 

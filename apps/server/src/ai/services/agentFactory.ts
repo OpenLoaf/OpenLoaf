@@ -37,6 +37,7 @@ import { ActivatedToolSet } from '@/ai/tools/toolSearchState'
 import { createToolSearchTool } from '@/ai/tools/toolSearchTool'
 import {
   getPrimaryTemplate,
+  getMasterPrompt,
   getPMPrompt,
   PM_AGENT_TOOL_IDS,
 } from '@/ai/agent-templates'
@@ -45,7 +46,16 @@ import {
   type AgentConfig,
 } from '@/ai/services/agentConfigService'
 import { resolveAgentByName } from '@/ai/tools/AgentSelector'
-import { buildHardRules } from '@/ai/shared/hardRules'
+import { buildHardRules, type PromptLang } from '@/ai/shared/hardRules'
+import { readBasicConf } from '@/modules/settings/openloafConfStore'
+
+/** Resolve prompt language for agent construction. Defaults to English. */
+function resolvePromptLang(override?: string | PromptLang): PromptLang {
+  if (override === 'zh' || override === 'en') return override
+  if (typeof override === 'string' && override.startsWith('zh')) return 'zh'
+  if (typeof override === 'string' && override.startsWith('en')) return 'en'
+  return readBasicConf().promptLanguage === 'zh' ? 'zh' : 'en'
+}
 import { tryAutoCompact } from '@/ai/shared/autoCompact'
 import { microcompactMessages, extractLastAssistantTimestamp } from '@/ai/shared/microCompact'
 import { ContextCollapseManager, type CollapseResult } from '@/ai/shared/contextCollapse'
@@ -109,13 +119,15 @@ type CreateMasterAgentInput = {
   messages?: { role: string; parts?: unknown[] }[]
   /** Builtin skills text appended to the end of system prompt. */
   skillsSystemText?: string
+  /** Optional prompt language override (defaults to BasicConfig.promptLanguage). */
+  lang?: PromptLang
 }
 
 // ---------------------------------------------------------------------------
 // Step limits — prevent infinite tool loops (MAST FM-1.3)
 // ---------------------------------------------------------------------------
-const MASTER_HARD_MAX_STEPS = 30
-const SUB_AGENT_MAX_STEPS = 50
+const MASTER_HARD_MAX_STEPS = 200
+const SUB_AGENT_MAX_STEPS = 200
 
 // ---------------------------------------------------------------------------
 // ToolSearch Pull 模式 — prepareStep + ActivatedToolSet
@@ -359,7 +371,8 @@ function buildResponsesApiProviderOptions(model: LanguageModelV3): Record<string
 /** Creates the master agent instance. */
 export function createMasterAgent(input: CreateMasterAgentInput) {
   const template = getPrimaryTemplate()
-  const instructions = input.instructions || template.systemPrompt
+  const lang = resolvePromptLang(input.lang)
+  const instructions = input.instructions || getMasterPrompt(lang)
   const wrappedModel = wrapModelWithExamples(input.model)
 
   // ToolSearch Pull mode — filter by client platform and feature flags
@@ -402,7 +415,7 @@ export function createMasterAgent(input: CreateMasterAgentInput) {
 
   // ★ Append Hard Rules to instructions (Layer 2)
   // ToolSearch guidance is injected via session preface (platform-aware).
-  const hardRules = buildHardRules()
+  const hardRules = buildHardRules(lang)
   // ★ Builtin skills appended at the very end of system prompt (Layer 3)
   const skillsSuffix = input.skillsSystemText ? `\n\n${input.skillsSystemText}` : ''
   const finalInstructions = `${instructions}\n\n${hardRules}${skillsSuffix}`
@@ -497,7 +510,7 @@ export function createPMAgent(input: CreatePMAgentInput) {
   applyActivationGuard(tools, activatedSet, coreToolIds)
   applyToolResultInterception(tools, getSessionId)
 
-  const hardRules = buildHardRules()
+  const hardRules = buildHardRules(resolvePromptLang(input.lang))
   const toolSearchGuidance = buildToolSearchGuidance(ctx?.clientPlatform, deferredToolIds)
   const finalInstructions = `${instructions}\n\n${hardRules}\n\n${toolSearchGuidance}`
 
@@ -610,8 +623,10 @@ function createGeneralPurposeSubAgent(model: LanguageModelV3): ToolLoopAgent {
   applyToolResultInterception(tools, getSessionId)
 
   // 使用与主 Agent 相同的完整 instructions（SubAgent 不共享 preface，需自带 guidance）
-  const basePrompt = masterTpl.systemPrompt
-  const finalInstructions = `${basePrompt}\n\n${buildHardRules()}\n\n${buildToolSearchGuidance(ctx?.clientPlatform, deferredToolIds)}`
+  // 逻辑：使用用户偏好的提示词语言生成 Master prompt，而不是 template.systemPrompt 的硬编码中文版。
+  const subAgentLang = resolvePromptLang()
+  const basePrompt = getMasterPrompt(subAgentLang)
+  const finalInstructions = `${basePrompt}\n\n${buildHardRules(subAgentLang)}\n\n${buildToolSearchGuidance(ctx?.clientPlatform, deferredToolIds)}`
 
   return new ToolLoopAgent({
     id: `SubAgent-general-${Date.now()}`,

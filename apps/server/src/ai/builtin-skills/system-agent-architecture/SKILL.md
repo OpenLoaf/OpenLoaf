@@ -92,7 +92,6 @@ type ChatPageContext = {
 
 | Skill 名称 | 触发页面 | 核心能力 |
 |-----------|---------|---------|
-| `openloaf-basics` | **所有页面（始终加载）** | OpenLoaf 产品认知、架构规则、通用操作 |
 | `canvas-ops` | 画布列表、临时画布、项目画布 | 画布 CRUD、节点编辑、布局优化 |
 | `project-ops` | 项目列表、项目模式所有页面 | 项目管理、文件操作、Git 操作 |
 | `calendar-ops` | 日历 | 日程 CRUD、时间管理、提醒设置 |
@@ -126,17 +125,16 @@ type ChatPageContext = {
 | `agent-list` | （无额外 skill） |
 | `skill-list` | （无额外 skill） |
 
-所有页面始终追加 `openloaf-basics` 作为基线 skill。
+没有匹配页面时自动加载列表为空；Agent 的通用产品认知直接沉淀在主 prompt 和 harness 里，不再通过"baseline skill"机制注入。
 
 ### 2.4 加载规则
 
 ```
 用户发送消息时：
 1. 读取当前 pageContext
-2. 查上方映射表获取对应 skill 列表
-3. 始终追加 openloaf-basics
-4. 合并用户手动 /skill/xxx 选择的 skill
-5. 去重后注入消息
+2. 查上方映射表获取对应 skill 列表（无匹配则为空）
+3. 合并用户手动 /skill/xxx 选择的 skill
+4. 去重后注入消息
 ```
 
 ### 2.5 与现有 Skill 系统的关系
@@ -149,9 +147,12 @@ type ChatPageContext = {
 - 手动 skill：用户输入 `/skill/xxx` 触发
 - 自动 skill：服务端根据 `pageContext` 在 `AiExecuteService` 中自动追加到 `resolveSkillMatches` 结果
 
-### 2.6 `openloaf-basics` Skill
+### 2.6 产品认知的沉淀位置
 
-openloaf-basics 的完整内容见 `apps/server/src/ai/builtin-skills/openloaf-basics/SKILL.md`。核心作用：为 Agent 提供 OpenLoaf 产品地图、工具选择决策树和跨模块导航框架。
+OpenLoaf 的产品地图、工具选择决策树和跨模块导航框架**不再以 skill 形式存在**（v5 起），而是直接写在主 Agent 的系统提示词里：
+
+- `apps/server/src/ai/agent-templates/templates/master/prompt-v5.zh/en.md` — Master 身份、skill 路由规则、委派策略
+- `apps/server/src/ai/agent-templates/templates/master/harness-v5.zh/en.md` — 通用做事准则、工具选择、路径引用、Communication
 
 关键文件：
 - Skill 文件存放：`apps/server/src/ai/builtin-skills/`（内置）或 `.openloaf/skills/`（自定义覆盖）
@@ -371,5 +372,5 @@ UI 浮现轻提示："文件已保存到临时项目"
 - 在日历页说"把这个会议相关的文档整理到项目 X 里"
 - 在项目里说"帮我发邮件给同事通知进度"
 
-**策略**：主 Agent 通过 ToolSearch 按需激活跨模块工具，无需切换子 Agent。`openloaf-basics` skill 告诉 Agent 其他模块的存在和能力边界。
+**策略**：主 Agent 通过 ToolSearch 按需激活跨模块工具，无需切换子 Agent。主 prompt/harness 告诉 Agent 其他模块的存在和能力边界，`<system-skills>` 块提供可加载的 skill 清单。
 

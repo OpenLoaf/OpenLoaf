@@ -11,7 +11,8 @@
  * Page context → auto-loaded skill mapping.
  *
  * Resolves which built-in skills should be automatically loaded based on
- * the user's current page context (injected by the frontend).
+ * the user's current page context (injected by the frontend). Returns an
+ * empty array when the page has no domain-specific skill to pre-load.
  */
 
 import type { ChatPageContext } from '@openloaf/api/types/message'
@@ -37,25 +38,10 @@ const PAGE_SKILL_MAP: Record<string, string[]> = {
   'skill-list': [],
 }
 
-/** The baseline skill always appended to auto-loaded results. */
-const BASELINE_SKILL = 'openloaf-basics'
-
-/**
- * Resolve auto-loaded skill names from page context.
- * Returns deduplicated list with `openloaf-basics` always included last.
- */
+/** Resolve auto-loaded skill names from page context. */
 export function resolveAutoSkillsByPageContext(
   pageContext: ChatPageContext | undefined | null,
 ): string[] {
-  if (!pageContext?.page) return [BASELINE_SKILL]
-
-  const pageSkills = PAGE_SKILL_MAP[pageContext.page]
-  if (!pageSkills) return [BASELINE_SKILL]
-
-  // Deduplicate and append baseline
-  const result = [...pageSkills]
-  if (!result.includes(BASELINE_SKILL)) {
-    result.push(BASELINE_SKILL)
-  }
-  return result
+  if (!pageContext?.page) return []
+  return PAGE_SKILL_MAP[pageContext.page] ?? []
 }

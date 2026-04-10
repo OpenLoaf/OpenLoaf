@@ -86,7 +86,7 @@ Step 4: 主 Agent 处理
 
 ### 2.3 Skill 自动加载
 
-Skill 自动加载映射的完整表格见 `system-agent-architecture` skill 第二章。`openloaf-basics` **始终加载**，确保 Agent 对 OpenLoaf 有基本认知。
+Skill 自动加载映射的完整表格见 `system-agent-architecture` skill 第二章。Agent 的产品认知直接沉淀在主 prompt/harness 里，不再通过 baseline skill 机制注入。
 
 ---
 
