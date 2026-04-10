@@ -9,7 +9,7 @@
  */
 'use client'
 
-import { forwardRef } from 'react'
+import { forwardRef, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@udecode/cn'
 import {
@@ -76,6 +76,56 @@ export const GroupedNodePicker = forwardRef<HTMLDivElement, GroupedNodePickerPro
     const { t } = useTranslation('board')
 
     const hasContent = items.length > 0
+    const [activeIndex, setActiveIndex] = useState(0)
+
+    // items 变化时重置高亮到第一项
+    useEffect(() => {
+      setActiveIndex(0)
+    }, [items])
+
+    // 键盘操作：↑↓ 选择、Enter 确认、Esc 关闭、数字键 1-9 快速选择
+    useEffect(() => {
+      if (!hasContent) return
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') {
+          e.preventDefault()
+          e.stopPropagation()
+          onClose()
+          return
+        }
+        if (e.key === 'ArrowDown') {
+          e.preventDefault()
+          e.stopPropagation()
+          setActiveIndex((i) => (i + 1) % items.length)
+          return
+        }
+        if (e.key === 'ArrowUp') {
+          e.preventDefault()
+          e.stopPropagation()
+          setActiveIndex((i) => (i - 1 + items.length) % items.length)
+          return
+        }
+        if (e.key === 'Enter') {
+          e.preventDefault()
+          e.stopPropagation()
+          const item = items[activeIndex]
+          if (item) onSelect(item)
+          return
+        }
+        // 数字键 1-9 直接选择对应项
+        if (e.key >= '1' && e.key <= '9') {
+          const idx = Number(e.key) - 1
+          if (idx < items.length) {
+            e.preventDefault()
+            e.stopPropagation()
+            onSelect(items[idx]!)
+          }
+        }
+      }
+      // capture 阶段拦截，避免画布全局快捷键先消费
+      window.addEventListener('keydown', handleKeyDown, true)
+      return () => window.removeEventListener('keydown', handleKeyDown, true)
+    }, [hasContent, items, activeIndex, onSelect, onClose])
 
     return (
       <div
@@ -133,15 +183,17 @@ export const GroupedNodePicker = forwardRef<HTMLDivElement, GroupedNodePickerPro
             </div>
           ) : hasContent ? (
             /* 媒体类型列表 — 与 FloatingInsertMenu 同风格 */
-            items.map((item) => {
+            items.map((item, index) => {
               const meta = MEDIA_TYPE_META[item.mediaType]
               const Icon = meta?.icon ?? Image
               const title = meta ? t(meta.titleKey as Parameters<typeof t>[0]) : item.mediaType
               const description = meta ? (t(meta.descKey as Parameters<typeof t>[0]) || undefined) : undefined
+              const isActive = index === activeIndex
               return (
                 <button
                   key={item.mediaType}
                   type="button"
+                  onPointerEnter={() => setActiveIndex(index)}
                   onPointerDown={(e) => {
                     e.stopPropagation()
                     onSelect(item)
@@ -149,7 +201,7 @@ export const GroupedNodePicker = forwardRef<HTMLDivElement, GroupedNodePickerPro
                   className={cn(
                     'group flex w-full items-center gap-3 px-3.5 py-2',
                     'transition-colors duration-100 rounded-3xl mx-0',
-                    'hover:bg-foreground/6 dark:hover:bg-foreground/8',
+                    isActive && 'bg-foreground/6 dark:bg-foreground/8',
                   )}
                 >
                   <span
@@ -157,15 +209,15 @@ export const GroupedNodePicker = forwardRef<HTMLDivElement, GroupedNodePickerPro
                       'flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-3xl',
                       'bg-foreground/5 dark:bg-foreground/8',
                       'transition-colors duration-100',
-                      'group-hover:bg-foreground/8 dark:group-hover:bg-foreground/12',
+                      isActive && 'bg-foreground/8 dark:bg-foreground/12',
                     )}
                   >
                     <Icon size={16} />
                   </span>
-                  <div className="flex flex-col items-start gap-0.5 min-w-0">
+                  <div className="flex flex-col items-start gap-0.5 min-w-0 flex-1">
                     <span className="text-[13px] font-medium leading-tight">{title}</span>
                     {description && (
-                      <span className="max-h-0 overflow-hidden opacity-0 group-hover:max-h-5 group-hover:opacity-100 transition-all duration-150 ease-out text-[11px] leading-tight text-ol-text-auxiliary truncate max-w-[140px]">
+                      <span className="text-[11px] leading-tight text-ol-text-auxiliary truncate max-w-[160px]">
                         {description}
                       </span>
                     )}

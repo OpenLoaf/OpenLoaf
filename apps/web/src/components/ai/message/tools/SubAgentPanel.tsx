@@ -306,10 +306,10 @@ export default function SubAgentPanel({
       id: `SubAgent-chat:${agentId}`,
       sourceKey: `SubAgent-chat:${agentId}`,
       component: 'SubAgent-chat',
-      title: agentName,
+      title: t('subAgentPanel.stackTitle'),
       params: { agentId, sessionId },
     })
-  }, [agentId, agentName, sessionId])
+  }, [agentId, sessionId, t])
 
   return (
     <div

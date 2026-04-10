@@ -590,6 +590,7 @@
   },
   "subAgentPanel": {
     "label": "Sub-agent: ",
+    "stackTitle": "Sub-agent",
     "defaultName": "Sub-agent",
     "status": {
       "error": "Error",

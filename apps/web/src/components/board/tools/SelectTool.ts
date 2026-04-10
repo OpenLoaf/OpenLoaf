@@ -231,6 +231,11 @@ export class SelectTool implements CanvasTool {
       return;
     }
 
+    // 逻辑：双击第二次 pointerdown（detail >= 2）交给节点自身 onDoubleClick 处理进入编辑模式，
+    // 此处不进入拖拽跟踪，避免双击瞬间的微小鼠标抖动把节点也顺带移动（表现为"进入编辑模式的
+    // 同时节点开始移动"）。节点此时已被第一次 click 选中，无需再维护 pendingSelectionId。
+    if (ctx.event.detail >= 2) return;
+
     // 逻辑：pointerDown 时不立刻 setSelection，防止拖拽前闪现选中态 UI。
     // 延迟到 pointerUp 确认是点击（非拖拽）时才设置选区（见 pendingSelectionId）。
     const wasSelected = ctx.engine.selection.isSelected(selectionId);

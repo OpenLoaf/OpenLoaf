@@ -277,6 +277,7 @@
     "duplicateSuccess": "畫布已克隆",
     "copyPath": "複製路徑",
     "openInNewWindow": "在新視窗中開啟",
+    "openInCurrentWindow": "在目前視窗開啟",
     "pathCopied": "已複製路徑",
     "moveToProject": "移動到專案",
     "selectProject": "選擇目標專案",

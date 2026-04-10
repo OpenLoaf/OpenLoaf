@@ -54,6 +54,25 @@ import { useInlinePanelSync } from "./shared/useInlinePanelSync";
 import { deriveNode } from "../utils/derive-node";
 import { useTextV3Stream } from "../panels/hooks/useTextV3Stream";
 import { resolveAllMediaInputs } from "@/lib/media-upload";
+import { GeneratingOverlay } from "./GeneratingOverlay";
+import { NodeFrame } from "./NodeFrame";
+import { VersionStackOverlay } from "./VersionStackOverlay";
+import { FailureOverlay } from "./shared/FailureOverlay";
+import {
+  createInputSnapshot,
+  createGeneratingEntry,
+  pushVersion,
+  markVersionReady,
+  removeFailedEntry,
+  switchPrimary,
+  getPrimaryEntry,
+} from "../engine/version-stack";
+import {
+  resolveErrorMessage,
+  useVersionStackState,
+  useVersionStackEditingOverride,
+} from "../hooks/useVersionStack";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -120,7 +139,6 @@ import {
   TEXT_NODE_DEFAULT_FONT_SIZE,
   TEXT_NODE_DEFAULT_HEIGHT,
   TEXT_NODE_LINE_HEIGHT,
-  TEXT_NODE_VERTICAL_PADDING,
 } from "./text-node-constants";
 
 // Re-export for backward compatibility (prefer importing from text-node-constants directly)
@@ -135,43 +153,8 @@ const TEXT_NODE_MAX_FONT_SIZE = 52;
 /** Minimum size for text nodes. */
 const TEXT_NODE_MIN_SIZE = { w: 200, h: TEXT_NODE_DEFAULT_HEIGHT };
 /** Maximum size for text nodes. */
-const TEXT_NODE_MAX_SIZE = { w: 720, h: 10000 };
-/** Absolute floor for min height. */
-const TEXT_NODE_ABSOLUTE_MIN_H = TEXT_NODE_DEFAULT_HEIGHT;
-/** Absolute cap for max height. */
-const TEXT_NODE_ABSOLUTE_MAX_H = 10000;
+const TEXT_NODE_MAX_SIZE = { w: 800, h: 10000 };
 
-/** Extract plain text length from TextNode props. */
-function estimateTextLength(props: TextNodeProps): number {
-  const { value, markdownText } = props;
-  if (markdownText) return markdownText.length;
-  if (typeof value === 'string') return value.length;
-  if (Array.isArray(value)) {
-    const extract = (nodes: unknown[]): string => {
-      let result = '';
-      for (const node of nodes) {
-        const n = node as Record<string, unknown>;
-        if (typeof n.text === 'string') result += n.text;
-        if (Array.isArray(n.children)) result += extract(n.children);
-      }
-      return result;
-    };
-    return extract(value).length;
-  }
-  return 0;
-}
-
-/** Estimate content height based on text length, font size and current node width. */
-function estimateContentHeight(
-  textLen: number,
-  fontSize: number,
-  nodeWidth: number,
-): number {
-  const avgCharWidth = fontSize * 0.55;
-  const charsPerLine = Math.max(1, Math.floor(nodeWidth / avgCharWidth));
-  const lines = Math.max(1, Math.ceil(textLen / charsPerLine));
-  return Math.ceil(lines * fontSize * TEXT_NODE_LINE_HEIGHT + TEXT_NODE_VERTICAL_PADDING);
-}
 /** Default text alignment for text nodes. */
 const TEXT_NODE_DEFAULT_TEXT_ALIGN: TextNodeTextAlign = "left";
 /** Auto text color when background is light. */
@@ -207,6 +190,23 @@ const textEditorRefs = new Map<string, PlateEditor>();
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+/**
+ * Build the props patch for switching the TextNode version stack primary.
+ * 逻辑：切换主版本时，从 `entry.output.textValue` 恢复到 `props.value`。
+ */
+function buildSwitchPrimaryPatch(
+  stack: import("../engine/types").VersionStack,
+  entryId: string,
+): Partial<TextNodeProps> {
+  const newStack = switchPrimary(stack, entryId)
+  const newPrimary = newStack.entries.find((e) => e.id === entryId)
+  const patch: Partial<TextNodeProps> = { versionStack: newStack }
+  if (newPrimary?.output?.textValue !== undefined) {
+    patch.value = newPrimary.output.textValue
+  }
+  return patch
+}
 
 /** Convert legacy string value or rich-text Value to Slate Value. */
 function normalizeTextValue(
@@ -570,7 +570,47 @@ function createTextToolbarItems(ctx: CanvasToolbarContext<TextNodeProps>) {
   // Get the Plate editor instance for inline formatting
   const editor = textEditorRefs.get(ctx.element.id);
 
-  return [
+  const items: import("../engine/types").CanvasToolbarItem[] = [];
+
+  // 逻辑：版本堆叠 > 1 时在工具栏头部添加上一版本/下一版本导航按钮。
+  const stack = ctx.element.props.versionStack;
+  const count = stack?.entries.length ?? 0;
+  if (stack && count > 1) {
+    const primary = getPrimaryEntry(stack);
+    const currentIdx = primary
+      ? stack.entries.findIndex((e) => e.id === primary.id)
+      : 0;
+    items.push(
+      {
+        id: 'version-prev',
+        label: t('board:versionStack.prev'),
+        showLabel: true,
+        icon: <ChevronLeft size={14} />,
+        className: [BOARD_TOOLBAR_ITEM_DEFAULT, currentIdx <= 0 ? 'opacity-30' : ''].join(' '),
+        onSelect: () => {
+          if (currentIdx <= 0) return;
+          ctx.updateNodeProps(
+            buildSwitchPrimaryPatch(stack, stack.entries[currentIdx - 1].id),
+          );
+        },
+      },
+      {
+        id: 'version-next',
+        label: t('board:versionStack.next'),
+        showLabel: true,
+        icon: <ChevronRight size={14} />,
+        className: [BOARD_TOOLBAR_ITEM_DEFAULT, currentIdx >= count - 1 ? 'opacity-30' : ''].join(' '),
+        onSelect: () => {
+          if (currentIdx >= count - 1) return;
+          ctx.updateNodeProps(
+            buildSwitchPrimaryPatch(stack, stack.entries[currentIdx + 1].id),
+          );
+        },
+      },
+    );
+  }
+
+  items.push(...[
     // ---- Inline: Lists (ul / ol / todo) ----
     {
       id: 'text-list',
@@ -668,7 +708,9 @@ function createTextToolbarItems(ctx: CanvasToolbarContext<TextNodeProps>) {
     },
     // ---- Node-level: Text color & Background color ----
     ...buildColorToolbarItems(t, ctx, { textColor, backgroundColor, autoTextColor, colorPresets, backgroundPresets, addColorHistory }),
-  ];
+  ]);
+
+  return items;
 }
 
 // ---------------------------------------------------------------------------
@@ -709,68 +751,264 @@ function EditableTextNodeView({
   // 逻辑：面板通过 useInlinePanelSync 同步缩放和位置。
   const { panelRef } = useInlinePanelSync({ engine, xywh: element.xywh, expanded });
 
-  // ── AI text generation (streaming) ──
-  const stream = useTextV3Stream()
-  const generateTargetRef = useRef<'current' | 'new-node'>('current')
-
-  const handleTextGenerate = useCallback(async (params: TextGenerateParams) => {
-    generateTargetRef.current = 'current'
-    try {
-      const resolvedInputs = await resolveAllMediaInputs(
-        params.inputs ?? {},
-        fileContext?.boardId,
-      )
-      stream.startStream({
-        feature: params.feature,
-        variant: params.variant,
-        inputs: resolvedInputs,
-        params: params.params,
-      })
-    } catch (err) {
-      console.error('[TextNode] generate failed:', err)
-    }
-  }, [stream, fileContext?.boardId])
-
-  const handleTextGenerateNewNode = useCallback(async (params: TextGenerateParams) => {
-    generateTargetRef.current = 'new-node'
-    try {
-      const resolvedInputs = await resolveAllMediaInputs(
-        params.inputs ?? {},
-        fileContext?.boardId,
-      )
-      stream.startStream({
-        feature: params.feature,
-        variant: params.variant,
-        inputs: resolvedInputs,
-        params: params.params,
-      })
-    } catch (err) {
-      console.error('[TextNode] generate new node failed:', err)
-    }
-  }, [stream, fileContext?.boardId])
-
-  // Auto-apply when stream completes
-  useEffect(() => {
-    if (stream.isStreaming || !stream.text || stream.error) return
-    if (generateTargetRef.current === 'new-node') {
-      deriveNode({
-        engine,
-        sourceNodeId: element.id,
-        targetType: 'text',
-        targetProps: { value: stream.text, origin: 'ai-generate' as const },
-      })
-    } else {
-      onUpdate({ value: stream.text })
-    }
-    stream.clear()
-  }, [stream.isStreaming, stream.text, stream.error, engine, element.id, onUpdate, stream])
-
+  // ---- Edit mode state (declared before AI handlers so they can force-exit editing) ----
   const [isEditing, setIsEditing] = useState(Boolean(editing) && !isGhost);
   const [shouldFocus, setShouldFocus] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const contentRef = useRef<HTMLDivElement | null>(null);
   const autoFocusConsumedRef = useRef(false);
   const isEditingRef = useRef(false);
+
+  // ── AI text generation (streaming + versionStack) ──
+  const stream = useTextV3Stream()
+  /** Pending generation tracking — nodeId is where to write the result. */
+  const pendingEntryRef = useRef<{ entryId: string; nodeId: string } | null>(null)
+  /** Failed generation state used by FailureOverlay + retry. */
+  const [lastFailure, setLastFailure] = useState<{
+    message: string
+    isCancelled: boolean
+    params: TextGenerateParams
+    mode: 'current' | 'new-node'
+  } | null>(null)
+  /** Saved last-attempted params so the failure handler can populate lastFailure for retry. */
+  const lastAttemptRef = useRef<{ params: TextGenerateParams; mode: 'current' | 'new-node' } | null>(null)
+
+  // ── Version stack state + editing override (post-generation lock pattern) ──
+  // 逻辑：和 Image/Video/Audio 一致——节点有 ready/generating 版本时进入 readonly，
+  // 禁止切换 feature；用户点击 Unlock 才进入 editing 可改参数。
+  const {
+    primaryEntry: versionPrimaryEntry,
+    isGenerating: isGeneratingVersion,
+  } = useVersionStackState(element.props.versionStack)
+  const isReadyVersion = versionPrimaryEntry?.status === 'ready'
+  const { editingOverride, setEditingOverride } = useVersionStackEditingOverride(
+    element.id,
+    expanded,
+    isGeneratingVersion,
+  )
+  const panelReadonly = (isReadyVersion || isGeneratingVersion) && !editingOverride
+
+  /**
+   * Centralized failure handler.
+   * 逻辑：从堆栈移掉 generating entry；若 new-node 场景下 target 节点因此变空则删除
+   * 派生出来的 orphan 节点；非 orphan 场景回退到上一个 ready 版本的内容；最后把失败
+   * 信息写入 `lastFailure` 供 FailureOverlay 显示 + retry。
+   */
+  const handleGenerationFailure = useCallback(
+    (err: unknown, opts: { isCancelled?: boolean } = {}) => {
+      const pending = pendingEntryRef.current
+      const attempt = lastAttemptRef.current
+
+      if (pending) {
+        const targetEl = engine.doc.getElementById(pending.nodeId)
+        if (targetEl && targetEl.kind === 'node') {
+          const stack = (targetEl.props as TextNodeProps).versionStack
+          if (stack) {
+            const { stack: cleaned } = removeFailedEntry(stack, pending.entryId)
+            if (cleaned.entries.length === 0 && pending.nodeId !== element.id) {
+              // 逻辑：new-node 场景下首次生成失败，删除派生出来的空壳节点。
+              engine.doc.deleteElement(pending.nodeId)
+            } else {
+              const patch: Partial<TextNodeProps> = { versionStack: cleaned }
+              const newPrimary = getPrimaryEntry(cleaned)
+              if (newPrimary?.output?.textValue !== undefined) {
+                patch.value = newPrimary.output.textValue
+              }
+              engine.doc.updateNodeProps(pending.nodeId, patch)
+            }
+          }
+        }
+        pendingEntryRef.current = null
+      }
+
+      if (attempt) {
+        setLastFailure({
+          message: resolveErrorMessage(err),
+          isCancelled: opts.isCancelled === true,
+          params: attempt.params,
+          mode: attempt.mode,
+        })
+      }
+    },
+    [engine, element.id],
+  )
+
+  /**
+   * Common pre-generation setup. Returns the created entry id + target node id.
+   * 逻辑：推入 generating entry **必须在 `await` 之前**，以防止上传期间的二次点击用陈旧
+   * versionStack 闭包覆盖第一个 pending entry。
+   */
+  const beginGeneration = useCallback(
+    (
+      params: TextGenerateParams,
+      mode: 'current' | 'new-node',
+    ): { entry: ReturnType<typeof createGeneratingEntry>; nodeId: string } | null => {
+      if (pendingEntryRef.current) return null // 已有进行中任务，拒绝二次触发
+
+      // 逻辑：parameters 里必须带 feature/variant/inputs/params，这样切换版本或重开
+      // 面板时 TextAiPanel 才能从 primaryEntry 里恢复原生成参数。
+      const snapshot = createInputSnapshot({
+        prompt: (params.inputs?.prompt as string) ?? '',
+        parameters: {
+          feature: params.feature,
+          variant: params.variant,
+          inputs: params.inputs,
+          params: params.params,
+        },
+        upstreamRefs: upstream?.entries ?? [],
+      })
+      const entry = createGeneratingEntry(snapshot, '')
+      lastAttemptRef.current = { params, mode }
+      setLastFailure(null) // 清掉上次失败状态
+
+      if (mode === 'current') {
+        // 逻辑：从 engine 读最新 stack，避免协作/快速重试下的闭包陈旧。
+        const latestEl = engine.doc.getElementById(element.id)
+        const latestStack = latestEl?.kind === 'node'
+          ? (latestEl.props as TextNodeProps).versionStack
+          : undefined
+        const nextStack = pushVersion(latestStack, entry)
+        onUpdate({ versionStack: nextStack, origin: 'ai-generate' })
+        pendingEntryRef.current = { entryId: entry.id, nodeId: element.id }
+        return { entry, nodeId: element.id }
+      }
+
+      // mode === 'new-node'
+      const initialStack = pushVersion(undefined, entry)
+      const newNodeId = deriveNode({
+        engine,
+        sourceNodeId: element.id,
+        targetType: 'text',
+        targetProps: {
+          value: '',
+          origin: 'ai-generate' as const,
+          versionStack: initialStack,
+        },
+      })
+      if (!newNodeId) return null
+      pendingEntryRef.current = { entryId: entry.id, nodeId: newNodeId }
+      return { entry, nodeId: newNodeId }
+    },
+    [engine, element.id, onUpdate, upstream?.entries],
+  )
+
+  const handleTextGenerate = useCallback(async (params: TextGenerateParams) => {
+    // 逻辑：先 push entry + set pending，然后才 await 上传，防止 double-click race。
+    const ctx = beginGeneration(params, 'current')
+    if (!ctx) return
+
+    // 逻辑：生成开始时强制退出编辑模式，防止用户正在编辑的缓冲被流式输出覆盖丢失。
+    isEditingRef.current = false
+    setIsEditing(false)
+    engine.setEditingNodeId(null)
+
+    try {
+      const resolvedInputs = await resolveAllMediaInputs(
+        params.inputs ?? {},
+        fileContext?.boardId,
+      )
+      stream.startStream({
+        feature: params.feature,
+        variant: params.variant,
+        inputs: resolvedInputs,
+        params: params.params,
+      })
+    } catch (err) {
+      handleGenerationFailure(err)
+    }
+  }, [beginGeneration, engine, fileContext?.boardId, stream, handleGenerationFailure])
+
+  const handleTextGenerateNewNode = useCallback(async (params: TextGenerateParams) => {
+    const ctx = beginGeneration(params, 'new-node')
+    if (!ctx) return
+    try {
+      const resolvedInputs = await resolveAllMediaInputs(
+        params.inputs ?? {},
+        fileContext?.boardId,
+      )
+      stream.startStream({
+        feature: params.feature,
+        variant: params.variant,
+        inputs: resolvedInputs,
+        params: params.params,
+      })
+    } catch (err) {
+      handleGenerationFailure(err)
+    }
+  }, [beginGeneration, fileContext?.boardId, stream, handleGenerationFailure])
+
+  /** Retry the last failed generation using the saved params. */
+  const handleRetryGeneration = useCallback(() => {
+    const failure = lastFailure
+    if (!failure) return
+    setLastFailure(null)
+    if (failure.mode === 'current') {
+      void handleTextGenerate(failure.params)
+    } else {
+      void handleTextGenerateNewNode(failure.params)
+    }
+  }, [lastFailure, handleTextGenerate, handleTextGenerateNewNode])
+
+  /**
+   * Unified stream completion / failure effect.
+   * 逻辑：单一 effect 处理三态（streaming / success / error），避免两个 effect 互相干扰。
+   */
+  useEffect(() => {
+    if (stream.isStreaming) return
+    const pending = pendingEntryRef.current
+    if (!pending) return
+
+    // 流式失败（含 abort） — 清 pending 并上报错误。
+    if (stream.error) {
+      const isCancelled = stream.error === 'aborted'
+      handleGenerationFailure(new Error(stream.error), { isCancelled })
+      stream.clear()
+      return
+    }
+
+    // 流式成功 — 把累积文本写入目标节点，mark version ready。
+    if (!stream.text) return
+
+    const targetEl = engine.doc.getElementById(pending.nodeId)
+    if (!targetEl || targetEl.kind !== 'node') {
+      pendingEntryRef.current = null
+      stream.clear()
+      return
+    }
+    const stack = (targetEl.props as TextNodeProps).versionStack
+    if (!stack) {
+      pendingEntryRef.current = null
+      stream.clear()
+      return
+    }
+
+    // 逻辑：统一把 markdown 文本标准化为 Plate Value，避免 props.value 后续被编辑成
+    // Value[] 而 entry.output.textValue 还停留在 string 的漂移问题。
+    const normalizedValue = normalizeTextValue(stream.text)
+    const readyStack = markVersionReady(stack, pending.entryId, {
+      urls: [],
+      textValue: normalizedValue,
+    })
+    // 逻辑：同步 aiConfig.lastUsed，让下次打开面板能恢复到对应的 feature/variant。
+    const entryParams = stack.entries.find((e) => e.id === pending.entryId)?.input?.parameters as
+      | { feature?: string; variant?: string }
+      | undefined
+    const targetAiConfig = (targetEl.props as TextNodeProps).aiConfig
+    const nextAiConfig: TextNodeProps['aiConfig'] = {
+      ...(targetAiConfig ?? {}),
+      ...(entryParams?.feature && entryParams?.variant
+        ? { lastUsed: { feature: entryParams.feature, variant: entryParams.variant } }
+        : {}),
+    }
+    engine.doc.updateNodeProps(pending.nodeId, {
+      versionStack: readyStack,
+      value: normalizedValue,
+      aiConfig: nextAiConfig,
+    })
+
+    pendingEntryRef.current = null
+    stream.clear()
+  }, [stream.isStreaming, stream.text, stream.error, engine, stream, handleGenerationFailure])
 
   // Normalize stored value to Slate Value (handles legacy string migration)
   const incomingSlateValue = useMemo(
@@ -971,7 +1209,7 @@ function EditableTextNodeView({
     [isGhost, onUpdate]
   );
 
-  /** Toggle todo checkbox in view mode (readOnly blocks Plate's onCheckedChange). */
+/** Toggle todo checkbox in view mode (readOnly blocks Plate's onCheckedChange). */
   const handleCheckboxPointerDown = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
       if (isEditing || isGhost) return;
@@ -1081,66 +1319,101 @@ function EditableTextNodeView({
     );
   }
 
+  const isStreamingForThisNode =
+    pendingEntryRef.current?.nodeId === element.id && (stream.isStreaming || stream.text.length > 0)
+
   return (
-    <div
-      ref={containerRef}
-      className={containerClasses}
-      style={containerStyle}
-      data-board-editor={isEditing ? "true" : undefined}
-      data-board-scroll
-      onDoubleClick={handleDoubleClick}
-      onPointerDown={isEditing ? stopEditorPointerPropagation : handleCheckboxPointerDown}
-      onPointerMove={isEditing ? stopEditorPointerPropagation : undefined}
-    >
-      {/* During AI streaming, show the streaming text in the node */}
-      {stream.isStreaming || stream.text ? (
-        <div
-          className={cn(
-            "w-full",
-            MESSAGE_STREAM_MARKDOWN_CLASSNAME,
-            "text-ol-text-secondary text-sm leading-relaxed",
-          )}
-          style={textStyle}
-        >
-          <MessageStreamMarkdown markdown={stream.text} />
-          {stream.error ? (
-            <div className="mt-1 text-xs text-destructive">{stream.error}</div>
-          ) : null}
-        </div>
-      ) : (
-        <>
-          <Plate editor={editor} onChange={handleEditorChange}>
-            <PlateContent
-              ref={contentRef}
-              readOnly={!isEditing}
-              className={cn(
-                "w-full bg-transparent outline-none p-0",
-                "text-ol-text-secondary",
-                "[&>[data-slate-node=element]+[data-slate-node=element]]:mt-1",
-                // 逻辑：view 模式下整体禁止指针交互，但 checkbox 保留可点击。
-                !isEditing && "pointer-events-none [&_[data-slot=checkbox]]:!pointer-events-auto",
-              )}
-              style={textStyle}
-              onBlur={isEditing ? handleEditorBlur : undefined}
-              data-allow-context-menu
-            />
-          </Plate>
-          {isEmpty && !isEditing ? (
-            <div
-              className="pointer-events-none absolute inset-0 flex items-start px-4 pt-2.5 text-muted-foreground"
-              style={{
-                textAlign,
-                fontSize: textStyle.fontSize,
-                lineHeight: textStyle.lineHeight,
-                fontWeight: TEXT_NODE_DEFAULT_FONT_WEIGHT,
-                letterSpacing: TEXT_NODE_DEFAULT_LETTER_SPACING,
-              }}
-            >
-              {getTextNodePlaceholder()}
-            </div>
-          ) : null}
-        </>
-      )}
+    <NodeFrame className="group">
+      {/*
+        Version stack indicator — placed at NodeFrame level so badge/shadow/nav
+        stay fixed against the node bounding box and don't scroll with text content.
+      */}
+      <VersionStackOverlay
+        stack={element.props.versionStack}
+        semanticColor="purple"
+        engine={engine}
+        selected={selected}
+      />
+      <div
+        ref={containerRef}
+        className={containerClasses}
+        style={containerStyle}
+        data-board-editor={isEditing ? "true" : undefined}
+        data-board-scroll
+        onDoubleClick={handleDoubleClick}
+        onPointerDown={isEditing ? stopEditorPointerPropagation : handleCheckboxPointerDown}
+        onPointerMove={isEditing ? stopEditorPointerPropagation : undefined}
+      >
+        {/*
+          逻辑：流式 UI 仅在"生成结果写回本节点"时显示。"new-node" 模式下结果写到派生节点，
+          源节点应继续显示 Plate 编辑器不被遮挡。
+        */}
+        {isStreamingForThisNode && !stream.text ? (
+          <GeneratingOverlay
+            estimatedSeconds={10}
+            color="blue"
+            onCancel={stream.abort}
+            compact
+          />
+        ) : null}
+        {isStreamingForThisNode && stream.text ? (
+          <div
+            className={cn(
+              "w-full",
+              MESSAGE_STREAM_MARKDOWN_CLASSNAME,
+              "text-ol-text-secondary text-sm leading-relaxed",
+            )}
+            style={textStyle}
+          >
+            <MessageStreamMarkdown markdown={stream.text} />
+          </div>
+        ) : (
+          <>
+            <Plate editor={editor} onChange={handleEditorChange}>
+              <PlateContent
+                ref={contentRef}
+                readOnly={!isEditing}
+                className={cn(
+                  "w-full bg-transparent outline-none p-0",
+                  "text-ol-text-secondary",
+                  "[&>[data-slate-node=element]+[data-slate-node=element]]:mt-1",
+                  // 逻辑：view 模式下整体禁止指针交互，但 checkbox 保留可点击。
+                  !isEditing && "pointer-events-none [&_[data-slot=checkbox]]:!pointer-events-auto",
+                )}
+                style={textStyle}
+                onBlur={isEditing ? handleEditorBlur : undefined}
+                data-allow-context-menu
+              />
+            </Plate>
+            {isEmpty && !isEditing ? (
+              <div
+                className="pointer-events-none absolute inset-0 flex items-start px-4 pt-2.5 text-muted-foreground"
+                style={{
+                  textAlign,
+                  fontSize: textStyle.fontSize,
+                  lineHeight: textStyle.lineHeight,
+                  fontWeight: TEXT_NODE_DEFAULT_FONT_WEIGHT,
+                  letterSpacing: TEXT_NODE_DEFAULT_LETTER_SPACING,
+                }}
+              >
+                {getTextNodePlaceholder()}
+              </div>
+            ) : null}
+          </>
+        )}
+      </div>
+      {/* Failed / Cancelled overlay — also at NodeFrame level so it covers the whole node. */}
+      <FailureOverlay
+        visible={lastFailure !== null}
+        isCancelled={lastFailure?.isCancelled === true}
+        message={lastFailure?.message}
+        cancelledKey="board:textNode.cancelled"
+        retryKey="board:textNode.retry"
+        resendKey="board:textNode.resend"
+        onRetry={handleRetryGeneration}
+        canDismiss={true}
+        onDismiss={() => setLastFailure(null)}
+      />
       <InlinePanelPortal
         expanded={expanded}
         panelOverlay={panelOverlay}
@@ -1152,13 +1425,18 @@ function EditableTextNodeView({
           element={element}
           upstream={upstream}
           fileContext={fileContext}
+          onUpdate={onUpdate}
           onGenerate={handleTextGenerate}
           onGenerateNewNode={handleTextGenerateNewNode}
           generating={stream.isStreaming}
           onStop={stream.abort}
+          readonly={panelReadonly}
+          editing={editingOverride}
+          onUnlock={() => setEditingOverride(true)}
+          onCancelEdit={() => setEditingOverride(false)}
         />
       </InlinePanelPortal>
-    </div>
+    </NodeFrame>
   );
 }
 
@@ -1208,6 +1486,8 @@ export const TextNodeDefinition: CanvasNodeDefinition<TextNodeProps> = {
     shapeStroke: z.string().optional(),
     shapeStrokeWidth: z.number().optional(),
     origin: z.enum(['user', 'upload', 'ai-generate', 'paste']).optional(),
+    aiConfig: z.any().optional(),
+    versionStack: z.any().optional(),
   }) as z.ZodType<TextNodeProps>,
   defaultProps: {
     value: DEFAULT_TEXT_VALUE,
@@ -1224,33 +1504,6 @@ export const TextNodeDefinition: CanvasNodeDefinition<TextNodeProps> = {
     markdownText: "",
   },
   view: TextNodeView,
-  getMinSize: (element) => {
-    const fontSize = resolveHeadingFontSize(element.props.fontSize);
-    const [, , w] = element.xywh;
-    const textLen = estimateTextLength(element.props);
-    const contentH = estimateContentHeight(textLen, fontSize, w);
-    const minW = Math.max(TEXT_NODE_MIN_SIZE.w, Math.ceil(fontSize * 6));
-    // Min height = 30% of content height, floored at absolute minimum
-    const minH = Math.max(TEXT_NODE_ABSOLUTE_MIN_H, Math.ceil(contentH * 0.3));
-    return { w: minW, h: minH };
-  },
-  getMaxSize: (element) => {
-    const fontSize = resolveHeadingFontSize(element.props.fontSize);
-    const [, , w] = element.xywh;
-    const textLen = estimateTextLength(element.props);
-    const contentH = estimateContentHeight(textLen, fontSize, w);
-    // Max width based on content
-    const avgCharWidth = fontSize * 0.55;
-    const contentWidth = Math.ceil(textLen * avgCharWidth);
-    const minReadableWidth = Math.ceil(fontSize * 16);
-    const maxW = Math.min(
-      TEXT_NODE_MAX_SIZE.w,
-      Math.max(minReadableWidth, contentWidth + 32),
-    );
-    // Max height = 150% of content height, capped at absolute maximum
-    const maxH = Math.min(TEXT_NODE_ABSOLUTE_MAX_H, Math.max(TEXT_NODE_ABSOLUTE_MIN_H, Math.ceil(contentH * 1.5)));
-    return { w: maxW, h: maxH };
-  },
   toolbar: (ctx) => {
     if (ctx.element.props.readOnlyProjection) {
       return [];

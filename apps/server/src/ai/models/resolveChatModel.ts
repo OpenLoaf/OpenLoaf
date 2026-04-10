@@ -221,9 +221,25 @@ async function resolveChatModelFromProviders(input: {
         parsed.modelId,
         providerEntry,
       );
-      // 适配器优先使用模型定义里的 providerId，避免配置误配。
-      const resolvedProviderId = modelDefinition?.providerId ?? providerEntry.providerId;
-      const providerDefinition = await getProviderDefinition(resolvedProviderId);
+      // 适配器优先使用模型定义里的 providerId，保留 per-model override 的逃生通道；
+      // 但聚合商（如 OpenRouter）模型的 providerId 往往是上游 vendor（stepfun / anthropic 等），
+      // 无法对应任何本地 adapter，这种情况下必须回落到 providerEntry.providerId。
+      const modelProviderId = modelDefinition?.providerId;
+      const modelProviderDefinition = modelProviderId
+        ? await getProviderDefinition(modelProviderId)
+        : null;
+      const modelProviderHasAdapter =
+        !!modelProviderId &&
+        (PROVIDER_ADAPTERS[modelProviderId] != null ||
+          (modelProviderDefinition?.adapterId != null &&
+            PROVIDER_ADAPTERS[modelProviderDefinition.adapterId] != null));
+      const resolvedProviderId = modelProviderHasAdapter
+        ? (modelProviderId as string)
+        : providerEntry.providerId;
+      const providerDefinition =
+        modelProviderHasAdapter && modelProviderDefinition
+          ? modelProviderDefinition
+          : await getProviderDefinition(resolvedProviderId);
       const adapterId = providerDefinition?.adapterId ?? resolvedProviderId;
       const adapter = PROVIDER_ADAPTERS[adapterId];
       if (!adapter) throw new Error("不支持的模型服务商");

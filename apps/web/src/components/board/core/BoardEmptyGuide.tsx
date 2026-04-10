@@ -9,26 +9,19 @@
  */
 "use client";
 
-import { memo, useCallback, useState } from "react";
-import {
-  StickyNote,
-  Image,
-  Video,
-  Music,
-  Upload,
-  LayoutTemplate,
-} from "lucide-react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ArrowUp, ImageIcon, Music, Sparkles, Video } from "lucide-react";
 import { cn } from "@udecode/cn";
 import { useTranslation } from "react-i18next";
 
+import { useLayoutState } from "@/hooks/use-layout-state";
 import type { CanvasEngine } from "../engine/CanvasEngine";
 import { DEFAULT_NODE_SIZE } from "../engine/constants";
-import { toolbarSurfaceClassName } from "../ui/ToolbarParts";
 import {
-  BOARD_TEXT_PRIMARY,
   BOARD_TEXT_AUXILIARY,
+  BOARD_TEXT_PRIMARY,
+  BOARD_TEXT_SECONDARY,
 } from "../ui/board-style-system";
-import WorkflowTemplatePicker from "../templates/WorkflowTemplatePicker";
 
 interface BoardEmptyGuideProps {
   engine: CanvasEngine;
@@ -36,164 +29,343 @@ interface BoardEmptyGuideProps {
   activeToolId: string | null;
 }
 
+/** Built-in example card kinds. Each maps to a small group of empty nodes. */
+type ExampleKind = "image" | "video" | "storyboard" | "audio";
+
+interface ExampleCard {
+  id: string;
+  kind: ExampleKind;
+  /** Tailwind gradient classes for the placeholder thumbnail. */
+  gradient: string;
+  /** Lucide icon for the corner badge. */
+  Icon: typeof ImageIcon;
+}
+
+const EXAMPLE_CARDS: ExampleCard[] = [
+  { id: "ex-1", kind: "image", gradient: "from-slate-700 via-slate-900 to-black", Icon: ImageIcon },
+  { id: "ex-2", kind: "image", gradient: "from-amber-700 via-rose-700 to-purple-900", Icon: ImageIcon },
+  { id: "ex-3", kind: "storyboard", gradient: "from-sky-600 via-indigo-700 to-violet-900", Icon: Sparkles },
+  { id: "ex-4", kind: "video", gradient: "from-emerald-700 via-teal-800 to-slate-900", Icon: Video },
+  { id: "ex-5", kind: "audio", gradient: "from-violet-700 via-purple-900 to-black", Icon: Music },
+  { id: "ex-6", kind: "storyboard", gradient: "from-orange-600 via-red-700 to-zinc-900", Icon: Sparkles },
+];
+
+const NODE_GAP = 80;
+const STICKY_SIZE: [number, number] = [200, 200];
+
 /**
- * Empty canvas guide overlay.
+ * Empty canvas overlay.
  *
- * Shows a centered card with quick-action buttons, a hint and
- * keyboard shortcuts when the canvas has no elements.
- * Automatically fades when the user starts creating / panning.
+ * The overlay is the first thing a user sees on a blank board. It is built
+ * around a single chat input — typing a request and pressing enter opens the
+ * right-side chat panel and forwards the message to the agent. A row of
+ * example cards below the input lets users drop a small group of empty nodes
+ * onto the canvas as a starting point.
  */
 const BoardEmptyGuide = memo(function BoardEmptyGuide({
   engine,
   visible,
   activeToolId,
 }: BoardEmptyGuideProps) {
-  const { t } = useTranslation('board');
+  const { t } = useTranslation("board");
   const isSelectTool = activeToolId === "select";
-  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
+  const setRightChatCollapsed = useLayoutState((s) => s.setRightChatCollapsed);
 
-  /** Create a sticky note at the viewport center. */
-  const handleCreateSticky = useCallback(() => {
-    engine.getContainer()?.focus();
-    const center = engine.getViewportCenterWorld();
-    const w = 200;
-    const h = 200;
-    engine.addNodeElement(
-      "text",
-      { style: "sticky", stickyColor: "yellow", autoFocus: true },
-      [center[0] - w / 2, center[1] - h / 2, w, h],
-    );
-  }, [engine]);
+  const [draft, setDraft] = useState("");
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
-  /** Create an AI generation node at the viewport center. */
-  const handleAiNode = useCallback(
-    (nodeType: "image" | "video" | "audio") => {
-      engine.getContainer()?.focus();
-      const viewport = engine.viewport.getState();
-      const centerWorld = engine.screenToWorld([
-        viewport.size[0] / 2,
-        viewport.size[1] / 2,
-      ]);
-      const [w, h] = DEFAULT_NODE_SIZE;
-      let props: Record<string, unknown>;
-      if (nodeType === "image") {
-        props = {
-          previewSrc: "", originalSrc: "", mimeType: "image/png",
-          fileName: "", naturalWidth: w, naturalHeight: h,
-          origin: "ai-generate",
-        };
-      } else {
-        props = { sourcePath: "", fileName: "", origin: "ai-generate" };
-      }
-      const size: [number, number] = nodeType === "audio" ? [320, 120] : [w, h];
-      const nodeId = engine.addNodeElement(
-        nodeType, props,
-        [centerWorld[0] - size[0] / 2, centerWorld[1] - size[1] / 2, size[0], size[1]],
+  /** Forward the draft to the right-side chat panel. */
+  const handleSubmit = useCallback(() => {
+    const text = draft.trim();
+    if (!text) return;
+
+    setRightChatCollapsed(false);
+    setDraft("");
+
+    // 等待 ChatInput 在右侧面板挂载后再触发发送
+    window.setTimeout(() => {
+      window.dispatchEvent(
+        new CustomEvent("openloaf:chat-send-message", { detail: { text } }),
       );
-      if (nodeId) engine.selection.setSelection([nodeId]);
+    }, 200);
+  }, [draft, setRightChatCollapsed]);
+
+  /** Drop a small group of empty nodes for the chosen example kind. */
+  const handlePickExample = useCallback(
+    (kind: ExampleKind) => {
+      engine.getContainer()?.focus();
+      const [cx, cy] = engine.getViewportCenterWorld();
+      const [nw, nh] = DEFAULT_NODE_SIZE;
+      const ids: (string | null)[] = [];
+
+      const addText = (xywh: [number, number, number, number]) =>
+        engine.addNodeElement(
+          "text",
+          { style: "sticky", stickyColor: "yellow", autoFocus: false },
+          xywh,
+        );
+      const addImage = (xywh: [number, number, number, number]) =>
+        engine.addNodeElement(
+          "image",
+          {
+            previewSrc: "",
+            originalSrc: "",
+            mimeType: "image/png",
+            fileName: "",
+            naturalWidth: nw,
+            naturalHeight: nh,
+            origin: "ai-generate",
+          },
+          xywh,
+        );
+      const addVideo = (xywh: [number, number, number, number]) =>
+        engine.addNodeElement(
+          "video",
+          { sourcePath: "", fileName: "", origin: "ai-generate" },
+          xywh,
+        );
+      const addAudio = (xywh: [number, number, number, number]) =>
+        engine.addNodeElement(
+          "audio",
+          { sourcePath: "", fileName: "", origin: "ai-generate" },
+          xywh,
+        );
+
+      if (kind === "image") {
+        ids.push(addImage([cx - nw / 2, cy - nh / 2, nw, nh]));
+      } else if (kind === "video") {
+        const totalW = nw + NODE_GAP + nw;
+        const startX = cx - totalW / 2;
+        const a = addImage([startX, cy - nh / 2, nw, nh]);
+        const b = addVideo([startX + nw + NODE_GAP, cy - nh / 2, nw, nh]);
+        ids.push(a, b);
+        if (a && b) {
+          engine.addConnectorElement({
+            source: { elementId: a },
+            target: { elementId: b },
+            style: "curve",
+            dashed: true,
+          });
+        }
+      } else if (kind === "storyboard") {
+        const totalW = STICKY_SIZE[0] + NODE_GAP + nw;
+        const startX = cx - totalW / 2;
+        const imgX = startX + STICKY_SIZE[0] + NODE_GAP;
+        const imgGap = 40;
+        const totalImgH = nh * 3 + imgGap * 2;
+        const imgStartY = cy - totalImgH / 2;
+        const text = addText([startX, cy - STICKY_SIZE[1] / 2, STICKY_SIZE[0], STICKY_SIZE[1]]);
+        ids.push(text);
+        for (let i = 0; i < 3; i++) {
+          const img = addImage([imgX, imgStartY + (nh + imgGap) * i, nw, nh]);
+          ids.push(img);
+          if (text && img) {
+            engine.addConnectorElement({
+              source: { elementId: text },
+              target: { elementId: img },
+              style: "curve",
+              dashed: true,
+            });
+          }
+        }
+      } else {
+        // audio: sticky → audio
+        const audioH = 120;
+        const audioW = 320;
+        const totalW = STICKY_SIZE[0] + NODE_GAP + audioW;
+        const startX = cx - totalW / 2;
+        const text = addText([startX, cy - STICKY_SIZE[1] / 2, STICKY_SIZE[0], STICKY_SIZE[1]]);
+        const audio = addAudio([startX + STICKY_SIZE[0] + NODE_GAP, cy - audioH / 2, audioW, audioH]);
+        ids.push(text, audio);
+        if (text && audio) {
+          engine.addConnectorElement({
+            source: { elementId: text },
+            target: { elementId: audio },
+            style: "curve",
+            dashed: true,
+          });
+        }
+      }
+
+      const firstId = ids.find((x): x is string => Boolean(x));
+      if (firstId) engine.selection.setSelection([firstId]);
     },
     [engine],
   );
 
-  /** Open the project file picker via custom event. */
-  const handleImportFile = useCallback(() => {
+  /** ESC dismisses the overlay (the canvas underneath remains empty). */
+  const handleSkip = useCallback(() => {
     engine.getContainer()?.focus();
-    const container = engine.getContainer();
-    if (!container) return;
-    container.dispatchEvent(
-      new CustomEvent("openloaf:board-open-file-picker", { bubbles: true }),
-    );
   }, [engine]);
 
-  const actions = [
-    { id: "text", icon: StickyNote, label: t("emptyGuide.createText"), handler: handleCreateSticky },
-    { id: "ai-image", icon: Image, label: t("emptyGuide.aiImage"), handler: () => handleAiNode("image") },
-    { id: "ai-video", icon: Video, label: t("emptyGuide.aiVideo"), handler: () => handleAiNode("video") },
-    { id: "ai-audio", icon: Music, label: t("emptyGuide.aiAudio"), handler: () => handleAiNode("audio") },
-    { id: "import-file", icon: Upload, label: t("emptyGuide.importFile"), handler: handleImportFile },
-    { id: "template", icon: LayoutTemplate, label: t("emptyGuide.fromTemplate"), handler: () => setShowTemplatePicker(true) },
-  ];
+  useEffect(() => {
+    if (!visible || !isSelectTool) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") handleSkip();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [visible, isSelectTool, handleSkip]);
 
+  // Random placeholder rotates per mount so the user sees a different example
+  // each time they land on a blank canvas.
+  const placeholder = useMemo(() => {
+    const samples = t("emptyGuide.placeholderSamples", { returnObjects: true }) as
+      | string[]
+      | string;
+    if (Array.isArray(samples) && samples.length > 0) {
+      return samples[Math.floor(Math.random() * samples.length)];
+    }
+    return typeof samples === "string" ? samples : "";
+  }, [t]);
 
   return (
     <div
       className={cn(
         "pointer-events-none absolute inset-0 z-30 transition-opacity duration-300",
-        visible ? (isSelectTool ? "opacity-100" : "opacity-30") : "opacity-0 invisible",
+        visible
+          ? isSelectTool
+            ? "opacity-100"
+            : "opacity-30"
+          : "invisible opacity-0",
       )}
     >
-      {/* ── Center card ── */}
-      <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center -mt-12">
+      {/* ── Skip link (top-right) ── */}
+      <button
+        type="button"
+        onPointerDown={(e) => {
+          e.stopPropagation();
+          handleSkip();
+        }}
+        className={cn(
+          "absolute right-6 top-6 select-none rounded-full px-3 py-1.5 text-xs",
+          "transition-colors duration-150",
+          "hover:bg-foreground/8 dark:hover:bg-foreground/12",
+          BOARD_TEXT_SECONDARY,
+          isSelectTool ? "pointer-events-auto" : "pointer-events-none",
+        )}
+      >
+        {t("emptyGuide.skip")} →
+      </button>
+
+      {/* ── Centered chat input + heading + examples ── */}
+      <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-6 px-6 -mt-12">
+        <div className="flex flex-col items-center gap-2 select-none">
+          <p className={cn(BOARD_TEXT_PRIMARY, "text-2xl font-semibold")}>
+            {t("emptyGuide.title")}
+          </p>
+          <p className={cn(BOARD_TEXT_AUXILIARY, "text-sm")}>
+            {t("emptyGuide.subtitle")}
+          </p>
+        </div>
+
         <div
           data-canvas-toolbar
           onPointerDown={(e) => e.stopPropagation()}
           className={cn(
-            "flex flex-col items-center gap-5 rounded-3xl px-8 py-7",
-            toolbarSurfaceClassName,
+            "w-full max-w-2xl",
             isSelectTool ? "pointer-events-auto" : "pointer-events-none",
           )}
         >
-          {/* Heading */}
-          <div className="flex flex-col items-center gap-1 select-none">
-            <p className={cn(BOARD_TEXT_PRIMARY, "text-lg font-semibold")}>
-              {t("emptyGuide.title")}
-            </p>
-            <p className={cn(BOARD_TEXT_AUXILIARY, "text-xs")}>
-              {t("emptyGuide.subtitle")}
-            </p>
+          <div
+            className={cn(
+              "flex flex-col gap-2 rounded-3xl px-5 py-4",
+              "border border-border/40 bg-background/80 backdrop-blur-md",
+              "shadow-[0_8px_32px_-12px_rgba(0,0,0,0.25)]",
+              "transition-colors duration-150",
+              "focus-within:border-border/70",
+            )}
+          >
+            <textarea
+              ref={textareaRef}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+                  e.preventDefault();
+                  handleSubmit();
+                }
+              }}
+              placeholder={placeholder}
+              rows={2}
+              className={cn(
+                "w-full resize-none bg-transparent outline-none",
+                "text-sm leading-relaxed",
+                BOARD_TEXT_PRIMARY,
+                "placeholder:text-ol-text-auxiliary",
+              )}
+            />
+            <div className="flex items-center justify-end">
+              <button
+                type="button"
+                onPointerDown={(e) => {
+                  e.stopPropagation();
+                  handleSubmit();
+                }}
+                disabled={!draft.trim()}
+                className={cn(
+                  "flex h-8 w-8 items-center justify-center rounded-full",
+                  "bg-foreground text-background",
+                  "transition-opacity duration-150",
+                  "disabled:opacity-30",
+                  "enabled:cursor-pointer enabled:hover:opacity-90",
+                )}
+                aria-label={t("emptyGuide.send")}
+              >
+                <ArrowUp size={16} strokeWidth={2.5} />
+              </button>
+            </div>
           </div>
+        </div>
 
-          {/* Quick action cards — 6-item grid */}
-          <div className="grid grid-cols-6 gap-1.5">
-            {actions.map((action) => {
-              const Icon = action.icon;
-              return (
-                <button
-                  key={action.id}
-                  type="button"
-                  onPointerDown={(e) => {
-                    e.stopPropagation();
-                    action.handler();
-                  }}
-                  className={cn(
-                    "flex flex-col items-center justify-center gap-1.5",
-                    "w-[72px] rounded-2xl px-2 py-3",
-                    "select-none cursor-pointer",
-                    "transition-colors duration-150",
-                    "bg-foreground/5 hover:bg-foreground/12",
-                    "dark:bg-foreground/8 dark:hover:bg-foreground/16",
-                  )}
-                >
-                  <span className={cn(
-                    "flex h-8 w-8 items-center justify-center rounded-xl",
-                    "bg-foreground/6 dark:bg-foreground/10",
-                  )}>
-                    <Icon size={16} className="text-foreground/70" />
-                  </span>
-                  <span className="text-[11px] font-medium text-ol-text-secondary leading-tight">
-                    {action.label}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Hint text */}
-          <p className={cn(BOARD_TEXT_AUXILIARY, "text-[11px] select-none")}>
-            {t("emptyGuide.hint")}
+        {/* ── Example artwork strip (wider than input) ── */}
+        <div
+          className={cn(
+            "w-full max-w-5xl flex flex-col gap-2",
+            isSelectTool ? "pointer-events-auto" : "pointer-events-none",
+          )}
+          data-canvas-toolbar
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <p className={cn("text-xs select-none", BOARD_TEXT_AUXILIARY)}>
+            {t("emptyGuide.examplesHeading")}
           </p>
+          <div className="flex gap-2.5">
+            {EXAMPLE_CARDS.map((card) => {
+                const Icon = card.Icon;
+                return (
+                  <button
+                    key={card.id}
+                    type="button"
+                    onPointerDown={(e) => {
+                      e.stopPropagation();
+                      handlePickExample(card.kind);
+                    }}
+                    className={cn(
+                      "group relative shrink-0 overflow-hidden rounded-2xl",
+                      "h-24 w-36",
+                      "border border-border/30",
+                      "transition-all duration-150",
+                      "hover:scale-[1.02] hover:border-border/60",
+                      "cursor-pointer select-none",
+                      `bg-gradient-to-br ${card.gradient}`,
+                    )}
+                    aria-label={t(`emptyGuide.exampleKind.${card.kind}`)}
+                  >
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <Icon size={26} className="text-white/40" strokeWidth={1.5} />
+                    </div>
+                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent px-3 py-1.5">
+                      <span className="text-[11px] font-medium text-white/90">
+                        {t(`emptyGuide.exampleKind.${card.kind}`)}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+          </div>
         </div>
       </div>
-
-      {/* ── Template picker overlay ── */}
-      {showTemplatePicker && (
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center z-40">
-          <WorkflowTemplatePicker
-            engine={engine}
-            onClose={() => setShowTemplatePicker(false)}
-          />
-        </div>
-      )}
     </div>
   );
 });

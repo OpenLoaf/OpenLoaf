@@ -68,7 +68,11 @@ export function pushVersion(
 export function markVersionReady(
   stack: VersionStack,
   entryId: string,
-  output: { urls: string[]; metadata?: Record<string, unknown> },
+  output: {
+    urls: string[]
+    textValue?: string | import('platejs').Value
+    metadata?: Record<string, unknown>
+  },
 ): VersionStack {
   return {
     ...stack,

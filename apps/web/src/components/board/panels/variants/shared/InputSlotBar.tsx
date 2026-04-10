@@ -978,15 +978,27 @@ export function InputSlotBar({
               } else {
                 positions.push(
                   <div key={`${slot.role}:empty:${i}`} {...dropProps} className={cn('rounded-xl transition-all duration-150', dropHighlight)}>
-                    <MediaSlot
-                      label="" icon={slotIconForType(slot.accept)}
-                      uploadAccept={uploadAccept} disabled={disabled}
-                      mediaType={slot.accept} constraints={slotConstraints}
-                      onUpload={(v) => handleMediaUpload(slot.role, slot.accept, v)}
-                      onValidationError={handleValidationError}
-                      boardId={variantUpstream.boardId} projectId={variantUpstream.projectId}
-                      boardFolderUri={variantUpstream.boardFolderUri} compact
-                    />
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div>
+                          <MediaSlot
+                            label="" icon={slotIconForType(slot.accept)}
+                            uploadAccept={uploadAccept} disabled={disabled}
+                            mediaType={slot.accept} constraints={slotConstraints}
+                            onUpload={(v) => handleMediaUpload(slot.role, slot.accept, v)}
+                            onValidationError={handleValidationError}
+                            boardId={variantUpstream.boardId} projectId={variantUpstream.projectId}
+                            boardFolderUri={variantUpstream.boardFolderUri} compact
+                          />
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-[200px] text-xs">
+                        {t('slot.emptyHint', {
+                          type: t(`slot.mediaType.${slot.accept}`, { defaultValue: slot.accept }),
+                          defaultValue: '添加上游{{type}}节点或点击上传',
+                        })}
+                      </TooltipContent>
+                    </Tooltip>
                   </div>,
                 )
               }

@@ -277,6 +277,7 @@
     "duplicateSuccess": "キャンバスを複製しました",
     "copyPath": "パスをコピー",
     "openInNewWindow": "新しいウィンドウで開く",
+    "openInCurrentWindow": "現在のウィンドウで開く",
     "pathCopied": "パスをコピーしました",
     "moveToProject": "プロジェクトに移動",
     "selectProject": "移動先のプロジェクトを選択",

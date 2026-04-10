@@ -70,6 +70,7 @@ const DEFAULT_BASIC_CONFIG: BasicConfig = {
   webSearchApiKey: "",
   chatShowAllToolResults: false,
   showDevNoticeDialog: true,
+  promptLanguage: "en",
 };
 
 export function useBasicConfig() {

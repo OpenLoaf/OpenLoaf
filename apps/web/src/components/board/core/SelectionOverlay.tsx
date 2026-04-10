@@ -411,6 +411,34 @@ export function MultiSelectionToolbar({
       onSelect: () => engine.layoutSelection(),
     });
   }
+  // 逻辑：全部锁定时点击解锁，否则全部锁定；与单选工具条语义一致。
+  const allLocked = selectedNodes.every(node => node.locked === true);
+  const commonItems: CanvasToolbarItem[] = [
+    {
+      id: "lock-selection",
+      label: allLocked ? t('selection.toolbar.unlock') : t('selection.toolbar.lock'),
+      showLabel: false,
+      icon: allLocked ? <Unlock size={14} /> : <Lock size={14} />,
+      active: allLocked,
+      className: allLocked
+        ? 'bg-foreground/10 text-ol-amber dark:bg-foreground/15 hover:bg-foreground/10 dark:hover:bg-foreground/15'
+        : BOARD_TOOLBAR_ITEM_AMBER,
+      onSelect: () => {
+        engine.doc.transact(() => {
+          selectedNodes.forEach(node => engine.setElementLocked(node.id, !allLocked));
+        });
+        engine.commitHistory();
+      },
+    },
+    {
+      id: "delete-selection",
+      label: t('selection.toolbar.delete'),
+      showLabel: false,
+      icon: <Trash2 size={14} />,
+      className: BOARD_TOOLBAR_ITEM_RED,
+      onSelect: () => engine.deleteSelection(),
+    },
+  ];
 
   return (
     <SelectionToolbarContainer
@@ -426,12 +454,19 @@ export function MultiSelectionToolbar({
           items={customItems}
           openPanelId={openPanelId}
           setOpenPanelId={setOpenPanelId}
-          showDivider={customItems.length > 0}
+          showDivider={customItems.length > 0 && (builtinItems.length > 0 || commonItems.length > 0)}
         />
         <ToolbarGroup
           items={builtinItems}
           openPanelId={openPanelId}
           setOpenPanelId={setOpenPanelId}
+          showDivider={builtinItems.length > 0 && commonItems.length > 0}
+        />
+        <ToolbarGroup
+          items={commonItems}
+          openPanelId={openPanelId}
+          setOpenPanelId={setOpenPanelId}
+          compact
         />
       </div>
     </SelectionToolbarContainer>

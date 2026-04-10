@@ -26,6 +26,8 @@ function hasTextSelection(): boolean {
 import { Copy, FolderOpen, RefreshCw, ChevronsDownUp, ChevronsUpDown, Bug } from 'lucide-react'
 import { Button } from '@openloaf/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@openloaf/ui/dialog'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@openloaf/ui/tooltip'
+import { resolveToolCatalogItem } from '@openloaf/api/types/tools/toolCatalog'
 import { toast } from 'sonner'
 
 interface AiDebugViewerProps {
@@ -582,7 +584,16 @@ function MetadataSection({ metadata }: { metadata: Record<string, unknown> }) {
   const reasoning = metadata.reasoning as Record<string, unknown> | undefined
 
   // Collect keys handled by structured rendering
-  const handledKeys = new Set(['totalUsage', 'openloaf', 'agent', 'webSearch', 'reasoning'])
+  // `activatedToolIds` is rendered separately by LoadedToolsSection (pill list),
+  // not here — exclude it to avoid a JSON dump in the generic remaining area.
+  const handledKeys = new Set([
+    'totalUsage',
+    'openloaf',
+    'agent',
+    'webSearch',
+    'reasoning',
+    'activatedToolIds',
+  ])
   const remainingEntries = Object.entries(metadata).filter(([k]) => !handledKeys.has(k))
 
   // Build flat rows: [label, value] for a clean grid
@@ -646,6 +657,172 @@ function MetadataSection({ metadata }: { metadata: Record<string, unknown> }) {
       ))}
     </div>
   )
+}
+
+/** Tool metadata resolved for display (id + label + description). */
+type ResolvedToolMeta = {
+  id: string
+  label: string
+  description: string
+}
+
+/**
+ * Walk a full message chain and build an `id → {label, description}` map from
+ * every ToolSearch output in assistant messages. Covers dynamically loaded
+ * tools (including MCP tools that aren't in the static catalog). Used as a
+ * fallback source for descriptions when `resolveToolCatalogItem` returns
+ * nothing (MCP tools, new tools not yet in the static catalog).
+ *
+ * Matches both AI SDK format (part.toolName === 'ToolSearch') and the stored
+ * JSONL format (part.type === 'tool-tool-search') — mirrors the backend logic
+ * in `toolSearchState.ts` so the debug view stays in sync with the runtime.
+ */
+function buildToolMetaIndexFromChain(messages: StoredMessageView[]): Map<string, ResolvedToolMeta> {
+  const index = new Map<string, ResolvedToolMeta>()
+  for (const msg of messages) {
+    if (msg.role !== 'assistant') continue
+    for (const part of msg.parts) {
+      if (!part || typeof part !== 'object') continue
+      const p = part as Record<string, unknown>
+      const toolName =
+        typeof p.toolName === 'string'
+          ? p.toolName
+          : typeof p.type === 'string' && (p.type as string).startsWith('tool-')
+            ? (p.type as string).slice(5)
+            : ''
+      const normalized = toolName === 'tool-search' ? 'ToolSearch' : toolName
+      if (
+        normalized !== 'ToolSearch' ||
+        p.state !== 'output-available' ||
+        !p.output ||
+        typeof p.output !== 'object'
+      ) {
+        continue
+      }
+      const tools = (p.output as Record<string, unknown>).tools
+      if (!Array.isArray(tools)) continue
+      for (const t of tools) {
+        if (!t || typeof t !== 'object') continue
+        const obj = t as Record<string, unknown>
+        const id = typeof obj.id === 'string' ? obj.id : ''
+        if (!id) continue
+        const label = typeof obj.name === 'string' && obj.name ? obj.name : id
+        const description = typeof obj.description === 'string' ? obj.description : ''
+        // Only fill if absent — first occurrence wins to keep results stable.
+        if (!index.has(id)) index.set(id, { id, label, description })
+      }
+    }
+  }
+  return index
+}
+
+/**
+ * Resolve tool metadata with layered fallback:
+ * 1. Static catalog from `@openloaf/api/types/tools/toolCatalog` — covers all
+ *    built-in tools (core + deferred).
+ * 2. Chain-scoped index — covers MCP and any dynamically loaded tool whose
+ *    metadata was captured in a ToolSearch output earlier in the session.
+ * 3. Bare id fallback — if neither source has it, show the id as both label
+ *    and empty description.
+ */
+function resolveToolMeta(id: string, chainIndex: Map<string, ResolvedToolMeta>): ResolvedToolMeta {
+  const fromChain = chainIndex.get(id)
+  const fromCatalog = resolveToolCatalogItem(id)
+  // Catalog returns `{id, label: id, description: ''}` for unknown ids, so
+  // prefer chain data when catalog has no useful description AND chain does.
+  if (fromCatalog.description) {
+    return {
+      id,
+      label: fromCatalog.label,
+      description: fromCatalog.description,
+    }
+  }
+  if (fromChain) return fromChain
+  return { id, label: fromCatalog.label, description: '' }
+}
+
+/**
+ * Pill list of tools with hover tooltip showing the description. Used by
+ * MessageRow to render two groups on user messages (core + dynamic) and
+ * the per-turn ToolSearch loads on assistant messages.
+ */
+function LoadedToolsSection({
+  label,
+  tools,
+}: {
+  label: string
+  tools: ResolvedToolMeta[]
+}) {
+  if (tools.length === 0) return null
+  return (
+    <div
+      className="py-1.5 px-4 border-b border-border/50 flex items-start gap-2 flex-wrap"
+      style={{ userSelect: 'text', cursor: 'text' }}
+    >
+      <span className="text-[11px] text-muted-foreground font-medium shrink-0 mt-0.5">
+        {label}
+      </span>
+      <span className="text-[10px] text-muted-foreground/60 tabular-nums shrink-0 mt-1">
+        {tools.length}
+      </span>
+      <div className="flex flex-wrap gap-1 min-w-0">
+        {tools.map((tool) => (
+          <Tooltip key={tool.id}>
+            <TooltipTrigger asChild>
+              <span className="rounded-full bg-violet-500/10 text-violet-700 dark:text-violet-300 px-2 py-0.5 text-[10px] font-mono cursor-help hover:bg-violet-500/20 transition-colors">
+                {tool.id}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="max-w-md">
+              <div className="space-y-1">
+                <div className="font-semibold text-[11px]">{tool.label}</div>
+                <div className="font-mono text-[10px] text-muted-foreground">{tool.id}</div>
+                {tool.description && (
+                  <div className="text-[11px] whitespace-pre-wrap leading-relaxed">
+                    {tool.description.length > 600
+                      ? `${tool.description.slice(0, 600)}…`
+                      : tool.description}
+                  </div>
+                )}
+              </div>
+            </TooltipContent>
+          </Tooltip>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/** Extract tool IDs loaded via ToolSearch within a single assistant message. */
+function extractLoadedToolIdsFromParts(parts: unknown[]): string[] {
+  const ids: string[] = []
+  for (const part of parts) {
+    if (!part || typeof part !== 'object') continue
+    const p = part as Record<string, unknown>
+    const toolName =
+      typeof p.toolName === 'string'
+        ? p.toolName
+        : typeof p.type === 'string' && (p.type as string).startsWith('tool-')
+          ? (p.type as string).slice(5)
+          : ''
+    const normalized = toolName === 'tool-search' ? 'ToolSearch' : toolName
+    if (
+      normalized !== 'ToolSearch' ||
+      p.state !== 'output-available' ||
+      !p.output ||
+      typeof p.output !== 'object'
+    ) {
+      continue
+    }
+    const tools = (p.output as Record<string, unknown>).tools
+    if (!Array.isArray(tools)) continue
+    for (const t of tools) {
+      if (t && typeof t === 'object' && typeof (t as { id?: unknown }).id === 'string') {
+        ids.push((t as { id: string }).id)
+      }
+    }
+  }
+  return ids
 }
 
 type DebugStep = {
@@ -1061,6 +1238,7 @@ function SubAgentViewer({ parentSessionId, agentId }: { parentSessionId: string;
         <div>
           {(() => {
             const idToIndex = new Map(messages.map((m, i) => [m.id, i]))
+            const toolMetaIndex = buildToolMetaIndexFromChain(messages)
             return messages.map((msg, idx) => (
               <MessageRow
                 key={msg.id}
@@ -1072,6 +1250,7 @@ function SubAgentViewer({ parentSessionId, agentId }: { parentSessionId: string;
                 sessionId={agentId}
                 parentSessionId={parentSessionId}
                 isAgentSession
+                toolMetaIndex={toolMetaIndex}
               />
             ))
           })()}
@@ -1346,7 +1525,7 @@ function DebugStepsSection({ sessionId, messageId, parentSessionId, isAgentSessi
   )
 }
 
-function MessageRow({ msg, idx, expanded, onToggle, idToIndex, sessionId, parentSessionId, isAgentSession }: { msg: StoredMessageView; idx: number; expanded: boolean; onToggle: () => void; idToIndex: Map<string, number>; sessionId: string; parentSessionId?: string; isAgentSession?: boolean }) {
+function MessageRow({ msg, idx, expanded, onToggle, idToIndex, sessionId, parentSessionId, isAgentSession, toolMetaIndex }: { msg: StoredMessageView; idx: number; expanded: boolean; onToggle: () => void; idToIndex: Map<string, number>; sessionId: string; parentSessionId?: string; isAgentSession?: boolean; toolMetaIndex: Map<string, ResolvedToolMeta> }) {
   const { t } = useTranslation('ai')
   const colors = ROLE_COLORS[msg.role] ?? DEFAULT_ROLE_COLOR
   const usage = msg.metadata?.totalUsage as Record<string, number> | undefined
@@ -1357,6 +1536,22 @@ function MessageRow({ msg, idx, expanded, onToggle, idToIndex, sessionId, parent
 
   const activePart = msg.parts[selectedPart] ?? null
   const activePartJson = activePart != null ? JSON.stringify(activePart, null, 2) : ''
+
+  // 工具列表展示。User 消息展示两组：
+  //   - 常驻工具：metadata.coreToolIds
+  //   - 动态已加载快照：metadata.activatedToolIds（由 ToolSearch 逐步积累）
+  // Assistant 消息展示一组：本轮内通过 ToolSearch 新加载的工具（扫自身 parts）。
+  // 所有组统一走 resolveToolMeta，hover 显示 description。
+  const toIdList = (raw: unknown): string[] =>
+    Array.isArray(raw) ? (raw.filter((id): id is string => typeof id === 'string')) : []
+  const coreSnapshotIds = toIdList(msg.metadata?.coreToolIds)
+  const activatedSnapshotIds = toIdList(msg.metadata?.activatedToolIds)
+  const dynamicLoadedIds =
+    msg.role === 'assistant' ? extractLoadedToolIdsFromParts(msg.parts) : []
+
+  const coreToolMetas = coreSnapshotIds.map((id) => resolveToolMeta(id, toolMetaIndex))
+  const activatedToolMetas = activatedSnapshotIds.map((id) => resolveToolMeta(id, toolMetaIndex))
+  const dynamicLoadedMetas = dynamicLoadedIds.map((id) => resolveToolMeta(id, toolMetaIndex))
 
   return (
     <div className={`group/row border-b border-l-4 ${colors.border} ${expanded ? 'bg-muted/20' : ''}`}>
@@ -1417,6 +1612,26 @@ function MessageRow({ msg, idx, expanded, onToggle, idToIndex, sessionId, parent
             <div className="py-1.5 px-4 border-b border-border/50 flex justify-end" style={{ userSelect: 'text', cursor: 'text' }}>
               <MetadataSection metadata={msg.metadata} />
             </div>
+          )}
+          {/* User: two groups — core (always-on) + dynamic (loaded via ToolSearch) */}
+          {msg.role === 'user' && (
+            <>
+              <LoadedToolsSection
+                label={t('debug.tools.coreTools', '常驻工具')}
+                tools={coreToolMetas}
+              />
+              <LoadedToolsSection
+                label={t('debug.tools.dynamicSnapshot', '动态加载工具')}
+                tools={activatedToolMetas}
+              />
+            </>
+          )}
+          {/* Assistant: tools dynamically loaded by ToolSearch in this response */}
+          {msg.role === 'assistant' && (
+            <LoadedToolsSection
+              label={t('debug.tools.dynamicLoaded', '本轮新加载工具')}
+              tools={dynamicLoadedMetas}
+            />
           )}
           {/* Two-column: part list | detail with tabs */}
           <div className="flex divide-x divide-border/50" style={{ minHeight: '40vh', maxHeight: '80vh' }}>
@@ -1731,6 +1946,7 @@ function MessagesPanel({ sessionId, promptContent, prefaceContent }: { sessionId
         )}
         {(() => {
           const idToIndex = new Map(messages.map((m, i) => [m.id, i]))
+          const toolMetaIndex = buildToolMetaIndexFromChain(messages)
           return messages.map((msg, idx) => (
             <MessageRow
               key={msg.id}
@@ -1740,6 +1956,7 @@ function MessagesPanel({ sessionId, promptContent, prefaceContent }: { sessionId
               onToggle={() => toggleExpand(msg.id)}
               idToIndex={idToIndex}
               sessionId={sessionId}
+              toolMetaIndex={toolMetaIndex}
             />
           ))
         })()}

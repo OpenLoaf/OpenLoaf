@@ -167,6 +167,7 @@ interface BoardCardLabels {
   duplicate: string;
   copyPath: string;
   openInNewWindow: string;
+  openInCurrentWindow: string;
   openInFileManager: string;
   changeColor: string;
   delete: string;
@@ -319,6 +320,9 @@ function BoardCard({
   const handleOpenInNewWindow = () => {
     onOpenInNewWindow?.(board);
   };
+  const handleOpenInCurrentWindow = () => {
+    onBoardClick(board);
+  };
 
   return (
     <ContextMenu>
@@ -378,6 +382,17 @@ function BoardCard({
                     >
                       <ExternalLink className="mr-2 h-4 w-4" />
                       {labels.openInNewWindow}
+                    </DropdownMenuItem>
+                  )}
+                  {onOpenInNewWindow && (
+                    <DropdownMenuItem
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenInCurrentWindow();
+                      }}
+                    >
+                      <FolderOpen className="mr-2 h-4 w-4" />
+                      {labels.openInCurrentWindow}
                     </DropdownMenuItem>
                   )}
                   {onOpenInFileManager && (
@@ -460,6 +475,11 @@ function BoardCard({
         {onOpenInNewWindow && (
           <ContextMenuItem icon={ExternalLink} onSelect={handleOpenInNewWindow}>
             {labels.openInNewWindow}
+          </ContextMenuItem>
+        )}
+        {onOpenInNewWindow && (
+          <ContextMenuItem icon={FolderOpen} onSelect={handleOpenInCurrentWindow}>
+            {labels.openInCurrentWindow}
           </ContextMenuItem>
         )}
         {onOpenInFileManager && (
@@ -884,6 +904,7 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
       duplicate: t("canvasList.duplicate"),
       copyPath: t("canvasList.copyPath"),
       openInNewWindow: t("canvasList.openInNewWindow"),
+      openInCurrentWindow: t("canvasList.openInCurrentWindow"),
       openInFileManager: t("projectTree.openInFileManager"),
       changeColor: t("canvasList.changeColor"),
       delete: t("chatHistoryList.contextMenu.delete"),

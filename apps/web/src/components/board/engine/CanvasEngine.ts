@@ -1495,8 +1495,12 @@ export class CanvasEngine {
           (e) => e.id === result.stack.primaryId,
         );
         const patch: Record<string, unknown> = { versionStack: result.stack };
-        // Switch displayed media to the new primary's output.
-        if (newPrimary?.output?.urls?.[0]) {
+        // Switch displayed content to the new primary's output.
+        if (newPrimary?.output?.textValue !== undefined) {
+          // 逻辑：text 节点恢复富文本 value。
+          patch.value = newPrimary.output.textValue;
+        } else if (newPrimary?.output?.urls?.[0]) {
+          // 逻辑：媒体节点恢复 originalSrc 等媒体字段。
           const url = newPrimary.output.urls[0];
           patch.originalSrc = url;
           patch.previewSrc = "";

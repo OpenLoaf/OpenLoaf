@@ -50,17 +50,17 @@
     "templateComingSoonDesc": "厳選されたワークフローテンプレートで素早く制作を始められます"
   },
   "insertTools": {
-    "note": "テキスト",
-    "text": "テキスト",
-    "textDesc": "プロンプト、スクリプト",
-    "sticky": "テキスト",
-    "stickyDesc": "テキストを入力",
-    "image": "画像",
-    "imageDesc": "AI画像生成",
-    "video": "動画",
-    "videoDesc": "AI動画生成",
-    "audio": "オーディオ",
-    "audioDesc": "AIオーディオ生成",
+    "note": "テキストを書く",
+    "text": "テキストを書く",
+    "textDesc": "空白の付箋、手動入力",
+    "sticky": "テキストを書く",
+    "stickyDesc": "空白の付箋、手動入力",
+    "image": "AIで画像を生成",
+    "imageDesc": "テキストから画像、または画像から画像",
+    "video": "AIで動画を生成",
+    "videoDesc": "テキストから動画、または画像から動画",
+    "audio": "AIで音声を生成",
+    "audioDesc": "音声合成または音楽生成",
     "tableDesc": "構造化データテーブル",
     "file": "ファイル",
     "link": "リンク",
@@ -112,47 +112,24 @@
     "fileHint": "すべてのファイル形式に対応"
   },
   "emptyGuide": {
-    "title": "作成を開始",
-    "subtitle": "始め方を選択してください",
-    "createText": "テキスト",
-    "aiImage": "AI画像",
-    "aiVideo": "AI動画",
-    "aiAudio": "AIオーディオ",
-    "importFile": "ファイルをインポート",
-    "hint": "空白部分をダブルクリックしてテキストを作成",
-    "shortcuts": "ショートカット: V 選択 · H ハンド · T テキスト · C コネクター",
-    "fromTemplate": "テンプレートから開始",
-    "heading": "テンプレートから始める",
-    "subheading": "テンプレートを選択してキャンバスに配置",
-    "tpl": {
-      "imageGen": {
-        "label": "AI画像生成",
-        "desc": "プロンプトを入力、AIが画像を生成"
-      },
-      "imagePrompt": {
-        "label": "AI画像分析",
-        "desc": "画像をアップロード、AIが内容を分析"
-      },
-      "videoGen": {
-        "label": "AI動画生成",
-        "desc": "AIがショート動画クリップを生成"
-      },
-      "text": {
-        "label": "テキストノート",
-        "desc": "キャンバスにテキストを追加"
-      }
+    "title": "今日は何を作りますか？",
+    "subtitle": "一言伝えてくれれば、キャンバスを組み立てます",
+    "send": "送信",
+    "skip": "空のキャンバスを開く",
+    "examplesHeading": "サンプル作品",
+    "placeholderSamples": [
+      "秋キャンプをテーマにした縦長 SNS カバーを作って",
+      "この台本を 6 枚のストーリーボードに分けて",
+      "1 枚の商品写真を 7 つのシーンに展開して",
+      "15 秒のナレーション台本とコンテを書いて",
+      "シネマティックな海辺ポートレートのセットを作って"
+    ],
+    "exampleKind": {
+      "image": "画像を作る",
+      "video": "動画クリップを作る",
+      "storyboard": "ストーリーボードを作る",
+      "audio": "音を加える"
     }
-  },
-  "templates": {
-    "title": "ワークフローテンプレートを選択",
-    "textToImage": "テキストから画像",
-    "textToImageDesc": "テキストの説明から画像を生成",
-    "imageToVideo": "画像から動画",
-    "imageToVideoDesc": "画像から動画を生成",
-    "fullPipeline": "フルパイプライン",
-    "fullPipelineDesc": "テキスト → 画像 → 動画",
-    "storyboard": "ストーリーボード",
-    "storyboardDesc": "脚本を複数のストーリーボードフレームに分割"
   },
   "contextMenu": {
     "exitFullscreen": "フルスクリーン終了",
@@ -300,7 +277,11 @@
       "polish": "校正",
       "translate": "翻訳",
       "rewrite": "書き直し"
-    }
+    },
+    "cancelled": "キャンセル",
+    "retry": "再試行",
+    "resend": "再生成",
+    "generationFailed": "生成に失敗しました"
   },
   "groupNode": {
     "layoutVertical": "縦並び",
@@ -1225,6 +1206,12 @@
     "swapHint": "クリックして交換",
     "uploadFile": "ファイルをアップロード",
     "emptySlot": "アップロードまたは割り当て",
+    "emptyHint": "上流の{{type}}ノードを追加またはクリックしてアップロード",
+    "mediaType": {
+      "image": "画像",
+      "video": "動画",
+      "audio": "音声"
+    },
     "constraints": {
       "fileTooLarge": "ファイルサイズ ({{actual}}) が上限 {{max}} を超えています",
       "formatNotAllowed": ".{{ext}} 形式はサポートされていません。許可：{{formats}}",

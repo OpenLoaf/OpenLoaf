@@ -37,7 +37,7 @@ import {
 } from "@/ai/models/cli/claudeCode/claudeCodeSessionStore";
 import { logger } from "@/common/logger";
 import { resolveParentProjectRootPaths } from "@/ai/shared/util";
-import { buildSessionPrefaceText } from "@/ai/shared/prefaceBuilder";
+import { buildSessionPrefaceText, buildBuiltinSkillsText } from "@/ai/shared/prefaceBuilder";
 import { assembleDefaultAgentInstructions } from "@/ai/shared/agentPromptAssembler";
 import {
   getProjectRootPath,
@@ -62,7 +62,17 @@ import {
   saveMessage,
 } from "@/ai/services/chat/repositories/messageStore";
 import { readBasicConf } from "@/modules/settings/openloafConfStore";
-import { resolveMessagesJsonlPath, writeSessionJson } from "@/ai/services/chat/repositories/chatFileStore";
+import {
+  resolveMessagesJsonlPath,
+  updateMessageMetadata,
+  writeSessionJson,
+} from "@/ai/services/chat/repositories/chatFileStore";
+import {
+  ACTIVATED_TOOLS_METADATA_KEY,
+  ActivatedToolSet,
+  CORE_TOOLS_METADATA_KEY,
+} from "@/ai/tools/toolSearchState";
+import { MASTER_CORE_TOOL_IDS } from "@/ai/shared/coreToolIds";
 import { buildHardRules } from "@/ai/shared/hardRules";
 import { taskExecutor } from "@/services/taskExecutor";
 import {
@@ -319,29 +329,39 @@ export async function runChatStream(input: {
     }
   }
 
-  // 逻辑：在首条用户消息前确保 preface 已落库。
+  // 逻辑：首条消息 / compact 时重建 preface 并落库；其余请求复用 DB 中的 preface。
   const parentProjectRootPaths = await resolveParentProjectRootPaths(projectId);
   const resolvedProjectId = getProjectId() ?? projectId ?? undefined;
   // 提示词语言：整条请求链路共用，preface/hardRules/agent instructions 保持一致。
   const promptLang: 'zh' | 'en' = readBasicConf().promptLanguage === 'zh' ? 'zh' : 'en';
-  const sessionPrefaceResult = await buildSessionPrefaceText({
-    sessionId,
-    projectId: resolvedProjectId,
-    selectedSkills,
-    parentProjectRootPaths,
-    timezone,
-    clientPlatform: input.request.clientPlatform,
-    lang: promptLang,
-  });
-  await ensureSessionPreface({
-    sessionId,
-    text: sessionPrefaceResult.prefaceText,
-    createdAt: requestStartAt,
-    projectId: resolvedProjectId,
-    boardId: boardId ?? undefined,
-  });
-
   const isCompactCommand = isCompactCommandMessage(lastMessage);
+  const existingPreface = await resolveSessionPrefaceText(sessionId);
+  let prefaceText: string;
+  let builtinSkillsText: string;
+  if (!existingPreface || isCompactCommand) {
+    const result = await buildSessionPrefaceText({
+      sessionId,
+      projectId: resolvedProjectId,
+      selectedSkills,
+      parentProjectRootPaths,
+      timezone,
+      clientPlatform: input.request.clientPlatform,
+      lang: promptLang,
+    });
+    prefaceText = result.prefaceText;
+    builtinSkillsText = result.builtinSkillsText;
+    await ensureSessionPreface({
+      sessionId,
+      text: prefaceText,
+      createdAt: requestStartAt,
+      projectId: resolvedProjectId,
+      boardId: boardId ?? undefined,
+    });
+  } else {
+    prefaceText = existingPreface;
+    builtinSkillsText = buildBuiltinSkillsText(promptLang);
+  }
+
   let leafMessageId = "";
   let assistantParentUserId: string | null = null;
   let includeCompactPrompt = false;
@@ -435,20 +455,19 @@ export async function runChatStream(input: {
       if (row?.cliId) sdkSessionId = row.cliId.replace("claude-code_", "");
     }
 
-    let prefaceText: string | undefined;
+    const isResume = Boolean(sdkSessionId);
     if (!sdkSessionId) {
-      // 首条消息：新建 UUID + 写 DB + session.json + resolve preface
+      // 首条消息：新建 UUID + 写 DB + session.json
       sdkSessionId = crypto.randomUUID();
       await prisma.chatSession.update({
         where: { id: sessionId },
         data: { cliId: `claude-code_${sdkSessionId}` },
       });
       await writeSessionJson(sessionId, { cliId: `claude-code_${sdkSessionId}` });
-      prefaceText = await resolveSessionPrefaceText(sessionId);
     }
 
     // 写入 RequestContext + 内存缓存
-    setCliSession(sdkSessionId, prefaceText);
+    setCliSession(sdkSessionId);
     setCachedCcSession(sessionId, {
       sdkSessionId,
       modelId: "",
@@ -456,7 +475,7 @@ export async function runChatStream(input: {
     });
 
     logger.debug(
-      { sessionId, sdkSessionId, isResume: !prefaceText },
+      { sessionId, sdkSessionId, isResume },
       "[chat] directCli session resolved",
     );
 
@@ -598,12 +617,46 @@ export async function runChatStream(input: {
           }
         }
 
+        // 在调用 agentFactory 前把「本轮工具可见集」快照写回当前 user 消息的
+        // metadata。两个独立字段：
+        // - activatedToolIds: 动态 delta —— 截至本轮开始时所有通过 ToolSearch
+        //   加载过的工具 ID（继承上一条 user 快照 + 两者之间 assistant 新增工具）。
+        //   rehydrate 读此字段快速恢复；老 session 无快照时退化为历史全扫。
+        // - coreToolIds: 常驻工具快照 —— 纯展示用，调试视图分组渲染时读，
+        //   rehydrate 不依赖（常驻工具每次从 CORE_TOOL_IDS 重新解析）。
+        try {
+          const targetUserIdx = messages.findIndex((m) => m.id === assistantParentUserId);
+          if (targetUserIdx >= 0) {
+            const snapshot = ActivatedToolSet.computeSnapshotForUserMessage(
+              messages as unknown as {
+                role: string;
+                parts?: unknown[];
+                metadata?: Record<string, unknown> | null;
+              }[],
+              targetUserIdx,
+            );
+            await updateMessageMetadata({
+              sessionId,
+              messageId: assistantParentUserId,
+              metadata: {
+                [ACTIVATED_TOOLS_METADATA_KEY]: snapshot,
+                [CORE_TOOLS_METADATA_KEY]: [...MASTER_CORE_TOOL_IDS],
+              },
+            });
+          }
+        } catch (err) {
+          logger.warn(
+            { err, sessionId, assistantParentUserId },
+            "[chat] persist tool snapshot failed",
+          );
+        }
+
         masterAgent = createMasterAgentRunner({
           model: resolved.model,
           modelInfo: resolved.modelInfo,
           instructions,
           messages: modelMessages,
-          skillsSystemText: sessionPrefaceResult.builtinSkillsText,
+          skillsSystemText: builtinSkillsText,
           lang: promptLang,
         });
       }
@@ -648,11 +701,10 @@ export async function runChatStream(input: {
         const jsonlPath = await resolveMessagesJsonlPath(sessionId)
         const sessionDir = path.dirname(jsonlPath)
         // 完整指令 = prompt + hardRules + builtinSkills
-        const skillsSuffix = sessionPrefaceResult.builtinSkillsText ? `\n\n${sessionPrefaceResult.builtinSkillsText}` : ''
+        const skillsSuffix = builtinSkillsText ? `\n\n${builtinSkillsText}` : ''
         const fullPrompt = `${instructions}\n\n${buildHardRules(promptLang)}${skillsSuffix}`
         await fs.writeFile(path.join(sessionDir, 'PROMPT.md'), fullPrompt, 'utf-8')
         // sessionPreface → 独立 PREFACE.md
-        const prefaceText = await resolveSessionPrefaceText(sessionId)
         if (prefaceText) {
           await fs.writeFile(path.join(sessionDir, 'PREFACE.md'), prefaceText, 'utf-8')
         }

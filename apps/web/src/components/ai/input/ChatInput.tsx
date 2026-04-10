@@ -707,7 +707,7 @@ export function ChatInputBox({
                   className={cn(
                     "h-8 rounded-3xl px-3 text-xs shrink-0 disabled:opacity-100",
                     canSubmit
-                      ? "bg-primary hover:bg-primary/90 text-primary-foreground"
+                      ? "bg-primary hover:bg-primary/90 text-primary-foreground hover:text-primary-foreground"
                       : "bg-muted text-foreground/60 cursor-not-allowed"
                   )}
                 >

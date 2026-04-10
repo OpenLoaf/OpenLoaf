@@ -50,17 +50,17 @@
     "templateComingSoonDesc": "一键使用精选工作流模版，快速开始创作"
   },
   "insertTools": {
-    "note": "文本",
-    "text": "文本",
-    "textDesc": "输入提示词、脚本",
-    "sticky": "文本",
-    "stickyDesc": "输入文本内容",
-    "image": "图片",
-    "imageDesc": "AI 生成图片",
-    "video": "视频",
-    "videoDesc": "AI 生成视频",
-    "audio": "音频",
-    "audioDesc": "AI 生成音频",
+    "note": "写文本",
+    "text": "写文本",
+    "textDesc": "空白便签，可手动输入",
+    "sticky": "写文本",
+    "stickyDesc": "空白便签，可手动输入",
+    "image": "AI 生成图片",
+    "imageDesc": "文生图或图生图",
+    "video": "AI 生成视频",
+    "videoDesc": "文生视频或图生视频",
+    "audio": "AI 生成音频",
+    "audioDesc": "语音合成或生成音乐",
     "tableDesc": "结构化数据表格",
     "file": "文件",
     "link": "链接",
@@ -123,47 +123,24 @@
     "fileHint": "支持所有文件类型"
   },
   "emptyGuide": {
-    "title": "开始创作",
-    "subtitle": "选择一个方式开始",
-    "createText": "创建文本",
-    "aiImage": "AI 图片",
-    "aiVideo": "AI 视频",
-    "aiAudio": "AI 音频",
-    "importFile": "导入文件",
-    "hint": "双击空白处也可以创建文本",
-    "shortcuts": "快捷键: V 选择 · H 拖拽 · T 文本 · C 连线",
-    "fromTemplate": "从模板开始",
-    "heading": "从模板开始创作",
-    "subheading": "选择一个模板，点击画布放置",
-    "tpl": {
-      "imageGen": {
-        "label": "AI 图片生成",
-        "desc": "输入提示词，AI 生成图片"
-      },
-      "imagePrompt": {
-        "label": "AI 图片理解",
-        "desc": "上传图片，AI 分析内容"
-      },
-      "videoGen": {
-        "label": "AI 视频生成",
-        "desc": "AI 生成短视频片段"
-      },
-      "text": {
-        "label": "文本笔记",
-        "desc": "添加文字到画布"
-      }
+    "title": "今天想在无限画布上创作什么？",
+    "subtitle": "告诉我一句话，我帮你搭画布",
+    "send": "发送",
+    "skip": "进入空白画布",
+    "examplesHeading": "示例作品",
+    "placeholderSamples": [
+      "给我做一套小红书封面，主题是秋天露营",
+      "把这段脚本拆成 6 张分镜图",
+      "一张产品照变成 7 个不同场景",
+      "写个 15 秒口播脚本，配旁白和分镜",
+      "帮我做一组电影感的海边人像"
+    ],
+    "exampleKind": {
+      "image": "画一张图",
+      "video": "做段视频",
+      "storyboard": "出一组分镜",
+      "audio": "配一段音"
     }
-  },
-  "templates": {
-    "title": "选择工作流模板",
-    "textToImage": "文生图",
-    "textToImageDesc": "从文字描述生成图片",
-    "imageToVideo": "图生视频",
-    "imageToVideoDesc": "从图片生成视频",
-    "fullPipeline": "完整影视流",
-    "fullPipelineDesc": "文字 → 图片 → 视频",
-    "storyboard": "分镜模式",
-    "storyboardDesc": "脚本拆分为多张分镜图"
   },
   "contextMenu": {
     "exitFullscreen": "退出全屏",
@@ -311,7 +288,11 @@
       "polish": "润色",
       "translate": "翻译",
       "rewrite": "改写"
-    }
+    },
+    "cancelled": "已取消",
+    "retry": "重试",
+    "resend": "重新生成",
+    "generationFailed": "生成失败"
   },
   "groupNode": {
     "layoutVertical": "纵向布局",
@@ -1261,6 +1242,12 @@
     "swapHint": "点击选择替换",
     "uploadFile": "上传文件",
     "emptySlot": "点击上传或从关联节点拖入",
+    "emptyHint": "添加上游{{type}}节点或点击上传",
+    "mediaType": {
+      "image": "图片",
+      "video": "视频",
+      "audio": "音频"
+    },
     "constraints": {
       "fileTooLarge": "文件大小 ({{actual}}) 超过上限 {{max}}",
       "formatNotAllowed": "不支持 .{{ext}} 格式，允许：{{formats}}",

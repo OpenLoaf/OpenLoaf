@@ -12,7 +12,6 @@
 import {
   memo,
   useEffect,
-  useCallback,
   useMemo,
   useRef,
   useState,
@@ -31,11 +30,6 @@ import type {
   CanvasPoint,
   CanvasSnapshot,
 } from "../engine/types";
-import {
-  createGeneratingEntry,
-  createInputSnapshot,
-  pushVersion,
-} from "../engine/version-stack";
 import { getClipboardInsertPayload } from "../engine/clipboard";
 import { isBoardUiTarget } from "../utils/dom";
 import { toScreenPoint } from "../utils/coordinates";
@@ -82,9 +76,6 @@ import {
 import type { ImageNodeProps } from "../nodes/ImageNode";
 import type { VideoNodeProps } from "../nodes/VideoNode";
 import type { LinkNodeProps } from "../nodes/LinkNode";
-import { deriveNode } from "../utils/derive-node";
-import { submitUpscale, normalizeScale } from "../services/upscale-generate";
-import { resolveErrorMessage } from "../hooks/useVersionStack";
 import { startVideoDownload } from "../services/video-download";
 import { openFilePreview } from "@/components/file/lib/file-preview-store";
 import { fetchVideoMetadata } from "@/components/file/lib/video-metadata";
@@ -99,16 +90,8 @@ import {
 } from "./boardFilePath";
 import { buildLinkNodePayloadFromUrl } from "../utils/link";
 import { isVideoPlatformUrl } from "../utils/video-url";
-import { useLayoutState } from "@/hooks/use-layout-state";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { BoardContextMenu } from "./BoardContextMenu";
-import { useOptionalSidebar } from "@openloaf/ui/sidebar";
-import {
-  emitSidebarOpenRequest,
-  getLeftSidebarOpen,
-} from "@/lib/sidebar-state";
-import { TEXT_NODE_DEFAULT_HEIGHT } from "../nodes/text-node-constants";
 import { isGroupNodeType } from "../engine/grouping";
 import {
   ProjectFilePickerDialog,
@@ -129,10 +112,6 @@ const DEFAULT_AUDIO_NODE_WIDTH = 320;
 const DEFAULT_AUDIO_NODE_HEIGHT = 120;
 const DEFAULT_FILE_NODE_WIDTH = 260;
 const DEFAULT_FILE_NODE_HEIGHT = 80;
-/** Default feature id for image upscale flow. */
-const UPSCALE_FEATURE_ID = "upscale";
-/** Default v3 variant id for image upscale flow. */
-const UPSCALE_VARIANT_ID = "OL-UP-001";
 /** Cursor assets for board drawing tools. */
 const PEN_CURSOR_DOWN_URL = "/board/brush-cursor.svg";
 const PEN_CURSOR_UP_URL = "/board/brush-cursor-up.svg";
@@ -150,11 +129,6 @@ const CURSOR_SVG_CACHE = new Map<string, string>();
 const CURSOR_SVG_LOADING = new Map<string, Promise<void>>();
 /** Colored cursor data URL cache keyed by url/color/hotspot. */
 const CURSOR_DATA_CACHE = new Map<string, string>();
-
-type ClipboardPastePayload = {
-  images: File[];
-  url?: string;
-};
 
 /** Resolve the preferred placement direction for a connector-created node. */
 function resolveConnectorDropDirection(
@@ -340,50 +314,6 @@ async function saveNodeToComputer(
   link.click();
 }
 
-/** Resolve a pasteable payload from the system clipboard. */
-async function readClipboardPayload(): Promise<ClipboardPastePayload | null> {
-  const images: File[] = [];
-  let url: string | undefined;
-
-  if (navigator.clipboard?.read) {
-    try {
-      const items = await navigator.clipboard.read();
-      for (const item of items) {
-        for (const type of item.types) {
-          if (!type.startsWith("image/")) continue;
-          const blob = await item.getType(type);
-          const extension = type.split("/")[1]?.replace("+xml", "") || "png";
-          const file = new File(
-            [blob],
-            `clipboard-${Date.now()}.${extension}`,
-            {
-              type,
-            },
-          );
-          images.push(file);
-        }
-      }
-    } catch {
-      // 逻辑：读取权限不足时忽略，回退到文本检测。
-    }
-  }
-
-  if (navigator.clipboard?.readText) {
-    try {
-      const text = await navigator.clipboard.readText();
-      const trimmed = text.trim();
-      if (trimmed && !/[\r\n]/.test(trimmed) && /^https?:\/\//i.test(trimmed)) {
-        url = trimmed;
-      }
-    } catch {
-      // 逻辑：读取失败时忽略，仅使用已解析的图片。
-    }
-  }
-
-  if (images.length === 0 && !url) return null;
-  return { images, url };
-}
-
 /** Build a fallback cursor string for a static SVG url. */
 function buildCursorFallback(
   url: string,
@@ -501,21 +431,6 @@ function BoardCanvasInteractionInner({
   // 进入画板即加载 capabilities，确保节点选择器可用
   useEffect(() => { ensureAllCapabilitiesLoaded() }, [])
   const showUi = !uiHidden;
-  const rightChatCollapsed = useLayoutState(
-    (state) => state.rightChatCollapsed ?? false,
-  );
-  const sidebar = useOptionalSidebar();
-  const isMobile = sidebar?.isMobile ?? false;
-  const open = sidebar?.open ?? false;
-  const openMobile = sidebar?.openMobile ?? false;
-  const leftOpenFallback = getLeftSidebarOpen();
-  const leftOpen = sidebar
-    ? isMobile
-      ? openMobile
-      : open
-    : (leftOpenFallback ?? false);
-  const setOpen = sidebar?.setOpen;
-  const setOpenMobile = sidebar?.setOpenMobile;
   const penColor = engine.getPenSettings().color;
   const highlighterColor = engine.getHighlighterSettings().color;
   /** Last pointer location inside the canvas, in world coordinates. */
@@ -524,10 +439,6 @@ function BoardCanvasInteractionInner({
   const cursorRef = useRef<string>("default");
   /** Whether the primary pointer is pressed. */
   const isPointerDownRef = useRef(false);
-  /** Last right-click location inside the canvas, in world coordinates. */
-  const lastContextMenuWorldRef = useRef<CanvasPoint | null>(null);
-  /** 右键点击到的节点（null 表示空白区域） */
-  const [contextNode, setContextNode] = useState<CanvasNodeElement | null>(null);
   /** 另存为 Dialog 状态 */
   const [saveAsOpen, setSaveAsOpen] = useState(false);
   const [saveAsNode, setSaveAsNode] = useState<CanvasNodeElement | null>(null);
@@ -549,7 +460,6 @@ function BoardCanvasInteractionInner({
   const nodePickerRef = useRef<HTMLDivElement | null>(null);
   /** Latest snapshot ref for cursor changes. */
   const latestSnapshotRef = useRef(snapshot);
-  const [pasteAvailable, setPasteAvailable] = useState(false);
 
   useEffect(() => {
     latestSnapshotRef.current = snapshot;
@@ -579,45 +489,6 @@ function BoardCanvasInteractionInner({
       engine.deleteInterceptor = null
     }
   }, [engine])
-
-  /** Fit view for context menu. */
-  const handleFitView = useCallback(() => {
-    engine.fitToElements();
-  }, [engine]);
-
-  const isFullscreen = !leftOpen && rightChatCollapsed;
-
-  /** Toggle board fullscreen via sidebars. */
-  const handleToggleFullscreen = useCallback(() => {
-    if (!tabId) return;
-    const shouldCollapse = leftOpen || !rightChatCollapsed;
-    // 逻辑：任一侧可见时进入专注模式，收起左右栏；否则恢复显示。
-    const nextLeftOpen = !shouldCollapse;
-    if (sidebar) {
-      if (isMobile) {
-        setOpenMobile?.(nextLeftOpen);
-      } else {
-        setOpen?.(nextLeftOpen);
-      }
-    } else {
-      emitSidebarOpenRequest(nextLeftOpen);
-    }
-    useLayoutState.getState().setRightChatCollapsed(shouldCollapse);
-    if (panelKey) {
-      useLayoutState
-        .getState()
-        .setStackItemParams(panelKey, { __boardFull: shouldCollapse });
-    }
-  }, [
-    isMobile,
-    leftOpen,
-    panelKey,
-    rightChatCollapsed,
-    setOpen,
-    setOpenMobile,
-    sidebar,
-    tabId,
-  ]);
 
   const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (!showUi) return;
@@ -665,12 +536,6 @@ function BoardCanvasInteractionInner({
     }
     return "default";
   };
-
-  const updatePasteAvailability = useCallback(async () => {
-    const hasInternalClipboard = engine.hasClipboard();
-    const payload = await readClipboardPayload();
-    setPasteAvailable(Boolean(payload) || hasInternalClipboard);
-  }, [engine]);
 
   const applyCursor = () => {
     const nextCursor = resolveCursor();
@@ -942,72 +807,6 @@ function BoardCanvasInteractionInner({
       engine.addNodeElement("image", payload.props, rect);
     }
   };
-
-  const handlePasteFromContextMenu = async () => {
-    if (engine.isLocked()) return;
-    const payload = await readClipboardPayload();
-    const pastePoint =
-      lastContextMenuWorldRef.current ??
-      lastPointerWorldRef.current ??
-      engine.getViewportCenterWorld();
-    if (payload?.images.length) {
-      await insertImageFilesAtPoint(payload.images, pastePoint);
-      return;
-    }
-    if (payload?.url) {
-      await insertUrlAtPoint(payload.url, pastePoint);
-      return;
-    }
-    if (engine.hasClipboard()) {
-      engine.pasteClipboard();
-    }
-  };
-
-  /** Trigger auto layout behavior consistent with toolbar. */
-  const handleAutoLayout = () => {
-    engine.autoLayoutBoard();
-    // 逻辑：自动布局后通知上层调度缩略图截取。
-    onAutoLayout?.();
-  };
-
-  /** Reload the entire canvas engine by triggering a panel remount. */
-  const handlePanelRefresh = () => {
-    if (panelKey) {
-      // 逻辑：通过 __refreshKey 触发 panel remount，整个画布引擎（CanvasEngine）会被销毁并重建。
-      useLayoutState
-        .getState()
-        .setStackItemParams(panelKey, { __refreshKey: Date.now() });
-      return;
-    }
-    engine.refreshView();
-  };
-
-  /** Insert a text node at the last right-click position. */
-  const handleInsertTextFromContextMenu = useCallback(() => {
-    if (engine.isLocked()) return;
-    const point =
-      lastContextMenuWorldRef.current ??
-      lastPointerWorldRef.current ??
-      engine.getViewportCenterWorld();
-    const w = 200;
-    const h = TEXT_NODE_DEFAULT_HEIGHT;
-    engine.addNodeElement("text", { autoFocus: true }, [
-      point[0] - w / 2,
-      point[1] - h / 2,
-      w,
-      h,
-    ]);
-  }, [engine]);
-
-  /** Open the file picker via custom event (handled by BoardToolbar). */
-  const handleInsertFileFromContextMenu = useCallback(() => {
-    if (engine.isLocked()) return;
-    const container = engine.getContainer();
-    if (!container) return;
-    container.dispatchEvent(
-      new CustomEvent("openloaf:board-open-file-picker", { bubbles: true }),
-    );
-  }, [engine]);
 
   const handleCanvasDragOver = (event: DragEvent<HTMLDivElement>) => {
     const types = event.dataTransfer?.types;
@@ -1598,212 +1397,6 @@ function BoardCanvasInteractionInner({
 
   return (
     <>
-      <BoardContextMenu
-        triggerDisabled={!showUi}
-        onToggleFullscreen={handleToggleFullscreen}
-        onAutoLayout={handleAutoLayout}
-        onFitView={handleFitView}
-        isFullscreen={isFullscreen}
-        onRefresh={handlePanelRefresh}
-        onPaste={() => {
-          void handlePasteFromContextMenu();
-        }}
-        pasteAvailable={pasteAvailable}
-        pasteDisabled={engine.isLocked()}
-        onInsertText={handleInsertTextFromContextMenu}
-        onInsertFile={handleInsertFileFromContextMenu}
-        insertDisabled={engine.isLocked()}
-        contextNode={contextNode}
-        onNodeDelete={(nodeId) => {
-          engine.selection.setSelection([nodeId]);
-          engine.deleteSelection();
-        }}
-        onNodeLock={(nodeId, locked) => {
-          engine.setElementLocked(nodeId, locked);
-        }}
-        onNodeBringToFront={(nodeId) => {
-          engine.bringNodeToFront(nodeId);
-        }}
-        onNodeSendToBack={(nodeId) => {
-          engine.sendNodeToBack(nodeId);
-        }}
-        onNodeDuplicate={(nodeId) => {
-          engine.selection.setSelection([nodeId]);
-          engine.copySelection();
-          engine.pasteClipboard();
-        }}
-        onNodeSaveAs={(nodeId) => {
-          const node = engine.doc.getElementById(nodeId);
-          if (!node || node.kind !== "node") return;
-          setSaveAsNode(node as CanvasNodeElement);
-          setSaveAsOpen(true);
-        }}
-        onNodeDeriveVideo={(nodeId) => {
-          deriveNode({ engine, sourceNodeId: nodeId, targetType: 'video' });
-        }}
-        onNodeDeriveImage={(nodeId) => {
-          deriveNode({ engine, sourceNodeId: nodeId, targetType: 'image' });
-        }}
-        onNodeUpscale={(nodeId) => {
-          const node = engine.doc.getElementById(nodeId);
-          if (!node || node.kind !== "node" || node.type !== "image") return;
-          const props = node.props as ImageNodeProps;
-          const originalSrc = (props.originalSrc ?? "").trim();
-          const previewSrc = (props.previewSrc ?? "").trim();
-          // 逻辑：优先使用原图，回退到预览图。
-          const sourceImageSrc = originalSrc
-            ? (resolveNodeFileInfo(node as CanvasNodeElement, fileContext)?.href || originalSrc)
-            : previewSrc;
-          if (!sourceImageSrc) return;
-          const promptText = "upscale 2x";
-          const variant = UPSCALE_VARIANT_ID;
-          const scale = 2 as const;
-          const inputSnapshot = createInputSnapshot({
-            prompt: promptText,
-            parameters: {
-              feature: UPSCALE_FEATURE_ID,
-              variant,
-              inputs: {
-                image: { url: sourceImageSrc },
-              },
-              params: {
-                scale: normalizeScale(scale),
-              },
-            },
-          });
-          const pendingEntry = createGeneratingEntry(inputSnapshot, "");
-          const derivedNodeId = deriveNode({
-            engine,
-            sourceNodeId: nodeId,
-            targetType: "image",
-            targetProps: {
-              fileName: promptText,
-              aiConfig: {
-                lastUsed: { feature: UPSCALE_FEATURE_ID, variant: '' },
-                lastGeneration: {
-                  feature: UPSCALE_FEATURE_ID,
-                  variant: '',
-                  prompt: promptText,
-                  generatedAt: Date.now(),
-                },
-              },
-              versionStack: pushVersion(undefined, pendingEntry),
-            },
-          });
-          if (!derivedNodeId) return;
-
-          submitUpscale(
-            { sourceImageSrc, scale, variant },
-            {
-              projectId: fileContext?.projectId,
-              boardId: fileContext?.boardId,
-              sourceNodeId: derivedNodeId,
-            },
-          )
-            .then((result) => {
-              const upscaleTaskId = 'taskId' in result ? result.taskId : result.taskIds[0];
-              engine.doc.updateNodeProps(derivedNodeId, {
-                versionStack: {
-                  entries: [{ ...pendingEntry, taskId: upscaleTaskId }],
-                  primaryId: pendingEntry.id,
-                },
-              });
-            })
-            .catch((err: unknown) => {
-              console.error('[board] upscale failed:', err);
-              const message = resolveErrorMessage(err);
-              const failedEntryId = `fail-${Date.now()}`;
-              engine.doc.updateNodeProps(derivedNodeId, {
-                versionStack: {
-                  entries: [{
-                    id: failedEntryId,
-                    status: 'failed',
-                    input: inputSnapshot,
-                    createdAt: Date.now(),
-                    error: {
-                      code: 'SUBMIT_FAILED',
-                      message,
-                    },
-                  }],
-                  primaryId: failedEntryId,
-                },
-              });
-            });
-        }}
-        onNodeDownload={(nodeId) => {
-          const node = engine.doc.getElementById(nodeId);
-          if (!node || node.kind !== "node") return;
-          void saveNodeToComputer(node as CanvasNodeElement, fileContext);
-        }}
-        onNodePreview={(nodeId) => {
-          const node = engine.doc.getElementById(nodeId);
-          if (!node || node.kind !== "node") return;
-          openImagePreviewFromNode(node as CanvasNodeElement);
-        }}
-        onNodePlay={(nodeId) => {
-          const node = engine.doc.getElementById(nodeId);
-          if (!node || node.kind !== "node" || node.type !== "video") return;
-          const props = node.props as VideoNodeProps;
-          const sourcePath = (props.sourcePath ?? "").trim();
-          if (!sourcePath) return;
-          const resolvedPath = resolveProjectRelativePath(sourcePath);
-          const displayName = props.fileName || (resolvedPath || sourcePath).split("/").pop() || "Video";
-          void fetchVideoMetadata({
-            projectId: fileContext?.projectId,
-            boardId: fileContext?.boardId,
-            uri: resolvedPath || sourcePath,
-          }).then((metadata) => {
-            openFilePreview({
-              viewer: "video",
-              items: [
-                {
-                  uri: sourcePath,
-                  openUri: resolvedPath || sourcePath,
-                  name: displayName,
-                  title: displayName,
-                  width: metadata?.width ?? props.naturalWidth,
-                  height: metadata?.height ?? props.naturalHeight,
-                  projectId: fileContext?.projectId,
-                  rootUri: fileContext?.rootUri,
-                  boardId: fileContext?.boardId ?? '',
-                  clipStart: props.clipStart,
-                  clipEnd: props.clipEnd,
-                },
-              ],
-              activeIndex: 0,
-              showSave: false,
-              enableEdit: false,
-            });
-          });
-        }}
-        onNodeInspect={(nodeId) => {
-          // 逻辑：打开节点详情面板 — 通过选中并展开节点实现。
-          engine.selection.setSelection([nodeId]);
-          engine.setExpandedNodeId(nodeId);
-        }}
-        onContextMenu={(event) => {
-          if (!showUi) return;
-          event.stopPropagation();
-          const rect = containerRef.current?.getBoundingClientRect();
-          if (!rect) return;
-          // 逻辑：记录右键位置，保证"粘贴"落点与菜单一致。
-          const worldPoint = engine.screenToWorld([
-            event.clientX - rect.left,
-            event.clientY - rect.top,
-          ]);
-          lastContextMenuWorldRef.current = worldPoint;
-          // 逻辑：检测右键点击的是节点还是空白区域，显示不同菜单。
-          const hitElement = engine.pickElementAt(worldPoint);
-          if (hitElement?.kind === "node") {
-            setContextNode(hitElement as CanvasNodeElement);
-            engine.selection.setSelection([hitElement.id]);
-          } else {
-            setContextNode(null);
-          }
-          // 逻辑：同步检查内部剪贴板即可，跳过 navigator.clipboard.read() 避免右键卡顿。
-          setPasteAvailable(engine.hasClipboard());
-        }}
-      >
         <div
           ref={containerRef}
           data-board-canvas
@@ -1889,7 +1482,6 @@ function BoardCanvasInteractionInner({
                   ? rawTarget.parentElement
                   : null;
             if (!target) return;
-            // 逻辑：过滤 React portal 冒泡的事件（如文件选择对话框的双击）。
             if (!containerRef.current?.contains(target)) return;
             if (snapshot.pendingInsert || snapshot.toolbarDragging) return;
             if (engine.isLocked()) return;
@@ -1898,39 +1490,54 @@ function BoardCanvasInteractionInner({
             }
             const rect = containerRef.current?.getBoundingClientRect();
             if (!rect) return;
-            const screenPoint: [number, number] = [
+            const worldPoint = engine.screenToWorld([
               event.clientX - rect.left,
               event.clientY - rect.top,
-            ];
-            const worldPoint = engine.screenToWorld(screenPoint);
-            // DEBUG: 双击坐标链追踪
-            console.log('[board-dblclick] clientX/Y:', event.clientX, event.clientY);
-            console.log('[board-dblclick] rect left/top:', rect.left, rect.top, 'w/h:', rect.width, rect.height);
-            console.log('[board-dblclick] screenPoint:', screenPoint);
-            console.log('[board-dblclick] viewport:', engine.viewport.getState());
-            console.log('[board-dblclick] worldPoint:', worldPoint);
-            // 反向验证：将 worldPoint 转回屏幕坐标
-            const backToScreen = engine.viewport.toScreen(worldPoint);
-            console.log('[board-dblclick] backToScreen:', backToScreen, 'expected:', screenPoint);
+            ]);
             const hitElement = engine.pickElementAt(worldPoint);
             if (hitElement?.kind === "node") {
               handleNodeDoubleClick(hitElement);
-            } else if (!hitElement) {
-              // 逻辑：双击空白区域时在鼠标位置显示浮动插入菜单。
-              if (snapshot.activeToolId !== "select") {
-                engine.setActiveTool("select");
-              }
-              containerRef.current?.dispatchEvent(
-                new CustomEvent("openloaf:board-floating-insert-menu", {
-                  bubbles: true,
-                  detail: {
-                    clientX: event.clientX,
-                    clientY: event.clientY,
-                    worldPoint,
-                  },
-                }),
-              );
             }
+          }}
+          onContextMenu={(event) => {
+            if (!showUi) return;
+            const rawTarget = event.target as EventTarget | null;
+            const target =
+              rawTarget instanceof Element
+                ? rawTarget
+                : rawTarget instanceof Node
+                  ? rawTarget.parentElement
+                  : null;
+            if (!target) return;
+            if (!containerRef.current?.contains(target)) return;
+            if (isBoardUiTarget(target, ["[data-connector-drop-panel]"])) {
+              return;
+            }
+            if (snapshot.pendingInsert || snapshot.toolbarDragging) return;
+            if (engine.isLocked()) return;
+            const rect = containerRef.current?.getBoundingClientRect();
+            if (!rect) return;
+            const worldPoint = engine.screenToWorld([
+              event.clientX - rect.left,
+              event.clientY - rect.top,
+            ]);
+            const hitElement = engine.pickElementAt(worldPoint);
+            if (hitElement) return;
+            // 逻辑：右键空白区域时在鼠标位置显示浮动插入菜单（节点选择器）。
+            event.preventDefault();
+            if (snapshot.activeToolId !== "select") {
+              engine.setActiveTool("select");
+            }
+            containerRef.current?.dispatchEvent(
+              new CustomEvent("openloaf:board-floating-insert-menu", {
+                bubbles: true,
+                detail: {
+                  clientX: event.clientX,
+                  clientY: event.clientY,
+                  worldPoint,
+                },
+              }),
+            );
           }}
         >
           {children}
@@ -1945,7 +1552,6 @@ function BoardCanvasInteractionInner({
             panelRef={nodePickerRef}
           />
         </div>
-      </BoardContextMenu>
       {saveAsOpen && saveAsNode ? (
         <ProjectFilePickerDialog
           open={saveAsOpen}

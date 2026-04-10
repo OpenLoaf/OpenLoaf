@@ -39,6 +39,7 @@ import type { ChatImageRequest, ChatImageRequestResult } from '@/ai/services/ima
 import {
   clearSessionErrorMessage,
   ensureSessionPreface,
+  resolveSessionPrefaceText,
   saveMessage,
   setSessionErrorMessage,
 } from '@/ai/services/chat/repositories/messageStore'
@@ -159,24 +160,27 @@ export async function runChatImageRequest(input: {
     return createChatImageErrorResult(400, errorText)
   }
 
-  // 逻辑：在首条用户消息前确保 preface 已落库。
+  // 逻辑：首条消息时构建 preface 并落库；已有 preface 时复用。
   const parentProjectRootPaths = await resolveParentProjectRootPaths(projectId)
   const resolvedProjectId = getProjectId() ?? projectId ?? undefined
-  const imagePrefaceResult = await buildSessionPrefaceText({
-    sessionId,
-    projectId: resolvedProjectId,
-    selectedSkills,
-    parentProjectRootPaths,
-    timezone,
-    clientPlatform: input.request.clientPlatform,
-  })
-  await ensureSessionPreface({
-    sessionId,
-    text: imagePrefaceResult.prefaceText,
-    createdAt: requestStartAt,
-    projectId: resolvedProjectId,
-    boardId: boardId ?? undefined,
-  })
+  const existingPreface = await resolveSessionPrefaceText(sessionId)
+  if (!existingPreface) {
+    const result = await buildSessionPrefaceText({
+      sessionId,
+      projectId: resolvedProjectId,
+      selectedSkills,
+      parentProjectRootPaths,
+      timezone,
+      clientPlatform: input.request.clientPlatform,
+    })
+    await ensureSessionPreface({
+      sessionId,
+      text: result.prefaceText,
+      createdAt: requestStartAt,
+      projectId: resolvedProjectId,
+      boardId: boardId ?? undefined,
+    })
+  }
 
   // 流程：
   // 1) 保存最后一条消息并确定父消息

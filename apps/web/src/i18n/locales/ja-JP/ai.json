@@ -590,6 +590,7 @@
   },
   "subAgentPanel": {
     "label": "サブエージェント：",
+    "stackTitle": "サブエージェント",
     "defaultName": "サブエージェント",
     "status": {
       "error": "エラー",

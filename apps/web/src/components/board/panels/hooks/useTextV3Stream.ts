@@ -9,16 +9,15 @@
  */
 
 /**
- * Hook for consuming the v3 text generate stream (SSE).
+ * Hook for consuming the v3 text generate stream.
  *
- * The SaaS SDK's v3TextGenerateStream returns a raw Response with SSE events.
- * Each SSE event's `data` field is an OpenAI chat completions chunk:
- *   { choices: [{ delta: { content: '...' } }] }
- *
- * We parse the SSE stream and accumulate delta.content into `text`.
+ * The SaaS SDK's v3TextGenerateStream returns a raw Response.
+ * The response is an AI SDK UI Message Stream (SSE framed `data: {...}` lines)
+ * where text content is carried in `text-delta` events. We parse SSE here and
+ * accumulate only the `delta` strings from `text-delta` events.
  */
 
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { submitV3TextStream, type V3TextGenerateRequest } from '@/lib/saas-media'
 
 export interface TextV3StreamState {
@@ -36,26 +35,6 @@ export interface TextV3StreamState {
   clear: () => void
 }
 
-/**
- * Parse a single SSE data line and extract delta content.
- * Returns the content string or null if not applicable.
- */
-function extractDeltaContent(dataStr: string): string | null {
-  if (dataStr === '[DONE]') return null
-  try {
-    const parsed = JSON.parse(dataStr)
-    // OpenAI chat completion chunk format
-    const deltaContent = parsed?.choices?.[0]?.delta?.content
-    if (typeof deltaContent === 'string') return deltaContent || null
-    // Simplified format: { content: "..." }
-    if (typeof parsed?.content === 'string') return parsed.content || null
-    return null
-  } catch {
-    // Not valid JSON — might be plain text chunk from some providers
-    return dataStr
-  }
-}
-
 export function useTextV3Stream(): TextV3StreamState {
   const [text, setText] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
@@ -65,7 +44,10 @@ export function useTextV3Stream(): TextV3StreamState {
   const abort = useCallback(() => {
     abortRef.current?.abort()
     abortRef.current = null
+    // 逻辑：abort 必须同时清 text 并上报错误，否则调用方会把半截文本当作"已完成"写入。
+    setText('')
     setIsStreaming(false)
+    setError('aborted')
   }, [])
 
   const clear = useCallback(() => {
@@ -85,17 +67,8 @@ export function useTextV3Stream(): TextV3StreamState {
     setIsStreaming(true)
 
     const run = async () => {
-      const t0 = performance.now()
-      console.log('[V3Stream] startStream called', { feature: payload.feature, variant: payload.variant })
       try {
         const response = await submitV3TextStream(payload)
-        console.log('[V3Stream] response received', {
-          ok: response.ok,
-          status: response.status,
-          contentType: response.headers.get('content-type'),
-          contentEncoding: response.headers.get('content-encoding'),
-          elapsed: `${(performance.now() - t0).toFixed(0)}ms`,
-        })
 
         if (!response.ok) {
           let detail = ''
@@ -111,67 +84,46 @@ export function useTextV3Stream(): TextV3StreamState {
 
         const decoder = new TextDecoder()
         let accumulated = ''
-        let buffer = ''
-        let chunkIndex = 0
+        let sseBuffer = ''
+
+        // 逻辑：后端用 AI SDK 的 UI Message Stream（SSE），每行 `data: {...}`。
+        // 我们只关心 `text-delta` 事件的 delta 字段，其它事件（start/finish/usage）忽略。
+        const handleLine = (rawLine: string) => {
+          const line = rawLine.trim()
+          if (!line.startsWith('data:')) return
+          const payload = line.slice('data:'.length).trim()
+          if (!payload || payload === '[DONE]') return
+          try {
+            const evt = JSON.parse(payload) as { type?: string; delta?: unknown }
+            if (evt.type === 'text-delta' && typeof evt.delta === 'string') {
+              accumulated += evt.delta
+              setText(accumulated)
+            }
+          } catch {
+            // 非 JSON 行忽略
+          }
+        }
 
         while (true) {
           if (controller.signal.aborted) break
           const { done, value } = await reader.read()
           if (done) {
-            console.log('[V3Stream] reader done', { totalChunks: chunkIndex, elapsed: `${(performance.now() - t0).toFixed(0)}ms` })
+            if (sseBuffer) handleLine(sseBuffer)
             break
           }
 
-          const decoded = decoder.decode(value, { stream: true })
-          console.log(`[V3Stream] chunk#${chunkIndex}`, {
-            bytes: value.byteLength,
-            decodedLen: decoded.length,
-            elapsed: `${(performance.now() - t0).toFixed(0)}ms`,
-            preview: decoded.slice(0, 120),
-          })
-          chunkIndex++
-          buffer += decoded
-
-          // Process complete SSE events (separated by double newlines)
-          const events = buffer.split('\n\n')
-          // Keep the last potentially incomplete chunk in buffer
-          buffer = events.pop() ?? ''
-
-          for (const event of events) {
-            if (!event.trim()) continue
-            // Extract data lines from the event
-            for (const line of event.split('\n')) {
-              if (line.startsWith('data: ') || line.startsWith('data:')) {
-                const dataStr = line.startsWith('data: ') ? line.slice(6) : line.slice(5)
-                const content = extractDeltaContent(dataStr.trim())
-                if (content) {
-                  accumulated += content
-                  setText(accumulated)
-                }
-              }
-            }
+          sseBuffer += decoder.decode(value, { stream: true })
+          let newlineIndex = sseBuffer.indexOf('\n')
+          while (newlineIndex >= 0) {
+            const line = sseBuffer.slice(0, newlineIndex)
+            sseBuffer = sseBuffer.slice(newlineIndex + 1)
+            handleLine(line)
+            newlineIndex = sseBuffer.indexOf('\n')
           }
         }
-
-        // Process any remaining buffer
-        if (buffer.trim()) {
-          for (const line of buffer.split('\n')) {
-            if (line.startsWith('data: ') || line.startsWith('data:')) {
-              const dataStr = line.startsWith('data: ') ? line.slice(6) : line.slice(5)
-              const content = extractDeltaContent(dataStr.trim())
-              if (content) {
-                accumulated += content
-                setText(accumulated)
-              }
-            }
-          }
-        }
-
-        console.log('[V3Stream] stream complete', { totalLength: accumulated.length, elapsed: `${(performance.now() - t0).toFixed(0)}ms` })
       } catch (err) {
         if ((err as Error).name === 'AbortError') return
         const msg = err instanceof Error ? err.message : 'Stream failed'
-        console.error('[V3Stream] error', { msg, elapsed: `${(performance.now() - t0).toFixed(0)}ms` })
         setError(msg)
       } finally {
         setIsStreaming(false)
@@ -182,5 +134,18 @@ export function useTextV3Stream(): TextV3StreamState {
     void run()
   }, [])
 
-  return { text, isStreaming, error, startStream, abort, clear }
+  // 逻辑：组件卸载时 abort 正在跑的 fetch，防止 setState-on-unmounted + 配额浪费。
+  useEffect(
+    () => () => {
+      abortRef.current?.abort()
+      abortRef.current = null
+    },
+    [],
+  )
+
+  // 逻辑：用 useMemo 稳定返回引用，避免调用方 effect 因 stream 对象身份变化反复触发。
+  return useMemo<TextV3StreamState>(
+    () => ({ text, isStreaming, error, startStream, abort, clear }),
+    [text, isStreaming, error, startStream, abort, clear],
+  )
 }

@@ -143,26 +143,3 @@ export function resolveMemoryBlocks(input: {
   return blocks
 }
 
-/**
- * Resolve merged memory content from user home + parent projects + current project.
- * @deprecated Use resolveMemoryBlocks() for structured output instead.
- */
-export function resolveMemoryContent(input: {
-  userHomePath?: string
-  projectRootPath?: string
-  parentProjectRootPaths?: string[]
-}): string {
-  const blocks = resolveMemoryBlocks(input)
-  if (blocks.length === 0) return ''
-  return blocks
-    .map((block) => {
-      const scopeLabel =
-        block.scope === 'user'
-          ? 'User Memory'
-          : block.scope === 'parent-project'
-            ? `Parent Project Memory (${path.basename(path.dirname(path.dirname(block.filePath)))})`
-            : 'Project Memory'
-      return `## ${scopeLabel}\n${block.content}`
-    })
-    .join('\n\n')
-}

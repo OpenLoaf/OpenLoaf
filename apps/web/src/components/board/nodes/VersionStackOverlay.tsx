@@ -73,9 +73,9 @@ export const VersionStackOverlay = memo(function VersionStackOverlay({
 
   // 逻辑：通过 subscribeView 直接操作 DOM，让 badge 在画布缩放时保持恒定屏幕大小。
   // MAX_SCALE 防止缩小画布时 badge 相对节点过大；MIN_NODE_OFFSET 防止放大时和圆角重叠。
-  const MAX_SCALE = compact ? 2 : 3
-  const BADGE_OFFSET_PX = compact ? 6 : 8
-  const MIN_NODE_OFFSET = compact ? 6 : 8
+  const MAX_SCALE = compact ? 1.5 : 2
+  const BADGE_OFFSET_PX = compact ? 4 : 5
+  const MIN_NODE_OFFSET = compact ? 3 : 4
   useEffect(() => {
     if (count <= 1) return
     const syncBadgeScale = () => {
@@ -171,10 +171,13 @@ export const VersionStackOverlay = memo(function VersionStackOverlay({
         className={[
           'pointer-events-auto absolute z-20',
           'flex items-center justify-center rounded-full font-semibold shadow-sm',
+          'transition-opacity duration-150',
           compact
-            ? 'min-w-[20px] h-[20px] px-1 text-[10px]'
-            : 'min-w-[24px] h-[24px] px-1.5 text-[11px]',
+            ? 'min-w-[14px] h-[14px] px-0.5 text-[8px]'
+            : 'min-w-[18px] h-[18px] px-1 text-[9px]',
           badgeColorMap[semanticColor],
+          // 逻辑：未选中时 badge 半透明，降低对画布整体视觉的干扰。
+          selected ? 'opacity-100' : 'opacity-50',
         ].join(' ')}
         style={{ transformOrigin: 'top right' }}
         title={i18next.t('board:versionStack.badge', { count })}

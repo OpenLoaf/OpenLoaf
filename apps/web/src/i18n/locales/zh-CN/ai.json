@@ -590,6 +590,7 @@
   },
   "subAgentPanel": {
     "label": "子代理：",
+    "stackTitle": "子代理",
     "defaultName": "子智能体",
     "status": {
       "error": "出错",

@@ -50,17 +50,17 @@
     "templateComingSoonDesc": "一鍵使用精選工作流模板，快速開始創作"
   },
   "insertTools": {
-    "note": "文字",
-    "text": "文字",
-    "textDesc": "輸入提示詞、腳本",
-    "sticky": "文字",
-    "stickyDesc": "輸入文字內容",
-    "image": "圖片",
-    "imageDesc": "AI 生成圖片",
-    "video": "影片",
-    "videoDesc": "AI 生成影片",
-    "audio": "音訊",
-    "audioDesc": "AI 生成音訊",
+    "note": "寫文字",
+    "text": "寫文字",
+    "textDesc": "空白便條，可手動輸入",
+    "sticky": "寫文字",
+    "stickyDesc": "空白便條，可手動輸入",
+    "image": "AI 生成圖片",
+    "imageDesc": "文生圖或圖生圖",
+    "video": "AI 生成影片",
+    "videoDesc": "文生影片或圖生影片",
+    "audio": "AI 生成音訊",
+    "audioDesc": "語音合成或生成音樂",
     "tableDesc": "結構化資料表格",
     "file": "檔案",
     "link": "連結",
@@ -112,47 +112,24 @@
     "fileHint": "支援所有檔案類型"
   },
   "emptyGuide": {
-    "title": "開始創作",
-    "subtitle": "選擇一個方式開始",
-    "createText": "建立文字",
-    "aiImage": "AI 圖片",
-    "aiVideo": "AI 影片",
-    "aiAudio": "AI 音訊",
-    "importFile": "匯入檔案",
-    "hint": "雙擊空白處也可以建立文字",
-    "shortcuts": "快捷鍵: V 選取 · H 拖曳 · T 文字 · C 連線",
-    "fromTemplate": "從模板開始",
-    "heading": "從範本開始創作",
-    "subheading": "選擇一個範本，點擊畫布放置",
-    "tpl": {
-      "imageGen": {
-        "label": "AI 圖片生成",
-        "desc": "輸入提示詞，AI 生成圖片"
-      },
-      "imagePrompt": {
-        "label": "AI 圖片理解",
-        "desc": "上傳圖片，AI 分析內容"
-      },
-      "videoGen": {
-        "label": "AI 影片生成",
-        "desc": "AI 生成短影片片段"
-      },
-      "text": {
-        "label": "文字筆記",
-        "desc": "新增文字到畫布"
-      }
+    "title": "今天想在無限畫布上創作什麼？",
+    "subtitle": "告訴我一句話，我幫你搭畫布",
+    "send": "送出",
+    "skip": "進入空白畫布",
+    "examplesHeading": "範例作品",
+    "placeholderSamples": [
+      "幫我做一組小紅書封面，主題是秋天露營",
+      "把這段腳本拆成 6 張分鏡圖",
+      "一張產品照變成 7 個不同場景",
+      "寫個 15 秒口播腳本，配旁白和分鏡",
+      "幫我做一組電影感的海邊人像"
+    ],
+    "exampleKind": {
+      "image": "畫一張圖",
+      "video": "做段影片",
+      "storyboard": "出一組分鏡",
+      "audio": "配一段音"
     }
-  },
-  "templates": {
-    "title": "選擇工作流模板",
-    "textToImage": "文生圖",
-    "textToImageDesc": "從文字描述生成圖片",
-    "imageToVideo": "圖生影片",
-    "imageToVideoDesc": "從圖片生成影片",
-    "fullPipeline": "完整影視流",
-    "fullPipelineDesc": "文字 → 圖片 → 影片",
-    "storyboard": "分鏡模式",
-    "storyboardDesc": "腳本拆分為多張分鏡圖"
   },
   "contextMenu": {
     "exitFullscreen": "退出全螢幕",
@@ -300,7 +277,11 @@
       "polish": "潤色",
       "translate": "翻譯",
       "rewrite": "改寫"
-    }
+    },
+    "cancelled": "已取消",
+    "retry": "重試",
+    "resend": "重新生成",
+    "generationFailed": "生成失敗"
   },
   "groupNode": {
     "layoutVertical": "縱向排版",
@@ -1239,6 +1220,12 @@
     "swapHint": "點擊選擇替換",
     "uploadFile": "上傳檔案",
     "emptySlot": "點擊上傳或從關聯節點拖入",
+    "emptyHint": "新增上游{{type}}節點或點擊上傳",
+    "mediaType": {
+      "image": "圖片",
+      "video": "影片",
+      "audio": "音訊"
+    },
     "constraints": {
       "fileTooLarge": "檔案大小 ({{actual}}) 超過上限 {{max}}",
       "formatNotAllowed": "不支援 .{{ext}} 格式，允許：{{formats}}",

@@ -527,7 +527,7 @@ export interface InputSnapshot {
   timestamp: number
 }
 
-/** Single immutable version in a media node's version stack */
+/** Single immutable version in a node's version stack */
 export interface VersionStackEntry {
   id: string
   status: 'generating' | 'ready' | 'failed'
@@ -535,7 +535,10 @@ export interface VersionStackEntry {
   /** Remote SaaS task id for polling generation progress. */
   taskId?: string
   output?: {
+    /** Media file URLs (image/video/audio nodes). Empty for text nodes. */
     urls: string[]
+    /** Rich text content (text nodes). Stored as Plate.js Value or plain string. */
+    textValue?: string | import('platejs').Value
     metadata?: Record<string, unknown>
   }
   error?: {
@@ -546,7 +549,7 @@ export interface VersionStackEntry {
   createdAt: number
 }
 
-/** Version stack for media nodes (image/video/audio) */
+/** Version stack for nodes that support AI version history (text/image/video/audio) */
 export interface VersionStack {
   entries: VersionStackEntry[]
   primaryId?: string

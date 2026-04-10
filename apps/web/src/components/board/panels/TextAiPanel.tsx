@@ -15,13 +15,17 @@
  * FeatureTabBar → InputSlotBar → GenericVariantForm → GenerateActionBar.
  *
  * Text generation uses streaming mode via v3TextGenerateStream.
+ * Supports the post-generation lock (readonly / editing) pattern so that once
+ * a text node has AI-generated content, switching features is disabled until
+ * the user explicitly unlocks to edit.
  */
 
-import { useCallback, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { CanvasNodeElement, BoardFileContext } from '../engine/types'
 import type { TextNodeProps } from '../nodes/text-node-types'
 import type { UpstreamData } from '../engine/upstream-data'
-import type { MediaType } from './variants/slot-types'
+import type { VariantSnapshot } from '../board-contracts'
+import type { MediaType, PersistedSlotMap } from './variants/slot-types'
 import { VariantFormTransition } from './variants/shared/VariantFormTransition'
 import { InputSlotBar } from './variants/shared/InputSlotBar'
 import { GenericVariantForm } from './variants/shared/GenericVariantForm'
@@ -32,6 +36,8 @@ import { useVariantPanel } from './hooks/useVariantPanel'
 import { useVariantCache } from './hooks/useVariantCache'
 import { useSlotHandlers } from './hooks/useSlotHandlers'
 import { serializeForGenerate } from './variants/serialize'
+import { getPrimaryEntry } from '../engine/version-stack'
+import { MEDIA_FEATURES, type MediaFeatureId } from '@openloaf-saas/sdk'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -50,6 +56,8 @@ export type TextAiPanelProps = {
   upstream: UpstreamData | null
   /** Board file context for resolving media paths in InputSlotBar. */
   fileContext?: BoardFileContext
+  /** Persist aiConfig/cache changes back onto the node. */
+  onUpdate: (patch: Partial<TextNodeProps>) => void
   /** Callback to trigger text generation on the current node. */
   onGenerate?: (params: TextGenerateParams) => void
   /** Callback to generate into a new derived node. */
@@ -58,6 +66,14 @@ export type TextAiPanelProps = {
   generating?: boolean
   /** Abort the current generation. */
   onStop?: () => void
+  /** When true, all inputs are disabled and generate button is hidden (post-generation lock). */
+  readonly?: boolean
+  /** Editing mode — user unlocked an existing result to tweak params. */
+  editing?: boolean
+  /** Callback to unlock the panel for editing (override readonly). */
+  onUnlock?: () => void
+  /** Callback to cancel editing mode (re-lock the panel). */
+  onCancelEdit?: () => void
 }
 
 // ---------------------------------------------------------------------------
@@ -66,13 +82,21 @@ export type TextAiPanelProps = {
 
 /** AI text generation parameter panel displayed below text nodes (v3 capabilities). */
 export function TextAiPanel({
+  element,
   upstream,
   fileContext,
+  onUpdate,
   onGenerate,
   onGenerateNewNode,
   generating = false,
   onStop,
+  readonly = false,
+  editing = false,
+  onUnlock,
+  onCancelEdit,
 }: TextAiPanelProps) {
+  const aiConfig = element.props.aiConfig
+
   // ── Upstream types for variant applicability ──
   const upstreamTypes = useMemo(() => {
     const types = new Set<MediaType>()
@@ -91,6 +115,7 @@ export function TextAiPanel({
     selectedFeatureId,
     setSelectedFeatureId,
     selectedFeature,
+    selectedVariantId,
     setSelectedVariantId,
     selectedVariant,
     isVariantApplicable,
@@ -102,21 +127,100 @@ export function TextAiPanel({
   } = useVariantPanel({
     category: 'text',
     upstreamTypes,
+    initialFeatureId: aiConfig?.lastUsed?.feature,
+    cachedFeatureId: aiConfig?.lastUsed?.feature,
   })
 
-  // ── Params cache (in-memory only, text nodes have no persistent aiConfig) ──
+  // ── Params cache — persists to element.props.aiConfig.cache ──
+  const aiConfigRef = useRef(aiConfig)
+  aiConfigRef.current = aiConfig
+
   const activeKey = selectedVariant ? `${selectedFeatureId}:${selectedVariant.id}` : ''
 
   const cache = useVariantCache({
-    onFlush: () => {},
+    initialCache: aiConfig?.cache,
+    paused: editing,
+    onFlush: (cacheMap) => {
+      onUpdate({
+        aiConfig: {
+          ...aiConfigRef.current,
+          cache: cacheMap,
+        },
+      })
+    },
   })
 
   // Migrate text slot content when switching models within the same feature
-  const prevActiveKeyRef = useRef('')
+  const prevActiveKeyRef = useRef(activeKey)
   if (activeKey && activeKey !== prevActiveKeyRef.current) {
     cache.migrateUserTexts(prevActiveKeyRef.current, activeKey)
   }
   prevActiveKeyRef.current = activeKey
+
+  // ── Draft mode — snapshot/restore on edit cancel ──
+  const editSnapshotRef = useRef<Record<string, VariantSnapshot> | null>(null)
+  const [cancelCounter, setCancelCounter] = useState(0)
+
+  useEffect(() => {
+    if (editing) {
+      editSnapshotRef.current = cache.takeSnapshot()
+    }
+  }, [editing, cache])
+
+  const handleCancelEdit = useCallback(() => {
+    if (editSnapshotRef.current) {
+      cache.restoreSnapshot(editSnapshotRef.current)
+      cache.flushNow()
+      editSnapshotRef.current = null
+    }
+    setCancelCounter((c) => c + 1)
+    onCancelEdit?.()
+  }, [cache, onCancelEdit])
+
+  // ── Per-version params — derive effective snapshot from version entry ──
+  const primaryEntry = useMemo(
+    () => getPrimaryEntry(element.props.versionStack),
+    [element.props.versionStack],
+  )
+
+  const effectiveSnapshot = useMemo<VariantSnapshot | undefined>(() => {
+    if (readonly && !editing && primaryEntry?.input?.parameters) {
+      const p = primaryEntry.input.parameters as {
+        feature?: string
+        variant?: string
+        inputs?: Record<string, unknown>
+        params?: Record<string, unknown>
+        count?: number
+      }
+      return {
+        inputs: p.inputs ?? {},
+        params: p.params ?? {},
+        count: p.count,
+      }
+    }
+    return cache.get(activeKey)
+  }, [readonly, editing, primaryEntry, cache, activeKey])
+
+  // Auto-select feature/variant matching the viewed version (readonly mode).
+  useEffect(() => {
+    if (!readonly) return
+    const params = primaryEntry?.input?.parameters as
+      | { feature?: string; variant?: string }
+      | undefined
+    if (params?.feature && params.feature !== selectedFeatureId) {
+      setSelectedFeatureId(params.feature)
+    }
+    if (params?.variant && params.variant !== selectedVariantId) {
+      setSelectedVariantId(params.variant)
+    }
+  }, [
+    readonly,
+    primaryEntry,
+    selectedFeatureId,
+    selectedVariantId,
+    setSelectedFeatureId,
+    setSelectedVariantId,
+  ])
 
   // ── Slot handlers ──
   const { resolvedSlots, slotsValid, handleSlotInputsChange, handleSlotAssignmentPersist, handleUserTextsChange } = useSlotHandlers(cache, activeKey)
@@ -168,7 +272,7 @@ export function TextAiPanel({
   )
 
   // ── Generate disabled ──
-  const isGenerateDisabled = !selectedVariant || !slotsValid || generating
+  const isGenerateDisabled = !selectedVariant || !slotsValid || generating || (readonly && !editing)
 
   // ── Loading / Error fallback ──
   const showFallback = !features.length
@@ -180,24 +284,36 @@ export function TextAiPanel({
         <CapabilitiesFallback loading={capsLoading} error={capsError} onRetry={capsRefresh} />
       ) : null}
 
-      {/* ── Feature Tabs ── */}
-      <FeatureTabBar
-        features={features}
-        selectedFeatureId={selectedFeatureId}
-        onSelect={handleFeatureSelect}
-        isVariantApplicable={isVariantApplicable}
-        prefLang={prefLang}
-        disabled={generating}
-      />
+      {/* ── Feature Tabs / locked label ── */}
+      {editing ? (
+        <div className="px-1 py-1">
+          <span className="text-[12px] font-medium text-muted-foreground">
+            {selectedFeature?.displayName
+              || MEDIA_FEATURES[selectedFeatureId as MediaFeatureId]?.label[prefLang]
+              || selectedFeatureId}
+          </span>
+        </div>
+      ) : (
+        <FeatureTabBar
+          features={features}
+          selectedFeatureId={selectedFeatureId}
+          onSelect={handleFeatureSelect}
+          isVariantApplicable={isVariantApplicable}
+          prefLang={prefLang}
+          disabled={readonly || generating}
+        />
+      )}
 
       {/* ── InputSlotBar (V3 declarative slot assignment) ── */}
       {mergedSlots?.length && selectedVariant ? (
         <InputSlotBar
-          key={`${selectedFeatureId}:${selectedVariant.id}`}
+          key={`${selectedFeatureId}:${selectedVariant.id}:${readonly && !editing ? primaryEntry?.id : 'edit'}:${cancelCounter}`}
           slots={mergedSlots}
           upstream={upstreamForSlots}
           fileContext={fileContext}
-          disabled={generating}
+          disabled={(readonly && !editing) || generating}
+          cachedAssignment={effectiveSnapshot?.slotAssignment as PersistedSlotMap | undefined}
+          cachedUserTexts={effectiveSnapshot?.userTexts}
           onAssignmentChange={handleSlotInputsChange}
           onSlotAssignmentChange={handleSlotAssignmentPersist}
           onUserTextsChange={handleUserTextsChange}
@@ -206,12 +322,14 @@ export function TextAiPanel({
 
       {/* ── Variant-specific form (paramsSchema) ── */}
       {selectedVariant ? (
-        <VariantFormTransition variantKey={selectedVariant.id}>
+        <VariantFormTransition
+          variantKey={`${selectedVariant.id}:${readonly && !editing ? primaryEntry?.id : 'edit'}:${cancelCounter}`}
+        >
           <GenericVariantForm
             variantId={selectedVariant.id}
             upstream={{}}
-            disabled={generating}
-            initialParams={cache.get(activeKey)}
+            disabled={(readonly && !editing) || generating}
+            initialParams={effectiveSnapshot}
             onParamsChange={(snapshot) => {
               if (activeKey) {
                 cache.update(activeKey, { params: snapshot.params })
@@ -233,6 +351,10 @@ export function TextAiPanel({
           buttonClassName="bg-foreground text-background hover:bg-foreground/90"
           onGenerate={handleGenerate}
           onGenerateNewNode={handleGenerateNewNode}
+          readonly={readonly}
+          editing={editing}
+          onUnlock={onUnlock}
+          onCancelEdit={handleCancelEdit}
           skipEstimate
           warningMessage={variantWarning}
           variants={selectedFeature?.variants
@@ -242,7 +364,7 @@ export function TextAiPanel({
               displayName: v.displayName || v.featureTabName || v.id,
             }))}
           selectedVariantId={selectedVariant?.id}
-          onVariantChange={setSelectedVariantId}
+          onVariantChange={editing ? undefined : setSelectedVariantId}
         />
       ) : null}
     </div>

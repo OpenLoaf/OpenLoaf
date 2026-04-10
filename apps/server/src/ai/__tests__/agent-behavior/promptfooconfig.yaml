@@ -14,15 +14,10 @@ prompts:
 
 providers:
   - id: file://openloaf-universal-provider.ts
-    label: "Step 3.5"
+    label: "DeepSeek Chat"
     config:
-      label: "Step 3.5"
-      modelId: "cef4e784-32d6-4062-914d-f39b5534c20e:stepfun/step-3.5-flash:free"
-  - id: file://openloaf-universal-provider.ts
-    label: "Qwen3.5 Flash"
-    config:
-      label: "Qwen3.5 Flash"
-      modelId: "9d8cc1ae-5376-43b1-a35f-948004b50086:qwen3.5-flash"
+      label: "DeepSeek Chat"
+      modelId: "cdbf43f1-3b82-403a-a13d-717aa1bb844d:deepseek-chat"
 
 defaultTest:
   options:
@@ -52,6 +47,7 @@ derivedMetrics:
 tests:
   - file://tests/master/master.yaml
   - file://tests/master/async-spawn.yaml
+  - file://tests/master/runtime-task-ops.yaml
   - file://tests/calendar/calendar.yaml
   - file://tests/email/email.yaml
   - file://tests/tools/tools.yaml

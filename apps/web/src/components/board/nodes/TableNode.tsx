@@ -128,9 +128,19 @@ function createTableToolbarItems(ctx: CanvasToolbarContext<TableNodeProps>) {
   const addColumn = () => {
     const newCol: TableColumn = { id: nanoid(8), width: 120 }
     const newColumns = [...props.columns, newCol]
-    const newRows = props.rows.map((row) => ({
+    const newColIndex = props.columns.length
+    const headerContent = i18next.t('board:tableNode.defaultColHeader', {
+      index: newColIndex + 1,
+    })
+    const newRows = props.rows.map((row, rowIdx) => ({
       ...row,
-      cells: [...row.cells, { id: nanoid(8), content: '' }],
+      cells: [
+        ...row.cells,
+        {
+          id: nanoid(8),
+          content: props.showHeader && rowIdx === 0 ? headerContent : '',
+        },
+      ],
     }))
     updateNodeProps({ columns: newColumns, rows: newRows })
   }
@@ -345,10 +355,14 @@ export function TableNodeView({ element, selected, editing, onUpdate }: CanvasNo
   const [colWidths, setColWidths] = useState<number[]>(() => columns.map((c) => c.width))
   const [selectionAnchor, setSelectionAnchor] = useState<[number, number] | null>(null)
 
-  // Keep colWidths in sync when columns change externally
+  // Keep colWidths in sync only when the column set changes (add/remove/reorder).
+  // Width-only prop updates (e.g. our own persist on drag end) must not override
+  // in-progress local colWidths state.
+  const columnsKey = columns.map((c) => c.id).join(',')
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally keyed on id list only
   useEffect(() => {
     setColWidths(columns.map((c) => c.width))
-  }, [columns])
+  }, [columnsKey])
 
   // Stop editing when node loses selection
   useEffect(() => {
@@ -535,14 +549,11 @@ export function TableNodeView({ element, selected, editing, onUpdate }: CanvasNo
   // ---- Styling ----
 
   const tableContainerCls = cn(
-    'h-full w-full overflow-auto rounded-2xl border border-border/60 box-border',
+    'board-text-scrollbar h-full w-full overflow-auto rounded-2xl border border-border/60 box-border',
     'bg-background/95',
   )
 
-  const tableCls = cn(
-    'w-full border-collapse text-xs',
-    variant === 'bordered' && 'border border-border/60',
-  )
+  const tableCls = cn('border-collapse text-xs')
 
   const totalWidth = colWidths.reduce((s, w) => s + w, 0)
 
@@ -583,8 +594,11 @@ export function TableNodeView({ element, selected, editing, onUpdate }: CanvasNo
           </div>
         )}
 
-        <div className="relative">
-          <table className={tableCls} style={{ minWidth: totalWidth }}>
+        <div className="relative" style={{ width: totalWidth }}>
+          <table
+            className={tableCls}
+            style={{ width: totalWidth, tableLayout: 'fixed' }}
+          >
             <colgroup>
               {colWidths.map((w, i) => (
                 <col key={columns[i]?.id ?? `col-${i}`} style={{ width: w }} />
@@ -632,7 +646,7 @@ export function TableNodeView({ element, selected, editing, onUpdate }: CanvasNo
           {/* Column resize handles — absolute over table, full height */}
           {selected && (
             <div className="absolute inset-0 pointer-events-none">
-              {colWidths.map((w, i) => {
+              {colWidths.map((_, i) => {
                 const left = colWidths.slice(0, i + 1).reduce((s, v) => s + v, 0)
                 return (
                   <div
@@ -686,7 +700,7 @@ export const TableNodeDefinition: CanvasNodeDefinition<TableNodeProps> = {
   defaultProps: createDefaultTable(3, 4),
   view: TableNodeView,
   capabilities: {
-    resizable: false,
+    resizable: true,
     rotatable: false,
     connectable: 'anchors',
     maxSize: { w: 1600, h: 2400 },

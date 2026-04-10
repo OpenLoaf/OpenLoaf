@@ -99,8 +99,6 @@ export type RequestContext = {
   cliSummary?: string;
   /** Claude Code SDK session UUID (for persist/resume). */
   cliSessionId?: string;
-  /** Session preface text (only set for first message in a CLI session). */
-  cliSessionPreface?: string;
   /** SDK assistant UUID for resumeSessionAt (rewind target). */
   cliRewindTarget?: string;
   /** Accumulated credits consumed by SaaS provider. */
@@ -362,12 +360,11 @@ export function getCliSummary(): string | undefined {
   return getRequestContext()?.cliSummary;
 }
 
-/** Set CLI session id and optional preface for Claude Code persist/resume. */
-export function setCliSession(id: string, preface?: string): void {
+/** Set CLI session id for Claude Code persist/resume. */
+export function setCliSession(id: string): void {
   const ctx = getRequestContext();
   if (!ctx) return;
   ctx.cliSessionId = id;
-  ctx.cliSessionPreface = preface;
 }
 
 /** Get CLI session id (Claude Code SDK UUID). */

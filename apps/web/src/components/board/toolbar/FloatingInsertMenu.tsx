@@ -307,7 +307,7 @@ function MenuItem({
       <div className="flex flex-col items-start gap-0.5 min-w-0">
         <span className="text-[13px] font-medium leading-tight">{title}</span>
         {description && (
-          <span className="max-h-0 overflow-hidden opacity-0 group-hover:max-h-5 group-hover:opacity-100 transition-all duration-150 ease-out text-[11px] leading-tight text-ol-text-auxiliary truncate max-w-[140px]">
+          <span className="text-[11px] leading-tight text-ol-text-auxiliary truncate max-w-[160px]">
             {description}
           </span>
         )}

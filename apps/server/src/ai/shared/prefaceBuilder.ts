@@ -35,6 +35,7 @@ import { mcpClientManager } from "@/ai/services/mcpClientManager";
 // import { collectAvailableAgents, buildSubAgentListSection } from "@/ai/shared/subAgentPrefaceBuilder";
 import { getEnabledMcpServers } from "@/services/mcpConfigService";
 
+import { BUILTIN_SKILLS } from '@/ai/builtin-skills'
 import { UNKNOWN_VALUE } from '@/ai/shared/constants'
 /** Sentinel value for project rules when AGENTS.md is absent. */
 const PROJECT_RULES_NOT_FOUND = "__NOT_FOUND__";
@@ -380,6 +381,30 @@ function buildBuiltinSkillsSystemBlock(
       ? "内置技能，通过 `ToolSearch(names: 'skill-name')` 按需加载"
       : "Built-in skills, load on demand via `ToolSearch(names: 'skill-name')`";
   return `<system-skills desc="${desc}">\n${content}\n</system-skills>`;
+}
+
+/**
+ * Build builtin-skills block without touching session state.
+ *
+ * Session state–independent: derives summaries directly from BUILTIN_SKILLS.
+ * Used on non-rebuild paths (after the first turn and outside compact) to
+ * keep the system-prompt suffix fresh without re-running the full session
+ * preface pipeline.
+ */
+export function buildBuiltinSkillsText(lang?: PromptLang): string {
+  const summaries: SkillSummary[] = BUILTIN_SKILLS.map((skill) => ({
+    name: skill.name,
+    originalName: skill.name,
+    description: skill.description,
+    path: `builtin://${skill.name}`,
+    folderName: skill.name,
+    scope: "builtin",
+    colorIndex: skill.colorIndex,
+    hasMeta: true,
+    icon: skill.icon,
+    ...(skill.tools?.length ? { tools: skill.tools } : {}),
+  }));
+  return buildBuiltinSkillsSystemBlock(summaries, lang);
 }
 
 /**

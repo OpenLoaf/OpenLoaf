@@ -127,7 +127,7 @@ type CreateMasterAgentInput = {
 // Step limits — prevent infinite tool loops (MAST FM-1.3)
 // ---------------------------------------------------------------------------
 const MASTER_HARD_MAX_STEPS = 200
-const SUB_AGENT_MAX_STEPS = 200
+const SUB_AGENT_MAX_STEPS = 80
 
 // ---------------------------------------------------------------------------
 // ToolSearch Pull 模式 — prepareStep + ActivatedToolSet

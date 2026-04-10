@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import { resolveMemoryContent, resolveMemoryBlocks } from '@/ai/shared/memoryLoader'
+import { resolveMemoryBlocks } from '@/ai/shared/memoryLoader'
 import { getMasterPrompt } from '@/ai/agent-templates'
 
 /** Input for assembling default agent instructions. */

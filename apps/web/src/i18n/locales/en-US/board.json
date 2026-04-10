@@ -50,17 +50,17 @@
     "templateComingSoonDesc": "Use curated workflow templates to kickstart your creative projects"
   },
   "insertTools": {
-    "note": "Text",
-    "text": "Text",
-    "textDesc": "Prompts, scripts",
-    "sticky": "Text",
-    "stickyDesc": "Enter text content",
-    "image": "Image",
-    "imageDesc": "AI image generation",
-    "video": "Video",
-    "videoDesc": "AI video generation",
-    "audio": "Audio",
-    "audioDesc": "AI audio generation",
+    "note": "Write text",
+    "text": "Write text",
+    "textDesc": "Blank sticky note, type manually",
+    "sticky": "Write text",
+    "stickyDesc": "Blank sticky note, type manually",
+    "image": "Generate image with AI",
+    "imageDesc": "Text-to-image or image-to-image",
+    "video": "Generate video with AI",
+    "videoDesc": "Text-to-video or image-to-video",
+    "audio": "Generate audio with AI",
+    "audioDesc": "Text-to-speech or music generation",
     "tableDesc": "Structured data table",
     "file": "File",
     "link": "Link",
@@ -123,47 +123,24 @@
     "fileHint": "All file types supported"
   },
   "emptyGuide": {
-    "title": "Start Creating",
-    "subtitle": "Choose a way to begin",
-    "createText": "Text",
-    "aiImage": "AI Image",
-    "aiVideo": "AI Video",
-    "aiAudio": "AI Audio",
-    "importFile": "Import File",
-    "hint": "Double-click on empty space to create text",
-    "shortcuts": "Shortcuts: V Select · H Hand · T Text · C Connector",
-    "fromTemplate": "Start from Template",
-    "heading": "Start from a Template",
-    "subheading": "Choose a template and click to place on canvas",
-    "tpl": {
-      "imageGen": {
-        "label": "AI Image Generation",
-        "desc": "Enter a prompt, AI generates image"
-      },
-      "imagePrompt": {
-        "label": "AI Image Analysis",
-        "desc": "Upload image, AI analyzes content"
-      },
-      "videoGen": {
-        "label": "AI Video Generation",
-        "desc": "AI generates short video clips"
-      },
-      "text": {
-        "label": "Text Note",
-        "desc": "Add text to canvas"
-      }
+    "title": "What do you want to create today?",
+    "subtitle": "Tell me in a sentence and I'll set up your canvas",
+    "send": "Send",
+    "skip": "Open blank canvas",
+    "examplesHeading": "Examples",
+    "placeholderSamples": [
+      "Make me a set of vertical social covers about autumn camping",
+      "Split this script into 6 storyboard frames",
+      "Turn one product photo into 7 different scenes",
+      "Write a 15-second voiceover script with frames and narration",
+      "Make me a set of cinematic seaside portraits"
+    ],
+    "exampleKind": {
+      "image": "Make an image",
+      "video": "Make a video clip",
+      "storyboard": "Create a storyboard",
+      "audio": "Add some audio"
     }
-  },
-  "templates": {
-    "title": "Choose a Workflow Template",
-    "textToImage": "Text to Image",
-    "textToImageDesc": "Generate images from text descriptions",
-    "imageToVideo": "Image to Video",
-    "imageToVideoDesc": "Generate video from images",
-    "fullPipeline": "Full Pipeline",
-    "fullPipelineDesc": "Text → Image → Video",
-    "storyboard": "Storyboard",
-    "storyboardDesc": "Split script into multiple storyboard frames"
   },
   "contextMenu": {
     "exitFullscreen": "Exit Fullscreen",
@@ -311,7 +288,11 @@
       "polish": "Polish",
       "translate": "Translate",
       "rewrite": "Rewrite"
-    }
+    },
+    "cancelled": "Cancelled",
+    "retry": "Retry",
+    "resend": "Regenerate",
+    "generationFailed": "Generation failed"
   },
   "groupNode": {
     "layoutVertical": "Vertical Layout",
@@ -1256,6 +1237,12 @@
     "swapHint": "Click to swap",
     "uploadFile": "Upload file",
     "emptySlot": "Click to upload or assign",
+    "emptyHint": "Add upstream {{type}} node or click to upload",
+    "mediaType": {
+      "image": "image",
+      "video": "video",
+      "audio": "audio"
+    },
     "constraints": {
       "fileTooLarge": "File size ({{actual}}) exceeds limit {{max}}",
       "formatNotAllowed": ".{{ext}} format not supported. Allowed: {{formats}}",

@@ -277,6 +277,7 @@
     "duplicateSuccess": "画布已克隆",
     "copyPath": "复制路径",
     "openInNewWindow": "新窗口打开",
+    "openInCurrentWindow": "当前窗口打开",
     "pathCopied": "已复制路径",
     "moveToProject": "移动到项目",
     "selectProject": "选择目标项目",

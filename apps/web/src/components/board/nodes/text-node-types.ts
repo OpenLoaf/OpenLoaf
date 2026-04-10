@@ -11,7 +11,8 @@
  * engine, tools, or any React component to avoid circular dependencies.
  */
 import type { Value } from 'platejs'
-import type { NodeOrigin } from '../board-contracts'
+import type { AiGenerateConfig, NodeOrigin } from '../board-contracts'
+import type { VersionStack } from '../engine/types'
 
 /** Text value stored on the text node (rich text Value or legacy string). */
 export type TextNodeValue = string | Value
@@ -67,4 +68,8 @@ export type TextNodeProps = {
   shapeStrokeWidth?: number
   /** How the text node was created. */
   origin?: NodeOrigin
+  /** AI generation config. Present only when origin is 'ai-generate'. */
+  aiConfig?: AiGenerateConfig
+  /** Version stack tracking AI generation history. */
+  versionStack?: VersionStack
 }

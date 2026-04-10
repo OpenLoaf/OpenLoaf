@@ -31,7 +31,7 @@ import { Label } from "@openloaf/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@openloaf/ui/popover";
 import { Tabs, TabsList, TabsTrigger } from "@openloaf/ui/tabs";
 import { buildChatModelOptions, normalizeChatModelSource } from "@/lib/provider-models";
-import { BarChart3, Bug, ChevronDown, Eye, MessageSquare, Sparkles, Volume2 } from "lucide-react";
+import { BarChart3, Bug, ChevronDown, Eye, Languages, MessageSquare, Sparkles, Volume2 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { Switch } from "@openloaf/ui/animate-ui/components/radix/switch";
@@ -100,6 +100,7 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
 
   const chatOnlineSearchMemoryScope: "tab" | "global" =
     basic.chatOnlineSearchMemoryScope === "global" ? "global" : "tab";
+  const promptLanguage: "zh" | "en" = basic.promptLanguage === "zh" ? "zh" : "en";
   const localToolModelOptions = useMemo(
     () =>
       buildChatModelOptions("local", providerItems, cloudModels, installedCliProviderIds).filter(
@@ -198,6 +199,32 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
         className="pb-4"
       >
         <div className="divide-y divide-border/40">
+          <div className="flex flex-wrap items-center gap-2 py-3">
+            <SettingIcon icon={Languages} bg="bg-secondary" fg="text-foreground" />
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-medium">{t('provider.promptLanguage')}</div>
+              <div className="text-xs text-muted-foreground">
+                {t('provider.promptLanguageDesc')}
+              </div>
+            </div>
+
+            <OpenLoafSettingsField className="w-full sm:w-52 shrink-0 justify-end">
+              <Tabs
+                value={promptLanguage}
+                onValueChange={(next) =>
+                  void setBasic({
+                    promptLanguage: next === "en" ? "en" : "zh",
+                  })
+                }
+              >
+                <TabsList>
+                  <TabsTrigger value="zh">{t('provider.promptLanguageZh')}</TabsTrigger>
+                  <TabsTrigger value="en">{t('provider.promptLanguageEn')}</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </OpenLoafSettingsField>
+          </div>
+
           <div className="flex flex-wrap items-center gap-2 py-3">
             <SettingIcon icon={MessageSquare} bg="bg-secondary" fg="text-foreground" />
             <div className="min-w-0 flex-1">
