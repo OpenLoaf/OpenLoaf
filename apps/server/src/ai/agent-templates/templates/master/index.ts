@@ -98,6 +98,10 @@ export const masterTemplate: AgentTemplate = {
     'ScheduledTaskManage',
     'ScheduledTaskStatus',
     'ScheduledTaskWait',
+    // background process
+    'BgList',
+    'BgOutput',
+    'BgKill',
   ],
   allowSubAgents: true,
   maxDepth: 2,

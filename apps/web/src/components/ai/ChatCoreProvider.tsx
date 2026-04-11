@@ -43,6 +43,7 @@ import { useSubAgentStreams } from "./hooks/use-sub-agent-streams";
 import { useChatApproval } from "./hooks/use-chat-approval";
 import { useTabActive } from "@/components/layout/TabActiveContext";
 import { useChatMessageOps } from "./hooks/use-chat-message-ops";
+import { useBackgroundProcesses } from "@/hooks/use-background-processes";
 import { useChatSessionManagement } from "./hooks/use-chat-session-management";
 import {
   handleSubAgentDataPart,
@@ -554,6 +555,10 @@ export default function ChatCoreProvider({
             } else {
               toast.error(event.title, { description: event.summary });
             }
+            return
+          }
+          if (event.type === 'bg-task-update') {
+            useBackgroundProcesses.getState().upsertTask(sessionId, event.task);
             return
           }
         },

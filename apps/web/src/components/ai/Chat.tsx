@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import ChatCoreProvider from "./ChatCoreProvider";
 import MessageList from "./message/MessageList";
 import ChatInput from "./input/ChatInput";
+import { BackgroundProcessBar } from "./input/BackgroundProcessBar";
 import ChatHeader from "./ChatHeader";
 import { useChatActions, useChatSession, useChatMessageMeta } from "./context";
 import { useChatSessions } from "@/hooks/use-chat-sessions";
@@ -392,6 +393,7 @@ function ChatFullPageLayout({
   enableMultiSession?: boolean
 }) {
   const { t } = useTranslation('ai')
+  const { sessionId: ctxSessionId } = useChatSession()
   const { messageCount, isHistoryLoading, hasPendingCloudMessage } = useChatMessageMeta()
   const isEmpty = messageCount === 0 && !hasPendingCloudMessage
 
@@ -466,6 +468,7 @@ function ChatFullPageLayout({
       {/* 非 empty 时的 ChatInput */}
       {!isEmpty && (
         <>
+        <BackgroundProcessBar sessionId={ctxSessionId} />
         <ChatInput
           className="mx-2 mb-2"
           attachments={attachments}
@@ -1226,6 +1229,7 @@ export function Chat({
           />
           <MessageList className="flex-1 min-h-0" projectId={projectId} />
           <RecentSessionsBar />
+          <BackgroundProcessBar sessionId={effectiveSessionId} />
           <ChatInput
             className="mx-2 mb-2"
             {...sharedInputProps}

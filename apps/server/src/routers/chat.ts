@@ -728,6 +728,18 @@ class ChatRouterImpl extends BaseChatRouter {
             resolve?.()
           })
 
+          const { backgroundProcessManager } = await import(
+            '@/ai/services/background/BackgroundProcessManager'
+          )
+          const cleanupBgTask = backgroundProcessManager.onSessionUpdate(
+            input.sessionId,
+            (task) => {
+              const summary = backgroundProcessManager.summarize(task)
+              queue.push({ type: 'bg-task-update', task: summary })
+              resolve?.()
+            },
+          )
+
           try {
             while (true) {
               if (queue.length === 0) {
@@ -742,7 +754,38 @@ class ChatRouterImpl extends BaseChatRouter {
           } finally {
             cleanupReport()
             cleanupStatus()
+            cleanupBgTask()
           }
+        }),
+
+      cancelBackgroundProcess: shieldedProcedure
+        .input(z.object({ taskId: z.string().min(1), sessionId: z.string().min(1) }))
+        .mutation(async ({ input }) => {
+          const { backgroundProcessManager } = await import(
+            '@/ai/services/background/BackgroundProcessManager'
+          )
+          const task = backgroundProcessManager.get(input.taskId)
+          if (!task) return { ok: false, status: 'not-found' as const }
+          if (task.sessionId !== input.sessionId) {
+            return { ok: false, status: 'not-found' as const }
+          }
+          if (task.status !== 'running') {
+            return { ok: true, status: 'already-done' as const }
+          }
+          await backgroundProcessManager.kill(input.taskId)
+          return { ok: true, status: 'killed' as const }
+        }),
+
+      listBackgroundProcesses: shieldedProcedure
+        .input(z.object({ sessionId: z.string().min(1) }))
+        .query(async ({ input }) => {
+          const { backgroundProcessManager } = await import(
+            '@/ai/services/background/BackgroundProcessManager'
+          )
+          const tasks = backgroundProcessManager
+            .listBySession(input.sessionId)
+            .map((task) => backgroundProcessManager.summarize(task))
+          return { tasks }
         }),
 
       listPlanFiles: shieldedProcedure

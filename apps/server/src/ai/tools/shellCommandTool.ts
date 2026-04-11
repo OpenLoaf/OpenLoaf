@@ -14,6 +14,8 @@ import { expandPathTemplateVars, resolveToolWorkdir } from '@/ai/tools/toolScope
 import { buildExecEnv, formatFreeformOutput } from '@/ai/tools/execUtils'
 import { needsApprovalForCommand } from '@/ai/tools/commandApproval'
 import { resolveCommandSandboxDirs } from '@/ai/tools/commandSandbox'
+import { backgroundProcessManager } from '@/ai/services/background/BackgroundProcessManager'
+import { getRequestContext } from '@/ai/shared/context/requestContext'
 
 /** 检测命令中可能存在的未加引号的中文路径。 */
 function detectUnquotedCjkPaths(command: string): string | null {
@@ -51,20 +53,43 @@ export const bashTool = tool({
       sandboxDirs: resolveCommandSandboxDirs(),
     })
   },
-  execute: async ({ command, timeout, run_in_background }): Promise<string> => {
-    // 后台运行模式暂未支持
-    if (run_in_background) {
-      // 目前仍然同步执行，后续可扩展
+  execute: async ({
+    command,
+    description,
+    timeout,
+    run_in_background,
+  }): Promise<string | {
+    task_id: string
+    pid: number
+    status: 'running'
+    background_info: string
+  }> => {
+    const expandedCommand = expandPathTemplateVars(command)
+    const { cwd } = resolveToolWorkdir({})
+
+    if (run_in_background === true) {
+      const ctx = getRequestContext()
+      const sessionId = ctx?.sessionId
+      if (!sessionId) {
+        throw new Error('Bash(run_in_background) requires an active chat session.')
+      }
+      const ownerAgentId = ctx?.agentStack?.[ctx.agentStack.length - 1]?.agentId
+      const task = await backgroundProcessManager.spawnBash({
+        sessionId,
+        command: expandedCommand,
+        description: description ?? expandedCommand,
+        ownerAgentId,
+        env: buildExecEnv({}),
+        cwd,
+      })
+      return {
+        task_id: task.id,
+        pid: task.pid,
+        status: 'running',
+        background_info: `Command backgrounded as task ${task.id} (pid ${task.pid}). Use BgOutput(task_id) to read output, BgKill(task_id) to stop.`,
+      }
     }
 
-    // Expand template variables (${CURRENT_CHAT_DIR}, ${CURRENT_PROJECT_ROOT},
-    // ${HOME}) in the command string so AI can write readable commands like
-    //   grep -oE 'src="[^"]+"' ${CURRENT_CHAT_DIR}/webfetch/foo.html
-    // instead of having to paste a 28-char session id into the path.
-    const expandedCommand = expandPathTemplateVars(command)
-
-    // 使用项目根目录作为 cwd
-    const { cwd } = resolveToolWorkdir({})
     const { file, args } = buildShellCommand(expandedCommand)
 
     const timeoutMs = Math.min(timeout ?? 120_000, 600_000)

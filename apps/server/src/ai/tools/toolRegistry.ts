@@ -46,6 +46,7 @@ import { requestUserInputTool } from "@/ai/tools/requestUserInputTool";
 import { jsxCreateTool } from "@/ai/tools/jsxCreateTool";
 import { chartRenderTool } from "@/ai/tools/chartTools";
 import { scheduledTaskManageTool, scheduledTaskStatusTool, scheduledTaskWaitTool } from "@/ai/tools/scheduleTools";
+import { bgListTool, bgOutputTool, bgKillTool } from "@/ai/tools/bgTaskTools";
 import { memorySaveTool, memorySearchTool, memoryGetTool } from "@/ai/tools/memoryTools";
 import { openUrlToolDef } from "@openloaf/api/types/tools/browser";
 import {
@@ -91,6 +92,11 @@ import {
   scheduledTaskStatusToolDef,
   scheduledTaskWaitToolDef,
 } from "@openloaf/api/types/tools/scheduledTask";
+import {
+  bgListToolDef,
+  bgOutputToolDef,
+  bgKillToolDef,
+} from "@openloaf/api/types/tools/bgTask";
 import {
   memorySaveToolDef,
   memorySearchToolDef,
@@ -315,6 +321,15 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
   [scheduledTaskWaitToolDef.id]: {
     tool: scheduledTaskWaitTool,
   },
+  [bgListToolDef.id]: {
+    tool: bgListTool,
+  },
+  [bgOutputToolDef.id]: {
+    tool: bgOutputTool,
+  },
+  [bgKillToolDef.id]: {
+    tool: bgKillTool,
+  },
   [imageProcessToolDef.id]: {
     tool: imageProcessTool,
   },
@@ -403,6 +418,9 @@ const TOOL_DEF_REGISTRY: Record<string, { parameters?: any }> = {
   [scheduledTaskManageToolDef.id]: scheduledTaskManageToolDef,
   [scheduledTaskStatusToolDef.id]: scheduledTaskStatusToolDef,
   [scheduledTaskWaitToolDef.id]: scheduledTaskWaitToolDef,
+  [bgListToolDef.id]: bgListToolDef,
+  [bgOutputToolDef.id]: bgOutputToolDef,
+  [bgKillToolDef.id]: bgKillToolDef,
   [imageProcessToolDef.id]: imageProcessToolDef,
   [videoConvertToolDef.id]: videoConvertToolDef,
   [videoDownloadToolDef.id]: videoDownloadToolDef,

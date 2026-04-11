@@ -54,6 +54,11 @@ import {
   scheduledTaskStatusToolDef,
   scheduledTaskWaitToolDef,
 } from "./scheduledTask";
+import {
+  bgListToolDef,
+  bgOutputToolDef,
+  bgKillToolDef,
+} from "./bgTask";
 import { imageProcessToolDef } from "./imageProcess";
 import { videoConvertToolDef } from "./videoConvert";
 import { videoDownloadToolDef } from "./videoDownload";
@@ -125,6 +130,9 @@ const TOOL_DEFS: ToolDefLike[] = [
   scheduledTaskManageToolDef,
   scheduledTaskStatusToolDef,
   scheduledTaskWaitToolDef,
+  bgListToolDef,
+  bgOutputToolDef,
+  bgKillToolDef,
   imageProcessToolDef,
   videoConvertToolDef,
   videoDownloadToolDef,
@@ -187,6 +195,9 @@ const TOOL_KEYWORDS: Record<string, { keywords: string[]; group: string }> = {
   'BoardMutate': { keywords: ['board', 'canvas', 'whiteboard', 'drawing', 'create', 'delete', 'update', 'duplicate', 'clear', 'pin', '画布', '白板'], group: 'board' },
   'ScheduledTaskManage': { keywords: ['task', 'todo', 'reminder', 'schedule', 'create', 'manage', 'cancel'], group: 'task' },
   'ScheduledTaskStatus': { keywords: ['task', 'status', 'progress', 'check', 'query', 'active'], group: 'task' },
+  'BgList': { keywords: ['background', 'bg', 'list', 'process', 'running', 'shell', 'agent'], group: 'background' },
+  'BgOutput': { keywords: ['background', 'bg', 'output', 'read', 'wait', 'block', 'shell', 'log'], group: 'background' },
+  'BgKill': { keywords: ['background', 'bg', 'kill', 'terminate', 'cancel', 'stop', 'process'], group: 'background' },
   'ExcelQuery': { keywords: ['excel', 'spreadsheet', 'xlsx', 'csv', 'sheet', 'cell', 'read'], group: 'office' },
   'ExcelMutate': { keywords: ['excel', 'spreadsheet', 'xlsx', 'create', 'write', 'formula'], group: 'office' },
   'WordQuery': { keywords: ['word', 'docx', 'document', 'read', 'text', 'html', 'markdown'], group: 'office' },

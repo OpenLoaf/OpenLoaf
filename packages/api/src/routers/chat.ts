@@ -182,6 +182,20 @@ const getSubAgentHistoryInputSchema = z.object({
   toolCallId: z.string().min(1),
 })
 
+/** Background process summary transported to the frontend. */
+export type BackgroundTaskSummary = {
+  id: string
+  kind: 'shell' | 'agent'
+  status: 'running' | 'completed' | 'failed' | 'killed'
+  description: string
+  startTime: number
+  endTime?: number
+  pid?: number
+  command?: string
+  agentId?: string
+  exitCode?: number
+}
+
 /** Session update event yielded by onSessionUpdate subscription. */
 export type SessionUpdateEvent =
   | {
@@ -204,6 +218,10 @@ export type SessionUpdateEvent =
       status: string
       previousStatus: string
       title: string
+    }
+  | {
+      type: 'bg-task-update'
+      task: BackgroundTaskSummary
     }
 
 export const chatRouter = t.router({
@@ -611,6 +629,27 @@ export const chatRouter = t.router({
 
       return session
     }),
+  /**
+   * Cancel a running background task (shell or agent). Server-side implementation
+   * checks ownership by sessionId before killing.
+   */
+  cancelBackgroundProcess: shieldedProcedure
+    .input(z.object({ taskId: z.string().min(1), sessionId: z.string().min(1) }))
+    .mutation(
+      async (): Promise<{ ok: boolean; status: 'killed' | 'already-done' | 'not-found' }> => {
+        throw new Error('Not implemented: override in server chat router.')
+      },
+    ),
+
+  /**
+   * List background tasks currently registered for a session.
+   */
+  listBackgroundProcesses: shieldedProcedure
+    .input(z.object({ sessionId: z.string().min(1) }))
+    .query(async (): Promise<{ tasks: BackgroundTaskSummary[] }> => {
+      throw new Error('Not implemented: override in server chat router.')
+    }),
+
   /** List plan files for a session — implementation in server. */
   listPlanFiles: shieldedProcedure
     .input(z.object({ sessionId: z.string().min(1) }))
