@@ -10,8 +10,6 @@
 
 import type { UIMessageChunk } from "ai";
 import { useChatRuntime } from "@/hooks/use-chat-runtime";
-import { useRuntimeTasks } from "@/hooks/use-runtime-tasks";
-import type { RuntimeTask } from "@openloaf/api/types/tools/runtimeTask";
 
 type SubAgentDataPayload = {
   toolCallId?: string;
@@ -167,44 +165,6 @@ export function handlePlanFileDataPart(input: {
   const status = typeof data.status === "string" ? data.status : "active";
   if (planNo > 0 && filePath && input.onPlanFile) {
     input.onPlanFile({ planNo, filePath, actionName, status });
-  }
-  return true;
-}
-
-/** Validate that an incoming task payload has the minimum required shape. */
-function isValidTaskPayload(v: unknown): v is RuntimeTask {
-  if (!v || typeof v !== "object") return false;
-  const t = v as Record<string, unknown>;
-  return (
-    typeof t.id === "string" &&
-    t.id.length > 0 &&
-    typeof t.subject === "string" &&
-    typeof t.status === "string" &&
-    Array.isArray(t.blocks) &&
-    Array.isArray(t.blockedBy)
-  );
-}
-
-/** Handle runtime task data parts from SSE stream — updates runtime tasks store. */
-export function handleRuntimeTaskDataPart(input: {
-  dataPart: any;
-  sessionId: string;
-}) {
-  if (input.dataPart?.type !== "data-runtime-task") return false;
-  const data = input.dataPart?.data;
-  if (!data || typeof data !== "object") return true;
-  const seq = typeof data.seq === "number" ? data.seq : 0;
-  const event = typeof data.event === "string" ? data.event : "";
-  const store = useRuntimeTasks.getState();
-  if (event === "created" && isValidTaskPayload(data.task)) {
-    store.applyEvent(input.sessionId, { seq, kind: "created", task: data.task });
-  } else if (event === "updated" && isValidTaskPayload(data.task)) {
-    store.applyEvent(input.sessionId, { seq, kind: "updated", task: data.task });
-  } else if (event === "deleted" && typeof data.taskId === "string") {
-    store.applyEvent(input.sessionId, { seq, kind: "deleted", taskId: data.taskId });
-  } else if (event === "snapshot" && data.snapshot && Array.isArray(data.snapshot.tasks)) {
-    const validTasks = (data.snapshot.tasks as unknown[]).filter(isValidTaskPayload);
-    store.applyEvent(input.sessionId, { seq, kind: "snapshot", tasks: validTasks });
   }
   return true;
 }

@@ -63,7 +63,11 @@ import {
   generateWidgetToolDef,
 } from "@openloaf/api/types/tools/widget";
 import { subAgentToolDef } from "@openloaf/api/types/tools/subAgent";
-import { createTaskToolDef, taskStatusToolDef } from "@openloaf/api/types/tools/task";
+import {
+  scheduledTaskManageToolDef,
+  scheduledTaskStatusToolDef,
+  scheduledTaskWaitToolDef,
+} from "@openloaf/api/types/tools/scheduledTask";
 
 type ToolDefLike = { id: string; parameters: any };
 
@@ -105,8 +109,9 @@ const ALL_TOOL_DEFS: ToolDefLike[] = [
   jsxCreateToolDef,
   subAgentToolDef,
   chartRenderToolDef,
-  createTaskToolDef,
-  taskStatusToolDef,
+  scheduledTaskManageToolDef,
+  scheduledTaskStatusToolDef,
+  scheduledTaskWaitToolDef,
 ];
 
 function main() {

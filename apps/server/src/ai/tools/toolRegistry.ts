@@ -24,12 +24,6 @@ import {
   widgetInitTool,
   widgetListTool,
 } from "@/ai/tools/widgetTools";
-import { taskCreateTool, taskUpdateTool, taskReadTool } from "@/ai/tools/runtimeTaskTools";
-import {
-  taskCreateToolDef,
-  taskUpdateToolDef,
-  taskReadToolDef,
-} from "@openloaf/api/types/tools/runtimeTask";
 import { submitPlanTool } from "@/ai/tools/submitPlanTool";
 import { savePlanDraftTool } from "@/ai/tools/savePlanDraftTool";
 import { projectMutateTool, projectQueryTool } from "@/ai/tools/projectTools";
@@ -51,7 +45,7 @@ import { loadSkillTool } from "@/ai/tools/loadSkillTool";
 import { requestUserInputTool } from "@/ai/tools/requestUserInputTool";
 import { jsxCreateTool } from "@/ai/tools/jsxCreateTool";
 import { chartRenderTool } from "@/ai/tools/chartTools";
-import { taskManageTool, taskStatusTool } from "@/ai/tools/taskTools";
+import { scheduledTaskManageTool, scheduledTaskStatusTool, scheduledTaskWaitTool } from "@/ai/tools/scheduleTools";
 import { memorySaveTool, memorySearchTool, memoryGetTool } from "@/ai/tools/memoryTools";
 import { openUrlToolDef } from "@openloaf/api/types/tools/browser";
 import {
@@ -93,9 +87,10 @@ import { requestUserInputToolDef } from "@openloaf/api/types/tools/userInput";
 import { jsxCreateToolDef } from "@openloaf/api/types/tools/jsxCreate";
 import { chartRenderToolDef } from "@openloaf/api/types/tools/chart";
 import {
-  taskManageToolDef,
-  taskStatusToolDef,
-} from "@openloaf/api/types/tools/task";
+  scheduledTaskManageToolDef,
+  scheduledTaskStatusToolDef,
+  scheduledTaskWaitToolDef,
+} from "@openloaf/api/types/tools/scheduledTask";
 import {
   memorySaveToolDef,
   memorySearchToolDef,
@@ -233,15 +228,6 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
   [grepToolDef.id]: {
     tool: grepTool,
   },
-  [taskCreateToolDef.id]: {
-    tool: taskCreateTool,
-  },
-  [taskUpdateToolDef.id]: {
-    tool: taskUpdateTool,
-  },
-  [taskReadToolDef.id]: {
-    tool: taskReadTool,
-  },
   [submitPlanToolDef.id]: {
     tool: submitPlanTool,
   },
@@ -320,11 +306,14 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
   [chartRenderToolDef.id]: {
     tool: chartRenderTool,
   },
-  [taskManageToolDef.id]: {
-    tool: taskManageTool,
+  [scheduledTaskManageToolDef.id]: {
+    tool: scheduledTaskManageTool,
   },
-  [taskStatusToolDef.id]: {
-    tool: taskStatusTool,
+  [scheduledTaskStatusToolDef.id]: {
+    tool: scheduledTaskStatusTool,
+  },
+  [scheduledTaskWaitToolDef.id]: {
+    tool: scheduledTaskWaitTool,
   },
   [imageProcessToolDef.id]: {
     tool: imageProcessTool,
@@ -385,9 +374,6 @@ const TOOL_DEF_REGISTRY: Record<string, { parameters?: any }> = {
   [editDocumentToolDef.id]: editDocumentToolDef,
   [globToolDef.id]: globToolDef,
   [grepToolDef.id]: grepToolDef,
-  [taskCreateToolDef.id]: taskCreateToolDef,
-  [taskUpdateToolDef.id]: taskUpdateToolDef,
-  [taskReadToolDef.id]: taskReadToolDef,
   [submitPlanToolDef.id]: submitPlanToolDef,
   [savePlanDraftToolDef.id]: savePlanDraftToolDef,
   [projectQueryToolDef.id]: projectQueryToolDef,
@@ -414,8 +400,9 @@ const TOOL_DEF_REGISTRY: Record<string, { parameters?: any }> = {
   [requestUserInputToolDef.id]: requestUserInputToolDef,
   [jsxCreateToolDef.id]: jsxCreateToolDef,
   [chartRenderToolDef.id]: chartRenderToolDef,
-  [taskManageToolDef.id]: taskManageToolDef,
-  [taskStatusToolDef.id]: taskStatusToolDef,
+  [scheduledTaskManageToolDef.id]: scheduledTaskManageToolDef,
+  [scheduledTaskStatusToolDef.id]: scheduledTaskStatusToolDef,
+  [scheduledTaskWaitToolDef.id]: scheduledTaskWaitToolDef,
   [imageProcessToolDef.id]: imageProcessToolDef,
   [videoConvertToolDef.id]: videoConvertToolDef,
   [videoDownloadToolDef.id]: videoDownloadToolDef,

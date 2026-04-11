@@ -49,7 +49,11 @@ import {
   generateWidgetToolDef,
 } from "./widget";
 import { subAgentToolDef } from "./subAgent";
-import { taskManageToolDef, taskStatusToolDef } from "./task";
+import {
+  scheduledTaskManageToolDef,
+  scheduledTaskStatusToolDef,
+  scheduledTaskWaitToolDef,
+} from "./scheduledTask";
 import { imageProcessToolDef } from "./imageProcess";
 import { videoConvertToolDef } from "./videoConvert";
 import { videoDownloadToolDef } from "./videoDownload";
@@ -118,8 +122,9 @@ const TOOL_DEFS: ToolDefLike[] = [
   jsxCreateToolDef,
   subAgentToolDef,
   chartRenderToolDef,
-  taskManageToolDef,
-  taskStatusToolDef,
+  scheduledTaskManageToolDef,
+  scheduledTaskStatusToolDef,
+  scheduledTaskWaitToolDef,
   imageProcessToolDef,
   videoConvertToolDef,
   videoDownloadToolDef,
@@ -180,8 +185,8 @@ const TOOL_KEYWORDS: Record<string, { keywords: string[]; group: string }> = {
   'ProjectMutate': { keywords: ['project', 'database', 'create', 'update', 'delete', 'modify', 'write'], group: 'db' },
   'BoardQuery': { keywords: ['board', 'canvas', 'whiteboard', 'drawing', 'list', 'query', 'search', '画布', '白板'], group: 'board' },
   'BoardMutate': { keywords: ['board', 'canvas', 'whiteboard', 'drawing', 'create', 'delete', 'update', 'duplicate', 'clear', 'pin', '画布', '白板'], group: 'board' },
-  'TaskManage': { keywords: ['task', 'todo', 'reminder', 'schedule', 'create', 'manage', 'cancel'], group: 'task' },
-  'TaskStatus': { keywords: ['task', 'status', 'progress', 'check', 'query', 'active'], group: 'task' },
+  'ScheduledTaskManage': { keywords: ['task', 'todo', 'reminder', 'schedule', 'create', 'manage', 'cancel'], group: 'task' },
+  'ScheduledTaskStatus': { keywords: ['task', 'status', 'progress', 'check', 'query', 'active'], group: 'task' },
   'ExcelQuery': { keywords: ['excel', 'spreadsheet', 'xlsx', 'csv', 'sheet', 'cell', 'read'], group: 'office' },
   'ExcelMutate': { keywords: ['excel', 'spreadsheet', 'xlsx', 'create', 'write', 'formula'], group: 'office' },
   'WordQuery': { keywords: ['word', 'docx', 'document', 'read', 'text', 'html', 'markdown'], group: 'office' },

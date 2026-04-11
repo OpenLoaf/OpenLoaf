@@ -38,10 +38,6 @@ export const masterTemplate: AgentTemplate = {
     'SendMessage',
   ],
   deferredToolIds: [
-    // runtime task tracking (Master-only, activated via runtime-task-ops skill)
-    'TaskCreate',
-    'TaskUpdate',
-    'TaskRead',
     // system
     'JsxCreate',
     'FileInfo',
@@ -98,9 +94,10 @@ export const masterTemplate: AgentTemplate = {
     'MemorySave',
     'MemorySearch',
     'MemoryGet',
-    // task
-    'TaskManage',
-    'TaskStatus',
+    // scheduled task
+    'ScheduledTaskManage',
+    'ScheduledTaskStatus',
+    'ScheduledTaskWait',
   ],
   allowSubAgents: true,
   maxDepth: 2,

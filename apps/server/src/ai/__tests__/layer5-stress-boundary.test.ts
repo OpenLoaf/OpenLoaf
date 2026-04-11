@@ -39,7 +39,7 @@ import {
   streamSessionManager,
   type StreamEvent,
 } from '@/ai/services/chat/streamSessionManager'
-import { taskEventBus, type TaskReportEvent } from '@/services/taskEventBus'
+import { scheduleEventBus, type ScheduleReportEvent } from '@/services/scheduleEventBus'
 import { printSection, printPass, printFail, printDuration } from './helpers/printUtils'
 
 // ---------------------------------------------------------------------------
@@ -181,7 +181,7 @@ async function main() {
   tempDir = path.join(os.tmpdir(), `openloaf-layer5-${Date.now()}`)
   mkdirSync(tempDir, { recursive: true })
   setOpenLoafRootOverride(tempDir)
-  taskEventBus.removeAllListeners()
+  scheduleEventBus.removeAllListeners()
 
   printSection('Layer 5: 压力/边界测试')
 
@@ -472,25 +472,24 @@ async function main() {
     streamSessionManager.abort(sessionId)
   })
 
-  // ── F: taskEventBus 高频事件 ──
-  printSection('F: taskEventBus 高频事件')
+  // ── F: scheduleEventBus 高频事件 ──
+  printSection('F: scheduleEventBus 高频事件')
 
   await test('F1: 快速发 50 个 taskReport 事件 → 全部按序到达', () => {
-    taskEventBus.removeAllListeners()
+    scheduleEventBus.removeAllListeners()
 
-    const received: TaskReportEvent[] = []
-    const cleanup = taskEventBus.onTaskReport((event) => {
+    const received: ScheduleReportEvent[] = []
+    const cleanup = scheduleEventBus.onScheduleReport((event) => {
       received.push(event)
     })
 
     for (let i = 0; i < 50; i++) {
-      taskEventBus.emitTaskReport({
+      scheduleEventBus.emitScheduleReport({
         taskId: `rapid-${i}`,
         sourceSessionId: 'session-rapid',
         status: i % 3 === 0 ? 'failed' : 'completed',
         title: `Task ${i}`,
         summary: `Summary ${i}`,
-        messageId: `msg-${i}`,
       })
     }
 
@@ -502,15 +501,15 @@ async function main() {
     }
 
     cleanup()
-    taskEventBus.removeAllListeners()
+    scheduleEventBus.removeAllListeners()
   })
 
   await test('F2: 多 session 事件过滤性能', () => {
-    taskEventBus.removeAllListeners()
+    scheduleEventBus.removeAllListeners()
 
     const targetSession = 'target-perf'
-    const targetEvents: TaskReportEvent[] = []
-    const cleanup = taskEventBus.onTaskReport((event) => {
+    const targetEvents: ScheduleReportEvent[] = []
+    const cleanup = scheduleEventBus.onScheduleReport((event) => {
       if (event.sourceSessionId === targetSession) {
         targetEvents.push(event)
       }
@@ -519,13 +518,12 @@ async function main() {
     const start = Date.now()
     // 发 100 个事件，其中只有 10 个属于目标 session
     for (let i = 0; i < 100; i++) {
-      taskEventBus.emitTaskReport({
+      scheduleEventBus.emitScheduleReport({
         taskId: `perf-${i}`,
         sourceSessionId: i % 10 === 0 ? targetSession : `other-session-${i}`,
         status: 'completed',
         title: `Task ${i}`,
         summary: `Summary ${i}`,
-        messageId: `msg-${i}`,
       })
     }
 
@@ -535,11 +533,11 @@ async function main() {
     console.log(`  100 events + filter: ${elapsed}ms`)
 
     cleanup()
-    taskEventBus.removeAllListeners()
+    scheduleEventBus.removeAllListeners()
   })
 
   // ── 汇总 ──
-  taskEventBus.removeAllListeners()
+  scheduleEventBus.removeAllListeners()
   await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {})
 
   console.log(`\n${'='.repeat(50)}`)

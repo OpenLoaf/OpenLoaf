@@ -34,7 +34,7 @@ import ImageProcessTool from './ImageProcessTool'
 import BrowserSnapshotTool from './BrowserSnapshotTool'
 import BrowserScreenshotTool from './BrowserScreenshotTool'
 import VideoDownloadTool from './VideoDownloadTool'
-import TaskTool from './TaskTool'
+import ScheduledTaskTool from './ScheduledTaskTool'
 import ClaudeCodeBashTool from './ClaudeCodeBashTool'
 import ClaudeCodeReadTool from './ClaudeCodeReadTool'
 import ClaudeCodeWriteTool from './ClaudeCodeWriteTool'
@@ -124,7 +124,7 @@ export const TOOL_REGISTRY: ToolRegistryEntry[] = [
   { match: 'VideoDownload', component: VideoDownloadTool as ComponentType<ToolComponentProps> },
   { match: ['BrowserSnapshot', 'BrowserObserve'], component: BrowserSnapshotTool as ComponentType<ToolComponentProps> },
   { match: 'BrowserScreenshot', component: BrowserScreenshotTool as ComponentType<ToolComponentProps> },
-  { match: ['TaskManage', 'CreateTask'], component: TaskTool as ComponentType<ToolComponentProps> },
+  { match: ['ScheduledTaskManage'], component: ScheduledTaskTool as ComponentType<ToolComponentProps> },
   { match: 'ProjectMutate', component: ProjectMutateTool as ComponentType<ToolComponentProps> },
   { match: 'FileInfo', component: FileInfoTool as ComponentType<ToolComponentProps> },
   { match: 'WebFetch', component: ClaudeCodeWebTool as ComponentType<ToolComponentProps>, extraProps: { kind: 'webfetch' } },

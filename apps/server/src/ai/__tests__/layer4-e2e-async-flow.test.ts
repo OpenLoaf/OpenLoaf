@@ -12,13 +12,13 @@
  *
  * 模拟完整异步流程：
  * 1. 用户发消息 → Master Agent 调用 → 回复 → SSE 关闭
- * 2. 子 Agent 后台运行 → 完成 → taskEventBus emit → tRPC 推送
+ * 2. 子 Agent 后台运行 → 完成 → scheduleEventBus emit → tRPC 推送
  * 3. 用户在子 Agent 运行期间发第二条消息
  * 4. 子 Agent 失败 → 错误推送
  * 5. 子 Agent abort
  * 6. 多子 Agent 并发
  *
- * 本文件使用 mock LLM + 真实 streamSessionManager + 真实 taskEventBus，
+ * 本文件使用 mock LLM + 真实 streamSessionManager + 真实 scheduleEventBus，
  * 属于集成 E2E 测试。
  *
  * 用法：
@@ -29,7 +29,7 @@
 import assert from 'node:assert/strict'
 import { EventEmitter } from 'node:events'
 import { printSection, printPass, printFail } from './helpers/printUtils'
-import { taskEventBus, type TaskReportEvent } from '@/services/taskEventBus'
+import { scheduleEventBus, type ScheduleReportEvent } from '@/services/scheduleEventBus'
 import { streamSessionManager, type StreamEvent } from '@/ai/services/chat/streamSessionManager'
 
 // ---------------------------------------------------------------------------
@@ -102,15 +102,15 @@ function buildMockMasterResponse(opts: {
 }
 
 // ---------------------------------------------------------------------------
-// Mock: 模拟异步协作的事件桥（agentManager → taskEventBus）
+// Mock: 模拟异步协作的事件桥（agentManager → scheduleEventBus）
 //
 // 在真实实现中，这是 agentManager.complete() → emit event → tRPC subscription
-// 这里我们直接测试 taskEventBus 和 streamSessionManager 的集成
+// 这里我们直接测试 scheduleEventBus 和 streamSessionManager 的集成
 // ---------------------------------------------------------------------------
 
 /**
  * 模拟子 Agent 完成的完整推送链：
- * agentManager.complete → taskEventBus.emitTaskReport → 前端收到
+ * agentManager.complete → scheduleEventBus.emitScheduleReport → 前端收到
  */
 function simulateSubAgentComplete(input: {
   agentId: string
@@ -118,13 +118,12 @@ function simulateSubAgentComplete(input: {
   agentName: string
   summary: string
 }): void {
-  taskEventBus.emitTaskReport({
+  scheduleEventBus.emitScheduleReport({
     taskId: input.agentId,
     sourceSessionId: input.sessionId,
     status: 'completed',
     title: `Agent ${input.agentName} completed`,
     summary: input.summary,
-    messageId: `msg-report-${input.agentId}`,
   })
 }
 
@@ -134,13 +133,12 @@ function simulateSubAgentFailed(input: {
   agentName: string
   error: string
 }): void {
-  taskEventBus.emitTaskReport({
+  scheduleEventBus.emitScheduleReport({
     taskId: input.agentId,
     sourceSessionId: input.sessionId,
     status: 'failed',
     title: `Agent ${input.agentName} failed`,
     summary: input.error,
-    messageId: `msg-report-${input.agentId}`,
   })
 }
 
@@ -150,7 +148,7 @@ function simulateSubAgentFailed(input: {
 
 async function main() {
   // 每次测试前清理 listeners
-  taskEventBus.removeAllListeners()
+  scheduleEventBus.removeAllListeners()
 
   printSection('Layer 4: E2E 异步协作完整流程')
 
@@ -162,8 +160,8 @@ async function main() {
     const agentId = 'agent_async_a1'
 
     // 步骤 1: 监听 taskReport 事件（模拟 tRPC subscription）
-    const reportEvents: TaskReportEvent[] = []
-    const cleanup = taskEventBus.onTaskReport((event) => {
+    const reportEvents: ScheduleReportEvent[] = []
+    const cleanup = scheduleEventBus.onScheduleReport((event) => {
       if (event.sourceSessionId === sessionId) {
         reportEvents.push(event)
       }
@@ -208,8 +206,8 @@ async function main() {
     const sessionId = uniqueId('session')
     const agentId = 'agent_async_b1'
 
-    const reportEvents: TaskReportEvent[] = []
-    const cleanup = taskEventBus.onTaskReport((event) => {
+    const reportEvents: ScheduleReportEvent[] = []
+    const cleanup = scheduleEventBus.onScheduleReport((event) => {
       if (event.sourceSessionId === sessionId) {
         reportEvents.push(event)
       }
@@ -255,8 +253,8 @@ async function main() {
     const sessionId = uniqueId('session')
     const agentId = 'agent_async_c1'
 
-    const reportEvents: TaskReportEvent[] = []
-    const cleanup = taskEventBus.onTaskReport((event) => {
+    const reportEvents: ScheduleReportEvent[] = []
+    const cleanup = scheduleEventBus.onScheduleReport((event) => {
       if (event.sourceSessionId === sessionId) {
         reportEvents.push(event)
       }
@@ -290,8 +288,8 @@ async function main() {
   await test('D1: abort 子 Agent → 不再收到 report', async () => {
     const sessionId = uniqueId('session')
 
-    const reportEvents: TaskReportEvent[] = []
-    const cleanup = taskEventBus.onTaskReport((event) => {
+    const reportEvents: ScheduleReportEvent[] = []
+    const cleanup = scheduleEventBus.onScheduleReport((event) => {
       if (event.sourceSessionId === sessionId) {
         reportEvents.push(event)
       }
@@ -321,8 +319,8 @@ async function main() {
     const sessionId = uniqueId('session')
     const agentIds = ['agent_e1_a', 'agent_e1_b', 'agent_e1_c']
 
-    const reportEvents: TaskReportEvent[] = []
-    const cleanup = taskEventBus.onTaskReport((event) => {
+    const reportEvents: ScheduleReportEvent[] = []
+    const cleanup = scheduleEventBus.onScheduleReport((event) => {
       if (event.sourceSessionId === sessionId) {
         reportEvents.push(event)
       }
@@ -355,8 +353,8 @@ async function main() {
   await test('E2: 混合成功和失败 → 各自正确推送', async () => {
     const sessionId = uniqueId('session')
 
-    const reportEvents: TaskReportEvent[] = []
-    const cleanup = taskEventBus.onTaskReport((event) => {
+    const reportEvents: ScheduleReportEvent[] = []
+    const cleanup = scheduleEventBus.onScheduleReport((event) => {
       if (event.sourceSessionId === sessionId) {
         reportEvents.push(event)
       }
@@ -379,16 +377,16 @@ async function main() {
   // ── F: tRPC subscription 模拟 ──
   printSection('F: tRPC subscription 断连重连')
 
-  await test('F1: 前端断连期间的事件不丢失（依赖 taskEventBus 持久化策略）', async () => {
+  await test('F1: 前端断连期间的事件不丢失（依赖 scheduleEventBus 持久化策略）', async () => {
     const sessionId = uniqueId('session')
 
     // 场景：前端订阅 → 断连 → 子 Agent 完成 → 前端重连
-    // taskEventBus 是内存级 EventEmitter，断连期间的事件会丢失
+    // scheduleEventBus 是内存级 EventEmitter，断连期间的事件会丢失
     // 但 task-report 消息已写入 JSONL，前端重连后通过 loadMessageChain 获取
     // 此测试验证设计意图
 
-    const earlyEvents: TaskReportEvent[] = []
-    const earlyCleanup = taskEventBus.onTaskReport((event) => {
+    const earlyEvents: ScheduleReportEvent[] = []
+    const earlyCleanup = scheduleEventBus.onScheduleReport((event) => {
       if (event.sourceSessionId === sessionId) {
         earlyEvents.push(event)
       }
@@ -409,8 +407,8 @@ async function main() {
     })
 
     // 前端重连后重新订阅
-    const lateEvents: TaskReportEvent[] = []
-    const lateCleanup = taskEventBus.onTaskReport((event) => {
+    const lateEvents: ScheduleReportEvent[] = []
+    const lateCleanup = scheduleEventBus.onScheduleReport((event) => {
       if (event.sourceSessionId === sessionId) {
         lateEvents.push(event)
       }
@@ -433,7 +431,7 @@ async function main() {
   })
 
   // ── 汇总 ──
-  taskEventBus.removeAllListeners()
+  scheduleEventBus.removeAllListeners()
 
   console.log(`\n${'='.repeat(50)}`)
   console.log(`Layer 4 E2E async flow: ${passed} passed, ${failed} failed`)

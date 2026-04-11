@@ -17,8 +17,8 @@ import { resolveOpenLoafPath } from "@openloaf/config";
 import { attachTerminalWebSocket } from "@/modules/terminal/terminalWebSocket";
 import { attachBoardCollabWebSocket } from "@/modules/board/boardCollabWebSocket";
 import { startEmailIdleManager } from "@/modules/email/emailIdleManager";
-import { taskScheduler } from "@/services/taskScheduler";
-import { taskOrchestrator } from "@/services/taskOrchestrator";
+import { scheduleTimerRegistry } from "@/services/scheduleTimerRegistry";
+import { scheduleOrchestrator } from "@/services/scheduleOrchestrator";
 
 /**
  * 启动 HTTP/2（默认）或 HTTP/1.1（降级）server。
@@ -102,8 +102,8 @@ export function startServer() {
       );
       logger.info({ hostname, port: actualPort }, "Server started successfully");
       void startEmailIdleManager();
-      void taskScheduler.start();
-      taskOrchestrator.start();
+      void scheduleTimerRegistry.start();
+      scheduleOrchestrator.start();
     });
   } else {
     httpServer.listen(port, hostname, () => {
@@ -118,8 +118,8 @@ export function startServer() {
       );
       logger.info({ hostname, port: actualPort }, "Server started successfully");
       void startEmailIdleManager();
-      void taskScheduler.start();
-      taskOrchestrator.start();
+      void scheduleTimerRegistry.start();
+      scheduleOrchestrator.start();
     });
   }
 

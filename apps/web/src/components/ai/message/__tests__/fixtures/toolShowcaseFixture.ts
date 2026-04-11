@@ -601,9 +601,9 @@ const projectTaskEmailParts: ToolShowcasePart[] = [
     },
   },
   {
-    type: 'tool-TaskManage',
+    type: 'tool-ScheduledTaskManage',
     toolCallId: callId(),
-    toolName: 'TaskManage',
+    toolName: 'ScheduledTaskManage',
     state: 'output-available',
     input: {
       action: 'create',

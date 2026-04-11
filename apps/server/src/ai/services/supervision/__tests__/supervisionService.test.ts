@@ -80,7 +80,7 @@ async function main() {
     'Read', 'Glob', 'Grep',
     'BrowserSnapshot', 'BrowserObserve', 'BrowserExtract',
     'ProjectQuery', 'CalendarQuery', 'EmailQuery',
-    'TaskStatus',
+    'ScheduledTaskStatus',
   ]
 
   for (const toolName of readOnlyTools) {

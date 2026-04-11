@@ -8,9 +8,9 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import { EventEmitter } from 'events'
-import type { TaskStatus, ReviewType, ExecutionSummary } from './taskConfigService'
+import type { TaskStatus, ReviewType, ExecutionSummary } from './scheduleConfigService'
 
-export type TaskStatusChangeEvent = {
+export type ScheduleStatusChangeEvent = {
   taskId: string
   status: TaskStatus
   previousStatus: TaskStatus
@@ -20,53 +20,53 @@ export type TaskStatusChangeEvent = {
   sourceSessionId?: string
 }
 
-export type TaskSummaryUpdateEvent = {
+export type ScheduleSummaryUpdateEvent = {
   taskId: string
   summary: ExecutionSummary
 }
 
-export type TaskReportEvent = {
+export type ScheduleReportEvent = {
   taskId: string
   sourceSessionId: string
   status: 'completed' | 'failed'
   title: string
   summary: string
-  messageId: string
+  agentName?: string
 }
 
-class TaskEventBus extends EventEmitter {
-  emitStatusChange(event: TaskStatusChangeEvent) {
+class ScheduleEventBus extends EventEmitter {
+  emitStatusChange(event: ScheduleStatusChangeEvent) {
     this.emit('statusChange', event)
   }
 
-  onStatusChange(listener: (event: TaskStatusChangeEvent) => void) {
+  onStatusChange(listener: (event: ScheduleStatusChangeEvent) => void) {
     this.on('statusChange', listener)
     return () => {
       this.off('statusChange', listener)
     }
   }
 
-  emitSummaryUpdate(event: TaskSummaryUpdateEvent) {
+  emitSummaryUpdate(event: ScheduleSummaryUpdateEvent) {
     this.emit('summaryUpdate', event)
   }
 
-  onSummaryUpdate(listener: (event: TaskSummaryUpdateEvent) => void) {
+  onSummaryUpdate(listener: (event: ScheduleSummaryUpdateEvent) => void) {
     this.on('summaryUpdate', listener)
     return () => {
       this.off('summaryUpdate', listener)
     }
   }
 
-  emitTaskReport(event: TaskReportEvent) {
-    this.emit('taskReport', event)
+  emitScheduleReport(event: ScheduleReportEvent) {
+    this.emit('scheduleReport', event)
   }
 
-  onTaskReport(listener: (event: TaskReportEvent) => void) {
-    this.on('taskReport', listener)
+  onScheduleReport(listener: (event: ScheduleReportEvent) => void) {
+    this.on('scheduleReport', listener)
     return () => {
-      this.off('taskReport', listener)
+      this.off('scheduleReport', listener)
     }
   }
 }
 
-export const taskEventBus = new TaskEventBus()
+export const scheduleEventBus = new ScheduleEventBus()

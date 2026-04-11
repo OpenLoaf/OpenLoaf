@@ -17,7 +17,7 @@ import {
   rmSync,
 } from 'node:fs'
 import { v4 as uuidv4 } from 'uuid'
-import { createTask, type CreateTaskInput, type TaskConfig, type TaskScope } from './taskConfigService'
+import { createTask, type CreateTaskInput, type TaskConfig, type TaskScope } from './scheduleConfigService'
 
 const OPENLOAF_DIR = '.openloaf'
 const TEMPLATES_DIR = 'task-templates'

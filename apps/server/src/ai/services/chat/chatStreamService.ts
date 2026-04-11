@@ -74,12 +74,12 @@ import {
 } from "@/ai/tools/toolSearchState";
 import { MASTER_CORE_TOOL_IDS } from "@/ai/shared/coreToolIds";
 import { buildHardRules } from "@/ai/shared/hardRules";
-import { taskExecutor } from "@/services/taskExecutor";
+import { scheduleExecutor } from "@/services/scheduleExecutor";
 import {
   createTask as createTaskConfig,
   findActivePmTask,
   updateTask,
-} from "@/services/taskConfigService";
+} from "@/services/scheduleConfigService";
 import { extractSourceContextSnapshot } from "@/services/taskContextExtractor";
 import { getOpenLoafRootDir } from "@openloaf/config";
 import {
@@ -277,9 +277,9 @@ export async function runChatStream(input: {
         projectRoots,
       );
 
-      if (activePmTask && taskExecutor.isRunning(activePmTask.id)) {
+      if (activePmTask && scheduleExecutor.isRunning(activePmTask.id)) {
         // Append message to existing PM task
-        const sent = await taskExecutor.appendUserMessage(
+        const sent = await scheduleExecutor.appendUserMessage(
           activePmTask.id,
           mentionText,
           globalRoot,
@@ -315,7 +315,7 @@ export async function runChatStream(input: {
           '[chat] @agents/pm created new PM task',
         );
         // Start execution
-        void taskExecutor.execute(newTask.id, globalRoot, targetProjectRoot, input.saasAccessToken);
+        void scheduleExecutor.execute(newTask.id, globalRoot, targetProjectRoot, input.saasAccessToken);
       }
 
       // Return an ack response instead of running the master agent
@@ -592,7 +592,7 @@ export async function runChatStream(input: {
       });
     } else {
       // agentType: 'pm' — 使用专用 Agent
-      // 前端 transport 将 params 展平到顶层，taskExecutor 则放在 params 下——两处都要读取。
+      // 前端 transport 将 params 展平到顶层，scheduleExecutor 则放在 params 下——两处都要读取。
       const agentType = input.request.agentType ?? input.request.params?.agentType;
       const rawTaskId = input.request.taskId ?? input.request.params?.taskId;
       const taskId = typeof rawTaskId === 'string' ? rawTaskId : undefined;

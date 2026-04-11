@@ -18,7 +18,7 @@ import {
   type SessionUpdateEvent,
 } from '@openloaf/api'
 import { z } from 'zod'
-import { taskEventBus } from '@/services/taskEventBus'
+import { scheduleEventBus } from '@/services/scheduleEventBus'
 import { replaceFileTokensWithNames } from '@/common/chatTitle'
 import {
   getChatViewFromFile,
@@ -700,23 +700,26 @@ class ChatRouterImpl extends BaseChatRouter {
           const queue: SessionUpdateEvent[] = []
           let resolve: (() => void) | null = null
 
-          const cleanupReport = taskEventBus.onTaskReport((event) => {
+          const cleanupReport = scheduleEventBus.onScheduleReport((event) => {
             if (event.sourceSessionId !== input.sessionId) return
+            // schedule-report 作为独立通知事件推送，前端 NEVER 将其插入消息树。
+            // 见 .plans/openloaf/docs/chat-ai/task-completion-flow.md
             queue.push({
-              type: 'task-report',
-              messageId: event.messageId,
+              type: 'schedule-report',
+              kind: 'notification',
               taskId: event.taskId,
               status: event.status,
               title: event.title,
               summary: event.summary,
+              agentName: event.agentName,
             })
             resolve?.()
           })
 
-          const cleanupStatus = taskEventBus.onStatusChange((event) => {
+          const cleanupStatus = scheduleEventBus.onStatusChange((event) => {
             if (event.sourceSessionId !== input.sessionId) return
             queue.push({
-              type: 'TaskStatus-change',
+              type: 'ScheduledTaskStatus-change',
               taskId: event.taskId,
               status: event.status,
               previousStatus: event.previousStatus,

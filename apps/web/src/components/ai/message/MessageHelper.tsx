@@ -11,7 +11,7 @@
 
 import React from "react";
 import { useTranslation } from "react-i18next";
-import { useChatOptions } from "../context";
+import { useOptionalChatOptions } from "../context";
 import {
   ClipboardList,
   Code2,
@@ -35,11 +35,22 @@ type SuggestionItem = {
 const ICON_ORDER = [Sparkles, ClipboardList, Code2, FileText];
 const COLORS = ["text-muted-foreground", "text-muted-foreground", "text-muted-foreground", "text-muted-foreground"];
 
-export default function MessageHelper({
+export default function MessageHelper(props: { compact?: boolean; projectId?: string } = {}) {
+  // 在 Provider 缺失的环境下（如 TaskDetailPanel 复用 MessageList）不渲染建议卡片
+  const chatOptions = useOptionalChatOptions();
+  if (!chatOptions) return null;
+  return <MessageHelperInner {...props} setInput={chatOptions.setInput} />;
+}
+
+function MessageHelperInner({
   compact,
   projectId,
-}: { compact?: boolean; projectId?: string } = {}) {
-  const { setInput } = useChatOptions();
+  setInput,
+}: {
+  compact?: boolean;
+  projectId?: string;
+  setInput: React.Dispatch<React.SetStateAction<string>>;
+}) {
   const { t } = useTranslation('ai');
 
   // Build static suggestions from translation data (fallback)

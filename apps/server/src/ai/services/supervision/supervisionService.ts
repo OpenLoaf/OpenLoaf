@@ -13,7 +13,7 @@ import { needsApprovalForCommand } from '@/ai/tools/commandApproval'
 import { resolveCommandSandboxDirs } from '@/ai/tools/commandSandbox'
 import { expandPathTemplateVars } from '@/ai/tools/toolScope'
 import { registerFrontendToolPending, resolveFrontendToolPending } from '@/ai/tools/pendingRegistry'
-import { taskEventBus } from '@/services/taskEventBus'
+import { scheduleEventBus } from '@/services/scheduleEventBus'
 
 export type SupervisionDecision = {
   decision: 'approve' | 'reject' | 'escalate'
@@ -74,7 +74,7 @@ export class SupervisionService {
       'Read', 'Glob', 'Grep',
       'BrowserSnapshot', 'BrowserObserve', 'BrowserExtract',
       'ProjectQuery', 'CalendarQuery', 'EmailQuery',
-      'TaskStatus',
+      'ScheduledTaskStatus',
     ])
     if (readOnlyTools.has(toolName)) {
       return { decision: 'approve', reason: '只读工具，自动放行' }
@@ -126,7 +126,7 @@ export class SupervisionService {
     const toolCallId = `supervision-${request.taskId}-${Date.now()}`
 
     // Notify frontend
-    taskEventBus.emitStatusChange({
+    scheduleEventBus.emitStatusChange({
       taskId: request.taskId,
       status: 'review',
       previousStatus: 'running',

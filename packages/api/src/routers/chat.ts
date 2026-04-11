@@ -185,15 +185,21 @@ const getSubAgentHistoryInputSchema = z.object({
 /** Session update event yielded by onSessionUpdate subscription. */
 export type SessionUpdateEvent =
   | {
-      type: 'task-report'
-      messageId: string
+      /**
+       * Scheduled task completion notification. NOT a message-tree mutation.
+       * The frontend should render this as an independent notification (toast / bell),
+       * NEVER insert it into the chat message tree.
+       */
+      type: 'schedule-report'
+      kind: 'notification'
       taskId: string
       status: 'completed' | 'failed'
       title: string
       summary: string
+      agentName?: string
     }
   | {
-      type: 'TaskStatus-change'
+      type: 'ScheduledTaskStatus-change'
       taskId: string
       status: string
       previousStatus: string

@@ -32,7 +32,7 @@ import {
   getTaskDir,
   type CreateTaskInput,
   type TaskConfig,
-} from '../taskConfigService'
+} from '../scheduleConfigService'
 
 // ---------------------------------------------------------------------------
 // Test runner

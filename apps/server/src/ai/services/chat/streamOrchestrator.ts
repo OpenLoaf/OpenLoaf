@@ -34,8 +34,6 @@ import {
   setUiWriter,
 } from "@/ai/shared/context/requestContext";
 import { savePlanFile, markPlanFileStatus } from "@/ai/services/chat/planFileService";
-import { emitSnapshot as emitRuntimeTaskSnapshot, clearSessionActiveForms } from "@/ai/services/chat/runtimeTaskService";
-import { reconcileRuntimeTasksOnSessionStart, abortSessionRuntimeTasks } from "@/ai/services/chat/runtimeTaskRecovery";
 import { prisma } from "@openloaf/db";
 import { setCachedCcSession } from "@/ai/models/cli/claudeCode/claudeCodeSessionStore";
 import type { MasterAgentRunner } from "@/ai/services/masterAgentRunner";
@@ -304,9 +302,6 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
       // 只记录一次错误，避免 SDK 内部重复日志。
       logger.error({ err }, "[chat] ui stream error");
       if (input.abortController.signal.aborted) {
-        if (input.sessionId) {
-          void abortSessionRuntimeTasks(input.sessionId);
-        }
         return "aborted";
       }
       const errorText = extractErrorText(err);
@@ -325,17 +320,6 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
       setUiWriter(writer as any);
       setAbortSignal(input.abortController.signal);
       pushAgentFrame(input.agentRunner.frame);
-
-      // Reconcile orphaned runtime tasks + push snapshot for SSE sync.
-      if (input.sessionId) {
-        const sid = input.sessionId;
-        void (async () => {
-          await reconcileRuntimeTasksOnSessionStart(sid);
-          await emitRuntimeTaskSnapshot(sid);
-        })().catch((err) => {
-          logger.debug({ err, sessionId: sid }, "[runtime-task] reconcile/snapshot failed at stream start");
-        });
-      }
 
       try {
         const modelMessages = await buildModelMessages(
@@ -628,10 +612,6 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
               logger.error({ err }, "[chat] save assistant failed");
             } finally {
               popAgentFrameOnce();
-              // Release in-memory activeForm entries for this session.
-              if (input.sessionId) {
-                clearSessionActiveForms(input.sessionId);
-              }
             }
           },
         });
@@ -679,6 +659,17 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
         writer.merge(wrappedStream as unknown as ReadableStream<InferUIMessageChunk<UIMessage>>);
       } catch (err) {
         popAgentFrameOnce();
+        try {
+          await setSessionErrorMessage({
+            sessionId: input.sessionId,
+            errorMessage: extractErrorText(err),
+          });
+        } catch (saveErr) {
+          logger.warn(
+            { err: saveErr, sessionId: input.sessionId },
+            "[chat] persist session error failed",
+          );
+        }
         throw err;
       }
     },

@@ -10,11 +10,11 @@
 import { z } from 'zod'
 import { RiskType } from '../toolResult'
 
-export const taskManageToolDef = {
-  id: 'TaskManage',
+export const scheduledTaskManageToolDef = {
+  id: 'ScheduledTaskManage',
   readonly: false,
-  name: '任务管理',
-  description: `管理后台任务的全生命周期。通过 action 参数选择操作：
+  name: '周期任务管理',
+  description: `管理周期/定时任务的全生命周期。通过 action 参数选择操作：
 
 - create: 创建任务。不传 schedule 则立即执行；传 schedule 则按时间调度。
 - cancel: 取消任务（todo/running/review → cancelled）。
@@ -105,34 +105,23 @@ export const taskManageToolDef = {
       .optional()
       .describe('批量操作的状态过滤（deleteAll 会强制限定为 done/cancelled）'),
   }),
-  component: 'TaskTool',
+  component: 'ScheduledTaskTool',
 } as const
 
 /**
- * Get task tool definition in specified language.
- * For now, always returns Chinese version. English translation support
- * can be added by creating separate .en.ts variant in future iterations.
+ * Get scheduled task manage tool definition in specified language.
+ * For now, always returns Chinese version.
  */
-export function getTaskManageToolDef(lang?: string) {
-  // Currently all tools default to Chinese
-  // Can be extended to support other languages: en-US, ja-JP, etc.
-  return taskManageToolDef
+export function getScheduledTaskManageToolDef(lang?: string) {
+  return scheduledTaskManageToolDef
 }
 
-/**
- * @deprecated 使用 taskManageToolDef 替代。保留用于向后兼容。
- */
-export const createTaskToolDef = {
-  ...taskManageToolDef,
-  id: 'CreateTask',
-} as const
-
-export const taskStatusToolDef = {
-  id: 'TaskStatus',
+export const scheduledTaskStatusToolDef = {
+  id: 'ScheduledTaskStatus',
   readonly: true,
-  name: '查询任务状态',
+  name: '查询周期任务状态',
   description:
-    '查询后台任务的状态和进度。不传 taskId 返回所有活跃任务概览。',
+    '查询周期/定时任务的状态和进度。不传 taskId 返回所有活跃任务概览。',
   parameters: z.object({
     taskId: z
       .string()
@@ -142,15 +131,50 @@ export const taskStatusToolDef = {
   component: null,
 } as const
 
-/**
- * Get task status tool definition in specified language.
- */
-export function getTaskStatusToolDef(lang?: string) {
-  return taskStatusToolDef
+export function getScheduledTaskStatusToolDef(lang?: string) {
+  return scheduledTaskStatusToolDef
 }
 
-export const taskToolMeta = {
-  [taskManageToolDef.id]: { riskType: RiskType.Write },
-  [createTaskToolDef.id]: { riskType: RiskType.Write },
-  [taskStatusToolDef.id]: { riskType: RiskType.Read },
+export const scheduledTaskWaitToolDef = {
+  id: 'ScheduledTaskWait',
+  readonly: true,
+  name: '等待周期任务完成',
+  description: `阻塞等待指定周期任务到达终态（done/failed/cancelled）或超时返回。仅用于立即执行的短时任务。
+
+使用规则（铁律）：
+
+- 用户要"立刻做某事"（跑脚本 / 生成报告 / 检查状态） → ScheduledTaskManage(create) 启动 → **ScheduledTaskWait** 等完成 → 根据结果告知用户
+- 用户要"定时/周期执行"（每天 8 点 / 5 分钟后 / 每周一） → ScheduledTaskManage(create, schedule=...) → 直接回复"已安排" → end_turn。**禁止对定时任务调 ScheduledTaskWait**（会卡 turn）
+- 禁止用 Bash sleep + ScheduledTaskStatus 循环轮询（浪费 token，这是反模式）
+
+超时处理：
+- 超时返回 status='timeout' + currentStatus，task 仍在后台运行
+- 可决策 (a) 再调一次 ScheduledTaskWait 继续等；或 (b) 告诉用户"任务在后台执行，可在任务中心查看"并 end_turn
+
+返回字段：
+- status: done | failed | cancelled | timeout
+- summary: 任务执行摘要（done 时）
+- error: 失败原因（failed 时）
+- currentStatus: 仍在运行时的当前状态（timeout 时）`,
+  parameters: z.object({
+    taskId: z.string().describe('要等待的任务 ID（由 ScheduledTaskManage(create) 返回）'),
+    timeoutSec: z
+      .number()
+      .int()
+      .min(5)
+      .max(300)
+      .default(60)
+      .describe('最长等待秒数，默认 60，最大 300'),
+  }),
+  component: null,
+} as const
+
+export function getScheduledTaskWaitToolDef(lang?: string) {
+  return scheduledTaskWaitToolDef
+}
+
+export const scheduledTaskToolMeta = {
+  [scheduledTaskManageToolDef.id]: { riskType: RiskType.Write },
+  [scheduledTaskStatusToolDef.id]: { riskType: RiskType.Read },
+  [scheduledTaskWaitToolDef.id]: { riskType: RiskType.Read },
 } as const

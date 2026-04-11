@@ -17,20 +17,20 @@ import {
   archiveTask,
   type TaskConfig,
   type TaskStatus,
-} from './taskConfigService'
-import { taskExecutor } from './taskExecutor'
-import { taskEventBus } from './taskEventBus'
+} from './scheduleConfigService'
+import { scheduleExecutor } from './scheduleExecutor'
+import { scheduleEventBus } from './scheduleEventBus'
 
 const TICK_INTERVAL_MS = 30_000
 
 /**
- * TaskOrchestrator manages the lifecycle of autonomous tasks:
+ * ScheduleOrchestrator manages the lifecycle of autonomous tasks:
  * - Periodic scanning for ready tasks (todo → running)
  * - Conflict detection between concurrent tasks
  * - Review resolution (plan confirm / completion review)
  * - Task cancellation
  */
-class TaskOrchestrator {
+class ScheduleOrchestrator {
   private tickTimer: ReturnType<typeof setInterval> | null = null
   private started = false
   /** In-memory cache of SaaS access tokens by taskId. */
@@ -88,7 +88,7 @@ class TaskOrchestrator {
 
     if (previousStatus === 'running') {
       // Abort the executor
-      taskExecutor.abort(taskId)
+      scheduleExecutor.abort(taskId)
       // Status will be updated by executor's catch block
       return
     }
@@ -103,7 +103,7 @@ class TaskOrchestrator {
         reason: '用户取消任务',
       }, globalRoot, projectRoot ?? undefined)
 
-      taskEventBus.emitStatusChange({
+      scheduleEventBus.emitStatusChange({
         taskId,
         status: 'cancelled',
         previousStatus,
@@ -113,7 +113,7 @@ class TaskOrchestrator {
 
       // If in plan confirmation, resolve it
       if (previousStatus === 'review' && task.reviewType === 'plan') {
-        taskExecutor.resolvePlanConfirmation(taskId, 'cancelled')
+        scheduleExecutor.resolvePlanConfirmation(taskId, 'cancelled')
       }
     }
   }
@@ -134,10 +134,10 @@ class TaskOrchestrator {
     if (task.reviewType === 'plan') {
       // Plan confirmation
       if (action === 'approve') {
-        taskExecutor.resolvePlanConfirmation(taskId, 'approved')
+        scheduleExecutor.resolvePlanConfirmation(taskId, 'approved')
       } else {
         // reject → cancel
-        taskExecutor.resolvePlanConfirmation(taskId, 'cancelled')
+        scheduleExecutor.resolvePlanConfirmation(taskId, 'cancelled')
 
         appendActivityLog(taskId, {
           from: 'review',
@@ -163,7 +163,7 @@ class TaskOrchestrator {
           reason: reason ?? '用户通过审查',
         }, globalRoot, projectRoot ?? undefined)
 
-        taskEventBus.emitStatusChange({
+        scheduleEventBus.emitStatusChange({
           taskId,
           status: 'done',
           previousStatus: 'review',
@@ -185,7 +185,7 @@ class TaskOrchestrator {
           reason: reason ?? '用户要求返工',
         }, globalRoot, projectRoot ?? undefined)
 
-        taskEventBus.emitStatusChange({
+        scheduleEventBus.emitStatusChange({
           taskId,
           status: 'todo',
           previousStatus: 'review',
@@ -212,7 +212,7 @@ class TaskOrchestrator {
           reason: reason ?? '用户拒绝完成结果',
         }, globalRoot, projectRoot ?? undefined)
 
-        taskEventBus.emitStatusChange({
+        scheduleEventBus.emitStatusChange({
           taskId,
           status: 'cancelled',
           previousStatus: 'review',
@@ -298,7 +298,7 @@ class TaskOrchestrator {
     projectRoot?: string | null,
     runningTasks?: TaskConfig[],
   ): Promise<void> {
-    if (taskExecutor.isRunning(candidate.id)) return
+    if (scheduleExecutor.isRunning(candidate.id)) return
 
     const running = runningTasks ?? listTasks(globalRoot).filter((t) => t.status === 'running')
 
@@ -306,12 +306,12 @@ class TaskOrchestrator {
 
     if (running.length === 0) {
       // No conflicts possible, start immediately
-      void taskExecutor.execute(candidate.id, globalRoot, projectRoot, cachedToken)
+      void scheduleExecutor.execute(candidate.id, globalRoot, projectRoot, cachedToken)
     } else {
       // Check for conflicts with running tasks
       const conflict = await this.checkConflict(candidate, running)
       if (!conflict.conflict) {
-        void taskExecutor.execute(candidate.id, globalRoot, projectRoot, cachedToken)
+        void scheduleExecutor.execute(candidate.id, globalRoot, projectRoot, cachedToken)
       } else {
         // Conflict detected, delay
         appendActivityLog(candidate.id, {
@@ -359,7 +359,7 @@ class TaskOrchestrator {
       const elapsed = Date.now() - new Date(task.lastRunAt).getTime()
       if (elapsed > task.timeoutMs) {
         logger.warn({ taskId: task.id, elapsed }, '[task-orchestrator] Task timed out')
-        taskExecutor.abort(task.id)
+        scheduleExecutor.abort(task.id)
       }
     }
   }
@@ -384,4 +384,4 @@ class TaskOrchestrator {
   }
 }
 
-export const taskOrchestrator = new TaskOrchestrator()
+export const scheduleOrchestrator = new ScheduleOrchestrator()

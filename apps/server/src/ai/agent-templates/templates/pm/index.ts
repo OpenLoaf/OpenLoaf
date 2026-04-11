@@ -13,7 +13,7 @@ import { getStandardPrompt } from '../master'
 
 /**
  * PM Agent 工具集 — 继承 Project Agent 工具集 + Agent/SendMessage 协作工具。
- * 排除 TaskManage（PM 不创建 Task，用 Agent 同步调度 Specialist）。
+ * 排除 ScheduledTaskManage（PM 不创建 Task，用 Agent 同步调度 Specialist）。
  */
 export const PM_AGENT_TOOL_IDS = [
   // core (always available)

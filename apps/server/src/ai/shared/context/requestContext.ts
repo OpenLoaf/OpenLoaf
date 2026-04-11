@@ -93,8 +93,6 @@ export type RequestContext = {
   supervisionMode?: boolean;
   /** Task ID when running within an autonomous task. */
   taskId?: string;
-  /** Runtime Task ID (session-scoped) currently owned by this Agent. Only Master or direct sub-agents have this set. Do NOT propagate to sub-sub-agents. */
-  runtimeTaskId?: string;
   /** CLI tool execution summary buffer. */
   cliSummary?: string;
   /** Claude Code SDK session UUID (for persist/resume). */
@@ -399,18 +397,6 @@ export function getCreditsConsumed(): number | undefined {
 /** Get page context for skill auto-loading. */
 export function getPageContext(): ChatPageContext | undefined {
   return getRequestContext()?.pageContext;
-}
-
-/** Get Runtime Task ID currently owned by this Agent frame. */
-export function getRuntimeTaskId(): string | undefined {
-  return getRequestContext()?.runtimeTaskId;
-}
-
-/** Set Runtime Task ID for this Agent frame (used when Agent tool assigns a task to a sub-agent). */
-export function setRuntimeTaskId(taskId: string | undefined): void {
-  const ctx = getRequestContext();
-  if (!ctx) return;
-  ctx.runtimeTaskId = taskId;
 }
 
 /** Check if current Agent frame is the Master Agent (stack depth 1 = top-level master). */

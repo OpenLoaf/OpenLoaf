@@ -16,7 +16,7 @@ import {
   rmSync,
   renameSync,
 } from 'node:fs'
-import { writeFileAtomic } from './taskFileUtils'
+import { writeFileAtomic } from './scheduleFileUtils'
 import { v4 as uuidv4 } from 'uuid'
 import { logger } from '@/common/logger'
 

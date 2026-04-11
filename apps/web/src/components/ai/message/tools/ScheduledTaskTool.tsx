@@ -57,7 +57,7 @@ type ScheduleInput = {
   cronExpr?: string
 }
 
-type TaskManageInput = {
+type ScheduledTaskManageInput = {
   actionName?: string
   action?: TaskAction
   title?: string
@@ -71,7 +71,7 @@ type TaskManageInput = {
   reason?: string
 }
 
-type TaskManageOutput = {
+type ScheduledTaskManageOutput = {
   ok?: boolean
   taskId?: string
   task?: {
@@ -186,7 +186,7 @@ const RESOLVE_ACTION_KEYS: Record<string, string> = {
 
 // ─── Component ───────────────────────────────────────────────────────
 
-export default function TaskTool({
+export default function ScheduledTaskTool({
   part,
   className,
 }: {
@@ -222,14 +222,14 @@ export default function TaskTool({
 
   const input = useMemo(() => {
     const raw = normalizeToolInput(part.input)
-    return (raw && typeof raw === 'object' ? raw : {}) as TaskManageInput
+    return (raw && typeof raw === 'object' ? raw : {}) as ScheduledTaskManageInput
   }, [part.input])
 
-  const output = useMemo<TaskManageOutput | null>(() => {
+  const output = useMemo<ScheduledTaskManageOutput | null>(() => {
     if (!part.output) return null
     try {
       const parsed = typeof part.output === 'string' ? JSON.parse(part.output) : part.output
-      return (parsed && typeof parsed === 'object' ? parsed : null) as TaskManageOutput | null
+      return (parsed && typeof parsed === 'object' ? parsed : null) as ScheduledTaskManageOutput | null
     } catch {
       return null
     }
@@ -299,7 +299,13 @@ export default function TaskTool({
       {/* 任务卡片样式 - 可点击 */}
       <div
         className="max-w-sm cursor-pointer overflow-hidden rounded-3xl border bg-card p-3 shadow-none transition-colors hover:bg-accent/50"
-        onClick={!streaming ? handleOpenTaskBoard : undefined}
+        onClick={
+          streaming
+            ? undefined
+            : (output?.task?.id ?? output?.taskId)
+              ? handleOpenTaskDetail
+              : handleOpenTaskBoard
+        }
       >
         {/* Header: 状态图标 + 标题 + 优先级 */}
         <div className="mb-2 flex items-start gap-2">

@@ -27,18 +27,18 @@ import {
   updateTask,
   deleteTask,
   archiveTask,
-} from '@/services/taskConfigService'
+} from '@/services/scheduleConfigService'
 import {
   listTemplates,
   getTemplate as getTemplateById,
   createTemplate,
   deleteTemplate as deleteTemplateById,
   createTaskFromTemplate,
-} from '@/services/taskTemplateService'
-import { readRunLogsMultiScope } from '@/services/taskRunLogService'
-import { taskScheduler } from '@/services/taskScheduler'
-import { taskOrchestrator } from '@/services/taskOrchestrator'
-import { taskEventBus } from '@/services/taskEventBus'
+} from '@/services/scheduleTemplateService'
+import { readRunLogsMultiScope } from '@/services/scheduleRunLogService'
+import { scheduleTimerRegistry } from '@/services/scheduleTimerRegistry'
+import { scheduleOrchestrator } from '@/services/scheduleOrchestrator'
+import { scheduleEventBus } from '@/services/scheduleEventBus'
 
 class ScheduledTaskRouterImpl extends BaseScheduledTaskRouter {
   public static createRouter() {
@@ -75,7 +75,7 @@ class ScheduledTaskRouterImpl extends BaseScheduledTaskRouter {
 
           // Validate cron expression before creating
           if (input.triggerMode === 'scheduled' && input.schedule?.type === 'cron' && input.schedule.cronExpr) {
-            const cronError = taskScheduler.validateCronExpr(input.schedule.cronExpr, input.schedule.timezone)
+            const cronError = scheduleTimerRegistry.validateCronExpr(input.schedule.cronExpr, input.schedule.timezone)
             if (cronError) {
               throw new Error(`Invalid cron expression "${input.schedule.cronExpr}": ${cronError}`)
             }
@@ -109,12 +109,12 @@ class ScheduledTaskRouterImpl extends BaseScheduledTaskRouter {
 
           // For scheduled tasks, register with scheduler
           if (task.triggerMode === 'scheduled') {
-            taskScheduler.registerTask(task)
+            scheduleTimerRegistry.registerTask(task)
           }
 
           // For manual autoExecute tasks, enqueue
           if (task.triggerMode === 'manual' && task.autoExecute) {
-            void taskOrchestrator.enqueue(task.id)
+            void scheduleOrchestrator.enqueue(task.id)
           }
 
           return task
@@ -135,7 +135,7 @@ class ScheduledTaskRouterImpl extends BaseScheduledTaskRouter {
         .output(scheduledTaskSchemas.delete.output)
         .mutation(async ({ input }) => {
           const globalRoot = getOpenLoafRootDir()
-          taskScheduler.unregisterTask(input.id)
+          scheduleTimerRegistry.unregisterTask(input.id)
           const projectRoot = input.projectId ? getProjectRootPath(input.projectId) : null
           const ok = deleteTask(input.id, globalRoot, projectRoot)
           return { ok }
@@ -145,7 +145,7 @@ class ScheduledTaskRouterImpl extends BaseScheduledTaskRouter {
         .output(scheduledTaskSchemas.run.output)
         .mutation(async ({ input }) => {
           const projectRoot = input.projectId ? getProjectRootPath(input.projectId) : null
-          void taskOrchestrator.enqueue(input.id, projectRoot)
+          void scheduleOrchestrator.enqueue(input.id, projectRoot)
           return { ok: true }
         }),
       runLogs: shieldedProcedure
@@ -179,7 +179,7 @@ class ScheduledTaskRouterImpl extends BaseScheduledTaskRouter {
         .output(scheduledTaskSchemas.resolveReview.output)
         .mutation(async ({ input }) => {
           const projectRoot = input.projectId ? getProjectRootPath(input.projectId) : null
-          const result = await taskOrchestrator.resolveReview(
+          const result = await scheduleOrchestrator.resolveReview(
             input.id,
             input.action,
             input.reason,

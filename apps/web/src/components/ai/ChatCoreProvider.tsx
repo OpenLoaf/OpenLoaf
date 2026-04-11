@@ -50,7 +50,6 @@ import {
   handleBranchSnapshotDataPart,
   handlePlanFileDataPart,
   handleMediaGenerateDataPart,
-  handleRuntimeTaskDataPart,
 } from "./utils/chat-data-handlers";
 import { isSaasUnauthorizedErrorMessage } from "./utils/message-predicates";
 import { taskStatusCache } from "@/lib/chat/task-status-cache";
@@ -240,17 +239,6 @@ export default function ChatCoreProvider({
       }
       setStepThinking(false);
 
-      // Flush 缓冲的 task-report 消息（streaming 期间被缓冲以避免竞态）
-      if (pendingTaskReportsRef.current.length > 0) {
-        const pending = pendingTaskReportsRef.current.splice(0);
-        if (setMessagesRef.current) {
-          setMessagesRef.current((prev: any[]) => {
-            const existingIds = new Set(prev.map((m: any) => m.id));
-            const newMessages = pending.filter((m) => !existingIds.has(m.id));
-            return newMessages.length > 0 ? [...prev, ...newMessages] : prev;
-          });
-        }
-      }
     },
     [autoTitleMutation, queryClient, sessionId, setStepThinking, patchSnapshot, refreshBranchMeta]
   );
@@ -316,7 +304,6 @@ export default function ChatCoreProvider({
             },
           })
         ) return;
-        if (handleRuntimeTaskDataPart({ dataPart, sessionId })) return;
         if (handleStepThinkingDataPart({ dataPart, setStepThinking })) return;
         if (handleMediaGenerateDataPart({ dataPart, upsertToolPartMerged })) return;
         if (
@@ -541,45 +528,33 @@ export default function ChatCoreProvider({
     }
   }, [branchQueryData, applyServerSnapshotToChat, applySnapshot, chat.messages.length]);
 
-  // ── Background agent subscription (with buffering during streaming) ──
-  const pendingTaskReportsRef = React.useRef<UIMessage[]>([]);
-  const chatStatusRef = React.useRef(chat.status);
-  chatStatusRef.current = chat.status;
-
+  // ── Background task completion notifications ──
+  //
+  // task-report events are delivered as independent notifications (toast),
+  // NOT inserted into the chat message tree. The AI learns about task
+  // results by actively calling the ScheduledTaskWait / ScheduledTaskStatus tool within its
+  // turn, same philosophy as Claude Code's Sleep tool.
+  //
+  // See .plans/openloaf/docs/chat-ai/task-completion-flow.md for rationale.
   React.useEffect(() => {
     if (!sessionId || !isTabActive) return;
     const subscription = trpcClient.chat.onSessionUpdate.subscribe(
       { sessionId },
       {
         onData(event) {
-          if (event.type === 'TaskStatus-change') {
-            // 更新 task status → TaskTool 卡片通过 useSyncExternalStore 监听
+          if (event.type === 'ScheduledTaskStatus-change') {
+            // 更新 task status → ScheduledTaskTool 卡片通过 useSyncExternalStore 监听
             taskStatusCache.set(event.taskId, event.status)
             return
           }
-          if (event.type === 'task-report') {
-            trpcClient.chat.getMessageParts.query({
-              sessionId,
-              messageId: event.messageId,
-            }).then((msg) => {
-              if (!msg) return;
-              const newMessage: UIMessage = {
-                id: msg.id,
-                role: 'task-report' as any,
-                parts: msg.parts ?? [],
-                metadata: msg.metadata,
-              };
-              const currentStatus = chatStatusRef.current;
-              if (currentStatus === 'streaming' || currentStatus === 'submitted') {
-                // 缓冲：streaming 期间 setMessages 会被 useChat 内部更新覆盖
-                pendingTaskReportsRef.current.push(newMessage);
-              } else {
-                chatRef.current.setMessages((prev: any) => {
-                  if (prev.some((m: any) => m.id === msg.id)) return prev;
-                  return [...prev, newMessage];
-                });
-              }
-            }).catch(() => {});
+          if (event.type === 'schedule-report') {
+            // 独立通知，不进消息树
+            if (event.status === 'completed') {
+              toast.success(event.title, { description: event.summary });
+            } else {
+              toast.error(event.title, { description: event.summary });
+            }
+            return
           }
         },
         onError() {},

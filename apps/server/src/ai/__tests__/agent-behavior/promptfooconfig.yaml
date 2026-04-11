@@ -47,7 +47,6 @@ derivedMetrics:
 tests:
   - file://tests/master/master.yaml
   - file://tests/master/async-spawn.yaml
-  - file://tests/master/runtime-task-ops.yaml
   - file://tests/calendar/calendar.yaml
   - file://tests/email/email.yaml
   - file://tests/tools/tools.yaml

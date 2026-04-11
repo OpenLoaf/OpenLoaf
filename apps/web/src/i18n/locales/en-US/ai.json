@@ -510,9 +510,11 @@
     "unknown": "An unknown error occurred",
     "copied": "Copied",
     "copyLog": "Copy log",
-    "retry": "Retry"
+    "retry": "Retry",
+    "continue": "Continue",
+    "continuePrompt": "Continue"
   },
-  "taskRunLog": {
+  "scheduleRunLog": {
     "title": "Run Logs",
     "loading": "Loading...",
     "empty": "No run records yet",
@@ -579,14 +581,6 @@
     "confirm": "Confirm",
     "confirming": "Confirming...",
     "skip": "Skip"
-  },
-  "runtimeTask": {
-    "allDone": "All done",
-    "master": "Main",
-    "ready": "ready",
-    "waitingFor": "waiting on {{names}}",
-    "aiSelfReport": "AI self-reported",
-    "failedBadge": "{{count}} failed"
   },
   "subAgentPanel": {
     "label": "Sub-agent: ",

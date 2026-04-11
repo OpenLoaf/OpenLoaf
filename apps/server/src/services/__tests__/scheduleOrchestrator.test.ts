@@ -8,7 +8,7 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 /**
- * TaskOrchestrator candidate collection and conflict detection tests.
+ * ScheduleOrchestrator candidate collection and conflict detection tests.
  *
  * Tests the pure logic functions without requiring running services.
  * We extract and test collectCandidates and checkConflict logic directly.
@@ -16,10 +16,10 @@
  * 用法:
  *   cd apps/server
  *   node --enable-source-maps --import tsx/esm --import ./scripts/registerMdTextLoader.mjs \
- *     src/services/__tests__/taskOrchestrator.test.ts
+ *     src/services/__tests__/scheduleOrchestrator.test.ts
  */
 import assert from 'node:assert/strict'
-import type { TaskConfig, TaskStatus } from '../taskConfigService'
+import type { TaskConfig, TaskStatus } from '../scheduleConfigService'
 
 // ---------------------------------------------------------------------------
 // Test runner
@@ -43,9 +43,9 @@ async function test(name: string, fn: () => Promise<void> | void) {
 }
 
 // ---------------------------------------------------------------------------
-// Extract logic under test (replicated from taskOrchestrator.ts)
+// Extract logic under test (replicated from scheduleOrchestrator.ts)
 // We replicate these pure functions to test without requiring
-// getWorkspaceRootPath, taskExecutor, and other singletons.
+// getWorkspaceRootPath, scheduleExecutor, and other singletons.
 // ---------------------------------------------------------------------------
 
 function collectCandidates(allTasks: TaskConfig[]): TaskConfig[] {
@@ -322,7 +322,7 @@ async function main() {
 
   // Summary
   console.log(`\n${'='.repeat(50)}`)
-  console.log(`taskOrchestrator: ${passed} passed, ${failed} failed`)
+  console.log(`scheduleOrchestrator: ${passed} passed, ${failed} failed`)
   if (errors.length > 0) {
     console.log('\nFailed:')
     for (const err of errors) {

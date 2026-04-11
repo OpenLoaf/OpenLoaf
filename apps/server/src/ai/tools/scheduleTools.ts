@@ -9,9 +9,10 @@
  */
 import { tool, zodSchema } from 'ai'
 import {
-  taskManageToolDef,
-  taskStatusToolDef,
-} from '@openloaf/api/types/tools/task'
+  scheduledTaskManageToolDef,
+  scheduledTaskStatusToolDef,
+  scheduledTaskWaitToolDef,
+} from '@openloaf/api/types/tools/scheduledTask'
 import {
   createTask,
   deleteTask,
@@ -20,10 +21,12 @@ import {
   listTasks,
   listTasksByStatus,
   type TaskConfig,
-} from '@/services/taskConfigService'
-import { taskOrchestrator } from '@/services/taskOrchestrator'
-import { taskScheduler } from '@/services/taskScheduler'
-import { resolveToolRoots, ensureWritableRoot } from '@/ai/tools/toolScope'
+  type TaskStatus,
+} from '@/services/scheduleConfigService'
+import { scheduleOrchestrator } from '@/services/scheduleOrchestrator'
+import { scheduleTimerRegistry } from '@/services/scheduleTimerRegistry'
+import { scheduleEventBus } from '@/services/scheduleEventBus'
+import { resolveToolRoots } from '@/ai/tools/toolScope'
 import { getSessionId, getSaasAccessToken, getProjectId } from '@/ai/shared/context/requestContext'
 import { extractSourceContextSnapshot } from '@/services/taskContextExtractor'
 
@@ -51,24 +54,17 @@ function okMsg(message: string, extra?: Record<string, unknown>): string {
 
 // ─── Task Manage Tool ─────────────────────────────────────────────────
 
-export const taskManageTool = tool({
-  description: taskManageToolDef.description,
-  inputSchema: zodSchema(taskManageToolDef.parameters),
+export const scheduledTaskManageTool = tool({
+  description: scheduledTaskManageToolDef.description,
+  inputSchema: zodSchema(scheduledTaskManageToolDef.parameters),
   execute: async (input) => {
-    let { globalRoot, projectRoot } = resolveToolRoots()
+    const { globalRoot, projectRoot } = resolveToolRoots()
     const action = input.action
 
     switch (action) {
       // ── create ──────────────────────────────────────────────────
       case 'create': {
         if (!input.title) return errMsg('create 操作必须提供 title 参数')
-
-        // 未绑定项目时回退到会话 asset 目录
-        if (!projectRoot) {
-          const writable = await ensureWritableRoot()
-          projectRoot = writable.rootPath
-        }
-
 
         const schedule = input.schedule
         const isScheduled = !!schedule
@@ -127,9 +123,9 @@ export const taskManageTool = tool({
         )
 
         if (isScheduled) {
-          taskScheduler.registerTask(task)
+          scheduleTimerRegistry.registerTask(task)
         } else {
-          void taskOrchestrator.enqueue(task.id, projectRoot, getSaasAccessToken())
+          void scheduleOrchestrator.enqueue(task.id, projectRoot, getSaasAccessToken())
         }
 
         let message: string
@@ -161,7 +157,7 @@ export const taskManageTool = tool({
           return rejectMsg('cancel', input.taskId, task.status, 'todo, running, review')
         }
 
-        await taskOrchestrator.cancel(input.taskId, projectRoot)
+        await scheduleOrchestrator.cancel(input.taskId, projectRoot)
         return okMsg(`任务 "${task.name}" 已取消。`, { taskId: input.taskId })
       }
 
@@ -189,7 +185,7 @@ export const taskManageTool = tool({
           return rejectMsg('run', input.taskId, task.status, 'todo')
         }
 
-        await taskOrchestrator.enqueue(input.taskId, projectRoot, getSaasAccessToken())
+        await scheduleOrchestrator.enqueue(input.taskId, projectRoot, getSaasAccessToken())
         return okMsg(`任务 "${task.name}" 已开始执行。`, { taskId: input.taskId })
       }
 
@@ -204,7 +200,7 @@ export const taskManageTool = tool({
           return rejectMsg('resolve', input.taskId, task.status, 'review')
         }
 
-        const result = await taskOrchestrator.resolveReview(
+        const result = await scheduleOrchestrator.resolveReview(
           input.taskId,
           input.resolveAction,
           input.reason,
@@ -247,7 +243,7 @@ export const taskManageTool = tool({
         let cancelled = 0
         for (const task of activeTasks) {
           try {
-            await taskOrchestrator.cancel(task.id, projectRoot)
+            await scheduleOrchestrator.cancel(task.id, projectRoot)
             cancelled++
           } catch {
             // skip individual failures
@@ -309,9 +305,9 @@ export const taskManageTool = tool({
 
 // ─── Task Status Tool ─────────────────────────────────────────────────
 
-export const taskStatusTool = tool({
-  description: taskStatusToolDef.description,
-  inputSchema: zodSchema(taskStatusToolDef.parameters),
+export const scheduledTaskStatusTool = tool({
+  description: scheduledTaskStatusToolDef.description,
+  inputSchema: zodSchema(scheduledTaskStatusToolDef.parameters),
   execute: async ({ taskId }) => {
     const { globalRoot, projectRoot } = resolveToolRoots()
 
@@ -339,6 +335,90 @@ export const taskStatusTool = tool({
     })
   },
 })
+
+// ─── Task Wait Tool ───────────────────────────────────────────────────
+
+/**
+ * Block until the specified task reaches a terminal state, or timeout.
+ *
+ * This is OpenLoaf's equivalent of Claude Code's Sleep tool: the AI
+ * actively waits on a specific task within its current turn. Task
+ * completion is NEVER written into the chat message tree — the AI must
+ * call this tool (or TaskStatus for a snapshot) to learn the result.
+ *
+ * See .plans/openloaf/docs/chat-ai/task-completion-flow.md for the full
+ * design rationale.
+ */
+export const scheduledTaskWaitTool = tool({
+  description: scheduledTaskWaitToolDef.description,
+  inputSchema: zodSchema(scheduledTaskWaitToolDef.parameters),
+  execute: async ({ taskId, timeoutSec }) => {
+    const { globalRoot, projectRoot } = resolveToolRoots()
+
+    // (1) snapshot first — already terminal means no need to subscribe
+    const snap = getTask(taskId, globalRoot, projectRoot)
+    if (!snap) return errMsg(`任务 ${taskId} 不存在`)
+    if (isTerminal(snap.status)) return terminalResult(snap)
+
+    // (2) otherwise race: event subscription vs. timeout
+    return new Promise<string>((resolve) => {
+      let settled = false
+
+      const finish = (payload: Record<string, unknown>) => {
+        if (settled) return
+        settled = true
+        off()
+        clearTimeout(timer)
+        resolve(JSON.stringify({ ok: true, ...payload }))
+      }
+
+      const timer = setTimeout(() => {
+        const latest = getTask(taskId, globalRoot, projectRoot)
+        finish({
+          status: 'timeout',
+          currentStatus: latest?.status ?? snap.status,
+          elapsedSec: timeoutSec,
+          hint: '任务仍在运行。可以再次调用 ScheduledTaskWait 等待，或告诉用户稍后在任务中心查看。',
+        })
+      }, timeoutSec * 1000)
+
+      const off = scheduleEventBus.onStatusChange((ev) => {
+        if (ev.taskId !== taskId) return
+        if (!isTerminal(ev.status)) return
+        // Re-read snapshot: event only carries status; executionSummary /
+        // lastError live on the persisted TaskConfig. Reading again avoids
+        // a race where the event fires before the persistence write completes.
+        const final = getTask(taskId, globalRoot, projectRoot)
+        if (final) {
+          finish({
+            status: final.status,
+            summary: final.executionSummary,
+            error: final.lastError,
+            lastRunAt: final.lastRunAt,
+          })
+        } else {
+          finish({ status: ev.status })
+        }
+      })
+    })
+  },
+})
+
+function isTerminal(status: TaskStatus): boolean {
+  // TaskConfig.status 终态只有 done / cancelled（失败会重试到阈值后 → cancelled，
+  // 带 lastError 字段区分真失败）。不存在 'failed' 值。
+  return status === 'done' || status === 'cancelled'
+}
+
+function terminalResult(t: TaskConfig): string {
+  return JSON.stringify({
+    ok: true,
+    status: t.status,
+    summary: t.executionSummary,
+    error: t.lastError,
+    lastRunAt: t.lastRunAt,
+  })
+}
 
 // ─── Backward Compatibility ───────────────────────────────────────────
 

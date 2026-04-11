@@ -14,7 +14,7 @@ export const calendarQueryToolDef = {
   readonly: true,
   name: '日历查询',
   description:
-    'Read-only queries on calendar data: list-sources returns calendar sources, list-items returns events/reminders in a time range. Use when the user asks "what do I have today/this week/this month". For creating/updating/deleting events, use CalendarMutate. For creating TODO tasks, use TaskManage.',
+    'Read-only queries on calendar data: list-sources returns calendar sources, list-items returns events/reminders in a time range. Use when the user asks "what do I have today/this week/this month". For creating/updating/deleting events, use CalendarMutate. For creating TODO tasks, use ScheduledTaskManage.',
   parameters: z.object({
     mode: z
       .enum(['list-sources', 'list-items'])

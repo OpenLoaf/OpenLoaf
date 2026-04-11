@@ -510,9 +510,11 @@
     "unknown": "不明なエラーが発生しました",
     "copied": "コピーしました",
     "copyLog": "ログをコピー",
-    "retry": "再試行"
+    "retry": "再試行",
+    "continue": "続行",
+    "continuePrompt": "続行"
   },
-  "taskRunLog": {
+  "scheduleRunLog": {
     "title": "実行ログ",
     "loading": "読み込み中...",
     "empty": "実行記録はまだありません",
@@ -579,14 +581,6 @@
     "confirm": "確定",
     "confirming": "確定中...",
     "skip": "スキップ"
-  },
-  "runtimeTask": {
-    "allDone": "すべて完了",
-    "master": "メイン",
-    "ready": "準備完了",
-    "waitingFor": "{{names}} 待ち",
-    "aiSelfReport": "AI 自己報告",
-    "failedBadge": "{{count}} 失敗"
   },
   "subAgentPanel": {
     "label": "サブエージェント：",

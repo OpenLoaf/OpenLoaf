@@ -14,7 +14,6 @@ import { cn } from "@/lib/utils";
 import ChatCoreProvider from "./ChatCoreProvider";
 import MessageList from "./message/MessageList";
 import ChatInput from "./input/ChatInput";
-import TaskProgressBarContainer from "./input/TaskProgressBarContainer";
 import ChatHeader from "./ChatHeader";
 import { useChatActions, useChatSession, useChatMessageMeta } from "./context";
 import { useChatSessions } from "@/hooks/use-chat-sessions";
@@ -467,7 +466,6 @@ function ChatFullPageLayout({
       {/* 非 empty 时的 ChatInput */}
       {!isEmpty && (
         <>
-          <TaskProgressBarContainer className="mx-2" />
         <ChatInput
           className="mx-2 mb-2"
           attachments={attachments}
@@ -1228,7 +1226,6 @@ export function Chat({
           />
           <MessageList className="flex-1 min-h-0" projectId={projectId} />
           <RecentSessionsBar />
-          <TaskProgressBarContainer className="mx-2" />
           <ChatInput
             className="mx-2 mb-2"
             {...sharedInputProps}

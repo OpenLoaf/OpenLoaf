@@ -17,12 +17,11 @@ import {
   updateExecutionSummary,
   type TaskConfig,
   type TaskStatus,
-} from './taskConfigService'
-import { taskEventBus } from './taskEventBus'
-import { appendRunLog } from './taskRunLogService'
+} from './scheduleConfigService'
+import { scheduleEventBus } from './scheduleEventBus'
+import { appendRunLog } from './scheduleRunLogService'
 import {
   appendMessage,
-  appendMessageAtLeaf,
   loadMessageTree,
   resolveRightmostLeaf,
   resolveChainFromLeaf,
@@ -41,11 +40,11 @@ type ConfirmationResult = 'approved' | 'cancelled' | 'timeout'
 const MAX_CONSECUTIVE_ERRORS = 3
 
 /**
- * TaskExecutor handles task execution with two modes:
+ * ScheduleExecutor handles task execution with two modes:
  * - Two-phase: Generate plan → wait for confirmation → execute plan
  * - Single-phase: Execute directly (when skipPlanConfirm=true and requiresReview=false)
  */
-class TaskExecutor {
+class ScheduleExecutor {
   private running = new Map<string, RunningTask>()
   private confirmationResolvers = new Map<string, (result: ConfirmationResult) => void>()
 
@@ -204,7 +203,7 @@ class TaskExecutor {
               reviewType: undefined,
             }, globalRoot, projectRoot ?? undefined)
 
-            taskEventBus.emitStatusChange({
+            scheduleEventBus.emitStatusChange({
               taskId,
               status: 'running',
               previousStatus: 'review',
@@ -283,7 +282,7 @@ class TaskExecutor {
           : `连续失败 ${newConsecutiveErrors} 次，任务取消`,
       }, globalRoot, projectRoot ?? undefined)
 
-      taskEventBus.emitStatusChange({
+      scheduleEventBus.emitStatusChange({
         taskId,
         status: nextStatus,
         previousStatus: task?.status ?? 'running',
@@ -381,7 +380,7 @@ class TaskExecutor {
                 lastAgentMessage: lastMessage.slice(0, 100),
               }, globalRoot, projectRoot ?? undefined)
 
-              taskEventBus.emitSummaryUpdate({
+              scheduleEventBus.emitSummaryUpdate({
                 taskId,
                 summary: { lastAgentMessage: lastMessage.slice(0, 100) },
               })
@@ -490,7 +489,20 @@ class TaskExecutor {
 
   /**
    * Report task completion/failure back to the originating chat session.
-   * Appends a task-report message to the source session's messages.jsonl.
+   *
+   * IMPORTANT: This method NEVER writes to the chat message tree. Task
+   * completion is delivered via scheduleEventBus as a notification event only.
+   * The chat router's `onSessionUpdate` subscription forwards it to the
+   * frontend as an independent notification (toast / bell), and the AI
+   * consumes task results by actively calling the `ScheduledTaskWait` tool within
+   * its turn.
+   *
+   * Rationale: writing to the message tree mid-stream causes a race where
+   * `resolveRightmostLeaf` picks up the user message before the streaming
+   * assistant has been persisted, mis-attaching the task-report as a sibling
+   * branch and leaving the assistant reply orphaned from the rightmost chain.
+   * See .plans/openloaf/docs/chat-ai/task-completion-flow.md for the full
+   * design rationale.
    */
   private async reportToSourceSession(
     task: TaskConfig,
@@ -505,57 +517,13 @@ class TaskExecutor {
         ? `任务「${task.name}」已完成。`
         : `任务「${task.name}」执行失败：${task.lastError || '未知错误'}`)
 
-      // Resolve agent identity type from agentName
-      const agentIdentityType = task.agentName === 'pm'
-        ? 'pm' as const
-        : task.agentName === 'secretary'
-          ? 'secretary' as const
-          : 'specialist' as const
-
-      // 原子操作：在锁内 resolveRightmostLeaf + append，消除并发竞态
-      const reportMessage = await appendMessageAtLeaf({
-        sessionId: sourceSessionId,
-        buildMessage: (parentId) => ({
-          id: randomUUID(),
-          parentMessageId: parentId,
-          role: 'task-report' as const,
-          messageKind: 'normal' as const,
-          parts: [
-            {
-              type: 'text' as const,
-              text: summaryText,
-            },
-            {
-              type: 'task-ref' as const,
-              taskId: task.id,
-              title: task.name,
-              agentType: task.agentName || 'general',
-              status,
-            },
-          ],
-          metadata: {
-            taskId: task.id,
-            agentType: task.agentName || 'general',
-            displayName: task.agentName || '任务助手',
-            projectId: task.projectId,
-            agentIdentity: {
-              type: agentIdentityType,
-              name: task.agentName || '任务助手',
-              projectId: task.projectId,
-              taskId: task.id,
-            },
-          },
-          createdAt: new Date().toISOString(),
-        }),
-      })
-
-      taskEventBus.emitTaskReport({
+      scheduleEventBus.emitScheduleReport({
         taskId: task.id,
         sourceSessionId,
         status,
         title: task.name,
         summary: summaryText,
-        messageId: reportMessage.id,
+        agentName: task.agentName,
       })
 
       logger.info(
@@ -668,7 +636,7 @@ class TaskExecutor {
       actor: logOverride?.actor ?? 'system',
     }, globalRoot, projectRoot ?? undefined)
 
-    taskEventBus.emitStatusChange({
+    scheduleEventBus.emitStatusChange({
       taskId,
       status: to,
       previousStatus: from,
@@ -680,4 +648,4 @@ class TaskExecutor {
   }
 }
 
-export const taskExecutor = new TaskExecutor()
+export const scheduleExecutor = new ScheduleExecutor()

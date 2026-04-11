@@ -44,10 +44,6 @@ export const agentToolDef = {
       .boolean()
       .optional()
       .describe('是否异步运行。默认 false（同步等待结果）。设为 true 时立即返回 agent_id。'),
-    task_id: z
-      .string()
-      .optional()
-      .describe('可选的 Runtime Task ID。传入后，此子代理执行期间将自动关联该 task，task 状态随子代理生命周期自动更新（in_progress → completed/failed），owner 自动设为子代理。'),
   }),
   component: null,
 } as const

@@ -8,15 +8,15 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 /**
- * taskEventBus tests.
+ * scheduleEventBus tests.
  *
  * 用法:
  *   cd apps/server
  *   node --enable-source-maps --import tsx/esm --import ./scripts/registerMdTextLoader.mjs \
- *     src/services/__tests__/taskEventBus.test.ts
+ *     src/services/__tests__/scheduleEventBus.test.ts
  */
 import assert from 'node:assert/strict'
-import { taskEventBus, type TaskStatusChangeEvent, type TaskSummaryUpdateEvent, type TaskReportEvent } from '../taskEventBus'
+import { scheduleEventBus, type ScheduleStatusChangeEvent, type ScheduleSummaryUpdateEvent, type ScheduleReportEvent } from '../scheduleEventBus'
 
 // ---------------------------------------------------------------------------
 // Test runner
@@ -45,27 +45,27 @@ async function test(name: string, fn: () => Promise<void> | void) {
 
 async function main() {
   // Clean up any existing listeners from module-level singleton
-  taskEventBus.removeAllListeners()
+  scheduleEventBus.removeAllListeners()
 
   console.log('\n--- A: Status Change Events ---')
 
   await test('A1: onStatusChange receives emitted events', () => {
-    let received: TaskStatusChangeEvent | null = null
-    const cleanup = taskEventBus.onStatusChange((event) => {
+    let received: ScheduleStatusChangeEvent | null = null
+    const cleanup = scheduleEventBus.onStatusChange((event) => {
       received = event
     })
 
-    const event: TaskStatusChangeEvent = {
+    const event: ScheduleStatusChangeEvent = {
       taskId: 'task-1',
       status: 'running',
       previousStatus: 'todo',
       title: '测试任务',
       updatedAt: new Date().toISOString(),
     }
-    taskEventBus.emitStatusChange(event)
+    scheduleEventBus.emitStatusChange(event)
 
     assert.ok(received)
-    const ev = received as TaskStatusChangeEvent
+    const ev = received as ScheduleStatusChangeEvent
     assert.equal(ev.taskId, 'task-1')
     assert.equal(ev.status, 'running')
     assert.equal(ev.previousStatus, 'todo')
@@ -75,12 +75,12 @@ async function main() {
   })
 
   await test('A2: onStatusChange with reviewType', () => {
-    let received: TaskStatusChangeEvent | null = null
-    const cleanup = taskEventBus.onStatusChange((event) => {
+    let received: ScheduleStatusChangeEvent | null = null
+    const cleanup = scheduleEventBus.onStatusChange((event) => {
       received = event
     })
 
-    taskEventBus.emitStatusChange({
+    scheduleEventBus.emitStatusChange({
       taskId: 'task-2',
       status: 'review',
       previousStatus: 'running',
@@ -90,18 +90,18 @@ async function main() {
     })
 
     assert.ok(received)
-    assert.equal((received as TaskStatusChangeEvent).reviewType, 'plan')
+    assert.equal((received as ScheduleStatusChangeEvent).reviewType, 'plan')
 
     cleanup()
   })
 
   await test('A3: cleanup function unsubscribes listener', () => {
     let callCount = 0
-    const cleanup = taskEventBus.onStatusChange(() => {
+    const cleanup = scheduleEventBus.onStatusChange(() => {
       callCount++
     })
 
-    taskEventBus.emitStatusChange({
+    scheduleEventBus.emitStatusChange({
       taskId: 't', status: 'todo', previousStatus: 'todo',
       title: 't', updatedAt: new Date().toISOString(),
     })
@@ -109,7 +109,7 @@ async function main() {
 
     cleanup()
 
-    taskEventBus.emitStatusChange({
+    scheduleEventBus.emitStatusChange({
       taskId: 't', status: 'running', previousStatus: 'todo',
       title: 't', updatedAt: new Date().toISOString(),
     })
@@ -119,10 +119,10 @@ async function main() {
   await test('A4: multiple listeners receive the same event', () => {
     let count1 = 0
     let count2 = 0
-    const cleanup1 = taskEventBus.onStatusChange(() => { count1++ })
-    const cleanup2 = taskEventBus.onStatusChange(() => { count2++ })
+    const cleanup1 = scheduleEventBus.onStatusChange(() => { count1++ })
+    const cleanup2 = scheduleEventBus.onStatusChange(() => { count2++ })
 
-    taskEventBus.emitStatusChange({
+    scheduleEventBus.emitStatusChange({
       taskId: 't', status: 'todo', previousStatus: 'todo',
       title: 't', updatedAt: new Date().toISOString(),
     })
@@ -137,12 +137,12 @@ async function main() {
   console.log('\n--- B: Summary Update Events ---')
 
   await test('B1: onSummaryUpdate receives emitted events', () => {
-    let received: TaskSummaryUpdateEvent | null = null
-    const cleanup = taskEventBus.onSummaryUpdate((event) => {
+    let received: ScheduleSummaryUpdateEvent | null = null
+    const cleanup = scheduleEventBus.onSummaryUpdate((event) => {
       received = event
     })
 
-    taskEventBus.emitSummaryUpdate({
+    scheduleEventBus.emitSummaryUpdate({
       taskId: 'task-3',
       summary: {
         currentStep: '安装依赖',
@@ -153,7 +153,7 @@ async function main() {
     })
 
     assert.ok(received)
-    const ev = received as TaskSummaryUpdateEvent
+    const ev = received as ScheduleSummaryUpdateEvent
     assert.equal(ev.taskId, 'task-3')
     assert.equal(ev.summary.currentStep, '安装依赖')
     assert.equal(ev.summary.totalSteps, 5)
@@ -165,15 +165,15 @@ async function main() {
   await test('B2: status and summary events are independent', () => {
     let statusCount = 0
     let summaryCount = 0
-    const cleanup1 = taskEventBus.onStatusChange(() => { statusCount++ })
-    const cleanup2 = taskEventBus.onSummaryUpdate(() => { summaryCount++ })
+    const cleanup1 = scheduleEventBus.onStatusChange(() => { statusCount++ })
+    const cleanup2 = scheduleEventBus.onSummaryUpdate(() => { summaryCount++ })
 
-    taskEventBus.emitStatusChange({
+    scheduleEventBus.emitStatusChange({
       taskId: 't', status: 'running', previousStatus: 'todo',
       title: 't', updatedAt: new Date().toISOString(),
     })
 
-    taskEventBus.emitSummaryUpdate({
+    scheduleEventBus.emitSummaryUpdate({
       taskId: 't', summary: { currentStep: 'test' },
     })
 
@@ -186,97 +186,94 @@ async function main() {
 
   console.log('\n--- C: Task Report Events ---')
 
-  await test('C1: onTaskReport receives emitted events', () => {
-    let received: TaskReportEvent | null = null
-    const cleanup = taskEventBus.onTaskReport((event) => {
+  await test('C1: onScheduleReport receives emitted events', () => {
+    let received: ScheduleReportEvent | null = null
+    const cleanup = scheduleEventBus.onScheduleReport((event) => {
       received = event
     })
 
-    const event: TaskReportEvent = {
+    const event: ScheduleReportEvent = {
       taskId: 'task-report-1',
       sourceSessionId: 'session-abc',
       status: 'completed',
       title: '开发邮件功能',
       summary: '已完成邮件 API 实现',
-      messageId: 'msg-001',
     }
-    taskEventBus.emitTaskReport(event)
+    scheduleEventBus.emitScheduleReport(event)
 
     assert.ok(received)
-    const ev = received as TaskReportEvent
+    const ev = received as ScheduleReportEvent
     assert.equal(ev.taskId, 'task-report-1')
     assert.equal(ev.sourceSessionId, 'session-abc')
     assert.equal(ev.status, 'completed')
     assert.equal(ev.title, '开发邮件功能')
     assert.equal(ev.summary, '已完成邮件 API 实现')
-    assert.equal(ev.messageId, 'msg-001')
 
     cleanup()
   })
 
-  await test('C2: onTaskReport with failed status', () => {
-    let received: TaskReportEvent | null = null
-    const cleanup = taskEventBus.onTaskReport((event) => {
+  await test('C2: onScheduleReport with failed status', () => {
+    let received: ScheduleReportEvent | null = null
+    const cleanup = scheduleEventBus.onScheduleReport((event) => {
       received = event
     })
 
-    taskEventBus.emitTaskReport({
+    scheduleEventBus.emitScheduleReport({
       taskId: 'task-report-2',
       sourceSessionId: 'session-def',
       status: 'failed',
       title: '数据库迁移',
       summary: '迁移脚本执行失败',
-      messageId: 'msg-002',
     })
 
     assert.ok(received)
-    assert.equal((received as TaskReportEvent).status, 'failed')
+    assert.equal((received as ScheduleReportEvent).status, 'failed')
 
     cleanup()
   })
 
-  await test('C3: onTaskReport cleanup stops receiving events', () => {
+  await test('C3: onScheduleReport cleanup stops receiving events', () => {
     let callCount = 0
-    const cleanup = taskEventBus.onTaskReport(() => {
+    const cleanup = scheduleEventBus.onScheduleReport(() => {
       callCount++
     })
 
-    taskEventBus.emitTaskReport({
+    scheduleEventBus.emitScheduleReport({
       taskId: 't', sourceSessionId: 's', status: 'completed',
-      title: 't', summary: 's', messageId: 'm',
+      title: 't', summary: 's',
     })
     assert.equal(callCount, 1)
 
     cleanup()
 
-    taskEventBus.emitTaskReport({
+    scheduleEventBus.emitScheduleReport({
       taskId: 't', sourceSessionId: 's', status: 'completed',
-      title: 't', summary: 's', messageId: 'm',
+      title: 't', summary: 's',
     })
     assert.equal(callCount, 1) // Should not increase
   })
 
   await test('C4: sourceSessionId can be used for filtering', () => {
-    const eventsForSession: TaskReportEvent[] = []
+    const eventsForSession: ScheduleReportEvent[] = []
     const targetSession = 'filter-target'
 
-    const cleanup = taskEventBus.onTaskReport((event) => {
+    const cleanup = scheduleEventBus.onScheduleReport((event) => {
       if (event.sourceSessionId === targetSession) {
         eventsForSession.push(event)
       }
     })
 
-    taskEventBus.emitTaskReport({
+    scheduleEventBus.emitScheduleReport({
       taskId: 't1', sourceSessionId: targetSession, status: 'completed',
-      title: 't1', summary: 's1', messageId: 'm1',
+      title: 't1', summary: 's1',
     })
-    taskEventBus.emitTaskReport({
+    scheduleEventBus.emitScheduleReport({
       taskId: 't2', sourceSessionId: 'other-session', status: 'completed',
-      title: 't2', summary: 's2', messageId: 'm2',
+      title: 't2', summary: 's2',
     })
-    taskEventBus.emitTaskReport({
+    scheduleEventBus.emitScheduleReport({
       taskId: 't3', sourceSessionId: targetSession, status: 'failed',
-      title: 't3', summary: 's3', messageId: 'm3',
+      title: 't3', summary: 's3',
     })
 
     assert.equal(eventsForSession.length, 2)
@@ -289,17 +286,17 @@ async function main() {
   await test('C5: task report events are independent of status/summary events', () => {
     let statusCount = 0
     let reportCount = 0
-    const cleanup1 = taskEventBus.onStatusChange(() => { statusCount++ })
-    const cleanup2 = taskEventBus.onTaskReport(() => { reportCount++ })
+    const cleanup1 = scheduleEventBus.onStatusChange(() => { statusCount++ })
+    const cleanup2 = scheduleEventBus.onScheduleReport(() => { reportCount++ })
 
-    taskEventBus.emitStatusChange({
+    scheduleEventBus.emitStatusChange({
       taskId: 't', status: 'running', previousStatus: 'todo',
       title: 't', updatedAt: new Date().toISOString(),
     })
 
-    taskEventBus.emitTaskReport({
+    scheduleEventBus.emitScheduleReport({
       taskId: 't', sourceSessionId: 's', status: 'completed',
-      title: 't', summary: 's', messageId: 'm',
+      title: 't', summary: 's',
     })
 
     assert.equal(statusCount, 1)
@@ -310,11 +307,11 @@ async function main() {
   })
 
   // Clean up
-  taskEventBus.removeAllListeners()
+  scheduleEventBus.removeAllListeners()
 
   // Summary
   console.log(`\n${'='.repeat(50)}`)
-  console.log(`taskEventBus: ${passed} passed, ${failed} failed`)
+  console.log(`scheduleEventBus: ${passed} passed, ${failed} failed`)
   if (errors.length > 0) {
     console.log('\nFailed:')
     for (const err of errors) {

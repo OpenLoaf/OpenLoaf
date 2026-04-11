@@ -510,9 +510,11 @@
     "unknown": "发生未知错误",
     "copied": "已复制",
     "copyLog": "复制日志",
-    "retry": "重试"
+    "retry": "重试",
+    "continue": "继续",
+    "continuePrompt": "继续"
   },
-  "taskRunLog": {
+  "scheduleRunLog": {
     "title": "执行日志",
     "loading": "加载中...",
     "empty": "暂无执行记录",
@@ -579,14 +581,6 @@
     "confirm": "确定",
     "confirming": "确定中...",
     "skip": "跳过"
-  },
-  "runtimeTask": {
-    "allDone": "全部完成",
-    "master": "主对话",
-    "ready": "就绪",
-    "waitingFor": "等待 {{names}}",
-    "aiSelfReport": "AI 自述",
-    "failedBadge": "{{count}} 失败"
   },
   "subAgentPanel": {
     "label": "子代理：",

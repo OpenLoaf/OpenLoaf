@@ -10,8 +10,8 @@
 import { getOpenLoafRootDir } from '@openloaf/config'
 import { Cron } from 'croner'
 import { logger } from '@/common/logger'
-import { listTasks, type TaskConfig } from './taskConfigService'
-import { taskOrchestrator } from './taskOrchestrator'
+import { listTasks, type TaskConfig } from './scheduleConfigService'
+import { scheduleOrchestrator } from './scheduleOrchestrator'
 
 type TimerEntry = {
   taskId: string
@@ -20,10 +20,10 @@ type TimerEntry = {
 }
 
 /**
- * TaskScheduler is responsible only for registering/unregistering timers.
- * When a timer fires, it delegates execution to TaskOrchestrator.
+ * ScheduleTimerRegistry is responsible only for registering/unregistering timers.
+ * When a timer fires, it delegates execution to ScheduleOrchestrator.
  */
-class TaskScheduler {
+class ScheduleTimerRegistry {
   private timers = new Map<string, TimerEntry>()
   private cronJobs = new Map<string, Cron>()
   private started = false
@@ -78,7 +78,7 @@ class TaskScheduler {
         const delay = new Date(schedule.scheduleAt).getTime() - Date.now()
         if (delay <= 0) return
         const timer = setTimeout(() => {
-          void taskOrchestrator.enqueue(task.id)
+          void scheduleOrchestrator.enqueue(task.id)
         }, delay)
         this.timers.set(task.id, { taskId: task.id, timer, type: 'timeout' })
         break
@@ -86,7 +86,7 @@ class TaskScheduler {
       case 'interval': {
         if (!schedule.intervalMs || schedule.intervalMs <= 0) return
         const timer = setInterval(() => {
-          void taskOrchestrator.enqueue(task.id)
+          void scheduleOrchestrator.enqueue(task.id)
         }, schedule.intervalMs)
         this.timers.set(task.id, { taskId: task.id, timer, type: 'interval' })
         break
@@ -97,7 +97,7 @@ class TaskScheduler {
           const job = new Cron(schedule.cronExpr, {
             timezone: schedule.timezone ?? undefined,
           }, () => {
-            void taskOrchestrator.enqueue(task.id)
+            void scheduleOrchestrator.enqueue(task.id)
           })
           this.cronJobs.set(task.id, job)
         } catch (err) {
@@ -142,4 +142,4 @@ class TaskScheduler {
   }
 }
 
-export const taskScheduler = new TaskScheduler()
+export const scheduleTimerRegistry = new ScheduleTimerRegistry()

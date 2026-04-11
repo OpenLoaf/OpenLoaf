@@ -14,8 +14,7 @@ import type { BuiltinSkill } from './types'
 import fileOpsMd from './file-ops/SKILL.md'
 import emailOpsMd from './email-ops/SKILL.md'
 import calendarOpsMd from './calendar-ops/SKILL.md'
-import taskOpsMd from './task-ops/SKILL.md'
-import runtimeTaskOpsMd from './runtime-task-ops/SKILL.md'
+import scheduleOpsMd from './schedule-ops/SKILL.md'
 import canvasOpsMd from './canvas-ops/SKILL.md'
 import projectOpsMd from './project-ops/SKILL.md'
 import workbenchOpsMd from './workbench-ops/SKILL.md'
@@ -73,22 +72,13 @@ export const BUILTIN_SKILLS: BuiltinSkill[] = [
     tools: ['CalendarQuery', 'CalendarMutate'],
   },
   {
-    name: 'task-ops',
+    name: 'schedule-ops',
     description:
-      '任务管理与调度。触发词：任务、待办、提醒、定时执行、自动化、定期检查、周期性、例行事项、cron、每天/每周/每月做某事、审批、批量操作。当用户描述任何重复性需求（即使未使用"任务"一词）也应激活。',
-    content: stripFrontMatter(taskOpsMd),
-    icon: '✅',
+      '周期任务与定时调度。触发词：定时执行、周期性、每天/每周/每月做某事、cron、提醒、自动化、例行事项、审批、批量操作、指派给某个 Agent 执行。当用户描述任何定时/重复性需求时激活。',
+    content: stripFrontMatter(scheduleOpsMd),
+    icon: '⏰',
     colorIndex: 4,
-    tools: ['TaskManage', 'TaskStatus'],
-  },
-  {
-    name: 'runtime-task-ops',
-    description:
-      'Runtime Task 运行时任务追踪——session 级别的多步骤进度可视化。当用户要求的任务预计 >3 步或 >2 分钟、需要并行委派给多个子代理、或明确要求"显示进度/分步骤/让我看到你在做什么"时激活。触发词：分成 N 步、分 X 个步骤、step 1/2/3、并行处理、同时做、批量处理、跟踪进度、显示进度、多步骤、复杂任务、大任务、实时展示、并发执行。注意与 SubmitPlan（一次性审批计划）和 TaskManage（持久化定时任务）区分，三者不可混用。',
-    content: stripFrontMatter(runtimeTaskOpsMd),
-    icon: '📋',
-    colorIndex: 5,
-    tools: ['TaskCreate', 'TaskUpdate', 'TaskRead'],
+    tools: ['ScheduledTaskManage', 'ScheduledTaskStatus', 'ScheduledTaskWait'],
   },
   {
     name: 'canvas-ops',
