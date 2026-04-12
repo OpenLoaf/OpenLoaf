@@ -154,6 +154,8 @@ type ChatStreamResponseInput = {
   abortController: AbortController;
   /** Optional assistant message kind override. */
   assistantMessageKind?: ChatMessageKind;
+  /** Continue mode: partial assistant parts to replay before model stream. */
+  replayParts?: unknown[];
 };
 
 /** 构建图片 SSE 响应的输入。 */
@@ -355,6 +357,9 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
           return `${hh}${mm}${ss}`;
         })();
 
+        // ── Continue mode: 回放 partial assistant 的旧 parts ──
+        let replayDone = false;
+
         // eslint-disable-next-line no-constant-condition -- intentional: end-of-turn drain loop, exit via break
         while (true) {
         const localAssistantId = currentAssistantMessageId;
@@ -362,6 +367,36 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
         const localStartedAt = currentTurnStartedAt;
         const localUiHistory = uiHistoryMessages;
         const debugMessageId = localAssistantId;
+
+        // 首次迭代时回放 partial assistant 的旧 parts，使前端看到完整的历史内容
+        if (!replayDone && input.replayParts && input.replayParts.length > 0) {
+          replayDone = true;
+          for (const part of input.replayParts) {
+            if (!part || typeof part !== "object") continue;
+            const p = part as Record<string, unknown>;
+            const type = typeof p.type === "string" ? p.type : "";
+
+            if (type === "text" && typeof p.text === "string" && p.text) {
+              writer.write({ type: "text-delta", textDelta: p.text } as any);
+            } else if (p.toolCallId && p.toolName) {
+              // 回放完整的工具调用
+              writer.write({
+                type: "tool-call",
+                toolCallId: p.toolCallId,
+                toolName: p.toolName,
+                args: p.input ?? p.args ?? {},
+              } as any);
+              // 回放工具结果（如果有）
+              if (p.output !== undefined || p.result !== undefined) {
+                writer.write({
+                  type: "tool-result",
+                  toolCallId: p.toolCallId,
+                  result: p.output ?? p.result,
+                } as any);
+              }
+            }
+          }
+        }
 
         const agentStream = await input.agentRunner.agent.stream({
           messages: modelMessages,
@@ -645,6 +680,7 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
         // 关键：不在 start-step 时立即清除 thinking，而是等首个内容 chunk 到达后再清除，
         // 避免 start-step → 首 token 之间的空白期让用户感觉卡住。
         let stepThinkingActive = false;
+        let hasPendingApproval = false;
         const CONTENT_CHUNK_TYPES = new Set([
           "text-delta",
           "reasoning",
@@ -659,6 +695,11 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
               const normalized = applyTransientFlag(chunk);
               controller.enqueue(normalized);
               const type = typeof chunk.type === "string" ? chunk.type : "";
+              // Track pending tool approvals — if any tool needs user approval,
+              // the while-loop must NOT drain notifications or start a new turn.
+              if (type === "tool-approval-request") {
+                hasPendingApproval = true;
+              }
               type StepThinkingChunk = { type: "data-step-thinking"; data: { active: boolean }; transient: true };
               const mkStepThinking = (active: boolean): StepThinkingChunk => ({
                 type: "data-step-thinking",
@@ -696,6 +737,10 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
         }
 
         // ========== End-of-turn drain ==========
+        // Guard: skip drain when the turn ended with a pending tool approval.
+        // The user must approve/deny before we can inject synthetic messages.
+        if (hasPendingApproval) break;
+
         const drainSessionId = getSessionId() ?? input.sessionId;
         const notifications = backgroundProcessManager.drainNotifications(
           drainSessionId,

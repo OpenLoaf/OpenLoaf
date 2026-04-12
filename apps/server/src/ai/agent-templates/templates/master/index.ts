@@ -36,6 +36,12 @@ export const masterTemplate: AgentTemplate = {
     // agent collaboration
     'Agent',
     'SendMessage',
+    // background process (always available — Bash returns task_id, AI needs
+    // immediate access to manage it without ToolSearch round-trip)
+    'BgList',
+    'BgOutput',
+    'BgKill',
+    'Sleep',
   ],
   deferredToolIds: [
     // system
@@ -95,11 +101,6 @@ export const masterTemplate: AgentTemplate = {
     'ScheduledTaskManage',
     'ScheduledTaskStatus',
     'ScheduledTaskWait',
-    // background process
-    'BgList',
-    'BgOutput',
-    'BgKill',
-    'Sleep',
   ],
   allowSubAgents: true,
   maxDepth: 2,
