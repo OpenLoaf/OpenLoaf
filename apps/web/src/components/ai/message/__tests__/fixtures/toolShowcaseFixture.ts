@@ -239,41 +239,8 @@ const browserParts: ToolShowcasePart[] = [
           { selector: '.readme p:first-child', text: 'A full-stack AI productivity desktop application', tag: 'p' },
         ],
         text: 'OpenLoaf - AI Productivity Desktop App\n\nA full-stack AI productivity desktop application built with Electron + Next.js.',
-      },
-    },
-  },
-  {
-    type: 'tool-BrowserObserve',
-    toolCallId: callId(),
-    toolName: 'BrowserObserve',
-    state: 'output-available',
-    input: { actionName: '观察页面', task: '查找登录按钮' },
-    output: {
-      ok: true,
-      data: {
-        url: 'https://example.com/login',
-        title: 'Login Page',
-        readyState: 'complete',
-        elements: [
-          { selector: '#username', text: '', tag: 'input' },
-          { selector: '#password', text: '', tag: 'input' },
-          { selector: 'button[type=submit]', text: 'Sign In', tag: 'button' },
-        ],
-      },
-    },
-  },
-  {
-    type: 'tool-BrowserScreenshot',
-    toolCallId: callId(),
-    toolName: 'BrowserScreenshot',
-    state: 'output-available',
-    input: { actionName: '页面截图' },
-    output: {
-      ok: true,
-      data: {
-        url: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
-        format: 'png',
-        bytes: 95,
+        screenshotUrl: 'screenshot-1712345678901.png',
+        screenshotBytes: 95,
       },
     },
   },
@@ -284,23 +251,6 @@ const browserParts: ToolShowcasePart[] = [
     state: 'output-available',
     input: { actionName: '点击按钮', action: 'click', selector: 'button[type=submit]' },
     output: { ok: true, data: { action: 'click', selector: 'button[type=submit]', success: true } },
-  },
-  {
-    type: 'tool-BrowserExtract',
-    toolCallId: callId(),
-    toolName: 'BrowserExtract',
-    state: 'output-available',
-    input: { actionName: '提取数据', instruction: '提取所有产品名称和价格' },
-    output: {
-      ok: true,
-      data: {
-        extracted: [
-          { name: 'OpenLoaf Pro', price: '$99/year' },
-          { name: 'OpenLoaf Team', price: '$299/year' },
-          { name: 'OpenLoaf Enterprise', price: 'Contact sales' },
-        ],
-      },
-    },
   },
   {
     type: 'tool-BrowserWait',

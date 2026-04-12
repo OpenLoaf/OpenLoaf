@@ -23,16 +23,12 @@ export const subAgentNames = [
 export const subAgentToolDef = {
   id: "SubAgent",
   readonly: true,
-  name: "子代理",
+  name: "Dispatch SubAgent",
   description:
-    "Dispatches a task to a specific sub-agent (e.g. browsing / document analysis) and returns its final response part. Streams events during execution. Do NOT use for simple tasks that don't need splitting off.",
+    "Dispatch a task to a specialized sub-agent (browsing / document analysis). Streams events during execution and returns the final response. Do not use for simple tasks.",
   parameters: z.object({
-    name: z
-      .enum(subAgentNames)
-      .describe(
-        "子Agent名称（当前支持 BrowserSubAgent 与 DocumentAnalysisSubAgent）。",
-      ),
-    task: z.string().describe("子Agent需要执行的任务描述。"),
+    name: z.enum(subAgentNames),
+    task: z.string(),
   }),
   component: null,
 } as const;

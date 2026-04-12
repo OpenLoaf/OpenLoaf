@@ -11,10 +11,10 @@ import path from "node:path";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { BUILTIN_SKILLS } from "@/ai/builtin-skills";
 import {
-  normalizeScalar,
   normalizeDescription,
   normalizeRootPath,
   normalizeRootPathList,
+  parseFrontMatter,
   stripFrontMatter as stripFrontMatterShared,
 } from "@/ai/shared/frontMatterUtils";
 
@@ -39,8 +39,6 @@ type SkillSummary = {
   hasMeta?: boolean;
   /** Emoji icon for the skill (from openloaf.json). */
   icon?: string;
-  /** Tool IDs that this skill depends on (auto-activated when skill is loaded). */
-  tools?: string[];
   /** Marketplace installation metadata (only present for marketplace-installed skills). */
   marketplace?: {
     skillId: string
@@ -58,19 +56,10 @@ type SkillSource = {
   rootPath: string;
 };
 
-type SkillFrontMatter = {
-  /** Skill name. */
-  name?: string;
-  /** Skill description. */
-  description?: string;
-  /** Tool IDs this skill depends on (comma-separated or YAML array). */
-  tools?: string[];
-};
 
 const OPENLOAF_META_DIR = ".openloaf";
 const SKILLS_DIR_NAME = "skills";
 const SKILL_FILE_NAME = "SKILL.md";
-const FRONT_MATTER_DELIMITER = "---";
 
 /** Load skills summary list from project roots. */
 export function loadSkillSummaries(input: {
@@ -94,7 +83,6 @@ export function loadSkillSummaries(input: {
       colorIndex: builtin.colorIndex,
       hasMeta: true,
       icon: builtin.icon,
-      ...(builtin.tools?.length ? { tools: builtin.tools } : {}),
     };
     orderedNames.push(summary.originalName);
     summaryByName.set(summary.originalName, summary);
@@ -258,7 +246,6 @@ export function readSkillSummaryFromPath(filePath: string, scope: SkillScope): S
       colorIndex,
       hasMeta,
       icon,
-      ...(frontMatter.tools?.length ? { tools: frontMatter.tools } : {}),
       ...(marketplace ? { marketplace } : {}),
     };
   } catch {
@@ -338,107 +325,6 @@ export function readSkillContentFromPath(filePath: string, preferredLanguage?: s
 
 /** Alias for shared stripFrontMatter. */
 const stripSkillFrontMatter = stripFrontMatterShared;
-
-/** Parse YAML front matter for name/description/tools. */
-function parseFrontMatter(content: string): SkillFrontMatter {
-  const lines = content.split(/\r?\n/u);
-  if (lines.length === 0) return {};
-  const firstLine = lines[0] ?? "";
-  if (firstLine.trim() !== FRONT_MATTER_DELIMITER) return {};
-
-  const result: SkillFrontMatter = {};
-  let currentKey: "name" | "description" | null = null;
-  let blockMode: "literal" | "folded" | null = null;
-  let buffer: string[] = [];
-  let toolsBuffer: string[] = [];
-  let inToolsList = false;
-
-  const flushBlock = () => {
-    if (!currentKey) return;
-    const rawValue = blockMode === "folded" ? buffer.join(" ") : buffer.join("\n");
-    const normalized = rawValue.trim();
-    if (normalized) {
-      result[currentKey] = normalized;
-    }
-    currentKey = null;
-    blockMode = null;
-    buffer = [];
-  };
-
-  const flushTools = () => {
-    if (toolsBuffer.length > 0) {
-      result.tools = toolsBuffer;
-      toolsBuffer = [];
-    }
-    inToolsList = false;
-  };
-
-  // 逻辑：仅解析文件起始 front matter，避免读取正文。
-  for (let index = 1; index < lines.length; index += 1) {
-    const line = lines[index] ?? "";
-    if (line.trim() === FRONT_MATTER_DELIMITER) {
-      flushBlock();
-      flushTools();
-      break;
-    }
-
-    // Handle YAML list items for tools (e.g. "  - CalendarQuery")
-    if (inToolsList) {
-      const listItem = /^\s+-\s+(.+)$/u.exec(line);
-      if (listItem) {
-        const id = (listItem[1] ?? '').trim();
-        if (id) toolsBuffer.push(id);
-        continue;
-      }
-      // Not a list item → end of tools list
-      flushTools();
-    }
-
-    if (currentKey && (line.startsWith(" ") || line.startsWith("\t") || line.trim() === "")) {
-      buffer.push(line.replace(/^\s*/u, ""));
-      continue;
-    }
-
-    if (currentKey) {
-      flushBlock();
-    }
-
-    const match = /^([A-Za-z0-9_-]+):\s*(.*)$/u.exec(line);
-    if (!match) continue;
-    const key = match[1];
-    const rawValue = (match[2] ?? "").trim();
-
-    // Handle tools field: inline array or YAML list
-    if (key === "tools") {
-      if (rawValue) {
-        // Inline format: tools: CalendarQuery, CalendarMutate, time-now
-        // or bracket format: tools: [CalendarQuery, CalendarMutate]
-        const cleaned = rawValue.replace(/^\[|\]$/g, "");
-        result.tools = cleaned.split(",").map((s) => s.trim()).filter(Boolean);
-      } else {
-        // YAML list format (items on following lines)
-        inToolsList = true;
-      }
-      continue;
-    }
-
-    if (key !== "name" && key !== "description") continue;
-
-    if (rawValue === "|" || rawValue === ">") {
-      currentKey = key;
-      blockMode = rawValue === ">" ? "folded" : "literal";
-      buffer = [];
-      continue;
-    }
-
-    const normalized = normalizeScalar(rawValue);
-    if (normalized) {
-      result[key] = normalized;
-    }
-  }
-
-  return result;
-}
 
 /** Parse marketplace metadata from openloaf.json. */
 function parseMarketplaceMeta(

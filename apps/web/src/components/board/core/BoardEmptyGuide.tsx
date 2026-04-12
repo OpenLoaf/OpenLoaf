@@ -270,10 +270,10 @@ const BoardEmptyGuide = memo(function BoardEmptyGuide({
           <div
             className={cn(
               "flex flex-col gap-2 rounded-3xl px-5 py-4",
-              "border border-border/40 bg-background/80 backdrop-blur-md",
-              "shadow-[0_8px_32px_-12px_rgba(0,0,0,0.25)]",
+              "border border-border/70 bg-foreground/[0.04] backdrop-blur-md",
+              "shadow-[0_12px_40px_-12px_rgba(0,0,0,0.5)]",
               "transition-colors duration-150",
-              "focus-within:border-border/70",
+              "focus-within:border-border",
             )}
           >
             <textarea
@@ -318,10 +318,17 @@ const BoardEmptyGuide = memo(function BoardEmptyGuide({
           </div>
         </div>
 
-        {/* ── Example artwork strip (wider than input) ── */}
+        {/* ── Example artwork strip ── */}
+        {/*
+          注意：外层用 w-fit + max-w-5xl（而不是 w-full max-w-5xl）。
+          w-full 会让本层撑到容器最大宽度，内部 6 张卡片左对齐排布后会在
+          strip 内部留出右侧空白，整体重心偏离 items-center 的居中线，视觉
+          上与上方 title/input 不对齐。w-fit 让 strip 按卡片内容收缩，外层
+          的 items-center 即可天然把整块居中到和 title/input 对齐的位置。
+        */}
         <div
           className={cn(
-            "w-full max-w-5xl flex flex-col gap-2",
+            "w-fit max-w-5xl flex flex-col gap-2",
             isSelectTool ? "pointer-events-auto" : "pointer-events-none",
           )}
           data-canvas-toolbar

@@ -47,6 +47,15 @@ export type AnyToolPart = {
     urls?: string[];
     errorCode?: string;
   };
+  /** Tool progress streaming state (generic, any tool). */
+  toolProgress?: {
+    status: "active" | "done" | "error";
+    label?: string;
+    summary?: string;
+    errorText?: string;
+    accumulatedText: string;
+    meta?: Record<string, unknown>;
+  };
 };
 
 export type ToolOutputState = {

@@ -10,10 +10,12 @@
 import { tool, zodSchema } from "ai";
 import { openUrlToolDef } from "@openloaf/api/types/tools/browser";
 import { requireTabId } from "@/common/tabContext";
+import { getSessionId, getClientId, getTabId } from "@/ai/shared/context/requestContext";
 import {
   normalizeTimeoutSec,
   registerFrontendToolPending,
 } from "@/ai/tools/pendingRegistry";
+import { standaloneBrowserTargetStore } from "@/modules/tab/TabSnapshotStoreAdapter";
 
 /**
  * Opens a URL in the in-app browser panel via frontend execution.
@@ -36,7 +38,23 @@ export const openUrlTool = tool({
       toolCallId,
       timeoutSec: waitTimeoutSec,
     });
-    if (result.status === "success") return result;
+    if (result.status === "success") {
+      // 如果前端返回了 cdpTargetId（独立浏览器窗口），写入 standalone store
+      // 供后续 BrowserWait/BrowserSnapshot 等工具使用。
+      const output = result.output as Record<string, unknown> | undefined;
+      const cdpTargetId = typeof output?.cdpTargetId === "string"
+        ? String(output.cdpTargetId).trim()
+        : "";
+      if (cdpTargetId) {
+        const sessionId = getSessionId();
+        const clientId = getClientId();
+        const tabId = getTabId();
+        if (sessionId && clientId && tabId) {
+          standaloneBrowserTargetStore.set({ sessionId, clientId, tabId, cdpTargetId, url });
+        }
+      }
+      return result;
+    }
     if (result.status === "timeout") {
       throw new Error("OpenUrl timeout");
     }

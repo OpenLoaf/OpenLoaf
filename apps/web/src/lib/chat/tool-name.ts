@@ -13,8 +13,6 @@ import i18next from "i18next";
 import { openUrlToolDef } from "@openloaf/api/types/tools/browser";
 import {
   browserActToolDef,
-  browserExtractToolDef,
-  browserObserveToolDef,
   browserSnapshotToolDef,
   browserWaitToolDef,
 } from "@openloaf/api/types/tools/browserAutomation";
@@ -37,6 +35,8 @@ import {
   agentToolDef,
   sendMessageToolDef,
 } from "@openloaf/api/types/tools/agent";
+import { bgListToolDef, bgKillToolDef } from "@openloaf/api/types/tools/bgTask";
+import { sleepToolDef } from "@openloaf/api/types/tools/sleep";
 
 type ToolNameTarget = {
   /** Tool title override. */
@@ -57,8 +57,6 @@ type ToolNameSource = {
 /** Tool definition list used to build display map. */
 const TOOL_DEFS: ToolNameSource[] = [
   browserActToolDef,
-  browserExtractToolDef,
-  browserObserveToolDef,
   browserSnapshotToolDef,
   browserWaitToolDef,
   bashToolDef,
@@ -78,6 +76,9 @@ const TOOL_DEFS: ToolNameSource[] = [
   videoDownloadToolDef,
   webFetchToolDef,
   webSearchToolDef,
+  bgListToolDef,
+  bgKillToolDef,
+  sleepToolDef,
 ];
 
 /** Tool id to display name map. */

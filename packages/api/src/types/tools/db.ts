@@ -12,18 +12,15 @@ import { z } from "zod";
 export const projectQueryToolDef = {
   id: "ProjectQuery",
   readonly: true,
-  name: "项目查询",
+  name: "Query Project",
   description:
-    "Read-only queries on projects: `list` returns the project tree + flat list, `get` returns a single project summary. Errors if `get` is called without `projectId` and no current-project context.",
+    "Read-only queries on projects: list returns the project tree, get returns a single project summary. See project-ops skill for usage.",
   parameters: z.object({
-    mode: z
-      .enum(["list", "get"])
-      .optional()
-      .describe("查询模式：list 返回项目树，get 返回指定项目"),
+    mode: z.enum(["list", "get"]).optional().describe("Default list."),
     projectId: z
       .string()
       .optional()
-      .describe("项目 ID（get 模式可选，默认使用当前上下文项目）"),
+      .describe("Defaults to current context project (get)."),
   }),
   component: null,
 } as const;
@@ -31,50 +28,45 @@ export const projectQueryToolDef = {
 export const projectMutateToolDef = {
   id: "ProjectMutate",
   readonly: false,
-  name: "项目变更",
+  name: "Mutate Project",
   description:
-    "Mutates the project tree: `create` / `update` / `move` / `remove`. Note: `remove` only unlinks from the list — it does NOT delete files on disk. For read-only queries, use ProjectQuery.",
+    "Mutate the project tree: create / update / move / remove. Note: remove only unlinks from the list, it does not delete files on disk. See project-ops skill for usage.",
   parameters: z.object({
-    action: z
-      .enum(["create", "update", "move", "remove"])
-      .describe("变更类型：create/update/move/remove"),
+    action: z.enum(["create", "update", "move", "remove"]),
     projectId: z
       .string()
       .optional()
-      .describe("项目 ID（update/move/remove 可选，默认使用当前上下文项目）"),
-    title: z.string().nullable().optional().describe("项目标题（可选）"),
-    folderName: z.string().nullable().optional().describe("项目目录名称（可选）"),
-    icon: z.string().nullable().optional().describe("项目图标（可选）"),
+      .describe("Defaults to current context project (update/move/remove)."),
+    title: z.string().nullable().optional(),
+    folderName: z.string().nullable().optional(),
+    icon: z.string().nullable().optional(),
     rootUri: z
       .string()
       .optional()
-      .describe("项目根目录 URI（file://...，创建时可指定）"),
-    parentProjectId: z
-      .string()
-      .optional()
-      .describe("父项目 ID（create 时可选，指定后创建为子项目）"),
+      .describe("file://... URI for create."),
+    parentProjectId: z.string().optional().describe("For create."),
     createAsChild: z
       .boolean()
       .optional()
-      .describe("create 时未传 parentProjectId 且为 true，则使用当前上下文项目作为父项目"),
+      .describe("On create without parentProjectId, use current context project as parent."),
     enableVersionControl: z
       .boolean()
       .optional()
-      .describe("是否启用项目版本控制（create 时生效，默认开启）"),
+      .describe("For create. Default true."),
     targetParentProjectId: z
       .string()
       .nullable()
       .optional()
-      .describe("move 时目标父项目 ID（null 表示移动到根项目）"),
+      .describe("For move; null means root."),
     targetSiblingProjectId: z
       .string()
       .nullable()
       .optional()
-      .describe("move 时目标兄弟项目 ID（用于在同一父项目内排序）"),
+      .describe("For ordering within same parent (move)."),
     targetPosition: z
       .enum(["before", "after"])
       .optional()
-      .describe("move 时相对目标兄弟项目的插入位置"),
+      .describe("Relative to targetSiblingProjectId (move)."),
   }),
   needsApproval: true,
   component: null,

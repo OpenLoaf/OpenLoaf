@@ -31,8 +31,6 @@ export type SkillMatch = {
   scope: SkillScope;
   /** Skill content. */
   content: string;
-  /** Tool IDs this skill depends on (from front-matter). */
-  tools?: string[];
 };
 
 type SkillRoots = {
@@ -87,7 +85,6 @@ export class SkillSelector {
           path: filePath,
           scope: searchRoot.scope,
           content,
-          ...(summary.tools?.length ? { tools: summary.tools } : {}),
         };
       }
     }
@@ -102,7 +99,6 @@ export class SkillSelector {
         path: `builtin://${builtin.name}`,
         scope: "builtin",
         content: builtin.content,
-        ...(builtin.tools?.length ? { tools: builtin.tools } : {}),
       };
     }
 

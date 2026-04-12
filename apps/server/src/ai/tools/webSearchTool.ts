@@ -20,6 +20,7 @@
 import { tool, zodSchema } from 'ai'
 import { webSearchToolDef } from '@openloaf/api/types/tools/webSearch'
 import { readBasicConf } from '@/modules/settings/openloafConfStore'
+import { createToolProgress } from './toolProgress'
 
 // ---------------------------------------------------------------------------
 // Search Provider Abstraction
@@ -127,7 +128,7 @@ export function isWebSearchConfigured(): boolean {
 export const webSearchTool = tool({
   description: webSearchToolDef.description,
   inputSchema: zodSchema(webSearchToolDef.parameters),
-  execute: async (input): Promise<string> => {
+  execute: async (input, { toolCallId }): Promise<string> => {
     const {
       query,
       allowed_domains: allowedDomains,
@@ -138,6 +139,7 @@ export const webSearchTool = tool({
       blocked_domains?: string[]
     }
 
+    const progress = createToolProgress(toolCallId, 'WebSearch')
     const startTime = performance.now()
 
     // Input validation (matching Claude Code's validateInput)
@@ -154,6 +156,7 @@ export const webSearchTool = tool({
       return 'Error: Web search is not configured. Please set up a search provider and API key in Settings → Web Search.'
     }
 
+    progress.start(`Searching: ${query}`)
     const provider = getSearchProvider()
 
     try {
@@ -166,10 +169,23 @@ export const webSearchTool = tool({
       const durationSeconds = ((endTime - startTime) / 1000).toFixed(1)
 
       if (results.length === 0) {
+        progress.done(`No results found (${durationSeconds}s)`)
         return `Web search results for query: "${query}"\n\nNo results found.\n\nSearch completed in ${durationSeconds}s`
       }
 
-      // Format output matching Claude Code's mapToolResultToToolResultBlockParam
+      // Emit each result as a delta for progressive UI rendering
+      for (const result of results) {
+        const snippet = result.content
+          ? result.content.length > 200
+            ? `${result.content.slice(0, 200)}...`
+            : result.content
+          : ''
+        progress.delta(`### ${result.title}\n${result.url}\n${snippet}\n\n`)
+      }
+
+      progress.done(`Found ${results.length} results in ${durationSeconds}s`)
+
+      // Format full output for LLM (unchanged)
       let output = `Web search results for query: "${query}"\n\n`
 
       for (const result of results) {
@@ -191,6 +207,7 @@ export const webSearchTool = tool({
       return output
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
+      progress.error(message)
       return `Error searching for "${query}": ${message}`
     }
   },

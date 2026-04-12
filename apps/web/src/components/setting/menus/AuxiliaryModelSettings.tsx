@@ -24,7 +24,6 @@ import {
   RotateCcw,
   ChevronDown,
   FolderKanban,
-  MessageSquareText,
   FileText,
   Folder,
   GitCommitHorizontal,
@@ -73,7 +72,6 @@ const OUTPUT_MODE_CLASS: Record<string, string> = {
 /** Capability key → icon + color mapping. */
 const CAP_ICON_MAP: Record<string, { icon: LucideIcon; color: string }> = {
   'project.classify': { icon: FolderKanban, color: 'text-foreground' },
-  'chat.suggestions': { icon: MessageSquareText, color: 'text-foreground' },
   'chat.title': { icon: FileText, color: 'text-foreground' },
   'project.ephemeralName': { icon: Folder, color: 'text-foreground' },
   'git.commitMessage': { icon: GitCommitHorizontal, color: 'text-foreground' },
@@ -103,7 +101,6 @@ function formatTokenCount(value: number): string {
 /** Default test context for each capability. */
 const DEFAULT_TEST_CONTEXT: Record<string, string> = {
   'project.classify': 'package.json\nsrc/index.ts\ntsconfig.json\nREADME.md',
-  'chat.suggestions': '我想要...',
   'chat.title': '用户：帮我写一个 React 组件\n助手：好的，我来帮你创建一个按钮组件...',
   'project.ephemeralName': '帮我分析这份销售数据，生成可视化图表',
   'git.commitMessage':

@@ -28,6 +28,7 @@ export type ChatActionsContextValue = {
     navOverride?: { prevSiblingId?: string | null; nextSiblingId?: string | null },
   ) => void;
   retryAssistantMessage: (assistantMessageId: string) => void;
+  continueAssistantTurn: (assistantMessageId: string) => void;
   resendUserMessage: (
     userMessageId: string,
     nextText: string,

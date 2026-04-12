@@ -7,7 +7,6 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import path from 'node:path'
 import { tool, zodSchema } from 'ai'
 import { toolSearchToolDef } from '@openloaf/api/types/tools/toolSearch'
 import {
@@ -16,11 +15,6 @@ import {
   type ToolCatalogExtendedItem,
 } from '@openloaf/api/types/tools/toolCatalog'
 import type { ActivatedToolSet } from './toolSearchState'
-import { SkillSelector } from '@/ai/tools/SkillSelector'
-import { getProjectId } from '@/ai/shared/context/requestContext'
-import { getProjectRootPath } from '@openloaf/api/services/vfsService'
-import { getOpenLoafRootDir } from '@openloaf/config'
-import { resolveParentProjectRootPaths } from '@/ai/shared/util'
 
 /** Schema resolver function type — maps tool IDs to their JSON schemas. */
 export type SchemaResolver = (toolIds: string[]) => Record<string, object>
@@ -49,14 +43,9 @@ export function createToolSearchTool(
 
       const catalog = getCombinedCatalog()
       const loadedTools: { id: string; name: string; description: string }[] = []
-      const loadedSkills: { name: string; scope: string; basePath: string; content: string }[] = []
       const notFound: string[] = []
 
-      // Collect tool IDs auto-activated by skills (for schema resolution)
-      const autoActivatedToolIds: string[] = []
-
       for (const name of requestedNames) {
-        // 1. Try as tool ID
         if (availableToolIds.has(name)) {
           activatedSet.activate([name])
           const entry = catalog.find((e) => e.id === name)
@@ -67,61 +56,19 @@ export function createToolSearchTool(
           })
           continue
         }
-
-        // 2. Try as skill name
-        const skill = await resolveSkill(name)
-        if (skill) {
-          // If skill's declared tools are already active, return a short confirmation
-          // instead of re-transmitting the full SKILL.md content (saves ~500-2000 tokens)
-          if (
-            skill.tools &&
-            skill.tools.length > 0 &&
-            skill.tools.every((id) => activatedSet.isActive(id))
-          ) {
-            loadedSkills.push({
-              name: skill.name,
-              scope: skill.scope,
-              basePath: skill.basePath,
-              content: `[已加载] 技能 "${skill.name}" 在本会话中已加载且工具仍处于激活状态。请参考之前的 ToolSearch 返回结果获取完整说明。`,
-            })
-            continue
-          }
-          loadedSkills.push(skill)
-          // Auto-activate tools declared by the skill
-          if (skill.tools && skill.tools.length > 0) {
-            const validToolIds = skill.tools.filter((id) => availableToolIds.has(id))
-            activatedSet.activate(validToolIds)
-            for (const id of validToolIds) {
-              // Avoid duplicates if tool was already explicitly loaded
-              if (!loadedTools.some((t) => t.id === id)) {
-                const entry = catalog.find((e) => e.id === id)
-                loadedTools.push({
-                  id,
-                  name: entry?.label ?? id,
-                  description: entry?.description ?? '',
-                })
-                autoActivatedToolIds.push(id)
-              }
-            }
-          }
-          continue
-        }
-
         notFound.push(name)
       }
 
-      // Resolve parameter schemas for all loaded tools (explicit + auto-activated)
       const schemas = getSchemas ? getSchemas(loadedTools.map((t) => t.id)) : {}
 
       const parts: string[] = []
       if (loadedTools.length > 0) {
         parts.push(`Loaded ${loadedTools.length} tool(s): ${loadedTools.map((t) => t.id).join(', ')}`)
       }
-      if (loadedSkills.length > 0) {
-        parts.push(`Loaded ${loadedSkills.length} skill(s): ${loadedSkills.map((s) => s.name).join(', ')}`)
-      }
       if (notFound.length > 0) {
-        parts.push(`Not found: ${notFound.join(', ')}`)
+        parts.push(
+          `Not found: ${notFound.join(', ')}. If you were trying to load a skill, call the Skill tool directly with the skill name instead.`,
+        )
       }
 
       return {
@@ -129,41 +76,9 @@ export function createToolSearchTool(
           ...t,
           ...(schemas[t.id] ? { parameters: schemas[t.id] } : {}),
         })),
-        skills: loadedSkills,
         notFound,
-        message: parts.length > 0 ? parts.join('. ') + '.' : 'No matching tools or skills found.',
+        message: parts.length > 0 ? parts.join('. ') + '.' : 'No matching tools found.',
       }
     },
   })
-}
-
-/** Resolve a skill by name, returning its content, metadata, and declared tool dependencies. */
-async function resolveSkill(
-  skillName: string,
-): Promise<{ name: string; scope: string; basePath: string; content: string; tools?: string[] } | null> {
-  try {
-    const projectId = getProjectId()
-    const projectRoot = projectId ? getProjectRootPath(projectId) ?? undefined : undefined
-    const globalRoot = getOpenLoafRootDir()
-    const parentRoots = await resolveParentProjectRootPaths(projectId)
-
-    const match = await SkillSelector.resolveSkillByName(skillName, {
-      projectRoot,
-      parentRoots,
-      globalRoot,
-    })
-
-    if (!match) return null
-
-    const basePath = path.dirname(match.path)
-    return {
-      name: match.name,
-      scope: match.scope,
-      basePath,
-      content: match.content,
-      tools: match.tools,
-    }
-  } catch {
-    return null
-  }
 }

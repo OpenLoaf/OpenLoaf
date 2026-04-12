@@ -118,6 +118,12 @@ export type ChatRequestBody = {
    * - false/undefined：正常新消息
    */
   retry?: boolean;
+  /**
+   * 是否为续写模式：
+   * - true：从中断的 assistant turn 断点继续（后端读取 partial assistant parts 注入 modelMessages）
+   * - false/undefined：正常新消息
+   */
+  continue?: boolean;
   /** Web UI 侧稳定 clientId（用于会话关联） */
   clientId?: string;
   /** Client timezone (IANA). */

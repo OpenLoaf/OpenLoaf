@@ -12,16 +12,14 @@ import { z } from 'zod'
 export const fileInfoToolDef = {
   id: 'FileInfo',
   readonly: true,
-  name: '文件信息',
+  name: 'File Info',
   description:
-    'Returns file metadata: size, MIME type, timestamps, plus type-specific details (image dimensions, video duration, PDF page count, Excel sheet count, etc.). File type is auto-detected from extension. Video/audio requires FFmpeg on the system. ' +
-    'When presenting file sizes to the user, always convert bytes to human-readable units (KB/MB/GB). ' +
-    'Do NOT use for reading file content — use Read or the corresponding *Query tool instead.',
+    'Return file metadata (size, MIME, timestamps, plus type-specific details like image dimensions, video duration, PDF page count). See file-ops skill for usage.',
   parameters: z.object({
     filePath: z
       .string()
       .min(1)
-      .describe('文件路径（相对于项目根目录、全局根目录或绝对路径）'),
+      .describe('Relative to project / global root, or absolute.'),
   }),
   needsApproval: false,
   component: null,

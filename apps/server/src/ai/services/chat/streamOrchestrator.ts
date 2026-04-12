@@ -11,15 +11,12 @@ import {
   createUIMessageStream,
   type InferUIMessageChunk,
   JsonToSseTransformStream,
-  type ModelMessage,
   smoothStream,
   UI_MESSAGE_STREAM_HEADERS,
   type UIMessage,
 } from "ai";
-import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { backgroundProcessManager } from "@/ai/services/background/BackgroundProcessManager";
 import { logger } from "@/common/logger";
 import type { ChatMessageKind, OpenLoafUIMessage, TokenUsage } from "@openloaf/api";
 import { readBasicConf } from "@/modules/settings/openloafConfStore";
@@ -156,6 +153,9 @@ type ChatStreamResponseInput = {
   assistantMessageKind?: ChatMessageKind;
   /** Continue mode: partial assistant parts to replay before model stream. */
   replayParts?: unknown[];
+  /** bg-drain turn: push a branch-snapshot before AI starts so the
+   *  frontend sees the rewritten notification message immediately. */
+  isBgDrain?: boolean;
 };
 
 /** 构建图片 SSE 响应的输入。 */
@@ -327,11 +327,9 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
       pushAgentFrame(input.agentRunner.frame);
 
       try {
-        // ─── While-loop state (P2: end-of-turn drain + synthetic user message) ───
-        // After each turn finishes we drain pending bg-task notifications and,
-        // if any are present, inject a synthetic user message and spin another
-        // turn so the AI absorbs completion events without the user having to
-        // type anything.
+        // ─── While-loop state (bg-drain: pre-drain at turn start) ───
+        // End-of-turn drain 已移除。后台通知统一由前端 bg-drain 触发新 turn，
+        // while 循环开头的 pre-drain 把积压通知注入 modelMessages。
         let uiHistoryMessages: UIMessage[] = input.modelMessages as UIMessage[];
         let modelMessages = await buildModelMessages(
           uiHistoryMessages,
@@ -341,13 +339,6 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
         let currentParentMessageId: string | null = input.parentMessageId;
         let currentTurnStartedAt: Date = input.requestStartAt;
 
-        const MAX_BG_NOTIFICATIONS = 20;
-        const BG_DRAIN_DEADLINE_MS = 60_000;
-        let totalBgDrained = 0;
-        // Lazily set on first drain — NOT at while-loop start. The initial turn
-        // can take 60+ seconds of LLM execution; the deadline should only count
-        // time spent in drain-injected continuation turns.
-        let bgDrainStartMs = 0;
 
         // AI 调试模式 — 每步 LLM 请求/响应实时写入独立文件
         const isDebugMode = readBasicConf().chatPrefaceEnabled;
@@ -363,13 +354,30 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
         // ── Continue mode: 回放 partial assistant 的旧 parts ──
         let replayDone = false;
 
-        // eslint-disable-next-line no-constant-condition -- intentional: end-of-turn drain loop, exit via break
+        // eslint-disable-next-line no-constant-condition -- intentional: while(true) + break for pre-drain + single turn
         while (true) {
         const localAssistantId = currentAssistantMessageId;
         const localParentId = currentParentMessageId;
         const localStartedAt = currentTurnStartedAt;
         const localUiHistory = uiHistoryMessages;
         const debugMessageId = localAssistantId;
+
+        // ── bg-drain: 在 AI 开始前推 branch-snapshot，让前端立即看到 notification 消息 ──
+        if (input.isBgDrain) {
+          try {
+            const snapshot = await getChatViewFromFile({
+              sessionId: input.sessionId,
+              anchor: { messageId: input.parentMessageId, strategy: "self" },
+              window: { limit: 50 },
+              includeToolOutput: true,
+            });
+            writer.write({
+              type: "data-branch-snapshot",
+              data: { sessionId: input.sessionId, snapshot },
+              transient: true,
+            } as unknown as InferUIMessageChunk<UIMessage>);
+          } catch {}
+        }
 
         // 首次迭代时回放 partial assistant 的旧 parts，使前端看到完整的历史内容
         if (!replayDone && input.replayParts && input.replayParts.length > 0) {
@@ -683,7 +691,6 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
         // 关键：不在 start-step 时立即清除 thinking，而是等首个内容 chunk 到达后再清除，
         // 避免 start-step → 首 token 之间的空白期让用户感觉卡住。
         let stepThinkingActive = false;
-        let hasPendingApproval = false;
         const CONTENT_CHUNK_TYPES = new Set([
           "text-delta",
           "reasoning",
@@ -698,11 +705,8 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
               const normalized = applyTransientFlag(chunk);
               controller.enqueue(normalized);
               const type = typeof chunk.type === "string" ? chunk.type : "";
-              // Track pending tool approvals — if any tool needs user approval,
-              // the while-loop must NOT drain notifications or start a new turn.
-              if (type === "tool-approval-request") {
-                hasPendingApproval = true;
-              }
+              // (Note: tool-approval-request no longer affects the while loop —
+              // end-of-turn drain was removed in favor of bg-drain.)
               type StepThinkingChunk = { type: "data-step-thinking"; data: { active: boolean }; transient: true };
               const mkStepThinking = (active: boolean): StepThinkingChunk => ({
                 type: "data-step-thinking",
@@ -739,143 +743,12 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
           } catch {}
         }
 
-        // ========== End-of-turn drain ==========
-        // Guard: skip drain when the turn ended with a pending tool approval.
-        // The user must approve/deny before we can inject synthetic messages.
-        if (hasPendingApproval) break;
-
-        const drainSessionId = getSessionId() ?? input.sessionId;
-        const notifications = backgroundProcessManager.drainNotifications(
-          drainSessionId,
-          "later",
-        );
-        if (notifications.length === 0) break;
-
-        totalBgDrained += notifications.length;
-        if (bgDrainStartMs === 0) bgDrainStartMs = Date.now();
-        const exceededBudget =
-          totalBgDrained > MAX_BG_NOTIFICATIONS ||
-          Date.now() - bgDrainStartMs > BG_DRAIN_DEADLINE_MS;
-
-        // 构造 synthetic user message — 外层 <system-reminder> 包裹内层 bg-task-notification XML
-        const innerXml = notifications.map((n) => n.xmlContent).join("\n");
-        const wrappedContent = `<system-reminder>\n${innerXml}\n</system-reminder>`;
-        const syntheticUserId = randomUUID();
-        const taskIds = notifications.map((n) => n.taskId);
-        const syntheticUiMessage: UIMessageLike = {
-          id: syntheticUserId,
-          role: "user",
-          parts: [{ type: "text", text: wrappedContent }],
-          metadata: {
-            openloaf: {
-              syntheticKind: "bg-notification",
-              isMeta: true,
-              taskIds,
-            },
-          },
-        };
-
-        // 持久化 synthetic user message（父节点是本圈的 assistant）
-        try {
-          await saveMessage({
-            sessionId: drainSessionId,
-            message: syntheticUiMessage,
-            parentMessageId: localAssistantId,
-            allowEmpty: false,
-          });
-        } catch (persistErr) {
-          logger.error(
-            { err: persistErr, sessionId: drainSessionId, syntheticUserId },
-            "[chat] save synthetic user message failed",
-          );
-        }
-
-        // 累积到下一圈的 UI 历史 + 模型消息
-        try {
-          const response = await agentStream.response;
-          if (Array.isArray(response?.messages) && response.messages.length > 0) {
-            modelMessages = [...modelMessages, ...(response.messages as ModelMessage[])];
-          }
-        } catch (respErr) {
-          logger.warn(
-            { err: respErr, sessionId: drainSessionId },
-            "[chat] read agentStream.response failed",
-          );
-        }
-        modelMessages = [
-          ...modelMessages,
-          { role: "user", content: wrappedContent } as ModelMessage,
-        ];
-        uiHistoryMessages = [
-          ...uiHistoryMessages,
-          syntheticUiMessage as unknown as UIMessage,
-        ];
-
-        // 立即推一次 branch-snapshot 让前端显示 synthetic user message
-        try {
-          const snapshot = await getChatViewFromFile({
-            sessionId: drainSessionId,
-            anchor: { messageId: syntheticUserId, strategy: "self" },
-            window: { limit: 50 },
-            includeToolOutput: true,
-          });
-          writer.write({
-            type: "data-branch-snapshot",
-            data: { sessionId: drainSessionId, snapshot },
-            transient: true,
-          } as unknown as InferUIMessageChunk<UIMessage>);
-        } catch (snapErr) {
-          logger.warn(
-            { err: snapErr, sessionId: drainSessionId, syntheticUserId },
-            "[chat] synthetic branch snapshot failed",
-          );
-        }
-
-        if (exceededBudget) {
-          // 预算超限：记录降级 system-reminder，告诉 AI 后台任务仍在继续
-          const reason =
-            totalBgDrained > MAX_BG_NOTIFICATIONS
-              ? "too-many-notifications"
-              : "turn-deadline";
-          const degradedContent =
-            "<system-reminder>\n" +
-            "<bg-task-budget-exceeded>\n" +
-            `  <reason>${reason}</reason>\n` +
-            "  <note>Remaining background tasks are still running. Use BgList to check status or wait for the user's next message.</note>\n" +
-            "</bg-task-budget-exceeded>\n" +
-            "</system-reminder>";
-          const degradedUserId = randomUUID();
-          try {
-            await saveMessage({
-              sessionId: drainSessionId,
-              message: {
-                id: degradedUserId,
-                role: "user",
-                parts: [{ type: "text", text: degradedContent }],
-                metadata: {
-                  openloaf: {
-                    syntheticKind: "bg-budget-exceeded",
-                    isMeta: true,
-                    taskIds: [],
-                  },
-                },
-              } satisfies UIMessageLike,
-              parentMessageId: syntheticUserId,
-              allowEmpty: false,
-            });
-          } catch (degErr) {
-            logger.error(
-              { err: degErr, sessionId: drainSessionId },
-              "[chat] save bg-budget-exceeded message failed",
-            );
-          }
-          break;
-        }
-
-        // Next turn: fresh assistant message id + new parent = synthetic user
-        currentParentMessageId = syntheticUserId;
-        currentAssistantMessageId = randomUUID();
-        currentTurnStartedAt = new Date();
+        // ========== End-of-turn: 不再在同一 stream 内 drain 后台通知 ==========
+        // 后台任务通知统一由前端 bg-drain 机制触发新 turn（ChatCoreProvider
+        // 的 onSessionUpdate 检测终态 + AI 空闲 → 发送 bg-drain 消息）。
+        // 新 turn 的 pre-drain 逻辑（while 循环开头）负责把积压通知注入 modelMessages。
+        // 这样每个 turn 干净结束、stream 立刻关闭，用户不会看到"AI 还在思考"。
+        break;
         } // end while-loop
       } catch (err) {
         popAgentFrameOnce();

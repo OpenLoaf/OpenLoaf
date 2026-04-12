@@ -1,13 +1,13 @@
 ---
 name: schedule-ops
 description: >
-  看板后台任务（Scheduled/Background Tasks）——持久化到任务看板、由独立 Agent
-  异步执行、支持 cron/interval/once 调度、审批流，以及指派给指定项目 Agent 执行。
-  触发词：定时、cron、每天/每周/每月做某事、自动化、周期性、后台执行、异步任务、
-  看板任务、审批、调度、延后提醒、等待任务完成、让 XX Agent 跑某任务。
-  **不负责一次性计划审批（那是 SubmitPlan）**。
-  本技能提供三个工具：ScheduledTaskManage（创建与管理）、ScheduledTaskStatus（查询快照）、
-  ScheduledTaskWait（阻塞等待任务完成，立即任务的必配搭档）。
+  持久化看板任务——cron/interval/once 定时调度、委派给项目 Agent 异步执行。
+  当用户明确要求"每天/每周/定时做 X"、"自动化"、"周期性执行"、"让 XX Agent 跑这个"、
+  "看板任务"、"审批流"时激活。
+  **不用于**：纯对话请求（倒计时、闲聊、角色扮演→直接回答）、
+  一次性即时操作（查天气、算数学→直接用工具）、
+  日程安排（会议、约会→calendar-ops）、
+  一次性计划审批（→SubmitPlan）。
 ---
 
 # 任务操作技能

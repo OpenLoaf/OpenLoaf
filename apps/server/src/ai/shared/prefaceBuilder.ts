@@ -363,10 +363,9 @@ async function resolvePromptContext(input: {
  *
  * Every builtin skill is listed with its full description — AI needs the
  * complete trigger vocabulary to match user intent to the right skill.
- * Skills are loaded on demand via `ToolSearch(names: "skill-name")`, which
- * takes an exact skill/tool name (comma-separated for multiple). The
- * ToolSearch tool does not support fuzzy/keyword matching, so the full name
- * list must be visible in the prompt.
+ * Skills are loaded on demand via `LoadSkill(skillName: "...")`. The
+ * LoadSkill tool takes an exact skill name, so the full name list must be
+ * visible in the prompt.
  */
 function buildBuiltinSkillsSystemBlock(
   summaries: PromptContext["skillSummaries"],
@@ -378,8 +377,8 @@ function buildBuiltinSkillsSystemBlock(
   if (!content) return "";
   const desc =
     lang === "zh"
-      ? "内置技能，通过 `ToolSearch(names: 'skill-name')` 按需加载"
-      : "Built-in skills, load on demand via `ToolSearch(names: 'skill-name')`";
+      ? "内置技能，通过 `LoadSkill(skillName: '...')` 按需加载"
+      : "Built-in skills, load on demand via `LoadSkill(skillName: '...')`";
   return `<system-skills desc="${desc}">\n${content}\n</system-skills>`;
 }
 
@@ -402,7 +401,6 @@ export function buildBuiltinSkillsText(lang?: PromptLang): string {
     colorIndex: skill.colorIndex,
     hasMeta: true,
     icon: skill.icon,
-    ...(skill.tools?.length ? { tools: skill.tools } : {}),
   }));
   return buildBuiltinSkillsSystemBlock(summaries, lang);
 }
@@ -420,12 +418,12 @@ function buildUserProjectSkillsBlocks(
   const blocks: string[] = [];
   const userDesc =
     lang === "zh"
-      ? "用户全局技能，通过 ToolSearch 按需加载"
-      : "User-global skills, loaded on demand via ToolSearch";
+      ? "用户全局技能，通过 `LoadSkill(skillName: '...')` 按需加载"
+      : "User-global skills, load on demand via `LoadSkill(skillName: '...')`";
   const projectDesc =
     lang === "zh"
-      ? "项目技能，通过 ToolSearch 按需加载"
-      : "Project skills, loaded on demand via ToolSearch";
+      ? "项目技能，通过 `LoadSkill(skillName: '...')` 按需加载"
+      : "Project skills, load on demand via `LoadSkill(skillName: '...')`";
 
   if (globalSkills.length > 0) {
     const content = buildSkillsSummarySection(globalSkills);

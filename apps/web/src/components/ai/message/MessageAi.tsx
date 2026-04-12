@@ -16,7 +16,7 @@ import MessageParts from "./MessageParts";
 import ClaudeCodeStatusBar from "./ClaudeCodeStatusBar";
 import { Message, MessageContent } from "@/components/ai-elements/message";
 import { useChatSession, useChatTools } from "../context";
-import AssistantMessageHeader from "./AssistantMessageHeader";
+import AssistantMessageHeader, { AssistantAvatar } from "./AssistantMessageHeader";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { isToolPart } from "@/lib/chat/message-parts";
 import { isApprovalPending } from "./tools/shared/tool-utils";
@@ -74,7 +74,12 @@ export default React.memo(function MessageAi({ message, className, isAnimating, 
 
   return (
     <Message from="assistant" className={cn("min-w-0 w-full", !isAnimating && "has-[>[data-content]:empty]:hidden", className)}>
-      {showHeader && <AssistantMessageHeader message={message} />}
+      {showHeader && (
+        <div className="flex items-center gap-1.5 -ml-2">
+          <AssistantAvatar message={message} />
+          <AssistantMessageHeader message={message} />
+        </div>
+      )}
       <MessageContent data-content className="min-w-0 w-full space-y-1 empty:hidden">
         <MessageParts parts={messageParts} options={{ isAnimating, messageId: message.id, showAllToolResults }} />
         {showStatusBar && tabId && <ClaudeCodeStatusBar tabId={tabId} />}

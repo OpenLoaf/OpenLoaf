@@ -557,23 +557,6 @@ export const settingSchemas = {
       type: z.string(),
     }),
   },
-  /** Generate dynamic chat suggestions based on project context. */
-  generateChatSuggestions: {
-    input: z.object({
-      projectId: z.string().optional(),
-      currentInput: z.string().optional(),
-      saasAccessToken: z.string().optional(),
-    }),
-    output: z.object({
-      suggestions: z.array(
-        z.object({
-          label: z.string(),
-          value: z.string(),
-          type: z.enum(['completion', 'question', 'action']),
-        }),
-      ),
-    }),
-  },
   /** Generate commit message via auxiliary model. */
   generateCommitMessage: {
     input: z.object({
@@ -975,12 +958,6 @@ export abstract class BaseSettingRouter {
       inferProjectName: shieldedProcedure
         .input(settingSchemas.inferProjectName.input)
         .output(settingSchemas.inferProjectName.output)
-        .mutation(async () => {
-          throw new Error("Not implemented in base class");
-        }),
-      generateChatSuggestions: shieldedProcedure
-        .input(settingSchemas.generateChatSuggestions.input)
-        .output(settingSchemas.generateChatSuggestions.output)
         .mutation(async () => {
           throw new Error("Not implemented in base class");
         }),

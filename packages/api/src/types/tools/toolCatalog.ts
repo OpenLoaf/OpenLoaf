@@ -53,7 +53,6 @@ import {
 } from "./scheduledTask";
 import {
   bgListToolDef,
-  bgOutputToolDef,
   bgKillToolDef,
 } from "./bgTask";
 import { sleepToolDef } from "./sleep";
@@ -126,7 +125,6 @@ const TOOL_DEFS: ToolDefLike[] = [
   scheduledTaskStatusToolDef,
   scheduledTaskWaitToolDef,
   bgListToolDef,
-  bgOutputToolDef,
   bgKillToolDef,
   sleepToolDef,
   imageProcessToolDef,
@@ -189,7 +187,6 @@ const TOOL_KEYWORDS: Record<string, { keywords: string[]; group: string }> = {
   'ScheduledTaskManage': { keywords: ['task', 'todo', 'reminder', 'schedule', 'create', 'manage', 'cancel'], group: 'task' },
   'ScheduledTaskStatus': { keywords: ['task', 'status', 'progress', 'check', 'query', 'active'], group: 'task' },
   'Jobs': { keywords: ['background', 'bg', 'list', 'process', 'running', 'shell', 'agent'], group: 'background' },
-  'Tail': { keywords: ['background', 'bg', 'output', 'read', 'wait', 'block', 'shell', 'log'], group: 'background' },
   'Kill': { keywords: ['background', 'bg', 'kill', 'terminate', 'cancel', 'stop', 'process'], group: 'background' },
   'Sleep': { keywords: ['sleep', 'wait', 'pause', 'delay', 'idle', 'yield', 'background', 'notification'], group: 'background' },
   'ExcelQuery': { keywords: ['excel', 'spreadsheet', 'xlsx', 'csv', 'sheet', 'cell', 'read'], group: 'office' },

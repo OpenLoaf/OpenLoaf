@@ -12,33 +12,20 @@ import { z } from "zod";
 export const webFetchToolDef = {
   id: "WebFetch",
   readonly: true,
-  name: "获取网页内容",
-  description: `Fetches a web page and returns both a lossy markdown Summary AND the path to the raw saved body.
+  name: "Fetch Url",
+  description: `Fetch a web page. Returns a lossy markdown Summary plus the path to the raw saved body on disk (HTML / JSON / text written to \`\${CURRENT_CHAT_DIR}/webfetch/...\`).
 
-Output structure:
-- Header: URL, status, byte size, latency
-- "Raw saved → \${CURRENT_CHAT_DIR}/webfetch/{timestamp}_{host}.{ext}" — the UNTRANSFORMED response body (HTML/JSON/text) written to disk
-- "## Summary" — HTML converted to markdown (lossy: drops <script>/<link>/<meta>/attributes), truncated to 32KB
-- "## Tip" — reminder to Read/Grep the Raw file when you need DOM structure
+- For readable content (articles, docs, markdown), use the Summary.
+- For structural analysis (script tags, meta tags, SPA shells), Read or Grep the raw file — the Summary strips that info.
+- HTTP upgrades to HTTPS automatically; same-host redirects are followed (up to 10).
 
-Usage:
-- Provide a URL and a prompt describing what information you need
-- For readable content (articles, docs, markdown), use the Summary
-- For structural analysis (script tags, CSS links, meta tags, SPAs), Read or Grep the Raw file path directly — the Summary will have stripped that info out
-- JSON responses are pretty-printed into Summary; raw JSON is also saved
-- HTTP to HTTPS upgrade is automatic
-- Same-host redirects followed automatically (up to 10); cross-host redirects are reported so you can re-fetch
-
-IMPORTANT: WebFetch WILL FAIL for authenticated or private URLs. Before using this tool, check if the URL points to an authenticated service (e.g. Google Docs, Confluence, Jira, GitHub). If so, look for a specialized MCP tool or browser automation that provides authenticated access.`,
+Important: WebFetch fails on authenticated or private URLs (Google Docs, Confluence, Jira, GitHub private, etc.). For those, use a specialized MCP tool or browser automation.`,
   parameters: z.object({
-    url: z
-      .string()
-      .min(1)
-      .describe("The URL to fetch content from"),
+    url: z.string().min(1),
     prompt: z
       .string()
       .min(1)
-      .describe("A prompt describing what information you need from this page. This helps focus the extraction."),
+      .describe("What information you need from the page; helps focus extraction."),
   }),
   component: null,
 } as const;

@@ -84,14 +84,18 @@ export function buildToolSearchGuidance(
     }
   }
 
-  return `# 工具与技能
-你有一组始终可用的核心工具（Bash、Read、Glob、Grep、Edit、Write、AskUserQuestion、Agent 等），可直接调用。
-其余专业工具需通过 ToolSearch 加载后才能调用：ToolSearch(names: "name1,name2")。
+  return `# 工具与技能（两条独立通道）
+
+核心工具（Bash、Read、Glob、Grep、Edit、Write、AskUserQuestion、Agent、ToolSearch、LoadSkill 等）始终可用，直接调用。
+
+**Skill 加载（工作流指令）**：\`LoadSkill(skillName: "<name>")\`——唯一途径。可用 skill 列表见 system 中的 \`<system-skills>\` 块。不要用 ToolSearch 加载 skill。
+
+**Tool schema 加载（参数签名）**：其他 deferred 工具在调用前只有名字没有 schema，必须先用 \`ToolSearch(names: "ToolA,ToolB")\` 加载，支持批量；可用 \`ToolSearch(names: "select:ToolA")\` 明确按名加载。
 
 工作流程：
-1. 核心工具（文件操作、Shell、子代理）→ 直接使用，无需加载
-2. 专业工具 → 先从 Skills 列表中找匹配的技能 → 加载技能（会自动激活相关工具）
-3. 若无匹配技能 → 从下方分类中判断方向，加载对应工具
+1. 核心工具 → 直接使用
+2. 领域任务 → 先 \`LoadSkill\` 读取对应 skill 正文，按正文指引一次性批量 \`ToolSearch\` 加载需要的工具，再按 skill 执行
+3. 若无匹配 skill → 直接从下方分类判断需要什么工具，\`ToolSearch\` 加载其 schema
 
 可按需加载的工具分类：
 ${groupLines.join('\n')}`

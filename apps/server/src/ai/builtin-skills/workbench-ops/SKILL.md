@@ -1,11 +1,14 @@
 ---
 name: workbench-ops
-description: 工作台 Widget 管理 — 用户提到 widget、仪表盘、工作台、自定义组件、监控面板、股票行情、天气组件、clock、countdown timer、quick links、bookmarks、system monitor、calendar widget、todo widget、pomodoro、"桌面上加个…"、"一眼看到 X" 时激活
+description: >
+  工作台 Widget 管理——创建/编辑/删除桌面组件。当用户要在工作台上添加或管理
+  widget（仪表盘、监控面板、股票行情、天气、时钟、快捷链接、番茄钟等）时激活。
+  **不用于**：对话中随口提到时间/倒计时（→直接回答）、数据可视化图表（→visualization-ops）。
 ---
 
 # 工作台 Widget 管理
 
-本 skill 负责 Widget 生命周期管理（创建脚手架、查询、验证编译）。编码细节（SDK API、组件写法、安全沙箱）在 `generate-dynamic-widget` skill 中，需要写代码时先 `ToolSearch(names: "generate-dynamic-widget")`。
+本 skill 负责 Widget 生命周期管理（创建脚手架、查询、验证编译）。编码细节（SDK API、组件写法、安全沙箱）在 `generate-dynamic-widget` skill 中，需要写代码时先 `LoadSkill(skillName: "generate-dynamic-widget")`。
 
 ## 决策树
 

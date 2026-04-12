@@ -37,7 +37,7 @@ export const sleepTool = tool({
     const abortSignal = ctx?.abortSignal
     const startTime = Date.now()
 
-    const wokenBy: WakeReason = await new Promise((resolve, reject) => {
+    const wokenBy: WakeReason = await new Promise<WakeReason>((resolve, reject) => {
       let timer: NodeJS.Timeout | null = null
       let unsubscribe: (() => void) | null = null
       let abortListener: (() => void) | null = null
@@ -97,6 +97,13 @@ export const sleepTool = tool({
         settleResolve('bg-task-notification')
       }
     })
+
+    // If woken by a bg-task notification, drain those notifications so they
+    // don't also appear as a redundant synthetic message at end-of-turn.
+    // The AI will use Jobs / Read to inspect results within this same turn.
+    if (wokenBy === 'bg-task-notification') {
+      backgroundProcessManager.drainNotifications(sessionId, 'later')
+    }
 
     return {
       ok: true as const,

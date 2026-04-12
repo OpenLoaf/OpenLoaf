@@ -666,7 +666,7 @@ export function ChatInputBox({
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="h-7 rounded-3xl px-2.5 text-xs shadow-none"
+                  className="h-8 rounded-3xl px-3 text-xs shadow-none"
                   onClick={onCancel}
                 >
                   {resolvedCancelLabel}
@@ -702,13 +702,14 @@ export function ChatInputBox({
               {actionVariant === "text" ? (
                 <PromptInputButton
                   type={canSubmit ? "submit" : "button"}
+                  variant="default"
                   disabled={isSendDisabled}
                   size="sm"
                   className={cn(
                     "h-8 rounded-3xl px-3 text-xs shrink-0 disabled:opacity-100",
                     canSubmit
                       ? "bg-primary hover:bg-primary/90 text-primary-foreground hover:text-primary-foreground"
-                      : "bg-muted text-foreground/60 cursor-not-allowed"
+                      : "bg-muted text-foreground/60 hover:bg-muted hover:text-foreground/60 cursor-not-allowed"
                   )}
                 >
                   {resolvedSubmitLabel}

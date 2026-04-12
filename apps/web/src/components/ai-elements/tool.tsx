@@ -20,7 +20,6 @@ import {
 import { cn } from "@/lib/utils";
 import {
   CheckCircleIcon,
-  ChevronDownIcon,
   LoaderCircleIcon,
   WrenchIcon,
   XCircleIcon,
@@ -33,7 +32,7 @@ export type ToolProps = ComponentProps<typeof Collapsible>;
 
 export const Tool = ({ className, ...props }: ToolProps) => (
   <Collapsible
-    className={cn("group not-prose w-full rounded-3xl border", className)}
+    className={cn("group not-prose min-w-0 text-xs", className)}
     {...props}
   />
 );
@@ -84,19 +83,17 @@ export const ToolHeader = ({
   return (
     <CollapsibleTrigger
       className={cn(
-        "flex w-full items-center justify-between gap-2 px-2.5 py-1.5",
+        "flex w-full items-center gap-1.5 rounded-full px-2.5 py-1",
+        "transition-colors duration-150 hover:bg-muted/60",
         className
       )}
       {...props}
     >
-      <div className="flex items-center gap-1.5">
-        {icon ?? <WrenchIcon className="size-3.5 text-muted-foreground" />}
-        <span className="font-medium text-xs">{title ?? derivedName}</span>
-        {showStatus ? getStatusBadge(state) : null}
-      </div>
-      <div className="flex items-center gap-1.5">
-        <ChevronDownIcon className="size-3.5 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
-      </div>
+      {icon ?? <WrenchIcon className="size-3.5 shrink-0 text-muted-foreground" />}
+      <span className="shrink-0 text-xs font-medium text-muted-foreground">
+        {title ?? derivedName}
+      </span>
+      {showStatus ? <span className="shrink-0">{getStatusBadge(state)}</span> : null}
     </CollapsibleTrigger>
   );
 };
@@ -106,7 +103,7 @@ export type ToolContentProps = ComponentProps<typeof CollapsibleContent>;
 export const ToolContent = ({ className, ...props }: ToolContentProps) => (
   <CollapsibleContent
     className={cn(
-      "data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-2 data-[state=open]:slide-in-from-top-2 space-y-2 p-2.5 text-popover-foreground outline-none data-[state=closed]:animate-out data-[state=open]:animate-in",
+      "data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-2 data-[state=open]:slide-in-from-top-2 space-y-2 px-2.5 py-2 text-xs text-popover-foreground outline-none data-[state=closed]:animate-out data-[state=open]:animate-in",
       className
     )}
     {...props}
@@ -130,7 +127,7 @@ export const ToolInput = ({ className, input, toolId, ...props }: ToolInputProps
           <span className="text-[10px] font-normal text-muted-foreground/50">{toolId}</span>
         ) : null}
       </h4>
-      <div className="rounded-3xl bg-muted/50">
+      <div className="rounded-2xl bg-muted/50">
         <CodeBlock code={code} language="json" />
       </div>
     </div>
@@ -169,7 +166,7 @@ export const ToolOutput = ({
       </h4>
       <div
         className={cn(
-          "overflow-x-auto rounded-3xl text-xs [&_table]:w-full",
+          "overflow-x-auto rounded-2xl text-xs [&_table]:w-full",
           errorText
             ? "bg-destructive/10 text-destructive"
             : "bg-muted/50 text-foreground"

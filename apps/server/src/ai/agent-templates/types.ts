@@ -27,8 +27,8 @@ export type AgentTemplate = {
   description: string
   /** 图标名称。 */
   icon: string
-  /** 工具 ID 列表。 */
-  toolIds: readonly string[]
+  /** 工具 ID 列表（仅供子 agent 配置使用；master agent 的核心工具由 coreToolIds.ts 定义）。 */
+  toolIds?: readonly string[]
   /** 是否允许创建子 Agent。 */
   allowSubAgents: boolean
   /** 最大子 Agent 深度。 */

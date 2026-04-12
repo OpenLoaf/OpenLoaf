@@ -12,9 +12,9 @@ import { z } from "zod";
 export const browserSnapshotToolDef = {
   id: "BrowserSnapshot",
   readonly: true,
-  name: "浏览器快照",
+  name: "Browser Snapshot",
   description:
-    "Captures a snapshot of the current browser page (URL/title/visible text/interactive elements) to decide next actions. Text and elements are truncated at 32KB/120 items. For exact DOM structure (tags/attrs for precise selector matching), Read/Grep the full outerHTML at `rawHtmlPath`.",
+    "Capture a snapshot of the current browser page (URL, title, visible text, interactive elements). See browser-ops skill for usage.",
   parameters: z.object({}),
   component: null,
 } as const;
@@ -22,11 +22,11 @@ export const browserSnapshotToolDef = {
 export const browserObserveToolDef = {
   id: "BrowserObserve",
   readonly: true,
-  name: "页面观察",
+  name: "Browser Observe",
   description:
-    "Observes the page with a specific focus (finding buttons / forms / key sections). Generates a task-focused snapshot. Snapshot fields truncated at 32KB/120 items; Read/Grep `rawHtmlPath` for full DOM.",
+    "Observe the page with a task-focused snapshot (find buttons / forms / key sections). See browser-ops skill for usage.",
   parameters: z.object({
-    task: z.string().describe("观察目标/关注点。"),
+    task: z.string().describe("Observation goal."),
   }),
   component: null,
 } as const;
@@ -34,11 +34,11 @@ export const browserObserveToolDef = {
 export const browserExtractToolDef = {
   id: "BrowserExtract",
   readonly: true,
-  name: "页面提取",
+  name: "Browser Extract",
   description:
-    "Extracts text from the page relevant to a query. Text truncated at 32KB; Read/Grep `rawHtmlPath` for full DOM structure.",
+    "Extract text from the page relevant to a query. See browser-ops skill for usage.",
   parameters: z.object({
-    query: z.string().describe("要提取的信息描述。"),
+    query: z.string(),
   }),
   component: null,
 } as const;
@@ -46,24 +46,21 @@ export const browserExtractToolDef = {
 export const browserActToolDef = {
   id: "BrowserAct",
   readonly: false,
-  name: "页面动作",
+  name: "Browser Act",
   description:
-    "Performs an action on the current page (click / type / fill / scroll / press key). Usually call snapshot or observe first to get the selector. Errors if the element is missing or params don't match the action.",
+    "Perform an action on the current page (click / type / fill / scroll / press). See browser-ops skill for usage.",
   parameters: z
     .object({
-      action: z
-        .enum(["click-css", "click-text", "type", "fill", "press", "press-on", "scroll"])
-        .describe("动作类型。"),
+      action: z.enum(["click-css", "click-text", "type", "fill", "press", "press-on", "scroll"]),
       selector: z
         .string()
         .optional()
-        .describe("目标元素的 CSS selector（type/fill 未提供时使用当前聚焦元素）。"),
-      text: z.string().optional().describe("用于输入或可见文本匹配的内容。"),
-      key: z.string().optional().describe("要按下的按键，例如 Enter。"),
-      y: z.number().int().optional().describe("滚动距离（像素，正/负）。"),
+        .describe("CSS selector. type/fill use current focus when omitted."),
+      text: z.string().optional().describe("Text to type or match visibly."),
+      key: z.string().optional().describe("e.g. Enter."),
+      y: z.number().int().optional().describe("Scroll distance in pixels."),
     })
     .superRefine((value, ctx) => {
-      // 按 action 校验必填字段，避免缺参导致动作无效。
       if (value.action === "click-css" && !value.selector) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: "selector is required for click-css." });
       }
@@ -89,14 +86,14 @@ export const browserActToolDef = {
 export const browserWaitToolDef = {
   id: "BrowserWait",
   readonly: true,
-  name: "页面等待",
+  name: "Browser Wait",
   description:
-    "Waits for a condition: page load, network idle, URL contains, text contains, or a plain timeout. Errors if `timeoutMs` is exceeded.",
+    "Wait for a page condition (load / network idle / url / text / timeout). See browser-ops skill for usage.",
   parameters: z.object({
     type: z.enum(["timeout", "load", "networkidle", "urlIncludes", "textIncludes"]),
-    timeoutMs: z.number().int().min(0).optional().describe("最大等待时间（毫秒）。"),
-    url: z.string().optional().describe("urlIncludes 的匹配片段。"),
-    text: z.string().optional().describe("textIncludes 的匹配片段。"),
+    timeoutMs: z.number().int().min(0).optional().describe("Milliseconds."),
+    url: z.string().optional().describe("Fragment to match for urlIncludes."),
+    text: z.string().optional().describe("Fragment to match for textIncludes."),
   }),
   component: null,
 } as const;
@@ -104,25 +101,22 @@ export const browserWaitToolDef = {
 export const browserScreenshotToolDef = {
   id: "BrowserScreenshot",
   readonly: true,
-  name: "页面截图",
+  name: "Browser Screenshot",
   description:
-    "Captures a screenshot of the current browser page (viewport or full page) and saves it as an image file. Do NOT use just to extract text — use BrowserExtract instead.",
+    "Capture a screenshot of the current page (viewport or full page) and save as an image file. See browser-ops skill for usage.",
   parameters: z.object({
-    format: z
-      .enum(["png", "jpeg", "webp"])
-      .optional()
-      .describe("截图格式，默认 png。"),
+    format: z.enum(["png", "jpeg", "webp"]).optional().describe("Default png."),
     quality: z
       .number()
       .int()
       .min(1)
       .max(100)
       .optional()
-      .describe("图片质量（仅 jpeg/webp 有效），默认 80。"),
+      .describe("For jpeg/webp. Default 80."),
     fullPage: z
       .boolean()
       .optional()
-      .describe("是否截取完整页面（包括滚动不可见区域），默认 false 仅截取可视区域。"),
+      .describe("Include off-screen areas. Default false."),
   }),
   component: null,
 } as const;
@@ -130,25 +124,19 @@ export const browserScreenshotToolDef = {
 export const browserDownloadImageToolDef = {
   id: "BrowserDownloadImage",
   readonly: false,
-  name: "下载网页图片",
+  name: "Download Images",
   description:
-    "Downloads images from the current page — pass either a list of absolute image URLs or a CSS selector to find `img` elements. For full-page screenshots use BrowserScreenshot.",
+    "Download images from the current page by absolute URLs or CSS selector. See browser-ops skill for usage.",
   parameters: z.object({
     imageUrls: z
       .array(z.string())
       .optional()
-      .describe("要下载的图片绝对 URL 列表。与 selector 二选一。"),
+      .describe("Absolute URLs. Use one of imageUrls or selector."),
     selector: z
       .string()
       .optional()
-      .describe("CSS 选择器，用于从页面中查找 img 元素并提取其 src 下载。例如：'.product img'。与 imageUrls 二选一。"),
-    maxCount: z
-      .number()
-      .int()
-      .min(1)
-      .max(20)
-      .optional()
-      .describe("最多下载的图片数量，默认 10，最大 20。"),
+      .describe("CSS selector for img elements. Use one of imageUrls or selector."),
+    maxCount: z.number().int().min(1).max(20).optional().describe("Default 10."),
   }),
   component: null,
 } as const;

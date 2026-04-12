@@ -289,6 +289,56 @@ export function useChatMessageOps({
     ]
   );
 
+  const continueAssistantTurn = React.useCallback(
+    async (assistantMessageId: string) => {
+      const chat = chatRef.current!;
+      const assistant = (chat.messages as any[]).find(
+        (m: any) => String(m?.id) === assistantMessageId,
+      );
+      if (!assistant) return;
+
+      const parentUserMessageId = findParentUserForRetryPure({
+        assistantMessageId,
+        assistantParentMessageId: (assistant as any)?.parentMessageId,
+        siblingNavParentMessageId: siblingNav?.[assistantMessageId]?.parentMessageId,
+        messages: chat.messages as Array<{ id: string; role: string }>,
+      });
+      if (!parentUserMessageId) return;
+
+      chat.stop();
+
+      const slicedMessages = sliceMessagesToParent(
+        chat.messages as Array<{ id: string }>,
+        parentUserMessageId,
+      ) as UIMessage[];
+      if (slicedMessages.length === 0) return;
+      replaceChatMessages(slicedMessages);
+      patchSnapshot((previous: any) => {
+        const chainIdx = previous.branchMessageIds.indexOf(parentUserMessageId);
+        return {
+          leafMessageId: parentUserMessageId,
+          branchMessageIds:
+            chainIdx >= 0
+              ? previous.branchMessageIds.slice(0, chainIdx + 1)
+              : previous.branchMessageIds,
+        };
+      });
+
+      pendingUserMessageIdRef.current = parentUserMessageId;
+      needsBranchMetaRefreshRef.current = true;
+      resetBranchSnapshotReceipt();
+      await (chat.regenerate as any)({
+        body: { continue: true },
+      });
+    },
+    [
+      siblingNav,
+      patchSnapshot,
+      replaceChatMessages,
+      resetBranchSnapshotReceipt,
+    ]
+  );
+
   const resendUserMessage = React.useCallback(
     async (userMessageId: string, nextText: string, nextParts?: any[]) => {
       const chat = chatRef.current!;
@@ -370,6 +420,7 @@ export function useChatMessageOps({
     sendMessage,
     switchSibling,
     retryAssistantMessage,
+    continueAssistantTurn,
     resendUserMessage,
     deleteMessageSubtree,
   };

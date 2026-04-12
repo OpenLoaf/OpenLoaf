@@ -13,14 +13,14 @@ import { RiskType } from "../toolResult";
 export const loadSkillToolDef = {
   id: "LoadSkill",
   readonly: true,
-  name: "加载技能",
+  name: "Load Skill",
   description:
-    'Loads the full content of a SKILL.md by name. Returns `{ skillName, scope, basePath, content }` — relative paths inside the skill (e.g. `scripts/extract.sh`) must be resolved against `basePath`. Call when you find a relevant skill in the Skills list summary.',
+    "Load the full content of a SKILL.md by name. Returns { skillName, scope, basePath, content } — relative paths inside the skill (e.g. `scripts/extract.sh`) must be resolved against `basePath`. Call when you find a relevant skill in the Skills list summary.",
   parameters: z.object({
     skillName: z
       .string()
       .min(1)
-      .describe("技能名称，对应 Skills 列表摘要中的 name 字段。"),
+      .describe("Skill name, matching the `name` field in the Skills list summary."),
   }),
   component: null,
 } as const;

@@ -20,7 +20,7 @@ import { useSaasAuth } from '@/hooks/use-saas-auth'
 import { SaasLoginDialog } from '@/components/auth/SaasLoginDialog'
 import { Message, MessageContent, USER_MESSAGE_SURFACE_CLASS } from '@/components/ai-elements/message'
 import { cn } from '@/lib/utils'
-import AssistantMessageHeader from './AssistantMessageHeader'
+import AssistantMessageHeader, { AssistantAvatar } from './AssistantMessageHeader'
 
 export default function PendingCloudLoginPrompt() {
   const { pendingCloudMessage } = useChatMessages()
@@ -114,7 +114,10 @@ export default function PendingCloudLoginPrompt() {
         </Message>
 
         <Message from="assistant" className="mt-1.5 max-w-[78%]">
-          <AssistantMessageHeader />
+          <div className="flex items-center gap-2">
+            <AssistantAvatar />
+            <AssistantMessageHeader />
+          </div>
           <motion.div
             initial={reduceMotion ? false : { opacity: 0 }}
             animate={{ opacity: 1 }}

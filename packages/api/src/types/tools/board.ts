@@ -12,30 +12,18 @@ import { z } from 'zod'
 export const boardQueryToolDef = {
   id: 'BoardQuery',
   readonly: true,
-  name: '画布查询',
+  name: 'Query Board',
   description:
-    'Read-only queries on canvas boards: `list` returns boards (filterable by project), `get` returns a board detail. For create/update/delete, use BoardMutate.',
+    'Read-only queries on canvas boards: list or get. See canvas-ops skill for usage.',
   parameters: z.object({
-    mode: z
-      .enum(['list', 'get'])
-      .optional()
-      .describe('查询模式：list 返回画布列表，get 返回指定画布详情（默认 list）'),
-    boardId: z
-      .string()
-      .optional()
-      .describe('画布 ID（get 模式时必填）'),
-    projectId: z
-      .string()
-      .optional()
-      .describe('项目 ID（list 模式可选，按项目筛选画布）'),
-    search: z
-      .string()
-      .optional()
-      .describe('搜索关键词（list 模式可选，按标题模糊搜索）'),
+    mode: z.enum(['list', 'get']).optional().describe('Default list.'),
+    boardId: z.string().optional().describe('Required for get.'),
+    projectId: z.string().optional().describe('Filter by project (list).'),
+    search: z.string().optional().describe('Fuzzy-match board title (list).'),
     unboundOnly: z
       .boolean()
       .optional()
-      .describe('是否仅列出未关联项目的画布（list 模式可选）'),
+      .describe('Only boards not linked to any project (list).'),
   }),
   component: null,
 } as const
@@ -43,29 +31,18 @@ export const boardQueryToolDef = {
 export const boardMutateToolDef = {
   id: 'BoardMutate',
   readonly: false,
-  name: '画布变更',
+  name: 'Mutate Board',
   description:
-    'Mutates canvas boards: `create` / `update` (title/pin/project binding) / `delete` (soft, recoverable) / `hard-delete` (permanent, removes disk files) / `duplicate` / `clear-unbound` (remove all boards not linked to a project). For read-only queries, use BoardQuery.',
+    'Create / update / delete / duplicate canvas boards. See canvas-ops skill for usage.',
   parameters: z.object({
-    action: z
-      .enum(['create', 'update', 'delete', 'hard-delete', 'duplicate', 'clear-unbound'])
-      .describe('变更类型：create/update/delete/hard-delete/duplicate/clear-unbound'),
+    action: z.enum(['create', 'update', 'delete', 'hard-delete', 'duplicate', 'clear-unbound']),
     boardId: z
       .string()
       .optional()
-      .describe('画布 ID（update/delete/hard-delete/duplicate 时必填）'),
-    title: z
-      .string()
-      .optional()
-      .describe('画布标题（create/update 时可选）'),
-    projectId: z
-      .string()
-      .optional()
-      .describe('关联项目 ID（create/update/duplicate 时可选）'),
-    isPin: z
-      .boolean()
-      .optional()
-      .describe('是否置顶（update 时可选）'),
+      .describe('Required for update/delete/hard-delete/duplicate.'),
+    title: z.string().optional().describe('For create/update.'),
+    projectId: z.string().optional().describe('For create/update/duplicate.'),
+    isPin: z.boolean().optional().describe('For update.'),
   }),
   needsApproval: true,
   component: null,

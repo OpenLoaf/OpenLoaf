@@ -20,10 +20,6 @@ import {
 } from "lucide-react";
 import { motion } from "motion/react";
 import { cn } from "@/lib/utils";
-import { useMutation } from "@tanstack/react-query";
-import { trpc } from "@/utils/trpc";
-import { getCachedAccessToken } from "@/lib/saas-auth";
-import { useTabActive } from "@/components/layout/TabActiveContext";
 
 type SuggestionItem = {
   label: string;
@@ -44,7 +40,6 @@ export default function MessageHelper(props: { compact?: boolean; projectId?: st
 
 function MessageHelperInner({
   compact,
-  projectId,
   setInput,
 }: {
   compact?: boolean;
@@ -53,13 +48,12 @@ function MessageHelperInner({
 }) {
   const { t } = useTranslation('ai');
 
-  // Build static suggestions from translation data (fallback)
   const rawSuggestions = t('helper.suggestions', { returnObjects: true }) as Array<{
     label: string;
     value: string;
   }> | null;
 
-  const staticSuggestions: SuggestionItem[] = rawSuggestions
+  const SUGGESTIONS: SuggestionItem[] = rawSuggestions
     ? rawSuggestions.map((item, index) => ({
         label: item.label,
         value: item.value,
@@ -67,44 +61,6 @@ function MessageHelperInner({
         color: COLORS[index] || "text-muted-foreground",
       }))
     : [];
-
-  // Dynamic suggestions from auxiliary model
-  const dynamicMutation = useMutation(
-    trpc.settings.generateChatSuggestions.mutationOptions(),
-  );
-
-  const tabActive = useTabActive();
-  const lastRequestedKeyRef = React.useRef<string>("");
-  React.useEffect(() => {
-    if (!tabActive) return;
-    const key = projectId || "__global__";
-    if (lastRequestedKeyRef.current === key) return;
-    lastRequestedKeyRef.current = key;
-    dynamicMutation.mutate({ projectId: projectId || undefined, saasAccessToken: getCachedAccessToken() ?? undefined });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId, tabActive]);
-
-  // 缓存上一次的有效建议，加载期间保持不变避免布局弹跳
-  const prevSuggestionsRef = React.useRef<SuggestionItem[]>(staticSuggestions);
-  const SUGGESTIONS: SuggestionItem[] = React.useMemo(() => {
-    const dynamic = dynamicMutation.data?.suggestions;
-    if (dynamic && dynamic.length > 0) {
-      const result = dynamic.map((item: { label: string; value: string }, index: number) => ({
-        label: item.label,
-        value: item.value,
-        icon: ICON_ORDER[index % ICON_ORDER.length] || Sparkles,
-        color: COLORS[index % COLORS.length] || "text-muted-foreground",
-      }));
-      prevSuggestionsRef.current = result;
-      return result;
-    }
-    // 加载中时保留上一次的建议，而非回退到静态建议
-    if (dynamicMutation.isPending) {
-      return prevSuggestionsRef.current;
-    }
-    prevSuggestionsRef.current = staticSuggestions;
-    return staticSuggestions;
-  }, [dynamicMutation.data, dynamicMutation.isPending, staticSuggestions]);
 
   const [hoveredIndex, setHoveredIndex] = React.useState(-1);
 

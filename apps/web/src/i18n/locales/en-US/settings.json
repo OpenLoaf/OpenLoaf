@@ -945,14 +945,6 @@
         "First time opening a legacy project (silent background)"
       ]
     },
-    "chat.suggestions": {
-      "label": "Input Suggestions",
-      "description": "When the user pauses in the input box, generates smart input suggestions based on context.",
-      "triggers": [
-        "Input box paused for 500ms",
-        "Input box focused (no content)"
-      ]
-    },
     "chat.title": {
       "label": "Summary Title",
       "description": "Automatically generates a short, meaningful title for the conversation after it ends.",

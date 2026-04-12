@@ -12,38 +12,23 @@ import { z } from "zod";
 export const webSearchToolDef = {
   id: "WebSearch",
   readonly: true,
-  name: "网页搜索",
+  name: "Web Search",
   description: `Search the web for real-time information.
 
-Usage:
-- Use this tool to find current information, verify facts, or research topics
-- Supports domain filtering: use allowed_domains to restrict results, or blocked_domains to exclude specific sites
-- Cannot specify both allowed_domains and blocked_domains in the same request
-- After searching, you MUST include Sources with URLs in your response
-
-When to use:
-- Current events or information beyond your knowledge cutoff
-- Fact-checking or verifying claims
-- Finding documentation, tutorials, or references
-- Researching products, services, or technologies
-
-When NOT to use:
-- Information you already know and are confident about
-- Data available from local files (use Read/Grep instead)
-- When you have a specific URL to visit (use WebFetch instead)`,
+- Use for current events, fact-checking, documentation lookups, or information beyond your training cutoff.
+- Supports domain filtering via allowed_domains OR blocked_domains (not both in the same call).
+- Include Sources with URLs in your response after searching.
+- Do not use when you already know the answer, when local files would suffice (use Read/Grep), or when you have a specific URL (use WebFetch).`,
   parameters: z.object({
-    query: z
-      .string()
-      .min(2)
-      .describe("The search query to use"),
+    query: z.string().min(2),
     allowed_domains: z
       .array(z.string())
       .optional()
-      .describe("Optional: only include results from these domains"),
+      .describe("Only return results from these domains."),
     blocked_domains: z
       .array(z.string())
       .optional()
-      .describe("Optional: exclude results from these domains"),
+      .describe("Exclude results from these domains."),
   }),
   component: null,
 } as const;

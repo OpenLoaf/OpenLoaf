@@ -13,7 +13,6 @@ import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { useChatActions, useChatSession, useChatStatus, useChatTools } from "@/components/ai/context";
 import { queryClient, trpc } from "@/utils/trpc";
-import { cn } from "@/lib/utils";
 import {
   BotIcon,
   FileTextIcon,
@@ -25,7 +24,6 @@ import {
   TerminalIcon,
   WrenchIcon,
 } from "lucide-react";
-import OpenUrlTool from "./OpenUrlTool";
 import MediaGenerateTool from "./MediaGenerateTool";
 import EnvFileTool, { isEnvFilePath } from "./EnvFileTool";
 import ToolApprovalActions from "./shared/ToolApprovalActions";
@@ -201,10 +199,6 @@ export default function UnifiedTool({
     return <MediaGenerateTool part={part} messageId={messageId} />;
   }
 
-  if (toolKind === "OpenUrl" && part.state !== "output-error" && part.state !== "output-denied") {
-    return <OpenUrlTool part={part} className={className} />;
-  }
-
   // 逻辑：Read / read-file 读取 .env 文件时使用专用渲染器
   if ((toolKind === "read" || toolKind === "read-file") && part.output != null) {
     const inputObj = asPlainObject(normalizeToolInput(part.input))
@@ -225,7 +219,7 @@ export default function UnifiedTool({
       onOpenChange={(open) => {
         if (open) void fetchToolOutput();
       }}
-      className={cn("min-w-0 text-xs", className)}
+      className={className}
     >
       {toolType === "dynamic-tool" ? (
         <ToolHeader
@@ -234,7 +228,6 @@ export default function UnifiedTool({
           toolName={toolKind}
           state={part.state as any}
           icon={toolIcon}
-          className="px-2 py-1 gap-1.5 [&_span]:text-xs [&_svg]:size-3"
         />
       ) : (
         <ToolHeader
@@ -242,10 +235,9 @@ export default function UnifiedTool({
           type={toolType as any}
           state={part.state as any}
           icon={toolIcon}
-          className="px-2 py-1 gap-1.5 [&_span]:text-xs [&_svg]:size-3"
         />
       )}
-      <ToolContent className="space-y-2 p-2 text-xs">
+      <ToolContent>
         <ToolInput input={stripActionName(inputPayload) as any} toolId={toolId} />
         {isApprovalRequested && approvalId ? (
           <Confirmation approval={part.approval as any} state={part.state as any}>

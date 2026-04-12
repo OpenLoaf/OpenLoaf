@@ -7,168 +7,217 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import path from "node:path";
+import path from 'node:path'
+// @ts-expect-error -- shell-quote has no bundled types
+import { parse as shellParse } from 'shell-quote'
+
+// ─── shell-quote 内联类型 ─────────────────────────────────────────────────────
+
+type ShellToken = string | { op: string } | { pattern: string } | { comment: string }
 
 // ─── 安全命令白名单 ─────────────────────────────────────────────────────────
 
 const SAFE_COMMANDS_UNIX = new Set([
   // 文件系统查看
-  "ls", "ll", "which", "pwd", "whoami", "uname", "date", "find", "stat",
-  "du", "df", "file", "tree", "realpath", "readlink", "basename", "dirname",
+  'ls', 'll', 'which', 'pwd', 'whoami', 'uname', 'date', 'find', 'stat',
+  'du', 'df', 'file', 'tree', 'realpath', 'readlink', 'basename', 'dirname',
   // 文本搜索与处理
-  "grep", "rg", "ag", "cat", "head", "tail", "wc", "sort", "uniq",
-  "awk", "sed", "xargs", "cut", "tr", "jq", "yq", "column", "diff",
-  "comm", "tee", "less", "more", "strings", "hexdump", "xxd",
+  'grep', 'rg', 'ag', 'cat', 'head', 'tail', 'wc', 'sort', 'uniq',
+  'awk', 'sed', 'xargs', 'cut', 'tr', 'jq', 'yq', 'column', 'diff',
+  'comm', 'tee', 'less', 'more', 'strings', 'hexdump', 'xxd',
   // 系统信息
-  "ps", "id", "groups", "who", "w", "uptime", "hostname", "env", "printenv",
-  "top", "htop", "vmstat", "iostat", "dmesg", "last", "finger",
-  "lsblk", "lscpu", "free", "vm_stat", "sw_vers", "system_profiler",
+  'ps', 'id', 'groups', 'who', 'w', 'uptime', 'hostname', 'env', 'printenv',
+  'top', 'htop', 'vmstat', 'iostat', 'dmesg', 'last', 'finger',
+  'lsblk', 'lscpu', 'free', 'vm_stat', 'sw_vers', 'system_profiler',
   // 网络（只读）
-  "ping", "traceroute", "nslookup", "dig", "host", "curl", "wget",
-  "whois", "ifconfig", "netstat", "ss",
+  'ping', 'traceroute', 'nslookup', 'dig', 'host', 'curl', 'wget',
+  'whois', 'ifconfig', 'netstat', 'ss',
   // 归档压缩
-  "unzip", "zip", "tar", "gzip", "gunzip", "bzip2", "bunzip2",
-  "xz", "unxz", "zstd", "unrar", "7z", "7za",
+  'unzip', 'zip', 'tar', 'gzip', 'gunzip', 'bzip2', 'bunzip2',
+  'xz', 'unxz', 'zstd', 'unrar', '7z', '7za',
   // 文件创建（非破坏性）
-  "mkdir", "touch", "cp", "ln", "install",
+  'mkdir', 'touch', 'cp', 'ln', 'install',
   // 校验与编码
-  "md5", "md5sum", "shasum", "sha256sum", "base64",
+  'md5', 'md5sum', 'shasum', 'sha256sum', 'base64',
   // macOS 预览
-  "open", "pbcopy", "pbpaste",
+  'open', 'pbcopy', 'pbpaste',
   // 版本控制
-  "git", "svn",
+  'git', 'svn',
   // 运行时 & 解释器
-  "python", "python3", "node", "bun", "deno", "ruby", "perl", "php",
-  "java", "javac", "go", "rustc", "cargo", "swift", "swiftc", "dotnet",
+  'python', 'python3', 'node', 'bun', 'deno', 'ruby', 'perl', 'php',
+  'java', 'javac', 'go', 'rustc', 'cargo', 'swift', 'swiftc', 'dotnet',
   // 包管理器
-  "pip", "pip3", "uv", "npm", "npx", "pnpm", "yarn", "brew",
-  "apt", "apt-get", "yum", "dnf", "pacman", "conda", "poetry", "pdm", "pipx",
+  'pip', 'pip3', 'uv', 'npm', 'npx', 'pnpm', 'yarn', 'brew',
+  'apt', 'apt-get', 'yum', 'dnf', 'pacman', 'conda', 'poetry', 'pdm', 'pipx',
   // 构建工具
-  "make", "cmake", "ninja", "gradle", "mvn", "ant",
+  'make', 'cmake', 'ninja', 'gradle', 'mvn', 'ant',
   // Playwright（浏览器自动化，开发工具）
-  "playwright",
+  'playwright',
   // 其他安全命令
-  "echo", "printf", "expr", "bc", "man", "help", "info", "type",
-  "nproc", "seq", "yes", "true", "false", "sleep", "time", "timeout",
-]);
+  'echo', 'printf', 'expr', 'bc', 'man', 'help', 'info', 'type',
+  'nproc', 'seq', 'yes', 'true', 'false', 'sleep', 'time', 'timeout',
+])
 
 const SAFE_COMMANDS_WIN = new Set([
-  "ls", "dir", "gci", "get-childitem", "where", "get-command",
-  "pwd", "whoami", "hostname", "find", "findstr", "select-string", "tree", "type",
-  "systeminfo", "ipconfig", "get-computerinfo", "get-ciminstance",
-  "ping", "tracert", "nslookup", "curl", "wget",
-  "expand-archive", "compress-archive", "tar", "mkdir", "new-item",
-  "copy-item", "copy", "cp",
-  "python", "python3", "node", "npm", "npx", "pnpm", "yarn",
-  "pip", "pip3", "git", "dotnet", "cargo", "go",
-  "echo", "write-output", "get-content", "cat", "sort", "measure-object",
-]);
+  'ls', 'dir', 'gci', 'get-childitem', 'where', 'get-command',
+  'pwd', 'whoami', 'hostname', 'find', 'findstr', 'select-string', 'tree', 'type',
+  'systeminfo', 'ipconfig', 'get-computerinfo', 'get-ciminstance',
+  'ping', 'tracert', 'nslookup', 'curl', 'wget',
+  'expand-archive', 'compress-archive', 'tar', 'mkdir', 'new-item',
+  'copy-item', 'copy', 'cp',
+  'python', 'python3', 'node', 'npm', 'npx', 'pnpm', 'yarn',
+  'pip', 'pip3', 'git', 'dotnet', 'cargo', 'go',
+  'echo', 'write-output', 'get-content', 'cat', 'sort', 'measure-object',
+])
 
-const SHELL_BINARIES = new Set(["sh", "bash", "zsh", "fish", "powershell", "pwsh", "cmd"]);
+const SHELL_BINARIES = new Set(['sh', 'bash', 'zsh', 'fish', 'powershell', 'pwsh', 'cmd'])
 
 /**
  * 沙箱限定安全命令：这些命令在沙箱目录内操作时免审批。
  * 它们对用户源码/系统文件有破坏性，但在会话私有目录（CURRENT_CHAT_DIR 等）内是安全的。
  */
-const SANDBOX_ONLY_COMMANDS = new Set(["rm", "mv", "rmdir"]);
+const SANDBOX_ONLY_COMMANDS = new Set(['rm', 'mv', 'rmdir'])
+
+// ─── 命令组合操作符（用于拆分独立命令段） ─────────────────────────────────────
+
+/** 这些操作符仅组合命令，本身不引入副作用 */
+const COMMAND_SEPARATORS = new Set([';', '&&', '||', '|', ';;', '|&'])
+
+/** 重定向操作符 */
+const REDIRECT_OPS = new Set(['>', '>>', '<', '<<', '>&', '<&', '<>'])
+
+/** 危险操作符：后台执行、子 shell */
+const DANGEROUS_OPS = new Set(['&', '(', ')'])
 
 // ─── 核心逻辑 ───────────────────────────────────────────────────────────────
 
-/** 提取命令的首个 token（归一化为小写、去扩展名）。 */
-function extractLeadCommand(segment: string): string {
-  const trimmed = segment.trim();
-  const [rawToken] = trimmed.split(/\s+/);
-  if (!rawToken) return "";
-  const cleaned = rawToken.replace(/^['"]|['"]$/g, "");
-  return path.basename(cleaned).toLowerCase().replace(/\.(exe|cmd)$/i, "");
+/** 标准化 token 为命令名（basename、小写、去 .exe/.cmd 后缀） */
+function normalizeToken(token: string): string {
+  if (!token) return ''
+  const cleaned = token.replace(/^['"]|['"]$/g, '')
+  return path.basename(cleaned).toLowerCase().replace(/\.(exe|cmd)$/i, '')
 }
 
 /** 判断单个命令 token 是否安全。 */
 function isSafeCommand(token: string): boolean {
-  if (!token) return false;
-  if (token === "sudo") return false;
-  if (SHELL_BINARIES.has(token)) return false;
-  const allowlist = process.platform === "win32" ? SAFE_COMMANDS_WIN : SAFE_COMMANDS_UNIX;
-  return allowlist.has(token);
+  if (!token) return false
+  if (token === 'sudo') return false
+  if (SHELL_BINARIES.has(token)) return false
+  const allowlist = process.platform === 'win32' ? SAFE_COMMANDS_WIN : SAFE_COMMANDS_UNIX
+  return allowlist.has(token)
 }
 
 /**
- * 剥离引号内容，避免引号内的 shell 元字符被误判。
- *   python3 -c "import os; print(os.getcwd())"  →  python3 -c "_Q_"
+ * 检测 $'...' ANSI-C 引号。shell-quote 不识别此语法，
+ * 而 ANSI-C 引号内可编码任意字节（包括 ;、`、$() 等），
+ * 保守处理：存在即需审批。
  */
-function maskQuotedStrings(command: string): string {
-  return command
-    .replace(/\$'(?:[^'\\]|\\.)*'/g, "'_Q_'")
-    .replace(/'[^']*'/g, "'_Q_'")
-    .replace(/"(?:[^"\\]|\\.)*"/g, '"_Q_"');
+function hasAnsiCQuote(command: string): boolean {
+  return /\$'(?:[^'\\]|\\.)*'/.test(command)
 }
 
 /**
- * 检测命令中是否存在不安全的 shell 操作符。
- * 在剥离引号内容后进行检查，避免引号内的 ;、>、\n 等被误判。
+ * 检测 string token 中是否包含反引号（命令替换）。
+ * shell-quote 不会将反引号解析为操作符，而是保留在字符串中。
  */
-function hasUnsafeShellOps(masked: string): boolean {
-  // 命令替换
-  if (masked.includes("`") || masked.includes("$(")) return true;
-  // 分号（命令分隔符）
-  if (masked.includes(";")) return true;
-  // 多行（引号内的换行已被 mask）
-  if (masked.includes("\n")) return true;
-  // 先移除安全的 stderr 重定向模式，再检查危险操作符
-  const noSafeRedir = masked
-    .replace(/[12]>&[12]/g, "")
-    .replace(/\d*>\s*\/dev\/null/g, "")
-    .replace(/&>\s*\/dev\/null/g, "");
-  // 单独的 &（后台执行），排除 &&
-  if (/(?<!\&)\&(?!\&)/.test(noSafeRedir)) return true;
-  // 危险重定向（> <）
-  if (/[<>]/.test(noSafeRedir)) return true;
-  return false;
+function hasBacktick(token: string): boolean {
+  return token.includes('`')
+}
+
+/** token 是否是操作符 */
+function isOp(token: ShellToken): token is { op: string } {
+  return typeof token === 'object' && 'op' in token
+}
+
+// ─── Token 分析 ──────────────────────────────────────────────────────────────
+
+interface AnalysisResult {
+  /** 按分隔符拆分的命令组，每组为 string token 数组 */
+  commands: string[][]
+  /** 是否包含危险操作符（后台 &、子 shell ()、命令替换 $()、反引号） */
+  hasDangerousOps: boolean
+  /** 是否包含重定向操作符 */
+  hasRedirection: boolean
 }
 
 /**
- * 将命令按 shell 链式操作符（&&, ||, |）拆分为段落，
- * 检查每段的首个命令是否在白名单中。
+ * 对 shell-quote 解析结果进行单遍分析：
+ * - 按命令分隔符拆分为独立命令段
+ * - 检测危险操作符和重定向
  */
-function allSegmentsSafe(command: string): boolean {
-  // 按 &&、|| 拆分
-  const chainSegments = command.split(/\s*(?:\&\&|\|\|)\s*/);
-  for (const segment of chainSegments) {
-    if (!segment.trim()) continue;
-    // 每段可能还有管道
-    const pipeSegments = segment.split(/\s*\|\s*/);
-    for (const pipeSeg of pipeSegments) {
-      const token = extractLeadCommand(pipeSeg);
-      if (!isSafeCommand(token)) return false;
+function analyzeTokens(tokens: ShellToken[]): AnalysisResult {
+  const commands: string[][] = []
+  let current: string[] = []
+  let hasDangerousOps = false
+  let hasRedirection = false
+
+  for (let i = 0; i < tokens.length; i++) {
+    const token = tokens[i] as ShellToken
+
+    if (isOp(token)) {
+      const op = token.op
+
+      if (COMMAND_SEPARATORS.has(op)) {
+        // 命令分隔符：结束当前命令段，开始新段
+        if (current.length > 0) {
+          commands.push(current)
+          current = []
+        }
+      } else if (REDIRECT_OPS.has(op)) {
+        hasRedirection = true
+        // 跳过重定向目标 token（下一个 token）
+        i++
+      } else if (DANGEROUS_OPS.has(op)) {
+        hasDangerousOps = true
+      }
+    } else if (typeof token === 'string') {
+      // 检测命令替换：'$' 后紧跟 '(' 操作符
+      if (token === '$' && i + 1 < tokens.length) {
+        const next = tokens[i + 1]!
+        if (isOp(next) && next.op === '(') {
+          hasDangerousOps = true
+        }
+      }
+
+      // 检测反引号
+      if (hasBacktick(token)) {
+        hasDangerousOps = true
+      }
+
+      current.push(token)
     }
+    // { pattern: ... } 和 { comment: ... } 视为惰性 token，忽略
   }
-  return true;
+
+  // 收尾最后一段
+  if (current.length > 0) {
+    commands.push(current)
+  }
+
+  return { commands, hasDangerousOps, hasRedirection }
 }
 
 /**
- * 检查所有命令段是否为白名单命令或沙箱限定安全命令。
- * 用于沙箱豁免判定：即使命令本身（rm/mv 等）不在全局白名单中，
- * 只要路径都在沙箱内就可以放行。
+ * 检查所有命令段的首个 token 是否在安全名单中。
+ * mode='strict' 只查全局白名单；mode='sandbox' 额外允许沙箱限定命令。
  */
-function allSegmentsSafeOrSandboxSafe(command: string): boolean {
-  const chainSegments = command.split(/\s*(?:\&\&|\|\|)\s*/);
-  for (const segment of chainSegments) {
-    if (!segment.trim()) continue;
-    const pipeSegments = segment.split(/\s*\|\s*/);
-    for (const pipeSeg of pipeSegments) {
-      const token = extractLeadCommand(pipeSeg);
-      if (!isSafeCommand(token) && !SANDBOX_ONLY_COMMANDS.has(token)) return false;
-    }
+function allCommandsSafe(commands: string[][], mode: 'strict' | 'sandbox'): boolean {
+  for (const cmd of commands) {
+    if (cmd.length === 0) continue
+    const token = normalizeToken(cmd[0]!)
+    if (isSafeCommand(token)) continue
+    if (mode === 'sandbox' && SANDBOX_ONLY_COMMANDS.has(token)) continue
+    return false
   }
-  return true;
+  return true
 }
 
 // ─── 沙箱目录检测 ──────────────────────────────────────────────────────────
 
 /** 判断 target 路径是否在 root 下（或等于 root）。 */
 function isPathInside(root: string, target: string): boolean {
-  const relative = path.relative(root, target);
-  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
+  const relative = path.relative(root, target)
+  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative))
 }
 
 /**
@@ -177,28 +226,28 @@ function isPathInside(root: string, target: string): boolean {
  * 只在空白/分隔符之后出现的才算，避免误匹配 URL 中的 //。
  */
 function extractAbsolutePaths(command: string): string[] {
-  const found: string[] = [];
+  const found: string[] = []
   const pattern =
-    /(?:^|[\s"'=:,;|&<>()`])(~\/[^\s"'`;|&<>()]*|\/[^\s"'`;|&<>():]*|[a-zA-Z]:\\[^\s"'`;|&<>()]*)/g;
-  let m: RegExpExecArray | null;
+    /(?:^|[\s"'=:,;|&<>()`])(~\/[^\s"'`;|&<>()]*|\/[^\s"'`;|&<>():]*|[a-zA-Z]:\\[^\s"'`;|&<>()]*)/g
+  let m: RegExpExecArray | null
   while ((m = pattern.exec(command)) !== null) {
-    const p = m[1];
-    if (p && p.length > 1) found.push(p);
+    const p = m[1]
+    if (p && p.length > 1) found.push(p)
   }
-  return found;
+  return found
 }
 
 /** 系统二进制路径前缀（工具调用时硬引用，不算用户文件）。 */
 const SYSTEM_PATH_PREFIXES = [
-  "/bin/", "/sbin/", "/usr/", "/opt/", "/etc/",
-  "/dev/null", "/dev/stdin", "/dev/stdout", "/dev/stderr",
-  "/tmp/", "/System/", "/Library/", "/var/",
-];
+  '/bin/', '/sbin/', '/usr/', '/opt/', '/etc/',
+  '/dev/null', '/dev/stdin', '/dev/stdout', '/dev/stderr',
+  '/tmp/', '/System/', '/Library/', '/var/',
+]
 
 function isSystemPath(absPath: string): boolean {
   return SYSTEM_PATH_PREFIXES.some(
-    (prefix) => absPath === prefix.replace(/\/$/, "") || absPath.startsWith(prefix),
-  );
+    (prefix) => absPath === prefix.replace(/\/$/, '') || absPath.startsWith(prefix),
+  )
 }
 
 /**
@@ -207,19 +256,19 @@ function isSystemPath(absPath: string): boolean {
  * 返回 false（让调用方走常规判定，不特权化纯相对路径命令）。
  */
 function commandStaysInSandbox(command: string, sandboxDirs: string[]): boolean {
-  if (sandboxDirs.length === 0) return false;
-  const home = process.env.HOME || process.env.USERPROFILE || "";
-  const resolvedSandboxes = sandboxDirs.map((d) => path.resolve(d));
-  const found = extractAbsolutePaths(command);
-  if (found.length === 0) return false;
+  if (sandboxDirs.length === 0) return false
+  const home = process.env.HOME || process.env.USERPROFILE || ''
+  const resolvedSandboxes = sandboxDirs.map((d) => path.resolve(d))
+  const found = extractAbsolutePaths(command)
+  if (found.length === 0) return false
   for (const raw of found) {
-    const expanded = raw.startsWith("~") ? raw.replace(/^~/, home) : raw;
-    const abs = path.resolve(expanded);
-    if (isSystemPath(abs)) continue;
-    const insideAny = resolvedSandboxes.some((sb) => isPathInside(sb, abs));
-    if (!insideAny) return false;
+    const expanded = raw.startsWith('~') ? raw.replace(/^~/, home) : raw
+    const abs = path.resolve(expanded)
+    if (isSystemPath(abs)) continue
+    const insideAny = resolvedSandboxes.some((sb) => isPathInside(sb, abs))
+    if (!insideAny) return false
   }
-  return true;
+  return true
 }
 
 // ─── 导出 ───────────────────────────────────────────────────────────────────
@@ -230,7 +279,7 @@ export interface ApprovalOptions {
    * 即使命令含有重定向、分号等"危险"操作符，也无需审批。典型值：
    * CURRENT_CHAT_DIR / CURRENT_BOARD_DIR 对应的绝对路径。
    */
-  sandboxDirs?: string[];
+  sandboxDirs?: string[]
 }
 
 /** 判断 shell 命令是否需要用户审批。false = 安全，true = 需要审批。 */
@@ -240,33 +289,62 @@ export function needsApprovalForCommand(
 ): boolean {
   // 数组形式：只看第一个 token
   if (Array.isArray(command)) {
-    return !isSafeCommand(extractLeadCommand(command[0] ?? ""));
+    return !isSafeCommand(normalizeToken(command[0] ?? ''))
   }
 
-  const trimmed = command?.trim() ?? "";
-  if (!trimmed) return true;
+  const trimmed = command?.trim() ?? ''
+  if (!trimmed) return true
 
-  // 1. 剥离引号内容
-  const masked = maskQuotedStrings(trimmed);
+  // ANSI-C 引号预检：$'...' 内可编码任意字节，保守拦截
+  if (hasAnsiCQuote(trimmed)) return true
 
-  // 2. 检查 shell 操作符
-  const hasUnsafeOps = hasUnsafeShellOps(masked);
-  // 3. 检查每段命令是否在白名单中
-  const hasUnsafeSegment = !allSegmentsSafe(masked);
+  // 多行命令：shell-quote 将 \n 视为空白，需逐行检查
+  if (trimmed.includes('\n')) {
+    const lines = trimmed.split('\n').filter((l) => l.trim())
+    return lines.some((line) => needsApprovalForCommand(line, options))
+  }
 
-  if (!hasUnsafeOps && !hasUnsafeSegment) return false;
+  // 使用 shell-quote 解析
+  const tokens: ShellToken[] = shellParse(trimmed)
+  const { commands, hasDangerousOps, hasRedirection } = analyzeTokens(tokens)
 
-  // 沙箱豁免：命令中所有用户路径均在沙箱目录内时，放行以下两种情况：
-  // 1. 白名单命令 + 危险 I/O 操作符（重定向、分号等）
-  // 2. 沙箱限定命令（rm、mv 等）— 对用户源码有破坏性，但在会话沙箱内安全
-  // 注意：sudo、shell 二进制等不在任何安全集合中，始终需要审批。
-  if (
+  // 无命令段（空解析）→ 需审批
+  if (commands.length === 0) return true
+
+  // 危险操作符（后台 &、子 shell、命令替换、反引号）
+  if (hasDangerousOps) {
+    return !canSandboxExempt(commands, trimmed, options)
+  }
+
+  // 非白名单命令
+  if (!allCommandsSafe(commands, 'strict')) {
+    return !canSandboxExempt(commands, trimmed, options)
+  }
+
+  // 重定向
+  if (hasRedirection) {
+    if (
+      options?.sandboxDirs?.length &&
+      commandStaysInSandbox(trimmed, options.sandboxDirs)
+    ) {
+      return false
+    }
+    return true
+  }
+
+  // 所有命令在白名单，无危险操作符，无重定向 → 安全
+  return false
+}
+
+/** 沙箱豁免：命令段全在（白名单 ∪ 沙箱命令）且路径全在沙箱内 */
+function canSandboxExempt(
+  commands: string[][],
+  rawCommand: string,
+  options?: ApprovalOptions,
+): boolean {
+  return !!(
     options?.sandboxDirs?.length &&
-    allSegmentsSafeOrSandboxSafe(masked) &&
-    commandStaysInSandbox(trimmed, options.sandboxDirs)
-  ) {
-    return false;
-  }
-
-  return true;
+    allCommandsSafe(commands, 'sandbox') &&
+    commandStaysInSandbox(rawCommand, options.sandboxDirs)
+  )
 }

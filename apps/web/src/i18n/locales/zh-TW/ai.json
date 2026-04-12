@@ -121,11 +121,8 @@
     "SendMessage": "發送訊息",
     "OpenUrl": "開啟網頁",
     "BrowserSnapshot": "瀏覽器快照",
-    "BrowserObserve": "頁面觀察",
-    "BrowserExtract": "頁面提取",
     "BrowserAct": "頁面動作",
     "BrowserWait": "頁面等待",
-    "BrowserScreenshot": "頁面截圖",
     "BrowserDownloadImage": "下載網頁圖片",
     "CalendarQuery": "行事曆查詢",
     "CalendarMutate": "行事曆變更",
@@ -149,8 +146,8 @@
     "PptxMutate": "PPTX 操作",
     "PdfQuery": "PDF 查詢",
     "PdfMutate": "PDF 操作",
-    "Bash": "Shell 命令",
-    "shell-command": "Shell 命令",
+    "Bash": "終端命令",
+    "shell-command": "終端命令",
     "Read": "讀取檔案",
     "read-file": "讀取檔案",
     "Edit": "編輯檔案",
@@ -177,7 +174,43 @@
     "DocConvert": "文件轉換",
     "FileInfo": "檔案資訊",
     "WebFetch": "取得網頁內容",
-    "WebSearch": "網頁搜尋"
+    "WebSearch": "網頁搜尋",
+    "Jobs": "背景工作列表",
+    "Kill": "終止背景工作",
+    "Sleep": "等待背景工作",
+    "ToolSearch": "搜尋工具",
+    "LoadSkill": "載入技能",
+    "MemorySave": "儲存記憶",
+    "MemorySearch": "搜尋記憶",
+    "MemoryGet": "讀取記憶",
+    "ScheduledTaskManage": "排程任務管理",
+    "ScheduledTaskStatus": "排程任務狀態",
+    "ScheduledTaskWait": "等待排程任務",
+    "SubmitPlan": "提交方案"
+  },
+  "bgNotification": {
+    "taskCompleted": "背景工作已完成",
+    "tasksCompleted": "背景工作已完成 ({{count}})",
+    "output": "輸出",
+    "budgetExceeded": "背景工作吸收預算超限",
+    "budgetExceededDesc": "剩餘背景工作仍在執行中。請使用「背景工作列表」工具查看，或等待下一輪訊息繼續吸收。",
+    "notification": "背景工作通知"
+  },
+  "bgTool": {
+    "jobs": "背景工作",
+    "kill": "終止工作",
+    "sleep": "等待",
+    "executing": "執行中...",
+    "waiting": "等待中...",
+    "taskCount": "{{count}} 個工作",
+    "wokenByTask": "被工作喚醒",
+    "done": "完成"
+  },
+  "bgProcess": {
+    "done": "完成",
+    "killed": "已終止",
+    "cancelFailed": "終止背景工作失敗",
+    "notFound": "任務已不存在"
   },
   "session": {
     "renameTitle": "重新命名會話",
@@ -503,6 +536,28 @@
       "formFields": "{{count}} 個表單欄位",
       "sheetCount": "{{count}} 個工作表",
       "moreSheets": "更多"
+    },
+    "browser": {
+      "task": "任務",
+      "title": "標題",
+      "pageText": "頁面文字",
+      "capturing": "截圖中...",
+      "waitType": {
+        "timeout": "延時",
+        "load": "載入完成",
+        "networkidle": "網路閒置",
+        "urlIncludes": "URL 變化",
+        "textIncludes": "文字出現"
+      },
+      "action": {
+        "clickCss": "點擊",
+        "clickText": "點擊文字",
+        "type": "輸入",
+        "fill": "填寫",
+        "press": "按鍵",
+        "pressOn": "按鍵",
+        "scroll": "捲動"
+      }
     }
   },
   "error": {

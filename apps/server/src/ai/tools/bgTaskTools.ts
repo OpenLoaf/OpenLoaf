@@ -10,7 +10,6 @@
 import { tool, zodSchema } from 'ai'
 import {
   bgListToolDef,
-  bgOutputToolDef,
   bgKillToolDef,
 } from '@openloaf/api/types/tools/bgTask'
 import { getRequestContext } from '@/ai/shared/context/requestContext'
@@ -59,41 +58,6 @@ export const bgListTool = tool({
   },
 })
 
-export const bgOutputTool = tool({
-  description: bgOutputToolDef.description,
-  inputSchema: zodSchema(bgOutputToolDef.parameters),
-  execute: async ({
-    task_id,
-    block,
-    timeout_ms,
-  }: {
-    task_id: string
-    block?: boolean
-    timeout_ms?: number
-  }) => {
-    const sessionId = requireSessionId()
-    const task = backgroundProcessManager.get(task_id)
-    if (!task) {
-      return { ok: false, error: `Task not found: ${task_id}` }
-    }
-    assertTaskOwnedBySession(task, sessionId)
-
-    const result = await backgroundProcessManager.readOutput(task_id, {
-      block,
-      timeoutMs: timeout_ms,
-    })
-    return {
-      ok: true,
-      task_id,
-      content: result.content,
-      status: result.status,
-      exit_code: result.exitCode,
-      is_final: result.isFinal,
-      truncated: result.truncated,
-    }
-  },
-})
-
 export const bgKillTool = tool({
   description: bgKillToolDef.description,
   inputSchema: zodSchema(bgKillToolDef.parameters),
@@ -108,11 +72,12 @@ export const bgKillTool = tool({
       return {
         ok: true,
         task_id,
+        description: task.description,
         status: 'already-done' as const,
         previous_status: task.status,
       }
     }
     await backgroundProcessManager.kill(task_id)
-    return { ok: true, task_id, status: 'killed' as const }
+    return { ok: true, task_id, description: task.description, status: 'killed' as const }
   },
 })

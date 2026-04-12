@@ -51,6 +51,7 @@ import {
   handleBranchSnapshotDataPart,
   handlePlanFileDataPart,
   handleMediaGenerateDataPart,
+  handleToolProgressDataPart,
 } from "./utils/chat-data-handlers";
 import { isSaasUnauthorizedErrorMessage } from "./utils/message-predicates";
 import { taskStatusCache } from "@/lib/chat/task-status-cache";
@@ -307,6 +308,7 @@ export default function ChatCoreProvider({
         ) return;
         if (handleStepThinkingDataPart({ dataPart, setStepThinking })) return;
         if (handleMediaGenerateDataPart({ dataPart, upsertToolPartMerged })) return;
+        if (handleToolProgressDataPart({ dataPart, tabId, upsertToolPartMerged })) return;
         if (
           handleSubAgentDataPart({
             dataPart,
@@ -537,6 +539,7 @@ export default function ChatCoreProvider({
   // turn, same philosophy as Claude Code's Sleep tool.
   //
   // See .plans/openloaf/docs/chat-ai/task-completion-flow.md for rationale.
+  const bgDrainPendingRef = React.useRef(false);
   React.useEffect(() => {
     if (!sessionId || !isTabActive) return;
     const subscription = trpcClient.chat.onSessionUpdate.subscribe(
@@ -559,6 +562,20 @@ export default function ChatCoreProvider({
           }
           if (event.type === 'bg-task-update') {
             useBackgroundProcesses.getState().upsertTask(sessionId, event.task);
+            // 后台任务到达终态 + AI 空闲 → 自动触发 drain turn，
+            // 让服务端 drain loop 消费积压的 bg-task-notification。
+            // bgDrainPendingRef 防止同一微任务内多个终态事件重复触发。
+            const isTerminal = event.task.status === 'completed' || event.task.status === 'failed';
+            if (isTerminal && chatRef.current.status === 'ready' && !bgDrainPendingRef.current) {
+              bgDrainPendingRef.current = true;
+              (chatRef.current.sendMessage as any)({
+                parts: [{ type: 'text', text: '<bg-drain>' }],
+                metadata: { openloaf: { syntheticKind: 'bg-drain', isMeta: true } },
+              });
+              // sendMessage 后 chat.status 会在下一渲染周期变为非 ready，
+              // 这里用 queueMicrotask 确保同批事件不重复触发。
+              queueMicrotask(() => { bgDrainPendingRef.current = false; });
+            }
             return
           }
         },
@@ -582,6 +599,7 @@ export default function ChatCoreProvider({
     sendMessage,
     switchSibling,
     retryAssistantMessage,
+    continueAssistantTurn,
     resendUserMessage,
     deleteMessageSubtree,
   } = useChatMessageOps({
@@ -758,6 +776,7 @@ export default function ChatCoreProvider({
     selectSession,
     switchSibling,
     retryAssistantMessage,
+    continueAssistantTurn,
     resendUserMessage,
     deleteMessageSubtree,
     setPendingCloudMessage,
@@ -774,6 +793,7 @@ export default function ChatCoreProvider({
     selectSession,
     switchSibling,
     retryAssistantMessage,
+    continueAssistantTurn,
     resendUserMessage,
     deleteMessageSubtree,
     setPendingCloudMessage,

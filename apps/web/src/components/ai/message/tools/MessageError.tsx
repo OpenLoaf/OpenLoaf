@@ -12,8 +12,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { motion, useReducedMotion } from "motion/react";
-import { useChatActions, useChatStatus } from "../../context";
-import { CheckIcon, CopyIcon, RotateCcw } from "lucide-react";
+import { useChatActions, useChatStatus, useChatMessages } from "../../context";
+import { ArrowRight, CheckIcon, CopyIcon, RotateCcw } from "lucide-react";
 
 interface MessageErrorProps {
   error: unknown;
@@ -91,8 +91,9 @@ function parseChatError(error: unknown, title: string, unknownError: string): Pa
 export default function MessageError({ error }: MessageErrorProps) {
   const { t } = useTranslation('ai')
   const reduceMotion = useReducedMotion();
-  const { regenerate, clearError } = useChatActions();
+  const { regenerate, clearError, continueAssistantTurn } = useChatActions();
   const { status } = useChatStatus();
+  const { messages } = useChatMessages();
   const parsed = parseChatError(error, t('error.title'), t('error.unknown'));
   const [copied, setCopied] = useState(false);
   const timerRef = useRef<number>(0);
@@ -102,6 +103,18 @@ export default function MessageError({ error }: MessageErrorProps) {
   const handleRetry = () => {
     clearError();
     regenerate();
+  };
+
+  const handleContinue = () => {
+    // 找到最后一条 assistant message 的 ID，从断点继续
+    const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
+    if (lastAssistant) {
+      continueAssistantTurn(String(lastAssistant.id));
+    } else {
+      // 找不到 assistant 时回退到 regenerate
+      clearError();
+      regenerate();
+    }
   };
 
   const handleCopy = useCallback(async () => {
@@ -158,10 +171,19 @@ export default function MessageError({ error }: MessageErrorProps) {
             type="button"
             onClick={handleRetry}
             disabled={isBusy}
-            className="inline-flex h-7 items-center gap-1.5 rounded-3xl bg-ol-red px-3 text-[11px] font-medium text-white transition-colors duration-150 hover:brightness-110 disabled:opacity-40"
+            className="inline-flex h-7 items-center gap-1.5 rounded-3xl border border-ol-red/20 bg-white/60 px-3 text-[11px] font-medium text-ol-red transition-colors duration-150 hover:bg-ol-red-bg disabled:opacity-40 dark:border-red-400/20 dark:bg-red-900/40 dark:text-red-300 dark:hover:bg-red-900/60"
           >
             <RotateCcw className="size-3" />
             {t('error.retry')}
+          </button>
+          <button
+            type="button"
+            onClick={handleContinue}
+            disabled={isBusy}
+            className="inline-flex h-7 items-center gap-1.5 rounded-3xl bg-ol-red px-3 text-[11px] font-medium text-white transition-colors duration-150 hover:brightness-110 disabled:opacity-40"
+          >
+            <ArrowRight className="size-3" />
+            {t('error.continue')}
           </button>
         </div>
       </div>

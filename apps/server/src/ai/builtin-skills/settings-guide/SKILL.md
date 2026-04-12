@@ -1,6 +1,9 @@
 ---
 name: settings-guide
-description: 应用配置引导 — 用户提到设置、偏好、配置、API key、模型、provider、主题、语言、快捷键、代理、proxy、深色模式、dark mode、"怎么改…"、"哪里设置…"、"怎么换模型"、"怎么配置 provider"、"怎么添加 key"、"怎么切换语言"、"我的设置在哪"、settings、preferences、configuration、排障、"X 不工作了" 时激活
+description: >
+  应用配置引导——告知用户在 UI 中哪里修改设置。当用户问 OpenLoaf 的设置、偏好、
+  API key、模型配置、主题、语言、快捷键、代理等配置问题时激活。
+  **不用于**：代码项目的配置文件（→file-ops）、一般性"怎么做 X"问题（→直接回答）。
 ---
 
 # 设置引导（无直接工具）

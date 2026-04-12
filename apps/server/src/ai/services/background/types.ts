@@ -75,7 +75,7 @@ export type BgNotification = {
   enqueuedAt: number
 }
 
-/** Summary shape exposed to BgList tool (stripped of runtime-only fields). */
+/** Summary shape exposed to Jobs tool (stripped of runtime-only fields). */
 export type BgTaskSummary = {
   id: string
   kind: 'shell' | 'agent'
@@ -85,6 +85,7 @@ export type BgTaskSummary = {
   endTime?: number
   pid?: number
   command?: string
+  outputPath?: string
   agentId?: string
   exitCode?: number
 }

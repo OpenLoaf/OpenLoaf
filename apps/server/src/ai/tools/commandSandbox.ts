@@ -26,7 +26,7 @@ export function resolveCommandSandboxDirs(): string[] {
   for (const token of candidates) {
     const expanded = expandPathTemplateVars(token);
     // 展开失败会原样返回 token 字符串，跳过。
-    if (expanded !== token && expanded.startsWith("/")) {
+    if (expanded !== token && path.isAbsolute(expanded)) {
       dirs.push(path.resolve(expanded));
     }
   }

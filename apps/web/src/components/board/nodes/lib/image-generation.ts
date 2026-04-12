@@ -7,10 +7,6 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import type { ModelTag } from "@openloaf/api/common";
-import type { AiModel } from "@openloaf-saas/sdk";
-
-import type { ProviderModelOption } from "@/lib/provider-models";
 import { CLIENT_HEADERS } from "@/lib/client-headers";
 import { resolveServerUrl } from "@/utils/server-url";
 import { getAccessToken } from "@/lib/saas-auth";
@@ -99,92 +95,4 @@ export async function runChatSseRequest({ payload, signal, onEvent }: ChatSseReq
       }
     }
   }
-}
-
-/** Filter model options by required/excluded tags. */
-export function filterModelOptionsByTags(
-  options: ProviderModelOption[],
-  rules: { required?: ModelTag[]; excluded?: ModelTag[] },
-) {
-  const required = Array.isArray(rules.required) ? rules.required : [];
-  const excluded = Array.isArray(rules.excluded) ? rules.excluded : [];
-  return options.filter((option) => {
-    const tags = Array.isArray(option.tags) ? option.tags : [];
-    // 逻辑：必须命中 required 标签才可用。
-    if (!required.every((tag) => tags.includes(tag))) return false;
-    // 逻辑：命中 excluded 标签直接剔除。
-    if (excluded.some((tag) => tags.includes(tag))) return false;
-    return true;
-  });
-}
-
-/** Check whether a model has a specific media tag. */
-function hasModelTag(model: AiModel, tag: string): boolean {
-  const tags = Array.isArray(model.tags) ? model.tags : [];
-  return tags.includes(tag);
-}
-
-/** Filter image media models based on input/output requirements. */
-export function filterImageMediaModels(
-  models: AiModel[],
-  input: { imageCount: number; hasMask: boolean; outputCount: number },
-) {
-  return models.filter((model) => {
-    const tags = Array.isArray(model.tags) ? model.tags : [];
-    const inputCaps = model.capabilities?.input;
-    const outputCaps = model.capabilities?.output;
-
-    if (input.imageCount === 0) {
-      // 文生图模式：只显示 image_generation 模型
-      if (tags.length > 0 && !hasModelTag(model, "image_generation")) {
-        return false;
-      }
-    } else {
-      // 图编辑模式：显示 image_edit 或带图片输入能力的 image_generation 模型
-      const isEdit = hasModelTag(model, "image_edit");
-      const isGenWithImageInput =
-        hasModelTag(model, "image_generation") &&
-        (hasModelTag(model, "image_input") || hasModelTag(model, "image_multi_input"));
-      if (tags.length > 0 && !isEdit && !isGenWithImageInput) {
-        return false;
-      }
-      if (inputCaps?.maxImages !== undefined && inputCaps.maxImages < input.imageCount) {
-        return false;
-      }
-    }
-
-    if (input.hasMask && inputCaps?.supportsMask === false) return false;
-    if (input.outputCount > 1 && outputCaps?.supportsMulti === false) return false;
-    return true;
-  });
-}
-
-/** Filter video media models based on input/output requirements. */
-export function filterVideoMediaModels(
-  models: AiModel[],
-  input: {
-    imageCount: number;
-    hasReference: boolean;
-    hasStartEnd: boolean;
-    withAudio: boolean;
-  },
-) {
-  return models.filter((model) => {
-    const tags = Array.isArray(model.tags) ? model.tags : [];
-    const inputCaps = model.capabilities?.input;
-    const outputCaps = model.capabilities?.output;
-    if (tags.length > 0 && !hasModelTag(model, "video_generation")) return false;
-
-    // 图生视频：当有图片输入时，排除不支持图片输入的模型
-    if (input.imageCount > 0) {
-      if (inputCaps?.maxImages !== undefined && inputCaps.maxImages < input.imageCount) {
-        return false;
-      }
-    }
-
-    if (input.hasReference && inputCaps?.supportsReferenceVideo === false) return false;
-    if (input.hasStartEnd && inputCaps?.supportsStartEnd === false) return false;
-    if (input.withAudio && outputCaps?.supportsAudio === false) return false;
-    return true;
-  });
 }

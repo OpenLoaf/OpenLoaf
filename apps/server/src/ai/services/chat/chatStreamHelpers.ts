@@ -670,3 +670,76 @@ export function stripImagePartsForNonVisionModel(
   }
   return anyChanged ? next : messages;
 }
+
+/**
+ * Sanitize partial assistant parts for continue mode.
+ *
+ * - Keeps completed text parts and tool-call/result pairs.
+ * - For tool calls that have no corresponding result, injects an error
+ *   tool-result so the model knows the call was interrupted and may retry.
+ */
+export function sanitizePartialParts(parts: unknown[]): unknown[] {
+  if (!Array.isArray(parts) || parts.length === 0) return [];
+
+  // Collect toolCallIds that already have a result.
+  const resultIds = new Set<string>();
+  for (const part of parts) {
+    if (!part || typeof part !== "object") continue;
+    const p = part as Record<string, unknown>;
+    const toolCallId = typeof p.toolCallId === "string" ? p.toolCallId : "";
+    if (!toolCallId) continue;
+    const type = typeof p.type === "string" ? p.type : "";
+    const state = typeof p.state === "string" ? p.state : "";
+    if (
+      type === "tool-result" ||
+      state === "output-available" ||
+      state === "output-error"
+    ) {
+      resultIds.add(toolCallId);
+    }
+  }
+
+  const emittedCalls = new Set<string>();
+  const result: unknown[] = [];
+
+  for (const part of parts) {
+    if (!part || typeof part !== "object") continue;
+    const p = part as Record<string, unknown>;
+    const type = typeof p.type === "string" ? p.type : "";
+
+    // Plain text
+    if (type === "text") {
+      result.push(part);
+      continue;
+    }
+
+    // Tool-related parts
+    const toolCallId = typeof p.toolCallId === "string" ? p.toolCallId : "";
+    const toolName =
+      typeof p.toolName === "string"
+        ? p.toolName
+        : type.startsWith("tool-")
+          ? type.slice("tool-".length)
+          : "";
+    if (!toolCallId) continue;
+
+    if (resultIds.has(toolCallId)) {
+      // Completed tool: keep as-is
+      result.push(part);
+    } else if (!emittedCalls.has(toolCallId)) {
+      // Incomplete tool call: emit the call + synthetic error result
+      emittedCalls.add(toolCallId);
+      result.push(part);
+      result.push({
+        type: "tool-result",
+        toolCallId,
+        toolName,
+        result:
+          "Tool execution was interrupted. You may retry this tool call if needed.",
+        state: "output-error",
+      });
+    }
+  }
+
+  return result;
+}

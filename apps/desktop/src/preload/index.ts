@@ -9,7 +9,8 @@
  */
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
 
-type OpenBrowserWindowResult = { id: number };
+type OpenBrowserWindowResult = { id: number; cdpTargetId?: string };
+type OpenHeadlessBrowserResult = { cdpTargetId?: string };
 type OpenProjectWindowResult = { id: number };
 type OkResult = { ok: true };
 type CountResult = { ok: true; count: number } | { ok: false };
@@ -82,6 +83,9 @@ contextBridge.exposeInMainWorld('openloafElectron', {
   // 请求主进程在独立窗口中打开外部 URL。
   openBrowserWindow: (url: string): Promise<OpenBrowserWindowResult> =>
     ipcRenderer.invoke('openloaf:open-browser-window', { url }),
+  // 请求主进程打开无界面浏览器（仅 CDP 自动化）。
+  openHeadlessBrowser: (url: string): Promise<OpenHeadlessBrowserResult> =>
+    ipcRenderer.invoke('openloaf:open-headless-browser', { url }),
   // 请求主进程在独立应用窗口中打开一个项目上下文。
   openProjectWindow: (payload: {
     projectId: string;

@@ -266,6 +266,7 @@ export function createFrontendToolExecutor(): FrontendToolExecutor {
 type OpenUrlInput = {
   url?: string;
   title?: string;
+  openMode?: "tab" | "window" | "headless";
 };
 
 // type OfficeExecuteInput = {
@@ -285,6 +286,7 @@ export function registerDefaultFrontendToolHandlers(executor: FrontendToolExecut
     const title = typeof (input as OpenUrlInput)?.title === "string"
       ? (input as OpenUrlInput).title
       : undefined;
+    const openMode = (input as OpenUrlInput)?.openMode ?? "tab";
     const normalizedUrl = normalizeUrl(url);
 
     if (!tabId) {
@@ -292,12 +294,10 @@ export function registerDefaultFrontendToolHandlers(executor: FrontendToolExecut
       return { status: "failed", errorText: "tabId is required." };
     }
     if (!normalizedUrl) {
-      // 逻辑：记录原始 input，方便排查子代理传参缺失的问题。
       console.warn("[frontend-tool] OpenUrl missing url", {
         input,
         rawUrl: url,
       });
-      // 逻辑：console 对象可能被覆盖，追加字符串化输出保证可见。
       console.warn(
         "[frontend-tool] OpenUrl missing url payload",
         JSON.stringify({ input, rawUrl: url }),
@@ -305,25 +305,72 @@ export function registerDefaultFrontendToolHandlers(executor: FrontendToolExecut
       return { status: "failed", errorText: "url is required." };
     }
 
-    // 逻辑：非 Electron 环境直接打开新标签页。
+    // 非 Electron 环境直接打开新标签页。
     if (!isElectronEnv()) {
       window.open(normalizedUrl, '_blank', 'noopener,noreferrer')
       return { status: "success", output: { url: normalizedUrl } }
     }
 
-    // Electron 环境：新建独立窗口打开网页。
     try {
-      const result = await window.openloafElectron!.openBrowserWindow(normalizedUrl);
-
       const recent = resolveFileEntryFromUrl({ url: normalizedUrl });
       if (recent) {
-        recordRecentOpen({
-          projectId: recent.projectId,
-          entry: recent.entry,
-        });
+        recordRecentOpen({ projectId: recent.projectId, entry: recent.entry });
       }
 
-      return { status: "success", output: { url: normalizedUrl, windowId: result.id } };
+      if (openMode === "window") {
+        // 独立窗口模式：新建多标签浏览器窗口。
+        const result = await window.openloafElectron!.openBrowserWindow(normalizedUrl);
+        return {
+          status: "success",
+          output: { url: normalizedUrl, windowId: result.id, cdpTargetId: result.cdpTargetId },
+        };
+      }
+
+      if (openMode === "headless") {
+        // 无界面模式：后台隐藏浏览器，仅用于自动化。
+        const result = await window.openloafElectron!.openHeadlessBrowser(normalizedUrl);
+        return {
+          status: "success",
+          output: { url: normalizedUrl, cdpTargetId: result.cdpTargetId },
+        };
+      }
+
+      // 默认 tab 模式：在当前页面内嵌浏览器面板。
+      const { useLayoutState } = await import("@/hooks/use-layout-state");
+      const { createBrowserTabId } = await import("@/hooks/tab-id");
+      const { BROWSER_WINDOW_COMPONENT, BROWSER_WINDOW_PANEL_ID } = await import(
+        "@openloaf/api/common"
+      );
+
+      const appView = useAppView.getState();
+      const chatSessionId = appView.chatSessionId;
+      const viewKey = `browser:${chatSessionId}:${createBrowserTabId()}`;
+
+      // 先推入布局栈展示浏览器面板。
+      useLayoutState.getState().pushStackItem(
+        {
+          id: BROWSER_WINDOW_PANEL_ID,
+          sourceKey: BROWSER_WINDOW_PANEL_ID,
+          component: BROWSER_WINDOW_COMPONENT,
+          params: { __customHeader: true, __open: { url: normalizedUrl, title, viewKey } },
+        } as any,
+        70,
+      );
+
+      // 立即创建 WebContentsView 获取 cdpTargetId（ensureWebContentsView 幂等）。
+      const api = window.openloafElectron;
+      let cdpTargetId: string | undefined;
+      if (api?.ensureWebContentsView) {
+        const res = await api.ensureWebContentsView({ key: viewKey, url: normalizedUrl });
+        if (res?.ok) {
+          cdpTargetId = res.cdpTargetId;
+        }
+      }
+
+      return {
+        status: "success",
+        output: { url: normalizedUrl, cdpTargetId },
+      };
     } catch (err) {
       const errorText = err instanceof Error ? err.message : String(err);
       return { status: "failed", output: { url: normalizedUrl }, errorText };

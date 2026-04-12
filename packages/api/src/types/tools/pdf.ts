@@ -13,35 +13,26 @@ import { jsonArrayPreprocess } from './office'
 export const pdfQueryToolDef = {
   id: 'PdfQuery',
   readonly: true,
-  name: 'PDF 查询',
+  name: 'Query Pdf',
   description:
-    'Read-only access to a PDF: `read-structure` (page count, metadata, form info), `read-text` (full text or a specific page), `read-form-fields` (fillable form fields with name/type/current value), `read-screenshot` (renders a page as PNG — useful for layout/charts/formatting). For create/edit use PdfMutate.',
+    'Read-only access to a PDF: structure, text, form fields, or page screenshot. See pdf-word-excel-pptx skill for usage.',
   parameters: z.object({
-    mode: z
-      .enum(['read-structure', 'read-text', 'read-form-fields', 'read-screenshot', 'structure', 'text', 'form-fields', 'screenshot'])
-      .describe(
-        '查询模式：read-structure 获取页数/元数据/表单信息，read-text 提取纯文本内容，read-form-fields 获取可填写表单字段列表，read-screenshot 将指定页渲染为 PNG 图片',
-      ),
+    mode: z.enum(['read-structure', 'read-text', 'read-form-fields', 'read-screenshot', 'structure', 'text', 'form-fields', 'screenshot']),
     filePath: z
       .string()
       .min(1)
-      .describe('PDF 文件路径（相对于项目根目录、全局根目录或绝对路径，支持 .pdf）'),
+      .describe('Relative to project / global root, or absolute.'),
     pageRange: z
       .string()
       .optional()
-      .describe('read-text 模式时可选，指定页码范围（如 "1-5" 或 "3"），不指定则提取全部页面'),
+      .describe('For read-text, e.g. "1-5" or "3". Omit for all pages.'),
     page: z
       .number()
       .int()
       .min(1)
       .optional()
-      .describe('read-screenshot 模式时必填，要截图的页码（从 1 开始）'),
-    scale: z
-      .number()
-      .min(0.5)
-      .max(4)
-      .optional()
-      .describe('read-screenshot 模式时可选，缩放倍数（默认 2，范围 0.5-4）'),
+      .describe('1-based, required for read-screenshot.'),
+    scale: z.number().min(0.5).max(4).optional().describe('Default 2.'),
   }),
   component: null,
 } as const
@@ -78,61 +69,57 @@ const pdfContentItemSchema = z.discriminatedUnion('type', [
 ])
 
 const pdfTextOverlaySchema = z.object({
-  page: z.number().min(1).describe('目标页码（从 1 开始）'),
-  x: z.number().describe('X 坐标（PDF 点，左下角为原点）'),
-  y: z.number().describe('Y 坐标（PDF 点，左下角为原点）'),
-  text: z.string().describe('要叠加的文字'),
-  fontSize: z.number().optional().describe('字体大小（默认 12）'),
-  color: z.string().optional().describe('颜色（十六进制如 "#FF0000"，默认黑色）'),
+  page: z.number().min(1).describe('1-based.'),
+  x: z.number().describe('PDF points, origin at bottom-left.'),
+  y: z.number().describe('PDF points, origin at bottom-left.'),
+  text: z.string(),
+  fontSize: z.number().optional().describe('Default 12.'),
+  color: z.string().optional().describe('Hex, e.g. "#FF0000". Default black.'),
   background: z
     .object({
-      color: z.string().describe('背景矩形颜色（十六进制如 "#FFFFFF" 白色遮罩）'),
-      padding: z.number().optional().describe('矩形在文字四周的内边距（默认 2）'),
-      width: z.number().optional().describe('矩形宽度（不指定则根据文字宽度+padding 自动计算）'),
-      height: z.number().optional().describe('矩形高度（不指定则根据字体大小+padding 自动计算）'),
+      color: z.string().describe('Hex, e.g. "#FFFFFF" for white masking.'),
+      padding: z.number().optional().describe('Default 2.'),
+      width: z.number().optional().describe('Auto from text width + padding when omitted.'),
+      height: z.number().optional().describe('Auto from font size + padding when omitted.'),
     })
     .optional()
-    .describe('可选背景矩形，用于遮盖原有内容（如隐私遮罩）。先画矩形再画文字。'),
+    .describe('Background rectangle to mask existing content.'),
 })
 
 export const pdfMutateToolDef = {
   id: 'PdfMutate',
   readonly: false,
-  name: 'PDF 操作',
+  name: 'Mutate Pdf',
   description:
-    'Mutates PDF files: `create` (new PDF from structured content), `fill-form` (fill form fields in an existing PDF), `merge` (combine multiple PDFs), `add-text` (overlay text on an existing page). Note: `create` uses standard fonts and does NOT support CJK (Chinese/Japanese/Korean) characters — inform the user if CJK is needed. For read-only access use PdfQuery.',
+    'Create / fill-form / merge / add-text on PDFs. Note: create uses standard fonts and does not support CJK characters. See pdf-word-excel-pptx skill for usage.',
   parameters: z.object({
-    action: z
-      .enum(['create', 'fill-form', 'merge', 'add-text'])
-      .describe(
-        '操作类型：create 创建新 PDF，fill-form 填充表单字段，merge 合并多个 PDF，add-text 叠加文字到已有 PDF',
-      ),
+    action: z.enum(['create', 'fill-form', 'merge', 'add-text']),
     filePath: z
       .string()
       .min(1)
-      .describe('输出 PDF 文件路径（create/merge 为新文件路径，fill-form/add-text 为已有文件路径）'),
+      .describe('New file for create/merge, existing file for fill-form/add-text.'),
     content: z
       .preprocess(
         jsonArrayPreprocess,
         z.array(pdfContentItemSchema).optional(),
       )
-      .describe('create 时必填：结构化内容数组，支持 heading/paragraph/table/bullet-list/numbered-list/page-break'),
+      .describe('Required for create.'),
     fields: z
       .record(z.string(), z.string())
       .optional()
-      .describe('fill-form 时必填：表单字段名与值的映射'),
+      .describe('Form field name to value. Required for fill-form.'),
     sourcePaths: z
       .preprocess(
         jsonArrayPreprocess,
         z.array(z.string()).optional(),
       )
-      .describe('merge 时必填：要合并的源 PDF 文件路径数组'),
+      .describe('Required for merge.'),
     overlays: z
       .preprocess(
         jsonArrayPreprocess,
         z.array(pdfTextOverlaySchema).optional(),
       )
-      .describe('add-text 时必填：文字叠加定义数组'),
+      .describe('Required for add-text.'),
   }),
   needsApproval: true,
   component: null,

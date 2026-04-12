@@ -13,44 +13,37 @@ import { RiskType } from "../toolResult";
 export const memorySaveToolDef = {
   id: "MemorySave",
   readonly: false,
-  name: "保存记忆",
+  name: "Save Memory",
   description:
-    "将信息持久化保存到记忆系统（跨会话可检索）。支持新建、更新、追加、删除记忆。" +
-    "每条记忆由 key 唯一标识，保存为独立 Markdown 文件，自动维护 MEMORY.md 索引。",
+    "Persist a memory entry (cross-session, retrievable). Each entry is a single Markdown file keyed by `key`; the MEMORY.md index is maintained automatically. Supports upsert / append / delete modes.",
   parameters: z.object({
     key: z
       .string()
       .min(1)
       .max(60)
-      .describe(
-        "记忆标识符（英文小写字母+数字+连字符，如 food-preferences、debug-patterns）",
-      ),
+      .describe("Lowercase letters, digits, hyphens, e.g. food-preferences."),
     content: z
       .string()
       .max(10240)
       .optional()
-      .describe("记忆内容（Markdown 格式，delete 模式时可省略）"),
+      .describe("Markdown. Omit for delete."),
     scope: z
       .enum(["user", "project", "agent"])
       .optional()
-      .describe(
-        "保存范围：user=全局记忆（默认），project=当前项目记忆，agent=当前Agent专属记忆",
-      ),
+      .describe("user=global (default), project=current project, agent=current agent."),
     mode: z
       .enum(["upsert", "append", "delete"])
       .optional()
-      .describe(
-        "操作模式：upsert=新建或覆盖（默认），append=追加到已有文件末尾，delete=删除",
-      ),
+      .describe("Default upsert."),
     tags: z
       .array(z.string())
       .optional()
-      .describe("检索标签，注入 frontmatter 提升搜索精度（如 [\"food\", \"preference\"]）"),
+      .describe('Injected into frontmatter, e.g. ["food","preference"].'),
     indexEntry: z
       .string()
       .max(100)
       .optional()
-      .describe("MEMORY.md 索引中的一行摘要（不提供则从 content 首行提取）"),
+      .describe("One-line summary for MEMORY.md index. Falls back to first line of content."),
   }),
   component: null,
 } as const;
@@ -58,26 +51,16 @@ export const memorySaveToolDef = {
 export const memorySearchToolDef = {
   id: "MemorySearch",
   readonly: true,
-  name: "记忆搜索",
+  name: "Search Memory",
   description:
-    "搜索记忆文件。输入查询关键词，返回匹配的记忆片段列表（文件路径 + 摘要 + 日期 + 衰减权重），按相关性排序。用于在运行时按需检索历史记忆。",
+    "Search memory files. Returns ranked matches (path, snippet, date, decay weight) for on-demand history retrieval.",
   parameters: z.object({
-    query: z
-      .string()
-      .min(1)
-      .describe("搜索关键词，用于匹配记忆文件内容"),
+    query: z.string().min(1).describe("Matched against memory file contents."),
     scope: z
       .enum(["user", "project", "agent"])
       .optional()
-      .describe(
-        "搜索范围：user=用户级记忆，project=项目级记忆，agent=当前Agent记忆。不传则搜索所有可见范围。",
-      ),
-    topK: z
-      .number()
-      .min(1)
-      .max(20)
-      .optional()
-      .describe("返回结果数量上限，默认 10"),
+      .describe("Omit to search all visible scopes."),
+    topK: z.number().min(1).max(20).optional().describe("Default 10."),
   }),
   component: null,
 } as const;
@@ -85,14 +68,14 @@ export const memorySearchToolDef = {
 export const memoryGetToolDef = {
   id: "MemoryGet",
   readonly: true,
-  name: "读取记忆",
+  name: "Get Memory",
   description:
-    "按路径读取一个记忆文件的完整内容。通常在 MemorySearch 返回结果后，选择感兴趣的记忆使用本工具读取完整内容。",
+    "Read a memory file's full content by path. Usually called after MemorySearch to fetch an interesting entry.",
   parameters: z.object({
     filePath: z
       .string()
       .min(1)
-      .describe("记忆文件的完整路径（从 MemorySearch 结果中获取）"),
+      .describe("From a MemorySearch result."),
   }),
   component: null,
 } as const;

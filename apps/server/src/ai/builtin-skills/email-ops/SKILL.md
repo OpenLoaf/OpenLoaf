@@ -1,6 +1,9 @@
 ---
 name: email-ops
-description: 邮件收发与管理——收件箱、未读、回复、转发、撰写、发送、草稿、搜索邮件、归档、星标、订阅邮件、垃圾邮件处理、contact someone、reach out、let them know、follow up、notify、forward、CC me、unsubscribe、attachment、mailing list。当用户提到邮件、inbox、消息、写信、查信、"有没有人给我发过消息"等任何与电子邮件相关的意图时激活。
+description: >
+  邮件收发与管理——收件箱、未读、回复、转发、撰写、发送、草稿、搜索、归档。
+  当用户要操作电子邮件（查收件箱、写邮件、回复、转发、搜索邮件、归档）时激活。
+  **不用于**：翻译含"邮件"的文本（→直接回答）、即时消息/聊天（不是 email）。
 ---
 
 # 邮件操作技能

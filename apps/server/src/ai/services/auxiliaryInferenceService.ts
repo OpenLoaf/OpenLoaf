@@ -73,6 +73,8 @@ type AuxiliaryInferInput<T extends z.ZodType> = {
   promptOverride?: string
   /** SaaS access token (fallback when request context is unavailable, e.g. tRPC mutations). */
   saasAccessToken?: string
+  /** Max output tokens for the model response. Applied to local/cloud calls only. */
+  maxTokens?: number
 }
 
 type AuxiliaryInferTextInput = {
@@ -104,6 +106,7 @@ export async function auxiliaryInfer<T extends z.ZodType>({
   noCache,
   promptOverride,
   saasAccessToken: inputToken,
+  maxTokens,
 }: AuxiliaryInferInput<T>): Promise<z.infer<T>> {
   try {
     console.log(
@@ -192,6 +195,7 @@ export async function auxiliaryInfer<T extends z.ZodType>({
         system: systemPrompt,
         prompt: context,
         abortSignal: abortController.signal,
+        ...(maxTokens ? { maxTokens } : {}),
       })
 
       const value = result.output as z.infer<T>

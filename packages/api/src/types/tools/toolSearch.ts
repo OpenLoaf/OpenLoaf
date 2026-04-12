@@ -13,16 +13,18 @@ export const toolSearchToolDef = {
   id: 'ToolSearch',
   readonly: true,
   name: 'Tool Search',
-  description: `Load tools and skills by name. You start with ZERO tools. Every tool/skill MUST be loaded through this function first.
+  description: `Load tool JSON schemas by name. Deferred tools start with no schema — call this before invoking them, otherwise invocation fails with InputValidationError.
 
-Pass one or more comma-separated names. Names come from the tool catalog and skill list in the system context.
-- Tool names: "shell-command,read-file" → activates tools, returns parameter schemas
-- Skill names: "jd-scraper,email-ops" → loads skill content with full instructions
+Pass comma-separated tool IDs from the tool catalog (PascalCase, exact match).
+- Single: "WebFetch"
+- Batch (preferred — one round trip): "WebFetch,WebSearch,MemorySave"
 
-Workflow: identify the right skill first → load it → read its guidance → load the tools it recommends → execute.`,
+Once activated, a tool's schema stays live for the whole session — do not re-search.
+
+This tool does NOT load skills; use LoadSkill for that.`,
   parameters: z.object({
     names: z.string().min(1).describe(
-      'Comma-separated tool/skill names to load. Example: "shell-command,read-file" or "jd-scraper"',
+      'Comma-separated tool IDs (PascalCase, exact match), e.g. "WebFetch,WebSearch".',
     ),
   }),
   component: null,

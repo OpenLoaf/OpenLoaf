@@ -29,6 +29,13 @@ export function buildExecEnv(input: { tty?: boolean }): NodeJS.ProcessEnv {
     ensurePath("/usr/local/bin");
     ensurePath("/opt/homebrew/bin");
   }
+  if (process.platform === "win32") {
+    // 中文注释：Windows GUI 进程继承的 PATH 可能缺失系统目录，显式补齐。
+    ensurePath("C:\\Windows\\System32");
+    ensurePath("C:\\Windows");
+    ensurePath("C:\\Windows\\System32\\WindowsPowerShell\\v1.0");
+    ensurePath("C:\\Program Files\\PowerShell\\7");
+  }
   env.PATH = pathEntries.join(path.delimiter);
   return env;
 }

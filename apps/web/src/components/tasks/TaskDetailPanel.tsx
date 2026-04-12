@@ -102,6 +102,7 @@ const READ_ONLY_ACTIONS = {
   selectSession: noop,
   switchSibling: noop,
   retryAssistantMessage: noop,
+  continueAssistantTurn: noop,
   resendUserMessage: noop,
   deleteMessageSubtree: noopAsync as any,
   setPendingCloudMessage: noop,

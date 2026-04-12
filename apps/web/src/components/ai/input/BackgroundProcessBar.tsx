@@ -9,8 +9,10 @@
  */
 import * as React from 'react'
 import { useMutation } from '@tanstack/react-query'
+import { useShallow } from 'zustand/react/shallow'
 import { BotIcon, Loader2, TerminalIcon, XIcon } from 'lucide-react'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
 import { trpc } from '@/utils/trpc'
 import { cn } from '@/lib/utils'
 import {
@@ -37,8 +39,11 @@ export function BackgroundProcessBar({
   sessionId,
   className,
 }: BackgroundProcessBarProps) {
+  const { t } = useTranslation('ai')
   const tasks = useBackgroundProcesses(
-    React.useMemo(() => selectSessionBgTasks(sessionId ?? ''), [sessionId]),
+    useShallow(
+      React.useMemo(() => selectSessionBgTasks(sessionId ?? ''), [sessionId]),
+    ),
   )
   const removeTask = useBackgroundProcesses((s) => s.removeTask)
   const cancelMutation = useMutation(
@@ -68,10 +73,10 @@ export function BackgroundProcessBar({
     try {
       const result = await cancelMutation.mutateAsync({ taskId, sessionId })
       if (result.status === 'not-found') {
-        toast.error('Task no longer exists')
+        removeTask(sessionId, taskId)
       }
     } catch (err) {
-      toast.error('Failed to cancel background task', {
+      toast.error(t('bgProcess.cancelFailed'), {
         description: err instanceof Error ? err.message : String(err),
       })
     }
@@ -116,7 +121,7 @@ export function BackgroundProcessBar({
               </>
             ) : (
               <span className="text-[10px] opacity-70">
-                {formatTerminalLabel(task)}
+                {formatTerminalLabel(task, t)}
               </span>
             )}
           </div>
@@ -162,13 +167,13 @@ function buildTooltip(task: {
   return lines.join('\n')
 }
 
-function formatTerminalLabel(task: {
-  status: string
-  exitCode?: number
-}): string {
-  if (task.status === 'completed') return 'done'
+function formatTerminalLabel(
+  task: { status: string; exitCode?: number },
+  t: (key: string) => string,
+): string {
+  if (task.status === 'completed') return t('bgProcess.done')
   if (task.status === 'failed') return `exit ${task.exitCode ?? '?'}`
-  if (task.status === 'killed') return 'killed'
+  if (task.status === 'killed') return t('bgProcess.killed')
   return task.status
 }
 

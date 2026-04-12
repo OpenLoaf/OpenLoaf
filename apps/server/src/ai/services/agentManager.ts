@@ -7,8 +7,14 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
+import { randomBytes } from 'node:crypto'
 import { generateId, type UIMessage, type UIMessageStreamWriter } from 'ai'
 import type { LanguageModelV3 } from '@ai-sdk/provider'
+
+/** Generate a short, human-readable ID with a prefix. Format: `openloaf-<prefix>-<6hex>`. */
+function friendlyId(prefix: string): string {
+  return `openloaf-${prefix}-${randomBytes(3).toString('hex')}`
+}
 import type { RequestContext } from '@/ai/shared/context/requestContext'
 import { getSessionId } from '@/ai/shared/context/requestContext'
 import {
@@ -141,7 +147,7 @@ export class AgentManager {
       )
     }
 
-    const id = `agent_${generateId()}`
+    const id = friendlyId('agent')
 
     const initialMessage: UIMessage = {
       id: generateId(),

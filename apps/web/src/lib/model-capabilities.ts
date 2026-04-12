@@ -22,11 +22,6 @@ function hasTag(model: ModelWithTags | null | undefined, tag: ModelTag) {
   return Boolean(model?.tags?.includes(tag));
 }
 
-/** Return true when the model supports text generation. */
-export function supportsTextGeneration(model: ModelWithTags | null | undefined) {
-  return hasTag(model, "chat");
-}
-
 /** Return true when the model supports image input (understanding or analysis). */
 export function supportsImageInput(model: ModelWithTags | null | undefined) {
   return hasTag(model, "image_input") || hasTag(model, "image_analysis");
@@ -42,7 +37,3 @@ export function supportsCode(model: ModelWithTags | null | undefined) {
   return hasTag(model, "code");
 }
 
-/** Return true when the model supports web search. */
-export function supportsWebSearch(model: ModelWithTags | null | undefined) {
-  return model?.capabilities?.common?.supportsWebSearch === true;
-}

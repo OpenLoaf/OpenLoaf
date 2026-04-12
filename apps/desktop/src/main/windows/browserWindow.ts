@@ -12,6 +12,7 @@ import { randomUUID } from 'node:crypto';
 import { resolveWindowIconPath } from '../resolveWindowIcon';
 import { WEBPACK_ENTRIES } from '../webpackEntries';
 import { getChromeUserAgent, normalizeExternalUrl, safeDisposeWebContents } from '../ipc/webContentsViews';
+import { getCdpTargetId } from '../ipc/cdpUtils';
 
 const TAB_BAR_HEIGHT = 36;
 
@@ -222,11 +223,92 @@ function ensureBrowserWindow(): BrowserWindow {
   return win;
 }
 
+// ---------------------------------------------------------------------------
+// Headless (hidden) browser — no visible window, CDP-only automation target.
+// ---------------------------------------------------------------------------
+
+const headlessWindows = new Map<string, BrowserWindow>();
+
+/**
+ * Open a URL in a hidden BrowserWindow for headless automation.
+ * Returns the cdpTargetId so browser automation tools can interact with it.
+ */
+export async function openHeadlessBrowser(url: string): Promise<{ cdpTargetId?: string }> {
+  const normalized = normalizeExternalUrl(url);
+  const parsed = new URL(normalized);
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw new Error(`Unsupported protocol: ${parsed.protocol}`);
+  }
+
+  const win = new BrowserWindow({
+    show: false,
+    width: 1280,
+    height: 720,
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
+  });
+
+  try {
+    win.webContents.setUserAgent(getChromeUserAgent());
+  } catch { /* ignore */ }
+
+  // Wait for page load with timeout.
+  await new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error('Headless page load timeout (30s)'));
+    }, 30_000);
+
+    win.webContents.once('did-finish-load', () => {
+      clearTimeout(timer);
+      resolve();
+    });
+
+    win.webContents.once('did-fail-load', (_event, _code, desc) => {
+      clearTimeout(timer);
+      reject(new Error(desc || 'Headless page load failed'));
+    });
+
+    void win.webContents.loadURL(normalized);
+  });
+
+  const cdpTargetId = await getCdpTargetId(win.webContents);
+
+  // Track for cleanup.
+  if (cdpTargetId) {
+    headlessWindows.set(cdpTargetId, win);
+  }
+
+  win.on('closed', () => {
+    if (cdpTargetId) headlessWindows.delete(cdpTargetId);
+  });
+
+  return { cdpTargetId };
+}
+
+/** Destroy a headless browser window by its cdpTargetId. */
+export function closeHeadlessBrowser(cdpTargetId: string): boolean {
+  const win = headlessWindows.get(cdpTargetId);
+  if (!win || win.isDestroyed()) {
+    headlessWindows.delete(cdpTargetId);
+    return false;
+  }
+  win.close();
+  headlessWindows.delete(cdpTargetId);
+  return true;
+}
+
+// ---------------------------------------------------------------------------
+// Tabbed browser window (standalone, visible)
+// ---------------------------------------------------------------------------
+
 /**
  * Open a URL in the tabbed browser window.
  * Creates the window if it doesn't exist, adds a new tab, and switches to it.
  */
-export function openUrlInBrowserWindow(url: string): { id: number } {
+export async function openUrlInBrowserWindow(url: string): Promise<{ id: number; cdpTargetId?: string }> {
   const normalized = normalizeExternalUrl(url);
   const parsed = new URL(normalized);
   if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
@@ -307,5 +389,8 @@ export function openUrlInBrowserWindow(url: string): { id: number } {
   void view.webContents.loadURL(normalized);
   switchToTab(tabId);
 
-  return { id: win.id };
+  // 获取 CDP targetId，供 server 侧浏览器自动化工具使用。
+  const cdpTargetId = await getCdpTargetId(view.webContents);
+
+  return { id: win.id, cdpTargetId };
 }

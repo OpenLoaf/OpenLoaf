@@ -13,6 +13,7 @@ import {
   sendMessageTool,
 } from "@/ai/tools/agentTools";
 import { bashTool } from "@/ai/tools/shellCommandTool";
+import { powerShellTool } from "@/ai/tools/powershell/powerShellTool";
 import { readTool, editTool, writeTool } from "@/ai/tools/fileTools";
 import { grepTool } from "@/ai/tools/grepTool";
 import { globTool } from "@/ai/tools/globTool";
@@ -46,7 +47,7 @@ import { requestUserInputTool } from "@/ai/tools/requestUserInputTool";
 import { jsxCreateTool } from "@/ai/tools/jsxCreateTool";
 import { chartRenderTool } from "@/ai/tools/chartTools";
 import { scheduledTaskManageTool, scheduledTaskStatusTool, scheduledTaskWaitTool } from "@/ai/tools/scheduleTools";
-import { bgListTool, bgOutputTool, bgKillTool } from "@/ai/tools/bgTaskTools";
+import { bgListTool, bgKillTool } from "@/ai/tools/bgTaskTools";
 import { sleepTool } from "@/ai/tools/sleepTool";
 import { memorySaveTool, memorySearchTool, memoryGetTool } from "@/ai/tools/memoryTools";
 import { openUrlToolDef } from "@openloaf/api/types/tools/browser";
@@ -92,7 +93,6 @@ import {
 } from "@openloaf/api/types/tools/scheduledTask";
 import {
   bgListToolDef,
-  bgOutputToolDef,
   bgKillToolDef,
 } from "@openloaf/api/types/tools/bgTask";
 import { sleepToolDef } from "@openloaf/api/types/tools/sleep";
@@ -103,6 +103,7 @@ import {
 } from "@openloaf/api/types/tools/memory";
 import {
   bashToolDef,
+  powerShellToolDef,
   readToolDef,
   editToolDef,
   writeToolDef,
@@ -202,6 +203,9 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
   },
   [bashToolDef.id]: {
     tool: bashTool,
+  },
+  [powerShellToolDef.id]: {
+    tool: powerShellTool,
   },
   [readToolDef.id]: {
     tool: readTool,
@@ -311,9 +315,6 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
   [bgListToolDef.id]: {
     tool: bgListTool,
   },
-  [bgOutputToolDef.id]: {
-    tool: bgOutputTool,
-  },
   [bgKillToolDef.id]: {
     tool: bgKillTool,
   },
@@ -370,6 +371,7 @@ const TOOL_DEF_REGISTRY: Record<string, { parameters?: any }> = {
   [browserWaitToolDef.id]: browserWaitToolDef,
   [browserDownloadImageToolDef.id]: browserDownloadImageToolDef,
   [bashToolDef.id]: bashToolDef,
+  [powerShellToolDef.id]: powerShellToolDef,
   [readToolDef.id]: readToolDef,
   [editToolDef.id]: editToolDef,
   [writeToolDef.id]: writeToolDef,
@@ -406,7 +408,6 @@ const TOOL_DEF_REGISTRY: Record<string, { parameters?: any }> = {
   [scheduledTaskStatusToolDef.id]: scheduledTaskStatusToolDef,
   [scheduledTaskWaitToolDef.id]: scheduledTaskWaitToolDef,
   [bgListToolDef.id]: bgListToolDef,
-  [bgOutputToolDef.id]: bgOutputToolDef,
   [bgKillToolDef.id]: bgKillToolDef,
   [sleepToolDef.id]: sleepToolDef,
   [imageProcessToolDef.id]: imageProcessToolDef,
@@ -473,7 +474,7 @@ function wrapToolWithAutoApproval(toolId: string, tool: any): any {
 // ---------------------------------------------------------------------------
 
 const TOOL_ALIASES: Record<string, string> = {
-  'shell-command': 'Bash',
+  'shell-command': process.platform === 'win32' ? 'PowerShell' : 'Bash',
   'read-file': 'Read',
   'apply-patch': 'Edit',
   'list-dir': 'Glob',
@@ -481,7 +482,6 @@ const TOOL_ALIASES: Record<string, string> = {
   'web-search': 'WebSearch',
   'web-fetch': 'WebFetch',
   'BgList': 'Jobs',
-  'BgOutput': 'Tail',
   'BgKill': 'Kill',
 }
 

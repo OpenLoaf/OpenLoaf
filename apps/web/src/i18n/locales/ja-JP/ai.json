@@ -121,11 +121,8 @@
     "SendMessage": "メッセージを送信",
     "OpenUrl": "URLを開く",
     "BrowserSnapshot": "ブラウザスナップショット",
-    "BrowserObserve": "ページを監視",
-    "BrowserExtract": "ページを抽出",
     "BrowserAct": "ページ操作",
     "BrowserWait": "ページ読み込みを待機",
-    "BrowserScreenshot": "ページスクリーンショット",
     "BrowserDownloadImage": "ページ画像をダウンロード",
     "CalendarQuery": "カレンダー検索",
     "CalendarMutate": "カレンダー更新",
@@ -149,8 +146,8 @@
     "PptxMutate": "PPTX操作",
     "PdfQuery": "PDF検索",
     "PdfMutate": "PDF操作",
-    "Bash": "シェルコマンド",
-    "shell-command": "シェルコマンド",
+    "Bash": "ターミナルコマンド",
+    "shell-command": "ターミナルコマンド",
     "Read": "ファイルを読み取り",
     "read-file": "ファイルを読み取り",
     "Edit": "ファイルを編集",
@@ -177,7 +174,43 @@
     "DocConvert": "ドキュメント変換",
     "FileInfo": "ファイル情報",
     "WebFetch": "ウェブコンテンツを取得",
-    "WebSearch": "ウェブ検索"
+    "WebSearch": "ウェブ検索",
+    "Jobs": "バックグラウンドタスク一覧",
+    "Kill": "バックグラウンドタスクを終了",
+    "Sleep": "バックグラウンド待機",
+    "ToolSearch": "ツール検索",
+    "LoadSkill": "スキルを読み込む",
+    "MemorySave": "メモリを保存",
+    "MemorySearch": "メモリを検索",
+    "MemoryGet": "メモリを読み取る",
+    "ScheduledTaskManage": "スケジュールタスク管理",
+    "ScheduledTaskStatus": "スケジュールタスク状態",
+    "ScheduledTaskWait": "スケジュールタスクを待機",
+    "SubmitPlan": "プランを提出"
+  },
+  "bgNotification": {
+    "taskCompleted": "バックグラウンドタスクが完了しました",
+    "tasksCompleted": "バックグラウンドタスクが完了しました ({{count}})",
+    "output": "出力",
+    "budgetExceeded": "バックグラウンドタスク吸収制限を超過",
+    "budgetExceededDesc": "残りのバックグラウンドタスクはまだ実行中です。Jobsツールで確認するか、次のメッセージで吸収を再開してください。",
+    "notification": "バックグラウンドタスク通知"
+  },
+  "bgTool": {
+    "jobs": "バックグラウンドタスク",
+    "kill": "タスク終了",
+    "sleep": "待機",
+    "executing": "実行中...",
+    "waiting": "待機中...",
+    "taskCount": "{{count}} 件のタスク",
+    "wokenByTask": "タスクにより起動",
+    "done": "完了"
+  },
+  "bgProcess": {
+    "done": "完了",
+    "killed": "終了済み",
+    "cancelFailed": "バックグラウンドタスクの終了に失敗しました",
+    "notFound": "タスクが存在しません"
   },
   "session": {
     "renameTitle": "セッション名を変更",
@@ -503,6 +536,28 @@
       "formFields": "{{count}} フィールド",
       "sheetCount": "{{count}} シート",
       "moreSheets": "その他"
+    },
+    "browser": {
+      "task": "タスク",
+      "title": "タイトル",
+      "pageText": "ページテキスト",
+      "capturing": "スクリーンショット中...",
+      "waitType": {
+        "timeout": "タイムアウト",
+        "load": "読み込み完了",
+        "networkidle": "ネットワーク待機",
+        "urlIncludes": "URL一致",
+        "textIncludes": "テキスト一致"
+      },
+      "action": {
+        "clickCss": "クリック",
+        "clickText": "テキストクリック",
+        "type": "入力",
+        "fill": "記入",
+        "press": "キー押下",
+        "pressOn": "キー押下",
+        "scroll": "スクロール"
+      }
     }
   },
   "error": {

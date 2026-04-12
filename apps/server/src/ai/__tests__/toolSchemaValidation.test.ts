@@ -26,11 +26,8 @@ import { zodSchema } from "ai";
 import { openUrlToolDef } from "@openloaf/api/types/tools/browser";
 import {
   browserSnapshotToolDef,
-  browserObserveToolDef,
-  browserExtractToolDef,
   browserActToolDef,
   browserWaitToolDef,
-  browserScreenshotToolDef,
   browserDownloadImageToolDef,
 } from "@openloaf/api/types/tools/browserAutomation";
 import { calendarQueryToolDef, calendarMutateToolDef } from "@openloaf/api/types/tools/calendar";
@@ -45,6 +42,7 @@ import {
 } from "@openloaf/api/types/tools/agent";
 import {
   bashToolDef,
+  powerShellToolDef,
   readToolDef,
   editToolDef,
   writeToolDef,
@@ -74,11 +72,8 @@ type ToolDefLike = { id: string; parameters: any };
 const ALL_TOOL_DEFS: ToolDefLike[] = [
   openUrlToolDef,
   browserSnapshotToolDef,
-  browserObserveToolDef,
-  browserExtractToolDef,
   browserActToolDef,
   browserWaitToolDef,
-  browserScreenshotToolDef,
   browserDownloadImageToolDef,
   readToolDef,
   globToolDef,
@@ -87,6 +82,7 @@ const ALL_TOOL_DEFS: ToolDefLike[] = [
   writeToolDef,
   editDocumentToolDef,
   bashToolDef,
+  powerShellToolDef,
   emailQueryToolDef,
   emailMutateToolDef,
   calendarQueryToolDef,

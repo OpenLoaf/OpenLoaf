@@ -1,11 +1,9 @@
 ---
 name: agent-orchestration
 description: >
-  子代理委派与 Agent 工具用法——决定是否委派、选哪个子代理、
-  怎么调用 Agent / SendMessage、并行扇出、系统硬限制。
-  触发词：Agent 工具、委派、分工、子代理、subagent、subagent_type、
-  doc-editor、browser、data-analyst、extractor、canvas-designer、coder、
-  并行执行、fan-out、SendMessage、追加指令、深度限制、并发上限、步数限制。
+  子代理委派参考——选择子代理类型、调用 Agent/SendMessage、并行策略、系统限制。
+  当需要了解子代理能力或委派最佳实践时激活。
+  **不用于**：简单的直接任务（不需要委派时不要加载此 skill）。
 version: 5.0.0
 ---
 
@@ -37,7 +35,7 @@ version: 5.0.0
 | 子代理 | 触发时机 | 工具集 | 步数 |
 |---|---|---|---|
 | 📝 **doc-editor** | 富文本/Markdown/Word/PDF 编辑，长文档改写 | Write, Read, Glob | 15 |
-| 🌐 **browser** | 页面导航、DOM 交互、表单填写、截图、翻页抓取 | browser-*, BrowserScreenshot, WebSearch | 20 |
+| 🌐 **browser** | 页面导航、DOM 交互、表单填写、截图、翻页抓取 | browser-*, WebSearch | 20 |
 | 📊 **data-analyst** | CSV/Excel 清洗、统计计算、ECharts/Mermaid 图表 | Read, Write, Bash | 15 |
 | 🔍 **extractor** | PDF/图片 OCR、表格抽取、多文档对比提取 | Read, office-read, WebFetch | 10 |
 | 🎨 **canvas-designer** | 节点增删改、自动布局、文本到画布转换 | canvas-*, canvas-read | 15 |

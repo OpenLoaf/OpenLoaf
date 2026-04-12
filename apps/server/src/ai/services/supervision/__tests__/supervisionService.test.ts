@@ -78,7 +78,7 @@ async function main() {
 
   const readOnlyTools = [
     'Read', 'Glob', 'Grep',
-    'BrowserSnapshot', 'BrowserObserve', 'BrowserExtract',
+    'BrowserSnapshot',
     'ProjectQuery', 'CalendarQuery', 'EmailQuery',
     'ScheduledTaskStatus',
   ]

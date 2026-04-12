@@ -9,6 +9,7 @@
  */
 
 import type { BuiltinSkill } from './types'
+import { parseFrontMatter, stripFrontMatter } from '@/ai/shared/frontMatterUtils'
 
 // 静态导入所有 SKILL.md（esbuild/tsdown .md: "text" 内联）
 import fileOpsMd from './file-ops/SKILL.md'
@@ -20,146 +21,40 @@ import projectOpsMd from './project-ops/SKILL.md'
 import workbenchOpsMd from './workbench-ops/SKILL.md'
 import settingsGuideMd from './settings-guide/SKILL.md'
 import agentOrchestrationMd from './agent-orchestration/SKILL.md'
-import browserAutomationGuideMd from './browser-automation-guide/SKILL.md'
-import officeDocumentGuideMd from './office-document-guide/SKILL.md'
+import browserOpsMd from './browser-ops/SKILL.md'
+import pdfWordExcelPptxMd from './pdf-word-excel-pptx/SKILL.md'
 import mediaOpsMd from './media-ops/SKILL.md'
 import visualizationOpsMd from './visualization-ops/SKILL.md'
 
-const FRONT_MATTER_DELIMITER = '---'
+type BuiltinSkillOverride = {
+  md: string
+  icon?: string
+  colorIndex?: number
+}
 
-function stripFrontMatter(md: string): string {
-  const lines = md.split(/\r?\n/u)
-  if (lines.length === 0) return ''
-  const firstLine = lines[0] ?? ''
-  if (firstLine.trim() !== FRONT_MATTER_DELIMITER) {
-    return md.trim()
+function buildSkill(override: BuiltinSkillOverride): BuiltinSkill {
+  const fm = parseFrontMatter(override.md)
+  return {
+    name: fm.name ?? '',
+    description: fm.description ?? '',
+    content: stripFrontMatter(override.md),
+    icon: override.icon,
+    colorIndex: override.colorIndex,
   }
-  for (let index = 1; index < lines.length; index += 1) {
-    const line = lines[index] ?? ''
-    if (line.trim() === FRONT_MATTER_DELIMITER) {
-      return lines.slice(index + 1).join('\n').trim()
-    }
-  }
-  return ''
 }
 
 export const BUILTIN_SKILLS: BuiltinSkill[] = [
-  {
-    name: 'file-ops',
-    description:
-      '文件读写、目录浏览、内容搜索、文档编辑——当用户在项目文件页面操作，或提及任何文件相关意图（读取、编辑、创建、删除、搜索、浏览目录、查看代码/脚本/配置/日志/数据文件、对比文件、重命名、移动文件、查看文件大小/类型/分辨率）时，必须加载此 skill。',
-    content: stripFrontMatter(fileOpsMd),
-    icon: '📄',
-    colorIndex: 1,
-    tools: ['Read', 'Glob', 'Grep', 'Edit', 'Write', 'FileInfo', 'EditDocument'],
-  },
-  {
-    name: 'email-ops',
-    description:
-      '邮件收发与管理——收件箱、未读、回复、转发、撰写、发送、草稿、搜索邮件、归档、星标、订阅邮件、垃圾邮件处理、contact someone、reach out、let them know、follow up、notify、forward、CC me、unsubscribe、attachment、mailing list。当用户提到邮件、inbox、消息、写信、查信、"有没有人给我发过消息"等任何与电子邮件相关的意图时激活。',
-    content: stripFrontMatter(emailOpsMd),
-    icon: '📧',
-    colorIndex: 2,
-    tools: ['EmailQuery', 'EmailMutate'],
-  },
-  {
-    name: 'calendar-ops',
-    description:
-      '日程管理——当用户提到日程、会议、约会、预约、提醒、时间段、空闲、忙碌、冲突、日历、议程、规划一天、接下来做什么、订会议室，甚至随口问"明天有空吗？"或"帮我安排一下"，都应激活此技能',
-    content: stripFrontMatter(calendarOpsMd),
-    icon: '📅',
-    colorIndex: 3,
-    tools: ['CalendarQuery', 'CalendarMutate'],
-  },
-  {
-    name: 'schedule-ops',
-    description:
-      '周期任务与定时调度。触发词：定时执行、周期性、每天/每周/每月做某事、cron、提醒、自动化、例行事项、审批、批量操作、指派给某个 Agent 执行。当用户描述任何定时/重复性需求时激活。',
-    content: stripFrontMatter(scheduleOpsMd),
-    icon: '⏰',
-    colorIndex: 4,
-    tools: ['ScheduledTaskManage', 'ScheduledTaskStatus', 'ScheduledTaskWait'],
-  },
-  {
-    name: 'canvas-ops',
-    description:
-      '画布/白板/图表操作——创建、查看、整理、删除画布。当用户提到画布、白板、图表、流程图、思维导图、可视化布局、节点、头脑风暴、钉板，或者"我想画个图"、"帮我可视化一下"、"做个流程图"等任何与视觉化排布相关的意图时激活。',
-    content: stripFrontMatter(canvasOpsMd),
-    icon: '🎨',
-    colorIndex: 5,
-    tools: ['BoardQuery', 'BoardMutate'],
-  },
-  {
-    name: 'project-ops',
-    description:
-      '项目与工作空间管理——创建项目、打开代码仓库、整理项目结构、Git 版本控制。当用户提到项目、工作区、仓库、代码库、文件夹组织、"想开始一个新项目"、"打开我的代码"等意图时触发。',
-    content: stripFrontMatter(projectOpsMd),
-    icon: '📁',
-    colorIndex: 6,
-    tools: ['ProjectQuery', 'ProjectMutate'],
-  },
-  {
-    name: 'workbench-ops',
-    description:
-      '工作台 Widget 管理 — 用户提到 widget、仪表盘、工作台、自定义组件、监控面板、股票行情、天气组件、clock、countdown timer、quick links、bookmarks、system monitor、calendar widget、todo widget、pomodoro、"桌面上加个…"、"一眼看到 X" 时激活',
-    content: stripFrontMatter(workbenchOpsMd),
-    icon: '🧩',
-    colorIndex: 7,
-    tools: ['WidgetInit', 'WidgetList', 'WidgetGet', 'WidgetCheck', 'GenerateWidget', 'Read', 'Edit'],
-  },
-  {
-    name: 'settings-guide',
-    description:
-      '应用配置引导 — 用户提到设置、偏好、配置、API key、模型、provider、主题、语言、快捷键、代理、proxy、深色模式、dark mode、"怎么改…"、"哪里设置…"、"怎么换模型"、"怎么配置 provider"、"怎么添加 key"、"怎么切换语言"、"我的设置在哪"、settings、preferences、configuration、排障、"X 不工作了" 时激活',
-    content: stripFrontMatter(settingsGuideMd),
-    icon: '⚙️',
-    colorIndex: 0,
-    // 纯引导型，无直接工具
-  },
-  {
-    name: 'agent-orchestration',
-    description:
-      '子代理委派与 Agent 工具用法——何时委派、选择哪个内置子代理（doc-editor/browser/data-analyst/extractor/canvas-designer/coder 或 general-purpose/explore/plan）、怎么调用 Agent 与 SendMessage、并行扇出汇总、上下文继承、以及系统深度/并发/步数硬限制。触发词：Agent 工具、委派、分工、子代理、subagent、subagent_type、并行执行、fan-out、SendMessage、追加指令、扇出汇总、深度限制、并发上限、步数限制。',
-    content: stripFrontMatter(agentOrchestrationMd),
-    icon: '🔀',
-    colorIndex: 1,
-    tools: ['Agent', 'SendMessage'],
-  },
-  {
-    name: 'browser-automation-guide',
-    description:
-      '浏览器自动化操作指南：页面导航、信息提取、表单填写、截图、网页抓取、登录、下载图片。当用户提到 browse、open website、fill form、scrape、extract from page、screenshot、click button、login、navigate、web page、URL、download from site、automate browser、"打开这个网站"、"看看这个页面"、"这个网站写了什么" 时触发。',
-    content: stripFrontMatter(browserAutomationGuideMd),
-    icon: '🌐',
-    colorIndex: 3,
-    tools: ['OpenUrl', 'WebSearch', 'WebFetch', 'BrowserSnapshot', 'BrowserObserve', 'BrowserAct', 'BrowserWait', 'BrowserExtract', 'BrowserScreenshot', 'BrowserDownloadImage'],
-  },
-  {
-    name: 'office-document-guide',
-    description:
-      'Office 文档操作指南：Excel、Word、PPTX、PDF 的查询、编辑与格式转换。当用户提到 Excel、Word、PowerPoint、PDF、spreadsheet、document、presentation、slides、form、fill form、convert、docx、xlsx、pptx、csv、"打开这个 PDF"、"做个报告"、"做个 PPT"、"编辑这个表格"、table、chart data、合并 PDF、水印、表单填写 时触发。',
-    content: stripFrontMatter(officeDocumentGuideMd),
-    icon: '📊',
-    colorIndex: 4,
-    tools: ['ExcelQuery', 'ExcelMutate', 'WordQuery', 'WordMutate', 'PptxQuery', 'PptxMutate', 'PdfQuery', 'PdfMutate', 'DocConvert'],
-  },
-  {
-    name: 'media-ops',
-    description:
-      '媒体处理与下载——图片编辑（缩放、裁剪、旋转、格式转换、压缩）、视频格式转换、音频提取、视频下载。当用户提到视频下载、图片处理、调整大小、裁剪、旋转、格式转换、提取音频、视频转码、"下载这个视频"、"把图片转成 PNG"、"压缩图片"、"提取背景音乐"、"这个视频转 MP4"、resize、crop、blur、convert、"图片太大了"、"转成 webp"、"视频怎么这么大" 时激活。注意：AI 图片/视频生成已迁移到画布 v3，本 skill 仅处理已有文件和网络视频下载。',
-    content: stripFrontMatter(mediaOpsMd),
-    icon: '🎬',
-    colorIndex: 6,
-    // 旧媒体生成工具已移除，聊天侧仅保留处理/下载
-    tools: ['ImageProcess', 'VideoConvert', 'VideoDownload'],
-  },
-  {
-    name: 'visualization-ops',
-    description:
-      '可视化渲染——JSX 组件渲染和 ECharts 图表。当用户需要展示数据图表、可视化卡片、统计面板、任务状态展示、信息汇总卡片、结构化内容展示，或当你需要输出"可视化组件/卡片/布局"而非纯文本时激活。触发词：图表、chart、柱状图、折线图、饼图、可视化、visualization、数据展示、dashboard、卡片展示、render component、"画个图表"、"展示一下数据"、"做个统计图"、"用卡片展示"、"可视化一下"。',
-    content: stripFrontMatter(visualizationOpsMd),
-    icon: '📈',
-    colorIndex: 7,
-    tools: ['JsxCreate', 'ChartRender'],
-  },
+  buildSkill({ md: fileOpsMd, icon: '📄', colorIndex: 1 }),
+  buildSkill({ md: emailOpsMd, icon: '📧', colorIndex: 2 }),
+  buildSkill({ md: calendarOpsMd, icon: '📅', colorIndex: 3 }),
+  buildSkill({ md: scheduleOpsMd, icon: '⏰', colorIndex: 4 }),
+  buildSkill({ md: canvasOpsMd, icon: '🎨', colorIndex: 5 }),
+  buildSkill({ md: projectOpsMd, icon: '📁', colorIndex: 6 }),
+  buildSkill({ md: workbenchOpsMd, icon: '🧩', colorIndex: 7 }),
+  buildSkill({ md: settingsGuideMd, icon: '⚙️', colorIndex: 0 }),
+  buildSkill({ md: agentOrchestrationMd, icon: '🔀', colorIndex: 1 }),
+  buildSkill({ md: browserOpsMd, icon: '🌐', colorIndex: 3 }),
+  buildSkill({ md: pdfWordExcelPptxMd, icon: '📊', colorIndex: 4 }),
+  buildSkill({ md: mediaOpsMd, icon: '🎬', colorIndex: 6 }),
+  buildSkill({ md: visualizationOpsMd, icon: '📈', colorIndex: 7 }),
 ]

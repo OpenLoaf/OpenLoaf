@@ -269,7 +269,7 @@ export const readTool = tool({
 
     if (resolvedOffset <= 0) throw new Error('offset must be a 1-indexed line number')
     if (resolvedLimit <= 0) throw new Error('limit must be greater than zero')
-    if (resolvedOffset > lines.length) throw new Error('offset exceeds file length')
+    if (lines.length > 0 && resolvedOffset > lines.length) throw new Error('offset exceeds file length')
 
     const startIndex = resolvedOffset - 1
     const endIndex = Math.min(startIndex + resolvedLimit, lines.length)

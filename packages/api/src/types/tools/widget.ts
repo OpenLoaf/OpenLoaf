@@ -9,24 +9,21 @@
  */
 import { z } from 'zod'
 
-// ─── 新工具定义 ───
+// ─── New tool definitions ───
 
 export const widgetInitToolDef = {
   id: 'WidgetInit',
   readonly: false,
-  name: '初始化 Widget 脚手架',
+  name: 'Init Widget',
   description:
-    '创建 widget 目录脚手架（package.json + 占位 widget.tsx + 占位 functions.ts + 可选 .env）。返回 widgetId 和文件路径，随后用 apply-patch 写入实际代码。',
+    'Scaffold a widget directory (package.json + placeholder widget.tsx + placeholder functions.ts + optional .env). Returns widgetId and file paths. See workbench-ops skill for usage.',
   needsApproval: true,
   parameters: z.object({
     widgetName: z
       .string()
       .min(1)
-      .describe('Widget 名称，kebab-case，如 "tesla-stock"'),
-    widgetDescription: z
-      .string()
-      .min(1)
-      .describe('Widget 中文描述'),
+      .describe('kebab-case, e.g. "tesla-stock".'),
+    widgetDescription: z.string().min(1),
     size: z
       .object({
         defaultW: z.number().default(4),
@@ -37,13 +34,11 @@ export const widgetInitToolDef = {
         maxH: z.number().default(4),
       })
       .optional()
-      .describe(
-        '尺寸（Desktop Grid 单位：列×行）。参考：clock 2x2, calendar 4x2, ai-chat 5x6',
-      ),
+      .describe('Desktop Grid units (cols × rows). Examples: clock 2x2, calendar 4x2, ai-chat 5x6.'),
     functionNames: z
       .array(z.string())
       .min(1)
-      .describe('服务端函数名列表（仅名称，不含实现）'),
+      .describe('Server-side function names to scaffold (names only, no bodies).'),
     envVars: z
       .array(
         z.object({
@@ -52,8 +47,7 @@ export const widgetInitToolDef = {
           comment: z.string().optional(),
         }),
       )
-      .optional()
-      .describe('环境变量列表'),
+      .optional(),
   }),
   component: null,
 } as const
@@ -61,9 +55,9 @@ export const widgetInitToolDef = {
 export const widgetListToolDef = {
   id: 'WidgetList',
   readonly: true,
-  name: '列出所有 Widget',
+  name: 'List Widgets',
   description:
-    '列出当前可见范围内所有动态 Widget 的基本信息（widgetId、名称、描述、函数列表等）。',
+    'List all visible dynamic widgets with basic info (widgetId, name, description, functions). See workbench-ops skill for usage.',
   needsApproval: false,
   parameters: z.object({}),
   component: null,
@@ -72,15 +66,12 @@ export const widgetListToolDef = {
 export const widgetGetToolDef = {
   id: 'WidgetGet',
   readonly: true,
-  name: '获取 Widget 详情',
+  name: 'Get Widget',
   description:
-    '获取单个 Widget 的详细信息，包括元数据、函数列表、尺寸约束、环境变量等。',
+    'Get full metadata for a single widget (functions, size, env vars). See workbench-ops skill for usage.',
   needsApproval: false,
   parameters: z.object({
-    widgetId: z
-      .string()
-      .min(1)
-      .describe('Widget ID，如 "dw_weather_1234567890"'),
+    widgetId: z.string().min(1).describe('e.g. "dw_weather_1234567890".'),
   }),
   component: null,
 } as const
@@ -88,37 +79,31 @@ export const widgetGetToolDef = {
 export const widgetCheckToolDef = {
   id: 'WidgetCheck',
   readonly: true,
-  name: '验证 Widget',
+  name: 'Check Widget',
   description:
-    '验证 Widget 文件结构并编译 widget.tsx。成功时前端会显示 Widget 预览。',
+    'Validate widget files and compile widget.tsx; shows the widget preview on success. See workbench-ops skill for usage.',
   needsApproval: false,
   parameters: z.object({
-    widgetId: z
-      .string()
-      .min(1)
-      .describe('Widget ID，如 "dw_weather_1234567890"'),
+    widgetId: z.string().min(1).describe('e.g. "dw_weather_1234567890".'),
   }),
   component: null,
 } as const
 
-// ─── 旧工具定义（向后兼容） ───
+// ─── Legacy tool (backward compatibility) ───
 
 export const generateWidgetToolDef = {
   id: 'GenerateWidget',
   readonly: false,
-  name: '生成动态 Widget',
+  name: 'Generate Widget',
   description:
-    'Generates a complete dynamic desktop Widget and writes all files to disk (package.json, widget.tsx, functions.ts, .env) and registers it in the Widget library. Returns the `widgetId`. Do NOT use for sample code or when you do not want files written.',
+    'Generate a complete dynamic desktop widget (package.json, widget.tsx, functions.ts, .env) and register it. Returns widgetId. See workbench-ops skill for usage.',
   needsApproval: true,
   parameters: z.object({
     widgetName: z
       .string()
       .min(1)
-      .describe('Widget 名称，kebab-case，如 "tesla-stock"'),
-    widgetDescription: z
-      .string()
-      .min(1)
-      .describe('Widget 中文描述'),
+      .describe('kebab-case, e.g. "tesla-stock".'),
+    widgetDescription: z.string().min(1),
     size: z
       .object({
         defaultW: z.number().default(4),
@@ -129,26 +114,21 @@ export const generateWidgetToolDef = {
         maxH: z.number().default(4),
       })
       .optional()
-      .describe(
-        '尺寸（Desktop Grid 单位：列×行）。参考：clock 2x2, calendar 4x2, ai-chat 5x6',
-      ),
+      .describe('Desktop Grid units (cols × rows). Examples: clock 2x2, calendar 4x2, ai-chat 5x6.'),
     functions: z
       .array(
         z.object({
-          name: z.string().describe('函数名'),
+          name: z.string(),
           implementation: z
             .string()
-            .describe('函数体代码（不含签名，直接写函数内部逻辑）'),
+            .describe('Function body without signature, just the inner logic.'),
         }),
       )
-      .min(1)
-      .describe('服务端函数列表'),
+      .min(1),
     uiCode: z
       .string()
       .min(1)
-      .describe(
-        'JSX 渲染部分。可用变量：data/loading/error/theme/sdk。根元素保持 h-full。',
-      ),
+      .describe('JSX rendering body. Available variables: data / loading / error / theme / sdk. Root element should keep h-full.'),
     envVars: z
       .array(
         z.object({
@@ -157,12 +137,8 @@ export const generateWidgetToolDef = {
           comment: z.string().optional(),
         }),
       )
-      .optional()
-      .describe('环境变量列表'),
-    refreshInterval: z
-      .number()
-      .optional()
-      .describe('自动轮询间隔（ms），默认 60000'),
+      .optional(),
+    refreshInterval: z.number().optional().describe('Milliseconds. Default 60000.'),
   }),
   component: null,
 } as const

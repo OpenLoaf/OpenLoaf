@@ -19,6 +19,4 @@ export type BuiltinSkill = {
   icon?: string
   /** colorIndex 0-7 */
   colorIndex?: number
-  /** 技能依赖的工具 ID 列表（加载技能时自动激活） */
-  tools?: string[]
 }

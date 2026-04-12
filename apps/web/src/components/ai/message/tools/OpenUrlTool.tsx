@@ -10,6 +10,7 @@
 "use client";
 
 import * as React from "react";
+import { GlobeIcon, ExternalLinkIcon } from "lucide-react";
 import { BROWSER_WINDOW_COMPONENT, BROWSER_WINDOW_PANEL_ID } from "@openloaf/api/common";
 import { cn } from "@/lib/utils";
 import { useAppView } from "@/hooks/use-app-view";
@@ -17,11 +18,10 @@ import { useLayoutState } from "@/hooks/use-layout-state";
 import { createBrowserTabId } from "@/hooks/tab-id";
 import { isElectronEnv } from "@/utils/is-electron-env";
 import {
-  Source,
-  Sources,
-  SourcesContent,
-  SourcesTrigger,
-} from "@/components/ai-elements/sources";
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@openloaf/ui/tooltip";
 import {
   asPlainObject,
   getToolName,
@@ -82,37 +82,45 @@ export default function OpenUrlTool({
     );
   }, [isDisabled, title, url]);
 
+  const displayText = title || url || "-";
+
   return (
-    <div className={cn("flex w-full min-w-0 max-w-full justify-start", className)}>
-      <div className="w-full min-w-0 max-w-[90%]">
-        <Sources className="mb-0 text-xs">
-          <SourcesTrigger count={1}>
-            <p className="font-medium">{actionName}</p>
-          </SourcesTrigger>
-          <SourcesContent className="w-full">
-            <Source
-              href={url || "#"}
-              title={title || url || actionName}
-              className={cn(
-                "w-full min-w-0 text-[11px] text-muted-foreground underline-offset-2",
-                isDisabled ? "pointer-events-none opacity-60" : "hover:underline",
-              )}
-              onClick={(event) => {
-                event.preventDefault();
-                if (isDisabled) return;
-                onOpen();
-              }}
-            >
-              <span className="truncate">{title || url || "-"}</span>
-            </Source>
-          </SourcesContent>
-        </Sources>
-        {errorText && (
-          <div className="mt-1 whitespace-pre-wrap break-all rounded-3xl bg-destructive/10 px-2 py-1 text-[11px] text-destructive">
-            {errorText}
-          </div>
-        )}
-      </div>
+    <div className={cn("min-w-0 text-xs", className)}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            className={cn(
+              "flex w-full items-center gap-1.5 rounded-full px-2.5 py-1",
+              "transition-colors duration-150",
+              isDisabled
+                ? "cursor-default opacity-60"
+                : "hover:bg-muted/60",
+            )}
+            onClick={onOpen}
+            disabled={isDisabled}
+          >
+            <GlobeIcon className="size-3.5 shrink-0 text-muted-foreground" />
+            <span className="shrink-0 text-xs font-medium text-muted-foreground">{actionName}</span>
+            <span className="min-w-0 truncate font-mono text-xs text-muted-foreground/50">
+              {displayText}
+            </span>
+            {!isDisabled && (
+              <ExternalLinkIcon className="size-3 shrink-0 text-muted-foreground/40" />
+            )}
+          </button>
+        </TooltipTrigger>
+        {url ? (
+          <TooltipContent side="top" className="max-w-sm whitespace-pre-wrap font-mono text-xs">
+            {url}
+          </TooltipContent>
+        ) : null}
+      </Tooltip>
+      {errorText && (
+        <div className="ml-2.5 mt-1 whitespace-pre-wrap break-all rounded-2xl bg-destructive/10 px-2 py-1 text-[11px] text-destructive">
+          {errorText}
+        </div>
+      )}
     </div>
   );
 }

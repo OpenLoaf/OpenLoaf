@@ -10,18 +10,15 @@
 import { tool, zodSchema } from "ai";
 import {
   browserActToolDef,
-  browserExtractToolDef,
-  browserObserveToolDef,
   browserSnapshotToolDef,
   browserWaitToolDef,
-  browserScreenshotToolDef,
   browserDownloadImageToolDef,
 } from "@openloaf/api/types/tools/browserAutomation";
 import { logger } from "@/common/logger";
 import { getClientId, getSessionId } from "@/ai/shared/context/requestContext";
 import { requireTabId } from "@/common/tabContext";
-import { sendCdpCommand } from "@/modules/browser/cdpClient";
-import { getActiveBrowserTargetId, tabSnapshotStore } from "@/modules/tab/TabSnapshotStoreAdapter";
+import { sendCdpCommand, isTargetAlive } from "@/modules/browser/cdpClient";
+import { getActiveBrowserTargetId, standaloneBrowserTargetStore, tabSnapshotStore } from "@/modules/tab/TabSnapshotStoreAdapter";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { resolveSessionAssetDir } from "@/ai/services/chat/repositories/chatFileStore";
@@ -95,14 +92,39 @@ function requireClientId(): string {
 }
 
 /** Resolve the latest available targetId for the current tab. */
-function pickActiveTargetId(): string {
+async function pickActiveTargetId(): Promise<string> {
   const sessionId = requireSessionId();
   const clientId = requireClientId();
   const tabId = requireTabId();
-  const tab = tabSnapshotStore.get({ sessionId, clientId, tabId });
+  const storeKey = { sessionId, clientId, tabId };
+
+  // 1. 正常路径：tab 模式（前端推送快照）。
+  const tab = tabSnapshotStore.get(storeKey);
   const targetId = getActiveBrowserTargetId(tab);
-  if (!targetId) throw new Error("active browser tab cdpTargetId is not available.");
-  return targetId;
+  if (targetId) return targetId;
+
+  // 2. 正常路径：standalone 模式（OpenUrl 写入，未过期）。
+  const standaloneId = standaloneBrowserTargetStore.get(storeKey);
+  if (standaloneId) return standaloneId;
+
+  // 3. 过期条目存活验证：store TTL 过期但 Electron 窗口可能还在。
+  const stale = standaloneBrowserTargetStore.getStale(storeKey);
+  if (stale) {
+    if (await isTargetAlive(stale.cdpTargetId)) {
+      standaloneBrowserTargetStore.refresh(storeKey);
+      return stale.cdpTargetId;
+    }
+    // target 确认死亡，清理条目。
+    standaloneBrowserTargetStore.remove(storeKey);
+  }
+
+  // 4. 都不行，抛结构化错误。
+  const lastUrl = stale?.url;
+  throw new Error(
+    lastUrl
+      ? `browser target expired, page closed. Last URL: ${lastUrl}. Reopen with OpenUrl to continue.`
+      : "active browser tab cdpTargetId is not available.",
+  );
 }
 
 /** Evaluate a JavaScript expression in the target context. */
@@ -361,7 +383,7 @@ function buildSnapshotExpression() {
  * persist them to the session's asset dir. Returns undefined on any failure
  * so the caller can degrade gracefully — the lossy summary is still useful.
  *
- * Rationale: browserExtract/Snapshot/Observe all drop DOM structure when
+ * Rationale: BrowserSnapshot drops DOM structure when
  * returning their summary. Keeping raw HTML on disk lets the model recover
  * structural info via Read/Grep when the summary is insufficient.
  */
@@ -399,56 +421,52 @@ async function waitUntil(input: { targetId: string; timeoutMs: number; check: ()
 export const browserSnapshotTool = tool({
   description: browserSnapshotToolDef.description,
   inputSchema: zodSchema(browserSnapshotToolDef.parameters),
-  execute: async () => {
-    const targetId = pickActiveTargetId();
+  execute: async ({ fullPage }) => {
+    const targetId = await pickActiveTargetId();
     const [data, rawHtml] = await Promise.all([
       evalInTarget<SnapshotPayload>(targetId, buildSnapshotExpression()),
       capturePageRawHtml(targetId),
     ]);
+
+    // 同时截图保存到会话资源目录
+    let screenshotInfo: { screenshotUrl?: string; screenshotBytes?: number } = {};
+    try {
+      const cdpParams: Record<string, unknown> = { format: "png" };
+      const captureFullPage = fullPage !== false; // 默认截全页
+      if (captureFullPage) {
+        const dims = await evalInTarget<{ width: number; height: number }>(
+          targetId,
+          `(() => ({
+            width: Math.max(document.documentElement.scrollWidth, document.documentElement.clientWidth),
+            height: Math.max(document.documentElement.scrollHeight, document.documentElement.clientHeight),
+          }))()`,
+        );
+        cdpParams.clip = { x: 0, y: 0, width: dims.width, height: dims.height, scale: 1 };
+        cdpParams.captureBeyondViewport = true;
+      }
+      const result = (await sendCdpCommand({
+        targetId,
+        method: "Page.captureScreenshot",
+        params: cdpParams,
+      })) as { data: string };
+      const buffer = Buffer.from(result.data, "base64");
+      const sessionId = requireSessionId();
+      const assetDir = await resolveSessionAssetDir(sessionId);
+      const fileName = `screenshot-${Date.now()}.png`;
+      await fs.writeFile(path.join(assetDir, fileName), buffer);
+      screenshotInfo = { screenshotUrl: fileName, screenshotBytes: buffer.length };
+    } catch (err) {
+      logger.warn({ err, targetId }, '[browser] failed to capture screenshot during snapshot');
+    }
+
     return {
       ok: true,
       data: {
         ...mergeSnapshotData(data, { maxTextLength: MAX_TEXT_LENGTH, maxElements: MAX_SNAPSHOT_ELEMENTS }),
         ...rawHtmlField(rawHtml),
+        ...screenshotInfo,
       },
     };
-  },
-});
-
-export const browserObserveTool = tool({
-  description: browserObserveToolDef.description,
-  inputSchema: zodSchema(browserObserveToolDef.parameters),
-  execute: async ({ task }) => {
-    const targetId = pickActiveTargetId();
-    const [data, rawHtml] = await Promise.all([
-      evalInTarget<SnapshotPayload>(targetId, buildSnapshotExpression()),
-      capturePageRawHtml(targetId),
-    ]);
-    return {
-      ok: true,
-      data: {
-        task,
-        snapshot: mergeSnapshotData(data, { maxTextLength: MAX_TEXT_LENGTH, maxElements: MAX_SNAPSHOT_ELEMENTS }),
-        ...rawHtmlField(rawHtml),
-      },
-    };
-  },
-});
-
-export const browserExtractTool = tool({
-  description: browserExtractToolDef.description,
-  inputSchema: zodSchema(browserExtractToolDef.parameters),
-  execute: async ({ query }) => {
-    const targetId = pickActiveTargetId();
-    const [text, rawHtml] = await Promise.all([
-      evalInTarget<string>(
-        targetId,
-        `(() => (document.body && (document.body.innerText || document.body.textContent) || '').toString())()`,
-      ),
-      capturePageRawHtml(targetId),
-    ]);
-    const trimmed = text.length > MAX_TEXT_LENGTH ? text.slice(0, MAX_TEXT_LENGTH) : text;
-    return { ok: true, data: { query, text: trimmed, ...rawHtmlField(rawHtml) } };
   },
 });
 
@@ -456,7 +474,7 @@ export const browserActTool = tool({
   description: browserActToolDef.description,
   inputSchema: zodSchema(browserActToolDef.parameters),
   execute: async (payload) => {
-    const targetId = pickActiveTargetId();
+    const targetId = await pickActiveTargetId();
     // 根据结构化 action 分发操作，避免字符串解析误差。
     switch (payload.action) {
       case "click-css": {
@@ -562,7 +580,7 @@ export const browserWaitTool = tool({
   description: browserWaitToolDef.description,
   inputSchema: zodSchema(browserWaitToolDef.parameters),
   execute: async ({ type, timeoutMs, url, text }) => {
-    const targetId = pickActiveTargetId();
+    const targetId = await pickActiveTargetId();
     const maxWait = Math.max(0, Math.min(120_000, Number(timeoutMs ?? 30_000)));
 
     if (type === "timeout") {
@@ -675,48 +693,6 @@ function assertSafeFetchUrl(url: string): URL {
 /** Max bytes for a single downloaded image. */
 const MAX_IMAGE_DOWNLOAD_BYTES = 10 * 1024 * 1024;
 
-export const browserScreenshotTool = tool({
-  description: browserScreenshotToolDef.description,
-  inputSchema: zodSchema(browserScreenshotToolDef.parameters),
-  execute: async ({ format, quality, fullPage }) => {
-    const targetId = pickActiveTargetId();
-    const fmt = format || "png";
-    const params: Record<string, unknown> = { format: fmt };
-    if ((fmt === "jpeg" || fmt === "webp") && typeof quality === "number") {
-      params.quality = quality;
-    }
-    if (fullPage) {
-      const dims = await evalInTarget<{ width: number; height: number }>(
-        targetId,
-        `(() => ({
-          width: Math.max(document.documentElement.scrollWidth, document.documentElement.clientWidth),
-          height: Math.max(document.documentElement.scrollHeight, document.documentElement.clientHeight),
-        }))()`,
-      );
-      params.clip = { x: 0, y: 0, width: dims.width, height: dims.height, scale: 1 };
-      params.captureBeyondViewport = true;
-    }
-    const result = (await sendCdpCommand({
-      targetId,
-      method: "Page.captureScreenshot",
-      params,
-    })) as { data: string };
-    const buffer = Buffer.from(result.data, "base64");
-    const ext = fmt === "jpeg" ? "jpg" : fmt;
-    const sessionId = requireSessionId();
-    const assetDir = await resolveSessionAssetDir(sessionId);
-    const fileName = `screenshot-${Date.now()}.${ext}`;
-    await fs.writeFile(path.join(assetDir, fileName), buffer);
-    return {
-      ok: true,
-      data: {
-        url: fileName,
-        format: fmt,
-        bytes: buffer.length,
-      },
-    };
-  },
-});
 
 export const browserDownloadImageTool = tool({
   description: browserDownloadImageToolDef.description,
@@ -728,7 +704,7 @@ export const browserDownloadImageTool = tool({
     if (imageUrls && imageUrls.length > 0) {
       urls = imageUrls;
     } else if (selector) {
-      const targetId = pickActiveTargetId();
+      const targetId = await pickActiveTargetId();
       urls = await evalInTarget<string[]>(
         targetId,
         `(() => {

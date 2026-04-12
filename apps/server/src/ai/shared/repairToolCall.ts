@@ -9,6 +9,17 @@
  */
 import { InvalidToolInputError, NoSuchToolError, parsePartialJson, type ToolCallRepairFunction } from "ai";
 import { logger } from "@/common/logger";
+import {
+  TOOL_CATALOG_EXTENDED,
+  getMcpCatalogEntries,
+} from "@openloaf/api/types/tools/toolCatalog";
+import { toolSearchToolDef } from "@openloaf/api/types/tools/toolSearch";
+
+/** Check if a tool name exists in the combined (static + MCP) tool catalog. */
+function isKnownDeferredTool(toolName: string): boolean {
+  if (TOOL_CATALOG_EXTENDED.some((e) => e.id === toolName)) return true;
+  return getMcpCatalogEntries().some((e) => e.id === toolName);
+}
 
 // ─── Circuit Breaker ─────────────────────────────────────────────────────────
 // 防止同一工具+同一类错误反复触发修复（例如模型持续传入 timeoutMs: -1）。
@@ -53,9 +64,38 @@ function extractInvalidPaths(cause: unknown): string[] {
 export function createToolCallRepair(): ToolCallRepairFunction<any> {
   return async ({ toolCall, tools, error, inputSchema }) => {
     if (NoSuchToolError.isInstance(error)) {
+      // 如果目标工具是 deferred catalog 里的已知工具（只是还没通过 ToolSearch
+      // 激活 schema），改写为 ToolSearch(names: "select:X") 让模型这一步先加载。
+      // 熔断器在 tool-loop 层外兜底，避免死循环。
+      if (
+        isKnownDeferredTool(toolCall.toolName) &&
+        tools &&
+        toolSearchToolDef.id in tools
+      ) {
+        const attempts = trackRepairAttempt(
+          toolCall.toolName,
+          "deferred-not-loaded",
+        );
+        if (attempts >= MAX_REPAIR_ATTEMPTS) {
+          logger.warn(
+            { toolName: toolCall.toolName, attempts },
+            "[tool-repair] circuit breaker: deferred tool repair exhausted, returning null",
+          );
+          return null;
+        }
+        logger.info(
+          { toolCallId: toolCall.toolCallId, toolName: toolCall.toolName },
+          "[tool-repair] rewriting deferred tool call to ToolSearch(select:...)",
+        );
+        return {
+          ...toolCall,
+          toolName: toolSearchToolDef.id,
+          input: JSON.stringify({ names: `select:${toolCall.toolName}` }),
+        };
+      }
       logger.info(
         { toolCallId: toolCall.toolCallId, toolName: toolCall.toolName },
-        "[tool-repair] tool not active; LLM should use ToolSearch to load it",
+        "[tool-repair] tool not active and not in catalog; letting SDK report error to model",
       );
       return null;
     }

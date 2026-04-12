@@ -12,56 +12,35 @@ import { z } from 'zod'
 export const emailQueryToolDef = {
   id: 'EmailQuery',
   readonly: true,
-  name: '邮件查询',
+  name: 'Query Email',
   description:
-    'Queries email: account list, mailbox folders, message list, message detail, search, or unread stats. Use when the user asks about inbox, email, unread messages. For sending/deleting/moving, use EmailMutate.',
+    'Query email accounts, mailboxes, messages, search, and unread stats. See email-ops skill for usage.',
   parameters: z.object({
-    mode: z
-      .enum([
-        'list-accounts',
-        'list-mailboxes',
-        'list-messages',
-        'list-unified',
-        'get-message',
-        'search',
-        'unread-stats',
-      ])
-      .describe(
-        '查询模式：list-accounts 返回邮件账户列表，list-mailboxes 返回邮箱文件夹，list-messages 返回指定邮箱的邮件列表，list-unified 返回统一收件箱邮件，get-message 返回邮件详情，search 搜索邮件，unread-stats 返回未读统计',
-      ),
+    mode: z.enum([
+      'list-accounts',
+      'list-mailboxes',
+      'list-messages',
+      'list-unified',
+      'get-message',
+      'search',
+      'unread-stats',
+    ]),
     accountEmail: z
       .string()
       .optional()
-      .describe(
-        '邮件账户地址（list-mailboxes/list-messages/search 时必填，list-unified 时可选用于筛选）',
-      ),
+      .describe('Required for list-mailboxes/list-messages/search; optional filter for list-unified.'),
     mailbox: z
       .string()
       .optional()
-      .describe('邮箱文件夹路径（list-messages 时必填，list-unified scope=mailbox 时必填）'),
+      .describe('Required for list-messages and list-unified with scope=mailbox.'),
     scope: z
       .enum(['all-inboxes', 'flagged', 'drafts', 'sent', 'mailbox'])
       .optional()
-      .describe('统一邮箱范围（list-unified 时必填）'),
-    messageId: z
-      .string()
-      .optional()
-      .describe('邮件 ID（get-message 时必填）'),
-    query: z
-      .string()
-      .optional()
-      .describe('搜索关键词（search 时必填）'),
-    cursor: z
-      .string()
-      .optional()
-      .describe('分页游标（list-messages/list-unified 时可选）'),
-    pageSize: z
-      .number()
-      .int()
-      .min(1)
-      .max(50)
-      .optional()
-      .describe('每页数量，默认 10，上限 50'),
+      .describe('Required for list-unified.'),
+    messageId: z.string().optional().describe('Required for get-message.'),
+    query: z.string().optional().describe('Required for search.'),
+    cursor: z.string().optional(),
+    pageSize: z.number().int().min(1).max(50).optional().default(10),
   }),
   component: null,
 } as const
@@ -69,84 +48,33 @@ export const emailQueryToolDef = {
 export const emailMutateToolDef = {
   id: 'EmailMutate',
   readonly: false,
-  name: '邮件操作',
+  name: 'Mutate Email',
   description:
-    'Performs email mutations: send, mark-read, flag (star), delete, move, and their batch variants. For read-only queries use EmailQuery.',
+    'Send, mark-read, flag, delete, move email messages (single and batch). See email-ops skill for usage.',
   parameters: z.object({
-    action: z
-      .enum([
-        'send',
-        'mark-read',
-        'flag',
-        'delete',
-        'move',
-        'batch-mark-read',
-        'batch-delete',
-        'batch-move',
-      ])
-      .describe(
-        '操作类型：send 发送邮件，mark-read 标记已读，flag 标记/取消星标，delete 删除邮件，move 移动邮件，batch-mark-read/batch-delete/batch-move 批量操作',
-      ),
-    accountEmail: z
-      .string()
-      .optional()
-      .describe('发件账户地址（send 时必填）'),
-    to: z
-      .array(z.string())
-      .optional()
-      .describe('收件人列表（send 时必填）'),
-    cc: z
-      .array(z.string())
-      .optional()
-      .describe('抄送列表（send 时可选）'),
-    bcc: z
-      .array(z.string())
-      .optional()
-      .describe('密送列表（send 时可选）'),
-    subject: z
-      .string()
-      .optional()
-      .describe('邮件主题（send 时必填）'),
-    bodyText: z
-      .string()
-      .optional()
-      .describe('邮件正文纯文本（send 时必填）'),
-    inReplyTo: z
-      .string()
-      .optional()
-      .describe('回复的邮件 Message-ID（回复邮件时可选）'),
-    references: z
-      .array(z.string())
-      .optional()
-      .describe('引用的邮件 Message-ID 列表（回复邮件时可选）'),
-    messageId: z
-      .string()
-      .optional()
-      .describe('邮件 ID（mark-read/flag/delete/move 时必填）'),
-    flagged: z
-      .boolean()
-      .optional()
-      .describe('是否标记星标（flag 时必填）'),
-    toMailbox: z
-      .string()
-      .optional()
-      .describe('目标邮箱文件夹路径（move/batch-move 时必填）'),
-    messageIds: z
-      .array(z.string())
-      .optional()
-      .describe('邮件 ID 列表（batch-mark-read/batch-delete/batch-move 时必填）'),
+    action: z.enum([
+      'send',
+      'mark-read',
+      'flag',
+      'delete',
+      'move',
+      'batch-mark-read',
+      'batch-delete',
+      'batch-move',
+    ]),
+    accountEmail: z.string().optional().describe('Required for send.'),
+    to: z.array(z.string()).optional().describe('Required for send.'),
+    cc: z.array(z.string()).optional(),
+    bcc: z.array(z.string()).optional(),
+    subject: z.string().optional().describe('Required for send.'),
+    bodyText: z.string().optional().describe('Plain text; required for send.'),
+    inReplyTo: z.string().optional().describe('Message-ID being replied to.'),
+    references: z.array(z.string()).optional().describe('Referenced Message-IDs.'),
+    messageId: z.string().optional().describe('Required for mark-read/flag/delete/move.'),
+    flagged: z.boolean().optional().describe('Required for flag.'),
+    toMailbox: z.string().optional().describe('Required for move/batch-move.'),
+    messageIds: z.array(z.string()).optional().describe('Required for batch-mark-read/batch-delete/batch-move.'),
   }),
   needsApproval: true,
   component: null,
 } as const
-
-/**
- * Get email tools definitions in specified language.
- * Currently returns Chinese version. English translation can be added
- * by creating separate .en.ts variant in future iterations.
- */
-export function getEmailToolDefs(lang?: string) {
-  // Currently all tools default to Chinese
-  // Can be extended to support other languages: en-US, ja-JP, etc.
-  return { emailQueryToolDef, emailMutateToolDef }
-}

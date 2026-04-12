@@ -13,6 +13,30 @@ interface AssistantMessageHeaderProps {
   className?: string;
 }
 
+export interface AssistantAvatarProps {
+  message?: UIMessage | null;
+  className?: string;
+}
+
+/** Standalone avatar for the assistant — used in the chat layout left column. */
+export function AssistantAvatar({ message, className }: AssistantAvatarProps) {
+  const { t } = useTranslation("ai");
+  const displayName = React.useMemo(
+    () => resolveAssistantDisplayName(message, t("dock.aiAssistant"), t("dock.pmAgent")),
+    [message, t]
+  );
+  const avatarUrl = React.useMemo(() => resolveAssistantAvatarUrl(message), [message]);
+
+  return (
+    <Avatar className={cn("size-5 shrink-0", avatarUrl && "ring-1 ring-border/60", className)}>
+      {avatarUrl ? <AvatarImage src={avatarUrl} alt={displayName} /> : null}
+      <AvatarFallback className="bg-transparent text-muted-foreground">
+        <Sparkles className="size-3.5" />
+      </AvatarFallback>
+    </Avatar>
+  );
+}
+
 /** Resolve assistant label from message agent metadata with product fallback. */
 function resolveAssistantDisplayName(
   message: UIMessage | null | undefined,
@@ -54,7 +78,6 @@ export default function AssistantMessageHeader({
     () => resolveAssistantDisplayName(message, t("dock.aiAssistant"), t("dock.pmAgent")),
     [message, t]
   );
-  const avatarUrl = React.useMemo(() => resolveAssistantAvatarUrl(message), [message]);
   const timeStr = React.useMemo(() => {
     const raw = (message as any)?.createdAt
       ?? (message as any)?.metadata?.openloaf?.assistantStartedAt;
@@ -67,13 +90,7 @@ export default function AssistantMessageHeader({
   }, [message]);
 
   return (
-    <div className={cn("flex items-center gap-2", className)}>
-      <Avatar className="size-6 ring-1 ring-border/60">
-        {avatarUrl ? <AvatarImage src={avatarUrl} alt={displayName} /> : null}
-        <AvatarFallback className="bg-secondary text-foreground">
-          <Sparkles className="size-3.5" />
-        </AvatarFallback>
-      </Avatar>
+    <div className={cn("flex items-center gap-1.5", className)}>
       <span className="truncate text-[11px] font-medium text-muted-foreground">
         {displayName}
       </span>

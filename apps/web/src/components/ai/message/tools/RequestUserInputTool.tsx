@@ -119,8 +119,8 @@ function QuestionField({
   ) : null
 
   const fieldBorderCls = hasError
-    ? 'border-destructive focus-visible:ring-destructive'
-    : 'border-border'
+    ? 'border-destructive'
+    : 'border-border/60'
 
   const { t } = useTranslation('ai')
   const placeholderText = question.placeholder
@@ -129,7 +129,7 @@ function QuestionField({
   if (fieldType === 'select' && question.options?.length) {
     return (
       <div className="flex flex-col gap-1.5">
-        <label className="text-xs text-foreground/80">
+        <label className="text-[11px] text-muted-foreground">
           {question.label}
           {question.required !== false ? <span className="text-destructive">*</span> : null}
         </label>
@@ -137,10 +137,9 @@ function QuestionField({
           value={value}
           disabled={disabled}
           className={cn(
-            'h-9 w-full rounded-3xl border bg-background px-3 text-sm text-foreground',
-            'outline-none ring-offset-background',
-            'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
-            'disabled:cursor-not-allowed disabled:opacity-50',
+            'h-8 w-full rounded-md border bg-transparent px-2.5 text-xs text-foreground',
+            'outline-none focus-visible:border-foreground/30',
+            'disabled:cursor-not-allowed disabled:opacity-40',
             fieldBorderCls,
           )}
           onChange={(e) => onChange(e.target.value)}
@@ -158,7 +157,7 @@ function QuestionField({
   if (fieldType === 'textarea') {
     return (
       <div className="flex flex-col gap-1.5">
-        <label className="text-xs text-foreground/80">
+        <label className="text-[11px] text-muted-foreground">
           {question.label}
           {question.required !== false ? <span className="text-destructive">*</span> : null}
         </label>
@@ -169,10 +168,9 @@ function QuestionField({
           rows={3}
           maxLength={question.maxLength}
           className={cn(
-            'w-full rounded-3xl border bg-background px-3 py-2 text-sm text-foreground',
-            'outline-none ring-offset-background placeholder:text-muted-foreground',
-            'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
-            'disabled:cursor-not-allowed disabled:opacity-50',
+            'w-full rounded-md border bg-transparent px-2.5 py-2 text-xs text-foreground',
+            'outline-none placeholder:text-muted-foreground focus-visible:border-foreground/30',
+            'disabled:cursor-not-allowed disabled:opacity-40',
             'resize-y',
             fieldBorderCls,
           )}
@@ -200,10 +198,9 @@ function QuestionField({
         disabled={disabled}
         maxLength={question.maxLength}
         className={cn(
-          'h-9 w-full rounded-3xl border bg-background px-3 text-sm text-foreground',
-          'outline-none ring-offset-background placeholder:text-muted-foreground',
-          'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
-          'disabled:cursor-not-allowed disabled:opacity-50',
+          'h-8 w-full rounded-md border bg-transparent px-2.5 text-xs text-foreground',
+          'outline-none placeholder:text-muted-foreground focus-visible:border-foreground/30',
+          'disabled:cursor-not-allowed disabled:opacity-40',
           fieldBorderCls,
         )}
         onChange={(e) => onChange(e.target.value)}
@@ -248,12 +245,12 @@ function ChoiceStep({
   }
 
   return (
-    <div className="flex flex-col gap-2.5">
-      <div className="text-sm font-medium text-foreground">
+    <div className="flex flex-col gap-2">
+      <div className="text-xs font-medium text-foreground">
         {choice.question}
-        {isMulti ? <span className="ml-1.5 text-xs font-normal text-muted-foreground">({t('userInput.multiSelect')})</span> : null}
+        {isMulti ? <span className="ml-1 text-[11px] font-normal text-muted-foreground">({t('userInput.multiSelect')})</span> : null}
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex flex-col gap-1">
         {choice.options?.map((opt, idx) => {
           const isSelected = selectedSet.has(opt.label)
           return (
@@ -269,47 +266,17 @@ function ChoiceStep({
             >
               {isSelected ? (
                 <span className={styles.choiceCheck}>
-                  <CheckIcon className="size-3" />
+                  <CheckIcon className="size-2.5" />
                 </span>
               ) : null}
-              <span className="font-medium text-foreground">{opt.label}</span>
+              <span className="text-xs font-medium text-foreground">{opt.label}</span>
               {opt.description ? (
-                <span className="text-[11px] text-muted-foreground">{opt.description}</span>
+                <span className="text-[11px] leading-tight text-muted-foreground">{opt.description}</span>
               ) : null}
             </button>
           )
         })}
       </div>
-    </div>
-  )
-}
-
-/** Auto-animating height container. */
-function AnimateHeight({ children }: { children: React.ReactNode }) {
-  const outerRef = React.useRef<HTMLDivElement>(null)
-  const innerRef = React.useRef<HTMLDivElement>(null)
-
-  React.useLayoutEffect(() => {
-    const outer = outerRef.current
-    const inner = innerRef.current
-    if (!outer || !inner) return
-
-    const observer = new ResizeObserver(() => {
-      const h = inner.scrollHeight
-      outer.style.height = `${h}px`
-    })
-    observer.observe(inner)
-    // set initial height without transition
-    outer.style.height = `${inner.scrollHeight}px`
-    return () => observer.disconnect()
-  }, [])
-
-  return (
-    <div
-      ref={outerRef}
-      className="overflow-hidden transition-[height] duration-250 ease-out"
-    >
-      <div ref={innerRef}>{children}</div>
     </div>
   )
 }
@@ -344,46 +311,42 @@ function ChoiceWizard({
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Animated height wrapper */}
-      <AnimateHeight>
-        <ChoiceStep
-          key={step}
-          choice={current}
-          selected={selections[current.key] ?? (current.multiSelect ? [] : '')}
-          onChange={(v) => onSelectionChange(current.key, v)}
-          disabled={disabled}
-          onAutoAdvance={!isLastStep && !current.multiSelect ? goNext : undefined}
-        />
+      <ChoiceStep
+        key={step}
+        choice={current}
+        selected={selections[current.key] ?? (current.multiSelect ? [] : '')}
+        onChange={(v) => onSelectionChange(current.key, v)}
+        disabled={disabled}
+        onAutoAdvance={!isLastStep && !current.multiSelect ? goNext : undefined}
+      />
 
-        {errors[current.key] ? (
-          <div className="mt-1.5 text-[11px] text-destructive">{errors[current.key]}</div>
-        ) : null}
-      </AnimateHeight>
+      {errors[current.key] ? (
+        <div className="mt-1.5 text-[11px] text-destructive">{errors[current.key]}</div>
+      ) : null}
 
       {/* Step indicator – hidden when there's only one step */}
       {total > 1 ? (
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1">
           {choices.map((_, i) => (
             <button
               key={`dot-${i}`}
               type="button"
               onClick={() => onStepChange(i)}
               className={cn(
-                'h-1.5 rounded-full border-0 p-0 transition-all duration-200',
+                styles.stepDot,
                 i === step
-                  ? 'w-5 bg-foreground/60'
+                  ? styles.stepDotActive
                   : i < step
-                    ? 'w-1.5 bg-foreground/30'
-                    : 'w-1.5 bg-foreground/10',
+                    ? styles.stepDotDone
+                    : styles.stepDotPending,
               )}
             />
           ))}
-          <span className="ml-auto text-[10px] tabular-nums text-muted-foreground">
+          <span className="ml-auto text-[10px] tabular-nums text-muted-foreground/70">
             {step + 1}/{total}
           </span>
         </div>
       ) : null}
-
     </div>
   )
 }
@@ -793,12 +756,6 @@ export default function RequestUserInputTool({
   ])
 
   const toolTitle = getToolName(part)
-  const toolKind = typeof part.toolName === 'string' && part.toolName.trim()
-    ? part.toolName
-    : part.type?.startsWith('tool-')
-      ? part.type.slice('tool-'.length)
-      : part.type ?? ''
-  const showToolKind = Boolean(toolKind) && toolTitle !== toolKind
 
   /** Render compact summary when structured fields are missing. */
   const renderCompactSummary = () => {
@@ -871,33 +828,31 @@ export default function RequestUserInputTool({
     <Tool
       open
       className={cn(
-        'w-full min-w-0 text-xs overflow-hidden rounded-3xl border bg-card text-card-foreground',
+        'max-w-md min-w-0 text-xs overflow-hidden rounded-lg border border-border/60 bg-card text-foreground',
         className,
         isStreaming && 'openloaf-tool-streaming',
       )}
     >
-      <div
-        className="flex w-full items-center gap-3 border-b bg-muted/50 px-3 py-2 text-left"
-      >
+      {/* ── Title bar ── */}
+      <div className="flex w-full items-center gap-2 border-b border-border/40 px-2.5 py-1.5">
         <TrafficLights state={windowState} />
-        <span className="flex-1 truncate text-[10px] text-muted-foreground/60">
-          {showToolKind ? toolKind : toolTitle}
-        </span>
-        <span className="shrink-0 text-xs font-medium text-muted-foreground">
+        <span className="truncate text-[11px] text-muted-foreground">
           {formTitle || toolTitle}
         </span>
       </div>
+
       <ToolContent className="space-y-0 p-0 text-xs">
         {/* TODO: description 已从工具定义中移除，保留兼容历史数据渲染，后续可删除 */}
         {!formTitle && formDescription ? (
-          <div className="border-b bg-muted/20 px-3 py-2">
-            <div className="text-[11px] text-muted-foreground/70">{formDescription}</div>
+          <div className="px-3 pt-2.5 pb-0.5">
+            <div className="text-[11px] leading-relaxed text-muted-foreground">{formDescription}</div>
           </div>
         ) : null}
 
-        <div className="px-3 py-3">
+        {/* ── Content area ── */}
+        <div className="px-3 py-2.5">
           {isError ? (
-            <div className="text-[11px] text-destructive/80">{t('userInput.paramError')}</div>
+            <div className="text-[11px] text-destructive">{t('userInput.paramError')}</div>
           ) : isRejected ? (
             <div className="text-[11px] text-muted-foreground">{t('userInput.skipped')}</div>
           ) : isReadonly ? (
@@ -915,7 +870,7 @@ export default function RequestUserInputTool({
               onStepChange={setChoiceStep}
             />
           ) : (
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-2.5">
               {questions.map((q, idx) => (
                 <QuestionField
                   key={q.key || `question-${idx}`}
@@ -930,11 +885,11 @@ export default function RequestUserInputTool({
           )}
         </div>
 
-        {/* 操作按钮 */}
+        {/* ── Action bar ── */}
         {!isReadonly && !isRejected ? (
-          <div className="flex items-center gap-2 border-t bg-muted/20 px-3 py-2">
+          <div className="flex items-center gap-1.5 border-t border-border/40 px-3 py-2">
             {mode === 'choice' && choices.length > 1 ? (
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1">
                 {choiceStep > 0 ? (
                   <button
                     type="button"
@@ -957,15 +912,7 @@ export default function RequestUserInputTool({
                 ) : null}
               </div>
             ) : null}
-            <div className="ml-auto flex items-center gap-2">
-              <button
-                type="button"
-                disabled={isActionDisabled}
-                onClick={handleSubmit}
-                className={cn(styles.actionButton, styles.primaryButton)}
-              >
-                {isSubmitting ? t('userInput.confirming') : t('userInput.confirm')}
-              </button>
+            <div className="ml-auto flex items-center gap-1.5">
               <button
                 type="button"
                 disabled={isActionDisabled}
@@ -973,6 +920,14 @@ export default function RequestUserInputTool({
                 className={cn(styles.actionButton, styles.secondaryButton)}
               >
                 {t('userInput.skip')}
+              </button>
+              <button
+                type="button"
+                disabled={isActionDisabled}
+                onClick={handleSubmit}
+                className={cn(styles.actionButton, styles.primaryButton)}
+              >
+                {isSubmitting ? t('userInput.confirming') : t('userInput.confirm')}
               </button>
             </div>
           </div>

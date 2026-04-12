@@ -11,7 +11,7 @@
 
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
-import { LoaderCircleIcon, TerminalIcon, XCircleIcon } from 'lucide-react'
+import { CheckCircle2Icon, LoaderCircleIcon, TerminalIcon, XCircleIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
   Tooltip,
@@ -159,6 +159,10 @@ export default function ShellTool({
   const approvalId = getApprovalId(part)
   const isPending = isApprovalPending(part)
   const hasOutput = displayOutput.length > 0
+  const tp = part.toolProgress
+  const progressActive = tp?.status === 'active'
+  const progressDone = tp?.status === 'done'
+  const progressError = tp?.status === 'error'
 
   const stackTrace = React.useMemo(
     () => (displayOutput ? detectStackTrace(displayOutput) : null),
@@ -171,7 +175,6 @@ export default function ShellTool({
 
   const tooltipText = [
     command && `$ ${command}`,
-    exitCode != null && `exit ${exitCode}`,
     duration != null && formatDuration(duration),
   ].filter(Boolean).join('\n')
 
@@ -194,7 +197,7 @@ export default function ShellTool({
         ) : (
           <div className="flex items-center gap-1.5 px-3 py-2 text-xs text-muted-foreground">
             <TerminalIcon className="size-3.5" />
-            <span>Shell</span>
+            <span>{t('toolNames.Bash')}</span>
           </div>
         )}
         <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5 border-t border-border/30 px-3 py-2">
@@ -206,7 +209,7 @@ export default function ShellTool({
   }
 
   return (
-    <Collapsible className={cn('min-w-0 text-xs', className)}>
+    <Collapsible className={cn('min-w-0 text-xs', className)} defaultOpen={progressActive}>
       <Tooltip>
         <TooltipTrigger asChild>
           <CollapsibleTrigger
@@ -216,31 +219,27 @@ export default function ShellTool({
             )}
           >
             <TerminalIcon className="size-3.5 shrink-0 text-muted-foreground" />
-            <span className="shrink-0 text-xs font-medium text-muted-foreground">Shell</span>
+            <span className="shrink-0 text-xs font-medium text-muted-foreground">{t('toolNames.Bash')}</span>
             {command ? (
               <span className="min-w-0 truncate font-mono text-xs text-muted-foreground/50">
                 {command}
               </span>
             ) : null}
-            {exitCode != null && !streaming ? (
-              <span
-                className={cn(
-                  'shrink-0 font-mono text-[10px]',
-                  exitCode === 0 ? 'text-muted-foreground/60' : 'text-destructive',
-                )}
-              >
-                exit {exitCode}
+            {progressDone && !hasOutput ? (
+              <span className="shrink-0 text-[10px] text-muted-foreground/60">
+                {tp.summary}
               </span>
-            ) : null}
-            {duration != null && !streaming ? (
+            ) : duration != null && !streaming ? (
               <span className="shrink-0 font-mono text-[10px] text-muted-foreground/60">
                 {formatDuration(duration)}
               </span>
             ) : null}
-            {streaming ? (
+            {streaming || progressActive ? (
               <LoaderCircleIcon className="size-3 shrink-0 animate-spin text-muted-foreground" />
-            ) : hasError ? (
+            ) : hasError || progressError ? (
               <XCircleIcon className="size-3 shrink-0 text-destructive" />
+            ) : hasOutput || progressDone ? (
+              <CheckCircle2Icon className="size-3 shrink-0 text-muted-foreground/50" />
             ) : null}
           </CollapsibleTrigger>
         </TooltipTrigger>
@@ -272,6 +271,29 @@ export default function ShellTool({
             language={'bash' as any}
             className="max-h-[320px] overflow-auto"
           />
+        ) : tp && (progressActive || progressDone) ? (
+          <div className="space-y-1.5">
+            {tp.accumulatedText ? (
+              <pre className="max-h-[320px] overflow-auto whitespace-pre-wrap rounded-lg bg-muted/30 px-2 py-1.5 text-[11px] leading-relaxed text-foreground font-mono">
+                {tp.accumulatedText}
+              </pre>
+            ) : progressActive ? (
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <LoaderCircleIcon className="size-3 animate-spin" />
+                <span>{tp.label || '执行中...'}</span>
+              </div>
+            ) : null}
+            {progressDone && tp.summary ? (
+              <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/60">
+                <CheckCircle2Icon className="size-3" />
+                <span>{tp.summary}</span>
+              </div>
+            ) : null}
+          </div>
+        ) : progressError ? (
+          <div className="whitespace-pre-wrap break-all rounded-2xl bg-destructive/10 p-2 text-xs text-destructive">
+            {tp?.errorText || '执行失败'}
+          </div>
         ) : streaming ? (
           <div className="flex items-center gap-1.5 py-1 text-xs text-muted-foreground">
             <LoaderCircleIcon className="size-3 animate-spin" />

@@ -32,7 +32,8 @@ import PptxTool from './PptxTool'
 import PdfTool from './PdfTool'
 import ImageProcessTool from './ImageProcessTool'
 import BrowserSnapshotTool from './BrowserSnapshotTool'
-import BrowserScreenshotTool from './BrowserScreenshotTool'
+import BrowserActionTool from './BrowserActionTool'
+import OpenUrlTool from './OpenUrlTool'
 import VideoDownloadTool from './VideoDownloadTool'
 import ScheduledTaskTool from './ScheduledTaskTool'
 import ClaudeCodeBashTool from './ClaudeCodeBashTool'
@@ -47,6 +48,9 @@ import GlobTool from './GlobTool'
 import ReadTool from './ReadTool'
 import GrepTool from './GrepTool'
 import SendMessageTool from './SendMessageTool'
+import JobsTool from './JobsTool'
+import SleepTool from './SleepTool'
+import LoadSkillTool from './LoadSkillTool'
 
 export type ToolComponentProps = {
   part: AnyToolPart
@@ -122,8 +126,13 @@ export const TOOL_REGISTRY: ToolRegistryEntry[] = [
   { match: ['PdfQuery', 'PdfMutate'], component: PdfTool as ComponentType<ToolComponentProps> },
   { match: 'ImageProcess', component: ImageProcessTool as ComponentType<ToolComponentProps> },
   { match: 'VideoDownload', component: VideoDownloadTool as ComponentType<ToolComponentProps> },
-  { match: ['BrowserSnapshot', 'BrowserObserve'], component: BrowserSnapshotTool as ComponentType<ToolComponentProps> },
-  { match: 'BrowserScreenshot', component: BrowserScreenshotTool as ComponentType<ToolComponentProps> },
+  { match: 'OpenUrl', component: OpenUrlTool as ComponentType<ToolComponentProps> },
+  { match: ['BrowserSnapshot', 'BrowserObserve', 'BrowserScreenshot'], component: BrowserSnapshotTool as ComponentType<ToolComponentProps> },  // BrowserObserve/BrowserScreenshot kept for backward compat with old messages
+  { match: ['BrowserWait', 'BrowserAct', 'BrowserExtract', 'BrowserDownloadImage'], component: BrowserActionTool as ComponentType<ToolComponentProps> },  // BrowserExtract kept for backward compat with old messages
+  { match: ['Jobs'], component: JobsTool as ComponentType<ToolComponentProps> },
+  { match: ['Kill'], component: JobsTool as ComponentType<ToolComponentProps> },
+  { match: ['Sleep'], component: SleepTool as ComponentType<ToolComponentProps> },
+  { match: ['LoadSkill'], component: LoadSkillTool as ComponentType<ToolComponentProps> },
   { match: ['ScheduledTaskManage'], component: ScheduledTaskTool as ComponentType<ToolComponentProps> },
   { match: 'ProjectMutate', component: ProjectMutateTool as ComponentType<ToolComponentProps> },
   { match: 'FileInfo', component: FileInfoTool as ComponentType<ToolComponentProps> },

@@ -72,7 +72,7 @@ export class SupervisionService {
     // Read-only tools are always safe
     const readOnlyTools = new Set([
       'Read', 'Glob', 'Grep',
-      'BrowserSnapshot', 'BrowserObserve', 'BrowserExtract',
+      'BrowserSnapshot',
       'ProjectQuery', 'CalendarQuery', 'EmailQuery',
       'ScheduledTaskStatus',
     ])

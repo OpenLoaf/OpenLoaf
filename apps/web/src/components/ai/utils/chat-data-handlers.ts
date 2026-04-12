@@ -197,6 +197,84 @@ export function handleBranchSnapshotDataPart(input: {
   return true;
 }
 
+/** Handle generic tool progress data parts from SSE stream. */
+export function handleToolProgressDataPart(input: {
+  dataPart: any;
+  tabId?: string;
+  upsertToolPartMerged?: (key: string, next: Record<string, unknown>) => void;
+}): boolean {
+  if (input.dataPart?.type !== "data-tool-progress") return false;
+  const data = input.dataPart?.data as Record<string, unknown> | undefined;
+  const toolCallId = typeof data?.toolCallId === "string" ? data.toolCallId : "";
+  const event = typeof data?.event === "string" ? data.event : "";
+  if (!toolCallId || !event || !input.upsertToolPartMerged || !input.tabId) return true;
+
+  const tabId = input.tabId;
+
+  if (event === "start") {
+    input.upsertToolPartMerged(toolCallId, {
+      toolProgress: {
+        status: "active",
+        label: typeof data?.label === "string" ? data.label : undefined,
+        accumulatedText: "",
+        meta: data?.meta && typeof data.meta === "object" ? data.meta : undefined,
+      },
+    });
+  } else if (event === "delta") {
+    const deltaText = typeof data?.text === "string" ? data.text : "";
+    // Read previous accumulated text and append delta
+    const currentSnapshot = useChatRuntime.getState().toolPartsByTabId[tabId]?.[toolCallId] as
+      | Record<string, unknown>
+      | undefined;
+    const currentProgress = currentSnapshot?.toolProgress as
+      | Record<string, unknown>
+      | undefined;
+    const prevText =
+      typeof currentProgress?.accumulatedText === "string"
+        ? currentProgress.accumulatedText
+        : "";
+    input.upsertToolPartMerged(toolCallId, {
+      toolProgress: {
+        ...currentProgress,
+        status: "active",
+        accumulatedText: prevText + deltaText,
+        ...(data?.meta && typeof data.meta === "object" ? { meta: data.meta } : {}),
+      },
+    });
+  } else if (event === "done") {
+    const currentSnapshot = useChatRuntime.getState().toolPartsByTabId[tabId]?.[toolCallId] as
+      | Record<string, unknown>
+      | undefined;
+    const currentProgress = currentSnapshot?.toolProgress as
+      | Record<string, unknown>
+      | undefined;
+    input.upsertToolPartMerged(toolCallId, {
+      toolProgress: {
+        ...currentProgress,
+        status: "done",
+        summary: typeof data?.summary === "string" ? data.summary : undefined,
+        ...(data?.meta && typeof data.meta === "object" ? { meta: data.meta } : {}),
+      },
+    });
+  } else if (event === "error") {
+    const currentSnapshot = useChatRuntime.getState().toolPartsByTabId[tabId]?.[toolCallId] as
+      | Record<string, unknown>
+      | undefined;
+    const currentProgress = currentSnapshot?.toolProgress as
+      | Record<string, unknown>
+      | undefined;
+    input.upsertToolPartMerged(toolCallId, {
+      toolProgress: {
+        ...currentProgress,
+        status: "error",
+        errorText: typeof data?.errorText === "string" ? data.errorText : undefined,
+      },
+    });
+  }
+
+  return true;
+}
+
 /** Handle media generate data parts from SSE stream. */
 export function handleMediaGenerateDataPart(input: {
   dataPart: any;

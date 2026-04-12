@@ -55,6 +55,16 @@ async function resolveTargetWebSocketUrl(targetId: string): Promise<string> {
   return url;
 }
 
+/** Check whether a CDP target is still alive via /json/list. */
+export async function isTargetAlive(targetId: string): Promise<boolean> {
+  try {
+    const list = await getCachedTargetList();
+    return list.some((item) => item?.id === targetId);
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Send a CDP command to the targetId via WebSocket.
  */

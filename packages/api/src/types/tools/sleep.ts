@@ -22,20 +22,10 @@ Wakes early (before the timeout elapses) when:
 - A background task completes and its notification is enqueued → wokenBy = "bg-task-notification"
 - The request is aborted → the call rejects
 
-If you are explicitly waiting on a known background task, prefer BgOutput(task_id, block: true) instead — it reads the final output in one call.
-
-Do NOT poll BgList or BgOutput in a busy loop. Use Sleep to relinquish the turn.`,
+Do NOT poll Jobs in a busy loop. Use Sleep to relinquish the turn. After waking, use Read(output_path) to check task output.`,
   parameters: z.object({
-    seconds: z
-      .number()
-      .int()
-      .min(1)
-      .max(300)
-      .describe('How long to sleep, in seconds. Clamped to [1, 300].'),
-    reason: z
-      .string()
-      .optional()
-      .describe('Optional human-readable reason for the sleep (for telemetry/ux).'),
+    seconds: z.number().int().min(1).max(300),
+    reason: z.string().optional().describe('Human-readable reason (telemetry/ux).'),
   }),
   component: null,
 } as const

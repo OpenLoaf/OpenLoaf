@@ -943,7 +943,6 @@ function ToolResultView({ toolName, output }: { toolName: string; output: unknow
   if (isToolSearch && output && typeof output === 'object' && !Array.isArray(output)) {
     const o = output as Record<string, unknown>
     const tools = o.tools as Array<Record<string, unknown>> | undefined
-    const skills = o.skills as Array<Record<string, unknown>> | undefined
     const notFound = o.notFound as string[] | undefined
 
     return (
@@ -981,35 +980,6 @@ function ToolResultView({ toolName, output }: { toolName: string; output: unknow
                           </div>
                         )
                       })}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        )}
-
-        {/* Loaded skills */}
-        {skills && skills.length > 0 && (
-          <div className="space-y-1.5">
-            <span className="text-muted-foreground font-medium text-[10px]">Skills ({skills.length})</span>
-            {skills.map((skill, j) => {
-              const sname = String(skill.name ?? '?')
-              const sscope = skill.scope ? String(skill.scope) : ''
-              const scontent = skill.content ? String(skill.content).slice(0, 120).replace(/\n/g, ' ') : ''
-              const stools = Array.isArray(skill.tools) ? (skill.tools as string[]) : []
-              return (
-                <div key={j} className="rounded border bg-indigo-500/5 p-2 space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-indigo-600 dark:text-indigo-400 font-mono font-semibold text-[11px]">{sname}</span>
-                    {sscope && <span className="rounded bg-muted px-1 py-px text-[9px] text-muted-foreground">{sscope}</span>}
-                  </div>
-                  {scontent && <div className="text-[10px] text-foreground/50">{scontent}</div>}
-                  {stools.length > 0 && (
-                    <div className="flex flex-wrap gap-1 pt-0.5">
-                      {stools.map((st) => (
-                        <span key={st} className="rounded bg-violet-500/10 px-1.5 py-px text-[9px] font-mono text-violet-600 dark:text-violet-400">{st}</span>
-                      ))}
                     </div>
                   )}
                 </div>

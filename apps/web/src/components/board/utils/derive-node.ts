@@ -62,6 +62,13 @@ export type DeriveNodeOptions = {
    * - 'upstream': new node to the left, connector target←source (new node is upstream)
    */
   direction?: DeriveDirection
+  /**
+   * Pre-locked AI feature/variant written to the new node's `aiConfig.lastUsed`.
+   * When present, the AI panel opens directly on this variant instead of the
+   * default pick. Used by cross-modal hover chips so clicking a chip spawns
+   * a node already primed to perform the intended conversion.
+   */
+  initialAiConfig?: { feature: string; variant: string }
 }
 
 /**
@@ -183,7 +190,14 @@ export function avoidNodeCollisions(
  * @returns The new node id, or `null` if creation failed.
  */
 export function deriveNode(options: DeriveNodeOptions): string | null {
-  const { engine, sourceNodeId, targetType, targetProps, direction = 'downstream' } = options
+  const {
+    engine,
+    sourceNodeId,
+    targetType,
+    targetProps,
+    direction = 'downstream',
+    initialAiConfig,
+  } = options
   const isUpstream = direction === 'upstream'
 
   // 1. 获取源节点
@@ -236,6 +250,14 @@ export function deriveNode(options: DeriveNodeOptions): string | null {
     ...targetProps,
     origin: 'ai-generate',
   }
+  if (initialAiConfig) {
+    // Merge with any aiConfig the caller may have passed in targetProps.
+    const existing = (props.aiConfig as Record<string, unknown> | undefined) ?? {}
+    props.aiConfig = {
+      ...existing,
+      lastUsed: { feature: initialAiConfig.feature, variant: initialAiConfig.variant },
+    }
+  }
 
   // 6. 创建节点（addNodeElement 内部会 select + commitHistory）
   const newNodeId = engine.addNodeElement(targetType, props, xywh)
@@ -250,7 +272,9 @@ export function deriveNode(options: DeriveNodeOptions): string | null {
       target: { elementId: connectorTarget },
       style: engine.getConnectorStyle(),
     },
-    { skipHistory: true, select: false, skipLayout: isUpstream },
+    // deriveNode 自己已经用 resolveDirectionalStackPlacement + avoidNodeCollisions
+    // 计算好新节点位置，不再需要 mindmap 自动排版（否则会让其他节点被推动）。
+    { skipHistory: true, select: false, skipLayout: true },
   )
 
   // 8. 确保新节点被选中（触发 expand / 打开参数面板）

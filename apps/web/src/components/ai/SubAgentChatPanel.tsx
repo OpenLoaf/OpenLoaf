@@ -278,6 +278,7 @@ export default function SubAgentChatPanel({
     selectSession: noop as any,
     switchSibling: noop as any,
     retryAssistantMessage: noop as any,
+    continueAssistantTurn: noop as any,
     resendUserMessage: noop as any,
     deleteMessageSubtree: noopAsync,
     setPendingCloudMessage: noop as any,

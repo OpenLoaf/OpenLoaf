@@ -22,8 +22,6 @@ const projectTypeEnum = z.enum([
   'general',
 ])
 
-const suggestionTypeEnum = z.enum(['completion', 'question', 'action'])
-
 // ---------------------------------------------------------------------------
 // Per-capability Zod schemas (used by auxiliaryInfer + Output.object)
 // ---------------------------------------------------------------------------
@@ -33,16 +31,6 @@ export const CAPABILITY_SCHEMAS = {
     type: projectTypeEnum,
     icon: z.string().describe('一个最能代表项目类型的 emoji'),
     confidence: z.number().min(0).max(1),
-  }),
-
-  'chat.suggestions': z.object({
-    suggestions: z.array(
-      z.object({
-        label: z.string().describe('显示文本，不超过 30 字'),
-        value: z.string().describe('用户选择后实际填入的完整文本'),
-        type: suggestionTypeEnum,
-      }),
-    ),
   }),
 
   'chat.title': z.object({
@@ -62,6 +50,10 @@ export const CAPABILITY_SCHEMAS = {
 
   'file.title': z.object({
     title: z.string().describe('文件或文件夹名称，不超过 15 字'),
+  }),
+
+  'webfetch.extract': z.object({
+    summary: z.string().describe('Extracted content based on the request'),
   }),
 
 } as const
@@ -116,22 +108,6 @@ export const AUXILIARY_CAPABILITIES: Record<string, AuxiliaryCapability> = {
 - general：无法明确归类时使用
 - confidence 低于 0.5 时 type 应为 "general"`,
     outputSchema: CAPABILITY_SCHEMAS['project.classify'].toJSONSchema(),
-  },
-
-  'chat.suggestions': {
-    key: 'chat.suggestions',
-    label: '输入推荐',
-    description: '当用户在输入框停顿时，根据上下文生成智能输入建议。',
-    outputMode: 'structured',
-    triggers: ['打开聊天窗口时', '输入框停顿 500ms'],
-    defaultPrompt: `你是一个智能输入建议助手。根据用户当前的输入文本和对话上下文，生成 2-4 条有用的输入补全建议。
-
-规则：
-- label 不超过 30 字，value 是用户选择后实际填入的完整文本
-- type=completion 为句子补全，type=question 为推荐提问，type=action 为推荐操作指令
-- 建议应与当前项目/全局上下文相关
-- 如果输入为空，基于项目上下文给出常见操作建议`,
-    outputSchema: CAPABILITY_SCHEMAS['chat.suggestions'].toJSONSchema(),
   },
 
   'chat.title': {
@@ -212,17 +188,35 @@ export const AUXILIARY_CAPABILITIES: Record<string, AuxiliaryCapability> = {
 - 不要添加解释或注释，只输出翻译结果`,
     outputSchema: {},
   },
+
+  'webfetch.extract': {
+    key: 'webfetch.extract',
+    label: '网页内容提取',
+    description: 'WebFetch 工具的二次分析：从 HTML→Markdown 转换结果中提取用户关注的信息，过滤导航栏、广告、页脚等噪声。',
+    outputMode: 'structured',
+    triggers: ['WebFetch 工具对 HTML 内容的自动二次提取'],
+    defaultPrompt: `You are a web content extraction assistant. Given a web page converted to Markdown and a user's request, extract ONLY the information relevant to the request.
+
+Rules:
+- Be concise and focused — output only what the user asked for
+- Preserve code examples, API signatures, and technical details verbatim
+- Strip navigation, sidebars, footers, cookie banners, and boilerplate
+- If the content doesn't contain the requested information, say so clearly
+- Output in the same language as the user's request prompt
+- Do not add commentary or analysis beyond what was requested`,
+    outputSchema: CAPABILITY_SCHEMAS['webfetch.extract'].toJSONSchema(),
+  },
 }
 
 /** Ordered capability keys for UI display. */
 export const CAPABILITY_KEYS = [
   'project.classify',
-  'chat.suggestions',
   'chat.title',
   'project.ephemeralName',
   'git.commitMessage',
   'file.title',
   'text.translate',
+  'webfetch.extract',
 ] as const
 
 export type CapabilityKey = (typeof CAPABILITY_KEYS)[number]

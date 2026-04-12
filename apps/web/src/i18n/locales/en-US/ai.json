@@ -121,11 +121,8 @@
     "SendMessage": "Send Message",
     "OpenUrl": "Open URL",
     "BrowserSnapshot": "Browser Snapshot",
-    "BrowserObserve": "Observe Page",
-    "BrowserExtract": "Extract Page",
     "BrowserAct": "Page Action",
     "BrowserWait": "Wait for Page",
-    "BrowserScreenshot": "Page Screenshot",
     "BrowserDownloadImage": "Download Page Image",
     "CalendarQuery": "Calendar Query",
     "CalendarMutate": "Calendar Update",
@@ -149,8 +146,8 @@
     "PptxMutate": "PPTX Operations",
     "PdfQuery": "PDF Query",
     "PdfMutate": "PDF Operations",
-    "Bash": "Shell Command",
-    "shell-command": "Shell Command",
+    "Bash": "Bash",
+    "shell-command": "Bash",
     "Read": "Read File",
     "read-file": "Read File",
     "Edit": "Edit File",
@@ -177,7 +174,43 @@
     "DocConvert": "Document Convert",
     "FileInfo": "File Info",
     "WebFetch": "Fetch Web Content",
-    "WebSearch": "Web Search"
+    "WebSearch": "Web Search",
+    "Jobs": "Background Tasks",
+    "Kill": "Kill Background Task",
+    "Sleep": "Wait for Background",
+    "ToolSearch": "Search Tools",
+    "LoadSkill": "Load Skill",
+    "MemorySave": "Save Memory",
+    "MemorySearch": "Search Memory",
+    "MemoryGet": "Get Memory",
+    "ScheduledTaskManage": "Scheduled Task Manage",
+    "ScheduledTaskStatus": "Scheduled Task Status",
+    "ScheduledTaskWait": "Wait for Scheduled Task",
+    "SubmitPlan": "Submit Plan"
+  },
+  "bgNotification": {
+    "taskCompleted": "Background task completed",
+    "tasksCompleted": "Background tasks completed ({{count}})",
+    "output": "output",
+    "budgetExceeded": "Background task absorb budget exceeded",
+    "budgetExceededDesc": "Remaining background tasks are still running. Ask the assistant to check them with Jobs or wait for your next message to resume absorbing completions.",
+    "notification": "Background task notification"
+  },
+  "bgTool": {
+    "jobs": "Jobs",
+    "kill": "Kill",
+    "sleep": "Sleep",
+    "executing": "Executing...",
+    "waiting": "Waiting...",
+    "taskCount": "{{count}} task(s)",
+    "wokenByTask": "woken by task",
+    "done": "done"
+  },
+  "bgProcess": {
+    "done": "done",
+    "killed": "killed",
+    "cancelFailed": "Failed to cancel background task",
+    "notFound": "Task no longer exists"
   },
   "session": {
     "renameTitle": "Rename Session",
@@ -503,6 +536,28 @@
       "formFields": "{{count}} form fields",
       "sheetCount": "{{count}} sheets",
       "moreSheets": "more"
+    },
+    "browser": {
+      "task": "Task",
+      "title": "Title",
+      "pageText": "Page text",
+      "capturing": "Capturing...",
+      "waitType": {
+        "timeout": "Timeout",
+        "load": "Page loaded",
+        "networkidle": "Network idle",
+        "urlIncludes": "URL match",
+        "textIncludes": "Text match"
+      },
+      "action": {
+        "clickCss": "Click",
+        "clickText": "Click text",
+        "type": "Type",
+        "fill": "Fill",
+        "press": "Press",
+        "pressOn": "Press on",
+        "scroll": "Scroll"
+      }
     }
   },
   "error": {

@@ -167,7 +167,8 @@ declare global {
 
   interface Window {
     openloafElectron?: {
-      openBrowserWindow: (url: string) => Promise<{ id: number }>;
+      openBrowserWindow: (url: string) => Promise<{ id: number; cdpTargetId?: string }>;
+      openHeadlessBrowser: (url: string) => Promise<{ cdpTargetId?: string }>;
       openProjectWindow?: (payload: {
         projectId: string;
         rootUri: string;

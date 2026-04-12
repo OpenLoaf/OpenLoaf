@@ -22,11 +22,8 @@ const PLATFORM_EXCLUDED_TOOLS: Record<ClientPlatform, ReadonlySet<string>> = {
   web: new Set([
     'OpenUrl',
     'BrowserSnapshot',
-    'BrowserObserve',
-    'BrowserExtract',
     'BrowserAct',
     'BrowserWait',
-    'BrowserScreenshot',
     'BrowserDownloadImage',
   ]),
   cli: new Set([
@@ -44,11 +41,8 @@ const PLATFORM_EXCLUDED_TOOLS: Record<ClientPlatform, ReadonlySet<string>> = {
     'EditDocument',
     // Browser automation
     'BrowserSnapshot',
-    'BrowserObserve',
-    'BrowserExtract',
     'BrowserAct',
     'BrowserWait',
-    'BrowserScreenshot',
     'BrowserDownloadImage',
   ]),
 }

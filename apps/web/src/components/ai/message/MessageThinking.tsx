@@ -19,7 +19,7 @@ import { CollapsibleContent } from "@openloaf/ui/collapsible";
 import { Shimmer } from "@/components/ai-elements/shimmer";
 import { Message, MessageContent } from "@/components/ai-elements/message";
 import { useTranslation } from "react-i18next";
-import AssistantMessageHeader from "./AssistantMessageHeader";
+import AssistantMessageHeader, { AssistantAvatar } from "./AssistantMessageHeader";
 
 /**
  * Extract the currently-streaming reasoning text.
@@ -73,7 +73,12 @@ export default function MessageThinking({
 
   return (
     <Message from="assistant" className="min-w-0 w-full mt-2">
-      {showHeader && <AssistantMessageHeader />}
+      {showHeader && (
+        <div className="flex items-center gap-2">
+          <AssistantAvatar />
+          <AssistantMessageHeader />
+        </div>
+      )}
       <MessageContent className="min-w-0 w-full gap-0">
         <Reasoning isStreaming className="mb-0">
           <ReasoningTrigger

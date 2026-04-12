@@ -301,6 +301,7 @@ function MessageItem({
       {message.role === "user" ? (
         (() => {
           const syntheticKind = readSyntheticKind(message.metadata);
+          if (syntheticKind === "bg-drain") return null;
           if (syntheticKind === "bg-notification" || syntheticKind === "bg-budget-exceeded") {
             return <BgNotification message={message} />;
           }

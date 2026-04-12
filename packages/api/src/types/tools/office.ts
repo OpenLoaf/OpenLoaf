@@ -24,29 +24,29 @@ export const jsonArrayPreprocess = (val: unknown) => {
 export const officeEditSchema = z.discriminatedUnion('op', [
   z.object({
     op: z.literal('replace'),
-    path: z.string().describe('ZIP 内部文件路径，如 "word/document.xml"'),
-    xpath: z.string().describe('XPath 表达式，定位要替换的 XML 元素'),
-    xml: z.string().describe('替换后的 XML 片段'),
+    path: z.string().describe('ZIP entry path, e.g. "word/document.xml".'),
+    xpath: z.string(),
+    xml: z.string(),
   }),
   z.object({
     op: z.literal('insert'),
-    path: z.string().describe('ZIP 内部文件路径'),
-    xpath: z.string().describe('XPath 表达式，定位插入参考点'),
-    position: z.enum(['before', 'after']).describe('在目标元素之前还是之后插入'),
-    xml: z.string().describe('要插入的 XML 片段'),
+    path: z.string().describe('ZIP entry path.'),
+    xpath: z.string(),
+    position: z.enum(['before', 'after']),
+    xml: z.string(),
   }),
   z.object({
     op: z.literal('remove'),
-    path: z.string().describe('ZIP 内部文件路径'),
-    xpath: z.string().describe('XPath 表达式，定位要删除的 XML 元素'),
+    path: z.string().describe('ZIP entry path.'),
+    xpath: z.string(),
   }),
   z.object({
     op: z.literal('write'),
-    path: z.string().describe('ZIP 内部文件路径（如 "word/media/logo.png"）'),
-    source: z.string().describe('来源文件路径或 HTTP(S) URL'),
+    path: z.string().describe('ZIP entry path, e.g. "word/media/logo.png".'),
+    source: z.string().describe('Source file path or HTTP(S) URL.'),
   }),
   z.object({
     op: z.literal('delete'),
-    path: z.string().describe('要从 ZIP 中删除的文件路径'),
+    path: z.string().describe('ZIP entry path.'),
   }),
 ])

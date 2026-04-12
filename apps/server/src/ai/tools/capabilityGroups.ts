@@ -36,11 +36,8 @@ const RAW_CAPABILITY_GROUPS = [
     toolIds: [
       'OpenUrl',
       'BrowserSnapshot',
-      'BrowserObserve',
-      'BrowserExtract',
       'BrowserAct',
       'BrowserWait',
-      'BrowserScreenshot',
       'BrowserDownloadImage',
     ],
   },

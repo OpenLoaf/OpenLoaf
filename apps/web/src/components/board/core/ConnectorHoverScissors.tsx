@@ -61,6 +61,10 @@ export function ConnectorHoverScissors({ snapshot, engine }: ConnectorHoverSciss
   // 逻辑：使用实时 viewState zoom，避免与 WorldToolbarLayer RAF transform 不同步。
   const { viewport: liveViewport } = useBoardViewState(engine)
 
+  // 逻辑：当光标正命中某个节点锚点时（connectorHover 非空），锚点交互优先，
+  // 隐藏剪刀按钮避免它吞掉 pointerdown 事件导致锚点无法激活。
+  if (snapshot.connectorHover) return null
+
   if (!midpoint || !connector) return null
 
   const zoom = liveViewport.zoom

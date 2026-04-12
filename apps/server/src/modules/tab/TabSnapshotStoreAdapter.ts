@@ -60,6 +60,99 @@ export const tabSnapshotStore = {
   },
 } as const;
 
+/**
+ * Standalone browser target store — stores cdpTargetId for windows opened via OpenUrl.
+ * Keyed by `${sessionId}:${clientId}:${tabId}`, with a soft TTL.
+ *
+ * Soft TTL: get() returns null after expiry, but the entry is NOT deleted.
+ * getStale() can still retrieve it for CDP alive-verification.
+ * Entries are only removed by explicit remove() or hard TTL (24h garbage collection).
+ */
+type StandaloneEntry = { cdpTargetId: string; url: string; expiresAt: number; createdAt: number };
+const standaloneTargetCache = new Map<CacheKey, StandaloneEntry>();
+
+const STANDALONE_HARD_TTL_MS = 24 * 60 * 60 * 1000;
+
+export const standaloneBrowserTargetStore = {
+  set: (input: {
+    sessionId: string;
+    clientId: string;
+    tabId: string;
+    cdpTargetId: string;
+    url?: string;
+    now?: number;
+  }) => {
+    const now = input.now ?? Date.now();
+    const key = buildKey(input);
+    standaloneTargetCache.set(key, {
+      cdpTargetId: input.cdpTargetId,
+      url: input.url ?? "",
+      expiresAt: now + TAB_SNAPSHOT_TTL_MS,
+      createdAt: now,
+    });
+  },
+
+  /** Fast path: returns cdpTargetId only if within soft TTL. */
+  get: (input: {
+    sessionId: string;
+    clientId: string;
+    tabId: string;
+    now?: number;
+  }): string | null => {
+    const now = input.now ?? Date.now();
+    const key = buildKey(input);
+    const entry = standaloneTargetCache.get(key);
+    if (!entry) return null;
+    // 硬 TTL 兜底清理，防止内存泄漏。
+    if (now - entry.createdAt > STANDALONE_HARD_TTL_MS) {
+      standaloneTargetCache.delete(key);
+      return null;
+    }
+    if (entry.expiresAt <= now) return null;
+    return entry.cdpTargetId;
+  },
+
+  /** Returns the entry even after soft TTL expiry, for CDP alive-verification. */
+  getStale: (input: {
+    sessionId: string;
+    clientId: string;
+    tabId: string;
+    now?: number;
+  }): { cdpTargetId: string; url: string } | null => {
+    const now = input.now ?? Date.now();
+    const key = buildKey(input);
+    const entry = standaloneTargetCache.get(key);
+    if (!entry) return null;
+    if (now - entry.createdAt > STANDALONE_HARD_TTL_MS) {
+      standaloneTargetCache.delete(key);
+      return null;
+    }
+    return { cdpTargetId: entry.cdpTargetId, url: entry.url };
+  },
+
+  /** Refresh soft TTL after confirming the target is still alive. */
+  refresh: (input: {
+    sessionId: string;
+    clientId: string;
+    tabId: string;
+    now?: number;
+  }) => {
+    const now = input.now ?? Date.now();
+    const key = buildKey(input);
+    const entry = standaloneTargetCache.get(key);
+    if (entry) entry.expiresAt = now + TAB_SNAPSHOT_TTL_MS;
+  },
+
+  /** Explicitly remove an entry (target confirmed dead). */
+  remove: (input: {
+    sessionId: string;
+    clientId: string;
+    tabId: string;
+  }) => {
+    standaloneTargetCache.delete(buildKey(input));
+  },
+} as const;
+
 export type TabBrowserTarget = Pick<BrowserTab, "id" | "cdpTargetIds">;
 
 /** Resolve the latest CDP target id for the active browser tab in a snapshot. */

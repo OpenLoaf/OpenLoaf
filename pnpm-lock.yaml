@@ -235,8 +235,8 @@ importers:
         specifier: ^2.1.12
         version: 2.1.12
       '@openloaf-saas/sdk':
-        specifier: ^0.1.38
-        version: 0.1.38(@trpc/server@11.11.0(typescript@5.9.3))(typescript@5.9.3)
+        specifier: ^0.1.40
+        version: 0.1.40(@trpc/server@11.11.0(typescript@5.9.3))(typescript@5.9.3)
       '@openloaf/api':
         specifier: workspace:*
         version: link:../../packages/api
@@ -333,6 +333,9 @@ importers:
       sharp:
         specifier: ^0.34.5
         version: 0.34.5
+      shell-quote:
+        specifier: ^1.8.3
+        version: 1.8.3
       turndown:
         specifier: ^7.2.2
         version: 7.2.2
@@ -443,8 +446,8 @@ importers:
         specifier: ^4.7.0
         version: 4.7.0(monaco-editor@0.52.2)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@openloaf-saas/sdk':
-        specifier: ^0.1.38
-        version: 0.1.38(@trpc/server@11.11.0(typescript@5.9.3))(typescript@5.9.3)
+        specifier: ^0.1.40
+        version: 0.1.40(@trpc/server@11.11.0(typescript@5.9.3))(typescript@5.9.3)
       '@openloaf/api':
         specifier: workspace:*
         version: link:../../packages/api
@@ -2285,8 +2288,8 @@ packages:
     resolution: {integrity: sha512-F+nKc0xW+kVbBRhFzaMgPy3KwmuNTYX1fx6+FxxoSnNgwYX6LD7AKBTWkU0MQ6IBoe7dz069CNkR673sPAgkCQ==}
     engines: {node: '>=14'}
 
-  '@electron/node-gyp@https://codeload.github.com/electron/node-gyp/tar.gz/06b29aafb7708acef8b3669835c8a7857ebc92d2':
-    resolution: {tarball: https://codeload.github.com/electron/node-gyp/tar.gz/06b29aafb7708acef8b3669835c8a7857ebc92d2}
+  '@electron/node-gyp@git+https://git@github.com:electron/node-gyp.git#06b29aafb7708acef8b3669835c8a7857ebc92d2':
+    resolution: {commit: 06b29aafb7708acef8b3669835c8a7857ebc92d2, repo: git@github.com:electron/node-gyp.git, type: git}
     version: 10.2.0-electron.1
     engines: {node: '>=12.13.0'}
     hasBin: true
@@ -3670,8 +3673,8 @@ packages:
   '@openloaf-saas/sdk@0.1.34':
     resolution: {integrity: sha512-Um7+JTx7mLEuHJ1yZjgbRsFkHwlXpwxRcFhaXbNcGWeVS2bW/4nI0Q+/oOEMZoNqsdz0W2di3uKynd1+IUrhiw==}
 
-  '@openloaf-saas/sdk@0.1.38':
-    resolution: {integrity: sha512-H4/gW61YRRhvMFi/T0dVsL5o6Iw6LVb1vOy5aPCKXhSJbz0mjm1nE6NPflghGYxHhZyTPF7gI71qaiN4rT+AOA==}
+  '@openloaf-saas/sdk@0.1.40':
+    resolution: {integrity: sha512-T1kXDGIn85nP8bnOKq0v0L3/3jSo8wS4z1RESryjLz41p9KzM6gBj+TP3SRcpzwACFzy6DtbFjj7Q7WPK7o4Qg==}
 
   '@opentelemetry/api-logs@0.212.0':
     resolution: {integrity: sha512-TEEVrLbNROUkYY51sBJGk7lO/OLjuepch8+hmpM6ffMJQ2z/KVCjdHuCFX6fJj8OkJP2zckPjrJzQtXU3IAsFg==}
@@ -19881,7 +19884,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@electron/node-gyp@https://codeload.github.com/electron/node-gyp/tar.gz/06b29aafb7708acef8b3669835c8a7857ebc92d2':
+  '@electron/node-gyp@git+https://git@github.com:electron/node-gyp.git#06b29aafb7708acef8b3669835c8a7857ebc92d2':
     dependencies:
       env-paths: 2.2.1
       exponential-backoff: 3.1.3
@@ -19963,7 +19966,7 @@ snapshots:
 
   '@electron/rebuild@3.7.2':
     dependencies:
-      '@electron/node-gyp': https://codeload.github.com/electron/node-gyp/tar.gz/06b29aafb7708acef8b3669835c8a7857ebc92d2
+      '@electron/node-gyp': git+https://git@github.com:electron/node-gyp.git#06b29aafb7708acef8b3669835c8a7857ebc92d2
       '@malept/cross-spawn-promise': 2.0.0
       chalk: 4.1.2
       debug: 4.4.3
@@ -21574,7 +21577,7 @@ snapshots:
       - '@trpc/server'
       - typescript
 
-  '@openloaf-saas/sdk@0.1.38(@trpc/server@11.11.0(typescript@5.9.3))(typescript@5.9.3)':
+  '@openloaf-saas/sdk@0.1.40(@trpc/server@11.11.0(typescript@5.9.3))(typescript@5.9.3)':
     dependencies:
       '@trpc/client': 11.11.0(@trpc/server@11.11.0(typescript@5.9.3))(typescript@5.9.3)
       zod: 4.3.6
@@ -21989,7 +21992,7 @@ snapshots:
       react-compiler-runtime: 1.0.0(react@19.2.3)
       react-dom: 19.2.3(react@19.2.3)
       slate: 0.120.0
-      slate-dom: 0.119.0(slate@0.123.0)
+      slate-dom: 0.119.0(slate@0.120.0)
       slate-hyperscript: 0.100.0(slate@0.120.0)
       slate-react: 0.120.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(slate-dom@0.119.0(slate@0.120.0))(slate@0.120.0)
       use-deep-compare: 1.3.0(react@19.2.3)
@@ -22026,7 +22029,7 @@ snapshots:
       slate-react: 0.120.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(slate-dom@0.119.0(slate@0.120.0))(slate@0.120.0)
       use-deep-compare: 1.3.0(react@19.2.4)
       zustand: 5.0.11(@types/react@19.2.3)(immer@11.1.4)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4))
-      zustand-x: 6.2.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(scheduler@0.27.0)(zustand@5.0.11(@types/react@19.2.14)(immer@11.1.4)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4)))
+      zustand-x: 6.2.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(scheduler@0.27.0)(zustand@5.0.11(@types/react@19.2.3)(immer@11.1.4)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4)))
     transitivePeerDependencies:
       - '@types/react'
       - immer
@@ -38500,17 +38503,6 @@ snapshots:
       slate: 0.120.0
       tiny-invariant: 1.3.1
 
-  slate-dom@0.119.0(slate@0.123.0):
-    dependencies:
-      '@juggle/resize-observer': 3.4.0
-      direction: 1.0.4
-      is-hotkey: 0.2.0
-      is-plain-object: 5.0.0
-      lodash: 4.17.23
-      scroll-into-view-if-needed: 3.1.0
-      slate: 0.123.0
-      tiny-invariant: 1.3.1
-
   slate-hyperscript@0.100.0(slate@0.120.0):
     dependencies:
       is-plain-object: 5.0.0
@@ -38526,7 +38518,7 @@ snapshots:
       react-dom: 19.2.3(react@19.2.3)
       scroll-into-view-if-needed: 3.1.0
       slate: 0.120.0
-      slate-dom: 0.119.0(slate@0.123.0)
+      slate-dom: 0.119.0(slate@0.120.0)
       tiny-invariant: 1.3.1
 
   slate-react@0.120.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(slate-dom@0.119.0(slate@0.120.0))(slate@0.120.0):
@@ -40529,6 +40521,20 @@ snapshots:
       react-tracked: 1.7.14(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(scheduler@0.27.0)
       use-sync-external-store: 1.4.0(react@19.2.4)
       zustand: 5.0.11(@types/react@19.2.14)(immer@11.1.4)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4))
+    transitivePeerDependencies:
+      - react
+      - react-dom
+      - react-native
+      - scheduler
+
+  zustand-x@6.2.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(scheduler@0.27.0)(zustand@5.0.11(@types/react@19.2.3)(immer@11.1.4)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4))):
+    dependencies:
+      immer: 10.2.0
+      lodash.mapvalues: 4.6.0
+      mutative: 1.1.0
+      react-tracked: 1.7.14(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(scheduler@0.27.0)
+      use-sync-external-store: 1.4.0(react@19.2.4)
+      zustand: 5.0.11(@types/react@19.2.3)(immer@11.1.4)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4))
     transitivePeerDependencies:
       - react
       - react-dom

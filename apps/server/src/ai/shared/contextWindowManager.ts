@@ -242,7 +242,6 @@ const TOOL_RESULT_IMPORTANCE: Record<string, ToolImportance> = {
   'ProjectQuery': 'summarize',
   'CalendarQuery': 'summarize',
   'EmailQuery': 'summarize',
-  'BrowserExtract': 'summarize',
   'BrowserSnapshot': 'summarize',
   // 写入/生成类 — 确认即可
   'Edit': 'drop',

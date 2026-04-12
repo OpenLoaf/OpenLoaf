@@ -319,6 +319,7 @@ function TestWrapper({ children }: { children: React.ReactNode }) {
               selectSession: vi.fn() as any,
               switchSibling: vi.fn() as any,
               retryAssistantMessage: vi.fn(),
+              continueAssistantTurn: vi.fn(),
               resendUserMessage: vi.fn() as any,
               deleteMessageSubtree: vi.fn() as any,
               setPendingCloudMessage: vi.fn(),

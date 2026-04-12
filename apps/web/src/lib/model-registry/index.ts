@@ -7,10 +7,9 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import {
-  createModelRegistry,
-  type ModelDefinition,
-  type ProviderDefinition,
+import type {
+  ModelDefinition,
+  ProviderDefinition,
 } from "@openloaf/api/common";
 import {
   fetchProviderTemplates,
@@ -21,7 +20,6 @@ let normalizedProviders: ProviderDefinition[] = [];
 let modelDefinitions: ModelDefinition[] = [];
 let providerById = new Map<string, ProviderDefinition>();
 let modelByKey = new Map<string, ModelDefinition>();
-let registry = createModelRegistry([]);
 let initialized = false;
 
 /** Initialize model registry from SaaS provider templates. */
@@ -58,7 +56,6 @@ function applyProviders(providers: ProviderDefinition[]) {
       model,
     ]),
   );
-  registry = createModelRegistry(modelDefinitions);
   initialized = true;
 }
 
@@ -66,8 +63,6 @@ function applyProviders(providers: ProviderDefinition[]) {
 export function isModelRegistryReady() {
   return initialized;
 }
-
-export { registry as MODEL_REGISTRY };
 
 /** Return all provider definitions. */
 export function getProviderDefinitions(): ProviderDefinition[] {

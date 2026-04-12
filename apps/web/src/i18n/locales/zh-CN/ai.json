@@ -121,11 +121,8 @@
     "SendMessage": "发送消息",
     "OpenUrl": "打开网页",
     "BrowserSnapshot": "浏览器快照",
-    "BrowserObserve": "页面观察",
-    "BrowserExtract": "页面提取",
     "BrowserAct": "页面动作",
     "BrowserWait": "页面等待",
-    "BrowserScreenshot": "页面截图",
     "BrowserDownloadImage": "下载网页图片",
     "CalendarQuery": "日历查询",
     "CalendarMutate": "日历变更",
@@ -149,8 +146,8 @@
     "PptxMutate": "PPTX 操作",
     "PdfQuery": "PDF 查询",
     "PdfMutate": "PDF 操作",
-    "Bash": "Shell 命令",
-    "shell-command": "Shell 命令",
+    "Bash": "终端命令",
+    "shell-command": "终端命令",
     "Read": "读取文件",
     "read-file": "读取文件",
     "Edit": "编辑文件",
@@ -177,7 +174,43 @@
     "DocConvert": "文档转换",
     "FileInfo": "文件信息",
     "WebFetch": "获取网页内容",
-    "WebSearch": "网页搜索"
+    "WebSearch": "网页搜索",
+    "Jobs": "后台任务列表",
+    "Kill": "终止后台任务",
+    "Sleep": "等待后台任务",
+    "ToolSearch": "搜索工具",
+    "LoadSkill": "加载技能",
+    "MemorySave": "保存记忆",
+    "MemorySearch": "搜索记忆",
+    "MemoryGet": "读取记忆",
+    "ScheduledTaskManage": "计划任务管理",
+    "ScheduledTaskStatus": "计划任务状态",
+    "ScheduledTaskWait": "等待计划任务",
+    "SubmitPlan": "提交方案"
+  },
+  "bgNotification": {
+    "taskCompleted": "后台任务已完成",
+    "tasksCompleted": "后台任务已完成 ({{count}})",
+    "output": "输出",
+    "budgetExceeded": "后台任务吸收预算超限",
+    "budgetExceededDesc": "剩余后台任务仍在运行中。请使用「后台任务列表」工具查看，或等待下一轮消息继续吸收。",
+    "notification": "后台任务通知"
+  },
+  "bgTool": {
+    "jobs": "后台任务",
+    "kill": "终止任务",
+    "sleep": "等待",
+    "executing": "执行中...",
+    "waiting": "等待中...",
+    "taskCount": "{{count}} 个任务",
+    "wokenByTask": "被任务唤醒",
+    "done": "完成"
+  },
+  "bgProcess": {
+    "done": "完成",
+    "killed": "已终止",
+    "cancelFailed": "终止后台任务失败",
+    "notFound": "任务已不存在"
   },
   "session": {
     "renameTitle": "重命名会话",
@@ -503,6 +536,28 @@
       "formFields": "{{count}} 个表单字段",
       "sheetCount": "{{count}} 个工作表",
       "moreSheets": "更多"
+    },
+    "browser": {
+      "task": "任务",
+      "title": "标题",
+      "pageText": "页面文本",
+      "capturing": "截图中...",
+      "waitType": {
+        "timeout": "延时",
+        "load": "加载完成",
+        "networkidle": "网络空闲",
+        "urlIncludes": "URL 变化",
+        "textIncludes": "文本出现"
+      },
+      "action": {
+        "clickCss": "点击",
+        "clickText": "点击文本",
+        "type": "输入",
+        "fill": "填写",
+        "press": "按键",
+        "pressOn": "按键",
+        "scroll": "滚动"
+      }
     }
   },
   "error": {

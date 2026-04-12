@@ -7,61 +7,119 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  *
- * WebFetch tool — fetches a URL, converts HTML to Markdown, returns content.
- * Architecture modeled after Claude Code's WebFetchTool:
- *   - URL validation (length, parseable, no auth)
- *   - LRU cache (15min TTL, 50MB max)
- *   - http → https upgrade
- *   - Manual redirect following (same-host only, max 10)
- *   - HTML → Markdown via Turndown (lazy-loaded)
- *   - Content truncation at 100,000 chars
+ * WebFetch tool — fetches a URL, extracts relevant content, returns summary.
+ *
+ * Pipeline:
+ *   1. URL validation → http→https upgrade → LRU cache check
+ *   2. fetch with manual redirect following (same-host only, max 10)
+ *   3. Content-type branching:
+ *      - Binary (PDF/image/...) → persist to disk, return descriptive text
+ *      - Text → UTF-8 decode → HTML→Markdown via Turndown (lazy-loaded)
+ *   4. Auxiliary model analysis (for HTML): lightweight model extracts
+ *      relevant info based on user prompt, stripping nav/ads/footers
+ *   5. Structured content (Markdown/JSON under 20K) skips auxiliary model
+ *   6. Raw body persisted to session asset dir for direct Read/Grep access
  */
 import { tool, zodSchema } from 'ai'
 import { webFetchToolDef } from '@openloaf/api/types/tools/webFetch'
 import { LRUCache } from 'lru-cache'
 import {
+  type SavedRawArtifact,
   formatBytes,
   hostSlug,
   saveRawArtifact,
   timestampPrefix,
-  type SavedRawArtifact,
 } from '@/ai/tools/shared/saveRawArtifact'
+import { CAPABILITY_SCHEMAS } from '@/ai/services/auxiliaryCapabilities'
+import { createToolProgress } from '@/ai/tools/toolProgress'
 import { logger } from '@/common/logger'
 
 // ---------------------------------------------------------------------------
-// Constants (matching Claude Code)
+// Constants
 // ---------------------------------------------------------------------------
 
-const FETCH_TIMEOUT_MS = 60_000
+/** HTTP request timeout — reduced from 60s to leave 10s budget for auxiliary model. */
+const FETCH_TIMEOUT_MS = 50_000
 const MAX_HTTP_CONTENT_LENGTH = 10 * 1024 * 1024 // 10MB
 const MAX_REDIRECTS = 10
-const MAX_MARKDOWN_LENGTH = 32_768
+/** Max input to auxiliary model (~15-20K tokens). */
+const MAX_AUXILIARY_INPUT = 60_000
+/** Max content returned when auxiliary model is skipped (aligns with interceptor threshold). */
+const MAX_DIRECT_CONTENT = 20_000
 const MAX_URL_LENGTH = 2000
 
 const USER_AGENT = 'OpenLoaf/1.0 (web-fetch; +https://github.com/OpenLoaf/OpenLoaf)'
+
+// ---------------------------------------------------------------------------
+// Content-type detection (modeled after Claude Code's isBinaryContentType)
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns true for content types that are textual and can be safely UTF-8 decoded.
+ * Everything else is considered binary (PDF, images, audio, video, archives, etc.).
+ */
+function isTextContentType(contentType: string): boolean {
+  const ct = contentType.toLowerCase()
+  return (
+    ct.startsWith('text/') ||
+    ct.includes('application/json') ||
+    ct.includes('+json') ||
+    ct.includes('application/xml') ||
+    ct.includes('+xml') ||
+    ct.includes('application/javascript') ||
+    ct.includes('application/x-www-form-urlencoded')
+  )
+}
+
+/** Map common MIME types to file extensions for binary persistence. */
+function mimeToExtension(contentType: string): string {
+  const ct = (contentType.toLowerCase().split(';')[0] ?? '').trim()
+  const map: Record<string, string> = {
+    'application/pdf': 'pdf',
+    'image/png': 'png',
+    'image/jpeg': 'jpg',
+    'image/gif': 'gif',
+    'image/webp': 'webp',
+    'image/svg+xml': 'svg',
+    'audio/mpeg': 'mp3',
+    'audio/wav': 'wav',
+    'video/mp4': 'mp4',
+    'video/webm': 'webm',
+    'application/zip': 'zip',
+    'application/gzip': 'gz',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'pptx',
+  }
+  return map[ct] ?? 'bin'
+}
 
 // ---------------------------------------------------------------------------
 // URL Cache (LRU — 15min TTL, ~50MB total)
 // ---------------------------------------------------------------------------
 
 interface CachedContent {
+  /** Processed content — auxiliary model summary or direct text. */
   content: string
   contentType: string
   finalUrl: string
   code: number
   codeText: string
+  /** Original HTTP response byte count. */
   bytes: number
-  /** Raw body (undecoded) — kept so cache hits can re-save to the current session. */
-  rawBody: Buffer
-  /** File extension derived from content-type (html/json/txt). */
+  /** File extension derived from content-type. */
   rawExt: string
+  /** Pre-computed raw body shape (cached to avoid re-analysis on cache hit). */
+  shape: RawBodyShape
+  /** Whether the response was binary (PDF, image, etc.). */
+  isBinary: boolean
 }
 
 const URL_CACHE = new LRUCache<string, CachedContent>({
   max: 200,
   ttl: 15 * 60 * 1000, // 15 minutes
   maxSize: 50 * 1024 * 1024, // 50MB
-  sizeCalculation: (entry) => (entry.content.length || 0) + (entry.rawBody.byteLength || 0) || 1,
+  sizeCalculation: (entry) => Buffer.byteLength(entry.content) || 1,
 })
 
 // ---------------------------------------------------------------------------
@@ -225,48 +283,46 @@ async function fetchWithRedirects(
 }
 
 // ---------------------------------------------------------------------------
-// Content processing
+// Content processing — text path (UTF-8 decodable content)
 // ---------------------------------------------------------------------------
 
-async function processContent(
-  body: ArrayBuffer,
+async function processTextContent(
+  text: string,
   contentType: string,
-): Promise<{ summary: string; ext: string }> {
-  const text = new TextDecoder('utf-8', { fatal: false }).decode(body)
-
+): Promise<{ content: string; ext: string }> {
   if (contentType.includes('application/json')) {
-    let summary: string
+    let content: string
     try {
-      summary = JSON.stringify(JSON.parse(text), null, 2)
+      content = JSON.stringify(JSON.parse(text), null, 2)
     } catch {
-      summary = text
+      content = text
     }
-    return { summary, ext: 'json' }
+    return { content, ext: 'json' }
   }
 
   if (contentType.includes('text/html')) {
-    let summary: string
+    let content: string
     try {
       const td = await getTurndownService()
-      summary = td.turndown(text)
+      content = td.turndown(text)
     } catch {
       // Fallback: strip HTML tags
-      summary = text.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+      content = text.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
     }
-    return { summary, ext: 'html' }
+    return { content, ext: 'html' }
   }
 
   if (contentType.includes('text/markdown')) {
-    return { summary: text, ext: 'md' }
+    return { content: text, ext: 'md' }
   }
 
-  // text/plain, etc.
-  return { summary: text, ext: 'txt' }
+  // text/plain, text/csv, etc.
+  return { content: text, ext: 'txt' }
 }
 
-function truncateContent(content: string): string {
-  if (content.length <= MAX_MARKDOWN_LENGTH) return content
-  return content.slice(0, MAX_MARKDOWN_LENGTH) + '\n\n[Content truncated due to length...]'
+function truncateContent(content: string, maxLength: number): string {
+  if (content.length <= maxLength) return content
+  return content.slice(0, maxLength) + '\n\n[Content truncated due to length...]'
 }
 
 /**
@@ -289,9 +345,7 @@ async function trySaveRaw(
 
 // ---------------------------------------------------------------------------
 // Raw body shape analysis — detects minified/compressed single-line files.
-// Claude models frequently loop on such files because Read/Grep see long
-// lines as "truncated" or yield zero matches; surfacing shape up-front lets
-// the model pick Bash grep/sed directly.
+// Computed once per fetch and cached in CachedContent to avoid re-analysis.
 // ---------------------------------------------------------------------------
 
 interface RawBodyShape {
@@ -300,20 +354,10 @@ interface RawBodyShape {
   isMinified: boolean
 }
 
-function analyzeRawBodyShape(rawBody: Buffer, ext: string): RawBodyShape {
-  // Only analyze textual bodies — skip binary-ish content to save cycles.
-  if (!['html', 'json', 'md', 'txt'].includes(ext)) {
-    return { lines: 0, maxLineLength: 0, isMinified: false }
-  }
-  // Decode as UTF-8 with lenient fallback.
-  let text: string
-  try {
-    text = rawBody.toString('utf8')
-  } catch {
-    return { lines: 0, maxLineLength: 0, isMinified: false }
-  }
-  if (!text) return { lines: 0, maxLineLength: 0, isMinified: false }
-  // Count lines + track max line length in one pass.
+const EMPTY_SHAPE: RawBodyShape = { lines: 0, maxLineLength: 0, isMinified: false }
+
+function analyzeRawBodyShape(text: string): RawBodyShape {
+  if (!text) return EMPTY_SHAPE
   let lineCount = 1
   let maxLen = 0
   let currentLen = 0
@@ -327,11 +371,51 @@ function analyzeRawBodyShape(rawBody: Buffer, ext: string): RawBodyShape {
     }
   }
   if (currentLen > maxLen) maxLen = currentLen
-  // Trailing newline shouldn't add an empty line.
   if (text.endsWith('\n')) lineCount = Math.max(1, lineCount - 1)
-  // Minified signature: few lines, very long single lines.
   const isMinified = lineCount < 20 && maxLen > 5000
   return { lines: lineCount, maxLineLength: maxLen, isMinified }
+}
+
+// ---------------------------------------------------------------------------
+// Auxiliary model analysis — uses lightweight model to extract relevant info
+// from noisy HTML content (nav bars, ads, footers stripped).
+// ---------------------------------------------------------------------------
+
+/**
+ * Determine whether auxiliary model analysis should be skipped.
+ * Skip for structured content (Markdown, JSON) under the direct-content limit,
+ * since these are already clean and don't benefit from a second pass.
+ */
+function shouldSkipAnalysis(contentType: string, contentLength: number): boolean {
+  const ct = contentType.toLowerCase()
+  const isStructured = ct.includes('text/markdown') || ct.includes('application/json') || ct.includes('+json')
+  return isStructured && contentLength < MAX_DIRECT_CONTENT
+}
+
+/**
+ * Apply auxiliary model to extract relevant information from web content.
+ * Falls back to truncated original on any failure (timeout, model unavailable).
+ */
+async function applyPromptToContent(
+  content: string,
+  prompt: string,
+  url: string,
+): Promise<string> {
+  const { auxiliaryInfer } = await import('@/ai/services/auxiliaryInferenceService')
+
+  const truncated = truncateContent(content, MAX_AUXILIARY_INPUT)
+  const fallbackContent = truncateContent(content, MAX_DIRECT_CONTENT)
+
+  const result = await auxiliaryInfer({
+    capabilityKey: 'webfetch.extract',
+    context: `## Web Page Content\n${truncated}\n\n## Request\n${prompt}\n\n## Source URL\n${url}`,
+    schema: CAPABILITY_SCHEMAS['webfetch.extract'],
+    fallback: { summary: fallbackContent },
+    noCache: false,
+    maxTokens: 2048,
+  })
+
+  return result.summary
 }
 
 // ---------------------------------------------------------------------------
@@ -341,8 +425,9 @@ function analyzeRawBodyShape(rawBody: Buffer, ext: string): RawBodyShape {
 export const webFetchTool = tool({
   description: webFetchToolDef.description,
   inputSchema: zodSchema(webFetchToolDef.parameters),
-  execute: async (input): Promise<string> => {
+  execute: async (input, { toolCallId }): Promise<string> => {
     const { url: rawUrl, prompt } = input as { url: string; prompt: string }
+    const progress = createToolProgress(toolCallId, 'WebFetch')
     const start = Date.now()
 
     // 1. Validate URL
@@ -357,25 +442,23 @@ export const webFetchTool = tool({
       url = rawUrl.replace(/^http:/, 'https:')
     }
 
-    // 3. Check cache
+    progress.start(`Fetching: ${url}`)
+
+    // 3. Check cache — content is already processed (summary or direct text)
     const cached = URL_CACHE.get(url)
     if (cached) {
-      const result = truncateContent(cached.content)
       const durationMs = Date.now() - start
-      // Cache hit: still save raw to the CURRENT session so the model
-      // can Read/Grep it without knowing whether it was cached.
-      const rawArtifact = await trySaveRaw(cached.finalUrl, cached.rawBody, cached.rawExt)
-      const rawShape = analyzeRawBodyShape(cached.rawBody, cached.rawExt)
+      progress.done(`Cached — ${formatBytes(cached.bytes)} in ${durationMs}ms`)
       return formatOutput({
         bytes: cached.bytes,
         code: cached.code,
         codeText: cached.codeText,
-        result,
+        content: cached.content,
         durationMs,
         url: cached.finalUrl,
         prompt,
-        rawArtifact,
-        rawShape,
+        shape: cached.shape,
+        isBinary: cached.isBinary,
       })
     }
 
@@ -387,6 +470,8 @@ export const webFetchTool = tool({
       const response = await fetchWithRedirects(url, controller.signal)
       clearTimeout(timer)
 
+      progress.delta(`Connected — processing response...\n`)
+
       // Cross-host redirect
       if (response.type === 'redirect') {
         const statusText = response.statusCode === 301
@@ -397,6 +482,7 @@ export const webFetchTool = tool({
               ? 'Temporary Redirect'
               : 'Found'
 
+        progress.done(`Redirect → ${response.redirectUrl}`)
         return `REDIRECT DETECTED: The URL redirects to a different host.
 
 Original URL: ${response.originalUrl}
@@ -408,45 +494,83 @@ To complete your request, fetch content from the redirected URL using WebFetch a
 - prompt: "${prompt}"`
       }
 
-      // Process content (lossy: HTML→Markdown) — keep raw body for persistence.
-      const { summary, ext } = await processContent(response.body, response.contentType)
+      // 5. Convert ArrayBuffer to Buffer, then release ArrayBuffer
       const bytes = response.body.byteLength
       const rawBody = Buffer.from(response.body)
+      // Release the ArrayBuffer copy held by fetch response (saves up to 10MB)
+      ;(response as { body: unknown }).body = null
 
-      // Write cache
+      // 6. Content-type branching: text vs binary
+      const isBinary = !isTextContentType(response.contentType)
+      let processedContent: string
+      let ext: string
+      let shape: RawBodyShape
+
+      if (isBinary) {
+        // Binary path: persist to disk, return descriptive text (no UTF-8 decode)
+        progress.delta(`Binary content: ${response.contentType} (${formatBytes(bytes)})\n`)
+        ext = mimeToExtension(response.contentType)
+        shape = EMPTY_SHAPE
+        const rawArtifact = await trySaveRaw(response.finalUrl, rawBody, ext)
+        const rawLine = rawArtifact
+          ? `Saved to: ${rawArtifact.relPath} (${formatBytes(rawArtifact.bytes)})`
+          : '(failed to save: no active session)'
+        processedContent = `Binary content: ${response.contentType} (${formatBytes(bytes)})\n${rawLine}\nUse the Read tool to access this file directly.`
+      } else {
+        // Text path: decode → process → persist raw → analyze shape → maybe summarize
+        const text = new TextDecoder('utf-8', { fatal: false }).decode(rawBody)
+        const processed = await processTextContent(text, response.contentType)
+        ext = processed.ext
+        shape = analyzeRawBodyShape(text)
+
+        // Persist raw body to disk for model's direct inspection
+        await trySaveRaw(response.finalUrl, rawBody, ext)
+
+        // 7. Auxiliary model analysis decision
+        if (shouldSkipAnalysis(response.contentType, processed.content.length)) {
+          // Structured + short → direct pass-through
+          processedContent = truncateContent(processed.content, MAX_DIRECT_CONTENT)
+        } else {
+          // HTML or large content → auxiliary model summarization
+          progress.delta(`Analyzing content with auxiliary model...\n`)
+          processedContent = await applyPromptToContent(processed.content, prompt, response.finalUrl)
+        }
+      }
+
+      // 8. Write cache (no rawBody — only processed content + shape)
       URL_CACHE.set(url, {
-        content: summary,
+        content: processedContent,
         contentType: response.contentType,
         finalUrl: response.finalUrl,
         code: response.code,
         codeText: response.codeText,
         bytes,
-        rawBody,
         rawExt: ext,
+        shape,
+        isBinary,
       })
 
-      const result = truncateContent(summary)
       const durationMs = Date.now() - start
-      const rawArtifact = await trySaveRaw(response.finalUrl, rawBody, ext)
-      const rawShape = analyzeRawBodyShape(rawBody, ext)
-
+      progress.done(`Fetched ${formatBytes(bytes)} in ${durationMs}ms`)
       return formatOutput({
         bytes,
         code: response.code,
         codeText: response.codeText,
-        result,
+        content: processedContent,
         durationMs,
         url: response.finalUrl,
         prompt,
-        rawArtifact,
-        rawShape,
+        shape,
+        isBinary,
       })
     } catch (error) {
       clearTimeout(timer)
       const message = error instanceof Error ? error.message : String(error)
       if (message.includes('abort') || message.includes('AbortError')) {
+        progress.error(`Timed out after ${FETCH_TIMEOUT_MS / 1000}s`)
         return `Error: Request timed out after ${FETCH_TIMEOUT_MS / 1000}s for ${url}`
       }
+      progress.error(message)
       return `Error fetching ${url}: ${message}`
     }
   },
@@ -460,30 +584,30 @@ function formatOutput(params: {
   bytes: number
   code: number
   codeText: string
-  result: string
+  content: string
   durationMs: number
   url: string
   prompt: string
-  rawArtifact: SavedRawArtifact | undefined
-  rawShape: RawBodyShape
+  shape: RawBodyShape
+  isBinary: boolean
 }): string {
-  const { bytes, code, codeText, result, durationMs, url, prompt, rawArtifact, rawShape } = params
+  const { bytes, code, codeText, content, durationMs, url, prompt, shape, isBinary } = params
 
   const header = `Fetched ${url} (${code} ${codeText}, ${formatBytes(bytes)}, ${durationMs}ms)`
   const promptLine = `Prompt: ${prompt}`
 
-  // Shape metadata helps the model pick the right tool for follow-up analysis
-  // (Read/Grep for normal text, Bash grep/sed for minified/compressed single-line files).
-  const shapeLine = rawShape.lines > 0
-    ? `Raw shape → lines=${rawShape.lines}, maxLineLength=${rawShape.maxLineLength}, isMinified=${rawShape.isMinified}`
-    : undefined
-  const rawLine = rawArtifact
-    ? `Raw saved → ${rawArtifact.relPath} (${formatBytes(rawArtifact.bytes)})`
-    : 'Raw saved → (unavailable: no active session)'
+  if (isBinary) {
+    return `${header}\n${promptLine}\n\n## Content\n${content}`
+  }
 
-  const minifiedHint = rawShape.isMinified
-    ? '\n\n## ⚠️ Minified/compressed raw file detected\n' +
-      `This file has only ${rawShape.lines} line(s) with the longest line being ${rawShape.maxLineLength} chars. ` +
+  // Shape metadata helps the model pick the right tool for follow-up analysis
+  const shapeLine = shape.lines > 0
+    ? `Raw shape → lines=${shape.lines}, maxLineLength=${shape.maxLineLength}, isMinified=${shape.isMinified}`
+    : undefined
+
+  const minifiedHint = shape.isMinified
+    ? '\n\n## Minified/compressed raw file detected\n' +
+      `This file has only ${shape.lines} line(s) with the longest line being ${shape.maxLineLength} chars. ` +
       'Read/Grep will struggle — single-line content gets truncated or yields misleading matches. ' +
       'Prefer `Bash` with line-tokenizing commands:\n' +
       '- Extract all src/href: `grep -oE \'(src|href)="[^"]+"\' file | sort -u`\n' +
@@ -492,10 +616,10 @@ function formatOutput(params: {
     : ''
 
   const tip =
-    '## Tip\nThe Summary above is a lossy extraction (HTML→Markdown). If you need raw structure ' +
-    '(e.g. `<script>/<link>/<meta>` tags, attributes, DOM layout), Read/Grep the Raw file directly.'
+    '## Tip\nThe content above may be a model-extracted summary. If you need raw structure ' +
+    '(e.g. `<script>/<link>/<meta>` tags, attributes, DOM layout), Read/Grep the Raw file in ${CURRENT_CHAT_DIR}/webfetch/ directly.'
 
-  const headerBlock = [header, promptLine, rawLine, shapeLine].filter(Boolean).join('\n')
-  return `${headerBlock}${minifiedHint}\n\n## Summary\n${result}\n\n${tip}`
+  const headerBlock = [header, promptLine, shapeLine].filter(Boolean).join('\n')
+  return `${headerBlock}${minifiedHint}\n\n## Summary\n${content}\n\n${tip}`
 }
 

@@ -47,7 +47,8 @@ import { updateTrayBadge, refreshTrayMenu } from '../tray';
 import { getMinimizeToTray, setMinimizeToTray } from '../updateConfig';
 import { createProjectWindow } from '../windows/projectWindow';
 import { createBoardWindow } from '../windows/boardWindow';
-import { openUrlInBrowserWindow } from '../windows/browserWindow';
+import { openUrlInBrowserWindow, openHeadlessBrowser } from '../windows/browserWindow';
+import { getCdpTargetId } from './cdpUtils';
 
 let ipcHandlersRegistered = false;
 
@@ -223,35 +224,7 @@ async function resolveDragIcon(paths: string[]): Promise<Electron.NativeImage> {
   return nativeImage.createFromDataURL(FALLBACK_DRAG_ICON_DATA_URL);
 }
 
-/**
- * Get CDP targetId for a given webContents using Electron's debugger API.
- */
-async function getCdpTargetId(webContents: Electron.WebContents): Promise<string | undefined> {
-  const dbg = webContents.debugger;
-  let attachedHere = false;
-  try {
-    if (!dbg.isAttached()) {
-      dbg.attach('1.3');
-      attachedHere = true;
-    }
-    // 通过 Target.getTargetInfo 获取当前 webContents 对应的 CDP targetId。
-    const info = (await dbg.sendCommand('Target.getTargetInfo')) as {
-      targetInfo?: { targetId?: string };
-    };
-    const id = String(info?.targetInfo?.targetId ?? '');
-    return id || undefined;
-  } catch {
-    return undefined;
-  } finally {
-    if (attachedHere) {
-      try {
-        dbg.detach();
-      } catch {
-        // ignore
-      }
-    }
-  }
-}
+// getCdpTargetId is imported from './cdpUtils' — shared with browserWindow.ts.
 
 /**
  * 注册主进程 IPC handlers（只注册一次）：
@@ -332,6 +305,11 @@ export function registerIpcHandlers(args: { log: Logger }) {
   // 在标签浏览器窗口中打开 URL（单例窗口，多标签页管理）。
   ipcMain.handle('openloaf:open-browser-window', async (_event, payload: { url: string }) => {
     return openUrlInBrowserWindow(payload?.url ?? '');
+  });
+
+  // 无界面模式：后台隐藏浏览器，仅用于 CDP 自动化。
+  ipcMain.handle('openloaf:open-headless-browser', async (_event, payload: { url: string }) => {
+    return openHeadlessBrowser(payload?.url ?? '');
   });
 
   // 在独立应用窗口中打开项目上下文。

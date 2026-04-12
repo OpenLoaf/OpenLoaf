@@ -48,6 +48,7 @@ import {
   loadAndPrepareMessageChainFromIds,
   saveLastMessageAndResolveParent,
   stripImagePartsForNonVisionModel,
+  sanitizePartialParts,
 } from "./chatStreamHelpers";
 import { resolveCodexRequestOptions, resolveClaudeCodeRequestOptions } from "./messageOptionResolver";
 import {
@@ -67,6 +68,7 @@ import {
   updateMessageMetadata,
   writeSessionJson,
 } from "@/ai/services/chat/repositories/chatFileStore";
+import { loadMessageTree } from "@/ai/services/chat/repositories/chatMessageTreeIndex";
 import {
   ACTIVATED_TOOLS_METADATA_KEY,
   ActivatedToolSet,
@@ -199,6 +201,26 @@ export async function runChatStream(input: {
     pageContext: input.request.pageContext,
   });
 
+  // ── Continue mode: 从中断的 assistant turn 断点继续 ──
+  const isContinueMode = Boolean(input.request.continue);
+  let continueReplayParts: unknown[] | null = null;
+  if (isContinueMode && assistantMessageId) {
+    try {
+      const tree = await loadMessageTree(sessionId);
+      const partialMsg = tree.byId.get(assistantMessageId);
+      if (partialMsg && partialMsg.role === "assistant") {
+        const rawParts = Array.isArray(partialMsg.parts) ? partialMsg.parts : [];
+        continueReplayParts = sanitizePartialParts(rawParts);
+        logger.info(
+          { sessionId, assistantMessageId, partCount: continueReplayParts.length },
+          "[chat] continue mode: loaded partial assistant parts",
+        );
+      }
+    } catch (err) {
+      logger.warn({ err, sessionId, assistantMessageId }, "[chat] continue mode: load partial parts failed");
+    }
+  }
+
   const lastMessage = incomingMessages.at(-1) as OpenLoafUIMessage | undefined;
   if (!lastMessage || !lastMessage.role || !lastMessage.id) {
     return createErrorStreamResponse({
@@ -207,6 +229,33 @@ export async function runChatStream(input: {
       parentMessageId: await resolveRightmostLeafId(sessionId),
       errorText: "请求无效：缺少最后一条消息。",
     });
+  }
+
+  // 逻辑：bg-drain — 前端检测到后台任务终态 + AI 空闲后自动触发的 drain turn。
+  // 在保存前把 <bg-drain> 占位消息重写为真正的 bg-notification 内容，
+  // 这样消息树和前端卡片都正确，AI 也能在 modelMessages 里看到通知。
+  const isBgDrain = (lastMessage as any).metadata?.openloaf?.syntheticKind === 'bg-drain';
+  if (isBgDrain) {
+    const { backgroundProcessManager } = await import(
+      '@/ai/services/background/BackgroundProcessManager'
+    );
+    const notifications = backgroundProcessManager.drainNotifications(sessionId, 'later');
+    if (notifications.length === 0) {
+      return new Response(null, { status: 204 });
+    }
+    // 重写消息内容为 notification XML
+    const innerXml = notifications.map((n) => n.xmlContent).join('\n');
+    const wrappedContent = `<system-reminder>\n${innerXml}\n</system-reminder>`;
+    const taskIds = notifications.map((n) => n.taskId);
+    (lastMessage as any).parts = [{ type: 'text', text: wrappedContent }];
+    (lastMessage as any).metadata = {
+      ...((lastMessage as any).metadata ?? {}),
+      openloaf: {
+        syntheticKind: 'bg-notification',
+        isMeta: true,
+        taskIds,
+      },
+    };
   }
 
   // 逻辑：CLI 直连模式 — 跳过 agent 系统指令和工具编排，消息直接发给 CLI 适配模型。
@@ -546,6 +595,15 @@ export async function runChatStream(input: {
     await restoreBasePlanFromChain(messages);
   }
 
+  // ── Continue mode: 将 partial assistant 内容注入 modelMessages，使模型从断点继续 ──
+  if (isContinueMode && continueReplayParts && continueReplayParts.length > 0 && !directCli) {
+    modelMessages.push({
+      id: `__continue_prefill_${assistantMessageId}`,
+      role: "assistant",
+      parts: continueReplayParts,
+    } as UIMessage);
+  }
+
   // 逻辑：从当前请求用户消息中解析 CLI 参数，兼容 directCli 与普通模式。
   const optionSourceMessages = directCli ? modelMessages : messages;
   setCodexOptions(resolveCodexRequestOptions(optionSourceMessages));
@@ -729,5 +787,7 @@ export async function runChatStream(input: {
     agentMetadata,
     abortController,
     assistantMessageKind: (isCompactCommand || isCliCompact) ? "compact_summary" : undefined,
+    replayParts: continueReplayParts ?? undefined,
+    isBgDrain,
   });
 }

@@ -25,8 +25,6 @@ const TOOL_TIMEOUT_MAP: Record<string, number> = {
   // Browser tools — network-dependent
   'OpenUrl': 60_000,
   'BrowserSnapshot': 60_000,
-  'BrowserObserve': 60_000,
-  'BrowserExtract': 60_000,
   'BrowserAct': 60_000,
   'BrowserWait': 60_000,
 

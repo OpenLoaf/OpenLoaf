@@ -1,6 +1,9 @@
 ---
-name: office-document-guide
-description: Office 文档操作指南：Excel、Word、PPTX、PDF 的查询、编辑与格式���换。当用户消息涉及任何办公文档格式时必须加载本技能，包括但不限于：Excel/xlsx/xls/csv/spreadsheet/电子表格/表格数据、Word/docx/doc/文档编辑/排版、PowerPoint/pptx/ppt/slides/幻灯片/演示文稿/做个PPT/做个报告、PDF/pdf/合并PDF/拆分PDF/水印/表单填写/pdf转换/读取PDF、以及 convert/导出/格式转换/打开这个文档/编辑这个表格/table/chart data/form/fill form 等场景。只要用户的请求涉及读取、创建、编辑、转换上述任意文件格式，均应触���。
+name: pdf-word-excel-pptx
+description: >
+  Office 文档操作——Excel/Word/PPTX/PDF 的读取、编辑、创建与格式转换。
+  当用户要操作办公文档文件（xlsx/docx/pptx/pdf/csv）时激活。
+  **不用于**：纯文本文件（→file-ops）、讨论文档内容（→直接回答）。
 ---
 
 # Office 文档操作指南

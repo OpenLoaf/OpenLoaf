@@ -8,14 +8,13 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import { EventEmitter } from 'node:events'
-import { randomUUID } from 'node:crypto'
+import { randomBytes } from 'node:crypto'
 import type {
   BgAgentTaskState,
   BgNotification,
   BgNotificationPriority,
   BgShellTaskState,
   BgTaskState,
-  BgTaskStatus,
   BgTaskSummary,
 } from './types'
 import {
@@ -24,6 +23,11 @@ import {
   type ShellFinalizeResult,
 } from './shellTask'
 import { readOutputIncremental } from './outputBuffer'
+
+/** Generate a short, human-readable ID with a prefix. Format: `openloaf-<prefix>-<6hex>`. */
+function friendlyId(prefix: string): string {
+  return `openloaf-${prefix}-${randomBytes(3).toString('hex')}`
+}
 
 export type SpawnBashOpts = {
   sessionId: string
@@ -43,10 +47,6 @@ export type SpawnAgentOpts = {
   abortController: AbortController
 }
 
-export type ReadOutputOpts = {
-  block?: boolean
-  timeoutMs?: number
-}
 
 /**
  * Session-scoped registry of background tasks (shell + agent). This is the
@@ -77,8 +77,19 @@ export class BackgroundProcessManager {
 
   // ─── Spawn ────────────────────────────────────────────────────────────
 
+  /**
+   * Spawn a background PowerShell task. On Windows this is the default shell
+   * path; on macOS/Linux it still runs through spawnShellProcess which picks
+   * PowerShell (pwsh) via getShellExecutable() — though agents there should
+   * prefer spawnBash. This method exists so the PowerShell tool has an
+   * explicit, symmetric entry point to the Bash tool.
+   */
+  async spawnPowerShell(opts: SpawnBashOpts): Promise<BgShellTaskState> {
+    return this.spawnBash(opts)
+  }
+
   async spawnBash(opts: SpawnBashOpts): Promise<BgShellTaskState> {
-    const taskId = randomUUID()
+    const taskId = friendlyId('sh')
     const startTime = Date.now()
 
     const stateBase: BgShellTaskState = {
@@ -123,7 +134,7 @@ export class BackgroundProcessManager {
    * AgentManager; we wrap it for unified notification + kill surface.
    */
   spawnAgent(opts: SpawnAgentOpts): BgAgentTaskState {
-    const taskId = randomUUID()
+    const taskId = friendlyId('bg')
     const startTime = Date.now()
 
     const state: BgAgentTaskState = {
@@ -178,23 +189,26 @@ export class BackgroundProcessManager {
       }
     }
 
-    // Enqueue notification
+    // Enqueue notification — skip for killed tasks because the Kill tool
+    // already reported the result; enqueueing would spuriously wake Sleep.
     if (!task.notified) {
       task.notified = true
-      const priority: BgNotificationPriority =
-        result.status === 'failed' ? 'next' : 'later'
-      const xml = this.buildAgentNotificationXml(task)
-      if (xml) {
-        const notification: BgNotification = {
-          taskId,
-          priority,
-          xmlContent: xml,
-          enqueuedAt: Date.now(),
+      if (result.status !== 'killed') {
+        const priority: BgNotificationPriority =
+          result.status === 'failed' ? 'next' : 'later'
+        const xml = this.buildAgentNotificationXml(task)
+        if (xml) {
+          const notification: BgNotification = {
+            taskId,
+            priority,
+            xmlContent: xml,
+            enqueuedAt: Date.now(),
+          }
+          const queue = this.notifications.get(task.sessionId) ?? []
+          queue.push(notification)
+          this.notifications.set(task.sessionId, queue)
+          this.emitter.emit(`session:${task.sessionId}:notification`, notification)
         }
-        const queue = this.notifications.get(task.sessionId) ?? []
-        queue.push(notification)
-        this.notifications.set(task.sessionId, queue)
-        this.emitter.emit(`session:${task.sessionId}:notification`, notification)
       }
     }
 
@@ -219,25 +233,28 @@ export class BackgroundProcessManager {
     task.interrupted = result.interrupted
     task.endTime = Date.now()
 
-    // Enqueue completion notification for the next turn (P2 drain will pick
-    // it up). Non-zero exit → 'next' priority so the AI hears about failures
+    // Enqueue completion notification — skip for killed tasks because the
+    // Kill tool already reported the result; enqueueing would spuriously wake
+    // Sleep. Non-zero exit → 'next' priority so the AI hears about failures
     // immediately.
     if (!task.notified) {
       task.notified = true
-      const priority: BgNotificationPriority =
-        result.status === 'failed' ? 'next' : 'later'
-      const xml = await this.buildShellNotificationXml(task).catch(() => '')
-      if (xml) {
-        const notification: BgNotification = {
-          taskId,
-          priority,
-          xmlContent: xml,
-          enqueuedAt: Date.now(),
+      if (result.status !== 'killed') {
+        const priority: BgNotificationPriority =
+          result.status === 'failed' ? 'next' : 'later'
+        const xml = await this.buildShellNotificationXml(task).catch(() => '')
+        if (xml) {
+          const notification: BgNotification = {
+            taskId,
+            priority,
+            xmlContent: xml,
+            enqueuedAt: Date.now(),
+          }
+          const queue = this.notifications.get(task.sessionId) ?? []
+          queue.push(notification)
+          this.notifications.set(task.sessionId, queue)
+          this.emitter.emit(`session:${task.sessionId}:notification`, notification)
         }
-        const queue = this.notifications.get(task.sessionId) ?? []
-        queue.push(notification)
-        this.notifications.set(task.sessionId, queue)
-        this.emitter.emit(`session:${task.sessionId}:notification`, notification)
       }
     }
 
@@ -307,6 +324,7 @@ export class BackgroundProcessManager {
         endTime: task.endTime,
         pid: task.pid,
         command: task.command,
+        outputPath: task.outputPath,
         exitCode: task.exitCode,
       }
     }
@@ -319,80 +337,6 @@ export class BackgroundProcessManager {
       endTime: task.endTime,
       agentId: task.agentId,
     }
-  }
-
-  // ─── Output ───────────────────────────────────────────────────────────
-
-  /**
-   * Read output bytes since the last offset stored on the task. When
-   * `block: true`, wait until the task completes (or timeout) before
-   * reading one final time.
-   */
-  async readOutput(
-    taskId: string,
-    opts: ReadOutputOpts = {},
-  ): Promise<{
-    content: string
-    isFinal: boolean
-    exitCode?: number
-    status: BgTaskStatus
-    truncated: boolean
-  }> {
-    const task = this.tasks.get(taskId)
-    if (!task) throw new Error(`Task not found: ${taskId}`)
-    if (task.kind !== 'shell') {
-      throw new Error(`Task ${taskId} is not a shell task`)
-    }
-
-    if (opts.block && task.status === 'running') {
-      const timeoutMs = Math.min(Math.max(opts.timeoutMs ?? 60_000, 1_000), 600_000)
-      await this.waitForCompletion(taskId, timeoutMs)
-    }
-
-    const read = await readOutputIncremental(task.outputPath, task.outputOffset)
-    task.outputOffset = read.newOffset
-
-    return {
-      content: read.content,
-      isFinal: task.status !== 'running',
-      exitCode: task.exitCode,
-      status: task.status,
-      truncated: read.truncated,
-    }
-  }
-
-  private waitForCompletion(taskId: string, timeoutMs: number): Promise<void> {
-    return new Promise((resolve) => {
-      let settled = false
-      const timer = setTimeout(() => {
-        if (settled) return
-        settled = true
-        this.emitter.off('complete', onComplete)
-        resolve()
-      }, timeoutMs)
-      timer.unref()
-
-      const onComplete = (t: BgTaskState) => {
-        if (t.id !== taskId) return
-        if (settled) return
-        settled = true
-        clearTimeout(timer)
-        this.emitter.off('complete', onComplete)
-        resolve()
-      }
-      this.emitter.on('complete', onComplete)
-
-      // Double-check in case it already finished between the caller's check
-      // and our listener registration.
-      const task = this.tasks.get(taskId)
-      if (task && task.status !== 'running') {
-        if (settled) return
-        settled = true
-        clearTimeout(timer)
-        this.emitter.off('complete', onComplete)
-        resolve()
-      }
-    })
   }
 
   // ─── Kill ─────────────────────────────────────────────────────────────

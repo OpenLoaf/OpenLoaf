@@ -8,7 +8,7 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import {
-  MODEL_TAG_LABELS,
+  MODEL_TAGS,
   type ModelCapabilities,
   type ModelDefinition,
   type ModelTag,
@@ -73,7 +73,7 @@ export type CloudChatModelsResponse = {
 
 /** Map SaaS chat models to local ModelDefinition. */
 export function mapCloudChatModels(items: CloudChatModelItem[]): ModelDefinition[] {
-  const tagSet = new Set(Object.keys(MODEL_TAG_LABELS) as ModelTag[]);
+  const tagSet = new Set<ModelTag>(MODEL_TAGS);
   const normalizeTags = (tags: string[]): ModelTag[] =>
     tags.filter((tag): tag is ModelTag => tagSet.has(tag as ModelTag));
 

@@ -16,6 +16,7 @@ import { needsApprovalForCommand } from '@/ai/tools/commandApproval'
 import { resolveCommandSandboxDirs } from '@/ai/tools/commandSandbox'
 import { backgroundProcessManager } from '@/ai/services/background/BackgroundProcessManager'
 import { getRequestContext } from '@/ai/shared/context/requestContext'
+import { createToolProgress } from '@/ai/tools/toolProgress'
 
 /** 检测命令中可能存在的未加引号的中文路径。 */
 function detectUnquotedCjkPaths(command: string): string | null {
@@ -58,11 +59,12 @@ export const bashTool = tool({
     description,
     timeout,
     run_in_background,
-  }): Promise<string | {
+  }, { toolCallId }): Promise<string | {
     task_id: string
     pid: number
     status: 'running'
     background_info: string
+    output_path: string
   }> => {
     const expandedCommand = expandPathTemplateVars(command)
     const { cwd } = resolveToolWorkdir({})
@@ -86,16 +88,20 @@ export const bashTool = tool({
         task_id: task.id,
         pid: task.pid,
         status: 'running',
-        background_info: `Command backgrounded as task ${task.id} (pid ${task.pid}). Use BgOutput(task_id) to read output, BgKill(task_id) to stop.`,
+        output_path: task.outputPath,
+        background_info: `Command backgrounded as task ${task.id} (pid ${task.pid}). Output log: ${task.outputPath}. Use Read to check output, Kill(task_id) to stop.`,
       }
     }
 
     const { file, args } = buildShellCommand(expandedCommand)
+    const progress = createToolProgress(toolCallId, 'Bash')
 
     const timeoutMs = Math.min(timeout ?? 120_000, 600_000)
     const startAt = Date.now()
     const outputChunks: string[] = []
     let timedOut = false
+
+    progress.start(description ?? expandedCommand)
 
     const child = spawn(file, args, {
       cwd,
@@ -114,8 +120,16 @@ export const bashTool = tool({
 
     child.stdout.setEncoding('utf-8')
     child.stderr.setEncoding('utf-8')
-    child.stdout.on('data', (chunk) => outputChunks.push(String(chunk)))
-    child.stderr.on('data', (chunk) => outputChunks.push(String(chunk)))
+    child.stdout.on('data', (chunk) => {
+      const text = String(chunk)
+      outputChunks.push(text)
+      progress.delta(text)
+    })
+    child.stderr.on('data', (chunk) => {
+      const text = String(chunk)
+      outputChunks.push(text)
+      progress.delta(text)
+    })
 
     const { code } = await new Promise<{ code: number | null }>((resolve, reject) => {
       child.once('error', reject)
@@ -134,6 +148,11 @@ export const bashTool = tool({
     const sections: string[] = []
     if (timedOut) {
       sections.push(`⚠ Command timed out after ${timeoutMs / 1000}s and was killed.`)
+      progress.error(`Timed out after ${timeoutMs / 1000}s`)
+    } else if (code !== 0) {
+      progress.done(`Exit ${code ?? -1} in ${durationSeconds}s`)
+    } else {
+      progress.done(`Done in ${durationSeconds}s`)
     }
     sections.push(`Exit code: ${code ?? -1}`, `Wall time: ${durationSeconds} seconds`)
     if (truncated.totalLines !== truncated.truncatedLines) {

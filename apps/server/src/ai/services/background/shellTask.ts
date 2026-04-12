@@ -14,12 +14,23 @@ import os from 'node:os'
 import treeKill from 'tree-kill'
 import type { BgTaskMetaFile } from './types'
 
-const UUID_REGEX = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/
+/** Accepts friendly IDs like `openloaf-sh-a1b2c3` and legacy UUIDs. */
+const TASK_ID_REGEX = /^(?:openloaf-[a-z]{2,4}-[a-f0-9]{6}|[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})$/
 
 // Session id comes from the session service and may contain alphanumerics,
 // underscores and hyphens. Strict allowlist prevents directory traversal or
 // shell metacharacters being planted via sessionId.
 const SESSION_ID_REGEX = /^[A-Za-z0-9_-]+$/
+
+/**
+ * Return the shell executable for the current platform.
+ * Windows defaults to `powershell.exe`; Unix uses `/bin/sh`.
+ * Extracted so that a future PowerShell-version-detection helper (P2) can
+ * override it without touching spawn logic.
+ */
+export function getShellExecutable(): string {
+  return process.platform === 'win32' ? 'powershell.exe' : '/bin/sh'
+}
 
 /** Root directory for background task output files. */
 export function getBgTasksRoot(): string {
@@ -79,7 +90,7 @@ export async function spawnShellProcess(opts: {
   ownerAgentId?: string
   onFinalize: (result: ShellFinalizeResult) => void | Promise<void>
 }): Promise<ShellSpawnResult> {
-  if (!UUID_REGEX.test(opts.taskId)) {
+  if (!TASK_ID_REGEX.test(opts.taskId)) {
     throw new Error(`Invalid taskId format: ${opts.taskId}`)
   }
 
@@ -97,11 +108,11 @@ export async function spawnShellProcess(opts: {
 
   let child: ChildProcess
   try {
-    const shellFile = process.platform === 'win32' ? 'powershell.exe' : '/bin/sh'
-    const shellArgs =
-      process.platform === 'win32'
-        ? ['-NoLogo', '-NonInteractive', '-Command', opts.command]
-        : ['-lc', opts.command]
+    const shellFile = getShellExecutable()
+    const isWin = process.platform === 'win32'
+    const shellArgs = isWin
+      ? ['-NoLogo', '-NonInteractive', '-Command', opts.command]
+      : ['-lc', opts.command]
 
     child = spawn(shellFile, shellArgs, {
       cwd: opts.cwd,

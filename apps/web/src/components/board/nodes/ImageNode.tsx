@@ -80,6 +80,7 @@ import { FailureOverlay } from './shared/FailureOverlay';
 import { InlinePanelPortal } from './shared/InlinePanelPortal';
 import { useMediaGeneration, type GenerateSubmitResult, type SubmitOptions } from './shared/useMediaGeneration';
 import { useCancelGeneration } from './shared/useCancelGeneration';
+import { CrossModalChipBar } from './shared/CrossModalChipBar';
 
 /** Max bytes for image node preview fetches. */
 const IMAGE_NODE_PREVIEW_MAX_BYTES = 100 * 1024;
@@ -1131,6 +1132,16 @@ export function ImageNodeView({
         onConfirm={handleAdjustConfirm}
         onCancel={() => setAdjusting(false)}
       />
+      {hasPreview && !isImageError ? (
+        <CrossModalChipBar
+          hostRef={rootRef}
+          engine={engine}
+          sourceNodeId={element.id}
+          sourceType="image"
+          xywh={element.xywh}
+          active={Boolean(selected || expanded)}
+        />
+      ) : null}
     </NodeFrame>
   );
 }
