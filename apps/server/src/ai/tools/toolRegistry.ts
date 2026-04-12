@@ -47,15 +47,13 @@ import { jsxCreateTool } from "@/ai/tools/jsxCreateTool";
 import { chartRenderTool } from "@/ai/tools/chartTools";
 import { scheduledTaskManageTool, scheduledTaskStatusTool, scheduledTaskWaitTool } from "@/ai/tools/scheduleTools";
 import { bgListTool, bgOutputTool, bgKillTool } from "@/ai/tools/bgTaskTools";
+import { sleepTool } from "@/ai/tools/sleepTool";
 import { memorySaveTool, memorySearchTool, memoryGetTool } from "@/ai/tools/memoryTools";
 import { openUrlToolDef } from "@openloaf/api/types/tools/browser";
 import {
   browserActToolDef,
-  browserExtractToolDef,
-  browserObserveToolDef,
   browserSnapshotToolDef,
   browserWaitToolDef,
-  browserScreenshotToolDef,
   browserDownloadImageToolDef,
 } from "@openloaf/api/types/tools/browserAutomation";
 import {
@@ -97,6 +95,7 @@ import {
   bgOutputToolDef,
   bgKillToolDef,
 } from "@openloaf/api/types/tools/bgTask";
+import { sleepToolDef } from "@openloaf/api/types/tools/sleep";
 import {
   memorySaveToolDef,
   memorySearchToolDef,
@@ -122,11 +121,8 @@ import {
 } from "@openloaf/api/types/tools/widget";
 import {
   browserActTool,
-  browserExtractTool,
-  browserObserveTool,
   browserSnapshotTool,
   browserWaitTool,
-  browserScreenshotTool,
   browserDownloadImageTool,
 } from "@/ai/tools/browserAutomationTools";
 import { wrapToolWithTimeout } from "@/ai/tools/toolTimeout";
@@ -195,20 +191,11 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
   [browserSnapshotToolDef.id]: {
     tool: browserSnapshotTool,
   },
-  [browserObserveToolDef.id]: {
-    tool: browserObserveTool,
-  },
-  [browserExtractToolDef.id]: {
-    tool: browserExtractTool,
-  },
   [browserActToolDef.id]: {
     tool: browserActTool,
   },
   [browserWaitToolDef.id]: {
     tool: browserWaitTool,
-  },
-  [browserScreenshotToolDef.id]: {
-    tool: browserScreenshotTool,
   },
   [browserDownloadImageToolDef.id]: {
     tool: browserDownloadImageTool,
@@ -330,6 +317,9 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
   [bgKillToolDef.id]: {
     tool: bgKillTool,
   },
+  [sleepToolDef.id]: {
+    tool: sleepTool,
+  },
   [imageProcessToolDef.id]: {
     tool: imageProcessTool,
   },
@@ -376,11 +366,8 @@ const TOOL_DEF_REGISTRY: Record<string, { parameters?: any }> = {
   [agentToolDef.id]: agentToolDef,
   [sendMessageToolDef.id]: sendMessageToolDef,
   [browserSnapshotToolDef.id]: browserSnapshotToolDef,
-  [browserObserveToolDef.id]: browserObserveToolDef,
-  [browserExtractToolDef.id]: browserExtractToolDef,
   [browserActToolDef.id]: browserActToolDef,
   [browserWaitToolDef.id]: browserWaitToolDef,
-  [browserScreenshotToolDef.id]: browserScreenshotToolDef,
   [browserDownloadImageToolDef.id]: browserDownloadImageToolDef,
   [bashToolDef.id]: bashToolDef,
   [readToolDef.id]: readToolDef,
@@ -421,6 +408,7 @@ const TOOL_DEF_REGISTRY: Record<string, { parameters?: any }> = {
   [bgListToolDef.id]: bgListToolDef,
   [bgOutputToolDef.id]: bgOutputToolDef,
   [bgKillToolDef.id]: bgKillToolDef,
+  [sleepToolDef.id]: sleepToolDef,
   [imageProcessToolDef.id]: imageProcessToolDef,
   [videoConvertToolDef.id]: videoConvertToolDef,
   [videoDownloadToolDef.id]: videoDownloadToolDef,

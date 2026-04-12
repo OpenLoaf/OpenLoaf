@@ -10,6 +10,7 @@
 import { EventEmitter } from 'node:events'
 import { randomUUID } from 'node:crypto'
 import type {
+  BgAgentTaskState,
   BgNotification,
   BgNotificationPriority,
   BgShellTaskState,
@@ -31,6 +32,15 @@ export type SpawnBashOpts = {
   ownerAgentId?: string
   env?: NodeJS.ProcessEnv
   cwd?: string
+}
+
+export type SpawnAgentOpts = {
+  sessionId: string
+  agentId: string
+  prompt: string
+  description?: string
+  ownerAgentId?: string
+  abortController: AbortController
 }
 
 export type ReadOutputOpts = {
@@ -108,6 +118,93 @@ export class BackgroundProcessManager {
     return stateBase
   }
 
+  /**
+   * Register a background agent task. The agent is already spawned by
+   * AgentManager; we wrap it for unified notification + kill surface.
+   */
+  spawnAgent(opts: SpawnAgentOpts): BgAgentTaskState {
+    const taskId = randomUUID()
+    const startTime = Date.now()
+
+    const state: BgAgentTaskState = {
+      kind: 'agent',
+      id: taskId,
+      sessionId: opts.sessionId,
+      status: 'running',
+      description: opts.description ?? opts.prompt.slice(0, 200),
+      ownerAgentId: opts.ownerAgentId,
+      startTime,
+      notified: false,
+      agentId: opts.agentId,
+      prompt: opts.prompt,
+      abortController: opts.abortController,
+    }
+
+    this.tasks.set(taskId, state)
+    this.addToSessionIndex(opts.sessionId, taskId)
+
+    this.emitter.emit('update', state)
+    this.emitter.emit(`session:${opts.sessionId}:update`, state)
+
+    return state
+  }
+
+  /**
+   * Finalize a background agent task (called from agentTools.ts when the
+   * agent's statusListener fires a terminal state). Enqueues a notification
+   * and cascades cleanup to any child bg shells.
+   */
+  handleAgentFinalize(
+    taskId: string,
+    result: {
+      status: 'completed' | 'failed' | 'killed'
+      result?: string
+      error?: string
+      toolUseCount?: number
+    },
+  ): void {
+    const task = this.tasks.get(taskId)
+    if (!task || task.kind !== 'agent') return
+    if (task.status !== 'running') return // already finalized
+
+    task.status = result.status
+    task.result = result.result
+    task.error = result.error
+    task.endTime = Date.now()
+    if (result.toolUseCount != null) {
+      task.progress = {
+        ...(task.progress ?? { toolUseCount: 0, tokenCount: 0 }),
+        toolUseCount: result.toolUseCount,
+      }
+    }
+
+    // Enqueue notification
+    if (!task.notified) {
+      task.notified = true
+      const priority: BgNotificationPriority =
+        result.status === 'failed' ? 'next' : 'later'
+      const xml = this.buildAgentNotificationXml(task)
+      if (xml) {
+        const notification: BgNotification = {
+          taskId,
+          priority,
+          xmlContent: xml,
+          enqueuedAt: Date.now(),
+        }
+        const queue = this.notifications.get(task.sessionId) ?? []
+        queue.push(notification)
+        this.notifications.set(task.sessionId, queue)
+        this.emitter.emit(`session:${task.sessionId}:notification`, notification)
+      }
+    }
+
+    // Cascade: kill child bg shells owned by this agent
+    void this.killForAgent(task.agentId).catch(() => {})
+
+    this.emitter.emit('complete', task)
+    this.emitter.emit(`session:${task.sessionId}:complete`, task)
+  }
+
   // ─── Finalize ─────────────────────────────────────────────────────────
 
   private async handleShellFinalize(
@@ -164,6 +261,23 @@ export class BackgroundProcessManager {
       `  <exit-code>${task.exitCode ?? -1}</exit-code>`,
       `  <duration-ms>${duration}</duration-ms>`,
       `  <output-preview>${escapeXml(preview)}</output-preview>`,
+      '</bg-task-notification>',
+    ].join('\n')
+  }
+
+  private buildAgentNotificationXml(task: BgAgentTaskState): string {
+    const duration = (task.endTime ?? Date.now()) - task.startTime
+    const summary = task.result ? escapeXml(task.result.slice(-2000)) : ''
+    return [
+      '<bg-task-notification>',
+      `  <task-id>${escapeXml(task.id)}</task-id>`,
+      `  <task-type>agent</task-type>`,
+      `  <status>${escapeXml(task.status)}</status>`,
+      `  <description>${escapeXml(task.description)}</description>`,
+      `  <agent-id>${escapeXml(task.agentId)}</agent-id>`,
+      `  <duration-ms>${duration}</duration-ms>`,
+      ...(summary ? [`  <output-preview>${summary}</output-preview>`] : []),
+      ...(task.error ? [`  <error>${escapeXml(task.error)}</error>`] : []),
       '</bg-task-notification>',
     ].join('\n')
   }
@@ -291,9 +405,10 @@ export class BackgroundProcessManager {
     if (task.kind === 'shell') {
       await this.killShell(task)
     } else {
+      // Agent kill: abort triggers the agent runtime which fires a
+      // statusListener that calls handleAgentFinalize (registered in
+      // agentTools.ts async branch). No direct status change here.
       task.abortController.abort()
-      // Finalization for agents is driven by the agent runtime; we don't
-      // force a status change here. P3 wires this up end-to-end.
     }
   }
 

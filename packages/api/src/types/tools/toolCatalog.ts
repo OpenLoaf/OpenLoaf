@@ -10,11 +10,8 @@
 import { openUrlToolDef } from "./browser";
 import {
   browserSnapshotToolDef,
-  browserObserveToolDef,
-  browserExtractToolDef,
   browserActToolDef,
   browserWaitToolDef,
-  browserScreenshotToolDef,
   browserDownloadImageToolDef,
 } from "./browserAutomation";
 import { calendarQueryToolDef, calendarMutateToolDef } from "./calendar";
@@ -59,6 +56,7 @@ import {
   bgOutputToolDef,
   bgKillToolDef,
 } from "./bgTask";
+import { sleepToolDef } from "./sleep";
 import { imageProcessToolDef } from "./imageProcess";
 import { videoConvertToolDef } from "./videoConvert";
 import { videoDownloadToolDef } from "./videoDownload";
@@ -87,11 +85,8 @@ const TOOL_DEFS: ToolDefLike[] = [
   toolSearchToolDef,
   openUrlToolDef,
   browserSnapshotToolDef,
-  browserObserveToolDef,
-  browserExtractToolDef,
   browserActToolDef,
   browserWaitToolDef,
-  browserScreenshotToolDef,
   browserDownloadImageToolDef,
   readToolDef,
   editToolDef,
@@ -133,6 +128,7 @@ const TOOL_DEFS: ToolDefLike[] = [
   bgListToolDef,
   bgOutputToolDef,
   bgKillToolDef,
+  sleepToolDef,
   imageProcessToolDef,
   videoConvertToolDef,
   videoDownloadToolDef,
@@ -177,12 +173,9 @@ const TOOL_KEYWORDS: Record<string, { keywords: string[]; group: string }> = {
   'EditDocument': { keywords: ['edit', 'document', 'modify', 'write', 'update', 'doc'], group: 'fileWrite' },
   'Bash': { keywords: ['shell', 'bash', 'command', 'terminal', 'execute', 'run', 'script'], group: 'shell' },
   'OpenUrl': { keywords: ['url', 'link', 'browser', 'open', 'web', 'navigate', 'website'], group: 'web' },
-  'BrowserSnapshot': { keywords: ['browser', 'screenshot', 'snapshot', 'capture', 'page'], group: 'web' },
-  'BrowserObserve': { keywords: ['browser', 'observe', 'watch', 'monitor', 'dom', 'elements'], group: 'web' },
-  'BrowserExtract': { keywords: ['browser', 'extract', 'scrape', 'content', 'data', 'page'], group: 'web' },
+  'BrowserSnapshot': { keywords: ['browser', 'screenshot', 'snapshot', 'capture', 'page', 'image', 'photo'], group: 'web' },
   'BrowserAct': { keywords: ['browser', 'click', 'type', 'interact', 'automate', 'action'], group: 'web' },
   'BrowserWait': { keywords: ['browser', 'wait', 'load', 'ready', 'page'], group: 'web' },
-  'BrowserScreenshot': { keywords: ['browser', 'screenshot', 'capture', 'page', 'image', 'photo'], group: 'web' },
   'BrowserDownloadImage': { keywords: ['browser', 'download', 'image', 'picture', 'save', 'photo', 'img'], group: 'web' },
   'ChartRender': { keywords: ['chart', 'graph', 'plot', 'data', 'visualization', 'diagram'], group: 'ui' },
   'EmailQuery': { keywords: ['email', 'mail', 'inbox', 'message', 'search', 'folder', 'read'], group: 'email' },
@@ -198,6 +191,7 @@ const TOOL_KEYWORDS: Record<string, { keywords: string[]; group: string }> = {
   'BgList': { keywords: ['background', 'bg', 'list', 'process', 'running', 'shell', 'agent'], group: 'background' },
   'BgOutput': { keywords: ['background', 'bg', 'output', 'read', 'wait', 'block', 'shell', 'log'], group: 'background' },
   'BgKill': { keywords: ['background', 'bg', 'kill', 'terminate', 'cancel', 'stop', 'process'], group: 'background' },
+  'Sleep': { keywords: ['sleep', 'wait', 'pause', 'delay', 'idle', 'yield', 'background', 'notification'], group: 'background' },
   'ExcelQuery': { keywords: ['excel', 'spreadsheet', 'xlsx', 'csv', 'sheet', 'cell', 'read'], group: 'office' },
   'ExcelMutate': { keywords: ['excel', 'spreadsheet', 'xlsx', 'create', 'write', 'formula'], group: 'office' },
   'WordQuery': { keywords: ['word', 'docx', 'document', 'read', 'text', 'html', 'markdown'], group: 'office' },

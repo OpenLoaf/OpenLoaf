@@ -11,12 +11,15 @@ import {
   createUIMessageStream,
   type InferUIMessageChunk,
   JsonToSseTransformStream,
+  type ModelMessage,
   smoothStream,
   UI_MESSAGE_STREAM_HEADERS,
   type UIMessage,
 } from "ai";
+import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { backgroundProcessManager } from "@/ai/services/background/BackgroundProcessManager";
 import { logger } from "@/common/logger";
 import type { ChatMessageKind, OpenLoafUIMessage, TokenUsage } from "@openloaf/api";
 import { readBasicConf } from "@/modules/settings/openloafConfStore";
@@ -322,15 +325,28 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
       pushAgentFrame(input.agentRunner.frame);
 
       try {
-        const modelMessages = await buildModelMessages(
-          input.modelMessages as UIMessage[],
+        // ─── While-loop state (P2: end-of-turn drain + synthetic user message) ───
+        // After each turn finishes we drain pending bg-task notifications and,
+        // if any are present, inject a synthetic user message and spin another
+        // turn so the AI absorbs completion events without the user having to
+        // type anything.
+        let uiHistoryMessages: UIMessage[] = input.modelMessages as UIMessage[];
+        let modelMessages = await buildModelMessages(
+          uiHistoryMessages,
           input.agentRunner.agent.tools,
         );
+        let currentAssistantMessageId = input.assistantMessageId;
+        let currentParentMessageId: string | null = input.parentMessageId;
+        let currentTurnStartedAt: Date = input.requestStartAt;
+
+        const MAX_BG_NOTIFICATIONS = 20;
+        const BG_TURN_DEADLINE_MS = 60_000;
+        let totalBgDrained = 0;
+        const bgLoopStartMs = Date.now();
 
         // AI 调试模式 — 每步 LLM 请求/响应实时写入独立文件
         const isDebugMode = readBasicConf().chatPrefaceEnabled;
         const debugSessionId = input.sessionId;
-        const debugMessageId = input.assistantMessageId;
         const debugAttemptTag = (() => {
           const now = new Date();
           const hh = String(now.getHours()).padStart(2, "0");
@@ -338,6 +354,14 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
           const ss = String(now.getSeconds()).padStart(2, "0");
           return `${hh}${mm}${ss}`;
         })();
+
+        // eslint-disable-next-line no-constant-condition -- intentional: end-of-turn drain loop, exit via break
+        while (true) {
+        const localAssistantId = currentAssistantMessageId;
+        const localParentId = currentParentMessageId;
+        const localStartedAt = currentTurnStartedAt;
+        const localUiHistory = uiHistoryMessages;
+        const debugMessageId = localAssistantId;
 
         const agentStream = await input.agentRunner.agent.stream({
           messages: modelMessages,
@@ -385,13 +409,13 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
         });
         const uiStream = agentStream.toUIMessageStream({
           // eslint-disable-next-line @typescript-eslint/no-explicit-any -- SDK type boundary: see createUIMessageStream above
-          originalMessages: input.modelMessages as any[],
-          generateMessageId: () => input.assistantMessageId,
+          originalMessages: localUiHistory as any[],
+          generateMessageId: () => localAssistantId,
           messageMetadata: ({ part }) => {
             const usageMetadata = buildTokenUsageMetadata(part);
             if (part?.type !== "finish") return usageMetadata;
             const timingMetadata = buildTimingMetadata({
-              startedAt: input.requestStartAt,
+              startedAt: localStartedAt,
               finishedAt: new Date(),
             });
             const mergedMetadata: Record<string, unknown> = {
@@ -418,7 +442,7 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
 
               const currentSessionId = getSessionId() ?? input.sessionId;
               const timingMetadata = buildTimingMetadata({
-                startedAt: input.requestStartAt,
+                startedAt: localStartedAt,
                 finishedAt: new Date(),
               });
               const baseMetadata =
@@ -533,10 +557,10 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
                 parts: baseParts,
               };
               const branchLogMessages = buildBranchLogMessages({
-                modelMessages: input.modelMessages as UIMessage[],
+                modelMessages: localUiHistory,
                 assistantResponseMessage: normalizedResponseMessage as UIMessage,
-                assistantMessageId: input.assistantMessageId,
-                parentMessageId: input.parentMessageId,
+                assistantMessageId: localAssistantId,
+                parentMessageId: localParentId ?? "",
                 metadata: finalizedMetadata,
                 assistantMessageKind: input.assistantMessageKind,
               });
@@ -547,12 +571,12 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
                 message: finalizedAssistantMessage ?? {
                   // Fallback: build a minimal UIMessageLike when buildBranchLogMessages returns nothing.
                   ...(responseMessage as unknown as OpenLoafUIMessage),
-                  id: input.assistantMessageId,
+                  id: localAssistantId,
                   metadata: finalizedMetadata,
                 },
-                parentMessageId: input.parentMessageId,
+                parentMessageId: localParentId,
                 allowEmpty: isAborted,
-                createdAt: input.requestStartAt,
+                createdAt: localStartedAt,
               });
               if (!isAborted && finishReason !== "error") {
                 // 中文注释：仅在成功完成时清空会话错误。
@@ -562,7 +586,7 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
               try {
                 const snapshot = await getChatViewFromFile({
                   sessionId: currentSessionId,
-                  anchor: { messageId: input.assistantMessageId, strategy: "self" },
+                  anchor: { messageId: localAssistantId, strategy: "self" },
                   window: { limit: 50 },
                   includeToolOutput: true,
                 });
@@ -582,7 +606,7 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
                   {
                     err: error,
                     sessionId: currentSessionId,
-                    assistantMessageId: input.assistantMessageId,
+                    assistantMessageId: localAssistantId,
                   },
                   "[chat] build branch snapshot failed",
                 );
@@ -655,8 +679,155 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
             },
           }),
         );
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- SDK type boundary: wrappedStream is ReadableStream<any> after pipeThrough; SDK merge expects ReadableStream<InferUIMessageChunk<UI_MESSAGE>>
-        writer.merge(wrappedStream as unknown as ReadableStream<InferUIMessageChunk<UIMessage>>);
+        // 逻辑：手动 reader loop 代替 writer.merge —— while-loop 需要在本圈
+        // 真正读完 stream（触发 toUIMessageStream.onFinish）之后才能 drain 通知
+        // 并决定是否进入下一圈。writer.merge 是 fire-and-forget，不会让 execute await。
+        const reader = (wrappedStream as ReadableStream<Record<string, unknown>>).getReader();
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            writer.write(value as unknown as InferUIMessageChunk<UIMessage>);
+          }
+        } finally {
+          try {
+            reader.releaseLock();
+          } catch {}
+        }
+
+        // ========== End-of-turn drain ==========
+        const drainSessionId = getSessionId() ?? input.sessionId;
+        const notifications = backgroundProcessManager.drainNotifications(
+          drainSessionId,
+          "later",
+        );
+        if (notifications.length === 0) break;
+
+        totalBgDrained += notifications.length;
+        const exceededBudget =
+          totalBgDrained > MAX_BG_NOTIFICATIONS ||
+          Date.now() - bgLoopStartMs > BG_TURN_DEADLINE_MS;
+
+        // 构造 synthetic user message — 外层 <system-reminder> 包裹内层 bg-task-notification XML
+        const innerXml = notifications.map((n) => n.xmlContent).join("\n");
+        const wrappedContent = `<system-reminder>\n${innerXml}\n</system-reminder>`;
+        const syntheticUserId = randomUUID();
+        const taskIds = notifications.map((n) => n.taskId);
+        const syntheticUiMessage: UIMessageLike = {
+          id: syntheticUserId,
+          role: "user",
+          parts: [{ type: "text", text: wrappedContent }],
+          metadata: {
+            openloaf: {
+              syntheticKind: "bg-notification",
+              isMeta: true,
+              taskIds,
+            },
+          },
+        };
+
+        // 持久化 synthetic user message（父节点是本圈的 assistant）
+        try {
+          await saveMessage({
+            sessionId: drainSessionId,
+            message: syntheticUiMessage,
+            parentMessageId: localAssistantId,
+            allowEmpty: false,
+          });
+        } catch (persistErr) {
+          logger.error(
+            { err: persistErr, sessionId: drainSessionId, syntheticUserId },
+            "[chat] save synthetic user message failed",
+          );
+        }
+
+        // 累积到下一圈的 UI 历史 + 模型消息
+        try {
+          const response = await agentStream.response;
+          if (Array.isArray(response?.messages) && response.messages.length > 0) {
+            modelMessages = [...modelMessages, ...(response.messages as ModelMessage[])];
+          }
+        } catch (respErr) {
+          logger.warn(
+            { err: respErr, sessionId: drainSessionId },
+            "[chat] read agentStream.response failed",
+          );
+        }
+        modelMessages = [
+          ...modelMessages,
+          { role: "user", content: wrappedContent } as ModelMessage,
+        ];
+        uiHistoryMessages = [
+          ...uiHistoryMessages,
+          syntheticUiMessage as unknown as UIMessage,
+        ];
+
+        // 立即推一次 branch-snapshot 让前端显示 synthetic user message
+        try {
+          const snapshot = await getChatViewFromFile({
+            sessionId: drainSessionId,
+            anchor: { messageId: syntheticUserId, strategy: "self" },
+            window: { limit: 50 },
+            includeToolOutput: true,
+          });
+          writer.write({
+            type: "data-branch-snapshot",
+            data: { sessionId: drainSessionId, snapshot },
+            transient: true,
+          } as unknown as InferUIMessageChunk<UIMessage>);
+        } catch (snapErr) {
+          logger.warn(
+            { err: snapErr, sessionId: drainSessionId, syntheticUserId },
+            "[chat] synthetic branch snapshot failed",
+          );
+        }
+
+        if (exceededBudget) {
+          // 预算超限：记录降级 system-reminder，告诉 AI 后台任务仍在继续
+          const reason =
+            totalBgDrained > MAX_BG_NOTIFICATIONS
+              ? "too-many-notifications"
+              : "turn-deadline";
+          const degradedContent =
+            "<system-reminder>\n" +
+            "<bg-task-budget-exceeded>\n" +
+            `  <reason>${reason}</reason>\n` +
+            "  <note>Remaining background tasks are still running. Use BgList to check status or wait for the user's next message.</note>\n" +
+            "</bg-task-budget-exceeded>\n" +
+            "</system-reminder>";
+          const degradedUserId = randomUUID();
+          try {
+            await saveMessage({
+              sessionId: drainSessionId,
+              message: {
+                id: degradedUserId,
+                role: "user",
+                parts: [{ type: "text", text: degradedContent }],
+                metadata: {
+                  openloaf: {
+                    syntheticKind: "bg-budget-exceeded",
+                    isMeta: true,
+                    taskIds: [],
+                  },
+                },
+              } satisfies UIMessageLike,
+              parentMessageId: syntheticUserId,
+              allowEmpty: false,
+            });
+          } catch (degErr) {
+            logger.error(
+              { err: degErr, sessionId: drainSessionId },
+              "[chat] save bg-budget-exceeded message failed",
+            );
+          }
+          break;
+        }
+
+        // Next turn: fresh assistant message id + new parent = synthetic user
+        currentParentMessageId = syntheticUserId;
+        currentAssistantMessageId = randomUUID();
+        currentTurnStartedAt = new Date();
+        } // end while-loop
       } catch (err) {
         popAgentFrameOnce();
         try {

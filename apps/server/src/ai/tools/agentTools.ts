@@ -12,7 +12,7 @@ import {
   agentToolDef,
   sendMessageToolDef,
 } from '@openloaf/api/types/tools/agent'
-import { getAgentManager, type SpawnContext } from '@/ai/services/agentManager'
+import { getAgentManager, type SpawnContext, type AgentStatus } from '@/ai/services/agentManager'
 import {
   getChatModel,
   getUiWriter,
@@ -21,6 +21,7 @@ import {
   getRequestContext,
 } from '@/ai/shared/context/requestContext'
 import { resolveEffectiveAgentName } from '@/ai/services/agentFactory'
+import { backgroundProcessManager } from '@/ai/services/background/BackgroundProcessManager'
 
 /** Build XML task-notification result for agent tool output. */
 function buildAgentResultXml(input: {
@@ -134,6 +135,9 @@ export const agentTool = tool({
       const agent = manager.getAgent(agentId)
       const status = result.status[agentId] ?? 'unknown'
 
+      // P3: cascade cleanup — kill any bg shell tasks spawned by this agent
+      void backgroundProcessManager.killForAgent(agentId).catch(() => {})
+
       return buildAgentResultXml({
         agentId,
         status,
@@ -144,10 +148,52 @@ export const agentTool = tool({
       })
     }
 
+    // ── Async mode (run_in_background) ────────────────────────────────
+    const bgSessionId = sessionId
+    if (!bgSessionId) {
+      throw new Error('Agent(run_in_background) requires an active chat session.')
+    }
+
+    const agent = manager.getAgent(agentId)
+    if (!agent) {
+      throw new Error('Agent not found after spawn.')
+    }
+
+    const ownerAgentId =
+      requestContext.agentStack?.[requestContext.agentStack.length - 1]?.agentId
+
+    const bgTask = backgroundProcessManager.spawnAgent({
+      sessionId: bgSessionId,
+      agentId,
+      prompt,
+      description: _desc ?? prompt.slice(0, 200),
+      ownerAgentId,
+      abortController: agent.abortController,
+    })
+
+    // Subscribe to agent completion via statusListener
+    const onStatusChange = (status: AgentStatus) => {
+      const TERMINAL: AgentStatus[] = ['completed', 'failed', 'shutdown']
+      if (!TERMINAL.includes(status)) return
+      agent.statusListeners.delete(onStatusChange)
+      backgroundProcessManager.handleAgentFinalize(bgTask.id, {
+        status:
+          status === 'shutdown'
+            ? 'killed'
+            : status === 'completed'
+              ? 'completed'
+              : 'failed',
+        result: agent.finalOutput || agent.outputText || undefined,
+        error: agent.error || undefined,
+        toolUseCount: agent.toolUseCount,
+      })
+    }
+    agent.statusListeners.add(onStatusChange)
+
     return buildAgentResultXml({
       agentId,
       status: 'async_launched',
-      summary: null,
+      summary: `Background task ${bgTask.id} — use BgOutput/BgKill to manage.`,
       error: null,
       toolUseCount: 0,
       durationMs: 0,

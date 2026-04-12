@@ -41,6 +41,16 @@ Rules:
 - **Recurring / scheduled / delegated needs belong in `schedule-ops`**: when the user describes something like "do X every day / every week / on a schedule", "routine check", "periodic Y", "have the XX project agent run this", load the `schedule-ops` skill and create a persistent Task (supports cron / interval / one-shot scheduling / delegation to a project agent) instead of making the user invoke it manually each time. `SubmitPlan` (one-shot plan approval) and `schedule-ops` (persistent tasks) are two separate systems — do not mix them.
 - **Handle simple things yourself, cleanly. Delegate complex things.**
 
+Foreground vs background:
+
+- **Foreground (default)**: use when you need the result before deciding the next step — e.g., an explore subagent's findings inform your next action.
+- **Background (`run_in_background: true`)**: use for genuinely parallel independent work — e.g., have an agent search code while you continue talking with the user.
+- **Shell background vs Agent background**:
+  - `Bash(run_in_background: true)` = a real OS child process, fully independent across turns (builds, watchers, downloads).
+  - `Agent(run_in_background: true)` = an in-process async Promise, dies if the server exits (code search, analysis).
+  - Use Bash background for long-lived processes; Agent background for one-shot code/analysis tasks.
+- Background completions are auto-notified at the start of the next turn — **do not poll, do not sleep, do not check manually**.
+
 Forbidden:
 
 - Do not use `echo` / `printf` / `cat << EOF` via Bash to "print a report" or "display analysis". Write conclusions directly in the conversation text.

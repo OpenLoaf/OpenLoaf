@@ -28,6 +28,7 @@ import type { ChatMessageKind } from "@openloaf/api";
 import { getMessagePlainText } from "@/lib/chat/message-text";
 import { normalizeFileMentionSpacing } from "@/components/ai/input/chat-input-utils";
 import CompactSummaryDivider from "./CompactSummaryDivider";
+import BgNotification, { readSyntheticKind } from "./tools/BgNotification";
 type ChatMessage = UIMessage & { messageKind?: ChatMessageKind };
 
 interface MessageItemProps {
@@ -298,40 +299,48 @@ function MessageItem({
       data-message-id={message.id}
     >
       {message.role === "user" ? (
-        <>
-          {isEditing ? (
-            <div className="flex justify-end mb-6">
-              <ChatInputBox
-                value={draft}
-                onChange={setDraft}
-                variant="inline"
-                compact
-                placeholder={t('message.editPlaceholder')}
-                className="w-full max-w-[88%]"
-                actionVariant="text"
-                submitLabel={t('message.send')}
-                cancelLabel={t('message.cancel')}
-                onCancel={cancelEdit}
-                submitDisabled={status !== "ready" && status !== "error"}
-                attachments={editAttachments}
-                onRemoveAttachment={removeEditAttachment}
-                attachmentEditEnabled={false}
-                defaultProjectId={projectId}
-                onSubmit={handleResend}
-              />
-            </div>
-          ) : (
-            <MessageHuman message={message} />
-          )}
-          {!isEditing && (
-            <MessageHumanAction
-              message={message}
-              actionsClassName={actionVisibility(isLastHumanMessage)}
-              isEditing={isEditing}
-              onToggleEdit={toggleEdit}
-            />
-          )}
-        </>
+        (() => {
+          const syntheticKind = readSyntheticKind(message.metadata);
+          if (syntheticKind === "bg-notification" || syntheticKind === "bg-budget-exceeded") {
+            return <BgNotification message={message} />;
+          }
+          return (
+            <>
+              {isEditing ? (
+                <div className="flex justify-end mb-6">
+                  <ChatInputBox
+                    value={draft}
+                    onChange={setDraft}
+                    variant="inline"
+                    compact
+                    placeholder={t('message.editPlaceholder')}
+                    className="w-full max-w-[88%]"
+                    actionVariant="text"
+                    submitLabel={t('message.send')}
+                    cancelLabel={t('message.cancel')}
+                    onCancel={cancelEdit}
+                    submitDisabled={status !== "ready" && status !== "error"}
+                    attachments={editAttachments}
+                    onRemoveAttachment={removeEditAttachment}
+                    attachmentEditEnabled={false}
+                    defaultProjectId={projectId}
+                    onSubmit={handleResend}
+                  />
+                </div>
+              ) : (
+                <MessageHuman message={message} />
+              )}
+              {!isEditing && (
+                <MessageHumanAction
+                  message={message}
+                  actionsClassName={actionVisibility(isLastHumanMessage)}
+                  isEditing={isEditing}
+                  onToggleEdit={toggleEdit}
+                />
+              )}
+            </>
+          );
+        })()
       ) : (message as any).role === "task-report" ? (
         <MessageTaskReport message={message} />
       ) : (

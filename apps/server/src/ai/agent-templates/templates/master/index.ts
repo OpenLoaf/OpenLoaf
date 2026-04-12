@@ -47,11 +47,8 @@ export const masterTemplate: AgentTemplate = {
     'WebFetch',
     // browser automation
     'BrowserSnapshot',
-    'BrowserObserve',
-    'BrowserExtract',
     'BrowserAct',
     'BrowserWait',
-    'BrowserScreenshot',
     'BrowserDownloadImage',
     // media download (AI media generation moved to board v3 flow)
     'VideoDownload',
@@ -102,6 +99,7 @@ export const masterTemplate: AgentTemplate = {
     'BgList',
     'BgOutput',
     'BgKill',
+    'Sleep',
   ],
   allowSubAgents: true,
   maxDepth: 2,
