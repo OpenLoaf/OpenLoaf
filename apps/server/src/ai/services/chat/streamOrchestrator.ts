@@ -342,9 +342,12 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
         let currentTurnStartedAt: Date = input.requestStartAt;
 
         const MAX_BG_NOTIFICATIONS = 20;
-        const BG_TURN_DEADLINE_MS = 60_000;
+        const BG_DRAIN_DEADLINE_MS = 60_000;
         let totalBgDrained = 0;
-        const bgLoopStartMs = Date.now();
+        // Lazily set on first drain — NOT at while-loop start. The initial turn
+        // can take 60+ seconds of LLM execution; the deadline should only count
+        // time spent in drain-injected continuation turns.
+        let bgDrainStartMs = 0;
 
         // AI 调试模式 — 每步 LLM 请求/响应实时写入独立文件
         const isDebugMode = readBasicConf().chatPrefaceEnabled;
@@ -749,9 +752,10 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
         if (notifications.length === 0) break;
 
         totalBgDrained += notifications.length;
+        if (bgDrainStartMs === 0) bgDrainStartMs = Date.now();
         const exceededBudget =
           totalBgDrained > MAX_BG_NOTIFICATIONS ||
-          Date.now() - bgLoopStartMs > BG_TURN_DEADLINE_MS;
+          Date.now() - bgDrainStartMs > BG_DRAIN_DEADLINE_MS;
 
         // 构造 synthetic user message — 外层 <system-reminder> 包裹内层 bg-task-notification XML
         const innerXml = notifications.map((n) => n.xmlContent).join("\n");
