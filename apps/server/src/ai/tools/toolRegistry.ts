@@ -480,6 +480,9 @@ const TOOL_ALIASES: Record<string, string> = {
   'grep-files': 'Grep',
   'web-search': 'WebSearch',
   'web-fetch': 'WebFetch',
+  'BgList': 'Jobs',
+  'BgOutput': 'Tail',
+  'BgKill': 'Kill',
 }
 
 /** 解析工具 ID，优先使用别名映射到新 ID。 */

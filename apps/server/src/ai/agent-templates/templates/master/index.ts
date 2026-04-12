@@ -38,9 +38,9 @@ export const masterTemplate: AgentTemplate = {
     'SendMessage',
     // background process (always available — Bash returns task_id, AI needs
     // immediate access to manage it without ToolSearch round-trip)
-    'BgList',
-    'BgOutput',
-    'BgKill',
+    'Jobs',
+    'Tail',
+    'Kill',
     'Sleep',
   ],
   deferredToolIds: [

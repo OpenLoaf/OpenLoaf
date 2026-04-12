@@ -20,7 +20,7 @@ const taskIdSchema = z
   .describe('Background task id returned by Bash(run_in_background) or spawnBash')
 
 export const bgListToolDef = {
-  id: 'BgList',
+  id: 'Jobs',
   readonly: true,
   name: '后台进程列表',
   description: `List all background tasks in the current chat session. Returns task summaries (id, kind, status, description, pid/agentId, startTime, exitCode).
@@ -28,17 +28,17 @@ export const bgListToolDef = {
 Use this to:
 - See what's still running in the background
 - Check exit codes of recently-finished tasks
-- Pick a task_id before calling BgOutput or BgKill
+- Pick a task_id before calling Tail or Kill
 
 Returns running tasks first, then completed/failed/killed ones. Only tasks from the current session are returned — you cannot see other sessions' processes.
 
-If you just want to wait for a known task, prefer BgOutput(task_id, block: true). Polling BgList in a loop is an anti-pattern — background completion is auto-delivered to the next turn.`,
+If you just want to wait for a known task, prefer Tail(task_id, block: true). Polling Jobs in a loop is an anti-pattern — background completion is auto-delivered to the next turn.`,
   parameters: z.object({}).optional(),
   component: null,
 } as const
 
 export const bgOutputToolDef = {
-  id: 'BgOutput',
+  id: 'Tail',
   readonly: true,
   name: '读取后台进程输出',
   description: `Read output from a background task, optionally blocking until it completes.
@@ -77,7 +77,7 @@ Do NOT poll this tool in a tight loop. For "wait for X and then do Y" use block:
 } as const
 
 export const bgKillToolDef = {
-  id: 'BgKill',
+  id: 'Kill',
   readonly: false,
   name: '终止后台进程',
   description: `Terminate a running background task. Shell tasks are killed via tree-kill (SIGKILL on the whole process tree). Agent tasks trigger their AbortController, which cancels at the next await point.

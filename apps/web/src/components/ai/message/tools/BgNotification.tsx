@@ -270,7 +270,7 @@ function BgBudgetExceededCard({ content: _content }: { content: string }) {
         </div>
         <p className="text-[11px] text-muted-foreground">
           Remaining background tasks are still running. Ask the assistant to check them with
-          BgList or wait for your next message to resume absorbing completions.
+          Jobs or wait for your next message to resume absorbing completions.
         </p>
       </div>
     </div>

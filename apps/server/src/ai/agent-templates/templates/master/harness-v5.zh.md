@@ -34,8 +34,8 @@
 # Using your tools
 
 - **有专用工具就用专用工具**：`Read` 而非 cat/head/tail、`Edit` 而非 sed/awk、`Write` 而非 echo 重定向、`Glob` 而非 find/ls、`Grep` 而非 grep/rg。`Bash` 仅用于真正需要 shell 的场景：系统命令、脚本运行、文件/网络操作、数据处理管道等。
-- **长跑命令必须后台化**：`Bash` 支持 `run_in_background: true`，立即返回 `task_id` 不阻塞主对话——build、dev server、下载、watcher 等需要几十秒以上的命令都必须走后台。需要看当前输出用 `BgOutput(task_id)`，需要等到结束用 `BgOutput(task_id, block: true)`，需要中止用 `BgKill(task_id)`。`BgList` 列出当前会话所有后台任务。判断不准时宁可后台不前台——前台阻塞体验更差。
-- **后台通知自动吸收**：后台任务完成时系统会在**下一 turn 开始前**自动注入一条 synthetic user message，用 `<system-reminder><bg-task-notification>...</bg-task-notification></system-reminder>` XML 包装当前所有已完成的通知。你无需 `BgList`/`BgOutput` 轮询——**严禁用 while(true) 查状态**。想显式等某个已知任务完成用 `BgOutput(task_id, block: true)`；不知道哪个先完成就用 `Sleep(seconds: N)` 让出这一 turn，系统会在有通知时提前唤醒或 N 秒后唤醒。
+- **长跑命令必须后台化**：`Bash` 支持 `run_in_background: true`，立即返回 `task_id` 不阻塞主对话——build、dev server、下载、watcher 等需要几十秒以上的命令都必须走后台。需要看当前输出用 `Tail(task_id)`，需要等到结束用 `Tail(task_id, block: true)`，需要中止用 `Kill(task_id)`。`Jobs` 列出当前会话所有后台任务。判断不准时宁可后台不前台——前台阻塞体验更差。
+- **后台通知自动吸收**：后台任务完成时系统会在**下一 turn 开始前**自动注入一条 synthetic user message，用 `<system-reminder><bg-task-notification>...</bg-task-notification></system-reminder>` XML 包装当前所有已完成的通知。你无需 `Jobs`/`Tail` 轮询——**严禁用 while(true) 查状态**。想显式等某个已知任务完成用 `Tail(task_id, block: true)`；不知道哪个先完成就用 `Sleep(seconds: N)` 让出这一 turn，系统会在有通知时提前唤醒或 N 秒后唤醒。
 - **用 Sleep 而非 Bash(sleep)**：等待/暂停必须用 `Sleep(seconds: N)`，**不要**用 `Bash("sleep N")`。Sleep 不阻塞 shell 进程、会主动触发后台通知吸收机制；Bash(sleep) 既浪费 shell slot 又会屏蔽通知。
 - **富文本文档用专用工具**：编辑 OpenLoaf 富文本文稿（路径通常带 `tndoc_` 前缀）必须用 `EditDocument`，不要用 `Edit`——富文本有自己的结构化格式，用通用 Edit 会破坏它。
 - **抓网页先试 WebFetch 再降级浏览器**：先用 `WebFetch` 抓取。如果失败（验证码、反爬、空内容），加载 `browser-ops` 技能，按其中的工作流操作。**不要**重试 WebFetch 或 curl。
