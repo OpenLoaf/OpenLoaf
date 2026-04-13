@@ -13,6 +13,7 @@ import { randomUUID } from 'node:crypto'
 import path from 'node:path'
 import fs from 'node:fs'
 import ffmpeg from 'fluent-ffmpeg'
+import { resolveOpenLoafPath } from '@openloaf/config'
 import { logger } from '@/common/logger'
 
 let ytdlp: YtDlp | null = null
@@ -206,19 +207,30 @@ async function extractDouyinVideo(videoId: string): Promise<DouyinVideoData> {
   }
 }
 
-/** Ensure yt-dlp binary is available, download if missing. */
+/**
+ * Ensure yt-dlp binary is available.
+ *
+ * 二进制下载到 `~/.openloaf/bin/` 而非 `node_modules/ytdlp-nodejs/bin/`，
+ * 因为打包后的 Electron app 的 Resources 目录对普通用户只读，无法写入。
+ * 同时移除了 postinstall 预下载（见 package.json `onlyBuiltDependencies`），
+ * 首次使用时才从 GitHub 下载，避免 CI install 被上游 CDN 波动影响。
+ */
 async function ensureYtDlp(): Promise<YtDlp> {
   if (ytdlp) return ytdlp
   if (initPromise) return initPromise
   initPromise = (async () => {
-    let binaryPath = helpers.findYtdlpBinary()
-    if (!binaryPath) {
-      logger.info('yt-dlp binary not found, downloading...')
-      binaryPath = await helpers.downloadYtDlp()
-      logger.info({ binaryPath }, 'yt-dlp binary downloaded')
+    const binDir = resolveOpenLoafPath('bin')
+    fs.mkdirSync(binDir, { recursive: true })
+    try {
+      const binaryPath = await helpers.downloadYtDlp(binDir)
+      logger.info({ binaryPath }, 'yt-dlp binary ready')
+      ytdlp = new YtDlp({ binaryPath })
+      return ytdlp
+    } catch (err) {
+      // 失败时清除 promise 缓存，让下次调用重新尝试（避免用户重试也命中失败的 promise）
+      initPromise = null
+      throw err
     }
-    ytdlp = new YtDlp({ binaryPath })
-    return ytdlp
   })()
   return initPromise
 }
