@@ -272,6 +272,21 @@ export async function startProductionServices(args: {
             userEnv.OPENLOAF_DOCX_SFDT_HELPER_ROOT ??
             packagedEnv.OPENLOAF_DOCX_SFDT_HELPER_ROOT ??
             path.join(resourcesPath, 'docx-sfdt'),
+          // yt-dlp 二进制路径：由 predesktop 的 prefetch 脚本下载后放到
+          // Resources/bin/，runtime.env 和用户 .env 均可覆盖。
+          OPENLOAF_YTDLP_BINARY:
+            process.env.OPENLOAF_YTDLP_BINARY ??
+            userEnv.OPENLOAF_YTDLP_BINARY ??
+            packagedEnv.OPENLOAF_YTDLP_BINARY ??
+            path.join(
+              resourcesPath,
+              'bin',
+              process.platform === 'win32'
+                ? 'yt-dlp.exe'
+                : process.platform === 'darwin'
+                  ? 'yt-dlp_macos'
+                  : 'yt-dlp',
+            ),
           // HTTP/2 证书目录（prod 使用 ~/.openloaf/certs/）
           OPENLOAF_CERT_DIR: path.join(getOpenLoafRootDir(), 'certs'),
           // 中文注释：强制对齐 Electron 与 Server 的 CDP 端口，避免运行时不一致。

@@ -320,6 +320,21 @@ export async function ensureDevServices(args: {
       OPENLOAF_DOCX_SFDT_HELPER_ROOT:
         envBase.OPENLOAF_DOCX_SFDT_HELPER_ROOT ??
         path.join(repoRoot, 'apps', 'desktop', 'resources', 'docx-sfdt'),
+      // yt-dlp 二进制（dev 模式下由 predesktop 的 prefetch 脚本下载到仓库内）
+      OPENLOAF_YTDLP_BINARY:
+        envBase.OPENLOAF_YTDLP_BINARY ??
+        path.join(
+          repoRoot,
+          'apps',
+          'desktop',
+          'resources',
+          'bin',
+          process.platform === 'win32'
+            ? 'yt-dlp.exe'
+            : process.platform === 'darwin'
+              ? 'yt-dlp_macos'
+              : 'yt-dlp',
+        ),
       TSX_TSCONFIG_PATH: serverTsconfig,
       // HTTP/2 证书目录（dev 使用 monorepo 根目录的 .certs/）
       OPENLOAF_CERT_DIR: path.join(repoRoot, '.certs'),

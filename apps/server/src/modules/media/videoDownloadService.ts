@@ -210,24 +210,39 @@ async function extractDouyinVideo(videoId: string): Promise<DouyinVideoData> {
 /**
  * Ensure yt-dlp binary is available.
  *
- * 二进制下载到 `~/.openloaf/bin/` 而非 `node_modules/ytdlp-nodejs/bin/`，
- * 因为打包后的 Electron app 的 Resources 目录对普通用户只读，无法写入。
- * 同时移除了 postinstall 预下载（见 package.json `onlyBuiltDependencies`），
- * 首次使用时才从 GitHub 下载，避免 CI install 被上游 CDN 波动影响。
+ * 解析优先级：
+ * 1. `OPENLOAF_YTDLP_BINARY` 环境变量 —— 由 Electron main 指向打包进 Resources/bin/
+ *    的二进制（prod），或仓库 apps/desktop/resources/bin/（dev by `pnpm desktop`）。
+ *    二进制由 `pnpm run prefetch:ytdlp` 在 predesktop 阶段下载（带重试），替代
+ *    上游 ytdlp-nodejs 无重试的 postinstall。
+ * 2. 用户目录 `~/.openloaf/bin/` 运行时兜底 —— 裸跑 server（`pnpm dev:server`）
+ *    或打包产物缺失时，首次调用动态下载。
+ *
+ * 注意不使用 `helpers.findYtdlpBinary()`：它硬编码在 `node_modules/ytdlp-nodejs/bin/`
+ * 下查找，而 server 的 esbuild 产物把 ytdlp-nodejs 的 JS 内联进 server.mjs，
+ * `__dirname` 无法指向原始包目录，该函数返回值不可靠。
  */
 async function ensureYtDlp(): Promise<YtDlp> {
   if (ytdlp) return ytdlp
   if (initPromise) return initPromise
   initPromise = (async () => {
-    const binDir = resolveOpenLoafPath('bin')
-    fs.mkdirSync(binDir, { recursive: true })
     try {
-      const binaryPath = await helpers.downloadYtDlp(binDir)
+      let binaryPath: string | undefined = process.env.OPENLOAF_YTDLP_BINARY
+      if (binaryPath && !fs.existsSync(binaryPath)) {
+        logger.warn({ binaryPath }, 'OPENLOAF_YTDLP_BINARY points to missing file, falling back')
+        binaryPath = undefined
+      }
+      if (!binaryPath) {
+        const binDir = resolveOpenLoafPath('bin')
+        fs.mkdirSync(binDir, { recursive: true })
+        logger.info({ binDir }, 'downloading yt-dlp to user data dir')
+        binaryPath = await helpers.downloadYtDlp(binDir)
+      }
       logger.info({ binaryPath }, 'yt-dlp binary ready')
       ytdlp = new YtDlp({ binaryPath })
       return ytdlp
     } catch (err) {
-      // 失败时清除 promise 缓存，让下次调用重新尝试（避免用户重试也命中失败的 promise）
+      // 失败时清空 promise，避免缓存 rejected promise 导致用户重试也永远失败
       initPromise = null
       throw err
     }

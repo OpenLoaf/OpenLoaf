@@ -102,6 +102,7 @@ apps/desktop/resources/speech/windows/bin/
 apps/desktop/resources/speech/windows/obj/
 apps/desktop/resources/speech/windows/openloaf-speech.exe
 apps/desktop/resources/docx-sfdt/
+apps/desktop/resources/bin/
 apps/desktop/helpers/docx-sfdt/bin/
 apps/desktop/helpers/docx-sfdt/obj/
 .openloaf/download-svgrepo-file-formats-text.py

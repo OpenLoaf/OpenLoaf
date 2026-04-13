@@ -92,7 +92,8 @@
     ]
   },
   "scripts": {
-    "predesktop": "node scripts/fixElectronInstall.mjs && pnpm run build:speech-helper && pnpm run build:calendar-helper && pnpm run build:docx-sfdt-helper",
+    "predesktop": "node scripts/fixElectronInstall.mjs && pnpm run build:speech-helper && pnpm run build:calendar-helper && pnpm run build:docx-sfdt-helper && pnpm run prefetch:ytdlp",
+    "prefetch:ytdlp": "node scripts/prefetchYtdlp.mjs",
     "desktop": "electron-forge start",
     "build:speech-helper": "node scripts/buildSpeechHelper.mjs",
     "build:calendar-helper": "node scripts/buildCalendarHelper.mjs",
