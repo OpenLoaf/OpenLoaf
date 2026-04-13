@@ -138,7 +138,7 @@ jobs:
             publish_platform: mac-arm64
             build_script: dist:mac:ci
           - arch: x64
-            runner: macos-13              # Intel，原生 x64（若不可用可改 macos-15-intel / macos-15-large）
+            runner: macos-latest          # M1 runner 上交叉编译 x64（macos-13 已退役，Intel runner 需付费标签）
             publish_platform: mac-x64
             build_script: dist:mac:x64:ci
     runs-on: ${{ matrix.runner }}
