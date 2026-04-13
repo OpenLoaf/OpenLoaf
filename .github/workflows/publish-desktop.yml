@@ -124,12 +124,24 @@ jobs:
             apps/web/out
 
   # ---------------------------------------------------------------------------
-  # macOS（ARM64 + x64 在同一 runner 上构建，避免 macOS runner 并发限制）
+  # macOS（arm64 + x64 matrix 并行，两个 runner 各自原生编译，notarize 并行）
   # ---------------------------------------------------------------------------
   build-mac:
     needs: [determine-mode, build-prerequisites]
     if: github.event_name == 'push' || inputs.build_mac
-    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-latest         # Apple Silicon，原生 arm64
+            publish_platform: mac-arm64
+            build_script: dist:mac:ci
+          - arch: x64
+            runner: macos-13              # Intel，原生 x64（若不可用可改 macos-15-intel / macos-15-large）
+            publish_platform: mac-x64
+            build_script: dist:mac:x64:ci
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v6
 
@@ -149,9 +161,9 @@ jobs:
         uses: actions/cache@v5
         with:
           path: ${{ env.STORE_PATH }}
-          key: pnpm-store-${{ runner.os }}-dual-arch-${{ hashFiles('pnpm-lock.yaml') }}
+          key: pnpm-store-${{ runner.os }}-${{ matrix.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
           restore-keys: |
-            pnpm-store-${{ runner.os }}-dual-arch-
+            pnpm-store-${{ runner.os }}-${{ matrix.arch }}-
 
       - name: Cache Electron
         uses: actions/cache@v5
@@ -159,20 +171,15 @@ jobs:
           path: |
             ${{ github.workspace }}/.cache/electron
             ${{ github.workspace }}/.cache/electron-builder
-          key: electron-${{ runner.os }}-dual-arch-${{ hashFiles('apps/desktop/package.json') }}
+          key: electron-${{ runner.os }}-${{ matrix.arch }}-${{ hashFiles('apps/desktop/package.json') }}
           restore-keys: |
-            electron-${{ runner.os }}-dual-arch-
+            electron-${{ runner.os }}-${{ matrix.arch }}-
 
       - name: Use HTTPS for git dependencies
         run: git config --global url."https://github.com/".insteadOf "git@github.com:"
 
-      - name: Install dependencies (both arm64 + x64 native packages)
-        run: |
-          echo 'supportedArchitectures:' >> .npmrc
-          echo '  cpu:' >> .npmrc
-          echo '    - arm64' >> .npmrc
-          echo '    - x64' >> .npmrc
-          pnpm install --frozen-lockfile --filter desktop... --filter server...
+      - name: Install dependencies (single arch, native)
+        run: pnpm install --frozen-lockfile --filter desktop... --filter server...
 
       - name: Generate Prisma client
         run: pnpm run db:generate
@@ -196,8 +203,7 @@ jobs:
           ' "$TAG_VERSION"
           echo "Set desktop version to $TAG_VERSION"
 
-      # ── ARM64 构建（原生架构） ──────────────────────────────────────
-      - name: Build and package desktop (macOS ARM64)
+      - name: Build and package desktop (macOS ${{ matrix.arch }})
         working-directory: apps/desktop
         env:
           CSC_LINK: ${{ secrets.MAC_CER_BASE64 }}
@@ -206,7 +212,7 @@ jobs:
           APPLE_ID_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: pnpm run dist:mac:ci
+        run: pnpm run ${{ matrix.build_script }}
 
       - name: Install publish dependencies
         run: |
@@ -214,68 +220,31 @@ jobs:
           npm init -y > /dev/null 2>&1
           npm install @aws-sdk/client-s3
 
-      - name: Upload ARM64 to R2
+      - name: Upload to R2
         env:
           R2_BUCKET: ${{ secrets.R2_BUCKET }}
           R2_PUBLIC_URL: ${{ secrets.R2_PUBLIC_URL }}
           R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
           R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-        run: node apps/desktop/scripts/publish-update.mjs --skip-build --upload-only --platform=mac-arm64
-
-      # 保存 ARM64 产物（x64 构建会覆盖 dist/ 中的部分文件）
-      - name: Save ARM64 artifacts
-        run: |
-          mkdir -p /tmp/arm64-dist
-          cp apps/desktop/dist/*.dmg apps/desktop/dist/*.zip /tmp/arm64-dist/ 2>/dev/null || true
-          cp apps/desktop/dist/*.blockmap /tmp/arm64-dist/ 2>/dev/null || true
-          cp apps/desktop/dist/platform-meta-mac-arm64.json /tmp/arm64-dist/ 2>/dev/null || true
-
-      # ── x64 构建（交叉编译） ───────────────────────────────────────
-      - name: Build and package desktop (macOS x64)
-        working-directory: apps/desktop
-        env:
-          CSC_LINK: ${{ secrets.MAC_CER_BASE64 }}
-          CSC_KEY_PASSWORD: ${{ secrets.MAC_CER_PASSWORD }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_ID_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: pnpm run dist:mac:x64:ci
-
-      - name: Upload x64 to R2
-        env:
-          R2_BUCKET: ${{ secrets.R2_BUCKET }}
-          R2_PUBLIC_URL: ${{ secrets.R2_PUBLIC_URL }}
-          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
-          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-        run: node apps/desktop/scripts/publish-update.mjs --skip-build --upload-only --platform=mac-x64
-
-      # 合并两个架构的产物
-      - name: Restore ARM64 artifacts
-        run: cp /tmp/arm64-dist/* apps/desktop/dist/ 2>/dev/null || true
+        run: node apps/desktop/scripts/publish-update.mjs --skip-build --upload-only --platform=${{ matrix.publish_platform }}
 
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: openloaf-desktop-macos
+          name: openloaf-desktop-macos-${{ matrix.arch }}
           path: |
             apps/desktop/dist/*.dmg
             apps/desktop/dist/*.dmg.blockmap
             apps/desktop/dist/*.zip
             apps/desktop/dist/*.zip.blockmap
-            apps/desktop/dist/latest-mac.yml
-            apps/desktop/dist/latest-mac-arm64.yml
-            apps/desktop/dist/latest-mac-x64.yml
+            apps/desktop/dist/latest-mac*.yml
 
-      - name: Upload platform metadata artifacts
+      - name: Upload platform metadata artifact
         uses: actions/upload-artifact@v7
         with:
-          name: openloaf-platform-meta-mac
-          path: |
-            apps/desktop/dist/platform-meta-mac-arm64.json
-            apps/desktop/dist/platform-meta-mac-x64.json
+          name: openloaf-platform-meta-mac-${{ matrix.arch }}
+          path: apps/desktop/dist/platform-meta-${{ matrix.publish_platform }}.json
 
   # ---------------------------------------------------------------------------
   # Windows
