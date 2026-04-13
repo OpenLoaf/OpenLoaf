@@ -11,9 +11,8 @@ import { createSecureServer } from "node:http2";
 import { createServer as createTcpServer } from "node:net";
 import { createAdaptorServer } from "@hono/node-server";
 import { createApp } from "./createApp";
-import { ensureCerts } from "./ensureCerts";
+import { loadEmbeddedCerts } from "./ensureCerts";
 import { logger } from "@/common/logger";
-import { resolveOpenLoafPath } from "@openloaf/config";
 import { attachTerminalWebSocket } from "@/modules/terminal/terminalWebSocket";
 import { attachBoardCollabWebSocket } from "@/modules/board/boardCollabWebSocket";
 import { startEmailIdleManager } from "@/modules/email/emailIdleManager";
@@ -23,7 +22,7 @@ import { scheduleOrchestrator } from "@/services/scheduleOrchestrator";
 /**
  * 启动 HTTP/2（默认）或 HTTP/1.1（降级）server。
  *
- * HTTP/2 需要 TLS 证书，首次启动时自动生成。
+ * HTTP/2 使用内嵌的 localhost 自签证书（见 ensureCerts.ts）。
  * 当 HTTP/2 启用时，同一端口同时接受两种连接：
  *   - TLS 连接 → HTTP/2 (HTTPS) — Electron 内部使用
  *   - 明文 HTTP → HTTP/1.1 fallback — OAuth 回调等外部浏览器场景
@@ -36,19 +35,8 @@ export function startServer() {
   const hostname = process.env.HOST ?? "127.0.0.1";
 
   // ── HTTP/2 with TLS (default) ──
-  const h2Enabled = process.env.OPENLOAF_HTTP2 !== "0";
-  let certs: ReturnType<typeof ensureCerts> = null;
-
-  if (h2Enabled) {
-    const certDir =
-      process.env.OPENLOAF_CERT_DIR || resolveOpenLoafPath("certs");
-    certs = ensureCerts(certDir);
-    if (!certs) {
-      logger.warn("HTTP/2 disabled: certificate generation failed. Falling back to HTTP/1.1.");
-    }
-  }
-
-  const useH2 = h2Enabled && certs !== null;
+  const useH2 = process.env.OPENLOAF_HTTP2 !== "0";
+  const certs = useH2 ? loadEmbeddedCerts() : null;
 
   // HTTPS/H2 server（Electron 内部连接，支持多路复用）
   const h2Server = useH2
