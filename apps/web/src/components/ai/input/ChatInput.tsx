@@ -1154,7 +1154,7 @@ function ChatInputInner({
     if (selectedAgent) {
       finalTextValue = finalTextValue.replace(/^@agents\/\S+\/pm\s*/u, '').trim();
     }
-    const { parts, metadata, chatModelId } = composeMessage({
+    const { parts, metadata, chatModelId, chatModelSource } = composeMessage({
       textValue: finalTextValue,
       imageParts: [],
       imageOptions,
@@ -1192,11 +1192,14 @@ function ChatInputInner({
       return
     }
     // 关键：必须走 UIMessage.parts 形式，才能携带 parentMessageId 等扩展字段
-    // chatModelId 通过 body 传递，transport.ts 会将其提取到请求顶层
+    // chatModelId / chatModelSource 通过 body 传递，transport.ts 将其提取到请求顶层
+    const messageBody = chatModelId
+      ? { chatModelId, ...(chatModelSource ? { chatModelSource } : {}) }
+      : undefined;
     sendMessage({
       parts,
       ...(finalMetadata ? { metadata: finalMetadata } : {}),
-      ...(chatModelId ? { body: { chatModelId } } : {})
+      ...(messageBody ? { body: messageBody } : {}),
     } as any);
     setInput("");
     onClearAttachments?.();

@@ -101,12 +101,16 @@ export function createChatTransport({
       const lastMessage = stripTotalUsageFromMetadata(rawLastMessage as any);
       const messagesPayload = [lastMessage] as ChatRequestBody["messages"];
 
-      // 逻辑：从 message.body 中提取 chatModelId（CLI 直连模式需要）
+      // 逻辑：从 message.body 中提取 chatModelId 和 chatModelSource（CLI 直连模式需要）。
+      // 必须同时覆盖 source — 只覆盖 chatModelId 会让 CLI 模型被 picker 的 cloud source 错误解析。
       const messageLevelBody = rawLastMessage.body && typeof rawLastMessage.body === 'object'
         ? rawLastMessage.body
         : {};
       const chatModelId = typeof messageLevelBody.chatModelId === 'string'
         ? messageLevelBody.chatModelId
+        : undefined;
+      const chatModelSource = typeof messageLevelBody.chatModelSource === 'string'
+        ? messageLevelBody.chatModelSource
         : undefined;
 
       return {
@@ -114,8 +118,9 @@ export function createChatTransport({
           // 后端会从 DB 补全完整历史链路；前端只需发送最后一条消息即可。
           ...payloadBase,
           messages: messagesPayload,
-          // 将 chatModelId 提升到请求顶层
+          // 将 chatModelId / chatModelSource 提升到请求顶层
           ...(chatModelId ? { chatModelId } : {}),
+          ...(chatModelSource ? { chatModelSource } : {}),
         },
         headers: nextHeaders,
       };

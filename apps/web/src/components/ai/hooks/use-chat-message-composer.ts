@@ -66,9 +66,10 @@ export function useChatMessageComposer(input: {
         ...params.imageParts,
         ...(params.textValue ? [{ type: "text", text: params.textValue }] : []),
       ];
-      // 逻辑：CLI 直连模式下，将选择的模型 ID 作为 chatModelId 传递给后端
+      // 逻辑：CLI 直连模式下，将选择的模型 ID 作为 chatModelId 传递给后端。
+      // chatModelSource 固定为 "local" — CLI 模型只在本地解析，不能走 cloud 分支。
       const bodyExtras = params.directCli && input.selectedCliModelId
-        ? { chatModelId: input.selectedCliModelId }
+        ? { chatModelId: input.selectedCliModelId, chatModelSource: "local" as const }
         : {};
       return { parts, metadata, ...bodyExtras };
     },
