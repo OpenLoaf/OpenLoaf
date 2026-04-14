@@ -1,0 +1,20 @@
+{
+  "title": "Connections",
+  "subtitle": "One-click setup for third-party services. OpenLoaf handles the configuration behind the scenes — no MCP tinkering required.",
+  "totalCount": "{{count}} available",
+  "advancedMcp": "Advanced",
+  "emptyTitle": "No integrations available yet",
+  "install": "Install",
+  "uninstall": "Installed",
+  "installSuccess": "{{name}} connected",
+  "uninstallSuccess": "{{name}} removed",
+  "installDialogTitle": "Connect {{name}}",
+  "setupSteps": "Setup steps",
+  "category": {
+    "productivity": "Productivity",
+    "communication": "Communication",
+    "storage": "Storage",
+    "dev": "Development",
+    "ai": "AI"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "title": "クイック接続",
+  "subtitle": "サードパーティサービスをワンクリックで接続できます。OpenLoaf が設定を自動で行うため、MCP を手動で構成する必要はありません。",
+  "totalCount": "{{count}} 件利用可能",
+  "advancedMcp": "詳細設定",
+  "emptyTitle": "利用可能な連携はまだありません",
+  "install": "追加",
+  "uninstall": "追加済み",
+  "installSuccess": "{{name}} を接続しました",
+  "uninstallSuccess": "{{name}} を削除しました",
+  "installDialogTitle": "{{name}} に接続",
+  "setupSteps": "設定手順",
+  "category": {
+    "productivity": "生産性",
+    "communication": "コミュニケーション",
+    "storage": "ストレージ",
+    "dev": "開発ツール",
+    "ai": "AI"
+  }
+}

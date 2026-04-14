@@ -1,0 +1,20 @@
+{
+  "title": "快速連接",
+  "subtitle": "一鍵接入第三方服務。OpenLoaf 會自動完成後台配置，無需手動配置 MCP。",
+  "totalCount": "{{count}} 個可用",
+  "advancedMcp": "進階設定",
+  "emptyTitle": "暫無可用整合",
+  "install": "新增",
+  "uninstall": "已新增",
+  "installSuccess": "{{name}} 已連接",
+  "uninstallSuccess": "{{name}} 已移除",
+  "installDialogTitle": "連接 {{name}}",
+  "setupSteps": "設定步驟",
+  "category": {
+    "productivity": "生產力",
+    "communication": "溝通協作",
+    "storage": "雲端儲存",
+    "dev": "開發工具",
+    "ai": "AI 能力"
+  }
+}
