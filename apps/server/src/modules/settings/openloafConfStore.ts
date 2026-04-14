@@ -68,7 +68,6 @@ const DEFAULT_BASIC_CONF: BasicConf = {
   appAutoBackupDir: "",
   appCustomRules: "",
   appNotificationSoundEnabled: true,
-  modelDefaultChatModelId: "codex-cli:gpt-5.2-codex",
   appProjectRule: "按项目划分",
   autoApproveTools: false,
   stepUpInitialized: false,
@@ -298,12 +297,6 @@ function normalizeBasicConf(raw?: Partial<BasicConf>, fallback?: Partial<BasicCo
       : typeof fallbackSource.appNotificationSoundEnabled === "boolean"
         ? fallbackSource.appNotificationSoundEnabled
         : DEFAULT_BASIC_CONF.appNotificationSoundEnabled;
-  const modelDefaultChatModelId =
-    typeof source.modelDefaultChatModelId === "string"
-      ? source.modelDefaultChatModelId
-      : typeof fallbackSource.modelDefaultChatModelId === "string"
-        ? fallbackSource.modelDefaultChatModelId
-        : DEFAULT_BASIC_CONF.modelDefaultChatModelId;
   const appProjectRule =
     typeof source.appProjectRule === "string"
       ? source.appProjectRule
@@ -412,7 +405,6 @@ function normalizeBasicConf(raw?: Partial<BasicConf>, fallback?: Partial<BasicCo
     appAutoBackupDir,
     appCustomRules,
     appNotificationSoundEnabled,
-    modelDefaultChatModelId,
     appProjectRule,
     autoApproveTools,
     stepUpInitialized,

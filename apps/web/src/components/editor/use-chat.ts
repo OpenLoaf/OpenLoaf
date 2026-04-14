@@ -22,6 +22,7 @@ import { useEditorRef, usePluginOption } from 'platejs/react';
 
 import { aiChatPlugin } from '@/components/editor/plugins/ai-kit';
 import { useBasicConfig } from '@/hooks/use-basic-config';
+import { useMainAgentModel } from '@/components/ai/hooks/use-main-agent-model';
 import { CLIENT_HEADERS } from '@/lib/client-headers';
 import { resolveServerUrl } from '@/utils/server-url';
 
@@ -51,10 +52,9 @@ export const useChat = () => {
   const editor = useEditorRef();
   const options = usePluginOption(aiChatPlugin, 'chatOptions');
   const { basic } = useBasicConfig();
+  const { modelIds: masterModelIds } = useMainAgentModel();
   const chatModelIdRef = React.useRef<string | null>(
-    typeof basic.modelDefaultChatModelId === 'string'
-      ? basic.modelDefaultChatModelId.trim() || null
-      : null
+    masterModelIds[0]?.trim() || null
   );
   const chatModelSourceRef = React.useRef<string>('local');
 
@@ -195,13 +195,10 @@ export const useChat = () => {
   });
 
   React.useEffect(() => {
-    const normalized =
-      typeof basic.modelDefaultChatModelId === 'string'
-        ? basic.modelDefaultChatModelId.trim()
-        : '';
-    // 中文注释：为空代表 Auto，不透传 chatModelId。
+    // 中文注释：editor chat 与主 chat 共享 master agent 的当前模型选择。
+    const normalized = masterModelIds[0]?.trim() ?? '';
     chatModelIdRef.current = normalized || null;
-  }, [basic.modelDefaultChatModelId]);
+  }, [masterModelIds]);
 
   React.useEffect(() => {
     // 中文注释：仅允许 local/cloud，其他值默认本地。

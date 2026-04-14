@@ -102,8 +102,6 @@ export const basicConfigSchema = z.object({
   appAutoBackupDir: z.string(),
   appCustomRules: z.string(),
   appNotificationSoundEnabled: z.boolean(),
-  /** @deprecated Use per-agent model config instead. */
-  modelDefaultChatModelId: z.string(),
   appProjectRule: z.string(),
   /** Auto-approve simple tool calls without manual confirmation. */
   autoApproveTools: z.boolean(),

@@ -40,7 +40,6 @@ const DEFAULT_BASIC_CONFIG: BasicConfig = {
   appAutoBackupDir: "",
   appCustomRules: "",
   appNotificationSoundEnabled: true,
-  modelDefaultChatModelId: "",
   appProjectRule: "按项目划分",
   autoApproveTools: false,
   stepUpInitialized: false,

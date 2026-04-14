@@ -226,7 +226,6 @@ export default function ImageViewer({
   const baseCanvasRef = React.useRef<HTMLCanvasElement | null>(null);
   const isDrawingRef = React.useRef(false);
   const hasStrokeRef = React.useRef(false);
-  const maskModelIdRef = React.useRef<string>("");
   const historyRef = React.useRef<Array<{ mask: ImageData }>>([]);
   const redoRef = React.useRef<Array<{ mask: ImageData }>>([]);
   const preStrokeRef = React.useRef<{ mask: ImageData } | null>(null);
@@ -803,12 +802,11 @@ export default function ImageViewer({
       toast.error(t("file.noImageModel"));
       return;
     }
-    const maskModels = modelOptions.filter((option) => supportsImageInput(option));
-    if (maskModels.length === 0) {
+    const hasImageModel = modelOptions.some((option) => supportsImageInput(option));
+    if (!hasImageModel) {
       toast.error(t("file.noImageModel"));
       return;
     }
-    maskModelIdRef.current = maskModels[0]?.id ?? "";
     setIsAdjusting(true);
   }, [chat, dataUrl, hasS3Storage, modelOptions, onApplyMask, rawChatSource]);
 
@@ -882,9 +880,6 @@ export default function ImageViewer({
       onApplyMask(maskedInput);
     } else {
       chat?.addMaskedAttachment?.(maskedInput);
-    }
-    if (maskModelIdRef.current) {
-      await setBasic({ modelDefaultChatModelId: maskModelIdRef.current });
     }
     setIsAdjusting(false);
     onClose?.();

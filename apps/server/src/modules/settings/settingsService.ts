@@ -386,10 +386,6 @@ export async function setBasicConfigFromWeb(update: BasicConfigUpdate): Promise<
     typeof next.appNotificationSoundEnabled === "boolean"
       ? next.appNotificationSoundEnabled
       : current.appNotificationSoundEnabled;
-  const modelDefaultChatModelId =
-    typeof next.modelDefaultChatModelId === "string"
-      ? next.modelDefaultChatModelId
-      : current.modelDefaultChatModelId;
   const appProjectRule =
     typeof next.appProjectRule === "string" ? next.appProjectRule : current.appProjectRule;
   const autoApproveTools =
@@ -453,7 +449,6 @@ export async function setBasicConfigFromWeb(update: BasicConfigUpdate): Promise<
     appAutoBackupDir,
     appCustomRules,
     appNotificationSoundEnabled,
-    modelDefaultChatModelId,
     appProjectRule,
     autoApproveTools,
     stepUpInitialized,
