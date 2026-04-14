@@ -304,6 +304,30 @@ export function useChatMessageOps({
       });
       if (!parentUserMessageId) return;
 
+      const isDirectCli = !!(
+        (chat.messages as any[]).find((m: any) => String(m?.id) === parentUserMessageId)
+          ?.metadata as any
+      )?.directCli;
+      const originalChatModelId =
+        (assistant as any)?.metadata?.agent?.chatModelId ??
+        (assistant as any)?.agent?.chatModelId;
+
+      let prevAssistantUuid: string | undefined;
+      if (isDirectCli) {
+        const parentIdx = (chat.messages as any[]).findIndex(
+          (m: any) => String(m?.id) === parentUserMessageId,
+        );
+        if (parentIdx > 0) {
+          for (let i = parentIdx - 1; i >= 0; i--) {
+            const m = (chat.messages as any[])[i];
+            if (m?.role === "assistant") {
+              prevAssistantUuid = m?.metadata?.sdkAssistantUuid;
+              break;
+            }
+          }
+        }
+      }
+
       chat.stop();
 
       const slicedMessages = sliceMessagesToParent(
@@ -327,7 +351,11 @@ export function useChatMessageOps({
       needsBranchMetaRefreshRef.current = true;
       resetBranchSnapshotReceipt();
       await (chat.regenerate as any)({
-        body: { continue: true },
+        body: {
+          continue: true,
+          ...(isDirectCli && originalChatModelId ? { chatModelId: originalChatModelId } : {}),
+          ...(isDirectCli && prevAssistantUuid ? { sdkRewindTarget: prevAssistantUuid } : {}),
+        },
       });
     },
     [
