@@ -49,6 +49,35 @@ function normalizeCodeModelIds(ids: unknown): string[] | undefined {
   return filtered.length > 0 ? filtered : undefined
 }
 
+/** 过滤空白 tag，空数组返回 undefined（用于回退到 templateTags）。 */
+function normalizeRequiredTags(tags: unknown): string[] | undefined {
+  if (!Array.isArray(tags)) return undefined
+  const filtered = tags.filter((s): s is string => typeof s === 'string' && s.trim().length > 0)
+  return filtered.length > 0 ? filtered : undefined
+}
+
+type DescriptorShape = {
+  modelCloudIds?: unknown
+  modelLocalIds?: unknown
+  codeModelIds?: unknown
+  requiredModelTags?: unknown
+}
+
+/** 从 descriptor 构建 AgentModelIds，统一 chatModelId/codeModelIds/requiredModelTags 派生逻辑。 */
+function buildModelIdsFromDescriptor(
+  descriptor: DescriptorShape,
+  chatModelSource: ChatModelSource,
+  templateTags: string[] | undefined,
+): AgentModelIds {
+  const chatModelId = firstModelId(
+    chatModelSource === 'cloud' ? descriptor.modelCloudIds : descriptor.modelLocalIds,
+  )
+  const codeModelIds = normalizeCodeModelIds(descriptor.codeModelIds)
+  const requiredModelTags =
+    normalizeRequiredTags(descriptor.requiredModelTags) ?? templateTags
+  return { chatModelId, chatModelSource, codeModelIds, requiredModelTags }
+}
+
 /**
  * 从指定 agent 的配置读取模型 ID。
  *
@@ -81,44 +110,21 @@ export function resolveAgentModelIdsFromConfig(input: {
     for (const rootPath of roots) {
       const descriptor = readAgentJson(resolveAgentDir(rootPath, effectiveName))
       if (!descriptor) continue
-
-      const chatModelId = firstModelId(
-        chatModelSource === 'cloud' ? descriptor.modelCloudIds : descriptor.modelLocalIds,
-      )
-      const codeModelIds = normalizeCodeModelIds(descriptor.codeModelIds)
-      // requiredModelTags: descriptor 优先，回退到 template 定义。
-      const requiredModelTags =
-        (Array.isArray(descriptor.requiredModelTags) && descriptor.requiredModelTags.length > 0
-          ? descriptor.requiredModelTags.filter((s) => s.trim())
-          : undefined) ?? templateTags
-
-      return { chatModelId, chatModelSource, codeModelIds, requiredModelTags }
+      return buildModelIdsFromDescriptor(descriptor, chatModelSource, templateTags)
     }
 
     // 全局 fallback：搜索 ~/.openloaf/agents/<name>/（agent.json 或 AGENT.md）。
     const globalAgentDir = path.join(resolveGlobalAgentsPath(), effectiveName)
     const globalDescriptor = readAgentJson(globalAgentDir)
     if (globalDescriptor) {
-      const chatModelId = firstModelId(
-        chatModelSource === 'cloud' ? globalDescriptor.modelCloudIds : globalDescriptor.modelLocalIds,
-      )
-      const codeModelIds = normalizeCodeModelIds(globalDescriptor.codeModelIds)
-      const requiredModelTags =
-        (Array.isArray(globalDescriptor.requiredModelTags) && globalDescriptor.requiredModelTags.length > 0
-          ? globalDescriptor.requiredModelTags.filter((s) => s.trim())
-          : undefined) ?? templateTags
-      return { chatModelId, chatModelSource, codeModelIds, requiredModelTags }
+      return buildModelIdsFromDescriptor(globalDescriptor, chatModelSource, templateTags)
     }
     // 兼容旧 AGENT.md 格式。
     const agentMdPath = path.join(globalAgentDir, 'AGENT.md')
     if (existsSync(agentMdPath)) {
       const mdConfig = readAgentConfigFromPath(agentMdPath, 'global')
       if (mdConfig) {
-        const chatModelId = firstModelId(
-          chatModelSource === 'cloud' ? mdConfig.modelCloudIds : mdConfig.modelLocalIds,
-        )
-        const codeModelIds = normalizeCodeModelIds(mdConfig.codeModelIds)
-        return { chatModelId, chatModelSource, codeModelIds, requiredModelTags: templateTags }
+        return buildModelIdsFromDescriptor(mdConfig, chatModelSource, templateTags)
       }
     }
   }
@@ -132,17 +138,7 @@ export function resolveAgentModelIdsFromConfig(input: {
     parentRoots: input.parentRoots,
   })
   if (match?.config) {
-    const chatModelId = firstModelId(
-      chatModelSource === 'cloud' ? match.config.modelCloudIds : match.config.modelLocalIds,
-    )
-    const codeModelIds = normalizeCodeModelIds(match.config.codeModelIds)
-    // requiredModelTags: config 优先，回退到 template 定义。
-    const requiredModelTags =
-      (match.config.requiredModelTags?.length
-        ? match.config.requiredModelTags
-        : undefined) ?? templateTags
-
-    return { chatModelId, chatModelSource, codeModelIds, requiredModelTags }
+    return buildModelIdsFromDescriptor(match.config, chatModelSource, templateTags)
   }
 
   // 无 config 匹配，仍尝试从 template 读取 requiredModelTags。
