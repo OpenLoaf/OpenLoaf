@@ -65,7 +65,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@openloaf/ui/tooltip'
 import { Popover, PopoverContent, PopoverTrigger } from '@openloaf/ui/popover'
 import { SaasLoginDialog } from '@/components/auth/SaasLoginDialog'
 import { useSaasAuth } from '@/hooks/use-saas-auth'
-import { useMediaModels } from '@/hooks/use-media-models'
 import { useSettingsValues } from '@/hooks/use-settings'
 import { useBasicConfig } from '@/hooks/use-basic-config'
 import { useCloudModels } from '@/hooks/use-cloud-models'
@@ -198,199 +197,6 @@ type FormSnapshot = {
 
 function makeSnapshot(s: FormSnapshot): string {
   return JSON.stringify(s)
-}
-
-type MediaModelSelectProps = {
-  /** Available model list. */
-  models: AiModel[]
-  /** Current selected model ids (empty = Auto). */
-  value: string[]
-  /** Disable selector interaction. */
-  disabled?: boolean
-  /** Auth state for SaaS models. */
-  authLoggedIn: boolean
-  /** Change handler. */
-  onChange: (nextIds: string[]) => void
-  /** Trigger login dialog. */
-  onOpenLogin: () => void
-  /** Empty list placeholder. */
-  emptyText?: string
-}
-
-/** Media model selector used in agent settings. */
-function MediaModelSelect({
-  models,
-  value,
-  disabled,
-  authLoggedIn,
-  onChange,
-  onOpenLogin,
-  emptyText = '',
-}: MediaModelSelectProps) {
-  const { t } = useTranslation(['settings'])
-  const [open, setOpen] = useState(false)
-  const normalizeValue = useCallback((items: string[]) => {
-    const normalized = items.map((id) => id.trim()).filter(Boolean)
-    return Array.from(new Set(normalized))
-  }, [])
-  const [localValue, setLocalValue] = useState<string[]>(
-    () => normalizeValue(value),
-  )
-  const maxVisibleSelected = 2
-  useEffect(() => {
-    const next = normalizeValue(value)
-    setLocalValue((prev) => {
-      if (prev.length === next.length && prev.every((id, i) => id === next[i])) {
-        return prev
-      }
-      return next
-    })
-  }, [normalizeValue, value])
-  const normalizedValue = localValue
-  const modelMap = useMemo(() => {
-    const map = new Map<string, AiModel>()
-    for (const model of models) {
-      map.set(model.id, model)
-    }
-    return map
-  }, [models])
-  const selectedItems = useMemo(
-    () =>
-      normalizedValue.map((id) => {
-        const model = modelMap.get(id)
-        return {
-          id,
-          icon: model?.familyId ?? model?.providerId ?? id,
-          modelId: model?.id ?? id,
-          label: model?.name ?? id,
-        }
-      }),
-    [modelMap, normalizedValue],
-  )
-  const visibleSelectedItems = selectedItems.slice(0, maxVisibleSelected)
-  const hiddenSelectedCount = Math.max(
-    selectedItems.length - visibleSelectedItems.length,
-    0,
-  )
-
-  const applyChange = useCallback(
-    (nextIds: string[]) => {
-      const next = normalizeValue(nextIds)
-      setLocalValue(next)
-      onChange(next)
-    },
-    [normalizeValue, onChange],
-  )
-
-  const handleToggle = useCallback(
-    (nextId: string) => {
-      if (normalizedValue.includes(nextId)) {
-        applyChange(normalizedValue.filter((id) => id !== nextId))
-        return
-      }
-      applyChange([...normalizedValue, nextId])
-    },
-    [applyChange, normalizedValue],
-  )
-
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          disabled={disabled}
-          className="h-8 w-fit max-w-full shrink min-w-0 justify-between rounded-3xl border border-border/60 bg-background/80 px-3 text-xs"
-        >
-          <span className="flex min-w-0 items-center gap-2">
-            {normalizedValue.length > 0 ? (
-              <span className="flex min-w-0 items-center gap-1 overflow-hidden">
-                {visibleSelectedItems.map((item, index) => (
-                  <span
-                    key={item.id}
-                    className="inline-flex min-w-0 items-center gap-1"
-                  >
-                    <ModelIcon
-                      icon={item.icon}
-                      model={item.modelId}
-                      size={14}
-                      className="h-3.5 w-3.5 shrink-0"
-                    />
-                    <span className="truncate">{item.label}</span>
-                    {index < visibleSelectedItems.length - 1 ? (
-                      <span className="text-muted-foreground">,</span>
-                    ) : null}
-                  </span>
-                ))}
-                {hiddenSelectedCount > 0 ? (
-                  <span className="text-muted-foreground">+{hiddenSelectedCount}</span>
-                ) : null}
-              </span>
-            ) : (
-              <>
-                <Sparkles className="h-3.5 w-3.5 shrink-0 text-foreground" />
-                <span className="truncate">Auto</span>
-              </>
-            )}
-          </span>
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent
-        align="end"
-        sideOffset={8}
-        className="w-80 rounded-3xl border-border bg-card p-2 shadow-none"
-      >
-        {!authLoggedIn ? (
-          <div className="flex flex-col items-center justify-center gap-2 py-6">
-            <Button
-              type="button"
-              size="sm"
-              onClick={() => {
-                setOpen(false)
-                onOpenLogin()
-              }}
-            >
-              {t('settings:agent.panel.loginCloud')}
-            </Button>
-            <div className="text-xs text-muted-foreground">{t('settings:agent.panel.useCloud')}</div>
-          </div>
-        ) : models.length === 0 ? (
-          <div className="py-6 text-center text-xs text-muted-foreground">
-            {emptyText}
-          </div>
-        ) : (
-          <div className="max-h-64 space-y-1 overflow-y-auto">
-            <button
-              type="button"
-              className="flex w-full items-center gap-2 rounded-3xl px-3 py-2 text-left text-xs hover:bg-muted/50"
-              onClick={() => applyChange([])}
-            >
-              <Sparkles className="h-3.5 w-3.5 text-foreground" />
-              <span className="flex-1 truncate">Auto</span>
-              {normalizedValue.length === 0 ? (
-                <Check className="h-3.5 w-3.5 text-foreground" />
-              ) : (
-                <span className="h-3.5 w-3.5" />
-              )}
-            </button>
-            {models.map((model) => (
-              <ModelCheckboxItem
-                key={`${model.providerId ?? 'unknown'}-${model.id}`}
-                icon={model.familyId ?? model.providerId ?? model.id}
-                modelId={model.id}
-                label={model.name ?? model.id}
-                tags={model.tags as import('@openloaf/api/common').ModelTag[] | undefined}
-                checked={normalizedValue.includes(model.id)}
-                disabled={disabled}
-                onToggle={() => handleToggle(model.id)}
-              />
-            ))}
-          </div>
-        )}
-      </PopoverContent>
-    </Popover>
-  )
 }
 
 type ChatModelSelectProps = {
@@ -644,7 +450,6 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
   const pushStackItem = useLayoutState((s) => s.pushStackItem)
   const removeStackItem = useLayoutState((s) => s.removeStackItem)
   const { loggedIn: authLoggedIn } = useSaasAuth()
-  const { imageModels, videoModels } = useMediaModels()
   const { providerItems } = useSettingsValues()
   const { basic, setBasic } = useBasicConfig()
   const { models: cloudModels } = useCloudModels()
@@ -920,7 +725,6 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
       auxiliaryModelSource: normalizeChatModelSource(basic.chatSource),
       auxiliaryModelLocalIds: [],
       auxiliaryModelCloudIds: [],
-      imageModelIds: [], videoModelIds: [],
       toolIds: baseToolIds, skills: [], allowSubAgents: false,
       maxDepth: 1, systemPrompt: '',
     })
@@ -937,8 +741,6 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
     auxiliaryModelSource,
     auxiliaryModelLocalIds,
     auxiliaryModelCloudIds,
-    imageModelIds,
-    videoModelIds,
     toolIds,
     skills,
     allowSubAgents,
@@ -966,8 +768,6 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
     setAuxiliaryModelSource(parsed.auxiliaryModelSource)
     setAuxiliaryModelLocalIds(parsed.auxiliaryModelLocalIds)
     setAuxiliaryModelCloudIds(parsed.auxiliaryModelCloudIds)
-    setImageModelIds(parsed.imageModelIds)
-    setVideoModelIds(parsed.videoModelIds)
     setToolIds(normalizeAgentToolIds(parsed.toolIds))
     setSkills(parsed.skills)
     setAllowSubAgents(parsed.allowSubAgents)
@@ -1066,8 +866,6 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
           auxiliaryModelSource,
           auxiliaryModelLocalIds,
           auxiliaryModelCloudIds,
-          imageModelIds,
-          videoModelIds,
           toolIds,
           skills,
           allowSubAgents,
@@ -1093,8 +891,6 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
         auxiliaryModelSource: nextSnapshot.auxiliaryModelSource,
         auxiliaryModelLocalIds: normalizeIds(nextSnapshot.auxiliaryModelLocalIds),
         auxiliaryModelCloudIds: normalizeIds(nextSnapshot.auxiliaryModelCloudIds),
-        imageModelIds: normalizeIds(nextSnapshot.imageModelIds),
-        videoModelIds: normalizeIds(nextSnapshot.videoModelIds),
         toolIds: normalizeAgentToolIds(nextSnapshot.toolIds),
         skills: nextSnapshot.skills,
         allowSubAgents: nextSnapshot.allowSubAgents,
@@ -1112,7 +908,6 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
       description,
       getSavedSnapshot,
       icon,
-      imageModelIds,
       isMasterAgent,
       isNew,
       maxDepth,
@@ -1125,7 +920,6 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
       scope,
       skills,
       systemPrompt,
-      videoModelIds,
     ],
   )
 
@@ -1138,8 +932,6 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
     const normalizedModelCloudIds = normalizeIds(modelCloudIds)
     const normalizedAuxLocalIds = normalizeIds(auxiliaryModelLocalIds)
     const normalizedAuxCloudIds = normalizeIds(auxiliaryModelCloudIds)
-    const normalizedImageModelIds = normalizeIds(imageModelIds)
-    const normalizedVideoModelIds = normalizeIds(videoModelIds)
     const normalizedToolIds = normalizeAgentToolIds(toolIds)
     saveMutation.mutate({
       scope,
@@ -1153,8 +945,6 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
       auxiliaryModelSource,
       auxiliaryModelLocalIds: normalizedAuxLocalIds,
       auxiliaryModelCloudIds: normalizedAuxCloudIds,
-      imageModelIds: normalizedImageModelIds,
-      videoModelIds: normalizedVideoModelIds,
       toolIds: normalizedToolIds,
       skills,
       allowSubAgents,
@@ -1170,8 +960,6 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
     auxiliaryModelSource,
     auxiliaryModelLocalIds,
     auxiliaryModelCloudIds,
-    imageModelIds,
-    videoModelIds,
     toolIds,
     skills,
     allowSubAgents,
@@ -1347,9 +1135,6 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
       setLoginOpen(false)
     }
   }, [authLoggedIn, loginOpen])
-
-  const hasImageGenerate = toolIds.includes('image-generate')
-  const hasVideoGenerate = toolIds.includes('video-generate')
 
   // 逻辑：向 PanelFrame 的 StackHeader 注入保存按钮和关闭拦截。
   useEffect(() => {
@@ -1572,85 +1357,6 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
                 />
               </div>
             )}
-          </OpenLoafSettingsCard>
-
-          <OpenLoafSettingsCard divided>
-            <div className="flex flex-wrap items-center gap-3 gap-y-2 py-2.5">
-              <div className="flex items-center gap-2 text-sm font-medium">
-                <Image className="h-4 w-4 text-foreground" />
-                {t('settings:agent.panel.imageGen')}
-              </div>
-              <div className="ml-auto flex flex-wrap items-center gap-2">
-                {hasImageGenerate ? (
-                  authLoggedIn ? (
-                    <MediaModelSelect
-                      models={imageModels}
-                      value={imageModelIds}
-                      authLoggedIn={authLoggedIn}
-                      onChange={(nextIds) => {
-                        setImageModelIds(nextIds)
-                        if (isMasterAgent) {
-                          syncMasterModels({ imageModelIds: nextIds })
-                        }
-                      }}
-                      onOpenLogin={() => setLoginOpen(true)}
-                      emptyText={t('settings:agent.panel.noImageModel')}
-                    />
-                  ) : (
-                    <Button size="sm" className="bg-foreground text-background hover:bg-foreground/90" onClick={() => setLoginOpen(true)}>
-                      <img src="/head_s.png" alt="OpenLoaf" className="mr-1 h-5 w-5" />
-                      {t('settings:agent.panel.loginCloudShort')}
-                    </Button>
-                  )
-                ) : null}
-                {authLoggedIn ? (
-                  <Switch
-                    checked={hasImageGenerate}
-                    onCheckedChange={(checked) =>
-                      handleToggleTool('image-generate', Boolean(checked))
-                    }
-                  />
-                ) : null}
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-3 gap-y-2 py-2.5">
-              <div className="flex items-center gap-2 text-sm font-medium">
-                <Video className="h-4 w-4 text-foreground" />
-                {t('settings:agent.panel.videoGen')}
-              </div>
-              <div className="ml-auto flex flex-wrap items-center gap-2">
-                {hasVideoGenerate ? (
-                  authLoggedIn ? (
-                    <MediaModelSelect
-                      models={videoModels}
-                      value={videoModelIds}
-                      authLoggedIn={authLoggedIn}
-                      onChange={(nextIds) => {
-                        setVideoModelIds(nextIds)
-                        if (isMasterAgent) {
-                          syncMasterModels({ videoModelIds: nextIds })
-                        }
-                      }}
-                      onOpenLogin={() => setLoginOpen(true)}
-                      emptyText={t('settings:agent.panel.noVideoModel')}
-                    />
-                  ) : (
-                    <Button size="sm" className="bg-foreground text-background hover:bg-foreground/90" onClick={() => setLoginOpen(true)}>
-                      <img src="/head_s.png" alt="OpenLoaf" className="mr-1 h-5 w-5" />
-                      {t('settings:agent.panel.loginCloudShort')}
-                    </Button>
-                  )
-                ) : null}
-                {authLoggedIn ? (
-                  <Switch
-                    checked={hasVideoGenerate}
-                    onCheckedChange={(checked) =>
-                      handleToggleTool('video-generate', Boolean(checked))
-                    }
-                  />
-                ) : null}
-              </div>
-            </div>
           </OpenLoafSettingsCard>
 
           {/* Tabs: 能力组 / 技能 / 提示词 */}
