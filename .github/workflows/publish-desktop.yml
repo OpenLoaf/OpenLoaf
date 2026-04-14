@@ -106,6 +106,17 @@ jobs:
       - name: Build server
         run: pnpm --filter server run build:prod
 
+      # Next.js webpack/SWC 模块缓存 —— 每次 commit 保存一份、restore-keys 回退最近可用缓存，
+      # 用于在 `pnpm --filter web run build` 前预热 .next/cache，典型 PR 可节省 60-90s。
+      - name: Cache Next.js build
+        uses: actions/cache@v5
+        with:
+          path: ${{ github.workspace }}/apps/web/.next/cache
+          key: nextjs-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
+          restore-keys: |
+            nextjs-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
+            nextjs-${{ runner.os }}-
+
       - name: Build web
         env:
           NEXT_PUBLIC_SERVER_URL: http://127.0.0.1:23333
