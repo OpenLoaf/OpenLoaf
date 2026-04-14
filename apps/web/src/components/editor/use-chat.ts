@@ -91,13 +91,20 @@ export const useChat = () => {
           (explicitChatModelId ?? refChatModelId)?.trim() || undefined;
         const normalizedChatModelSource =
           (explicitChatModelSource ?? refChatModelSource)?.trim() || undefined;
+        // 逻辑：masterAgent 尚未加载或用户从未选过模型时，chatModelId 为空。
+        // 必须在前端抛友好错误，否则后端 resolveChatModelFromBody 会返回晦涩的 500。
+        if (!normalizedChatModelId) {
+          throw new Error(
+            'AI 模型尚未就绪，请在设置中为主 Agent 选择聊天模型后再试。',
+          );
+        }
         const { chatModelId: _ignored, chatModelSource: _ignoredSource, ...restBodyOptions } =
           bodyOptionsRecord;
 
         const body = {
           ...initBody,
           ...restBodyOptions,
-          ...(normalizedChatModelId ? { chatModelId: normalizedChatModelId } : {}),
+          chatModelId: normalizedChatModelId,
           ...(normalizedChatModelSource ? { chatModelSource: normalizedChatModelSource } : {}),
         };
 
