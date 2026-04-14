@@ -279,6 +279,9 @@ const config: ForgeConfig = {
       '../../apps/desktop/resources/docx-sfdt',
       '../../apps/desktop/resources/speech',
       '../../apps/desktop/resources/calendar',
+      // yt-dlp 二进制由 predesktop 的 prefetch:ytdlp 脚本下载（带重试），
+      // 原 ytdlp-nodejs postinstall 没重试，CDN 一抖就让 pnpm install 挂掉。
+      '../../apps/desktop/resources/bin',
       '../../apps/desktop/resources/runtime.env',
       '../../apps/desktop/resources/icon.icns',
       '../../apps/desktop/resources/icon.ico',

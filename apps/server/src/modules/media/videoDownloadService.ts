@@ -13,6 +13,7 @@ import { randomUUID } from 'node:crypto'
 import path from 'node:path'
 import fs from 'node:fs'
 import ffmpeg from 'fluent-ffmpeg'
+import { resolveOpenLoafPath } from '@openloaf/config'
 import { logger } from '@/common/logger'
 
 let ytdlp: YtDlp | null = null
@@ -206,19 +207,45 @@ async function extractDouyinVideo(videoId: string): Promise<DouyinVideoData> {
   }
 }
 
-/** Ensure yt-dlp binary is available, download if missing. */
+/**
+ * Ensure yt-dlp binary is available.
+ *
+ * 解析优先级：
+ * 1. `OPENLOAF_YTDLP_BINARY` 环境变量 —— 由 Electron main 指向打包进 Resources/bin/
+ *    的二进制（prod），或仓库 apps/desktop/resources/bin/（dev by `pnpm desktop`）。
+ *    二进制由 `pnpm run prefetch:ytdlp` 在 predesktop 阶段下载（带重试），替代
+ *    上游 ytdlp-nodejs 无重试的 postinstall。
+ * 2. 用户目录 `~/.openloaf/bin/` 运行时兜底 —— 裸跑 server（`pnpm dev:server`）
+ *    或打包产物缺失时，首次调用动态下载。
+ *
+ * 注意不使用 `helpers.findYtdlpBinary()`：它硬编码在 `node_modules/ytdlp-nodejs/bin/`
+ * 下查找，而 server 的 esbuild 产物把 ytdlp-nodejs 的 JS 内联进 server.mjs，
+ * `__dirname` 无法指向原始包目录，该函数返回值不可靠。
+ */
 async function ensureYtDlp(): Promise<YtDlp> {
   if (ytdlp) return ytdlp
   if (initPromise) return initPromise
   initPromise = (async () => {
-    let binaryPath = helpers.findYtdlpBinary()
-    if (!binaryPath) {
-      logger.info('yt-dlp binary not found, downloading...')
-      binaryPath = await helpers.downloadYtDlp()
-      logger.info({ binaryPath }, 'yt-dlp binary downloaded')
+    try {
+      let binaryPath: string | undefined = process.env.OPENLOAF_YTDLP_BINARY
+      if (binaryPath && !fs.existsSync(binaryPath)) {
+        logger.warn({ binaryPath }, 'OPENLOAF_YTDLP_BINARY points to missing file, falling back')
+        binaryPath = undefined
+      }
+      if (!binaryPath) {
+        const binDir = resolveOpenLoafPath('bin')
+        fs.mkdirSync(binDir, { recursive: true })
+        logger.info({ binDir }, 'downloading yt-dlp to user data dir')
+        binaryPath = await helpers.downloadYtDlp(binDir)
+      }
+      logger.info({ binaryPath }, 'yt-dlp binary ready')
+      ytdlp = new YtDlp({ binaryPath })
+      return ytdlp
+    } catch (err) {
+      // 失败时清空 promise，避免缓存 rejected promise 导致用户重试也永远失败
+      initPromise = null
+      throw err
     }
-    ytdlp = new YtDlp({ binaryPath })
-    return ytdlp
   })()
   return initPromise
 }

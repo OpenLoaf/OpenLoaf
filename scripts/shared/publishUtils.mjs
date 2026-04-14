@@ -6,7 +6,7 @@
 import { createHash } from 'node:crypto'
 import { createReadStream, readFileSync, existsSync, readdirSync } from 'node:fs'
 import path from 'node:path'
-import { S3Client, PutObjectCommand, GetObjectCommand, ListObjectsV2Command, DeleteObjectsCommand } from '@aws-sdk/client-s3'
+import { S3Client, PutObjectCommand, GetObjectCommand, HeadObjectCommand, ListObjectsV2Command, DeleteObjectsCommand } from '@aws-sdk/client-s3'
 
 // ---------------------------------------------------------------------------
 // env 文件加载
@@ -248,6 +248,10 @@ export async function uploadChangelogs({ s3, bucket, component, changelogsDir, p
   /** @type {Array<{ version: string, date: string, langs: string[] }>} */
   const entries = []
 
+  // 增量上传计数器（日志可读性）
+  let uploaded = 0
+  let skipped = 0
+
   for (const version of versionDirs) {
     const versionDir = path.join(changelogsDir, version)
     const mdFiles = readdirSync(versionDir).filter((f) => f.endsWith('.md'))
@@ -262,20 +266,26 @@ export async function uploadChangelogs({ s3, bucket, component, changelogsDir, p
 
       const filePath = path.join(versionDir, file)
       const r2Key = `changelogs/${component}/${version}/${file}`
-      console.log(`   Uploading changelog: ${r2Key}`)
       const content = readFileSync(filePath)
-      await s3.send(
-        new PutObjectCommand({
-          Bucket: bucket,
-          Key: r2Key,
-          Body: content,
-          ContentType: 'text/markdown',
-        })
-      )
+      const changed = await remoteDiffers(s3, bucket, r2Key, content)
+      if (changed) {
+        console.log(`   Uploading changelog: ${r2Key}`)
+        await s3.send(
+          new PutObjectCommand({
+            Bucket: bucket,
+            Key: r2Key,
+            Body: content,
+            ContentType: 'text/markdown',
+          })
+        )
+        uploaded += 1
+      } else {
+        skipped += 1
+      }
 
       // 从 frontmatter 提取 date（取第一个文件的即可）
       if (langs.length === 1) {
-        const raw = readFileSync(filePath, 'utf-8')
+        const raw = content.toString('utf-8')
         const dateMatch = raw.match(/^---[\s\S]*?date:\s*(\S+)[\s\S]*?---/)
         if (dateMatch) date = dateMatch[1]
       }
@@ -284,19 +294,27 @@ export async function uploadChangelogs({ s3, bucket, component, changelogsDir, p
     entries.push({ version, date, langs })
   }
 
+  console.log(`   Changelogs: ${uploaded} uploaded, ${skipped} unchanged`)
+
   // 按版本号降序排列
   entries.sort((a, b) => b.version.localeCompare(a.version, undefined, { numeric: true }))
 
-  // 更新 changelogs/index.json
+  // 更新 changelogs/index.json（只在 component 对应条目变化时上传）
   let index = {}
   try {
     index = await downloadJson(s3, bucket, 'changelogs/index.json')
   } catch {
     // 首次创建
   }
-  index[component] = entries
-  await uploadJson(s3, bucket, 'changelogs/index.json', index)
-  console.log(`   Updated changelogs/index.json for ${component}`)
+  const existingComponentJson = JSON.stringify(index[component] ?? null)
+  const newComponentJson = JSON.stringify(entries)
+  if (existingComponentJson !== newComponentJson) {
+    index[component] = entries
+    await uploadJson(s3, bucket, 'changelogs/index.json', index)
+    console.log(`   Updated changelogs/index.json for ${component}`)
+  } else {
+    console.log(`   changelogs/index.json unchanged for ${component}`)
+  }
 
   // 额外：把当前版本的 changelog 写到版本目录下的 CHANGELOG.md（仅 en.md 或第一个文件）
   if (versionDirPrefix && entries.length > 0) {
@@ -312,17 +330,52 @@ export async function uploadChangelogs({ s3, bucket, component, changelogsDir, p
         const filePath = path.join(versionDir, preferredFile)
         const content = readFileSync(filePath)
         const changelogKey = `${versionDirPrefix}/CHANGELOG.md`
-        console.log(`   Uploading changelog to version dir: ${changelogKey}`)
-        await s3.send(
-          new PutObjectCommand({
-            Bucket: bucket,
-            Key: changelogKey,
-            Body: content,
-            ContentType: 'text/markdown',
-          })
-        )
+        if (await remoteDiffers(s3, bucket, changelogKey, content)) {
+          console.log(`   Uploading changelog to version dir: ${changelogKey}`)
+          await s3.send(
+            new PutObjectCommand({
+              Bucket: bucket,
+              Key: changelogKey,
+              Body: content,
+              ContentType: 'text/markdown',
+            })
+          )
+        } else {
+          console.log(`   Version dir CHANGELOG.md unchanged: ${changelogKey}`)
+        }
       }
     }
+  }
+}
+
+/**
+ * 判断本地文件内容是否与远程对象不同。
+ * S3 / R2 单部分上传的 ETag = 内容 MD5（hex，两侧带引号），
+ * 对 changelog 这种小文件始终是单部分上传，可直接用 ETag 做内容比对。
+ *
+ * 返回 true 表示需要上传（远程不存在 或 内容不同）。
+ *
+ * @param {import('@aws-sdk/client-s3').S3Client} s3
+ * @param {string} bucket
+ * @param {string} key
+ * @param {Buffer} localContent
+ */
+async function remoteDiffers(s3, bucket, key, localContent) {
+  try {
+    const res = await s3.send(new HeadObjectCommand({ Bucket: bucket, Key: key }))
+    const remoteEtag = (res.ETag ?? '').replace(/"/g, '').toLowerCase()
+    if (!remoteEtag || remoteEtag.includes('-')) {
+      // 无 ETag 或是 multipart（含 '-<partCount>'）→ 无法信任比对，稳妥起见上传
+      return true
+    }
+    const localMd5 = createHash('md5').update(localContent).digest('hex')
+    return localMd5 !== remoteEtag
+  } catch (err) {
+    // 404 / NotFound → 远程不存在，需要上传
+    const code = err?.$metadata?.httpStatusCode ?? err?.Code ?? err?.name
+    if (code === 404 || code === 'NotFound' || code === 'NoSuchKey') return true
+    // 其他错误（网络、权限）→ 抛出让上层感知，不要悄悄 fallthrough 成 false
+    throw err
   }
 }
 
