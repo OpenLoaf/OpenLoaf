@@ -263,7 +263,7 @@
     "titleProject": "项目记忆",
     "subtitle": "AI 对话时会自动参考记忆内容，帮助 AI 更好地理解你的偏好和上下文。",
     "subtitleProject": "AI 对话时会自动参考本项目的记忆内容。项目记忆与全局记忆互相独立。",
-    "folderDescription": "记忆以文件形式存储在 .openloaf/memory/ 目录中，包含索引文件 MEMORY.md 和多个主题文件。你可以浏览和编辑所有记忆文件。",
+    "folderDescription": "记忆以文件形式存储在 memory 目录中，包含索引文件 MEMORY.md 和多个主题文件。你可以浏览和编辑所有记忆文件。",
     "openFolder": "查看记忆文件",
     "placeholder": "在此输入记忆内容（Markdown 格式）...",
     "preview": "预览",

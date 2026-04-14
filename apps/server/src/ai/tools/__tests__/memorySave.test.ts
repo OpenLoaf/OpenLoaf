@@ -26,6 +26,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node
 import path from 'node:path'
 import os from 'node:os'
 import { setRequestContext } from '@/ai/shared/context/requestContext'
+import { resolveAgentMemoryDir, resolveUserMemoryDir } from '@/ai/shared/memoryLoader'
 import { memorySaveTool as _memorySaveTool } from '../memoryTools'
 
 const memorySaveExecute = _memorySaveTool.execute!
@@ -361,9 +362,8 @@ async function testIntegration() {
   // C2: scope=agent 写入 agent 子目录
   await test('C2: scope=agent with agentStack → writes to agents/{name}/', async () => {
     const { root } = createTempMemoryDir()
-    // homedir 的 memory 目录用来测 agent scope
-    const userMemDir = path.join(os.homedir(), '.openloaf', 'memory', 'agents', 'test-coder')
-    mkdirSync(userMemDir, { recursive: true })
+    const agentMemDir = resolveAgentMemoryDir('test-coder')
+    mkdirSync(agentMemDir, { recursive: true })
 
     setRequestContext({
       sessionId: `test-${Date.now()}`,
@@ -377,10 +377,10 @@ async function testIntegration() {
       toolCtx,
     )
     assert.ok((result as any).ok)
-    assert.ok(existsSync(path.join(userMemDir, `${today}-agent-note.md`)))
+    assert.ok(existsSync(path.join(agentMemDir, `${today}-agent-note.md`)))
 
     // Cleanup
-    cleanupDir(userMemDir)
+    cleanupDir(agentMemDir)
     cleanupDir(root)
   })
 }
@@ -830,7 +830,7 @@ async function testScopeIsolation() {
     const content = readFileSync(projFile, 'utf8')
     assert.ok(content.includes('unique-token-s3-proj'), 'Project file should contain the content')
 
-    const userMemDir = path.join(os.homedir(), '.openloaf', 'memory')
+    const userMemDir = resolveUserMemoryDir()
     const userFile = path.join(userMemDir, `${today}-secret.md`)
     assert.ok(!existsSync(userFile), 'Project save must NOT leak into user memory dir')
 

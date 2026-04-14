@@ -32,10 +32,20 @@ export function getOpenLoafRootDir(): string {
   return root;
 }
 
+/** Resolve the OpenLoafData root directory (user-facing data, outside ~/.openloaf config dir). */
+export function getOpenLoafDataRootDir(): string {
+  if (process.platform === "win32") {
+    const dDrive = "D:\\OpenLoafData";
+    if (fs.existsSync("D:\\")) return dDrive;
+    return path.join(homedir(), "OpenLoafData");
+  }
+  return path.join(homedir(), "OpenLoafData");
+}
+
 /** Resolve the default project storage root directory and ensure it exists. */
 export function getDefaultProjectStorageRootDir(): string {
-  const root = projectStorageRootOverride ?? getOpenLoafRootDir();
-  // 项目默认存储根目录统一落在 OpenLoaf 根目录下。
+  const root = projectStorageRootOverride ?? path.join(getOpenLoafDataRootDir(), "projects");
+  // 项目默认存储根目录：~/OpenLoafData/projects（与 .openloaf 配置目录解耦）。
   fs.mkdirSync(root, { recursive: true });
   return root;
 }

@@ -16,7 +16,7 @@ import {
 import {
   resolveFilePathFromUri,
 } from "@openloaf/api/services/vfsService"
-import { getOpenLoafRootDir, resolveScopedOpenLoafPath } from "@openloaf/config"
+import { getResolvedTempStorageDir } from "@openloaf/api/services/appConfigService"
 import {
   getProjectMetaPath,
   projectConfigSchema,
@@ -58,9 +58,9 @@ export function resolveGlobalSkillsPath(): string {
   return path.join(homedir(), ".openloaf", "skills")
 }
 
-/** Resolve the global agents directory path (~/.openloaf/agents). */
+/** Resolve the global agents directory path (`<tempStorage>/agents`). */
 export function resolveGlobalAgentsPath(): string {
-  return path.join(homedir(), ".openloaf", "agents")
+  return path.join(getResolvedTempStorageDir(), "agents")
 }
 
 /** Build project ignore key from folder name. */
@@ -208,15 +208,6 @@ export function resolveAgentDeleteTarget(input: {
   projectId?: string
   agentPath: string
 }): { agentDir: string; agentsRoot: string } {
-  const baseRootPath =
-    input.scope === "global"
-      ? getOpenLoafRootDir()
-      : input.projectId
-        ? getProjectRootPath(input.projectId) ?? ""
-        : ""
-  if (!baseRootPath) {
-    throw new Error("Project not found.")
-  }
   const normalizedAgentPath = normalizeSkillPath(input.agentPath)
   if (!normalizedAgentPath) {
     throw new Error("Invalid agent path.")
@@ -228,11 +219,21 @@ export function resolveAgentDeleteTarget(input: {
   if (!isOpenLoafAgent && !isLegacyAgent) {
     throw new Error("Invalid agent path.")
   }
+  // Resolve scope root. Global agents live at <tempStorage>/agents/; project
+  // agents live at <projectRoot>/.openloaf/agents/.
+  let agentsRoot: string
+  if (input.scope === "global") {
+    agentsRoot = normalizeFsPath(resolveGlobalAgentsPath())
+  } else {
+    const projectRootPath = input.projectId
+      ? getProjectRootPath(input.projectId) ?? ""
+      : ""
+    if (!projectRootPath) {
+      throw new Error("Project not found.")
+    }
+    agentsRoot = normalizeFsPath(path.join(projectRootPath, ".openloaf", "agents"))
+  }
   const agentDir = normalizeFsPath(path.dirname(normalizedAgentPath))
-  // 新结构统一在 .openloaf/agents/ 下，旧结构兼容 .agents/agents/。
-  const agentsRoot = isOpenLoafAgent
-    ? normalizeFsPath(resolveScopedOpenLoafPath(baseRootPath, "agents"))
-    : normalizeFsPath(path.join(baseRootPath, ".openloaf", "agents"))
   if (agentDir === agentsRoot || !agentDir.startsWith(`${agentsRoot}${path.sep}`)) {
     throw new Error("Agent path is outside scope.")
   }

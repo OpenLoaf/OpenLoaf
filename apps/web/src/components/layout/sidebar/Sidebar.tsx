@@ -22,7 +22,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@openloaf/ui/sidebar";
-import { Bot, CalendarDays, Clock, FolderClosed, LayoutDashboard, Mail, Palette, Plug, Search, Settings, Sparkles, Wand2 } from "lucide-react";
+import { Blocks, Bot, CalendarDays, Clock, FolderClosed, LayoutDashboard, Mail, Palette, Search, Settings, Sparkles, Wand2 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@openloaf/ui/tooltip";
 import { useAppState, getAppState } from "@/hooks/use-app-state";
 import { useLayoutState } from "@/hooks/use-layout-state";
@@ -367,7 +367,7 @@ export const AppSidebar = ({
             onClick={() => setSearchOpen(true)}
           />
           <IconNavItem
-            icon={Plug}
+            icon={Blocks}
             tooltip={t("connections")}
             color="black"
             isActive={!isInProject && isConnectionsActive}

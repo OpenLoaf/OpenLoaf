@@ -142,8 +142,10 @@ export function GeneratingOverlay({
           {onCancel ? (
             <button
               type="button"
+              data-board-controls
               disabled={cancelling}
               className="inline-flex items-center text-[11px] font-medium text-ol-text-secondary hover:text-foreground transition-colors duration-150 disabled:opacity-50"
+              onPointerDown={(e) => e.stopPropagation()}
               onClick={(e) => {
                 e.stopPropagation()
                 onCancel()
@@ -208,8 +210,10 @@ export function GeneratingOverlay({
       {onCancel ? (
         <button
           type="button"
+          data-board-controls
           disabled={cancelling}
           className="mt-1 inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium text-ol-text-secondary hover:text-foreground hover:bg-foreground/5 transition-colors duration-150 disabled:opacity-50"
+          onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => {
             e.stopPropagation()
             onCancel()

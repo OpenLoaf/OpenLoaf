@@ -15,7 +15,6 @@ import { getRequestContext } from "@/ai/shared/context/requestContext";
 import {
   getProjectRootPath,
 } from "@openloaf/api/services/vfsService";
-import { getOpenLoafRootDir } from "@openloaf/config";
 import type { PromptContext } from "@/ai/shared/types";
 import type { ClientPlatform } from "@openloaf/api/types/platform";
 import { loadSkillSummaries, type SkillSummary } from "@/ai/services/skillsLoader";
@@ -25,6 +24,8 @@ import { getSaasClient } from "@/modules/saas/client";
 import { readBasicConf } from "@/modules/settings/openloafConfStore";
 import { logger } from "@/common/logger";
 import {
+  buildEnvVarsSection,
+  buildSystemInfoSection,
   buildSessionContextSection,
   buildProjectRulesSection,
   buildSkillsSummarySection,
@@ -547,8 +548,27 @@ function buildContextBlocks(input: {
 
   // NOTE: 执行规则 + 任务分工已移至 hardRules.ts <agent-directives>
 
-  // 会话上下文（含语言设置，放到最底部）
-  const sessionDesc = isZh ? "当前会话环境信息" : "Current session environment info";
+  // 环境变量（路径模板，工具入参中可直接使用）
+  const envVarsBody = buildEnvVarsSection(context, lang);
+  if (envVarsBody.trim()) {
+    const envDesc = isZh
+      ? "路径环境变量（工具入参/Bash 命令中可直接使用 ${NAME}，会自动展开为右侧绝对路径）"
+      : "Path environment variables (use ${NAME} directly in tool inputs / Bash; auto-expanded to the absolute path on the right)";
+    blocks.push(
+      `<system-tag type="environment" desc="${envDesc}">\n${envVarsBody}\n</system-tag>`,
+    );
+  }
+
+  // 系统信息（OS + 运行时 + 应用版本）
+  const sysDesc = isZh
+    ? "操作系统、运行时与应用版本"
+    : "OS, runtime and app versions";
+  blocks.push(
+    `<system-tag type="system-info" desc="${sysDesc}">\n${buildSystemInfoSection(context, lang)}\n</system-tag>`,
+  );
+
+  // 会话上下文（chat-session + account）
+  const sessionDesc = isZh ? "当前会话与账号信息" : "Current session and account info";
   blocks.push(
     `<system-tag type="session-context" desc="${sessionDesc}">\n${buildSessionContextSection(sessionId, context, lang)}\n</system-tag>`,
   );
@@ -609,14 +629,7 @@ export async function buildSessionPrefaceText(input: {
   });
 
   // Memory 独立块
-  let userHomePath: string | undefined;
-  try {
-    userHomePath = getOpenLoafRootDir();
-  } catch {
-    userHomePath = undefined;
-  }
   const memoryBlocks = assembleMemoryBlocks({
-    userHomePath,
     projectRootPath: context.project.rootPath !== UNKNOWN_VALUE ? context.project.rootPath : undefined,
     parentProjectRootPaths: input.parentProjectRootPaths,
   });

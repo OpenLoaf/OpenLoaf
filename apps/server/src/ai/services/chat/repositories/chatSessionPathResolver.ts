@@ -12,13 +12,11 @@ import path from 'node:path'
 import { resolveOpenLoafPath, resolveScopedOpenLoafPath } from '@openloaf/config'
 import { getResolvedTempStorageDir } from '@openloaf/api/services/appConfigService'
 import {
-  lookupBoardRecord,
-  resolveBoardRootPath,
+  resolveBoardChatHistoryDir,
   resolveBoardScopedRoot,
 } from '@openloaf/api/common/boardPaths'
 import { getProjectRootPath } from '@openloaf/api/services/vfsService'
 import { prisma } from '@openloaf/db'
-import { logger } from '@/common/logger'
 import { CHAT_HISTORY_DIR, LRU_MAX_SIZE, MESSAGES_FILE } from './chatFileStore'
 
 // ---------------------------------------------------------------------------
@@ -44,39 +42,36 @@ function touchSessionDirCache(sessionId: string) {
 // ---------------------------------------------------------------------------
 
 /**
- * 解析 session 的 chat-history 根目录：
- * - 有 boardId → 从 DB 查询画布 folderUri，解析画布目录（sessionId 拼接在后）
- * - 有 projectId → <projectRoot>/.openloaf/chat-history/
- * - 都没有 → <tempStorageDir>/chat-history/ (fallback)
+ * 按约定计算 chat session 目录（纯同步，不查 DB）。
+ *
+ * 三种 chat 各走各的路径：
+ * - 画布右侧面板 chat（有 boardId，sessionId 独立于 boardId）：
+ *     <boardRoot>/boards/<boardId>/chat-history/<sessionId>/
+ * - 项目内独立 chat（有 projectId，无 boardId）：
+ *     <projectRoot>/.openloaf/chat-history/<sessionId>/
+ * - 全局独立 chat（都没有）：
+ *     <tempStorageDir>/chat-history/<sessionId>/
+ *
+ * 同一套规则被 async `resolveSessionDir` 和同步 `expandPathTemplateVars`
+ * 复用，避免两侧路径漂移。
  */
-async function resolveChatHistoryRoot(
-  projectId?: string | null,
-  boardId?: string | null,
-): Promise<string> {
-  // 画布内聊天：从 DB 查询 folderUri，chat 文件直接存在画布目录下
-  // sessionId === boardId，resolveSessionDir 会拼接 sessionId
+export function computeChatSessionDirByConvention(input: {
+  sessionId: string
+  projectId?: string | null
+  boardId?: string | null
+}): string {
+  const { sessionId, projectId, boardId } = input
   if (boardId) {
-    const board = await lookupBoardRecord(boardId)
-    const rootPath = board
-      ? resolveBoardRootPath(board)
-      : resolveBoardScopedRoot(projectId ?? undefined)
-    if (board) {
-      // 去掉 folderUri 末尾的 boardId 目录，返回 boards/ 基目录
-      // 因为后续 resolveSessionDir 会 path.join(root, sessionId) 把 boardId 拼回去
-      const folderName = board.folderUri.replace(/\/+$/u, '').split('/').filter(Boolean)
-      folderName.pop()
-      return path.join(rootPath, ...folderName)
-    }
-    // fallback: 画布不在 DB 中
-    return path.join(rootPath, 'boards')
+    const rootPath = resolveBoardScopedRoot(projectId ?? undefined)
+    return path.join(resolveBoardChatHistoryDir(rootPath, boardId), sessionId)
   }
   if (projectId) {
     const projectRoot = getProjectRootPath(projectId)
     if (projectRoot) {
-      return resolveScopedOpenLoafPath(projectRoot, CHAT_HISTORY_DIR)
+      return path.join(resolveScopedOpenLoafPath(projectRoot, CHAT_HISTORY_DIR), sessionId)
     }
   }
-  return path.join(getResolvedTempStorageDir(), CHAT_HISTORY_DIR)
+  return path.join(getResolvedTempStorageDir(), CHAT_HISTORY_DIR, sessionId)
 }
 
 export async function resolveSessionDir(sessionId: string): Promise<string> {
@@ -91,8 +86,11 @@ export async function resolveSessionDir(sessionId: string): Promise<string> {
     where: { id: sessionId },
     select: { projectId: true, boardId: true },
   })
-  const root = await resolveChatHistoryRoot(session?.projectId, session?.boardId)
-  const dir = path.join(root, sessionId)
+  const dir = computeChatSessionDirByConvention({
+    sessionId,
+    projectId: session?.projectId,
+    boardId: session?.boardId,
+  })
 
   // 防御：项目路径下 messages.jsonl 不存在时，回退到临时存储路径或旧全局路径
   // （常见于项目删除或迁移未完成等场景）。
@@ -132,8 +130,8 @@ export async function registerSessionDir(
   projectId?: string | null,
   boardId?: string | null,
 ): Promise<void> {
-  const root = await resolveChatHistoryRoot(projectId, boardId)
-  sessionDirCache.set(sessionId, path.join(root, sessionId))
+  const dir = computeChatSessionDirByConvention({ sessionId, projectId, boardId })
+  sessionDirCache.set(sessionId, dir)
   touchSessionDirCache(sessionId)
 }
 

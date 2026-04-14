@@ -23,11 +23,14 @@ import {
   unlinkSync,
   writeFileSync,
 } from 'node:fs'
-import { homedir } from 'node:os'
 import path from 'node:path'
 import { memorySaveToolDef } from '@openloaf/api/types/tools/memory'
 import { getRequestContext } from '@/ai/shared/context/requestContext'
-import { resolveMemoryDir } from '@/ai/shared/memoryLoader'
+import {
+  resolveAgentMemoryDir,
+  resolveMemoryDir,
+  resolveUserMemoryDir,
+} from '@/ai/shared/memoryLoader'
 import { logger } from '@/common/logger'
 
 // ─── MemorySave ────────────────────────────────────────────────────────────
@@ -35,13 +38,12 @@ import { logger } from '@/common/logger'
 /** Resolve the target write directory based on scope + request context. Returns null if scope cannot be satisfied. */
 function resolveWriteDir(scope: 'user' | 'project' | 'agent'): string | null {
   const ctx = getRequestContext()
-  const userMemDir = resolveMemoryDir(homedir())
 
   if (scope === 'agent') {
     const agentStack = ctx?.agentStack
     const currentAgent = agentStack?.[agentStack.length - 1]
     if (currentAgent) {
-      return path.join(userMemDir, 'agents', currentAgent.name)
+      return resolveAgentMemoryDir(currentAgent.name)
     }
     return null
   }
@@ -55,7 +57,7 @@ function resolveWriteDir(scope: 'user' | 'project' | 'agent'): string | null {
     return null
   }
 
-  return userMemDir
+  return resolveUserMemoryDir()
 }
 
 /** Find existing memory file matching `YYYY-MM-DD-{key}.md` or `{key}.md` precisely. */
@@ -152,7 +154,8 @@ function formatMemoryFilePath(
     const rel = path.relative(memoryDir, absFile).split(path.sep).join('/')
     return `\${PROJECT_MEMORY_DIR}/${rel}`
   }
-  const userMemDir = resolveMemoryDir(homedir())
+  // user & agent both live under the user memory tree
+  const userMemDir = resolveUserMemoryDir()
   const rel = path.relative(userMemDir, absFile).split(path.sep).join('/')
   return `\${USER_MEMORY_DIR}/${rel}`
 }

@@ -263,7 +263,7 @@
     "titleProject": "Project Memory",
     "subtitle": "AI will automatically reference memory content during conversations to better understand your preferences and context.",
     "subtitleProject": "AI will reference this project's memory during conversations. Project memory is independent from global memory.",
-    "folderDescription": "Memory is stored as files in the .openloaf/memory/ directory, including the MEMORY.md index and topic-specific files. You can browse and edit all memory files.",
+    "folderDescription": "Memory is stored as files under the memory directory, including the MEMORY.md index and topic-specific files. You can browse and edit all memory files.",
     "openFolder": "View Memory Files",
     "placeholder": "Enter memory content here (Markdown format)...",
     "preview": "Preview",

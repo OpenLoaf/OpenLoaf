@@ -10,7 +10,7 @@
 /**
  * 通用 Agent 模型解析 — 从指定 agent 的配置读取模型 ID。
  *
- * 搜索顺序：项目 .openloaf/agents/ → 全局 ~/.openloaf/agents/。
+ * 搜索顺序：项目 .openloaf/agents/ → 全局 <tempStorage>/agents/（由 resolveGlobalAgentsPath() 解析）。
  * chatStreamService 和 agentTools 共用此函数，避免重复逻辑。
  */
 
@@ -113,7 +113,7 @@ export function resolveAgentModelIdsFromConfig(input: {
       return buildModelIdsFromDescriptor(descriptor, chatModelSource, templateTags)
     }
 
-    // 全局 fallback：搜索 ~/.openloaf/agents/<name>/（agent.json 或 AGENT.md）。
+    // 全局 fallback：搜索 <tempStorage>/agents/<name>/（agent.json 或 AGENT.md）。
     const globalAgentDir = path.join(resolveGlobalAgentsPath(), effectiveName)
     const globalDescriptor = readAgentJson(globalAgentDir)
     if (globalDescriptor) {

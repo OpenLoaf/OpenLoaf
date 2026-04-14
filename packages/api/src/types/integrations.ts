@@ -51,6 +51,11 @@ export const integrationDefinitionSchema = z.object({
   description: z.string(),
   category: integrationCategorySchema,
   brandColor: z.string().optional(),
+  /**
+   * Raw SVG path `d` attribute (rendered inside `<svg viewBox="0 0 24 24">`).
+   * When present, rendered as a monochrome brand glyph driven by `currentColor`.
+   */
+  iconSvgPath: z.string().optional(),
   homepage: z.string().optional(),
   guide: z.array(integrationGuideStepSchema),
   credentials: z.array(credentialFieldSchema),

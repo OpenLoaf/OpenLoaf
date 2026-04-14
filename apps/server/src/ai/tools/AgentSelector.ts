@@ -9,11 +9,11 @@
  */
 import path from 'node:path'
 import { existsSync, readdirSync } from 'node:fs'
-import { homedir } from 'node:os'
 import {
   readAgentConfigFromPath,
   type AgentConfig,
 } from '@/ai/services/agentConfigService'
+import { resolveGlobalAgentsPath } from '@/routers/settingsHelpers'
 
 const OPENLOAF_META_DIR = '.openloaf'
 const AGENTS_DIR_NAME = 'agents'
@@ -84,7 +84,7 @@ function buildSearchRoots(roots: AgentRoots): AgentSearchRoot[] {
   }
   ordered.push({
     scope: 'global',
-    rootPath: path.join(homedir(), '.openloaf', 'agents'),
+    rootPath: resolveGlobalAgentsPath(),
   })
   return ordered
 }

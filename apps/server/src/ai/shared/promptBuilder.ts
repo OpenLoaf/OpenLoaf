@@ -43,24 +43,6 @@ export function buildLanguageSection(context: PromptContext, lang?: PromptLang):
     : `Output language: ${context.responseLanguage} (use strictly, do not mix other languages)`
 }
 
-/** Build environment and identity section. */
-export function buildEnvironmentSection(context: PromptContext, lang?: PromptLang): string {
-  const isZh = lang === 'zh'
-  const lines = [isZh ? '环境与身份' : 'Environment & Identity']
-  if (!isUnknown(context.project.id)) {
-    lines.push(`- project: ${context.project.name} (${context.project.id})`)
-    lines.push(`- projectRootPath: ${context.project.rootPath}`)
-  } else {
-    lines.push(isZh ? '- 临时对话（未绑定项目）' : '- Temporary chat (no project bound)')
-  }
-  lines.push(
-    `- platform: ${context.platform}`,
-    `- date: ${context.date} | timezone: ${context.timezone}`,
-    `- account: ${context.account.name} (${context.account.email})`,
-  )
-  return lines.join('\n')
-}
-
 /** Build project rules section. */
 export function buildProjectRulesSection(context: PromptContext, lang?: PromptLang): string {
   const isZh = lang === 'zh'
@@ -123,26 +105,17 @@ function formatMembershipLevel(
   return { display, tier, isInternal }
 }
 
-/** Build the inner body of the <system-tag type="session-context"> block as nested XML. */
-export function buildSessionContextSection(
-  sessionId: string,
-  context: PromptContext,
+/** Build the inner body of `<system-tag type="env-vars">`: path env vars only. */
+export function buildEnvVarsSection(
+  _context: PromptContext,
   lang?: PromptLang,
 ): string {
   const isZh = lang === 'zh'
-  const kind = resolveSessionKind(context)
-
-  const lines: string[] = []
-
-  // <chat-session>
-  lines.push(`  <chat-session id="${xmlAttr(sessionId)}" kind="${kind}" />`)
-
-  // <context-env-vars>
   const varDescs: Array<{ name: string; descZh: string; descEn: string }> = [
     {
       name: 'CURRENT_CHAT_DIR',
-      descZh: '当前会话资源目录（WebFetch 原文、上传文件、生成文件都在这里）',
-      descEn: 'current session resource directory (WebFetch originals, uploads, generated files)',
+      descZh: '当前会话资源目录（WebFetch 原文、用户上传文件、AI 生成文件都在这里；画布右侧 chat 也独立在此，不与画布资源共享）',
+      descEn: 'current chat session resource directory (WebFetch originals, user uploads, AI-generated files; canvas-right chats live here, separate from canvas assets)',
     },
     {
       name: 'CURRENT_PROJECT_ROOT',
@@ -151,8 +124,8 @@ export function buildSessionContextSection(
     },
     {
       name: 'CURRENT_BOARD_DIR',
-      descZh: '当前画布资源目录（画布内与 ${CURRENT_CHAT_DIR} 等价）',
-      descEn: 'current canvas resource directory (equivalent to ${CURRENT_CHAT_DIR} inside a canvas)',
+      descZh: '当前画布自身的资源目录（画布节点/媒体，与 ${CURRENT_CHAT_DIR} 不同；chat 上传/生成的文件在 ${CURRENT_CHAT_DIR}）',
+      descEn: 'current canvas\'s own asset directory (canvas nodes/media, distinct from ${CURRENT_CHAT_DIR}; chat uploads / generated files live in ${CURRENT_CHAT_DIR})',
     },
     {
       name: 'USER_MEMORY_DIR',
@@ -170,47 +143,54 @@ export function buildSessionContextSection(
       descEn: 'user home directory',
     },
   ]
-  const envVarsDesc = isZh
-    ? '当前上下文环境变量（工具入参/Bash 命令中可直接使用，左侧模板会被自动展开为右侧绝对路径）'
-    : 'Context environment variables (use the ${NAME} token directly in tool inputs / Bash; it is auto-expanded to the absolute path on the right)'
   const varLines: string[] = []
   for (const v of varDescs) {
     const token = `\${${v.name}}`
     const expanded = expandPathTemplateVars(token)
     if (expanded === token) continue // variable is not resolvable in current context
     const desc = isZh ? v.descZh : v.descEn
-    varLines.push(`    - ${token} = ${expanded} — ${desc}`)
+    varLines.push(`  ${token} = ${expanded}`)
+    varLines.push(`      ${desc}`)
   }
-  lines.push(`  <context-env-vars desc="${xmlAttr(envVarsDesc)}">`)
-  lines.push(...varLines)
-  lines.push('  </context-env-vars>')
+  return varLines.join('\n')
+}
 
-  // <environment>
+/** Build the inner body of `<system-tag type="system-info">`: OS / locale / runtime / app versions as flat `- key: value` lines. */
+export function buildSystemInfoSection(
+  context: PromptContext,
+  _lang?: PromptLang,
+): string {
   const [osNameRaw, ...osRest] = context.platform.split(' ')
   const osName = osNameRaw ?? 'unknown'
   const osVersion = osRest.join(' ') || 'unknown'
-  lines.push('  <environment>')
-  lines.push(`    <os name="${xmlAttr(osName)}" version="${xmlAttr(osVersion)}" />`)
-  lines.push(
-    `    <locale timezone="${xmlAttr(context.timezone)}" language="${xmlAttr(context.responseLanguage)}" />`,
-  )
+  const lines: string[] = []
+  lines.push(`  - os: ${osName} ${osVersion}`)
+  lines.push(`  - locale: ${context.timezone} / ${context.responseLanguage}`)
   if (context.python.installed) {
     const pyVer = context.python.version ?? 'unknown'
-    const pyPath = context.python.path ?? ''
-    const pathAttr = pyPath ? ` path="${xmlAttr(pyPath)}"` : ''
-    lines.push(`    <runtime name="python" version="${xmlAttr(pyVer)}"${pathAttr} />`)
+    const pyPath = context.python.path ? ` (${context.python.path})` : ''
+    lines.push(`  - python: ${pyVer}${pyPath}`)
   }
   const apps = context.appVersions
-  if (apps?.server) {
-    lines.push(`    <app name="openloaf-server" version="${xmlAttr(apps.server)}" />`)
-  }
-  if (apps?.web) {
-    lines.push(`    <app name="openloaf-web" version="${xmlAttr(apps.web)}" />`)
-  }
-  if (apps?.desktop) {
-    lines.push(`    <app name="openloaf-desktop" version="${xmlAttr(apps.desktop)}" />`)
-  }
-  lines.push('  </environment>')
+  if (apps?.server) lines.push(`  - openloaf-server: ${apps.server}`)
+  if (apps?.web) lines.push(`  - openloaf-web: ${apps.web}`)
+  if (apps?.desktop) lines.push(`  - openloaf-desktop: ${apps.desktop}`)
+  return lines.join('\n')
+}
+
+/** Build the inner body of `<system-tag type="session-context">`: chat-session + account only. */
+export function buildSessionContextSection(
+  sessionId: string,
+  context: PromptContext,
+  lang?: PromptLang,
+): string {
+  const isZh = lang === 'zh'
+  const kind = resolveSessionKind(context)
+
+  const lines: string[] = []
+
+  // <chat-session>
+  lines.push(`  <chat-session id="${xmlAttr(sessionId)}" kind="${kind}" />`)
 
   // <account>
   const accountIsEmpty =

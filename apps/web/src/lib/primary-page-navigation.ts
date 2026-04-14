@@ -4,6 +4,7 @@ import type { DockItem } from "@openloaf/api/common";
 import { getAppState } from "@/hooks/use-app-state";
 import { useAppView } from "@/hooks/use-app-view";
 import { useLayoutState, type LayoutState } from "@/hooks/use-layout-state";
+import { detectCurrentSection, useSectionSnapshot } from "@/hooks/use-section-snapshot";
 import type { ProjectShellState } from "@/lib/project-shell";
 
 export type PrimaryPageNavigationInput = {
@@ -116,6 +117,19 @@ export function openPrimaryPage(
   if (isSameBase && layout.stack.length === 0 && !options?.baseParams) {
     return;
   }
+
+  // Auto-save the source section snapshot before we overwrite the layout, so
+  // that returning to this section (via sidebar or handleSectionSwitch) restores
+  // the exact view the user last had open — not a stale snapshot from a much
+  // earlier section switch. Non-section pages (settings, workbench, etc.) are
+  // skipped.
+  const sourceSection = detectCurrentSection(getAppState());
+  if (sourceSection) {
+    useSectionSnapshot
+      .getState()
+      .saveSnapshot(sourceSection, captureCurrentViewSnapshot());
+  }
+
   const nextBaseParams = {
     ...(options?.baseParams ?? {}),
     ...(options?.preserveCurrentView

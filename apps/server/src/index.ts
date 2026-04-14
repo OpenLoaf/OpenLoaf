@@ -23,6 +23,7 @@ import { initFfmpegPaths } from "@/common/ffmpegPaths";
 // Electron 子进程中 IPv6 连接经常超时（Happy Eyeballs 耗尽 connect timeout），
 // 导致 SaaS 请求（Cloudflare 双栈域名）因 ConnectTimeoutError 失败。
 dns.setDefaultResultOrder("ipv4first");
+import { migrateLegacyTempStorage } from "@/bootstrap/migrateTempStorage";
 import { startServer } from "@/bootstrap/startServer";
 import { flushBoardDocuments } from "@/modules/board/boardCollabWebSocket";
 import { installHttpProxy } from "@/modules/proxy/httpProxy";
@@ -31,6 +32,7 @@ import { getAppConfig, getDefaultTempStoragePath, setResolvedTempStorageDir } fr
 import { readBasicConf } from "@/modules/settings/openloafConfStore";
 import { migrateLegacyServerData } from "@openloaf/config";
 import { ensureDefaultAgentCleanup } from "@/ai/shared/agentCleanup";
+import { migrateGlobalDataToTempStorage } from "@/ai/shared/migrateGlobalDataToTempStorage";
 import { initDatabase } from "@openloaf/db";
 import { runPendingMigrations } from "@openloaf/db/migrationRunner";
 import { embeddedMigrations } from "@openloaf/db/migrations.generated";
@@ -50,6 +52,10 @@ void syncSystemProxySettings();
 migrateLegacyServerData();
 getAppConfig();
 
+// 一次性迁移历史默认 temp 目录到 ~/OpenLoafData（幂等）。
+// 只影响默认路径用户；自定义 appTempStorageDir 的用户会被跳过。
+migrateLegacyTempStorage();
+
 // 读取用户配置的临时存储路径并同步到 packages/api 层。
 const _bootConf = readBasicConf();
 setResolvedTempStorageDir(_bootConf.appTempStorageDir || null);
@@ -57,8 +63,14 @@ setResolvedTempStorageDir(_bootConf.appTempStorageDir || null);
 // 确保临时存储目录存在（按平台创建默认路径）。
 mkdirSync(getDefaultTempStoragePath(), { recursive: true });
 
-// 启动时清理旧版 agent 文件夹。
+// 清理旧版 agent 目录嵌套：agents/agents/* → agents/*、agents/skills/* → skills/*。
+// 必须先跑，让后续 migrateGlobalDataToTempStorage() 搬到的是已扁平化的 agents/*。
+// 注意：扁平出来的 skills/* 留在 ~/.openloaf/skills/，不参与 temp-storage 迁移。
 ensureDefaultAgentCleanup();
+
+// 一次性迁移 ~/.openloaf/memory + ~/.openloaf/agents → <tempStorage>/{memory,agents}（幂等）。
+// 必须在 setResolvedTempStorageDir() 之后调用。skills/* 不在迁移范围。
+migrateGlobalDataToTempStorage();
 
 // 数据库迁移：检查并应用所有待执行的 schema 迁移。
 // 必须在 initDatabase() 之前完成，确保表结构就绪。

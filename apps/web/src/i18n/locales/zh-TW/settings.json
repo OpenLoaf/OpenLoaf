@@ -263,7 +263,7 @@
     "titleProject": "專案記憶",
     "subtitle": "AI 對話時會自動參考記憶內容，幫助 AI 更好地理解你的偏好和上下文。",
     "subtitleProject": "AI 對話時會自動參考本專案的記憶內容。專案記憶與全域記憶互相獨立。",
-    "folderDescription": "記憶以檔案形式儲存在 .openloaf/memory/ 目錄中，包含索引檔案 MEMORY.md 和多個主題檔案。你可以瀏覽和編輯所有記憶檔案。",
+    "folderDescription": "記憶以檔案形式儲存在 memory 目錄中，包含索引檔案 MEMORY.md 和多個主題檔案。你可以瀏覽和編輯所有記憶檔案。",
     "openFolder": "查看記憶檔案",
     "placeholder": "在此輸入記憶內容（Markdown 格式）...",
     "preview": "預覽",

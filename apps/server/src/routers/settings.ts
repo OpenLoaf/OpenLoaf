@@ -22,7 +22,6 @@ import {
   getDefaultProjectStorageRootUri,
   getResolvedTempStorageDir,
 } from "@openloaf/api/services/appConfigService"
-import { getOpenLoafRootDir } from "@openloaf/config"
 import {
   deleteSettingValueFromWeb,
   getBasicConfigForWeb,
@@ -47,7 +46,14 @@ import {
   getCodexCliModels,
   getClaudeCodeCliModels,
 } from "@/ai/models/cli/cliProviderEntry"
-import { readMemoryFile, resolveMemoryDir, writeMemoryFile } from "@/ai/shared/memoryLoader"
+import {
+  readMemoryFile,
+  readUserMemoryIndex,
+  resolveMemoryDir,
+  resolveUserMemoryDir,
+  writeMemoryFile,
+  writeUserMemoryIndex,
+} from "@/ai/shared/memoryLoader"
 import { resolveSystemCliInfo } from "@/modules/settings/resolveSystemCliInfo"
 import { resolveOfficeInfo } from "@/modules/settings/resolveOfficeInfo"
 import { skillProcedures } from "./settingsSkillProcedures"
@@ -192,8 +198,7 @@ class SettingRouterImpl extends BaseSettingRouter {
         .query(async ({ input }) => {
           const scope = input?.scope ?? 'user'
           if (scope === 'user') {
-            const content = readMemoryFile(getOpenLoafRootDir())
-            return { content }
+            return { content: readUserMemoryIndex() }
           }
           // scope === 'project'
           const projectRootPath = input?.projectId
@@ -209,16 +214,16 @@ class SettingRouterImpl extends BaseSettingRouter {
         .output(settingSchemas.getMemoryDirUri.output)
         .query(async ({ input }) => {
           const scope = input?.scope ?? 'user'
-          let rootPath: string | undefined
+          let memoryDirPath: string | undefined
           if (scope === 'user') {
-            rootPath = getOpenLoafRootDir()
+            memoryDirPath = resolveUserMemoryDir()
           } else {
-            rootPath = input?.projectId
+            const rootPath = input?.projectId
               ? getProjectRootPath(input.projectId) ?? undefined
               : undefined
+            if (rootPath) memoryDirPath = resolveMemoryDir(rootPath)
           }
-          if (!rootPath) return { dirUri: '', indexUri: '' }
-          const memoryDirPath = resolveMemoryDir(rootPath)
+          if (!memoryDirPath) return { dirUri: '', indexUri: '' }
           const dirUri = pathToFileURL(memoryDirPath).href
           const indexUri = pathToFileURL(path.join(memoryDirPath, 'MEMORY.md')).href
           return { dirUri, indexUri }
@@ -230,7 +235,7 @@ class SettingRouterImpl extends BaseSettingRouter {
         .mutation(async ({ input }) => {
           const scope = input.scope ?? 'user'
           if (scope === 'user') {
-            writeMemoryFile(getOpenLoafRootDir(), input.content)
+            writeUserMemoryIndex(input.content)
             return { ok: true }
           }
           // scope === 'project'
@@ -247,16 +252,16 @@ class SettingRouterImpl extends BaseSettingRouter {
         .output(settingSchemas.clearAllMemory.output)
         .mutation(async ({ input }) => {
           const scope = input?.scope ?? 'user'
-          let rootPath: string | undefined
+          let memoryDirPath: string | undefined
           if (scope === 'user') {
-            rootPath = getOpenLoafRootDir()
+            memoryDirPath = resolveUserMemoryDir()
           } else {
-            rootPath = input?.projectId
+            const rootPath = input?.projectId
               ? getProjectRootPath(input.projectId) ?? undefined
               : undefined
+            if (rootPath) memoryDirPath = resolveMemoryDir(rootPath)
           }
-          if (!rootPath) return { ok: false, deletedCount: 0 }
-          const memoryDirPath = resolveMemoryDir(rootPath)
+          if (!memoryDirPath) return { ok: false, deletedCount: 0 }
           try {
             const entries = await fs.readdir(memoryDirPath)
             let deletedCount = 0

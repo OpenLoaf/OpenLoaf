@@ -16,7 +16,7 @@ import { queryClient, trpc } from '@/utils/trpc'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { Button } from '@openloaf/ui/button'
-import { Check, Loader2, Plug, PlugZap, Settings2 } from 'lucide-react'
+import { Blocks, Check, Loader2, PlugZap, Settings2 } from 'lucide-react'
 import type { IntegrationDefinition } from '@openloaf/api/types/integrations'
 import { openSettingsTab } from '@/lib/globalShortcuts'
 import { InstallIntegrationDialog } from './InstallIntegrationDialog'
@@ -82,7 +82,7 @@ export function ConnectionsMarketPage() {
         <div className="flex items-start justify-between gap-6">
           <div className="min-w-0">
             <h1 className="flex items-center gap-2 text-xl font-semibold text-foreground">
-              <Plug className="h-5 w-5 text-foreground/70" />
+              <Blocks className="h-5 w-5 text-foreground/70" />
               {t('connections:title')}
             </h1>
             <p className="mt-1.5 max-w-2xl text-sm text-muted-foreground">
@@ -156,9 +156,20 @@ export function ConnectionsMarketPage() {
                             : undefined
                         }
                       >
-                        <span className="text-sm font-semibold">
-                          {integration.name.charAt(0)}
-                        </span>
+                        {integration.iconSvgPath ? (
+                          <svg
+                            viewBox="0 0 24 24"
+                            className="h-[22px] w-[22px]"
+                            fill="currentColor"
+                            aria-hidden="true"
+                          >
+                            <path d={integration.iconSvgPath} />
+                          </svg>
+                        ) : (
+                          <span className="text-sm font-semibold">
+                            {integration.name.charAt(0)}
+                          </span>
+                        )}
                       </div>
                       <div className="min-w-0">
                         <div className="truncate text-sm font-semibold text-foreground">

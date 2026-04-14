@@ -8,11 +8,10 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { z } from "zod";
-import { getOpenLoafRootDir } from "@openloaf/config";
+import { getOpenLoafDataRootDir, getOpenLoafRootDir } from "@openloaf/config";
 import type { AppConfig } from "../types/appConfig";
 import { appConfigSchema } from "../types/appConfig";
 
@@ -97,9 +96,9 @@ export function getGlobalRootPath(): string {
   return rootPath;
 }
 
-/** Get the default project storage root path. */
+/** Get the default project storage root path (~/OpenLoafData/projects). */
 export function getDefaultProjectStoragePath(): string {
-  const rootPath = getOpenLoafRootDir();
+  const rootPath = path.join(getOpenLoafDataRootDir(), "projects");
   mkdirSync(rootPath, { recursive: true });
   return rootPath;
 }
@@ -109,20 +108,16 @@ export function getDefaultProjectStorageRootUri(): string {
   return resolveDefaultRootUri();
 }
 
-/** Get the platform-specific default temporary storage path. */
+/**
+ * Default temp storage path: ~/OpenLoafData on all platforms.
+ *
+ * Historically macOS used ~/Documents/OpenLoaf/Temp, but macOS 15+ enforces
+ * App Management via `com.apple.provenance` xattrs — cross-process reads of
+ * user files under ~/Documents get EPERM even with correct POSIX perms.
+ * Placing data at ~/OpenLoafData sidesteps both TCC and App Management.
+ */
 export function getDefaultTempStoragePath(): string {
-  const p = process.platform;
-  if (p === "win32") {
-    // Windows: prefer D:\OpenLoaf\Temp if D: exists, else fallback to user home.
-    const dDrive = "D:\\OpenLoaf\\Temp";
-    if (existsSync("D:\\")) return dDrive;
-    return path.join(homedir(), "OpenLoaf", "Temp");
-  }
-  if (p === "darwin") {
-    return path.join(homedir(), "Documents", "OpenLoaf", "Temp");
-  }
-  // Linux and others.
-  return path.join(homedir(), "OpenLoaf", "Temp");
+  return getOpenLoafDataRootDir();
 }
 
 /** Runtime override for the resolved temp storage directory. */

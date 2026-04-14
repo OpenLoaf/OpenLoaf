@@ -105,9 +105,27 @@ export function AnchorOverlay({ snapshot, engine }: AnchorOverlayProps) {
     }
   }, [hasAnchors, uniqueAnchors, visible]);
 
-  const displayAnchors = hasAnchors ? uniqueAnchors : deferredAnchors;
+  // 逻辑：延迟卸载期间，若锚点所属元素已被删除，立即剔除 —
+  // 否则节点瞬间消失而锚点残留 500ms，形成错位。
+  const aliveElementIds = useMemo(
+    () => new Set(snapshot.elements.map(el => el.id)),
+    [snapshot.elements]
+  );
+  const displayAnchors = useMemo(() => {
+    const source = hasAnchors ? uniqueAnchors : deferredAnchors;
+    const filtered = new Map<string, AnchorOverlayItem>();
+    source.forEach((value, key) => {
+      if (aliveElementIds.has(value.elementId)) {
+        filtered.set(key, value);
+      }
+    });
+    return filtered;
+  }, [hasAnchors, uniqueAnchors, deferredAnchors, aliveElementIds]);
 
   if (!visible && !hasAnchors) {
+    return null;
+  }
+  if (displayAnchors.size === 0) {
     return null;
   }
 

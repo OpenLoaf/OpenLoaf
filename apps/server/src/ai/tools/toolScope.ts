@@ -8,7 +8,6 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import fsSync from "node:fs";
-import { homedir } from "node:os";
 import path from "node:path";
 import {
   getBoardId,
@@ -25,8 +24,11 @@ import {
   resolveBoardAssetDir,
   resolveBoardScopedRoot,
 } from "@openloaf/api/common/boardPaths";
-import { resolveSessionAssetDir } from "@/ai/services/chat/repositories/chatSessionPathResolver";
-import { resolveMemoryDir } from "@/ai/shared/memoryLoader";
+import {
+  computeChatSessionDirByConvention,
+  resolveSessionAssetDir,
+} from "@/ai/services/chat/repositories/chatSessionPathResolver";
+import { resolveMemoryDir, resolveUserMemoryDir } from "@/ai/shared/memoryLoader";
 
 type ToolRoots = {
   /** Global root path (~/.openloaf/). */
@@ -42,16 +44,17 @@ export function resolveToolRoots(): ToolRoots {
   const globalRoot = getOpenLoafRootDir();
   const projectId = getProjectId();
   const projectRoot = projectId ? getProjectRootPath(projectId) ?? undefined : undefined;
+  const boardId = getBoardId();
+  const sessionId = getSessionId();
 
-  // 临时会话（无 projectRoot）：通过 sessionId 计算正确的会话存储路径。
-  // 文件存储在 {tempDir}/chat-history/{sessionId}/ 下，不是 ~/.openloaf/。
+  // 所有类型的 chat 统一走 computeChatSessionDirByConvention，保证这里和
+  // expandPathTemplateVars / resolveSessionDir 三处路径规则一致。
+  // 画布右侧面板 chat 的 asset 目录是 board 目录下独立的 chat-history/<sessionId>/asset/，
+  // 与 board 自身资源 (boards/<boardId>/asset/) 物理隔离。
   let chatAssetRoot: string | undefined;
-  if (!projectRoot) {
-    const sessionId = getSessionId();
-    if (sessionId) {
-      const sessionDir = path.join(getResolvedTempStorageDir(), "chat-history", sessionId);
-      chatAssetRoot = path.join(sessionDir, "asset");
-    }
+  if (sessionId) {
+    const sessionDir = computeChatSessionDirByConvention({ sessionId, projectId, boardId });
+    chatAssetRoot = path.join(sessionDir, "asset");
   }
 
   return {
@@ -74,7 +77,7 @@ function isPathInside(root: string, target: string): boolean {
  *   - ${CURRENT_PROJECT_ROOT}  → absolute project root (if bound)
  *   - ${CURRENT_CHAT_DIR}      → absolute chat asset directory (session sandbox)
  *   - ${CURRENT_BOARD_DIR}     → absolute board asset directory (canvas sandbox)
- *   - ${USER_MEMORY_DIR}       → ~/.openloaf/memory (global memory root)
+ *   - ${USER_MEMORY_DIR}       → <tempStorage>/memory (global memory root)
  *   - ${PROJECT_MEMORY_DIR}    → <projectRoot>/.openloaf/memory (project sessions only)
  *   - ${HOME}                  → user home directory
  *
@@ -100,36 +103,28 @@ export function expandPathTemplateVars(input: string): string {
 
   // Board asset dir: {boardRoot}/boards/{boardId}/asset/
   // (boardRoot = projectRoot for project boards, tempDir for temp boards)
+  // 画布自身的资源目录，与 chat 会话目录是兄弟关系，不再等价。
   let boardAssetDir: string | undefined;
   if (boardId) {
     const boardRoot = resolveBoardScopedRoot(projectId);
     boardAssetDir = resolveBoardAssetDir(boardRoot, boardId);
   }
 
-  // Chat session asset dir. When chat is bound to a board the asset dir lives
-  // under the board's directory; otherwise it's at the standard chat-history
-  // location (project or temp).
+  // Chat session asset dir：<sessionDir>/asset/
+  // 画布右侧面板 chat 与画布内 board 资源物理隔离：
+  //   - CURRENT_CHAT_DIR → <boardRoot>/boards/<boardId>/chat-history/<sessionId>/asset/
+  //   - CURRENT_BOARD_DIR → <boardRoot>/boards/<boardId>/asset/
+  // 同步使用 computeChatSessionDirByConvention，和 chatSessionPathResolver 共享规则。
   let chatAssetDir: string | undefined;
   if (sessionId) {
-    if (boardAssetDir) {
-      // Canvas-bound chats: sessionId typically equals boardId, so the chat
-      // asset dir IS the board asset dir. (chatSessionPathResolver stores the
-      // physical folder by the same convention.) This is deliberately the same
-      // directory as CURRENT_BOARD_DIR — the two tokens are synonyms when a
-      // chat is inside a canvas, letting AI pick whichever reads better.
-      chatAssetDir = boardAssetDir;
-    } else {
-      const sessionDir = projectRoot
-        ? path.join(projectRoot, ".openloaf", "chat-history", sessionId)
-        : path.join(getResolvedTempStorageDir(), "chat-history", sessionId);
-      chatAssetDir = path.join(sessionDir, "asset");
-    }
+    const sessionDir = computeChatSessionDirByConvention({ sessionId, projectId, boardId });
+    chatAssetDir = path.join(sessionDir, "asset");
     // 提前创建目录，避免 Glob/Grep 首次使用 ${CURRENT_CHAT_DIR} 时 ENOENT
     fsSync.mkdirSync(chatAssetDir, { recursive: true });
   }
 
   const home = process.env.HOME || process.env.USERPROFILE;
-  const userMemoryDir = resolveMemoryDir(homedir());
+  const userMemoryDir = resolveUserMemoryDir();
   const projectMemoryDir = projectRoot ? resolveMemoryDir(projectRoot) : undefined;
   return input.replace(
     /\$\{(CURRENT_PROJECT_ROOT|CURRENT_CHAT_DIR|CURRENT_BOARD_DIR|USER_MEMORY_DIR|PROJECT_MEMORY_DIR|HOME)\}/g,
