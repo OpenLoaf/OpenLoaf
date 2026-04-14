@@ -26,8 +26,6 @@ type AgentDetail = {
   auxiliaryModelSource: string;
   auxiliaryModelLocalIds: string[];
   auxiliaryModelCloudIds: string[];
-  imageModelIds: string[];
-  videoModelIds: string[];
   codeModelIds: string[];
   toolIds: string[];
   skills: string[];
@@ -147,8 +145,6 @@ export function useMainAgentModel(projectId?: string) {
           auxiliaryModelSource: patch.auxiliaryModelSource ?? "",
           auxiliaryModelLocalIds: normalizeIds(patch.auxiliaryModelLocalIds),
           auxiliaryModelCloudIds: normalizeIds(patch.auxiliaryModelCloudIds),
-          imageModelIds: normalizeIds(patch.imageModelIds),
-          videoModelIds: normalizeIds(patch.videoModelIds),
           codeModelIds: normalizeIds(patch.codeModelIds),
           toolIds: [],
           skills: [],
@@ -177,12 +173,6 @@ export function useMainAgentModel(projectId?: string) {
       )
         ? patch.auxiliaryModelCloudIds
         : detail.auxiliaryModelCloudIds;
-      const nextImageModelIds = Array.isArray(patch.imageModelIds)
-        ? patch.imageModelIds
-        : detail.imageModelIds;
-      const nextVideoModelIds = Array.isArray(patch.videoModelIds)
-        ? patch.videoModelIds
-        : detail.videoModelIds;
       const nextCodeModelIds = Array.isArray(patch.codeModelIds)
         ? patch.codeModelIds
         : detail.codeModelIds;
@@ -198,8 +188,6 @@ export function useMainAgentModel(projectId?: string) {
       const normalizedCloudIds = normalizeIds(nextModelCloudIds);
       const normalizedAuxLocalIds = normalizeIds(nextAuxiliaryModelLocalIds);
       const normalizedAuxCloudIds = normalizeIds(nextAuxiliaryModelCloudIds);
-      const normalizedImageIds = normalizeIds(nextImageModelIds);
-      const normalizedVideoIds = normalizeIds(nextVideoModelIds);
       const normalizedCodeIds = normalizeIds(nextCodeModelIds);
       const normalizedToolIds = normalizeIds(nextToolIds);
 
@@ -214,8 +202,6 @@ export function useMainAgentModel(projectId?: string) {
           auxiliaryModelSource: nextAuxiliaryModelSource,
           auxiliaryModelLocalIds: normalizedAuxLocalIds,
           auxiliaryModelCloudIds: normalizedAuxCloudIds,
-          imageModelIds: normalizedImageIds,
-          videoModelIds: normalizedVideoIds,
           codeModelIds: normalizedCodeIds,
           toolIds: normalizedToolIds,
           skills: patch.skills ?? detail.skills,
@@ -237,8 +223,6 @@ export function useMainAgentModel(projectId?: string) {
         auxiliaryModelSource: nextAuxiliaryModelSource,
         auxiliaryModelLocalIds: normalizedAuxLocalIds,
         auxiliaryModelCloudIds: normalizedAuxCloudIds,
-        imageModelIds: normalizedImageIds,
-        videoModelIds: normalizedVideoIds,
         codeModelIds: normalizedCodeIds,
         toolIds: normalizedToolIds,
         skills: patch.skills ?? detail.skills,
@@ -279,22 +263,6 @@ export function useMainAgentModel(projectId?: string) {
     [detailQuery.data, normalizeIds, updateMasterAgent],
   );
 
-  /** Update master image model ids (empty = Auto). */
-  const setImageModelIds = useCallback(
-    (nextIds: string[]) => {
-      updateMasterAgent({ imageModelIds: normalizeIds(nextIds) });
-    },
-    [normalizeIds, updateMasterAgent],
-  );
-
-  /** Update master video model ids (empty = Auto). */
-  const setVideoModelIds = useCallback(
-    (nextIds: string[]) => {
-      updateMasterAgent({ videoModelIds: normalizeIds(nextIds) });
-    },
-    [normalizeIds, updateMasterAgent],
-  );
-
   /** Update master code model ids (empty = Auto). */
   const setCodeModelIds = useCallback(
     (nextIds: string[]) => {
@@ -325,8 +293,6 @@ export function useMainAgentModel(projectId?: string) {
     setModelIds,
     auxiliaryModelIds,
     setAuxiliaryModelIds,
-    setImageModelIds,
-    setVideoModelIds,
     setCodeModelIds,
     detail,
     isLoading:

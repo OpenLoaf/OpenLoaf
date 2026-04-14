@@ -85,6 +85,7 @@
     }
   },
   "projectTree": {
+    "pathPlaceholder": "file://... または /path/to/project",
     "open": "開く",
     "openInNewWindow": "新しいウィンドウで開く",
     "openInCurrentWindow": "現在のウィンドウで開く",
@@ -322,6 +323,7 @@
     "totalCount": "合計 {{count}} 件",
     "childCount": "{{count}} 件のサブプロジェクト",
     "createFailed": "プロジェクトの作成に失敗しました",
-    "dropToCreate": "フォルダーをドロップしてプロジェクトを作成"
+    "dropToCreate": "フォルダーをドロップしてプロジェクトを作成",
+    "refresh": "更新"
   }
 }

@@ -11,13 +11,12 @@ import { generateId, type UIMessage } from "ai";
 import type { ModelDefinition } from "@openloaf/api/common";
 import type { ClientPlatform } from "@openloaf/api/types/platform";
 import type { ChatPageContext, OpenLoafUIMessage } from "@openloaf/api/types/message";
+import type { ToolApprovalRules } from "@openloaf/api/types/toolApproval";
 import { logger } from "@/common/logger";
 import {
   getRequestContext,
   setAssistantMessageId,
   setRequestContext,
-  setSaasAccessToken,
-  setMediaModelIds,
 } from "@/ai/shared/context/requestContext";
 import { loadMessageChain, loadMessageChainByIds } from "@/ai/services/chat/repositories/messageChainLoader";
 import {
@@ -115,18 +114,14 @@ export function initRequestContext(input: {
   selectedSkills?: string[] | null;
   /** Tool approval payloads keyed by toolCallId. */
   toolApprovalPayloads?: Record<string, Record<string, unknown>> | null;
+  /** Pre-resolved allow/deny rules (project or temp-chat scope). */
+  toolApprovalRules?: ToolApprovalRules | null;
   /** Whether to auto-approve simple tool calls. */
   autoApproveTools?: boolean;
   /** Abort signal from the incoming request. */
   requestSignal: AbortSignal;
   /** Optional message id override. */
   messageId?: string | null;
-  /** SaaS access token for cloud API calls. */
-  saasAccessToken?: string | null;
-  /** Selected image generation model id. */
-  imageModelId?: string | null;
-  /** Selected video generation model id. */
-  videoModelId?: string | null;
   /** Client platform for conditional tool registration. */
   clientPlatform?: ClientPlatform | null;
   /** Web app version for SaaS metadata. */
@@ -159,6 +154,7 @@ export function initRequestContext(input: {
       input.toolApprovalPayloads && Object.keys(input.toolApprovalPayloads).length > 0
         ? { ...input.toolApprovalPayloads }
         : undefined,
+    toolApprovalRules: input.toolApprovalRules ?? undefined,
     ...(input.autoApproveTools ? { autoApproveTools: true } : {}),
     ...(boardId ? { boardId } : {}),
     ...(input.clientPlatform ? { clientPlatform: input.clientPlatform } : {}),
@@ -167,17 +163,6 @@ export function initRequestContext(input: {
     ...(input.desktopVersion ? { desktopVersion: input.desktopVersion } : {}),
     ...(input.pageContext ? { pageContext: input.pageContext } : {}),
   });
-
-  // 逻辑：注入 SaaS token 和媒体模型 ID，供 tool 执行层使用。
-  if (input.saasAccessToken) {
-    setSaasAccessToken(input.saasAccessToken);
-  }
-  if (input.imageModelId || input.videoModelId) {
-    setMediaModelIds({
-      image: input.imageModelId || undefined,
-      video: input.videoModelId || undefined,
-    });
-  }
 
   const abortController = new AbortController();
   input.requestSignal.addEventListener("abort", () => {

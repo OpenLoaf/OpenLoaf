@@ -169,8 +169,36 @@
     "shortcuts": "快捷键",
     "projectTest": "测试",
     "mcp": "MCP 配置",
+    "toolApproval": "工具白名单",
     "about": "关于OpenLoaf",
     "subscription": "订阅"
+  },
+  "toolApproval": {
+    "title": "工具白名单",
+    "tempChatScopeNote": "AI 在执行命令前会请求你确认。这里列出的是你已经允许它在临时对话中自动执行的命令。规则会永久保存到本地设置，关闭应用或开新对话都不会重置。",
+    "projectScopeNote": "AI 在执行命令前会请求你确认。这里列出的是你已经允许它在本项目中自动执行的命令。",
+    "alwaysAllowHint": "想加新的？下次 AI 弹出审批时点「始终允许」即可。",
+    "allowedList": "已允许的工具调用",
+    "denyList": "已阻止的工具调用",
+    "denyHint": "这些命令即使在聊天里也会被强制审批，无法被「始终允许」覆盖。",
+    "emptyTitle": "还没有自动执行的命令",
+    "emptyList": "AI 仍会在执行每条命令前向你确认。在聊天里点「始终允许」就能把命令加到这里。",
+    "remove": "删除",
+    "removeFailed": "删除失败，请重试",
+    "loading": "加载中...",
+    "projectRequired": "请选择一个项目",
+    "describe": {
+      "bash": "终端命令",
+      "powershell": "PowerShell",
+      "edit": "编辑文件",
+      "write": "写入文件",
+      "read": "读取文件",
+      "glob": "查找文件",
+      "grep": "搜索文件",
+      "cloudModelGenerate": "云端媒体生成",
+      "cloudTextGenerate": "云端文本处理",
+      "any": "任意"
+    }
   },
   "mcp": {
     "searchPlaceholder": "搜索 MCP 服务器...",
@@ -766,6 +794,16 @@
     "scopeGlobal": "全局技能",
     "scopeProject": "项目技能",
     "scopeProjectSpace": "项目空间技能",
+    "confirmReset": "确定要初始化「{{name}}」吗？\n\n将删除 openloaf.json 和翻译文件，技能原始内容不受影响。",
+    "resetSkill": "初始化",
+    "resetSuccess": "技能已初始化",
+    "exportSkill": "导出",
+    "changeColor": "更改颜色",
+    "totalCount": "{{count}} 个技能",
+    "refresh": "刷新",
+    "export": {
+      "failed": "导出失败"
+    },
     "translate": {
       "buttonTranslate": "翻译为中文",
       "buttonRetranslate": "重新翻译",

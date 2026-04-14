@@ -59,16 +59,7 @@ import { useChatModelSelection } from "./hooks/use-chat-model-selection";
 import { useProject } from "@/hooks/use-project";
 import { useMutation } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@openloaf/ui/alert-dialog";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import MessageHelper from "./message/MessageHelper";
 import { openPrimaryPage } from "@/lib/primary-page-navigation";
 
@@ -180,33 +171,26 @@ function FeatureIntroDialog({
   const style = FEATURE_INTRO_STYLE[feature]
   const Icon = style.icon
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent className="shadow-none border-border/60">
-        <AlertDialogHeader>
-          <div className="flex items-center gap-3">
-            <div className={cn(
-              "flex h-10 w-10 shrink-0 items-center justify-center rounded-3xl",
-              style.iconBg,
-            )}>
-              <Icon className={cn("size-5", style.iconColor)} />
-            </div>
-            <AlertDialogTitle className="text-base">{t(`featureIntro.${feature}.title`)}</AlertDialogTitle>
+    <ConfirmDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      contentClassName="shadow-none border-border/60"
+      title={
+        <div className="flex items-center gap-3">
+          <div className={cn(
+            "flex h-10 w-10 shrink-0 items-center justify-center rounded-3xl",
+            style.iconBg,
+          )}>
+            <Icon className={cn("size-5", style.iconColor)} />
           </div>
-          <AlertDialogDescription className="pt-1">
-            {t(`featureIntro.${feature}.description`)}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>{t('featureIntro.cancel')}</AlertDialogCancel>
-          <AlertDialogAction
-            onClick={onConfirm}
-            className="bg-secondary text-foreground hover:bg-secondary/80"
-          >
-            {t('featureIntro.confirm')}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+          <span className="text-base">{t(`featureIntro.${feature}.title`)}</span>
+        </div>
+      }
+      description={t(`featureIntro.${feature}.description`)}
+      confirmLabel={t('featureIntro.confirm')}
+      cancelLabel={t('featureIntro.cancel')}
+      onConfirm={onConfirm}
+    />
   )
 }
 
@@ -566,18 +550,6 @@ export function Chat({
   const effectiveLoadHistory = loadHistory ?? Boolean(sessionId);
   const projectId =
     typeof rawParams.projectId === "string" ? rawParams.projectId.trim() : "";
-  const requestParams = React.useMemo(() => {
-    const nextParams: Record<string, unknown> = { ...rawParams };
-    if (projectId) {
-      nextParams.projectId = projectId;
-      // Project chats use PM agent directly (streaming) instead of Master agent
-      nextParams.agentType = 'pm';
-    } else {
-      delete (nextParams as any).projectId;
-      delete (nextParams as any).agentType;
-    }
-    return nextParams;
-  }, [rawParams, projectId]);
   const {
     chatModelSource,
     selectedModelId,
@@ -588,9 +560,26 @@ export function Chat({
     canImageGeneration,
     canImageEdit,
     isCodexProvider,
-    imageModelId,
-    videoModelId,
-  } = useChatModelSelection(tabId, projectId);
+  } = useChatModelSelection(projectId);
+  const requestParams = React.useMemo(() => {
+    const nextParams: Record<string, unknown> = { ...rawParams };
+    if (projectId) {
+      nextParams.projectId = projectId;
+      // Project chats use PM agent directly (streaming) instead of Master agent
+      nextParams.agentType = 'pm';
+    } else {
+      delete (nextParams as any).projectId;
+      delete (nextParams as any).agentType;
+    }
+    // 逻辑：把前端 model picker 当前选中的模型注入到每次请求的 body 里。
+    // transport.ts 会把 paramsRef 里的字段合并到顶层，所以首发/retry/continue/resend
+    // 都会自动带上当前活跃的模型 — 禁止服务端隐式从 master agent.json 回退。
+    if (selectedModelId) {
+      nextParams.chatModelId = selectedModelId;
+      nextParams.chatModelSource = chatModelSource;
+    }
+    return nextParams;
+  }, [rawParams, projectId, selectedModelId, chatModelSource]);
 
   const [attachments, setAttachments] = React.useState<ChatAttachment[]>([]);
   const [isDragActive, setIsDragActive] = React.useState(false);

@@ -8,17 +8,9 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import { resolveServerUrl } from "@/utils/server-url";
-import { getAccessToken } from "@/lib/saas-auth";
 import { CLIENT_HEADERS } from "@/lib/client-headers";
 import { getSaasMediaClient } from "@/lib/saas-media-client";
-
-/** Build auth headers for SaaS proxy (includes client guard header). */
-export async function buildAuthHeaders(): Promise<Record<string, string>> {
-  const token = await getAccessToken();
-  return token
-    ? { ...CLIENT_HEADERS, Authorization: `Bearer ${token}` }
-    : { ...CLIENT_HEADERS };
-}
+import { resolveSaasProxyBaseUrl } from "@/lib/saas-auth";
 
 /** Validate HTTP response and parse JSON. */
 async function parseJsonResponse(response: Response): Promise<any> {
@@ -44,7 +36,7 @@ type PollTaskOptions = {
 /** Poll task status via v3 endpoint. */
 export async function pollTask(taskId: string, options?: PollTaskOptions) {
   const base = resolveServerUrl();
-  const authHeaders = await buildAuthHeaders();
+  const authHeaders = { ...CLIENT_HEADERS };
   const url = new URL(`${base}/ai/v3/task/${taskId}`);
   if (options?.projectId) url.searchParams.set("projectId", options.projectId);
   if (options?.boardId) url.searchParams.set("boardId", options.boardId);
@@ -152,6 +144,13 @@ export type V3Variant = {
   /** Input slot declarations from API (SDK v0.1.25+) */
   inputSlots?: V3RemoteInputSlot[]
   paramsSchema?: import('@/components/board/panels/variants/remote-param-schema').RemoteParamSchema[]
+  /**
+   * Average duration (ms) of recent successful tasks for this variant
+   * (SDK v0.1.43+). Used to drive the generation progress indicator.
+   * Undefined when the server has no samples yet (e.g. text/streaming
+   * variants).
+   */
+  estimatedDurationMs?: number
 }
 
 /** v3 capabilities response. */
@@ -185,12 +184,39 @@ export type V3TextGenerateRequest = {
   params?: Record<string, unknown>
 }
 
-/** Submit a v3 text generate request in streaming mode. Returns raw Response (SSE). */
+/** Submit a v3 text generate request in streaming mode. Returns raw Response (SSE).
+ *
+ * 不走 SDK 的 v3TextGenerateStream —— 该方法在 SDK 内部用 global fetch 直接调 SaaS，
+ * 不合并 SaaSClient 构造参数里的静态 headers，无法带 X-OpenLoaf-Client。
+ * 这里直接对反代发请求，显式注入 CSRF header。
+ */
 export async function submitV3TextStream(
   payload: V3TextGenerateRequest,
 ): Promise<Response> {
-  const client = getSaasMediaClient()
-  return client.ai.v3TextGenerateStream(payload)
+  const base = resolveSaasProxyBaseUrl()
+  if (!base) {
+    throw new Error('saas_proxy_base_url_missing')
+  }
+  const response = await fetch(`${base}/api/ai/v3/text/generate`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      ...CLIENT_HEADERS,
+    },
+    body: JSON.stringify({ ...payload, stream: true }),
+  })
+  if (!response.ok) {
+    let detail = ''
+    try {
+      const err = await response.json()
+      detail = (err as { message?: string }).message ?? ''
+    } catch {
+      // ignore
+    }
+    throw new Error(detail || `Stream request failed: HTTP ${response.status}`)
+  }
+  return response
 }
 
 /** Estimate price result from server. */
@@ -231,7 +257,7 @@ export async function submitV3Generate(
   },
 ) {
   const base = resolveServerUrl()
-  const authHeaders = await buildAuthHeaders()
+  const authHeaders = { ...CLIENT_HEADERS }
   const response = await fetch(`${base}/ai/v3/generate`, {
     method: 'POST',
     credentials: 'include',
@@ -250,7 +276,7 @@ export async function requestQueueTicket(payload: {
   count?: number
 }): Promise<{ ticketId: string; position: number; status: string }> {
   const base = resolveServerUrl()
-  const authHeaders = await buildAuthHeaders()
+  const authHeaders = { ...CLIENT_HEADERS }
   const response = await fetch(`${base}/ai/v3/queue`, {
     method: 'POST',
     credentials: 'include',
@@ -268,7 +294,7 @@ export async function uploadQueueResource(
   file: File | Blob,
 ): Promise<{ resourceId: string; precheck: 'passed' | 'skipped' }> {
   const base = resolveServerUrl()
-  const authHeaders = await buildAuthHeaders()
+  const authHeaders = { ...CLIENT_HEADERS }
   const formData = new FormData()
   formData.append('ticketId', ticketId)
   formData.append('variant', variantId)
@@ -286,7 +312,7 @@ export async function uploadQueueResource(
 /** 取消队列 ticket（POST /api/ai/v3/queue/:ticketId/cancel） */
 export async function cancelQueueTicket(ticketId: string): Promise<void> {
   const base = resolveServerUrl()
-  const authHeaders = await buildAuthHeaders()
+  const authHeaders = { ...CLIENT_HEADERS }
   await fetch(`${base}/ai/v3/queue/${ticketId}/cancel`, {
     method: 'POST',
     credentials: 'include',
@@ -309,7 +335,7 @@ export function subscribeQueueEvents(
   ;(async () => {
     try {
       const base = resolveServerUrl()
-      const authHeaders = await buildAuthHeaders()
+      const authHeaders = { ...CLIENT_HEADERS }
       const response = await fetch(`${base}/ai/v3/queue/${ticketId}/events`, {
         credentials: 'include',
         headers: { Accept: 'text/event-stream', ...authHeaders },
@@ -391,7 +417,7 @@ export interface CatalogItem {
 /** 获取远程选项 catalog */
 export async function fetchCatalog(catalogId: string): Promise<CatalogItem[]> {
   const base = resolveServerUrl()
-  const authHeaders = await buildAuthHeaders()
+  const authHeaders = { ...CLIENT_HEADERS }
   const lang = typeof navigator !== 'undefined' ? navigator.language : 'zh-CN'
   const response = await fetch(`${base}/ai/v3/catalogs/${catalogId}`, {
     credentials: 'include',

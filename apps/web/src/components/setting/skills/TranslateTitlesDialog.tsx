@@ -24,7 +24,6 @@ import { Checkbox } from "@openloaf/ui/checkbox"
 import { Progress } from "@openloaf/ui/progress"
 import { Check, Languages, Loader2, X } from "lucide-react"
 import { trpcClient } from "@/utils/trpc"
-import { getCachedAccessToken } from "@/lib/saas-auth"
 
 type SkillItem = {
   name: string
@@ -113,7 +112,6 @@ export function TranslateTitlesDialog({
     setIsRunning(true)
     cancelledRef.current = false
     const targetLanguage = i18n.language
-    const saasAccessToken = getCachedAccessToken() ?? undefined
 
     for (let i = 0; i < items.length; i++) {
       if (cancelledRef.current) break
@@ -132,7 +130,6 @@ export function TranslateTitlesDialog({
         const result = await trpcClient.settings.translateSkillTitle.mutate({
           skillFolderPath: items[i].folderPath,
           targetLanguage,
-          saasAccessToken,
         })
 
         if (cancelledRef.current) break
@@ -313,6 +310,7 @@ export function TranslateTitlesDialog({
                 {t("skills.translateTitles.cancel", { defaultValue: "取消" })}
               </Button>
               <Button
+                autoFocus
                 onClick={() => void handleStart()}
                 className="bg-secondary text-secondary-foreground hover:bg-accent"
                 disabled={items.length === 0}

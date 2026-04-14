@@ -312,87 +312,32 @@ async function runS2() {
 // ─── S3: Hono 路由无鉴权（静态分析） ─────────────────────────────────────────
 
 async function runS3() {
-  console.log('\nS3 — Hono 路由鉴权缺失（静态代码分析）')
+  console.log('\nS3 — Hono 路由鉴权（中间件注册 + Bearer 字段根除验证）')
 
-  const routeFiles = [
-    {
-      rel: 'src/ai/interface/routes/aiChatAsyncRoutes.ts',
-      label: 'aiChatAsyncRoutes',
-      endpoints: ['/ai/chat/async', '/ai/chat/async/stream', '/ai/chat/async/abort'],
-    },
-    {
-      rel: 'src/ai/interface/routes/aiCommandRoutes.ts',
-      label: 'aiCommandRoutes',
-      endpoints: ['/ai/command'],
-    },
-    {
-      rel: 'src/ai/interface/routes/aiBoardAgentRoutes.ts',
-      label: 'aiBoardAgentRoutes',
-      endpoints: ['/ai/board-agent'],
-    },
-    {
-      rel: 'src/ai/interface/routes/aiCopilotRoutes.ts',
-      label: 'aiCopilotRoutes',
-      endpoints: ['/ai/copilot'],
-    },
+  // ─── S3-routes-no-bearer: 业务路由不得再从 request 提取 Bearer ───
+  // Server 是 SaaS token 唯一持有者，统一通过 ensureServerAccessToken() 获取。
+  // 所有 AI 业务路由都应依赖 createApp.ts 的 aiRouteGuard + strictClientGuard
+  // 中间件做 CSRF 防护，不得在路由内部读取 Authorization header。
+  const aiRouteFiles = [
+    'src/ai/interface/routes/aiChatAsyncRoutes.ts',
+    'src/ai/interface/routes/aiCommandRoutes.ts',
+    'src/ai/interface/routes/aiBoardAgentRoutes.ts',
+    'src/ai/interface/routes/aiCopilotRoutes.ts',
+    'src/ai/interface/routes/aiExecuteRoutes.ts',
   ]
 
-  // 鉴权相关关键词：middleware、guard、verifyToken、requireAuth 等
-  const AUTH_KEYWORDS = [
-    'authMiddleware',
-    'requireAuth',
-    'verifyToken',
-    'shieldedProcedure',
-    'isAuthenticated',
-    'checkAuth',
-    'bearerAuth',
-    'jwtMiddleware',
-    'sessionMiddleware',
-    'validateSession',
-    'unauthoriz',
-    '401',
-    'app.use.*auth',
-    'guard',
-  ]
-
-  for (const { rel, label, endpoints } of routeFiles) {
-    const code = readSource(rel)
-
-    // 检查是否有任何鉴权逻辑
-    const hasAnyAuth = AUTH_KEYWORDS.some((kw) => {
-      const regex = new RegExp(kw, 'i')
-      return regex.test(code)
-    })
-
-    // 检查是否仅做了 Bearer token 解析（不等于校验）
-    const hasBearerExtract = /resolveBearerToken|Bearer/.test(code)
-    // 检查是否将 token 传给了鉴权函数（校验）vs 仅透传给下游
-    const hasBearerValidation = /verif|validat|checkToken|unauthorized|401|forbidden|403/.test(code)
-
-    await testExpectVulnerable(
-      `S3-${label}: 路由注册前有鉴权 middleware 或 guard`,
-      () => {
-        assert.ok(
-          hasAnyAuth && hasBearerValidation,
-          `${label} 无鉴权逻辑 — endpoints ${endpoints.join(', ')} 匿名可访问`,
-        )
-      },
-      `${label}: ${endpoints.join(', ')} 无身份验证，任何本地/内网请求均可调用 AI`,
-    )
-
-    // 补充：验证 Bearer token 仅被提取但未被校验
-    if (hasBearerExtract && !hasBearerValidation) {
-      await testExpectVulnerable(
-        `S3-${label}: Bearer token 被校验（非仅透传）`,
-        () => {
-          assert.ok(
-            hasBearerValidation,
-            `${label} 仅提取 Bearer token 并透传给 resolveChatModel，未做本地身份校验`,
-          )
-        },
-        `${label}: Bearer token 无验证直接透传 — saasAccessToken 可被任意伪造`,
+  for (const rel of aiRouteFiles) {
+    await test(`S3-${rel.split('/').pop()}: 无 resolveBearerToken / Authorization 提取`, () => {
+      const code = readSource(rel)
+      assert.ok(
+        !code.includes('resolveBearerToken'),
+        `${rel} 仍引用已删除的 resolveBearerToken`,
       )
-    }
+      assert.ok(
+        !/header\(['"]authorization['"]\)/i.test(code),
+        `${rel} 仍从请求头读取 Authorization（应通过 ensureServerAccessToken 获取）`,
+      )
+    })
   }
 
   // S3-global: 检查 createApp.ts 中是否注册了全局 aiRouteGuard

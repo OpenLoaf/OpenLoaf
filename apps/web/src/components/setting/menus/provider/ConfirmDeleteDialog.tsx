@@ -8,14 +8,7 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import { useTranslation } from "react-i18next";
-import { Button } from "@openloaf/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@openloaf/ui/dialog";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 type ConfirmDeleteDialogProps = {
   /** Dialog title. */
@@ -42,26 +35,17 @@ export function ConfirmDeleteDialog({
 }: ConfirmDeleteDialogProps) {
   const { t } = useTranslation('common');
   return (
-    <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
-      <DialogContent className="max-h-[80vh] w-full max-w-3xl overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-        </DialogHeader>
-        <div className="text-sm text-muted-foreground">{description}</div>
-        <DialogFooter>
-          <Button variant="ghost" onClick={onClose} className="rounded-3xl">
-            {t('cancel')}
-          </Button>
-          <Button
-            onClick={async () => {
-              await onConfirm();
-            }}
-            className="bg-destructive text-white hover:bg-destructive/90 rounded-3xl shadow-none transition-colors duration-150"
-          >
-            {t('delete')}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <ConfirmDialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
+      title={title}
+      description={description}
+      confirmLabel={t('delete')}
+      variant="destructive"
+      onCancel={onClose}
+      onConfirm={onConfirm}
+    />
   );
 }

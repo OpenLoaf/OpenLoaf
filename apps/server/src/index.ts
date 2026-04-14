@@ -76,6 +76,36 @@ await initDatabase();
 
 const { app } = startServer();
 
+// Cloud 动态 skill：启动后非阻塞地拉一次 capabilitiesOverview，把可用 category
+// 注入到 cloud-media / cloud-text skill 内容里，然后每 30 min 后台刷新。
+// 失败静默 — skill 会保留上一轮快照或初始的 "probing" 占位内容。
+void (async () => {
+  try {
+    const mod = await import("@/ai/builtin-skills/cloud-skills");
+    mod.startCloudSkillRefreshLoop();
+  } catch (err) {
+    console.warn(
+      "[cloud-skills] bootstrap skipped:",
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+})();
+
+// Cloud tools 动态注册：启动后非阻塞地拉一次 toolsCapabilities，把 tools category
+// 的扁平 features 注册为本地 deferred tool（webSearch / webSearchImage 等），
+// 并生成一段 XML block 注入到 master system prompt。每 30 min 刷新一次。
+void (async () => {
+  try {
+    const mod = await import("@/ai/tools/cloud/cloudToolsDynamic");
+    mod.startCloudToolsPreloadLoop();
+  } catch (err) {
+    console.warn(
+      "[cloud-tools] bootstrap skipped:",
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+})();
+
 // 响应 SIGINT/SIGTERM，退出前先刷盘画布文档，防止热重载丢失未持久化的 Yjs 数据。
 async function gracefulShutdown() {
   // Shutdown MCP connections (kills stdio child processes)

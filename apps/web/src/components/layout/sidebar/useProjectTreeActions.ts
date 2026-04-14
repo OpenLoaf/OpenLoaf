@@ -269,6 +269,7 @@ export function useProjectTreeActions({
       setDeleteTarget(null);
     } catch (err: any) {
       toast.error(err?.message ?? t("common:deleteFailed"));
+      throw err;
     } finally {
       setIsBusy(false);
     }
@@ -323,6 +324,7 @@ export function useProjectTreeActions({
         return;
       }
       toast.error(err?.message ?? t("nav:projectTree.removeFailed"));
+      throw err;
     } finally {
       setIsRemoveBusy(false);
     }
@@ -353,6 +355,7 @@ export function useProjectTreeActions({
         return;
       }
       toast.error(err?.message ?? t("nav:projectTree.permanentDeleteFailed"));
+      throw err;
     } finally {
       setIsRemoveBusy(false);
     }

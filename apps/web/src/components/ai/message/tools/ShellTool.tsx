@@ -20,10 +20,15 @@ import {
 } from '@openloaf/ui/tooltip'
 import {
   Collapsible,
-  CollapsibleContent,
   CollapsibleTrigger,
 } from '@openloaf/ui/collapsible'
-import { CodeBlock } from '@/components/ai-elements/code-block'
+import {
+  ToolOutputCode,
+  ToolOutputContent,
+  ToolOutputError,
+  ToolOutputLoading,
+  ToolOutputText,
+} from './shared/ToolOutput'
 import {
   asPlainObject,
   formatCommand,
@@ -252,36 +257,25 @@ export default function ShellTool({
           </TooltipContent>
         ) : null}
       </Tooltip>
-      <CollapsibleContent className="px-2.5 py-2 text-xs">
+      <ToolOutputContent>
         {testResults ? (
-          <div className="rounded-2xl bg-muted/50 p-2">
+          <div className="rounded-lg bg-muted/50 p-1.5">
             <ShellTestResults results={testResults} />
           </div>
         ) : stackTrace ? (
-          <div className="overflow-hidden rounded-2xl bg-muted/50">
+          <div className="overflow-hidden rounded-lg bg-muted/50">
             <ShellStackTrace trace={stackTrace} />
           </div>
         ) : hasError && hasErrorText ? (
-          <div className="whitespace-pre-wrap break-all rounded-2xl bg-destructive/10 p-2 text-xs text-destructive">
-            {displayOutput}
-          </div>
+          <ToolOutputError message={displayOutput} />
         ) : hasOutput ? (
-          <CodeBlock
-            code={displayOutput}
-            language={'bash' as any}
-            className="max-h-[320px] overflow-auto"
-          />
+          <ToolOutputCode code={displayOutput} language="bash" />
         ) : tp && (progressActive || progressDone) ? (
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             {tp.accumulatedText ? (
-              <pre className="max-h-[320px] overflow-auto whitespace-pre-wrap rounded-lg bg-muted/30 px-2 py-1.5 text-[11px] leading-relaxed text-foreground font-mono">
-                {tp.accumulatedText}
-              </pre>
+              <ToolOutputText text={tp.accumulatedText} />
             ) : progressActive ? (
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <LoaderCircleIcon className="size-3 animate-spin" />
-                <span>{tp.label || '执行中...'}</span>
-              </div>
+              <ToolOutputLoading label={tp.label || '执行中...'} />
             ) : null}
             {progressDone && tp.summary ? (
               <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/60">
@@ -291,16 +285,11 @@ export default function ShellTool({
             ) : null}
           </div>
         ) : progressError ? (
-          <div className="whitespace-pre-wrap break-all rounded-2xl bg-destructive/10 p-2 text-xs text-destructive">
-            {tp?.errorText || '执行失败'}
-          </div>
+          <ToolOutputError message={tp?.errorText || '执行失败'} />
         ) : streaming ? (
-          <div className="flex items-center gap-1.5 py-1 text-xs text-muted-foreground">
-            <LoaderCircleIcon className="size-3 animate-spin" />
-            <span>执行中...</span>
-          </div>
+          <ToolOutputLoading label="执行中..." />
         ) : null}
-      </CollapsibleContent>
+      </ToolOutputContent>
     </Collapsible>
   )
 }

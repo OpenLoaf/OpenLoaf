@@ -11,6 +11,7 @@ import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { getOpenLoafRootDir } from "@openloaf/config";
 import type { ChatModelSource } from "@openloaf/api/common";
+import type { ToolApprovalRules } from "@openloaf/api/types/toolApproval";
 import type {
   AuthConf,
   BasicConf,
@@ -528,11 +529,6 @@ export function writeAuthRefreshToken(token: string): void {
 
 // ─── Tool Approval Rules ──────────────────────────────────────────────────
 
-type ToolApprovalRules = {
-  allow?: string[]
-  deny?: string[]
-}
-
 type ToolApprovalFile = {
   toolApprovalRules?: ToolApprovalRules
 }
@@ -551,6 +547,56 @@ export function readToolApprovalRules(): ToolApprovalRules {
 /** Persist tool approval rules into tool-approval.json. */
 export function writeToolApprovalRules(rules: ToolApprovalRules): void {
   writeJson(getToolApprovalPath(), { toolApprovalRules: rules })
+}
+
+/**
+ * Promise-chain lock so concurrent add/remove operations on the global
+ * tool-approval.json serialize. Without this, two parallel "始终允许" clicks
+ * could both read stale rules and each write their own version — the last
+ * writer wins and the earlier rule is lost. Desktop is single-process so an
+ * in-memory lock is sufficient; SaaS deployments that share this file would
+ * need a filesystem-level lock.
+ */
+let toolApprovalRulesLock: Promise<void> = Promise.resolve()
+
+/** Atomic "read → add rule → write" for the global allowlist. */
+export function addToolApprovalRuleAtomic(
+  rule: string,
+  behavior: "allow" | "deny",
+): Promise<void> {
+  const next = toolApprovalRulesLock
+    .then(() => {
+      const current = readToolApprovalRules()
+      const list = current[behavior] ?? []
+      if (list.includes(rule)) return
+      writeToolApprovalRules({ ...current, [behavior]: [...list, rule] })
+    })
+    .catch(() => {
+      // 保证锁链不因单次失败中断。调用方会看到 rejected Promise（我们用独立变量持有）。
+    })
+  toolApprovalRulesLock = next
+  return next
+}
+
+/** Atomic "read → remove rule → write" for the global allowlist. */
+export function removeToolApprovalRuleAtomic(
+  rule: string,
+  behavior: "allow" | "deny",
+): Promise<void> {
+  const next = toolApprovalRulesLock
+    .then(() => {
+      const current = readToolApprovalRules()
+      const list = current[behavior] ?? []
+      const filtered = list.filter((r) => r !== rule)
+      if (filtered.length === list.length) return
+      writeToolApprovalRules({
+        ...current,
+        [behavior]: filtered.length > 0 ? filtered : undefined,
+      })
+    })
+    .catch(() => {})
+  toolApprovalRulesLock = next
+  return next
 }
 
 /** Clear SaaS refresh token from auth.json. */

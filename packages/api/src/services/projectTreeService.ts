@@ -15,6 +15,7 @@ import { resolveFilePathFromUri, toFileUriWithoutEncoding } from "./fileUri";
 import { getProjectStorageRootUri } from "./vfsService";
 import { getProjectRegistryEntries } from "./projectRegistryConfig";
 import { syncProjectsFromDisk } from "./projectDbService";
+import { toolApprovalRulesSchema } from "../types/toolApproval";
 
 /** Directory name for project metadata. */
 export const PROJECT_META_DIR = ".openloaf";
@@ -53,6 +54,8 @@ export const projectConfigSchema = z
         autoSummaryEnabled: z.boolean().optional(),
         /** Selected hours for daily auto summary. */
         autoSummaryHours: z.array(z.number().int().min(0).max(24)).optional(),
+        /** Tool approval allow/deny rules scoped to this project. */
+        toolApprovalRules: toolApprovalRulesSchema.optional(),
       })
       .optional(),
   })

@@ -34,7 +34,6 @@ class ScheduleOrchestrator {
   private tickTimer: ReturnType<typeof setInterval> | null = null
   private started = false
   /** In-memory cache of SaaS access tokens by taskId. */
-  private tokenCache = new Map<string, string>()
 
   /** Start the orchestrator's periodic scan. */
   start(): void {
@@ -59,7 +58,7 @@ class ScheduleOrchestrator {
   }
 
   /** Enqueue a task for execution (sets autoExecute and triggers tick). */
-  async enqueue(taskId: string, projectRoot?: string | null, saasAccessToken?: string): Promise<void> {
+  async enqueue(taskId: string, projectRoot?: string | null): Promise<void> {
     const globalRoot = getOpenLoafRootDir()
     const task = getTask(taskId, globalRoot, projectRoot ?? undefined)
     if (!task) return
@@ -67,11 +66,6 @@ class ScheduleOrchestrator {
     if (task.status !== 'todo') {
       logger.warn({ taskId, status: task.status }, '[task-orchestrator] Cannot enqueue non-todo task')
       return
-    }
-
-    // Store token for later use
-    if (saasAccessToken) {
-      this.tokenCache.set(taskId, saasAccessToken)
     }
 
     // Trigger immediate evaluation
@@ -302,16 +296,14 @@ class ScheduleOrchestrator {
 
     const running = runningTasks ?? listTasks(globalRoot).filter((t) => t.status === 'running')
 
-    const cachedToken = this.tokenCache.get(candidate.id)
-
     if (running.length === 0) {
       // No conflicts possible, start immediately
-      void scheduleExecutor.execute(candidate.id, globalRoot, projectRoot, cachedToken)
+      void scheduleExecutor.execute(candidate.id, globalRoot, projectRoot)
     } else {
       // Check for conflicts with running tasks
       const conflict = await this.checkConflict(candidate, running)
       if (!conflict.conflict) {
-        void scheduleExecutor.execute(candidate.id, globalRoot, projectRoot, cachedToken)
+        void scheduleExecutor.execute(candidate.id, globalRoot, projectRoot)
       } else {
         // Conflict detected, delay
         appendActivityLog(candidate.id, {

@@ -85,6 +85,7 @@
     }
   },
   "projectTree": {
+    "pathPlaceholder": "file://... or /path/to/project",
     "open": "Open",
     "openInNewWindow": "Open in New Window",
     "openInCurrentWindow": "Open in Current Window",
@@ -322,6 +323,7 @@
     "totalCount": "{{count}} total",
     "childCount": "{{count}} sub-projects",
     "createFailed": "Failed to create project",
-    "dropToCreate": "Drop folder to create project"
+    "dropToCreate": "Drop folder to create project",
+    "refresh": "Refresh"
   }
 }

@@ -16,13 +16,11 @@ import type { AiExecuteRequest } from '@/ai/services/chat/types'
 type StartAsyncInput = {
   request: AiExecuteRequest
   cookies: Record<string, string>
-  saasAccessToken?: string
   /** 执行函数：调用 AiExecuteService.execute 或等价物 */
   executeFn: (input: {
     request: AiExecuteRequest
     cookies: Record<string, string>
     requestSignal: AbortSignal
-    saasAccessToken?: string
   }) => Promise<Response>
 }
 
@@ -64,7 +62,6 @@ export async function startChatStreamAsync(
       request: input.request,
       cookies: input.cookies,
       requestSignal: sessionHandle.abortController.signal,
-      saasAccessToken: input.saasAccessToken,
     })
   } catch (err) {
     // executeFn 异常时将 session 标记为 error，防止泄漏

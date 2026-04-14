@@ -47,7 +47,7 @@ function AuthCallbackContent() {
 
   useEffect(() => {
     if (!loginCode) return;
-    exchangeLoginCode({ loginCode, remember: true })
+    exchangeLoginCode({ loginCode })
       .then((user) => {
         if (!user) {
           setStatus("error");

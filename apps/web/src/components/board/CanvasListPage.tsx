@@ -29,7 +29,6 @@ import { BOARD_INDEX_FILE_NAME } from "@/lib/file-name";
 import { buildBoardChatTabState } from "./utils/board-chat-tab";
 import { ColorPickerSubMenu } from "@/components/shared/ColorPickerSubMenu";
 import { useSaasAuth } from "@/hooks/use-saas-auth";
-import { getCachedAccessToken } from "@/lib/saas-auth";
 import { SaasLoginDialog } from "@/components/auth/SaasLoginDialog";
 import { toast } from "sonner";
 import { Button } from "@openloaf/ui/button";
@@ -814,7 +813,6 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
         boardFolderUri: board.folderUri,
         boardId: board.id,
         projectId: board.projectId ?? undefined,
-        saasAccessToken: getCachedAccessToken() ?? undefined,
       });
       if (result.title) {
         setRenameTarget((prev) =>

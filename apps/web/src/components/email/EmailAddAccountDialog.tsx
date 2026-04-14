@@ -17,10 +17,10 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@openloaf/ui/dialog";
+import { FormDialog } from "@/components/ui/FormDialog";
 
 import { getProviderById } from "./email-provider-presets";
 import type { AddDialogState } from "./use-email-page-state";
@@ -39,99 +39,82 @@ export function EmailAddAccountDialog({ addDialog }: EmailAddAccountDialogProps)
     ? getProviderById(addDialog.formState.selectedProviderId)
     : null;
 
-  return (
-    <Dialog open={addDialog.addDialogOpen} onOpenChange={addDialog.onAddDialogOpenChange}>
-      <DialogContent className="max-w-md gap-0 overflow-hidden p-0">
-        {/* Header */}
-        <DialogHeader className="px-5 pb-0 pt-5">
-          {isSelectStep ? (
-            <>
-              <DialogTitle className="text-base">{t('email.addAccount')}</DialogTitle>
-              <DialogDescription className="text-xs">
-                {t('email.selectProviderDesc')}
-              </DialogDescription>
-            </>
-          ) : (
-            <>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={addDialog.onBackToProviderSelect}
-                  className="-ml-1 rounded-3xl p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                >
-                  <ArrowLeft className="size-4" />
-                </button>
-                <div className="flex items-center gap-2">
-                  {selectedProvider ? (
-                    <span className="flex size-6 items-center justify-center rounded-3xl bg-muted">
-                      <selectedProvider.icon className="size-3.5" />
-                    </span>
-                  ) : null}
-                  <DialogTitle className="text-base">
-                    {selectedProvider?.name ?? t('email.configureMailbox')}
-                  </DialogTitle>
-                </div>
-              </div>
-              <DialogDescription className="text-xs">
-                {isOAuth
-                  ? t('email.oauthDesc')
-                  : t('email.passwordDesc', { label: addDialog.selectedProviderPasswordLabel })}
-              </DialogDescription>
-            </>
-          )}
-        </DialogHeader>
-
-        {/* Content */}
-        <div className="px-5 py-3">
-          {isSelectStep ? (
+  if (isSelectStep) {
+    return (
+      <Dialog open={addDialog.addDialogOpen} onOpenChange={addDialog.onAddDialogOpenChange}>
+        <DialogContent className="max-w-md gap-0 overflow-hidden p-0">
+          <DialogHeader className="px-5 pb-0 pt-5">
+            <DialogTitle className="text-base">{t('email.addAccount')}</DialogTitle>
+            <DialogDescription className="text-xs">
+              {t('email.selectProviderDesc')}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="px-5 py-3">
             <ProviderSelectStep onSelectProvider={addDialog.onSelectProvider} />
-          ) : (
-            <ConfigureStep addDialog={addDialog} />
-          )}
-        </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
-        {/* Footer */}
-        {!isSelectStep ? (
-          <DialogFooter className="px-5 pb-5 pt-2">
-            <div className="flex w-full items-center justify-between">
-              {isOAuth ? (
-                <span />
-              ) : (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={addDialog.onTestConnection}
-                  disabled={addDialog.testStatus === "checking"}
-                  className="h-8 text-xs text-muted-foreground hover:text-foreground"
-                >
-                  {addDialog.testStatus === "checking" ? t('email.testing') : t('email.testConnection')}
-                </Button>
-              )}
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => addDialog.onAddDialogOpenChange(false)}
-                  className="h-8 text-xs rounded-3xl"
-                >
-                  {t('cancel')}
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={addDialog.onAddAccount}
-                  disabled={addDialog.addAccountPending}
-                  className="h-8 text-xs rounded-3xl"
-                >
-                  {addDialog.addAccountPending ? t('saving') : t('email.saveAccount')}
-                </Button>
-              </div>
-            </div>
-          </DialogFooter>
+  const configureTitle = (
+    <div className="flex items-center gap-2">
+      <button
+        type="button"
+        onClick={addDialog.onBackToProviderSelect}
+        className="-ml-1 rounded-3xl p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+      >
+        <ArrowLeft className="size-4" />
+      </button>
+      <div className="flex items-center gap-2">
+        {selectedProvider ? (
+          <span className="flex size-6 items-center justify-center rounded-3xl bg-muted">
+            <selectedProvider.icon className="size-3.5" />
+          </span>
         ) : null}
-      </DialogContent>
-    </Dialog>
+        <span className="text-base">
+          {selectedProvider?.name ?? t('email.configureMailbox')}
+        </span>
+      </div>
+    </div>
+  );
+
+  const configureDescription = isOAuth
+    ? t('email.oauthDesc')
+    : t('email.passwordDesc', { label: addDialog.selectedProviderPasswordLabel });
+
+  const handleConfigureSubmit = () => {
+    addDialog.onAddAccount();
+  };
+
+  return (
+    <FormDialog
+      open={addDialog.addDialogOpen}
+      onOpenChange={addDialog.onAddDialogOpenChange}
+      title={configureTitle}
+      description={configureDescription}
+      onSubmit={handleConfigureSubmit}
+      autoClose={false}
+      submitting={addDialog.addAccountPending}
+      submitLabel={t('email.saveAccount')}
+      submittingLabel={t('saving')}
+      contentClassName="max-w-md"
+      footerLeft={
+        isOAuth ? null : (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={addDialog.onTestConnection}
+            disabled={addDialog.testStatus === "checking"}
+            className="h-8 text-xs text-muted-foreground hover:text-foreground"
+          >
+            {addDialog.testStatus === "checking" ? t('email.testing') : t('email.testConnection')}
+          </Button>
+        )
+      }
+    >
+      <ConfigureStep addDialog={addDialog} />
+    </FormDialog>
   );
 }

@@ -12,7 +12,6 @@ import { generateText } from 'ai'
 import type { ChatModelSource } from '@openloaf/api/common'
 import { resolveChatModel } from '@/ai/models/resolveChatModel'
 import { logger } from '@/common/logger'
-import { resolveBearerToken } from '../helpers/resolveToken'
 
 /** Register /api/ai/copilot route for Plate.js inline completion. */
 export function registerAiCopilotRoutes(app: Hono) {
@@ -38,14 +37,11 @@ export function registerAiCopilotRoutes(app: Hono) {
         ? body.chatModelSource
         : undefined
     ) as ChatModelSource | undefined
-    const saasAccessToken = resolveBearerToken(c)
-
     let resolved
     try {
       resolved = await resolveChatModel({
         chatModelId,
         chatModelSource,
-        saasAccessToken,
       })
     } catch (err) {
       const msg =

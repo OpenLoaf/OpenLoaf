@@ -17,7 +17,6 @@ import { getWebClientId } from "@/lib/chat/streamClientId";
 import { resolveServerUrl } from "@/utils/server-url";
 import { isElectronEnv } from "@/utils/is-electron-env";
 import { getClientTimeZone } from "@/utils/time-zone";
-import { getAccessToken } from "@/lib/saas-auth";
 import { getDesktopVersion, getWebVersion, getServerVersion } from "@/lib/app-version";
 import { CLIENT_HEADERS } from "@/lib/client-headers";
 import { snapshotStackForPageContext } from "@/lib/ai/transport-stack";
@@ -49,13 +48,8 @@ export function createChatTransport({
     api: apiBase,
     credentials: "include",
     async prepareSendMessagesRequest({ id, messages, body, messageId, headers }) {
-      const accessToken = await getAccessToken();
-      const nextHeaders =
-        accessToken && headers
-          ? { ...headers, ...CLIENT_HEADERS, Authorization: `Bearer ${accessToken}` }
-          : accessToken
-            ? { ...CLIENT_HEADERS, Authorization: `Bearer ${accessToken}` }
-            : { ...CLIENT_HEADERS, ...headers };
+      // 逻辑：Server 自持 token，Web 不再注入 Authorization header。
+      const nextHeaders = { ...CLIENT_HEADERS, ...(headers ?? {}) };
       const baseParams = { ...(paramsRef.current ?? {}) };
       const clientId = getWebClientId();
       const [webVersion, desktopVersion, serverVersion] = await Promise.all([

@@ -27,7 +27,9 @@ import { useSaasAuth } from "@/hooks/use-saas-auth";
 import { useProject } from "@/hooks/use-project";
 import { useProjectStorageRootUri, useTempStorageRootUri } from "@/hooks/use-project-storage-root-uri";
 import { toast } from "sonner";
-import { SaaSClient, SaaSHttpError } from "@openloaf-saas/sdk";
+import { SaaSHttpError } from "@openloaf-saas/sdk";
+import { getSaasMediaClient } from "@/lib/saas-media-client";
+import { uploadFeedbackAttachmentViaProxy } from "@/lib/saas-feedback-upload";
 import { MessageAction, MessageActions } from "@/components/ai-elements/message";
 import { TooltipProvider } from "@openloaf/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@openloaf/ui/popover";
@@ -41,7 +43,7 @@ import {
 } from "@openloaf/ui/dialog";
 import { Textarea } from "@openloaf/ui/textarea";
 import { Button } from "@openloaf/ui/button";
-import { getAccessToken, resolveSaasBaseUrl } from "@/lib/saas-auth";
+import { resolveSaasBaseUrl } from "@/lib/saas-auth";
 import { resolveServerUrl } from "@/utils/server-url";
 import { isElectronEnv } from "@/utils/is-electron-env";
 import { CopyChatToCanvasDialog } from "./CopyChatToCanvasDialog";
@@ -329,16 +331,12 @@ function ChatHeaderInner({
     });
   }, [assetFolder?.labelKey, assetFolder?.relativePath, assetRootUri, pushStackItem, quickLaunchProjectId, tAi]);
 
-  /** Submit feedback payload to SaaS. */
+  /** Submit feedback payload to SaaS via reverse proxy. */
   const submitChatFeedbackPayload = React.useCallback(async (input: {
-    baseUrl: string;
     content: string;
     context: Record<string, unknown>;
   }) => {
-    const client = new SaaSClient({
-      baseUrl: input.baseUrl,
-      getAccessToken: async () => (await getAccessToken()) ?? "",
-    });
+    const client = getSaasMediaClient();
     await client.feedback.submit({
       source: "openloaf",
       type: "chat",
@@ -380,11 +378,7 @@ function ChatHeaderInner({
         return;
       }
 
-      const client = new SaaSClient({
-        baseUrl,
-        getAccessToken: async () => (await getAccessToken()) ?? "",
-      });
-      const attachment = await client.feedback.uploadAttachment(
+      const attachment = await uploadFeedbackAttachmentViaProxy(
         zipBlob,
         `chat-session-${sessionId}.zip`,
       );
@@ -395,7 +389,7 @@ function ChatHeaderInner({
         exportMode: exportResponse.headers.get("X-OpenLoaf-Export-Mode") ?? undefined,
         sourceBytes: Number(exportResponse.headers.get("X-OpenLoaf-Source-Bytes") ?? 0) || undefined,
       });
-      await submitChatFeedbackPayload({ baseUrl, content, context });
+      await submitChatFeedbackPayload({ content, context });
 
       toast.success(tAi("chatFeedback.success"));
       setChatFeedbackContent("");

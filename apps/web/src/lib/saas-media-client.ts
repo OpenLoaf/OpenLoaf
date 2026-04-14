@@ -8,11 +8,15 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import { SaaSClient } from '@openloaf-saas/sdk'
-import { getAccessToken, resolveSaasBaseUrl } from '@/lib/saas-auth'
+import {
+  createSaasProxyFetcher,
+  resolveServerOriginForSaasProxy,
+} from '@/lib/saas-auth'
+import { CLIENT_HEADERS } from '@/lib/client-headers'
 import i18n from '@/i18n'
 
 let cachedClient: SaaSClient | null = null
-let cachedBaseUrl = ''
+let cachedOrigin = ''
 let cachedLang = ''
 
 /** Resolve current app language. */
@@ -21,28 +25,30 @@ function getAppLang(): string {
 }
 
 /**
- * Get a SaaSClient instance for direct web-side SDK calls.
- * Reuses the same instance as long as the base URL and language haven't changed.
- * Token is resolved lazily per-request via getAccessToken.
+ * Get a SaaSClient instance pointing at the local reverse proxy.
+ * Server injects the real access token server-side — the SDK's
+ * getAccessToken callback is a no-op here.
  */
 export function getSaasMediaClient(): SaaSClient {
-  const baseUrl = resolveSaasBaseUrl()
-  if (!baseUrl) {
-    throw new Error('saas_url_missing')
+  const origin = resolveServerOriginForSaasProxy()
+  if (!origin) {
+    throw new Error('server_origin_missing')
   }
   const lang = getAppLang()
-  if (cachedClient && cachedBaseUrl === baseUrl && cachedLang === lang) {
+  if (cachedClient && cachedOrigin === origin && cachedLang === lang) {
     return cachedClient
   }
   cachedClient = new SaaSClient({
-    baseUrl,
-    getAccessToken: async () => {
-      const token = await getAccessToken()
-      return token ?? ''
-    },
+    // 逻辑：baseUrl 必须是 origin-only，前缀注入由 createSaasProxyFetcher 完成。
+    baseUrl: origin,
+    // 逻辑：反代会注入 Server 自持的 token，客户端传空串即可。
+    getAccessToken: async () => '',
+    // 逻辑：每个请求带 X-OpenLoaf-Client，通过 strictClientGuard CSRF 检查。
+    headers: { ...CLIENT_HEADERS },
     locale: lang,
+    fetcher: createSaasProxyFetcher(origin),
   })
-  cachedBaseUrl = baseUrl
+  cachedOrigin = origin
   cachedLang = lang
   return cachedClient
 }

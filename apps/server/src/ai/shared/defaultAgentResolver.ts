@@ -31,10 +31,6 @@ export type AgentJsonDescriptor = {
   auxiliaryModelSource?: string
   auxiliaryModelLocalIds?: string[]
   auxiliaryModelCloudIds?: string[]
-  /** Image model id for media generation (empty = Auto). */
-  imageModelIds?: string[]
-  /** Video model id for media generation (empty = Auto). */
-  videoModelIds?: string[]
   /** Code model ids for CLI coding tools (empty = Auto). */
   codeModelIds?: string[]
   /** 模型标签约束（用户可覆盖模板默认值）。 */

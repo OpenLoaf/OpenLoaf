@@ -16,13 +16,7 @@ import { Button } from "@openloaf/ui/button";
 import { Input } from "@openloaf/ui/input";
 import { Label } from "@openloaf/ui/label";
 import { Switch } from "@openloaf/ui/animate-ui/components/radix/switch";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@openloaf/ui/dialog";
+import { FormDialog } from "@/components/ui/FormDialog";
 import { OpenLoafSettingsField } from "@openloaf/ui/openloaf/OpenLoafSettingsField";
 import { Globe, KeyRound } from "lucide-react";
 import { resolveServerUrl } from "@/utils/server-url";
@@ -54,7 +48,6 @@ export default function LocalAccess() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [dialogLoading, setDialogLoading] = useState(false);
 
   const loadStatus = useCallback(async () => {
     if (!baseUrl) return;
@@ -136,14 +129,13 @@ export default function LocalAccess() {
 
     if (!newPassword.trim() || newPassword.trim().length < 6) {
       toast.error(t("localAccess.passwordMinLength"));
-      return;
+      throw new Error(t("localAccess.passwordMinLength"));
     }
     if (newPassword !== confirmPassword) {
       toast.error(t("localAccess.passwordMismatch"));
-      return;
+      throw new Error(t("localAccess.passwordMismatch"));
     }
 
-    setDialogLoading(true);
     try {
       const setupResponse = await fetch(`${baseUrl}/local-auth/setup`, {
         method: "POST",
@@ -195,8 +187,7 @@ export default function LocalAccess() {
       toast.error(
         (error as Error)?.message ?? t("localAccess.saveFailed"),
       );
-    } finally {
-      setDialogLoading(false);
+      throw error;
     }
   }, [
     baseUrl,
@@ -265,75 +256,62 @@ export default function LocalAccess() {
           )}
 
       {/* Password dialog */}
-      <Dialog
+      <FormDialog
         open={dialogMode !== null}
-        onOpenChange={(open) => !open && resetDialog()}
+        onOpenChange={(open) => {
+          if (!open) resetDialog()
+        }}
+        title={
+          dialogMode === "set"
+            ? t("localAccess.setPasswordTitle")
+            : t("localAccess.changePasswordTitle")
+        }
+        onSubmit={handlePasswordSubmit}
+        submitLabel={tc("confirm")}
+        submittingLabel={t("localAccess.saving")}
+        contentClassName="max-w-md"
       >
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>
-              {dialogMode === "set"
-                ? t("localAccess.setPasswordTitle")
-                : t("localAccess.changePasswordTitle")}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            {dialogMode === "change" && (
-              <div className="space-y-2">
-                <Label htmlFor="current-password">
-                  {t("localAccess.currentPassword")}
-                </Label>
-                <Input
-                  id="current-password"
-                  type="password"
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  placeholder={t("localAccess.currentPasswordPlaceholder")}
-                />
-              </div>
-            )}
+        <div className="space-y-4 py-2">
+          {dialogMode === "change" && (
             <div className="space-y-2">
-              <Label htmlFor="new-password">
-                {t("localAccess.newPassword")}
+              <Label htmlFor="current-password">
+                {t("localAccess.currentPassword")}
               </Label>
               <Input
-                id="new-password"
+                id="current-password"
                 type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                placeholder={t("localAccess.newPasswordPlaceholder")}
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                placeholder={t("localAccess.currentPasswordPlaceholder")}
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="confirm-password">
-                {t("localAccess.confirmPassword")}
-              </Label>
-              <Input
-                id="confirm-password"
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder={t("localAccess.confirmPasswordPlaceholder")}
-              />
-            </div>
+          )}
+          <div className="space-y-2">
+            <Label htmlFor="new-password">
+              {t("localAccess.newPassword")}
+            </Label>
+            <Input
+              id="new-password"
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              placeholder={t("localAccess.newPasswordPlaceholder")}
+            />
           </div>
-          <DialogFooter>
-            <Button
-              variant="ghost"
-              onClick={resetDialog}
-              disabled={dialogLoading}
-            >
-              {tc("cancel")}
-            </Button>
-            <Button
-              onClick={() => void handlePasswordSubmit()}
-              disabled={dialogLoading}
-            >
-              {dialogLoading ? t("localAccess.saving") : tc("confirm")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          <div className="space-y-2">
+            <Label htmlFor="confirm-password">
+              {t("localAccess.confirmPassword")}
+            </Label>
+            <Input
+              id="confirm-password"
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder={t("localAccess.confirmPasswordPlaceholder")}
+            />
+          </div>
+        </div>
+      </FormDialog>
     </>
   );
 }

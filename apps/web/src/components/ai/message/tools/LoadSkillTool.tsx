@@ -10,6 +10,7 @@
 'use client'
 
 import { SparklesIcon, LoaderCircleIcon, XCircleIcon } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import {
   Tooltip,
@@ -18,10 +19,14 @@ import {
 } from '@openloaf/ui/tooltip'
 import {
   Collapsible,
-  CollapsibleContent,
   CollapsibleTrigger,
 } from '@openloaf/ui/collapsible'
-import { CodeBlock } from '@/components/ai-elements/code-block'
+import {
+  ToolOutputContent,
+  ToolOutputError,
+  ToolOutputLoading,
+  ToolOutputText,
+} from './shared/ToolOutput'
 import {
   asPlainObject,
   isToolStreaming,
@@ -81,12 +86,15 @@ export default function LoadSkillTool({
   variant?: ToolVariant
   messageId?: string
 }) {
+  const { t } = useTranslation('ai')
   const { skillName } = resolveLoadSkillInput(part)
   const streaming = isToolStreaming(part)
   const hasError = part.state === 'output-error' || part.state === 'output-denied'
   const { scope, basePath, content, error: outputError } = resolveLoadSkillOutput(part)
 
   const inlineText = skillName
+    ? t(`toolNames.BuiltinSkill_${skillName}`, { defaultValue: skillName })
+    : ''
   const tooltipText = [
     skillName && `skill: ${skillName}`,
     scope && `scope: ${scope}`,
@@ -119,7 +127,7 @@ export default function LoadSkillTool({
             )}
           >
             <SparklesIcon className="size-3.5 shrink-0 text-muted-foreground" />
-            <span className="shrink-0 text-xs font-medium text-muted-foreground">LoadSkill</span>
+            <span className="shrink-0 text-xs font-medium text-muted-foreground">{t('toolNames.LoadSkill')}</span>
             {inlineText ? (
               <span className="min-w-0 truncate font-mono text-xs text-muted-foreground/50">
                 {inlineText}
@@ -127,7 +135,7 @@ export default function LoadSkillTool({
             ) : null}
             {scope ? (
               <span className="shrink-0 rounded bg-muted px-1 py-px font-mono text-[9px] text-muted-foreground">
-                {scope}
+                {t(`toolNames.LoadSkillScope_${scope}`, { defaultValue: scope })}
               </span>
             ) : null}
             {streaming ? (
@@ -143,22 +151,15 @@ export default function LoadSkillTool({
           </TooltipContent>
         ) : null}
       </Tooltip>
-      <CollapsibleContent className="px-2.5 py-2 text-xs">
+      <ToolOutputContent>
         {previewHasContent ? (
-          <div className="max-h-[320px] overflow-auto rounded-2xl bg-muted/50">
-            <CodeBlock code={previewContent} language={'markdown' as any} />
-          </div>
+          <ToolOutputText text={previewContent} />
         ) : errorText ? (
-          <div className="whitespace-pre-wrap break-all rounded-2xl bg-destructive/10 p-2 text-xs text-destructive">
-            {errorText}
-          </div>
+          <ToolOutputError message={errorText} />
         ) : streaming ? (
-          <div className="flex items-center gap-1.5 py-1 text-xs text-muted-foreground">
-            <LoaderCircleIcon className="size-3 animate-spin" />
-            <span>加载中...</span>
-          </div>
+          <ToolOutputLoading label={t('tool.outputLoading')} />
         ) : null}
-      </CollapsibleContent>
+      </ToolOutputContent>
     </Collapsible>
   )
 }

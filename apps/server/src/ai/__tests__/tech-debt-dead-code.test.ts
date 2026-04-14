@@ -18,7 +18,7 @@
  *   2. chatFileStore.ts — 死代码（未使用的导入与变量）
  *   3. extractTextFromParts — ✅ 已提取到 chatStreamUtils.ts（验证共享模块导入）
  *   4. toSseChunk — ✅ 已提取到 chatStreamUtils.ts（验证共享模块导入）
- *   5. resolveBearerToken — ✅ 已提取到 helpers/resolveToken.ts（验证共享模块导入）
+ *   5. resolveBearerToken — ✅ 已完全删除（Server 不再从请求头提取 Bearer）
  *   6. JWT 解码逻辑重复（prefaceBuilder + subAgentPrefaceBuilder）
  *   7. normalizeRootPath / normalizeDescription / normalizeScalar — skillsLoader + agentConfigService 重复
  *   8. autoCompact + contextCollapse — extractPartText / formatMessages 功能重叠
@@ -218,16 +218,23 @@ function countOccurrences(content: string, identifier: string): number {
 }
 
 // ---------------------------------------------------------------------------
-// 5. resolveBearerToken — 已提取到 helpers/resolveToken.ts 共享模块
+// 5. resolveBearerToken — 已完全删除
 // ---------------------------------------------------------------------------
+// Server 成为 SaaS token 唯一持有者后，业务路由不再接受 Authorization header，
+// 统一通过 ensureServerAccessToken() 从 tokenStore 获取。resolveBearerToken
+// helper 和所有调用点都已删除，此处断言防止回归。
 
 {
-  const helperContent = readSrc('ai/interface/helpers/resolveToken.ts')
-
-  // 共享模块应包含 resolveBearerToken 的导出定义
+  let stillExists = false
+  try {
+    readSrc('ai/interface/helpers/resolveToken.ts')
+    stillExists = true
+  } catch {
+    // 文件不存在 —— 期望状态
+  }
   assert.ok(
-    helperContent.includes('export function resolveBearerToken('),
-    '[5-A] resolveToken.ts 应包含 resolveBearerToken 导出定义',
+    !stillExists,
+    '[5-A] resolveToken.ts 应已被删除（Server 是 token 唯一持有者，无需从请求提取 Bearer）',
   )
 
   const routeFiles = [
@@ -235,21 +242,18 @@ function countOccurrences(content: string, identifier: string): number {
     'ai/interface/routes/aiCommandRoutes.ts',
     'ai/interface/routes/aiBoardAgentRoutes.ts',
     'ai/interface/routes/aiCopilotRoutes.ts',
+    'ai/interface/routes/aiExecuteRoutes.ts',
   ] as const
 
   for (const file of routeFiles) {
     const content = readSrc(file)
     assert.ok(
-      !content.includes('function resolveBearerToken('),
-      `[5-${file}] ${file} 不应再包含 resolveBearerToken 本地定义`,
-    )
-    assert.ok(
-      content.includes('resolveToken'),
-      `[5-import-${file}] ${file} 应从 resolveToken 模块导入`,
+      !content.includes('resolveBearerToken'),
+      `[5-${file}] ${file} 不应再引用 resolveBearerToken（业务路由 token 走 ensureServerAccessToken）`,
     )
   }
 
-  console.log('✓ [5] resolveBearerToken 已提取到共享模块验证通过')
+  console.log('✓ [5] resolveBearerToken 已完全删除验证通过')
 }
 
 // ---------------------------------------------------------------------------
@@ -438,7 +442,7 @@ console.log('  [1] agentFactory.ts         — 4 个未使用符号（AgentTempl
 console.log('  [2] chatFileStore.ts         — 2 个未使用导入（fsSync、resolveBoardAbsPath）')
 console.log('  [3] extractTextFromParts     — ✅ 已提取到 chatStreamUtils.ts')
 console.log('  [4] toSseChunk               — ✅ 已提取到 chatStreamUtils.ts')
-console.log('  [5] resolveBearerToken       — ✅ 已提取到 helpers/resolveToken.ts')
+console.log('  [5] resolveBearerToken       — ✅ 已完全删除')
 console.log('  [6] JWT 解码逻辑             — prefaceBuilder 和 subAgentPrefaceBuilder 重叠')
 console.log('  [7] normalize* 函数          — skillsLoader + agentConfigService 三函数重复（建议提取 agentFrontMatterUtils.ts）')
 console.log('  [8] formatMessages/extractPart — autoCompact + contextCollapse 功能重叠')

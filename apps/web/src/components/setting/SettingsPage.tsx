@@ -32,6 +32,7 @@ import {
   Terminal,
   Blocks,
   Info,
+  ShieldCheck,
 } from "lucide-react";
 import { useGlobalOverlay } from "@/lib/globalShortcuts";
 import { Button } from "@openloaf/ui/button";
@@ -49,6 +50,7 @@ import { KeyboardShortcuts } from "./menus/KeyboardShortcuts";
 import TestSetting from "./menus/TestSetting";
 import { ThirdPartyTools } from "./menus/ThirdPartyTools";
 import { MemorySettings } from "./menus/MemorySettings";
+import { ToolApprovalSettings } from "./menus/ToolApprovalSettings";
 import { MCPSettingsPanel } from "./mcp/MCPSettingsPanel";
 import { AboutOpenLoaf } from "./menus/AboutOpenLoaf";
 import { SubscriptionSettings } from "./menus/SubscriptionSettings";
@@ -67,6 +69,7 @@ type SettingsMenuKey =
   | "auxiliaryModel"
   | "memory"
   | "mcp"
+  | "toolApproval"
   | "thirdPartyTools"
   | "shortcuts"
   | "about"
@@ -75,14 +78,15 @@ type SettingsMenuKey =
 
 const SETTINGS_MENU_ICON_COLOR = {
   basic: "text-foreground",
-  shortcuts: "text-muted-foreground",
+  shortcuts: "text-foreground",
   keys: "text-foreground",
   auxiliaryModel: "text-foreground",
   memory: "text-foreground",
   mcp: "text-foreground",
-  thirdPartyTools: "text-muted-foreground",
+  toolApproval: "text-foreground",
+  thirdPartyTools: "text-foreground",
   storage: "text-foreground",
-  about: "text-muted-foreground",
+  about: "text-foreground",
   subscription: "text-foreground",
   projectTest: "text-foreground",
 } as const;
@@ -159,6 +163,12 @@ function buildMenu(t: (key: string) => string, loggedIn: boolean): Array<{
       Icon: createMenuIcon(Blocks, SETTINGS_MENU_ICON_COLOR.mcp),
       Component: MCPSettingsPanel,
     },
+    {
+      key: "toolApproval",
+      label: t('settings:menu.toolApproval'),
+      Icon: createMenuIcon(ShieldCheck, SETTINGS_MENU_ICON_COLOR.toolApproval),
+      Component: ToolApprovalSettings,
+    },
     // Group 3: Services (in general group)
     {
       key: "thirdPartyTools",
@@ -184,7 +194,7 @@ function buildMenu(t: (key: string) => string, loggedIn: boolean): Array<{
 }
 
 const ALL_MENU_KEYS: SettingsMenuKey[] = [
-  'basic', 'shortcuts', 'thirdPartyTools', 'storage', 'keys', 'auxiliaryModel', 'memory', 'mcp', 'about', 'subscription', 'projectTest',
+  'basic', 'shortcuts', 'thirdPartyTools', 'storage', 'keys', 'auxiliaryModel', 'memory', 'mcp', 'toolApproval', 'about', 'subscription', 'projectTest',
 ];
 const MENU_KEY_SET = new Set<SettingsMenuKey>(ALL_MENU_KEYS);
 const HIDDEN_MENU_KEYS = new Set<SettingsMenuKey>([]);
@@ -347,6 +357,7 @@ export default function SettingsPage({
       byKey.get("auxiliaryModel"),
       byKey.get("memory"),
       byKey.get("mcp"),
+      byKey.get("toolApproval"),
     ].filter(filterVisible);
     return [general, ai].filter((group) => group.length > 0) as OpenLoafSettingsMenuItem[][];
   }, [MENU]);

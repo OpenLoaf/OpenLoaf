@@ -417,6 +417,7 @@ export function ExternalSkillsImportDialog({
             {t("skills.transfer.cancel")}
           </Button>
           <Button
+            autoFocus
             onClick={handleImport}
             disabled={selectedCount === 0 || isImporting}
             className="rounded-3xl"

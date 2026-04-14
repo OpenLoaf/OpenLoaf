@@ -5,13 +5,8 @@ vi.mock('@/utils/server-url', () => ({
   resolveServerUrl: () => 'https://api.test',
 }))
 
-vi.mock('@/lib/saas-media', async (importOriginal) => {
-  const original = await importOriginal<typeof import('@/lib/saas-media')>()
-  return {
-    ...original,
-    buildAuthHeaders: vi.fn().mockResolvedValue({ Authorization: 'Bearer test-token' }),
-  }
-})
+// buildAuthHeaders 已删除（Server 是 token 唯一持有者，Web 不再发 Authorization）。
+// 保留其余 mock 结构不变，测试仅校验 saas-media queue API 的 URL/body/headers 构造。
 
 import {
   requestQueueTicket,

@@ -8,61 +8,20 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import picomatch from 'picomatch'
-import type { ToolApprovalRules } from '@openloaf/api/types/toolApproval'
+// @ts-expect-error -- shell-quote has no bundled types
+import { parse as shellParse } from 'shell-quote'
+import {
+  extractMatchContent,
+  parseRuleString,
+  ruleToString,
+  suggestRule,
+  type ParsedRule,
+  type ToolApprovalRules,
+} from '@openloaf/api/types/toolApproval'
 
-// ─── Rule parsing ───────────────────────────────────────────────────────────
-
-export type ParsedRule = {
-  toolName: string
-  ruleContent?: string
-}
-
-/** Parse rule string like "Bash(git *)" → { toolName: "Bash", ruleContent: "git *" } */
-export function parseRuleString(rule: string): ParsedRule {
-  const trimmed = rule.trim()
-  const openIdx = trimmed.indexOf('(')
-  if (openIdx === -1) {
-    return { toolName: trimmed }
-  }
-  if (!trimmed.endsWith(')')) {
-    return { toolName: trimmed }
-  }
-  const toolName = trimmed.substring(0, openIdx)
-  const content = trimmed.substring(openIdx + 1, trimmed.length - 1)
-  if (!content || content === '*') {
-    return { toolName }
-  }
-  return { toolName, ruleContent: content }
-}
-
-/** Serialize a parsed rule back to string. */
-export function ruleToString(parsed: ParsedRule): string {
-  if (!parsed.ruleContent) return parsed.toolName
-  return `${parsed.toolName}(${parsed.ruleContent})`
-}
-
-// ─── Content extraction ─────────────────────────────────────────────────────
-
-/** Map of tool IDs to the arg key that provides matchable content. */
-const TOOL_CONTENT_KEYS: Record<string, string> = {
-  Bash: 'command',
-  Edit: 'file_path',
-  Write: 'file_path',
-  Read: 'file_path',
-  Glob: 'path',
-  Grep: 'path',
-}
-
-/** Extract the matchable content from tool call args. */
-export function extractMatchContent(
-  toolId: string,
-  args: Record<string, unknown>,
-): string | undefined {
-  const key = TOOL_CONTENT_KEYS[toolId]
-  if (!key) return undefined
-  const value = args[key]
-  return typeof value === 'string' ? value : undefined
-}
+// Re-export the shared helpers so existing consumers keep their import path.
+export { extractMatchContent, parseRuleString, ruleToString, suggestRule }
+export type { ParsedRule }
 
 // ─── Matching ───────────────────────────────────────────────────────────────
 
@@ -88,8 +47,93 @@ export function doesRuleMatch(
     return picomatch.isMatch(matchContent, parsed.ruleContent, { dot: true })
   }
 
-  // For Bash commands, use wildcard matching
+  // For Bash commands, use wildcard matching — but first verify the raw command is a single
+  // safe segment. Without this, `Bash(git *)` would match `git push; rm -rf /` because the
+  // regex treats the whole string as one blob (security bypass).
+  if (toolId === 'Bash') {
+    if (!isSingleSafeCommandSegment(matchContent)) return false
+    return matchShellWildcard(parsed.ruleContent, matchContent)
+  }
+
+  // PowerShell has the same integer-string bypass as Bash: `PowerShell(Get-ChildItem *)`
+  // would match `Get-ChildItem C:\; Remove-Item -Recurse C:\Users\x` if we don't reject
+  // any command combinator / subexpression / escape that could smuggle a second command.
+  // shell-quote doesn't understand PowerShell syntax, so we use a conservative
+  // character-based blacklist.
+  if (toolId === 'PowerShell') {
+    if (!isSinglePowerShellSegment(matchContent)) return false
+    return matchShellWildcard(parsed.ruleContent, matchContent)
+  }
+
   return matchShellWildcard(parsed.ruleContent, matchContent)
+}
+
+/**
+ * Return true only when `command` is a single PowerShell command with no command
+ * combinators (`;` `&&` `||` `|`), no subexpression (`$(...)`), no backtick escape
+ * (which is also PowerShell's line-continuation / escape char and can hide content),
+ * and no newline. Conservative by design — blocks pipelines too, because a pipeline
+ * can end in a destructive cmdlet (`Get-ChildItem | Remove-Item`).
+ */
+function isSinglePowerShellSegment(command: string): boolean {
+  if (!command) return false
+  if (command.includes('\n')) return false
+  // Command chaining / separators
+  if (command.includes(';')) return false
+  if (command.includes('&&') || command.includes('||')) return false
+  // Pipeline — in PowerShell pipes are the normal data-flow channel, but a
+  // pipeline target can execute arbitrary cmdlets on the piped objects, so we
+  // reject to stay aligned with the Bash policy.
+  if (command.includes('|')) return false
+  // Subexpression $(...) — interpolates command output even inside "..." strings.
+  if (command.includes('$(')) return false
+  // Backtick is PowerShell's escape char AND line continuation. Used to hide
+  // newlines or escape quotes — conservative: reject outright.
+  if (command.includes('`')) return false
+  return true
+}
+
+/**
+ * Return true only when `command` is a single shell command with no combinators,
+ * substitutions, redirections, backticks, ANSI-C quotes, or newlines. Used as a
+ * precondition for applying Bash allow rules — any multi-command or injection
+ * vector forces the allow rule to miss, so the command falls through to the
+ * default sandbox/approval check.
+ */
+const SHELL_DANGEROUS_OPS = new Set([';', '&&', '||', '|', '|&', ';;', '&', '(', ')'])
+const SHELL_REDIRECT_OPS = new Set(['>', '>>', '<', '<<', '>&', '<&', '<>'])
+
+type ShellToken = string | { op: string } | { pattern: string } | { comment: string }
+
+function isSingleSafeCommandSegment(command: string): boolean {
+  if (!command) return false
+  // ANSI-C quotes ($'…') can encode arbitrary bytes including separators.
+  if (/\$'/.test(command)) return false
+  // Backticks are command substitution; shell-quote keeps them in string tokens.
+  if (command.includes('`')) return false
+  // Multi-line commands are treated per-line elsewhere; reject here.
+  if (command.includes('\n')) return false
+
+  let tokens: ShellToken[]
+  try {
+    tokens = shellParse(command) as ShellToken[]
+  } catch {
+    return false
+  }
+
+  for (let i = 0; i < tokens.length; i++) {
+    const token = tokens[i]!
+    if (typeof token === 'object' && 'op' in token) {
+      const op = token.op
+      if (SHELL_DANGEROUS_OPS.has(op) || SHELL_REDIRECT_OPS.has(op)) return false
+    }
+    // Detect $() command substitution: "$" followed by "(" op
+    if (typeof token === 'string' && token === '$' && i + 1 < tokens.length) {
+      const next = tokens[i + 1]!
+      if (typeof next === 'object' && 'op' in next && next.op === '(') return false
+    }
+  }
+  return true
 }
 
 /** Simple wildcard matching for shell commands: * matches any chars. */
@@ -145,65 +189,6 @@ export function evaluateToolRules(
   }
 
   return 'unmatched'
-}
-
-// ─── Rule suggestion ────────────────────────────────────────────────────────
-
-/**
- * Generate a suggested allow rule from a tool call.
- * Used by the "Always Allow" button to propose a rule.
- */
-export function suggestRule(
-  toolId: string,
-  args: Record<string, unknown>,
-): string {
-  const content = extractMatchContent(toolId, args)
-
-  if (toolId === 'Bash' && typeof content === 'string') {
-    // Extract first word(s) as prefix
-    const prefix = getCommandPrefix(content)
-    if (prefix) return `Bash(${prefix} *)`
-    return 'Bash'
-  }
-
-  if ((toolId === 'Edit' || toolId === 'Write') && typeof content === 'string') {
-    // Suggest parent directory glob
-    const dirGlob = getParentDirGlob(content)
-    if (dirGlob) return `${toolId}(${dirGlob})`
-    return toolId
-  }
-
-  // For other tools, suggest tool-level rule
-  return toolId
-}
-
-/** Extract the first 1-2 tokens of a command as a prefix. */
-function getCommandPrefix(command: string): string | null {
-  const trimmed = command.trim()
-  const tokens = trimmed.split(/\s+/)
-  if (tokens.length === 0) return null
-
-  // Single-word commands like "git", "npm" → return as-is
-  if (tokens.length === 1) return tokens[0]!
-
-  // Two-word prefix for common patterns: "git push", "npm run"
-  const first = tokens[0]!
-  const second = tokens[1]!
-
-  // Subcommand-style: "git push", "docker compose", "npm run"
-  if (/^[a-zA-Z][\w-]*$/.test(second) && second.length < 20) {
-    return `${first} ${second}`
-  }
-
-  return first
-}
-
-/** Extract parent directory as a glob pattern. */
-function getParentDirGlob(filePath: string): string | null {
-  const lastSlash = filePath.lastIndexOf('/')
-  if (lastSlash <= 0) return null
-  const dir = filePath.substring(0, lastSlash)
-  return `${dir}/**`
 }
 
 // ─── Rule merging ───────────────────────────────────────────────────────────

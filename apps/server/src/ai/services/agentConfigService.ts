@@ -41,10 +41,6 @@ export type AgentConfig = {
   auxiliaryModelLocalIds: string[]
   /** Auxiliary cloud model ids. */
   auxiliaryModelCloudIds: string[]
-  /** Image model ids for media generation. */
-  imageModelIds: string[]
-  /** Video model ids for media generation. */
-  videoModelIds: string[]
   /** Code model ids for CLI coding tools. */
   codeModelIds: string[]
   /** 模型标签约束：spawn 此 agent 时自动选择满足这些标签的模型。 */
@@ -78,10 +74,6 @@ export type AgentSummary = {
   icon: string
   /** Model override. */
   model: string
-  /** Image model id for media generation (empty = Auto). */
-  imageModelId: string
-  /** Video model id for media generation (empty = Auto). */
-  videoModelId: string
   /** Tool ids enabled for this agent. */
   toolIds: string[]
   /** Associated skill names. */
@@ -116,8 +108,6 @@ type AgentFrontMatter = {
   modelCloudIds?: string[]
   auxiliaryModelLocalIds?: string[]
   auxiliaryModelCloudIds?: string[]
-  imageModelIds?: string[]
-  videoModelIds?: string[]
   codeModelIds?: string[]
   requiredModelTags?: string[]
   toolIds?: string[]
@@ -148,15 +138,11 @@ function loadOpenLoafAgentSummaries(
     if (!descriptor) continue
     const modelLocalIds = normalizeIdList(descriptor.modelLocalIds)
     const modelCloudIds = normalizeIdList(descriptor.modelCloudIds)
-    const imageModelIds = normalizeIdList(descriptor.imageModelIds)
-    const videoModelIds = normalizeIdList(descriptor.videoModelIds)
     results.push({
       name: descriptor.name || entry.name,
       description: descriptor.description || '未提供',
       icon: descriptor.icon || 'bot',
       model: modelLocalIds[0] ?? modelCloudIds[0] ?? '',
-      imageModelId: imageModelIds[0] ?? '',
-      videoModelId: videoModelIds[0] ?? '',
       toolIds: normalizeToolIds(descriptor.toolIds || []),
       skills: descriptor.skills || [],
       path: path.join(agentDir, AGENT_JSON_FILE),
@@ -215,8 +201,6 @@ export function loadAgentSummaries(input: {
           description: config.description,
           icon: config.icon,
           model: config.modelLocalIds[0] ?? config.modelCloudIds[0] ?? '',
-          imageModelId: config.imageModelIds[0] ?? '',
-          videoModelId: config.videoModelIds[0] ?? '',
           toolIds: config.toolIds,
           skills: config.skills,
           path: config.path,
@@ -254,8 +238,6 @@ export function readAgentConfigFromPath(
     const auxiliaryModelCloudIds = normalizeIdList(
       frontMatter.auxiliaryModelCloudIds,
     )
-    const imageModelIds = normalizeIdList(frontMatter.imageModelIds)
-    const videoModelIds = normalizeIdList(frontMatter.videoModelIds)
     const codeModelIds = normalizeIdList(frontMatter.codeModelIds)
     const requiredModelTags = frontMatter.requiredModelTags?.filter(Boolean) ?? []
     const toolIds = normalizeToolIds(frontMatter.toolIds || [])
@@ -270,8 +252,6 @@ export function readAgentConfigFromPath(
       modelCloudIds,
       auxiliaryModelLocalIds,
       auxiliaryModelCloudIds,
-      imageModelIds,
-      videoModelIds,
       codeModelIds,
       requiredModelTags,
       toolIds,
@@ -438,12 +418,6 @@ function setField(
     case 'auxiliaryModelCloudIds':
       result.auxiliaryModelCloudIds = normalizeIdList(value)
       break
-    case 'imageModelIds':
-      result.imageModelIds = normalizeIdList(value)
-      break
-    case 'videoModelIds':
-      result.videoModelIds = normalizeIdList(value)
-      break
     case 'codeModelIds':
       result.codeModelIds = normalizeIdList(value)
       break
@@ -501,8 +475,6 @@ export function serializeAgentToMarkdown(config: {
   auxiliaryModelSource?: string
   auxiliaryModelLocalIds?: string[]
   auxiliaryModelCloudIds?: string[]
-  imageModelIds?: string[]
-  videoModelIds?: string[]
   codeModelIds?: string[]
   requiredModelTags?: string[]
   toolIds?: string[]
@@ -539,18 +511,6 @@ export function serializeAgentToMarkdown(config: {
   if (config.auxiliaryModelCloudIds?.length) {
     lines.push('auxiliaryModelCloudIds:')
     for (const id of config.auxiliaryModelCloudIds) {
-      lines.push(`  - ${id}`)
-    }
-  }
-  if (config.imageModelIds?.length) {
-    lines.push('imageModelIds:')
-    for (const id of config.imageModelIds) {
-      lines.push(`  - ${id}`)
-    }
-  }
-  if (config.videoModelIds?.length) {
-    lines.push('videoModelIds:')
-    for (const id of config.videoModelIds) {
       lines.push(`  - ${id}`)
     }
   }

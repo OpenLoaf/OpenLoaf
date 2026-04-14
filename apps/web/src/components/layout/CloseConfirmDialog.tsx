@@ -86,6 +86,7 @@ export default function CloseConfirmDialog() {
             {t('cancel')}
           </Button>
           <Button
+            autoFocus
             onClick={handleMinimize}
             className="rounded-3xl bg-secondary text-foreground hover:bg-secondary/80 shadow-none transition-colors duration-150"
           >

@@ -27,6 +27,7 @@ import {
   countToolInvocations,
   resolveSubAgentSkills,
 } from '@/ai/services/agentOutputUtils'
+import { loadToolApprovalRulesForRequest } from '@/ai/tools/toolApprovalRulesLoader'
 
 // ---------------------------------------------------------------------------
 // Execution Scheduling & Core Loop
@@ -63,8 +64,14 @@ async function executeAgent(
   const toolCallId = id
 
   // 创建子 RequestContext，将当前 agent 入栈到 agentStack。
+  // 审批规则按子 agent 有效的 projectId 重新加载，保证 rules 与 ctx.projectId
+  // 严格对齐（就算父子同项目也只是一次磁盘读取，成本可忽略）。这样将来任何路径
+  // 若给子 agent 设了不同 projectId，rules 会自动跟随，不会使用父项目的白名单。
+  const childProjectId = spawnContext.requestContext.projectId
+  const childToolApprovalRules = await loadToolApprovalRulesForRequest(childProjectId)
   const childRequestContext: RequestContext = {
     ...spawnContext.requestContext,
+    toolApprovalRules: childToolApprovalRules,
     agentStack: [
       ...(spawnContext.requestContext.agentStack ?? []),
       {

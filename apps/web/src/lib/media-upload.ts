@@ -8,7 +8,7 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import { resolveServerUrl } from '@/utils/server-url'
-import { buildAuthHeaders } from '@/lib/saas-media'
+import { CLIENT_HEADERS } from '@/lib/client-headers'
 
 export type MediaUploadResult =
   | { url: string }
@@ -103,11 +103,10 @@ export async function uploadBoardAsset(
   boardId: string,
 ): Promise<MediaUploadResult> {
   const base = resolveServerUrl()
-  const authHeaders = await buildAuthHeaders()
   const res = await fetch(`${base}/ai/v3/media/upload`, {
     method: 'POST',
     credentials: 'include',
-    headers: { 'Content-Type': 'application/json', ...authHeaders },
+    headers: { 'Content-Type': 'application/json', ...CLIENT_HEADERS },
     body: JSON.stringify({ path, boardId }),
   })
   const json = await res.json()
@@ -136,13 +135,12 @@ export async function uploadBlob(
   }
 
   const base = resolveServerUrl()
-  const authHeaders = await buildAuthHeaders()
   const formData = new FormData()
   formData.append('file', compressed, name)
   const res = await fetch(`${base}/ai/v3/media/upload`, {
     method: 'POST',
     credentials: 'include',
-    headers: authHeaders,
+    headers: { ...CLIENT_HEADERS },
     body: formData,
   })
   const json = await res.json()

@@ -552,6 +552,7 @@ export function VideoAiPanel({
           onUnlock={onUnlock}
           onCancelEdit={handleCancelEdit}
           estimateParams={pricingParams}
+          estimatedDurationMs={selectedVariant?.estimatedDurationMs}
           warningMessage={variantWarning}
           initialTarget={aiConfig?.generateTarget}
           onTargetChange={handleTargetChange}

@@ -104,7 +104,6 @@ function ensureLocalModelFallback(saasToken: string | undefined): () => void {
 }
 
 export default class OpenLoafUniversalProvider implements ApiProvider {
-  private saasAccessToken: string | undefined
   private tokenResolved = false
   private restoreChatSource: (() => void) | undefined
   private modelId: string | undefined
@@ -128,14 +127,17 @@ export default class OpenLoafUniversalProvider implements ApiProvider {
     return this.providerLabel ?? 'openloaf-universal'
   }
 
-  private async ensureAuth(): Promise<string | undefined> {
-    if (!this.tokenResolved) {
-      this.tokenResolved = true
-      this.saasAccessToken = await resolveSaasAccessToken()
-      this.restoreChatSource = ensureLocalModelFallback(this.saasAccessToken)
-      globalRestoreChatSource = this.restoreChatSource
-    }
-    return this.saasAccessToken
+  /**
+   * Prime the server-side tokenStore so cloud AI calls can succeed.
+   * Returns nothing — the token lives inside tokenStore from now on and
+   * downstream services retrieve it via `ensureServerAccessToken()`.
+   */
+  private async ensureAuth(): Promise<void> {
+    if (this.tokenResolved) return
+    this.tokenResolved = true
+    const token = await resolveSaasAccessToken()
+    this.restoreChatSource = ensureLocalModelFallback(token)
+    globalRestoreChatSource = this.restoreChatSource
   }
 
 
@@ -193,12 +195,12 @@ export default class OpenLoafUniversalProvider implements ApiProvider {
     ac: AbortController,
     start: number,
   ): Promise<ProviderResponse> {
-    const saasAccessToken = await this.ensureAuth()
+    await this.ensureAuth()
 
     // 多轮对话支持
     const turnsRaw = context?.vars?.turns as string | undefined
     if (turnsRaw) {
-      return await this.executeMultiTurn(JSON.parse(turnsRaw), ac, start, saasAccessToken)
+      return await this.executeMultiTurn(JSON.parse(turnsRaw), ac, start)
     }
 
     const sessionId = `e2e-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
@@ -224,7 +226,6 @@ export default class OpenLoafUniversalProvider implements ApiProvider {
       },
       cookies: {},
       requestSignal: ac.signal,
-      saasAccessToken,
       autoApproveTools: true,
     })
 
@@ -328,7 +329,6 @@ export default class OpenLoafUniversalProvider implements ApiProvider {
     turns: Array<{ text: string }>,
     ac: AbortController,
     start: number,
-    saasAccessToken?: string,
   ): Promise<ProviderResponse> {
     const sessionId = `e2e-mt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
     let lastParsed: SseStreamResult | undefined
@@ -357,7 +357,6 @@ export default class OpenLoafUniversalProvider implements ApiProvider {
         },
         cookies: {},
         requestSignal: ac.signal,
-        saasAccessToken,
         autoApproveTools: true,
       })
       lastParsed = await consumeSseResponse(response)

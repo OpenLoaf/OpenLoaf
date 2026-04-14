@@ -984,6 +984,7 @@
   "generateAction": {
     "generate": "Generate",
     "generating": "Generating...",
+    "generatingPercent": "Generating {{percent}}%",
     "loginAndGenerate": "Login & Generate",
     "newNode": "Generate New Node",
     "stackCurrent": "Stack on Current Node",

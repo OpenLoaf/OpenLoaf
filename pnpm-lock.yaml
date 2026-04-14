@@ -35,6 +35,9 @@ importers:
       '@ark-ui/react':
         specifier: ^5.31.0
         version: 5.34.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@openloaf-saas/sdk':
+        specifier: 0.1.43
+        version: 0.1.43(@trpc/server@11.11.0(typescript@5.9.3))(typescript@5.9.3)
       dotenv:
         specifier: ^17.2.3
         version: 17.3.1
@@ -235,8 +238,8 @@ importers:
         specifier: ^2.1.12
         version: 2.1.12
       '@openloaf-saas/sdk':
-        specifier: ^0.1.40
-        version: 0.1.40(@trpc/server@11.11.0(typescript@5.9.3))(typescript@5.9.3)
+        specifier: ^0.1.42
+        version: 0.1.42(@trpc/server@11.11.0(typescript@5.9.3))(typescript@5.9.3)
       '@openloaf/api':
         specifier: workspace:*
         version: link:../../packages/api
@@ -446,8 +449,8 @@ importers:
         specifier: ^4.7.0
         version: 4.7.0(monaco-editor@0.52.2)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@openloaf-saas/sdk':
-        specifier: ^0.1.40
-        version: 0.1.40(@trpc/server@11.11.0(typescript@5.9.3))(typescript@5.9.3)
+        specifier: ^0.1.42
+        version: 0.1.42(@trpc/server@11.11.0(typescript@5.9.3))(typescript@5.9.3)
       '@openloaf/api':
         specifier: workspace:*
         version: link:../../packages/api
@@ -2288,8 +2291,8 @@ packages:
     resolution: {integrity: sha512-F+nKc0xW+kVbBRhFzaMgPy3KwmuNTYX1fx6+FxxoSnNgwYX6LD7AKBTWkU0MQ6IBoe7dz069CNkR673sPAgkCQ==}
     engines: {node: '>=14'}
 
-  '@electron/node-gyp@git+https://git@github.com:electron/node-gyp.git#06b29aafb7708acef8b3669835c8a7857ebc92d2':
-    resolution: {commit: 06b29aafb7708acef8b3669835c8a7857ebc92d2, repo: git@github.com:electron/node-gyp.git, type: git}
+  '@electron/node-gyp@https://codeload.github.com/electron/node-gyp/tar.gz/06b29aafb7708acef8b3669835c8a7857ebc92d2':
+    resolution: {tarball: https://codeload.github.com/electron/node-gyp/tar.gz/06b29aafb7708acef8b3669835c8a7857ebc92d2}
     version: 10.2.0-electron.1
     engines: {node: '>=12.13.0'}
     hasBin: true
@@ -3673,8 +3676,11 @@ packages:
   '@openloaf-saas/sdk@0.1.34':
     resolution: {integrity: sha512-Um7+JTx7mLEuHJ1yZjgbRsFkHwlXpwxRcFhaXbNcGWeVS2bW/4nI0Q+/oOEMZoNqsdz0W2di3uKynd1+IUrhiw==}
 
-  '@openloaf-saas/sdk@0.1.40':
-    resolution: {integrity: sha512-T1kXDGIn85nP8bnOKq0v0L3/3jSo8wS4z1RESryjLz41p9KzM6gBj+TP3SRcpzwACFzy6DtbFjj7Q7WPK7o4Qg==}
+  '@openloaf-saas/sdk@0.1.42':
+    resolution: {integrity: sha512-VLXAl6oY9egJ3OGpe/P/VKgjJOjEFKuKvMJ1XvFD1WVcsmTGMqh7CjzjyXP+6e2UnB5m8HwuFDH2BO1xI8L3NA==}
+
+  '@openloaf-saas/sdk@0.1.43':
+    resolution: {integrity: sha512-lDHICRU4fkLoSV4aV34Eui4tmQRPgBLxdndBHr5ebaXPg1r/tswSNYkcQb2wAoT5rovUIR//4jB3LWw6r4Ez4w==}
 
   '@opentelemetry/api-logs@0.212.0':
     resolution: {integrity: sha512-TEEVrLbNROUkYY51sBJGk7lO/OLjuepch8+hmpM6ffMJQ2z/KVCjdHuCFX6fJj8OkJP2zckPjrJzQtXU3IAsFg==}
@@ -19884,7 +19890,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@electron/node-gyp@git+https://git@github.com:electron/node-gyp.git#06b29aafb7708acef8b3669835c8a7857ebc92d2':
+  '@electron/node-gyp@https://codeload.github.com/electron/node-gyp/tar.gz/06b29aafb7708acef8b3669835c8a7857ebc92d2':
     dependencies:
       env-paths: 2.2.1
       exponential-backoff: 3.1.3
@@ -19966,7 +19972,7 @@ snapshots:
 
   '@electron/rebuild@3.7.2':
     dependencies:
-      '@electron/node-gyp': git+https://git@github.com:electron/node-gyp.git#06b29aafb7708acef8b3669835c8a7857ebc92d2
+      '@electron/node-gyp': https://codeload.github.com/electron/node-gyp/tar.gz/06b29aafb7708acef8b3669835c8a7857ebc92d2
       '@malept/cross-spawn-promise': 2.0.0
       chalk: 4.1.2
       debug: 4.4.3
@@ -21577,7 +21583,15 @@ snapshots:
       - '@trpc/server'
       - typescript
 
-  '@openloaf-saas/sdk@0.1.40(@trpc/server@11.11.0(typescript@5.9.3))(typescript@5.9.3)':
+  '@openloaf-saas/sdk@0.1.42(@trpc/server@11.11.0(typescript@5.9.3))(typescript@5.9.3)':
+    dependencies:
+      '@trpc/client': 11.11.0(@trpc/server@11.11.0(typescript@5.9.3))(typescript@5.9.3)
+      zod: 4.3.6
+    transitivePeerDependencies:
+      - '@trpc/server'
+      - typescript
+
+  '@openloaf-saas/sdk@0.1.43(@trpc/server@11.11.0(typescript@5.9.3))(typescript@5.9.3)':
     dependencies:
       '@trpc/client': 11.11.0(@trpc/server@11.11.0(typescript@5.9.3))(typescript@5.9.3)
       zod: 4.3.6

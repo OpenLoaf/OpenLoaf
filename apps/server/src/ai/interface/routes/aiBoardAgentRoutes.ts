@@ -12,7 +12,7 @@ import path from 'node:path'
 import fs from 'node:fs/promises'
 import type { Hono } from 'hono'
 import { smoothStream, streamText } from 'ai'
-import type { ChatModelSource, ModelTag } from '@openloaf/api/common'
+import type { ChatModelSource } from '@openloaf/api/common'
 import { resolveChatModel } from '@/ai/models/resolveChatModel'
 import { getTextFeaturePrompt } from '@/ai/services/textFeatureRegistry'
 import {
@@ -20,7 +20,6 @@ import {
   resolveProjectFilePath,
 } from '@/ai/services/image/attachmentResolver'
 import { logger } from '@/common/logger'
-import { resolveBearerToken } from '../helpers/resolveToken'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -33,7 +32,7 @@ function assembleSystemPrompt(
 ): string {
   if (skillContents?.length) {
     return skillContents
-      .map((s) => `<skill name="${s.name}">\n${s.content}\n</skill>`)
+      .map((s) => `<system-tag type="skill" id="${s.name}">\n${s.content}\n</system-tag>`)
       .join('\n\n')
   }
   return getTextFeaturePrompt(featureId) ?? 'You are a helpful writing assistant.'
@@ -46,7 +45,7 @@ function assembleUserMessage(
 ): string {
   const parts: string[] = []
   if (upstreamText) {
-    parts.push(`<input>\n${upstreamText}\n</input>`)
+    parts.push(`<system-tag type="input">\n${upstreamText}\n</system-tag>`)
   }
   parts.push(instruction)
   return parts.join('\n\n')
@@ -107,7 +106,7 @@ async function assembleUserContent(
 
   // Text upstream
   if (upstreamText) {
-    parts.push({ type: 'text', text: `<input>\n${upstreamText}\n</input>` })
+    parts.push({ type: 'text', text: `<system-tag type="input">\n${upstreamText}\n</system-tag>` })
   }
 
   // Images — compress via loadProjectImageBuffer or pass data URL directly
@@ -143,13 +142,6 @@ async function assembleUserContent(
   parts.push({ type: 'text', text: instruction })
 
   return parts
-}
-
-/** Feature-to-model-tag mapping (text features have no tags). */
-const FEATURE_MODEL_TAGS: Record<string, ModelTag[]> = {
-  imageUnderstand: ['image_input'],
-  videoUnderstand: ['video_analysis'],
-  audioTranscribe: ['audio_analysis'],
 }
 
 // ---------------------------------------------------------------------------
@@ -198,19 +190,12 @@ export function registerBoardAgentRoutes(app: Hono) {
     const skillContents = Array.isArray(body.skillContents)
       ? (body.skillContents as { name: string; content: string }[])
       : undefined
-    const saasAccessToken = resolveBearerToken(c)
-
-    // Resolve required model tags from feature definition
-    const requiredTags = FEATURE_MODEL_TAGS[featureId]
-
-    // Resolve chat model (with optional tag filtering from feature definition)
+    // Resolve chat model — 前端 model picker 负责按 feature 能力过滤
     let resolved
     try {
       resolved = await resolveChatModel({
         chatModelId,
         chatModelSource,
-        requiredTags,
-        saasAccessToken,
       })
     } catch (err) {
       const msg =

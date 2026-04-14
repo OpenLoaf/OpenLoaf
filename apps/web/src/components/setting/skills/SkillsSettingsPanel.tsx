@@ -44,15 +44,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@openloaf/ui/context-menu";
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@openloaf/ui/dialog";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import {
   Select,
   SelectContent,
@@ -349,16 +341,6 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
   const [transferTargetId, setTransferTargetId] = useState<string>("__global__");
   const transferSkillMutation = useMutation(
     trpc.settings.transferSkill.mutationOptions({
-      onSuccess: (data) => {
-        if (data.ok) {
-          const label = transferMode === "copy" ? t('skills.transfer.copied') : t('skills.transfer.moved');
-          toast.success(`${label}：${data.folderName}`);
-          invalidateSkillQueries();
-          setTransferDialogOpen(false);
-        } else {
-          toast.error(data.error ?? t('skills.transfer.failed'));
-        }
-      },
       onError: (error) => { toast.error(error.message ?? t('skills.transfer.failed')) },
     }),
   );
@@ -526,16 +508,23 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
     setTransferDialogOpen(true);
   }, []);
 
-  const handleTransferConfirm = useCallback(() => {
+  const handleTransferConfirm = useCallback(async () => {
     if (!transferSkill) return;
     const skillFolderPath = transferSkill.path.replace(/[/\\]SKILL\.md$/i, '');
-    transferSkillMutation.mutate({
+    const data = await transferSkillMutation.mutateAsync({
       skillFolderPath,
       mode: transferMode,
       targetScope: transferTargetId === "__global__" ? "global" : "project",
       targetProjectId: transferTargetId === "__global__" ? undefined : transferTargetId,
     });
-  }, [transferSkill, transferMode, transferTargetId, transferSkillMutation]);
+    if (!data.ok) {
+      toast.error(data.error ?? t('skills.transfer.failed'));
+      throw new Error(data.error ?? 'transfer-failed');
+    }
+    const label = transferMode === "copy" ? t('skills.transfer.copied') : t('skills.transfer.moved');
+    toast.success(`${label}：${data.folderName}`);
+    invalidateSkillQueries();
+  }, [transferSkill, transferMode, transferTargetId, transferSkillMutation, t, invalidateSkillQueries]);
 
   const handleResetSkill = useCallback(async (skill: SkillSummary) => {
     const confirmed = window.confirm(t('skills.confirmReset', { name: skill.name, defaultValue: `确定要初始化「${skill.name}」吗？\n\n将删除 openloaf.json 和翻译文件，技能原始内容不受影响。` }));
@@ -888,63 +877,50 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
       />
 
       {/* Transfer (copy/move) skill dialog */}
-      <Dialog open={transferDialogOpen} onOpenChange={setTransferDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>
-              {transferMode === "copy"
-                ? t('skills.transfer.copyTitle', { defaultValue: '复制技能' })
-                : t('skills.transfer.moveTitle', { defaultValue: '移动技能' })}
-            </DialogTitle>
-            <DialogDescription>
-              {transferMode === "copy"
-                ? t('skills.transfer.copyDesc', { name: transferSkill?.name, defaultValue: `将「${transferSkill?.name}」复制到目标位置` })
-                : t('skills.transfer.moveDesc', { name: transferSkill?.name, defaultValue: `将「${transferSkill?.name}」移动到目标位置` })}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2 py-2">
-            <Select value={transferTargetId} onValueChange={setTransferTargetId}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__global__">
-                  <span className="flex items-center gap-1.5">
-                    <Globe className="h-3.5 w-3.5 text-muted-foreground" />
-                    {t('skills.scopeGlobal')}
-                  </span>
+      <ConfirmDialog
+        open={transferDialogOpen}
+        onOpenChange={setTransferDialogOpen}
+        contentClassName="sm:max-w-md"
+        title={
+          transferMode === "copy"
+            ? t('skills.transfer.copyTitle', { defaultValue: '复制技能' })
+            : t('skills.transfer.moveTitle', { defaultValue: '移动技能' })
+        }
+        description={
+          transferMode === "copy"
+            ? t('skills.transfer.copyDesc', { name: transferSkill?.name, defaultValue: `将「${transferSkill?.name}」复制到目标位置` })
+            : t('skills.transfer.moveDesc', { name: transferSkill?.name, defaultValue: `将「${transferSkill?.name}」移动到目标位置` })
+        }
+        confirmLabel={
+          transferMode === "copy"
+            ? t('skills.transfer.confirmCopy', { defaultValue: '复制' })
+            : t('skills.transfer.confirmMove', { defaultValue: '移动' })
+        }
+        cancelLabel={t('skills.transfer.cancel', { defaultValue: '取消' })}
+        loadingLabel={t('skills.transfer.processing', { defaultValue: '处理中...' })}
+        onConfirm={handleTransferConfirm}
+      >
+        <div className="space-y-2">
+          <Select value={transferTargetId} onValueChange={setTransferTargetId}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__global__">
+                <span className="flex items-center gap-1.5">
+                  <Globe className="h-3.5 w-3.5 text-muted-foreground" />
+                  {t('skills.scopeGlobal')}
+                </span>
+              </SelectItem>
+              {projectList?.map((p) => (
+                <SelectItem key={p.projectId} value={p.projectId}>
+                  {p.icon ? `${p.icon} ` : ""}{p.title}
                 </SelectItem>
-                {projectList?.map((p) => (
-                  <SelectItem key={p.projectId} value={p.projectId}>
-                    {p.icon ? `${p.icon} ` : ""}{p.title}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button
-                variant="ghost"
-                className="rounded-3xl text-muted-foreground shadow-none transition-colors duration-150"
-              >
-                {t('skills.transfer.cancel', { defaultValue: '取消' })}
-              </Button>
-            </DialogClose>
-            <Button
-              className="rounded-3xl bg-secondary text-secondary-foreground hover:bg-accent shadow-none transition-colors duration-150"
-              onClick={handleTransferConfirm}
-              disabled={transferSkillMutation.isPending}
-            >
-              {transferSkillMutation.isPending
-                ? t('skills.transfer.processing', { defaultValue: '处理中...' })
-                : transferMode === "copy"
-                  ? t('skills.transfer.confirmCopy', { defaultValue: '复制' })
-                  : t('skills.transfer.confirmMove', { defaultValue: '移动' })}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </ConfirmDialog>
         </div>
     </div>
   );

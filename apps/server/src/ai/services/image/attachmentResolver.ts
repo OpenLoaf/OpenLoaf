@@ -835,12 +835,30 @@ export async function getFilePreview(input: {
   /** Pre-resolved absolute path — skips internal path resolution when provided. */
   resolved?: { absPath: string; rootPath: string; relativePath: string };
 }): Promise<FilePreviewResult | null> {
-  // Expand ${CURRENT_CHAT_DIR} using the provided sessionId (no requestContext
-  // inside HTTP preview route, so sessionId must come from the query string).
-  const pathInput = await expandChatDirTemplate(input.path, input.sessionId, input.projectId);
   // 若调用方已解析路径，直接使用；否则走内部解析。
   let resolved = input.resolved ?? null;
+  // ${CURRENT_CHAT_DIR} 路径由 cloud/chat 工具产出，其 root 可能在 tempStorageDir
+  // 或 projectRoot 下，与 OpenLoafRoot 无关。展开后若再走 resolveAbsoluteOpenLoafPath
+  // 或 resolveProjectFilePathWithRoot，会出现路径前缀翻倍等二次解析问题 —— 这里
+  // 直接构造 resolved 并做 asset 目录沙箱校验，短路下游 resolver。
+  if (!resolved && input.path.includes("${CURRENT_CHAT_DIR}") && input.sessionId) {
+    const sessionDir = await resolveSessionDir(input.sessionId);
+    const assetDir = path.resolve(sessionDir, "asset");
+    const tentative = input.path.replace(/\$\{CURRENT_CHAT_DIR\}/g, assetDir);
+    const absPath = path.resolve(tentative);
+    // 防御：阻止 ${CURRENT_CHAT_DIR}/../../etc/passwd 等穿越越界访问。
+    if (absPath === assetDir || absPath.startsWith(assetDir + path.sep)) {
+      resolved = {
+        absPath,
+        rootPath: sessionDir,
+        relativePath: path.relative(sessionDir, absPath),
+      };
+    } else {
+      return null;
+    }
+  }
   if (!resolved) {
+    const pathInput = await expandChatDirTemplate(input.path, input.sessionId, input.projectId);
     const absoluteResolved = resolveAbsoluteOpenLoafPath(pathInput);
     resolved = absoluteResolved
       ? { absPath: absoluteResolved.absPath, rootPath: absoluteResolved.rootPath, relativePath: path.relative(absoluteResolved.rootPath, absoluteResolved.absPath) }

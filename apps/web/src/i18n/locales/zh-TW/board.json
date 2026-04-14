@@ -967,6 +967,7 @@
   "generateAction": {
     "generate": "生成",
     "generating": "生成中...",
+    "generatingPercent": "生成中 {{percent}}%",
     "loginAndGenerate": "登入並生成",
     "newNode": "生成新節點",
     "stackCurrent": "堆疊到當前節點",

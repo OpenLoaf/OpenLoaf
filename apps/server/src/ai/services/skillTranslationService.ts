@@ -13,6 +13,7 @@ import { generateText } from 'ai'
 import { resolveChatModel } from '@/ai/models/resolveChatModel'
 import { readAuxiliaryModelConf } from '@/modules/settings/auxiliaryModelConfStore'
 import { getSaasClient } from '@/modules/saas/client'
+import { ensureServerAccessToken } from '@/modules/auth/tokenStore'
 
 const LOG_PREFIX = '[SkillTranslation]'
 
@@ -141,7 +142,6 @@ Only output the JSON object, nothing else.`
 /** Detect the language of the given text using AI. */
 async function detectLanguage(
   text: string,
-  saasAccessToken?: string,
 ): Promise<{ language: string; confidence: number }> {
   // Take first ~500 chars for detection (enough for reliable detection)
   const sample = text.slice(0, 500)
@@ -151,7 +151,7 @@ async function detectLanguage(
   let responseText: string
 
   if (conf.modelSource === 'saas') {
-    const token = saasAccessToken
+    const token = (await ensureServerAccessToken()) ?? ''
     if (!token) throw new Error('未登录云端账号，请先登录后再翻译技能')
     const saasClient = getSaasClient(token)
     const res = await saasClient.auxiliary.infer({
@@ -307,7 +307,6 @@ export async function getSkillTranslationStatus(
 export async function translateSkill(
   skillFolderPath: string,
   targetLanguage: string,
-  saasAccessToken?: string,
 ): Promise<{
   ok: boolean
   translatedFiles: number
@@ -335,7 +334,7 @@ export async function translateSkill(
       try {
         const skillContent = await fs.readFile(skillMdPath, 'utf-8')
         console.log(`${LOG_PREFIX} 检测源语言...`)
-        const detected = await detectLanguage(skillContent, saasAccessToken)
+        const detected = await detectLanguage(skillContent)
         sourceLanguage = detected.language
         console.log(`${LOG_PREFIX} 检测到源语言: ${sourceLanguage} (confidence: ${detected.confidence})`)
       } catch {
@@ -350,7 +349,7 @@ export async function translateSkill(
     if (isSameLanguage(sourceLanguage, normalizedTarget)) {
       console.log(`${LOG_PREFIX} 源语言与目标语言相同 (${sourceLanguage}), 跳过文件翻译`)
 
-      await translateTitleToMeta(skillFolderPath, normalizedTarget, meta, saasAccessToken)
+      await translateTitleToMeta(skillFolderPath, normalizedTarget, meta)
       meta.targetLanguage = normalizedTarget
       meta.translatedAt = new Date().toISOString()
       await writeSkillMeta(skillFolderPath, meta)
@@ -378,7 +377,7 @@ export async function translateSkill(
 
       // Translate
       console.log(`${LOG_PREFIX} 翻译文件: ${relPath}`)
-      const translated = await callTranslation(content, translatePrompt, saasAccessToken)
+      const translated = await callTranslation(content, translatePrompt)
       await fs.writeFile(outputPath, translated, 'utf-8')
 
       translatedFileList.push(relPath)
@@ -386,7 +385,7 @@ export async function translateSkill(
     }
 
     // Translate title via AI for openloaf.json (same approach as translateSkillTitle)
-    await translateTitleToMeta(skillFolderPath, normalizedTarget, meta, saasAccessToken)
+    await translateTitleToMeta(skillFolderPath, normalizedTarget, meta)
 
     meta.sourceLanguage = sourceLanguage
     meta.targetLanguage = normalizedTarget
@@ -414,7 +413,6 @@ async function translateTitleToMeta(
   skillFolderPath: string,
   targetLanguage: string,
   meta: SkillTranslationMeta,
-  saasAccessToken?: string,
 ): Promise<void> {
   const skillMdPath = path.join(skillFolderPath, 'SKILL.md')
   let content: string
@@ -430,7 +428,7 @@ async function translateTitleToMeta(
 
   const prompt = buildTitleTranslatePrompt(targetLanguage)
   try {
-    const resultText = await callTranslation(rawFrontMatter, prompt, saasAccessToken)
+    const resultText = await callTranslation(rawFrontMatter, prompt)
     const jsonMatch = resultText.match(/\{[\s\S]*\}/)
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0])
@@ -505,13 +503,12 @@ function extractYamlField(fm: string, key: string): string | undefined {
 async function callTranslation(
   content: string,
   systemPrompt: string,
-  saasAccessToken?: string,
 ): Promise<string> {
   const conf = readAuxiliaryModelConf()
 
   // SaaS branch
   if (conf.modelSource === 'saas') {
-    const token = saasAccessToken
+    const token = (await ensureServerAccessToken()) ?? ''
     if (!token) throw new Error('未登录云端账号，请先登录后再翻译技能')
     const saasClient = getSaasClient(token)
     let res: Awaited<ReturnType<typeof saasClient.auxiliary.infer>>
@@ -637,7 +634,6 @@ Only output the JSON object, nothing else.`
 export async function translateSkillTitle(
   skillFolderPath: string,
   targetLanguage: string,
-  saasAccessToken?: string,
 ): Promise<{
   ok: boolean
   translated: boolean
@@ -672,14 +668,14 @@ export async function translateSkillTitle(
     // Detect source language via AI
     const sampleText = [fields.name, fields.description].filter(Boolean).join('\n')
     console.log(`${LOG_PREFIX} 检测标题语言: ${skillFolderPath}`)
-    const detected = await detectLanguage(sampleText, saasAccessToken)
+    const detected = await detectLanguage(sampleText)
     const sourceLanguage = detected.language
 
     // Always call AI to translate — it handles same-language cases (e.g. humanizing kebab-case names)
     console.log(`${LOG_PREFIX} 翻译标题: ${skillFolderPath} (${sourceLanguage} → ${normalizedTarget})`)
     const prompt = buildTitleTranslatePrompt(normalizedTarget)
     const inputJson = JSON.stringify({ name: fields.name ?? '', description: fields.description ?? '' })
-    const resultText = await callTranslation(inputJson, prompt, saasAccessToken)
+    const resultText = await callTranslation(inputJson, prompt)
 
     let translatedName = fields.name
     let translatedDesc = fields.description

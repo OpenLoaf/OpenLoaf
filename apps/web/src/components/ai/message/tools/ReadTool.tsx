@@ -22,10 +22,14 @@ import {
 } from '@openloaf/ui/tooltip'
 import {
   Collapsible,
-  CollapsibleContent,
   CollapsibleTrigger,
 } from '@openloaf/ui/collapsible'
-import { CodeBlock } from '@/components/ai-elements/code-block'
+import {
+  ToolOutputCode,
+  ToolOutputContent,
+  ToolOutputError,
+  ToolOutputLoading,
+} from './shared/ToolOutput'
 import {
   asPlainObject,
   getDisplayPath,
@@ -165,22 +169,15 @@ export default function ReadTool({
           </TooltipContent>
         ) : null}
       </Tooltip>
-      <CollapsibleContent className="px-2.5 py-2 text-xs">
+      <ToolOutputContent>
         {hasOutput ? (
-          <div className="max-h-[320px] overflow-auto rounded-2xl bg-muted/50">
-            <CodeBlock code={output} language={language} />
-          </div>
+          <ToolOutputCode code={output} language={language} />
         ) : errorText ? (
-          <div className="whitespace-pre-wrap break-all rounded-2xl bg-destructive/10 p-2 text-xs text-destructive">
-            {errorText}
-          </div>
+          <ToolOutputError message={errorText} />
         ) : streaming ? (
-          <div className="flex items-center gap-1.5 py-1 text-xs text-muted-foreground">
-            <LoaderCircleIcon className="size-3 animate-spin" />
-            <span>读取中...</span>
-          </div>
+          <ToolOutputLoading label="读取中..." />
         ) : null}
-      </CollapsibleContent>
+      </ToolOutputContent>
     </Collapsible>
   )
 }

@@ -24,17 +24,8 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@openloaf/ui/alert-dialog";
 import { Button } from "@openloaf/ui/button";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Checkbox } from "@openloaf/ui/checkbox";
 import {
   DropdownMenu,
@@ -386,25 +377,16 @@ export function EmailMessageList({
         )}
       </div>
 
-      <AlertDialog open={messageList.batchDeleteConfirmOpen} onOpenChange={messageList.onBatchDeleteConfirmOpenChange}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t('email.batchDeleteTitle')}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t('email.batchDeleteDesc', { count: messageList.selectedIds.size })}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={messageList.onBatchDeleteConfirmed}
-              className="bg-destructive text-white hover:bg-destructive/90"
-            >
-              {t('delete')}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        open={messageList.batchDeleteConfirmOpen}
+        onOpenChange={messageList.onBatchDeleteConfirmOpenChange}
+        title={t('email.batchDeleteTitle')}
+        description={t('email.batchDeleteDesc', { count: messageList.selectedIds.size })}
+        confirmLabel={t('delete')}
+        cancelLabel={t('cancel')}
+        variant="destructive"
+        onConfirm={messageList.onBatchDeleteConfirmed}
+      />
     </section>
   );
 }

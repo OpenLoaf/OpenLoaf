@@ -12,7 +12,7 @@ import { createHash } from 'node:crypto'
 import type { z } from 'zod'
 import { resolveChatModel } from '@/ai/models/resolveChatModel'
 import { readAuxiliaryModelConf } from '@/modules/settings/auxiliaryModelConfStore'
-import { getSaasAccessToken } from '@/ai/shared/context/requestContext'
+import { ensureServerAccessToken } from '@/modules/auth/tokenStore'
 import { getSaasClient } from '@/modules/saas/client'
 import {
   AUXILIARY_CAPABILITIES,
@@ -71,22 +71,8 @@ type AuxiliaryInferInput<T extends z.ZodType> = {
   noCache?: boolean
   /** Override the system prompt (used by test UI). */
   promptOverride?: string
-  /** SaaS access token (fallback when request context is unavailable, e.g. tRPC mutations). */
-  saasAccessToken?: string
   /** Max output tokens for the model response. Applied to local/cloud calls only. */
   maxTokens?: number
-}
-
-type AuxiliaryInferTextInput = {
-  capabilityKey: CapabilityKey
-  context: string
-  fallback: string
-  /** Skip cache for this call. */
-  noCache?: boolean
-  /** Override the system prompt (used by test UI). */
-  promptOverride?: string
-  /** SaaS access token (fallback when request context is unavailable, e.g. tRPC mutations). */
-  saasAccessToken?: string
 }
 
 /**
@@ -105,7 +91,6 @@ export async function auxiliaryInfer<T extends z.ZodType>({
   fallback,
   noCache,
   promptOverride,
-  saasAccessToken: inputToken,
   maxTokens,
 }: AuxiliaryInferInput<T>): Promise<z.infer<T>> {
   try {
@@ -151,7 +136,7 @@ export async function auxiliaryInfer<T extends z.ZodType>({
 
     // SaaS branch — delegate to SaaS backend
     if (conf.modelSource === 'saas') {
-      const token = getSaasAccessToken() || inputToken
+      const token = (await ensureServerAccessToken()) ?? ''
       if (!token) throw new Error('未登录云端账号，请先登录')
       const saasClient = getSaasClient(token)
       const capability = AUXILIARY_CAPABILITIES[capabilityKey]

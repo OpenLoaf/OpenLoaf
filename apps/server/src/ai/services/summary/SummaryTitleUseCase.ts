@@ -19,7 +19,6 @@ import {
   getProjectRootPath,
 } from "@openloaf/api/services/vfsService";
 import { getOpenLoafRootDir } from "@openloaf/config";
-import { resolveRequiredInputTags, resolvePreviousChatModelId } from "@/ai/services/chat/modelResolution";
 import { initRequestContext } from "@/ai/services/chat/chatStreamHelpers";
 import { replaceRelativeFileParts } from "@/ai/services/image/attachmentResolver";
 import { loadMessageChain } from "@/ai/services/chat/repositories/messageChainLoader";
@@ -53,8 +52,6 @@ type SummaryTitleUseCaseInput = {
   requestSignal: AbortSignal;
   /** Optional command args text. */
   commandArgs?: string;
-  /** SaaS access token from request header. */
-  saasAccessToken?: string;
 };
 
 type ModelRole = "user" | "assistant" | "system";
@@ -139,18 +136,9 @@ export class SummaryTitleUseCase {
         if (chatModelId) break
       }
 
-      const requiredTags = !chatModelId
-        ? resolveRequiredInputTags(modelMessages)
-        : [];
-      const preferredChatModelId = !chatModelId
-        ? resolvePreviousChatModelId(modelMessages)
-        : null;
       const resolved = await resolveChatModel({
         chatModelId,
         chatModelSource,
-        requiredTags,
-        preferredChatModelId,
-        saasAccessToken: input.saasAccessToken,
       });
 
       setChatModel(resolved.model);

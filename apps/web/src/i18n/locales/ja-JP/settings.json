@@ -169,8 +169,36 @@
     "shortcuts": "ショートカット",
     "projectTest": "テスト",
     "mcp": "MCPサーバー",
+    "toolApproval": "ツール許可リスト",
     "about": "OpenLoafについて",
     "subscription": "サブスクリプション"
+  },
+  "toolApproval": {
+    "title": "ツール許可リスト",
+    "tempChatScopeNote": "AI はコマンド実行前に確認を求めます。このページには、一時チャットで自動実行を許可したコマンドが表示されます。ルールはローカル設定に永続保存され、アプリを再起動したり新しいチャットを開いてもリセットされません。",
+    "projectScopeNote": "AI はコマンド実行前に確認を求めます。このページには、このプロジェクトで自動実行を許可したコマンドが表示されます。",
+    "alwaysAllowHint": "追加したい？次に AI が承認を求めたときに「常に許可」をクリックしてください。",
+    "allowedList": "許可されたツール呼び出し",
+    "denyList": "ブロックされたツール呼び出し",
+    "denyHint": "これらのコマンドはチャット内でも常に承認が必要で、「常に許可」で上書きできません。",
+    "emptyTitle": "自動承認されたコマンドはまだありません",
+    "emptyList": "AI は各コマンドを実行する前に確認を求めます。チャットで「常に許可」をクリックするとここに追加できます。",
+    "remove": "削除",
+    "removeFailed": "削除に失敗しました。もう一度お試しください",
+    "loading": "読み込み中...",
+    "projectRequired": "プロジェクトを選択してください",
+    "describe": {
+      "bash": "ターミナルコマンド",
+      "powershell": "PowerShell",
+      "edit": "ファイル編集",
+      "write": "ファイル書き込み",
+      "read": "ファイル読み取り",
+      "glob": "ファイル検索",
+      "grep": "ファイル内検索",
+      "cloudModelGenerate": "クラウドメディア生成",
+      "cloudTextGenerate": "クラウドテキスト処理",
+      "any": "すべて"
+    }
   },
   "mcp": {
     "searchPlaceholder": "MCPサーバーを検索...",
@@ -766,6 +794,16 @@
     "scopeGlobal": "グローバルスキル",
     "scopeProject": "プロジェクトスキル",
     "scopeProjectSpace": "プロジェクトスペーススキル",
+    "confirmReset": "「{{name}}」を初期化してもよろしいですか？\n\nopenloaf.json と翻訳ファイルを削除します。スキルの元のコンテンツには影響しません。",
+    "resetSkill": "初期化",
+    "resetSuccess": "スキルを初期化しました",
+    "exportSkill": "エクスポート",
+    "changeColor": "色を変更",
+    "totalCount": "{{count}} 個のスキル",
+    "refresh": "更新",
+    "export": {
+      "failed": "エクスポートに失敗しました"
+    },
     "translate": {
       "buttonTranslate": "中国語に翻訳",
       "buttonRetranslate": "再翻訳",
@@ -837,6 +875,24 @@
         "newest": "最新",
         "rating": "評価順"
       }
+    },
+    "translateTitles": {
+      "button": "タイトルを翻訳",
+      "dialogTitle": "スキルタイトルを翻訳",
+      "dialogDesc": "{{count}} 個のスキルのタイトルと説明を翻訳します",
+      "dialogDescDone": "翻訳完了：{{translated}} 件翻訳、{{skipped}} 件スキップ",
+      "dialogDescError": "{{translated}} 件翻訳、エラーで中断されました",
+      "retranslateAll": "すべてのスキルを再翻訳（既存の翻訳を上書き）",
+      "translated": "{{count}} 件翻訳済み",
+      "skipped": "{{count}} 件スキップ",
+      "errors": "{{count}} 件失敗",
+      "stoppedAt": "{{processed}}/{{total}} 件処理、エラーで中断",
+      "allSkipped": "すべてのスキルタイトルは最新です。翻訳は不要です",
+      "noPending": "翻訳が必要なスキルはありません。上のオプションをチェックするとすべて再翻訳できます",
+      "cancel": "キャンセル",
+      "start": "翻訳を開始",
+      "stop": "停止",
+      "close": "閉じる"
     }
   },
   "modelSelector": {

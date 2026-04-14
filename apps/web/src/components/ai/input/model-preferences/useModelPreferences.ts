@@ -17,10 +17,8 @@ import {
   fetchCloudModelsUpdatedAt,
   useCloudModels,
 } from '@/hooks/use-cloud-models'
-import { useMediaModels } from '@/hooks/use-media-models'
 import { useInstalledCliProviderIds } from '@/hooks/use-cli-tools-installed'
 import { useSaasAuth } from '@/hooks/use-saas-auth'
-import { useAppView } from '@/hooks/use-app-view'
 import { useLayoutState } from '@/hooks/use-layout-state'
 import {
   buildChatModelOptions,
@@ -51,31 +49,19 @@ export function useModelPreferences() {
     loaded: cloudModelsLoaded,
     refresh: refreshCloudModels,
   } = useCloudModels()
-  const {
-    imageModels,
-    videoModels,
-    imageUpdatedAt,
-    videoUpdatedAt,
-    loaded: mediaModelsLoaded,
-    refresh: refreshMediaModels,
-  } = useMediaModels()
   const installedCliProviderIds = useInstalledCliProviderIds()
   const { basic, setBasic } = useBasicConfig()
   const { loggedIn: authLoggedIn, refreshSession } = useSaasAuth()
   const chatSession = useOptionalChatSession()
   const projectId = chatSession?.projectId
-  const chatSessionId = useAppView((s) => s.chatSessionId)
   const pushStackItem = useLayoutState((s) => s.pushStackItem)
   const {
     modelIds: masterModelIds,
     detail: masterDetail,
     setModelIds,
-    setImageModelIds,
-    setVideoModelIds,
     setCodeModelIds,
   } = useMainAgentModel(projectId)
 
-  const tabId = chatSession?.tabId ?? chatSessionId
   const chatModelSource = normalizeChatModelSource(basic.chatSource)
   const isCloudSource = chatModelSource === 'cloud'
 
@@ -100,14 +86,6 @@ export function useModelPreferences() {
     () => normalizeIds(masterModelIds),
     [masterModelIds],
   )
-  const cachedImageIds = useMemo(
-    () => normalizeIds(masterDetail?.imageModelIds),
-    [masterDetail?.imageModelIds],
-  )
-  const cachedVideoIds = useMemo(
-    () => normalizeIds(masterDetail?.videoModelIds),
-    [masterDetail?.videoModelIds],
-  )
   const cachedCodeIds = useMemo(
     () => normalizeIds(masterDetail?.codeModelIds),
     [masterDetail?.codeModelIds],
@@ -119,25 +97,15 @@ export function useModelPreferences() {
   const [overrideLocalChatIds, setOverrideLocalChatIds] = useState<string[] | null>(null)
   const overrideChatIds = isCloudSource ? overrideCloudChatIds : overrideLocalChatIds
   const setOverrideChatIds = isCloudSource ? setOverrideCloudChatIds : setOverrideLocalChatIds
-  const [overrideImageIds, setOverrideImageIds] = useState<string[] | null>(null)
-  const [overrideVideoIds, setOverrideVideoIds] = useState<string[] | null>(null)
   const [overrideCodeIds, setOverrideCodeIds] = useState<string[] | null>(null)
   const prefersCachedModels = Boolean(masterDetail)
   const resolvedChatIds = prefersCachedModels
     ? cachedChatIds
     : overrideChatIds ?? cachedChatIds
-  const resolvedImageIds = prefersCachedModels
-    ? cachedImageIds
-    : overrideImageIds ?? cachedImageIds
-  const resolvedVideoIds = prefersCachedModels
-    ? cachedVideoIds
-    : overrideVideoIds ?? cachedVideoIds
   const resolvedCodeIds = prefersCachedModels
     ? cachedCodeIds
     : overrideCodeIds ?? cachedCodeIds
   const preferredChatIds = normalizeSinglePreferredIds(resolvedChatIds)
-  const preferredImageIds = normalizeSinglePreferredIds(resolvedImageIds)
-  const preferredVideoIds = normalizeSinglePreferredIds(resolvedVideoIds)
   const preferredCodeIds = normalizeSinglePreferredIds(resolvedCodeIds)
 
   const hasConfiguredProviders = useMemo(
@@ -157,24 +125,6 @@ export function useModelPreferences() {
       setModelIds(nextIds)
     },
     [masterDetail, resolvedChatIds, setModelIds],
-  )
-
-  const toggleImageModel = useCallback(
-    (modelId: string) => {
-      const nextIds = buildSinglePreferredIds(resolvedImageIds, modelId)
-      if (!masterDetail) setOverrideImageIds(nextIds)
-      setImageModelIds(nextIds)
-    },
-    [masterDetail, resolvedImageIds, setImageModelIds],
-  )
-
-  const toggleVideoModel = useCallback(
-    (modelId: string) => {
-      const nextIds = buildSinglePreferredIds(resolvedVideoIds, modelId)
-      if (!masterDetail) setOverrideVideoIds(nextIds)
-      setVideoModelIds(nextIds)
-    },
-    [masterDetail, resolvedVideoIds, setVideoModelIds],
   )
 
   const toggleCodeModel = useCallback(
@@ -238,39 +188,14 @@ export function useModelPreferences() {
       if (canceled) return
       if (!updatedAt) {
         if (!cloudModelsLoaded) await refreshCloudModels()
-        if (!mediaModelsLoaded) await refreshMediaModels()
         return
       }
-      const tasks: Array<Promise<void>> = []
       const chatChanged = updatedAt.chatUpdatedAt !== cloudModelsUpdatedAt
       if (!cloudModelsLoaded || chatChanged) {
-        tasks.push(
-          refreshCloudModels({
-            force: cloudModelsLoaded && chatChanged,
-          }),
-        )
+        await refreshCloudModels({
+          force: cloudModelsLoaded && chatChanged,
+        })
       }
-      const mediaKinds: Array<'image' | 'video'> = []
-      let mediaChanged = false
-      const imageChanged = updatedAt.imageUpdatedAt !== imageUpdatedAt
-      if (!mediaModelsLoaded || imageChanged) {
-        mediaKinds.push('image')
-        mediaChanged = mediaChanged || imageChanged
-      }
-      const videoChanged = updatedAt.videoUpdatedAt !== videoUpdatedAt
-      if (!mediaModelsLoaded || videoChanged) {
-        mediaKinds.push('video')
-        mediaChanged = mediaChanged || videoChanged
-      }
-      if (mediaKinds.length > 0) {
-        tasks.push(
-          refreshMediaModels({
-            kinds: mediaKinds,
-            force: mediaModelsLoaded && mediaChanged,
-          }),
-        )
-      }
-      if (tasks.length > 0) await Promise.all(tasks)
     }
     void sync()
     return () => {
@@ -279,12 +204,8 @@ export function useModelPreferences() {
   }, [
     cloudModelsLoaded,
     cloudModelsUpdatedAt,
-    imageUpdatedAt,
     isCloudSource,
-    mediaModelsLoaded,
     refreshCloudModels,
-    refreshMediaModels,
-    videoUpdatedAt,
   ])
 
   const openProviderSettings = useCallback(() => {
@@ -312,13 +233,9 @@ export function useModelPreferences() {
   return {
     // 数据
     chatModels,
-    imageModels,
-    videoModels,
     codeModels,
     isCloudSource,
     preferredChatIds,
-    preferredImageIds,
-    preferredVideoIds,
     preferredCodeIds,
     authLoggedIn,
     isUnconfigured,
@@ -326,8 +243,6 @@ export function useModelPreferences() {
     hasPreferredReasoningModel,
     // 操作
     toggleChatModel,
-    toggleImageModel,
-    toggleVideoModel,
     toggleCodeModel,
     selectCodeModel,
     setCloudSource,

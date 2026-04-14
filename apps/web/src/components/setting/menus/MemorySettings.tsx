@@ -13,18 +13,9 @@ import { lazy, memo, Suspense, useCallback, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Brain, FileText, FolderOpen, Trash2 } from 'lucide-react'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@openloaf/ui/alert-dialog'
 import { OpenLoafSettingsGroup } from '@openloaf/ui/openloaf/OpenLoafSettingsGroup'
 import { OpenLoafSettingsCard } from '@openloaf/ui/openloaf/OpenLoafSettingsCard'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { trpc } from '@/utils/trpc'
 import { cn } from '@/lib/utils'
 
@@ -110,7 +101,6 @@ const MemoryEditor = memo(function MemoryEditor({ scope, projectId }: MemoryEdit
     ...trpc.settings.clearAllMemory.mutationOptions(),
     onSuccess: () => {
       setSelectedUri(null)
-      setClearConfirmOpen(false)
       // Refresh file list.
       void queryClient.invalidateQueries({
         queryKey: trpc.fs.list.queryKey(),
@@ -118,8 +108,8 @@ const MemoryEditor = memo(function MemoryEditor({ scope, projectId }: MemoryEdit
     },
   })
 
-  const handleClearAll = useCallback(() => {
-    clearAllMemory.mutate({ scope, projectId })
+  const handleClearAll = useCallback(async () => {
+    await clearAllMemory.mutateAsync({ scope, projectId })
   }, [clearAllMemory, scope, projectId])
 
   const hasFiles = files.length > 0 && !listQuery.isLoading
@@ -219,39 +209,17 @@ const MemoryEditor = memo(function MemoryEditor({ scope, projectId }: MemoryEdit
       </OpenLoafSettingsGroup>
 
       {/* Clear all memory confirmation dialog */}
-      <AlertDialog
+      <ConfirmDialog
         open={clearConfirmOpen}
-        onOpenChange={(open) => {
-          if (!open && clearAllMemory.isPending) return
-          setClearConfirmOpen(open)
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t('settings:memory.clearAllTitle')}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t('settings:memory.clearAllDescription')}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={clearAllMemory.isPending}>
-              {t('common:cancel')}
-            </AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-white hover:bg-destructive/90"
-              onClick={(event) => {
-                event.preventDefault()
-                handleClearAll()
-              }}
-              disabled={clearAllMemory.isPending}
-            >
-              {clearAllMemory.isPending
-                ? t('settings:memory.clearing')
-                : t('settings:memory.confirmClear')}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        onOpenChange={setClearConfirmOpen}
+        title={t('settings:memory.clearAllTitle')}
+        description={t('settings:memory.clearAllDescription')}
+        confirmLabel={t('settings:memory.confirmClear')}
+        cancelLabel={t('common:cancel')}
+        loadingLabel={t('settings:memory.clearing')}
+        variant="destructive"
+        onConfirm={handleClearAll}
+      />
     </>
   )
 })

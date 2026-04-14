@@ -22,6 +22,7 @@ import { registerChatAttachmentRoutes } from "@/ai/interface/routes/chatAttachme
 import { registerFrontendToolAckRoutes } from "@/ai/interface/routes/frontendToolAckRoutes";
 import { registerSecretStoreRoutes } from "@/ai/interface/routes/secretStoreRoutes";
 import { registerSaasMediaRoutes } from "@/ai/interface/routes/saasMediaRoutes";
+import { registerSaasRawProxyRoutes } from "@/modules/saas/saasRawProxy";
 import { registerBoardAgentRoutes } from "@/ai/interface/routes/aiBoardAgentRoutes";
 import { registerFileSseRoutes } from "@/modules/fs/fileSseRoutes";
 import { registerFileServeRoutes } from "@/modules/fs/fileServeRoutes";
@@ -37,6 +38,7 @@ import { registerLocalAuthRoutes } from "@/modules/local-auth/localAuthRoutes";
 import { registerOfficeAddinRoutes } from "@/modules/office/officeAddinRoutes";
 import { localAuthGuard } from "@/modules/local-auth/localAuthGuard";
 import { aiRouteGuard } from "@/middleware/aiRouteGuard";
+import { strictClientGuard } from "@/middleware/strictClientGuard";
 import { tabRouterImplementation } from "@/routers/tab";
 import { chatRouterImplementation } from "@/routers/chat";
 import { settingsRouterImplementation } from "@/routers/settings";
@@ -105,7 +107,7 @@ export function createApp() {
         return null;
       },
       allowMethods: ["GET", "POST", "OPTIONS"],
-      allowHeaders: ["Content-Type", "Authorization", "X-OpenLoaf-Client"],
+      allowHeaders: ["Content-Type", "X-OpenLoaf-Client"],
       credentials: true,
     }),
   );
@@ -114,6 +116,12 @@ export function createApp() {
 
   // AI 路由额外鉴权：要求 X-OpenLoaf-Client header（CSRF 防护）。
   app.use("/ai/*", aiRouteGuard);
+
+  // 敏感端点严格 CSRF 守护：/auth/* 和 /api/saas/raw/* 的所有非 OPTIONS 请求
+  // （含 GET）都必须带 X-OpenLoaf-Client header。仅放行 task events SSE
+  // 路径，因为 EventSource 不能设置自定义 header。
+  app.use("/auth/*", strictClientGuard);
+  app.use("/api/saas/raw/*", strictClientGuard);
 
   registerAiExecuteRoutes(app);
   registerAiChatAsyncRoutes(app);
@@ -124,6 +132,7 @@ export function createApp() {
   registerFrontendToolAckRoutes(app);
   registerSecretStoreRoutes(app);
   registerSaasMediaRoutes(app);
+  registerSaasRawProxyRoutes(app);
   registerBoardAgentRoutes(app);
   registerFileSseRoutes(app);
   registerFileServeRoutes(app);

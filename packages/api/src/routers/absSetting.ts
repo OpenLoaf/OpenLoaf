@@ -218,7 +218,6 @@ export const settingSchemas = {
     input: z.object({
       skillFolderPath: z.string(),
       targetLanguage: z.string(),
-      saasAccessToken: z.string().optional(),
     }),
     output: z.object({
       ok: z.boolean(),
@@ -297,8 +296,6 @@ export const settingSchemas = {
       auxiliaryModelSource: z.string(),
       auxiliaryModelLocalIds: z.array(z.string()),
       auxiliaryModelCloudIds: z.array(z.string()),
-      imageModelIds: z.array(z.string()),
-      videoModelIds: z.array(z.string()),
       codeModelIds: z.array(z.string()),
       toolIds: z.array(z.string()),
       skills: z.array(z.string()),
@@ -334,8 +331,6 @@ export const settingSchemas = {
       auxiliaryModelSource: z.string().optional(),
       auxiliaryModelLocalIds: z.array(z.string()).optional(),
       auxiliaryModelCloudIds: z.array(z.string()).optional(),
-      imageModelIds: z.array(z.string()).optional(),
-      videoModelIds: z.array(z.string()).optional(),
       codeModelIds: z.array(z.string()).optional(),
       toolIds: z.array(z.string()).optional(),
       skills: z.array(z.string()).optional(),
@@ -537,7 +532,6 @@ export const settingSchemas = {
   inferProjectType: {
     input: z.object({
       projectId: z.string(),
-      saasAccessToken: z.string().optional(),
     }),
     output: z.object({
       projectType: z.string(),
@@ -549,7 +543,6 @@ export const settingSchemas = {
   inferProjectName: {
     input: z.object({
       projectId: z.string(),
-      saasAccessToken: z.string().optional(),
     }),
     output: z.object({
       title: z.string(),
@@ -561,7 +554,6 @@ export const settingSchemas = {
   generateCommitMessage: {
     input: z.object({
       projectId: z.string(),
-      saasAccessToken: z.string().optional(),
     }),
     output: z.object({
       subject: z.string(),
@@ -574,7 +566,6 @@ export const settingSchemas = {
       boardFolderUri: z.string(),
       boardId: z.string().optional(),
       projectId: z.string().optional(),
-      saasAccessToken: z.string().optional(),
     }),
     output: z.object({
       title: z.string(),
@@ -599,7 +590,6 @@ export const settingSchemas = {
     input: z.object({
       skillFolderPath: z.string(),
       targetLanguage: z.string(),
-      saasAccessToken: z.string().optional(),
     }),
     output: z.object({
       ok: z.boolean(),
@@ -720,6 +710,34 @@ export const settingSchemas = {
       importedSkills: z.array(z.string()),
       errors: z.array(z.string()).optional(),
     }),
+  },
+  // ─── Tool Approval Rules (global / temp-chat scope) ───────────────────────
+  getToolApprovalRules: {
+    output: z.object({
+      allow: z.array(z.string()).optional(),
+      deny: z.array(z.string()).optional(),
+    }),
+  },
+  setToolApprovalRules: {
+    input: z.object({
+      allow: z.array(z.string()).optional(),
+      deny: z.array(z.string()).optional(),
+    }),
+    output: z.object({ ok: z.boolean() }),
+  },
+  addToolApprovalRule: {
+    input: z.object({
+      rule: z.string().min(1).max(200),
+      behavior: z.enum(["allow", "deny"]),
+    }),
+    output: z.object({ ok: z.boolean() }),
+  },
+  removeToolApprovalRule: {
+    input: z.object({
+      rule: z.string().min(1).max(200),
+      behavior: z.enum(["allow", "deny"]),
+    }),
+    output: z.object({ ok: z.boolean() }),
   },
 };
 
@@ -1018,6 +1036,30 @@ export abstract class BaseSettingRouter {
       importExternalSkills: shieldedProcedure
         .input(settingSchemas.importExternalSkills.input)
         .output(settingSchemas.importExternalSkills.output)
+        .mutation(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      // ─── Tool Approval Rules ────────────────────────────────────────────
+      getToolApprovalRules: shieldedProcedure
+        .output(settingSchemas.getToolApprovalRules.output)
+        .query(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      setToolApprovalRules: shieldedProcedure
+        .input(settingSchemas.setToolApprovalRules.input)
+        .output(settingSchemas.setToolApprovalRules.output)
+        .mutation(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      addToolApprovalRule: shieldedProcedure
+        .input(settingSchemas.addToolApprovalRule.input)
+        .output(settingSchemas.addToolApprovalRule.output)
+        .mutation(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      removeToolApprovalRule: shieldedProcedure
+        .input(settingSchemas.removeToolApprovalRule.input)
+        .output(settingSchemas.removeToolApprovalRule.output)
         .mutation(async () => {
           throw new Error("Not implemented in base class");
         }),

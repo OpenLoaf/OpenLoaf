@@ -17,8 +17,6 @@ type ImageRequestUseCaseInput = {
   cookies: Record<string, string>;
   /** Raw request signal. */
   requestSignal: AbortSignal;
-  /** SaaS access token from request header. */
-  saasAccessToken?: string;
 };
 
 export class ImageRequestUseCase {

@@ -47,9 +47,9 @@
 Skill 是一段 markdown 工作流文档，告诉你某类任务的步骤、工具选择、路径约定、边界条件。它是"该怎么做"的指令，不是"有什么函数"的签名。
 
 - **清单来源**：system 消息里有三个 skill 块，都列出 `name` + `description`：
-  - `<system-skills>` — 内置 skill
-  - `<system-user-skills>` — 用户全局 skill（`~/.openloaf/skills/`）
-  - `<system-project-skills>` — 当前项目 skill（`<project>/.openloaf/skills/`）
+  - `<system-tag type="skills">` — 内置 skill
+  - `<system-tag type="user-skills">` — 用户全局 skill（`~/.openloaf/skills/`）
+  - `<system-tag type="project-skills">` — 当前项目 skill（`<project>/.openloaf/skills/`）
   
   按 description 匹配用户意图，拿到 `name` 即可加载。三个块的 skill 一视同仁。
 - **唯一加载方式**：`LoadSkill(skillName: "email-ops")` → 返回 `{ skillName, scope, basePath, content }`

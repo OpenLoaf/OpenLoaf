@@ -12,16 +12,8 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@openloaf/ui/dialog";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Button } from "@openloaf/ui/button";
 import { Label } from "@openloaf/ui/label";
 import {
@@ -138,156 +130,137 @@ export function CopyChatToCanvasDialog({
   const copyMutation = useMutation(trpc.chat.copySessionToBoard.mutationOptions());
 
   const handleSubmit = async () => {
-    if (!sourceSessionId) {
-      toast.error(t("copyToCanvas.sessionMissing"));
-      return;
-    }
-    if (effectiveTargetMode === "existing" && !effectiveSelectedBoardId) {
-      toast.error(t("copyToCanvas.targetRequired"));
-      return;
-    }
-
+    let result: Awaited<ReturnType<typeof copyMutation.mutateAsync>>;
     try {
-      const result = await copyMutation.mutateAsync({
+      if (!sourceSessionId) {
+        toast.error(t("copyToCanvas.sessionMissing"));
+        throw new Error("session missing");
+      }
+      if (effectiveTargetMode === "existing" && !effectiveSelectedBoardId) {
+        toast.error(t("copyToCanvas.targetRequired"));
+        throw new Error("target required");
+      }
+      result = await copyMutation.mutateAsync({
         sourceSessionId,
         ...(effectiveTargetMode === "existing"
           ? { targetBoardId: effectiveSelectedBoardId }
           : {}),
       });
-
-      const rootUri = resolveBoardRootUri(result.board.projectId);
-      if (!rootUri) {
-        toast.error(t("copyToCanvas.rootMissing"));
-        return;
-      }
-
-      const boardFolderUri = buildBoardFolderUri(rootUri, result.board.folderUri);
-
-      try {
-        const importedElements = await buildImportedChatBoardElements({
-          messages: result.importedMessages,
-          projectId: result.board.projectId ?? undefined,
-        });
-        queuePendingBoardElements(boardFolderUri, {
-          elements: importedElements,
-          mode: result.createdBoard ? "replace-if-empty" : "append",
-          fitView: true,
-        });
-      } catch (error) {
-        console.error("[copy-chat-to-canvas] build imported elements failed", error);
-      }
-
-      queryClient.invalidateQueries({ queryKey: trpc.board.list.queryKey() });
-      invalidateChatSessions(queryClient);
-
-      openBoard({
-        boardId: result.board.id,
-        title: result.board.title || sessionQuery.data?.title || tNav("canvasList.untitled"),
-        folderUri: result.board.folderUri,
-        rootUri,
-        projectId: result.board.projectId,
-      });
-
-      handleDialogOpenChange(false);
-      toast.success(
-        effectiveTargetMode === "existing"
-          ? t("copyToCanvas.successExisting")
-          : t("copyToCanvas.successNew"),
-      );
     } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : t("copyToCanvas.failed"),
-      );
+      const handled =
+        error instanceof Error &&
+        (error.message === "root missing" ||
+          error.message === "session missing" ||
+          error.message === "target required");
+      if (!handled) {
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : t("copyToCanvas.failed"),
+        );
+      }
+      throw error;
     }
+
+    const rootUri = resolveBoardRootUri(result.board.projectId);
+    if (!rootUri) {
+      toast.error(t("copyToCanvas.rootMissing"));
+      throw new Error("root missing");
+    }
+
+    const boardFolderUri = buildBoardFolderUri(rootUri, result.board.folderUri);
+
+    try {
+      const importedElements = await buildImportedChatBoardElements({
+        messages: result.importedMessages,
+        projectId: result.board.projectId ?? undefined,
+      });
+      queuePendingBoardElements(boardFolderUri, {
+        elements: importedElements,
+        mode: result.createdBoard ? "replace-if-empty" : "append",
+        fitView: true,
+      });
+    } catch (error) {
+      console.error("[copy-chat-to-canvas] build imported elements failed", error);
+    }
+
+    queryClient.invalidateQueries({ queryKey: trpc.board.list.queryKey() });
+    invalidateChatSessions(queryClient);
+
+    openBoard({
+      boardId: result.board.id,
+      title: result.board.title || sessionQuery.data?.title || tNav("canvasList.untitled"),
+      folderUri: result.board.folderUri,
+      rootUri,
+      projectId: result.board.projectId,
+    });
+
+    setTargetMode("new");
+    setSelectedBoardId("");
+    toast.success(
+      effectiveTargetMode === "existing"
+        ? t("copyToCanvas.successExisting")
+        : t("copyToCanvas.successNew"),
+    );
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleDialogOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{t("copyToCanvas.title")}</DialogTitle>
-          <DialogDescription>{t("copyToCanvas.description")}</DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-4 py-4">
-          <div className="space-y-2">
-            <Label>{t("copyToCanvas.targetMode")}</Label>
-            <div className="grid grid-cols-2 gap-2">
-              <Button
-                type="button"
-                variant={effectiveTargetMode === "new" ? "default" : "outline"}
-                onClick={() => setTargetMode("new")}
-              >
-                {t("copyToCanvas.createNew")}
-              </Button>
-              <Button
-                type="button"
-                variant={effectiveTargetMode === "existing" ? "default" : "outline"}
-                disabled={availableBoards.length === 0}
-                onClick={() => setTargetMode("existing")}
-              >
-                {t("copyToCanvas.useExisting")}
-              </Button>
-            </div>
+    <ConfirmDialog
+      open={open}
+      onOpenChange={handleDialogOpenChange}
+      title={t("copyToCanvas.title")}
+      description={t("copyToCanvas.description")}
+      confirmLabel={t("copyToCanvas.confirm")}
+      cancelLabel={t("copyToCanvas.cancel")}
+      loadingLabel={t("copyToCanvas.submitting")}
+      disabled={sessionQuery.isLoading || (targetMode === "existing" && !selectedBoardId)}
+      onConfirm={handleSubmit}
+    >
+      <div className="space-y-4 py-2">
+        <div className="space-y-2">
+          <Label>{t("copyToCanvas.targetMode")}</Label>
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              type="button"
+              variant={effectiveTargetMode === "new" ? "default" : "outline"}
+              onClick={() => setTargetMode("new")}
+            >
+              {t("copyToCanvas.createNew")}
+            </Button>
+            <Button
+              type="button"
+              variant={effectiveTargetMode === "existing" ? "default" : "outline"}
+              disabled={availableBoards.length === 0}
+              onClick={() => setTargetMode("existing")}
+            >
+              {t("copyToCanvas.useExisting")}
+            </Button>
           </div>
-
-          {effectiveTargetMode === "existing" ? (
-            <div className="space-y-2">
-              <Label htmlFor="copy-to-canvas-target">{t("copyToCanvas.targetBoard")}</Label>
-              <Select value={effectiveSelectedBoardId} onValueChange={setSelectedBoardId}>
-                <SelectTrigger id="copy-to-canvas-target">
-                  <SelectValue placeholder={t("copyToCanvas.targetPlaceholder")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableBoards.map((board) => (
-                    <SelectItem key={board.id} value={board.id}>
-                      {board.title?.trim() || tNav("canvasList.untitled")}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {availableBoards.length === 0 ? (
-                <p className="text-xs text-muted-foreground">
-                  {t("copyToCanvas.emptyBoards")}
-                </p>
-              ) : null}
-            </div>
-          ) : null}
         </div>
 
-        <DialogFooter>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={copyMutation.isPending}
-            className="rounded-3xl"
-          >
-            {t("copyToCanvas.cancel")}
-          </Button>
-          <Button
-            type="button"
-            onClick={() => void handleSubmit()}
-            disabled={
-              copyMutation.isPending
-              || sessionQuery.isLoading
-              || (targetMode === "existing" && !selectedBoardId)
-            }
-            className="rounded-3xl"
-          >
-            {copyMutation.isPending ? (
-              <>
-                <Loader2 className="mr-2 size-4 animate-spin" />
-                {t("copyToCanvas.submitting")}
-              </>
-            ) : (
-              t("copyToCanvas.confirm")
-            )}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        {effectiveTargetMode === "existing" ? (
+          <div className="space-y-2">
+            <Label htmlFor="copy-to-canvas-target">{t("copyToCanvas.targetBoard")}</Label>
+            <Select value={effectiveSelectedBoardId} onValueChange={setSelectedBoardId}>
+              <SelectTrigger id="copy-to-canvas-target">
+                <SelectValue placeholder={t("copyToCanvas.targetPlaceholder")} />
+              </SelectTrigger>
+              <SelectContent>
+                {availableBoards.map((board) => (
+                  <SelectItem key={board.id} value={board.id}>
+                    {board.title?.trim() || tNav("canvasList.untitled")}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {availableBoards.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                {t("copyToCanvas.emptyBoards")}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+    </ConfirmDialog>
   );
 }

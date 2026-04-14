@@ -11,7 +11,12 @@ import { SaaSClient } from '@openloaf-saas/sdk'
 import type {
   skillMarketModule,
 } from '@openloaf-saas/sdk'
-import { getAccessToken, resolveSaasBaseUrl } from '@/lib/saas-auth'
+import {
+  createSaasProxyFetcher,
+  resolveSaasProxyBaseUrl,
+  resolveServerOriginForSaasProxy,
+} from '@/lib/saas-auth'
+import { CLIENT_HEADERS } from '@/lib/client-headers'
 import i18n from '@/i18n'
 
 // Re-export SDK types for consumer convenience.
@@ -26,7 +31,7 @@ export type SkillMarketCheckUpdatesResponse =
 export type SkillMarketRateResponse = skillMarketModule.SkillMarketRateResponse
 
 let cachedClient: SaaSClient | null = null
-let cachedBaseUrl = ''
+let cachedOrigin = ''
 let cachedLang = ''
 
 /** Resolve current app language. */
@@ -35,28 +40,29 @@ function getAppLang(): string {
 }
 
 /**
- * Get a SaaSClient instance configured for Skill Marketplace calls.
- * Reuses the same instance as long as the base URL and language haven't changed.
- * Token is resolved lazily per-request via getAccessToken.
+ * Get a SaaSClient instance for Skill Marketplace, pointing at the local
+ * reverse proxy. Server injects token server-side.
  */
 export function getSkillMarketClient(): SaaSClient {
-  const baseUrl = resolveSaasBaseUrl()
-  if (!baseUrl) {
-    throw new Error('saas_url_missing')
+  const origin = resolveServerOriginForSaasProxy()
+  if (!origin) {
+    throw new Error('server_origin_missing')
   }
   const lang = getAppLang()
-  if (cachedClient && cachedBaseUrl === baseUrl && cachedLang === lang) {
+  if (cachedClient && cachedOrigin === origin && cachedLang === lang) {
     return cachedClient
   }
   cachedClient = new SaaSClient({
-    baseUrl,
-    getAccessToken: async () => {
-      const token = await getAccessToken()
-      return token ?? ''
-    },
+    // 逻辑：baseUrl 必须是 origin-only，前缀注入由 createSaasProxyFetcher 完成。
+    baseUrl: origin,
+    // 逻辑：反代会注入 Server 自持的 token，客户端传空串即可。
+    getAccessToken: async () => '',
+    // 逻辑：每个请求带 X-OpenLoaf-Client，通过 strictClientGuard CSRF 检查。
+    headers: { ...CLIENT_HEADERS },
     locale: lang,
+    fetcher: createSaasProxyFetcher(origin),
   })
-  cachedBaseUrl = baseUrl
+  cachedOrigin = origin
   cachedLang = lang
   return cachedClient
 }
@@ -77,12 +83,36 @@ export async function getMarketSkillDetail(
   return client.skillMarket.detail(skillId)
 }
 
-/** Download a marketplace skill as ZIP archive. Returns ArrayBuffer + fileName. */
+/** Download a marketplace skill as ZIP archive. Returns ArrayBuffer + fileName.
+ *
+ * 不走 SDK 的 skillMarket.download —— 该方法在 SDK 内部用 global fetch 直接调 SaaS，
+ * 不合并 SaaSClient 静态 headers，无法带 X-OpenLoaf-Client。这里直接对反代发 POST。
+ */
 export async function downloadMarketSkill(
   skillId: string,
 ): Promise<{ data: ArrayBuffer; fileName: string }> {
-  const client = getSkillMarketClient()
-  return client.skillMarket.download(skillId)
+  const base = resolveSaasProxyBaseUrl()
+  if (!base) {
+    throw new Error('saas_proxy_base_url_missing')
+  }
+  const lang = getAppLang()
+  const langParam = lang ? `?lang=${encodeURIComponent(lang)}` : ''
+  const response = await fetch(
+    `${base}/api/skill-market/${encodeURIComponent(skillId)}/download${langParam}`,
+    {
+      method: 'POST',
+      credentials: 'include',
+      headers: { ...CLIENT_HEADERS },
+    },
+  )
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({ message: 'Download failed' }))
+    throw new Error((payload as { message?: string }).message ?? 'Download failed')
+  }
+  const disposition = response.headers.get('content-disposition')
+  const fileNameMatch = disposition?.match(/filename="?([^"]+)"?/i)
+  const fileName = fileNameMatch?.[1] ?? `${skillId}.zip`
+  return { data: await response.arrayBuffer(), fileName }
 }
 
 /** Batch check installed skills for available updates. */

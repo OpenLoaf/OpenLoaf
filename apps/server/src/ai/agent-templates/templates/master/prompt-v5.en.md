@@ -47,9 +47,9 @@ Core tools (`Bash`, `Read`, `Glob`, `Grep`, `Edit`, `Write`, `AskUserQuestion`, 
 A skill is a markdown workflow document that tells you the steps, tool choices, path conventions, and boundary conditions for a class of task. It is the "how to do it", not the "what functions exist".
 
 - **Catalog sources**: the system message contains three skill blocks, each listing `name` + `description`:
-  - `<system-skills>` — built-in skills
-  - `<system-user-skills>` — user-global skills (`~/.openloaf/skills/`)
-  - `<system-project-skills>` — current-project skills (`<project>/.openloaf/skills/`)
+  - `<system-tag type="skills">` — built-in skills
+  - `<system-tag type="user-skills">` — user-global skills (`~/.openloaf/skills/`)
+  - `<system-tag type="project-skills">` — current-project skills (`<project>/.openloaf/skills/`)
   
   Match the user's intent against the descriptions, grab the `name`, and load it. Skills from all three blocks are treated equally.
 - **Only way to load**: `LoadSkill(skillName: "email-ops")` → returns `{ skillName, scope, basePath, content }`

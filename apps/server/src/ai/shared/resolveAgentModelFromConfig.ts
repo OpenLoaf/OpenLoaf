@@ -32,10 +32,21 @@ import {
 export type AgentModelIds = {
   chatModelId?: string
   chatModelSource?: ChatModelSource
-  imageModelId?: string
-  videoModelId?: string
   codeModelIds?: string[]
   requiredModelTags?: string[]
+}
+
+/** 取列表的首个有效 ID，失败返回 undefined。 */
+function firstModelId(ids: unknown): string | undefined {
+  if (!Array.isArray(ids)) return undefined
+  return ids[0]?.trim() || undefined
+}
+
+/** 过滤空白并返回有效的 code model ID 列表，空数组返回 undefined。 */
+function normalizeCodeModelIds(ids: unknown): string[] | undefined {
+  if (!Array.isArray(ids)) return undefined
+  const filtered = ids.filter((s): s is string => typeof s === 'string' && s.trim().length > 0)
+  return filtered.length > 0 ? filtered : undefined
 }
 
 /**
@@ -56,6 +67,7 @@ export function resolveAgentModelIdsFromConfig(input: {
     basicConf.chatSource === 'cloud' ? 'cloud' : 'local'
 
   const effectiveName = resolveEffectiveAgentName(input.agentName)
+  const templateTags = getTemplate(effectiveName)?.requiredModelTags as string[] | undefined
 
   // 逻辑：构建按优先级排列的搜索路径列表。
   const roots: string[] = []
@@ -70,61 +82,43 @@ export function resolveAgentModelIdsFromConfig(input: {
       const descriptor = readAgentJson(resolveAgentDir(rootPath, effectiveName))
       if (!descriptor) continue
 
-      const modelIds =
-        chatModelSource === 'cloud'
-          ? descriptor.modelCloudIds
-          : descriptor.modelLocalIds
-      const chatModelId = Array.isArray(modelIds)
-        ? modelIds[0]?.trim() || undefined
-        : undefined
-      const imageModelId = Array.isArray(descriptor.imageModelIds)
-        ? descriptor.imageModelIds[0]?.trim() || undefined
-        : undefined
-      const videoModelId = Array.isArray(descriptor.videoModelIds)
-        ? descriptor.videoModelIds[0]?.trim() || undefined
-        : undefined
-      const codeModelIds = Array.isArray(descriptor.codeModelIds)
-        ? descriptor.codeModelIds.filter((s) => s.trim())
-        : undefined
+      const chatModelId = firstModelId(
+        chatModelSource === 'cloud' ? descriptor.modelCloudIds : descriptor.modelLocalIds,
+      )
+      const codeModelIds = normalizeCodeModelIds(descriptor.codeModelIds)
       // requiredModelTags: descriptor 优先，回退到 template 定义。
       const requiredModelTags =
         (Array.isArray(descriptor.requiredModelTags) && descriptor.requiredModelTags.length > 0
           ? descriptor.requiredModelTags.filter((s) => s.trim())
-          : undefined) ?? (getTemplate(effectiveName)?.requiredModelTags as string[] | undefined)
+          : undefined) ?? templateTags
 
-      return { chatModelId, chatModelSource, imageModelId, videoModelId, codeModelIds, requiredModelTags }
+      return { chatModelId, chatModelSource, codeModelIds, requiredModelTags }
     }
 
     // 全局 fallback：搜索 ~/.openloaf/agents/<name>/（agent.json 或 AGENT.md）。
     const globalAgentDir = path.join(resolveGlobalAgentsPath(), effectiveName)
     const globalDescriptor = readAgentJson(globalAgentDir)
     if (globalDescriptor) {
-      const modelIds =
-        chatModelSource === 'cloud'
-          ? globalDescriptor.modelCloudIds
-          : globalDescriptor.modelLocalIds
-      const chatModelId = Array.isArray(modelIds) ? modelIds[0]?.trim() || undefined : undefined
-      const imageModelId = Array.isArray(globalDescriptor.imageModelIds) ? globalDescriptor.imageModelIds[0]?.trim() || undefined : undefined
-      const videoModelId = Array.isArray(globalDescriptor.videoModelIds) ? globalDescriptor.videoModelIds[0]?.trim() || undefined : undefined
-      const codeModelIds = Array.isArray(globalDescriptor.codeModelIds) ? globalDescriptor.codeModelIds.filter((s) => s.trim()) : undefined
+      const chatModelId = firstModelId(
+        chatModelSource === 'cloud' ? globalDescriptor.modelCloudIds : globalDescriptor.modelLocalIds,
+      )
+      const codeModelIds = normalizeCodeModelIds(globalDescriptor.codeModelIds)
       const requiredModelTags =
         (Array.isArray(globalDescriptor.requiredModelTags) && globalDescriptor.requiredModelTags.length > 0
           ? globalDescriptor.requiredModelTags.filter((s) => s.trim())
-          : undefined) ?? (getTemplate(effectiveName)?.requiredModelTags as string[] | undefined)
-      return { chatModelId, chatModelSource, imageModelId, videoModelId, codeModelIds, requiredModelTags }
+          : undefined) ?? templateTags
+      return { chatModelId, chatModelSource, codeModelIds, requiredModelTags }
     }
     // 兼容旧 AGENT.md 格式。
     const agentMdPath = path.join(globalAgentDir, 'AGENT.md')
     if (existsSync(agentMdPath)) {
       const mdConfig = readAgentConfigFromPath(agentMdPath, 'global')
       if (mdConfig) {
-        const modelIds = chatModelSource === 'cloud' ? mdConfig.modelCloudIds : mdConfig.modelLocalIds
-        const chatModelId = Array.isArray(modelIds) ? modelIds[0]?.trim() || undefined : undefined
-        const imageModelId = Array.isArray(mdConfig.imageModelIds) ? mdConfig.imageModelIds[0]?.trim() || undefined : undefined
-        const videoModelId = Array.isArray(mdConfig.videoModelIds) ? mdConfig.videoModelIds[0]?.trim() || undefined : undefined
-        const codeModelIds = Array.isArray(mdConfig.codeModelIds) ? mdConfig.codeModelIds.filter((s) => s.trim()) : undefined
-        const requiredModelTags = (getTemplate(effectiveName)?.requiredModelTags as string[] | undefined)
-        return { chatModelId, chatModelSource, imageModelId, videoModelId, codeModelIds, requiredModelTags }
+        const chatModelId = firstModelId(
+          chatModelSource === 'cloud' ? mdConfig.modelCloudIds : mdConfig.modelLocalIds,
+        )
+        const codeModelIds = normalizeCodeModelIds(mdConfig.codeModelIds)
+        return { chatModelId, chatModelSource, codeModelIds, requiredModelTags: templateTags }
       }
     }
   }
@@ -138,32 +132,19 @@ export function resolveAgentModelIdsFromConfig(input: {
     parentRoots: input.parentRoots,
   })
   if (match?.config) {
-    const modelIds =
-      chatModelSource === 'cloud'
-        ? match.config.modelCloudIds
-        : match.config.modelLocalIds
-    const chatModelId = Array.isArray(modelIds)
-      ? modelIds[0]?.trim() || undefined
-      : undefined
-    const imageModelId = Array.isArray(match.config.imageModelIds)
-      ? match.config.imageModelIds[0]?.trim() || undefined
-      : undefined
-    const videoModelId = Array.isArray(match.config.videoModelIds)
-      ? match.config.videoModelIds[0]?.trim() || undefined
-      : undefined
-    const codeModelIds = Array.isArray(match.config.codeModelIds)
-      ? match.config.codeModelIds.filter((s) => s.trim())
-      : undefined
+    const chatModelId = firstModelId(
+      chatModelSource === 'cloud' ? match.config.modelCloudIds : match.config.modelLocalIds,
+    )
+    const codeModelIds = normalizeCodeModelIds(match.config.codeModelIds)
     // requiredModelTags: config 优先，回退到 template 定义。
     const requiredModelTags =
       (match.config.requiredModelTags?.length
         ? match.config.requiredModelTags
-        : undefined) ?? (getTemplate(effectiveName)?.requiredModelTags as string[] | undefined)
+        : undefined) ?? templateTags
 
-    return { chatModelId, chatModelSource, imageModelId, videoModelId, codeModelIds, requiredModelTags }
+    return { chatModelId, chatModelSource, codeModelIds, requiredModelTags }
   }
 
   // 无 config 匹配，仍尝试从 template 读取 requiredModelTags。
-  const templateTags = getTemplate(effectiveName)?.requiredModelTags as string[] | undefined
   return { chatModelSource, requiredModelTags: templateTags }
 }

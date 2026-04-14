@@ -14,6 +14,7 @@ import type { CodexRequestOptions } from "@/ai/models/cli/codex/codexOptions";
 import type { ClaudeCodeRequestOptions } from "@/ai/services/chat/messageOptionResolver";
 import type { ChatPageContext } from "@openloaf/api/types/message";
 import type { ClientPlatform } from "@openloaf/api/types/platform";
+import type { ToolApprovalRules } from "@openloaf/api/types/toolApproval";
 
 /** Plan state stored in request context (name + steps + optional rationale). */
 export type PlanUpdate = {
@@ -77,16 +78,16 @@ export type RequestContext = {
   selectedSkills?: string[];
   /** Tool approval payloads keyed by toolCallId. */
   toolApprovalPayloads?: Record<string, Record<string, unknown>>;
+  /**
+   * Resolved allow/deny rules for this request.
+   * Project chat → project.json aiSettings.toolApprovalRules.
+   * Temporary chat (no projectId) → global ~/.openloaf/tool-approval.json.
+   */
+  toolApprovalRules?: ToolApprovalRules;
   /** Parent project root paths resolved from database. */
   parentProjectRootPaths?: string[];
   /** Agent frame stack for nested agents. */
   agentStack?: AgentFrame[];
-  /** SaaS access token for cloud API calls. */
-  saasAccessToken?: string;
-  /** Selected image generation model id. */
-  imageModelId?: string;
-  /** Selected video generation model id. */
-  videoModelId?: string;
   /** Whether simple tool approvals should be auto-approved. */
   autoApproveTools?: boolean;
   /** Whether this request runs in supervision mode (autonomous task). */
@@ -224,6 +225,11 @@ export function setParentProjectRootPaths(rootPaths?: string[]) {
 }
 
 /** Get parent project root paths for this request. */
+/** Get resolved allow/deny rules for this request (project or temp-chat scope). */
+export function getToolApprovalRules(): ToolApprovalRules | undefined {
+  return getRequestContext()?.toolApprovalRules;
+}
+
 /** Consume tool approval payload by toolCallId. */
 export function consumeToolApprovalPayload(
   toolCallId: string,
@@ -319,33 +325,6 @@ export function pushAgentFrame(frame: AgentFrame) {
 export function popAgentFrame(): AgentFrame | undefined {
   const stack = getAgentStack();
   return stack.pop();
-}
-
-/** Sets the SaaS access token for this request. */
-export function setSaasAccessToken(token: string | undefined) {
-  const ctx = getRequestContext();
-  if (!ctx) return;
-  ctx.saasAccessToken = token;
-}
-
-/** Gets the SaaS access token for this request. */
-export function getSaasAccessToken(): string | undefined {
-  return getRequestContext()?.saasAccessToken;
-}
-
-/** Sets the media model ids for this request. */
-export function setMediaModelIds(ids: { image?: string; video?: string }) {
-  const ctx = getRequestContext();
-  if (!ctx) return;
-  if (ids.image !== undefined) ctx.imageModelId = ids.image || undefined;
-  if (ids.video !== undefined) ctx.videoModelId = ids.video || undefined;
-}
-
-/** Gets the media model id by kind. */
-export function getMediaModelId(kind: "image" | "video"): string | undefined {
-  const ctx = getRequestContext();
-  if (!ctx) return undefined;
-  return kind === "image" ? ctx.imageModelId : ctx.videoModelId;
 }
 
 /** Run an async function within a restored RequestContext (for fire-and-forget sub-agents). */

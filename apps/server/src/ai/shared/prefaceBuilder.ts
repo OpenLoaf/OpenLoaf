@@ -19,7 +19,7 @@ import type { ClientPlatform } from "@openloaf/api/types/platform";
 import { loadSkillSummaries, type SkillSummary } from "@/ai/services/skillsLoader";
 import { resolvePythonInstallInfo } from "@/ai/models/cli/pythonTool";
 import { getAuthSessionSnapshot } from "@/modules/auth/tokenStore";
-import { getSaasAccessToken } from "@/ai/shared/context/requestContext";
+import { getSaasClient } from "@/modules/saas/client";
 import { readBasicConf } from "@/modules/settings/openloafConfStore";
 import { logger } from "@/common/logger";
 import {
@@ -64,7 +64,32 @@ export type AccountSnapshot = {
   name: string;
   /** Account email. */
   email: string;
+  /** Membership level (free/lite/pro/premium) when logged in. */
+  level?: string;
 };
+
+/** Short-lived cache for membership level keyed by access token. */
+const MEMBERSHIP_CACHE_TTL_MS = 60 * 1000;
+let membershipCache: { token: string; level: string; at: number } | null = null;
+
+/** Fetch current user's membership level via SaaS SDK. */
+async function fetchMembershipLevel(token: string): Promise<string | undefined> {
+  const now = Date.now();
+  if (membershipCache && membershipCache.token === token && now - membershipCache.at < MEMBERSHIP_CACHE_TTL_MS) {
+    return membershipCache.level;
+  }
+  try {
+    const client = getSaasClient(token);
+    const self = await client.user.self();
+    const raw = String(self.user.membershipLevel ?? 'free').toLowerCase();
+    const level = raw === 'premium' ? 'premium' : raw === 'pro' ? 'pro' : raw === 'lite' ? 'lite' : 'free';
+    membershipCache = { token, level, at: now };
+    return level;
+  } catch (error) {
+    logger.debug({ err: error instanceof Error ? error.message : String(error) }, '[preface] user.self failed, omitting level');
+    return undefined;
+  }
+}
 
 type PythonRuntimeSnapshot = {
   /** Installed flag. */
@@ -215,7 +240,16 @@ export function decodeJwtPayloadUnsafe(token: string): Record<string, unknown> |
 }
 
 /** Resolve account snapshot for prompt injection. */
-export function resolveAccountSnapshot(): AccountSnapshot {
+export async function resolveAccountSnapshot(): Promise<AccountSnapshot> {
+  let saasToken: string | undefined;
+  try {
+    const { ensureServerAccessToken } = await import("@/modules/auth/tokenStore");
+    saasToken = await ensureServerAccessToken();
+  } catch {
+    saasToken = undefined;
+  }
+  const level = saasToken ? await fetchMembershipLevel(saasToken) : undefined;
+
   // 优先从 tokenStore 内存获取（适用于服务端直接持有 token 的场景）。
   const snapshot = getAuthSessionSnapshot();
   if (snapshot.loggedIn && snapshot.user) {
@@ -223,27 +257,26 @@ export function resolveAccountSnapshot(): AccountSnapshot {
       id: snapshot.user.sub ?? UNKNOWN_VALUE,
       name: snapshot.user.name ?? UNKNOWN_VALUE,
       email: snapshot.user.email ?? UNKNOWN_VALUE,
+      level,
     };
   }
   // 回退：从当前请求的 SaaS access token 解析用户信息。
-  try {
-    const saasToken = getSaasAccessToken();
-    if (saasToken) {
-      const payload = decodeJwtPayloadUnsafe(saasToken);
-      if (payload) {
-        const sub = typeof payload.sub === "string" ? payload.sub : undefined;
-        const name = typeof payload.name === "string" ? payload.name : undefined;
-        const email = typeof payload.email === "string" ? payload.email : undefined;
-        if (sub || name || email) {
-          return {
-            id: sub ?? UNKNOWN_VALUE,
-            name: name ?? UNKNOWN_VALUE,
-            email: email ?? UNKNOWN_VALUE,
-          };
-        }
+  if (saasToken) {
+    const payload = decodeJwtPayloadUnsafe(saasToken);
+    if (payload) {
+      const sub = typeof payload.sub === "string" ? payload.sub : undefined;
+      const name = typeof payload.name === "string" ? payload.name : undefined;
+      const email = typeof payload.email === "string" ? payload.email : undefined;
+      if (sub || name || email) {
+        return {
+          id: sub ?? UNKNOWN_VALUE,
+          name: name ?? UNKNOWN_VALUE,
+          email: email ?? UNKNOWN_VALUE,
+          level,
+        };
       }
     }
-  } catch { /* fallback */ }
+  }
   return { id: "not logged in", name: "not logged in", email: "not logged in" };
 }
 
@@ -333,7 +366,7 @@ async function resolvePromptContext(input: {
   timezone?: string;
 }): Promise<PromptContext> {
   const project = resolveProjectSnapshot(input.projectId);
-  const account = resolveAccountSnapshot();
+  const account = await resolveAccountSnapshot();
   const responseLanguage = resolveResponseLanguage();
   const platform = `${os.platform()} ${os.release()}`;
   const date = new Date().toDateString();
@@ -379,7 +412,7 @@ function buildBuiltinSkillsSystemBlock(
     lang === "zh"
       ? "内置技能，通过 `LoadSkill(skillName: '...')` 按需加载"
       : "Built-in skills, load on demand via `LoadSkill(skillName: '...')`";
-  return `<system-skills desc="${desc}">\n${content}\n</system-skills>`;
+  return `<system-tag type="skills" desc="${desc}">\n${content}\n</system-tag>`;
 }
 
 /**
@@ -429,7 +462,7 @@ function buildUserProjectSkillsBlocks(
     const content = buildSkillsSummarySection(globalSkills);
     if (content) {
       blocks.push(
-        `<system-user-skills desc="${userDesc}">\n${content}\n</system-user-skills>`,
+        `<system-tag type="user-skills" desc="${userDesc}">\n${content}\n</system-tag>`,
       );
     }
   }
@@ -437,7 +470,7 @@ function buildUserProjectSkillsBlocks(
     const content = buildSkillsSummarySection(projectSkills);
     if (content) {
       blocks.push(
-        `<system-project-skills desc="${projectDesc}">\n${content}\n</system-project-skills>`,
+        `<system-tag type="project-skills" desc="${projectDesc}">\n${content}\n</system-tag>`,
       );
     }
   }
@@ -463,7 +496,7 @@ function buildContextBlocks(input: {
   ) {
     const rulesDesc = isZh ? "项目规则，来自 AGENTS.md" : "Project rules from AGENTS.md";
     blocks.push(
-      `<system-project-rules desc="${rulesDesc}">\n${buildProjectRulesSection(context, lang)}\n</system-project-rules>`,
+      `<system-tag type="project-rules" desc="${rulesDesc}">\n${buildProjectRulesSection(context, lang)}\n</system-tag>`,
     );
   }
 
@@ -474,7 +507,7 @@ function buildContextBlocks(input: {
   // 会话上下文（含语言设置，放到最底部）
   const sessionDesc = isZh ? "当前会话环境信息" : "Current session environment info";
   blocks.push(
-    `<system-session-context desc="${sessionDesc}">\n${buildSessionContextSection(sessionId, context, lang)}\n</system-session-context>`,
+    `<system-tag type="session-context" desc="${sessionDesc}">\n${buildSessionContextSection(sessionId, context, lang)}\n</system-tag>`,
   );
 
   return blocks.filter((s) => s.trim());
@@ -553,7 +586,7 @@ export async function buildSessionPrefaceText(input: {
 }
 
 /**
- * Build MCP tools blocks, split by scope (global → system-user-mcp, project → system-project-mcp).
+ * Build MCP tools blocks, split by scope (global → type="user-mcp", project → type="project-mcp").
  * Each MCP tool entry uses its own XML tag for consistency.
  */
 function buildMcpToolsBlocks(projectRoot?: string, lang?: PromptLang): string[] {
@@ -598,7 +631,7 @@ function buildMcpToolsBlocks(projectRoot?: string, lang?: PromptLang): string[] 
     : 'Load via ToolSearch before use (pass the tool ID in the `names` parameter).';
 
   const buildBlock = (
-    tag: string,
+    type: string,
     desc: string,
     toolsByServer: Map<string, ToolEntry[]>,
   ): string => {
@@ -611,17 +644,17 @@ function buildMcpToolsBlocks(projectRoot?: string, lang?: PromptLang): string[] 
       }
       lines.push('');
     }
-    return `<${tag} desc="${desc}">\n${lines.join('\n').trim()}\n</${tag}>`;
+    return `<system-tag type="${type}" desc="${desc}">\n${lines.join('\n').trim()}\n</system-tag>`;
   };
 
   const userMcpDesc = isZh ? '用户全局 MCP 工具' : 'User-global MCP tools';
   const projectMcpDesc = isZh ? '项目 MCP 工具' : 'Project MCP tools';
   const blocks: string[] = [];
   if (globalTools.size > 0) {
-    blocks.push(buildBlock('system-user-mcp', userMcpDesc, globalTools));
+    blocks.push(buildBlock('user-mcp', userMcpDesc, globalTools));
   }
   if (projectTools.size > 0) {
-    blocks.push(buildBlock('system-project-mcp', projectMcpDesc, projectTools));
+    blocks.push(buildBlock('project-mcp', projectMcpDesc, projectTools));
   }
   return blocks;
 }

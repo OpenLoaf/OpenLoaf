@@ -967,6 +967,7 @@
   "generateAction": {
     "generate": "生成",
     "generating": "生成中...",
+    "generatingPercent": "生成中 {{percent}}%",
     "newNode": "新規ノードを生成",
     "stackCurrent": "現在のノードにスタック",
     "locked": "パラメータがロックされています",

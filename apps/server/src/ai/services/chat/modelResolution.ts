@@ -7,8 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import type { UIMessage } from "ai";
-import type { ModelCapabilities, ModelDefinition, ModelTag } from "@openloaf/api/common";
+import type { ModelCapabilities, ModelDefinition } from "@openloaf/api/common";
 import { getModelDefinition } from "@/ai/models/modelRegistry";
 import { getProviderSettings } from "@/modules/settings/settingsService";
 
@@ -58,46 +57,3 @@ export async function resolveExplicitModelDefinition(
   return registryModel;
 }
 
-/** Resolve required input tags from message parts. */
-export function resolveRequiredInputTags(messages: UIMessage[]): ModelTag[] {
-  const required = new Set<ModelTag>();
-  // 中文注释：/chat/sse 默认走文本对话链路，因此至少需要对话能力。
-  required.add("chat");
-  for (const message of messages) {
-    const parts = Array.isArray((message as any).parts) ? (message as any).parts : [];
-    for (const part of parts) {
-      if (!part || typeof part !== "object") continue;
-      if ((part as any).type !== "file") continue;
-      const url = typeof (part as any).url === "string" ? (part as any).url : "";
-      if (!url) continue;
-      const purpose = typeof (part as any).purpose === "string" ? (part as any).purpose : "";
-      if (purpose === "mask") {
-        // 中文注释：mask 用于图片编辑，需要 image_input 能力。
-        required.add("image_input");
-        continue;
-      }
-      // 中文注释：根据 mediaType 区分视频/图片分析能力。
-      const mediaType = typeof (part as any).mediaType === "string" ? (part as any).mediaType : "";
-      if (mediaType.startsWith("video/")) {
-        required.add("video_analysis");
-      } else {
-        required.add("image_analysis");
-      }
-    }
-  }
-  return Array.from(required);
-}
-
-/** Resolve last used chat model id from assistant metadata. */
-export function resolvePreviousChatModelId(messages: UIMessage[]): string | null {
-  for (let i = messages.length - 1; i >= 0; i -= 1) {
-    const message = messages[i] as any;
-    if (!message || message.role !== "assistant") continue;
-    const metadata = message.metadata;
-    if (!metadata || typeof metadata !== "object") continue;
-    const agent = (metadata as any).agent;
-    const chatModelId = typeof agent?.chatModelId === "string" ? agent.chatModelId : "";
-    if (chatModelId) return chatModelId;
-  }
-  return null;
-}

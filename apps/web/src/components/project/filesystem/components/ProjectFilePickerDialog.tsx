@@ -595,6 +595,7 @@ const ProjectFilePickerDialogInner = memo(function ProjectFilePickerDialogInner(
             </Button>
           </DialogClose>
           <Button
+            autoFocus
             type="button"
             disabled={confirmDisabled}
             className="rounded-3xl bg-foreground/10 text-foreground hover:bg-foreground/20 shadow-none transition-colors duration-150"

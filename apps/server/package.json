@@ -89,7 +89,7 @@
     "@hono/node-server": "^1.19.9",
     "@hono/trpc-server": "^0.4.2",
     "@hyzyla/pdfium": "^2.1.12",
-    "@openloaf-saas/sdk": "^0.1.40",
+    "@openloaf-saas/sdk": "^0.1.43",
     "@openloaf/api": "workspace:*",
     "@openloaf/config": "workspace:*",
     "@openloaf/db": "workspace:*",

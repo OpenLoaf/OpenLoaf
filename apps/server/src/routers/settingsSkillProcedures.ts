@@ -258,7 +258,6 @@ export const skillProcedures = {
       return translateSkillTitle(
         input.skillFolderPath,
         input.targetLanguage,
-        input.saasAccessToken,
       )
     }),
   setSkillColor: shieldedProcedure
@@ -293,7 +292,6 @@ export const skillProcedures = {
       return translateSkill(
         input.skillFolderPath,
         input.targetLanguage,
-        input.saasAccessToken,
       )
     }),
   exportSkill: shieldedProcedure

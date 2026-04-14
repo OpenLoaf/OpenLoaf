@@ -21,6 +21,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@openloaf/ui/tooltip";
 import { Button } from "@openloaf/ui/button";
 
 import { PageTitle } from "./PageTitle";
+import { HeaderCreditsBadge } from "./HeaderCreditsBadge";
 
 import { Search as SearchDialog } from "@/components/search/Search";
 
@@ -112,6 +113,7 @@ export const Header = () => {
         />
       </div>
       <div className="flex shrink-0 h-(--header-height) items-center pr-2 relative gap-0.5">
+        <HeaderCreditsBadge />
         {hasActions && <div className="mx-1 h-5 w-px bg-foreground/20" />}
         <Tooltip>
           <TooltipTrigger asChild>

@@ -19,7 +19,6 @@ export const chatSchemas = {
   autoTitle: {
     input: z.object({
       sessionId: z.string().min(1),
-      saasAccessToken: z.string().optional(),
     }),
     output: z.object({
       ok: z.literal(true),

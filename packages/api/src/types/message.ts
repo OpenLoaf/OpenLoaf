@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import type { ModelDefinition } from "../common/modelTypes";
+import type { ChatModelSource, ModelDefinition } from "../common/modelTypes";
 import type { ClientPlatform } from "./platform";
 
 type UIDataTypes = Record<string, unknown>;
@@ -154,6 +154,15 @@ export type ChatRequestBody = {
   messageIdChain?: string[];
   /** Page context for AI agent skill auto-loading. */
   pageContext?: ChatPageContext;
+  /**
+   * 前端明确指定的 chatModelId（例如 "deepseek:deepseek-chat"）。
+   * 必须由前端在每次请求时传入 — 对应 model picker 当前活跃的模型，
+   * 禁止服务端隐式从 master agent.json 回退，避免同一消息的多次 attempt
+   * 因配置漂移而换模型。
+   */
+  chatModelId?: string;
+  /** chatModelId 对应的来源（local / cloud / saas）。 */
+  chatModelSource?: ChatModelSource;
 };
 
 /** Part type for task references embedded in chat messages. */

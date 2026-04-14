@@ -20,7 +20,7 @@ import { useLayoutState } from "@/hooks/use-layout-state";
 import { createChatTransport } from "@/lib/ai/transport";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { useSaasAuth } from "@/hooks/use-saas-auth";
-import { getCachedAccessToken, refreshAccessToken } from "@/lib/saas-auth";
+import { refreshAccessToken } from "@/lib/saas-auth";
 import type { PendingCloudMessage } from "./context/ChatStateContext";
 import type { ImageGenerateOptions } from "@openloaf/api/types/image";
 import type { CodexOptions } from "@/lib/chat/codex-options";
@@ -237,7 +237,7 @@ export default function ChatCoreProvider({
       }
       assistantReplyCountRef.current += 1;
       if (assistantReplyCountRef.current % 5 === 0 && !autoTitleMutation.isPending) {
-        autoTitleMutation.mutate({ sessionId, saasAccessToken: getCachedAccessToken() ?? undefined } as any);
+        autoTitleMutation.mutate({ sessionId } as any);
       }
       setStepThinking(false);
 

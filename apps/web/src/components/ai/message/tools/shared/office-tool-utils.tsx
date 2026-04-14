@@ -13,15 +13,25 @@ import { ExternalLinkIcon } from 'lucide-react'
 import { useChatSession } from '@/components/ai/context'
 import { createFileEntryFromUri, openFile } from '@/components/file/lib/open-file'
 import { useProject } from '@/hooks/use-project'
-import { asPlainObject, normalizeToolInput, type AnyToolPart } from './tool-utils'
+import { asPlainObject, normalizeToolInput, parseJsonValue, type AnyToolPart } from './tool-utils'
 
 type OutputData = Record<string, unknown>
 
 export function parseOutput(part: AnyToolPart): { ok: boolean; data: OutputData | null; error?: string } {
-  const output = asPlainObject(part.output)
-  if (!output) return { ok: false, data: null }
+  const raw = part.output
+  // Tool execute() may return either an object (Excel/Office pattern) or a
+  // JSON string (Cloud pattern). Plain error strings like "Error: ..." fall
+  // through as failures with the string surfaced as the error text.
+  const parsed = typeof raw === 'string' ? parseJsonValue(raw) : raw
+  const output = asPlainObject(parsed)
+  if (!output) {
+    const errText = typeof raw === 'string' && raw.trim() ? raw : undefined
+    return { ok: false, data: null, error: errText }
+  }
   const ok = output.ok !== false
-  const data = asPlainObject(output.data)
+  // Prefer nested `data` (Excel/Office shape); fall back to the output itself
+  // when the tool returns flat fields at the top level (Cloud shape).
+  const data = asPlainObject(output.data) ?? output
   if (!ok) {
     const errText = typeof output.error === 'string' ? output.error : undefined
     return { ok: false, data, error: errText }

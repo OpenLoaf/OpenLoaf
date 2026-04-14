@@ -13,6 +13,7 @@ import { AlertCircle, ArrowRight, Check, ChevronDown, Layers, Lock, Sparkles, Za
 import { useSaasAuth } from '@/hooks/use-saas-auth'
 import { SaasLoginDialog } from '@/components/auth/SaasLoginDialog'
 import { useEstimatePrice } from './hooks/useEstimatePrice'
+import { useFakeProgress } from './hooks/useFakeProgress'
 
 /** Generation target mode. */
 export type GenerateTarget = 'current' | 'new-node'
@@ -58,6 +59,13 @@ export type GenerateActionBarProps = {
   estimateParams?: Record<string, unknown>
   /** Skip credit estimation (e.g. text category where estimate API is not supported). */
   skipEstimate?: boolean
+  /**
+   * Estimated task duration in milliseconds (from variant metadata). When
+   * `generating` is true, the action bar drives a fake 0–99% progress counter
+   * across this duration so the user sees forward motion. Stays pinned at
+   * 99% once the counter saturates until `generating` flips false.
+   */
+  estimatedDurationMs?: number
   /** Initial generate target restored from aiConfig. */
   initialTarget?: GenerateTarget
   /** Called when generate target changes — persist to aiConfig. */
@@ -184,6 +192,7 @@ export function GenerateActionBar({
   warningMessage,
   estimateParams,
   skipEstimate = false,
+  estimatedDurationMs,
   initialTarget,
   onTargetChange,
   variants,
@@ -223,6 +232,13 @@ export function GenerateActionBar({
     skip: !loggedIn || skipEstimate,
   })
 
+  // Fake progress counter driven by the variant's estimated duration.
+  const fakeProgress = useFakeProgress({
+    running: generating,
+    durationMs: estimatedDurationMs,
+  })
+  const showProgress = generating && !!estimatedDurationMs && estimatedDurationMs > 0
+
   const resolvedCredits = estimatedCredits
 
   const billingUnit = billingType
@@ -230,7 +246,12 @@ export function GenerateActionBar({
     : ''
 
   const label = generating
-    ? (generatingLabel ?? t('generateAction.generating'))
+    ? showProgress
+      ? t('generateAction.generatingPercent', {
+          percent: fakeProgress,
+          defaultValue: `${generatingLabel ?? t('generateAction.generating')} ${fakeProgress}%`,
+        })
+      : (generatingLabel ?? t('generateAction.generating'))
     : !loggedIn
       ? t('generateAction.loginAndGenerate', { defaultValue: '登录并生成' })
       : hasResource && effectiveTarget === 'new-node'

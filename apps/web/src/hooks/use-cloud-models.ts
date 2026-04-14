@@ -13,7 +13,7 @@ import { useEffect } from "react";
 import { create } from "zustand";
 import type { ModelDefinition } from "@openloaf/api/common";
 import { resolveServerUrl } from "@/utils/server-url";
-import { getAccessToken } from "@/lib/saas-auth";
+import { CLIENT_HEADERS } from "@/lib/client-headers";
 
 type RefreshCloudModelOptions = {
   /** Force bypass server cache. */
@@ -88,10 +88,9 @@ async function fetchCloudModels(
   options?: RefreshCloudModelOptions,
 ): Promise<CloudModelFetchResult> {
   const requestUrl = buildCloudModelRequestUrl(baseUrl, options);
-  const token = await getAccessToken();
-  if (!token) return { models: [], updatedAt: "" };
   const response = await fetch(requestUrl, {
-    headers: { Authorization: `Bearer ${token}` },
+    credentials: "include",
+    headers: { ...CLIENT_HEADERS },
   });
   if (!response.ok) {
     // 中文注释：未登录或请求失败时返回空列表。
@@ -113,9 +112,10 @@ export async function fetchCloudModelsUpdatedAt(): Promise<CloudModelsUpdatedAtD
   const requestUrl = baseUrl
     ? new URL("/llm/models/updated-at", baseUrl).toString()
     : "/llm/models/updated-at";
-  const token = await getAccessToken();
-  const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
-  const response = await fetch(requestUrl, { headers });
+  const response = await fetch(requestUrl, {
+    credentials: "include",
+    headers: { ...CLIENT_HEADERS },
+  });
   if (!response.ok) return null;
   const payload = (await response.json().catch(() => null)) as CloudModelsUpdatedAtResponse | null;
   if (!payload || payload.success !== true || !payload.data) return null;

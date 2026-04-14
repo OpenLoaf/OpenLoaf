@@ -9,7 +9,6 @@
  */
 import { CLIENT_HEADERS } from "@/lib/client-headers";
 import { resolveServerUrl } from "@/utils/server-url";
-import { getAccessToken } from "@/lib/saas-auth";
 import {
   IMAGE_GENERATE_DEFAULT_OUTPUT_COUNT,
   IMAGE_GENERATE_MAX_INPUT_IMAGES,
@@ -43,14 +42,10 @@ function extractSseData(chunk: string): string | null {
 
 /** Stream SSE events from the unified AI endpoint. */
 export async function runChatSseRequest({ payload, signal, onEvent }: ChatSseRequest) {
-  const token = await getAccessToken();
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...CLIENT_HEADERS,
   };
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
   const response = await fetch(`${resolveServerUrl()}/ai/chat`, {
     method: "POST",
     credentials: "include",

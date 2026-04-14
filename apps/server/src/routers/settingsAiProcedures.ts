@@ -162,10 +162,10 @@ export const aiProcedures = {
       // When SaaS source is selected, fetch quota from SaaS backend.
       if (conf.modelSource === "saas") {
         try {
-          const { getSaasAccessToken } = await import(
-            "@/ai/shared/context/requestContext"
+          const { ensureServerAccessToken } = await import(
+            "@/modules/auth/tokenStore"
           )
-          const token = getSaasAccessToken()
+          const token = await ensureServerAccessToken()
           if (token) {
             const { getSaasClient } = await import("@/modules/saas/client")
             const saasClient = getSaasClient(token)
@@ -202,10 +202,10 @@ export const aiProcedures = {
   getAuxiliaryQuota: shieldedProcedure
     .output(settingSchemas.getAuxiliaryQuota.output)
     .query(async ({ ctx }) => {
-      const { getSaasAccessToken } = await import(
-        "@/ai/shared/context/requestContext"
+      const { ensureServerAccessToken } = await import(
+        "@/modules/auth/tokenStore"
       )
-      const token = getSaasAccessToken()
+      const token = await ensureServerAccessToken()
       if (!token) {
         throw new Error(getErrorMessage('NOT_LOGGED_IN_CLOUD', ctx.lang))
       }
@@ -275,10 +275,10 @@ export const aiProcedures = {
 
         // SaaS branch — delegate test to SaaS backend
         if (conf.modelSource === "saas") {
-          const { getSaasAccessToken } = await import(
-            "@/ai/shared/context/requestContext"
+          const { ensureServerAccessToken } = await import(
+            "@/modules/auth/tokenStore"
           )
-          const token = getSaasAccessToken()
+          const token = await ensureServerAccessToken()
           if (!token) {
             return {
               ok: false,
@@ -437,7 +437,6 @@ export const aiProcedures = {
         context,
         schema: CAPABILITY_SCHEMAS["project.classify"],
         fallback: { type: "general" as const, icon: "", confidence: 0 },
-        saasAccessToken: input.saasAccessToken,
       })
 
       // Write back to project.json if confidence is sufficient.
@@ -505,7 +504,6 @@ export const aiProcedures = {
           type: (config?.projectType ?? "general") as any,
         },
         noCache: true,
-        saasAccessToken: input.saasAccessToken,
       })
 
       return { title: result.title, icon: result.icon, type: result.type }
@@ -540,7 +538,6 @@ export const aiProcedures = {
         schema: CAPABILITY_SCHEMAS["git.commitMessage"],
         fallback: { subject: "", body: undefined },
         noCache: true,
-        saasAccessToken: input.saasAccessToken,
       })
 
       return { subject: result.subject, body: result.body ?? "" }
@@ -602,7 +599,6 @@ export const aiProcedures = {
         schema: CAPABILITY_SCHEMAS["file.title"],
         fallback: { title: "" },
         noCache: true,
-        saasAccessToken: input.saasAccessToken,
       })
 
       return { title: result.title }

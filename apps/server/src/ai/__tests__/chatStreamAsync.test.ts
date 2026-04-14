@@ -60,7 +60,6 @@ function createMockExecuteFn(chunks: unknown[]) {
     request: any
     cookies: Record<string, string>
     requestSignal: AbortSignal
-    saasAccessToken?: string
   }) => {
     callCount++
     lastSignal = input.requestSignal

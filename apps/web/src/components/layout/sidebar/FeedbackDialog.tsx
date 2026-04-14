@@ -13,7 +13,9 @@ import * as React from "react";
 import { MessageSquare } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { SaaSClient, SaaSHttpError } from "@openloaf-saas/sdk";
+import { SaaSHttpError } from "@openloaf-saas/sdk";
+import { getSaasMediaClient } from "@/lib/saas-media-client";
+import { uploadFeedbackAttachmentViaProxy } from "@/lib/saas-feedback-upload";
 import { Button } from "@openloaf/ui/button";
 import { Checkbox } from "@openloaf/ui/checkbox";
 import { Input } from "@openloaf/ui/input";
@@ -36,7 +38,7 @@ import { useGlobalOverlay } from "@/lib/globalShortcuts";
 import { useAppView } from "@/hooks/use-app-view";
 import { useLayoutState } from "@/hooks/use-layout-state";
 import { useSaasAuth } from "@/hooks/use-saas-auth";
-import { resolveSaasBaseUrl, getAccessToken } from "@/lib/saas-auth";
+import { resolveSaasBaseUrl } from "@/lib/saas-auth";
 import { resolveServerUrl } from "@/utils/server-url";
 import { isElectronEnv } from "@/utils/is-electron-env";
 
@@ -139,10 +141,7 @@ export function FeedbackDialog() {
 
     setSubmitting(true);
     try {
-      const client = new SaaSClient({
-        baseUrl,
-        getAccessToken: async () => (await getAccessToken()) ?? "",
-      });
+      const client = getSaasMediaClient();
       const context = await buildContext();
 
       // 附带应用日志
@@ -152,7 +151,7 @@ export function FeedbackDialog() {
           const logContent = (result as { ok: true; content: string }).content;
           const blob = new Blob([logContent], { type: "text/plain" });
           try {
-            const attachment = await client.feedback.uploadAttachment(blob, "startup.log");
+            const attachment = await uploadFeedbackAttachmentViaProxy(blob, "startup.log");
             context.logAttachmentUrl = attachment.url;
             context.logAttachmentKey = attachment.key;
           } catch {
@@ -169,7 +168,7 @@ export function FeedbackDialog() {
           if (exportResponse.ok) {
             const zipBlob = await exportResponse.blob();
             if (zipBlob.size > 0) {
-              const attachment = await client.feedback.uploadAttachment(
+              const attachment = await uploadFeedbackAttachmentViaProxy(
                 zipBlob,
                 `chat-session-${chatSessionId}.zip`,
               );

@@ -15,7 +15,6 @@ import {
   buildSaasLoginUrl,
   exchangeLoginCode,
   fetchLoginCode,
-  getCachedAccessToken,
   isAuthenticated,
   logout as logoutFromSaas,
   onAuthLost,
@@ -42,12 +41,6 @@ type SaasAuthState = {
   loginStatus: LoginStatus;
   /** Login error message. */
   loginError: string | null;
-  /** @deprecated No longer used — wechat now opens system browser. */
-  wechatLoginUrl: null;
-  /** Remember login preference. */
-  remember: boolean;
-  /** Update remember preference. */
-  setRemember: (value: boolean) => void;
   /** Refresh auth status from storage. */
   refreshSession: () => Promise<void>;
   /** Start SaaS login flow. */
@@ -95,30 +88,17 @@ export const useSaasAuth = create<SaasAuthState>((set, get) => ({
   user: null,
   loginStatus: "idle",
   loginError: null,
-  wechatLoginUrl: null,
-  remember: true,
-  setRemember: (value) => set({ remember: value }),
   refreshSession: async () => {
     if (refreshing) return;
     refreshing = true;
     console.info("[auth] refreshSession start");
     try {
-      const token = getCachedAccessToken();
-      if (!token) {
-        const ok = await isAuthenticated();
-        const user = ok ? await resolveAuthUser() : null;
-        console.info("[auth] refreshSession done", { loggedIn: ok, email: user?.email });
-        set({
-          loggedIn: ok,
-          loading: false,
-          user,
-        });
-        return;
-      }
-      const user = await resolveAuthUser();
-      console.info("[auth] refreshSession done", { loggedIn: true, email: user?.email });
+      // 逻辑：会话状态单一真相源是 Server /auth/session。
+      const ok = await isAuthenticated();
+      const user = ok ? await resolveAuthUser() : null;
+      console.info("[auth] refreshSession done", { loggedIn: ok, email: user?.email });
       set({
-        loggedIn: true,
+        loggedIn: ok,
         loading: false,
         user,
       });
@@ -175,14 +155,13 @@ export const useSaasAuth = create<SaasAuthState>((set, get) => ({
       port,
     });
 
-    set({ loginStatus: "opening", loginError: null, wechatLoginUrl: null });
+    set({ loginStatus: "opening", loginError: null });
     try {
       await openExternalUrl(loginUrl);
     } catch (error) {
       set({
         loginStatus: "error",
         loginError: (error as Error)?.message ?? "无法打开登录页面",
-        wechatLoginUrl: null,
       });
       return;
     }
@@ -198,26 +177,23 @@ export const useSaasAuth = create<SaasAuthState>((set, get) => ({
         set({
           loginStatus: "error",
           loginError: "登录超时，请重试",
-          wechatLoginUrl: null,
         });
         return;
       }
       const code = await fetchLoginCode(loginState);
       if (!code) return;
       stopLoginPolling();
-      const remember = get().remember;
-      const user = await exchangeLoginCode({ loginCode: code, remember });
+      const user = await exchangeLoginCode({ loginCode: code });
       if (!user) {
         // 逻辑：返回 null 说明换码失败或未拿到 token。
         set({
           loginStatus: "error",
           loginError: "登录失败，请重试",
-          wechatLoginUrl: null,
         });
         return;
       }
       await get().refreshSession();
-      set({ loginStatus: "idle", loginError: null, wechatLoginUrl: null });
+      set({ loginStatus: "idle", loginError: null });
       toast.success("登录成功");
       // 登录成功后自动切换到云端模型
       void trpcClient.settings.setBasic
@@ -234,7 +210,7 @@ export const useSaasAuth = create<SaasAuthState>((set, get) => ({
   },
   cancelLogin: () => {
     stopLoginPolling();
-    set({ loginStatus: "idle", loginError: null, wechatLoginUrl: null });
+    set({ loginStatus: "idle", loginError: null });
   },
   logout: () => {
     logoutFromSaas();

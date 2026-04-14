@@ -44,16 +44,7 @@ import { useProjects } from "@/hooks/use-projects";
 import { buildProjectHierarchyIndex } from "@/lib/project-tree";
 import { toast } from "sonner";
 import { isElectronEnv } from "@/utils/is-electron-env";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@openloaf/ui/alert-dialog";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 type SystemCalendarEvent = OpenLoafCalendarEvent;
 type CalendarKind = "event" | "reminder";
@@ -827,25 +818,15 @@ export default function CalendarPage({
         </div>
       </div>
 
-      <AlertDialog open={showPermissionDialog} onOpenChange={setShowPermissionDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t('permissionRequired')}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t('permissionDesc')}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t('later')}</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleRelaunchApp}
-              className="bg-foreground text-white hover:bg-foreground/85"
-            >
-              {t('restart')}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        open={showPermissionDialog}
+        onOpenChange={setShowPermissionDialog}
+        title={t('permissionRequired')}
+        description={t('permissionDesc')}
+        confirmLabel={t('restart')}
+        cancelLabel={t('later')}
+        onConfirm={handleRelaunchApp}
+      />
     </div>
   );
 }

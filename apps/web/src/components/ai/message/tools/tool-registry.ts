@@ -42,6 +42,7 @@ import ClaudeCodeWriteTool from './ClaudeCodeWriteTool'
 import ClaudeCodeEditTool from './ClaudeCodeEditTool'
 import ClaudeCodeSearchTool from './ClaudeCodeSearchTool'
 import ClaudeCodeWebTool from './ClaudeCodeWebTool'
+import WebSearchTool from './WebSearchTool'
 import ClaudeCodeTaskTool from './ClaudeCodeTaskTool'
 import FileInfoTool from './FileInfoTool'
 import GlobTool from './GlobTool'
@@ -51,6 +52,8 @@ import SendMessageTool from './SendMessageTool'
 import JobsTool from './JobsTool'
 import SleepTool from './SleepTool'
 import LoadSkillTool from './LoadSkillTool'
+import CloudModelGenerateTool from './CloudModelGenerateTool'
+import CloudLoginTool from './CloudLoginTool'
 
 export type ToolComponentProps = {
   part: AnyToolPart
@@ -85,7 +88,7 @@ export const TOOL_REGISTRY: ToolRegistryEntry[] = [
   { match: 'grep', component: ClaudeCodeSearchTool as ComponentType<ToolComponentProps>, providerOnly: true, extraProps: { kind: 'grep' } },
   { match: 'ls', component: ClaudeCodeSearchTool as ComponentType<ToolComponentProps>, providerOnly: true, extraProps: { kind: 'ls' } },
   { match: 'webfetch', component: ClaudeCodeWebTool as ComponentType<ToolComponentProps>, providerOnly: true, extraProps: { kind: 'webfetch' } },
-  { match: 'websearch', component: ClaudeCodeWebTool as ComponentType<ToolComponentProps>, providerOnly: true, extraProps: { kind: 'websearch' } },
+  { match: 'websearch', component: WebSearchTool as ComponentType<ToolComponentProps>, providerOnly: true },
   { match: 'task', component: ClaudeCodeTaskTool as ComponentType<ToolComponentProps>, providerOnly: true },
 
   // ── Standard tools ──
@@ -137,7 +140,14 @@ export const TOOL_REGISTRY: ToolRegistryEntry[] = [
   { match: 'ProjectMutate', component: ProjectMutateTool as ComponentType<ToolComponentProps> },
   { match: 'FileInfo', component: FileInfoTool as ComponentType<ToolComponentProps> },
   { match: 'WebFetch', component: ClaudeCodeWebTool as ComponentType<ToolComponentProps>, extraProps: { kind: 'webfetch' } },
-  { match: 'WebSearch', component: ClaudeCodeWebTool as ComponentType<ToolComponentProps>, extraProps: { kind: 'websearch' } },
+  { match: 'WebSearch', component: WebSearchTool as ComponentType<ToolComponentProps> },
+
+  // ── Cloud capabilities ──
+  // CloudModelGenerate renders the files[] / pendingUrls[] preview grid. The
+  // other cloud tools (Browse/Detail/TextGenerate/Task/TaskCancel/UserInfo)
+  // fall through to UnifiedTool — their responses are JSON that reads fine as-is.
+  { match: 'CloudModelGenerate', component: CloudModelGenerateTool as ComponentType<ToolComponentProps> },
+  { match: 'CloudLogin', component: CloudLoginTool as ComponentType<ToolComponentProps> },
 ]
 
 /** Look up a registry entry by tool kind. */

@@ -53,6 +53,7 @@ import {
 import { moveProjectStorage } from "../services/projectStorageService";
 import { listProjectFilesChangedInRange } from "../services/projectFileChangeService";
 import { endOfDay, parseDateKey, startOfDay } from "../services/summaryDateUtils";
+import { toolApprovalRulesSchema } from "../types/toolApproval";
 
 /** File name for project homepage content. */
 const PAGE_HOME_FILE = "page-home.json";
@@ -414,6 +415,35 @@ const cacheScopeSchema = z
     projectId: z.string().optional(),
   });
 
+/**
+ * Per-projectId promise-chain lock for atomic read-modify-write on
+ * project.json. Prevents lost-update races when two concurrent requests
+ * (e.g. two "始终允许" clicks on different approval dialogs) both mutate the
+ * same project's aiSettings.toolApprovalRules.
+ *
+ * Desktop runs single-process so an in-memory lock is sufficient. SaaS
+ * deployments that share the filesystem would need a filesystem-level lock.
+ */
+const projectMetadataLocks = new Map<string, Promise<unknown>>();
+
+function withProjectMetadataLock<T>(
+  projectId: string,
+  fn: () => Promise<T>,
+): Promise<T> {
+  const previous = projectMetadataLocks.get(projectId) ?? Promise.resolve();
+  const next = previous.then(fn, fn);
+  // 用 finally 在锁链末尾清理空引用，避免 Map 泄漏。
+  projectMetadataLocks.set(
+    projectId,
+    next.finally(() => {
+      if (projectMetadataLocks.get(projectId) === next) {
+        projectMetadataLocks.delete(projectId);
+      }
+    }),
+  );
+  return next;
+}
+
 /** Schema for project AI settings payload. */
 const aiSettingsSchema = z.object({
   /** Whether project overrides are enabled. */
@@ -422,6 +452,8 @@ const aiSettingsSchema = z.object({
   autoSummaryEnabled: z.boolean().optional(),
   /** Selected hours for daily auto summary. */
   autoSummaryHours: z.array(z.number().int().min(0).max(24)).optional(),
+  /** Tool approval allow/deny rules scoped to this project. */
+  toolApprovalRules: toolApprovalRulesSchema.optional(),
 });
 
 /** Normalize auto summary hours. */
@@ -444,7 +476,25 @@ function normalizeAiSettings(raw: z.infer<typeof aiSettingsSchema>) {
     autoSummaryEnabled:
       typeof raw.autoSummaryEnabled === "boolean" ? raw.autoSummaryEnabled : undefined,
     autoSummaryHours: normalizeAutoSummaryHours(raw.autoSummaryHours),
+    toolApprovalRules: normalizeToolApprovalRules(raw.toolApprovalRules),
   };
+}
+
+/** Drop empty allow/deny arrays; return undefined when nothing is left. */
+function normalizeToolApprovalRules(
+  raw: { allow?: string[]; deny?: string[] } | undefined,
+): { allow?: string[]; deny?: string[] } | undefined {
+  if (!raw) return undefined;
+  const allow = Array.isArray(raw.allow)
+    ? raw.allow.filter((r) => typeof r === "string" && r.trim().length > 0)
+    : undefined;
+  const deny = Array.isArray(raw.deny)
+    ? raw.deny.filter((r) => typeof r === "string" && r.trim().length > 0)
+    : undefined;
+  const nextAllow = allow && allow.length > 0 ? allow : undefined;
+  const nextDeny = deny && deny.length > 0 ? deny : undefined;
+  if (!nextAllow && !nextDeny) return undefined;
+  return { allow: nextAllow, deny: nextDeny };
 }
 
 export const projectRouter = t.router({
@@ -902,6 +952,78 @@ export const projectRouter = t.router({
       });
       await writeJsonAtomic(metaPath, next);
       return { aiSettings: next.aiSettings ?? null };
+    }),
+
+  /**
+   * Atomically add an allow/deny rule to a project's tool approval list.
+   * Serializes read-modify-write under a per-project in-memory lock so two
+   * concurrent "始终允许" clicks don't lose each other's rule (lost update).
+   */
+  addToolApprovalRule: shieldedProcedure
+    .input(
+      z.object({
+        projectId: z.string(),
+        rule: z.string().min(1).max(200),
+        behavior: z.enum(["allow", "deny"]),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      return withProjectMetadataLock(input.projectId, async () => {
+        const rootPath = resolveProjectRootPath(input.projectId);
+        const metaPath = getProjectMetaPath(rootPath);
+        const raw = (await readJsonFile(metaPath)) ?? {};
+        const parsed = projectConfigSchema.parse(raw);
+        const currentAi = parsed.aiSettings ?? {};
+        const currentRules = currentAi.toolApprovalRules ?? {};
+        const currentList = currentRules[input.behavior] ?? [];
+        if (currentList.includes(input.rule)) {
+          return { ok: true, aiSettings: currentAi };
+        }
+        const nextList = [...currentList, input.rule];
+        const nextAi = {
+          ...currentAi,
+          toolApprovalRules: {
+            ...currentRules,
+            [input.behavior]: nextList,
+          },
+        };
+        const next = projectConfigSchema.parse({ ...parsed, aiSettings: nextAi });
+        await writeJsonAtomic(metaPath, next);
+        return { ok: true, aiSettings: next.aiSettings ?? null };
+      });
+    }),
+
+  /** Atomically remove an allow/deny rule from a project's tool approval list. */
+  removeToolApprovalRule: shieldedProcedure
+    .input(
+      z.object({
+        projectId: z.string(),
+        rule: z.string().min(1).max(200),
+        behavior: z.enum(["allow", "deny"]),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      return withProjectMetadataLock(input.projectId, async () => {
+        const rootPath = resolveProjectRootPath(input.projectId);
+        const metaPath = getProjectMetaPath(rootPath);
+        const raw = (await readJsonFile(metaPath)) ?? {};
+        const parsed = projectConfigSchema.parse(raw);
+        const currentAi = parsed.aiSettings ?? {};
+        const currentRules = currentAi.toolApprovalRules ?? {};
+        const currentList = currentRules[input.behavior] ?? [];
+        const filtered = currentList.filter((r: string) => r !== input.rule);
+        if (filtered.length === currentList.length) {
+          return { ok: true, aiSettings: currentAi };
+        }
+        const nextRules = {
+          ...currentRules,
+          [input.behavior]: filtered.length > 0 ? filtered : undefined,
+        };
+        const nextAi = { ...currentAi, toolApprovalRules: nextRules };
+        const next = projectConfigSchema.parse({ ...parsed, aiSettings: nextAi });
+        await writeJsonAtomic(metaPath, next);
+        return { ok: true, aiSettings: next.aiSettings ?? null };
+      });
     }),
 
   /** List file changes for a specific date. */

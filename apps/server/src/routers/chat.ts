@@ -121,7 +121,7 @@ function buildTitlePrompt(chainRows: Array<{ role: string; parts: unknown }>): s
   return lines.join('\n').trim()
 }
 
-async function generateTitleFromHistory(historyText: string, saasAccessToken?: string): Promise<string> {
+async function generateTitleFromHistory(historyText: string): Promise<string> {
   const { auxiliaryInfer } = await import('@/ai/services/auxiliaryInferenceService')
   const { CAPABILITY_SCHEMAS } = await import('@/ai/services/auxiliaryCapabilities')
   const result = await auxiliaryInfer({
@@ -130,7 +130,6 @@ async function generateTitleFromHistory(historyText: string, saasAccessToken?: s
     schema: CAPABILITY_SCHEMAS['chat.title'],
     fallback: { title: '' },
     noCache: true,
-    saasAccessToken,
   })
   return normalizeTitle(result.title)
 }
@@ -608,7 +607,7 @@ class ChatRouterImpl extends BaseChatRouter {
 
           let title = ''
           try {
-            title = await generateTitleFromHistory(historyText, input.saasAccessToken)
+            title = await generateTitleFromHistory(historyText)
           } catch {
             return { ok: true, title: session.title }
           }

@@ -15,14 +15,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { Button } from "@openloaf/ui/button";
 import { Input } from "@openloaf/ui/input";
 import { Label } from "@openloaf/ui/label";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@openloaf/ui/dialog";
+import { FormDialog } from "@/components/ui/FormDialog";
 import { OpenLoafSettingsField } from "@openloaf/ui/openloaf/OpenLoafSettingsField";
 import { OpenLoafSettingsGroup } from "@openloaf/ui/openloaf/OpenLoafSettingsGroup";
 import { Claude, OpenAI } from "@lobehub/icons";
@@ -280,10 +273,10 @@ export function ThirdPartyTools() {
       // 逻辑：统一保存整组 CLI 配置，避免只更新局部导致丢失。
       await setBasic({ cliTools: cliSettings });
       toast.success(t('thirdPartyTools.saved'));
-      setCliDialogOpen(false);
     } catch (error) {
       const message = error instanceof Error ? error.message : t('thirdPartyTools.save');
       toast.error(message);
+      throw error;
     }
   };
 
@@ -537,64 +530,56 @@ export function ThirdPartyTools() {
         </div>
       </OpenLoafSettingsGroup>
 
-      <Dialog open={cliDialogOpen} onOpenChange={setCliDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{cliDialogTitle}</DialogTitle>
-            <DialogDescription>{t('thirdPartyTools.configApiDialog')}</DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="cli-api-url">{t('thirdPartyTools.apiUrl')}</Label>
-              <Input
-                id="cli-api-url"
-                value={activeCliSettings.apiUrl}
-                placeholder="https://api.openai.com/v1"
-                onChange={(event) =>
-                  updateCliSettings(activeCliTool, { apiUrl: event.target.value })
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="cli-api-key">{t('thirdPartyTools.apiKey')}</Label>
-              <Input
-                id="cli-api-key"
-                type="password"
-                value={activeCliSettings.apiKey}
-                placeholder="••••••••"
-                onChange={(event) =>
-                  updateCliSettings(activeCliTool, { apiKey: event.target.value })
-                }
-              />
-            </div>
-            <div className="flex items-center justify-between gap-3 rounded-3xl border border-border px-3 py-2">
-              <div className="space-y-1">
-                <div className="text-sm font-medium">{t('thirdPartyTools.forceCustomKey')}</div>
-                <div className="text-xs text-muted-foreground">
-                  {t('thirdPartyTools.forceCustomKeyDesc')}
-                </div>
-              </div>
-              <div className="origin-right scale-110">
-                <Switch
-                  checked={activeCliSettings.forceCustomApiKey}
-                  onCheckedChange={(checked) =>
-                    updateCliSettings(activeCliTool, { forceCustomApiKey: checked })
-                  }
-                  aria-label="Force cli api key"
-                />
-              </div>
+      <FormDialog
+        open={cliDialogOpen}
+        onOpenChange={setCliDialogOpen}
+        title={cliDialogTitle}
+        description={t('thirdPartyTools.configApiDialog')}
+        onSubmit={handleSaveCliSettings}
+        submitLabel={t('thirdPartyTools.save')}
+        cancelLabel={t('thirdPartyTools.cancel')}
+      >
+        <div className="space-y-2">
+          <Label htmlFor="cli-api-url">{t('thirdPartyTools.apiUrl')}</Label>
+          <Input
+            id="cli-api-url"
+            value={activeCliSettings.apiUrl}
+            placeholder="https://api.openai.com/v1"
+            onChange={(event) =>
+              updateCliSettings(activeCliTool, { apiUrl: event.target.value })
+            }
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="cli-api-key">{t('thirdPartyTools.apiKey')}</Label>
+          <Input
+            id="cli-api-key"
+            type="password"
+            value={activeCliSettings.apiKey}
+            placeholder="••••••••"
+            onChange={(event) =>
+              updateCliSettings(activeCliTool, { apiKey: event.target.value })
+            }
+          />
+        </div>
+        <div className="flex items-center justify-between gap-3 rounded-3xl border border-border px-3 py-2">
+          <div className="space-y-1">
+            <div className="text-sm font-medium">{t('thirdPartyTools.forceCustomKey')}</div>
+            <div className="text-xs text-muted-foreground">
+              {t('thirdPartyTools.forceCustomKeyDesc')}
             </div>
           </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCliDialogOpen(false)}>
-              {t('thirdPartyTools.cancel')}
-            </Button>
-            <Button onClick={() => void handleSaveCliSettings()}>{t('thirdPartyTools.save')}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          <div className="origin-right scale-110">
+            <Switch
+              checked={activeCliSettings.forceCustomApiKey}
+              onCheckedChange={(checked) =>
+                updateCliSettings(activeCliTool, { forceCustomApiKey: checked })
+              }
+              aria-label="Force cli api key"
+            />
+          </div>
+        </div>
+      </FormDialog>
     </div>
   );
 }

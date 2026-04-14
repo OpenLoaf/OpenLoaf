@@ -125,8 +125,21 @@ export function buildSessionContextSection(
     // Hide internal @wechat.local addresses
     const showEmail = email && !email.endsWith('@wechat.local')
     lines.push(`- account: ${context.account.name}${showEmail ? ` (${email})` : ''}`)
+    if (context.account.level) {
+      lines.push(`- userLevel: ${context.account.level}`)
+    }
+    lines.push(
+      isZh
+        ? '  - 查询积分/会员等级/账号详情 → `CloudUserInfo`（需先 ToolSearch 加载）'
+        : '  - Query credits / membership / account details → `CloudUserInfo` (load via ToolSearch first)',
+    )
   } else {
     lines.push(`- account: ${isZh ? NOT_LOGGED_IN_ZH : NOT_LOGGED_IN_EN}`)
+    lines.push(
+      isZh
+        ? '  - 用户要查积分/会员/账号 或 要登录 → `CloudLogin`（ToolSearch 加载后调用，会弹登录卡片）'
+        : '  - If the user asks about credits / membership / account or wants to sign in → `CloudLogin` (ToolSearch to load, then call — it opens a sign-in card)',
+    )
   }
   return lines.join('\n')
 }

@@ -38,15 +38,7 @@ import {
   DropdownMenuTrigger,
 } from "@openloaf/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@openloaf/ui/avatar"
-import { Button } from "@openloaf/ui/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@openloaf/ui/dialog"
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
 import { useSaasAuth } from "@/hooks/use-saas-auth"
 import { fetchUserProfile } from "@/lib/saas-auth"
 import { SaasLoginDialog } from "@/components/auth/SaasLoginDialog"
@@ -437,34 +429,18 @@ export function SidebarUserAccount() {
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <Dialog open={restartDialogOpen} onOpenChange={setRestartDialogOpen}>
-          <DialogContent className="sm:max-w-sm shadow-none border-border/60">
-            <DialogHeader>
-              <DialogTitle>{t('updateReady')}</DialogTitle>
-              <DialogDescription>{t('restartToApply')}</DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setRestartDialogOpen(false)}
-                className="rounded-3xl"
-              >
-                {t('cancelButton')}
-              </Button>
-              <Button
-                type="button"
-                className="rounded-3xl shadow-none"
-                onClick={async () => {
-                  setRestartDialogOpen(false)
-                  await window.openloafElectron?.relaunchApp?.()
-                }}
-              >
-                {t('relaunchNow')}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <ConfirmDialog
+          open={restartDialogOpen}
+          onOpenChange={setRestartDialogOpen}
+          title={t('updateReady')}
+          description={t('restartToApply')}
+          cancelLabel={t('cancelButton')}
+          confirmLabel={t('relaunchNow')}
+          contentClassName="sm:max-w-sm shadow-none border-border/60"
+          onConfirm={async () => {
+            await window.openloafElectron?.relaunchApp?.()
+          }}
+        />
       </SidebarMenuItem>
     </SidebarMenu>
   )
@@ -752,34 +728,18 @@ export function CompactUserAvatar() {
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <Dialog open={restartDialogOpen} onOpenChange={setRestartDialogOpen}>
-        <DialogContent className="sm:max-w-sm shadow-none border-border/60">
-          <DialogHeader>
-            <DialogTitle>{t('updateReady')}</DialogTitle>
-            <DialogDescription>{t('restartToApply')}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setRestartDialogOpen(false)}
-              className="rounded-3xl"
-            >
-              {t('cancelButton')}
-            </Button>
-            <Button
-              type="button"
-              className="rounded-3xl shadow-none"
-              onClick={async () => {
-                setRestartDialogOpen(false)
-                await window.openloafElectron?.relaunchApp?.()
-              }}
-            >
-              {t('relaunchNow')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={restartDialogOpen}
+        onOpenChange={setRestartDialogOpen}
+        title={t('updateReady')}
+        description={t('restartToApply')}
+        cancelLabel={t('cancelButton')}
+        confirmLabel={t('relaunchNow')}
+        contentClassName="sm:max-w-sm shadow-none border-border/60"
+        onConfirm={async () => {
+          await window.openloafElectron?.relaunchApp?.()
+        }}
+      />
     </>
   )
 }

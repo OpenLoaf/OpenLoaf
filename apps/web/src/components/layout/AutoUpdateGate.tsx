@@ -11,15 +11,7 @@
 
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { Button } from "@openloaf/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@openloaf/ui/dialog";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { isElectronEnv } from "@/utils/is-electron-env";
 
 type UpdateSource = "incremental" | "desktop";
@@ -191,38 +183,29 @@ export default function AutoUpdateGate() {
   if (!isElectron) return null;
 
   return (
-    <Dialog
+    <ConfirmDialog
       open={state.open}
       onOpenChange={(open) => setState((prev) => ({ ...prev, open }))}
+      title={t("updateGate.title")}
+      description={
+        isDesktopUpdate
+          ? t("updateGate.descDesktop", { version: nextVersionLabel })
+          : t("updateGate.descIncremental", { version: nextVersionLabel })
+      }
+      cancelLabel={t("updateGate.later")}
+      confirmLabel={t("updateGate.restartNow")}
+      onConfirm={handleRelaunch}
+      contentClassName="max-w-md"
     >
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>{t("updateGate.title")}</DialogTitle>
-          <DialogDescription>
-            {isDesktopUpdate
-              ? t("updateGate.descDesktop", { version: nextVersionLabel })
-              : t("updateGate.descIncremental", { version: nextVersionLabel })}
-          </DialogDescription>
-        </DialogHeader>
-        {!isDesktopUpdate && state.changelogLoading ? (
-          <div className="py-2 text-xs text-muted-foreground">{t("updateGate.loadingChangelog")}</div>
-        ) : !isDesktopUpdate && state.changelog ? (
-          <div className="max-h-48 overflow-y-auto rounded-3xl border p-3">
-            <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap text-xs">
-              {state.changelog}
-            </div>
+      {!isDesktopUpdate && state.changelogLoading ? (
+        <div className="py-2 text-xs text-muted-foreground">{t("updateGate.loadingChangelog")}</div>
+      ) : !isDesktopUpdate && state.changelog ? (
+        <div className="max-h-48 overflow-y-auto rounded-3xl border p-3">
+          <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap text-xs">
+            {state.changelog}
           </div>
-        ) : null}
-        <DialogFooter>
-          <Button
-            variant="ghost"
-            onClick={() => setState((prev) => ({ ...prev, open: false }))}
-          >
-            {t("updateGate.later")}
-          </Button>
-          <Button onClick={() => void handleRelaunch()}>{t("updateGate.restartNow")}</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </div>
+      ) : null}
+    </ConfirmDialog>
   );
 }

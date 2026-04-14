@@ -14,7 +14,6 @@ import type { AiExecuteRequest, AiIntent, AiResponseMode } from "@/ai/services/c
 import { bootstrapAi } from "@/ai/bootstrap";
 import { logger } from "@/common/logger";
 import { toText } from "@/routers/route-utils";
-import { resolveBearerToken } from "../helpers/resolveToken";
 
 const { aiExecuteController: controller } = bootstrapAi();
 
@@ -41,12 +40,10 @@ export function registerAiExecuteRoutes(app: Hono) {
     );
 
     const cookies = getCookie(c) || {};
-    const saasAccessToken = resolveBearerToken(c);
     return controller.execute({
       request: parsed.request,
       cookies,
       requestSignal: c.req.raw.signal,
-      saasAccessToken: saasAccessToken ?? undefined,
     });
   };
 

@@ -179,6 +179,7 @@ export function useProjectTreeDrag({
       await queryClient.invalidateQueries({ queryKey: getProjectsQueryKey() });
     } catch (err: any) {
       toast.error(err?.message ?? t("nav:projectTree.moveFailed"));
+      throw err;
     } finally {
       setIsMoveBusy(false);
     }
@@ -187,7 +188,7 @@ export function useProjectTreeDrag({
   /** Confirm project move after user approval. */
   const handleConfirmProjectMove = async () => {
     if (!pendingMove?.projectId) return;
-    void applyProjectMove({
+    await applyProjectMove({
       projectId: pendingMove.projectId,
       targetParentId: pendingMove.targetParentId ?? null,
       targetSiblingId: pendingMove.targetSiblingId ?? undefined,
@@ -340,14 +341,14 @@ export function useProjectTreeDrag({
             projectHierarchy.parentById.get(lastDropTarget.projectId) ?? null;
           if (canDropProject(sourceProject.projectId, targetParentId)) {
             // 逻辑：调整顺序无需确认，直接提交变更。
-            void applyProjectMove({
+            applyProjectMove({
               projectId: sourceProject.projectId,
               targetParentId,
               targetSiblingId: lastDropTarget.projectId,
               targetPosition:
                 lastDropTarget.position === "before" ? "before" : "after",
               mode: "reorder",
-            });
+            }).catch(() => {});
           }
         }
       }
@@ -442,13 +443,13 @@ export function useProjectTreeDrag({
       });
     } else {
       // 逻辑：调整顺序无需确认，直接提交变更。
-      void applyProjectMove({
+      applyProjectMove({
         projectId: draggingProject.projectId,
         targetParentId,
         targetSiblingId: node.projectId,
         targetPosition: dropPosition === "before" ? "before" : "after",
         mode: "reorder",
-      });
+      }).catch(() => {});
     }
     resetProjectDragState();
   };

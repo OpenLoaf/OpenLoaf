@@ -14,7 +14,6 @@ import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { queryClient, trpc } from '@/utils/trpc'
 import { useStackPanelSlot } from '@/hooks/use-stack-panel-slot'
-import { getCachedAccessToken } from '@/lib/saas-auth'
 import { toast } from 'sonner'
 import { Check, Download, Languages, Loader2, RefreshCw } from 'lucide-react'
 import { Button } from '@openloaf/ui/button'
@@ -84,7 +83,6 @@ function SkillTranslateSlot({ skillFolderPath }: SkillTranslateSlotProps) {
     translateMutation.mutate({
       skillFolderPath,
       targetLanguage: currentLanguage,
-      saasAccessToken: getCachedAccessToken() ?? undefined,
     })
   }, [skillFolderPath, currentLanguage, translateMutation])
 

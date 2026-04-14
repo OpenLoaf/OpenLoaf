@@ -572,49 +572,56 @@ export function useProviderManagement() {
     const apiUrl = draftApiUrl.trim();
     const normalizedName = name.toLowerCase();
     if (!name) {
-      setError(t('provider.errorFillName'));
-      return;
+      const msg = t('provider.errorFillName');
+      setError(msg);
+      throw new Error(msg);
     }
     if (!apiUrl) {
-      setError(t('provider.errorFillApiUrl'));
-      return;
+      const msg = t('provider.errorFillApiUrl');
+      setError(msg);
+      throw new Error(msg);
     }
     let authConfig: Record<string, unknown> | null = null;
     if (draftAuthMode === "accessKey") {
       const accessKeyId = draftAccessKeyId.trim();
       const secretAccessKey = draftSecretAccessKey.trim();
       if (!accessKeyId || !secretAccessKey) {
-        setError(t('provider.errorFillAccessKeys'));
-        return;
+        const msg = t('provider.errorFillAccessKeys');
+        setError(msg);
+        throw new Error(msg);
       }
       authConfig = { accessKeyId, secretAccessKey };
     } else {
       const apiKey = draftApiKey.trim();
       if (!apiKey) {
-        setError(t('provider.errorFillApiKey'));
-        return;
+        const msg = t('provider.errorFillApiKey');
+        setError(msg);
+        throw new Error(msg);
       }
       authConfig = { apiKey };
     }
     if (draftModelIds.length === 0) {
-      setError(t('provider.errorSelectModel'));
-      return;
+      const msg = t('provider.errorSelectModel');
+      setError(msg);
+      throw new Error(msg);
     }
     const nameExists = entries.some((entry) => {
       if (editingKey && entry.key === editingKey) return false;
       return entry.key.toLowerCase() === normalizedName;
     });
     if (nameExists) {
-      setError(t('provider.errorNameExists'));
-      return;
+      const msg = t('provider.errorNameExists');
+      setError(msg);
+      throw new Error(msg);
     }
 
     const providerModels = mergeProviderModels(draftProvider, draftCustomModels);
     const modelIdSet = new Set(providerModels.map((model) => model.id));
     const modelIds = draftModelIds.filter((modelId) => modelIdSet.has(modelId));
     if (modelIds.length === 0) {
-      setError(t('provider.errorModelMissing'));
-      return;
+      const msg = t('provider.errorModelMissing');
+      setError(msg);
+      throw new Error(msg);
     }
     const models = modelIds.reduce<Record<string, ModelDefinition>>((acc, modelId) => {
       const model = providerModels.find((item) => item.id === modelId);
@@ -635,7 +642,6 @@ export function useProviderManagement() {
 
     if (!editingKey) {
       await setValue(name, entryValue, "provider");
-      setDialogOpen(false);
       return;
     }
 
@@ -643,7 +649,6 @@ export function useProviderManagement() {
     const nextKey = shouldReuseKey ? editingKey : name;
     if (!shouldReuseKey) await removeValue(editingKey, "provider");
     await setValue(nextKey, entryValue, "provider");
-    setDialogOpen(false);
   }
 
   /**
@@ -703,22 +708,26 @@ export function useProviderManagement() {
     const modelName = draftModelName.trim();
     const isEditing = Boolean(editingModelId);
     if (!modelId) {
-      setModelError(t('provider.errorFillModelId'));
-      return;
+      const msg = t('provider.errorFillModelId');
+      setModelError(msg);
+      throw new Error(msg);
     }
     const existing = modelOptions.some((model) => model.id === modelId);
     if (existing && (!isEditing || modelId !== editingModelId)) {
-      setModelError(t('provider.errorModelIdExists'));
-      return;
+      const msg = t('provider.errorModelIdExists');
+      setModelError(msg);
+      throw new Error(msg);
     }
     if (draftModelTags.length === 0) {
-      setModelError(t('provider.errorSelectCapability'));
-      return;
+      const msg = t('provider.errorSelectCapability');
+      setModelError(msg);
+      throw new Error(msg);
     }
     const maxContextK = Number.parseFloat(draftModelContextK);
     if (!Number.isFinite(maxContextK) || maxContextK < 0) {
-      setModelError(t('provider.errorInvalidContextLength'));
-      return;
+      const msg = t('provider.errorInvalidContextLength');
+      setModelError(msg);
+      throw new Error(msg);
     }
     const baseModel = editingModelSnapshot ?? {};
     const baseModelRest = { ...(baseModel as ModelDefinition) };
@@ -763,7 +772,6 @@ export function useProviderManagement() {
       setEditingModelEntry(null);
       setEditingModelId(null);
       setEditingModelSnapshot(null);
-      setModelDialogOpen(false);
       return;
     }
     if (isEditing) {
@@ -781,7 +789,6 @@ export function useProviderManagement() {
       setDraftCustomModels((prev) => [...prev, newModel]);
       setDraftModelIds((prev) => Array.from(new Set([...prev, modelId])));
     }
-    setModelDialogOpen(false);
   }
 
   /**

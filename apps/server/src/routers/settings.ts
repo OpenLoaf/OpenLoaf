@@ -33,7 +33,9 @@ import {
   setSettingValueFromWeb,
 } from "@/modules/settings/settingsService"
 import {
+  addToolApprovalRuleAtomic,
   readToolApprovalRules,
+  removeToolApprovalRuleAtomic,
   writeToolApprovalRules,
 } from "@/modules/settings/openloafConfStore"
 import {
@@ -147,42 +149,38 @@ class SettingRouterImpl extends BaseSettingRouter {
           return { ok: true, status }
         }),
 
-      // ─── Tool Approval Rules (global) ──────────────────────────────────
+      // ─── Tool Approval Rules (global / temp-chat scope) ───────────────
       getToolApprovalRules: shieldedProcedure
-        .query(() => readToolApprovalRules()),
+        .output(settingSchemas.getToolApprovalRules.output)
+        .query(() => {
+          const rules = readToolApprovalRules()
+          return {
+            allow: rules.allow,
+            deny: rules.deny,
+          }
+        }),
 
       setToolApprovalRules: shieldedProcedure
-        .input(z.object({
-          allow: z.array(z.string()).optional(),
-          deny: z.array(z.string()).optional(),
-        }))
+        .input(settingSchemas.setToolApprovalRules.input)
+        .output(settingSchemas.setToolApprovalRules.output)
         .mutation(({ input }) => {
           writeToolApprovalRules(input)
           return { ok: true }
         }),
 
       addToolApprovalRule: shieldedProcedure
-        .input(z.object({
-          rule: z.string(),
-          behavior: z.enum(['allow', 'deny']),
-        }))
-        .mutation(({ input }) => {
-          const current = readToolApprovalRules()
-          const list = current[input.behavior] ?? []
-          if (!list.includes(input.rule)) list.push(input.rule)
-          writeToolApprovalRules({ ...current, [input.behavior]: list })
+        .input(settingSchemas.addToolApprovalRule.input)
+        .output(settingSchemas.addToolApprovalRule.output)
+        .mutation(async ({ input }) => {
+          await addToolApprovalRuleAtomic(input.rule, input.behavior)
           return { ok: true }
         }),
 
       removeToolApprovalRule: shieldedProcedure
-        .input(z.object({
-          rule: z.string(),
-          behavior: z.enum(['allow', 'deny']),
-        }))
-        .mutation(({ input }) => {
-          const current = readToolApprovalRules()
-          const list = (current[input.behavior] ?? []).filter((r: string) => r !== input.rule)
-          writeToolApprovalRules({ ...current, [input.behavior]: list.length > 0 ? list : undefined })
+        .input(settingSchemas.removeToolApprovalRule.input)
+        .output(settingSchemas.removeToolApprovalRule.output)
+        .mutation(async ({ input }) => {
+          await removeToolApprovalRuleAtomic(input.rule, input.behavior)
           return { ok: true }
         }),
 

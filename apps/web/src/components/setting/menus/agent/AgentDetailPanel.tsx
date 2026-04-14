@@ -189,10 +189,6 @@ type FormSnapshot = {
   auxiliaryModelLocalIds: string[]
   auxiliaryModelCloudIds: string[]
   auxiliaryModelSource: string
-  /** Selected image model ids (empty = Auto). */
-  imageModelIds: string[]
-  /** Selected video model ids (empty = Auto). */
-  videoModelIds: string[]
   toolIds: string[]
   skills: string[]
   allowSubAgents: boolean
@@ -625,8 +621,6 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
   const [auxiliaryModelSource, setAuxiliaryModelSource] = useState('local')
   const [auxiliaryModelLocalIds, setAuxiliaryModelLocalIds] = useState<string[]>([])
   const [auxiliaryModelCloudIds, setAuxiliaryModelCloudIds] = useState<string[]>([])
-  const [imageModelIds, setImageModelIds] = useState<string[]>([])
-  const [videoModelIds, setVideoModelIds] = useState<string[]>([])
   const [thinkingMode, setThinkingMode] = useState<ThinkingMode>('fast')
   const [localChatSource, setLocalChatSource] = useState<'local' | 'cloud'>('local')
   const [toolIds, setToolIds] = useState<string[]>([])
@@ -870,8 +864,6 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
     const sanitizedToolIds = Array.isArray(d.toolIds)
       ? normalizeAgentToolIds(d.toolIds)
       : []
-    setImageModelIds(Array.isArray(d.imageModelIds) ? d.imageModelIds : [])
-    setVideoModelIds(Array.isArray(d.videoModelIds) ? d.videoModelIds : [])
     setToolIds(sanitizedToolIds)
     // 逻辑：主助手默认全选技能 — 如果 config 中 skills 为空数组，初始化为所有可用技能。
     const resolvedSkills =
@@ -882,7 +874,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
     setAllowSubAgents(d.allowSubAgents)
     setMaxDepth(d.maxDepth)
     setSystemPrompt(d.systemPrompt)
-    savedSnapshotRef.current = makeSnapshot({
+    const snapshot = makeSnapshot({
       name: d.name,
       description: d.description,
       icon: d.icon,
@@ -897,37 +889,14 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
       auxiliaryModelCloudIds: Array.isArray(d.auxiliaryModelCloudIds)
         ? d.auxiliaryModelCloudIds
         : [],
-      imageModelIds: Array.isArray(d.imageModelIds) ? d.imageModelIds : [],
-      videoModelIds: Array.isArray(d.videoModelIds) ? d.videoModelIds : [],
       toolIds: sanitizedToolIds,
       skills: resolvedSkills,
       allowSubAgents: d.allowSubAgents,
       maxDepth: d.maxDepth,
       systemPrompt: d.systemPrompt,
     })
-    setDefaultSnapshot(makeSnapshot({
-      name: d.name,
-      description: d.description,
-      icon: d.icon,
-      modelLocalIds: Array.isArray(d.modelLocalIds) ? d.modelLocalIds : [],
-      modelCloudIds: Array.isArray(d.modelCloudIds) ? d.modelCloudIds : [],
-      auxiliaryModelSource: normalizeChatModelSource(
-        d.auxiliaryModelSource ?? basic.chatSource,
-      ),
-      auxiliaryModelLocalIds: Array.isArray(d.auxiliaryModelLocalIds)
-        ? d.auxiliaryModelLocalIds
-        : [],
-      auxiliaryModelCloudIds: Array.isArray(d.auxiliaryModelCloudIds)
-        ? d.auxiliaryModelCloudIds
-        : [],
-      imageModelIds: Array.isArray(d.imageModelIds) ? d.imageModelIds : [],
-      videoModelIds: Array.isArray(d.videoModelIds) ? d.videoModelIds : [],
-      toolIds: sanitizedToolIds,
-      skills: resolvedSkills,
-      allowSubAgents: d.allowSubAgents,
-      maxDepth: d.maxDepth,
-      systemPrompt: d.systemPrompt,
-    }))
+    savedSnapshotRef.current = snapshot
+    setDefaultSnapshot(snapshot)
   }, [
     availableSkills,
     basic.chatSource,

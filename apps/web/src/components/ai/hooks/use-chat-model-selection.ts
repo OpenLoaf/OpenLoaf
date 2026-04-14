@@ -23,11 +23,10 @@ import {
 } from "@/lib/model-capabilities";
 
 /**
- * Resolve model selection state for chat with tab/global memory scope support.
- * @param _tabId Unused tab id (kept for signature compatibility).
+ * Resolve model selection state for chat.
  * @param projectId Optional project id for resolving project-scoped master agent.
  */
-export function useChatModelSelection(_tabId?: string, projectId?: string) {
+export function useChatModelSelection(projectId?: string) {
   const { basic } = useBasicConfig();
   const { providerItems } = useSettingsValues();
   const { models: cloudModels } = useCloudModels();
@@ -82,7 +81,5 @@ export function useChatModelSelection(_tabId?: string, projectId?: string) {
     canImageGeneration,
     canImageEdit,
     isCodexProvider,
-    imageModelId: masterDetail?.imageModelIds?.[0]?.trim() || undefined,
-    videoModelId: masterDetail?.videoModelIds?.[0]?.trim() || undefined,
   };
 }

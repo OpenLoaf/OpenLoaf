@@ -50,6 +50,16 @@ import { scheduledTaskManageTool, scheduledTaskStatusTool, scheduledTaskWaitTool
 import { bgListTool, bgKillTool } from "@/ai/tools/bgTaskTools";
 import { sleepTool } from "@/ai/tools/sleepTool";
 import { memorySaveTool, memorySearchTool, memoryGetTool } from "@/ai/tools/memoryTools";
+import {
+  cloudLoginTool,
+  cloudUserInfoTool,
+  cloudTaskCancelTool,
+  cloudCapBrowseTool,
+  cloudCapDetailTool,
+  cloudModelGenerateTool,
+  cloudTaskTool,
+  cloudTextGenerateTool,
+} from "@/ai/tools/cloud/cloudTools";
 import { openUrlToolDef } from "@openloaf/api/types/tools/browser";
 import {
   browserActToolDef,
@@ -102,6 +112,16 @@ import {
   memoryGetToolDef,
 } from "@openloaf/api/types/tools/memory";
 import {
+  cloudLoginToolDef,
+  cloudUserInfoToolDef,
+  cloudTaskCancelToolDef,
+  cloudCapBrowseToolDef,
+  cloudCapDetailToolDef,
+  cloudModelGenerateToolDef,
+  cloudTaskToolDef,
+  cloudTextGenerateToolDef,
+} from "@openloaf/api/types/tools/cloud";
+import {
   bashToolDef,
   powerShellToolDef,
   readToolDef,
@@ -126,10 +146,16 @@ import {
   browserWaitTool,
   browserDownloadImageTool,
 } from "@/ai/tools/browserAutomationTools";
+import {
+  getCloudToolEntry,
+  getCloudToolDef,
+  getCloudToolIds,
+} from "@/ai/tools/cloud/cloudToolsDynamic";
 import { wrapToolWithTimeout } from "@/ai/tools/toolTimeout";
 import { wrapToolWithErrorEnhancer } from "@/ai/tools/toolErrorEnhancer";
 import { wrapToolWithInputValidation } from "@/ai/tools/toolInputValidation";
 import { getRequestContext } from "@/ai/shared/context/requestContext";
+import { evaluateToolRules } from "@/ai/tools/toolApprovalMatcher";
 import { zodSchema } from "ai";
 
 type ToolEntry = {
@@ -354,6 +380,30 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
   [memoryGetToolDef.id]: {
     tool: memoryGetTool,
   },
+  [cloudCapBrowseToolDef.id]: {
+    tool: cloudCapBrowseTool,
+  },
+  [cloudCapDetailToolDef.id]: {
+    tool: cloudCapDetailTool,
+  },
+  [cloudModelGenerateToolDef.id]: {
+    tool: cloudModelGenerateTool,
+  },
+  [cloudTextGenerateToolDef.id]: {
+    tool: cloudTextGenerateTool,
+  },
+  [cloudTaskToolDef.id]: {
+    tool: cloudTaskTool,
+  },
+  [cloudTaskCancelToolDef.id]: {
+    tool: cloudTaskCancelTool,
+  },
+  [cloudUserInfoToolDef.id]: {
+    tool: cloudUserInfoTool,
+  },
+  [cloudLoginToolDef.id]: {
+    tool: cloudLoginTool,
+  },
 };
 
 
@@ -421,6 +471,14 @@ const TOOL_DEF_REGISTRY: Record<string, { parameters?: any }> = {
   [memorySaveToolDef.id]: memorySaveToolDef,
   [memorySearchToolDef.id]: memorySearchToolDef,
   [memoryGetToolDef.id]: memoryGetToolDef,
+  [cloudCapBrowseToolDef.id]: cloudCapBrowseToolDef,
+  [cloudCapDetailToolDef.id]: cloudCapDetailToolDef,
+  [cloudModelGenerateToolDef.id]: cloudModelGenerateToolDef,
+  [cloudTextGenerateToolDef.id]: cloudTextGenerateToolDef,
+  [cloudTaskToolDef.id]: cloudTaskToolDef,
+  [cloudTaskCancelToolDef.id]: cloudTaskCancelToolDef,
+  [cloudUserInfoToolDef.id]: cloudUserInfoToolDef,
+  [cloudLoginToolDef.id]: cloudLoginToolDef,
 };
 
 /**
@@ -432,7 +490,7 @@ export function getToolJsonSchemas(toolIds: string[]): Record<string, object> {
   const result: Record<string, object> = {}
   for (const id of toolIds) {
     const resolved = resolveToolId(id)
-    const def = TOOL_DEF_REGISTRY[resolved]
+    const def = TOOL_DEF_REGISTRY[resolved] ?? getCloudToolDef(resolved)
     if (!def?.parameters) continue
     try {
       const full = zodSchema(def.parameters).jsonSchema as Record<string, unknown>
@@ -444,6 +502,14 @@ export function getToolJsonSchemas(toolIds: string[]): Record<string, object> {
     }
   }
   return result
+}
+
+/**
+ * Cloud tool ids registered at runtime (tools category features). Consumed
+ * by agentFactory so these ids show up in allToolIds / ToolSearch catalog.
+ */
+export function getRuntimeCloudToolIds(): string[] {
+  return getCloudToolIds()
 }
 
 /** Tool IDs excluded from auto-approval (complex/interactive). */
@@ -466,6 +532,39 @@ function wrapToolWithAutoApproval(toolId: string, tool: any): any {
           const ctx = getRequestContext();
           return !(ctx?.autoApproveTools || ctx?.supervisionMode);
         },
+  };
+}
+
+/**
+ * Wrap tool so user-configured allow/deny rules override the default
+ * needsApproval decision. The rules come from requestContext, which is
+ * populated in chatStreamHelpers:initRequestContext according to scope:
+ *   - project chat → project.json aiSettings.toolApprovalRules
+ *   - temporary chat → global tool-approval.json
+ *
+ * Semantics (mirrors toolApprovalMatcher.evaluateToolRules):
+ *   - deny matched → force approval (user can still reject at prompt)
+ *   - allow matched → skip approval
+ *   - unmatched → defer to original needsApproval (tool's built-in policy)
+ */
+function wrapToolWithUserRules(toolId: string, tool: any): any {
+  if (AUTO_APPROVE_EXCLUDED_TOOLS.has(toolId)) return tool;
+  const original = tool.needsApproval;
+  return {
+    ...tool,
+    needsApproval: (...args: any[]) => {
+      const rules = getRequestContext()?.toolApprovalRules;
+      if (rules) {
+        const input = (args[0] ?? {}) as Record<string, unknown>;
+        const verdict = evaluateToolRules(rules, toolId, input);
+        if (verdict === "deny") return true;
+        if (verdict === "allow") return false;
+      }
+      if (typeof original === "function") {
+        return (original as Function)(...args);
+      }
+      return original === true;
+    },
   };
 }
 
@@ -492,12 +591,17 @@ function resolveToolId(toolId: string): string {
 
 /**
  * Returns the tool instance by ToolDef.id.
- * Checks the static native registry first, then the dynamic MCP registry.
+ * Checks the static native registry, the dynamic MCP registry, then the
+ * runtime cloud tools registry (populated by startCloudToolsPreloadLoop).
  * Supports legacy tool ID aliases for backward compatibility.
  */
 function getToolById(toolId: string): ToolEntry | undefined {
   const resolved = resolveToolId(toolId)
-  return TOOL_REGISTRY[resolved] ?? MCP_TOOL_REGISTRY.get(resolved);
+  return (
+    TOOL_REGISTRY[resolved] ??
+    MCP_TOOL_REGISTRY.get(resolved) ??
+    getCloudToolEntry(resolved)
+  );
 }
 
 /**
@@ -522,7 +626,8 @@ export function buildToolset(toolIds: readonly string[] = []) {
       toolInstance = { ...toolInstance, needsApproval: undefined }
     }
 
-    const withAutoApproval = wrapToolWithAutoApproval(toolId, toolInstance);
+    const withUserRules = wrapToolWithUserRules(toolId, toolInstance);
+    const withAutoApproval = wrapToolWithAutoApproval(toolId, withUserRules);
     const withInputValidation = wrapToolWithInputValidation(toolId, withAutoApproval);
     const withTimeout = wrapToolWithTimeout(toolId, withInputValidation);
     const withErrorEnhancer = wrapToolWithErrorEnhancer(toolId, withTimeout);

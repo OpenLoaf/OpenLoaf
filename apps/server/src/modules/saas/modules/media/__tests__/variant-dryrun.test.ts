@@ -160,6 +160,8 @@ test('拉取 image/video/audio capabilities', async () => {
     }
     const caps = r.value
     for (const feature of caps.data.features) {
+      // Flat tool features have no variants (v0.1.41+); skip — this test covers media only.
+      if (!('variants' in feature)) continue
       for (const variant of feature.variants) {
         capabilitiesMap.set(`${feature.id}:${variant.id}`, {
           feature: feature.id,

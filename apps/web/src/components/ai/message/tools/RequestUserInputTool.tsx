@@ -830,7 +830,6 @@ export default function RequestUserInputTool({
       className={cn(
         'max-w-md min-w-0 text-xs overflow-hidden rounded-lg border border-border/60 bg-card text-foreground',
         className,
-        isStreaming && 'openloaf-tool-streaming',
       )}
     >
       {/* ── Title bar ── */}

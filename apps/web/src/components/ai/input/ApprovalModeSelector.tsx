@@ -13,16 +13,7 @@ import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Shield, ShieldOff } from "lucide-react"
 import { cn } from "@/lib/utils"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@openloaf/ui/alert-dialog"
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
 import {
   Tooltip,
   TooltipContent,
@@ -116,27 +107,15 @@ export default function ApprovalModeSelector({
         </TooltipContent>
       </Tooltip>
 
-      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {t('approval.enableDialog')}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {t('approval.enableDescription')}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t('approval.cancel')}</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-foreground text-background hover:bg-foreground/90"
-              onClick={() => onChange("auto")}
-            >
-              {t('approval.confirmEnable')}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title={t('approval.enableDialog')}
+        description={t('approval.enableDescription')}
+        confirmLabel={t('approval.confirmEnable')}
+        cancelLabel={t('approval.cancel')}
+        onConfirm={() => onChange("auto")}
+      />
     </>
   )
 }

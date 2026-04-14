@@ -37,7 +37,6 @@ import {
 import { useInfiniteQuery, useMutation, keepPreviousData } from "@tanstack/react-query";
 import { queryClient, trpc, trpcClient } from "@/utils/trpc";
 import { toast } from "sonner";
-import { getCachedAccessToken } from "@/lib/saas-auth";
 import { cleanupProjectCache } from "@/lib/project-cache-cleanup";
 
 import { useIsInView } from "@/hooks/use-is-in-view";
@@ -87,6 +86,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@openloaf/ui/tooltip";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 /** Check whether a string looks like an emoji icon (not a plain ASCII word like "code"). */
 function isEmojiIcon(value: string | undefined | null): value is string {
@@ -430,7 +430,7 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
       // Fire-and-forget: infer project type via auxiliary model.
       if (res.project?.projectId) {
         trpcClient.settings.inferProjectType
-          .mutate({ projectId: res.project.projectId, saasAccessToken: getCachedAccessToken() ?? undefined })
+          .mutate({ projectId: res.project.projectId })
           .then(() => invalidateProjects())
           .catch(() => {});
       }
@@ -463,7 +463,7 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
             // Fire-and-forget: infer project type via auxiliary model.
             if (data.projectId) {
               trpcClient.settings.inferProjectType
-                .mutate({ projectId: data.projectId, saasAccessToken: getCachedAccessToken() ?? undefined })
+                .mutate({ projectId: data.projectId })
                 .then(() => invalidateProjects())
                 .catch(() => {});
             }
@@ -571,15 +571,14 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
     [],
   );
 
-  const confirmRemove = useCallback(() => {
+  const confirmRemove = useCallback(async () => {
     if (!removeTarget) return;
     if (removeAlsoDestroy) {
-      destroyMutation.mutate({ projectId: removeTarget });
+      await destroyMutation.mutateAsync({ projectId: removeTarget });
     } else {
-      removeMutation.mutate({ projectId: removeTarget });
+      await removeMutation.mutateAsync({ projectId: removeTarget });
     }
     cleanupProjectCache(removeTarget);
-    setRemoveTarget(null);
   }, [removeTarget, removeAlsoDestroy, destroyMutation, removeMutation]);
 
   const handleChangeProjectColor = useCallback(
@@ -1108,48 +1107,28 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
         </DialogContent>
       </Dialog>
       {/* Remove project confirmation dialog */}
-      <Dialog
+      <ConfirmDialog
         open={!!removeTarget}
         onOpenChange={(open) => {
           if (!open) setRemoveTarget(null);
         }}
+        title={t("projectListPage.removeTitle")}
+        description={t("projectListPage.removeDesc")}
+        confirmLabel={removeAlsoDestroy ? t("projectListPage.destroyConfirm") : t("projectTree.remove")}
+        cancelLabel={t("cancel")}
+        variant="destructive"
+        onConfirm={confirmRemove}
       >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{t("projectListPage.removeTitle")}</DialogTitle>
-            <DialogDescription>
-              {t("projectListPage.removeDesc")}
-            </DialogDescription>
-          </DialogHeader>
-          <label className="flex items-center gap-2 cursor-pointer select-none">
-            <Checkbox
-              checked={removeAlsoDestroy}
-              onCheckedChange={(v) => setRemoveAlsoDestroy(v === true)}
-            />
-            <span className="text-sm text-destructive">
-              {t("projectListPage.removeAlsoDestroy")}
-            </span>
-          </label>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button
-                variant="ghost"
-                className="rounded-3xl text-muted-foreground shadow-none transition-colors duration-150"
-              >
-                {t("cancel")}
-              </Button>
-            </DialogClose>
-            <Button
-              variant="ghost"
-              className="rounded-3xl bg-destructive/10 text-destructive hover:bg-destructive/20 shadow-none transition-colors duration-150"
-              onClick={confirmRemove}
-              disabled={removeMutation.isPending || destroyMutation.isPending}
-            >
-              {removeAlsoDestroy ? t("projectListPage.destroyConfirm") : t("projectTree.remove")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        <label className="flex items-center gap-2 cursor-pointer select-none">
+          <Checkbox
+            checked={removeAlsoDestroy}
+            onCheckedChange={(v) => setRemoveAlsoDestroy(v === true)}
+          />
+          <span className="text-sm text-destructive">
+            {t("projectListPage.removeAlsoDestroy")}
+          </span>
+        </label>
+      </ConfirmDialog>
       {/* Create project dialog (3 options: new / import / git clone) */}
       <Dialog
         open={isCreateOpen}

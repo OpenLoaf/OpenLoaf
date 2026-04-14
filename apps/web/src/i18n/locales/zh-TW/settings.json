@@ -169,8 +169,36 @@
     "shortcuts": "快速鍵",
     "projectTest": "測試",
     "mcp": "MCP 配置",
+    "toolApproval": "工具白名單",
     "about": "關於 OpenLoaf",
     "subscription": "訂閱"
+  },
+  "toolApproval": {
+    "title": "工具白名單",
+    "tempChatScopeNote": "AI 在執行命令前會請求你確認。這裡列出的是你已經允許它在臨時對話中自動執行的命令。規則會永久保存到本地設定，關閉應用或開新對話都不會重置。",
+    "projectScopeNote": "AI 在執行命令前會請求你確認。這裡列出的是你已經允許它在本專案中自動執行的命令。",
+    "alwaysAllowHint": "想加新的？下次 AI 彈出審批時點「始終允許」即可。",
+    "allowedList": "已允許的工具呼叫",
+    "denyList": "已阻止的工具呼叫",
+    "denyHint": "這些命令即使在聊天裡也會被強制審批，無法被「始終允許」覆蓋。",
+    "emptyTitle": "還沒有自動執行的命令",
+    "emptyList": "AI 仍會在執行每條命令前向你確認。在聊天裡點「始終允許」就能把命令加到這裡。",
+    "remove": "刪除",
+    "removeFailed": "刪除失敗，請重試",
+    "loading": "載入中...",
+    "projectRequired": "請選擇一個專案",
+    "describe": {
+      "bash": "終端命令",
+      "powershell": "PowerShell",
+      "edit": "編輯檔案",
+      "write": "寫入檔案",
+      "read": "讀取檔案",
+      "glob": "尋找檔案",
+      "grep": "搜尋檔案",
+      "cloudModelGenerate": "雲端媒體生成",
+      "cloudTextGenerate": "雲端文本處理",
+      "any": "任意"
+    }
   },
   "mcp": {
     "searchPlaceholder": "搜尋 MCP 伺服器...",
@@ -766,6 +794,16 @@
     "scopeGlobal": "全域技能",
     "scopeProject": "專案技能",
     "scopeProjectSpace": "專案空間技能",
+    "confirmReset": "確定要初始化「{{name}}」嗎？\n\n將刪除 openloaf.json 和翻譯檔案，技能原始內容不受影響。",
+    "resetSkill": "初始化",
+    "resetSuccess": "技能已初始化",
+    "exportSkill": "匯出",
+    "changeColor": "變更顏色",
+    "totalCount": "{{count}} 個技能",
+    "refresh": "重新整理",
+    "export": {
+      "failed": "匯出失敗"
+    },
     "translate": {
       "buttonTranslate": "翻譯為中文",
       "buttonRetranslate": "重新翻譯",
@@ -837,6 +875,24 @@
         "newest": "最新",
         "rating": "最高評分"
       }
+    },
+    "translateTitles": {
+      "button": "翻譯標題",
+      "dialogTitle": "翻譯技能標題",
+      "dialogDesc": "將翻譯 {{count}} 個技能的標題和描述",
+      "dialogDescDone": "翻譯完成：{{translated}} 個已翻譯，{{skipped}} 個已跳過",
+      "dialogDescError": "已翻譯 {{translated}} 個，因錯誤中斷",
+      "retranslateAll": "重新翻譯全部技能（覆蓋已有翻譯）",
+      "translated": "{{count}} 已翻譯",
+      "skipped": "{{count}} 跳過",
+      "errors": "{{count}} 失敗",
+      "stoppedAt": "已處理 {{processed}}/{{total}}，因錯誤中斷",
+      "allSkipped": "所有技能標題已是最新，無需翻譯",
+      "noPending": "沒有需要翻譯的技能，勾選上方選項可重新翻譯全部",
+      "cancel": "取消",
+      "start": "開始翻譯",
+      "stop": "停止",
+      "close": "關閉"
     }
   },
   "modelSelector": {

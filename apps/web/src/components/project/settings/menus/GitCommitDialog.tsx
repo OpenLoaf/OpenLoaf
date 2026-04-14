@@ -13,14 +13,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@openloaf/ui/dialog";
+import { FormDialog } from "@/components/ui/FormDialog";
 import { Button } from "@openloaf/ui/button";
 import { Input } from "@openloaf/ui/input";
 import { Textarea } from "@openloaf/ui/textarea";
@@ -31,7 +24,6 @@ import { ScrollArea } from "@openloaf/ui/scroll-area";
 import { Loader2, Sparkles } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
-import { getCachedAccessToken } from "@/lib/saas-auth";
 
 type GitCommitDialogProps = {
   projectId: string;
@@ -77,22 +69,30 @@ export function GitCommitDialog({
     }),
   );
 
-  const commitMutation = useMutation(
-    trpc.project.gitCommit.mutationOptions({
-      onSuccess: (data) => {
-        if (data.ok) {
-          toast.success(t("project.git.commitSuccess"));
-          onOpenChange(false);
-          onCommitSuccess?.();
-        } else {
-          toast.error(data.error ?? t("project.git.commitFailed"));
-        }
-      },
-      onError: () => {
+  const commitMutation = useMutation(trpc.project.gitCommit.mutationOptions());
+
+  const handleCommit = async () => {
+    try {
+      const data = await commitMutation.mutateAsync({
+        projectId,
+        subject: subject.trim(),
+        body: body.trim() || undefined,
+        stageAll,
+      });
+      if (data.ok) {
+        toast.success(t("project.git.commitSuccess"));
+        onCommitSuccess?.();
+      } else {
+        toast.error(data.error ?? t("project.git.commitFailed"));
+        throw new Error(data.error ?? "commit failed");
+      }
+    } catch (error) {
+      if (!(error instanceof Error && error.message === "commit failed")) {
         toast.error(t("project.git.commitFailed"));
-      },
-    }),
-  );
+      }
+      throw error;
+    }
+  };
 
   // Reset form when dialog opens
   useEffect(() => {
@@ -110,19 +110,37 @@ export function GitCommitDialog({
   ];
 
   const canCommit =
-    subject.trim().length > 0 &&
-    (status?.hasStagedChanges || stageAll) &&
-    !commitMutation.isPending;
+    subject.trim().length > 0 && (status?.hasStagedChanges || stageAll);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{t("project.git.commitTitle")}</DialogTitle>
-          <DialogDescription>{t("project.git.commitDesc")}</DialogDescription>
-        </DialogHeader>
-
-        {/* Changed files list */}
+    <FormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={t("project.git.commitTitle")}
+      description={t("project.git.commitDesc")}
+      onSubmit={handleCommit}
+      submitDisabled={!canCommit}
+      submitLabel={t("project.git.commitSubmit")}
+      contentClassName="max-w-lg"
+      footerLeft={
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="gap-1.5 rounded-3xl shadow-none transition-colors duration-150"
+          disabled={generateMutation.isPending}
+          onClick={() => generateMutation.mutate({ projectId })}
+        >
+          {generateMutation.isPending ? (
+            <Loader2 className="size-3.5 animate-spin" />
+          ) : (
+            <Sparkles className="size-3.5" />
+          )}
+          {t("project.git.commitAiGenerate")}
+        </Button>
+      }
+    >
+      {/* Changed files list */}
         <div className="space-y-2">
           <Label className="text-xs text-muted-foreground">
             {t("project.git.changedFiles")}
@@ -176,6 +194,7 @@ export function GitCommitDialog({
               placeholder="feat(scope): short description"
               className="mt-1 font-mono text-sm"
               maxLength={72}
+              autoFocus
             />
           </div>
           <div>
@@ -202,49 +221,6 @@ export function GitCommitDialog({
             </Label>
           </div>
         </div>
-
-        <DialogFooter className="gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5"
-            disabled={generateMutation.isPending}
-            onClick={() => generateMutation.mutate({ projectId, saasAccessToken: getCachedAccessToken() ?? undefined })}
-          >
-            {generateMutation.isPending ? (
-              <Loader2 className="size-3.5 animate-spin" />
-            ) : (
-              <Sparkles className="size-3.5" />
-            )}
-            {t("project.git.commitAiGenerate")}
-          </Button>
-          <div className="flex-1" />
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onOpenChange(false)}
-          >
-            {t("project.git.commitCancel")}
-          </Button>
-          <Button
-            size="sm"
-            disabled={!canCommit}
-            onClick={() => {
-              commitMutation.mutate({
-                projectId,
-                subject: subject.trim(),
-                body: body.trim() || undefined,
-                stageAll,
-              });
-            }}
-          >
-            {commitMutation.isPending ? (
-              <Loader2 className="size-3.5 animate-spin mr-1.5" />
-            ) : null}
-            {t("project.git.commitSubmit")}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

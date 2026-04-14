@@ -42,6 +42,7 @@ import { EmojiPicker } from "@openloaf/ui/emoji-picker";
 import { Input } from "@openloaf/ui/input";
 import { Label } from "@openloaf/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@openloaf/ui/popover";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import {
   ArrowUpRight,
   ClipboardCopy,
@@ -677,7 +678,7 @@ export const PageTreeMenu = ({
                         prev ? { ...prev, customPath: event.target.value } : prev
                       )
                     }
-                    placeholder="file://... 或 /path/to/project"
+                    placeholder={t('projectTree.pathPlaceholder', { defaultValue: 'file://... 或 /path/to/project' })}
                   />
                   <Button
                     type="button"
@@ -756,7 +757,7 @@ export const PageTreeMenu = ({
                       prev ? { ...prev, path: event.target.value } : prev
                     )
                   }
-                  placeholder="file://... 或 /path/to/project"
+                  placeholder={t('projectTree.pathPlaceholder', { defaultValue: 'file://... 或 /path/to/project' })}
                 />
                 <Button
                   type="button"
@@ -808,142 +809,103 @@ export const PageTreeMenu = ({
         </DialogContent>
       </Dialog>
 
-      <Dialog
+      <ConfirmDialog
         open={Boolean(actions.deleteTarget)}
         onOpenChange={(open) => {
           if (open) return;
           actions.setDeleteTarget(null);
         }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t("nav:projectTree.deleteTitle")}</DialogTitle>
-            <DialogDescription>{t("nav:projectTree.deleteFileDesc")}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="outline" type="button">
-                {t("common:cancel")}
-              </Button>
-            </DialogClose>
-            <Button variant="destructive" onClick={actions.handleDelete} disabled={actions.isBusy}>
-              {t("common:delete")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        title={t("nav:projectTree.deleteTitle")}
+        description={t("nav:projectTree.deleteFileDesc")}
+        confirmLabel={t("common:delete")}
+        variant="destructive"
+        loading={actions.isBusy}
+        onConfirm={actions.handleDelete}
+      />
 
-      <Dialog
+      <ConfirmDialog
         open={Boolean(actions.removeTarget)}
         onOpenChange={(open) => {
           if (open) return;
           actions.resetRemoveDialogState();
         }}
+        title={t("nav:projectTree.removeTitle")}
+        description={t("nav:projectTree.removeDesc")}
+        confirmLabel={actions.removeButtonText}
+        variant="destructive"
+        disabled={actions.isRemoveActionDisabled}
+        loading={actions.isRemoveBusy}
+        onConfirm={actions.removeAction}
       >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t("nav:projectTree.removeTitle")}</DialogTitle>
-            <DialogDescription>{t("nav:projectTree.removeDesc")}</DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="flex items-start gap-2">
-              <Checkbox
-                id="remove-project-permanent"
-                checked={actions.isPermanentRemoveChecked}
-                onCheckedChange={(checked) => {
-                  const nextChecked = Boolean(checked);
-                  actions.setIsPermanentRemoveChecked(nextChecked);
-                  if (!nextChecked) {
-                    // 逻辑：取消勾选时清空确认输入，避免误触发彻底删除。
-                    actions.setPermanentRemoveText("");
-                  }
-                }}
-              />
-              <Label htmlFor="remove-project-permanent">
-                {t("nav:projectTree.permanentDeleteHint")}
-              </Label>
-            </div>
-            {actions.isPermanentRemoveChecked ? (
-              <div className="grid gap-2">
-                <Label htmlFor="remove-project-confirm">{t("nav:projectTree.permanentDeleteConfirmLabel")}</Label>
-                <Input
-                  id="remove-project-confirm"
-                  value={actions.permanentRemoveText}
-                  onChange={(event) => actions.setPermanentRemoveText(event.target.value)}
-                  placeholder="delete"
-                />
-                <p className="text-xs text-muted-foreground">
-                  {t("nav:projectTree.permanentDeleteNote")}
-                </p>
-              </div>
-            ) : null}
+        <div className="grid gap-4 py-4">
+          <div className="flex items-start gap-2">
+            <Checkbox
+              id="remove-project-permanent"
+              checked={actions.isPermanentRemoveChecked}
+              onCheckedChange={(checked) => {
+                const nextChecked = Boolean(checked);
+                actions.setIsPermanentRemoveChecked(nextChecked);
+                if (!nextChecked) {
+                  actions.setPermanentRemoveText("");
+                }
+              }}
+            />
+            <Label htmlFor="remove-project-permanent">
+              {t("nav:projectTree.permanentDeleteHint")}
+            </Label>
           </div>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="outline" type="button">
-                {t("common:cancel")}
-              </Button>
-            </DialogClose>
-            <Button
-              variant="destructive"
-              onClick={actions.removeAction}
-              disabled={actions.isRemoveActionDisabled}
-            >
-              {actions.removeButtonText}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          {actions.isPermanentRemoveChecked ? (
+            <div className="grid gap-2">
+              <Label htmlFor="remove-project-confirm">{t("nav:projectTree.permanentDeleteConfirmLabel")}</Label>
+              <Input
+                id="remove-project-confirm"
+                value={actions.permanentRemoveText}
+                onChange={(event) => actions.setPermanentRemoveText(event.target.value)}
+                placeholder="delete"
+              />
+              <p className="text-xs text-muted-foreground">
+                {t("nav:projectTree.permanentDeleteNote")}
+              </p>
+            </div>
+          ) : null}
+        </div>
+      </ConfirmDialog>
 
-      <Dialog
+      <ConfirmDialog
         open={Boolean(drag.pendingMove && drag.pendingMove.mode === "reparent")}
         onOpenChange={(open) => {
           if (open || drag.isMoveBusy) return;
           drag.setPendingMove(null);
         }}
+        title={t(drag.pendingMove?.mode === "reorder" ? "nav:projectTree.reorderTitle" : "nav:projectTree.moveTitle")}
+        description={
+          drag.pendingMove
+            ? drag.pendingMove.mode === "reorder"
+              ? t("nav:projectTree.reorderDesc", {
+                  project: drag.resolveProjectTitle(drag.pendingMove.projectId),
+                  parent: drag.pendingMove.targetParentId
+                    ? drag.resolveProjectTitle(drag.pendingMove.targetParentId)
+                    : t("nav:projectTree.rootProject"),
+                })
+              : drag.pendingMove.targetParentId
+                ? t("nav:projectTree.moveToDesc", {
+                    project: drag.resolveProjectTitle(drag.pendingMove.projectId),
+                    parent: drag.resolveProjectTitle(drag.pendingMove.targetParentId),
+                  })
+                : t("nav:projectTree.moveToRootDesc", {
+                    project: drag.resolveProjectTitle(drag.pendingMove.projectId),
+                  })
+            : t("nav:projectTree.confirmMoveDesc")
+        }
+        confirmLabel={t(drag.pendingMove?.mode === "reorder" ? "nav:projectTree.reorderTitle" : "nav:projectTree.moveTitle")}
+        loadingLabel={t(drag.pendingMove?.mode === "reorder" ? "nav:projectTree.reordering" : "nav:projectTree.moving")}
+        loading={drag.isMoveBusy}
+        onConfirm={drag.handleConfirmProjectMove}
       >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {t(drag.pendingMove?.mode === "reorder" ? "nav:projectTree.reorderTitle" : "nav:projectTree.moveTitle")}
-            </DialogTitle>
-            <DialogDescription>
-              {drag.pendingMove
-                ? drag.pendingMove.mode === "reorder"
-                  ? t("nav:projectTree.reorderDesc", {
-                      project: drag.resolveProjectTitle(drag.pendingMove.projectId),
-                      parent: drag.pendingMove.targetParentId
-                        ? drag.resolveProjectTitle(drag.pendingMove.targetParentId)
-                        : t("nav:projectTree.rootProject"),
-                    })
-                  : drag.pendingMove.targetParentId
-                    ? t("nav:projectTree.moveToDesc", {
-                        project: drag.resolveProjectTitle(drag.pendingMove.projectId),
-                        parent: drag.resolveProjectTitle(drag.pendingMove.targetParentId),
-                      })
-                    : t("nav:projectTree.moveToRootDesc", {
-                        project: drag.resolveProjectTitle(drag.pendingMove.projectId),
-                      })
-                : t("nav:projectTree.confirmMoveDesc")}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="text-xs text-muted-foreground">
-            {t("nav:projectTree.moveNote")}
-          </div>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="outline" type="button" disabled={drag.isMoveBusy}>
-                {t("common:cancel")}
-              </Button>
-            </DialogClose>
-            <Button onClick={drag.handleConfirmProjectMove} disabled={drag.isMoveBusy}>
-              {drag.isMoveBusy
-                ? t(drag.pendingMove?.mode === "reorder" ? "nav:projectTree.reordering" : "nav:projectTree.moving")
-                : t(drag.pendingMove?.mode === "reorder" ? "nav:projectTree.reorderTitle" : "nav:projectTree.moveTitle")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        <div className="text-xs text-muted-foreground">
+          {t("nav:projectTree.moveNote")}
+        </div>
+      </ConfirmDialog>
     </>
   );
 };

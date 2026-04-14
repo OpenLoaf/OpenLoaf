@@ -12,14 +12,8 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@openloaf/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@openloaf/ui/dialog";
 import { Input } from "@openloaf/ui/input";
+import { FormDialog } from "@/components/ui/FormDialog";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -111,7 +105,6 @@ export function ProviderEditorDialog({
   existingKeys = [],
 }: ProviderEditorDialogProps) {
   const { t } = useTranslation('settings');
-  const { t: tc } = useTranslation('common');
   const registryReady = isModelRegistryReady();
   const PROVIDER_OPTIONS = useMemo(() => {
     void registryReady;
@@ -171,34 +164,23 @@ export function ProviderEditorDialog({
     const name = draftName.trim();
     const apiUrl = draftApiUrl.trim();
     const normalizedName = name.toLowerCase();
-    if (!name) {
-      setError(t('provider.errorFillName'));
-      return;
-    }
-    if (!apiUrl) {
-      setError(t('provider.errorFillApiUrl'));
-      return;
-    }
+    const fail = (message: string) => {
+      setError(message);
+      throw new Error(message);
+    };
+    setError(null);
+    if (!name) fail(t('provider.errorFillName'));
+    if (!apiUrl) fail(t('provider.errorFillApiUrl'));
     const authConfig = parseAuthConfigInput(draftAuthRaw);
-    if (!authConfig) {
-      setError(t('provider.errorFillAuth'));
-      return;
-    }
-    if (draftModelIds.length === 0) {
-      setError(t('provider.errorSelectModel'));
-      return;
-    }
+    if (!authConfig) fail(t('provider.errorFillAuth'));
+    if (draftModelIds.length === 0) fail(t('provider.errorSelectModel'));
     if (existingKeys.some((key) => key.toLowerCase() === normalizedName)) {
-      setError(t('provider.errorNameExists'));
-      return;
+      fail(t('provider.errorNameExists'));
     }
     const providerModels = getProviderModels(draftProvider);
     const modelIdSet = new Set(providerModels.map((model) => model.id));
     const modelIds = draftModelIds.filter((modelId) => modelIdSet.has(modelId));
-    if (modelIds.length === 0) {
-      setError(t('provider.errorModelMissing'));
-      return;
-    }
+    if (modelIds.length === 0) fail(t('provider.errorModelMissing'));
     const models = modelIds.reduce<Record<string, ReturnType<typeof getProviderModels>[number]>>(
       (acc, modelId) => {
         const model = providerModels.find((item) => item.id === modelId);
@@ -212,20 +194,19 @@ export function ProviderEditorDialog({
       key: name,
       providerId: draftProvider,
       apiUrl,
-      authConfig,
+      authConfig: authConfig as Record<string, unknown>,
       models,
     };
     await onSubmit(payload);
-    onOpenChange(false);
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{t('provider.addProvider')}</DialogTitle>
-        </DialogHeader>
-
+    <FormDialog
+      open={open}
+      onOpenChange={handleOpenChange}
+      title={t('provider.addProvider')}
+      onSubmit={submitDraft}
+    >
         <div className="space-y-4">
           <div className="space-y-2">
             <div className="text-sm font-medium">{t('provider.title')}</div>
@@ -374,14 +355,6 @@ export function ProviderEditorDialog({
 
           {error ? <div className="text-sm text-destructive">{error}</div> : null}
         </div>
-
-        <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            {tc('cancel')}
-          </Button>
-          <Button onClick={() => void submitDraft()}>{tc('save')}</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

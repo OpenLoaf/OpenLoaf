@@ -14,14 +14,7 @@ import { useTranslation } from "react-i18next";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { skipToken } from "@tanstack/react-query";
 import { toast } from "sonner";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@openloaf/ui/dialog";
-import { Button } from "@openloaf/ui/button";
+import { FormDialog } from "@/components/ui/FormDialog";
 import { Input } from "@openloaf/ui/input";
 import {
   Select,
@@ -189,14 +182,12 @@ export function SaveMessageDialog({
 
   // Save
   const writeFileMutation = useMutation(trpc.fs.writeFile.mutationOptions());
-  const [isSaving, setIsSaving] = useState(false);
 
   const handleSave = useCallback(async () => {
     if (!selectedProjectId || !currentUri || !fileName.trim()) return;
     const name = fileName.trim().endsWith(".md") ? fileName.trim() : `${fileName.trim()}.md`;
     const uri = buildUriFromRoot(currentUri, name);
     if (!uri) return;
-    setIsSaving(true);
     try {
       await writeFileMutation.mutateAsync({
         projectId: selectedProjectId,
@@ -204,27 +195,27 @@ export function SaveMessageDialog({
         content,
       });
       toast.success(t("ai:message.saveSuccess"));
-      onOpenChange(false);
     } catch (err) {
       toast.error(t("ai:message.saveFailed"));
       console.error(err);
-    } finally {
-      setIsSaving(false);
+      throw err;
     }
-  }, [selectedProjectId, currentUri, fileName, content, writeFileMutation, onOpenChange, t]);
+  }, [selectedProjectId, currentUri, fileName, content, writeFileMutation, t]);
 
   const availableProjects = lockedProjectId
     ? flatProjects.filter((p) => p.projectId === lockedProjectId)
     : flatProjects;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md gap-0 p-0">
-        <DialogHeader className="px-4 pt-4 pb-3">
-          <DialogTitle className="text-sm">{t("ai:message.saveAsMarkdown")}</DialogTitle>
-        </DialogHeader>
-
-        <div className="px-4 space-y-3">
+    <FormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={t("ai:message.saveAsMarkdown")}
+      onSubmit={handleSave}
+      submitDisabled={!fileName.trim() || !selectedProjectId}
+      contentClassName="max-w-md"
+    >
+      <div className="space-y-3">
           {/* Project selector */}
           <div className="space-y-1.5">
             <label className="text-xs text-muted-foreground">{t("ai:message.saveProject")}</label>
@@ -302,29 +293,10 @@ export function SaveMessageDialog({
               onChange={(e) => setFileName(e.target.value)}
               className="h-8 text-xs"
               placeholder="message.md"
+              autoFocus
             />
           </div>
-        </div>
-
-        <DialogFooter className="px-4 py-3">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onOpenChange(false)}
-            className="text-xs"
-          >
-            {t("common:cancel")}
-          </Button>
-          <Button
-            size="sm"
-            onClick={handleSave}
-            disabled={isSaving || !fileName.trim() || !selectedProjectId}
-            className="text-xs"
-          >
-            {t("common:save")}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </FormDialog>
   );
 }

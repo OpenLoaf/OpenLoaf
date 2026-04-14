@@ -848,6 +848,7 @@ const ProjectFileSystemTransferDialog = memo(function ProjectFileSystemTransferD
               <Button variant="ghost">{t('project:filesystem.cancel')}</Button>
             </DialogClose>
             <Button
+              autoFocus
               type="button"
               onClick={handleConfirmTransfer}
               disabled={effectiveConfirmDisabled}

@@ -50,14 +50,14 @@ export async function buildModelMessages(
           "",
           "注意：技能内容中的相对路径均相对于上述 basePath，请拼接后访问。",
           "",
-          "<skill>",
+          `<system-tag type="skill" id="${name}">`,
           content,
-          "</skill>",
+          "</system-tag>",
         ].join("\n");
         return { type: "text", text };
       }
 
-      // 逻辑：将 data-msg-context 转为 <msg-context> XML 标签。
+      // 逻辑：将 data-msg-context 转为 <system-tag type="msg-context"> XML 标签。
       if (part?.type === "data-msg-context") {
         const d = (part as any).data ?? {};
         return { type: "text", text: renderMsgContextXml(d) };
@@ -73,7 +73,7 @@ export async function buildModelMessages(
 
 /** Render a data-msg-context payload to XML string. */
 function renderMsgContextXml(d: Record<string, unknown>): string {
-  const attrs: string[] = [];
+  const attrs: string[] = [`type="msg-context"`];
   if (d.datetime) attrs.push(`datetime="${d.datetime}"`);
   if (d.page) attrs.push(`page="${d.page}"`);
   if (d.projectId) attrs.push(`projectId="${d.projectId}"`);
@@ -81,7 +81,7 @@ function renderMsgContextXml(d: Record<string, unknown>): string {
 
   const stack = Array.isArray(d.stack) ? d.stack : [];
   if (stack.length === 0) {
-    return `<msg-context ${attrs.join(" ")} />`;
+    return `<system-tag ${attrs.join(" ")} />`;
   }
 
   const items = stack.map((item: Record<string, unknown>) => {
@@ -96,5 +96,5 @@ function renderMsgContextXml(d: Record<string, unknown>): string {
     return `  <stack-item ${itemAttrs.join(" ")} />`;
   });
 
-  return `<msg-context ${attrs.join(" ")}>\n${items.join("\n")}\n</msg-context>`;
+  return `<system-tag ${attrs.join(" ")}>\n${items.join("\n")}\n</system-tag>`;
 }

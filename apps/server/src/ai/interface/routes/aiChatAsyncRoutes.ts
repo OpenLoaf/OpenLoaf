@@ -17,7 +17,6 @@ import { startChatStreamAsync } from '@/ai/services/chat/async/chatStreamAsyncSe
 import { bootstrapAi } from '@/ai/bootstrap'
 import { logger } from '@/common/logger'
 import { toText } from '@/routers/route-utils'
-import { resolveBearerToken } from '../helpers/resolveToken'
 
 const { aiExecuteController: controller } = bootstrapAi()
 
@@ -38,13 +37,11 @@ export function registerAiChatAsyncRoutes(app: Hono) {
     }
 
     const cookies = getCookie(c) || {}
-    const saasAccessToken = resolveBearerToken(c)
 
     try {
       const result = await startChatStreamAsync({
         request: parsed.request,
         cookies,
-        saasAccessToken: saasAccessToken ?? undefined,
         executeFn: (input) => controller.execute(input),
       })
 

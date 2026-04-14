@@ -9,14 +9,8 @@
  */
 import { useTranslation } from "react-i18next";
 import { Button } from "@openloaf/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@openloaf/ui/dialog";
 import { Input } from "@openloaf/ui/input";
+import { FormDialog } from "@/components/ui/FormDialog";
 import { Switch } from "@openloaf/ui/switch";
 import {
   DropdownMenu,
@@ -217,12 +211,15 @@ export function ProviderDialog({
   );
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] w-full max-w-[70vw] overflow-y-auto lg:max-w-[1080px]">
-        <DialogHeader>
-          <DialogTitle>{editingKey ? t('provider.editProvider') : t('provider.addProvider')}</DialogTitle>
-        </DialogHeader>
-
+    <FormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={editingKey ? t('provider.editProvider') : t('provider.addProvider')}
+      onSubmit={onSubmit}
+      submitLabel={t('provider.save')}
+      cancelLabel={t('provider.cancel')}
+      contentClassName="max-h-[90vh] w-full max-w-[70vw] overflow-y-auto lg:max-w-[1080px]"
+    >
         <div className="grid gap-6 lg:grid-cols-[0.75fr_1.75fr]">
           <div className="space-y-4">
             <div className="space-y-2">
@@ -510,14 +507,6 @@ export function ProviderDialog({
 
           {error ? <div className="text-sm text-destructive lg:col-span-2">{error}</div> : null}
         </div>
-
-        <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)} className="rounded-3xl">
-            {t('provider.cancel')}
-          </Button>
-          <Button onClick={onSubmit} className="rounded-3xl">{t('provider.save')}</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

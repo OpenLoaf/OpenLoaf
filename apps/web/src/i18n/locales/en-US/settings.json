@@ -169,8 +169,36 @@
     "shortcuts": "Shortcuts",
     "projectTest": "Test",
     "mcp": "MCP Servers",
+    "toolApproval": "Tool Allowlist",
     "about": "About OpenLoaf",
     "subscription": "Subscription"
+  },
+  "toolApproval": {
+    "title": "Tool Allowlist",
+    "tempChatScopeNote": "Before running a command, the AI will ask you to confirm. This page lists the commands you've already allowed it to run automatically in temporary chats. Rules are saved permanently and persist across app restarts and new chats.",
+    "projectScopeNote": "Before running a command, the AI will ask you to confirm. This page lists the commands you've already allowed it to run automatically in this project.",
+    "alwaysAllowHint": "Want to add more? Click \"Always allow\" the next time the AI shows an approval prompt.",
+    "allowedList": "Allowed Tool Calls",
+    "denyList": "Blocked Tool Calls",
+    "denyHint": "These commands always require manual approval and cannot be bypassed via \"Always allow\".",
+    "emptyTitle": "No auto-approved commands yet",
+    "emptyList": "The AI will still ask before running each command. Click \"Always allow\" in chat to add commands here.",
+    "remove": "Remove",
+    "removeFailed": "Failed to remove. Please try again.",
+    "loading": "Loading...",
+    "projectRequired": "Please select a project",
+    "describe": {
+      "bash": "Terminal command",
+      "powershell": "PowerShell",
+      "edit": "Edit file",
+      "write": "Write file",
+      "read": "Read file",
+      "glob": "Find files",
+      "grep": "Search files",
+      "cloudModelGenerate": "Cloud media generation",
+      "cloudTextGenerate": "Cloud text processing",
+      "any": "any"
+    }
   },
   "mcp": {
     "searchPlaceholder": "Search MCP servers...",
@@ -766,6 +794,16 @@
     "scopeGlobal": "Global skill",
     "scopeProject": "Project skill",
     "scopeProjectSpace": "Project Space skill",
+    "confirmReset": "Are you sure you want to reset \"{{name}}\"?\n\nThis will delete openloaf.json and translation files. The original skill content will not be affected.",
+    "resetSkill": "Reset",
+    "resetSuccess": "Skill reset successfully",
+    "exportSkill": "Export",
+    "changeColor": "Change color",
+    "totalCount": "{{count}} skills",
+    "refresh": "Refresh",
+    "export": {
+      "failed": "Export failed"
+    },
     "translate": {
       "buttonTranslate": "Translate to Chinese",
       "buttonRetranslate": "Re-translate",

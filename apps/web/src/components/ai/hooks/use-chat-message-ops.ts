@@ -21,7 +21,6 @@ import { useRecordEntityVisit } from "@/hooks/use-record-entity-visit";
 import { getMessagePlainText } from "@/lib/chat/message-text";
 import { TEMP_CHAT_TAB_INPUT } from "@openloaf/api/common";
 import { invalidateChatSessions } from "@/hooks/use-chat-sessions";
-import { getCachedAccessToken } from "@/lib/saas-auth";
 import {
   resolveParentMessageId as resolveParentMessageIdPure,
   findParentUserForRetry as findParentUserForRetryPure,

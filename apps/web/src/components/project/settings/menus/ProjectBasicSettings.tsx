@@ -40,16 +40,7 @@ import {
 } from "@openloaf/ui/select";
 import { Label } from "@openloaf/ui/label";
 import { Switch } from "@openloaf/ui/switch";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@openloaf/ui/alert-dialog";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import {
   formatSize,
   getDisplayPathFromUri,
@@ -440,7 +431,7 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
   const handleConfirmParentMove = useCallback(async () => {
     if (!projectId || !pendingParentMove) {
       toast.error(t("project.missingId"));
-      return;
+      throw new Error("missing-id");
     }
     try {
       setMoveParentBusy(true);
@@ -450,11 +441,11 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
         targetParentProjectId: pendingParentMove.targetParentId ?? null,
       });
       toast.success(t("project.parentUpdated"));
-      setPendingParentMove(null);
       setSelectedParentId(null);
       await invalidateProjectList();
     } catch (err: any) {
       toast.error(err?.message ?? t("project.updateError"));
+      throw err;
     } finally {
       setMoveParentBusy(false);
     }
@@ -483,7 +474,7 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
   const handleConfirmMove = useCallback(async () => {
     if (!projectId) {
       toast.error(t("project.missingId"));
-      return;
+      throw new Error("missing-id");
     }
     if (!moveTargetParentPath) return;
     try {
@@ -502,11 +493,11 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
       await invalidateProject();
       await invalidateProjectList();
       await new Promise((resolve) => setTimeout(resolve, 300));
-      setMoveTargetParentPath(null);
       setMoveProgress(0);
     } catch (err: any) {
       toast.error(err?.message ?? t("project.moveFailed"));
       setMoveProgress(0);
+      throw err;
     } finally {
       stopMoveProgress();
       setMoveBusy(false);
@@ -538,7 +529,7 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
   const handleClearProjectChat = useCallback(async () => {
     if (!projectId) {
       toast.error(t("project.missingId"));
-      return;
+      throw new Error("missing-id");
     }
     try {
       const result = await clearProjectChat.mutateAsync({ projectId });
@@ -547,9 +538,9 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
         queryKey: trpc.chat.getProjectChatStats.queryOptions({ projectId }).queryKey,
       });
       invalidateChatSessions(queryClient);
-      setClearChatOpen(false);
     } catch (err: any) {
       toast.error(err?.message ?? t("project.clearError"));
+      throw err;
     }
   }, [projectId, clearProjectChat, queryClient, t]);
 
@@ -557,14 +548,14 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
   const handleClearProjectCache = useCallback(async () => {
     if (!cacheScope) {
       toast.error(t("project.missingScope"));
-      return;
+      throw new Error("missing-scope");
     }
     try {
       await clearProjectCache.mutateAsync(cacheScope);
       toast.success(t("project.cacheCleared"));
-      setClearCacheOpen(false);
     } catch (err: any) {
       toast.error(err?.message ?? t("project.clearError"));
+      throw err;
     }
   }, [cacheScope, clearProjectCache, t]);
 
@@ -951,6 +942,7 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
               </Button>
             </DialogClose>
             <Button
+              autoFocus
               type="button"
               onClick={handleSubmitParentSelection}
               disabled={!selectedParentId || selectedParentId === currentParentId}
@@ -961,172 +953,107 @@ const ProjectBasicSettings = memo(function ProjectBasicSettings({
         </DialogContent>
       </Dialog>
 
-      <AlertDialog
+      <ConfirmDialog
         open={Boolean(pendingParentMove)}
         onOpenChange={(open) => {
-          if (!open && moveParentBusy) return;
-          if (!open) {
-            setPendingParentMove(null);
-          }
+          if (!open) setPendingParentMove(null);
         }}
+        title={t("project.confirmMove")}
+        description={
+          pendingParentMove
+            ? pendingParentMove.targetParentId
+              ? t("project.moveToMessage", {
+                  title: project?.title ?? t("project.moveCurrentProject"),
+                  parent: resolveProjectTitle(pendingParentMove.targetParentId),
+                })
+              : t("project.moveToRootMessage", {
+                  title: project?.title ?? t("project.moveCurrentProject"),
+                })
+            : ""
+        }
+        confirmLabel={t("project.confirmMove")}
+        cancelLabel={t("common:cancel")}
+        loadingLabel={t("project.movingButton")}
+        loading={moveParentBusy}
+        onConfirm={handleConfirmParentMove}
       >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t("project.confirmMove")}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {pendingParentMove
-                ? pendingParentMove.targetParentId
-                  ? t("project.moveToMessage", {
-                      title: project?.title ?? t("project.moveCurrentProject"),
-                      parent: resolveProjectTitle(pendingParentMove.targetParentId)
-                    })
-                  : t("project.moveToRootMessage", {
-                      title: project?.title ?? t("project.moveCurrentProject")
-                    })
-                : ""}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="text-xs text-muted-foreground">
-            {t("project.childrenMoveNote")}
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={moveParentBusy}>{t("common:cancel")}</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(event) => {
-                event.preventDefault();
-                void handleConfirmParentMove();
-              }}
-              disabled={moveParentBusy}
-              className="bg-foreground text-background hover:bg-foreground/90"
-            >
-              {moveParentBusy ? t("project.movingButton") : t("project.confirmMove")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        <div className="text-xs text-muted-foreground">
+          {t("project.childrenMoveNote")}
+        </div>
+      </ConfirmDialog>
 
-      <AlertDialog
+      <ConfirmDialog
         open={Boolean(moveTargetParentPath)}
         onOpenChange={handleMoveDialogOpenChange}
+        title={t("project.confirmMove")}
+        description={t("project.moveDescription")}
+        confirmLabel={t("project.confirmMove")}
+        cancelLabel={t("common:cancel")}
+        loadingLabel={t("project.movingButton")}
+        loading={moveBusy}
+        onConfirm={handleConfirmMove}
       >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t("project.confirmMove")}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t("project.moveDescription")}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="space-y-3 text-xs text-muted-foreground">
-            <div className="space-y-1">
-              <div>{t("project.currentPath")}</div>
-              <div className="text-foreground break-all">{displayStoragePath}</div>
-            </div>
-            <div className="space-y-1">
-              <div>{t("project.targetParent")}</div>
-              <div className="text-foreground break-all">
-                {moveTargetParentPath ?? "-"}
-              </div>
-            </div>
-            <div className="space-y-1">
-              <div>{t("project.movedPath")}</div>
-              <div className="text-foreground break-all">
-                {moveTargetPath || "-"}
-              </div>
+        <div className="space-y-3 text-xs text-muted-foreground">
+          <div className="space-y-1">
+            <div>{t("project.currentPath")}</div>
+            <div className="text-foreground break-all">{displayStoragePath}</div>
+          </div>
+          <div className="space-y-1">
+            <div>{t("project.targetParent")}</div>
+            <div className="text-foreground break-all">
+              {moveTargetParentPath ?? "-"}
             </div>
           </div>
-          {moveBusy ? (
-            <div className="space-y-2">
-              <div className="text-xs text-muted-foreground">{t("project.moving")}</div>
-              <div className="h-2 w-full overflow-hidden rounded-full bg-muted/40">
-                <div
-                  className="h-full bg-primary transition-all"
-                  style={{ width: `${moveProgress}%` }}
-                />
-              </div>
+          <div className="space-y-1">
+            <div>{t("project.movedPath")}</div>
+            <div className="text-foreground break-all">
+              {moveTargetPath || "-"}
             </div>
-          ) : null}
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={moveBusy}>{t("common:cancel")}</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(event) => {
-                event.preventDefault();
-                void handleConfirmMove();
-              }}
-              disabled={moveBusy}
-              className="bg-foreground text-background hover:bg-foreground/90"
-            >
-              {moveBusy ? t("project.movingButton") : t("project.confirmMove")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+          </div>
+        </div>
+        {moveBusy ? (
+          <div className="space-y-2">
+            <div className="text-xs text-muted-foreground">{t("project.moving")}</div>
+            <div className="h-2 w-full overflow-hidden rounded-full bg-muted/40">
+              <div
+                className="h-full bg-primary transition-all"
+                style={{ width: `${moveProgress}%` }}
+              />
+            </div>
+          </div>
+        ) : null}
+      </ConfirmDialog>
 
-      <AlertDialog
+      <ConfirmDialog
         open={clearCacheOpen}
-        onOpenChange={(open) => {
-          if (!open && clearProjectCache.isPending) return;
-          setClearCacheOpen(open);
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t("project.confirmClearCache")}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t("project.clearCacheDescription")}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={clearProjectCache.isPending}>
-              {t("common:cancel")}
-            </AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-white hover:bg-destructive/90"
-              onClick={(event) => {
-                event.preventDefault();
-                void handleClearProjectCache();
-              }}
-              disabled={clearProjectCache.isPending}
-            >
-              {clearProjectCache.isPending ? t("project.clearCacheButton") : t("project.confirmClear")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        onOpenChange={setClearCacheOpen}
+        title={t("project.confirmClearCache")}
+        description={t("project.clearCacheDescription")}
+        confirmLabel={t("project.confirmClear")}
+        cancelLabel={t("common:cancel")}
+        loadingLabel={t("project.clearCacheButton")}
+        variant="destructive"
+        onConfirm={handleClearProjectCache}
+      />
 
-      <AlertDialog
+      <ConfirmDialog
         open={clearChatOpen}
-        onOpenChange={(open) => {
-          if (!open && clearProjectChat.isPending) return;
-          setClearChatOpen(open);
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t("project.confirmClear")}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t("project.clearChatDescription")}
-              {typeof chatSessionCount === "number"
-                ? t("project.chatSessionCountNote", { count: chatSessionCount })
-                : ""}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={clearProjectChat.isPending}>
-              {t("common:cancel")}
-            </AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-white hover:bg-destructive/90"
-              onClick={(event) => {
-                event.preventDefault();
-                void handleClearProjectChat();
-              }}
-              disabled={clearProjectChat.isPending}
-            >
-              {clearProjectChat.isPending ? t("project.clearing") : t("project.confirmClear")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        onOpenChange={setClearChatOpen}
+        title={t("project.confirmClear")}
+        description={
+          <>
+            {t("project.clearChatDescription")}
+            {typeof chatSessionCount === "number"
+              ? t("project.chatSessionCountNote", { count: chatSessionCount })
+              : ""}
+          </>
+        }
+        confirmLabel={t("project.confirmClear")}
+        cancelLabel={t("common:cancel")}
+        loadingLabel={t("project.clearing")}
+        variant="destructive"
+        onConfirm={handleClearProjectChat}
+      />
     </div>
   );
 });

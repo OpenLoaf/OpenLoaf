@@ -18,10 +18,14 @@ import {
 } from '@openloaf/ui/tooltip'
 import {
   Collapsible,
-  CollapsibleContent,
   CollapsibleTrigger,
 } from '@openloaf/ui/collapsible'
-import { CodeBlock } from '@/components/ai-elements/code-block'
+import {
+  ToolOutputCode,
+  ToolOutputContent,
+  ToolOutputError,
+  ToolOutputLoading,
+} from './shared/ToolOutput'
 import {
   asPlainObject,
   getDisplayPath,
@@ -121,27 +125,20 @@ export default function GrepTool({
           </TooltipContent>
         ) : null}
       </Tooltip>
-      <CollapsibleContent className="px-2.5 py-2 text-xs">
+      <ToolOutputContent>
         {hasOutput ? (
-          <div className="max-h-[320px] overflow-auto rounded-2xl bg-muted/50">
-            <CodeBlock code={output} language={"text" as any} />
+          <div className="space-y-0.5">
+            <ToolOutputCode code={output} language="text" />
             {truncated ? (
-              <div className="px-3 py-1 text-[10px] text-muted-foreground/60">
-                结果已截断
-              </div>
+              <div className="px-1 text-[10px] text-muted-foreground/60">结果已截断</div>
             ) : null}
           </div>
         ) : errorText ? (
-          <div className="whitespace-pre-wrap break-all rounded-2xl bg-destructive/10 p-2 text-xs text-destructive">
-            {errorText}
-          </div>
+          <ToolOutputError message={errorText} />
         ) : streaming ? (
-          <div className="flex items-center gap-1.5 py-1 text-xs text-muted-foreground">
-            <LoaderCircleIcon className="size-3 animate-spin" />
-            <span>搜索中...</span>
-          </div>
+          <ToolOutputLoading label="搜索中..." />
         ) : null}
-      </CollapsibleContent>
+      </ToolOutputContent>
     </Collapsible>
   )
 }

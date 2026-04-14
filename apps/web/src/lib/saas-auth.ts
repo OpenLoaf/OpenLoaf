@@ -11,9 +11,8 @@
 
 import { SaaSClient } from "@openloaf-saas/sdk";
 import { resolveServerUrl } from "@/utils/server-url";
+import { CLIENT_HEADERS } from "@/lib/client-headers";
 import i18n from "@/i18n";
-
-type StorageType = "local" | "session";
 
 export type SaasAuthUser = {
   /** User display name. */
@@ -24,26 +23,10 @@ export type SaasAuthUser = {
   avatarUrl?: string;
 };
 
-type TokenPayload = {
-  exp?: number;
-  name?: string;
-  email?: string;
-};
+/** Log prefix for auth module. */
+const LOG_TAG = "[auth]";
 
-type StoredAuth = {
-  accessToken?: string;
-  refreshToken?: string;
-  storageType: StorageType;
-};
-
-/** Access token storage key. */
-const ACCESS_TOKEN_KEY = "tn_saas_access_token";
-/** Refresh token storage key. */
-const REFRESH_TOKEN_KEY = "tn_saas_refresh_token";
-/** User cache storage key. */
-const USER_KEY = "tn_saas_user";
-
-/** Resolve SaaS base URL from env. */
+/** Resolve SaaS base URL from env (for building login URLs / external links). */
 export function resolveSaasBaseUrl(): string {
   const raw =
     process.env.NEXT_PUBLIC_OPENLOAF_SAAS_URL ??
@@ -52,42 +35,74 @@ export function resolveSaasBaseUrl(): string {
   return raw.trim().replace(/\/$/, "");
 }
 
-/** Decode base64url string to JSON. */
-function decodeBase64Url(input: string): string {
-  const normalized = input.replace(/-/g, "+").replace(/_/g, "/");
-  const padLength = normalized.length % 4;
-  const padded = padLength === 0 ? normalized : `${normalized}${"=".repeat(4 - padLength)}`;
-  return atob(padded);
+/**
+ * Mount point of the local reverse proxy under the Server origin.
+ * The SaaS SDK's internal `new URL(endpoint.path, baseUrl)` drops the
+ * path segment of baseUrl when endpoint.path is absolute, so we cannot
+ * embed this prefix into SaaSClient.baseUrl directly — instead we pass
+ * the origin only and install a custom `fetcher` that injects this prefix.
+ */
+const SAAS_PROXY_MOUNT = "/api/saas/raw";
+
+/**
+ * Resolve the reverse-proxy base URL for **manual fetch** call sites.
+ * Returns `${serverOrigin}/api/saas/raw`. Do NOT pass this to
+ * `new SaaSClient({ baseUrl })` — use `createSaasProxyClient()` helpers.
+ */
+export function resolveSaasProxyBaseUrl(): string {
+  const server = resolveServerUrl();
+  if (!server) return "";
+  return `${server.replace(/\/$/, "")}${SAAS_PROXY_MOUNT}`;
 }
 
-/** Parse JWT payload without verification. */
-function parseJwt(token: string): TokenPayload | null {
-  try {
-    const payload = token.split(".")[1];
-    if (!payload) return null;
-    return JSON.parse(decodeBase64Url(payload)) as TokenPayload;
-  } catch {
-    return null;
-  }
+/**
+ * Build a fetcher that prefixes every same-origin request path with
+ * `/api/saas/raw`. Used by SaaSClient to route SDK calls through the
+ * local reverse proxy without changing baseUrl semantics.
+ */
+export function createSaasProxyFetcher(serverOrigin: string): typeof fetch {
+  const origin = serverOrigin.replace(/\/$/, "");
+  return async (input, init) => {
+    let url: URL;
+    if (typeof input === "string") {
+      url = new URL(input);
+    } else if (input instanceof URL) {
+      url = new URL(input.toString());
+    } else {
+      url = new URL((input as Request).url);
+    }
+    if (
+      url.origin === origin &&
+      !url.pathname.startsWith(SAAS_PROXY_MOUNT)
+    ) {
+      url.pathname = `${SAAS_PROXY_MOUNT}${url.pathname}`;
+    }
+    return fetch(url.toString(), init);
+  };
 }
 
-/** Check whether token is expired. */
-function isTokenExpired(token: string): boolean {
-  const payload = parseJwt(token);
-  if (!payload?.exp) return true;
-  return Date.now() >= payload.exp * 1000;
+/** Resolve the Server origin (no trailing slash). */
+export function resolveServerOriginForSaasProxy(): string {
+  const server = resolveServerUrl();
+  if (!server) return "";
+  return server.replace(/\/$/, "");
 }
 
-// 逻辑：提前刷新缓冲时间，距过期不足 5 分钟时后台刷新。
-const REFRESH_BUFFER_MS = 5 * 60 * 1000;
+// ─────────────────────────────────────────────────────────────────
+// 内存会话缓存（全部来自 Server，没有 localStorage/sessionStorage）
+// ─────────────────────────────────────────────────────────────────
 
-/** Check whether token is valid but near expiry. */
-function isTokenNearExpiry(token: string): boolean {
-  const payload = parseJwt(token);
-  if (!payload?.exp) return false;
-  const remaining = payload.exp * 1000 - Date.now();
-  return remaining > 0 && remaining < REFRESH_BUFFER_MS;
-}
+type SessionCache = {
+  /** Last known logged-in flag. */
+  loggedIn: boolean;
+  /** Last known user info. */
+  user: SaasAuthUser | null;
+};
+
+const sessionCache: SessionCache = {
+  loggedIn: false,
+  user: null,
+};
 
 // --- 认证失效事件回调 ---
 type AuthLostListener = () => void;
@@ -105,238 +120,185 @@ function notifyAuthLost() {
   for (const listener of authLostListeners) listener();
 }
 
-/** Read tokens from a given storage. */
-function readTokensFromStorage(storage: Storage): StoredAuth | null {
-  const accessToken = storage.getItem(ACCESS_TOKEN_KEY) ?? undefined;
-  const refreshToken = storage.getItem(REFRESH_TOKEN_KEY) ?? undefined;
-  if (!accessToken && !refreshToken) return null;
-  const storageType: StorageType = storage === window.sessionStorage ? "session" : "local";
-  return { accessToken, refreshToken, storageType };
+function setSession(loggedIn: boolean, user: SaasAuthUser | null): void {
+  const wasLoggedIn = sessionCache.loggedIn;
+  sessionCache.loggedIn = loggedIn;
+  sessionCache.user = user;
+  if (wasLoggedIn && !loggedIn) {
+    notifyAuthLost();
+  }
 }
 
-/** Log prefix for auth module. */
-const LOG_TAG = "[auth]";
-
-/** Resolve stored tokens across local/session storage. */
-function resolveStoredAuth(): StoredAuth | null {
-  if (typeof window === "undefined") return null;
-  const local = readTokensFromStorage(window.localStorage);
-  if (local) return local;
-  return readTokensFromStorage(window.sessionStorage);
+function clearSession(): void {
+  setSession(false, null);
 }
 
-/** Persist tokens into selected storage. */
-function persistTokens(input: {
-  accessToken: string;
-  refreshToken: string;
-  remember: boolean;
+// ─────────────────────────────────────────────────────────────────
+// Server 端点调用
+// ─────────────────────────────────────────────────────────────────
+
+type ServerExchangeResult = {
+  success: boolean;
   user?: SaasAuthUser;
-}): void {
-  if (typeof window === "undefined") return;
-  const target = input.remember ? window.localStorage : window.sessionStorage;
-  const other = input.remember ? window.sessionStorage : window.localStorage;
-  target.setItem(ACCESS_TOKEN_KEY, input.accessToken);
-  target.setItem(REFRESH_TOKEN_KEY, input.refreshToken);
-  if (input.user) {
-    target.setItem(USER_KEY, JSON.stringify(input.user));
-  }
-  // 逻辑：切换存储位置时清理另一侧，避免状态混乱。
-  other.removeItem(ACCESS_TOKEN_KEY);
-  other.removeItem(REFRESH_TOKEN_KEY);
-  other.removeItem(USER_KEY);
+  code?: string;
+  message?: string;
+};
+
+type ServerSessionResult = {
+  loggedIn: boolean;
+  user?: SaasAuthUser;
+};
+
+type ServerRefreshResult = {
+  success: boolean;
+  loggedIn?: boolean;
+  user?: SaasAuthUser;
+  code?: string;
+  message?: string;
+};
+
+function buildServerUrl(path: string): string | null {
+  const base = resolveServerUrl();
+  if (!base) return null;
+  return `${base.replace(/\/$/, "")}${path}`;
 }
 
-/** Clear stored tokens in both storages. */
-function clearStoredAuth(): void {
-  if (typeof window === "undefined") return;
-  console.info(LOG_TAG, "clearing all stored tokens");
-  window.localStorage.removeItem(ACCESS_TOKEN_KEY);
-  window.localStorage.removeItem(REFRESH_TOKEN_KEY);
-  window.localStorage.removeItem(USER_KEY);
-  window.sessionStorage.removeItem(ACCESS_TOKEN_KEY);
-  window.sessionStorage.removeItem(REFRESH_TOKEN_KEY);
-  window.sessionStorage.removeItem(USER_KEY);
-  notifyAuthLost();
-}
-
-/** Read cached user from storage. */
-export function getStoredUser(): SaasAuthUser | null {
-  if (typeof window === "undefined") return null;
-  const localUser = window.localStorage.getItem(USER_KEY);
-  if (localUser) {
-    try {
-      return JSON.parse(localUser) as SaasAuthUser;
-    } catch {
-      return null;
-    }
-  }
-  const sessionUser = window.sessionStorage.getItem(USER_KEY);
-  if (!sessionUser) return null;
+async function postJson<T>(path: string, body?: unknown): Promise<T | null> {
+  const url = buildServerUrl(path);
+  if (!url) return null;
   try {
-    return JSON.parse(sessionUser) as SaasAuthUser;
-  } catch {
+    const res = await fetch(url, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json", ...CLIENT_HEADERS },
+      body: JSON.stringify(body ?? {}),
+    });
+    if (!res.ok) {
+      return (await res.json().catch(() => null)) as T | null;
+    }
+    return (await res.json()) as T;
+  } catch (error) {
+    console.info(LOG_TAG, "postJson failed", path, error);
     return null;
   }
 }
 
-/** Get cached access token without refresh. */
-export function getCachedAccessToken(): string | null {
-  const stored = resolveStoredAuth();
-  if (!stored?.accessToken) {
-    console.info(LOG_TAG, "no cached access token found");
+async function getJson<T>(path: string): Promise<T | null> {
+  const url = buildServerUrl(path);
+  if (!url) return null;
+  try {
+    const res = await fetch(url, {
+      credentials: "include",
+      headers: { ...CLIENT_HEADERS },
+    });
+    if (!res.ok) {
+      return (await res.json().catch(() => null)) as T | null;
+    }
+    return (await res.json()) as T;
+  } catch (error) {
+    console.info(LOG_TAG, "getJson failed", path, error);
     return null;
   }
-  if (isTokenExpired(stored.accessToken)) {
-    console.info(LOG_TAG, "cached access token expired");
-    return null;
-  }
-  return stored.accessToken;
 }
 
-/** Create SaaS SDK client for web. */
-function createSaasClient(getAccessToken?: () => string | Promise<string>) {
-  const baseUrl = resolveSaasBaseUrl();
-  if (!baseUrl) {
-    throw new Error("saas_url_missing");
-  }
-  return new SaaSClient({ baseUrl, getAccessToken, locale: i18n.language || 'en-US' });
+// ─────────────────────────────────────────────────────────────────
+// 公共 API（签名向后兼容）
+// ─────────────────────────────────────────────────────────────────
+
+/** Read cached user from in-memory session state. */
+export function getStoredUser(): SaasAuthUser | null {
+  return sessionCache.user;
 }
 
-/** Exchange login code for access/refresh tokens. */
+/**
+ * Force a token refresh on Server and sync the session snapshot back
+ * to the Web in-memory cache. The token itself is never returned to Web —
+ * all SaaS calls go through the reverse proxy which injects it server-side.
+ */
+export async function refreshAccessToken(): Promise<boolean> {
+  const result = await postJson<ServerRefreshResult>("/auth/refresh");
+  if (!result?.success) {
+    clearSession();
+    return false;
+  }
+  if (result.user) {
+    setSession(true, result.user);
+  }
+  return true;
+}
+
+/** Check current auth status via Server session endpoint. */
+export async function isAuthenticated(): Promise<boolean> {
+  const result = await getJson<ServerSessionResult>("/auth/session");
+  if (!result) return false;
+  setSession(result.loggedIn, result.user ?? null);
+  return result.loggedIn;
+}
+
+/** Resolve auth user from Server session snapshot. */
+export async function resolveAuthUser(): Promise<SaasAuthUser | null> {
+  if (sessionCache.user) return sessionCache.user;
+  await isAuthenticated();
+  return sessionCache.user;
+}
+
+/** Exchange login code for tokens on Server. Tokens stay on Server. */
 export async function exchangeLoginCode(input: {
   loginCode: string;
-  remember: boolean;
 }): Promise<SaasAuthUser | null> {
-  console.info(LOG_TAG, "exchanging login code", { remember: input.remember });
-  try {
-    const client = createSaasClient();
-    const result = await client.auth.exchange(input.loginCode);
-    if (!result?.accessToken || !result?.refreshToken) {
-      console.info(LOG_TAG, "exchange returned no tokens");
-      return null;
-    }
-    const user: SaasAuthUser | undefined = result.user
-      ? {
-          name: result.user.name ?? undefined,
-          email: result.user.email ?? undefined,
-          avatarUrl: result.user.avatarUrl ?? undefined,
-        }
-      : undefined;
-    persistTokens({
-      accessToken: result.accessToken,
-      refreshToken: result.refreshToken,
-      remember: input.remember,
-      user,
-    });
-    console.info(LOG_TAG, "exchange success", { email: user?.email });
-    return user ?? null;
-  } catch (error) {
-    console.info(LOG_TAG, "exchange failed", error);
+  console.info(LOG_TAG, "exchanging login code via Server");
+  const result = await postJson<ServerExchangeResult>("/auth/exchange", {
+    loginCode: input.loginCode,
+  });
+  if (!result?.success || !result.user) {
+    console.info(LOG_TAG, "exchange failed", result?.message);
+    clearSession();
     return null;
   }
+  setSession(true, result.user);
+  return result.user;
 }
 
-// 逻辑：并发刷新保护，多个调用方共享同一个 refresh 请求。
-let refreshPromise: Promise<string | null> | null = null;
+/** Logout via Server (revokes on SaaS + clears local state). */
+export function logout(): void {
+  console.info(LOG_TAG, "user logout");
+  void postJson("/auth/logout");
+  clearSession();
+}
 
-/** Refresh access token using stored refresh token. */
-export async function refreshAccessToken(): Promise<string | null> {
-  if (refreshPromise) return refreshPromise;
-  refreshPromise = doRefreshAccessToken();
-  try {
-    return await refreshPromise;
-  } finally {
-    refreshPromise = null;
+// ─────────────────────────────────────────────────────────────────
+// 业务数据获取（全部经由反向代理）
+// ─────────────────────────────────────────────────────────────────
+
+/** Create SaaS SDK client pointing at the local reverse proxy. */
+function createProxyClient() {
+  const origin = resolveServerOriginForSaasProxy();
+  if (!origin) {
+    throw new Error("server_origin_missing");
   }
+  return new SaaSClient({
+    // 逻辑：baseUrl 是 Server 的 origin（不含 /api/saas/raw 前缀）——
+    // SDK 用 `new URL(endpoint.path, baseUrl)` 构造 URL，绝对 path 会吞掉
+    // baseUrl 的 pathname。前缀注入在 fetcher 里做。
+    baseUrl: origin,
+    // 逻辑：反代注入 token，SDK 构造参数仍要求给出 getter，返回空串即可。
+    getAccessToken: async () => "",
+    // 逻辑：每个请求都带 X-OpenLoaf-Client，通过 Server 的 strictClientGuard。
+    headers: { ...CLIENT_HEADERS },
+    locale: i18n.language || "en-US",
+    fetcher: createSaasProxyFetcher(origin),
+  });
 }
 
-/** Check whether an error indicates the refresh token is permanently invalid (not a transient network issue). */
-function isAuthRejection(error: unknown): boolean {
-  if (error && typeof error === "object") {
-    const status = (error as any).status ?? (error as any).statusCode;
-    if (status === 401 || status === 403) return true;
-    const response = (error as any).response;
-    if (response && (response.status === 401 || response.status === 403)) return true;
-  }
-  return false;
-}
-
-/** Internal refresh implementation. */
-async function doRefreshAccessToken(): Promise<string | null> {
-  const stored = resolveStoredAuth();
-  if (!stored?.refreshToken) {
-    console.info(LOG_TAG, "refresh skipped — no refresh token in storage");
-    clearStoredAuth();
-    return null;
-  }
-  console.info(LOG_TAG, "refreshing access token", { storage: stored.storageType });
-  try {
-    const client = createSaasClient();
-    const result = await client.auth.refresh(stored.refreshToken);
-    if (!result || typeof (result as any).accessToken !== "string") {
-      console.info(LOG_TAG, "refresh returned invalid result, clearing tokens");
-      clearStoredAuth();
-      return null;
-    }
-    const accessToken = (result as any).accessToken as string;
-    const refreshToken = (result as any).refreshToken as string;
-    const user: SaasAuthUser | undefined = (result as any).user
-      ? {
-          name: (result as any).user?.name ?? undefined,
-          email: (result as any).user?.email ?? undefined,
-          avatarUrl: (result as any).user?.avatarUrl ?? undefined,
-        }
-      : undefined;
-    persistTokens({
-      accessToken,
-      refreshToken,
-      remember: stored.storageType === "local",
-      user,
-    });
-    console.info(LOG_TAG, "refresh success", { email: user?.email });
-    return accessToken;
-  } catch (error) {
-    // 仅在服务端明确拒绝（401/403）时才清除 token；
-    // 网络超时、代理未就绪等瞬态错误保留 token，下次可重试。
-    if (isAuthRejection(error)) {
-      console.info(LOG_TAG, "refresh rejected (401/403), clearing tokens", error);
-      clearStoredAuth();
-    } else {
-      console.info(LOG_TAG, "refresh failed (transient), keeping tokens for retry", error);
-    }
-    return null;
-  }
-}
-
-/** Get a valid access token, refreshing if needed. */
-export async function getAccessToken(): Promise<string | null> {
-  const stored = resolveStoredAuth();
-  if (!stored?.accessToken) return null;
-  if (isTokenExpired(stored.accessToken)) return refreshAccessToken();
-  // 逻辑：即将过期时后台刷新，但先返回当前 token 不阻塞请求。
-  if (isTokenNearExpiry(stored.accessToken)) {
-    void refreshAccessToken();
-  }
-  return stored.accessToken;
-}
-
-/** Check current auth status. */
-export async function isAuthenticated(): Promise<boolean> {
-  const token = await getAccessToken();
-  return Boolean(token);
-}
-
-/** Fetch full user profile from SaaS backend (includes membershipLevel & creditsBalance). */
+/** Fetch full user profile through reverse proxy. */
 export async function fetchUserProfile(): Promise<{
   id: string;
   membershipLevel: "free" | "lite" | "pro" | "premium" | "infinity";
   creditsBalance: number;
   isInternal?: boolean;
 } | null> {
-  const token = await getAccessToken();
-  if (!token) return null;
   try {
-    const client = createSaasClient(async () => token);
+    const client = createProxyClient();
     const result = await client.user.self();
     return {
       id: result.user.id,
@@ -349,7 +311,7 @@ export async function fetchUserProfile(): Promise<{
   }
 }
 
-/** Fetch current active subscription from SaaS backend. */
+/** Fetch current active subscription via reverse proxy tRPC passthrough. */
 export async function fetchCurrentSubscription(): Promise<{
   id: string;
   planCode: string;
@@ -360,25 +322,23 @@ export async function fetchCurrentSubscription(): Promise<{
   currentPeriodStart: string;
   currentPeriodEnd: string;
 } | null> {
-  const token = await getAccessToken();
-  if (!token) return null;
+  const base = resolveSaasProxyBaseUrl();
+  if (!base) return null;
   try {
-    const baseUrl = resolveSaasBaseUrl();
-    if (!baseUrl) return null;
-    const url = `${baseUrl}/api/trpc/memberSubscription.current`;
+    const url = `${base}/api/trpc/memberSubscription.current`;
     const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${token}` },
+      credentials: "include",
+      headers: { ...CLIENT_HEADERS },
     });
     if (!res.ok) return null;
     const json = await res.json();
-    // tRPC without transformer: { result: { data: <actual> } }
     return json?.result?.data ?? null;
   } catch {
     return null;
   }
 }
 
-/** Fetch credits transaction list from SaaS backend. */
+/** Fetch credits transaction list via reverse proxy tRPC passthrough. */
 export async function fetchCreditsTransactions(input: {
   page: number;
   pageSize: number;
@@ -395,19 +355,17 @@ export async function fetchCreditsTransactions(input: {
   }>;
   total: number;
 } | null> {
-  const token = await getAccessToken();
-  if (!token) return null;
+  const base = resolveSaasProxyBaseUrl();
+  if (!base) return null;
   try {
-    const baseUrl = resolveSaasBaseUrl();
-    if (!baseUrl) return null;
     const inputParam = encodeURIComponent(JSON.stringify(input));
-    const url = `${baseUrl}/api/trpc/memberCredits.transactions?input=${inputParam}`;
+    const url = `${base}/api/trpc/memberCredits.transactions?input=${inputParam}`;
     const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${token}` },
+      credentials: "include",
+      headers: { ...CLIENT_HEADERS },
     });
     if (!res.ok) return null;
     const json = await res.json();
-    // tRPC without transformer: { result: { data: <actual> } }
     return json?.result?.data ?? null;
   } catch {
     return null;
@@ -425,11 +383,7 @@ export async function redeemCode(input: {
   newBalance: number;
   createdAt: string;
 }> {
-  const token = await getAccessToken();
-  if (!token) {
-    throw new Error("not_authenticated");
-  }
-  const client = createSaasClient(async () => token);
+  const client = createProxyClient();
   return client.redeemCode.redeem(input);
 }
 
@@ -453,38 +407,17 @@ export async function fetchRedeemCodeRecords(input: {
   pageSize: number;
   pageCount: number;
 } | null> {
-  const token = await getAccessToken();
-  if (!token) return null;
   try {
-    const client = createSaasClient(async () => token);
+    const client = createProxyClient();
     return await client.redeemCode.records(input);
   } catch {
     return null;
   }
 }
 
-/** Resolve auth user from cached token or storage. */
-export async function resolveAuthUser(): Promise<SaasAuthUser | null> {
-  const cached = getStoredUser();
-  if (cached) return cached;
-  const token = await getAccessToken();
-  if (!token) return null;
-  const payload = parseJwt(token);
-  if (!payload) return null;
-  return { name: payload.name, email: payload.email };
-}
-
-/** Logout from SaaS and clear stored tokens. */
-export function logout(): void {
-  console.info(LOG_TAG, "user logout");
-  const stored = resolveStoredAuth();
-  clearStoredAuth();
-  // 后台静默通知 SaaS 后端吊销 token，不阻塞 UI
-  if (stored?.refreshToken) {
-    const client = createSaasClient();
-    client.auth.logout(stored.refreshToken).catch(() => {});
-  }
-}
+// ─────────────────────────────────────────────────────────────────
+// 登录引导 / 回调流程辅助（保留）
+// ─────────────────────────────────────────────────────────────────
 
 export type SaasLoginProvider = "google" | "wechat";
 
@@ -531,7 +464,10 @@ export async function fetchLoginCode(state: string): Promise<string | null> {
   if (!baseUrl) return null;
   const url = new URL("/auth/login-code", baseUrl);
   url.searchParams.set("state", state);
-  const response = await fetch(url.toString(), { credentials: "include" });
+  const response = await fetch(url.toString(), {
+    credentials: "include",
+    headers: { ...CLIENT_HEADERS },
+  });
   if (!response.ok) return null;
   const payload = (await response.json().catch(() => null)) as { code?: string | null } | null;
   return payload?.code ?? null;

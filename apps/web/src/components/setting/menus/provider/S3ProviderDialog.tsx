@@ -9,14 +9,8 @@
  */
 import { useTranslation } from "react-i18next";
 import { Button } from "@openloaf/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@openloaf/ui/dialog";
 import { Input } from "@openloaf/ui/input";
+import { FormDialog } from "@/components/ui/FormDialog";
 import { Switch } from "@openloaf/ui/switch";
 import {
   DropdownMenu,
@@ -123,12 +117,15 @@ export function S3ProviderDialog({
 }: S3ProviderDialogProps) {
   const { t } = useTranslation("settings");
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[80vh] w-full max-w-4xl overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{editingKey ? t("s3.editProvider") : t("s3.addProvider")}</DialogTitle>
-        </DialogHeader>
-
+    <FormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={editingKey ? t("s3.editProvider") : t("s3.addProvider")}
+      onSubmit={onSubmit}
+      submitLabel={t("s3.save")}
+      cancelLabel={t("s3.cancel")}
+      contentClassName="max-h-[80vh] w-full max-w-4xl overflow-y-auto"
+    >
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
             <div className="text-sm font-medium">{t("s3.provider")}</div>
@@ -262,14 +259,6 @@ export function S3ProviderDialog({
 
           {error ? <div className="text-sm text-destructive md:col-span-2">{error}</div> : null}
         </div>
-
-        <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            {t("s3.cancel")}
-          </Button>
-          <Button onClick={onSubmit}>{t("s3.save")}</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

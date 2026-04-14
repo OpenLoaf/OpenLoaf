@@ -13,10 +13,11 @@ import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { useChatActions, useChatSession, useChatMessages, useChatStatus, useChatTools } from "../../../context";
 import { trpc } from "@/utils/trpc";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { CLIENT_HEADERS } from "@/lib/client-headers";
 import { resolveServerUrl } from "@/utils/server-url";
 import { ConfirmationAction } from "@/components/ai-elements/confirmation";
+import { suggestRule } from "@openloaf/api/types/toolApproval";
 
 interface ToolApprovalActionsProps {
   /** Approval id to submit. */
@@ -32,29 +33,6 @@ function extractToolId(type?: string): string | null {
   return null;
 }
 
-/** Generate a suggested allow rule from a tool call (frontend mirror of server suggestRule). */
-function suggestAllowRule(toolId: string, input: Record<string, unknown>): string | null {
-  if (toolId === "Bash" && typeof input.command === "string") {
-    const tokens = input.command.trim().split(/\s+/);
-    if (tokens.length >= 2) {
-      const first = tokens[0]!;
-      const second = tokens[1]!;
-      if (/^[a-zA-Z][\w-]*$/.test(second) && second.length < 20) {
-        return `Bash(${first} ${second} *)`;
-      }
-    }
-    if (tokens[0]) return `Bash(${tokens[0]} *)`;
-    return "Bash";
-  }
-  const filePath = typeof input.file_path === "string" ? input.file_path : null;
-  if ((toolId === "Edit" || toolId === "Write") && filePath) {
-    const lastSlash = filePath.lastIndexOf("/");
-    if (lastSlash > 0) return `${toolId}(${filePath.substring(0, lastSlash)}/**)`;
-    return toolId;
-  }
-  return toolId;
-}
-
 /** Render approval actions for a tool request. */
 export default function ToolApprovalActions({ approvalId, size = "sm" }: ToolApprovalActionsProps) {
   const { t } = useTranslation("ai");
@@ -67,7 +45,14 @@ export default function ToolApprovalActions({ approvalId, size = "sm" }: ToolApp
     clearToolApprovalPayload,
     continueAfterToolApprovals,
   } = useChatTools();
-  const { sessionId } = useChatSession();
+  const { sessionId, projectId } = useChatSession();
+  const queryClient = useQueryClient();
+  const addProjectRuleMutation = useMutation({
+    ...trpc.project.addToolApprovalRule.mutationOptions(),
+  });
+  const addGlobalRuleMutation = useMutation({
+    ...trpc.settings.addToolApprovalRule.mutationOptions(),
+  });
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const toolSnapshot = React.useMemo(
     () => Object.values(toolParts).find((part) => part.approval?.id === approvalId),
@@ -94,7 +79,7 @@ export default function ToolApprovalActions({ approvalId, size = "sm" }: ToolApp
       typeof toolSnapshot.input === "object" && toolSnapshot.input
         ? (toolSnapshot.input as Record<string, unknown>)
         : {};
-    return suggestAllowRule(toolId, input);
+    return suggestRule(toolId, input);
   }, [toolSnapshot]);
 
   const updateApprovalInMessages = React.useCallback(
@@ -207,23 +192,43 @@ export default function ToolApprovalActions({ approvalId, size = "sm" }: ToolApp
       if (isSubmitting || isDecided || !suggestedRule) return;
       setIsSubmitting(true);
       try {
-        // Fire-and-forget: 添加规则到全局设置
-        const baseUrl = resolveServerUrl();
-        const endpoint = baseUrl
-          ? `${baseUrl}/api/trpc/settings.addToolApprovalRule`
-          : "/api/trpc/settings.addToolApprovalRule";
-        fetch(endpoint, {
-          method: "POST",
-          credentials: "include",
-          headers: { "content-type": "application/json", ...CLIENT_HEADERS },
-          body: JSON.stringify({ rule: suggestedRule, behavior: "allow" }),
-        }).catch(() => {});
+        // 项目对话写项目白名单，临时对话写全局临时对话白名单。
+        // 两个 mutation 都是后端原子的 read-modify-write，避免并发 lost update。
+        // 写规则失败时只 console.warn 不中断 approve —— 用户已经表达"始终允许"的意图，
+        // 至少应完成本次放行，规则丢失属于降级体验。
+        try {
+          if (projectId) {
+            await addProjectRuleMutation.mutateAsync({
+              projectId,
+              rule: suggestedRule,
+              behavior: "allow",
+            });
+            const aiSettingsOptions = trpc.project.getAiSettings.queryOptions({ projectId });
+            queryClient.invalidateQueries({ queryKey: aiSettingsOptions.queryKey });
+          } else {
+            await addGlobalRuleMutation.mutateAsync({
+              rule: suggestedRule,
+              behavior: "allow",
+            });
+          }
+        } catch (err) {
+          console.warn("[toolApproval] failed to persist allow rule", err);
+        }
         await performApprove();
       } finally {
         setIsSubmitting(false);
       }
     },
-    [isSubmitting, isDecided, suggestedRule, performApprove],
+    [
+      isSubmitting,
+      isDecided,
+      suggestedRule,
+      performApprove,
+      projectId,
+      queryClient,
+      addProjectRuleMutation,
+      addGlobalRuleMutation,
+    ],
   );
 
   const handleReject = React.useCallback(

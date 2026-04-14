@@ -51,10 +51,6 @@ import {
   sanitizePartialParts,
 } from "./chatStreamHelpers";
 import { resolveCodexRequestOptions, resolveClaudeCodeRequestOptions } from "./messageOptionResolver";
-import {
-  resolvePreviousChatModelId,
-  resolveRequiredInputTags,
-} from "./modelResolution";
 import type { ChatStreamRequest } from "@/ai/services/chat/types";
 import {
   ensureSessionPreface,
@@ -75,6 +71,7 @@ import {
   CORE_TOOLS_METADATA_KEY,
 } from "@/ai/tools/toolSearchState";
 import { MASTER_CORE_TOOL_IDS } from "@/ai/shared/coreToolIds";
+import { loadToolApprovalRulesForRequest } from "@/ai/tools/toolApprovalRulesLoader";
 import { buildHardRules } from "@/ai/shared/hardRules";
 import { scheduleExecutor } from "@/services/scheduleExecutor";
 import {
@@ -149,8 +146,6 @@ export async function runChatStream(input: {
   cookies: Record<string, string>;
   /** Raw request signal. */
   requestSignal: AbortSignal;
-  /** SaaS access token from request header. */
-  saasAccessToken?: string;
 }): Promise<Response> {
   const {
     sessionId,
@@ -164,20 +159,30 @@ export async function runChatStream(input: {
     trigger,
   } = input.request;
 
-  // 逻辑：从 master agent 配置读取模型，不再依赖请求参数。
+  // 逻辑：chatModelId 必须由前端显式传入（对应 model picker 当前选中的模型），
+  // 避免同一条消息的多次 attempt 因 master agent.json 被中途修改而切模型。
+  // master agent 配置仅作为前端未传时的兜底（bg-drain 等内部场景可能没法传）。
   const agentModelIds = resolveAgentModelIds({ projectId })
-  let chatModelId = agentModelIds.chatModelId
-  let chatModelSource = agentModelIds.chatModelSource
-
-  // 请求中明确指定了模型时，优先使用（支持 board 节点 + E2E 测试并发）。
+  let chatModelId: string | undefined
+  let chatModelSource: typeof agentModelIds.chatModelSource
   if (input.request.chatModelId) {
     chatModelId = input.request.chatModelId
-    if (input.request.chatModelSource) chatModelSource = input.request.chatModelSource
+    chatModelSource = input.request.chatModelSource ?? agentModelIds.chatModelSource
+  } else {
+    chatModelId = agentModelIds.chatModelId
+    chatModelSource = agentModelIds.chatModelSource
+    logger.warn(
+      { sessionId, projectId, fallbackChatModelId: chatModelId },
+      "[chat] request missing chatModelId — falling back to master agent config. " +
+        "Frontend should always send the active chatModelId explicitly.",
+    )
   }
 
   // 逻辑：优先从 master agent config 读取已启用技能，/skill/ 命令作为临时覆盖。
   const configSkills = resolveAgentSkills({ projectId })
   const selectedSkills = configSkills
+  // 加载审批规则：项目对话 → 项目规则；临时对话 → 全局临时对话白名单。
+  const toolApprovalRules = await loadToolApprovalRulesForRequest(projectId)
   const { abortController, assistantMessageId, requestStartAt } = initRequestContext({
     sessionId,
     cookies: input.cookies,
@@ -188,12 +193,10 @@ export async function runChatStream(input: {
     boardId,
     selectedSkills,
     toolApprovalPayloads: input.request.toolApprovalPayloads,
+    toolApprovalRules,
     autoApproveTools: input.request.autoApproveTools,
     requestSignal: input.requestSignal,
     messageId,
-    saasAccessToken: input.saasAccessToken,
-    imageModelId: agentModelIds.imageModelId,
-    videoModelId: agentModelIds.videoModelId,
     clientPlatform: input.request.clientPlatform,
     webVersion: input.request.webVersion,
     serverVersion: input.request.serverVersion,
@@ -245,7 +248,7 @@ export async function runChatStream(input: {
     }
     // 重写消息内容为 notification XML
     const innerXml = notifications.map((n) => n.xmlContent).join('\n');
-    const wrappedContent = `<system-reminder>\n${innerXml}\n</system-reminder>`;
+    const wrappedContent = `<system-tag type="reminder">\n${innerXml}\n</system-tag>`;
     const taskIds = notifications.map((n) => n.taskId);
     (lastMessage as any).parts = [{ type: 'text', text: wrappedContent }];
     (lastMessage as any).metadata = {
@@ -364,7 +367,7 @@ export async function runChatStream(input: {
           '[chat] @agents/pm created new PM task',
         );
         // Start execution
-        void scheduleExecutor.execute(newTask.id, globalRoot, targetProjectRoot, input.saasAccessToken);
+        void scheduleExecutor.execute(newTask.id, globalRoot, targetProjectRoot);
       }
 
       // Return an ack response instead of running the master agent
@@ -628,17 +631,10 @@ export async function runChatStream(input: {
   let resolvedModelDef: import("@openloaf/api/common").ModelDefinition | undefined;
 
   try {
-    // 按输入能力与历史偏好选择模型，失败时直接返回错误流。
-    const requiredTags = !chatModelId ? resolveRequiredInputTags(messages as UIMessage[]) : [];
-    const preferredChatModelId = !chatModelId
-      ? resolvePreviousChatModelId(messages as UIMessage[])
-      : null;
+    // 前端必传 chatModelId — model picker 当前活跃的模型。
     const resolved = await resolveChatModel({
       chatModelId,
       chatModelSource,
-      requiredTags,
-      preferredChatModelId,
-      saasAccessToken: input.saasAccessToken,
     });
     if (directCli) {
       // 逻辑：CLI 直连模式 — 不注入 agent 系统指令和工具，消息直接透传给 CLI 适配模型。

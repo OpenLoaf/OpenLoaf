@@ -9,16 +9,10 @@
  */
 import { useTranslation } from "react-i18next";
 import { Button } from "@openloaf/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@openloaf/ui/dialog";
 import { Input } from "@openloaf/ui/input";
 import { AI_MODEL_TAGS } from "@openloaf-saas/sdk";
 import type { ModelTag } from "@openloaf/api/common";
+import { FormDialog } from "@/components/ui/FormDialog";
 import {
   toggleSelection,
 } from "@/components/setting/menus/provider/use-provider-management";
@@ -71,7 +65,6 @@ export function ModelDialog({
   onSubmit,
 }: ModelDialogProps) {
   const { t } = useTranslation('settings');
-  const { t: tc } = useTranslation('common');
   const { t: tAi } = useTranslation('ai');
   const modelTagOptions = AI_MODEL_TAGS.map((value) => ({
     value: value as ModelTag,
@@ -80,70 +73,64 @@ export function ModelDialog({
   const isEditing = Boolean(editingModelId);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[80vh] w-full max-w-4xl overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{isEditing ? t('provider.editModel') : t('provider.newModel')}</DialogTitle>
-        </DialogHeader>
-
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-2 md:col-span-2">
-            <div className="text-sm font-medium">{t('provider.modelId')}</div>
-            <Input
-              value={draftModelId}
-              placeholder={t('provider.modelIdPlaceholder')}
-              disabled={isEditing}
-              onChange={(event) => onDraftModelIdChange(event.target.value)}
-            />
-          </div>
-
-          <div className="space-y-2 md:col-span-2">
-            <div className="text-sm font-medium">{t('provider.modelName')}</div>
-            <Input
-              value={draftModelName}
-              placeholder={t('provider.modelNamePlaceholder')}
-              onChange={(event) => onDraftModelNameChange(event.target.value)}
-            />
-          </div>
-
-          <div className="space-y-2 md:col-span-2">
-            <div className="text-sm font-medium">{t('provider.capabilityTags')}</div>
-            <div className="flex flex-wrap gap-2">
-              {modelTagOptions.map((option) => (
-                <Button
-                  key={option.value}
-                  type="button"
-                  variant={draftModelTags.includes(option.value) ? "default" : "outline"}
-                  size="sm"
-                  onClick={() =>
-                    onDraftModelTagsChange(toggleSelection(draftModelTags, option.value))
-                  }
-                >
-                  {option.label}
-                </Button>
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-2 md:col-span-2">
-            <div className="text-sm font-medium">{t('provider.contextLength')}</div>
-            <Input
-              value={draftModelContextK}
-              placeholder={t('provider.contextLengthPlaceholder')}
-              onChange={(event) => onDraftModelContextKChange(event.target.value)}
-            />
-          </div>
-
-          {modelError ? <div className="text-sm text-destructive md:col-span-2">{modelError}</div> : null}
+    <FormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={isEditing ? t('provider.editModel') : t('provider.newModel')}
+      onSubmit={onSubmit}
+      contentClassName="max-h-[80vh] w-full max-w-4xl overflow-y-auto"
+    >
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-2 md:col-span-2">
+          <div className="text-sm font-medium">{t('provider.modelId')}</div>
+          <Input
+            autoFocus
+            value={draftModelId}
+            placeholder={t('provider.modelIdPlaceholder')}
+            disabled={isEditing}
+            onChange={(event) => onDraftModelIdChange(event.target.value)}
+          />
         </div>
 
-        <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)} className="rounded-3xl">
-            {tc('cancel')}
-          </Button>
-          <Button onClick={onSubmit} className="rounded-3xl">{tc('save')}</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        <div className="space-y-2 md:col-span-2">
+          <div className="text-sm font-medium">{t('provider.modelName')}</div>
+          <Input
+            value={draftModelName}
+            placeholder={t('provider.modelNamePlaceholder')}
+            onChange={(event) => onDraftModelNameChange(event.target.value)}
+          />
+        </div>
+
+        <div className="space-y-2 md:col-span-2">
+          <div className="text-sm font-medium">{t('provider.capabilityTags')}</div>
+          <div className="flex flex-wrap gap-2">
+            {modelTagOptions.map((option) => (
+              <Button
+                key={option.value}
+                type="button"
+                variant={draftModelTags.includes(option.value) ? "default" : "outline"}
+                size="sm"
+                onClick={() =>
+                  onDraftModelTagsChange(toggleSelection(draftModelTags, option.value))
+                }
+              >
+                {option.label}
+              </Button>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-2 md:col-span-2">
+          <div className="text-sm font-medium">{t('provider.contextLength')}</div>
+          <Input
+            value={draftModelContextK}
+            placeholder={t('provider.contextLengthPlaceholder')}
+            onChange={(event) => onDraftModelContextKChange(event.target.value)}
+          />
+        </div>
+
+        {modelError ? <div className="text-sm text-destructive md:col-span-2">{modelError}</div> : null}
+      </div>
+    </FormDialog>
   );
 }

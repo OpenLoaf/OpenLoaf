@@ -37,8 +37,8 @@ export function assembleDefaultAgentInstructions(
 }
 
 /**
- * Assemble memory blocks as independent <system-reminder> strings.
- * Each block is wrapped in its own <system-reminder> tag.
+ * Assemble memory blocks as independent <system-tag type="*-memory"> strings.
+ * Each block is wrapped in its own <system-tag> tag with a scope-specific type.
  * Returns an array of strings (empty array if no memory exists).
  */
 export function assembleMemoryBlocks(
@@ -50,16 +50,16 @@ export function assembleMemoryBlocks(
     parentProjectRootPaths: input.parentProjectRootPaths,
   })
 
-  const scopeTagMap: Record<string, { tag: string; desc: string }> = {
-    user: { tag: 'system-user-memory', desc: '用户记忆，跨会话持久化' },
-    'parent-project': { tag: 'system-parent-project-memory', desc: '父项目记忆' },
-    project: { tag: 'system-project-memory', desc: '当前项目记忆' },
-    agent: { tag: 'system-agent-memory', desc: 'Agent 专属记忆' },
+  const scopeTypeMap: Record<string, { type: string; desc: string }> = {
+    user: { type: 'user-memory', desc: '用户记忆，跨会话持久化' },
+    'parent-project': { type: 'parent-project-memory', desc: '父项目记忆' },
+    project: { type: 'project-memory', desc: '当前项目记忆' },
+    agent: { type: 'agent-memory', desc: 'Agent 专属记忆' },
   }
 
   return blocks.map((block) => {
-    const { tag, desc } = scopeTagMap[block.scope] ?? { tag: 'system-memory', desc: block.label }
+    const { type, desc } = scopeTypeMap[block.scope] ?? { type: 'memory', desc: block.label }
     const header = `# 记忆（${block.label}）\n来源: ${block.filePath}\n需要保存/更新/删除记忆时使用 MemorySave 工具。`
-    return `<${tag} desc="${desc}">\n${header}\n\n${block.content}\n</${tag}>`
+    return `<system-tag type="${type}" desc="${desc}">\n${header}\n\n${block.content}\n</system-tag>`
   })
 }

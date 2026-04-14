@@ -46,6 +46,7 @@ import {
 import { buildTimingMetadata } from './metadataBuilder'
 import { buildSessionPrefaceText } from '@/ai/shared/prefaceBuilder'
 import { resolveAgentModelIds, resolveAgentSkills } from './agentConfigResolver'
+import { loadToolApprovalRulesForRequest } from '@/ai/tools/toolApprovalRulesLoader'
 import {
   ChatImageRequestError,
   resolveChatModelSuffix,
@@ -87,8 +88,6 @@ type ImageModelRequest = {
   boardId?: string | null
   /** Optional image save directory uri. */
   imageSaveDir?: string
-  /** SaaS access token for media generation. */
-  saasAccessToken?: string
 }
 
 type ImageModelResult = {
@@ -112,8 +111,6 @@ export async function runChatImageRequest(input: {
   cookies: Record<string, string>
   /** Raw request signal. */
   requestSignal: AbortSignal
-  /** SaaS access token from request header. */
-  saasAccessToken?: string
 }): Promise<ChatImageRequestResult> {
   const {
     sessionId,
@@ -134,6 +131,7 @@ export async function runChatImageRequest(input: {
   const chatModelSource = imageAgentModelIds.chatModelSource
 
   const selectedSkills = resolveAgentSkills({ projectId })
+  const toolApprovalRules = await loadToolApprovalRulesForRequest(projectId)
   const { abortController, assistantMessageId, requestStartAt } = initRequestContext({
     sessionId,
     cookies: input.cookies,
@@ -143,9 +141,9 @@ export async function runChatImageRequest(input: {
     projectId,
     boardId,
     selectedSkills,
+    toolApprovalRules,
     requestSignal: input.requestSignal,
     messageId,
-    saasAccessToken: input.saasAccessToken,
     clientPlatform: input.request.clientPlatform,
     webVersion: input.request.webVersion,
     serverVersion: input.request.serverVersion,
@@ -227,7 +225,6 @@ export async function runChatImageRequest(input: {
       trigger,
       boardId,
       imageSaveDir,
-      saasAccessToken: input.saasAccessToken,
     })
 
     const timingMetadata = buildTimingMetadata({
@@ -296,7 +293,8 @@ export async function generateImageModelResult(
   if (!rawModelId) {
     throw new ChatImageRequestError('未指定图片模型。', 400)
   }
-  const accessToken = input.saasAccessToken?.trim() ?? ''
+  const { ensureServerAccessToken } = await import('@/modules/auth/tokenStore')
+  const accessToken = (await ensureServerAccessToken()) ?? ''
   if (!accessToken) {
     throw new ChatImageRequestError('缺少 SaaS 访问令牌。', 401)
   }
@@ -468,7 +466,6 @@ export async function runImageModelStream(input: {
   responseMessageId?: string
   trigger?: string
   boardId?: string | null
-  saasAccessToken?: string
 }): Promise<Response> {
   try {
     const imageResult = await generateImageModelResult({
@@ -483,7 +480,6 @@ export async function runImageModelStream(input: {
       responseMessageId: input.responseMessageId,
       trigger: input.trigger,
       boardId: input.boardId,
-      saasAccessToken: input.saasAccessToken,
     })
     return await createImageStreamResponse({
       sessionId: input.sessionId,

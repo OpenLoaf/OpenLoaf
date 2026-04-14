@@ -16,7 +16,6 @@ import { getWebClientId } from '@/lib/chat/streamClientId'
 import { resolveServerUrl } from '@/utils/server-url'
 import { isElectronEnv } from '@/utils/is-electron-env'
 import { getClientTimeZone } from '@/utils/time-zone'
-import { getAccessToken } from '@/lib/saas-auth'
 import { CLIENT_HEADERS } from '@/lib/client-headers'
 import { snapshotStackForPageContext } from '@/lib/ai/transport-stack'
 
@@ -64,11 +63,9 @@ export function createChatTransportAsync({
   return {
     async sendMessages({ messages, body, abortSignal, headers: extraHeaders }) {
       const asyncBase = getAsyncBase()
-      const accessToken = await getAccessToken()
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
         ...CLIENT_HEADERS,
-        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         ...(extraHeaders instanceof Headers
           ? Object.fromEntries(extraHeaders.entries())
           : extraHeaders ?? {}),
@@ -141,10 +138,8 @@ export function createChatTransportAsync({
 
     async reconnectToStream({ chatId, headers: extraHeaders }) {
       const asyncBase = getAsyncBase()
-      const accessToken = await getAccessToken()
       const headers: Record<string, string> = {
         ...CLIENT_HEADERS,
-        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         ...(extraHeaders instanceof Headers
           ? Object.fromEntries(extraHeaders.entries())
           : extraHeaders ?? {}),
@@ -354,14 +349,12 @@ export async function queryAsyncStreamStatus(
 export async function abortAsyncStream(sessionId: string): Promise<void> {
   try {
     const serverUrl = resolveServerUrl()
-    const accessToken = await getAccessToken()
     await fetch(`${serverUrl}/ai/chat/async/abort`, {
       method: 'POST',
       credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
         ...CLIENT_HEADERS,
-        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
       },
       body: JSON.stringify({ sessionId }),
     })

@@ -25,6 +25,8 @@ import browserOpsMd from './browser-ops/SKILL.md'
 import pdfWordExcelPptxMd from './pdf-word-excel-pptx/SKILL.md'
 import mediaOpsMd from './media-ops/SKILL.md'
 import visualizationOpsMd from './visualization-ops/SKILL.md'
+// Dynamic (content re-rendered on cloud capability refresh)
+import { cloudMediaSkill, cloudTextSkill } from './cloud-skills'
 
 type BuiltinSkillOverride = {
   md: string
@@ -57,4 +59,8 @@ export const BUILTIN_SKILLS: BuiltinSkill[] = [
   buildSkill({ md: pdfWordExcelPptxMd, icon: '📊', colorIndex: 4 }),
   buildSkill({ md: mediaOpsMd, icon: '🎬', colorIndex: 6 }),
   buildSkill({ md: visualizationOpsMd, icon: '📈', colorIndex: 7 }),
+  // Dynamic cloud skills — content re-rendered when ai.capabilitiesOverview refreshes.
+  // Iterated per-request so mutating `.content` post-boot propagates to callers.
+  cloudMediaSkill,
+  cloudTextSkill,
 ]

@@ -29,6 +29,7 @@ Hard constraints (cannot be derived from the intent framework — must remember)
 - **Use Sleep, not Bash(sleep)**. Background notifications auto-absorbed — **never poll**.
 - **Rich-text uses EditDocument** (paths with `tndoc_` prefix), not `Edit`.
 - **WebFetch first, fall back to `browser-ops`** on failure.
+- **Account / credits / membership queries** → `ToolSearch("select:CloudUserInfo")` then call `CloudUserInfo` (no params, no credits). If it returns `not_signed_in` or session context shows not-logged-in → `ToolSearch("select:CloudLogin")` then call `CloudLogin` to open the sign-in card, and retry after the user completes sign-in. Don't tell the user to go find the settings page themselves.
 - **Parallelize** independent calls in a single turn.
 - **Shell path quoting**: always double-quote file paths in `Bash`.
 

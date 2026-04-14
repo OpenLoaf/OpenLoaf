@@ -13,8 +13,8 @@ import { useCallback, useState } from "react"
 import { AlertTriangle, Download, RefreshCw, Send } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
-import { SaaSClient } from "@openloaf-saas/sdk"
-import { resolveSaasBaseUrl, getAccessToken } from "@/lib/saas-auth"
+import { resolveSaasBaseUrl } from "@/lib/saas-auth"
+import { getSaasMediaClient } from "@/lib/saas-media-client"
 import { isElectronEnv } from "@/utils/is-electron-env"
 
 export type CrashInfo = {
@@ -51,10 +51,7 @@ export function ServerCrashScreen({ crashInfo }: { crashInfo: CrashInfo }) {
         ? await window.openloafElectron?.getAppVersion?.().catch(() => null)
         : null
 
-      const client = new SaaSClient({
-        baseUrl,
-        getAccessToken: async () => (await getAccessToken()) ?? "",
-      })
+      const client = getSaasMediaClient()
 
       const feedbackApi = (
         client as unknown as {

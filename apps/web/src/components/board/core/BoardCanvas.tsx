@@ -75,7 +75,6 @@ import { trpc, trpcClient } from "@/utils/trpc";
 import { useHeaderSlot } from "@/hooks/use-header-slot";
 import { useSaasAuth } from "@/hooks/use-saas-auth";
 import { useProjectStorageRootUri, useTempStorageRootUri } from "@/hooks/use-project-storage-root-uri";
-import { getCachedAccessToken } from "@/lib/saas-auth";
 import { SaasLoginDialog } from "@/components/auth/SaasLoginDialog";
 import i18next from "i18next";
 import { isElectronEnv } from "@/utils/is-electron-env";
@@ -469,7 +468,6 @@ export function BoardCanvas({
         boardFolderUri,
         boardId: resolvedBoardId,
         projectId,
-        saasAccessToken: getCachedAccessToken() ?? undefined,
       });
       if (result.title) {
         setRenameValue(result.title);
@@ -943,6 +941,7 @@ export function BoardCanvas({
               </Button>
             </DialogClose>
             <Button
+              autoFocus
               className="rounded-3xl bg-ol-purple/10 text-ol-purple hover:bg-ol-purple/20 shadow-none transition-colors duration-150"
               disabled={!saveToProjectTargetId || moveToProjectMutation.isPending}
               onClick={async () => {

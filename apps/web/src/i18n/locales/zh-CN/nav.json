@@ -85,6 +85,7 @@
     }
   },
   "projectTree": {
+    "pathPlaceholder": "file://... 或 /path/to/project",
     "open": "打开",
     "openInNewWindow": "新建窗口打开",
     "openInCurrentWindow": "当前窗口打开",
@@ -322,6 +323,7 @@
     "totalCount": "共 {{count}} 个",
     "childCount": "{{count}} 个子项目",
     "createFailed": "创建失败",
-    "dropToCreate": "拖放文件夹以创建项目"
+    "dropToCreate": "拖放文件夹以创建项目",
+    "refresh": "刷新"
   }
 }

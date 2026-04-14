@@ -88,7 +88,7 @@ export function buildToolSearchGuidance(
 
 核心工具（Bash、Read、Glob、Grep、Edit、Write、AskUserQuestion、Agent、ToolSearch、LoadSkill 等）始终可用，直接调用。
 
-**Skill 加载（工作流指令）**：\`LoadSkill(skillName: "<name>")\`——唯一途径。可用 skill 列表见 system 中的 \`<system-skills>\` 块。不要用 ToolSearch 加载 skill。
+**Skill 加载（工作流指令）**：\`LoadSkill(skillName: "<name>")\`——唯一途径。可用 skill 列表见 system 中的 \`<system-tag type="skills">\` 块。不要用 ToolSearch 加载 skill。
 
 **Tool schema 加载（参数签名）**：其他 deferred 工具在调用前只有名字没有 schema，必须先用 \`ToolSearch(names: "ToolA,ToolB")\` 加载，支持批量；可用 \`ToolSearch(names: "select:ToolA")\` 明确按名加载。
 

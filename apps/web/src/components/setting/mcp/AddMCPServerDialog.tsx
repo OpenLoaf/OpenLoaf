@@ -17,14 +17,7 @@ import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import { Button } from "@openloaf/ui/button"
 import { Input } from "@openloaf/ui/input"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@openloaf/ui/dialog"
+import { FormDialog } from "@/components/ui/FormDialog"
 import {
   Popover,
   PopoverContent,
@@ -39,7 +32,6 @@ import {
   CommandList,
 } from "@openloaf/ui/command"
 import {
-  Loader2,
   Plus,
   Trash2,
   TerminalSquare,
@@ -281,10 +273,10 @@ export function AddMCPServerDialog({ open, onOpenChange, onSuccess }: Props) {
     : selectedProject?.title ?? scopeValue
 
   // --- Form submit ---
-  function handleFormSubmit() {
+  async function handleFormSubmit() {
     if (!name.trim()) {
       toast.error(t("settings:mcp.nameRequired"))
-      return
+      throw new Error(t("settings:mcp.nameRequired"))
     }
     const envObj =
       envEntries.length > 0
@@ -295,7 +287,7 @@ export function AddMCPServerDialog({ open, onOpenChange, onSuccess }: Props) {
         ? Object.fromEntries(headerEntries.filter((e) => e.key.trim()).map((e) => [e.key, e.value]))
         : undefined
 
-    addMutation.mutate({
+    await addMutation.mutateAsync({
       name: name.trim(),
       description: description.trim() || undefined,
       transport,
@@ -313,55 +305,57 @@ export function AddMCPServerDialog({ open, onOpenChange, onSuccess }: Props) {
             url: url.trim() || undefined,
             headers: headersObj,
           }),
-    }, {
-      onSuccess: () => {
-        toast.success(t("settings:mcp.addSuccess"))
-        resetForm()
-        onOpenChange(false)
-      },
     })
+    toast.success(t("settings:mcp.addSuccess"))
+    resetForm()
   }
 
   // --- JSON batch import ---
   async function handleJsonImport() {
-    if (!parseResult?.ok) return
+    if (!parseResult?.ok) {
+      throw new Error("invalid")
+    }
     const servers = parseResult.servers
     setImporting(true)
 
     let successCount = 0
     let failCount = 0
 
-    for (const server of servers) {
-      try {
-        await addMutation.mutateAsync({
-          name: server.name,
-          transport: server.transport,
-          scope: resolvedScope,
-          projectId: resolvedProjectId,
-          enabled: true,
-          command: server.command,
-          args: server.args,
-          env: server.env,
-          cwd: server.cwd,
-          url: server.url,
-          headers: server.headers,
-        })
-        successCount++
-      } catch {
-        failCount++
+    try {
+      for (const server of servers) {
+        try {
+          await addMutation.mutateAsync({
+            name: server.name,
+            transport: server.transport,
+            scope: resolvedScope,
+            projectId: resolvedProjectId,
+            enabled: true,
+            command: server.command,
+            args: server.args,
+            env: server.env,
+            cwd: server.cwd,
+            url: server.url,
+            headers: server.headers,
+          })
+          successCount++
+        } catch {
+          failCount++
+        }
       }
+    } finally {
+      setImporting(false)
     }
-
-    setImporting(false)
 
     if (successCount > 0) {
       toast.success(t("settings:mcp.importSuccess", { count: successCount }))
       onSuccess()
       resetForm()
-      onOpenChange(false)
     }
     if (failCount > 0) {
       toast.error(t("settings:mcp.importPartialFail", { count: failCount }))
+    }
+    if (successCount === 0) {
+      throw new Error("import_failed")
     }
   }
 
@@ -385,14 +379,30 @@ export function AddMCPServerDialog({ open, onOpenChange, onSuccess }: Props) {
     setHeaderEntries((prev) => prev.map((e, i) => (i === idx ? { ...e, [field]: val } : e)))
   }
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[85vh] flex flex-col">
-        <DialogHeader className="shrink-0">
-          <DialogTitle>{t("settings:mcp.addServerTitle")}</DialogTitle>
-          <DialogDescription>{t("settings:mcp.addServerDesc")}</DialogDescription>
-        </DialogHeader>
+  const isJsonMode = mode === "json"
+  const submitLabel = isJsonMode
+    ? parseResult?.ok
+      ? t("settings:mcp.importCount", { count: parseResult.servers.length })
+      : t("settings:mcp.save")
+    : t("settings:mcp.save")
+  const submitDisabled = isJsonMode
+    ? !parseResult?.ok || importing
+    : addMutation.isPending
+  const submitting = isJsonMode ? importing : addMutation.isPending
 
+  return (
+    <FormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={t("settings:mcp.addServerTitle")}
+      description={t("settings:mcp.addServerDesc")}
+      onSubmit={isJsonMode ? handleJsonImport : handleFormSubmit}
+      submitLabel={submitLabel}
+      cancelLabel={t("settings:mcp.cancel")}
+      submitDisabled={submitDisabled}
+      submitting={submitting}
+      contentClassName="max-w-lg max-h-[85vh] flex flex-col"
+    >
         {/* Mode toggle — fixed at top */}
         <div className="flex items-center gap-1 rounded-3xl bg-muted/40 p-1">
           <button
@@ -600,35 +610,7 @@ export function AddMCPServerDialog({ open, onOpenChange, onSuccess }: Props) {
           </div>
         )}
         </div>
-
-        <DialogFooter className="shrink-0">
-          <Button variant="outline" className="rounded-3xl shadow-none" onClick={() => onOpenChange(false)}>
-            {t("settings:mcp.cancel")}
-          </Button>
-          {mode === "json" ? (
-            <Button
-              className="rounded-3xl bg-secondary text-secondary-foreground shadow-none hover:bg-accent transition-colors duration-150"
-              onClick={handleJsonImport}
-              disabled={!parseResult?.ok || importing}
-            >
-              {importing ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
-              {parseResult?.ok
-                ? t("settings:mcp.importCount", { count: parseResult.servers.length })
-                : t("settings:mcp.save")}
-            </Button>
-          ) : (
-            <Button
-              className="rounded-3xl bg-secondary text-secondary-foreground shadow-none hover:bg-accent transition-colors duration-150"
-              onClick={handleFormSubmit}
-              disabled={addMutation.isPending}
-            >
-              {addMutation.isPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
-              {t("settings:mcp.save")}
-            </Button>
-          )}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </FormDialog>
   )
 }
 

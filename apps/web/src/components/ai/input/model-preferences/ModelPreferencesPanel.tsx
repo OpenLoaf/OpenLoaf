@@ -13,45 +13,12 @@ import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ModelPreferencesHeader } from './ModelPreferencesHeader'
 import { ModelCategoryTabs } from './ModelCategoryTabs'
-import {
-  ChatModelCheckboxList,
-  MediaModelCheckboxList,
-} from './ModelCheckboxList'
+import { ChatModelCheckboxList } from './ModelCheckboxList'
 import { CliToolsList } from './CliToolsList'
 import { PromptInputButton } from '@/components/ai-elements/prompt-input'
 import type { useModelPreferences } from './useModelPreferences'
 
 type Prefs = ReturnType<typeof useModelPreferences>
-
-function MediaEmptyWithLogin({
-  label,
-  onClose,
-  onOpenLogin,
-}: {
-  label: string
-  onClose: () => void
-  onOpenLogin: () => void
-}) {
-  const { t } = useTranslation('ai')
-  return (
-    <div className="flex flex-col items-center justify-center gap-2 py-8">
-      <img src="/logo.svg" alt="OpenLoaf" className="h-10 w-10 opacity-60" />
-      <div className="text-xs text-muted-foreground">{label}</div>
-      <PromptInputButton
-        type="button"
-        variant="outline"
-        size="sm"
-        className="rounded-3xl px-4"
-        onClick={() => {
-          onClose()
-          onOpenLogin()
-        }}
-      >
-        {t('mode.loginAccount')}
-      </PromptInputButton>
-    </div>
-  )
-}
 
 interface ModelPreferencesPanelProps {
   prefs: Prefs
@@ -192,32 +159,12 @@ export function ModelPreferencesPanel({
               {t('mode.loginAccount')}
             </PromptInputButton>
           </div>
-        ) : isChatTab ? (
+        ) : (
           <ChatModelCheckboxList
             models={prefs.chatModels}
             preferredIds={prefs.preferredChatIds}
             onToggle={prefs.toggleChatModel}
           />
-        ) : activeTab === 'image' ? (
-          prefs.imageModels.length === 0 ? (
-            <MediaEmptyWithLogin label={t('mode.noImageModels')} onClose={onClose} onOpenLogin={onOpenLogin} />
-          ) : (
-            <MediaModelCheckboxList
-              models={prefs.imageModels}
-              preferredIds={prefs.preferredImageIds}
-              onToggle={prefs.toggleImageModel}
-            />
-          )
-        ) : (
-          prefs.videoModels.length === 0 ? (
-            <MediaEmptyWithLogin label={t('mode.noVideoModels')} onClose={onClose} onOpenLogin={onOpenLogin} />
-          ) : (
-            <MediaModelCheckboxList
-              models={prefs.videoModels}
-              preferredIds={prefs.preferredVideoIds}
-              onToggle={prefs.toggleVideoModel}
-            />
-          )
         )}
       </div>
 

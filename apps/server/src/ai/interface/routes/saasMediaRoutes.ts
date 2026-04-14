@@ -21,7 +21,7 @@ import {
 import { resolveBoardDirFromDb } from "@openloaf/api/common/boardPaths";
 import { promises as fsPromises } from "node:fs";
 import nodePath from "node:path";
-import { resolveBearerToken } from "../helpers/resolveToken";
+import { ensureServerAccessToken } from "@/modules/auth/tokenStore";
 
 type SaasErrorPayload = {
   /** Marks response as failure. */
@@ -56,11 +56,11 @@ async function handleSaasMediaRoute(
   handler: (accessToken: string) => Promise<unknown>,
   options?: SaasMediaRouteOptions,
 ): Promise<Response> {
-  const accessToken = resolveBearerToken(c);
-  if (!accessToken && !options?.allowAnonymous) {
+  // 逻辑：Server 是 token 唯一持有者，业务路由不再接受 Bearer header。
+  const token = (await ensureServerAccessToken()) ?? "";
+  if (!token && !options?.allowAnonymous) {
     return c.json(buildSaasErrorPayload("saas_auth_required", "请先登录云端账号"), 401);
   }
-  const token = accessToken ?? "";
   try {
     const payload = await handler(token);
     return c.json(payload, 200);

@@ -66,6 +66,16 @@ import { webFetchToolDef } from "./webFetch";
 import { toolSearchToolDef } from "./toolSearch";
 import { memorySaveToolDef, memorySearchToolDef, memoryGetToolDef } from "./memory";
 import { loadSkillToolDef } from "./skill";
+import {
+  cloudLoginToolDef,
+  cloudUserInfoToolDef,
+  cloudTaskCancelToolDef,
+  cloudCapBrowseToolDef,
+  cloudCapDetailToolDef,
+  cloudModelGenerateToolDef,
+  cloudTaskToolDef,
+  cloudTextGenerateToolDef,
+} from "./cloud";
 
 export type ToolCatalogItem = {
   id: string;
@@ -138,6 +148,14 @@ const TOOL_DEFS: ToolDefLike[] = [
   memorySaveToolDef,
   memorySearchToolDef,
   memoryGetToolDef,
+  cloudCapBrowseToolDef,
+  cloudCapDetailToolDef,
+  cloudModelGenerateToolDef,
+  cloudTextGenerateToolDef,
+  cloudTaskToolDef,
+  cloudTaskCancelToolDef,
+  cloudUserInfoToolDef,
+  cloudLoginToolDef,
 ];
 
 // 逻辑：统一生成工具元数据，避免前端重复维护名称与描述。
@@ -214,6 +232,14 @@ const TOOL_KEYWORDS: Record<string, { keywords: string[]; group: string }> = {
   'MemorySave': { keywords: ['memory', 'save', 'remember', 'persist', 'store', 'write', 'forget', 'delete', '记忆', '记住', '保存', '忘记'], group: 'memory' },
   'MemorySearch': { keywords: ['memory', 'remember', 'recall', 'history', 'search', 'past'], group: 'memory' },
   'MemoryGet': { keywords: ['memory', 'read', 'get', 'detail', 'recall'], group: 'memory' },
+  'CloudCapBrowse': { keywords: ['cloud', 'browse', 'discover', 'capability', 'feature', 'variant', 'generate', 'image', 'video', 'audio', '云端', '生成', '发现'], group: 'cloud' },
+  'CloudCapDetail': { keywords: ['cloud', 'detail', 'schema', 'variant', 'param', '云端'], group: 'cloud' },
+  'CloudModelGenerate': { keywords: ['cloud', 'generate', 'model', 'image', 'video', 'audio', 'media', '生成', '图片', '视频', '音频', 'ai'], group: 'cloud' },
+  'CloudTextGenerate': { keywords: ['cloud', 'text', 'ocr', 'summarize', 'extract', '摘要', '识别'], group: 'cloud' },
+  'CloudTask': { keywords: ['cloud', 'task', 'poll', 'status', 'progress', '任务', '状态'], group: 'cloud' },
+  'CloudTaskCancel': { keywords: ['cloud', 'cancel', 'abort', 'stop', '取消'], group: 'cloud' },
+  'CloudUserInfo': { keywords: ['cloud', 'user', 'profile', 'credits', 'balance', 'membership', 'level', 'tier', '用户', '积分', '余额', '会员', '等级', '账号'], group: 'cloud' },
+  'CloudLogin': { keywords: ['cloud', 'login', 'sign in', 'signin', 'auth', '登录', '登陆', '登入', '账号'], group: 'cloud' },
 };
 
 export const TOOL_CATALOG_EXTENDED: ToolCatalogExtendedItem[] = TOOL_CATALOG.map(

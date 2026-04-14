@@ -8,6 +8,8 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import { clearAuthRefreshToken, readAuthRefreshToken, writeAuthRefreshToken } from "@/modules/settings/openloafConfStore";
+import { refreshAccessToken as refreshAccessTokenViaSaas } from "@/modules/saas/modules/auth/client";
+import { logger } from "@/common/logger";
 
 export type AuthUser = {
   /** User subject id. */
@@ -117,7 +119,7 @@ function setRefreshToken(refreshToken: string): void {
 /**
  * Clear auth session and persisted refresh token.
  */
-function clearAuthSession(): void {
+export function clearAuthSession(): void {
   sessionState.accessToken = undefined;
   sessionState.accessTokenExpiresAt = undefined;
   sessionState.user = undefined;
@@ -131,6 +133,51 @@ function clearAuthSession(): void {
  */
 export function getRefreshToken(): string | undefined {
   return loadRefreshTokenIfNeeded();
+}
+
+// 逻辑：同一时刻仅允许一个刷新请求，避免并发抢占 refresh token。
+let pendingRefresh: Promise<string | undefined> | undefined;
+
+/**
+ * Ensure a valid access token is available, refreshing if needed.
+ * Used by server-owned paths (reverse proxy, background tasks) where
+ * the token must be injected by the server itself rather than pulled
+ * from an incoming request header.
+ */
+export async function ensureServerAccessToken(): Promise<string | undefined> {
+  const cached = getAccessToken();
+  if (cached) return cached;
+
+  if (pendingRefresh) return pendingRefresh;
+
+  const refreshToken = getRefreshToken();
+  if (!refreshToken) return undefined;
+
+  pendingRefresh = (async () => {
+    try {
+      const result = await refreshAccessTokenViaSaas(refreshToken);
+      if ("message" in result) {
+        logger.warn({ msg: result.message }, "[auth] refresh rejected by SaaS");
+        return undefined;
+      }
+      applyTokenExchangeResult({
+        accessToken: result.accessToken,
+        refreshToken: result.refreshToken,
+        user: result.user,
+      });
+      return result.accessToken;
+    } catch (error) {
+      logger.error(
+        { err: error instanceof Error ? error.message : String(error) },
+        "[auth] ensureServerAccessToken failed",
+      );
+      return undefined;
+    } finally {
+      pendingRefresh = undefined;
+    }
+  })();
+
+  return pendingRefresh;
 }
 
 /**

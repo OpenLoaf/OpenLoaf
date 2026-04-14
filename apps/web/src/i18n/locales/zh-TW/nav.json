@@ -85,6 +85,7 @@
     }
   },
   "projectTree": {
+    "pathPlaceholder": "file://... 或 /path/to/project",
     "open": "開啟",
     "openInNewWindow": "新建視窗開啟",
     "openInCurrentWindow": "目前視窗開啟",
@@ -322,6 +323,7 @@
     "totalCount": "共 {{count}} 個",
     "childCount": "{{count}} 個子專案",
     "createFailed": "建立失敗",
-    "dropToCreate": "拖放資料夾以建立專案"
+    "dropToCreate": "拖放資料夾以建立專案",
+    "refresh": "重新整理"
   }
 }

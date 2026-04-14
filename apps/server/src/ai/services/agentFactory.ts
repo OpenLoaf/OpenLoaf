@@ -30,7 +30,13 @@ import type {
 } from '@ai-sdk/provider'
 import type { PrepareStepFunction, StopCondition } from 'ai'
 import { getRequestContext, getSessionId, getPlanUpdate, type AgentFrame } from '@/ai/shared/context/requestContext'
-import { buildToolset, getToolJsonSchemas, getMcpToolIds } from '@/ai/tools/toolRegistry'
+import {
+  buildToolset,
+  getToolJsonSchemas,
+  getMcpToolIds,
+  getRuntimeCloudToolIds,
+} from '@/ai/tools/toolRegistry'
+import { buildCloudToolsXmlBlock } from '@/ai/tools/cloud/cloudToolsDynamic'
 import { filterToolIdsByPlatform } from '@/ai/tools/toolPlatformFilter'
 import { createToolCallRepair } from '@/ai/shared/repairToolCall'
 import { ActivatedToolSet } from '@/ai/tools/toolSearchState'
@@ -389,7 +395,16 @@ export function createMasterAgent(input: CreateMasterAgentInput) {
 
   // Inject MCP tool IDs (dynamically registered by MCPClientManager)
   const mcpToolIds = getMcpToolIds()
-  const allToolIds = [...new Set([...coreToolIds, ...filteredDeferredToolIds, ...mcpToolIds])]
+  // Runtime cloud tool IDs (tools category features like webSearch, flattened one-per-feature)
+  const cloudToolIds = getRuntimeCloudToolIds()
+  const allToolIds = [
+    ...new Set([
+      ...coreToolIds,
+      ...filteredDeferredToolIds,
+      ...mcpToolIds,
+      ...cloudToolIds,
+    ]),
+  ]
 
   // Build full toolset (all tools registered, but only core visible via activeTools)
   const tools = buildToolset(allToolIds)
@@ -416,9 +431,13 @@ export function createMasterAgent(input: CreateMasterAgentInput) {
   // ★ Append Hard Rules to instructions (Layer 2)
   // ToolSearch guidance is injected via session preface (platform-aware).
   const hardRules = buildHardRules(lang)
+  // ★ Cloud tools XML block — lists runtime-discovered tools category
+  // features (webSearch, etc.) so the agent can ToolSearch them directly.
+  const cloudToolsBlock = buildCloudToolsXmlBlock()
+  const cloudToolsSuffix = cloudToolsBlock ? `\n\n${cloudToolsBlock}` : ''
   // ★ Builtin skills appended at the very end of system prompt (Layer 3)
   const skillsSuffix = input.skillsSystemText ? `\n\n${input.skillsSystemText}` : ''
-  const finalInstructions = `${instructions}\n\n${hardRules}${skillsSuffix}`
+  const finalInstructions = `${instructions}\n\n${hardRules}${cloudToolsSuffix}${skillsSuffix}`
 
   const baseSettings = {
     model: wrappedModel,
@@ -614,7 +633,10 @@ function createGeneralPurposeSubAgent(model: LanguageModelV3): ToolLoopAgent {
 
   // Inject MCP tool IDs
   const mcpToolIds = getMcpToolIds()
-  const allToolIds = [...new Set([...coreToolIds, ...deferredToolIds, ...mcpToolIds])]
+  const cloudToolIds = getRuntimeCloudToolIds()
+  const allToolIds = [
+    ...new Set([...coreToolIds, ...deferredToolIds, ...mcpToolIds, ...cloudToolIds]),
+  ]
 
   const tools = buildToolset(allToolIds)
   const activatedSet = new ActivatedToolSet(coreToolIds)
@@ -626,7 +648,9 @@ function createGeneralPurposeSubAgent(model: LanguageModelV3): ToolLoopAgent {
   // 逻辑：使用用户偏好的提示词语言生成 Master prompt，而不是 template.systemPrompt 的硬编码中文版。
   const subAgentLang = resolvePromptLang()
   const basePrompt = getMasterPrompt(subAgentLang)
-  const finalInstructions = `${basePrompt}\n\n${buildHardRules(subAgentLang)}\n\n${buildToolSearchGuidance(ctx?.clientPlatform, deferredToolIds)}`
+  const cloudToolsBlock = buildCloudToolsXmlBlock()
+  const cloudToolsSuffix = cloudToolsBlock ? `\n\n${cloudToolsBlock}` : ''
+  const finalInstructions = `${basePrompt}\n\n${buildHardRules(subAgentLang)}${cloudToolsSuffix}\n\n${buildToolSearchGuidance(ctx?.clientPlatform, deferredToolIds)}`
 
   return new ToolLoopAgent({
     id: `SubAgent-general-${Date.now()}`,

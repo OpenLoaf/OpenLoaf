@@ -18,10 +18,15 @@ import {
 } from '@openloaf/ui/tooltip'
 import {
   Collapsible,
-  CollapsibleContent,
   CollapsibleTrigger,
 } from '@openloaf/ui/collapsible'
-import { CodeBlock } from '@/components/ai-elements/code-block'
+import {
+  ToolOutputCode,
+  ToolOutputContent,
+  ToolOutputError,
+  ToolOutputLoading,
+  ToolOutputText,
+} from './shared/ToolOutput'
 import { asPlainObject, isToolStreaming, normalizeToolInput, safeStringify, type AnyToolPart } from './shared/tool-utils'
 
 type WebKind = 'webfetch' | 'websearch'
@@ -110,32 +115,17 @@ export default function ClaudeCodeWebTool({
           </TooltipContent>
         ) : null}
       </Tooltip>
-      <CollapsibleContent className={cn(kind === 'webfetch' ? 'px-5' : 'px-2.5', 'py-2 text-xs')}>
+      <ToolOutputContent>
         {hasOutput ? (
           kind === 'webfetch' ? (
-            <pre className="max-h-[240px] overflow-auto whitespace-pre-wrap rounded-lg bg-muted/30 px-2 py-1.5 text-[11px] leading-relaxed text-foreground">
-              {output}
-            </pre>
+            <ToolOutputText text={output} />
           ) : (
-            <CodeBlock
-              code={output}
-              language="json"
-              className="max-h-[320px] overflow-auto"
-            />
+            <ToolOutputCode code={output} language="json" />
           )
         ) : tp && (progressActive || progressDone) ? (
-          <div className="space-y-1.5">
-            {progressActive && tp.label ? (
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <LoaderCircleIcon className="size-3 animate-spin" />
-                <span>{tp.label}</span>
-              </div>
-            ) : null}
-            {tp.accumulatedText ? (
-              <pre className="max-h-[320px] overflow-auto whitespace-pre-wrap rounded-lg bg-muted/30 px-2 py-1.5 text-[11px] leading-relaxed text-foreground">
-                {tp.accumulatedText}
-              </pre>
-            ) : null}
+          <div className="space-y-1">
+            {progressActive && tp.label ? <ToolOutputLoading label={tp.label} /> : null}
+            {tp.accumulatedText ? <ToolOutputText text={tp.accumulatedText} /> : null}
             {progressDone && tp.summary ? (
               <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/60">
                 <CheckCircle2Icon className="size-3" />
@@ -144,16 +134,11 @@ export default function ClaudeCodeWebTool({
             ) : null}
           </div>
         ) : errorText || progressError ? (
-          <div className="whitespace-pre-wrap break-all rounded-2xl bg-destructive/10 p-2 text-xs text-destructive">
-            {errorText || tp?.errorText}
-          </div>
+          <ToolOutputError message={errorText || tp?.errorText || ''} />
         ) : streaming ? (
-          <div className="flex items-center gap-1.5 py-1 text-xs text-muted-foreground">
-            <LoaderCircleIcon className="size-3 animate-spin" />
-            <span>加载中...</span>
-          </div>
+          <ToolOutputLoading label="加载中..." />
         ) : null}
-      </CollapsibleContent>
+      </ToolOutputContent>
     </Collapsible>
   )
 }

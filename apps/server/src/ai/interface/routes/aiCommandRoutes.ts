@@ -12,7 +12,6 @@ import { smoothStream, streamText } from 'ai'
 import type { ChatModelSource } from '@openloaf/api/common'
 import { resolveChatModel } from '@/ai/models/resolveChatModel'
 import { logger } from '@/common/logger'
-import { resolveBearerToken } from '../helpers/resolveToken'
 
 /** Register /api/ai/command route for Plate.js AI chat menu. */
 export function registerAiCommandRoutes(app: Hono) {
@@ -39,14 +38,11 @@ export function registerAiCommandRoutes(app: Hono) {
         ? body.chatModelSource
         : undefined
     ) as ChatModelSource | undefined
-    const saasAccessToken = resolveBearerToken(c)
-
     let resolved
     try {
       resolved = await resolveChatModel({
         chatModelId,
         chatModelSource,
-        saasAccessToken,
       })
     } catch (err) {
       const msg =

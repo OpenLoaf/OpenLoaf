@@ -15,7 +15,7 @@ import {
   normalizeCloudChatModels,
   type CloudChatModelsResponse,
 } from "@/ai/models/cloudModelMapper";
-import { resolveBearerToken } from "@/ai/interface/helpers/resolveToken";
+import { ensureServerAccessToken } from "@/modules/auth/tokenStore";
 
 type CloudModelResponse = {
   /** Response success flag. */
@@ -67,7 +67,7 @@ export function registerCloudModelRoutes(
   const fetchModelsUpdatedAtHandler = deps.fetchModelsUpdatedAt ?? fetchModelsUpdatedAt;
 
   app.get("/llm/models/updated-at", async (c) => {
-    const accessToken = resolveBearerToken(c) ?? "";
+    const accessToken = (await ensureServerAccessToken()) ?? "";
     try {
       const payload = await fetchModelsUpdatedAtHandler(accessToken);
       if (!payload || payload.success !== true) {
@@ -90,7 +90,7 @@ export function registerCloudModelRoutes(
   });
 
   app.get("/llm/models", async (c) => {
-    const accessToken = resolveBearerToken(c) ?? "";
+    const accessToken = (await ensureServerAccessToken()) ?? "";
     const force = resolveForceRefresh(c.req.query("force"));
     try {
       const payload = (await fetchModelListHandler(accessToken, {

@@ -65,8 +65,8 @@ export type BgTaskMetaFile = {
 
 /**
  * Background task completion notification. Inner XML is wrapped with
- * `<system-reminder>` by streamOrchestrator before injection as a synthetic
- * user message (P2).
+ * `<system-tag type="reminder">` by streamOrchestrator before injection as a
+ * synthetic user message (P2).
  */
 export type BgNotification = {
   taskId: string

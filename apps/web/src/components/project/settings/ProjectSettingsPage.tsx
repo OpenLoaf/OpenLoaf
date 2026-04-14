@@ -15,7 +15,7 @@ import { skipToken, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { OpenLoafSettingsLayout } from "@openloaf/ui/openloaf/OpenLoafSettingsLayout";
 import { OpenLoafSettingsMenu } from "@openloaf/ui/openloaf/OpenLoafSettingsMenu";
-import { Bot, Brain, Cpu, GitBranch, SlidersHorizontal, Wand2 } from "lucide-react";
+import { Bot, Brain, Cpu, GitBranch, ShieldCheck, SlidersHorizontal, Wand2 } from "lucide-react";
 import { trpc } from "@/utils/trpc";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { useTabActive } from "@/components/layout/TabActiveContext";
@@ -35,6 +35,7 @@ import { ProjectAiSettings } from "./menus/ProjectAiSettings";
 import { ProjectGitSettings } from "./menus/ProjectGitSettings";
 import { ProjectSkillsSettings } from "./menus/ProjectSkillsSettings";
 import { ProjectAgentSettings } from "./menus/ProjectAgentSettings";
+import { ProjectToolApprovalSettings } from "./menus/ProjectToolApprovalSettings";
 import { ProjectMemorySettings } from "@/components/setting/menus/MemorySettings";
 
 type ProjectSettingsPanelProps = {
@@ -42,7 +43,14 @@ type ProjectSettingsPanelProps = {
   rootUri?: string;
 };
 
-type ProjectSettingsMenuKey = "basic" | "ai" | "memory" | "skills" | "agents" | "git";
+type ProjectSettingsMenuKey =
+  | "basic"
+  | "ai"
+  | "memory"
+  | "skills"
+  | "agents"
+  | "toolApproval"
+  | "git";
 
 const PROJECT_MENU_ICON_COLOR = {
   basic: "text-foreground",
@@ -50,6 +58,7 @@ const PROJECT_MENU_ICON_COLOR = {
   memory: "text-foreground",
   skills: "text-foreground",
   agents: "text-foreground",
+  toolApproval: "text-foreground",
   git: "text-foreground",
 } as const;
 
@@ -70,7 +79,7 @@ type SettingsMenuItem = {
   Component: ComponentType<ProjectSettingsPanelProps>;
 };
 
-const ALL_MENU_KEYS: ProjectSettingsMenuKey[] = ["basic", "ai", "memory", "skills", "agents", "git"];
+const ALL_MENU_KEYS: ProjectSettingsMenuKey[] = ["basic", "ai", "memory", "skills", "agents", "toolApproval", "git"];
 const MENU_KEY_SET = new Set<ProjectSettingsMenuKey>(ALL_MENU_KEYS);
 
 /** Check whether the value is a valid project settings menu key. */
@@ -181,6 +190,12 @@ export default function ProjectSettingsPage({
       label: t("settings:menu.agents"),
       Icon: createMenuIcon(Bot, PROJECT_MENU_ICON_COLOR.agents),
       Component: ProjectAgentSettings,
+    },
+    {
+      key: "toolApproval",
+      label: t("settings:menu.toolApproval"),
+      Icon: createMenuIcon(ShieldCheck, PROJECT_MENU_ICON_COLOR.toolApproval),
+      Component: ProjectToolApprovalSettings,
     },
   ], [t]);
 

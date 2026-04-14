@@ -20,8 +20,6 @@ export function resolveAgentModelIds(input: {
 }): {
   chatModelId?: string
   chatModelSource?: ChatModelSource
-  imageModelId?: string
-  videoModelId?: string
   codeModelIds?: string[]
 } {
   return resolveAgentModelIdsFromConfig({

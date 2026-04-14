@@ -332,12 +332,6 @@ export const agentProcedures = {
         )
           ? descriptor.auxiliaryModelCloudIds
           : []
-        const imageModelIds = Array.isArray(descriptor.imageModelIds)
-          ? descriptor.imageModelIds
-          : []
-        const videoModelIds = Array.isArray(descriptor.videoModelIds)
-          ? descriptor.videoModelIds
-          : []
         const codeModelIds = Array.isArray(descriptor.codeModelIds)
           ? descriptor.codeModelIds
           : []
@@ -351,8 +345,6 @@ export const agentProcedures = {
             descriptor.auxiliaryModelSource === "cloud" ? "cloud" : "local",
           auxiliaryModelLocalIds,
           auxiliaryModelCloudIds,
-          imageModelIds,
-          videoModelIds,
           codeModelIds,
           toolIds: descriptor.toolIds || [],
           skills: descriptor.skills || [],
@@ -377,8 +369,6 @@ export const agentProcedures = {
         auxiliaryModelSource: config.auxiliaryModelSource,
         auxiliaryModelLocalIds: config.auxiliaryModelLocalIds,
         auxiliaryModelCloudIds: config.auxiliaryModelCloudIds,
-        imageModelIds: config.imageModelIds,
-        videoModelIds: config.videoModelIds,
         codeModelIds: config.codeModelIds ?? [],
         toolIds: config.toolIds,
         skills: config.skills,
@@ -410,8 +400,6 @@ export const agentProcedures = {
             auxiliaryModelSource: input.auxiliaryModelSource,
             auxiliaryModelLocalIds: input.auxiliaryModelLocalIds,
             auxiliaryModelCloudIds: input.auxiliaryModelCloudIds,
-            imageModelIds: input.imageModelIds,
-            videoModelIds: input.videoModelIds,
             codeModelIds: input.codeModelIds,
             toolIds: input.toolIds,
             skills: input.skills,
@@ -446,8 +434,6 @@ export const agentProcedures = {
           auxiliaryModelSource: input.auxiliaryModelSource,
           auxiliaryModelLocalIds: input.auxiliaryModelLocalIds,
           auxiliaryModelCloudIds: input.auxiliaryModelCloudIds,
-          imageModelIds: input.imageModelIds,
-          videoModelIds: input.videoModelIds,
           codeModelIds: input.codeModelIds,
           toolIds: input.toolIds,
           skills: input.skills,
@@ -482,8 +468,6 @@ export const agentProcedures = {
           auxiliaryModelSource: input.auxiliaryModelSource,
           auxiliaryModelLocalIds: input.auxiliaryModelLocalIds,
           auxiliaryModelCloudIds: input.auxiliaryModelCloudIds,
-          imageModelIds: input.imageModelIds,
-          videoModelIds: input.videoModelIds,
           codeModelIds: input.codeModelIds,
           toolIds: input.toolIds,
           skills: input.skills,
@@ -519,8 +503,6 @@ export const agentProcedures = {
         auxiliaryModelSource: input.auxiliaryModelSource,
         auxiliaryModelLocalIds: input.auxiliaryModelLocalIds,
         auxiliaryModelCloudIds: input.auxiliaryModelCloudIds,
-        imageModelIds: input.imageModelIds,
-        videoModelIds: input.videoModelIds,
         codeModelIds: input.codeModelIds,
         toolIds: input.toolIds,
         skills: input.skills,
@@ -583,8 +565,6 @@ export const agentProcedures = {
         auxiliaryModelSource: config.auxiliaryModelSource,
         auxiliaryModelLocalIds: config.auxiliaryModelLocalIds,
         auxiliaryModelCloudIds: config.auxiliaryModelCloudIds,
-        imageModelIds: config.imageModelIds,
-        videoModelIds: config.videoModelIds,
         codeModelIds: config.codeModelIds,
         toolIds: config.toolIds,
         skills: config.skills,

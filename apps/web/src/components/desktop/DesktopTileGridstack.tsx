@@ -19,7 +19,6 @@ import { GlowingEffect } from "@openloaf/ui/glowing-effect";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { normalizeUrl } from "@/components/browser/browser-utils";
 import { fetchWebMeta } from "@/lib/web-meta";
-import { Button } from "@openloaf/ui/button";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -32,14 +31,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@openloaf/ui/context-menu";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@openloaf/ui/dialog";
+import { FormDialog } from "@/components/ui/FormDialog";
 import { Input } from "@openloaf/ui/input";
 import type { DesktopItem, DesktopScope } from "./types";
 import { getWidgetVariants, getWidgetVariantConfig } from "./widget-variants";
@@ -271,11 +263,11 @@ export default function DesktopTileGridstack({
     const normalized = normalizeUrl(webUrlInput);
     if (!normalized) {
       setWebError(t('tile.invalidUrl'));
-      return;
+      throw new Error("invalid url");
     }
     if (!defaultRootUri) {
       setWebError(t('tile.noProjectSpaceDir'));
-      return;
+      throw new Error("no project space dir");
     }
     let hostname = "";
     try {
@@ -300,14 +292,13 @@ export default function DesktopTileGridstack({
         webPreview: shouldRefresh ? undefined : current.webPreview,
       };
     });
-    handleWebDialogOpenChange(false);
   }, [
     defaultRootUri,
-    handleWebDialogOpenChange,
     isWebStack,
     item.id,
     onPersistItemUpdate,
     onUpdateItem,
+    t,
     webTitleInput,
     webUrlInput,
   ]);
@@ -528,43 +519,36 @@ export default function DesktopTileGridstack({
         </ContextMenuContent>
       </ContextMenu>
       {isWebStack ? (
-        <Dialog open={isWebDialogOpen} onOpenChange={handleWebDialogOpenChange}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{t('tile.editWebTitle')}</DialogTitle>
-              <DialogDescription>{t('tile.editWebDescription')}</DialogDescription>
-            </DialogHeader>
-            <div className="flex flex-col gap-3">
-              <div className="space-y-2">
-                <div className="text-xs font-medium text-muted-foreground">{t('tile.webUrl')}</div>
-                <Input
-                  value={webUrlInput}
-                  onChange={(e) => setWebUrlInput(e.target.value)}
-                  placeholder="https://example.com"
-                />
-              </div>
-              <div className="space-y-2">
-                <div className="text-xs font-medium text-muted-foreground">{t('tile.webTitleOptional')}</div>
-                <Input
-                  value={webTitleInput}
-                  onChange={(e) => setWebTitleInput(e.target.value)}
-                  placeholder={t('tile.customNamePlaceholder')}
-                />
-              </div>
-              {webError ? (
-                <div className="text-xs text-destructive">{webError}</div>
-              ) : null}
-            </div>
-            <DialogFooter className="mt-4">
-              <Button type="button" variant="ghost" onClick={() => handleWebDialogOpenChange(false)}>
-                {t('page.cancel')}
-              </Button>
-              <Button type="button" onClick={handleWebEditSubmit}>
-                {t('tile.save')}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <FormDialog
+          open={isWebDialogOpen}
+          onOpenChange={handleWebDialogOpenChange}
+          title={t('tile.editWebTitle')}
+          description={t('tile.editWebDescription')}
+          onSubmit={handleWebEditSubmit}
+          submitLabel={t('tile.save')}
+          cancelLabel={t('page.cancel')}
+        >
+          <div className="space-y-2">
+            <div className="text-xs font-medium text-muted-foreground">{t('tile.webUrl')}</div>
+            <Input
+              autoFocus
+              value={webUrlInput}
+              onChange={(e) => setWebUrlInput(e.target.value)}
+              placeholder="https://example.com"
+            />
+          </div>
+          <div className="space-y-2">
+            <div className="text-xs font-medium text-muted-foreground">{t('tile.webTitleOptional')}</div>
+            <Input
+              value={webTitleInput}
+              onChange={(e) => setWebTitleInput(e.target.value)}
+              placeholder={t('tile.customNamePlaceholder')}
+            />
+          </div>
+          {webError ? (
+            <div className="text-xs text-destructive">{webError}</div>
+          ) : null}
+        </FormDialog>
       ) : null}
       {isVideo ? (
         <ProjectFileSystemTransferDialog

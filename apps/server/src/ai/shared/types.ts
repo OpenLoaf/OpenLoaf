@@ -52,6 +52,8 @@ export type PromptContext = {
     name: string;
     /** Account email. */
     email: string;
+    /** Membership level (free/lite/pro/premium) when logged in. */
+    level?: string;
   };
   /** Response language for prompts. */
   responseLanguage: string;

@@ -563,6 +563,7 @@ export function ImageAiPanel({
         onUnlock={onUnlock}
         onCancelEdit={handleCancelEdit}
         estimateParams={pricingParams}
+        estimatedDurationMs={selectedVariant?.estimatedDurationMs}
         warningMessage={effectiveWarning}
         initialTarget={aiConfig?.generateTarget}
         onTargetChange={handleTargetChange}

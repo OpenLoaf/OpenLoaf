@@ -425,7 +425,7 @@ export function ObjectStorageService() {
           </div>
           <DialogFooter>
             {s3TestUrl ? (
-              <Button onClick={handleCopyS3TestUrl}>{t("s3.copyUrl")}</Button>
+              <Button autoFocus onClick={handleCopyS3TestUrl}>{t("s3.copyUrl")}</Button>
             ) : null}
             <Button variant="ghost" onClick={() => setS3TestDialogOpen(false)}>
               {t("s3.close")}

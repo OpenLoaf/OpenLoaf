@@ -29,6 +29,7 @@
 - **用 Sleep 而非 Bash(sleep)**。后台通知自动吸收，**不要轮询**。
 - **富文本用 EditDocument**（路径带 `tndoc_` 前缀），不要用 `Edit`。
 - **网页先 WebFetch，失败后降级 `browser-ops`**。
+- **账号/积分/会员等级查询** → `ToolSearch("select:CloudUserInfo")` 后调用 `CloudUserInfo`（无参数、无积分消耗）；若返回 `not_signed_in` 或会话上下文显示未登录 → `ToolSearch("select:CloudLogin")` 后调用 `CloudLogin` 触发登录卡片，用户登录完再重试。不要让用户自己去设置页翻。
 - **并行优先**：无依赖的调用在同一轮并行发出。
 - **路径引号**：Bash 中文件路径**必须双引号包裹**。
 

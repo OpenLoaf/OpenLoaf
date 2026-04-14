@@ -105,6 +105,16 @@ export const masterTemplate: AgentTemplate = {
     'ScheduledTaskManage',
     'ScheduledTaskStatus',
     'ScheduledTaskWait',
+    // cloud capabilities (progressive discovery: Browse → Detail → Generate)
+    // activated on demand via LoadSkill('cloud-media') / LoadSkill('cloud-text') or ToolSearch
+    'CloudCapBrowse',
+    'CloudCapDetail',
+    'CloudModelGenerate',
+    'CloudTextGenerate',
+    'CloudTask',
+    'CloudTaskCancel',
+    'CloudUserInfo',
+    'CloudLogin',
   ],
   allowSubAgents: true,
   maxDepth: 2,
