@@ -245,3 +245,15 @@ export async function resolveChatModel(input: {
   }
   return resolveLocalChatModel({ chatModelId: input.chatModelId });
 }
+
+/** Resolve chat model from an HTTP request body (picks chatModelId/chatModelSource). */
+export async function resolveChatModelFromBody(
+  body: Record<string, unknown>,
+): Promise<ResolvedChatModel> {
+  const chatModelId =
+    typeof body.chatModelId === "string" ? body.chatModelId : undefined;
+  const chatModelSource = (
+    typeof body.chatModelSource === "string" ? body.chatModelSource : undefined
+  ) as ChatModelSource | undefined;
+  return resolveChatModel({ chatModelId, chatModelSource });
+}

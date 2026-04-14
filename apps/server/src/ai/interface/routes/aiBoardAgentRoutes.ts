@@ -12,8 +12,7 @@ import path from 'node:path'
 import fs from 'node:fs/promises'
 import type { Hono } from 'hono'
 import { smoothStream, streamText } from 'ai'
-import type { ChatModelSource } from '@openloaf/api/common'
-import { resolveChatModel } from '@/ai/models/resolveChatModel'
+import { resolveChatModelFromBody } from '@/ai/models/resolveChatModel'
 import { getTextFeaturePrompt } from '@/ai/services/textFeatureRegistry'
 import {
   loadProjectImageBuffer,
@@ -180,23 +179,13 @@ export function registerBoardAgentRoutes(app: Hono) {
     const upstreamAudios = Array.isArray(body.upstreamAudios)
       ? (body.upstreamAudios as string[])
       : []
-    const chatModelId =
-      typeof body.chatModelId === 'string' ? body.chatModelId : undefined
-    const chatModelSource = (
-      typeof body.chatModelSource === 'string'
-        ? body.chatModelSource
-        : undefined
-    ) as ChatModelSource | undefined
     const skillContents = Array.isArray(body.skillContents)
       ? (body.skillContents as { name: string; content: string }[])
       : undefined
     // Resolve chat model — 前端 model picker 负责按 feature 能力过滤
     let resolved
     try {
-      resolved = await resolveChatModel({
-        chatModelId,
-        chatModelSource,
-      })
+      resolved = await resolveChatModelFromBody(body)
     } catch (err) {
       const msg =
         err instanceof Error ? err.message : 'Failed to resolve model'

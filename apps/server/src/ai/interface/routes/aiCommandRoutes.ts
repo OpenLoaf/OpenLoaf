@@ -9,8 +9,7 @@
  */
 import type { Hono } from 'hono'
 import { smoothStream, streamText } from 'ai'
-import type { ChatModelSource } from '@openloaf/api/common'
-import { resolveChatModel } from '@/ai/models/resolveChatModel'
+import { resolveChatModelFromBody } from '@/ai/models/resolveChatModel'
 import { logger } from '@/common/logger'
 
 /** Register /api/ai/command route for Plate.js AI chat menu. */
@@ -31,19 +30,9 @@ export function registerAiCommandRoutes(app: Hono) {
     const ctx = body.ctx as
       | { children?: unknown; selection?: unknown; toolName?: string }
       | undefined
-    const chatModelId =
-      typeof body.chatModelId === 'string' ? body.chatModelId : undefined
-    const chatModelSource = (
-      typeof body.chatModelSource === 'string'
-        ? body.chatModelSource
-        : undefined
-    ) as ChatModelSource | undefined
     let resolved
     try {
-      resolved = await resolveChatModel({
-        chatModelId,
-        chatModelSource,
-      })
+      resolved = await resolveChatModelFromBody(body)
     } catch (err) {
       const msg =
         err instanceof Error ? err.message : 'Failed to resolve model'

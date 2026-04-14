@@ -9,8 +9,7 @@
  */
 import type { Hono } from 'hono'
 import { generateText } from 'ai'
-import type { ChatModelSource } from '@openloaf/api/common'
-import { resolveChatModel } from '@/ai/models/resolveChatModel'
+import { resolveChatModelFromBody } from '@/ai/models/resolveChatModel'
 import { logger } from '@/common/logger'
 
 /** Register /api/ai/copilot route for Plate.js inline completion. */
@@ -30,19 +29,9 @@ export function registerAiCopilotRoutes(app: Hono) {
       return c.json({ error: 'prompt is required' }, 400)
     }
 
-    const chatModelId =
-      typeof body.chatModelId === 'string' ? body.chatModelId : undefined
-    const chatModelSource = (
-      typeof body.chatModelSource === 'string'
-        ? body.chatModelSource
-        : undefined
-    ) as ChatModelSource | undefined
     let resolved
     try {
-      resolved = await resolveChatModel({
-        chatModelId,
-        chatModelSource,
-      })
+      resolved = await resolveChatModelFromBody(body)
     } catch (err) {
       const msg =
         err instanceof Error ? err.message : 'Failed to resolve model'
