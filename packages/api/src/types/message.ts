@@ -163,7 +163,72 @@ export type ChatRequestBody = {
   chatModelId?: string;
   /** chatModelId 对应的来源（local / cloud / saas）。 */
   chatModelSource?: ChatModelSource;
+  /**
+   * 模型采样温度（0-2）。仅在开发模式（NODE_ENV !== 'production'）下生效，
+   * 用于 chat-probe 等自动化测试以零温度保证结果可重复。生产构建静默忽略。
+   */
+  temperature?: number;
 };
+
+/**
+ * 自动化探针元数据（从 session.json 派生，chat-probe runner 写入）。
+ * 后端只读不写——probe runner 在 chat-history/<sessionId>/session.json 里追加。
+ */
+export interface ProbeMeta {
+  runner: string;
+  runnerVersion: string;
+  prompt: string;
+  model: string | null;
+  platform: 'desktop' | 'web' | 'cli';
+  startedAt: string;
+}
+
+/** Auto-test evaluation verdict from chat-probe evaluator subagent. */
+export type AutoTestVerdict = 'PASS' | 'FAIL' | 'PARTIAL';
+
+export interface AutoTestEvaluationEvidence {
+  file: string;
+  note: string;
+}
+
+export interface AutoTestEvaluator {
+  name: string;
+  verdict: AutoTestVerdict;
+  score: number;
+  pros: string[];
+  cons: string[];
+  evidence: AutoTestEvaluationEvidence[];
+}
+
+export interface AutoTestEvaluationAggregate {
+  verdict: AutoTestVerdict;
+  score: number;
+  tokensTotal: number;
+  tokensInput: number;
+  tokensOutput: number;
+  rounds: number;
+  toolCalls: string[];
+  elapsedMs: number;
+  model: string | null;
+  summary: string;
+}
+
+/**
+ * EVALUATION.json schema (chat-probe evaluator output).
+ * 由 chat-probe skill 的评审子 agent 写入 `<sessionDir>/EVALUATION.json`。
+ */
+export interface AutoTestEvaluation {
+  version: 1;
+  sessionId: string;
+  assistantMessageId: string;
+  runner: string;
+  createdAt: string;
+  aggregate: AutoTestEvaluationAggregate;
+  evaluators: AutoTestEvaluator[];
+}
+
+/** Return type for `chat.getAutoTestEvaluation` — null when EVALUATION.json is absent. */
+export type AutoTestEvaluationResult = AutoTestEvaluation | null;
 
 /** Part type for task references embedded in chat messages. */
 export type TaskRefPart = {
@@ -222,8 +287,10 @@ export type TargetAgent = {
 export type ChatPageContext = {
   /** Scope: global pages vs project-scoped pages. */
   scope: 'global' | 'project'
-  /** Page identifier for skill mapping. */
+  /** Page identifier for skill mapping (component registry key). */
   page: string
+  /** Human-readable page title (e.g. window tab title). */
+  pageTitle?: string
   /** Project id when scope is 'project'. */
   projectId?: string
   /** Board id when on a board/canvas page. */

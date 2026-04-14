@@ -91,6 +91,8 @@ export type AiExecuteRequest = {
   autoApproveTools?: boolean;
   /** Page context for skill auto-loading. */
   pageContext?: ChatPageContext;
+  /** 模型采样温度；dev-only，生产构建忽略。 */
+  temperature?: number;
 };
 
 export type AiCommandContext = {

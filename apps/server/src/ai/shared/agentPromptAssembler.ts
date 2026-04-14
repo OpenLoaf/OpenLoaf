@@ -38,8 +38,9 @@ export function assembleDefaultAgentInstructions(
 
 /**
  * Assemble memory blocks as independent <system-tag type="*-memory"> strings.
- * Each block is wrapped in its own <system-tag> tag with a scope-specific type.
- * Returns an array of strings (empty array if no memory exists).
+ * Each block embeds the scope's MEMORY.md (the index), wrapped in a scope-specific
+ * system-tag. The model reads individual memory files on demand via Read against
+ * ${USER_MEMORY_DIR} / ${PROJECT_MEMORY_DIR}.
  */
 export function assembleMemoryBlocks(
   input: AssembleMemoryInput,
@@ -50,16 +51,41 @@ export function assembleMemoryBlocks(
     parentProjectRootPaths: input.parentProjectRootPaths,
   })
 
-  const scopeTypeMap: Record<string, { type: string; desc: string }> = {
-    user: { type: 'user-memory', desc: '用户记忆，跨会话持久化' },
-    'parent-project': { type: 'parent-project-memory', desc: '父项目记忆' },
-    project: { type: 'project-memory', desc: '当前项目记忆' },
-    agent: { type: 'agent-memory', desc: 'Agent 专属记忆' },
+  const scopeMeta: Record<
+    string,
+    { type: string; desc: string; pathVar: string }
+  > = {
+    user: {
+      type: 'user-memory',
+      desc: '用户全局记忆索引',
+      pathVar: '${USER_MEMORY_DIR}',
+    },
+    'parent-project': {
+      type: 'parent-project-memory',
+      desc: '父项目记忆索引',
+      pathVar: '${PROJECT_MEMORY_DIR}',
+    },
+    project: {
+      type: 'project-memory',
+      desc: '当前项目记忆索引',
+      pathVar: '${PROJECT_MEMORY_DIR}',
+    },
+    agent: {
+      type: 'agent-memory',
+      desc: 'Agent 专属记忆索引',
+      pathVar: '${USER_MEMORY_DIR}/agents/<name>',
+    },
   }
 
   return blocks.map((block) => {
-    const { type, desc } = scopeTypeMap[block.scope] ?? { type: 'memory', desc: block.label }
-    const header = `# 记忆（${block.label}）\n来源: ${block.filePath}\n需要保存/更新/删除记忆时使用 MemorySave 工具。`
-    return `<system-tag type="${type}" desc="${desc}">\n${header}\n\n${block.content}\n</system-tag>`
+    const meta = scopeMeta[block.scope] ?? {
+      type: 'memory',
+      desc: block.label,
+      pathVar: '',
+    }
+    const hint =
+      `这是 MEMORY.md 索引。每行 \`- [key](file.md) — summary\` 指向 ${meta.pathVar}/ 下的具体文件；` +
+      `需要完整内容时 \`Read ${meta.pathVar}/<file.md>\`。写入/更新/删除用 MemorySave。`
+    return `<system-tag type="${meta.type}" desc="${meta.desc}">\n${hint}\n\n${block.content}\n</system-tag>`
   })
 }

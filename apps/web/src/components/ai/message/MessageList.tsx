@@ -58,8 +58,8 @@ export default function MessageList({ className, projectId }: MessageListProps) 
       setUseInstantResize(true);
     } else if (wasStreamingRef.current) {
       wasStreamingRef.current = false;
-      // 延迟切回 smooth，让过渡期的布局变化以 instant 方式处理
-      const timer = setTimeout(() => setUseInstantResize(false), 200);
+      // 延迟切回 smooth，让过渡期的布局变化（含 Thinking exit 动画 250ms）以 instant 方式处理
+      const timer = setTimeout(() => setUseInstantResize(false), 500);
       return () => clearTimeout(timer);
     }
   }, [isStreamingActive]);
@@ -204,11 +204,12 @@ export default function MessageList({ className, projectId }: MessageListProps) 
             {shouldShowThinking ? (
               <motion.div
                 key="thinking"
-                className="my-0.5 px-2 overflow-hidden"
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.25, ease: "easeInOut" }}
+                className="my-0.5 px-2"
+                style={{ contain: "layout" }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15, ease: "easeInOut" }}
               >
                 <MessageThinking showHeader={!lastMessageIsAssistant} streamingMessage={streamingMessage} />
               </motion.div>

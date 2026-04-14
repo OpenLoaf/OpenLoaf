@@ -26,7 +26,6 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node
 import path from 'node:path'
 import os from 'node:os'
 import { setRequestContext } from '@/ai/shared/context/requestContext'
-import { memoryIndexManager } from '@/memory/memoryIndexManager'
 import { memorySaveTool as _memorySaveTool } from '../memoryTools'
 
 const memorySaveExecute = _memorySaveTool.execute!
@@ -319,8 +318,8 @@ async function testFileIO() {
     cleanupDir(root)
   })
 
-  // B8: 缓存失效验证
-  await test('B8: after save, MemorySearch can find the new entry', async () => {
+  // B8: saved file is readable via Grep (model-facing path)
+  await test('B8: after save, content is findable via plain file read', async () => {
     const { root, memoryDir } = createTempMemoryDir()
     setContextWithProject(root)
 
@@ -329,8 +328,9 @@ async function testFileIO() {
       toolCtx,
     )
 
-    const results = memoryIndexManager.search([memoryDir], 'unique-keyword-xyzzy', 5)
-    assert.ok(results.length >= 1, `Expected search to find entry, got ${results.length} results`)
+    const today = new Date().toISOString().slice(0, 10)
+    const saved = readFileSync(path.join(memoryDir, `${today}-searchable.md`), 'utf8')
+    assert.ok(saved.includes('unique-keyword-xyzzy'), 'Saved file should contain the keyword')
 
     cleanupDir(root)
   })
@@ -583,8 +583,8 @@ async function testDefectRegression() {
     cleanupDir(root)
   })
 
-  // D8: delete 后 search 不应返回已删除的条目
-  await test('D8: delete then search → deleted entry not in results', async () => {
+  // D8: delete removes file from disk
+  await test('D8: delete then check disk → file is gone', async () => {
     const { root, memoryDir } = createTempMemoryDir()
     setContextWithProject(root)
 
@@ -592,17 +592,11 @@ async function testDefectRegression() {
       { key: 'temp-data', content: 'unique-deleteme-token', scope: 'project' },
       toolCtx,
     )
+    const filePath = path.join(memoryDir, `${today}-temp-data.md`)
+    assert.ok(existsSync(filePath), 'File should exist before delete')
 
-    // 确认能搜到
-    let results = memoryIndexManager.search([memoryDir], 'unique-deleteme-token', 5)
-    assert.ok(results.length >= 1, 'Should find entry before delete')
-
-    // 删除
     await memorySaveExecute({ key: 'temp-data', mode: 'delete', scope: 'project' }, toolCtx)
-
-    // 删除后搜不到
-    results = memoryIndexManager.search([memoryDir], 'unique-deleteme-token', 5)
-    assert.equal(results.length, 0, 'Should NOT find entry after delete')
+    assert.ok(!existsSync(filePath), 'File should be gone after delete')
 
     cleanupDir(root)
   })
@@ -678,27 +672,24 @@ async function testSequences() {
     cleanupDir(root)
   })
 
-  // T5: 快速连续 upsert + 每步搜索验证缓存一致性
-  // 注意：搜索使用部分关键词匹配，所以用完全不同的词避免交叉匹配
-  await test('T5: rapid upsert + search → invalidate keeps search consistent', async () => {
+  // T5: rapid upsert — each version replaces the previous on disk
+  await test('T5: rapid upsert → each version completely replaces the previous on disk', async () => {
     const { root, memoryDir } = createTempMemoryDir()
     setContextWithProject(root)
 
     await memorySaveExecute({ key: 'counter', content: 'aardvark-breakfast', scope: 'project' }, toolCtx)
-    let results = memoryIndexManager.search([memoryDir], 'aardvark breakfast', 5)
-    assert.ok(results.length >= 1, 'v1 should be searchable after save')
+    let file = readFileSync(path.join(memoryDir, `${today}-counter.md`), 'utf8')
+    assert.ok(file.includes('aardvark-breakfast'), 'v1 content present after save')
 
     await memorySaveExecute({ key: 'counter', content: 'zeppelin-mountain', scope: 'project' }, toolCtx)
-    results = memoryIndexManager.search([memoryDir], 'zeppelin mountain', 5)
-    assert.ok(results.length >= 1, 'v2 should be searchable after upsert')
-    results = memoryIndexManager.search([memoryDir], 'aardvark breakfast', 5)
-    assert.equal(results.length, 0, 'v1 keywords should NOT be searchable after upsert to v2')
+    file = readFileSync(path.join(memoryDir, `${today}-counter.md`), 'utf8')
+    assert.ok(file.includes('zeppelin-mountain'), 'v2 content present after upsert')
+    assert.ok(!file.includes('aardvark-breakfast'), 'v1 content gone after upsert to v2')
 
     await memorySaveExecute({ key: 'counter', content: 'kaleidoscope-octopus', scope: 'project' }, toolCtx)
-    results = memoryIndexManager.search([memoryDir], 'kaleidoscope octopus', 5)
-    assert.ok(results.length >= 1, 'v3 should be searchable')
-    results = memoryIndexManager.search([memoryDir], 'zeppelin mountain', 5)
-    assert.equal(results.length, 0, 'v2 keywords should NOT be searchable after upsert to v3')
+    file = readFileSync(path.join(memoryDir, `${today}-counter.md`), 'utf8')
+    assert.ok(file.includes('kaleidoscope-octopus'), 'v3 content present')
+    assert.ok(!file.includes('zeppelin-mountain'), 'v2 content gone after upsert to v3')
 
     cleanupDir(root)
   })
@@ -827,43 +818,43 @@ async function testBoundary() {
 async function testScopeIsolation() {
   console.log('\n--- G: 跨 Scope 隔离测试 ---')
 
-  // S3: save→search 单向可见性
-  await test('S3: save to project scope → visible in project search, invisible in other scopes', async () => {
+  // S3: scope=project writes only into the project memory dir
+  await test('S3: save to project scope → file lives in project dir, not user dir', async () => {
     const { root: projRoot, memoryDir: projMemDir } = createTempMemoryDir()
     setContextWithProject(projRoot)
 
     await memorySaveExecute({ key: 'secret', content: 'unique-token-s3-proj', scope: 'project' }, toolCtx)
 
-    // Project scope search — should find
-    const projResults = memoryIndexManager.search([projMemDir], 'unique-token-s3-proj', 5)
-    assert.ok(projResults.length >= 1, 'Should find in project scope')
+    const projFile = path.join(projMemDir, `${today}-secret.md`)
+    assert.ok(existsSync(projFile), 'File should exist in project memory dir')
+    const content = readFileSync(projFile, 'utf8')
+    assert.ok(content.includes('unique-token-s3-proj'), 'Project file should contain the content')
 
-    // User scope search — should NOT find (different directory)
     const userMemDir = path.join(os.homedir(), '.openloaf', 'memory')
-    const userResults = memoryIndexManager.search([userMemDir], 'unique-token-s3-proj', 5)
-    assert.equal(userResults.length, 0, 'Should NOT find in user scope')
+    const userFile = path.join(userMemDir, `${today}-secret.md`)
+    assert.ok(!existsSync(userFile), 'Project save must NOT leak into user memory dir')
 
     cleanupDir(projRoot)
   })
 
-  // S5: 项目切换隔离
-  await test('S5: save in project A → switch to project B → search returns empty', async () => {
+  // S5: cross-project isolation on disk
+  await test('S5: save in project A → project B dir stays empty, A dir still has the file', async () => {
     const { root: rootA, memoryDir: memDirA } = createTempMemoryDir()
     const { root: rootB, memoryDir: memDirB } = createTempMemoryDir()
 
-    // Save in project A
     setContextWithProject(rootA)
     await memorySaveExecute({ key: 'arch', content: 'unique-token-s5-projA', scope: 'project' }, toolCtx)
 
-    // Switch to project B and search
-    setContextWithProject(rootB)
-    const resultsB = memoryIndexManager.search([memDirB], 'unique-token-s5-projA', 5)
-    assert.equal(resultsB.length, 0, 'Project B should NOT see project A memory')
+    const fileA = path.join(memDirA, `${today}-arch.md`)
+    const fileB = path.join(memDirB, `${today}-arch.md`)
+    assert.ok(existsSync(fileA), 'Project A file should exist')
+    assert.ok(!existsSync(fileB), 'Project B dir should not contain project A file')
 
-    // Switch back to A — still there
+    setContextWithProject(rootB)
+    assert.ok(!existsSync(fileB), 'Switching context does not create files in project B')
+
     setContextWithProject(rootA)
-    const resultsA = memoryIndexManager.search([memDirA], 'unique-token-s5-projA', 5)
-    assert.ok(resultsA.length >= 1, 'Project A memory should still be there')
+    assert.ok(existsSync(fileA), 'Project A file should still be there')
 
     cleanupDir(rootA)
     cleanupDir(rootB)

@@ -1,9 +1,7 @@
 ---
-name: canvas-ops
+name: canvas-ops-skill
 description: >
-  画布/白板操作——创建、查看、整理、删除画布及节点。当用户要操作 OpenLoaf 画布
-  （创建画布、添加节点、连线、排布、头脑风暴白板）时激活。
-  **不用于**：数据图表（→visualization-ops）、纯文本描述流程（→直接回答）。
+  当用户要对 OpenLoaf 画布 / 白板做生命周期管理时触发：新建、打开、筛选、复制、删除、改标题或归属。典型说法"开个白板"、"创建一个架构图画布"、"清理没用的白板"。**不用于**：数据图表可视化（→visualization-ops-skill）、AI 生成图片或视频（→cloud-media-skill）、在已打开画布里编辑节点（由画布子 Agent 处理）。
 ---
 
 # 画布操作技能

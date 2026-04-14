@@ -195,7 +195,7 @@ export default function JsxCreateTool({
   }
 
   return (
-    <div className={cn('w-full min-w-0', className)}>
+    <div className={cn('w-full min-w-0 max-w-4xl', className)}>
       {hasJsx ? (
         <JSXPreview
           jsx={jsx}

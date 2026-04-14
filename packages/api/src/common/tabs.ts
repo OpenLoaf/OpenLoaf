@@ -109,6 +109,13 @@ export const AGENTS_TAB_INPUT = {
   icon: "🤖",
 } as const;
 
+export const CONNECTIONS_TAB_INPUT = {
+  baseId: "base:connections",
+  component: "connections-market",
+  titleKey: "nav:connections",
+  icon: "🔌",
+} as const;
+
 export const DEFAULT_TAB_INFO = {
   titleKey: AI_ASSISTANT_TAB_INPUT.titleKey,
   icon: AI_ASSISTANT_TAB_INPUT.icon,

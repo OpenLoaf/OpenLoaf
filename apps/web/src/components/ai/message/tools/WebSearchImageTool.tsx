@@ -12,9 +12,8 @@
 import * as React from 'react'
 import {
   CheckCircle2Icon,
-  ExternalLinkIcon,
+  ImageIcon,
   LoaderCircleIcon,
-  SearchIcon,
   XCircleIcon,
 } from 'lucide-react'
 import { BROWSER_WINDOW_COMPONENT, BROWSER_WINDOW_PANEL_ID } from '@openloaf/api/common'
@@ -29,10 +28,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@openloaf/ui/tooltip'
-import {
-  Collapsible,
-  CollapsibleTrigger,
-} from '@openloaf/ui/collapsible'
+import { Collapsible, CollapsibleTrigger } from '@openloaf/ui/collapsible'
 import {
   ToolOutputContent,
   ToolOutputError,
@@ -46,113 +42,63 @@ import {
   type AnyToolPart,
 } from './shared/tool-utils'
 
-type WebSearchItem = {
+type WebSearchImageItem = {
   title: string
-  url: string
-  snippet: string
+  imageUrl: string
+  sourceUrl: string
   source?: string
-  publishedAt?: string
+}
+
+type ParsedOutput = {
+  variantId?: string
+  items: WebSearchImageItem[]
 }
 
 /**
- * Try to parse the SaaS cloud `webSearch` tool JSON envelope:
- *   { ok, feature, data: { items: [{ title, url, snippet, content, source, publishedAt }] } }
- * Returns null if the text is not JSON or doesn't match the shape.
+ * Parse cloud `webSearchImage` envelope from cloudToolsDynamic.ts:
+ *   { ok, feature, credits, variantId, data: { items: [{ title, url, imageUrl, source }], totalCount, metadata } }
+ * items[].url is the source page, items[].imageUrl is the image asset itself.
  */
-function parseJsonResults(text: string): WebSearchItem[] | null {
+function parseOutput(text: string): ParsedOutput {
+  const empty: ParsedOutput = { items: [] }
+  if (!text) return empty
   const trimmed = text.trim()
-  if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) return null
-  let data: unknown
+  if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) return empty
+  let parsed: unknown
   try {
-    data = JSON.parse(trimmed)
+    parsed = JSON.parse(trimmed)
   } catch {
-    return null
+    return empty
   }
-  const envelope = data as {
-    ok?: boolean
-    data?: { items?: unknown[] }
+  const envelope = parsed as {
+    variantId?: unknown
+    data?: { items?: unknown[] } | unknown[]
     items?: unknown[]
   }
-  const rawItems = Array.isArray(envelope?.data?.items)
-    ? envelope.data!.items!
-    : Array.isArray(envelope?.items)
-      ? envelope.items!
-      : null
-  if (!rawItems) return null
-  return rawItems
+  const variantId =
+    typeof envelope?.variantId === 'string' ? envelope.variantId : undefined
+  const rawItems = Array.isArray(envelope?.data)
+    ? envelope.data
+    : Array.isArray((envelope?.data as { items?: unknown[] } | undefined)?.items)
+      ? ((envelope.data as { items?: unknown[] }).items as unknown[])
+      : Array.isArray(envelope?.items)
+        ? envelope.items
+        : null
+  if (!rawItems) return { variantId, items: [] }
+  const items: WebSearchImageItem[] = rawItems
     .map((raw) => {
       const it = (raw ?? {}) as Record<string, unknown>
       const title = typeof it.title === 'string' ? it.title : ''
-      const url = typeof it.url === 'string' ? it.url : ''
-      const snippet =
-        (typeof it.snippet === 'string' && it.snippet) ||
-        (typeof it.content === 'string' && it.content) ||
+      const sourceUrl = typeof it.url === 'string' ? it.url : ''
+      const imageUrl =
+        (typeof it.imageUrl === 'string' && it.imageUrl) ||
+        (typeof it.thumbUrl === 'string' && it.thumbUrl) ||
         ''
       const source = typeof it.source === 'string' ? it.source : undefined
-      const publishedAt =
-        typeof it.publishedAt === 'string' ? it.publishedAt : undefined
-      return { title, url, snippet, source, publishedAt }
+      return { title, imageUrl, sourceUrl, source }
     })
-    .filter((it) => it.title || it.url)
-}
-
-/**
- * Parse markdown emitted by Claude Code's webSearchTool (streaming delta or final output).
- * Each result is a block starting with `### <title>`, followed by a URL line
- * (optionally prefixed with `URL: `), followed by snippet lines until the next
- * block or a blank line.
- */
-function parseMarkdownResults(text: string): WebSearchItem[] {
-  if (!text) return []
-  const lines = text.split('\n')
-  const items: WebSearchItem[] = []
-  let current: WebSearchItem | null = null
-  let phase: 'title' | 'url' | 'snippet' = 'title'
-
-  const flush = () => {
-    if (current && (current.title || current.url)) {
-      current.snippet = current.snippet.trim()
-      items.push(current)
-    }
-    current = null
-    phase = 'title'
-  }
-
-  for (const raw of lines) {
-    const line = raw.replace(/\r$/, '')
-    if (line.startsWith('### ')) {
-      flush()
-      current = { title: line.slice(4).trim(), url: '', snippet: '' }
-      phase = 'url'
-      continue
-    }
-    if (!current) continue
-    if (phase === 'url') {
-      const urlLine = line.replace(/^URL:\s*/i, '').trim()
-      if (urlLine) {
-        current.url = urlLine
-        phase = 'snippet'
-      }
-      continue
-    }
-    if (phase === 'snippet') {
-      if (!line.trim()) {
-        // blank line ends the current block
-        flush()
-        continue
-      }
-      current.snippet += (current.snippet ? '\n' : '') + line
-    }
-  }
-  flush()
-  return items
-}
-
-function parseResults(text: string): WebSearchItem[] {
-  if (!text) return []
-  const json = parseJsonResults(text)
-  if (json && json.length > 0) return json
-  return parseMarkdownResults(text)
+    .filter((it) => it.imageUrl)
+  return { variantId, items }
 }
 
 function openUrl(url: string, title?: string) {
@@ -184,7 +130,7 @@ function hostnameOf(url: string): string {
   }
 }
 
-export default function WebSearchTool({
+export default function WebSearchImageTool({
   part,
   className,
 }: {
@@ -193,10 +139,10 @@ export default function WebSearchTool({
 }) {
   const inputObj = asPlainObject(normalizeToolInput(part.input))
   const query = inputObj
-    ? typeof inputObj.query === 'string'
-      ? inputObj.query.trim()
-      : typeof inputObj.source === 'string'
-        ? inputObj.source.trim()
+    ? typeof inputObj.source === 'string'
+      ? inputObj.source.trim()
+      : typeof inputObj.query === 'string'
+        ? inputObj.query.trim()
         : ''
     : ''
 
@@ -211,19 +157,20 @@ export default function WebSearchTool({
   const output =
     typeof part.output === 'string' ? part.output : safeStringify(part.output)
   const rawText = output.trim() ? output : tp?.accumulatedText ?? ''
-  const results = React.useMemo(() => parseResults(rawText), [rawText])
+  const parsed = React.useMemo(() => parseOutput(rawText), [rawText])
+  const items = parsed.items
 
   const errorText =
     typeof part.errorText === 'string' && part.errorText.trim()
       ? part.errorText
       : tp?.errorText
 
-  const count = results.length
+  const count = items.length
 
   return (
     <Collapsible
       className={cn('min-w-0 text-xs', className)}
-      defaultOpen={progressActive}
+      defaultOpen={progressActive || count > 0}
     >
       <Tooltip>
         <TooltipTrigger asChild>
@@ -233,9 +180,9 @@ export default function WebSearchTool({
               'transition-colors duration-150 hover:bg-muted/60',
             )}
           >
-            <SearchIcon className="size-3.5 shrink-0 text-muted-foreground" />
+            <ImageIcon className="size-3.5 shrink-0 text-muted-foreground" />
             <span className="shrink-0 text-xs font-medium text-muted-foreground">
-              WebSearch
+              WebSearchImage
             </span>
             {query ? (
               <span className="min-w-0 truncate font-mono text-xs text-muted-foreground/50">
@@ -246,7 +193,7 @@ export default function WebSearchTool({
             )}
             {count > 0 ? (
               <span className="shrink-0 text-[10px] text-muted-foreground/60">
-                {count} 条
+                {count} 张
               </span>
             ) : null}
             {showSpinner ? (
@@ -266,41 +213,46 @@ export default function WebSearchTool({
       </Tooltip>
       <ToolOutputContent>
         {count > 0 ? (
-          <ul className="flex flex-col gap-1">
-            {results.map((item, idx) => (
-              <li key={`${idx}-${item.url}`}>
-                <button
-                  type="button"
-                  onClick={() => openUrl(item.url, item.title)}
-                  className={cn(
-                    'group flex w-full flex-col gap-0.5 rounded-lg px-2 py-1.5 text-left',
-                    'transition-colors duration-150 hover:bg-muted/60',
-                  )}
-                >
-                  <div className="flex min-w-0 items-center gap-1.5">
-                    <span className="min-w-0 truncate text-[12px] font-medium text-foreground">
-                      {item.title || hostnameOf(item.url)}
-                    </span>
-                    <ExternalLinkIcon className="size-3 shrink-0 text-muted-foreground/40 opacity-0 group-hover:opacity-100" />
+          <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-5 md:grid-cols-6">
+            {items.map((item, idx) => (
+              <button
+                key={`${idx}-${item.imageUrl}`}
+                type="button"
+                onClick={() => openUrl(item.sourceUrl || item.imageUrl, item.title)}
+                className={cn(
+                  'group relative block aspect-square overflow-hidden rounded-md bg-muted/50',
+                  'transition-opacity duration-150 hover:opacity-90',
+                )}
+                title={item.title || hostnameOf(item.sourceUrl || item.imageUrl)}
+              >
+                {/* biome-ignore lint/performance/noImgElement: external remote URLs */}
+                <img
+                  src={item.imageUrl}
+                  alt={item.title || ''}
+                  loading="lazy"
+                  referrerPolicy="no-referrer"
+                  className="h-full w-full object-cover"
+                  onError={(e) => {
+                    ;(e.currentTarget as HTMLImageElement).style.display = 'none'
+                  }}
+                />
+                {item.source ? (
+                  <div
+                    className={cn(
+                      'pointer-events-none absolute inset-x-0 bottom-0 truncate bg-black/50 px-1 py-0.5 text-[9px] text-white/90',
+                      'opacity-0 transition-opacity duration-150 group-hover:opacity-100',
+                    )}
+                  >
+                    {item.source}
                   </div>
-                  {item.url ? (
-                    <div className="min-w-0 truncate font-mono text-[10px] text-muted-foreground/60">
-                      {hostnameOf(item.url)}
-                    </div>
-                  ) : null}
-                  {item.snippet ? (
-                    <p className="line-clamp-2 whitespace-pre-wrap text-[11px] leading-[1.45] text-muted-foreground">
-                      {item.snippet}
-                    </p>
-                  ) : null}
-                </button>
-              </li>
+                ) : null}
+              </button>
             ))}
-          </ul>
+          </div>
         ) : progressActive ? (
-          <ToolOutputLoading label={tp?.label || '搜索中...'} />
+          <ToolOutputLoading label={tp?.label || '搜索图片中...'} />
         ) : errorText || hasError || progressError ? (
-          <ToolOutputError message={errorText || '搜索失败'} />
+          <ToolOutputError message={errorText || '图片搜索失败'} />
         ) : streaming ? (
           <ToolOutputLoading label="加载中..." />
         ) : (

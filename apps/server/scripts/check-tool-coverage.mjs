@@ -27,7 +27,6 @@ const ROOT = resolve(__dirname, '../../..')
 const INTERNAL_TOOLS = new Set([
   'tool-search',      // Master Agent internal routing
   'sub-agent',        // Internal delegation
-  'update-plan',      // Internal planning state
   'test-approval',    // Test-only
   'create-task',      // Deprecated alias for task-manage
 ])

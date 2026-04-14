@@ -41,18 +41,38 @@ function isHiddenFeature(featureId: string): boolean {
 // Dynamic state populated from ai.capabilitiesOverview + capabilitiesDetail
 // ---------------------------------------------------------------------------
 
-export type CloudMembershipTier = 'free' | 'lite' | 'pro' | 'premium'
+export type CloudMembershipTier = 'free' | 'lite' | 'pro' | 'premium' | 'infinity'
 
-/** Ordered membership tiers — index = privilege rank (0 = lowest). */
-const TIER_ORDER: readonly CloudMembershipTier[] = ['free', 'lite', 'pro', 'premium'] as const
+/** Ordered membership tiers — index = privilege rank (0 = lowest, infinity = internal/staff). */
+const TIER_ORDER: readonly CloudMembershipTier[] = ['free', 'lite', 'pro', 'premium', 'infinity'] as const
 
 /** Normalize an unknown tier string into a known tier (unknown → 'free'). */
-function normalizeTier(raw: string | undefined | null): CloudMembershipTier {
+export function normalizeTier(raw: string | undefined | null): CloudMembershipTier {
   const lowered = (raw ?? '').toLowerCase()
+  if (lowered === 'infinity') return 'infinity'
   if (lowered === 'premium') return 'premium'
   if (lowered === 'pro') return 'pro'
   if (lowered === 'lite') return 'lite'
   return 'free'
+}
+
+/** Internal/staff users get unrestricted access regardless of billing tier. */
+export function isInternalTier(tier: CloudMembershipTier): boolean {
+  return tier === 'infinity'
+}
+
+/**
+ * Resolve a user's effective tier for access gating.
+ *
+ * Internal/staff users (isInternal=true from SaaS) are promoted to `infinity`
+ * regardless of their billing membershipLevel — they bypass all tier checks.
+ */
+export function resolveEffectiveTier(user: {
+  membershipLevel?: string | null
+  isInternal?: boolean | null
+}): CloudMembershipTier {
+  if (user.isInternal) return 'infinity'
+  return normalizeTier(user.membershipLevel)
 }
 
 /** Returns true when `userTier` is equal to or higher than `requiredTier`. */
@@ -111,18 +131,18 @@ export function getCachedCategorySummaries(): readonly CategorySummary[] {
  * per-request so they pick up the latest content automatically.
  */
 export const cloudMediaSkill: BuiltinSkill = {
-  name: 'cloud-media',
+  name: 'cloud-media-skill',
   description:
-    '云端多媒体生成 — 通过云端 AI 平台调用图片/视频/音频生成能力。当用户要求"生成/创作图片、视频、音频"、"AI 作图"、"生成配音/音乐"时激活。**不用于**：已有文件处理（→media-ops）、文本任务（→cloud-text）。',
+    '当用户要求从零生成全新的图片、插画、海报、视频片段、配音、音乐、音效时触发。典型说法"AI 画一张"、"生成一张宫崎骏风格森林图"、"text to image"。**不用于**：已有媒体文件的处理（→media-ops-skill）、在画布里创建白板（→canvas-ops-skill）、OCR 或文字任务（→cloud-text-skill）。',
   icon: '☁️',
   colorIndex: 2,
   content: renderMediaContent(), // initial placeholder content (before first refresh)
 }
 
 export const cloudTextSkill: BuiltinSkill = {
-  name: 'cloud-text',
+  name: 'cloud-text-skill',
   description:
-    '云端文本能力 — 通过云端模型调用 OCR 文字识别、摘要、结构化抽取等文本能力。当用户要求"识别图片文字/总结长文本/结构化抽取"且需要云端模型时激活。',
+    '当用户要对图片 / 扫描件做 OCR 文字识别，或从大段文本批量 / 高精度抽取结构化字段，或对超长文本走一次专用摘要时触发。典型说法"识别这张图上的文字"、"OCR"、"extract fields from this"。**不用于**：翻译（主对话模型直接处理）、对话里已粘贴的短文本总结（→直接回答）、PDF 里可直接提取的电子文本（→pdf-word-excel-pptx-skill）。',
   icon: '📝',
   colorIndex: 3,
   content: renderTextContent(),
@@ -430,7 +450,7 @@ export async function refreshCloudSkills(): Promise<void> {
           category: fi.category,
           featureCount: 0,
           variantCount: 0,
-          tierBreakdown: { free: 0, lite: 0, pro: 0, premium: 0 },
+          tierBreakdown: { free: 0, lite: 0, pro: 0, premium: 0, infinity: 0 },
           proFeatureExamples: [],
         }
         summaryByCategory.set(fi.category, summary)

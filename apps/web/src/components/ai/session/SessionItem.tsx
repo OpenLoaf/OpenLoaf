@@ -13,6 +13,8 @@ import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { MessageSquare, MoreHorizontal, PencilLine, Pin, Trash2, Layers } from "lucide-react";
+import { AutoTestBadge, AutoTestScorePill } from "@/components/ai/autoTest/AutoTestBadge";
+import type { AutoTestVerdict } from "@openloaf/api";
 import { useMutation } from "@tanstack/react-query";
 import { queryClient, trpc } from "@/utils/trpc";
 import { invalidateChatSessions } from "@/hooks/use-chat-sessions";
@@ -25,6 +27,12 @@ import {
   PromptInputButton,
 } from "@/components/ai-elements/prompt-input";
 import { ModelSelector, ModelSelectorContent } from "@/components/ai-elements/model-selector";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@openloaf/ui/context-menu";
 
 export interface Session {
   /** Session id. */
@@ -43,6 +51,12 @@ export interface Session {
   pinned?: boolean;
   /** Whether the session has layer history. */
   hasLayers?: boolean;
+  /** chat-probe 自动测试会话标记。 */
+  autoTest?: boolean;
+  /** 自动测试评审聚合分数。 */
+  autoTestScore?: number | null;
+  /** 自动测试评审聚合裁决。 */
+  autoTestVerdict?: AutoTestVerdict | null;
 }
 
 interface SessionItemProps {
@@ -71,6 +85,7 @@ function SessionItem({
   const { t } = useTranslation(["ai", "common"]);
   const renameInputId = React.useId();
   const [menuOpen, setMenuOpen] = React.useState(false);
+  const [contextMenuOpen, setContextMenuOpen] = React.useState(false);
   const [isBusy, setIsBusy] = React.useState(false);
   const renameInputRef = React.useRef<HTMLInputElement | null>(null);
 
@@ -92,6 +107,36 @@ function SessionItem({
     setMenuOpen(open);
     onMenuOpenChange?.(open);
   }, [onMenuOpenChange]);
+
+  const handleContextMenuOpenChange = React.useCallback((open: boolean) => {
+    setContextMenuOpen(open);
+    onMenuOpenChange?.(open);
+  }, [onMenuOpenChange]);
+
+  const handleRenameSelect = React.useCallback(() => {
+    setRenameValue(session.name);
+    setIsRenameOpen(true);
+  }, [session.name]);
+
+  const handleTogglePin = React.useCallback(async () => {
+    const nextIsPin = !session.pinned;
+    try {
+      setIsBusy(true);
+      await updateSession.mutateAsync({
+        where: { id: session.id },
+        data: { isPin: nextIsPin },
+      } as any);
+      toast.success(nextIsPin ? t("ai:session.pinSuccess") : t("ai:session.unpinSuccess"));
+    } catch (err: any) {
+      toast.error(err?.message ?? t("ai:session.pinFailed"));
+    } finally {
+      setIsBusy(false);
+    }
+  }, [session.pinned, session.id, updateSession, t]);
+
+  const handleDeleteSelect = React.useCallback(() => {
+    setIsDeleteOpen(true);
+  }, []);
 
   const handleRename = async () => {
     const title = renameValue.trim();
@@ -142,98 +187,97 @@ function SessionItem({
 
   return (
     <>
-      <div
-        className={cn(
-          "group flex w-full min-w-0 items-center gap-1 rounded-3xl pr-1 hover:bg-accent hover:text-accent-foreground",
-          className
-        )}
-      >
-        <button
-          type="button"
-          aria-current={isActive ? "true" : undefined}
-          onClick={() => onSelect?.(session)}
-          className={cn(
-            "min-w-0 flex-1 truncate px-2 py-1.5 text-left text-sm",
-            isActive && "font-medium text-foreground"
-          )}
-        >
-          <span className="flex min-w-0 items-center gap-1.5">
-            {isOpenInTab && (
-              <span className="inline-block size-1.5 shrink-0 rounded-full bg-foreground" />
+      <ContextMenu onOpenChange={handleContextMenuOpenChange}>
+        <ContextMenuTrigger asChild>
+          <div
+            data-menu-open={menuOpen || contextMenuOpen ? "true" : undefined}
+            className={cn(
+              "group flex w-full min-w-0 items-center gap-1 rounded-3xl pr-1 hover:bg-accent hover:text-accent-foreground",
+              "data-[menu-open=true]:bg-accent data-[menu-open=true]:text-accent-foreground",
+              className
             )}
-            <span className="shrink-0 text-sm leading-none">
-              {session.projectIcon ? (
-                session.projectIcon
-              ) : (
-                <MessageSquare size={14} className="text-muted-foreground" />
-              )}
-            </span>
-            <span className="truncate">{session.displayName ?? session.name}</span>
-            {session.hasLayers && (
-              <Layers size={14} className="text-muted-foreground" />
-            )}
-          </span>
-        </button>
-        <PromptInputActionMenu open={menuOpen} onOpenChange={handleMenuOpenChange}>
-          <PromptInputActionMenuTrigger
-            variant="ghost"
-            size="icon-sm"
-            className="h-7 w-7 opacity-0 transition-opacity group-hover:opacity-100"
-            onPointerDown={(event) => event.preventDefault()}
-            onClick={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-            }}
-            aria-label="Session actions"
           >
-            <MoreHorizontal size={16} />
-          </PromptInputActionMenuTrigger>
-          <PromptInputActionMenuContent className="w-36">
-            <PromptInputActionMenuItem
-              disabled={isBusy}
-              onSelect={() => {
-                setRenameValue(session.name);
-                setIsRenameOpen(true);
-              }}
+            <button
+              type="button"
+              aria-current={isActive ? "true" : undefined}
+              onClick={() => onSelect?.(session)}
+              className={cn(
+                "min-w-0 flex-1 truncate px-2 py-1.5 text-left text-sm",
+                isActive && "font-medium text-foreground"
+              )}
             >
-              <PencilLine size={16} className="text-muted-foreground" />
-              {t("common:rename")}
-            </PromptInputActionMenuItem>
-            <PromptInputActionMenuItem
-              disabled={isBusy}
-              onSelect={async () => {
-                // 置顶/取消置顶：更新 isPin 字段
-                const nextIsPin = !session.pinned;
-                try {
-                  setIsBusy(true);
-                  await updateSession.mutateAsync({
-                    where: { id: session.id },
-                    data: { isPin: nextIsPin },
-                  } as any);
-                  toast.success(nextIsPin ? t("ai:session.pinSuccess") : t("ai:session.unpinSuccess"));
-                } catch (err: any) {
-                  toast.error(err?.message ?? t("ai:session.pinFailed"));
-                } finally {
-                  setIsBusy(false);
-                }
-              }}
-            >
-              <Pin size={16} className="text-muted-foreground" />
-              {t(session.pinned ? "ai:session.unpin" : "ai:session.pin")}
-            </PromptInputActionMenuItem>
-            <PromptInputActionMenuItem
-              disabled={isBusy}
-              className="text-destructive focus:text-destructive"
-              onSelect={() => {
-                setIsDeleteOpen(true);
-              }}
-            >
-              <Trash2 size={16} className="text-destructive" />
-              {t("common:delete")}
-            </PromptInputActionMenuItem>
-          </PromptInputActionMenuContent>
-        </PromptInputActionMenu>
-      </div>
+              <span className="flex min-w-0 items-center gap-1.5">
+                {isOpenInTab && (
+                  <span className="inline-block size-1.5 shrink-0 rounded-full bg-foreground" />
+                )}
+                <span className="shrink-0 text-sm leading-none">
+                  {session.projectIcon ? (
+                    session.projectIcon
+                  ) : (
+                    <MessageSquare size={14} className="text-muted-foreground" />
+                  )}
+                </span>
+                <span className="truncate">{session.displayName ?? session.name}</span>
+                {session.autoTest ? <AutoTestBadge /> : null}
+                {session.autoTest && session.autoTestScore != null ? (
+                  <AutoTestScorePill
+                    score={session.autoTestScore}
+                    verdict={session.autoTestVerdict ?? "PASS"}
+                  />
+                ) : null}
+                {session.hasLayers && (
+                  <Layers size={14} className="text-muted-foreground" />
+                )}
+              </span>
+            </button>
+            <PromptInputActionMenu open={menuOpen} onOpenChange={handleMenuOpenChange}>
+              <PromptInputActionMenuTrigger
+                variant="ghost"
+                size="icon-sm"
+                className="h-7 w-7 opacity-0 transition-opacity group-hover:opacity-100 group-data-[menu-open=true]:opacity-100"
+                onClick={(event) => event.stopPropagation()}
+                aria-label="Session actions"
+              >
+                <MoreHorizontal size={16} />
+              </PromptInputActionMenuTrigger>
+              <PromptInputActionMenuContent className="w-36">
+                <PromptInputActionMenuItem disabled={isBusy} onSelect={handleRenameSelect}>
+                  <PencilLine size={16} className="text-muted-foreground" />
+                  {t("common:rename")}
+                </PromptInputActionMenuItem>
+                <PromptInputActionMenuItem disabled={isBusy} onSelect={handleTogglePin}>
+                  <Pin size={16} className="text-muted-foreground" />
+                  {t(session.pinned ? "ai:session.unpin" : "ai:session.pin")}
+                </PromptInputActionMenuItem>
+                <PromptInputActionMenuItem
+                  disabled={isBusy}
+                  className="text-destructive focus:text-destructive"
+                  onSelect={handleDeleteSelect}
+                >
+                  <Trash2 size={16} className="text-destructive" />
+                  {t("common:delete")}
+                </PromptInputActionMenuItem>
+              </PromptInputActionMenuContent>
+            </PromptInputActionMenu>
+          </div>
+        </ContextMenuTrigger>
+        <ContextMenuContent className="w-36">
+          <ContextMenuItem disabled={isBusy} icon={PencilLine} onSelect={handleRenameSelect}>
+            {t("common:rename")}
+          </ContextMenuItem>
+          <ContextMenuItem disabled={isBusy} icon={Pin} onSelect={handleTogglePin}>
+            {t(session.pinned ? "ai:session.unpin" : "ai:session.pin")}
+          </ContextMenuItem>
+          <ContextMenuItem
+            disabled={isBusy}
+            variant="destructive"
+            icon={Trash2}
+            onSelect={handleDeleteSelect}
+          >
+            {t("common:delete")}
+          </ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenu>
 
       <ModelSelector open={isRenameOpen} onOpenChange={setIsRenameOpen}>
         <ModelSelectorContent title={t("ai:session.renameTitle")} className="max-w-md">

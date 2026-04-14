@@ -14,6 +14,8 @@ import { prisma } from '@openloaf/db'
 import { resolveSessionDir, registerSessionDir, _getSessionDirCache } from './chatSessionPathResolver'
 import { loadMessageTree, invalidateCache, _clearAllTreeCaches } from './chatMessageTreeIndex'
 import { withSessionLock } from './chatMessagePersistence'
+import { logger } from '@/common/logger'
+import type { ProbeMeta } from '@openloaf/api'
 
 // ---------------------------------------------------------------------------
 // Re-export sub-modules (backward compatibility — all consumers import from
@@ -94,6 +96,10 @@ type SessionJson = {
   messageCount: number
   /** Last allocated plan number for PLAN_{no}.md naming. */
   lastPlanNo?: number
+  /** 自动化探针标记（chat-probe runner 写入，后端只读）。 */
+  autoTest?: boolean
+  /** 自动化探针元数据（chat-probe runner 写入，后端只读）。 */
+  probeMeta?: ProbeMeta
 }
 
 export type SiblingNavEntry = {
@@ -203,6 +209,32 @@ export async function readSessionJson(sessionId: string): Promise<SessionJson | 
     return JSON.parse(content) as SessionJson
   } catch {
     return null
+  }
+}
+
+/**
+ * 从 session.json 派生自动化探针字段（只读）。
+ * 数据源：chat-history/<sessionId>/session.json —— 外部 probe runner 写入。
+ * 容错策略：文件不存在 / JSON 解析失败 / 字段类型不对 → 降级为 { autoTest: false, probeMeta: null }，不抛错。
+ */
+export async function readSessionJsonAutoTest(
+  sessionId: string,
+): Promise<{ autoTest: boolean; probeMeta: ProbeMeta | null }> {
+  try {
+    const session = await readSessionJson(sessionId)
+    if (!session) return { autoTest: false, probeMeta: null }
+    const autoTest = session.autoTest === true
+    const probeMeta =
+      autoTest && session.probeMeta && typeof session.probeMeta === 'object'
+        ? (session.probeMeta as ProbeMeta)
+        : null
+    return { autoTest, probeMeta }
+  } catch (err) {
+    logger.warn(
+      { sessionId, err: err instanceof Error ? err.message : String(err) },
+      'readSessionJsonAutoTest failed, falling back to autoTest=false',
+    )
+    return { autoTest: false, probeMeta: null }
   }
 }
 

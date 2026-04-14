@@ -77,7 +77,7 @@ await initDatabase();
 const { app } = startServer();
 
 // Cloud 动态 skill：启动后非阻塞地拉一次 capabilitiesOverview，把可用 category
-// 注入到 cloud-media / cloud-text skill 内容里，然后每 30 min 后台刷新。
+// 注入到 cloud-media-skill / cloud-text-skill 内容里，然后每 30 min 后台刷新。
 // 失败静默 — skill 会保留上一轮快照或初始的 "probing" 占位内容。
 void (async () => {
   try {

@@ -1,9 +1,7 @@
 ---
-name: workbench-ops
+name: workbench-ops-skill
 description: >
-  工作台 Widget 管理——创建/编辑/删除桌面组件。当用户要在工作台上添加或管理
-  widget（仪表盘、监控面板、股票行情、天气、时钟、快捷链接、番茄钟等）时激活。
-  **不用于**：对话中随口提到时间/倒计时（→直接回答）、数据可视化图表（→visualization-ops）。
+  当用户要在 OpenLoaf 工作台 / 桌面上新增、修改、查看、删除 widget（桌面组件 / 小组件 / 仪表盘卡片）时触发。典型说法"加个天气 widget"、"做个番茄钟组件"、"改下这个 widget 的颜色"。**不用于**：聊天消息里一次性展示图表（→visualization-ops-skill）、AI 生成图片（→cloud-media-skill）、对话里随口提到"时钟 / 倒计时"（→直接回答）。
 ---
 
 # 工作台 Widget 管理

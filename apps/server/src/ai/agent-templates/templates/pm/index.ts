@@ -38,9 +38,6 @@ export const PM_AGENT_TOOL_IDS = [
   'EditDocument',
   // file info
   'FileInfo',
-  // memory
-  'MemorySearch',
-  'MemoryGet',
 ] as const
 
 /** Get PM agent prompt (PM identity + standard framework) in specified language. */

@@ -11,6 +11,7 @@ import type { Context, Hono } from "hono";
 import { getCookie } from "hono/cookie";
 import type { ClientPlatform } from "@openloaf/api/types/platform";
 import type { AiExecuteRequest, AiIntent, AiResponseMode } from "@/ai/services/chat/types";
+import type { ChatPageContext } from "@openloaf/api/types/message";
 import { bootstrapAi } from "@/ai/bootstrap";
 import { logger } from "@/common/logger";
 import { toText } from "@/routers/route-utils";
@@ -75,6 +76,17 @@ function parseAiExecuteRequest(body: unknown): { request?: AiExecuteRequest; err
     ? raw.chatModelSource
     : undefined;
 
+  // temperature: 仅 dev 模式下允许客户端覆盖（chat-probe 等自动化测试零温度保证可重复）。
+  // 生产构建静默丢弃，避免外部客户端调用 /ai/chat 时影响线上模型行为。
+  const temperature =
+    process.env.NODE_ENV !== "production" &&
+    typeof raw.temperature === "number" &&
+    Number.isFinite(raw.temperature) &&
+    raw.temperature >= 0 &&
+    raw.temperature <= 2
+      ? raw.temperature
+      : undefined;
+
   return {
     request: {
       sessionId,
@@ -101,7 +113,46 @@ function parseAiExecuteRequest(body: unknown): { request?: AiExecuteRequest; err
       desktopVersion: toText(raw.desktopVersion) || undefined,
       messageIdChain: normalizeMessageIdChain(raw.messageIdChain),
       autoApproveTools: raw.autoApproveTools === true ? true : undefined,
+      pageContext: normalizePageContext(raw.pageContext),
+      temperature,
     },
+  };
+}
+
+/** Normalize pageContext input (drops unknown fields, keeps type-safe shape). */
+function normalizePageContext(value: unknown): ChatPageContext | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const obj = value as Record<string, unknown>;
+  const scope: ChatPageContext["scope"] | undefined =
+    obj.scope === "project" ? "project" : obj.scope === "global" ? "global" : undefined;
+  const page = typeof obj.page === "string" && obj.page.trim() ? obj.page : undefined;
+  if (!scope || !page) return undefined;
+  const pageTitle = typeof obj.pageTitle === "string" && obj.pageTitle ? obj.pageTitle : undefined;
+  const projectId = typeof obj.projectId === "string" && obj.projectId ? obj.projectId : undefined;
+  const boardId = typeof obj.boardId === "string" && obj.boardId ? obj.boardId : undefined;
+  const stack = Array.isArray(obj.stack)
+    ? obj.stack
+        .map((item) => {
+          if (!item || typeof item !== "object") return null;
+          const it = item as Record<string, unknown>;
+          const component = typeof it.component === "string" ? it.component : "";
+          if (!component) return null;
+          const title = typeof it.title === "string" ? it.title : undefined;
+          const params =
+            it.params && typeof it.params === "object" && !Array.isArray(it.params)
+              ? (it.params as Record<string, unknown>)
+              : undefined;
+          return { component, ...(title ? { title } : {}), ...(params ? { params } : {}) };
+        })
+        .filter((v): v is { component: string; title?: string; params?: Record<string, unknown> } => v !== null)
+    : undefined;
+  return {
+    scope,
+    page,
+    ...(pageTitle ? { pageTitle } : {}),
+    ...(projectId ? { projectId } : {}),
+    ...(boardId ? { boardId } : {}),
+    ...(stack && stack.length > 0 ? { stack } : {}),
   };
 }
 

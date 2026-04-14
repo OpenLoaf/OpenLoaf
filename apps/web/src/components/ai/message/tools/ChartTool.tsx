@@ -582,7 +582,7 @@ export default function ChartTool({
         : ("idle" as const);
 
   return (
-    <div className={cn("w-full min-w-0", className)}>
+    <div className={cn("w-full min-w-0 max-w-4xl", className)}>
       <div
         className="overflow-hidden rounded-3xl border bg-card text-card-foreground"
         style={errorText ? undefined : { height: cardHeight }}

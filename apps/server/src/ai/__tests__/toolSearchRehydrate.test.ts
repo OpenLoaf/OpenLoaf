@@ -11,10 +11,10 @@
  * ToolSearch Rehydrate — 回归测试。
  *
  * 复现问题：
- * 1. AI 调用 ToolSearch 加载了 MemorySave 和 MemorySearch
- * 2. AI 调用 MemorySave，触发 needsApproval，流中断等待用户审批
+ * 1. AI 调用 ToolSearch 加载了 WebFetch 和 WebSearch
+ * 2. AI 调用 WebFetch，触发 needsApproval，流中断等待用户审批
  * 3. 用户批准后，新请求创建了全新 ActivatedToolSet，之前激活的工具丢失
- * 4. Activation Guard 拦截 MemorySave，报错 "Tool has not been loaded"
+ * 4. Activation Guard 拦截 WebFetch，报错 "Tool has not been loaded"
  *
  * 修复方案：从消息历史中的 ToolSearch 结果回放激活状态。
  *
@@ -66,12 +66,12 @@ function makeFakeMessages(toolSearchToolIds: string[], approvalToolId?: string, 
   // ToolSearch 结果
   parts.push(makeToolSearchResultPart(toolSearchToolIds))
 
-  // MemorySearch 成功结果
-  if (toolSearchToolIds.includes('MemorySearch')) {
+  // WebSearch 成功结果
+  if (toolSearchToolIds.includes('WebSearch')) {
     parts.push({
-      type: 'tool-memory-search',
+      type: 'tool-web-search',
       toolCallId: `call_search_${Date.now()}`,
-      toolName: 'MemorySearch',
+      toolName: 'WebSearch',
       state: 'output-available',
       output: { ok: true, results: [] },
     })
@@ -135,29 +135,29 @@ async function main() {
   printSection('Test 1: 复现 BUG — 新 ActivatedToolSet 丢失动态工具')
 
   try {
-    // 模拟第一次请求：ToolSearch 激活了 MemorySearch 和 MemorySave
+    // 模拟第一次请求：ToolSearch 激活了 WebSearch 和 WebFetch
     const set1 = new ActivatedToolSet(CORE_TOOL_IDS)
-    set1.activate(['MemorySearch', 'MemorySave'])
+    set1.activate(['WebSearch', 'WebFetch'])
 
     // 验证第一次请求中工具已激活
-    if (!set1.isActive('MemorySave')) throw new Error('第一次请求中 MemorySave 应该已激活')
-    if (!set1.isActive('MemorySearch')) throw new Error('第一次请求中 MemorySearch 应该已激活')
+    if (!set1.isActive('WebFetch')) throw new Error('第一次请求中 WebFetch 应该已激活')
+    if (!set1.isActive('WebSearch')) throw new Error('第一次请求中 WebSearch 应该已激活')
     console.log('  第一次请求 activeTools:', set1.getActiveToolIds())
 
     // 模拟审批流：创建全新的 ActivatedToolSet（这是 bug 的根源）
     const set2 = new ActivatedToolSet(CORE_TOOL_IDS)
     console.log('  第二次请求 activeTools:', set2.getActiveToolIds())
 
-    // ★ 这就是 bug：MemorySave 在新 set 中不存在
-    const lostMemorySave = !set2.isActive('MemorySave')
-    const lostMemorySearch = !set2.isActive('MemorySearch')
+    // ★ 这就是 bug：WebFetch 在新 set 中不存在
+    const lostWebFetch = !set2.isActive('WebFetch')
+    const lostWebSearch = !set2.isActive('WebSearch')
 
-    if (!lostMemorySave || !lostMemorySearch) {
+    if (!lostWebFetch || !lostWebSearch) {
       throw new Error('预期工具丢失，但它们意外存在 — bug 已被修复或测试有误')
     }
 
-    console.log('  确认：MemorySave 已丢失 =', lostMemorySave)
-    console.log('  确认：MemorySearch 已丢失 =', lostMemorySearch)
+    console.log('  确认：WebFetch 已丢失 =', lostWebFetch)
+    console.log('  确认：WebSearch 已丢失 =', lostWebSearch)
     printPass('成功复现 BUG — 新 ActivatedToolSet 丢失了动态工具')
     passed++
   } catch (err) {
@@ -170,8 +170,8 @@ async function main() {
 
   try {
     const messages = makeFakeMessages(
-      ['MemorySearch', 'MemorySave'],
-      'MemorySave',
+      ['WebSearch', 'WebFetch'],
+      'WebFetch',
       'call_YCgnxT7bVh7NIdyWFSD4AXUW',
     )
 
@@ -181,11 +181,11 @@ async function main() {
     if (extracted.length !== 2) {
       throw new Error(`预期提取 2 个工具 ID，实际 ${extracted.length}`)
     }
-    if (!extracted.includes('MemorySearch')) {
-      throw new Error('缺少 MemorySearch')
+    if (!extracted.includes('WebSearch')) {
+      throw new Error('缺少 WebSearch')
     }
-    if (!extracted.includes('MemorySave')) {
-      throw new Error('缺少 MemorySave')
+    if (!extracted.includes('WebFetch')) {
+      throw new Error('缺少 WebFetch')
     }
 
     printPass('从消息历史成功提取工具 ID')
@@ -200,8 +200,8 @@ async function main() {
 
   try {
     const messages = makeFakeMessages(
-      ['MemorySearch', 'MemorySave'],
-      'MemorySave',
+      ['WebSearch', 'WebFetch'],
+      'WebFetch',
       'call_YCgnxT7bVh7NIdyWFSD4AXUW',
     )
 
@@ -214,11 +214,11 @@ async function main() {
 
     console.log('  rehydrate 后 activeTools:', set.getActiveToolIds())
 
-    if (!set.isActive('MemorySave')) {
-      throw new Error('rehydrate 后 MemorySave 应该已激活')
+    if (!set.isActive('WebFetch')) {
+      throw new Error('rehydrate 后 WebFetch 应该已激活')
     }
-    if (!set.isActive('MemorySearch')) {
-      throw new Error('rehydrate 后 MemorySearch 应该已激活')
+    if (!set.isActive('WebSearch')) {
+      throw new Error('rehydrate 后 WebSearch 应该已激活')
     }
     if (!set.isActive('ToolSearch')) {
       throw new Error('core tool ToolSearch 应始终激活')
@@ -249,7 +249,7 @@ async function main() {
         id: 'msg-assistant-1',
         role: 'assistant',
         parts: [
-          makeToolSearchResultPart(['MemorySearch', 'MemorySave']),
+          makeToolSearchResultPart(['WebSearch', 'WebFetch']),
         ],
       },
       {
@@ -272,7 +272,7 @@ async function main() {
     const set = new ActivatedToolSet(CORE_TOOL_IDS)
     set.activate(extracted)
 
-    const expected = ['MemorySearch', 'MemorySave', 'read-file', 'list-dir']
+    const expected = ['WebSearch', 'WebFetch', 'read-file', 'list-dir']
     for (const id of expected) {
       if (!set.isActive(id)) {
         throw new Error(`多轮累积后 ${id} 应该已激活`)
@@ -291,7 +291,7 @@ async function main() {
   printSection('Test 5: ActivatedToolSet.rehydrateFromMessages 静态方法')
 
   try {
-    const messages = makeFakeMessages(['MemorySearch', 'MemorySave'])
+    const messages = makeFakeMessages(['WebSearch', 'WebFetch'])
 
     // 检查是否存在 rehydrateFromMessages 静态方法
     if (typeof (ActivatedToolSet as any).rehydrateFromMessages !== 'function') {
@@ -303,11 +303,11 @@ async function main() {
     const set = new ActivatedToolSet(CORE_TOOL_IDS)
     ;(ActivatedToolSet as any).rehydrateFromMessages(set, messages)
 
-    if (!set.isActive('MemorySave')) {
-      throw new Error('rehydrateFromMessages 后 MemorySave 应已激活')
+    if (!set.isActive('WebFetch')) {
+      throw new Error('rehydrateFromMessages 后 WebFetch 应已激活')
     }
-    if (!set.isActive('MemorySearch')) {
-      throw new Error('rehydrateFromMessages 后 MemorySearch 应已激活')
+    if (!set.isActive('WebSearch')) {
+      throw new Error('rehydrateFromMessages 后 WebSearch 应已激活')
     }
 
     printPass('ActivatedToolSet.rehydrateFromMessages 方法正常工作')
@@ -390,7 +390,7 @@ async function main() {
         role: 'user',
         parts: [{ type: 'text', text: '当前请求' }],
         metadata: {
-          [ACTIVATED_TOOLS_METADATA_KEY]: ['MemorySearch', 'MemorySave', 'read-file'],
+          [ACTIVATED_TOOLS_METADATA_KEY]: ['WebSearch', 'WebFetch', 'read-file'],
         },
       },
     ]
@@ -398,7 +398,7 @@ async function main() {
     const set = new ActivatedToolSet(CORE_TOOL_IDS)
     ActivatedToolSet.rehydrateFromMessages(set, messages)
 
-    const expected = ['MemorySearch', 'MemorySave', 'read-file']
+    const expected = ['WebSearch', 'WebFetch', 'read-file']
     for (const id of expected) {
       if (!set.isActive(id)) throw new Error(`snapshot 路径未恢复 ${id}`)
     }
@@ -449,14 +449,14 @@ async function main() {
 
   try {
     // 老数据：user 消息没有 activatedToolIds，rehydrate 必须扫全部 assistant。
-    const messages = makeFakeMessages(['MemorySearch', 'MemorySave'])
+    const messages = makeFakeMessages(['WebSearch', 'WebFetch'])
     // makeFakeMessages 的 user 没有 metadata 字段，正是 legacy 场景。
 
     const set = new ActivatedToolSet(CORE_TOOL_IDS)
     ActivatedToolSet.rehydrateFromMessages(set, messages)
 
-    if (!set.isActive('MemorySearch')) throw new Error('legacy fallback 未恢复 MemorySearch')
-    if (!set.isActive('MemorySave')) throw new Error('legacy fallback 未恢复 MemorySave')
+    if (!set.isActive('WebSearch')) throw new Error('legacy fallback 未恢复 WebSearch')
+    if (!set.isActive('WebFetch')) throw new Error('legacy fallback 未恢复 WebFetch')
     printPass('legacy fallback 正确')
     passed++
   } catch (err) {

@@ -110,7 +110,9 @@ export class AiExecuteService {
         type: "data-msg-context" as const,
         data: {
           datetime: timeStr,
+          ...(pc?.scope ? { scope: pc.scope } : {}),
           ...(pc?.page ? { page: pc.page } : {}),
+          ...(pc?.pageTitle ? { pageTitle: pc.pageTitle } : {}),
           ...(pc?.projectId ? { projectId: pc.projectId } : {}),
           ...(pc?.boardId ? { boardId: pc.boardId } : {}),
           ...(pc?.stack?.length ? { stack: pc.stack } : {}),
@@ -194,6 +196,7 @@ function buildChatStreamRequest(input: {
     desktopVersion: input.request.desktopVersion,
     messageIdChain: input.request.messageIdChain,
     pageContext: input.request.pageContext,
+    temperature: input.request.temperature,
   };
 }
 

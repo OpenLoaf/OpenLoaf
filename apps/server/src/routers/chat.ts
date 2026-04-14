@@ -35,9 +35,12 @@ import {
   readJsonlRaw,
   registerAgentDir,
   readSessionJson,
+  readSessionJsonAutoTest,
 } from '@/ai/services/chat/repositories/chatFileStore'
+import { readSessionAutoTestSummary } from '@openloaf/api/services/sessionAutoTestService'
 import { resolveSessionDir } from '@/ai/services/chat/repositories/chatSessionPathResolver'
 import { copySessionToBoard } from '@/ai/services/chat/copySessionToBoard'
+import { readAutoTestEvaluation } from '@/ai/services/chat/autoTestEvaluation'
 import { promises as fsPromises } from 'node:fs'
 import nodePath from 'node:path'
 import { getErrorMessage } from '@/shared/errorMessages'
@@ -657,7 +660,18 @@ class ChatRouterImpl extends BaseChatRouter {
             },
           })
 
-          return sessions
+          // 自动化探针字段从各会话的 session.json + EVALUATION.json 派生（只读）。
+          const autoTestSummaries = await Promise.all(
+            sessions.map((row) =>
+              readSessionAutoTestSummary(row.id, row.projectId ?? null),
+            ),
+          )
+          return sessions.map((row, i) => ({
+            ...row,
+            autoTest: autoTestSummaries[i]?.autoTest ?? false,
+            autoTestScore: autoTestSummaries[i]?.autoTestScore ?? null,
+            autoTestVerdict: autoTestSummaries[i]?.autoTestVerdict ?? null,
+          }))
         }),
 
       getSession: shieldedProcedure
@@ -678,7 +692,16 @@ class ChatRouterImpl extends BaseChatRouter {
             },
           })
 
-          return session
+          if (!session) return null
+          const { autoTest, probeMeta } = await readSessionJsonAutoTest(input.sessionId)
+          return { ...session, autoTest, probeMeta }
+        }),
+
+      // 读取自动化探针（chat-probe 等）写入的 EVALUATION.json
+      getAutoTestEvaluation: shieldedProcedure
+        .input(z.object({ sessionId: z.string().min(1) }))
+        .query(async ({ input }) => {
+          return readAutoTestEvaluation(input.sessionId)
         }),
 
       deleteSession: shieldedProcedure

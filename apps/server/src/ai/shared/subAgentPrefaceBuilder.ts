@@ -12,7 +12,7 @@
  */
 
 import os from 'node:os'
-import type { RequestContext } from '@/ai/shared/context/requestContext'
+import { getRequestContext, type RequestContext } from '@/ai/shared/context/requestContext'
 import type { PromptContext } from '@/ai/shared/types'
 import {
   buildSessionContextSection,
@@ -201,6 +201,14 @@ async function resolveSubAgentPromptContext(input: {
     parentProjectRootPaths: input.parentProjectRootPaths ?? [],
   })
 
+  const reqCtx = getRequestContext()
+  const appVersions = (reqCtx?.webVersion || reqCtx?.desktopVersion)
+    ? {
+        web: reqCtx?.webVersion?.trim() || undefined,
+        desktop: reqCtx?.desktopVersion?.trim() || undefined,
+      }
+    : undefined
+
   return {
     project,
     account,
@@ -209,6 +217,7 @@ async function resolveSubAgentPromptContext(input: {
     date: new Date().toDateString(),
     timezone,
     python,
+    appVersions,
     skillSummaries,
     selectedSkills: [],
   }

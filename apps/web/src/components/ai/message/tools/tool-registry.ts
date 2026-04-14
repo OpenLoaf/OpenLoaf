@@ -43,6 +43,8 @@ import ClaudeCodeEditTool from './ClaudeCodeEditTool'
 import ClaudeCodeSearchTool from './ClaudeCodeSearchTool'
 import ClaudeCodeWebTool from './ClaudeCodeWebTool'
 import WebSearchTool from './WebSearchTool'
+import WebSearchImageTool from './WebSearchImageTool'
+import ToolSearchTool from './ToolSearchTool'
 import ClaudeCodeTaskTool from './ClaudeCodeTaskTool'
 import FileInfoTool from './FileInfoTool'
 import GlobTool from './GlobTool'
@@ -141,6 +143,8 @@ export const TOOL_REGISTRY: ToolRegistryEntry[] = [
   { match: 'FileInfo', component: FileInfoTool as ComponentType<ToolComponentProps> },
   { match: 'WebFetch', component: ClaudeCodeWebTool as ComponentType<ToolComponentProps>, extraProps: { kind: 'webfetch' } },
   { match: 'WebSearch', component: WebSearchTool as ComponentType<ToolComponentProps> },
+  { match: 'WebSearchImage', component: WebSearchImageTool as ComponentType<ToolComponentProps> },
+  { match: 'ToolSearch', component: ToolSearchTool as ComponentType<ToolComponentProps> },
 
   // ── Cloud capabilities ──
   // CloudModelGenerate renders the files[] / pendingUrls[] preview grid. The

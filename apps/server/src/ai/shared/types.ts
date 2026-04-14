@@ -72,6 +72,15 @@ export type PromptContext = {
     /** Python binary path. */
     path?: string;
   };
+  /** OpenLoaf app version snapshot (server/web/desktop). */
+  appVersions?: {
+    /** Server package version (from server package.json). */
+    server?: string;
+    /** Web app version reported by the client. */
+    web?: string;
+    /** Desktop (Electron) version reported by the client. */
+    desktop?: string;
+  };
   /** Available skill summaries. */
   skillSummaries: Array<{
     /** Skill display name (may be translated). */

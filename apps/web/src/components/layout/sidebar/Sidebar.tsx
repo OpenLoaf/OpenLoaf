@@ -22,7 +22,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@openloaf/ui/sidebar";
-import { Bot, CalendarDays, Clock, FolderClosed, LayoutDashboard, Mail, Palette, Search, Settings, Sparkles, Wand2 } from "lucide-react";
+import { Bot, CalendarDays, Clock, FolderClosed, LayoutDashboard, Mail, Palette, Plug, Search, Settings, Sparkles, Wand2 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@openloaf/ui/tooltip";
 import { useAppState, getAppState } from "@/hooks/use-app-state";
 import { useLayoutState } from "@/hooks/use-layout-state";
@@ -31,6 +31,7 @@ import {
   AGENTS_TAB_INPUT,
   AI_ASSISTANT_TAB_INPUT,
   CANVAS_LIST_TAB_INPUT,
+  CONNECTIONS_TAB_INPUT,
   PROJECT_LIST_TAB_INPUT,
   SKILLS_TAB_INPUT,
   TEMP_CHAT_TAB_INPUT,
@@ -199,6 +200,7 @@ export const AppSidebar = ({
   const isTasksActive = activeForegroundComponent === "scheduled-tasks-page" || (!activeForegroundComponent && layoutView.viewType === "scheduled-tasks");
   const isSkillsActive = activeForegroundComponent === SKILLS_TAB_INPUT.component || isMenuActive(SKILLS_TAB_INPUT);
   const isAgentsActive = activeForegroundComponent === AGENTS_TAB_INPUT.component || isMenuActive(AGENTS_TAB_INPUT);
+  const isConnectionsActive = activeForegroundComponent === CONNECTIONS_TAB_INPUT.component || isMenuActive(CONNECTIONS_TAB_INPUT);
   const isSettingsActive = layoutView.isSettingsPage;
   const isInProject = layoutView.isProjectContext;
 
@@ -222,9 +224,11 @@ export const AppSidebar = ({
     : (!isInProject && isTasksActive) ? 6
     : -1;
 
-  const activeFooterIdx = isSettingsActive ? 3
-    : (!isInProject && isAgentsActive) ? 1
-    : (!isInProject && isSkillsActive) ? 2
+  // Footer order: Search(0) → Connections(1) → Agents(2) → Skills(3) → Settings(4)
+  const activeFooterIdx = isSettingsActive ? 4
+    : (!isInProject && isConnectionsActive) ? 1
+    : (!isInProject && isAgentsActive) ? 2
+    : (!isInProject && isSkillsActive) ? 3
     : -1;
 
   const openPrimaryPageTab = useCallback(
@@ -361,6 +365,13 @@ export const AppSidebar = ({
             tooltip={`${t("search")} (⌘K)`}
             color="black"
             onClick={() => setSearchOpen(true)}
+          />
+          <IconNavItem
+            icon={Plug}
+            tooltip={t("connections")}
+            color="black"
+            isActive={!isInProject && isConnectionsActive}
+            onClick={() => openPrimaryPageTab({ ...CONNECTIONS_TAB_INPUT, preserveCurrentView: true })}
           />
           <IconNavItem
             icon={Bot}

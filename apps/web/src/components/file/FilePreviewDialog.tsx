@@ -190,6 +190,7 @@ export default function FilePreviewDialog() {
               saveName={currentItem.saveName}
               mediaType={currentItem.mediaType}
               projectId={currentItem.projectId}
+              sessionId={currentItem.sessionId}
               showHeader
               showSave={payload.showSave}
               enableEdit={payload.enableEdit}

@@ -25,7 +25,13 @@ import {
   clearProjectChatData,
   getProjectChatStats,
 } from '../services/projectChatService'
-import type { ChatMessageKind } from '../types/message'
+import { readSessionAutoTestSummary } from '../services/sessionAutoTestService'
+import type {
+  AutoTestEvaluationResult,
+  AutoTestVerdict,
+  ChatMessageKind,
+  ProbeMeta,
+} from '../types/message'
 
 /**
  * Chat UIMessage 结构（MVP）
@@ -68,6 +74,12 @@ export type ChatSessionSummary = {
   projectIcon: string | null
   /** Session message count. */
   messageCount: number
+  /** 由外部探针（chat-probe 等）写入 session.json 的自动化测试标记。 */
+  autoTest: boolean
+  /** EVALUATION.json 里的 aggregate.score；未评审为 null。 */
+  autoTestScore: number | null
+  /** EVALUATION.json 里的 aggregate.verdict；未评审为 null。 */
+  autoTestVerdict: 'PASS' | 'FAIL' | 'PARTIAL' | null
 }
 
 /** Paginated session list page. */
@@ -308,7 +320,11 @@ export const chatRouter = t.router({
         },
       })
 
-      const items = sessions.map((session) => ({
+      // 自动化探针字段并发从 session.json / EVALUATION.json 派生，只读，单行失败不阻塞列表。
+      const autoTestSummaries = await Promise.all(
+        sessions.map((row) => readSessionAutoTestSummary(row.id, row.projectId ?? null)),
+      )
+      const items = sessions.map((session, i) => ({
         ...session,
         projectName: session.projectId
           ? projectTitleMap.get(session.projectId) ?? null
@@ -316,6 +332,10 @@ export const chatRouter = t.router({
         projectIcon: session.projectId
           ? projectIconMap.get(session.projectId) ?? null
           : null,
+        autoTest: autoTestSummaries[i]?.autoTest ?? false,
+        autoTestScore: autoTestSummaries[i]?.autoTestScore ?? (null as number | null),
+        autoTestVerdict:
+          autoTestSummaries[i]?.autoTestVerdict ?? (null as AutoTestVerdict | null),
       })) as ChatSessionSummary[]
 
       const nextOffset = boundedOffset + items.length
@@ -556,7 +576,9 @@ export const chatRouter = t.router({
         },
       })
 
-      return sessions
+      // 占位：真正的 autoTest 从 session.json 派生，由 server chat router 覆写。
+      // 这里给出类型骨架以便前端 tRPC 推导出正确的返回字段。
+      return sessions.map((row) => ({ ...row, autoTest: false as boolean }))
     }),
 
   /**
@@ -580,7 +602,19 @@ export const chatRouter = t.router({
         },
       })
 
-      return session
+      if (!session) return null
+      // 占位：真正的 autoTest/probeMeta 从 session.json 派生，由 server chat router 覆写。
+      return { ...session, autoTest: false as boolean, probeMeta: null as ProbeMeta | null }
+    }),
+
+  /**
+   * 读取自动化探针（chat-probe 等）写入的 EVALUATION.json。
+   * 真实实现在 server chat router 覆写，此处仅提供 tRPC 类型骨架。
+   */
+  getAutoTestEvaluation: shieldedProcedure
+    .input(z.object({ sessionId: z.string().min(1) }))
+    .query(async (): Promise<AutoTestEvaluationResult> => {
+      throw new Error('Not implemented: override in server chat router.')
     }),
 
   /**

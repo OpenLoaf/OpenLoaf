@@ -29,6 +29,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@openloaf/ui/d
 import { Tooltip, TooltipContent, TooltipTrigger } from '@openloaf/ui/tooltip'
 import { resolveToolCatalogItem } from '@openloaf/api/types/tools/toolCatalog'
 import { toast } from 'sonner'
+import { AutoTestEvaluationSection } from './autoTest/AutoTestEvaluationSection'
+import { trpc } from '@/utils/trpc'
+import { useQuery } from '@tanstack/react-query'
 
 interface AiDebugViewerProps {
   tabId?: string
@@ -187,7 +190,13 @@ function getPartSummary(part: unknown): string {
     }
     if (type === 'data-msg-context') {
       const data = p.data as Record<string, unknown> | undefined
-      return data?.datetime ? String(data.datetime) : ''
+      if (!data) return ''
+      const page = data.pageTitle || data.page
+      const scope = data.scope === 'project' ? 'project' : 'global'
+      const stack = Array.isArray(data.stack) ? data.stack.length : 0
+      const stackSuffix = stack > 0 ? ` +${stack}` : ''
+      if (page) return `[${scope}] ${String(page)}${stackSuffix}`
+      return data.datetime ? String(data.datetime) : ''
     }
     if (type === 'reasoning' || type === 'thinking') {
       if (typeof p.text === 'string') return p.text.slice(0, 80).replace(/\n/g, ' ')
@@ -330,12 +339,115 @@ function PartDetail({ part }: { part: unknown }) {
         </div>
       )
     } else if (typeLabel === 'data-msg-context') {
-      const data = p.data as Record<string, unknown> | undefined
-      const dt = data?.datetime ? String(data.datetime) : ''
+      const data = (p.data ?? {}) as Record<string, unknown>
+      const dt = data.datetime ? String(data.datetime) : ''
+      const scope = data.scope === 'project' ? 'project' : 'global'
+      const pageComponent = data.page ? String(data.page) : ''
+      const pageTitle = data.pageTitle ? String(data.pageTitle) : ''
+      const projectId = data.projectId ? String(data.projectId) : ''
+      const boardId = data.boardId ? String(data.boardId) : ''
+      const stack = Array.isArray(data.stack) ? (data.stack as Array<Record<string, unknown>>) : []
+      const xml = renderMsgContextXml(data)
+
+      const scopeColor =
+        scope === 'project'
+          ? 'bg-violet-500/10 text-violet-700 dark:text-violet-300'
+          : 'bg-sky-500/10 text-sky-700 dark:text-sky-300'
+
       return (
-        <div className="px-3 py-3 flex items-center gap-2" style={{ userSelect: 'text' }}>
-          <span className="text-[11px] text-muted-foreground font-medium">datetime</span>
-          <span className="text-xs text-foreground/80 tabular-nums">{dt || '—'}</span>
+        <div className="px-3 py-2 space-y-3" style={{ userSelect: 'text', cursor: 'text' }}>
+          {/* datetime */}
+          {dt ? (
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-muted-foreground font-medium">datetime</span>
+              <span className="text-[11px] text-foreground/80 tabular-nums font-mono">{dt}</span>
+            </div>
+          ) : null}
+
+          {/* page block */}
+          {pageComponent ? (
+            <div className="rounded border border-border/50 bg-muted/10 px-2.5 py-2 space-y-1">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-[10px] font-mono text-foreground/60">&lt;page&gt;</span>
+                <span
+                  className={`inline-flex items-center rounded-full px-1.5 py-px text-[9px] font-semibold ${scopeColor}`}
+                >
+                  {scope}
+                </span>
+                {pageTitle ? (
+                  <span className="text-[11px] font-medium text-foreground">{pageTitle}</span>
+                ) : null}
+              </div>
+              <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 items-baseline pl-2">
+                <span className="text-[10px] font-mono text-foreground/60">component</span>
+                <span className="text-[10px] text-foreground/80 font-mono break-all">{pageComponent}</span>
+                {projectId ? (
+                  <>
+                    <span className="text-[10px] font-mono text-foreground/60">projectId</span>
+                    <span className="text-[10px] text-foreground/80 font-mono break-all">{projectId}</span>
+                  </>
+                ) : null}
+                {boardId ? (
+                  <>
+                    <span className="text-[10px] font-mono text-foreground/60">boardId</span>
+                    <span className="text-[10px] text-foreground/80 font-mono break-all">{boardId}</span>
+                  </>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+
+          {/* stack block */}
+          {stack.length > 0 ? (
+            <div className="space-y-1">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] font-mono text-foreground/60">&lt;stack&gt;</span>
+                <span className="text-[9px] text-muted-foreground">{stack.length} item{stack.length > 1 ? 's' : ''}</span>
+              </div>
+              <div className="space-y-1">
+                {stack.map((item, idx) => {
+                  const component = item.component ? String(item.component) : '?'
+                  const title = item.title ? String(item.title) : ''
+                  const params = (item.params ?? {}) as Record<string, unknown>
+                  const paramEntries = Object.entries(params).filter(([, v]) => v != null)
+                  return (
+                    <div
+                      key={idx}
+                      className="rounded border border-border/50 bg-muted/10 px-2.5 py-1.5 space-y-1"
+                    >
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[9px] text-muted-foreground tabular-nums">#{idx}</span>
+                        <span className="text-[10px] font-mono text-foreground/80">{component}</span>
+                        {title ? (
+                          <span className="text-[10px] text-foreground/70">{title}</span>
+                        ) : null}
+                      </div>
+                      {paramEntries.length > 0 ? (
+                        <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 items-baseline pl-3">
+                          {paramEntries.map(([k, v]) => (
+                            <Fragment key={k}>
+                              <span className="text-[10px] font-mono text-foreground/60">{k}</span>
+                              <span className="text-[10px] text-foreground/80 font-mono break-all">
+                                {typeof v === 'string' ? v : JSON.stringify(v)}
+                              </span>
+                            </Fragment>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          ) : null}
+
+          {/* raw XML preview */}
+          <div className="space-y-1">
+            <span className="text-[10px] text-muted-foreground font-medium">rendered</span>
+            <pre className="text-[10px] font-mono text-foreground/60 whitespace-pre-wrap break-all rounded border border-border/40 bg-muted/5 px-2 py-1.5" style={{ userSelect: 'text' }}>
+              {xml}
+            </pre>
+          </div>
         </div>
       )
     } else if (typeLabel === 'data-skill') {
@@ -477,6 +589,45 @@ function PartDetail({ part }: { part: unknown }) {
       ))}
     </div>
   )
+}
+
+/** Mirror of server-side renderMsgContextXml — keeps debug view in sync with what the LLM receives. */
+function renderMsgContextXml(d: Record<string, unknown>): string {
+  const datetime = d.datetime ? ` datetime="${String(d.datetime)}"` : ''
+  const children: string[] = []
+
+  const scope = d.scope === 'project' ? 'project' : 'global'
+  if (d.page) {
+    const pageAttrs: string[] = [`component="${String(d.page)}"`]
+    if (d.pageTitle) pageAttrs.push(`title="${String(d.pageTitle)}"`)
+    pageAttrs.push(`scope="${scope}"`)
+    if (scope === 'project' && d.projectId) {
+      pageAttrs.push(`projectId="${String(d.projectId)}"`)
+    }
+    if (d.boardId) pageAttrs.push(`boardId="${String(d.boardId)}"`)
+    children.push(`  <page ${pageAttrs.join(' ')} />`)
+  }
+
+  const stack = Array.isArray(d.stack) ? (d.stack as Array<Record<string, unknown>>) : []
+  if (stack.length > 0) {
+    const items = stack.map((item) => {
+      const itemAttrs = [`component="${String(item.component)}"`]
+      if (item.title) itemAttrs.push(`title="${String(item.title)}"`)
+      const params = item.params as Record<string, unknown> | undefined
+      if (params) {
+        for (const [k, v] of Object.entries(params)) {
+          if (v != null) itemAttrs.push(`${k}="${String(v)}"`)
+        }
+      }
+      return `    <stack-item ${itemAttrs.join(' ')} />`
+    })
+    children.push(`  <stack>\n${items.join('\n')}\n  </stack>`)
+  }
+
+  if (children.length === 0) {
+    return `<system-tag type="msg-context"${datetime} />`
+  }
+  return `<system-tag type="msg-context"${datetime}>\n${children.join('\n')}\n</system-tag>`
 }
 
 /** Lightweight JSON syntax highlighter — returns JSX spans with color classes. */
@@ -1501,11 +1652,16 @@ function MessageRow({ msg, idx, expanded, onToggle, idToIndex, sessionId, parent
   const usage = msg.metadata?.totalUsage as Record<string, number> | undefined
   const preview = extractPreview(msg.parts)
   const [selectedPart, setSelectedPart] = useState(0)
-  const [detailTab, setDetailTab] = useState<'parsed' | 'json'>('parsed')
+  const [detailTab, setDetailTab] = useState<'parsed' | 'json' | 'xml'>('parsed')
   const [subAgentDialog, setSubAgentDialog] = useState<string | null>(null)
 
   const activePart = msg.parts[selectedPart] ?? null
   const activePartJson = activePart != null ? JSON.stringify(activePart, null, 2) : ''
+  const activePartIsMsgContext =
+    activePart != null && typeof activePart === 'object' && (activePart as { type?: string }).type === 'data-msg-context'
+  const activePartXml = activePartIsMsgContext
+    ? renderMsgContextXml(((activePart as { data?: Record<string, unknown> }).data) ?? {})
+    : ''
 
   // 工具列表展示。User 消息展示两组：
   //   - 常驻工具：metadata.coreToolIds
@@ -1686,6 +1842,15 @@ function MessageRow({ msg, idx, expanded, onToggle, idToIndex, sessionId, parent
                   >
                     JSON
                   </button>
+                  {activePartIsMsgContext && (
+                    <button
+                      type="button"
+                      className={`px-3 py-1 text-[11px] font-medium transition-colors ${detailTab === 'xml' ? 'text-foreground border-b-2 border-primary' : 'text-muted-foreground hover:text-foreground'}`}
+                      onClick={() => setDetailTab('xml')}
+                    >
+                      XML
+                    </button>
+                  )}
                   <div className="ml-auto pr-1">
                     <CopyButton text={activePartJson} className="h-5 w-5" />
                   </div>
@@ -1697,6 +1862,10 @@ function MessageRow({ msg, idx, expanded, onToggle, idToIndex, sessionId, parent
                   <span className="text-xs text-muted-foreground italic px-3 py-2 block">No part selected</span>
                 ) : detailTab === 'parsed' ? (
                   <PartDetail part={activePart} />
+                ) : detailTab === 'xml' && activePartIsMsgContext ? (
+                  <pre className="px-3 py-2 text-[11px] leading-[1.7] whitespace-pre-wrap break-all font-mono text-foreground/70" style={{ userSelect: 'text', cursor: 'text' }}>
+                    {activePartXml}
+                  </pre>
                 ) : (
                   <pre className="px-3 py-2 text-[11px] leading-[1.7] whitespace-pre-wrap break-all font-mono text-foreground/50" style={{ userSelect: 'text', cursor: 'text' }}>
                     {highlightJson(activePartJson)}
@@ -1808,6 +1977,14 @@ function StaticRow({ label, content, defaultExpanded, badgeClass, borderClass }:
 
 function MessagesPanel({ sessionId, promptContent, prefaceContent }: { sessionId: string; promptContent?: string; prefaceContent?: string }) {
   const { t } = useTranslation('ai')
+  // 读取会话元数据，用来判断是否为 chat-probe 自动测试会话。
+  // autoTest 字段由 chat-probe runner 写入 session.json，后端 getSession 派生返回。
+  const sessionMetaQuery = useQuery({
+    ...trpc.chat.getSession.queryOptions({ sessionId }),
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+  })
+  const isAutoTestSession = Boolean(sessionMetaQuery.data?.autoTest)
   const [messages, setMessages] = useState<StoredMessageView[] | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -1897,6 +2074,7 @@ function MessagesPanel({ sessionId, promptContent, prefaceContent }: { sessionId
         </div>
       </div>
       <div className="flex-1 overflow-y-auto ![scrollbar-width:thin]">
+        {isAutoTestSession ? <AutoTestEvaluationSection sessionId={sessionId} /> : null}
         <SubAgentIndex sessionId={sessionId} />
         {promptContent?.trim() && (
           <StaticRow

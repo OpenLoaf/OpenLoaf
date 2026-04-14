@@ -64,7 +64,7 @@ import { fileInfoToolDef } from "./fileInfo";
 import { webSearchToolDef } from "./webSearch";
 import { webFetchToolDef } from "./webFetch";
 import { toolSearchToolDef } from "./toolSearch";
-import { memorySaveToolDef, memorySearchToolDef, memoryGetToolDef } from "./memory";
+import { memorySaveToolDef } from "./memory";
 import { loadSkillToolDef } from "./skill";
 import {
   cloudLoginToolDef,
@@ -146,8 +146,6 @@ const TOOL_DEFS: ToolDefLike[] = [
   webFetchToolDef,
   loadSkillToolDef,
   memorySaveToolDef,
-  memorySearchToolDef,
-  memoryGetToolDef,
   cloudCapBrowseToolDef,
   cloudCapDetailToolDef,
   cloudModelGenerateToolDef,
@@ -230,8 +228,6 @@ const TOOL_KEYWORDS: Record<string, { keywords: string[]; group: string }> = {
   'WebFetch': { keywords: ['fetch', 'url', 'http', 'get', 'api', 'request', 'content', 'download', 'page', 'website'], group: 'web' },
   'LoadSkill': { keywords: ['skill', 'load', 'guide', 'expertise', 'knowledge'], group: 'core' },
   'MemorySave': { keywords: ['memory', 'save', 'remember', 'persist', 'store', 'write', 'forget', 'delete', '记忆', '记住', '保存', '忘记'], group: 'memory' },
-  'MemorySearch': { keywords: ['memory', 'remember', 'recall', 'history', 'search', 'past'], group: 'memory' },
-  'MemoryGet': { keywords: ['memory', 'read', 'get', 'detail', 'recall'], group: 'memory' },
   'CloudCapBrowse': { keywords: ['cloud', 'browse', 'discover', 'capability', 'feature', 'variant', 'generate', 'image', 'video', 'audio', '云端', '生成', '发现'], group: 'cloud' },
   'CloudCapDetail': { keywords: ['cloud', 'detail', 'schema', 'variant', 'param', '云端'], group: 'cloud' },
   'CloudModelGenerate': { keywords: ['cloud', 'generate', 'model', 'image', 'video', 'audio', 'media', '生成', '图片', '视频', '音频', 'ai'], group: 'cloud' },

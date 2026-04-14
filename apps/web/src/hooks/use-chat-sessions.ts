@@ -11,6 +11,7 @@
 
 import { useMemo } from "react";
 import { skipToken, useInfiniteQuery, type QueryClient } from "@tanstack/react-query";
+import type { AutoTestVerdict } from "@openloaf/api";
 import { trpc } from "@/utils/trpc";
 import { useAppState } from "@/hooks/use-app-state";
 
@@ -38,6 +39,12 @@ export type ChatSessionListItem = {
   projectIcon: string | null;
   /** Session message count. */
   messageCount: number;
+  /** chat-probe 自动测试标记，来自 session.json。 */
+  autoTest?: boolean;
+  /** 自动测试评审聚合分数（EVALUATION.json aggregate.score），未评审为 null。 */
+  autoTestScore?: number | null;
+  /** 自动测试评审聚合裁决（EVALUATION.json aggregate.verdict），未评审为 null。 */
+  autoTestVerdict?: AutoTestVerdict | null;
 };
 
 /** Max sessions shown in recent section. */

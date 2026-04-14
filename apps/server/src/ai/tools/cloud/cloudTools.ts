@@ -21,6 +21,7 @@ import { randomUUID } from 'node:crypto'
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
 import { tool, zodSchema } from 'ai'
+import { SaaSHttpError } from '@openloaf-saas/sdk'
 import {
   cloudLoginToolDef,
   cloudUserInfoToolDef,
@@ -44,10 +45,12 @@ import {
   resolveBoardScopedRoot,
 } from '@openloaf/api/common/boardPaths'
 import { logger } from '@/common/logger'
+import { addCreditsConsumed } from '@/ai/shared/context/requestContext'
 import { createToolProgress, type ToolProgressEmitter } from '@/ai/tools/toolProgress'
 import {
   getCachedVariantDetail,
   hasTierAccess,
+  resolveEffectiveTier,
   type CloudMembershipTier,
 } from '@/ai/builtin-skills/cloud-skills'
 
@@ -108,6 +111,25 @@ async function requireToken(): Promise<string | { error: string }> {
 }
 
 function errorString(label: string, err: unknown): string {
+  if (err instanceof SaaSHttpError) {
+    const payload = err.payload as
+      | { message?: unknown; error?: unknown }
+      | string
+      | null
+      | undefined
+    let detail: string | undefined
+    if (typeof payload === 'string') {
+      detail = payload.trim() || undefined
+    } else if (payload && typeof payload === 'object') {
+      if (typeof payload.message === 'string' && payload.message.trim()) {
+        detail = payload.message.trim()
+      } else if (typeof payload.error === 'string' && payload.error.trim()) {
+        detail = payload.error.trim()
+      }
+    }
+    const statusPart = `HTTP ${err.status}${err.statusText ? ` ${err.statusText}` : ''}`
+    return `Error: ${label} — ${statusPart}${detail ? `: ${detail}` : ''}`
+  }
   const message = err instanceof Error ? err.message : String(err)
   return `Error: ${label} — ${message}`
 }
@@ -395,9 +417,7 @@ export const cloudCapBrowseTool = tool({
         try {
           const authedClient = getSaasClient(token)
           const self = await authedClient.user.self()
-          const raw = String(self.user.membershipLevel ?? 'free').toLowerCase()
-          userTier =
-            raw === 'premium' ? 'premium' : raw === 'pro' ? 'pro' : raw === 'lite' ? 'lite' : 'free'
+          userTier = resolveEffectiveTier(self.user)
           userCredits = self.user.creditsBalance
         } catch (err) {
           logger.debug(
@@ -581,6 +601,9 @@ export const cloudModelGenerateTool = tool({
         progress,
       })
 
+      if (typeof result.creditsConsumed === 'number' && result.creditsConsumed > 0) {
+        addCreditsConsumed(result.creditsConsumed)
+      }
       progress.done(`done (${result.creditsConsumed ?? 0} credits)`)
       return JSON.stringify({
         ok: true,
@@ -661,6 +684,9 @@ export const cloudTextGenerateTool = tool({
       })
       const text = res.data.text ?? ''
       const credits = res.data.creditsConsumed ?? 0
+      if (credits > 0) {
+        addCreditsConsumed(credits)
+      }
       progress.done(`done (${credits} credits)`)
       return JSON.stringify({
         ok: true,
@@ -712,6 +738,9 @@ export const cloudTaskTool = tool({
           variantId: taskId,
           progress,
         })
+        if (typeof data.creditsConsumed === 'number' && data.creditsConsumed > 0) {
+          addCreditsConsumed(data.creditsConsumed)
+        }
         progress.done(`succeeded (${data.creditsConsumed ?? 0} credits)`)
         return JSON.stringify({
           ok: true,

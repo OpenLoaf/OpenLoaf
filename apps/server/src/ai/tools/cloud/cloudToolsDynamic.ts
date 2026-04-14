@@ -24,7 +24,13 @@
  */
 import { tool, zodSchema } from 'ai'
 import type { V3ToolFeature } from '@openloaf-saas/sdk'
+
+// Sync (per_call) variant of the V3ToolFeature discriminated union.
+// Only per_call features can run through v3ToolExecute — realtime (per_minute)
+// features require a WebSocket session and are out of scope for this registry.
+type V3SyncToolFeature = Extract<V3ToolFeature, { billingType: 'per_call' }>
 import { getSaasClient } from '@/modules/saas/client'
+import { addCreditsConsumed } from '@/ai/shared/context/requestContext'
 import { createToolProgress } from '@/ai/tools/toolProgress'
 import { logger } from '@/common/logger'
 import { buildFeatureZodSchema, splitInputsAndParams } from './paramsSchemaToZod'
@@ -37,7 +43,7 @@ const RETRY_INTERVAL_MS = 60 * 1000
 type CloudToolEntry = {
   tool: any
   def: { id: string; parameters: any; description: string }
-  feature: V3ToolFeature
+  feature: V3SyncToolFeature
 }
 
 /** Runtime-mutable registry for cloud tools (keyed by feature.id). */
@@ -48,17 +54,18 @@ const CLOUD_TOOL_REGISTRY = new Map<string, CloudToolEntry>()
  * features (with `variants`) and flat tool features. We only want the
  * latter for the tools category.
  */
-function isFlatToolFeature(f: unknown): f is V3ToolFeature {
+function isFlatToolFeature(f: unknown): f is V3SyncToolFeature {
   return (
     typeof f === 'object' &&
     f !== null &&
     !('variants' in f) &&
     'inputSlots' in f &&
-    'paramsSchema' in f
+    'paramsSchema' in f &&
+    (f as { billingType?: unknown }).billingType === 'per_call'
   )
 }
 
-function buildCloudToolForFeature(feature: V3ToolFeature): CloudToolEntry {
+function buildCloudToolForFeature(feature: V3SyncToolFeature): CloudToolEntry {
   const paramsZod = buildFeatureZodSchema(feature)
   const description = buildToolDescription(feature)
 
@@ -96,11 +103,15 @@ function buildCloudToolForFeature(feature: V3ToolFeature): CloudToolEntry {
           inputs: inputs as Record<string, string>,
           params,
         })
-        progress.done(`${feature.displayName} done`)
+        if (res.creditsConsumed > 0) {
+          addCreditsConsumed(res.creditsConsumed)
+        }
+        progress.done(`${feature.displayName} done (${res.creditsConsumed} credits)`)
         return JSON.stringify({
           ok: true,
           feature: feature.id,
-          credits: feature.creditsPerCall,
+          creditsConsumed: res.creditsConsumed,
+          variantId: res.variantId,
           data: res.data,
         })
       } catch (err) {
@@ -114,7 +125,7 @@ function buildCloudToolForFeature(feature: V3ToolFeature): CloudToolEntry {
   return { tool: toolInstance, def, feature }
 }
 
-function buildToolDescription(feature: V3ToolFeature): string {
+function buildToolDescription(feature: V3SyncToolFeature): string {
   // Description is what the model sees *after* ToolSearch loads the schema.
   // Keep it dense: what it does + how inputs are shaped + credits + hints.
   const slotLines = feature.inputSlots.map((s) => {

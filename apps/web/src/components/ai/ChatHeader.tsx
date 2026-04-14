@@ -18,7 +18,7 @@ import { useChatActions, useChatSession, useChatStatus, useChatMessageMeta } fro
 import { skipToken, useInfiniteQuery, useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient, trpc, trpcClient } from "@/utils/trpc";
 import { useAppView } from "@/hooks/use-app-view";
-import { invalidateChatSessions, useChatSessions } from "@/hooks/use-chat-sessions";
+import { invalidateChatSessions } from "@/hooks/use-chat-sessions";
 import { useLayoutState } from "@/hooks/use-layout-state";
 import { useTabActive } from "@/components/layout/TabActiveContext";
 import { useAppState } from "@/hooks/use-app-state";
@@ -48,6 +48,7 @@ import { resolveServerUrl } from "@/utils/server-url";
 import { isElectronEnv } from "@/utils/is-electron-env";
 import { CopyChatToCanvasDialog } from "./CopyChatToCanvasDialog";
 import { buildChatAssetFolderDescriptor } from "./utils/chat-asset-folder";
+import { AutoTestBadge, AutoTestScorePill } from "./autoTest/AutoTestBadge";
 
 interface ChatHeaderProps {
   onNewSession?: () => void;
@@ -115,7 +116,7 @@ function ChatHeaderInner({
     refetchOnWindowFocus: false,
   });
   const sessions = React.useMemo(
-    () => (sessionsQuery.data?.pages.flatMap((p) => p.items) ?? []) as Array<{ id: string; title: string; projectId?: string | null; isUserRename?: boolean; updatedAt: string | Date }>,
+    () => sessionsQuery.data?.pages.flatMap((p) => p.items) ?? [],
     [sessionsQuery.data],
   );
   const refetchSessions = sessionsQuery.refetch;
@@ -132,6 +133,27 @@ function ChatHeaderInner({
     const current = sessions.find((s) => s.id === activeSessionId);
     return current?.title?.trim() || "";
   }, [activeSessionId, sessions]);
+
+  // chat-probe 自动测试标记：单独用 getSession 查询（listSessions 返回不含 autoTest 字段）。
+  const activeSessionMetaQuery = useQuery({
+    ...trpc.chat.getSession.queryOptions(
+      activeSessionId ? { sessionId: activeSessionId } : skipToken,
+    ),
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+  });
+  const isAutoTestSession = Boolean(activeSessionMetaQuery.data?.autoTest);
+
+  // chat-probe 自动测试评分（读取 EVALUATION.json），只在标记为 autoTest 的会话上拉取。
+  const autoTestEvalQuery = useQuery({
+    ...trpc.chat.getAutoTestEvaluation.queryOptions(
+      activeSessionId ? { sessionId: activeSessionId } : skipToken,
+    ),
+    enabled: Boolean(isAutoTestSession && activeSessionId),
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+  });
+  const autoTestAggregate = autoTestEvalQuery.data?.aggregate;
 
   // Quick launch: derive project context from tab chatParams.
   const quickLaunchProjectId = React.useMemo(() => {
@@ -435,9 +457,18 @@ function ChatHeaderInner({
     <>
       <div className="flex items-center px-2 pt-1.5 gap-1">
         {sessionTitle && messageCount > 0 ? (
-          <span className="min-w-0 flex-1 truncate text-xs font-medium text-muted-foreground pl-1">
-            {sessionTitle}
-          </span>
+          <div className="min-w-0 flex-1 flex items-center gap-1.5 pl-1">
+            <span className="min-w-0 truncate text-xs font-medium text-muted-foreground">
+              {sessionTitle}
+            </span>
+            {isAutoTestSession ? <AutoTestBadge /> : null}
+            {isAutoTestSession && autoTestAggregate ? (
+              <AutoTestScorePill
+                score={autoTestAggregate.score}
+                verdict={autoTestAggregate.verdict}
+              />
+            ) : null}
+          </div>
         ) : <div className="flex-1" />}
         <TooltipProvider delayDuration={300}>
         <MessageActions className="min-w-0 shrink-0 justify-end gap-0">

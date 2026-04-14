@@ -156,6 +156,8 @@ type ChatStreamResponseInput = {
   /** bg-drain turn: push a branch-snapshot before AI starts so the
    *  frontend sees the rewritten notification message immediately. */
   isBgDrain?: boolean;
+  /** 模型采样温度（0-2）；dev-only，仅 chat-probe 等自动化测试使用。 */
+  temperature?: number;
 };
 
 /** 构建图片 SSE 响应的输入。 */
@@ -412,6 +414,7 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
         const agentStream = await input.agentRunner.agent.stream({
           messages: modelMessages,
           abortSignal: input.abortController.signal,
+          ...(typeof input.temperature === "number" ? { temperature: input.temperature } : {}),
           experimental_transform: smoothStream({
             delayInMs: 10,
             chunking: new Intl.Segmenter("zh", { granularity: "word" }),

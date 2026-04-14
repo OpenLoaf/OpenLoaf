@@ -1,9 +1,7 @@
 ---
-name: settings-guide
+name: settings-guide-skill
 description: >
-  应用配置引导——告知用户在 UI 中哪里修改设置。当用户问 OpenLoaf 的设置、偏好、
-  API key、模型配置、主题、语言、快捷键、代理等配置问题时激活。
-  **不用于**：代码项目的配置文件（→file-ops）、一般性"怎么做 X"问题（→直接回答）。
+  当用户问 OpenLoaf 桌面端产品内的设置、偏好、API key、模型切换、主题 / 语言 / 快捷键 / 代理 / 备份、或相关故障（key invalid、model not found）该在哪配置、怎么配置时触发。**不用于**：项目里的代码配置文件如 tsconfig / .env（→file-ops-skill）、一般编程问题（→直接回答）、系统级 OS 设置。
 ---
 
 # 设置引导（无直接工具）

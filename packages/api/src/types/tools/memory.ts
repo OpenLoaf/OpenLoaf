@@ -48,40 +48,6 @@ export const memorySaveToolDef = {
   component: null,
 } as const;
 
-export const memorySearchToolDef = {
-  id: "MemorySearch",
-  readonly: true,
-  name: "Search Memory",
-  description:
-    "Search memory files. Returns ranked matches (path, snippet, date, decay weight) for on-demand history retrieval.",
-  parameters: z.object({
-    query: z.string().min(1).describe("Matched against memory file contents."),
-    scope: z
-      .enum(["user", "project", "agent"])
-      .optional()
-      .describe("Omit to search all visible scopes."),
-    topK: z.number().min(1).max(20).optional().describe("Default 10."),
-  }),
-  component: null,
-} as const;
-
-export const memoryGetToolDef = {
-  id: "MemoryGet",
-  readonly: true,
-  name: "Get Memory",
-  description:
-    "Read a memory file's full content by path. Usually called after MemorySearch to fetch an interesting entry.",
-  parameters: z.object({
-    filePath: z
-      .string()
-      .min(1)
-      .describe("From a MemorySearch result."),
-  }),
-  component: null,
-} as const;
-
 export const memoryToolMeta = {
   [memorySaveToolDef.id]: { riskType: RiskType.Write },
-  [memorySearchToolDef.id]: { riskType: RiskType.Read },
-  [memoryGetToolDef.id]: { riskType: RiskType.Read },
 } as const;

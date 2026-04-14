@@ -1,9 +1,7 @@
 ---
-name: agent-orchestration
+name: agent-orchestration-skill
 description: >
-  子代理委派参考——选择子代理类型、调用 Agent/SendMessage、并行策略、系统限制。
-  当需要了解子代理能力或委派最佳实践时激活。
-  **不用于**：简单的直接任务（不需要委派时不要加载此 skill）。
+  当主 Agent 面临多步骤复杂任务并正在判断要不要 / 怎样把子任务外包给内置子代理（browser / doc-editor / data-analyst / extractor / canvas-designer / coder 等）时触发。**不用于**：单步问答 / 读取 / 简单副作用（主 Agent 直接做）、已经明确要用 `Agent` 且知道 subagent_type 的场景。
 version: 5.0.0
 ---
 

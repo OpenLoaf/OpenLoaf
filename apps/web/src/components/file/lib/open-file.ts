@@ -47,6 +47,12 @@ export type FileOpenInput = {
   tabId?: string | null;
   /** Project id for file previews. */
   projectId?: string;
+  /**
+   * Chat session id — required when entry.uri uses ${CURRENT_CHAT_DIR} template.
+   * 必须显式 props 穿透：FilePreviewDialog 在 Providers 根层级、stack viewer 通过 layout state
+   * 渲染，都不在 ChatSessionProvider 树内，useOptionalChatSession() 会静默返回 null。
+   */
+  sessionId?: string;
   /** Project storage or project root uri for system open. */
   rootUri?: string;
   /** Optional thumbnail for image preview. */
@@ -173,6 +179,8 @@ function buildPreviewPayload(input: {
   entry: FileSystemEntry;
   /** Project id for file queries. */
   projectId?: string;
+  /** Chat session id for ${CURRENT_CHAT_DIR} template resolution. */
+  sessionId?: string;
   /** Root uri for system open. */
   rootUri?: string;
   /** Optional thumbnail for images. */
@@ -192,6 +200,7 @@ function buildPreviewPayload(input: {
     saveName: displayName,
     ext: input.entry.ext,
     projectId: input.projectId,
+    sessionId: input.sessionId,
     rootUri: input.rootUri,
     thumbnailSrc: input.thumbnailSrc,
   };
@@ -227,6 +236,8 @@ export function buildStackItemForEntry(input: {
   entry: FileSystemEntry;
   /** Project id for previews. */
   projectId?: string;
+  /** Chat session id for ${CURRENT_CHAT_DIR} template resolution. */
+  sessionId?: string;
   /** Root uri for system open. */
   rootUri?: string;
   /** Optional thumbnail for images. */
@@ -242,6 +253,7 @@ export function buildStackItemForEntry(input: {
     openUri: input.entry.uri,
     name: input.entry.name,
     ext: input.entry.ext,
+    sessionId: input.sessionId,
   };
   // 逻辑：不同 viewer 需要不同的额外参数。
   switch (target.viewer) {
@@ -521,6 +533,7 @@ export function openFilePreview(input: FileOpenInput): boolean | ReactNode | nul
       viewer: target.viewer,
       entry: input.entry,
       projectId: input.projectId,
+      sessionId: input.sessionId,
       rootUri: input.rootUri,
       thumbnailSrc: input.thumbnailSrc,
       readOnly: input.readOnly,
@@ -533,6 +546,7 @@ export function openFilePreview(input: FileOpenInput): boolean | ReactNode | nul
   const stackItem = buildStackItemForEntry({
     entry: input.entry,
     projectId: input.projectId,
+    sessionId: input.sessionId,
     rootUri: input.rootUri,
     thumbnailSrc: input.thumbnailSrc,
     readOnly: input.readOnly,

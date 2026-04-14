@@ -88,6 +88,8 @@ function resolvePreviousViewLabel(
       return t("agents");
     case "skill-settings":
       return t("skills");
+    case "connections-market":
+      return t("connections");
     case "project-settings-page":
       return t("panelTitle.project-settings-page");
     case "board-viewer":

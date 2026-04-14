@@ -23,6 +23,7 @@ import zhCNTasks from './locales/zh-CN/tasks.json';
 import zhCNBoard from './locales/zh-CN/board.json';
 import zhCNCalendar from './locales/zh-CN/calendar.json';
 import zhCNDesktop from './locales/zh-CN/desktop.json';
+import zhCNConnections from './locales/zh-CN/connections.json';
 
 // Traditional Chinese
 import zhTWCommon from './locales/zh-TW/common.json';
@@ -34,6 +35,7 @@ import zhTWTasks from './locales/zh-TW/tasks.json';
 import zhTWBoard from './locales/zh-TW/board.json';
 import zhTWCalendar from './locales/zh-TW/calendar.json';
 import zhTWDesktop from './locales/zh-TW/desktop.json';
+import zhTWConnections from './locales/zh-TW/connections.json';
 
 // English
 import enUSCommon from './locales/en-US/common.json';
@@ -45,6 +47,7 @@ import enUSTasks from './locales/en-US/tasks.json';
 import enUSBoard from './locales/en-US/board.json';
 import enUSCalendar from './locales/en-US/calendar.json';
 import enUSDesktop from './locales/en-US/desktop.json';
+import enUSConnections from './locales/en-US/connections.json';
 
 // Japanese
 import jaJPCommon from './locales/ja-JP/common.json';
@@ -56,6 +59,7 @@ import jaJPTasks from './locales/ja-JP/tasks.json';
 import jaJPBoard from './locales/ja-JP/board.json';
 import jaJPCalendar from './locales/ja-JP/calendar.json';
 import jaJPDesktop from './locales/ja-JP/desktop.json';
+import jaJPConnections from './locales/ja-JP/connections.json';
 
 /**
  * Resolve initial language:
@@ -82,7 +86,7 @@ i18n.use(initReactI18next).init({
   lng: getInitialLanguage(),
   fallbackLng: 'zh-CN',
   debug: false,
-  ns: ['common', 'nav', 'ai', 'settings', 'project', 'tasks', 'board', 'calendar', 'desktop'],
+  ns: ['common', 'nav', 'ai', 'settings', 'project', 'tasks', 'board', 'calendar', 'desktop', 'connections'],
   defaultNS: 'common',
   resources: {
     'zh-CN': {
@@ -95,6 +99,7 @@ i18n.use(initReactI18next).init({
       board: zhCNBoard,
       calendar: zhCNCalendar,
       desktop: zhCNDesktop,
+      connections: zhCNConnections,
     },
     'zh-TW': {
       common: zhTWCommon,
@@ -106,6 +111,7 @@ i18n.use(initReactI18next).init({
       board: zhTWBoard,
       calendar: zhTWCalendar,
       desktop: zhTWDesktop,
+      connections: zhTWConnections,
     },
     'en-US': {
       common: enUSCommon,
@@ -117,6 +123,7 @@ i18n.use(initReactI18next).init({
       board: enUSBoard,
       calendar: enUSCalendar,
       desktop: enUSDesktop,
+      connections: enUSConnections,
     },
     'ja-JP': {
       common: jaJPCommon,
@@ -128,6 +135,7 @@ i18n.use(initReactI18next).init({
       board: jaJPBoard,
       calendar: jaJPCalendar,
       desktop: jaJPDesktop,
+      connections: jaJPConnections,
     },
   },
   interpolation: {

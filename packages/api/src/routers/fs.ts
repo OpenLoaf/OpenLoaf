@@ -501,7 +501,16 @@ export const fsRouter = t.router({
     const { rootPath, fullPath } = resolvedScope;
     const dirExists = await fs.stat(fullPath).then(s => s.isDirectory(), () => false);
     if (!dirExists) return { entries: [] };
-    const entries = await fs.readdir(fullPath, { withFileTypes: true });
+    let entries: Dirent[];
+    try {
+      entries = await fs.readdir(fullPath, { withFileTypes: true });
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code === "ENOENT" || code === "EPERM" || code === "EACCES") {
+        return { entries: [] };
+      }
+      throw error;
+    }
     const includeHidden = Boolean(input.includeHidden);
     const nodes = [];
     for (const entry of entries) {

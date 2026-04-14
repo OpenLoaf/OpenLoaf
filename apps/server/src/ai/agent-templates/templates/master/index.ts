@@ -99,14 +99,12 @@ export const masterTemplate: AgentTemplate = {
     'WidgetCheck',
     // memory
     'MemorySave',
-    'MemorySearch',
-    'MemoryGet',
     // scheduled task
     'ScheduledTaskManage',
     'ScheduledTaskStatus',
     'ScheduledTaskWait',
     // cloud capabilities (progressive discovery: Browse → Detail → Generate)
-    // activated on demand via LoadSkill('cloud-media') / LoadSkill('cloud-text') or ToolSearch
+    // activated on demand via LoadSkill('cloud-media-skill') / LoadSkill('cloud-text-skill') or ToolSearch
     'CloudCapBrowse',
     'CloudCapDetail',
     'CloudModelGenerate',

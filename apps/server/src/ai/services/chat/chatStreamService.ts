@@ -785,5 +785,6 @@ export async function runChatStream(input: {
     assistantMessageKind: (isCompactCommand || isCliCompact) ? "compact_summary" : undefined,
     replayParts: continueReplayParts ?? undefined,
     isBgDrain,
+    temperature: input.request.temperature,
   });
 }

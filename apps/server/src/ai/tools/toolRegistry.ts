@@ -49,7 +49,7 @@ import { chartRenderTool } from "@/ai/tools/chartTools";
 import { scheduledTaskManageTool, scheduledTaskStatusTool, scheduledTaskWaitTool } from "@/ai/tools/scheduleTools";
 import { bgListTool, bgKillTool } from "@/ai/tools/bgTaskTools";
 import { sleepTool } from "@/ai/tools/sleepTool";
-import { memorySaveTool, memorySearchTool, memoryGetTool } from "@/ai/tools/memoryTools";
+import { memorySaveTool } from "@/ai/tools/memoryTools";
 import {
   cloudLoginTool,
   cloudUserInfoTool,
@@ -106,11 +106,7 @@ import {
   bgKillToolDef,
 } from "@openloaf/api/types/tools/bgTask";
 import { sleepToolDef } from "@openloaf/api/types/tools/sleep";
-import {
-  memorySaveToolDef,
-  memorySearchToolDef,
-  memoryGetToolDef,
-} from "@openloaf/api/types/tools/memory";
+import { memorySaveToolDef } from "@openloaf/api/types/tools/memory";
 import {
   cloudLoginToolDef,
   cloudUserInfoToolDef,
@@ -374,12 +370,6 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
   [memorySaveToolDef.id]: {
     tool: memorySaveTool,
   },
-  [memorySearchToolDef.id]: {
-    tool: memorySearchTool,
-  },
-  [memoryGetToolDef.id]: {
-    tool: memoryGetTool,
-  },
   [cloudCapBrowseToolDef.id]: {
     tool: cloudCapBrowseTool,
   },
@@ -469,8 +459,6 @@ const TOOL_DEF_REGISTRY: Record<string, { parameters?: any }> = {
   [webFetchToolDef.id]: webFetchToolDef,
   [loadSkillToolDef.id]: loadSkillToolDef,
   [memorySaveToolDef.id]: memorySaveToolDef,
-  [memorySearchToolDef.id]: memorySearchToolDef,
-  [memoryGetToolDef.id]: memoryGetToolDef,
   [cloudCapBrowseToolDef.id]: cloudCapBrowseToolDef,
   [cloudCapDetailToolDef.id]: cloudCapDetailToolDef,
   [cloudModelGenerateToolDef.id]: cloudModelGenerateToolDef,

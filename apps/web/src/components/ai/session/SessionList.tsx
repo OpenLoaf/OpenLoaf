@@ -180,6 +180,9 @@ export default function SessionList({
       projectIcon: s.projectIcon ?? undefined,
       createdAt: s.createdAt,
       pinned: s.isPin,
+      autoTest: s.autoTest ?? false,
+      autoTestScore: s.autoTestScore ?? null,
+      autoTestVerdict: s.autoTestVerdict ?? null,
     }));
   }, [chatSessions, scopeProjectId]);
 

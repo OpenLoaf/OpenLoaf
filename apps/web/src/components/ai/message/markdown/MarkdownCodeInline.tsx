@@ -17,11 +17,13 @@ import { useProject } from "@/hooks/use-project";
 
 /** Match absolute paths like /Users/..., /tmp/..., /home/... with at least 2 segments. */
 const ABSOLUTE_PATH_RE = /^\/(?:[a-zA-Z0-9._~-]+\/)+[a-zA-Z0-9._~-]+(?:\.[a-zA-Z0-9]+)?$/;
+/** Match session-scoped template paths like ${CURRENT_CHAT_DIR}/xxx. */
+const CHAT_DIR_TEMPLATE_RE = /^\$\{CURRENT_CHAT_DIR\}\/\S+$/;
 
-/** Check if text looks like an absolute file path. */
+/** Check if text looks like a clickable file path. */
 function isFilePath(text: string): boolean {
   if (!text || text.length < 3) return false;
-  return ABSOLUTE_PATH_RE.test(text);
+  return ABSOLUTE_PATH_RE.test(text) || CHAT_DIR_TEMPLATE_RE.test(text);
 }
 
 function ClickableFilePath({
@@ -48,10 +50,11 @@ function ClickableFilePath({
         entry,
         tabId: session?.tabId,
         projectId: session?.projectId ?? undefined,
+        sessionId: session?.sessionId ?? undefined,
         rootUri: projectRootUri,
       });
     },
-    [text, session?.tabId, session?.projectId, projectRootUri],
+    [text, session?.tabId, session?.projectId, session?.sessionId, projectRootUri],
   );
 
   return (

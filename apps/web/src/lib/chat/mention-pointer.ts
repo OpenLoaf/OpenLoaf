@@ -174,6 +174,7 @@ export function handleChatMentionPointerDown(
       },
       tabId: activeTabId,
       projectId: defaultProjectId,
+      sessionId: sessionScoped.sessionId,
     });
     return;
   }

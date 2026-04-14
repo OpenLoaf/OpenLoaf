@@ -8,7 +8,11 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 /**
- * Memory tools — MemorySearch, MemoryGet and MemorySave.
+ * Memory tools — MemorySave.
+ *
+ * Reading memory files is intentionally NOT a dedicated tool: the model can
+ * use Glob/Grep/Read against `${USER_MEMORY_DIR}` / `${PROJECT_MEMORY_DIR}`
+ * directly (both are resolved by expandPathTemplateVars).
  */
 import { tool, zodSchema } from 'ai'
 import {
@@ -21,99 +25,10 @@ import {
 } from 'node:fs'
 import { homedir } from 'node:os'
 import path from 'node:path'
-import {
-  memorySaveToolDef,
-  memorySearchToolDef,
-  memoryGetToolDef,
-} from '@openloaf/api/types/tools/memory'
-import { memoryIndexManager } from '@/memory/memoryIndexManager'
+import { memorySaveToolDef } from '@openloaf/api/types/tools/memory'
 import { getRequestContext } from '@/ai/shared/context/requestContext'
 import { resolveMemoryDir } from '@/ai/shared/memoryLoader'
 import { logger } from '@/common/logger'
-
-/** Resolve memory directories visible to the current agent. */
-function resolveSearchDirs(scope?: 'user' | 'project' | 'agent'): string[] {
-  const dirs: string[] = []
-  const ctx = getRequestContext()
-
-  const userMemDir = resolveMemoryDir(homedir())
-
-  if (!scope || scope === 'user') {
-    dirs.push(userMemDir)
-  }
-
-  if (!scope || scope === 'project') {
-    // Project memory from parent project root paths
-    if (ctx?.parentProjectRootPaths) {
-      for (const rootPath of ctx.parentProjectRootPaths) {
-        dirs.push(resolveMemoryDir(rootPath))
-      }
-    }
-  }
-
-  if (!scope || scope === 'agent') {
-    // Agent-specific memory
-    const agentStack = ctx?.agentStack
-    if (agentStack && agentStack.length > 0) {
-      const currentAgent = agentStack[agentStack.length - 1]
-      if (currentAgent) {
-        const agentMemDir = path.join(userMemDir, 'agents', currentAgent.name)
-        dirs.push(agentMemDir)
-      }
-    }
-  }
-
-  return dirs
-}
-
-export const memorySearchTool = tool({
-  description: memorySearchToolDef.description,
-  inputSchema: zodSchema(memorySearchToolDef.parameters),
-  execute: async ({ query, scope, topK }: { query: string; scope?: 'user' | 'project' | 'agent'; topK?: number }) => {
-    try {
-      const dirs = resolveSearchDirs(scope)
-      if (dirs.length === 0) {
-        return { ok: true, results: [], message: 'No memory directories available' }
-      }
-
-      const results = memoryIndexManager.search(dirs, query, topK ?? 10)
-
-      return {
-        ok: true,
-        results: results.map((r) => ({
-          filePath: r.entry.filePath,
-          fileName: r.entry.fileName,
-          date: r.entry.date,
-          summary: r.entry.firstLine,
-          decayWeight: Math.round(r.entry.decayWeight * 100) / 100,
-          score: Math.round(r.score * 100) / 100,
-        })),
-      }
-    } catch (err) {
-      logger.error({ err }, '[MemorySearch] Failed to search memory')
-      return { ok: false, error: String(err) }
-    }
-  },
-})
-
-export const memoryGetTool = tool({
-  description: memoryGetToolDef.description,
-  inputSchema: zodSchema(memoryGetToolDef.parameters),
-  execute: async ({ filePath }: { filePath: string }) => {
-    try {
-      // Security: only allow reading from .openloaf/memory/ directories
-      const normalizedPath = path.resolve(filePath)
-      if (!normalizedPath.includes('.openloaf/memory') && !normalizedPath.includes('.openloaf\\memory')) {
-        return { ok: false, error: 'Access denied: can only read from .openloaf/memory/ directories' }
-      }
-
-      const content = readFileSync(normalizedPath, 'utf8')
-      return { ok: true, filePath: normalizedPath, content }
-    } catch (err) {
-      return { ok: false, error: `Failed to read memory file: ${err}` }
-    }
-  },
-})
 
 // ─── MemorySave ────────────────────────────────────────────────────────────
 
@@ -128,7 +43,6 @@ function resolveWriteDir(scope: 'user' | 'project' | 'agent'): string | null {
     if (currentAgent) {
       return path.join(userMemDir, 'agents', currentAgent.name)
     }
-    // No agent context — cannot satisfy agent scope
     return null
   }
 
@@ -138,7 +52,6 @@ function resolveWriteDir(scope: 'user' | 'project' | 'agent'): string | null {
     if (projectRoot) {
       return resolveMemoryDir(projectRoot)
     }
-    // No project context — cannot satisfy project scope
     return null
   }
 
@@ -149,7 +62,6 @@ function resolveWriteDir(scope: 'user' | 'project' | 'agent'): string | null {
 function findExistingMemoryFile(memoryDir: string, key: string): string | null {
   if (!existsSync(memoryDir)) return null
   const exact = `${key}.md`
-  // Match dated pattern: exactly YYYY-MM-DD-{key}.md (no extra prefix before key)
   const datedPattern = new RegExp(`^\\d{4}-\\d{2}-\\d{2}-${escapeRegexSource(key)}\\.md$`)
   const files = readdirSync(memoryDir)
   const matches = files
@@ -159,12 +71,10 @@ function findExistingMemoryFile(memoryDir: string, key: string): string | null {
   return matches[0] ? path.join(memoryDir, matches[0]) : null
 }
 
-/** Escape special regex characters in a string. */
 function escapeRegexSource(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
-/** Extract first meaningful line from content (skip frontmatter / headings). */
 function extractFirstMeaningfulLine(content: string): string {
   for (const line of content.split('\n')) {
     const trimmed = line.replace(/^#+\s*/, '').replace(/^[-*]\s*/, '').trim()
@@ -175,7 +85,6 @@ function extractFirstMeaningfulLine(content: string): string {
   return ''
 }
 
-/** Build memory file content with optional frontmatter. */
 function buildMemoryContent(
   content: string,
   tags?: string[],
@@ -217,7 +126,6 @@ function updateMemoryIndex(
     lines = readFileSync(indexPath, 'utf8').split('\n')
   }
 
-  // Remove existing entry with matching key + strip empty lines
   const filtered = lines
     .filter((line) => !line.includes(`[${key}]`))
     .filter((line) => line.trim() !== '')
@@ -229,7 +137,26 @@ function updateMemoryIndex(
   writeFileSync(indexPath, filtered.length > 0 ? filtered.join('\n') + '\n' : '', 'utf8')
 }
 
-/** Validate key format: lowercase alphanumeric + hyphens. */
+/**
+ * Format a memory file's absolute path as a template-variable path so callers
+ * can pass it straight back to Read/Edit (both resolve ${USER_MEMORY_DIR} /
+ * ${PROJECT_MEMORY_DIR} via expandPathTemplateVars).
+ */
+function formatMemoryFilePath(
+  scope: 'user' | 'project' | 'agent',
+  memoryDir: string,
+  fileName: string,
+): string {
+  const absFile = path.join(memoryDir, fileName)
+  if (scope === 'project') {
+    const rel = path.relative(memoryDir, absFile).split(path.sep).join('/')
+    return `\${PROJECT_MEMORY_DIR}/${rel}`
+  }
+  const userMemDir = resolveMemoryDir(homedir())
+  const rel = path.relative(userMemDir, absFile).split(path.sep).join('/')
+  return `\${USER_MEMORY_DIR}/${rel}`
+}
+
 const KEY_PATTERN = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/
 
 export const memorySaveTool = tool({
@@ -254,7 +181,6 @@ export const memorySaveTool = tool({
     const effectiveScope = scope ?? 'user'
     const effectiveMode = mode ?? 'upsert'
 
-    // Validate key
     if (!KEY_PATTERN.test(key)) {
       return {
         ok: false,
@@ -263,7 +189,6 @@ export const memorySaveTool = tool({
       }
     }
 
-    // Validate reserved keys (conflict with MEMORY.md on case-insensitive FS)
     const RESERVED_KEYS = ['memory', 'agents', 'index']
     if (RESERVED_KEYS.includes(key)) {
       return {
@@ -293,18 +218,17 @@ export const memorySaveTool = tool({
         if (!existingFile) {
           return { ok: false, error: 'not_found', hint: `没有找到 key="${key}" 的记忆文件` }
         }
+        const deletedName = path.basename(existingFile)
         unlinkSync(existingFile)
         updateMemoryIndex(memoryDir, key, '', '', 'remove')
-        memoryIndexManager.invalidate(memoryDir)
         return {
           ok: true,
           action: 'deleted',
-          deletedFile: path.basename(existingFile),
+          filePath: formatMemoryFilePath(effectiveScope, memoryDir, deletedName),
           scope: effectiveScope,
         }
       }
 
-      // Content required for non-delete modes
       if (!content) {
         return { ok: false, error: 'missing_content', hint: '非 delete 模式必须提供 content' }
       }
@@ -312,23 +236,25 @@ export const memorySaveTool = tool({
       // ─── APPEND ───
       if (effectiveMode === 'append') {
         if (!existingFile) {
-          // Fallback to create
           const fileName = `${today}-${key}.md`
           const filePath = path.join(memoryDir, fileName)
           writeFileSync(filePath, buildMemoryContent(content, tags), 'utf8')
           const summary = indexEntry || extractFirstMeaningfulLine(content)
           updateMemoryIndex(memoryDir, key, fileName, summary, 'add')
-          memoryIndexManager.invalidate(memoryDir)
-          return { ok: true, action: 'created', filePath: fileName, scope: effectiveScope }
+          return {
+            ok: true,
+            action: 'created',
+            filePath: formatMemoryFilePath(effectiveScope, memoryDir, fileName),
+            scope: effectiveScope,
+          }
         }
 
         const existingContent = readFileSync(existingFile, 'utf8')
         writeFileSync(existingFile, existingContent.trimEnd() + '\n\n---\n\n' + content + '\n', 'utf8')
-        memoryIndexManager.invalidate(memoryDir)
         return {
           ok: true,
           action: 'appended',
-          filePath: path.basename(existingFile),
+          filePath: formatMemoryFilePath(effectiveScope, memoryDir, path.basename(existingFile)),
           scope: effectiveScope,
         }
       }
@@ -346,12 +272,11 @@ export const memorySaveTool = tool({
 
       const summary = indexEntry || extractFirstMeaningfulLine(content)
       updateMemoryIndex(memoryDir, key, fileName, summary, 'add')
-      memoryIndexManager.invalidate(memoryDir)
 
       return {
         ok: true,
         action: existingRawContent ? 'updated' : 'created',
-        filePath: fileName,
+        filePath: formatMemoryFilePath(effectiveScope, memoryDir, fileName),
         scope: effectiveScope,
         ...(existingRawContent
           ? { previousContentPreview: existingRawContent.slice(0, 200) }

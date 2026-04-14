@@ -171,9 +171,14 @@ export function registerAuthRoutes(app: Hono): void {
     return c.json({ success: true as const });
   });
 
-  // 逻辑：Web 启动或页面切回时拉取当前会话状态，
-  // 不返回任何 token，只返回登录态 + 用户信息。
-  app.get("/auth/session", (c) => {
+  // 逻辑：Web 启动或页面切回时拉取当前会话状态。
+  // **关键行为**：先 await ensureServerAccessToken() 触发按需刷新 ——
+  // 进程重启后 sessionState 内存清空，但 auth.json 里的 refresh token
+  // 仍然有效。不主动触发刷新的话，`isAccessTokenValid()` 会读到 undefined
+  // 返回 loggedIn=false，导致 Web 误判用户已登出。刷新成功后 user 信息
+  // 会被 `applyTokenExchangeResult` 写回 sessionState。
+  app.get("/auth/session", async (c) => {
+    await ensureServerAccessToken();
     const snapshot = getAuthSessionSnapshot();
     return c.json({
       loggedIn: snapshot.loggedIn,

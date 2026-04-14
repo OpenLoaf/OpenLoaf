@@ -71,30 +71,50 @@ export async function buildModelMessages(
   return trimToContextWindow(modelMessages, options);
 }
 
+/** Escape XML attribute values. */
+function xmlAttr(value: unknown): string {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
 /** Render a data-msg-context payload to XML string. */
 function renderMsgContextXml(d: Record<string, unknown>): string {
-  const attrs: string[] = [`type="msg-context"`];
-  if (d.datetime) attrs.push(`datetime="${d.datetime}"`);
-  if (d.page) attrs.push(`page="${d.page}"`);
-  if (d.projectId) attrs.push(`projectId="${d.projectId}"`);
-  if (d.boardId) attrs.push(`boardId="${d.boardId}"`);
+  const datetime = d.datetime ? ` datetime="${xmlAttr(d.datetime)}"` : "";
+  const children: string[] = [];
 
-  const stack = Array.isArray(d.stack) ? d.stack : [];
-  if (stack.length === 0) {
-    return `<system-tag ${attrs.join(" ")} />`;
+  const scope = d.scope === "project" ? "project" : "global";
+  if (d.page) {
+    const pageAttrs: string[] = [`component="${xmlAttr(d.page)}"`];
+    if (d.pageTitle) pageAttrs.push(`title="${xmlAttr(d.pageTitle)}"`);
+    pageAttrs.push(`scope="${scope}"`);
+    if (scope === "project" && d.projectId) {
+      pageAttrs.push(`projectId="${xmlAttr(d.projectId)}"`);
+    }
+    if (d.boardId) pageAttrs.push(`boardId="${xmlAttr(d.boardId)}"`);
+    children.push(`  <page ${pageAttrs.join(" ")} />`);
   }
 
-  const items = stack.map((item: Record<string, unknown>) => {
-    const itemAttrs = [`component="${item.component}"`];
-    if (item.title) itemAttrs.push(`title="${item.title}"`);
-    const params = item.params as Record<string, unknown> | undefined;
-    if (params) {
-      for (const [k, v] of Object.entries(params)) {
-        if (v != null) itemAttrs.push(`${k}="${String(v)}"`);
+  const stack = Array.isArray(d.stack) ? d.stack : [];
+  if (stack.length > 0) {
+    const items = stack.map((item: Record<string, unknown>) => {
+      const itemAttrs = [`component="${xmlAttr(item.component)}"`];
+      if (item.title) itemAttrs.push(`title="${xmlAttr(item.title)}"`);
+      const params = item.params as Record<string, unknown> | undefined;
+      if (params) {
+        for (const [k, v] of Object.entries(params)) {
+          if (v != null) itemAttrs.push(`${k}="${xmlAttr(v)}"`);
+        }
       }
-    }
-    return `  <stack-item ${itemAttrs.join(" ")} />`;
-  });
+      return `    <stack-item ${itemAttrs.join(" ")} />`;
+    });
+    children.push(`  <stack>\n${items.join("\n")}\n  </stack>`);
+  }
 
-  return `<system-tag ${attrs.join(" ")}>\n${items.join("\n")}\n</system-tag>`;
+  if (children.length === 0) {
+    return `<system-tag type="msg-context"${datetime} />`;
+  }
+  return `<system-tag type="msg-context"${datetime}>\n${children.join("\n")}\n</system-tag>`;
 }

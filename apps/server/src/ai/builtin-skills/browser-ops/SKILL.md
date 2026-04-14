@@ -1,6 +1,7 @@
 ---
-name: browser-ops
-description: 浏览器操作指南：页面交互（表单、点击、登录）、截图、翻页抓取、下载图片。**两种触发场景**：1) 需要页面交互时（fill form、click、login、screenshot、scrape、download image）；2) WebFetch 失败时（验证码、反爬、SPA 空壳）降级到浏览器自动化。**反例**（不要触发）：事实性问题 → WebSearch。
+name: browser-ops-skill
+description: >
+  当用户要求对具体网页做页面级交互时触发：登录、填表、点按钮、翻页抓取、截图、下载页面图片、处理验证码或反爬、访问 SPA 动态内容；也用于 WebFetch 拿到空壳或被风控后的降级。典型说法"帮我登录 X 然后抓 Y"、"截个图"。**不用于**：事实性问题或"xx 是什么"（→`WebSearch`）、单纯读取静态网页文本（先试 `WebFetch`）。
 ---
 
 # 浏览器操作指南

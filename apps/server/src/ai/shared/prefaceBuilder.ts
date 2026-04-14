@@ -9,7 +9,9 @@
  */
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { existsSync, readFileSync } from "node:fs";
+import { getRequestContext } from "@/ai/shared/context/requestContext";
 import {
   getProjectRootPath,
 } from "@openloaf/api/services/vfsService";
@@ -36,6 +38,7 @@ import { mcpClientManager } from "@/ai/services/mcpClientManager";
 import { getEnabledMcpServers } from "@/services/mcpConfigService";
 
 import { BUILTIN_SKILLS } from '@/ai/builtin-skills'
+import { resolveEffectiveTier } from '@/ai/builtin-skills/cloud-skills'
 import { UNKNOWN_VALUE } from '@/ai/shared/constants'
 /** Sentinel value for project rules when AGENTS.md is absent. */
 const PROJECT_RULES_NOT_FOUND = "__NOT_FOUND__";
@@ -81,8 +84,7 @@ async function fetchMembershipLevel(token: string): Promise<string | undefined> 
   try {
     const client = getSaasClient(token);
     const self = await client.user.self();
-    const raw = String(self.user.membershipLevel ?? 'free').toLowerCase();
-    const level = raw === 'premium' ? 'premium' : raw === 'pro' ? 'pro' : raw === 'lite' ? 'lite' : 'free';
+    const level = resolveEffectiveTier(self.user);
     membershipCache = { token, level, at: now };
     return level;
   } catch (error) {
@@ -372,6 +374,7 @@ async function resolvePromptContext(input: {
   const date = new Date().toDateString();
   const timezone = resolveTimezone(input.timezone);
   const python = await resolvePythonRuntimeSnapshot();
+  const appVersions = resolveAppVersionsSnapshot();
   const { summaries, selectedSkills } = resolveFilteredSkillSummaries({
     projectId: input.projectId,
     projectRootPath: project.rootPath,
@@ -386,9 +389,49 @@ async function resolvePromptContext(input: {
     date,
     timezone,
     python,
+    appVersions,
     skillSummaries: summaries,
     selectedSkills,
   };
+}
+
+/** Read server package.json version exactly once by walking up from this file. */
+let cachedServerVersion: string | undefined;
+function getServerPackageVersion(): string | undefined {
+  if (cachedServerVersion !== undefined) return cachedServerVersion || undefined;
+  try {
+    let dir = path.dirname(fileURLToPath(import.meta.url));
+    for (let i = 0; i < 8; i++) {
+      const pkgPath = path.join(dir, "package.json");
+      if (existsSync(pkgPath)) {
+        const pkg = JSON.parse(readFileSync(pkgPath, "utf8")) as {
+          name?: string;
+          version?: string;
+        };
+        if (pkg.name?.includes("server") || i > 0) {
+          cachedServerVersion = pkg.version ?? "";
+          return cachedServerVersion || undefined;
+        }
+      }
+      const parent = path.dirname(dir);
+      if (parent === dir) break;
+      dir = parent;
+    }
+    cachedServerVersion = "";
+  } catch {
+    cachedServerVersion = "";
+  }
+  return cachedServerVersion || undefined;
+}
+
+/** Resolve app version snapshot: server from package.json, web/desktop from current request. */
+function resolveAppVersionsSnapshot(): PromptContext["appVersions"] {
+  const ctx = getRequestContext();
+  const server = getServerPackageVersion();
+  const web = ctx?.webVersion?.trim() || undefined;
+  const desktop = ctx?.desktopVersion?.trim() || undefined;
+  if (!server && !web && !desktop) return undefined;
+  return { server, web, desktop };
 }
 
 /**
@@ -412,7 +455,7 @@ function buildBuiltinSkillsSystemBlock(
     lang === "zh"
       ? "内置技能，通过 `LoadSkill(skillName: '...')` 按需加载"
       : "Built-in skills, load on demand via `LoadSkill(skillName: '...')`";
-  return `<system-tag type="skills" desc="${desc}">\n${content}\n</system-tag>`;
+  return `<system-tag type="skills" scope="builtin" desc="${desc}">\n${content}\n</system-tag>`;
 }
 
 /**

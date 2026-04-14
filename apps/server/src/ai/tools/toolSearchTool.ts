@@ -38,25 +38,47 @@ export function createToolSearchTool(
     execute: async ({ names }) => {
       const requestedNames = names
         .split(',')
-        .map((s) => s.trim())
+        .map((s) => s.trim().replace(/^select:/i, '').trim())
         .filter(Boolean)
 
       const catalog = getCombinedCatalog()
+      // Case-insensitive lookup: lowercased id → canonical id.
+      const lowerIdIndex = new Map<string, string>()
+      for (const id of availableToolIds) {
+        lowerIdIndex.set(id.toLowerCase(), id)
+      }
+
+      const resolveName = (raw: string): string | null => {
+        if (availableToolIds.has(raw)) return raw
+        const lower = raw.toLowerCase()
+        const ci = lowerIdIndex.get(lower)
+        if (ci) return ci
+        // Substring fuzzy fallback — unique match only, to avoid ambiguity.
+        const matches: string[] = []
+        for (const [lid, cid] of lowerIdIndex) {
+          if (lid.includes(lower) || lower.includes(lid)) matches.push(cid)
+        }
+        return matches.length === 1 ? (matches[0] ?? null) : null
+      }
+
       const loadedTools: { id: string; name: string; description: string }[] = []
       const notFound: string[] = []
+      const seen = new Set<string>()
 
       for (const name of requestedNames) {
-        if (availableToolIds.has(name)) {
-          activatedSet.activate([name])
-          const entry = catalog.find((e) => e.id === name)
+        const resolved = resolveName(name)
+        if (resolved && !seen.has(resolved)) {
+          seen.add(resolved)
+          activatedSet.activate([resolved])
+          const entry = catalog.find((e) => e.id === resolved)
           loadedTools.push({
-            id: name,
-            name: entry?.label ?? name,
+            id: resolved,
+            name: entry?.label ?? resolved,
             description: entry?.description ?? '',
           })
           continue
         }
-        notFound.push(name)
+        if (!resolved) notFound.push(name)
       }
 
       const schemas = getSchemas ? getSchemas(loadedTools.map((t) => t.id)) : {}

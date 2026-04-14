@@ -15,7 +15,12 @@ export const toolSearchToolDef = {
   name: 'Tool Search',
   description: `Load tool JSON schemas by name. Deferred tools start with no schema — call this before invoking them, otherwise invocation fails with InputValidationError.
 
-Pass comma-separated tool IDs from the tool catalog (PascalCase, exact match).
+Pass comma-separated tool IDs from the tool catalog. Matching is fuzzy:
+- Case-insensitive: "websearch" resolves to "WebSearch"
+- \`select:\` prefix tolerated: "select:WebFetch" works the same as "WebFetch"
+- Unique substring fallback: "memsave" resolves to "MemorySave" if unambiguous
+
+Examples:
 - Single: "WebFetch"
 - Batch (preferred — one round trip): "WebFetch,WebSearch,MemorySave"
 
@@ -24,7 +29,7 @@ Once activated, a tool's schema stays live for the whole session — do not re-s
 This tool does NOT load skills; use LoadSkill for that.`,
   parameters: z.object({
     names: z.string().min(1).describe(
-      'Comma-separated tool IDs (PascalCase, exact match), e.g. "WebFetch,WebSearch".',
+      'Comma-separated tool IDs (case-insensitive, fuzzy), e.g. "WebFetch,WebSearch".',
     ),
   }),
   component: null,

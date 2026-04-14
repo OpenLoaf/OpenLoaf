@@ -10,10 +10,17 @@
 "use client";
 
 import { createElement } from "react";
+import { EyeOffIcon } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useChatStatus, useChatTools } from "../../context";
 import { getToolKind, type AnyToolPart, type ToolVariant } from "./shared/tool-utils";
 import { findToolEntry, CliThinkingTool, UnifiedTool } from "./tool-registry";
 import { useBasicConfig } from "@/hooks/use-basic-config";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@openloaf/ui/tooltip";
 
 /**
  * 工具调用消息组件
@@ -30,6 +37,7 @@ export default function MessageTool({
   variant?: ToolVariant;
   messageId?: string;
 }) {
+  const { t } = useTranslation("ai");
   const { status } = useChatStatus();
   const { toolParts } = useChatTools();
   const { basic } = useBasicConfig();
@@ -105,9 +113,28 @@ export default function MessageTool({
   const hasError = resolvedPart.state === 'output-error' || resolvedPart.state === 'output-denied'
   if (isCompleted && !hasError && !basic.chatShowAllToolResults) return null
 
+  // 只有在"因为开关打开才被显示"的情况下才标记：成功完成 + 无错误。
+  // 关掉开关后这些工具会消失，用 EyeOff badge 提示用户。
+  const isVerboseOnly = isCompleted && !hasError;
+
   return (
-    <div>
+    <div className="relative">
       <UnifiedTool part={resolvedPart} className={className} variant={variant} messageId={messageId} />
+      {isVerboseOnly ? (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span
+              className="pointer-events-auto absolute right-1 top-1 flex size-4 shrink-0 items-center justify-center rounded-full bg-muted/60 text-muted-foreground/60"
+              aria-label={t("tool.verboseOnlyHint", "关闭「显示所有工具调用结果」后此工具将被隐藏")}
+            >
+              <EyeOffIcon className="size-2.5" />
+            </span>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="max-w-xs text-xs">
+            {t("tool.verboseOnlyHint", "关闭「显示所有工具调用结果」后此工具将被隐藏")}
+          </TooltipContent>
+        </Tooltip>
+      ) : null}
     </div>
   );
 }

@@ -8,6 +8,7 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import fsSync from "node:fs";
+import { homedir } from "node:os";
 import path from "node:path";
 import {
   getBoardId,
@@ -25,6 +26,7 @@ import {
   resolveBoardScopedRoot,
 } from "@openloaf/api/common/boardPaths";
 import { resolveSessionAssetDir } from "@/ai/services/chat/repositories/chatSessionPathResolver";
+import { resolveMemoryDir } from "@/ai/shared/memoryLoader";
 
 type ToolRoots = {
   /** Global root path (~/.openloaf/). */
@@ -72,6 +74,8 @@ function isPathInside(root: string, target: string): boolean {
  *   - ${CURRENT_PROJECT_ROOT}  → absolute project root (if bound)
  *   - ${CURRENT_CHAT_DIR}      → absolute chat asset directory (session sandbox)
  *   - ${CURRENT_BOARD_DIR}     → absolute board asset directory (canvas sandbox)
+ *   - ${USER_MEMORY_DIR}       → ~/.openloaf/memory (global memory root)
+ *   - ${PROJECT_MEMORY_DIR}    → <projectRoot>/.openloaf/memory (project sessions only)
  *   - ${HOME}                  → user home directory
  *
  * Variables that cannot resolve in the current context (e.g. CURRENT_PROJECT_ROOT
@@ -125,8 +129,10 @@ export function expandPathTemplateVars(input: string): string {
   }
 
   const home = process.env.HOME || process.env.USERPROFILE;
+  const userMemoryDir = resolveMemoryDir(homedir());
+  const projectMemoryDir = projectRoot ? resolveMemoryDir(projectRoot) : undefined;
   return input.replace(
-    /\$\{(CURRENT_PROJECT_ROOT|CURRENT_CHAT_DIR|CURRENT_BOARD_DIR|HOME)\}/g,
+    /\$\{(CURRENT_PROJECT_ROOT|CURRENT_CHAT_DIR|CURRENT_BOARD_DIR|USER_MEMORY_DIR|PROJECT_MEMORY_DIR|HOME)\}/g,
     (token, name) => {
       switch (name) {
         case "CURRENT_PROJECT_ROOT":
@@ -135,6 +141,10 @@ export function expandPathTemplateVars(input: string): string {
           return chatAssetDir ? path.resolve(chatAssetDir) : token;
         case "CURRENT_BOARD_DIR":
           return boardAssetDir ? path.resolve(boardAssetDir) : token;
+        case "USER_MEMORY_DIR":
+          return path.resolve(userMemoryDir);
+        case "PROJECT_MEMORY_DIR":
+          return projectMemoryDir ? path.resolve(projectMemoryDir) : token;
         case "HOME":
           return home ? path.resolve(home) : token;
         default:

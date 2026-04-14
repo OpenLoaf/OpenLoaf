@@ -1,9 +1,7 @@
 ---
-name: pdf-word-excel-pptx
+name: pdf-word-excel-pptx-skill
 description: >
-  Office 文档操作——Excel/Word/PPTX/PDF 的读取、编辑、创建与格式转换。
-  当用户要操作办公文档文件（xlsx/docx/pptx/pdf/csv）时激活。
-  **不用于**：纯文本文件（→file-ops）、讨论文档内容（→直接回答）。
+  当用户的输入或输出涉及 .xlsx / .xls / .docx / .pptx / .pdf / .csv 文件时触发：读取、提取表格、总结、填表、合并、计算、编辑、创建、格式互转。典型说法"帮我总结这份 PDF"、"这份 Excel 里谁销量最高"、"把 csv 转成 xlsx"。**不用于**：纯 .txt / .md / 代码文件（→file-ops-skill）、对话里粘贴的文本讨论（→直接回答）、AI 生成配图（→cloud-media-skill）。
 ---
 
 # Office 文档操作指南

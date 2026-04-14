@@ -58,6 +58,11 @@ import {
   BaseMcpRouter,
   mcpSchemas,
 } from "./routers/mcp";
+import {
+  integrationsRouter,
+  BaseIntegrationsRouter,
+  integrationSchemas,
+} from "./routers/integrations";
 
 export const appRouterDefine = {
   ...internalAppRouter._def.procedures,
@@ -78,6 +83,7 @@ export const appRouterDefine = {
   board: boardRouter,
   visit: visitRouter,
   mcp: mcpRouter,
+  integrations: integrationsRouter,
 };
 
 export const appRouter = t.router({
@@ -147,6 +153,10 @@ export { BaseScheduledTaskRouter, scheduledTaskSchemas };
 
 // Export MCP router components
 export { BaseMcpRouter, mcpSchemas };
+
+// Export integrations router components
+export { BaseIntegrationsRouter, integrationSchemas };
+export * from "./types/integrations";
 
 // export const t = initTRPC.context<Context>().create({
 // });

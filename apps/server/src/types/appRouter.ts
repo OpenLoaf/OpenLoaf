@@ -21,6 +21,7 @@ import { calendarRouterImplementation } from "@/routers/calendar";
 import { dynamicWidgetRouterImplementation } from "@/routers/dynamicWidget";
 import { scheduledTaskRouterImplementation } from "@/routers/scheduledTask";
 import { mcpRouterImplementation } from "@/routers/mcp";
+import { integrationsRouterImplementation } from "@/routers/integrations";
 
 /**
  * Server-side AppRouter with all implementations
@@ -41,6 +42,7 @@ export const serverAppRouter = t.router({
   dynamicWidget: dynamicWidgetRouterImplementation,
   scheduledTask: scheduledTaskRouterImplementation,
   mcp: mcpRouterImplementation,
+  integrations: integrationsRouterImplementation,
 });
 
 export type ServerAppRouter = typeof serverAppRouter;

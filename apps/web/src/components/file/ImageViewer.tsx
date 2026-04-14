@@ -42,6 +42,8 @@ interface ImageViewerProps {
   name?: string;
   ext?: string;
   projectId?: string;
+  /** Chat session id — required when uri uses ${CURRENT_CHAT_DIR} template. */
+  sessionId?: string;
   /** Root uri for non-project file access. */
   rootUri?: string;
   /** Optional thumbnail placeholder to show before full image loads. */
@@ -199,6 +201,7 @@ export default function ImageViewer({
   name,
   ext,
   projectId: projectIdProp,
+  sessionId: sessionIdProp,
   rootUri,
   thumbnailSrc,
   title,
@@ -218,6 +221,8 @@ export default function ImageViewer({
   const isDataUrl = typeof uri === "string" && uri.startsWith("data:");
   const isBlob = isBlobUrl(uri);
   const shouldUseFs = typeof uri === "string" && uri.startsWith("file://");
+  // ${CURRENT_CHAT_DIR}/... 只能由 preview endpoint（带 sessionId）展开，走 fetchBlobFromUri。
+  const isChatDirTemplate = typeof uri === "string" && uri.startsWith("${CURRENT_CHAT_DIR}/");
   const wrapperRef = React.useRef<HTMLDivElement>(null);
   const transformRef = React.useRef<ReactZoomPanPinchRef | null>(null);
   const imageRef = React.useRef<HTMLImageElement | null>(null);
@@ -248,7 +253,7 @@ export default function ImageViewer({
   const [canRedo, setCanRedo] = React.useState(false);
   const appliedRef = React.useRef<string>("");
   const shouldUseBinary =
-    Boolean(uri) && (shouldUseFs || isRelative);
+    Boolean(uri) && (shouldUseFs || (isRelative && !isChatDirTemplate));
   const chat = useOptionalChatOptions();
   const chatSession = useOptionalChatSession();
   const projectId = projectIdProp ?? chatSession?.projectId;
@@ -282,6 +287,7 @@ export default function ImageViewer({
     src?: string;
   } | null>(null);
 
+  const sessionId = sessionIdProp ?? chatSession?.sessionId ?? undefined;
   React.useEffect(() => {
     if (!uri || !isRelative || shouldUseBinary) return;
     let aborted = false;
@@ -289,7 +295,7 @@ export default function ImageViewer({
     const run = async () => {
       setPreview({ status: "loading" });
       try {
-        const blob = await fetchBlobFromUri(uri, { projectId });
+        const blob = await fetchBlobFromUri(uri, { projectId, sessionId });
         objectUrl = URL.createObjectURL(blob);
         if (aborted) return;
         setPreview({ status: "ready", src: objectUrl });
@@ -303,7 +309,7 @@ export default function ImageViewer({
       aborted = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [projectId, uri, isRelative, shouldUseBinary]);
+  }, [projectId, sessionId, uri, isRelative, shouldUseBinary]);
 
   const payload = shouldUseBinary ? imageQuery.data : null;
   const placeholderSrc = thumbnailSrc || preview?.src || "";
