@@ -70,7 +70,13 @@ export type CliToolsConfig = {
 };
 
 export const basicConfigSchema = z.object({
-  /** @deprecated Use per-agent model config instead. */
+  /**
+   * User's current model source preference. Persists which of the master
+   * agent's two parallel model-id lists (modelLocalIds vs modelCloudIds) is
+   * active in the picker; flipping this switch does not reshape agent config,
+   * it only selects which list the UI and server read from on the next
+   * request.
+   */
   chatSource: z.enum(["local", "cloud"]),
   /** Chat reasoning mode for master agent. */
   chatThinkingMode: chatThinkingModeSchema,
