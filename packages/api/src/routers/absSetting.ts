@@ -253,8 +253,6 @@ export const settingSchemas = {
         includeChildProjects: z.boolean().optional(),
         /** Filter agents by scope. Defaults to 'all'. */
         scopeFilter: z.enum(['global', 'project', 'all']).optional(),
-        /** Include system agents (master). Default false — settings UIs hide master. */
-        includeSystem: z.boolean().optional(),
       })
       .optional(),
     output: z.array(agentSummarySchema),
@@ -293,11 +291,17 @@ export const settingSchemas = {
       name: z.string(),
       description: z.string(),
       icon: z.string(),
+      /** @deprecated Model selection moved to basic config. */
       modelLocalIds: z.array(z.string()),
+      /** @deprecated Model selection moved to basic config. */
       modelCloudIds: z.array(z.string()),
+      /** @deprecated Model selection moved to basic config. */
       auxiliaryModelSource: z.string(),
+      /** @deprecated Model selection moved to basic config. */
       auxiliaryModelLocalIds: z.array(z.string()),
+      /** @deprecated Model selection moved to basic config. */
       auxiliaryModelCloudIds: z.array(z.string()),
+      /** @deprecated Model selection moved to basic config. */
       codeModelIds: z.array(z.string()),
       toolIds: z.array(z.string()),
       skills: z.array(z.string()),
@@ -328,11 +332,17 @@ export const settingSchemas = {
       name: z.string().min(1),
       description: z.string().optional(),
       icon: z.string().optional(),
+      /** @deprecated Model selection moved to basic config. Silently ignored. */
       modelLocalIds: z.array(z.string()).optional(),
+      /** @deprecated Model selection moved to basic config. Silently ignored. */
       modelCloudIds: z.array(z.string()).optional(),
+      /** @deprecated Model selection moved to basic config. Silently ignored. */
       auxiliaryModelSource: z.string().optional(),
+      /** @deprecated Model selection moved to basic config. Silently ignored. */
       auxiliaryModelLocalIds: z.array(z.string()).optional(),
+      /** @deprecated Model selection moved to basic config. Silently ignored. */
       auxiliaryModelCloudIds: z.array(z.string()).optional(),
+      /** @deprecated Model selection moved to basic config. Silently ignored. */
       codeModelIds: z.array(z.string()).optional(),
       toolIds: z.array(z.string()).optional(),
       skills: z.array(z.string()).optional(),

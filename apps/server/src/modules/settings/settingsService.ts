@@ -425,6 +425,9 @@ export async function setBasicConfigFromWeb(update: BasicConfigUpdate): Promise<
       : current.promptLanguage;
   const normalized: BasicConfig = {
     chatSource: next.chatSource === "cloud" ? "cloud" : "local",
+    chatModelId: typeof next.chatModelId === "string" ? next.chatModelId : current.chatModelId,
+    auxModelSource: next.auxModelSource === "cloud" || next.auxModelSource === "local" ? next.auxModelSource : current.auxModelSource,
+    auxModelId: typeof next.auxModelId === "string" ? next.auxModelId : current.auxModelId,
     chatThinkingMode,
     activeS3Id: typeof next.activeS3Id === "string" && next.activeS3Id.trim()
       ? next.activeS3Id.trim()

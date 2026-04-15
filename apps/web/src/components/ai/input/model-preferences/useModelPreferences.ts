@@ -9,7 +9,7 @@
  */
 'use client'
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSettingsValues } from '@/hooks/use-settings'
 import { useBasicConfig } from '@/hooks/use-basic-config'
@@ -22,23 +22,8 @@ import { useSaasAuth } from '@/hooks/use-saas-auth'
 import { useLayoutState } from '@/hooks/use-layout-state'
 import {
   buildChatModelOptions,
-  buildCliModelOptions,
   normalizeChatModelSource,
 } from '@/lib/provider-models'
-import { useMainAgentModel } from '../../hooks/use-main-agent-model'
-import { useOptionalChatSession } from '../../context'
-import {
-  buildSinglePreferredIds,
-  normalizeSinglePreferredIds,
-} from './model-selection-utils'
-
-function normalizeIds(value?: string[] | null): string[] {
-  if (!Array.isArray(value)) return []
-  const normalized = value
-    .map((item) => item.trim())
-    .filter((item) => item.length > 0)
-  return Array.from(new Set(normalized))
-}
 
 export function useModelPreferences() {
   const { t } = useTranslation('ai')
@@ -52,15 +37,7 @@ export function useModelPreferences() {
   const installedCliProviderIds = useInstalledCliProviderIds()
   const { basic, setBasic } = useBasicConfig()
   const { loggedIn: authLoggedIn, refreshSession } = useSaasAuth()
-  const chatSession = useOptionalChatSession()
-  const projectId = chatSession?.projectId
   const pushStackItem = useLayoutState((s) => s.pushStackItem)
-  const {
-    modelIds: masterModelIds,
-    detail: masterDetail,
-    setModelIds,
-    setCodeModelIds,
-  } = useMainAgentModel(projectId)
 
   const chatModelSource = normalizeChatModelSource(basic.chatSource)
   const isCloudSource = chatModelSource === 'cloud'
@@ -75,38 +52,11 @@ export function useModelPreferences() {
       ),
     [chatModelSource, providerItems, cloudModels, installedCliProviderIds],
   )
-  const codeModels = useMemo(
-    () => buildCliModelOptions(installedCliProviderIds),
-    [installedCliProviderIds],
-  )
 
-  // 混合模式：优先使用 React Query 缓存（跨挂载持久化），
-  // 当缓存不可用时（如 master agent 尚未创建）使用本地 override 提供即时视觉反馈。
-  const cachedChatIds = useMemo(
-    () => normalizeIds(masterModelIds),
-    [masterModelIds],
-  )
-  const cachedCodeIds = useMemo(
-    () => normalizeIds(masterDetail?.codeModelIds),
-    [masterDetail?.codeModelIds],
-  )
-
-  // 本地 override：仅在 master agent 不存在时提供即时反馈。
-  // 按 cloud/local 分开存储，避免切换源时旧 ID 污染新源。
-  const [overrideCloudChatIds, setOverrideCloudChatIds] = useState<string[] | null>(null)
-  const [overrideLocalChatIds, setOverrideLocalChatIds] = useState<string[] | null>(null)
-  const overrideChatIds = isCloudSource ? overrideCloudChatIds : overrideLocalChatIds
-  const setOverrideChatIds = isCloudSource ? setOverrideCloudChatIds : setOverrideLocalChatIds
-  const [overrideCodeIds, setOverrideCodeIds] = useState<string[] | null>(null)
-  const prefersCachedModels = Boolean(masterDetail)
-  const resolvedChatIds = prefersCachedModels
-    ? cachedChatIds
-    : overrideChatIds ?? cachedChatIds
-  const resolvedCodeIds = prefersCachedModels
-    ? cachedCodeIds
-    : overrideCodeIds ?? cachedCodeIds
-  const preferredChatIds = normalizeSinglePreferredIds(resolvedChatIds)
-  const preferredCodeIds = normalizeSinglePreferredIds(resolvedCodeIds)
+  const preferredChatIds = useMemo(() => {
+    const id = (basic.chatModelId ?? '').trim()
+    return id ? [id] : []
+  }, [basic.chatModelId])
 
   const hasConfiguredProviders = useMemo(
     () =>
@@ -120,34 +70,12 @@ export function useModelPreferences() {
 
   const toggleChatModel = useCallback(
     (modelId: string) => {
-      const nextIds = buildSinglePreferredIds(resolvedChatIds, modelId)
-      if (!masterDetail) setOverrideChatIds(nextIds)
-      setModelIds(nextIds)
+      const trimmed = modelId.trim()
+      if (!trimmed) return
+      void setBasic({ chatModelId: trimmed })
     },
-    [masterDetail, resolvedChatIds, setModelIds],
+    [setBasic],
   )
-
-  const toggleCodeModel = useCallback(
-    (modelId: string) => {
-      const nextIds = buildSinglePreferredIds(resolvedCodeIds, modelId)
-      if (!masterDetail) setOverrideCodeIds(nextIds)
-      setCodeModelIds(nextIds)
-    },
-    [masterDetail, resolvedCodeIds, setCodeModelIds],
-  )
-
-  const selectCodeModel = useCallback(
-    (modelId: string) => {
-      const normalized = modelId.trim()
-      if (!normalized) return
-      if (!masterDetail) setOverrideCodeIds([normalized])
-      setCodeModelIds([normalized])
-    },
-    [masterDetail, setCodeModelIds],
-  )
-
-  // 陈旧 id 自愈已迁移到 useChatModelSelection —— 主路径始终挂载，即使 picker
-  // 从未打开也能回写 master agent。这里不再重复一份 effect，避免两处写入互相踩踏。
 
   const setCloudSource = useCallback(
     (next: string) => {
@@ -219,18 +147,14 @@ export function useModelPreferences() {
   return {
     // 数据
     chatModels,
-    codeModels,
     isCloudSource,
     preferredChatIds,
-    preferredCodeIds,
     authLoggedIn,
     isUnconfigured,
     showCloudLogin,
     hasPreferredReasoningModel,
     // 操作
     toggleChatModel,
-    toggleCodeModel,
-    selectCodeModel,
     setCloudSource,
     refreshOnOpen,
     syncCloudModelsOnOpen,

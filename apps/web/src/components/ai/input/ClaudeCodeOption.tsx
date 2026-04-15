@@ -20,7 +20,6 @@ import {
   type ClaudeCodeEffort,
 } from "@/lib/chat/claude-code-options";
 import { useChatOptions, useChatSession } from "../context";
-import { useMainAgentModel } from "../hooks/use-main-agent-model";
 import {
   PromptInputSelect,
   PromptInputSelectContent,
@@ -180,15 +179,7 @@ export default function ClaudeCodeOption({
     }));
   }, [claudeCodeModelsQuery.data]);
 
-  // 逻辑：从 useMainAgentModel 获取/设置当前选择的 code model（与 ModelPreferencesPanel 同步）。
-  const { detail, setCodeModelIds } = useMainAgentModel(projectId);
-  const currentCodeModelId = detail?.codeModelIds?.[0] ?? "";
-  const currentModelId = React.useMemo(() => {
-    if (!currentCodeModelId.startsWith("claude-code-cli:")) return "";
-    return currentCodeModelId.slice("claude-code-cli:".length).trim();
-  }, [currentCodeModelId]);
-
-  // 逻辑：从完整 id（如 "claude-code-cli:claude-sonnet-4-6"）解析实际的 model id 部分。
+  // 逻辑：模型选择已迁移到 basic config，CLI 工具面板仅展示可用模型列表。
   const modelOptions = React.useMemo(() => {
     const options = new Map<string, string>();
     for (const model of codeModels) {
@@ -197,22 +188,16 @@ export default function ClaudeCodeOption({
         model.modelDefinition?.name ?? resolveClaudeCodeModelLabel(model.modelId),
       );
     }
-    if (currentModelId) {
-      options.set(currentModelId, resolveClaudeCodeModelLabel(currentModelId));
-    }
     for (const fallbackId of CLAUDE_CODE_MODEL_FALLBACK_IDS) {
       if (!options.has(fallbackId)) {
         options.set(fallbackId, resolveClaudeCodeModelLabel(fallbackId));
       }
     }
     return Array.from(options.entries()).map(([value, label]) => ({ value, label }));
-  }, [codeModels, currentModelId]);
+  }, [codeModels]);
   const resolvedModelId = React.useMemo(() => {
-    if (currentModelId && modelOptions.some((item) => item.value === currentModelId)) {
-      return currentModelId;
-    }
     return modelOptions[0]?.value ?? "";
-  }, [currentModelId, modelOptions]);
+  }, [modelOptions]);
 
   // 逻辑：同步 claudeCodeOptions 默认值（首次渲染时确保 context 有初始值）。
   React.useEffect(() => {
@@ -222,20 +207,6 @@ export default function ClaudeCodeOption({
       return next;
     });
   }, [setClaudeCodeOptions]);
-
-  const handleModelChange = React.useCallback(
-    (modelId: string) => {
-      // modelId 是下拉框的 value（即 modelDefinition.id，如 "claude-sonnet-4-6"）
-      const option = codeModels.find((m) => m.modelId === modelId);
-      if (option) {
-        setCodeModelIds([option.id]);
-        return;
-      }
-      // 逻辑：注册表未就绪时，仍可按 provider:modelId 直接写入选择。
-      setCodeModelIds([`claude-code-cli:${modelId}`]);
-    },
-    [codeModels, setCodeModelIds],
-  );
 
   const containerClassName =
     variant === "inline"
@@ -253,7 +224,7 @@ export default function ClaudeCodeOption({
         ) : null}
         <PromptInputSelect
           value={resolvedModelId}
-          onValueChange={handleModelChange}
+          onValueChange={() => {}}
           disabled={disabled}
         >
           <PromptInputSelectTrigger

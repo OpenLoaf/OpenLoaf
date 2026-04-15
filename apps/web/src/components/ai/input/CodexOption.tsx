@@ -23,7 +23,6 @@ import {
 } from "@/lib/chat/codex-options";
 import { useInstalledCliProviderIds } from "@/hooks/use-cli-tools-installed";
 import { useChatOptions, useChatSession } from "../context";
-import { useMainAgentModel } from "../hooks/use-main-agent-model";
 import {
   PromptInputSelect,
   PromptInputSelectContent,
@@ -234,7 +233,6 @@ export default function CodexOption({
   const { t } = useTranslation("ai");
   const { projectId } = useChatSession();
   const { codexOptions, setCodexOptions } = useChatOptions();
-  const { detail, setCodeModelIds } = useMainAgentModel(projectId);
   useInstalledCliProviderIds();
 
   // 逻辑：从 server 获取 Codex CLI 可用模型列表
@@ -251,45 +249,17 @@ export default function CodexOption({
     }));
   }, [codexModelsQuery.data]);
 
-  // 逻辑：将当前 codeModelId 对齐到 Codex provider 的 modelId（下拉框 value）。
-  const currentCodeModelId = detail?.codeModelIds?.[0] ?? "";
-  const currentModelId = React.useMemo(() => {
-    if (!currentCodeModelId.startsWith("codex-cli:")) return "";
-    return currentCodeModelId.slice("codex-cli:".length).trim();
-  }, [currentCodeModelId]);
-
   const modelOptions = React.useMemo(() => {
     const options = new Map<string, string>();
-    // 优先使用注册表中的模型
     for (const model of codeModels) {
       options.set(model.modelId, model.modelDefinition?.name ?? resolveCodexModelLabel(model.modelId));
     }
-    // 如果当前选择的模型不在列表中，也添加进去（兼容性）
-    if (currentModelId && !options.has(currentModelId)) {
-      options.set(currentModelId, resolveCodexModelLabel(currentModelId));
-    }
     return Array.from(options.entries()).map(([value, label]) => ({ value, label }));
-  }, [codeModels, currentModelId]);
+  }, [codeModels]);
 
   const resolvedModelId = React.useMemo(() => {
-    if (currentModelId && modelOptions.some((item) => item.value === currentModelId)) {
-      return currentModelId;
-    }
     return modelOptions[0]?.value ?? "";
-  }, [currentModelId, modelOptions]);
-
-  const handleModelChange = React.useCallback(
-    (modelId: string) => {
-      const option = codeModels.find((m) => m.modelId === modelId);
-      if (option) {
-        setCodeModelIds([option.id]);
-        return;
-      }
-      // 逻辑：注册表未就绪时，仍可按 provider:modelId 直接写入选择。
-      setCodeModelIds([`codex-cli:${modelId}`]);
-    },
-    [codeModels, setCodeModelIds],
-  );
+  }, [modelOptions]);
 
   const modeOptions = React.useMemo<Array<{ label: string; value: CodexMode }>>(
     () => [
@@ -344,7 +314,7 @@ export default function CodexOption({
         value={resolvedModelId}
         options={modelOptions}
         disabled={disabled}
-        onChange={handleModelChange}
+        onChange={() => {}}
       />
       {showMode ? (
         <OptionSelect

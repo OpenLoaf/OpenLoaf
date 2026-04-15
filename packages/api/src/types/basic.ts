@@ -71,13 +71,16 @@ export type CliToolsConfig = {
 
 export const basicConfigSchema = z.object({
   /**
-   * User's current model source preference. Persists which of the master
-   * agent's two parallel model-id lists (modelLocalIds vs modelCloudIds) is
-   * active in the picker; flipping this switch does not reshape agent config,
-   * it only selects which list the UI and server read from on the next
-   * request.
+   * User's current model source preference ("local" or "cloud").
+   * Determines which model provider pool the chat model is resolved from.
    */
   chatSource: z.enum(["local", "cloud"]),
+  /** Currently selected chat model id (e.g. "qwen:OL-TX-007"). */
+  chatModelId: z.string(),
+  /** Auxiliary model source for translation/summary sub-tasks. */
+  auxModelSource: z.enum(["local", "cloud"]),
+  /** Auxiliary model id for translation/summary sub-tasks. */
+  auxModelId: z.string(),
   /** Chat reasoning mode for master agent. */
   chatThinkingMode: chatThinkingModeSchema,
   activeS3Id: z.string().optional(),

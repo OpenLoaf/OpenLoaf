@@ -81,9 +81,9 @@ function buildModelIdsFromDescriptor(
 /**
  * 从指定 agent 的配置读取模型 ID。
  *
- * 查找顺序：project root。
- * 支持系统 agent（.openloaf/agents/<id>/agent.json）和
- * 动态 agent（.agents/agents/<name>/AGENT.md）。
+ * 注意：master agent 的模型 ID 已迁移到 basic config（chatModelId / chatSource），
+ * 此函数仅用于 sub-agent 的 requiredModelTags 和 codeModelIds 读取。
+ * master 的 chatModelId 直接从请求体获取。
  */
 export function resolveAgentModelIdsFromConfig(input: {
   agentName: string
@@ -97,6 +97,15 @@ export function resolveAgentModelIdsFromConfig(input: {
 
   const effectiveName = resolveEffectiveAgentName(input.agentName)
   const templateTags = getTemplate(effectiveName)?.requiredModelTags as string[] | undefined
+
+  // 逻辑：master agent — 模型 ID 从 basic config 读取。
+  if (effectiveName === 'master') {
+    return {
+      chatModelId: basicConf.chatModelId?.trim() || undefined,
+      chatModelSource,
+      requiredModelTags: templateTags,
+    }
+  }
 
   // 逻辑：构建按优先级排列的搜索路径列表。
   const roots: string[] = []

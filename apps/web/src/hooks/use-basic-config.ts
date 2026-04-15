@@ -16,6 +16,9 @@ import type { BasicConfig, BasicConfigUpdate } from "@openloaf/api/types/basic";
 
 const DEFAULT_BASIC_CONFIG: BasicConfig = {
   chatSource: "local",
+  chatModelId: "",
+  auxModelSource: "local",
+  auxModelId: "",
   chatThinkingMode: "fast",
   activeS3Id: undefined,
   s3AutoUpload: true,

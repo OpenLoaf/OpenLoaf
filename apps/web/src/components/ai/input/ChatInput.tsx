@@ -66,7 +66,6 @@ import ApprovalModeSelector, { type ApprovalMode } from "./ApprovalModeSelector"
 import ChatModeSelector, { type ChatMode } from "./ChatModeSelector";
 import { useInstalledCliProviderIds } from "@/hooks/use-cli-tools-installed";
 import { CLI_TOOLS_META } from "./model-preferences/CliToolsList";
-import { useMainAgentModel } from "../hooks/use-main-agent-model";
 import {
   PromptInput,
   PromptInputButton,
@@ -868,24 +867,16 @@ function ChatInputInner({
   const hasCliTools = installedCliProviderIds.size > 0;
   const hasCodexCli = installedCliProviderIds.has("codex-cli");
   const hasClaudeCodeCli = installedCliProviderIds.has("claude-code-cli");
-  /** Resolve selected CLI tool label for placeholder. */
-  const { detail: mainAgentDetail, setCodeModelIds } = useMainAgentModel(projectId);
-  const selectedCodeModelId = mainAgentDetail?.codeModelIds?.[0] ?? "";
-  const isLegacyCodexSelected = selectedCodeModelId === "codex";
-  const isLegacyClaudeCodeSelected = selectedCodeModelId === "claudeCode";
+  // 逻辑：CLI 工具标签直接根据安装状态推断（不再读 master agent codeModelIds）。
+  const activeCliProvider = useMemo<"codex-cli" | "claude-code-cli" | undefined>(() => {
+    // 非 CLI 模式直接返回
+    if (chatMode !== "cli") return undefined;
+    // CLI 模式下根据已安装的 CLI 工具返回默认值
+    if (hasCodexCli) return "codex-cli";
+    if (hasClaudeCodeCli) return "claude-code-cli";
+    return "codex-cli";
+  }, [chatMode, hasClaudeCodeCli, hasCodexCli]);
   const cliToolLabel = useMemo(() => {
-    if (selectedCodeModelId.startsWith("claude-code-cli:")) {
-      return CLI_TOOLS_META.find((item) => item.id === "claudeCode")?.label ?? selectedCodeModelId;
-    }
-    if (selectedCodeModelId.startsWith("codex-cli:")) {
-      return CLI_TOOLS_META.find((item) => item.id === "codex")?.label ?? selectedCodeModelId;
-    }
-    if (isLegacyClaudeCodeSelected) {
-      return CLI_TOOLS_META.find((item) => item.id === "claudeCode")?.label ?? "Claude Code";
-    }
-    if (isLegacyCodexSelected) {
-      return CLI_TOOLS_META.find((item) => item.id === "codex")?.label ?? "Codex CLI";
-    }
     if (hasClaudeCodeCli) {
       return CLI_TOOLS_META.find((item) => item.id === "claudeCode")?.label ?? "Claude Code";
     }
@@ -893,39 +884,7 @@ function ChatInputInner({
       return CLI_TOOLS_META.find((item) => item.id === "codex")?.label ?? "Codex CLI";
     }
     return CLI_TOOLS_META[0]?.label;
-  }, [hasClaudeCodeCli, hasCodexCli, isLegacyClaudeCodeSelected, isLegacyCodexSelected, selectedCodeModelId]);
-  // 逻辑：根据当前 code model 判断 CLI 工具类型，驱动参数面板展示与请求 metadata。
-  const isCodexCliSelected = useMemo(() => {
-    if (!selectedCodeModelId) return false;
-    return selectedCodeModelId.startsWith("codex-cli:") || isLegacyCodexSelected;
-  }, [isLegacyCodexSelected, selectedCodeModelId]);
-  const isClaudeCodeCliSelected = useMemo(() => {
-    if (!selectedCodeModelId) return false;
-    return selectedCodeModelId.startsWith("claude-code-cli:") || isLegacyClaudeCodeSelected;
-  }, [isLegacyClaudeCodeSelected, selectedCodeModelId]);
-  const activeCliProvider = useMemo<"codex-cli" | "claude-code-cli" | undefined>(() => {
-    // 优先根据已选择的 code model 判断
-    if (isCodexCliSelected) return "codex-cli";
-    if (isClaudeCodeCliSelected) return "claude-code-cli";
-    // 非 CLI 模式直接返回
-    if (chatMode !== "cli") return undefined;
-    // CLI 模式下，即使未选择具体模型，也根据已安装的 CLI 工具返回默认值
-    // 优先返回 Codex（保持向后兼容）
-    if (hasCodexCli) return "codex-cli";
-    if (hasClaudeCodeCli) return "claude-code-cli";
-    // 如果都未安装，仍返回 codex-cli 作为默认值（避免 UI 闪烁）
-    return "codex-cli";
-  }, [chatMode, hasClaudeCodeCli, hasCodexCli, isClaudeCodeCliSelected, isCodexCliSelected]);
-  useEffect(() => {
-    // 逻辑：兼容历史错误值（codex/claudeCode），自动迁移到 provider:modelId。
-    if (selectedCodeModelId === "codex") {
-      setCodeModelIds(["codex-cli:gpt-5.2-codex"]);
-      return;
-    }
-    if (selectedCodeModelId === "claudeCode") {
-      setCodeModelIds(["claude-code-cli:claude-sonnet-4-6"]);
-    }
-  }, [selectedCodeModelId, setCodeModelIds]);
+  }, [hasClaudeCodeCli, hasCodexCli]);
   /** Global online-search switch state. */
   const [globalOnlineSearchEnabled, setGlobalOnlineSearchEnabled] =
     useState(false);
@@ -1076,7 +1035,7 @@ function ChatInputInner({
     chatMode === "cli" && activeCliProvider === "claude-code-cli";
   // 逻辑：CLI 直连且选中 Codex 时，也要携带 codexOptions 元数据。
   const codexOptionsEnabled =
-    resolvedIsCodexProvider || (chatMode === "cli" && isCodexCliSelected);
+    resolvedIsCodexProvider || (chatMode === "cli" && activeCliProvider === "codex-cli");
   // 模型声明图片生成时显示图片输出选项。
   const showImageOutputOptions = resolvedCanImageGeneration;
   const allowAll = Boolean(canAttachAll);
@@ -1086,7 +1045,7 @@ function ChatInputInner({
     canImageGeneration: resolvedCanImageGeneration,
     isCodexProvider: codexOptionsEnabled,
     selectedCliProvider: chatMode === "cli" ? activeCliProvider : undefined,
-    selectedCliModelId: chatMode === "cli" ? selectedCodeModelId : undefined,
+    selectedCliModelId: undefined,
   });
 
   const isLoading = status === "submitted" || status === "streaming";

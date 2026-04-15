@@ -22,7 +22,6 @@ import { useEditorRef, usePluginOption } from 'platejs/react';
 
 import { aiChatPlugin } from '@/components/editor/plugins/ai-kit';
 import { useBasicConfig } from '@/hooks/use-basic-config';
-import { useMainAgentModel } from '@/components/ai/hooks/use-main-agent-model';
 import { CLIENT_HEADERS } from '@/lib/client-headers';
 import { resolveServerUrl } from '@/utils/server-url';
 
@@ -52,9 +51,8 @@ export const useChat = () => {
   const editor = useEditorRef();
   const options = usePluginOption(aiChatPlugin, 'chatOptions');
   const { basic } = useBasicConfig();
-  const { modelIds: masterModelIds } = useMainAgentModel();
   const chatModelIdRef = React.useRef<string | null>(
-    masterModelIds[0]?.trim() || null
+    (basic.chatModelId ?? '').trim() || null
   );
   const chatModelSourceRef = React.useRef<string>('local');
 
@@ -91,11 +89,10 @@ export const useChat = () => {
           (explicitChatModelId ?? refChatModelId)?.trim() || undefined;
         const normalizedChatModelSource =
           (explicitChatModelSource ?? refChatModelSource)?.trim() || undefined;
-        // 逻辑：masterAgent 尚未加载或用户从未选过模型时，chatModelId 为空。
-        // 必须在前端抛友好错误，否则后端 resolveChatModelFromBody 会返回晦涩的 500。
+        // 逻辑：chatModelId 尚未设置时，抛友好错误。
         if (!normalizedChatModelId) {
           throw new Error(
-            'AI 模型尚未就绪，请在设置中为主 Agent 选择聊天模型后再试。',
+            'AI 模型尚未就绪，请在设置中选择聊天模型后再试。',
           );
         }
         const { chatModelId: _ignored, chatModelSource: _ignoredSource, ...restBodyOptions } =
@@ -202,10 +199,10 @@ export const useChat = () => {
   });
 
   React.useEffect(() => {
-    // 中文注释：editor chat 与主 chat 共享 master agent 的当前模型选择。
-    const normalized = masterModelIds[0]?.trim() ?? '';
+    // 中文注释：editor chat 与主 chat 共享 basic config 的当前模型选择。
+    const normalized = (basic.chatModelId ?? '').trim();
     chatModelIdRef.current = normalized || null;
-  }, [masterModelIds]);
+  }, [basic.chatModelId]);
 
   React.useEffect(() => {
     // 中文注释：仅允许 local/cloud，其他值默认本地。

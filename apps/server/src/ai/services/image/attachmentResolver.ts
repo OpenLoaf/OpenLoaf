@@ -855,7 +855,12 @@ export async function getFilePreview(input: {
   // PDF 直接返回原文件内容，图片继续压缩预览。
   if (lowerPath.endsWith(".pdf")) {
     const buffer = await fs.readFile(filePath);
-    return { kind: "ready", buffer, mediaType: "application/pdf", metadata: null };
+    return {
+      kind: "ready",
+      buffer,
+      mediaType: "application/pdf",
+      metadata: null,
+    };
   }
   // 逻辑：视频/音频文件直接返回原内容，不做压缩处理。
   const binaryMimeMap: Record<string, string> = {
@@ -873,7 +878,12 @@ export async function getFilePreview(input: {
   const binaryMime = binaryMimeMap[fileExt];
   if (binaryMime) {
     const buffer = await fs.readFile(filePath);
-    return { kind: "ready", buffer, mediaType: binaryMime, metadata: null };
+    return {
+      kind: "ready",
+      buffer,
+      mediaType: binaryMime,
+      metadata: null,
+    };
   }
   const format = resolveImageFormat("application/octet-stream", filePath);
   if (!format || !isSupportedImageMime(format.mediaType)) return null;

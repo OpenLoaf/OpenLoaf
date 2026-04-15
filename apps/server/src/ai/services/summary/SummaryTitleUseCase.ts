@@ -12,13 +12,8 @@ import { UI_MESSAGE_STREAM_HEADERS } from "ai";
 import type { OpenLoafUIMessage } from "@openloaf/api/types/message";
 import type { AiExecuteRequest } from "@/ai/services/chat/types";
 import { resolveChatModel } from "@/ai/models/resolveChatModel";
-import { readAgentJson, resolveAgentDir } from "@/ai/shared/defaultAgentResolver";
 import { toSseChunk } from "@/ai/services/chat/chatStreamUtils";
 import { readBasicConf } from "@/modules/settings/openloafConfStore";
-import {
-  getProjectRootPath,
-} from "@openloaf/api/services/vfsService";
-import { getOpenLoafRootDir } from "@openloaf/config";
 import { initRequestContext } from "@/ai/services/chat/chatStreamHelpers";
 import { replaceRelativeFileParts } from "@/ai/services/image/attachmentResolver";
 import { loadMessageChain } from "@/ai/services/chat/repositories/messageChainLoader";
@@ -117,24 +112,10 @@ export class SummaryTitleUseCase {
     const promptChain = stripPromptParts([...modelMessages, promptMessage]);
 
     try {
-      // 逻辑：从 master agent 配置读取模型。
+      // 逻辑：从 basic config 读取模型（不再读 master agent.json）。
       const basicConf = readBasicConf()
-      const chatModelSource = basicConf.chatSource === 'cloud' ? 'cloud' as const : 'local' as const
-      let chatModelId: string | undefined
-      const roots: string[] = []
-      if (input.request.projectId) {
-        const pr = getProjectRootPath(input.request.projectId)
-        if (pr) roots.push(pr)
-      }
-      const globalRoot = getOpenLoafRootDir()
-      if (!roots.includes(globalRoot)) roots.push(globalRoot)
-      for (const rootPath of roots) {
-        const descriptor = readAgentJson(resolveAgentDir(rootPath, 'master'))
-        if (!descriptor) continue
-        const modelIds = chatModelSource === 'cloud' ? descriptor.modelCloudIds : descriptor.modelLocalIds
-        chatModelId = Array.isArray(modelIds) ? modelIds[0]?.trim() || undefined : undefined
-        if (chatModelId) break
-      }
+      const chatModelSource = basicConf.chatSource === 'cloud' ? ('cloud' as const) : ('local' as const)
+      const chatModelId = basicConf.chatModelId?.trim() || undefined
 
       const resolved = await resolveChatModel({
         chatModelId,

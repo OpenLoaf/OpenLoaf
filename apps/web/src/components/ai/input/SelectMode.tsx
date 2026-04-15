@@ -17,7 +17,6 @@ import { SaasLoginDialog } from '@/components/auth/SaasLoginDialog'
 import { useModelPreferences } from './model-preferences/useModelPreferences'
 import { ModelPreferencesPanel } from './model-preferences/ModelPreferencesPanel'
 
-import { CLI_TOOLS_META } from './model-preferences/CliToolsList'
 import { useOptionalChatSession } from '../context'
 import { useAppView } from '@/hooks/use-app-view'
 import { PromptInputButton } from '@/components/ai-elements/prompt-input'
@@ -57,25 +56,7 @@ function SelectModeInner({
   const tabId = chatSession?.tabId ?? chatSessionId
   const isIconTrigger = triggerVariant === 'icon'
 
-  // CLI 模式下显示选中工具的 icon
-  const cliToolMeta = useMemo(() => {
-    if (chatMode !== 'cli') return null
-    const selectedCodeId = prefs.preferredCodeIds[0] ?? ''
-    if (selectedCodeId === 'codex') {
-      return CLI_TOOLS_META.find((item) => item.id === 'codex') ?? CLI_TOOLS_META[0]
-    }
-    if (selectedCodeId === 'claudeCode') {
-      return CLI_TOOLS_META.find((item) => item.id === 'claudeCode') ?? CLI_TOOLS_META[0]
-    }
-    if (selectedCodeId.startsWith('codex-cli:')) {
-      return CLI_TOOLS_META.find((item) => item.id === 'codex') ?? CLI_TOOLS_META[0]
-    }
-    if (selectedCodeId.startsWith('claude-code-cli:')) {
-      return CLI_TOOLS_META.find((item) => item.id === 'claudeCode') ?? CLI_TOOLS_META[0]
-    }
-    return CLI_TOOLS_META[0]
-  }, [chatMode, prefs.preferredCodeIds])
-  const CliIcon = cliToolMeta?.icon
+  // CLI 模式下不显示工具 icon（codeModelIds 已移除）
   const AgentIcon = prefs.isCloudSource ? Cloud : HardDrive
 
   // 逻辑：Popover 打开时刷新配置和云端模型
@@ -137,7 +118,7 @@ function SelectModeInner({
       )}
       aria-label={t('mode.customizeSettings')}
     >
-      {CliIcon ? <CliIcon size={16} className="h-4 w-4" /> : <AgentIcon className="h-4 w-4" />}
+      <AgentIcon className="h-4 w-4" />
     </PromptInputButton>
   ) : (
     <PromptInputButton
@@ -151,7 +132,7 @@ function SelectModeInner({
         className,
       )}
     >
-      {CliIcon ? <CliIcon size={14} className="h-3.5 w-3.5" /> : <AgentIcon className="h-3.5 w-3.5" />}
+      <AgentIcon className="h-3.5 w-3.5" />
       <span className="truncate">{t('mode.customizeSettings')}</span>
     </PromptInputButton>
   )
@@ -172,7 +153,7 @@ function SelectModeInner({
         )}
         aria-label={t('mode.customizeSettings')}
       >
-        {CliIcon ? <CliIcon size={16} className="h-4 w-4" /> : <AgentIcon className="h-4 w-4" />}
+        <AgentIcon className="h-4 w-4" />
       </PromptInputButton>
     ) : (
       <PromptInputButton
@@ -187,7 +168,7 @@ function SelectModeInner({
           className,
         )}
       >
-        {CliIcon ? <CliIcon size={14} className="h-3.5 w-3.5" /> : <AgentIcon className="h-3.5 w-3.5" />}
+        <AgentIcon className="h-3.5 w-3.5" />
         <span className="truncate">{t('mode.customizeSettings')}</span>
       </PromptInputButton>
     )

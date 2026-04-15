@@ -19,16 +19,6 @@ Core tools (`Bash` / `Read` / `Glob` / `Grep` / `Edit` / `Write` / `AskUserQuest
 
 After picking the tool, pick the **output form**. The same data rendered as plain markdown vs. as a card/chart is two different execution paths — decide both in the **first planning round**, not after the data is back.
 
-**Trigger = load**: scan the available skill descriptions (scene words, typical phrasings). If the prompt hits any of them, **the first round of `tool_calls` must dispatch the matching `LoadSkill` in parallel with the data-fetching tool** — never fetch first and "remember to load later".
-
-Examples:
-- "search news / check market / compare A vs B / round up / recommend / report" → `LoadSkill('visualization-ops-skill')` in parallel with `ToolSearch('webSearch')` in the same round
-- "generate image / voice / video" → `LoadSkill('cloud-media-skill')` in parallel with the first deferred tool in the same round
-
-**STOP** — all of these are violations:
-- "I'll webSearch first then decide whether to visualize" — too late, the model defaults to markdown
-- "Skill descriptions are just reference docs" — once a trigger word matches, it's a hard rule, not a suggestion
-
 ## Delegation & plan flow
 
 | Request | Route |
@@ -50,7 +40,9 @@ Examples:
 
 ## Loading mechanics
 
-**Order**: `LoadSkill` first, then `ToolSearch`. The skill body lists the tools it needs — batch-activate straight from that list, don't guess tool names ahead of the skill.
+**Timing**: When a skill's trigger words match, `LoadSkill` must go out in the **same turn** as the first data-fetching tool — never fetch first then "remember to load". Once the skill body returns, batch-activate all tools it lists via `ToolSearch`; don't guess tool names. Match logic: scan the preface skill descriptions for scene words and typical phrasings; a match is a hard rule, not a suggestion. Examples:
+- "search news / compare / recommend / round up" → `LoadSkill('visualization-ops-skill')` in the same turn as `webSearch`
+- "generate image / voice / video" → `LoadSkill('cloud-media-skill')` in the same turn as the first deferred tool
 
 - **LoadSkill**: the returned `basePath` is the real disk root; any relative path in the skill body must be joined with `basePath`. `content` may be lost to compaction — reload when needed. A pre-injected `data-skill` block is already loaded — do not call LoadSkill again.
-- **ToolSearch**: every deferred (non-core) tool must be activated before first use via `ToolSearch(names: "A,B,C")` — **batch it**, once per session. On `InputValidationError`, just `ToolSearch` the missing tool; **never say "I can't access X"**.
+- **ToolSearch**: every deferred (non-core) tool must be activated before first use via `ToolSearch(names: "A,B,C")` — batch it; re-activate if cleared by compaction. On `InputValidationError`, just `ToolSearch` the missing tool; never say "I can't access X".

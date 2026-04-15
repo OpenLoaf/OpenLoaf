@@ -15,7 +15,6 @@ import { useBasicConfig } from "@/hooks/use-basic-config";
 import { useCloudModels } from "@/hooks/use-cloud-models";
 import { useInstalledCliProviderIds } from "@/hooks/use-cli-tools-installed";
 import { buildChatModelOptions, normalizeChatModelSource } from "@/lib/provider-models";
-import { useMainAgentModel } from "./use-main-agent-model";
 import {
   supportsCode,
   supportsImageInput,
@@ -24,64 +23,47 @@ import {
 
 /**
  * Resolve model selection state for chat.
- * @param projectId Optional project id for resolving project-scoped master agent.
+ * Reads directly from basic.chatModelId instead of per-agent config.
  */
-export function useChatModelSelection(projectId?: string) {
-  const { basic } = useBasicConfig();
+export function useChatModelSelection() {
+  const { basic, setBasic } = useBasicConfig();
   const { providerItems } = useSettingsValues();
   const { models: cloudModels } = useCloudModels();
   const installedCliProviderIds = useInstalledCliProviderIds();
-  const {
-    modelIds: masterModelIds,
-    detail: masterDetail,
-    setModelIds,
-  } = useMainAgentModel(projectId);
   const chatModelSource = normalizeChatModelSource(basic.chatSource);
   const modelOptions = React.useMemo(
     () => buildChatModelOptions(chatModelSource, providerItems, cloudModels, installedCliProviderIds),
-    [chatModelSource, providerItems, cloudModels, installedCliProviderIds]
+    [chatModelSource, providerItems, cloudModels, installedCliProviderIds],
   );
-  const normalizedMasterIds = React.useMemo(
-    () =>
-      Array.from(
-        new Set(
-          (Array.isArray(masterModelIds) ? masterModelIds : [])
-            .map((id) => id.trim())
-            .filter((id) => id.length > 0),
-        ),
-      ),
-    [masterModelIds],
-  );
-  const { selectedModel, selectedModelId, isStaleMasterId } = React.useMemo(() => {
-    for (const id of normalizedMasterIds) {
-      const option = modelOptions.find((item) => item.id === id);
+
+  const { selectedModel, selectedModelId, isStaleId } = React.useMemo(() => {
+    const storedId = (basic.chatModelId ?? "").trim();
+    if (storedId) {
+      const option = modelOptions.find((item) => item.id === storedId);
       if (option) {
-        return { selectedModel: option, selectedModelId: id, isStaleMasterId: false };
+        return { selectedModel: option, selectedModelId: storedId, isStaleId: false };
       }
+      // Stored id not found in current options — stale, needs self-heal.
     }
-    // 无显式选择时 fallback 到第一个可用模型（已删除 auto 模式）。
-    // 同时记录 isStaleMasterId = true，便于在 effect 中自愈回写到 master agent，
-    // 避免后续 send 仍然使用 in-memory fallback 而 master 文件里留着陈旧 id。
+    // Fallback to first available model.
     const first = modelOptions[0];
     if (first) {
       return {
         selectedModel: first,
         selectedModelId: first.id,
-        isStaleMasterId: normalizedMasterIds.length > 0,
+        isStaleId: storedId.length > 0,
       };
     }
-    return { selectedModel: undefined, selectedModelId: "", isStaleMasterId: false };
-  }, [modelOptions, normalizedMasterIds]);
-  // 自愈：旧格式的 modelCloudIds（如 v3 迁移前的 `deepseek:deepseek-chat`）在
-  // 新的 modelOptions 里找不到匹配项时，静默回写到 master agent。否则 Chat.tsx
-  // 每次发消息都会用 fallback id，而 picker 看似选中的 model 完全不会生效。
-  // 只在 masterDetail 真正就绪后回写，防止启动期空数据误伤。
+    return { selectedModel: undefined, selectedModelId: "", isStaleId: false };
+  }, [basic.chatModelId, modelOptions]);
+
+  // Self-heal: if stored chatModelId is stale, write back the fallback.
   React.useEffect(() => {
-    if (!masterDetail) return;
-    if (!isStaleMasterId) return;
+    if (!isStaleId) return;
     if (!selectedModelId) return;
-    setModelIds([selectedModelId]);
-  }, [masterDetail, isStaleMasterId, selectedModelId, setModelIds]);
+    void setBasic({ chatModelId: selectedModelId });
+  }, [isStaleId, selectedModelId, setBasic]);
+
   const isAutoModel = !selectedModel;
   const isCodeModel = supportsCode(selectedModel);
   const canAttachAll = isAutoModel || supportsToolCall(selectedModel) || isCodeModel;

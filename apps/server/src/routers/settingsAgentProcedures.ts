@@ -186,11 +186,7 @@ export const agentProcedures = {
         ? items.filter((item) => item.scope === scopeFilter)
         : items
       // 过滤系统 Agent — 用户只能看到自己创建的 Agent。
-      // 例外：`includeSystem: true` 时保留 master，供 `useMainAgentModel` 等
-      // 模型选择路径读取当前主助手配置。
-      const userOnly = input?.includeSystem
-        ? scopeFiltered
-        : scopeFiltered.filter((item) => !item.isSystem)
+      const userOnly = scopeFiltered.filter((item) => !item.isSystem)
       if (input?.projectId) {
         return userOnly.filter(
           (item) =>
@@ -320,36 +316,16 @@ export const agentProcedures = {
             systemPrompt = template.systemPrompt
           }
         }
-        const modelLocalIds = Array.isArray(descriptor.modelLocalIds)
-          ? descriptor.modelLocalIds
-          : []
-        const modelCloudIds = Array.isArray(descriptor.modelCloudIds)
-          ? descriptor.modelCloudIds
-          : []
-        const auxiliaryModelLocalIds = Array.isArray(
-          descriptor.auxiliaryModelLocalIds,
-        )
-          ? descriptor.auxiliaryModelLocalIds
-          : []
-        const auxiliaryModelCloudIds = Array.isArray(
-          descriptor.auxiliaryModelCloudIds,
-        )
-          ? descriptor.auxiliaryModelCloudIds
-          : []
-        const codeModelIds = Array.isArray(descriptor.codeModelIds)
-          ? descriptor.codeModelIds
-          : []
         return {
           name: descriptor.name,
           description: descriptor.description || "未提供",
           icon: descriptor.icon || "bot",
-          modelLocalIds,
-          modelCloudIds,
-          auxiliaryModelSource:
-            descriptor.auxiliaryModelSource === "cloud" ? "cloud" : "local",
-          auxiliaryModelLocalIds,
-          auxiliaryModelCloudIds,
-          codeModelIds,
+          modelLocalIds: [],
+          modelCloudIds: [],
+          auxiliaryModelSource: "local",
+          auxiliaryModelLocalIds: [],
+          auxiliaryModelCloudIds: [],
+          codeModelIds: [],
           toolIds: descriptor.toolIds || [],
           skills: descriptor.skills || [],
           allowSubAgents: descriptor.allowSubAgents ?? false,
@@ -368,12 +344,12 @@ export const agentProcedures = {
         name: config.name,
         description: config.description,
         icon: config.icon,
-        modelLocalIds: config.modelLocalIds,
-        modelCloudIds: config.modelCloudIds,
-        auxiliaryModelSource: config.auxiliaryModelSource,
-        auxiliaryModelLocalIds: config.auxiliaryModelLocalIds,
-        auxiliaryModelCloudIds: config.auxiliaryModelCloudIds,
-        codeModelIds: config.codeModelIds ?? [],
+        modelLocalIds: [],
+        modelCloudIds: [],
+        auxiliaryModelSource: "local",
+        auxiliaryModelLocalIds: [],
+        auxiliaryModelCloudIds: [],
+        codeModelIds: [],
         toolIds: config.toolIds,
         skills: config.skills,
         allowSubAgents: config.allowSubAgents,
@@ -399,12 +375,6 @@ export const agentProcedures = {
             name: input.name,
             description: input.description,
             icon: input.icon,
-            modelLocalIds: input.modelLocalIds,
-            modelCloudIds: input.modelCloudIds,
-            auxiliaryModelSource: input.auxiliaryModelSource,
-            auxiliaryModelLocalIds: input.auxiliaryModelLocalIds,
-            auxiliaryModelCloudIds: input.auxiliaryModelCloudIds,
-            codeModelIds: input.codeModelIds,
             toolIds: input.toolIds,
             skills: input.skills,
             allowSubAgents: input.allowSubAgents,
@@ -433,12 +403,6 @@ export const agentProcedures = {
           name: input.name,
           description: input.description,
           icon: input.icon,
-          modelLocalIds: input.modelLocalIds,
-          modelCloudIds: input.modelCloudIds,
-          auxiliaryModelSource: input.auxiliaryModelSource,
-          auxiliaryModelLocalIds: input.auxiliaryModelLocalIds,
-          auxiliaryModelCloudIds: input.auxiliaryModelCloudIds,
-          codeModelIds: input.codeModelIds,
           toolIds: input.toolIds,
           skills: input.skills,
           allowSubAgents: input.allowSubAgents,
@@ -467,12 +431,6 @@ export const agentProcedures = {
           name: input.name,
           description: input.description,
           icon: input.icon,
-          modelLocalIds: input.modelLocalIds,
-          modelCloudIds: input.modelCloudIds,
-          auxiliaryModelSource: input.auxiliaryModelSource,
-          auxiliaryModelLocalIds: input.auxiliaryModelLocalIds,
-          auxiliaryModelCloudIds: input.auxiliaryModelCloudIds,
-          codeModelIds: input.codeModelIds,
           toolIds: input.toolIds,
           skills: input.skills,
           allowSubAgents: input.allowSubAgents,
@@ -502,12 +460,6 @@ export const agentProcedures = {
         name: input.name,
         description: input.description,
         icon: input.icon,
-        modelLocalIds: input.modelLocalIds,
-        modelCloudIds: input.modelCloudIds,
-        auxiliaryModelSource: input.auxiliaryModelSource,
-        auxiliaryModelLocalIds: input.auxiliaryModelLocalIds,
-        auxiliaryModelCloudIds: input.auxiliaryModelCloudIds,
-        codeModelIds: input.codeModelIds,
         toolIds: input.toolIds,
         skills: input.skills,
         allowSubAgents: input.allowSubAgents,
@@ -564,12 +516,6 @@ export const agentProcedures = {
         name: config.name,
         description: config.description,
         icon: config.icon,
-        modelLocalIds: config.modelLocalIds,
-        modelCloudIds: config.modelCloudIds,
-        auxiliaryModelSource: config.auxiliaryModelSource,
-        auxiliaryModelLocalIds: config.auxiliaryModelLocalIds,
-        auxiliaryModelCloudIds: config.auxiliaryModelCloudIds,
-        codeModelIds: config.codeModelIds,
         toolIds: config.toolIds,
         skills: config.skills,
         allowSubAgents: config.allowSubAgents,

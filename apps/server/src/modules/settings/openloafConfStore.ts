@@ -44,6 +44,9 @@ type CliToolsConfig = BasicConf["cliTools"];
 /** Default basic config values. */
 const DEFAULT_BASIC_CONF: BasicConf = {
   chatSource: "local",
+  chatModelId: "",
+  auxModelSource: "local",
+  auxModelId: "",
   chatThinkingMode: "fast",
   activeS3Id: undefined,
   s3AutoUpload: true,
@@ -151,6 +154,24 @@ function normalizeBasicConf(raw?: Partial<BasicConf>, fallback?: Partial<BasicCo
       : fallbackSource.chatSource === "cloud" || fallbackSource.chatSource === "local"
         ? fallbackSource.chatSource
         : DEFAULT_BASIC_CONF.chatSource;
+  const chatModelId =
+    typeof source.chatModelId === "string"
+      ? source.chatModelId
+      : typeof fallbackSource.chatModelId === "string"
+        ? fallbackSource.chatModelId
+        : DEFAULT_BASIC_CONF.chatModelId;
+  const auxModelSource: ChatModelSource =
+    source.auxModelSource === "cloud" || source.auxModelSource === "local"
+      ? source.auxModelSource
+      : fallbackSource.auxModelSource === "cloud" || fallbackSource.auxModelSource === "local"
+        ? fallbackSource.auxModelSource
+        : DEFAULT_BASIC_CONF.auxModelSource;
+  const auxModelId =
+    typeof source.auxModelId === "string"
+      ? source.auxModelId
+      : typeof fallbackSource.auxModelId === "string"
+        ? fallbackSource.auxModelId
+        : DEFAULT_BASIC_CONF.auxModelId;
   const chatThinkingMode =
     source.chatThinkingMode === "deep" || source.chatThinkingMode === "fast"
       ? source.chatThinkingMode
@@ -383,6 +404,9 @@ function normalizeBasicConf(raw?: Partial<BasicConf>, fallback?: Partial<BasicCo
 
   return {
     chatSource,
+    chatModelId,
+    auxModelSource,
+    auxModelId,
     chatThinkingMode,
     activeS3Id,
     s3AutoUpload,

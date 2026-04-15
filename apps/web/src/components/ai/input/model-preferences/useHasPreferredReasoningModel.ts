@@ -18,19 +18,16 @@ import {
   buildChatModelOptions,
   normalizeChatModelSource,
 } from '@/lib/provider-models'
-import { useMainAgentModel } from '@/components/ai/hooks/use-main-agent-model'
 
 /**
  * 轻量 hook：判断当前偏好的聊天模型中是否包含推理模型。
  * 不包含写入逻辑和副作用，仅做只读计算。
- * @param projectId Optional project id for resolving project-scoped master agent.
  */
-export function useHasPreferredReasoningModel(projectId?: string): boolean {
+export function useHasPreferredReasoningModel(): boolean {
   const { providerItems } = useSettingsValues()
   const { models: cloudModels } = useCloudModels()
   const installedCliProviderIds = useInstalledCliProviderIds()
   const { basic } = useBasicConfig()
-  const { modelIds: masterModelIds } = useMainAgentModel(projectId)
 
   const chatModelSource = normalizeChatModelSource(basic.chatSource)
 
@@ -41,21 +38,13 @@ export function useHasPreferredReasoningModel(projectId?: string): boolean {
       cloudModels,
       installedCliProviderIds,
     )
-    const normalizedIds = Array.from(
-      new Set(
-        (Array.isArray(masterModelIds) ? masterModelIds : [])
-          .map((id) => id.trim())
-          .filter((id) => id.length > 0),
-      ),
-    )
 
-    // 无显式选择时 fallback 到第一个模型（已删除 auto 模式）。
-    const effectiveIds =
-      normalizedIds.length > 0
-        ? normalizedIds
-        : chatModels[0]
-          ? [chatModels[0].id]
-          : []
+    const storedId = (basic.chatModelId ?? '').trim()
+    const effectiveIds = storedId
+      ? [storedId]
+      : chatModels[0]
+        ? [chatModels[0].id]
+        : []
 
     const selected = effectiveIds
       .map((id) => chatModels.find((m) => m.id === id))
@@ -70,7 +59,7 @@ export function useHasPreferredReasoningModel(projectId?: string): boolean {
     chatModelSource,
     cloudModels,
     installedCliProviderIds,
-    masterModelIds,
+    basic.chatModelId,
     providerItems,
   ])
 }

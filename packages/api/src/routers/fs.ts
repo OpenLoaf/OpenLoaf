@@ -14,6 +14,7 @@ import { createHash } from "node:crypto";
 import sharp from "sharp";
 import ffmpeg from "fluent-ffmpeg";
 import { fileURLToPath } from "node:url";
+import { TRPCError } from "@trpc/server";
 import { t, shieldedProcedure } from "../../generated/routers/helpers/createRouter";
 import { convertDocxFileToSfdt } from "../services/docxSfdtService";
 import { resolveFilePathFromUri, resolveScopedPath, resolveScopedRootPath, toRelativePath, toFileUriWithoutEncoding } from "../services/vfsService";
@@ -228,12 +229,24 @@ async function resolveBoardFsScope(
  * absolute file paths, which bypass project/board sandbox checks — the session
  * path itself is already sandboxed to the session's asset dir by construction,
  * so this is the correct place to centralize the template expansion.
+ *
+ * Fail-fast contract: when the path contains `${CURRENT_CHAT_DIR}` but the
+ * caller forgot to pass `sessionId`, throw BAD_REQUEST immediately with a
+ * clear message — silently leaving the template unresolved would cause a
+ * misleading ENOENT downstream.
  */
 async function applyChatDirTemplate(
   scope: BoardFsScope,
   target: string,
 ): Promise<string> {
   if (!target.includes("${CURRENT_CHAT_DIR}")) return target;
+  if (!scope.sessionId) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message:
+        "fs: uri 包含 ${CURRENT_CHAT_DIR} 模板，但调用未带 sessionId。请在 tRPC input 中同时提供 sessionId 才能解析模板到会话资源目录。",
+    });
+  }
   return expandChatDirTemplate(target, scope.sessionId);
 }
 
@@ -745,7 +758,13 @@ export const fsRouter = t.router({
   /** Read a text file. */
   readFile: shieldedProcedure.input(fsUriSchema).query(async ({ input }) => {
     const resolvedScope = await resolveFsReadScopeAsync(input, input.uri);
-    if (!resolvedScope) return { content: "" };
+    if (!resolvedScope) {
+      // scope 解析失败（项目已删除等）等同于找不到文件，显式抛错而不是返回空内容。
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: `fs.readFile: 无法解析文件作用域 (uri=${input.uri})`,
+      });
+    }
     const { fullPath } = resolvedScope;
     try {
       const stat = await fs.stat(fullPath);
@@ -756,9 +775,13 @@ export const fsRouter = t.router({
       const content = await fs.readFile(fullPath, "utf-8");
       return { content };
     } catch (error) {
-      // 中文注释：文件不存在时返回空内容，避免首次读取落盘失败。
+      // ENOENT 一律抛 NOT_FOUND。需要把"文件不存在"当成空内容的调用方（初始化桌面、
+      // 首次打开 board meta 等）自己在外层 try/catch 捕获。
       if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-        return { content: "" };
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `fs.readFile: 文件不存在 (uri=${input.uri})`,
+        });
       }
       throw error;
     }
@@ -768,7 +791,10 @@ export const fsRouter = t.router({
   readBinary: shieldedProcedure.input(fsUriSchema).query(async ({ input }) => {
     const resolvedScope = await resolveFsReadScopeAsync(input, input.uri);
     if (!resolvedScope) {
-      return { contentBase64: "", mime: "application/octet-stream" };
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: `fs.readBinary: 无法解析文件作用域 (uri=${input.uri})`,
+      });
     }
     const { fullPath } = resolvedScope;
     const ext = path.extname(fullPath).replace(/^\./, "");
@@ -777,10 +803,11 @@ export const fsRouter = t.router({
       // 中文注释：二进制文件转 base64 供前端 dataUrl 预览。
       return { contentBase64: buffer.toString("base64"), mime: getMimeByExt(ext) };
     } catch (error) {
-      // 中文注释：文件不存在时返回空内容，便于前端自行初始化。
       if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-        console.warn(`[fs.readBinary] file not found: ${fullPath} (uri: ${input.uri})`);
-        return { contentBase64: "", mime: getMimeByExt(ext) };
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `fs.readBinary: 文件不存在 (uri=${input.uri})`,
+        });
       }
       throw error;
     }

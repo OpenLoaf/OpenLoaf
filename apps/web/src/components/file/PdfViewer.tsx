@@ -62,6 +62,7 @@ export default function PdfViewer({
     kind: "too-large";
     sizeBytes?: number;
   } | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string>("");
   const [numPages, setNumPages] = useState(0);
   const [scale, setScale] = useState(1.1);
   const removeStackItem = useLayoutState((s) => s.removeStackItem);
@@ -80,6 +81,7 @@ export default function PdfViewer({
       const run = async () => {
         setStatus("loading");
         setPreviewError(null);
+        setErrorMessage("");
         try {
           const blob = await fetchBlobFromUri(uri, { projectId, sessionId });
           const buffer = await blob.arrayBuffer();
@@ -91,6 +93,11 @@ export default function PdfViewer({
           if (isPreviewTooLargeError(error)) {
             setPreviewError({ kind: "too-large", sizeBytes: error.sizeBytes });
           }
+          const detail = error instanceof Error ? error.message : String(error);
+          // 暴露真实错误（fetch 状态 / too-large / 网络错误），避免用户只看到「PDF 预览失败」
+          // 的模糊提示。react-pdf 自身的解析失败由 Document.onLoadError 另行捕获。
+          setErrorMessage(detail || "PDF 获取失败");
+          console.error("[PdfViewer] fetch failed", { uri, projectId, sessionId, error });
           setData(null);
           setStatus("error");
         }
@@ -102,6 +109,7 @@ export default function PdfViewer({
     }
     setData(null);
     setStatus("error");
+    setErrorMessage(`不支持的 URI scheme: ${uri}`);
     setPreviewError(null);
     return;
   }, [projectId, sessionId, uri]);
@@ -195,7 +203,7 @@ export default function PdfViewer({
         error={status === "error"}
         tooLarge={previewError?.kind === "too-large"}
         errorMessage="PDF 预览失败"
-        errorDescription="请检查文件格式或权限后重试。"
+        errorDescription={errorMessage || "请检查文件格式或权限后重试。"}
       >
       <div
         className="flex-1 overflow-auto p-4"
@@ -220,6 +228,14 @@ export default function PdfViewer({
               loading={<div className="text-sm text-muted-foreground">加载中…</div>}
               onLoadSuccess={(info) => {
                 setNumPages(info.numPages);
+              }}
+              onLoadError={(error) => {
+                // 扫描件/损坏的 PDF 会在 pdf.js 解析阶段才出错，此处捕获后转入 error 态
+                // 并把真实异常带到 UI，避免只看到空白文档。
+                const detail = error instanceof Error ? error.message : String(error);
+                console.error("[PdfViewer] pdf.js parse failed", { uri, error });
+                setErrorMessage(detail || "PDF 解析失败");
+                setStatus("error");
               }}
             >
               {Array.from({ length: numPages || 0 }, (_, index) => (

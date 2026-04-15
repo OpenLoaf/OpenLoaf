@@ -286,7 +286,9 @@ export default function MessageHuman({
     <Message from="user" className={cn("max-w-[88%] min-w-0", className)}>
       <MessageContent
         className={cn(
-          "max-h-64 overflow-x-hidden overflow-y-auto show-scrollbar border p-3 shadow-none",
+          // max-h-[60vh] 而非 max-h-64 — 让多附件/长文消息有足够高度显示完整内容，
+          // 仍保留滚动条兜底极端长消息；show-scrollbar 保证用户看见滚动条提示可滚动。
+          "max-h-[60vh] overflow-x-hidden overflow-y-auto show-scrollbar border p-3 shadow-none",
           USER_MESSAGE_SURFACE_CLASS,
         )}
         onPointerDownCapture={handleMentionPointerDown}
