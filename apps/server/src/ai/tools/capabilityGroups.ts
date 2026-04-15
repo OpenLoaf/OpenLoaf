@@ -45,7 +45,7 @@ const RAW_CAPABILITY_GROUPS = [
     id: 'file-read',
     label: '文件读取',
     description: '读取文件、列出目录、搜索文件内容',
-    toolIds: ['Read', 'Glob', 'Grep', 'FileInfo'],
+    toolIds: ['Read', 'DocPreview', 'Glob', 'Grep', 'FileInfo'],
   },
   {
     id: 'file-write',
@@ -77,7 +77,7 @@ const RAW_CAPABILITY_GROUPS = [
     id: 'office',
     label: 'Office 文档',
     description: '读写 Excel 电子表格、Word 文档、PowerPoint 演示文稿和 PDF 文档',
-    toolIds: ['ExcelMutate', 'WordMutate', 'PptxMutate', 'PdfMutate'],
+    toolIds: ['DocPreview', 'ExcelMutate', 'WordMutate', 'PptxMutate', 'PdfMutate'],
   },
   {
     id: 'VideoDownload',

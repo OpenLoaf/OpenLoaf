@@ -596,6 +596,21 @@
         "pressOn": "按键",
         "scroll": "滚动"
       }
+    },
+    "toolSearch": {
+      "loaded": "已加载",
+      "notFound": "未找到",
+      "loadedCount": "{{count}} 已加载",
+      "notFoundCount": "{{count}} 未找到",
+      "queryFailed": "查询失败",
+      "loading": "加载中..."
+    },
+    "webSearch": {
+      "resultCount": "{{count}} 条",
+      "searching": "搜索中...",
+      "searchFailed": "搜索失败",
+      "loading": "加载中...",
+      "noResults": "无结果"
     }
   },
   "error": {

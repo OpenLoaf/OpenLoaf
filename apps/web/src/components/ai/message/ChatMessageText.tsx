@@ -11,6 +11,8 @@
 
 import * as React from "react";
 import { FileText, Sparkles } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { trpc } from "@/utils/trpc";
 import { cn } from "@/lib/utils";
 import { Snippet, SnippetAddon, SnippetText } from "@/components/ai-elements/snippet";
 import {
@@ -37,6 +39,12 @@ const SKILL_TOKEN_CHIP_CLASS = cn(
   "bg-[var(--ol-skill-chip-bg)] text-[var(--ol-skill-chip-text)] hover:bg-[var(--ol-skill-chip-bg-hover)]",
 );
 
+const BUILTIN_SKILL_TOKEN_CHIP_CLASS = cn(
+  "inline-flex items-center gap-[3px] align-middle px-1.5 py-px mx-0.5 rounded border border-transparent",
+  "text-xs font-medium leading-[18px] select-none whitespace-nowrap max-w-[320px]",
+  "bg-[var(--ol-skill-chip-bg)] text-[var(--ol-skill-chip-text)] cursor-default",
+);
+
 const MENTION_TOKEN_CHIP_CLASS = cn(
   MESSAGE_TOKEN_CHIP_BASE_CLASS,
   "bg-[var(--ol-blue-bg)] text-[var(--ol-blue)] hover:bg-[var(--ol-blue-bg-hover)]",
@@ -49,6 +57,21 @@ export default function ChatMessageText({ value, className, projectId }: ChatMes
     () => segments.some((segment) => segment.type !== "text"),
     [segments],
   );
+
+  const skillsQuery = useQuery({
+    ...(projectId
+      ? trpc.settings.getSkills.queryOptions({ projectId })
+      : trpc.settings.getSkills.queryOptions()),
+    staleTime: 5 * 60 * 1000,
+    enabled: hasSpecialTokens,
+  });
+  const builtinSkillNames = React.useMemo(() => {
+    const set = new Set<string>();
+    for (const skill of skillsQuery.data ?? []) {
+      if (skill.scope === "builtin") set.add(skill.originalName);
+    }
+    return set;
+  }, [skillsQuery.data]);
 
   const handleSkillClick = React.useCallback(
     (skillName: string) => {
@@ -84,11 +107,12 @@ export default function ChatMessageText({ value, className, projectId }: ChatMes
 
     if (segment.type === "skill") {
       const label = segment.displayName || segment.value;
+      const isBuiltin = builtinSkillNames.has(segment.value);
       return (
         <span
           key={`skill-${index}`}
-          className={SKILL_TOKEN_CHIP_CLASS}
-          onClick={() => handleSkillClick(segment.value)}
+          className={isBuiltin ? BUILTIN_SKILL_TOKEN_CHIP_CLASS : SKILL_TOKEN_CHIP_CLASS}
+          onClick={isBuiltin ? undefined : () => handleSkillClick(segment.value)}
         >
           <Sparkles className="size-3 shrink-0 text-current" />
           <span className="overflow-hidden text-ellipsis">{label}</span>

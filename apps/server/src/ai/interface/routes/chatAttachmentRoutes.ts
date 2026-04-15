@@ -8,8 +8,9 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import type { Hono } from "hono";
-import { promises as fsPromises } from "node:fs";
+import { createReadStream, promises as fsPromises } from "node:fs";
 import nodePath from "node:path";
+import { Readable } from "node:stream";
 import JSZip from "jszip";
 import {
   ChatAttachmentController,
@@ -147,9 +148,13 @@ export function registerChatAttachmentRoutes(app: Hono) {
     if (result.type === "json") {
       return c.json(result.body, result.status);
     }
-    return c.body(result.body, result.status, {
-      "Content-Type": result.contentType,
-    });
+    if (result.type === "binary") {
+      return c.body(result.body, result.status, {
+        "Content-Type": result.contentType,
+      });
+    }
+    // upload 只会返回 json 或 binary — 到这里是不可能的 type 收窄。
+    return c.json({ error: "Unexpected upload response type" }, 500);
   });
 
   app.post("/chat/files", async (c) => {
@@ -160,6 +165,9 @@ export function registerChatAttachmentRoutes(app: Hono) {
       return c.json({ error: "Invalid multipart body" }, 400);
     }
     const result = await controller.uploadGenericFile(body);
+    if (result.type !== "json") {
+      return c.json({ error: "Unexpected upload response type" }, 500);
+    }
     return c.json(result.body, result.status);
   });
 
@@ -175,30 +183,40 @@ export function registerChatAttachmentRoutes(app: Hono) {
     if (result.type === "json") {
       return c.json(result.body, result.status);
     }
-    // 逻辑：视频/音频文件支持 Range 请求，浏览器媒体元素需要此功能进行 seeking。
-    if (result.contentType.startsWith("video/") || result.contentType.startsWith("audio/")) {
-      const total = result.body.byteLength;
+    if (result.type === "file") {
+      // 大文件（PDF / 视频 / 音频）走磁盘流式 passthrough：
+      // 1) 规避 @hono/node-server 对 HTTP/2 一次性写巨型 Uint8Array 时触发
+      //    Chrome 的 ERR_HTTP2_PROTOCOL_ERROR（实测 17MB PDF 稳定复现）。
+      // 2) 避免把整个文件读进内存后再复制一份到 ArrayBuffer。
+      const total = result.sizeBytes;
       const rangeHeader = c.req.header("range");
-      if (rangeHeader) {
+      const isMedia =
+        result.contentType.startsWith("video/") || result.contentType.startsWith("audio/");
+      if (isMedia && rangeHeader) {
         const match = rangeHeader.match(/bytes=(\d+)-(\d*)/);
         if (match) {
           const start = Number.parseInt(match[1]!, 10);
           const end = match[2] ? Number.parseInt(match[2], 10) : total - 1;
           const clampedEnd = Math.min(end, total - 1);
-          const chunk = result.body.slice(start, clampedEnd + 1);
-          return c.body(chunk, 206, {
+          const length = clampedEnd - start + 1;
+          const nodeStream = createReadStream(result.filePath, { start, end: clampedEnd });
+          const webStream = Readable.toWeb(nodeStream) as ReadableStream<Uint8Array>;
+          return c.body(webStream, 206, {
             "Content-Type": result.contentType,
             "Content-Range": `bytes ${start}-${clampedEnd}/${total}`,
             "Accept-Ranges": "bytes",
-            "Content-Length": String(chunk.byteLength),
+            "Content-Length": String(length),
           });
         }
       }
-      return c.body(result.body, result.status, {
+      const nodeStream = createReadStream(result.filePath);
+      const webStream = Readable.toWeb(nodeStream) as ReadableStream<Uint8Array>;
+      const headers: Record<string, string> = {
         "Content-Type": result.contentType,
-        "Accept-Ranges": "bytes",
         "Content-Length": String(total),
-      });
+      };
+      if (isMedia) headers["Accept-Ranges"] = "bytes";
+      return c.body(webStream, result.status, headers);
     }
     return c.body(result.body, result.status, {
       "Content-Type": result.contentType,

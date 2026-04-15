@@ -48,6 +48,7 @@ import ClaudeCodeTaskTool from './ClaudeCodeTaskTool'
 import FileInfoTool from './FileInfoTool'
 import GlobTool from './GlobTool'
 import ReadTool from './ReadTool'
+import DocPreviewTool from './DocPreviewTool'
 import GrepTool from './GrepTool'
 import SendMessageTool from './SendMessageTool'
 import JobsTool from './JobsTool'
@@ -99,6 +100,7 @@ export const TOOL_REGISTRY: ToolRegistryEntry[] = [
   { match: ['Edit', 'apply-patch'], component: WriteFileTool as ComponentType<ToolComponentProps> },
   { match: ['Bash', 'shell-command'], component: ShellTool as ComponentType<ToolComponentProps> },
   { match: ['Read', 'read-file'], component: ReadTool as ComponentType<ToolComponentProps> },
+  { match: 'DocPreview', component: DocPreviewTool as ComponentType<ToolComponentProps> },
   { match: ['Grep', 'grep-files'], component: GrepTool as ComponentType<ToolComponentProps> },
   { match: ['Glob', 'list-dir'], component: GlobTool as ComponentType<ToolComponentProps> },
   { match: 'Write', component: WriteFileTool as ComponentType<ToolComponentProps> },

@@ -198,7 +198,8 @@ export default function WriteFileTool({
     const jsxTargets = parsePatchFiles(patch)
       .map((file) => normalizePatchPath(file.path))
       .filter((filePath) =>
-        filePath.includes('.openloaf/chat-history/')
+        (filePath.includes('.openloaf/chat-history/')
+          || filePath.includes('${CHAT_SESSION_DIR}'))
         && filePath.includes('/jsx/')
         && filePath.endsWith('.jsx'),
       )

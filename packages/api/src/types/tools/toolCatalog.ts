@@ -22,6 +22,7 @@ import { excelMutateToolDef } from "./excel";
 import { wordMutateToolDef } from "./word";
 import { pptxMutateToolDef } from "./pptx";
 import { pdfMutateToolDef } from "./pdf";
+import { docPreviewToolDef } from "./docPreview";
 import {
   agentToolDef,
   sendMessageToolDef,
@@ -98,6 +99,7 @@ const TOOL_DEFS: ToolDefLike[] = [
   browserWaitToolDef,
   browserDownloadImageToolDef,
   readToolDef,
+  docPreviewToolDef,
   editToolDef,
   writeToolDef,
   globToolDef,
@@ -176,6 +178,7 @@ const TOOL_KEYWORDS: Record<string, { keywords: string[]; group: string }> = {
   'Agent': { keywords: ['agent', 'spawn', 'delegate', 'sub', 'dispatch', 'create', 'background'], group: 'agent' },
   'SendMessage': { keywords: ['send', 'message', 'agent', 'communicate', 'resume', 'continue'], group: 'agent' },
   'Read': { keywords: ['read', 'file', 'open', 'cat', 'content', 'view', 'text', 'pdf', 'image'], group: 'fileRead' },
+  'DocPreview': { keywords: ['preview', 'doc', 'docx', 'pdf', 'xlsx', 'pptx', 'word', 'excel', 'powerpoint', 'office', 'extract', 'outline', 'summary'], group: 'fileRead' },
   'Edit': { keywords: ['edit', 'modify', 'replace', 'change', 'update', 'file', 'string'], group: 'fileWrite' },
   'Write': { keywords: ['write', 'create', 'file', 'new', 'overwrite', 'save'], group: 'fileWrite' },
   'Glob': { keywords: ['glob', 'find', 'file', 'search', 'pattern', 'match', 'directory', 'ls'], group: 'fileRead' },

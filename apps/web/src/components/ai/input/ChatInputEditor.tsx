@@ -48,6 +48,8 @@ const CHIP_STYLES = `
 .${CHIP_CLASS}>span{overflow:hidden;text-overflow:ellipsis}
 .${SKILL_CHIP_CLASS}{${CHIP_BASE_STYLES};background:var(--ol-skill-chip-bg);color:var(--ol-skill-chip-text);border:1px solid transparent}
 .${SKILL_CHIP_CLASS}:hover{background:var(--ol-skill-chip-bg-hover)}
+.${SKILL_CHIP_CLASS}[data-builtin="true"]{cursor:default}
+.${SKILL_CHIP_CLASS}[data-builtin="true"]:hover{background:var(--ol-skill-chip-bg)}
 .${SKILL_CHIP_CLASS}>span{overflow:hidden;text-overflow:ellipsis}
 .${AGENT_CHIP_CLASS}{${CHIP_BASE_STYLES};background:var(--ol-amber-bg);color:var(--ol-amber);border:1px solid transparent}
 .${AGENT_CHIP_CLASS}:hover{background:var(--ol-amber-bg-hover)}
@@ -89,7 +91,7 @@ function escapeAttr(s: string): string {
 }
 
 /** Convert a value string to innerHTML with inline mention/skill chip elements. */
-function valueToHtml(value: string): string {
+function valueToHtml(value: string, builtinSkillNames?: ReadonlySet<string>): string {
   if (!value) return "";
   let html = "";
   let lastIndex = 0;
@@ -129,8 +131,9 @@ function valueToHtml(value: string): string {
       const afterTokenIdx = match.index + token.length;
       const hasTrailingSpace = value[afterTokenIdx] === " ";
       const dataToken = hasTrailingSpace ? `${token} ` : token;
+      const builtinAttr = builtinSkillNames?.has(originalName) ? ' data-builtin="true"' : "";
       html +=
-        `<span class="${SKILL_CHIP_CLASS}" data-token="${escapeAttr(dataToken)}" contenteditable="false">` +
+        `<span class="${SKILL_CHIP_CLASS}" data-token="${escapeAttr(dataToken)}"${builtinAttr} contenteditable="false">` +
         `${SKILL_ICON_SVG}<span>${escapeHtml(displayName)}</span>` +
         "</span>";
       lastIndex = afterTokenIdx + (hasTrailingSpace ? 1 : 0);
@@ -141,8 +144,9 @@ function valueToHtml(value: string): string {
       const afterTokenIdx = match.index + token.length;
       const hasTrailingSpace = value[afterTokenIdx] === " ";
       const dataToken = hasTrailingSpace ? `${token} ` : token;
+      const builtinAttr = builtinSkillNames?.has(skillName) ? ' data-builtin="true"' : "";
       html +=
-        `<span class="${SKILL_CHIP_CLASS}" data-token="${escapeAttr(dataToken)}" contenteditable="false">` +
+        `<span class="${SKILL_CHIP_CLASS}" data-token="${escapeAttr(dataToken)}"${builtinAttr} contenteditable="false">` +
         `${SKILL_ICON_SVG}<span>${escapeHtml(skillName)}</span>` +
         "</span>";
       lastIndex = afterTokenIdx + (hasTrailingSpace ? 1 : 0);
@@ -239,6 +243,7 @@ interface ChatInputEditorProps {
   onKeyDown?: React.KeyboardEventHandler<HTMLDivElement>;
   onChipClick?: (ref: string) => void;
   onSkillChipClick?: (skillName: string) => void;
+  builtinSkillNames?: ReadonlySet<string>;
   onPasteFiles?: (files: File[]) => void;
   placeholder?: string;
   className?: string;
@@ -254,6 +259,7 @@ export function ChatInputEditor({
   onKeyDown,
   onChipClick,
   onSkillChipClick,
+  builtinSkillNames,
   onPasteFiles,
   placeholder,
   className,
@@ -381,7 +387,7 @@ export function ChatInputEditor({
     if (!el || composingRef.current) return;
     const currentDom = domToValue(el);
     if (currentDom !== value) {
-      el.innerHTML = valueToHtml(value);
+      el.innerHTML = valueToHtml(value, builtinSkillNames);
       valueRef.current = value;
       // Place caret at end after external value change (e.g. skill selection).
       const sel = window.getSelection();
@@ -392,8 +398,12 @@ export function ChatInputEditor({
         sel.removeAllRanges();
         sel.addRange(range);
       }
+    } else if (builtinSkillNames) {
+      // Re-render chips when builtinSkillNames becomes available (initial async load).
+      el.innerHTML = valueToHtml(value, builtinSkillNames);
+      valueRef.current = value;
     }
-  }, [value]);
+  }, [value, builtinSkillNames]);
 
   const [domEmpty, setDomEmpty] = useState(true);
 
@@ -427,6 +437,10 @@ export function ChatInputEditor({
       }
       const skillChip = target.closest(`.${SKILL_CHIP_CLASS}`) as HTMLElement | null;
       if (skillChip?.dataset.token && onSkillChipClick) {
+        if (skillChip.dataset.builtin === "true") {
+          e.preventDefault();
+          return;
+        }
         e.preventDefault();
         const raw = skillChip.dataset.token.trim();
         // Extract originalName from /skill/[originalName|...] or /skill/[originalName] or legacy /skill/name

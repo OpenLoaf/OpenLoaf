@@ -22,12 +22,13 @@ import workbenchOpsMd from './workbench-ops/SKILL.md'
 import settingsGuideMd from './settings-guide/SKILL.md'
 import agentOrchestrationMd from './agent-orchestration/SKILL.md'
 import browserOpsMd from './browser-ops/SKILL.md'
-import createPdfMd from './create-pdf/SKILL.md'
-import createDocxMd from './create-docx/SKILL.md'
-import createXlsxMd from './create-xlsx/SKILL.md'
-import createPptxMd from './create-pptx/SKILL.md'
+import pdfMd from './pdf/SKILL.md'
+import docxMd from './docx/SKILL.md'
+import xlsxMd from './xlsx/SKILL.md'
+import pptxMd from './pptx/SKILL.md'
 import mediaOpsMd from './media-ops/SKILL.md'
 import visualizationOpsMd from './visualization-ops/SKILL.md'
+import skillCreatorMd from './skill-creator/SKILL.md'
 // Dynamic (content re-rendered on cloud capability refresh)
 import { cloudMediaSkill, cloudTextSkill } from './cloud-skills'
 
@@ -59,12 +60,13 @@ export const BUILTIN_SKILLS: BuiltinSkill[] = [
   buildSkill({ md: settingsGuideMd, icon: '⚙️', colorIndex: 0 }),
   buildSkill({ md: agentOrchestrationMd, icon: '🔀', colorIndex: 1 }),
   buildSkill({ md: browserOpsMd, icon: '🌐', colorIndex: 3 }),
-  buildSkill({ md: createPdfMd, icon: '📕', colorIndex: 4 }),
-  buildSkill({ md: createDocxMd, icon: '📝', colorIndex: 2 }),
-  buildSkill({ md: createXlsxMd, icon: '📊', colorIndex: 5 }),
-  buildSkill({ md: createPptxMd, icon: '📽️', colorIndex: 7 }),
+  buildSkill({ md: pdfMd, icon: '📕', colorIndex: 4 }),
+  buildSkill({ md: docxMd, icon: '📝', colorIndex: 2 }),
+  buildSkill({ md: xlsxMd, icon: '📊', colorIndex: 5 }),
+  buildSkill({ md: pptxMd, icon: '📽️', colorIndex: 7 }),
   buildSkill({ md: mediaOpsMd, icon: '🎬', colorIndex: 6 }),
   buildSkill({ md: visualizationOpsMd, icon: '📈', colorIndex: 7 }),
+  buildSkill({ md: skillCreatorMd, icon: '🧠', colorIndex: 1 }),
   // Dynamic cloud skills — content re-rendered when ai.capabilitiesOverview refreshes.
   // Iterated per-request so mutating `.content` post-boot propagates to callers.
   cloudMediaSkill,

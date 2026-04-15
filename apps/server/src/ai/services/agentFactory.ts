@@ -66,7 +66,6 @@ import { tryAutoCompact } from '@/ai/shared/autoCompact'
 import { microcompactMessages, extractLastAssistantTimestamp } from '@/ai/shared/microCompact'
 import { ContextCollapseManager, type CollapseResult } from '@/ai/shared/contextCollapse'
 import { buildToolSearchGuidance } from '@/ai/shared/toolSearchGuidance'
-import { isWebSearchConfigured } from '@/ai/tools/webSearchTool'
 import { applyToolResultInterception } from '@/ai/tools/toolResultInterceptor'
 import {
   MASTER_CORE_TOOL_IDS,
@@ -384,14 +383,14 @@ export function createMasterAgent(input: CreateMasterAgentInput) {
   // ToolSearch Pull mode — filter by client platform and feature flags
   const ctx = getRequestContext()
   const coreToolIds = [...CORE_TOOL_IDS] as string[]
-  let filteredDeferredToolIds = filterToolIdsByPlatform(
+  // WebSearch is always a valid deferred entry — when Jina is configured
+  // the static tool answers; otherwise the dynamic SaaS cloud tool takes
+  // over under the same canonical id (see preferCloudOverStatic in
+  // toolRegistry.ts). No need to filter here.
+  const filteredDeferredToolIds = filterToolIdsByPlatform(
     template.deferredToolIds ?? [],
     ctx?.clientPlatform,
   )
-  // web-search requires configured provider + API key
-  if (!isWebSearchConfigured()) {
-    filteredDeferredToolIds = filteredDeferredToolIds.filter((id) => id !== 'WebSearch')
-  }
 
   // Inject MCP tool IDs (dynamically registered by MCPClientManager)
   const mcpToolIds = getMcpToolIds()
@@ -511,13 +510,10 @@ export function createPMAgent(input: CreatePMAgentInput) {
   const coreToolIds = [...PM_CORE_TOOL_IDS] as string[]
 
   // Filter PM agent tools by platform
-  let deferredToolIds = filterToolIdsByPlatform(
+  const deferredToolIds = filterToolIdsByPlatform(
     PM_AGENT_TOOL_IDS.filter((id) => !coreToolIds.includes(id)) as string[],
     ctx?.clientPlatform,
   )
-  if (!isWebSearchConfigured()) {
-    deferredToolIds = deferredToolIds.filter((id) => id !== 'WebSearch')
-  }
 
   // Inject MCP tool IDs
   const mcpToolIds = getMcpToolIds()
@@ -623,13 +619,10 @@ function createGeneralPurposeSubAgent(model: LanguageModelV3): ToolLoopAgent {
   const ctx = getRequestContext()
   // General-purpose sub-agents get core file tools but NOT agent collaboration tools
   const coreToolIds = [...SUB_AGENT_CORE_TOOL_IDS] as string[]
-  let deferredToolIds = filterToolIdsByPlatform(
+  const deferredToolIds = filterToolIdsByPlatform(
     (masterTpl.deferredToolIds ?? []).filter((id) => !AGENT_TOOL_IDS_TO_EXCLUDE.has(id)),
     ctx?.clientPlatform,
   )
-  if (!isWebSearchConfigured()) {
-    deferredToolIds = deferredToolIds.filter((id) => id !== 'WebSearch')
-  }
 
   // Inject MCP tool IDs
   const mcpToolIds = getMcpToolIds()

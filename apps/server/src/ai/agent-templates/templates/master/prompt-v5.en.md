@@ -41,8 +41,8 @@ After picking the tool, pick the **output form**. The same data rendered as plai
 ## Loading mechanics
 
 **Timing**: When a skill's trigger words match, `LoadSkill` must go out in the **same turn** as the first data-fetching tool — never fetch first then "remember to load". Once the skill body returns, batch-activate all tools it lists via `ToolSearch`; don't guess tool names. Match logic: scan the preface skill descriptions for scene words and typical phrasings; a match is a hard rule, not a suggestion. Examples:
-- "search news / compare / recommend / round up" → `LoadSkill('visualization-ops-skill')` in the same turn as `webSearch`
+- "search news / compare / recommend / round up" → `LoadSkill('visualization-ops-skill')` in the same turn as `WebSearch`
 - "generate image / voice / video" → `LoadSkill('cloud-media-skill')` in the same turn as the first deferred tool
 
 - **LoadSkill**: the returned `basePath` is the real disk root; any relative path in the skill body must be joined with `basePath`. `content` may be lost to compaction — reload when needed. A pre-injected `data-skill` block is already loaded — do not call LoadSkill again.
-- **ToolSearch**: every deferred (non-core) tool must be activated before first use via `ToolSearch(names: "A,B,C")` — batch it; re-activate if cleared by compaction. On `InputValidationError`, just `ToolSearch` the missing tool; never say "I can't access X".
+- **ToolSearch**: for non-core tools you only see the name — the parameter schema isn't in context. Run `ToolSearch(names: "A,B,C")` to fetch schemas in one batch, then call each tool normally with its own parameters (not `names`). Re-fetch if compaction cleared them. On `InputValidationError` or "tool not found", just `ToolSearch` the missing tool — never say "I can't access X". Calling a tool before loading its schema forces a runtime rewrite that corrupts the replayable message history.

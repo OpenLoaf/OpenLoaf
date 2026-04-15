@@ -74,7 +74,7 @@ type ImageOutput = ImageFormat & {
 /** File preview result for attachment previews. */
 type FilePreviewResult =
   | {
-      /** Result kind. */
+      /** Result kind — in-memory buffer (images/compressed previews). */
       kind: "ready";
       /** Preview payload buffer. */
       buffer: Buffer;
@@ -82,6 +82,16 @@ type FilePreviewResult =
       mediaType: string;
       /** Optional metadata payload. */
       metadata?: string | null;
+    }
+  | {
+      /** Result kind — passthrough file stream (PDF/video/audio). */
+      kind: "file";
+      /** Absolute file path to stream from disk. */
+      filePath: string;
+      /** File size in bytes (for Content-Length). */
+      sizeBytes: number;
+      /** Media type for response header. */
+      mediaType: string;
     }
   | {
       /** Result kind. */
@@ -852,17 +862,19 @@ export async function getFilePreview(input: {
       maxBytes: CHAT_ATTACHMENT_PREVIEW_MAX_BYTES,
     };
   }
-  // PDF 直接返回原文件内容，图片继续压缩预览。
+  // PDF / 视频 / 音频走流式 passthrough：
+  // 大文件（17MB+）若走 in-memory buffer + @hono/node-server 的 HTTP/2 适配层，
+  // 会触发 Chrome 的 ERR_HTTP2_PROTOCOL_ERROR（节点 http2 flow control + 一次性
+  // 巨 buffer 组合与浏览器严格校验对不上）。改为返回文件路径由路由侧建立 Readable
+  // 流，既规避协议错误，也避免双倍内存占用。
   if (lowerPath.endsWith(".pdf")) {
-    const buffer = await fs.readFile(filePath);
     return {
-      kind: "ready",
-      buffer,
+      kind: "file",
+      filePath,
+      sizeBytes,
       mediaType: "application/pdf",
-      metadata: null,
     };
   }
-  // 逻辑：视频/音频文件直接返回原内容，不做压缩处理。
   const binaryMimeMap: Record<string, string> = {
     ".mp4": "video/mp4",
     ".webm": "video/webm",
@@ -877,12 +889,11 @@ export async function getFilePreview(input: {
   const fileExt = path.extname(lowerPath);
   const binaryMime = binaryMimeMap[fileExt];
   if (binaryMime) {
-    const buffer = await fs.readFile(filePath);
     return {
-      kind: "ready",
-      buffer,
+      kind: "file",
+      filePath,
+      sizeBytes,
       mediaType: binaryMime,
-      metadata: null,
     };
   }
   const format = resolveImageFormat("application/octet-stream", filePath);

@@ -29,6 +29,14 @@ export const LRU_MAX_SIZE = 50
 const CHAT_DIR_TEMPLATE = '${CURRENT_CHAT_DIR}'
 const CHAT_DIR_TEMPLATE_REGEX = /\$\{CURRENT_CHAT_DIR\}/g
 
+/**
+ * Template that resolves to the chat session root directory (not the asset subdirectory).
+ * Use this to reference session-level paths like jsx/, debug/, session.json, etc.
+ * Expands to the same directory as resolveSessionDir(sessionId).
+ */
+const CHAT_SESSION_DIR_TEMPLATE = '${CHAT_SESSION_DIR}'
+const CHAT_SESSION_DIR_TEMPLATE_REGEX = /\$\{CHAT_SESSION_DIR\}/g
+
 // ---------------------------------------------------------------------------
 // Session directory cache (LRU)
 // ---------------------------------------------------------------------------
@@ -220,11 +228,20 @@ export async function expandChatDirTemplate(
   inputPath: string,
   sessionId: string | undefined,
 ): Promise<string> {
-  if (!inputPath.includes(CHAT_DIR_TEMPLATE)) return inputPath
+  const hasChatDir = inputPath.includes(CHAT_DIR_TEMPLATE)
+  const hasSessionDir = inputPath.includes(CHAT_SESSION_DIR_TEMPLATE)
+  if (!hasChatDir && !hasSessionDir) return inputPath
   if (!sessionId) return inputPath
   const sessionDir = await resolveSessionDir(sessionId)
-  const assetDir = path.resolve(sessionDir, 'asset')
-  return inputPath.replace(CHAT_DIR_TEMPLATE_REGEX, assetDir)
+  let result = inputPath
+  if (hasSessionDir) {
+    result = result.replace(CHAT_SESSION_DIR_TEMPLATE_REGEX, sessionDir)
+  }
+  if (result.includes(CHAT_DIR_TEMPLATE)) {
+    const assetDir = path.resolve(sessionDir, 'asset')
+    result = result.replace(CHAT_DIR_TEMPLATE_REGEX, assetDir)
+  }
+  return result
 }
 
 // ---------------------------------------------------------------------------

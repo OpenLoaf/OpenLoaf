@@ -596,6 +596,21 @@
         "pressOn": "按鍵",
         "scroll": "捲動"
       }
+    },
+    "toolSearch": {
+      "loaded": "已載入",
+      "notFound": "未找到",
+      "loadedCount": "{{count}} 已載入",
+      "notFoundCount": "{{count}} 未找到",
+      "queryFailed": "查詢失敗",
+      "loading": "載入中..."
+    },
+    "webSearch": {
+      "resultCount": "{{count}} 筆",
+      "searching": "搜尋中...",
+      "searchFailed": "搜尋失敗",
+      "loading": "載入中...",
+      "noResults": "無結果"
     }
   },
   "error": {

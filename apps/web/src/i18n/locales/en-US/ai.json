@@ -596,6 +596,21 @@
         "pressOn": "Press on",
         "scroll": "Scroll"
       }
+    },
+    "toolSearch": {
+      "loaded": "Loaded",
+      "notFound": "Not found",
+      "loadedCount": "{{count}} loaded",
+      "notFoundCount": "{{count}} not found",
+      "queryFailed": "Query failed",
+      "loading": "Loading..."
+    },
+    "webSearch": {
+      "resultCount": "{{count}} results",
+      "searching": "Searching...",
+      "searchFailed": "Search failed",
+      "loading": "Loading...",
+      "noResults": "No results"
     }
   },
   "error": {

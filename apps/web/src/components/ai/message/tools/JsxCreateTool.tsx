@@ -32,6 +32,9 @@ import {
   type AnyToolPart,
 } from './shared/tool-utils'
 
+/** URI template: resolved server-side to the chat session root directory. */
+const CHAT_SESSION_DIR_URI = '${CHAT_SESSION_DIR}'
+
 /** JSX create tool renderer. */
 export default function JsxCreateTool({
   part,
@@ -76,16 +79,17 @@ export default function JsxCreateTool({
           : ''
   const jsxUri =
     sessionId && messageId
-      ? `.openloaf/chat-history/${sessionId}/jsx/${messageId}.jsx`
+      ? `${CHAT_SESSION_DIR_URI}/jsx/${messageId}.jsx`
       : ''
+  // 逻辑：流式期间 JSX 文件尚未落盘，跳过查询避免 404。
   const readFileOptions = React.useMemo(
     () =>
       trpc.fs.readFile.queryOptions(
-        jsxUri
-          ? { projectId, uri: jsxUri }
+        jsxUri && !isStreaming
+          ? { projectId, sessionId, uri: jsxUri }
           : skipToken,
       ),
-    [jsxUri, projectId],
+    [jsxUri, projectId, sessionId, isStreaming],
   )
   const fileQuery = useQuery(readFileOptions)
   const queryClient = useQueryClient()
@@ -95,6 +99,45 @@ export default function JsxCreateTool({
   // 逻辑：优先读取落盘内容，未落盘时回退到工具输入。
   const jsx = fileContent.trim().length > 0 ? fileContent : inputJsx
   const hasJsx = jsx.trim().length > 0
+
+  // --- Streaming stabilization: debounce + height floor ---
+  // Debounce jsx during streaming to reduce layout thrashing
+  const [renderJsx, setRenderJsx] = React.useState(jsx)
+  React.useEffect(() => {
+    if (!isStreaming) {
+      setRenderJsx(jsx)
+      return
+    }
+    const timer = setTimeout(() => setRenderJsx(jsx), 150)
+    return () => clearTimeout(timer)
+  }, [jsx, isStreaming])
+
+  // Height floor: track max rendered height during streaming, apply as min-height
+  const containerRef = React.useRef<HTMLDivElement>(null)
+  const maxStreamingHeightRef = React.useRef(0)
+  React.useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    if (!isStreaming) {
+      maxStreamingHeightRef.current = 0
+      const timer = setTimeout(() => {
+        if (containerRef.current) containerRef.current.style.minHeight = ''
+      }, 300)
+      return () => clearTimeout(timer)
+    }
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const h = entry.contentRect.height
+        if (h > maxStreamingHeightRef.current) {
+          maxStreamingHeightRef.current = h
+        }
+        el.style.minHeight = `${maxStreamingHeightRef.current}px`
+      }
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [isStreaming])
+
   const toolCallId = typeof part.toolCallId === 'string' ? part.toolCallId : ''
   const reportKeyRef = React.useRef<string | null>(null)
 
@@ -162,28 +205,31 @@ export default function JsxCreateTool({
   ])
 
   React.useEffect(() => {
-    if (!jsxUri) return
+    if (!jsxUri || !messageId) return
+    const jsxSuffix = `/jsx/${messageId}.jsx`
     const unsubscribe = onJsxCreateRefresh((payload) => {
-      if (payload.uri !== jsxUri) return
+      if (!payload.uri.endsWith(jsxSuffix)) return
       // 逻辑：收到刷新事件后，强制重新拉取 jsx 文件内容。
       const queryKey = trpc.fs.readFile.queryOptions({
         projectId,
+        sessionId,
         uri: jsxUri,
       }).queryKey
       void queryClient.invalidateQueries({ queryKey })
     })
     return unsubscribe
-  }, [jsxUri, projectId, queryClient])
+  }, [jsxUri, messageId, projectId, sessionId, queryClient])
 
   /** Manually refresh the JSX file content from disk. */
   const handleManualRefresh = React.useCallback(() => {
     if (!jsxUri) return
     const queryKey = trpc.fs.readFile.queryOptions({
       projectId,
+      sessionId,
       uri: jsxUri,
     }).queryKey
     void queryClient.invalidateQueries({ queryKey })
-  }, [jsxUri, projectId, queryClient])
+  }, [jsxUri, projectId, sessionId, queryClient])
 
   if (!hasJsx && !isStreaming && !errorText) {
     // 逻辑：未提供 JSX 且无错误时不渲染内容卡片。
@@ -195,10 +241,10 @@ export default function JsxCreateTool({
   }
 
   return (
-    <div className={cn('w-full min-w-0 max-w-4xl', className)}>
+    <div ref={containerRef} className={cn('w-full min-w-0 max-w-4xl', className)}>
       {hasJsx ? (
         <JSXPreview
-          jsx={jsx}
+          jsx={renderJsx}
           isStreaming={isStreaming}
           components={JSX_PREVIEW_COMPONENTS}
           onError={(error) => {

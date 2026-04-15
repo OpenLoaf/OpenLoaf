@@ -98,7 +98,17 @@ export async function fetchBlobFromUri(
   } else {
     endpoint = getPreviewEndpoint(uri, options);
   }
-  const res = await fetch(endpoint);
+  let res: Response;
+  try {
+    res = await fetch(endpoint);
+  } catch (cause) {
+    // 中文注释：网络层错误（CORS / 证书 / 断连）在 fetch 抛 TypeError 时信息极少，
+    // 把原始 cause 挂上来避免被外层序列化成 {}。
+    const detail = cause instanceof Error ? cause.message : String(cause);
+    const wrapped = new Error(`preview fetch failed (endpoint=${endpoint}): ${detail}`);
+    (wrapped as Error & { cause?: unknown }).cause = cause;
+    throw wrapped;
+  }
   if (!res.ok) {
     if (res.status === 413) {
       // 逻辑：预览被拦截时解析体积信息，供前端提示。
@@ -109,9 +119,21 @@ export async function fetchBlobFromUri(
       error.maxBytes = payload?.maxBytes;
       throw error;
     }
-    throw new Error("preview failed");
+    const bodySnippet = await res.text().catch(() => "");
+    throw new Error(
+      `preview failed: HTTP ${res.status} ${res.statusText} (endpoint=${endpoint})${
+        bodySnippet ? ` body=${bodySnippet.slice(0, 200)}` : ""
+      }`,
+    );
   }
-  return res.blob();
+  try {
+    return await res.blob();
+  } catch (cause) {
+    const detail = cause instanceof Error ? cause.message : String(cause);
+    const wrapped = new Error(`preview body read failed (endpoint=${endpoint}): ${detail}`);
+    (wrapped as Error & { cause?: unknown }).cause = cause;
+    throw wrapped;
+  }
 }
 
 /** Load an Image element from a blob. */

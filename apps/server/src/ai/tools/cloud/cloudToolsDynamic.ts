@@ -32,8 +32,40 @@ type V3SyncToolFeature = Extract<V3ToolFeature, { billingType: 'per_call' }>
 import { getSaasClient } from '@/modules/saas/client'
 import { addCreditsConsumed } from '@/ai/shared/context/requestContext'
 import { createToolProgress } from '@/ai/tools/toolProgress'
+import { isWebSearchConfigured } from '@/ai/tools/webSearchTool'
 import { logger } from '@/common/logger'
 import { buildFeatureZodSchema, splitInputsAndParams } from './paramsSchemaToZod'
+
+// ---------------------------------------------------------------------------
+// Canonical ID mapping
+// ---------------------------------------------------------------------------
+// The SaaS backend emits feature ids in its own casing (e.g. `webSearch`
+// lowercase). The rest of the codebase — static TOOL_CATALOG, TOOL_REGISTRY,
+// master prompt references — uses canonical PascalCase ids (`WebSearch`).
+// Registering cloud tools under the canonical id keeps name resolution
+// unambiguous: models see one name, ToolSearch loads one schema, and runtime
+// repair never has to fuzzy-match between cases. Execution still uses the
+// original `feature.id` when calling the backend; only the local registry
+// key and the exposed def id are canonicalized.
+
+const CLOUD_FEATURE_ID_REMAP: Record<string, string> = {
+  webSearch: 'WebSearch',
+}
+
+function canonicalIdFor(featureId: string): string {
+  return CLOUD_FEATURE_ID_REMAP[featureId] ?? featureId
+}
+
+/**
+ * Cloud features that must not register because a static implementation of
+ * the same canonical id is actively configured. Jina is the explicit static
+ * alternative for WebSearch — when Jina provider + api key are set, the
+ * static tool wins and the cloud SaaS version must not shadow it.
+ */
+function shouldSkipFeature(featureId: string): boolean {
+  if (featureId === 'webSearch' && isWebSearchConfigured()) return true
+  return false
+}
 
 const LOG_PREFIX = '[cloud-tools]'
 const REFRESH_INTERVAL_MS = 30 * 60 * 1000
@@ -65,12 +97,15 @@ function isFlatToolFeature(f: unknown): f is V3SyncToolFeature {
   )
 }
 
-function buildCloudToolForFeature(feature: V3SyncToolFeature): CloudToolEntry {
+function buildCloudToolForFeature(
+  feature: V3SyncToolFeature,
+  canonicalId: string,
+): CloudToolEntry {
   const paramsZod = buildFeatureZodSchema(feature)
   const description = buildToolDescription(feature)
 
   const def = {
-    id: feature.id,
+    id: canonicalId,
     parameters: paramsZod,
     description,
   }
@@ -197,8 +232,15 @@ export async function refreshCloudTools(): Promise<boolean> {
 
     const nextIds = new Set<string>()
     for (const feature of features) {
-      nextIds.add(feature.id)
-      CLOUD_TOOL_REGISTRY.set(feature.id, buildCloudToolForFeature(feature))
+      if (shouldSkipFeature(feature.id)) {
+        logger.info(
+          `${LOG_PREFIX} skipping feature ${feature.id} — static implementation is configured`,
+        )
+        continue
+      }
+      const canonicalId = canonicalIdFor(feature.id)
+      nextIds.add(canonicalId)
+      CLOUD_TOOL_REGISTRY.set(canonicalId, buildCloudToolForFeature(feature, canonicalId))
     }
     // Drop any previously-registered features the server no longer advertises.
     for (const id of CLOUD_TOOL_REGISTRY.keys()) {
@@ -306,13 +348,13 @@ export function buildCloudToolsXmlBlock(): string {
   const lines: string[] = []
   lines.push('<cloud_tools>')
   lines.push(
-    '  <usage>Deferred tools. Activate via ToolSearch(query="select:&lt;id&gt;") before calling. The full parameter schema is returned by ToolSearch; this block only lists availability.</usage>',
+    '  <usage>These tools are listed by name only — their parameter schemas are not loaded. Before calling any of them, run ToolSearch(names: "ToolA,ToolB") to fetch the schemas (batch multiple in one call), then invoke each tool normally with its own parameters. Calling one without loading its schema first will force a runtime rewrite that pollutes the message history.</usage>',
   )
 
-  for (const entry of CLOUD_TOOL_REGISTRY.values()) {
+  for (const [canonicalId, entry] of CLOUD_TOOL_REGISTRY.entries()) {
     const f = entry.feature
     lines.push(
-      `  <tool id="${escapeXml(f.id)}" credits="${f.creditsPerCall}" mode="${f.executionMode}" membership="${escapeXml(f.minMembershipLevel)}">${escapeXml(
+      `  <tool id="${escapeXml(canonicalId)}" credits="${f.creditsPerCall}" mode="${f.executionMode}" membership="${escapeXml(f.minMembershipLevel)}">${escapeXml(
         f.description,
       )}</tool>`,
     )

@@ -41,8 +41,8 @@
 ## 加载机制
 
 **时序**：skill 触发词命中的那一轮，`LoadSkill` 必须与首个数据获取工具**同轮并行下发**——不要先拉数据再补 skill，否则模型本能会用 markdown 收尾。skill 正文返回后，按它列出的工具清单一次性 `ToolSearch` 批量激活，别凭猜去 ToolSearch。命中判断：扫 preface 里 skill 描述的场景词和典型说法，对上就是硬约束，不是参考建议。例：
-- "搜新闻 / 对比 / 推荐 / 盘点" → `LoadSkill('visualization-ops-skill')` 与 `webSearch` 同轮
+- "搜新闻 / 对比 / 推荐 / 盘点" → `LoadSkill('visualization-ops-skill')` 与 `WebSearch` 同轮
 - "生成图 / 配音 / 出视频" → `LoadSkill('cloud-media-skill')` 与首个 deferred 工具同轮
 
 - **LoadSkill**：返回的 `basePath` 是真实磁盘根，skill 正文相对路径必须拼 `basePath`。`content` 会被 compact 丢失，必要时重读。`data-skill` 预注入 = 已加载，不要重复 LoadSkill。
-- **ToolSearch**：除核心工具外的 deferred 工具调用前必须 `ToolSearch(names: "A,B,C")` 批量激活；被 compact 清理后重新激活。遇 `InputValidationError` 直接 ToolSearch，不要说"无法访问 X"。
+- **ToolSearch**：核心工具之外的工具你只看得到名字、没看过参数签名；调用前先 `ToolSearch(names: "A,B,C")` 批量拿回 schema，再按正常方式调用（用工具自己的参数，不是 `names`）。被 compact 清理后重新拿一次。遇 `InputValidationError` 或 "tool not found" 直接 ToolSearch，不要说"无法访问 X"。直接调用未加载的工具会被运行时兜底改写，破坏消息历史的回放完整性。

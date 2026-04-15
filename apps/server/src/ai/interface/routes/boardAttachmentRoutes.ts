@@ -8,7 +8,9 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import type { Hono } from "hono";
+import { createReadStream } from "node:fs";
 import nodePath from "node:path";
+import { Readable } from "node:stream";
 import { getFilePreview } from "@/ai/services/image/attachmentResolver";
 import {
   resolveBoardAbsPath,
@@ -78,34 +80,41 @@ export function registerBoardAttachmentRoutes(app: Hono) {
         }, 413);
       }
 
-      const body = toUint8Array(preview.buffer);
-
-      // 视频/音频 Range 请求支持
-      if (preview.mediaType.startsWith("video/") || preview.mediaType.startsWith("audio/")) {
-        const total = body.byteLength;
+      if (preview.kind === "file") {
+        // PDF / 视频 / 音频 passthrough：走磁盘 stream 而不是 in-memory buffer，
+        // 规避 HTTP/2 + 大 Uint8Array 响应触发的 ERR_HTTP2_PROTOCOL_ERROR。
+        const total = preview.sizeBytes;
+        const isMedia =
+          preview.mediaType.startsWith("video/") || preview.mediaType.startsWith("audio/");
         const rangeHeader = c.req.header("range");
-        if (rangeHeader) {
+        if (isMedia && rangeHeader) {
           const match = rangeHeader.match(/bytes=(\d+)-(\d*)/);
           if (match) {
             const start = Number.parseInt(match[1]!, 10);
             const end = match[2] ? Number.parseInt(match[2], 10) : total - 1;
             const clampedEnd = Math.min(end, total - 1);
-            const chunk = body.slice(start, clampedEnd + 1);
-            return c.body(chunk, 206, {
+            const length = clampedEnd - start + 1;
+            const nodeStream = createReadStream(preview.filePath, { start, end: clampedEnd });
+            const webStream = Readable.toWeb(nodeStream) as ReadableStream<Uint8Array>;
+            return c.body(webStream, 206, {
               "Content-Type": preview.mediaType,
               "Content-Range": `bytes ${start}-${clampedEnd}/${total}`,
               "Accept-Ranges": "bytes",
-              "Content-Length": String(chunk.byteLength),
+              "Content-Length": String(length),
             });
           }
         }
-        return c.body(body, 200, {
+        const nodeStream = createReadStream(preview.filePath);
+        const webStream = Readable.toWeb(nodeStream) as ReadableStream<Uint8Array>;
+        const headers: Record<string, string> = {
           "Content-Type": preview.mediaType,
-          "Accept-Ranges": "bytes",
           "Content-Length": String(total),
-        });
+        };
+        if (isMedia) headers["Accept-Ranges"] = "bytes";
+        return c.body(webStream, 200, headers);
       }
 
+      const body = toUint8Array(preview.buffer);
       return c.body(body, 200, {
         "Content-Type": preview.mediaType,
       });

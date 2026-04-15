@@ -179,6 +179,8 @@ export default function StreamingCodeViewer({
   const fetchedPathRef = useRef('')
 
   useEffect(() => {
+    // 逻辑：流式期间路径不完整，延迟到流结束后再读取原文件。
+    if (isStreaming) return
     if (!firstPath || fetchedPathRef.current === firstPath) return
     fetchedPathRef.current = firstPath
     setLoadingOriginal(true)
@@ -187,7 +189,7 @@ export default function StreamingCodeViewer({
       .then((res) => setOriginalContent(res.content))
       .catch(() => setOriginalContent(''))
       .finally(() => setLoadingOriginal(false))
-  }, [firstPath, projectId])
+  }, [firstPath, projectId, isStreaming])
 
   const { resolvedTheme } = useTheme()
   const monacoThemeName = resolvedTheme === 'dark' ? MONACO_THEME_DARK : MONACO_THEME_LIGHT

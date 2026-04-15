@@ -22,7 +22,7 @@ import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
-import { FolderOpen, Globe, Terminal } from "lucide-react";
+import { FolderOpen, Globe, Sparkles, Terminal } from "lucide-react";
 import { CHAT_COMMANDS } from "@openloaf/api/common/chatCommands";
 import { cn } from "@/lib/utils";
 import { useTabActive } from "@/components/layout/TabActiveContext";
@@ -32,7 +32,7 @@ type SkillSummary = {
   name: string;
   originalName: string;
   description: string;
-  scope: "global" | "project";
+  scope: "builtin" | "global" | "project";
   isEnabled: boolean;
 };
 
@@ -133,6 +133,7 @@ function filterSkills(
   const keyword = query.trim().toLowerCase();
   return skills
     .filter((skill) => skill.isEnabled)
+    .filter((skill) => skill.scope !== "builtin" || skill.originalName === "skill-creator-skill")
     .filter((skill) => {
       if (!keyword) return true;
       return (
@@ -141,7 +142,10 @@ function filterSkills(
         skill.description.toLowerCase().includes(keyword)
       );
     })
-    .sort((a, b) => (a.scope === b.scope ? 0 : a.scope === "global" ? -1 : 1))
+    .sort((a, b) => {
+      const order = { builtin: 0, global: 1, project: 2 } as const;
+      return order[a.scope] - order[b.scope];
+    })
     .map((skill) => ({
       id: `skill-${skill.scope}-${skill.originalName}`,
       label: skill.name,
@@ -240,6 +244,7 @@ const ChatCommandMenu = forwardRef<ChatCommandMenuHandle, ChatCommandMenuProps>(
       () => [...commandItems, ...skillItems],
       [commandItems, skillItems],
     );
+    const builtinItems = useMemo(() => skillItems.filter((i) => i.scope === "builtin"), [skillItems]);
     const globalItems = useMemo(() => skillItems.filter((i) => i.scope === "global"), [skillItems]);
     const projectItems = useMemo(() => skillItems.filter((i) => i.scope === "project"), [skillItems]);
     const isOpen = Boolean(isFocused && query !== null);
@@ -372,9 +377,33 @@ const ChatCommandMenu = forwardRef<ChatCommandMenuHandle, ChatCommandMenuProps>(
                   })}
                 </>
               )}
-              {globalItems.length > 0 && (
+              {builtinItems.length > 0 && (
                 <>
                   {commandItems.length > 0 && (
+                    <div className="mx-2.5 my-1 border-t border-border" />
+                  )}
+                  <div className="sticky top-0 z-10 flex items-center gap-1.5 px-3 pt-1.5 pb-1 text-[11px] font-medium text-muted-foreground bg-popover">
+                    <Sparkles className="size-3" />
+                    {t("slashMenu.builtin", "内置技能")}
+                  </div>
+                  {builtinItems.map((item, i) => {
+                    const flatIndex = commandItems.length + i;
+                    const isActive = flatIndex === activeIndex;
+                    return (
+                      <SkillMenuItem
+                        key={item.id}
+                        item={item}
+                        isActive={isActive}
+                        onClick={() => selectItem(item)}
+                        onPointerMove={() => setMenuActiveIndex(flatIndex)}
+                      />
+                    );
+                  })}
+                </>
+              )}
+              {globalItems.length > 0 && (
+                <>
+                  {(commandItems.length > 0 || builtinItems.length > 0) && (
                     <div className="mx-2.5 my-1 border-t border-border" />
                   )}
                   <div className="sticky top-0 z-10 flex items-center gap-1.5 px-3 pt-1.5 pb-1 text-[11px] font-medium text-muted-foreground bg-popover">
@@ -382,7 +411,7 @@ const ChatCommandMenu = forwardRef<ChatCommandMenuHandle, ChatCommandMenuProps>(
                     {t("projectSelector.projectSpace")}
                   </div>
                   {globalItems.map((item, i) => {
-                    const flatIndex = commandItems.length + i;
+                    const flatIndex = commandItems.length + builtinItems.length + i;
                     const isActive = flatIndex === activeIndex;
                     return (
                       <SkillMenuItem
@@ -398,7 +427,7 @@ const ChatCommandMenu = forwardRef<ChatCommandMenuHandle, ChatCommandMenuProps>(
               )}
               {projectItems.length > 0 && (
                 <>
-                  {(commandItems.length > 0 || globalItems.length > 0) && (
+                  {(commandItems.length > 0 || builtinItems.length > 0 || globalItems.length > 0) && (
                     <div className="mx-2.5 my-1 border-t border-border" />
                   )}
                   <div className="sticky top-0 z-10 flex items-center gap-1.5 px-3 pt-1.5 pb-1 text-[11px] font-medium text-muted-foreground bg-popover">
@@ -406,7 +435,7 @@ const ChatCommandMenu = forwardRef<ChatCommandMenuHandle, ChatCommandMenuProps>(
                     {tNav("project")}
                   </div>
                   {projectItems.map((item, i) => {
-                    const flatIndex = commandItems.length + globalItems.length + i;
+                    const flatIndex = commandItems.length + builtinItems.length + globalItems.length + i;
                     const isActive = flatIndex === activeIndex;
                     return (
                       <SkillMenuItem

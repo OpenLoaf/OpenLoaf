@@ -11,6 +11,8 @@
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useQuery } from "@tanstack/react-query";
+import { trpc } from "@/utils/trpc";
 import { formatAttachmentTag } from "@openloaf/api/common";
 import type { FocusEvent, ReactNode } from "react";
 import { Mic, Paperclip } from "lucide-react";
@@ -284,6 +286,21 @@ export function ChatInputBox({
     onAddMaskedAttachment,
     uploadFileToSession,
   });
+
+  /** Builtin skill names (for disabling click on builtin skill chips in the editor). */
+  const skillsQuery = useQuery({
+    ...(defaultProjectId
+      ? trpc.settings.getSkills.queryOptions({ projectId: defaultProjectId })
+      : trpc.settings.getSkills.queryOptions()),
+    staleTime: 5 * 60 * 1000,
+  });
+  const builtinSkillNames = useMemo(() => {
+    const set = new Set<string>();
+    for (const skill of skillsQuery.data ?? []) {
+      if (skill.scope === "builtin") set.add(skill.originalName);
+    }
+    return set;
+  }, [skillsQuery.data]);
 
   /** Whether the file picker dialog is open. */
   const [filePickerOpen, setFilePickerOpen] = useState(false);
@@ -595,6 +612,7 @@ export function ChatInputBox({
                 onKeyDown={handleKeyDown}
                 onChipClick={handleChipClick}
                 onSkillChipClick={(skillName) => openSkillInStack(skillName, defaultProjectId)}
+                builtinSkillNames={builtinSkillNames}
                 onPasteFiles={uploadFileToSession ? async (files) => {
                   for (const file of files) {
                     const storedPath = await uploadFileToSession(file);

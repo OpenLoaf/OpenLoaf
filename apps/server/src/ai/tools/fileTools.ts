@@ -27,17 +27,14 @@ import {
   type ReadEntry,
 } from '@/ai/tools/fileReadState'
 import { resolveSessionAssetDir } from '@openloaf/api/services/chatSessionPaths'
-import { extractPdfContent } from '@/ai/tools/office/pdfEngine'
-import { extractDocxContent } from '@/ai/tools/office/docxExtractor'
-import { extractXlsxContent } from '@/ai/tools/office/xlsxExtractor'
-import { extractPptxContent } from '@/ai/tools/office/pptxExtractor'
 import { extractArchiveContent } from '@/ai/tools/office/archiveExtractor'
 import {
-  understandImage,
-  understandVideo,
-  transcribeAudio,
-  type SaasMediaResult,
-} from '@/ai/shared/saasMediaService'
+  previewPdf,
+  previewDocx,
+  previewXlsx,
+  previewPptx,
+} from '@/ai/tools/docPreviewTools'
+import { formatFileResult, xmlAttrEscape, type FormatOptions } from '@/ai/tools/fileFormat'
 import { createToolProgress, type ToolProgressEmitter } from '@/ai/tools/toolProgress'
 
 /** Idle watchdog: reject if no progress emit happens for `idleMs`. */
@@ -224,72 +221,16 @@ async function resolveReadAssetDir(
   return { assetDirAbsPath, assetRelPrefix }
 }
 
-/** Escape a string for safe inclusion in an XML attribute value. */
-function xmlAttrEscape(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-}
-
-type FormatOptions = {
-  /**
-   * `raw` = literal source content (editable with Edit/Write).
-   * `derived` = extracted / rendered view; source cannot be edited with Edit/Write.
-   * Defaults to `raw` for backwards compat with callers that don't opt in.
-   */
-  readMode?: 'raw' | 'derived'
-  /** For derived reads: tool that can mutate the source file. */
-  mutateTool?: string
-}
-
-/** Wrap a FileContentResult into the unified XML-tagged string for the model. */
-function formatFileResult(
-  result: FileContentResult,
-  fileName: string,
-  mimeType: string,
-  bytes: number,
-  opts: FormatOptions = {},
-): string {
-  const readMode = opts.readMode ?? 'raw'
-  const attrs = [
-    `name="${xmlAttrEscape(fileName)}"`,
-    `type="${result.type}"`,
-    `mimeType="${xmlAttrEscape(mimeType)}"`,
-    `bytes="${bytes}"`,
-    `readMode="${readMode}"`,
-  ]
-  if (readMode === 'derived') {
-    attrs.push('editable="false"')
-    if (opts.mutateTool) attrs.push(`mutateTool="${xmlAttrEscape(opts.mutateTool)}"`)
-  }
-  // Pull an optional error reason out of meta so we can emit it as its own tag.
-  const { error: metaError, ...cleanMeta } = result.meta as { error?: unknown } & Record<string, unknown>
-  const errorReason = typeof metaError === 'string' ? metaError : undefined
-
-  const parts: string[] = [`<file ${attrs.join(' ')}>`]
-  parts.push(`<meta>${JSON.stringify(cleanMeta)}</meta>`)
-  if (readMode === 'derived') {
-    const hint = opts.mutateTool
-      ? `This is a rendered view of a ${result.type.toUpperCase()} file. Edit/Write cannot modify the source — use \`${opts.mutateTool}\` for structural edits. For archives, Read individual files inside the extracted folder.`
-      : `This is a rendered view / extracted metadata. Edit/Write cannot modify the source file. For archives, Read individual files inside the extracted folder; for media, regenerate via media generation tools.`
-    parts.push(`<note>${xmlAttrEscape(hint)}</note>`)
-  }
-  if (result.fallbackPath) {
-    parts.push(
-      `<fallback path="${xmlAttrEscape(result.fallbackPath)}">This file could not be parsed. The original has been copied to the asset dir for manual inspection.</fallback>`,
-    )
-  } else if (errorReason && result.content.length === 0) {
-    parts.push(`<error>${xmlAttrEscape(errorReason)}</error>`)
-  } else {
-    parts.push('<content>')
-    parts.push(result.content)
-    parts.push('</content>')
-  }
-  if (result.truncated) parts.push('<truncated reason="output exceeded size limit" />')
-  parts.push('</file>')
-  return parts.join('\n')
+/**
+ * Suggestion block appended to Read responses for image / video / audio files.
+ * Read never calls SaaS multimodal understanding itself — it only reads local
+ * metadata and surfaces this hint so the model can decide to SkillLoad the
+ * cloud-media-skill on demand (which documents the paid cloud flow).
+ */
+const CLOUD_MEDIA_SUGGEST: FormatOptions['suggestSkill'] = {
+  skill: 'cloud-media-skill',
+  reason: '图片/视频/音频内容理解需要云端多模态能力',
+  body: '需要 OCR、字幕提取、画面描述、语音转写时先 SkillLoad 加载 cloud-media-skill 查看云端流程',
 }
 
 /** 检查路径是否属于某个根路径内。 */
@@ -479,27 +420,21 @@ async function recordPostWriteState(
  * Unified Read tool — MIME-dispatches to text / PDF / Office / image / video /
  * audio handlers and returns a single XML-tagged string the model can consume.
  *
- * Office and PDF files write their extracted images to
- *   `{sessionAssetDir}/{basename}_asset/`
- * and reference them inline from the Markdown body via `![](relative/path.png)`.
+ * Office files (pdf/docx/xlsx/pptx) return only a cheap local preview. For the
+ * full Markdown body + extracted images use the DocPreview tool with
+ * mode='full'.
  *
- * Image / Video / Audio files default to calling SaaS multimodal understanding
- * (imageCaption / videoCaption / speechToText). Pass `understand: false` to
- * skip the paid call and return only basic metadata.
+ * Image / Video / Audio files return basic local metadata only. Read never
+ * calls any SaaS multimodal understanding — the response includes a
+ * `<suggest skill="cloud-media-skill">` hint so the model can SkillLoad it
+ * on demand.
  */
 export const readTool = tool({
   description: readToolDef.description,
   inputSchema: zodSchema(readToolDef.parameters),
   needsApproval: false,
   execute: async (
-    {
-      file_path: filePath,
-      offset,
-      limit,
-      pageRange,
-      sheetName,
-      understand,
-    },
+    { file_path: filePath, offset, limit },
     { toolCallId }: { toolCallId: string },
   ): Promise<string> => {
     const rawProgress = createToolProgress(toolCallId, 'Read')
@@ -558,56 +493,54 @@ export const readTool = tool({
         )
       }
 
-      // All remaining kinds write images / assets → they need a session.
+      // Only `archive` needs session-scoped asset dir (for unzipping).
+      // Office previews and media reads are pure local inspections — no disk writes.
       const sessionId = getSessionId()
-      if (!sessionId) {
-        throw new Error('Reading this file type requires an active chat session.')
+      let assetDirAbsPath: string | undefined
+      let assetRelPrefix: string | undefined
+      if (kind === 'archive') {
+        if (!sessionId) {
+          throw new Error('Reading an archive requires an active chat session.')
+        }
+        const resolved = await resolveReadAssetDir(sessionId, filePath, '_unzipped')
+        assetDirAbsPath = resolved.assetDirAbsPath
+        assetRelPrefix = resolved.assetRelPrefix
       }
-      const assetSuffix = kind === 'archive' ? '_unzipped' : '_asset'
-      const { assetDirAbsPath, assetRelPrefix } = await resolveReadAssetDir(
-        sessionId,
-        filePath,
-        assetSuffix,
-      )
 
       let result: FileContentResult
+      let suggestSkill: FormatOptions['suggestSkill']
       switch (kind) {
         case 'pdf':
-          progress.delta(
-            pageRange
-              ? `Parsing PDF pages ${pageRange} with unpdf + extracting embedded images...\n`
-              : 'Parsing PDF with unpdf + extracting embedded images...\n',
-          )
-          result = await readPdfFile(absPath, fileName, pageRange, assetDirAbsPath, assetRelPrefix)
+          progress.delta('Building PDF preview (structure + first-page snippet)...\n')
+          result = await previewPdf(absPath, undefined)
           break
         case 'docx':
-          progress.delta('Unzipping DOCX and converting to Markdown via mammoth + turndown...\n')
-          result = await extractDocxContent(absPath, assetDirAbsPath, assetRelPrefix)
+          progress.delta('Building DOCX preview (headings + first paragraphs)...\n')
+          result = await previewDocx(absPath)
           break
         case 'xlsx':
-          progress.delta(
-            sheetName
-              ? `Reading sheet "${sheetName}" via SheetJS...\n`
-              : 'Reading all sheets via SheetJS...\n',
-          )
-          result = await extractXlsxContent(absPath, assetDirAbsPath, assetRelPrefix, { sheetName })
+          progress.delta('Building XLSX preview (sheet list + preview grid)...\n')
+          result = await previewXlsx(absPath, undefined)
           break
         case 'pptx':
-          progress.delta('Walking slides via fast-xml-parser and mapping images per slide...\n')
-          result = await extractPptxContent(absPath, assetDirAbsPath, assetRelPrefix)
+          progress.delta('Building PPTX preview (slide titles + first slide text)...\n')
+          result = await previewPptx(absPath)
           break
         case 'image':
-          result = await readImageFile(absPath, fileName, understand !== false, assetRelPrefix, progress)
+          result = await readImageFile(absPath, fileName, progress)
+          suggestSkill = CLOUD_MEDIA_SUGGEST
           break
         case 'video':
-          result = await readVideoFile(absPath, fileName, bytes, understand !== false, assetRelPrefix, progress)
+          result = await readVideoFile(absPath, fileName, bytes, progress)
+          suggestSkill = CLOUD_MEDIA_SUGGEST
           break
         case 'audio':
-          result = await readAudioFile(absPath, fileName, bytes, understand !== false, assetRelPrefix, progress)
+          result = await readAudioFile(absPath, fileName, bytes, progress)
+          suggestSkill = CLOUD_MEDIA_SUGGEST
           break
         case 'archive':
           progress.delta('Unzipping archive and listing entries...\n')
-          result = await extractArchiveContent(absPath, assetDirAbsPath, assetRelPrefix)
+          result = await extractArchiveContent(absPath, assetDirAbsPath!, assetRelPrefix!)
           break
         default: {
           const exhaustive: never = kind
@@ -617,9 +550,8 @@ export const readTool = tool({
 
       // Enrich meta with the absolute path of the generated asset dir so the
       // model can hand it straight to Bash / Glob / Grep without guessing how
-      // `${CURRENT_CHAT_DIR}` expands. Also include a template-var alias for
-      // tool inputs that still prefer the portable form.
-      if (result.assetDir) {
+      // `${CURRENT_CHAT_DIR}` expands. Only applies to archive unzipping now.
+      if (result.assetDir && assetDirAbsPath) {
         ;(result.meta as Record<string, unknown>).extractedTo = {
           absPath: assetDirAbsPath,
           templatePath: `\${CURRENT_CHAT_DIR}/${result.assetDir}`,
@@ -655,6 +587,8 @@ export const readTool = tool({
       return formatFileResult(result, fileName, mimeType, bytes, {
         readMode: 'derived',
         mutateTool,
+        toolName: 'Read',
+        suggestSkill,
       })
     }
   },
@@ -808,54 +742,28 @@ async function readTextFile(
     `bytes="${stat.size}"`,
     'readMode="raw"',
   ].join(' ')
-  const parts: string[] = [
-    `<file ${attrs}>`,
+  // raw 模式：先输出一块 <system-tag> 描述文件元信息，再直接跟原始内容（不套 <content>），
+  // 这样模型拿到的文本就和 `cat -n` 原生输出形态一致，便于后续 Edit/Write 配对使用。
+  const header: string[] = [
+    '<system-tag type="fileInfo" toolName="Read">',
+    `<file ${attrs} />`,
     `<meta>${JSON.stringify(meta)}</meta>`,
-    '<content>',
-    contentLines.join('\n'),
-    '</content>',
   ]
   if (notes.length > 0) {
-    parts.push(`<note>${xmlAttrEscape(notes.join(' '))}</note>`)
+    header.push(`<note>${xmlAttrEscape(notes.join(' '))}</note>`)
   }
-  parts.push('</file>')
-  return parts.join('\n')
+  header.push('</system-tag>')
+  return `${header.join('\n')}\n${contentLines.join('\n')}`
 }
 
-async function readPdfFile(
-  absPath: string,
-  fileName: string,
-  pageRange: string | undefined,
-  assetDirAbsPath: string,
-  assetRelPrefix: string,
-): Promise<FileContentResult> {
-  const pdf = await extractPdfContent(absPath, pageRange, assetDirAbsPath, assetRelPrefix)
-  return {
-    type: 'pdf',
-    fileName,
-    content: pdf.content,
-    meta: {
-      pageCount: pdf.pageCount,
-      characterCount: pdf.characterCount,
-      imageCount: pdf.images.length,
-    },
-    images: pdf.images.map((img) => ({
-      index: img.index,
-      url: img.url,
-      width: img.width,
-      height: img.height,
-      page: img.page,
-    })),
-    assetDir: pdf.assetDir,
-    truncated: pdf.truncated,
-  }
-}
-
+/**
+ * Image reader — local metadata only (width/height/format via sharp).
+ * Read does NOT call any SaaS understanding; to OCR / caption, SkillLoad
+ * cloud-media-skill and follow its instructions.
+ */
 async function readImageFile(
   absPath: string,
   fileName: string,
-  understand: boolean,
-  assetRelPrefix: string,
   progress: ToolProgressEmitter,
 ): Promise<FileContentResult> {
   progress.delta('Probing image metadata via sharp...\n')
@@ -869,100 +777,62 @@ async function readImageFile(
     height = m.height ?? 0
     format = m.format
   } catch {
-    // fall through with zeroed metadata
+    // Unsupported container — surface zero dims rather than throwing so the
+    // model still gets file bytes + the cloud-media-skill hint.
   }
 
-  const meta: Record<string, unknown> = { width, height, understand }
+  const meta: Record<string, unknown> = { width, height }
   if (format) meta.format = format
-
-  let content = ''
-  if (understand) {
-    progress.delta('Uploading to SaaS and running imageCaption...\n')
-    const resp: SaasMediaResult = await understandImage(absPath)
-    if (resp.ok) {
-      content = resp.text
-      if (resp.extras) meta.extras = resp.extras
-      progress.delta(`Caption received (${content.length} chars).\n`)
-    } else {
-      throw new Error(
-        `Image understanding failed: ${resp.reason}. Pass \`understand: false\` to read metadata only.`,
-      )
-    }
-  }
 
   return {
     type: 'image',
     fileName,
-    content,
+    content: '',
     meta,
     images: [],
-    assetDir: assetRelPrefix,
   }
 }
 
+/**
+ * Video reader — local meta only (bytes + extension-derived format). For
+ * content understanding (subtitles, caption, scene summary) load the
+ * cloud-media-skill on demand.
+ */
 async function readVideoFile(
   absPath: string,
   fileName: string,
   bytes: number,
-  understand: boolean,
-  assetRelPrefix: string,
-  progress: ToolProgressEmitter,
+  _progress: ToolProgressEmitter,
 ): Promise<FileContentResult> {
-  const meta: Record<string, unknown> = { bytes, understand }
-  let content = ''
-  if (understand) {
-    progress.delta('Uploading to SaaS and running videoCaption...\n')
-    const resp: SaasMediaResult = await understandVideo(absPath)
-    if (resp.ok) {
-      content = resp.text
-      if (resp.extras) meta.extras = resp.extras
-      progress.delta(`Caption received (${content.length} chars).\n`)
-    } else {
-      throw new Error(
-        `Video understanding failed: ${resp.reason}. Pass \`understand: false\` to read metadata only.`,
-      )
-    }
-  }
+  const ext = path.extname(absPath).toLowerCase().replace(/^\./, '') || 'unknown'
+  const meta: Record<string, unknown> = { bytes, format: ext }
   return {
     type: 'video',
     fileName,
-    content,
+    content: '',
     meta,
     images: [],
-    assetDir: assetRelPrefix,
   }
 }
 
+/**
+ * Audio reader — local meta only (bytes + extension-derived format). For
+ * speech-to-text / music analysis load the cloud-media-skill on demand.
+ */
 async function readAudioFile(
   absPath: string,
   fileName: string,
   bytes: number,
-  understand: boolean,
-  assetRelPrefix: string,
-  progress: ToolProgressEmitter,
+  _progress: ToolProgressEmitter,
 ): Promise<FileContentResult> {
-  const meta: Record<string, unknown> = { bytes, understand }
-  let content = ''
-  if (understand) {
-    progress.delta('Uploading to SaaS and running speechToText...\n')
-    const resp: SaasMediaResult = await transcribeAudio(absPath)
-    if (resp.ok) {
-      content = resp.text
-      if (resp.extras) meta.extras = resp.extras
-      progress.delta(`Transcript received (${content.length} chars).\n`)
-    } else {
-      throw new Error(
-        `Audio transcription failed: ${resp.reason}. Pass \`understand: false\` to read metadata only.`,
-      )
-    }
-  }
+  const ext = path.extname(absPath).toLowerCase().replace(/^\./, '') || 'unknown'
+  const meta: Record<string, unknown> = { bytes, format: ext }
   return {
     type: 'audio',
     fileName,
-    content,
+    content: '',
     meta,
     images: [],
-    assetDir: assetRelPrefix,
   }
 }
 

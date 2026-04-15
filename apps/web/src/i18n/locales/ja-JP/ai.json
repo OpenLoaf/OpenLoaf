@@ -596,6 +596,21 @@
         "pressOn": "キー押下",
         "scroll": "スクロール"
       }
+    },
+    "toolSearch": {
+      "loaded": "読み込み済み",
+      "notFound": "見つかりません",
+      "loadedCount": "{{count}} 件読み込み",
+      "notFoundCount": "{{count}} 件見つからず",
+      "queryFailed": "検索に失敗しました",
+      "loading": "読み込み中..."
+    },
+    "webSearch": {
+      "resultCount": "{{count}} 件",
+      "searching": "検索中...",
+      "searchFailed": "検索に失敗しました",
+      "loading": "読み込み中...",
+      "noResults": "結果なし"
     }
   },
   "error": {

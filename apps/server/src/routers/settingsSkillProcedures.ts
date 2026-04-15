@@ -83,8 +83,15 @@ export const skillProcedures = {
           projectCandidates.push({ rootPath: entry.rootPath, projectId: parentId })
         }
         const items = summaries
-          .filter((summary) => summary.scope !== "builtin")
           .map((summary) => {
+            if (summary.scope === "builtin") {
+              return {
+                ...summary,
+                ignoreKey: `builtin:${summary.folderName}`,
+                isEnabled: true,
+                isDeletable: false,
+              }
+            }
             const ownerProjectId = summary.scope === "project"
               ? resolveOwnerProjectId({ skillPath: summary.path, candidates: projectCandidates })
               : null
@@ -102,7 +109,18 @@ export const skillProcedures = {
         )
       }
 
-      // --- Global query: load global skills + all project skills ---
+      // --- Global query: load builtin + global skills + all project skills ---
+      // 0. Builtin skills (always enabled, not deletable)
+      const builtinSummaries = loadSkillSummaries({})
+      const builtinItems = builtinSummaries
+        .filter((s) => s.scope === "builtin")
+        .map((summary) => ({
+          ...summary,
+          ignoreKey: `builtin:${summary.folderName}`,
+          isEnabled: true,
+          isDeletable: false,
+        }))
+
       // 1. Global skills
       const globalSummaries = loadSkillSummaries({
         globalSkillsPath: resolveGlobalSkillsPath(),
@@ -151,7 +169,7 @@ export const skillProcedures = {
         }
       }
 
-      return [...globalItems, ...projectItems]
+      return [...builtinItems, ...globalItems, ...projectItems]
     }),
   setSkillEnabled: shieldedProcedure
     .input(settingSchemas.setSkillEnabled.input)

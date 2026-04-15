@@ -10,6 +10,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   CheckCircle2Icon,
   ExternalLinkIcon,
@@ -191,6 +192,7 @@ export default function WebSearchTool({
   part: AnyToolPart
   className?: string
 }) {
+  const { t } = useTranslation('ai')
   const inputObj = asPlainObject(normalizeToolInput(part.input))
   const query = inputObj
     ? typeof inputObj.query === 'string'
@@ -235,7 +237,7 @@ export default function WebSearchTool({
           >
             <SearchIcon className="size-3.5 shrink-0 text-muted-foreground" />
             <span className="shrink-0 text-xs font-medium text-muted-foreground">
-              WebSearch
+              {t('toolNames.WebSearch')}
             </span>
             {query ? (
               <span className="min-w-0 truncate font-mono text-xs text-muted-foreground/50">
@@ -246,7 +248,7 @@ export default function WebSearchTool({
             )}
             {count > 0 ? (
               <span className="shrink-0 text-[10px] text-muted-foreground/60">
-                {count} 条
+                {t('tool.webSearch.resultCount', { count })}
               </span>
             ) : null}
             {showSpinner ? (
@@ -298,13 +300,13 @@ export default function WebSearchTool({
             ))}
           </ul>
         ) : progressActive ? (
-          <ToolOutputLoading label={tp?.label || '搜索中...'} />
+          <ToolOutputLoading label={tp?.label || t('tool.webSearch.searching')} />
         ) : errorText || hasError || progressError ? (
-          <ToolOutputError message={errorText || '搜索失败'} />
+          <ToolOutputError message={errorText || t('tool.webSearch.searchFailed')} />
         ) : streaming ? (
-          <ToolOutputLoading label="加载中..." />
+          <ToolOutputLoading label={t('tool.webSearch.loading')} />
         ) : (
-          <div className="py-0.5 text-[11px] text-muted-foreground/60">无结果</div>
+          <div className="py-0.5 text-[11px] text-muted-foreground/60">{t('tool.webSearch.noResults')}</div>
         )}
       </ToolOutputContent>
     </Collapsible>

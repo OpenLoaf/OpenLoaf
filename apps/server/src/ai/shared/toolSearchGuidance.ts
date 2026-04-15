@@ -19,7 +19,6 @@ import type { ClientPlatform } from '@openloaf/api/types/platform'
 import {
   TOOL_CATALOG_EXTENDED,
 } from '@openloaf/api/types/tools/toolCatalog'
-import { isWebSearchConfigured } from '@/ai/tools/webSearchTool'
 
 /** Platform-specific tool exclusions. */
 const PLATFORM_EXCLUDED: Partial<Record<string, ClientPlatform[]>> = {
@@ -66,7 +65,6 @@ export function buildToolSearchGuidance(
     if (allowedIds && !allowedIds.has(tool.id)) return false
     const excluded = PLATFORM_EXCLUDED[tool.id]
     if (excluded && platform && excluded.includes(platform)) return false
-    if (tool.id === 'WebSearch' && !isWebSearchConfigured()) return false
     return true
   })
 
@@ -86,16 +84,18 @@ export function buildToolSearchGuidance(
 
   return `# 工具与技能（两条独立通道）
 
-核心工具（Bash、Read、Glob、Grep、Edit、Write、AskUserQuestion、Agent、ToolSearch、LoadSkill 等）始终可用，直接调用。
+**核心工具**（Bash、Read、Glob、Grep、Edit、Write、AskUserQuestion、Agent、ToolSearch、LoadSkill 等）始终可用，直接调用。
 
-**Skill 加载（工作流指令）**：\`LoadSkill(skillName: "<name>")\`——唯一途径。可用 skill 列表见 system 中的 \`<system-tag type="skills">\` 块。不要用 ToolSearch 加载 skill。
+**工作流加载 — LoadSkill**：\`LoadSkill(skillName: "<name>")\` 是加载 skill 的唯一途径。可用 skill 列表见 system 中的 \`<system-tag type="skills">\` 块。不要用 ToolSearch 加载 skill。
 
-**Tool schema 加载（参数签名）**：其他 deferred 工具在调用前只有名字没有 schema，必须先用 \`ToolSearch(names: "ToolA,ToolB")\` 加载，支持批量；可用 \`ToolSearch(names: "select:ToolA")\` 明确按名加载。
+**工具参数加载 — ToolSearch**：下方分类里列出的工具只有名字、没有参数签名（schema）。你没见过它 schema 的工具，**先** \`ToolSearch(names: "ToolA,ToolB")\` 一次性批量拿回 schema，**再**按正常方式调用（调用时用工具本身的参数，不是 \`names\`）。支持逗号分隔批量，一轮就够。
+
+**为什么顺序是硬约束**：直接调用还没加载 schema 的工具会被运行时兜底改写成 ToolSearch，但这会让消息历史里的 tool 记录错位（原调用名 × 改写后参数），后续回放、调试和上下文拼接都会误读。先加载再调用既省一步也让历史保持干净。
 
 工作流程：
 1. 核心工具 → 直接使用
-2. 领域任务 → 先 \`LoadSkill\` 读取对应 skill 正文，按正文指引一次性批量 \`ToolSearch\` 加载需要的工具，再按 skill 执行
-3. 若无匹配 skill → 直接从下方分类判断需要什么工具，\`ToolSearch\` 加载其 schema
+2. 领域任务 → 先 \`LoadSkill\` 读取对应 skill 正文，按正文列出的工具清单一次性批量 \`ToolSearch\` 加载，再按 skill 执行
+3. 无匹配 skill → 按下方分类判断需要哪个工具，\`ToolSearch\` 拿 schema，再调用
 
 可按需加载的工具分类：
 ${groupLines.join('\n')}`

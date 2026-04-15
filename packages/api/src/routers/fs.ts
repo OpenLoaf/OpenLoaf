@@ -239,12 +239,15 @@ async function applyChatDirTemplate(
   scope: BoardFsScope,
   target: string,
 ): Promise<string> {
-  if (!target.includes("${CURRENT_CHAT_DIR}")) return target;
+  const needsSession =
+    target.includes("${CURRENT_CHAT_DIR}") ||
+    target.includes("${CHAT_SESSION_DIR}");
+  if (!needsSession) return target;
   if (!scope.sessionId) {
     throw new TRPCError({
       code: "BAD_REQUEST",
       message:
-        "fs: uri 包含 ${CURRENT_CHAT_DIR} 模板，但调用未带 sessionId。请在 tRPC input 中同时提供 sessionId 才能解析模板到会话资源目录。",
+        "fs: uri 包含 ${CURRENT_CHAT_DIR}/${CHAT_SESSION_DIR} 模板，但调用未带 sessionId。请在 tRPC input 中同时提供 sessionId 才能解析模板到会话资源目录。",
     });
   }
   return expandChatDirTemplate(target, scope.sessionId);

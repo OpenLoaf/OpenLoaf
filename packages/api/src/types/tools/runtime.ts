@@ -55,13 +55,12 @@ export const readToolDef = {
   name: "Read File",
   description: `Read any file from the local filesystem — unified dispatcher.
 
-Output is XML-tagged: <file> wraps one result with <meta>, <content>, optionally <fallback>/<error>. Embedded images from PDFs / DOCX / XLSX / PPTX are written next to the file as "{basename}_asset/..." and referenced inline via Markdown image syntax inside <content>.
+Output is XML-tagged: <system-tag type="fileInfo" toolName="Read"> carries <file>, <meta>, optional <note>/<suggest>/<fallback>/<error>; the raw or extracted body follows the closing tag.
 
 Format handling:
 - Text / code / config (.ts/.md/.json/.yaml/...) → numbered lines; use offset/limit for ranges
-- PDF → text + embedded images interleaved by reading order; use pageRange to scope
-- DOCX / XLSX / PPTX → Markdown body + images extracted to asset dir; XLSX honours sheetName
-- Image / Video / Audio → basic metadata + caption/transcript from SaaS multimodal (set understand=false to skip)
+- PDF / DOCX / XLSX / PPTX → fast local preview only (page count / sheet list / slide titles / first-page snippet). For the full Markdown body + extracted images use the DocPreview tool with mode='full'.
+- Image / Video / Audio → local metadata only (dimensions / bytes). Read will NOT call any paid SaaS understanding — the response includes a <suggest skill="cloud-media-skill"> hint; to OCR / transcribe / caption media, SkillLoad cloud-media-skill and follow its playbook.
 - Directories → not supported; use Glob or Bash ls
 
 file_path must be absolute or resolvable from the project root.`,
@@ -69,12 +68,6 @@ file_path must be absolute or resolvable from the project root.`,
     file_path: z.string().min(1).describe("Absolute or project-relative path."),
     offset: z.number().int().min(1).optional().describe("Text files only — line number to start reading from."),
     limit: z.number().int().min(1).optional().describe("Text files only — max lines to return."),
-    pageRange: z.string().optional().describe('PDF page range, e.g. "1-5", "3", "10-20". Omit for all pages.'),
-    sheetName: z.string().optional().describe("XLSX only — extract just this sheet. Omit for all sheets."),
-    understand: z
-      .boolean()
-      .optional()
-      .describe("Image/Video/Audio only — call SaaS multimodal understanding. Defaults to true; set to false to skip (no credits, only metadata)."),
   }),
   component: null,
 } as const;

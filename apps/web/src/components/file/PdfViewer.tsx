@@ -42,6 +42,15 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   import.meta.url
 ).toString();
 
+// 扫描件 / CJK PDF 依赖 cmaps + standard_fonts 做字体回退；
+// 资源由 apps/web/scripts/copy-pdfjs-assets.mjs 从 pdfjs-dist 复制到 public/pdfjs/，
+// 此处把 URL 固化为 Document options，避免每次渲染生成新引用触发重载。
+const PDFJS_DOCUMENT_OPTIONS = {
+  cMapUrl: "/pdfjs/cmaps/",
+  cMapPacked: true,
+  standardFontDataUrl: "/pdfjs/standard_fonts/",
+} as const;
+
 /** Render a PDF preview panel. */
 export default function PdfViewer({
   uri,
@@ -97,7 +106,16 @@ export default function PdfViewer({
           // 暴露真实错误（fetch 状态 / too-large / 网络错误），避免用户只看到「PDF 预览失败」
           // 的模糊提示。react-pdf 自身的解析失败由 Document.onLoadError 另行捕获。
           setErrorMessage(detail || "PDF 获取失败");
-          console.error("[PdfViewer] fetch failed", { uri, projectId, sessionId, error });
+          // Error 实例的属性不可枚举，必须作为独立位置参数传给 console.error
+          // 才能让 devtools 展开 stack，否则会被序列化成 {}。
+          console.error("[PdfViewer] fetch failed:", error);
+          console.error("[PdfViewer] context:", {
+            uri,
+            projectId,
+            sessionId,
+            message: detail,
+            stack: error instanceof Error ? error.stack : undefined,
+          });
           setData(null);
           setStatus("error");
         }
@@ -225,6 +243,7 @@ export default function PdfViewer({
           <div className="flex justify-center">
             <Document
               file={documentFile}
+              options={PDFJS_DOCUMENT_OPTIONS}
               loading={<div className="text-sm text-muted-foreground">加载中…</div>}
               onLoadSuccess={(info) => {
                 setNumPages(info.numPages);

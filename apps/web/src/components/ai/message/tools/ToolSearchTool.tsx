@@ -10,6 +10,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   CheckCircle2Icon,
   LoaderCircleIcon,
@@ -79,6 +80,7 @@ export default function ToolSearchTool({
   part: AnyToolPart
   className?: string
 }) {
+  const { t } = useTranslation('ai')
   const inputObj = asPlainObject(normalizeToolInput(part.input))
   const query =
     inputObj && typeof inputObj.names === 'string' ? inputObj.names.trim() : ''
@@ -107,7 +109,7 @@ export default function ToolSearchTool({
           >
             <WrenchIcon className="size-3.5 shrink-0 text-muted-foreground" />
             <span className="shrink-0 text-xs font-medium text-muted-foreground">
-              ToolSearch
+              {t('toolNames.ToolSearch')}
             </span>
             {query ? (
               <span className="min-w-0 truncate font-mono text-xs text-muted-foreground/50">
@@ -118,12 +120,12 @@ export default function ToolSearchTool({
             )}
             {loadedCount > 0 ? (
               <span className="shrink-0 text-[10px] text-muted-foreground/60">
-                {loadedCount} 已加载
+                {loadedCount}
               </span>
             ) : null}
             {notFoundCount > 0 ? (
               <span className="shrink-0 text-[10px] text-destructive/70">
-                {notFoundCount} 未找到
+                {t('tool.toolSearch.notFoundCount', { count: notFoundCount })}
               </span>
             ) : null}
             {streaming ? (
@@ -145,21 +147,26 @@ export default function ToolSearchTool({
         {parsed ? (
           <div className="flex flex-col gap-1.5">
             {loadedCount > 0 ? (
-              <div>
-                <div className="mb-0.5 text-[10px] text-muted-foreground/60">已加载</div>
-                <div className="flex flex-wrap gap-1">
-                  {parsed.tools.map((tool) => (
-                    <Tooltip key={tool.id}>
-                      <TooltipTrigger asChild>
-                        <span
-                          className={cn(
-                            'inline-flex items-center rounded-full bg-muted/60 px-2 py-0.5',
-                            'font-mono text-[10px] text-foreground',
-                          )}
-                        >
-                          {tool.id}
+              <div className="flex flex-col gap-0.5">
+                {parsed.tools.map((tool) => (
+                  <Tooltip key={tool.id}>
+                    <TooltipTrigger asChild>
+                      <div
+                        className={cn(
+                          'flex items-center gap-2 rounded-md bg-muted/40 px-2 py-1',
+                          'cursor-default transition-colors duration-150 hover:bg-muted/70',
+                        )}
+                      >
+                        <span className="text-[11px] text-foreground">
+                          {t(`toolNames.${tool.id}`, tool.name || tool.id)}
                         </span>
-                      </TooltipTrigger>
+                        {tool.name && tool.name !== tool.id ? (
+                          <span className="font-mono text-[10px] text-muted-foreground/50">
+                            {tool.id}
+                          </span>
+                        ) : null}
+                      </div>
+                    </TooltipTrigger>
                       {tool.description ? (
                         <TooltipContent side="top" className="max-w-sm text-xs">
                           {tool.description}
@@ -167,12 +174,11 @@ export default function ToolSearchTool({
                       ) : null}
                     </Tooltip>
                   ))}
-                </div>
               </div>
             ) : null}
             {notFoundCount > 0 ? (
               <div>
-                <div className="mb-0.5 text-[10px] text-muted-foreground/60">未找到</div>
+                <div className="mb-1 text-[10px] font-medium text-destructive/70">{t('tool.toolSearch.notFound')}</div>
                 <div className="flex flex-wrap gap-1">
                   {parsed.notFound.map((name) => (
                     <span
@@ -185,14 +191,11 @@ export default function ToolSearchTool({
                 </div>
               </div>
             ) : null}
-            {parsed.message ? (
-              <div className="text-[10px] text-muted-foreground/60">{parsed.message}</div>
-            ) : null}
           </div>
         ) : errorText || hasError ? (
-          <ToolOutputError message={errorText || '查询失败'} />
+          <ToolOutputError message={errorText || t('tool.toolSearch.queryFailed')} />
         ) : streaming ? (
-          <ToolOutputLoading label="加载中..." />
+          <ToolOutputLoading label={t('tool.toolSearch.loading')} />
         ) : (
           <div className="py-0.5 text-[11px] text-muted-foreground/60">
             {safeStringify(part.output)}

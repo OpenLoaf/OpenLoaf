@@ -8,7 +8,7 @@
     "prebuild": "pnpm --filter @openloaf/widget-sdk build && node -e \"const fs=require('node:fs'); try{fs.rmSync('.next/lock')}catch{}\" && node ../../scripts/copy-syncfusion-assets.mjs",
     "build": "next build",
     "start": "next start",
-    "postinstall": "node scripts/copy-monaco-assets.mjs",
+    "postinstall": "node scripts/copy-monaco-assets.mjs && node scripts/copy-pdfjs-assets.mjs",
     "check-types": "pnpm exec tsc -p tsconfig.json --noEmit",
     "lint": "eslint src",
     "publish-update": "node scripts/publish-update.mjs",

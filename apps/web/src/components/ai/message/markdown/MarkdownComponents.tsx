@@ -22,7 +22,54 @@ const TABLE: Components["table"] = React.memo(function TABLE(props: any) {
   return <MarkdownTable {...(props as React.ComponentProps<"table">)} />;
 });
 
+// Override list elements — streamdown generates dynamic classes (e.g. `list-inside`, `[li_&]:pl-6`)
+// that Tailwind cannot scan at build time. We replace them with static classes known to Tailwind.
+const UL: Components["ul"] = React.memo(function UL({
+  children,
+  className: _originalClass,
+  ...props
+}: React.ComponentProps<"ul">) {
+  return (
+    <ul
+      className="list-disc whitespace-normal pl-4 marker:text-muted-foreground"
+      {...props}
+    >
+      {children}
+    </ul>
+  );
+});
+
+const OL: Components["ol"] = React.memo(function OL({
+  children,
+  className: _originalClass,
+  ...props
+}: React.ComponentProps<"ol">) {
+  return (
+    <ol
+      className="list-decimal whitespace-normal pl-4 marker:text-muted-foreground"
+      {...props}
+    >
+      {children}
+    </ol>
+  );
+});
+
+const LI: Components["li"] = React.memo(function LI({
+  children,
+  className: _originalClass,
+  ...props
+}: React.ComponentProps<"li">) {
+  return (
+    <li {...props}>
+      {children}
+    </li>
+  );
+});
+
 export const markdownComponents: Components = {
   code: CODE,
   table: TABLE,
+  ul: UL,
+  ol: OL,
+  li: LI,
 };

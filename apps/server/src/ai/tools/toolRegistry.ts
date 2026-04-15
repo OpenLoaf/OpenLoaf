@@ -15,6 +15,7 @@ import {
 import { bashTool } from "@/ai/tools/shellCommandTool";
 import { powerShellTool } from "@/ai/tools/powershell/powerShellTool";
 import { readTool, editTool, writeTool } from "@/ai/tools/fileTools";
+import { docPreviewTool } from "@/ai/tools/docPreviewTools";
 import { grepTool } from "@/ai/tools/grepTool";
 import { globTool } from "@/ai/tools/globTool";
 import { editDocumentTool } from "@/ai/tools/documentTools";
@@ -40,7 +41,7 @@ import { videoConvertTool } from "@/ai/tools/videoConvertTools";
 import { videoDownloadTool } from "@/ai/tools/videoDownloadTool";
 import { docConvertTool } from "@/ai/tools/docConvertTools";
 import { fileInfoTool } from "@/ai/tools/fileInfoTool";
-import { webSearchTool } from "@/ai/tools/webSearchTool";
+import { webSearchTool, isWebSearchConfigured } from "@/ai/tools/webSearchTool";
 import { webFetchTool } from "@/ai/tools/webFetchTool";
 import { loadSkillTool } from "@/ai/tools/loadSkillTool";
 import { requestUserInputTool } from "@/ai/tools/requestUserInputTool";
@@ -129,6 +130,7 @@ import {
   submitPlanToolDef,
   savePlanDraftToolDef,
 } from "@openloaf/api/types/tools/runtime";
+import { docPreviewToolDef } from "@openloaf/api/types/tools/docPreview";
 import { generateWidgetToolDef } from "@openloaf/api/types/tools/widget";
 import {
   widgetCheckToolDef,
@@ -231,6 +233,9 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
   },
   [readToolDef.id]: {
     tool: readTool,
+  },
+  [docPreviewToolDef.id]: {
+    tool: docPreviewTool,
   },
   [editToolDef.id]: {
     tool: editTool,
@@ -401,6 +406,7 @@ const TOOL_DEF_REGISTRY: Record<string, { parameters?: any }> = {
   [bashToolDef.id]: bashToolDef,
   [powerShellToolDef.id]: powerShellToolDef,
   [readToolDef.id]: readToolDef,
+  [docPreviewToolDef.id]: docPreviewToolDef,
   [editToolDef.id]: editToolDef,
   [writeToolDef.id]: writeToolDef,
   [editDocumentToolDef.id]: editDocumentToolDef,
@@ -462,7 +468,9 @@ export function getToolJsonSchemas(toolIds: string[]): Record<string, object> {
   const result: Record<string, object> = {}
   for (const id of toolIds) {
     const resolved = resolveToolId(id)
-    const def = TOOL_DEF_REGISTRY[resolved] ?? getCloudToolDef(resolved)
+    const def = preferCloudOverStatic(resolved)
+      ? (getCloudToolDef(resolved) ?? TOOL_DEF_REGISTRY[resolved])
+      : (TOOL_DEF_REGISTRY[resolved] ?? getCloudToolDef(resolved))
     if (!def?.parameters) continue
     try {
       const full = zodSchema(def.parameters).jsonSchema as Record<string, unknown>
@@ -562,13 +570,33 @@ function resolveToolId(toolId: string): string {
 }
 
 /**
+ * Tools that have both a static (native) implementation and a dynamic cloud
+ * implementation. Which one is authoritative depends on config — e.g.
+ * WebSearch uses the Jina static tool only when a provider + API key are
+ * configured; otherwise the SaaS cloud tool takes over under the same
+ * canonical id. For these, cloud registration is preferred whenever the
+ * static prerequisite check fails, so a stale static entry never shadows
+ * the dynamic one that's actually usable.
+ */
+function preferCloudOverStatic(resolved: string): boolean {
+  if (resolved === 'WebSearch') return !isWebSearchConfigured()
+  return false
+}
+
+/**
  * Returns the tool instance by ToolDef.id.
  * Checks the static native registry, the dynamic MCP registry, then the
  * runtime cloud tools registry (populated by startCloudToolsPreloadLoop).
- * Supports legacy tool ID aliases for backward compatibility.
+ * Supports legacy tool ID aliases for backward compatibility. For
+ * dual-implementation tools (see preferCloudOverStatic), the cloud entry
+ * is consulted first when the static prerequisite is not met.
  */
 function getToolById(toolId: string): ToolEntry | undefined {
   const resolved = resolveToolId(toolId)
+  if (preferCloudOverStatic(resolved)) {
+    const cloud = getCloudToolEntry(resolved)
+    if (cloud) return cloud
+  }
   return (
     TOOL_REGISTRY[resolved] ??
     MCP_TOOL_REGISTRY.get(resolved) ??

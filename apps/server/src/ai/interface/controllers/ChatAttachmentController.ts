@@ -58,6 +58,18 @@ type ChatAttachmentResponse =
       body: Uint8Array<ArrayBuffer>;
       /** Response content type. */
       contentType: string;
+    }
+  | {
+      /** Response payload type — streamed passthrough file. */
+      type: "file";
+      /** HTTP status code. */
+      status: ContentfulStatusCode;
+      /** Absolute path for the server to stream from disk. */
+      filePath: string;
+      /** File byte size for Content-Length. */
+      sizeBytes: number;
+      /** Response content type. */
+      contentType: string;
     };
 
 type PreviewQueryInput = {
@@ -250,6 +262,17 @@ export class ChatAttachmentController {
             sizeBytes: preview.sizeBytes,
             maxBytes: preview.maxBytes,
           },
+        };
+      }
+      if (preview.kind === "file") {
+        // 大文件 passthrough：不在内存中缓冲，返回路径由路由层建 Readable stream。
+        // 避开 @hono/node-server 对 HTTP/2 下超大 Uint8Array 响应的协议错误。
+        return {
+          type: "file",
+          status: 200,
+          filePath: preview.filePath,
+          sizeBytes: preview.sizeBytes,
+          contentType: preview.mediaType,
         };
       }
       if (includeMetadata) {

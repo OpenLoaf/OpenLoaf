@@ -54,6 +54,7 @@
 @source "../../../packages/ui/src/**/*.{ts,tsx}";
 
 @plugin "tailwind-scrollbar-hide";
+@plugin "@tailwindcss/typography";
 @import "tw-animate-css";
 
 /* 避免通用 enter keyframes 被覆盖，专用于设置页切换动画。 */
