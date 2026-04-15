@@ -40,6 +40,8 @@ interface ExcelViewerProps {
   ext?: string;
   /** Project id for file access. */
   projectId?: string;
+  /** Chat session id — required when uri contains ${CURRENT_CHAT_DIR} template. */
+  sessionId?: string;
   /** Root uri for external open. */
   rootUri?: string;
   /** Stack panel key for close handling. */
@@ -176,6 +178,7 @@ export default function ExcelViewer({
   name,
   ext,
   projectId,
+  sessionId,
   rootUri,
   panelKey,
   tabId,
@@ -211,6 +214,7 @@ export default function ExcelViewer({
   const fileQuery = useQuery({
     ...trpc.fs.readBinary.queryOptions({
       projectId,
+      sessionId,
       rootUri: fsRootUri,
       uri: uri ?? "",
     }),

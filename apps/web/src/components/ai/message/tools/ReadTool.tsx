@@ -10,7 +10,7 @@
 'use client'
 
 import * as React from 'react'
-import { FileTextIcon, LoaderCircleIcon, XCircleIcon } from 'lucide-react'
+import { CheckCircle2Icon, FileTextIcon, LoaderCircleIcon, XCircleIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useChatSession } from '@/components/ai/context'
 import { createFileEntryFromUri, openFile } from '@/components/file/lib/open-file'
@@ -29,6 +29,7 @@ import {
   ToolOutputContent,
   ToolOutputError,
   ToolOutputLoading,
+  ToolOutputText,
 } from './shared/ToolOutput'
 import {
   asPlainObject,
@@ -102,6 +103,10 @@ export default function ReadTool({
   const range = formatRange(offset, limit)
   const streaming = isToolStreaming(part)
   const hasError = part.state === 'output-error' || part.state === 'output-denied'
+  const tp = part.toolProgress
+  const progressActive = tp?.status === 'active'
+  const progressDone = tp?.status === 'done'
+  const progressError = tp?.status === 'error'
 
   const { projectId, tabId } = useChatSession()
   const projectQuery = useProject(projectId)
@@ -155,10 +160,21 @@ export default function ReadTool({
                 {inlineText}
               </span>
             ) : null}
-            {streaming ? (
+            {progressActive && tp?.label ? (
+              <span className="min-w-0 truncate text-[10px] text-muted-foreground/70">
+                {tp.label}
+              </span>
+            ) : progressDone && tp?.summary ? (
+              <span className="shrink-0 text-[10px] text-muted-foreground/60">
+                {tp.summary}
+              </span>
+            ) : null}
+            {streaming || progressActive ? (
               <LoaderCircleIcon className="size-3 shrink-0 animate-spin text-muted-foreground" />
-            ) : hasError ? (
+            ) : hasError || progressError ? (
               <XCircleIcon className="size-3 shrink-0 text-destructive" />
+            ) : progressDone ? (
+              <CheckCircle2Icon className="size-3 shrink-0 text-muted-foreground/50" />
             ) : null}
           </CollapsibleTrigger>
         </TooltipTrigger>
@@ -174,6 +190,22 @@ export default function ReadTool({
           <ToolOutputCode code={output} language={language} />
         ) : errorText ? (
           <ToolOutputError message={errorText} />
+        ) : progressError ? (
+          <ToolOutputError message={tp?.errorText || '读取失败'} />
+        ) : tp && (progressActive || progressDone) ? (
+          <div className="space-y-1">
+            {tp.accumulatedText ? (
+              <ToolOutputText text={tp.accumulatedText} />
+            ) : progressActive ? (
+              <ToolOutputLoading label={tp.label || '读取中...'} />
+            ) : null}
+            {progressDone && tp.summary ? (
+              <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/60">
+                <CheckCircle2Icon className="size-3" />
+                <span>{tp.summary}</span>
+              </div>
+            ) : null}
+          </div>
         ) : streaming ? (
           <ToolOutputLoading label="读取中..." />
         ) : null}

@@ -59,6 +59,12 @@ export function startServer() {
   const primaryServer = h2Server ?? httpServer;
   attachTerminalWebSocket(primaryServer);
   attachBoardCollabWebSocket(primaryServer);
+  // 双协议模式下明文 HTTP 走 httpServer，WebSocket upgrade 也要挂到它上面，
+  // 否则 Web (ws://) 的终端/画布协作握手会被拒。
+  if (useH2 && h2Server) {
+    attachTerminalWebSocket(httpServer);
+    attachBoardCollabWebSocket(httpServer);
+  }
 
   if (useH2 && h2Server) {
     // 单端口双协议：TCP 层嗅探第一个字节判断 TLS vs 明文 HTTP。

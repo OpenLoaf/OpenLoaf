@@ -1,7 +1,7 @@
 ---
 name: visualization-ops-skill
 description: >
-  当用户做报告、总结、分析、对比、选型、推荐、盘点、复盘，或查询行情、资讯、新闻、排行，或将输出超过 3 条可结构化条目时触发——即使没说"画图"或"做卡片"。典型说法"对比下 Obsidian/Notion/Logseq"、"推荐几本书"、"最近股市怎么样"。**不用于**：单句事实问答、纯代码输出、在画布里增删节点（由画布子 Agent 处理）。
+  **输出可视化，必加载**。当 prompt 涉及新闻/资讯/行情/排行/报告/总结/分析/对比/选型/推荐/盘点/复盘，或预计返回 3 条以上可结构化条目时，**必须先于（或同轮于）数据获取工具加载本 skill**。加载后**禁止用纯 markdown 文本收尾**——必须用 JsxCreate 或 ChartRender 渲染。典型："搜最新伊朗新闻"、"对比 Obsidian/Notion/Logseq"、"推荐几本书"、"最近股市怎么样"。**不用于**：单句事实问答、纯代码输出、在画布里增删节点（由画布子 Agent 处理）。
 ---
 
 # 可视化渲染
@@ -78,11 +78,32 @@ description: >
 - `content`（必填）：JSX 字符串
 
 **核心规则**：
-1. 只写 JSX 片段，不要写 `import`/`export`/`const`/函数定义
-2. 允许 `{}` 表达式、`map`、条件渲染、`style={{...}}`
-3. 不支持 `{...props}` 展开语法
-4. 每条回复只调用一次 JsxCreate
-5. 调用后不要再向用户重复输出 JSX 代码——工具会在前端直接展示渲染结果
+1. 只写 JSX 片段，**顶层必须是一个或多个元素节点**，不要写 `import`/`export`/`const`/`let`/`function`/函数定义
+2. **禁止 IIFE**：不能用 `{() => { ... return (...) }()}` 或 `{(function(){...})()}` 把整体内容包在立即执行函数里——校验器会拒绝，这是 MiniMax 等模型最常见的反模式
+3. 需要构造数据用行内表达式：`{[{name:'A'},{name:'B'}].map(x => <div key={x.name}>{x.name}</div>)}`
+4. 允许 `{}` 表达式、`map`、条件渲染、`style={{...}}`
+5. 不支持 `{...props}` 展开语法
+6. 每条回复只调用一次 JsxCreate
+7. 调用后不要再向用户重复输出 JSX 代码——工具会在前端直接展示渲染结果
+
+**错误示范 vs 正确示范**：
+
+```jsx
+// ❌ 错：顶层是函数，校验失败
+{() => {
+  const items = [{title: 'A'}, {title: 'B'}]
+  return <div>{items.map(i => <p>{i.title}</p>)}</div>
+}()}
+
+// ✅ 对：顶层是元素，数据写成行内表达式
+<div className="flex flex-col gap-2 p-3">
+  {[{title: 'A'}, {title: 'B'}].map((item, i) => (
+    <div key={i} className="rounded-lg bg-card p-2 text-sm">{item.title}</div>
+  ))}
+</div>
+```
+
+**校验失败后**：工具会返回绝对路径和错误原因。**优先重新调用 JsxCreate 提交完整修正内容**（整体重写比 Edit 局部修改更不易出错）；只有在明确是个别字符问题时才用 Edit 改该绝对路径。不要 Glob/Read 去找文件——错误提示里已经给了绝对路径。
 
 **配色规范**：
 

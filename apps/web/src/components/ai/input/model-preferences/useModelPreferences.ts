@@ -9,7 +9,7 @@
  */
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSettingsValues } from '@/hooks/use-settings'
 import { useBasicConfig } from '@/hooks/use-basic-config'
@@ -146,22 +146,8 @@ export function useModelPreferences() {
     [masterDetail, setCodeModelIds],
   )
 
-  // 空选或选中模型不在当前列表中时，自动选第一个（删除了 auto 模式）。
-  const chatModelIds = useMemo(
-    () => new Set(chatModels.map((m) => m.id)),
-    [chatModels],
-  )
-  useEffect(() => {
-    if (chatModels.length === 0) return
-    const hasValidSelection = preferredChatIds.some((id) =>
-      chatModelIds.has(id),
-    )
-    if (!hasValidSelection) {
-      const fallback = chatModels[0].id
-      if (!masterDetail) setOverrideChatIds([fallback])
-      setModelIds([fallback])
-    }
-  }, [chatModelIds, chatModels, masterDetail, preferredChatIds, setModelIds])
+  // 陈旧 id 自愈已迁移到 useChatModelSelection —— 主路径始终挂载，即使 picker
+  // 从未打开也能回写 master agent。这里不再重复一份 effect，避免两处写入互相踩踏。
 
   const setCloudSource = useCallback(
     (next: string) => {

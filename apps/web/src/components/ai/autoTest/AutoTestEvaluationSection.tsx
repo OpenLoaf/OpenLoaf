@@ -92,10 +92,14 @@ function AutoTestEvaluationBody({ evaluation }: AutoTestEvaluationBodyProps) {
         <Metric label="评分" value={`${Math.round(aggregate.score)} / 100`} />
         <Metric label="轮次" value={String(aggregate.rounds)} />
         <Metric label="耗时" value={formatElapsed(aggregate.elapsedMs)} />
-        <Metric label="总 tokens" value={aggregate.tokensTotal.toLocaleString()} />
+        <Metric label="总 tokens" value={aggregate.tokensTotal?.toLocaleString() ?? "—"} />
         <Metric
           label="输入/输出"
-          value={`${aggregate.tokensInput.toLocaleString()} / ${aggregate.tokensOutput.toLocaleString()}`}
+          value={
+            aggregate.tokensInput == null && aggregate.tokensOutput == null
+              ? "—"
+              : `${aggregate.tokensInput?.toLocaleString() ?? "—"} / ${aggregate.tokensOutput?.toLocaleString() ?? "—"}`
+          }
         />
         <Metric label="模型" value={aggregate.model ?? "—"} />
         <Metric label="Runner" value={runner} />

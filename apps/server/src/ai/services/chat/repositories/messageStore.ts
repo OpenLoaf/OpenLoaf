@@ -23,11 +23,10 @@ import {
   updateMessage,
   loadMessageTree,
   resolveRightmostLeaf,
-  registerSessionDir,
-  registerAgentDir,
   writeSessionJson,
   type StoredMessage,
 } from './chatFileStore'
+import { registerSessionDir, registerAgentDir } from '@openloaf/api/services/chatSessionPaths'
 
 /** Max session title length. */
 const MAX_SESSION_TITLE_CHARS = 30

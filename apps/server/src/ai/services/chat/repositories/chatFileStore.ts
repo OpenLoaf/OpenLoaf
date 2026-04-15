@@ -11,25 +11,23 @@ import { promises as fs } from 'node:fs'
 import path from 'node:path'
 import { prisma } from '@openloaf/db'
 
-import { resolveSessionDir, registerSessionDir, _getSessionDirCache } from './chatSessionPathResolver'
+import {
+  resolveSessionDir,
+  registerSessionDir,
+  _getSessionDirCache,
+  MESSAGES_FILE,
+} from '@openloaf/api/services/chatSessionPaths'
+// Re-export shared chat path constants so sub-modules in this package can import them
+// via the existing './chatFileStore' alias without creating a direct @openloaf/api dep.
+export {
+  CHAT_HISTORY_DIR,
+  MESSAGES_FILE,
+  LRU_MAX_SIZE,
+} from '@openloaf/api/services/chatSessionPaths'
 import { loadMessageTree, invalidateCache, _clearAllTreeCaches } from './chatMessageTreeIndex'
 import { withSessionLock } from './chatMessagePersistence'
 import { logger } from '@/common/logger'
 import type { ProbeMeta } from '@openloaf/api'
-
-// ---------------------------------------------------------------------------
-// Re-export sub-modules (backward compatibility — all consumers import from
-// chatFileStore and must continue to work without changes)
-// ---------------------------------------------------------------------------
-
-export {
-  resolveSessionDir,
-  registerSessionDir,
-  resolveSessionAssetDir,
-  resolveSessionFilesDir,
-  clearSessionDirCache,
-  registerAgentDir,
-} from './chatSessionPathResolver'
 
 export {
   invalidateCache,
@@ -111,13 +109,11 @@ export type SiblingNavEntry = {
 }
 
 // ---------------------------------------------------------------------------
-// Constants (exported for sub-modules)
+// Constants (local — CHAT_HISTORY_DIR / MESSAGES_FILE / LRU_MAX_SIZE are
+// re-exported from @openloaf/api/services/chatSessionPaths)
 // ---------------------------------------------------------------------------
 
-export const CHAT_HISTORY_DIR = 'chat-history'
-export const MESSAGES_FILE = 'messages.jsonl'
 export const SESSION_FILE = 'session.json'
-export const LRU_MAX_SIZE = 50
 
 // ---------------------------------------------------------------------------
 // Low-level path + I/O helpers (used by sub-modules via import)

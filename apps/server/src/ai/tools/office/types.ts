@@ -188,6 +188,7 @@ export type FileContentType =
   | 'video'
   | 'audio'
   | 'text'
+  | 'archive'
   | 'unknown'
 
 /**

@@ -171,6 +171,34 @@ export function registerAuthRoutes(app: Hono): void {
     return c.json({ success: true as const });
   });
 
+  // 逻辑：供自动化工具（如 chat-probe runner）按需构造 SaaS 登录 URL。
+  // server 已经持有 SAAS_URL，没必要让 runner 自己读 env 或硬编码路径，
+  // 直接返回拼好的 URL 最省事。纯 URL 拼装、无副作用，任何人都能调。
+  app.get("/auth/login-url", (c) => {
+    if (!saasUrl) {
+      return c.json(errorPayload("saas_url_missing", "SaaS URL 未配置"), 500);
+    }
+    const provider = (c.req.query("provider") ?? "google").trim();
+    if (provider !== "google" && provider !== "wechat") {
+      return c.json(
+        errorPayload("invalid_provider", "provider 必须是 google 或 wechat"),
+        400,
+      );
+    }
+    const rawState = (c.req.query("state") ?? "").trim();
+    if (!rawState) {
+      return c.json(errorPayload("missing_state", "缺少 state"), 400);
+    }
+    const port = (c.req.query("port") ?? "").trim();
+    const url = new URL(`/api/auth/${provider}/start`, saasUrl);
+    // 与 authRoutes.extractLoginState / use-saas-auth 约定：returnTo 必须以
+    // `openloaf-login:<state>` 形式编码，回调时 extractLoginState 才能提取。
+    url.searchParams.set("returnTo", `openloaf-login:${rawState}`);
+    url.searchParams.set("from", "electron");
+    if (port) url.searchParams.set("port", port);
+    return c.json({ url: url.toString() });
+  });
+
   // 逻辑：Web 启动或页面切回时拉取当前会话状态。
   // **关键行为**：先 await ensureServerAccessToken() 触发按需刷新 ——
   // 进程重启后 sessionState 内存清空，但 auth.json 里的 refresh token

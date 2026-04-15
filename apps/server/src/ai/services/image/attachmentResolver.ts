@@ -13,12 +13,13 @@ import { createHash } from "node:crypto";
 import sharp from "sharp";
 import type { UIMessage } from "ai";
 import type { OpenLoafImageMetadataV1 } from "@openloaf/api/types/image";
+import { stripAttachmentTagWrapper } from "@openloaf/api/common";
 import { getProjectRootPath } from "@openloaf/api/services/vfsService";
 import { resolveBoardAbsPath, resolveBoardScopedRoot, resolveBoardRootPath, lookupBoardRecord, BOARD_CHAT_HISTORY_DIR } from "@openloaf/api/common/boardPaths";
 import { getOpenLoafRootDir, resolveScopedOpenLoafPath } from "@openloaf/config";
 import { getResolvedTempStorageDir } from "@openloaf/api/services/appConfigService";
 import { getProjectId } from "@/ai/shared/context/requestContext";
-import { resolveSessionDir } from "@/ai/services/chat/repositories/chatFileStore";
+import { resolveSessionDir, expandChatDirTemplate } from "@openloaf/api/services/chatSessionPaths";
 
 /** Max image edge length for chat. */
 const CHAT_IMAGE_MAX_EDGE = 1024;
@@ -376,24 +377,6 @@ export async function resolveChatAttachmentRoot(input: {
 /** Scoped project path matcher like [projectId]/path/to/file. */
 const PROJECT_SCOPE_REGEX = /^\[([^\]]+)\]\/(.+)$/;
 
-/**
- * Expand the `${CURRENT_CHAT_DIR}` template variable in a preview path.
- * Unlike AI-tool path expansion, the HTTP preview route has no AsyncLocalStorage
- * context — the sessionId arrives as a query param and must be passed in.
- */
-async function expandChatDirTemplate(
-  inputPath: string,
-  sessionId: string | undefined,
-  _projectId: string | undefined,
-): Promise<string> {
-  if (!inputPath.includes("${CURRENT_CHAT_DIR}")) return inputPath;
-  if (!sessionId) return inputPath; // fall through; downstream resolver will error clearly
-  const assetDir = await resolveSessionDir(sessionId);
-  return inputPath.replace(
-    /\$\{CURRENT_CHAT_DIR\}/g,
-    path.resolve(assetDir, "asset"),
-  );
-}
 /** Scheme matcher for absolute URLs. */
 const SCHEME_REGEX = /^[a-zA-Z][a-zA-Z0-9+.-]*:/;
 
@@ -401,14 +384,7 @@ const SCHEME_REGEX = /^[a-zA-Z][a-zA-Z0-9+.-]*:/;
 function parseScopedRelativePath(raw: string): { projectId?: string; relativePath: string } | null {
   const trimmed = raw.trim();
   if (!trimmed) return null;
-  let normalized: string;
-  if (trimmed.startsWith("@[") && trimmed.endsWith("]")) {
-    normalized = trimmed.slice(2, -1);
-  } else if (trimmed.startsWith("@")) {
-    normalized = trimmed.slice(1);
-  } else {
-    normalized = trimmed;
-  }
+  const normalized = stripAttachmentTagWrapper(trimmed);
   if (SCHEME_REGEX.test(normalized)) return null;
   const match = normalized.match(PROJECT_SCOPE_REGEX);
   if (match) {
@@ -837,33 +813,29 @@ export async function getFilePreview(input: {
 }): Promise<FilePreviewResult | null> {
   // 若调用方已解析路径，直接使用；否则走内部解析。
   let resolved = input.resolved ?? null;
-  // ${CURRENT_CHAT_DIR} 路径由 cloud/chat 工具产出，其 root 可能在 tempStorageDir
-  // 或 projectRoot 下，与 OpenLoafRoot 无关。展开后若再走 resolveAbsoluteOpenLoafPath
-  // 或 resolveProjectFilePathWithRoot，会出现路径前缀翻倍等二次解析问题 —— 这里
-  // 直接构造 resolved 并做 asset 目录沙箱校验，短路下游 resolver。
+  // ${CURRENT_CHAT_DIR} 的 asset 目录不在 OpenLoafRoot 下，必须先展开并做沙箱校验，
+  // 不能再交给 resolveAbsoluteOpenLoafPath / resolveProjectFilePathWithRoot 二次解析。
   if (!resolved && input.path.includes("${CURRENT_CHAT_DIR}") && input.sessionId) {
     const sessionDir = await resolveSessionDir(input.sessionId);
     const assetDir = path.resolve(sessionDir, "asset");
-    const tentative = input.path.replace(/\$\{CURRENT_CHAT_DIR\}/g, assetDir);
-    const absPath = path.resolve(tentative);
+    const expanded = await expandChatDirTemplate(input.path, input.sessionId);
+    const absPath = path.resolve(expanded);
     // 防御：阻止 ${CURRENT_CHAT_DIR}/../../etc/passwd 等穿越越界访问。
-    if (absPath === assetDir || absPath.startsWith(assetDir + path.sep)) {
-      resolved = {
-        absPath,
-        rootPath: sessionDir,
-        relativePath: path.relative(sessionDir, absPath),
-      };
-    } else {
+    if (absPath !== assetDir && !absPath.startsWith(assetDir + path.sep)) {
       return null;
     }
+    resolved = {
+      absPath,
+      rootPath: sessionDir,
+      relativePath: path.relative(sessionDir, absPath),
+    };
   }
   if (!resolved) {
-    const pathInput = await expandChatDirTemplate(input.path, input.sessionId, input.projectId);
-    const absoluteResolved = resolveAbsoluteOpenLoafPath(pathInput);
+    const absoluteResolved = resolveAbsoluteOpenLoafPath(input.path);
     resolved = absoluteResolved
       ? { absPath: absoluteResolved.absPath, rootPath: absoluteResolved.rootPath, relativePath: path.relative(absoluteResolved.rootPath, absoluteResolved.absPath) }
       : await resolveProjectFilePathWithRoot({
-          path: pathInput,
+          path: input.path,
           projectId: input.projectId,
         });
   }

@@ -203,9 +203,9 @@ export interface AutoTestEvaluator {
 export interface AutoTestEvaluationAggregate {
   verdict: AutoTestVerdict;
   score: number;
-  tokensTotal: number;
-  tokensInput: number;
-  tokensOutput: number;
+  tokensTotal: number | null;
+  tokensInput: number | null;
+  tokensOutput: number | null;
   rounds: number;
   toolCalls: string[];
   elapsedMs: number;

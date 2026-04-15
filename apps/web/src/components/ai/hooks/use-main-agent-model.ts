@@ -44,7 +44,12 @@ type AgentDetail = {
 export function useMainAgentModel(projectId?: string) {
   const { basic } = useBasicConfig();
   const isTabActive = useTabActive();
-  const agentsQueryInput = projectId ? { projectId } : undefined;
+  // 关键：必须带 includeSystem=true，否则 master agent 被 `getAgents` 默认
+  // 过滤掉（master 在 SYSTEM_AGENT_IDS 里），masterDetail 永远是 undefined，
+  // 模型选择会一直 fallback 到 modelOptions[0]，用户的选择完全不生效。
+  const agentsQueryInput = projectId
+    ? { projectId, includeSystem: true }
+    : { includeSystem: true };
   const agentsQuery = useQuery({
     ...trpc.settings.getAgents.queryOptions(agentsQueryInput),
     staleTime: 5 * 60 * 1000,

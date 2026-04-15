@@ -10,6 +10,7 @@
 "use client";
 
 import type { PointerEvent } from "react";
+import { extractAttachmentTagPath } from "@openloaf/api/common";
 import {
   buildUriFromRoot,
   parseScopedProjectPath,
@@ -94,12 +95,10 @@ async function fetchMentionEntry(input: {
   }
 }
 
-/** Strip @[...] wrapper from a mention value. */
+/** Strip attachment-tag wrapper from a mention value. */
 function stripMentionWrapper(value: string): string {
-  const trimmed = value.trim();
-  if (trimmed.startsWith("@[") && trimmed.endsWith("]")) return trimmed.slice(2, -1);
-  if (trimmed.startsWith("@")) return trimmed.slice(1);
-  return trimmed;
+  const inner = extractAttachmentTagPath(value);
+  return inner !== null ? inner : value.trim();
 }
 
 /** Template var prefix for session-scoped paths: ${CURRENT_CHAT_DIR}/subpath */
@@ -183,9 +182,8 @@ export function handleChatMentionPointerDown(
 
   // 绝对路径：直接用 file:// URI 打开，不走项目解析。
   if (!fileRef) {
-    const normalized = value.startsWith("@[") && value.endsWith("]")
-      ? value.slice(2, -1)
-      : value.startsWith("@") ? value.slice(1) : value;
+    const innerPath = extractAttachmentTagPath(value);
+    const normalized = innerPath !== null ? innerPath : value.trim();
     const baseValue = normalized.replace(/:\d+-\d+$/, "");
     if (baseValue.startsWith("/")) {
       const uri = `file://${baseValue}`;

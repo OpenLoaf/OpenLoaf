@@ -18,18 +18,20 @@ import { prisma } from '@openloaf/db'
 import {
   appendMessage,
   buildSiblingNavForChain,
-  clearSessionDirCache,
   deleteMessageSubtree,
   deleteSessionFiles,
   getChatViewFromFile,
   loadMessageTree,
-  registerSessionDir,
   resolveChainFromLeaf,
   resolveLatestLeafInSubtree,
   resolveRightmostLeaf,
   type StoredMessage,
   type MessageTreeIndex,
 } from '@/ai/services/chat/repositories/chatFileStore'
+import {
+  clearSessionDirCache,
+  registerSessionDir,
+} from '@openloaf/api/services/chatSessionPaths'
 
 // ---------------------------------------------------------------------------
 // Test runner

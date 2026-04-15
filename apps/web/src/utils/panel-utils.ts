@@ -38,6 +38,7 @@ const LazyPdfViewer = React.lazy(() => import("@/components/file/PdfViewer"));
 const LazyDocViewer = React.lazy(() => import("@/components/file/DocViewer"));
 const LazyExcelViewer = React.lazy(() => import("@/components/file/ExcelViewer"));
 const LazyVideoViewer = React.lazy(() => import("@/components/file/VideoViewer"));
+const LazyAudioViewer = React.lazy(() => import("@/components/file/AudioViewer"));
 const LazyBoardFileViewer = React.lazy(() => import("@/components/board/BoardFileViewer"));
 const LazyTerminalViewer = React.lazy(() => import("@/components/file/TerminalViewer"));
 const LazyDesktopWidgetLibraryPanel = React.lazy(() => import("@/components/desktop/DesktopWidgetLibraryPanel"));
@@ -153,6 +154,7 @@ export const ComponentMap: Record<string, PanelComponent> = {
   "doc-viewer": LazyDocViewer,
   "sheet-viewer": LazyExcelViewer,
   "video-viewer": LazyVideoViewer,
+  "audio-viewer": LazyAudioViewer,
   "board-viewer": LazyBoardFileViewer,
   "terminal-viewer": LazyTerminalViewer,
   "desktop-widget-library": LazyDesktopWidgetLibraryPanel,

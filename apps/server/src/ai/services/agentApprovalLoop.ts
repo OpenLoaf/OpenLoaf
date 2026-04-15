@@ -17,7 +17,7 @@ import { resolveApprovalGate, applyApprovalDecision } from '@/ai/tools/approvalU
 import { registerFrontendToolPending } from '@/ai/tools/pendingRegistry'
 import { appendToAgentHistory } from '@/ai/services/agentHistory'
 import { agentRegistry } from '@/ai/services/agentRegistry'
-import { resolveSessionDir } from '@/ai/services/chat/repositories/chatSessionPathResolver'
+import { resolveSessionDir } from '@openloaf/api/services/chatSessionPaths'
 import { readBasicConf } from '@/modules/settings/openloafConfStore'
 import { logger } from '@/common/logger'
 

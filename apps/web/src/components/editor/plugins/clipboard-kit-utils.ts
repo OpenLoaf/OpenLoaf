@@ -9,16 +9,23 @@
  */
 "use client";
 
-import { FILE_TOKEN_REGEX, normalizeFileMentionSpacing } from "@/components/ai/input/chat-input-utils";
+import {
+  ATTACHMENT_TAG_REGEX,
+  extractAttachmentTagPath,
+  formatAttachmentTag,
+  unescapeAttachmentPath,
+} from "@openloaf/api/common";
+import { normalizeFileMentionSpacing } from "@/components/ai/input/chat-input-utils";
 
 type InlineTextNode = { text: string };
 type MentionNode = { type: "mention"; value: string; children: InlineTextNode[] };
 type PlateNode = { type?: string; children?: any[]; [key: string]: any };
 
-/** Normalize mention value by trimming leading "@". */
+/** Normalize mention value by stripping an attachment tag wrapper. */
 const normalizeMentionValue = (value: string) => {
   const trimmed = value.trim();
-  return trimmed.startsWith("@") ? trimmed.slice(1) : trimmed;
+  const inner = extractAttachmentTagPath(trimmed);
+  return inner !== null ? inner : trimmed;
 };
 
 /** Build a mention node for file references. */
@@ -32,13 +39,13 @@ export const buildMentionNode = (value: string): MentionNode => ({
 export const buildInlineNodesFromText = (text: string) => {
   const nodes: Array<MentionNode | InlineTextNode> = [];
   let lastIndex = 0;
-  FILE_TOKEN_REGEX.lastIndex = 0;
-  let match = FILE_TOKEN_REGEX.exec(text);
+  ATTACHMENT_TAG_REGEX.lastIndex = 0;
+  let match = ATTACHMENT_TAG_REGEX.exec(text);
   while (match) {
     if (match.index > lastIndex) {
       nodes.push({ text: text.slice(lastIndex, match.index) });
     }
-    const tokenValue = normalizeMentionValue(match[1] ?? "");
+    const tokenValue = unescapeAttachmentPath(match[1] ?? "").trim();
     if (tokenValue) {
       nodes.push(buildMentionNode(tokenValue));
       const nextChar = text[match.index + match[0].length];
@@ -50,7 +57,7 @@ export const buildInlineNodesFromText = (text: string) => {
       nodes.push({ text: match[0] });
     }
     lastIndex = match.index + match[0].length;
-    match = FILE_TOKEN_REGEX.exec(text);
+    match = ATTACHMENT_TAG_REGEX.exec(text);
   }
   if (lastIndex < text.length) {
     nodes.push({ text: text.slice(lastIndex) });
@@ -67,7 +74,7 @@ const serializeChildren = (nodes: any[]): string =>
     .map((node) => {
       if (node?.type === "mention") {
         const value = normalizeMentionValue(String(node.value ?? ""));
-        return value ? `@[${value}]` : "";
+        return value ? formatAttachmentTag(value) : "";
       }
       if (typeof node?.text === "string") {
         return node.text;

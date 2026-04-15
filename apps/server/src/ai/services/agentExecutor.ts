@@ -15,7 +15,7 @@ import { runWithContext, getSessionId } from '@/ai/shared/context/requestContext
 import { createSubAgent } from '@/ai/services/agentFactory'
 import { writeAgentSessionJson } from '@/ai/services/chat/repositories/messageStore'
 import { buildSubAgentPrefaceText } from '@/ai/shared/subAgentPrefaceBuilder'
-import { resolveSessionDir } from '@/ai/services/chat/repositories/chatSessionPathResolver'
+import { resolveSessionDir } from '@openloaf/api/services/chatSessionPaths'
 import { readBasicConf } from '@/modules/settings/openloafConfStore'
 import { logger } from '@/common/logger'
 import type { AgentManager, ManagedAgent } from '@/ai/services/agentManager'

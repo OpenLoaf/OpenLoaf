@@ -346,6 +346,18 @@ export function buildStackItemForEntry(input: {
           __customHeader: true,
         },
       };
+    case "audio":
+      return {
+        id: input.entry.uri,
+        component: "audio-viewer",
+        title: input.entry.name,
+        params: {
+          ...baseParams,
+          projectId: input.projectId,
+          rootUri: input.rootUri,
+          __customHeader: true,
+        },
+      };
     case "file":
       return {
         id: input.entry.uri,

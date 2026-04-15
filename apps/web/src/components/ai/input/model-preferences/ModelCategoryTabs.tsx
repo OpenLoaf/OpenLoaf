@@ -9,7 +9,8 @@
  */
 'use client'
 
-import { Image, MessageSquare, Terminal, Video } from 'lucide-react'
+// TODO(deletable): 底部「对话 / CLI」tab 切换已从 ModelPreferencesPanel 下线，此文件无消费者，可删除。
+import { MessageSquare } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 
@@ -38,14 +39,7 @@ const TAB_CONFIGS = [
   //   labelKey: 'mode.video' as const,
   //   icon: Video,
   // },
-  {
-    id: 'cli',
-    label: 'CLI',
-    icon: Terminal,
-    activeText: 'text-foreground',
-    inactiveText: 'text-muted-foreground',
-    indicator: 'border-t-foreground',
-  },
+  // CLI tab 已取消（SelectMode 中不再暴露 CLI 选择入口，相关 CLI 文件标注为可删除死代码）
 ] as const
 
 export function ModelCategoryTabs({
@@ -60,7 +54,7 @@ export function ModelCategoryTabs({
         const Icon = tab.icon
         const isFirst = index === 0
         const isLast = index === TAB_CONFIGS.length - 1
-        const label = 'labelKey' in tab ? t(tab.labelKey) : tab.label
+        const label = t(tab.labelKey)
         return (
           <button
             key={tab.id}

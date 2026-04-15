@@ -9,6 +9,8 @@
  */
 'use client'
 
+// TODO(deletable): SelectMode 已取消 CLI 选择入口，此文件及其依赖方（CodexOption、ClaudeCodeOption
+// 以及 ModelPreferencesPanel 中的 chatMode==='cli' 分支）均为死代码，可整体删除。
 import { useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'

@@ -9,10 +9,9 @@
  */
 'use client'
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ModelPreferencesHeader } from './ModelPreferencesHeader'
-import { ModelCategoryTabs } from './ModelCategoryTabs'
 import { ChatModelCheckboxList } from './ModelCheckboxList'
 import { CliToolsList } from './CliToolsList'
 import { PromptInputButton } from '@/components/ai-elements/prompt-input'
@@ -40,9 +39,6 @@ export function ModelPreferencesPanel({
   onClose,
 }: ModelPreferencesPanelProps) {
   const { t } = useTranslation('ai')
-  const [activeTab, setActiveTab] = useState('chat')
-  const isChatTab = activeTab === 'chat'
-  const isCliTab = activeTab === 'cli'
 
   const handleCloudSourceChange = (cloud: boolean) => {
     prefs.setCloudSource(cloud ? 'cloud' : 'local')
@@ -105,42 +101,23 @@ export function ModelPreferencesPanel({
     )
   }
 
-  const needsLogin = isChatTab ? showCloudLogin : !authLoggedIn
-
   return (
     <div className="flex flex-col gap-2">
-      {/* 开关区 — CLI tab 不需要模型偏好开关 */}
-      {!isCliTab && (
-        <ModelPreferencesHeader
-          isCloudSource={prefs.isCloudSource}
-          showCloudSwitch={isChatTab}
-          showManageButton={isChatTab}
-          onCloudSourceChange={handleCloudSourceChange}
-          onManageModels={() => {
-            onClose()
-            requestAnimationFrame(() => {
-              prefs.openProviderSettings()
-            })
-          }}
-        />
-      )}
+      <ModelPreferencesHeader
+        isCloudSource={prefs.isCloudSource}
+        showCloudSwitch
+        showManageButton
+        onCloudSourceChange={handleCloudSourceChange}
+        onManageModels={() => {
+          onClose()
+          requestAnimationFrame(() => {
+            prefs.openProviderSettings()
+          })
+        }}
+      />
 
-      {/* 列表 */}
       <div className="min-h-[8rem]">
-        {isCliTab ? (
-          <div className="flex flex-col gap-2">
-            <div className="px-1">
-              <span className="text-[13px] font-medium text-foreground">
-                {t('mode.cliTools')}
-              </span>
-            </div>
-            <CliToolsList
-              selectedId={selectedCliToolId}
-              onSelect={handleCliToolSelect}
-              onOpenInstall={onOpenInstall}
-            />
-          </div>
-        ) : needsLogin ? (
+        {showCloudLogin ? (
           <div className="flex flex-col items-center justify-center gap-2 py-8">
             <img src="/logo.svg" alt="OpenLoaf" className="h-10 w-10 opacity-60" />
             <div className="text-xs text-muted-foreground">
@@ -166,11 +143,6 @@ export function ModelPreferencesPanel({
             onToggle={prefs.toggleChatModel}
           />
         )}
-      </div>
-
-      {/* Tab 切换 — 底部，延伸到面板边缘与面板边框融合 */}
-      <div className="-mx-2 -mb-2">
-        <ModelCategoryTabs value={activeTab} onValueChange={setActiveTab} />
       </div>
     </div>
   )

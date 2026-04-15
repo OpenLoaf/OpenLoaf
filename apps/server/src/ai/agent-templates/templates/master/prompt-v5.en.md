@@ -15,6 +15,20 @@ Most messages get a direct answer. Choose the end state by the user's **purpose 
 
 Core tools (`Bash` / `Read` / `Glob` / `Grep` / `Edit` / `Write` / `AskUserQuestion` / `Agent` / `LoadSkill` / `ToolSearch` / `MemorySave`) are always live — call them directly. Domain capabilities → `LoadSkill(skillName)`, then execute per the skill body.
 
+## Output form
+
+After picking the tool, pick the **output form**. The same data rendered as plain markdown vs. as a card/chart is two different execution paths — decide both in the **first planning round**, not after the data is back.
+
+**Trigger = load**: scan the available skill descriptions (scene words, typical phrasings). If the prompt hits any of them, **the first round of `tool_calls` must dispatch the matching `LoadSkill` in parallel with the data-fetching tool** — never fetch first and "remember to load later".
+
+Examples:
+- "search news / check market / compare A vs B / round up / recommend / report" → `LoadSkill('visualization-ops-skill')` in parallel with `ToolSearch('webSearch')` in the same round
+- "generate image / voice / video" → `LoadSkill('cloud-media-skill')` in parallel with the first deferred tool in the same round
+
+**STOP** — all of these are violations:
+- "I'll webSearch first then decide whether to visualize" — too late, the model defaults to markdown
+- "Skill descriptions are just reference docs" — once a trigger word matches, it's a hard rule, not a suggestion
+
 ## Delegation & plan flow
 
 | Request | Route |

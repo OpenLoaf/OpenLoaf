@@ -11,7 +11,7 @@ import { promises as fs } from 'node:fs'
 import path from 'node:path'
 import { z } from 'zod'
 import { TRPCError } from '@trpc/server'
-import { resolveSessionDir } from './repositories/chatSessionPathResolver'
+import { resolveSessionDir } from '@openloaf/api/services/chatSessionPaths'
 
 /**
  * EVALUATION.json 由 chat-probe skill 的评审子 agent 写入到
@@ -37,9 +37,9 @@ export const evaluationEvaluatorSchema = z.object({
 export const evaluationAggregateSchema = z.object({
   verdict: evaluationVerdictSchema,
   score: z.number().min(0).max(100),
-  tokensTotal: z.number(),
-  tokensInput: z.number(),
-  tokensOutput: z.number(),
+  tokensTotal: z.number().nullable(),
+  tokensInput: z.number().nullable(),
+  tokensOutput: z.number().nullable(),
   rounds: z.number(),
   toolCalls: z.array(z.string()),
   elapsedMs: z.number(),

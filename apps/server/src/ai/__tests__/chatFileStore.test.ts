@@ -23,9 +23,12 @@ import path from 'node:path'
 import { setOpenLoafRootOverride } from '@openloaf/config'
 import { prisma } from '@openloaf/db'
 import {
+  clearSessionDirCache,
+  registerSessionDir,
+} from '@openloaf/api/services/chatSessionPaths'
+import {
   appendMessage,
   buildSiblingNavForChain,
-  clearSessionDirCache,
   deleteMessageSubtree,
   deleteSessionFiles,
   getChatViewFromFile,
@@ -34,7 +37,6 @@ import {
   loadMessageChainFromFile,
   loadMessageTree,
   readSessionJson,
-  registerSessionDir,
   resolveChainFromLeaf,
   resolveLatestLeafInSubtree,
   resolveRightmostLeaf,

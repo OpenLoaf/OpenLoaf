@@ -52,24 +52,26 @@ type BoardCollabContext = {
 
 type BoardDocument = Y.Doc & { boardCollabContext?: BoardCollabContext };
 
-/** Module-level Hocuspocus reference for shutdown flushing. */
-let hocuspocusInstance: Hocuspocus | null = null;
+/** Module-level Hocuspocus references for shutdown flushing (one per attached server). */
+const hocuspocusInstances: Hocuspocus[] = [];
 
 /** Flush all in-memory board documents to disk before process exit. */
 export async function flushBoardDocuments(): Promise<void> {
-  if (!hocuspocusInstance) return;
+  if (hocuspocusInstances.length === 0) return;
   // 逻辑：遍历所有活跃文档，逐一强制刷盘，防止热重载/进程退出丢数据。
-  const documents = (hocuspocusInstance as any).documents as Map<string, Y.Doc> | undefined;
-  if (!documents || documents.size === 0) return;
   const tasks: Promise<void>[] = [];
-  for (const [name, doc] of documents) {
-    const boardDoc = doc as BoardDocument;
-    if (!boardDoc.boardCollabContext) continue;
-    tasks.push(
-      storeBoardDocument(boardDoc).catch((error) => {
-        logger.error({ err: error, docName: name }, "[board] flush document failed");
-      }),
-    );
+  for (const instance of hocuspocusInstances) {
+    const documents = (instance as any).documents as Map<string, Y.Doc> | undefined;
+    if (!documents || documents.size === 0) continue;
+    for (const [name, doc] of documents) {
+      const boardDoc = doc as BoardDocument;
+      if (!boardDoc.boardCollabContext) continue;
+      tasks.push(
+        storeBoardDocument(boardDoc).catch((error) => {
+          logger.error({ err: error, docName: name }, "[board] flush document failed");
+        }),
+      );
+    }
   }
   if (tasks.length > 0) {
     await Promise.all(tasks);
@@ -435,7 +437,7 @@ export function attachBoardCollabWebSocket(server: ServerType): void {
       return null;
     },
   });
-  hocuspocusInstance = hocuspocus;
+  hocuspocusInstances.push(hocuspocus);
 
   httpServer.on("upgrade", (req: IncomingMessage, socket: Socket, head: Buffer) => {
     const url = parseUpgradeUrl(req);

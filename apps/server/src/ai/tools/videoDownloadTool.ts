@@ -22,7 +22,7 @@ import {
   getProjectId,
   getSessionId,
 } from '@/ai/shared/context/requestContext'
-import { resolveSessionAssetDir } from '@/ai/services/chat/repositories/chatFileStore'
+import { resolveSessionAssetDir } from '@openloaf/api/services/chatSessionPaths'
 import { logger } from '@/common/logger'
 import {
   cancelDownloadTask,

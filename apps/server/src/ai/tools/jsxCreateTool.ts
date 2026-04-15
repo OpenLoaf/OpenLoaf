@@ -99,7 +99,12 @@ export const jsxCreateTool = tool({
       validateJsxCreateInput(jsx)
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      throw new Error(`${msg} 已写入文件：${posixPath}，请使用 apply-patch 修正。`)
+      throw new Error(
+        `${msg} 已写入文件 ${absPath}。` +
+          `**优先重新调用 JsxCreate 提交完整修正内容**（JSX 片段整体重写比局部 Edit 更可靠，也不会陷入 Glob/Read 循环）；` +
+          `如果确定只是个别字符问题才用 Edit 改该绝对路径。` +
+          `注意：JSX 片段顶层必须是元素节点，禁止用 \`() => { ... }()\` 立即执行函数或任何 const/let/function 包裹。`,
+      )
     }
 
     return {

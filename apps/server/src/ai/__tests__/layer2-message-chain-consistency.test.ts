@@ -32,10 +32,10 @@ import {
   loadMessageTree,
   resolveRightmostLeaf,
   resolveChainFromLeaf,
-  registerSessionDir,
   writeSessionJson,
   type StoredMessage,
 } from '@/ai/services/chat/repositories/chatFileStore'
+import { registerSessionDir } from '@openloaf/api/services/chatSessionPaths'
 import { printSection, printPass, printFail } from './helpers/printUtils'
 
 // ---------------------------------------------------------------------------

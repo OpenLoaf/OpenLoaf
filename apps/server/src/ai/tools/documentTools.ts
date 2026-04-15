@@ -10,6 +10,7 @@
 import path from "node:path"
 import { promises as fs } from "node:fs"
 import { tool, zodSchema } from "ai"
+import { stripAttachmentTagWrapper } from "@openloaf/api/common"
 import { editDocumentToolDef } from "@openloaf/api/types/tools/runtime"
 import { resolveToolPath, ensureWritableRoot, expandPathTemplateVars } from "@/ai/tools/toolScope"
 import { readBasicConf } from "@/modules/settings/openloafConfStore"
@@ -51,14 +52,7 @@ async function resolveWriteTargetPath(targetPath: string): Promise<{ absPath: st
   const trimmed = expanded.trim()
   if (!trimmed) throw new Error("path is required.")
   if (trimmed.startsWith("file:")) throw new Error("file:// URIs are not allowed.")
-  let normalized: string
-  if (trimmed.startsWith("@[") && trimmed.endsWith("]")) {
-    normalized = trimmed.slice(2, -1)
-  } else if (trimmed.startsWith("@")) {
-    normalized = trimmed.slice(1)
-  } else {
-    normalized = trimmed
-  }
+  const normalized = stripAttachmentTagWrapper(trimmed)
   if (normalized.startsWith("[")) throw new Error("Project-scoped paths are not allowed.")
   if (!normalized.trim()) throw new Error("path is required.")
 

@@ -122,12 +122,11 @@ const AGENT_FILE_NAME = 'AGENT.md'
 const AGENT_JSON_FILE = 'agent.json'
 const FRONT_MATTER_DELIMITER = '---'
 
-/** Scan .openloaf/agents/ subfolders and build summaries from agent.json descriptors. */
-function loadOpenLoafAgentSummaries(
-  rootPath: string,
+/** Scan an already-resolved agents dir for `agent.json`-style descriptors. */
+function scanAgentJsonDir(
+  agentsRoot: string,
   scope: AgentScope,
 ): Omit<AgentSummary, 'ignoreKey' | 'isEnabled' | 'isDeletable'>[] {
-  const agentsRoot = resolveAgentsRootDir(rootPath)
   if (!existsSync(agentsRoot)) return []
   const entries = readdirSync(agentsRoot, { withFileTypes: true })
   const results: Omit<AgentSummary, 'ignoreKey' | 'isEnabled' | 'isDeletable'>[] = []
@@ -154,6 +153,14 @@ function loadOpenLoafAgentSummaries(
   return results
 }
 
+/** Scan a project root's `.openloaf/agents/` for `agent.json`-style descriptors. */
+function loadOpenLoafAgentSummaries(
+  rootPath: string,
+  scope: AgentScope,
+): Omit<AgentSummary, 'ignoreKey' | 'isEnabled' | 'isDeletable'>[] {
+  return scanAgentJsonDir(resolveAgentsRootDir(rootPath), scope)
+}
+
 /** Load agent configs from project/global roots. */
 export function loadAgentSummaries(input: {
   projectRootPath?: string
@@ -167,10 +174,16 @@ export function loadAgentSummaries(input: {
   >()
   const orderedNames: string[] = []
 
-  // 逻辑：先扫描 .openloaf/agents/ 子目录，将 agent.json 描述的 agent 作为首批条目。
+  // 逻辑：先扫描 agent.json 子目录，将 agent.json 描述的 agent 作为首批条目。
+  // 项目 scope：source.rootPath 是项目根，需要在内部拼 `.openloaf/agents/` 前缀。
+  // 全局 scope：source.rootPath 已经是 resolveGlobalAgentsPath() 解析出的 agents 目录，
+  // 直接扫描即可——否则前缀会被拼成不存在的 `<tempStorage>/agents/.openloaf/agents`，
+  // 导致全局 master 永远发现不了，`getAgents` 返回空数组。
   for (const source of sources) {
-    if (source.scope === 'global') continue
-    const openloafAgents = loadOpenLoafAgentSummaries(source.rootPath, source.scope)
+    const openloafAgents =
+      source.scope === 'global'
+        ? scanAgentJsonDir(source.rootPath, source.scope)
+        : loadOpenLoafAgentSummaries(source.rootPath, source.scope)
     for (const agent of openloafAgents) {
       if (!summaryByName.has(agent.name)) {
         orderedNames.push(agent.name)

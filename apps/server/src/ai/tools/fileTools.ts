@@ -10,6 +10,7 @@
 import path from 'node:path'
 import { promises as fs } from 'node:fs'
 import { tool, zodSchema } from 'ai'
+import { stripAttachmentTagWrapper } from '@openloaf/api/common'
 import {
   readToolDef,
   editToolDef,
@@ -25,21 +26,65 @@ import {
   getReadEntry,
   type ReadEntry,
 } from '@/ai/tools/fileReadState'
-import { resolveSessionAssetDir } from '@/ai/services/chat/repositories/chatFileStore'
+import { resolveSessionAssetDir } from '@openloaf/api/services/chatSessionPaths'
 import { extractPdfContent } from '@/ai/tools/office/pdfEngine'
 import { extractDocxContent } from '@/ai/tools/office/docxExtractor'
 import { extractXlsxContent } from '@/ai/tools/office/xlsxExtractor'
 import { extractPptxContent } from '@/ai/tools/office/pptxExtractor'
+import { extractArchiveContent } from '@/ai/tools/office/archiveExtractor'
 import {
   understandImage,
   understandVideo,
   transcribeAudio,
   type SaasMediaResult,
 } from '@/ai/shared/saasMediaService'
-import type {
-  FileContentResult,
-  FileContentType,
-} from '@/ai/tools/office/types'
+import { createToolProgress, type ToolProgressEmitter } from '@/ai/tools/toolProgress'
+
+/** Idle watchdog: reject if no progress emit happens for `idleMs`. */
+const READ_IDLE_TIMEOUT_MS = 60_000
+
+function wrapProgressWithIdleWatchdog(
+  progress: ToolProgressEmitter,
+  idleMs: number,
+): { progress: ToolProgressEmitter; idlePromise: Promise<never>; stop: () => void } {
+  let timer: NodeJS.Timeout | null = null
+  let stopped = false
+  let rejectFn: ((err: Error) => void) | null = null
+
+  const idlePromise = new Promise<never>((_, reject) => {
+    rejectFn = reject
+  })
+
+  const kick = () => {
+    if (stopped) return
+    if (timer) clearTimeout(timer)
+    timer = setTimeout(() => {
+      if (stopped) return
+      stopped = true
+      const err = new Error(
+        `[READ_IDLE_TIMEOUT] Read produced no progress for ${Math.round(idleMs / 1000)}s. Aborting — the underlying extractor is likely stuck.`,
+      )
+      try { progress.error(err.message) } catch { /* ignore */ }
+      rejectFn?.(err)
+    }, idleMs)
+  }
+
+  const stop = () => {
+    stopped = true
+    if (timer) { clearTimeout(timer); timer = null }
+  }
+
+  const wrapped: ToolProgressEmitter = {
+    start(label, meta) { kick(); progress.start(label, meta) },
+    delta(text, meta) { kick(); progress.delta(text, meta) },
+    done(summary, meta) { stop(); progress.done(summary, meta) },
+    error(errorText) { stop(); progress.error(errorText) },
+  }
+
+  kick()
+  return { progress: wrapped, idlePromise, stop }
+}
+import type { FileContentResult } from '@/ai/tools/office/types'
 
 const MAX_LINE_LENGTH = 500
 const DEFAULT_READ_LIMIT = 2000
@@ -61,6 +106,7 @@ type FileKind =
   | 'image'
   | 'video'
   | 'audio'
+  | 'archive'
   | 'legacy-office'
   | 'binary'
 
@@ -86,12 +132,32 @@ const AUDIO_EXTS = new Set([
  *
  * Unknown extensions (e.g. a custom config `.conf2`) still fall through to
  * the text reader on the assumption they may be plain text.
+ *
+ * `.zip` is handled separately as an archive (auto-extracted) — see
+ * `ARCHIVE_EXTS` below.
  */
 const BINARY_EXTS = new Set([
   '.7z', '.bin', '.bz2', '.dat', '.db', '.dll', '.dmg', '.exe',
   '.gz', '.iso', '.jar', '.otf', '.psd', '.rar', '.so', '.sqlite',
-  '.tar', '.ttf', '.xz', '.zip',
+  '.tar', '.ttf', '.xz',
 ])
+
+/** Archive formats that Read auto-extracts. Currently only .zip is supported. */
+const ARCHIVE_EXTS = new Set(['.zip'])
+
+/**
+ * For each derived-read file kind, the tool that can actually mutate the
+ * *source* file. Used to tell the model "this read is a rendered view; to
+ * edit the real file use <mutateTool>". `undefined` means there is no direct
+ * mutator (images/video/audio — regenerate via media generation tools; zip —
+ * re-pack via Bash or a future ArchiveMutate tool).
+ */
+const DERIVED_MUTATE_TOOL: Partial<Record<FileKind, string>> = {
+  pdf: 'PdfMutate',
+  docx: 'WordMutate',
+  xlsx: 'ExcelMutate',
+  pptx: 'PptxMutate',
+}
 
 const MIME_BY_EXT: Record<string, string> = {
   '.pdf': 'application/pdf',
@@ -139,6 +205,7 @@ function classifyFileKind(absPath: string): { kind: FileKind; mimeType: string }
   if (IMAGE_EXTS.has(ext)) return { kind: 'image', mimeType: mimeType !== 'application/octet-stream' ? mimeType : `image/${ext.slice(1)}` }
   if (VIDEO_EXTS.has(ext)) return { kind: 'video', mimeType: mimeType !== 'application/octet-stream' ? mimeType : `video/${ext.slice(1)}` }
   if (AUDIO_EXTS.has(ext)) return { kind: 'audio', mimeType: mimeType !== 'application/octet-stream' ? mimeType : `audio/${ext.slice(1)}` }
+  if (ARCHIVE_EXTS.has(ext)) return { kind: 'archive', mimeType: mimeType !== 'application/octet-stream' ? mimeType : 'application/zip' }
   if (BINARY_EXTS.has(ext)) return { kind: 'binary', mimeType }
   return { kind: 'text', mimeType: 'text/plain' }
 }
@@ -147,11 +214,12 @@ function classifyFileKind(absPath: string): { kind: FileKind; mimeType: string }
 async function resolveReadAssetDir(
   sessionId: string,
   filePath: string,
+  suffix: '_asset' | '_unzipped' = '_asset',
 ): Promise<{ assetDirAbsPath: string; assetRelPrefix: string }> {
   const assetRoot = await resolveSessionAssetDir(sessionId)
   const baseName = path.basename(filePath, path.extname(filePath))
   const safeName = baseName.replace(/[^\w\u4e00-\u9fff.-]/g, '_') || 'file'
-  const assetRelPrefix = `${safeName}_asset`
+  const assetRelPrefix = `${safeName}${suffix}`
   const assetDirAbsPath = path.join(assetRoot, assetRelPrefix)
   return { assetDirAbsPath, assetRelPrefix }
 }
@@ -165,25 +233,49 @@ function xmlAttrEscape(value: string): string {
     .replace(/>/g, '&gt;')
 }
 
+type FormatOptions = {
+  /**
+   * `raw` = literal source content (editable with Edit/Write).
+   * `derived` = extracted / rendered view; source cannot be edited with Edit/Write.
+   * Defaults to `raw` for backwards compat with callers that don't opt in.
+   */
+  readMode?: 'raw' | 'derived'
+  /** For derived reads: tool that can mutate the source file. */
+  mutateTool?: string
+}
+
 /** Wrap a FileContentResult into the unified XML-tagged string for the model. */
 function formatFileResult(
   result: FileContentResult,
   fileName: string,
   mimeType: string,
   bytes: number,
+  opts: FormatOptions = {},
 ): string {
+  const readMode = opts.readMode ?? 'raw'
   const attrs = [
     `name="${xmlAttrEscape(fileName)}"`,
     `type="${result.type}"`,
     `mimeType="${xmlAttrEscape(mimeType)}"`,
     `bytes="${bytes}"`,
-  ].join(' ')
+    `readMode="${readMode}"`,
+  ]
+  if (readMode === 'derived') {
+    attrs.push('editable="false"')
+    if (opts.mutateTool) attrs.push(`mutateTool="${xmlAttrEscape(opts.mutateTool)}"`)
+  }
   // Pull an optional error reason out of meta so we can emit it as its own tag.
   const { error: metaError, ...cleanMeta } = result.meta as { error?: unknown } & Record<string, unknown>
   const errorReason = typeof metaError === 'string' ? metaError : undefined
 
-  const parts: string[] = [`<file ${attrs}>`]
+  const parts: string[] = [`<file ${attrs.join(' ')}>`]
   parts.push(`<meta>${JSON.stringify(cleanMeta)}</meta>`)
+  if (readMode === 'derived') {
+    const hint = opts.mutateTool
+      ? `This is a rendered view of a ${result.type.toUpperCase()} file. Edit/Write cannot modify the source — use \`${opts.mutateTool}\` for structural edits. For archives, Read individual files inside the extracted folder.`
+      : `This is a rendered view / extracted metadata. Edit/Write cannot modify the source file. For archives, Read individual files inside the extracted folder; for media, regenerate via media generation tools.`
+    parts.push(`<note>${xmlAttrEscape(hint)}</note>`)
+  }
   if (result.fallbackPath) {
     parts.push(
       `<fallback path="${xmlAttrEscape(result.fallbackPath)}">This file could not be parsed. The original has been copied to the asset dir for manual inspection.</fallback>`,
@@ -226,15 +318,8 @@ export async function resolveWriteTargetPath(targetPath: string): Promise<{ absP
   if (!trimmed) throw new Error('file_path is required.')
   if (trimmed.startsWith('file:')) throw new Error('file:// URIs are not allowed.')
 
-  // 剥离 @[...] 或 @ 前缀
-  let normalized: string
-  if (trimmed.startsWith('@[') && trimmed.endsWith(']')) {
-    normalized = trimmed.slice(2, -1)
-  } else if (trimmed.startsWith('@')) {
-    normalized = trimmed.slice(1)
-  } else {
-    normalized = trimmed
-  }
+  // 剥离 attachment-tag 包装
+  const normalized = stripAttachmentTagWrapper(trimmed)
   if (normalized.startsWith('[')) throw new Error('Project-scoped paths are not allowed.')
   if (!normalized.trim()) throw new Error('file_path is required.')
 
@@ -339,6 +424,21 @@ async function assertReadBeforeModify(
       'File has not been read yet. Read it first before writing to it.',
     )
   }
+  // Derived reads (PDF→MD, DOCX→MD, archive listing, media metadata) produce
+  // a rendered view, not the raw bytes of the source file. Edit/Write cannot
+  // meaningfully modify the source — refuse with a clear hint pointing at the
+  // format-specific mutate tool.
+  if (entry.readMode === 'derived') {
+    const hint = entry.mutateTool
+      ? `Use \`${entry.mutateTool}\` to modify the source file.`
+      : 'Use the format-specific mutate tool (PdfMutate / WordMutate / ExcelMutate / PptxMutate).'
+    throw new Error(
+      `"${path.basename(absPath)}" was read in derived mode (extracted / rendered view). ` +
+        `Edit/Write cannot modify the source file. ${hint} ` +
+        `For archives: call Read on individual files inside the unzipped folder — ` +
+        `those come back as raw text and can be edited.`,
+    )
+  }
   // Partial view blocks Write (full overwrite) but not Edit (surgical).
   if (mode === 'write' && entry.isPartialView) {
     throw new Error(
@@ -368,6 +468,7 @@ async function recordPostWriteState(
     totalLines,
     isPartialView: false,
     recordedAt: Date.now(),
+    readMode: 'raw',
   }
   recordRead(sessionId, absPath, entry)
 }
@@ -390,94 +491,197 @@ export const readTool = tool({
   description: readToolDef.description,
   inputSchema: zodSchema(readToolDef.parameters),
   needsApproval: false,
-  execute: async ({
-    file_path: filePath,
-    offset,
-    limit,
-    pageRange,
-    sheetName,
-    understand,
-  }): Promise<string> => {
-    const { absPath } = resolveToolPath({ target: filePath })
-    const stat = await fs.stat(absPath)
-    if (!stat.isFile()) {
-      throw new Error('Path is not a file. Use Glob or Bash ls for directories.')
+  execute: async (
+    {
+      file_path: filePath,
+      offset,
+      limit,
+      pageRange,
+      sheetName,
+      understand,
+    },
+    { toolCallId }: { toolCallId: string },
+  ): Promise<string> => {
+    const rawProgress = createToolProgress(toolCallId, 'Read')
+    const watchdog = wrapProgressWithIdleWatchdog(rawProgress, READ_IDLE_TIMEOUT_MS)
+    const progress = watchdog.progress
+    const startedAt = Date.now()
+    try {
+      return await Promise.race([
+        runReadExecute(),
+        watchdog.idlePromise,
+      ])
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      progress.error(msg)
+      throw e
+    } finally {
+      watchdog.stop()
     }
 
-    const { kind, mimeType } = classifyFileKind(absPath)
-    const fileName = path.basename(absPath)
-    const bytes = stat.size
-
-    if (kind === 'legacy-office') {
-      const ext = path.extname(absPath).toLowerCase()
-      const modern = ext === '.doc' ? '.docx' : ext === '.xls' ? '.xlsx' : '.pptx'
-      throw new Error(
-        `Legacy Office format "${ext}" is not supported. Open in LibreOffice / Word / Excel / PowerPoint and re-save as ${modern}, then retry.`,
-      )
-    }
-
-    if (kind === 'text') {
-      return readTextFile(absPath, filePath, stat, offset, limit, mimeType)
-    }
-
-    if (kind === 'binary') {
-      throw new Error(
-        `Unknown binary file type "${path.extname(absPath)}". Supported: text / code / config, PDF, DOCX, XLSX, PPTX, images (${[...IMAGE_EXTS].join(' ')}), video, audio.`,
-      )
-    }
-
-    // All remaining kinds write images / assets → they need a session.
-    const sessionId = getSessionId()
-    if (!sessionId) {
-      throw new Error('Reading this file type requires an active chat session.')
-    }
-    const { assetDirAbsPath, assetRelPrefix } = await resolveReadAssetDir(sessionId, filePath)
-
-    let result: FileContentResult
-    switch (kind) {
-      case 'pdf':
-        result = await readPdfFile(absPath, fileName, pageRange, assetDirAbsPath, assetRelPrefix)
-        break
-      case 'docx':
-        result = await extractDocxContent(absPath, assetDirAbsPath, assetRelPrefix)
-        break
-      case 'xlsx':
-        result = await extractXlsxContent(absPath, assetDirAbsPath, assetRelPrefix, { sheetName })
-        break
-      case 'pptx':
-        result = await extractPptxContent(absPath, assetDirAbsPath, assetRelPrefix)
-        break
-      case 'image':
-        result = await readImageFile(absPath, fileName, understand !== false, assetRelPrefix)
-        break
-      case 'video':
-        result = await readVideoFile(absPath, fileName, bytes, understand !== false, assetRelPrefix)
-        break
-      case 'audio':
-        result = await readAudioFile(absPath, fileName, bytes, understand !== false, assetRelPrefix)
-        break
-      default: {
-        const exhaustive: never = kind
-        throw new Error(`Unsupported file kind: ${exhaustive}`)
+    async function runReadExecute(): Promise<string> {
+      const { absPath } = resolveToolPath({ target: filePath })
+      const stat = await fs.stat(absPath)
+      if (!stat.isFile()) {
+        throw new Error('Path is not a file. Use Glob or Bash ls for directories.')
       }
-    }
 
-    // Session-scoped Read-before-Write guard: record even binary reads so
-    // downstream Edit/Write (e.g. after PDF → MD roundtrip) can opt-in.
-    if (sessionId && !isPlanFilePath(filePath)) {
-      recordRead(sessionId, absPath, {
-        mtime: Math.floor(stat.mtimeMs),
-        offset: 1,
-        limit: Number.MAX_SAFE_INTEGER,
-        totalLines: 0,
-        isPartialView: false,
-        recordedAt: Date.now(),
+      const { kind, mimeType } = classifyFileKind(absPath)
+      const fileName = path.basename(absPath)
+      const bytes = stat.size
+      const sizeLabel = formatBytes(bytes)
+
+      progress.start(`Reading ${fileName} (${kind}, ${sizeLabel})`, {
+        kind,
+        mimeType,
+        bytes,
+      })
+
+      if (kind === 'legacy-office') {
+        const ext = path.extname(absPath).toLowerCase()
+        const modern = ext === '.doc' ? '.docx' : ext === '.xls' ? '.xlsx' : '.pptx'
+        throw new Error(
+          `Legacy Office format "${ext}" is not supported. Open in LibreOffice / Word / Excel / PowerPoint and re-save as ${modern}, then retry.`,
+        )
+      }
+
+      if (kind === 'text') {
+        progress.delta('Decoding UTF-8 and slicing lines...\n')
+        const out = await readTextFile(absPath, filePath, stat, offset, limit, mimeType)
+        progress.done(`Read text file (${sizeLabel}) in ${Date.now() - startedAt}ms`)
+        return out
+      }
+
+      if (kind === 'binary') {
+        throw new Error(
+          `Unknown binary file type "${path.extname(absPath)}". Supported: text / code / config, PDF, DOCX, XLSX, PPTX, images (${[...IMAGE_EXTS].join(' ')}), video, audio.`,
+        )
+      }
+
+      // All remaining kinds write images / assets → they need a session.
+      const sessionId = getSessionId()
+      if (!sessionId) {
+        throw new Error('Reading this file type requires an active chat session.')
+      }
+      const assetSuffix = kind === 'archive' ? '_unzipped' : '_asset'
+      const { assetDirAbsPath, assetRelPrefix } = await resolveReadAssetDir(
+        sessionId,
+        filePath,
+        assetSuffix,
+      )
+
+      let result: FileContentResult
+      switch (kind) {
+        case 'pdf':
+          progress.delta(
+            pageRange
+              ? `Parsing PDF pages ${pageRange} with unpdf + extracting embedded images...\n`
+              : 'Parsing PDF with unpdf + extracting embedded images...\n',
+          )
+          result = await readPdfFile(absPath, fileName, pageRange, assetDirAbsPath, assetRelPrefix)
+          break
+        case 'docx':
+          progress.delta('Unzipping DOCX and converting to Markdown via mammoth + turndown...\n')
+          result = await extractDocxContent(absPath, assetDirAbsPath, assetRelPrefix)
+          break
+        case 'xlsx':
+          progress.delta(
+            sheetName
+              ? `Reading sheet "${sheetName}" via SheetJS...\n`
+              : 'Reading all sheets via SheetJS...\n',
+          )
+          result = await extractXlsxContent(absPath, assetDirAbsPath, assetRelPrefix, { sheetName })
+          break
+        case 'pptx':
+          progress.delta('Walking slides via fast-xml-parser and mapping images per slide...\n')
+          result = await extractPptxContent(absPath, assetDirAbsPath, assetRelPrefix)
+          break
+        case 'image':
+          result = await readImageFile(absPath, fileName, understand !== false, assetRelPrefix, progress)
+          break
+        case 'video':
+          result = await readVideoFile(absPath, fileName, bytes, understand !== false, assetRelPrefix, progress)
+          break
+        case 'audio':
+          result = await readAudioFile(absPath, fileName, bytes, understand !== false, assetRelPrefix, progress)
+          break
+        case 'archive':
+          progress.delta('Unzipping archive and listing entries...\n')
+          result = await extractArchiveContent(absPath, assetDirAbsPath, assetRelPrefix)
+          break
+        default: {
+          const exhaustive: never = kind
+          throw new Error(`Unsupported file kind: ${exhaustive}`)
+        }
+      }
+
+      // Enrich meta with the absolute path of the generated asset dir so the
+      // model can hand it straight to Bash / Glob / Grep without guessing how
+      // `${CURRENT_CHAT_DIR}` expands. Also include a template-var alias for
+      // tool inputs that still prefer the portable form.
+      if (result.assetDir) {
+        ;(result.meta as Record<string, unknown>).extractedTo = {
+          absPath: assetDirAbsPath,
+          templatePath: `\${CURRENT_CHAT_DIR}/${result.assetDir}`,
+        }
+      }
+      ;(result.meta as Record<string, unknown>).sourcePath = absPath
+
+      // Session-scoped read state: every non-text kind here is a derived
+      // read (rendered / extracted view). Edit/Write on the source file will
+      // be refused by `assertReadBeforeModify`, pointing the model at the
+      // correct mutate tool.
+      const mutateTool = DERIVED_MUTATE_TOOL[kind]
+      if (mutateTool) {
+        ;(result.meta as Record<string, unknown>).mutateTool = mutateTool
+      }
+      if (sessionId && !isPlanFilePath(filePath)) {
+        recordRead(sessionId, absPath, {
+          mtime: Math.floor(stat.mtimeMs),
+          offset: 1,
+          limit: Number.MAX_SAFE_INTEGER,
+          totalLines: 0,
+          isPartialView: false,
+          recordedAt: Date.now(),
+          readMode: 'derived',
+          mutateTool,
+        })
+      }
+
+      progress.done(summarizeResult(result, Date.now() - startedAt), {
+        imageCount: result.images.length,
+        truncated: result.truncated ?? false,
+      })
+      return formatFileResult(result, fileName, mimeType, bytes, {
+        readMode: 'derived',
+        mutateTool,
       })
     }
-
-    return formatFileResult(result, fileName, mimeType, bytes)
   },
 })
+
+/** Format a byte count in human-readable units for progress labels. */
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`
+}
+
+/** Build a short done-summary from a FileContentResult. */
+function summarizeResult(result: FileContentResult, durationMs: number): string {
+  const bits: string[] = []
+  const m = result.meta as Record<string, unknown>
+  if (typeof m.pageCount === 'number') bits.push(`${m.pageCount} page(s)`)
+  if (typeof m.sheetCount === 'number') bits.push(`${m.sheetCount} sheet(s)`)
+  if (typeof m.slideCount === 'number') bits.push(`${m.slideCount} slide(s)`)
+  if (result.images.length > 0) bits.push(`${result.images.length} image(s)`)
+  if (bits.length === 0 && result.content) {
+    bits.push(`${result.content.length} chars`)
+  }
+  const head = bits.length > 0 ? `Extracted ${bits.join(', ')}` : `Read ${result.type}`
+  return `${head} in ${durationMs}ms`
+}
 
 // ---------------------------------------------------------------------------
 // Per-kind Read handlers
@@ -585,6 +789,7 @@ async function readTextFile(
       totalLines: lines.length,
       isPartialView: endIndex < lines.length,
       recordedAt: Date.now(),
+      readMode: 'raw',
     })
   }
 
@@ -601,6 +806,7 @@ async function readTextFile(
     'type="text"',
     `mimeType="${xmlAttrEscape(mimeType)}"`,
     `bytes="${stat.size}"`,
+    'readMode="raw"',
   ].join(' ')
   const parts: string[] = [
     `<file ${attrs}>`,
@@ -650,7 +856,9 @@ async function readImageFile(
   fileName: string,
   understand: boolean,
   assetRelPrefix: string,
+  progress: ToolProgressEmitter,
 ): Promise<FileContentResult> {
+  progress.delta('Probing image metadata via sharp...\n')
   const sharp = (await import('sharp')).default
   let width = 0
   let height = 0
@@ -669,12 +877,16 @@ async function readImageFile(
 
   let content = ''
   if (understand) {
+    progress.delta('Uploading to SaaS and running imageCaption...\n')
     const resp: SaasMediaResult = await understandImage(absPath)
     if (resp.ok) {
       content = resp.text
       if (resp.extras) meta.extras = resp.extras
+      progress.delta(`Caption received (${content.length} chars).\n`)
     } else {
-      meta.error = resp.reason
+      throw new Error(
+        `Image understanding failed: ${resp.reason}. Pass \`understand: false\` to read metadata only.`,
+      )
     }
   }
 
@@ -694,16 +906,21 @@ async function readVideoFile(
   bytes: number,
   understand: boolean,
   assetRelPrefix: string,
+  progress: ToolProgressEmitter,
 ): Promise<FileContentResult> {
   const meta: Record<string, unknown> = { bytes, understand }
   let content = ''
   if (understand) {
+    progress.delta('Uploading to SaaS and running videoCaption...\n')
     const resp: SaasMediaResult = await understandVideo(absPath)
     if (resp.ok) {
       content = resp.text
       if (resp.extras) meta.extras = resp.extras
+      progress.delta(`Caption received (${content.length} chars).\n`)
     } else {
-      meta.error = resp.reason
+      throw new Error(
+        `Video understanding failed: ${resp.reason}. Pass \`understand: false\` to read metadata only.`,
+      )
     }
   }
   return {
@@ -722,16 +939,21 @@ async function readAudioFile(
   bytes: number,
   understand: boolean,
   assetRelPrefix: string,
+  progress: ToolProgressEmitter,
 ): Promise<FileContentResult> {
   const meta: Record<string, unknown> = { bytes, understand }
   let content = ''
   if (understand) {
+    progress.delta('Uploading to SaaS and running speechToText...\n')
     const resp: SaasMediaResult = await transcribeAudio(absPath)
     if (resp.ok) {
       content = resp.text
       if (resp.extras) meta.extras = resp.extras
+      progress.delta(`Transcript received (${content.length} chars).\n`)
     } else {
-      meta.error = resp.reason
+      throw new Error(
+        `Audio transcription failed: ${resp.reason}. Pass \`understand: false\` to read metadata only.`,
+      )
     }
   }
   return {

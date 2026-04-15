@@ -42,10 +42,16 @@ export function OpenLoafMentionElement(
   const mounted = useMounted();
   const readOnly = useReadOnly();
   const rawValue = element.value ?? "";
-  const normalizedValue =
-    rawValue.startsWith("@[") && rawValue.endsWith("]")
-      ? rawValue.slice(2, -1)
-      : rawValue.startsWith("@") ? rawValue.slice(1) : rawValue;
+  const tagMatch = rawValue.match(
+    /^<system-tag\s+type="attachment"\s+path="([^"]*)"\s*\/>$/,
+  );
+  const normalizedValue = tagMatch
+    ? (tagMatch[1] ?? "")
+        .replace(/&quot;/g, '"')
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&amp;/g, "&")
+    : rawValue;
   const match = normalizedValue.match(/^(.*?)(?::(\d+)-(\d+))?$/);
   const baseValue = match?.[1] ?? normalizedValue;
   const lineStart = match?.[2];

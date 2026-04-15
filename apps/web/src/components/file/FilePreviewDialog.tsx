@@ -29,6 +29,7 @@ const DocViewer = dynamic(() => import("@/components/file/DocViewer"), { ssr: fa
 const ExcelViewer = dynamic(() => import("@/components/file/ExcelViewer"), { ssr: false });
 const PptxViewer = dynamic(() => import("@/components/file/PptxViewer"), { ssr: false });
 const FileViewer = dynamic(() => import("@/components/file/FileViewer"), { ssr: false });
+const AudioViewer = dynamic(() => import("@/components/file/AudioViewer"), { ssr: false });
 import VideoViewer from "@/components/file/VideoViewer";
 import { getImageDialogSize, type ImageMeta } from "@/lib/image/dialog-size";
 import { useFilePreviewStore, closeFilePreview } from "@/components/file/lib/file-preview-store";
@@ -210,6 +211,7 @@ export default function FilePreviewDialog() {
               ext={currentItem.ext}
               rootUri={currentItem.rootUri}
               projectId={currentItem.projectId}
+              sessionId={currentItem.sessionId}
               readOnly={payload.readOnly}
             />
           ) : null}
@@ -221,6 +223,7 @@ export default function FilePreviewDialog() {
               ext={currentItem.ext}
               rootUri={currentItem.rootUri}
               projectId={currentItem.projectId}
+              sessionId={currentItem.sessionId}
               readOnly={payload.readOnly}
             />
           ) : null}
@@ -232,6 +235,7 @@ export default function FilePreviewDialog() {
               name={currentItem.name}
               ext={currentItem.ext}
               projectId={currentItem.projectId}
+              sessionId={currentItem.sessionId}
               rootUri={currentItem.rootUri}
             />
           ) : null}
@@ -243,6 +247,7 @@ export default function FilePreviewDialog() {
               name={currentItem.name}
               ext={currentItem.ext}
               projectId={currentItem.projectId}
+              sessionId={currentItem.sessionId}
               rootUri={currentItem.rootUri}
               readOnly={payload.readOnly ?? true}
             />
@@ -255,6 +260,7 @@ export default function FilePreviewDialog() {
               name={currentItem.name}
               ext={currentItem.ext}
               projectId={currentItem.projectId}
+              sessionId={currentItem.sessionId}
               rootUri={currentItem.rootUri}
               readOnly={payload.readOnly ?? true}
             />
@@ -267,6 +273,7 @@ export default function FilePreviewDialog() {
               name={currentItem.name}
               ext={currentItem.ext}
               projectId={currentItem.projectId}
+              sessionId={currentItem.sessionId}
               rootUri={currentItem.rootUri}
             />
           ) : null}
@@ -277,6 +284,7 @@ export default function FilePreviewDialog() {
               openUri={currentItem.openUri}
               name={currentItem.name}
               projectId={currentItem.projectId}
+              sessionId={currentItem.sessionId}
               rootUri={currentItem.rootUri}
               boardId={currentItem.boardId}
               thumbnailSrc={currentItem.thumbnailSrc}
@@ -286,12 +294,25 @@ export default function FilePreviewDialog() {
             />
           ) : null}
 
+          {payload.viewer === "audio" ? (
+            <AudioViewer
+              uri={currentItem.uri}
+              openUri={currentItem.openUri}
+              name={currentItem.name}
+              ext={currentItem.ext}
+              projectId={currentItem.projectId}
+              sessionId={currentItem.sessionId}
+              rootUri={currentItem.rootUri}
+            />
+          ) : null}
+
           {payload.viewer === "file" ? (
             <FileViewer
               uri={currentItem.uri}
               name={currentItem.name}
               ext={currentItem.ext}
               projectId={currentItem.projectId}
+              sessionId={currentItem.sessionId}
               rootUri={currentItem.rootUri}
             />
           ) : null}

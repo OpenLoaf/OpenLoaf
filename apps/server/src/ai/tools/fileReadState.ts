@@ -36,6 +36,16 @@ export type ReadEntry = {
   isPartialView: boolean
   /** Date.now() — for lazy TTL eviction. */
   recordedAt: number
+  /**
+   * How the file was read:
+   * - `raw`: literal text content (editable with Edit/Write)
+   * - `derived`: extracted/rendered view (e.g. PDF→Markdown, DOCX→Markdown,
+   *    archive listing, media metadata). Edit/Write on the source file is
+   *    meaningless and will be refused; use the format-specific mutate tool.
+   */
+  readMode: 'raw' | 'derived'
+  /** For `derived` reads: which tool can actually mutate the source file. */
+  mutateTool?: string
 }
 
 const TTL_MS = 60 * 60 * 1000 // 1h

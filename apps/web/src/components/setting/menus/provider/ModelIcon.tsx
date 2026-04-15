@@ -13,7 +13,10 @@ import { useMemo } from 'react'
 import LobeModelIcon from '@lobehub/icons/es/features/ModelIcon'
 import ProviderIcon from '@lobehub/icons/es/features/ProviderIcon'
 import { modelMappings } from '@lobehub/icons/es/features/modelConfig'
+import { providerMappings } from '@lobehub/icons/es/features/providerConfig'
 import { Jimeng } from '@lobehub/icons'
+import { Sparkles } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 type ModelIconProps = {
   /** Provider or family id for fallback icon. */
@@ -34,6 +37,16 @@ const DIRECT_ICON_MAP: Record<string, React.ComponentType<any>> = {
   jimeng: Jimeng,
 }
 
+/** Aliases for provider ids not covered by lobehub providerMappings keywords. */
+const PROVIDER_ALIAS_MAP: Record<string, string> = {
+  kimi: 'moonshot',
+}
+
+function resolveProviderAlias(icon: string): string {
+  const key = icon.trim().toLowerCase()
+  return PROVIDER_ALIAS_MAP[key] ?? icon
+}
+
 function resolveDirectIcon(icon?: string | null) {
   if (!icon) return undefined
   const key = icon.trim()
@@ -45,6 +58,14 @@ function resolveDirectIcon(icon?: string | null) {
 function hasModelIcon(modelId: string): boolean {
   const id = modelId.toLowerCase()
   return modelMappings.some((m) =>
+    m.keywords.some((kw) => new RegExp(kw, 'i').test(id)),
+  )
+}
+
+/** Check whether provider id matches providerMappings (regex). */
+function hasProviderIcon(providerId: string): boolean {
+  const id = providerId.toLowerCase()
+  return providerMappings.some((m) =>
     m.keywords.some((kw) => new RegExp(kw, 'i').test(id)),
   )
 }
@@ -85,13 +106,27 @@ export function ModelIcon({
     return <Direct size={size} className={className} />
   }
 
-  // 2 & 3. provider icon 或默认图标。
+  // 2. icon 命中 providerMappings → ProviderIcon（先做 kimi→moonshot 等别名映射）
+  if (icon) {
+    const aliased = resolveProviderAlias(icon)
+    if (hasProviderIcon(aliased)) {
+      return (
+        <ProviderIcon
+          provider={aliased}
+          size={size}
+          type="color"
+          className={className}
+        />
+      )
+    }
+  }
+
+  // 3. 默认占位图标：未知 provider/model 统一用 Sparkles。
   return (
-    <ProviderIcon
-      provider={icon ?? undefined}
+    <Sparkles
       size={size}
-      type="color"
-      className={className}
+      className={cn('text-muted-foreground', className)}
+      aria-hidden="true"
     />
   )
 }

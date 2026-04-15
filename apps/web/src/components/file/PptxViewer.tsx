@@ -24,6 +24,8 @@ interface PptxViewerProps {
   name?: string;
   ext?: string;
   projectId?: string;
+  /** Chat session id — accepted for future parity; not consumed today. */
+  sessionId?: string;
   rootUri?: string;
   panelKey?: string;
   tabId?: string;

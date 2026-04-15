@@ -21,7 +21,7 @@ import { sendCdpCommand, isTargetAlive } from "@/modules/browser/cdpClient";
 import { getActiveBrowserTargetId, standaloneBrowserTargetStore, tabSnapshotStore } from "@/modules/tab/TabSnapshotStoreAdapter";
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { resolveSessionAssetDir } from "@/ai/services/chat/repositories/chatFileStore";
+import { resolveSessionAssetDir } from "@openloaf/api/services/chatSessionPaths";
 import {
   hostSlug,
   saveRawArtifact,

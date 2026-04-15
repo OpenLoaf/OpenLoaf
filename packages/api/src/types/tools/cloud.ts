@@ -49,12 +49,20 @@ export const cloudCapDetailToolDef = {
 
 - Call this AFTER \`CloudCapBrowse\` when the top-3 summary is insufficient (e.g., user asks for an unusual variant or you need exact parameter names).
 - You usually don't need this for common cases; Browse's top-variants summary is enough.
-- Input: the variantId string (e.g., "OL-IG-003") as returned by \`CloudCapBrowse\`.`,
+- \`variantId\` (required): from CloudCapBrowse, e.g. "OL-IG-003".
+- \`featureId\` (recommended): always pass the feature id that owns the variant in your current context (e.g. "imageCaption", "translate"). Some variants like \`OL-TX-006\` are shared across multiple features with different input schemas; omitting featureId can return a 400 "ambiguous" error listing the mountedFeatures — retry with the right one.`,
   parameters: z.object({
     variantId: z
       .string()
       .min(1)
       .describe("Variant identifier from CloudCapBrowse, e.g. OL-IG-003."),
+    featureId: z
+      .string()
+      .min(1)
+      .optional()
+      .describe(
+        "Feature id that owns this variant mount (e.g. imageCaption). Required when the variant is shared across multiple features.",
+      ),
   }),
   component: null,
 } as const;

@@ -23,16 +23,18 @@ import { setOpenLoafRootOverride } from '@openloaf/config'
 import { prisma } from '@openloaf/db'
 import {
   appendMessage,
-  clearSessionDirCache,
   deleteMessageSubtree,
   deleteSessionFiles,
   getMessageCount,
   loadMessageTree,
   readSessionJson,
-  registerSessionDir,
   writeSessionJson,
   type StoredMessage,
 } from '@/ai/services/chat/repositories/chatFileStore'
+import {
+  clearSessionDirCache,
+  registerSessionDir,
+} from '@openloaf/api/services/chatSessionPaths'
 
 // ---------------------------------------------------------------------------
 // Test runner

@@ -1,8 +1,9 @@
 import { describe, it, expect, vi } from 'vitest'
 
 // Mock external dependencies that planFileService imports at top level
-vi.mock('@/ai/services/chat/repositories/chatFileStore', () => ({
+vi.mock('@openloaf/api/services/chatSessionPaths', () => ({
   resolveSessionDir: vi.fn(),
+  resolveSessionAssetDir: vi.fn(),
 }))
 vi.mock('@/ai/services/chat/repositories/chatMessagePersistence', () => ({
   withSessionLock: vi.fn((_id: string, fn: () => Promise<any>) => fn()),

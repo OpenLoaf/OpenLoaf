@@ -7,9 +7,11 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-/** File token matcher for file placeholders. */
-// 逻辑：匹配形如 @[path/to/file] 或 @[[projectId]/path/to/file] 的文件引用。
-const FILE_TOKEN_REGEX = /@\[((?:\[[^\]]*\]|[^\]])+)\]/g;
+import {
+  ATTACHMENT_TAG_REGEX,
+  replaceAttachmentTags,
+  stripAttachmentTagWrapper,
+} from "@openloaf/api/common";
 
 /** Skill reference matcher: /skill/[originalName|displayName] or /skill/[originalName] or /skill/name */
 const SKILL_REF_REGEX =
@@ -22,14 +24,7 @@ const BARE_PATH_REGEX = /(?:^|\s)(\/(?:[\w._-]+\/)+[\w._-]+)/g;
 function extractFileLabel(token: string): string {
   const trimmed = token.trim();
   if (!trimmed) return token;
-  let normalized: string;
-  if (trimmed.startsWith("@[") && trimmed.endsWith("]")) {
-    normalized = trimmed.slice(2, -1);
-  } else if (trimmed.startsWith("@")) {
-    normalized = trimmed.slice(1);
-  } else {
-    normalized = trimmed;
-  }
+  const normalized = stripAttachmentTagWrapper(trimmed);
   const match = normalized.match(/^(.*?)(?::(\d+)-(\d+))?$/);
   const baseValue = match?.[1] ?? normalized;
   const scopedMatch = baseValue.match(/^\[([^\]]+)\]\/(.+)$/);
@@ -40,16 +35,16 @@ function extractFileLabel(token: string): string {
   return label || baseValue;
 }
 
-/** Replace file reference tokens with file names. */
+/** Replace attachment tags with file names. */
 export function replaceFileTokensWithNames(text: string): string {
   if (!text) return text;
-  if (!text.includes("@")) return text;
-  FILE_TOKEN_REGEX.lastIndex = 0;
-  if (!FILE_TOKEN_REGEX.test(text)) return text;
-  return text.replace(FILE_TOKEN_REGEX, (raw, token) => {
+  ATTACHMENT_TAG_REGEX.lastIndex = 0;
+  if (!ATTACHMENT_TAG_REGEX.test(text)) return text;
+  ATTACHMENT_TAG_REGEX.lastIndex = 0;
+  return replaceAttachmentTags(text, (path, rawTag) => {
     // 中文注释：将文件引用替换为文件名，避免标题过长。
-    const label = extractFileLabel(String(token ?? raw ?? ""));
-    return label || raw;
+    const label = extractFileLabel(path);
+    return label || rawTag;
   });
 }
 

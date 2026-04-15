@@ -38,6 +38,7 @@ const PdfViewer = lazy(() => import("@/components/file/PdfViewer"));
 const ExcelViewer = lazy(() => import("@/components/file/ExcelViewer"));
 const PptxViewer = lazy(() => import("@/components/file/PptxViewer"));
 const VideoViewer = lazy(() => import("@/components/file/VideoViewer"));
+const AudioViewer = lazy(() => import("@/components/file/AudioViewer"));
 
 function ViewerFallback() {
   return (
@@ -207,6 +208,19 @@ export function renderFilePreviewContent(input: {
             uri={entry.uri}
             openUri={entry.uri}
             name={displayName}
+            projectId={projectId}
+            rootUri={rootUri}
+          />
+        </Suspense>
+      );
+    case "audio":
+      return (
+        <Suspense fallback={<ViewerFallback />}>
+          <AudioViewer
+            uri={entry.uri}
+            openUri={entry.uri}
+            name={displayName}
+            ext={ext}
             projectId={projectId}
             rootUri={rootUri}
           />

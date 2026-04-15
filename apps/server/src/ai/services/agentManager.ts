@@ -18,10 +18,10 @@ function friendlyId(prefix: string): string {
 import type { RequestContext } from '@/ai/shared/context/requestContext'
 import { getSessionId } from '@/ai/shared/context/requestContext'
 import {
-  registerAgentDir,
   loadMessageTree,
   readSessionJson,
 } from '@/ai/services/chat/repositories/chatFileStore'
+import { registerAgentDir } from '@openloaf/api/services/chatSessionPaths'
 import { logger } from '@/common/logger'
 import { scheduleExecution } from '@/ai/services/agentExecutor'
 import { sanitizeRestoredMessages } from '@/ai/services/agentHistory'

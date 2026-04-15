@@ -230,6 +230,10 @@ body {
   --ol-skill-chip-bg: rgb(243 232 255 / 80%);
   --ol-skill-chip-bg-hover: rgb(233 213 255);
   --ol-skill-chip-text: rgb(126 34 206);
+  /* 文件引用 chip — 使用独立 token，避免被 user message 强制 .dark 作用域翻转 */
+  --ol-mention-chip-bg: oklch(0.965 0.012 37);
+  --ol-mention-chip-bg-hover: oklch(0.945 0.022 37);
+  --ol-mention-chip-text: #f05a24;
   --background: #ffffff;
   --foreground: #0f0e12;
   --card: #ffffff;
@@ -412,6 +416,14 @@ body {
   --folder-back: oklch(0.65 0.12 45);
   --folder-front: oklch(0.7 0.14 50);
   --folder-tab: oklch(0.6 0.1 40);
+}
+
+/* 文件引用 chip 的 dark 模式值作用在 html.dark，
+   避免 user message 里 is-user:dark 嵌套 .dark 作用域将其翻转 */
+html.dark {
+  --ol-mention-chip-bg: oklch(0.22 0.03 37 / 25%);
+  --ol-mention-chip-bg-hover: oklch(0.24 0.04 37 / 35%);
+  --ol-mention-chip-text: #ff7b4f;
 }
 
 @theme inline {

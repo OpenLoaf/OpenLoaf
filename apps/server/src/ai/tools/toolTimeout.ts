@@ -22,6 +22,10 @@ const TOOL_TIMEOUT_MAP: Record<string, number> = {
   // Shell 工具 — 进程级超时兜底
   'Bash': 120_000,
 
+  // Read — 统一调度器覆盖 text / PDF / Office / 多模态媒体，总时长放宽到 180s，
+  // 真正的空闲检测由 fileTools.ts 内置的 60s 看门狗负责。
+  'Read': 180_000,
+
   // Browser tools — network-dependent
   'OpenUrl': 60_000,
   'BrowserSnapshot': 60_000,

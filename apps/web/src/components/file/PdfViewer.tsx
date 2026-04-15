@@ -30,6 +30,8 @@ interface PdfViewerProps {
   name?: string;
   ext?: string;
   projectId?: string;
+  /** Chat session id — required when uri contains ${CURRENT_CHAT_DIR} template. */
+  sessionId?: string;
   rootUri?: string;
   panelKey?: string;
   tabId?: string;
@@ -46,6 +48,7 @@ export default function PdfViewer({
   openUri,
   name,
   projectId,
+  sessionId,
   rootUri,
   panelKey,
   tabId,
@@ -78,7 +81,7 @@ export default function PdfViewer({
         setStatus("loading");
         setPreviewError(null);
         try {
-          const blob = await fetchBlobFromUri(uri, { projectId });
+          const blob = await fetchBlobFromUri(uri, { projectId, sessionId });
           const buffer = await blob.arrayBuffer();
           if (aborted) return;
           setData(new Uint8Array(buffer));
@@ -101,7 +104,7 @@ export default function PdfViewer({
     setStatus("error");
     setPreviewError(null);
     return;
-  }, [projectId, uri]);
+  }, [projectId, sessionId, uri]);
 
   /** Open the current PDF with system default application. */
   const handleOpenWithSystem = () => {

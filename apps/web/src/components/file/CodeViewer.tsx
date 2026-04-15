@@ -52,6 +52,8 @@ interface CodeViewerProps {
   ext?: string;
   rootUri?: string;
   projectId?: string;
+  /** Chat session id — required when uri contains ${CURRENT_CHAT_DIR} template. */
+  sessionId?: string;
   /** Whether the viewer should be read-only. */
   readOnly?: boolean;
   /** Viewer mode for Monaco. */
@@ -168,6 +170,7 @@ export default function CodeViewer({
   ext,
   rootUri,
   projectId,
+  sessionId,
   readOnly,
   mode,
   visible = true,
@@ -180,7 +183,7 @@ export default function CodeViewer({
   /** File content query. */
   const fileQuery = useQuery(
     trpc.fs.readFile.queryOptions(
-      uri ? { projectId, rootUri: fsRootUri, uri } : skipToken
+      uri ? { projectId, sessionId, rootUri: fsRootUri, uri } : skipToken
     )
   );
   const queryClient = useQueryClient();
@@ -526,7 +529,7 @@ export default function CodeViewer({
           lastSavedRef.current = nextContent;
           setIsDirty(false);
           queryClient.invalidateQueries({
-            queryKey: trpc.fs.readFile.queryOptions({ projectId, rootUri: fsRootUri, uri })
+            queryKey: trpc.fs.readFile.queryOptions({ projectId, sessionId, rootUri: fsRootUri, uri })
               .queryKey,
           });
           toast.success(t('saved'));

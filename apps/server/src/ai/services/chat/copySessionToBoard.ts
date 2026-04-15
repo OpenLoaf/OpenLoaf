@@ -11,6 +11,7 @@ import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { createBoardId } from "@openloaf/api/common/boardId";
+import { formatAttachmentTag } from "@openloaf/api/common";
 import {
   buildBoardFolderUri,
   resolveBoardScopedRoot,
@@ -22,11 +23,11 @@ import {
   appendMessage,
   getMessageCount,
   loadMessageTree,
-  registerSessionDir,
   resolveMessagesJsonlPath,
   type StoredMessage,
   writeSessionJson,
 } from "@/ai/services/chat/repositories/chatFileStore";
+import { registerSessionDir } from "@openloaf/api/services/chatSessionPaths";
 
 type PrismaClientLike = typeof prisma;
 
@@ -443,10 +444,11 @@ async function copyDirectoryWithMapping(input: {
     input.replacementMap.set(sourceRelativePath, targetRelativePath);
     input.replacementMap.set(sourcePath, targetRelativePath);
     input.replacementMap.set(sourceFileUri, targetRelativePath);
-    // 逻辑：mention 文本包在 @[...] 中，这里预先登记包装形式以减少字符串重写歧义。
-    input.replacementMap.set(`@[${sourceRelativePath}]`, `@[${targetRelativePath}]`);
-    input.replacementMap.set(`@[${sourcePath}]`, `@[${targetRelativePath}]`);
-    input.replacementMap.set(`@[${sourceFileUri}]`, `@[${targetRelativePath}]`);
+    // 逻辑：mention 文本是 <system-tag type="attachment" path="..." />，预先登记包装形式避免歧义。
+    const wrappedTarget = formatAttachmentTag(targetRelativePath);
+    input.replacementMap.set(formatAttachmentTag(sourceRelativePath), wrappedTarget);
+    input.replacementMap.set(formatAttachmentTag(sourcePath), wrappedTarget);
+    input.replacementMap.set(formatAttachmentTag(sourceFileUri), wrappedTarget);
   }
   return copied;
 }

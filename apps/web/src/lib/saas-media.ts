@@ -12,6 +12,17 @@ import { CLIENT_HEADERS } from "@/lib/client-headers";
 import { getSaasMediaClient } from "@/lib/saas-media-client";
 import { resolveSaasProxyBaseUrl } from "@/lib/saas-auth";
 
+/**
+ * EventSource 绕过 SaaSClient.fetcher，SDK 的 v3TaskEvents 会用
+ * origin-only baseUrl 拼出 `${origin}/api/ai/v3/task/:id/events`，
+ * 打不到 `/api/saas/raw/*` 反代入口。这里手动按反代前缀构造。
+ */
+function buildProxyTaskEventsUrl(taskId: string): string {
+  const base = resolveSaasProxyBaseUrl();
+  if (!base) throw new Error("saas_proxy_base_url_missing");
+  return `${base}/api/ai/v3/task/${encodeURIComponent(taskId)}/events`;
+}
+
 /** Validate HTTP response and parse JSON. */
 async function parseJsonResponse(response: Response): Promise<any> {
   if (!response.ok) {
@@ -62,8 +73,7 @@ export function subscribeTaskEvents(
     onError?: () => void
   },
 ): () => void {
-  const client = getSaasMediaClient()
-  const es = client.ai.v3TaskEvents(taskId)
+  const es = new EventSource(buildProxyTaskEventsUrl(taskId))
   es.addEventListener('status', ((e: MessageEvent) => {
     try {
       const data = JSON.parse(e.data)

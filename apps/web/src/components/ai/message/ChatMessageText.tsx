@@ -19,12 +19,6 @@ import {
   type ChatTextToken,
 } from "./text-tokenizer";
 import { getFileLabel } from "@/components/ai/input/chat-input-utils";
-import {
-  isImagePath,
-  isVideoPath,
-  MentionImageThumbnail,
-  MentionVideoThumbnail,
-} from "./MentionMediaThumbnail";
 import { openSkillInStack } from "@/components/setting/skills/skill-utils";
 
 interface ChatMessageTextProps {
@@ -35,7 +29,7 @@ interface ChatMessageTextProps {
 
 const MESSAGE_TOKEN_CHIP_BASE_CLASS = cn(
   "inline-flex items-center gap-[3px] align-middle px-1.5 py-px mx-0.5 rounded border border-transparent",
-  "text-xs font-medium leading-[18px] cursor-pointer select-none whitespace-nowrap max-w-[200px] transition-colors",
+  "text-xs font-medium leading-[18px] cursor-pointer select-none whitespace-nowrap max-w-[320px] transition-colors",
 );
 
 const SKILL_TOKEN_CHIP_CLASS = cn(
@@ -103,12 +97,9 @@ export default function ChatMessageText({ value, className, projectId }: ChatMes
     }
 
     if (segment.type === "mention") {
-      if (isImagePath(segment.value)) {
-        return <MentionImageThumbnail key={`mention-${index}`} path={segment.value} />;
-      }
-      if (isVideoPath(segment.value)) {
-        return <MentionVideoThumbnail key={`mention-${index}`} path={segment.value} />;
-      }
+      // 统一以文件名 chip 呈现：无论图片/视频/文档，消息里只显示文件名引用，
+      // 真实内容由点击后打开的 viewer 负责展示。内联缩略图容易让用户误以为
+      // 已嵌入图片附件，反而混淆模型与用户对消息体的认知。
       const label = getFileLabel(segment.value);
       return (
         <span

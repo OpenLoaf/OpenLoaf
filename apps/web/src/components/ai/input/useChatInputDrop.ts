@@ -12,6 +12,10 @@
 import { useCallback, useMemo } from "react";
 import type { RefObject } from "react";
 import {
+  formatAttachmentTag,
+  hasAttachmentTag,
+} from "@openloaf/api/common";
+import {
   FILE_DRAG_REF_MIME,
   FILE_DRAG_NAME_MIME,
   FILE_DRAG_URI_MIME,
@@ -111,12 +115,12 @@ export function useChatInputDrop({
         ensureTrailingSpace: options?.ensureTrailingSpace,
       };
       // Single mention token → insert as chip
-      if (/^@\[(?:\[[^\]]*\]|[^\]])+\]$/.test(rawText)) {
-        handle.insertMention(rawText, insertOpts);
+      if (/^<system-tag\s+type="attachment"\s+path="[^"]*"\s*\/>$/.test(rawText.trim())) {
+        handle.insertMention(rawText.trim(), insertOpts);
         return;
       }
       // Plain text (no mention tokens) → insert as text
-      if (!/@\[(?:\[[^\]]*\]|[^\]])+\]/.test(rawText)) {
+      if (!hasAttachmentTag(rawText)) {
         handle.insertText(rawText, insertOpts);
         return;
       }
@@ -146,14 +150,10 @@ export function useChatInputDrop({
   const normalizeFileRef = useCallback((value: string) => {
     const trimmed = value.trim();
     if (!trimmed) return "";
-    let normalized: string;
-    if (trimmed.startsWith("@[") && trimmed.endsWith("]")) {
-      normalized = trimmed.slice(2, -1);
-    } else if (trimmed.startsWith("@")) {
-      normalized = trimmed.slice(1);
-    } else {
-      normalized = trimmed;
-    }
+    const tagMatch = trimmed.match(
+      /^<system-tag\s+type="attachment"\s+path="([^"]*)"\s*\/>$/,
+    );
+    const normalized = tagMatch ? tagMatch[1] ?? "" : trimmed;
     const match = normalized.match(/^(.*?)(?::(\d+)-(\d+))?$/);
     const baseValue = match?.[1] ?? normalized;
     const parsed = parseScopedProjectPath(baseValue);
@@ -175,7 +175,7 @@ export function useChatInputDrop({
     (fileRef: string, options?: { skipFocus?: boolean }) => {
       const normalizedRef = normalizeFileRef(fileRef);
       if (!normalizedRef) return;
-      insertTextAtSelection(`@[${normalizedRef}]`, {
+      insertTextAtSelection(formatAttachmentTag(normalizedRef), {
         skipFocus: options?.skipFocus,
         ensureLeadingSpace: true,
         ensureTrailingSpace: true,
@@ -246,7 +246,7 @@ export function useChatInputDrop({
         mentionRefs.push(fileRef);
       }
       if (mentionRefs.length > 0) {
-        const mentionText = mentionRefs.map((item) => `@[${item}]`).join(" ");
+        const mentionText = mentionRefs.map((item) => formatAttachmentTag(item)).join(" ");
         insertTextAtSelection(mentionText, {
           ensureLeadingSpace: true,
           ensureTrailingSpace: true,
@@ -336,7 +336,7 @@ export function useChatInputDrop({
         });
         const storedPath = await uploadFileToSession(file);
         if (storedPath) {
-          insertTextAtSelection(`@[${storedPath}]`, { ensureLeadingSpace: true, ensureTrailingSpace: true });
+          insertTextAtSelection(formatAttachmentTag(storedPath), { ensureLeadingSpace: true, ensureTrailingSpace: true });
         }
       } catch {
         return;
@@ -350,7 +350,7 @@ export function useChatInputDrop({
         for (const file of files) {
           const storedPath = await uploadFileToSession(file);
           if (storedPath) {
-            insertTextAtSelection(`@[${storedPath}]`, { ensureLeadingSpace: true, ensureTrailingSpace: true });
+            insertTextAtSelection(formatAttachmentTag(storedPath), { ensureLeadingSpace: true, ensureTrailingSpace: true });
           }
         }
         return;

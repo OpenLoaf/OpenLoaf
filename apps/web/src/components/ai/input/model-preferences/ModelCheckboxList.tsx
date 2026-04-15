@@ -49,8 +49,9 @@ export function ChatModelCheckboxList({
           <ModelCheckboxItem
             key={option.id}
             icon={
-              option.modelDefinition?.familyId ??
-              option.modelDefinition?.icon
+              option.modelDefinition?.icon ??
+              option.providerId ??
+              option.modelDefinition?.familyId
             }
             modelId={option.modelId}
             label={label}

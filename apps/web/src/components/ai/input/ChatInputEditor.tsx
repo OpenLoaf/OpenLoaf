@@ -17,6 +17,7 @@ import {
   useState,
   type RefObject,
 } from "react";
+import { unescapeAttachmentPath } from "@openloaf/api/common";
 import { cn } from "@/lib/utils";
 import { getFileLabel } from "./chat-input-utils";
 
@@ -39,7 +40,7 @@ const AGENT_ICON_SVG =
   'style="flex-shrink:0;display:inline-block"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>' +
   '<circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>';
 
-const CHIP_BASE_STYLES = "display:inline-flex;align-items:center;gap:3px;padding:1px 6px;margin:0 1px;border-radius:4px;font-size:12px;font-weight:500;line-height:18px;vertical-align:baseline;cursor:pointer;user-select:none;white-space:nowrap;max-width:200px;transition:background-color .15s";
+const CHIP_BASE_STYLES = "display:inline-flex;align-items:center;gap:3px;padding:1px 6px;margin:0 1px;border-radius:4px;font-size:12px;font-weight:500;line-height:18px;vertical-align:baseline;cursor:pointer;user-select:none;white-space:nowrap;max-width:320px;transition:background-color .15s";
 
 const CHIP_STYLES = `
 .${CHIP_CLASS}{${CHIP_BASE_STYLES};background:var(--ol-blue-bg);color:var(--ol-blue);border:1px solid transparent}
@@ -92,18 +93,19 @@ function valueToHtml(value: string): string {
   if (!value) return "";
   let html = "";
   let lastIndex = 0;
-  // Match @[...] file mentions (supports nested [projectId]/... via alternation),
+  // Match <system-tag type="attachment" path="..." /> file mentions,
   // /skill/[xxx|yyy] or /skill/[xxx] skill commands (new format), legacy /skill/xxx
   // skill commands, and @agents/.../pm agent mentions.
-  const re = /@\[((?:\[[^\]]*\]|[^\]])+)\]|\/skill\/\[([\w-]+)(?:\|([^\]]*))?\]|\/skill\/([\w-]+)(?=\s|[^\x00-\x7F])|@agents\/([^/\s]+)\/pm(?=\s|$)/g;
+  const re = /<system-tag\s+type="attachment"\s+path="([^"]*)"\s*\/>|\/skill\/\[([\w-]+)(?:\|([^\]]*))?\]|\/skill\/([\w-]+)(?=\s|[^\x00-\x7F])|@agents\/([^/\s]+)\/pm(?=\s|$)/g;
   let match: RegExpExecArray | null;
   // biome-ignore lint/suspicious/noAssignInExpressions: intentional loop pattern
   while ((match = re.exec(value)) !== null) {
     html += escapeHtml(value.slice(lastIndex, match.index));
     const token = match[0];
     if (match[1] !== undefined) {
-      // File mention: @[...]
-      const label = getFileLabel(match[1]);
+      // File mention: <system-tag type="attachment" path="..." />
+      const innerPath = unescapeAttachmentPath(match[1]);
+      const label = getFileLabel(innerPath);
       html +=
         `<span class="${CHIP_CLASS}" data-token="${escapeAttr(token)}" contenteditable="false">` +
         `${FILE_ICON_SVG}<span>${escapeHtml(label)}</span>` +
@@ -180,7 +182,8 @@ function domToValue(node: Node): string {
 
 /** Create a chip DOM element from a mention token. */
 function createChipElement(token: string): HTMLSpanElement {
-  const ref = token.slice(2, -1);
+  const tagMatch = token.match(/^<system-tag\s+type="attachment"\s+path="([^"]*)"\s*\/>$/);
+  const ref = tagMatch ? unescapeAttachmentPath(tagMatch[1] ?? "") : token;
   const label = getFileLabel(ref);
   const span = document.createElement("span");
   span.className = CHIP_CLASS;

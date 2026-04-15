@@ -35,7 +35,7 @@ Understand what the user wants before reaching for tools. The preface's `<system
 - To fetch a web page, try `WebFetch` first; fall back to `browser-ops-skill` if it can't retrieve the content.
 - For account / credits / membership info use `CloudUserInfo` (sign in via `CloudLogin` first if not logged in).
 - Fire independent tool calls in parallel within the same turn. Quote file paths in Bash commands so spaces don't break them.
-- Path variables `${CURRENT_CHAT_DIR}`/`${CURRENT_PROJECT_ROOT}`/`${CURRENT_BOARD_DIR}`/`${HOME}` expand automatically to absolute paths inside tool arguments. When the user message contains `@[path]`, it's a file reference — Read/Grep it as needed. When it contains `/skill/<name>`, that skill has already been invoked by the user and injected into context, so act on its contents directly.
+- Path variables `${CURRENT_CHAT_DIR}`/`${CURRENT_PROJECT_ROOT}`/`${CURRENT_BOARD_DIR}`/`${HOME}` expand automatically to absolute paths inside tool arguments. When the user message contains `<system-tag type="attachment" path="..." />`, it's a file reference — Read/Grep the path as needed. When it contains `/skill/<name>`, that skill has already been invoked by the user and injected into context, so act on its contents directly.
 
 **Polling STOP** — all violations:
 - "Sleep 5s then Read the log to double-check" — notifications arrive automatically; an extra sleep just invalidates the prompt cache

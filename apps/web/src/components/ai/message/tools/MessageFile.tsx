@@ -11,6 +11,10 @@
 
 import React from "react";
 import { toast } from "sonner";
+import {
+  extractAttachmentTagPath,
+  formatAttachmentTag,
+} from "@openloaf/api/common";
 import { cn } from "@/lib/utils";
 import { useChatSession } from "@/components/ai/context";
 import {
@@ -72,9 +76,9 @@ function isRelativePath(value: string) {
 function buildFileRefText(value: string) {
   const trimmed = value.trim();
   if (!trimmed) return "";
-  if (!isRelativePath(trimmed) && !trimmed.startsWith("@[")) return "";
-  if (trimmed.startsWith("@[")) return trimmed;
-  return `@[${trimmed}]`;
+  if (extractAttachmentTagPath(trimmed) !== null) return trimmed;
+  if (!isRelativePath(trimmed)) return "";
+  return formatAttachmentTag(trimmed);
 }
 
 /** Render file part for AI messages. */

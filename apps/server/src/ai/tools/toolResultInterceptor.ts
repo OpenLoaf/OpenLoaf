@@ -20,7 +20,7 @@
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
 import { logger } from '@/common/logger'
-import { resolveSessionDir } from '@/ai/services/chat/repositories/chatFileStore'
+import { resolveSessionDir } from '@openloaf/api/services/chatSessionPaths'
 import { TRUNCATED_OUTPUT_TAG } from '@/ai/shared/contextWindowManager'
 
 // ---------------------------------------------------------------------------

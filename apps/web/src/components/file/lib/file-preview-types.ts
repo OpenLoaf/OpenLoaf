@@ -18,6 +18,7 @@ export type FilePreviewViewer =
   | "sheet"
   | "pptx"
   | "video"
+  | "audio"
   | "file";
 
 export type FilePreviewItem = {

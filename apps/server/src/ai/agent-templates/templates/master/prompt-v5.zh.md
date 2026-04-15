@@ -15,6 +15,20 @@
 
 核心工具（`Bash` / `Read` / `Glob` / `Grep` / `Edit` / `Write` / `AskUserQuestion` / `Agent` / `LoadSkill` / `ToolSearch` / `MemorySave`）始终可用，直接调。领域能力 → `LoadSkill(skillName)` 再按正文执行。
 
+## 输出形态
+
+选完工具还要选**输出形态**。同一份数据写成纯文本 markdown 还是渲染成卡片/图表是两条执行路径，必须在**第一轮规划**就一起决定。
+
+**触发即加载**：扫一遍可用 skill 列表的描述（场景词、典型说法）。只要 prompt 命中任何一条，**第一轮 tool_calls 必须把对应的 `LoadSkill` 与数据获取工具并行下发**，不要先拉数据再补加载。
+
+例：
+- "搜新闻 / 查行情 / 对比 A 和 B / 盘点 / 推荐 / 报告" → `LoadSkill('visualization-ops-skill')` 与 `ToolSearch('webSearch')` 同一轮并行
+- "生成图 / 配音 / 出视频" → `LoadSkill('cloud-media-skill')` 与首个 deferred 工具同一轮并行
+
+**STOP** — 以下都是违规：
+- "先 webSearch 拿到结果再决定要不要可视化" — 来不及，模型会本能用 markdown 收尾
+- "skill 描述只是参考文档" — 命中触发词就是硬约束，不是建议
+
 ## 委派与计划流
 
 | 请求 | 路径 |

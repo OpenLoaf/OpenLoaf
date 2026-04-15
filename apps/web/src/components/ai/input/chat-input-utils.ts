@@ -9,12 +9,17 @@
  */
 "use client";
 
-import { SKILL_COMMAND_PREFIX } from "@openloaf/api/common";
+import {
+  ATTACHMENT_TAG_REGEX,
+  extractAttachmentTagPath,
+  replaceAttachmentTags,
+  SKILL_COMMAND_PREFIX,
+} from "@openloaf/api/common";
 import { parseScopedProjectPath } from "@/components/project/filesystem/utils/file-system-utils";
 
-// 逻辑：匹配 @[...] 方括号包裹的文件引用格式。使用分支匹配内部 [projectId]/...
-// 这种嵌套方括号的情况，同时不与 ${CURRENT_*} 路径模板冲突。
-export const FILE_TOKEN_REGEX = /@\[((?:\[[^\]]*\]|[^\]])+)\]/g;
+// 逻辑：文件引用统一序列化为 <system-tag type="attachment" path="..." />，
+// 与 server 注入的 <system-tag> 上下文块视觉对齐，便于模型识别。
+export const FILE_TOKEN_REGEX = ATTACHMENT_TAG_REGEX;
 
 export const MAX_CHARS = 20000;
 export const ONLINE_SEARCH_GLOBAL_STORAGE_KEY = "openloaf:chat-online-search:global-enabled";
@@ -23,24 +28,21 @@ export const CHAT_MODE_STORAGE_KEY = "openloaf:chat-mode";
 /** Convert serialized chat text into a plain-text string for character counting. */
 export function getPlainTextFromInput(value: string): string {
   if (!value) return "";
-  return value.replace(FILE_TOKEN_REGEX, (_token, pathToken: string) =>
-    getFileLabel(pathToken),
-  );
+  return replaceAttachmentTags(value, (path) => getFileLabel(path));
 }
 
-/** Normalize mention value by trimming @[...] or leading "@". */
+/** Normalize mention value by trimming the attachment tag wrapper if present. */
 const normalizeMentionValue = (value: string) => {
-  const trimmed = value.trim();
-  if (trimmed.startsWith("@[") && trimmed.endsWith("]")) return trimmed.slice(2, -1);
-  if (trimmed.startsWith("@")) return trimmed.slice(1);
-  return trimmed;
+  const inner = extractAttachmentTagPath(value);
+  return inner !== null ? inner : value.trim();
 };
 
 /** Normalize spacing around file mention tokens. */
 export const normalizeFileMentionSpacing = (value: string) => {
-  FILE_TOKEN_REGEX.lastIndex = 0;
-  if (!FILE_TOKEN_REGEX.test(value)) return value;
-  const tokenPattern = /@\[(?:\[[^\]]*\]|[^\]])+\]/g;
+  ATTACHMENT_TAG_REGEX.lastIndex = 0;
+  if (!ATTACHMENT_TAG_REGEX.test(value)) return value;
+  ATTACHMENT_TAG_REGEX.lastIndex = 0;
+  const tokenPattern = /<system-tag\s+type="attachment"\s+path="[^"]*"\s*\/>/g;
   const withLeadingSpace = value.replace(
     new RegExp(`(\\S)(${tokenPattern.source})`, "g"),
     (_match, lead, token) => `${lead} ${token}`,

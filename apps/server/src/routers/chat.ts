@@ -33,12 +33,11 @@ import {
   deleteAllChatFiles,
   resolveMessagesJsonlPath,
   readJsonlRaw,
-  registerAgentDir,
   readSessionJson,
   readSessionJsonAutoTest,
 } from '@/ai/services/chat/repositories/chatFileStore'
 import { readSessionAutoTestSummary } from '@openloaf/api/services/sessionAutoTestService'
-import { resolveSessionDir } from '@/ai/services/chat/repositories/chatSessionPathResolver'
+import { resolveSessionDir, registerAgentDir } from '@openloaf/api/services/chatSessionPaths'
 import { copySessionToBoard } from '@/ai/services/chat/copySessionToBoard'
 import { readAutoTestEvaluation } from '@/ai/services/chat/autoTestEvaluation'
 import { promises as fsPromises } from 'node:fs'

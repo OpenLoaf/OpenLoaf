@@ -18,6 +18,7 @@ import { resolveScopedPath } from '@openloaf/api'
 import {
   resolveBoardDirFromDb,
 } from '@openloaf/api/common/boardPaths'
+import { expandChatDirTemplate } from '@openloaf/api/services/chatSessionPaths'
 
 const VIDEO_MIME_MAP: Record<string, string> = {
   '.mp4': 'video/mp4',
@@ -28,9 +29,24 @@ const VIDEO_MIME_MAP: Record<string, string> = {
   '.m4v': 'video/x-m4v',
 }
 
-function getVideoMime(filePath: string): string | null {
+const AUDIO_MIME_MAP: Record<string, string> = {
+  '.mp3': 'audio/mpeg',
+  '.wav': 'audio/wav',
+  '.m4a': 'audio/mp4',
+  '.flac': 'audio/flac',
+  '.aac': 'audio/aac',
+  '.ogg': 'audio/ogg',
+  '.opus': 'audio/opus',
+  '.aiff': 'audio/aiff',
+  '.aif': 'audio/aiff',
+  '.amr': 'audio/amr',
+  '.wma': 'audio/x-ms-wma',
+}
+
+/** Resolve MIME type for any streamable media file (video or audio). */
+function getMediaMime(filePath: string): string | null {
   const ext = path.extname(filePath).toLowerCase()
-  return VIDEO_MIME_MAP[ext] ?? null
+  return VIDEO_MIME_MAP[ext] ?? AUDIO_MIME_MAP[ext] ?? null
 }
 
 /** Resolve an absolute video file path from query params. */
@@ -39,8 +55,9 @@ async function resolveVideoPath(params: {
   file?: string
   projectId?: string
   filePath?: string
+  sessionId?: string
 }): Promise<{ absPath: string } | { error: string; status: 400 | 403 | 404 }> {
-  const { boardId, file, projectId, filePath } = params
+  const { boardId, file, projectId, filePath, sessionId } = params
 
   if (boardId && file) {
     if (file.includes('..')) return { error: 'Invalid file path', status: 400 }
@@ -56,7 +73,10 @@ async function resolveVideoPath(params: {
   if (filePath) {
     if (filePath.includes('..')) return { error: 'Invalid file path', status: 400 }
     try {
-      return { absPath: resolveScopedPath({ projectId, target: filePath }) }
+      // ${CURRENT_CHAT_DIR}/... 先展开为绝对路径，再交给 resolveScopedPath；
+      // resolveScopedPath 对绝对路径直接返回，不会做项目沙箱校验。
+      const expanded = await expandChatDirTemplate(filePath, sessionId)
+      return { absPath: resolveScopedPath({ projectId, target: expanded }) }
     } catch {
       return { error: 'Path resolution failed', status: 400 }
     }
@@ -73,13 +93,14 @@ export function registerVideoStreamRoutes(app: Hono) {
       file: c.req.query('file')?.trim(),
       projectId: c.req.query('projectId')?.trim(),
       filePath: c.req.query('path')?.trim(),
+      sessionId: c.req.query('sessionId')?.trim(),
     })
     if ('error' in result) return c.json({ error: result.error }, result.status)
     const absPath = result.absPath
 
-    const mime = getVideoMime(absPath)
+    const mime = getMediaMime(absPath)
     if (!mime) {
-      return c.json({ error: 'Unsupported video format' }, 400)
+      return c.json({ error: 'Unsupported media format' }, 400)
     }
 
     let stat: fs.Stats

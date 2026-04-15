@@ -21,6 +21,7 @@ import { randomUUID } from 'node:crypto'
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
 import { tool, zodSchema } from 'ai'
+import { extractAttachmentTagPath, stripAttachmentTagWrapper } from '@openloaf/api/common'
 import { SaaSHttpError } from '@openloaf-saas/sdk'
 import {
   cloudLoginToolDef,
@@ -33,12 +34,13 @@ import {
   cloudTextGenerateToolDef,
 } from '@openloaf/api/types/tools/cloud'
 import { getSaasClient } from '@/modules/saas/client'
+import { expandPathTemplateVars } from '@/ai/tools/toolScope'
 import {
   getBoardId,
   getProjectId,
   getSessionId,
 } from '@/ai/shared/context/requestContext'
-import { resolveSessionAssetDir } from '@/ai/services/chat/repositories/chatFileStore'
+import { resolveSessionAssetDir } from '@openloaf/api/services/chatSessionPaths'
 import {
   lookupBoardRecord,
   resolveBoardAssetDir,
@@ -363,6 +365,153 @@ async function autoSaveResultUrls(input: {
   return { files: saved, pending, target }
 }
 
+// ---------------------------------------------------------------------------
+// Input normalization — local file paths → uploaded CDN URLs
+// ---------------------------------------------------------------------------
+//
+// SaaS v3 endpoints (v3TextGenerate / v3Generate) expect `inputs.image`,
+// `inputs.video`, `inputs.audio` to be publicly reachable URLs. The LLM however
+// tends to pass local paths like `${CURRENT_CHAT_DIR}/foo.jpg` or
+// `@[/Users/.../foo.jpg]` — whatever it saw in the user message or asset dir.
+// Without this normalization those strings reach the SaaS backend verbatim and
+// come back as `HTTP 400 Bad Request`, which is exactly how this bug was
+// observed in chat_20260401_105341_gdes0ya1.
+//
+// Strategy: before the paid API call, walk inputs' top-level string / string[]
+// values, detect anything that looks like a local path, expand template vars,
+// read the file from disk, and upload it via `client.ai.uploadFile` (24h
+// expiry — long enough to outlive any sync or async task). Replace the value
+// with the returned CDN url and forward the normalized inputs downstream.
+//
+// Values that are already `http(s)://` / `data:` URLs or non-path strings like
+// `prompt` are passed through unchanged.
+
+const EXT_TO_CONTENT_TYPE: Record<string, string> = {
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  webp: 'image/webp',
+  gif: 'image/gif',
+  svg: 'image/svg+xml',
+  avif: 'image/avif',
+  bmp: 'image/bmp',
+  mp4: 'video/mp4',
+  webm: 'video/webm',
+  mov: 'video/quicktime',
+  mkv: 'video/x-matroska',
+  mp3: 'audio/mpeg',
+  wav: 'audio/wav',
+  ogg: 'audio/ogg',
+  m4a: 'audio/mp4',
+  aac: 'audio/aac',
+  flac: 'audio/flac',
+  weba: 'audio/webm',
+}
+
+function contentTypeFromPath(filePath: string): string {
+  const ext = path.extname(filePath).toLowerCase().replace(/^\./, '')
+  return EXT_TO_CONTENT_TYPE[ext] ?? 'application/octet-stream'
+}
+
+/** True when the string *looks* like a filesystem path (and should be probed on disk). */
+function looksLikeLocalPath(raw: string): boolean {
+  const s = raw.trim()
+  if (!s) return false
+  if (/^(https?:|data:|blob:)/i.test(s)) return false
+  if (extractAttachmentTagPath(s) !== null) return true
+  if (s.startsWith('${')) return true
+  if (s.startsWith('/') || s.startsWith('~')) return true
+  // Windows drive letter, e.g. C:\foo
+  if (/^[A-Za-z]:[\\/]/.test(s)) return true
+  return false
+}
+
+/** Strip attachment-tag wrapper then expand template vars like ${CURRENT_CHAT_DIR}. */
+function unwrapAndExpand(raw: string): string {
+  const s = stripAttachmentTagWrapper(raw)
+  return expandPathTemplateVars(s)
+}
+
+/**
+ * Upload a single local file to the SaaS CDN and return its URL.
+ * Throws if the file does not exist, is not a regular file, or the upload fails.
+ */
+async function uploadLocalFileToCdn(args: {
+  // biome-ignore lint/suspicious/noExplicitAny: SaaSClient type is internal to SDK
+  client: any
+  rawValue: string
+  inputKey: string
+  progress: ToolProgressEmitter
+}): Promise<string> {
+  const { client, rawValue, inputKey, progress } = args
+  const absPath = path.resolve(unwrapAndExpand(rawValue))
+
+  let stat: Awaited<ReturnType<typeof fs.stat>>
+  try {
+    stat = await fs.stat(absPath)
+  } catch {
+    throw new Error(
+      `inputs.${inputKey}: file not found — ${rawValue} (resolved: ${absPath})`,
+    )
+  }
+  if (!stat.isFile()) {
+    throw new Error(`inputs.${inputKey}: not a regular file — ${absPath}`)
+  }
+
+  const fileName = path.basename(absPath)
+  progress.delta(`uploading ${inputKey}: ${fileName} (${stat.size} bytes)\n`)
+
+  const buffer = await fs.readFile(absPath)
+  const contentType = contentTypeFromPath(absPath)
+  const blob = new Blob([new Uint8Array(buffer)], { type: contentType })
+  const res = await client.ai.uploadFile(blob, fileName, { expireHours: 24 })
+  if (!res || typeof res.url !== 'string' || !res.url) {
+    throw new Error(`inputs.${inputKey}: SaaS uploadFile returned no URL`)
+  }
+  return res.url
+}
+
+/**
+ * Walk top-level entries of `inputs`, replacing any local-file-path string
+ * (or array of such strings) with an uploaded CDN URL. Returns a shallow copy
+ * — the caller's object is not mutated.
+ */
+async function normalizeCloudInputs(args: {
+  inputs: Record<string, unknown> | undefined
+  // biome-ignore lint/suspicious/noExplicitAny: SaaSClient type is internal to SDK
+  client: any
+  progress: ToolProgressEmitter
+}): Promise<Record<string, unknown> | undefined> {
+  const { inputs, client, progress } = args
+  if (!inputs || typeof inputs !== 'object') return inputs
+
+  const out: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(inputs)) {
+    if (typeof value === 'string') {
+      out[key] = looksLikeLocalPath(value)
+        ? await uploadLocalFileToCdn({ client, rawValue: value, inputKey: key, progress })
+        : value
+      continue
+    }
+    if (Array.isArray(value)) {
+      out[key] = await Promise.all(
+        value.map(async (item, idx) => {
+          if (typeof item !== 'string' || !looksLikeLocalPath(item)) return item
+          return uploadLocalFileToCdn({
+            client,
+            rawValue: item,
+            inputKey: `${key}[${idx}]`,
+            progress,
+          })
+        }),
+      )
+      continue
+    }
+    out[key] = value
+  }
+  return out
+}
+
 // biome-ignore lint/suspicious/noExplicitAny: SaaSClient type is internal to SDK
 async function pollTaskUntilDone(client: any, taskId: string, progress: ToolProgressEmitter) {
   const deadline = Date.now() + POLL_MAX_DURATION_MS
@@ -491,7 +640,7 @@ function buildBrowseHint(
     )
   }
   parts.push(
-    'Pick a variant from topVariants by tag/name. For full param schema call CloudCapDetail(variantId). Otherwise call CloudModelGenerate directly.',
+    'Pick a variant from topVariants by tag/name. For full param schema call CloudCapDetail({variantId, featureId}) — always pass the feature id alongside the variant id since some variants (e.g. OL-TX-006) are shared across multiple features with different input schemas. Otherwise call CloudModelGenerate / CloudTextGenerate directly.',
   )
   return parts.join(' ')
 }
@@ -506,15 +655,30 @@ export const cloudCapDetailTool = tool({
   // 逻辑：只读公开接口，无 token、无 credits，白名单自动放行。
   needsApproval: false,
   execute: async (input, { toolCallId }): Promise<string> => {
-    const { variantId } = input as { variantId: string }
+    const { variantId, featureId } = input as { variantId: string; featureId?: string }
     const progress = createToolProgress(toolCallId, 'CloudCapDetail')
-    progress.start(`detail ${variantId}`)
+    progress.start(featureId ? `detail ${variantId} (${featureId})` : `detail ${variantId}`)
 
+    // 逻辑：绕过 SDK 直接 fetch，让我们可以把 ?feature=<id> 传给 SaaS server。
+    // 同一 variantId (例如 OL-TX-006) 会挂在多个 feature 下 (imageCaption /
+    // translate / chat)，每个 feature 的 inputSlots 不同；不带 featureId 时
+    // server 会返回 400 ambiguous 带 mountedFeatures 列表，模型可据此重试。
+    // SDK 发布新版后可换回 client.ai.capabilitiesDetail(variantId, featureId)。
     try {
-      const client = getSaasClient()
-      const res = await client.ai.capabilitiesDetail(variantId)
+      const { getSaasBaseUrl } = await import('@/modules/saas/core/config')
+      const query = featureId ? `?feature=${encodeURIComponent(featureId)}` : ''
+      const url = `${getSaasBaseUrl()}/api/ai/v3/capabilities/detail/${encodeURIComponent(variantId)}${query}`
+      const resp = await fetch(url)
+      const payload = (await resp.json().catch(() => null)) as
+        | { success?: boolean; data?: unknown; message?: string }
+        | null
+      if (!resp.ok || !payload?.success) {
+        const detail = payload?.message ?? `HTTP ${resp.status} ${resp.statusText}`
+        progress.error(detail)
+        return `Error: CloudCapDetail(${variantId}${featureId ? `, ${featureId}` : ''}) — ${detail}`
+      }
       progress.done('schema fetched')
-      return JSON.stringify({ ok: true, data: res.data })
+      return JSON.stringify({ ok: true, data: payload.data })
     } catch (err) {
       progress.error(err instanceof Error ? err.message : String(err))
       return errorString(`CloudCapDetail(${variantId})`, err)
@@ -557,10 +721,11 @@ export const cloudModelGenerateTool = tool({
     progress.start(`${feature} / ${variant}`)
     try {
       const client = getSaasClient(token)
+      const normalizedInputs = await normalizeCloudInputs({ inputs, client, progress })
       const createRes = await client.ai.v3Generate({
         feature,
         variant,
-        inputs,
+        inputs: normalizedInputs,
         params,
       })
 
@@ -676,10 +841,11 @@ export const cloudTextGenerateTool = tool({
     progress.start(`${feature} / ${variant}`)
     try {
       const client = getSaasClient(token)
+      const normalizedInputs = await normalizeCloudInputs({ inputs, client, progress })
       const res = await client.ai.v3TextGenerate({
         feature,
         variant,
-        inputs,
+        inputs: normalizedInputs,
         params,
       })
       const text = res.data.text ?? ''

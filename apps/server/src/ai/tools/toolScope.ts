@@ -19,6 +19,7 @@ import {
   resolveScopedPath,
 } from "@openloaf/api/services/vfsService";
 import { getOpenLoafRootDir } from "@openloaf/config";
+import { stripAttachmentTagWrapper } from "@openloaf/api/common";
 import { getResolvedTempStorageDir } from "@openloaf/api/services/appConfigService";
 import {
   resolveBoardAssetDir,
@@ -27,7 +28,7 @@ import {
 import {
   computeChatSessionDirByConvention,
   resolveSessionAssetDir,
-} from "@/ai/services/chat/repositories/chatSessionPathResolver";
+} from "@openloaf/api/services/chatSessionPaths";
 import { resolveMemoryDir, resolveUserMemoryDir } from "@/ai/shared/memoryLoader";
 
 type ToolRoots = {
@@ -114,7 +115,7 @@ export function expandPathTemplateVars(input: string): string {
   // 画布右侧面板 chat 与画布内 board 资源物理隔离：
   //   - CURRENT_CHAT_DIR → <boardRoot>/boards/<boardId>/chat-history/<sessionId>/asset/
   //   - CURRENT_BOARD_DIR → <boardRoot>/boards/<boardId>/asset/
-  // 同步使用 computeChatSessionDirByConvention，和 chatSessionPathResolver 共享规则。
+  // 同步使用 computeChatSessionDirByConvention，和 @openloaf/api/services/chatSessionPaths 共享规则。
   let chatAssetDir: string | undefined;
   if (sessionId) {
     const sessionDir = computeChatSessionDirByConvention({ sessionId, projectId, boardId });
@@ -160,8 +161,8 @@ export function resolveToolPath(input: {
   // are expanded up-front so downstream layers see plain absolute paths.
   const expanded = expandPathTemplateVars(input.target);
   const raw = expanded.trim();
-  // Strip @[...] user-mention wrapper (emitted by ChatInput drop handler).
-  const stripped = raw.startsWith("@[") && raw.endsWith("]") ? raw.slice(2, -1) : raw;
+  // Strip attachment-tag user-mention wrapper (emitted by ChatInput drop handler).
+  const stripped = stripAttachmentTagWrapper(raw);
 
   let absPath: string;
   if (!projectId && getSessionId()) {

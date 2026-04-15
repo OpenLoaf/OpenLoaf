@@ -31,10 +31,10 @@ import { setOpenLoafRootOverride } from '@openloaf/config'
 import {
   appendMessage,
   loadMessageTree,
-  registerSessionDir,
   writeSessionJson,
   type StoredMessage,
 } from '@/ai/services/chat/repositories/chatFileStore'
+import { registerSessionDir } from '@openloaf/api/services/chatSessionPaths'
 import {
   streamSessionManager,
   type StreamEvent,

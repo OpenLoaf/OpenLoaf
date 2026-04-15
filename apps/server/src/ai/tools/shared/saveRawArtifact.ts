@@ -20,7 +20,7 @@
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
 import { getSessionId } from '@/ai/shared/context/requestContext'
-import { resolveSessionAssetDir } from '@/ai/services/chat/repositories/chatFileStore'
+import { resolveSessionAssetDir } from '@openloaf/api/services/chatSessionPaths'
 import { logger } from '@/common/logger'
 
 export type RawArtifactSubdir = 'webfetch' | 'browser'

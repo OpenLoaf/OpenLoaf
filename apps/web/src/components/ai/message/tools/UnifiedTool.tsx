@@ -126,7 +126,9 @@ export default function UnifiedTool({
   const showOutput = !hasApproval || part.approval?.approved === true;
   const isStreaming = isToolStreaming(part);
   const actions =
-    isApprovalRequested && approvalId ? <ToolApprovalActions approvalId={approvalId} /> : null;
+    isApprovalRequested && approvalId ? (
+      <ToolApprovalActions approvalId={approvalId} size="default" />
+    ) : null;
 
   // 逻辑：流式输出期间工具数据可能不完整，抑制错误显示避免闪烁。
   const isChatStreaming = status === "streaming" || status === "submitted";

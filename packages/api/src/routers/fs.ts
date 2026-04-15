@@ -19,6 +19,7 @@ import { convertDocxFileToSfdt } from "../services/docxSfdtService";
 import { resolveFilePathFromUri, resolveScopedPath, resolveScopedRootPath, toRelativePath, toFileUriWithoutEncoding } from "../services/vfsService";
 import { readProjectTrees } from "../services/projectTreeService";
 import { resolveBoardDirFromDb } from "../common/boardPaths";
+import { expandChatDirTemplate } from "../services/chatSessionPaths";
 
 /** Board folder prefix for server-side sorting. */
 const BOARD_FOLDER_PREFIX = "board_";
@@ -58,6 +59,13 @@ const fsScopeSchema = z.object({
   boardId: z.string().trim().optional(),
   /** Override root path for non-project contexts (e.g. temp storage). Accepts file:// URI. */
   rootUri: z.string().trim().optional(),
+  /**
+   * Chat session id — required when any path argument uses the
+   * `${CURRENT_CHAT_DIR}` template. Resolved via expandChatDirTemplate before
+   * the scope resolver sees the path, so downstream logic never needs to know
+   * about the template.
+   */
+  sessionId: z.string().trim().optional(),
 });
 
 const fsUriSchema = fsScopeSchema.extend({
@@ -139,6 +147,7 @@ type BoardFsScope = {
   projectId?: string;
   boardId?: string;
   rootUri?: string;
+  sessionId?: string;
 };
 
 /** Return true when the thrown error indicates a stale project scope. */
@@ -213,14 +222,30 @@ async function resolveBoardFsScope(
   };
 }
 
+/**
+ * Expand `${CURRENT_CHAT_DIR}` templates to an absolute path before any scope
+ * resolver sees the string. Downstream resolvers treat expanded paths as
+ * absolute file paths, which bypass project/board sandbox checks — the session
+ * path itself is already sandboxed to the session's asset dir by construction,
+ * so this is the correct place to centralize the template expansion.
+ */
+async function applyChatDirTemplate(
+  scope: BoardFsScope,
+  target: string,
+): Promise<string> {
+  if (!target.includes("${CURRENT_CHAT_DIR}")) return target;
+  return expandChatDirTemplate(target, scope.sessionId);
+}
+
 /** Resolve fs read scope, preferring boardId when provided. */
 async function resolveFsReadScopeAsync(
   scope: BoardFsScope,
   target: string
 ): Promise<ResolvedFsReadScope | null> {
-  const boardScope = await resolveBoardFsScope(scope, target);
+  const expandedTarget = await applyChatDirTemplate(scope, target);
+  const boardScope = await resolveBoardFsScope(scope, expandedTarget);
   if (boardScope) return boardScope;
-  return resolveFsReadScope(scope, target);
+  return resolveFsReadScope(scope, expandedTarget);
 }
 
 /** Resolve fs write target, preferring boardId when provided. */
@@ -228,9 +253,10 @@ async function resolveFsTargetAsync(
   scope: BoardFsScope,
   target: string
 ): Promise<string> {
-  const boardScope = await resolveBoardFsScope(scope, target);
+  const expandedTarget = await applyChatDirTemplate(scope, target);
+  const boardScope = await resolveBoardFsScope(scope, expandedTarget);
   if (boardScope) return boardScope.fullPath;
-  return resolveFsTarget(scope, target);
+  return resolveFsTarget(scope, expandedTarget);
 }
 
 function buildFileNode(input: {

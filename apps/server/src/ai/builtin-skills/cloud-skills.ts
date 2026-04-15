@@ -390,6 +390,47 @@ function rerenderSkillContent(): void {
 const DETAIL_CONCURRENCY = 6
 
 /**
+ * Fetch variant detail via raw HTTP so we can pass `?feature=<id>` to
+ * disambiguate shared variants (e.g. `OL-TX-006` is mounted on chat /
+ * imageCaption / translate / videoCaption, each with different inputSlots).
+ *
+ * SDK v0.1.46 doesn't expose the featureId parameter yet; when this repo
+ * upgrades to @openloaf-saas/sdk ^0.2.0 this helper can be replaced with
+ * `client.ai.capabilitiesDetail(variantId, featureId)`.
+ *
+ * Returns `{ data }` on success, `null` on any failure — callers are expected
+ * to tolerate missing detail (tier breakdown falls back to 'free').
+ */
+async function fetchCapabilityDetailWithFeature(
+  variantId: string,
+  featureId: string,
+): Promise<{ data: CloudDetailPayload } | null> {
+  try {
+    const { getSaasBaseUrl } = await import('@/modules/saas/core/config')
+    const url = `${getSaasBaseUrl()}/api/ai/v3/capabilities/detail/${encodeURIComponent(variantId)}?feature=${encodeURIComponent(featureId)}`
+    const resp = await fetch(url)
+    if (!resp.ok) return null
+    const payload = (await resp.json().catch(() => null)) as
+      | { success?: boolean; data?: CloudDetailPayload }
+      | null
+    if (!payload?.success || !payload.data) return null
+    return { data: payload.data }
+  } catch {
+    return null
+  }
+}
+
+/** Minimal shape of the `/capabilities/detail` response used by refreshCloudSkills. */
+type CloudDetailPayload = {
+  variantId: string
+  variantName: string
+  feature: string
+  category: string
+  minMembershipLevel: string
+  creditsPerCall: number
+}
+
+/**
  * Refresh dynamic state from ai.capabilitiesOverview + per-variant
  * capabilitiesDetail (both public endpoints, no token).
  *
@@ -406,12 +447,20 @@ export async function refreshCloudSkills(): Promise<void> {
     const overview = await client.ai.capabilitiesOverview()
 
     // 1) Collect all visible (feature, variantId) pairs first.
+    //
+    // Important: tool-category features (webSearch, webSearchImage, …) don't
+    // expose real variants — the overview returns self-referential entries
+    // whose variant ids equal the feature id. Hitting
+    // `/capabilities/detail/:id` for them returns 404 because no
+    // AiMediaVariant row exists. Skip the whole category here to avoid log
+    // noise and wasted round-trips.
     type FeatureInfo = { feature: string; category: string; variantIds: string[] }
     const featureInfos: FeatureInfo[] = []
     for (const feature of overview.data) {
       // 逻辑：与 cloudTools.ts 的 Browse 过滤保持一致，跳过隐藏 feature，
       // 避免 skill 里宣称的数量和 AI 实际通过 Browse 看到的不一致。
       if (isHiddenFeature(feature.feature)) continue
+      if (feature.category === 'tools') continue
       featureInfos.push({
         feature: feature.feature,
         category: feature.category,
@@ -419,13 +468,29 @@ export async function refreshCloudSkills(): Promise<void> {
       })
     }
 
-    // 2) Fan out capabilitiesDetail for each variant, batched by concurrency.
-    const allVariantIds = featureInfos.flatMap((f) => f.variantIds)
+    // 2) Fan out capabilitiesDetail — dedup by variantId but pair each unique
+    // variant with the first feature it was seen under. Same variantId mounted
+    // on multiple features (e.g. OL-TX-006 on chat / imageCaption / translate
+    // / videoCaption) returns identical tier/credits regardless of feature, so
+    // one fetch per unique variant is enough; the featureId is only required
+    // to make the server's ambiguity check pass.
+    const uniqueVariantFeature = new Map<string /* variantId */, string /* featureId */>()
+    for (const fi of featureInfos) {
+      for (const vid of fi.variantIds) {
+        if (!uniqueVariantFeature.has(vid)) {
+          uniqueVariantFeature.set(vid, fi.feature)
+        }
+      }
+    }
+
+    const detailEntries = Array.from(uniqueVariantFeature.entries())
     const nextVariantDetails = new Map<string, CachedVariantDetail>()
-    for (let i = 0; i < allVariantIds.length; i += DETAIL_CONCURRENCY) {
-      const batch = allVariantIds.slice(i, i + DETAIL_CONCURRENCY)
+    for (let i = 0; i < detailEntries.length; i += DETAIL_CONCURRENCY) {
+      const batch = detailEntries.slice(i, i + DETAIL_CONCURRENCY)
       const results = await Promise.allSettled(
-        batch.map((id) => client.ai.capabilitiesDetail(id)),
+        batch.map(([variantId, featureId]) =>
+          fetchCapabilityDetailWithFeature(variantId, featureId),
+        ),
       )
       for (const r of results) {
         if (r.status !== 'fulfilled' || !r.value?.data) continue

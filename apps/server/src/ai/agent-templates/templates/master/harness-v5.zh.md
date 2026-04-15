@@ -35,7 +35,7 @@
 - 抓网页：先 `WebFetch`，拿不到再回落到 `browser-ops-skill`。
 - 账号/积分/会员相关信息查 `CloudUserInfo`（未登录先 `CloudLogin`）。
 - 互不依赖的工具调用在同一轮里并行发出；Bash 命令里的文件路径记得用双引号包住，防空格截断。
-- 环境路径变量 `${CURRENT_CHAT_DIR}`/`${CURRENT_PROJECT_ROOT}`/`${CURRENT_BOARD_DIR}`/`${HOME}` 在工具入参里会自动展开成绝对路径。用户消息里出现 `@[path]` 表示引用文件，按需 Read/Grep 即可；`/skill/<name>` 表示该技能已被用户主动调用并注入上下文，直接按技能内容执行。
+- 环境路径变量 `${CURRENT_CHAT_DIR}`/`${CURRENT_PROJECT_ROOT}`/`${CURRENT_BOARD_DIR}`/`${HOME}` 在工具入参里会自动展开成绝对路径。用户消息里出现 `<system-tag type="attachment" path="..." />` 表示引用文件，按需对 path 做 Read/Grep 即可；`/skill/<name>` 表示该技能已被用户主动调用并注入上下文，直接按技能内容执行。
 
 **轮询 STOP** — 以下都是违规：
 - "Sleep 5s 再 Read 日志确认" — 通知会自动送达，多余的 sleep 只会让 prompt cache 失效

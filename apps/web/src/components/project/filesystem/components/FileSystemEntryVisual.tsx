@@ -30,7 +30,19 @@ export const IMAGE_EXTS = new Set([
   "heif",
 ]);
 export const ARCHIVE_EXTS = new Set(["zip", "rar", "7z", "gz", "tar", "bz2", "xz"]);
-export const AUDIO_EXTS = new Set(["mp3", "wav", "flac", "ogg", "m4a", "aac"]);
+export const AUDIO_EXTS = new Set([
+  "mp3",
+  "wav",
+  "flac",
+  "ogg",
+  "m4a",
+  "aac",
+  "opus",
+  "wma",
+  "aiff",
+  "aif",
+  "amr",
+]);
 export const VIDEO_EXTS = new Set(["mp4", "mov", "avi", "mkv", "webm"]);
 export const SPREADSHEET_EXTS = new Set(["xls", "xlsx", "csv", "tsv", "numbers"]);
 export const PDF_EXTS = new Set(["pdf"]);

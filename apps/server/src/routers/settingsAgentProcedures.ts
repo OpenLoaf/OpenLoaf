@@ -186,7 +186,11 @@ export const agentProcedures = {
         ? items.filter((item) => item.scope === scopeFilter)
         : items
       // 过滤系统 Agent — 用户只能看到自己创建的 Agent。
-      const userOnly = scopeFiltered.filter((item) => !item.isSystem)
+      // 例外：`includeSystem: true` 时保留 master，供 `useMainAgentModel` 等
+      // 模型选择路径读取当前主助手配置。
+      const userOnly = input?.includeSystem
+        ? scopeFiltered
+        : scopeFiltered.filter((item) => !item.isSystem)
       if (input?.projectId) {
         return userOnly.filter(
           (item) =>

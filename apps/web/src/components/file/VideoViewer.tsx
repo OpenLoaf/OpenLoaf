@@ -26,6 +26,8 @@ interface VideoViewerProps {
   openUri?: string;
   name?: string;
   projectId?: string;
+  /** Chat session id — required when uri contains ${CURRENT_CHAT_DIR} template. */
+  sessionId?: string;
   rootUri?: string;
   /** Board id for resolving board-relative assets on the server. */
   boardId?: string;
@@ -40,7 +42,12 @@ interface VideoViewerProps {
   tabId?: string;
 }
 
-type StreamUrlInput = { path: string; projectId?: string; boardId?: string };
+type StreamUrlInput = {
+  path: string;
+  projectId?: string;
+  boardId?: string;
+  sessionId?: string;
+};
 
 /** Build a direct stream URL for video playback. */
 function buildStreamUrl(input: StreamUrlInput) {
@@ -53,6 +60,7 @@ function buildStreamUrl(input: StreamUrlInput) {
   }
   const query = new URLSearchParams({ path: input.path });
   if (input.projectId) query.set("projectId", input.projectId);
+  if (input.sessionId) query.set("sessionId", input.sessionId);
   return `${prefix}?${query.toString()}`;
 }
 
@@ -63,6 +71,7 @@ export default function VideoViewer({
   openUri,
   name,
   projectId: projectIdProp,
+  sessionId,
   rootUri,
   boardId: boardIdProp,
   thumbnailSrc,
@@ -85,8 +94,13 @@ export default function VideoViewer({
     const hasScheme = /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmed);
     let resolvedProjectId = projectIdProp;
     let relativePath = "";
+    // ${CURRENT_CHAT_DIR}/... 不能再走相对路径/项目路径解析，必须原样作为 path 参数
+    // 传给 /media/stream 端点，由服务端用 sessionId 展开。
+    const isSessionTemplate = trimmed.includes("${CURRENT_CHAT_DIR}");
 
-    if (hasScheme) {
+    if (isSessionTemplate) {
+      relativePath = trimmed;
+    } else if (hasScheme) {
       // 逻辑：URI 带 scheme 时尝试从 rootUri 解析相对路径。
       relativePath = rootUri ? getRelativePathFromUri(rootUri, trimmed) : "";
     } else {
@@ -102,16 +116,17 @@ export default function VideoViewer({
 
     if (!relativePath) return null;
 
-    const ids = {
-      projectId: resolvedProjectId,
-      boardId: boardIdProp || undefined,
-    };
     return {
-      url: buildStreamUrl({ path: relativePath, ...ids }),
+      url: buildStreamUrl({
+        path: relativePath,
+        projectId: resolvedProjectId,
+        boardId: boardIdProp || undefined,
+        sessionId: isSessionTemplate ? sessionId : undefined,
+      }),
       projectId: resolvedProjectId,
       relativePath,
     };
-  }, [boardIdProp, projectIdProp, rootUri, uri]);
+  }, [boardIdProp, projectIdProp, rootUri, sessionId, uri]);
 
   useEffect(() => {
     if (thumbnailSrc) {

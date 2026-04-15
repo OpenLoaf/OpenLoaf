@@ -10,8 +10,9 @@
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
 import type { PlanItem } from '@openloaf/api/types/tools/runtime'
-import { readSessionJson, resolveSessionDir } from '@/ai/services/chat/repositories/chatFileStore'
-import { resolveSessionAssetDir } from '@/ai/services/chat/repositories/chatSessionPathResolver'
+import { stripAttachmentTagWrapper } from '@openloaf/api/common'
+import { readSessionJson } from '@/ai/services/chat/repositories/chatFileStore'
+import { resolveSessionDir, resolveSessionAssetDir } from '@openloaf/api/services/chatSessionPaths'
 import { withSessionLock } from '@/ai/services/chat/repositories/chatMessagePersistence'
 import { getProjectRootPath } from '@openloaf/api/services/vfsService'
 
@@ -207,15 +208,8 @@ export async function resolvePlanFileAbsPath(
 ): Promise<string> {
   const trimmed = planFilePath.trim()
   if (!trimmed) throw new Error('planFilePath is required')
-  // Strip @[...] / @ prefixes (match Write tool behavior).
-  let normalized: string
-  if (trimmed.startsWith('@[') && trimmed.endsWith(']')) {
-    normalized = trimmed.slice(2, -1)
-  } else if (trimmed.startsWith('@')) {
-    normalized = trimmed.slice(1)
-  } else {
-    normalized = trimmed
-  }
+  // Strip attachment-tag wrapper (match Write tool behavior).
+  const normalized = stripAttachmentTagWrapper(trimmed)
   if (normalized.startsWith('[')) throw new Error('Project-scoped paths are not supported here')
 
   // Resolve root: projectRoot if bound, else sessionAssetDir.

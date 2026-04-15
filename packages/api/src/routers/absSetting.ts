@@ -253,6 +253,8 @@ export const settingSchemas = {
         includeChildProjects: z.boolean().optional(),
         /** Filter agents by scope. Defaults to 'all'. */
         scopeFilter: z.enum(['global', 'project', 'all']).optional(),
+        /** Include system agents (master). Default false — settings UIs hide master. */
+        includeSystem: z.boolean().optional(),
       })
       .optional(),
     output: z.array(agentSummarySchema),

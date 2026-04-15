@@ -11,6 +11,7 @@
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { formatAttachmentTag } from "@openloaf/api/common";
 import type { FocusEvent, ReactNode } from "react";
 import { Mic, Paperclip } from "lucide-react";
 import { useChatActions, useChatOptions, useChatSession, useChatStatus, useChatMessageMeta } from "../context";
@@ -451,7 +452,7 @@ export function ChatInputBox({
         for (const file of files) {
           const storedPath = await uploadFileToSession(file);
           if (storedPath) {
-            insertTextAtSelection(`@[${storedPath}]`, {
+            insertTextAtSelection(formatAttachmentTag(storedPath), {
               ensureLeadingSpace: true,
               ensureTrailingSpace: true,
             });
@@ -599,7 +600,7 @@ export function ChatInputBox({
                   for (const file of files) {
                     const storedPath = await uploadFileToSession(file);
                     if (storedPath) {
-                      insertTextAtSelection(`@[${storedPath}]`, { ensureLeadingSpace: true, ensureTrailingSpace: true });
+                      insertTextAtSelection(formatAttachmentTag(storedPath), { ensureLeadingSpace: true, ensureTrailingSpace: true });
                     }
                   }
                 } : undefined}
@@ -1140,9 +1141,9 @@ function ChatInputInner({
     // AI agent 通过文本直接获取路径，自行决定如何处理文件（读取、修改等）。
     const imageRefTokens = readyImages.flatMap((item) => {
       if (!item.remoteUrl) return [];
-      const tokens = [`@[${item.remoteUrl}]`];
+      const tokens = [formatAttachmentTag(item.remoteUrl)];
       if (item.mask?.remoteUrl) {
-        tokens.push(`@[${item.mask.remoteUrl}]`);
+        tokens.push(formatAttachmentTag(item.mask.remoteUrl));
       }
       return tokens;
     });

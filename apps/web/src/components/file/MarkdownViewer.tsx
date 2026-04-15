@@ -49,6 +49,8 @@ interface MarkdownViewerProps {
   tabId?: string;
   rootUri?: string;
   projectId?: string;
+  /** Chat session id — required when uri contains ${CURRENT_CHAT_DIR} template. */
+  sessionId?: string;
   /** Whether the viewer is read-only. */
   readOnly?: boolean;
   /** Chat session id for resolving chat history folder. */
@@ -374,6 +376,7 @@ export default function MarkdownViewer({
   tabId,
   rootUri,
   projectId,
+  sessionId,
   readOnly,
   __chatHistorySessionId,
   __chatHistoryJsonlPath,
@@ -387,7 +390,7 @@ export default function MarkdownViewer({
   const fsRootUri = !projectId && rootUri ? rootUri : undefined;
   const fileQuery = useQuery(
     trpc.fs.readFile.queryOptions(
-      !hasInlineContent && uri ? { projectId, rootUri: fsRootUri, uri } : skipToken
+      !hasInlineContent && uri ? { projectId, sessionId, rootUri: fsRootUri, uri } : skipToken
     )
   );
   const resolvedDefaultMode: MarkdownViewerMode =

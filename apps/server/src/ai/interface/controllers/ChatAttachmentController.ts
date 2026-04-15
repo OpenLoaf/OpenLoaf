@@ -15,7 +15,7 @@ import {
   saveChatImageAttachment,
   saveChatImageAttachmentFromPath,
 } from "@/ai/services/image/attachmentResolver";
-import { resolveSessionFilesDir } from "@/ai/services/chat/repositories/chatFileStore";
+import { resolveSessionFilesDir } from "@openloaf/api/services/chatSessionPaths";
 
 /** Max upload size for chat images. */
 const MAX_CHAT_IMAGE_BYTES = 10 * 1024 * 1024;

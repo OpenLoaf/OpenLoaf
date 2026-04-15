@@ -12,6 +12,7 @@ import {
   type FileSystemEntry,
 } from "@/components/project/filesystem/utils/file-system-utils";
 import {
+  AUDIO_EXTS,
   CODE_EXTS,
   DOC_EXTS,
   IMAGE_EXTS,
@@ -51,5 +52,6 @@ export function resolveFileViewerTarget(entry: FileSystemEntry): FileViewerTarge
   }
   if (SPREADSHEET_EXTS.has(ext)) return { viewer: "sheet", ext };
   if (VIDEO_EXTS.has(ext)) return { viewer: "video", ext };
+  if (AUDIO_EXTS.has(ext)) return { viewer: "audio", ext };
   return { viewer: "file", ext };
 }

@@ -27,6 +27,7 @@ import { fetchBlobFromUri, resolveBaseName, resolveFileName } from "@/lib/image/
 import type { ChatMessageKind } from "@openloaf/api";
 import { getMessagePlainText } from "@/lib/chat/message-text";
 import { normalizeFileMentionSpacing } from "@/components/ai/input/chat-input-utils";
+import { formatAttachmentTag } from "@openloaf/api/common";
 import CompactSummaryDivider from "./CompactSummaryDivider";
 import BgNotification, { readSyntheticKind } from "./tools/BgNotification";
 type ChatMessage = UIMessage & { messageKind?: ChatMessageKind };
@@ -134,11 +135,11 @@ function MessageItem({
         if (attachment.status !== "ready") continue;
         const url = attachment.remoteUrl || attachment.objectUrl;
         if (!url) continue;
-        imageRefTokens.push(`@[${url}]`);
+        imageRefTokens.push(formatAttachmentTag(url));
         if (attachment.mask && attachment.mask.status === "ready") {
           const maskUrl = attachment.mask.remoteUrl || attachment.mask.objectUrl;
           if (maskUrl) {
-            imageRefTokens.push(`@[${maskUrl}]`);
+            imageRefTokens.push(formatAttachmentTag(maskUrl));
           }
         }
       }
