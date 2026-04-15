@@ -560,7 +560,7 @@ export function Chat({
     canImageGeneration,
     canImageEdit,
     isCodexProvider,
-  } = useChatModelSelection(projectId);
+  } = useChatModelSelection();
   const requestParams = React.useMemo(() => {
     const nextParams: Record<string, unknown> = { ...rawParams };
     if (projectId) {

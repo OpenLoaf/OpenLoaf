@@ -805,7 +805,7 @@ function ChatInputInner({
   const conversationStarted = messageCount > 0;
   const { input, setInput, imageOptions, codexOptions, claudeCodeOptions, addMaskedAttachment } = useChatOptions();
   const { projectId, tabId, sessionId } = useChatSession();
-  const hasReasoningModel = useHasPreferredReasoningModel(projectId);
+  const hasReasoningModel = useHasPreferredReasoningModel();
 
   /** 上传文件到 session files 目录，返回可持久化的相对路径。 */
   const uploadFileToSession = useCallback(

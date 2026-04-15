@@ -1,4 +1,4 @@
-# OpenLoaf 0.2.5-beta.51
+# OpenLoaf 0.2.5-beta.52
 
 ## ✨ New Features
 
