@@ -18,10 +18,10 @@ import { calendarQueryToolDef, calendarMutateToolDef } from "./calendar";
 import { projectQueryToolDef, projectMutateToolDef } from "./db";
 import { boardQueryToolDef, boardMutateToolDef } from "./board";
 import { emailQueryToolDef, emailMutateToolDef } from "./email";
-import { excelQueryToolDef, excelMutateToolDef } from "./excel";
-import { wordQueryToolDef, wordMutateToolDef } from "./word";
-import { pptxQueryToolDef, pptxMutateToolDef } from "./pptx";
-import { pdfQueryToolDef, pdfMutateToolDef } from "./pdf";
+import { excelMutateToolDef } from "./excel";
+import { wordMutateToolDef } from "./word";
+import { pptxMutateToolDef } from "./pptx";
+import { pdfMutateToolDef } from "./pdf";
 import {
   agentToolDef,
   sendMessageToolDef,
@@ -108,13 +108,9 @@ const TOOL_DEFS: ToolDefLike[] = [
   emailMutateToolDef,
   calendarQueryToolDef,
   calendarMutateToolDef,
-  excelQueryToolDef,
   excelMutateToolDef,
-  wordQueryToolDef,
   wordMutateToolDef,
-  pptxQueryToolDef,
   pptxMutateToolDef,
-  pdfQueryToolDef,
   pdfMutateToolDef,
   widgetInitToolDef,
   widgetListToolDef,
@@ -205,13 +201,9 @@ const TOOL_KEYWORDS: Record<string, { keywords: string[]; group: string }> = {
   'Jobs': { keywords: ['background', 'bg', 'list', 'process', 'running', 'shell', 'agent'], group: 'background' },
   'Kill': { keywords: ['background', 'bg', 'kill', 'terminate', 'cancel', 'stop', 'process'], group: 'background' },
   'Sleep': { keywords: ['sleep', 'wait', 'pause', 'delay', 'idle', 'yield', 'background', 'notification'], group: 'background' },
-  'ExcelQuery': { keywords: ['excel', 'spreadsheet', 'xlsx', 'csv', 'sheet', 'cell', 'read'], group: 'office' },
   'ExcelMutate': { keywords: ['excel', 'spreadsheet', 'xlsx', 'create', 'write', 'formula'], group: 'office' },
-  'WordQuery': { keywords: ['word', 'docx', 'document', 'read', 'text', 'html', 'markdown'], group: 'office' },
   'WordMutate': { keywords: ['word', 'docx', 'document', 'create', 'write', 'edit', 'xml'], group: 'office' },
-  'PptxQuery': { keywords: ['pptx', 'ppt', 'powerpoint', 'slide', 'presentation', 'read'], group: 'office' },
   'PptxMutate': { keywords: ['pptx', 'ppt', 'powerpoint', 'slide', 'presentation', 'create', 'edit'], group: 'office' },
-  'PdfQuery': { keywords: ['pdf', 'document', 'read', 'text', 'form', 'structure', 'screenshot', 'page', 'image', 'render'], group: 'office' },
   'PdfMutate': { keywords: ['pdf', 'document', 'create', 'fill', 'merge', 'write', 'form'], group: 'office' },
   'GenerateWidget': { keywords: ['widget', 'generate', 'create', 'component', 'ui'], group: 'ui' },
   'WidgetInit': { keywords: ['widget', 'init', 'initialize', 'setup'], group: 'ui' },

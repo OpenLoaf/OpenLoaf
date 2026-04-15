@@ -10,30 +10,6 @@
 import { z } from 'zod'
 import { jsonArrayPreprocess, officeEditSchema } from './office'
 
-export const excelQueryToolDef = {
-  id: 'ExcelQuery',
-  readonly: true,
-  name: 'Query Excel',
-  description:
-    'Read-only access to .xlsx/.xls: structured overview, raw XML entries, or plain text. See pdf-word-excel-pptx skill for usage.',
-  parameters: z.object({
-    mode: z.enum(['read-structure', 'read-xml', 'read-text']),
-    filePath: z
-      .string()
-      .min(1)
-      .describe('Relative to project / global root, or absolute.'),
-    sheet: z
-      .string()
-      .optional()
-      .describe('Drill into this sheet (read-structure).'),
-    xmlPath: z
-      .string()
-      .optional()
-      .describe('ZIP internal path for read-xml; "*" lists all entries.'),
-  }),
-  component: null,
-} as const
-
 export const excelMutateToolDef = {
   id: 'ExcelMutate',
   readonly: false,

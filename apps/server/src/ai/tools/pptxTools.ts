@@ -7,26 +7,15 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import path from 'node:path'
 import { tool, zodSchema } from 'ai'
-import {
-  pptxQueryToolDef,
-  pptxMutateToolDef,
-} from '@openloaf/api/types/tools/pptx'
+import { pptxMutateToolDef } from '@openloaf/api/types/tools/pptx'
 import { resolveToolPath } from '@/ai/tools/toolScope'
 import {
   resolveOfficeFile,
-  listZipEntries,
-  readZipEntryText,
-  readZipEntryBuffer,
   editZip,
   createZip,
 } from '@/ai/tools/office/streamingZip'
-import { parsePptxStructure } from '@/ai/tools/office/structureParser'
 import type { OfficeEdit } from '@/ai/tools/office/types'
-
-const MAX_TEXT_LENGTH = 200_000
-const MAX_XML_LENGTH = 200_000
 
 // ---------------------------------------------------------------------------
 // PPTX XML Templates (for create action)
@@ -207,78 +196,6 @@ function buildSlideRels(): string {
 }
 
 // ---------------------------------------------------------------------------
-// PPTX Query Tool
-// ---------------------------------------------------------------------------
-
-export const pptxQueryTool = tool({
-  description: pptxQueryToolDef.description,
-  inputSchema: zodSchema(pptxQueryToolDef.parameters),
-  execute: async (input) => {
-    const { mode, filePath, xmlPath } = input as {
-      mode: string
-      filePath: string
-      xmlPath?: string
-    }
-
-    // Handle .ppt legacy format
-    const ext = path.extname(filePath).toLowerCase()
-    if (ext === '.ppt') {
-      return handleLegacyPpt(filePath, mode)
-    }
-
-    const absPath = await resolveOfficeFile(filePath, ['.pptx'])
-
-    switch (mode) {
-      case 'read-structure': {
-        const entries = await listZipEntries(absPath)
-        const readEntry = (p: string) => readZipEntryBuffer(absPath, p)
-        const structure = await parsePptxStructure(readEntry, entries)
-        return { ok: true, data: { mode, fileName: path.basename(filePath), ...structure } }
-      }
-
-      case 'read-xml': {
-        if (!xmlPath || xmlPath === '*') {
-          const entries = await listZipEntries(absPath)
-          return { ok: true, data: { mode, fileName: path.basename(filePath), entries } }
-        }
-        const rawXml = await readZipEntryText(absPath, xmlPath)
-        const xmlTruncated = rawXml.length > MAX_XML_LENGTH
-        const xml = xmlTruncated ? rawXml.slice(0, MAX_XML_LENGTH) : rawXml
-        return { ok: true, data: { mode, fileName: path.basename(filePath), xmlPath, xml, truncated: xmlTruncated, totalLength: rawXml.length } }
-      }
-
-      case 'read-text': {
-        const entries = await listZipEntries(absPath)
-        const readEntry = (p: string) => readZipEntryBuffer(absPath, p)
-        const structure = await parsePptxStructure(readEntry, entries)
-        const lines: string[] = []
-        for (const slide of structure.slides) {
-          lines.push(`=== Slide ${slide.index + 1} ===`)
-          if (slide.title) lines.push(`Title: ${slide.title}`)
-          for (const text of slide.textBlocks) {
-            lines.push(text)
-          }
-        }
-        const text = lines.join('\n')
-        const truncated = text.length > MAX_TEXT_LENGTH
-        return {
-          ok: true,
-          data: {
-            mode,
-            fileName: path.basename(filePath),
-            text: truncated ? text.slice(0, MAX_TEXT_LENGTH) : text,
-            truncated,
-          },
-        }
-      }
-
-      default:
-        throw new Error(`Unknown mode: ${mode}`)
-    }
-  },
-})
-
-// ---------------------------------------------------------------------------
 // PPTX Mutate Tool
 // ---------------------------------------------------------------------------
 
@@ -341,13 +258,3 @@ export const pptxMutateTool = tool({
   },
 })
 
-// ---------------------------------------------------------------------------
-// Legacy .ppt handling
-// ---------------------------------------------------------------------------
-
-function handleLegacyPpt(_filePath: string, _mode: string) {
-  return {
-    ok: false,
-    error: '该文件为旧版 .ppt 格式，不支持直接读取。请先将文件转换为 .pptx 格式后重试，或使用 DocConvert 工具转换。',
-  }
-}

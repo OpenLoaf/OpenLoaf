@@ -7,28 +7,15 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import { promises as fs } from 'node:fs'
-import path from 'node:path'
 import { tool, zodSchema } from 'ai'
-import mammoth from 'mammoth'
-import {
-  wordQueryToolDef,
-  wordMutateToolDef,
-} from '@openloaf/api/types/tools/word'
+import { wordMutateToolDef } from '@openloaf/api/types/tools/word'
 import { resolveToolPath } from '@/ai/tools/toolScope'
 import {
   resolveOfficeFile,
-  listZipEntries,
-  readZipEntryText,
-  readZipEntryBuffer,
   editZip,
   createZip,
 } from '@/ai/tools/office/streamingZip'
-import { parseDocxStructure } from '@/ai/tools/office/structureParser'
 import type { OfficeEdit } from '@/ai/tools/office/types'
-
-const MAX_TEXT_LENGTH = 200_000
-const MAX_XML_LENGTH = 200_000
 
 // ---------------------------------------------------------------------------
 // DOCX XML Templates (for create action)
@@ -159,70 +146,6 @@ function contentToDocxXml(content: ContentItem[]): string {
 }
 
 // ---------------------------------------------------------------------------
-// Word Query Tool
-// ---------------------------------------------------------------------------
-
-export const wordQueryTool = tool({
-  description: wordQueryToolDef.description,
-  inputSchema: zodSchema(wordQueryToolDef.parameters),
-  execute: async (input) => {
-    const { mode, filePath, xmlPath } = input as {
-      mode: string
-      filePath: string
-      xmlPath?: string
-    }
-
-    // Handle .doc legacy format
-    const ext = path.extname(filePath).toLowerCase()
-    if (ext === '.doc') {
-      return handleLegacyDoc(filePath, mode)
-    }
-
-    const absPath = await resolveOfficeFile(filePath, ['.docx'])
-
-    switch (mode) {
-      case 'read-structure': {
-        const entries = await listZipEntries(absPath)
-        const readEntry = (p: string) => readZipEntryBuffer(absPath, p)
-        const structure = await parseDocxStructure(readEntry)
-        return { ok: true, data: { mode, fileName: path.basename(filePath), ...structure } }
-      }
-
-      case 'read-xml': {
-        if (!xmlPath || xmlPath === '*') {
-          const entries = await listZipEntries(absPath)
-          return { ok: true, data: { mode, fileName: path.basename(filePath), entries } }
-        }
-        const rawXml = await readZipEntryText(absPath, xmlPath)
-        const xmlTruncated = rawXml.length > MAX_XML_LENGTH
-        const xml = xmlTruncated ? rawXml.slice(0, MAX_XML_LENGTH) : rawXml
-        return { ok: true, data: { mode, fileName: path.basename(filePath), xmlPath, xml, truncated: xmlTruncated, totalLength: rawXml.length } }
-      }
-
-      case 'read-text': {
-        const buffer = await fs.readFile(absPath)
-        const result = await mammoth.extractRawText({ buffer })
-        const text = result.value
-        const truncated = text.length > MAX_TEXT_LENGTH
-        return {
-          ok: true,
-          data: {
-            mode,
-            fileName: path.basename(filePath),
-            text: truncated ? text.slice(0, MAX_TEXT_LENGTH) : text,
-            truncated,
-            characterCount: text.length,
-          },
-        }
-      }
-
-      default:
-        throw new Error(`Unknown mode: ${mode}`)
-    }
-  },
-})
-
-// ---------------------------------------------------------------------------
 // Word Mutate Tool
 // ---------------------------------------------------------------------------
 
@@ -277,33 +200,3 @@ export const wordMutateTool = tool({
   },
 })
 
-// ---------------------------------------------------------------------------
-// Legacy .doc handling
-// ---------------------------------------------------------------------------
-
-async function handleLegacyDoc(filePath: string, mode: string) {
-  if (mode !== 'read-text') {
-    return {
-      ok: false,
-      error: '该文件为旧版 .doc 格式，仅支持 read-text 模式提取纯文本。如需编辑，请使用 WordMutate(create) 创建新的 .docx 文件。',
-    }
-  }
-  const { absPath } = resolveToolPath({ target: filePath })
-  const WordExtractor = (await import('word-extractor')).default
-  const extractor = new WordExtractor()
-  const doc = await extractor.extract(absPath)
-  const text = doc.getBody()
-  const truncated = text.length > MAX_TEXT_LENGTH
-  return {
-    ok: true,
-    data: {
-      mode,
-      fileName: path.basename(filePath),
-      text: truncated ? text.slice(0, MAX_TEXT_LENGTH) : text,
-      truncated,
-      characterCount: text.length,
-      legacy: true,
-      hint: '该文件为旧版 .doc 格式。如需编辑，请使用 WordMutate(create) 创建新的 .docx 文件。',
-    },
-  }
-}

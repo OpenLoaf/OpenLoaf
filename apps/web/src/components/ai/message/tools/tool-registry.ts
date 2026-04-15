@@ -10,7 +10,6 @@
 
 import type { ComponentType } from 'react'
 import type { AnyToolPart, ToolVariant } from './shared/tool-utils'
-import { normalizeToolInput } from './shared/tool-utils'
 
 // Lazy imports to keep the registry lightweight
 import CliThinkingTool from './CliThinkingTool'
@@ -109,26 +108,10 @@ export const TOOL_REGISTRY: ToolRegistryEntry[] = [
   { match: 'Agent', component: SubAgentPanel as ComponentType<ToolComponentProps> },
   { match: 'SendMessage', component: SendMessageTool as ComponentType<ToolComponentProps> },
   { match: 'ChartRender', component: ChartTool as ComponentType<ToolComponentProps> },
-  { match: ['ExcelQuery', 'ExcelMutate'], component: ExcelTool as ComponentType<ToolComponentProps> },
-  {
-    match: ['WordQuery', 'WordMutate'],
-    component: WordTool as ComponentType<ToolComponentProps>,
-    guard: (part) => {
-      const input = normalizeToolInput(part.input)
-      const obj = typeof input === 'object' && input != null ? input as Record<string, unknown> : null
-      return obj?.mode !== 'read-xml'
-    },
-  },
-  {
-    match: ['PptxQuery', 'PptxMutate'],
-    component: PptxTool as ComponentType<ToolComponentProps>,
-    guard: (part) => {
-      const input = normalizeToolInput(part.input)
-      const obj = typeof input === 'object' && input != null ? input as Record<string, unknown> : null
-      return obj?.mode !== 'read-xml'
-    },
-  },
-  { match: ['PdfQuery', 'PdfMutate'], component: PdfTool as ComponentType<ToolComponentProps> },
+  { match: 'ExcelMutate', component: ExcelTool as ComponentType<ToolComponentProps> },
+  { match: 'WordMutate', component: WordTool as ComponentType<ToolComponentProps> },
+  { match: 'PptxMutate', component: PptxTool as ComponentType<ToolComponentProps> },
+  { match: 'PdfMutate', component: PdfTool as ComponentType<ToolComponentProps> },
   { match: 'ImageProcess', component: ImageProcessTool as ComponentType<ToolComponentProps> },
   { match: 'VideoDownload', component: VideoDownloadTool as ComponentType<ToolComponentProps> },
   { match: 'OpenUrl', component: OpenUrlTool as ComponentType<ToolComponentProps> },

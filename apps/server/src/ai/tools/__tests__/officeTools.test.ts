@@ -9,7 +9,7 @@
  */
 // @ts-nocheck — AI SDK tool().execute 的泛型在直接调用时有类型推断问题，运行时正确性由测试覆盖。
 /**
- * Office 工具层测试（query/mutate roundtrip）
+ * Office 工具层测试（mutate + 统一 Read 工具 roundtrip）
  *
  * 用法：
  *   cd apps/server
@@ -17,20 +17,25 @@
  *     src/ai/tools/__tests__/officeTools.test.ts
  *
  * 测试覆盖：
- *   E 层 — Word 工具 Roundtrip
- *   F 层 — Excel 工具 Roundtrip
- *   G 层 — PPTX 工具 Roundtrip
- *   H 层 — 错误处理和边界情况
+ *   E 层 — Word Mutate + Read roundtrip
+ *   F 层 — Excel Mutate + Read roundtrip
+ *   G 层 — PPTX Mutate + Read roundtrip
+ *   H 层 — Mutate 错误处理
+ *
+ * 注意：原 wordQueryTool / excelQueryTool / pptxQueryTool 已废弃，
+ * 统一由 readTool（@/ai/tools/fileTools）派发到对应提取器。
+ * read-xml / read-structure 等结构化模式已移除，相关用例随之删除或改写为
+ * 基于 readTool 输出文本的断言。
  */
 import assert from 'node:assert/strict'
 import path from 'node:path'
-import os from 'node:os'
 import { promises as fs } from 'node:fs'
 import { runWithContext } from '@/ai/shared/context/requestContext'
 import { setupE2eTestEnv } from '@/ai/__tests__/helpers/testEnv'
-import { wordQueryTool, wordMutateTool } from '@/ai/tools/wordTools'
-import { excelQueryTool, excelMutateTool } from '@/ai/tools/excelTools'
-import { pptxQueryTool, pptxMutateTool } from '@/ai/tools/pptxTools'
+import { wordMutateTool } from '@/ai/tools/wordTools'
+import { excelMutateTool } from '@/ai/tools/excelTools'
+import { pptxMutateTool } from '@/ai/tools/pptxTools'
+import { readTool } from '@/ai/tools/fileTools'
 import { resolveToolPath } from '@/ai/tools/toolScope'
 
 // ---------------------------------------------------------------------------
@@ -84,6 +89,33 @@ function rel(filename: string): string {
   return `${testSubDir}/${filename}`
 }
 
+const toolCtx = (id: string) => ({
+  toolCallId: id,
+  messages: [],
+  abortSignal: AbortSignal.abort(),
+})
+
+/** Invoke the unified Read tool against a project-relative path. */
+async function readDoc(
+  filePath: string,
+  opts: { sheetName?: string } = {},
+): Promise<string> {
+  return (await withCtx(() =>
+    readTool.execute({ file_path: filePath, ...opts }, toolCtx('read')),
+  )) as string
+}
+
+/** Extract `<meta>{...}</meta>` JSON block from a Read tool envelope. */
+function parseMeta(xml: string): Record<string, unknown> | null {
+  const match = xml.match(/<meta>(.*?)<\/meta>/s)
+  if (!match) return null
+  try {
+    return JSON.parse(match[1] ?? '')
+  } catch {
+    return null
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
@@ -93,11 +125,11 @@ async function main() {
   await setupTestDir()
 
   // -----------------------------------------------------------------------
-  // E 层 — Word 工具 Roundtrip
+  // E 层 — Word Mutate + Read roundtrip
   // -----------------------------------------------------------------------
-  console.log('\nE 层 — Word 工具 Roundtrip')
+  console.log('\nE 层 — Word Mutate + Read roundtrip')
 
-  await test('E1: create → read-structure roundtrip', async () => {
+  await test('E1: create → read back via readTool', async () => {
     const filePath = rel('e1.docx')
     await withCtx(async () => {
       await wordMutateTool.execute(
@@ -111,22 +143,17 @@ async function main() {
             { type: 'table', headers: ['Name', 'Age'], rows: [['Alice', '30']] },
           ],
         },
-        { toolCallId: 'e1', messages: [], abortSignal: AbortSignal.abort() },
+        toolCtx('e1'),
       )
     })
-    const result: any = await withCtx(() =>
-      wordQueryTool.execute(
-        { actionName: 'test', mode: 'read-structure', filePath },
-        { toolCallId: 'e1q', messages: [], abortSignal: AbortSignal.abort() },
-      ),
-    )
-    assert.equal(result.ok, true)
-    assert.ok(result.data.paragraphs.length >= 2, 'should have paragraphs')
-    assert.ok(result.data.tables.length >= 1, 'should have a table')
-    assert.equal(result.data.paragraphs[0].style, 'Heading1')
+    const xml = await readDoc(filePath)
+    assert.ok(xml.includes('type="docx"'), 'should be docx envelope')
+    assert.ok(xml.includes('My Title'), 'should contain heading text')
+    assert.ok(xml.includes('A normal paragraph'), 'should contain paragraph text')
+    assert.ok(xml.includes('Alice'), 'should contain table cell text')
   })
 
-  await test('E2: create → read-text roundtrip', async () => {
+  await test('E2: create → read text content', async () => {
     const filePath = rel('e2.docx')
     await withCtx(async () => {
       await wordMutateTool.execute(
@@ -138,57 +165,14 @@ async function main() {
             { type: 'paragraph', text: 'Hello from Word!' },
           ],
         },
-        { toolCallId: 'e2', messages: [], abortSignal: AbortSignal.abort() },
+        toolCtx('e2'),
       )
     })
-    const result: any = await withCtx(() =>
-      wordQueryTool.execute(
-        { actionName: 'test', mode: 'read-text', filePath },
-        { toolCallId: 'e2q', messages: [], abortSignal: AbortSignal.abort() },
-      ),
-    )
-    assert.equal(result.ok, true)
-    assert.ok(result.data.text.includes('Hello from Word!'), 'text should contain content')
+    const xml = await readDoc(filePath)
+    assert.ok(xml.includes('Hello from Word!'), 'text should contain content')
   })
 
-  await test('E3: create → read-xml (xmlPath="*")', async () => {
-    const filePath = rel('e3.docx')
-    await withCtx(async () => {
-      await wordMutateTool.execute(
-        {
-          actionName: 'test',
-          action: 'create',
-          filePath,
-          content: [{ type: 'paragraph', text: 'test' }],
-        },
-        { toolCallId: 'e3', messages: [], abortSignal: AbortSignal.abort() },
-      )
-    })
-    const result: any = await withCtx(() =>
-      wordQueryTool.execute(
-        { actionName: 'test', mode: 'read-xml', filePath, xmlPath: '*' },
-        { toolCallId: 'e3q', messages: [], abortSignal: AbortSignal.abort() },
-      ),
-    )
-    assert.equal(result.ok, true)
-    assert.ok(Array.isArray(result.data.entries), 'should have entries array')
-    assert.ok(result.data.entries.includes('word/document.xml'), 'should include word/document.xml')
-  })
-
-  await test('E4: create → read-xml (xmlPath="word/document.xml")', async () => {
-    const filePath = rel('e3.docx') // reuse from E3
-    const result: any = await withCtx(() =>
-      wordQueryTool.execute(
-        { actionName: 'test', mode: 'read-xml', filePath, xmlPath: 'word/document.xml' },
-        { toolCallId: 'e4q', messages: [], abortSignal: AbortSignal.abort() },
-      ),
-    )
-    assert.equal(result.ok, true)
-    assert.ok(typeof result.data.xml === 'string', 'should return XML string')
-    assert.ok(result.data.xml.includes('w:document'), 'should contain w:document')
-  })
-
-  await test('E5: create → edit (replace) → read-structure', async () => {
+  await test('E5: create → edit (replace) → read back text', async () => {
     const filePath = rel('e5.docx')
     await withCtx(async () => {
       await wordMutateTool.execute(
@@ -201,7 +185,7 @@ async function main() {
             { type: 'paragraph', text: 'Keep this' },
           ],
         },
-        { toolCallId: 'e5c', messages: [], abortSignal: AbortSignal.abort() },
+        toolCtx('e5c'),
       )
       await wordMutateTool.execute(
         {
@@ -217,21 +201,16 @@ async function main() {
             },
           ],
         },
-        { toolCallId: 'e5e', messages: [], abortSignal: AbortSignal.abort() },
+        toolCtx('e5e'),
       )
     })
-    const result: any = await withCtx(() =>
-      wordQueryTool.execute(
-        { actionName: 'test', mode: 'read-structure', filePath },
-        { toolCallId: 'e5q', messages: [], abortSignal: AbortSignal.abort() },
-      ),
-    )
-    assert.equal(result.ok, true)
-    assert.equal(result.data.paragraphs[0].text, 'Edited text')
-    assert.equal(result.data.paragraphs[1].text, 'Keep this')
+    const xml = await readDoc(filePath)
+    assert.ok(xml.includes('Edited text'), 'should contain edited text')
+    assert.ok(!xml.includes('Original text'), 'original text should be gone')
+    assert.ok(xml.includes('Keep this'), 'untouched paragraph should remain')
   })
 
-  await test('E6: create → edit (insert after) → read-structure', async () => {
+  await test('E6: create → edit (insert after) → read back text', async () => {
     const filePath = rel('e6.docx')
     await withCtx(async () => {
       await wordMutateTool.execute(
@@ -244,7 +223,7 @@ async function main() {
             { type: 'paragraph', text: 'Third' },
           ],
         },
-        { toolCallId: 'e6c', messages: [], abortSignal: AbortSignal.abort() },
+        toolCtx('e6c'),
       )
       await wordMutateTool.execute(
         {
@@ -261,22 +240,20 @@ async function main() {
             },
           ],
         },
-        { toolCallId: 'e6e', messages: [], abortSignal: AbortSignal.abort() },
+        toolCtx('e6e'),
       )
     })
-    const result: any = await withCtx(() =>
-      wordQueryTool.execute(
-        { actionName: 'test', mode: 'read-structure', filePath },
-        { toolCallId: 'e6q', messages: [], abortSignal: AbortSignal.abort() },
-      ),
-    )
-    assert.equal(result.ok, true)
-    assert.equal(result.data.paragraphs[0].text, 'First')
-    assert.equal(result.data.paragraphs[1].text, 'Second')
-    assert.equal(result.data.paragraphs[2].text, 'Third')
+    const xml = await readDoc(filePath)
+    const firstIdx = xml.indexOf('First')
+    const secondIdx = xml.indexOf('Second')
+    const thirdIdx = xml.indexOf('Third')
+    assert.ok(firstIdx >= 0, 'should contain First')
+    assert.ok(secondIdx >= 0, 'should contain inserted Second')
+    assert.ok(thirdIdx >= 0, 'should contain Third')
+    assert.ok(firstIdx < secondIdx && secondIdx < thirdIdx, 'order should be First → Second → Third')
   })
 
-  await test('E7: create → edit (remove) → read-structure', async () => {
+  await test('E7: create → edit (remove) → read back text', async () => {
     const filePath = rel('e7.docx')
     await withCtx(async () => {
       await wordMutateTool.execute(
@@ -289,7 +266,7 @@ async function main() {
             { type: 'paragraph', text: 'Remove me' },
           ],
         },
-        { toolCallId: 'e7c', messages: [], abortSignal: AbortSignal.abort() },
+        toolCtx('e7c'),
       )
       await wordMutateTool.execute(
         {
@@ -304,18 +281,12 @@ async function main() {
             },
           ],
         },
-        { toolCallId: 'e7e', messages: [], abortSignal: AbortSignal.abort() },
+        toolCtx('e7e'),
       )
     })
-    const result: any = await withCtx(() =>
-      wordQueryTool.execute(
-        { actionName: 'test', mode: 'read-structure', filePath },
-        { toolCallId: 'e7q', messages: [], abortSignal: AbortSignal.abort() },
-      ),
-    )
-    assert.equal(result.ok, true)
-    assert.equal(result.data.paragraphs.length, 1)
-    assert.equal(result.data.paragraphs[0].text, 'Keep')
+    const xml = await readDoc(filePath)
+    assert.ok(xml.includes('Keep'), 'should keep retained paragraph')
+    assert.ok(!xml.includes('Remove me'), 'removed paragraph should be gone')
   })
 
   await test('E8: create 含 XML 特殊字符', async () => {
@@ -329,19 +300,21 @@ async function main() {
           filePath,
           content: [{ type: 'paragraph', text: specialText }],
         },
-        { toolCallId: 'e8', messages: [], abortSignal: AbortSignal.abort() },
+        toolCtx('e8'),
       )
     })
-    const result: any = await withCtx(() =>
-      wordQueryTool.execute(
-        { actionName: 'test', mode: 'read-text', filePath },
-        { toolCallId: 'e8q', messages: [], abortSignal: AbortSignal.abort() },
-      ),
+    const xml = await readDoc(filePath)
+    // Read tool xml-escapes the file envelope attrs but the docx markdown
+    // body keeps the original text (mammoth → turndown). The Read envelope
+    // wraps the body inside <content>...</content> verbatim, so we can match
+    // the original characters directly. Note: '&' may be html-escaped to
+    // `&amp;` by the html-to-markdown stage — accept either form.
+    assert.ok(
+      xml.includes('Tom & Jerry') || xml.includes('Tom &amp; Jerry'),
+      'should contain ampersand (raw or escaped)',
     )
-    assert.equal(result.ok, true)
-    assert.ok(result.data.text.includes('Tom & Jerry'), 'should contain ampersand')
-    assert.ok(result.data.text.includes('<heroes>'), 'should contain angle brackets')
-    assert.ok(result.data.text.includes('"quoted"'), 'should contain quotes')
+    assert.ok(xml.includes('Jerry'), 'should contain jerry')
+    assert.ok(xml.includes('quoted'), 'should contain quoted text')
   })
 
   await test('E9: create 含 bullet-list + numbered-list', async () => {
@@ -357,20 +330,14 @@ async function main() {
             { type: 'numbered-list', items: ['Num 1', 'Num 2'] },
           ],
         },
-        { toolCallId: 'e9', messages: [], abortSignal: AbortSignal.abort() },
+        toolCtx('e9'),
       )
     })
-    const result: any = await withCtx(() =>
-      wordQueryTool.execute(
-        { actionName: 'test', mode: 'read-structure', filePath },
-        { toolCallId: 'e9q', messages: [], abortSignal: AbortSignal.abort() },
-      ),
-    )
-    assert.equal(result.ok, true)
-    // bullet-list(2 items) + numbered-list(2 items) = 4 paragraphs
-    assert.equal(result.data.paragraphs.length, 4)
-    assert.equal(result.data.paragraphs[0].text, 'Bullet A')
-    assert.equal(result.data.paragraphs[2].text, 'Num 1')
+    const xml = await readDoc(filePath)
+    assert.ok(xml.includes('Bullet A'), 'should contain first bullet item')
+    assert.ok(xml.includes('Bullet B'), 'should contain second bullet item')
+    assert.ok(xml.includes('Num 1'), 'should contain first numbered item')
+    assert.ok(xml.includes('Num 2'), 'should contain second numbered item')
   })
 
   await test('E10: edit 缺少 edits 抛出错误', async () => {
@@ -379,7 +346,7 @@ async function main() {
         withCtx(() =>
           wordMutateTool.execute(
             { actionName: 'test', action: 'edit', filePath: rel('e10.docx') },
-            { toolCallId: 'e10', messages: [], abortSignal: AbortSignal.abort() },
+            toolCtx('e10'),
           ),
         ),
       /edits is required/,
@@ -392,36 +359,19 @@ async function main() {
         withCtx(() =>
           wordMutateTool.execute(
             { actionName: 'test', action: 'create', filePath: rel('e11.docx') },
-            { toolCallId: 'e11', messages: [], abortSignal: AbortSignal.abort() },
+            toolCtx('e11'),
           ),
         ),
       /content is required/,
     )
   })
 
-  await test('E12: query 不支持的扩展名 (.txt) 抛出错误', async () => {
-    // Create a dummy txt file first
-    const txtFile = rel('e12.txt')
-    const absPath = path.join(projectRoot, txtFile)
-    await fs.writeFile(absPath, 'dummy', 'utf-8')
-    await assert.rejects(
-      () =>
-        withCtx(() =>
-          wordQueryTool.execute(
-            { actionName: 'test', mode: 'read-structure', filePath: txtFile },
-            { toolCallId: 'e12', messages: [], abortSignal: AbortSignal.abort() },
-          ),
-        ),
-      /Unsupported file format/,
-    )
-  })
-
   // -----------------------------------------------------------------------
-  // F 层 — Excel 工具 Roundtrip
+  // F 层 — Excel Mutate + Read roundtrip
   // -----------------------------------------------------------------------
-  console.log('\nF 层 — Excel 工具 Roundtrip')
+  console.log('\nF 层 — Excel Mutate + Read roundtrip')
 
-  await test('F1: create → read-structure roundtrip', async () => {
+  await test('F1: create → read back via readTool', async () => {
     const filePath = rel('f1.xlsx')
     await withCtx(async () => {
       await excelMutateTool.execute(
@@ -435,63 +385,29 @@ async function main() {
             ['Bob', 88],
           ],
         },
-        { toolCallId: 'f1', messages: [], abortSignal: AbortSignal.abort() },
+        toolCtx('f1'),
       )
     })
-    const result: any = await withCtx(() =>
-      excelQueryTool.execute(
-        { actionName: 'test', mode: 'read-structure', filePath },
-        { toolCallId: 'f1q', messages: [], abortSignal: AbortSignal.abort() },
-      ),
-    )
-    assert.equal(result.ok, true)
-    assert.equal(result.data.sheets[0].name, 'Sheet1')
-    assert.ok(result.data.sheets[0].rowCount > 0, 'should have rows')
-    assert.ok(result.data.sheets[0].colCount > 0, 'should have cols')
+    const xml = await readDoc(filePath)
+    assert.ok(xml.includes('type="xlsx"'), 'should be xlsx envelope')
+    assert.ok(xml.includes('## Sheet: Sheet1'), 'should have sheet header')
+    assert.ok(xml.includes('Name'), 'should contain header text')
+    assert.ok(xml.includes('Alice'), 'should contain row data')
+    assert.ok(xml.includes('95'), 'should contain numeric cell rendered as text')
+    const meta = parseMeta(xml)
+    assert.ok(meta, 'should parse meta JSON')
+    assert.equal(meta.sheetCount, 1)
+    assert.deepEqual(meta.sheetNames, ['Sheet1'])
   })
 
-  await test('F2: create with data → read-structure with sheet', async () => {
+  await test('F4: create → read back text content', async () => {
     const filePath = rel('f1.xlsx') // reuse from F1
-    const result: any = await withCtx(() =>
-      excelQueryTool.execute(
-        { actionName: 'test', mode: 'read-structure', filePath, sheet: 'Sheet1' },
-        { toolCallId: 'f2q', messages: [], abortSignal: AbortSignal.abort() },
-      ),
-    )
-    assert.equal(result.ok, true)
-    assert.ok(result.data.cells, 'should have cells')
-    const nameCell = result.data.cells.find((c: any) => c.value === 'Name')
-    assert.ok(nameCell, 'should find Name cell')
-    const scoreCell = result.data.cells.find((c: any) => c.value === 95)
-    assert.ok(scoreCell, 'should find score cell')
+    const xml = await readDoc(filePath)
+    assert.ok(xml.includes('Sheet1'), 'should include sheet name')
+    assert.ok(xml.includes('Name'), 'should include cell data')
   })
 
-  await test('F3: create → read-xml (xmlPath="*")', async () => {
-    const filePath = rel('f1.xlsx')
-    const result: any = await withCtx(() =>
-      excelQueryTool.execute(
-        { actionName: 'test', mode: 'read-xml', filePath, xmlPath: '*' },
-        { toolCallId: 'f3q', messages: [], abortSignal: AbortSignal.abort() },
-      ),
-    )
-    assert.equal(result.ok, true)
-    assert.ok(result.data.entries.includes('xl/worksheets/sheet1.xml'))
-  })
-
-  await test('F4: create → read-text', async () => {
-    const filePath = rel('f1.xlsx')
-    const result: any = await withCtx(() =>
-      excelQueryTool.execute(
-        { actionName: 'test', mode: 'read-text', filePath },
-        { toolCallId: 'f4q', messages: [], abortSignal: AbortSignal.abort() },
-      ),
-    )
-    assert.equal(result.ok, true)
-    assert.ok(result.data.text.includes('Sheet1'), 'should include sheet name')
-    assert.ok(result.data.text.includes('Name'), 'should include cell data')
-  })
-
-  await test('F5: create → edit (replace cell value) → read-structure', async () => {
+  await test('F5: create → edit (replace cell value) → read back', async () => {
     const filePath = rel('f5.xlsx')
     await withCtx(async () => {
       await excelMutateTool.execute(
@@ -501,7 +417,7 @@ async function main() {
           filePath,
           data: [['X', 100]],
         },
-        { toolCallId: 'f5c', messages: [], abortSignal: AbortSignal.abort() },
+        toolCtx('f5c'),
       )
       // Replace the entire <c> element to avoid namespace mismatch on inner <v>
       // XLSX uses default namespace — XPath needs x: prefix
@@ -519,54 +435,12 @@ async function main() {
             },
           ],
         },
-        { toolCallId: 'f5e', messages: [], abortSignal: AbortSignal.abort() },
+        toolCtx('f5e'),
       )
     })
-    const result: any = await withCtx(() =>
-      excelQueryTool.execute(
-        { actionName: 'test', mode: 'read-structure', filePath, sheet: 'Sheet1' },
-        { toolCallId: 'f5q', messages: [], abortSignal: AbortSignal.abort() },
-      ),
-    )
-    assert.equal(result.ok, true)
-    const cell = result.data.cells.find((c: any) => c.ref === 'B1')
-    assert.ok(cell, 'should find cell B1')
-    assert.equal(cell.value, 999)
-  })
-
-  await test('F6: create 含混合类型数据', async () => {
-    const filePath = rel('f6.xlsx')
-    await withCtx(async () => {
-      await excelMutateTool.execute(
-        {
-          actionName: 'test',
-          action: 'create',
-          filePath,
-          data: [
-            ['text', 42, true, null],
-          ],
-        },
-        { toolCallId: 'f6', messages: [], abortSignal: AbortSignal.abort() },
-      )
-    })
-    const result: any = await withCtx(() =>
-      excelQueryTool.execute(
-        { actionName: 'test', mode: 'read-structure', filePath, sheet: 'Sheet1' },
-        { toolCallId: 'f6q', messages: [], abortSignal: AbortSignal.abort() },
-      ),
-    )
-    assert.equal(result.ok, true)
-    assert.ok(result.data.cells, 'should have cells')
-    const strCell = result.data.cells.find((c: any) => c.value === 'text')
-    assert.ok(strCell, 'should have string cell')
-    assert.equal(strCell.type, 'string')
-    const numCell = result.data.cells.find((c: any) => c.value === 42)
-    assert.ok(numCell, 'should have number cell')
-    assert.equal(numCell.type, 'number')
-    const boolCell = result.data.cells.find((c: any) => c.ref === 'C1')
-    assert.ok(boolCell, 'should have boolean cell')
-    assert.equal(boolCell.type, 'boolean')
-    // null cells are skipped during creation
+    const xml = await readDoc(filePath)
+    assert.ok(xml.includes('999'), 'should contain edited cell value 999')
+    assert.ok(!xml.includes('100'), 'old cell value 100 should be gone')
   })
 
   await test('F7: create 含 sheetName 参数', async () => {
@@ -580,17 +454,14 @@ async function main() {
           sheetName: 'MySheet',
           data: [['A']],
         },
-        { toolCallId: 'f7', messages: [], abortSignal: AbortSignal.abort() },
+        toolCtx('f7'),
       )
     })
-    const result: any = await withCtx(() =>
-      excelQueryTool.execute(
-        { actionName: 'test', mode: 'read-structure', filePath },
-        { toolCallId: 'f7q', messages: [], abortSignal: AbortSignal.abort() },
-      ),
-    )
-    assert.equal(result.ok, true)
-    assert.equal(result.data.sheets[0].name, 'MySheet')
+    const xml = await readDoc(filePath)
+    assert.ok(xml.includes('## Sheet: MySheet'), 'should render custom sheet name in header')
+    const meta = parseMeta(xml)
+    assert.ok(meta, 'should parse meta JSON')
+    assert.deepEqual(meta.sheetNames, ['MySheet'])
   })
 
   await test('F8: edit 缺少 edits 抛出错误', async () => {
@@ -599,51 +470,19 @@ async function main() {
         withCtx(() =>
           excelMutateTool.execute(
             { actionName: 'test', action: 'edit', filePath: rel('f8.xlsx') },
-            { toolCallId: 'f8', messages: [], abortSignal: AbortSignal.abort() },
+            toolCtx('f8'),
           ),
         ),
       /edits is required/,
     )
   })
 
-  await test('F9: colIndexToLetter 边界验证', async () => {
-    // Create with 27 columns to test A (0), Z (25), AA (26)
-    const filePath = rel('f9.xlsx')
-    const row: (string | number)[] = []
-    for (let i = 0; i <= 26; i++) {
-      row.push(`col${i}`)
-    }
-    await withCtx(async () => {
-      await excelMutateTool.execute(
-        { actionName: 'test', action: 'create', filePath, data: [row] },
-        { toolCallId: 'f9', messages: [], abortSignal: AbortSignal.abort() },
-      )
-    })
-    const result: any = await withCtx(() =>
-      excelQueryTool.execute(
-        { actionName: 'test', mode: 'read-structure', filePath, sheet: 'Sheet1' },
-        { toolCallId: 'f9q', messages: [], abortSignal: AbortSignal.abort() },
-      ),
-    )
-    assert.equal(result.ok, true)
-    const cells = result.data.cells
-    const cellA1 = cells.find((c: any) => c.ref === 'A1')
-    assert.ok(cellA1, 'should have A1')
-    assert.equal(cellA1.value, 'col0')
-    const cellZ1 = cells.find((c: any) => c.ref === 'Z1')
-    assert.ok(cellZ1, 'should have Z1')
-    assert.equal(cellZ1.value, 'col25')
-    const cellAA1 = cells.find((c: any) => c.ref === 'AA1')
-    assert.ok(cellAA1, 'should have AA1')
-    assert.equal(cellAA1.value, 'col26')
-  })
-
   // -----------------------------------------------------------------------
-  // G 层 — PPTX 工具 Roundtrip
+  // G 层 — PPTX Mutate + Read roundtrip
   // -----------------------------------------------------------------------
-  console.log('\nG 层 — PPTX 工具 Roundtrip')
+  console.log('\nG 层 — PPTX Mutate + Read roundtrip')
 
-  await test('G1: create → read-structure roundtrip', async () => {
+  await test('G1: create → read back via readTool', async () => {
     const filePath = rel('g1.pptx')
     await withCtx(async () => {
       await pptxMutateTool.execute(
@@ -655,50 +494,27 @@ async function main() {
             { title: 'Intro', textBlocks: ['Welcome to the presentation'] },
           ],
         },
-        { toolCallId: 'g1', messages: [], abortSignal: AbortSignal.abort() },
+        toolCtx('g1'),
       )
     })
-    const result: any = await withCtx(() =>
-      pptxQueryTool.execute(
-        { actionName: 'test', mode: 'read-structure', filePath },
-        { toolCallId: 'g1q', messages: [], abortSignal: AbortSignal.abort() },
-      ),
-    )
-    assert.equal(result.ok, true)
-    assert.equal(result.data.slideCount, 1)
-    assert.equal(result.data.slides[0].title, 'Intro')
-    assert.ok(
-      result.data.slides[0].textBlocks.some((t: string) => t.includes('Welcome')),
-      'should contain text block',
-    )
+    const xml = await readDoc(filePath)
+    assert.ok(xml.includes('type="pptx"'), 'should be pptx envelope')
+    assert.ok(xml.includes('## Slide 1'), 'should contain slide header')
+    assert.ok(xml.includes('Intro'), 'should contain slide title text')
+    assert.ok(xml.includes('Welcome'), 'should contain text block')
+    const meta = parseMeta(xml)
+    assert.ok(meta, 'should parse meta JSON')
+    assert.equal(meta.slideCount, 1)
   })
 
-  await test('G2: create → read-text', async () => {
+  await test('G2: create → read back text', async () => {
     const filePath = rel('g1.pptx') // reuse from G1
-    const result: any = await withCtx(() =>
-      pptxQueryTool.execute(
-        { actionName: 'test', mode: 'read-text', filePath },
-        { toolCallId: 'g2q', messages: [], abortSignal: AbortSignal.abort() },
-      ),
-    )
-    assert.equal(result.ok, true)
-    assert.ok(result.data.text.includes('Intro'), 'should contain slide title')
-    assert.ok(result.data.text.includes('Welcome'), 'should contain text block')
+    const xml = await readDoc(filePath)
+    assert.ok(xml.includes('Intro'), 'should contain slide title')
+    assert.ok(xml.includes('Welcome'), 'should contain text block')
   })
 
-  await test('G3: create → read-xml (xmlPath="*")', async () => {
-    const filePath = rel('g1.pptx')
-    const result: any = await withCtx(() =>
-      pptxQueryTool.execute(
-        { actionName: 'test', mode: 'read-xml', filePath, xmlPath: '*' },
-        { toolCallId: 'g3q', messages: [], abortSignal: AbortSignal.abort() },
-      ),
-    )
-    assert.equal(result.ok, true)
-    assert.ok(result.data.entries.includes('ppt/slides/slide1.xml'))
-  })
-
-  await test('G4: create → edit (replace text) → read-structure', async () => {
+  await test('G4: create → edit (replace text) → read back', async () => {
     const filePath = rel('g4.pptx')
     await withCtx(async () => {
       await pptxMutateTool.execute(
@@ -710,7 +526,7 @@ async function main() {
             { title: 'Old Title', textBlocks: ['Old body'] },
           ],
         },
-        { toolCallId: 'g4c', messages: [], abortSignal: AbortSignal.abort() },
+        toolCtx('g4c'),
       )
       await pptxMutateTool.execute(
         {
@@ -726,17 +542,12 @@ async function main() {
             },
           ],
         },
-        { toolCallId: 'g4e', messages: [], abortSignal: AbortSignal.abort() },
+        toolCtx('g4e'),
       )
     })
-    const result: any = await withCtx(() =>
-      pptxQueryTool.execute(
-        { actionName: 'test', mode: 'read-structure', filePath },
-        { toolCallId: 'g4q', messages: [], abortSignal: AbortSignal.abort() },
-      ),
-    )
-    assert.equal(result.ok, true)
-    assert.equal(result.data.slides[0].title, 'New Title')
+    const xml = await readDoc(filePath)
+    assert.ok(xml.includes('New Title'), 'should contain new title text')
+    assert.ok(!xml.includes('Old Title'), 'old title should be gone')
   })
 
   await test('G5: create 多个 slide', async () => {
@@ -753,20 +564,16 @@ async function main() {
             { title: 'Slide 3' },
           ],
         },
-        { toolCallId: 'g5', messages: [], abortSignal: AbortSignal.abort() },
+        toolCtx('g5'),
       )
     })
-    const result: any = await withCtx(() =>
-      pptxQueryTool.execute(
-        { actionName: 'test', mode: 'read-structure', filePath },
-        { toolCallId: 'g5q', messages: [], abortSignal: AbortSignal.abort() },
-      ),
-    )
-    assert.equal(result.ok, true)
-    assert.equal(result.data.slideCount, 3)
-    assert.equal(result.data.slides[0].title, 'Slide 1')
-    assert.equal(result.data.slides[1].title, 'Slide 2')
-    assert.equal(result.data.slides[2].title, 'Slide 3')
+    const xml = await readDoc(filePath)
+    const meta = parseMeta(xml)
+    assert.ok(meta, 'should parse meta JSON')
+    assert.equal(meta.slideCount, 3)
+    assert.ok(xml.includes('## Slide 1'), 'should have slide 1 header')
+    assert.ok(xml.includes('## Slide 2'), 'should have slide 2 header')
+    assert.ok(xml.includes('## Slide 3'), 'should have slide 3 header')
   })
 
   await test('G6: create 空 slides 抛出错误', async () => {
@@ -775,7 +582,7 @@ async function main() {
         withCtx(() =>
           pptxMutateTool.execute(
             { actionName: 'test', action: 'create', filePath: rel('g6.pptx'), slides: [] },
-            { toolCallId: 'g6', messages: [], abortSignal: AbortSignal.abort() },
+            toolCtx('g6'),
           ),
         ),
       /slides is required/,
@@ -793,63 +600,19 @@ async function main() {
           filePath,
           slides: [{ title: specialText }],
         },
-        { toolCallId: 'g7', messages: [], abortSignal: AbortSignal.abort() },
+        toolCtx('g7'),
       )
     })
-    const result: any = await withCtx(() =>
-      pptxQueryTool.execute(
-        { actionName: 'test', mode: 'read-text', filePath },
-        { toolCallId: 'g7q', messages: [], abortSignal: AbortSignal.abort() },
-      ),
-    )
-    assert.equal(result.ok, true)
-    assert.ok(result.data.text.includes('A & B'), 'should contain ampersand')
-    assert.ok(result.data.text.includes('<test>'), 'should contain angle brackets')
+    const xml = await readDoc(filePath)
+    // pptx extractor pulls raw text runs; ampersand will appear literally.
+    assert.ok(xml.includes('A & B') || xml.includes('A &amp; B'), 'should contain ampersand text')
+    assert.ok(xml.includes('quote'), 'should contain quoted text')
   })
 
   // -----------------------------------------------------------------------
-  // H 层 — 错误处理和边界情况
+  // H 层 — Mutate 错误处理
   // -----------------------------------------------------------------------
-  console.log('\nH 层 — 错误处理和边界情况')
-
-  await test('H1: WordQuery: 不存在的文件抛出错误', async () => {
-    await assert.rejects(
-      () =>
-        withCtx(() =>
-          wordQueryTool.execute(
-            { actionName: 'test', mode: 'read-structure', filePath: rel('nonexistent.docx') },
-            { toolCallId: 'h1', messages: [], abortSignal: AbortSignal.abort() },
-          ),
-        ),
-      /ENOENT|not a file|no such file/i,
-    )
-  })
-
-  await test('H2: WordQuery: 未知 mode 抛出错误', async () => {
-    // Create a file first
-    const filePath = rel('h2.docx')
-    await withCtx(async () => {
-      await wordMutateTool.execute(
-        {
-          actionName: 'test',
-          action: 'create',
-          filePath,
-          content: [{ type: 'paragraph', text: 'test' }],
-        },
-        { toolCallId: 'h2c', messages: [], abortSignal: AbortSignal.abort() },
-      )
-    })
-    await assert.rejects(
-      () =>
-        withCtx(() =>
-          wordQueryTool.execute(
-            { actionName: 'test', mode: 'unknown-mode' as any, filePath },
-            { toolCallId: 'h2', messages: [], abortSignal: AbortSignal.abort() },
-          ),
-        ),
-      /Unknown mode/,
-    )
-  })
+  console.log('\nH 层 — Mutate 错误处理')
 
   await test('H3: WordMutate: 未知 action 抛出错误', async () => {
     await assert.rejects(
@@ -857,7 +620,7 @@ async function main() {
         withCtx(() =>
           wordMutateTool.execute(
             { actionName: 'test', action: 'unknown' as any, filePath: rel('h3.docx') },
-            { toolCallId: 'h3', messages: [], abortSignal: AbortSignal.abort() },
+            toolCtx('h3'),
           ),
         ),
       /Unknown action/,
@@ -870,7 +633,7 @@ async function main() {
         withCtx(() =>
           excelMutateTool.execute(
             { actionName: 'test', action: 'unknown' as any, filePath: rel('h4.xlsx') },
-            { toolCallId: 'h4', messages: [], abortSignal: AbortSignal.abort() },
+            toolCtx('h4'),
           ),
         ),
       /Unknown action/,
@@ -883,40 +646,11 @@ async function main() {
         withCtx(() =>
           pptxMutateTool.execute(
             { actionName: 'test', action: 'unknown' as any, filePath: rel('h5.pptx') },
-            { toolCallId: 'h5', messages: [], abortSignal: AbortSignal.abort() },
+            toolCtx('h5'),
           ),
         ),
       /Unknown action/,
     )
-  })
-
-  await test('H6: WordQuery: .doc 文件 read-structure 返回 ok=false', async () => {
-    // Create a dummy .doc file
-    const docFile = rel('h6.doc')
-    const absPath = path.join(projectRoot, docFile)
-    await fs.writeFile(absPath, 'dummy doc content', 'utf-8')
-    const result: any = await withCtx(() =>
-      wordQueryTool.execute(
-        { actionName: 'test', mode: 'read-structure', filePath: docFile },
-        { toolCallId: 'h6', messages: [], abortSignal: AbortSignal.abort() },
-      ),
-    )
-    assert.equal(result.ok, false)
-    assert.ok(result.error, 'should have error message')
-  })
-
-  await test('H7: PptxQuery: .ppt 文件 read-structure 返回 ok=false', async () => {
-    const pptFile = rel('h7.ppt')
-    const absPath = path.join(projectRoot, pptFile)
-    await fs.writeFile(absPath, 'dummy ppt content', 'utf-8')
-    const result: any = await withCtx(() =>
-      pptxQueryTool.execute(
-        { actionName: 'test', mode: 'read-structure', filePath: pptFile },
-        { toolCallId: 'h7', messages: [], abortSignal: AbortSignal.abort() },
-      ),
-    )
-    assert.equal(result.ok, false)
-    assert.ok(result.error, 'should have error message')
   })
 
   // -----------------------------------------------------------------------

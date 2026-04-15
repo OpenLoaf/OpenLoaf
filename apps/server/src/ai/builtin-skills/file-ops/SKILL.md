@@ -94,7 +94,7 @@ Read 默认读取前 2000 行。对于大文件，盲目全量读取会浪费上
 
 1. **Edit old_string 不匹配** — 最常见的失败原因。old_string 必须与文件当前内容完全一致，包括空格、缩进、标点。如果 old_string 在文件中不唯一，需要提供更多上下文使其唯一。解决：修改前始终先 Read。
 
-2. **对二进制文件使用 Read** — 图片、PDF、Office 文档、压缩包等二进制文件不能用 Read 读取（会报错）。应该用 FileInfo 查看元数据，或通过 ToolSearch 加载专用工具（ExcelQuery、PdfQuery、WordQuery、PptxQuery）。
+2. **Read 也能读 Office / PDF / 媒体** — Read 已统一：PDF / DOCX / XLSX / PPTX / 图片 / 视频 / 音频都能直接 `Read(file_path)`，按扩展名自动分发，返回 `<file>…<content>…</content></file>` 信封（正文是 Markdown，内联图片落在 `{basename}_asset/`）。PDF 大文件用 `pageRange` 分段，XLSX 多 sheet 用 `sheetName` 指定。媒体文件默认会调 SaaS 多模态做 caption / transcript（消耗积分），不想走理解传 `understand: false` 只拿元数据。如果只关心文件大小/类型/分辨率而不需要正文，用 `FileInfo` 更便宜。**例外**：旧版 `.doc` / `.xls` / `.ppt` 不支持，需先另存为 `.docx` / `.xlsx` / `.pptx`；要写入或修改 Office / PDF 内容仍走 `WordMutate` / `ExcelMutate` / `PptxMutate` / `PdfMutate`。
 
 3. **Edit old_string 不唯一** — 当文件中有多处相同文本时，Edit 会失败。此时需要在 old_string 中包含更多上下文（前后几行）使其唯一定位，或使用 replace_all: true 替换所有匹配。
 

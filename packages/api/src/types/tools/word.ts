@@ -10,26 +10,6 @@
 import { z } from 'zod'
 import { jsonArrayPreprocess, officeEditSchema } from './office'
 
-export const wordQueryToolDef = {
-  id: 'WordQuery',
-  readonly: true,
-  name: 'Query Word',
-  description:
-    'Read-only access to a .docx file: structured JSON, raw XML entries, or plain text. See pdf-word-excel-pptx skill for usage.',
-  parameters: z.object({
-    mode: z.enum(['read-structure', 'read-xml', 'read-text']),
-    filePath: z
-      .string()
-      .min(1)
-      .describe('Relative to project / global root, or absolute.'),
-    xmlPath: z
-      .string()
-      .optional()
-      .describe('ZIP internal path for read-xml; "*" lists all entries.'),
-  }),
-  component: null,
-} as const
-
 const contentItemSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('heading'),

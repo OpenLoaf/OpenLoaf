@@ -1,6 +1,6 @@
 // @ts-nocheck — AI SDK tool().execute 的泛型在直接调用时有类型推断问题，运行时正确性由测试覆盖。
 /**
- * PDF 工具层测试（query/mutate roundtrip）
+ * PDF 工具层测试（mutate + 统一 Read 工具 roundtrip）
  *
  * 用法：
  *   cd apps/server
@@ -8,18 +8,22 @@
  *     src/ai/tools/__tests__/pdfTools.test.ts
  *
  * 测试覆盖：
- *   I 层 — PDF 工具 Roundtrip
+ *   I 层 — PDF Mutate + Read roundtrip
  *   J 层 — 错误处理和边界情况
  *   K 层 — 真实 PDF 文件读取（中文规格书）
  *   L 层 — 创建与修改的完整场景
+ *
+ * 注意：原 pdfQueryTool 已废弃，统一由 readTool（@/ai/tools/fileTools）派发到
+ * PDF 提取器。read-form-fields / read-structure 等模式已移除，相关用例随之删除。
  */
 import assert from 'node:assert/strict'
 import path from 'node:path'
 import { promises as fs } from 'node:fs'
-import { PDFDocument, PDFTextField, PDFCheckBox } from 'pdf-lib'
+import { PDFDocument } from 'pdf-lib'
 import { runWithContext } from '@/ai/shared/context/requestContext'
 import { setupE2eTestEnv } from '@/ai/__tests__/helpers/testEnv'
-import { pdfQueryTool, pdfMutateTool } from '@/ai/tools/pdfTools'
+import { pdfMutateTool } from '@/ai/tools/pdfTools'
+import { readTool } from '@/ai/tools/fileTools'
 import { resolveToolPath } from '@/ai/tools/toolScope'
 
 // ---------------------------------------------------------------------------
@@ -85,21 +89,25 @@ function rel(filename: string): string {
 
 const toolCtx = { toolCallId: 'test', messages: [], abortSignal: AbortSignal.abort() }
 
-/** Create a PDF with a form for testing. */
-async function createFormPdf(absPath: string) {
-  const pdfDoc = await PDFDocument.create()
-  const page = pdfDoc.addPage([595, 842])
-  const form = pdfDoc.getForm()
+/** Invoke the unified Read tool against a project-relative path. */
+async function readPdf(filePath: string, opts: { pageRange?: string } = {}): Promise<string> {
+  return (await withCtx(() =>
+    readTool.execute({ file_path: filePath, ...opts }, toolCtx),
+  )) as string
+}
 
-  const nameField = form.createTextField('name')
-  nameField.setText('default')
-  nameField.addToPage(page, { x: 50, y: 700, width: 200, height: 30 })
-
-  const checkField = form.createCheckBox('agree')
-  checkField.addToPage(page, { x: 50, y: 650, width: 20, height: 20 })
-
-  const pdfBytes = await pdfDoc.save()
-  await fs.writeFile(absPath, pdfBytes)
+/**
+ * Extract the JSON object embedded in `<meta>{...}</meta>` from a Read tool
+ * envelope. Returns `null` when no meta tag is present.
+ */
+function parseMeta(xml: string): Record<string, unknown> | null {
+  const match = xml.match(/<meta>(.*?)<\/meta>/s)
+  if (!match) return null
+  try {
+    return JSON.parse(match[1] ?? '')
+  } catch {
+    return null
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -111,11 +119,11 @@ async function main() {
   await setupTestDir()
 
   // -----------------------------------------------------------------------
-  // I 层 — PDF 工具 Roundtrip
+  // I 层 — PDF Mutate + Read roundtrip
   // -----------------------------------------------------------------------
-  console.log('\nI 层 — PDF 工具 Roundtrip')
+  console.log('\nI 层 — PDF Mutate + Read roundtrip')
 
-  await test('I1: create → read-structure → read-text roundtrip', async () => {
+  await test('I1: create → read back via readTool roundtrip', async () => {
     const filePath = rel('i1.pdf')
     await withCtx(async () => {
       await pdfMutateTool.execute(
@@ -132,27 +140,20 @@ async function main() {
       )
     })
 
-    // read-structure
-    const structResult: any = await withCtx(() =>
-      pdfQueryTool.execute(
-        { mode: 'read-structure', filePath },
-        toolCtx,
-      ),
-    )
-    assert.equal(structResult.ok, true)
-    assert.ok(structResult.data.pageCount >= 1, 'should have at least 1 page')
-    assert.ok(structResult.data.fileSize > 0, 'should have file size')
+    const xml = await readPdf(filePath)
+    assert.ok(xml.includes('<file '), 'should be xml-tagged file response')
+    assert.ok(xml.includes('type="pdf"'), 'should be pdf envelope')
+    assert.ok(xml.includes('<meta>'), 'should have meta tag')
+    assert.ok(xml.includes('<content>'), 'should have content tag')
+    assert.ok(xml.includes('## Page 1'), 'content should be markdown with page header')
+    assert.ok(xml.includes('My PDF Title'), 'should contain title')
+    assert.ok(xml.includes('A normal paragraph'), 'should contain paragraph text')
 
-    // read-text
-    const textResult: any = await withCtx(() =>
-      pdfQueryTool.execute(
-        { mode: 'read-text', filePath },
-        toolCtx,
-      ),
-    )
-    assert.equal(textResult.ok, true)
-    assert.ok(textResult.data.text.includes('My PDF Title'), 'should contain title')
-    assert.ok(textResult.data.text.includes('A normal paragraph'), 'should contain paragraph')
+    const meta = parseMeta(xml)
+    assert.ok(meta, 'should parse meta JSON')
+    assert.ok(typeof meta.pageCount === 'number' && meta.pageCount >= 1, 'should report at least 1 page')
+    assert.equal(meta.imageCount, 0, 'no embedded images in pdf-lib created file')
+    assert.ok(typeof meta.characterCount === 'number', 'should report characterCount')
   })
 
   await test('I2: create with bullet-list + numbered-list', async () => {
@@ -170,15 +171,9 @@ async function main() {
         toolCtx,
       )
     })
-    const result: any = await withCtx(() =>
-      pdfQueryTool.execute(
-        { mode: 'read-text', filePath },
-        toolCtx,
-      ),
-    )
-    assert.equal(result.ok, true)
-    assert.ok(result.data.text.includes('Bullet A'), 'should contain bullet items')
-    assert.ok(result.data.text.includes('Num 1'), 'should contain numbered items')
+    const xml = await readPdf(filePath)
+    assert.ok(xml.includes('Bullet A'), 'should contain bullet items')
+    assert.ok(xml.includes('Num 1'), 'should contain numbered items')
   })
 
   await test('I3: create with page-break → multiple pages', async () => {
@@ -197,14 +192,10 @@ async function main() {
         toolCtx,
       )
     })
-    const result: any = await withCtx(() =>
-      pdfQueryTool.execute(
-        { mode: 'read-structure', filePath },
-        toolCtx,
-      ),
-    )
-    assert.equal(result.ok, true)
-    assert.equal(result.data.pageCount, 2)
+    const xml = await readPdf(filePath)
+    const meta = parseMeta(xml)
+    assert.ok(meta, 'should parse meta JSON')
+    assert.equal(meta.pageCount, 2)
   })
 
   await test('I4: merge two PDFs', async () => {
@@ -243,14 +234,10 @@ async function main() {
       )
     })
 
-    const result: any = await withCtx(() =>
-      pdfQueryTool.execute(
-        { mode: 'read-structure', filePath: merged },
-        toolCtx,
-      ),
-    )
-    assert.equal(result.ok, true)
-    assert.equal(result.data.pageCount, 3, 'merged should have 3 pages (1+2)')
+    const xml = await readPdf(merged)
+    const meta = parseMeta(xml)
+    assert.ok(meta, 'should parse meta JSON')
+    assert.equal(meta.pageCount, 3, 'merged should have 3 pages (1+2)')
   })
 
   await test('I5: add-text overlay', async () => {
@@ -276,58 +263,8 @@ async function main() {
       )
     })
 
-    const result: any = await withCtx(() =>
-      pdfQueryTool.execute(
-        { mode: 'read-text', filePath },
-        toolCtx,
-      ),
-    )
-    assert.equal(result.ok, true)
-    assert.ok(result.data.text.includes('OVERLAY TEXT'), 'should contain overlay text')
-  })
-
-  await test('I6: read-form-fields + fill-form', async () => {
-    const filePath = rel('i6.pdf')
-    const absPath = path.join(projectRoot, filePath)
-    await createFormPdf(absPath)
-
-    // read-form-fields
-    const fieldsResult: any = await withCtx(() =>
-      pdfQueryTool.execute(
-        { mode: 'read-form-fields', filePath },
-        toolCtx,
-      ),
-    )
-    assert.equal(fieldsResult.ok, true)
-    assert.ok(fieldsResult.data.fieldCount >= 2, 'should have at least 2 fields')
-    const nameField = fieldsResult.data.fields.find((f: any) => f.name === 'name')
-    assert.ok(nameField, 'should have name field')
-    assert.equal(nameField.type, 'text')
-
-    // fill-form
-    await withCtx(async () => {
-      await pdfMutateTool.execute(
-        {
-          action: 'fill-form',
-          filePath,
-          fields: { name: 'John Doe', agree: 'true' },
-        },
-        toolCtx,
-      )
-    })
-
-    // Verify fill
-    const afterFill: any = await withCtx(() =>
-      pdfQueryTool.execute(
-        { mode: 'read-form-fields', filePath },
-        toolCtx,
-      ),
-    )
-    assert.equal(afterFill.ok, true)
-    const filledName = afterFill.data.fields.find((f: any) => f.name === 'name')
-    assert.equal(filledName.value, 'John Doe')
-    const filledAgree = afterFill.data.fields.find((f: any) => f.name === 'agree')
-    assert.equal(filledAgree.value, 'true')
+    const xml = await readPdf(filePath)
+    assert.ok(xml.includes('OVERLAY TEXT'), 'should contain overlay text')
   })
 
   // -----------------------------------------------------------------------
@@ -335,32 +272,10 @@ async function main() {
   // -----------------------------------------------------------------------
   console.log('\nJ 层 — 错误处理和边界情况')
 
-  await test('J1: query 不存在的文件抛出错误', async () => {
+  await test('J1: read 不存在的文件抛出错误', async () => {
     await assert.rejects(
-      () =>
-        withCtx(() =>
-          pdfQueryTool.execute(
-            { mode: 'read-structure', filePath: rel('nonexistent.pdf') },
-            toolCtx,
-          ),
-        ),
+      () => readPdf(rel('nonexistent.pdf')),
       /ENOENT|not a file|no such file/i,
-    )
-  })
-
-  await test('J2: query 非 PDF 文件抛出错误', async () => {
-    const txtFile = rel('j2.txt')
-    const absPath = path.join(projectRoot, txtFile)
-    await fs.writeFile(absPath, 'dummy', 'utf-8')
-    await assert.rejects(
-      () =>
-        withCtx(() =>
-          pdfQueryTool.execute(
-            { mode: 'read-structure', filePath: txtFile },
-            toolCtx,
-          ),
-        ),
-      /Unsupported file format/,
     )
   })
 
@@ -416,20 +331,6 @@ async function main() {
     )
   })
 
-  await test('J7: 未知 mode 抛出错误', async () => {
-    const filePath = rel('i1.pdf') // reuse from I1
-    await assert.rejects(
-      () =>
-        withCtx(() =>
-          pdfQueryTool.execute(
-            { mode: 'unknown-mode' as any, filePath },
-            toolCtx,
-          ),
-        ),
-      /Unknown mode/,
-    )
-  })
-
   await test('J8: 未知 action 抛出错误', async () => {
     await assert.rejects(
       () =>
@@ -478,16 +379,11 @@ async function main() {
     )
   })
 
-  await test('J11: read-text with pageRange', async () => {
+  await test('J11: read with pageRange', async () => {
     const filePath = rel('i3.pdf') // reuse from I3 (2 pages)
-    const result: any = await withCtx(() =>
-      pdfQueryTool.execute(
-        { mode: 'read-text', filePath, pageRange: '1' },
-        toolCtx,
-      ),
-    )
-    assert.equal(result.ok, true)
-    assert.ok(result.data.text.length > 0, 'should have text')
+    const xml = await readPdf(filePath, { pageRange: '1' })
+    assert.ok(xml.includes('<content>'), 'should have content')
+    assert.ok(xml.includes('Page 1 content'), 'should contain page 1 text')
   })
 
   // -----------------------------------------------------------------------
@@ -500,64 +396,36 @@ async function main() {
   } else {
     const realPdf = rel('real-doc.pdf')
 
-    await test('K1: read-structure on real PDF', async () => {
-      const result: any = await withCtx(() =>
-        pdfQueryTool.execute(
-          { mode: 'read-structure', filePath: realPdf },
-          toolCtx,
-        ),
-      )
-      assert.equal(result.ok, true)
-      assert.ok(result.data.pageCount > 0, 'should have pages')
-      assert.ok(result.data.fileSize > 0, 'should have file size')
-      assert.ok(result.data.metadata, 'should have metadata object')
+    await test('K1: read on real PDF reports page count + file size', async () => {
+      const xml = await readPdf(realPdf)
+      assert.ok(xml.includes('type="pdf"'), 'should be pdf envelope')
+      const bytesMatch = xml.match(/bytes="(\d+)"/)
+      assert.ok(bytesMatch, 'should report bytes attribute')
+      assert.ok(Number(bytesMatch![1]) > 0, 'bytes should be > 0')
+      const meta = parseMeta(xml)
+      assert.ok(meta, 'should parse meta JSON')
+      assert.ok(typeof meta.pageCount === 'number' && meta.pageCount > 0, 'should report pageCount')
     })
 
-    await test('K2: read-text full extraction on real PDF', async () => {
-      const result: any = await withCtx(() =>
-        pdfQueryTool.execute(
-          { mode: 'read-text', filePath: realPdf },
-          toolCtx,
-        ),
-      )
-      assert.equal(result.ok, true)
-      assert.ok(result.data.text.length > 0, 'should have text')
-      assert.ok(result.data.characterCount > 0, 'should have character count')
-      // Verify contains Chinese characters
-      assert.ok(/[\u4e00-\u9fff]/.test(result.data.text), 'should contain Chinese characters')
+    await test('K2: full extraction on real PDF contains chinese', async () => {
+      const xml = await readPdf(realPdf)
+      assert.ok(xml.includes('<content>'), 'should have content tag')
+      const meta = parseMeta(xml)
+      assert.ok(meta, 'should parse meta JSON')
+      assert.ok(typeof meta.characterCount === 'number' && meta.characterCount > 0, 'should report characterCount')
+      assert.ok(/[\u4e00-\u9fff]/.test(xml), 'should contain Chinese characters')
     })
 
-    await test('K3: read-text with pageRange="1" on real PDF', async () => {
-      const result: any = await withCtx(() =>
-        pdfQueryTool.execute(
-          { mode: 'read-text', filePath: realPdf, pageRange: '1' },
-          toolCtx,
-        ),
-      )
-      assert.equal(result.ok, true)
-      assert.ok(result.data.text.length > 0, 'page 1 should have text')
+    await test('K3: read with pageRange="1" on real PDF', async () => {
+      const xml = await readPdf(realPdf, { pageRange: '1' })
+      assert.ok(xml.includes('<content>'), 'should have content tag')
+      assert.ok(xml.includes('## Page 1'), 'should contain page 1 marker')
     })
 
-    await test('K4: read-text with pageRange="1-2" on real PDF', async () => {
-      const result: any = await withCtx(() =>
-        pdfQueryTool.execute(
-          { mode: 'read-text', filePath: realPdf, pageRange: '1-2' },
-          toolCtx,
-        ),
-      )
-      assert.equal(result.ok, true)
-      assert.ok(result.data.text.length > 0, 'page 1-2 should have text')
-    })
-
-    await test('K5: read-form-fields on real PDF (no forms expected)', async () => {
-      const result: any = await withCtx(() =>
-        pdfQueryTool.execute(
-          { mode: 'read-form-fields', filePath: realPdf },
-          toolCtx,
-        ),
-      )
-      assert.equal(result.ok, true)
-      assert.equal(result.data.fieldCount, 0, 'should have no form fields')
+    await test('K4: read with pageRange="1-2" on real PDF', async () => {
+      const xml = await readPdf(realPdf, { pageRange: '1-2' })
+      assert.ok(xml.includes('<content>'), 'should have content tag')
+      assert.ok(xml.includes('## Page 1'), 'should contain page 1 marker')
     })
   }
 
@@ -588,31 +456,18 @@ async function main() {
       )
     })
 
-    // Verify structure
-    const structResult: any = await withCtx(() =>
-      pdfQueryTool.execute(
-        { mode: 'read-structure', filePath },
-        toolCtx,
-      ),
-    )
-    assert.equal(structResult.ok, true)
-    assert.ok(structResult.data.pageCount >= 2, 'should have at least 2 pages')
+    const xml = await readPdf(filePath)
+    const meta = parseMeta(xml)
+    assert.ok(meta, 'should parse meta JSON')
+    assert.ok(typeof meta.pageCount === 'number' && meta.pageCount >= 2, 'should have at least 2 pages')
 
-    // Verify text content
-    const textResult: any = await withCtx(() =>
-      pdfQueryTool.execute(
-        { mode: 'read-text', filePath },
-        toolCtx,
-      ),
-    )
-    assert.equal(textResult.ok, true)
-    assert.ok(textResult.data.text.includes('Document Title'), 'should contain heading')
-    assert.ok(textResult.data.text.includes('Bold paragraph'), 'should contain bold text')
-    assert.ok(textResult.data.text.includes('Italic paragraph'), 'should contain italic text')
-    assert.ok(textResult.data.text.includes('Col A'), 'should contain table header')
-    assert.ok(textResult.data.text.includes('Bullet one'), 'should contain bullet item')
-    assert.ok(textResult.data.text.includes('Step one'), 'should contain numbered item')
-    assert.ok(textResult.data.text.includes('second page'), 'should contain page 2 content')
+    assert.ok(xml.includes('Document Title'), 'should contain heading')
+    assert.ok(xml.includes('Bold paragraph'), 'should contain bold text')
+    assert.ok(xml.includes('Italic paragraph'), 'should contain italic text')
+    assert.ok(xml.includes('Col A'), 'should contain table header')
+    assert.ok(xml.includes('Bullet one'), 'should contain bullet item')
+    assert.ok(xml.includes('Step one'), 'should contain numbered item')
+    assert.ok(xml.includes('second page'), 'should contain page 2 content')
   })
 
   await test('L2: create with custom fontSize', async () => {
@@ -630,14 +485,8 @@ async function main() {
       )
     })
 
-    const result: any = await withCtx(() =>
-      pdfQueryTool.execute(
-        { mode: 'read-text', filePath },
-        toolCtx,
-      ),
-    )
-    assert.equal(result.ok, true)
-    assert.ok(result.data.text.includes('Large text'), 'should contain the text')
+    const xml = await readPdf(filePath)
+    assert.ok(xml.includes('Large text'), 'should contain the text')
   })
 
   await test('L3: create then add-text multiple overlays', async () => {
@@ -671,16 +520,10 @@ async function main() {
       )
     })
 
-    const result: any = await withCtx(() =>
-      pdfQueryTool.execute(
-        { mode: 'read-text', filePath },
-        toolCtx,
-      ),
-    )
-    assert.equal(result.ok, true)
-    assert.ok(result.data.text.includes('Base content'), 'should keep base content')
-    assert.ok(result.data.text.includes('OVERLAY_ALPHA'), 'should contain first overlay')
-    assert.ok(result.data.text.includes('OVERLAY_BETA'), 'should contain second overlay')
+    const xml = await readPdf(filePath)
+    assert.ok(xml.includes('Base content'), 'should keep base content')
+    assert.ok(xml.includes('OVERLAY_ALPHA'), 'should contain first overlay')
+    assert.ok(xml.includes('OVERLAY_BETA'), 'should contain second overlay')
   })
 
   await test('L4: add-text with color succeeds', async () => {
@@ -704,14 +547,8 @@ async function main() {
       )
     })
 
-    const result: any = await withCtx(() =>
-      pdfQueryTool.execute(
-        { mode: 'read-text', filePath },
-        toolCtx,
-      ),
-    )
-    assert.equal(result.ok, true)
-    assert.ok(result.data.text.includes('RED_TEXT'), 'should contain colored overlay text')
+    const xml = await readPdf(filePath)
+    assert.ok(xml.includes('RED_TEXT'), 'should contain colored overlay text')
   })
 
   await test('L4b: add-text with background mask (redaction)', async () => {
@@ -744,15 +581,11 @@ async function main() {
       )
     })
 
-    // Verify the overlay was applied (file still readable)
-    const result: any = await withCtx(() =>
-      pdfQueryTool.execute(
-        { mode: 'read-structure', filePath },
-        toolCtx,
-      ),
-    )
-    assert.equal(result.ok, true)
-    assert.equal(result.data.pageCount, 1)
+    // Verify the overlay was applied (file still readable through Read tool)
+    const xml = await readPdf(filePath)
+    const meta = parseMeta(xml)
+    assert.ok(meta, 'should parse meta JSON')
+    assert.equal(meta.pageCount, 1)
   })
 
   await test('L5: merge two PDFs and verify combined text', async () => {
@@ -787,15 +620,9 @@ async function main() {
       )
     })
 
-    const result: any = await withCtx(() =>
-      pdfQueryTool.execute(
-        { mode: 'read-text', filePath: merged },
-        toolCtx,
-      ),
-    )
-    assert.equal(result.ok, true)
-    assert.ok(result.data.text.includes('SOURCE_ONE_CONTENT'), 'should contain source 1 text')
-    assert.ok(result.data.text.includes('SOURCE_TWO_CONTENT'), 'should contain source 2 text')
+    const xml = await readPdf(merged)
+    assert.ok(xml.includes('SOURCE_ONE_CONTENT'), 'should contain source 1 text')
+    assert.ok(xml.includes('SOURCE_TWO_CONTENT'), 'should contain source 2 text')
   })
 
   await test('L6: merge three PDFs and verify page count', async () => {
@@ -846,72 +673,10 @@ async function main() {
       )
     })
 
-    const result: any = await withCtx(() =>
-      pdfQueryTool.execute(
-        { mode: 'read-structure', filePath: merged },
-        toolCtx,
-      ),
-    )
-    assert.equal(result.ok, true)
-    assert.equal(result.data.pageCount, 4, 'merged should have 4 pages (1+2+1)')
-  })
-
-  await test('L7: fill-form text field and verify', async () => {
-    const filePath = rel('l7.pdf')
-    const absPath = path.join(projectRoot, filePath)
-    await createFormPdf(absPath)
-
-    // Fill name field
-    await withCtx(async () => {
-      await pdfMutateTool.execute(
-        {
-          action: 'fill-form',
-          filePath,
-          fields: { name: 'Alice Smith' },
-        },
-        toolCtx,
-      )
-    })
-
-    // Read back and verify
-    const result: any = await withCtx(() =>
-      pdfQueryTool.execute(
-        { mode: 'read-form-fields', filePath },
-        toolCtx,
-      ),
-    )
-    assert.equal(result.ok, true)
-    const nameField = result.data.fields.find((f: any) => f.name === 'name')
-    assert.equal(nameField.value, 'Alice Smith', 'text field should be updated')
-  })
-
-  await test('L8: fill-form checkbox and verify state', async () => {
-    const filePath = rel('l8.pdf')
-    const absPath = path.join(projectRoot, filePath)
-    await createFormPdf(absPath)
-
-    // Check the agree checkbox
-    await withCtx(async () => {
-      await pdfMutateTool.execute(
-        {
-          action: 'fill-form',
-          filePath,
-          fields: { agree: 'true' },
-        },
-        toolCtx,
-      )
-    })
-
-    // Read back and verify
-    const result: any = await withCtx(() =>
-      pdfQueryTool.execute(
-        { mode: 'read-form-fields', filePath },
-        toolCtx,
-      ),
-    )
-    assert.equal(result.ok, true)
-    const agreeField = result.data.fields.find((f: any) => f.name === 'agree')
-    assert.equal(agreeField.value, 'true', 'checkbox should be checked')
+    const xml = await readPdf(merged)
+    const meta = parseMeta(xml)
+    assert.ok(meta, 'should parse meta JSON')
+    assert.equal(meta.pageCount, 4, 'merged should have 4 pages (1+2+1)')
   })
 
   // -----------------------------------------------------------------------

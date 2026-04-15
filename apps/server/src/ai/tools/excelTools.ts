@@ -7,26 +7,15 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import { promises as fs } from 'node:fs'
-import path from 'node:path'
 import { tool, zodSchema } from 'ai'
-import {
-  excelQueryToolDef,
-  excelMutateToolDef,
-} from '@openloaf/api/types/tools/excel'
+import { excelMutateToolDef } from '@openloaf/api/types/tools/excel'
 import { resolveToolPath } from '@/ai/tools/toolScope'
 import {
   resolveOfficeFile,
-  listZipEntries,
-  readZipEntryText,
-  readZipEntryBuffer,
   editZip,
   createZip,
 } from '@/ai/tools/office/streamingZip'
-import { parseXlsxStructure } from '@/ai/tools/office/structureParser'
 import type { OfficeEdit } from '@/ai/tools/office/types'
-
-const MAX_XML_LENGTH = 200_000
 
 // ---------------------------------------------------------------------------
 // XLSX XML Templates (for create action)
@@ -164,84 +153,6 @@ function colIndexToLetter(col: number): string {
 }
 
 // ---------------------------------------------------------------------------
-// Excel Query Tool
-// ---------------------------------------------------------------------------
-
-export const excelQueryTool = tool({
-  description: excelQueryToolDef.description,
-  inputSchema: zodSchema(excelQueryToolDef.parameters),
-  execute: async (input) => {
-    const { mode, filePath, sheet, xmlPath } = input as {
-      mode: string
-      filePath: string
-      sheet?: string
-      xmlPath?: string
-    }
-
-    // Handle .xls legacy format
-    const ext = path.extname(filePath).toLowerCase()
-    if (ext === '.xls') {
-      return handleLegacyXls(filePath, mode, sheet)
-    }
-
-    const absPath = await resolveOfficeFile(filePath, ['.xlsx'])
-
-    switch (mode) {
-      case 'read-structure': {
-        const entries = await listZipEntries(absPath)
-        const readEntry = (p: string) => readZipEntryBuffer(absPath, p)
-        const structure = await parseXlsxStructure(readEntry, entries, sheet)
-        return { ok: true, data: { mode, fileName: path.basename(filePath), ...structure } }
-      }
-
-      case 'read-xml': {
-        if (!xmlPath || xmlPath === '*') {
-          const entries = await listZipEntries(absPath)
-          return { ok: true, data: { mode, fileName: path.basename(filePath), entries } }
-        }
-        const rawXml = await readZipEntryText(absPath, xmlPath)
-        const xmlTruncated = rawXml.length > MAX_XML_LENGTH
-        const xml = xmlTruncated ? rawXml.slice(0, MAX_XML_LENGTH) : rawXml
-        return { ok: true, data: { mode, fileName: path.basename(filePath), xmlPath, xml, truncated: xmlTruncated, totalLength: rawXml.length } }
-      }
-
-      case 'read-text': {
-        const entries = await listZipEntries(absPath)
-        const readEntry = (p: string) => readZipEntryBuffer(absPath, p)
-        const structure = await parseXlsxStructure(readEntry, entries)
-        const lines: string[] = []
-        for (const s of structure.sheets) {
-          lines.push(`=== Sheet: ${s.name} (${s.rowCount}x${s.colCount}) ===`)
-          // Read cells for each sheet
-          const sheetStructure = await parseXlsxStructure(readEntry, entries, s.name)
-          if (sheetStructure.cells) {
-            for (const cell of sheetStructure.cells) {
-              if (cell.value !== null) {
-                lines.push(`${cell.ref}: ${cell.value}`)
-              }
-            }
-          }
-        }
-        const text = lines.join('\n')
-        const truncated = text.length > 200_000
-        return {
-          ok: true,
-          data: {
-            mode,
-            fileName: path.basename(filePath),
-            text: truncated ? text.slice(0, 200_000) : text,
-            truncated,
-          },
-        }
-      }
-
-      default:
-        throw new Error(`Unknown mode: ${mode}`)
-    }
-  },
-})
-
-// ---------------------------------------------------------------------------
 // Excel Mutate Tool
 // ---------------------------------------------------------------------------
 
@@ -300,85 +211,3 @@ export const excelMutateTool = tool({
   },
 })
 
-// ---------------------------------------------------------------------------
-// Legacy .xls handling (auto-convert to .xlsx via SheetJS)
-// ---------------------------------------------------------------------------
-
-async function handleLegacyXls(filePath: string, mode: string, sheet?: string) {
-  const { absPath } = resolveToolPath({ target: filePath })
-  const stat = await fs.stat(absPath)
-  if (stat.size > 100 * 1024 * 1024) {
-    throw new Error('File size exceeds 100 MB limit.')
-  }
-
-  // Convert .xls to .xlsx in memory using SheetJS
-  const XLSX = await import('xlsx')
-  const buf = await fs.readFile(absPath)
-  const wb = XLSX.read(buf, { type: 'buffer' })
-
-  // Write to temp .xlsx
-  const tmpPath = absPath.replace(/\.xls$/i, '.xlsx')
-  const xlsxBuf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' })
-  await fs.writeFile(tmpPath, xlsxBuf)
-
-  try {
-    // Use the new .xlsx path for structure parsing
-    const entries = await listZipEntries(tmpPath)
-    const readEntry = (p: string) => readZipEntryBuffer(tmpPath, p)
-
-    if (mode === 'read-structure') {
-      const structure = await parseXlsxStructure(readEntry, entries, sheet)
-      return {
-        ok: true,
-        data: {
-          mode,
-          fileName: path.basename(filePath),
-          ...structure,
-          legacy: true,
-          convertedPath: tmpPath,
-          hint: '该文件为旧版 .xls 格式，已自动转换为 .xlsx。如需编辑，请对转换后的 .xlsx 文件操作。',
-        },
-      }
-    }
-
-    if (mode === 'read-xml') {
-      const entryList = await listZipEntries(tmpPath)
-      return {
-        ok: true,
-        data: {
-          mode,
-          fileName: path.basename(filePath),
-          entries: entryList,
-          legacy: true,
-          convertedPath: tmpPath,
-        },
-      }
-    }
-
-    // read-text
-    const structure = await parseXlsxStructure(readEntry, entries)
-    const lines: string[] = []
-    for (const s of structure.sheets) {
-      lines.push(`=== Sheet: ${s.name} ===`)
-      const sheetData = await parseXlsxStructure(readEntry, entries, s.name)
-      if (sheetData.cells) {
-        for (const cell of sheetData.cells) {
-          if (cell.value !== null) lines.push(`${cell.ref}: ${cell.value}`)
-        }
-      }
-    }
-    return {
-      ok: true,
-      data: {
-        mode,
-        fileName: path.basename(filePath),
-        text: lines.join('\n'),
-        legacy: true,
-        convertedPath: tmpPath,
-      },
-    }
-  } catch (err) {
-    await fs.unlink(tmpPath).catch(() => {})
-    throw err
-  }
-}

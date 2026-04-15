@@ -31,10 +31,10 @@ import { projectMutateTool, projectQueryTool } from "@/ai/tools/projectTools";
 import { boardQueryTool, boardMutateTool } from "@/ai/tools/boardTools";
 import { calendarMutateTool, calendarQueryTool } from "@/ai/tools/calendarTools";
 import { emailMutateTool, emailQueryTool } from "@/ai/tools/emailTools";
-import { excelQueryTool, excelMutateTool } from "@/ai/tools/excelTools";
-import { wordQueryTool, wordMutateTool } from "@/ai/tools/wordTools";
-import { pptxQueryTool, pptxMutateTool } from "@/ai/tools/pptxTools";
-import { pdfQueryTool, pdfMutateTool } from "@/ai/tools/pdfTools";
+import { excelMutateTool } from "@/ai/tools/excelTools";
+import { wordMutateTool } from "@/ai/tools/wordTools";
+import { pptxMutateTool } from "@/ai/tools/pptxTools";
+import { pdfMutateTool } from "@/ai/tools/pdfTools";
 import { imageProcessTool } from "@/ai/tools/imageProcessTools";
 import { videoConvertTool } from "@/ai/tools/videoConvertTools";
 import { videoDownloadTool } from "@/ai/tools/videoDownloadTool";
@@ -81,10 +81,10 @@ import {
   emailMutateToolDef,
   emailQueryToolDef,
 } from "@openloaf/api/types/tools/email";
-import { excelQueryToolDef, excelMutateToolDef } from "@openloaf/api/types/tools/excel";
-import { wordQueryToolDef, wordMutateToolDef } from "@openloaf/api/types/tools/word";
-import { pptxQueryToolDef, pptxMutateToolDef } from "@openloaf/api/types/tools/pptx";
-import { pdfQueryToolDef, pdfMutateToolDef } from "@openloaf/api/types/tools/pdf";
+import { excelMutateToolDef } from "@openloaf/api/types/tools/excel";
+import { wordMutateToolDef } from "@openloaf/api/types/tools/word";
+import { pptxMutateToolDef } from "@openloaf/api/types/tools/pptx";
+import { pdfMutateToolDef } from "@openloaf/api/types/tools/pdf";
 import { imageProcessToolDef } from "@openloaf/api/types/tools/imageProcess";
 import { videoConvertToolDef } from "@openloaf/api/types/tools/videoConvert";
 import { videoDownloadToolDef } from "@openloaf/api/types/tools/videoDownload";
@@ -277,26 +277,14 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
   [emailMutateToolDef.id]: {
     tool: emailMutateTool,
   },
-  [excelQueryToolDef.id]: {
-    tool: excelQueryTool,
-  },
   [excelMutateToolDef.id]: {
     tool: excelMutateTool,
-  },
-  [wordQueryToolDef.id]: {
-    tool: wordQueryTool,
   },
   [wordMutateToolDef.id]: {
     tool: wordMutateTool,
   },
-  [pptxQueryToolDef.id]: {
-    tool: pptxQueryTool,
-  },
   [pptxMutateToolDef.id]: {
     tool: pptxMutateTool,
-  },
-  [pdfQueryToolDef.id]: {
-    tool: pdfQueryTool,
   },
   [pdfMutateToolDef.id]: {
     tool: pdfMutateTool,
@@ -428,13 +416,9 @@ const TOOL_DEF_REGISTRY: Record<string, { parameters?: any }> = {
   [calendarMutateToolDef.id]: calendarMutateToolDef,
   [emailQueryToolDef.id]: emailQueryToolDef,
   [emailMutateToolDef.id]: emailMutateToolDef,
-  [excelQueryToolDef.id]: excelQueryToolDef,
   [excelMutateToolDef.id]: excelMutateToolDef,
-  [wordQueryToolDef.id]: wordQueryToolDef,
   [wordMutateToolDef.id]: wordMutateToolDef,
-  [pptxQueryToolDef.id]: pptxQueryToolDef,
   [pptxMutateToolDef.id]: pptxMutateToolDef,
-  [pdfQueryToolDef.id]: pdfQueryToolDef,
   [pdfMutateToolDef.id]: pdfMutateToolDef,
   [generateWidgetToolDef.id]: generateWidgetToolDef,
   [widgetInitToolDef.id]: widgetInitToolDef,

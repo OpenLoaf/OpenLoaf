@@ -25,6 +25,21 @@ import {
   getReadEntry,
   type ReadEntry,
 } from '@/ai/tools/fileReadState'
+import { resolveSessionAssetDir } from '@/ai/services/chat/repositories/chatFileStore'
+import { extractPdfContent } from '@/ai/tools/office/pdfEngine'
+import { extractDocxContent } from '@/ai/tools/office/docxExtractor'
+import { extractXlsxContent } from '@/ai/tools/office/xlsxExtractor'
+import { extractPptxContent } from '@/ai/tools/office/pptxExtractor'
+import {
+  understandImage,
+  understandVideo,
+  transcribeAudio,
+  type SaasMediaResult,
+} from '@/ai/shared/saasMediaService'
+import type {
+  FileContentResult,
+  FileContentType,
+} from '@/ai/tools/office/types'
 
 const MAX_LINE_LENGTH = 500
 const DEFAULT_READ_LIMIT = 2000
@@ -33,15 +48,157 @@ const LONG_LINE_CHUNK_BYTES = 2000
 /** Overall output byte budget to prevent minified single-line files from exploding context. */
 const MAX_READ_OUTPUT_BYTES = 80_000
 
-/** 常见二进制文件扩展名，读取时直接拒绝。 */
-const BINARY_FILE_EXTENSIONS = new Set([
-  '.7z', '.avi', '.bin', '.bmp', '.bz2', '.dat', '.db', '.dll',
-  '.dmg', '.doc', '.docx', '.exe', '.flac', '.gif', '.gz', '.iso',
-  '.jar', '.jpeg', '.jpg', '.mkv', '.mov', '.mp3', '.mp4', '.ogg',
-  '.otf', '.pdf', '.png', '.ppt', '.pptx', '.psd', '.rar', '.so',
-  '.sqlite', '.tar', '.ttf', '.wav', '.webm', '.webp', '.xls',
-  '.xlsx', '.xz', '.zip',
+// ---------------------------------------------------------------------------
+// File kind classification (used by the unified Read dispatcher below)
+// ---------------------------------------------------------------------------
+
+type FileKind =
+  | 'text'
+  | 'pdf'
+  | 'docx'
+  | 'xlsx'
+  | 'pptx'
+  | 'image'
+  | 'video'
+  | 'audio'
+  | 'legacy-office'
+  | 'binary'
+
+const IMAGE_EXTS = new Set([
+  '.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg', '.tiff', '.tif',
+  '.avif', '.heic', '.heif', '.ico',
 ])
+
+const VIDEO_EXTS = new Set([
+  '.mp4', '.webm', '.mov', '.avi', '.mkv', '.flv', '.wmv', '.mpeg', '.mpg',
+  '.m4v', '.3gp', '.ogv',
+])
+
+const AUDIO_EXTS = new Set([
+  '.mp3', '.wav', '.ogg', '.m4a', '.flac', '.aac', '.wma', '.opus', '.amr',
+  '.aiff', '.aif',
+])
+
+/**
+ * Known non-text binary extensions that Read should refuse outright.
+ * Files with these extensions won't be passed to the text reader — the model
+ * gets a clear error instead of a block of garbage characters.
+ *
+ * Unknown extensions (e.g. a custom config `.conf2`) still fall through to
+ * the text reader on the assumption they may be plain text.
+ */
+const BINARY_EXTS = new Set([
+  '.7z', '.bin', '.bz2', '.dat', '.db', '.dll', '.dmg', '.exe',
+  '.gz', '.iso', '.jar', '.otf', '.psd', '.rar', '.so', '.sqlite',
+  '.tar', '.ttf', '.xz', '.zip',
+])
+
+const MIME_BY_EXT: Record<string, string> = {
+  '.pdf': 'application/pdf',
+  '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  '.doc': 'application/msword',
+  '.xls': 'application/vnd.ms-excel',
+  '.ppt': 'application/vnd.ms-powerpoint',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.bmp': 'image/bmp',
+  '.svg': 'image/svg+xml',
+  '.tiff': 'image/tiff',
+  '.tif': 'image/tiff',
+  '.avif': 'image/avif',
+  '.heic': 'image/heic',
+  '.heif': 'image/heif',
+  '.ico': 'image/x-icon',
+  '.mp4': 'video/mp4',
+  '.webm': 'video/webm',
+  '.mov': 'video/quicktime',
+  '.mkv': 'video/x-matroska',
+  '.avi': 'video/x-msvideo',
+  '.mp3': 'audio/mpeg',
+  '.wav': 'audio/wav',
+  '.ogg': 'audio/ogg',
+  '.m4a': 'audio/mp4',
+  '.flac': 'audio/flac',
+  '.aac': 'audio/aac',
+  '.opus': 'audio/opus',
+}
+
+function classifyFileKind(absPath: string): { kind: FileKind; mimeType: string } {
+  const ext = path.extname(absPath).toLowerCase()
+  const mimeType = MIME_BY_EXT[ext] ?? 'application/octet-stream'
+  if (ext === '.pdf') return { kind: 'pdf', mimeType }
+  if (ext === '.docx') return { kind: 'docx', mimeType }
+  if (ext === '.xlsx') return { kind: 'xlsx', mimeType }
+  if (ext === '.pptx') return { kind: 'pptx', mimeType }
+  if (ext === '.doc' || ext === '.xls' || ext === '.ppt') return { kind: 'legacy-office', mimeType }
+  if (IMAGE_EXTS.has(ext)) return { kind: 'image', mimeType: mimeType !== 'application/octet-stream' ? mimeType : `image/${ext.slice(1)}` }
+  if (VIDEO_EXTS.has(ext)) return { kind: 'video', mimeType: mimeType !== 'application/octet-stream' ? mimeType : `video/${ext.slice(1)}` }
+  if (AUDIO_EXTS.has(ext)) return { kind: 'audio', mimeType: mimeType !== 'application/octet-stream' ? mimeType : `audio/${ext.slice(1)}` }
+  if (BINARY_EXTS.has(ext)) return { kind: 'binary', mimeType }
+  return { kind: 'text', mimeType: 'text/plain' }
+}
+
+/** Resolve the per-file asset dir under the session's asset root. */
+async function resolveReadAssetDir(
+  sessionId: string,
+  filePath: string,
+): Promise<{ assetDirAbsPath: string; assetRelPrefix: string }> {
+  const assetRoot = await resolveSessionAssetDir(sessionId)
+  const baseName = path.basename(filePath, path.extname(filePath))
+  const safeName = baseName.replace(/[^\w\u4e00-\u9fff.-]/g, '_') || 'file'
+  const assetRelPrefix = `${safeName}_asset`
+  const assetDirAbsPath = path.join(assetRoot, assetRelPrefix)
+  return { assetDirAbsPath, assetRelPrefix }
+}
+
+/** Escape a string for safe inclusion in an XML attribute value. */
+function xmlAttrEscape(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+}
+
+/** Wrap a FileContentResult into the unified XML-tagged string for the model. */
+function formatFileResult(
+  result: FileContentResult,
+  fileName: string,
+  mimeType: string,
+  bytes: number,
+): string {
+  const attrs = [
+    `name="${xmlAttrEscape(fileName)}"`,
+    `type="${result.type}"`,
+    `mimeType="${xmlAttrEscape(mimeType)}"`,
+    `bytes="${bytes}"`,
+  ].join(' ')
+  // Pull an optional error reason out of meta so we can emit it as its own tag.
+  const { error: metaError, ...cleanMeta } = result.meta as { error?: unknown } & Record<string, unknown>
+  const errorReason = typeof metaError === 'string' ? metaError : undefined
+
+  const parts: string[] = [`<file ${attrs}>`]
+  parts.push(`<meta>${JSON.stringify(cleanMeta)}</meta>`)
+  if (result.fallbackPath) {
+    parts.push(
+      `<fallback path="${xmlAttrEscape(result.fallbackPath)}">This file could not be parsed. The original has been copied to the asset dir for manual inspection.</fallback>`,
+    )
+  } else if (errorReason && result.content.length === 0) {
+    parts.push(`<error>${xmlAttrEscape(errorReason)}</error>`)
+  } else {
+    parts.push('<content>')
+    parts.push(result.content)
+    parts.push('</content>')
+  }
+  if (result.truncated) parts.push('<truncated reason="output exceeded size limit" />')
+  parts.push('</file>')
+  return parts.join('\n')
+}
 
 /** 检查路径是否属于某个根路径内。 */
 function isPathInside(root: string, target: string): boolean {
@@ -145,12 +302,6 @@ function splitLines(raw: string): string[] {
   return lines
 }
 
-/** 检查路径是否为已屏蔽的二进制扩展名。 */
-function hasBlockedBinaryExtension(targetPath: string): boolean {
-  const ext = path.extname(targetPath).toLowerCase()
-  return Boolean(ext) && BINARY_FILE_EXTENSIONS.has(ext)
-}
-
 /** Check if a file path is a PLAN file (PLAN_N.md) — bypass guard/approval. */
 function isPlanFilePath(filePath: string): boolean {
   return /PLAN_\d+\.md$/.test(filePath ?? '')
@@ -223,7 +374,18 @@ async function recordPostWriteState(
 
 // ─── Read 工具 ─────────────────────────────────────────────────────────────
 
-/** 读取文件内容，返回带行号的文本。 */
+/**
+ * Unified Read tool — MIME-dispatches to text / PDF / Office / image / video /
+ * audio handlers and returns a single XML-tagged string the model can consume.
+ *
+ * Office and PDF files write their extracted images to
+ *   `{sessionAssetDir}/{basename}_asset/`
+ * and reference them inline from the Markdown body via `![](relative/path.png)`.
+ *
+ * Image / Video / Audio files default to calling SaaS multimodal understanding
+ * (imageCaption / videoCaption / speechToText). Pass `understand: false` to
+ * skip the paid call and return only basic metadata.
+ */
 export const readTool = tool({
   description: readToolDef.description,
   inputSchema: zodSchema(readToolDef.parameters),
@@ -232,136 +394,355 @@ export const readTool = tool({
     file_path: filePath,
     offset,
     limit,
-    pages,
+    pageRange,
+    sheetName,
+    understand,
   }): Promise<string> => {
     const { absPath } = resolveToolPath({ target: filePath })
-
-    // 二进制文件检查：引导使用专用工具
-    if (hasBlockedBinaryExtension(absPath)) {
-      const ext = path.extname(absPath).toLowerCase()
-      if (ext === '.xlsx' || ext === '.xls') {
-        throw new Error('This file is in Excel format. Use ToolSearch(names: "ExcelQuery") to load the ExcelQuery tool, then use it to read this file.')
-      }
-      if (ext === '.docx' || ext === '.doc') {
-        throw new Error('This file is in Word format. Use ToolSearch(names: "WordQuery") to load the WordQuery tool, then use it to read this file.')
-      }
-      if (ext === '.pdf') {
-        throw new Error('This file is in PDF format. Use ToolSearch(names: "PdfQuery") to load the PdfQuery tool, then use it to read this file.')
-      }
-      if (ext === '.pptx' || ext === '.ppt') {
-        throw new Error('This file is in PowerPoint format. Use ToolSearch(names: "PptxQuery") to load the PptxQuery tool, then use it to read this file.')
-      }
-      throw new Error('Only text files are supported; binary file extensions are not allowed.')
-    }
-
-    // PDF pages 参数提示（尚未实现原生 PDF 解析）
-    if (pages) {
-      throw new Error('PDF reading is not yet implemented natively. Use ToolSearch(names: "PdfQuery") to load the PdfQuery tool.')
-    }
-
     const stat = await fs.stat(absPath)
-    if (!stat.isFile()) throw new Error('Path is not a file.')
-
-    const raw = await fs.readFile(absPath, 'utf-8')
-    const lines = splitLines(raw)
-    const resolvedOffset = typeof offset === 'number' ? offset : 1
-    const resolvedLimit = typeof limit === 'number' ? limit : DEFAULT_READ_LIMIT
-
-    if (resolvedOffset <= 0) throw new Error('offset must be a 1-indexed line number')
-    if (resolvedLimit <= 0) throw new Error('limit must be greater than zero')
-    if (lines.length > 0 && resolvedOffset > lines.length) throw new Error('offset exceeds file length')
-
-    const startIndex = resolvedOffset - 1
-    const endIndex = Math.min(startIndex + resolvedLimit, lines.length)
-    const result: string[] = []
-    let outputBytes = 0
-    let longLineCount = 0
-    let chunkedLineCount = 0
-    let budgetExhaustedAtLine: number | null = null
-    let lastEmittedLineIndex = startIndex - 1
-    outer: for (let i = startIndex; i < endIndex; i++) {
-      const lineNum = i + 1
-      const original = lines[i]!
-      const byteLength = Buffer.byteLength(original, 'utf8')
-      if (byteLength <= MAX_LINE_LENGTH) {
-        const entry = `${lineNum}\t${original}`
-        if (outputBytes + entry.length > MAX_READ_OUTPUT_BYTES) {
-          budgetExhaustedAtLine = lineNum
-          break
-        }
-        result.push(entry)
-        outputBytes += entry.length + 1
-        lastEmittedLineIndex = i
-        continue
-      }
-      // Long line → split into byte-range chunks so the model can see the full
-      // content across multiple labeled slices instead of losing everything
-      // past MAX_LINE_LENGTH. Label: `<lineNum>[<start>-<end>/<total>]`.
-      longLineCount++
-      const chunks = splitLongLine(original, LONG_LINE_CHUNK_BYTES)
-      chunkedLineCount += chunks.length
-      for (const chunk of chunks) {
-        const label = `${lineNum}[chars ${chunk.start}-${chunk.end}/${byteLength}]`
-        const entry = `${label}\t${chunk.text}`
-        if (outputBytes + entry.length > MAX_READ_OUTPUT_BYTES) {
-          budgetExhaustedAtLine = lineNum
-          break outer
-        }
-        result.push(entry)
-        outputBytes += entry.length + 1
-      }
-      lastEmittedLineIndex = i
+    if (!stat.isFile()) {
+      throw new Error('Path is not a file. Use Glob or Bash ls for directories.')
     }
 
-    // Claude Code-style non-negative range metadata: tells the model exactly
-    // what it has and how to get more, avoiding the "truncated = data lost"
-    // misinterpretation that triggers retry loops.
-    const meta: string[] = []
-    const displayedStart = resolvedOffset
-    const displayedEnd = Math.min(lastEmittedLineIndex + 1, endIndex)
-    if (lines.length === 0) {
-      meta.push('Empty file (0 lines).')
-    } else if (displayedStart === 1 && displayedEnd === lines.length && budgetExhaustedAtLine === null) {
-      meta.push(`Displaying all ${lines.length} lines of the file.`)
-    } else {
-      meta.push(
-        `Displaying lines ${displayedStart}-${displayedEnd} of ${lines.length} total. Use offset/limit to read other parts.`,
-      )
-    }
-    if (longLineCount > 0) {
-      meta.push(
-        `Note: ${longLineCount} line(s) exceeded ${MAX_LINE_LENGTH} bytes and were split into ${chunkedLineCount} chunks of up to ${LONG_LINE_CHUNK_BYTES} bytes each (labels: "<line>[chars A-B/total]"). The file on disk is unchanged.`,
-      )
-      // Heuristic: very few lines with huge length → minified/compressed file.
-      // Nudge the model toward Bash tools instead of looping on Read/Grep.
-      if (lines.length < 20) {
-        meta.push(
-          'This looks like a minified/single-line file. For structural extraction prefer `Bash` with `grep -oE`, `sed`, `cut`, or `tr` over Read/Grep.',
-        )
-      }
-    }
-    if (budgetExhaustedAtLine !== null) {
-      meta.push(
-        `Output capped at ~${MAX_READ_OUTPUT_BYTES} bytes to protect context; stopped inside line ${budgetExhaustedAtLine}. Call Read again with offset=${budgetExhaustedAtLine} to continue, or use Bash for targeted extraction.`,
+    const { kind, mimeType } = classifyFileKind(absPath)
+    const fileName = path.basename(absPath)
+    const bytes = stat.size
+
+    if (kind === 'legacy-office') {
+      const ext = path.extname(absPath).toLowerCase()
+      const modern = ext === '.doc' ? '.docx' : ext === '.xls' ? '.xlsx' : '.pptx'
+      throw new Error(
+        `Legacy Office format "${ext}" is not supported. Open in LibreOffice / Word / Excel / PowerPoint and re-save as ${modern}, then retry.`,
       )
     }
 
-    // Record Read state for subsequent Write/Edit guard checks (bypass PLAN files).
+    if (kind === 'text') {
+      return readTextFile(absPath, filePath, stat, offset, limit, mimeType)
+    }
+
+    if (kind === 'binary') {
+      throw new Error(
+        `Unknown binary file type "${path.extname(absPath)}". Supported: text / code / config, PDF, DOCX, XLSX, PPTX, images (${[...IMAGE_EXTS].join(' ')}), video, audio.`,
+      )
+    }
+
+    // All remaining kinds write images / assets → they need a session.
     const sessionId = getSessionId()
+    if (!sessionId) {
+      throw new Error('Reading this file type requires an active chat session.')
+    }
+    const { assetDirAbsPath, assetRelPrefix } = await resolveReadAssetDir(sessionId, filePath)
+
+    let result: FileContentResult
+    switch (kind) {
+      case 'pdf':
+        result = await readPdfFile(absPath, fileName, pageRange, assetDirAbsPath, assetRelPrefix)
+        break
+      case 'docx':
+        result = await extractDocxContent(absPath, assetDirAbsPath, assetRelPrefix)
+        break
+      case 'xlsx':
+        result = await extractXlsxContent(absPath, assetDirAbsPath, assetRelPrefix, { sheetName })
+        break
+      case 'pptx':
+        result = await extractPptxContent(absPath, assetDirAbsPath, assetRelPrefix)
+        break
+      case 'image':
+        result = await readImageFile(absPath, fileName, understand !== false, assetRelPrefix)
+        break
+      case 'video':
+        result = await readVideoFile(absPath, fileName, bytes, understand !== false, assetRelPrefix)
+        break
+      case 'audio':
+        result = await readAudioFile(absPath, fileName, bytes, understand !== false, assetRelPrefix)
+        break
+      default: {
+        const exhaustive: never = kind
+        throw new Error(`Unsupported file kind: ${exhaustive}`)
+      }
+    }
+
+    // Session-scoped Read-before-Write guard: record even binary reads so
+    // downstream Edit/Write (e.g. after PDF → MD roundtrip) can opt-in.
     if (sessionId && !isPlanFilePath(filePath)) {
       recordRead(sessionId, absPath, {
         mtime: Math.floor(stat.mtimeMs),
-        offset: resolvedOffset,
-        limit: resolvedLimit,
-        totalLines: lines.length,
-        isPartialView: endIndex < lines.length,
+        offset: 1,
+        limit: Number.MAX_SAFE_INTEGER,
+        totalLines: 0,
+        isPartialView: false,
         recordedAt: Date.now(),
       })
     }
 
-    return [...result, '', meta.join(' ')].join('\n')
+    return formatFileResult(result, fileName, mimeType, bytes)
   },
 })
+
+// ---------------------------------------------------------------------------
+// Per-kind Read handlers
+// ---------------------------------------------------------------------------
+
+/** Text / code / config — original numbered-line formatter wrapped in <file>. */
+async function readTextFile(
+  absPath: string,
+  filePath: string,
+  stat: import('node:fs').Stats,
+  offset: number | undefined,
+  limit: number | undefined,
+  mimeType: string,
+): Promise<string> {
+  const raw = await fs.readFile(absPath, 'utf-8')
+  const lines = splitLines(raw)
+  const resolvedOffset = typeof offset === 'number' ? offset : 1
+  const resolvedLimit = typeof limit === 'number' ? limit : DEFAULT_READ_LIMIT
+
+  if (resolvedOffset <= 0) throw new Error('offset must be a 1-indexed line number')
+  if (resolvedLimit <= 0) throw new Error('limit must be greater than zero')
+  if (lines.length > 0 && resolvedOffset > lines.length) {
+    throw new Error('offset exceeds file length')
+  }
+
+  const startIndex = resolvedOffset - 1
+  const endIndex = Math.min(startIndex + resolvedLimit, lines.length)
+  const contentLines: string[] = []
+  let outputBytes = 0
+  let longLineCount = 0
+  let chunkedLineCount = 0
+  let budgetExhaustedAtLine: number | null = null
+  let lastEmittedLineIndex = startIndex - 1
+  outer: for (let i = startIndex; i < endIndex; i++) {
+    const lineNum = i + 1
+    const original = lines[i]!
+    const byteLength = Buffer.byteLength(original, 'utf8')
+    if (byteLength <= MAX_LINE_LENGTH) {
+      const entry = `${lineNum}\t${original}`
+      if (outputBytes + entry.length > MAX_READ_OUTPUT_BYTES) {
+        budgetExhaustedAtLine = lineNum
+        break
+      }
+      contentLines.push(entry)
+      outputBytes += entry.length + 1
+      lastEmittedLineIndex = i
+      continue
+    }
+    // Long line → byte-range chunks; label: `<lineNum>[chars A-B/total]`.
+    longLineCount++
+    const chunks = splitLongLine(original, LONG_LINE_CHUNK_BYTES)
+    chunkedLineCount += chunks.length
+    for (const chunk of chunks) {
+      const label = `${lineNum}[chars ${chunk.start}-${chunk.end}/${byteLength}]`
+      const entry = `${label}\t${chunk.text}`
+      if (outputBytes + entry.length > MAX_READ_OUTPUT_BYTES) {
+        budgetExhaustedAtLine = lineNum
+        break outer
+      }
+      contentLines.push(entry)
+      outputBytes += entry.length + 1
+    }
+    lastEmittedLineIndex = i
+  }
+
+  const displayedStart = resolvedOffset
+  const displayedEnd = Math.min(lastEmittedLineIndex + 1, endIndex)
+  const notes: string[] = []
+  if (lines.length === 0) {
+    notes.push('Empty file (0 lines).')
+  } else if (
+    displayedStart === 1 &&
+    displayedEnd === lines.length &&
+    budgetExhaustedAtLine === null
+  ) {
+    notes.push(`Displaying all ${lines.length} lines of the file.`)
+  } else {
+    notes.push(
+      `Displaying lines ${displayedStart}-${displayedEnd} of ${lines.length} total. Use offset/limit to read other parts.`,
+    )
+  }
+  if (longLineCount > 0) {
+    notes.push(
+      `${longLineCount} line(s) exceeded ${MAX_LINE_LENGTH} bytes and were split into ${chunkedLineCount} chunks of up to ${LONG_LINE_CHUNK_BYTES} bytes each (labels: "<line>[chars A-B/total]"). The file on disk is unchanged.`,
+    )
+    if (lines.length < 20) {
+      notes.push(
+        'This looks like a minified/single-line file. For structural extraction prefer Bash with grep -oE, sed, cut, or tr.',
+      )
+    }
+  }
+  if (budgetExhaustedAtLine !== null) {
+    notes.push(
+      `Output capped at ~${MAX_READ_OUTPUT_BYTES} bytes to protect context; stopped inside line ${budgetExhaustedAtLine}. Call Read again with offset=${budgetExhaustedAtLine} to continue, or use Bash for targeted extraction.`,
+    )
+  }
+
+  // Record Read state for Write/Edit guard checks (bypass PLAN files).
+  const sessionId = getSessionId()
+  if (sessionId && !isPlanFilePath(filePath)) {
+    recordRead(sessionId, absPath, {
+      mtime: Math.floor(stat.mtimeMs),
+      offset: resolvedOffset,
+      limit: resolvedLimit,
+      totalLines: lines.length,
+      isPartialView: endIndex < lines.length,
+      recordedAt: Date.now(),
+    })
+  }
+
+  const fileName = path.basename(filePath)
+  const meta = {
+    totalLines: lines.length,
+    displayedStart,
+    displayedEnd,
+    longLineCount,
+    truncated: budgetExhaustedAtLine !== null,
+  }
+  const attrs = [
+    `name="${xmlAttrEscape(fileName)}"`,
+    'type="text"',
+    `mimeType="${xmlAttrEscape(mimeType)}"`,
+    `bytes="${stat.size}"`,
+  ].join(' ')
+  const parts: string[] = [
+    `<file ${attrs}>`,
+    `<meta>${JSON.stringify(meta)}</meta>`,
+    '<content>',
+    contentLines.join('\n'),
+    '</content>',
+  ]
+  if (notes.length > 0) {
+    parts.push(`<note>${xmlAttrEscape(notes.join(' '))}</note>`)
+  }
+  parts.push('</file>')
+  return parts.join('\n')
+}
+
+async function readPdfFile(
+  absPath: string,
+  fileName: string,
+  pageRange: string | undefined,
+  assetDirAbsPath: string,
+  assetRelPrefix: string,
+): Promise<FileContentResult> {
+  const pdf = await extractPdfContent(absPath, pageRange, assetDirAbsPath, assetRelPrefix)
+  return {
+    type: 'pdf',
+    fileName,
+    content: pdf.content,
+    meta: {
+      pageCount: pdf.pageCount,
+      characterCount: pdf.characterCount,
+      imageCount: pdf.images.length,
+    },
+    images: pdf.images.map((img) => ({
+      index: img.index,
+      url: img.url,
+      width: img.width,
+      height: img.height,
+      page: img.page,
+    })),
+    assetDir: pdf.assetDir,
+    truncated: pdf.truncated,
+  }
+}
+
+async function readImageFile(
+  absPath: string,
+  fileName: string,
+  understand: boolean,
+  assetRelPrefix: string,
+): Promise<FileContentResult> {
+  const sharp = (await import('sharp')).default
+  let width = 0
+  let height = 0
+  let format: string | undefined
+  try {
+    const m = await sharp(absPath).metadata()
+    width = m.width ?? 0
+    height = m.height ?? 0
+    format = m.format
+  } catch {
+    // fall through with zeroed metadata
+  }
+
+  const meta: Record<string, unknown> = { width, height, understand }
+  if (format) meta.format = format
+
+  let content = ''
+  if (understand) {
+    const resp: SaasMediaResult = await understandImage(absPath)
+    if (resp.ok) {
+      content = resp.text
+      if (resp.extras) meta.extras = resp.extras
+    } else {
+      meta.error = resp.reason
+    }
+  }
+
+  return {
+    type: 'image',
+    fileName,
+    content,
+    meta,
+    images: [],
+    assetDir: assetRelPrefix,
+  }
+}
+
+async function readVideoFile(
+  absPath: string,
+  fileName: string,
+  bytes: number,
+  understand: boolean,
+  assetRelPrefix: string,
+): Promise<FileContentResult> {
+  const meta: Record<string, unknown> = { bytes, understand }
+  let content = ''
+  if (understand) {
+    const resp: SaasMediaResult = await understandVideo(absPath)
+    if (resp.ok) {
+      content = resp.text
+      if (resp.extras) meta.extras = resp.extras
+    } else {
+      meta.error = resp.reason
+    }
+  }
+  return {
+    type: 'video',
+    fileName,
+    content,
+    meta,
+    images: [],
+    assetDir: assetRelPrefix,
+  }
+}
+
+async function readAudioFile(
+  absPath: string,
+  fileName: string,
+  bytes: number,
+  understand: boolean,
+  assetRelPrefix: string,
+): Promise<FileContentResult> {
+  const meta: Record<string, unknown> = { bytes, understand }
+  let content = ''
+  if (understand) {
+    const resp: SaasMediaResult = await transcribeAudio(absPath)
+    if (resp.ok) {
+      content = resp.text
+      if (resp.extras) meta.extras = resp.extras
+    } else {
+      meta.error = resp.reason
+    }
+  }
+  return {
+    type: 'audio',
+    fileName,
+    content,
+    meta,
+    images: [],
+    assetDir: assetRelPrefix,
+  }
+}
 
 // ─── Edit 工具 ─────────────────────────────────────────────────────────────
 

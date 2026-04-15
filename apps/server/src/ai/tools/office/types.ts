@@ -93,12 +93,28 @@ export type PdfStructure = {
   }
 }
 
-/** PDF text extraction result. */
-export type PdfTextResult = {
+/** One extracted image reference in PDF content result. */
+export type PdfContentImage = {
+  page: number
+  index: number
+  /** Relative path from the session asset root, e.g. "report_asset/p1-img0.png". */
+  url: string
+  width: number
+  height: number
+}
+
+/** PDF content extraction result (text + inline image references). */
+export type PdfContentResult = {
+  /** Plain text without image references (backward-compatible). */
   text: string
+  /** Markdown with inline image references interleaved by reading order. */
+  content: string
   pageCount: number
   truncated: boolean
   characterCount: number
+  images: PdfContentImage[]
+  /** Relative asset dir name under the session asset root, e.g. "report_asset". */
+  assetDir: string
 }
 
 /** PDF form field descriptor. */
@@ -133,4 +149,68 @@ export type PdfTextOverlay = {
     width?: number
     height?: number
   }
+}
+
+// ---------------------------------------------------------------------------
+// Unified Read tool types — shared across PDF / DOCX / XLSX / PPTX / media
+// extractors. Each extractor produces a FileContentResult which the Read tool
+// formats into an XML-tagged response for the model.
+// ---------------------------------------------------------------------------
+
+/**
+ * One extracted image reference in a unified Read result.
+ * At most one of {page, slide, sheet, paragraph} is set depending on source format.
+ */
+export type FileContentImage = {
+  /** Monotonic per-file image index starting at 0. */
+  index: number
+  /** Relative path from the session asset root, e.g. "{basename}_asset/p1-img0.png". */
+  url: string
+  width: number
+  height: number
+  /** PDF origin — 1-based page number. */
+  page?: number
+  /** PPTX origin — 1-based slide number. */
+  slide?: number
+  /** XLSX origin — sheet name. */
+  sheet?: string
+  /** DOCX origin — 0-based paragraph index within the document body. */
+  paragraph?: number
+}
+
+/** Discriminator for the kind of file that was read. */
+export type FileContentType =
+  | 'pdf'
+  | 'docx'
+  | 'xlsx'
+  | 'pptx'
+  | 'image'
+  | 'video'
+  | 'audio'
+  | 'text'
+  | 'unknown'
+
+/**
+ * Unified extractor result. The Read tool's dispatcher calls per-format
+ * extractors (extractPdfContent / extractDocxContent / ...) which all return
+ * this shape, then Read wraps it in an XML-tagged string for the model.
+ */
+export type FileContentResult = {
+  type: FileContentType
+  fileName: string
+  /** Markdown body with inline image refs (`![alt](assetDir/filename.png)`). */
+  content: string
+  /** Format-specific metadata: pageCount, sheetCount, slideCount, duration, etc. */
+  meta: Record<string, unknown>
+  images: FileContentImage[]
+  /** Relative asset dir under the session asset root, e.g. "{basename}_asset". */
+  assetDir?: string
+  /** True if content or images were clipped due to size limits. */
+  truncated?: boolean
+  /**
+   * When a file can't be parsed (scanned PDF with no text, image-only PPTX,
+   * unknown binary…), the extractor copies it to the session asset dir and
+   * sets this to the relative path. `content` stays empty in that case.
+   */
+  fallbackPath?: string
 }

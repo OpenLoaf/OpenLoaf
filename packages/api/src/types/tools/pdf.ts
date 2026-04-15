@@ -10,33 +10,6 @@
 import { z } from 'zod'
 import { jsonArrayPreprocess } from './office'
 
-export const pdfQueryToolDef = {
-  id: 'PdfQuery',
-  readonly: true,
-  name: 'Query Pdf',
-  description:
-    'Read-only access to a PDF: structure, text, form fields, or page screenshot. See pdf-word-excel-pptx skill for usage.',
-  parameters: z.object({
-    mode: z.enum(['read-structure', 'read-text', 'read-form-fields', 'read-screenshot', 'structure', 'text', 'form-fields', 'screenshot']),
-    filePath: z
-      .string()
-      .min(1)
-      .describe('Relative to project / global root, or absolute.'),
-    pageRange: z
-      .string()
-      .optional()
-      .describe('For read-text, e.g. "1-5" or "3". Omit for all pages.'),
-    page: z
-      .number()
-      .int()
-      .min(1)
-      .optional()
-      .describe('1-based, required for read-screenshot.'),
-    scale: z.number().min(0.5).max(4).optional().describe('Default 2.'),
-  }),
-  component: null,
-} as const
-
 const pdfContentItemSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('heading'),

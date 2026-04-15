@@ -7,118 +7,17 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import path from 'node:path'
 import { tool, zodSchema } from 'ai'
-import {
-  pdfQueryToolDef,
-  pdfMutateToolDef,
-} from '@openloaf/api/types/tools/pdf'
+import { pdfMutateToolDef } from '@openloaf/api/types/tools/pdf'
 import { resolveToolPath } from '@/ai/tools/toolScope'
 import { resolveOfficeFile } from '@/ai/tools/office/streamingZip'
 import {
-  parsePdfStructure,
-  extractPdfText,
-  extractPdfFormFields,
-  renderPageScreenshot,
   createPdf,
   fillPdfForm,
   mergePdfs,
   addTextOverlays,
 } from '@/ai/tools/office/pdfEngine'
-import { promises as fs } from 'node:fs'
-import { resolveSessionAssetDir } from '@/ai/services/chat/repositories/chatFileStore'
-import { getSessionId } from '@/ai/shared/context/requestContext'
 import type { PdfContentItem, PdfTextOverlay } from '@/ai/tools/office/types'
-
-// ---------------------------------------------------------------------------
-// PDF Query Tool
-// ---------------------------------------------------------------------------
-
-export const pdfQueryTool = tool({
-  description: pdfQueryToolDef.description,
-  inputSchema: zodSchema(pdfQueryToolDef.parameters),
-  execute: async (input) => {
-    const { mode: rawMode, filePath, pageRange, page, scale } = input as {
-      mode: string
-      filePath: string
-      pageRange?: string
-      page?: number
-      scale?: number
-    }
-
-    // 规范化 mode 别名（模型可能省略 "read-" 前缀）
-    const MODE_ALIASES: Record<string, string> = {
-      'form-fields': 'read-form-fields',
-      'structure': 'read-structure',
-      'text': 'read-text',
-      'screenshot': 'read-screenshot',
-    }
-    const mode = MODE_ALIASES[rawMode] ?? rawMode
-
-    const absPath = await resolveOfficeFile(filePath, ['.pdf'])
-
-    switch (mode) {
-      case 'read-structure': {
-        const structure = await parsePdfStructure(absPath)
-        return { ok: true, data: { mode, fileName: path.basename(filePath), ...structure } }
-      }
-
-      case 'read-text': {
-        const result = await extractPdfText(absPath, pageRange)
-        return {
-          ok: true,
-          data: {
-            mode,
-            fileName: path.basename(filePath),
-            ...result,
-          },
-        }
-      }
-
-      case 'read-form-fields': {
-        const fields = await extractPdfFormFields(absPath)
-        return {
-          ok: true,
-          data: {
-            mode,
-            fileName: path.basename(filePath),
-            fieldCount: fields.length,
-            fields,
-          },
-        }
-      }
-
-      case 'read-screenshot': {
-        const pageNum = page ?? 1
-        const shot = await renderPageScreenshot(absPath, pageNum, scale)
-        const sessionId = getSessionId()
-        if (!sessionId) {
-          throw new Error('read-screenshot requires an active chat session.')
-        }
-        const assetDir = await resolveSessionAssetDir(sessionId)
-        const fileName = `pdf-page-${pageNum}-${Date.now()}.png`
-        const targetPath = path.join(assetDir, fileName)
-        await fs.writeFile(targetPath, shot.data)
-        return {
-          ok: true,
-          data: {
-            mode,
-            fileName: path.basename(filePath),
-            pageNumber: shot.pageNumber,
-            pageCount: shot.pageCount,
-            width: shot.width,
-            height: shot.height,
-            url: fileName,
-            bytes: shot.data.length,
-          },
-        }
-      }
-
-      default:
-        throw new Error(`Unknown mode: ${mode}`)
-    }
-  },
-})
 
 // ---------------------------------------------------------------------------
 // PDF Mutate Tool
