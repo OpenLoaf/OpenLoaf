@@ -472,6 +472,49 @@ async function uploadLocalFileToCdn(args: {
 }
 
 /**
+ * Resolve a `{ url: "local/path" }` or `{ path: "local/path" }` media object
+ * by uploading the local file to CDN. Matches the format produced by the
+ * canvas `toMediaInput()` in `serialize.ts`. Returns null if the value is not
+ * a resolvable media object.
+ */
+async function resolveMediaObject(
+  value: unknown,
+  parentKey: string,
+  index: number | null,
+  // biome-ignore lint/suspicious/noExplicitAny: SaaSClient type is internal to SDK
+  client: any,
+  progress: ToolProgressEmitter,
+): Promise<Record<string, unknown> | null> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+  const obj = value as Record<string, unknown>
+  const suffix = index !== null ? `[${index}]` : ''
+
+  // { url: "local/path" } — upload and replace url field
+  if (typeof obj.url === 'string' && looksLikeLocalPath(obj.url)) {
+    const uploaded = await uploadLocalFileToCdn({
+      client,
+      rawValue: obj.url,
+      inputKey: `${parentKey}${suffix}.url`,
+      progress,
+    })
+    return { ...obj, url: uploaded }
+  }
+
+  // { path: "local/path" } — upload and convert to { url } format (SaaS only accepts URLs)
+  if (typeof obj.path === 'string' && looksLikeLocalPath(obj.path)) {
+    const uploaded = await uploadLocalFileToCdn({
+      client,
+      rawValue: obj.path,
+      inputKey: `${parentKey}${suffix}.path`,
+      progress,
+    })
+    return { url: uploaded }
+  }
+
+  return null
+}
+
+/**
  * Walk top-level entries of `inputs`, replacing any local-file-path string
  * (or array of such strings) with an uploaded CDN URL. Returns a shallow copy
  * — the caller's object is not mutated.
@@ -496,16 +539,30 @@ async function normalizeCloudInputs(args: {
     if (Array.isArray(value)) {
       out[key] = await Promise.all(
         value.map(async (item, idx) => {
-          if (typeof item !== 'string' || !looksLikeLocalPath(item)) return item
-          return uploadLocalFileToCdn({
-            client,
-            rawValue: item,
-            inputKey: `${key}[${idx}]`,
-            progress,
-          })
+          if (typeof item === 'string' && looksLikeLocalPath(item)) {
+            return uploadLocalFileToCdn({
+              client,
+              rawValue: item,
+              inputKey: `${key}[${idx}]`,
+              progress,
+            })
+          }
+          // Handle { url: "local/path" } or { path: "local/path" } inside arrays
+          // (canvas multi-slot produces [{ url }, { url }])
+          const resolved = await resolveMediaObject(item, key, idx, client, progress)
+          return resolved ?? item
         }),
       )
       continue
+    }
+    // Handle { url: "local/path" } or { path: "local/path" } objects
+    // (canvas toMediaInput() produces this format for media slots)
+    if (value && typeof value === 'object') {
+      const resolved = await resolveMediaObject(value, key, null, client, progress)
+      if (resolved) {
+        out[key] = resolved
+        continue
+      }
     }
     out[key] = value
   }
