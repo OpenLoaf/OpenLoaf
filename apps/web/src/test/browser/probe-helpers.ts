@@ -4,7 +4,6 @@
  * 提供等待完成、截图、查询消息、读取结果等工具方法，
  * 供 *.browser.tsx 测试文件使用。
  */
-import { expect } from 'vitest'
 import { page } from '@vitest/browser/context'
 import type { ProbeResult } from './ChatProbeHarness'
 
@@ -15,9 +14,13 @@ export async function waitForProbeStatus(
   status: 'complete' | 'error' | 'streaming' | 'ready',
   timeout = 60_000,
 ) {
-  await expect
-    .element(page.getByTestId('chat-probe-harness'))
-    .toHaveAttribute('data-probe-status', status, { timeout })
+  const start = Date.now()
+  while (Date.now() - start < timeout) {
+    const attr = page.getByTestId('chat-probe-harness').element().getAttribute('data-probe-status')
+    if (attr === status) return
+    await new Promise(r => setTimeout(r, 300))
+  }
+  throw new Error(`Timeout waiting for probe status: ${status}`)
 }
 
 /**
@@ -104,9 +107,13 @@ export async function takeProbeScreenshot(name: string) {
  * 等待工具审批卡片出现。
  */
 export async function waitForToolApproval(timeout = 30_000) {
-  await expect
-    .element(page.getByTestId('tool-approval-actions'))
-    .toBeVisible({ timeout })
+  const start = Date.now()
+  while (Date.now() - start < timeout) {
+    const el = document.querySelector('[data-testid="tool-approval-actions"]')
+    if (el) return
+    await new Promise(r => setTimeout(r, 300))
+  }
+  throw new Error('Timeout waiting for tool approval actions')
 }
 
 /**

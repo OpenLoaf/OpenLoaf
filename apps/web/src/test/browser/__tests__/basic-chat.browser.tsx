@@ -5,10 +5,11 @@
  */
 import { describe, it, expect } from 'vitest'
 import { render } from 'vitest-browser-react'
-import { page, commands } from '@vitest/browser/context'
+import { commands } from '@vitest/browser/context'
 import ChatProbeHarness from '../ChatProbeHarness'
 import {
   waitForChatComplete,
+  waitForProbeStatus,
   waitForMessageCount,
   waitForProbeResult,
   takeProbeScreenshot,
@@ -48,9 +49,7 @@ describe('Basic chat probe', () => {
       <ChatProbeHarness serverUrl="http://127.0.0.1:19999" prompt="this should fail" />,
     )
 
-    await expect
-      .element(page.getByTestId('chat-probe-harness'))
-      .toHaveAttribute('data-probe-status', 'error', { timeout: 15_000 })
+    await waitForProbeStatus('error', 15_000)
 
     await takeProbeScreenshot('error-invalid-server')
   })
