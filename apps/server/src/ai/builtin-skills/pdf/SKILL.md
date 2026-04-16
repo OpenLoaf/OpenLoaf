@@ -79,7 +79,7 @@ DocPreview { file_path: '/work/report.pdf', mode: 'full', pageRange: '21-40' }
 }
 ```
 
-**CJK 限制**：`create` 使用 pdf-lib StandardFonts，不支持中日韩字符。中文内容必须走 `WordMutate` 创建 docx → `DocConvert` 转 PDF。
+**CJK 支持**：检测到中文/日文/韩文时自动加载 Noto Sans SC 字体，`create` 和 `add-text` 均可直接使用中文。
 
 ### 2.2 fill-form — 填写 AcroForm 表单
 
@@ -146,13 +146,11 @@ Redaction 示例（白底覆盖）：
 
 **pdf → docx 是有损转换**：复杂排版、表格、图片位置可能丢失或错位。转换前必须告知用户。
 
-**CJK PDF 创建的唯一可靠路径**：`WordMutate { action: "create" }` 生成 docx → `DocConvert` 转 PDF。
-
 ---
 
 ## 4. 关键约束
 
-1. **CJK 内容不能用 `PdfMutate.create`**。StandardFonts 不含 CJK 字形。走 docx 中转。
+1. **中文 PDF 可直接创建**。检测到 CJK 字符时自动使用 Noto Sans SC 字体（首次加载略慢）。
 2. **fill-form 前必须先 Read 拿字段名**。字段名是唯一标识，不能靠猜。
 3. **add-text 坐标原点在左下角**。y 越大越靠上。A4 约 595 × 842 pt。
 4. **大 PDF 分段读**。DocPreview + pageRange，每次 ≤20 页。

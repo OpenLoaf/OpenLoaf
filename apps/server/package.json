@@ -92,6 +92,7 @@
     "@openloaf/api": "workspace:*",
     "@openloaf/config": "workspace:*",
     "@openloaf/db": "workspace:*",
+    "@pdf-lib/fontkit": "^1.1.1",
     "@trpc/client": "catalog:",
     "@trpc/server": "catalog:",
     "@types/turndown": "^5.0.6",

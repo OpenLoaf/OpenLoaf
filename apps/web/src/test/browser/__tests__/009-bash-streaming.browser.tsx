@@ -29,7 +29,7 @@ it('009 — Bash 工具流式输出，进度文本实时渲染', async () => {
     <ChatProbeHarness serverUrl={SERVER_URL} prompt={prompt} approvalStrategy="approve-all" />,
   )
 
-  await waitForChatComplete(120_000)
+  await waitForChatComplete()
 
   const result = await waitForProbeResult()
 

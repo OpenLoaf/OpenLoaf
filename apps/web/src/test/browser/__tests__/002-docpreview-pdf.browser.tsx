@@ -26,7 +26,7 @@ it('002 — PDF 内容深度理解：提取产品名称、页数、关键参数'
     <ChatProbeHarness serverUrl={SERVER_URL} prompt={prompt} sessionId={sessionId} approvalStrategy="approve-all" />,
   )
 
-  await waitForChatComplete(90_000)
+  await waitForChatComplete()
   const result = await waitForProbeResult()
 
   // Save data before assertions
@@ -54,7 +54,7 @@ it('002 — PDF 内容深度理解：提取产品名称、页数、关键参数'
       '2) 提到手册总页数（32 页）；' +
       '3) 列出至少 3 个具体章节标题（如 Safety、Installation、Connection、Measured parameters、Communication 等）；' +
       '4) 回复有结构化分析，不是泛泛而谈',
-    aiResponse: result.textPreview,
+    aiResponse: result.textPreview.trim(),
     toolCalls: result.toolCalls,
     userPrompt,
   })

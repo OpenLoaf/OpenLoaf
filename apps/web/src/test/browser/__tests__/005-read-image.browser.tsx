@@ -23,7 +23,7 @@ it('005 — 图片读取，回复描述图片', async () => {
     <ChatProbeHarness serverUrl={SERVER_URL} prompt={prompt} sessionId={sessionId} approvalStrategy="approve-all" />,
   )
 
-  await waitForChatComplete(90_000)
+  await waitForChatComplete()
   const result = await waitForProbeResult()
 
   // Save data before assertions (recorded even on failure)

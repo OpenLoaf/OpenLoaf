@@ -131,9 +131,10 @@ async function pdfToDocx(inputPath: string, outputPath: string): Promise<void> {
 }
 
 async function textToPdf(text: string, outputPath: string): Promise<void> {
-  const { PDFDocument, StandardFonts } = await importPdfLib()
+  const { PDFDocument } = await importPdfLib()
+  const { embedFont } = await import('./office/pdfFonts')
   const doc = await PDFDocument.create()
-  const font = await doc.embedFont(StandardFonts.Helvetica)
+  const font = await embedFont(doc, text)
   const fontSize = 12
   const margin = 50
   const lineHeight = fontSize * 1.4

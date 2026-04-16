@@ -171,6 +171,7 @@ export default function MessageError({ error }: MessageErrorProps) {
             type="button"
             onClick={handleRetry}
             disabled={isBusy}
+            data-testid="message-error-retry"
             className="inline-flex h-7 items-center gap-1.5 rounded-3xl border border-ol-red/20 bg-white/60 px-3 text-[11px] font-medium text-ol-red transition-colors duration-150 hover:bg-ol-red-bg disabled:opacity-40 dark:border-red-400/20 dark:bg-red-900/40 dark:text-red-300 dark:hover:bg-red-900/60"
           >
             <RotateCcw className="size-3" />

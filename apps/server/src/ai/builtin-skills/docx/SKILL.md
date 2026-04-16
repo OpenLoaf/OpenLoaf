@@ -67,7 +67,7 @@ description: >
 }
 ```
 
-**CJK 完整支持**：WordMutate 的 create 可以直接写中日韩字符，不像 PdfMutate create（仅限 StandardFonts）。**任何 CJK 内容需要产出 PDF 时，走 `WordMutate create` → `DocConvert` 转 PDF。**
+**CJK 完整支持**：WordMutate 的 create 可以直接写中日韩字符。PdfMutate 和 DocConvert 现在也支持中文 PDF 输出。
 
 ### 2.2 edit — 修改已有文件
 
@@ -120,7 +120,7 @@ OOXML 常用节点：`w:p`（段落）、`w:r`（run）、`w:t`（文本）、`w
 
 ## 4. 关键约束
 
-1. **CJK PDF 走 docx 中转**。PdfMutate create 不支持 CJK，必须 `WordMutate create` → `DocConvert` 转 PDF。
+1. **中文 PDF 可直接创建**。PdfMutate 和 DocConvert 已支持中文字体，无需再走 docx 中转。
 2. **编辑前必须 `unzip -p` 看 XML**。Read/DocPreview 返回的 Markdown 看不到 XPath 需要的真实节点名，盲写 XPath = 静默无效。
 3. **`xml` 载荷必须良构**。replace/insert 的 xml 必须包含正确的命名空间声明，缺少命名空间或标签不闭合 = 文档损坏。
 4. **大改用 create，小改用 edit**。改动超过 30% 内容时直接重新 create 比逐条 edit 可靠。

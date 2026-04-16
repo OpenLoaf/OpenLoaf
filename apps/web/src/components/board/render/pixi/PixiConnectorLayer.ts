@@ -72,6 +72,7 @@ export class PixiConnectorLayer {
   private flowOffset = 0
   private flowAnimationId: number | null = null
   private lastFlowTime = 0
+  private destroyed = false
 
   constructor(
     engine: CanvasEngine,
@@ -96,6 +97,8 @@ export class PixiConnectorLayer {
 
   /** Re-render all connectors from the current snapshot. */
   sync(): void {
+    if (this.destroyed) return
+
     const snapshot = this.engine.getSnapshot()
     const hasUiOverlay = !!(snapshot.connectorDraft || snapshot.connectorDrop)
     const selectedKey = snapshot.selectedIds.join(',')
@@ -612,6 +615,7 @@ export class PixiConnectorLayer {
   }
 
   destroy(): void {
+    this.destroyed = true
     this.stopFlowAnimation()
     this.graphics.destroy()
     this.flowGraphics.destroy()

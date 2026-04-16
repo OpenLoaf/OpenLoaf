@@ -24,7 +24,7 @@ it('014 — DOCX 创建：生成中文会议纪要', async () => {
     <ChatProbeHarness serverUrl={SERVER_URL} prompt={prompt} approvalStrategy="approve-all" />,
   )
 
-  await waitForChatComplete(90_000)
+  await waitForChatComplete()
   const result = await waitForProbeResult()
 
   await takeProbeScreenshot('014-docx-create')
@@ -48,7 +48,7 @@ it('014 — DOCX 创建：生成中文会议纪要', async () => {
     criteria:
       '回复应确认已成功创建 Word 会议纪要文件，并提到以下至少 2 项：' +
       'Q2 产品规划、参会人（张三/李四/王五）、讨论要点、决议内容、文件名',
-    aiResponse: result.textPreview,
+    aiResponse: result.textPreview.trim(),
     toolCalls: result.toolCalls,
     userPrompt: prompt,
   })

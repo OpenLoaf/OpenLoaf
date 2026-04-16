@@ -9,7 +9,7 @@
  */
 'use client'
 
-import { createContext, useContext, useEffect, useRef, useCallback } from 'react'
+import { createContext, useContext, useEffect, useRef } from 'react'
 import { Application, Container } from 'pixi.js'
 import type { CanvasEngine } from '../../engine/CanvasEngine'
 import type { CanvasSnapshot } from '../../engine/types'
@@ -116,120 +116,123 @@ export function PixiCanvas({ engine, snapshot }: PixiApplicationProps) {
   const topRef = useRef<HTMLDivElement>(null)
   const panelOverlayRef = useRef<HTMLDivElement>(null)
   const cleanupRef = useRef<(() => void) | null>(null)
-  // 逻辑：防止异步 init 在组件卸载后继续执行，避免访问已销毁的 PixiJS 对象。
-  const disposedRef = useRef(false)
 
-  const init = useCallback(async () => {
+  useEffect(() => {
     const bottomContainer = bottomRef.current
     const topContainer = topRef.current
     if (!bottomContainer || !topContainer) return
 
-    // 底层 PixiJS：连线
-    const bottomApp = await createPixiApp(bottomContainer)
-    if (disposedRef.current) {
-      stopPixiApp(bottomApp)
-      bottomApp.destroy(true, { children: true })
-      return
-    }
+    // 逻辑：用局部变量作为取消令牌，确保每次 effect 有独立的取消状态。
+    // 这比 useRef 更安全 —— React Strict Mode 下 ref 在两次 effect 间共享，
+    // 第二次 mount 会重置 ref 导致第一次的异步 init 无法被正确取消。
+    let cancelled = false
 
-    const bottomWorld = new Container()
-    bottomWorld.label = 'bottomWorld'
-    bottomApp.stage.addChild(bottomWorld)
+    const init = async () => {
+      // 底层 PixiJS：连线
+      const bottomApp = await createPixiApp(bottomContainer)
+      if (cancelled) {
+        stopPixiApp(bottomApp)
+        bottomApp.destroy(true, { children: true })
+        return
+      }
 
-    const connectorLayer = new Container()
-    connectorLayer.label = 'connectorLayer'
-    bottomWorld.addChild(connectorLayer)
+      const bottomWorld = new Container()
+      bottomWorld.label = 'bottomWorld'
+      bottomApp.stage.addChild(bottomWorld)
 
-    // 上层 PixiJS：笔画 + 叠层
-    const topApp = await createPixiApp(topContainer)
-    if (disposedRef.current) {
-      stopPixiApp(bottomApp)
-      stopPixiApp(topApp)
-      bottomApp.destroy(true, { children: true })
-      topApp.destroy(true, { children: true })
-      return
-    }
+      const connectorLayer = new Container()
+      connectorLayer.label = 'connectorLayer'
+      bottomWorld.addChild(connectorLayer)
 
-    const topWorld = new Container()
-    topWorld.label = 'topWorld'
-    topApp.stage.addChild(topWorld)
+      // 上层 PixiJS：笔画 + 叠层
+      const topApp = await createPixiApp(topContainer)
+      if (cancelled) {
+        stopPixiApp(bottomApp)
+        stopPixiApp(topApp)
+        bottomApp.destroy(true, { children: true })
+        topApp.destroy(true, { children: true })
+        return
+      }
 
-    const strokeLayer = new Container()
-    strokeLayer.label = 'strokeLayer'
-    strokeLayer.sortableChildren = true
-    topWorld.addChild(strokeLayer)
+      const topWorld = new Container()
+      topWorld.label = 'topWorld'
+      topApp.stage.addChild(topWorld)
 
-    const overlayContainer = new Container()
-    overlayContainer.label = 'overlayContainer'
-    topApp.stage.addChild(overlayContainer)
+      const strokeLayer = new Container()
+      strokeLayer.label = 'strokeLayer'
+      strokeLayer.sortableChildren = true
+      topWorld.addChild(strokeLayer)
 
-    // 主题解析器
-    const themeResolver = new PixiThemeResolver(bottomContainer)
+      const overlayContainer = new Container()
+      overlayContainer.label = 'overlayContainer'
+      topApp.stage.addChild(overlayContainer)
 
-    // 视口同步：两个 worldContainer 都要同步
-    const bottomViewportSync = new PixiViewportSync(engine, bottomWorld)
-    const topViewportSync = new PixiViewportSync(engine, topWorld)
+      // 主题解析器
+      const themeResolver = new PixiThemeResolver(bottomContainer)
 
-    // 渲染器
-    const connectorRenderer = new PixiConnectorLayer(engine, connectorLayer, themeResolver)
-    const strokeRenderer = new PixiStrokeLayer(engine, strokeLayer, themeResolver)
-    const overlayRenderer = new PixiOverlayLayer(engine, overlayContainer, topWorld, themeResolver)
+      // 视口同步：两个 worldContainer 都要同步
+      const bottomViewportSync = new PixiViewportSync(engine, bottomWorld)
+      const topViewportSync = new PixiViewportSync(engine, topWorld)
 
-    const unsubSnapshot = engine.subscribe(() => {
-      connectorRenderer.sync()
-      strokeRenderer.sync()
-      overlayRenderer.sync()
-    })
+      // 渲染器
+      const connectorRenderer = new PixiConnectorLayer(engine, connectorLayer, themeResolver)
+      const strokeRenderer = new PixiStrokeLayer(engine, strokeLayer, themeResolver)
+      const overlayRenderer = new PixiOverlayLayer(engine, overlayContainer, topWorld, themeResolver)
 
-    const unsubView = engine.subscribeView(() => {
+      const unsubSnapshot = engine.subscribe(() => {
+        connectorRenderer.sync()
+        strokeRenderer.sync()
+        overlayRenderer.sync()
+      })
+
+      const unsubView = engine.subscribeView(() => {
+        bottomViewportSync.sync()
+        topViewportSync.sync()
+        overlayRenderer.syncView()
+      })
+
+      // 逻辑：主题切换时，PixiJS 层的缓存守卫基于 docRevision，不会自动重绘。
+      // 需要 invalidate 缓存并强制 sync，让连线和笔画使用新主题色。
+      const unsubTheme = themeResolver.onChange(() => {
+        connectorRenderer.invalidate()
+        connectorRenderer.sync()
+        strokeRenderer.invalidate()
+        strokeRenderer.sync()
+        overlayRenderer.sync()
+      })
+
+      // 初始同步
       bottomViewportSync.sync()
       topViewportSync.sync()
-      overlayRenderer.syncView()
-    })
-
-    // 逻辑：主题切换时，PixiJS 层的缓存守卫基于 docRevision，不会自动重绘。
-    // 需要 invalidate 缓存并强制 sync，让连线和笔画使用新主题色。
-    const unsubTheme = themeResolver.onChange(() => {
-      connectorRenderer.invalidate()
       connectorRenderer.sync()
-      strokeRenderer.invalidate()
       strokeRenderer.sync()
-      overlayRenderer.sync()
-    })
 
-    // 初始同步
-    bottomViewportSync.sync()
-    topViewportSync.sync()
-    connectorRenderer.sync()
-    strokeRenderer.sync()
-
-    cleanupRef.current = () => {
-      // 逻辑：先停 ticker，再清理图层资源，避免渲染还在进行时底层 texture/filter 已被销毁。
-      stopPixiApp(bottomApp)
-      stopPixiApp(topApp)
-      unsubSnapshot()
-      unsubView()
-      unsubTheme()
-      bottomViewportSync.destroy()
-      topViewportSync.destroy()
-      connectorRenderer.destroy()
-      strokeRenderer.destroy()
-      overlayRenderer.destroy()
-      themeResolver.destroy()
-      bottomApp.destroy(true, { children: true })
-      topApp.destroy(true, { children: true })
+      cleanupRef.current = () => {
+        // 逻辑：先停 ticker，再清理图层资源，避免渲染还在进行时底层 texture/filter 已被销毁。
+        stopPixiApp(bottomApp)
+        stopPixiApp(topApp)
+        unsubSnapshot()
+        unsubView()
+        unsubTheme()
+        bottomViewportSync.destroy()
+        topViewportSync.destroy()
+        connectorRenderer.destroy()
+        strokeRenderer.destroy()
+        overlayRenderer.destroy()
+        themeResolver.destroy()
+        bottomApp.destroy(true, { children: true })
+        topApp.destroy(true, { children: true })
+      }
     }
-  }, [engine])
 
-  useEffect(() => {
-    disposedRef.current = false
     void init()
+
     return () => {
-      disposedRef.current = true
+      cancelled = true
       cleanupRef.current?.()
       cleanupRef.current = null
     }
-  }, [init])
+  }, [engine])
 
   return (
     <PanelOverlayContext.Provider value={panelOverlayRef}>

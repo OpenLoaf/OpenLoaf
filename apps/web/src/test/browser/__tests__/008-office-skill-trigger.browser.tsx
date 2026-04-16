@@ -23,7 +23,7 @@ it('008 — xlsx-skill 无关键词触发，回复包含分析结果', async () 
     <ChatProbeHarness serverUrl={SERVER_URL} prompt={prompt} sessionId={sessionId} approvalStrategy="approve-all" />,
   )
 
-  await waitForChatComplete(120_000)
+  await waitForChatComplete()
   const result = await waitForProbeResult()
 
   // Save data before assertions (recorded even on failure)
@@ -44,7 +44,7 @@ it('008 — xlsx-skill 无关键词触发，回复包含分析结果', async () 
       '1) 列出了单价最高的项目（至少提到具体产品名或编号）；' +
       '2) 给出了总金额的计算结果（包含具体数字）；' +
       '3) 分析有条理，不是泛泛而谈',
-    aiResponse: result.textPreview,
+    aiResponse: result.textPreview.trim(),
     toolCalls: result.toolCalls,
     userPrompt,
   })

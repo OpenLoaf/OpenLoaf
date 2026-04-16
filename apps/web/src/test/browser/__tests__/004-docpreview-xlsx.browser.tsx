@@ -23,7 +23,7 @@ it('004 — XLSX 全量，回复列出 sheet', async () => {
     <ChatProbeHarness serverUrl={SERVER_URL} prompt={prompt} sessionId={sessionId} approvalStrategy="approve-all" />,
   )
 
-  await waitForChatComplete(120_000)
+  await waitForChatComplete()
   const result = await waitForProbeResult()
 
   // Save data before assertions (recorded even on failure)
@@ -44,7 +44,7 @@ it('004 — XLSX 全量，回复列出 sheet', async () => {
       '1) 列出了 sheet 名称或提到了工作表信息；' +
       '2) 展示了表格数据内容（如列名、产品、价格等）；' +
       '3) 内容不是简单的"已读取"，而是有实际数据展现',
-    aiResponse: result.textPreview,
+    aiResponse: result.textPreview.trim(),
     toolCalls: result.toolCalls,
     userPrompt,
   })

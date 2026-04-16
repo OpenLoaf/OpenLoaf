@@ -28,7 +28,7 @@ it('007 — 大 PDF 分段读取：内容关键词和结构化分析', async () 
     <ChatProbeHarness serverUrl={SERVER_URL} prompt={prompt} sessionId={sessionId} approvalStrategy="approve-all" />,
   )
 
-  await waitForChatComplete(120_000)
+  await waitForChatComplete()
   const result = await waitForProbeResult()
 
   // Save data before assertions
@@ -55,7 +55,7 @@ it('007 — 大 PDF 分段读取：内容关键词和结构化分析', async () 
       '1) 准确说出手册的主题（与"超级个体"或"288行动"相关）；' +
       '2) 列出至少 3 个核心章节或部分（结构化分点，而非泛泛一段话）；' +
       '3) 说明手册面向的读者群体',
-    aiResponse: result.textPreview,
+    aiResponse: result.textPreview.trim(),
     toolCalls: result.toolCalls,
     userPrompt,
   })

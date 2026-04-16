@@ -23,7 +23,7 @@ it('006 — 音频读取，回复有实质内容', async () => {
     <ChatProbeHarness serverUrl={SERVER_URL} prompt={prompt} sessionId={sessionId} approvalStrategy="approve-all" />,
   )
 
-  await waitForChatComplete(90_000)
+  await waitForChatComplete()
   const result = await waitForProbeResult()
 
   // Save data before assertions (recorded even on failure)

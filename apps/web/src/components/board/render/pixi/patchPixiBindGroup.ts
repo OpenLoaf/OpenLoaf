@@ -64,6 +64,45 @@ export function patchPixiBindGroupCascade(): void {
   } catch {
     // BindGroup module not available (SSR or non-WebGL build) — skip.
   }
+
+  patchBatcherBreak()
+}
+
+/**
+ * Patch PixiJS v8 DefaultBatcher.prototype.break to guard against null _activeBatch.
+ *
+ * Root cause: Batcher.begin() resets _activeBatch to null. It's only assigned when
+ * actual geometry instructions call ensureBatch(). If a Graphics object was .clear()-ed
+ * and its context is rebuilt with zero renderable geometry, _activeBatch stays null.
+ * When finish() → break() runs, it crashes: "Cannot read properties of null (reading 'clear')".
+ *
+ * This typically happens when a Graphics.clear() call marks the context dirty, but the
+ * PixiJS render loop rebuilds the context before new draw commands are issued.
+ */
+function patchBatcherBreak(): void {
+  try {
+    const pixi = require('pixi.js') as Record<string, unknown>
+    // DefaultBatcher is the concrete class used by the WebGL/WebGPU renderer.
+    const Batcher = pixi.DefaultBatcher as { prototype: PixiBatcher } | undefined
+    if (!Batcher?.prototype || typeof Batcher.prototype.break !== 'function') return
+
+    const origBreak = Batcher.prototype.break
+    Batcher.prototype.break = function patchedBreak(
+      this: PixiBatcher,
+      instructionPipe: unknown,
+    ) {
+      if (!this._activeBatch) return
+      origBreak.call(this, instructionPipe)
+    }
+  } catch {
+    // DefaultBatcher not available — skip.
+  }
+}
+
+/** Minimal type stubs for PixiJS internals (Batcher). */
+interface PixiBatcher {
+  _activeBatch: unknown | null
+  break(instructionPipe: unknown): void
 }
 
 /** Minimal type stubs for PixiJS internals. */

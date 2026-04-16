@@ -23,7 +23,7 @@ it('001 — Read 纯文本，回复总结会议纪要', async () => {
     <ChatProbeHarness serverUrl={SERVER_URL} prompt={prompt} sessionId={sessionId} approvalStrategy="approve-all" />,
   )
 
-  await waitForChatComplete(90_000)
+  await waitForChatComplete()
   const result = await waitForProbeResult()
 
   // Save data before assertions (recorded even on failure)

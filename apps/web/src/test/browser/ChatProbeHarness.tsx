@@ -85,6 +85,28 @@ const CLIENT_HEADERS: Record<string, string> = { 'X-OpenLoaf-Client': '1' }
 
 const EMPTY_TOOL_PARTS: Record<string, ToolPartSnapshot> = {}
 
+/**
+ * 检查消息中是否有已审批但未完成执行的工具调用。
+ * tool part 的 state 流转：
+ *   call → approval-requested → approval-responded → output-available
+ * 如果有 part 停在非终态且没有 output，说明工具还在执行中。
+ */
+function hasPendingToolExecution(messages: any[]): boolean {
+  for (const msg of messages) {
+    if (msg?.role !== 'assistant') continue
+    const parts = Array.isArray(msg?.parts) ? msg.parts : []
+    for (const part of parts) {
+      const type = typeof part?.type === 'string' ? part.type : ''
+      if (!type.startsWith('tool-')) continue
+      const state = part?.state
+      if (state === 'approval-requested' && !part?.output) return true
+      if (state === 'approval-responded' && !part?.output) return true
+      if (state === 'call' && !part?.output && !part?.approval) return true
+    }
+  }
+  return false
+}
+
 // ── Inner harness ──
 
 function ChatProbeInner({
@@ -110,13 +132,18 @@ function ChatProbeInner({
   const startedAtRef = React.useRef<string>('')
   const finishReasonRef = React.useRef<string | null>(null)
   const onCompleteCalledRef = React.useRef(false)
+  const networkRetryCountRef = React.useRef(0)
+  const finishFiredRef = React.useRef(false)
+  const MAX_NETWORK_RETRIES = 10
+  const NETWORK_RETRY_DELAY_MS = 10_000
   const [toolParts, setToolParts] = React.useState<Record<string, ToolPartSnapshot>>(EMPTY_TOOL_PARTS)
 
   // ── Multi-turn state ──
   const allPrompts = React.useMemo(() => [prompt, ...followUpPrompts], [prompt, followUpPrompts])
   const totalTurns = allPrompts.length
   const turnIndexRef = React.useRef(0)
-  const turnCompleteCountRef = React.useRef(0)
+  const [allTurnsDone, setAllTurnsDone] = React.useState(false)
+  const chatRef = React.useRef<any>(null)
 
   // ── Transport ──
   const transport = React.useMemo(() => {
@@ -145,12 +172,57 @@ function ChatProbeInner({
             timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
             messages: lastMessage ? [lastMessage] : [],
             ...(chatModelId ? { chatModelId } : {}),
+            ...(approvalStrategy === 'approve-all' ? { autoApproveTools: true } : {}),
           },
           headers: nextHeaders,
         }
       },
     })
   }, [serverUrl, chatModelId])
+
+  // ── Completion logic ──
+  // 提取到独立函数：只在 onFinish 触发过 + 无 pending 工具 时才真正完成。
+  // 这样即使 onFinish 在 tool approval 暂停点过早触发，也不会导致提前完成。
+  const tryReportComplete = React.useCallback((msgs: UIMessage[]) => {
+    if (onCompleteCalledRef.current) return
+    if (!finishFiredRef.current) return
+    if (hasPendingToolExecution(msgs)) return
+
+    const currentTurn = turnIndexRef.current
+    // 还有后续轮次 → 发送下一条 prompt
+    if (currentTurn + 1 < totalTurns) {
+      turnIndexRef.current = currentTurn + 1
+      finishFiredRef.current = false
+      const nextPrompt = allPrompts[currentTurn + 1]!
+      setTimeout(() => {
+        chatRef.current.sendMessage({
+          parts: [{ type: 'text' as const, text: nextPrompt }],
+        })
+      }, 300)
+      return
+    }
+
+    // 全部轮次完成 → 报告结果
+    onCompleteCalledRef.current = true
+    setAllTurnsDone(true)
+    const elapsedMs = Date.now() - startTimeRef.current
+    const toolCalls = extractToolCalls(msgs)
+    const textPreview = extractTextPreview(msgs, 600)
+    const result: ProbeResult = {
+      sessionId,
+      messages: msgs,
+      status: 'ok',
+      toolCalls,
+      elapsedMs,
+      finishReason: finishReasonRef.current,
+      textPreview,
+      startedAt: startedAtRef.current,
+      turnIndex: currentTurn,
+      totalTurns,
+    }
+    writeResultToDOM(result)
+    onComplete?.(result)
+  }, [sessionId, totalTurns, allPrompts, onComplete])
 
   // ── useChat ──
   const chat = useChat({
@@ -161,41 +233,9 @@ function ChatProbeInner({
     transport,
     onFinish: () => {
       if (onCompleteCalledRef.current) return
-      turnCompleteCountRef.current += 1
-      const currentTurn = turnIndexRef.current
-
-      // 还有后续轮次 → 发送下一条 prompt
-      if (currentTurn + 1 < totalTurns) {
-        turnIndexRef.current = currentTurn + 1
-        const nextPrompt = allPrompts[currentTurn + 1]!
-        setTimeout(() => {
-          chatRef.current.sendMessage({
-            parts: [{ type: 'text' as const, text: nextPrompt }],
-          })
-        }, 300)
-        return
-      }
-
-      // 全部轮次完成 → 报告结果
-      onCompleteCalledRef.current = true
-      const elapsedMs = Date.now() - startTimeRef.current
-      const toolCalls = extractToolCalls(chat.messages)
-      const textPreview = extractTextPreview(chat.messages, 600)
-      const result: ProbeResult = {
-        sessionId,
-        messages: chat.messages as UIMessage[],
-        status: 'ok',
-        toolCalls,
-        elapsedMs,
-        finishReason: finishReasonRef.current,
-        textPreview,
-        startedAt: startedAtRef.current,
-        turnIndex: currentTurn,
-        totalTurns,
-      }
-      // 写入 DOM 供测试读取
-      writeResultToDOM(result)
-      onComplete?.(result)
+      // 标记 stream 结束过至少一次，让 tryReportComplete 去判断是否真正完成
+      finishFiredRef.current = true
+      tryReportComplete(chat.messages as UIMessage[])
     },
     onData: (dataPart: any) => {
       // 捕获 finishReason
@@ -282,7 +322,6 @@ function ChatProbeInner({
     },
   })
 
-  const chatRef = React.useRef(chat)
   chatRef.current = chat
 
   // ── Auto-send prompt on mount ──
@@ -306,16 +345,43 @@ function ChatProbeInner({
     }
   }, [prompt, title, serverUrl, sessionId])
 
-  // ── Handle error state → also report result ──
+  // ── Handle error state → auto-retry network errors via UI Retry button ──
   React.useEffect(() => {
     if (chat.status !== 'error' && !chat.error) return
     if (onCompleteCalledRef.current) return
-    // 延迟一帧确保 error 状态稳定
+
+    const errorMsg = chat.error?.message ?? ''
+    const isNetworkError = /failed to fetch|network|ECONNREFUSED|ENOTFOUND|ERR_CONNECTION/i.test(errorMsg)
+
+    // 网络错误 + 重试次数未满 → 延迟后点击 Retry 按钮
+    if (isNetworkError && networkRetryCountRef.current < MAX_NETWORK_RETRIES) {
+      const attempt = networkRetryCountRef.current + 1
+      console.log(`[ChatProbe] Network error detected, clicking Retry ${attempt}/${MAX_NETWORK_RETRIES} in ${NETWORK_RETRY_DELAY_MS / 1000}s: ${errorMsg}`)
+      const timer = setTimeout(() => {
+        if (onCompleteCalledRef.current) return
+        networkRetryCountRef.current = attempt
+        const retryBtn = document.querySelector('[data-testid="message-error-retry"]') as HTMLButtonElement | null
+        if (retryBtn && !retryBtn.disabled) {
+          retryBtn.click()
+        } else {
+          // 按钮未渲染时 fallback 到 API 调用
+          console.warn('[ChatProbe] Retry button not found, falling back to API')
+          chatRef.current.clearError()
+          setTimeout(() => chatRef.current.regenerate(), 500)
+        }
+      }, NETWORK_RETRY_DELAY_MS)
+      return () => clearTimeout(timer)
+    }
+
+    // 非网络错误或重试耗尽 → 报告失败
     const timer = setTimeout(() => {
       if (onCompleteCalledRef.current) return
       onCompleteCalledRef.current = true
       const elapsedMs = Date.now() - startTimeRef.current
       const toolCalls = extractToolCalls(chat.messages)
+      const retryInfo = networkRetryCountRef.current > 0
+        ? ` (after ${networkRetryCountRef.current} network retries)`
+        : ''
       const result: ProbeResult = {
         sessionId,
         messages: chat.messages as UIMessage[],
@@ -323,7 +389,7 @@ function ChatProbeInner({
         toolCalls,
         elapsedMs,
         finishReason: finishReasonRef.current,
-        error: chat.error?.message,
+        error: `${chat.error?.message}${retryInfo}`,
         textPreview: '',
         startedAt: startedAtRef.current,
         turnIndex: turnIndexRef.current,
@@ -351,6 +417,14 @@ function ChatProbeInner({
       }
     }
   }, [chat.messages, approvalStrategy, chat.addToolApprovalResponse])
+
+  // ── Re-check completion when messages update (tools may have finished) ──
+  React.useEffect(() => {
+    if (onCompleteCalledRef.current) return
+    if (!finishFiredRef.current) return
+    if (chat.status !== 'ready') return
+    tryReportComplete(chat.messages as UIMessage[])
+  }, [chat.messages, chat.status, tryReportComplete])
 
   // ── Tool parts tracking ──
   const upsertToolPart = React.useCallback((toolCallId: string, next: ToolPartSnapshot) => {
@@ -455,11 +529,20 @@ function ChatProbeInner({
   )
 
   // ── Derive status for test assertions ──
-  const probeStatus = chat.status === 'ready' && chat.messages.length > 1
-    ? 'complete'
-    : chat.status === 'error'
-      ? 'error'
-      : chat.status
+  // 多轮对话场景：第一轮完成时 chat.status='ready' 但还有后续轮次，
+  // 此时不能标记 complete，否则 waitForChatComplete 会提前 resolve。
+  // 同时，如果有工具还在 pending（approval-requested / approval-responded 但无 output），
+  // 也不能标记 complete — server 还会继续 stream。
+  const hasPending = hasPendingToolExecution(chat.messages)
+  const probeStatus = chat.status === 'error'
+    ? 'error'
+    : hasPending
+      ? 'streaming'
+      : allTurnsDone && chat.status === 'ready' && chat.messages.length > 1
+        ? 'complete'
+        : totalTurns === 1 && chat.status === 'ready' && chat.messages.length > 1
+          ? 'complete'
+          : chat.status
 
   return (
     <ChatStateProvider value={stateValue}>

@@ -1,0 +1,7 @@
+name: 100-basic-math
+description: "Basic math question, expect number-only response"
+prompt: "简单回答：1+1等于几？只回答数字。"
+model: null
+platform: web
+tags: [basic, no-tools]
+createdAt: 2026-04-16T05:50:18.478Z

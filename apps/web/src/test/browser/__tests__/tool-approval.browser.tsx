@@ -23,7 +23,7 @@ describe('Tool approval probe', () => {
       <ChatProbeHarness serverUrl={SERVER_URL} prompt={prompt} approvalStrategy="approve-all" />,
     )
 
-    await waitForChatComplete(90_000)
+    await waitForChatComplete()
     const result = await waitForProbeResult()
 
     // Save data before assertions (recorded even on failure)
@@ -47,7 +47,7 @@ describe('Tool approval probe', () => {
       <ChatProbeHarness serverUrl={SERVER_URL} prompt={prompt} approvalStrategy="reject-all" />,
     )
 
-    await waitForChatComplete(90_000)
+    await waitForChatComplete()
     const result = await waitForProbeResult()
 
     // Save data before assertions (recorded even on failure)

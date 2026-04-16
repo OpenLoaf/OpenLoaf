@@ -24,7 +24,7 @@ it('015 — XLSX 创建：生成中文销售数据表', async () => {
     <ChatProbeHarness serverUrl={SERVER_URL} prompt={prompt} approvalStrategy="approve-all" />,
   )
 
-  await waitForChatComplete(90_000)
+  await waitForChatComplete()
   const result = await waitForProbeResult()
 
   await takeProbeScreenshot('015-xlsx-create')
@@ -48,7 +48,7 @@ it('015 — XLSX 创建：生成中文销售数据表', async () => {
     criteria:
       '回复应确认已成功创建 Excel 销售数据表，并提到以下至少 2 项：' +
       'Q1 销售、产品（智能音箱/扫地机器人/无线耳机）、区域、合计行、文件名',
-    aiResponse: result.textPreview,
+    aiResponse: result.textPreview.trim(),
     toolCalls: result.toolCalls,
     userPrompt: prompt,
   })

@@ -23,7 +23,7 @@ it('003 — DOCX 读取，回复描述文档内容', async () => {
     <ChatProbeHarness serverUrl={SERVER_URL} prompt={prompt} sessionId={sessionId} approvalStrategy="approve-all" />,
   )
 
-  await waitForChatComplete(90_000)
+  await waitForChatComplete()
   const result = await waitForProbeResult()
 
   // Save data before assertions (recorded even on failure)
@@ -44,7 +44,7 @@ it('003 — DOCX 读取，回复描述文档内容', async () => {
       '1) 准确说出文档主题（与意大利、光储充、能源项目相关）；' +
       '2) 说明文档大致长度或结构；' +
       '3) 有实质内容分析，不是泛泛而谈',
-    aiResponse: result.textPreview,
+    aiResponse: result.textPreview.trim(),
     toolCalls: result.toolCalls,
     userPrompt,
   })

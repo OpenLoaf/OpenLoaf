@@ -13,9 +13,9 @@
  */
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
+import { embedFonts, embedFont } from './pdfFonts'
 import {
   PDFDocument,
-  StandardFonts,
   rgb,
   PDFTextField,
   PDFCheckBox,
@@ -369,46 +369,22 @@ export async function createPdf(
   absPath: string,
   content: PdfContentItem[],
 ): Promise<{ pageCount: number; elementCount: number }> {
-  // Check for non-ASCII content (CJK limitation)
+  // Collect all text from content items to detect CJK
+  const allTexts: string[] = []
   for (const item of content) {
-    if ('text' in item && hasNonLatinChars(item.text)) {
-      throw new Error(
-        'PDF 创建目前使用标准字体，不支持中日韩（CJK）等非拉丁字符。请使用英文内容，或改用 Word (WordMutate) 创建文档。',
-      )
-    }
-    if ('items' in item) {
-      for (const text of item.items) {
-        if (hasNonLatinChars(text)) {
-          throw new Error(
-            'PDF 创建目前使用标准字体，不支持中日韩（CJK）等非拉丁字符。请使用英文内容，或改用 Word (WordMutate) 创建文档。',
-          )
-        }
-      }
-    }
+    if ('text' in item) allTexts.push(item.text)
+    if ('items' in item) allTexts.push(...item.items)
     if ('headers' in item) {
-      for (const h of item.headers) {
-        if (hasNonLatinChars(h)) {
-          throw new Error(
-            'PDF 创建目前使用标准字体，不支持中日韩（CJK）等非拉丁字符。请使用英文内容，或改用 Word (WordMutate) 创建文档。',
-          )
-        }
-      }
-      for (const row of item.rows) {
-        for (const cell of row) {
-          if (hasNonLatinChars(cell)) {
-            throw new Error(
-              'PDF 创建目前使用标准字体，不支持中日韩（CJK）等非拉丁字符。请使用英文内容，或改用 Word (WordMutate) 创建文档。',
-            )
-          }
-        }
-      }
+      allTexts.push(...item.headers)
+      for (const row of item.rows) allTexts.push(...row)
     }
   }
 
   const pdfDoc = await PDFDocument.create()
-  const fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica)
-  const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
-  const fontItalic = await pdfDoc.embedFont(StandardFonts.HelveticaOblique)
+  const fonts = await embedFonts(pdfDoc, allTexts)
+  const fontRegular = fonts.regular
+  const fontBold = fonts.bold
+  const fontItalic = fonts.italic
 
   const PAGE_WIDTH = 595.28 // A4
   const PAGE_HEIGHT = 841.89
@@ -635,7 +611,9 @@ export async function addTextOverlays(
 ): Promise<{ overlayCount: number }> {
   const buf = await fs.readFile(absPath)
   const pdfDoc = await PDFDocument.load(buf, { ignoreEncryption: true })
-  const font = await pdfDoc.embedFont(StandardFonts.Helvetica)
+  // Detect CJK in overlay texts and load appropriate font
+  const allOverlayTexts = overlays.map(o => o.text)
+  const font = await embedFont(pdfDoc, allOverlayTexts.join(''))
   const pageCount = pdfDoc.getPageCount()
 
   let overlayCount = 0
@@ -710,8 +688,4 @@ function parseHexColor(hex: string): ReturnType<typeof rgb> {
   return rgb(r, g, b)
 }
 
-function hasNonLatinChars(text: string): boolean {
-  // Detect CJK and other non-Latin characters that StandardFonts cannot render
-  // biome-ignore lint/suspicious/noMisleadingCharacterClass: intentional CJK detection
-  return /[\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff\uac00-\ud7af\u0400-\u04ff\u0600-\u06ff\u0e00-\u0e7f]/.test(text)
-}
+

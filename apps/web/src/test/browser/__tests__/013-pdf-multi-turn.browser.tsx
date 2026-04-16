@@ -77,7 +77,7 @@ it('013 — 多轮 PDF 工作流：先读后改', async () => {
       '满足以下任一条件即通过：' +
       '1) 回复提到已添加批注/文字/APPROVED；' +
       '2) 回复为空但工具调用包含 PdfMutate（操作已执行）',
-    aiResponse: result.textPreview,
+    aiResponse: result.textPreview.trim(),
     toolCalls: result.toolCalls,
     userPrompt: followUp,
   })

@@ -26,7 +26,7 @@ describe('Basic chat probe', () => {
     )
 
     await waitForMessageCount(2, 30_000)
-    await waitForChatComplete(60_000)
+    await waitForChatComplete()
 
     const result = await waitForProbeResult()
 

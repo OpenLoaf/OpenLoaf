@@ -26,7 +26,7 @@ it('016 — PPTX 创建：生成中文季度汇报 PPT', async () => {
     <ChatProbeHarness serverUrl={SERVER_URL} prompt={prompt} approvalStrategy="approve-all" />,
   )
 
-  await waitForChatComplete(90_000)
+  await waitForChatComplete()
   const result = await waitForProbeResult()
 
   await takeProbeScreenshot('016-pptx-create')
@@ -50,7 +50,7 @@ it('016 — PPTX 创建：生成中文季度汇报 PPT', async () => {
     criteria:
       '回复应确认已成功创建 PPT 季度汇报，并提到以下至少 2 项：' +
       'Q1 业务回顾、4 页幻灯片、核心指标（营收/用户/NPS）、下季度重点、文件名',
-    aiResponse: result.textPreview,
+    aiResponse: result.textPreview.trim(),
     toolCalls: result.toolCalls,
     userPrompt: prompt,
   })

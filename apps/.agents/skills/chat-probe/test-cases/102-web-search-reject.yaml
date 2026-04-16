@@ -1,0 +1,7 @@
+name: 102-web-search-reject
+description: "Web search with auto-reject, expect text-only fallback"
+prompt: "搜索一下今天的天气"
+model: null
+platform: web
+tags: [web-search, approval, reject]
+createdAt: 2026-04-16T05:50:11.815Z

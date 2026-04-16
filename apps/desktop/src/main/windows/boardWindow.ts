@@ -58,6 +58,30 @@ function focusBoardWindow(win: BrowserWindow) {
   win.webContents.executeJavaScript("document.activeElement?.blur()").catch(() => {});
 }
 
+/**
+ * Disable all zoom behaviors (menu, shortcuts, trackpad/pinch).
+ * 画布窗口必须禁用 Electron 页面缩放，否则触控板捏合手势会同时触发画布缩放和
+ * Electron 页面缩放，导致坐标转换偏移（鼠标位置与实际操作位置不一致）。
+ */
+function disableZoom(win: BrowserWindow): void {
+  win.webContents.setVisualZoomLevelLimits(1, 1).catch((): void => undefined);
+  const legacySetZoomLevelLimits = (
+    win.webContents as { setZoomLevelLimits?: (min: number, max: number) => void }
+  ).setZoomLevelLimits;
+  if (typeof legacySetZoomLevelLimits === 'function') {
+    legacySetZoomLevelLimits.call(win.webContents, 0, 0);
+  }
+  win.webContents.setZoomFactor(1);
+  win.webContents.on('before-input-event', (event, input) => {
+    if (input.type !== 'keyDown') return;
+    const isZoomShortcut =
+      (input.control || input.meta) &&
+      (input.key === '+' || input.key === '-' || input.key === '=' || input.key === '0');
+    if (!isZoomShortcut) return;
+    event.preventDefault();
+  });
+}
+
 /** Build the web URL for one dedicated board window. */
 function buildBoardWindowUrl(args: CreateBoardWindowArgs) {
   const target = new URL("/", args.webUrl);
@@ -116,6 +140,7 @@ export function createBoardWindow(args: CreateBoardWindowArgs) {
   });
 
   bindWindowTitle(win);
+  disableZoom(win);
   win.webContents.setWindowOpenHandler((details) => {
     const targetUrl = String(details?.url ?? "").trim();
     if (targetUrl && /^https?:/i.test(targetUrl)) {

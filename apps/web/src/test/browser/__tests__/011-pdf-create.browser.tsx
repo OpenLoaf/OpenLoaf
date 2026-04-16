@@ -24,7 +24,7 @@ it('011 — PDF 创建：生成英文发票 PDF', async () => {
     <ChatProbeHarness serverUrl={SERVER_URL} prompt={prompt} approvalStrategy="approve-all" />,
   )
 
-  await waitForChatComplete(90_000)
+  await waitForChatComplete()
   const result = await waitForProbeResult()
 
   await takeProbeScreenshot('011-pdf-create')
@@ -48,7 +48,7 @@ it('011 — PDF 创建：生成英文发票 PDF', async () => {
     criteria:
       '回复应确认已成功创建 PDF 发票文件，并提到以下至少 2 项：' +
       'Acme Corp 公司名、发票编号 2026-042、总计 $110、文件名 invoice_test_011.pdf',
-    aiResponse: result.textPreview,
+    aiResponse: result.textPreview.trim(),
     toolCalls: result.toolCalls,
     userPrompt: prompt,
   })

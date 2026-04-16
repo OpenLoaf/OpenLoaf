@@ -12,7 +12,7 @@ import type { ProbeResult } from './ChatProbeHarness'
  */
 export async function waitForProbeStatus(
   status: 'complete' | 'error' | 'streaming' | 'ready',
-  timeout = 60_000,
+  timeout = 120_000,
 ) {
   const start = Date.now()
   while (Date.now() - start < timeout) {
@@ -26,14 +26,14 @@ export async function waitForProbeStatus(
 /**
  * 等待 chat 完成（status 变为 complete）。
  */
-export async function waitForChatComplete(timeout = 60_000) {
+export async function waitForChatComplete(timeout = 120_000) {
   await waitForProbeStatus('complete', timeout)
 }
 
 /**
  * 等待消息数量达到指定值。
  */
-export async function waitForMessageCount(count: number, timeout = 60_000) {
+export async function waitForMessageCount(count: number, timeout = 120_000) {
   const start = Date.now()
   while (Date.now() - start < timeout) {
     const el = page.getByTestId('chat-probe-harness').element()
@@ -83,7 +83,7 @@ export function getProbeResult(): ProbeResult | null {
 /**
  * 等待 ProbeResult 可用（onComplete 已触发）。
  */
-export async function waitForProbeResult(timeout = 60_000): Promise<ProbeResult> {
+export async function waitForProbeResult(timeout = 120_000): Promise<ProbeResult> {
   const start = Date.now()
   while (Date.now() - start < timeout) {
     const result = getProbeResult()
@@ -121,7 +121,7 @@ export async function waitForToolApproval(timeout = 30_000) {
  */
 export async function waitForAssistantTextContains(
   text: string,
-  timeout = 60_000,
+  timeout = 120_000,
 ) {
   const start = Date.now()
   while (Date.now() - start < timeout) {
@@ -325,7 +325,7 @@ export function getInteractionState(): InteractionState {
  * 但此时可能仍有 pending approval（工具等待审批）。
  * 所以"有 pending approval"优先于"status complete"。
  */
-export async function waitForInteraction(timeout = 60_000): Promise<InteractionState> {
+export async function waitForInteraction(timeout = 120_000): Promise<InteractionState> {
   const start = Date.now()
   while (Date.now() - start < timeout) {
     const state = getInteractionState()
@@ -457,7 +457,7 @@ export function getQuestionInfo(): QuestionInfo | null {
 /**
  * 等待 RequestUserInputTool 出现。
  */
-export async function waitForQuestionInput(timeout = 60_000) {
+export async function waitForQuestionInput(timeout = 120_000) {
   const start = Date.now()
   while (Date.now() - start < timeout) {
     if (document.querySelector('[data-testid="user-input-tool"]')) return

@@ -27,6 +27,7 @@ export class PixiOverlayLayer {
   private lastZoom = -1
   private lastOffsetX = -1
   private lastOffsetY = -1
+  private destroyed = false
 
   constructor(
     engine: CanvasEngine,
@@ -45,6 +46,8 @@ export class PixiOverlayLayer {
 
   /** Sync overlays with engine snapshot (called on snapshot change). */
   sync(): void {
+    if (this.destroyed) return
+
     const snapshot = this.engine.getSnapshot()
     const selectedKey = snapshot.selectedIds.join(',')
     const { zoom, offset } = snapshot.viewport
@@ -172,6 +175,7 @@ export class PixiOverlayLayer {
   }
 
   destroy(): void {
+    this.destroyed = true
     this.selectionBoxGfx.destroy()
     this.selectionOutlineGfx.destroy()
   }
