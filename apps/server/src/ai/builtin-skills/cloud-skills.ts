@@ -185,152 +185,65 @@ function renderMediaContent(): string {
 
   return `# Cloud Media Generation
 
-Generate images, videos, and audio via the cloud AI platform. Each call consumes credits from the user's cloud account.
+Generate images, videos, and audio via the cloud AI platform. Each call consumes credits.
 
 ## Available Capabilities
 
 ${tierTableLines.join('\n')}
 
-## Membership Tiers
+> **工具按需加载**：\`CloudCapBrowse\`、\`CloudCapDetail\`、\`CloudModelGenerate\`、\`CloudTask\`、\`CloudTaskCancel\` 调用前须先 \`ToolSearch(names: "工具名")\` 加载 schema。
 
-Cloud capabilities are gated by the user's membership level:
+## Workflow（严格按顺序执行）
 
-| Tier | Description |
-|------|-------------|
-| \`free\` | Default for new users. Basic image/text features. |
-| \`lite\` | Small monthly plan. Adds faster models and more credits. |
-| \`pro\` | Professional plan. Unlocks advanced image generation, basic video, high-quality audio. |
-| \`premium\` | Top tier. Unlocks highest-quality video models, premium-only features. |
-
-Tier order (low → high): \`free < lite < pro < premium\`. A variant tagged \`pro\` is accessible to pro AND premium users.
-
-**Always check the user's current tier before invoking expensive variants.** \`CloudCapBrowse\` returns \`userTier\` and \`userCredits\` in every response — read these fields first.
-
-**If the user's tier is insufficient** for the variant they want, do NOT call \`CloudModelGenerate\` — it will fail at the cloud backend and still burn user trust. Instead:
-1. Politely explain the variant requires a higher tier (name the tier explicitly).
-2. Suggest a free/lower-tier alternative variant from the same feature if \`CloudCapBrowse\` returned one.
-3. If no alternative, ask whether they want to upgrade (do NOT recommend specific pricing — let them find it in settings).
-
-## Tool Activation (REQUIRED first step)
-
-These tools are NOT in the default toolset. **Before calling any of them**, activate the full set via ToolSearch:
-
-\`\`\`
-ToolSearch(names: "CloudCapBrowse,CloudCapDetail,CloudModelGenerate,CloudTask,CloudTaskCancel")
-\`\`\`
-
-You only need to do this once per conversation.
-
-## Workflow
-
-### Step 1 — Discover (CloudCapBrowse)
+### Step 1 — Browse：发现可用 feature 和 variant
 
 \`\`\`
 CloudCapBrowse({ category: ${categoryArg} })
 \`\`\`
 
-Returns a list of features in that category, each with its top 3 variants (id, name, tag). Skim the tags to pick a variant that matches the user's intent.
+返回 feature 列表，每个 feature 含 top 3 variant（id / name / tag / credits / accessible）。**只选 \`accessible === true\` 的 variant。**
 
-Omit \`category\` to see everything at once.
-
-### Step 2 — Detail (CloudCapDetail)
-
-Fetch the full input/param schema for a variant before calling Generate:
+### Step 2 — Detail：获取 variant 的完整输入 schema（必须）
 
 \`\`\`
-CloudCapDetail({ variantId: "OL-IG-003" })
+CloudCapDetail({ variantId: "<id>", featureId: "<feature>" })
 \`\`\`
 
-**When to call Detail:**
-- **Video / Audio / Digital Human variants** — **ALWAYS call Detail first.** Their input keys (e.g. \`startImage\`, \`referenceImage\`, \`audio\`) and value formats (plain URL string vs \`{ url: "..." }\` object) vary by variant and are NOT shown in Browse. Skipping Detail for these categories is the #1 cause of generation failures.
-- **Image variants** — usually safe to skip if you only need \`prompt\` + \`aspectRatio\`. Call Detail when you need advanced params or reference image inputs.
+返回该 variant 的 \`inputSlots[]\`（每个 slot 有 role/key/accept/required）和 \`paramsSchema[]\`。**这一步不可跳过** — 不同 variant 的输入字段名和格式差异很大（如视频需要 \`startImage\`，TTS 需要 \`text\`），Browse 不包含这些信息，跳过 Detail 直接调 Generate 几乎必定失败。
 
-### Step 3 — Generate (CloudModelGenerate)
+### Step 3 — Generate：提交生成任务
+
+按 Detail 返回的 schema 组装 \`inputs\` 和 \`params\`：
 
 \`\`\`
 CloudModelGenerate({
-  feature: "text-to-image",
-  variant: "OL-IG-003",
-  inputs: { prompt: "..." },
-  params: { aspectRatio: "16:9" }
+  feature: "<featureId>",
+  variant: "<variantId>",
+  inputs: { ... },   // 按 inputSlots 填写
+  params: { ... }    // 按 paramsSchema 填写
 })
 \`\`\`
 
-- Default mode **blocks until the task completes** (up to 10 min) and returns \`{ resultUrls, creditsConsumed }\`.
-- For long-running video jobs, set \`waitForCompletion: false\` to return immediately with a \`taskId\`, then poll with \`CloudTask({ taskId })\`.
+**输入格式规则**（与画布一致）：
+- **文本 slot**（如 prompt）→ 纯字符串：\`"森林场景"\`
+- **媒体 slot**（如 image / startImage / audio）→ 对象格式：\`{ url: "https://..." }\` 或 \`{ path: "\${CURRENT_CHAT_DIR}/img.png" }\`。本地路径会自动上传到 CDN。
+- **不要猜字段名** — 严格使用 Detail 返回的 slot role/key。
 
-### Step 4 — (Async mode only) Poll or Cancel
+默认同步等待完成（最长 10 分钟）。视频等长任务可设 \`waitForCompletion: false\`，之后用 \`CloudTask({ taskId })\` 轮询。
 
-\`\`\`
-CloudTask({ taskId })    // check status / retrieve resultUrls
-CloudTaskCancel({ taskId })  // abort a running task
-\`\`\`
-
-## Parameter Semantics
-
-- **\`inputs\`** — content payloads. Keys and value formats come from the variant's input schema (use \`CloudCapDetail\` to confirm).
-  - Image generation: \`prompt\` (string)
-  - Video generation: \`startImage\` (\`{ url: "..." }\` object, NOT a plain URL string), \`prompt\` (string, optional)
-  - Audio / TTS: \`prompt\` (string — the text to speak)
-  - **Do NOT guess input keys** — video uses \`startImage\` not \`image\`, and some inputs require object format. Always verify with \`CloudCapDetail\` for non-image categories.
-- **\`params\`** — option controls. Keys come from the variant's param schema.
-  Common fields: \`aspectRatio\`, \`steps\`, \`style\`, \`quality\`, \`duration\`.
-
-## Guidance
-
-- **Check credits before expensive operations.** Video generation can cost 50-500+ credits. Top variants from Browse include \`creditsPerCall\`; warn the user before kicking off heavy jobs.
-- **Match user style keywords to variant tags.** "宫崎骏"/"anime"/"动漫" → anime/stylized variants. "写实"/"realistic" → photorealistic variants.
-- **Prefer cheap variants for drafts.** When the user is still iterating on ideas, use low-credit variants for previews. Upgrade only after user confirms the direction.
-- **Present resultUrls directly.** The returned URLs are already public-accessible; don't try to download or re-fetch them.
-- **Limit parallel requests.** Do NOT fire more than 2 concurrent CloudModelGenerate calls to the same variant. The upstream API has rate limits — sending 3+ parallel requests often causes 503 failures. For batch generation (e.g. "generate 4 different styles"), split into groups of 2 and wait for each group to finish before starting the next.
-- **Handle errors gracefully.** The tool returns \`Error: ...\` on failure. Retry once if the error looks transient (network/rate-limit); report to user otherwise.
-- **Don't guess variant IDs.** If you don't see a variant matching the user's request in Browse, tell the user rather than inventing an ID.
-- **Don't guess input keys.** Input field names vary across features/variants. For video (\`startImage\`), digital human (\`audio\`, \`image\`), etc. — always verify with \`CloudCapDetail\` before calling Generate.
-
-## Examples
-
-### Image generation
-
-User: "帮我生成一张宫崎骏风格的森林图"
+### Step 4 — （异步模式）Poll / Cancel
 
 \`\`\`
-1. ToolSearch(names: "CloudCapBrowse,CloudCapDetail,CloudModelGenerate,CloudTask,CloudTaskCancel")
-
-2. CloudCapBrowse({ category: "image" })
-   → finds feature "imageGenerate" with variant tagged "anime / 动漫"
-   → reads userTier/userCredits and picks a variant where accessible === true
-
-3. CloudModelGenerate({
-     feature: "imageGenerate",
-     variant: "<the-anime-variant-id>",
-     inputs: { prompt: "宫崎骏风格的森林，柔和光线，细致纹理" },
-     params: { aspectRatio: "16:9" }
-   })
-   → returns { files: [...], creditsConsumed: N }
-
-4. Present the saved file path or URL to the user.
+CloudTask({ taskId })         // 查询状态 / 获取结果
+CloudTaskCancel({ taskId })   // 取消任务
 \`\`\`
 
-### Video generation (image-to-video)
+## 关键约束
 
-User: "把这张图做成 10 秒的视频"
-
-\`\`\`
-1. CloudCapBrowse({ category: "video" })
-   → finds feature "videoGenerate" with variants
-
-2. CloudCapDetail({ variantId: "OL-VG-001" })       ← REQUIRED for video!
-   → reveals input schema: startImage ({ url }) + prompt (optional)
-   → reveals param schema: duration (5/10)
-
-3. CloudModelGenerate({
-     feature: "videoGenerate",
-     variant: "OL-VG-001",
-     inputs: { startImage: { url: "<image-source-url>" } },
-     params: { duration: 10 }
-   })
-   → returns { files: [...], creditsConsumed: N }
-\`\`\`
+- **accessible 为 false 的 variant 不要调** — 会被后端拒绝。提示用户所需会员等级。
+- **视频类 variant 通常需要首帧图片**（\`startImage\` slot），不传会 502。如果用户没有图片，先用图片生成 variant 生成一张，再传给视频 variant。
+- **限制并发** — 同一 variant 不超过 2 个并行 CloudModelGenerate，超过可能 503。
+- **昂贵操作先确认** — 视频可消耗 50-500+ credits，先告知用户。
 `
 }
 
@@ -342,65 +255,27 @@ function renderTextContent(): string {
 
   return `# Cloud Text Capabilities
 
-Text-in / text-out operations via the cloud AI platform (OCR text extraction, summarization, structured extraction, etc.).
+Text-in / text-out operations via the cloud AI platform (OCR, summarization, structured extraction).
 
 **Current status**: ${status}
 
-> **Translation is NOT in this skill.** The main chat model handles translation directly at zero credit cost. Do not look for a translate variant via Browse — it is deliberately filtered out. If the user asks for translation, translate inline in your reply.
+> **翻译不在此技能范围。** 主对话模型直接翻译，零 credit 消耗。Browse 已过滤 translate 类 feature。
 
-## Tool Activation (REQUIRED first step)
-
-\`\`\`
-ToolSearch(names: "CloudCapBrowse,CloudCapDetail,CloudTextGenerate")
-\`\`\`
+> **工具按需加载**：\`CloudCapBrowse\`、\`CloudCapDetail\`、\`CloudTextGenerate\` 调用前须先 \`ToolSearch(names: "工具名")\` 加载 schema。
 
 ## Workflow
 
-### Step 1 — Discover
+1. \`CloudCapBrowse({ category: "text" })\` — 发现可用 feature 和 variant
+2. \`CloudCapDetail({ variantId, featureId })\` — 获取输入 schema（必须）
+3. \`CloudTextGenerate({ feature, variant, inputs, params })\` — 同步调用，直接返回 \`{ text, creditsConsumed }\`
 
-\`\`\`
-CloudCapBrowse({ category: "text" })
-\`\`\`
+## 使用场景
 
-Returns available text features (e.g., ocr-text, summarize) with top variants. Translate features are not returned.
+- **OCR** — 图片中的文字提取（\`inputs: { image: { url: "..." } }\`）
+- **长文摘要** — 超长文本走云端摘要比对话模型便宜
+- **结构化抽取** — 有专用 variant 时使用
 
-### Step 2 — (Optional) Detail
-
-\`\`\`
-CloudCapDetail({ variantId: "<id>" })
-\`\`\`
-
-Only if the Browse summary is insufficient.
-
-### Step 3 — Invoke
-
-\`\`\`
-CloudTextGenerate({
-  feature: "<feature-id>",
-  variant: "<variantId>",
-  inputs: { text: "..." },
-  params: { ... }
-})
-\`\`\`
-
-**Synchronous** — returns \`{ text, creditsConsumed }\` directly. No task polling.
-
-## When to Use
-
-- **OCR text** — when you have an image URL with text the user wants extracted (\`inputs: { image: "<url>" }\`). The chat model can read small inline images; use this only for batch extraction or high-accuracy needs.
-- **Summarization** — when the user wants a cloud summarizer for very long text that would be expensive to send through the main chat model.
-- **Structured extraction** — when a dedicated cloud extraction variant exists for the user's domain.
-
-**Don't use** for:
-- **Translation** — handled by the chat model, translate inline.
-- **Casual summary of short content** — chat model handles it for free.
-
-## Guidance
-
-- **Small text blocks**: prefer the chat model directly (zero credit cost).
-- **Large / structured text**: CloudTextGenerate is cheaper per token than heavy chat models.
-- **Pass exact text in \`inputs.text\`** — don't paraphrase or truncate before passing.
-- **Credits are consumed per call**, not per token — batch where possible.
+**不使用**：翻译（对话模型免费）、短文本摘要（对话模型直接处理）。
 `
 }
 
