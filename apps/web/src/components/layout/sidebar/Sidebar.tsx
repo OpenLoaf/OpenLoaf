@@ -23,7 +23,6 @@ import {
   SidebarMenuItem,
 } from "@openloaf/ui/sidebar";
 import { Blocks, Bot, CalendarDays, Clock, FolderClosed, LayoutDashboard, Mail, Palette, Search, Settings, Sparkles, Wand2 } from "lucide-react";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@openloaf/ui/tooltip";
 import { useAppState, getAppState } from "@/hooks/use-app-state";
 import { useLayoutState } from "@/hooks/use-layout-state";
 import { useSectionSnapshot, detectCurrentSection, type SectionKey } from "@/hooks/use-section-snapshot";
@@ -34,7 +33,7 @@ import {
   CONNECTIONS_TAB_INPUT,
   PROJECT_LIST_TAB_INPUT,
   SKILLS_TAB_INPUT,
-  TEMP_CHAT_TAB_INPUT,
+
   WORKBENCH_TAB_INPUT,
 } from "@openloaf/api/common";
 import { useGlobalOverlay } from "@/lib/globalShortcuts";
@@ -45,38 +44,30 @@ import { BOARD_VIEWER_COMPONENT, resolveLayoutViewState } from "@/hooks/layout-u
 import { isProjectWindowMode, isBoardWindowMode } from "@/lib/window-mode";
 import { openPrimaryPage, captureCurrentViewSnapshot, restoreViewSnapshot } from "@/lib/primary-page-navigation";
 
-const ICON_BTN_BASE =
-  "relative flex h-10 w-10 items-center justify-center rounded-3xl transition-colors duration-150 hover:bg-transparent active:bg-transparent data-[active=true]:bg-transparent [&>svg]:text-sidebar-foreground/60 hover:[&>svg]:text-sidebar-foreground data-[active=true]:[&>svg]:text-sidebar-accent-foreground";
-
 function IconNavItem({
   icon: Icon,
-  tooltip,
+  label,
   isActive = false,
   onClick,
 }: {
   icon: React.ComponentType<{ className?: string }>;
-  tooltip: string;
-  color?: string;
+  label: string;
   isActive?: boolean;
   onClick?: () => void;
 }) {
   return (
     <SidebarMenuItem>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <SidebarMenuButton
-            className={`${ICON_BTN_BASE} justify-center px-0`}
-            isActive={isActive}
-            onClick={onClick}
-            type="button"
-          >
-            <Icon className="h-5 w-5" />
-          </SidebarMenuButton>
-        </TooltipTrigger>
-        <TooltipContent side="right" sideOffset={8}>
-          {tooltip}
-        </TooltipContent>
-      </Tooltip>
+      <SidebarMenuButton
+        className="relative flex flex-col items-center justify-center w-full h-11 min-h-0! rounded-lg px-0 py-0 gap-0.5 transition-colors duration-150 hover:bg-transparent active:bg-transparent data-[active=true]:bg-transparent"
+        isActive={isActive}
+        onClick={onClick}
+        type="button"
+      >
+        <Icon className={`h-5 w-5 shrink-0 ${isActive ? 'text-sidebar-foreground' : 'text-sidebar-foreground/50'}`} />
+        <span className={`text-[8px] leading-normal font-medium truncate w-full text-center ${isActive ? 'text-sidebar-foreground/90' : 'text-sidebar-foreground/35'}`}>
+          {label}
+        </span>
+      </SidebarMenuButton>
     </SidebarMenuItem>
   );
 }
@@ -95,8 +86,8 @@ function SlidingIndicator({
   containerRef: React.RefObject<HTMLUListElement | null>;
 }) {
   const isVisible = activeIdx >= 0;
-  const stateRef = useRef({ wasVisible: false, lastY: 0 });
-  const [measuredY, setMeasuredY] = useState(0);
+  const stateRef = useRef({ wasVisible: false, lastY: 0, lastH: 0 });
+  const [measured, setMeasured] = useState({ y: 0, h: 0 });
 
   const measure = useCallback(() => {
     const container = containerRef.current;
@@ -106,7 +97,7 @@ function SlidingIndicator({
     );
     const item = items[activeIdx];
     if (!item) return;
-    setMeasuredY(item.offsetTop);
+    setMeasured({ y: item.offsetTop, h: item.offsetHeight });
   }, [activeIdx, containerRef]);
 
   useLayoutEffect(measure, [measure]);
@@ -119,36 +110,43 @@ function SlidingIndicator({
     return () => ro.disconnect();
   }, [containerRef, measure]);
 
-  const displayY = isVisible ? measuredY : stateRef.current.lastY;
+  const displayY = isVisible ? measured.y : stateRef.current.lastY;
+  const displayH = isVisible ? measured.h : stateRef.current.lastH;
   const shouldSlide = stateRef.current.wasVisible && isVisible;
 
   useEffect(() => {
     stateRef.current.wasVisible = isVisible;
-    if (isVisible) stateRef.current.lastY = measuredY;
+    if (isVisible) {
+      stateRef.current.lastY = measured.y;
+      stateRef.current.lastH = measured.h;
+    }
   });
 
   const transition = shouldSlide
-    ? "transform 300ms cubic-bezier(0.4, 0, 0.2, 1), opacity 200ms ease"
+    ? "transform 300ms cubic-bezier(0.4, 0, 0.2, 1), height 300ms cubic-bezier(0.4, 0, 0.2, 1), opacity 200ms ease"
     : "opacity 200ms ease";
 
   return (
     <>
-      {/* 背景高亮 — 用单一 transform 同时处理居中和 Y 偏移，避免与 Tailwind translate 冲突 */}
+      {/* 背景高亮 */}
       <div
-        className="pointer-events-none absolute z-0 w-10 h-10 rounded-3xl bg-sidebar-accent"
+        className="pointer-events-none absolute rounded-r-lg bg-sidebar-foreground/12"
         style={{
-          left: "50%",
-          transform: `translate(-50%, ${displayY}px)`,
+          left: 0,
+          right: 3,
+          height: displayH,
+          transform: `translateY(${displayY}px)`,
           opacity: isVisible ? 1 : 0,
           transition,
         }}
       />
-      {/* 左侧竖条（按钮内部左侧） */}
+      {/* 左侧竖条 */}
       <div
-        className="pointer-events-none absolute z-10 h-5 w-[3px] rounded-full bg-sidebar-foreground"
+        className="pointer-events-none absolute z-10 w-[4px] rounded-r-full bg-sidebar-foreground"
         style={{
-          left: "calc(50% - 20px)",
-          transform: `translateY(${displayY + 10}px)`,
+          left: 0,
+          height: displayH,
+          transform: `translateY(${displayY}px)`,
           opacity: isVisible ? 1 : 0,
           transition,
         }}
@@ -286,51 +284,54 @@ export const AppSidebar = ({
       className="top-(--header-height) h-[calc(100svh-var(--header-height))]! border-r-0!"
       {...props}
     >
-      <SidebarHeader className="items-center px-0 py-2">
+      <SidebarHeader className="items-center px-0 pt-2 pb-3">
         <CompactUserAvatar />
       </SidebarHeader>
 
       <SidebarContent className="items-center px-0 overflow-visible">
-        <SidebarMenu ref={contentMenuRef} className="relative items-center gap-1 px-1.5">
+        <SidebarMenu ref={contentMenuRef} className="relative items-center gap-1 px-0">
           <SlidingIndicator activeIdx={activeContentIdx} containerRef={contentMenuRef} />
           {/* Core */}
           <IconNavItem
             icon={Sparkles}
-            tooltip={t("aiAssistant")}
-            color="black"
+
+            label={t("aiAssistantShort")}
+
             isActive={isAiActive}
             onClick={() => handleSectionSwitch('chat', nav.openTempChat)}
           />
           <IconNavItem
             icon={Palette}
-            tooltip={t("smartCanvas")}
-            color="black"
+
+            label={t("smartCanvasShort")}
+
             isActive={isCanvasActive}
             onClick={() => handleSectionSwitch('canvas', () => openPrimaryPageTab({ ...CANVAS_LIST_TAB_INPUT }))}
           />
           <IconNavItem
             icon={FolderClosed}
-            tooltip={t("sidebarProjectSpace")}
-            color="black"
+
+            label={t("projectShort")}
+
             isActive={isProjectActive}
             onClick={() => handleSectionSwitch('project', () => openPrimaryPageTab({ ...PROJECT_LIST_TAB_INPUT }))}
           />
 
           {/* Separator */}
-          <div className="my-1 h-px w-6 bg-sidebar-border" />
+          <div className="my-1.5 h-px w-5 bg-sidebar-border" />
 
           {/* Tools */}
           <IconNavItem
             icon={LayoutDashboard}
-            tooltip={t("workbench")}
-            color="black"
+            label={t("workbenchShort")}
+
             isActive={!isInProject && (isWorkbenchActive || isMenuActive(WORKBENCH_TAB_INPUT))}
             onClick={() => openPrimaryPageTab({ ...WORKBENCH_TAB_INPUT })}
           />
           <IconNavItem
             icon={CalendarDays}
-            tooltip={t("calendar")}
-            color="black"
+            label={t("calendarShort")}
+
             isActive={!isInProject && isCalendarActive}
             onClick={() =>
               openPrimaryPageTab({ baseId: "base:calendar", component: "calendar-page", titleKey: "nav:calendar", icon: "🗓️" })
@@ -338,8 +339,8 @@ export const AppSidebar = ({
           />
           <IconNavItem
             icon={Mail}
-            tooltip={t("email")}
-            color="black"
+            label={t("emailShort")}
+
             isActive={!isInProject && isEmailActive}
             onClick={() =>
               openPrimaryPageTab({ baseId: "base:mailbox", component: "email-page", titleKey: "nav:email", icon: "📧" })
@@ -347,8 +348,8 @@ export const AppSidebar = ({
           />
           <IconNavItem
             icon={Clock}
-            tooltip={t("tasks")}
-            color="black"
+            label={t("tasksShort")}
+
             isActive={!isInProject && isTasksActive}
             onClick={() =>
               openPrimaryPageTab({ baseId: "base:scheduled-tasks", component: "scheduled-tasks-page", titleKey: "nav:tasks", icon: "⏰" })
@@ -357,40 +358,40 @@ export const AppSidebar = ({
         </SidebarMenu>
       </SidebarContent>
 
-      <SidebarFooter className="items-center px-0 py-2 gap-1">
-        <SidebarMenu ref={footerMenuRef} className="relative items-center gap-1 px-1.5">
+      <SidebarFooter className="items-center px-0 pt-1 pb-5 gap-0">
+        <SidebarMenu ref={footerMenuRef} className="relative items-center gap-1 px-0">
           <SlidingIndicator activeIdx={activeFooterIdx} containerRef={footerMenuRef} />
           <IconNavItem
             icon={Search}
-            tooltip={`${t("search")} (⌘K)`}
-            color="black"
+            label={t("searchShort")}
+
             onClick={() => setSearchOpen(true)}
           />
           <IconNavItem
             icon={Blocks}
-            tooltip={t("connections")}
-            color="black"
+            label={t("connectionsShort")}
+
             isActive={!isInProject && isConnectionsActive}
             onClick={() => openPrimaryPageTab({ ...CONNECTIONS_TAB_INPUT, preserveCurrentView: true })}
           />
           <IconNavItem
             icon={Bot}
-            tooltip={t("agents")}
-            color="black"
+            label={t("agentsShort")}
+
             isActive={!isInProject && isAgentsActive}
             onClick={() => openPrimaryPageTab({ ...AGENTS_TAB_INPUT, preserveCurrentView: true })}
           />
           <IconNavItem
             icon={Wand2}
-            tooltip={t("skills")}
-            color="black"
+            label={t("skillsShort")}
+
             isActive={!isInProject && isSkillsActive}
             onClick={() => openPrimaryPageTab({ ...SKILLS_TAB_INPUT, preserveCurrentView: true })}
           />
           <IconNavItem
             icon={Settings}
-            tooltip={t("settings")}
-            color="black"
+            label={t("settingsShort")}
+
             isActive={isSettingsActive}
             onClick={() => {
               // Sidebar 中的设置按钮始终打开全局设置，不跟随项目上下文

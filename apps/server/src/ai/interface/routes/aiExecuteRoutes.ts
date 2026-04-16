@@ -76,7 +76,7 @@ function parseAiExecuteRequest(body: unknown): { request?: AiExecuteRequest; err
     ? raw.chatModelSource
     : undefined;
 
-  // temperature: 仅 dev 模式下允许客户端覆盖（chat-probe 等自动化测试零温度保证可重复）。
+  // temperature: 仅 dev 模式下允许客户端覆盖（ai-browser-test 等自动化测试零温度保证可重复）。
   // 生产构建静默丢弃，避免外部客户端调用 /ai/chat 时影响线上模型行为。
   const temperature =
     process.env.NODE_ENV !== "production" &&
@@ -115,6 +115,7 @@ function parseAiExecuteRequest(body: unknown): { request?: AiExecuteRequest; err
       autoApproveTools: raw.autoApproveTools === true ? true : undefined,
       pageContext: normalizePageContext(raw.pageContext),
       temperature,
+      title: toText(raw.title) || undefined,
     },
   };
 }

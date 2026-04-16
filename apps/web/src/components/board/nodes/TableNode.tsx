@@ -85,10 +85,10 @@ function cellKey(rowIdx: number, colIdx: number) {
 // Default table factory
 // ---------------------------------------------------------------------------
 
-function createDefaultTable(cols = 3, rows = 3): TableNodeProps {
+function createDefaultTable(cols = 4, rows = 3): TableNodeProps {
   const columns: TableColumn[] = Array.from({ length: cols }, () => ({
     id: nanoid(8),
-    width: 120,
+    width: 90,
   }))
   const makeRow = (isHeader: boolean): TableRow => ({
     id: nanoid(8),
@@ -301,7 +301,7 @@ const TableCellView = memo(function TableCellView({
 
   const cellCls = cn(
     'relative min-h-[28px] px-2 py-1 text-xs outline-none select-none overflow-hidden',
-    'transition-colors duration-100',
+    'transition-colors duration-100 bg-background',
     isHeader && 'font-semibold bg-muted/60 dark:bg-muted/40',
     variant === 'bordered' && 'border border-border/60',
     isSelected && !isEditing && 'ring-2 ring-inset ring-ol-blue/50',
@@ -549,8 +549,8 @@ export function TableNodeView({ element, selected, editing, onUpdate }: CanvasNo
   // ---- Styling ----
 
   const tableContainerCls = cn(
-    'board-text-scrollbar h-full w-full overflow-auto rounded-2xl border border-border/60 box-border',
-    'bg-background/95',
+    'board-text-scrollbar h-full w-full overflow-auto rounded-2xl box-border',
+    'bg-ol-surface-muted',
   )
 
   const tableCls = cn('border-collapse text-xs')
@@ -697,7 +697,7 @@ export const TableNodeDefinition: CanvasNodeDefinition<TableNodeProps> = {
     showHeader: z.boolean(),
     variant: z.enum(['default', 'striped', 'bordered']),
   }),
-  defaultProps: createDefaultTable(3, 4),
+  defaultProps: createDefaultTable(4, 4),
   view: TableNodeView,
   capabilities: {
     resizable: true,

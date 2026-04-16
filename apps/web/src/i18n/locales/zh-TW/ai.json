@@ -146,6 +146,7 @@
     "PptxMutate": "PPTX 操作",
     "PdfQuery": "PDF 查詢",
     "PdfMutate": "PDF 操作",
+    "DocPreview": "文件預覽",
     "Bash": "終端命令",
     "shell-command": "終端命令",
     "Read": "讀取檔案",

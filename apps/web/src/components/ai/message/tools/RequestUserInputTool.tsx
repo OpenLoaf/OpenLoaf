@@ -136,6 +136,7 @@ function QuestionField({
         <select
           value={value}
           disabled={disabled}
+          data-testid={`user-input-field-${question.key}`}
           className={cn(
             'h-8 w-full rounded-md border bg-transparent px-2.5 text-xs text-foreground',
             'outline-none focus-visible:border-foreground/30',
@@ -167,6 +168,7 @@ function QuestionField({
           disabled={disabled}
           rows={3}
           maxLength={question.maxLength}
+          data-testid={`user-input-field-${question.key}`}
           className={cn(
             'w-full rounded-md border bg-transparent px-2.5 py-2 text-xs text-foreground',
             'outline-none placeholder:text-muted-foreground focus-visible:border-foreground/30',
@@ -197,6 +199,7 @@ function QuestionField({
         placeholder={placeholderText}
         disabled={disabled}
         maxLength={question.maxLength}
+        data-testid={`user-input-field-${question.key}`}
         className={cn(
           'h-8 w-full rounded-md border bg-transparent px-2.5 text-xs text-foreground',
           'outline-none placeholder:text-muted-foreground focus-visible:border-foreground/30',
@@ -259,6 +262,8 @@ function ChoiceStep({
               type="button"
               disabled={disabled}
               onClick={() => handleToggle(opt.label)}
+              data-testid={`user-input-choice-${idx}`}
+              data-choice-label={opt.label}
               className={cn(
                 styles.choiceOption,
                 isSelected && styles.choiceOptionSelected,
@@ -827,6 +832,7 @@ export default function RequestUserInputTool({
   return (
     <Tool
       open
+      data-testid="user-input-tool"
       className={cn(
         'max-w-md min-w-0 text-xs overflow-hidden rounded-lg border border-border/60 bg-card text-foreground',
         className,
@@ -917,6 +923,7 @@ export default function RequestUserInputTool({
                 disabled={isActionDisabled}
                 onClick={handleSkip}
                 className={cn(styles.actionButton, styles.secondaryButton)}
+                data-testid="user-input-skip"
               >
                 {t('userInput.skip')}
               </button>
@@ -925,6 +932,7 @@ export default function RequestUserInputTool({
                 disabled={isActionDisabled}
                 onClick={handleSubmit}
                 className={cn(styles.actionButton, styles.primaryButton)}
+                data-testid="user-input-confirm"
               >
                 {isSubmitting ? t('userInput.confirming') : t('userInput.confirm')}
               </button>

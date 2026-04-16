@@ -140,9 +140,9 @@ function LocalMediaPreview({ file, kind }: { file: SavedFile; kind: MediaKind })
       const name = file.fileName ?? shortPath(file.filePath)
       const entry = createFileEntryFromUri({ uri: openUri, name })
       if (!entry) return
-      openFile({ entry, tabId, projectId: projectId ?? undefined, rootUri: projectRootUri })
+      openFile({ entry, tabId, projectId: projectId ?? undefined, sessionId, rootUri: projectRootUri })
     },
-    [file.filePath, file.absolutePath, file.fileName, tabId, projectId, projectRootUri],
+    [file.filePath, file.absolutePath, file.fileName, tabId, projectId, sessionId, projectRootUri],
   )
 
   const handleSaveToComputer = React.useCallback(async () => {

@@ -74,7 +74,7 @@ export type ChatSessionSummary = {
   projectIcon: string | null
   /** Session message count. */
   messageCount: number
-  /** 由外部探针（chat-probe 等）写入 session.json 的自动化测试标记。 */
+  /** 由外部探针（ai-browser-test 等）写入 session.json 的自动化测试标记。 */
   autoTest: boolean
   /** EVALUATION.json 里的 aggregate.score；未评审为 null。 */
   autoTestScore: number | null
@@ -608,7 +608,7 @@ export const chatRouter = t.router({
     }),
 
   /**
-   * 读取自动化探针（chat-probe 等）写入的 EVALUATION.json。
+   * 读取自动化探针（ai-browser-test 等）写入的 EVALUATION.json。
    * 真实实现在 server chat router 覆写，此处仅提供 tRPC 类型骨架。
    */
   getAutoTestEvaluation: shieldedProcedure

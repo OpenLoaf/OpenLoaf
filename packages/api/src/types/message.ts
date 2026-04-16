@@ -165,13 +165,13 @@ export type ChatRequestBody = {
   chatModelSource?: ChatModelSource;
   /**
    * 模型采样温度（0-2）。仅在开发模式（NODE_ENV !== 'production'）下生效，
-   * 用于 chat-probe 等自动化测试以零温度保证结果可重复。生产构建静默忽略。
+   * 用于 ai-browser-test 等自动化测试以零温度保证结果可重复。生产构建静默忽略。
    */
   temperature?: number;
 };
 
 /**
- * 自动化探针元数据（从 session.json 派生，chat-probe runner 写入）。
+ * 自动化探针元数据（从 session.json 派生，ai-browser-test runner 写入）。
  * 后端只读不写——probe runner 在 chat-history/<sessionId>/session.json 里追加。
  */
 export interface ProbeMeta {
@@ -183,7 +183,7 @@ export interface ProbeMeta {
   startedAt: string;
 }
 
-/** Auto-test evaluation verdict from chat-probe evaluator subagent. */
+/** Auto-test evaluation verdict from ai-browser-test evaluator subagent. */
 export type AutoTestVerdict = 'PASS' | 'FAIL' | 'PARTIAL';
 
 export interface AutoTestEvaluationEvidence {
@@ -214,8 +214,8 @@ export interface AutoTestEvaluationAggregate {
 }
 
 /**
- * EVALUATION.json schema (chat-probe evaluator output).
- * 由 chat-probe skill 的评审子 agent 写入 `<sessionDir>/EVALUATION.json`。
+ * EVALUATION.json schema (ai-browser-test evaluator output).
+ * 由 ai-browser-test skill 的评审子 agent 写入 `<sessionDir>/EVALUATION.json`。
  */
 export interface AutoTestEvaluation {
   version: 1;

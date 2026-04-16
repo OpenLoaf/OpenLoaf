@@ -50,6 +50,8 @@ lerna-debug.log*
 coverage
 .nyc_output
 .behavior-test-output.json
+apps/web/browser-screenshots/
+apps/web/src/test/browser/__tests__/*.png
 
 # Misc
 *.tgz

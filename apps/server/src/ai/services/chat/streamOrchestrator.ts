@@ -156,7 +156,7 @@ type ChatStreamResponseInput = {
   /** bg-drain turn: push a branch-snapshot before AI starts so the
    *  frontend sees the rewritten notification message immediately. */
   isBgDrain?: boolean;
-  /** 模型采样温度（0-2）；dev-only，仅 chat-probe 等自动化测试使用。 */
+  /** 模型采样温度（0-2）；dev-only，仅 ai-browser-test 等自动化测试使用。 */
   temperature?: number;
 };
 

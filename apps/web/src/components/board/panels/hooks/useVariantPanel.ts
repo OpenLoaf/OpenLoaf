@@ -119,7 +119,27 @@ export function useVariantPanel(options: VariantPanelOptions): VariantPanelState
     error: capsError,
     refresh: capsRefresh,
   } = useCapabilities(category)
-  const features = capabilities?.features ?? []
+  const ownFeatures = capabilities?.features ?? []
+
+  // ── Cross-category: text features that produce this category's media type ──
+  // For empty nodes (no nodeMediaType), look in text capabilities for features
+  // whose variants have resultType matching this panel's category (e.g. image).
+  const needTextCross = category !== 'text' && !nodeMediaType
+  const { data: textCapabilities } = useCapabilities('text')
+
+  const features = useMemo(() => {
+    if (!needTextCross || !textCapabilities?.features?.length) return ownFeatures
+    // Filter text features: keep only variants whose resultType matches category
+    const crossFeatures: V3Feature[] = []
+    for (const feat of textCapabilities.features) {
+      const matchingVariants = feat.variants.filter((v) => v.resultType === category)
+      if (matchingVariants.length > 0) {
+        crossFeatures.push({ ...feat, variants: matchingVariants })
+      }
+    }
+    if (!crossFeatures.length) return ownFeatures
+    return [...crossFeatures, ...ownFeatures]
+  }, [needTextCross, textCapabilities?.features, ownFeatures, category])
 
   // ── Feature & variant selection ──
   const [selectedFeatureId, setSelectedFeatureId] = useState(initialFeatureId ?? '')

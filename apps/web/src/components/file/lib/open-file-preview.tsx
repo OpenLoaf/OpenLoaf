@@ -67,10 +67,12 @@ export function renderFilePreviewContent(input: {
   rootUri?: string;
   /** Project id for file access. */
   projectId?: string;
+  /** Chat session id — required when entry.uri uses ${CURRENT_CHAT_DIR} template. */
+  sessionId?: string;
   /** Whether preview should be read-only. */
   readOnly?: boolean;
 }): ReactNode {
-  const { entry, rootUri, projectId, readOnly } = input;
+  const { entry, rootUri, projectId, sessionId, readOnly } = input;
   const displayName = resolvePreviewDisplayName(entry);
   const ext = getEntryExt(entry);
 
@@ -209,6 +211,7 @@ export function renderFilePreviewContent(input: {
             openUri={entry.uri}
             name={displayName}
             projectId={projectId}
+            sessionId={sessionId}
             rootUri={rootUri}
           />
         </Suspense>
@@ -222,6 +225,7 @@ export function renderFilePreviewContent(input: {
             name={displayName}
             ext={ext}
             projectId={projectId}
+            sessionId={sessionId}
             rootUri={rootUri}
           />
         </Suspense>

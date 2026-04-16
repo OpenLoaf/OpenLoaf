@@ -198,7 +198,7 @@ function LinkUrlInput({
 
   return (
     <div
-      className="flex h-full w-full items-center gap-2 rounded-3xl border border-border bg-card px-3"
+      className="flex h-full w-full items-center gap-2 rounded-3xl bg-ol-surface-muted px-3"
       data-board-editor
       onPointerDown={(e) => e.stopPropagation()}
     >

@@ -15,6 +15,7 @@ import { getOpenLoafRootDir } from "@openloaf/config";
 import { t, shieldedProcedure } from "../../generated/routers/helpers/createRouter";
 import { createBoardId } from "../common/boardId";
 import {
+  BOARD_ASSET_DIR,
   BOARD_FOLDER_PREFIX,
   BOARD_FOLDER_PREFIX_LEGACY,
   buildBoardFolderUri,
@@ -390,6 +391,21 @@ export const boardRouter = t.router({
           folderUri,
         },
       });
+
+      // 逻辑：在磁盘上预创建画布目录、asset 子目录和 meta 文件，
+      // 避免前端打开时 fs.readFile meta 报 NOT_FOUND ERROR 日志。
+      try {
+        const boardDir = resolveBoardDir(rootPath, boardId);
+        await fs.mkdir(path.join(boardDir, BOARD_ASSET_DIR), { recursive: true });
+        const docId = `${Date.now()}_${crypto.randomUUID().slice(0, 8)}`;
+        await fs.writeFile(
+          path.join(boardDir, "index.tnboard.meta.json"),
+          JSON.stringify({ docId }, null, 2),
+          "utf-8",
+        );
+      } catch {
+        // 目录/文件创建失败不阻断画布创建主流程。
+      }
 
       try {
         await recordEntityVisit(ctx.prisma, {

@@ -134,7 +134,7 @@ function ChatHeaderInner({
     return current?.title?.trim() || "";
   }, [activeSessionId, sessions]);
 
-  // chat-probe 自动测试标记：单独用 getSession 查询（listSessions 返回不含 autoTest 字段）。
+  // ai-browser-test 自动测试标记：单独用 getSession 查询（listSessions 返回不含 autoTest 字段）。
   const activeSessionMetaQuery = useQuery({
     ...trpc.chat.getSession.queryOptions(
       activeSessionId ? { sessionId: activeSessionId } : skipToken,
@@ -144,7 +144,7 @@ function ChatHeaderInner({
   });
   const isAutoTestSession = Boolean(activeSessionMetaQuery.data?.autoTest);
 
-  // chat-probe 自动测试评分（读取 EVALUATION.json），只在标记为 autoTest 的会话上拉取。
+  // ai-browser-test 自动测试评分（读取 EVALUATION.json），只在标记为 autoTest 的会话上拉取。
   const autoTestEvalQuery = useQuery({
     ...trpc.chat.getAutoTestEvaluation.queryOptions(
       activeSessionId ? { sessionId: activeSessionId } : skipToken,

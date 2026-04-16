@@ -20,7 +20,6 @@ import { DEFAULT_NODE_SIZE } from "../engine/constants";
 import {
   BOARD_TEXT_AUXILIARY,
   BOARD_TEXT_PRIMARY,
-  BOARD_TEXT_SECONDARY,
 } from "../ui/board-style-system";
 
 interface BoardEmptyGuideProps {
@@ -230,24 +229,6 @@ const BoardEmptyGuide = memo(function BoardEmptyGuide({
           : "invisible opacity-0",
       )}
     >
-      {/* ── Skip link (top-right) ── */}
-      <button
-        type="button"
-        onPointerDown={(e) => {
-          e.stopPropagation();
-          handleSkip();
-        }}
-        className={cn(
-          "absolute right-6 top-6 select-none rounded-full px-3 py-1.5 text-xs",
-          "transition-colors duration-150",
-          "hover:bg-foreground/8 dark:hover:bg-foreground/12",
-          BOARD_TEXT_SECONDARY,
-          isSelectTool ? "pointer-events-auto" : "pointer-events-none",
-        )}
-      >
-        {t("emptyGuide.skip")} →
-      </button>
-
       {/* ── Centered chat input + heading + examples ── */}
       <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-6 px-6 -mt-12">
         <div className="flex flex-col items-center gap-2 select-none">
@@ -270,7 +251,7 @@ const BoardEmptyGuide = memo(function BoardEmptyGuide({
           <div
             className={cn(
               "flex flex-col gap-2 rounded-3xl px-5 py-4",
-              "border border-border/70 bg-foreground/[0.04] backdrop-blur-md",
+              "border border-border/70 bg-background backdrop-blur-md",
               "shadow-[0_12px_40px_-12px_rgba(0,0,0,0.5)]",
               "transition-colors duration-150",
               "focus-within:border-border",

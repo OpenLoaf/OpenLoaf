@@ -51,7 +51,7 @@ export interface Session {
   pinned?: boolean;
   /** Whether the session has layer history. */
   hasLayers?: boolean;
-  /** chat-probe 自动测试会话标记。 */
+  /** ai-browser-test 自动测试会话标记。 */
   autoTest?: boolean;
   /** 自动测试评审聚合分数。 */
   autoTestScore?: number | null;

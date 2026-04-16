@@ -12,7 +12,6 @@ import type { BuiltinSkill } from './types'
 import { parseFrontMatter, stripFrontMatter } from '@/ai/shared/frontMatterUtils'
 
 // 静态导入所有 SKILL.md（esbuild/tsdown .md: "text" 内联）
-import fileOpsMd from './file-ops/SKILL.md'
 import emailOpsMd from './email-ops/SKILL.md'
 import calendarOpsMd from './calendar-ops/SKILL.md'
 import scheduleOpsMd from './schedule-ops/SKILL.md'
@@ -50,7 +49,6 @@ function buildSkill(override: BuiltinSkillOverride): BuiltinSkill {
 }
 
 export const BUILTIN_SKILLS: BuiltinSkill[] = [
-  buildSkill({ md: fileOpsMd, icon: '📄', colorIndex: 1 }),
   buildSkill({ md: emailOpsMd, icon: '📧', colorIndex: 2 }),
   buildSkill({ md: calendarOpsMd, icon: '📅', colorIndex: 3 }),
   buildSkill({ md: scheduleOpsMd, icon: '⏰', colorIndex: 4 }),

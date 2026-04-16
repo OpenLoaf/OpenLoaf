@@ -63,6 +63,8 @@ Format handling:
 - Image / Video / Audio → local metadata only (dimensions / bytes). Read will NOT call any paid SaaS understanding — the response includes a <suggest skill="cloud-media-skill"> hint; to OCR / transcribe / caption media, SkillLoad cloud-media-skill and follow its playbook.
 - Directories → not supported; use Glob or Bash ls
 
+Large-file caution: default returns the first 2000 lines — excess is silently truncated (you see incomplete content but think it is complete). For large files, Grep to locate the target line first, then Read with offset/limit to fetch only the relevant slice.
+
 file_path must be absolute or resolvable from the project root.`,
   parameters: z.object({
     file_path: z.string().min(1).describe("Absolute or project-relative path."),
@@ -79,7 +81,8 @@ export const editToolDef = {
   description: `Perform an exact string replacement in a file.
 
 - You must Read the file at least once before editing it.
-- old_string must be unique — expand context to make it unique, or use replace_all.
+- old_string must match the file content byte-for-byte (including whitespace, indentation, newlines). Writing old_string from memory is the #1 cause of failure — always copy from a fresh Read.
+- old_string must be unique in the file. If multiple matches exist, include surrounding lines for disambiguation, or set replace_all: true when every occurrence should change.
 - old_string and new_string must differ.
 - Prefer Edit over Write when modifying existing files.`,
   parameters: z.object({
@@ -111,7 +114,7 @@ export const editDocumentToolDef = {
   readonly: false,
   name: "Edit Document",
   description:
-    "Write the full updated MDX content to a document's `index.mdx` (inside a `tndoc_` folder). Use when the user asks to modify a document; for regular files use Write.",
+    "Write the full updated MDX content to a document's `index.mdx` (inside a `tndoc_` folder). This is a full overwrite, not a diff — you must provide the complete MDX body. Read the document first to get its current content, modify as needed, then write the entire result. For regular files use Edit/Write instead.",
   parameters: z.object({
     path: z.string().min(1).describe("Document folder or index.mdx path (relative to project / global root)."),
     content: z.string().describe("Full updated MDX content."),

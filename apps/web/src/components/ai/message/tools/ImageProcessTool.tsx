@@ -57,7 +57,7 @@ function toRelativePath(absPath: string, rootUri?: string): string {
 
 function ImagePreview({ filePath }: { filePath: string }) {
   const [objectUrl, setObjectUrl] = React.useState<string | null>(null)
-  const { projectId, tabId } = useChatSession()
+  const { projectId, tabId, sessionId } = useChatSession()
   const projectQuery = useProject(projectId)
   const projectRootUri = projectQuery.data?.project?.rootUri ?? undefined
 
@@ -68,9 +68,9 @@ function ImagePreview({ filePath }: { filePath: string }) {
       const name = filePath.replace(/\\/g, '/').split('/').filter(Boolean).pop() ?? filePath
       const entry = createFileEntryFromUri({ uri: filePath, name })
       if (!entry) return
-      openFile({ entry, tabId, projectId: projectId ?? undefined, rootUri: projectRootUri })
+      openFile({ entry, tabId, projectId: projectId ?? undefined, sessionId, rootUri: projectRootUri })
     },
-    [filePath, tabId, projectId, projectRootUri],
+    [filePath, tabId, projectId, sessionId, projectRootUri],
   )
 
   React.useEffect(() => {

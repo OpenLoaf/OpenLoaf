@@ -79,6 +79,7 @@ export const masterTemplate: AgentTemplate = {
     // document
     'EditDocument',
     // office
+    'DocPreview',
     'ExcelQuery',
     'ExcelMutate',
     'WordQuery',

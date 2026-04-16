@@ -224,6 +224,7 @@ export default function MessageFile({ url, mediaType, title, className }: Messag
           openFilePreview({
             entry,
             projectId,
+            sessionId,
             rootUri: projectRootUri,
             mode: "modal",
             modal: {

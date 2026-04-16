@@ -453,12 +453,26 @@ export function ImageAiPanel({
   // ── Node resource descriptor for InputSlotBar ──
   // In editing mode the current node's own source should NOT auto-fill slots;
   // it is the output being re-generated, not an input reference.
+  // Instead it appears in the "unassigned" tray via extraAssociated so the
+  // user can manually drag it into a slot (e.g. imageEdit).
   const nodeResource = useMemo(() => {
     if (editing) return undefined
     const path = element.props.originalSrc
     if (!path) return undefined
     return { type: 'image' as const, path, url: resolvedImageSrc }
   }, [element.props.originalSrc, resolvedImageSrc, editing])
+
+  const nodeExtraAssociated = useMemo<MediaReference[] | undefined>(() => {
+    if (!editing) return undefined
+    const path = element.props.originalSrc
+    if (!path) return undefined
+    return [{
+      nodeId: '__self__',
+      nodeType: 'image',
+      url: resolvedImageSrc ?? path,
+      path,
+    }]
+  }, [editing, element.props.originalSrc, resolvedImageSrc])
 
   const variantUpstream = useMemo(() => ({
     textContent: upstreamText,
@@ -509,6 +523,7 @@ export function ImageAiPanel({
           upstream={rawUpstream ?? { textList: [], imageList: [], videoList: [], audioList: [], entries: [] }}
           fileContext={fileContext}
           nodeResource={nodeResource}
+          extraAssociated={nodeExtraAssociated}
           disabled={readonly && !editing}
           cachedAssignment={effectiveSnapshot?.slotAssignment as PersistedSlotMap | undefined}
           cachedUserTexts={effectiveSnapshot?.userTexts}

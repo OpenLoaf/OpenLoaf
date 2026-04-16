@@ -10,6 +10,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslation } from 'react-i18next'
 import { CheckCircle2Icon, FileTextIcon, LoaderCircleIcon, XCircleIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useChatSession } from '@/components/ai/context'
@@ -74,7 +75,8 @@ export default function DocPreviewTool({
   const progressDone = tp?.status === 'done'
   const progressError = tp?.status === 'error'
 
-  const { projectId, tabId } = useChatSession()
+  const { t } = useTranslation('ai')
+  const { projectId, tabId, sessionId } = useChatSession()
   const projectQuery = useProject(projectId)
   const projectRootUri = projectQuery.data?.project?.rootUri ?? undefined
 
@@ -87,9 +89,9 @@ export default function DocPreviewTool({
       if (!filePath) return
       const entry = createFileEntryFromUri({ uri: filePath, name: displayName })
       if (!entry) return
-      openFile({ entry, tabId, projectId: projectId ?? undefined, rootUri: projectRootUri })
+      openFile({ entry, tabId, projectId: projectId ?? undefined, sessionId, rootUri: projectRootUri })
     },
-    [filePath, displayName, tabId, projectId, projectRootUri],
+    [filePath, displayName, tabId, projectId, sessionId, projectRootUri],
   )
 
   const modeTag = mode === 'full' ? 'full' : 'preview'
@@ -122,7 +124,7 @@ export default function DocPreviewTool({
               className="shrink-0 cursor-pointer text-xs font-medium text-muted-foreground hover:text-foreground hover:underline"
               onClick={handleOpen}
             >
-              DocPreview
+              {t('toolNames.DocPreview', { defaultValue: 'DocPreview' })}
             </span>
             {inlineText ? (
               <span className="min-w-0 truncate font-mono text-xs text-muted-foreground/50">

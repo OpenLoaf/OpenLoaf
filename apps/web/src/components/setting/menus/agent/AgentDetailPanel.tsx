@@ -16,45 +16,27 @@ import { useStackPanelSlot } from '@/hooks/use-stack-panel-slot'
 import { Button } from '@openloaf/ui/button'
 import { Input } from '@openloaf/ui/input'
 import { Textarea } from '@openloaf/ui/textarea'
-import { Switch } from '@openloaf/ui/switch'
 import { Checkbox } from '@openloaf/ui/checkbox'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@openloaf/ui/tabs'
 import { OpenLoafSettingsCard } from '@openloaf/ui/openloaf/OpenLoafSettingsCard'
 import { FilterTab } from '@openloaf/ui/filter-tab'
 import {
   Bot,
-  Blocks,
-  Calendar,
   Check,
   Cloud,
-  Code,
   Edit3,
-  FileSearch,
-  FilePen,
   FolderOpen,
-  Globe,
   HardDrive,
   HelpCircle,
-  ChevronDown,
-  Image,
-  LayoutGrid,
-  Link,
-  Mail,
   Save,
   ScrollText,
-  Settings,
   Sparkles,
-  Terminal,
-  FolderKanban,
-  Users,
-  Video,
   Gauge,
   MessageSquare,
   Trash2,
   Eye,
   PencilLine,
 } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
 import { Streamdown, defaultRemarkPlugins, type StreamdownProps } from 'streamdown'
 import { code } from '@streamdown/code'
 import { toast } from 'sonner'
@@ -79,7 +61,6 @@ import {
 import { getModelLabel } from '@/lib/model-registry'
 import { ModelCheckboxItem } from '@/components/ai/input/model-preferences/ModelCheckboxItem'
 import { ModelIcon } from '@/components/setting/menus/provider/ModelIcon'
-import type { AiModel } from '@openloaf-saas/sdk'
 import type { ProviderModelOption } from '@/lib/provider-models'
 import { useTranslation } from 'react-i18next'
 
@@ -92,43 +73,6 @@ const PROMPT_SHIKI_THEME: NonNullable<StreamdownProps['shikiTheme']> = [
 /** Streamdown remark 插件列表。 */
 const PROMPT_REMARK_PLUGINS = Object.values(defaultRemarkPlugins)
 
-/** 能力组 ID → 彩色图标映射 */
-const CAP_ICON_MAP: Record<string, { icon: LucideIcon; className: string }> = {
-  browser: { icon: Globe, className: 'text-foreground' },
-  'file-read': { icon: FileSearch, className: 'text-foreground' },
-  'file-write': { icon: FilePen, className: 'text-foreground' },
-  shell: { icon: Terminal, className: 'text-muted-foreground' },
-  email: { icon: Mail, className: 'text-foreground' },
-  calendar: { icon: Calendar, className: 'text-foreground' },
-  office: { icon: Edit3, className: 'text-foreground' },
-  'image-generate': { icon: Image, className: 'text-foreground' },
-  'video-generate': { icon: Video, className: 'text-foreground' },
-  widget: { icon: LayoutGrid, className: 'text-foreground' },
-  project: { icon: FolderKanban, className: 'text-foreground' },
-  web: { icon: Link, className: 'text-foreground' },
-  agent: { icon: Users, className: 'text-foreground' },
-  'code-interpreter': { icon: Code, className: 'text-foreground' },
-  system: { icon: Settings, className: 'text-muted-foreground' },
-}
-
-/** 能力组 ID → 扁平 pastel 背景色映射 */
-const CAP_BG_MAP: Record<string, string> = {
-  browser: 'bg-secondary',
-  'file-read': 'bg-secondary',
-  'file-write': 'bg-secondary',
-  shell: 'bg-secondary',
-  email: 'bg-secondary',
-  calendar: 'bg-secondary',
-  office: 'bg-secondary',
-  'image-generate': 'bg-secondary',
-  'video-generate': 'bg-secondary',
-  widget: 'bg-secondary',
-  project: 'bg-secondary',
-  web: 'bg-secondary',
-  agent: 'bg-secondary',
-  'code-interpreter': 'bg-secondary',
-  system: 'bg-secondary',
-}
 
 type AgentDetailPanelProps = {
   agentPath?: string
@@ -140,19 +84,6 @@ type AgentDetailPanelProps = {
   panelKey?: string
 }
 
-type CapabilityGroup = {
-  id: string
-  label: string
-  description: string
-  toolIds: string[]
-  tools: CapabilityTool[]
-}
-
-type CapabilityTool = {
-  id: string
-  label: string
-  description: string
-}
 
 type SkillSummary = {
   name: string
@@ -430,13 +361,12 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
   const [thinkingMode, setThinkingMode] = useState<ThinkingMode>('fast')
   const [localChatSource, setLocalChatSource] = useState<'local' | 'cloud'>('local')
   const [toolIds, setToolIds] = useState<string[]>([])
-  const [expandedGroupIds, setExpandedGroupIds] = useState<string[]>([])
   const [skills, setSkills] = useState<string[]>([])
   const [allowSubAgents, setAllowSubAgents] = useState(false)
   const [maxDepth, setMaxDepth] = useState(1)
   const [systemPrompt, setSystemPrompt] = useState('')
   const [promptPreview, setPromptPreview] = useState(true)
-  const [activeConfigTab, setActiveConfigTab] = useState('capabilities')
+  const [activeConfigTab, setActiveConfigTab] = useState('skills')
   const [loginOpen, setLoginOpen] = useState(false)
   const [defaultSnapshot, setDefaultSnapshot] = useState('')
 
@@ -565,69 +495,6 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
     })
   }, [agentPath, pushStackItem, name, scope, projectId])
 
-  // 逻辑：加载能力组列表。
-  const capGroupsQuery = useQuery(
-    trpc.settings.getCapabilityGroups.queryOptions(),
-  )
-  const capGroups = (capGroupsQuery.data ?? []) as CapabilityGroup[]
-  const visibleCapGroups = useMemo(
-    () =>
-      capGroups.filter(
-        (group) =>
-          !['image-generate', 'video-generate', 'agent'].includes(group.id),
-      ),
-    [capGroups],
-  )
-  const toolIdSet = useMemo(() => new Set(toolIds), [toolIds])
-  const expandedGroupSet = useMemo(
-    () => new Set(expandedGroupIds),
-    [expandedGroupIds],
-  )
-  const expandInitRef = useRef(false)
-  const isGroupEnabled = useCallback(
-    (group: CapabilityGroup) => {
-      const groupToolIds = group.tools?.length
-        ? group.tools.map((tool) => tool.id)
-        : group.toolIds
-      return groupToolIds.some((toolId) => toolIdSet.has(toolId))
-    },
-    [toolIdSet],
-  )
-  const enabledCapGroups = useMemo(
-    () => visibleCapGroups.filter((group) => isGroupEnabled(group)),
-    [isGroupEnabled, visibleCapGroups],
-  )
-  const disabledCapGroups = useMemo(
-    () => visibleCapGroups.filter((group) => !isGroupEnabled(group)),
-    [isGroupEnabled, visibleCapGroups],
-  )
-  const capGroupToolMap = useMemo(
-    () => new Map(capGroups.map((group) => [group.id, group.toolIds])),
-    [capGroups],
-  )
-  const defaultToolIds = useMemo(() => {
-    const collected: string[] = []
-    for (const group of capGroups) {
-      if (group.id === 'agent' && !isMasterAgent) continue
-      collected.push(...group.toolIds)
-    }
-    // 中文注释：默认全组选中（主助手保留子 Agent 工具）。
-    return Array.from(
-      new Set(collected.map((id) => id.trim()).filter(Boolean)),
-    )
-  }, [capGroups, isMasterAgent])
-
-  const canInitExpand = useMemo(
-    () => capGroups.length > 0 && (!isNew || toolIds.length > 0),
-    [capGroups.length, isNew, toolIds.length],
-  )
-
-  useEffect(() => {
-    if (expandInitRef.current || !canInitExpand) return
-    setExpandedGroupIds(enabledCapGroups.map((group) => group.id))
-    expandInitRef.current = true
-  }, [canInitExpand, enabledCapGroups])
-
   // 逻辑：加载技能列表用于关联选择。
   const skillsQuery = useQuery(
     trpc.settings.getSkills.queryOptions(projectId ? { projectId } : undefined),
@@ -713,11 +580,6 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
   useEffect(() => {
     if (!isNew) return
     if (savedSnapshotRef.current && isDirtyRef.current) return
-    const baseToolIds =
-      toolIds.length > 0 ? toolIds : defaultToolIds
-    if (toolIds.length === 0 && baseToolIds.length > 0) {
-      setToolIds(baseToolIds)
-    }
     setAuxiliaryModelSource(normalizeChatModelSource(basic.chatSource))
     setLocalChatSource(normalizeChatModelSource(basic.chatSource))
     const snapshot = makeSnapshot({
@@ -725,12 +587,12 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
       auxiliaryModelSource: normalizeChatModelSource(basic.chatSource),
       auxiliaryModelLocalIds: [],
       auxiliaryModelCloudIds: [],
-      toolIds: baseToolIds, skills: [], allowSubAgents: false,
+      toolIds: [], skills: [], allowSubAgents: false,
       maxDepth: 1, systemPrompt: '',
     })
     savedSnapshotRef.current = snapshot
     setDefaultSnapshot(snapshot)
-  }, [basic.chatSource, defaultToolIds, isNew, toolIds])
+  }, [basic.chatSource, isNew])
 
   const currentSnapshot = makeSnapshot({
     name,
@@ -973,134 +835,11 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
     normalizeIds,
   ])
 
-  const handleToggleGroup = useCallback(
-    (groupId: string, checked: boolean) => {
-      const groupToolIds = capGroupToolMap.get(groupId) ?? []
-      setToolIds((prev) => {
-        if (checked) {
-          // 中文注释：开启能力组时合并该组所有工具。
-          return normalizeIds([...prev, ...groupToolIds])
-        }
-        // 中文注释：关闭能力组时移除该组所有工具。
-        return prev.filter((id) => !groupToolIds.includes(id))
-      })
-      setExpandedGroupIds((prev) => {
-        if (checked) {
-          return prev.includes(groupId) ? prev : [...prev, groupId]
-        }
-        return prev.filter((id) => id !== groupId)
-      })
-    },
-    [capGroupToolMap, normalizeIds],
-  )
-
-  const handleToggleTool = useCallback(
-    (toolId: string, checked: boolean) => {
-      setToolIds((prev) => {
-        if (checked) return normalizeIds([...prev, toolId])
-        return prev.filter((id) => id !== toolId)
-      })
-    },
-    [normalizeIds],
-  )
-
   const handleToggleSkill = useCallback((skillName: string, checked: boolean) => {
     setSkills((prev) =>
       checked ? [...prev, skillName] : prev.filter((s) => s !== skillName),
     )
   }, [])
-
-  /** Render capability group with tool toggles. */
-  const renderCapGroupCard = useCallback(
-    (group: CapabilityGroup) => {
-      const capIcon = CAP_ICON_MAP[group.id]
-      const CapIcon = capIcon?.icon ?? Blocks
-      const capIconClass = capIcon?.className ?? 'text-muted-foreground'
-      const bgClass = CAP_BG_MAP[group.id] ?? 'bg-muted/30'
-      const tools = group.tools?.length
-        ? group.tools
-        : group.toolIds.map((id) => ({
-            id,
-            label: id,
-            description: '',
-          }))
-      const groupToolIds = tools.map((tool) => tool.id)
-      const selectedCount = groupToolIds.filter((id) => toolIdSet.has(id)).length
-      const isExpanded = expandedGroupSet.has(group.id)
-      return (
-        <div
-          key={group.id}
-          className={`relative flex cursor-pointer flex-col rounded-3xl p-3 transition-colors ${bgClass}`}
-          onClick={(e) => {
-            if ((e.target as HTMLElement).closest('[role="switch"]')) return
-            if ((e.target as HTMLElement).closest('input[type="checkbox"]')) return
-            setExpandedGroupIds((prev) =>
-              prev.includes(group.id)
-                ? prev.filter((id) => id !== group.id)
-                : [...prev, group.id],
-            )
-          }}
-          aria-expanded={isExpanded}
-        >
-          <div className="flex items-center gap-2">
-            <CapIcon className={`h-4 w-4 shrink-0 ${capIconClass}`} />
-            <span className="text-xs font-medium">{group.label}</span>
-            <span className="text-[10px] text-muted-foreground">
-              {selectedCount}/{groupToolIds.length}
-            </span>
-            <Switch
-              checked={isGroupEnabled(group)}
-              onCheckedChange={(checked) =>
-                handleToggleGroup(group.id, Boolean(checked))
-              }
-              className="ml-auto data-[state=checked]:bg-foreground dark:data-[state=checked]:bg-foreground"
-            />
-          </div>
-          <div className="mt-1.5 flex items-start gap-1">
-            <p className="min-w-0 flex-1 text-[10px] leading-relaxed text-muted-foreground line-clamp-2">
-              {group.description}
-            </p>
-            <ChevronDown
-              className={`h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform ${
-                isExpanded ? 'rotate-180' : ''
-              }`}
-            />
-          </div>
-          {isExpanded && tools.length > 0 ? (
-            <div className="mt-2 space-y-1">
-              {tools.map((tool) => {
-                const checked = toolIdSet.has(tool.id)
-                return (
-                  <label
-                    key={tool.id}
-                    className="flex items-start gap-2 rounded-3xl px-2 py-1 text-[11px] leading-tight hover:bg-background/60"
-                  >
-                    <Checkbox
-                      checked={checked}
-                      onCheckedChange={(next) =>
-                        handleToggleTool(tool.id, Boolean(next))
-                      }
-                      className="mt-0.5"
-                    />
-                    <div className="min-w-0">
-                      <div className="truncate font-medium">{tool.label}</div>
-                    </div>
-                  </label>
-                )
-              })}
-            </div>
-          ) : null}
-        </div>
-      )
-    },
-    [
-      expandedGroupSet,
-      handleToggleGroup,
-      handleToggleTool,
-      isGroupEnabled,
-      toolIdSet,
-    ],
-  )
 
   // 逻辑：主助手思考模式与基础设置保持一致。
   useEffect(() => {
@@ -1359,19 +1098,12 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
             )}
           </OpenLoafSettingsCard>
 
-          {/* Tabs: 能力组 / 技能 / 提示词 */}
+          {/* Tabs: 技能 / 提示词 */}
           <Tabs value={activeConfigTab} onValueChange={setActiveConfigTab}>
             <div className="sticky top-0 z-10 bg-background">
               <div className="text-sm font-medium">{t('settings:agent.panel.configLabel')}</div>
               <div className="flex items-center justify-between gap-2">
                 <TabsList className="mt-1.5 h-8 w-max rounded-3xl border border-border/70 bg-muted/40 p-1">
-                  <TabsTrigger
-                    value="capabilities"
-                    className="h-6 rounded-3xl px-2.5 text-xs whitespace-nowrap"
-                  >
-                    <Blocks className="mr-1 h-3 w-3 text-foreground" />
-                    {t('settings:agent.panel.capabilitiesTab')}
-                  </TabsTrigger>
                   <TabsTrigger
                     value="skills"
                     className="h-6 rounded-3xl px-2.5 text-xs whitespace-nowrap"
@@ -1417,20 +1149,6 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
                 </div>
               </div>
             </div>
-              <TabsContent value="capabilities" className="mt-0">
-                <div className="space-y-3 py-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    {enabledCapGroups.map(renderCapGroupCard)}
-                  </div>
-                  {enabledCapGroups.length > 0 && disabledCapGroups.length > 0 ? (
-                    <div className="my-6 border-t border-border/60" />
-                  ) : null}
-                  <div className="grid grid-cols-2 gap-3">
-                    {disabledCapGroups.map(renderCapGroupCard)}
-                  </div>
-                </div>
-              </TabsContent>
-
               <TabsContent value="skills" className="mt-0">
                 <div className="py-3">
                   {availableSkills.length > 0 ? (

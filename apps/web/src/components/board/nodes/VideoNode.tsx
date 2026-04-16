@@ -439,15 +439,17 @@ function buildStreamUrl(
   return `${prefix}?${query.toString()}`;
 }
 
-/** Capture the first frame of a video as a data URL poster. */
-function captureVideoPoster(streamUrl: string): Promise<string | null> {
+type PosterResult = { dataUrl: string; width: number; height: number } | null;
+
+/** Capture the first frame of a video as a data URL poster, returning dimensions too. */
+function captureVideoPoster(streamUrl: string): Promise<PosterResult> {
   return new Promise((resolve) => {
     const video = document.createElement("video");
     video.crossOrigin = "anonymous";
     video.preload = "metadata";
     video.muted = true;
     let settled = false;
-    const settle = (v: string | null) => {
+    const settle = (v: PosterResult) => {
       if (settled) return;
       settled = true;
       resolve(v);
@@ -458,9 +460,11 @@ function captureVideoPoster(streamUrl: string): Promise<string | null> {
     video.addEventListener("seeked", () => {
       clearTimeout(timeout);
       try {
+        const w = video.videoWidth;
+        const h = video.videoHeight;
         const canvas = document.createElement("canvas");
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
+        canvas.width = w;
+        canvas.height = h;
         const ctx = canvas.getContext("2d");
         if (!ctx) { settle(null); return; }
         ctx.drawImage(video, 0, 0);
@@ -468,7 +472,7 @@ function captureVideoPoster(streamUrl: string): Promise<string | null> {
         // 立即释放 canvas 占用的像素缓冲区
         canvas.width = 0;
         canvas.height = 0;
-        settle(dataUrl);
+        settle({ dataUrl, width: w, height: h });
       } catch {
         settle(null);
       }
@@ -697,9 +701,9 @@ export function VideoNodeView({
     if (!videoPath || posterSrc || !ids.boardId && !ids.projectId) return;
     let cancelled = false;
     const url = buildStreamUrl(videoPath, ids);
-    captureVideoPoster(url).then((poster) => {
-      if (!cancelled && poster) {
-        onUpdate({ posterPath: poster });
+    captureVideoPoster(url).then((result) => {
+      if (!cancelled && result) {
+        onUpdate({ posterPath: result.dataUrl });
       }
     });
     return () => { cancelled = true; };
@@ -1097,14 +1101,40 @@ export function VideoNodeView({
             })
           } catch { /* ignore metadata fetch failure */ }
         })()
-        // 逻辑：生成完成后自动提取首帧作为节点缩略图。
+        // 逻辑：生成完成后自动提取首帧作为节点缩略图，
+        // 同时利用浏览器 <video> 解码拿到的真实尺寸调整节点比例，
+        // 作为 ffprobe 的备用方案，避免 ffprobe 未能及时返回时节点留白。
         void (async () => {
           try {
             const ids = { projectId: fileContext?.projectId, boardId: fileContext?.boardId }
             const url = buildStreamUrl(savedPath, ids)
-            const poster = await captureVideoPoster(url)
-            if (poster) {
-              engine.doc.updateNodeProps(nodeId, { posterPath: poster })
+            const result = await captureVideoPoster(url)
+            if (!result) return
+            engine.doc.updateNodeProps(nodeId, { posterPath: result.dataUrl })
+            // 逻辑：利用浏览器解码的视频尺寸调整节点比例。
+            // 仅当节点尚未被 ffprobe 修正过时才执行（避免重复调整）。
+            if (result.width > 0 && result.height > 0) {
+              const el = engine.doc.getElementById(nodeId)
+              if (el && el.kind === 'node') {
+                const curProps = el.props as VideoNodeProps
+                const alreadyCorrected = curProps.naturalWidth && curProps.naturalHeight
+                  && !(curProps.naturalWidth === 16 && curProps.naturalHeight === 9)
+                if (!alreadyCorrected) {
+                  engine.doc.updateNodeProps(nodeId, {
+                    naturalWidth: result.width,
+                    naturalHeight: result.height,
+                  })
+                  const [ex, ey, ew, eh] = el.xywh
+                  const ratio = result.width / result.height
+                  const newW = Math.max(ew, 240)
+                  const newH = Math.round(newW / ratio)
+                  const cx = ex + ew / 2
+                  const cy = ey + eh / 2
+                  engine.doc.updateElement(nodeId, {
+                    xywh: [Math.round(cx - newW / 2), Math.round(cy - newH / 2), newW, newH],
+                  })
+                }
+              }
             }
           } catch { /* ignore poster capture failure */ }
         })()
@@ -1448,7 +1478,7 @@ export function VideoNodeView({
             ) : null}
           </div>
         ) : !element.props.sourcePath?.trim() && !isGenerating && !isDownloading ? (
-          <div className="flex h-full w-full items-center justify-center rounded-3xl border border-dashed border-ol-divider bg-ol-surface-muted">
+          <div className="flex h-full w-full items-center justify-center rounded-3xl bg-ol-surface-muted">
             <div className="flex flex-col items-center gap-2 text-muted-foreground/40 px-4">
               <Video size={36} strokeWidth={1.2} />
               <span className="text-xs text-center leading-relaxed whitespace-pre-line">

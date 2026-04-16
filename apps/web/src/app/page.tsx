@@ -47,7 +47,7 @@ export default function Page() {
       <AppBootstrap />
       <SidebarProvider
           className="flex flex-col"
-          style={{ "--sidebar-width": "4rem" } as CSSProperties}
+          style={{ "--sidebar-width": "3.5rem" } as CSSProperties}
         >
           <PageContent />
         </SidebarProvider>

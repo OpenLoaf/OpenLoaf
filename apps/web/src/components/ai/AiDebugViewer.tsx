@@ -222,6 +222,75 @@ function getPartSummary(part: unknown): string {
 }
 
 /** Render AskUserQuestion / RequestUserInput tool with friendly UI. */
+function LoadSkillDetail({ part }: { part: Record<string, unknown> }) {
+  const input = part.input as Record<string, unknown> | undefined
+  const output = part.output as { ok?: boolean; error?: string; data?: Record<string, unknown> } | undefined
+  const isError = typeof part.state === 'string' && part.state.includes('error')
+
+  const skillName = typeof input?.skillName === 'string' ? input.skillName : ''
+  const data = output?.data
+  const scope = typeof data?.scope === 'string' ? data.scope : ''
+  const basePath = typeof data?.basePath === 'string' ? data.basePath : ''
+  const hint = typeof data?.hint === 'string' ? data.hint : ''
+  const content = typeof data?.content === 'string' ? data.content : ''
+  const outputError = output?.ok === false && typeof output?.error === 'string' ? output.error : ''
+  const errorText = outputError || (typeof part.errorText === 'string' ? part.errorText : '')
+
+  return (
+    <div className="px-3 py-2 space-y-2" style={{ userSelect: 'text', cursor: 'text' }}>
+      {/* Meta fields */}
+      <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 items-baseline">
+        {skillName ? (
+          <>
+            <span className="text-[10px] font-mono text-foreground/60 whitespace-nowrap">skillName</span>
+            <span className="text-[10px] text-foreground/80 font-medium">{skillName}</span>
+          </>
+        ) : null}
+        {scope ? (
+          <>
+            <span className="text-[10px] font-mono text-foreground/60 whitespace-nowrap">scope</span>
+            <span className="text-[10px] text-foreground/80">{scope}</span>
+          </>
+        ) : null}
+        {basePath ? (
+          <>
+            <span className="text-[10px] font-mono text-foreground/60 whitespace-nowrap">basePath</span>
+            <span className="text-[10px] text-foreground/80 font-mono">{basePath}</span>
+          </>
+        ) : null}
+      </div>
+
+      {/* Hint */}
+      {hint ? (
+        <div className="rounded border border-blue-500/20 bg-blue-500/5 px-2.5 py-1.5 text-[10px] text-blue-700 dark:text-blue-300">
+          {hint}
+        </div>
+      ) : null}
+
+      {/* Error */}
+      {(isError || errorText) && errorText ? (
+        <div className="rounded border border-red-500/30 bg-red-500/5 p-2.5">
+          <div className="text-[10px] font-semibold text-red-600 dark:text-red-400 mb-1">Error</div>
+          <div className="text-[10px] text-red-700 dark:text-red-300 whitespace-pre-wrap font-mono">{errorText}</div>
+        </div>
+      ) : null}
+
+      {/* Skill content as markdown */}
+      {content ? (
+        <div className="space-y-1">
+          <span className="text-muted-foreground font-medium text-[10px]">Content</span>
+          <div className="overflow-y-auto ![scrollbar-width:thin] select-text" style={{ userSelect: 'text' }}>
+            <MessageStreamMarkdown
+              markdown={escapeAngleBrackets(content)}
+              className={MESSAGE_STREAM_MARKDOWN_CLASSNAME}
+            />
+          </div>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 function AskUserQuestionDetail({ part }: { part: Record<string, unknown> }) {
   const input = part.input as Record<string, unknown> | undefined
   const output = part.output as Record<string, unknown> | undefined
@@ -502,6 +571,8 @@ function PartDetail({ part }: { part: unknown }) {
       if (typeof p.text === 'string') fields.push({ label: 'content', value: p.text, mono: true })
     } else if (typeLabel === 'tool-AskUserQuestion' || typeLabel === 'tool-RequestUserInput') {
       return <AskUserQuestionDetail part={p} />
+    } else if (typeLabel === 'tool-LoadSkill') {
+      return <LoadSkillDetail part={p} />
     } else if (typeLabel.startsWith('tool-')) {
       // Generic tool part: type is "tool-<ToolName>", fields are input/output/state/toolCallId
       const tn = typeLabel.slice(5) // strip "tool-" prefix
@@ -1760,7 +1831,7 @@ function MessageRow({ msg, idx, expanded, onToggle, idToIndex, sessionId, parent
             />
           )}
           {/* Two-column: part list | detail with tabs */}
-          <div className="flex divide-x divide-border/50" style={{ minHeight: '40vh', maxHeight: '80vh' }}>
+          <div className="flex divide-x divide-border/50" style={{ minHeight: msg.role === 'user' ? '20vh' : '40vh', maxHeight: msg.role === 'user' ? '40vh' : '80vh' }}>
             {/* Left: compact part list */}
             <div className="w-2/5 overflow-y-auto ![scrollbar-width:thin] shrink-0">
               {msg.parts.length === 0 ? (
@@ -1977,8 +2048,8 @@ function StaticRow({ label, content, defaultExpanded, badgeClass, borderClass }:
 
 function MessagesPanel({ sessionId, promptContent, prefaceContent }: { sessionId: string; promptContent?: string; prefaceContent?: string }) {
   const { t } = useTranslation('ai')
-  // 读取会话元数据，用来判断是否为 chat-probe 自动测试会话。
-  // autoTest 字段由 chat-probe runner 写入 session.json，后端 getSession 派生返回。
+  // 读取会话元数据，用来判断是否为 ai-browser-test 自动测试会话。
+  // autoTest 字段由 ai-browser-test runner 写入 session.json，后端 getSession 派生返回。
   const sessionMetaQuery = useQuery({
     ...trpc.chat.getSession.queryOptions({ sessionId }),
     staleTime: 30_000,

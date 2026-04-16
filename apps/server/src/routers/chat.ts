@@ -696,7 +696,7 @@ class ChatRouterImpl extends BaseChatRouter {
           return { ...session, autoTest, probeMeta }
         }),
 
-      // 读取自动化探针（chat-probe 等）写入的 EVALUATION.json
+      // 读取自动化探针（ai-browser-test 等）写入的 EVALUATION.json
       getAutoTestEvaluation: shieldedProcedure
         .input(z.object({ sessionId: z.string().min(1) }))
         .query(async ({ input }) => {

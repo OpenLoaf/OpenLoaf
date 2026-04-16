@@ -404,15 +404,16 @@ export function LeftDock({ tabId }: { tabId: string }) {
       if (event.defaultPrevented) return;
       if (event.key !== "Escape") return;
       if (isEditableTarget(event.target)) return;
-      // 按下 ESC 时最小化当前 stack 面板。
+      // 按下 ESC 时关闭当前活动的 stack item，而非最小化全部。
       event.preventDefault();
-      requestStackMinimize(tabId);
+      const activeItem = stack.find((item) => item.id === activeStackId);
+      requestCloseStackItem(activeItem ?? stack.at(-1));
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [stack.length, stackHidden, tabId]);
+  }, [stack, stackHidden, activeStackId, requestCloseStackItem]);
 
   return (
     <div

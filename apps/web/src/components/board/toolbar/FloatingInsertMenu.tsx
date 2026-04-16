@@ -219,7 +219,7 @@ const FloatingInsertMenu = memo(function FloatingInsertMenu({
           icon={<Table2 size={iconSize} />}
           title={t("insertTools.table")}
           description={t("insertTools.tableDesc") || undefined}
-          onClick={() => placeNode("table", {}, [400, 200])}
+          onClick={() => placeNode("table", {}, [364, 160])}
         />
 
         {/* ── 添加资源 ── */}
@@ -259,7 +259,7 @@ const FloatingInsertMenu = memo(function FloatingInsertMenu({
                 url: "", title: "", description: "",
                 logoSrc: "", imageSrc: "", refreshToken: Date.now(),
               },
-              [360, 120],
+              [360, 60],
             )
           }
         />

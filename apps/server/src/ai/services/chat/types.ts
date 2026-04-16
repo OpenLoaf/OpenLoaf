@@ -34,6 +34,8 @@ export type ChatStreamRequest = ChatRequestBody & {
   agentType?: string;
   /** Task ID when running within a task context. */
   taskId?: string;
+  /** 显式指定会话标题（跳过自动提取）。 */
+  title?: string;
 };
 
 export type AiIntent = "chat" | "image" | "command" | "utility";
@@ -93,6 +95,8 @@ export type AiExecuteRequest = {
   pageContext?: ChatPageContext;
   /** 模型采样温度；dev-only，生产构建忽略。 */
   temperature?: number;
+  /** 显式指定会话标题（跳过自动提取）。 */
+  title?: string;
 };
 
 export type AiCommandContext = {

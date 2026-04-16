@@ -39,7 +39,7 @@ function formatElapsed(ms: number): string {
 
 /**
  * AI 调试面板内的自动测试评分区块。仅在会话被标记为 autoTest 时由外层渲染。
- * 读取后端 chat.getAutoTestEvaluation（由 chat-probe evaluator 子 agent 写入的 EVALUATION.json）。
+ * 读取后端 chat.getAutoTestEvaluation（由 ai-browser-test evaluator 子 agent 写入的 EVALUATION.json）。
  */
 export function AutoTestEvaluationSection({ sessionId }: AutoTestEvaluationSectionProps) {
   const query = useQuery({

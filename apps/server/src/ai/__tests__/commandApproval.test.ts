@@ -35,6 +35,40 @@ describe('commandApproval — 分号连接白名单命令', () => {
   })
 })
 
+// ─── Shell 流控关键字 ───────────────────────────────────────────────────────
+
+describe('commandApproval — shell 流控关键字', () => {
+  it('for 循环 → 不需审批', () => {
+    assert.equal(
+      needsApprovalForCommand(
+        'for i in {1..10}; do echo "进度: $((i * 10))%"; sleep 1; done; echo "处理完成"',
+      ),
+      false,
+    )
+  })
+
+  it('while 循环 → 不需审批', () => {
+    assert.equal(
+      needsApprovalForCommand('while true; do echo hello; sleep 1; done'),
+      false,
+    )
+  })
+
+  it('if/then/else/fi → 不需审批', () => {
+    assert.equal(
+      needsApprovalForCommand('if ls; then echo ok; else echo fail; fi'),
+      false,
+    )
+  })
+
+  it('for + 危险命令 → 需审批', () => {
+    assert.equal(
+      needsApprovalForCommand('for f in *; do rm -rf /; done'),
+      true,
+    )
+  })
+})
+
 // ─── 白名单基础 ─────────────────────────────────────────────────────────────
 
 describe('commandApproval — 白名单命令', () => {

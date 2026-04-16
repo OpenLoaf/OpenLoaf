@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { BusinessHours, CalendarEvent } from '@openloaf/ui/calendar/components/types'
 import type { RecurrenceEditOptions } from '@openloaf/ui/calendar/features/recurrence/types'
 import {
@@ -183,7 +183,12 @@ export const useCalendarEngine = (
 		return getEventsForDateRange(start, end)
 	}, [getEventsForDateRange, getCurrentViewRange])
 
-	useEffect(() => {
+	// Render-time sync: props → state (React recommended pattern).
+	// Using useEffect for this creates infinite loops when the events
+	// reference changes without a value change.
+	const prevEventsRef = useRef(events)
+	if (events !== prevEventsRef.current) {
+		prevEventsRef.current = events
 		if (events) {
 			setCurrentEvents((prev) => {
 				if (prev === events) return prev
@@ -192,13 +197,19 @@ export const useCalendarEngine = (
 					prev.length === events.length &&
 					prev.every((e, i) => {
 						const n = events[i]
-						return e.id === n.id && e.title === n.title && e.start.valueOf() === n.start.valueOf() && e.end.valueOf() === n.end.valueOf()
+						return (
+							e.id === n?.id &&
+							e.title === n?.title &&
+							e.start.valueOf() === n?.start.valueOf() &&
+							e.end.valueOf() === n?.end.valueOf()
+						)
 					})
-				) return prev
+				)
+					return prev
 				return events
 			})
 		}
-	}, [events])
+	}
 	useEffect(() => {
 		if (locale) {
 			setCurrentLocale(locale)

@@ -53,6 +53,13 @@ const SAFE_COMMANDS_UNIX = new Set([
   'make', 'cmake', 'ninja', 'gradle', 'mvn', 'ant',
   // Playwright（浏览器自动化，开发工具）
   'playwright',
+  // Shell 流控关键字（被 shell-quote 按分号拆分后会成为命令段首 token）
+  // 循环/条件起始：for, while, until, if, case, select
+  // 独立闭合：done, fi, esac（段内只有自身，无后续命令）
+  // 注意：do/then/else/elif 不在此白名单——它们后面紧跟真正命令，
+  // 由 BLOCK_INTRO_KEYWORDS 处理（见 allCommandsSafe）。
+  'for', 'while', 'until', 'if', 'case', 'select', 'in',
+  'done', 'fi', 'esac',
   // 其他安全命令
   'echo', 'printf', 'expr', 'bc', 'man', 'help', 'info', 'type',
   'nproc', 'seq', 'yes', 'true', 'false', 'sleep', 'time', 'timeout',
@@ -198,13 +205,27 @@ function analyzeTokens(tokens: ShellToken[]): AnalysisResult {
 }
 
 /**
+ * 块引导关键字：do/then/else/elif 后面紧跟真正的命令。
+ * shell-quote 不会将它们拆成独立段，而是作为同一段的前缀。
+ * 例如 `for i in *; do rm -rf /; done` 的第二段是 ["do", "rm", "-rf", "/"]，
+ * 需要跳过 do 检查 rm。
+ */
+const BLOCK_INTRO_KEYWORDS = new Set(['do', 'then', 'else', 'elif'])
+
+/**
  * 检查所有命令段的首个 token 是否在安全名单中。
  * mode='strict' 只查全局白名单；mode='sandbox' 额外允许沙箱限定命令。
  */
 function allCommandsSafe(commands: string[][], mode: 'strict' | 'sandbox'): boolean {
   for (const cmd of commands) {
     if (cmd.length === 0) continue
-    const token = normalizeToken(cmd[0]!)
+    // 跳过块引导关键字前缀，检查实际命令
+    let idx = 0
+    while (idx < cmd.length && BLOCK_INTRO_KEYWORDS.has(normalizeToken(cmd[idx]!))) {
+      idx++
+    }
+    if (idx >= cmd.length) continue // 段内只有关键字（极端边界，视为安全）
+    const token = normalizeToken(cmd[idx]!)
     if (isSafeCommand(token)) continue
     if (mode === 'sandbox' && SANDBOX_ONLY_COMMANDS.has(token)) continue
     return false
@@ -300,7 +321,12 @@ export function needsApprovalForCommand(
 
   // 多行命令：shell-quote 将 \n 视为空白，需逐行检查
   if (trimmed.includes('\n')) {
-    const lines = trimmed.split('\n').filter((l) => l.trim())
+    const lines = trimmed
+      .split('\n')
+      .filter((l) => l.trim())
+      // 跳过注释行（# 开头）和 shebang（#!/...）：它们不是可执行命令
+      .filter((l) => !l.trimStart().startsWith('#'))
+    if (lines.length === 0) return false // 全是注释/空行 → 安全
     return lines.some((line) => needsApprovalForCommand(line, options))
   }
 

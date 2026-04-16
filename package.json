@@ -13,6 +13,8 @@
     "dev:server": "node scripts/dev.mjs server",
     "kill": "node scripts/kill.mjs",
     "desktop": "node scripts/desktop.mjs",
+    "test:browser": "pnpm --filter web test:browser",
+    "test:browser:run": "pnpm --filter web test:browser:run",
     "db:push": "turbo -F @openloaf/db db:push",
     "db:studio": "turbo -F @openloaf/db db:studio",
     "db:generate": "turbo -F @openloaf/db db:generate",

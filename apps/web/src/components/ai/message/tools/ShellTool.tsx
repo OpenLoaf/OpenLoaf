@@ -13,6 +13,8 @@ import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 import { CheckCircle2Icon, LoaderCircleIcon, TerminalIcon, XCircleIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useChatRuntime } from '@/hooks/use-chat-runtime'
+import { useChatSession } from '../../context'
 import {
   Tooltip,
   TooltipContent,
@@ -151,6 +153,8 @@ export default function ShellTool({
   className?: string
 }) {
   const { t } = useTranslation('ai')
+  const { tabId } = useChatSession()
+  const toolCallId = typeof part.toolCallId === 'string' ? part.toolCallId : ''
   const command = resolveCommand(part)
   const streaming = isToolStreaming(part)
   const hasErrorText =
@@ -164,10 +168,21 @@ export default function ShellTool({
   const approvalId = getApprovalId(part)
   const isPending = isApprovalPending(part)
   const hasOutput = displayOutput.length > 0
-  const tp = part.toolProgress
+  // 直接从 Zustand 订阅 toolProgress，绕过 context/rAF 链路，确保实时更新
+  const zustandTp = useChatRuntime((state) => {
+    if (!tabId || !toolCallId) return undefined
+    const snapshot = state.toolPartsByTabId[tabId]?.[toolCallId]
+    return snapshot?.toolProgress as AnyToolPart['toolProgress'] | undefined
+  })
+  const tp = zustandTp ?? part.toolProgress
   const progressActive = tp?.status === 'active'
   const progressDone = tp?.status === 'done'
   const progressError = tp?.status === 'error'
+
+  // 受控展开状态：streaming / progress 期间自动展开，用户手动操作仍生效
+  const [userOpen, setUserOpen] = React.useState(false)
+  const forceOpen = streaming || progressActive
+  const effectiveOpen = forceOpen || userOpen || hasOutput
 
   const stackTrace = React.useMemo(
     () => (displayOutput ? detectStackTrace(displayOutput) : null),
@@ -214,7 +229,7 @@ export default function ShellTool({
   }
 
   return (
-    <Collapsible className={cn('min-w-0 text-xs', className)} defaultOpen={progressActive}>
+    <Collapsible className={cn('min-w-0 text-xs', className)} open={effectiveOpen} onOpenChange={setUserOpen}>
       <Tooltip>
         <TooltipTrigger asChild>
           <CollapsibleTrigger

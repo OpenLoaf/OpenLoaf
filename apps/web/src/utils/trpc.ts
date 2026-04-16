@@ -31,6 +31,8 @@ export const queryClient = new QueryClient({
   },
   queryCache: new QueryCache({
     onError: (error, query) => {
+      // 调用方通过 meta.suppressToast 标记不需要弹 toast 的查询（如首次打开桌面/看板时文件不存在）
+      if (query.meta?.suppressToast) return;
       // Project directory missing — already cleaned up server-side, just notify the user.
       if (error.message === "PROJECT_REMOVED") {
         // Extract projectId from the query key to clean up stale caches

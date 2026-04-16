@@ -987,7 +987,7 @@ export function ImageNodeView({
             </motion.div>
           </AnimatePresence>
         ) : (
-          <div className="flex h-full w-full items-center justify-center rounded-3xl border border-dashed border-ol-divider bg-ol-surface-muted">
+          <div className="flex h-full w-full items-center justify-center rounded-3xl bg-ol-surface-muted">
             {/* 逻辑：有失败/生成浮层时隐藏空状态内容，避免图标透出。 */}
             {(isFailedVersion && !dismissedFailure) || isGeneratingVersion ? null
             : isPreviewLoading || isTranscoding ? (

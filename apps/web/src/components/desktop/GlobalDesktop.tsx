@@ -91,6 +91,7 @@ const GlobalDesktop = React.memo(function GlobalDesktop({
             uri: desktopFileUri,
           }),
           staleTime: 0,
+          meta: { suppressToast: true },
         });
         const parsed = deserializeDesktopItems(result.content);
         if (!parsed || !alive) return;

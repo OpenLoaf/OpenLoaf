@@ -94,7 +94,7 @@ export function buildToolSearchGuidance(
 
 工作流程：
 1. 核心工具 → 直接使用
-2. 领域任务 → 先 \`LoadSkill\` 读取对应 skill 正文，按正文列出的工具清单一次性批量 \`ToolSearch\` 加载，再按 skill 执行
+2. 领域任务 → \`LoadSkill\` 读取 skill 正文 → 按需 \`ToolSearch(names: "工具名")\` 加载即将调用的工具 → 调用。**未经 ToolSearch 加载的非核心工具直接调用会失败。**
 3. 无匹配 skill → 按下方分类判断需要哪个工具，\`ToolSearch\` 拿 schema，再调用
 
 可按需加载的工具分类：

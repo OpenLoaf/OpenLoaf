@@ -57,8 +57,12 @@ import {
   resolveRightmostLeafId,
   resolveSessionPrefaceText,
   saveMessage,
+  updateSessionTitle,
 } from "@/ai/services/chat/repositories/messageStore";
-import { readBasicConf } from "@/modules/settings/openloafConfStore";
+import { readBasicConf, writeBasicConf } from "@/modules/settings/openloafConfStore";
+import { fetchModelList } from "@/modules/saas";
+import { ensureServerAccessToken } from "@/modules/auth/tokenStore";
+import { mapCloudChatModels } from "@/ai/models/cloudModelMapper";
 import {
   resolveMessagesJsonlPath,
   updateMessageMetadata,
@@ -136,6 +140,42 @@ async function restoreBasePlanFromChain(messages: UIMessage[]): Promise<void> {
       }
     }
   }
+}
+
+/**
+ * 当 chatModelId 为空时，从 SaaS 模型列表取第一个模型作为默认值，
+ * 并将其写入 basic config，避免后续请求重复 fallback。
+ * 返回 "providerId:modelId" 格式的 chatModelId，或 undefined（获取失败时抛错）。
+ */
+async function resolveDefaultCloudChatModelId(sessionId: string): Promise<string> {
+  logger.info({ sessionId }, '[chat] chatModelId empty, fetching default from SaaS model list')
+  const accessToken = (await ensureServerAccessToken()) ?? ''
+  if (!accessToken) {
+    throw new Error('未登录云端账号，无法自动获取默认模型')
+  }
+  const payload = await fetchModelList(accessToken)
+  if (payload.success !== true || !Array.isArray(payload.data?.data) || payload.data.data.length === 0) {
+    throw new Error('云端模型列表为空，无法自动选择默认模型')
+  }
+  const models = mapCloudChatModels(payload.data.data)
+  const first = models[0]
+  if (!first) {
+    throw new Error('云端模型列表解析后为空，无法自动选择默认模型')
+  }
+  // chatModelId 格式：providerId:modelId（与 resolveChatModelFromProviders 中的 parseChatModelId 一致）
+  const chatModelId = `${first.providerId}:${first.id}`
+  logger.info(
+    { sessionId, chatModelId, modelName: first.name },
+    '[chat] auto-selected default cloud model, saving to basic config',
+  )
+  // 写入 basic config，后续请求直接使用，不再 fallback
+  try {
+    const basicConf = readBasicConf()
+    writeBasicConf({ ...basicConf, chatModelId, chatSource: 'cloud' })
+  } catch (err) {
+    logger.warn({ err, sessionId }, '[chat] failed to save default chatModelId to basic config')
+  }
+  return chatModelId
 }
 
 /** Run chat stream and return SSE response. */
@@ -495,6 +535,11 @@ export async function runChatStream(input: {
     assistantParentUserId = saveResult.assistantParentUserId;
   }
 
+  // 显式标题覆盖（ai-browser-test 等自动化场景传入 title 字段）
+  if (input.request.title) {
+    await updateSessionTitle({ sessionId, title: input.request.title });
+  }
+
   // ── directCli 会话持久化：查内存缓存 → miss 则查 DB → 首条新建 UUID ──
   if (directCli) {
     const cached = getCachedCcSession(sessionId);
@@ -629,6 +674,23 @@ export async function runChatStream(input: {
   let masterAgent: ReturnType<typeof createMasterAgentRunner>;
   let instructions = '';
   let resolvedModelDef: import("@openloaf/api/common").ModelDefinition | undefined;
+
+  // 逻辑：chatModelId 仍为空（basic config 也未配置）时，尝试从 SaaS 模型列表自动选择第一个模型。
+  // 仅在 cloud source 下触发；local source 下无法自动获取，直接交由 resolveChatModel 报错。
+  if (!chatModelId && chatModelSource === 'cloud') {
+    try {
+      chatModelId = await resolveDefaultCloudChatModelId(sessionId)
+    } catch (err) {
+      logger.error({ err, sessionId }, '[chat] auto-resolve default cloud model failed')
+      const errorText = err instanceof Error ? `请求失败：${err.message}` : '请求失败：无法自动获取默认模型。'
+      return createErrorStreamResponse({
+        sessionId,
+        assistantMessageId,
+        parentMessageId,
+        errorText,
+      })
+    }
+  }
 
   try {
     // 前端必传 chatModelId — model picker 当前活跃的模型。

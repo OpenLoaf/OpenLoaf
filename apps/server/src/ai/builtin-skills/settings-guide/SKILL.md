@@ -1,7 +1,7 @@
 ---
 name: settings-guide-skill
 description: >
-  当用户问 OpenLoaf 桌面端产品内的设置、偏好、API key、模型切换、主题 / 语言 / 快捷键 / 代理 / 备份、或相关故障（key invalid、model not found）该在哪配置、怎么配置时触发。**不用于**：项目里的代码配置文件如 tsconfig / .env（→file-ops-skill）、一般编程问题（→直接回答）、系统级 OS 设置。
+  当用户问 OpenLoaf 桌面端产品内的设置、偏好、API key、模型切换、主题 / 语言 / 快捷键 / 代理 / 备份、或相关故障（key invalid、model not found）该在哪配置、怎么配置时触发。**不用于**：项目里的代码配置文件如 tsconfig / .env（→直接用 Read/Edit）、一般编程问题（→直接回答）、系统级 OS 设置。
 ---
 
 # 设置引导（无直接工具）

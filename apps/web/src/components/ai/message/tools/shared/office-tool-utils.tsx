@@ -65,7 +65,7 @@ export function EmptyView() {
 
 /** Clickable file path that opens the file in the stack viewer. */
 export function FilePathLink({ filePath }: { filePath: string }) {
-  const { projectId, tabId } = useChatSession()
+  const { projectId, tabId, sessionId } = useChatSession()
   const projectQuery = useProject(projectId)
   const projectRootUri = projectQuery.data?.project?.rootUri ?? undefined
   const displayName = filePath.replace(/\\/g, '/').split('/').filter(Boolean).pop() ?? filePath
@@ -76,9 +76,9 @@ export function FilePathLink({ filePath }: { filePath: string }) {
       if (!filePath) return
       const entry = createFileEntryFromUri({ uri: filePath, name: displayName })
       if (!entry) return
-      openFile({ entry, tabId, projectId: projectId ?? undefined, rootUri: projectRootUri })
+      openFile({ entry, tabId, projectId: projectId ?? undefined, sessionId, rootUri: projectRootUri })
     },
-    [filePath, displayName, tabId, projectId, projectRootUri],
+    [filePath, displayName, tabId, projectId, sessionId, projectRootUri],
   )
 
   return (

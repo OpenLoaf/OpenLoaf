@@ -142,6 +142,8 @@ export type InputSlotBarProps = {
   upstream: UpstreamData
   fileContext: BoardFileContext | undefined
   nodeResource?: { type: MediaType; url?: string; path?: string }
+  /** Extra media refs injected directly into the "unassigned" tray (skip auto-assign). */
+  extraAssociated?: MediaReference[]
   disabled?: boolean
   onAssignmentChange?: (resolved: ResolvedSlotInputs) => void
   cachedAssignment?: PersistedSlotMap
@@ -210,6 +212,7 @@ export function InputSlotBar({
   upstream,
   fileContext,
   nodeResource,
+  extraAssociated,
   disabled,
   onAssignmentChange,
   cachedAssignment,
@@ -272,8 +275,18 @@ export function InputSlotBar({
   const unifiedResult = useMemo(() => {
     const raw = restoreOrAssignV3(rawSlots, pools, defaultResolveContext, initialCacheRef.current)
     const filtered = raw.associated.filter((r: MediaReference) => acceptedMediaTypes.has(r.nodeType))
+    // Merge extraAssociated (e.g. node's own image in editing mode) into the tray
+    if (extraAssociated?.length) {
+      const existingIds = new Set(filtered.map((r) => r.nodeId))
+      for (const ref of extraAssociated) {
+        if (!existingIds.has(ref.nodeId) && acceptedMediaTypes.has(ref.nodeType)) {
+          filtered.push(ref)
+          existingIds.add(ref.nodeId)
+        }
+      }
+    }
     return { ...raw, associated: filtered }
-  }, [rawSlots, pools, defaultResolveContext, acceptedMediaTypes])
+  }, [rawSlots, pools, defaultResolveContext, acceptedMediaTypes, extraAssociated])
 
   const [slotAssignments, setSlotAssignments] = useState<Record<string, PoolReference[]>>(() => unifiedResult.assigned)
   const [userTexts, setUserTexts] = useState<Record<string, string>>(() => {
@@ -333,7 +346,14 @@ export function InputSlotBar({
       initialCacheRef.current = cachedAssignment
       const fresh = restoreOrAssignV3(rawSlots, pools, defaultResolveContext, initialCacheRef.current)
       setSlotAssignments(fresh.assigned)
-      setAssociatedRefs(fresh.associated.filter((r: MediaReference) => acceptedMediaTypes.has(r.nodeType)))
+      const freshAssoc = fresh.associated.filter((r: MediaReference) => acceptedMediaTypes.has(r.nodeType))
+      if (extraAssociated?.length) {
+        const ids = new Set(freshAssoc.map((r) => r.nodeId))
+        for (const ref of extraAssociated) {
+          if (!ids.has(ref.nodeId) && acceptedMediaTypes.has(ref.nodeType)) freshAssoc.push(ref)
+        }
+      }
+      setAssociatedRefs(freshAssoc)
     }
 
     // ── Pools-only change: incremental delta update ──

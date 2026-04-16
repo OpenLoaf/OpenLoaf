@@ -9,6 +9,7 @@
  */
 'use client'
 
+import { useTranslation } from 'react-i18next'
 import { SearchIcon, LoaderCircleIcon, XCircleIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
@@ -73,6 +74,7 @@ export default function GrepTool({
   const streaming = isToolStreaming(part)
   const hasError = part.state === 'output-error' || part.state === 'output-denied'
 
+  const { t } = useTranslation('ai')
   const { projectId } = useChatSession()
   const projectQuery = useProject(projectId)
   const projectRootUri = projectQuery.data?.project?.rootUri ?? undefined
@@ -106,7 +108,7 @@ export default function GrepTool({
             )}
           >
             <SearchIcon className="size-3.5 shrink-0 text-muted-foreground" />
-            <span className="shrink-0 text-xs font-medium text-muted-foreground">Grep</span>
+            <span className="shrink-0 text-xs font-medium text-muted-foreground">{t('toolNames.Grep', { defaultValue: 'Grep' })}</span>
             {inlineText ? (
               <span className="min-w-0 truncate font-mono text-xs text-muted-foreground/50">
                 {inlineText}

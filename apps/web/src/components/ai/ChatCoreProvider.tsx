@@ -259,6 +259,7 @@ export default function ChatCoreProvider({
       onFinish,
       onData: (dataPart: any) => {
         if (sessionIdRef.current !== sessionId) return;
+        // DEBUG: 诊断 data-tool-progress 是否到达前端
         incrementChatPerf("chat.onData");
         if (dataPart?.type === "data-session-title") {
           invalidateChatSessions(queryClient);

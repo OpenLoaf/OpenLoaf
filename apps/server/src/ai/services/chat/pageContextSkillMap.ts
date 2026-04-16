@@ -24,7 +24,7 @@ const PAGE_SKILL_MAP: Record<string, string[]> = {
   'project-canvas': ['canvas-ops-skill', 'project-ops-skill'],
   'project-list': ['project-ops-skill'],
   'project-index': ['project-ops-skill'],
-  'project-files': ['project-ops-skill', 'file-ops-skill'],
+  'project-files': ['project-ops-skill'],
   'project-history': ['project-ops-skill'],
   'project-tasks': ['project-ops-skill', 'task-ops-skill'],
   'project-settings': ['project-ops-skill', 'settings-guide-skill'],

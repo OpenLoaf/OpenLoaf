@@ -111,6 +111,7 @@ const ProjectIndex = React.memo(function ProjectIndex({
             uri: desktopFileUri,
           }),
           staleTime: 0,
+          meta: { suppressToast: true },
         });
         console.log("[Desktop] loadDesktop result:", { uri: desktopFileUri, contentLength: result.content.length, alive });
         const parsed = deserializeDesktopItems(result.content);

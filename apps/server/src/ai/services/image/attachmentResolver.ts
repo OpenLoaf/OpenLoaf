@@ -396,6 +396,9 @@ function parseScopedRelativePath(raw: string): { projectId?: string; relativePat
   if (!trimmed) return null;
   const normalized = stripAttachmentTagWrapper(trimmed);
   if (SCHEME_REGEX.test(normalized)) return null;
+  // 绝对路径不是相对路径 — 拒绝，防止被 normalizeRelativePath 去掉前导 / 后
+  // 再拼项目根目录导致路径翻倍（如 /root/data → root/data → /root/data/root/data）。
+  if (path.isAbsolute(normalized)) return null;
   const match = normalized.match(PROJECT_SCOPE_REGEX);
   if (match) {
     return {
@@ -842,12 +845,23 @@ export async function getFilePreview(input: {
   }
   if (!resolved) {
     const absoluteResolved = resolveAbsoluteOpenLoafPath(input.path);
-    resolved = absoluteResolved
-      ? { absPath: absoluteResolved.absPath, rootPath: absoluteResolved.rootPath, relativePath: path.relative(absoluteResolved.rootPath, absoluteResolved.absPath) }
-      : await resolveProjectFilePathWithRoot({
-          path: input.path,
-          projectId: input.projectId,
-        });
+    if (absoluteResolved) {
+      resolved = { absPath: absoluteResolved.absPath, rootPath: absoluteResolved.rootPath, relativePath: path.relative(absoluteResolved.rootPath, absoluteResolved.absPath) };
+    } else if (path.isAbsolute(input.path)) {
+      // 绝对路径不在 openloaf 全局根下时，校验是否在项目存储根下。
+      // 直接使用绝对路径，避免交给 resolveProjectFilePathWithRoot 导致路径翻倍。
+      const absPath = path.resolve(input.path);
+      const root = await resolveChatAttachmentRoot({ projectId: input.projectId });
+      const rootResolved = root ? path.resolve(root.rootPath) : null;
+      if (rootResolved && (absPath === rootResolved || absPath.startsWith(rootResolved + path.sep))) {
+        resolved = { absPath, rootPath: root!.rootPath, relativePath: path.relative(root!.rootPath, absPath) };
+      }
+    } else {
+      resolved = await resolveProjectFilePathWithRoot({
+        path: input.path,
+        projectId: input.projectId,
+      });
+    }
   }
   if (!resolved) return null;
   const filePath = resolved.absPath;

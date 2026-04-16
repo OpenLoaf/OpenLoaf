@@ -4,30 +4,10 @@
   --drag-tilt-x: 0deg;
   --drag-tilt-y: 0deg;
   transition: transform 0.15s ease-out, box-shadow 0.15s linear, left 0.15s ease-out, top 0.15s ease-out;
-  /* 静止阴影 elevation-1 */
   border-radius: var(--radius-3xl);
-  box-shadow: 0 1px 2px rgba(51, 61, 78, 0.25);
+  box-shadow: none;
   /* 始终使用灰度抗锯齿，避免拖拽时子像素→灰度切换导致文字模糊跳变 */
   -webkit-font-smoothing: antialiased;
-}
-
-/* 媒体节点：用 ::after 伪元素叠加边框，不影响布局且始终可见 */
-[data-board-node][data-node-type="image"],
-[data-board-node][data-node-type="video"],
-[data-board-node][data-node-type="audio"] {
-  box-shadow: none;
-}
-
-[data-board-node][data-node-type="image"]::after,
-[data-board-node][data-node-type="video"]::after,
-[data-board-node][data-node-type="audio"]::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  border: 1px solid rgba(0, 0, 0, 0.12);
-  pointer-events: none;
-  z-index: 1;
 }
 
 /* 有旋转的节点 */
@@ -44,23 +24,6 @@
     drop-shadow(0 4px 6px rgba(51, 61, 78, 0.1));
   transition: transform 0.15s ease-out, filter 0.15s linear;
   will-change: transform, filter;
-}
-
-/* 暗色主题 */
-:is(.dark, [data-theme="dark"]) [data-board-node] {
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
-}
-
-:is(.dark, [data-theme="dark"]) [data-board-node][data-node-type="image"],
-:is(.dark, [data-theme="dark"]) [data-board-node][data-node-type="video"],
-:is(.dark, [data-theme="dark"]) [data-board-node][data-node-type="audio"] {
-  box-shadow: none;
-}
-
-:is(.dark, [data-theme="dark"]) [data-board-node][data-node-type="image"]::after,
-:is(.dark, [data-theme="dark"]) [data-board-node][data-node-type="video"]::after,
-:is(.dark, [data-theme="dark"]) [data-board-node][data-node-type="audio"]::after {
-  border-color: rgba(255, 255, 255, 0.15);
 }
 
 /* 拖拽时隐藏节点内的播放/暂停等控件按钮 */

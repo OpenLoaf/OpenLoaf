@@ -288,7 +288,7 @@ export default function ToolApprovalActions({ approvalId, size = "sm" }: ToolApp
   const isLarge = size === "default";
 
   return (
-    <div className="ml-auto flex flex-wrap items-center gap-2">
+    <div className="ml-auto flex flex-wrap items-center gap-2" data-testid="tool-approval-actions">
       <ConfirmationAction
         type="button"
         size={size}
@@ -300,6 +300,7 @@ export default function ToolApprovalActions({ approvalId, size = "sm" }: ToolApp
         }
         disabled={disabled}
         onClick={handleApprove}
+        data-testid="tool-approval-approve"
       >
         {t('tool.approve')}
       </ConfirmationAction>
@@ -316,6 +317,7 @@ export default function ToolApprovalActions({ approvalId, size = "sm" }: ToolApp
           disabled={disabled}
           onClick={handleAlwaysAllow}
           title={suggestedRule}
+          data-testid="tool-approval-always-allow"
         >
           {t('tool.alwaysAllow')}
         </ConfirmationAction>
@@ -331,6 +333,7 @@ export default function ToolApprovalActions({ approvalId, size = "sm" }: ToolApp
         }
         disabled={disabled}
         onClick={handleReject}
+        data-testid="tool-approval-reject"
       >
         {t('tool.reject')}
       </ConfirmationAction>

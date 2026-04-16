@@ -233,15 +233,17 @@ Returns a list of features in that category, each with its top 3 variants (id, n
 
 Omit \`category\` to see everything at once.
 
-### Step 2 — (Optional) Detail (CloudCapDetail)
+### Step 2 — Detail (CloudCapDetail)
 
-If the top-3 summary from Browse isn't enough — user wants an unusual variant, or you need exact parameter names — fetch the full schema:
+Fetch the full input/param schema for a variant before calling Generate:
 
 \`\`\`
 CloudCapDetail({ variantId: "OL-IG-003" })
 \`\`\`
 
-**Skip this step when the Browse summary is sufficient.** Most common requests don't need Detail.
+**When to call Detail:**
+- **Video / Audio / Digital Human variants** — **ALWAYS call Detail first.** Their input keys (e.g. \`startImage\`, \`referenceImage\`, \`audio\`) and value formats (plain URL string vs \`{ url: "..." }\` object) vary by variant and are NOT shown in Browse. Skipping Detail for these categories is the #1 cause of generation failures.
+- **Image variants** — usually safe to skip if you only need \`prompt\` + \`aspectRatio\`. Call Detail when you need advanced params or reference image inputs.
 
 ### Step 3 — Generate (CloudModelGenerate)
 
@@ -266,12 +268,13 @@ CloudTaskCancel({ taskId })  // abort a running task
 
 ## Parameter Semantics
 
-- **\`inputs\`** — content payloads. Keys come from the variant's input schema.
-  Common fields: \`prompt\` (text), \`image\` (URL), \`referenceImage\` (URL), \`audio\` (URL).
+- **\`inputs\`** — content payloads. Keys and value formats come from the variant's input schema (use \`CloudCapDetail\` to confirm).
+  - Image generation: \`prompt\` (string)
+  - Video generation: \`startImage\` (\`{ url: "..." }\` object, NOT a plain URL string), \`prompt\` (string, optional)
+  - Audio / TTS: \`prompt\` (string — the text to speak)
+  - **Do NOT guess input keys** — video uses \`startImage\` not \`image\`, and some inputs require object format. Always verify with \`CloudCapDetail\` for non-image categories.
 - **\`params\`** — option controls. Keys come from the variant's param schema.
   Common fields: \`aspectRatio\`, \`steps\`, \`style\`, \`quality\`, \`duration\`.
-
-When unsure about exact field names, call \`CloudCapDetail\` to see the schema.
 
 ## Guidance
 
@@ -279,10 +282,14 @@ When unsure about exact field names, call \`CloudCapDetail\` to see the schema.
 - **Match user style keywords to variant tags.** "宫崎骏"/"anime"/"动漫" → anime/stylized variants. "写实"/"realistic" → photorealistic variants.
 - **Prefer cheap variants for drafts.** When the user is still iterating on ideas, use low-credit variants for previews. Upgrade only after user confirms the direction.
 - **Present resultUrls directly.** The returned URLs are already public-accessible; don't try to download or re-fetch them.
+- **Limit parallel requests.** Do NOT fire more than 2 concurrent CloudModelGenerate calls to the same variant. The upstream API has rate limits — sending 3+ parallel requests often causes 503 failures. For batch generation (e.g. "generate 4 different styles"), split into groups of 2 and wait for each group to finish before starting the next.
 - **Handle errors gracefully.** The tool returns \`Error: ...\` on failure. Retry once if the error looks transient (network/rate-limit); report to user otherwise.
 - **Don't guess variant IDs.** If you don't see a variant matching the user's request in Browse, tell the user rather than inventing an ID.
+- **Don't guess input keys.** Input field names vary across features/variants. For video (\`startImage\`), digital human (\`audio\`, \`image\`), etc. — always verify with \`CloudCapDetail\` before calling Generate.
 
-## Example
+## Examples
+
+### Image generation
 
 User: "帮我生成一张宫崎骏风格的森林图"
 
@@ -290,11 +297,11 @@ User: "帮我生成一张宫崎骏风格的森林图"
 1. ToolSearch(names: "CloudCapBrowse,CloudCapDetail,CloudModelGenerate,CloudTask,CloudTaskCancel")
 
 2. CloudCapBrowse({ category: "image" })
-   → finds feature "text-to-image" with variant tagged "anime / 动漫"
+   → finds feature "imageGenerate" with variant tagged "anime / 动漫"
    → reads userTier/userCredits and picks a variant where accessible === true
 
 3. CloudModelGenerate({
-     feature: "text-to-image",
+     feature: "imageGenerate",
      variant: "<the-anime-variant-id>",
      inputs: { prompt: "宫崎骏风格的森林，柔和光线，细致纹理" },
      params: { aspectRatio: "16:9" }
@@ -302,6 +309,27 @@ User: "帮我生成一张宫崎骏风格的森林图"
    → returns { files: [...], creditsConsumed: N }
 
 4. Present the saved file path or URL to the user.
+\`\`\`
+
+### Video generation (image-to-video)
+
+User: "把这张图做成 10 秒的视频"
+
+\`\`\`
+1. CloudCapBrowse({ category: "video" })
+   → finds feature "videoGenerate" with variants
+
+2. CloudCapDetail({ variantId: "OL-VG-001" })       ← REQUIRED for video!
+   → reveals input schema: startImage ({ url }) + prompt (optional)
+   → reveals param schema: duration (5/10)
+
+3. CloudModelGenerate({
+     feature: "videoGenerate",
+     variant: "OL-VG-001",
+     inputs: { startImage: { url: "<image-source-url>" } },
+     params: { duration: 10 }
+   })
+   → returns { files: [...], creditsConsumed: N }
 \`\`\`
 `
 }

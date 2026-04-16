@@ -437,6 +437,7 @@ export function openFilePreview(input: FileOpenInput): boolean | ReactNode | nul
         entry: input.entry,
         rootUri: input.rootUri,
         projectId: input.projectId,
+        sessionId: input.sessionId,
         readOnly: input.readOnly,
       });
     }
@@ -498,6 +499,7 @@ export function openFilePreview(input: FileOpenInput): boolean | ReactNode | nul
       entry: input.entry,
       rootUri: input.rootUri,
       projectId: input.projectId,
+      sessionId: input.sessionId,
       readOnly: input.readOnly,
     });
   }

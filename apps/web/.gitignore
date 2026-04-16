@@ -10,6 +10,8 @@
 
 # Testing
 /coverage
+/browser-test-runs
+/browser-test-report
 
 # Build outputs
 /.next/

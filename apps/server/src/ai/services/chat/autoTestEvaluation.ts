@@ -14,7 +14,7 @@ import { TRPCError } from '@trpc/server'
 import { resolveSessionDir } from '@openloaf/api/services/chatSessionPaths'
 
 /**
- * EVALUATION.json 由 chat-probe skill 的评审子 agent 写入到
+ * EVALUATION.json 由 ai-browser-test skill 的评审子 agent 写入到
  * `<sessionDir>/EVALUATION.json`。schema 与 skill 层约定同步，
  * 任何结构变动必须同时更新两侧。
  */
@@ -96,10 +96,8 @@ export async function readAutoTestEvaluation(
 
   const result = evaluationJsonSchema.safeParse(parsed)
   if (!result.success) {
-    throw new TRPCError({
-      code: 'INTERNAL_SERVER_ERROR',
-      message: `EVALUATION.json schema 校验失败：${result.error.message}`,
-    })
+    // schema 版本不匹配（旧格式文件）→ 静默返回 null，不向前端抛错
+    return null
   }
   return result.data
 }

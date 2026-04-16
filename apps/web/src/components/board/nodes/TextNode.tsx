@@ -1305,7 +1305,7 @@ function EditableTextNodeView({
     return (
       <button
         type="button"
-        className="flex h-full w-full items-center justify-center rounded-3xl border border-ol-divider bg-background text-[11px] font-medium text-ol-text-auxiliary shadow-none transition hover:bg-ol-surface-muted"
+        className="flex h-full w-full items-center justify-center rounded-3xl bg-ol-surface-muted text-[11px] font-medium text-ol-text-auxiliary shadow-none transition hover:bg-ol-surface-hover"
         style={branchColor ? { borderColor: branchColor, color: branchColor } : undefined}
         onPointerDown={event => {
           event.preventDefault();

@@ -387,7 +387,7 @@ const LeftToolbar = memo(function LeftToolbar({
                   id: "table",
                   type: "table",
                   props: {},
-                  size: [400, 200],
+                  size: [364, 160],
                   title: t("insertTools.table"),
                 });
               }}
@@ -429,7 +429,7 @@ const LeftToolbar = memo(function LeftToolbar({
                     url: "", title: "", description: "",
                     logoSrc: "", imageSrc: "", refreshToken: Date.now(),
                   },
-                  size: [280, 160],
+                  size: [280, 60],
                 });
               }}
             />

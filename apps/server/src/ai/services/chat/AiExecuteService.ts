@@ -197,6 +197,7 @@ function buildChatStreamRequest(input: {
     messageIdChain: input.request.messageIdChain,
     pageContext: input.request.pageContext,
     temperature: input.request.temperature,
+    title: input.request.title,
   };
 }
 

@@ -593,7 +593,7 @@ export function AudioNodeView({
           {audioSrc ? (
             <AudioWavePlayer src={audioSrc} />
           ) : !isGenerating ? (
-            <div className="flex h-full w-full items-center rounded-3xl border border-dashed border-ol-divider bg-ol-surface-muted">
+            <div className="flex h-full w-full items-center rounded-3xl bg-ol-surface-muted">
               {/* 左侧：录音按钮区域 */}
               <div className="flex flex-col items-center justify-center gap-1.5 pl-5 pr-4">
                 {recorder.state === 'recording' ? (

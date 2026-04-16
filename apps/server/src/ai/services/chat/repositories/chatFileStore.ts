@@ -94,9 +94,9 @@ type SessionJson = {
   messageCount: number
   /** Last allocated plan number for PLAN_{no}.md naming. */
   lastPlanNo?: number
-  /** 自动化探针标记（chat-probe runner 写入，后端只读）。 */
+  /** 自动化探针标记（ai-browser-test runner 写入，后端只读）。 */
   autoTest?: boolean
-  /** 自动化探针元数据（chat-probe runner 写入，后端只读）。 */
+  /** 自动化探针元数据（ai-browser-test runner 写入，后端只读）。 */
   probeMeta?: ProbeMeta
 }
 

@@ -10,6 +10,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslation } from 'react-i18next'
 import { ChevronRightIcon, FileIcon, FolderOpenIcon, LoaderCircleIcon, XCircleIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useChatSession } from '@/components/ai/context'
@@ -220,7 +221,8 @@ export default function GlobTool({
 }) {
   const streaming = isToolStreaming(part)
   const hasError = part.state === 'output-error' || part.state === 'output-denied'
-  const { projectId, tabId } = useChatSession()
+  const { t } = useTranslation('ai')
+  const { projectId, tabId, sessionId } = useChatSession()
   const projectQuery = useProject(projectId)
   const projectRootUri = projectQuery.data?.project?.rootUri ?? undefined
 
@@ -252,11 +254,11 @@ export default function GlobTool({
         useLayoutState.getState().removeStackItem(prevStackIdRef.current)
       }
 
-      openFile({ entry, tabId, projectId: projectId ?? undefined, rootUri: projectRootUri })
+      openFile({ entry, tabId, projectId: projectId ?? undefined, sessionId, rootUri: projectRootUri })
       // Store the entry uri as the stack item id (matches buildStackItemForEntry logic)
       prevStackIdRef.current = entry.uri
     },
-    [searchPath, tabId, projectId, projectRootUri],
+    [searchPath, tabId, projectId, sessionId, projectRootUri],
   )
 
   const output = typeof part.output === 'string' ? part.output : ''
@@ -278,7 +280,7 @@ export default function GlobTool({
               )}
             >
               <FolderOpenIcon className="size-3.5 shrink-0 text-muted-foreground" />
-              <span className="shrink-0 text-xs font-medium text-muted-foreground">Glob</span>
+              <span className="shrink-0 text-xs font-medium text-muted-foreground">{t('toolNames.Glob', { defaultValue: 'Glob' })}</span>
               {inlineText ? (
                 <span className="min-w-0 truncate font-mono text-xs text-muted-foreground/50">
                   {inlineText}

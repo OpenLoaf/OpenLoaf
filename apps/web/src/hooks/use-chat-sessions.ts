@@ -39,7 +39,7 @@ export type ChatSessionListItem = {
   projectIcon: string | null;
   /** Session message count. */
   messageCount: number;
-  /** chat-probe 自动测试标记，来自 session.json。 */
+  /** ai-browser-test 自动测试标记，来自 session.json。 */
   autoTest?: boolean;
   /** 自动测试评审聚合分数（EVALUATION.json aggregate.score），未评审为 null。 */
   autoTestScore?: number | null;

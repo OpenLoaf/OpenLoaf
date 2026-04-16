@@ -53,6 +53,9 @@ export function createToolProgress(
     writer.write({
       type: 'data-tool-progress',
       data: { toolCallId, toolName, event, ...payload },
+      // transient 确保事件在工具执行期间立即发送给客户端，
+      // 而不被 AI SDK 缓冲到工具结果返回后才批量投递。
+      transient: true,
     // biome-ignore lint/suspicious/noExplicitAny: UIMessageStreamWriter generic requires exact chunk type
     } as any)
   }

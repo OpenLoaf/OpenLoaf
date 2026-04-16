@@ -107,7 +107,7 @@ export default function ClaudeCodeEditTool({
   const isMulti = hunks.length > 1
   const label = isMulti ? 'MultiEdit' : 'Edit'
 
-  const { projectId, tabId } = useChatSession()
+  const { projectId, tabId, sessionId } = useChatSession()
   const projectQuery = useProject(projectId)
   const projectRootUri = projectQuery.data?.project?.rootUri ?? undefined
 
@@ -115,8 +115,8 @@ export default function ClaudeCodeEditTool({
     if (!filePath) return
     const entry = createFileEntryFromUri({ uri: filePath, name: displayName })
     if (!entry) return
-    openFile({ entry, tabId, projectId: projectId ?? undefined, rootUri: projectRootUri })
-  }, [filePath, displayName, tabId, projectId, projectRootUri])
+    openFile({ entry, tabId, projectId: projectId ?? undefined, sessionId, rootUri: projectRootUri })
+  }, [filePath, displayName, tabId, projectId, sessionId, projectRootUri])
 
   return (
     <div className={cn('w-full min-w-0', className)}>

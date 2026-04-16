@@ -39,7 +39,7 @@ export default function ClaudeCodeReadTool({
 }) {
   const filePath = resolveFilePath(part)
   const displayName = resolveDisplayName(filePath)
-  const { projectId, tabId } = useChatSession()
+  const { projectId, tabId, sessionId } = useChatSession()
   const projectQuery = useProject(projectId)
   const projectRootUri = projectQuery.data?.project?.rootUri ?? undefined
 
@@ -47,8 +47,8 @@ export default function ClaudeCodeReadTool({
     if (!filePath) return
     const entry = createFileEntryFromUri({ uri: filePath, name: displayName })
     if (!entry) return
-    openFile({ entry, tabId, projectId: projectId ?? undefined, rootUri: projectRootUri })
-  }, [filePath, displayName, tabId, projectId, projectRootUri])
+    openFile({ entry, tabId, projectId: projectId ?? undefined, sessionId, rootUri: projectRootUri })
+  }, [filePath, displayName, tabId, projectId, sessionId, projectRootUri])
 
   return (
     <div className={cn('w-full min-w-0', className)}>

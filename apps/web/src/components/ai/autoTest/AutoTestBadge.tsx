@@ -22,14 +22,14 @@ interface AutoTestBadgeProps {
   className?: string;
 }
 
-/** chat-probe 自动测试会话标识小徽章。 */
+/** ai-browser-test 自动测试会话标识小徽章。 */
 export function AutoTestBadge({ size = "xs", showLabel = false, className }: AutoTestBadgeProps) {
   const sizeClass =
     size === "sm" ? "h-5 px-2 text-[11px] gap-1" : "h-4 px-1.5 text-[10px] gap-0.5";
   return (
     <span
       aria-label="自动测试"
-      title="chat-probe 自动测试"
+      title="ai-browser-test 自动测试"
       className={cn(
         "inline-flex shrink-0 items-center rounded-full font-medium transition-colors duration-150",
         // 蓝色扁平底 + light/dark 双色
