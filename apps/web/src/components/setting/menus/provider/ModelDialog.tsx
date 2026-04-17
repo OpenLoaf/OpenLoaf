@@ -8,13 +8,44 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import { useTranslation } from "react-i18next";
-import { Button } from "@openloaf/ui/button";
 import { Input } from "@openloaf/ui/input";
-import { MODEL_TAGS, type ModelTag } from "@openloaf/api/common";
+import type { ModelTag } from "@openloaf/api/common";
+import { cn } from "@/lib/utils";
 import { FormDialog } from "@/components/ui/FormDialog";
 import {
   toggleSelection,
 } from "@/components/setting/menus/provider/use-provider-management";
+
+// 能力标签仅保留媒体输入三件套 —— 与聊天模型选择器 (ModelCheckboxItem)
+// 展示口径统一。chat/reasoning/tool_call 等元能力由对话时自动识别。
+const SELECTABLE_MODEL_TAGS: readonly ModelTag[] = [
+  "image_input",
+  "video_analysis",
+  "audio_analysis",
+];
+
+// 选中态用饱和色，未选中态用淡色底 —— 与 ModelCheckboxItem 的色系对齐
+// （图片蓝 / 视频紫 / 音频琥珀），light + dark 两套。
+const TAG_TONE_CLASSES: Record<string, { selected: string; unselected: string }> = {
+  image_input: {
+    selected:
+      "bg-blue-600 text-white border-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:border-blue-500 dark:hover:bg-blue-600",
+    unselected:
+      "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 dark:bg-blue-500/15 dark:text-blue-300 dark:border-blue-500/30 dark:hover:bg-blue-500/25",
+  },
+  video_analysis: {
+    selected:
+      "bg-violet-600 text-white border-violet-600 hover:bg-violet-700 dark:bg-violet-500 dark:border-violet-500 dark:hover:bg-violet-600",
+    unselected:
+      "bg-violet-50 text-violet-700 border-violet-200 hover:bg-violet-100 dark:bg-violet-500/15 dark:text-violet-300 dark:border-violet-500/30 dark:hover:bg-violet-500/25",
+  },
+  audio_analysis: {
+    selected:
+      "bg-amber-500 text-white border-amber-500 hover:bg-amber-600 dark:bg-amber-500 dark:border-amber-500 dark:hover:bg-amber-600",
+    unselected:
+      "bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30 dark:hover:bg-amber-500/25",
+  },
+};
 
 export type ModelDialogProps = {
   /** Dialog visibility. */
@@ -65,9 +96,9 @@ export function ModelDialog({
 }: ModelDialogProps) {
   const { t } = useTranslation('settings');
   const { t: tAi } = useTranslation('ai');
-  const modelTagOptions = MODEL_TAGS.map((value) => ({
+  const modelTagOptions = SELECTABLE_MODEL_TAGS.map((value) => ({
     value,
-    label: tAi(`modelTags.${value}`, { defaultValue: value, nsSeparator: false }),
+    label: tAi(`modelTagsShort.${value}`, { defaultValue: value, nsSeparator: false }),
   }));
   const isEditing = Boolean(editingModelId);
 
@@ -103,19 +134,25 @@ export function ModelDialog({
         <div className="space-y-2 md:col-span-2">
           <div className="text-sm font-medium">{t('provider.capabilityTags')}</div>
           <div className="flex flex-wrap gap-2">
-            {modelTagOptions.map((option) => (
-              <Button
-                key={option.value}
-                type="button"
-                variant={draftModelTags.includes(option.value) ? "default" : "outline"}
-                size="sm"
-                onClick={() =>
-                  onDraftModelTagsChange(toggleSelection(draftModelTags, option.value))
-                }
-              >
-                {option.label}
-              </Button>
-            ))}
+            {modelTagOptions.map((option) => {
+              const selected = draftModelTags.includes(option.value);
+              const tone = TAG_TONE_CLASSES[option.value];
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() =>
+                    onDraftModelTagsChange(toggleSelection(draftModelTags, option.value))
+                  }
+                  className={cn(
+                    "inline-flex h-8 items-center rounded-full border px-3 text-xs font-medium transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-foreground/20",
+                    tone ? (selected ? tone.selected : tone.unselected) : "bg-secondary text-foreground border-transparent",
+                  )}
+                >
+                  {option.label}
+                </button>
+              );
+            })}
           </div>
         </div>
 

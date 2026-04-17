@@ -19,31 +19,31 @@ const TAG_COLOR_CLASSES: Record<string, string> = {
   // 对话类
   chat: 'bg-secondary text-foreground',
   code: 'bg-secondary text-foreground',
-  tool_call:
-    'bg-secondary text-foreground',
-  reasoning:
-    'bg-secondary text-foreground',
-  // 图像类
+  tool_call: 'bg-secondary text-foreground',
+  reasoning: 'bg-secondary text-foreground',
+  // 图像类 —— 蓝色系
   image_generation:
-    'bg-secondary text-foreground',
+    'bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300',
   image_input:
-    'bg-secondary text-foreground',
+    'bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300',
   image_multi_input:
-    'bg-secondary text-foreground',
+    'bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300',
   image_multi_generation:
-    'bg-secondary text-foreground',
+    'bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300',
   image_edit:
-    'bg-secondary text-foreground',
+    'bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300',
   image_analysis:
-    'bg-secondary text-foreground',
-  // 视频类
+    'bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300',
+  // 视频类 —— 紫色系
   video_generation:
-    'bg-secondary text-foreground',
+    'bg-violet-50 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300',
   video_analysis:
-    'bg-secondary text-foreground',
-  // 音频类
+    'bg-violet-50 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300',
+  // 音频类 —— 琥珀色系
   audio_analysis:
-    'bg-secondary text-foreground',
+    'bg-amber-50 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300',
+  audio_tts:
+    'bg-amber-50 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300',
   default: 'bg-foreground/5 text-muted-foreground dark:bg-foreground/10',
 }
 
@@ -70,6 +70,7 @@ export function ModelCheckboxItem({
 }: ModelCheckboxItemProps) {
   const { t } = useTranslation('ai')
   const isSingleSelection = selectionType === 'single'
+  const MEDIA_TAG_KEYS = new Set(['image_input', 'video_analysis', 'audio_analysis'])
   const tagLabels =
     tags && tags.length > 0
       ? tags.map((tag) => ({
@@ -77,6 +78,16 @@ export function ModelCheckboxItem({
           label: t(`modelTags.${tag}`, { defaultValue: tag, nsSeparator: false }),
         }))
       : []
+  const mediaTags =
+    tags && tags.length > 0
+      ? tags
+          .filter((tag) => MEDIA_TAG_KEYS.has(tag))
+          .map((tag) => ({
+            key: tag,
+            label: t(`modelTagsShort.${tag}`, { defaultValue: tag, nsSeparator: false }),
+          }))
+      : []
+  const restTagLabels = tagLabels.filter((tag) => !MEDIA_TAG_KEYS.has(tag.key))
 
   return (
     <div
@@ -116,10 +127,25 @@ export function ModelCheckboxItem({
             className="h-3.5 w-3.5 shrink-0"
           />
           <span className="truncate">{label}</span>
+          {mediaTags.length > 0 && (
+            <span className="flex shrink-0 items-center gap-1">
+              {mediaTags.map((tag) => (
+                <span
+                  key={tag.key}
+                  className={cn(
+                    'inline-flex items-center rounded-3xl px-1.5 py-0.5 text-[9px] font-normal leading-none',
+                    TAG_COLOR_CLASSES[tag.key] ?? TAG_COLOR_CLASSES.default,
+                  )}
+                >
+                  {tag.label}
+                </span>
+              ))}
+            </span>
+          )}
         </div>
-        {tagLabels.length > 0 && (
+        {restTagLabels.length > 0 && (
           <div className="mt-1 flex flex-wrap items-center gap-1.5 pl-5.5">
-            {tagLabels.map((tag) => (
+            {restTagLabels.map((tag) => (
               <span
                 key={tag.key}
                 className={cn(
