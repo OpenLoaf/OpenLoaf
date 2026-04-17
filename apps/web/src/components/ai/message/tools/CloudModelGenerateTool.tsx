@@ -364,11 +364,17 @@ function PendingView({
   input: Record<string, unknown>
   t: TFunction
 }) {
-  const hasPrompt =
+  // Two input shapes share this component:
+  //   1. CloudModelGenerate — { feature, variant, inputs: { prompt, ... }, params }
+  //   2. CloudImageGenerate (and other named tools) — flat { prompt, aspectRatio, ... }
+  const flatPrompt = typeof input.prompt === 'string' ? input.prompt : undefined
+  const nestedPrompt =
     input.inputs && typeof input.inputs === 'object' && input.inputs !== null
       ? (input.inputs as Record<string, unknown>).prompt
       : undefined
-  const promptText = typeof hasPrompt === 'string' ? hasPrompt : ''
+  const promptText =
+    (typeof flatPrompt === 'string' && flatPrompt) ||
+    (typeof nestedPrompt === 'string' ? nestedPrompt : '')
   if (!promptText) return <EmptyView />
   return (
     <div className="space-y-0.5">

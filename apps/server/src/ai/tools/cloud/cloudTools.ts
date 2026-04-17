@@ -843,9 +843,9 @@ export async function runV3GenerateAndSave(args: {
       projectId: target?.projectId,
       hint:
         files.length > 0
-          ? 'Files saved to the chat asset directory — use `files[].filePath` (${CURRENT_CHAT_DIR}/…) when referencing them from other tools.'
+          ? 'Files already saved and the chat UI will auto-preview them — DO NOT call Read on these files just to describe or show them to the user. Only Read them if you need to edit, transform, or run a separate analysis. Reply with one short confirmation line and stop.'
           : pending.length > 0
-            ? 'Auto-save failed. The raw cloud URLs are in `pendingUrls` but they may expire — present them to the user quickly or retry.'
+            ? 'Auto-save failed. The raw cloud URLs are in `pendingUrls` but they may expire — present them to the user quickly or retry. DO NOT Read the URLs.'
             : 'Task completed without result URLs.',
     })
   } catch (err) {
@@ -1015,7 +1015,7 @@ export const cloudTaskTool = tool({
           projectId: target?.projectId,
           hint:
             files.length > 0
-              ? 'Files saved. Use files[].filePath when referencing them.'
+              ? 'Files saved. The chat UI auto-previews them — do NOT Read them just to show the user. Reply with one short confirmation line.'
               : 'Auto-save failed or not applicable — see pendingUrls.',
         })
       }
