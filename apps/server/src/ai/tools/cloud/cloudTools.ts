@@ -744,6 +744,132 @@ export const cloudCapDetailTool = tool({
 })
 
 // ---------------------------------------------------------------------------
+// Shared generate-and-save pipeline
+// ---------------------------------------------------------------------------
+//
+// 抽出 CloudModelGenerate 的核心流程（normalizeInputs → v3Generate → poll →
+// autoSave），供 CloudModelGenerate 自身以及命名工具 (cloudImageGenerate /
+// cloudVideoGenerate / cloudTTS …) 复用。返回与 CloudModelGenerate 一致的
+// JSON 字符串，命名工具可以原样透传给 LLM 或再 wrap。
+
+export async function runV3GenerateAndSave(args: {
+  feature: string
+  variant: string
+  inputs?: Record<string, unknown>
+  params?: Record<string, unknown>
+  waitForCompletion?: boolean
+  progress: ToolProgressEmitter
+  /** Tool name shown in error messages (defaults to 'CloudModelGenerate'). */
+  toolName?: string
+}): Promise<string> {
+  const {
+    feature,
+    variant,
+    inputs,
+    params,
+    waitForCompletion = true,
+    progress,
+    toolName = 'CloudModelGenerate',
+  } = args
+  const token = await requireToken()
+  if (typeof token !== 'string') {
+    progress.error(token.error)
+    return `Error: ${token.error}`
+  }
+
+  progress.start(`${feature} / ${variant}`)
+  try {
+    const client = getSaasClient(token)
+    const normalizedInputs = await normalizeCloudInputs({ inputs, client, progress })
+    const createRes = await client.ai.v3Generate({
+      feature,
+      variant,
+      inputs: normalizedInputs,
+      params,
+    })
+
+    if ('groupId' in createRes.data) {
+      const { groupId, taskIds } = createRes.data
+      progress.done(`group ${groupId} with ${taskIds.length} task(s)`)
+      return JSON.stringify({
+        ok: true,
+        mode: 'group',
+        groupId,
+        taskIds,
+        hint: 'Batch submitted. Poll individual tasks with CloudTask(taskId).',
+      })
+    }
+
+    const taskId = createRes.data.taskId
+    progress.delta(`task ${taskId} submitted\n`)
+
+    if (!waitForCompletion) {
+      progress.done(`task ${taskId} queued (async)`)
+      return JSON.stringify({
+        ok: true,
+        mode: 'async',
+        taskId,
+        hint: 'Use CloudTask(taskId) to poll status and retrieve resultUrls.',
+      })
+    }
+
+    const result = await pollTaskUntilDone(client, taskId, progress)
+
+    const urls = Array.isArray(result.resultUrls) ? result.resultUrls : []
+    const { files, pending, target } = await autoSaveResultUrls({
+      resultUrls: urls,
+      variantId: variant,
+      progress,
+    })
+
+    if (typeof result.creditsConsumed === 'number' && result.creditsConsumed > 0) {
+      addCreditsConsumed(result.creditsConsumed)
+    }
+    progress.done(`done (${result.creditsConsumed ?? 0} credits)`)
+    return JSON.stringify({
+      ok: true,
+      mode: 'sync',
+      feature,
+      variant,
+      taskId,
+      status: result.status,
+      files,
+      pendingUrls: pending,
+      resultText: result.resultText,
+      creditsConsumed: result.creditsConsumed,
+      destination: target?.destination,
+      sessionId: target?.sessionId,
+      boardId: target?.boardId,
+      projectId: target?.projectId,
+      hint:
+        files.length > 0
+          ? 'Files saved to the chat asset directory — use `files[].filePath` (${CURRENT_CHAT_DIR}/…) when referencing them from other tools.'
+          : pending.length > 0
+            ? 'Auto-save failed. The raw cloud URLs are in `pendingUrls` but they may expire — present them to the user quickly or retry.'
+            : 'Task completed without result URLs.',
+    })
+  } catch (err) {
+    // 保留 taskId 让 AI 继续 CloudTask/CloudTaskCancel，不要把付费任务丢给
+    // 一个只有错误字符串的上层 — 这会直接丢失 credits。
+    if (err instanceof PollTaskTimeoutError) {
+      progress.done(`timeout — task ${err.taskId} still running`)
+      return JSON.stringify({
+        ok: true,
+        mode: 'timeout',
+        feature,
+        variant,
+        taskId: err.taskId,
+        hint:
+          'Polling timed out after 10 minutes but the task is still running on the cloud backend. Use CloudTask({ taskId }) to check status later, or CloudTaskCancel({ taskId }) to abort. Credits are consumed only when the task finishes.',
+      })
+    }
+    const message = err instanceof Error ? err.message : String(err)
+    progress.error(message)
+    return errorString(`${toolName}(${feature}/${variant})`, err)
+  }
+}
+
+// ---------------------------------------------------------------------------
 // CloudModelGenerate
 // ---------------------------------------------------------------------------
 
@@ -769,105 +895,15 @@ export const cloudModelGenerateTool = tool({
     }
 
     const progress = createToolProgress(toolCallId, 'CloudModelGenerate')
-    const token = await requireToken()
-    if (typeof token !== 'string') {
-      progress.error(token.error)
-      return `Error: ${token.error}`
-    }
-
-    progress.start(`${feature} / ${variant}`)
-    try {
-      const client = getSaasClient(token)
-      const normalizedInputs = await normalizeCloudInputs({ inputs, client, progress })
-      const createRes = await client.ai.v3Generate({
-        feature,
-        variant,
-        inputs: normalizedInputs,
-        params,
-      })
-
-      if ('groupId' in createRes.data) {
-        // Batch group — return metadata without polling each task.
-        const { groupId, taskIds } = createRes.data
-        progress.done(`group ${groupId} with ${taskIds.length} task(s)`)
-        return JSON.stringify({
-          ok: true,
-          mode: 'group',
-          groupId,
-          taskIds,
-          hint: 'Batch submitted. Poll individual tasks with CloudTask(taskId).',
-        })
-      }
-
-      const taskId = createRes.data.taskId
-      progress.delta(`task ${taskId} submitted\n`)
-
-      if (!waitForCompletion) {
-        progress.done(`task ${taskId} queued (async)`)
-        return JSON.stringify({
-          ok: true,
-          mode: 'async',
-          taskId,
-          hint: 'Use CloudTask(taskId) to poll status and retrieve resultUrls.',
-        })
-      }
-
-      const result = await pollTaskUntilDone(client, taskId, progress)
-
-      // Auto-save resultUrls into the chat/board asset dir so the files survive
-      // URL expiration and become usable by other tools via ${CURRENT_CHAT_DIR}.
-      const urls = Array.isArray(result.resultUrls) ? result.resultUrls : []
-      const { files, pending, target } = await autoSaveResultUrls({
-        resultUrls: urls,
-        variantId: variant,
-        progress,
-      })
-
-      if (typeof result.creditsConsumed === 'number' && result.creditsConsumed > 0) {
-        addCreditsConsumed(result.creditsConsumed)
-      }
-      progress.done(`done (${result.creditsConsumed ?? 0} credits)`)
-      return JSON.stringify({
-        ok: true,
-        mode: 'sync',
-        feature,
-        variant,
-        taskId,
-        status: result.status,
-        files,
-        pendingUrls: pending,
-        resultText: result.resultText,
-        creditsConsumed: result.creditsConsumed,
-        destination: target?.destination,
-        sessionId: target?.sessionId,
-        boardId: target?.boardId,
-        projectId: target?.projectId,
-        hint:
-          files.length > 0
-            ? 'Files saved to the chat asset directory — use `files[].filePath` (${CURRENT_CHAT_DIR}/…) when referencing them from other tools. The filePath template variable auto-expands to the absolute path.'
-            : pending.length > 0
-              ? 'Auto-save failed. The raw cloud URLs are in `pendingUrls` but they may expire — present them to the user quickly or retry.'
-              : 'Task completed without result URLs.',
-      })
-    } catch (err) {
-      // 逻辑：保留 taskId 让 AI 继续 CloudTask/CloudTaskCancel，不要把付费任务丢给
-      // 一个只有错误字符串的上层 — 这会直接丢失 credits。
-      if (err instanceof PollTaskTimeoutError) {
-        progress.done(`timeout — task ${err.taskId} still running`)
-        return JSON.stringify({
-          ok: true,
-          mode: 'timeout',
-          feature,
-          variant,
-          taskId: err.taskId,
-          hint:
-            'Polling timed out after 10 minutes but the task is still running on the cloud backend. Use CloudTask({ taskId }) to check status later, or CloudTaskCancel({ taskId }) to abort. Credits are consumed only when the task finishes.',
-        })
-      }
-      const message = err instanceof Error ? err.message : String(err)
-      progress.error(message)
-      return errorString(`CloudModelGenerate(${feature}/${variant})`, err)
-    }
+    return runV3GenerateAndSave({
+      feature,
+      variant,
+      inputs,
+      params,
+      waitForCompletion,
+      progress,
+      toolName: 'CloudModelGenerate',
+    })
   },
 })
 

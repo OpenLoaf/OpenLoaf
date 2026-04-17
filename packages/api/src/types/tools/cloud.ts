@@ -166,6 +166,48 @@ export const cloudLoginToolDef = {
   component: null,
 } as const;
 
+/**
+ * Named cloud tools — flat, semantic entries that replace the progressive-
+ * discovery chain (Browse → Detail → Generate) for common scenarios. Each
+ * named tool auto-picks an accessible variant and routes through the shared
+ * v3 generate pipeline. Advanced users can still fall back to Cloud* tools
+ * above when they need a specific variant or uncommon params.
+ */
+
+export const cloudImageGenerateToolDef = {
+  id: "CloudImageGenerate",
+  readonly: false,
+  name: "Cloud Image Generate",
+  description: `Generate an image from a text prompt using the cloud AI platform. Preferred entry point for "画一张"/"生成图片"/"text to image" — no Browse/Detail needed.
+
+- \`prompt\` (required): natural-language description of the image.
+- \`aspectRatio\` (optional): e.g. "1:1", "16:9", "9:16", "4:3". Passed through as a param; backend picks the closest supported value.
+- \`style\` (optional): free-form style hint ("watercolor", "pixel art", "photorealistic", …).
+- \`referenceImage\` (optional): URL string, \`{ url }\` object, or \`{ path }\` local path — forwarded as an image reference when the chosen variant supports it.
+- \`modelHint\` (optional): variant id (e.g. "OL-IG-003") or substring of a variant name to override the default picker. Use when the user explicitly asks for a specific model.
+- Internally selects the lowest-credit accessible variant under feature \`imageGenerate\`. Returns the same file-saving result as CloudModelGenerate.`,
+  parameters: z.object({
+    prompt: z.string().min(1).describe("Natural-language image description."),
+    aspectRatio: z
+      .string()
+      .optional()
+      .describe("Aspect ratio like '1:1', '16:9'. Optional."),
+    style: z
+      .string()
+      .optional()
+      .describe("Free-form style hint. Optional."),
+    referenceImage: z
+      .unknown()
+      .optional()
+      .describe("Reference image: URL string, { url }, or { path }. Optional."),
+    modelHint: z
+      .string()
+      .optional()
+      .describe("Variant id or name substring to override the default picker. Optional."),
+  }),
+  component: null,
+} as const;
+
 export const cloudTaskCancelToolDef = {
   id: "CloudTaskCancel",
   readonly: false,

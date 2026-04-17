@@ -114,6 +114,10 @@ export const masterTemplate: AgentTemplate = {
     'CloudTaskCancel',
     'CloudUserInfo',
     'CloudLogin',
+    // Flat named cloud tools — preferred entry points for common scenarios.
+    // Collapse Browse → Detail → Generate into a single call by auto-picking
+    // an accessible variant from the cached capability snapshot.
+    'CloudImageGenerate',
   ],
   allowSubAgents: true,
   maxDepth: 2,

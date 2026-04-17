@@ -18,6 +18,7 @@ import {
   XCircleIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useBasicConfig } from '@/hooks/use-basic-config'
 import {
   Tooltip,
   TooltipContent,
@@ -81,6 +82,7 @@ export default function ToolSearchTool({
   className?: string
 }) {
   const { t } = useTranslation('ai')
+  const { basic } = useBasicConfig()
   const inputObj = asPlainObject(normalizeToolInput(part.input))
   const query =
     inputObj && typeof inputObj.names === 'string' ? inputObj.names.trim() : ''
@@ -96,6 +98,14 @@ export default function ToolSearchTool({
   const loadedCount = parsed?.tools.length ?? 0
   const notFoundCount = parsed?.notFound.length ?? 0
   const isAllNotFound = loadedCount === 0 && notFoundCount > 0
+
+  // ToolSearch 是模型自己加载 deferred tool schema 的内部机制，成功完成后对用户无参考价值。
+  // 沿用 MessageTool 对无专用 UI 工具的策略：成功 + 无错误 + 无 notFound 时自动隐藏，
+  // 受「显示所有工具调用结果」开关控制。streaming / 错误 / 有 notFound 仍保留显示。
+  const isCompleted = part.state === 'output-available'
+  const shouldAutoHide =
+    isCompleted && !hasError && !isAllNotFound && notFoundCount === 0 && loadedCount > 0
+  if (shouldAutoHide && !basic.chatShowAllToolResults) return null
 
   return (
     <Collapsible className={cn('min-w-0 text-xs', className)}>

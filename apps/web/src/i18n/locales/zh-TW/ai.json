@@ -247,6 +247,9 @@
     "deleteConfirmTitle": "確認刪除",
     "deleteDesc": "確定要刪除這個會話嗎？此操作無法撤銷。",
     "empty": "暫無會話",
+    "searchPlaceholder": "搜尋會話標題",
+    "noMatches": "沒有符合的會話",
+    "clearSearch": "清除",
     "groupLabel": {
       "pinned": "置頂",
       "today": "今日",
@@ -447,6 +450,11 @@
     "media:music": "AI音樂",
     "media:sfx": "音效生成"
   },
+  "modelTagsShort": {
+    "image_input": "看圖",
+    "video_analysis": "看影片",
+    "audio_analysis": "聽音訊"
+  },
   "tool": {
     "writeFile": "寫入檔案",
     "writeFailed": "寫入失敗",
@@ -468,6 +476,7 @@
     "thinkingDone": "深度思考",
     "thinkingDuration": "深度思考耗時 {{duration}}s",
     "thinkingAnalyzing": "正在思考中...",
+    "thinkingAwaitingTool": "等待工具結果...",
     "sourcesTitle": "引用來源",
     "revisedPrompt": "改寫提示詞",
     "needsApproval": "需要審批：",
@@ -508,6 +517,63 @@
       "alreadySignedIn": "已登入",
       "needSignIn": "需要登入雲端帳號",
       "signInButton": "登入"
+    },
+    "cloudUserInfo": {
+      "processing": "取得使用者資訊…",
+      "operationFailed": "取得使用者資訊失敗",
+      "unknownUser": "未知使用者",
+      "notSignedIn": "尚未登入",
+      "creditsSuffix": "{{count}} 積分"
+    },
+    "cloudCapBrowse": {
+      "processing": "載入能力清單…",
+      "operationFailed": "載入能力清單失敗",
+      "noFeatures": "目前沒有可用能力",
+      "creditsInfo": "{{count}} 積分",
+      "unknownFeature": "未知",
+      "title": "雲端能力",
+      "featureCount": "{{count}} 項能力",
+      "category": {
+        "image": "影像",
+        "video": "影片",
+        "audio": "音訊",
+        "text": "文字",
+        "tools": "工具"
+      },
+      "tier": {
+        "free": "免費版",
+        "lite": "輕享版",
+        "pro": "專業版",
+        "premium": "尊享版",
+        "infinity": "無限版"
+      },
+      "feature": {
+        "imageGenerate": "文生圖",
+        "text-to-image": "文生圖",
+        "imageEdit": "影像編輯",
+        "imageInpaint": "內容填補",
+        "imageStyleTransfer": "風格遷移",
+        "upscale": "超解析度放大",
+        "outpaint": "影像擴展",
+        "materialExtract": "素材擷取",
+        "multiAngle": "多視角生成",
+        "imageCaption": "影像描述",
+        "videoGenerate": "影片生成",
+        "image-to-video": "圖生影片",
+        "videoCaption": "影片描述",
+        "lipSync": "口型同步",
+        "digitalHuman": "數位人",
+        "videoFaceSwap": "人臉互換",
+        "videoTranslate": "影片翻譯",
+        "tts": "文字轉語音",
+        "speechToText": "語音轉文字",
+        "ocr": "文字辨識",
+        "summarize": "文字摘要",
+        "chat": "對話",
+        "translate": "翻譯",
+        "webSearch": "網頁搜尋",
+        "webSearchImage": "影像搜尋"
+      }
     },
     "videoDownload": {
       "processing": "下載中…",

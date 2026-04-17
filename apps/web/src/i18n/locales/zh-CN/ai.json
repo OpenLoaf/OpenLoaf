@@ -247,6 +247,9 @@
     "deleteConfirmTitle": "确认删除",
     "deleteDesc": "确定要删除这个会话吗？此操作无法撤销。",
     "empty": "暂无会话",
+    "searchPlaceholder": "搜索会话标题",
+    "noMatches": "没有匹配的会话",
+    "clearSearch": "清空",
     "groupLabel": {
       "pinned": "置顶",
       "today": "今日",
@@ -439,6 +442,11 @@
     "media:music": "AI音乐",
     "media:sfx": "音效生成"
   },
+  "modelTagsShort": {
+    "image_input": "看图",
+    "video_analysis": "看视频",
+    "audio_analysis": "听音频"
+  },
   "dock": {
     "aiAssistant": "AI秘书",
     "pmAgent": "管理员",
@@ -468,6 +476,7 @@
     "thinkingDone": "深度思考",
     "thinkingDuration": "深度思考耗时 {{duration}}s",
     "thinkingAnalyzing": "正在思考中...",
+    "thinkingAwaitingTool": "等待工具结果...",
     "sourcesTitle": "引用来源",
     "revisedPrompt": "改写提示词",
     "needsApproval": "需要审批：",
@@ -508,6 +517,63 @@
       "alreadySignedIn": "已登录",
       "needSignIn": "需要登录云端账号",
       "signInButton": "登录"
+    },
+    "cloudUserInfo": {
+      "processing": "获取用户信息…",
+      "operationFailed": "获取用户信息失败",
+      "unknownUser": "未知用户",
+      "notSignedIn": "未登录",
+      "creditsSuffix": "{{count}} 积分"
+    },
+    "cloudCapBrowse": {
+      "processing": "加载能力列表…",
+      "operationFailed": "加载能力列表失败",
+      "noFeatures": "暂无可用能力",
+      "creditsInfo": "{{count}} 积分",
+      "unknownFeature": "未知",
+      "title": "云端能力",
+      "featureCount": "{{count}} 项能力",
+      "category": {
+        "image": "图像",
+        "video": "视频",
+        "audio": "音频",
+        "text": "文本",
+        "tools": "工具"
+      },
+      "tier": {
+        "free": "免费版",
+        "lite": "轻享版",
+        "pro": "专业版",
+        "premium": "尊享版",
+        "infinity": "无限版"
+      },
+      "feature": {
+        "imageGenerate": "文生图",
+        "text-to-image": "文生图",
+        "imageEdit": "图像编辑",
+        "imageInpaint": "内容填充",
+        "imageStyleTransfer": "风格迁移",
+        "upscale": "超分放大",
+        "outpaint": "图像扩展",
+        "materialExtract": "素材提取",
+        "multiAngle": "多视角生成",
+        "imageCaption": "图像描述",
+        "videoGenerate": "视频生成",
+        "image-to-video": "图生视频",
+        "videoCaption": "视频描述",
+        "lipSync": "口型同步",
+        "digitalHuman": "数字人",
+        "videoFaceSwap": "人脸互换",
+        "videoTranslate": "视频翻译",
+        "tts": "文本转语音",
+        "speechToText": "语音转文字",
+        "ocr": "文字识别",
+        "summarize": "文本摘要",
+        "chat": "对话",
+        "translate": "翻译",
+        "webSearch": "网页搜索",
+        "webSearchImage": "图像搜索"
+      }
     },
     "videoDownload": {
       "processing": "下载中…",

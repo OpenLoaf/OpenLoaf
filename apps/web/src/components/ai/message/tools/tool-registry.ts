@@ -56,6 +56,8 @@ import SleepTool from './SleepTool'
 import LoadSkillTool from './LoadSkillTool'
 import CloudModelGenerateTool from './CloudModelGenerateTool'
 import CloudLoginTool from './CloudLoginTool'
+import CloudUserInfoTool from './CloudUserInfoTool'
+import CloudCapBrowseTool from './CloudCapBrowseTool'
 
 export type ToolComponentProps = {
   part: AnyToolPart
@@ -133,10 +135,18 @@ export const TOOL_REGISTRY: ToolRegistryEntry[] = [
 
   // ── Cloud capabilities ──
   // CloudModelGenerate renders the files[] / pendingUrls[] preview grid. The
-  // other cloud tools (Browse/Detail/TextGenerate/Task/TaskCancel/UserInfo)
+  // other cloud tools (Detail/TextGenerate/Task/TaskCancel)
   // fall through to UnifiedTool — their responses are JSON that reads fine as-is.
-  { match: 'CloudModelGenerate', component: CloudModelGenerateTool as ComponentType<ToolComponentProps> },
+  // CloudImageGenerate (and future named tools cloudVideoGenerate / cloudTTS /
+  // cloudImageEdit / …) share the same output shape (via runV3GenerateAndSave)
+  // so they reuse CloudModelGenerateTool for the media preview grid.
+  {
+    match: ['CloudModelGenerate', 'CloudImageGenerate'],
+    component: CloudModelGenerateTool as ComponentType<ToolComponentProps>,
+  },
   { match: 'CloudLogin', component: CloudLoginTool as ComponentType<ToolComponentProps> },
+  { match: 'CloudUserInfo', component: CloudUserInfoTool as ComponentType<ToolComponentProps> },
+  { match: 'CloudCapBrowse', component: CloudCapBrowseTool as ComponentType<ToolComponentProps> },
 ]
 
 /** Look up a registry entry by tool kind. */

@@ -247,6 +247,9 @@
     "deleteConfirmTitle": "削除の確認",
     "deleteDesc": "このセッションを削除してよろしいですか？この操作は取り消せません。",
     "empty": "セッションがありません",
+    "searchPlaceholder": "セッション名を検索",
+    "noMatches": "一致するセッションがありません",
+    "clearSearch": "クリア",
     "groupLabel": {
       "pinned": "ピン留め",
       "today": "今日",
@@ -447,6 +450,11 @@
     "media:music": "AI音楽",
     "media:sfx": "効果音生成"
   },
+  "modelTagsShort": {
+    "image_input": "画像を見る",
+    "video_analysis": "動画を見る",
+    "audio_analysis": "音声を聴く"
+  },
   "tool": {
     "writeFile": "ファイルを書き込み",
     "writeFailed": "書き込みに失敗しました",
@@ -468,6 +476,7 @@
     "thinkingDone": "思考完了",
     "thinkingDuration": "{{duration}}秒間思考しました",
     "thinkingAnalyzing": "思考中...",
+    "thinkingAwaitingTool": "ツールの結果を待機中...",
     "sourcesTitle": "ソース",
     "revisedPrompt": "修正されたプロンプト",
     "needsApproval": "承認が必要です：",
@@ -508,6 +517,63 @@
       "alreadySignedIn": "サインイン済み",
       "needSignIn": "クラウドアカウントへのサインインが必要です",
       "signInButton": "サインイン"
+    },
+    "cloudUserInfo": {
+      "processing": "ユーザー情報を取得中...",
+      "operationFailed": "ユーザー情報の取得に失敗しました",
+      "unknownUser": "不明なユーザー",
+      "notSignedIn": "未サインイン",
+      "creditsSuffix": "{{count}} クレジット"
+    },
+    "cloudCapBrowse": {
+      "processing": "機能一覧を読み込み中...",
+      "operationFailed": "機能一覧の読み込みに失敗しました",
+      "noFeatures": "利用可能な機能がありません",
+      "creditsInfo": "{{count}} クレジット",
+      "unknownFeature": "不明",
+      "title": "クラウド機能",
+      "featureCount": "{{count}} 件の機能",
+      "category": {
+        "image": "画像",
+        "video": "動画",
+        "audio": "音声",
+        "text": "テキスト",
+        "tools": "ツール"
+      },
+      "tier": {
+        "free": "Free",
+        "lite": "Lite",
+        "pro": "Pro",
+        "premium": "Premium",
+        "infinity": "Infinity"
+      },
+      "feature": {
+        "imageGenerate": "テキストから画像",
+        "text-to-image": "テキストから画像",
+        "imageEdit": "画像編集",
+        "imageInpaint": "インペイント",
+        "imageStyleTransfer": "スタイル転送",
+        "upscale": "アップスケール",
+        "outpaint": "アウトペイント",
+        "materialExtract": "素材抽出",
+        "multiAngle": "マルチアングル",
+        "imageCaption": "画像キャプション",
+        "videoGenerate": "動画生成",
+        "image-to-video": "画像から動画",
+        "videoCaption": "動画キャプション",
+        "lipSync": "リップシンク",
+        "digitalHuman": "デジタルヒューマン",
+        "videoFaceSwap": "顔交換",
+        "videoTranslate": "動画翻訳",
+        "tts": "音声合成",
+        "speechToText": "音声認識",
+        "ocr": "OCR",
+        "summarize": "要約",
+        "chat": "チャット",
+        "translate": "翻訳",
+        "webSearch": "ウェブ検索",
+        "webSearchImage": "画像検索"
+      }
     },
     "videoDownload": {
       "processing": "ダウンロード中...",

@@ -61,6 +61,7 @@ import {
   cloudTaskTool,
   cloudTextGenerateTool,
 } from "@/ai/tools/cloud/cloudTools";
+import { cloudImageGenerateTool } from "@/ai/tools/cloud/cloudNamedTools";
 import { openUrlToolDef } from "@openloaf/api/types/tools/browser";
 import {
   browserActToolDef,
@@ -117,6 +118,7 @@ import {
   cloudModelGenerateToolDef,
   cloudTaskToolDef,
   cloudTextGenerateToolDef,
+  cloudImageGenerateToolDef,
 } from "@openloaf/api/types/tools/cloud";
 import {
   bashToolDef,
@@ -387,6 +389,9 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
   [cloudLoginToolDef.id]: {
     tool: cloudLoginTool,
   },
+  [cloudImageGenerateToolDef.id]: {
+    tool: cloudImageGenerateTool,
+  },
 };
 
 
@@ -457,6 +462,7 @@ const TOOL_DEF_REGISTRY: Record<string, { parameters?: any }> = {
   [cloudTaskCancelToolDef.id]: cloudTaskCancelToolDef,
   [cloudUserInfoToolDef.id]: cloudUserInfoToolDef,
   [cloudLoginToolDef.id]: cloudLoginToolDef,
+  [cloudImageGenerateToolDef.id]: cloudImageGenerateToolDef,
 };
 
 /**

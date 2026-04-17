@@ -116,6 +116,20 @@ export function getCachedVariantDetail(variantId: string): CachedVariantDetail |
   return state.variantDetails.get(variantId)
 }
 
+/**
+ * All cached variant details. Used by named cloud tools (cloudImageGenerate,
+ * cloudVideoGenerate, …) to pick an accessible variant for a requested
+ * capability without the AI having to call Browse+Detail first.
+ */
+export function getAllCachedVariantDetails(): readonly CachedVariantDetail[] {
+  return [...state.variantDetails.values()]
+}
+
+/** True once the first refresh has populated variant cache. */
+export function cloudSkillsInitialized(): boolean {
+  return state.initialized
+}
+
 /** Get a snapshot of category summaries including tier breakdown. */
 export function getCachedCategorySummaries(): readonly CategorySummary[] {
   return state.mediaCategories
@@ -191,29 +205,40 @@ Generate images, videos, and audio via the cloud AI platform. Each call consumes
 
 ${tierTableLines.join('\n')}
 
-> **工具按需加载**：\`CloudCapBrowse\`、\`CloudCapDetail\`、\`CloudModelGenerate\`、\`CloudTask\`、\`CloudTaskCancel\` 调用前须先 \`ToolSearch(names: "工具名")\` 加载 schema。
+## 首选路径 — 命名工具（单轮完成）
 
-## Workflow（严格按顺序执行）
+日常生图直接调命名工具，**不需要** Browse / Detail。工具内部会自动挑选一个可用的 variant 并按正确格式组装 inputs。
 
-### Step 1 — Browse：发现可用 feature 和 variant
+\`\`\`
+CloudImageGenerate({ prompt: "森林场景", aspectRatio?: "16:9", style?: "watercolor", referenceImage?: { url: "..." } | "https://..." | { path: "\${CURRENT_CHAT_DIR}/img.png" } })
+\`\`\`
+
+- 适用于："画一张" / "生成图片" / "text to image" / 带参考图的生图。
+- 若命名工具返回 \`code: "no_variant_available"\` 或用户明确要求特定模型 → 回退到下方进阶路径。
+
+> **按需加载**：\`CloudImageGenerate\` 调用前须先 \`ToolSearch(names: "CloudImageGenerate")\` 加载 schema。
+
+## 进阶路径 — Browse → Detail → Generate
+
+用户点名某个 variant、或要视频 / TTS / 图片编辑 / OCR 等尚未命名工具化的能力时使用：
+
+### Step 1 — Browse
 
 \`\`\`
 CloudCapBrowse({ category: ${categoryArg} })
 \`\`\`
 
-返回 feature 列表，每个 feature 含 top 3 variant（id / name / tag / credits / accessible）。**只选 \`accessible === true\` 的 variant。**
+返回 feature 列表。**只选 \`accessible === true\` 的 variant。**
 
-### Step 2 — Detail：获取 variant 的完整输入 schema（必须）
+### Step 2 — Detail（必须）
 
 \`\`\`
 CloudCapDetail({ variantId: "<id>", featureId: "<feature>" })
 \`\`\`
 
-返回该 variant 的 \`inputSlots[]\`（每个 slot 有 role/key/accept/required）和 \`paramsSchema[]\`。**这一步不可跳过** — 不同 variant 的输入字段名和格式差异很大（如视频需要 \`startImage\`，TTS 需要 \`text\`），Browse 不包含这些信息，跳过 Detail 直接调 Generate 几乎必定失败。
+返回 \`inputSlots[]\` 和 \`paramsSchema[]\`。**不可跳过** — 不同 variant 的字段名差异很大（如视频需 \`startImage\`、TTS 需 \`text\`），跳过几乎必定失败。
 
-### Step 3 — Generate：提交生成任务
-
-按 Detail 返回的 schema 组装 \`inputs\` 和 \`params\`：
+### Step 3 — Generate
 
 \`\`\`
 CloudModelGenerate({
@@ -225,11 +250,11 @@ CloudModelGenerate({
 \`\`\`
 
 **输入格式规则**（与画布一致）：
-- **文本 slot**（如 prompt）→ 纯字符串：\`"森林场景"\`
-- **媒体 slot**（如 image / startImage / audio）→ 对象格式：\`{ url: "https://..." }\` 或 \`{ path: "\${CURRENT_CHAT_DIR}/img.png" }\`。本地路径会自动上传到 CDN。
-- **不要猜字段名** — 严格使用 Detail 返回的 slot role/key。
+- **文本 slot**（如 prompt）→ 纯字符串
+- **媒体 slot**（如 image / startImage / audio）→ \`{ url: "https://..." }\` 或 \`{ path: "\${CURRENT_CHAT_DIR}/img.png" }\`。本地路径会自动上传到 CDN。
+- **不要猜字段名** — 严格使用 Detail 返回的 slot key。
 
-默认同步等待完成（最长 10 分钟）。视频等长任务可设 \`waitForCompletion: false\`，之后用 \`CloudTask({ taskId })\` 轮询。
+默认同步等待完成（最长 10 分钟）。长任务可设 \`waitForCompletion: false\`，之后用 \`CloudTask({ taskId })\` 轮询。
 
 ### Step 4 — （异步模式）Poll / Cancel
 
@@ -241,7 +266,7 @@ CloudTaskCancel({ taskId })   // 取消任务
 ## 关键约束
 
 - **accessible 为 false 的 variant 不要调** — 会被后端拒绝。提示用户所需会员等级。
-- **视频类 variant 通常需要首帧图片**（\`startImage\` slot），不传会 502。如果用户没有图片，先用图片生成 variant 生成一张，再传给视频 variant。
+- **视频类 variant 通常需要首帧图片**（\`startImage\` slot），不传会 502。如果用户没有图片，先用 \`CloudImageGenerate\` 生成一张，再传给视频 variant。
 - **限制并发** — 同一 variant 不超过 2 个并行 CloudModelGenerate，超过可能 503。
 - **昂贵操作先确认** — 视频可消耗 50-500+ credits，先告知用户。
 `
