@@ -11,7 +11,8 @@
 
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { Loader2 } from "lucide-react";
+import { Loader2, Search, X } from "lucide-react";
+import { Input } from "@openloaf/ui/input";
 import SessionItem, { type Session } from "./SessionItem";
 import { useChatSessions, type ChatSessionListItem } from "@/hooks/use-chat-sessions";
 import { useIsInView } from "@/hooks/use-is-in-view";
@@ -136,6 +137,13 @@ function buildSessionDisplayName(input: SessionDisplayNameInput): string {
 
 const LOAD_MORE_IN_VIEW_MARGIN = "200px 0px";
 
+/** Multi-token, case-insensitive substring match — works for CJK and Latin scripts. */
+function matchesQuery(session: Session, tokens: string[]): boolean {
+  if (tokens.length === 0) return true;
+  const haystack = `${session.displayName ?? ""} ${session.name}`.toLowerCase();
+  return tokens.every((tok) => haystack.includes(tok));
+}
+
 export default function SessionList({
   tabId,
   activeSessionId,
@@ -186,7 +194,16 @@ export default function SessionList({
     }));
   }, [chatSessions, scopeProjectId]);
 
-  const groups = React.useMemo(() => groupSessions(sessions), [sessions]);
+  const [query, setQuery] = React.useState("");
+  const trimmedQuery = query.trim();
+
+  const filteredSessions = React.useMemo(() => {
+    if (!trimmedQuery) return sessions;
+    const tokens = trimmedQuery.toLowerCase().split(/\s+/).filter(Boolean);
+    return sessions.filter((s) => matchesQuery(s, tokens));
+  }, [sessions, trimmedQuery]);
+
+  const groups = React.useMemo(() => groupSessions(filteredSessions), [filteredSessions]);
 
   // Infinite scroll sentinel
   const loadMoreRef = React.useRef<HTMLDivElement>(null);
@@ -200,13 +217,47 @@ export default function SessionList({
     handleLoadMore?.();
   }, [handleLoadMore, hasMore, isFetchingNextPage, isLoadMoreInView]);
 
+  const hasQuery = trimmedQuery.length > 0;
+  const showEmpty = !isLoading && sessions.length === 0;
+  const showNoMatch = !isLoading && !showEmpty && filteredSessions.length === 0;
+
   return (
     <div
       className={`w-full max-h-[min(80svh,var(--radix-popover-content-available-height))] overflow-auto show-scrollbar touch-auto ${className ?? ""}`}
     >
-      {isLoading ? null : sessions.length === 0 ? (
+      <div className="sticky top-0 z-10 bg-popover/95 backdrop-blur px-2 pt-2 pb-1.5">
+        <div className="relative">
+          <Search
+            className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"
+            aria-hidden="true"
+          />
+          <Input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={t("session.searchPlaceholder")}
+            className="h-8 rounded-full pl-8 pr-8 text-sm"
+            aria-label={t("session.searchPlaceholder")}
+          />
+          {hasQuery ? (
+            <button
+              type="button"
+              onClick={() => setQuery("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+              aria-label={t("session.clearSearch", { defaultValue: "Clear" })}
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          ) : null}
+        </div>
+      </div>
+      {isLoading ? null : showEmpty ? (
         <Queue className="border-none bg-transparent px-0 py-1 shadow-none">
           <div className="px-2 py-3 text-sm text-muted-foreground">{t('session.empty')}</div>
+        </Queue>
+      ) : showNoMatch ? (
+        <Queue className="border-none bg-transparent px-0 py-1 shadow-none">
+          <div className="px-2 py-3 text-sm text-muted-foreground">{t('session.noMatches')}</div>
         </Queue>
       ) : (
         <Queue className="border-none bg-transparent px-0 py-1 shadow-none">
