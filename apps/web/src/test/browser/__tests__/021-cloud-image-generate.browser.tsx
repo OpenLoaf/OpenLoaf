@@ -1,8 +1,9 @@
 /**
- * 021: Cloud 图片生成 — 基础文生图流程。
+ * 021: Cloud 图片生成 — 命名工具首选路径。
  *
- * 验证 AI 按 Browse → Detail → Generate 三步流程完整执行，
- * 不跳过 CloudCapDetail 步骤。
+ * 验证 AI 使用扁平化命名工具 CloudImageGenerate 完成生图，不走
+ * Browse → Detail → Generate 的进阶路径。链路应压缩到 4 轮以内：
+ * LoadSkill → ToolSearch → CloudImageGenerate → (Read 展示)。
  */
 import { it, expect } from 'vitest'
 import { render } from 'vitest-browser-react'
@@ -34,17 +35,18 @@ it('021 — Cloud 图片生成：赛博朋克城市', async () => {
   // ── 断言 ──
   expect(result.status).toBe('ok')
 
-  // 必须调了 Browse 和 Generate
-  expect(result.toolCalls).toContain('CloudCapBrowse')
-  expect(result.toolCalls).toContain('CloudModelGenerate')
+  // 命名工具首选路径：必须调了 CloudImageGenerate
+  expect(result.toolCalls).toContain('CloudImageGenerate')
 
-  // Detail 步骤不应跳过
-  expect(result.toolCalls).toContain('CloudCapDetail')
+  // 不应回退到 Browse/Detail/ModelGenerate 的长链路
+  expect(result.toolCalls).not.toContain('CloudCapBrowse')
+  expect(result.toolCalls).not.toContain('CloudCapDetail')
+  expect(result.toolCalls).not.toContain('CloudModelGenerate')
 
   const judgment = await aiJudge({
     serverUrl: SERVER_URL,
     criteria:
-      '回复应该确认图片已生成成功，并展示了图片文件路径或 URL。不应有报错信息。',
+      '回复应该确认图片已生成成功（例如"图片已生成"、"这是你的图"等），或以某种方式呈现生成结果（文本、路径、说明均可）。不应出现报错信息、未登录提示、"capabilities_probing"、"no_variant_available" 等失败词汇。',
     aiResponse: result.textPreview,
     toolCalls: result.toolCalls,
     userPrompt: prompt,

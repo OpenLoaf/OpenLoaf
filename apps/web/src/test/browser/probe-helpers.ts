@@ -236,13 +236,18 @@ export async function aiJudge(options: {
     }
 
     const raw = typeof data.result === 'string' ? data.result : JSON.stringify(data.result)
-    return parseJudgment(raw)
+    const judgment = parseJudgment(raw)
+    console.log('[aiJudge] criteria:', criteria)
+    console.log('[aiJudge] aiResponse (first 300):', (aiResponse || '').slice(0, 300))
+    console.log('[aiJudge] result:', JSON.stringify(judgment))
+    return judgment
   } catch (err: any) {
     clearTimeout(timer)
-    if (err?.name === 'AbortError') {
-      return { pass: false, score: 0, reason: `auxiliary model timeout (${timeout}ms)` }
-    }
-    return { pass: false, score: 0, reason: `auxiliary model call failed: ${err?.message ?? err}` }
+    const reason = err?.name === 'AbortError'
+      ? `auxiliary model timeout (${timeout}ms)`
+      : `auxiliary model call failed: ${err?.message ?? err}`
+    console.error('[aiJudge] error:', reason)
+    return { pass: false, score: 0, reason }
   }
 }
 

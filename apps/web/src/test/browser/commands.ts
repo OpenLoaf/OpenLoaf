@@ -58,6 +58,13 @@ function findChatHistoryPath(sessionId: string): string | null {
 
 // ── Types ──
 
+export type ToolCallDetailRecord = {
+  name: string
+  turnIndex: number
+  hasError: boolean
+  errorSummary?: string
+}
+
 export type RecordProbeRunInput = {
   testCase?: string
   prompt: string
@@ -68,6 +75,7 @@ export type RecordProbeRunInput = {
     sessionId: string
     status: string
     toolCalls: string[]
+    toolCallDetails?: ToolCallDetailRecord[]
     elapsedMs: number
     finishReason: string | null
     error?: string
@@ -112,19 +120,24 @@ export const recordProbeRun: BrowserCommand<[RecordProbeRunInput]> = async (
 
     // 追加 runs.jsonl
     const git = getGitInfo()
+    const runDir = process.env.BROWSER_TEST_RUN_DIR || null
+    const screenshotsDir = runDir ? join(runDir, 'screenshots') : null
     const record = {
       testCase,
       runAt: result.startedAt,
       sessionId: result.sessionId,
       historyPath,
+      screenshotsDir,
       status: result.status,
       elapsedMs: result.elapsedMs,
       toolCalls: result.toolCalls,
+      toolCallDetails: result.toolCallDetails ?? [],
       finishReason: result.finishReason,
       errorText: result.error ?? null,
       model: model ?? null,
       platform: 'web',
       prompt,
+      textPreview: result.textPreview,
       trigger: 'vitest-browser',
       gitCommit: git.commit,
       gitBranch: git.branch,

@@ -55,11 +55,24 @@ export type ChatProbeHarnessProps = {
   className?: string
 }
 
+export type ToolCallDetail = {
+  /** 工具名（如 CloudModelGenerate） */
+  name: string
+  /** 该 tool 所在 assistant 消息对应的第几轮用户输入（0-based） */
+  turnIndex: number
+  /** 是否报错（output.isError / state === 'output-error' / errorText 非空等） */
+  hasError: boolean
+  /** 错误摘要（从 output.error / errorText / output.message 等字段抓取，最多 200 字） */
+  errorSummary?: string
+}
+
 export type ProbeResult = {
   sessionId: string
   messages: UIMessage[]
   status: 'ok' | 'error'
   toolCalls: string[]
+  /** 每次 tool invocation 的详细明细（含 error 状态），供 evaluator 直接读取 */
+  toolCallDetails: ToolCallDetail[]
   elapsedMs: number
   finishReason: string | null
   error?: string
@@ -207,12 +220,14 @@ function ChatProbeInner({
     setAllTurnsDone(true)
     const elapsedMs = Date.now() - startTimeRef.current
     const toolCalls = extractToolCalls(msgs)
+    const toolCallDetails = extractToolCallDetails(msgs)
     const textPreview = extractTextPreview(msgs, 600)
     const result: ProbeResult = {
       sessionId,
       messages: msgs,
       status: 'ok',
       toolCalls,
+      toolCallDetails,
       elapsedMs,
       finishReason: finishReasonRef.current,
       textPreview,
@@ -379,6 +394,7 @@ function ChatProbeInner({
       onCompleteCalledRef.current = true
       const elapsedMs = Date.now() - startTimeRef.current
       const toolCalls = extractToolCalls(chat.messages)
+      const toolCallDetails = extractToolCallDetails(chat.messages)
       const retryInfo = networkRetryCountRef.current > 0
         ? ` (after ${networkRetryCountRef.current} network retries)`
         : ''
@@ -387,6 +403,7 @@ function ChatProbeInner({
         messages: chat.messages as UIMessage[],
         status: 'error',
         toolCalls,
+        toolCallDetails,
         elapsedMs,
         finishReason: finishReasonRef.current,
         error: `${chat.error?.message}${retryInfo}`,
@@ -646,6 +663,71 @@ function extractToolCalls(messages: any[]): string[] {
     }
   }
   return Array.from(toolNames)
+}
+
+/**
+ * 从 messages 中提取每次 tool invocation 的详细明细。
+ *
+ * 对每个 tool part 判断是否出错 — 以下任一条件视为报错：
+ *   - part.state === 'output-error'
+ *   - part.errorText 为非空字符串
+ *   - part.output && (output.isError === true 或 output.error 非空或 output.success === false)
+ *
+ * errorSummary 从 errorText / output.error / output.message / output.text 等字段抓取，截 200 字。
+ * turnIndex 以每轮用户消息为分界，第 N 轮 user msg 之后直到下一轮之前的 assistant 消息都属 turn=N。
+ */
+function extractToolCallDetails(messages: any[]): ToolCallDetail[] {
+  const details: ToolCallDetail[] = []
+  let turnIndex = -1
+  for (const msg of messages) {
+    if (msg?.role === 'user') {
+      turnIndex += 1
+      continue
+    }
+    if (msg?.role !== 'assistant') continue
+    const parts = Array.isArray(msg?.parts) ? msg.parts : []
+    for (const part of parts) {
+      const type = typeof part?.type === 'string' ? part.type : ''
+      const explicit = typeof part?.toolName === 'string' ? part.toolName : ''
+      let name = explicit
+      if (!name && type.startsWith('tool-')) name = type.slice(5)
+      if (!name) continue
+
+      const { hasError, summary } = detectToolError(part)
+      details.push({
+        name,
+        turnIndex: Math.max(0, turnIndex),
+        hasError,
+        ...(summary ? { errorSummary: summary } : {}),
+      })
+    }
+  }
+  return details
+}
+
+function detectToolError(part: any): { hasError: boolean, summary?: string } {
+  if (!part) return { hasError: false }
+  const state = typeof part.state === 'string' ? part.state : ''
+  const errorText = typeof part.errorText === 'string' ? part.errorText : ''
+  const output = part.output
+  const outputIsError = !!(output && typeof output === 'object' && (
+    output.isError === true
+    || output.success === false
+    || (typeof output.error === 'string' && output.error.length > 0)
+  ))
+  const hasError = state === 'output-error' || errorText.length > 0 || outputIsError
+  if (!hasError) return { hasError: false }
+
+  let summary = errorText
+  if (!summary && output && typeof output === 'object') {
+    if (typeof output.error === 'string') summary = output.error
+    else if (typeof output.message === 'string') summary = output.message
+    else if (typeof output.text === 'string') summary = output.text
+    else {
+      try { summary = JSON.stringify(output) } catch { summary = String(output) }
+    }
+  }
+  return { hasError: true, summary: (summary || '').slice(0, 200) }
 }
 
 function extractTextPreview(messages: any[], maxLen: number): string {

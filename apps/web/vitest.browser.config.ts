@@ -72,10 +72,23 @@ function gitInfo() {
   } catch { return { commit: null, branch: null } }
 }
 
+/** 从 tags 或 testCase 名字推断 suite。 */
+function inferSuite(input: { tags?: string[]; testCase?: string }): string {
+  const tags = input.tags ?? []
+  // 已知 suite tag 优先
+  for (const t of tags) {
+    if (t === 'skill-market' || t === 'chat') return t
+  }
+  const tc = input.testCase ?? ''
+  if (tc.startsWith('skill-market-')) return 'skill-market'
+  return 'chat'
+}
+
 const recordProbeRun: BrowserCommand<[any]> = async (_ctx, input) => {
   const { testCase, prompt, model, description, tags, result } = input
   const historyPath = findHistory(result.sessionId)
   let runRecorded = false
+  const suite = inferSuite(input)
 
   if (testCase) {
     if (!existsSync(TEST_CASES_DIR)) mkdirSync(TEST_CASES_DIR, { recursive: true })
@@ -92,11 +105,17 @@ const recordProbeRun: BrowserCommand<[any]> = async (_ctx, input) => {
       ].join('\n') + '\n', 'utf-8')
     }
     const git = gitInfo()
+    const runDir = process.env.BROWSER_TEST_RUN_DIR || null
+    const screenshotsDir = runDir ? join(runDir, 'screenshots') : null
     appendFileSync(RUNS_JSONL, JSON.stringify({
-      testCase, runAt: result.startedAt, sessionId: result.sessionId, historyPath,
+      testCase, suite, runAt: result.startedAt, sessionId: result.sessionId, historyPath,
+      screenshotsDir,
       status: result.status, elapsedMs: result.elapsedMs, toolCalls: result.toolCalls,
+      toolCallDetails: result.toolCallDetails ?? [],
       finishReason: result.finishReason, errorText: result.error ?? null,
-      model: model ?? null, platform: 'web', prompt, trigger: 'vitest-browser',
+      model: model ?? null, platform: 'web', prompt,
+      textPreview: result.textPreview,
+      trigger: 'vitest-browser',
       gitCommit: git.commit, gitBranch: git.branch,
     }) + '\n', 'utf-8')
     runRecorded = true
@@ -264,7 +283,7 @@ export default defineConfig({
       provider: 'playwright',
       instances: [{ browser: 'chromium' }],
       headless: process.env.CI === 'true',
-      screenshotDirectory: `${runDir}/screenshots`,
+      screenshotDirectory: `${runDirAbs}/screenshots`,
       commands: { recordProbeRun, stageAttachments, requestAiDecision, saveTestData },
     },
   },

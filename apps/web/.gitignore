@@ -12,6 +12,8 @@
 /coverage
 /browser-test-runs
 /browser-test-report
+# Test run artifacts live beside each harness folder; ignore all of them.
+**/browser-test-runs/
 
 # Build outputs
 /.next/
