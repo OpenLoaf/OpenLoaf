@@ -207,16 +207,19 @@ ${tierTableLines.join('\n')}
 
 ## 首选路径 — 命名工具（单轮完成）
 
-日常生图直接调命名工具，**不需要** Browse / Detail。工具内部会自动挑选一个可用的 variant 并按正确格式组装 inputs。
+日常生图/改图直接调命名工具，**不需要** Browse / Detail。工具内部会自动挑选一个可用的 variant 并按正确格式组装 inputs。
 
 \`\`\`
 CloudImageGenerate({ prompt: "森林场景", aspectRatio?: "16:9", style?: "watercolor", referenceImage?: { url: "..." } | "https://..." | { path: "\${CURRENT_CHAT_DIR}/img.png" } })
+
+CloudImageEdit({ image: { path: "\${CURRENT_CHAT_DIR}/cat.png" } | { url: "..." } | "https://...", instruction: "在猫咪旁边加一只老鼠", mask?: "<可选掩码>" })
 \`\`\`
 
-- 适用于："画一张" / "生成图片" / "text to image" / 带参考图的生图。
+- **生图**（"画一张" / "生成图片" / "text to image"）→ \`CloudImageGenerate\`
+- **改图**（"在 X 旁边加 Y" / "把背景换成..." / "去掉水印" / "image edit"）→ \`CloudImageEdit\`
 - 若命名工具返回 \`code: "no_variant_available"\` 或用户明确要求特定模型 → 回退到下方进阶路径。
 
-> **按需加载**：\`CloudImageGenerate\` 调用前须先 \`ToolSearch(names: "CloudImageGenerate")\` 加载 schema。
+> **按需加载**：\`CloudImageGenerate\` / \`CloudImageEdit\` 调用前须先 \`ToolSearch(names: "工具名")\` 加载 schema。
 
 ## 进阶路径 — Browse → Detail → Generate
 
