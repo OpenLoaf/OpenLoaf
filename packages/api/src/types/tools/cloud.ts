@@ -73,6 +73,8 @@ export const cloudModelGenerateToolDef = {
   name: "Cloud Model Generate",
   description: `Submit a cloud media generation (image / video / audio). Blocks until the task completes by default and returns resultUrls.
 
+**This tool renders the generated image / video / audio inline in the chat UI automatically.** Once it returns successfully the user already sees the media — you do NOT need to Read, Open, or otherwise re-display the resulting files. Just reply with one short confirmation line and stop.
+
 - Use for image, video, audio generation. For text (translation / OCR text / summarization), use \`CloudTextGenerate\` instead.
 - Each call consumes credits from the user's cloud account — check creditsPerCall via Browse/Detail before expensive variants (especially video).
 - \`feature\` and \`variant\` identify the capability (e.g., feature="text-to-image", variant="OL-IG-003").
@@ -179,6 +181,8 @@ export const cloudImageGenerateToolDef = {
   readonly: false,
   name: "Cloud Image Generate",
   description: `Generate an image from a text prompt using the cloud AI platform. Preferred entry point for "画一张"/"生成图片"/"text to image" — no Browse/Detail needed.
+
+**This tool renders the generated image inline in the chat UI automatically.** Once it returns successfully the user already sees the picture — you do NOT need to Read, Open, or otherwise re-display the file. Just reply with one short confirmation line and stop.
 
 - \`prompt\` (required): natural-language description of the image.
 - \`aspectRatio\` (optional): e.g. "1:1", "16:9", "9:16", "4:3". Passed through as a param; backend picks the closest supported value.
