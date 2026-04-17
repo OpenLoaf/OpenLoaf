@@ -20,6 +20,8 @@ import { Shimmer } from "@/components/ai-elements/shimmer";
 import { Message, MessageContent } from "@/components/ai-elements/message";
 import { useTranslation } from "react-i18next";
 import AssistantMessageHeader, { AssistantAvatar } from "./AssistantMessageHeader";
+import { useChatTools } from "../context";
+import { isToolPart } from "@/lib/chat/message-parts";
 
 /**
  * Extract the currently-streaming reasoning text.
@@ -61,6 +63,29 @@ function useStreamingReasoningText(message: UIMessage | null | undefined): strin
   }, [message]);
 }
 
+/**
+ * 判断当前流式消息里是否有「工具已派发、等待执行结果」的 tool part。
+ * - input-available：模型已下单、工具执行中 → 等待结果
+ * - output-streaming：工具正在增量返回 → 等待结果
+ * - input-streaming：模型还在组装参数 → 仍算思考，不切换文案
+ */
+function useHasPendingToolCall(
+  message: UIMessage | null | undefined,
+  toolParts: Record<string, { state?: string } | undefined>,
+): boolean {
+  return React.useMemo(() => {
+    if (!message) return false;
+    const parts = Array.isArray(message.parts) ? message.parts : [];
+    return parts.some((part: any) => {
+      if (!isToolPart(part)) return false;
+      const toolCallId = typeof part?.toolCallId === "string" ? part.toolCallId : "";
+      const snapshot = toolCallId ? toolParts[toolCallId] : undefined;
+      const state = (snapshot?.state ?? part?.state) as string | undefined;
+      return state === "input-available" || state === "output-streaming";
+    });
+  }, [message, toolParts]);
+}
+
 export default function MessageThinking({
   showHeader = true,
   streamingMessage,
@@ -70,6 +95,8 @@ export default function MessageThinking({
 }) {
   const { t } = useTranslation("ai");
   const reasoningText = useStreamingReasoningText(streamingMessage);
+  const { toolParts } = useChatTools();
+  const awaitingTool = useHasPendingToolCall(streamingMessage, toolParts as any);
 
   return (
     <Message from="assistant" className="min-w-0 w-full mt-2">
@@ -82,10 +109,14 @@ export default function MessageThinking({
       <MessageContent className="min-w-0 w-full gap-0">
         <Reasoning isStreaming className="mb-0">
           <ReasoningTrigger
-            getThinkingMessage={() => <Shimmer>{t("tool.thinkingStreaming")}</Shimmer>}
+            getThinkingMessage={() => (
+              <Shimmer>
+                {t(awaitingTool ? "tool.thinkingAwaitingTool" : "tool.thinkingStreaming")}
+              </Shimmer>
+            )}
           />
           <CollapsibleContent className="mt-0.5 pl-8 whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-xs leading-5 text-muted-foreground line-clamp-3">
-            {reasoningText || t("tool.thinkingAnalyzing")}
+            {reasoningText || t(awaitingTool ? "tool.thinkingAwaitingTool" : "tool.thinkingAnalyzing")}
           </CollapsibleContent>
         </Reasoning>
       </MessageContent>

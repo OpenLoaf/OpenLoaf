@@ -1403,7 +1403,7 @@ function BoardCanvasInteractionInner({
           data-board-panel={panelKey}
           data-allow-context-menu
           className={cn(
-            "relative h-full w-full overflow-hidden outline-none",
+            "relative h-full w-full overflow-clip outline-none",
             className,
           )}
           tabIndex={showUi ? 0 : -1}
