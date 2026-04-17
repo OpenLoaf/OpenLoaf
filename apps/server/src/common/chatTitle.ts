@@ -41,9 +41,9 @@ export function replaceFileTokensWithNames(text: string): string {
   ATTACHMENT_TAG_REGEX.lastIndex = 0;
   if (!ATTACHMENT_TAG_REGEX.test(text)) return text;
   ATTACHMENT_TAG_REGEX.lastIndex = 0;
-  return replaceAttachmentTags(text, (path, rawTag) => {
+  return replaceAttachmentTags(text, (attrs, rawTag) => {
     // 中文注释：将文件引用替换为文件名，避免标题过长。
-    const label = extractFileLabel(path);
+    const label = extractFileLabel(attrs.path);
     return label || rawTag;
   });
 }

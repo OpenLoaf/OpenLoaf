@@ -114,6 +114,7 @@ export const agentTool = tool({
       sessionId,
       parentMessageId: getAssistantParentMessageId() ?? null,
       requestContext,
+      modelDefinition: requestContext.chatModelDefinition,
     }
 
     // Derive current depth from agentStack

@@ -45,6 +45,7 @@ import {
   clearSessionErrorMessage,
   saveMessage,
   setSessionErrorMessage,
+  updateMessageParts,
   type UIMessageLike,
 } from "@/ai/services/chat/repositories/messageStore";
 import { buildBranchLogMessages } from "@/ai/services/chat/chatHistoryLogMessageBuilder";
@@ -158,6 +159,8 @@ type ChatStreamResponseInput = {
   isBgDrain?: boolean;
   /** 模型采样温度（0-2）；dev-only，仅 ai-browser-test 等自动化测试使用。 */
   temperature?: number;
+  /** 当前模型定义，用于按能力升级 attachment tag 到原生 multimodal 通道。 */
+  modelDefinition?: import("@openloaf/api/common").ModelDefinition;
 };
 
 /** 构建图片 SSE 响应的输入。 */
@@ -336,6 +339,28 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
         let modelMessages = await buildModelMessages(
           uiHistoryMessages,
           input.agentRunner.agent.tools,
+          {
+            modelDefinition: input.modelDefinition,
+            onMutations: async (mutations) => {
+              // 逻辑：attachment tag 升级并上传 CDN 成功后，将新属性回填到
+              // messages.jsonl 的 user 消息里，使重发/换模型时可复用 url。
+              for (const m of mutations) {
+                if (!m.messageId) continue;
+                try {
+                  await updateMessageParts({
+                    sessionId: input.sessionId,
+                    messageId: m.messageId,
+                    parts: m.newParts,
+                  });
+                } catch (err) {
+                  logger.warn(
+                    { err, sessionId: input.sessionId, messageId: m.messageId },
+                    "[chat] persist attachment tag mutation failed",
+                  );
+                }
+              }
+            },
+          },
         );
         let currentAssistantMessageId = input.assistantMessageId;
         let currentParentMessageId: string | null = input.parentMessageId;

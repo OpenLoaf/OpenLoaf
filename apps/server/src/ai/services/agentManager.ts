@@ -44,6 +44,8 @@ export type SpawnContext = {
   sessionId?: string
   parentMessageId?: string | null
   requestContext: RequestContext
+  /** Current chat model definition — forwarded to SubAgent's buildModelMessages for attachment tag expansion. */
+  modelDefinition?: import('@openloaf/api/common').ModelDefinition
 }
 
 export type ManagedAgent = {

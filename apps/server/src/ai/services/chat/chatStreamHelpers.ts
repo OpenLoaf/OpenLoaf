@@ -595,28 +595,40 @@ export async function loadAndPrepareMessageChainFromIds(input: {
   return { ok: true, messages: messages as UIMessage[], modelMessages };
 }
 
-/** Image/video media type prefixes. */
-const IMAGE_VIDEO_MEDIA_PREFIXES = ["image/", "video/"];
+/** Resolve per-media-kind support from declared tags. */
+function resolveMediaTagSupport(modelDefinition: ModelDefinition | undefined) {
+  const tags = modelDefinition?.tags ?? [];
+  return {
+    image: tags.includes("image_input") || tags.includes("image_analysis" as any),
+    video: tags.includes("video_analysis" as any),
+    audio: tags.includes("audio_analysis" as any),
+  };
+}
 
-/** Check if a media type is image or video. */
-function isImageOrVideoMediaType(mediaType: string): boolean {
-  return IMAGE_VIDEO_MEDIA_PREFIXES.some((prefix) => mediaType.startsWith(prefix));
+/** Classify a file part's media kind by its mediaType prefix. */
+function classifyFilePartKind(mediaType: string): "image" | "video" | "audio" | "other" {
+  if (mediaType.startsWith("image/")) return "image";
+  if (mediaType.startsWith("video/")) return "video";
+  if (mediaType.startsWith("audio/")) return "audio";
+  return "other";
 }
 
 /**
- * Strip image/video file parts from messages when the model does not support vision.
+ * Strip image/video/audio file parts from messages when the model does not
+ * declare support for the corresponding input tag. Replaces stripped parts
+ * with a text reference so the model can still see the attachment path and
+ * hand off to the vision SubAgent / cloud-media-skill path if needed.
  *
- * Replaces each image/video `file` part with a text reference that hints at using
- * the vision SubAgent via Agent tool.
+ * Kept as a defensive bottom layer: the primary upgrade path
+ * (expandAttachmentTagsForModel) already checks caps, so in normal flow this
+ * function is a no-op. It catches file parts introduced by other code paths.
  */
-export function stripImagePartsForNonVisionModel(
+export function stripUnsupportedMediaPartsForModel(
   messages: UIMessage[],
   modelDefinition: ModelDefinition | undefined,
 ): UIMessage[] {
-  const tags = modelDefinition?.tags;
-  if (tags && (tags.includes("image_input") || tags.includes("image_analysis" as any))) {
-    return messages;
-  }
+  const support = resolveMediaTagSupport(modelDefinition);
+  if (support.image && support.video && support.audio) return messages;
 
   let anyChanged = false;
   const next: UIMessage[] = [];
@@ -625,24 +637,31 @@ export function stripImagePartsForNonVisionModel(
     let changed = false;
     const replaced: any[] = [];
     for (const part of parts) {
-      if (!part || typeof part !== "object") {
-        replaced.push(part);
-        continue;
-      }
-      if ((part as any).type !== "file") {
+      if (!part || typeof part !== "object" || (part as any).type !== "file") {
         replaced.push(part);
         continue;
       }
       const mediaType = typeof (part as any).mediaType === "string" ? (part as any).mediaType : "";
-      if (!mediaType || !isImageOrVideoMediaType(mediaType)) {
+      const kind = classifyFilePartKind(mediaType);
+      if (kind === "other") {
         replaced.push(part);
         continue;
       }
-      // 替换为文本引用，保留可读路径。
+      if (support[kind]) {
+        replaced.push(part);
+        continue;
+      }
+      // 替换为文本引用，保留可读路径给降级路径使用。
       const readablePath = (part as any).originalUrl || (part as any).url || "(unknown)";
+      const hint =
+        kind === "image"
+          ? "Current model does not support direct image analysis. Use Agent with subagent_type \"vision\" or load cloud-media-skill."
+          : kind === "video"
+            ? "Current model does not support direct video analysis. Load cloud-media-skill."
+            : "Current model does not support direct audio analysis. Load cloud-media-skill.";
       replaced.push({
         type: "text",
-        text: `[Image attached: ${readablePath}] (Note: Current model does not support direct image analysis. Use Agent with subagent_type "vision" to analyze this image.)`,
+        text: `[${kind} attached: ${readablePath}] (${hint})`,
       });
       changed = true;
     }
@@ -655,6 +674,9 @@ export function stripImagePartsForNonVisionModel(
   }
   return anyChanged ? next : messages;
 }
+
+/** @deprecated Use `stripUnsupportedMediaPartsForModel`. Kept as alias during migration. */
+export const stripImagePartsForNonVisionModel = stripUnsupportedMediaPartsForModel;
 
 /**
  * Sanitize partial assistant parts for continue mode.

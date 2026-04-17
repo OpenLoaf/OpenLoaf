@@ -16,6 +16,7 @@ import { buildModelMessages } from '@/ai/shared/messageConverter'
 import { resolveApprovalGate, applyApprovalDecision } from '@/ai/tools/approvalUtils'
 import { registerFrontendToolPending } from '@/ai/tools/pendingRegistry'
 import { appendToAgentHistory } from '@/ai/services/agentHistory'
+import { updateMessageParts } from '@/ai/services/chat/repositories/messageStore'
 import { agentRegistry } from '@/ai/services/agentRegistry'
 import { resolveSessionDir } from '@openloaf/api/services/chatSessionPaths'
 import { readBasicConf } from '@/modules/settings/openloafConfStore'
@@ -67,6 +68,36 @@ async function runAgentStream(
   const modelMessages = await buildModelMessages(
     agent.messages,
     toolLoopAgent.tools,
+    {
+      modelDefinition: agent.spawnContext.modelDefinition,
+      onMutations: async (mutations) => {
+        // 逻辑：SubAgent 的消息写在 agents/<agentId>/messages.jsonl 里，
+        // loadMessageTree 用 agentId 作为 sessionId 载体，可直接复用。
+        for (const m of mutations) {
+          if (!m.messageId) continue
+          // 同步内存历史，让后续轮次直接用回填后的 tag。
+          const idx = agent.messages.findIndex((msg) => msg.id === m.messageId)
+          if (idx >= 0) {
+            agent.messages[idx] = {
+              ...agent.messages[idx]!,
+              parts: m.newParts as any,
+            }
+          }
+          try {
+            await updateMessageParts({
+              sessionId: agent.id,
+              messageId: m.messageId,
+              parts: m.newParts,
+            })
+          } catch (err) {
+            logger.warn(
+              { err, agentId: agent.id, messageId: m.messageId },
+              '[agent] persist attachment tag mutation failed',
+            )
+          }
+        }
+      },
+    },
   )
 
   // 逻辑：如果 preface 存在且未注入，作为首条 user 消息注入到消息链。

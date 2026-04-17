@@ -27,6 +27,16 @@ export function supportsImageInput(model: ModelWithTags | null | undefined) {
   return hasTag(model, "image_input") || hasTag(model, "image_analysis");
 }
 
+/** Return true when the model supports video input for analysis. */
+export function supportsVideoInput(model: ModelWithTags | null | undefined) {
+  return hasTag(model, "video_analysis");
+}
+
+/** Return true when the model supports audio input for analysis. */
+export function supportsAudioInput(model: ModelWithTags | null | undefined) {
+  return hasTag(model, "audio_analysis");
+}
+
 /** Return true when the model supports tool calling. */
 export function supportsToolCall(model: ModelWithTags | null | undefined) {
   return hasTag(model, "tool_call");

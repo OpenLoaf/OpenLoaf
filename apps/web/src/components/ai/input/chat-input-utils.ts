@@ -28,7 +28,7 @@ export const CHAT_MODE_STORAGE_KEY = "openloaf:chat-mode";
 /** Convert serialized chat text into a plain-text string for character counting. */
 export function getPlainTextFromInput(value: string): string {
   if (!value) return "";
-  return replaceAttachmentTags(value, (path) => getFileLabel(path));
+  return replaceAttachmentTags(value, (attrs) => getFileLabel(attrs.path));
 }
 
 /** Normalize mention value by trimming the attachment tag wrapper if present. */

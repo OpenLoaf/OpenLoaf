@@ -13,7 +13,7 @@ import {
   ATTACHMENT_TAG_REGEX,
   extractAttachmentTagPath,
   formatAttachmentTag,
-  unescapeAttachmentPath,
+  parseAttachmentTagAttrs,
 } from "@openloaf/api/common";
 import { normalizeFileMentionSpacing } from "@/components/ai/input/chat-input-utils";
 
@@ -45,7 +45,8 @@ export const buildInlineNodesFromText = (text: string) => {
     if (match.index > lastIndex) {
       nodes.push({ text: text.slice(lastIndex, match.index) });
     }
-    const tokenValue = unescapeAttachmentPath(match[1] ?? "").trim();
+    const attrs = parseAttachmentTagAttrs(match[1] ?? "");
+    const tokenValue = attrs?.path.trim() ?? "";
     if (tokenValue) {
       nodes.push(buildMentionNode(tokenValue));
       const nextChar = text[match.index + match[0].length];

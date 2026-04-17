@@ -58,6 +58,8 @@ export type RequestContext = {
   abortSignal?: AbortSignal;
   /** Resolved chat model for tool execution. */
   chatModel?: LanguageModelV3;
+  /** Resolved chat model definition (provider metadata, tags, capabilities). */
+  chatModelDefinition?: import("@openloaf/api/common").ModelDefinition;
   /** Codex request options for this request. */
   codexOptions?: CodexRequestOptions;
   /** Claude Code request options for this request. */
@@ -191,6 +193,22 @@ export function setChatModel(model: LanguageModelV3) {
 /** Gets the resolved chat model for this request. */
 export function getChatModel(): LanguageModelV3 | undefined {
   return getRequestContext()?.chatModel;
+}
+
+/** Sets the chat model definition (tags, capabilities) for this request. */
+export function setChatModelDefinition(
+  modelDefinition: import("@openloaf/api/common").ModelDefinition | undefined,
+) {
+  const ctx = getRequestContext();
+  if (!ctx) return;
+  ctx.chatModelDefinition = modelDefinition;
+}
+
+/** Gets the chat model definition for this request. */
+export function getChatModelDefinition():
+  | import("@openloaf/api/common").ModelDefinition
+  | undefined {
+  return getRequestContext()?.chatModelDefinition;
 }
 
 /** Sets Codex request options for this request. */

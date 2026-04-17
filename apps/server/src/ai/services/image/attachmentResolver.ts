@@ -949,22 +949,32 @@ export async function getFilePreview(input: {
   };
 }
 
-/** Load image buffer from a relative path. */
+/** Load image buffer from a relative project path or an absolute file path. */
 export async function loadProjectImageBuffer(input: {
-  /** File path. */
+  /** File path (relative project-scoped path OR absolute path). */
   path: string;
-  /** Project id for resolving path. */
+  /** Project id for resolving path (ignored when path is absolute). */
   projectId?: string;
   /** Media type override. */
   mediaType?: string;
 }): Promise<{ buffer: Buffer; mediaType: string } | null> {
-  const resolved = await resolveProjectFilePath({
-    path: input.path,
-    projectId: input.projectId,
-  });
-  if (!resolved) return null;
-  const filePath = resolved.absPath;
-  const buffer = await fs.readFile(filePath);
+  let filePath: string;
+  if (path.isAbsolute(input.path)) {
+    filePath = input.path;
+  } else {
+    const resolved = await resolveProjectFilePath({
+      path: input.path,
+      projectId: input.projectId,
+    });
+    if (!resolved) return null;
+    filePath = resolved.absPath;
+  }
+  let buffer: Buffer;
+  try {
+    buffer = await fs.readFile(filePath);
+  } catch {
+    return null;
+  }
   const fallbackType = input.mediaType || "application/octet-stream";
   const format = resolveImageFormat(fallbackType, filePath);
   if (!format || !isSupportedImageMime(format.mediaType)) return null;

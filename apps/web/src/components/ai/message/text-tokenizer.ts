@@ -9,7 +9,7 @@
  */
 "use client";
 
-import { unescapeAttachmentPath } from "@openloaf/api/common";
+import { parseAttachmentTagAttrs } from "@openloaf/api/common";
 import { FILE_TOKEN_REGEX } from "../input/chat-input-utils";
 
 const COMMAND_REGEX = /(^|\s)(\/[\w-]+)(?![/\w-])/g;
@@ -106,7 +106,8 @@ export function parseChatTextTokens(value: string): ChatTextToken[] {
   FILE_TOKEN_REGEX.lastIndex = 0;
   let match = FILE_TOKEN_REGEX.exec(value);
   while (match) {
-    const mentionValue = unescapeAttachmentPath(match[1] ?? "");
+    const attrs = parseAttachmentTagAttrs(match[1] ?? "");
+    const mentionValue = attrs?.path ?? "";
     if (match.index > lastIndex) {
       result.push(...splitCommandSegments(value.slice(lastIndex, match.index)));
     }

@@ -224,6 +224,29 @@ export async function saveMessage(input: SaveMessageInput): Promise<SaveMessageR
   }
 }
 
+/**
+ * Replace the full parts array of an existing message.
+ *
+ * Used by attachment-tag upgrades to persist CDN URL + uploadedAt attributes
+ * back into the user message text so subsequent re-sends can reuse the upload.
+ * Silently no-ops when the message is missing.
+ */
+export async function updateMessageParts(input: {
+  sessionId: string
+  messageId: string
+  parts: unknown[]
+}): Promise<boolean> {
+  const tree = await loadMessageTree(input.sessionId)
+  const existing = tree.byId.get(input.messageId)
+  if (!existing) return false
+  const updated: StoredMessage = {
+    ...existing,
+    parts: input.parts,
+  }
+  await updateMessage({ sessionId: input.sessionId, message: updated })
+  return true
+}
+
 /** Append a part to an existing message by id. */
 export async function appendMessagePart(input: {
   sessionId: string

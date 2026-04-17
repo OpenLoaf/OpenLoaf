@@ -14,22 +14,57 @@ import {
   type UIMessage,
   type ToolSet,
 } from "ai";
+import type { ModelDefinition } from "@openloaf/api/common";
 import { trimToContextWindow } from "@/ai/shared/contextWindowManager";
+import {
+  expandAttachmentTagsForModel,
+  type AttachmentExpansionMutation,
+} from "@/ai/shared/attachmentTagExpander";
+
+export type BuildModelMessagesOptions = {
+  modelId?: string;
+  /**
+   * Current model definition. When provided, attachment tags in user messages
+   * are upgraded to native multimodal file parts (CDN URL or base64) based
+   * on the model's declared tags.
+   */
+  modelDefinition?: ModelDefinition;
+  /**
+   * Called when at least one tag gained a fresh CDN url and should be
+   * persisted back to storage. Invoked with the full mutation list after
+   * expansion completes. Caller decides how/where to persist.
+   */
+  onMutations?: (mutations: AttachmentExpansionMutation[]) => Promise<void> | void;
+};
 
 /** Convert UI messages into model messages with custom data-part handling. */
 export async function buildModelMessages(
   messages: UIMessage[],
   tools?: ToolSet,
-  options?: { modelId?: string },
+  options?: BuildModelMessagesOptions,
 ) {
   // 过滤被中止的空 assistant 消息，避免 AI_TypeValidationError
   // 最终防线：过滤掉非标准 role（如 task-report），防止 LLM 400 错误
   const VALID_ROLES = new Set(["system", "user", "assistant"]);
-  const sanitized = messages.filter(
+  let sanitized = messages.filter(
     (m) =>
       VALID_ROLES.has(m.role) &&
       (m.role === "user" || (Array.isArray(m.parts) && m.parts.length > 0)),
   );
+
+  // 逻辑：按模型能力把用户消息里的 attachment tag 升级为原生 file part。
+  // 未传 modelDefinition 的内部路径（summary/aux 等）自动跳过，保持既有行为。
+  if (options?.modelDefinition) {
+    const expansion = await expandAttachmentTagsForModel(
+      sanitized,
+      options.modelDefinition,
+    );
+    sanitized = expansion.messages;
+    if (expansion.mutations.length > 0 && options.onMutations) {
+      await options.onMutations(expansion.mutations);
+    }
+  }
+
   validateUIMessages({ messages: sanitized as any });
   const modelMessages = await convertToModelMessages(sanitized as any, {
     tools,

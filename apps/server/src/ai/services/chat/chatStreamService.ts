@@ -20,6 +20,7 @@ import { resolveCliChatModelId } from "@/ai/models/cli/cliProviderEntry";
 import { extractTextFromParts } from "@/ai/services/chat/chatStreamUtils";
 import {
   setChatModel,
+  setChatModelDefinition,
   setCodexOptions,
   setClaudeCodeOptions,
   setParentProjectRootPaths,
@@ -47,7 +48,7 @@ import {
   loadAndPrepareMessageChain,
   loadAndPrepareMessageChainFromIds,
   saveLastMessageAndResolveParent,
-  stripImagePartsForNonVisionModel,
+  stripUnsupportedMediaPartsForModel,
   sanitizePartialParts,
 } from "./chatStreamHelpers";
 import { resolveCodexRequestOptions, resolveClaudeCodeRequestOptions } from "./messageOptionResolver";
@@ -779,6 +780,7 @@ export async function runChatStream(input: {
     }
     setChatModel(resolved.model);
     resolvedModelDef = resolved.modelDefinition ?? undefined;
+    setChatModelDefinition(resolvedModelDef);
     agentMetadata = {
       id: masterAgent.frame.agentId,
       name: masterAgent.frame.name,
@@ -832,7 +834,7 @@ export async function runChatStream(input: {
 
   // 逻辑：非视觉模型剥离图片 parts，替换为文本引用提示（vision SubAgent 委派）。
   if (!directCli) {
-    modelMessages = stripImagePartsForNonVisionModel(modelMessages, resolvedModelDef);
+    modelMessages = stripUnsupportedMediaPartsForModel(modelMessages, resolvedModelDef);
   }
 
   return createChatStreamResponse({
@@ -848,5 +850,6 @@ export async function runChatStream(input: {
     replayParts: continueReplayParts ?? undefined,
     isBgDrain,
     temperature: input.request.temperature,
+    modelDefinition: resolvedModelDef,
   });
 }
