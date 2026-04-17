@@ -17,9 +17,9 @@ import {
   type ChatUIMessage,
   type SessionUpdateEvent,
 } from '@openloaf/api'
+import type { UIMessage } from 'ai'
 import { z } from 'zod'
 import { scheduleEventBus } from '@/services/scheduleEventBus'
-import { replaceFileTokensWithNames } from '@/common/chatTitle'
 import {
   getChatViewFromFile,
   loadMessageTree,
@@ -61,19 +61,6 @@ function isRenderableRow(row: {
   return Array.isArray(parts) && parts.length > 0
 }
 
-function extractTextFromParts(parts: unknown): string {
-  const arr = Array.isArray(parts) ? (parts as any[]) : []
-  const chunks: string[] = []
-  for (const part of arr) {
-    if (!part || typeof part !== 'object') continue
-    if (typeof (part as any).text === 'string') {
-      const text = String((part as any).text)
-      chunks.push(replaceFileTokensWithNames(text))
-    }
-  }
-  return chunks.join('\n').trim()
-}
-
 function normalizeTitle(raw: string): string {
   let title = (raw ?? '').trim()
   title = title.replace(/^["'""''《》]+/, '').replace(/["'""''《》]+$/, '')
@@ -111,24 +98,35 @@ function sanitizeApprovalParts(parts: unknown[]): unknown[] {
   })
 }
 
-function buildTitlePrompt(chainRows: Array<{ role: string; parts: unknown }>): string {
-  const lines: string[] = []
+/**
+ * Build UIMessage[] from stored chain rows for auxiliary title generation.
+ * Keeps parts intact (including attachment tags with url) so the aux model
+ * can see images natively when its tags allow vision. When the aux model
+ * lacks media capability, auxiliaryInfer internally flattens to text.
+ */
+function buildTitleMessages(
+  chainRows: Array<{ role: string; parts: unknown }>,
+): UIMessage[] {
+  const out: UIMessage[] = []
   for (const row of chainRows) {
-    const text = extractTextFromParts(row.parts)
-    if (!text) continue
-    if (row.role === 'user') lines.push(`User: ${text}`)
-    else if (row.role === 'assistant') lines.push(`Assistant: ${text}`)
-    else lines.push(`System: ${text}`)
+    const parts = Array.isArray(row.parts) ? row.parts : []
+    if (parts.length === 0) continue
+    if (row.role !== 'user' && row.role !== 'assistant' && row.role !== 'system') continue
+    out.push({
+      id: `title-${out.length}`,
+      role: row.role,
+      parts: parts as any,
+    } as UIMessage)
   }
-  return lines.join('\n').trim()
+  return out
 }
 
-async function generateTitleFromHistory(historyText: string): Promise<string> {
+async function generateTitleFromMessages(messages: UIMessage[]): Promise<string> {
   const { auxiliaryInfer } = await import('@/ai/services/auxiliaryInferenceService')
   const { CAPABILITY_SCHEMAS } = await import('@/ai/services/auxiliaryCapabilities')
   const result = await auxiliaryInfer({
     capabilityKey: 'chat.title',
-    context: historyText,
+    messages,
     schema: CAPABILITY_SCHEMAS['chat.title'],
     fallback: { title: '' },
     noCache: true,
@@ -604,12 +602,12 @@ class ChatRouterImpl extends BaseChatRouter {
             ? fullChain.slice(-TITLE_CONTEXT_TAKE)
             : fullChain
           const renderableRows = recentChain.filter((row) => isRenderableRow(row as any))
-          const historyText = buildTitlePrompt(renderableRows as any[])
-          if (!historyText) return { ok: true, title: session.title }
+          const titleMessages = buildTitleMessages(renderableRows as any[])
+          if (titleMessages.length === 0) return { ok: true, title: session.title }
 
           let title = ''
           try {
-            title = await generateTitleFromHistory(historyText)
+            title = await generateTitleFromMessages(titleMessages)
           } catch {
             return { ok: true, title: session.title }
           }

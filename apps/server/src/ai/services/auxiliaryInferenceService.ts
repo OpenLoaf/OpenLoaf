@@ -7,13 +7,20 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import { generateText, Output } from 'ai'
+import { generateText, Output, type UIMessage } from 'ai'
 import { createHash } from 'node:crypto'
 import type { z } from 'zod'
 import { resolveChatModel } from '@/ai/models/resolveChatModel'
 import { readAuxiliaryModelConf } from '@/modules/settings/auxiliaryModelConfStore'
 import { ensureServerAccessToken } from '@/modules/auth/tokenStore'
 import { getSaasClient } from '@/modules/saas/client'
+import { buildModelMessages } from '@/ai/shared/messageConverter'
+import {
+  flattenMessagesToContext,
+  messagesCacheSeed,
+  modelHasMediaCapability,
+  toSaasMessages,
+} from './auxiliaryMessageUtils'
 import {
   AUXILIARY_CAPABILITIES,
   type CapabilityKey,
@@ -23,9 +30,9 @@ import {
 const cache = new Map<string, { value: unknown; expiresAt: number }>()
 const CACHE_TTL_MS = 5 * 60 * 1000
 
-function cacheKey(capabilityKey: string, context: string): string {
+function cacheKey(capabilityKey: string, input: string): string {
   const hash = createHash('sha256')
-    .update(`${capabilityKey}:${context}`)
+    .update(`${capabilityKey}:${input}`)
     .digest('hex')
     .slice(0, 16)
   return `aux:${capabilityKey}:${hash}`
@@ -64,7 +71,18 @@ function truncate(text: string, maxLen = 200): string {
 
 type AuxiliaryInferInput<T extends z.ZodType> = {
   capabilityKey: CapabilityKey
-  context: string
+  /**
+   * String context (legacy path). Required when `messages` is not provided.
+   * When both are set, `messages` wins and this is ignored.
+   */
+  context?: string
+  /**
+   * UIMessage array (multimodal path). File parts survive into the model
+   * request so vision-capable auxiliary models can see attached images.
+   * Use this when the caller already has `parts`-shaped chat history and
+   * wants the auxiliary model to reason about images/videos/audio.
+   */
+  messages?: UIMessage[]
   schema: T
   fallback: z.infer<T>
   /** Skip cache for this call. */
@@ -87,6 +105,7 @@ type AuxiliaryInferInput<T extends z.ZodType> = {
 export async function auxiliaryInfer<T extends z.ZodType>({
   capabilityKey,
   context,
+  messages,
   schema,
   fallback,
   noCache,
@@ -94,13 +113,23 @@ export async function auxiliaryInfer<T extends z.ZodType>({
   maxTokens,
 }: AuxiliaryInferInput<T>): Promise<z.infer<T>> {
   try {
+    const useMessages = Array.isArray(messages) && messages.length > 0
+    if (!useMessages && typeof context !== 'string') {
+      console.warn(
+        `${LOG_PREFIX} [${capabilityKey}] 入参缺失（context 与 messages 均未提供），返回 fallback`,
+      )
+      return fallback
+    }
+    const cacheSeed = useMessages ? messagesCacheSeed(messages!) : (context ?? '')
+
     console.log(
       `${LOG_PREFIX} [${capabilityKey}] 调用开始`,
-      `| 输入: ${truncate(context)}`,
+      `| 模式: ${useMessages ? 'messages' : 'context'}`,
+      `| 输入: ${truncate(useMessages ? `${messages!.length} messages` : context ?? '')}`,
     )
 
     // Check cache
-    const key = cacheKey(capabilityKey, context)
+    const key = cacheKey(capabilityKey, cacheSeed)
     if (!noCache) {
       const cached = getCached<z.infer<T>>(key)
       if (cached !== undefined) {
@@ -139,14 +168,22 @@ export async function auxiliaryInfer<T extends z.ZodType>({
       const token = (await ensureServerAccessToken()) ?? ''
       if (!token) throw new Error('未登录云端账号，请先登录')
       const saasClient = getSaasClient(token)
-      const capability = AUXILIARY_CAPABILITIES[capabilityKey]
-      const res = await saasClient.auxiliary.infer({
-        capabilityKey,
-        systemPrompt,
-        context,
-        outputMode: 'structured',
-        schema: capability?.outputSchema,
-      })
+      const payload = useMessages
+        ? {
+            capabilityKey,
+            systemPrompt,
+            messages: toSaasMessages(messages!),
+            outputMode: 'structured' as const,
+            schema: capability.outputSchema,
+          }
+        : {
+            capabilityKey,
+            systemPrompt,
+            context: context ?? '',
+            outputMode: 'structured' as const,
+            schema: capability.outputSchema,
+          }
+      const res = await saasClient.auxiliary.infer(payload)
       if (!res.ok) throw new Error(res.message)
       const value = schema.parse(res.result) as z.infer<T>
       if (!noCache) setCache(key, value)
@@ -173,12 +210,26 @@ export async function auxiliaryInfer<T extends z.ZodType>({
     const abortController = new AbortController()
     const timeout = setTimeout(() => abortController.abort(), 10_000)
 
+    // 逻辑：aux 模型若不支持媒体能力，把 messages 降级为文本 context，
+    // 避免模型看到原始 attachment XML tag（相比文件名更难理解）。
+    const canUseMessages = useMessages && modelHasMediaCapability(resolved.modelDefinition)
+    const modelMessages = canUseMessages
+      ? await buildModelMessages(messages!, undefined, {
+          modelDefinition: resolved.modelDefinition,
+        })
+      : null
+    const effectivePrompt = canUseMessages
+      ? ''
+      : useMessages
+        ? flattenMessagesToContext(messages!)
+        : (context ?? '')
+
     try {
       const result = await generateText({
         model: resolved.model,
         output: Output.object({ schema }),
         system: systemPrompt,
-        prompt: context,
+        ...(modelMessages ? { messages: modelMessages } : { prompt: effectivePrompt }),
         abortSignal: abortController.signal,
         ...(maxTokens ? { maxTokens } : {}),
       })
