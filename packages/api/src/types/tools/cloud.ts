@@ -212,6 +212,39 @@ export const cloudImageGenerateToolDef = {
   component: null,
 } as const;
 
+export const cloudImageEditToolDef = {
+  id: "CloudImageEdit",
+  readonly: false,
+  name: "Cloud Image Edit",
+  description: `Edit an existing image according to a natural-language instruction ("在猫咪旁边添加一只老鼠"/"把背景换成海边"/"去掉水印"). Preferred entry point for image editing — no Browse/Detail needed.
+
+**This tool renders the edited image inline in the chat UI automatically.** Once it returns successfully the user already sees the result — you do NOT need to Read, Open, or otherwise re-display the file. Just reply with one short confirmation line and stop.
+
+- \`image\` (required): the source image to edit. Accepts a URL string, \`{ url }\` object, or \`{ path }\` local path (e.g. \`{ path: "\${CURRENT_CHAT_DIR}/cat.png" }\`). Local files auto-upload to CDN.
+- \`instruction\` (required): natural-language editing instruction (e.g. "add a mouse next to the cat", "make the sky sunset orange").
+- \`mask\` (optional): optional mask image (URL / \`{ url }\` / \`{ path }\`) — white pixels mark the region to edit. Only pass when the chosen variant supports masked edits.
+- \`modelHint\` (optional): variant id (e.g. "OL-IE-002") or substring to override the default picker.
+- Internally selects the lowest-credit accessible variant under feature \`imageEdit\`. Returns the same file-saving result as CloudModelGenerate.`,
+  parameters: z.object({
+    image: z
+      .unknown()
+      .describe("Source image: URL string, { url }, or { path }. Required."),
+    instruction: z
+      .string()
+      .min(1)
+      .describe("Natural-language editing instruction."),
+    mask: z
+      .unknown()
+      .optional()
+      .describe("Optional mask image: URL, { url }, or { path }. White = edit region."),
+    modelHint: z
+      .string()
+      .optional()
+      .describe("Variant id or name substring to override the default picker. Optional."),
+  }),
+  component: null,
+} as const;
+
 export const cloudTaskCancelToolDef = {
   id: "CloudTaskCancel",
   readonly: false,

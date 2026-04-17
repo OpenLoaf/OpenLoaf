@@ -141,7 +141,7 @@ export const TOOL_REGISTRY: ToolRegistryEntry[] = [
   // cloudImageEdit / …) share the same output shape (via runV3GenerateAndSave)
   // so they reuse CloudModelGenerateTool for the media preview grid.
   {
-    match: ['CloudModelGenerate', 'CloudImageGenerate'],
+    match: ['CloudModelGenerate', 'CloudImageGenerate', 'CloudImageEdit'],
     component: CloudModelGenerateTool as ComponentType<ToolComponentProps>,
   },
   { match: 'CloudLogin', component: CloudLoginTool as ComponentType<ToolComponentProps> },

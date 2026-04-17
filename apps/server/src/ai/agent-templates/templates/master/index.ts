@@ -118,6 +118,7 @@ export const masterTemplate: AgentTemplate = {
     // Collapse Browse → Detail → Generate into a single call by auto-picking
     // an accessible variant from the cached capability snapshot.
     'CloudImageGenerate',
+    'CloudImageEdit',
   ],
   allowSubAgents: true,
   maxDepth: 2,

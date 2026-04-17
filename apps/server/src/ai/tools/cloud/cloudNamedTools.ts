@@ -23,7 +23,10 @@
  *     silently ignored by the backend rather than breaking the call.
  */
 import { tool, zodSchema } from 'ai'
-import { cloudImageGenerateToolDef } from '@openloaf/api/types/tools/cloud'
+import {
+  cloudImageEditToolDef,
+  cloudImageGenerateToolDef,
+} from '@openloaf/api/types/tools/cloud'
 import { createToolProgress } from '@/ai/tools/toolProgress'
 import {
   getAllCachedVariantDetails,
@@ -213,6 +216,68 @@ export const cloudImageGenerateTool = tool({
       waitForCompletion: true,
       progress,
       toolName: 'CloudImageGenerate',
+    })
+  },
+})
+
+// ---------------------------------------------------------------------------
+// cloudImageEdit
+// ---------------------------------------------------------------------------
+
+const IMAGE_EDIT_FEATURES = ['imageEdit'] as const
+
+export const cloudImageEditTool = tool({
+  description: cloudImageEditToolDef.description,
+  inputSchema: zodSchema(cloudImageEditToolDef.parameters),
+  // Consumes credits like CloudModelGenerate → requires approval.
+  needsApproval: true,
+  execute: async (input, { toolCallId }): Promise<string> => {
+    const { image, instruction, mask, modelHint } = input as {
+      image: unknown
+      instruction: string
+      mask?: unknown
+      modelHint?: string
+    }
+
+    const progress = createToolProgress(toolCallId, 'CloudImageEdit')
+    await ensureCapabilitiesReady(progress)
+    const picked = pickVariant(IMAGE_EDIT_FEATURES, modelHint)
+    if (!picked) {
+      progress.error('no matching variant')
+      return noVariantError('CloudImageEdit', IMAGE_EDIT_FEATURES)
+    }
+
+    progress.delta(`picked ${picked.variantId} (${picked.variantName}) · ${picked.creditsPerCall} credits\n`)
+
+    const coercedImage = coerceMediaInput(image)
+    if (coercedImage === undefined) {
+      progress.error('invalid image input')
+      return JSON.stringify({
+        ok: false,
+        code: 'invalid_input',
+        error: 'CloudImageEdit requires a source image (URL string, { url }, or { path }).',
+        hint: 'Ask the user to provide an image, or re-invoke with a valid image field.',
+      })
+    }
+
+    const inputs: Record<string, unknown> = {
+      image: coercedImage,
+      // Variants disagree on the instruction slot key — send both so the
+      // backend picks whichever it expects; unknown keys are ignored.
+      prompt: instruction,
+      instruction,
+    }
+    const coercedMask = mask !== undefined ? coerceMediaInput(mask) : undefined
+    if (coercedMask !== undefined) inputs.mask = coercedMask
+
+    return runV3GenerateAndSave({
+      feature: picked.featureId,
+      variant: picked.variantId,
+      inputs,
+      params: {},
+      waitForCompletion: true,
+      progress,
+      toolName: 'CloudImageEdit',
     })
   },
 })
