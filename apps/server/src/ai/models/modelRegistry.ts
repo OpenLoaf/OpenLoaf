@@ -10,7 +10,6 @@
 import type { AiProviderTemplate } from "@openloaf-saas/sdk";
 import type {
   ModelDefinition,
-  ModelTag,
   ProviderDefinition,
 } from "@openloaf/api/common";
 import { getSaasClient } from "@/modules/saas/client";
@@ -50,7 +49,10 @@ function toProviderDefinition(
         ...model,
         // 逻辑：SaaS 返回 displayName 为空时回退 model id，避免 name 出现 null。
         name: model.displayName ?? model.id,
-        tags: model.tags as ModelTag[],
+        // SDK v0.2.0 起 provider template 不再返回 tags；此处保持空数组，
+        // 需要 tags 的能力（attachment 升级、reasoning 徽章）依赖 chat
+        // capabilities 数据源（cloudModelMapper / llm/client.ts）。
+        tags: [],
         providerId: template.id,
       }),
     ),

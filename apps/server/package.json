@@ -88,7 +88,7 @@
     "@hono/trpc-server": "^0.4.2",
     "@hyzyla/pdfium": "^2.1.12",
     "@napi-rs/canvas": "npm:noop3@1000.0.0",
-    "@openloaf-saas/sdk": "^0.1.46",
+    "@openloaf-saas/sdk": "^0.2.2",
     "@openloaf/api": "workspace:*",
     "@openloaf/config": "workspace:*",
     "@openloaf/db": "workspace:*",

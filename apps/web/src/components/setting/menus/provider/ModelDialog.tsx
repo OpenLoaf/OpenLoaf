@@ -10,8 +10,7 @@
 import { useTranslation } from "react-i18next";
 import { Button } from "@openloaf/ui/button";
 import { Input } from "@openloaf/ui/input";
-import { AI_MODEL_TAGS } from "@openloaf-saas/sdk";
-import type { ModelTag } from "@openloaf/api/common";
+import { MODEL_TAGS, type ModelTag } from "@openloaf/api/common";
 import { FormDialog } from "@/components/ui/FormDialog";
 import {
   toggleSelection,
@@ -66,8 +65,8 @@ export function ModelDialog({
 }: ModelDialogProps) {
   const { t } = useTranslation('settings');
   const { t: tAi } = useTranslation('ai');
-  const modelTagOptions = AI_MODEL_TAGS.map((value) => ({
-    value: value as ModelTag,
+  const modelTagOptions = MODEL_TAGS.map((value) => ({
+    value,
     label: tAi(`modelTags.${value}`, { defaultValue: value, nsSeparator: false }),
   }));
   const isEditing = Boolean(editingModelId);

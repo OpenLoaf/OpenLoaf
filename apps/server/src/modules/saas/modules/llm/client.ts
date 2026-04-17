@@ -7,8 +7,17 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
+import type { AiClient } from "@openloaf-saas/sdk";
 import { getSaasClient } from "../../client";
 import { getSaasBaseUrl } from "../../core/config";
+
+// Types derived from the SDK so the local code stays aligned with upstream.
+// SDK v0.2.2 narrowed chatCapabilities responses to v3MediaCapabilitiesResponseSchema,
+// so features is a homogeneous array of v3FeatureSchema (always has `variants`).
+type ChatCapabilitiesResponse = Awaited<ReturnType<AiClient["chatCapabilities"]>>;
+type ChatCapabilitiesSuccess = Extract<ChatCapabilitiesResponse, { success: true }>;
+type ChatVariant = ChatCapabilitiesSuccess["data"]["features"][number]["variants"][number];
+type ChatInputSlot = ChatVariant["inputSlots"][number];
 
 type ModelListPayload = {
   /** Success flag from SaaS. */
@@ -61,36 +70,33 @@ type FetchModelListOptions = {
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const cached = new Map<string, { updatedAt: number; payload: ModelListPayload }>();
 
-// v3 chat capabilities 响应最小形状 —— 只读取 variant 列表适配所需字段。
-// SDK v0.1.46 没有 chatCapabilities 方法，通过 raw fetch 桥接；升到 v0.2.0 后
-// 可替换为 `client.ai.chatCapabilities()`。
-type V3ChatCapabilitiesResponse = {
-  success: true;
-  data: {
-    category: "chat";
-    features: Array<{
-      id: string;
-      variants: Array<{
-        id: string;
-        featureTabName: string;
-        familyId?: string;
-      }>;
-    }>;
-    updatedAt?: string;
-  };
-} | {
-  success: false;
-  message?: string;
+// inputSlot role → ModelTag mapping. Only media inputs are tagged; text/prompt
+// slots are omitted because every chat variant has them.
+const SLOT_ROLE_TO_TAG: Record<string, string> = {
+  image: "image_input",
+  video: "video_analysis",
+  audio: "audio_analysis",
 };
+
+/** Derive media capability tags from v3 inputSlots. */
+function deriveTagsFromSlots(slots: readonly ChatInputSlot[] | undefined): string[] {
+  if (!Array.isArray(slots) || slots.length === 0) return [];
+  const seen = new Set<string>();
+  for (const slot of slots) {
+    const tag = slot.role ? SLOT_ROLE_TO_TAG[slot.role] : undefined;
+    if (tag) seen.add(tag);
+  }
+  return Array.from(seen);
+}
 
 /** Adapt v3 chat capabilities response to the legacy chatModels payload shape. */
 function adaptV3ChatCapabilities(
-  response: V3ChatCapabilitiesResponse,
+  response: ChatCapabilitiesResponse,
 ): ModelListPayload {
   if (response.success !== true) {
     return {
       success: false,
-      message: response.message ?? "saas_request_failed",
+      message: "saas_request_failed",
     };
   }
   const items: Array<{
@@ -102,7 +108,7 @@ function adaptV3ChatCapabilities(
   }> = [];
   for (const feature of response.data.features) {
     for (const variant of feature.variants) {
-      // 关键逻辑：v3 不再返回真实 provider id，统一按 familyId 做分组 key（小写），
+      // v3 不再返回真实 provider id，统一按 familyId 做分组 key（小写），
       // 既能触发 PROVIDER_ICON_MAP 图标查找，也能让同家族的 variant 落入同一
       // ProviderSettingEntry。familyId 缺失时回退到 variant id。
       const family = variant.familyId?.trim() || variant.id;
@@ -110,9 +116,7 @@ function adaptV3ChatCapabilities(
         id: variant.id,
         provider: family.toLowerCase(),
         displayName: variant.featureTabName,
-        // v3 已移除 tags / capabilities 字段 —— 依赖 reasoning 等 tag 的筛选器
-        // 当前无数据源，后续接入新的 capability 标志位时在此处补齐。
-        tags: [],
+        tags: deriveTagsFromSlots(variant.inputSlots),
       });
     }
   }
@@ -135,26 +139,11 @@ export async function fetchModelList(
   if (!force && cachedEntry && Date.now() - cachedEntry.updatedAt < CACHE_TTL_MS) {
     return cachedEntry.payload;
   }
-  const baseUrl = getSaasBaseUrl();
-  const url = `${baseUrl}/api/ai/v3/capabilities/chat`;
-  const headers = accessToken
-    ? { Authorization: `Bearer ${accessToken}` }
-    : undefined;
+  const client = getSaasClient(accessToken);
   let payload: ModelListPayload;
   try {
-    const resp = await fetch(url, { headers });
-    const raw = (await resp.json().catch(() => null)) as
-      | V3ChatCapabilitiesResponse
-      | null;
-    if (!resp.ok || !raw) {
-      payload = {
-        success: false,
-        message: "saas_request_failed",
-        code: String(resp.status || 502),
-      };
-    } else {
-      payload = adaptV3ChatCapabilities(raw);
-    }
+    const raw = await client.ai.chatCapabilities();
+    payload = adaptV3ChatCapabilities(raw);
   } catch {
     payload = { success: false, message: "saas_request_failed" };
   }

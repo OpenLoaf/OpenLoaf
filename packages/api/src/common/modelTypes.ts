@@ -7,15 +7,32 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import {
-  AI_MODEL_TAGS,
-  type AiModelCapabilities,
-  type AiModelTag,
-} from "@openloaf-saas/sdk";
+import type { AiModelCapabilities } from "@openloaf-saas/sdk";
 
 export type ChatModelSource = "local" | "cloud" | "saas";
 
-export type ModelTag = AiModelTag | "chat" | "code" | "tool_call" | "reasoning";
+/**
+ * Canonical model capability tags for OpenLoaf.
+ *
+ * Previously split between SDK-provided media tags and OpenLoaf-local chat tags.
+ * Since @openloaf-saas/sdk v0.2.0 dropped AI_MODEL_TAGS and variant.tags, all
+ * tags are now owned locally; variants coming from SaaS are translated via
+ * cloudModelMapper (inputSlots + capabilities → tags).
+ */
+export const MODEL_TAGS = [
+  // Media input/analysis tags used by attachmentTagExpander and model-capabilities.
+  "image_input",
+  "image_analysis",
+  "video_analysis",
+  "audio_analysis",
+  // Chat-side behavioral tags.
+  "chat",
+  "code",
+  "tool_call",
+  "reasoning",
+] as const;
+
+export type ModelTag = (typeof MODEL_TAGS)[number];
 
 export type ModelCapabilityCommon = {
   maxContextK?: number;
@@ -78,15 +95,6 @@ export type ModelDefinition = {
 
 export type ModelCapabilityInput = NonNullable<ModelCapabilities["input"]>;
 export type ModelCapabilityOutput = NonNullable<ModelCapabilities["output"]>;
-
-/** All valid model tags (SDK tags + local-only tags). */
-export const MODEL_TAGS: readonly ModelTag[] = [
-  ...AI_MODEL_TAGS,
-  "chat",
-  "code",
-  "tool_call",
-  "reasoning",
-] as const;
 
 export type ProviderDefinition = {
   /** Provider id. */
