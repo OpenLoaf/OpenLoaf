@@ -7,17 +7,16 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  *
- * Dynamic builtin skills for cloud capabilities.
+ * Dynamic builtin skill for cloud capabilities.
  *
- * Two skills are exposed:
- *   cloud-media — image/video/audio generation via CloudCapBrowse/Detail/ModelGenerate
- *   cloud-text  — text capabilities (OCR/summarize/extract) via CloudTextGenerate
- *
- * Their *names* and *descriptions* are static (so the system-prompt skill catalog
- * is stable), but their *content* is re-rendered whenever the cloud capability
- * surface changes. Content reflects currently available categories and feature
- * counts without enumerating individual variants — variants stay a runtime
- * discovery step via CloudCapBrowse.
+ * A single `cloud-media-skill` entry covers every paid cloud tool — generation
+ * (image / video / tts) plus understanding (image caption / speech recognize).
+ * The skill's *name* and *description* are static (so the system-prompt skill
+ * catalog is stable), but its *content* is re-rendered whenever the cloud
+ * capability surface changes. Content reflects currently available categories
+ * and per-tier variant counts without enumerating individual variants —
+ * variants are injected into each named tool's description at activation time
+ * via the `<system-tag type="cloud-variants">` block.
  */
 import type { BuiltinSkill } from './types'
 import { getSaasClient } from '@/modules/saas/client'
@@ -80,6 +79,15 @@ export function hasTierAccess(userTier: CloudMembershipTier, requiredTier: Cloud
   return TIER_ORDER.indexOf(userTier) >= TIER_ORDER.indexOf(requiredTier)
 }
 
+/** Single input slot declaration from SaaS capabilitiesDetail. */
+export type CachedInputSlot = {
+  /** 同 role，SaaS 侧 slot key。客户端必须用这个名字放进 inputs[role]。 */
+  role: string
+  /** Input 类型：text 以扁平字符串发送；image/audio/video/file 必须包 {url:string}。 */
+  accept: 'text' | 'image' | 'audio' | 'video' | 'file'
+  required?: boolean
+}
+
 /** Per-variant cached metadata (populated from capabilitiesDetail). */
 export type CachedVariantDetail = {
   variantId: string
@@ -88,6 +96,21 @@ export type CachedVariantDetail = {
   category: string
   minMembershipLevel: CloudMembershipTier
   creditsPerCall: number
+  /**
+   * Input slot declarations — used to map client-side logical keys
+   * (image/audio/prompt/…) to the actual SaaS field names (source/reference/…)
+   * and to coerce value shapes (media slots wrap strings as {url}).
+   * 老服务端不返回 slots 时为 undefined，调用方应按 legacy 行为 passthrough。
+   */
+  inputSlots?: readonly CachedInputSlot[]
+  /**
+   * 执行模式（来自 invocation.executionMode）：
+   *   - 'streaming' → SaaS 只返 SSE，必须用 v3TextGenerateStream + 流式消费
+   *   - 'sync'      → SaaS 返 JSON，用 v3TextGenerate
+   *   - 'task'      → 异步长任务，走 v3Generate + 轮询
+   * 未知/缺失时默认按 sync 处理。
+   */
+  executionMode?: 'streaming' | 'sync' | 'task'
 }
 
 type CategorySummary = {
@@ -111,15 +134,10 @@ const state = {
   refreshedAt: 0,
 }
 
-/** Retrieve cached variant metadata by id (may be undefined before first refresh). */
-export function getCachedVariantDetail(variantId: string): CachedVariantDetail | undefined {
-  return state.variantDetails.get(variantId)
-}
-
 /**
  * All cached variant details. Used by named cloud tools (cloudImageGenerate,
  * cloudVideoGenerate, …) to pick an accessible variant for a requested
- * capability without the AI having to call Browse+Detail first.
+ * capability.
  */
 export function getAllCachedVariantDetails(): readonly CachedVariantDetail[] {
   return [...state.variantDetails.values()]
@@ -128,11 +146,6 @@ export function getAllCachedVariantDetails(): readonly CachedVariantDetail[] {
 /** True once the first refresh has populated variant cache. */
 export function cloudSkillsInitialized(): boolean {
   return state.initialized
-}
-
-/** Get a snapshot of category summaries including tier breakdown. */
-export function getCachedCategorySummaries(): readonly CategorySummary[] {
-  return state.mediaCategories
 }
 
 // ---------------------------------------------------------------------------
@@ -147,19 +160,10 @@ export function getCachedCategorySummaries(): readonly CategorySummary[] {
 export const cloudMediaSkill: BuiltinSkill = {
   name: 'cloud-media-skill',
   description:
-    '当用户要求从零生成全新的图片、插画、海报、视频片段、配音、音乐、音效时触发。典型说法"AI 画一张"、"生成一张宫崎骏风格森林图"、"text to image"。**不用于**：已有媒体文件的处理（→media-ops-skill）、在画布里创建白板（→canvas-ops-skill）、OCR 或文字任务（→cloud-text-skill）。',
+    '当用户要求生成或处理云端 AI 媒体（图片/视频/语音），或理解媒体内容（OCR/图片理解/语音转写）时触发。典型："画一张"、"生成视频"、"合成语音"、"识别文字"、"语音转文字"、"看看这张图"。不用于：翻译（对话模型免费）、已粘贴的短文本处理（对话模型直接处理）。',
   icon: '☁️',
   colorIndex: 2,
   content: renderMediaContent(), // initial placeholder content (before first refresh)
-}
-
-export const cloudTextSkill: BuiltinSkill = {
-  name: 'cloud-text-skill',
-  description:
-    '当用户要对图片 / 扫描件做 OCR 文字识别，或从大段文本批量 / 高精度抽取结构化字段，或对超长文本走一次专用摘要时触发。典型说法"识别这张图上的文字"、"OCR"、"extract fields from this"。**不用于**：翻译（主对话模型直接处理）、对话里已粘贴的短文本总结（→直接回答）、PDF 里可直接提取的电子文本（→pdf-word-excel-pptx-skill）。',
-  icon: '📝',
-  colorIndex: 3,
-  content: renderTextContent(),
 }
 
 // ---------------------------------------------------------------------------
@@ -193,117 +197,42 @@ function renderMediaContent(): string {
       })
     : ['- (probing on first use…)']
 
-  const categoryArg = mediaCats.length
-    ? mediaCats.map((c) => `"${c.category}"`).join(' | ')
-    : '"image" | "video" | "audio"'
-
   return `# Cloud Media Generation
 
-Generate images, videos, and audio via the cloud AI platform. Each call consumes credits.
+通过云端 AI 平台生图、改图、生视频、合成语音等。每次调用消耗用户 credits。
 
 ## Available Capabilities
 
 ${tierTableLines.join('\n')}
 
-## 首选路径 — 命名工具（单轮完成）
+## 用哪个工具
 
-日常生图/改图直接调命名工具，**不需要** Browse / Detail。工具内部会自动挑选一个可用的 variant 并按正确格式组装 inputs。
+| 场景 | 工具 |
+|------|------|
+| 生图 / "画一张" / text-to-image | \`CloudImageGenerate\` |
+| 改图 / "加只老鼠" / "换背景" / inpaint / outpaint | \`CloudImageEdit\` |
+| 生视频 / image-to-video（需要首帧图） | \`CloudVideoGenerate\` |
+| 文生语音 / TTS / 配音 | \`CloudTTS\` |
+| 语音转文字 / ASR / 转写 | \`CloudSpeechRecognize\` |
+| 图片理解 / OCR / VQA / 看图 | \`CloudImageUnderstand\` |
 
-\`\`\`
-CloudImageGenerate({ prompt: "森林场景", aspectRatio?: "16:9", style?: "watercolor", referenceImage?: { url: "..." } | "https://..." | { path: "\${CURRENT_CHAT_DIR}/img.png" } })
+每个工具内部自动挑选当前 tier 可用、credits 最低的 variant。用户明确要求某个模型时，传 \`modelHint\`（variant id 如 "OL-IG-003"，或 name 片段如 "Qwen"）。工具 description 里的 \`<system-tag type="cloud-variants">\` 会列出当前目录。
 
-CloudImageEdit({ image: { path: "\${CURRENT_CHAT_DIR}/cat.png" } | { url: "..." } | "https://...", instruction: "在猫咪旁边加一只老鼠", mask?: "<可选掩码>" })
-\`\`\`
+- 媒体输入接受 URL 字符串、\`{ url: "..." }\` 或 \`{ path: "\${CURRENT_CHAT_DIR}/img.png" }\`（本地路径自动上传 CDN）。
+- 生成类工具（Image/Video/TTS）成功后**前端 UI 自动展示媒体**，一句确认文字即可，不要 Read 文件。
+- 理解类工具（ImageUnderstand/SpeechRecognize）返回文本结果，直接转述给用户。
 
-- **生图**（"画一张" / "生成图片" / "text to image"）→ \`CloudImageGenerate\`
-- **改图**（"在 X 旁边加 Y" / "把背景换成..." / "去掉水印" / "image edit"）→ \`CloudImageEdit\`
-- 若命名工具返回 \`code: "no_variant_available"\` 或用户明确要求特定模型 → 回退到下方进阶路径。
+> 调用前须先 \`ToolSearch(names: "CloudXxx")\` 加载 schema。
 
-> **按需加载**：\`CloudImageGenerate\` / \`CloudImageEdit\` 调用前须先 \`ToolSearch(names: "工具名")\` 加载 schema。
+## 异步任务（视频）
 
-## 进阶路径 — Browse → Detail → Generate
-
-用户点名某个 variant、或要视频 / TTS / 图片编辑 / OCR 等尚未命名工具化的能力时使用：
-
-### Step 1 — Browse
-
-\`\`\`
-CloudCapBrowse({ category: ${categoryArg} })
-\`\`\`
-
-返回 feature 列表。**只选 \`accessible === true\` 的 variant。**
-
-### Step 2 — Detail（必须）
-
-\`\`\`
-CloudCapDetail({ variantId: "<id>", featureId: "<feature>" })
-\`\`\`
-
-返回 \`inputSlots[]\` 和 \`paramsSchema[]\`。**不可跳过** — 不同 variant 的字段名差异很大（如视频需 \`startImage\`、TTS 需 \`text\`），跳过几乎必定失败。
-
-### Step 3 — Generate
-
-\`\`\`
-CloudModelGenerate({
-  feature: "<featureId>",
-  variant: "<variantId>",
-  inputs: { ... },   // 按 inputSlots 填写
-  params: { ... }    // 按 paramsSchema 填写
-})
-\`\`\`
-
-**输入格式规则**（与画布一致）：
-- **文本 slot**（如 prompt）→ 纯字符串
-- **媒体 slot**（如 image / startImage / audio）→ \`{ url: "https://..." }\` 或 \`{ path: "\${CURRENT_CHAT_DIR}/img.png" }\`。本地路径会自动上传到 CDN。
-- **不要猜字段名** — 严格使用 Detail 返回的 slot key。
-
-默认同步等待完成（最长 10 分钟）。长任务可设 \`waitForCompletion: false\`，之后用 \`CloudTask({ taskId })\` 轮询。
-
-### Step 4 — （异步模式）Poll / Cancel
-
-\`\`\`
-CloudTask({ taskId })         // 查询状态 / 获取结果
-CloudTaskCancel({ taskId })   // 取消任务
-\`\`\`
+视频任务可能超过 10 分钟同步等待上限。同步超时会返回 \`{ mode: 'timeout', taskId }\`，后续用 \`CloudTask({ taskId })\` 轮询、\`CloudTaskCancel({ taskId })\` 取消。credits 在任务完成时才扣。
 
 ## 关键约束
 
-- **accessible 为 false 的 variant 不要调** — 会被后端拒绝。提示用户所需会员等级。
-- **视频类 variant 通常需要首帧图片**（\`startImage\` slot），不传会 502。如果用户没有图片，先用 \`CloudImageGenerate\` 生成一张，再传给视频 variant。
-- **限制并发** — 同一 variant 不超过 2 个并行 CloudModelGenerate，超过可能 503。
-- **昂贵操作先确认** — 视频可消耗 50-500+ credits，先告知用户。
-`
-}
-
-function renderTextContent(): string {
-  const textCat = state.mediaCategories.find((c) => c.category === 'text')
-  const status = textCat
-    ? `available — ${textCat.featureCount} features, ${textCat.variantCount} variants`
-    : '(probing on first use…)'
-
-  return `# Cloud Text Capabilities
-
-Text-in / text-out operations via the cloud AI platform (OCR, summarization, structured extraction).
-
-**Current status**: ${status}
-
-> **翻译不在此技能范围。** 主对话模型直接翻译，零 credit 消耗。Browse 已过滤 translate 类 feature。
-
-> **工具按需加载**：\`CloudCapBrowse\`、\`CloudCapDetail\`、\`CloudTextGenerate\` 调用前须先 \`ToolSearch(names: "工具名")\` 加载 schema。
-
-## Workflow
-
-1. \`CloudCapBrowse({ category: "text" })\` — 发现可用 feature 和 variant
-2. \`CloudCapDetail({ variantId, featureId })\` — 获取输入 schema（必须）
-3. \`CloudTextGenerate({ feature, variant, inputs, params })\` — 同步调用，直接返回 \`{ text, creditsConsumed }\`
-
-## 使用场景
-
-- **OCR** — 图片中的文字提取（\`inputs: { image: { url: "..." } }\`）
-- **长文摘要** — 超长文本走云端摘要比对话模型便宜
-- **结构化抽取** — 有专用 variant 时使用
-
-**不使用**：翻译（对话模型免费）、短文本摘要（对话模型直接处理）。
+- **CloudVideoGenerate 需首帧图**（\`startImage\`）：用户没图时，先用 \`CloudImageGenerate\` 生成一张再传入。
+- **限制并发** — 同一 variant 不要同时发起 >2 个生成任务。
+- **昂贵操作先确认** — 视频可消耗 50-500+ credits，调用前告知用户预估消耗。
 `
 }
 
@@ -311,10 +240,9 @@ Text-in / text-out operations via the cloud AI platform (OCR, summarization, str
 // Refresh API
 // ---------------------------------------------------------------------------
 
-/** Mark both skills dirty and re-render from current state. */
+/** Re-render the cloud skill content after a capability refresh. */
 function rerenderSkillContent(): void {
   cloudMediaSkill.content = renderMediaContent()
-  cloudTextSkill.content = renderTextContent()
 }
 
 /** Concurrency limit for capabilitiesDetail fanout. */
@@ -359,6 +287,21 @@ type CloudDetailPayload = {
   category: string
   minMembershipLevel: string
   creditsPerCall: number
+  /**
+   * Slot declarations — SaaS `/capabilities/detail` 字段名是 `inputs`（不是
+   * `inputSlots`，那是 SDK 内部某个 schema 的别名）。部分老版本可能缺该字段。
+   */
+  inputs?: Array<{
+    role: string
+    accept: string
+    required?: boolean
+  }>
+  /** Invocation info — 提供 executionMode 让客户端决定用 sync/stream/task API。 */
+  invocation?: {
+    executionMode?: string
+    endpoint?: string
+    method?: string
+  }
 }
 
 /**
@@ -426,6 +369,24 @@ export async function refreshCloudSkills(): Promise<void> {
       for (const r of results) {
         if (r.status !== 'fulfilled' || !r.value?.data) continue
         const d = r.value.data
+        const slots = Array.isArray(d.inputs)
+          ? (d.inputs
+              .filter((s) => s && typeof s.role === 'string' && typeof s.accept === 'string')
+              .map((s) => ({
+                role: s.role,
+                accept: (['text', 'image', 'audio', 'video', 'file'] as const).includes(
+                  s.accept as CachedInputSlot['accept'],
+                )
+                  ? (s.accept as CachedInputSlot['accept'])
+                  : 'text',
+                required: s.required,
+              })) as CachedInputSlot[])
+          : undefined
+        const modeRaw = d.invocation?.executionMode
+        const executionMode =
+          modeRaw === 'streaming' || modeRaw === 'sync' || modeRaw === 'task'
+            ? (modeRaw as CachedVariantDetail['executionMode'])
+            : undefined
         nextVariantDetails.set(d.variantId, {
           variantId: d.variantId,
           variantName: d.variantName,
@@ -433,6 +394,8 @@ export async function refreshCloudSkills(): Promise<void> {
           category: d.category,
           minMembershipLevel: normalizeTier(d.minMembershipLevel),
           creditsPerCall: d.creditsPerCall,
+          inputSlots: slots,
+          executionMode,
         })
       }
     }

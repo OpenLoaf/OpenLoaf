@@ -195,8 +195,6 @@
       "read": "Read file",
       "glob": "Find files",
       "grep": "Search files",
-      "cloudModelGenerate": "Cloud media generation",
-      "cloudTextGenerate": "Cloud text processing",
       "any": "any"
     }
   },

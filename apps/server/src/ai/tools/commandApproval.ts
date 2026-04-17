@@ -96,6 +96,14 @@ const REDIRECT_OPS = new Set(['>', '>>', '<', '<<', '>&', '<&', '<>'])
 /** 危险操作符：后台执行、子 shell */
 const DANGEROUS_OPS = new Set(['&', '(', ')'])
 
+// ─── 测试专用审批触发标记 ──────────────────────────────────────────────────
+// 任何含这个字符串的 Bash 命令都会强制走审批流程。仅用于浏览器测试验证
+// reject-all / approve-all 审批链路（见 tool-approval.browser.tsx）。
+// 产品用户极不可能输入这个怪字符串；测试里调 Bash `openloaf-test-approval`
+// 会触发审批 UI 并命中 reject/approve 策略，但命令本身不是合法 shell 可执行，
+// reject 路径直接中断、approve 路径执行时 shell 报 "command not found"（无害）。
+export const TEST_APPROVAL_COMMAND = 'openloaf-test-approval'
+
 // ─── 核心逻辑 ───────────────────────────────────────────────────────────────
 
 /** 标准化 token 为命令名（basename、小写、去 .exe/.cmd 后缀） */
@@ -315,6 +323,9 @@ export function needsApprovalForCommand(
 
   const trimmed = command?.trim() ?? ''
   if (!trimmed) return true
+
+  // 测试审批触发：含 TEST_APPROVAL_COMMAND 强制审批（给 browser test 用）
+  if (trimmed.includes(TEST_APPROVAL_COMMAND)) return true
 
   // ANSI-C 引号预检：$'...' 内可编码任意字节，保守拦截
   if (hasAnsiCQuote(trimmed)) return true

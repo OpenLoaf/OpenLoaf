@@ -24,7 +24,17 @@ import type { ToolPartSnapshot } from '@/hooks/use-chat-runtime'
 import MessageList from '@/components/ai/message/MessageList'
 
 // ── i18n ──
-import '@/i18n/index'
+import i18n from '@/i18n/index'
+// 强制所有浏览器测试使用中文环境，保证 i18n 相关视觉断言（如 Thinking shimmer 文案）
+// 不受 Chromium 默认系统语言影响。
+try {
+  if (typeof window !== 'undefined') {
+    window.localStorage.setItem('openloaf-ui-language', 'zh-CN')
+    // 默认收起 Vitest runner UI 的左侧测试列表 + 右侧 Dashboard 由
+    // vitest.browser.config.ts 的 context.storageState 预置，见那里注释。
+  }
+} catch { /* localStorage 不可用时忽略，下面 changeLanguage 直接切换运行时 */ }
+void i18n.changeLanguage('zh-CN')
 // ── 测试专用样式 ──
 import './probe.css'
 
@@ -43,8 +53,10 @@ export type ChatProbeHarnessProps = {
   sessionId?: string
   /** 会话标题（设置后会通过 tRPC 重命名会话，如 "007 — 大 PDF 分段读..."） */
   title?: string
-  /** 指定模型 ID（如 deepseek-chat） */
+  /** 指定模型 ID（如 qwen:OL-TX-006），格式 <providerId>:<modelId> */
   chatModelId?: string
+  /** 模型来源（local/cloud/saas），云端模型必须传 'cloud' */
+  chatModelSource?: 'local' | 'cloud' | 'saas'
   /** 工具审批策略 */
   approvalStrategy?: ApprovalStrategy
   /** AI 提问的自动回答映射 */
@@ -53,10 +65,25 @@ export type ChatProbeHarnessProps = {
   onComplete?: (result: ProbeResult) => void
   /** 额外的 CSS class */
   className?: string
+  /**
+   * Cloud 工具 mock/capture 配置。
+   * - mode='auto'（默认有效，需传 testCase）：有 fingerprint 匹配的 fixture 则 mock 短路，
+   *   否则 capture 本次真实调用结果到 skill fixture 目录。
+   * - mode='capture'：强制采集（即使有可用 fixture 也真跑一次并刷新）。
+   * - mode='mock'：强制 mock（无可用 fixture 则测试失败）。
+   * - mode='off' 或不传 cloudMock：维持原样，不介入。
+   *
+   * 传 `testCase` 才会激活，保持对历史测试零影响。
+   */
+  cloudMock?: {
+    testCase: string
+    mode?: 'auto' | 'capture' | 'mock' | 'off'
+    fixtureId?: string
+  }
 }
 
 export type ToolCallDetail = {
-  /** 工具名（如 CloudModelGenerate） */
+  /** 工具名（如 CloudImageGenerate） */
   name: string
   /** 该 tool 所在 assistant 消息对应的第几轮用户输入（0-based） */
   turnIndex: number
@@ -64,6 +91,12 @@ export type ToolCallDetail = {
   hasError: boolean
   /** 错误摘要（从 output.error / errorText / output.message 等字段抓取，最多 200 字） */
   errorSummary?: string
+  /** AI SDK tool part 状态：input-available / output-available / output-error 等 */
+  state?: string
+  /** 工具入参（截断到 1KB，防报告爆表） */
+  input?: unknown
+  /** 工具返回值（截断到 2KB，string 也保留方便看到 400 payload） */
+  output?: unknown
 }
 
 export type ProbeResult = {
@@ -120,6 +153,38 @@ function hasPendingToolExecution(messages: any[]): boolean {
   return false
 }
 
+/**
+ * 检查最后一条 assistant 消息是否还有流中的正文内容。
+ *
+ * AI SDK 的 onFinish 回调在极少数情况下会先于 messages 的最终 reconcile：
+ * - reasoning part 的 state 仍是 "streaming"
+ * - 尚未出现任何 text part（模型还没吐正文，只是 reasoning 阶段中间 flush 一次）
+ *
+ * 这种状态下直接写 ProbeResult 会拿到空 textPreview，后续 text part 即使
+ * 稍后补齐也会被 onCompleteCalledRef 锁死。
+ *
+ * 规则：最后一条 assistant 消息必须同时满足——
+ *   1) 所有 reasoning part 都已离开 "streaming" 态
+ *   2) 至少存在一个 text part（或 tool part，让 tool-only 场景也能通过）
+ */
+function hasPendingStreamingContent(messages: any[]): boolean {
+  let lastAssistant: any = null
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i]?.role === 'assistant') { lastAssistant = messages[i]; break }
+  }
+  if (!lastAssistant) return false
+  const parts = Array.isArray(lastAssistant?.parts) ? lastAssistant.parts : []
+
+  let hasTextOrTool = false
+  for (const part of parts) {
+    const type = typeof part?.type === 'string' ? part.type : ''
+    if (type === 'reasoning' && part?.state === 'streaming') return true
+    if (type === 'text' && typeof part?.text === 'string' && part.text.length > 0) hasTextOrTool = true
+    if (type.startsWith('tool-')) hasTextOrTool = true
+  }
+  return !hasTextOrTool
+}
+
 // ── Inner harness ──
 
 function ChatProbeInner({
@@ -129,10 +194,12 @@ function ChatProbeInner({
   sessionId: sessionIdProp,
   title,
   chatModelId,
+  chatModelSource,
   approvalStrategy = 'manual',
   questionAnswers: _questionAnswers,
   onComplete,
   className,
+  cloudMock,
 }: ChatProbeHarnessProps) {
   const sessionId = React.useMemo(
     () => sessionIdProp || generateSessionId(),
@@ -185,13 +252,14 @@ function ChatProbeInner({
             timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
             messages: lastMessage ? [lastMessage] : [],
             ...(chatModelId ? { chatModelId } : {}),
+            ...(chatModelSource ? { chatModelSource } : {}),
             ...(approvalStrategy === 'approve-all' ? { autoApproveTools: true } : {}),
           },
           headers: nextHeaders,
         }
       },
     })
-  }, [serverUrl, chatModelId])
+  }, [serverUrl, chatModelId, chatModelSource])
 
   // ── Completion logic ──
   // 提取到独立函数：只在 onFinish 触发过 + 无 pending 工具 时才真正完成。
@@ -200,6 +268,7 @@ function ChatProbeInner({
     if (onCompleteCalledRef.current) return
     if (!finishFiredRef.current) return
     if (hasPendingToolExecution(msgs)) return
+    if (hasPendingStreamingContent(msgs)) return
 
     const currentTurn = turnIndexRef.current
     // 还有后续轮次 → 发送下一条 prompt
@@ -340,16 +409,97 @@ function ChatProbeInner({
   chatRef.current = chat
 
   // ── Auto-send prompt on mount ──
+  // 如果配置了 cloudMock，先完成 mock/capture 注册再发 prompt，避免时序竞争。
   React.useEffect(() => {
     if (promptSentRef.current) return
     promptSentRef.current = true
     startTimeRef.current = Date.now()
     startedAtRef.current = new Date().toISOString()
-    requestAnimationFrame(() => {
-      chatRef.current.sendMessage({
-        parts: [{ type: 'text' as const, text: prompt }],
+    const sessionIdSnap = sessionId
+
+    async function setupCloudMockAndSend() {
+      if (cloudMock?.testCase && cloudMock.mode !== 'off') {
+        try {
+          // 动态 import 避免非 browser-test 环境报错
+          const mod = await import('@vitest/browser/context')
+          const commands = (mod as any).commands
+          const dirs = await commands.resolveCloudMockDirs({
+            testCase: cloudMock.testCase, prompt,
+          })
+          const candidates: Array<{ fixtureId: string; path: string; fingerprintMatches: boolean; hasToolResult: boolean; promptHash: string }> = dirs.candidates ?? []
+          const matched = cloudMock.fixtureId
+            ? candidates.find((c) => c.fixtureId === cloudMock.fixtureId && c.hasToolResult)
+            : candidates.find((c) => c.fingerprintMatches && c.hasToolResult && c.promptHash === dirs.promptHash)
+              ?? candidates.find((c) => c.fingerprintMatches && c.hasToolResult)
+
+          const mode = cloudMock.mode ?? 'auto'
+          const wantMock = mode === 'mock' || (mode === 'auto' && matched)
+          const wantCapture = mode === 'capture' || (mode === 'auto' && !matched)
+
+          // 先探测 mock 端点是否可用（server 没带 OPENLOAF_CLOUD_MOCK=1 启动时路由不会注册）
+          const ping = await fetch(`${serverUrl}/debug/cloud-mock/ping`, { method: 'GET' })
+          if (!ping.ok) {
+            const msg = `cloudMock: /debug/cloud-mock not registered (status=${ping.status}). Restart server with OPENLOAF_CLOUD_MOCK=1.`
+            if (mode === 'mock') throw new Error(msg)
+            console.warn(`[cloudMock] ${msg} (mode=${mode} — continuing without mock/capture)`)
+            requestAnimationFrame(() => {
+              chatRef.current.sendMessage({
+                parts: [{ type: 'text' as const, text: prompt }],
+              })
+            })
+            return
+          }
+
+          if (wantMock) {
+            if (!matched) throw new Error(`cloudMock mode=${mode} but no usable fixture`)
+            const r = await fetch(`${serverUrl}/debug/cloud-mock`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'X-OpenLoaf-Client': '1' },
+              body: JSON.stringify({
+                action: 'set-mock',
+                sessionId: sessionIdSnap,
+                fixtureDir: matched.path,
+              }),
+            })
+            if (!r.ok) throw new Error(`set-mock failed: ${r.status} ${await r.text()}`)
+            console.log(`[cloudMock] session=${sessionIdSnap} → mock fixture ${matched.fixtureId}`)
+          } else if (wantCapture) {
+            const r = await fetch(`${serverUrl}/debug/cloud-mock`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'X-OpenLoaf-Client': '1' },
+              body: JSON.stringify({
+                action: 'set-capture',
+                sessionId: sessionIdSnap,
+                captureDir: dirs.captureDir,
+                meta: {
+                  testCase: cloudMock.testCase,
+                  fingerprint: dirs.fingerprint,
+                  promptHash: dirs.promptHash,
+                  prompt,
+                  sessionId: sessionIdSnap,
+                },
+              }),
+            })
+            if (!r.ok) throw new Error(`set-capture failed: ${r.status} ${await r.text()}`)
+            console.log(`[cloudMock] session=${sessionIdSnap} → capture to ${dirs.fixtureId}`)
+          }
+        } catch (err) {
+          if (cloudMock.mode === 'mock') {
+            // force-mock 必须成功，否则会浪费积分走真调
+            throw err
+          }
+          console.warn('[cloudMock] setup failed:', err)
+        }
+      }
+      requestAnimationFrame(() => {
+        chatRef.current.sendMessage({
+          parts: [{ type: 'text' as const, text: prompt }],
+        })
       })
-    })
+    }
+
+    void setupCloudMockAndSend()
+
     // 设置会话标题（fire-and-forget）
     if (title) {
       fetch(`${serverUrl}/trpc/chat.updateSession`, {
@@ -358,7 +508,18 @@ function ChatProbeInner({
         body: JSON.stringify({ '0': { json: { sessionId, title, isUserRename: true } } }),
       }).catch(() => {})
     }
-  }, [prompt, title, serverUrl, sessionId])
+
+    // unmount 时清理 cloudMock 状态
+    return () => {
+      if (cloudMock?.testCase && cloudMock.mode !== 'off') {
+        fetch(`${serverUrl}/debug/cloud-mock`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-OpenLoaf-Client': '1' },
+          body: JSON.stringify({ action: 'clear', sessionId: sessionIdSnap }),
+        }).catch(() => {})
+      }
+    }
+  }, [prompt, title, serverUrl, sessionId, cloudMock])
 
   // ── Handle error state → auto-retry network errors via UI Retry button ──
   React.useEffect(() => {
@@ -551,9 +712,10 @@ function ChatProbeInner({
   // 同时，如果有工具还在 pending（approval-requested / approval-responded 但无 output），
   // 也不能标记 complete — server 还会继续 stream。
   const hasPending = hasPendingToolExecution(chat.messages)
+  const hasStreamingContent = hasPendingStreamingContent(chat.messages)
   const probeStatus = chat.status === 'error'
     ? 'error'
-    : hasPending
+    : hasPending || hasStreamingContent
       ? 'streaming'
       : allTurnsDone && chat.status === 'ready' && chat.messages.length > 1
         ? 'complete'
@@ -694,15 +856,37 @@ function extractToolCallDetails(messages: any[]): ToolCallDetail[] {
       if (!name) continue
 
       const { hasError, summary } = detectToolError(part)
+      const state = typeof part?.state === 'string' ? part.state : undefined
+      const input = truncateForReport(part?.input, 1024)
+      const output = truncateForReport(part?.output, 2048)
       details.push({
         name,
         turnIndex: Math.max(0, turnIndex),
         hasError,
         ...(summary ? { errorSummary: summary } : {}),
+        ...(state ? { state } : {}),
+        ...(input !== undefined ? { input } : {}),
+        ...(output !== undefined ? { output } : {}),
       })
     }
   }
   return details
+}
+
+/** 把 tool input/output 保留原形结构，只对 string 做长度截断、object 做 JSON 序列化后截断重新解析。 */
+function truncateForReport(value: unknown, maxLen: number): unknown {
+  if (value === undefined || value === null) return value
+  if (typeof value === 'string') {
+    return value.length > maxLen ? `${value.slice(0, maxLen)}…[truncated ${value.length - maxLen} chars]` : value
+  }
+  if (typeof value !== 'object') return value
+  try {
+    const json = JSON.stringify(value)
+    if (json.length <= maxLen) return value
+    return `${json.slice(0, maxLen)}…[truncated ${json.length - maxLen} chars]`
+  } catch {
+    return '[unserializable]'
+  }
 }
 
 function detectToolError(part: any): { hasError: boolean, summary?: string } {
@@ -710,15 +894,41 @@ function detectToolError(part: any): { hasError: boolean, summary?: string } {
   const state = typeof part.state === 'string' ? part.state : ''
   const errorText = typeof part.errorText === 'string' ? part.errorText : ''
   const output = part.output
-  const outputIsError = !!(output && typeof output === 'object' && (
+
+  // 1. AI SDK 标准错误形态：state=output-error / errorText / {isError:true}
+  const outputIsErrorObject = !!(output && typeof output === 'object' && (
     output.isError === true
     || output.success === false
+    || output.ok === false
     || (typeof output.error === 'string' && output.error.length > 0)
   ))
-  const hasError = state === 'output-error' || errorText.length > 0 || outputIsError
+
+  // 2. Cloud tool 过去返回纯字符串 "Error: ..."，新版返回 JSON 字符串 {"ok":false,...}。
+  //    两种都识别，避免测试看着 pass 实际 cloud 全挂。
+  let parsedStringError = false
+  let parsedSummary = ''
+  if (typeof output === 'string' && output.length > 0) {
+    if (output.startsWith('Error: ')) {
+      parsedStringError = true
+      parsedSummary = output
+    } else if (output.startsWith('{')) {
+      try {
+        const parsed = JSON.parse(output)
+        if (parsed && typeof parsed === 'object') {
+          if (parsed.ok === false || parsed.success === false || parsed.isError === true
+            || (typeof parsed.error === 'string' && parsed.error.length > 0)) {
+            parsedStringError = true
+            parsedSummary = parsed.error || parsed.message || output
+          }
+        }
+      } catch { /* not JSON, ignore */ }
+    }
+  }
+
+  const hasError = state === 'output-error' || errorText.length > 0 || outputIsErrorObject || parsedStringError
   if (!hasError) return { hasError: false }
 
-  let summary = errorText
+  let summary = errorText || parsedSummary
   if (!summary && output && typeof output === 'object') {
     if (typeof output.error === 'string') summary = output.error
     else if (typeof output.message === 'string') summary = output.message

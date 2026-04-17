@@ -50,7 +50,7 @@ it('019 — PDF → PPTX：读分镜脚本后生成汇报 PPT', async () => {
   await takeProbeScreenshot('019-pdf-to-pptx')
   const meta = {
     testCase: '019-pdf-to-pptx', prompt: `${prompt} → ${followUp}`, result,
-    description: 'Multi-turn: read PDF storyboard then generate PPTX slides',
+    description: '多轮：读 PDF 分镜后生成 PPTX',
     tags: ['multi-turn', 'pdf', 'pptx', 'pptxmutate', 'cross-format'],
   }
   await (commands as any).saveTestData(meta)

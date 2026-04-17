@@ -120,7 +120,7 @@ export async function compileAndLoadWidget(
   const url = URL.createObjectURL(blob)
 
   try {
-    const mod = await import(/* webpackIgnore: true */ url)
+    const mod = await import(/* webpackIgnore: true */ /* @vite-ignore */ url)
     const Component = mod.default as React.ComponentType<any>
     if (typeof Component !== 'function') {
       throw new Error('Widget 模块未导出默认 React 组件')

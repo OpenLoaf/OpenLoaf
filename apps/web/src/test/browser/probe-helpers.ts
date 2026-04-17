@@ -24,10 +24,17 @@ export async function waitForProbeStatus(
 }
 
 /**
- * 等待 chat 完成（status 变为 complete）。
+ * 等待 chat 进入终态（complete 或 error）。error 也算"跑完了"——
+ * 测试用例可以自己读 result.status 判断是否真的成功。
  */
 export async function waitForChatComplete(timeout = 120_000) {
-  await waitForProbeStatus('complete', timeout)
+  const start = Date.now()
+  while (Date.now() - start < timeout) {
+    const attr = page.getByTestId('chat-probe-harness').element().getAttribute('data-probe-status')
+    if (attr === 'complete' || attr === 'error') return
+    await new Promise(r => setTimeout(r, 300))
+  }
+  throw new Error('Timeout waiting for probe status: complete|error')
 }
 
 /**
@@ -94,13 +101,73 @@ export async function waitForProbeResult(timeout = 120_000): Promise<ProbeResult
 }
 
 /**
- * 截图 — 保存到当前运行目录的 screenshots/ 下，供 HTML 报告内嵌显示。
+ * 截图 — 保存到当前运行目录的 screenshots/ 下，
+ * generate-report.mjs 会在生成报告时把 png 内嵌到 HTML 里。
+ *
+ * 注意：harness 默认 `height: 100vh` + 内部消息列表走 `overflow: auto`，
+ * 直接 locator.screenshot 只会截到 viewport 一屏高度。
+ * 截图前临时把 harness 和所有滚动容器展开成内容自然高度，截完恢复，
+ * 这样能拿到完整会话高度的截图（Playwright 会滚 page 拼接）。
  */
 declare const __BROWSER_TEST_RUN_DIR__: string
 export async function takeProbeScreenshot(name: string) {
   const locator = page.getByTestId('chat-probe-harness')
+  const harness = locator.element() as HTMLElement | null
   const dir = typeof __BROWSER_TEST_RUN_DIR__ === 'string' ? __BROWSER_TEST_RUN_DIR__ : '.'
-  return locator.screenshot({ path: `${dir}/screenshots/${name}.png` })
+
+  const snapshots: Array<{ el: HTMLElement; prop: string; prev: string; hadInline: boolean }> = []
+  const setStyle = (el: HTMLElement, prop: string, value: string) => {
+    snapshots.push({
+      el,
+      prop,
+      prev: el.style.getPropertyValue(prop),
+      hadInline: el.style.getPropertyValue(prop) !== '',
+    })
+    el.style.setProperty(prop, value, 'important')
+  }
+
+  if (harness) {
+    // 展开 harness 自己 —— 高度跟内容；width 显式锁 100vw，否则 flex 容器会被 shrink-to-fit
+    setStyle(harness, 'height', 'auto')
+    setStyle(harness, 'min-height', '0')
+    setStyle(harness, 'max-height', 'none')
+    setStyle(harness, 'width', '100vw')
+    setStyle(harness, 'min-width', '100vw')
+    // 展开所有 overflow auto/scroll 的子孙
+    for (const el of harness.querySelectorAll<HTMLElement>('*')) {
+      const s = getComputedStyle(el)
+      if (s.overflowY === 'auto' || s.overflowY === 'scroll' || s.overflow === 'auto' || s.overflow === 'scroll') {
+        setStyle(el, 'overflow', 'visible')
+        setStyle(el, 'height', 'auto')
+        setStyle(el, 'min-height', 'auto')
+        setStyle(el, 'max-height', 'none')
+      }
+    }
+    // page 级别 —— fullPage 截图依赖 document 能按内容高度扩展
+    setStyle(document.documentElement, 'overflow', 'visible')
+    setStyle(document.documentElement, 'height', 'auto')
+    setStyle(document.body, 'overflow', 'visible')
+    setStyle(document.body, 'height', 'auto')
+    window.scrollTo(0, 0)
+    await new Promise<void>(resolve => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+    })
+  }
+
+  try {
+    // fullPage 截整份文档（按 DOM 实际高度），不受 element bounding box 限制
+    return await page.screenshot({
+      path: `${dir}/screenshots/${name}.png`,
+      // @ts-expect-error vitest ScreenshotOptions 继承自 Playwright 但 d.ts 未显式导出 fullPage
+      fullPage: true,
+    })
+  } finally {
+    for (let i = snapshots.length - 1; i >= 0; i--) {
+      const s = snapshots[i]
+      if (s.hadInline) s.el.style.setProperty(s.prop, s.prev)
+      else s.el.style.removeProperty(s.prop)
+    }
+  }
 }
 
 /**

@@ -195,8 +195,6 @@
       "read": "ファイル読み取り",
       "glob": "ファイル検索",
       "grep": "ファイル内検索",
-      "cloudModelGenerate": "クラウドメディア生成",
-      "cloudTextGenerate": "クラウドテキスト処理",
       "any": "すべて"
     }
   },

@@ -14,6 +14,8 @@
 /browser-test-report
 # Test run artifacts live beside each harness folder; ignore all of them.
 **/browser-test-runs/
+# Stray screenshots that occasionally escape into __tests__/ (relative-path regressions).
+src/test/browser/__tests__/*.png
 
 # Build outputs
 /.next/

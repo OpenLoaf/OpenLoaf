@@ -8,6 +8,12 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 
+// ⚠️ 新增/删除/改动 TOOL_REGISTRY 条目时，必须同步更新 tool-gallery fixture：
+//   apps/web/src/test/tool-gallery/fixtures.ts
+//
+// 否则「设置 → 测试 → AI Tool UI Gallery」预览会与真实注册表脱节，失去调试价值。
+// 详见项目规则 feedback_tool_ui_gallery_sync。
+
 import type { ComponentType } from 'react'
 import type { AnyToolPart, ToolVariant } from './shared/tool-utils'
 
@@ -57,7 +63,6 @@ import LoadSkillTool from './LoadSkillTool'
 import CloudModelGenerateTool from './CloudModelGenerateTool'
 import CloudLoginTool from './CloudLoginTool'
 import CloudUserInfoTool from './CloudUserInfoTool'
-import CloudCapBrowseTool from './CloudCapBrowseTool'
 
 export type ToolComponentProps = {
   part: AnyToolPart
@@ -134,19 +139,18 @@ export const TOOL_REGISTRY: ToolRegistryEntry[] = [
   { match: 'ToolSearch', component: ToolSearchTool as ComponentType<ToolComponentProps> },
 
   // ── Cloud capabilities ──
-  // CloudModelGenerate renders the files[] / pendingUrls[] preview grid. The
-  // other cloud tools (Detail/TextGenerate/Task/TaskCancel)
-  // fall through to UnifiedTool — their responses are JSON that reads fine as-is.
-  // CloudImageGenerate (and future named tools cloudVideoGenerate / cloudTTS /
-  // cloudImageEdit / …) share the same output shape (via runV3GenerateAndSave)
-  // so they reuse CloudModelGenerateTool for the media preview grid.
+  // The named cloud media tools (CloudImageGenerate / CloudImageEdit /
+  // CloudVideoGenerate / CloudTTS) all share the same output shape via
+  // runV3GenerateAndSave, so they reuse CloudModelGenerateTool for the
+  // files[] / pendingUrls[] preview grid.
+  // CloudImageUnderstand / CloudSpeechRecognize return plain text and fall
+  // through to UnifiedTool — the JSON output reads fine as-is.
   {
-    match: ['CloudModelGenerate', 'CloudImageGenerate', 'CloudImageEdit'],
+    match: ['CloudImageGenerate', 'CloudImageEdit', 'CloudVideoGenerate', 'CloudTTS'],
     component: CloudModelGenerateTool as ComponentType<ToolComponentProps>,
   },
   { match: 'CloudLogin', component: CloudLoginTool as ComponentType<ToolComponentProps> },
   { match: 'CloudUserInfo', component: CloudUserInfoTool as ComponentType<ToolComponentProps> },
-  { match: 'CloudCapBrowse', component: CloudCapBrowseTool as ComponentType<ToolComponentProps> },
 ]
 
 /** Look up a registry entry by tool kind. */

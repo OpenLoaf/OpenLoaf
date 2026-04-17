@@ -13,9 +13,9 @@
  * Without arguments, prints usage and available suites.
  */
 import { execSync } from 'node:child_process'
-import { dirname, resolve } from 'node:path'
+import { dirname, resolve, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { readdirSync, statSync } from 'node:fs'
+import { readdirSync, statSync, existsSync, rmSync } from 'node:fs'
 
 const root = dirname(fileURLToPath(import.meta.url))
 const webRoot = resolve(root, '../../..')
@@ -46,7 +46,7 @@ for (let i = 0; i < args.length; i++) {
 const testsRoot = resolve(root, '__tests__')
 
 function listSuites() {
-  const names = ['chat'] // chat 指 __tests__/ 顶层
+  const names = ['chat']
   try {
     for (const entry of readdirSync(testsRoot)) {
       const abs = resolve(testsRoot, entry)
@@ -103,13 +103,10 @@ if (patterns.length === 0 && !suite) {
   process.exit(0)
 }
 
-// Build vitest command
 const vitestArgs = ['run', '--config', 'vitest.browser.config.ts']
 
-// suite 过滤：展开成具体文件名，再叠加 pattern substring 过滤
 function collectSuiteFiles(suiteName) {
   if (suiteName === 'chat') {
-    // chat 仅顶层 __tests__ 下的 .browser.tsx（不含子目录）
     try {
       return readdirSync(testsRoot)
         .filter((f) => f.endsWith('.browser.tsx'))
@@ -135,7 +132,6 @@ if (!patterns.includes('__ALL__')) {
   }
   if (patterns.length > 0) {
     if (candidates.length > 0) {
-      // 在 suite 文件列表里按子串过滤
       candidates = candidates.filter((p) =>
         patterns.some((pat) => p.includes(pat)),
       )
@@ -144,11 +140,29 @@ if (!patterns.includes('__ALL__')) {
         process.exit(1)
       }
     } else {
-      // 无 suite：vitest 接受 regex OR 模式
-      vitestArgs.push(patterns.join('|'))
+      function collectAllBrowserFiles() {
+        const out = []
+        function walk(dir, rel) {
+          for (const entry of readdirSync(dir, { withFileTypes: true })) {
+            if (entry.name === 'browser-test-runs') continue
+            const absEntry = resolve(dir, entry.name)
+            const relEntry = rel ? `${rel}/${entry.name}` : entry.name
+            if (entry.isDirectory()) { walk(absEntry, relEntry); continue }
+            if (!entry.name.endsWith('.browser.tsx')) continue
+            out.push(`src/test/browser/__tests__/${relEntry}`)
+          }
+        }
+        try { walk(testsRoot, '') } catch {}
+        return out
+      }
+      const all = collectAllBrowserFiles()
+      candidates = all.filter((p) => patterns.some((pat) => p.includes(pat)))
+      if (!candidates.length) {
+        console.error(`No .browser.tsx file matches patterns: ${patterns.join(', ')}`)
+        process.exit(1)
+      }
     }
   }
-  // 把具体文件列表传给 vitest（每个路径单独一个参数）
   for (const f of candidates) vitestArgs.push(f)
 } else if (suite) {
   console.warn('Warning: --all overrides --suite')
@@ -156,19 +170,42 @@ if (!patterns.includes('__ALL__')) {
 
 vitestArgs.push(...extraVitestArgs)
 
-// Quote args that contain regex metacharacters (e.g. "|") to prevent shell interpretation
+// ── browser-test-runs 保留策略：最近 N 次，其余自动清理 ──
+const runsRoot = join(webRoot, 'browser-test-runs')
+const keep = Number.parseInt(process.env.BROWSER_TEST_RUN_KEEP ?? '10', 10) || 10
+if (existsSync(runsRoot)) {
+  const dirs = readdirSync(runsRoot)
+    .filter(d => /^\d{8}_\d{6}/.test(d) && statSync(join(runsRoot, d)).isDirectory())
+    .sort().reverse()
+  if (dirs.length > keep) {
+    const toDelete = dirs.slice(keep)
+    for (const d of toDelete) {
+      rmSync(join(runsRoot, d), { recursive: true, force: true })
+    }
+    console.log(`[runs-prune] kept ${keep}, removed ${toDelete.length} old run(s)`)
+  }
+}
+
+// Quote args with regex metacharacters to avoid shell interpretation
 const cmd = `pnpm exec vitest ${vitestArgs.map(a => /[|*?(){}[\]\\]/.test(a) ? `'${a}'` : a).join(' ')}`
 console.log(`Running: ${cmd}\n`)
 
 try {
   execSync(cmd, { cwd: webRoot, stdio: 'inherit' })
-} catch (e) {
-  // vitest exits non-zero on test failure — still generate report
+} catch {
+  // vitest exits non-zero on test failure — continue to report generation
 }
 
-// Generate HTML report
+// 评审 jobs 清单（主 agent 读取后并行启 critic 子 agent 填槽）
+try {
+  execSync('node src/test/browser/prepare-evaluations.mjs', { cwd: webRoot, stdio: 'inherit' })
+} catch (e) {
+  console.error('Warning: prepare-evaluations failed:', e?.message || e)
+}
+
+// 自包含 HTML 报告（每次 run 独立 + 主页索引，双击打开）
 try {
   execSync('node src/test/browser/generate-report.mjs', { cwd: webRoot, stdio: 'inherit' })
-} catch {
-  console.error('Warning: report generation failed')
+} catch (e) {
+  console.error('Warning: generate-report failed:', e?.message || e)
 }

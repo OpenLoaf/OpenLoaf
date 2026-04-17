@@ -4,7 +4,7 @@
  * 第一轮：让 AI 生成一张图片
  * 第二轮：让 AI 做本地处理（转格式 + 缩放）
  *
- * 验证 CloudModelGenerate 和 ImageProcess 两套工具在同一 session 中协作。
+ * 验证 CloudImageGenerate 和 ImageProcess 两套工具在同一 session 中协作。
  */
 import { it, expect } from 'vitest'
 import { render } from 'vitest-browser-react'
@@ -36,7 +36,7 @@ it('028 — 云端生图+本地处理：生成后转格式缩放', async () => {
     testCase: '028-image-generate-then-process',
     prompt: `${prompt} → ${followUp}`,
     result,
-    description: 'Generate image then convert format and resize locally',
+    description: '生成图片后本地转格式并缩放',
     tags: ['cloud', 'image', 'generate', 'local', 'imageprocess', 'convert', 'resize', 'multi-turn'],
   }
   await (commands as any).saveTestData(meta)
@@ -46,8 +46,8 @@ it('028 — 云端生图+本地处理：生成后转格式缩放', async () => {
   expect(result.status).toBe('ok')
   expect(result.totalTurns).toBe(2)
 
-  // 第一轮用了云端生成
-  expect(result.toolCalls).toContain('CloudModelGenerate')
+  // 第一轮用了云端生成（命名工具 CloudImageGenerate）
+  expect(result.toolCalls).toContain('CloudImageGenerate')
 
   // 第二轮用了本地图片处理（ImageProcess 或 Bash 调 ImageMagick/sharp 均可）
   const usedLocalProcess = result.toolCalls.includes('ImageProcess') || result.toolCalls.includes('Bash')

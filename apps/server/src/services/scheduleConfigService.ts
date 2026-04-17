@@ -24,6 +24,15 @@ const OPENLOAF_DIR = '.openloaf'
 const TASKS_DIR = 'tasks'
 const ARCHIVE_DIR = 'archive'
 
+/**
+ * Global scope: tasks live directly under globalRoot (e.g. ~/OpenLoafData/tasks/).
+ * Project scope: tasks live under the hidden .openloaf dir (e.g. {project}/.openloaf/tasks/).
+ */
+function scopedSubdir(rootPath: string, scope: TaskScope, ...segments: string[]): string {
+  if (scope === 'global') return path.join(rootPath, TASKS_DIR, ...segments)
+  return path.join(rootPath, OPENLOAF_DIR, TASKS_DIR, ...segments)
+}
+
 // ─── Types ───────────────────────────────────────────────────────────
 
 export type TaskScope = 'global' | 'project'
@@ -132,14 +141,14 @@ export type TaskConfig = {
 
 // ─── Helpers ─────────────────────────────────────────────────────────
 
-/** Resolve tasks directory for a given root path. */
-function resolveTasksDir(rootPath: string): string {
-  return path.join(rootPath, OPENLOAF_DIR, TASKS_DIR)
+/** Resolve tasks directory for a given root path and scope. */
+function resolveTasksDir(rootPath: string, scope: TaskScope = 'project'): string {
+  return scopedSubdir(rootPath, scope)
 }
 
-/** Resolve archive directory for a given root path and date. */
-function resolveArchiveDir(rootPath: string, dateStr: string): string {
-  return path.join(rootPath, OPENLOAF_DIR, TASKS_DIR, ARCHIVE_DIR, dateStr)
+/** Resolve archive directory for a given root path, scope and date. */
+function resolveArchiveDir(rootPath: string, scope: TaskScope, dateStr: string): string {
+  return scopedSubdir(rootPath, scope, ARCHIVE_DIR, dateStr)
 }
 
 /** Read a single task from its directory. */
@@ -155,9 +164,9 @@ function readTaskFromDir(taskDir: string, scope: TaskScope): TaskConfig | null {
   }
 }
 
-/** Scan a root's .openloaf/tasks/ directory for task directories. */
+/** Scan a root's tasks directory for task directories. */
 function scanTasks(rootPath: string, scope: TaskScope): TaskConfig[] {
-  const dir = resolveTasksDir(rootPath)
+  const dir = resolveTasksDir(rootPath, scope)
   if (!existsSync(dir)) return []
   const entries = readdirSync(dir, { withFileTypes: true })
   const results: TaskConfig[] = []
@@ -242,12 +251,12 @@ export function getTask(
   if (projectRoots) {
     const roots = Array.isArray(projectRoots) ? projectRoots : [projectRoots]
     for (const root of roots) {
-      const taskDir = path.join(resolveTasksDir(root), id)
+      const taskDir = path.join(resolveTasksDir(root, 'project'), id)
       const task = readTaskFromDir(taskDir, 'project')
       if (task) return task
     }
   }
-  const taskDir = path.join(resolveTasksDir(globalRoot), id)
+  const taskDir = path.join(resolveTasksDir(globalRoot, 'global'), id)
   return readTaskFromDir(taskDir, 'global')
 }
 
@@ -288,7 +297,7 @@ export function createTask(
 ): TaskConfig {
   const id = uuidv4()
   const now = new Date().toISOString()
-  const taskDir = path.join(resolveTasksDir(rootPath), id)
+  const taskDir = path.join(resolveTasksDir(rootPath, scope), id)
   mkdirSync(taskDir, { recursive: true })
 
   // Condition triggers are experimental — log a warning
@@ -438,7 +447,7 @@ export function archiveTask(
     const sourceDir = path.dirname(existing.filePath)
     const dateStr = (existing.completedAt ?? existing.updatedAt).slice(0, 10)
     const rootPath = existing.scope === 'project' && projectRoot ? projectRoot : globalRoot
-    const archiveDir = resolveArchiveDir(rootPath, dateStr)
+    const archiveDir = resolveArchiveDir(rootPath, existing.scope, dateStr)
     const destDir = path.join(archiveDir, id)
 
     mkdirSync(archiveDir, { recursive: true })

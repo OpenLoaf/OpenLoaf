@@ -32,7 +32,7 @@ it('016 — PPTX 创建：生成中文季度汇报 PPT', async () => {
   await takeProbeScreenshot('016-pptx-create')
   const meta = {
     testCase: '016-pptx-create', prompt, result,
-    description: 'PptxMutate create action generates a Chinese quarterly review PPTX',
+    description: 'PptxMutate 生成中文季度回顾 PPTX',
     tags: ['pptxmutate', 'create', 'pptx'],
   }
   await (commands as any).saveTestData(meta)

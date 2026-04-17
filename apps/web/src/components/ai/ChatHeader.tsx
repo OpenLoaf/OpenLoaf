@@ -98,12 +98,15 @@ function ChatHeaderInner({
   // 项目模式下按项目过滤会话，全局模式下查全量。
   const projectShell = useAppView((s) => s.projectShell);
   const shellProjectId = projectShell?.projectId?.trim() || "";
-  const sessionsListInput = React.useMemo(
-    () => shellProjectId
-      ? { projectId: shellProjectId, boardId: null as string | null }
-      : { boardId: null as string | null },
-    [shellProjectId],
-  );
+  /** 历史会话列表搜索关键词（已 debounce），由 SessionList 回传。 */
+  const [sessionSearchQuery, setSessionSearchQuery] = React.useState("");
+  const sessionsListInput = React.useMemo(() => {
+    const base: { projectId?: string; boardId: string | null; query?: string } = shellProjectId
+      ? { projectId: shellProjectId, boardId: null }
+      : { boardId: null };
+    if (sessionSearchQuery) base.query = sessionSearchQuery;
+    return base;
+  }, [shellProjectId, sessionSearchQuery]);
   const isTabActive = useTabActive();
   const sessionsQuery = useInfiniteQuery({
     ...trpc.chat.listSessions.infiniteQueryOptions(
@@ -569,6 +572,7 @@ function ChatHeaderInner({
                   isFetchingNextPage={sessionsQuery.isFetchingNextPage}
                   onLoadMore={() => void sessionsQuery.fetchNextPage()}
                   onMenuOpenChange={handleMenuOpenChange}
+                  onSearchQueryChange={setSessionSearchQuery}
                   onSelect={(session) => {
                     setHistoryOpen(false);
                     menuLockRef.current = false;

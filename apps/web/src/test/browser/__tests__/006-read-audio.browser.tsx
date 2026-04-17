@@ -28,7 +28,7 @@ it('006 — 音频读取，回复有实质内容', async () => {
 
   // Save data before assertions (recorded even on failure)
   await takeProbeScreenshot('006-read-audio')
-  const meta = { testCase: '006-read-audio-suggest-skill', prompt, result, description: 'Read audio, substantive response', tags: ['read-tool', 'audio', 'suggest-skill'] }
+  const meta = { testCase: '006-read-audio-suggest-skill', prompt, result, description: 'Read 读音频返回 suggest skill，不直连云服务', tags: ['read-tool', 'audio', 'suggest-skill'] }
   await (commands as any).saveTestData(meta)
   await (commands as any).recordProbeRun(meta)
 

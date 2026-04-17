@@ -197,11 +197,7 @@ function LinkUrlInput({
   };
 
   return (
-    <div
-      className="flex h-full w-full items-center gap-2 rounded-3xl bg-ol-surface-muted px-3"
-      data-board-editor
-      onPointerDown={(e) => e.stopPropagation()}
-    >
+    <div className="flex h-full w-full items-center gap-2 rounded-3xl bg-ol-surface-muted px-3">
       <Link size={16} className="shrink-0 text-ol-text-auxiliary" />
       <input
         ref={inputRef}
@@ -210,6 +206,8 @@ function LinkUrlInput({
         placeholder={t("linkNode.urlPlaceholder")}
         value={value}
         autoFocus
+        data-board-editor
+        onPointerDown={(e) => e.stopPropagation()}
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === "Enter") {
@@ -222,6 +220,7 @@ function LinkUrlInput({
         type="button"
         className="shrink-0 rounded-full bg-foreground/8 dark:bg-foreground/12 px-2.5 py-1 text-[12px] font-medium transition-colors duration-150 hover:bg-foreground/12 dark:hover:bg-foreground/16 disabled:opacity-40"
         disabled={!value.trim()}
+        data-board-editor
         onPointerDown={(e) => {
           e.stopPropagation();
           handleSubmit();

@@ -28,7 +28,7 @@ it('001 — Read 纯文本，回复总结会议纪要', async () => {
 
   // Save data before assertions (recorded even on failure)
   await takeProbeScreenshot('001-read-tool-text')
-  const meta = { testCase: '001-read-tool-text', prompt, result, description: 'Read tool used, response summarizes meeting notes', tags: ['read-tool'] }
+  const meta = { testCase: '001-read-tool-text', prompt, result, description: 'Read 工具读文本附件，总结会议纪要', tags: ['read-tool'] }
   await (commands as any).saveTestData(meta)
   await (commands as any).recordProbeRun(meta)
 

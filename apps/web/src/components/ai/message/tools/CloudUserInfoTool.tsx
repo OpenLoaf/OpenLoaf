@@ -9,7 +9,7 @@
  *
  * CloudUserInfoTool — renders the result of the CloudUserInfo server tool.
  *
- * 视觉与 CloudLoginTool / CloudCapBrowseTool 保持一致：rounded-3xl 胶囊容器 +
+ * 视觉与 CloudLoginTool 保持一致：rounded-3xl 胶囊容器 +
  * 头像 + tier 徽标 + 积分 tabular-nums。
  */
 'use client'
@@ -46,7 +46,7 @@ type UserInfoOutput = {
 }
 
 // ---------------------------------------------------------------------------
-// Tier badge — 与 sidebar / CloudCapBrowse 保持同一套配色
+// Tier badge — 与 sidebar 保持同一套配色
 // ---------------------------------------------------------------------------
 
 const TIER_ACCENT: Record<string, string> = {
@@ -57,11 +57,10 @@ const TIER_ACCENT: Record<string, string> = {
   infinity: 'bg-rose-500/10 text-rose-600 dark:bg-rose-400/15 dark:text-rose-400',
 }
 
-function getTierLabel(t: TFunction, tier: string): string {
-  const normalized = tier.toLowerCase()
-  return t(`tool.cloudCapBrowse.tier.${normalized}`, {
-    defaultValue: tier.charAt(0).toUpperCase() + tier.slice(1),
-  })
+function getTierLabel(_t: TFunction, tier: string): string {
+  // Tier names (free / lite / pro / premium / infinity) are i18n-agnostic brand
+  // labels — just capitalize.
+  return tier.charAt(0).toUpperCase() + tier.slice(1)
 }
 
 // ---------------------------------------------------------------------------

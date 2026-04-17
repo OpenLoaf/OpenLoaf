@@ -60,8 +60,6 @@ export const TOOL_CONTENT_KEYS: Record<string, string> = {
   Read: 'file_path',
   Glob: 'path',
   Grep: 'path',
-  CloudModelGenerate: 'feature',
-  CloudTextGenerate: 'feature',
 }
 
 /** Extract the matchable content from tool call args. */
@@ -103,17 +101,6 @@ export function suggestRule(
     const dirGlob = getParentDirGlob(content)
     if (dirGlob) return `${toolId}(${dirGlob})`
     return toolId
-  }
-
-  // Cloud generation tools: whitelist per `feature` so users can scope
-  // auto-approval by capability (cheap `text-to-image` vs expensive
-  // `text-to-video`). Features are fixed ids, no wildcard needed.
-  if (
-    (toolId === 'CloudModelGenerate' || toolId === 'CloudTextGenerate') &&
-    typeof content === 'string' &&
-    content.length > 0
-  ) {
-    return `${toolId}(${content})`
   }
 
   return toolId
@@ -175,8 +162,6 @@ const DESCRIBE_LABEL_KEYS: Record<string, string> = {
   Read: 'toolApproval.describe.read',
   Glob: 'toolApproval.describe.glob',
   Grep: 'toolApproval.describe.grep',
-  CloudModelGenerate: 'toolApproval.describe.cloudModelGenerate',
-  CloudTextGenerate: 'toolApproval.describe.cloudTextGenerate',
 }
 
 /** Parse a rule string into UI-renderable fields. */

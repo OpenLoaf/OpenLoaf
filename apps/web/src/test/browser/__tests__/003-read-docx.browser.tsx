@@ -28,7 +28,7 @@ it('003 — DOCX 读取，回复描述文档内容', async () => {
 
   // Save data before assertions (recorded even on failure)
   await takeProbeScreenshot('003-read-docx')
-  const meta = { testCase: '003-read-docx-preview-format', prompt, result, description: 'Read tool used on DOCX, substantive response', tags: ['read-tool', 'docx'] }
+  const meta = { testCase: '003-read-docx-preview-format', prompt, result, description: 'Read 读 DOCX 返回统一预览信封格式', tags: ['read-tool', 'docx'] }
   await (commands as any).saveTestData(meta)
   await (commands as any).recordProbeRun(meta)
 

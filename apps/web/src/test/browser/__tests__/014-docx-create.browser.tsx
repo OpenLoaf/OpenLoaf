@@ -30,7 +30,7 @@ it('014 — DOCX 创建：生成中文会议纪要', async () => {
   await takeProbeScreenshot('014-docx-create')
   const meta = {
     testCase: '014-docx-create', prompt, result,
-    description: 'WordMutate create action generates a Chinese meeting notes DOCX',
+    description: 'WordMutate 生成中文会议纪要 DOCX',
     tags: ['wordmutate', 'create', 'docx'],
   }
   await (commands as any).saveTestData(meta)

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import { getOpenLoafRootDir } from '@openloaf/config'
+import { getOpenLoafDataRootDir } from '@openloaf/config'
 import { Cron } from 'croner'
 import { logger } from '@/common/logger'
 import { listTasks, type TaskConfig } from './scheduleConfigService'
@@ -33,7 +33,7 @@ class ScheduleTimerRegistry {
     if (this.started) return
     this.started = true
     try {
-      const globalRoot = getOpenLoafRootDir()
+      const globalRoot = getOpenLoafDataRootDir()
       const tasks = listTasks(globalRoot)
       const enabled = tasks.filter((t) => t.enabled && t.triggerMode === 'scheduled')
       for (const task of enabled) {

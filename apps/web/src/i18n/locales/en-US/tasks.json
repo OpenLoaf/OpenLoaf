@@ -104,7 +104,8 @@
     "minutesAgo": "{{minutes}}m ago",
     "hoursAgo": "{{hours}}h ago",
     "daysAgo": "{{days}}d ago",
-    "chatPrefill": "Help me create a task: "
+    "chatPrefill": "Help me create a task: ",
+    "clearDone": "Clear done"
   },
   "schedule": {
     "automaticTasks": "Automatic Tasks",

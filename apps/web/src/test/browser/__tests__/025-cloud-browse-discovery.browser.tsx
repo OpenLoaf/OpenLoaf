@@ -25,7 +25,7 @@ it('025 — Cloud 能力发现：查看可用生成能力', async () => {
   await takeProbeScreenshot('025-cloud-browse-discovery')
   const meta = {
     testCase: '025-cloud-browse-discovery', prompt, result,
-    description: 'Cloud capability discovery: Browse only, no Generate calls',
+    description: '云能力发现：只 Browse 不 Generate',
     tags: ['cloud', 'browse', 'discovery'],
   }
   await (commands as any).saveTestData(meta)
@@ -34,12 +34,19 @@ it('025 — Cloud 能力发现：查看可用生成能力', async () => {
   // ── 断言 ──
   expect(result.status).toBe('ok')
 
-  // 必须调了 Browse
-  expect(result.toolCalls).toContain('CloudCapBrowse')
-
-  // 不应调 Generate（用户只是问有什么能力）
-  expect(result.toolCalls).not.toContain('CloudModelGenerate')
-  expect(result.toolCalls).not.toContain('CloudTextGenerate')
+  // 用户只是问"有哪些能力"——应该从 cloud-media-skill 的 markdown 里直接回答，
+  // 不触发任何生成类工具。LoadSkill 可以调（加载 skill 内容），但不能调实际生成。
+  const generateTools = [
+    'CloudImageGenerate',
+    'CloudImageEdit',
+    'CloudVideoGenerate',
+    'CloudTTS',
+    'CloudSpeechRecognize',
+    'CloudImageUnderstand',
+  ]
+  for (const t of generateTools) {
+    expect(result.toolCalls).not.toContain(t)
+  }
 
   const judgment = await aiJudge({
     serverUrl: SERVER_URL,

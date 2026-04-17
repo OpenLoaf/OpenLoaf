@@ -36,6 +36,7 @@ import { registerEmailOAuthRoutes } from "@/modules/email/oauth/emailOAuthRoutes
 import { registerEmailAttachmentRoutes } from "@/modules/email/emailAttachmentRoutes";
 import { registerLocalAuthRoutes } from "@/modules/local-auth/localAuthRoutes";
 import { registerOfficeAddinRoutes } from "@/modules/office/officeAddinRoutes";
+import { registerCloudMockRoutes } from "@/ai/interface/routes/cloudMockRoutes";
 import { localAuthGuard } from "@/modules/local-auth/localAuthGuard";
 import { aiRouteGuard } from "@/middleware/aiRouteGuard";
 import { strictClientGuard } from "@/middleware/strictClientGuard";
@@ -146,6 +147,7 @@ export function createApp() {
   registerEmailOAuthRoutes(app);
   registerEmailAttachmentRoutes(app);
   registerOfficeAddinRoutes(app);
+  registerCloudMockRoutes(app);
 
   app.use(
     "/trpc/*",

@@ -28,7 +28,7 @@ it('004 — XLSX 全量，回复列出 sheet', async () => {
 
   // Save data before assertions (recorded even on failure)
   await takeProbeScreenshot('004-docpreview-xlsx')
-  const meta = { testCase: '004-docpreview-xlsx-full', prompt, result, description: 'DocPreview/Read used, response lists sheets', tags: ['docpreview', 'xlsx'] }
+  const meta = { testCase: '004-docpreview-xlsx-full', prompt, result, description: 'DocPreview 全量读取 XLSX', tags: ['docpreview', 'xlsx'] }
   await (commands as any).saveTestData(meta)
   await (commands as any).recordProbeRun(meta)
 

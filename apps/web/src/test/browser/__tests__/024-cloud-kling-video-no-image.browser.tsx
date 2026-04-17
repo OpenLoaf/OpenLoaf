@@ -31,7 +31,7 @@ it('024 — Kling 视频生成：无图片输入', async () => {
   await takeProbeScreenshot('024-cloud-kling-video-no-image')
   const meta = {
     testCase: '024-cloud-kling-video-no-image', prompt, result,
-    description: 'Kling video without user-provided image: AI should generate image first or ask user',
+    description: '无起始图时 Kling 应先生成图或询问用户',
     tags: ['cloud', 'video', 'kling', 'no-image'],
   }
   await (commands as any).saveTestData(meta)

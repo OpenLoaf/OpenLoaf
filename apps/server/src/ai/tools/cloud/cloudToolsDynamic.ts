@@ -113,8 +113,8 @@ function buildCloudToolForFeature(
   const toolInstance = tool({
     description,
     inputSchema: zodSchema(paramsZod),
-    // sync + paid-but-cheap (5 credits typical, free tier allowed) — same
-    // approval policy as CloudCapBrowse: no prompt, let the agent run.
+    // sync + paid-but-cheap (5 credits typical, free tier allowed) —
+    // read-only discovery style: no approval prompt, let the agent run.
     needsApproval: false,
     execute: async (rawInput, { toolCallId }): Promise<string> => {
       const progress = createToolProgress(toolCallId, feature.id)

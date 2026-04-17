@@ -27,6 +27,7 @@ import { scheduleOrchestrator } from '@/services/scheduleOrchestrator'
 import { scheduleTimerRegistry } from '@/services/scheduleTimerRegistry'
 import { scheduleEventBus } from '@/services/scheduleEventBus'
 import { resolveToolRoots } from '@/ai/tools/toolScope'
+import { getOpenLoafDataRootDir } from '@openloaf/config'
 import { getSessionId, getProjectId } from '@/ai/shared/context/requestContext'
 import { extractSourceContextSnapshot } from '@/services/taskContextExtractor'
 
@@ -58,7 +59,8 @@ export const scheduledTaskManageTool = tool({
   description: scheduledTaskManageToolDef.description,
   inputSchema: zodSchema(scheduledTaskManageToolDef.parameters),
   execute: async (input) => {
-    const { globalRoot, projectRoot } = resolveToolRoots()
+    const { projectRoot } = resolveToolRoots()
+    const globalRoot = getOpenLoafDataRootDir()
     const action = input.action
 
     switch (action) {
@@ -309,7 +311,8 @@ export const scheduledTaskStatusTool = tool({
   description: scheduledTaskStatusToolDef.description,
   inputSchema: zodSchema(scheduledTaskStatusToolDef.parameters),
   execute: async ({ taskId }) => {
-    const { globalRoot, projectRoot } = resolveToolRoots()
+    const { projectRoot } = resolveToolRoots()
+    const globalRoot = getOpenLoafDataRootDir()
 
     if (taskId) {
       const task = getTask(taskId, globalRoot, projectRoot)
@@ -353,7 +356,8 @@ export const scheduledTaskWaitTool = tool({
   description: scheduledTaskWaitToolDef.description,
   inputSchema: zodSchema(scheduledTaskWaitToolDef.parameters),
   execute: async ({ taskId, timeoutSec }) => {
-    const { globalRoot, projectRoot } = resolveToolRoots()
+    const { projectRoot } = resolveToolRoots()
+    const globalRoot = getOpenLoafDataRootDir()
 
     // (1) snapshot first — already terminal means no need to subscribe
     const snap = getTask(taskId, globalRoot, projectRoot)

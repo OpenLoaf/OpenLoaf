@@ -71,11 +71,13 @@ import {
   cloudLoginToolDef,
   cloudUserInfoToolDef,
   cloudTaskCancelToolDef,
-  cloudCapBrowseToolDef,
-  cloudCapDetailToolDef,
-  cloudModelGenerateToolDef,
   cloudTaskToolDef,
-  cloudTextGenerateToolDef,
+  cloudImageGenerateToolDef,
+  cloudImageEditToolDef,
+  cloudVideoGenerateToolDef,
+  cloudTTSToolDef,
+  cloudSpeechRecognizeToolDef,
+  cloudImageUnderstandToolDef,
 } from "./cloud";
 
 export type ToolCatalogItem = {
@@ -144,14 +146,16 @@ const TOOL_DEFS: ToolDefLike[] = [
   webFetchToolDef,
   loadSkillToolDef,
   memorySaveToolDef,
-  cloudCapBrowseToolDef,
-  cloudCapDetailToolDef,
-  cloudModelGenerateToolDef,
-  cloudTextGenerateToolDef,
   cloudTaskToolDef,
   cloudTaskCancelToolDef,
   cloudUserInfoToolDef,
   cloudLoginToolDef,
+  cloudImageGenerateToolDef,
+  cloudImageEditToolDef,
+  cloudVideoGenerateToolDef,
+  cloudTTSToolDef,
+  cloudSpeechRecognizeToolDef,
+  cloudImageUnderstandToolDef,
 ];
 
 // 逻辑：统一生成工具元数据，避免前端重复维护名称与描述。
@@ -223,14 +227,16 @@ const TOOL_KEYWORDS: Record<string, { keywords: string[]; group: string }> = {
   'WebFetch': { keywords: ['fetch', 'url', 'http', 'get', 'api', 'request', 'content', 'download', 'page', 'website'], group: 'web' },
   'LoadSkill': { keywords: ['skill', 'load', 'guide', 'expertise', 'knowledge'], group: 'core' },
   'MemorySave': { keywords: ['memory', 'save', 'remember', 'persist', 'store', 'write', 'forget', 'delete', '记忆', '记住', '保存', '忘记'], group: 'memory' },
-  'CloudCapBrowse': { keywords: ['cloud', 'browse', 'discover', 'capability', 'feature', 'variant', 'generate', 'image', 'video', 'audio', '云端', '生成', '发现'], group: 'cloud' },
-  'CloudCapDetail': { keywords: ['cloud', 'detail', 'schema', 'variant', 'param', '云端'], group: 'cloud' },
-  'CloudModelGenerate': { keywords: ['cloud', 'generate', 'model', 'image', 'video', 'audio', 'media', '生成', '图片', '视频', '音频', 'ai'], group: 'cloud' },
-  'CloudTextGenerate': { keywords: ['cloud', 'text', 'ocr', 'summarize', 'extract', '摘要', '识别'], group: 'cloud' },
   'CloudTask': { keywords: ['cloud', 'task', 'poll', 'status', 'progress', '任务', '状态'], group: 'cloud' },
   'CloudTaskCancel': { keywords: ['cloud', 'cancel', 'abort', 'stop', '取消'], group: 'cloud' },
   'CloudUserInfo': { keywords: ['cloud', 'user', 'profile', 'credits', 'balance', 'membership', 'level', 'tier', '用户', '积分', '余额', '会员', '等级', '账号'], group: 'cloud' },
   'CloudLogin': { keywords: ['cloud', 'login', 'sign in', 'signin', 'auth', '登录', '登陆', '登入', '账号'], group: 'cloud' },
+  'CloudImageGenerate': { keywords: ['cloud', 'image', 'generate', 'create', 'text to image', 't2i', 'draw', 'paint', '生图', '画', '生成图片', '绘画', 'ai'], group: 'cloud' },
+  'CloudImageEdit': { keywords: ['cloud', 'image', 'edit', 'modify', 'inpaint', 'outpaint', 'mask', 'change', 'remove', 'add', '修图', '改图', '编辑图', '图片编辑', 'ai'], group: 'cloud' },
+  'CloudVideoGenerate': { keywords: ['cloud', 'video', 'generate', 'create', 'text to video', 't2v', 'image to video', 'i2v', '生视频', '视频生成', 'ai'], group: 'cloud' },
+  'CloudTTS': { keywords: ['cloud', 'tts', 'speech', 'voice', 'text to speech', '语音合成', '文字转语音', '配音', 'ai'], group: 'cloud' },
+  'CloudSpeechRecognize': { keywords: ['cloud', 'asr', 'speech', 'transcribe', 'speech to text', 'stt', '语音识别', '转录', 'ai'], group: 'cloud' },
+  'CloudImageUnderstand': { keywords: ['cloud', 'image', 'understand', 'caption', 'ocr', 'vqa', 'vision', '图片理解', '识别', '看图', '读图', 'ai'], group: 'cloud' },
 };
 
 export const TOOL_CATALOG_EXTENDED: ToolCatalogExtendedItem[] = TOOL_CATALOG.map(

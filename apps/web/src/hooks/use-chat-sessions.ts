@@ -57,6 +57,8 @@ export type UseChatSessionsInput = {
   tabId?: string;
   /** Whether the query is enabled (defaults to true). */
   enabled?: boolean;
+  /** 标题模糊搜索关键词，留空则不过滤。 */
+  query?: string;
 };
 
 /** Normalize optional id value. */
@@ -93,17 +95,23 @@ export function useChatSessions(_input?: UseChatSessionsInput) {
     boardBaseParams?.projectId
       ?? (tab?.chatParams as Record<string, unknown> | undefined)?.projectId,
   );
+  const trimmedQuery = (_input?.query ?? "").trim();
   const listInput = useMemo(() => {
-    if (scopedBoardId) {
-      return scopedProjectId
+    const base: {
+      projectId?: string;
+      boardId?: string | null;
+      query?: string;
+    } = scopedBoardId
+      ? scopedProjectId
         ? { projectId: scopedProjectId, boardId: scopedBoardId }
-        : { boardId: scopedBoardId };
-    }
-    // 逻辑：普通聊天面板仅展示未绑定 board 的会话；board tab 则改为只读自己的 board session。
-    return scopedProjectId
-      ? { projectId: scopedProjectId, boardId: null }
-      : { boardId: null };
-  }, [scopedBoardId, scopedProjectId]);
+        : { boardId: scopedBoardId }
+      // 逻辑：普通聊天面板仅展示未绑定 board 的会话；board tab 则改为只读自己的 board session。
+      : scopedProjectId
+        ? { projectId: scopedProjectId, boardId: null }
+        : { boardId: null };
+    if (trimmedQuery) base.query = trimmedQuery;
+    return base;
+  }, [scopedBoardId, scopedProjectId, trimmedQuery]);
 
   const enabled = _input?.enabled ?? true;
 

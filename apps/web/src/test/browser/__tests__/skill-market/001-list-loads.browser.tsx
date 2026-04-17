@@ -42,7 +42,7 @@ describe('Skill Market — 001 list loads', () => {
         startedAt: result.startedAt,
         payload: result.payload,
       },
-      description: 'Skill marketplace list renders successfully',
+      description: '技能市场列表页成功渲染',
       tags: ['skill-market', 'smoke'],
     }
     await (commands as any).saveTestData(meta)

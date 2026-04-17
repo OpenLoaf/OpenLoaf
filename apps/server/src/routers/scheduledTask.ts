@@ -17,7 +17,7 @@ import {
   getProjectRegistryEntries,
   resolveFilePathFromUri,
 } from '@openloaf/api'
-import { getOpenLoafRootDir } from '@openloaf/config'
+import { getOpenLoafDataRootDir } from '@openloaf/config'
 import {
   listTasks,
   listTasksWithProjectMapping,
@@ -47,7 +47,7 @@ class ScheduledTaskRouterImpl extends BaseScheduledTaskRouter {
         .input(scheduledTaskSchemas.list.input)
         .output(scheduledTaskSchemas.list.output)
         .query(async ({ input }) => {
-          const globalRoot = getOpenLoafRootDir()
+          const globalRoot = getOpenLoafDataRootDir()
           if (input.projectId) {
             const projectRoot = getProjectRootPath(input.projectId)
             return listTasks(globalRoot, projectRoot)
@@ -64,7 +64,7 @@ class ScheduledTaskRouterImpl extends BaseScheduledTaskRouter {
         .input(scheduledTaskSchemas.create.input)
         .output(scheduledTaskSchemas.create.output)
         .mutation(async ({ input }) => {
-          const globalRoot = getOpenLoafRootDir()
+          const globalRoot = getOpenLoafDataRootDir()
           const scope = input.scope ?? (input.projectId ? 'project' : 'global')
           if (scope === 'project' && !input.projectId) {
             throw new Error('Project scope requires projectId')
@@ -123,7 +123,7 @@ class ScheduledTaskRouterImpl extends BaseScheduledTaskRouter {
         .input(scheduledTaskSchemas.update.input)
         .output(scheduledTaskSchemas.update.output)
         .mutation(async ({ input }) => {
-          const globalRoot = getOpenLoafRootDir()
+          const globalRoot = getOpenLoafDataRootDir()
           const { id, projectId, ...patch } = input
           const projectRoot = projectId ? getProjectRootPath(projectId) : null
           const task = updateTask(id, patch, globalRoot, projectRoot)
@@ -134,7 +134,7 @@ class ScheduledTaskRouterImpl extends BaseScheduledTaskRouter {
         .input(scheduledTaskSchemas.delete.input)
         .output(scheduledTaskSchemas.delete.output)
         .mutation(async ({ input }) => {
-          const globalRoot = getOpenLoafRootDir()
+          const globalRoot = getOpenLoafDataRootDir()
           scheduleTimerRegistry.unregisterTask(input.id)
           const projectRoot = input.projectId ? getProjectRootPath(input.projectId) : null
           const ok = deleteTask(input.id, globalRoot, projectRoot)
@@ -152,7 +152,7 @@ class ScheduledTaskRouterImpl extends BaseScheduledTaskRouter {
         .input(scheduledTaskSchemas.runLogs.input)
         .output(scheduledTaskSchemas.runLogs.output)
         .query(async ({ input }) => {
-          const globalRoot = getOpenLoafRootDir()
+          const globalRoot = getOpenLoafDataRootDir()
           const projectRoot = input.projectId
             ? getProjectRootPath(input.projectId)
             : null
@@ -168,7 +168,7 @@ class ScheduledTaskRouterImpl extends BaseScheduledTaskRouter {
         .input(scheduledTaskSchemas.updateStatus.input)
         .output(scheduledTaskSchemas.updateStatus.output)
         .mutation(async ({ input }) => {
-          const globalRoot = getOpenLoafRootDir()
+          const globalRoot = getOpenLoafDataRootDir()
           const projectRoot = input.projectId ? getProjectRootPath(input.projectId) : null
           const task = updateTask(input.id, { status: input.status }, globalRoot, projectRoot)
           if (!task) throw new Error(`Task not found: ${input.id}`)
@@ -192,7 +192,7 @@ class ScheduledTaskRouterImpl extends BaseScheduledTaskRouter {
         .input(scheduledTaskSchemas.getTaskDetail.input)
         .output(scheduledTaskSchemas.getTaskDetail.output)
         .query(async ({ input }) => {
-          const globalRoot = getOpenLoafRootDir()
+          const globalRoot = getOpenLoafDataRootDir()
           const projectRoots = input.projectId
             ? getProjectRootPath(input.projectId)
             : getAllProjectRootPaths()
@@ -204,7 +204,7 @@ class ScheduledTaskRouterImpl extends BaseScheduledTaskRouter {
         .input(scheduledTaskSchemas.listByStatus.input)
         .output(scheduledTaskSchemas.listByStatus.output)
         .query(async ({ input }) => {
-          const globalRoot = getOpenLoafRootDir()
+          const globalRoot = getOpenLoafDataRootDir()
           const projectRoots = input.projectId
             ? getProjectRootPath(input.projectId)
             : getAllProjectRootPaths()
@@ -217,7 +217,7 @@ class ScheduledTaskRouterImpl extends BaseScheduledTaskRouter {
         .input(scheduledTaskSchemas.archiveCompleted.input)
         .output(scheduledTaskSchemas.archiveCompleted.output)
         .mutation(async ({ input }) => {
-          const globalRoot = getOpenLoafRootDir()
+          const globalRoot = getOpenLoafDataRootDir()
           const projectRoot = input.projectId ? getProjectRootPath(input.projectId) : null
           const ok = archiveTask(input.id, globalRoot, projectRoot)
           return { ok }
@@ -227,14 +227,14 @@ class ScheduledTaskRouterImpl extends BaseScheduledTaskRouter {
         .input(scheduledTaskSchemas.listTemplates.input)
         .output(scheduledTaskSchemas.listTemplates.output)
         .query(async () => {
-          const globalRoot = getOpenLoafRootDir()
+          const globalRoot = getOpenLoafDataRootDir()
           return listTemplates(globalRoot)
         }),
       getTemplate: shieldedProcedure
         .input(scheduledTaskSchemas.getTemplate.input)
         .output(scheduledTaskSchemas.getTemplate.output)
         .query(async ({ input }) => {
-          const globalRoot = getOpenLoafRootDir()
+          const globalRoot = getOpenLoafDataRootDir()
           const template = getTemplateById(input.id, globalRoot)
           if (!template) throw new Error(`Template not found: ${input.id}`)
           return template
@@ -243,7 +243,7 @@ class ScheduledTaskRouterImpl extends BaseScheduledTaskRouter {
         .input(scheduledTaskSchemas.createTemplate.input)
         .output(scheduledTaskSchemas.createTemplate.output)
         .mutation(async ({ input }) => {
-          const globalRoot = getOpenLoafRootDir()
+          const globalRoot = getOpenLoafDataRootDir()
           return createTemplate(
             {
               name: input.name,
@@ -264,7 +264,7 @@ class ScheduledTaskRouterImpl extends BaseScheduledTaskRouter {
         .input(scheduledTaskSchemas.deleteTemplate.input)
         .output(scheduledTaskSchemas.deleteTemplate.output)
         .mutation(async ({ input }) => {
-          const globalRoot = getOpenLoafRootDir()
+          const globalRoot = getOpenLoafDataRootDir()
           const ok = deleteTemplateById(input.id, globalRoot)
           return { ok }
         }),
@@ -272,7 +272,7 @@ class ScheduledTaskRouterImpl extends BaseScheduledTaskRouter {
         .input(scheduledTaskSchemas.createFromTemplate.input)
         .output(scheduledTaskSchemas.createFromTemplate.output)
         .mutation(async ({ input }) => {
-          const globalRoot = getOpenLoafRootDir()
+          const globalRoot = getOpenLoafDataRootDir()
           const scope = input.scope ?? (input.projectId ? 'project' : 'global')
           const rootPath = scope === 'project' && input.projectId
             ? getProjectRootPath(input.projectId) ?? globalRoot

@@ -38,8 +38,10 @@ import {
   Play,
   Plus,
   RefreshCw,
+  Repeat,
   Search,
   Sparkles,
+  Trash2,
   XCircle,
 } from 'lucide-react'
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core'
@@ -349,6 +351,15 @@ const TaskCard = memo(function TaskCard({
         <Badge variant="outline" className={cn('text-[10px]', TRIGGER_COLORS[task.triggerMode as TriggerMode])}>
           {TRIGGER_LABELS[task.triggerMode]}
         </Badge>
+        {task.triggerMode === 'scheduled' && task.schedule && (
+          <Badge variant="secondary" className="text-[10px] bg-secondary text-muted-foreground border-transparent">
+            {task.schedule.type === 'once' ? (
+              <>{t('taskLabels.scheduleOnce')}</>
+            ) : (
+              <><Repeat className="mr-0.5 h-2.5 w-2.5" />{t('taskLabels.schedulePeriod')}</>
+            )}
+          </Badge>
+        )}
         {task.schedule && formatSchedule(task.schedule, t) && (
           <Badge variant="secondary" className="text-[10px] bg-secondary text-muted-foreground border-transparent">
             <Clock className="mr-1 h-2.5 w-2.5" />
@@ -740,6 +751,29 @@ export default function TaskBoardPage({
     }),
   )
 
+  const deleteMutation = useMutation(
+    trpc.scheduledTask.delete.mutationOptions({
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: trpc.scheduledTask.pathKey() }),
+    }),
+  )
+
+  const [isClearingDone, setIsClearingDone] = useState(false)
+
+  const handleClearDone = useCallback(async () => {
+    const doneTasks = (tasks as TaskConfig[]).filter(
+      (t) => t.status === 'done' || t.status === 'cancelled',
+    )
+    if (doneTasks.length === 0) return
+    setIsClearingDone(true)
+    try {
+      for (const task of doneTasks) {
+        await deleteMutation.mutateAsync({ id: task.id, projectId })
+      }
+    } finally {
+      setIsClearingDone(false)
+    }
+  }, [tasks, deleteMutation, projectId])
+
   // DnD sensors
   const mouseSensor = useSensor(MouseSensor, {
     activationConstraint: { distance: 5 },
@@ -870,6 +904,22 @@ export default function TaskBoardPage({
           >
             <RefreshCw className={cn('h-3.5 w-3.5', isRefreshing && 'animate-spin')} />
           </Button>
+          {(groupedTasks.done.length > 0 || groupedTasks.cancelled.length > 0) && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 rounded-3xl px-2.5 text-xs font-medium text-muted-foreground shadow-none transition-colors duration-150 hover:bg-accent hover:text-destructive"
+              onClick={handleClearDone}
+              disabled={isClearingDone}
+            >
+              {isClearingDone ? (
+                <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Trash2 className="mr-1 h-3.5 w-3.5" />
+              )}
+              {t('messages.clearDone')}
+            </Button>
+          )}
           <div className="flex gap-0.5 rounded-3xl bg-secondary p-0.5">
             <button
               type="button"
@@ -1017,6 +1067,15 @@ export default function TaskBoardPage({
                     <Badge variant="secondary" className="text-[10px]">
                       {TRIGGER_LABELS[task.triggerMode as TriggerMode]}
                     </Badge>
+                    {task.triggerMode === 'scheduled' && task.schedule && (
+                      <Badge variant="secondary" className="text-[10px] bg-secondary text-muted-foreground border-transparent">
+                        {task.schedule.type === 'once' ? (
+                          <>{t('taskLabels.scheduleOnce')}</>
+                        ) : (
+                          <><Repeat className="mr-0.5 h-2.5 w-2.5" />{t('taskLabels.schedulePeriod')}</>
+                        )}
+                      </Badge>
+                    )}
                   </div>
                   {task.description && (
                     <p className="mt-1 text-xs text-muted-foreground line-clamp-1">

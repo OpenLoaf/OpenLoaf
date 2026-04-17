@@ -353,81 +353,6 @@ await test('unknown tool: returns tool name', () => {
   assert.equal(suggestRule('CustomTool', {}), 'CustomTool')
 })
 
-await test('CloudModelGenerate: suggests feature-scoped rule', () => {
-  assert.equal(
-    suggestRule('CloudModelGenerate', { feature: 'text-to-image', variant: 'OL-IG-003' }),
-    'CloudModelGenerate(text-to-image)',
-  )
-})
-
-await test('CloudTextGenerate: suggests feature-scoped rule', () => {
-  assert.equal(
-    suggestRule('CloudTextGenerate', { feature: 'ocr', variant: 'OL-OCR-001' }),
-    'CloudTextGenerate(ocr)',
-  )
-})
-
-await test('CloudModelGenerate: missing feature falls back to tool-level', () => {
-  assert.equal(suggestRule('CloudModelGenerate', {}), 'CloudModelGenerate')
-})
-
-// ---------------------------------------------------------------------------
-// D.1 Cloud tool evaluation — feature-level allow / deny
-// ---------------------------------------------------------------------------
-
-console.log('\nD.1 — Cloud tool evaluation')
-
-await test('CloudModelGenerate(text-to-image) matches exact feature', () => {
-  const rules = { allow: ['CloudModelGenerate(text-to-image)'] }
-  assert.equal(
-    evaluateToolRules(rules, 'CloudModelGenerate', { feature: 'text-to-image' }),
-    'allow',
-  )
-})
-
-await test('CloudModelGenerate(text-to-image) does NOT match text-to-video', () => {
-  const rules = { allow: ['CloudModelGenerate(text-to-image)'] }
-  assert.equal(
-    evaluateToolRules(rules, 'CloudModelGenerate', { feature: 'text-to-video' }),
-    'unmatched',
-  )
-})
-
-await test('CloudModelGenerate wildcard text-* matches both image and audio', () => {
-  const rules = { allow: ['CloudModelGenerate(text-*)'] }
-  assert.equal(
-    evaluateToolRules(rules, 'CloudModelGenerate', { feature: 'text-to-image' }),
-    'allow',
-  )
-  assert.equal(
-    evaluateToolRules(rules, 'CloudModelGenerate', { feature: 'text-to-audio' }),
-    'allow',
-  )
-})
-
-await test('CloudModelGenerate deny text-to-video overrides broad allow', () => {
-  const rules = {
-    allow: ['CloudModelGenerate'],
-    deny: ['CloudModelGenerate(text-to-video)'],
-  }
-  assert.equal(
-    evaluateToolRules(rules, 'CloudModelGenerate', { feature: 'text-to-video' }),
-    'deny',
-  )
-  assert.equal(
-    evaluateToolRules(rules, 'CloudModelGenerate', { feature: 'text-to-image' }),
-    'allow',
-  )
-})
-
-await test('CloudTextGenerate(ocr) matches ocr feature', () => {
-  const rules = { allow: ['CloudTextGenerate(ocr)'] }
-  assert.equal(
-    evaluateToolRules(rules, 'CloudTextGenerate', { feature: 'ocr' }),
-    'allow',
-  )
-})
-
 // ---------------------------------------------------------------------------
 // E. mergeToolApprovalRules
 // ---------------------------------------------------------------------------
@@ -462,20 +387,6 @@ await test('Bash extracts command', () => {
 
 await test('Edit extracts file_path', () => {
   assert.equal(extractMatchContent('Edit', { file_path: '/src/foo.ts' }), '/src/foo.ts')
-})
-
-await test('CloudModelGenerate extracts feature', () => {
-  assert.equal(
-    extractMatchContent('CloudModelGenerate', { feature: 'text-to-image', variant: 'OL-IG-003' }),
-    'text-to-image',
-  )
-})
-
-await test('CloudTextGenerate extracts feature', () => {
-  assert.equal(
-    extractMatchContent('CloudTextGenerate', { feature: 'summarize' }),
-    'summarize',
-  )
 })
 
 await test('unknown tool returns undefined', () => {

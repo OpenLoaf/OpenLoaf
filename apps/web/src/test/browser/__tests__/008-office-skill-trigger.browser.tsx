@@ -28,7 +28,7 @@ it('008 — xlsx-skill 无关键词触发，回复包含分析结果', async () 
 
   // Save data before assertions (recorded even on failure)
   await takeProbeScreenshot('008-office-skill-trigger')
-  const meta = { testCase: '008-office-skill-trigger', prompt, result, description: 'Skill triggered without keyword, analysis with numbers', tags: ['skill-trigger', 'xlsx-skill'] }
+  const meta = { testCase: '008-office-skill-trigger', prompt, result, description: '不提关键词也能触发 xlsx 技能', tags: ['skill-trigger', 'xlsx-skill'] }
   await (commands as any).saveTestData(meta)
   await (commands as any).recordProbeRun(meta)
 

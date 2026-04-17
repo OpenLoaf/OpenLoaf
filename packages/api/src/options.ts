@@ -28,7 +28,7 @@ export default {
         ...shape.data,
         // requestId: ctx?.requestId,
         zodError:
-          error.code === "BAD_REQUEST" && error.cause instanceof ZodError
+          error.cause instanceof ZodError
             ? error.cause.flatten()
             : null,
       },

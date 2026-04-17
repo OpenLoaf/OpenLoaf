@@ -35,7 +35,7 @@ it('009 — Bash 工具流式输出，进度文本实时渲染', async () => {
 
   // Save data before assertions (recorded even on failure)
   await takeProbeScreenshot('009-bash-streaming')
-  const meta = { testCase: '009-bash-streaming', prompt, result, description: 'Bash tool streaming output via data-tool-progress events', tags: ['bash', 'streaming', 'tool-progress'] }
+  const meta = { testCase: '009-bash-streaming', prompt, result, description: 'Bash 工具流式输出（data-tool-progress）', tags: ['bash', 'streaming', 'tool-progress'] }
   await (commands as any).saveTestData(meta)
   await (commands as any).recordProbeRun(meta)
 

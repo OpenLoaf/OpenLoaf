@@ -35,7 +35,7 @@ it('017 — 中文 DOCX → PDF：处理 CJK 编码限制', async () => {
   await takeProbeScreenshot('017-docx-to-pdf')
   const meta = {
     testCase: '017-docx-to-pdf', prompt, result,
-    description: 'CJK DOCX to PDF: AI should handle encoding limitation gracefully',
+    description: 'DocConvert：中文 DOCX 转 PDF',
     tags: ['docconvert', 'docx', 'pdf', 'conversion', 'cjk'],
   }
   await (commands as any).saveTestData(meta)

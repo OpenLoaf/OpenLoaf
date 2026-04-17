@@ -32,12 +32,21 @@ const executionSummarySchema = z.object({
 })
 
 const activityLogEntrySchema = z.object({
-  timestamp: z.string(),
-  from: z.enum(['todo', 'running', 'review', 'done', 'cancelled']),
-  to: z.enum(['todo', 'running', 'review', 'done', 'cancelled']),
-  reviewType: z.enum(['plan', 'completion']).optional(),
+  timestamp: z.string().optional(),
+  from: z.string().optional(),
+  to: z.string().optional(),
+  fromStatus: z.string().optional(),
+  toStatus: z.string().optional(),
+  reviewType: z.string().optional(),
   reason: z.string().optional(),
-  actor: z.enum(['system', 'user', 'agent', 'timeout']),
+  actor: z.string().optional(),
+}).passthrough()
+
+const pageContextSchema = z.object({
+  scope: z.enum(['global', 'project']),
+  page: z.string(),
+  projectId: z.string().optional(),
+  boardId: z.string().optional(),
 })
 
 const taskConfigSchema = z.object({
@@ -62,6 +71,7 @@ const taskConfigSchema = z.object({
   autoExecute: z.boolean(),
   parentTaskId: z.string().optional(),
   dependsOn: z.array(z.string()).optional(),
+  templateId: z.string().optional(),
   enabled: z.boolean(),
   lastRunAt: z.string().nullable(),
   lastStatus: z.string().nullable(),
@@ -70,6 +80,9 @@ const taskConfigSchema = z.object({
   consecutiveErrors: z.number(),
   executionSummary: executionSummarySchema.optional(),
   activityLog: z.array(activityLogEntrySchema),
+  sourceSessionId: z.string().optional(),
+  sourceContextSnapshot: z.string().optional(),
+  pageContext: pageContextSchema.optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
   completedAt: z.string().optional(),
@@ -77,7 +90,7 @@ const taskConfigSchema = z.object({
   scope: z.enum(['global', 'project']),
   filePath: z.string(),
   projectId: z.string().optional(),
-})
+}).passthrough()
 
 const runLogSchema = z.object({
   id: z.string(),

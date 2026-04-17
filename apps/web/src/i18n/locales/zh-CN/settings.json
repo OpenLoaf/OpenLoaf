@@ -195,8 +195,6 @@
       "read": "读取文件",
       "glob": "查找文件",
       "grep": "搜索文件",
-      "cloudModelGenerate": "云端媒体生成",
-      "cloudTextGenerate": "云端文本处理",
       "any": "任意"
     }
   },

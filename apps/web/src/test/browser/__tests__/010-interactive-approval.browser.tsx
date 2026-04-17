@@ -58,7 +58,7 @@ it('010 — AI 介入式审批：Write 工具触发审批，逐个决策', async
   await takeProbeScreenshot('010-interactive-approval-final')
   const meta = {
     testCase: '010-interactive-approval', prompt, result,
-    description: `AI-driven interactive approval: ${approvedCount} approved via Write tool`,
+    description: `AI 驱动交互审批：已批准 ${approvedCount} 次 Write 工具`,
     tags: ['interactive', 'approval', 'write-tool'],
   }
   await (commands as any).saveTestData(meta)

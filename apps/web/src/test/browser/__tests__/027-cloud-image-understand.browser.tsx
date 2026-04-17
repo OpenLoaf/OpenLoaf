@@ -38,7 +38,7 @@ it('027 — 图片生成+理解+OCR：生成后分析', async () => {
     testCase: '027-cloud-image-understand',
     prompt: `${prompt} → ${followUp1} → ${followUp2}`,
     result,
-    description: 'Generate poster, then describe and OCR it',
+    description: '生成海报后理解并 OCR',
     tags: ['cloud', 'image', 'generate', 'caption', 'ocr', 'multi-turn'],
   }
   await (commands as any).saveTestData(meta)
@@ -49,15 +49,11 @@ it('027 — 图片生成+理解+OCR：生成后分析', async () => {
   expect(result.totalTurns).toBe(3)
   expect(result.messages.length).toBeGreaterThanOrEqual(6)
 
-  // 至少调了 Generate（生图）
-  expect(result.toolCalls).toContain('CloudModelGenerate')
+  // 至少调了生图工具（CloudImageGenerate）
+  expect(result.toolCalls).toContain('CloudImageGenerate')
 
-  // 理解/OCR 应该调了 CloudTextGenerate 或 CloudModelGenerate
-  const hasTextGen = result.toolCalls.includes('CloudTextGenerate')
-  const hasMultipleGen = result.toolCalls.filter((t: string) =>
-    t === 'CloudModelGenerate' || t === 'CloudTextGenerate',
-  ).length >= 2
-  expect(hasTextGen || hasMultipleGen).toBe(true)
+  // 理解/OCR 轮次的工具选择由 aiJudge 判定（模型自带视觉可跳过工具调用，
+  // 也可能走 CloudImageUnderstand 命名工具），此处不做硬断言。
 
   const judgment = await aiJudge({
     serverUrl: SERVER_URL,

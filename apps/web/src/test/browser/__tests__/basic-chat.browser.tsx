@@ -32,7 +32,7 @@ describe('Basic chat probe', () => {
 
     // Save data before assertions (recorded even on failure)
     await takeProbeScreenshot('100-basic-math')
-    const meta = { testCase: '100-basic-math', prompt, result, description: 'No tools, response contains "2"', tags: ['basic', 'no-tools'] }
+    const meta = { testCase: '100-basic-math', prompt, result, description: '纯文本问答：1+1 答案含「2」', tags: ['basic', 'no-tools'] }
     await (commands as any).saveTestData(meta)
     await (commands as any).recordProbeRun(meta)
 

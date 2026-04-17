@@ -26,7 +26,7 @@ it('021 — Cloud 图片生成：赛博朋克城市', async () => {
   await takeProbeScreenshot('021-cloud-image-generate')
   const meta = {
     testCase: '021-cloud-image-generate', prompt, result,
-    description: 'Cloud image generation: Browse → Detail → Generate full flow',
+    description: '云端文生图：Browse → Detail → Generate 全流程',
     tags: ['cloud', 'image', 'generate'],
   }
   await (commands as any).saveTestData(meta)

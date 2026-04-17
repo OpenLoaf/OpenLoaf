@@ -20,8 +20,6 @@ import { Shimmer } from "@/components/ai-elements/shimmer";
 import { Message, MessageContent } from "@/components/ai-elements/message";
 import { useTranslation } from "react-i18next";
 import AssistantMessageHeader, { AssistantAvatar } from "./AssistantMessageHeader";
-import { useChatTools } from "../context";
-import { isToolPart } from "@/lib/chat/message-parts";
 
 /**
  * Extract the currently-streaming reasoning text.
@@ -63,40 +61,18 @@ function useStreamingReasoningText(message: UIMessage | null | undefined): strin
   }, [message]);
 }
 
-/**
- * 判断当前流式消息里是否有「工具已派发、等待执行结果」的 tool part。
- * - input-available：模型已下单、工具执行中 → 等待结果
- * - output-streaming：工具正在增量返回 → 等待结果
- * - input-streaming：模型还在组装参数 → 仍算思考，不切换文案
- */
-function useHasPendingToolCall(
-  message: UIMessage | null | undefined,
-  toolParts: Record<string, { state?: string } | undefined>,
-): boolean {
-  return React.useMemo(() => {
-    if (!message) return false;
-    const parts = Array.isArray(message.parts) ? message.parts : [];
-    return parts.some((part: any) => {
-      if (!isToolPart(part)) return false;
-      const toolCallId = typeof part?.toolCallId === "string" ? part.toolCallId : "";
-      const snapshot = toolCallId ? toolParts[toolCallId] : undefined;
-      const state = (snapshot?.state ?? part?.state) as string | undefined;
-      return state === "input-available" || state === "output-streaming";
-    });
-  }, [message, toolParts]);
-}
-
 export default function MessageThinking({
   showHeader = true,
   streamingMessage,
+  awaitingTool = false,
 }: {
   showHeader?: boolean;
   streamingMessage?: UIMessage | null;
+  /** 是否处于「工具已派发、等待执行结果」阶段；由 MessageList 通过 parts + toolParts snapshot 计算。 */
+  awaitingTool?: boolean;
 }) {
   const { t } = useTranslation("ai");
   const reasoningText = useStreamingReasoningText(streamingMessage);
-  const { toolParts } = useChatTools();
-  const awaitingTool = useHasPendingToolCall(streamingMessage, toolParts as any);
 
   return (
     <Message from="assistant" className="min-w-0 w-full mt-2">

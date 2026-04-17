@@ -32,7 +32,7 @@ it('012 — PDF 水印：在现有 PDF 上添加 CONFIDENTIAL 水印', async () 
   await takeProbeScreenshot('012-pdf-add-watermark')
   const meta = {
     testCase: '012-pdf-add-watermark', prompt, result,
-    description: 'PdfMutate add-text action adds watermark to existing PDF',
+    description: 'PdfMutate 给 PDF 加水印',
     tags: ['pdfmutate', 'add-text', 'watermark', 'pdf'],
   }
   await (commands as any).saveTestData(meta)

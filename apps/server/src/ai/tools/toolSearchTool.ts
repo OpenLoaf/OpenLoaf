@@ -14,6 +14,7 @@ import {
   getMcpCatalogEntries,
   type ToolCatalogExtendedItem,
 } from '@openloaf/api/types/tools/toolCatalog'
+import { enhanceCloudNamedToolDescription } from '@/ai/tools/cloud/cloudNamedTools'
 import type { ActivatedToolSet } from './toolSearchState'
 
 /** Schema resolver function type — maps tool IDs to their JSON schemas. */
@@ -71,10 +72,15 @@ export function createToolSearchTool(
           seen.add(resolved)
           activatedSet.activate([resolved])
           const entry = catalog.find((e) => e.id === resolved)
+          // Cloud 命名工具（CloudImageGenerate/Edit/...）的 description 在
+          // runtime 动态拼接当前可用 variants 列表，让模型一激活就能看到清单。
           loadedTools.push({
             id: resolved,
             name: entry?.label ?? resolved,
-            description: entry?.description ?? '',
+            description: enhanceCloudNamedToolDescription(
+              resolved,
+              entry?.description ?? '',
+            ),
           })
           continue
         }

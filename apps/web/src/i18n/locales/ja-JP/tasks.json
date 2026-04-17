@@ -104,7 +104,8 @@
     "minutesAgo": "{{minutes}}分前",
     "hoursAgo": "{{hours}}時間前",
     "daysAgo": "{{days}}日前",
-    "chatPrefill": "タスクの作成を手伝って: "
+    "chatPrefill": "タスクの作成を手伝って: ",
+    "clearDone": "完了を削除"
   },
   "schedule": {
     "automaticTasks": "自動タスク",

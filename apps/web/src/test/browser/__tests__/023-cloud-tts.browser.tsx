@@ -1,7 +1,7 @@
 /**
  * 023: Cloud TTS 语音合成。
  *
- * 验证 AI 调 CloudCapDetail 拿到正确的 TTS input key（如 text/speech），
+ * 验证 AI 用命名工具 CloudTTS 完成文生语音（内部自动选 TTS variant），
  * 不传 undefined，不会 400。
  */
 import { it, expect } from 'vitest'
@@ -25,7 +25,7 @@ it('023 — Cloud TTS：文字转语音', async () => {
   await takeProbeScreenshot('023-cloud-tts')
   const meta = {
     testCase: '023-cloud-tts', prompt, result,
-    description: 'Cloud TTS: text-to-speech with correct input key from CloudCapDetail',
+    description: '云端文字转语音：按 Detail 返回的 input key 调用',
     tags: ['cloud', 'audio', 'tts'],
   }
   await (commands as any).saveTestData(meta)
@@ -34,15 +34,15 @@ it('023 — Cloud TTS：文字转语音', async () => {
   // ── 断言 ──
   expect(result.status).toBe('ok')
 
-  // 必须调了 Detail（TTS 的 input key 不能猜）
-  expect(result.toolCalls).toContain('CloudCapDetail')
-  expect(result.toolCalls).toContain('CloudModelGenerate')
+  // 命名工具路径：TTS 扁平入口
+  expect(result.toolCalls).toContain('CloudTTS')
 
   const judgment = await aiJudge({
     serverUrl: SERVER_URL,
     criteria:
-      '回复应确认语音已生成成功，并提供了音频文件路径或 URL。' +
-      '不应出现 "400"、"expected string"、"received undefined" 之类的报错。',
+      '回复应确认语音已生成成功（如"已生成语音"、"点击播放"、"音频已合成"等）。' +
+      '前端 UI 会自动渲染音频播放器，所以 AI 不需要在文本里给出 URL 路径，一句确认即可。' +
+      '不应出现 "400"、"expected string"、"received undefined"、"API 参数兼容"、"无法完成" 之类的报错或失败词汇。',
     aiResponse: result.textPreview,
     toolCalls: result.toolCalls,
     userPrompt: prompt,

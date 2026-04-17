@@ -50,7 +50,7 @@ it('018 — XLSX → DOCX：读取报价表后生成分析报告', async () => {
   await takeProbeScreenshot('018-xlsx-to-docx-report')
   const meta = {
     testCase: '018-xlsx-to-docx-report', prompt: `${prompt} → ${followUp}`, result,
-    description: 'Multi-turn: read XLSX then generate DOCX analysis report',
+    description: '多轮：读 XLSX 后生成 DOCX 分析报告',
     tags: ['multi-turn', 'xlsx', 'docx', 'wordmutate', 'cross-format'],
   }
   await (commands as any).saveTestData(meta)

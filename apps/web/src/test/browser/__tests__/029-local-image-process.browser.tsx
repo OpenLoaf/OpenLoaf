@@ -45,7 +45,7 @@ it('029 — 纯本地图片处理：查看信息+转格式+灰度', async () => 
     testCase: '029-local-image-process',
     prompt: `${prompt} → ${followUp}`,
     result,
-    description: 'Local image processing: get-info, convert to png, grayscale',
+    description: '本地图像处理：查信息、转 PNG、灰度化',
     tags: ['local', 'imageprocess', 'get-info', 'convert', 'grayscale', 'multi-turn'],
   }
   await (commands as any).saveTestData(meta)
@@ -60,8 +60,10 @@ it('029 — 纯本地图片处理：查看信息+转格式+灰度', async () => 
   expect(usedImageTool).toBe(true)
 
   // 不应该调云端生成工具（纯本地处理）
-  expect(result.toolCalls).not.toContain('CloudModelGenerate')
-  expect(result.toolCalls).not.toContain('CloudTextGenerate')
+  expect(result.toolCalls).not.toContain('CloudImageGenerate')
+  expect(result.toolCalls).not.toContain('CloudImageEdit')
+  expect(result.toolCalls).not.toContain('CloudVideoGenerate')
+  expect(result.toolCalls).not.toContain('CloudTTS')
 
   const judgment = await aiJudge({
     serverUrl: SERVER_URL,

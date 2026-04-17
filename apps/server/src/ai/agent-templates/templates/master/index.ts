@@ -104,21 +104,21 @@ export const masterTemplate: AgentTemplate = {
     'ScheduledTaskManage',
     'ScheduledTaskStatus',
     'ScheduledTaskWait',
-    // cloud capabilities (progressive discovery: Browse → Detail → Generate)
-    // activated on demand via LoadSkill('cloud-media-skill') / LoadSkill('cloud-text-skill') or ToolSearch
-    'CloudCapBrowse',
-    'CloudCapDetail',
-    'CloudModelGenerate',
-    'CloudTextGenerate',
+    // cloud capabilities — flat, semantic named tools. Each auto-picks the
+    // cheapest accessible variant from the cached capability snapshot and
+    // runs the paid SaaS v3 pipeline (credits consumed per call).
+    // Activated on demand via LoadSkill('cloud-media-skill') or ToolSearch.
+    'CloudImageGenerate',
+    'CloudImageEdit',
+    'CloudVideoGenerate',
+    'CloudTTS',
+    'CloudSpeechRecognize',
+    'CloudImageUnderstand',
+    // Task management + auth helpers shared by every cloud tool.
     'CloudTask',
     'CloudTaskCancel',
     'CloudUserInfo',
     'CloudLogin',
-    // Flat named cloud tools — preferred entry points for common scenarios.
-    // Collapse Browse → Detail → Generate into a single call by auto-picking
-    // an accessible variant from the cached capability snapshot.
-    'CloudImageGenerate',
-    'CloudImageEdit',
   ],
   allowSubAgents: true,
   maxDepth: 2,

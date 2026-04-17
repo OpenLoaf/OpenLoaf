@@ -48,7 +48,7 @@ it('013 — 多轮 PDF 工作流：先读后改', async () => {
   await takeProbeScreenshot('013-pdf-multi-turn')
   const meta = {
     testCase: '013-pdf-multi-turn', prompt: `${prompt} → ${followUp}`, result,
-    description: 'Multi-turn PDF: read content then add annotation',
+    description: '多轮 PDF：先读内容再加批注',
     tags: ['multi-turn', 'docpreview', 'pdfmutate', 'pdf'],
   }
   await (commands as any).saveTestData(meta)

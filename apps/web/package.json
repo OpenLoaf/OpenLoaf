@@ -15,7 +15,9 @@
     "test": "vitest --config vitest.config.ts",
     "test:run": "vitest run --config vitest.config.ts",
     "test:browser": "vitest --config vitest.browser.config.ts",
-    "test:browser:run": "node src/test/browser/run-browser-tests.mjs"
+    "test:browser:run": "node src/test/browser/run-browser-tests.mjs",
+    "test:browser:report": "node src/test/browser/generate-report.mjs",
+    "test:browser:audit": "node src/test/browser/audit-tests.mjs"
   },
   "dependencies": {
     "@ai-sdk/react": "^3.0.144",

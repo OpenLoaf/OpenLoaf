@@ -35,7 +35,7 @@ it('007 — 大 PDF 分段读取：内容关键词和结构化分析', async () 
   await takeProbeScreenshot('007-docpreview-pdf-paged')
   const meta = {
     testCase: '007-docpreview-pdf-paged', prompt, result,
-    description: 'Large PDF paged reading with content-specific assertions',
+    description: '大 PDF 分段读取：先 preview 再分页 full',
     tags: ['docpreview', 'pdf', 'paged-read', 'content-verification'],
   }
   await (commands as any).saveTestData(meta)

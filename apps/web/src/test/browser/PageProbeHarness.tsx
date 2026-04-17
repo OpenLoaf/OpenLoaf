@@ -18,6 +18,10 @@ import { TooltipProvider } from '@openloaf/ui/tooltip'
 import { ThemeProvider } from '@/components/ThemeProvider'
 import { TabActiveProvider } from '@/components/layout/TabActiveContext'
 import { queryClient } from '@/utils/trpc'
+import {
+  installProbeObservers, drainProbeObservers,
+  type ProbeConsoleEntry, type ProbeNetworkEntry,
+} from './probe-observers'
 
 // ── i18n ──
 import '@/i18n/index'
@@ -37,6 +41,10 @@ export type PageProbeResult = {
   error?: string
   /** 业务自定义负载（由 children 通过 reportReady 写入） */
   payload?: Record<string, unknown>
+  /** Browser console 记录（installProbeObservers 自动采集） */
+  consoleLogs?: ProbeConsoleEntry[]
+  /** Browser fetch 调用记录（同上） */
+  networkRequests?: ProbeNetworkEntry[]
 }
 
 export type PageProbeContextValue = {
@@ -182,6 +190,11 @@ function PageProbeInner({
     startTimeRef.current = Date.now()
   }
 
+  // ── Install console / fetch observers (idempotent) ──
+  React.useEffect(() => {
+    installProbeObservers()
+  }, [])
+
   // ── autoReady：一上来就 ready ──
   React.useEffect(() => {
     if (!autoReady) return
@@ -193,12 +206,15 @@ function PageProbeInner({
     if (status === 'loading') return
     if (completedRef.current) return
     completedRef.current = true
+    const observed = drainProbeObservers()
     const result: PageProbeResult = {
       startedAt: startedAtRef.current,
       elapsedMs: Date.now() - startTimeRef.current,
       status,
       ...(error ? { error } : {}),
       payload,
+      consoleLogs: observed.console,
+      networkRequests: observed.network,
     }
     writeResultToDOM(result)
     onComplete?.(result)

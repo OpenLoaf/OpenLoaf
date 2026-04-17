@@ -33,7 +33,7 @@ it('002 — PDF 内容深度理解：提取产品名称、页数、关键参数'
   await takeProbeScreenshot('002-docpreview-pdf')
   const meta = {
     testCase: '002-docpreview-pdf', prompt, result,
-    description: 'PDF deep content understanding: extract product name, pages, chapters',
+    description: 'DocPreview 读取 PDF，提取产品名/页数/章节',
     tags: ['docpreview', 'pdf', 'content-verification'],
   }
   await (commands as any).saveTestData(meta)

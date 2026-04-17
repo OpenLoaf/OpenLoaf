@@ -29,7 +29,7 @@ import mediaOpsMd from './media-ops/SKILL.md'
 import visualizationOpsMd from './visualization-ops/SKILL.md'
 import skillCreatorMd from './skill-creator/SKILL.md'
 // Dynamic (content re-rendered on cloud capability refresh)
-import { cloudMediaSkill, cloudTextSkill } from './cloud-skills'
+import { cloudMediaSkill } from './cloud-skills'
 
 type BuiltinSkillOverride = {
   md: string
@@ -65,8 +65,7 @@ export const BUILTIN_SKILLS: BuiltinSkill[] = [
   buildSkill({ md: mediaOpsMd, icon: '🎬', colorIndex: 6 }),
   buildSkill({ md: visualizationOpsMd, icon: '📈', colorIndex: 7 }),
   buildSkill({ md: skillCreatorMd, icon: '🧠', colorIndex: 1 }),
-  // Dynamic cloud skills — content re-rendered when ai.capabilitiesOverview refreshes.
+  // Dynamic cloud skill — content re-rendered when ai.capabilitiesOverview refreshes.
   // Iterated per-request so mutating `.content` post-boot propagates to callers.
   cloudMediaSkill,
-  cloudTextSkill,
 ]

@@ -46,6 +46,8 @@ interface SessionListProps {
   onSelect?: (session: Session) => void;
   /** Menu open state callback. */
   onMenuOpenChange?: (open: boolean) => void;
+  /** Debounced 搜索关键词变化回调；external 模式下由外部注入到 listSessions.input.query。 */
+  onSearchQueryChange?: (query: string) => void;
   /** Custom className. */
   className?: string;
 }
@@ -136,13 +138,7 @@ function buildSessionDisplayName(input: SessionDisplayNameInput): string {
 }
 
 const LOAD_MORE_IN_VIEW_MARGIN = "200px 0px";
-
-/** Multi-token, case-insensitive substring match — works for CJK and Latin scripts. */
-function matchesQuery(session: Session, tokens: string[]): boolean {
-  if (tokens.length === 0) return true;
-  const haystack = `${session.displayName ?? ""} ${session.name}`.toLowerCase();
-  return tokens.every((tok) => haystack.includes(tok));
-}
+const SEARCH_DEBOUNCE_MS = 220;
 
 export default function SessionList({
   tabId,
@@ -155,10 +151,27 @@ export default function SessionList({
   onLoadMore,
   onSelect,
   onMenuOpenChange,
+  onSearchQueryChange,
   className,
 }: SessionListProps) {
   const { t } = useTranslation('ai');
-  const internal = useChatSessions(externalSessions ? undefined : { tabId });
+  const [query, setQuery] = React.useState("");
+  const [debouncedQuery, setDebouncedQuery] = React.useState("");
+
+  React.useEffect(() => {
+    const trimmed = query.trim();
+    if (trimmed === debouncedQuery) return;
+    const timer = window.setTimeout(() => setDebouncedQuery(trimmed), SEARCH_DEBOUNCE_MS);
+    return () => window.clearTimeout(timer);
+  }, [query, debouncedQuery]);
+
+  React.useEffect(() => {
+    onSearchQueryChange?.(debouncedQuery);
+  }, [debouncedQuery, onSearchQueryChange]);
+
+  const internal = useChatSessions(
+    externalSessions ? undefined : { tabId, query: debouncedQuery },
+  );
   const chatSessions = externalSessions ?? internal.sessions;
   const isLoading = externalSessions ? (externalLoading ?? false) : internal.isLoading;
   const scopeProjectId = externalSessions ? undefined : internal.scopeProjectId;
@@ -194,16 +207,7 @@ export default function SessionList({
     }));
   }, [chatSessions, scopeProjectId]);
 
-  const [query, setQuery] = React.useState("");
-  const trimmedQuery = query.trim();
-
-  const filteredSessions = React.useMemo(() => {
-    if (!trimmedQuery) return sessions;
-    const tokens = trimmedQuery.toLowerCase().split(/\s+/).filter(Boolean);
-    return sessions.filter((s) => matchesQuery(s, tokens));
-  }, [sessions, trimmedQuery]);
-
-  const groups = React.useMemo(() => groupSessions(filteredSessions), [filteredSessions]);
+  const groups = React.useMemo(() => groupSessions(sessions), [sessions]);
 
   // Infinite scroll sentinel
   const loadMoreRef = React.useRef<HTMLDivElement>(null);
@@ -217,15 +221,15 @@ export default function SessionList({
     handleLoadMore?.();
   }, [handleLoadMore, hasMore, isFetchingNextPage, isLoadMoreInView]);
 
-  const hasQuery = trimmedQuery.length > 0;
-  const showEmpty = !isLoading && sessions.length === 0;
-  const showNoMatch = !isLoading && !showEmpty && filteredSessions.length === 0;
+  const hasQuery = debouncedQuery.length > 0;
+  const showEmpty = !isLoading && sessions.length === 0 && !hasQuery;
+  const showNoMatch = !isLoading && sessions.length === 0 && hasQuery;
 
   return (
     <div
-      className={`w-full max-h-[min(80svh,var(--radix-popover-content-available-height))] overflow-auto show-scrollbar touch-auto ${className ?? ""}`}
+      className={`flex w-full flex-col max-h-[min(80svh,var(--radix-popover-content-available-height))] min-h-0 ${className ?? ""}`}
     >
-      <div className="sticky top-0 z-10 bg-popover/95 backdrop-blur px-2 pt-2 pb-1.5">
+      <div className="shrink-0 pb-1.5">
         <div className="relative">
           <Search
             className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"
@@ -239,10 +243,13 @@ export default function SessionList({
             className="h-8 rounded-full pl-8 pr-8 text-sm"
             aria-label={t("session.searchPlaceholder")}
           />
-          {hasQuery ? (
+          {query.length > 0 ? (
             <button
               type="button"
-              onClick={() => setQuery("")}
+              onClick={() => {
+                setQuery("");
+                setDebouncedQuery("");
+              }}
               className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
               aria-label={t("session.clearSearch", { defaultValue: "Clear" })}
             >
@@ -251,46 +258,48 @@ export default function SessionList({
           ) : null}
         </div>
       </div>
-      {isLoading ? null : showEmpty ? (
-        <Queue className="border-none bg-transparent px-0 py-1 shadow-none">
-          <div className="px-2 py-3 text-sm text-muted-foreground">{t('session.empty')}</div>
-        </Queue>
-      ) : showNoMatch ? (
-        <Queue className="border-none bg-transparent px-0 py-1 shadow-none">
-          <div className="px-2 py-3 text-sm text-muted-foreground">{t('session.noMatches')}</div>
-        </Queue>
-      ) : (
-        <Queue className="border-none bg-transparent px-0 py-1 shadow-none">
-          {groups.map((g) => (
-            <QueueSection key={g.key} defaultOpen>
-              <QueueSectionTrigger className="rounded-3xl px-2 py-1.5 text-xs font-medium">
-                <QueueSectionLabel label={t(g.labelKey, { defaultValue: g.labelKey })} count={g.sessions.length} />
-              </QueueSectionTrigger>
-              <QueueSectionContent className="mt-1">
-                <ul className="space-y-0.5">
-                  {g.sessions.map((s) => (
-                    <QueueItem key={s.id} className="px-0 py-0 hover:bg-transparent">
-                      <SessionItem
-                        session={s}
-                        isActive={Boolean(activeSessionId && s.id === activeSessionId)}
-                        isOpenInTab={openSessionIds?.has(s.id)}
-                        onSelect={onSelect}
-                        onMenuOpenChange={onMenuOpenChange}
-                      />
-                    </QueueItem>
-                  ))}
-                </ul>
-              </QueueSectionContent>
-            </QueueSection>
-          ))}
-          {hasMore ? <div ref={loadMoreInViewRef} className="h-4 w-full" aria-hidden="true" /> : null}
-          {isFetchingNextPage ? (
-            <div className="flex items-center justify-center py-2 text-sm text-muted-foreground">
-              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-            </div>
-          ) : null}
-        </Queue>
-      )}
+      <div className="flex-1 min-h-0 overflow-auto show-scrollbar touch-auto">
+        {isLoading ? null : showEmpty ? (
+          <Queue className="border-none bg-transparent px-0 py-1 shadow-none">
+            <div className="px-2 py-3 text-sm text-muted-foreground">{t('session.empty')}</div>
+          </Queue>
+        ) : showNoMatch ? (
+          <Queue className="border-none bg-transparent px-0 py-1 shadow-none">
+            <div className="px-2 py-3 text-sm text-muted-foreground">{t('session.noMatches')}</div>
+          </Queue>
+        ) : (
+          <Queue className="border-none bg-transparent px-0 py-1 shadow-none">
+            {groups.map((g) => (
+              <QueueSection key={g.key} defaultOpen>
+                <QueueSectionTrigger className="rounded-3xl px-2 py-1.5 text-xs font-medium">
+                  <QueueSectionLabel label={t(g.labelKey, { defaultValue: g.labelKey })} count={g.sessions.length} />
+                </QueueSectionTrigger>
+                <QueueSectionContent className="mt-1">
+                  <ul className="space-y-0.5">
+                    {g.sessions.map((s) => (
+                      <QueueItem key={s.id} className="px-0 py-0 hover:bg-transparent">
+                        <SessionItem
+                          session={s}
+                          isActive={Boolean(activeSessionId && s.id === activeSessionId)}
+                          isOpenInTab={openSessionIds?.has(s.id)}
+                          onSelect={onSelect}
+                          onMenuOpenChange={onMenuOpenChange}
+                        />
+                      </QueueItem>
+                    ))}
+                  </ul>
+                </QueueSectionContent>
+              </QueueSection>
+            ))}
+            {hasMore ? <div ref={loadMoreInViewRef} className="h-4 w-full" aria-hidden="true" /> : null}
+            {isFetchingNextPage ? (
+              <div className="flex items-center justify-center py-2 text-sm text-muted-foreground">
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              </div>
+            ) : null}
+          </Queue>
+        )}
+      </div>
     </div>
   );
 }

@@ -30,7 +30,7 @@ it('011 — PDF 创建：生成英文发票 PDF', async () => {
   await takeProbeScreenshot('011-pdf-create')
   const meta = {
     testCase: '011-pdf-create', prompt, result,
-    description: 'PdfMutate create action generates an English invoice PDF',
+    description: 'PdfMutate 生成英文发票 PDF',
     tags: ['pdfmutate', 'create', 'pdf'],
   }
   await (commands as any).saveTestData(meta)

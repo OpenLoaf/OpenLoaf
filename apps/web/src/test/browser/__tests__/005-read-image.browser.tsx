@@ -28,7 +28,7 @@ it('005 — 图片读取，回复描述图片', async () => {
 
   // Save data before assertions (recorded even on failure)
   await takeProbeScreenshot('005-read-image')
-  const meta = { testCase: '005-read-image-suggest-skill', prompt, result, description: 'Read image, substantive description returned', tags: ['read-tool', 'image', 'suggest-skill'] }
+  const meta = { testCase: '005-read-image-suggest-skill', prompt, result, description: 'Read 读图片返回 suggest skill，不直连云服务', tags: ['read-tool', 'image', 'suggest-skill'] }
   await (commands as any).saveTestData(meta)
   await (commands as any).recordProbeRun(meta)
 

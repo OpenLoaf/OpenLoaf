@@ -68,18 +68,35 @@ export default function MessageList({ className, projectId }: MessageListProps) 
     () => (streamingMessage ? messageHasVisibleContent(streamingMessage) : false),
     [streamingMessage]
   );
+  // 逻辑：当前流式消息里是否存在「工具已派发、等待执行结果」的 tool part。
+  // - input-available：参数已生成、工具执行中
+  // - output-streaming：工具正在增量返回
+  // 这两种状态下工具调用阻塞对话，用户除了等没有可见进度，必须显示 Thinking 提示。
+  const hasAwaitingTool = React.useMemo(() => {
+    if (!streamingMessage) return false;
+    const parts = Array.isArray(streamingMessage.parts) ? streamingMessage.parts : [];
+    return parts.some((part: any) => {
+      if (!isToolPart(part)) return false;
+      const toolCallId = typeof part?.toolCallId === "string" ? part.toolCallId : "";
+      const snapshot = toolCallId ? (toolParts as any)?.[toolCallId] : undefined;
+      const state = (snapshot?.state ?? part?.state) as string | undefined;
+      return state === "input-available" || state === "output-streaming";
+    });
+  }, [streamingMessage, toolParts]);
   // 发送消息后，在 AI 还没返回任何可见内容前显示“正在思考中”。
   const shouldShowThinking = React.useMemo(() => {
     if (error) return false;
     if (stepThinking) return true;
     if (!(status === "submitted" || status === "streaming")) return false;
+    // 工具阻塞期间即使消息已有可见 tool part，也要显示 Thinking（文案会切到「等待工具结果...」）。
+    if (hasAwaitingTool) return true;
     // 逻辑：流式内容已可见时隐藏 thinking。
     if (hasStreamingVisibleContent) return false;
     const last = messages[messages.length - 1] as any;
     if (!last) return false;
     if (last.role === "user") return true;
     return last.role === "assistant" && !messageHasVisibleContent(last);
-  }, [messages, status, error, stepThinking, hasStreamingVisibleContent]);
+  }, [messages, status, error, stepThinking, hasStreamingVisibleContent, hasAwaitingTool]);
 
   const displayMessages = React.useMemo(() => {
     // 关键：即使 shouldShowThinking 为 true（stepThinking 触发），如果流式消息已有可见内容，
@@ -211,7 +228,7 @@ export default function MessageList({ className, projectId }: MessageListProps) 
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.15, ease: "easeInOut" }}
               >
-                <MessageThinking showHeader={!lastMessageIsAssistant} streamingMessage={streamingMessage} />
+                <MessageThinking showHeader={!lastMessageIsAssistant} streamingMessage={streamingMessage} awaitingTool={hasAwaitingTool} />
               </motion.div>
             ) : null}
           </AnimatePresence>

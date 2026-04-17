@@ -17,8 +17,9 @@ import {
 import { useLayoutState } from "@/hooks/use-layout-state";
 import { useChatRuntime } from "@/hooks/use-chat-runtime";
 import type { LucideIcon } from "lucide-react";
-import { Bug, Globe, Layers, Magnet, Monitor, RefreshCw } from "lucide-react";
+import { Bug, Globe, Layers, LayoutGrid, Magnet, Monitor, RefreshCw } from "lucide-react";
 import { memo, useState, useCallback, useEffect } from "react";
+import ToolGalleryDialog from "./ToolGalleryDialog";
 import { OpenLoafSettingsGroup } from "@openloaf/ui/openloaf/OpenLoafSettingsGroup";
 import { OpenLoafSettingsField } from "@openloaf/ui/openloaf/OpenLoafSettingsField";
 import { toast } from "sonner";
@@ -53,6 +54,7 @@ const TestSetting = memo(function TestSetting() {
   const isElectron = isElectronEnv();
 
   const [webContentsViewCount, setWebContentsViewCount] = useState<number | null>(null);
+  const [toolGalleryOpen, setToolGalleryOpen] = useState(false);
 
   const fetchWebContentsViewCount = useCallback(async () => {
     const api = window.openloafElectron;
@@ -165,6 +167,31 @@ const TestSetting = memo(function TestSetting() {
 
   return (
     <div className="space-y-6">
+      <OpenLoafSettingsGroup title="UI 组件预览">
+        <div className="divide-y divide-border/40">
+          <div className="flex flex-wrap items-center gap-2 py-3">
+            <SettingIcon icon={LayoutGrid} bg="bg-secondary" fg="text-foreground" />
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-medium">AI Tool UI Gallery</div>
+              <div className="text-xs text-muted-foreground">
+                直接预览所有注册的 AI Tool 组件渲染效果，无需触发真实对话
+              </div>
+            </div>
+            <OpenLoafSettingsField>
+              <Button
+                size="sm"
+                className="rounded-3xl bg-secondary text-foreground hover:bg-secondary-hover shadow-none"
+                onClick={() => setToolGalleryOpen(true)}
+              >
+                打开
+              </Button>
+            </OpenLoafSettingsField>
+          </div>
+        </div>
+      </OpenLoafSettingsGroup>
+
+      <ToolGalleryDialog open={toolGalleryOpen} onOpenChange={setToolGalleryOpen} />
+
       <OpenLoafSettingsGroup title="实验功能">
         <div className="divide-y divide-border/40">
           <div className="flex flex-wrap items-center gap-2 py-3">

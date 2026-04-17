@@ -36,7 +36,7 @@ it('026 — 图片生成+编辑：先画再改', async () => {
     testCase: '026-cloud-image-edit',
     prompt: `${prompt} → ${followUp}`,
     result,
-    description: 'Generate image then edit it in same session',
+    description: '同会话内生成图片再编辑',
     tags: ['cloud', 'image', 'generate', 'edit', 'multi-turn'],
   }
   await (commands as any).saveTestData(meta)
@@ -46,12 +46,15 @@ it('026 — 图片生成+编辑：先画再改', async () => {
   expect(result.status).toBe('ok')
   expect(result.totalTurns).toBe(2)
 
-  // 至少调了两次 Generate（一次生成 + 一次编辑）
-  const generateCount = result.toolCalls.filter((t: string) => t === 'CloudModelGenerate').length
-  expect(generateCount).toBeGreaterThanOrEqual(1)
+  // 第一轮生图（CloudImageGenerate），第二轮编辑（CloudImageEdit）
+  // 至少应该调了其中一个
+  const cloudToolCount = result.toolCalls.filter(
+    (t: string) => t === 'CloudImageGenerate' || t === 'CloudImageEdit',
+  ).length
+  expect(cloudToolCount).toBeGreaterThanOrEqual(1)
 
-  // Detail 不可跳过
-  expect(result.toolCalls).toContain('CloudCapDetail')
+  // 编辑轮应该调用 CloudImageEdit
+  expect(result.toolCalls).toContain('CloudImageEdit')
 
   const judgment = await aiJudge({
     serverUrl: SERVER_URL,

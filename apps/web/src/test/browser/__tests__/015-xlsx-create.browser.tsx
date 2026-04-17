@@ -30,7 +30,7 @@ it('015 — XLSX 创建：生成中文销售数据表', async () => {
   await takeProbeScreenshot('015-xlsx-create')
   const meta = {
     testCase: '015-xlsx-create', prompt, result,
-    description: 'ExcelMutate create action generates a Chinese sales XLSX',
+    description: 'ExcelMutate 生成中文销售表 XLSX',
     tags: ['excelmutate', 'create', 'xlsx'],
   }
   await (commands as any).saveTestData(meta)

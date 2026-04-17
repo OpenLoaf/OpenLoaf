@@ -263,6 +263,8 @@ export const chatRouter = t.router({
         boardId: z.string().trim().min(1).nullable().optional(),
         cursor: z.string().nullable().optional(),
         pageSize: z.number().int().min(1).max(100).nullable().optional(),
+        /** 标题模糊搜索关键词；空白分词后按 AND 语义匹配。 */
+        query: z.string().trim().max(200).optional(),
       }),
     )
     .query(async ({ ctx, input }): Promise<ChatSessionListPage> => {
@@ -270,6 +272,11 @@ export const chatRouter = t.router({
       const boardId = resolveBoardIdFilter(input.boardId)
       const pageSize = normalizeSessionPageSize(input.pageSize)
       const offset = decodeSessionListCursor(input.cursor)
+      const queryTokens = (input.query ?? '')
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 8)
       let projectIdFilter: string[] | null = null
       let projectTitleMap = new Map<string, string>()
 
@@ -297,6 +304,10 @@ export const chatRouter = t.router({
         id: { not: { startsWith: 'task-' } },
         ...(boardId !== undefined ? { boardId } : {}),
         ...(projectIdFilter ? { projectId: { in: projectIdFilter } } : {}),
+        // SQLite LIKE 对 ASCII 不区分大小写；CJK 直接字符匹配。每个 token 独立 AND。
+        ...(queryTokens.length > 0
+          ? { AND: queryTokens.map((tok) => ({ title: { contains: tok } })) }
+          : {}),
       }
 
       const total = await ctx.prisma.chatSession.count({ where })

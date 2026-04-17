@@ -32,7 +32,7 @@ it('020 — PDF → DOCX：将 PDF 转为 Word 方便编辑', async () => {
   await takeProbeScreenshot('020-pdf-to-docx')
   const meta = {
     testCase: '020-pdf-to-docx', prompt, result,
-    description: 'DocConvert: PDF to DOCX format conversion',
+    description: 'DocConvert：PDF 转 DOCX',
     tags: ['docconvert', 'pdf', 'docx', 'conversion'],
   }
   await (commands as any).saveTestData(meta)

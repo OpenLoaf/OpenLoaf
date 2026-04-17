@@ -26,6 +26,8 @@ const OPENLOAF_DIR = '.openloaf'
 const TASKS_DIR = 'tasks'
 const RUNS_DIR = 'runs'
 
+type RunLogScope = 'global' | 'project'
+
 export type TaskRunLog = {
   id: string
   trigger: string
@@ -38,14 +40,15 @@ export type TaskRunLog = {
   durationMs?: number | null
 }
 
-/** Resolve runs directory for a given root path. */
-function resolveRunsDir(rootPath: string): string {
+/** Resolve runs directory for a given root path and scope. */
+function resolveRunsDir(rootPath: string, scope: RunLogScope = 'project'): string {
+  if (scope === 'global') return path.join(rootPath, TASKS_DIR, RUNS_DIR)
   return path.join(rootPath, OPENLOAF_DIR, TASKS_DIR, RUNS_DIR)
 }
 
 /** Resolve JSONL file path for a task. */
-function resolveRunLogPath(rootPath: string, taskId: string): string {
-  return path.join(resolveRunsDir(rootPath), `${taskId}.jsonl`)
+function resolveRunLogPath(rootPath: string, taskId: string, scope: RunLogScope = 'project'): string {
+  return path.join(resolveRunsDir(rootPath, scope), `${taskId}.jsonl`)
 }
 
 /** Append a run log entry to the JSONL file. */
@@ -53,11 +56,12 @@ export function appendRunLog(
   taskId: string,
   entry: Omit<TaskRunLog, 'id'>,
   rootPath: string,
+  scope: RunLogScope = 'project',
 ): TaskRunLog {
-  const dir = resolveRunsDir(rootPath)
+  const dir = resolveRunsDir(rootPath, scope)
   mkdirSync(dir, { recursive: true })
   const logEntry: TaskRunLog = { id: uuidv4(), ...entry }
-  const filePath = resolveRunLogPath(rootPath, taskId)
+  const filePath = resolveRunLogPath(rootPath, taskId, scope)
   appendFileSync(filePath, `${JSON.stringify(logEntry)}\n`, 'utf8')
   rotateIfNeeded(filePath)
   return logEntry
@@ -87,8 +91,9 @@ function readRunLogs(
   taskId: string,
   rootPath: string,
   limit = 50,
+  scope: RunLogScope = 'project',
 ): TaskRunLog[] {
-  const filePath = resolveRunLogPath(rootPath, taskId)
+  const filePath = resolveRunLogPath(rootPath, taskId, scope)
   if (!existsSync(filePath)) return []
   try {
     const content = readFileSync(filePath, 'utf8')
@@ -116,8 +121,8 @@ export function readRunLogsMultiScope(
   limit = 50,
 ): TaskRunLog[] {
   if (projectRoot) {
-    const logs = readRunLogs(taskId, projectRoot, limit)
+    const logs = readRunLogs(taskId, projectRoot, limit, 'project')
     if (logs.length > 0) return logs
   }
-  return readRunLogs(taskId, globalRoot, limit)
+  return readRunLogs(taskId, globalRoot, limit, 'global')
 }

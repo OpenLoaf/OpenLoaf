@@ -7,15 +7,21 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  *
- * Cloud v3 capability tools — progressive discovery model.
+ * Cloud v3 capability tool helpers + task / auth tools.
  *
- * Six thin tools that delegate to @openloaf-saas/sdk:
- *   CloudCapBrowse    → ai.capabilitiesOverview
- *   CloudCapDetail    → ai.capabilitiesDetail
- *   CloudModelGenerate → ai.v3Generate (+ internal v3Task polling when sync)
- *   CloudTextGenerate → ai.v3TextGenerate
- *   CloudTask         → ai.v3Task
- *   CloudTaskCancel       → ai.v3CancelTask
+ * Layout after the C-route refactor:
+ *   - Shared helpers (upload, autosave, polling, token, error mapping) live
+ *     here and are imported by the named cloud tools in `cloudNamedTools.ts`.
+ *   - runV3GenerateAndSave: media pipeline (v3Generate + polling + autosave).
+ *   - runV3TextGenerate:    text pipeline (v3TextGenerate, no polling).
+ *   - cloudTaskTool / cloudTaskCancelTool / cloudLoginTool / cloudUserInfoTool:
+ *     standalone thin wrappers around the SaaS SDK.
+ *
+ * The progressive-discovery tools (CloudCapBrowse / CloudCapDetail /
+ * CloudModelGenerate / CloudTextGenerate) have been removed — the model is
+ * expected to reach the capability surface exclusively through the named
+ * tools (CloudImageGenerate, CloudImageEdit, CloudVideoGenerate, CloudTTS,
+ * CloudSpeechRecognize, CloudImageUnderstand).
  */
 import { randomUUID } from 'node:crypto'
 import { promises as fs } from 'node:fs'
@@ -27,11 +33,7 @@ import {
   cloudLoginToolDef,
   cloudUserInfoToolDef,
   cloudTaskCancelToolDef,
-  cloudCapBrowseToolDef,
-  cloudCapDetailToolDef,
-  cloudModelGenerateToolDef,
   cloudTaskToolDef,
-  cloudTextGenerateToolDef,
 } from '@openloaf/api/types/tools/cloud'
 import { getSaasClient } from '@/modules/saas/client'
 import { expandPathTemplateVars } from '@/ai/tools/toolScope'
@@ -49,12 +51,6 @@ import {
 import { logger } from '@/common/logger'
 import { addCreditsConsumed } from '@/ai/shared/context/requestContext'
 import { createToolProgress, type ToolProgressEmitter } from '@/ai/tools/toolProgress'
-import {
-  getCachedVariantDetail,
-  hasTierAccess,
-  resolveEffectiveTier,
-  type CloudMembershipTier,
-} from '@/ai/builtin-skills/cloud-skills'
 
 // ---------------------------------------------------------------------------
 // Task polling constants
@@ -62,7 +58,6 @@ import {
 
 const POLL_INTERVAL_MS = 2_000
 const POLL_MAX_DURATION_MS = 10 * 60 * 1000
-const TOP_VARIANTS_PER_FEATURE = 3
 
 /** Per-file download timeout — fail fast rather than hang the whole tool call. */
 const DOWNLOAD_TIMEOUT_MS = 60_000
@@ -81,21 +76,6 @@ class PollTaskTimeoutError extends Error {
   }
 }
 
-/**
- * Features hidden from LLM discovery.
- *
- * `translate` is excluded because the main chat model already handles
- * translation at zero marginal credit cost — exposing the cloud variant would
- * tempt the LLM to burn credits on operations the base model does for free.
- * Matched as a case-insensitive substring on the feature id.
- */
-const HIDDEN_FEATURE_PATTERNS = ['translate'] as const
-
-function isHiddenFeature(featureId: string): boolean {
-  const lowered = featureId.toLowerCase()
-  return HIDDEN_FEATURE_PATTERNS.some((pattern) => lowered.includes(pattern))
-}
-
 // ---------------------------------------------------------------------------
 // Shared helpers
 // ---------------------------------------------------------------------------
@@ -112,14 +92,22 @@ async function requireToken(): Promise<string | { error: string }> {
   return token
 }
 
+/**
+ * 失败结果统一结构：返回 JSON 字符串 `{ ok: false, ... }`，与 runV3TextGenerate
+ * 的成功分支 `{ ok: true, ... }` 对称。这样：
+ * - AI 模型能直接读到 `ok:false` + `error` + `httpStatus`，清楚知道失败而不是继续重试
+ * - 测试 harness 的 detectToolError 能识别为 hasError=true（见 ChatProbeHarness 扩展）
+ * - 过去的纯字符串 "Error: ..." 形态会被 AI SDK 当作普通 tool result，掩盖故障
+ */
 function errorString(label: string, err: unknown): string {
   if (err instanceof SaaSHttpError) {
     const payload = err.payload as
-      | { message?: unknown; error?: unknown }
+      | { message?: unknown; error?: unknown; code?: unknown }
       | string
       | null
       | undefined
     let detail: string | undefined
+    let upstreamCode: string | undefined
     if (typeof payload === 'string') {
       detail = payload.trim() || undefined
     } else if (payload && typeof payload === 'object') {
@@ -128,12 +116,27 @@ function errorString(label: string, err: unknown): string {
       } else if (typeof payload.error === 'string' && payload.error.trim()) {
         detail = payload.error.trim()
       }
+      if (typeof payload.code === 'string' && payload.code.trim()) {
+        upstreamCode = payload.code.trim()
+      }
     }
     const statusPart = `HTTP ${err.status}${err.statusText ? ` ${err.statusText}` : ''}`
-    return `Error: ${label} — ${statusPart}${detail ? `: ${detail}` : ''}`
+    return JSON.stringify({
+      ok: false,
+      code: upstreamCode ?? `http_${err.status}`,
+      httpStatus: err.status,
+      error: `${label} — ${statusPart}${detail ? `: ${detail}` : ''}`,
+      detail: detail ?? null,
+      label,
+    })
   }
   const message = err instanceof Error ? err.message : String(err)
-  return `Error: ${label} — ${message}`
+  return JSON.stringify({
+    ok: false,
+    code: 'exception',
+    error: `${label} — ${message}`,
+    label,
+  })
 }
 
 function sleep(ms: number): Promise<void> {
@@ -251,13 +254,6 @@ function sanitizeIdForFilename(value: string): string {
 /**
  * Download one URL and write it to the storage target.
  * Returns null on failure (caller falls back to the raw URL).
- *
- * Notes on fail-fast behavior:
- * - `AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS)` guarantees that a hanging cloud
- *   CDN never blocks the whole tool call. Without it, a stuck fetch would sit
- *   forever (Node's default fetch has no built-in timeout).
- * - A unique `slug` per file (random 6 hex + index) guarantees filenames stay
- *   collision-free across concurrent tool calls in the same millisecond.
  */
 async function downloadOne(input: {
   url: string
@@ -307,19 +303,6 @@ async function downloadOne(input: {
  * Download every URL in `resultUrls` to the chat/board asset dir.
  * Silently degrades: if storage cannot be resolved (no session and no board),
  * or any individual download fails, returns a mix of saved + pending entries.
- *
- * Concurrency: all URLs download in parallel via Promise.all — typical N is
- * 1-4, occasionally up to 10 for batch mode. Per-file timeout + short typical
- * size means no CDN hammering concerns.
- *
- * Filename collision protection: each call generates a unique 6-hex slug from
- * randomUUID; combined with the per-file index, filenames are unique across
- * concurrent CloudModelGenerate invocations even within the same millisecond.
- *
- * Returns:
- *   - files: successfully saved files (may be empty if all failed)
- *   - pending: URLs that could not be saved (fall back to raw URL in the AI response)
- *   - target: the storage target used (may be null if nothing could be saved)
  */
 async function autoSaveResultUrls(input: {
   resultUrls: string[]
@@ -337,13 +320,10 @@ async function autoSaveResultUrls(input: {
     return { files: [], pending: [...resultUrls], target: null }
   }
 
-  // Ensure target dir exists once, not per file.
   await fs.mkdir(target.saveDirPath, { recursive: true })
 
   progress.delta(`saving ${resultUrls.length} file(s) to ${target.destination} asset dir\n`)
   const baseName = `saas-${sanitizeIdForFilename(variantId)}`
-  // Unique per-call slug; combined with the index it gives collision-free filenames
-  // across concurrent tool calls within the same millisecond.
   const slug = randomUUID().replace(/-/g, '').slice(0, 8)
 
   const results = await Promise.all(
@@ -368,23 +348,6 @@ async function autoSaveResultUrls(input: {
 // ---------------------------------------------------------------------------
 // Input normalization — local file paths → uploaded CDN URLs
 // ---------------------------------------------------------------------------
-//
-// SaaS v3 endpoints (v3TextGenerate / v3Generate) expect `inputs.image`,
-// `inputs.video`, `inputs.audio` to be publicly reachable URLs. The LLM however
-// tends to pass local paths like `${CURRENT_CHAT_DIR}/foo.jpg` or
-// `@[/Users/.../foo.jpg]` — whatever it saw in the user message or asset dir.
-// Without this normalization those strings reach the SaaS backend verbatim and
-// come back as `HTTP 400 Bad Request`, which is exactly how this bug was
-// observed in chat_20260401_105341_gdes0ya1.
-//
-// Strategy: before the paid API call, walk inputs' top-level string / string[]
-// values, detect anything that looks like a local path, expand template vars,
-// read the file from disk, and upload it via `client.ai.uploadFile` (24h
-// expiry — long enough to outlive any sync or async task). Replace the value
-// with the returned CDN url and forward the normalized inputs downstream.
-//
-// Values that are already `http(s)://` / `data:` URLs or non-path strings like
-// `prompt` are passed through unchanged.
 
 const EXT_TO_CONTENT_TYPE: Record<string, string> = {
   png: 'image/png',
@@ -421,7 +384,6 @@ function looksLikeLocalPath(raw: string): boolean {
   if (extractAttachmentTagPath(s) !== null) return true
   if (s.startsWith('${')) return true
   if (s.startsWith('/') || s.startsWith('~')) return true
-  // Windows drive letter, e.g. C:\foo
   if (/^[A-Za-z]:[\\/]/.test(s)) return true
   return false
 }
@@ -473,9 +435,8 @@ async function uploadLocalFileToCdn(args: {
 
 /**
  * Resolve a `{ url: "local/path" }` or `{ path: "local/path" }` media object
- * by uploading the local file to CDN. Matches the format produced by the
- * canvas `toMediaInput()` in `serialize.ts`. Returns null if the value is not
- * a resolvable media object.
+ * by uploading the local file to CDN. Returns null if the value is not a
+ * resolvable media object.
  */
 async function resolveMediaObject(
   value: unknown,
@@ -489,7 +450,6 @@ async function resolveMediaObject(
   const obj = value as Record<string, unknown>
   const suffix = index !== null ? `[${index}]` : ''
 
-  // { url: "local/path" } — upload and replace url field
   if (typeof obj.url === 'string' && looksLikeLocalPath(obj.url)) {
     const uploaded = await uploadLocalFileToCdn({
       client,
@@ -500,7 +460,6 @@ async function resolveMediaObject(
     return { ...obj, url: uploaded }
   }
 
-  // { path: "local/path" } — upload and convert to { url } format (SaaS only accepts URLs)
   if (typeof obj.path === 'string' && looksLikeLocalPath(obj.path)) {
     const uploaded = await uploadLocalFileToCdn({
       client,
@@ -547,16 +506,12 @@ async function normalizeCloudInputs(args: {
               progress,
             })
           }
-          // Handle { url: "local/path" } or { path: "local/path" } inside arrays
-          // (canvas multi-slot produces [{ url }, { url }])
           const resolved = await resolveMediaObject(item, key, idx, client, progress)
           return resolved ?? item
         }),
       )
       continue
     }
-    // Handle { url: "local/path" } or { path: "local/path" } objects
-    // (canvas toMediaInput() produces this format for media slots)
     if (value && typeof value === 'object') {
       const resolved = await resolveMediaObject(value, key, null, client, progress)
       if (resolved) {
@@ -588,169 +543,14 @@ async function pollTaskUntilDone(client: any, taskId: string, progress: ToolProg
       return data
     }
   }
-  // 逻辑：超时不能抛普通 Error — 会丢掉 taskId，AI 无法继续 CloudTask 轮询/CloudTaskCancel。
-  // 抛 PollTaskTimeoutError 让 CloudModelGenerate.execute 的 catch 识别并返回结构化
-  // { mode: 'timeout', taskId, ... }，credits 不会白白锁死。
+  // 超时不能抛普通 Error — 会丢掉 taskId，AI 无法继续 CloudTask 轮询/CloudTaskCancel。
+  // 抛 PollTaskTimeoutError 让上层识别并返回结构化 { mode: 'timeout', taskId, ... }。
   throw new PollTaskTimeoutError(taskId, POLL_MAX_DURATION_MS)
 }
 
 // ---------------------------------------------------------------------------
-// CloudCapBrowse
+// Shared generate-and-save pipeline (media)
 // ---------------------------------------------------------------------------
-
-export const cloudCapBrowseTool = tool({
-  description: cloudCapBrowseToolDef.description,
-  inputSchema: zodSchema(cloudCapBrowseToolDef.parameters),
-  // 逻辑：只读公开接口，无 token、无 credits，白名单自动放行。
-  needsApproval: false,
-  execute: async (input, { toolCallId }): Promise<string> => {
-    const { category } = (input ?? {}) as { category?: 'image' | 'video' | 'audio' | 'text' | 'tools' }
-    const progress = createToolProgress(toolCallId, 'CloudCapBrowse')
-    progress.start(category ? `browse ${category}` : 'browse all')
-
-    try {
-      // 逻辑：overview 本身是公开接口 (无 token)；user.self 需要 token 但失败时不致命，
-      // 降级为 userTier=null 让 AI 至少拿到 capability 列表。
-      const unauthenticatedClient = getSaasClient()
-      const overview = await unauthenticatedClient.ai.capabilitiesOverview(category)
-
-      // Fetch current user's membership info if a token is available.
-      let userTier: CloudMembershipTier | null = null
-      let userCredits: number | null = null
-      const { ensureServerAccessToken } = await import('@/modules/auth/tokenStore')
-      const token = (await ensureServerAccessToken()) ?? ''
-      if (token) {
-        try {
-          const authedClient = getSaasClient(token)
-          const self = await authedClient.user.self()
-          userTier = resolveEffectiveTier(self.user)
-          userCredits = self.user.creditsBalance
-        } catch (err) {
-          logger.debug(
-            { err: err instanceof Error ? err.message : String(err) },
-            '[cloud-browse] user.self failed, continuing without tier info',
-          )
-        }
-      }
-
-      const features = overview.data
-        .filter(
-          (feature: { feature: string }) => !isHiddenFeature(feature.feature),
-        )
-        .map((feature: {
-          feature: string
-          description: string
-          category: string
-          variants: Array<{ id: string; name: string; description: string }>
-        }) => ({
-          feature: feature.feature,
-          category: feature.category,
-          description: feature.description,
-          totalVariants: feature.variants.length,
-          // 逻辑：每个 top variant 从 cloud-skills 的 detail 缓存里补上 tier/credits 与
-          // 当前用户的可访问性。缓存未命中（首次刷新完成前）则 tier=null。
-          topVariants: feature.variants.slice(0, TOP_VARIANTS_PER_FEATURE).map((v) => {
-            const cached = getCachedVariantDetail(v.id)
-            const tier = cached?.minMembershipLevel ?? null
-            const credits = cached?.creditsPerCall ?? null
-            const accessible =
-              tier === null || userTier === null ? null : hasTierAccess(userTier, tier)
-            return {
-              id: v.id,
-              name: v.name,
-              tag: v.description,
-              tier,
-              credits,
-              accessible,
-            }
-          }),
-        }))
-
-      progress.done(`found ${features.length} feature(s)`)
-      return JSON.stringify({
-        ok: true,
-        filter: category ?? 'all',
-        userTier,
-        userCredits,
-        features,
-        hint: buildBrowseHint(userTier, userCredits),
-      })
-    } catch (err) {
-      progress.error(err instanceof Error ? err.message : String(err))
-      return errorString('CloudCapBrowse failed', err)
-    }
-  },
-})
-
-function buildBrowseHint(
-  userTier: CloudMembershipTier | null,
-  userCredits: number | null,
-): string {
-  const parts: string[] = []
-  if (userTier && userCredits !== null) {
-    parts.push(
-      `User tier: ${userTier}, credits balance: ${userCredits}. Only pick a variant where accessible === true (or accessible === null before tier info loads).`,
-    )
-  } else if (!userTier) {
-    parts.push(
-      'User not signed in — accessibility cannot be checked. Ask the user to sign in before invoking CloudModelGenerate.',
-    )
-  }
-  parts.push(
-    'Pick a variant from topVariants by tag/name. For full param schema call CloudCapDetail({variantId, featureId}) — always pass the feature id alongside the variant id since some variants (e.g. OL-TX-006) are shared across multiple features with different input schemas. Otherwise call CloudModelGenerate / CloudTextGenerate directly.',
-  )
-  return parts.join(' ')
-}
-
-// ---------------------------------------------------------------------------
-// CloudCapDetail
-// ---------------------------------------------------------------------------
-
-export const cloudCapDetailTool = tool({
-  description: cloudCapDetailToolDef.description,
-  inputSchema: zodSchema(cloudCapDetailToolDef.parameters),
-  // 逻辑：只读公开接口，无 token、无 credits，白名单自动放行。
-  needsApproval: false,
-  execute: async (input, { toolCallId }): Promise<string> => {
-    const { variantId, featureId } = input as { variantId: string; featureId?: string }
-    const progress = createToolProgress(toolCallId, 'CloudCapDetail')
-    progress.start(featureId ? `detail ${variantId} (${featureId})` : `detail ${variantId}`)
-
-    // 逻辑：绕过 SDK 直接 fetch，让我们可以把 ?feature=<id> 传给 SaaS server。
-    // 同一 variantId (例如 OL-TX-006) 会挂在多个 feature 下 (imageCaption /
-    // translate / chat)，每个 feature 的 inputSlots 不同；不带 featureId 时
-    // server 会返回 400 ambiguous 带 mountedFeatures 列表，模型可据此重试。
-    // SDK 发布新版后可换回 client.ai.capabilitiesDetail(variantId, featureId)。
-    try {
-      const { getSaasBaseUrl } = await import('@/modules/saas/core/config')
-      const query = featureId ? `?feature=${encodeURIComponent(featureId)}` : ''
-      const url = `${getSaasBaseUrl()}/api/ai/v3/capabilities/detail/${encodeURIComponent(variantId)}${query}`
-      const resp = await fetch(url)
-      const payload = (await resp.json().catch(() => null)) as
-        | { success?: boolean; data?: unknown; message?: string }
-        | null
-      if (!resp.ok || !payload?.success) {
-        const detail = payload?.message ?? `HTTP ${resp.status} ${resp.statusText}`
-        progress.error(detail)
-        return `Error: CloudCapDetail(${variantId}${featureId ? `, ${featureId}` : ''}) — ${detail}`
-      }
-      progress.done('schema fetched')
-      return JSON.stringify({ ok: true, data: payload.data })
-    } catch (err) {
-      progress.error(err instanceof Error ? err.message : String(err))
-      return errorString(`CloudCapDetail(${variantId})`, err)
-    }
-  },
-})
-
-// ---------------------------------------------------------------------------
-// Shared generate-and-save pipeline
-// ---------------------------------------------------------------------------
-//
-// 抽出 CloudModelGenerate 的核心流程（normalizeInputs → v3Generate → poll →
-// autoSave），供 CloudModelGenerate 自身以及命名工具 (cloudImageGenerate /
-// cloudVideoGenerate / cloudTTS …) 复用。返回与 CloudModelGenerate 一致的
-// JSON 字符串，命名工具可以原样透传给 LLM 或再 wrap。
 
 export async function runV3GenerateAndSave(args: {
   feature: string
@@ -759,7 +559,7 @@ export async function runV3GenerateAndSave(args: {
   params?: Record<string, unknown>
   waitForCompletion?: boolean
   progress: ToolProgressEmitter
-  /** Tool name shown in error messages (defaults to 'CloudModelGenerate'). */
+  /** Tool name shown in error messages (defaults to the feature id). */
   toolName?: string
 }): Promise<string> {
   const {
@@ -769,12 +569,12 @@ export async function runV3GenerateAndSave(args: {
     params,
     waitForCompletion = true,
     progress,
-    toolName = 'CloudModelGenerate',
+    toolName = 'CloudGenerate',
   } = args
   const token = await requireToken()
   if (typeof token !== 'string') {
     progress.error(token.error)
-    return `Error: ${token.error}`
+    return JSON.stringify({ ok: false, code: 'token_missing', error: token.error })
   }
 
   progress.start(`${feature} / ${variant}`)
@@ -849,8 +649,6 @@ export async function runV3GenerateAndSave(args: {
             : 'Task completed without result URLs.',
     })
   } catch (err) {
-    // 保留 taskId 让 AI 继续 CloudTask/CloudTaskCancel，不要把付费任务丢给
-    // 一个只有错误字符串的上层 — 这会直接丢失 credits。
     if (err instanceof PollTaskTimeoutError) {
       progress.done(`timeout — task ${err.taskId} still running`)
       return JSON.stringify({
@@ -870,96 +668,165 @@ export async function runV3GenerateAndSave(args: {
 }
 
 // ---------------------------------------------------------------------------
-// CloudModelGenerate
+// Shared text-generate pipeline (sync, no polling)
 // ---------------------------------------------------------------------------
+//
+// Used by named tools that return text directly (CloudImageUnderstand,
+// CloudSpeechRecognize). Mirrors runV3GenerateAndSave's signature minus the
+// waitForCompletion / autosave knobs.
 
-export const cloudModelGenerateTool = tool({
-  description: cloudModelGenerateToolDef.description,
-  inputSchema: zodSchema(cloudModelGenerateToolDef.parameters),
-  // 逻辑：每次调用都扣用户 credits（video 类单次可达数百），必须审批。
-  // LLM 幻觉或 prompt 注入触发此工具会直接造成经济损失。
-  needsApproval: true,
-  execute: async (input, { toolCallId }): Promise<string> => {
-    const {
-      feature,
-      variant,
-      inputs,
-      params,
-      waitForCompletion = true,
-    } = input as {
-      feature: string
-      variant: string
-      inputs?: Record<string, unknown>
-      params?: Record<string, unknown>
-      waitForCompletion?: boolean
-    }
+export async function runV3TextGenerate(args: {
+  feature: string
+  variant: string
+  inputs?: Record<string, unknown>
+  params?: Record<string, unknown>
+  progress: ToolProgressEmitter
+  /** Tool name shown in error messages (defaults to the feature id). */
+  toolName?: string
+  /**
+   * 'streaming' 走 SSE API 并实时 progress.delta 推给 UI，'sync' 走 JSON API。
+   * 未传时默认 'sync' —— 历史行为。
+   */
+  executionMode?: 'streaming' | 'sync' | 'task'
+}): Promise<string> {
+  const {
+    feature, variant, inputs, params, progress,
+    toolName = 'CloudTextTool', executionMode = 'sync',
+  } = args
+  const token = await requireToken()
+  if (typeof token !== 'string') {
+    progress.error(token.error)
+    return JSON.stringify({ ok: false, code: 'token_missing', error: token.error })
+  }
 
-    const progress = createToolProgress(toolCallId, 'CloudModelGenerate')
-    return runV3GenerateAndSave({
-      feature,
-      variant,
-      inputs,
-      params,
-      waitForCompletion,
-      progress,
-      toolName: 'CloudModelGenerate',
-    })
-  },
-})
+  progress.start(`${feature} / ${variant}`)
+  try {
+    const client = getSaasClient(token)
+    const normalizedInputs = await normalizeCloudInputs({ inputs, client, progress })
 
-// ---------------------------------------------------------------------------
-// CloudTextGenerate
-// ---------------------------------------------------------------------------
-
-export const cloudTextGenerateTool = tool({
-  description: cloudTextGenerateToolDef.description,
-  inputSchema: zodSchema(cloudTextGenerateToolDef.parameters),
-  // 逻辑：扣 credits，必须审批。与 CloudModelGenerate 同策略。
-  needsApproval: true,
-  execute: async (input, { toolCallId }): Promise<string> => {
-    const { feature, variant, inputs, params } = input as {
-      feature: string
-      variant: string
-      inputs?: Record<string, unknown>
-      params?: Record<string, unknown>
-    }
-
-    const progress = createToolProgress(toolCallId, 'CloudTextGenerate')
-    const token = await requireToken()
-    if (typeof token !== 'string') {
-      progress.error(token.error)
-      return `Error: ${token.error}`
-    }
-
-    progress.start(`${feature} / ${variant}`)
-    try {
-      const client = getSaasClient(token)
-      const normalizedInputs = await normalizeCloudInputs({ inputs, client, progress })
-      const res = await client.ai.v3TextGenerate({
+    if (executionMode === 'streaming') {
+      const res = await client.ai.v3TextGenerateStream({
         feature,
         variant,
         inputs: normalizedInputs,
         params,
       })
-      const text = res.data.text ?? ''
-      const credits = res.data.creditsConsumed ?? 0
-      if (credits > 0) {
-        addCreditsConsumed(credits)
-      }
+      const { text, taskId, credits } = await consumeTextGenerateSSE(res, progress)
+      if (credits > 0) addCreditsConsumed(credits)
       progress.done(`done (${credits} credits)`)
       return JSON.stringify({
         ok: true,
+        feature,
+        variant,
         text,
-        taskId: res.data.taskId,
+        taskId,
         creditsConsumed: credits,
       })
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err)
-      progress.error(message)
-      return errorString(`CloudTextGenerate(${feature}/${variant})`, err)
     }
-  },
-})
+
+    const res = await client.ai.v3TextGenerate({
+      feature,
+      variant,
+      inputs: normalizedInputs,
+      params,
+    })
+    const text = res.data.text ?? ''
+    const credits = res.data.creditsConsumed ?? 0
+    if (credits > 0) {
+      addCreditsConsumed(credits)
+    }
+    progress.done(`done (${credits} credits)`)
+    return JSON.stringify({
+      ok: true,
+      feature,
+      variant,
+      text,
+      taskId: res.data.taskId,
+      creditsConsumed: credits,
+    })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    progress.error(message)
+    return errorString(`${toolName}(${feature}/${variant})`, err)
+  }
+}
+
+/**
+ * 消费 SaaS `/api/ai/v3/text/generate` 的 SSE 响应。
+ *
+ * 协议（AI SDK v3 风格事件）：
+ *   data: {"type":"start","messageId":"msg_xxx"}
+ *   data: {"type":"start-step"}
+ *   data: {"type":"text-start","id":"t_xxx"}
+ *   data: {"type":"text-delta","id":"t_xxx","delta":"...文字片段..."}
+ *   ...（若干 text-delta）
+ *   data: {"type":"text-end","id":"t_xxx"}
+ *   data: {"type":"finish-step"}
+ *   data: {"type":"finish","usage":{"creditsConsumed":123}}
+ *   data: [DONE]
+ *
+ * 每拿到一个 text-delta 就 `progress.delta()` 实时推给 UI（UI 会流式渲染，
+ * 让用户看到 cloud 工具"边执行边说话"），最终返回聚合 text 供 LLM 消费。
+ */
+async function consumeTextGenerateSSE(
+  res: Response,
+  progress: ToolProgressEmitter,
+): Promise<{ text: string; taskId?: string; credits: number }> {
+  if (!res.body) {
+    throw new Error('SSE response has no body')
+  }
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let text = ''
+  let taskId: string | undefined
+  let credits = 0
+
+  // SSE 事件以空行分隔。按 \n\n 切，末段回填 buffer。
+  const flushChunk = (chunk: string) => {
+    const frames = chunk.split(/\r?\n\r?\n/)
+    buffer = frames.pop() ?? ''
+    for (const frame of frames) {
+      // 单个 event 可能有多行 data:，AI SDK 场景里通常只有一行，但兼容起见
+      // 按行取出 `data: <payload>`，忽略注释 / event 类型头等。
+      for (const line of frame.split(/\r?\n/)) {
+        if (!line.startsWith('data:')) continue
+        const raw = line.slice(5).trim()
+        if (!raw || raw === '[DONE]') continue
+        let ev: Record<string, unknown>
+        try { ev = JSON.parse(raw) as Record<string, unknown> }
+        catch { continue }
+        const type = typeof ev.type === 'string' ? ev.type : ''
+        if (type === 'text-delta' && typeof ev.delta === 'string') {
+          text += ev.delta
+          progress.delta(ev.delta)
+        } else if (type === 'start' && typeof ev.messageId === 'string') {
+          taskId = ev.messageId
+        } else if (type === 'finish' || type === 'finish-step') {
+          const usage = ev.usage as { creditsConsumed?: number } | undefined
+          if (usage && typeof usage.creditsConsumed === 'number') {
+            credits = usage.creditsConsumed
+          }
+        } else if (type === 'error') {
+          const msg = typeof ev.error === 'string' ? ev.error : JSON.stringify(ev.error ?? ev)
+          throw new Error(`SSE error event: ${msg}`)
+        }
+      }
+    }
+  }
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    flushChunk(buffer)
+  }
+  // 处理最后一块（stream 结束后 decoder flush）
+  buffer += decoder.decode()
+  if (buffer) flushChunk(buffer + '\n\n')
+
+  return { text, taskId, credits }
+}
 
 // ---------------------------------------------------------------------------
 // CloudTask
@@ -978,7 +845,7 @@ export const cloudTaskTool = tool({
     const token = await requireToken()
     if (typeof token !== 'string') {
       progress.error(token.error)
-      return `Error: ${token.error}`
+      return JSON.stringify({ ok: false, code: 'token_missing', error: token.error })
     }
 
     progress.start(`query ${taskId}`)
@@ -988,9 +855,7 @@ export const cloudTaskTool = tool({
       const data = res.data
 
       // When the task has just reached a successful terminal state, auto-save
-      // any result URLs the same way CloudModelGenerate does. Re-saving on repeated
-      // polls is cheap (files get new timestamps) but typically the AI only
-      // polls until succeeded, so duplication is rare.
+      // any result URLs the same way the generator tools do.
       if (data.status === 'succeeded' && Array.isArray(data.resultUrls) && data.resultUrls.length > 0) {
         const { files, pending, target } = await autoSaveResultUrls({
           resultUrls: data.resultUrls,
@@ -1095,7 +960,6 @@ export const cloudLoginTool = tool({
     const token = (await ensureServerAccessToken()) ?? ''
 
     if (token) {
-      // 已登录：直接返回当前账号信息，避免 UI 再弹一遍登录框。
       progress.start('verifying existing session')
       try {
         const client = getSaasClient(token)
@@ -1117,7 +981,6 @@ export const cloudLoginTool = tool({
           hint: 'User is already signed in. No dialog opened.',
         })
       } catch (err) {
-        // Token 可能过期 — 退回到打开登录框流程。
         logger.debug(
           { err: err instanceof Error ? err.message : String(err) },
           '[cloud-login] existing token rejected, prompting re-login',
@@ -1151,7 +1014,7 @@ export const cloudTaskCancelTool = tool({
     const token = await requireToken()
     if (typeof token !== 'string') {
       progress.error(token.error)
-      return `Error: ${token.error}`
+      return JSON.stringify({ ok: false, code: 'token_missing', error: token.error })
     }
 
     progress.start(`cancel ${taskId}`)

@@ -104,7 +104,8 @@
     "minutesAgo": "{{minutes}}分鐘前",
     "hoursAgo": "{{hours}}小時前",
     "daysAgo": "{{days}}天前",
-    "chatPrefill": "幫我建立一個任務："
+    "chatPrefill": "幫我建立一個任務：",
+    "clearDone": "清除已完成"
   },
   "schedule": {
     "automaticTasks": "自動任務",

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import { getOpenLoafRootDir } from '@openloaf/config'
+import { getOpenLoafDataRootDir } from '@openloaf/config'
 import { logger } from '@/common/logger'
 import {
   listTasks,
@@ -59,7 +59,7 @@ class ScheduleOrchestrator {
 
   /** Enqueue a task for execution (sets autoExecute and triggers tick). */
   async enqueue(taskId: string, projectRoot?: string | null): Promise<void> {
-    const globalRoot = getOpenLoafRootDir()
+    const globalRoot = getOpenLoafDataRootDir()
     const task = getTask(taskId, globalRoot, projectRoot ?? undefined)
     if (!task) return
 
@@ -74,7 +74,7 @@ class ScheduleOrchestrator {
 
   /** Cancel a task. */
   async cancel(taskId: string, projectRoot?: string | null): Promise<void> {
-    const globalRoot = getOpenLoafRootDir()
+    const globalRoot = getOpenLoafDataRootDir()
     const task = getTask(taskId, globalRoot, projectRoot ?? undefined)
     if (!task) return
 
@@ -121,7 +121,7 @@ class ScheduleOrchestrator {
     reason?: string,
     projectRoot?: string | null,
   ): Promise<TaskConfig | null> {
-    const globalRoot = getOpenLoafRootDir()
+    const globalRoot = getOpenLoafDataRootDir()
     const task = getTask(taskId, globalRoot, projectRoot ?? undefined)
     if (!task || task.status !== 'review') return null
 
@@ -224,7 +224,7 @@ class ScheduleOrchestrator {
   /** Periodic scan: collect candidates, check conflicts, start tasks. */
   private async tick(): Promise<void> {
     try {
-      const globalRoot = getOpenLoafRootDir()
+      const globalRoot = getOpenLoafDataRootDir()
       const allTasks = listTasks(globalRoot)
 
       // Collect candidates

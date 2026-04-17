@@ -137,10 +137,63 @@ export async function fillInput(selector: string, value: string) {
 
 // ── 截图 ──
 
+/**
+ * 截图 — 临时展开 harness 及其内部所有滚动容器到自然高度，
+ * 确保拿到完整内容高度而不是 viewport 截断版本。
+ */
 export async function takePageScreenshot(name: string) {
   const locator = page.getByTestId('page-probe-harness')
+  const harness = locator.element() as HTMLElement | null
   const dir = typeof __BROWSER_TEST_RUN_DIR__ === 'string' ? __BROWSER_TEST_RUN_DIR__ : '.'
-  return locator.screenshot({ path: `${dir}/screenshots/${name}.png` })
+
+  const snapshots: Array<{ el: HTMLElement; prop: string; prev: string; hadInline: boolean }> = []
+  const setStyle = (el: HTMLElement, prop: string, value: string) => {
+    snapshots.push({
+      el, prop,
+      prev: el.style.getPropertyValue(prop),
+      hadInline: el.style.getPropertyValue(prop) !== '',
+    })
+    el.style.setProperty(prop, value, 'important')
+  }
+
+  if (harness) {
+    setStyle(harness, 'height', 'auto')
+    setStyle(harness, 'min-height', '0')
+    setStyle(harness, 'max-height', 'none')
+    setStyle(harness, 'width', '100vw')
+    setStyle(harness, 'min-width', '100vw')
+    for (const el of harness.querySelectorAll<HTMLElement>('*')) {
+      const s = getComputedStyle(el)
+      if (s.overflowY === 'auto' || s.overflowY === 'scroll' || s.overflow === 'auto' || s.overflow === 'scroll') {
+        setStyle(el, 'overflow', 'visible')
+        setStyle(el, 'height', 'auto')
+        setStyle(el, 'min-height', 'auto')
+        setStyle(el, 'max-height', 'none')
+      }
+    }
+    setStyle(document.documentElement, 'overflow', 'visible')
+    setStyle(document.documentElement, 'height', 'auto')
+    setStyle(document.body, 'overflow', 'visible')
+    setStyle(document.body, 'height', 'auto')
+    window.scrollTo(0, 0)
+    await new Promise<void>(resolve => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+    })
+  }
+
+  try {
+    return await page.screenshot({
+      path: `${dir}/screenshots/${name}.png`,
+      // @ts-expect-error fullPage 未在 vitest d.ts 显式导出
+      fullPage: true,
+    })
+  } finally {
+    for (let i = snapshots.length - 1; i >= 0; i--) {
+      const s = snapshots[i]
+      if (s.hadInline) s.el.style.setProperty(s.prop, s.prev)
+      else s.el.style.removeProperty(s.prop)
+    }
+  }
 }
 
 // ── 读取列表 ──

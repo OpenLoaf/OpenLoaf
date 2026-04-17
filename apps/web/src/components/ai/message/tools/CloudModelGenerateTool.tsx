@@ -364,13 +364,17 @@ function PendingView({
   input: Record<string, unknown>
   t: TFunction
 }) {
-  // Three input shapes share this component:
-  //   1. CloudModelGenerate — { feature, variant, inputs: { prompt, ... }, params }
-  //   2. CloudImageGenerate — flat { prompt, aspectRatio, ... }
-  //   3. CloudImageEdit — flat { image, instruction, ... } (no `prompt` field)
+  // Four input shapes share this component:
+  //   1. CloudImageGenerate — flat { prompt, aspectRatio, ... }
+  //   2. CloudImageEdit — flat { image, instruction, ... } (no `prompt` field)
+  //   3. CloudVideoGenerate — flat { prompt, startImage?, ... }
+  //   4. CloudTTS — flat { text, voice?, ... } (uses `text` instead of `prompt`)
+  // The nested `inputs.prompt` fallback is kept for session replay of
+  // historical messages produced by the now-removed CloudModelGenerate tool.
   const flatPrompt = typeof input.prompt === 'string' ? input.prompt : undefined
   const flatInstruction =
     typeof input.instruction === 'string' ? input.instruction : undefined
+  const flatText = typeof input.text === 'string' ? input.text : undefined
   const nestedPrompt =
     input.inputs && typeof input.inputs === 'object' && input.inputs !== null
       ? (input.inputs as Record<string, unknown>).prompt
@@ -378,6 +382,7 @@ function PendingView({
   const promptText =
     (typeof flatPrompt === 'string' && flatPrompt) ||
     (typeof flatInstruction === 'string' && flatInstruction) ||
+    (typeof flatText === 'string' && flatText) ||
     (typeof nestedPrompt === 'string' ? nestedPrompt : '')
   if (!promptText) return <EmptyView />
   return (

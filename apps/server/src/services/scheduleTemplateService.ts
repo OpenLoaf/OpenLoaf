@@ -22,6 +22,11 @@ import { createTask, type CreateTaskInput, type TaskConfig, type TaskScope } fro
 const OPENLOAF_DIR = '.openloaf'
 const TEMPLATES_DIR = 'task-templates'
 
+/**
+ * Templates are always global scope — stored directly under globalRoot (~/OpenLoafData/task-templates/).
+ * No .openloaf prefix needed for global data root.
+ */
+
 // ─── Types ───────────────────────────────────────────────────────────
 
 export type TaskTemplate = {
@@ -45,7 +50,8 @@ export type CreateTemplateInput = Omit<TaskTemplate, 'id' | 'createdAt' | 'updat
 // ─── Helpers ─────────────────────────────────────────────────────────
 
 function resolveTemplatesDir(rootPath: string): string {
-  return path.join(rootPath, OPENLOAF_DIR, TEMPLATES_DIR)
+  // Templates are global — stored directly under ~/OpenLoafData/task-templates/
+  return path.join(rootPath, TEMPLATES_DIR)
 }
 
 // ─── Public API ──────────────────────────────────────────────────────

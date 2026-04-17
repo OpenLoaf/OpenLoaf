@@ -2,7 +2,7 @@
  * 022: Kling 视频生成 — 带首帧图片。
  *
  * 先让 AI 生成一张图片，再用 Kling 模型把图片做成视频。
- * 核心验证：AI 调 CloudCapDetail 拿到 startImage slot，
+ * 核心验证：AI 用 CloudImageGenerate 先生成首帧图，再用 CloudVideoGenerate（带 startImage）生视频，
  * 并用 { url/path } 对象格式传入，不会 502。
  */
 import { it, expect } from 'vitest'
@@ -33,7 +33,7 @@ it('022 — Kling 视频生成：图生视频', async () => {
   await takeProbeScreenshot('022-cloud-kling-video')
   const meta = {
     testCase: '022-cloud-kling-video', prompt, result,
-    description: 'Kling video generation with startImage from prior image generation',
+    description: 'Kling 视频生成（使用上一步生成的图片作起始帧）',
     tags: ['cloud', 'video', 'kling', 'startImage'],
   }
   await (commands as any).saveTestData(meta)
@@ -42,10 +42,13 @@ it('022 — Kling 视频生成：图生视频', async () => {
   // ── 断言 ──
   expect(result.status).toBe('ok')
 
-  // 必须调了 Detail（视频必须拿 schema）
-  expect(result.toolCalls).toContain('CloudCapDetail')
-  // 至少调了两次 Generate（一次图片 + 一次视频）
-  const generateCount = result.toolCalls.filter((t: string) => t === 'CloudModelGenerate').length
+  // 命名工具路径：先生图，再用结果作为首帧生视频
+  expect(result.toolCalls).toContain('CloudImageGenerate')
+  expect(result.toolCalls).toContain('CloudVideoGenerate')
+  // 至少两次命名生成调用（image + video）
+  const generateCount = result.toolCalls.filter(
+    (t: string) => t === 'CloudImageGenerate' || t === 'CloudVideoGenerate',
+  ).length
   expect(generateCount).toBeGreaterThanOrEqual(2)
 
   const judgment = await aiJudge({

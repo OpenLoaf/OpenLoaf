@@ -55,15 +55,16 @@ import {
   cloudLoginTool,
   cloudUserInfoTool,
   cloudTaskCancelTool,
-  cloudCapBrowseTool,
-  cloudCapDetailTool,
-  cloudModelGenerateTool,
   cloudTaskTool,
-  cloudTextGenerateTool,
 } from "@/ai/tools/cloud/cloudTools";
 import {
   cloudImageGenerateTool,
   cloudImageEditTool,
+  cloudVideoGenerateTool,
+  cloudTTSTool,
+  cloudSpeechRecognizeTool,
+  cloudImageUnderstandTool,
+  enhanceCloudNamedToolDescription,
 } from "@/ai/tools/cloud/cloudNamedTools";
 import { openUrlToolDef } from "@openloaf/api/types/tools/browser";
 import {
@@ -116,13 +117,13 @@ import {
   cloudLoginToolDef,
   cloudUserInfoToolDef,
   cloudTaskCancelToolDef,
-  cloudCapBrowseToolDef,
-  cloudCapDetailToolDef,
-  cloudModelGenerateToolDef,
   cloudTaskToolDef,
-  cloudTextGenerateToolDef,
   cloudImageGenerateToolDef,
   cloudImageEditToolDef,
+  cloudVideoGenerateToolDef,
+  cloudTTSToolDef,
+  cloudSpeechRecognizeToolDef,
+  cloudImageUnderstandToolDef,
 } from "@openloaf/api/types/tools/cloud";
 import {
   bashToolDef,
@@ -369,18 +370,6 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
   [memorySaveToolDef.id]: {
     tool: memorySaveTool,
   },
-  [cloudCapBrowseToolDef.id]: {
-    tool: cloudCapBrowseTool,
-  },
-  [cloudCapDetailToolDef.id]: {
-    tool: cloudCapDetailTool,
-  },
-  [cloudModelGenerateToolDef.id]: {
-    tool: cloudModelGenerateTool,
-  },
-  [cloudTextGenerateToolDef.id]: {
-    tool: cloudTextGenerateTool,
-  },
   [cloudTaskToolDef.id]: {
     tool: cloudTaskTool,
   },
@@ -398,6 +387,18 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
   },
   [cloudImageEditToolDef.id]: {
     tool: cloudImageEditTool,
+  },
+  [cloudVideoGenerateToolDef.id]: {
+    tool: cloudVideoGenerateTool,
+  },
+  [cloudTTSToolDef.id]: {
+    tool: cloudTTSTool,
+  },
+  [cloudSpeechRecognizeToolDef.id]: {
+    tool: cloudSpeechRecognizeTool,
+  },
+  [cloudImageUnderstandToolDef.id]: {
+    tool: cloudImageUnderstandTool,
   },
 };
 
@@ -461,16 +462,16 @@ const TOOL_DEF_REGISTRY: Record<string, { parameters?: any }> = {
   [webFetchToolDef.id]: webFetchToolDef,
   [loadSkillToolDef.id]: loadSkillToolDef,
   [memorySaveToolDef.id]: memorySaveToolDef,
-  [cloudCapBrowseToolDef.id]: cloudCapBrowseToolDef,
-  [cloudCapDetailToolDef.id]: cloudCapDetailToolDef,
-  [cloudModelGenerateToolDef.id]: cloudModelGenerateToolDef,
-  [cloudTextGenerateToolDef.id]: cloudTextGenerateToolDef,
   [cloudTaskToolDef.id]: cloudTaskToolDef,
   [cloudTaskCancelToolDef.id]: cloudTaskCancelToolDef,
   [cloudUserInfoToolDef.id]: cloudUserInfoToolDef,
   [cloudLoginToolDef.id]: cloudLoginToolDef,
   [cloudImageGenerateToolDef.id]: cloudImageGenerateToolDef,
   [cloudImageEditToolDef.id]: cloudImageEditToolDef,
+  [cloudVideoGenerateToolDef.id]: cloudVideoGenerateToolDef,
+  [cloudTTSToolDef.id]: cloudTTSToolDef,
+  [cloudSpeechRecognizeToolDef.id]: cloudSpeechRecognizeToolDef,
+  [cloudImageUnderstandToolDef.id]: cloudImageUnderstandToolDef,
 };
 
 /**
@@ -645,7 +646,18 @@ export function buildToolset(toolIds: readonly string[] = []) {
     const withInputValidation = wrapToolWithInputValidation(toolId, withAutoApproval);
     const withTimeout = wrapToolWithTimeout(toolId, withInputValidation);
     const withErrorEnhancer = wrapToolWithErrorEnhancer(toolId, withTimeout);
-    toolset[toolId] = withErrorEnhancer;
+    // 动态 description — 给 Cloud 命名工具追加当前可用 variant 的 <system-tag>，
+    // 让模型在 tool schema 里就能看到 variant 列表，自行决定 modelHint。
+    // 每次 agent 创建时 rebuild，保证拿到最新的 capability snapshot。
+    const enhancedDesc = enhanceCloudNamedToolDescription(
+      toolId,
+      withErrorEnhancer.description ?? "",
+    );
+    const finalTool =
+      enhancedDesc === (withErrorEnhancer.description ?? "")
+        ? withErrorEnhancer
+        : { ...withErrorEnhancer, description: enhancedDesc };
+    toolset[toolId] = finalTool;
   }
   return toolset;
 }
