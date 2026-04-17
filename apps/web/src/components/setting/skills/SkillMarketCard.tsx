@@ -94,6 +94,10 @@ export function SkillMarketCard({
 
   return (
     <div
+      data-testid="skill-market-card"
+      data-skill-id={skill.id}
+      data-installed={skill.installed ? 'true' : 'false'}
+      data-has-update={skill.hasUpdate ? 'true' : 'false'}
       className={cn(
         'group relative flex flex-col overflow-hidden rounded-3xl border border-border/70',
         'bg-background transition-all duration-200 hover:border-foreground/40 cursor-pointer',
@@ -192,6 +196,7 @@ export function SkillMarketCard({
         <Button
           type="button"
           size="sm"
+          data-testid="skill-market-card-install"
           variant={skill.installed && !skill.hasUpdate ? 'ghost' : 'secondary'}
           className={cn(
             'h-7 rounded-full px-3 text-xs transition-colors duration-150',

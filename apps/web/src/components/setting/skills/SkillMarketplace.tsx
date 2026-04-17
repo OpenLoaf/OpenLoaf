@@ -25,7 +25,6 @@ import {
 import {
   ChevronLeft,
   ChevronRight,
-  Loader2,
   PackageSearch,
   RefreshCw,
   Search,
@@ -183,7 +182,7 @@ export function SkillMarketplace({ projectId }: SkillMarketplaceProps) {
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div data-testid="skill-marketplace" className="flex h-full min-h-0 flex-col">
       {/* Header: search + filters */}
       <div className="flex flex-wrap items-center gap-2 border-b px-6 py-4">
         {/* Search */}
@@ -191,6 +190,7 @@ export function SkillMarketplace({ projectId }: SkillMarketplaceProps) {
           <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/60" />
           <Input
             type="text"
+            data-testid="skill-market-search"
             placeholder={t('skills.marketplace.searchPlaceholder', {
               defaultValue: 'Search marketplace...',
             })}
@@ -201,6 +201,7 @@ export function SkillMarketplace({ projectId }: SkillMarketplaceProps) {
           {searchQuery ? (
             <button
               type="button"
+              data-testid="skill-market-search-clear"
               onClick={() => setSearchQuery('')}
               className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground/60 hover:text-foreground"
             >
@@ -214,12 +215,15 @@ export function SkillMarketplace({ projectId }: SkillMarketplaceProps) {
           value={category}
           onValueChange={(v) => { setCategory(v as MarketCategory); setPage(1) }}
         >
-          <SelectTrigger className="h-8 w-36 rounded-3xl border-transparent bg-muted/40 text-sm">
+          <SelectTrigger
+            data-testid="skill-market-category-trigger"
+            className="h-8 w-36 rounded-3xl border-transparent bg-muted/40 text-sm"
+          >
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             {CATEGORIES.map((cat) => (
-              <SelectItem key={cat} value={cat}>
+              <SelectItem key={cat} value={cat} data-testid={`skill-market-category-${cat}`}>
                 {t(`skills.marketplace.category.${cat}`, {
                   defaultValue: CATEGORY_LABELS[cat],
                 })}
@@ -233,12 +237,15 @@ export function SkillMarketplace({ projectId }: SkillMarketplaceProps) {
           value={sort}
           onValueChange={(v) => { setSort(v as MarketSort); setPage(1) }}
         >
-          <SelectTrigger className="h-8 w-32 rounded-3xl border-transparent bg-muted/40 text-sm">
+          <SelectTrigger
+            data-testid="skill-market-sort-trigger"
+            className="h-8 w-32 rounded-3xl border-transparent bg-muted/40 text-sm"
+          >
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             {SORT_OPTIONS.map((opt) => (
-              <SelectItem key={opt} value={opt}>
+              <SelectItem key={opt} value={opt} data-testid={`skill-market-sort-${opt}`}>
                 {t(`skills.marketplace.sort.${opt}`, {
                   defaultValue: SORT_LABELS[opt],
                 })}
@@ -252,6 +259,7 @@ export function SkillMarketplace({ projectId }: SkillMarketplaceProps) {
           type="button"
           size="icon"
           variant="ghost"
+          data-testid="skill-market-refresh"
           className="h-8 w-8 rounded-3xl text-muted-foreground hover:text-foreground"
           onClick={() => void refetch()}
           disabled={isLoading}
@@ -263,7 +271,10 @@ export function SkillMarketplace({ projectId }: SkillMarketplaceProps) {
       {/* Body */}
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
         {isLoading ? (
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(248px,1fr))] gap-3.5">
+          <div
+            data-testid="skill-market-loading"
+            className="grid grid-cols-[repeat(auto-fill,minmax(248px,1fr))] gap-3.5"
+          >
             {Array.from({ length: 8 }).map((_, i) => (
               <div
                 key={i}
@@ -272,7 +283,10 @@ export function SkillMarketplace({ projectId }: SkillMarketplaceProps) {
             ))}
           </div>
         ) : isError ? (
-          <div className="flex flex-col items-center gap-3 py-12">
+          <div
+            data-testid="skill-market-error"
+            className="flex flex-col items-center gap-3 py-12"
+          >
             <p className="text-sm text-destructive">
               {t('skills.marketplace.loadFailed', {
                 error: error?.message,
@@ -283,6 +297,7 @@ export function SkillMarketplace({ projectId }: SkillMarketplaceProps) {
               type="button"
               variant="ghost"
               size="sm"
+              data-testid="skill-market-error-retry"
               className="rounded-full transition-colors duration-150"
               onClick={() => void refetch()}
             >
@@ -291,7 +306,11 @@ export function SkillMarketplace({ projectId }: SkillMarketplaceProps) {
             </Button>
           </div>
         ) : skills.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 py-12">
+          <div
+            data-testid="skill-market-empty"
+            data-empty-reason={debouncedQuery ? 'no-results' : 'no-skills'}
+            className="flex flex-col items-center gap-2 py-12"
+          >
             <PackageSearch className="h-10 w-10 text-muted-foreground/30" />
             <p className="text-sm text-muted-foreground">
               {debouncedQuery
@@ -305,7 +324,11 @@ export function SkillMarketplace({ projectId }: SkillMarketplaceProps) {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(248px,1fr))] gap-3.5">
+            <div
+              data-testid="skill-market-grid"
+              data-card-count={skills.length}
+              className="grid grid-cols-[repeat(auto-fill,minmax(248px,1fr))] gap-3.5"
+            >
               {skills.map((skill) => (
                 <SkillMarketCard
                   key={skill.id}
@@ -322,11 +345,17 @@ export function SkillMarketplace({ projectId }: SkillMarketplaceProps) {
 
             {/* Pagination */}
             {totalPages > 1 ? (
-              <div className="mt-6 flex items-center justify-center gap-2">
+              <div
+                data-testid="skill-market-pagination"
+                data-page={page}
+                data-total-pages={totalPages}
+                className="mt-6 flex items-center justify-center gap-2"
+              >
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
+                  data-testid="skill-market-prev-page"
                   className="h-8 rounded-full px-3 text-muted-foreground hover:text-foreground transition-colors duration-150"
                   disabled={page <= 1 || isFetching}
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
@@ -345,6 +374,7 @@ export function SkillMarketplace({ projectId }: SkillMarketplaceProps) {
                   type="button"
                   variant="ghost"
                   size="sm"
+                  data-testid="skill-market-next-page"
                   className="h-8 rounded-full px-3 text-muted-foreground hover:text-foreground transition-colors duration-150"
                   disabled={page >= totalPages || isFetching}
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
