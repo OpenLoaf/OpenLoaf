@@ -83,9 +83,15 @@ function PageProbeInner({
   const [error, setError] = React.useState<string | undefined>(undefined)
   const [payload, setPayload] = React.useState<Record<string, unknown>>({})
 
-  // 逻辑：拦截 fetch 失败（非 2xx 或异常），把请求 URL + 状态码 + 错误消息
-  // 记到 window.__probeNetworkErrors，失败时附加到 payload 方便排查。
-  // 比 aggregated "List failed" 这种上游文案有用得多。
+  // 逻辑：test 环境下拦截 fetch 做两件事：
+  //
+  // 1) 反代前缀兜底：@openloaf-saas/sdk 的 dist bundle 是混淆过的，用户传入的
+  //    fetcher 在某些打包情况下不会被调用，导致 SDK 直接 `fetch('<server>/api/...')`
+  //    而绕过 SaaS 反代（`/api/saas/raw`）。桌面端实际 runtime 正常，但
+  //    vitest browser 里打包路径不同，复现不了。test 层兜底重写一次前缀，
+  //    确保 harness 真能命中 Server 的反代白名单路径。
+  // 2) 网络错误抓取：把非 2xx / 异常请求写到 window.__probeNetworkErrors，
+  //    失败时附到 payload，避免 UI 层模糊文案（"List failed"）掩盖 root cause。
   React.useEffect(() => {
     if (typeof window === 'undefined') return
     const w = window as unknown as {
@@ -95,26 +101,77 @@ function PageProbeInner({
     if (w.__probeFetchPatched) return
     w.__probeFetchPatched = true
     w.__probeNetworkErrors = []
+
     const origFetch = window.fetch.bind(window)
-    window.fetch = async (input, init) => {
-      const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : (input as Request).url
+    const proxyMount = '/api/saas/raw'
+    const normServer = serverUrl ? serverUrl.replace(/\/$/, '') : ''
+
+    function maybeInjectProxy(rawUrl: string): string {
+      if (!normServer) return rawUrl
       try {
-        const res = await origFetch(input as RequestInfo, init)
+        const u = new URL(rawUrl)
+        if (u.origin !== normServer) return rawUrl
+        if (u.pathname.startsWith(proxyMount)) return rawUrl
+        if (!u.pathname.startsWith('/api/')) return rawUrl
+        u.pathname = `${proxyMount}${u.pathname}`
+        return u.toString()
+      } catch {
+        return rawUrl
+      }
+    }
+
+    function shouldInjectClientHeader(url: string): boolean {
+      if (!normServer) return false
+      try {
+        const u = new URL(url)
+        if (u.origin !== normServer) return false
+        // strictClientGuard 守护 /api/saas/raw/* 和 /auth/*；tRPC 走 /trpc/* 也受 aiRouteGuard/保护
+        return (
+          u.pathname.startsWith('/api/saas/raw') ||
+          u.pathname.startsWith('/auth/') ||
+          u.pathname.startsWith('/trpc/') ||
+          u.pathname.startsWith('/ai/')
+        )
+      } catch {
+        return false
+      }
+    }
+
+    window.fetch = async (input, init) => {
+      const rawUrl = typeof input === 'string'
+        ? input
+        : input instanceof URL ? input.toString() : (input as Request).url
+      const finalUrl = maybeInjectProxy(rawUrl)
+
+      // 补齐 X-OpenLoaf-Client header（SDK 在 dev bundle 下有时吞掉 options.headers）
+      let finalInit = init
+      if (shouldInjectClientHeader(finalUrl)) {
+        const headers = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined))
+        if (!headers.has('X-OpenLoaf-Client')) headers.set('X-OpenLoaf-Client', '1')
+        finalInit = { ...(init ?? {}), headers }
+      }
+
+      const finalInput: RequestInfo = typeof input === 'string' || input instanceof URL
+        ? finalUrl
+        : new Request(finalUrl, input as Request)
+
+      try {
+        const res = await origFetch(finalInput, finalInit)
         if (!res.ok) {
           let body: string | undefined
           try { body = (await res.clone().text()).slice(0, 500) } catch {}
-          w.__probeNetworkErrors?.push({ url, status: res.status, body })
+          w.__probeNetworkErrors?.push({ url: finalUrl, status: res.status, body })
         }
         return res
       } catch (err) {
         w.__probeNetworkErrors?.push({
-          url, status: 0,
+          url: finalUrl, status: 0,
           message: err instanceof Error ? `${err.name}: ${err.message}` : String(err),
         })
         throw err
       }
     }
-  }, [])
+  }, [serverUrl])
   const startedAtRef = React.useRef<string>('')
   const startTimeRef = React.useRef<number>(0)
   const completedRef = React.useRef(false)
