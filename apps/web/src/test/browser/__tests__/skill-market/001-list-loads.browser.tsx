@@ -40,6 +40,7 @@ describe('Skill Market — 001 list loads', () => {
         error: result.error,
         textPreview: `cards=${cardCount} empty=${emptyState}`,
         startedAt: result.startedAt,
+        payload: result.payload,
       },
       description: 'Skill marketplace list renders successfully',
       tags: ['skill-market', 'smoke'],
