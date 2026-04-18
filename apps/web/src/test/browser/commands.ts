@@ -12,6 +12,8 @@ import { execSync } from 'node:child_process'
 import { homedir } from 'node:os'
 import { fileURLToPath } from 'node:url'
 import type { BrowserCommand } from 'vitest/node'
+import { readTestCaseSpec } from './test-case-spec.mjs'
+import { getYamlPath, resolveSuite } from './test-case-paths.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const SKILL_ROOT = resolve(__dirname, '../../../../.agents/skills/ai-browser-test')
@@ -76,11 +78,14 @@ export type RecordProbeRunInput = {
     status: string
     toolCalls: string[]
     toolCallDetails?: ToolCallDetailRecord[]
+    toolErrorCount?: number
     elapsedMs: number
     finishReason: string | null
     error?: string
     textPreview: string
     startedAt: string
+    /** 本次 probe 消耗的 SaaS 积分（ChatProbeHarness 从 message.metadata.openloaf 累加） */
+    creditsConsumed?: number
   }
 }
 
@@ -101,9 +106,10 @@ export const recordProbeRun: BrowserCommand<[RecordProbeRunInput]> = async (
 
   let runRecorded = false
   if (testCase) {
-    // 确保 test-case YAML 存在
-    if (!existsSync(TEST_CASES_DIR)) mkdirSync(TEST_CASES_DIR, { recursive: true })
-    const yamlPath = join(TEST_CASES_DIR, `${testCase}.yaml`)
+    // 确保 test-case YAML 存在（按 suite 子目录落盘；suite 无法解析时兜底到根目录）
+    const yamlPath = getYamlPath(TEST_CASES_DIR, testCase)
+    const yamlDir = dirname(yamlPath)
+    if (!existsSync(yamlDir)) mkdirSync(yamlDir, { recursive: true })
     if (!existsSync(yamlPath)) {
       const yaml = [
         `name: ${testCase}`,
@@ -122,8 +128,10 @@ export const recordProbeRun: BrowserCommand<[RecordProbeRunInput]> = async (
     const git = getGitInfo()
     const runDir = process.env.BROWSER_TEST_RUN_DIR || null
     const screenshotsDir = runDir ? join(runDir, 'screenshots') : null
+    const spec = readTestCaseSpec(yamlPath) as { description: string | null; purpose: string | null }
     const record = {
       testCase,
+      suite: resolveSuite(testCase),
       runAt: result.startedAt,
       sessionId: result.sessionId,
       historyPath,
@@ -138,9 +146,18 @@ export const recordProbeRun: BrowserCommand<[RecordProbeRunInput]> = async (
       platform: 'web',
       prompt,
       textPreview: result.textPreview,
+      // 从 ProbeResult 透传积分消耗，generate-report.mjs 读 run.creditsConsumed
+      // 展示到用例卡片和主页总计。未采集到时留空（不写 0 避免污染总计）。
+      ...(typeof result.creditsConsumed === 'number' && result.creditsConsumed > 0
+        ? { creditsConsumed: result.creditsConsumed }
+        : {}),
       trigger: 'vitest-browser',
       gitCommit: git.commit,
       gitBranch: git.branch,
+      // Human/AI-readable spec read from the test-case yaml — lets evaluator subagents
+      // and the HTML report see what each test is supposed to verify.
+      purpose: spec.purpose,
+      specDescription: spec.description,
     }
     appendFileSync(RUNS_JSONL, JSON.stringify(record) + '\n', 'utf-8')
     runRecorded = true

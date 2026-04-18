@@ -178,6 +178,10 @@ export default function WriteFileTool({
   const showToolKind = Boolean(toolKind) && title !== toolKind
   const approvalId = getApprovalId(part)
   const isPending = isApprovalPending(part)
+  // 中文注释：用户拒绝 Write 审批后，卡片需要显示"已拒绝执行"反馈，
+  // 否则按钮消失 + 无任何视觉变化，用户误以为"点拒绝没反应"。
+  const isRejected = part.approval?.approved === false
+  const isApproved = part.approval?.approved === true
 
   const windowState = isError
     ? 'error' as const
@@ -359,11 +363,20 @@ export default function WriteFileTool({
           ) : null}
         </div>
 
-        {/* 审批区域（仅 pending 时显示） */}
+        {/* 审批区域 */}
         {isPending && approvalId ? (
           <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5 border-t px-3 py-2.5">
             <span className="shrink-0 text-xs text-muted-foreground">{t('tool.confirmWrite')}</span>
             <ToolApprovalActions approvalId={approvalId} size="default" />
+          </div>
+        ) : isRejected ? (
+          <div className="flex items-center gap-2 border-t bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+            <span className="font-medium">{t('tool.approvalRejected')}</span>
+            <span className="opacity-70">· {t('tool.rejected')}</span>
+          </div>
+        ) : isApproved && !isDone && !isError ? (
+          <div className="flex items-center gap-2 border-t bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+            <span className="font-medium">{t('tool.approvalAccepted')}</span>
           </div>
         ) : null}
       </div>

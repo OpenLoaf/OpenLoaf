@@ -8,6 +8,16 @@ description: >
 
 本技能指导你为 OpenLoaf 创建、编辑和改进自定义 Skill。Skill 是一段 Markdown 指令，当用户的请求匹配 `description` 时会被自动加载进对话，让 AI 按照里面的方法执行任务。
 
+## 工具清单
+
+| 工具 | 职责 | 只读 |
+|------|------|------|
+| `Read` / `Glob` / `Grep` | 读取现有 skill 与定位锚点（常驻工具） | 是 |
+| `Write` | 创建新的 `SKILL.md` / `openloaf.json` / 辅助脚本（常驻工具） | 否 |
+| `Edit` | 修改已有 skill 内容（常驻工具） | 否 |
+
+> **加载**：全部为核心工具，始终可用，无需 `ToolSearch` 激活。本 skill 没有专有 deferred 工具 — 它是指导型 skill，教 AI 如何组织自定义 skill 文件。
+
 ## 作用域：全局技能 vs 项目技能
 
 用户自定义技能分两种作用域，**先搞清楚该放哪里再动手**。优先级由低到高：`builtin < global < project`，同名时项目技能覆盖全局技能。

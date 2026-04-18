@@ -6,6 +6,15 @@ description: >
 
 # 日历操作技能
 
+## 工具清单
+
+| 工具 | 职责 | 只读 |
+|------|------|------|
+| `CalendarQuery` | 查询日历源 / 日程项目（mode: `list-sources` / `list-items` / `get-event` 等） | 是 |
+| `CalendarMutate` | 创建 / 更新 / 删除日程（`kind: event` 或 `reminder`） | 否 |
+
+> **加载**：全部为 deferred 工具，调用前须先 `ToolSearch(names: "CalendarQuery,CalendarMutate")` 激活 schema。
+
 ## 决策流程：用户想做什么？
 
 ### 路径 A — 查看日程 / 判断是否有空

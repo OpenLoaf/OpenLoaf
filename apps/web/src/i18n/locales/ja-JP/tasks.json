@@ -18,12 +18,7 @@
     "board": "タスクボード",
     "list": "タスクリスト",
     "scheduled": "スケジュールタスク",
-    "template": "タスクテンプレート",
-    "templates": "テンプレート",
-    "createTemplate": "テンプレートを作成",
-    "editTemplate": "テンプレートを編集",
-    "deleteTemplate": "テンプレートを削除",
-    "selectTemplate": "テンプレートを選択",
+
     "newScheduledTask": "新規スケジュールタスク",
     "createScheduledTask": "スケジュールタスクを作成",
     "editScheduledTask": "スケジュールタスクを編集",
@@ -43,13 +38,7 @@
     "weekly": "毎週",
     "monthly": "毎月",
     "yearly": "毎年",
-    "createFromTemplate": "テンプレートからタスクを作成",
-    "templateName": "テンプレート名",
-    "templateNamePlaceholder": "テンプレート名を入力",
-    "templateDescriptionPlaceholder": "テンプレートの説明を入力（任意）",
-    "saveTemplate": "テンプレートを保存",
-    "noTemplates": "テンプレートがありません",
-    "newTemplate": "テンプレートを作成",
+
     "back": "戻る"
   },
   "status": {

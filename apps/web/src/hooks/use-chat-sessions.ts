@@ -39,6 +39,8 @@ export type ChatSessionListItem = {
   projectIcon: string | null;
   /** Session message count. */
   messageCount: number;
+  /** 会话目录下是否存在附件资源（asset/）。 */
+  hasAssets?: boolean;
   /** ai-browser-test 自动测试标记，来自 session.json。 */
   autoTest?: boolean;
   /** 自动测试评审聚合分数（EVALUATION.json aggregate.score），未评审为 null。 */

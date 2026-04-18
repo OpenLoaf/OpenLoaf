@@ -445,34 +445,63 @@ function stripPendingToolParts(messages: UIMessage[]): UIMessage[] {
         if (payload) {
           const toolNameRaw = (part as any).toolName ?? type?.replace?.("tool-", "") ?? "";
           const isSubmitPlan = toolNameRaw === "SubmitPlan";
-          let output: unknown = payload;
+          const approvedFlag = (payload as { approved?: unknown }).approved;
 
+          // 中文注释：AI SDK UIMessage schema 对 approval 有严格约束：
+          //   - `state: 'output-available'` 必须搭配 `approval.approved === true`
+          //   - `state: 'output-denied'` 必须搭配 `approval.approved === false`，且禁止带 output
+          // 我们这里分路径改写，让模型链语义清晰、同时通过 validateUIMessages 校验。
+          const originalApproval = ((part as any).approval ?? {}) as { id?: string };
+
+          if (approvedFlag === false) {
+            // 拒绝路径：state='output-denied'，AI SDK 在 convertToModelMessages 时
+            // 会把该 tool part 映射成 tool result 提示"user denied"，模型据此回应
+            // 用户的拒绝、不要重试同样参数（比裸 {approved:false} 的 structured value 明确得多）。
+            const reason = isSubmitPlan
+              ? typeof (payload as { feedback?: unknown }).feedback === "string"
+                ? ((payload as { feedback?: string }).feedback as string)
+                : "User rejected. Please ask the user for a different approach."
+              : `User rejected the ${toolNameRaw} call. Do not retry with identical arguments; acknowledge the rejection in natural language.`;
+            filtered.push({
+              ...part,
+              state: "output-denied",
+              approval: {
+                ...originalApproval,
+                approved: false,
+                reason,
+              },
+            });
+            changed = true;
+            continue;
+          }
+
+          // 允许路径（approved === true）：转 output-available，需要同步 approval.approved=true，
+          // 并给一个明确的 output 语义（SubmitPlan 特殊 message，其他工具通用 message）。
+          let output: unknown = payload;
           if (isSubmitPlan) {
-            // SubmitPlan: file-based plan approval.
-            // 正常审批流程中 execute() 会被 AI SDK 调用（它能 async 读文件）。
-            // stripPendingToolParts 只处理历史消息恢复场景，构造简化 output。
             const planInput = (part as any).input;
-            const planFilePathInput = typeof planInput?.planFilePath === "string" ? planInput.planFilePath : "";
-            if (payload.approved === true) {
-              output = {
-                ok: true,
-                data: { approved: true },
-                message: `Plan approved (${planFilePathInput}). Start executing.`,
-              };
-            } else if (payload.approved === false) {
-              const feedback = typeof payload.feedback === "string" ? payload.feedback : "";
-              output = {
-                ok: true,
-                data: { approved: false },
-                feedback,
-                message: `User requested changes. Edit "${planFilePathInput}" and call SubmitPlan(planFilePath="${planFilePathInput}") again.${feedback ? `\n\nFeedback: ${feedback}` : ""}`,
-              };
-            }
+            const planFilePathInput =
+              typeof planInput?.planFilePath === "string" ? planInput.planFilePath : "";
+            output = {
+              ok: true,
+              data: { approved: true },
+              message: `Plan approved (${planFilePathInput}). Start executing.`,
+            };
+          } else if (approvedFlag === true) {
+            output = {
+              ok: true,
+              data: { approved: true },
+              message: `User approved the ${toolNameRaw} call.`,
+            };
           }
           filtered.push({
             ...part,
             state: "output-available",
             output,
+            approval: {
+              ...originalApproval,
+              approved: true,
+            },
           });
           changed = true;
           continue;

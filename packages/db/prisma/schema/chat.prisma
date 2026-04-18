@@ -12,6 +12,7 @@ model ChatSession {
   cliId        String? /// CLI thread id formatted as {cliType}_{threadId}.
   deletedAt    DateTime? /// @zod.optional()
   messageCount Int           @default(0)
+  hasAssets    Boolean       @default(false) /// 当前会话是否存在 asset/ 资源；由写入端同步 + 读取端自愈。
 
   @@index([deletedAt])
   @@index([deletedAt, createdAt])

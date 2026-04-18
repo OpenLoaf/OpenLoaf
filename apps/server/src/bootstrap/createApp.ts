@@ -83,7 +83,7 @@ export function createApp() {
   const corsOrigins = getCorsOrigins();
   const isDev = process.env.NODE_ENV !== "production";
 
-  const quietPaths = ["/ai/v3/capabilities", "/api/public/ai/chat/models"];
+  const quietPaths = ["/ai/v3/capabilities"];
   app.use(
     honoLogger((message, ...rest) => {
       if (quietPaths.some((p) => message.includes(p))) return;

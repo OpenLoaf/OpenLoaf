@@ -94,17 +94,20 @@ export async function expandAttachmentTagsForModel(
       continue
     }
 
-    const { nextParts, tagUpdated } = await expandPartsForMessage(parts, caps)
-    if (!tagUpdated && samePartsRef(parts, nextParts)) {
+    const { modelParts, persistParts, tagUpdated } = await expandPartsForMessage(parts, caps)
+    if (!tagUpdated && samePartsRef(parts, modelParts)) {
       out.push(msg)
       continue
     }
-    out.push({ ...(msg as any), parts: nextParts } as UIMessage)
-    // 逻辑：仅当有 tag 新增/更新 CDN 属性时才回填，base64 路径不回填。
+    // 模型侧：attachment tag 拆分为 file part，让模型原生看图。
+    out.push({ ...(msg as any), parts: modelParts } as UIMessage)
+    // 持久化侧：保持 parts 结构不变，只把 tag 属性（url/mediaType/uploadedAt）
+    // 就地替换，UI 和下次回放都按原形态渲染，不会出现"独立文件链接 + 图片"双重显示。
+    // base64 路径没有 persistTag，不回填。
     if (tagUpdated) {
       mutations.push({
         messageId: String((msg as any).id ?? ''),
-        newParts: nextParts,
+        newParts: persistParts,
       })
     }
   }
@@ -135,7 +138,10 @@ function resolveMediaCaps(tags: readonly ModelTag[] | undefined): MediaCaps {
 // ---------------------------------------------------------------------------
 
 type ExpandResult = {
-  nextParts: unknown[]
+  /** Parts given to the model (tag stripped, file part inlined). */
+  modelParts: unknown[]
+  /** Parts written back to JSONL (single text per original, with updated tag attrs). */
+  persistParts: unknown[]
   /** True when at least one tag gained a fresh CDN url and needs persistence. */
   tagUpdated: boolean
 }
@@ -144,32 +150,32 @@ async function expandPartsForMessage(
   parts: unknown[],
   caps: MediaCaps,
 ): Promise<ExpandResult> {
-  const result: unknown[] = []
+  const modelResult: unknown[] = []
+  const persistResult: unknown[] = []
   let anyTagUpdated = false
 
   for (const part of parts) {
     if (!part || typeof part !== 'object' || (part as any).type !== 'text') {
-      result.push(part)
+      modelResult.push(part)
+      persistResult.push(part)
       continue
     }
     const text: string = (part as any).text ?? ''
-    if (!text) {
-      result.push(part)
-      continue
-    }
-    if (!text.includes('<system-tag')) {
-      result.push(part)
+    if (!text || !text.includes('<system-tag')) {
+      modelResult.push(part)
+      persistResult.push(part)
       continue
     }
 
     // 逻辑：扫描 text 内每个 attachment tag，逐个决定升级或保留。
     const tokens = await tokenizeTextWithTags(text, caps)
-    const { splitParts, tagUpdated } = tokensToParts(tokens)
+    const { modelParts, persistText, tagUpdated } = tokensToParts(tokens)
     if (tagUpdated) anyTagUpdated = true
-    for (const p of splitParts) result.push(p)
+    for (const p of modelParts) modelResult.push(p)
+    persistResult.push({ type: 'text', text: persistText })
   }
 
-  return { nextParts: result, tagUpdated: anyTagUpdated }
+  return { modelParts: modelResult, persistParts: persistResult, tagUpdated: anyTagUpdated }
 }
 
 // ---------------------------------------------------------------------------
@@ -182,10 +188,15 @@ type FileToken = {
   kind: 'file'
   filePart: { type: 'file'; url: string; mediaType: string }
   /**
-   * New tag string to write back when persisting. Undefined for base64 path
-   * (never persisted).
+   * New tag string to write back when persisting (CDN-upload path). Undefined
+   * for the base64 fallback path (never persisted).
    */
   persistTag?: string
+  /**
+   * When persistTag is undefined (base64 path), this is the original tag text
+   * to keep in persisted parts so a future request can re-try CDN upload.
+   */
+  persistTagFallback?: string
 }
 type Token = TextToken | KeepTagToken | FileToken
 
@@ -287,7 +298,7 @@ async function resolveTagToken(
   // Path 2: base64 兜底（不回填，让下次重发重新决策）。
   const dataPart = await loadAsBase64FilePart(absPath, kind)
   if (dataPart) {
-    return { kind: 'file', filePart: dataPart }
+    return { kind: 'file', filePart: dataPart, persistTagFallback: rawTag }
   }
   return { kind: 'keep', tag: rawTag }
 }
@@ -296,39 +307,50 @@ async function resolveTagToken(
 // Tokens → parts (with tag persistence metadata)
 // ---------------------------------------------------------------------------
 
-function tokensToParts(tokens: Token[]): { splitParts: unknown[]; tagUpdated: boolean } {
-  const splitParts: unknown[] = []
-  // 逻辑：原 text part 可能被切成多个 [text, file, text, file, ...]，累积当前 text 缓冲。
-  let textBuf = ''
+function tokensToParts(tokens: Token[]): {
+  /** Parts handed to the model: text segments + inline file parts, tag stripped. */
+  modelParts: unknown[]
+  /** Single joined text string for persistence — tag attrs updated, structure preserved. */
+  persistText: string
+  tagUpdated: boolean
+} {
+  const modelParts: unknown[] = []
+  let modelTextBuf = ''
+  let persistText = ''
   let tagUpdated = false
-  const flushText = () => {
-    if (textBuf.length > 0) {
-      splitParts.push({ type: 'text', text: textBuf })
-      textBuf = ''
+
+  const flushModelText = () => {
+    if (modelTextBuf.length > 0) {
+      modelParts.push({ type: 'text', text: modelTextBuf })
+      modelTextBuf = ''
     }
   }
 
   for (const token of tokens) {
     if (token.kind === 'text') {
-      textBuf += token.value
+      modelTextBuf += token.value
+      persistText += token.value
     } else if (token.kind === 'keep') {
-      textBuf += token.tag
+      // 未升级的 tag：两边都保留原 tag 字符串。
+      modelTextBuf += token.tag
+      persistText += token.tag
     } else {
-      // file token
+      // file token（升级成功）：model 端丢弃 tag 字符串、插入独立 file part；
+      // persist 端用 persistTag 就地替换（只更新属性，parts 结构不变）。
       if (token.persistTag) {
-        // 升级回填：文本层在保留 tag 字符串的同时，插入独立 file part。
-        // 模型会同时看到原 tag（文本形式 + 新属性）和对应的图片/视频/音频 part，
-        // 这是必要的：未来若模型不再支持 vision，文本形式的 tag 能让 Read 工具继续处理。
-        textBuf += token.persistTag
+        persistText += token.persistTag
         tagUpdated = true
+      } else {
+        // base64 路径：不回填，persist 保持原 tag（下次请求仍会 re-upload）。
+        persistText += token.persistTagFallback ?? ''
       }
-      flushText()
-      splitParts.push(token.filePart)
+      flushModelText()
+      modelParts.push(token.filePart)
     }
   }
-  flushText()
+  flushModelText()
 
-  return { splitParts, tagUpdated }
+  return { modelParts, persistText, tagUpdated }
 }
 
 // ---------------------------------------------------------------------------

@@ -8,6 +8,7 @@
  */
 import { page } from '@vitest/browser/context'
 import type { PageProbeResult, PageProbeStatus } from './PageProbeHarness'
+import { waitForDomSettle } from './probe-helpers'
 
 declare const __BROWSER_TEST_RUN_DIR__: string
 
@@ -140,11 +141,16 @@ export async function fillInput(selector: string, value: string) {
 /**
  * 截图 — 临时展开 harness 及其内部所有滚动容器到自然高度，
  * 确保拿到完整内容高度而不是 viewport 截断版本。
+ *
+ * 时序：先 `waitForDomSettle` 等 DOM 连续 400ms 无 mutation，
+ * 防止截到 streaming / 动画中的"半成品"帧。
  */
 export async function takePageScreenshot(name: string) {
   const locator = page.getByTestId('page-probe-harness')
   const harness = locator.element() as HTMLElement | null
   const dir = typeof __BROWSER_TEST_RUN_DIR__ === 'string' ? __BROWSER_TEST_RUN_DIR__ : '.'
+
+  await waitForDomSettle(harness ?? document.body, 400, 3000)
 
   const snapshots: Array<{ el: HTMLElement; prop: string; prev: string; hadInline: boolean }> = []
   const setStyle = (el: HTMLElement, prop: string, value: string) => {

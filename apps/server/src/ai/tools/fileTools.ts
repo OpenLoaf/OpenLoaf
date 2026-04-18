@@ -455,8 +455,10 @@ export const readTool = tool({
     }
 
     async function runReadExecute(): Promise<string> {
-      const { absPath } = resolveToolPath({ target: filePath })
-      const stat = await fs.stat(absPath)
+      const resolved = resolveToolPath({ target: filePath })
+      const resolvedAbsPath = await statOrFuzzyResolve(resolved.absPath)
+      const absPath = resolvedAbsPath.absPath
+      const stat = resolvedAbsPath.stat
       if (!stat.isFile()) {
         throw new Error('Path is not a file. Use Glob or Bash ls for directories.')
       }
@@ -471,6 +473,14 @@ export const readTool = tool({
         mimeType,
         bytes,
       })
+      if (resolvedAbsPath.correctedFrom) {
+        // 常见场景：Qwen / DeepSeek tokenizer 把 `-` 两侧脑补出空格（"议-纪" → "议 - 纪"），
+        // 或中英混排时误插空格。精确匹配失败时做一次父目录内的"去空白归一化"唯一匹配，
+        // 命中就使用真实文件名，把 progress 信号暴露给模型以便后续调用用对路径。
+        progress.delta(
+          `Path normalized: "${path.basename(resolvedAbsPath.correctedFrom)}" → "${fileName}"\n`,
+        )
+      }
 
       if (kind === 'legacy-office') {
         const ext = path.extname(absPath).toLowerCase()
@@ -593,6 +603,45 @@ export const readTool = tool({
     }
   },
 })
+
+/**
+ * 尝试 stat(absPath)；若为 ENOENT 做一次父目录"去空白归一化"唯一匹配再重试。
+ *
+ * 背景：Qwen/DeepSeek 等模型的 tokenizer 把"中文-中文"解成"中文 - 中文"，
+ * 把正确 attachment path 改写后 Read 会 ENOENT。此处仅在父目录内寻找唯一
+ * 匹配（压缩空白 + 大小写折叠后 basename 相等），避免误伤：
+ *  - 多候选 → 抛原错，让模型调用 Glob 自己挑
+ *  - 父目录不存在 → 抛原错
+ *  - 只有单一命中 → 替换为真实路径，并通过 correctedFrom 通知调用方打日志
+ */
+async function statOrFuzzyResolve(absPath: string): Promise<{
+  absPath: string
+  stat: import('node:fs').Stats
+  correctedFrom?: string
+}> {
+  try {
+    const stat = await fs.stat(absPath)
+    return { absPath, stat }
+  } catch (e: unknown) {
+    if ((e as NodeJS.ErrnoException)?.code !== 'ENOENT') throw e
+    const dir = path.dirname(absPath)
+    const basename = path.basename(absPath)
+    let entries: string[]
+    try {
+      entries = await fs.readdir(dir)
+    } catch {
+      throw e
+    }
+    const norm = (s: string) => s.replace(/\s+/g, '').toLowerCase()
+    const wanted = norm(basename)
+    if (!wanted) throw e
+    const hits = entries.filter((name) => norm(name) === wanted)
+    if (hits.length !== 1) throw e
+    const corrected = path.join(dir, hits[0]!)
+    const stat = await fs.stat(corrected)
+    return { absPath: corrected, stat, correctedFrom: absPath }
+  }
+}
 
 /** Format a byte count in human-readable units for progress labels. */
 function formatBytes(bytes: number): string {

@@ -1,0 +1,137 @@
+# ════════════════════════════════════════════════════════════════
+# MemorySave 主动记忆触发测试（Master E2E pipeline）
+#
+# 主动保存判定准则（harness-v5）：用户表达偏好 / 纠正行为 / 告知角色背景 /
+# 反复适用的约定 —— 即便用户没说"记住"，也应主动 MemorySave。
+# 反向：闲聊、一次性任务、可从代码读到的事实 —— 不应保存。
+# ════════════════════════════════════════════════════════════════
+
+- description: "mem-001: 用户表达饮食偏好应主动触发 MemorySave"
+  vars:
+    prompt: "我是素食主义者，以后推荐餐厅别给我推烤肉店"
+  assert:
+    - type: javascript
+      weight: 2
+      metric: tool_selection
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('MemorySave')
+          ? { pass: true, score: 1, reason: '正确调用了 MemorySave' }
+          : { pass: false, score: 0, reason: `未调用 MemorySave，实际: [${tools}]` };
+    - type: javascript
+      weight: 1
+      metric: tool_selection
+      value: |
+        const calls = context.providerResponse?.metadata?.toolCalls || [];
+        const call = calls.find(t => t.toolName === 'MemorySave');
+        if (!call) return { pass: false, score: 0, reason: '未找到 MemorySave 调用' };
+        const content = String(call.args?.content ?? '');
+        const ok = /素食|vegetarian|不吃肉|烤肉|veg/i.test(content);
+        return ok
+          ? { pass: true, score: 1, reason: 'content 含素食偏好关键词' }
+          : { pass: false, score: 0, reason: `content 未包含饮食偏好关键词，实际: ${content.slice(0, 80)}` };
+
+- description: "mem-002: 用户明确纠正工具选择应主动触发 MemorySave"
+  vars:
+    prompt: "你刚才用 shell-command 列文件夹太绕了，下次列目录直接用 list-dir，别再走 shell 了"
+  assert:
+    - type: javascript
+      weight: 2
+      metric: tool_selection
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('MemorySave')
+          ? { pass: true, score: 1, reason: '正确调用了 MemorySave' }
+          : { pass: false, score: 0, reason: `未调用 MemorySave，实际: [${tools}]` };
+    - type: javascript
+      weight: 1
+      metric: tool_selection
+      value: |
+        const calls = context.providerResponse?.metadata?.toolCalls || [];
+        const call = calls.find(t => t.toolName === 'MemorySave');
+        if (!call) return { pass: false, score: 0, reason: '未找到 MemorySave 调用' };
+        const content = String(call.args?.content ?? '');
+        // 用户说的 "list-dir" / "shell-command" 可能被模型翻译为项目实际工具名
+        // （如 Glob/Bash）或保留原名，只要能体现"列目录的工具偏好"即可
+        const ok = /list-dir|shell|列目录|目录|Glob|Bash|ls\b/i.test(content);
+        return ok
+          ? { pass: true, score: 1, reason: 'content 记录了工具纠正规则' }
+          : { pass: false, score: 0, reason: `content 未包含工具纠正语义，实际: ${content.slice(0, 80)}` };
+
+- description: "mem-003: 用户披露角色背景应主动触发 MemorySave"
+  vars:
+    prompt: "我是写 Go 十年的后端，React 基本没碰过，后面你解释前端代码时把我当小白"
+  assert:
+    - type: javascript
+      weight: 2
+      metric: tool_selection
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('MemorySave')
+          ? { pass: true, score: 1, reason: '正确调用了 MemorySave' }
+          : { pass: false, score: 0, reason: `未调用 MemorySave，实际: [${tools}]` };
+    - type: javascript
+      weight: 1
+      metric: tool_selection
+      value: |
+        const calls = context.providerResponse?.metadata?.toolCalls || [];
+        const call = calls.find(t => t.toolName === 'MemorySave');
+        if (!call) return { pass: false, score: 0, reason: '未找到 MemorySave 调用' };
+        const content = String(call.args?.content ?? '');
+        const ok = /Go|后端|React|前端|小白|十年|背景|beginner/i.test(content);
+        return ok
+          ? { pass: true, score: 1, reason: 'content 记录了用户角色/背景' }
+          : { pass: false, score: 0, reason: `content 未包含角色信息，实际: ${content.slice(0, 80)}` };
+
+- description: "mem-004: 用户约定工作时间应主动触发 MemorySave"
+  vars:
+    prompt: "我一般早 9 点上班下午 6 点下班，周末不处理工作，以后别把会议排到 6 点以后"
+  assert:
+    - type: javascript
+      weight: 2
+      metric: tool_selection
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return tools.includes('MemorySave')
+          ? { pass: true, score: 1, reason: '正确调用了 MemorySave' }
+          : { pass: false, score: 0, reason: `未调用 MemorySave，实际: [${tools}]` };
+    - type: javascript
+      weight: 1
+      metric: tool_selection
+      value: |
+        const calls = context.providerResponse?.metadata?.toolCalls || [];
+        const call = calls.find(t => t.toolName === 'MemorySave');
+        if (!call) return { pass: false, score: 0, reason: '未找到 MemorySave 调用' };
+        const content = String(call.args?.content ?? '');
+        const ok = /9|6|上班|下班|周末|会议|工作时间|work hour|weekend/i.test(content);
+        return ok
+          ? { pass: true, score: 1, reason: 'content 记录了工作时间约定' }
+          : { pass: false, score: 0, reason: `content 未包含时间约定，实际: ${content.slice(0, 80)}` };
+
+# ────────── 负向用例：不应触发 MemorySave ──────────
+
+- description: "mem-neg-001: 闲聊不应触发 MemorySave"
+  vars:
+    prompt: "今天天气真不错"
+  assert:
+    - type: javascript
+      weight: 2
+      metric: tool_selection
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return !tools.includes('MemorySave')
+          ? { pass: true, score: 1, reason: '正确未调用 MemorySave' }
+          : { pass: false, score: 0, reason: `闲聊不应保存记忆，实际调用了: [${tools}]` };
+
+- description: "mem-neg-002: 一次性读文件任务不应触发 MemorySave"
+  vars:
+    prompt: "帮我看看 README.md 里写了啥"
+  assert:
+    - type: javascript
+      weight: 2
+      metric: tool_selection
+      value: |
+        const tools = context.providerResponse?.metadata?.toolNames || [];
+        return !tools.includes('MemorySave')
+          ? { pass: true, score: 1, reason: '正确未调用 MemorySave' }
+          : { pass: false, score: 0, reason: `一次性任务不应保存记忆，实际调用了: [${tools}]` };

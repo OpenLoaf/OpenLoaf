@@ -22,6 +22,28 @@ import {
 } from '@/components/ai/context'
 import type { ToolPartSnapshot } from '@/hooks/use-chat-runtime'
 import MessageList from '@/components/ai/message/MessageList'
+import {
+  installProbeObservers,
+  drainProbeObservers,
+  type ProbeConsoleEntry,
+  type ProbeNetworkEntry,
+} from './probe-observers'
+
+// ── 由 vitest.browser.config.ts `define` 注入的全局：`pnpm test:browser:run --model <id>`
+// 覆盖测试文件里硬编码的 chatModelId / chatModelSource。空字符串 = 未覆盖。
+declare const __BROWSER_TEST_MODEL_OVERRIDE__: string
+declare const __BROWSER_TEST_MODEL_SOURCE_OVERRIDE__: string
+
+function readModelOverride(): { id: string | null; source: 'local' | 'cloud' | 'saas' | null } {
+  try {
+    const id = typeof __BROWSER_TEST_MODEL_OVERRIDE__ === 'string' ? __BROWSER_TEST_MODEL_OVERRIDE__ : ''
+    const src = typeof __BROWSER_TEST_MODEL_SOURCE_OVERRIDE__ === 'string' ? __BROWSER_TEST_MODEL_SOURCE_OVERRIDE__ : ''
+    const source = src === 'local' || src === 'cloud' || src === 'saas' ? src : null
+    return { id: id || null, source }
+  } catch {
+    return { id: null, source: null }
+  }
+}
 
 // ── i18n ──
 import i18n from '@/i18n/index'
@@ -51,8 +73,13 @@ export type ChatProbeHarnessProps = {
   followUpPrompts?: string[]
   /** 会话 ID（留空则自动生成） */
   sessionId?: string
-  /** 会话标题（设置后会通过 tRPC 重命名会话，如 "007 — 大 PDF 分段读..."） */
-  title?: string
+  /**
+   * 会话标题（设置后会通过 tRPC 重命名会话，如 "007 — 大 PDF 分段读..."）。
+   * - 不传：默认用 vitest 当前测试名（`it('xxx', ...)` 第一参数），保持测试报告与历史记录一致
+   * - 传 `null`：显式跳过标题设置，让 autoTitle 能接管（仅 036 之类专门测 autoTitle 的用例需要）
+   * - 传字符串：强制使用该值
+   */
+  title?: string | null
   /** 指定模型 ID（如 qwen:OL-TX-006），格式 <providerId>:<modelId> */
   chatModelId?: string
   /** 模型来源（local/cloud/saas），云端模型必须传 'cloud' */
@@ -106,6 +133,8 @@ export type ProbeResult = {
   toolCalls: string[]
   /** 每次 tool invocation 的详细明细（含 error 状态），供 evaluator 直接读取 */
   toolCallDetails: ToolCallDetail[]
+  /** 工具调用失败总数 — 任一 `hasError=true` 的工具都计入。默认测试断言期望此值为 0。 */
+  toolErrorCount: number
   elapsedMs: number
   finishReason: string | null
   error?: string
@@ -115,6 +144,25 @@ export type ProbeResult = {
   turnIndex: number
   /** 总轮数 */
   totalTurns: number
+  /** 浏览器 console 记录（installProbeObservers 自动采集，最多 500 条） */
+  consoleLogs?: ProbeConsoleEntry[]
+  /** 浏览器 fetch 请求记录（installProbeObservers 自动采集，最多 300 条） */
+  networkRequests?: ProbeNetworkEntry[]
+  /**
+   * 本次 probe 消耗的 SaaS 积分总和（多轮对话会累加每轮 assistant 消息的
+   * metadata.openloaf.creditsConsumed）。
+   * 后端在 buildTimingMetadata 里通过 getCreditsConsumed() 写入每条 assistant
+   * 消息的 metadata；每次 HTTP 请求是独立的 request-scoped context，所以多轮
+   * 之间需要我们自己累加。
+   */
+  creditsConsumed?: number
+  /**
+   * 本次 probe 实际发给后端的 chatModelId / chatModelSource（应用 --model override 后的值）。
+   * 让 saveTestData / recordProbeRun 在测试作者没显式传 `model` 时也能拿到真实使用的模型，
+   * 索引主页据此显示 Model 徽章。
+   */
+  chatModelId?: string
+  chatModelSource?: 'local' | 'cloud' | 'saas'
 }
 
 // ── Helpers ──
@@ -137,6 +185,22 @@ const EMPTY_TOOL_PARTS: Record<string, ToolPartSnapshot> = {}
  *   call → approval-requested → approval-responded → output-available
  * 如果有 part 停在非终态且没有 output，说明工具还在执行中。
  */
+/** Whether any assistant message carries an unresolved approval request. */
+function hasPendingApprovalRequest(messages: any[]): boolean {
+  for (const msg of messages) {
+    if (msg?.role !== 'assistant') continue
+    const parts = Array.isArray(msg?.parts) ? msg.parts : []
+    for (const part of parts) {
+      const state = part?.state
+      if (state !== 'approval-requested') continue
+      const approved = part?.approval?.approved
+      if (approved === true || approved === false) continue
+      return true
+    }
+  }
+  return false
+}
+
 function hasPendingToolExecution(messages: any[]): boolean {
   for (const msg of messages) {
     if (msg?.role !== 'assistant') continue
@@ -165,7 +229,8 @@ function hasPendingToolExecution(messages: any[]): boolean {
  *
  * 规则：最后一条 assistant 消息必须同时满足——
  *   1) 所有 reasoning part 都已离开 "streaming" 态
- *   2) 至少存在一个 text part（或 tool part，让 tool-only 场景也能通过）
+ *   2) 所有 text part 都已离开 "streaming" 态（否则 textPreview 会被截断）
+ *   3) 至少存在一个 text part（或 tool part，让 tool-only 场景也能通过）
  */
 function hasPendingStreamingContent(messages: any[]): boolean {
   let lastAssistant: any = null
@@ -179,6 +244,7 @@ function hasPendingStreamingContent(messages: any[]): boolean {
   for (const part of parts) {
     const type = typeof part?.type === 'string' ? part.type : ''
     if (type === 'reasoning' && part?.state === 'streaming') return true
+    if (type === 'text' && part?.state === 'streaming') return true
     if (type === 'text' && typeof part?.text === 'string' && part.text.length > 0) hasTextOrTool = true
     if (type.startsWith('tool-')) hasTextOrTool = true
   }
@@ -193,19 +259,40 @@ function ChatProbeInner({
   followUpPrompts = [],
   sessionId: sessionIdProp,
   title,
-  chatModelId,
-  chatModelSource,
+  chatModelId: chatModelIdProp,
+  chatModelSource: chatModelSourceProp,
   approvalStrategy = 'manual',
   questionAnswers: _questionAnswers,
   onComplete,
   className,
   cloudMock,
 }: ChatProbeHarnessProps) {
+  // runner --model 的覆盖优先级最高：写了就盖掉测试文件里硬编码的 prop。
+  // 覆盖只作用于运行时发给 server 的 chatModelId，不改测试 recordProbeRun 里
+  // 传的 model 字段（那仍表示测试作者的"设计意图"）。
+  const modelOverride = React.useMemo(() => readModelOverride(), [])
+  const chatModelId = modelOverride.id ?? chatModelIdProp
+  const chatModelSource = modelOverride.source ?? chatModelSourceProp
   const sessionId = React.useMemo(
     () => sessionIdProp || generateSessionId(),
     [sessionIdProp],
   )
   const tabId = React.useMemo(() => `probe_${sessionId}`, [sessionId])
+
+  // title 解析规则：
+  //   - title === null        → 显式禁用（autoTitle 测试用例走这条）
+  //   - title 是非空字符串    → 强制使用
+  //   - title 未传 / ''       → fallback 到 window.__probeTestName（由 probe-setup.ts 的
+  //                            beforeEach 从 ctx.task.name 注入），保持历史记录与测试报告一致
+  const resolvedTitle = React.useMemo(() => {
+    if (title === null) return undefined
+    if (typeof title === 'string' && title.length > 0) return title
+    if (typeof window !== 'undefined') {
+      const name = window.__probeTestName
+      if (typeof name === 'string' && name.length > 0) return name
+    }
+    return undefined
+  }, [title])
   const sessionIdRef = React.useRef(sessionId)
   const promptSentRef = React.useRef(false)
   const startTimeRef = React.useRef<number>(0)
@@ -241,6 +328,20 @@ function ChatProbeInner({
           ...restBody
         } = extraBody as Record<string, unknown>
         const lastMessage = messages.length > 0 ? messages[messages.length - 1] : undefined
+        // 中文注释：server saveLastMessageAndResolveParent 对 assistant 续发
+        // 强制要求 lastMessage.parentMessageId。AI SDK 内存 UIMessage 不带该字段，
+        // 这里从线性序列里最近一条 user message 推导注入（harness 只有一轮对话，
+        // 这是安全的）。缺了这一步会让续发返回 400 "assistant 缺少 parentMessageId"。
+        let lastWithParent: any = lastMessage
+        if (lastMessage && (lastMessage as any).role === 'assistant' && !(lastMessage as any).parentMessageId) {
+          for (let i = messages.length - 2; i >= 0; i--) {
+            const m = messages[i] as any
+            if (m?.role === 'user' && typeof m?.id === 'string') {
+              lastWithParent = { ...(lastMessage as any), parentMessageId: m.id }
+              break
+            }
+          }
+        }
         return {
           body: {
             ...restBody,
@@ -250,7 +351,7 @@ function ChatProbeInner({
             responseMode: 'stream',
             clientPlatform: 'web' as const,
             timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-            messages: lastMessage ? [lastMessage] : [],
+            messages: lastWithParent ? [lastWithParent] : [],
             ...(chatModelId ? { chatModelId } : {}),
             ...(chatModelSource ? { chatModelSource } : {}),
             ...(approvalStrategy === 'approve-all' ? { autoApproveTools: true } : {}),
@@ -261,10 +362,16 @@ function ChatProbeInner({
     })
   }, [serverUrl, chatModelId, chatModelSource])
 
+  // ── Install console / fetch observers (idempotent) ──
+  // 必须在第一次 sendMessage 之前装上，才能抓到 cloudMock 握手之前的日志。
+  React.useEffect(() => {
+    installProbeObservers()
+  }, [])
+
   // ── Completion logic ──
   // 提取到独立函数：只在 onFinish 触发过 + 无 pending 工具 时才真正完成。
   // 这样即使 onFinish 在 tool approval 暂停点过早触发，也不会导致提前完成。
-  const tryReportComplete = React.useCallback((msgs: UIMessage[]) => {
+  const tryReportComplete = React.useCallback(async (msgs: UIMessage[]) => {
     if (onCompleteCalledRef.current) return
     if (!finishFiredRef.current) return
     if (hasPendingToolExecution(msgs)) return
@@ -287,26 +394,55 @@ function ChatProbeInner({
     // 全部轮次完成 → 报告结果
     onCompleteCalledRef.current = true
     setAllTurnsDone(true)
+
+    // 设置会话标题（此时 session 已由 saveMessage 创建，可以安全 update）。
+    // 之前在 mount effect 并行 fetch，session 尚未创建 → prisma.update 抛 P2025 →
+    // fire-and-forget .catch 静默失败 → 历史记录只能看到 saveMessage 写入的
+    // prompt 前缀。挪到这里保证 session 已存在；isUserRename=true 阻止后续 autoTitle 覆盖。
+    //
+    // `?batch=1` 与 body `{"0":{json:...}}` 必须配套 —— 否则 tRPC 会把整个 body
+    // 当成单 call input 去走 SuperJSON 解析，返回 400（和 fetchAutoTitle command 同样陷阱）。
+    if (resolvedTitle) {
+      try {
+        await fetch(`${serverUrl}/trpc/chat.updateSession?batch=1`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-OpenLoaf-Client': '1' },
+          body: JSON.stringify({ '0': { json: { sessionId, title: resolvedTitle, isUserRename: true } } }),
+        })
+      } catch {
+        // 非关键操作：title 写入失败不影响测试断言
+      }
+    }
+
     const elapsedMs = Date.now() - startTimeRef.current
     const toolCalls = extractToolCalls(msgs)
     const toolCallDetails = extractToolCallDetails(msgs)
-    const textPreview = extractTextPreview(msgs, 600)
+    const toolErrorCount = toolCallDetails.filter(t => t.hasError).length
+    const textPreview = extractTextPreview(msgs, 2000)
+    const creditsConsumed = extractCreditsConsumed(msgs)
+    const observed = drainProbeObservers()
     const result: ProbeResult = {
       sessionId,
       messages: msgs,
       status: 'ok',
       toolCalls,
       toolCallDetails,
+      toolErrorCount,
       elapsedMs,
       finishReason: finishReasonRef.current,
       textPreview,
       startedAt: startedAtRef.current,
       turnIndex: currentTurn,
       totalTurns,
+      consoleLogs: observed.console,
+      networkRequests: observed.network,
+      ...(creditsConsumed > 0 ? { creditsConsumed } : {}),
+      ...(chatModelId ? { chatModelId } : {}),
+      ...(chatModelSource ? { chatModelSource } : {}),
     }
     writeResultToDOM(result)
     onComplete?.(result)
-  }, [sessionId, totalTurns, allPrompts, onComplete])
+  }, [sessionId, totalTurns, allPrompts, onComplete, serverUrl, resolvedTitle, chatModelId, chatModelSource])
 
   // ── useChat ──
   const chat = useChat({
@@ -500,14 +636,8 @@ function ChatProbeInner({
 
     void setupCloudMockAndSend()
 
-    // 设置会话标题（fire-and-forget）
-    if (title) {
-      fetch(`${serverUrl}/trpc/chat.updateSession`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-OpenLoaf-Client': '1' },
-        body: JSON.stringify({ '0': { json: { sessionId, title, isUserRename: true } } }),
-      }).catch(() => {})
-    }
+    // 注：会话标题的 updateSession 调用挪到 tryReportComplete（全部轮次结束后），
+    // 因为此时 session 已由 saveMessage 创建，prisma.update 不会抛 P2025。
 
     // unmount 时清理 cloudMock 状态
     return () => {
@@ -519,7 +649,7 @@ function ChatProbeInner({
         }).catch(() => {})
       }
     }
-  }, [prompt, title, serverUrl, sessionId, cloudMock])
+  }, [prompt, serverUrl, sessionId, cloudMock])
 
   // ── Handle error state → auto-retry network errors via UI Retry button ──
   React.useEffect(() => {
@@ -559,12 +689,15 @@ function ChatProbeInner({
       const retryInfo = networkRetryCountRef.current > 0
         ? ` (after ${networkRetryCountRef.current} network retries)`
         : ''
+      const observed = drainProbeObservers()
+      const creditsConsumed = extractCreditsConsumed(chat.messages as any[])
       const result: ProbeResult = {
         sessionId,
         messages: chat.messages as UIMessage[],
         status: 'error',
         toolCalls,
         toolCallDetails,
+        toolErrorCount: toolCallDetails.filter(t => t.hasError).length,
         elapsedMs,
         finishReason: finishReasonRef.current,
         error: `${chat.error?.message}${retryInfo}`,
@@ -572,6 +705,11 @@ function ChatProbeInner({
         startedAt: startedAtRef.current,
         turnIndex: turnIndexRef.current,
         totalTurns,
+        consoleLogs: observed.console,
+        networkRequests: observed.network,
+        ...(creditsConsumed > 0 ? { creditsConsumed } : {}),
+        ...(chatModelId ? { chatModelId } : {}),
+        ...(chatModelSource ? { chatModelSource } : {}),
       }
       writeResultToDOM(result)
       onComplete?.(result)
@@ -632,18 +770,81 @@ function ChatProbeInner({
   )
   const stableClearError = React.useCallback(() => chatRef.current.clearError(), [])
   const stableStop = React.useCallback(() => chatRef.current.stop(), [])
+  // 中文注释：harness 之前把 updateMessage 留作 noop，导致
+  // ToolApprovalActions.updateApprovalInMessages / handleReject 写回的
+  // approval.approved / state 变化在 React state 里彻底丢失——UI 保持 pending。
+  // 这里最小实装：用 useChat 暴露的 setMessages 合并目标 message 的 parts。
+  const stableUpdateMessage = React.useCallback(
+    (messageId: string, patch: { parts?: unknown }) => {
+      chatRef.current.setMessages((prev: any) =>
+        prev.map((m: any) =>
+          m.id === messageId && patch?.parts
+            ? ({ ...m, parts: patch.parts } as any)
+            : m,
+        ),
+      )
+    },
+    [],
+  )
+  // 中文注释：把 setMessages / updateMessage 通过 window 暴露给 *.browser.tsx 测试，
+  // 用于绕开 handleReject 里 continueAfterToolApprovals(regenerate) 覆盖本地 parts
+  // 的副作用（regenerate 会把 assistant parts 刷回 pending），只做本地 approval 状
+  // 态注入：part.approval.approved=false + part.state='output-denied'。
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return
+    // 读取 useChat 的内存消息（approval-requested 态 assistant 消息可能还没落 DB，
+    // 直接走 trpc.chat.getSessionMessages 会查不到；用内存快照避免时序 flaky）。
+    ;(window as any).__probe_getMessages = () => {
+      try { return JSON.parse(JSON.stringify(chatRef.current.messages ?? [])) }
+      catch { return [] }
+    }
+    ;(window as any).__probe_markApprovalDenied = (approvalId: string) => {
+      chatRef.current.setMessages((prev: any) =>
+        prev.map((m: any) => {
+          if (!Array.isArray(m?.parts)) return m
+          let hit = false
+          const nextParts = m.parts.map((p: any) => {
+            if (p?.approval?.id !== approvalId) return p
+            hit = true
+            return {
+              ...p,
+              state: 'output-denied',
+              approval: { ...p.approval, approved: false },
+            }
+          })
+          return hit ? { ...m, parts: nextParts } : m
+        }),
+      )
+    }
+    return () => {
+      delete (window as any).__probe_markApprovalDenied
+      delete (window as any).__probe_getMessages
+    }
+  }, [])
 
   // ── Context values ──
+  // 中文注释：approval-requested 状态下 stream 在服务端挂起，但 useChat 的 status
+  // 可能还维持 'streaming'。这会让 ToolApprovalActions 的 Approve/Reject 按钮
+  // `disabled`，测试点不动。此时强制把对外 status 降级为 'ready'，与真实用户看到
+  // 的行为一致（卡在审批时按钮必须可点）。
+  const hasPendingApproval = React.useMemo(
+    () => hasPendingApprovalRequest(chat.messages as UIMessage[]),
+    [chat.messages],
+  )
+  const exposedStatus =
+    hasPendingApproval && (chat.status === 'streaming' || chat.status === 'submitted')
+      ? 'ready'
+      : chat.status
   const stateValue = React.useMemo(
     () => ({
       messages: chat.messages as UIMessage[],
-      status: chat.status,
+      status: exposedStatus,
       error: chat.error,
       isHistoryLoading: false,
       stepThinking: false,
       pendingCloudMessage: null,
     }),
-    [chat.messages, chat.status, chat.error],
+    [chat.messages, exposedStatus, chat.error],
   )
 
   const sessionValue = React.useMemo(
@@ -665,7 +866,7 @@ function ChatProbeInner({
       addToolApprovalResponse: stableAddToolApprovalResponse,
       clearError: stableClearError,
       stopGenerating: stableStop,
-      updateMessage: () => {},
+      updateMessage: stableUpdateMessage,
       newSession: () => {},
       selectSession: () => {},
       switchSibling: () => {},
@@ -676,7 +877,7 @@ function ChatProbeInner({
       setPendingCloudMessage: () => {},
       sendPendingCloudMessage: () => {},
     }),
-    [stableSendMessage, stableRegenerate, stableAddToolApprovalResponse, stableClearError, stableStop],
+    [stableSendMessage, stableRegenerate, stableAddToolApprovalResponse, stableClearError, stableStop, stableUpdateMessage],
   )
 
   const [input, setInput] = React.useState('')
@@ -694,16 +895,65 @@ function ChatProbeInner({
     [input],
   )
 
+  // ── Tool approval wiring ──
+  // 中文注释：真实产品里 use-chat-approval.ts 在点击 Approve/Reject 后会
+  // 1) 把 {approved} payload 塞入 ref
+  // 2) 调 chat.sendMessage(undefined, { body: { toolApprovalPayloads } }) 续发
+  // harness 之前把这三处都 stub 成 noop，导致拒绝按钮点了之后后端不会收到 payload
+  // → LLM 上下文被 stripPendingToolParts 清空 → 表现为"点拒绝没反应"。
+  // 这里做最小化还原，让回归测试（如 038）能跑出真实行为。
+  const approvalPayloadsRef = React.useRef<Record<string, Record<string, unknown>>>({})
+  const approvalSubmitInFlightRef = React.useRef(false)
+  const queueToolApprovalPayload = React.useCallback(
+    (toolCallId: string, payload: Record<string, unknown>) => {
+      if (!toolCallId) return
+      approvalPayloadsRef.current[toolCallId] = payload
+    },
+    [],
+  )
+  const clearToolApprovalPayload = React.useCallback((toolCallId: string) => {
+    if (!toolCallId) return
+    delete approvalPayloadsRef.current[toolCallId]
+  }, [])
+  const continueAfterToolApprovals = React.useCallback(async () => {
+    if (approvalSubmitInFlightRef.current) return
+    const payloads = { ...approvalPayloadsRef.current }
+    if (Object.keys(payloads).length === 0) return
+    approvalSubmitInFlightRef.current = true
+    try {
+      // 中文注释：审批决定后要把 payload 回传服务端继续本条 assistant 消息。
+      // 和生产 use-chat-approval.continueAfterToolApprovals 保持一致：
+      // chat.sendMessage(undefined, { body: { toolApprovalPayloads } })
+      // — regenerate 会把当前 assistant 消息覆盖重生成，反而丢失 approval 上下文。
+      // 对齐生产 use-chat-approval.continueAfterToolApprovals：
+      //   chat.sendMessage(undefined, { body: { toolApprovalPayloads } })
+      // regenerate 会重生成当前 assistant（丢失本轮 approval 上下文），不对。
+      await chatRef.current?.sendMessage(undefined as any, {
+        body: { toolApprovalPayloads: payloads },
+      })
+      approvalPayloadsRef.current = {}
+    } finally {
+      approvalSubmitInFlightRef.current = false
+    }
+  }, [])
+
   const toolsValue = React.useMemo(
     () => ({
       toolParts,
       upsertToolPart,
       markToolStreaming,
-      queueToolApprovalPayload: () => {},
-      clearToolApprovalPayload: () => {},
-      continueAfterToolApprovals: () => {},
+      queueToolApprovalPayload,
+      clearToolApprovalPayload,
+      continueAfterToolApprovals,
     }),
-    [toolParts, upsertToolPart, markToolStreaming],
+    [
+      toolParts,
+      upsertToolPart,
+      markToolStreaming,
+      queueToolApprovalPayload,
+      clearToolApprovalPayload,
+      continueAfterToolApprovals,
+    ],
   )
 
   // ── Derive status for test assertions ──
@@ -754,7 +1004,14 @@ function ChatProbeInner({
                   <span>Status: <strong data-testid="probe-status">{probeStatus}</strong></span>
                   <span>Messages: <strong>{chat.messages.length}</strong></span>
                   <span>Session: <code style={{ fontSize: '11px' }}>{sessionId}</code></span>
-                  {chatModelId && <span>Model: <code style={{ fontSize: '11px' }}>{chatModelId}</code></span>}
+                  {chatModelId && (
+                    <span>
+                      Model: <code style={{ fontSize: '11px' }}>{chatModelId}</code>
+                      {modelOverride.id && (
+                        <strong style={{ marginLeft: 4, color: 'var(--warning, #d97706)' }}>[--model override]</strong>
+                      )}
+                    </span>
+                  )}
                   {chat.error && (
                     <span style={{ color: 'var(--destructive, #dc2626)' }}>
                       Error: {chat.error.message}
@@ -940,15 +1197,44 @@ function detectToolError(part: any): { hasError: boolean, summary?: string } {
   return { hasError: true, summary: (summary || '').slice(0, 200) }
 }
 
+/**
+ * 累加所有 assistant 消息的 metadata.openloaf.creditsConsumed。
+ *
+ * 后端 buildTimingMetadata 在每个 HTTP 请求结束时把 request-scoped 的累计值
+ * 写进 assistant message 的 metadata。多轮对话里每轮是独立请求，所以要把
+ * 每轮的值加起来才是本次 probe 的总消耗。
+ */
+function extractCreditsConsumed(messages: any[]): number {
+  let sum = 0
+  for (const msg of messages) {
+    if (msg?.role !== 'assistant') continue
+    const v = msg?.metadata?.openloaf?.creditsConsumed
+    if (typeof v === 'number' && Number.isFinite(v) && v > 0) sum += v
+  }
+  return sum
+}
+
 function extractTextPreview(messages: any[], maxLen: number): string {
+  // 只取"最后一个 tool-* part 之后的 text part"拼接 —— 即模型最终答复。
+  // 避免过程性 text（"让我尝试..."、"好的现在..."）占满 maxLen 把最终答案砍掉。
   for (let i = messages.length - 1; i >= 0; i--) {
     if (messages[i]?.role !== 'assistant') continue
     const parts = Array.isArray(messages[i]?.parts) ? messages[i].parts : []
-    const text = parts
+    const finalParts: string[] = []
+    for (let j = parts.length - 1; j >= 0; j--) {
+      const p = parts[j]
+      const t = typeof p?.type === 'string' ? p.type : ''
+      if (t.startsWith('tool-')) break
+      if (t === 'text' && typeof p?.text === 'string') finalParts.unshift(p.text)
+    }
+    const text = finalParts.join('')
+    if (text) return text.slice(0, maxLen)
+    // 兜底：整条消息没 text 紧跟任何 tool（tool-only 或 text-before-tool 场景），退回全部 text
+    const fallback = parts
       .filter((p: any) => p?.type === 'text')
       .map((p: any) => p?.text ?? '')
       .join('')
-    if (text) return text.slice(0, maxLen)
+    if (fallback) return fallback.slice(0, maxLen)
   }
   return ''
 }

@@ -12,7 +12,7 @@
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
-import { MessageSquare, MoreHorizontal, PencilLine, Pin, Trash2, Layers } from "lucide-react";
+import { MessageSquare, MoreHorizontal, Paperclip, PencilLine, Pin, Trash2, Layers } from "lucide-react";
 import { AutoTestBadge, AutoTestScorePill } from "@/components/ai/autoTest/AutoTestBadge";
 import type { AutoTestVerdict } from "@openloaf/api";
 import { useMutation } from "@tanstack/react-query";
@@ -51,6 +51,8 @@ export interface Session {
   pinned?: boolean;
   /** Whether the session has layer history. */
   hasLayers?: boolean;
+  /** 会话目录下是否存在附件资源（asset/）。 */
+  hasAssets?: boolean;
   /** ai-browser-test 自动测试会话标记。 */
   autoTest?: boolean;
   /** 自动测试评审聚合分数。 */
@@ -227,6 +229,13 @@ function SessionItem({
                 ) : null}
                 {session.hasLayers && (
                   <Layers size={14} className="text-muted-foreground" />
+                )}
+                {session.hasAssets && (
+                  <Paperclip
+                    size={12}
+                    className="ml-auto shrink-0 text-muted-foreground"
+                    aria-label={t("ai:session.hasAssetsTip", { defaultValue: "Has attachments" })}
+                  />
                 )}
               </span>
             </button>

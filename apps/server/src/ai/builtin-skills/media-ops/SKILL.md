@@ -8,6 +8,16 @@ description: >
 
 本 skill 覆盖 server agent 直接提供的三个媒体工具。AI 图片/视频**生成**已迁移到画布 v3 流程——本 skill 负责的是**已有文件的处理与网络视频下载**。
 
+## 工具清单
+
+| 工具 | 职责 | 只读 |
+|------|------|------|
+| `ImageProcess` | 已有图片的处理（缩放 / 裁剪 / 旋转 / 翻转 / 格式转换 / 灰度 / 模糊 / 锐化 / 着色 / 元信息） | 否 |
+| `VideoConvert` | 视频格式转换 / 提取音频 / 读取元信息 | 否 |
+| `VideoDownload` | 从 YouTube / B 站等公开网址下载视频 | 否 |
+
+> **加载**：全部为 deferred 工具，调用前须先 `ToolSearch(names: "ImageProcess,VideoConvert,VideoDownload")` 激活 schema。
+
 ## 决策树
 
 ```text

@@ -160,7 +160,7 @@ export function cloudSkillsInitialized(): boolean {
 export const cloudMediaSkill: BuiltinSkill = {
   name: 'cloud-media-skill',
   description:
-    '当用户要求生成或处理云端 AI 媒体（图片/视频/语音），或理解媒体内容（OCR/图片理解/语音转写）时触发。典型："画一张"、"生成视频"、"合成语音"、"识别文字"、"语音转文字"、"看看这张图"。不用于：翻译（对话模型免费）、已粘贴的短文本处理（对话模型直接处理）。',
+    '当用户要求生成或处理云端 AI 媒体（图片/视频/语音），或理解媒体内容（OCR/图片理解/语音转写）时触发。典型："画一张"、"生成视频"、"合成语音"、"识别文字"、"语音转文字"、"看看这张图"。不用于：翻译（对话模型免费）、已粘贴的短文本处理（对话模型直接处理）、以及**当前模型已经原生能看/听该媒体**的情况（按每条消息末尾 `<system-tag type="msg-context">` 的 `native-inputs` 判断，已在 native-inputs 里就直接观察消息中的媒体 part，不必绕到 CloudImageUnderstand/CloudSpeechRecognize）。',
   icon: '☁️',
   colorIndex: 2,
   content: renderMediaContent(), // initial placeholder content (before first refresh)
@@ -220,7 +220,7 @@ ${tierTableLines.join('\n')}
 
 - 媒体输入接受 URL 字符串、\`{ url: "..." }\` 或 \`{ path: "\${CURRENT_CHAT_DIR}/img.png" }\`（本地路径自动上传 CDN）。
 - 生成类工具（Image/Video/TTS）成功后**前端 UI 自动展示媒体**，一句确认文字即可，不要 Read 文件。
-- 理解类工具（ImageUnderstand/SpeechRecognize）返回文本结果，直接转述给用户。
+- 理解类工具（ImageUnderstand/SpeechRecognize）只在当前模型 \`native-inputs\` 不覆盖该模态、或用户明确需要 OCR/结构化转录时才用；否则直接观察消息里的 media part 即可。
 
 > 调用前须先 \`ToolSearch(names: "CloudXxx")\` 加载 schema。
 

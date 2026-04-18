@@ -31,7 +31,7 @@ interface ChatMessageTextProps {
 
 const MESSAGE_TOKEN_CHIP_BASE_CLASS = cn(
   "inline-flex items-center gap-[3px] align-middle px-1.5 py-px mx-0.5 rounded border border-transparent",
-  "text-xs font-medium leading-[18px] cursor-pointer select-none whitespace-nowrap max-w-[320px] transition-colors",
+  "text-xs font-medium leading-[18px] cursor-pointer select-none whitespace-nowrap max-w-full transition-colors",
 );
 
 const SKILL_TOKEN_CHIP_CLASS = cn(
@@ -41,7 +41,7 @@ const SKILL_TOKEN_CHIP_CLASS = cn(
 
 const BUILTIN_SKILL_TOKEN_CHIP_CLASS = cn(
   "inline-flex items-center gap-[3px] align-middle px-1.5 py-px mx-0.5 rounded border border-transparent",
-  "text-xs font-medium leading-[18px] select-none whitespace-nowrap max-w-[320px]",
+  "text-xs font-medium leading-[18px] select-none whitespace-nowrap max-w-full",
   "bg-[var(--ol-skill-chip-bg)] text-[var(--ol-skill-chip-text)] cursor-default",
 );
 
@@ -115,7 +115,7 @@ export default function ChatMessageText({ value, className, projectId }: ChatMes
           onClick={isBuiltin ? undefined : () => handleSkillClick(segment.value)}
         >
           <Sparkles className="size-3 shrink-0 text-current" />
-          <span className="overflow-hidden text-ellipsis">{label}</span>
+          <span className="min-w-0 overflow-hidden text-ellipsis">{label}</span>
         </span>
       );
     }
@@ -134,7 +134,7 @@ export default function ChatMessageText({ value, className, projectId }: ChatMes
           className={MENTION_TOKEN_CHIP_CLASS}
         >
           <FileText className="size-3 shrink-0 text-current" />
-          <span className="overflow-hidden text-ellipsis">{label}</span>
+          <span className="min-w-0 overflow-hidden text-ellipsis">{label}</span>
         </span>
       );
     }

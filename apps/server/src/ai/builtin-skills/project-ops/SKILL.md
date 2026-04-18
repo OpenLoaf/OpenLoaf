@@ -6,6 +6,18 @@ description: >
 
 # 项目操作指南
 
+## 工具清单
+
+| 工具 | 职责 | 只读 |
+|------|------|------|
+| `ProjectQuery` | 查询项目树 / 单个项目详情（mode: `list` / `get`） | 是 |
+| `ProjectMutate` | 创建 / 更新 / 移动 / 删除项目（action: `create` / `update` / `move` / `remove`） | 否 |
+| `Read` / `Glob` / `Grep` | 项目内文件读取与搜索（常驻工具） | 是 |
+| `Edit` / `Write` | 项目内文件编辑 / 新建（常驻工具） | 否 |
+| `Bash` | 在项目根执行命令（Git 等，常驻工具） | 否 |
+
+> **加载**：`Read` / `Glob` / `Grep` / `Edit` / `Write` / `Bash` 为核心工具，始终可用；`ProjectQuery` / `ProjectMutate` 调用前须先 `ToolSearch(names: "ProjectQuery,ProjectMutate")` 激活 schema。
+
 ## 决策流程
 
 ```
@@ -15,16 +27,6 @@ description: >
    ├─ 明确要创建项目 → ProjectMutate { action: "create" }
    └─ 随口说"帮我写个脚本" → 系统自动创建临时项目（见下文）
 ```
-
-## 工具总览
-
-| 工具 ID | 用途 | 需审批 |
-|---------|------|--------|
-| `ProjectQuery` | 查询项目（列表或详情） | 否 |
-| `ProjectMutate` | 变更项目（创建/更新/移动/移除） | 是 |
-| `Read`、`Glob`、`Grep` | 项目内文件读取与搜索 | 否 |
-| `Edit` / `Write` | 项目内文件编辑/创建 | 是 |
-| `Bash` | 在项目根执行命令（Git 等） | 是 |
 
 ## ProjectQuery
 

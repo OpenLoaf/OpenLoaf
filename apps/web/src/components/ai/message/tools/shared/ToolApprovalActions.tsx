@@ -11,7 +11,7 @@
 
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { useChatActions, useChatSession, useChatMessages, useChatStatus, useChatTools } from "../../../context";
+import { useChatActions, useChatSession, useChatMessages, useChatTools } from "../../../context";
 import { trpc } from "@/utils/trpc";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { CLIENT_HEADERS } from "@/lib/client-headers";
@@ -37,11 +37,11 @@ function extractToolId(type?: string): string | null {
 export default function ToolApprovalActions({ approvalId, size = "sm" }: ToolApprovalActionsProps) {
   const { t } = useTranslation("ai");
   const { messages } = useChatMessages();
-  const { status } = useChatStatus();
   const { updateMessage, addToolApprovalResponse } = useChatActions();
   const {
     toolParts,
     upsertToolPart,
+    queueToolApprovalPayload,
     clearToolApprovalPayload,
     continueAfterToolApprovals,
   } = useChatTools();
@@ -58,16 +58,29 @@ export default function ToolApprovalActions({ approvalId, size = "sm" }: ToolApp
     () => Object.values(toolParts).find((part) => part.approval?.id === approvalId),
     [toolParts, approvalId]
   );
-  const toolCallId =
-    typeof toolSnapshot?.toolCallId === "string" ? toolSnapshot.toolCallId : "";
+  // 中文注释：`toolParts` 仅在前端运行态同步，历史消息恢复或测试 harness 等场景下
+  // 可能为空；此时走消息链回落，用 approvalId 反查 toolCallId，保证
+  // queueToolApprovalPayload(toolCallId,...) 不被空 id 短路。
+  const toolCallId = React.useMemo(() => {
+    if (typeof toolSnapshot?.toolCallId === "string" && toolSnapshot.toolCallId) {
+      return toolSnapshot.toolCallId;
+    }
+    for (const message of messages ?? []) {
+      const parts = Array.isArray((message as any)?.parts) ? (message as any).parts : [];
+      for (const part of parts) {
+        if (part?.approval?.id === approvalId && typeof part?.toolCallId === "string") {
+          return part.toolCallId as string;
+        }
+      }
+    }
+    return "";
+  }, [toolSnapshot, messages, approvalId]);
   const isDecided =
     toolSnapshot?.approval?.approved === true || toolSnapshot?.approval?.approved === false;
-  // 中文注释：子代理审批会阻塞主流式，需允许在 streaming 状态下交互。
-  const isSubAgentApproval = Boolean(toolSnapshot?.subAgentToolCallId);
-  const disabled =
-    isSubmitting ||
-    isDecided ||
-    (!isSubAgentApproval && (status === "streaming" || status === "submitted"));
+  // 中文注释：审批等待期间 stream 已经在服务端挂起，按钮必须可点（否则用户的
+  // Approve/Reject 被 chat.status='streaming' 卡住，等同于审批功能失灵）。
+  // 除本地 `isSubmitting`/`isDecided` 外，不再受上层 chat.status 限制。
+  const disabled = isSubmitting || isDecided;
   const updateApprovalMutation = useMutation({
     ...trpc.chat.updateMessageParts.mutationOptions(),
   });
@@ -91,8 +104,14 @@ export default function ToolApprovalActions({ approvalId, size = "sm" }: ToolApp
         if (!hasTarget) continue;
         const nextParts = parts.map((part: any) => {
           if (part?.approval?.id !== approvalId) return part;
+          // 中文注释：approved=false 时同步把 state 切到 output-denied，
+          // 让 <ConfirmationRejected> 分支（要求 state 属于 approval-responded /
+          // output-denied / output-available）能展示"已拒绝执行"视觉反馈。
+          // approved=true 时不动 state —— 等 server stream 回写 output-available。
+          const nextState = approved === false ? "output-denied" : part.state;
           return {
             ...part,
+            state: nextState,
             approval: { ...part.approval, approved },
           };
         });
@@ -133,8 +152,12 @@ export default function ToolApprovalActions({ approvalId, size = "sm" }: ToolApp
       for (const [toolCallId, part] of Object.entries(toolParts)) {
         if (part?.approval?.id !== approvalId) continue;
         // 中文注释：本地先更新审批状态，避免按钮和边框滞后。
+        // approved=false 时同步 state → output-denied（同 updateApprovalInMessages），
+        // 让 Confirmation/ConfirmationRejected 分支立即显示"已拒绝执行"文案。
+        const nextState = approved === false ? ("output-denied" as const) : part.state;
         upsertToolPart(toolCallId, {
           ...part,
+          state: nextState,
           approval: { ...part.approval, approved },
         });
         break;
@@ -155,8 +178,12 @@ export default function ToolApprovalActions({ approvalId, size = "sm" }: ToolApp
       await postSubAgentApprovalAck(true, subAgentToolCallId);
     } else {
       await addToolApprovalResponse({ id: approvalId, approved: true });
-      clearToolApprovalPayload(toolCallId);
+      // 中文注释：允许/拒绝都必须 queue payload —— 后端 stripPendingToolParts
+      // 依据 toolApprovalPayloads[toolCallId] 才能把 approval-requested 的 tool part
+      // 转成 output-available 塞回模型链；缺了这一步 tool part 会被整段丢弃。
+      queueToolApprovalPayload(toolCallId, { approved: true });
       await continueAfterToolApprovals();
+      clearToolApprovalPayload(toolCallId);
     }
   }, [
     approvalId,
@@ -165,6 +192,7 @@ export default function ToolApprovalActions({ approvalId, size = "sm" }: ToolApp
     addToolApprovalResponse,
     postSubAgentApprovalAck,
     toolSnapshot?.subAgentToolCallId,
+    queueToolApprovalPayload,
     clearToolApprovalPayload,
     continueAfterToolApprovals,
     toolCallId,
@@ -250,8 +278,13 @@ export default function ToolApprovalActions({ approvalId, size = "sm" }: ToolApp
           await postSubAgentApprovalAck(false, subAgentToolCallId);
         } else {
           await addToolApprovalResponse({ id: approvalId, approved: false });
-          clearToolApprovalPayload(toolCallId);
+          // 中文注释：必须先 queue {approved:false} 再 continue —— 后端才能把
+          // approval-requested tool part 原地改写成 output-available(output={approved:false})
+          // 喂给 LLM，让 LLM 感知"用户拒绝"并作出响应（否则整段 tool part 被删，
+          // 表现为"点拒绝没反应"）。
+          queueToolApprovalPayload(toolCallId, { approved: false });
           await continueAfterToolApprovals();
+          clearToolApprovalPayload(toolCallId);
           if (approvalUpdate) {
             // 中文注释：拒绝审批后立即落库，避免刷新后仍显示“待审批”。
             try {
@@ -273,12 +306,14 @@ export default function ToolApprovalActions({ approvalId, size = "sm" }: ToolApp
       approvalId,
       isSubmitting,
       isDecided,
+      sessionId,
       updateApprovalSnapshot,
       updateApprovalInMessages,
       addToolApprovalResponse,
       updateApprovalMutation,
       postSubAgentApprovalAck,
       toolSnapshot?.subAgentToolCallId,
+      queueToolApprovalPayload,
       clearToolApprovalPayload,
       continueAfterToolApprovals,
       toolCallId,

@@ -24,6 +24,9 @@ const args = process.argv.slice(2)
 const extraVitestArgs = []
 const patterns = []
 let suite = null
+let batch = null
+let modelOverride = null
+let modelSourceOverride = null
 
 for (let i = 0; i < args.length; i++) {
   const arg = args[i]
@@ -36,11 +39,58 @@ for (let i = 0; i < args.length; i++) {
       console.error('--suite requires a name (e.g. chat, skill-market)')
       process.exit(1)
     }
+  } else if (arg === '--batch') {
+    batch = args[++i]
+    if (!batch) {
+      console.error('--batch requires a name (分组标签，用于主页按批次归档本次及后续用同名 batch 的 run)')
+      process.exit(1)
+    }
+  } else if (arg.startsWith('--batch=')) {
+    batch = arg.slice('--batch='.length)
+  } else if (arg === '--model') {
+    modelOverride = args[++i]
+    if (!modelOverride) {
+      console.error('--model requires an id (e.g. qwen:OL-TX-006)。列出可用模型请看 SKILL.md「列出可用 chat 模型」章节。')
+      process.exit(1)
+    }
+  } else if (arg.startsWith('--model=')) {
+    modelOverride = arg.slice('--model='.length)
+  } else if (arg === '--model-source') {
+    modelSourceOverride = args[++i]
+    if (!modelSourceOverride) {
+      console.error('--model-source requires cloud | local | saas')
+      process.exit(1)
+    }
+  } else if (arg.startsWith('--model-source=')) {
+    modelSourceOverride = arg.slice('--model-source='.length)
   } else if (arg.startsWith('--')) {
     extraVitestArgs.push(arg)
   } else {
     patterns.push(arg)
   }
+}
+
+// 模型覆盖 —— 通过环境变量传给 vitest.browser.config.ts 的 `define`，
+// 进而在浏览器端 ChatProbeHarness 读取并覆盖测试文件里硬编码的 chatModelId / chatModelSource。
+// 注意：只改运行时发送给后端的 model，不改 yaml / recordProbeRun 里声明的 model 字段
+// （那是测试作者的"设计意图"）。runs.jsonl 不做自动修改，但 harness 状态栏会显示实际生效值。
+if (modelOverride) {
+  process.env.BROWSER_TEST_MODEL_OVERRIDE = modelOverride
+  // 未显式指定 source 时，假设 cloud —— 绝大多数测试都跑 cloud 模型
+  process.env.BROWSER_TEST_MODEL_SOURCE_OVERRIDE = modelSourceOverride || 'cloud'
+  console.log(`[model-override] 强制 chatModelId="${modelOverride}" source="${process.env.BROWSER_TEST_MODEL_SOURCE_OVERRIDE}"`)
+  console.log(`[model-override] ⚠️  测试里的 toolCalls / vision / fallback 断言可能基于原模型能力，换模型后要注意断言是否仍合理。`)
+} else if (modelSourceOverride) {
+  console.error('--model-source 必须与 --model 一起使用')
+  process.exit(1)
+}
+
+// batch 通过环境变量传给 vitest.browser.config.ts（写进 run-meta.json.batch）
+if (batch) {
+  process.env.BROWSER_TEST_BATCH = batch
+  console.log(`[batch] 本次 run 归入批次: "${batch}"`)
+} else if (process.env.BROWSER_TEST_BATCH) {
+  console.log(`[batch] 从环境变量继承批次: "${process.env.BROWSER_TEST_BATCH}"`)
 }
 
 const testsRoot = resolve(root, '__tests__')
@@ -74,16 +124,20 @@ if (patterns.length === 0 && !suite) {
   AI Browser Test Runner
   ──────────────────────
   Usage:
-    pnpm test:browser:run <pattern> [pattern...]         run matching tests by name
-    pnpm test:browser:run --suite <name> [pattern...]    run tests in a suite (optionally filtered)
-    pnpm test:browser:run --all                          run all tests
+    pnpm test:browser:run <pattern> [pattern...]                  run matching tests by name
+    pnpm test:browser:run --suite <name> [pattern...]             run tests in a suite (optionally filtered)
+    pnpm test:browser:run --all                                   run all tests
+    pnpm test:browser:run --model <id> [--model-source cloud]     override chatModelId for this run
+    pnpm test:browser:run --batch <name> <pattern...>             tag this run into a batch group
 
   Examples:
-    pnpm test:browser:run 009                            test 009 (any suite)
-    pnpm test:browser:run 007 009 basic                  tests 007, 009, and basic-*
-    pnpm test:browser:run --suite skill-market           all skill-market tests
-    pnpm test:browser:run --suite chat 100               chat test 100
-    pnpm test:browser:run --all                          everything
+    pnpm test:browser:run 009                                     test 009 (any suite)
+    pnpm test:browser:run 007 009 basic                           tests 007, 009, and basic-*
+    pnpm test:browser:run --suite skill-market                    all skill-market tests
+    pnpm test:browser:run --suite chat 100                        chat test 100
+    pnpm test:browser:run --all                                   everything
+    pnpm test:browser:run --model qwen:OL-TX-007 --suite basic    force Qwen Plus for basic suite
+    pnpm test:browser:run --model deepseek:OL-TX-003 basic-001    force DeepSeek for one test
 
   Suites:`)
   for (const s of listSuites()) {
@@ -170,12 +224,15 @@ if (!patterns.includes('__ALL__')) {
 
 vitestArgs.push(...extraVitestArgs)
 
-// ── browser-test-runs 保留策略：最近 N 次，其余自动清理 ──
+// ── browser-test-runs 保留策略：默认全量保留 ──
+// 历史上曾默认 `keep=10`，跑多了会悄悄删掉历史 run，失去回溯能力。
+// 现在默认 0（= 不裁剪），只在显式设置 BROWSER_TEST_RUN_KEEP 时才裁剪。
+// 目录名兼容两种格式：老的 `20260417_150958` 和新的 `0042_20260417_150958`。
 const runsRoot = join(webRoot, 'browser-test-runs')
-const keep = Number.parseInt(process.env.BROWSER_TEST_RUN_KEEP ?? '10', 10) || 10
-if (existsSync(runsRoot)) {
+const keep = Number.parseInt(process.env.BROWSER_TEST_RUN_KEEP ?? '0', 10) || 0
+if (keep > 0 && existsSync(runsRoot)) {
   const dirs = readdirSync(runsRoot)
-    .filter(d => /^\d{8}_\d{6}/.test(d) && statSync(join(runsRoot, d)).isDirectory())
+    .filter(d => /^(?:\d{4,}|\d{8}_\d{6}|\d+_\d{8}_\d{6})$/.test(d) && statSync(join(runsRoot, d)).isDirectory())
     .sort().reverse()
   if (dirs.length > keep) {
     const toDelete = dirs.slice(keep)

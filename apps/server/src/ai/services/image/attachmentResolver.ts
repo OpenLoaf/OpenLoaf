@@ -12,6 +12,7 @@ import { promises as fs } from "node:fs";
 import { createHash } from "node:crypto";
 import sharp from "sharp";
 import type { UIMessage } from "ai";
+import { prisma } from "@openloaf/db";
 import type { OpenLoafImageMetadataV1 } from "@openloaf/api/types/image";
 import { stripAttachmentTagWrapper } from "@openloaf/api/common";
 import { getProjectRootPath } from "@openloaf/api/services/vfsService";
@@ -20,6 +21,27 @@ import { getOpenLoafRootDir, resolveScopedOpenLoafPath } from "@openloaf/config"
 import { getResolvedTempStorageDir } from "@openloaf/api/services/appConfigService";
 import { getProjectId } from "@/ai/shared/context/requestContext";
 import { resolveSessionDir, expandChatDirTemplate } from "@openloaf/api/services/chatSessionPaths";
+import { logger } from "@/common/logger";
+
+/**
+ * 会话首次落盘附件资源后同步到 ChatSession.hasAssets=true。
+ * 单次进程内同一 sessionId 只 UPDATE 一次，避免重复写。
+ * 失败不抛：标记丢失不影响附件本身写入。
+ */
+const _markedSessionIds = new Set<string>();
+async function markSessionHasAssets(sessionId: string): Promise<void> {
+  if (!sessionId || _markedSessionIds.has(sessionId)) return;
+  _markedSessionIds.add(sessionId);
+  try {
+    await prisma.chatSession.updateMany({
+      where: { id: sessionId, hasAssets: false },
+      data: { hasAssets: true },
+    });
+  } catch (err) {
+    _markedSessionIds.delete(sessionId);
+    logger.warn({ sessionId, err }, "markSessionHasAssets failed");
+  }
+}
 
 /** Max image edge length for chat. */
 const CHAT_IMAGE_MAX_EDGE = 1024;
@@ -720,6 +742,7 @@ export async function saveChatImageAttachment(input: {
     const sidecarPath = resolveMetadataSidecarPath(targetPath);
     await fs.writeFile(sidecarPath, metadataPayload.fullJson, "utf8");
   }
+  await markSessionHasAssets(input.sessionId);
 
   return {
     url: `\${CURRENT_CHAT_DIR}/${fileName}`,
@@ -774,6 +797,7 @@ export async function saveChatImageAttachmentFromPath(input: {
     const sidecarPath = resolveMetadataSidecarPath(targetPath);
     await fs.writeFile(sidecarPath, metadataPayload.fullJson, "utf8");
   }
+  await markSessionHasAssets(input.sessionId);
 
   return {
     url: `\${CURRENT_CHAT_DIR}/${fileName}`,

@@ -19,6 +19,7 @@ import { CollapsibleContent } from "@openloaf/ui/collapsible";
 import { Shimmer } from "@/components/ai-elements/shimmer";
 import { Message, MessageContent } from "@/components/ai-elements/message";
 import { useTranslation } from "react-i18next";
+import { BrainIcon } from "lucide-react";
 import AssistantMessageHeader, { AssistantAvatar } from "./AssistantMessageHeader";
 
 /**
@@ -83,18 +84,25 @@ export default function MessageThinking({
         </div>
       )}
       <MessageContent className="min-w-0 w-full gap-0">
-        <Reasoning isStreaming className="mb-0">
-          <ReasoningTrigger
-            getThinkingMessage={() => (
-              <Shimmer>
-                {t(awaitingTool ? "tool.thinkingAwaitingTool" : "tool.thinkingStreaming")}
-              </Shimmer>
-            )}
-          />
-          <CollapsibleContent className="mt-0.5 pl-8 whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-xs leading-5 text-muted-foreground line-clamp-3">
-            {reasoningText || t(awaitingTool ? "tool.thinkingAwaitingTool" : "tool.thinkingAnalyzing")}
-          </CollapsibleContent>
-        </Reasoning>
+        {awaitingTool ? (
+          <div className="flex w-full items-center gap-2 text-muted-foreground text-sm">
+            <div className="flex size-6 shrink-0 items-center justify-center">
+              <BrainIcon className="size-4" />
+            </div>
+            <Shimmer>{t("tool.thinkingAwaitingTool")}</Shimmer>
+          </div>
+        ) : (
+          <Reasoning isStreaming className="mb-0">
+            <ReasoningTrigger
+              getThinkingMessage={() => (
+                <Shimmer>{t("tool.thinkingStreaming")}</Shimmer>
+              )}
+            />
+            <CollapsibleContent className="mt-0.5 pl-8 whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-xs leading-5 text-muted-foreground line-clamp-3">
+              {reasoningText || t("tool.thinkingAnalyzing")}
+            </CollapsibleContent>
+          </Reasoning>
+        )}
       </MessageContent>
     </Message>
   );

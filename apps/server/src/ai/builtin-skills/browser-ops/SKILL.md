@@ -6,6 +6,18 @@ description: >
 
 # 浏览器操作指南
 
+## 工具清单
+
+| 工具 | 职责 | 只读 |
+|------|------|------|
+| `OpenUrl` | 打开网页（headless / tab / window 三模式） | 是 |
+| `BrowserSnapshot` | 一次拿到页面文本 + 交互元素列表 + 截图 + rawHtml | 是 |
+| `BrowserAct` | 页面交互（点击 / 输入 / 滚动 / 按键） | 否 |
+| `BrowserWait` | 等待页面状态（load / networkidle / url / text / timeout） | 是 |
+| `BrowserDownloadImage` | 下载页面中的图片到本地 | 否 |
+
+> **加载**：全部为 deferred 工具，调用前须先 `ToolSearch(names: "OpenUrl,BrowserSnapshot,BrowserAct,BrowserWait,BrowserDownloadImage")` 激活 schema。
+
 ## 核心心智模型
 
 浏览器操作 = **观察-行动-验证** 循环。每次操作后必须 snapshot 确认状态，因为网页是有状态的——点击可能触发导航、弹窗、AJAX 加载，你无法预测结果。盲目连续操作是最常见的失败原因。
@@ -13,16 +25,6 @@ description: >
 ```
 OpenUrl → BrowserSnapshot → 分析 → BrowserAct → BrowserWait → BrowserSnapshot → ...
 ```
-
-## 可用工具一览
-
-| 工具 | 用途 | 需要审批 |
-|------|------|---------|
-| `OpenUrl` | 打开页面（headless/tab/window） | 是 |
-| `BrowserSnapshot` | 获取页面全貌（文本+元素+截图+rawHtml） | 否 |
-| `BrowserAct` | 页面交互（点击/输入/滚动/按键） | 是 |
-| `BrowserWait` | 等待条件（load/networkidle/url/text/timeout） | 否 |
-| `BrowserDownloadImage` | 下载页面中的图片 | 是 |
 
 ## OpenUrl 打开模式
 

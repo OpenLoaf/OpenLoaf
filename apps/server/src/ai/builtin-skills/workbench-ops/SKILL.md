@@ -8,6 +8,20 @@ description: >
 
 本 skill 负责 Widget 生命周期管理（创建脚手架、查询、验证编译）。编码细节（SDK API、组件写法、安全沙箱）在 `generate-dynamic-widget` skill 中，需要写代码时先 `LoadSkill(skillName: "generate-dynamic-widget")`。
 
+## 工具清单
+
+| 工具 | 职责 | 只读 |
+|------|------|------|
+| `WidgetInit` | 生成 widget 脚手架目录（`~/.openloaf/dynamic-widgets/<id>/`） | 否 |
+| `WidgetList` | 列出所有已创建的 widget | 是 |
+| `WidgetGet` | 读取单个 widget 详情 | 是 |
+| `WidgetCheck` | 编译 widget（TypeScript）+ 触发实时预览刷新 | 是 |
+| `GenerateWidget` | Widget 代码生成（详见 `generate-dynamic-widget` skill） | 否 |
+| `Read` | Widget 代码读取（常驻工具） | 是 |
+| `Edit` | Widget 代码编辑（常驻工具） | 否 |
+
+> **加载**：`Read` / `Edit` 始终可用；`WidgetInit` / `WidgetList` / `WidgetGet` / `WidgetCheck` / `GenerateWidget` 调用前须先 `ToolSearch(names: "WidgetInit,WidgetList,WidgetGet,WidgetCheck,GenerateWidget")` 激活 schema。
+
 ## 决策树
 
 ```

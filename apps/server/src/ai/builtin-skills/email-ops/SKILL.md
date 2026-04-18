@@ -6,7 +6,14 @@ description: >
 
 # 邮件操作技能
 
-你有两个工具：`EmailQuery`（只读，无需审批）和 `EmailMutate`（写入，send/delete/move 需审批）。
+## 工具清单
+
+| 工具 | 职责 | 只读 |
+|------|------|------|
+| `EmailQuery` | 查询邮箱账号 / 邮件 / 统计 / 搜索（mode: `list-accounts` / `list-unified` / `list-messages` / `get-message` / `search` / `unread-stats` / `list-mailboxes`） | 是 |
+| `EmailMutate` | 发送 / 回复 / 转发 / 归档 / 删除 / 移动邮件（send / delete / move 需审批） | 否 |
+
+> **加载**：全部为 deferred 工具，调用前须先 `ToolSearch(names: "EmailQuery,EmailMutate")` 激活 schema。
 
 ## 我该用哪个查询模式？
 

@@ -18,12 +18,7 @@
     "board": "Task Board",
     "list": "Task List",
     "scheduled": "Scheduled Tasks",
-    "template": "Task Template",
-    "templates": "Templates",
-    "createTemplate": "Create Template",
-    "editTemplate": "Edit Template",
-    "deleteTemplate": "Delete Template",
-    "selectTemplate": "Select Template",
+
     "newScheduledTask": "New Scheduled Task",
     "createScheduledTask": "Create Scheduled Task",
     "editScheduledTask": "Edit Scheduled Task",
@@ -43,13 +38,7 @@
     "weekly": "Weekly",
     "monthly": "Monthly",
     "yearly": "Yearly",
-    "createFromTemplate": "Create Task from Template",
-    "templateName": "Template Name",
-    "templateNamePlaceholder": "Enter template name",
-    "templateDescriptionPlaceholder": "Enter template description (optional)",
-    "saveTemplate": "Save Template",
-    "noTemplates": "No templates",
-    "newTemplate": "Create Template",
+
     "back": "Back"
   },
   "status": {

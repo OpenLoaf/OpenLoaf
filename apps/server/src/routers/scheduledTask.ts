@@ -28,13 +28,7 @@ import {
   deleteTask,
   archiveTask,
 } from '@/services/scheduleConfigService'
-import {
-  listTemplates,
-  getTemplate as getTemplateById,
-  createTemplate,
-  deleteTemplate as deleteTemplateById,
-  createTaskFromTemplate,
-} from '@/services/scheduleTemplateService'
+
 import { readRunLogsMultiScope } from '@/services/scheduleRunLogService'
 import { scheduleTimerRegistry } from '@/services/scheduleTimerRegistry'
 import { scheduleOrchestrator } from '@/services/scheduleOrchestrator'
@@ -221,70 +215,6 @@ class ScheduledTaskRouterImpl extends BaseScheduledTaskRouter {
           const projectRoot = input.projectId ? getProjectRootPath(input.projectId) : null
           const ok = archiveTask(input.id, globalRoot, projectRoot)
           return { ok }
-        }),
-      // ─── Template endpoints ─────────────────────────────────
-      listTemplates: shieldedProcedure
-        .input(scheduledTaskSchemas.listTemplates.input)
-        .output(scheduledTaskSchemas.listTemplates.output)
-        .query(async () => {
-          const globalRoot = getOpenLoafDataRootDir()
-          return listTemplates(globalRoot)
-        }),
-      getTemplate: shieldedProcedure
-        .input(scheduledTaskSchemas.getTemplate.input)
-        .output(scheduledTaskSchemas.getTemplate.output)
-        .query(async ({ input }) => {
-          const globalRoot = getOpenLoafDataRootDir()
-          const template = getTemplateById(input.id, globalRoot)
-          if (!template) throw new Error(`Template not found: ${input.id}`)
-          return template
-        }),
-      createTemplate: shieldedProcedure
-        .input(scheduledTaskSchemas.createTemplate.input)
-        .output(scheduledTaskSchemas.createTemplate.output)
-        .mutation(async ({ input }) => {
-          const globalRoot = getOpenLoafDataRootDir()
-          return createTemplate(
-            {
-              name: input.name,
-              description: input.description,
-              agentName: input.agentName,
-              defaultPayload: input.defaultPayload,
-              skipPlanConfirm: input.skipPlanConfirm,
-              requiresReview: input.requiresReview,
-              priority: input.priority,
-              tags: input.tags,
-              triggerMode: input.triggerMode,
-              timeoutMs: input.timeoutMs,
-            },
-            globalRoot,
-          )
-        }),
-      deleteTemplate: shieldedProcedure
-        .input(scheduledTaskSchemas.deleteTemplate.input)
-        .output(scheduledTaskSchemas.deleteTemplate.output)
-        .mutation(async ({ input }) => {
-          const globalRoot = getOpenLoafDataRootDir()
-          const ok = deleteTemplateById(input.id, globalRoot)
-          return { ok }
-        }),
-      createFromTemplate: shieldedProcedure
-        .input(scheduledTaskSchemas.createFromTemplate.input)
-        .output(scheduledTaskSchemas.createFromTemplate.output)
-        .mutation(async ({ input }) => {
-          const globalRoot = getOpenLoafDataRootDir()
-          const scope = input.scope ?? (input.projectId ? 'project' : 'global')
-          const rootPath = scope === 'project' && input.projectId
-            ? getProjectRootPath(input.projectId) ?? globalRoot
-            : globalRoot
-          const task = createTaskFromTemplate(
-            input.templateId,
-            { name: input.name, description: input.description },
-            rootPath,
-            scope,
-          )
-          if (!task) throw new Error(`Template not found: ${input.templateId}`)
-          return task
         }),
     })
   }

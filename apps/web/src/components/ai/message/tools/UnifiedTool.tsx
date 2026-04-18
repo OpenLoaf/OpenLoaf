@@ -123,7 +123,13 @@ export default function UnifiedTool({
   const isApprovalRequested = isApprovalPending(part);
   const isRejected = part.approval?.approved === false;
   const hasApproval = part.approval != null;
-  const showOutput = !hasApproval || part.approval?.approved === true;
+  // 中文注释：decided（approved=true/false）后也要渲染 Confirmation，
+  // 让内部的 ConfirmationAccepted / ConfirmationRejected 分支能显示
+  // "已批准执行 / 已拒绝执行" 文案；否则拒绝后整块视觉反馈消失。
+  const showConfirmation = hasApproval && Boolean(approvalId);
+  // 中文注释：拒绝态也要显示 ToolOutput（渲染 tool.rejected "已拒绝"），
+  // 以前 showOutput 漏掉 isRejected 导致拒绝后 ToolContent 空白。
+  const showOutput = !hasApproval || part.approval?.approved === true || isRejected;
   const isStreaming = isToolStreaming(part);
   const actions =
     isApprovalRequested && approvalId ? (
@@ -241,7 +247,7 @@ export default function UnifiedTool({
       )}
       <ToolContent>
         <ToolInput input={stripActionName(inputPayload) as any} toolId={toolId} />
-        {isApprovalRequested && approvalId ? (
+        {showConfirmation ? (
           <Confirmation approval={part.approval as any} state={part.state as any}>
             <ConfirmationTitle>{t('tool.approvalRequest')}</ConfirmationTitle>
             <ConfirmationRequest>

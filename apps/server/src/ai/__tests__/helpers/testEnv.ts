@@ -16,6 +16,7 @@ import { resolveChatModel } from '@/ai/models/resolveChatModel'
 import { setRequestContext, setChatModel, setAbortSignal } from '@/ai/shared/context/requestContext'
 import { installHttpProxy } from '@/modules/proxy/httpProxy'
 import { getOpenLoafRootDir, setOpenLoafRootOverride, setDefaultProjectStorageRootOverride } from '@openloaf/config'
+import { setResolvedTempStorageDir } from '@openloaf/api/services/appConfigService'
 
 // 测试环境初始化代理 — 确保 Node.js fetch 走系统代理（undici 不自动识别环境变量）
 installHttpProxy()
@@ -183,6 +184,9 @@ export function setupE2eTestEnv(): string {
   setOpenLoafRootOverride(tempRoot)
   // 设置项目存储根 override，确保测试内的项目文件解析到临时项目目录。
   setDefaultProjectStorageRootOverride(destProjectRoot)
+  // 把 temp storage 也指向测试临时目录，避免 user-scope 记忆写到 ~/OpenLoafData/memory
+  // 污染用户真实记忆（MemorySave scope="user" 默认落盘在 temp storage 下）。
+  setResolvedTempStorageDir(tempRoot)
   e2eTempRoot = tempRoot
 
   return tempRoot

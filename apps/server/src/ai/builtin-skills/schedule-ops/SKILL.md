@@ -6,11 +6,15 @@ description: >
 
 # 任务操作技能
 
-本技能通过三个工具完成所有任务操作：
+## 工具清单
 
-- **`ScheduledTaskManage`** — 创建与管理（create / cancel / delete / resolve / archive / ...）
-- **`ScheduledTaskStatus`** — 查询任务快照（状态 / executionSummary / lastError）
-- **`ScheduledTaskWait`** — 阻塞等待指定任务到达终态或超时返回（立即任务的必配搭档）
+| 工具 | 职责 | 只读 |
+|------|------|------|
+| `ScheduledTaskManage` | 任务创建与管理（action: `create` / `cancel` / `delete` / `resolve` / `archive` 等） | 否 |
+| `ScheduledTaskStatus` | 查询任务快照（status / executionSummary / lastError） | 是 |
+| `ScheduledTaskWait` | 阻塞等待指定任务到达终态或超时返回（立即任务的必配搭档） | 是 |
+
+> **加载**：全部为 deferred 工具，调用前须先 `ToolSearch(names: "ScheduledTaskManage,ScheduledTaskStatus,ScheduledTaskWait")` 激活 schema。
 
 ## 什么时候用哪个工具
 

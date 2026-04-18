@@ -74,6 +74,8 @@ export type ChatSessionSummary = {
   projectIcon: string | null
   /** Session message count. */
   messageCount: number
+  /** 会话目录下是否有附件资源（asset/）；由写入端同步。 */
+  hasAssets: boolean
   /** 由外部探针（ai-browser-test 等）写入 session.json 的自动化测试标记。 */
   autoTest: boolean
   /** EVALUATION.json 里的 aggregate.score；未评审为 null。 */
@@ -328,6 +330,7 @@ export const chatRouter = t.router({
           errorMessage: true,
           projectId: true,
           messageCount: true,
+          hasAssets: true,
         },
       })
 

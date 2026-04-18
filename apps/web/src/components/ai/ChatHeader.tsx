@@ -558,7 +558,7 @@ function ChatHeaderInner({
               <PopoverContent
                 side="bottom"
                 align="end"
-                className="flex w-80 max-h-[min(80svh,var(--radix-popover-content-available-height))] flex-col overflow-hidden p-2"
+                className="flex w-[420px] max-h-[min(80svh,var(--radix-popover-content-available-height))] flex-col overflow-hidden p-2"
                 onInteractOutside={(e) => {
                   if (menuLockRef.current) e.preventDefault();
                 }}

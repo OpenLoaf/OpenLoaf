@@ -87,17 +87,79 @@ export function getProbeResult(): ProbeResult | null {
   }
 }
 
+export type WaitForProbeResultOptions = {
+  /**
+   * 允许 probe 过程中出现工具调用失败（`hasError=true`）。
+   * 默认 `false`：任一工具报错都会 throw，强制暴露"工具异常"——符合"异常必须重视"原则。
+   * 专门验证错误处理 / 审批拒绝 / 超时兜底的测试显式传 `true` 以放行。
+   */
+  allowToolErrors?: boolean
+}
+
 /**
  * 等待 ProbeResult 可用（onComplete 已触发）。
+ *
+ * 默认严格模式：若 `toolErrorCount > 0` 直接 throw，让测试 fail 到"工具失败列表"。
+ * 这阻止了"aiJudge 看最终回复通过 → 过程中的 tool error 被忽略"的漏网。
  */
-export async function waitForProbeResult(timeout = 120_000): Promise<ProbeResult> {
+export async function waitForProbeResult(
+  timeout = 120_000,
+  options: WaitForProbeResultOptions = {},
+): Promise<ProbeResult> {
   const start = Date.now()
   while (Date.now() - start < timeout) {
     const result = getProbeResult()
-    if (result) return result
+    if (result) {
+      if (!options.allowToolErrors && result.toolErrorCount > 0) {
+        const failed = (result.toolCallDetails || [])
+          .filter(t => t.hasError)
+          .map(t => `${t.name}${t.errorSummary ? `: ${String(t.errorSummary).slice(0, 120)}` : ''}`)
+          .join('\n  - ')
+        throw new Error(
+          `Probe completed but ${result.toolErrorCount} tool call(s) failed:\n  - ${failed}\n` +
+            `若此用例刻意验证工具错误，调用 waitForProbeResult(timeout, { allowToolErrors: true }).`,
+        )
+      }
+      return result
+    }
     await new Promise(r => setTimeout(r, 300))
   }
   throw new Error('Timeout waiting for ProbeResult')
+}
+
+/**
+ * 等待 DOM 停止变更（连续 `quietMs` 毫秒无任何 mutation），或到达 `maxWaitMs` 上限。
+ *
+ * 为什么需要：`waitForChatComplete` 只看 `data-probe-status=complete`，但此时：
+ * - 工具流式输出（例如 bash 的 10%→100%→DONE）的 React state 批处理可能还在 flush
+ * - Markdown / 代码高亮 / 消息列表 auto-scroll 还在 re-paint
+ * - useChat 拿到 finishReason 后仍有 1-2 个 render cycle 把最后一帧正文提交到 DOM
+ *
+ * 如果截图紧跟 `waitForChatComplete` 就会截到"半成品"。
+ */
+export async function waitForDomSettle(
+  target: Node = document.body,
+  quietMs = 400,
+  maxWaitMs = 3000,
+) {
+  return new Promise<void>((resolve) => {
+    const deadline = Date.now() + maxWaitMs
+    let quietTimer: ReturnType<typeof setTimeout> | null = null
+    const observer = new MutationObserver(() => {
+      if (Date.now() >= deadline) {
+        cleanup(); resolve(); return
+      }
+      if (quietTimer) clearTimeout(quietTimer)
+      quietTimer = setTimeout(() => { cleanup(); resolve() }, quietMs)
+    })
+    function cleanup() {
+      if (quietTimer) clearTimeout(quietTimer)
+      observer.disconnect()
+    }
+    observer.observe(target, { subtree: true, childList: true, characterData: true, attributes: true })
+    // 立即启动一次静默窗口，完全没 mutation 的情况下也能解锁
+    quietTimer = setTimeout(() => { cleanup(); resolve() }, quietMs)
+  })
 }
 
 /**
@@ -108,12 +170,18 @@ export async function waitForProbeResult(timeout = 120_000): Promise<ProbeResult
  * 直接 locator.screenshot 只会截到 viewport 一屏高度。
  * 截图前临时把 harness 和所有滚动容器展开成内容自然高度，截完恢复，
  * 这样能拿到完整会话高度的截图（Playwright 会滚 page 拼接）。
+ *
+ * 时序：先 `waitForDomSettle` 让流式输出/markdown 渲染真正落地，再展开容器、
+ * 等 2 个 RAF 让布局 reflow 完成，最后截图。
  */
 declare const __BROWSER_TEST_RUN_DIR__: string
 export async function takeProbeScreenshot(name: string) {
   const locator = page.getByTestId('chat-probe-harness')
   const harness = locator.element() as HTMLElement | null
   const dir = typeof __BROWSER_TEST_RUN_DIR__ === 'string' ? __BROWSER_TEST_RUN_DIR__ : '.'
+
+  // 1) 等 DOM 真正稳定下来（流式 tool output、markdown 渲染、auto-scroll 全部完成）
+  await waitForDomSettle(harness ?? document.body, 400, 3000)
 
   const snapshots: Array<{ el: HTMLElement; prop: string; prev: string; hadInline: boolean }> = []
   const setStyle = (el: HTMLElement, prop: string, value: string) => {
@@ -260,8 +328,26 @@ export async function aiJudge(options: {
   userPrompt?: string
   /** 超时毫秒数（默认 30s） */
   timeout?: number
+  /**
+   * 测试用例名（可选）。传入后，判决结果会通过 `appendAiJudge` browser command
+   * 追加到 `browser-test-runs/<seq>/data/<testCase>.json` 的 `aiJudges` 数组，
+   * 由 generate-report.mjs 渲染到 HTML 报告。不传则仅 console.log（兼容旧调用）。
+   */
+  testCase?: string
+  /**
+   * 裁判未通过时是否自动 throw 带完整 reason 的 AssertionError（默认 true）。
+   *
+   * Why：旧 API 返回 `{ pass: false, reason }` 后由测试自己 `expect(judgment.pass).toBe(true)`，
+   * vitest 捕获到的只有 `"expected false to be true"`，HTML 报告的「❌ 失败信息」卡
+   * 看不到 reason，debug 体验差。默认直接 throw 带 reason + aiResponse 片段的断言错误，
+   * 失败栈自带全部上下文，且 28 个测试文件无需改写；仍需旧行为的测试显式传 `false`。
+   */
+  throwOnFail?: boolean
 }): Promise<AiJudgment> {
-  const { serverUrl, criteria, aiResponse, toolCalls, userPrompt, timeout = 30_000 } = options
+  const {
+    serverUrl, criteria, aiResponse, toolCalls, userPrompt, testCase,
+    throwOnFail = true, timeout = 30_000,
+  } = options
 
   const contextParts = []
   if (userPrompt) contextParts.push(`## User Prompt\n${userPrompt}`)
@@ -307,14 +393,68 @@ export async function aiJudge(options: {
     console.log('[aiJudge] criteria:', criteria)
     console.log('[aiJudge] aiResponse (first 300):', (aiResponse || '').slice(0, 300))
     console.log('[aiJudge] result:', JSON.stringify(judgment))
+    if (testCase) await persistJudgment({ testCase, criteria, aiResponse, userPrompt, toolCalls, judgment })
+    if (!judgment.pass && throwOnFail) throw buildJudgmentError(judgment, criteria, aiResponse)
     return judgment
   } catch (err: any) {
     clearTimeout(timer)
+    // 如果 err 是我们自己 throw 的 AssertionError（judgment 已完整），直接往上抛；不要吞掉消息
+    if (err && err.name === 'AssertionError' && typeof err.message === 'string' && err.message.includes('aiJudge FAIL')) {
+      throw err
+    }
     const reason = err?.name === 'AbortError'
       ? `auxiliary model timeout (${timeout}ms)`
       : `auxiliary model call failed: ${err?.message ?? err}`
     console.error('[aiJudge] error:', reason)
-    return { pass: false, score: 0, reason }
+    const judgment: AiJudgment = { pass: false, score: 0, reason }
+    if (testCase) await persistJudgment({ testCase, criteria, aiResponse, userPrompt, toolCalls, judgment })
+    if (throwOnFail) throw buildJudgmentError(judgment, criteria, aiResponse)
+    return judgment
+  }
+}
+
+/**
+ * 构造一条信息丰富的断言错误：reason + score + criteria 摘要 + AI 回复前 400 字。
+ * 测试挂在 `expect(judgment.pass).toBe(true)` 时只有 "expected false to be true"，
+ * 靠这个 Error 把所有断言上下文一次性带到 vitest 的 failureMessages，
+ * HTML 报告的「❌ 失败信息」卡就能直接看到全貌，不用去翻 AI 裁判卡或 console。
+ */
+function buildJudgmentError(judgment: AiJudgment, criteria: string, aiResponse: string): Error {
+  const lines = [
+    `aiJudge FAIL (score=${judgment.score}): ${judgment.reason}`,
+    '',
+    `评判标准：${criteria}`,
+    '',
+    `AI 回复（前 400 字）：${(aiResponse || '(空)').slice(0, 400)}`,
+  ]
+  const err = new Error(lines.join('\n'))
+  err.name = 'AssertionError'
+  return err
+}
+
+/**
+ * 把 aiJudge 的判决落盘到当前 run 的 data/<testCase>.json。
+ * 通过 vitest browser server command `appendAiJudge` 异步写入；任何失败（命令
+ * 未注册 / data 文件不存在 / IO 错误）都只在 console 警告，不影响测试断言。
+ */
+async function persistJudgment(input: {
+  testCase: string
+  criteria: string
+  aiResponse: string
+  userPrompt?: string
+  toolCalls?: string[]
+  judgment: AiJudgment
+}): Promise<void> {
+  try {
+    const mod = await import('@vitest/browser/context')
+    const commands = (mod as unknown as {
+      commands?: { appendAiJudge?: (args: unknown) => Promise<unknown> }
+    }).commands
+    const fn = commands?.appendAiJudge
+    if (typeof fn !== 'function') return
+    await fn(input)
+  } catch (err) {
+    console.warn('[aiJudge] persist failed:', err instanceof Error ? err.message : String(err))
   }
 }
 

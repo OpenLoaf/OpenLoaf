@@ -30,7 +30,6 @@ const RAW_PROXY_GET_PATHS: ReadonlySet<string> = new Set([
   "/api/user/self",
 
   // 公共 AI 资源
-  "/api/public/ai/chat/models",
   "/api/public/ai/models/updated-at",
   "/api/public/ai/providers",
 

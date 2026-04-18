@@ -463,7 +463,12 @@ function getProvidersPath(): string {
 
 /** Resolve auth.json path. */
 function getAuthPath(): string {
-  return path.join(getConfigDir(), "auth.json");
+  // dev 与 prod 分别使用不同的登录态文件，避免本地开发刷新的 SaaS token
+  // 覆盖已打包桌面应用的登录，反之亦然。prod Electron 显式设置
+  // NODE_ENV=production（见 apps/desktop/src/main/services/prodServices.ts）。
+  const fileName =
+    process.env.NODE_ENV === "production" ? "auth.json" : "auth.dev.json";
+  return path.join(getConfigDir(), fileName);
 }
 
 /** Read JSON file safely with a fallback payload. */

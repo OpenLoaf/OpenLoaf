@@ -18,12 +18,7 @@
     "board": "任务看板",
     "list": "任务列表",
     "scheduled": "定时任务",
-    "template": "任务模板",
-    "templates": "模板列表",
-    "createTemplate": "创建模板",
-    "editTemplate": "编辑模板",
-    "deleteTemplate": "删除模板",
-    "selectTemplate": "选择模板",
+
     "newScheduledTask": "新建定时任务",
     "createScheduledTask": "创建定时任务",
     "editScheduledTask": "编辑定时任务",
@@ -43,13 +38,7 @@
     "weekly": "每周",
     "monthly": "每月",
     "yearly": "每年",
-    "createFromTemplate": "从模板创建任务",
-    "templateName": "模板名称",
-    "templateNamePlaceholder": "请输入模板名称",
-    "templateDescriptionPlaceholder": "请输入模板描述（可选）",
-    "saveTemplate": "保存模板",
-    "noTemplates": "暂无模板",
-    "newTemplate": "新建模板",
+
     "back": "返回"
   },
   "status": {

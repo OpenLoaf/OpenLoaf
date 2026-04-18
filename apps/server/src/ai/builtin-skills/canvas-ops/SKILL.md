@@ -6,7 +6,14 @@ description: >
 
 # 画布操作技能
 
-你有两个工具：`BoardQuery`（只读，无需审批）和 `BoardMutate`（写入，需审批）。
+## 工具清单
+
+| 工具 | 职责 | 只读 |
+|------|------|------|
+| `BoardQuery` | 查询画布列表或单个画布详情（mode: `list` / `get`） | 是 |
+| `BoardMutate` | 新建 / 更新 / 复制 / 删除画布（action: `create` / `update` / `delete` / `duplicate` / `clear-unbound` 等） | 否 |
+
+> **加载**：全部为 deferred 工具，调用前须先 `ToolSearch(names: "BoardQuery,BoardMutate")` 激活 schema。
 
 ## 我该用哪个？
 

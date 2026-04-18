@@ -18,12 +18,7 @@
     "board": "任務看板",
     "list": "任務列表",
     "scheduled": "定時任務",
-    "template": "任務範本",
-    "templates": "範本列表",
-    "createTemplate": "建立範本",
-    "editTemplate": "編輯範本",
-    "deleteTemplate": "刪除範本",
-    "selectTemplate": "選擇範本",
+
     "newScheduledTask": "新建定時任務",
     "createScheduledTask": "建立定時任務",
     "editScheduledTask": "編輯定時任務",
@@ -43,13 +38,7 @@
     "weekly": "每週",
     "monthly": "每月",
     "yearly": "每年",
-    "createFromTemplate": "從範本建立任務",
-    "templateName": "範本名稱",
-    "templateNamePlaceholder": "請輸入範本名稱",
-    "templateDescriptionPlaceholder": "請輸入範本描述（可選）",
-    "saveTemplate": "保存範本",
-    "noTemplates": "暫無範本",
-    "newTemplate": "新建範本",
+
     "back": "返回"
   },
   "status": {

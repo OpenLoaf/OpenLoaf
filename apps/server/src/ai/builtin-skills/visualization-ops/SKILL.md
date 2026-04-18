@@ -6,7 +6,14 @@ description: >
 
 # 可视化渲染
 
-本 skill 覆盖两个渲染工具：`JsxCreate`（JSX 组件实时渲染）和 `ChartRender`（ECharts 图表渲染）。
+## 工具清单
+
+| 工具 | 职责 | 只读 |
+|------|------|------|
+| `JsxCreate` | JSX 组件实时渲染（卡片 / 列表 / 表格 / 富文本等结构化输出） | 否 |
+| `ChartRender` | ECharts 图表渲染（折线 / 柱状 / 饼图 / 散点 / 雷达 / 热力图 / 地图） | 是 |
+
+> **加载**：全部为 deferred 工具，调用前须先 `ToolSearch(names: "JsxCreate,ChartRender")` 激活 schema。
 
 ## 静默渲染通道（读完再动手）
 

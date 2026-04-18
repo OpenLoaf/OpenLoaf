@@ -169,7 +169,10 @@ export function useCalendarPageState({
     ),
   );
 
-  const sources = (sourcesQuery.data ?? []) as CalendarSource[];
+  const sources = useMemo(
+    () => (sourcesQuery.data ?? []) as CalendarSource[],
+    [sourcesQuery.data],
+  );
   const calendars = useMemo(
     () => sources.filter((source) => source.kind === "calendar"),
     [sources],
@@ -228,7 +231,10 @@ export function useCalendarPageState({
     ),
   );
 
-  const items = (itemsQuery.data ?? []) as CalendarItemRecord[];
+  const items = useMemo(
+    () => (itemsQuery.data ?? []) as CalendarItemRecord[],
+    [itemsQuery.data],
+  );
   const systemEvents = useMemo(
     () => items.filter((item) => item.kind === "event"),
     [items],

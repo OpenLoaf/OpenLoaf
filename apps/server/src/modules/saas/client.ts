@@ -58,8 +58,7 @@ const timeoutFetcher: typeof fetch = (input, init) => {
   const method = init?.method ?? "GET";
   const t0 = Date.now();
 
-  const isQuiet =
-    url.includes("/ai/v3/capabilities") || url.includes("/api/public/ai/chat/models");
+  const isQuiet = url.includes("/ai/v3/capabilities");
 
   if (isDev && !isQuiet) {
     const body = extractBody(init);

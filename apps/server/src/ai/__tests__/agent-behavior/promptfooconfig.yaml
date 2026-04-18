@@ -50,5 +50,6 @@ tests:
   - file://tests/calendar/calendar.yaml
   - file://tests/email/email.yaml
   - file://tests/tools/tools.yaml
+  - file://tests/tools/memory.yaml
   - file://tests/commands/commands.yaml
   # - file://tests/regression/regression.yaml  # 首个回归测试创建时启用

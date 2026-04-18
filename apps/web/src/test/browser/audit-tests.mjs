@@ -54,16 +54,23 @@ function collectTests() {
 /** Read yaml files and pull name + promptHash. */
 function collectYamls() {
   if (!existsSync(yamlDir)) return []
-  return readdirSync(yamlDir)
-    .filter(f => f.endsWith('.yaml'))
-    .map(f => {
-      const content = readFileSync(join(yamlDir, f), 'utf-8')
-      const name = content.match(/^name:\s*(\S+)/m)?.[1] ?? f.replace(/\.yaml$/, '')
+  const out = []
+  function walk(dir, rel) {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const abs = join(dir, entry.name)
+      const relPath = rel ? `${rel}/${entry.name}` : entry.name
+      if (entry.isDirectory()) { walk(abs, relPath); continue }
+      if (!entry.name.endsWith('.yaml')) continue
+      const content = readFileSync(abs, 'utf-8')
+      const name = content.match(/^name:\s*(\S+)/m)?.[1] ?? entry.name.replace(/\.yaml$/, '')
       const promptHash = content.match(/^promptHash:\s*(\S+)/m)?.[1] ?? null
       const updatedAt = content.match(/^updatedAt:\s*(\S+)/m)?.[1]
         ?? content.match(/^createdAt:\s*(\S+)/m)?.[1] ?? null
-      return { name, file: f, path: join(yamlDir, f), promptHash, updatedAt }
-    })
+      out.push({ name, file: relPath, path: abs, promptHash, updatedAt })
+    }
+  }
+  walk(yamlDir, '')
+  return out
 }
 
 const tests = collectTests()

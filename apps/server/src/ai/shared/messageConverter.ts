@@ -14,7 +14,7 @@ import {
   type UIMessage,
   type ToolSet,
 } from "ai";
-import type { ModelDefinition } from "@openloaf/api/common";
+import type { ModelDefinition, ModelTag } from "@openloaf/api/common";
 import { trimToContextWindow } from "@/ai/shared/contextWindowManager";
 import {
   expandAttachmentTagsForModel,
@@ -63,6 +63,15 @@ export async function buildModelMessages(
     if (expansion.mutations.length > 0 && options.onMutations) {
       await options.onMutations(expansion.mutations);
     }
+  }
+
+  // 逻辑：把「当前模型能力」注入到最后一条 user message 的 msg-context。
+  // 只注入到最后一条是因为：(1) 模型在会话中途可能被切换，历史轮的 capability
+  // 是"当时"的快照、现在可能已经失效；(2) 模型决策基于"当前"能力即可。
+  // 不持久化（只对本次请求生效），避免污染 JSONL。
+  const capability = deriveModelCapability(options?.modelDefinition);
+  if (capability) {
+    sanitized = injectCapabilityToLastUser(sanitized, capability);
   }
 
   validateUIMessages({ messages: sanitized as any });
@@ -148,8 +157,70 @@ function renderMsgContextXml(d: Record<string, unknown>): string {
     children.push(`  <stack>\n${items.join("\n")}\n  </stack>`);
   }
 
+  // 逻辑：当前模型能力（仅由 buildModelMessages 注入最后一条 user msg）。
+  const cap = d._capability as ModelCapabilityInline | undefined;
+  if (cap) {
+    const capAttrs: string[] = [];
+    if (cap.name) capAttrs.push(`name="${xmlAttr(cap.name)}"`);
+    capAttrs.push(`native-inputs="${xmlAttr(cap.nativeInputs.join(" "))}"`);
+    children.push(`  <model ${capAttrs.join(" ")} />`);
+  }
+
   if (children.length === 0) {
     return `<system-tag type="msg-context"${datetime} />`;
   }
   return `<system-tag type="msg-context"${datetime}>\n${children.join("\n")}\n</system-tag>`;
+}
+
+type ModelCapabilityInline = {
+  name?: string;
+  nativeInputs: string[];
+};
+
+/** Derive the capability summary to inline into msg-context. */
+function deriveModelCapability(
+  modelDefinition: ModelDefinition | undefined,
+): ModelCapabilityInline | null {
+  if (!modelDefinition) return null;
+  const tagList: ModelTag[] = Array.isArray(modelDefinition.tags)
+    ? (modelDefinition.tags as ModelTag[])
+    : [];
+  const tags = new Set<ModelTag>(tagList);
+  const inputs: string[] = ["text"];
+  if (tags.has("image_input") || tags.has("image_analysis")) inputs.push("image");
+  if (tags.has("audio_analysis")) inputs.push("audio");
+  if (tags.has("video_analysis")) inputs.push("video");
+  const name = typeof modelDefinition.name === "string" && modelDefinition.name.trim()
+    ? modelDefinition.name.trim()
+    : undefined;
+  return { name, nativeInputs: inputs };
+}
+
+/** Inject capability summary into the most recent data-msg-context part. */
+function injectCapabilityToLastUser(
+  messages: UIMessage[],
+  capability: ModelCapabilityInline,
+): UIMessage[] {
+  // 逻辑：splitUserMessageParts 把 data-msg-context 和用户真实 parts 拆成了
+  // 两条相邻的 user message；此处必须找"最近一条含 data-msg-context 的 user
+  // message"去合并，而不是简单的 lastUserIdx — 否则会凭空塞出一条孤立的
+  // msg-context 消息，跟上一条 msg-context(datetime) 形成重复。
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg: any = messages[i];
+    if (msg?.role !== "user") continue;
+    const parts: any[] = Array.isArray(msg?.parts) ? msg.parts : [];
+    const ctxIdx = parts.findIndex((p) => p?.type === "data-msg-context");
+    if (ctxIdx < 0) continue;
+    const target = parts[ctxIdx];
+    const nextCtx = {
+      ...target,
+      data: { ...(target.data ?? {}), _capability: capability },
+    };
+    const nextParts = parts.slice();
+    nextParts[ctxIdx] = nextCtx;
+    const next = messages.slice();
+    next[i] = { ...msg, parts: nextParts } as UIMessage;
+    return next;
+  }
+  return messages;
 }
