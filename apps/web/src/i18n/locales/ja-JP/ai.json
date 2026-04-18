@@ -146,6 +146,7 @@
     "PptxMutate": "PPTX操作",
     "PdfQuery": "PDF検索",
     "PdfMutate": "PDF操作",
+    "PdfInspect": "PDF分析",
     "DocPreview": "ドキュメントプレビュー",
     "Bash": "ターミナルコマンド",
     "shell-command": "ターミナルコマンド",

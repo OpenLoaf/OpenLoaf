@@ -1,159 +1,214 @@
 ---
 name: pdf-skill
 description: >
-  当用户要求对 PDF 做任何操作时触发：总结 / 阅读正文、抽取表格或特定页、填写 AcroForm 表单、合并多个 PDF、加水印 / 签章 / 机密章、遮罩敏感内容（redaction）、从零生成发票 / 报告 / 凭证 PDF、PDF 与 docx / md / txt 互转。典型说法："总结这份 PDF"、"这份报告讲了什么"、"填一下这个 PDF 表单"、"把这几个 PDF 合一起"、"给这份 PDF 加水印"、"在 PDF 上盖机密章"、"把 PDF 转成 Word"。用户提到 .pdf 文件、要产出 PDF、或做任何 PDF 上的改动都应加载本技能。
+  PDF 读/写/转/OCR 一体化。触发场景：总结 PDF、读文本或表格、填 AcroForm 表单、填扫描件/非 AcroForm 表格、渲染页面为图（用于 OCR / 可视化定位）、合并、拆分、加水印/机密章、遮罩敏感内容、创建新 PDF（发票/报告/凭证）、PDF ↔ docx/md/txt 互转。典型说法：“总结这份 PDF”、“填一下这个 PDF 表单”、“把这几个 PDF 合一起”、“PDF 加水印”、“PDF 转 Word”、“扫描件 OCR”、“看看 PDF 第 3 页长什么样”。用户提到 .pdf 文件、要产出 PDF、或要对 PDF 做任何改动都加载本技能。
 ---
 
 # PDF 技能
 
-本技能涉及 4 个工具，按**读 → 写 → 转**组织：
+一共 4 个工具，按 **看 → 改 → 转 → OCR** 组织：
 
-| 工具 | 职责 | 只读 |
-|------|------|------|
-| `Read` | 读 PDF 时的默认入口。返回元信息 + 首页摘要 + 表单字段清单 | 是 |
-| `DocPreview` | 两种模式：`preview`（轻量结构信息）/ `full`（完整 Markdown 正文 + 提取图片） | 是 |
-| `PdfMutate` | 唯一写入工具。4 个 action：`create` / `fill-form` / `merge` / `add-text` | 否 |
-| `DocConvert` | 格式互转：pdf ↔ docx / html / md / txt 等 | 否 |
+| 工具 | 职责 | 只读 | 调用前需加载 schema |
+|---|---|---|---|
+| `PdfInspect` | **所有读操作**：summary / text / tables / form-fields / form-structure / images / annotations / render | ✅ | `ToolSearch(names: "PdfInspect")` |
+| `PdfMutate` | **所有写操作**（当前：create / fill-form / merge / add-text；阶段 2 会扩充到 12 action） | ❌ | `ToolSearch(names: "PdfMutate")` |
+| `DocConvert` | 格式互转：pdf ↔ docx / html / md / txt / xlsx / json 等 | ❌ | `ToolSearch(names: "DocConvert")` |
+| `CloudImageUnderstand` | **扫描 PDF 的 OCR 入口**（云端，会扣积分） | ❌（调用云端） | 通过 cloud-media-skill 加载 |
 
-> **工具按需加载**：`DocPreview`、`PdfMutate`、`DocConvert` 调用前须先 `ToolSearch(names: "工具名")` 加载 schema。`Read` 始终可用。
-
----
-
-## 1. 读取 PDF
-
-### 1.1 用 `Read` 快速了解
-
-直接 `Read(file_path)` 即可。对 PDF 文件，Read 内部会走 preview 路径，返回：
-- 页数、文件大小、元信息（标题/作者/日期等）
-- 首页文本摘要（前 400 字符）
-- 如果有 AcroForm 表单：字段总数
-
-适合场景：快速判断 PDF 内容、确认是否含表单、获取页数。
-
-### 1.2 用 `DocPreview` 做精细读取
-
-| 参数 | 说明 |
-|------|------|
-| `mode: 'preview'` | 同 Read，返回结构信息 + 首页摘要（默认值） |
-| `mode: 'full'` | 完整提取：每页文本转 Markdown + 嵌入图片提取到 asset 目录 |
-| `pageRange: '3-10'` | 指定页码范围（两种 mode 均可用） |
-
-**大 PDF（>20 页）必须用 `pageRange` 分段读**，一次全量提取会超时。建议每次不超过 20 页。
-
-```
-DocPreview { file_path: '/work/report.pdf', mode: 'full', pageRange: '1-20' }
-DocPreview { file_path: '/work/report.pdf', mode: 'full', pageRange: '21-40' }
-```
+> `Read` 仍然可用：对 .pdf 文件，Read 内部会 fallback 到 DocPreview 的轻量摘要，**但信息有限**；需要精准分析就用 `PdfInspect`。
 
 ---
 
-## 2. PdfMutate — 写入 PDF
+## 1. 第一步：永远先 `PdfInspect(summary)`
 
-通过 `action` 字段区分 4 种操作。`filePath` 的含义因 action 而异：
-- `create` / `merge` → **输出路径**（新建文件）
-- `fill-form` / `add-text` → **已有 PDF 路径**（原地修改）
+不知道 PDF 长啥样时，**不要**马上 `text` / `form-fields`，先 summary 一次拿到全貌：
 
-### 2.1 create — 从零创建
+```
+PdfInspect { action: "summary", filePath: "…" }
+```
 
-`content` 是结构化块数组，支持 6 种 type：
+返回的 `textType` 三大分支决定你下一步走哪条路：
 
-| type | 字段 |
-|------|------|
-| `heading` | `text`, `level?`（1-6） |
-| `paragraph` | `text`, `bold?`, `italic?`, `fontSize?` |
-| `table` | `headers: string[]`, `rows: string[][]` |
-| `bullet-list` | `items: string[]` |
-| `numbered-list` | `items: string[]` |
-| `page-break` | 无额外字段 |
+| textType | 含义 | 下一步 |
+|---|---|---|
+| `extractable` | 文字流正常，可直接抽取 | `PdfInspect(text)` 或 `tables` |
+| `scanned` | 页面是图片，无文字流 | `PdfInspect(render)` → `CloudImageUnderstand` 做 OCR |
+| `cid-encoded` | 字符用 CID 编码（extraction 会得到乱码） | 同 `scanned` 走 OCR |
+| `empty` | 无文字无图（罕见，多半文件损坏） | 告知用户，停止 |
+
+summary 里还会返回 `suggestedNextTool` —— 直接按它推荐的继续。例子：
+
+```
+suggestedNextTool: {
+  tool: 'CloudImageUnderstand',
+  precedingAction: 'render',
+  reason: 'PDF pages contain no extractable text stream...'
+}
+```
+
+⚠️ **加密 PDF**：如果 summary 返回 `isEncrypted: true, needsPassword: true`，**必须**拿到用户密码后用 `password` 参数重新 summary；否则所有后续 action 都会返回 `error: 'PDF_ENCRYPTED'`。
+
+---
+
+## 2. 读文本 / 表格 / 图片
+
+### 2.1 `PdfInspect(text)` — 默认抽文字
+
+```
+PdfInspect { action: "text", filePath: "…", pageRange: "1-20" }
+```
+
+- **大 PDF 必须分段**：`pageRange` 每次 ≤ 20 页。
+- 需要坐标做定位时加 `withCoords: true`，会返回每个文本 item 的 `{ x, y, width, height }`。
+- 坐标系：**PDF points，原点左下角**。A4 约 595 × 842 pt。
+
+### 2.2 `PdfInspect(tables)` — 结构化表格
+
+目前是简化算法（`heuristic: 'simple-grid'`），复杂表可能抽不全。抽不到时 fallback 到 `text` 或让用户明确列出。
+
+### 2.3 `PdfInspect(images)` — 嵌入图片清单
+
+默认只返回元数据（`page / indexInPage / width / height`）。要拿到可引用的 PNG URL，加 `extractImages: true`，图片会被写到当前 session 的 asset 目录。
+
+### 2.4 `PdfInspect(annotations)` — 注释
+
+Highlight / Text / FreeText / Stamp / Link 等都能抽到 `subtype / rect / contents / url`。
+
+---
+
+## 3. 填表单 — 两条路径，必须先探测
+
+### 3.1 AcroForm（真正的 PDF 表单）
+
+**3 步工作流：**
+
+```
+Step 1  PdfInspect { action: "form-fields", filePath: "…", withRender: true }
+        → 返回 fields[] + 每页渲染 PNG（模型肉眼对照字段位置）
+
+Step 2  模型根据用户意图构造 { 字段名: 值 } 映射
+        · checkbox: 必须用 fields[i].checkedValue（如 "Yes" / "On"），不要猜 "true" / "yes"
+        · radio:    必须用 fields[i].radioOptions[j].value
+        · dropdown: 必须用 fields[i].choiceOptions[j].value
+
+Step 3  PdfMutate { action: "fill-form", filePath: "…", fields: { … } }
+        → 返回 { filledCount, skippedFields: [...] }
+        skippedFields 非空代表有拼写错 / 大小写错，对照 Step 1 的字段清单修正后重试。
+```
+
+### 3.2 非 AcroForm（静态表格 / 扫描件视觉表）
+
+```
+Step 1  PdfInspect { action: "form-structure", filePath: "…", pageRange: "1-3", withRender: true }
+        → 返回 labels / lines / checkboxes / rowBoundaries + 页面渲染 PNG
+
+Step 2  模型从 labels 的 rect 推算每个“填写点”的坐标：
+        · 文本框入口 x0 ≈ label.x1 + 5，y 落在附近横线上方
+        · 复选框直接用 checkboxes[i].rect
+
+Step 3  PdfMutate { action: "add-text", filePath: "…", overlays: [...] }
+        每个 overlay 填 { page, x, y, text, fontSize?, color?, background? }
+```
+
+如果看不清，直接把 Step 1 返回的 renders 里的 PNG URL 当图片展示给模型看（OpenLoaf 支持多模态）。不要额外 crop —— 直接传整页图就够。
+
+---
+
+## 4. 扫描 PDF 的 OCR 工作流（4 步闭环）
+
+```
+Step 1  PdfInspect(summary) → textType: 'scanned'
+
+Step 2  PdfInspect { action: "render", filePath: "…", pageRange: "1-12", scale: 2 }
+        → 返回 pages: [{ page, url, width, height }, ...]
+        一次 render 多页，scale=2 默认 ≈144 DPI，足够 OCR。
+
+Step 3  对每一页 PNG 调用 CloudImageUnderstand
+        （若用户 tier 允许并行，可同时发多个；否则顺序调用）
+
+Step 4  汇总各页文本，必要时 Write 到 .md / .txt
+```
+
+⚠️ `CloudImageUnderstand` 会扣云端积分。对大 PDF 先 render **前 3 页**跑 OCR 给用户看一眼样本，得到确认后再跑全文。
+
+---
+
+## 5. 创建 PDF — `PdfMutate(create)`
 
 ```json
 {
   "action": "create",
-  "filePath": "/work/invoice.pdf",
+  "filePath": "${CURRENT_CHAT_DIR}/invoice.pdf",
   "content": [
-    { "type": "heading", "text": "Invoice #20260415", "level": 1 },
-    { "type": "paragraph", "text": "Bill to: ACME Corp", "bold": true },
-    { "type": "table", "headers": ["Item", "Qty", "Price"], "rows": [["Widget", "3", "$30"]] },
-    { "type": "paragraph", "text": "Total: $30" }
+    { "type": "heading", "text": "发票 #20260415", "level": 1 },
+    { "type": "paragraph", "text": "收件方：ACME Corp", "bold": true },
+    { "type": "table", "headers": ["品名", "数量", "单价"], "rows": [["Widget", "3", "¥30"]] },
+    { "type": "paragraph", "text": "合计：¥30" }
   ]
 }
 ```
 
-**CJK 支持**：检测到中文/日文/韩文时自动加载 Noto Sans SC 字体，`create` 和 `add-text` 均可直接使用中文。
+支持 6 种块：`heading / paragraph / table / bullet-list / numbered-list / page-break`。
 
-### 2.2 fill-form — 填写 AcroForm 表单
+- **中文直接写**。检测到 CJK 字符会自动嵌入 Noto Sans SC。
+- **不要用 Unicode 下标/上标字符**（₀₁₂ / ⁰¹²）。pdf-lib 的 WinAnsi 标准字体无此字形，会渲染成黑方块。化学式 `H₂O` 请写成 `H2O` 或拆两行；阶段 3 会加入 `{ runs: [{ text, super: true }] }` 的结构化支持。
+- 段内目前不支持 bold/italic 混排（整段只能一种样式）。需要富文本排版请生成 DOCX 再 `DocConvert` 到 PDF。
 
-**必须先读字段名**。字段名由 PDF 作者定义（可能是 `name` 也可能是 `field_23_a`），猜不到。
+---
 
-```
-Step 1: Read('/work/contract.pdf')  → 看 <meta> 中的表单字段名列表
-Step 2: PdfMutate { action: "fill-form", filePath: "/work/contract.pdf", fields: { "full_name": "Alice Chen", "date": "2026-04-15" } }
-```
+## 6. 合并 / 水印 / Redaction
 
-- `fields` 是 `{ 字段名: 值 }` 的映射，字段名**区分大小写**
-- 返回值中的 `skippedFields` 列出了未命中的字段——通常是拼写/大小写错误，对照字段清单修正后重试
-- 如果 PDF 只是视觉上看起来像表单（无真正 AcroForm 字段），fill-form 会全部 skip，此时改用 `add-text` 在坐标上叠加文字
-
-### 2.3 merge — 合并多个 PDF
+### 6.1 合并 — `PdfMutate(merge)`
 
 ```json
-{
-  "action": "merge",
-  "filePath": "/work/merged.pdf",
-  "sourcePaths": ["/work/cover.pdf", "/work/body.pdf", "/work/appendix.pdf"]
-}
+{ "action": "merge", "filePath": "out.pdf", "sourcePaths": ["cover.pdf", "body.pdf"] }
 ```
 
-`sourcePaths` 按数组顺序拼接。如果 `filePath` 与某个源路径相同会覆写，操作前与用户确认。
+按数组顺序拼接。`filePath` 与某个 source 同名会覆写，先和用户确认。
 
-### 2.4 add-text — 叠加文字 / 水印 / 遮罩
+### 6.2 水印 / 机密章 — `PdfMutate(add-text)`
 
-`overlays` 数组，每个元素定义一处叠加：
+坐标系：**PDF points，原点左下**。y 越大越靠上。
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| `page` | number | 1-based 页码，必须是已有页 |
-| `x` | number | PDF points，原点**左下角** |
-| `y` | number | PDF points，原点**左下角**，y 越大越靠上 |
-| `text` | string | 叠加的文字 |
-| `fontSize?` | number | 默认 12 |
-| `color?` | string | 十六进制，默认 "#000000" |
-| `background?` | object | `{ color, padding?, width?, height? }` — 背景矩形，用于 redaction 遮罩 |
-
-水印示例：
 ```json
-{ "action": "add-text", "filePath": "/work/report.pdf",
+{ "action": "add-text", "filePath": "report.pdf",
   "overlays": [{ "page": 1, "x": 400, "y": 780, "text": "CONFIDENTIAL", "fontSize": 24, "color": "#FF0000" }] }
 ```
 
-Redaction 示例（白底覆盖）：
+### 6.3 Redaction（视觉遮盖）
+
+用 `background` 字段在文字下叠白底：
+
 ```json
-{ "action": "add-text", "filePath": "/work/doc.pdf",
-  "overlays": [{ "page": 2, "x": 120, "y": 520, "text": "****", "fontSize": 12, "background": { "color": "#FFFFFF", "padding": 2 } }] }
+{ "action": "add-text", "filePath": "doc.pdf",
+  "overlays": [{ "page": 2, "x": 120, "y": 520, "text": "****", "fontSize": 12,
+                 "background": { "color": "#FFFFFF", "padding": 2 } }] }
 ```
 
-**注意**：redaction 只是视觉遮盖，PDF 底层文本仍可被提取。必须告知用户这一限制。
+⚠️ **redaction 只是视觉遮盖，PDF 底层文本仍可被提取**。必须告知用户这一限制。
 
 ---
 
-## 3. DocConvert — 格式转换
+## 7. 格式转换 — `DocConvert`
 
 ```json
-{ "filePath": "/work/report.pdf", "outputPath": "/work/report.docx", "outputFormat": "docx" }
+{ "filePath": "report.pdf", "outputPath": "report.docx", "outputFormat": "docx" }
 ```
 
-支持的 outputFormat：`pdf`, `docx`, `html`, `md`, `txt`, `csv`, `xls`, `xlsx`, `json`
-
-**pdf → docx 是有损转换**：复杂排版、表格、图片位置可能丢失或错位。转换前必须告知用户。
+- `pdf → docx` / `pdf → md` / `pdf → html`：**都是文本级转换，复杂排版 / 图片位置会丢失或错位**。转换前告知用户。
+- `docx → pdf` / `md → pdf` / `txt → pdf`：同样文本级、布局朴素。
 
 ---
 
-## 4. 关键约束
+## 8. 硬约束清单（踩坑指南）
 
-1. **中文 PDF 可直接创建**。检测到 CJK 字符时自动使用 Noto Sans SC 字体（首次加载略慢）。
-2. **fill-form 前必须先 Read 拿字段名**。字段名是唯一标识，不能靠猜。
-3. **add-text 坐标原点在左下角**。y 越大越靠上。A4 约 595 × 842 pt。
-4. **大 PDF 分段读**。DocPreview + pageRange，每次 ≤20 页。
-5. **redaction 不是真删除**。底层文本仍在，必须告知用户。
-6. **pdf → docx 有损**。转换前告知用户。
-7. **create / merge 会覆盖同名文件**。建议使用新文件名或先确认。
+1. **先 summary 再 action**：不要跳过 summary 直接 text/form-fields；否则撞加密 / 扫描件时白跑一次。
+2. **加密 PDF 必带 password**：检查 `summary.isEncrypted`，没密码就让用户提供。
+3. **大 PDF 分段读**：`pageRange` 每次 ≤ 20 页。
+4. **AcroForm 值一定用清单里的**：checkbox 用 `checkedValue`，radio 用 `radioOptions[i].value`，不能猜 "true"/"yes"。
+5. **Unicode 上下标 = 黑方块**：`create` 时用 ASCII 替代。
+6. **redaction 不是真删**：底层文本可提取。
+7. **`add-text` 坐标原点左下角**：y 越大越靠上。
+8. **OCR 会扣积分**：`CloudImageUnderstand` 是云端收费 API，大 PDF 先采样确认再跑全文。
+9. **PDF 渲染 asset 路径是 session 级**：`PdfInspect(render)` 的 PNG 落在当前对话的 asset 目录，**下一轮对话不存在**。
+10. **CJK 可直接创建**：Noto Sans SC 自动加载，不要把中文先转 pinyin 再生成。

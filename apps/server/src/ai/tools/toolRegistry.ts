@@ -35,7 +35,7 @@ import { emailMutateTool, emailQueryTool } from "@/ai/tools/emailTools";
 import { excelMutateTool } from "@/ai/tools/excelTools";
 import { wordMutateTool } from "@/ai/tools/wordTools";
 import { pptxMutateTool } from "@/ai/tools/pptxTools";
-import { pdfMutateTool } from "@/ai/tools/pdfTools";
+import { pdfMutateTool, pdfInspectTool } from "@/ai/tools/pdfTools";
 import { imageProcessTool } from "@/ai/tools/imageProcessTools";
 import { videoConvertTool } from "@/ai/tools/videoConvertTools";
 import { videoDownloadTool } from "@/ai/tools/videoDownloadTool";
@@ -85,7 +85,7 @@ import {
 import { excelMutateToolDef } from "@openloaf/api/types/tools/excel";
 import { wordMutateToolDef } from "@openloaf/api/types/tools/word";
 import { pptxMutateToolDef } from "@openloaf/api/types/tools/pptx";
-import { pdfMutateToolDef } from "@openloaf/api/types/tools/pdf";
+import { pdfMutateToolDef, pdfInspectToolDef } from "@openloaf/api/types/tools/pdf";
 import { imageProcessToolDef } from "@openloaf/api/types/tools/imageProcess";
 import { videoConvertToolDef } from "@openloaf/api/types/tools/videoConvert";
 import { videoDownloadToolDef } from "@openloaf/api/types/tools/videoDownload";
@@ -294,6 +294,9 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
   [pdfMutateToolDef.id]: {
     tool: pdfMutateTool,
   },
+  [pdfInspectToolDef.id]: {
+    tool: pdfInspectTool,
+  },
   [generateWidgetToolDef.id]: {
     tool: generateWidgetTool,
   },
@@ -426,6 +429,7 @@ const TOOL_DEF_REGISTRY: Record<string, { parameters?: any }> = {
   [wordMutateToolDef.id]: wordMutateToolDef,
   [pptxMutateToolDef.id]: pptxMutateToolDef,
   [pdfMutateToolDef.id]: pdfMutateToolDef,
+  [pdfInspectToolDef.id]: pdfInspectToolDef,
   [generateWidgetToolDef.id]: generateWidgetToolDef,
   [widgetInitToolDef.id]: widgetInitToolDef,
   [widgetListToolDef.id]: widgetListToolDef,

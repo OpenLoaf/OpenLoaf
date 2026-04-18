@@ -86,7 +86,7 @@ export const masterTemplate: AgentTemplate = {
     'WordMutate',
     'PptxQuery',
     'PptxMutate',
-    'PdfQuery',
+    'PdfInspect',
     'PdfMutate',
     // convert
     'ImageProcess',

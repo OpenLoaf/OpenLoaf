@@ -40,6 +40,7 @@ const TOOL_TIMEOUT_MAP: Record<string, number> = {
   'ExcelMutate': 120_000,
   'PptxMutate': 120_000,
   'PdfMutate': 120_000,
+  'PdfInspect': 120_000,
   'WordQuery': 60_000,
   'ExcelQuery': 60_000,
   'PptxQuery': 60_000,

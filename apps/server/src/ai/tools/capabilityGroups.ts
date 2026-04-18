@@ -77,7 +77,7 @@ const RAW_CAPABILITY_GROUPS = [
     id: 'office',
     label: 'Office 文档',
     description: '读写 Excel 电子表格、Word 文档、PowerPoint 演示文稿和 PDF 文档',
-    toolIds: ['DocPreview', 'ExcelMutate', 'WordMutate', 'PptxMutate', 'PdfMutate'],
+    toolIds: ['DocPreview', 'ExcelMutate', 'WordMutate', 'PptxMutate', 'PdfMutate', 'PdfInspect'],
   },
   {
     id: 'VideoDownload',
