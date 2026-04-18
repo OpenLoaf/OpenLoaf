@@ -581,6 +581,66 @@ function walkCTM(
   handler: (fn: number, args: unknown[], ctm: Matrix) => void,
 ): void {
   const stack: Matrix[] = [[...IDENTITY] as Matrix]
+  // Modern pdf.js collapses sequences of moveTo/lineTo/rectangle/curveTo into
+  // a single `constructPath` op whose args are [subOps[], flatCoords[]].
+  // We need to unroll these so downstream handlers see them as individual ops.
+  const expand = (fn: number, args: unknown[], ctm: Matrix) => {
+    if (fn === OPS.constructPath) {
+      // pdf.js 5.x constructPath args format (observed):
+      //   args[0] = initial op id (e.g. moveTo)
+      //   args[1] = [{ "0": flag, "1": x, "2": y, "3": flag, "4": x, "5": y, ... }]
+      //            OR a flat number[] in older versions.
+      //   args[2] = minMax / bbox
+      // flag 0 = moveTo, 1 = lineTo (observed empirically).
+      const initialOp = args[0]
+      const coordsWrap = args[1]
+      // Extract the coord sequence.
+      let coords: number[] | undefined
+      if (Array.isArray(coordsWrap)) {
+        if (coordsWrap.length > 0 && typeof coordsWrap[0] === 'number') {
+          coords = coordsWrap as number[]
+        } else if (coordsWrap.length > 0 && typeof coordsWrap[0] === 'object') {
+          const first = coordsWrap[0] as Record<string, number>
+          coords = []
+          for (let ki = 0; ; ki++) {
+            const v = first[String(ki)]
+            if (typeof v !== 'number') break
+            coords.push(v)
+          }
+        }
+      }
+      if (!coords || coords.length === 0) {
+        handler(fn, args, ctm)
+        return
+      }
+      // Triples of (flag, x, y); flag 0 = moveTo, 1 = lineTo.
+      // We keep handler semantics: emit synthetic moveTo/lineTo ops.
+      const moveToOp = (OPS.moveTo as number | undefined) ?? 0
+      const lineToOp = (OPS.lineTo as number | undefined) ?? 0
+      const emit = (opId: number, x: number, y: number) => handler(opId, [x, y], ctm)
+      const at = (k: number): number => {
+        const v = coords![k]
+        return typeof v === 'number' ? v : 0
+      }
+      // The format stores a leading flag PER triple. But when the triple count
+      // is not divisible by 3 we fall back to pairs — some variants omit flags.
+      if (coords.length % 3 === 0) {
+        for (let k = 0; k + 2 < coords.length; k += 3) {
+          const flag = at(k)
+          if (flag === 0) emit(moveToOp, at(k + 1), at(k + 2))
+          else emit(lineToOp, at(k + 1), at(k + 2))
+        }
+      } else if (coords.length % 2 === 0 && coords.length >= 2) {
+        // Pair-only form: first is an implicit move, rest are lines.
+        emit(typeof initialOp === 'number' ? initialOp : moveToOp, at(0), at(1))
+        for (let k = 2; k + 1 < coords.length; k += 2) {
+          emit(lineToOp, at(k), at(k + 1))
+        }
+      }
+    } else {
+      handler(fn, args, ctm)
+    }
+  }
   for (let i = 0; i < opList.fnArray.length; i++) {
     const fn = opList.fnArray[i]!
     const args = opList.argsArray[i] ?? []
@@ -591,7 +651,7 @@ function walkCTM(
     } else if (fn === OPS.transform) {
       stack[stack.length - 1] = mulMatrix(stack[stack.length - 1]!, args as Matrix)
     } else {
-      handler(fn, args, stack[stack.length - 1]!)
+      expand(fn, args, stack[stack.length - 1]!)
     }
   }
 }
@@ -909,22 +969,158 @@ export async function renderPdfPages(
 }
 
 // ---------------------------------------------------------------------------
-// Action: tables (simple heuristic — stub for now)
+// Action: tables (simple-grid heuristic)
+//
+// Strategy:
+//  1. Walk every page's operator list, capturing horizontal + vertical line
+//     segments (both from moveTo/lineTo pairs and from rectangle primitives).
+//  2. Cluster y values of horizontal lines and x values of verticals with a
+//     small tolerance → produces the grid's row/column boundaries.
+//  3. A table = ≥ 2 horizontals × ≥ 2 verticals that share bounds. Each cell
+//     is the rectangle between adjacent boundary lines.
+//  4. Distribute text items into cells by their midpoint and return rows.
 // ---------------------------------------------------------------------------
+
+const TABLE_LINE_TOLERANCE = 1.5
+
+function cluster1D(values: number[], tolerance: number): number[] {
+  if (values.length === 0) return []
+  const sorted = [...values].sort((a, b) => a - b)
+  const out: number[] = [sorted[0]!]
+  for (let i = 1; i < sorted.length; i++) {
+    if (Math.abs(sorted[i]! - out[out.length - 1]!) > tolerance) {
+      out.push(sorted[i]!)
+    }
+  }
+  return out
+}
 
 export async function inspectTables(
   absPath: string,
   options: { pageRange?: string; password?: string } = {},
 ): Promise<PdfTablesResult> {
-  // Simple-grid implementation lives in stage 6. For now return an empty
-  // result with `heuristic: 'not-implemented'` so the model knows to fall
-  // back to `inspectText` or `inspectFormStructure`.
-  void absPath
-  void options
-  return {
-    tables: [],
-    heuristic: 'not-implemented',
+  const buf = await fs.readFile(absPath)
+  const { pdf, OPS } = await openUnpdf(buf, options.password)
+  const totalPages = pdf.numPages
+  const range = clampRange(
+    options.pageRange ? parsePageRange(options.pageRange) : undefined,
+    totalPages,
+  )
+
+  const tables: PdfTablesResult['tables'] = []
+
+  for (let p = range.start; p <= range.end; p++) {
+    const page = await pdf.getPage(p)
+    const [tc, opList] = await Promise.all([
+      page.getTextContent(),
+      page.getOperatorList(),
+    ])
+
+    // 1. Collect transformed line segments.
+    type Line = { x0: number; y0: number; x1: number; y1: number }
+    const lines: Line[] = []
+    let currentPath: Array<{ x: number; y: number }> = []
+
+    walkCTM(opList, OPS, (fn, args, ctm) => {
+      if (fn === OPS.moveTo) {
+        const [x, y] = args as [number, number]
+        currentPath = [
+          { x: ctm[0] * x + ctm[2] * y + ctm[4], y: ctm[1] * x + ctm[3] * y + ctm[5] },
+        ]
+      } else if (fn === OPS.lineTo) {
+        const [x, y] = args as [number, number]
+        const tx = ctm[0] * x + ctm[2] * y + ctm[4]
+        const ty = ctm[1] * x + ctm[3] * y + ctm[5]
+        const last = currentPath[currentPath.length - 1]
+        if (last) lines.push({ x0: last.x, y0: last.y, x1: tx, y1: ty })
+        currentPath.push({ x: tx, y: ty })
+      } else if (fn === OPS.rectangle) {
+        // Rectangle → 4 edges.
+        const [x, y, w, h] = args as [number, number, number, number]
+        const cx = [x, x + w, x + w, x].map(
+          (vx, i) => ctm[0] * vx + ctm[2] * [y, y, y + h, y + h][i]! + ctm[4],
+        )
+        const cy = [y, y, y + h, y + h].map(
+          (vy, i) => ctm[1] * [x, x + w, x + w, x][i]! + ctm[3] * vy + ctm[5],
+        )
+        // Build the 4 sides: (0,1), (1,2), (2,3), (3,0)
+        const pushSide = (i: number, j: number) => {
+          lines.push({ x0: cx[i]!, y0: cy[i]!, x1: cx[j]!, y1: cy[j]! })
+        }
+        pushSide(0, 1)
+        pushSide(1, 2)
+        pushSide(2, 3)
+        pushSide(3, 0)
+      }
+    })
+
+    // 2. Split into horizontal vs vertical.
+    const hLines = lines.filter(
+      (ln) => Math.abs(ln.y0 - ln.y1) < TABLE_LINE_TOLERANCE && Math.abs(ln.x1 - ln.x0) > 5,
+    )
+    const vLines = lines.filter(
+      (ln) => Math.abs(ln.x0 - ln.x1) < TABLE_LINE_TOLERANCE && Math.abs(ln.y1 - ln.y0) > 5,
+    )
+
+    if (hLines.length < 2 || vLines.length < 2) continue
+
+    // 3. Cluster positions to get unique grid boundaries.
+    const ys = cluster1D(hLines.map((l) => (l.y0 + l.y1) / 2), TABLE_LINE_TOLERANCE)
+    const xs = cluster1D(vLines.map((l) => (l.x0 + l.x1) / 2), TABLE_LINE_TOLERANCE)
+
+    if (ys.length < 2 || xs.length < 2) continue
+
+    // Sort boundaries: xs ascending (left → right), ys descending (top → bottom).
+    xs.sort((a, b) => a - b)
+    ys.sort((a, b) => b - a)
+
+    const rowCount = ys.length - 1
+    const colCount = xs.length - 1
+
+    // 4. Allocate cells grid.
+    const cells: string[][] = Array.from({ length: rowCount }, () =>
+      Array.from({ length: colCount }, () => ''),
+    )
+
+    // 5. Distribute text items to cells by midpoint.
+    for (const raw of tc.items) {
+      const it = raw as { str?: string; transform?: number[]; width?: number }
+      if (typeof it.str !== 'string' || !it.transform) continue
+      const str = it.str
+      if (str.trim().length === 0) continue
+      const x = (it.transform[4] ?? 0) + (it.width ?? 0) / 2
+      const y = it.transform[5] ?? 0
+
+      // Find row (ys top-down).
+      let r = -1
+      for (let i = 0; i < rowCount; i++) {
+        if (y <= ys[i]! && y >= ys[i + 1]!) {
+          r = i
+          break
+        }
+      }
+      // Find col.
+      let c = -1
+      for (let i = 0; i < colCount; i++) {
+        if (x >= xs[i]! && x <= xs[i + 1]!) {
+          c = i
+          break
+        }
+      }
+      if (r < 0 || c < 0) continue
+      cells[r]![c] = cells[r]![c] ? `${cells[r]![c]}${str}` : str
+    }
+
+    // 6. Emit table.
+    const tableRect: PdfRect = [xs[0]!, ys[ys.length - 1]!, xs[xs.length - 1]!, ys[0]!]
+    tables.push({
+      page: p,
+      rect: tableRect,
+      rows: cells,
+    })
   }
+
+  return { tables, heuristic: 'simple-grid' }
 }
 
 // Re-export the internals pdfTools can re-use (e.g. parsePageRange).

@@ -1263,6 +1263,109 @@ async function main() {
   })
 
   // -----------------------------------------------------------------------
+  // O 层 — 表格抽取 + create 富化
+  // -----------------------------------------------------------------------
+  console.log('\nO 层 — 表格抽取 + create 富化')
+
+  await test('O1: create(table) draws border rectangles', async () => {
+    // This is a white-box check for stage-3 table styling: create should
+    // draw a grid of borders so stage-6 table extraction has geometry to
+    // latch onto. We verify by counting rectangles in the output.
+    const filePath = rel('o1.pdf')
+    await withCtx(async () => {
+      await pdfMutateTool.execute(
+        {
+          action: 'create',
+          filePath,
+          content: [
+            {
+              type: 'table',
+              headers: ['Name', 'Age', 'City'],
+              rows: [
+                ['Alice', '30', 'NYC'],
+                ['Bob', '25', 'LA'],
+              ],
+            },
+          ],
+        },
+        toolCtx,
+      )
+    })
+    // Use form-structure to count square / rect primitives on the page;
+    // 3 rows × 3 cols = 9 cells expected (or thereabouts).
+    const r = (await withCtx(() =>
+      pdfInspectTool.execute({ action: 'form-structure', filePath }, toolCtx),
+    )) as { ok: boolean; data: { lines: unknown[] } }
+    assert.equal(r.ok, true)
+    // Each row of the table draws at least one horizontal line above + one below.
+    // 3 rows → ≥ 4 horizontals. Tolerate a slightly higher count.
+    assert.ok(
+      r.data.lines.length >= 4,
+      `expected ≥ 4 horizontal lines for a 3-row table; got ${r.data.lines.length}`,
+    )
+  })
+
+  await test('O2: tables action extracts a simple 3x3 grid', async () => {
+    const filePath = rel('o2.pdf')
+    await withCtx(async () => {
+      await pdfMutateTool.execute(
+        {
+          action: 'create',
+          filePath,
+          content: [
+            {
+              type: 'table',
+              headers: ['Name', 'Age', 'City'],
+              rows: [
+                ['Alice', '30', 'NYC'],
+                ['Bob', '25', 'LA'],
+              ],
+            },
+          ],
+        },
+        toolCtx,
+      )
+    })
+    const r = (await withCtx(() =>
+      pdfInspectTool.execute({ action: 'tables', filePath }, toolCtx),
+    )) as {
+      ok: boolean
+      data: { heuristic: string; tables: Array<{ rows: string[][] }> }
+    }
+    assert.equal(r.ok, true)
+    assert.equal(r.data.heuristic, 'simple-grid')
+    assert.equal(r.data.tables.length, 1, `expected 1 table, got ${r.data.tables.length}`)
+    const rows = r.data.tables[0]!.rows
+    assert.equal(rows.length, 3, `expected 3 rows, got ${rows.length}`)
+    // Header values
+    assert.deepEqual(
+      rows[0]!.map((c) => c.trim()),
+      ['Name', 'Age', 'City'],
+    )
+    // At least the first body row should contain "Alice" in column 0.
+    assert.ok(rows[1]![0]!.includes('Alice'))
+  })
+
+  await test('O3: no-table PDF returns empty tables array', async () => {
+    const filePath = rel('o3.pdf')
+    await withCtx(async () => {
+      await pdfMutateTool.execute(
+        {
+          action: 'create',
+          filePath,
+          content: [{ type: 'paragraph', text: 'Just a paragraph without any table.' }],
+        },
+        toolCtx,
+      )
+    })
+    const r = (await withCtx(() =>
+      pdfInspectTool.execute({ action: 'tables', filePath }, toolCtx),
+    )) as { ok: boolean; data: { tables: unknown[] } }
+    assert.equal(r.ok, true)
+    assert.equal(r.data.tables.length, 0)
+  })
+
+  // -----------------------------------------------------------------------
   // Cleanup & Summary
   // -----------------------------------------------------------------------
   await cleanupTestDir()

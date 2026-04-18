@@ -462,36 +462,76 @@ export async function createPdf(
         const cellPadding = 4
         const fontSize = 10
         const lineHeight = fontSize * LINE_HEIGHT_FACTOR
+        const borderColor = rgb(0.55, 0.55, 0.55)
+        const borderWidth = 0.5
+        const rowHeight = lineHeight + cellPadding * 2
 
-        // Header row
-        ensureSpace(lineHeight + cellPadding * 2)
+        // Ensure the whole table fits; otherwise we break before the header.
+        // Simple non-paginating model: tables that don't fit overflow onto
+        // the next page without header repetition. Good enough for stage 3.
+        const totalHeight = rowHeight * (rows.length + 1)
+        ensureSpace(totalHeight)
+
+        // Save top-of-table for vertical lines.
+        const tableTop = y
+        const tableX = MARGIN
+
+        // Horizontal lines: one above each row + one closing line.
+        // Track where each row's bottom is so we can draw lines after text.
+        const hLineYs: number[] = [tableTop]
+
+        // Header row.
         for (let i = 0; i < colCount; i++) {
-          const cellX = MARGIN + i * colWidth + cellPadding
+          const cellX = tableX + i * colWidth + cellPadding
           page.drawText(headers[i] ?? '', {
             x: cellX,
-            y: y - cellPadding,
+            y: y - cellPadding - fontSize,
             size: fontSize,
             font: fontBold,
             color: rgb(0, 0, 0),
           })
         }
-        y -= lineHeight + cellPadding * 2
+        y -= rowHeight
+        hLineYs.push(y)
 
-        // Data rows
+        // Data rows.
         for (const row of rows) {
-          ensureSpace(lineHeight + cellPadding * 2)
           for (let i = 0; i < colCount; i++) {
-            const cellX = MARGIN + i * colWidth + cellPadding
+            const cellX = tableX + i * colWidth + cellPadding
             page.drawText(row[i] ?? '', {
               x: cellX,
-              y: y - cellPadding,
+              y: y - cellPadding - fontSize,
               size: fontSize,
               font: fontRegular,
               color: rgb(0, 0, 0),
             })
           }
-          y -= lineHeight + cellPadding * 2
+          y -= rowHeight
+          hLineYs.push(y)
         }
+
+        const tableBottom = y
+
+        // Draw horizontal borders.
+        for (const hy of hLineYs) {
+          page.drawLine({
+            start: { x: tableX, y: hy },
+            end: { x: tableX + CONTENT_WIDTH, y: hy },
+            thickness: borderWidth,
+            color: borderColor,
+          })
+        }
+        // Draw vertical borders (one per column + right edge).
+        for (let i = 0; i <= colCount; i++) {
+          const vx = tableX + i * colWidth
+          page.drawLine({
+            start: { x: vx, y: tableTop },
+            end: { x: vx, y: tableBottom },
+            thickness: borderWidth,
+            color: borderColor,
+          })
+        }
+
         y -= 6
         break
       }
