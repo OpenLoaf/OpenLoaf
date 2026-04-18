@@ -26,6 +26,7 @@ import { pdfMutateTool, pdfInspectTool } from '@/ai/tools/pdfTools'
 import { readTool } from '@/ai/tools/fileTools'
 import { resolveToolPath } from '@/ai/tools/toolScope'
 import { parseComplexPageRanges } from '@/ai/tools/office/pdfEngine'
+import { docConvertTool } from '@/ai/tools/docConvertTools'
 
 // ---------------------------------------------------------------------------
 // Test runner
@@ -1363,6 +1364,76 @@ async function main() {
     )) as { ok: boolean; data: { tables: unknown[] } }
     assert.equal(r.ok, true)
     assert.equal(r.data.tables.length, 0)
+  })
+
+  // -----------------------------------------------------------------------
+  // P 层 — DocConvert: pdf ↔ other formats (pdf→xlsx depends on stage 6)
+  // -----------------------------------------------------------------------
+  console.log('\nP 层 — DocConvert PDF 转换')
+
+  await test('P1: pdf with table → xlsx emits a sheet per detected table', async () => {
+    const filePath = rel('p1.pdf')
+    const outPath = rel('p1.xlsx')
+    await withCtx(async () => {
+      await pdfMutateTool.execute(
+        {
+          action: 'create',
+          filePath,
+          content: [
+            {
+              type: 'table',
+              headers: ['Name', 'Age'],
+              rows: [
+                ['Alice', '30'],
+                ['Bob', '25'],
+              ],
+            },
+          ],
+        },
+        toolCtx,
+      )
+      const r = (await docConvertTool.execute(
+        { filePath, outputPath: outPath, outputFormat: 'xlsx' },
+        toolCtx,
+      )) as { ok: boolean; data: { outputPath: string; fileSize: number } }
+      assert.equal(r.ok, true)
+      assert.ok(r.data.fileSize > 0)
+    })
+    // Verify the xlsx content by reading it back via sheet_to_json.
+    const { absPath } = await withCtx(() => resolveToolPath({ target: outPath }))
+    const xlsx = (await import('xlsx')).default
+    const wb = xlsx.readFile(absPath)
+    assert.ok(wb.SheetNames.length > 0, 'xlsx should have at least one sheet')
+    const firstSheet = wb.Sheets[wb.SheetNames[0]!]!
+    const rows = xlsx.utils.sheet_to_json<string[]>(firstSheet, { header: 1 }) as string[][]
+    // Expect at least the header row and first data row.
+    const flat = rows.flat().join(' ')
+    assert.ok(flat.includes('Alice'), `expected Alice in sheet; got rows ${JSON.stringify(rows)}`)
+    assert.ok(flat.includes('Name'), 'expected Name header in sheet')
+  })
+
+  await test('P2: pdf without table → xlsx falls back to Text sheet', async () => {
+    const filePath = rel('p2.pdf')
+    const outPath = rel('p2.xlsx')
+    await withCtx(async () => {
+      await pdfMutateTool.execute(
+        {
+          action: 'create',
+          filePath,
+          content: [{ type: 'paragraph', text: 'PROBE_FALLBACK_TEXT' }],
+        },
+        toolCtx,
+      )
+      const r = (await docConvertTool.execute(
+        { filePath, outputPath: outPath, outputFormat: 'xlsx' },
+        toolCtx,
+      )) as { ok: boolean; data: { outputPath: string } }
+      assert.equal(r.ok, true)
+    })
+    const { absPath } = await withCtx(() => resolveToolPath({ target: outPath }))
+    const xlsx = (await import('xlsx')).default
+    const wb = xlsx.readFile(absPath)
+    assert.ok(wb.SheetNames.includes('Text'), `expected Text sheet fallback, got ${wb.SheetNames}`)
   })
 
   // -----------------------------------------------------------------------
