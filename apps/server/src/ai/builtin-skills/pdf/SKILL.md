@@ -10,8 +10,8 @@ description: >
 
 | 工具 | 职责 | 只读 | 调用前需加载 schema |
 |---|---|---|---|
-| `PdfInspect` | **所有读操作**：summary / text / tables / form-fields / form-structure / images / annotations / render | ✅ | `ToolSearch(names: "PdfInspect")` |
-| `PdfMutate` | **所有写操作**（当前：create / fill-form / merge / add-text；阶段 2 会扩充到 12 action） | ❌ | `ToolSearch(names: "PdfMutate")` |
+| `PdfInspect` | **所有读操作**（8 action）：summary / text / tables / form-fields / form-structure / images / annotations / render | ✅ | `ToolSearch(names: "PdfInspect")` |
+| `PdfMutate` | **所有写操作**（12 action）：create / fill-form / fill-visual / add-text / merge / split / extract-pages / rotate / crop / watermark / decrypt / optimize | ❌ | `ToolSearch(names: "PdfMutate")` |
 | `DocConvert` | 格式互转：pdf ↔ docx / html / md / txt / xlsx / json 等 | ❌ | `ToolSearch(names: "DocConvert")` |
 | `CloudImageUnderstand` | **扫描 PDF 的 OCR 入口**（云端，会扣积分） | ❌（调用云端） | 通过 cloud-media-skill 加载 |
 
@@ -98,16 +98,29 @@ Step 3  PdfMutate { action: "fill-form", filePath: "…", fields: { … } }
 
 ### 3.2 非 AcroForm（静态表格 / 扫描件视觉表）
 
+**优先用 `fill-visual`**（会做 bbox 校验 + 自动坐标系转换），`add-text` 仅用于单点叠字。
+
 ```
 Step 1  PdfInspect { action: "form-structure", filePath: "…", pageRange: "1-3", withRender: true }
         → 返回 labels / lines / checkboxes / rowBoundaries + 页面渲染 PNG
 
-Step 2  模型从 labels 的 rect 推算每个“填写点”的坐标：
-        · 文本框入口 x0 ≈ label.x1 + 5，y 落在附近横线上方
-        · 复选框直接用 checkboxes[i].rect
+Step 2  模型从 labels 的 rect 推算每个"填写点"的 entryBoundingBox：
+        · 文本框：x0 ≈ label.x1 + 5，y0..y1 基于附近 rowBoundaries / 横线
+        · 复选框：直接用 checkboxes[i].rect
 
-Step 3  PdfMutate { action: "add-text", filePath: "…", overlays: [...] }
-        每个 overlay 填 { page, x, y, text, fontSize?, color?, background? }
+Step 3  PdfMutate { action: "fill-visual", filePath: "…",
+                     visualFields: [{
+                       page, entryBoundingBox: [x0,y0,x1,y1],
+                       text, fontSize?, coordSystem?: 'pdf' | 'image'
+                     }, ...] }
+
+        · coordSystem='pdf' (默认)：bbox 用 PDF points，原点左下
+        · coordSystem='image'：bbox 用像素，原点左上；必须同时传 imageWidth / imageHeight
+          （rendered PNG 的尺寸），工具自动换算到 PDF 坐标
+        · 返回错误 'BBOX_VALIDATION_FAILED' 时，errors 数组会明确说
+          哪两个框重叠 / 哪个框太窄放不下文字；按提示修正后重试
+
+备用：PdfMutate { action: "add-text", overlays: [...] } —— 用于单点叠字（盖章 / 水印 / 印章），坐标手填。
 ```
 
 如果看不清，直接把 Step 1 返回的 renders 里的 PNG URL 当图片展示给模型看（OpenLoaf 支持多模态）。不要额外 crop —— 直接传整页图就够。
@@ -156,9 +169,54 @@ Step 4  汇总各页文本，必要时 Write 到 .md / .txt
 
 ---
 
-## 6. 合并 / 水印 / Redaction
+## 6. 页级操作 — split / extract-pages / rotate / crop
 
-### 6.1 合并 — `PdfMutate(merge)`
+### 6.0 split — 拆分
+
+两种模式二选一：
+
+```json
+// 按组大小拆
+{ "action": "split", "filePath": "big.pdf", "outputDir": "./parts", "groupSize": 10 }
+// → parts: [ "big-part1.pdf" (1-10), "big-part2.pdf" (11-20), ... ]
+
+// 按断点拆
+{ "action": "split", "filePath": "big.pdf", "outputDir": "./parts", "splitAt": [4, 8] }
+// → parts: [ "big-part1.pdf" (1-3), "big-part2.pdf" (4-7), "big-part3.pdf" (8-end) ]
+```
+
+### 6.0 extract-pages — 抽取复杂页范围
+
+```json
+{ "action": "extract-pages", "filePath": "big.pdf", "outputPath": "subset.pdf",
+  "pageRanges": "1,3-5,8,10-end" }
+```
+
+qpdf 风格的 range 语法，支持单页 / 范围 / `end` 关键字 / 逗号组合。
+
+### 6.0 rotate — 旋转页
+
+```json
+{ "action": "rotate", "filePath": "scan.pdf",
+  "rotations": [{ "page": 1, "degrees": 90 }, { "page": 3, "degrees": -90 }] }
+```
+
+`degrees` 必须是 90 的倍数（支持负数）。角度是**累加到现有旋转**，不是重置。
+
+### 6.0 crop — 裁剪可视区域
+
+```json
+{ "action": "crop", "filePath": "doc.pdf",
+  "crops": [{ "page": 1, "mediaBox": [50, 50, 500, 700] }] }
+```
+
+`mediaBox: [x, y, width, height]` 用 PDF points，原点左下。裁剪只改可视区域，**不删除**原始内容（放大缩小仍可见）。
+
+---
+
+## 7. 合并 / 水印 / Redaction
+
+### 7.1 合并 — `PdfMutate(merge)`
 
 ```json
 { "action": "merge", "filePath": "out.pdf", "sourcePaths": ["cover.pdf", "body.pdf"] }
@@ -166,18 +224,38 @@ Step 4  汇总各页文本，必要时 Write 到 .md / .txt
 
 按数组顺序拼接。`filePath` 与某个 source 同名会覆写，先和用户确认。
 
-### 6.2 水印 / 机密章 — `PdfMutate(add-text)`
+### 7.2 水印 — `PdfMutate(watermark)`
+
+**文字水印**（对角、半透明）：
+
+```json
+{ "action": "watermark", "filePath": "report.pdf",
+  "watermarkType": "text", "watermarkText": "CONFIDENTIAL",
+  "watermarkFontSize": 60, "watermarkColor": "#FF0000",
+  "watermarkOpacity": 0.25, "watermarkAngle": -30,
+  "watermarkPageRange": "1-10" }
+```
+
+**PDF 水印**（用另一个 PDF 的某一页做水印）：
+
+```json
+{ "action": "watermark", "filePath": "report.pdf",
+  "watermarkType": "pdf", "watermarkPdfPath": "logo.pdf",
+  "watermarkPdfPage": 1, "watermarkOpacity": 0.3 }
+```
+
+### 7.3 单点叠字 / 机密章 — `PdfMutate(add-text)`
 
 坐标系：**PDF points，原点左下**。y 越大越靠上。
 
 ```json
 { "action": "add-text", "filePath": "report.pdf",
-  "overlays": [{ "page": 1, "x": 400, "y": 780, "text": "CONFIDENTIAL", "fontSize": 24, "color": "#FF0000" }] }
+  "overlays": [{ "page": 1, "x": 400, "y": 780, "text": "已审", "fontSize": 24, "color": "#FF0000" }] }
 ```
 
-### 6.3 Redaction（视觉遮盖）
+### 7.4 Redaction（视觉遮盖）
 
-用 `background` 字段在文字下叠白底：
+用 `add-text` 的 `background` 字段在文字下叠白底：
 
 ```json
 { "action": "add-text", "filePath": "doc.pdf",
@@ -189,7 +267,28 @@ Step 4  汇总各页文本，必要时 Write 到 .md / .txt
 
 ---
 
-## 7. 格式转换 — `DocConvert`
+## 8. 加密 / 解密 / 优化
+
+### 8.1 解密 — `PdfMutate(decrypt)`
+
+```json
+{ "action": "decrypt", "filePath": "locked.pdf", "outputPath": "unlocked.pdf", "password": "…" }
+```
+
+注：**加密写出不支持**（按设计）。如果用户要"给 PDF 加密码"，需要告知现阶段只能解密已有的加密文件。
+
+### 8.2 优化 / 线性化 — `PdfMutate(optimize)`
+
+```json
+{ "action": "optimize", "filePath": "big.pdf", "outputPath": "small.pdf", "linearize": true }
+```
+
+- 默认 re-save 会做基础压缩
+- `linearize: true` 生成 web-friendly 版本（禁用 object streams），供流式 PDF 阅读器使用
+
+---
+
+## 9. 格式转换 — `DocConvert`
 
 ```json
 { "filePath": "report.pdf", "outputPath": "report.docx", "outputFormat": "docx" }
@@ -200,7 +299,7 @@ Step 4  汇总各页文本，必要时 Write 到 .md / .txt
 
 ---
 
-## 8. 硬约束清单（踩坑指南）
+## 10. 硬约束清单（踩坑指南）
 
 1. **先 summary 再 action**：不要跳过 summary 直接 text/form-fields；否则撞加密 / 扫描件时白跑一次。
 2. **加密 PDF 必带 password**：检查 `summary.isEncrypted`，没密码就让用户提供。
