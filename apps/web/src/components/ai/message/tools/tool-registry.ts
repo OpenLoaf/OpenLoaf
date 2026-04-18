@@ -120,7 +120,7 @@ export const TOOL_REGISTRY: ToolRegistryEntry[] = [
   { match: 'ExcelMutate', component: ExcelTool as ComponentType<ToolComponentProps> },
   { match: 'WordMutate', component: WordTool as ComponentType<ToolComponentProps> },
   { match: 'PptxMutate', component: PptxTool as ComponentType<ToolComponentProps> },
-  { match: 'PdfMutate', component: PdfTool as ComponentType<ToolComponentProps> },
+  { match: ['PdfMutate', 'PdfInspect'], component: PdfTool as ComponentType<ToolComponentProps> },
   { match: 'ImageProcess', component: ImageProcessTool as ComponentType<ToolComponentProps> },
   { match: 'VideoDownload', component: VideoDownloadTool as ComponentType<ToolComponentProps> },
   { match: 'OpenUrl', component: OpenUrlTool as ComponentType<ToolComponentProps> },

@@ -17,6 +17,7 @@ import { embedFonts, embedFont } from './pdfFonts'
 import {
   PDFDocument,
   rgb,
+  degrees,
   PDFTextField,
   PDFCheckBox,
   PDFDropdown,
@@ -24,6 +25,7 @@ import {
   PDFRadioGroup,
   PDFButton,
 } from 'pdf-lib'
+import { PdfEncryptedError } from './pdfInspectEngine'
 import type {
   PdfStructure,
   PdfFormField,
@@ -460,36 +462,76 @@ export async function createPdf(
         const cellPadding = 4
         const fontSize = 10
         const lineHeight = fontSize * LINE_HEIGHT_FACTOR
+        const borderColor = rgb(0.55, 0.55, 0.55)
+        const borderWidth = 0.5
+        const rowHeight = lineHeight + cellPadding * 2
 
-        // Header row
-        ensureSpace(lineHeight + cellPadding * 2)
+        // Ensure the whole table fits; otherwise we break before the header.
+        // Simple non-paginating model: tables that don't fit overflow onto
+        // the next page without header repetition. Good enough for stage 3.
+        const totalHeight = rowHeight * (rows.length + 1)
+        ensureSpace(totalHeight)
+
+        // Save top-of-table for vertical lines.
+        const tableTop = y
+        const tableX = MARGIN
+
+        // Horizontal lines: one above each row + one closing line.
+        // Track where each row's bottom is so we can draw lines after text.
+        const hLineYs: number[] = [tableTop]
+
+        // Header row.
         for (let i = 0; i < colCount; i++) {
-          const cellX = MARGIN + i * colWidth + cellPadding
+          const cellX = tableX + i * colWidth + cellPadding
           page.drawText(headers[i] ?? '', {
             x: cellX,
-            y: y - cellPadding,
+            y: y - cellPadding - fontSize,
             size: fontSize,
             font: fontBold,
             color: rgb(0, 0, 0),
           })
         }
-        y -= lineHeight + cellPadding * 2
+        y -= rowHeight
+        hLineYs.push(y)
 
-        // Data rows
+        // Data rows.
         for (const row of rows) {
-          ensureSpace(lineHeight + cellPadding * 2)
           for (let i = 0; i < colCount; i++) {
-            const cellX = MARGIN + i * colWidth + cellPadding
+            const cellX = tableX + i * colWidth + cellPadding
             page.drawText(row[i] ?? '', {
               x: cellX,
-              y: y - cellPadding,
+              y: y - cellPadding - fontSize,
               size: fontSize,
               font: fontRegular,
               color: rgb(0, 0, 0),
             })
           }
-          y -= lineHeight + cellPadding * 2
+          y -= rowHeight
+          hLineYs.push(y)
         }
+
+        const tableBottom = y
+
+        // Draw horizontal borders.
+        for (const hy of hLineYs) {
+          page.drawLine({
+            start: { x: tableX, y: hy },
+            end: { x: tableX + CONTENT_WIDTH, y: hy },
+            thickness: borderWidth,
+            color: borderColor,
+          })
+        }
+        // Draw vertical borders (one per column + right edge).
+        for (let i = 0; i <= colCount; i++) {
+          const vx = tableX + i * colWidth
+          page.drawLine({
+            start: { x: vx, y: tableTop },
+            end: { x: vx, y: tableBottom },
+            thickness: borderWidth,
+            color: borderColor,
+          })
+        }
+
         y -= 6
         break
       }
@@ -686,6 +728,444 @@ function parseHexColor(hex: string): ReturnType<typeof rgb> {
   const g = Number.parseInt(clean.substring(2, 4), 16) / 255
   const b = Number.parseInt(clean.substring(4, 6), 16) / 255
   return rgb(r, g, b)
+}
+
+// ---------------------------------------------------------------------------
+// Stage-2 write operations
+// ---------------------------------------------------------------------------
+
+/** Load a PDF honoring encryption. Throws PdfEncryptedError if locked and no valid password. */
+async function loadPdfForMutation(absPath: string, password?: string): Promise<PDFDocument> {
+  const buf = await fs.readFile(absPath)
+  try {
+    if (password) {
+      return await PDFDocument.load(buf, { password, ignoreEncryption: false } as never)
+    }
+    return await PDFDocument.load(buf)
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    if (/encrypt/i.test(msg) || /password/i.test(msg)) {
+      throw new PdfEncryptedError()
+    }
+    throw err
+  }
+}
+
+/**
+ * Parse a qpdf-style range string into concrete page numbers.
+ *   "1,3-5,8,10-end" → [1,3,4,5,8,10,11,...,total]
+ *   "end"            → [total]
+ *   "1,end"          → [1, total]
+ */
+export function parseComplexPageRanges(input: string, totalPages: number): number[] {
+  const out: number[] = []
+  const seen = new Set<number>()
+  const push = (p: number) => {
+    if (!seen.has(p)) {
+      out.push(p)
+      seen.add(p)
+    }
+  }
+  const parseToken = (token: string): number => {
+    if (token === 'end') return totalPages
+    const n = Number.parseInt(token, 10)
+    if (Number.isNaN(n) || n < 1 || n > totalPages) {
+      throw new Error(`Invalid page "${token}" for a ${totalPages}-page PDF.`)
+    }
+    return n
+  }
+  for (const raw of input.split(',').map((s) => s.trim()).filter(Boolean)) {
+    if (raw.includes('-')) {
+      const [aRaw, bRaw] = raw.split('-').map((s) => s.trim())
+      const start = parseToken(aRaw!)
+      const end = parseToken(bRaw!)
+      if (end < start) {
+        throw new Error(`Invalid range segment "${raw}": end < start.`)
+      }
+      for (let p = start; p <= end; p++) push(p)
+    } else {
+      push(parseToken(raw))
+    }
+  }
+  return out
+}
+
+/** Rotate selected pages. Degrees must be a multiple of 90. */
+export async function rotatePdfPages(
+  absPath: string,
+  rotations: Array<{ page: number; degrees: number }>,
+  password?: string,
+): Promise<{ rotatedCount: number; pageCount: number }> {
+  const pdfDoc = await loadPdfForMutation(absPath, password)
+  const pageCount = pdfDoc.getPageCount()
+  for (const { page, degrees: deg } of rotations) {
+    if (page < 1 || page > pageCount) {
+      throw new Error(`Page ${page} out of range (1-${pageCount}).`)
+    }
+    const current = pdfDoc.getPage(page - 1).getRotation().angle
+    pdfDoc.getPage(page - 1).setRotation(degrees((current + deg) % 360))
+  }
+  await fs.writeFile(absPath, await pdfDoc.save())
+  return { rotatedCount: rotations.length, pageCount }
+}
+
+/** Set mediaBox on selected pages (visual crop; does not discard page content). */
+export async function cropPdfPages(
+  absPath: string,
+  crops: Array<{ page: number; mediaBox: [number, number, number, number] }>,
+  password?: string,
+): Promise<{ croppedCount: number; pageCount: number }> {
+  const pdfDoc = await loadPdfForMutation(absPath, password)
+  const pageCount = pdfDoc.getPageCount()
+  for (const { page, mediaBox } of crops) {
+    if (page < 1 || page > pageCount) {
+      throw new Error(`Page ${page} out of range (1-${pageCount}).`)
+    }
+    const [x, y, w, h] = mediaBox
+    pdfDoc.getPage(page - 1).setMediaBox(x, y, w, h)
+  }
+  await fs.writeFile(absPath, await pdfDoc.save())
+  return { croppedCount: crops.length, pageCount }
+}
+
+/** Split the PDF into groups of `groupSize` pages. */
+export async function splitPdfByGroups(
+  absPath: string,
+  outputDir: string,
+  groupSize: number,
+  password?: string,
+): Promise<{ parts: string[] }> {
+  const pdfDoc = await loadPdfForMutation(absPath, password)
+  const pageCount = pdfDoc.getPageCount()
+  await fs.mkdir(outputDir, { recursive: true })
+  const base = path.basename(absPath, path.extname(absPath))
+  const parts: string[] = []
+  let partIdx = 1
+  for (let start = 0; start < pageCount; start += groupSize) {
+    const end = Math.min(start + groupSize, pageCount)
+    const partDoc = await PDFDocument.create()
+    const indices = Array.from({ length: end - start }, (_, i) => start + i)
+    const copied = await partDoc.copyPages(pdfDoc, indices)
+    for (const p of copied) partDoc.addPage(p)
+    const outPath = path.join(outputDir, `${base}-part${partIdx}.pdf`)
+    await fs.writeFile(outPath, await partDoc.save())
+    parts.push(outPath)
+    partIdx++
+  }
+  return { parts }
+}
+
+/** Split the PDF at breakpoint pages (each breakpoint starts a NEW part). */
+export async function splitPdfAtBreakpoints(
+  absPath: string,
+  outputDir: string,
+  breakpoints: number[],
+  password?: string,
+): Promise<{ parts: string[] }> {
+  const pdfDoc = await loadPdfForMutation(absPath, password)
+  const pageCount = pdfDoc.getPageCount()
+  await fs.mkdir(outputDir, { recursive: true })
+  const base = path.basename(absPath, path.extname(absPath))
+  // Build ranges: [1 .. bp[0]-1], [bp[0] .. bp[1]-1], ..., [bp[-1] .. pageCount]
+  const sorted = Array.from(new Set(breakpoints))
+    .filter((n) => n >= 2 && n <= pageCount)
+    .sort((a, b) => a - b)
+  const boundaries = [1, ...sorted, pageCount + 1]
+  const parts: string[] = []
+  for (let i = 0; i < boundaries.length - 1; i++) {
+    const from = boundaries[i]!
+    const to = boundaries[i + 1]! - 1
+    if (from > to) continue
+    const partDoc = await PDFDocument.create()
+    const indices = Array.from({ length: to - from + 1 }, (_, k) => from - 1 + k)
+    const copied = await partDoc.copyPages(pdfDoc, indices)
+    for (const p of copied) partDoc.addPage(p)
+    const outPath = path.join(outputDir, `${base}-part${i + 1}.pdf`)
+    await fs.writeFile(outPath, await partDoc.save())
+    parts.push(outPath)
+  }
+  return { parts }
+}
+
+/** Extract complex page ranges into a single output PDF. */
+export async function extractPdfPages(
+  absPath: string,
+  outputPath: string,
+  ranges: string,
+  password?: string,
+): Promise<{ pageCount: number; sourcePages: number[] }> {
+  const pdfDoc = await loadPdfForMutation(absPath, password)
+  const pageNums = parseComplexPageRanges(ranges, pdfDoc.getPageCount())
+  const outDoc = await PDFDocument.create()
+  const indices = pageNums.map((p) => p - 1)
+  const copied = await outDoc.copyPages(pdfDoc, indices)
+  for (const p of copied) outDoc.addPage(p)
+  await fs.mkdir(path.dirname(outputPath), { recursive: true })
+  await fs.writeFile(outputPath, await outDoc.save())
+  return { pageCount: outDoc.getPageCount(), sourcePages: pageNums }
+}
+
+/** Decrypt and re-save without password. */
+export async function decryptPdf(
+  absPath: string,
+  outputPath: string,
+  password: string,
+): Promise<{ pageCount: number }> {
+  const pdfDoc = await loadPdfForMutation(absPath, password)
+  await fs.mkdir(path.dirname(outputPath), { recursive: true })
+  // pdf-lib's default save produces an unencrypted stream.
+  await fs.writeFile(outputPath, await pdfDoc.save())
+  return { pageCount: pdfDoc.getPageCount() }
+}
+
+/** Re-save with optional linearization (best-effort via object-stream toggle). */
+export async function optimizePdf(
+  absPath: string,
+  outputPath: string,
+  opts: { linearize?: boolean; password?: string } = {},
+): Promise<{ beforeBytes: number; afterBytes: number }> {
+  const stat = await fs.stat(absPath)
+  const pdfDoc = await loadPdfForMutation(absPath, opts.password)
+  await fs.mkdir(path.dirname(outputPath), { recursive: true })
+  // Linearize ≈ disable object streams (widely viewable, web-friendly).
+  const bytes = await pdfDoc.save({ useObjectStreams: !opts.linearize })
+  await fs.writeFile(outputPath, bytes)
+  return { beforeBytes: stat.size, afterBytes: bytes.length }
+}
+
+/** Apply a semi-transparent text watermark to every (or a subset of) pages. */
+export async function watermarkPdfWithText(
+  absPath: string,
+  opts: {
+    text: string
+    fontSize?: number
+    color?: string
+    opacity?: number
+    angle?: number
+    pageRange?: string
+    password?: string
+  },
+): Promise<{ pagesWatermarked: number }> {
+  const pdfDoc = await loadPdfForMutation(absPath, opts.password)
+  const font = await embedFont(pdfDoc, opts.text)
+  const fontSize = opts.fontSize ?? 48
+  const color = opts.color ? parseHexColor(opts.color) : rgb(0.53, 0.53, 0.53)
+  const opacity = Math.max(0, Math.min(1, opts.opacity ?? 0.3))
+  const angle = opts.angle ?? -30
+  const pageCount = pdfDoc.getPageCount()
+  const { start, end } = opts.pageRange
+    ? parsePageRange(opts.pageRange)
+    : { start: 1, end: pageCount }
+  const effectiveEnd = Math.min(end, pageCount)
+
+  const textWidth = font.widthOfTextAtSize(opts.text, fontSize)
+
+  for (let p = start; p <= effectiveEnd; p++) {
+    const page = pdfDoc.getPage(p - 1)
+    const { width, height } = page.getSize()
+    const cx = width / 2
+    const cy = height / 2
+    page.drawText(opts.text, {
+      x: cx - textWidth / 2,
+      y: cy - fontSize / 2,
+      size: fontSize,
+      font,
+      color,
+      opacity,
+      rotate: degrees(angle),
+    })
+  }
+
+  await fs.writeFile(absPath, await pdfDoc.save())
+  return { pagesWatermarked: effectiveEnd - start + 1 }
+}
+
+/** Stamp another PDF's page on top of every target page. */
+export async function watermarkPdfWithPdf(
+  absPath: string,
+  opts: {
+    watermarkPdfPath: string
+    watermarkPdfPage?: number
+    opacity?: number
+    pageRange?: string
+    password?: string
+  },
+): Promise<{ pagesWatermarked: number }> {
+  const pdfDoc = await loadPdfForMutation(absPath, opts.password)
+  const wmBuf = await fs.readFile(opts.watermarkPdfPath)
+  const wmDoc = await PDFDocument.load(wmBuf)
+  const wmPageIdx = (opts.watermarkPdfPage ?? 1) - 1
+  if (wmPageIdx < 0 || wmPageIdx >= wmDoc.getPageCount()) {
+    throw new Error(`watermarkPdfPage ${opts.watermarkPdfPage} out of range for ${opts.watermarkPdfPath}.`)
+  }
+  const [embeddedWm] = await pdfDoc.embedPdf(wmDoc, [wmPageIdx])
+  if (!embeddedWm) throw new Error('Failed to embed watermark PDF.')
+
+  const pageCount = pdfDoc.getPageCount()
+  const { start, end } = opts.pageRange
+    ? parsePageRange(opts.pageRange)
+    : { start: 1, end: pageCount }
+  const effectiveEnd = Math.min(end, pageCount)
+  const opacity = Math.max(0, Math.min(1, opts.opacity ?? 0.3))
+
+  for (let p = start; p <= effectiveEnd; p++) {
+    const page = pdfDoc.getPage(p - 1)
+    const { width, height } = page.getSize()
+    const w = embeddedWm.width
+    const h = embeddedWm.height
+    // Center the watermark, scale to fit 80% of the page width.
+    const targetW = width * 0.8
+    const scale = targetW / w
+    const drawW = w * scale
+    const drawH = h * scale
+    page.drawPage(embeddedWm, {
+      x: (width - drawW) / 2,
+      y: (height - drawH) / 2,
+      width: drawW,
+      height: drawH,
+      opacity,
+    })
+  }
+
+  await fs.writeFile(absPath, await pdfDoc.save())
+  return { pagesWatermarked: effectiveEnd - start + 1 }
+}
+
+// -------- fill-visual with bbox validation + coordinate conversion --------
+
+type VisualFieldInput = {
+  page: number
+  entryBoundingBox: [number, number, number, number]
+  text: string
+  fontSize?: number
+  color?: string
+  coordSystem?: 'pdf' | 'image'
+  imageWidth?: number
+  imageHeight?: number
+}
+
+type ResolvedVisualField = {
+  page: number
+  pdfBBox: [number, number, number, number] // always PDF coords, bottom-left origin
+  text: string
+  fontSize: number
+  color: string
+}
+
+/** Validate + auto-convert visual fields before drawing. */
+function resolveVisualFields(
+  fields: VisualFieldInput[],
+  pageSizes: Map<number, { width: number; height: number }>,
+): { resolved: ResolvedVisualField[]; errors: string[] } {
+  const errors: string[] = []
+  const resolved: ResolvedVisualField[] = []
+
+  for (let i = 0; i < fields.length; i++) {
+    const f = fields[i]!
+    const size = pageSizes.get(f.page)
+    if (!size) {
+      errors.push(`field ${i}: page ${f.page} does not exist in the document.`)
+      continue
+    }
+    let pdfBBox: [number, number, number, number]
+    if ((f.coordSystem ?? 'pdf') === 'image') {
+      if (!f.imageWidth || !f.imageHeight) {
+        errors.push(`field ${i}: coordSystem="image" requires imageWidth and imageHeight.`)
+        continue
+      }
+      const sx = size.width / f.imageWidth
+      const sy = size.height / f.imageHeight
+      const [ix0, iy0, ix1, iy1] = f.entryBoundingBox
+      // image: origin top-left, y down. Convert y by flipping.
+      pdfBBox = [
+        ix0 * sx,
+        size.height - iy1 * sy, // lower-left y
+        ix1 * sx,
+        size.height - iy0 * sy, // upper-right y
+      ]
+    } else {
+      pdfBBox = [...f.entryBoundingBox] as [number, number, number, number]
+      // Normalize so x0<x1, y0<y1.
+      if (pdfBBox[0] > pdfBBox[2]) [pdfBBox[0], pdfBBox[2]] = [pdfBBox[2], pdfBBox[0]]
+      if (pdfBBox[1] > pdfBBox[3]) [pdfBBox[1], pdfBBox[3]] = [pdfBBox[3], pdfBBox[1]]
+    }
+    resolved.push({
+      page: f.page,
+      pdfBBox,
+      text: f.text,
+      fontSize: f.fontSize ?? 10,
+      color: f.color ?? '#000000',
+    })
+  }
+
+  // Overlap check (same-page pairs only).
+  for (let i = 0; i < resolved.length; i++) {
+    for (let j = i + 1; j < resolved.length; j++) {
+      if (resolved[i]!.page !== resolved[j]!.page) continue
+      const a = resolved[i]!.pdfBBox
+      const b = resolved[j]!.pdfBBox
+      if (a[0] < b[2] && a[2] > b[0] && a[1] < b[3] && a[3] > b[1]) {
+        errors.push(`fields ${i} and ${j} bboxes overlap on page ${resolved[i]!.page}.`)
+      }
+    }
+  }
+
+  // Size sanity check: bbox must fit at least one line of text at the chosen size.
+  for (let i = 0; i < resolved.length; i++) {
+    const r = resolved[i]!
+    const bw = r.pdfBBox[2] - r.pdfBBox[0]
+    const bh = r.pdfBBox[3] - r.pdfBBox[1]
+    if (bh < r.fontSize) {
+      errors.push(`field ${i}: bbox height ${bh.toFixed(1)} pt < fontSize ${r.fontSize}.`)
+    }
+    // Very rough advance-width estimate: most Latin glyphs are ~0.5×fontSize.
+    const estTextWidth = r.text.length * r.fontSize * 0.5
+    if (bw < estTextWidth * 0.35) {
+      errors.push(`field ${i}: bbox width ${bw.toFixed(1)} pt likely too narrow for text "${r.text}" at fontSize ${r.fontSize}.`)
+    }
+  }
+
+  return { resolved, errors }
+}
+
+/** Visual form fill: place text in entry boxes, PDF or image coords. */
+export async function fillPdfVisual(
+  absPath: string,
+  fields: VisualFieldInput[],
+  password?: string,
+): Promise<{ filledCount: number; errors: string[] }> {
+  const pdfDoc = await loadPdfForMutation(absPath, password)
+  const pageSizes = new Map<number, { width: number; height: number }>()
+  pdfDoc.getPages().forEach((page, idx) => {
+    const { width, height } = page.getSize()
+    pageSizes.set(idx + 1, { width, height })
+  })
+
+  const { resolved, errors } = resolveVisualFields(fields, pageSizes)
+  if (errors.length > 0) {
+    return { filledCount: 0, errors }
+  }
+
+  // CJK-aware font.
+  const allText = resolved.map((r) => r.text).join('')
+  const font = await embedFont(pdfDoc, allText)
+
+  for (const r of resolved) {
+    const page = pdfDoc.getPage(r.page - 1)
+    // Draw at bbox bottom-left + small padding up so text sits inside.
+    const x = r.pdfBBox[0] + 2
+    const y = r.pdfBBox[1] + 2
+    page.drawText(r.text, {
+      x,
+      y,
+      size: r.fontSize,
+      font,
+      color: parseHexColor(r.color),
+    })
+  }
+
+  await fs.writeFile(absPath, await pdfDoc.save())
+  return { filledCount: resolved.length, errors: [] }
 }
 
 

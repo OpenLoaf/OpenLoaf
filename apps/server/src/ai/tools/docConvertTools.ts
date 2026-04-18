@@ -130,6 +130,42 @@ async function pdfToDocx(inputPath: string, outputPath: string): Promise<void> {
   await textToDocx(text, outputPath)
 }
 
+async function pdfToXlsx(inputPath: string, outputPath: string): Promise<void> {
+  // Use the grid-based table extractor (stage 6); each detected table
+  // becomes its own sheet. If no tables are found, fall back to dumping
+  // the extracted text on a single "Text" sheet.
+  const { inspectTables } = await import('./office/pdfInspectEngine')
+  const result = await inspectTables(inputPath)
+  const XLSX = await importXlsx()
+  const wb = XLSX.utils.book_new()
+
+  if (result.tables.length > 0) {
+    const seenNames = new Set<string>()
+    for (let i = 0; i < result.tables.length; i++) {
+      const t = result.tables[i]!
+      // Excel sheet names are capped at 31 chars and must be unique.
+      let name = `Page${t.page}-Table${i + 1}`
+      if (name.length > 31) name = name.slice(0, 31)
+      let finalName = name
+      let suffix = 1
+      while (seenNames.has(finalName)) {
+        const tail = `~${suffix++}`
+        finalName = `${name.slice(0, 31 - tail.length)}${tail}`
+      }
+      seenNames.add(finalName)
+      const ws = XLSX.utils.aoa_to_sheet(t.rows)
+      XLSX.utils.book_append_sheet(wb, ws, finalName)
+    }
+  } else {
+    const text = await pdfToTxt(inputPath)
+    const lines = text.split('\n').map((line) => [line])
+    const ws = XLSX.utils.aoa_to_sheet(lines.length > 0 ? lines : [['']])
+    XLSX.utils.book_append_sheet(wb, ws, 'Text')
+  }
+
+  XLSX.writeFile(wb, outputPath, { bookType: 'xlsx' })
+}
+
 async function textToPdf(text: string, outputPath: string): Promise<void> {
   const { PDFDocument } = await importPdfLib()
   const { embedFont } = await import('./office/pdfFonts')
@@ -512,6 +548,7 @@ const CONVERSION_MAP: Record<string, Record<string, ConvertFn | StringConvertFn>
     html: ((ip: string) => pdfToHtml(ip)) as StringConvertFn,
     md: ((ip: string) => pdfToMd(ip)) as StringConvertFn,
     docx: pdfToDocx as ConvertFn,
+    xlsx: pdfToXlsx as ConvertFn,
   },
   xlsx: {
     csv: ((ip: string) => xlsxToCsv(ip)) as StringConvertFn,
@@ -559,6 +596,7 @@ const LOSSY_CONVERSIONS = new Set([
   'pdf→docx',
   'pdf→html',
   'pdf→md',
+  'pdf→xlsx',
   'docx→pdf',
   'html→pdf',
   'md→pdf',

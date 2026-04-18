@@ -146,6 +146,7 @@
     "PptxMutate": "PPTX Operations",
     "PdfQuery": "PDF Query",
     "PdfMutate": "PDF Operations",
+    "PdfInspect": "PDF Inspect",
     "DocPreview": "Document Preview",
     "Bash": "Bash",
     "shell-command": "Bash",

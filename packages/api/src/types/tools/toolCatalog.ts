@@ -21,7 +21,7 @@ import { emailQueryToolDef, emailMutateToolDef } from "./email";
 import { excelMutateToolDef } from "./excel";
 import { wordMutateToolDef } from "./word";
 import { pptxMutateToolDef } from "./pptx";
-import { pdfMutateToolDef } from "./pdf";
+import { pdfMutateToolDef, pdfInspectToolDef } from "./pdf";
 import { docPreviewToolDef } from "./docPreview";
 import {
   agentToolDef,
@@ -116,6 +116,7 @@ const TOOL_DEFS: ToolDefLike[] = [
   wordMutateToolDef,
   pptxMutateToolDef,
   pdfMutateToolDef,
+  pdfInspectToolDef,
   widgetInitToolDef,
   widgetListToolDef,
   widgetGetToolDef,
@@ -212,6 +213,7 @@ const TOOL_KEYWORDS: Record<string, { keywords: string[]; group: string }> = {
   'WordMutate': { keywords: ['word', 'docx', 'document', 'create', 'write', 'edit', 'xml'], group: 'office' },
   'PptxMutate': { keywords: ['pptx', 'ppt', 'powerpoint', 'slide', 'presentation', 'create', 'edit'], group: 'office' },
   'PdfMutate': { keywords: ['pdf', 'document', 'create', 'fill', 'merge', 'write', 'form'], group: 'office' },
+  'PdfInspect': { keywords: ['pdf', 'read', 'inspect', 'analyze', 'text', 'form', 'fields', 'metadata', 'render', 'scanned', 'ocr', 'image', 'annotation'], group: 'office' },
   'GenerateWidget': { keywords: ['widget', 'generate', 'create', 'component', 'ui'], group: 'ui' },
   'WidgetInit': { keywords: ['widget', 'init', 'initialize', 'setup'], group: 'ui' },
   'WidgetList': { keywords: ['widget', 'list', 'available', 'browse'], group: 'ui' },
