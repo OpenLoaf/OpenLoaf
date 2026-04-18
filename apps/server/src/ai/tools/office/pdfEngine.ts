@@ -711,33 +711,40 @@ async function loadPdfForMutation(absPath: string, password?: string): Promise<P
   }
 }
 
-/** Parse "1,3-5,8,10-end" → [1,3,4,5,8,10,11,...,total]. */
+/**
+ * Parse a qpdf-style range string into concrete page numbers.
+ *   "1,3-5,8,10-end" → [1,3,4,5,8,10,11,...,total]
+ *   "end"            → [total]
+ *   "1,end"          → [1, total]
+ */
 export function parseComplexPageRanges(input: string, totalPages: number): number[] {
   const out: number[] = []
   const seen = new Set<number>()
+  const push = (p: number) => {
+    if (!seen.has(p)) {
+      out.push(p)
+      seen.add(p)
+    }
+  }
+  const parseToken = (token: string): number => {
+    if (token === 'end') return totalPages
+    const n = Number.parseInt(token, 10)
+    if (Number.isNaN(n) || n < 1 || n > totalPages) {
+      throw new Error(`Invalid page "${token}" for a ${totalPages}-page PDF.`)
+    }
+    return n
+  }
   for (const raw of input.split(',').map((s) => s.trim()).filter(Boolean)) {
     if (raw.includes('-')) {
-      const [a, b] = raw.split('-').map((s) => s.trim())
-      const start = Number.parseInt(a!, 10)
-      const end = b === 'end' ? totalPages : Number.parseInt(b!, 10)
-      if (Number.isNaN(start) || Number.isNaN(end) || start < 1 || end < start || end > totalPages) {
-        throw new Error(`Invalid range segment "${raw}" for a ${totalPages}-page PDF.`)
+      const [aRaw, bRaw] = raw.split('-').map((s) => s.trim())
+      const start = parseToken(aRaw!)
+      const end = parseToken(bRaw!)
+      if (end < start) {
+        throw new Error(`Invalid range segment "${raw}": end < start.`)
       }
-      for (let p = start; p <= end; p++) {
-        if (!seen.has(p)) {
-          out.push(p)
-          seen.add(p)
-        }
-      }
+      for (let p = start; p <= end; p++) push(p)
     } else {
-      const p = Number.parseInt(raw, 10)
-      if (Number.isNaN(p) || p < 1 || p > totalPages) {
-        throw new Error(`Invalid page "${raw}" for a ${totalPages}-page PDF.`)
-      }
-      if (!seen.has(p)) {
-        out.push(p)
-        seen.add(p)
-      }
+      push(parseToken(raw))
     }
   }
   return out

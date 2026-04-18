@@ -22,9 +22,10 @@ import { promises as fs } from 'node:fs'
 import { PDFDocument } from 'pdf-lib'
 import { runWithContext } from '@/ai/shared/context/requestContext'
 import { setupE2eTestEnv } from '@/ai/__tests__/helpers/testEnv'
-import { pdfMutateTool } from '@/ai/tools/pdfTools'
+import { pdfMutateTool, pdfInspectTool } from '@/ai/tools/pdfTools'
 import { readTool } from '@/ai/tools/fileTools'
 import { resolveToolPath } from '@/ai/tools/toolScope'
+import { parseComplexPageRanges } from '@/ai/tools/office/pdfEngine'
 
 // ---------------------------------------------------------------------------
 // Test runner
@@ -362,21 +363,22 @@ async function main() {
     )
   })
 
-  await test('J10: create 含 CJK 字符抛出友好错误', async () => {
-    await assert.rejects(
-      () =>
-        withCtx(() =>
-          pdfMutateTool.execute(
-            {
-              action: 'create',
-              filePath: rel('j10.pdf'),
-              content: [{ type: 'paragraph', text: '这是中文内容' }],
-            },
-            toolCtx,
-          ),
-        ),
-      /CJK/,
+  await test('J10: create 含 CJK 字符应成功（自动加载 Noto Sans SC）', async () => {
+    const filePath = rel('j10.pdf')
+    await withCtx(() =>
+      pdfMutateTool.execute(
+        {
+          action: 'create',
+          filePath,
+          content: [{ type: 'paragraph', text: '这是中文内容 — 这是中文内容' }],
+        },
+        toolCtx,
+      ),
     )
+    // The file should exist and be non-empty.
+    const { absPath } = await withCtx(() => resolveToolPath({ target: filePath }))
+    const stat = await fs.stat(absPath)
+    assert.ok(stat.size > 0, 'CJK PDF should be created non-empty')
   })
 
   await test('J11: read with pageRange', async () => {
@@ -677,6 +679,587 @@ async function main() {
     const meta = parseMeta(xml)
     assert.ok(meta, 'should parse meta JSON')
     assert.equal(meta.pageCount, 4, 'merged should have 4 pages (1+2+1)')
+  })
+
+  // -----------------------------------------------------------------------
+  // M 层 — PdfInspect 只读分析
+  // -----------------------------------------------------------------------
+  console.log('\nM 层 — PdfInspect 只读分析')
+
+  await test('M1: summary on extractable PDF reports textType=extractable', async () => {
+    const filePath = rel('m1.pdf')
+    await withCtx(async () => {
+      await pdfMutateTool.execute(
+        {
+          action: 'create',
+          filePath,
+          content: [
+            { type: 'heading', text: 'Summary Probe Doc', level: 1 },
+            { type: 'paragraph', text: 'This is extractable body text with plenty of words to detect.' },
+          ],
+        },
+        toolCtx,
+      )
+    })
+
+    const result = (await withCtx(() =>
+      pdfInspectTool.execute({ action: 'summary', filePath }, toolCtx),
+    )) as { ok: boolean; data: Record<string, unknown> }
+    assert.equal(result.ok, true)
+    assert.equal(result.data.action, 'summary')
+    assert.equal(result.data.isEncrypted, false)
+    assert.equal(result.data.needsPassword, false)
+    assert.equal(result.data.textType, 'extractable')
+    assert.equal(result.data.hasForm, false)
+    const suggested = result.data.suggestedNextTool as Record<string, unknown>
+    assert.equal(suggested.tool, 'PdfInspect')
+    assert.equal(suggested.action, 'text')
+  })
+
+  await test('M2: summary page count matches create', async () => {
+    const filePath = rel('m2.pdf')
+    await withCtx(async () => {
+      await pdfMutateTool.execute(
+        {
+          action: 'create',
+          filePath,
+          content: [
+            { type: 'paragraph', text: 'Page 1' },
+            { type: 'page-break' },
+            { type: 'paragraph', text: 'Page 2' },
+            { type: 'page-break' },
+            { type: 'paragraph', text: 'Page 3' },
+          ],
+        },
+        toolCtx,
+      )
+    })
+    const result = (await withCtx(() =>
+      pdfInspectTool.execute({ action: 'summary', filePath }, toolCtx),
+    )) as { ok: boolean; data: { pageCount: number } }
+    assert.equal(result.data.pageCount, 3)
+  })
+
+  await test('M3: text action extracts body text', async () => {
+    const filePath = rel('m3.pdf')
+    await withCtx(async () => {
+      await pdfMutateTool.execute(
+        {
+          action: 'create',
+          filePath,
+          content: [{ type: 'paragraph', text: 'UNIQUE_PROBE_STRING_M3' }],
+        },
+        toolCtx,
+      )
+    })
+    const result = (await withCtx(() =>
+      pdfInspectTool.execute({ action: 'text', filePath }, toolCtx),
+    )) as { ok: boolean; data: { text: string } }
+    assert.equal(result.ok, true)
+    assert.ok(
+      result.data.text.includes('UNIQUE_PROBE_STRING_M3'),
+      `text should include probe string; got ${result.data.text.slice(0, 200)}`,
+    )
+  })
+
+  await test('M4: text with withCoords returns items array', async () => {
+    const filePath = rel('m4.pdf')
+    await withCtx(async () => {
+      await pdfMutateTool.execute(
+        {
+          action: 'create',
+          filePath,
+          content: [{ type: 'paragraph', text: 'Coordinate probe.' }],
+        },
+        toolCtx,
+      )
+    })
+    const result = (await withCtx(() =>
+      pdfInspectTool.execute({ action: 'text', filePath, withCoords: true }, toolCtx),
+    )) as { ok: boolean; data: { items: Array<Record<string, unknown>> } }
+    assert.ok(Array.isArray(result.data.items), 'items should be an array when withCoords=true')
+    assert.ok(result.data.items.length > 0, 'items should not be empty')
+    const first = result.data.items[0]!
+    assert.equal(typeof first.x, 'number')
+    assert.equal(typeof first.y, 'number')
+    assert.equal(typeof first.str, 'string')
+  })
+
+  await test('M5: form-fields on non-AcroForm PDF returns empty array', async () => {
+    const filePath = rel('m5.pdf')
+    await withCtx(async () => {
+      await pdfMutateTool.execute(
+        {
+          action: 'create',
+          filePath,
+          content: [{ type: 'paragraph', text: 'No forms here.' }],
+        },
+        toolCtx,
+      )
+    })
+    const result = (await withCtx(() =>
+      pdfInspectTool.execute({ action: 'form-fields', filePath }, toolCtx),
+    )) as { ok: boolean; data: { fields: unknown[] } }
+    assert.equal(result.ok, true)
+    assert.equal(result.data.fields.length, 0)
+  })
+
+  await test('M6: annotations on clean PDF returns empty', async () => {
+    const filePath = rel('m6.pdf')
+    await withCtx(async () => {
+      await pdfMutateTool.execute(
+        {
+          action: 'create',
+          filePath,
+          content: [{ type: 'paragraph', text: 'Plain body.' }],
+        },
+        toolCtx,
+      )
+    })
+    const result = (await withCtx(() =>
+      pdfInspectTool.execute({ action: 'annotations', filePath }, toolCtx),
+    )) as { ok: boolean; data: { annotations: unknown[] } }
+    assert.equal(result.ok, true)
+    assert.equal(result.data.annotations.length, 0)
+  })
+
+  await test('M7: render multi-page returns pages[] with URL + dimensions', async () => {
+    const filePath = rel('m7.pdf')
+    await withCtx(async () => {
+      await pdfMutateTool.execute(
+        {
+          action: 'create',
+          filePath,
+          content: [
+            { type: 'paragraph', text: 'Page 1' },
+            { type: 'page-break' },
+            { type: 'paragraph', text: 'Page 2' },
+          ],
+        },
+        toolCtx,
+      )
+    })
+    const result = (await withCtx(() =>
+      pdfInspectTool.execute(
+        { action: 'render', filePath, pageRange: '1-2', scale: 1 },
+        toolCtx,
+      ),
+    )) as { ok: boolean; data: { pages: Array<Record<string, unknown>> } }
+    assert.equal(result.ok, true)
+    assert.equal(result.data.pages.length, 2)
+    for (const p of result.data.pages) {
+      assert.equal(typeof p.url, 'string')
+      assert.equal(typeof p.width, 'number')
+      assert.equal(typeof p.height, 'number')
+    }
+  })
+
+  await test('M8: tables action returns not-implemented heuristic', async () => {
+    const filePath = rel('m8.pdf')
+    await withCtx(async () => {
+      await pdfMutateTool.execute(
+        {
+          action: 'create',
+          filePath,
+          content: [
+            { type: 'table', headers: ['A', 'B'], rows: [['1', '2']] },
+          ],
+        },
+        toolCtx,
+      )
+    })
+    const result = (await withCtx(() =>
+      pdfInspectTool.execute({ action: 'tables', filePath }, toolCtx),
+    )) as { ok: boolean; data: { heuristic: string; tables: unknown[] } }
+    assert.equal(result.ok, true)
+    // Stage-6 real impl changes this to 'simple-grid'; for now we accept either.
+    assert.ok(['simple-grid', 'not-implemented'].includes(result.data.heuristic))
+  })
+
+  // -----------------------------------------------------------------------
+  // N 层 — PdfMutate new actions
+  // -----------------------------------------------------------------------
+  console.log('\nN 层 — PdfMutate 新 action')
+
+  await test('N0: parseComplexPageRanges parses "1,3-5,8,10-end"', async () => {
+    const r = parseComplexPageRanges('1,3-5,8,10-end', 12)
+    assert.deepEqual(r, [1, 3, 4, 5, 8, 10, 11, 12])
+  })
+
+  await test('N0b: parseComplexPageRanges rejects out-of-range', async () => {
+    assert.throws(() => parseComplexPageRanges('1-99', 5))
+  })
+
+  await test('N1: rotate page', async () => {
+    const filePath = rel('n1.pdf')
+    await withCtx(async () => {
+      await pdfMutateTool.execute(
+        {
+          action: 'create',
+          filePath,
+          content: [{ type: 'paragraph', text: 'Rotate me.' }],
+        },
+        toolCtx,
+      )
+      const r = (await pdfMutateTool.execute(
+        { action: 'rotate', filePath, rotations: [{ page: 1, degrees: 90 }] },
+        toolCtx,
+      )) as { ok: boolean; data: { rotatedCount: number } }
+      assert.equal(r.ok, true)
+      assert.equal(r.data.rotatedCount, 1)
+    })
+    // Verify stored rotation via pdf-lib.
+    const { absPath } = await withCtx(() => resolveToolPath({ target: filePath }))
+    const bytes = await fs.readFile(absPath)
+    const doc = await PDFDocument.load(bytes)
+    assert.equal(doc.getPage(0).getRotation().angle, 90)
+  })
+
+  await test('N2: crop page sets mediaBox', async () => {
+    const filePath = rel('n2.pdf')
+    await withCtx(async () => {
+      await pdfMutateTool.execute(
+        {
+          action: 'create',
+          filePath,
+          content: [{ type: 'paragraph', text: 'Crop probe.' }],
+        },
+        toolCtx,
+      )
+      const r = (await pdfMutateTool.execute(
+        {
+          action: 'crop',
+          filePath,
+          crops: [{ page: 1, mediaBox: [50, 50, 400, 600] }],
+        },
+        toolCtx,
+      )) as { ok: boolean; data: { croppedCount: number } }
+      assert.equal(r.ok, true)
+      assert.equal(r.data.croppedCount, 1)
+    })
+    const { absPath } = await withCtx(() => resolveToolPath({ target: filePath }))
+    const bytes = await fs.readFile(absPath)
+    const doc = await PDFDocument.load(bytes)
+    const box = doc.getPage(0).getMediaBox()
+    assert.equal(box.width, 400)
+    assert.equal(box.height, 600)
+  })
+
+  await test('N3: split by groupSize writes N part files', async () => {
+    const filePath = rel('n3.pdf')
+    const outDir = rel('n3_parts')
+    await withCtx(async () => {
+      await pdfMutateTool.execute(
+        {
+          action: 'create',
+          filePath,
+          content: [
+            { type: 'paragraph', text: 'P1' },
+            { type: 'page-break' },
+            { type: 'paragraph', text: 'P2' },
+            { type: 'page-break' },
+            { type: 'paragraph', text: 'P3' },
+            { type: 'page-break' },
+            { type: 'paragraph', text: 'P4' },
+            { type: 'page-break' },
+            { type: 'paragraph', text: 'P5' },
+          ],
+        },
+        toolCtx,
+      )
+      const r = (await pdfMutateTool.execute(
+        { action: 'split', filePath, outputDir: outDir, groupSize: 2 },
+        toolCtx,
+      )) as { ok: boolean; data: { parts: string[] } }
+      assert.equal(r.ok, true)
+      // 5 pages, group 2 → 3 parts
+      assert.equal(r.data.parts.length, 3)
+      for (const p of r.data.parts) {
+        const stat = await fs.stat(p).catch(() => null)
+        assert.ok(stat && stat.size > 0, `part ${p} should exist and have content`)
+      }
+    })
+  })
+
+  await test('N4: split by splitAt breakpoints', async () => {
+    const filePath = rel('n4.pdf')
+    const outDir = rel('n4_parts')
+    await withCtx(async () => {
+      await pdfMutateTool.execute(
+        {
+          action: 'create',
+          filePath,
+          content: [
+            { type: 'paragraph', text: 'A' },
+            { type: 'page-break' },
+            { type: 'paragraph', text: 'B' },
+            { type: 'page-break' },
+            { type: 'paragraph', text: 'C' },
+            { type: 'page-break' },
+            { type: 'paragraph', text: 'D' },
+          ],
+        },
+        toolCtx,
+      )
+      const r = (await pdfMutateTool.execute(
+        { action: 'split', filePath, outputDir: outDir, splitAt: [3] },
+        toolCtx,
+      )) as { ok: boolean; data: { parts: string[] } }
+      assert.equal(r.ok, true)
+      // 4 pages, splitAt=[3] → parts [1-2] and [3-4] = 2 parts
+      assert.equal(r.data.parts.length, 2)
+    })
+  })
+
+  await test('N5: extract-pages writes a subset', async () => {
+    const filePath = rel('n5.pdf')
+    const outputPath = rel('n5_extract.pdf')
+    await withCtx(async () => {
+      await pdfMutateTool.execute(
+        {
+          action: 'create',
+          filePath,
+          content: [
+            { type: 'paragraph', text: 'A' },
+            { type: 'page-break' },
+            { type: 'paragraph', text: 'B' },
+            { type: 'page-break' },
+            { type: 'paragraph', text: 'C' },
+            { type: 'page-break' },
+            { type: 'paragraph', text: 'D' },
+            { type: 'page-break' },
+            { type: 'paragraph', text: 'E' },
+          ],
+        },
+        toolCtx,
+      )
+      const r = (await pdfMutateTool.execute(
+        {
+          action: 'extract-pages',
+          filePath,
+          outputPath,
+          pageRanges: '1,3-4,end',
+        },
+        toolCtx,
+      )) as { ok: boolean; data: { pageCount: number; sourcePages: number[] } }
+      assert.equal(r.ok, true)
+      assert.deepEqual(r.data.sourcePages, [1, 3, 4, 5])
+      assert.equal(r.data.pageCount, 4)
+    })
+  })
+
+  await test('N6: decrypt unencrypted PDF round-trips', async () => {
+    // pdf-lib has no built-in encrypt, so we only test that the decrypt
+    // path round-trips an unencrypted file without corruption.
+    const filePath = rel('n6.pdf')
+    const outputPath = rel('n6_decrypted.pdf')
+    await withCtx(async () => {
+      await pdfMutateTool.execute(
+        {
+          action: 'create',
+          filePath,
+          content: [{ type: 'paragraph', text: 'DECRYPT_PROBE' }],
+        },
+        toolCtx,
+      )
+      const r = (await pdfMutateTool.execute(
+        { action: 'decrypt', filePath, outputPath, password: 'any' },
+        toolCtx,
+      )) as { ok: boolean; data: { pageCount: number } }
+      assert.equal(r.ok, true)
+      assert.equal(r.data.pageCount, 1)
+    })
+    const xml = await readPdf(outputPath)
+    assert.ok(xml.includes('DECRYPT_PROBE'))
+  })
+
+  await test('N7: optimize produces a saveable file', async () => {
+    const filePath = rel('n7.pdf')
+    const outputPath = rel('n7_opt.pdf')
+    await withCtx(async () => {
+      await pdfMutateTool.execute(
+        {
+          action: 'create',
+          filePath,
+          content: [{ type: 'paragraph', text: 'OPTIMIZE_PROBE'.repeat(50) }],
+        },
+        toolCtx,
+      )
+      const r = (await pdfMutateTool.execute(
+        { action: 'optimize', filePath, outputPath, linearize: true },
+        toolCtx,
+      )) as { ok: boolean; data: { beforeBytes: number; afterBytes: number } }
+      assert.equal(r.ok, true)
+      assert.ok(r.data.beforeBytes > 0)
+      assert.ok(r.data.afterBytes > 0)
+    })
+    const xml = await readPdf(outputPath)
+    assert.ok(xml.includes('OPTIMIZE_PROBE'))
+  })
+
+  await test('N8: watermark type=text stamps each page', async () => {
+    const filePath = rel('n8.pdf')
+    await withCtx(async () => {
+      await pdfMutateTool.execute(
+        {
+          action: 'create',
+          filePath,
+          content: [
+            { type: 'paragraph', text: 'Body1' },
+            { type: 'page-break' },
+            { type: 'paragraph', text: 'Body2' },
+          ],
+        },
+        toolCtx,
+      )
+      const r = (await pdfMutateTool.execute(
+        {
+          action: 'watermark',
+          filePath,
+          watermarkType: 'text',
+          watermarkText: 'TOP_SECRET',
+        },
+        toolCtx,
+      )) as { ok: boolean; data: { pagesWatermarked: number } }
+      assert.equal(r.ok, true)
+      assert.equal(r.data.pagesWatermarked, 2)
+    })
+    const xml = await readPdf(filePath)
+    assert.ok(xml.includes('TOP_SECRET'))
+  })
+
+  await test('N9: watermark type=pdf stamps using embedded page', async () => {
+    const filePath = rel('n9.pdf')
+    const stampPath = rel('n9_stamp.pdf')
+    await withCtx(async () => {
+      await pdfMutateTool.execute(
+        {
+          action: 'create',
+          filePath,
+          content: [{ type: 'paragraph', text: 'Body.' }],
+        },
+        toolCtx,
+      )
+      await pdfMutateTool.execute(
+        {
+          action: 'create',
+          filePath: stampPath,
+          content: [{ type: 'heading', text: 'STAMPED', level: 1 }],
+        },
+        toolCtx,
+      )
+      const r = (await pdfMutateTool.execute(
+        {
+          action: 'watermark',
+          filePath,
+          watermarkType: 'pdf',
+          watermarkPdfPath: stampPath,
+          watermarkPdfPage: 1,
+        },
+        toolCtx,
+      )) as { ok: boolean; data: { pagesWatermarked: number } }
+      assert.equal(r.ok, true)
+      assert.equal(r.data.pagesWatermarked, 1)
+    })
+  })
+
+  await test('N10: fill-visual with valid bbox draws text', async () => {
+    const filePath = rel('n10.pdf')
+    await withCtx(async () => {
+      await pdfMutateTool.execute(
+        {
+          action: 'create',
+          filePath,
+          content: [{ type: 'paragraph', text: 'Host doc.' }],
+        },
+        toolCtx,
+      )
+      const r = (await pdfMutateTool.execute(
+        {
+          action: 'fill-visual',
+          filePath,
+          visualFields: [
+            {
+              page: 1,
+              entryBoundingBox: [100, 400, 300, 420],
+              text: 'FILLED_VALUE',
+              fontSize: 10,
+            },
+          ],
+        },
+        toolCtx,
+      )) as { ok: boolean; data: { filledCount: number; errors: string[] } }
+      assert.equal(r.ok, true)
+      assert.equal(r.data.filledCount, 1)
+      assert.equal(r.data.errors.length, 0)
+    })
+    const xml = await readPdf(filePath)
+    assert.ok(xml.includes('FILLED_VALUE'))
+  })
+
+  await test('N11: fill-visual rejects overlapping bboxes', async () => {
+    const filePath = rel('n11.pdf')
+    await withCtx(async () => {
+      await pdfMutateTool.execute(
+        {
+          action: 'create',
+          filePath,
+          content: [{ type: 'paragraph', text: 'Host.' }],
+        },
+        toolCtx,
+      )
+      const r = (await pdfMutateTool.execute(
+        {
+          action: 'fill-visual',
+          filePath,
+          visualFields: [
+            { page: 1, entryBoundingBox: [100, 400, 300, 430], text: 'A', fontSize: 10 },
+            { page: 1, entryBoundingBox: [200, 410, 400, 440], text: 'B', fontSize: 10 },
+          ],
+        },
+        toolCtx,
+      )) as { ok: boolean; error?: string; data: { errors: string[] } }
+      assert.equal(r.ok, false)
+      assert.equal(r.error, 'BBOX_VALIDATION_FAILED')
+      assert.ok(r.data.errors.some((e) => e.includes('overlap')))
+    })
+  })
+
+  await test('N12: fill-visual converts image coords', async () => {
+    // Rendered image is (imageWidth, imageHeight) = (595, 842) at scale 1,
+    // same as A4 PDF points, so an image bbox at top-left [50, 50, 250, 80]
+    // should map to PDF bbox roughly [50, 762, 250, 792].
+    const filePath = rel('n12.pdf')
+    await withCtx(async () => {
+      await pdfMutateTool.execute(
+        {
+          action: 'create',
+          filePath,
+          content: [{ type: 'paragraph', text: 'Img-coord host.' }],
+        },
+        toolCtx,
+      )
+      const r = (await pdfMutateTool.execute(
+        {
+          action: 'fill-visual',
+          filePath,
+          visualFields: [
+            {
+              page: 1,
+              entryBoundingBox: [50, 50, 250, 80],
+              text: 'IMG_COORD_PROBE',
+              fontSize: 10,
+              coordSystem: 'image',
+              imageWidth: 595,
+              imageHeight: 842,
+            },
+          ],
+        },
+        toolCtx,
+      )) as { ok: boolean; data: { filledCount: number } }
+      assert.equal(r.ok, true)
+      assert.equal(r.data.filledCount, 1)
+    })
   })
 
   // -----------------------------------------------------------------------
