@@ -393,6 +393,7 @@ export default function PdfTool({
   const { t } = useTranslation('ai')
   const toolKind = getToolKind(part)
   const isMutate = toolKind === 'PdfMutate'
+  const isInspect = toolKind === 'PdfInspect'
 
   const streaming = isToolStreaming(part)
   const state = typeof part.state === 'string' ? part.state : ''
@@ -430,8 +431,9 @@ export default function PdfTool({
     [filePath, fileDisplayName, tabId, projectId, sessionId, projectRootUri],
   )
 
-  // i18n tool display name
-  const toolName = t('toolNames.PdfMutate', { defaultValue: 'PDF' })
+  // i18n tool display name — follow the actual toolKind so PdfInspect gets
+  // its own label rather than being surfaced as "PDF Operations".
+  const toolName = t(`toolNames.${toolKind}`, { defaultValue: 'PDF' })
 
   const renderContent = () => {
     if (streaming) {
@@ -483,9 +485,75 @@ export default function PdfTool({
             entries.push({ label: t('tool.pdf.skipped'), value: (data.skippedFields as string[]).join(', ') })
           }
         }
+        if (action === 'fill-visual' && typeof data.filledCount === 'number') {
+          entries.push({ label: t('tool.pdf.filledCount'), value: String(data.filledCount) })
+        }
         if (action === 'merge') {
           if (typeof data.pageCount === 'number') entries.push({ label: t('tool.pdf.pageCount', { count: data.pageCount as number }), value: '' })
           if (typeof data.sourceCount === 'number') entries.push({ label: t('tool.pdf.sourceCount'), value: String(data.sourceCount) })
+        }
+        // New action summaries (stage 2): show the most useful scalar fields.
+        if (action === 'rotate' && typeof data.rotatedCount === 'number') {
+          entries.push({ label: 'rotated', value: String(data.rotatedCount) })
+        }
+        if (action === 'crop' && typeof data.croppedCount === 'number') {
+          entries.push({ label: 'cropped', value: String(data.croppedCount) })
+        }
+        if (action === 'split' && Array.isArray(data.parts)) {
+          entries.push({ label: 'parts', value: String((data.parts as unknown[]).length) })
+        }
+        if (action === 'extract-pages' && typeof data.pageCount === 'number') {
+          entries.push({ label: t('tool.pdf.pageCount', { count: data.pageCount as number }), value: '' })
+        }
+        if (action === 'watermark' && typeof data.pagesWatermarked === 'number') {
+          entries.push({ label: 'watermarked', value: String(data.pagesWatermarked) })
+        }
+        if (action === 'decrypt' && typeof data.pageCount === 'number') {
+          entries.push({ label: t('tool.pdf.pageCount', { count: data.pageCount as number }), value: '' })
+        }
+        if (action === 'optimize' && typeof data.afterBytes === 'number') {
+          entries.push({ label: 'after', value: `${(data.afterBytes as number)} bytes` })
+        }
+        return <MutateResultEntries entries={entries} />
+      }
+
+      // PdfInspect — unified summary of whatever action returned.
+      if (isInspect && isDone) {
+        const action = typeof data.action === 'string' ? data.action : ''
+        const entries: ResultEntry[] = []
+        const resultFilePath = (typeof input?.filePath === 'string' ? input.filePath : data.filePath) as string | undefined
+        if (typeof resultFilePath === 'string') entries.push({ label: t('tool.office.file'), fileLink: resultFilePath })
+        if (action) entries.push({ label: t('tool.office.action'), value: action })
+        if (action === 'summary') {
+          if (typeof data.pageCount === 'number') entries.push({ label: t('tool.pdf.pageCount', { count: data.pageCount as number }), value: '' })
+          if (typeof data.textType === 'string') entries.push({ label: 'textType', value: data.textType as string })
+          if (data.isEncrypted === true) entries.push({ label: 'encrypted', value: data.needsPassword === true ? 'needs password' : 'yes' })
+          if (data.hasForm === true && typeof data.formFieldCount === 'number') {
+            entries.push({ label: 'form fields', value: String(data.formFieldCount) })
+          }
+          if (data.suggestedNextTool && typeof data.suggestedNextTool === 'object') {
+            const st = data.suggestedNextTool as Record<string, unknown>
+            const hint = [st.tool, st.action].filter(Boolean).join(':')
+            if (hint) entries.push({ label: 'next', value: hint })
+          }
+        }
+        if (action === 'text' && typeof data.characterCount === 'number') {
+          entries.push({ label: 'chars', value: String(data.characterCount) })
+        }
+        if (action === 'form-fields' && Array.isArray(data.fields)) {
+          entries.push({ label: 'fields', value: String((data.fields as unknown[]).length) })
+        }
+        if (action === 'images' && Array.isArray(data.images)) {
+          entries.push({ label: 'images', value: String((data.images as unknown[]).length) })
+        }
+        if (action === 'annotations' && Array.isArray(data.annotations)) {
+          entries.push({ label: 'annotations', value: String((data.annotations as unknown[]).length) })
+        }
+        if (action === 'tables' && Array.isArray(data.tables)) {
+          entries.push({ label: 'tables', value: String((data.tables as unknown[]).length) })
+        }
+        if (action === 'render' && Array.isArray(data.pages)) {
+          entries.push({ label: 'rendered', value: String((data.pages as unknown[]).length) })
         }
         return <MutateResultEntries entries={entries} />
       }
