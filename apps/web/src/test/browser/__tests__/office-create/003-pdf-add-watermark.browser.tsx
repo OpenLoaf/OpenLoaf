@@ -1,8 +1,9 @@
 /**
- * 012: PDF 水印/修改。
+ * office-create/003: PDF 水印。
  *
  * 附件一个现有 PDF，要求 AI 在上面加水印文字。
- * 断言：调用了 PdfMutate（add-text action），回复确认已添加。
+ * 新架构下 PDF 水印有独立 watermark action（区别于 add-text 的定位单段文字）；
+ * AI 应走 PdfMutate.watermark。断言：调用了 PdfMutate 工具并完成操作。
  */
 import { it, expect } from 'vitest'
 import { render } from 'vitest-browser-react'
@@ -12,8 +13,8 @@ import { waitForChatComplete, waitForProbeResult, takeProbeScreenshot, aiJudge }
 
 const SERVER_URL = process.env.PROBE_SERVER_URL ?? 'http://127.0.0.1:23333'
 
-it('012 — PDF 水印：在现有 PDF 上添加 CONFIDENTIAL 水印', async () => {
-  const sessionId = `chat_probe_012_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+it('office-create-003 — PDF 水印：在现有 PDF 上添加 CONFIDENTIAL 水印', async () => {
+  const sessionId = `chat_probe_office_create_003_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
   const userPrompt =
     '请在这份 PDF 的第一页右上角添加红色的 "CONFIDENTIAL" 水印文字，字号用 24pt。'
 
@@ -32,8 +33,8 @@ it('012 — PDF 水印：在现有 PDF 上添加 CONFIDENTIAL 水印', async () 
   await takeProbeScreenshot('office-create-003-pdf-add-watermark')
   const meta = {
     testCase: 'office-create-003-pdf-add-watermark', prompt, result,
-    description: 'PdfMutate 给 PDF 加水印',
-    tags: ['pdfmutate', 'add-text', 'watermark', 'pdf'],
+    description: 'PdfMutate.watermark 给 PDF 加红色 CONFIDENTIAL 水印',
+    tags: ['pdfmutate', 'watermark', 'pdf'],
   }
   await (commands as any).saveTestData(meta)
   await (commands as any).recordProbeRun(meta)

@@ -1,10 +1,11 @@
 /**
- * 011: PDF 创建。
+ * office-create/001: PDF 创建。
  *
- * 要求 AI 用 PdfMutate create action 生成一份简单的英文 PDF 报告。
+ * 要求 AI 用 PdfMutate.create action 生成一份英文 PDF 发票。
  * 断言：调用了 PdfMutate 工具，回复确认文件已创建。
  *
- * 注意：PdfMutate create 不支持 CJK，所以使用英文内容测试。
+ * CJK 内容现已支持（Noto Sans SC 自动加载），CJK 回归由
+ * pdfTools.test.ts 的 J10 层单测保证；本浏览器层只验证端到端工具链路径。
  */
 import { it, expect } from 'vitest'
 import { render } from 'vitest-browser-react'
@@ -14,7 +15,7 @@ import { waitForChatComplete, waitForProbeResult, takeProbeScreenshot, aiJudge }
 
 const SERVER_URL = process.env.PROBE_SERVER_URL ?? 'http://127.0.0.1:23333'
 
-it('011 — PDF 创建：生成英文发票 PDF', async () => {
+it('office-create-001 — PDF 创建：生成英文发票 PDF', async () => {
   const prompt =
     '帮我创建一份英文 PDF 发票。公司名称："Acme Corp"，发票编号 2026-042，' +
     '明细：Widget 1个 $50，Gadget 2个 每个$30。总计 $110。' +
