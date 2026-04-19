@@ -7,211 +7,286 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
+
+/**
+ * ExcelInspect + ExcelMutate — v2 tool surface.
+ *
+ * Architecture:
+ *   - Schemas + tool defs live in `@openloaf/api/types/tools/excel`.
+ *   - Read-side logic lives in `office/excelInspectEngine.ts`.
+ *   - Write-side logic lives in `office/excelEngine.ts::applyMutate` plus
+ *     `office/excelRecalc.ts::recalc` for the `recalc` action.
+ *   - This module is a thin dispatcher: resolve file path → validate input →
+ *     call engine → map engine errors to `{ ok:false, code, message, hint? }`.
+ *
+ * Error-code surface (mirror of SKILL.md §9):
+ *   VALUE_FORMULA_CONFLICT / SHEET_NOT_FOUND / MERGED_CELL_WRITE /
+ *   PROTECTED_WORKBOOK / CHART_RANGE_INVALID / STRUCTURE_OP_INVALID /
+ *   IMAGE_READ_FAILED / LIBREOFFICE_UNAVAILABLE / FORMULA_ERRORS_FOUND /
+ *   CROSS_FILE_REF_IGNORED (warn) / CSV_UPGRADE_TO_XLSX (meta only).
+ *
+ * Path rules:
+ *   - `create`: writes a NEW file → `resolveCreateTargetPath` (scoped to
+ *     session asset dir or project root).
+ *   - all other mutate actions + inspect: `resolveToolPath` (any abs path
+ *     inside the writable scope).
+ */
+
+import path from 'node:path'
 import { tool, zodSchema } from 'ai'
-import { excelMutateToolDef } from '@openloaf/api/types/tools/excel'
-import { resolveCreateTargetPath, resolveToolPath } from '@/ai/tools/toolScope'
 import {
-  resolveOfficeFile,
-  editZip,
-  createZip,
-} from '@/ai/tools/office/streamingZip'
-import type { OfficeEdit } from '@/ai/tools/office/types'
+  excelInspectToolDef,
+  excelMutateToolDef,
+  type ExcelInspectInput,
+  type ExcelMutateInput,
+} from '@openloaf/api/types/tools/excel'
+import { resolveCreateTargetPath, resolveToolPath } from '@/ai/tools/toolScope'
+import { getSessionId } from '@/ai/shared/context/requestContext'
+import { resolveSessionAssetDir } from '@openloaf/api/services/chatSessionPaths'
+import {
+  applyMutate,
+  ExcelMutateError,
+} from '@/ai/tools/office/excelEngine'
+import {
+  inspectSummary,
+  inspectRead,
+  inspectTables,
+  inspectImages,
+  inspectRender,
+  ExcelLibreOfficeUnavailableError,
+} from '@/ai/tools/office/excelInspectEngine'
+import {
+  recalc,
+  ExcelRecalcError,
+} from '@/ai/tools/office/excelRecalc'
 
 // ---------------------------------------------------------------------------
-// XLSX XML Templates (for create action)
+// Helpers
 // ---------------------------------------------------------------------------
 
-function xlsxContentTypes(sheetCount: number): string {
-  const overrides = [`<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>`,
-    `<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>`,
-    `<Override PartName="/xl/sharedStrings.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/>`,
-  ]
-  for (let i = 1; i <= sheetCount; i++) {
-    overrides.push(`<Override PartName="/xl/worksheets/sheet${i}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`)
+interface FailureShape {
+  ok: false
+  code: string
+  message: string
+  hint?: string
+  data: { filePath: string }
+}
+
+function failure(
+  code: string,
+  message: string,
+  filePath: string,
+  hint?: string,
+): FailureShape {
+  const out: FailureShape = {
+    ok: false,
+    code,
+    message,
+    data: { filePath },
   }
-  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
-  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
-  <Default Extension="xml" ContentType="application/xml"/>
-  ${overrides.join('\n  ')}
-</Types>`
+  if (hint) out.hint = hint
+  return out
 }
 
-const XLSX_ROOT_RELS = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
-</Relationships>`
-
-function xlsxWorkbookRels(sheetCount: number): string {
-  const rels = [`<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>`,
-    `<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings" Target="sharedStrings.xml"/>`,
-  ]
-  for (let i = 1; i <= sheetCount; i++) {
-    rels.push(`<Relationship Id="rId${i + 2}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i}.xml"/>`)
+/**
+ * Resolve (and create if needed) the session-scoped asset directory used by
+ * inspect actions that emit files (images extraction, render).
+ */
+async function resolveInspectAssetDir(filePath: string): Promise<{
+  assetDirAbsPath: string
+  assetRelPrefix: string
+}> {
+  const sessionId = getSessionId()
+  if (!sessionId) {
+    throw new Error(
+      'ExcelInspect render / extractImages requires an active chat session to write assets.',
+    )
   }
-  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-  ${rels.join('\n  ')}
-</Relationships>`
+  const assetRoot = await resolveSessionAssetDir(sessionId)
+  const baseName = path.basename(filePath, path.extname(filePath))
+  const safeName = baseName.replace(/[^\w\u4e00-\u9fff.-]/g, '_') || 'file'
+  const assetRelPrefix = `${safeName}_asset`
+  const assetDirAbsPath = path.join(assetRoot, assetRelPrefix)
+  return { assetDirAbsPath, assetRelPrefix }
 }
 
-function xlsxWorkbook(sheetNames: string[]): string {
-  const sheets = sheetNames
-    .map((name, i) => `<sheet name="${escapeXml(name)}" sheetId="${i + 1}" r:id="rId${i + 3}"/>`)
-    .join('')
-  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"
-          xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
-  <sheets>${sheets}</sheets>
-</workbook>`
-}
+// ---------------------------------------------------------------------------
+// ExcelInspect
+// ---------------------------------------------------------------------------
 
-const XLSX_STYLES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-  <fonts count="1"><font><sz val="11"/><name val="Calibri"/></font></fonts>
-  <fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>
-  <borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>
-  <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
-  <cellXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/></cellXfs>
-</styleSheet>`
+export const excelInspectTool = tool({
+  description: excelInspectToolDef.description,
+  inputSchema: zodSchema(excelInspectToolDef.parameters),
+  execute: async (input) => {
+    const i = input as ExcelInspectInput
+    const { absPath } = resolveToolPath({ target: i.filePath })
 
-function escapeXml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
-
-/** Build a worksheet XML and collect shared strings. */
-function buildSheetXml(
-  data: (string | number | boolean | null)[][],
-  sharedStrings: string[],
-  ssIndex: Map<string, number>,
-): string {
-  if (data.length === 0) {
-    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-  <sheetData/>
-</worksheet>`
-  }
-
-  const rows: string[] = []
-  for (let r = 0; r < data.length; r++) {
-    const row = data[r]!
-    const cells: string[] = []
-    for (let c = 0; c < row.length; c++) {
-      const ref = colIndexToLetter(c) + (r + 1)
-      const val = row[c]
-      if (val === null || val === undefined) continue
-      if (typeof val === 'number') {
-        cells.push(`<c r="${ref}"><v>${val}</v></c>`)
-      } else if (typeof val === 'boolean') {
-        cells.push(`<c r="${ref}" t="b"><v>${val ? 1 : 0}</v></c>`)
-      } else {
-        // String → shared string
-        const str = String(val)
-        let idx = ssIndex.get(str)
-        if (idx === undefined) {
-          idx = sharedStrings.length
-          sharedStrings.push(str)
-          ssIndex.set(str, idx)
+    try {
+      switch (i.action) {
+        case 'summary': {
+          const data = await inspectSummary({ filePath: absPath })
+          return {
+            ok: true as const,
+            data: { action: 'summary', filePath: absPath, ...data },
+          }
         }
-        cells.push(`<c r="${ref}" t="s"><v>${idx}</v></c>`)
+
+        case 'read': {
+          const data = await inspectRead({
+            filePath: absPath,
+            scope: i.scope,
+            sheetName: i.sheetName,
+            range: i.range,
+            limit: i.limit,
+            offset: i.offset,
+            all: i.all,
+            where: i.where,
+            groupBy: i.groupBy,
+          })
+          return {
+            ok: true as const,
+            data: { action: 'read', filePath: absPath, ...data },
+          }
+        }
+
+        case 'tables': {
+          const data = await inspectTables({ filePath: absPath })
+          return {
+            ok: true as const,
+            data: { action: 'tables', filePath: absPath, ...data },
+          }
+        }
+
+        case 'images': {
+          let assetDirAbsPath = ''
+          let assetRelPrefix = ''
+          if (i.extractImages) {
+            const resolved = await resolveInspectAssetDir(i.filePath)
+            assetDirAbsPath = resolved.assetDirAbsPath
+            assetRelPrefix = resolved.assetRelPrefix
+          }
+          const data = await inspectImages({
+            filePath: absPath,
+            extractImages: i.extractImages,
+            assetDirAbsPath,
+            assetRelPrefix,
+          })
+          return {
+            ok: true as const,
+            data: { action: 'images', filePath: absPath, ...data },
+          }
+        }
+
+        case 'render': {
+          const { assetDirAbsPath, assetRelPrefix } =
+            await resolveInspectAssetDir(i.filePath)
+          const data = await inspectRender({
+            filePath: absPath,
+            sheetName: i.sheetName,
+            range: i.range,
+            scale: i.scale,
+            assetDirAbsPath,
+            assetRelPrefix,
+          })
+          return {
+            ok: true as const,
+            data: { action: 'render', filePath: absPath, ...data },
+          }
+        }
+
+        default: {
+          const _exhaust: never = i
+          throw new Error(
+            `Unknown action: ${String((_exhaust as { action: string }).action)}`,
+          )
+        }
       }
+    } catch (err) {
+      // LIBREOFFICE unavailable surfaces as ok:false (soft) so callers can
+      // recover (e.g. fall back to non-render preview).
+      if (err instanceof ExcelLibreOfficeUnavailableError) {
+        return failure('LIBREOFFICE_UNAVAILABLE', err.message, absPath)
+      }
+      // SHEET_NOT_FOUND bubble from inspectRead — same soft shape.
+      const msg = err instanceof Error ? err.message : String(err)
+      if (/^SHEET_NOT_FOUND/.test(msg) || /SHEET_NOT_FOUND:/.test(msg)) {
+        return failure('SHEET_NOT_FOUND', msg, absPath)
+      }
+      throw err
     }
-    if (cells.length > 0) {
-      rows.push(`<row r="${r + 1}">${cells.join('')}</row>`)
-    }
-  }
-
-  const maxCol = Math.max(...data.map((r) => r.length)) - 1
-  const maxRow = data.length
-  const dimension = `A1:${colIndexToLetter(maxCol)}${maxRow}`
-
-  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-  <dimension ref="${dimension}"/>
-  <sheetData>${rows.join('')}</sheetData>
-</worksheet>`
-}
-
-function buildSharedStringsXml(strings: string[]): string {
-  const items = strings.map((s) => `<si><t>${escapeXml(s)}</t></si>`).join('')
-  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="${strings.length}" uniqueCount="${strings.length}">${items}</sst>`
-}
-
-function colIndexToLetter(col: number): string {
-  let result = ''
-  let c = col
-  while (c >= 0) {
-    result = String.fromCharCode((c % 26) + 65) + result
-    c = Math.floor(c / 26) - 1
-  }
-  return result
-}
+  },
+})
 
 // ---------------------------------------------------------------------------
-// Excel Mutate Tool
+// ExcelMutate
 // ---------------------------------------------------------------------------
 
 export const excelMutateTool = tool({
   description: excelMutateToolDef.description,
   inputSchema: zodSchema(excelMutateToolDef.parameters),
   execute: async (input) => {
-    const { action, filePath, sheetName, data, edits } = input as {
-      action: string
-      filePath: string
-      sheetName?: string
-      data?: (string | number | boolean | null)[][]
-      edits?: OfficeEdit[]
-    }
+    const i = input as ExcelMutateInput
 
-    // `create` writes a brand-new file → pin it to project root / session asset
-    // dir; `edit` mutates an existing file wherever it already lives.
-    const { absPath } = action === 'create'
-      ? await resolveCreateTargetPath(filePath)
-      : resolveToolPath({ target: filePath })
+    // `create` goes to session asset dir / project root; every other action
+    // mutates an existing file wherever it lives under the writable scope.
+    const { absPath } =
+      i.action === 'create'
+        ? await resolveCreateTargetPath(i.filePath)
+        : resolveToolPath({ target: i.filePath })
 
-    switch (action) {
-      case 'create': {
-        const wsName = sheetName || 'Sheet1'
-        const sharedStrings: string[] = []
-        const ssIndex = new Map<string, number>()
-        const sheetXml = buildSheetXml(data ?? [[]], sharedStrings, ssIndex)
-
-        const entries = new Map<string, Buffer>()
-        entries.set('[Content_Types].xml', Buffer.from(xlsxContentTypes(1), 'utf-8'))
-        entries.set('_rels/.rels', Buffer.from(XLSX_ROOT_RELS, 'utf-8'))
-        entries.set('xl/_rels/workbook.xml.rels', Buffer.from(xlsxWorkbookRels(1), 'utf-8'))
-        entries.set('xl/workbook.xml', Buffer.from(xlsxWorkbook([wsName]), 'utf-8'))
-        entries.set('xl/worksheets/sheet1.xml', Buffer.from(sheetXml, 'utf-8'))
-        entries.set('xl/styles.xml', Buffer.from(XLSX_STYLES, 'utf-8'))
-        entries.set('xl/sharedStrings.xml', Buffer.from(buildSharedStringsXml(sharedStrings), 'utf-8'))
-
-        await createZip(absPath, entries)
+    // Dispatch: recalc → excelRecalc.recalc(), everything else → applyMutate.
+    try {
+      if (i.action === 'recalc') {
+        const result = await recalc(absPath, i.mode ?? 'auto')
+        if (!result.ok) {
+          return {
+            ok: false as const,
+            code: 'FORMULA_ERRORS_FOUND',
+            message: `Recalc reported ${result.errorCount} formula error(s)`,
+            hint: 'Fix the listed errors and retry.',
+            data: {
+              action: 'recalc',
+              filePath: absPath,
+              mode: result.mode,
+              errorCount: result.errorCount,
+              errors: result.errors,
+              warnings: result.warnings,
+            },
+          }
+        }
         return {
-          ok: true,
-          data: { action, filePath: absPath, sheetName: wsName },
+          ok: true as const,
+          data: {
+            action: 'recalc',
+            filePath: absPath,
+            mode: result.mode,
+            errorCount: result.errorCount,
+            errors: result.errors,
+            warnings: result.warnings,
+          },
         }
       }
 
-      case 'edit': {
-        if (!edits || edits.length === 0) {
-          throw new Error('edits is required for edit action.')
-        }
-        await resolveOfficeFile(filePath, ['.xlsx'])
-        await editZip(absPath, absPath, edits)
-        return {
-          ok: true,
-          data: { action, filePath: absPath, editCount: edits.length },
-        }
+      // Re-point filePath on the input to the resolved absolute path so the
+      // engine writes to the right place.
+      const engineInput = { ...i, filePath: absPath } as ExcelMutateInput
+      const out = await applyMutate(engineInput)
+      return {
+        ok: true as const,
+        data: { action: i.action, filePath: absPath, ...(out.data ?? {}) },
+        ...(out.meta ? { meta: out.meta } : {}),
       }
-
-      default:
-        throw new Error(`Unknown action: ${action}`)
+    } catch (err) {
+      if (err instanceof ExcelMutateError) {
+        return failure(err.code, err.message, absPath, err.hint)
+      }
+      if (err instanceof ExcelRecalcError) {
+        return failure(err.code, err.message, absPath)
+      }
+      if (err instanceof ExcelLibreOfficeUnavailableError) {
+        return failure('LIBREOFFICE_UNAVAILABLE', err.message, absPath)
+      }
+      throw err
     }
   },
 })
-
