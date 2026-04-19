@@ -196,6 +196,113 @@ function rewriteParagraphForTrackedChange(opts: {
   return paraXml
 }
 
+// ---------------------------------------------------------------------------
+// Report-style defaults for WordMutate(create)
+//
+// Injected at the tool boundary (not in docxEngine) so the engine stays a thin
+// renderer and callers that want a naked/custom look can still override every
+// field explicitly. We only set values that the caller did NOT provide.
+//
+// Why this exists:
+//  - `table.headers` shorthand is declared in the schema but the engine never
+//    consumes it — upgrading to a rich first row is the minimal fix.
+//  - Engine defaults (black `color="auto"` borders, no cellPadding, plain
+//    Heading1) produce a plain-document look. Reports want a visible header
+//    row, breathing room inside cells, and a slightly emphasised H1.
+// ---------------------------------------------------------------------------
+const REPORT_SOFT_BORDER = { style: 'single' as const, size: 4, color: 'D0D0D0' }
+const REPORT_HEADER_SHADING = '2E5A88'
+const REPORT_HEADER_TEXT_COLOR = 'FFFFFF'
+const REPORT_H1_COLOR = '1F4E79'
+const REPORT_H2_COLOR = '2E74B5'
+const REPORT_CELL_FONT_SIZE = 20 // half-points → 10pt. Body 11pt is too large inside table cells, especially for CJK reports.
+
+function normalizeCellWithDefaultSize(cell: unknown): unknown {
+  if (typeof cell === 'string') {
+    return { runs: [{ text: cell, size: REPORT_CELL_FONT_SIZE }] }
+  }
+  if (!cell || typeof cell !== 'object') return cell
+  const c = cell as any
+  if (Array.isArray(c.runs) && c.runs.length > 0) {
+    return {
+      ...c,
+      runs: c.runs.map((r: any) =>
+        r && typeof r === 'object' && r.size === undefined
+          ? { ...r, size: REPORT_CELL_FONT_SIZE }
+          : r,
+      ),
+    }
+  }
+  if (typeof c.text === 'string') {
+    const { text, ...rest } = c
+    return { ...rest, runs: [{ text, size: REPORT_CELL_FONT_SIZE }] }
+  }
+  return c
+}
+
+function applyReportDefaults(
+  content: DocxContentItem[],
+): DocxContentItem[] {
+  return content.map((raw) => {
+    const item = raw as any
+    if (!item || typeof item !== 'object') return raw
+
+    if (item.type === 'table') {
+      const t: any = { ...item }
+      if (!t.cellPadding) {
+        t.cellPadding = { top: 80, bottom: 80, left: 108, right: 108 }
+      }
+      if (!t.borders) {
+        t.borders = {
+          top: REPORT_SOFT_BORDER,
+          bottom: REPORT_SOFT_BORDER,
+          left: REPORT_SOFT_BORDER,
+          right: REPORT_SOFT_BORDER,
+          insideH: REPORT_SOFT_BORDER,
+          insideV: REPORT_SOFT_BORDER,
+        }
+      }
+      if (Array.isArray(t.headers) && t.headers.length > 0) {
+        const headerRow = t.headers.map((h: unknown) => ({
+          runs: [
+            {
+              text: String(h ?? ''),
+              bold: true,
+              color: REPORT_HEADER_TEXT_COLOR,
+              size: REPORT_CELL_FONT_SIZE,
+            },
+          ],
+          shading: REPORT_HEADER_SHADING,
+        }))
+        t.rows = [headerRow, ...(Array.isArray(t.rows) ? t.rows : [])]
+        delete t.headers
+      }
+      if (Array.isArray(t.rows)) {
+        t.rows = t.rows.map((row: unknown) =>
+          Array.isArray(row) ? row.map(normalizeCellWithDefaultSize) : row,
+        )
+      }
+      return t as DocxContentItem
+    }
+
+    if (item.type === 'heading') {
+      const h: any = { ...item }
+      const level = typeof h.level === 'number' ? h.level : 1
+      if (level === 1) {
+        if (h.alignment === undefined) h.alignment = 'center'
+        if (h.color === undefined) h.color = REPORT_H1_COLOR
+        if (h.size === undefined) h.size = 32
+      } else if (level === 2) {
+        if (h.color === undefined) h.color = REPORT_H2_COLOR
+        if (h.size === undefined) h.size = 28
+      }
+      return h as DocxContentItem
+    }
+
+    return raw
+  })
+}
+
 async function resolveInspectAssetDir(filePath: string): Promise<{
   assetDirAbsPath: string
   assetRelPrefix: string
@@ -421,7 +528,8 @@ export const wordMutateTool = tool({
           if (!i.content || !Array.isArray(i.content) || i.content.length === 0) {
             throw new Error('content is required for create action.')
           }
-          const { entries } = await buildDocument(i.documentSettings, i.content)
+          const normalizedContent = applyReportDefaults(i.content)
+          const { entries } = await buildDocument(i.documentSettings, normalizedContent)
           await createZip(absPath, entries)
           return {
             ok: true as const,

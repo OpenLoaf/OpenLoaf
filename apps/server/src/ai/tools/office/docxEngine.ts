@@ -751,9 +751,22 @@ function renderTable(tbl: Extract<DocxContentItem, { type: 'table' }>): string {
       `<w:insideH w:val="single" w:sz="4" w:space="0" w:color="auto"/>` +
       `<w:insideV w:val="single" w:sz="4" w:space="0" w:color="auto"/>` +
       `</w:tblBorders>`
-  const tblPr = `<w:tblPr>${
-    totalWidth > 0 ? `<w:tblW w:w="${totalWidth}" w:type="dxa"/>` : '<w:tblW w:w="0" w:type="auto"/>'
-  }${defaultTblBorders}</w:tblPr>`
+  const cp = tbl.cellPadding
+  const tblCellMarXml = cp
+    ? `<w:tblCellMar>${
+        cp.top !== undefined ? `<w:top w:w="${cp.top}" w:type="dxa"/>` : ''
+      }${cp.left !== undefined ? `<w:left w:w="${cp.left}" w:type="dxa"/>` : ''}${
+        cp.bottom !== undefined ? `<w:bottom w:w="${cp.bottom}" w:type="dxa"/>` : ''
+      }${cp.right !== undefined ? `<w:right w:w="${cp.right}" w:type="dxa"/>` : ''}</w:tblCellMar>`
+    : ''
+  // Always render the table at 100% of the usable page width (pct 5000).
+  // When `columnWidths` are provided, their values survive as gridCol entries
+  // and per-cell `w:tcW` hints — Word treats those as *relative* proportions
+  // under `type="pct"` and rebalances to the page, so a model that sums its
+  // columns to 10800 twips on an A4 page (9026 usable) no longer overflows.
+  // This also fixes the old "auto" default that made plain tables render as
+  // narrow content-fit blocks.
+  const tblPr = `<w:tblPr><w:tblW w:w="5000" w:type="pct"/>${defaultTblBorders}${tblCellMarXml}</w:tblPr>`
 
   // Convert rows (possibly shorthand string[]) to DocxTableCell[].
   const normalizedRows: DocxTableCell[][] = tbl.rows.map((row) => {

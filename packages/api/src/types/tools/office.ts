@@ -9,15 +9,41 @@
  */
 import { z } from "zod";
 
-/** Auto-parse JSON strings into arrays (some LLMs serialize array params as strings) */
-export const jsonArrayPreprocess = (val: unknown) => {
-  if (typeof val === 'string') {
-    try {
-      const parsed = JSON.parse(val)
-      if (Array.isArray(parsed)) return parsed
-    } catch {}
+/**
+ * Auto-parse JSON strings into arrays (some LLMs serialize array params as strings).
+ *
+ * When parse fails, surface the JSON syntax error with the exact position and a
+ * ±40 char snippet so the model's next retry can see *why* the string was rejected
+ * (typical miss: full-width brackets like "（" used in place of JSON delimiters).
+ * Without this, Zod only reports "expected array, received string" and the model
+ * keeps guessing.
+ */
+export const jsonArrayPreprocess = (
+  val: unknown,
+  ctx: z.core.$RefinementCtx,
+): unknown => {
+  if (typeof val !== 'string') return val
+  try {
+    return JSON.parse(val)
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    // Node's SyntaxError sometimes includes a char position, sometimes doesn't —
+    // depends on runtime version. Treat both, and always include a head snippet
+    // of the string so the model can see the first few items it tried to pass.
+    const posMatch = msg.match(/position (\d+)/i)
+    const pos = posMatch ? Number(posMatch[1]) : -1
+    const start = pos >= 0 ? Math.max(0, pos - 40) : 0
+    const end =
+      pos >= 0 ? Math.min(val.length, pos + 40) : Math.min(val.length, 120)
+    const snippet = val.slice(start, end)
+    ctx.addIssue(
+      `Parameter was passed as a JSON string but JSON.parse failed: ${msg}. ` +
+        `Context near error: "${snippet}${end < val.length ? '...' : ''}". ` +
+        'Fix by passing the parameter as a real array (e.g. [{...}, {...}]) instead of a JSON-encoded string. ' +
+        'If you must pass a string, the entire string must be valid JSON — use ASCII double quotes for JSON string values; full-width punctuation like "（" or "＂" is not a valid JSON delimiter.',
+    )
+    return z.NEVER
   }
-  return val
 }
 
 /** Shared edit operation schema for Office documents (DOCX/XLSX/PPTX). */

@@ -164,7 +164,25 @@ WordInspect { action: "render", filePath: "…", pageRange: "1-6", scale: 2 }
 - 合并：`merge.rowSpan >= 2` 的 cell 必须在后续行对应位置**留空 cell 占位**（`{}` 或 `""`），否则 gridSpan 错位。
 - `columnWidths[i]` 应与每行 `cells[i].width` 一致，不一致时以 `columnWidths` 为准。
 
-### 3.4 创建时的硬雷区
+### 3.4 报告类文档的"开箱美观"
+
+工具在 `create` 时**自动注入**以下合理默认（你只要不显式传就会生效；显式传了按你的走）：
+
+| 字段 | 自动默认 | 何时自己覆盖 |
+|---|---|---|
+| `heading(level:1)` | 居中、深蓝 `1F4E79`、16pt | 做极简或纯黑白样式时显式设 `color`/`size` |
+| `heading(level:2)` | 中蓝 `2E74B5`、14pt | 同上 |
+| `table.cellPadding` | `{top:80, bottom:80, left:108, right:108}`（约 5pt/7.5pt） | 要紧凑数据表时显式传更小值 |
+| `table.borders` | 浅灰 `D0D0D0` 全边框 + 内线 | 要突出边框用深色显式传 |
+| `table.headers` shorthand | **自动升级为第 0 行 rich 表头**：深蓝 `2E5A88` 底 + 白字加粗 | 需要不同主色或无表头时用 `rows` 直接传表头行 / 不传 headers |
+| `table` 宽度（无 `columnWidths` 时） | 撑满页面（100% page width） | 要窄表或定列宽时显式传 `columnWidths: [w1, w2, ...]` twips |
+| 表格 cell 内 `run.size` | `20` 半点（10pt），比正文略小，适配 CJK 表格 | 数据量少/想要大字强调时 run 里显式传 `size: 22` 或更大 |
+
+所以做**分析报告 / 方案书 / 周报**这种期待"专业感"的文档时：直接用 `headers: [...]` + 普通 `rows: [...]`，工具会把表头渲染成蓝底白字加粗，表身带 padding 和浅灰边；不用手动拼 `runs: [{bold:true, color:'FFFFFF'}]` + `shading: '2E5A88'`。
+
+要**纯极简 / Markdown 风格**：给 `table.borders: { top: {style:'none'}, bottom: {style:'none'}, ... }`、`heading.color` 手动清空或换成 `'000000'`、不传 `headers`（自己在 rows 里写第一行）。
+
+### 3.5 创建时的硬雷区
 
 - **不要写 Unicode 上下标 / bullet 符号**（`₂` / `²` / `•` / `》`）—— 默认 WinAnsi / eastAsia 字体里这些字形要么缺失要么语义错。化学式 `H₂O` 写成 `H2O`，或一段用 `superscript: true`、一段 `subscript: true` 的三段 runs 拼。bullet 用 `bullet-list`，不要手写 `• xxx`。
 - **CJK 不用手动注入字体**：内容里只要出现中日韩字符，引擎自动给 `<w:docDefaults>/<w:rPr>/<w:rFonts>` 注入 `w:eastAsia="PingFang SC"`（Windows 会 fallback 到 SimSun）。不要在每个 TextRun 里重复写 `font: "PingFang SC"`。

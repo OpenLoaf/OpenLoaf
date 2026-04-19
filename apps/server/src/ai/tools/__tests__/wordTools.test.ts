@@ -67,6 +67,8 @@ import { setupE2eTestEnv } from '@/ai/__tests__/helpers/testEnv'
 import { wordInspectTool, wordMutateTool } from '@/ai/tools/wordTools'
 import { ensureWritableRoot, resolveToolPath } from '@/ai/tools/toolScope'
 import { listZipEntries, readZipEntryText } from '@/ai/tools/office/streamingZip'
+import { z } from 'zod'
+import { jsonArrayPreprocess } from '@openloaf/api/types/tools/office'
 
 // ---------------------------------------------------------------------------
 // Test runner
@@ -1171,6 +1173,170 @@ async function main() {
     assert.ok(!docXml.includes('\u201C'), 'must not auto-translate to curly left double quote')
     // TODO: if Phase 2 ships a documentSettings.smartQuotes flag, add a
     // second sub-test asserting flag=true yields U+2018 / U+2019 / U+201C / U+201D.
+  })
+
+  await test('B19: report defaults — headers shorthand renders as styled header row', async () => {
+    await createDocx('b19-report-defaults.docx', {
+      content: [
+        { type: 'heading', level: 1, text: 'Q1 Report' },
+        {
+          type: 'table',
+          columnWidths: [2000, 3000],
+          headers: ['Col A', 'Col B'],
+          rows: [['1', '2']],
+        },
+      ],
+    })
+    const docXml = await readDocEntry('b19-report-defaults.docx', 'word/document.xml')
+    // Header shorthand must now actually render (used to be dropped by engine).
+    assert.ok(docXml.includes('Col A'), 'header "Col A" must be rendered')
+    assert.ok(docXml.includes('Col B'), 'header "Col B" must be rendered')
+    // Header row must have blue shading, bold white text.
+    assert.ok(
+      /<w:shd[^>]*w:fill="2E5A88"/.test(docXml),
+      'header cells must carry shading fill 2E5A88',
+    )
+    assert.ok(
+      /<w:color\s+w:val="FFFFFF"/.test(docXml),
+      'header runs must set white text color',
+    )
+    // H1 defaults: centered + colored.
+    assert.ok(
+      /<w:jc\s+w:val="center"/.test(docXml),
+      'H1 must default to center alignment',
+    )
+    assert.ok(
+      /<w:color\s+w:val="1F4E79"/.test(docXml),
+      'H1 must default to navy color 1F4E79',
+    )
+    // Table cell padding (<w:tcMar>) default injection.
+    assert.ok(
+      /<w:tcMar>/.test(docXml) || /w:tblCellMar/.test(docXml),
+      'table must carry default cell padding',
+    )
+    // Soft border color D0D0D0 from default injection.
+    assert.ok(
+      /w:color="D0D0D0"/.test(docXml),
+      'table must default to soft D0D0D0 borders',
+    )
+  })
+
+  await test('B19b: explicit table.borders / cell.shading override report defaults', async () => {
+    await createDocx('b19b-report-override.docx', {
+      content: [
+        {
+          type: 'table',
+          columnWidths: [2000, 2000],
+          borders: {
+            top: { style: 'single', size: 8, color: '000000' },
+            bottom: { style: 'single', size: 8, color: '000000' },
+            left: { style: 'single', size: 8, color: '000000' },
+            right: { style: 'single', size: 8, color: '000000' },
+            insideH: { style: 'single', size: 8, color: '000000' },
+            insideV: { style: 'single', size: 8, color: '000000' },
+          },
+          rows: [[{ text: 'keep', shading: 'FF0000' }, { text: 'me' }]],
+        },
+      ],
+    })
+    const docXml = await readDocEntry('b19b-report-override.docx', 'word/document.xml')
+    // Explicit black borders must survive (default D0D0D0 NOT applied).
+    assert.ok(
+      !/w:color="D0D0D0"/.test(docXml),
+      'explicit borders must not be overridden by D0D0D0 default',
+    )
+    assert.ok(/<w:shd[^>]*w:fill="FF0000"/.test(docXml), 'explicit cell shading preserved')
+  })
+
+  await test('B21: table always renders at 100% page width + cell font size 10pt', async () => {
+    // Regression: plain tables used to render as narrow auto-fit blocks
+    // (tblW type="auto"), and cell text inherited 11pt default — visibly
+    // too big inside CJK report cells. New contract:
+    //   - tblW is ALWAYS pct 5000 (= 100% page width), regardless of whether
+    //     columnWidths are provided. columnWidths survive as gridCol entries
+    //     and per-cell tcW, which Word treats as proportional under pct mode.
+    //   - cell runs default to size 20 (half-points = 10pt).
+    await createDocx('b21-table-defaults.docx', {
+      content: [
+        {
+          type: 'table',
+          headers: ['Name', 'Qty'],
+          rows: [['Widget', '3']],
+        },
+      ],
+    })
+    const docXml = await readDocEntry('b21-table-defaults.docx', 'word/document.xml')
+    assert.ok(
+      /<w:tblW[^/]*w:type="pct"[^/]*w:w="5000"|<w:tblW[^/]*w:w="5000"[^/]*w:type="pct"/.test(docXml),
+      'tblW must default to pct 5000',
+    )
+    assert.ok(/<w:sz\s+w:val="20"/.test(docXml), 'body cell runs must default to size 20')
+    assert.ok(docXml.includes('Widget') && docXml.includes('Name'), 'cells render')
+  })
+
+  await test('B21b: explicit columnWidths still yield tblW=pct 5000 (not dxa)', async () => {
+    // Reason: models sometimes pick columnWidths that sum beyond the usable
+    // page area (e.g. 10800 twips on A4 portrait with 1440 margins = 9026 twips
+    // available). Forcing tblW=pct 5000 makes Word treat those widths as
+    // proportional and rebalance to the page, preventing overflow.
+    await createDocx('b21b-cw-overflow.docx', {
+      content: [
+        {
+          type: 'table',
+          columnWidths: [800, 3200, 2500, 1800, 2500], // sums to 10800 > A4 usable
+          rows: [[{ text: 'a' }, { text: 'b' }, { text: 'c' }, { text: 'd' }, { text: 'e' }]],
+        },
+      ],
+    })
+    const docXml = await readDocEntry('b21b-cw-overflow.docx', 'word/document.xml')
+    assert.ok(
+      /<w:tblW[^/]*w:type="pct"[^/]*w:w="5000"|<w:tblW[^/]*w:w="5000"[^/]*w:type="pct"/.test(docXml),
+      'tblW must be pct 5000 even with explicit columnWidths',
+    )
+    assert.ok(!/<w:tblW[^/]*w:type="dxa"/.test(docXml), 'dxa variant must not appear at table level')
+    // gridCol entries preserve the proportional widths.
+    assert.ok(
+      /<w:gridCol\s+w:w="3200"/.test(docXml),
+      'gridCol proportions survive under pct mode',
+    )
+  })
+
+  await test('B20: jsonArrayPreprocess surfaces JSON.parse error with position + context', () => {
+    // Regression for real failure observed in browser test 019:
+    //   model passed WordMutate.content as a JSON string that contained a
+    //   full-width "（" where an ASCII `"` was required. Zod only said
+    //   "expected array, received string" — useless for the model's retry.
+    // Contract: parse failure must yield a custom issue whose message names
+    //   (a) that JSON.parse failed, (b) a surrounding snippet of the input,
+    //   and (c) how to fix it (pass an array, or use valid JSON).
+    // (Position is included when the runtime's SyntaxError exposes it —
+    // Node versions differ — but is not required for the contract.)
+    const schema = z.object({
+      arr: z.preprocess(jsonArrayPreprocess, z.array(z.any())),
+    })
+    const bad =
+      '\n[{"type":"paragraph","runs":[{"text":（$600 vs $500）}]}]'
+    const result = schema.safeParse({ arr: bad })
+    assert.ok(!result.success, 'must reject non-JSON string')
+    const msg = result.error.issues[0]?.message ?? ''
+    assert.match(msg, /JSON\.parse failed/, 'names the parse failure')
+    assert.match(msg, /Context near error: "/, 'includes context snippet')
+    // Head of the bad string (or position-centered window) must appear in the snippet.
+    assert.ok(
+      msg.includes('paragraph') || msg.includes('（'),
+      'snippet must contain recognizable chars from the input',
+    )
+    assert.match(msg, /real array/, 'tells model to pass an array')
+    assert.match(msg, /valid JSON/, 'tells model strings must be valid JSON')
+  })
+
+  await test('B20b: valid JSON array string is auto-parsed (happy path preserved)', () => {
+    const schema = z.object({
+      arr: z.preprocess(jsonArrayPreprocess, z.array(z.any())),
+    })
+    const ok = schema.safeParse({ arr: '[1, 2, 3]' })
+    assert.ok(ok.success, 'valid JSON array string must parse')
+    assert.deepEqual(ok.data.arr, [1, 2, 3])
   })
 
   await test('B18: custom style with illegal heading-like attrs throws TOC_STYLE_CONFLICT', async () => {
