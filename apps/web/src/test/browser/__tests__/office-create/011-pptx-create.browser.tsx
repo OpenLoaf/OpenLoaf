@@ -12,7 +12,7 @@ import { waitForChatComplete, waitForProbeResult, takeProbeScreenshot, aiJudge }
 
 const SERVER_URL = process.env.PROBE_SERVER_URL ?? 'http://127.0.0.1:23333'
 
-it('016 — PPTX 创建：生成中文季度汇报 PPT', async () => {
+it('office-create-011 — PPTX 创建：生成中文季度汇报 PPT', async () => {
   const prompt =
     '帮我创建一份 PPT 季度汇报。主题："2026 Q1 业务回顾"。' +
     '需要 4 页幻灯片：' +

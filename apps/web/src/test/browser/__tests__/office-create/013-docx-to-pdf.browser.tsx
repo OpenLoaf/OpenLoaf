@@ -15,7 +15,7 @@ import { waitForChatComplete, waitForProbeResult, takeProbeScreenshot, aiJudge }
 
 const SERVER_URL = process.env.PROBE_SERVER_URL ?? 'http://127.0.0.1:23333'
 
-it('017 — 中文 DOCX → PDF：处理 CJK 编码限制', async () => {
+it('office-create-013 — 中文 DOCX → PDF：处理 CJK 编码限制', async () => {
   const sessionId = `chat_probe_017_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
   const userPrompt =
     '请把这份中文 Word 文档转换成 PDF 格式，保存为 project_report.pdf。'

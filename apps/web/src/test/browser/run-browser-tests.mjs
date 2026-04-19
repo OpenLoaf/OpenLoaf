@@ -28,6 +28,7 @@ let batch = null
 let modelOverride = null
 let modelSourceOverride = null
 let promptLangOverride = null
+let note = null
 
 for (let i = 0; i < args.length; i++) {
   const arg = args[i]
@@ -64,6 +65,14 @@ for (let i = 0; i < args.length; i++) {
     }
   } else if (arg.startsWith('--model-source=')) {
     modelSourceOverride = arg.slice('--model-source='.length)
+  } else if (arg === '--note') {
+    note = args[++i]
+    if (!note) {
+      console.error('--note requires text (本次 run 之前调用方 AI 描述了改动什么；写进 run-meta.note，报告头展示，复制 prompt 也带上)')
+      process.exit(1)
+    }
+  } else if (arg.startsWith('--note=')) {
+    note = arg.slice('--note='.length)
   } else if (arg === '--prompt-lang') {
     promptLangOverride = args[++i]
     if (promptLangOverride !== 'zh' && promptLangOverride !== 'en') {
@@ -103,6 +112,17 @@ if (modelOverride) {
 if (promptLangOverride) {
   process.env.BROWSER_TEST_PROMPT_LANG_OVERRIDE = promptLangOverride
   console.log(`[prompt-lang] 强制 promptLanguage="${promptLangOverride}"（覆盖默认的 'en'）`)
+}
+
+// note 通过环境变量传给 vitest.browser.config.ts（写进 run-meta.json.note）。
+// 调用方 AI（如 Claude Code 主对话）应在每次 run 前写一句"本次改了什么"，方便：
+//  1) 后续看报告时知道这次 run 对应哪个修复
+//  2) buildCopyPromptText 把它嵌进剪贴板，下游 AI 直接知道 baseline → change → 现状
+if (note) {
+  process.env.BROWSER_TEST_NOTE = note
+  console.log(`[note] 本次改动描述: "${note.slice(0, 80)}${note.length > 80 ? '…' : ''}"`)
+} else if (!process.env.BROWSER_TEST_NOTE) {
+  console.log('[note] ⚠️  本次 run 没有 --note。建议每次 run 都用 `--note "本次改了 X"` 描述改动，便于回归对比。')
 }
 
 // batch 通过环境变量传给 vitest.browser.config.ts（写进 run-meta.json.batch）。

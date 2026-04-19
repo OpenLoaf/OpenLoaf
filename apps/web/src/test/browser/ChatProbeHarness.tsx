@@ -174,12 +174,32 @@ export type ProbeResult = {
    */
   creditsConsumed?: number
   /**
+   * 本次 probe 的 token 用量总和（多轮对话累加每条 assistant 消息的
+   * metadata.totalUsage — 由后端 `buildTokenUsageMetadata` 写入）。
+   * 和 creditsConsumed 同级，供 runs.jsonl 归档和 HTML 报告用例卡 / 主页索引
+   * 聚合展示。后端每轮是独立 SDK 调用，所以需要 probe 端累加才等于"本次 probe 总消耗"。
+   */
+  tokenUsage?: TokenUsageAggregate
+  /**
    * 本次 probe 实际发给后端的 chatModelId / chatModelSource（应用 --model override 后的值）。
    * 让 saveTestData / recordProbeRun 在测试作者没显式传 `model` 时也能拿到真实使用的模型，
    * 索引主页据此显示 Model 徽章。
    */
   chatModelId?: string
   chatModelSource?: 'local' | 'cloud' | 'saas'
+}
+
+export type TokenUsageAggregate = {
+  /** 输入 token 总数（inputTokens） */
+  inputTokens: number
+  /** 输出 token 总数（outputTokens） */
+  outputTokens: number
+  /** 总 token 数（totalTokens，若后端缺失则等于 inputTokens+outputTokens） */
+  totalTokens: number
+  /** 推理 token（思维链模型才有，可能是 0） */
+  reasoningTokens: number
+  /** 缓存命中 input token（providers 支持 prompt cache 时有值） */
+  cachedInputTokens: number
 }
 
 // ── Helpers ──
@@ -441,6 +461,7 @@ function ChatProbeInner({
     const toolErrorCount = toolCallDetails.filter(t => t.hasError).length
     const textPreview = extractTextPreview(msgs, 2000)
     const creditsConsumed = extractCreditsConsumed(msgs)
+    const tokenUsage = extractTokenUsage(msgs)
     const observed = drainProbeObservers()
     const result: ProbeResult = {
       sessionId,
@@ -458,6 +479,7 @@ function ChatProbeInner({
       consoleLogs: observed.console,
       networkRequests: observed.network,
       ...(creditsConsumed > 0 ? { creditsConsumed } : {}),
+      ...(tokenUsage ? { tokenUsage } : {}),
       ...(chatModelId ? { chatModelId } : {}),
       ...(chatModelSource ? { chatModelSource } : {}),
     }
@@ -716,6 +738,7 @@ function ChatProbeInner({
         : ''
       const observed = drainProbeObservers()
       const creditsConsumed = extractCreditsConsumed(chat.messages as any[])
+      const tokenUsage = extractTokenUsage(chat.messages as any[])
       const result: ProbeResult = {
         sessionId,
         messages: chat.messages as UIMessage[],
@@ -733,6 +756,7 @@ function ChatProbeInner({
         consoleLogs: observed.console,
         networkRequests: observed.network,
         ...(creditsConsumed > 0 ? { creditsConsumed } : {}),
+        ...(tokenUsage ? { tokenUsage } : {}),
         ...(chatModelId ? { chatModelId } : {}),
         ...(chatModelSource ? { chatModelSource } : {}),
       }
@@ -1218,6 +1242,47 @@ function extractCreditsConsumed(messages: any[]): number {
   return sum
 }
 
+/**
+ * 累加所有 assistant 消息的 metadata.totalUsage（由后端 buildTokenUsageMetadata 写入）。
+ *
+ * 形态与 creditsConsumed 对齐：多轮对话每轮是独立的 SDK stream → 独立的 request-scoped
+ * context；要拿到"本次 probe 总 token 消耗"必须在 probe 端累加。`totalTokens` 缺失时
+ * 用 inputTokens+outputTokens 兜底（极少见）。任何一项都未采到时返回 undefined，让
+ * ProbeResult 不带 tokenUsage 字段（与 creditsConsumed 同构）。
+ */
+function extractTokenUsage(messages: any[]): {
+  inputTokens: number
+  outputTokens: number
+  totalTokens: number
+  reasoningTokens: number
+  cachedInputTokens: number
+} | undefined {
+  let input = 0
+  let output = 0
+  let total = 0
+  let reasoning = 0
+  let cached = 0
+  let any = false
+  for (const msg of messages) {
+    if (msg?.role !== 'assistant') continue
+    const u = msg?.metadata?.totalUsage
+    if (!u || typeof u !== 'object') continue
+    const i = Number(u.inputTokens)
+    const o = Number(u.outputTokens)
+    const t = Number(u.totalTokens)
+    const r = Number(u.reasoningTokens)
+    const c = Number(u.cachedInputTokens)
+    if (Number.isFinite(i) && i > 0) { input += i; any = true }
+    if (Number.isFinite(o) && o > 0) { output += o; any = true }
+    if (Number.isFinite(t) && t > 0) { total += t; any = true }
+    if (Number.isFinite(r) && r > 0) reasoning += r
+    if (Number.isFinite(c) && c >= 0) cached += c
+  }
+  if (!any) return undefined
+  if (total === 0 && (input > 0 || output > 0)) total = input + output
+  return { inputTokens: input, outputTokens: output, totalTokens: total, reasoningTokens: reasoning, cachedInputTokens: cached }
+}
+
 function extractTextPreview(messages: any[], maxLen: number): string {
   // 只取"最后一个 tool-* part 之后的 text part"拼接 —— 即模型最终答复。
   // 避免过程性 text（"让我尝试..."、"好的现在..."）占满 maxLen 把最终答案砍掉。
@@ -1359,6 +1424,15 @@ async function captureDomSnapshotToWindow() {
       }).join(', ')
       el.setAttribute('srcset', rewritten)
     })
+
+    // 4) 移除所有 <script>/<noscript>/script-preload，避免 dom.html 在 sandbox iframe 里
+    //    打开时报 "Blocked script execution ... allow-scripts permission is not set."
+    //    这些脚本在 sandbox 内本来就不会执行，删掉只是消除噪音 console warning。
+    cloned
+      .querySelectorAll(
+        'script, noscript, link[rel="modulepreload"], link[rel="preload"][as="script"], link[rel="prefetch"][as="script"]',
+      )
+      .forEach((el) => el.remove())
 
     const html = '<!DOCTYPE html>\n' + cloned.outerHTML
     window.__probeDomSnapshot = html

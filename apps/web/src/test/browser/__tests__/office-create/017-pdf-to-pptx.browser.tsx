@@ -18,7 +18,7 @@ import { waitForChatComplete, waitForProbeResult, takeProbeScreenshot, aiJudge }
 
 const SERVER_URL = process.env.PROBE_SERVER_URL ?? 'http://127.0.0.1:23333'
 
-it('019 — PDF → PPTX：读分镜脚本后生成汇报 PPT', async () => {
+it('office-create-017 — PDF → PPTX：读分镜脚本后生成汇报 PPT', async () => {
   const sessionId = `chat_probe_019_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
   const userPrompt =
     '请阅读这份 PDF 分镜脚本，帮我提炼 3-5 个关键镜头信息。'

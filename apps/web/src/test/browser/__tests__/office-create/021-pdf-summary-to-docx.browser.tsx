@@ -23,9 +23,9 @@ import { waitForChatComplete, waitForProbeResult, takeProbeScreenshot, aiJudge }
 
 const SERVER_URL = process.env.PROBE_SERVER_URL ?? 'http://127.0.0.1:23333'
 // 与真实故障 session 一致：Qwen Flash（小模型更容易退化为 Python 脚本 fallback）
-const MODEL_ID = 'qwen:OL-TX-006'
+const MODEL_ID = 'qwen:OL-TX-008'
 
-it('039 — PDF 总结 → Word：直接 WordMutate create，不走 MD 中转', async () => {
+it('office-create-021 — PDF 总结 → Word：直接 WordMutate create，不走 MD 中转', async () => {
   const sessionId = `chat_probe_039_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
   const userPrompt = '分析一下里面的内容'
   const followUp = '输出总结到 Word 文档'

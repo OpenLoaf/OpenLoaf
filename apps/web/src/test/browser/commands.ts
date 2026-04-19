@@ -86,6 +86,14 @@ export type RecordProbeRunInput = {
     startedAt: string
     /** 本次 probe 消耗的 SaaS 积分（ChatProbeHarness 从 message.metadata.openloaf 累加） */
     creditsConsumed?: number
+    /** 本次 probe 的 token 用量总和（ChatProbeHarness 从 message.metadata.totalUsage 累加） */
+    tokenUsage?: {
+      inputTokens: number
+      outputTokens: number
+      totalTokens: number
+      reasoningTokens: number
+      cachedInputTokens: number
+    }
   }
 }
 
@@ -150,6 +158,11 @@ export const recordProbeRun: BrowserCommand<[RecordProbeRunInput]> = async (
       // 展示到用例卡片和主页总计。未采集到时留空（不写 0 避免污染总计）。
       ...(typeof result.creditsConsumed === 'number' && result.creditsConsumed > 0
         ? { creditsConsumed: result.creditsConsumed }
+        : {}),
+      // Token 用量同理，用于用例卡片和主页按 run 聚合 tokens 显示。
+      // dev server 会同时写 creditsConsumed + totalUsage，prod 只有 totalUsage。
+      ...(result.tokenUsage && (result.tokenUsage.totalTokens > 0 || result.tokenUsage.inputTokens > 0 || result.tokenUsage.outputTokens > 0)
+        ? { tokenUsage: result.tokenUsage }
         : {}),
       trigger: 'vitest-browser',
       gitCommit: git.commit,

@@ -12,7 +12,7 @@ import { waitForChatComplete, waitForProbeResult, takeProbeScreenshot, aiJudge }
 
 const SERVER_URL = process.env.PROBE_SERVER_URL ?? 'http://127.0.0.1:23333'
 
-it('015 — XLSX 创建：生成中文销售数据表', async () => {
+it('office-create-009 — XLSX 创建：生成中文销售数据表', async () => {
   const prompt =
     '帮我创建一份 Excel 销售数据表。Sheet 名称："Q1 销售"。' +
     '列：产品名称、区域、销量、单价（元）、收入（元）。' +

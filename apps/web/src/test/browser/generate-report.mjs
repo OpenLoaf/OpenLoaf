@@ -19,6 +19,7 @@ import { fileURLToPath } from 'node:url'
 import { marked } from 'marked'
 import YAML from 'yaml'
 import { SUITES, resolveSuite, collectAllYamls } from './test-case-paths.mjs'
+import { buildDiagnosePromptText } from './lib/build-diagnose-prompt.mjs'
 
 const root = dirname(fileURLToPath(import.meta.url))
 const webRoot = resolve(root, '../../..')
@@ -75,6 +76,10 @@ if (!runDir || !existsSync(runDir)) {
   process.exit(0)
 }
 const runTs = basename(runDir)
+
+// 当前 run 的 meta（含 batch / note / modelOverride 等 runner 注入字段）
+const runMetaPath = join(runDir, 'run-meta.json')
+const runMeta = existsSync(runMetaPath) ? safeJson(readFileSync(runMetaPath, 'utf-8'), {}) : {}
 
 // ── 读数据 ──
 const resultsJsonPath = join(runDir, 'results.json')
@@ -177,24 +182,96 @@ if (existsSync(evalRoot)) {
   }
 }
 
-// runs.jsonl 当前 run 的行
+// 同 testCase 历史 nav 的权威信息来自 vitest results.json：
+//   - status: assertion 是否通过（probe status 只是 "stream 正常完成"，server 把
+//     "请求失败：模型未在服务商配置中启用" 这种错误作为 assistant text 返回时
+//     不会触发 chat.error，probe 会错记成 ok）
+//   - duration: vitest it() 整体耗时（probe elapsedMs 只是 sendMessage → stream done，
+//     错误路径上会比 vitest duration 小很多，看上去和卡片顶部数字对不上）
+// 按 seq 懒加载 + 缓存，匹配逻辑和 findProbe ① 一致：用测试文件 basename endsWith。
+const vitestInfoCacheBySeq = new Map()
+function getVitestInfoForRun(seq, testCase) {
+  if (!seq || !testCase) return null
+  if (!vitestInfoCacheBySeq.has(seq)) {
+    const p = join(runsRoot, seq, 'results.json')
+    const byBase = new Map()
+    if (existsSync(p)) {
+      const data = safeJson(readFileSync(p, 'utf-8'), {})
+      for (const file of data?.testResults ?? []) {
+        const filePath = file?.name ?? ''
+        const base = String(filePath).split('/').pop()?.replace(/\.browser\.tsx?$/, '') ?? ''
+        if (!base) continue
+        // 聚合该文件内所有 assertion：任一 fail → 该文件 fail；duration 取最大值
+        let fails = false
+        let maxDur = 0
+        for (const a of file.assertionResults ?? []) {
+          if (a.status === 'failed') fails = true
+          const d = Number(a.duration) || 0
+          if (d > maxDur) maxDur = d
+        }
+        byBase.set(base, { status: fails ? 'failed' : 'passed', durationMs: maxDur })
+      }
+    }
+    vitestInfoCacheBySeq.set(seq, byBase)
+  }
+  const byBase = vitestInfoCacheBySeq.get(seq)
+  if (!byBase || byBase.size === 0) return null
+  for (const [base, info] of byBase) {
+    if (testCase === base || testCase.endsWith(`-${base}`) || testCase.endsWith(base)) {
+      return info
+    }
+  }
+  return null
+}
+
+// runs.jsonl 当前 run 的行 + 全量按 testCase 索引（按时间倒序）。
+// 全量索引用于：
+//   1) 复制 prompt 时附"上次同 testCase run"对比段
+//   2) 左侧 sidebar 后续渲染同 testCase 历史 nav（待加）
 const runRecordByTestCase = new Map()
+const allRunsByTestCase = new Map() // testCase → [r, r, ...]（按 runAt 倒序，最新在前）
 if (existsSync(runsJsonl)) {
+  const allRows = []
   for (const line of readFileSync(runsJsonl, 'utf-8').split('\n').filter(Boolean)) {
     const r = safeJson(line)
-    if (r?.testCase && typeof r.screenshotsDir === 'string' && r.screenshotsDir.includes(runTs)) {
+    if (!r?.testCase) continue
+    allRows.push(r)
+    if (typeof r.screenshotsDir === 'string' && r.screenshotsDir.includes(runTs)) {
       runRecordByTestCase.set(r.testCase, r)
     }
   }
+  // 按 testCase 分组，每组按 runAt 降序（最新在前）
+  const grouped = new Map()
+  for (const r of allRows) {
+    const arr = grouped.get(r.testCase) || []
+    arr.push(r)
+    grouped.set(r.testCase, arr)
+  }
+  for (const [tc, arr] of grouped) {
+    arr.sort((a, b) => String(b.runAt || '').localeCompare(String(a.runAt || '')))
+    allRunsByTestCase.set(tc, arr)
+  }
+}
+
+// 提取出 "上次同 testCase 的不同 run"（按 runAt 排在当前之前的最近一条）。
+// 若 historyPath 不同就算不同 run。
+function findPreviousRun(testCase, currentRun) {
+  const arr = allRunsByTestCase.get(testCase)
+  if (!arr || arr.length < 2) return null
+  const currKey = currentRun?.historyPath || currentRun?.runAt || ''
+  for (const r of arr) {
+    const key = r.historyPath || r.runAt || ''
+    if (key !== currKey) return r
+  }
+  return null
 }
 
 // test-cases/*.yaml 档案索引 —— 失败用例往往 data/*.json 没写入，
 // purpose/description 要从这里 fallback 出来，避免报告显示空。
 //
-// 同一 slug 可能在两处存在：
-//   - 扁平 test-cases/<slug>.yaml ：recordProbeRun 自动生成的简化版（无 purpose）
-//   - 嵌套 test-cases/<suite>/<slug>.yaml ：人类维护的 source-of-truth（含 purpose）
-// 重名冲突时优先取 purpose 完整的版本，否则取后扫描到的（嵌套通常更深更新）。
+// 正规路径：`test-cases/<suite>/<slug>.yaml`（source-of-truth，含手写 purpose）。
+// 根目录下的 `test-cases/<slug>.yaml` 只在 suite 无法解析时兜底出现，不应当作
+// 第二份 source；重名冲突时优先取 purpose 完整的版本，否则取后扫描到的。
 const testCasesDir = join(monoRoot, '.agents/skills/ai-browser-test/test-cases')
 const testCaseBySlug = new Map()
 const testCaseByPrefix = new Map()
@@ -206,6 +283,8 @@ function* walkYamlPaths(dir) {
     else if (e.isFile() && e.name.endsWith('.yaml')) yield p
   }
 }
+// 并行索引 yaml 文件路径，供复制 prompt 给接收方 AI 找到 yaml 改 expect / purpose
+const testCaseYamlPathBySlug = new Map()
 for (const yamlPath of walkYamlPaths(testCasesDir)) {
   try {
     const doc = YAML.parse(readFileSync(yamlPath, 'utf-8'))
@@ -217,7 +296,9 @@ for (const yamlPath of walkYamlPaths(testCasesDir)) {
     const oldHasPurpose = existing && typeof existing.purpose === 'string' && existing.purpose.trim().length > 0
     if (!existing || newHasPurpose || !oldHasPurpose) {
       testCaseBySlug.set(slug, doc)
+      testCaseYamlPathBySlug.set(slug, yamlPath)
     }
+    if (!testCaseYamlPathBySlug.has(slug)) testCaseYamlPathBySlug.set(slug, yamlPath)
     const pm = slug.match(/^(\d{3})/)
     if (pm && !testCaseByPrefix.has(pm[1])) testCaseByPrefix.set(pm[1], doc)
   } catch { /* skip malformed yaml */ }
@@ -392,6 +473,14 @@ function fmtMinSec(n) {
   const m = Math.floor(totalSec / 60)
   const s = totalSec % 60
   return s === 0 ? `${m}分` : `${m}分${s}秒`
+}
+/** 紧凑数字：1234 → "1.2k"，1_234_567 → "1.2M"；<1000 直接给数字。 */
+function fmtCompact(n) {
+  const v = Number(n)
+  if (!Number.isFinite(v)) return ''
+  if (v < 1000) return String(v)
+  if (v < 1_000_000) return `${(v / 1000).toFixed(v < 10_000 ? 1 : 0)}k`
+  return `${(v / 1_000_000).toFixed(v < 10_000_000 ? 1 : 0)}M`
 }
 function extractTestCasePrefix(fullName) {
   const m = fullName?.match(/(\d{3}[\w-]*)/)
@@ -591,26 +680,88 @@ function renderTestSplit(test, idx) {
   const historyPath = run?.historyPath
   const sessionId = probe?.result?.sessionId ?? run?.sessionId
 
+  // ── 一键复制 Prompt：任务说明 + 基本信息 + purpose + 文件路径 + messages.jsonl 全文 ──
+  // 实际文本构建在 lib/build-diagnose-prompt.mjs（CLI `pnpm test:browser:diagnose-prompt`
+  // 也复用这同一个 builder，保证 HTML 报告的「复制 Prompt」和命令行输出完全一致）。
+  // 这里只做 ctx 组装：把已经在 generate-report 上下文里解出的 locals（probe / run /
+  // test / credits / tokenTotals / purpose ...）喂给 builder。
+  const buildCopyPromptText = () => {
+    const prevRun = run ? findPreviousRun(probeKey || run.testCase, run) : null
+    let prevRunMeta = null
+    if (prevRun?.screenshotsDir) {
+      const m = prevRun.screenshotsDir.match(/browser-test-runs\/([^/]+)\/screenshots$/)
+      if (m) {
+        const prevMetaPath = join(runsRoot, m[1], 'run-meta.json')
+        if (existsSync(prevMetaPath)) {
+          prevRunMeta = safeJson(readFileSync(prevMetaPath, 'utf-8'), null)
+        }
+      }
+    }
+    return buildDiagnosePromptText({
+      testCase: probeKey || fullName || '',
+      runMeta,
+      run,
+      probe,
+      vitestResult: {
+        status: test.status,
+        failureMessages: Array.isArray(test.failureMessages) ? test.failureMessages : [],
+        filePath: test.__filePath,
+        fullName: test.fullName ?? test.name ?? '',
+        name: test.name ?? '',
+        duration: test.duration,
+      },
+      purpose,
+      yamlPath: probeKey ? testCaseYamlPathBySlug.get(probeKey) : null,
+      tsxPath: test.__filePath,
+      credits,
+      tokenTotals,
+      prevRun,
+      prevRunMeta,
+      monoRoot,
+    })
+  }
+  // 注意：buildCopyPromptText 引用了下方才定义的 purpose / credits 等，必须等它们赋值后再调用。
+  // 真正调用挪到 historyHeaderHtml 附近（见下方"复制 Prompt 按钮"标记）。
+
   // ── 成本聚合（credits + tokens）──
-  // 优先级：runs.jsonl 记录的 creditsConsumed → ProbeResult.creditsConsumed → 从 messages.metadata 兜底累加。
-  // tokens 目前没有 runner 级别字段，统一从 messages.metadata.totalUsage 累加。
+  // credits：runs.jsonl 记录的 creditsConsumed → ProbeResult.creditsConsumed → messages.metadata 兜底累加。
+  // tokens：runs.jsonl 记录的 tokenUsage → ProbeResult.tokenUsage → messages.metadata.totalUsage 兜底累加。
   const probeMessages = Array.isArray(probe?.result?.messages) ? probe.result.messages : []
   let credits = run?.creditsConsumed ?? probe?.result?.creditsConsumed
-  let tokenTotals = { input: 0, output: 0, total: 0, reasoning: 0, cached: 0, any: false }
+  const aggTokenUsage = run?.tokenUsage ?? probe?.result?.tokenUsage ?? null
+  let tokenTotals = aggTokenUsage
+    ? {
+      input: Number(aggTokenUsage.inputTokens) || 0,
+      output: Number(aggTokenUsage.outputTokens) || 0,
+      total: Number(aggTokenUsage.totalTokens) || 0,
+      reasoning: Number(aggTokenUsage.reasoningTokens) || 0,
+      cached: Number(aggTokenUsage.cachedInputTokens) || 0,
+      any: (Number(aggTokenUsage.totalTokens) || 0) > 0
+        || (Number(aggTokenUsage.inputTokens) || 0) > 0
+        || (Number(aggTokenUsage.outputTokens) || 0) > 0,
+    }
+    : { input: 0, output: 0, total: 0, reasoning: 0, cached: 0, any: false }
   let creditsFromMessages = 0
   for (const m of probeMessages) {
     if (m?.role !== 'assistant') continue
     const cost = extractMessageCost(m)
     if (!cost) continue
     if (cost.credits != null && cost.credits > 0) creditsFromMessages += cost.credits
-    if (cost.inputTokens != null) { tokenTotals.input += cost.inputTokens; tokenTotals.any = true }
-    if (cost.outputTokens != null) { tokenTotals.output += cost.outputTokens; tokenTotals.any = true }
-    if (cost.totalTokens != null) { tokenTotals.total += cost.totalTokens; tokenTotals.any = true }
-    if (cost.reasoningTokens != null) tokenTotals.reasoning += cost.reasoningTokens
-    if (cost.cachedInputTokens != null) tokenTotals.cached += cost.cachedInputTokens
+    // tokens：只在 aggTokenUsage 缺失时才从消息累加，避免重复计数
+    if (!aggTokenUsage) {
+      if (cost.inputTokens != null) { tokenTotals.input += cost.inputTokens; tokenTotals.any = true }
+      if (cost.outputTokens != null) { tokenTotals.output += cost.outputTokens; tokenTotals.any = true }
+      if (cost.totalTokens != null) { tokenTotals.total += cost.totalTokens; tokenTotals.any = true }
+      if (cost.reasoningTokens != null) tokenTotals.reasoning += cost.reasoningTokens
+      if (cost.cachedInputTokens != null) tokenTotals.cached += cost.cachedInputTokens
+    }
   }
   if ((typeof credits !== 'number' || credits === 0) && creditsFromMessages > 0) {
     credits = creditsFromMessages
+  }
+  // totalTokens 若缺失则用 input+output 兜底（个别 provider 只回其中一个字段）
+  if (tokenTotals.any && tokenTotals.total === 0 && (tokenTotals.input > 0 || tokenTotals.output > 0)) {
+    tokenTotals.total = tokenTotals.input + tokenTotals.output
   }
 
   // ── 工具指标 ──
@@ -624,6 +775,40 @@ function renderTestSplit(test, idx) {
   // 从 panel-header 移到 DOM 快照 sec-head 右侧，所以前置定义。
   const metricParts = []
   if (dur) metricParts.push(`<span class="metric"><span class="metric-icon">⏱</span>${esc(dur)}</span>`)
+  // 模型 pill：优先级 runner --model override > messages.metadata.agent 实际运行时模型 > run.model 测试声明。
+  // chatModelId 为 null（auto）的测试在 runs.jsonl 里 model=null，只有 messages.metadata.agent 能拿到实际用的模型。
+  {
+    // 从 messages[].metadata.agent 取：name（"Qwen Flash"）+ modelId（"OL-TX-008"）+ chatModelId（"qwen:OL-TX-008"）
+    let actualModel = null     // chatModelId 机器格式，用作 fallback + tip
+    let actualModelName = null // 友好名 "Qwen Flash"
+    let actualModelId = null   // 短 id "OL-TX-008"
+    for (const m of probeMessages) {
+      if (m?.role !== 'assistant') continue
+      const ag = m?.metadata?.agent
+      if (!ag) continue
+      if (ag.chatModelId) actualModel = String(ag.chatModelId)
+      if (ag?.model?.modelId) actualModelId = String(ag.model.modelId)
+      if (ag?.model?.name) actualModelName = String(ag.model.name)
+      if (actualModel || actualModelId) break
+    }
+    // 展示格式："Qwen Flash（OL-TX-008）" — name 为主，短 id 在括号里补充，失去 name 时用 chatModelId 顶上
+    const displayModel = actualModelName && actualModelId
+      ? `${actualModelName}（${actualModelId}）`
+      : actualModelName || actualModel || actualModelId || null
+    const mo = typeof runMeta?.modelOverride === 'string' ? runMeta.modelOverride.trim() : ''
+    if (mo) {
+      const intentNote = run?.model ? `（测试声明：${run.model}）` : (actualModel ? `（运行时：${actualModel}）` : '')
+      metricParts.push(`<span class="metric metric-model-override" title="runner --model 覆盖${intentNote}"><span class="metric-icon">🤖</span>${esc(mo)} [override]</span>`)
+    } else if (displayModel) {
+      const tipBits = []
+      if (actualModel) tipBits.push(actualModel)
+      if (run?.model && run.model !== actualModel) tipBits.push(`测试声明：${run.model}`)
+      const tip = tipBits.length ? ` title="${esc(tipBits.join(' · '))}"` : ''
+      metricParts.push(`<span class="metric metric-model"${tip}><span class="metric-icon">🤖</span>${esc(displayModel)}</span>`)
+    } else if (run?.model) {
+      metricParts.push(`<span class="metric metric-model" title="本用例测试声明的模型（实际运行模型未知）"><span class="metric-icon">🤖</span>${esc(run.model)}</span>`)
+    }
+  }
   if (hasCredits) metricParts.push(`<span class="metric metric-credits"><span class="metric-icon">💎</span>${credits.toFixed(2)} 积分</span>`)
   if (hasTokens) {
     const tokenVal = tokenTotals.total > 0 ? tokenTotals.total : (tokenTotals.input + tokenTotals.output)
@@ -649,6 +834,10 @@ function renderTestSplit(test, idx) {
   const navSubParts = []
   if (dur) navSubParts.push(`⏱ ${esc(dur)}`)
   if (hasCredits) navSubParts.push(`💎 ${credits.toFixed(2)}`)
+  if (hasTokens) {
+    const tokenVal = tokenTotals.total > 0 ? tokenTotals.total : (tokenTotals.input + tokenTotals.output)
+    navSubParts.push(`🔢 ${fmtCompact(tokenVal)}`)
+  }
   if (totalCalls) navSubParts.push(`🔧 ${totalCalls - failedCalls}/${totalCalls}${failedCalls ? ` <span class="nav-fail-mark">✗${failedCalls}</span>` : ''}`)
   const nav = `<button class="nav-item nav-${cls}" data-idx="${idx}" data-status="${esc(test.status)}">
     <span class="nav-icon">${icon}</span>
@@ -731,11 +920,11 @@ function renderTestSplit(test, idx) {
     const headExtra = (headMetricsHtml || headActions)
       ? `<span class="sec-head-meta">${headMetricsHtml}${headActions}</span>`
       : ''
-    body += `<section class="sec sec-always"><div class="sec-head sec-head-row"><span class="sec-head-title">🌐 DOM 快照（${sizeKb} KB）</span>${headExtra}</div>
+    body += `<section class="sec sec-always sec-dom-snapshot"><div class="sec-head sec-head-row"><span class="sec-head-title">🌐 DOM 快照（${sizeKb} KB）</span>${headExtra}</div>
       <div class="sec-body">
         <div class="dom-snapshot-wrap">
           <div class="dom-snapshot-loading"><div class="dom-snapshot-spinner"></div><div class="dom-snapshot-loading-text">加载 DOM 快照中…</div></div>
-          <iframe class="dom-snapshot-frame" sandbox="allow-same-origin" src="data/${esc(sanitized)}.dom.html" onload="var w=this.closest('.dom-snapshot-wrap');setTimeout(function(){w.classList.add('loaded')}, 400)"></iframe>
+          <iframe class="dom-snapshot-frame" sandbox="allow-same-origin" src="data/${esc(sanitized)}.dom.html" onload="var w=this.closest('.dom-snapshot-wrap');setTimeout(function(){w.classList.add('loaded')}, 700)"></iframe>
         </div>
       </div></section>`
   }
@@ -982,6 +1171,65 @@ function renderTestSplit(test, idx) {
     historyHeaderHtml = `<div class="panel-header-history">${parts.join('')}</div>`
   }
 
+  // ── 同 testCase 历史 run nav（左侧 sidebar 下半部分用，select(idx) 时填入） ──
+  // 拿全量 runs.jsonl 里同 testCase 的所有 run（最新在前，含本次），按 seq 倒序展示。
+  // 渲染成隐藏 <template id="history-${idx}">，点击 sidebar nav 时由 JS 填到 #tc-history。
+  let historyTemplateHtml = ''
+  if (probeKey) {
+    const histAll = allRunsByTestCase.get(probeKey) || []
+    if (histAll.length) {
+      const histItems = histAll.slice(0, 30).map(r => {
+        const sd = r.screenshotsDir || ''
+        const m = sd.match(/browser-test-runs\/(\d+)\/screenshots$/)
+        const seq = m ? m[1] : ''
+        const isCurrent = seq === runTs.replace(/^0+/, '').padStart(4, '0') || sd.includes(`/${runTs}/`)
+        // vitest 信息（assertion 是否通过 + it 整体耗时）优先于 probe；读不到时 fallback 到 probe
+        const vitestInfo = getVitestInfoForRun(seq, r.testCase)
+        const effectiveOk = vitestInfo ? vitestInfo.status === 'passed' : r.status === 'ok'
+        const statusIcon = effectiveOk ? '✓' : '✗'
+        const statusCls = effectiveOk ? 'th-ok' : 'th-err'
+        const tools = Array.isArray(r.toolCalls) ? r.toolCalls.length : 0
+        // duration 优先 vitest it() 耗时（跟顶部卡片一致），fallback 到 probe elapsedMs
+        const durMs = vitestInfo?.durationMs || r.elapsedMs
+        const dur = durMs != null ? `${(durMs / 1000).toFixed(1)}s` : ''
+        const date = r.runAt ? new Date(r.runAt).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''
+        // 读上次 run 的 note（如果有）
+        let noteSnippet = ''
+        if (seq) {
+          const metaPath = join(runsRoot, seq, 'run-meta.json')
+          if (existsSync(metaPath)) {
+            const meta = safeJson(readFileSync(metaPath, 'utf-8'), {})
+            if (meta?.note) noteSnippet = String(meta.note).slice(0, 80)
+          }
+        }
+        const href = seq ? `../${seq}/index.html` : '#'
+        const currentBadge = isCurrent ? '<span class="th-current">当前</span>' : ''
+        const noteHtml = noteSnippet ? `<div class="th-note" title="${esc(noteSnippet)}">📝 ${esc(noteSnippet)}</div>` : ''
+        return `<a class="th-item" href="${esc(href)}" target="${isCurrent ? '_self' : '_blank'}" rel="noopener">
+          <span class="th-status ${statusCls}">${statusIcon}</span>
+          <span class="th-meta">
+            <span class="th-row1"><span class="th-seq">#${esc(seq || '?')}</span><span class="th-date">${esc(date)}</span>${currentBadge}</span>
+            <span class="th-row2">🔧 ${tools} ${dur ? `· ⏱ ${esc(dur)}` : ''}</span>
+            ${noteHtml}
+          </span>
+        </a>`
+      }).join('')
+      historyTemplateHtml = `<template class="history-template" data-for-idx="${idx}">${histItems}</template>`
+    }
+  }
+
+  // ── 复制 Prompt 按钮 —— 此时 purpose / credits 等都已赋值，安全调用 builder ──
+  const promptCopyTextRaw = buildCopyPromptText()
+  // 防止 `</script` 把外层 <script type="text/plain"> 截断
+  const promptCopyTextEsc = promptCopyTextRaw.replace(/<\/script/gi, '<\\/script')
+  const promptCopyBtnHtml = `<button class="head-icon-btn prompt-copy-btn" type="button" data-prompt-target="prompt-${idx}" title="复制完整 Prompt（任务说明 + 上下文 + messages.jsonl 全文）">📋</button>`
+  // 把按钮拼到现有 historyHeaderHtml 末尾；如果 historyHeaderHtml 为空（既无 historyPath 也无 sessionId），单独包一层
+  if (historyHeaderHtml) {
+    historyHeaderHtml = historyHeaderHtml.replace('</div>', `${promptCopyBtnHtml}</div>`)
+  } else {
+    historyHeaderHtml = `<div class="panel-header-history">${promptCopyBtnHtml}</div>`
+  }
+
   const hasContent = body.trim().length > 0 || badges.trim().length > 0
   const contentHtml = hasContent
     ? `<div class="badges">${badges}</div>${body}`
@@ -1044,6 +1292,8 @@ function renderTestSplit(test, idx) {
         </section>
       </aside>
     </div>
+    <script type="text/plain" id="prompt-${idx}">${promptCopyTextEsc}</script>
+    ${historyTemplateHtml}
   </section>`
 
   return { nav, panel }
@@ -1067,6 +1317,26 @@ const gitBranch = [...runRecordByTestCase.values()][0]?.gitBranch ?? ''
 const totalCredits = [...runRecordByTestCase.values()]
   .map(r => r.creditsConsumed ?? 0)
   .reduce((a, b) => a + b, 0)
+// 聚合所有用例的 tokenUsage（按 totalTokens 求和，其他字段同步累加用于 tooltip）。
+// runs.jsonl 没记 tokenUsage 的老记录直接忽略，不从 probeData 回读（太重）。
+const totalTokens = [...runRecordByTestCase.values()].reduce(
+  (acc, r) => {
+    const u = r?.tokenUsage
+    if (!u) return acc
+    acc.input += Number(u.inputTokens) || 0
+    acc.output += Number(u.outputTokens) || 0
+    acc.total += Number(u.totalTokens) || 0
+    acc.reasoning += Number(u.reasoningTokens) || 0
+    acc.cached += Number(u.cachedInputTokens) || 0
+    return acc
+  },
+  { input: 0, output: 0, total: 0, reasoning: 0, cached: 0 },
+)
+// total 缺失兜底：走 in+out
+if (totalTokens.total === 0 && (totalTokens.input > 0 || totalTokens.output > 0)) {
+  totalTokens.total = totalTokens.input + totalTokens.output
+}
+const hasTotalTokens = totalTokens.total > 0
 
 const statusCls = failed > 0 ? 'fail' : 'pass'
 const statusIcon = failed > 0 ? '✗' : '✓'
@@ -1076,7 +1346,7 @@ const styles = `
 html,body{height:100%}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#fafafa;color:#1a1a1a;padding:0;margin:0;max-width:none}
 .app{display:grid;grid-template-columns:300px 1fr;height:100vh;overflow:hidden}
-.sidebar{overflow-y:auto;border-right:1px solid #e5e7eb;background:#fff;display:flex;flex-direction:column}
+.sidebar{overflow:hidden;border-right:1px solid #e5e7eb;background:#fff;display:flex;flex-direction:column}
 .sidebar-head{padding:12px 14px 10px;border-bottom:1px solid #f0f0f0;flex-shrink:0}
 .sidebar-head .back{display:inline-block;margin-bottom:8px;font-size:11px;color:#2563eb;text-decoration:none}
 .sidebar-head .back:hover{text-decoration:underline}
@@ -1086,9 +1356,28 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .summary.pass{background:#dcfce7;color:#166534}
 .summary.fail{background:#fee2e2;color:#991b1b}
 .sidebar-meta-pills{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.sidebar-note{margin-top:8px;padding:8px 10px;background:#fef9c3;border:1px solid #fde68a;border-radius:6px;font-size:11.5px;line-height:1.5;color:#713f12}
+.sidebar-note-label{display:block;font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:0.4px;color:#a16207;margin-bottom:3px}
+.sidebar-note-body{white-space:pre-wrap;word-break:break-word}
+.tc-history{margin-top:auto;border-top:1px solid #e5e7eb;background:#fafafa;max-height:42%;display:flex;flex-direction:column;flex-shrink:0}
+.tc-history-head{padding:8px 12px 4px;font-size:11px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:0.4px;flex-shrink:0}
+.tc-history-list{overflow-y:auto;padding:0 6px 8px;display:flex;flex-direction:column;gap:2px;flex:1}
+.th-item{display:flex;gap:6px;padding:6px 8px;border-radius:6px;text-decoration:none;color:#1f2937;font-size:11px;line-height:1.35;transition:background 0.12s}
+.th-item:hover{background:#e5e7eb}
+.th-status{flex-shrink:0;width:14px;text-align:center;font-weight:700}
+.th-status.th-ok{color:#16a34a}
+.th-status.th-err{color:#dc2626}
+.th-meta{display:flex;flex-direction:column;gap:1px;flex:1;min-width:0}
+.th-row1{display:flex;gap:5px;align-items:center}
+.th-seq{font-family:Menlo,Monaco,monospace;font-weight:600;color:#1d4ed8}
+.th-date{color:#64748b;font-size:10px}
+.th-current{margin-left:auto;background:#dcfce7;color:#15803d;padding:0 5px;border-radius:8px;font-size:9px;font-weight:600}
+.th-row2{color:#64748b;font-size:10px;font-variant-numeric:tabular-nums}
+.th-note{color:#a16207;font-size:10px;font-style:italic;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .sb-pill{display:inline-flex;align-items:center;font-size:10.5px;color:#475569;background:#f1f5f9;padding:2px 7px;border-radius:10px;line-height:1.45;font-variant-numeric:tabular-nums;white-space:nowrap}
 .sb-pill-date{background:#eff6ff;color:#1d4ed8}
 .sb-pill-credits{background:#fef3c7;color:#92400e}
+.sb-pill-tokens{background:#e0f2fe;color:#075985;font-variant-numeric:tabular-nums}
 .sb-pill-git{background:#f5f3ff;color:#5b21b6;font-family:Menlo,Monaco,monospace;font-size:10px}
 .nav-list{display:flex;flex-direction:column;padding:6px 0;overflow-y:auto;flex:1}
 .nav-item{display:flex;align-items:center;gap:8px;padding:8px 14px;border:none;background:transparent;cursor:pointer;text-align:left;border-left:3px solid transparent;font:inherit;color:inherit;width:100%}
@@ -1131,6 +1420,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .metric-icon{font-size:12px}
 .metric.metric-credits{background:#fef3c7;color:#92400e}
 .metric.metric-tokens{background:#ede9fe;color:#5b21b6}
+.metric.metric-model{background:#e0e7ff;color:#3730a3;font-family:Menlo,Monaco,monospace}
+.metric.metric-model-override{background:#ffedd5;color:#9a3412;border:1px solid #fed7aa;font-family:Menlo,Monaco,monospace;font-weight:500}
 .metric.metric-ok{background:#dcfce7;color:#166534}
 .metric.metric-warn{background:#fef3c7;color:#92400e}
 .metric.metric-err{background:#fee2e2;color:#991b1b}
@@ -1308,13 +1599,16 @@ section.sec.sec-always > .sec-head-row{display:flex;align-items:center;gap:10px}
 /* aside 子区分隔 */
 .aside-subhead{font-size:10.5px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;padding:6px 0 4px;border-top:1px solid #e5e7eb;margin-top:6px}
 .judge-list{display:flex;flex-direction:column;gap:8px}
-.dom-snapshot-wrap{position:relative;width:100%;height:690px}
-.dom-snapshot-frame{width:100%;height:690px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;display:block;opacity:0;transition:opacity 0.2s ease-out}
+/* DOM 快照专属 sec-body：去掉所有 padding，让 iframe 紧贴 sec-head */
+section.sec.sec-dom-snapshot > .sec-body{padding:0}
+.dom-snapshot-wrap{position:relative;width:100%;height:690px;background:#fff;border-top:1px solid #e5e7eb}
+.dom-snapshot-frame{position:absolute;inset:0;width:100%;height:100%;border:0;background:#fff;display:block;opacity:0;transition:opacity 0.25s ease-out;z-index:1}
 .dom-snapshot-wrap.loaded .dom-snapshot-frame{opacity:1}
-.dom-snapshot-loading{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;color:#64748b;font-size:11px;pointer-events:none;transition:opacity 0.2s ease-out}
+/* loading 必须高于 iframe（z-index:2），否则 iframe 在 DOM 顺序后会盖住 loading 视觉层 */
+.dom-snapshot-loading{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:#f8fafc;color:#64748b;font-size:11px;pointer-events:none;transition:opacity 0.3s ease-out;z-index:2;opacity:1}
 .dom-snapshot-wrap.loaded .dom-snapshot-loading{opacity:0;visibility:hidden}
-.dom-snapshot-spinner{width:24px;height:24px;border:2px solid #e2e8f0;border-top-color:#3b82f6;border-radius:50%;animation:dom-spin 0.8s linear infinite}
-.dom-snapshot-loading-text{font-size:11px;color:#94a3b8}
+.dom-snapshot-spinner{width:32px;height:32px;border:3px solid #e2e8f0;border-top-color:#3b82f6;border-radius:50%;animation:dom-spin 0.8s linear infinite}
+.dom-snapshot-loading-text{font-size:12px;color:#64748b;font-weight:500}
 @keyframes dom-spin{to{transform:rotate(360deg)}}
 /* 网络请求列表：每条一行，可展开 req/resp body */
 .net-list{display:flex;flex-direction:column;gap:2px;font-size:11.5px}
@@ -1478,10 +1772,24 @@ const runHtml = `<!DOCTYPE html>
         <span class="sb-pill" title="${total} 个测试">🧪 ${total} tests</span>
         ${domHtmlByTestCase.size ? `<span class="sb-pill" title="${domHtmlByTestCase.size} 份 DOM 快照">🌐 ${domHtmlByTestCase.size}</span>` : ''}
         ${totalCredits > 0 ? `<span class="sb-pill sb-pill-credits" title="SaaS 积分总消耗">💎 ${totalCredits.toFixed(2)}</span>` : ''}
+        ${hasTotalTokens ? (() => {
+          const bits = []
+          if (totalTokens.input > 0) bits.push(`in ${totalTokens.input}`)
+          if (totalTokens.output > 0) bits.push(`out ${totalTokens.output}`)
+          if (totalTokens.reasoning > 0) bits.push(`reason ${totalTokens.reasoning}`)
+          if (totalTokens.cached > 0) bits.push(`cached ${totalTokens.cached}`)
+          return `<span class="sb-pill sb-pill-tokens" title="Token 总消耗 — ${bits.join(' · ')}">🔢 ${fmtCompact(totalTokens.total)}</span>`
+        })() : ''}
         ${gitCommit ? `<span class="sb-pill sb-pill-git" title="git ${esc(gitBranch)}@${esc(gitCommit)}">🔗 ${esc(gitBranch)}@${esc(gitCommit.slice(0, 7))}</span>` : ''}
+        ${runMeta?.batch ? `<span class="sb-pill" title="批次">🏷 ${esc(runMeta.batch)}</span>` : ''}
       </div>
+      ${runMeta?.note ? `<div class="sidebar-note" title="本次 run 之前调用方 AI 用 --note 写的改动描述"><span class="sidebar-note-label">📝 本次改动</span><div class="sidebar-note-body">${esc(runMeta.note)}</div></div>` : ''}
     </div>
     <nav class="nav-list" id="nav-list">${navHtml}</nav>
+    <section class="tc-history" id="tc-history" hidden>
+      <div class="tc-history-head">📜 当前 testCase 历史</div>
+      <div class="tc-history-list" id="tc-history-list"></div>
+    </section>
   </aside>
   <main class="detail-host" id="detail-host">
     ${panelsHtml || '<div class="detail-empty">没有测试数据</div>'}
@@ -1514,6 +1822,21 @@ const runHtml = `<!DOCTYPE html>
 (function(){
   var items = document.querySelectorAll('.nav-item')
   var panels = document.querySelectorAll('.detail-panel')
+  // 同 testCase 历史 nav 区（左侧 sidebar 底部）：select(idx) 时找对应 panel 内的
+  // <template class="history-template" data-for-idx>，把内容塞进 #tc-history-list。
+  var tcHistoryWrap = document.getElementById('tc-history')
+  var tcHistoryList = document.getElementById('tc-history-list')
+  function refreshHistory(idx){
+    if (!tcHistoryWrap || !tcHistoryList) return
+    var tpl = document.querySelector('.history-template[data-for-idx="' + idx + '"]')
+    if (tpl && tpl.innerHTML.trim()) {
+      tcHistoryList.innerHTML = tpl.innerHTML
+      tcHistoryWrap.removeAttribute('hidden')
+    } else {
+      tcHistoryList.innerHTML = ''
+      tcHistoryWrap.setAttribute('hidden', '')
+    }
+  }
   function select(idx){
     items.forEach(function(el){
       el.classList.toggle('active', el.dataset.idx === String(idx))
@@ -1522,6 +1845,7 @@ const runHtml = `<!DOCTYPE html>
       var match = el.dataset.idx === String(idx)
       if (match) el.removeAttribute('hidden'); else el.setAttribute('hidden', '')
     })
+    refreshHistory(idx)
     if (history.replaceState) history.replaceState(null, '', '#' + idx)
   }
   items.forEach(function(el){
@@ -1679,6 +2003,15 @@ const runHtml = `<!DOCTYPE html>
       copyToClipboard(v, t)
       return
     }
+    if (t.classList.contains('prompt-copy-btn')) {
+      // 隐藏 <script type="text/plain" id="prompt-N"> 里存了完整 prompt 文本，按钮取它的 textContent
+      var pid = t.dataset.promptTarget
+      var pel = pid ? document.getElementById(pid) : null
+      if (!pel) return
+      e.preventDefault()
+      copyToClipboard(pel.textContent || '', t)
+      return
+    }
     if (t.classList.contains('net-copy-btn')) {
       // 在 .net-kv 或 .tool-kv 内找 .net-v / .tool-v <pre>，取 textContent
       var kv = t.closest('.net-kv') || t.closest('.tool-kv')
@@ -1706,10 +2039,10 @@ const runHtml = `<!DOCTYPE html>
         var label = kv.querySelector('.net-k')
         var pre = kv.querySelector('.net-v')
         if (label && pre) {
-          parts.push('\n--- ' + label.textContent.trim() + ' ---\n' + (pre.textContent || ''))
+          parts.push('\\n--- ' + label.textContent.trim() + ' ---\\n' + (pre.textContent || ''))
         }
       })
-      copyToClipboard(parts.join('\n'), t)
+      copyToClipboard(parts.join('\\n'), t)
       return
     }
   })
@@ -1817,6 +2150,8 @@ function rebuildHomeIndex() {
     const runDataDir = join(runsRoot, ts, 'data')
     let totalCredits = 0
     let hasCredits = false
+    let totalTokensSum = 0
+    let hasTokens = false
     // model 集合：聚合本 run 所有用例的 `model` 字段。
     // 大多数 run 是单模型（Set 大小 = 1），混合 run 会显示所有出现过的 id。
     // modelOverride 独立显示（来自 run-meta.json），不进这个集合 — 它覆盖的是运行时实际发给 server 的 model，
@@ -1826,7 +2161,7 @@ function rebuildHomeIndex() {
       for (const f of readdirSync(runDataDir).filter(f => f.endsWith('.json'))) {
         const d = safeJson(readFileSync(join(runDataDir, f), 'utf-8'))
         if (!d?.testCase) continue
-        const info = { testCase: d.testCase, description: d.description ?? '' }
+        const info = { testCase: d.testCase, description: d.description ?? '', model: null }
         probeByTestCase.set(d.testCase, info)
         const digitOnly = d.testCase.match(/^(\d{3})/)
         if (digitOnly && !probeByPrefix.has(digitOnly[1])) probeByPrefix.set(digitOnly[1], info)
@@ -1837,7 +2172,38 @@ function rebuildHomeIndex() {
           totalCredits += c
           hasCredits = true
         }
-        if (typeof d?.model === 'string' && d.model.trim()) modelSet.add(d.model.trim())
+        const u = d?.result?.tokenUsage
+        if (u && typeof u === 'object') {
+          const tt = Number(u.totalTokens)
+          const inT = Number(u.inputTokens)
+          const outT = Number(u.outputTokens)
+          const v = Number.isFinite(tt) && tt > 0
+            ? tt
+            : ((Number.isFinite(inT) ? inT : 0) + (Number.isFinite(outT) ? outT : 0))
+          if (v > 0) {
+            totalTokensSum += v
+            hasTokens = true
+          }
+        }
+        // 用例级模型：主页每行展示"🤖 <友好名>"，和 testItem 关联。友好名优先 messages.agent.model.name（"Qwen Flash"），
+        // 元数据缺失时退回到 d.model（测试声明 id，如"qwen:OL-TX-008"）。modelSet 保留用于 modelOverride 的对比 tip。
+        let friendlyName = null
+        let fallbackId = null
+        const msgs = Array.isArray(d?.result?.messages) ? d.result.messages : []
+        for (const m of msgs) {
+          if (m?.role !== 'assistant') continue
+          const ag = m?.metadata?.agent
+          if (!ag) continue
+          if (ag?.model?.name) friendlyName = String(ag.model.name)
+          if (ag?.chatModelId) fallbackId = String(ag.chatModelId)
+          else if (ag?.model?.modelId) fallbackId = String(ag.model.modelId)
+          if (friendlyName || fallbackId) break
+        }
+        const caseDisplay = friendlyName || fallbackId || (typeof d?.model === 'string' && d.model.trim() ? d.model.trim() : null)
+        if (caseDisplay) {
+          info.model = caseDisplay
+          modelSet.add(caseDisplay)
+        }
       }
     }
     const models = [...modelSet].sort()
@@ -1890,7 +2256,8 @@ function rebuildHomeIndex() {
         }
         const caseName = probe?.testCase ?? tTitle
         const description = probe?.description ?? ''
-        testItems.push({ caseName, title: tTitle, description, ok: tOk, status: t.status, hasProbe: !!probe })
+        const model = probe?.model ?? null
+        testItems.push({ caseName, title: tTitle, description, model, ok: tOk, status: t.status, hasProbe: !!probe })
       }
     }
     return {
@@ -1904,6 +2271,7 @@ function rebuildHomeIndex() {
       testItems,
       batch,
       totalCredits: hasCredits ? totalCredits : null,
+      totalTokens: hasTokens ? totalTokensSum : null,
       totalElapsedMs,
       models,
       modelOverride,
@@ -1912,7 +2280,7 @@ function rebuildHomeIndex() {
 
   // ── Tab 1: 按批次分组（无 batch 的归到末尾"未分组"）──
   function renderRunRow(info) {
-    const { ts, passed, failed, total, hasReport, statusCls, link, testItems, totalCredits, totalElapsedMs, models, modelOverride } = info
+    const { ts, passed, failed, total, hasReport, statusCls, link, testItems, totalCredits, totalTokens, totalElapsedMs, models, modelOverride } = info
     const testsHtml = testItems.length
       ? testItems.map(t => {
         const cls = t.ok ? 'tn-ok' : t.status === 'failed' ? 'tn-fail' : 'tn-skip'
@@ -1923,7 +2291,11 @@ function rebuildHomeIndex() {
         const caseHtml = t.hasProbe
           ? `<code class="tn-case">${esc(t.caseName)}</code>`
           : `<span class="tn-title">${esc(t.caseName)}</span>`
-        return `<li class="${cls}"><span class="tn-icon">${icon}</span>${caseHtml}${descHtml}</li>`
+        // 用例级模型 pill：只展示友好名（"Qwen Flash"），每个用例可能不同。
+        const modelHtml = t.model
+          ? `<span class="tn-model" title="本用例实际运行的模型">🤖 ${esc(t.model)}</span>`
+          : ''
+        return `<li class="${cls}"><span class="tn-icon">${icon}</span>${caseHtml}${descHtml}${modelHtml}</li>`
       }).join('')
       : '<li class="tn-empty">（无测试数据）</li>'
     const countHtml = failed > 0
@@ -1933,21 +2305,19 @@ function rebuildHomeIndex() {
     if (typeof totalCredits === 'number' && totalCredits > 0) {
       extraParts.push(`<span class="c-credits" title="SaaS 积分消耗">💎 ${totalCredits.toFixed(2)}</span>`)
     }
+    if (typeof totalTokens === 'number' && totalTokens > 0) {
+      extraParts.push(`<span class="c-tokens" title="Token 总消耗">🔢 ${fmtCompact(totalTokens)}</span>`)
+    }
     if (typeof totalElapsedMs === 'number' && totalElapsedMs > 0) {
       extraParts.push(`<span class="c-dur" title="总用时（墙钟）">⏱ ${fmtMinSec(totalElapsedMs)}</span>`)
     }
     // 模型展示：
-    //   - modelOverride 存在 → 用橙色 pill 标 override，title 里写测试原声明的 id 以便对比
-    //   - 单模型 → 直接显示 id
-    //   - 多模型 → 显示第一个 + 省略号，title 里列全部
-    //   - 0 个（老 run data 里没 model 字段） → 不渲染
+    //   - modelOverride 存在 → run 级橙色 pill 标 override（整轮统一值），title 带测试声明对比
+    //   - 无 override → 不渲染 run 级模型 pill，模型信息下放到每个 testItem 的 tn-model
+    //     （每个用例模型可能不同，聚合成一个"混合"标签没有实际意义）
     if (modelOverride) {
       const intentNote = models.length > 0 ? `（测试声明：${models.join(', ')}）` : ''
       extraParts.push(`<span class="c-model c-model-override" title="runner --model 覆盖${intentNote}">🤖 ${esc(modelOverride)} [override]</span>`)
-    } else if (models.length === 1) {
-      extraParts.push(`<span class="c-model" title="本次 run 使用的模型">🤖 ${esc(models[0])}</span>`)
-    } else if (models.length > 1) {
-      extraParts.push(`<span class="c-model c-model-mixed" title="混合模型：${esc(models.join(', '))}">🤖 ${esc(models[0])} + ${models.length - 1}</span>`)
     }
     const summary = extraParts.length
       ? `<div class="c-summary-count">${countHtml}</div><div class="c-summary-extra">${extraParts.join(' ')}</div>`
@@ -2152,7 +2522,8 @@ tr.batch-ungrouped td{background:#f8fafc;border-left:3px solid #cbd5e1;color:#64
 .c-summary{font-variant-numeric:tabular-nums;font-weight:500;white-space:nowrap}
 .c-summary-count{font-size:13px}
 .c-summary-extra{display:flex;flex-wrap:wrap;justify-content:flex-start;gap:8px;margin-top:4px;font-size:11px;font-weight:400;color:#64748b}
-.c-summary-extra .c-credits,.c-summary-extra .c-dur,.c-summary-extra .c-model{display:inline-flex;align-items:center;gap:3px;line-height:1.4}
+.c-summary-extra .c-credits,.c-summary-extra .c-dur,.c-summary-extra .c-model,.c-summary-extra .c-tokens{display:inline-flex;align-items:center;gap:3px;line-height:1.4}
+.c-summary-extra .c-tokens{color:#075985;font-variant-numeric:tabular-nums}
 .c-summary-extra .c-model{font-family:Menlo,Monaco,monospace;font-size:11px}
 .c-summary-extra .c-model-override{color:#b45309;background:#fef3c7;border:1px solid #fde68a;padding:1px 6px;border-radius:3px;font-weight:500}
 .c-summary-extra .c-model-mixed{color:#6d28d9;background:#ede9fe;border:1px solid #ddd6fe;padding:1px 6px;border-radius:3px}
@@ -2174,6 +2545,7 @@ tr.batch-ungrouped td{background:#f8fafc;border-left:3px solid #cbd5e1;color:#64
 .test-name-list .tn-title{color:#475569}
 .test-name-list .tn-desc{color:#64748b;font-size:11.5px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .test-name-list .tn-fail .tn-desc{color:#991b1b}
+.test-name-list .tn-model{color:#3730a3;background:#e0e7ff;font-size:11px;padding:1px 7px;border-radius:3px;font-family:Menlo,Monaco,monospace;white-space:nowrap;flex-shrink:0;margin-left:auto}
 .test-name-list .tn-hidden{display:none}
 .test-name-list.expanded .tn-hidden{display:flex}
 .test-name-list .tn-more{margin-top:2px}

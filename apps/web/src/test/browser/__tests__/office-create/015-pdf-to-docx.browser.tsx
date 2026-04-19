@@ -12,7 +12,7 @@ import { waitForChatComplete, waitForProbeResult, takeProbeScreenshot, aiJudge }
 
 const SERVER_URL = process.env.PROBE_SERVER_URL ?? 'http://127.0.0.1:23333'
 
-it('020 — PDF → DOCX：将 PDF 转为 Word 方便编辑', async () => {
+it('office-create-015 — PDF → DOCX：将 PDF 转为 Word 方便编辑', async () => {
   const sessionId = `chat_probe_020_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
   const userPrompt =
     '我需要编辑这份 PDF 里的内容，请帮我把它转换成 Word 文档。'

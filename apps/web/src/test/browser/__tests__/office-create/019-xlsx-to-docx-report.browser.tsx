@@ -18,7 +18,7 @@ import { waitForChatComplete, waitForProbeResult, takeProbeScreenshot, aiJudge }
 
 const SERVER_URL = process.env.PROBE_SERVER_URL ?? 'http://127.0.0.1:23333'
 
-it('018 — XLSX → DOCX：读取报价表后生成分析报告', async () => {
+it('office-create-019 — XLSX → DOCX：读取报价表后生成分析报告', async () => {
   const sessionId = `chat_probe_018_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
   const userPrompt =
     '请帮我看看这份 EMS 报价表的内容，列出所有产品和价格。'

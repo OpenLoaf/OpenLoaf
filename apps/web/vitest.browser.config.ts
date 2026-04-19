@@ -21,13 +21,16 @@ const root = dirname(fileURLToPath(import.meta.url))
 
 function detectServerUrl(): string {
   if (process.env.PROBE_SERVER_URL) return process.env.PROBE_SERVER_URL
-  for (const port of [23333, 23334]) {
+  // 先探 23334 (desktop, 用户主力)，再探 23333 (dev:server)。
+  // 反过来会让长期跑着的 dev:server 进程吞掉本应打到刚重启的 desktop 的请求，
+  // 导致测试里看到的是过时代码的行为。
+  for (const port of [23334, 23333]) {
     try {
       execSync(`curl -sS --max-time 1 http://127.0.0.1:${port}/health`, { stdio: 'pipe' })
       return `http://127.0.0.1:${port}`
     } catch {}
   }
-  return 'http://127.0.0.1:23333'
+  return 'http://127.0.0.1:23334'
 }
 
 const serverUrl = detectServerUrl()
@@ -251,10 +254,20 @@ const recordProbeRun: BrowserCommand<[any]> = async (_ctx, input) => {
     const git = gitInfo()
     const runDir = process.env.BROWSER_TEST_RUN_DIR || null
     const screenshotsDir = runDir ? join(runDir, 'screenshots') : null
-    // 从 messages.jsonl 读取服务端持久化的 metadata，汇总 creditsConsumed 写入 runs.jsonl
-    // 生成报告时 run?.creditsConsumed 即可直接取到
+    // 从 messages.jsonl 读取服务端持久化的 metadata，汇总 creditsConsumed / tokenUsage 写入 runs.jsonl
+    // 生成报告时 run?.creditsConsumed / run?.tokenUsage 即可直接取到
     const enriched = enrichMessagesWithHistoryMetadata(result)
     const creditsConsumed = typeof enriched?.creditsConsumed === 'number' ? enriched.creditsConsumed : null
+    const tokenUsage = (enriched?.tokenUsage && typeof enriched.tokenUsage === 'object')
+      ? enriched.tokenUsage as Record<string, number>
+      : (result?.tokenUsage && typeof result.tokenUsage === 'object')
+        ? result.tokenUsage as Record<string, number>
+        : null
+    const hasTokens = !!tokenUsage && (
+      (Number(tokenUsage.totalTokens) || 0) > 0
+      || (Number(tokenUsage.inputTokens) || 0) > 0
+      || (Number(tokenUsage.outputTokens) || 0) > 0
+    )
     appendFileSync(RUNS_JSONL, JSON.stringify({
       testCase, suite, runAt: result.startedAt, sessionId: result.sessionId, historyPath,
       screenshotsDir,
@@ -271,6 +284,7 @@ const recordProbeRun: BrowserCommand<[any]> = async (_ctx, input) => {
         ? { fixtureId: fixtureCaptured.fixtureId, path: fixtureCaptured.path, toolName: fixtureCaptured.toolName }
         : null,
       ...(creditsConsumed != null && creditsConsumed > 0 ? { creditsConsumed } : {}),
+      ...(hasTokens ? { tokenUsage } : {}),
     }) + '\n', 'utf-8')
     runRecorded = true
   }
@@ -649,10 +663,11 @@ function enrichMessagesWithHistoryMetadata(
   const jsonlPath = join(historyPath, 'messages.jsonl')
   if (!existsSync(jsonlPath)) return result
 
-  // 扫一遍 jsonl：既建 id→metadata 索引，也全量聚合 credits + 收集消息兜底
+  // 扫一遍 jsonl：既建 id→metadata 索引，也全量聚合 credits / tokenUsage + 收集消息兜底
   const metaById = new Map<string, Record<string, unknown>>()
   const jsonlMessages: Record<string, unknown>[] = []
   let creditsFromJsonl = 0
+  const tokenSums = { input: 0, output: 0, total: 0, reasoning: 0, cached: 0, any: false }
   try {
     for (const line of readFileSync(jsonlPath, 'utf-8').split('\n')) {
       if (!line.trim()) continue
@@ -667,6 +682,14 @@ function enrichMessagesWithHistoryMetadata(
             const ol = (meta as Record<string, unknown>).openloaf as Record<string, unknown> | undefined
             const c = ol && typeof ol.creditsConsumed === 'number' ? ol.creditsConsumed : 0
             if (c > 0) creditsFromJsonl += c
+            const u = (meta as Record<string, unknown>).totalUsage as Record<string, unknown> | undefined
+            if (u && typeof u === 'object') {
+              const i = Number(u.inputTokens); if (Number.isFinite(i) && i > 0) { tokenSums.input += i; tokenSums.any = true }
+              const o = Number(u.outputTokens); if (Number.isFinite(o) && o > 0) { tokenSums.output += o; tokenSums.any = true }
+              const t = Number(u.totalTokens); if (Number.isFinite(t) && t > 0) { tokenSums.total += t; tokenSums.any = true }
+              const rr = Number(u.reasoningTokens); if (Number.isFinite(rr) && rr > 0) tokenSums.reasoning += rr
+              const cc = Number(u.cachedInputTokens); if (Number.isFinite(cc) && cc >= 0) tokenSums.cached += cc
+            }
           }
         }
       } catch { /* skip malformed line */ }
@@ -697,6 +720,17 @@ function enrichMessagesWithHistoryMetadata(
 
   const enriched: Record<string, unknown> = { ...result, messages: finalMessages }
   if (creditsSum > 0) enriched.creditsConsumed = creditsSum
+  if (tokenSums.any) {
+    // totalTokens 缺失时用 input+output 兜底（少数 provider 只回其一）
+    const totalTokens = tokenSums.total > 0 ? tokenSums.total : (tokenSums.input + tokenSums.output)
+    enriched.tokenUsage = {
+      inputTokens: tokenSums.input,
+      outputTokens: tokenSums.output,
+      totalTokens,
+      reasoningTokens: tokenSums.reasoning,
+      cachedInputTokens: tokenSums.cached,
+    }
+  }
   return enriched
 }
 const saveTestData: BrowserCommand<[{
@@ -881,6 +915,10 @@ function ensureRunMeta() {
         // 注意 data/*.json / runs.jsonl 里的 `model` 字段依然是测试声明的"设计意图"，不会被这里改写。
         modelOverride: (process.env.BROWSER_TEST_MODEL_OVERRIDE || '').trim() || null,
         modelSourceOverride: (process.env.BROWSER_TEST_MODEL_SOURCE_OVERRIDE || '').trim() || null,
+        promptLangOverride: (process.env.BROWSER_TEST_PROMPT_LANG_OVERRIDE || '').trim() || null,
+        // note: 调用方 AI（Claude Code 主对话）在每次 run 前用 --note 描述本次改动，
+        // 让报告头展示 + 复制 prompt 可嵌入"本次改了什么"，下游 AI 能比对前后差异。
+        note: (process.env.BROWSER_TEST_NOTE || '').trim() || null,
       }, null, 2),
       'utf-8',
     )

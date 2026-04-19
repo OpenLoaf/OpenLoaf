@@ -12,7 +12,7 @@ import { waitForChatComplete, waitForProbeResult, takeProbeScreenshot, aiJudge }
 
 const SERVER_URL = process.env.PROBE_SERVER_URL ?? 'http://127.0.0.1:23333'
 
-it('014 — DOCX 创建：生成中文会议纪要', async () => {
+it('office-create-007 — DOCX 创建：生成中文会议纪要', async () => {
   const prompt =
     '帮我创建一份 Word 会议纪要。会议主题："Q2 产品规划讨论"，日期 2026-04-16，' +
     '参会人：张三、李四、王五。讨论要点：1) 确定 Q2 核心功能优先级；' +

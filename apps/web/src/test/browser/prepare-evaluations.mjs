@@ -176,9 +176,10 @@ function readPassedTestCases(runDir) {
 
   const passed = new Set()
   for (const file of results.testResults) {
-    const fileName = (file.name || '').split('/').pop() || ''
-    // 去掉 .browser.tsx 后缀作为 testCase 前缀候选
-    const candidate = fileName.replace(/\.browser\.tsx$/, '')
+    // runs.jsonl 的 testCase 字段格式是 `<suite>-<fileSlug>`；vitest 只给文件路径，
+    // 所以要从 __tests__/<suite>/<fileSlug>.browser.tsx 里还原出 suite-slug 组合。
+    const m = /__tests__\/([^/]+)\/([^/]+)\.browser\.tsx$/.exec(file.name || '')
+    const candidate = m ? `${m[1]}-${m[2]}` : ((file.name || '').split('/').pop() || '').replace(/\.browser\.tsx$/, '')
     // 只有文件整体 pass（所有 assertion 都 passed）才算 testCase pass
     const allPassed = Array.isArray(file.assertionResults)
       ? file.assertionResults.every(a => a.status === 'passed')
