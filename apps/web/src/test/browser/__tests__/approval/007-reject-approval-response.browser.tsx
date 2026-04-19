@@ -33,14 +33,14 @@
 import { it, expect } from 'vitest'
 import { render } from 'vitest-browser-react'
 import { commands } from '@vitest/browser/context'
-import ChatProbeHarness from '../ChatProbeHarness'
+import ChatProbeHarness from '../../ChatProbeHarness'
 import {
   waitForToolApproval,
   waitForChatComplete,
   getSessionId,
   takeProbeScreenshot,
   aiJudge,
-} from '../probe-helpers'
+} from '../../probe-helpers'
 
 const SERVER_URL = process.env.PROBE_SERVER_URL ?? 'http://127.0.0.1:23334'
 const CLIENT_HEADERS = { 'X-OpenLoaf-Client': '1' }

@@ -27,6 +27,7 @@ let suite = null
 let batch = null
 let modelOverride = null
 let modelSourceOverride = null
+let promptLangOverride = null
 
 for (let i = 0; i < args.length; i++) {
   const arg = args[i]
@@ -63,6 +64,18 @@ for (let i = 0; i < args.length; i++) {
     }
   } else if (arg.startsWith('--model-source=')) {
     modelSourceOverride = arg.slice('--model-source='.length)
+  } else if (arg === '--prompt-lang') {
+    promptLangOverride = args[++i]
+    if (promptLangOverride !== 'zh' && promptLangOverride !== 'en') {
+      console.error('--prompt-lang requires zh | en (默认 en)')
+      process.exit(1)
+    }
+  } else if (arg.startsWith('--prompt-lang=')) {
+    promptLangOverride = arg.slice('--prompt-lang='.length)
+    if (promptLangOverride !== 'zh' && promptLangOverride !== 'en') {
+      console.error('--prompt-lang requires zh | en (默认 en)')
+      process.exit(1)
+    }
   } else if (arg.startsWith('--')) {
     extraVitestArgs.push(arg)
   } else {
@@ -83,6 +96,13 @@ if (modelOverride) {
 } else if (modelSourceOverride) {
   console.error('--model-source 必须与 --model 一起使用')
   process.exit(1)
+}
+
+// 提示词语言覆盖 —— vitest.browser.config.ts 未读到 env 时默认 'en'。
+// runner CLI 显式传 `--prompt-lang zh` 可切换；不传则保持默认 'en'。
+if (promptLangOverride) {
+  process.env.BROWSER_TEST_PROMPT_LANG_OVERRIDE = promptLangOverride
+  console.log(`[prompt-lang] 强制 promptLanguage="${promptLangOverride}"（覆盖默认的 'en'）`)
 }
 
 // batch 通过环境变量传给 vitest.browser.config.ts（写进 run-meta.json.batch）
@@ -128,6 +148,7 @@ if (patterns.length === 0 && !suite) {
     pnpm test:browser:run --suite <name> [pattern...]             run tests in a suite (optionally filtered)
     pnpm test:browser:run --all                                   run all tests
     pnpm test:browser:run --model <id> [--model-source cloud]     override chatModelId for this run
+    pnpm test:browser:run --prompt-lang zh|en                     override prompt language (default: en)
     pnpm test:browser:run --batch <name> <pattern...>             tag this run into a batch group
 
   Examples:

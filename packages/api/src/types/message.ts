@@ -168,6 +168,13 @@ export type ChatRequestBody = {
    * 用于 ai-browser-test 等自动化测试以零温度保证结果可重复。生产构建静默忽略。
    */
   temperature?: number;
+  /**
+   * 请求级覆盖系统提示词语言（'zh' | 'en'）。优先级高于 basicConf.promptLanguage。
+   * 主要用于 ai-browser-test：测试默认走 'en' 以规避中文 prompt 在某些模型上
+   * 的 tool-use 不稳定（触发词命中/参数幻觉概率更高）。生产前端不传此字段
+   * 时走用户全局设置。
+   */
+  promptLanguage?: 'zh' | 'en';
 };
 
 /**

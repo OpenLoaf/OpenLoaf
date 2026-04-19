@@ -426,7 +426,15 @@ export async function runChatStream(input: {
   const parentProjectRootPaths = await resolveParentProjectRootPaths(projectId);
   const resolvedProjectId = getProjectId() ?? projectId ?? undefined;
   // 提示词语言：整条请求链路共用，preface/hardRules/agent instructions 保持一致。
-  const promptLang: 'zh' | 'en' = readBasicConf().promptLanguage === 'zh' ? 'zh' : 'en';
+  // 请求级覆盖 > 全局配置。ai-browser-test 默认走 'en'（测试稳定性更高）；
+  // 生产前端不传 promptLanguage 时回退到用户在设置里选的语言。
+  const requestPromptLang = input.request.promptLanguage;
+  const promptLang: 'zh' | 'en' =
+    requestPromptLang === 'zh' || requestPromptLang === 'en'
+      ? requestPromptLang
+      : readBasicConf().promptLanguage === 'zh'
+        ? 'zh'
+        : 'en';
   const isCompactCommand = isCompactCommandMessage(lastMessage);
   const existingPreface = await resolveSessionPrefaceText(sessionId);
   let prefaceText: string;

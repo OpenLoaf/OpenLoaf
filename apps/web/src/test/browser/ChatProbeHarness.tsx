@@ -33,6 +33,9 @@ import {
 // 覆盖测试文件里硬编码的 chatModelId / chatModelSource。空字符串 = 未覆盖。
 declare const __BROWSER_TEST_MODEL_OVERRIDE__: string
 declare const __BROWSER_TEST_MODEL_SOURCE_OVERRIDE__: string
+// 提示词语言 override。默认 'en'（测试稳定性更高，避免某些模型中文 prompt 下
+// tool-use 幻觉率高）；可通过 runner `--prompt-lang zh` 切换。空字符串 = 未设置。
+declare const __BROWSER_TEST_PROMPT_LANG_OVERRIDE__: string
 
 function readModelOverride(): { id: string | null; source: 'local' | 'cloud' | 'saas' | null } {
   try {
@@ -42,6 +45,15 @@ function readModelOverride(): { id: string | null; source: 'local' | 'cloud' | '
     return { id: id || null, source }
   } catch {
     return { id: null, source: null }
+  }
+}
+
+function readPromptLangOverride(): 'zh' | 'en' | null {
+  try {
+    const v = typeof __BROWSER_TEST_PROMPT_LANG_OVERRIDE__ === 'string' ? __BROWSER_TEST_PROMPT_LANG_OVERRIDE__ : ''
+    return v === 'zh' || v === 'en' ? v : null
+  } catch {
+    return null
   }
 }
 
@@ -84,6 +96,11 @@ export type ChatProbeHarnessProps = {
   chatModelId?: string
   /** 模型来源（local/cloud/saas），云端模型必须传 'cloud' */
   chatModelSource?: 'local' | 'cloud' | 'saas'
+  /**
+   * 请求级覆盖系统提示词语言。runner 的 `--prompt-lang` 参数会通过
+   * `__BROWSER_TEST_PROMPT_LANG_OVERRIDE__` 全局覆盖此 prop。默认 `'en'`。
+   */
+  chatPromptLanguage?: 'zh' | 'en'
   /** 工具审批策略 */
   approvalStrategy?: ApprovalStrategy
   /** AI 提问的自动回答映射 */
@@ -261,6 +278,7 @@ function ChatProbeInner({
   title,
   chatModelId: chatModelIdProp,
   chatModelSource: chatModelSourceProp,
+  chatPromptLanguage: chatPromptLanguageProp,
   approvalStrategy = 'manual',
   questionAnswers: _questionAnswers,
   onComplete,
@@ -273,6 +291,8 @@ function ChatProbeInner({
   const modelOverride = React.useMemo(() => readModelOverride(), [])
   const chatModelId = modelOverride.id ?? chatModelIdProp
   const chatModelSource = modelOverride.source ?? chatModelSourceProp
+  // 提示词语言：runner env override > 测试 prop > 默认 'en'（测试稳定性更高）。
+  const chatPromptLanguage: 'zh' | 'en' = readPromptLangOverride() ?? chatPromptLanguageProp ?? 'en'
   const sessionId = React.useMemo(
     () => sessionIdProp || generateSessionId(),
     [sessionIdProp],
@@ -354,6 +374,7 @@ function ChatProbeInner({
             messages: lastWithParent ? [lastWithParent] : [],
             ...(chatModelId ? { chatModelId } : {}),
             ...(chatModelSource ? { chatModelSource } : {}),
+            promptLanguage: chatPromptLanguage,
             ...(approvalStrategy === 'approve-all' ? { autoApproveTools: true } : {}),
           },
           headers: nextHeaders,

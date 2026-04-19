@@ -7,8 +7,8 @@
 import { it, expect } from 'vitest'
 import { render } from 'vitest-browser-react'
 import { commands } from '@vitest/browser/context'
-import ChatProbeHarness from '../ChatProbeHarness'
-import { waitForChatComplete, waitForProbeResult, takeProbeScreenshot } from '../probe-helpers'
+import ChatProbeHarness from '../../ChatProbeHarness'
+import { waitForChatComplete, waitForProbeResult, takeProbeScreenshot } from '../../probe-helpers'
 
 const SERVER_URL = process.env.PROBE_SERVER_URL ?? 'http://127.0.0.1:23333'
 // Qwen Flash — image + video + audio 全模态（来源：/api/ai/v3/capabilities/chat）

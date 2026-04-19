@@ -265,11 +265,23 @@ function extractTestCasePrefix(fullName) {
   const m = fullName?.match(/(\d{3}[\w-]*)/)
   return m ? m[1] : null
 }
-function findProbe(fullName, itName) {
-  // 优先匹配 testCase 完整 slug（含 probeByTestCase 里的 key）
+function findProbe(fullName, itName, filePath) {
+  // ① 最稳：按 vitest test 文件 basename（如 `003-docpreview-pdf`）在 key 里 endsWith 匹配。
+  //    data 文件名就是 `<suite>-<basename>.json`（如 `file-read-003-docpreview-pdf.json`），
+  //    用 endsWith 即可跨 suite 命名差异稳定对齐，且不受 vitest it title 编号漂移影响。
+  if (filePath) {
+    const base = String(filePath).split('/').pop()?.replace(/\.browser\.tsx?$/, '') ?? ''
+    if (base) {
+      for (const [key, val] of probeByTestCase) {
+        if (key.endsWith(base) || key === base) return { key, val }
+      }
+    }
+  }
+  // ② 兼容旧数据：testCase 完整 slug 出现在 fullName / itName 里
   for (const [key, val] of probeByTestCase) {
     if ((fullName && fullName.includes(key)) || (itName && itName.includes(key))) return { key, val }
   }
+  // ③ 最后兜底：按三位数字前缀匹配（历史老 data 的 key 就是 NNN-...）
   const prefix = extractTestCasePrefix(itName ?? fullName)
   if (prefix) {
     for (const [key, val] of probeByTestCase) {
@@ -636,7 +648,7 @@ function renderTestSplit(test, idx, shotsByIdx) {
   const fullName = test.fullName ?? test.name ?? ''
   const shortName = test.name ?? fullName
 
-  const probeMatch = findProbe(fullName, test.name)
+  const probeMatch = findProbe(fullName, test.name, test.__filePath)
   const probeKey = probeMatch?.key
   const probe = probeMatch?.val
   const run = probeKey ? runRecordByTestCase.get(probeKey) : null
@@ -934,7 +946,7 @@ function computeShotsByIdx(tests) {
   tests.forEach((test, idx) => {
     // vitest JSON reporter 只有 title/fullName，test.name 是 undefined；用 undefined 让
     // findProbe 的 `itName ?? fullName` 正确 fallback（空串不触发 ?? 链，会导致 prefix 匹配全军覆没）。
-    const pm = findProbe(test.fullName, test.name)
+    const pm = findProbe(test.fullName, test.name, test.__filePath)
     if (!pm?.key) return
     const stems = []
     for (const stem of screenshotsByPrefix.keys()) {
@@ -959,7 +971,8 @@ function computeShotsByIdx(tests) {
 // ── 渲染单 run 报告 ──
 const allTests = []
 for (const file of vitestData.testResults ?? []) {
-  for (const t of file.assertionResults ?? []) allTests.push(t)
+  const filePath = file.name ?? ''
+  for (const t of file.assertionResults ?? []) allTests.push({ ...t, __filePath: filePath })
 }
 const passed = allTests.filter(t => t.status === 'passed').length
 const failed = allTests.filter(t => t.status === 'failed').length

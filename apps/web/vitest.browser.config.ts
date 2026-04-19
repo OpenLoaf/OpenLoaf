@@ -843,6 +843,11 @@ export default defineConfig({
     // 在 prop 外有一个"全局强制"入口。空字符串 = 未覆盖。
     '__BROWSER_TEST_MODEL_OVERRIDE__': JSON.stringify(process.env.BROWSER_TEST_MODEL_OVERRIDE || ''),
     '__BROWSER_TEST_MODEL_SOURCE_OVERRIDE__': JSON.stringify(process.env.BROWSER_TEST_MODEL_SOURCE_OVERRIDE || ''),
+    // 系统提示词语言：默认 'en'（测试稳定性更高）；可通过 runner `--prompt-lang zh`
+    // 或 env `BROWSER_TEST_PROMPT_LANG_OVERRIDE=zh` 切回中文。显式传 "" 视为未设置。
+    '__BROWSER_TEST_PROMPT_LANG_OVERRIDE__': JSON.stringify(
+      process.env.BROWSER_TEST_PROMPT_LANG_OVERRIDE ?? 'en'
+    ),
   },
   resolve: {
     alias: {

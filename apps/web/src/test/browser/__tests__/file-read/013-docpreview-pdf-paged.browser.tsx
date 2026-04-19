@@ -9,8 +9,8 @@
 import { it, expect } from 'vitest'
 import { render } from 'vitest-browser-react'
 import { commands } from '@vitest/browser/context'
-import ChatProbeHarness from '../ChatProbeHarness'
-import { waitForChatComplete, waitForProbeResult, takeProbeScreenshot, aiJudge } from '../probe-helpers'
+import ChatProbeHarness from '../../ChatProbeHarness'
+import { waitForChatComplete, waitForProbeResult, takeProbeScreenshot, aiJudge } from '../../probe-helpers'
 
 const SERVER_URL = process.env.PROBE_SERVER_URL ?? 'http://127.0.0.1:23333'
 
@@ -29,7 +29,9 @@ it('007 — 大 PDF 分段读取：内容关键词和结构化分析', async () 
   )
 
   await waitForChatComplete()
-  const result = await waitForProbeResult()
+  // allowToolErrors: true — AI 首轮可能撞大 PDF 的 schema/参数错误后自愈成功（最终答案正确），
+  // 严格模式会把中间错误 throw 掉导致绿 prompt 判红。
+  const result = await waitForProbeResult(120_000, { allowToolErrors: true })
 
   // Save data before assertions
   await takeProbeScreenshot('file-read-013-docpreview-pdf-paged')

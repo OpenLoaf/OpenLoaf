@@ -461,19 +461,34 @@ async function persistJudgment(input: {
 function parseJudgment(raw: string): AiJudgment {
   // 尝试从文本中提取 JSON
   const jsonMatch = raw.match(/\{[\s\S]*?"pass"[\s\S]*?\}/)
-  if (!jsonMatch) {
-    return { pass: false, score: 0, reason: `failed to parse judgment JSON from: ${raw.slice(0, 200)}`, raw }
-  }
-  try {
-    const parsed = JSON.parse(jsonMatch[0])
-    return {
-      pass: Boolean(parsed.pass),
-      score: typeof parsed.score === 'number' ? parsed.score : (parsed.pass ? 80 : 30),
-      reason: typeof parsed.reason === 'string' ? parsed.reason : 'no reason provided',
-      raw,
+  if (jsonMatch) {
+    try {
+      const parsed = JSON.parse(jsonMatch[0])
+      return {
+        pass: Boolean(parsed.pass),
+        score: typeof parsed.score === 'number' ? parsed.score : (parsed.pass ? 80 : 30),
+        reason: typeof parsed.reason === 'string' ? parsed.reason : 'no reason provided',
+        raw,
+      }
+    } catch {
+      // fallthrough to regex-based extraction for malformed JSON
+      // (e.g. judge LLM emitted literal newlines inside reason string)
     }
-  } catch {
-    return { pass: false, score: 0, reason: `invalid JSON in judgment: ${jsonMatch[0].slice(0, 200)}`, raw }
+  }
+
+  const source = jsonMatch ? jsonMatch[0] : raw
+  const passMatch = source.match(/"pass"\s*:\s*(true|false)/i)
+  if (!passMatch) {
+    return { pass: false, score: 0, reason: `failed to parse judgment from: ${raw.slice(0, 200)}`, raw }
+  }
+  const scoreMatch = source.match(/"score"\s*:\s*(-?\d+(?:\.\d+)?)/)
+  const reasonMatch = source.match(/"reason"\s*:\s*"((?:[^"\\]|\\.)*)"/)
+  const pass = passMatch[1].toLowerCase() === 'true'
+  return {
+    pass,
+    score: scoreMatch ? Number(scoreMatch[1]) : (pass ? 80 : 30),
+    reason: reasonMatch ? reasonMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"') : 'recovered via regex fallback',
+    raw,
   }
 }
 

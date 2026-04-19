@@ -10,13 +10,13 @@
 import { it, expect } from 'vitest'
 import { render } from 'vitest-browser-react'
 import { commands } from '@vitest/browser/context'
-import ChatProbeHarness from '../ChatProbeHarness'
+import ChatProbeHarness from '../../ChatProbeHarness'
 import {
   waitForInteraction,
   approveCurrentTool,
   waitForProbeResult,
   takeProbeScreenshot,
-} from '../probe-helpers'
+} from '../../probe-helpers'
 
 const SERVER_URL = process.env.PROBE_SERVER_URL ?? 'http://127.0.0.1:23333'
 
