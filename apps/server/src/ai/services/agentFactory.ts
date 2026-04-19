@@ -47,6 +47,7 @@ import {
   getPMPrompt,
   PM_AGENT_TOOL_IDS,
 } from '@/ai/agent-templates'
+import { getBuiltinAgentDefinition } from '@/ai/shared/systemAgentDefinitions'
 import { logger } from '@/common/logger'
 import {
   type AgentConfig,
@@ -687,42 +688,20 @@ function createGeneralPurposeSubAgent(model: LanguageModelV3): ToolLoopAgent {
 }
 
 /**
- * Create an explore SubAgent (document researcher, read-only) as code-layer fallback.
- * explore 现在完全由 `systemAgentDefinitions.BUILTIN_AGENT_DEFINITIONS` 提供，不再落盘。
- * 此处保留 tools/instructions 偏向文档研究，作为 resolver 返回空时的兜底。
+ * Create an explore SubAgent (document researcher, read-only).
+ * 单一真相源 = `systemAgentDefinitions.BUILTIN_AGENT_DEFINITIONS.explore`
+ * — 工具集和 systemPrompt 都从定义读取，保证「专家中心」的展示与实际运行对齐。
  */
 function createExploreSubAgent(model: LanguageModelV3): ToolLoopAgent {
-  const instructions = [
-    '你是文档研究员子代理。专注于从本地文件、Office 文档、PDF 和网页中查找与整理信息。只读不改。',
-    '',
-    '工具：',
-    '- Read / Glob / Grep：本地文本文件',
-    '- WordQuery / ExcelQuery / PdfQuery / PptxQuery：Office / PDF 文档查询',
-    '- WebSearch / WebFetch：网络资料查询',
-    '',
-    '工作流：定位（并行）→ 精读 → 交叉验证 → 整理输出。',
-    '输出：结论放最前，然后列证据（文件 path:line 或 URL）。',
-    '',
-    '约束：只读，不猜测，每条结论必须有来源。',
-  ].join('\n')
-
-  const documentResearchToolIds = [
-    'Read',
-    'Glob',
-    'Grep',
-    'WebSearch',
-    'WebFetch',
-    'WordQuery',
-    'ExcelQuery',
-    'PdfQuery',
-    'PptxQuery',
-  ]
-
+  const def = getBuiltinAgentDefinition('explore')
+  if (!def) {
+    throw new Error('Builtin agent definition "explore" is missing')
+  }
   return new ToolLoopAgent({
     id: `SubAgent-explore-${Date.now()}`,
     model,
-    instructions,
-    tools: buildToolset(documentResearchToolIds),
+    instructions: def.systemPrompt,
+    tools: buildToolset(def.toolIds),
     stopWhen: stepCountIs(SUB_AGENT_MAX_STEPS),
     experimental_repairToolCall: createToolCallRepair(),
   })

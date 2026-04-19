@@ -22,6 +22,7 @@
  */
 import { existsSync, rmSync } from 'node:fs'
 import path from 'node:path'
+import { masterTemplate } from '@/ai/agent-templates/templates/master'
 
 /** Builtin agent 的虚拟路径前缀。 */
 export const BUILTIN_AGENT_PATH_PREFIX = 'builtin://agent/'
@@ -82,7 +83,7 @@ const EXPLORE_SYSTEM_PROMPT = `你是文档研究员子代理。专注于**从�
 
 - **本地文件**：\`Read\` / \`Glob\` / \`Grep\` — 文本、代码、Markdown
 - **Office 文档**：\`WordQuery\` / \`ExcelQuery\` / \`PdfQuery\` / \`PptxQuery\` — Word / Excel / PDF / PPT
-- **网络资料**：\`WebSearch\`（找线索）/ \`WebFetch\`（读具体页）
+- **网络资料**：\`WebSearch\`（找线索）/ \`WebFetch\`（读具体页）/ \`BrowserSnapshot\`（浏览器抓取动态页面）
 
 ## 工作流
 
@@ -116,7 +117,60 @@ const EXPLORE_SYSTEM_PROMPT = `你是文档研究员子代理。专注于**从�
 \`\`\`
 `
 
-/** 完全内嵌、不落盘的 Agent 定义（按展示顺序）。 */
+/**
+ * general-purpose 的完整技能列表（与 Master 对齐，全量 16 个 builtin skills）。
+ * cloud-skills 是运行时动态注入的，不在这里声明。
+ */
+const GENERAL_PURPOSE_SKILLS: readonly string[] = [
+  'agent-orchestration',
+  'browser-ops',
+  'calendar-ops',
+  'canvas-ops',
+  'docx',
+  'email-ops',
+  'media-ops',
+  'pdf',
+  'pptx',
+  'project-ops',
+  'schedule-ops',
+  'settings-guide',
+  'skill-creator',
+  'visualization-ops',
+  'workbench-ops',
+  'xlsx',
+] as const
+
+/** explore 的技能白名单（文档类 4 个 + 浏览器抓取 1 个）。 */
+const EXPLORE_SKILLS: readonly string[] = [
+  'docx',
+  'xlsx',
+  'pptx',
+  'pdf',
+  'browser-ops',
+] as const
+
+/** explore 的只读工具集（本地文件 / Office 文档 / 网络资料 / 浏览器抓取）。 */
+const EXPLORE_TOOL_IDS: readonly string[] = [
+  'Read',
+  'Glob',
+  'Grep',
+  'WebSearch',
+  'WebFetch',
+  'WordQuery',
+  'ExcelQuery',
+  'PdfQuery',
+  'PptxQuery',
+  'BrowserSnapshot',
+] as const
+
+/**
+ * 完全内嵌、不落盘的 Agent 定义（按展示顺序）。
+ *
+ * 这里的 toolIds / skills 是 **UI 展示 + 运行时对齐** 的单一真相源：
+ * - 「专家中心」详情页按这里渲染（只读、已勾选）
+ * - `agentFactory.ts` 的 createGeneralPurposeSubAgent / createExploreSubAgent
+ *   应当消费这里的数据，保证展示和实际行为一致
+ */
 export const BUILTIN_AGENT_DEFINITIONS: readonly BuiltinAgentDefinition[] = [
   {
     folderName: 'general-purpose',
@@ -124,8 +178,9 @@ export const BUILTIN_AGENT_DEFINITIONS: readonly BuiltinAgentDefinition[] = [
     description:
       '通用任务助手——多步研究、搜索、综合推理。最强的通用 Agent，适合边界不明的复杂任务。',
     icon: 'bot',
-    toolIds: [],
-    skills: [],
+    // 与 Master 完全对齐的延迟加载工具清单（引用 masterTemplate 保证永不漂移）
+    toolIds: [...(masterTemplate.deferredToolIds ?? [])],
+    skills: [...GENERAL_PURPOSE_SKILLS],
     allowSubAgents: false,
     maxDepth: 1,
     systemPrompt: GENERAL_PURPOSE_SYSTEM_PROMPT,
@@ -136,18 +191,8 @@ export const BUILTIN_AGENT_DEFINITIONS: readonly BuiltinAgentDefinition[] = [
     description:
       '文档研究员——从本地文件、Office 文档、PDF 和网页中查找整理信息。只读不改，适合调研、资料整理、多源对比。',
     icon: 'search',
-    toolIds: [
-      'Read',
-      'Glob',
-      'Grep',
-      'WebSearch',
-      'WebFetch',
-      'WordQuery',
-      'ExcelQuery',
-      'PdfQuery',
-      'PptxQuery',
-    ],
-    skills: [],
+    toolIds: [...EXPLORE_TOOL_IDS],
+    skills: [...EXPLORE_SKILLS],
     allowSubAgents: false,
     maxDepth: 1,
     systemPrompt: EXPLORE_SYSTEM_PROMPT,
