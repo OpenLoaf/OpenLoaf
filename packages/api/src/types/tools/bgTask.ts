@@ -14,8 +14,8 @@ import { RiskType } from '../toolResult'
 const taskIdSchema = z
   .string()
   .regex(
-    /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/,
-    'Invalid task_id format',
+    /^openloaf-[a-z]+-[a-f0-9]{6}$/,
+    'Invalid task_id format (expected openloaf-<prefix>-<6hex>)',
   )
   .describe('Background task id returned by Bash(run_in_background) or spawnBash.')
 

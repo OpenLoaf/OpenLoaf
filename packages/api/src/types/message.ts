@@ -175,6 +175,13 @@ export type ChatRequestBody = {
    * 时走用户全局设置。
    */
   promptLanguage?: 'zh' | 'en';
+  /**
+   * AI 响应输出语言（BCP-47 locale，如 'zh-CN'/'en-US'/'ja-JP'）。
+   * 由前端传当前 UI 语言，后端写入 msg-context 的 `response-lang` 属性，
+   * 模型据此决定回复语言。与 `promptLanguage`（系统提示词语言，仅 zh/en）
+   * 正交——一个决定系统 prompt，一个决定对用户的输出。
+   */
+  responseLanguage?: string;
 };
 
 /**

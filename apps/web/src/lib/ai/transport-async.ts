@@ -18,6 +18,7 @@ import { isElectronEnv } from '@/utils/is-electron-env'
 import { getClientTimeZone } from '@/utils/time-zone'
 import { CLIENT_HEADERS } from '@/lib/client-headers'
 import { snapshotPageContext } from '@/lib/ai/transport-stack'
+import i18n from '@/i18n'
 
 /** 最大重连次数。 */
 const MAX_RECONNECT_ATTEMPTS = 5
@@ -77,6 +78,7 @@ export function createChatTransportAsync({
       const extraBody = body && typeof body === 'object' ? body : {}
       const bodyRecord = extraBody as Record<string, unknown>
       const timezone = getClientTimeZone()
+      const responseLanguage = typeof i18n.language === 'string' ? i18n.language : undefined
       const {
         params: _ignoredParams,
         id: _ignoredId,
@@ -100,6 +102,7 @@ export function createChatTransportAsync({
         sessionId: resolvedSessionId,
         clientId: clientId || undefined,
         timezone,
+        responseLanguage,
         tabId,
         intent: 'chat',
         responseMode: 'stream',

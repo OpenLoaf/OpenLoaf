@@ -101,16 +101,19 @@ export default function JsxCreateTool({
   const hasJsx = jsx.trim().length > 0
 
   // --- Streaming stabilization: debounce + height floor ---
-  // Debounce jsx during streaming to reduce layout thrashing
-  const [renderJsx, setRenderJsx] = React.useState(jsx)
+  // 流式期间对 jsx 做 150ms debounce 避免抖动；非流式下直接 derive 最新 jsx，
+  // 绝对禁止用 useState+useEffect 异步同步——那样会在 isStreaming 从 true→false
+  // 切换的那个 render 帧留下 stale 部分 jsx，JSXPreview 用 isStreaming=false 解析
+  // 截断内容，react-jsx-parser 抛错且不再被 handleError 的流式分支 silent return，
+  // 直接 console.error 一行 `[jsx-preview] Expected corresponding JSX closing tag`，
+  // 表现为 chat-ui-005 稳定失败但屏幕最终渲染正常的"幽灵红字"。
+  const [debouncedJsx, setDebouncedJsx] = React.useState(jsx)
   React.useEffect(() => {
-    if (!isStreaming) {
-      setRenderJsx(jsx)
-      return
-    }
-    const timer = setTimeout(() => setRenderJsx(jsx), 150)
+    if (!isStreaming) return
+    const timer = setTimeout(() => setDebouncedJsx(jsx), 150)
     return () => clearTimeout(timer)
   }, [jsx, isStreaming])
+  const renderJsx = isStreaming ? debouncedJsx : jsx
 
   // Height floor: track max rendered height during streaming, apply as min-height
   const containerRef = React.useRef<HTMLDivElement>(null)

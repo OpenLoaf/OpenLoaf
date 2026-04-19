@@ -13,6 +13,7 @@ import { useEffect } from 'react'
 import { create } from 'zustand'
 import type { V3CapabilitiesData, CapabilitiesCategory } from '@/lib/saas-media'
 import { fetchCapabilities } from '@/lib/saas-media'
+import { useSaasAuth } from '@/hooks/use-saas-auth'
 
 type CapabilitiesState = {
   /** Cached capabilities per category. */
@@ -101,6 +102,30 @@ export function refreshAllCapabilities(): void {
   void refresh('image')
   void refresh('video')
   void refresh('audio')
+}
+
+// 登录态 false → true 时，自动重新拉取 capabilities，覆盖掉未登录时失败的错误态
+if (typeof window !== 'undefined') {
+  let prevLoggedIn = useSaasAuth.getState().loggedIn
+  useSaasAuth.subscribe((state) => {
+    const now = state.loggedIn
+    if (now && !prevLoggedIn) {
+      refreshAllCapabilities()
+    } else if (!now && prevLoggedIn) {
+      // 登出时清空缓存与错误态，避免下次登录前短暂展示旧数据
+      useCapabilitiesStore.setState({
+        image: null,
+        video: null,
+        audio: null,
+        text: null,
+        errorImage: null,
+        errorVideo: null,
+        errorAudio: null,
+        errorText: null,
+      })
+    }
+    prevLoggedIn = now
+  })
 }
 
 /** 获取所有已缓存的 capabilities 数据（非 hook，可在任意上下文使用）。 */

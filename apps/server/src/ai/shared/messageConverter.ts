@@ -127,6 +127,11 @@ function xmlAttr(value: unknown): string {
 /** Render a data-msg-context payload to XML string. */
 function renderMsgContextXml(d: Record<string, unknown>): string {
   const datetime = d.datetime ? ` datetime="${xmlAttr(d.datetime)}"` : "";
+  // 逻辑：AI 响应输出语言（BCP-47 locale），前端每次请求传入当前 UI 语言；
+  // 模型据此决定回复语言，跟 prompt 本身语言（zh/en）正交。
+  const responseLang = d.responseLanguage
+    ? ` response-lang="${xmlAttr(d.responseLanguage)}"`
+    : "";
   const children: string[] = [];
 
   const scope = d.scope === "project" ? "project" : "global";
@@ -167,9 +172,9 @@ function renderMsgContextXml(d: Record<string, unknown>): string {
   }
 
   if (children.length === 0) {
-    return `<system-tag type="msg-context"${datetime} />`;
+    return `<system-tag type="msg-context"${datetime}${responseLang} />`;
   }
-  return `<system-tag type="msg-context"${datetime}>\n${children.join("\n")}\n</system-tag>`;
+  return `<system-tag type="msg-context"${datetime}${responseLang}>\n${children.join("\n")}\n</system-tag>`;
 }
 
 type ModelCapabilityInline = {

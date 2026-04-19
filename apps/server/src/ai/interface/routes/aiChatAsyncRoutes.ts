@@ -186,8 +186,17 @@ function parseAsyncRequest(body: unknown): { request?: AiExecuteRequest; error?:
         raw.promptLanguage === 'zh' || raw.promptLanguage === 'en'
           ? raw.promptLanguage
           : undefined,
+      responseLanguage: normalizeResponseLanguage(raw.responseLanguage),
     },
   }
+}
+
+/** Validate BCP-47 locale for response language; reject anything XML-unsafe. */
+function normalizeResponseLanguage(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined
+  const trimmed = value.trim()
+  if (!trimmed || trimmed.length > 35) return undefined
+  return /^[A-Za-z0-9-]+$/.test(trimmed) ? trimmed : undefined
 }
 
 /** Resolve timezone from request payload or server default. */

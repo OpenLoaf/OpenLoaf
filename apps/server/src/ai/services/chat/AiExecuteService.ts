@@ -25,6 +25,7 @@ import { SkillSelector, type SkillMatch } from "@/ai/tools/SkillSelector";
 import { resolveAutoSkillsByPageContext } from "@/ai/services/chat/pageContextSkillMap";
 import { extractTextFromParts, toSseChunk } from "@/ai/services/chat/chatStreamUtils";
 import { loadMessageTree } from "@/ai/services/chat/repositories/chatFileStore";
+import { readBasicConf } from "@/modules/settings/openloafConfStore";
 
 type AiExecuteServiceInput = {
   /** Unified AI request payload. */
@@ -106,6 +107,11 @@ export class AiExecuteService {
       const now = new Date();
       const timeStr = formatMsgTime(now, tz);
       const pc = request.pageContext;
+      // 逻辑：响应语言优先级 — 请求透传 > 用户系统设置 uiLanguage；
+      // 前者是前端本次 UI 语言快照（Web i18n），后者是 CLI 或其他客户端
+      // 不传时的回退。uiLanguage === null 表示"跟随系统"，此时不注入，
+      // 让模型按 prompt 语言 / 用户消息内容自行推断。
+      const responseLanguage = resolveResponseLanguage(request.responseLanguage);
       const contextPart = {
         type: "data-msg-context" as const,
         data: {
@@ -116,6 +122,7 @@ export class AiExecuteService {
           ...(pc?.projectId ? { projectId: pc.projectId } : {}),
           ...(pc?.boardId ? { boardId: pc.boardId } : {}),
           ...(pc?.stack?.length ? { stack: pc.stack } : {}),
+          ...(responseLanguage ? { responseLanguage } : {}),
         },
       };
       enrichedLastMessage = {
@@ -356,6 +363,33 @@ function createCommandStreamResponse(input: {
 }
 
 
+
+/**
+ * Resolve AI response language with request → uiLanguage fallback.
+ *
+ * - 请求透传的 BCP-47 locale 优先（前端 i18n.language 当前值）。
+ * - 未传时读 basicConf.uiLanguage（用户设置页显式选的语言）。
+ * - uiLanguage === null 意味着"跟随系统"——此时返回 undefined，不污染
+ *   msg-context，让模型根据 prompt 语言与用户消息自行判断。
+ *
+ * 只接受简短 BCP-47 子集（letters/digits/-），避免 XML 属性注入。
+ */
+function resolveResponseLanguage(fromRequest: string | undefined): string | undefined {
+  const sanitize = (v: unknown): string | undefined => {
+    if (typeof v !== "string") return undefined;
+    const trimmed = v.trim();
+    if (!trimmed || trimmed.length > 35) return undefined;
+    return /^[A-Za-z0-9-]+$/.test(trimmed) ? trimmed : undefined;
+  };
+  const direct = sanitize(fromRequest);
+  if (direct) return direct;
+  try {
+    const conf = readBasicConf();
+    return sanitize(conf.uiLanguage);
+  } catch {
+    return undefined;
+  }
+}
 
 /** Build an invalid request response by response mode. */
 function createInvalidResponse(errorText: string, expectsJson: boolean): Response {

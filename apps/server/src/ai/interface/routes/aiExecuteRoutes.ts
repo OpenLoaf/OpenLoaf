@@ -120,8 +120,18 @@ function parseAiExecuteRequest(body: unknown): { request?: AiExecuteRequest; err
         raw.promptLanguage === "zh" || raw.promptLanguage === "en"
           ? raw.promptLanguage
           : undefined,
+      responseLanguage: normalizeResponseLanguage(raw.responseLanguage),
     },
   };
+}
+
+/** Validate and normalize BCP-47 locale for AI response language. */
+function normalizeResponseLanguage(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  // 只接受简短 BCP-47 格式（letters/digits/-），避免注入怪字符到 XML 属性。
+  if (!trimmed || trimmed.length > 35) return undefined;
+  return /^[A-Za-z0-9-]+$/.test(trimmed) ? trimmed : undefined;
 }
 
 /** Normalize pageContext input (drops unknown fields, keeps type-safe shape). */

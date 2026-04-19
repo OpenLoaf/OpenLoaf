@@ -92,6 +92,62 @@ const matchJsxTag = (code: string) => {
   };
 };
 
+// HTML 父元素对 children 挑食：只允许特定子标签，混入纯空白 text node
+// 会触发 React "whitespace text nodes cannot be a child of <table>" 告警。
+// react-jsx-parser 不做 JSX whitespace stripping（Babel 会做），所以 LLM
+// 生成的缩进换行会以 text node 形式进到这些父元素里，必须在进 parser 前剥掉。
+const PICKY_PARENTS = new Set([
+  "table",
+  "thead",
+  "tbody",
+  "tfoot",
+  "tr",
+  "colgroup",
+  "ul",
+  "ol",
+  "select",
+  "optgroup",
+  "dl",
+]);
+
+const stripPickyParentWhitespace = (code: string) => {
+  const stack: string[] = [];
+  let result = "";
+  let cursor = 0;
+
+  while (cursor < code.length) {
+    const match = matchJsxTag(code.slice(cursor));
+    if (!match) {
+      result += code.slice(cursor);
+      break;
+    }
+    const { tagName, type, startIndex, endIndex } = match;
+
+    // 当前 tag 前的文本内容
+    const between = code.slice(cursor, cursor + startIndex);
+    const parent = stack[stack.length - 1];
+    if (parent && PICKY_PARENTS.has(parent) && between.trim() === "") {
+      // 丢弃 picky 父元素直接子层的纯空白 text node
+    } else {
+      result += between;
+    }
+
+    // 当前 tag 原样保留
+    result += code.slice(cursor + startIndex, cursor + endIndex);
+
+    if (type === "opening") {
+      stack.push(tagName);
+    } else if (type === "closing") {
+      // 容错：只有栈顶匹配时才弹，否则忽略（交给 completeJsxTag 处理）
+      if (stack[stack.length - 1] === tagName) stack.pop();
+    }
+
+    cursor += endIndex;
+  }
+
+  return result;
+};
+
 const completeJsxTag = (code: string) => {
   const stack: string[] = [];
   let result = "";
@@ -162,7 +218,8 @@ export const JSXPreview = memo(
     // 和其他来源（非 JsxCreate 写入）的兜底，确保渲染层不会被注释爆掉。
     const processedJsx = useMemo(() => {
       const stripped = jsx.replace(/\{\s*\/\*[\s\S]*?\*\/\s*\}/g, "");
-      return isStreaming ? completeJsxTag(stripped) : stripped;
+      const normalized = stripPickyParentWhitespace(stripped);
+      return isStreaming ? completeJsxTag(normalized) : normalized;
     }, [jsx, isStreaming]);
 
     return (

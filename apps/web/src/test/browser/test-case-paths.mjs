@@ -21,6 +21,7 @@ export const SUITES = [
   'chat-ui',
   'memory',
   'skill-market',
+  'bash',
 ]
 
 /** 从 slug 解析 suite。找不到返回 null。 */

@@ -20,6 +20,7 @@ import { getClientTimeZone } from "@/utils/time-zone";
 import { getDesktopVersion, getWebVersion, getServerVersion } from "@/lib/app-version";
 import { CLIENT_HEADERS } from "@/lib/client-headers";
 import { snapshotPageContext } from "@/lib/ai/transport-stack";
+import i18n from "@/i18n";
 
 function stripTotalUsageFromMetadata(message: any) {
   if (!message || typeof message !== "object") return message;
@@ -61,6 +62,7 @@ export function createChatTransport({
       const extraBody = body && typeof body === "object" ? body : {};
       const bodyRecord = extraBody as Record<string, unknown>;
       const timezone = getClientTimeZone();
+      const responseLanguage = typeof i18n.language === "string" ? i18n.language : undefined;
       const {
         params: _ignoredParams,
         id: _ignoredId,
@@ -77,6 +79,7 @@ export function createChatTransport({
         sessionId: resolvedSessionId,
         clientId: clientId || undefined,
         timezone,
+        responseLanguage,
         tabId,
         messageId,
         intent: "chat",

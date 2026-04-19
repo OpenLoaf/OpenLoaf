@@ -270,10 +270,6 @@ export async function startProductionServices(args: {
   const spawnEnv: NodeJS.ProcessEnv = {
     ...process.env,
     ELECTRON_RUN_AS_NODE: '1',
-    PORT: String(serverPort),
-    HOST: serverHost,
-    // 中文注释：生产环境需要显式放行 app:// 协议和原始 webUrl 作为 CORS origin。
-    CORS_ORIGIN: `app://localhost,${args.webUrl},${process.env.CORS_ORIGIN ?? ''}`,
     // Allow the bundled server to resolve shipped native deps (e.g. `@libsql/darwin-arm64`)
     // that are copied into `process.resourcesPath/node_modules` via Forge `extraResource`.
     NODE_PATH: path.join(process.resourcesPath, 'node_modules'),
@@ -282,7 +278,13 @@ export async function startProductionServices(args: {
     DOTENV_CONFIG_OVERRIDE: '1',
     ...userEnv,
     ...packagedEnv,
-    // 中文注释：确保 .env 文件不会覆盖修复后的 PATH，保留 Electron 主进程修复的完整路径。
+    // 中文注释：以下字段由 Electron 权威决定，必须排在 userEnv/packagedEnv 之后。
+    // PORT/HOST 来自 runtime 端口分配，CORS_ORIGIN 依赖 webUrl，PATH 需保留主进程修复后的路径。
+    // 用户 .env 里的 PORT/HOST（例如 Docker 场景的 0.0.0.0:23333）不能覆盖这些值，
+    // 否则 Electron 访问的 serverUrl 与 server 实际监听端口不一致，主窗口连不上后端。
+    PORT: String(serverPort),
+    HOST: serverHost,
+    CORS_ORIGIN: `app://localhost,${args.webUrl},${process.env.CORS_ORIGIN ?? ''}`,
     PATH: process.env.PATH,
     OPENLOAF_DOCX_SFDT_HELPER_ROOT:
       process.env.OPENLOAF_DOCX_SFDT_HELPER_ROOT ??

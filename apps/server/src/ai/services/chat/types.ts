@@ -102,6 +102,11 @@ export type AiExecuteRequest = {
    * ai-browser-test 默认走 'en' 提高测试稳定性；生产前端不传时回退用户设置。
    */
   promptLanguage?: "zh" | "en";
+  /**
+   * AI 响应输出语言（BCP-47 locale）。由前端传当前 UI 语言，
+   * 后端写入 msg-context 的 `response-lang` 属性，模型据此决定回复语言。
+   */
+  responseLanguage?: string;
 };
 
 export type AiCommandContext = {

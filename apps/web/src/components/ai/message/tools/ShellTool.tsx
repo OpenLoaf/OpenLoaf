@@ -84,7 +84,6 @@ function resolveCommand(part: AnyToolPart): string {
  */
 function resolveOutput(part: AnyToolPart): {
   output: string
-  exitCode?: number
   duration?: number
 } {
   const raw = part.output
@@ -95,48 +94,66 @@ function resolveOutput(part: AnyToolPart): {
     if (trimmed.startsWith('{')) {
       try {
         const parsed = JSON.parse(trimmed) as Record<string, unknown>
-        const output = typeof parsed.output === 'string' ? parsed.output : ''
-        const meta = asPlainObject(parsed.metadata)
-        return {
-          output,
-          exitCode:
-            typeof meta?.exit_code === 'number' ? meta.exit_code : undefined,
-          duration:
-            typeof meta?.duration_seconds === 'number'
-              ? meta.duration_seconds
-              : undefined,
-        }
+        return extractFromObject(parsed, raw)
       } catch {
         // fallback
       }
     }
-    const exitMatch = trimmed.match(/Exit code:\s*(\d+)/)
-    const outputMatch = trimmed.match(/Output:\n([\s\S]*)$/)
-    if (exitMatch || outputMatch) {
-      return {
-        output: outputMatch?.[1]?.trim() ?? trimmed,
-        exitCode: exitMatch ? Number(exitMatch[1]) : undefined,
-      }
-    }
-    return { output: trimmed }
+    return extractFromBashWrapper(trimmed)
   }
 
   const obj = asPlainObject(raw)
   if (obj) {
-    const output = typeof obj.output === 'string' ? obj.output : safeStringify(raw)
-    const meta = asPlainObject(obj.metadata)
-    return {
-      output,
-      exitCode:
-        typeof meta?.exit_code === 'number' ? meta.exit_code : undefined,
-      duration:
-        typeof meta?.duration_seconds === 'number'
-          ? meta.duration_seconds
-          : undefined,
-    }
+    return extractFromObject(obj, raw)
   }
 
   return { output: safeStringify(raw) }
+}
+
+/**
+ * 解析 bash tool 返回的 "Exit code: N / Wall time: ... / Output:\n<stdout>" 包裹格式。
+ * 只提取实际 stdout，exit/wall-time 元信息挂到 tooltip/trigger 上，不污染展开区。
+ */
+function extractFromBashWrapper(trimmed: string): {
+  output: string
+  duration?: number
+} {
+  const exitMatch = trimmed.match(/(?:^|\n)Exit code:\s*(-?\d+)/)
+  const wallMatch = trimmed.match(/(?:^|\n)Wall time:\s*([\d.]+)\s*seconds/)
+  const outputIdx = trimmed.search(/(?:^|\n)Output:/)
+  if (!exitMatch && outputIdx < 0) {
+    return { output: trimmed }
+  }
+  let output = ''
+  if (outputIdx >= 0) {
+    const tail = trimmed.slice(outputIdx).replace(/^\n?Output:\n?/, '')
+    output = tail.trimEnd()
+  }
+  return {
+    output,
+    duration: wallMatch ? Number(wallMatch[1]) : undefined,
+  }
+}
+
+/**
+ * 从 object-shape 返回值中抽取展示内容：
+ * - 后台任务 object（含 background_info）只显示那句人话，隐藏 task_id/pid/status/output_path
+ * - 常规 {output, metadata} shape 保留原语义
+ */
+function extractFromObject(
+  obj: Record<string, unknown>,
+  raw: unknown,
+): { output: string; duration?: number } {
+  if (typeof obj.background_info === 'string' && obj.background_info.length > 0) {
+    return { output: obj.background_info }
+  }
+  const meta = asPlainObject(obj.metadata)
+  const output = typeof obj.output === 'string' ? obj.output : safeStringify(raw)
+  return {
+    output,
+    duration:
+      typeof meta?.duration_seconds === 'number' ? meta.duration_seconds : undefined,
+  }
 }
 
 function formatDuration(duration: number): string {
@@ -163,7 +180,7 @@ export default function ShellTool({
     hasErrorText ||
     part.state === 'output-error' ||
     part.state === 'output-denied'
-  const { output, exitCode, duration } = resolveOutput(part)
+  const { output, duration } = resolveOutput(part)
   const displayOutput = hasErrorText ? (part.errorText ?? '') : output
   const approvalId = getApprovalId(part)
   const isPending = isApprovalPending(part)
@@ -182,7 +199,10 @@ export default function ShellTool({
   // 受控展开状态：streaming / progress 期间自动展开，用户手动操作仍生效
   const [userOpen, setUserOpen] = React.useState(false)
   const forceOpen = streaming || progressActive
-  const effectiveOpen = forceOpen || userOpen || hasOutput
+  const hasExpandableContent =
+    hasOutput || streaming || progressActive || progressError ||
+    Boolean(tp?.accumulatedText) || (progressDone && Boolean(tp?.summary))
+  const effectiveOpen = hasExpandableContent && (forceOpen || userOpen || hasOutput)
 
   const stackTrace = React.useMemo(
     () => (displayOutput ? detectStackTrace(displayOutput) : null),
@@ -233,9 +253,13 @@ export default function ShellTool({
       <Tooltip>
         <TooltipTrigger asChild>
           <CollapsibleTrigger
+            disabled={!hasExpandableContent}
             className={cn(
               'flex w-full items-center gap-1.5 rounded-full px-2.5 py-1',
-              'transition-colors duration-150 hover:bg-muted/60',
+              'transition-colors duration-150',
+              hasExpandableContent
+                ? 'hover:bg-muted/60'
+                : 'cursor-default',
             )}
           >
             <TerminalIcon className="size-3.5 shrink-0 text-muted-foreground" />

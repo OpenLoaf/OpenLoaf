@@ -565,7 +565,7 @@ Conventions:
     content: z
       .preprocess(jsonArrayPreprocess, z.array(contentItemSchema).optional())
       .describe(
-        'Required for create. Array of block-level ContentItems (heading / paragraph / table / bullet-list / numbered-list / image / page-break / toc / footnote-ref / hyperlink).',
+        'Required for create. Array of ContentItems. Every item MUST have a `type` discriminator — exactly one of: heading / paragraph / table / bullet-list / numbered-list / image / page-break / toc / footnote-ref / hyperlink. Missing or made-up values (e.g. "section-header") raise invalid_union.',
       ),
     documentSettings: documentSettingsSchema
       .optional()

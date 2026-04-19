@@ -15,7 +15,7 @@
 import { execSync } from 'node:child_process'
 import { dirname, resolve, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { readdirSync, statSync, existsSync, rmSync } from 'node:fs'
+import { readdirSync, statSync, existsSync, rmSync, readFileSync, writeFileSync } from 'node:fs'
 
 const root = dirname(fileURLToPath(import.meta.url))
 const webRoot = resolve(root, '../../..')
@@ -302,10 +302,14 @@ if (keep > 0 && existsSync(runsRoot)) {
 const cmd = `pnpm exec vitest ${vitestArgs.map(a => /[|*?(){}[\]\\]/.test(a) ? `'${a}'` : a).join(' ')}`
 console.log(`Running: ${cmd}\n`)
 
+// 记录 vitest 失败与否，留给 check-run-verdict.mjs 做最终裁决。
+// 注意：不在这里立刻 exit——aiJudge reviewer 是人工主 agent 异步跑的，
+// 裁决不在 runner 生命周期内完成，所以这里只落文件、不决定退出码。
+let vitestFailed = false
 try {
   execSync(cmd, { cwd: webRoot, stdio: 'inherit' })
 } catch {
-  // vitest exits non-zero on test failure — continue to report generation
+  vitestFailed = true
 }
 
 // 评审 jobs 清单（主 agent 读取后并行启 critic 子 agent 填槽）
@@ -320,4 +324,35 @@ try {
   execSync('node src/test/browser/generate-report.mjs', { cwd: webRoot, stdio: 'inherit' })
 } catch (e) {
   console.error('Warning: generate-report failed:', e?.message || e)
+}
+
+// 把 vitest 失败 flag 落到本次 runDir 的 _runner-status.json，
+// check-run-verdict.mjs 会读这里 + evaluations/*/review.json 做最终裁决。
+try {
+  const runsRootForStatus = join(webRoot, 'browser-test-runs')
+  if (existsSync(runsRootForStatus)) {
+    const latestRunDir = readdirSync(runsRootForStatus)
+      .filter(d => /^(?:\d{4,}|\d{8}_\d{6}|\d+_\d{8}_\d{6})$/.test(d)
+        && statSync(join(runsRootForStatus, d)).isDirectory())
+      .sort().reverse()[0]
+    if (latestRunDir) {
+      const statusPath = join(runsRootForStatus, latestRunDir, '_runner-status.json')
+      const existing = existsSync(statusPath)
+        ? JSON.parse(readFileSync(statusPath, 'utf-8'))
+        : {}
+      writeFileSync(statusPath, JSON.stringify({
+        ...existing,
+        vitestFailed,
+        vitestFinishedAt: new Date().toISOString(),
+      }, null, 2), 'utf-8')
+    }
+  }
+} catch (e) {
+  console.error('Warning: write _runner-status.json failed:', e?.message || e)
+}
+
+if (vitestFailed) {
+  console.log('\n[runner] ⚠️  vitest 有失败用例。aiJudge reviewer 跑完后执行:')
+  console.log('         node src/test/browser/check-run-verdict.mjs')
+  console.log('         来得到聚合 vitest + aiJudge 的最终 exit code。')
 }

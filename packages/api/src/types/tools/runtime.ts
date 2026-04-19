@@ -26,7 +26,7 @@ Quote paths with spaces. Prefer absolute paths. Default timeout 120s, max 600s.`
     command: z.string().min(1),
     description: z.string().optional().describe("Short description of what this command does."),
     timeout: z.number().int().min(1000).max(600000).optional().describe("Milliseconds."),
-    run_in_background: z.boolean().optional().describe("Run in background and return immediately."),
+    run_in_background: z.boolean().optional().describe("Run in background and return immediately. Write the command as if it runs in the foreground — the tool handles backgrounding; do NOT add & or nohup yourself. Returns a task_id — manage it with Kill (terminate), Jobs (list status), and Sleep (wait for completion notification). Do NOT use shell kill/jobs commands; use the Kill/Jobs tools instead."),
   }),
   component: null,
 } as const;
@@ -44,7 +44,7 @@ Syntax reminders: \`-and\` / \`-or\` not \`&&\` / \`||\` (PS 5.1 has no \`&&\`);
     command: z.string().min(1),
     description: z.string().optional().describe("Short description of what this command does."),
     timeout: z.number().int().min(1000).max(600000).optional().describe("Milliseconds."),
-    run_in_background: z.boolean().optional().describe("Run in background and return immediately."),
+    run_in_background: z.boolean().optional().describe("Run in background and return immediately. Write the command as if it runs in the foreground — the tool handles backgrounding; do NOT add & or Start-Process yourself. Returns a task_id — manage it with Kill (terminate), Jobs (list status), and Sleep (wait for completion notification). Do NOT use shell kill/jobs commands; use the Kill/Jobs tools instead."),
   }),
   component: null,
 } as const;
