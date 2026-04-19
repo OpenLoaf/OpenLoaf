@@ -173,12 +173,18 @@ function TreeFile({ name, depth, dirPath }: { name: string; depth: number; dirPa
 }
 
 function FileTreeView({ output }: { output: string }) {
-  const tree = React.useMemo(() => parseTreeOutput(output), [output])
+  const trimmed = output.trim()
+  const isEmptyResult = trimmed === 'No files matched the pattern.'
+
+  const tree = React.useMemo(
+    () => (isEmptyResult ? { name: '', children: new Map(), files: [] } : parseTreeOutput(output)),
+    [output, isEmptyResult],
+  )
 
   const truncationMatch = output.match(/\.\.\. \((\d+) more files.*\)/)
   const totalFiles = countFiles(tree)
 
-  if (tree.children.size === 0 && tree.files.length === 0) {
+  if (isEmptyResult || (tree.children.size === 0 && tree.files.length === 0)) {
     return (
       <div className="rounded-2xl bg-muted/50 p-2 font-mono text-xs text-foreground/80">
         {output}

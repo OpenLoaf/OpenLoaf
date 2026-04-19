@@ -52,6 +52,13 @@ function findFirstIssue(root: unknown): JsxValidationIssue | null {
       case 'JSXSpreadChild':
         // 逻辑：禁止 {...children} 形式的子节点展开。
         return createIssue('不支持 `{...}` 子节点展开。', record.loc)
+      case 'JSXEmptyExpression':
+        // 逻辑：禁止 `{}` / `{/* ... */}` 空表达式容器。
+        // react-jsx-parser (渲染层) 抛 "The expression type 'JSXEmptyExpression'
+        // is not supported."，整个卡片渲染失败变成红色 error 卡。
+        // execute 已经先 strip 掉 `{/* ... */}` 注释；走到这里的都是裸 `{}` 或
+        // `{ /* 只有空白 */ }` 等其他空壳，直接拒绝让模型改。
+        return createIssue('不支持空表达式容器（`{}` 或纯注释 `{/* ... */}`）；有内容请填表达式，无内容请删除整个 `{}`。', record.loc)
       default:
         break
     }

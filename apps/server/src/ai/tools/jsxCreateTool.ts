@@ -81,7 +81,12 @@ export const jsxCreateTool = tool({
       rootPath = writable.rootPath
     }
 
-    const jsx = input.content
+    // 剥除 JSX 注释 `{/* ... */}` —— 渲染层 react-jsx-parser 不支持
+    // JSXEmptyExpression，整个卡片会崩成红色 error 卡。注释是模型的无害
+    // 装饰，静默剥掉最平滑；裸 `{}` 不在这里处理，留给 validator 报错
+    // 让模型看到反馈。只剥单行注释 `{/* ... */}`，不碰形如 `<Foo bar={{}} />`
+    // 的空 object literal（那是合法 JSX）。
+    const jsx = input.content.replace(/\{\s*\/\*[\s\S]*?\*\/\s*\}/g, '')
 
     // 逻辑：根据 session 目录写入 jsx 文件，文件名固定为 messageId.jsx。
     const messagesPath = await resolveMessagesJsonlPath(sessionId)

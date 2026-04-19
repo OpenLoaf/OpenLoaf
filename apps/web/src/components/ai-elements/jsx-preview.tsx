@@ -155,10 +155,15 @@ export const JSXPreview = memo(
       setError(null);
     }
 
-    const processedJsx = useMemo(
-      () => (isStreaming ? completeJsxTag(jsx) : jsx),
-      [jsx, isStreaming]
-    );
+    // 渲染前 strip `{/* ... */}` JSX 注释 —— react-jsx-parser 把它解析成
+    // JSXEmptyExpression 后抛 "The expression type 'JSXEmptyExpression' is
+    // not supported."，整个卡片渲染为红色 error 卡。服务端 JsxCreate 工具
+    // 已经在 execute 层剥掉，这里是对历史数据（旧 session 已经落盘的 .jsx 文件）
+    // 和其他来源（非 JsxCreate 写入）的兜底，确保渲染层不会被注释爆掉。
+    const processedJsx = useMemo(() => {
+      const stripped = jsx.replace(/\{\s*\/\*[\s\S]*?\*\/\s*\}/g, "");
+      return isStreaming ? completeJsxTag(stripped) : stripped;
+    }, [jsx, isStreaming]);
 
     return (
       <JSXPreviewContext.Provider
@@ -213,6 +218,12 @@ export const JSXPreviewContent = memo(
 
         // 流式期间：静默忽略错误，保持稳定内容不闪烁
         if (isStreaming) return;
+
+        // 非流式真错：同步 console.error 一次，让 ai-browser-test 的
+        // consoleLogs 能扫到（tool hasError 只覆盖 execute 层，渲染层 error
+        // 原本是哑的红色卡片，无法进入自动断言）。消息里带 [jsx-preview]
+        // 前缀便于 scripts/analyze-tool-calls.py 的 visualErrors 识别。
+        console.error(`[jsx-preview] ${err.message}`);
 
         // 流式结束后：正常上报错误
         queueMicrotask(() => {

@@ -413,25 +413,37 @@ export async function createPdf(
   }) {
     const { font, fontSize, x = MARGIN, maxWidth = CONTENT_WIDTH } = options
     const lineHeight = fontSize * LINE_HEIGHT_FACTOR
-    const words = text.split(' ')
-    let line = ''
 
-    for (const word of words) {
-      const testLine = line ? `${line} ${word}` : word
-      const testWidth = font.widthOfTextAtSize(testLine, fontSize)
-      if (testWidth > maxWidth && line) {
+    // 先按显式换行拆段（pdf-lib 的 WinAnsi / Noto 字体都无法编码 \n，直接塞会抛错），
+    // 再对每段做单词/字符级 wrap。空行保留一个 lineHeight 的间距。
+    const paragraphs = text.split(/\r?\n/)
+    for (let p = 0; p < paragraphs.length; p++) {
+      const paragraph = paragraphs[p]
+      if (!paragraph) {
+        ensureSpace(lineHeight)
+        y -= lineHeight
+        continue
+      }
+
+      const words = paragraph.split(' ')
+      let line = ''
+      for (const word of words) {
+        const testLine = line ? `${line} ${word}` : word
+        const testWidth = font.widthOfTextAtSize(testLine, fontSize)
+        if (testWidth > maxWidth && line) {
+          ensureSpace(lineHeight)
+          page.drawText(line, { x, y, size: fontSize, font, color: rgb(0, 0, 0) })
+          y -= lineHeight
+          line = word
+        } else {
+          line = testLine
+        }
+      }
+      if (line) {
         ensureSpace(lineHeight)
         page.drawText(line, { x, y, size: fontSize, font, color: rgb(0, 0, 0) })
         y -= lineHeight
-        line = word
-      } else {
-        line = testLine
       }
-    }
-    if (line) {
-      ensureSpace(lineHeight)
-      page.drawText(line, { x, y, size: fontSize, font, color: rgb(0, 0, 0) })
-      y -= lineHeight
     }
   }
 

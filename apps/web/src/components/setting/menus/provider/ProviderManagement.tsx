@@ -9,7 +9,7 @@
  */
 "use client";
 
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ConfirmDeleteDialog } from "@/components/setting/menus/provider/ConfirmDeleteDialog";
@@ -30,15 +30,11 @@ import {
 import { Label } from "@openloaf/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@openloaf/ui/popover";
 import { Tabs, TabsList, TabsTrigger } from "@openloaf/ui/tabs";
-import { buildChatModelOptions, normalizeChatModelSource } from "@/lib/provider-models";
 import { BarChart3, Bug, ChevronDown, Eye, Languages, MessageSquare, Sparkles, Volume2 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useBasicConfig } from "@/hooks/use-basic-config";
 import { Switch } from "@openloaf/ui/animate-ui/components/radix/switch";
 import { toast } from "sonner";
-import { useSettingsValues } from "@/hooks/use-settings";
-import { useCloudModels } from "@/hooks/use-cloud-models";
-import { useInstalledCliProviderIds } from "@/hooks/use-cli-tools-installed";
 import { getModelLabel } from "@/lib/model-registry";
 import { ModelIcon } from "@/components/setting/menus/provider/ModelIcon";
 import {
@@ -90,9 +86,6 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
   const { t } = useTranslation('settings');
   const { t: tProject } = useTranslation("project", { keyPrefix: "global" });
   const { basic, setBasic } = useBasicConfig();
-  const { providerItems } = useSettingsValues();
-  const { models: cloudModels } = useCloudModels();
-  const installedCliProviderIds = useInstalledCliProviderIds();
   const statsQuery = useQuery({
     ...trpc.chat.getChatStats.queryOptions(),
     staleTime: 5000,
@@ -101,13 +94,6 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
   const chatOnlineSearchMemoryScope: "tab" | "global" =
     basic.chatOnlineSearchMemoryScope === "global" ? "global" : "tab";
   const promptLanguage: "zh" | "en" = basic.promptLanguage === "zh" ? "zh" : "en";
-  const localToolModelOptions = useMemo(
-    () =>
-      buildChatModelOptions("local", providerItems, cloudModels, installedCliProviderIds).filter(
-        (option) => option.tags?.includes("chat"),
-      ),
-    [providerItems, cloudModels, installedCliProviderIds],
-  );
   const {
     entries,
     dialogOpen,

@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import { createReadStream, createWriteStream, promises as fs } from 'node:fs'
+import { createWriteStream, promises as fs } from 'node:fs'
 import path from 'node:path'
 import { pipeline } from 'node:stream/promises'
 import { Readable } from 'node:stream'
@@ -92,23 +92,53 @@ function iterateEntries(zipfile: YauzlZipFile): AsyncIterable<YauzlEntry> {
 // Public API
 // ---------------------------------------------------------------------------
 
+/** Normalize a filename for fuzzy matching: lowercase, strip all whitespace. */
+function normalizeForFuzzyMatch(name: string): string {
+  return name.replace(/\s+/g, '').toLowerCase()
+}
+
 /** Validate and resolve an Office file path. Returns absolute path. */
 export async function resolveOfficeFile(filePath: string, allowedExts: string[]): Promise<string> {
   const { absPath } = resolveToolPath({ target: filePath })
-  const stat = await fs.stat(absPath)
+  let resolvedPath = absPath
+  let stat: Awaited<ReturnType<typeof fs.stat>>
+  try {
+    stat = await fs.stat(resolvedPath)
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+      // AI 经常把中文文件名里的空格幻觉进去（或少写）。扫同目录做归一化匹配兜底。
+      const dir = path.dirname(resolvedPath)
+      const base = path.basename(resolvedPath)
+      const wanted = normalizeForFuzzyMatch(base)
+      try {
+        const siblings = await fs.readdir(dir)
+        const hit = siblings.find(n => normalizeForFuzzyMatch(n) === wanted)
+        if (hit) {
+          resolvedPath = path.join(dir, hit)
+          stat = await fs.stat(resolvedPath)
+        } else {
+          throw err
+        }
+      } catch {
+        throw err
+      }
+    } else {
+      throw err
+    }
+  }
   if (!stat.isFile()) throw new Error('Path is not a file.')
   if (stat.size > MAX_FILE_SIZE) {
     throw new Error(
       `File size (${(stat.size / 1024 / 1024).toFixed(1)} MB) exceeds 100 MB limit.`,
     )
   }
-  const ext = path.extname(absPath).toLowerCase()
+  const ext = path.extname(resolvedPath).toLowerCase()
   if (!allowedExts.includes(ext)) {
     throw new Error(
       `Unsupported file format "${ext}". Expected: ${allowedExts.join(', ')}`,
     )
   }
-  return absPath
+  return resolvedPath
 }
 
 /** List all entries in a ZIP file. */
