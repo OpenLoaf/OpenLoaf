@@ -18,10 +18,9 @@ import { Button } from "@openloaf/ui/button";
 import { Input } from "@openloaf/ui/input";
 import {
   Search, Trash2, X, FolderOpen, Eye, Plus, Pencil, RefreshCw,
-  Globe, FileSearch, FilePen, Terminal, Mail, Calendar,
-  Image, LayoutGrid, Link, Users, Code, Settings, FolderKanban, Blocks,
+  Globe, Terminal, Mail, Calendar,
+  LayoutGrid, FolderKanban,
   Bot, Sparkles, FileText,
-  Video,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import dynamicIconImports from "lucide-react/dynamicIconImports";
@@ -87,40 +86,6 @@ function buildScopedAgentsUri(rootUri: string): string {
     : `${normalizedRoot}/.openloaf/agents`;
 }
 
-const CAP_ICON_MAP: Record<string, { icon: LucideIcon; className: string }> = {
-  browser: { icon: Globe, className: "text-foreground" },
-  "file-read": { icon: FileSearch, className: "text-foreground" },
-  "file-write": { icon: FilePen, className: "text-foreground" },
-  shell: { icon: Terminal, className: "text-muted-foreground" },
-  email: { icon: Mail, className: "text-foreground" },
-  calendar: { icon: Calendar, className: "text-foreground" },
-  "image-generate": { icon: Image, className: "text-foreground" },
-  "video-generate": { icon: Video, className: "text-foreground" },
-  widget: { icon: LayoutGrid, className: "text-foreground" },
-  project: { icon: FolderKanban, className: "text-foreground" },
-  web: { icon: Link, className: "text-foreground" },
-  agent: { icon: Users, className: "text-foreground" },
-  "code-interpreter": { icon: Code, className: "text-foreground" },
-  system: { icon: Settings, className: "text-muted-foreground" },
-};
-
-const CAP_BG_MAP: Record<string, string> = {
-  browser: "bg-secondary",
-  "file-read": "bg-secondary",
-  "file-write": "bg-secondary",
-  shell: "bg-secondary",
-  email: "bg-secondary",
-  calendar: "bg-secondary",
-  "image-generate": "bg-secondary",
-  "video-generate": "bg-secondary",
-  widget: "bg-secondary",
-  project: "bg-secondary",
-  web: "bg-secondary",
-  agent: "bg-secondary",
-  "code-interpreter": "bg-secondary",
-  system: "bg-secondary",
-};
-
 /** Card color palette for the expert center grid. */
 const CARD_COLOR_PALETTE = [
   { tag: "text-orange-600 dark:text-orange-400", tagBorder: "border-orange-400/60 dark:border-orange-500/40", avatar: "from-orange-100 to-amber-50 dark:from-orange-900/25 dark:to-amber-900/10", icon: "text-orange-500 dark:text-orange-400" },
@@ -154,18 +119,6 @@ const AGENT_ICON_MAP: Partial<Record<string, LucideIcon>> = {
   calendar: Calendar,
   "layout-grid": LayoutGrid,
   "folder-kanban": FolderKanban,
-};
-
-const AGENT_ICON_COLOR_MAP: Record<string, string> = {
-  bot: "text-foreground",
-  sparkles: "text-foreground",
-  "file-text": "text-foreground",
-  terminal: "text-muted-foreground",
-  globe: "text-foreground",
-  mail: "text-foreground",
-  calendar: "text-foreground",
-  "layout-grid": "text-foreground",
-  "folder-kanban": "text-foreground",
 };
 
 /** Normalize path to use forward slashes. */
@@ -265,7 +218,6 @@ function ProjectAgentView({ projectId }: { projectId: string }) {
 function GlobalAgentView() {
   const { t } = useTranslation(["settings", "common"]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<string>("all");
 
   const agentsQuery = useQuery(trpc.settings.getAgents.queryOptions({ includeAllProjects: true }));
   const agents = (agentsQuery.data ?? []) as AgentSummary[];
@@ -306,27 +258,6 @@ function GlobalAgentView() {
     [agents],
   );
 
-  /** Category tabs derived from capability groups. */
-  const categories = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const agent of nonMasterAgents) {
-      const groups = resolveAgentGroups(agent.toolIds);
-      for (const group of groups) {
-        counts.set(group.id, (counts.get(group.id) || 0) + 1);
-      }
-    }
-    return [
-      { id: "all", label: t("settings:agent.categoryAll"), count: nonMasterAgents.length },
-      ...capGroups
-        .filter((g) => counts.has(g.id))
-        .map((g) => ({
-          id: g.id,
-          label: t(`settings:capabilityGroups.${g.id}`, { defaultValue: g.label || g.id }),
-          count: counts.get(g.id) || 0,
-        })),
-    ];
-  }, [nonMasterAgents, capGroups, resolveAgentGroups, t]);
-
   const filteredAgents = useMemo(() => {
     const filtered = nonMasterAgents.filter((agent) => {
       if (searchQuery.trim()) {
@@ -338,10 +269,6 @@ function GlobalAgentView() {
         const matchCaps = groupLabels.toLowerCase().includes(q);
         if (!matchName && !matchDesc && !matchCaps) return false;
       }
-      if (selectedCategory !== "all") {
-        const groups = resolveAgentGroups(agent.toolIds);
-        if (!groups.some((g) => g.id === selectedCategory)) return false;
-      }
       return true;
     });
     return filtered.sort((a, b) => {
@@ -349,7 +276,7 @@ function GlobalAgentView() {
       if (!a.isSystem && b.isSystem) return 1;
       return 0;
     });
-  }, [nonMasterAgents, searchQuery, selectedCategory, resolveAgentGroups]);
+  }, [nonMasterAgents, searchQuery, resolveAgentGroups]);
 
   const mkdirMutation = useMutation(
     trpc.fs.mkdir.mutationOptions({
@@ -570,25 +497,6 @@ function GlobalAgentView() {
         </div>
       </div>
 
-      {/* Category tabs */}
-      <div className="flex items-center gap-0.5 overflow-x-auto border-b border-border/40 px-5">
-        {categories.map((cat) => (
-          <button
-            key={cat.id}
-            type="button"
-            className={`whitespace-nowrap px-3 py-2.5 text-sm font-medium transition-colors ${
-              selectedCategory === cat.id
-                ? "border-b-2 border-purple-500 text-purple-600 dark:border-purple-400 dark:text-purple-400"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-            onClick={() => setSelectedCategory(cat.id)}
-          >
-            {cat.label}
-            <span className="ml-1 text-xs opacity-60">({cat.count})</span>
-          </button>
-        ))}
-      </div>
-
       {/* Agent grid */}
       <div className="min-h-0 flex-1 overflow-y-auto p-5">
         {filteredAgents.length > 0 ? (
@@ -672,20 +580,6 @@ function GlobalAgentView() {
                         </p>
                       ) : null}
 
-                      {/* Hover: summon button */}
-                      <div className="absolute inset-x-3 bottom-3 z-20 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-                        <Button
-                          type="button"
-                          className="h-9 w-full rounded-3xl bg-foreground text-sm font-medium text-background shadow-none hover:bg-foreground/90"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleEditAgent(agent);
-                          }}
-                        >
-                          <Plus className="mr-1 h-3.5 w-3.5" />
-                          {t("settings:agent.summonBtn")}
-                        </Button>
-                      </div>
                     </div>
                   </ContextMenuTrigger>
                   <ContextMenuContent className="w-48">

@@ -30,7 +30,7 @@ OpenLoaf UI 会实时展示每个工具调用的名称和参数，所以**工具
 
 先弄清用户要什么，再看手边有什么合用的。preface 的 `<system-tag type="skills|user-skills|project-skills">` 是项目针对常见任务预先写好的做法——描述对得上就 `LoadSkill` 拿来用，比现场琢磨更稳；对不上或压根用不着就按自己的判断走，不用硬凑。`Read`/`Edit`/`Bash` 等常驻工具随手可用；其它裸名工具的 schema 还没加载，直接调会 InputValidationError，先 `ToolSearch` 激活。
 
-- 读写搜索优先用 `Read`/`Edit`/`Write`/`Glob`/`Grep`，别退回到 cat/sed/find/grep。`Read` 已统一：纯文本/代码/配置之外，PDF / DOCX / XLSX / PPTX / 图片 / 视频 / 音频都能一把读，按扩展名自动分发；二进制格式返回 Markdown 正文加 `{basename}_asset/` 内联引用，整体包在 `<file>…<content>…</content></file>` 信封里。媒体文件如不想走 SaaS 多模态理解（caption / transcript），传 `understand: false` 只取元数据即可。
+- 读写搜索优先用 `Read`/`Edit`/`Write`/`Glob`/`Grep`，别退回到 cat/sed/find/grep。`Read` 已统一：纯文本/代码/配置之外，PDF / DOCX / XLSX / PPTX / 图片 / 视频 / 音频都能一把读，按扩展名自动分发；二进制格式返回 Markdown 正文加 `{basename}_asset/` 内联引用，整体包在 `<file>…<content>…</content></file>` 信封里。媒体文件如不想走 SaaS 多模态理解（caption / transcript），传 `understand: false` 只取元数据即可。**注意**：`Read` 对 PDF 是轻量摘要（文字量/页数估算），不保证完整抽文。需要精准元数据、分页读全文、表单字段、水印、OCR、合并拆分等任意精细操作，改走 `pdf-skill`（`LoadSkill` 后 `ToolSearch` 激活 `PdfInspect`/`PdfMutate`）。DOCX/XLSX/PPTX 亦同（对应 `word-skill`/`excel-skill`/`pptx-skill`）。
 - 耗时命令用 `Bash(run_in_background: true)` 放后台，配合 `Jobs`/`Kill`/`Read(output_path)` 查看进度。
 - 需要等待时用 `Sleep`，不要拿 `Bash(sleep)` 凑；后台任务跑完会自动通知你，**不要自己轮询**。
 - 编辑 `tndoc_` 开头的富文本文件（OpenLoaf 的协作文档格式）用 `EditDocument`，不要当成普通文本 Read/Edit。

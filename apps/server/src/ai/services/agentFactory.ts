@@ -153,6 +153,22 @@ const CORE_TOOL_IDS = MASTER_CORE_TOOL_IDS
  * Solution: Wrap execute() so that calling an unloaded tool immediately returns a
  * clear error directing the model to use ToolSearch. Also bypass needsApproval
  * for unloaded tools so the error surfaces directly (no broken approval UI).
+ *
+ * Same-batch hallucination guard (Qwen regression fix):
+ * Qwen-series models often emit tool_calls in the wrong order within a single
+ * step — e.g. `[WebSearch({}), ToolSearch({names:"WebSearch"}), WebSearch({query:"..."})]`.
+ * The first WebSearch hits this guard with empty/hallucinated input.
+ *
+ * Empirically, AI SDK v5 dispatches the same step's tool_calls **sequentially**,
+ * not concurrently — so the first unloaded call's execute() fully runs before
+ * the sibling ToolSearch even starts. We can't "wait for" the ToolSearch.
+ *
+ * Instead of throwing (which produces a tool-error that pollutes metrics and
+ * the UI), we return a soft "dropped" output carrying a clear hint. The model's
+ * next assistant turn sees this as a normal tool result, reads the hint, and
+ * self-heals by calling ToolSearch then the target tool with real parameters.
+ * The subsequent correct call (later in the same batch or in a later step)
+ * runs normally and produces the real output.
  */
 function applyActivationGuard(
   tools: Record<string, any>,
@@ -170,12 +186,20 @@ function applyActivationGuard(
     tools[toolId] = {
       ...tool,
       execute: async (input: any, options: any) => {
-        if (!activatedSet.isActive(toolId)) {
-          throw new Error(
-            `Tool "${toolId}" has not been loaded. You must call ToolSearch(names: "${toolId}") to load it first, then call it again with the correct parameters.`
-          )
+        if (activatedSet.isActive(toolId)) {
+          return originalExecute(input, options)
         }
-        return originalExecute(input, options)
+        return {
+          __droppedUnloaded: true,
+          tool: toolId,
+          // Deliberately NOT using `error` / `isError` / `ok:false` / `success:false`
+          // keys here — those trigger `detectToolError` in ChatProbeHarness and
+          // pollute toolErrorCount. This is not a real error: the model just
+          // called a deferred tool before loading its schema. The `hint` below
+          // is a normal tool-result message that the next assistant turn reads
+          // and reacts to (call ToolSearch, then retry with real parameters).
+          hint: `Tool "${toolId}" has not been loaded. You must call ToolSearch(names: "${toolId}") to load it first, then call it again with the correct parameters. The parameters you provided in this call were a guess (the schema was not yet visible) and have been discarded.`,
+        }
       },
       needsApproval: originalNeedsApproval
         ? (input: any) => {
@@ -223,8 +247,9 @@ function createToolSearchPrepareStep(
     //   - tryAutoCompact: 60% 阈值触发 LLM 摘要
     //   - ContextCollapseManager: 80%/90% 阈值触发渐进式压缩
     //
-    // NOTE: reasoning 设为 'none'，因为 DeepSeek 等 provider 要求开启 thinking 时
-    // 每条 assistant 消息必须包含 reasoning_content，移除会导致 400 错误。
+    // reasoning 走 v3 capabilities 通道：provider 级的 thinking / reasoning_content
+    // 协议由 providerAdapters 按 `modelDefinition.reasoning` 注入 providerOptions
+    // 控制，pruneMessages 层无需介入（'none' 在 AI SDK 等价于不剥 reasoning parts）。
     const pruned = pruneMessages({
       messages,
       reasoning: 'none',
@@ -590,6 +615,9 @@ export function createSubAgent(input: CreateSubAgentInput): ToolLoopAgent {
     return createGeneralPurposeSubAgent(wrappedModel)
   }
   if (effectiveType === 'explore') {
+    // 优先文件系统 AGENT.md（用户可在"专家中心"编辑）；缺失则走代码默认（文档研究版）。
+    const dynamicAgent = tryCreateDynamicAgent(effectiveType, input.skillRoots, wrappedModel)
+    if (dynamicAgent) return dynamicAgent
     return createExploreSubAgent(wrappedModel)
   }
   if (effectiveType === 'plan') {
@@ -658,25 +686,43 @@ function createGeneralPurposeSubAgent(model: LanguageModelV3): ToolLoopAgent {
   })
 }
 
-/** Create an explore SubAgent (read-only, fixed tools). */
+/**
+ * Create an explore SubAgent (document researcher, read-only) as code-layer fallback.
+ * 首选路径是从文件系统读 `<tempStorage>/agents/explore/AGENT.md`（由 seedDefaultAgents 种子）；
+ * 只有文件缺失时才走到这里。tools 和 instructions 与种子文件保持同一偏向：**文档研究**。
+ */
 function createExploreSubAgent(model: LanguageModelV3): ToolLoopAgent {
   const instructions = [
-    '你是一个代码库探索专用子代理。你的任务是快速搜索和分析代码库。',
+    '你是文档研究员子代理。专注于从本地文件、Office 文档、PDF 和网页中查找与整理信息。只读不改。',
     '',
-    '你可以使用以下工具：',
-    '- Read: 读取文件内容',
-    '- Glob: 搜索文件路径',
-    '- Grep: 搜索文件内容',
-    '- ProjectQuery: 查询项目数据',
+    '工具：',
+    '- Read / Glob / Grep：本地文本文件',
+    '- WordQuery / ExcelQuery / PdfQuery / PptxQuery：Office / PDF 文档查询',
+    '- WebSearch / WebFetch：网络资料查询',
     '',
-    '注意：你是只读的，不能修改任何文件。专注于搜索、分析和回答问题。',
+    '工作流：定位（并行）→ 精读 → 交叉验证 → 整理输出。',
+    '输出：结论放最前，然后列证据（文件 path:line 或 URL）。',
+    '',
+    '约束：只读，不猜测，每条结论必须有来源。',
   ].join('\n')
+
+  const documentResearchToolIds = [
+    'Read',
+    'Glob',
+    'Grep',
+    'WebSearch',
+    'WebFetch',
+    'WordQuery',
+    'ExcelQuery',
+    'PdfQuery',
+    'PptxQuery',
+  ]
 
   return new ToolLoopAgent({
     id: `SubAgent-explore-${Date.now()}`,
     model,
     instructions,
-    tools: buildToolset([...READ_ONLY_TOOL_IDS]),
+    tools: buildToolset(documentResearchToolIds),
     stopWhen: stepCountIs(SUB_AGENT_MAX_STEPS),
     experimental_repairToolCall: createToolCallRepair(),
   })

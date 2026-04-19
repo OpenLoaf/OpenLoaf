@@ -33,6 +33,7 @@ import { readBasicConf } from "@/modules/settings/openloafConfStore";
 import { migrateLegacyServerData } from "@openloaf/config";
 import { ensureDefaultAgentCleanup } from "@/ai/shared/agentCleanup";
 import { migrateGlobalDataToTempStorage } from "@/ai/shared/migrateGlobalDataToTempStorage";
+import { seedDefaultGlobalAgents } from "@/ai/shared/seedDefaultAgents";
 import { initDatabase } from "@openloaf/db";
 import { runPendingMigrations } from "@openloaf/db/migrationRunner";
 import { embeddedMigrations } from "@openloaf/db/migrations.generated";
@@ -71,6 +72,10 @@ ensureDefaultAgentCleanup();
 // 一次性迁移 ~/.openloaf/memory + ~/.openloaf/agents → <tempStorage>/{memory,agents}（幂等）。
 // 必须在 setResolvedTempStorageDir() 之后调用。skills/* 不在迁移范围。
 migrateGlobalDataToTempStorage();
+
+// 种子化默认全局 Agent（general-purpose / explore），让"专家中心"初始有内容可见可编辑。
+// 幂等：已存在目录则跳过，不覆盖用户手改。必须在 migrateGlobalDataToTempStorage 之后。
+seedDefaultGlobalAgents();
 
 // 数据库迁移：检查并应用所有待执行的 schema 迁移。
 // 必须在 initDatabase() 之前完成，确保表结构就绪。

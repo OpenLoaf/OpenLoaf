@@ -8,14 +8,20 @@ description: >
 
 一共 4 个工具，按 **看 → 改 → 转 → OCR** 组织：
 
-| 工具 | 职责 | 只读 | 调用前需加载 schema |
-|---|---|---|---|
-| `PdfInspect` | **所有读操作**（8 action）：summary / text / tables / form-fields / form-structure / images / annotations / render | ✅ | `ToolSearch(names: "PdfInspect")` |
-| `PdfMutate` | **所有写操作**（12 action）：create / fill-form / fill-visual / add-text / merge / split / extract-pages / rotate / crop / watermark / decrypt / optimize | ❌ | `ToolSearch(names: "PdfMutate")` |
-| `DocConvert` | 格式互转：pdf ↔ docx / html / md / txt / xlsx / json 等 | ❌ | `ToolSearch(names: "DocConvert")` |
-| `CloudImageUnderstand` | **扫描 PDF 的 OCR 入口**（云端，会扣积分） | ❌（调用云端） | 通过 cloud-media-skill 加载 |
+## 工具清单
 
-> `Read` 仍然可用：对 .pdf 文件，Read 内部会 fallback 到 DocPreview 的轻量摘要，**但信息有限**；需要精准分析就用 `PdfInspect`。
+| 工具 | 职责 | 只读 |
+|------|------|------|
+| `PdfInspect` | **所有读操作**（8 action）：summary / text / tables / form-fields / form-structure / images / annotations / render | 是 |
+| `PdfMutate` | **所有写操作**（12 action）：create / fill-form / fill-visual / add-text / merge / split / extract-pages / rotate / crop / watermark / decrypt / optimize | 否 |
+| `DocConvert` | 格式互转：pdf ↔ docx / html / md / txt / xlsx / json 等 | 否 |
+| `CloudImageUnderstand` | **扫描 PDF 的 OCR 入口**（云端，会扣积分） | 否 |
+
+> **加载（两步，缺一不可）**：
+> 1. `LoadSkill pdf-skill` —— 仅把本技能文档（你正在读的这份 SKILL.md）拉进上下文，**此时工具 schema 还没加载，直接调用会 `InputValidationError`**。
+> 2. `ToolSearch(query: "select:PdfInspect,PdfMutate,DocConvert")` —— 真正激活工具 schema，之后才能调用这三个工具。
+>
+> `CloudImageUnderstand` 由 `cloud-media-skill` 管理加载。`Read` 始终可用 — 对 .pdf 文件只走轻量摘要（文字量/页数估算，不保证完整抽文），**用户让你"分析/总结/填/改/转/OCR PDF"时一律走 `PdfInspect`/`PdfMutate`，不要靠 `Read` 交差**。
 
 ---
 
