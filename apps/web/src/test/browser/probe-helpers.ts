@@ -110,6 +110,18 @@ export async function waitForProbeResult(
   while (Date.now() - start < timeout) {
     const result = getProbeResult()
     if (result) {
+      // 把 ChatProbeHarness 在 onComplete 前抓到的 DOM 快照粘到 result 上。
+      // `_domSnapshot` 是隐藏字段（不在 ProbeResult 类型里），saveTestData 在 Node 端
+      // 会把它抽出来落到 data/<testCase>.dom.html，再从 result.json 里删掉，
+      // 避免 result.json 因为 100KB-1MB 的 outerHTML 而变得难处理。
+      try {
+        const snap = typeof window !== 'undefined' ? window.__probeDomSnapshot : undefined
+        if (typeof snap === 'string' && snap.length > 0) {
+          ;(result as ProbeResult & { _domSnapshot?: string })._domSnapshot = snap
+        }
+      } catch {
+        // ignore: dom snapshot is best-effort observability
+      }
       if (!options.allowToolErrors && result.toolErrorCount > 0) {
         const failed = (result.toolCallDetails || [])
           .filter(t => t.hasError)

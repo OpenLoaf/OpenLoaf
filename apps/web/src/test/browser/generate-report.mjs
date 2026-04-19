@@ -84,11 +84,30 @@ const vitestData = existsSync(resultsJsonPath)
 
 const dataDir = join(runDir, 'data')
 const probeByTestCase = new Map()
+const domHtmlByTestCase = new Map()
 if (existsSync(dataDir)) {
-  for (const f of readdirSync(dataDir).filter(f => f.endsWith('.json'))) {
-    const d = safeJson(readFileSync(join(dataDir, f), 'utf-8'))
-    if (d?.testCase) probeByTestCase.set(d.testCase, d)
+  for (const f of readdirSync(dataDir)) {
+    if (f.endsWith('.json')) {
+      const d = safeJson(readFileSync(join(dataDir, f), 'utf-8'))
+      if (d?.testCase) probeByTestCase.set(d.testCase, d)
+    } else if (f.endsWith('.dom.html')) {
+      // saveTestData 落盘时把 `result._domSnapshot` 抽出来单独写到 sibling .dom.html。
+      // 文件名格式 `<sanitized testCase>.dom.html`，要与 probeByTestCase 的 key 对齐：
+      // saveTestData 用 `(input.testCase||'unknown').replace(/[^a-zA-Z0-9_-]/g, '_')`
+      // 做 sanitize，这里反向用 sanitize 后的 stem 当 key 即可（findProbe 命中后再
+      // 用 probe.testCase 原值查 dom 时也走同一个 sanitize 路径）。
+      const stem = f.replace(/\.dom\.html$/, '')
+      try {
+        domHtmlByTestCase.set(stem, readFileSync(join(dataDir, f), 'utf-8'))
+      } catch { /* ignore */ }
+    }
   }
+}
+
+function lookupDomSnapshot(testCase) {
+  if (!testCase) return null
+  const sanitized = String(testCase).replace(/[^a-zA-Z0-9_-]/g, '_')
+  return domHtmlByTestCase.get(sanitized) ?? domHtmlByTestCase.get(testCase) ?? null
 }
 
 const screenshotsDir = join(runDir, 'screenshots')
@@ -810,6 +829,28 @@ function renderTestSplit(test, idx, shotsByIdx) {
     body += `</pre></div></details>`
   }
 
+  // ── DOM 快照（onComplete 时刻的 documentElement.outerHTML）──
+  // 用 sandboxed iframe + srcdoc 内嵌：sandbox="" 关闭脚本和 same-origin，
+  // 防止旧的 React event handler / dev tooling 在打开报告时反向污染当前页面。
+  // 限制：外链 <link rel="stylesheet"> 在 file:// 协议下会 404，所以视觉效果
+  // 可能不像生产那样精致；inline <style> 和 computed-style 仍会渲染。
+  const domHtml = lookupDomSnapshot(probeKey ?? probe?.testCase ?? null)
+  if (domHtml) {
+    const sizeKb = (domHtml.length / 1024).toFixed(0)
+    // srcdoc 必须转义 & " < >；srcdoc 本身不解析 entities for tag content，但
+    // browser 会把属性值里的 & 当 entity start，所以 & → &amp; 是必须的。
+    const escapedDoc = domHtml
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+    body += `<details class="sec"><summary>🌐 DOM 快照（${sizeKb} KB）</summary>
+      <div class="sec-body">
+        <div class="dom-snapshot-hint">完成时刻的 <code>document.documentElement.outerHTML</code>（外链 CSS 在 file:// 下可能 404，inline styles 仍生效）</div>
+        <iframe class="dom-snapshot-frame" sandbox="" srcdoc="${escapedDoc}"></iframe>
+      </div></details>`
+  }
+
   if (networkRequests.length) {
     body += `<details class="sec"><summary>🌐 网络请求（${networkRequests.length}）</summary><div class="sec-body"><table class="net-table"><tr><th>method</th><th>url</th><th>status</th><th>ms</th></tr>`
     for (const n of networkRequests.slice(0, 50)) {
@@ -1108,6 +1149,9 @@ details.sec > summary:before{content:'▸ ';color:#94a3b8;display:inline-block;t
 details.sec[open] > summary:before{content:'▾ '}
 details.sec > summary:hover{background:#f8fafc}
 .sec-body{padding:10px 14px 14px;font-size:12px}
+.dom-snapshot-hint{font-size:10.5px;color:#64748b;margin-bottom:8px;line-height:1.5}
+.dom-snapshot-hint code{background:#f1f5f9;padding:1px 5px;border-radius:3px;font-family:'JetBrains Mono','Menlo',monospace;font-size:10px}
+.dom-snapshot-frame{width:100%;height:520px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;display:block}
 .sec-spec > summary{background:#eff6ff;color:#1d4ed8}
 .sec-spec[open] > summary{background:#dbeafe}
 .sec-judge > summary{background:#fff7ed;color:#9a3412}

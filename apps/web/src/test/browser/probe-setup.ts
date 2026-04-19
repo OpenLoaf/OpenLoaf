@@ -13,6 +13,13 @@ import { beforeEach } from 'vitest'
 declare global {
   interface Window {
     __probeTestName?: string
+    /**
+     * `document.documentElement.outerHTML` snapshot taken by ChatProbeHarness right
+     * before it fires `onComplete`. probe-helpers.waitForProbeResult attaches it to
+     * the result as `_domSnapshot`, and the saveTestData browser command writes it
+     * to `data/<testCase>.dom.html` so generate-report can render it in an iframe.
+     */
+    __probeDomSnapshot?: string
   }
 }
 

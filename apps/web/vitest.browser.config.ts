@@ -689,8 +689,28 @@ const saveTestData: BrowserCommand<[{
   const filePath = join(dataDir, `${fileName}.json`)
   const yamlPath = join(TEST_CASES_DIR_ABS, `${input.testCase}.yaml`)
   const spec = readTestCaseSpec(yamlPath) as { description: string | null; purpose: string | null }
+
+  // ── DOM 快照单独落盘（不进 result.json）──
+  // probe-helpers.waitForProbeResult 把 `window.__probeDomSnapshot` 注入成
+  // `result._domSnapshot`。outerHTML 通常 100KB-1MB，留在 result.json 里会让
+  // 报告生成 / 数据后处理都变慢；抽到 sibling .dom.html 后 generate-report 用
+  // sandboxed iframe 内嵌即可。
+  const rawResult = (input.result ?? {}) as Record<string, unknown>
+  const domSnapshot =
+    typeof rawResult._domSnapshot === 'string' && rawResult._domSnapshot.length > 0
+      ? rawResult._domSnapshot
+      : null
+  if (domSnapshot) {
+    try {
+      writeFileSync(join(dataDir, `${fileName}.dom.html`), domSnapshot, 'utf-8')
+    } catch {
+      // ignore: snapshot is best-effort, never block the test
+    }
+    delete rawResult._domSnapshot
+  }
+
   // 从 messages.jsonl 补回 metadata（useChat 不向前端暴露 message.metadata）
-  const enrichedResult = enrichMessagesWithHistoryMetadata(input.result)
+  const enrichedResult = enrichMessagesWithHistoryMetadata(rawResult)
   // 模型 fallback：优先用测试显式传的 `input.model`，否则从 ProbeResult.chatModelId 取 harness 实际使用值。
   // 这样不用改所有测试代码，主页索引就能显示模型徽章。
   const resultModel = typeof (input.result as any)?.chatModelId === 'string'

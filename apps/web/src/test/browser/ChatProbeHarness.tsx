@@ -461,6 +461,7 @@ function ChatProbeInner({
       ...(chatModelId ? { chatModelId } : {}),
       ...(chatModelSource ? { chatModelSource } : {}),
     }
+    captureDomSnapshotToWindow()
     writeResultToDOM(result)
     onComplete?.(result)
   }, [sessionId, totalTurns, allPrompts, onComplete, serverUrl, resolvedTitle, chatModelId, chatModelSource])
@@ -732,6 +733,7 @@ function ChatProbeInner({
         ...(chatModelId ? { chatModelId } : {}),
         ...(chatModelSource ? { chatModelSource } : {}),
       }
+      captureDomSnapshotToWindow()
       writeResultToDOM(result)
       onComplete?.(result)
     }, 200)
@@ -1263,4 +1265,27 @@ function extractTextPreview(messages: any[], maxLen: number): string {
 function writeResultToDOM(result: ProbeResult) {
   const el = document.getElementById('probe-result-json')
   if (el) el.textContent = JSON.stringify(result)
+}
+
+/**
+ * 抓当前页面 `documentElement.outerHTML` 暂存到 `window.__probeDomSnapshot`。
+ *
+ * 设计上不进 ProbeResult / `#probe-result-json`：
+ *   1. outerHTML 通常 100KB-1MB，塞进 #probe-result-json 会让 JSON.parse 变慢，
+ *      也让该元素的 textContent 自指（outerHTML 包含自己刚写入的 JSON 字符串）。
+ *   2. probe-helpers.waitForProbeResult 会在拿到 result 后顺手读这里的快照，
+ *      作为 `result._domSnapshot` 隐藏字段附上，由 saveTestData 抽出来落盘。
+ *
+ * 静默失败：捕获不到 DOM 不影响测试断言本身。
+ */
+function captureDomSnapshotToWindow() {
+  try {
+    if (typeof window === 'undefined' || typeof document === 'undefined') return
+    const html = document.documentElement?.outerHTML
+    if (typeof html === 'string' && html.length > 0) {
+      window.__probeDomSnapshot = html
+    }
+  } catch {
+    // ignore: snapshot is best-effort observability, never load-bearing
+  }
 }
