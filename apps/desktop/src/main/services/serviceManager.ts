@@ -10,8 +10,20 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { app } from 'electron';
 import type { Logger } from '../logging/startupLogger';
-import { cleanupNextDevLock, ensureDevServices, findRepoRoot } from './devServices';
+import {
+  cleanupNextDevLock,
+  ensureDevServices,
+  findRepoRoot,
+  respawnDevServer,
+} from './devServices';
 import { startProductionServices, type ServerCrashInfo } from './prodServices';
+import { delay, isUrlOk } from './urlHealth';
+
+export type { ServerCrashInfo } from './prodServices';
+
+export type RestartServerResult =
+  | { ok: true }
+  | { ok: false; reason: string };
 
 export type ServiceManager = {
   start: (args: {
@@ -21,9 +33,11 @@ export type ServiceManager = {
   }) => Promise<{
     serverUrl: string;
     webUrl: string;
-    /** Resolves with crash info when server process crashes; never resolves if healthy. */
-    serverCrashed?: Promise<ServerCrashInfo>;
   }>;
+  /** Subscribe to server crash events (works after start, dev + prod). */
+  onServerCrash: (handler: (info: ServerCrashInfo) => void) => () => void;
+  /** Restart only the server process, leaving the web side alone. */
+  restartServer: () => Promise<RestartServerResult>;
   stop: () => void;
 };
 
@@ -65,6 +79,29 @@ function stopManaged(child: ChildProcess | null) {
 }
 
 /**
+ * 等待子进程实际退出，最多 timeoutMs 毫秒。
+ */
+async function waitForExit(child: ChildProcess, timeoutMs: number): Promise<void> {
+  if (child.exitCode !== null || child.signalCode !== null) return;
+  await new Promise<void>((resolve) => {
+    let done = false;
+    const onExit = () => {
+      if (done) return;
+      done = true;
+      child.off('exit', onExit);
+      resolve();
+    };
+    child.on('exit', onExit);
+    setTimeout(() => {
+      if (done) return;
+      done = true;
+      child.off('exit', onExit);
+      resolve();
+    }, timeoutMs);
+  });
+}
+
+/**
  * 创建服务管理器：
  * - dev：按需拉起 apps/server 与 apps/web（或复用已有服务）
  * - prod：启动 server.mjs 并提供本地静态站点服务
@@ -74,6 +111,22 @@ export function createServiceManager(log: Logger): ServiceManager {
   let managedServer: ChildProcess | null = null;
   let managedWeb: ChildProcess | null = null;
   let started = false;
+
+  // 监听器在 start() 之前就可被订阅，所以维护在外层。
+  const crashListeners = new Set<(info: ServerCrashInfo) => void>();
+  const emitCrash = (info: ServerCrashInfo) => {
+    log(`[Server Crash] ${info.stderr.slice(0, 200)}`);
+    for (const handler of crashListeners) {
+      try {
+        handler(info);
+      } catch (err) {
+        log(`[Server Crash Listener Error] ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+  };
+
+  // 这两个由 start() 填充，决定 restartServer 的行为。
+  let restartImpl: (() => Promise<RestartServerResult>) | null = null;
 
   /**
    * 启动并返回服务地址：
@@ -97,8 +150,14 @@ export function createServiceManager(log: Logger): ServiceManager {
         webUrl: initialWebUrl,
         cdpPort,
       });
-      managedServer = prod.managedServer;
-      return { serverUrl: initialServerUrl, webUrl: initialWebUrl, serverCrashed: prod.serverCrashed };
+      managedServer = prod.getServer();
+      prod.onServerCrash((info) => emitCrash(info));
+      restartImpl = async () => {
+        const result = await prod.restartServer();
+        managedServer = prod.getServer();
+        return result;
+      };
+      return { serverUrl: initialServerUrl, webUrl: initialWebUrl };
     }
 
     // 开发环境：优先复用已在跑的服务，否则通过 pnpm workspaces 拉起。
@@ -107,9 +166,53 @@ export function createServiceManager(log: Logger): ServiceManager {
       initialServerUrl,
       initialWebUrl,
       cdpPort,
+      onServerCrash: ({ stderr, exitCode, signal }) => {
+        emitCrash({
+          stderr: stderr || `Dev server exited (code=${exitCode ?? 'null'} signal=${signal ?? 'null'})`,
+          isUpdatedServer: false,
+          rolledBack: false,
+        });
+      },
     });
     managedServer = dev.managedServer;
     managedWeb = dev.managedWeb;
+    const devSpec = dev.serverSpawnSpec;
+    const devServerUrl = dev.serverUrl;
+    if (devSpec) {
+      restartImpl = async () => {
+        try {
+          if (managedServer) {
+            stopManaged(managedServer);
+            await waitForExit(managedServer, 5000);
+          }
+          // Wait briefly so the OS releases the listening port.
+          const deadline = Date.now() + 5000;
+          while (Date.now() < deadline) {
+            // 端口空了再 spawn，避免新 server 抢不到端口立刻退出。
+            if (!(await isUrlOk(`${devServerUrl}/`, 500))) break;
+            await delay(150);
+          }
+          managedServer = respawnDevServer(devSpec, ({ stderr, exitCode, signal }) => {
+            emitCrash({
+              stderr: stderr || `Dev server exited (code=${exitCode ?? 'null'} signal=${signal ?? 'null'})`,
+              isUpdatedServer: false,
+              rolledBack: false,
+            });
+          });
+          return { ok: true };
+        } catch (err) {
+          const reason = err instanceof Error ? err.message : String(err);
+          log(`[Dev Server] Restart failed: ${reason}`);
+          return { ok: false, reason };
+        }
+      };
+    } else {
+      // 复用了外部 server（pnpm dev 起的），无法重启它 — 让用户手动重启外部进程或整个 app。
+      restartImpl = async () => ({
+        ok: false,
+        reason: 'Dev server is externally managed (not spawned by Electron)',
+      });
+    }
     return { serverUrl: dev.serverUrl, webUrl: dev.webUrl };
   };
 
@@ -128,5 +231,18 @@ export function createServiceManager(log: Logger): ServiceManager {
     }
   };
 
-  return { start, stop };
+  return {
+    start,
+    stop,
+    onServerCrash: (handler) => {
+      crashListeners.add(handler);
+      return () => crashListeners.delete(handler);
+    },
+    restartServer: async () => {
+      if (!restartImpl) {
+        return { ok: false, reason: 'Service manager not started yet' };
+      }
+      return restartImpl();
+    },
+  };
 }

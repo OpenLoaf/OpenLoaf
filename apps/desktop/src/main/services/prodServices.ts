@@ -11,10 +11,12 @@ import { app } from 'electron';
 import { spawn, type ChildProcess } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { getOpenLoafRootDir, resolveOpenLoafDatabaseUrl, resolveOpenLoafDbPath } from '@openloaf/config';
+import { getOpenLoafRootDir, resolveOpenLoafDatabaseUrl } from '@openloaf/config';
 import type { Logger } from '../logging/startupLogger';
 import { recordServerCrash, type ServerCrashResult } from '../incrementalUpdate';
 import { resolveServerPath } from '../incrementalUpdatePaths';
+import { isPortFree } from './portAllocation';
+import { delay } from './urlHealth';
 
 export type ServerCrashInfo = {
   /** stderr summary from the crashed server process. */
@@ -108,9 +110,26 @@ function resolvePort(rawUrl: string, fallback: number): number {
   }
 }
 
+/**
+ * Holds the spawn context required to (re)launch the bundled server process.
+ * Captured once at startup so `restart()` can reuse exactly the same env / args.
+ */
+type ProdServerContext = {
+  log: Logger;
+  serverHost: string;
+  serverPort: number;
+  serverPath: string;
+  bundledServerPath: string;
+  spawnEnv: NodeJS.ProcessEnv;
+};
+
 export type ProdServices = {
-  managedServer: ChildProcess | null;
-  serverCrashed?: Promise<ServerCrashInfo>;
+  /** Returns the current child process (changes after each restart). */
+  getServer: () => ChildProcess | null;
+  /** Subscribe to server crash events. Returns an unsubscribe function. */
+  onServerCrash: (handler: (info: ServerCrashInfo) => void) => () => void;
+  /** Restart the bundled server process. Resolves once a new process is spawned (or fails). */
+  restartServer: () => Promise<{ ok: true } | { ok: false; reason: string }>;
 };
 
 /**
@@ -126,7 +145,11 @@ export async function startProductionServices(args: {
 }): Promise<ProdServices> {
   const log = args.log;
   if (!app.isPackaged) {
-    return { managedServer: null, serverCrashed: undefined };
+    return {
+      getServer: () => null,
+      onServerCrash: () => () => {},
+      restartServer: async () => ({ ok: false, reason: 'Not in packaged mode' }),
+    };
   }
 
   log('Starting production services...');
@@ -161,7 +184,6 @@ export async function startProductionServices(args: {
     // ignore
   }
 
-  const dbPath = resolveOpenLoafDbPath();
   const databaseUrl = resolveOpenLoafDatabaseUrl();
   const localDbPath = resolveFilePathFromDatabaseUrl(databaseUrl, dataDir);
 
@@ -182,10 +204,10 @@ export async function startProductionServices(args: {
     try {
       ensureDir(path.dirname(localDbPath));
       const seedDbPath = path.join(resourcesPath, 'seed.db');
-      
+
       // Prevent EBUSY/EPERM on Windows when overwriting a locked 0-byte file
       if (fs.existsSync(localDbPath)) {
-         fs.rmSync(localDbPath, { force: true }); 
+         fs.rmSync(localDbPath, { force: true });
       }
 
       if (fs.existsSync(seedDbPath)) {
@@ -205,8 +227,6 @@ export async function startProductionServices(args: {
    * - `server.mjs` 通过 Forge `extraResource` 被放进 `process.resourcesPath`
    * - 使用当前 Electron 自带的 Node 运行时启动，并设置 `ELECTRON_RUN_AS_NODE=1`
    */
-  // serverCrashed: 当 server 进程异常退出时 resolve 并携带崩溃信息，永不 resolve 表示正常运行。
-  let serverCrashed: Promise<ServerCrashInfo> = new Promise<ServerCrashInfo>(() => {});
   const serverPath = resolveServerPath();
   log(`Looking for server at: ${serverPath}`);
 
@@ -245,129 +265,241 @@ export async function startProductionServices(args: {
   const serverHost = resolveHost(args.serverUrl, '127.0.0.1');
   const serverPort = resolvePort(args.serverUrl, 23333);
 
-  let managedServer: ChildProcess | null = null;
-  if (fs.existsSync(serverPath)) {
+  // Build the env once and freeze it; restartServer() reuses the same env so the
+  // restarted process is byte-identical to the original spawn.
+  const spawnEnv: NodeJS.ProcessEnv = {
+    ...process.env,
+    ELECTRON_RUN_AS_NODE: '1',
+    PORT: String(serverPort),
+    HOST: serverHost,
+    // 中文注释：生产环境需要显式放行 app:// 协议和原始 webUrl 作为 CORS origin。
+    CORS_ORIGIN: `app://localhost,${args.webUrl},${process.env.CORS_ORIGIN ?? ''}`,
+    // Allow the bundled server to resolve shipped native deps (e.g. `@libsql/darwin-arm64`)
+    // that are copied into `process.resourcesPath/node_modules` via Forge `extraResource`.
+    NODE_PATH: path.join(process.resourcesPath, 'node_modules'),
+    NODE_ENV: 'production',
+    DOTENV_CONFIG_PATH: userEnvPath,
+    DOTENV_CONFIG_OVERRIDE: '1',
+    ...userEnv,
+    ...packagedEnv,
+    // 中文注释：确保 .env 文件不会覆盖修复后的 PATH，保留 Electron 主进程修复的完整路径。
+    PATH: process.env.PATH,
+    OPENLOAF_DOCX_SFDT_HELPER_ROOT:
+      process.env.OPENLOAF_DOCX_SFDT_HELPER_ROOT ??
+      userEnv.OPENLOAF_DOCX_SFDT_HELPER_ROOT ??
+      packagedEnv.OPENLOAF_DOCX_SFDT_HELPER_ROOT ??
+      path.join(resourcesPath, 'docx-sfdt'),
+    // yt-dlp 二进制路径：由 predesktop 的 prefetch 脚本下载后放到
+    // Resources/bin/，runtime.env 和用户 .env 均可覆盖。
+    OPENLOAF_YTDLP_BINARY:
+      process.env.OPENLOAF_YTDLP_BINARY ??
+      userEnv.OPENLOAF_YTDLP_BINARY ??
+      packagedEnv.OPENLOAF_YTDLP_BINARY ??
+      path.join(
+        resourcesPath,
+        'bin',
+        process.platform === 'win32'
+          ? 'yt-dlp.exe'
+          : process.platform === 'darwin'
+            ? 'yt-dlp_macos'
+            : 'yt-dlp',
+      ),
+    // HTTP/2 证书目录（prod 使用 ~/.openloaf/certs/）
+    OPENLOAF_CERT_DIR: path.join(getOpenLoafRootDir(), 'certs'),
+    // 中文注释：强制对齐 Electron 与 Server 的 CDP 端口，避免运行时不一致。
+    OPENLOAF_REMOTE_DEBUGGING_PORT: String(args.cdpPort),
+  };
+
+  const ctx: ProdServerContext = {
+    log,
+    serverHost,
+    serverPort,
+    serverPath,
+    bundledServerPath,
+    spawnEnv,
+  };
+
+  // Crash listeners are kept outside the server lifecycle so they survive restart.
+  const crashListeners = new Set<(info: ServerCrashInfo) => void>();
+  const emitCrash = (info: ServerCrashInfo) => {
+    for (const listener of crashListeners) {
+      try {
+        listener(info);
+      } catch (err) {
+        log(`[Server Crash Listener Error] ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+  };
+
+  let currentServer: ChildProcess | null = null;
+  // 暂停 crash 上报：用于 restartServer 主动 kill 旧进程时，避免触发崩溃事件。
+  let suppressCrash = false;
+
+  if (!fs.existsSync(serverPath)) {
+    log(`[Error] Server binary not found at ${serverPath}`);
+    emitCrash({
+      stderr: `Server binary not found at ${serverPath}`,
+      isUpdatedServer: serverPath !== bundledServerPath,
+      rolledBack: false,
+    });
+    return {
+      getServer: () => null,
+      onServerCrash: (handler) => {
+        crashListeners.add(handler);
+        return () => crashListeners.delete(handler);
+      },
+      restartServer: async () => ({ ok: false, reason: 'Server binary not found' }),
+    };
+  }
+
+  /** Spawn one server child and wire its lifecycle into the shared crash channel. */
+  const spawnOne = (): ChildProcess | null => {
     try {
-      managedServer = spawn(process.execPath, [serverPath], {
-        env: {
-          ...process.env,
-          // Defaults (may be overridden by userData/.env via spread below + DOTENV_CONFIG_OVERRIDE).
-          ELECTRON_RUN_AS_NODE: '1',
-          PORT: String(serverPort),
-          HOST: serverHost,
-          // 中文注释：生产环境需要显式放行 app:// 协议和原始 webUrl 作为 CORS origin。
-          CORS_ORIGIN: `app://localhost,${args.webUrl},${process.env.CORS_ORIGIN ?? ''}`,
-          // Allow the bundled server to resolve shipped native deps (e.g. `@libsql/darwin-arm64`)
-          // that are copied into `process.resourcesPath/node_modules` via Forge `extraResource`.
-          NODE_PATH: path.join(process.resourcesPath, 'node_modules'),
-          NODE_ENV: 'production',
-          DOTENV_CONFIG_PATH: userEnvPath,
-          DOTENV_CONFIG_OVERRIDE: '1',
-          ...userEnv,
-          ...packagedEnv,
-          // 中文注释：确保 .env 文件不会覆盖修复后的 PATH，保留 Electron 主进程修复的完整路径。
-          PATH: process.env.PATH,
-          OPENLOAF_DOCX_SFDT_HELPER_ROOT:
-            process.env.OPENLOAF_DOCX_SFDT_HELPER_ROOT ??
-            userEnv.OPENLOAF_DOCX_SFDT_HELPER_ROOT ??
-            packagedEnv.OPENLOAF_DOCX_SFDT_HELPER_ROOT ??
-            path.join(resourcesPath, 'docx-sfdt'),
-          // yt-dlp 二进制路径：由 predesktop 的 prefetch 脚本下载后放到
-          // Resources/bin/，runtime.env 和用户 .env 均可覆盖。
-          OPENLOAF_YTDLP_BINARY:
-            process.env.OPENLOAF_YTDLP_BINARY ??
-            userEnv.OPENLOAF_YTDLP_BINARY ??
-            packagedEnv.OPENLOAF_YTDLP_BINARY ??
-            path.join(
-              resourcesPath,
-              'bin',
-              process.platform === 'win32'
-                ? 'yt-dlp.exe'
-                : process.platform === 'darwin'
-                  ? 'yt-dlp_macos'
-                  : 'yt-dlp',
-            ),
-          // HTTP/2 证书目录（prod 使用 ~/.openloaf/certs/）
-          OPENLOAF_CERT_DIR: path.join(getOpenLoafRootDir(), 'certs'),
-          // 中文注释：强制对齐 Electron 与 Server 的 CDP 端口，避免运行时不一致。
-          OPENLOAF_REMOTE_DEBUGGING_PORT: String(args.cdpPort),
-        },
+      const child = spawn(process.execPath, [ctx.serverPath], {
+        env: ctx.spawnEnv,
         windowsHide: true,
         detached: false,
         // fd3 = IPC channel，让 server 通过 process.on('disconnect') 感知父进程退出
         stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
       });
 
-      // 防僵尸进程：当 Electron 退出时，强制杀掉 Server
-      app.on('will-quit', () => {
-        if (managedServer && !managedServer.killed && managedServer.pid) {
-          try {
-            if (process.platform === 'win32') {
-              spawn('taskkill', ['/pid', String(managedServer.pid), '/t', '/f']);
-            } else {
-              process.kill(managedServer.pid);
-            }
-          } catch (e) {
-            log(`Failed to kill server process: ${e}`);
-          }
-        }
-      });
-
       const stderrChunks: string[] = [];
-      managedServer.stdout?.on('data', (d) => log(`[Server Output] ${d}`));
-      managedServer.stderr?.on('data', (d) => {
+      child.stdout?.on('data', (d) => log(`[Server Output] ${d}`));
+      child.stderr?.on('data', (d) => {
         const text = String(d);
         stderrChunks.push(text);
         log(`[Server Error] ${text}`);
       });
-      managedServer.on('error', (err) => log(`[Server Spawn Error] ${err.message}`));
+      child.on('error', (err) => log(`[Server Spawn Error] ${err.message}`));
 
-      // 判断是否正在使用增量更新版本的 server
-      const isUpdatedServer = serverPath !== bundledServerPath;
+      const isUpdatedServer = ctx.serverPath !== ctx.bundledServerPath;
 
-      // 当 server 进程异常退出时 resolve，用于提前终止健康检查轮询。
-      serverCrashed = new Promise<ServerCrashInfo>((resolve) => {
-        managedServer!.on('exit', (code, signal) => {
-          log(`[Server Exited] code=${code} signal=${signal}`);
-          if (code !== 0 && code !== null) {
-            const crashResult: ServerCrashResult = recordServerCrash();
-            if (crashResult.rolledBack) {
-              log(`[Server] Rolled back to bundled server.mjs. Crashed version: ${crashResult.crashedVersion ?? 'unknown'}`);
-            }
-            // 取 stderr 最后 500 字符作为错误摘要。
-            const stderr = stderrChunks.join('').trim();
-            const summary = stderr.length > 500 ? `…${stderr.slice(-500)}` : stderr;
-            resolve({
-              stderr: summary || `Server exited with code ${code}`,
-              isUpdatedServer,
-              crashedVersion: crashResult.crashedVersion,
-              rolledBack: crashResult.rolledBack,
-            });
+      child.on('exit', (code, signal) => {
+        log(`[Server Exited] code=${code} signal=${signal}`);
+        if (suppressCrash) {
+          // restartServer initiated this exit; do not surface as a crash.
+          return;
+        }
+        if (code !== 0 && code !== null) {
+          const crashResult: ServerCrashResult = recordServerCrash();
+          if (crashResult.rolledBack) {
+            log(`[Server] Rolled back to bundled server.mjs. Crashed version: ${crashResult.crashedVersion ?? 'unknown'}`);
           }
-        });
+          const stderr = stderrChunks.join('').trim();
+          const summary = stderr.length > 500 ? `…${stderr.slice(-500)}` : stderr;
+          emitCrash({
+            stderr: summary || `Server exited with code ${code}`,
+            isUpdatedServer,
+            crashedVersion: crashResult.crashedVersion,
+            rolledBack: crashResult.rolledBack,
+          });
+        }
       });
 
       log('Server process spawned');
+      return child;
     } catch (err) {
       const errMsg = `Failed to spawn server: ${err instanceof Error ? err.message : String(err)}`;
       log(errMsg);
-      serverCrashed = Promise.resolve({
+      emitCrash({
         stderr: errMsg,
-        isUpdatedServer: serverPath !== bundledServerPath,
+        isUpdatedServer: ctx.serverPath !== ctx.bundledServerPath,
         rolledBack: false,
       });
+      return null;
     }
-  } else {
-    log(`[Error] Server binary not found at ${serverPath}`);
-    serverCrashed = Promise.resolve({
-      stderr: `Server binary not found at ${serverPath}`,
-      isUpdatedServer: serverPath !== bundledServerPath,
-      rolledBack: false,
+  };
+
+  currentServer = spawnOne();
+
+  // 防僵尸进程：当 Electron 退出时，强制杀掉当前 Server。
+  // 注意：使用 closure 引用 currentServer，restart 后引用会自动更新。
+  app.on('will-quit', () => {
+    const child = currentServer;
+    if (child && !child.killed && child.pid) {
+      try {
+        if (process.platform === 'win32') {
+          spawn('taskkill', ['/pid', String(child.pid), '/t', '/f']);
+        } else {
+          process.kill(child.pid);
+        }
+      } catch (e) {
+        log(`Failed to kill server process: ${e}`);
+      }
+    }
+  });
+
+  /** Stop the current server child (best-effort, with timeout) and wait until it actually exits. */
+  const stopCurrentServer = async (timeoutMs = 5000): Promise<void> => {
+    const child = currentServer;
+    if (!child || child.killed || !child.pid) return;
+    suppressCrash = true;
+    const exitPromise = new Promise<void>((resolve) => {
+      const onExit = () => {
+        child.off('exit', onExit);
+        resolve();
+      };
+      child.on('exit', onExit);
     });
-  }
+    try {
+      if (process.platform === 'win32') {
+        spawn('taskkill', ['/pid', String(child.pid), '/t', '/f'], { stdio: 'ignore' });
+      } else {
+        child.kill('SIGTERM');
+      }
+    } catch (e) {
+      log(`stopCurrentServer kill error: ${e instanceof Error ? e.message : String(e)}`);
+    }
+    // Wait up to timeoutMs for the child to exit; force kill if it doesn't.
+    await Promise.race([
+      exitPromise,
+      delay(timeoutMs).then(() => {
+        if (!child.killed && child.pid) {
+          try {
+            if (process.platform !== 'win32') process.kill(child.pid, 'SIGKILL');
+          } catch {
+            // ignore
+          }
+        }
+      }),
+    ]);
+    // Make sure we waited for the actual exit, not just the timeout.
+    await exitPromise.catch(() => {});
+  };
+
+  const restartServer: ProdServices['restartServer'] = async () => {
+    log('[Server] Restart requested.');
+    try {
+      await stopCurrentServer();
+      // Wait briefly for the port to be released by the OS.
+      const portReleaseDeadline = Date.now() + 5000;
+      while (Date.now() < portReleaseDeadline) {
+        if (await isPortFree(ctx.serverHost, ctx.serverPort)) break;
+        await delay(150);
+      }
+      suppressCrash = false;
+      currentServer = spawnOne();
+      if (!currentServer) {
+        return { ok: false, reason: 'Failed to spawn server' };
+      }
+      return { ok: true };
+    } catch (err) {
+      suppressCrash = false;
+      const reason = err instanceof Error ? err.message : String(err);
+      log(`[Server] Restart failed: ${reason}`);
+      return { ok: false, reason };
+    }
+  };
 
   // Web 静态文件现在由 app:// protocol handler 提供（见 appProtocol.ts），
   // 不再需要 HTTP 静态服务器。
 
-  return { managedServer, serverCrashed };
+  return {
+    getServer: () => currentServer,
+    onServerCrash: (handler) => {
+      crashListeners.add(handler);
+      return () => crashListeners.delete(handler);
+    },
+    restartServer,
+  };
 }

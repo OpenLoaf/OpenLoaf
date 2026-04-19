@@ -11,7 +11,7 @@ import { app, BrowserWindow, ipcMain, screen, shell } from 'electron';
 import { resolveWindowIconPath } from '../resolveWindowIcon';
 import { getMinimizeToTray, setMinimizeToTray } from '../updateConfig';
 import type { Logger } from '../logging/startupLogger';
-import type { ServiceManager } from '../services/serviceManager';
+import type { ServerCrashInfo, ServiceManager } from '../services/serviceManager';
 import { waitForUrlOk } from '../services/urlHealth';
 import { WEBPACK_ENTRIES } from '../webpackEntries';
 
@@ -406,6 +406,17 @@ export async function createMainWindow(args: {
     event.preventDefault();
     void requestClose();
   });
+  // 把崩溃信息推给 web 端的 ServerCrashScreen（dev/prod 共用此逻辑）。
+  const forwardCrashToRenderer = (info: ServerCrashInfo) => {
+    if (mainWindow.isDestroyed()) return;
+    mainWindow.webContents.send('openloaf:server-crash', {
+      error: info.stderr,
+      isUpdatedServer: info.isUpdatedServer,
+      crashedVersion: info.crashedVersion,
+      rolledBack: info.rolledBack,
+    });
+  };
+
   // 生产模式：直接加载 web 应用（通过 app:// 协议即时可用），
   // ServerConnectionGate 会自动轮询等待后端就绪。
   if (app.isPackaged) {
@@ -414,35 +425,27 @@ export async function createMainWindow(args: {
     args.log(`[prod] Loading web directly: ${targetUrl}`);
     await mainWindow.loadURL(targetUrl);
 
+    // 监听 server 崩溃，通过 IPC 通知 web 端显示错误。订阅在 start() 之前注册，
+    // 这样即便 spawn 失败导致同步 emitCrash，也不会丢事件。
+    args.services.onServerCrash((info) => {
+      args.log(`[prod] Server crashed: ${info.stderr}`);
+      forwardCrashToRenderer(info);
+    });
+
     // 并行启动 server（不再等待 web HTTP server）。
     args.services.start({
       initialServerUrl: args.initialServerUrl,
       initialWebUrl: args.initialWebUrl,
       cdpPort: args.initialCdpPort,
-    }).then(({ serverUrl, serverCrashed }) => {
+    }).then(({ serverUrl }) => {
       args.log(`[prod] Services started. serverUrl=${serverUrl}`);
-
-      // 监听 server 崩溃，通过 IPC 通知 web 端显示错误。
-      serverCrashed?.then((crashInfo) => {
-        args.log(`[prod] Server crashed: ${crashInfo.stderr}`);
-        if (!mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('openloaf:server-crash', {
-            error: crashInfo.stderr,
-            isUpdatedServer: crashInfo.isUpdatedServer,
-            crashedVersion: crashInfo.crashedVersion,
-            rolledBack: crashInfo.rolledBack,
-          });
-        }
-      });
     }).catch((err) => {
       args.log(`[prod] Failed to start services: ${String(err)}`);
-      if (!mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('openloaf:server-crash', {
-          error: String(err),
-          isUpdatedServer: false,
-          rolledBack: false,
-        });
-      }
+      forwardCrashToRenderer({
+        stderr: String(err),
+        isUpdatedServer: false,
+        rolledBack: false,
+      });
     });
 
     return { win: mainWindow, serverUrl: args.initialServerUrl, webUrl };
@@ -453,17 +456,21 @@ export async function createMainWindow(args: {
   await mainWindow.loadURL(args.entries.loadingWindow);
 
   try {
-    const { webUrl, serverUrl, serverCrashed } = await args.services.start({
+    const abortController = new AbortController();
+    let startupCrashInfo: ServerCrashInfo | null = null;
+
+    // 启动期：crash 中断 URL 等待；运行期：转发到 web 端 ServerCrashScreen。
+    args.services.onServerCrash((info) => {
+      args.log(`[dev] Server crashed: ${info.stderr}`);
+      if (!startupCrashInfo) startupCrashInfo = info;
+      abortController.abort();
+      forwardCrashToRenderer(info);
+    });
+
+    const { webUrl, serverUrl } = await args.services.start({
       initialServerUrl: args.initialServerUrl,
       initialWebUrl: args.initialWebUrl,
       cdpPort: args.initialCdpPort,
-    });
-
-    const abortController = new AbortController();
-    let crashError: string | undefined;
-    serverCrashed?.then((info) => {
-      crashError = info.stderr;
-      abortController.abort();
     });
 
     const targetUrl = `${webUrl}/`;
@@ -484,9 +491,9 @@ export async function createMainWindow(args: {
         signal: abortController.signal,
       });
       if (!healthOk) {
-        if (crashError) {
-          args.log(`Server crashed during startup: ${crashError}`);
-          await showErrorOnLoadingPage(mainWindow, crashError);
+        if (startupCrashInfo) {
+          args.log(`Server crashed during startup: ${startupCrashInfo.stderr}`);
+          await showErrorOnLoadingPage(mainWindow, startupCrashInfo.stderr);
           return { win: mainWindow, serverUrl, webUrl };
         }
         args.log('Server health check failed. Loading fallback renderer entry.');
@@ -498,9 +505,9 @@ export async function createMainWindow(args: {
       return { win: mainWindow, serverUrl, webUrl };
     }
 
-    if (crashError) {
-      args.log(`Server crashed during startup: ${crashError}`);
-      await showErrorOnLoadingPage(mainWindow, crashError);
+    if (startupCrashInfo) {
+      args.log(`Server crashed during startup: ${startupCrashInfo.stderr}`);
+      await showErrorOnLoadingPage(mainWindow, startupCrashInfo.stderr);
       return { win: mainWindow, serverUrl, webUrl };
     }
 

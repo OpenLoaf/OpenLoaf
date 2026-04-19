@@ -217,6 +217,8 @@ declare global {
       getAppVersion?: () => Promise<string>;
       /** Restart the app to apply updates. */
       relaunchApp?: () => Promise<{ ok: true } | { ok: false; reason: string }>;
+      /** Restart only the backend server process (keeps the app/window). */
+      restartServer?: () => Promise<{ ok: true } | { ok: false; reason: string }>;
       /** Get runtime port info for backend connectivity. */
       getRuntimePortsSync?: () => { ok: boolean; serverUrl?: string; webUrl?: string };
       /** Update Windows title bar button symbol color. */

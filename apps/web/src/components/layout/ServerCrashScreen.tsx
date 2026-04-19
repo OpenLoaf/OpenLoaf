@@ -10,7 +10,7 @@
 "use client"
 
 import { useCallback, useState } from "react"
-import { AlertTriangle, Download, RefreshCw, Send } from "lucide-react"
+import { AlertTriangle, Download, PlugZap, RefreshCw, RotateCw, Send, WifiOff } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import { resolveSaasBaseUrl } from "@/lib/saas-auth"
@@ -22,12 +22,24 @@ export type CrashInfo = {
   isUpdatedServer?: boolean
   crashedVersion?: string
   rolledBack?: boolean
+  /** 'crashed' = process exited unexpectedly; 'disconnected' = health check timed out (no crash event yet). */
+  reason?: "crashed" | "disconnected"
 }
+
+/**
+ * Dispatched after the user successfully kicks off a server restart from
+ * ServerCrashScreen. ServerConnectionGate listens for this to clear its crash state
+ * and reissue the health check.
+ */
+export const SERVER_RESTART_REQUESTED_EVENT = "openloaf:server-restart-requested"
 
 export function ServerCrashScreen({ crashInfo }: { crashInfo: CrashInfo }) {
   const { t } = useTranslation("common")
   const [submitting, setSubmitting] = useState(false)
   const [downloadingUrl, setDownloadingUrl] = useState(false)
+  const [restartingServer, setRestartingServer] = useState(false)
+
+  const isDisconnected = crashInfo.reason === "disconnected"
 
   const handleSubmitFeedback = useCallback(async () => {
     const baseUrl = resolveSaasBaseUrl()
@@ -80,6 +92,7 @@ export function ServerCrashScreen({ crashInfo }: { crashInfo: CrashInfo }) {
           isUpdatedServer: crashInfo.isUpdatedServer,
           crashedVersion: crashInfo.crashedVersion,
           rolledBack: crashInfo.rolledBack,
+          reason: crashInfo.reason ?? "crashed",
           appVersion: appVersion ?? undefined,
           platform: typeof navigator !== "undefined" ? navigator.platform : undefined,
           userAgent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
@@ -111,32 +124,62 @@ export function ServerCrashScreen({ crashInfo }: { crashInfo: CrashInfo }) {
     }
   }, [t])
 
-  const handleRestart = useCallback(async () => {
+  const handleRestartApp = useCallback(async () => {
     if (isElectronEnv()) {
       await window.openloafElectron?.relaunchApp?.()
     }
   }, [])
 
+  const handleRestartServer = useCallback(async () => {
+    if (!isElectronEnv()) return
+    if (!window.openloafElectron?.restartServer) {
+      toast.error(t("crashScreen.restartServerUnavailable"))
+      return
+    }
+    setRestartingServer(true)
+    try {
+      const result = await window.openloafElectron.restartServer()
+      if (result.ok) {
+        toast.success(t("crashScreen.restartServerSuccess"))
+        window.dispatchEvent(new CustomEvent(SERVER_RESTART_REQUESTED_EVENT))
+      } else {
+        toast.error(
+          t("crashScreen.restartServerFailed", { reason: result.reason })
+        )
+      }
+    } catch (err) {
+      toast.error(
+        t("crashScreen.restartServerFailed", {
+          reason: err instanceof Error ? err.message : String(err),
+        })
+      )
+    } finally {
+      setRestartingServer(false)
+    }
+  }, [t])
+
+  const Icon = isDisconnected ? WifiOff : AlertTriangle
+  const title = isDisconnected
+    ? t("crashScreen.disconnectedTitle")
+    : t("crashScreen.title")
+  const description = isDisconnected
+    ? t("crashScreen.disconnectedDesc")
+    : crashInfo.isUpdatedServer && crashInfo.crashedVersion
+      ? t("crashScreen.updateCrashedDesc", { version: crashInfo.crashedVersion })
+      : t("crashScreen.genericDesc")
+
   return (
     <div className="grid h-svh place-items-center bg-background">
       <div className="flex max-w-lg flex-col items-center gap-5 px-6 text-center">
         <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-destructive/10">
-          <AlertTriangle className="h-8 w-8 text-destructive" />
+          <Icon className="h-8 w-8 text-destructive" />
         </div>
 
-        <h1 className="text-xl font-semibold text-foreground">
-          {t("crashScreen.title")}
-        </h1>
+        <h1 className="text-xl font-semibold text-foreground">{title}</h1>
 
-        <p className="text-sm text-muted-foreground">
-          {crashInfo.isUpdatedServer && crashInfo.crashedVersion
-            ? t("crashScreen.updateCrashedDesc", {
-                version: crashInfo.crashedVersion,
-              })
-            : t("crashScreen.genericDesc")}
-        </p>
+        <p className="text-sm text-muted-foreground">{description}</p>
 
-        {crashInfo.error ? (
+        {crashInfo.error && !isDisconnected ? (
           <details className="w-full text-left">
             <summary className="cursor-pointer text-xs font-medium text-muted-foreground">
               {t("crashScreen.errorDetails")}
@@ -147,19 +190,21 @@ export function ServerCrashScreen({ crashInfo }: { crashInfo: CrashInfo }) {
           </details>
         ) : null}
 
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={handleSubmitFeedback}
-            disabled={submitting}
-            className="inline-flex items-center gap-2 rounded-3xl bg-muted px-4 py-2 text-sm font-medium text-foreground transition-colors duration-150 hover:bg-muted/80 disabled:opacity-50"
-          >
-            <Send className="h-4 w-4" />
-            {submitting
-              ? t("crashScreen.submittingFeedback")
-              : t("crashScreen.submitFeedback")}
-          </button>
-          {isElectronEnv() ? (
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          {!isDisconnected ? (
+            <button
+              type="button"
+              onClick={handleSubmitFeedback}
+              disabled={submitting}
+              className="inline-flex items-center gap-2 rounded-3xl bg-muted px-4 py-2 text-sm font-medium text-foreground transition-colors duration-150 hover:bg-muted/80 disabled:opacity-50"
+            >
+              <Send className="h-4 w-4" />
+              {submitting
+                ? t("crashScreen.submittingFeedback")
+                : t("crashScreen.submitFeedback")}
+            </button>
+          ) : null}
+          {isElectronEnv() && !isDisconnected ? (
             <button
               type="button"
               onClick={handleDownloadLatest}
@@ -172,10 +217,27 @@ export function ServerCrashScreen({ crashInfo }: { crashInfo: CrashInfo }) {
                 : t("crashScreen.downloadLatest")}
             </button>
           ) : null}
+          {isElectronEnv() ? (
+            <button
+              type="button"
+              onClick={handleRestartServer}
+              disabled={restartingServer}
+              className="inline-flex items-center gap-2 rounded-3xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors duration-150 hover:bg-primary/90 disabled:opacity-50"
+            >
+              {restartingServer ? (
+                <RotateCw className="h-4 w-4 animate-spin" />
+              ) : (
+                <PlugZap className="h-4 w-4" />
+              )}
+              {restartingServer
+                ? t("crashScreen.restartingServer")
+                : t("crashScreen.restartServer")}
+            </button>
+          ) : null}
           <button
             type="button"
-            onClick={handleRestart}
-            className="inline-flex items-center gap-2 rounded-3xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors duration-150 hover:bg-primary/90"
+            onClick={handleRestartApp}
+            className="inline-flex items-center gap-2 rounded-3xl bg-muted px-4 py-2 text-sm font-medium text-foreground transition-colors duration-150 hover:bg-muted/80"
           >
             <RefreshCw className="h-4 w-4" />
             {t("crashScreen.restart")}

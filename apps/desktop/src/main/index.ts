@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import { app, BrowserWindow, Menu, session, nativeImage, protocol, dialog, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, Menu, session, nativeImage, protocol, dialog, shell } from 'electron';
 import installExtension, { REACT_DEVELOPER_TOOLS } from 'electron-devtools-installer';
 import Module from 'node:module';
 import os from 'node:os';
@@ -501,6 +501,14 @@ async function boot() {
 
   // service manager 统一管理：dev 下的子进程（server/web），prod 下的本地静态服务 + server 进程。
   services = createServiceManager(log);
+
+  // 重启 server 进程（不重启整个 app）。返回 { ok, reason? } 给渲染端。
+  ipcMain.handle('openloaf:server:restart', async () => {
+    if (!services) {
+      return { ok: false as const, reason: 'Service manager not ready' };
+    }
+    return services.restartServer();
+  });
 
   const ports = runtimePorts ?? (await runtimePortsReady);
   const initialServerUrl = ports.serverUrl;

@@ -113,7 +113,7 @@ function killStaleProjectProcesses(repoRoot: string, log: Logger): boolean {
  * 尝试终止占用指定端口的 node 进程（仅限 LISTEN 状态）。
  * 用于清理上次 Electron 退出时残留的 stale server。
  */
-function killStaleServerOnPort(host: string, port: number, log: Logger): void {
+function killStaleServerOnPort(_host: string, port: number, log: Logger): void {
   try {
     if (process.platform === 'win32') {
       // netstat + taskkill：查找监听指定端口的进程并终止。
@@ -164,12 +164,15 @@ function resolveSupervisorPath(): string {
  * 通过 run-supervised.mjs 包装，实现父进程死亡后子进程自动退出：
  *   Electron → supervisor (stdin pipe) → child (detached, own process group)
  *   当 Electron 死亡 → stdin pipe 断开 → supervisor 检测 EOF → kill(-childPid)
+ *
+ * supervisor 透传 child 退出码：server 自己崩溃 → supervisor 也以非 0 退出。
+ * 主动 kill SIGTERM → supervisor cleanup → process.exit(0)。
  */
 function spawnLogged(
   label: string,
   command: string,
   args: string[],
-  opts: { cwd: string; env: NodeJS.ProcessEnv; ipc?: boolean }
+  opts: { cwd: string; env: NodeJS.ProcessEnv; ipc?: boolean; onExit?: (code: number | null, signal: string | null, stderrTail: string) => void }
 ): ChildProcess {
   const supervisorPath = resolveSupervisorPath();
 
@@ -181,23 +184,58 @@ function spawnLogged(
     stdio: ['pipe', 'pipe', 'pipe'],
   });
 
+  // 留存最近的 stderr 用于崩溃上报（最多 ~8KB）。
+  const stderrChunks: string[] = [];
+  let stderrTotalLen = 0;
+  const STDERR_BUDGET = 8192;
+
   child.stdout?.on('data', (d) => process.stdout.write(`[${label}] ${d}`));
-  child.stderr?.on('data', (d) => process.stderr.write(`[${label}] ${d}`));
+  child.stderr?.on('data', (d) => {
+    process.stderr.write(`[${label}] ${d}`);
+    if (opts.onExit) {
+      const text = String(d);
+      stderrChunks.push(text);
+      stderrTotalLen += text.length;
+      while (stderrTotalLen > STDERR_BUDGET && stderrChunks.length > 1) {
+        const removed = stderrChunks.shift();
+        if (removed) stderrTotalLen -= removed.length;
+      }
+    }
+  });
   child.on('exit', (code, signal) => {
     process.stdout.write(
       `[${label}] exited (${code ?? 'null'}, ${signal ?? 'null'})\n`
     );
+    opts.onExit?.(code, signal, stderrChunks.join('').trim());
   });
 
   return child;
 }
+
+/** Captured spec for restarting a dev process verbatim. */
+type DevSpawnSpec = {
+  label: string;
+  command: string;
+  args: string[];
+  cwd: string;
+  env: NodeJS.ProcessEnv;
+  ipc?: boolean;
+};
 
 export type DevServices = {
   serverUrl: string;
   webUrl: string;
   managedServer: ChildProcess | null;
   managedWeb: ChildProcess | null;
+  /** Spec to respawn the dev server (null when reusing an externally-managed server). */
+  serverSpawnSpec: DevSpawnSpec | null;
 };
+
+export type ServerCrashEmitter = (info: {
+  stderr: string;
+  exitCode: number | null;
+  signal: string | null;
+}) => void;
 
 /**
  * Ensures apps/server and apps/web are reachable in development:
@@ -209,6 +247,8 @@ export async function ensureDevServices(args: {
   initialServerUrl: string;
   initialWebUrl: string;
   cdpPort: number;
+  /** Called whenever the managed dev server exits abnormally (non-zero / signal). */
+  onServerCrash?: ServerCrashEmitter;
 }): Promise<DevServices> {
   // dev 环境默认在 monorepo 内运行；若不在仓库根目录附近，避免自动拉起子进程。
   const repoRoot = findRepoRoot(process.cwd());
@@ -218,6 +258,7 @@ export async function ensureDevServices(args: {
       webUrl: args.initialWebUrl,
       managedServer: null,
       managedWeb: null,
+      serverSpawnSpec: null,
     };
   }
 
@@ -242,7 +283,7 @@ export async function ensureDevServices(args: {
     webOk = webOk || (await isUrlOk(`${webUrl}/`));
   }
   if (serverOk && webOk) {
-    return { serverUrl, webUrl, managedServer: null, managedWeb: null };
+    return { serverUrl, webUrl, managedServer: null, managedWeb: null, serverSpawnSpec: null };
   }
 
   if (!webOk) {
@@ -301,6 +342,7 @@ export async function ensureDevServices(args: {
 
   let managedServer: ChildProcess | null = null;
   let managedWeb: ChildProcess | null = null;
+  let serverSpawnSpec: DevSpawnSpec | null = null;
 
   if (!serverOk) {
     // 逻辑：避免 pnpm/tsx watch 管理进程占用调试端口，直接启动 server 进程。
@@ -347,10 +389,10 @@ export async function ensureDevServices(args: {
       delete serverEnv.NODE_OPTIONS;
     }
 
-    managedServer = spawnLogged(
-      'server',
-      node,
-      [
+    serverSpawnSpec = {
+      label: 'server',
+      command: node,
+      args: [
         `--inspect=${serverHost}:${serverInspectPort}`,
         '--enable-source-maps',
         '--import',
@@ -360,10 +402,28 @@ export async function ensureDevServices(args: {
         '--watch',
         serverEntry,
       ],
+      cwd: path.join(repoRoot, 'apps/server'),
+      env: serverEnv,
+      ipc: true,
+    };
+
+    managedServer = spawnLogged(
+      serverSpawnSpec.label,
+      serverSpawnSpec.command,
+      serverSpawnSpec.args,
       {
-        cwd: path.join(repoRoot, 'apps/server'),
-        env: serverEnv,
-        ipc: true,
+        cwd: serverSpawnSpec.cwd,
+        env: serverSpawnSpec.env,
+        ipc: serverSpawnSpec.ipc,
+        onExit: (code, signal, stderrTail) => {
+          // supervisor 透传 child 退出码：
+          //   - server 自己崩溃 → code 非 0 → 上报
+          //   - 主动 SIGTERM 重启 → supervisor cleanup → code 0 → 不上报
+          //   - signal 杀进程 → 通常是用户/OOM 触发，也按崩溃上报
+          if ((code !== null && code !== 0) || signal) {
+            args.onServerCrash?.({ stderr: stderrTail, exitCode: code, signal });
+          }
+        },
       }
     );
 
@@ -404,5 +464,26 @@ export async function ensureDevServices(args: {
     await waitForUrlOk(`${webUrl}/`, { timeoutMs: 60_000, intervalMs: 300 });
   }
 
-  return { serverUrl, webUrl, managedServer, managedWeb };
+  return { serverUrl, webUrl, managedServer, managedWeb, serverSpawnSpec };
 }
+
+/**
+ * Respawn a dev server using a previously-captured spec. Used by ServiceManager.restartServer().
+ * Caller is responsible for stopping the previous child first.
+ */
+export function respawnDevServer(
+  spec: DevSpawnSpec,
+  onServerCrash?: ServerCrashEmitter
+): ChildProcess {
+  return spawnLogged(spec.label, spec.command, spec.args, {
+    cwd: spec.cwd,
+    env: spec.env,
+    ipc: spec.ipc,
+    onExit: (code, signal, stderrTail) => {
+      if ((code !== null && code !== 0) || signal) {
+        onServerCrash?.({ stderr: stderrTail, exitCode: code, signal });
+      }
+    },
+  });
+}
+

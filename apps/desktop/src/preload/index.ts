@@ -140,6 +140,9 @@ contextBridge.exposeInMainWorld('openloafElectron', {
   // Restart the app to apply updates.
   relaunchApp: (): Promise<{ ok: true } | { ok: false; reason: string }> =>
     ipcRenderer.invoke('openloaf:app:relaunch'),
+  // 仅重启后端 server 进程（dev/prod 通用），用于 ServerCrashScreen / 失联恢复。
+  restartServer: (): Promise<{ ok: true } | { ok: false; reason: string }> =>
+    ipcRenderer.invoke('openloaf:server:restart'),
   // Fetch runtime server/web URLs synchronously for early init.
   getRuntimePortsSync: (): { ok: boolean; serverUrl?: string; webUrl?: string } =>
     ipcRenderer.sendSync('openloaf:runtime:ports'),
