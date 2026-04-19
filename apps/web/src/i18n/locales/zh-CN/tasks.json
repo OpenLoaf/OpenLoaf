@@ -94,7 +94,9 @@
     "hoursAgo": "{{hours}}小时前",
     "daysAgo": "{{days}}天前",
     "chatPrefill": "帮我创建一个任务：",
-    "clearDone": "清空已完成"
+    "clearDone": "清空已完成",
+    "clearTodo": "清空待办",
+    "cancelRunning": "取消进行中"
   },
   "schedule": {
     "automaticTasks": "自动任务",

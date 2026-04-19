@@ -119,6 +119,12 @@ export async function waitForProbeResult(
         if (typeof snap === 'string' && snap.length > 0) {
           ;(result as ProbeResult & { _domSnapshot?: string })._domSnapshot = snap
         }
+        // blob: URL 抽到 sibling assets/ 文件后，hash → base64 map 一并塞进 result，
+        // saveTestData 端解码写盘，从 result.json 里删掉。
+        const assets = typeof window !== 'undefined' ? window.__probeBlobAssets : undefined
+        if (assets && typeof assets === 'object' && Object.keys(assets).length > 0) {
+          ;(result as ProbeResult & { _blobAssets?: Record<string, string> })._blobAssets = assets
+        }
       } catch {
         // ignore: dom snapshot is best-effort observability
       }

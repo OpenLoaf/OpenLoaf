@@ -176,7 +176,12 @@ export const AppSidebar = ({
     activeStackComponent ?? layoutView.foregroundComponent ?? activeBaseComponent;
 
   const isMenuActive = (input: { baseId?: string; title?: string; component?: string }) => {
-    if (activeStackComponent) return false;
+    if (activeStackComponent) {
+      // Stack 打开时，回退检查 base 层是否匹配
+      if (input.baseId && activeBaseId === input.baseId) return true;
+      if (input.component && activeBaseComponent === input.component) return true;
+      return false;
+    }
     if (input.baseId && activeBaseId === input.baseId) return true;
     if (input.component === "ai-chat" && !activeBaseId && appState.title === input.title)
       return true;

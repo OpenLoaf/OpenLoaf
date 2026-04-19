@@ -21,7 +21,10 @@ import {
   resolveProjectAncestorRootUris,
 } from "@openloaf/api/services/projectDbService"
 import { prisma } from "@openloaf/db"
-import { loadSkillSummaries } from "@/ai/services/skillsLoader"
+import {
+  loadSkillSummaries,
+  readSkillContentFromPath,
+} from "@/ai/services/skillsLoader"
 import { getErrorMessage } from "@/shared/errorMessages"
 import {
   buildGlobalIgnoreKey,
@@ -265,6 +268,21 @@ export const skillProcedures = {
       )
       await resetSkill(input.skillFolderPath)
       return { ok: true }
+    }),
+  readSkillContent: shieldedProcedure
+    .input(settingSchemas.readSkillContent.input)
+    .output(settingSchemas.readSkillContent.output)
+    .query(async ({ input }) => {
+      const skillPath = input.skillPath.trim()
+      if (!skillPath.startsWith("builtin://")) {
+        // 磁盘路径的技能通过 fs.readFile 经 URI 读取，这里只负责内置虚拟路径。
+        throw new Error("readSkillContent currently only supports builtin:// paths")
+      }
+      const content = readSkillContentFromPath(
+        skillPath,
+        input.preferredLanguage?.trim() || undefined,
+      )
+      return { content }
     }),
   translateSkillTitle: shieldedProcedure
     .input(settingSchemas.translateSkillTitle.input)

@@ -30,6 +30,13 @@ export type ProbeNetworkEntry = {
   error?: string
   ok: boolean
   contentType?: string
+  /** request body, captured at fetch call time. Truncated to NETWORK_BODY_LIMIT. */
+  requestBody?: string
+  /** response body. Read via res.clone().text() fire-and-forget; may be empty if probe drained before stream finished. */
+  responseBody?: string
+  /** Marker when bodies were truncated past the limit. */
+  requestBodyTruncated?: boolean
+  responseBodyTruncated?: boolean
 }
 
 declare global {
@@ -45,6 +52,43 @@ declare global {
 
 const MAX_CONSOLE = 500
 const MAX_NETWORK = 300
+// 单 entry req/resp body 上限。SSE 流（chat）很容易上 MB，512KB 截断让大多数完整 SSE
+// 都能整段保留，又不至于让 result.json 爆掉。
+const NETWORK_BODY_LIMIT = 512 * 1024
+
+function captureRequestBody(_input: RequestInfo | URL, init?: RequestInit): { body?: string; truncated?: boolean } {
+  // 优先 init.body（fetch 主入口），Request 对象的 body 是 stream，不便同步读
+  const raw = init?.body
+  if (raw == null) return {}
+  try {
+    if (typeof raw === 'string') {
+      return raw.length > NETWORK_BODY_LIMIT
+        ? { body: raw.slice(0, NETWORK_BODY_LIMIT), truncated: true }
+        : { body: raw }
+    }
+    if (raw instanceof URLSearchParams) {
+      const s = raw.toString()
+      return s.length > NETWORK_BODY_LIMIT ? { body: s.slice(0, NETWORK_BODY_LIMIT), truncated: true } : { body: s }
+    }
+    if (raw instanceof FormData) {
+      const parts: string[] = []
+      raw.forEach((v, k) => {
+        parts.push(typeof v === 'string' ? `${k}=${v}` : `${k}=<File ${(v as File).name}>`)
+      })
+      const s = parts.join('&')
+      return s.length > NETWORK_BODY_LIMIT ? { body: s.slice(0, NETWORK_BODY_LIMIT), truncated: true } : { body: s }
+    }
+    if (raw instanceof Blob) {
+      return { body: `<Blob ${raw.size} bytes type="${raw.type}">` }
+    }
+    if (raw instanceof ArrayBuffer) {
+      return { body: `<ArrayBuffer ${raw.byteLength} bytes>` }
+    }
+    return { body: `<${(raw as { constructor?: { name?: string } }).constructor?.name ?? 'unknown'}>` }
+  } catch {
+    return {}
+  }
+}
 
 function safeStringify(v: unknown): string {
   if (v == null) return String(v)
@@ -94,29 +138,50 @@ export function installProbeObservers(): void {
     const url = typeof input === 'string' ? input
       : input instanceof URL ? input.toString()
       : (input as Request).url
+    const reqBody = captureRequestBody(input, init)
     try {
       const res = await origFetch(input as RequestInfo, init)
       if (state.network.length < MAX_NETWORK) {
-        state.network.push({
+        const entry: ProbeNetworkEntry = {
           ts: start - installedAt,
           method, url,
           status: res.status,
           durationMs: Date.now() - start,
           ok: res.ok,
           contentType: res.headers.get('content-type') ?? undefined,
-        })
+        }
+        if (reqBody.body !== undefined) entry.requestBody = reqBody.body
+        if (reqBody.truncated) entry.requestBodyTruncated = true
+        state.network.push(entry)
+        // Fire-and-forget: clone() lets us read response without consuming the original stream.
+        // For SSE/chat streams, .text() resolves only after the stream ends — by then onComplete
+        // may already have drained, so the body may be missing in the report. Acceptable trade-off.
+        try {
+          res.clone().text().then(text => {
+            if (typeof text !== 'string') return
+            if (text.length > NETWORK_BODY_LIMIT) {
+              entry.responseBody = text.slice(0, NETWORK_BODY_LIMIT)
+              entry.responseBodyTruncated = true
+            } else {
+              entry.responseBody = text
+            }
+          }).catch(() => { /* ignore — body capture is best-effort */ })
+        } catch { /* ignore — clone may fail on already-consumed responses */ }
       }
       return res
     } catch (err) {
       if (state.network.length < MAX_NETWORK) {
-        state.network.push({
+        const entry: ProbeNetworkEntry = {
           ts: start - installedAt,
           method, url,
           status: null,
           durationMs: Date.now() - start,
           ok: false,
           error: err instanceof Error ? err.message : String(err),
-        })
+        }
+        if (reqBody.body !== undefined) entry.requestBody = reqBody.body
+        if (reqBody.truncated) entry.requestBodyTruncated = true
+        state.network.push(entry)
       }
       throw err
     }

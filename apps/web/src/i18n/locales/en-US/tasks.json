@@ -94,7 +94,9 @@
     "hoursAgo": "{{hours}}h ago",
     "daysAgo": "{{days}}d ago",
     "chatPrefill": "Help me create a task: ",
-    "clearDone": "Clear done"
+    "clearDone": "Clear done",
+    "clearTodo": "Clear todo",
+    "cancelRunning": "Cancel running"
   },
   "schedule": {
     "automaticTasks": "Automatic Tasks",

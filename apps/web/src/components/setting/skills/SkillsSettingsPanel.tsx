@@ -30,6 +30,7 @@ import {
   Loader2,
   FolderCog,
   MoveRight,
+  Package,
   RefreshCw,
   RotateCcw,
   Search,
@@ -151,7 +152,24 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
     ? trpc.settings.getSkills.queryOptions({ projectId })
     : trpc.settings.getSkills.queryOptions();
   const skillsQuery = useQuery(queryOptions);
-  const skills = (skillsQuery.data ?? EMPTY_SKILLS) as SkillSummary[];
+  const rawSkills = (skillsQuery.data ?? EMPTY_SKILLS) as SkillSummary[];
+  /** Overlay localized name/description on builtin skills; leave originalName/ignoreKey intact. */
+  const skills = useMemo(() => {
+    if (rawSkills.length === 0) return rawSkills;
+    return rawSkills.map((skill) => {
+      if (skill.scope !== "builtin") return skill;
+      const localizedName = t(`skills.builtin.${skill.originalName}.name`, {
+        defaultValue: skill.name,
+      });
+      const localizedDescription = t(`skills.builtin.${skill.originalName}.description`, {
+        defaultValue: skill.description,
+      });
+      if (localizedName === skill.name && localizedDescription === skill.description) {
+        return skill;
+      }
+      return { ...skill, name: localizedName, description: localizedDescription };
+    });
+  }, [rawSkills, t]);
   const { data: projectData } = useProject(projectId);
   const pushStackItem = useLayoutState((state) => state.pushStackItem);
   const setSettingsOpen = useGlobalOverlay((s) => s.setSettingsOpen);
@@ -177,8 +195,9 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
     });
   }, [skills, searchQuery, statusFilter]);
 
-  /** Group skills: project first, then global. */
+  /** Group skills: project first, then global, then builtin. */
   const skillGroups = useMemo((): SkillGroup[] => {
+    const builtinSkills = filteredSkills.filter((s) => s.scope === "builtin");
     const globalSkills = filteredSkills.filter((s) => s.scope === "global");
     const projectSkills = filteredSkills.filter((s) => s.scope === "project");
     const groups: SkillGroup[] = [];
@@ -232,6 +251,16 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
         icon: Globe,
         skills: globalSkills,
         folderUri: globalSkillsRootUri || undefined,
+      });
+    }
+
+    // Builtin group (platform-native skills, shown last)
+    if (builtinSkills.length > 0) {
+      groups.push({
+        key: "builtin",
+        label: t('skills.scopeBuiltin', { defaultValue: '内嵌技能' }),
+        icon: Package,
+        skills: builtinSkills,
       });
     }
 
@@ -444,14 +473,41 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
     if (!res?.ok) toast.error(res?.reason ?? t('skills.openDirFailed'));
   }, [t]);
 
-  const handleOpenSkill = useCallback((skill: SkillSummary) => {
+  const handleOpenSkill = useCallback(async (skill: SkillSummary) => {
+    const isBuiltinSkill = skill.scope === "builtin";
     const isProjectSkill = skill.scope === "project";
     const isGlobalSkill = skill.scope === "global";
+    const stackKey = skill.ignoreKey.trim() || skill.path || skill.name;
+
+    if (isBuiltinSkill) {
+      try {
+        const { content } = await queryClient.fetchQuery(
+          trpc.settings.readSkillContent.queryOptions({ skillPath: skill.path }),
+        );
+        pushStackItem({
+          id: `skill:builtin:${stackKey}`,
+          sourceKey: `skill:builtin:${stackKey}`,
+          component: "markdown-viewer",
+          title: `${t('skills.scopeBuiltin', { defaultValue: '内嵌技能' })} · ${skill.name}`,
+          params: {
+            __customHeader: true,
+            name: skill.name,
+            ext: "md",
+            content,
+            readOnly: true,
+          },
+        });
+        setSettingsOpen(false);
+      } catch (err: any) {
+        toast.error(err?.message ?? t('skills.readFailed', { error: '' }));
+      }
+      return;
+    }
+
     const baseRootUri = isGlobalSkill ? undefined : isProjectSkill ? projectData?.project?.rootUri : undefined;
     const rootUri = resolveSkillFolderUri(skill.path, baseRootUri);
     if (!rootUri) return;
     const currentUri = resolveSkillUri(skill.path, rootUri);
-    const stackKey = skill.ignoreKey.trim() || skill.path || skill.name;
     const titlePrefix = isGlobalSkill ? t('skills.scopeGlobal') : t('skills.scopeProject');
     pushStackItem({
       id: `skill:${skill.scope}:${stackKey}`,
@@ -535,8 +591,9 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
 
   /** Render a single skill card. */
   const renderSkillCard = (skill: SkillSummary) => {
+    const isBuiltin = skill.scope === "builtin";
     const baseRootUri = skill.scope === "global" ? undefined : skill.scope === "project" ? projectData?.project?.rootUri : undefined;
-    const canOpenSkill = Boolean(resolveSkillFolderUri(skill.path, baseRootUri));
+    const canOpenSkill = isBuiltin || Boolean(resolveSkillFolderUri(skill.path, baseRootUri));
     const colorIdx = skill.colorIndex != null
       ? skill.colorIndex % CARD_GRADIENTS.length
       : hashCode(skill.ignoreKey || skill.path || skill.name) % CARD_GRADIENTS.length;
@@ -549,7 +606,7 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
               "group relative flex flex-col overflow-hidden rounded-3xl border-l-[3px] border border-border/70 shadow-none transition-all duration-200 hover:shadow-none hover:border-foreground/40 cursor-pointer",
               ACCENT_BORDER_COLORS[colorIdx],
             )}
-            onClick={() => { if (canOpenSkill) handleOpenSkill(skill) }}
+            onClick={() => { if (canOpenSkill) void handleOpenSkill(skill) }}
           >
             {/* Gradient header strip */}
             <div className={cn("px-3.5 pt-3 pb-2 bg-gradient-to-r", CARD_GRADIENTS[colorIdx])}>
@@ -561,14 +618,16 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
                     <span className="truncate">{skill.name}</span>
                   </div>
                 </div>
-                <Switch
-                  checked={skill.isEnabled}
-                  onCheckedChange={(checked) => handleToggleSkill(skill, checked)}
-                  className="border-border bg-secondary data-[state=checked]:bg-foreground dark:data-[state=checked]:bg-foreground"
-                  aria-label={t('skills.enableSkillAriaLabel', { name: skill.name })}
-                  disabled={updateSkillMutation.isPending}
-                  onClick={(e) => e.stopPropagation()}
-                />
+                {isBuiltin ? null : (
+                  <Switch
+                    checked={skill.isEnabled}
+                    onCheckedChange={(checked) => handleToggleSkill(skill, checked)}
+                    className="border-border bg-secondary data-[state=checked]:bg-foreground dark:data-[state=checked]:bg-foreground"
+                    aria-label={t('skills.enableSkillAriaLabel', { name: skill.name })}
+                    disabled={updateSkillMutation.isPending}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                )}
               </div>
             </div>
 
@@ -581,7 +640,14 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
 
               {/* Footer: folder name + use button */}
               <div className="mt-2 flex min-w-0 items-center justify-between gap-2">
-                <span className="truncate text-[11px] text-muted-foreground/60">{skill.folderName}</span>
+                {isBuiltin ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-muted/60 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                    <Package className="h-3 w-3" />
+                    {t('skills.builtinBadge', { defaultValue: '系统技能' })}
+                  </span>
+                ) : (
+                  <span className="truncate text-[11px] text-muted-foreground/60">{skill.folderName}</span>
+                )}
                 <Button
                   type="button"
                   size="icon"
@@ -597,39 +663,52 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
           </div>
         </ContextMenuTrigger>
         <ContextMenuContent className="w-48">
-          <ContextMenuItem icon={Eye} onClick={() => handleOpenSkill(skill)} disabled={!canOpenSkill}>
-            {t('skills.viewSkillDir')}
-          </ContextMenuItem>
-          <ContextMenuItem icon={ArrowRight} onClick={() => handleInsertSkillCommand(skill)}>
-            {t('skills.useSkill')}
-          </ContextMenuItem>
-          <ContextMenuItem icon={Download} onClick={() => void handleExportSkill(skill)}>
-            {t('skills.exportSkill', { defaultValue: '导出' })}
-          </ContextMenuItem>
-          <ContextMenuSeparator />
-          <ContextMenuItem icon={Copy} onClick={() => handleOpenTransferDialog(skill, "copy")}>
-            {t('skills.transfer.copyTo', { defaultValue: '复制到其他项目' })}
-          </ContextMenuItem>
-          <ContextMenuItem icon={MoveRight} onClick={() => handleOpenTransferDialog(skill, "move")}>
-            {t('skills.transfer.moveTo', { defaultValue: '移动到其他项目' })}
-          </ContextMenuItem>
-          <ContextMenuSeparator />
-          <ColorPickerSubMenu
-            currentIndex={skill.colorIndex}
-            onSelect={(ci) => handleChangeSkillColor(skill, ci)}
-            label={t('skills.changeColor', { defaultValue: '更改颜色' })}
-          />
-          <ContextMenuItem icon={RotateCcw} onClick={() => void handleResetSkill(skill)} disabled={resetSkillMutation.isPending}>
-            {t('skills.resetSkill', { defaultValue: '初始化' })}
-          </ContextMenuItem>
-          {skill.isDeletable ? (
+          {isBuiltin ? (
             <>
-              <ContextMenuSeparator />
-              <ContextMenuItem icon={Trash2} variant="destructive" onClick={() => void handleDeleteSkill(skill)} disabled={deleteSkillMutation.isPending}>
-                {t('skills.deleteSkill')}
+              <ContextMenuItem icon={Eye} onClick={() => void handleOpenSkill(skill)}>
+                {t('skills.viewSkillContent', { defaultValue: '查看内容' })}
+              </ContextMenuItem>
+              <ContextMenuItem icon={ArrowRight} onClick={() => handleInsertSkillCommand(skill)}>
+                {t('skills.useSkill')}
               </ContextMenuItem>
             </>
-          ) : null}
+          ) : (
+            <>
+              <ContextMenuItem icon={Eye} onClick={() => void handleOpenSkill(skill)} disabled={!canOpenSkill}>
+                {t('skills.viewSkillDir')}
+              </ContextMenuItem>
+              <ContextMenuItem icon={ArrowRight} onClick={() => handleInsertSkillCommand(skill)}>
+                {t('skills.useSkill')}
+              </ContextMenuItem>
+              <ContextMenuItem icon={Download} onClick={() => void handleExportSkill(skill)}>
+                {t('skills.exportSkill', { defaultValue: '导出' })}
+              </ContextMenuItem>
+              <ContextMenuSeparator />
+              <ContextMenuItem icon={Copy} onClick={() => handleOpenTransferDialog(skill, "copy")}>
+                {t('skills.transfer.copyTo', { defaultValue: '复制到其他项目' })}
+              </ContextMenuItem>
+              <ContextMenuItem icon={MoveRight} onClick={() => handleOpenTransferDialog(skill, "move")}>
+                {t('skills.transfer.moveTo', { defaultValue: '移动到其他项目' })}
+              </ContextMenuItem>
+              <ContextMenuSeparator />
+              <ColorPickerSubMenu
+                currentIndex={skill.colorIndex}
+                onSelect={(ci) => handleChangeSkillColor(skill, ci)}
+                label={t('skills.changeColor', { defaultValue: '更改颜色' })}
+              />
+              <ContextMenuItem icon={RotateCcw} onClick={() => void handleResetSkill(skill)} disabled={resetSkillMutation.isPending}>
+                {t('skills.resetSkill', { defaultValue: '初始化' })}
+              </ContextMenuItem>
+              {skill.isDeletable ? (
+                <>
+                  <ContextMenuSeparator />
+                  <ContextMenuItem icon={Trash2} variant="destructive" onClick={() => void handleDeleteSkill(skill)} disabled={deleteSkillMutation.isPending}>
+                    {t('skills.deleteSkill')}
+                  </ContextMenuItem>
+                </>
+              ) : null}
+            </>
+          )}
         </ContextMenuContent>
       </ContextMenu>
     );

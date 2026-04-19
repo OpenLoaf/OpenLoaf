@@ -2,14 +2,18 @@
 /**
  * Audit browser tests vs recorded test-case yaml files.
  *
- * Reports three categories:
+ * Reports five categories:
  *   - never_run      : .browser.tsx exists but no yaml (potentially un-executed)
  *   - orphan_yaml    : yaml exists but corresponding .browser.tsx is gone
+ *   - duplicate      : same `name:` appears in multiple yaml files (pick one, delete rest)
+ *   - misplaced      : yaml should live at `<suite>/<slug>.yaml` but sits elsewhere
+ *                      (usually a legacy flat-layout leftover from pre-suite restructure)
  *   - prompt_drift   : both exist but yaml promptHash is missing or pre-2.x (no hash)
  */
 import { readFileSync, readdirSync, existsSync } from 'node:fs'
 import { join, resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { resolveSuite } from './test-case-paths.mjs'
 
 const root = dirname(fileURLToPath(import.meta.url))
 const webRoot = resolve(root, '../../..')
@@ -93,9 +97,58 @@ const neverRun = [...uniqueFileSlugs.entries()]
   })
   .map(([slug, path]) => ({ slug, path }))
 
+// ── Duplicate detection (same `name:` in multiple yaml files) ──
+// Group yamls by name; any group with >1 file is a duplicate set.
+const yamlsByName = new Map()
+for (const y of yamls) {
+  const list = yamlsByName.get(y.name) ?? []
+  list.push(y)
+  yamlsByName.set(y.name, list)
+}
+const duplicates = [] // [{ name, files: [{rel, size, promptHash}] }]
+for (const [name, list] of yamlsByName) {
+  if (list.length < 2) continue
+  duplicates.push({
+    name,
+    files: list.map(y => ({
+      rel: y.file,
+      size: existsSync(y.path) ? readFileSync(y.path).length : 0,
+      promptHash: y.promptHash,
+    })).sort((a, b) => b.size - a.size), // biggest first = likely source-of-truth
+  })
+}
+
+// ── Misplaced detection (yaml not at expected <suite>/<slug>.yaml) ──
+// A yaml is misplaced when resolveSuite(name) returns a suite but the yaml's
+// relative path doesn't start with `<suite>/`. Top-level flat yamls and
+// cross-suite-folder placements both land here.
+const misplaced = []
+for (const y of yamls) {
+  const suite = resolveSuite(y.name)
+  if (!suite) continue // name can't map to a suite; leave alone
+  const expectedPrefix = `${suite}/`
+  if (!y.file.startsWith(expectedPrefix)) {
+    misplaced.push({
+      name: y.name,
+      actual: y.file,
+      expected: `${suite}/${y.name}.yaml`,
+    })
+  }
+}
+
 const orphanYaml = yamls.filter(y => !testBySlug.has(y.name))
+// Skip prompt-drift noise caused by duplicate flat-layout leftovers: if a name
+// has any yaml sitting at the correct <suite>/ location with a promptHash, the
+// orphan flat twin isn't "drift", it's a "duplicate" — already reported above.
+const namesWithCanonicalHash = new Set()
+for (const [name, list] of yamlsByName) {
+  const suite = resolveSuite(name)
+  if (!suite) continue
+  const canonical = list.find(y => y.file.startsWith(`${suite}/`) && y.promptHash)
+  if (canonical) namesWithCanonicalHash.add(name)
+}
 const promptDrift = yamls
-  .filter(y => y.promptHash == null && testBySlug.has(y.name))
+  .filter(y => y.promptHash == null && testBySlug.has(y.name) && !namesWithCanonicalHash.has(y.name))
 
 console.log(`\n== Browser test audit ==`)
 console.log(`Total .browser.tsx files : ${tests.length}`)
@@ -110,11 +163,16 @@ function dump(label, items, render) {
 
 dump('Never-run tests (no yaml)', neverRun, t => `${t.slug}  —  ${t.path.replace(webRoot + '/', '')}`)
 dump('Orphan yamls (test file gone)', orphanYaml, y => `${y.name}  —  ${y.path.replace(monoRoot + '/', '')}`)
+dump('Duplicate yamls (same name, multiple files — keep the biggest, delete rest)', duplicates, d => {
+  const lines = d.files.map((f, i) => `${i === 0 ? 'keep ' : 'drop '}${f.rel}  (${f.size}B${f.promptHash ? ', hash' : ', no-hash'})`)
+  return `${d.name}\n    ${lines.join('\n    ')}`
+})
+dump('Misplaced yamls (should live at <suite>/<slug>.yaml)', misplaced, m => `${m.name}\n    actual:   ${m.actual}\n    expected: ${m.expected}`)
 dump('Prompt-drift (yaml predates promptHash field)', promptDrift, y => `${y.name}  —  last ${y.updatedAt ?? 'unknown'}`)
 
-const hasIssue = neverRun.length + orphanYaml.length + promptDrift.length
+const hasIssue = neverRun.length + orphanYaml.length + duplicates.length + misplaced.length + promptDrift.length
 if (hasIssue) {
-  console.log(`Found ${hasIssue} issue(s). Run the missing tests or clean up orphan yamls.`)
+  console.log(`Found ${hasIssue} issue(s). Run the missing tests or clean up orphan/duplicate/misplaced yamls.`)
   process.exit(hasIssue > 10 ? 2 : 1)
 }
 console.log('All browser tests and yaml test-cases are in sync.')

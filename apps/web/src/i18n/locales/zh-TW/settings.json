@@ -789,6 +789,81 @@
     "webNotSupported": "網頁版不支援開啟檔案管理員",
     "openDirFailed": "無法開啟檔案管理員",
     "confirmDelete": "確認刪除技能「{{name}}」？此操作不可撤銷。",
+    "scopeBuiltin": "內嵌技能",
+    "builtinBadge": "系統技能",
+    "builtinLockedTooltip": "系統內嵌技能，始終啟用，無法關閉",
+    "builtinLockedAria": "{{name}}（系統技能，始終啟用）",
+    "viewSkillContent": "檢視內容",
+    "builtin": {
+      "email-ops-skill": {
+        "name": "郵件操作",
+        "description": "管理真實信箱：收發、回覆、轉寄、搜尋、歸檔與刪除"
+      },
+      "calendar-ops-skill": {
+        "name": "日曆操作",
+        "description": "查詢、新增、修改、刪除行程與會議"
+      },
+      "schedule-ops-skill": {
+        "name": "定時任務",
+        "description": "背景非同步執行、cron 週期任務與看板任務審批"
+      },
+      "canvas-ops-skill": {
+        "name": "畫布管理",
+        "description": "新增、開啟、複製、刪除 OpenLoaf 畫布與白板"
+      },
+      "project-ops-skill": {
+        "name": "專案管理",
+        "description": "建立、開啟、切換、搬移、改名專案與子專案"
+      },
+      "workbench-ops-skill": {
+        "name": "工作台元件",
+        "description": "管理桌面 Widget：新增、修改、檢視、刪除"
+      },
+      "settings-guide-skill": {
+        "name": "設定指南",
+        "description": "API Key、模型、主題、語言、快速鍵等設定導引"
+      },
+      "agent-orchestration-skill": {
+        "name": "智能體編排",
+        "description": "將子任務委派給 browser / coder / designer 等子代理"
+      },
+      "browser-ops-skill": {
+        "name": "瀏覽器操作",
+        "description": "登入、填表、點擊、擷取、截圖等網頁自動化"
+      },
+      "pdf-skill": {
+        "name": "PDF 工具",
+        "description": "PDF 讀 / 寫 / 轉 / OCR：總結、填表、合併、加浮水印"
+      },
+      "docx-skill": {
+        "name": "Word 文件",
+        "description": "產生、修改、摘要、轉換 .docx / .doc 文件"
+      },
+      "xlsx-skill": {
+        "name": "Excel 試算表",
+        "description": "讀取、統計、修改、產生試算表與 CSV"
+      },
+      "pptx-skill": {
+        "name": "PowerPoint 簡報",
+        "description": "摘要、修改、產生 PPT 投影片"
+      },
+      "media-ops-skill": {
+        "name": "音視訊處理",
+        "description": "圖片 / 影片 / 音訊處理與網路影片下載"
+      },
+      "visualization-ops-skill": {
+        "name": "資料視覺化",
+        "description": "產生圖表、動態 JSX 與結構化呈現"
+      },
+      "skill-creator-skill": {
+        "name": "技能開發",
+        "description": "建立、除錯、優化自訂 Skill"
+      },
+      "cloud-media-skill": {
+        "name": "雲端媒體產生",
+        "description": "AI 產生圖片、音訊、影片（雲端付費能力）"
+      }
+    },
     "scopeGlobal": "全域技能",
     "scopeProject": "專案技能",
     "scopeProjectSpace": "專案空間技能",
@@ -1009,6 +1084,14 @@
     "email": {
       "name": "郵件助手",
       "description": "郵件查詢和操作"
+    },
+    "explore": {
+      "name": "文件研究員",
+      "description": "從本機檔案、Office 文件、PDF 及網頁中擷取並整理資訊，僅讀不改"
+    },
+    "general-purpose": {
+      "name": "通用任務助手",
+      "description": "多步研究、搜尋、綜合推理，適合邊界不明的複雜任務"
     },
     "master": {
       "name": "預設智能體",

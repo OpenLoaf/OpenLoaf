@@ -461,7 +461,10 @@ function ChatProbeInner({
       ...(chatModelId ? { chatModelId } : {}),
       ...(chatModelSource ? { chatModelSource } : {}),
     }
-    captureDomSnapshotToWindow()
+    // 等 1 秒再抓 DOM：reasoning streaming / 工具卡片折叠动画 / 消息气泡
+    // 入场过渡都需要时间收尾。过早抓会拍到"深度思考中…"等中间态。
+    await new Promise(r => setTimeout(r, 1000))
+    await captureDomSnapshotToWindow()
     writeResultToDOM(result)
     onComplete?.(result)
   }, [sessionId, totalTurns, allPrompts, onComplete, serverUrl, resolvedTitle, chatModelId, chatModelSource])
@@ -702,7 +705,7 @@ function ChatProbeInner({
     }
 
     // 非网络错误或重试耗尽 → 报告失败
-    const timer = setTimeout(() => {
+    const timer = setTimeout(async () => {
       if (onCompleteCalledRef.current) return
       onCompleteCalledRef.current = true
       const elapsedMs = Date.now() - startTimeRef.current
@@ -733,10 +736,10 @@ function ChatProbeInner({
         ...(chatModelId ? { chatModelId } : {}),
         ...(chatModelSource ? { chatModelSource } : {}),
       }
-      captureDomSnapshotToWindow()
+      await captureDomSnapshotToWindow()
       writeResultToDOM(result)
       onComplete?.(result)
-    }, 200)
+    }, 1000)
     return () => clearTimeout(timer)
   }, [chat.status, chat.error, chat.messages, sessionId, onComplete])
 
@@ -1010,36 +1013,14 @@ function ChatProbeInner({
                 data-probe-message-count={chat.messages.length}
                 style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw' }}
               >
-                {/* 状态栏 */}
+                {/* 状态栏 —— 仅为测试 helper（probe-helpers.ts 用 testid 读 probeStatus）保留，
+                    视觉上隐藏，避免污染 DOM 快照报告。元数据（耗时/积分/sessionId）在
+                    报告 sec-head 直接显示，更紧凑。 */}
                 <div
                   data-testid="probe-status-bar"
-                  style={{
-                    padding: '8px 16px',
-                    fontSize: '12px',
-                    fontFamily: 'monospace',
-                    borderBottom: '1px solid var(--border, #e5e7eb)',
-                    display: 'flex',
-                    gap: '16px',
-                    flexShrink: 0,
-                    background: 'var(--muted, #f8fafc)',
-                  }}
+                  style={{ display: 'none' }}
                 >
-                  <span>Status: <strong data-testid="probe-status">{probeStatus}</strong></span>
-                  <span>Messages: <strong>{chat.messages.length}</strong></span>
-                  <span>Session: <code style={{ fontSize: '11px' }}>{sessionId}</code></span>
-                  {chatModelId && (
-                    <span>
-                      Model: <code style={{ fontSize: '11px' }}>{chatModelId}</code>
-                      {modelOverride.id && (
-                        <strong style={{ marginLeft: 4, color: 'var(--warning, #d97706)' }}>[--model override]</strong>
-                      )}
-                    </span>
-                  )}
-                  {chat.error && (
-                    <span style={{ color: 'var(--destructive, #dc2626)' }}>
-                      Error: {chat.error.message}
-                    </span>
-                  )}
+                  <span data-testid="probe-status">{probeStatus}</span>
                 </div>
 
                 {/* ProbeResult JSON（隐藏，供测试读取） */}
@@ -1278,13 +1259,109 @@ function writeResultToDOM(result: ProbeResult) {
  *
  * 静默失败：捕获不到 DOM 不影响测试断言本身。
  */
-function captureDomSnapshotToWindow() {
+function mimeToExt(mime: string): string {
+  const m = (mime || '').toLowerCase().split(';')[0].trim()
+  const map: Record<string, string> = {
+    'image/png': 'png', 'image/jpeg': 'jpg', 'image/jpg': 'jpg',
+    'image/gif': 'gif', 'image/webp': 'webp', 'image/avif': 'avif',
+    'image/svg+xml': 'svg', 'image/bmp': 'bmp',
+    'video/mp4': 'mp4', 'video/webm': 'webm', 'video/quicktime': 'mov',
+    'audio/mpeg': 'mp3', 'audio/mp4': 'm4a', 'audio/wav': 'wav',
+    'audio/ogg': 'ogg', 'audio/webm': 'weba',
+  }
+  return map[m] || ''
+}
+
+async function captureDomSnapshotToWindow() {
   try {
     if (typeof window === 'undefined' || typeof document === 'undefined') return
-    const html = document.documentElement?.outerHTML
-    if (typeof html === 'string' && html.length > 0) {
-      window.__probeDomSnapshot = html
+    const root = document.documentElement
+    if (!root) return
+    // 克隆一份再改写，不污染当前 page。
+    // 三件事：
+    //   1) 相对路径 <img>/<video>/<audio>/<source> → 绝对 URL（基于 location.href）
+    //      避免 file:// 下打开 dom.html 时相对路径回退成 file:///.../data/xxx 而 404
+    //   2) blob: URL → base64 data URL 内嵌
+    //      blob: 是当前 page session 的 ObjectURL，跨 page 必死，必须 inline 才能在
+    //      重打开报告时看到图。单文件 5MB 上限，超了打个 marker，避免 dom.html 爆
+    //   3) srcset 同步处理相对路径绝对化
+    // 不改写 <link>/<script>/<iframe>：
+    //   - <link> 已被 saveTestData 替换成 ../../shared-styles/<hash>.css 相对路径
+    //   - <script>/<iframe> 在 sandbox iframe 里不会执行/加载
+    const cloned = root.cloneNode(true) as HTMLElement
+
+    // 1) 相对 URL → 绝对
+    cloned.querySelectorAll('img[src], video[src], audio[src], source[src]').forEach((el) => {
+      const src = el.getAttribute('src')
+      if (!src) return
+      if (/^(https?:|data:|blob:|about:)/i.test(src)) return
+      try { el.setAttribute('src', new URL(src, window.location.href).href) } catch { /* ignore malformed */ }
+    })
+
+    // 2) blob: → 抽到 sibling assets/<sha1>.<ext>
+    //    base64 inline 会让 dom.html 单文件 1-5MB，过大；改成 saveTestData 端写
+    //    成 sibling 文件，dom.html 里 src 用相对路径 assets/<sha1>.<ext> 引用。
+    //    (hash → base64) map 经 window.__probeBlobAssets 通过 probe-helpers 注入
+    //    到 ProbeResult._blobAssets，再由 saveTestData 落盘。
+    const BLOB_MAX_SIZE = 10 * 1024 * 1024
+    const blobAssets: Record<string, string> = {}
+    const blobEls = Array.from(cloned.querySelectorAll(
+      'img[src^="blob:"], video[src^="blob:"], audio[src^="blob:"], source[src^="blob:"]',
+    )) as Element[]
+    await Promise.all(blobEls.map(async (el) => {
+      const src = el.getAttribute('src')
+      if (!src) return
+      try {
+        const res = await fetch(src)
+        const blob = await res.blob()
+        if (blob.size > BLOB_MAX_SIZE) {
+          el.setAttribute('data-blob-too-large', String(blob.size))
+          return
+        }
+        const buf = await blob.arrayBuffer()
+        const hashBuf = await crypto.subtle.digest('SHA-1', buf)
+        const hashHex = Array.from(new Uint8Array(hashBuf))
+          .map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 16)
+        const ext = mimeToExt(blob.type) || 'bin'
+        const filename = `${hashHex}.${ext}`
+        // 转 base64 通过 window 透传给 Node，Node 端 Buffer.from(base64,'base64') 写盘
+        if (!blobAssets[filename]) {
+          const base64 = await new Promise<string>((resolve, reject) => {
+            const r = new FileReader()
+            r.onload = () => {
+              const v = typeof r.result === 'string' ? r.result : ''
+              const comma = v.indexOf(',')
+              resolve(comma >= 0 ? v.slice(comma + 1) : v)
+            }
+            r.onerror = () => reject(r.error ?? new Error('FileReader error'))
+            r.readAsDataURL(blob)
+          })
+          if (base64) blobAssets[filename] = base64
+        }
+        el.setAttribute('src', `assets/${filename}`)
+      } catch {
+        // blob 已 revoke / fetch 失败 → 留原 src，<img> 显示 alt 兜底
+      }
+    }))
+    if (Object.keys(blobAssets).length > 0) {
+      window.__probeBlobAssets = { ...(window.__probeBlobAssets ?? {}), ...blobAssets }
     }
+
+    // 3) srcset 相对路径绝对化（不处理 blob: srcset，少见且复杂）
+    cloned.querySelectorAll('img[srcset], source[srcset]').forEach((el) => {
+      const set = el.getAttribute('srcset')
+      if (!set) return
+      const rewritten = set.split(',').map(part => {
+        const trimmed = part.trim()
+        const [u, ...rest] = trimmed.split(/\s+/)
+        if (!u || /^(https?:|data:|blob:|about:)/i.test(u)) return trimmed
+        try { return [new URL(u, window.location.href).href, ...rest].join(' ') } catch { return trimmed }
+      }).join(', ')
+      el.setAttribute('srcset', rewritten)
+    })
+
+    const html = '<!DOCTYPE html>\n' + cloned.outerHTML
+    window.__probeDomSnapshot = html
   } catch {
     // ignore: snapshot is best-effort observability, never load-bearing
   }

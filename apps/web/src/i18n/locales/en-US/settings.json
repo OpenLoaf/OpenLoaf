@@ -789,6 +789,81 @@
     "webNotSupported": "Opening file manager is not supported in web mode",
     "openDirFailed": "Cannot open file manager",
     "confirmDelete": "Delete skill \"{{name}}\"? This cannot be undone.",
+    "scopeBuiltin": "Built-in skill",
+    "builtinBadge": "System skill",
+    "builtinLockedTooltip": "Built-in system skill. Always enabled and cannot be turned off.",
+    "builtinLockedAria": "{{name}} (system skill, always enabled)",
+    "viewSkillContent": "View content",
+    "builtin": {
+      "email-ops-skill": {
+        "name": "Email Ops",
+        "description": "Manage real mailboxes: send, reply, forward, search, archive, delete"
+      },
+      "calendar-ops-skill": {
+        "name": "Calendar Ops",
+        "description": "Query, create, modify, or delete events and meetings"
+      },
+      "schedule-ops-skill": {
+        "name": "Scheduled Tasks",
+        "description": "Background jobs, cron schedules, and board task approvals"
+      },
+      "canvas-ops-skill": {
+        "name": "Canvas Ops",
+        "description": "Create, open, copy, and delete OpenLoaf canvases and whiteboards"
+      },
+      "project-ops-skill": {
+        "name": "Project Ops",
+        "description": "Create, open, switch, move, rename projects and sub-projects"
+      },
+      "workbench-ops-skill": {
+        "name": "Workbench Widgets",
+        "description": "Manage desktop widgets: create, modify, view, delete"
+      },
+      "settings-guide-skill": {
+        "name": "Settings Guide",
+        "description": "Locate API keys, models, theme, language, shortcuts, etc."
+      },
+      "agent-orchestration-skill": {
+        "name": "Agent Orchestration",
+        "description": "Delegate subtasks to browser / coder / designer subagents"
+      },
+      "browser-ops-skill": {
+        "name": "Browser Ops",
+        "description": "Web automation: login, fill forms, click, scrape, screenshot"
+      },
+      "pdf-skill": {
+        "name": "PDF Toolkit",
+        "description": "PDF read/write/convert/OCR: summarize, fill forms, merge, watermark"
+      },
+      "docx-skill": {
+        "name": "Word Document",
+        "description": "Generate, edit, summarize, and convert .docx / .doc files"
+      },
+      "xlsx-skill": {
+        "name": "Excel Spreadsheet",
+        "description": "Read, analyze, edit, and generate spreadsheets and CSV"
+      },
+      "pptx-skill": {
+        "name": "PowerPoint Deck",
+        "description": "Summarize, edit, and generate PowerPoint slides"
+      },
+      "media-ops-skill": {
+        "name": "Media Ops",
+        "description": "Image / video / audio processing and online video download"
+      },
+      "visualization-ops-skill": {
+        "name": "Data Visualization",
+        "description": "Render charts, dynamic JSX, and structured layouts"
+      },
+      "skill-creator-skill": {
+        "name": "Skill Creator",
+        "description": "Create, debug, and refine custom skills"
+      },
+      "cloud-media-skill": {
+        "name": "Cloud Media Generation",
+        "description": "AI image / audio / video generation (cloud paid features)"
+      }
+    },
     "scopeGlobal": "Global skill",
     "scopeProject": "Project skill",
     "scopeProjectSpace": "Project Space skill",
@@ -1032,6 +1107,14 @@
     "email": {
       "name": "Email Assistant",
       "description": "Email query and operations"
+    },
+    "explore": {
+      "name": "Document Researcher",
+      "description": "Read-only assistant that locates and consolidates information from local files, Office docs, PDFs and web pages"
+    },
+    "general-purpose": {
+      "name": "General Task Assistant",
+      "description": "Multi-step research, search and synthesis — best for complex tasks with unclear boundaries"
     },
     "master": {
       "name": "Default Agent",

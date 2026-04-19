@@ -18,7 +18,6 @@ import {
   XCircleIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useBasicConfig } from '@/hooks/use-basic-config'
 import {
   Tooltip,
   TooltipContent,
@@ -28,6 +27,7 @@ import {
   Collapsible,
   CollapsibleTrigger,
 } from '@openloaf/ui/collapsible'
+import { AutoHiddenBadge } from './shared/AutoHiddenBadge'
 import { ToolOutputContent, ToolOutputError, ToolOutputLoading } from './shared/ToolOutput'
 import {
   asPlainObject,
@@ -82,7 +82,6 @@ export default function ToolSearchTool({
   className?: string
 }) {
   const { t } = useTranslation('ai')
-  const { basic } = useBasicConfig()
   const inputObj = asPlainObject(normalizeToolInput(part.input))
   const query =
     inputObj && typeof inputObj.names === 'string' ? inputObj.names.trim() : ''
@@ -99,13 +98,8 @@ export default function ToolSearchTool({
   const notFoundCount = parsed?.notFound.length ?? 0
   const isAllNotFound = loadedCount === 0 && notFoundCount > 0
 
-  // ToolSearch 是模型自己加载 deferred tool schema 的内部机制，成功完成后对用户无参考价值。
-  // 沿用 MessageTool 对无专用 UI 工具的策略：成功 + 无错误 + 无 notFound 时自动隐藏，
-  // 受「显示所有工具调用结果」开关控制。streaming / 错误 / 有 notFound 仍保留显示。
-  const isCompleted = part.state === 'output-available'
-  const shouldAutoHide =
-    isCompleted && !hasError && !isAllNotFound && notFoundCount === 0 && loadedCount > 0
-  if (shouldAutoHide && !basic.chatShowAllToolResults) return null
+  // 可见性判断统一由上游 shouldShowToolPart 负责：
+  // ToolSearch 属于 HIDDEN_TOOL_NAMES 黑名单，默认隐藏；错误 / 开启「显示所有工具调用结果」时才渲染。
 
   return (
     <Collapsible className={cn('min-w-0 text-xs', className)}>
@@ -145,6 +139,7 @@ export default function ToolSearchTool({
             ) : loadedCount > 0 ? (
               <CheckCircle2Icon className="size-3 shrink-0 text-muted-foreground/50" />
             ) : null}
+            <AutoHiddenBadge />
           </CollapsibleTrigger>
         </TooltipTrigger>
         {query ? (

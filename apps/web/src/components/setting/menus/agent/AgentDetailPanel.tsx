@@ -22,20 +22,18 @@ import { OpenLoafSettingsCard } from '@openloaf/ui/openloaf/OpenLoafSettingsCard
 import { FilterTab } from '@openloaf/ui/filter-tab'
 import {
   Bot,
-  Check,
-  Cloud,
   Edit3,
+  Eye,
+  FolderCog,
   FolderOpen,
-  HardDrive,
-  HelpCircle,
+  Gauge,
+  Globe,
+  PencilLine,
   Save,
   ScrollText,
   Sparkles,
-  Gauge,
-  MessageSquare,
   Trash2,
-  Eye,
-  PencilLine,
+  Wand2,
 } from 'lucide-react'
 import { Streamdown, defaultRemarkPlugins, type StreamdownProps } from 'streamdown'
 import { code } from '@streamdown/code'
@@ -44,24 +42,7 @@ import { toast } from 'sonner'
 import '@/components/file/style/streamdown-viewer.css'
 import { useLayoutState } from '@/hooks/use-layout-state'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@openloaf/ui/tooltip'
-import { Popover, PopoverContent, PopoverTrigger } from '@openloaf/ui/popover'
-import { SaasLoginDialog } from '@/components/auth/SaasLoginDialog'
-import { useSaasAuth } from '@/hooks/use-saas-auth'
-import { useSettingsValues } from '@/hooks/use-settings'
-import { useBasicConfig } from '@/hooks/use-basic-config'
-import { useCloudModels } from '@/hooks/use-cloud-models'
-import { useInstalledCliProviderIds } from '@/hooks/use-cli-tools-installed'
-import ThinkingModeSelector, {
-  type ThinkingMode,
-} from '@/components/ai/input/ThinkingModeSelector'
-import {
-  buildChatModelOptions,
-  normalizeChatModelSource,
-} from '@/lib/provider-models'
-import { getModelLabel } from '@/lib/model-registry'
-import { ModelCheckboxItem } from '@/components/ai/input/model-preferences/ModelCheckboxItem'
-import { ModelIcon } from '@/components/setting/menus/provider/ModelIcon'
-import type { ProviderModelOption } from '@/lib/provider-models'
+import { cn } from '@/lib/utils'
 import { useTranslation } from 'react-i18next'
 
 /** Streamdown 代码高亮主题。 */
@@ -73,7 +54,6 @@ const PROMPT_SHIKI_THEME: NonNullable<StreamdownProps['shikiTheme']> = [
 /** Streamdown remark 插件列表。 */
 const PROMPT_REMARK_PLUGINS = Object.values(defaultRemarkPlugins)
 
-
 type AgentDetailPanelProps = {
   agentPath?: string
   scope?: 'project' | 'global'
@@ -84,16 +64,33 @@ type AgentDetailPanelProps = {
   panelKey?: string
 }
 
+/**
+ * 已知系统 Agent folderName 集合（与后端 systemAgentDefinitions.SYSTEM_AGENT_ORDER 保持一致）。
+ * 用作前端只读判断的兜底：即使父组件传入的 isSystem prop 因 server 未重启暂时为 false，
+ * 只要 detailQuery 加载后的 folderName 命中此集合，面板依旧进入只读模式。
+ */
+const KNOWN_SYSTEM_FOLDERS: ReadonlySet<string> = new Set([
+  'master',
+  'general-purpose',
+  'explore',
+])
+
+type SkillScope = 'builtin' | 'project' | 'global'
 
 type SkillSummary = {
   name: string
+  originalName: string
   description: string
   path: string
   folderName: string
   ignoreKey: string
-  scope: 'project' | 'global'
+  scope: SkillScope
   isEnabled: boolean
   isDeletable: boolean
+  ownerProjectId?: string
+  ownerProjectTitle?: string
+  colorIndex?: number | null
+  icon?: string
 }
 
 const REMOVED_MEDIA_TOOL_IDS = new Set([
@@ -109,16 +106,10 @@ function normalizeAgentToolIds(value: string[]): string[] {
   )
 }
 
-/** Snapshot of form values for dirty comparison. */
 type FormSnapshot = {
   name: string
   description: string
   icon: string
-  modelLocalIds: string[]
-  modelCloudIds: string[]
-  auxiliaryModelLocalIds: string[]
-  auxiliaryModelCloudIds: string[]
-  auxiliaryModelSource: string
   toolIds: string[]
   skills: string[]
   allowSubAgents: boolean
@@ -130,218 +121,45 @@ function makeSnapshot(s: FormSnapshot): string {
   return JSON.stringify(s)
 }
 
-type ChatModelSelectProps = {
-  /** Available chat model options. */
-  models: ProviderModelOption[]
-  /** Current selected model ids (empty = Auto). */
-  value: string[]
-  /** Disable selector interaction. */
-  disabled?: boolean
-  /** Whether cloud source requires login. */
-  showCloudLogin: boolean
-  /** Change handler. */
-  onChange: (nextIds: string[]) => void
-  /** Trigger login dialog. */
-  onOpenLogin: () => void
-  /** Empty list placeholder. */
-  emptyText?: string
+/** 与专门技能页对齐的卡片渐变配色。 */
+const SKILL_CARD_GRADIENTS = [
+  'from-teal-100 to-cyan-50 dark:from-teal-900/40 dark:to-cyan-900/30',
+  'from-violet-100 to-fuchsia-50 dark:from-violet-900/40 dark:to-fuchsia-900/30',
+  'from-amber-100 to-orange-50 dark:from-amber-900/40 dark:to-orange-900/30',
+  'from-sky-100 to-blue-50 dark:from-sky-900/40 dark:to-blue-900/30',
+  'from-rose-100 to-pink-50 dark:from-rose-900/40 dark:to-pink-900/30',
+  'from-emerald-100 to-green-50 dark:from-emerald-900/40 dark:to-green-900/30',
+  'from-indigo-100 to-purple-50 dark:from-indigo-900/40 dark:to-purple-900/30',
+  'from-lime-100 to-yellow-50 dark:from-lime-900/40 dark:to-yellow-900/30',
+]
+
+const SKILL_ACCENT_BORDER_COLORS = [
+  'border-l-teal-300 dark:border-l-teal-600',
+  'border-l-violet-300 dark:border-l-violet-600',
+  'border-l-amber-300 dark:border-l-amber-600',
+  'border-l-sky-300 dark:border-l-sky-600',
+  'border-l-rose-300 dark:border-l-rose-600',
+  'border-l-emerald-300 dark:border-l-emerald-600',
+  'border-l-indigo-300 dark:border-l-indigo-600',
+  'border-l-lime-300 dark:border-l-lime-600',
+]
+
+function hashCode(str: string): number {
+  let hash = 0
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0
+  }
+  return Math.abs(hash)
 }
 
-/** Chat model selector used in agent settings. */
-function ChatModelSelect({
-  models,
-  value,
-  disabled,
-  showCloudLogin,
-  onChange,
-  onOpenLogin,
-  emptyText = '',
-}: ChatModelSelectProps) {
-  const { t } = useTranslation(['settings'])
-  const [open, setOpen] = useState(false)
-  const normalizeValue = useCallback((items: string[]) => {
-    const normalized = items.map((id) => id.trim()).filter(Boolean)
-    return Array.from(new Set(normalized))
-  }, [])
-  const [localValue, setLocalValue] = useState<string[]>(
-    () => normalizeValue(value),
-  )
-  const maxVisibleSelected = 2
-  useEffect(() => {
-    const next = normalizeValue(value)
-    setLocalValue((prev) => {
-      if (prev.length === next.length && prev.every((id, i) => id === next[i])) {
-        return prev
-      }
-      return next
-    })
-  }, [normalizeValue, value])
-  const normalizedValue = localValue
-  const optionMap = useMemo(() => {
-    const map = new Map<string, ProviderModelOption>()
-    for (const option of models) {
-      map.set(option.id, option)
-    }
-    return map
-  }, [models])
-  const selectedItems = useMemo(
-    () =>
-      normalizedValue.map((id) => {
-        const option = optionMap.get(id)
-        const fallbackModelId = id.split(':').pop() || id
-        const fallbackProviderId = id.includes(':') ? id.split(':')[0] : undefined
-        const label = option?.modelDefinition
-          ? getModelLabel(option.modelDefinition)
-          : option?.modelId ?? fallbackModelId
-        const icon =
-          option?.modelDefinition?.familyId ??
-          option?.modelDefinition?.icon ??
-          option?.providerId ??
-          fallbackProviderId
-        return {
-          id,
-          label,
-          icon,
-          modelId: option?.modelId ?? fallbackModelId,
-        }
-      }),
-    [normalizedValue, optionMap],
-  )
-  const visibleSelectedItems = selectedItems.slice(0, maxVisibleSelected)
-  const hiddenSelectedCount = Math.max(
-    selectedItems.length - visibleSelectedItems.length,
-    0,
-  )
-  const applyChange = useCallback(
-    (nextIds: string[]) => {
-      const next = normalizeValue(nextIds)
-      setLocalValue(next)
-      onChange(next)
-    },
-    [normalizeValue, onChange],
-  )
-
-  const handleToggle = useCallback(
-    (nextId: string) => {
-      if (normalizedValue.includes(nextId)) {
-        applyChange(normalizedValue.filter((id) => id !== nextId))
-        return
-      }
-      applyChange([...normalizedValue, nextId])
-    },
-    [applyChange, normalizedValue],
-  )
-
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          disabled={disabled}
-          className="h-8 w-fit max-w-full shrink min-w-0 justify-between rounded-3xl border border-border/60 bg-background/80 px-3 text-xs"
-        >
-          <span className="flex min-w-0 items-center gap-2">
-            {normalizedValue.length > 0 ? (
-              <span className="flex min-w-0 items-center gap-1 overflow-hidden">
-                {visibleSelectedItems.map((item, index) => (
-                  <span
-                    key={item.id}
-                    className="inline-flex min-w-0 items-center gap-1"
-                  >
-                    <ModelIcon
-                      icon={item.icon}
-                      model={item.modelId}
-                      size={14}
-                      className="h-3.5 w-3.5 shrink-0"
-                    />
-                    <span className="truncate">{item.label}</span>
-                    {index < visibleSelectedItems.length - 1 ? (
-                      <span className="text-muted-foreground">,</span>
-                    ) : null}
-                  </span>
-                ))}
-                {hiddenSelectedCount > 0 ? (
-                  <span className="text-muted-foreground">+{hiddenSelectedCount}</span>
-                ) : null}
-              </span>
-            ) : (
-              <>
-                <Sparkles className="h-3.5 w-3.5 shrink-0 text-foreground" />
-                <span className="truncate">Auto</span>
-              </>
-            )}
-          </span>
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent
-        align="end"
-        sideOffset={8}
-        className="w-80 rounded-3xl border-border bg-card p-2 shadow-none"
-      >
-        {showCloudLogin ? (
-          <div className="flex flex-col items-center justify-center gap-2 py-6">
-            <Button
-              type="button"
-              size="sm"
-              onClick={() => {
-                setOpen(false)
-                onOpenLogin()
-              }}
-            >
-              {t('settings:agent.panel.loginCloud')}
-            </Button>
-            <div className="text-xs text-muted-foreground">{t('settings:agent.panel.useCloud')}</div>
-          </div>
-        ) : models.length === 0 ? (
-          <div className="py-6 text-center text-xs text-muted-foreground">
-            {emptyText}
-          </div>
-        ) : (
-          <div className="max-h-64 space-y-1 overflow-y-auto">
-            <button
-              type="button"
-              className="flex w-full items-center gap-2 rounded-3xl px-3 py-2 text-left text-xs hover:bg-muted/50"
-              onClick={() => applyChange([])}
-            >
-              <Sparkles className="h-3.5 w-3.5 text-foreground" />
-              <span className="flex-1 truncate">Auto</span>
-              {normalizedValue.length === 0 ? (
-                <Check className="h-3.5 w-3.5 text-foreground" />
-              ) : (
-                <span className="h-3.5 w-3.5" />
-              )}
-            </button>
-            {models.map((option) => {
-              const label = option.modelDefinition
-                ? getModelLabel(option.modelDefinition)
-                : option.modelId
-              return (
-                <ModelCheckboxItem
-                  key={option.id}
-                  icon={
-                    option.modelDefinition?.familyId ??
-                    option.modelDefinition?.icon ??
-                    option.providerId
-                  }
-                  modelId={option.modelId}
-                  label={label}
-                  tags={option.tags}
-                  checked={normalizedValue.includes(option.id)}
-                  disabled={disabled}
-                  onToggle={() => handleToggle(option.id)}
-                />
-              )
-            })}
-          </div>
-        )}
-      </PopoverContent>
-    </Popover>
-  )
+type SkillGroup = {
+  key: string
+  label: string
+  icon: typeof Globe
+  skills: SkillSummary[]
 }
 
-/** Agent detail / edit stack panel. */
+/** Agent detail / edit panel. */
 export const AgentDetailPanel = memo(function AgentDetailPanel({
   agentPath,
   scope = 'global',
@@ -349,17 +167,11 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
   isNew = false,
   isSystem = false,
 }: AgentDetailPanelProps) {
+  // 系统 Agent 整体只读：名称/描述/技能/提示词全部禁止修改，stack header 不渲染保存/删除按钮。
   const { t } = useTranslation(['settings', 'common'])
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [icon, setIcon] = useState('bot')
-  const [modelLocalIds, setModelLocalIds] = useState<string[]>([])
-  const [modelCloudIds, setModelCloudIds] = useState<string[]>([])
-  const [auxiliaryModelSource, setAuxiliaryModelSource] = useState('local')
-  const [auxiliaryModelLocalIds, setAuxiliaryModelLocalIds] = useState<string[]>([])
-  const [auxiliaryModelCloudIds, setAuxiliaryModelCloudIds] = useState<string[]>([])
-  const [thinkingMode, setThinkingMode] = useState<ThinkingMode>('fast')
-  const [localChatSource, setLocalChatSource] = useState<'local' | 'cloud'>('local')
   const [toolIds, setToolIds] = useState<string[]>([])
   const [skills, setSkills] = useState<string[]>([])
   const [allowSubAgents, setAllowSubAgents] = useState(false)
@@ -367,7 +179,6 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
   const [systemPrompt, setSystemPrompt] = useState('')
   const [promptPreview, setPromptPreview] = useState(true)
   const [activeConfigTab, setActiveConfigTab] = useState('skills')
-  const [loginOpen, setLoginOpen] = useState(false)
   const [defaultSnapshot, setDefaultSnapshot] = useState('')
 
   // 逻辑：保存初始快照用于脏检测。
@@ -377,13 +188,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
   const isDirtyRef = useRef(false)
 
   const panelSlot = useStackPanelSlot()
-  const pushStackItem = useLayoutState((s) => s.pushStackItem)
   const removeStackItem = useLayoutState((s) => s.removeStackItem)
-  const { loggedIn: authLoggedIn } = useSaasAuth()
-  const { providerItems } = useSettingsValues()
-  const { basic, setBasic } = useBasicConfig()
-  const { models: cloudModels } = useCloudModels()
-  const installedCliProviderIds = useInstalledCliProviderIds()
 
   // 逻辑：编辑模式下加载 Agent 详情。
   const detailQuery = useQuery({
@@ -405,60 +210,16 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
     return normalized.includes('/.openloaf/agents/master/')
   }, [agentPath, detailQuery.data, isNew])
 
-  const baseChatSource = normalizeChatModelSource(basic.chatSource)
-  const chatModelSource = isMasterAgent ? baseChatSource : localChatSource
-  const isCloudSource = chatModelSource === 'cloud'
-  const auxiliaryChatSource = normalizeChatModelSource(auxiliaryModelSource)
-  const isAuxCloudSource = auxiliaryChatSource === 'cloud'
-  const chatModels = useMemo(
-    () =>
-      buildChatModelOptions(
-        chatModelSource,
-        providerItems,
-        cloudModels,
-        installedCliProviderIds,
-      ),
-    [chatModelSource, providerItems, cloudModels, installedCliProviderIds],
-  )
-  const auxiliaryChatModels = useMemo(
-    () =>
-      buildChatModelOptions(
-        auxiliaryChatSource,
-        providerItems,
-        cloudModels,
-        installedCliProviderIds,
-      ),
-    [
-      auxiliaryChatSource,
-      providerItems,
-      cloudModels,
-      installedCliProviderIds,
-    ],
-  )
-  const showChatCloudLogin = isCloudSource && !authLoggedIn
-  const showAuxChatCloudLogin = isAuxCloudSource && !authLoggedIn
-  const activeModelIds = isCloudSource ? modelCloudIds : modelLocalIds
-  const activeAuxModelIds = isAuxCloudSource
-    ? auxiliaryModelCloudIds
-    : auxiliaryModelLocalIds
-  const hasReasoningModel = useMemo(() => {
-    if (!chatModels.length) return false
-    const normalized = Array.from(
-      new Set(activeModelIds.map((id) => id.trim()).filter(Boolean)),
-    )
-    if (normalized.length === 0) {
-      return chatModels.some((m) => m.reasoning && m.reasoning !== 'none')
-    }
-    const selected = normalized
-      .map((id) => chatModels.find((m) => m.id === id))
-      .filter(Boolean)
-    if (selected.length === 0) {
-      return chatModels.some((m) => m.reasoning && m.reasoning !== 'none')
-    }
-    return selected.some(
-      (model) => model?.reasoning && model.reasoning !== 'none',
-    )
-  }, [activeModelIds, chatModels])
+  // 兜底判断系统 Agent：prop `isSystem` 依赖 server 返回，为避免 server 未重启导致漏判，
+  // 只要 detailQuery 加载后的 folderName 命中 KNOWN_SYSTEM_FOLDERS，或者 agentPath 是
+  // `builtin://` 虚拟路径，面板都强制进入只读模式。
+  const isReadOnly = useMemo(() => {
+    if (isSystem) return true
+    const folderName = detailQuery.data?.folderName ?? ''
+    if (folderName && KNOWN_SYSTEM_FOLDERS.has(folderName)) return true
+    if (agentPath && agentPath.startsWith('builtin://')) return true
+    return false
+  }, [isSystem, detailQuery.data?.folderName, agentPath])
 
   const getSavedSnapshot = useCallback(() => {
     if (!savedSnapshotRef.current) return null
@@ -469,13 +230,18 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
     }
   }, [])
 
-  // 逻辑：打开 Agent 所在文件夹。
+  // 逻辑：打开 Agent 所在文件夹（Electron 外壳首选，Web 兜底推 folder-tree-preview）。
+  const pushStackItem = useLayoutState((s) => s.pushStackItem)
   const handleOpenFolder = useCallback(() => {
     if (!agentPath) return
     const normalized = agentPath.replace(/\\/g, '/')
     const lastSlash = normalized.lastIndexOf('/')
     const dirPath = lastSlash >= 0 ? normalized.slice(0, lastSlash) : normalized
-    const dirUri = dirPath.startsWith('file://') ? dirPath : (/^[A-Za-z]:\//.test(dirPath) ? `file:///${dirPath}` : `file://${dirPath}`)
+    const dirUri = dirPath.startsWith('file://')
+      ? dirPath
+      : /^[A-Za-z]:\//.test(dirPath)
+        ? `file:///${dirPath}`
+        : `file://${dirPath}`
 
     const api = window.openloafElectron
     if (api?.openPath) {
@@ -495,9 +261,9 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
         projectId: scope === 'project' ? projectId : undefined,
       },
     })
-  }, [agentPath, pushStackItem, name, scope, projectId])
+  }, [agentPath, pushStackItem, name, scope, projectId, t])
 
-  // 逻辑：加载技能列表用于关联选择。
+  // 逻辑：加载技能列表用于关联选择，与专门技能页共用 trpc 查询。
   const skillsQuery = useQuery(
     trpc.settings.getSkills.queryOptions(projectId ? { projectId } : undefined),
   )
@@ -505,6 +271,61 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
     () => (skillsQuery.data ?? []) as SkillSummary[],
     [skillsQuery.data],
   )
+
+  // 逻辑：按 scope 分组并排序 — project 在前（包含 ownerProject 子分组），然后 global，最后 builtin。
+  const skillGroups = useMemo((): SkillGroup[] => {
+    const projectSkills = availableSkills.filter((s) => s.scope === 'project')
+    const globalSkills = availableSkills.filter((s) => s.scope === 'global')
+    const builtinSkills = availableSkills.filter((s) => s.scope === 'builtin')
+    const groups: SkillGroup[] = []
+
+    if (projectSkills.length > 0) {
+      // 在项目视图内合并为一个 project 组；在全局视图内若按 owner 分子组更清晰，
+      // 但 agent 编辑只是勾选，合并展示即可。
+      const byProject = new Map<string, SkillSummary[]>()
+      const order: string[] = []
+      for (const skill of projectSkills) {
+        const pid = skill.ownerProjectId || '_default'
+        if (!byProject.has(pid)) {
+          byProject.set(pid, [])
+          order.push(pid)
+        }
+        byProject.get(pid)!.push(skill)
+      }
+      for (const pid of order) {
+        const list = byProject.get(pid)!
+        const title =
+          list[0]?.ownerProjectTitle ||
+          t('settings:skills.scopeProject', { defaultValue: '项目技能' })
+        groups.push({
+          key: `project:${pid}`,
+          label: title,
+          icon: FolderCog,
+          skills: list,
+        })
+      }
+    }
+
+    if (globalSkills.length > 0) {
+      groups.push({
+        key: 'global',
+        label: t('settings:skills.scopeGlobal', { defaultValue: '全局技能' }),
+        icon: Globe,
+        skills: globalSkills,
+      })
+    }
+
+    if (builtinSkills.length > 0) {
+      groups.push({
+        key: 'builtin',
+        label: t('settings:skills.scopeBuiltin', { defaultValue: '内置技能' }),
+        icon: Wand2,
+        skills: builtinSkills,
+      })
+    }
+
+    return groups
+  }, [availableSkills, t])
 
   // 逻辑：详情加载后回填表单并保存初始快照。
   useEffect(() => {
@@ -514,34 +335,16 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
     setName(d.name)
     setDescription(d.description)
     setIcon(d.icon)
-    setModelLocalIds(Array.isArray(d.modelLocalIds) ? d.modelLocalIds : [])
-    setModelCloudIds(Array.isArray(d.modelCloudIds) ? d.modelCloudIds : [])
-    // 逻辑：主助手沿用全局来源，子助手根据已有模型推断来源。
-    const fallbackChatSource = normalizeChatModelSource(basic.chatSource)
-    const hasCloudModels = Array.isArray(d.modelCloudIds) && d.modelCloudIds.length > 0
-    const hasLocalModels = Array.isArray(d.modelLocalIds) && d.modelLocalIds.length > 0
-    const inferredChatSource = hasCloudModels && !hasLocalModels
-      ? 'cloud'
-      : hasLocalModels
-        ? 'local'
-        : fallbackChatSource
-    setLocalChatSource(isMasterAgent ? fallbackChatSource : inferredChatSource)
-    setAuxiliaryModelSource(
-      normalizeChatModelSource(d.auxiliaryModelSource ?? basic.chatSource),
-    )
-    setAuxiliaryModelLocalIds(
-      Array.isArray(d.auxiliaryModelLocalIds) ? d.auxiliaryModelLocalIds : [],
-    )
-    setAuxiliaryModelCloudIds(
-      Array.isArray(d.auxiliaryModelCloudIds) ? d.auxiliaryModelCloudIds : [],
-    )
     const sanitizedToolIds = Array.isArray(d.toolIds)
       ? normalizeAgentToolIds(d.toolIds)
       : []
     setToolIds(sanitizedToolIds)
     // 逻辑：主助手默认全选技能 — 如果 config 中 skills 为空数组，初始化为所有可用技能。
     const resolvedSkills =
-      isMasterAgent && Array.isArray(d.skills) && d.skills.length === 0 && availableSkills.length > 0
+      isMasterAgent &&
+      Array.isArray(d.skills) &&
+      d.skills.length === 0 &&
+      availableSkills.length > 0
         ? availableSkills.map((s) => s.name)
         : d.skills
     setSkills(resolvedSkills)
@@ -552,17 +355,6 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
       name: d.name,
       description: d.description,
       icon: d.icon,
-      modelLocalIds: Array.isArray(d.modelLocalIds) ? d.modelLocalIds : [],
-      modelCloudIds: Array.isArray(d.modelCloudIds) ? d.modelCloudIds : [],
-      auxiliaryModelSource: normalizeChatModelSource(
-        d.auxiliaryModelSource ?? basic.chatSource,
-      ),
-      auxiliaryModelLocalIds: Array.isArray(d.auxiliaryModelLocalIds)
-        ? d.auxiliaryModelLocalIds
-        : [],
-      auxiliaryModelCloudIds: Array.isArray(d.auxiliaryModelCloudIds)
-        ? d.auxiliaryModelCloudIds
-        : [],
       toolIds: sanitizedToolIds,
       skills: resolvedSkills,
       allowSubAgents: d.allowSubAgents,
@@ -571,40 +363,30 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
     })
     savedSnapshotRef.current = snapshot
     setDefaultSnapshot(snapshot)
-  }, [
-    availableSkills,
-    basic.chatSource,
-    detailQuery.data,
-    isMasterAgent,
-  ])
+  }, [availableSkills, detailQuery.data, isMasterAgent])
 
   // 逻辑：新建模式初始化空快照。
   useEffect(() => {
     if (!isNew) return
     if (savedSnapshotRef.current && isDirtyRef.current) return
-    setAuxiliaryModelSource(normalizeChatModelSource(basic.chatSource))
-    setLocalChatSource(normalizeChatModelSource(basic.chatSource))
     const snapshot = makeSnapshot({
-      name: '', description: '', icon: 'bot', modelLocalIds: [], modelCloudIds: [],
-      auxiliaryModelSource: normalizeChatModelSource(basic.chatSource),
-      auxiliaryModelLocalIds: [],
-      auxiliaryModelCloudIds: [],
-      toolIds: [], skills: [], allowSubAgents: false,
-      maxDepth: 1, systemPrompt: '',
+      name: '',
+      description: '',
+      icon: 'bot',
+      toolIds: [],
+      skills: [],
+      allowSubAgents: false,
+      maxDepth: 1,
+      systemPrompt: '',
     })
     savedSnapshotRef.current = snapshot
     setDefaultSnapshot(snapshot)
-  }, [basic.chatSource, isNew])
+  }, [isNew])
 
   const currentSnapshot = makeSnapshot({
     name,
     description,
     icon,
-    modelLocalIds,
-    modelCloudIds,
-    auxiliaryModelSource,
-    auxiliaryModelLocalIds,
-    auxiliaryModelCloudIds,
     toolIds,
     skills,
     allowSubAgents,
@@ -615,23 +397,12 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
   const isDirty = isDirtyRef.current
   const canReset = defaultSnapshot !== '' && currentSnapshot !== defaultSnapshot
 
-  /** Normalize id list for consistent comparisons. */
-  const normalizeIds = useCallback((value: string[]) => {
-    const normalized = value.map((id) => id.trim()).filter(Boolean)
-    return Array.from(new Set(normalized))
-  }, [])
-
   const handleResetToDefault = useCallback(() => {
     if (!defaultSnapshot) return
     const parsed = JSON.parse(defaultSnapshot) as FormSnapshot
     setName(parsed.name)
     setDescription(parsed.description)
     setIcon(parsed.icon)
-    setModelLocalIds(parsed.modelLocalIds)
-    setModelCloudIds(parsed.modelCloudIds)
-    setAuxiliaryModelSource(parsed.auxiliaryModelSource)
-    setAuxiliaryModelLocalIds(parsed.auxiliaryModelLocalIds)
-    setAuxiliaryModelCloudIds(parsed.auxiliaryModelCloudIds)
     setToolIds(normalizeAgentToolIds(parsed.toolIds))
     setSkills(parsed.skills)
     setAllowSubAgents(parsed.allowSubAgents)
@@ -643,7 +414,9 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
     trpc.settings.saveAgent.mutationOptions({
       onSuccess: () => {
         if (!silentSaveRef.current) {
-          toast.success(isNew ? t('settings:agent.panel.created') : t('settings:agent.panel.saved'))
+          toast.success(
+            isNew ? t('settings:agent.panel.created') : t('settings:agent.panel.saved'),
+          )
         }
         const overrideSnapshot = pendingSnapshotOverrideRef.current
         if (overrideSnapshot) {
@@ -656,7 +429,6 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
         queryClient.invalidateQueries({
           queryKey: trpc.settings.getAgents.queryOptions().queryKey,
         })
-        // 逻辑：保存后刷新当前 Agent 详情，确保主助手与聊天输入同步。
         if (agentPath) {
           queryClient.invalidateQueries({
             queryKey: trpc.settings.getAgentDetail.queryOptions({
@@ -690,11 +462,13 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
             queryKey: trpc.settings.getAgents.queryOptions({ projectId }).queryKey,
           })
           queryClient.invalidateQueries({
-            queryKey: trpc.settings.getAgents.queryOptions({ projectId, scopeFilter: 'project' }).queryKey,
+            queryKey: trpc.settings.getAgents.queryOptions({
+              projectId,
+              scopeFilter: 'project',
+            }).queryKey,
           })
         }
         toast.success(t('settings:agent.panel.deletedSuccess'))
-        // 逻辑：删除后关闭当前 stack 面板。
         savedSnapshotRef.current = currentSnapshot
         const stackItemId = useLayoutState.getState().activeStackItemId
         if (stackItemId) removeStackItem(stackItemId)
@@ -705,7 +479,9 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
 
   const handleDelete = useCallback(() => {
     if (!agentPath || isNew) return
-    const confirmed = window.confirm(t('settings:agent.deleteConfirm', { name: name || t('common:untitled') }))
+    const confirmed = window.confirm(
+      t('settings:agent.deleteConfirm', { name: name || t('common:untitled') }),
+    )
     if (!confirmed) return
     const folderName = detailQuery.data?.folderName ?? ''
     const ignoreKey = folderName || ''
@@ -715,9 +491,20 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
       ignoreKey,
       agentPath,
     })
-  }, [agentPath, isNew, name, scope, projectId, detailQuery.data?.folderName, deleteMutation])
+  }, [
+    agentPath,
+    isNew,
+    name,
+    scope,
+    projectId,
+    detailQuery.data?.folderName,
+    deleteMutation,
+    t,
+  ])
 
-  const syncMasterModels = useCallback(
+  // Master silent-save：修改 toolIds / skills / prompt 后立即持久化，
+  // 让主助手编辑即时生效于 chat，不依赖用户点保存。
+  const syncMasterAgent = useCallback(
     (patch: Partial<FormSnapshot>) => {
       if (!isMasterAgent || !agentPath || isNew) return
       const baseSnapshot =
@@ -725,21 +512,13 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
           name,
           description,
           icon,
-          modelLocalIds,
-          modelCloudIds,
-          auxiliaryModelSource,
-          auxiliaryModelLocalIds,
-          auxiliaryModelCloudIds,
           toolIds,
           skills,
           allowSubAgents,
           maxDepth,
           systemPrompt,
         }
-      const nextSnapshot: FormSnapshot = {
-        ...baseSnapshot,
-        ...patch,
-      }
+      const nextSnapshot: FormSnapshot = { ...baseSnapshot, ...patch }
       if (!nextSnapshot.name.trim()) return
       pendingSnapshotOverrideRef.current = makeSnapshot(nextSnapshot)
       silentSaveRef.current = true
@@ -750,11 +529,6 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
         name: nextSnapshot.name.trim(),
         description: nextSnapshot.description.trim() || undefined,
         icon: nextSnapshot.icon.trim() || undefined,
-        modelLocalIds: normalizeIds(nextSnapshot.modelLocalIds),
-        modelCloudIds: normalizeIds(nextSnapshot.modelCloudIds),
-        auxiliaryModelSource: nextSnapshot.auxiliaryModelSource,
-        auxiliaryModelLocalIds: normalizeIds(nextSnapshot.auxiliaryModelLocalIds),
-        auxiliaryModelCloudIds: normalizeIds(nextSnapshot.auxiliaryModelCloudIds),
         toolIds: normalizeAgentToolIds(nextSnapshot.toolIds),
         skills: nextSnapshot.skills,
         allowSubAgents: nextSnapshot.allowSubAgents,
@@ -763,27 +537,21 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
       })
     },
     [
-      allowSubAgents,
       agentPath,
-      auxiliaryModelCloudIds,
-      auxiliaryModelLocalIds,
-      auxiliaryModelSource,
-      toolIds,
+      allowSubAgents,
       description,
       getSavedSnapshot,
       icon,
       isMasterAgent,
       isNew,
       maxDepth,
-      modelCloudIds,
-      modelLocalIds,
       name,
-      normalizeIds,
       projectId,
       saveMutation,
       scope,
       skills,
       systemPrompt,
+      toolIds,
     ],
   )
 
@@ -792,11 +560,6 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
       toast.error(t('settings:agent.panel.nameRequired'))
       return
     }
-    const normalizedModelLocalIds = normalizeIds(modelLocalIds)
-    const normalizedModelCloudIds = normalizeIds(modelCloudIds)
-    const normalizedAuxLocalIds = normalizeIds(auxiliaryModelLocalIds)
-    const normalizedAuxCloudIds = normalizeIds(auxiliaryModelCloudIds)
-    const normalizedToolIds = normalizeAgentToolIds(toolIds)
     saveMutation.mutate({
       scope,
       projectId,
@@ -804,12 +567,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
       name: name.trim(),
       description: description.trim() || undefined,
       icon: icon.trim() || undefined,
-      modelLocalIds: normalizedModelLocalIds,
-      modelCloudIds: normalizedModelCloudIds,
-      auxiliaryModelSource,
-      auxiliaryModelLocalIds: normalizedAuxLocalIds,
-      auxiliaryModelCloudIds: normalizedAuxCloudIds,
-      toolIds: normalizedToolIds,
+      toolIds: normalizeAgentToolIds(toolIds),
       skills,
       allowSubAgents,
       maxDepth,
@@ -819,11 +577,6 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
     name,
     description,
     icon,
-    modelLocalIds,
-    modelCloudIds,
-    auxiliaryModelSource,
-    auxiliaryModelLocalIds,
-    auxiliaryModelCloudIds,
     toolIds,
     skills,
     allowSubAgents,
@@ -834,76 +587,76 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
     agentPath,
     isNew,
     saveMutation,
-    normalizeIds,
+    t,
   ])
 
-  const handleToggleSkill = useCallback((skillName: string, checked: boolean) => {
-    setSkills((prev) =>
-      checked ? [...prev, skillName] : prev.filter((s) => s !== skillName),
-    )
-  }, [])
-
-  // 逻辑：主助手思考模式与基础设置保持一致。
-  useEffect(() => {
-    if (!isMasterAgent) return
-    setThinkingMode(basic.chatThinkingMode === 'deep' ? 'deep' : 'fast')
-  }, [basic.chatThinkingMode, isMasterAgent])
-
-  const handleThinkingModeChange = useCallback(
-    (mode: ThinkingMode) => {
-      setThinkingMode(mode)
-      if (!isMasterAgent) return
-      void setBasic({ chatThinkingMode: mode })
+  const handleToggleSkill = useCallback(
+    (skillName: string, checked: boolean) => {
+      setSkills((prev) => {
+        const next = checked ? [...prev, skillName] : prev.filter((s) => s !== skillName)
+        if (isMasterAgent) syncMasterAgent({ skills: next })
+        return next
+      })
     },
-    [isMasterAgent, setBasic],
+    [isMasterAgent, syncMasterAgent],
   )
 
-  // 逻辑：主助手写入全局来源，子助手仅更新本地来源。
-  const handleChatSourceSelect = useCallback(
-    (next: 'local' | 'cloud') => {
-      if (isMasterAgent) {
-        void setBasic({ chatSource: next })
-        return
-      }
-      setLocalChatSource(next)
-    },
-    [isMasterAgent, setBasic],
-  )
+  const handleToggleAllSkills = useCallback(() => {
+    const allNames = availableSkills.map((s) => s.name)
+    const allSelected = allNames.every((n) => skills.includes(n))
+    const next = allSelected ? [] : allNames
+    setSkills(next)
+    if (isMasterAgent) syncMasterAgent({ skills: next })
+  }, [availableSkills, skills, isMasterAgent, syncMasterAgent])
 
-  // 逻辑：登录成功后自动关闭登录弹窗。
-  useEffect(() => {
-    if (authLoggedIn && loginOpen) {
-      setLoginOpen(false)
-    }
-  }, [authLoggedIn, loginOpen])
+  const handleRequestClose = useCallback((): boolean => {
+    if (!isDirty) return true
+    return window.confirm(t('settings:agent.panel.unsaved'))
+  }, [isDirty, t])
 
-  // 逻辑：向 PanelFrame 的 StackHeader 注入保存按钮和关闭拦截。
+  // Stack 模式：向 PanelFrame 的 StackHeader 注入操作按钮与关闭拦截。
+  // 系统 Agent（isReadOnly）不渲染删除/保存按钮 — 仅保留"打开目录"供用户查看源文件。
   useEffect(() => {
     if (!panelSlot) return
     panelSlot.setSlot({
       rightSlotBeforeClose: (
         <>
-          {agentPath && !isNew ? (
+          {agentPath && !isNew && !isReadOnly ? (
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button size="sm" variant="ghost" onClick={handleDelete} disabled={deleteMutation.isPending} aria-label={t('settings:agent.panel.deleteTooltip')}>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={handleDelete}
+                  disabled={deleteMutation.isPending}
+                  aria-label={t('settings:agent.panel.deleteTooltip')}
+                >
                   <Trash2 className="h-4 w-4 text-destructive" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="bottom">{t('settings:agent.panel.deleteTooltip')}</TooltipContent>
+              <TooltipContent side="bottom">
+                {t('settings:agent.panel.deleteTooltip')}
+              </TooltipContent>
             </Tooltip>
           ) : null}
-          {agentPath ? (
+          {agentPath && !isReadOnly ? (
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button size="sm" variant="ghost" onClick={handleOpenFolder} aria-label={t('settings:agent.panel.openFolderLabel')}>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={handleOpenFolder}
+                  aria-label={t('settings:agent.panel.openFolderLabel')}
+                >
                   <FolderOpen className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="bottom">{t('settings:agent.panel.openFolderTooltip')}</TooltipContent>
+              <TooltipContent side="bottom">
+                {t('settings:agent.panel.openFolderTooltip')}
+              </TooltipContent>
             </Tooltip>
           ) : null}
-          {isDirty ? (
+          {isDirty && !isReadOnly ? (
             <Button
               size="sm"
               variant="ghost"
@@ -915,13 +668,24 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
           ) : null}
         </>
       ),
-      onBeforeClose: () => {
-        if (!isDirty) return true
-        return window.confirm(t('settings:agent.panel.unsaved'))
-      },
+      onBeforeClose: handleRequestClose,
     })
     return () => panelSlot.setSlot(null)
-  }, [panelSlot, isDirty, handleSave, handleOpenFolder, handleDelete, agentPath, isNew, name, saveMutation.isPending, deleteMutation.isPending])
+  }, [
+    panelSlot,
+    isDirty,
+    isReadOnly,
+    handleSave,
+    handleOpenFolder,
+    handleDelete,
+    handleRequestClose,
+    agentPath,
+    isNew,
+    name,
+    saveMutation.isPending,
+    deleteMutation.isPending,
+    t,
+  ])
 
   if (!isNew && detailQuery.isLoading) {
     return (
@@ -931,151 +695,67 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
     )
   }
 
+  const allSkillsSelected =
+    availableSkills.length > 0 && availableSkills.every((s) => skills.includes(s.name))
+
+  // 只读模式下显示国际化后的名称与描述（从 agentTemplates i18n 查）；
+  // 可编辑模式保留原始 AGENT.md 值，避免把译文写回磁盘造成漂移。
+  const templateFolderName = detailQuery.data?.folderName ?? ''
+  const displayName = isReadOnly
+    ? t(`settings:agentTemplates.${templateFolderName}.name`, { defaultValue: name })
+    : name
+  const displayDescription = isReadOnly
+    ? t(`settings:agentTemplates.${templateFolderName}.description`, {
+        defaultValue: description,
+      })
+    : description
+
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <SaasLoginDialog open={loginOpen} onOpenChange={setLoginOpen} />
       <div className="flex-1 overflow-auto">
         <div className="space-y-4 p-4">
-          {/* Apple 风格基本信息区 */}
+          {/* 基本信息区 */}
           <div className="flex flex-col items-center gap-2 pt-2 pb-1">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted">
               <Bot className="h-7 w-7 text-foreground" />
             </div>
             <Input
-              value={name}
+              value={displayName}
               onChange={(e) => setName(e.target.value)}
               placeholder={t('settings:agent.panel.namePlaceholder')}
-              className="mx-auto max-w-[220px] border-0 bg-transparent text-center text-base font-semibold shadow-none focus-visible:ring-0"
+              readOnly={isReadOnly}
+              className="mx-auto max-w-[260px] border-0 bg-transparent text-center text-base font-semibold shadow-none focus-visible:ring-0"
             />
+            {isReadOnly ? (
+              <span className="rounded-full border border-border/60 bg-muted/50 px-2.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                {t('settings:agent.systemReadOnly', {
+                  defaultValue: '系统 Agent · 只读',
+                })}
+              </span>
+            ) : null}
           </div>
 
-          {/* 模型 + 子Agent助手 分组卡片 */}
+          {/* 子 Agent 并发数（master）/ 备注（非 master） */}
           <OpenLoafSettingsCard divided>
-            <div className="flex flex-wrap items-center gap-3 gap-y-2 py-2.5">
-              <span className="flex items-center gap-2 text-sm font-medium">
-                <MessageSquare className="h-4 w-4 text-foreground" />
-                {t('settings:agent.panel.chatModel')}
-                {isMasterAgent ? (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="inline-flex h-5 w-5 items-center justify-center text-muted-foreground hover:text-foreground">
-                        <HelpCircle className="h-3.5 w-3.5" />
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="max-w-[260px] text-xs">
-                      {t('settings:agent.panel.masterSyncNote')}
-                    </TooltipContent>
-                  </Tooltip>
-                ) : null}
-              </span>
-                <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
-                {hasReasoningModel ? (
-                  <ThinkingModeSelector
-                    value={thinkingMode}
-                    onChange={handleThinkingModeChange}
-                  />
-                ) : null}
-                <ChatModelSelect
-                  models={chatModels}
-                  value={activeModelIds}
-                    showCloudLogin={showChatCloudLogin}
-                    onChange={(nextIds) => {
-                      if (isCloudSource) {
-                        setModelCloudIds(nextIds)
-                        if (isMasterAgent) {
-                          syncMasterModels({ modelCloudIds: nextIds })
-                        }
-                        return
-                      }
-                      setModelLocalIds(nextIds)
-                      if (isMasterAgent) {
-                        syncMasterModels({ modelLocalIds: nextIds })
-                      }
-                    }}
-                    onOpenLogin={() => setLoginOpen(true)}
-                    emptyText={t('settings:agent.panel.noChatModel')}
-                  />
-                <div className="flex shrink-0 items-center rounded-3xl border border-border/70 bg-muted/40">
-                  <FilterTab
-                    text={t('settings:agent.panel.sourceLocal')}
-                    selected={!isCloudSource}
-                    onSelect={() => handleChatSourceSelect('local')}
-                    icon={<HardDrive className="h-3 w-3 text-foreground" />}
-                    layoutId="agent-chat-source"
-                  />
-                  <FilterTab
-                    text={t('settings:agent.panel.sourceCloud')}
-                    selected={isCloudSource}
-                    onSelect={() => handleChatSourceSelect('cloud')}
-                    icon={<Cloud className="h-3 w-3 text-foreground" />}
-                    layoutId="agent-chat-source"
-                  />
-                </div>
-              </div>
-            </div>
-            {isMasterAgent ? (
-              <div className="flex flex-wrap items-center gap-3 gap-y-2 py-2.5">
-                <span className="flex items-center gap-2 text-sm font-medium">
-                  <Sparkles className="h-4 w-4 text-foreground" />
-                  {t('settings:agent.panel.auxModel')}
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="inline-flex h-5 w-5 items-center justify-center text-muted-foreground hover:text-foreground">
-                        <HelpCircle className="h-3.5 w-3.5" />
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="max-w-[240px] text-xs">
-                      {t('settings:agent.panel.auxModelNote')}
-                    </TooltipContent>
-                  </Tooltip>
-                </span>
-                <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
-                  <ChatModelSelect
-                    models={auxiliaryChatModels}
-                    value={activeAuxModelIds}
-                    showCloudLogin={showAuxChatCloudLogin}
-                    onChange={(nextIds) => {
-                      if (isAuxCloudSource) {
-                        setAuxiliaryModelCloudIds(nextIds)
-                        return
-                      }
-                      setAuxiliaryModelLocalIds(nextIds)
-                    }}
-                    onOpenLogin={() => setLoginOpen(true)}
-                    emptyText={t('settings:agent.panel.noChatModel')}
-                  />
-                  <div className="flex shrink-0 items-center rounded-3xl border border-border/70 bg-muted/40">
-                    <FilterTab
-                      text={t('settings:agent.panel.sourceLocal')}
-                      selected={!isAuxCloudSource}
-                      onSelect={() => setAuxiliaryModelSource('local')}
-                      icon={<HardDrive className="h-3 w-3 text-foreground" />}
-                      layoutId="agent-aux-source"
-                    />
-                    <FilterTab
-                      text={t('settings:agent.panel.sourceCloud')}
-                      selected={isAuxCloudSource}
-                      onSelect={() => setAuxiliaryModelSource('cloud')}
-                      icon={<Cloud className="h-3 w-3 text-foreground" />}
-                      layoutId="agent-aux-source"
-                    />
-                  </div>
-                </div>
-              </div>
-            ) : null}
             {isMasterAgent ? (
               <div className="flex flex-wrap items-center gap-3 gap-y-2 py-2.5">
                 <span className="flex items-center gap-2 text-sm font-medium">
                   <Gauge className="h-4 w-4 text-foreground" />
                   {t('settings:agent.panel.maxSubagents')}
                 </span>
-                <div className="ml-auto flex items-center rounded-3xl border border-border/70 bg-muted/40">
+                <div
+                  className={cn(
+                    'ml-auto flex items-center rounded-3xl border border-border/70 bg-muted/40',
+                    isReadOnly && 'pointer-events-none opacity-60',
+                  )}
+                >
                   {[2, 3, 4, 5].map((count) => (
                     <FilterTab
                       key={count}
                       text={`${count}`}
                       selected={maxDepth === count}
                       onSelect={() => {
+                        if (isReadOnly) return
                         setAllowSubAgents(true)
                         setMaxDepth(count)
                       }}
@@ -1091,9 +771,10 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
                   {t('settings:agent.panel.notes')}
                 </span>
                 <Input
-                  value={description}
+                  value={displayDescription}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder={t('settings:agent.panel.notesPlaceholder')}
+                  readOnly={isReadOnly}
                   className="ml-auto w-full flex-1 min-w-[260px] max-w-[640px] border-0 bg-transparent text-right text-sm text-muted-foreground shadow-none focus-visible:ring-0"
                 />
               </div>
@@ -1122,7 +803,7 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
                   </TabsTrigger>
                 </TabsList>
                 <div className="flex items-center gap-1">
-                  {activeConfigTab === 'prompt' ? (
+                  {activeConfigTab === 'prompt' && !isReadOnly ? (
                     <Button
                       type="button"
                       size="sm"
@@ -1135,104 +816,170 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
                       ) : (
                         <Eye className="mr-1 h-3.5 w-3.5" />
                       )}
-                      {promptPreview ? t('settings:agent.panel.promptEdit') : t('settings:agent.panel.promptPreview')}
+                      {promptPreview
+                        ? t('settings:agent.panel.promptEdit')
+                        : t('settings:agent.panel.promptPreview')}
                     </Button>
                   ) : null}
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    className="h-7 rounded-3xl px-3 text-xs"
-                    onClick={handleResetToDefault}
-                    disabled={!canReset}
-                  >
-                    {t('settings:agent.panel.resetBtn')}
-                  </Button>
+                  {!isReadOnly ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 rounded-3xl px-3 text-xs"
+                      onClick={handleResetToDefault}
+                      disabled={!canReset}
+                    >
+                      {t('settings:agent.panel.resetBtn')}
+                    </Button>
+                  ) : null}
                 </div>
               </div>
             </div>
-              <TabsContent value="skills" className="mt-0">
-                <div className="py-3">
-                  {availableSkills.length > 0 ? (
-                    <>
+
+            <TabsContent value="skills" className="mt-0">
+              <div className="py-3">
+                {skillsQuery.isLoading ? (
+                  <div className="grid grid-cols-[repeat(auto-fill,minmax(min(220px,100%),1fr))] gap-3">
+                    {Array.from({ length: 6 }).map((_, i) => (
+                      <div
+                        key={i}
+                        className="h-[86px] animate-pulse rounded-[22px] bg-muted/40"
+                      />
+                    ))}
+                  </div>
+                ) : availableSkills.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    {t('settings:agent.panel.noSkills')}
+                  </p>
+                ) : (
+                  <>
+                    {!isReadOnly ? (
                       <div className="mb-2 flex items-center justify-end">
                         <button
                           type="button"
                           className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-                          onClick={() => {
-                            const allNames = availableSkills.map((s) => s.name)
-                            const allSelected = allNames.every((n) => skills.includes(n))
-                            setSkills(allSelected ? [] : allNames)
-                          }}
+                          onClick={handleToggleAllSkills}
                         >
-                          {availableSkills.every((s) => skills.includes(s.name)) ? t('settings:agent.panel.selectNone') : t('settings:agent.panel.selectAll')}
+                          {allSkillsSelected
+                            ? t('settings:agent.panel.selectNone')
+                            : t('settings:agent.panel.selectAll')}
                         </button>
                       </div>
-                      <div className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(min(220px,100%),1fr))]">
-                        {availableSkills.map((skill) => {
-                          const isSelected = skills.includes(skill.name)
-                          return (
-                            <label
-                              key={skill.ignoreKey || skill.path || skill.name}
-                              className="flex cursor-pointer flex-col rounded-[22px] bg-secondary p-3.5 transition-colors hover:bg-accent"
-                            >
-                              <div className="flex items-start gap-2">
-                                <Checkbox
-                                  checked={isSelected}
-                                  onCheckedChange={(checked) =>
-                                    handleToggleSkill(skill.name, Boolean(checked))
+                    ) : null}
+                    <div className="space-y-5">
+                      {skillGroups.map((group) => (
+                        <div key={group.key}>
+                          {skillGroups.length > 1 ? (
+                            <div className="mb-2 flex items-center gap-1.5 px-1">
+                              <group.icon className="h-3.5 w-3.5 text-muted-foreground/50" />
+                              <h3 className="flex-1 text-xs font-medium text-muted-foreground/70">
+                                {group.label}
+                                <span className="ml-1.5 tabular-nums">
+                                  ({group.skills.length})
+                                </span>
+                              </h3>
+                            </div>
+                          ) : null}
+                          <div className="grid grid-cols-[repeat(auto-fill,minmax(min(220px,100%),1fr))] gap-3">
+                            {group.skills.map((skill) => {
+                              const isSelected = skills.includes(skill.name)
+                              const colorIdx =
+                                skill.colorIndex != null
+                                  ? skill.colorIndex % SKILL_CARD_GRADIENTS.length
+                                  : hashCode(
+                                      skill.ignoreKey || skill.path || skill.name,
+                                    ) % SKILL_CARD_GRADIENTS.length
+                              return (
+                                <label
+                                  key={
+                                    skill.ignoreKey ||
+                                    skill.path ||
+                                    `${skill.scope}:${skill.name}`
                                   }
-                                  className="mt-0.5"
-                                />
-                                <div className="min-w-0">
-                                  <div className="truncate text-sm font-medium">{skill.name}</div>
-                                  <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
-                                    {skill.description?.trim() || skill.name}
-                                  </p>
-                                </div>
-                              </div>
-                            </label>
-                          )
-                        })}
-                      </div>
-                    </>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">{t('settings:agent.panel.noSkills')}</p>
-                  )}
-                </div>
-              </TabsContent>
+                                  className={cn(
+                                    'group relative flex cursor-pointer flex-col overflow-hidden rounded-[22px] border-l-[3px] border border-border/70 shadow-none transition-all duration-200 hover:shadow-none hover:border-foreground/40',
+                                    SKILL_ACCENT_BORDER_COLORS[colorIdx],
+                                  )}
+                                >
+                                  <div
+                                    className={cn(
+                                      'px-3.5 pt-3 pb-2 bg-gradient-to-r',
+                                      SKILL_CARD_GRADIENTS[colorIdx],
+                                    )}
+                                  >
+                                    <div className="flex min-w-0 items-start justify-between gap-2">
+                                      <div className="flex min-w-0 flex-1 items-center gap-1.5 truncate text-sm font-medium text-foreground">
+                                        {skill.icon ? (
+                                          <span className="shrink-0 text-sm leading-none">
+                                            {skill.icon}
+                                          </span>
+                                        ) : null}
+                                        <span className="truncate">{skill.name}</span>
+                                      </div>
+                                      <Checkbox
+                                        checked={isSelected}
+                                        onCheckedChange={(checked) =>
+                                          handleToggleSkill(skill.name, Boolean(checked))
+                                        }
+                                        disabled={isReadOnly}
+                                        className="mt-0.5 shrink-0"
+                                      />
+                                    </div>
+                                  </div>
+                                  <div className="flex flex-1 flex-col bg-background/50 px-3.5 pb-3 pt-1.5 dark:bg-background/30">
+                                    <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+                                      {skill.description?.trim() || skill.name}
+                                    </p>
+                                    <span className="mt-2 truncate text-[11px] text-muted-foreground/60">
+                                      {skill.folderName}
+                                    </span>
+                                  </div>
+                                </label>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            </TabsContent>
 
-              <TabsContent value="prompt" className="mt-0">
-                <div className="py-3">
-                  {promptPreview ? (
-                    <OpenLoafSettingsCard padding="none">
-                      <div className="min-h-[400px] overflow-auto p-4">
-                        <Streamdown
-                          mode="static"
-                          className="streamdown-viewer space-y-3"
-                          remarkPlugins={PROMPT_REMARK_PLUGINS}
-                          plugins={{ code }}
-                          shikiTheme={PROMPT_SHIKI_THEME}
-                        >
-                          {systemPrompt || t('settings:agent.panel.promptPlaceholder')}
-                        </Streamdown>
-                      </div>
-                    </OpenLoafSettingsCard>
-                  ) : (
-                    <OpenLoafSettingsCard padding="none">
-                      <Textarea
-                        value={systemPrompt}
-                        onChange={(e) => setSystemPrompt(e.target.value)}
-                        placeholder={t('settings:agent.panel.promptPlaceholder')}
-                        rows={16}
-                        className="min-h-[400px] resize-none border-0 bg-transparent font-mono text-xs shadow-none focus-visible:ring-0"
-                        style={{ height: `${Math.max(400, (systemPrompt.split('\n').length + 2) * 18)}px` }}
-                      />
-                    </OpenLoafSettingsCard>
-                  )}
-                </div>
-              </TabsContent>
-
+            <TabsContent value="prompt" className="mt-0">
+              <div className="py-3">
+                {promptPreview || isReadOnly ? (
+                  <OpenLoafSettingsCard padding="none">
+                    <div className="min-h-[400px] overflow-auto p-4">
+                      <Streamdown
+                        mode="static"
+                        className="streamdown-viewer space-y-3"
+                        remarkPlugins={PROMPT_REMARK_PLUGINS}
+                        plugins={{ code }}
+                        shikiTheme={PROMPT_SHIKI_THEME}
+                      >
+                        {systemPrompt || t('settings:agent.panel.promptPlaceholder')}
+                      </Streamdown>
+                    </div>
+                  </OpenLoafSettingsCard>
+                ) : (
+                  <OpenLoafSettingsCard padding="none">
+                    <Textarea
+                      value={systemPrompt}
+                      onChange={(e) => setSystemPrompt(e.target.value)}
+                      placeholder={t('settings:agent.panel.promptPlaceholder')}
+                      rows={16}
+                      readOnly={isReadOnly}
+                      className="min-h-[400px] resize-none border-0 bg-transparent font-mono text-xs shadow-none focus-visible:ring-0"
+                      style={{
+                        height: `${Math.max(400, (systemPrompt.split('\n').length + 2) * 18)}px`,
+                      }}
+                    />
+                  </OpenLoafSettingsCard>
+                )}
+              </div>
+            </TabsContent>
           </Tabs>
         </div>
       </div>

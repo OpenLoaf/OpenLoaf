@@ -20,6 +20,13 @@ declare global {
      * to `data/<testCase>.dom.html` so generate-report can render it in an iframe.
      */
     __probeDomSnapshot?: string
+    /**
+     * Map of `<sha1>.<ext>` filename → base64 string for blob: URLs that
+     * appeared in the DOM at capture time. saveTestData decodes and writes
+     * each to `data/assets/<filename>` so the dom.html iframe can reference
+     * them via relative `src="assets/<filename>"`.
+     */
+    __probeBlobAssets?: Record<string, string>
   }
 }
 

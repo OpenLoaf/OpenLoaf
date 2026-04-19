@@ -86,6 +86,16 @@ function buildScopedAgentsUri(rootUri: string): string {
     : `${normalizedRoot}/.openloaf/agents`;
 }
 
+/**
+ * 系统 Agent 展示顺序（与后端 systemAgentDefinitions.SYSTEM_AGENT_ORDER 保持同步）。
+ * general-purpose 永远排第一；master 在后端被隐藏过滤，这里保留索引防御式占位。
+ */
+const SYSTEM_AGENT_ORDER: Record<string, number> = {
+  "general-purpose": 0,
+  explore: 1,
+  master: 2,
+};
+
 /** Card color palette for the expert center grid. */
 const CARD_COLOR_PALETTE = [
   { tag: "text-orange-600 dark:text-orange-400", tagBorder: "border-orange-400/60 dark:border-orange-500/40", avatar: "from-orange-100 to-amber-50 dark:from-orange-900/25 dark:to-amber-900/10", icon: "text-orange-500 dark:text-orange-400" },
@@ -164,6 +174,9 @@ function resolveAgentFolderUri(
   baseRootUri?: string,
 ): string | undefined {
   if (!agentPath) return undefined;
+  // 内嵌系统 Agent（general-purpose / explore）无真实磁盘目录，直接返回 undefined
+  // 让右键菜单"查看目录"和卡片的 openAgent 入口自动禁用。
+  if (agentPath.startsWith("builtin://")) return undefined;
   const normalizedPath = normalizePath(agentPath).replace(/\/+$/, "");
   const lastSlash = normalizedPath.lastIndexOf("/");
   const dirPath = lastSlash >= 0 ? normalizedPath.slice(0, lastSlash) : "";
@@ -272,6 +285,9 @@ function GlobalAgentView() {
       return true;
     });
     return filtered.sort((a, b) => {
+      const aOrder = SYSTEM_AGENT_ORDER[a.folderName] ?? Number.MAX_SAFE_INTEGER;
+      const bOrder = SYSTEM_AGENT_ORDER[b.folderName] ?? Number.MAX_SAFE_INTEGER;
+      if (aOrder !== bOrder) return aOrder - bOrder;
       if (a.isSystem && !b.isSystem) return -1;
       if (!a.isSystem && b.isSystem) return 1;
       return 0;
@@ -355,11 +371,15 @@ function GlobalAgentView() {
 
   const handleEditAgent = useCallback(
     (agent: AgentSummary) => {
+      const displayName = t(
+        `settings:agentTemplates.${agent.folderName}.name`,
+        { defaultValue: agent.name },
+      );
       pushStackItem({
         id: `agent-detail:${agent.scope}:${agent.name}`,
         sourceKey: `agent-detail:${agent.scope}:${agent.name}`,
         component: "agent-detail",
-        title: t("settings:agent.tabTitle", { name: agent.name }),
+        title: t("settings:agent.tabTitle", { name: displayName }),
         params: { agentPath: agent.path, scope: agent.scope, isSystem: agent.isSystem },
       });
     },
@@ -514,14 +534,17 @@ function GlobalAgentView() {
                 : agent.scope === "project"
                   ? t("settings:agent.badgeProject")
                   : t("settings:agent.scopeGlobal");
-              const displayName = agent.isSystem
-                ? t(`settings:agentTemplates.${agent.folderName}.name`, { defaultValue: agent.name })
-                : agent.name;
-              const displayDesc = agent.isSystem
-                ? t(`settings:agentTemplates.${agent.folderName}.description`, {
-                    defaultValue: agent.description,
-                  })
-                : agent.description;
+              // 逻辑：无论是否系统 Agent，都尝试查 agentTemplates.{folderName} 翻译，
+              // 找不到就回退到 AGENT.md 自带的原始 name / description。
+              // 这让种子化的内置 Agent（general-purpose / explore 等）也能在列表自动国际化显示。
+              const displayName = t(
+                `settings:agentTemplates.${agent.folderName}.name`,
+                { defaultValue: agent.name },
+              );
+              const displayDesc = t(
+                `settings:agentTemplates.${agent.folderName}.description`,
+                { defaultValue: agent.description },
+              );
 
               return (
                 <ContextMenu
@@ -530,7 +553,7 @@ function GlobalAgentView() {
                   <ContextMenuTrigger asChild>
                     <div
                       className="group relative flex cursor-pointer flex-col items-center gap-2.5 rounded-3xl border border-dashed border-border/60 px-4 pb-5 pt-6 transition-all duration-200 hover:border-purple-400 hover:shadow-none dark:hover:border-purple-500/60"
-                      onDoubleClick={() => handleEditAgent(agent)}
+                      onClick={() => handleEditAgent(agent)}
                     >
                       {/* Disabled overlay */}
                       {!agent.isEnabled ? (

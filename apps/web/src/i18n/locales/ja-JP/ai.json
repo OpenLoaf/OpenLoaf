@@ -466,6 +466,7 @@
     "approvalRejected": "却下済み",
     "rejected": "却下済み",
     "outputLoading": "出力を読み込み中...",
+    "autoHiddenHint": "このツール呼び出しはデフォルトで非表示です。設定で「すべてのツール結果を表示」を有効にすると表示されます",
     "executing": "実行中…",
     "confirmExec": "このコマンドを実行しますか？",
     "approve": "許可",

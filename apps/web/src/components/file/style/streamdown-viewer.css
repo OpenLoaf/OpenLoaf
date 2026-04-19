@@ -60,3 +60,21 @@
 .dark .streamdown-viewer [data-streamdown="code-block-body"] span {
   color: var(--shiki-dark, #f0f3f6) !important;
 }
+
+/* 无语言的 code block (```...```)：隐藏空 header 条，按钮区浮到右上角，避免顶部出现空白带。 */
+.streamdown-viewer [data-streamdown="code-block"][data-language=""] {
+  position: relative;
+  gap: 0;
+}
+
+.streamdown-viewer [data-streamdown="code-block"][data-language=""] > [data-streamdown="code-block-header"] {
+  display: none;
+}
+
+.streamdown-viewer [data-streamdown="code-block"][data-language=""] > [data-streamdown="code-block-header"] + div {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  margin-top: 0;
+  height: auto;
+}

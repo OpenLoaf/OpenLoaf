@@ -344,6 +344,8 @@ export const MessageResponse = memo(
     <Streamdown
       className={cn(
         "size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
+        // Streamdown 默认把 <hr> 渲染成 my-6，聊天里太宽松，压紧到 my-3。
+        "[&_hr[data-streamdown=horizontal-rule]]:!my-3",
         className
       )}
       {...props}

@@ -13,7 +13,11 @@ import {
   resolveAgentsRootDir,
   readAgentJson,
 } from '@/ai/shared/defaultAgentResolver'
-import { isSystemAgentId } from '@/ai/shared/systemAgentDefinitions'
+import {
+  BUILTIN_AGENT_DEFINITIONS,
+  buildBuiltinAgentPath,
+  isSystemAgentId,
+} from '@/ai/shared/systemAgentDefinitions'
 import {
   normalizeScalar,
   normalizeDescription,
@@ -223,6 +227,29 @@ export function loadAgentSummaries(input: {
         })
       }
     }
+  }
+
+  // 逻辑：追加完全内嵌、不落盘的系统 Agent（general-purpose / explore）。
+  // 磁盘上同 folderName 的条目优先（用户可能手动创建同名 agent），否则注入代码常量定义。
+  const existingFolderNames = new Set(
+    Array.from(summaryByName.values()).map((item) => item.folderName),
+  )
+  for (const def of BUILTIN_AGENT_DEFINITIONS) {
+    if (existingFolderNames.has(def.folderName)) continue
+    if (summaryByName.has(def.name)) continue
+    orderedNames.push(def.name)
+    summaryByName.set(def.name, {
+      name: def.name,
+      description: def.description,
+      icon: def.icon,
+      model: '',
+      toolIds: def.toolIds,
+      skills: def.skills,
+      path: buildBuiltinAgentPath(def.folderName),
+      folderName: def.folderName,
+      scope: 'global',
+      isSystem: true,
+    })
   }
 
   return orderedNames

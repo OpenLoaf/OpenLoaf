@@ -466,6 +466,7 @@
     "approvalRejected": "已拒绝执行",
     "rejected": "已拒绝",
     "outputLoading": "输出加载中…",
+    "autoHiddenHint": "该工具调用默认自动隐藏，可在设置中开启「显示所有工具调用结果」查看",
     "executing": "执行中…",
     "confirmExec": "确认执行此命令？",
     "approve": "允许",

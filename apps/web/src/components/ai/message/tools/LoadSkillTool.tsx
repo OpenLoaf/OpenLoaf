@@ -21,6 +21,7 @@ import {
   Collapsible,
   CollapsibleTrigger,
 } from '@openloaf/ui/collapsible'
+import { AutoHiddenBadge } from './shared/AutoHiddenBadge'
 import {
   ToolOutputContent,
   ToolOutputError,
@@ -143,6 +144,7 @@ export default function LoadSkillTool({
             ) : hasError ? (
               <XCircleIcon className="size-3 shrink-0 text-destructive" />
             ) : null}
+            <AutoHiddenBadge />
           </CollapsibleTrigger>
         </TooltipTrigger>
         {tooltipText ? (

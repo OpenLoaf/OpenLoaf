@@ -31,8 +31,8 @@ type AnyPart = {
  * 判断一个 tool part 是否应该显示。
  *
  * 判断优先级：
- * 1. 黑名单工具（如 ToolSearch）且无错误 → 不显示
- * 2. showAllToolResults 为 true → 显示
+ * 1. showAllToolResults 为 true → 显示（覆盖黑名单，方便调试）
+ * 2. 黑名单工具（如 LoadSkill / ToolSearch）且无错误 → 不显示
  * 3. 未完成（streaming 中）→ 显示
  * 4. 有错误 → 显示
  * 5. 已成功完成 → 有专用 UI (registry entry) 则显示，否则不显示
@@ -44,14 +44,14 @@ export function shouldShowToolPart(
   if (!part || typeof part !== "object") return false;
   const p = part as AnyPart;
 
-  // 1. 黑名单工具（无错误且非审批相关状态时隐藏）
+  // 1. 用户开启"显示所有工具结果" → 一律显示（优先于黑名单，方便排查）
+  if (options?.showAllToolResults) return true;
+
+  // 2. 黑名单工具（无错误且非审批相关状态时隐藏）
   // approval-requested 的 SubmitPlan 需要显示审批 UI，不能隐藏。
   // 已决定（approved/rejected）的 SubmitPlan 需要显示决定结果，也不能隐藏。
   const hasApprovalDecision = (p as any).approval?.approved === true || (p as any).approval?.approved === false;
   if (isHiddenToolPart(p) && !isToolPartError(p) && p.state !== "approval-requested" && !hasApprovalDecision) return false;
-
-  // 2. 用户开启"显示所有工具结果"
-  if (options?.showAllToolResults) return true;
 
   // 3. 未完成的工具始终显示（streaming 中）
   const state = p.state;

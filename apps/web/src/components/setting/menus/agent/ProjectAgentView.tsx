@@ -39,7 +39,7 @@ import {
 } from "@openloaf/ui/context-menu"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@openloaf/ui/tooltip"
 import {
-  Search, Trash2, X, Plus, Pencil, Eye,
+  Search, Trash2, X, Plus, Pencil,
   Bot, Sparkles, FileText, Terminal, Globe, Mail, Calendar,
   LayoutGrid, FolderKanban, Blocks, ArrowRight,
   Copy, FileSearch, FilePen, Code, Link, Users, Settings,
@@ -120,6 +120,16 @@ const CAP_BG_MAP: Record<string, string> = {
   system: "bg-secondary",
 }
 
+/**
+ * 系统 Agent 展示顺序（与后端 systemAgentDefinitions.SYSTEM_AGENT_ORDER 保持同步）。
+ * master 在当前项目范围内仍然显示（是聊天主控），单独靠前。
+ */
+const SYSTEM_AGENT_ORDER: Record<string, number> = {
+  master: 0,
+  "general-purpose": 1,
+  explore: 2,
+}
+
 const AGENT_ICON_MAP: Partial<Record<string, LucideIcon>> = {
   bot: Bot, sparkles: Sparkles, "file-text": FileText, terminal: Terminal,
   globe: Globe, mail: Mail, calendar: Calendar, "layout-grid": LayoutGrid,
@@ -175,27 +185,39 @@ function CopyAgentDialog({
               {t("settings:agent.noGlobalAgents")}
             </p>
           ) : (
-            agents.map((agent) => (
-              <button
-                key={agent.path}
-                type="button"
-                className="flex w-full items-center gap-2.5 rounded-3xl px-3 py-2 text-left transition-colors hover:bg-muted/60"
-                onClick={() => onSelect(agent)}
-              >
-                <AgentIconDisplay icon={agent.icon} />
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-medium">{agent.name}</div>
-                  {agent.description ? (
-                    <div className="truncate text-xs text-muted-foreground">{agent.description}</div>
+            agents.map((agent) => {
+              const displayName = t(
+                `settings:agentTemplates.${agent.folderName}.name`,
+                { defaultValue: agent.name },
+              )
+              const displayDesc = t(
+                `settings:agentTemplates.${agent.folderName}.description`,
+                { defaultValue: agent.description },
+              )
+              return (
+                <button
+                  key={agent.path}
+                  type="button"
+                  className="flex w-full items-center gap-2.5 rounded-3xl px-3 py-2 text-left transition-colors hover:bg-muted/60"
+                  onClick={() => onSelect(agent)}
+                >
+                  <AgentIconDisplay icon={agent.icon} />
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-medium">{displayName}</div>
+                    {displayDesc ? (
+                      <div className="truncate text-xs text-muted-foreground">
+                        {displayDesc}
+                      </div>
+                    ) : null}
+                  </div>
+                  {agent.folderName === "master" ? (
+                    <span className="shrink-0 rounded bg-secondary px-1 py-px text-[10px] text-foreground">
+                      {t("settings:agent.master")}
+                    </span>
                   ) : null}
-                </div>
-                {agent.folderName === "master" ? (
-                  <span className="shrink-0 rounded bg-secondary px-1 py-px text-[10px] text-foreground">
-                    {t("settings:agent.master")}
-                  </span>
-                ) : null}
-              </button>
-            ))
+                </button>
+              )
+            })
           )}
         </div>
       </DialogContent>
@@ -323,10 +345,12 @@ export function ProjectAgentView({ projectId }: { projectId: string }) {
       if (statusFilter === "disabled" && agent.isEnabled) return false
       return true
     })
-    // 逻辑：主助手排第一，系统 Agent 其次。
+    // 逻辑：按 SYSTEM_AGENT_ORDER 显式顺序（master → general-purpose → explore），
+    // 再把其余系统 Agent 统一放在用户 Agent 前面。
     return filtered.sort((a, b) => {
-      if (a.folderName === "master" && b.folderName !== "master") return -1
-      if (a.folderName !== "master" && b.folderName === "master") return 1
+      const aOrder = SYSTEM_AGENT_ORDER[a.folderName] ?? Number.MAX_SAFE_INTEGER
+      const bOrder = SYSTEM_AGENT_ORDER[b.folderName] ?? Number.MAX_SAFE_INTEGER
+      if (aOrder !== bOrder) return aOrder - bOrder
       if (a.isSystem && !b.isSystem) return -1
       if (!a.isSystem && b.isSystem) return 1
       return 0
@@ -375,11 +399,15 @@ export function ProjectAgentView({ projectId }: { projectId: string }) {
 
   const handleEditAgent = useCallback(
     (agent: AgentSummary) => {
+      const displayName = t(
+        `settings:agentTemplates.${agent.folderName}.name`,
+        { defaultValue: agent.name },
+      )
       pushStackItem({
         id: `agent-detail:${agent.scope}:${agent.name}`,
         sourceKey: `agent-detail:${agent.scope}:${agent.name}`,
         component: "agent-detail",
-        title: t("settings:agent.tabTitle", { name: agent.name }),
+        title: t("settings:agent.tabTitle", { name: displayName }),
         params: {
           agentPath: agent.path,
           scope: agent.scope,
@@ -388,7 +416,7 @@ export function ProjectAgentView({ projectId }: { projectId: string }) {
         },
       })
     },
-    [projectId, pushStackItem],
+    [projectId, pushStackItem, t],
   )
 
   const handleCreateBlank = useCallback(() => {
@@ -399,7 +427,7 @@ export function ProjectAgentView({ projectId }: { projectId: string }) {
       title: t("settings:agent.createTitle"),
       params: { isNew: true, scope: "project", projectId },
     })
-  }, [projectId, pushStackItem])
+  }, [projectId, pushStackItem, t])
 
   const handleOpenGlobalAgents = useCallback(() => {
     pushStackItem({
@@ -564,18 +592,28 @@ export function ProjectAgentView({ projectId }: { projectId: string }) {
       <div className="mt-2 min-h-0 flex-1 overflow-y-auto pr-1">
         {filteredAgents.length > 0 ? (
           <div className="flex flex-col gap-2 pb-1">
-            {filteredAgents.map((agent) => (
+            {filteredAgents.map((agent) => {
+              // 逻辑：统一查 agentTemplates.{folderName} 国际化条目，找不到回退到 AGENT.md 原始值。
+              const displayName = t(
+                `settings:agentTemplates.${agent.folderName}.name`,
+                { defaultValue: agent.name },
+              )
+              const displayDesc = t(
+                `settings:agentTemplates.${agent.folderName}.description`,
+                { defaultValue: agent.description },
+              )
+              return (
               <ContextMenu key={agent.ignoreKey || agent.path || `${agent.scope}:${agent.name}`}>
                 <ContextMenuTrigger asChild>
                   <div
                     className="group flex items-center gap-3 rounded-3xl bg-secondary px-3 py-2.5 transition-[background-color] duration-200 hover:bg-accent"
-                    onDoubleClick={() => handleEditAgent(agent)}
+                    onClick={() => handleEditAgent(agent)}
                   >
                     <div className="min-w-0 flex-1 space-y-1">
                       <div className="flex items-center gap-2">
                         <AgentIconDisplay icon={agent.icon} />
                         <span className="min-w-0 truncate text-sm font-medium text-foreground">
-                          {agent.name}
+                          {displayName}
                         </span>
                         {agent.folderName === "master" ? (
                           <span className="shrink-0 rounded px-1 py-px text-[10px] bg-secondary text-foreground">
@@ -599,9 +637,9 @@ export function ProjectAgentView({ projectId }: { projectId: string }) {
                           </span>
                         ) : null}
                       </div>
-                      {agent.description?.trim() ? (
+                      {displayDesc?.trim() ? (
                         <p className="truncate pl-1 text-xs text-muted-foreground">
-                          {agent.description}
+                          {displayDesc}
                         </p>
                       ) : null}
                       {agent.toolIds.length > 0 ? (
@@ -644,7 +682,8 @@ export function ProjectAgentView({ projectId }: { projectId: string }) {
                   </ContextMenuItem>
                 </ContextMenuContent>
               </ContextMenu>
-            ))}
+              )
+            })}
           </div>
         ) : null}
 

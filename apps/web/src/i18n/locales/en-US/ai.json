@@ -466,6 +466,7 @@
     "approvalRejected": "Rejected",
     "rejected": "Rejected",
     "outputLoading": "Loading output…",
+    "autoHiddenHint": "This tool call is hidden by default — enable “Show All Tool Results” in settings to view",
     "executing": "Executing…",
     "confirmExec": "Confirm executing this command?",
     "approve": "Allow",

@@ -25,7 +25,13 @@ import { loadAgentSummaries, readAgentConfigFromPath, serializeAgentToMarkdown }
 import { readAgentJson, resolveAgentDir } from "@/ai/shared/defaultAgentResolver"
 import { getOpenLoafRootDir } from "@openloaf/config"
 import { CAPABILITY_GROUPS } from "@/ai/tools/capabilityGroups"
-import { isSystemAgentId } from "@/ai/shared/systemAgentDefinitions"
+import {
+  builtinFolderNameFromPath,
+  getBuiltinAgentDefinition,
+  isBuiltinAgentPath,
+  isHiddenAgentId,
+  isSystemAgentId,
+} from "@/ai/shared/systemAgentDefinitions"
 import {
   buildGlobalIgnoreKey,
   buildProjectIgnoreKey,
@@ -185,8 +191,9 @@ export const agentProcedures = {
       const scopeFiltered = scopeFilter && scopeFilter !== 'all'
         ? items.filter((item) => item.scope === scopeFilter)
         : items
-      // 过滤系统 Agent — 用户只能看到自己创建的 Agent。
-      const userOnly = scopeFiltered.filter((item) => !item.isSystem)
+      // 过滤幕后 Agent — 仅隐藏 master 这类不应暴露给用户的聊天主控，
+      // 其余系统 Agent（general-purpose / explore）保留显示，由前端标注"系统"并禁止编辑删除。
+      const userOnly = scopeFiltered.filter((item) => !isHiddenAgentId(item.folderName))
       if (input?.projectId) {
         return userOnly.filter(
           (item) =>
@@ -290,6 +297,33 @@ export const agentProcedures = {
     .input(settingSchemas.getAgentDetail.input)
     .output(settingSchemas.getAgentDetail.output)
     .query(async ({ input }) => {
+      // 逻辑：内嵌系统 Agent — 不落盘，从代码常量直接返回。
+      if (isBuiltinAgentPath(input.agentPath)) {
+        const folderName = builtinFolderNameFromPath(input.agentPath) ?? ""
+        const def = getBuiltinAgentDefinition(folderName)
+        if (!def) {
+          throw new Error(`Builtin agent not found: ${folderName}`)
+        }
+        return {
+          name: def.name,
+          description: def.description,
+          icon: def.icon,
+          modelLocalIds: [],
+          modelCloudIds: [],
+          auxiliaryModelSource: "local",
+          auxiliaryModelLocalIds: [],
+          auxiliaryModelCloudIds: [],
+          codeModelIds: [],
+          toolIds: def.toolIds,
+          skills: def.skills,
+          allowSubAgents: def.allowSubAgents,
+          maxDepth: def.maxDepth,
+          systemPrompt: def.systemPrompt,
+          path: input.agentPath,
+          folderName: def.folderName,
+          scope: "global",
+        }
+      }
       // 逻辑：agent.json 路径走 .openloaf/agents/ 结构，AGENT.md 走旧结构。
       if (path.basename(input.agentPath) === "agent.json") {
         const { readAgentJson } = await import("@/ai/shared/defaultAgentResolver")

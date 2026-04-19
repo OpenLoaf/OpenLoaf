@@ -688,8 +688,8 @@ function createGeneralPurposeSubAgent(model: LanguageModelV3): ToolLoopAgent {
 
 /**
  * Create an explore SubAgent (document researcher, read-only) as code-layer fallback.
- * 首选路径是从文件系统读 `<tempStorage>/agents/explore/AGENT.md`（由 seedDefaultAgents 种子）；
- * 只有文件缺失时才走到这里。tools 和 instructions 与种子文件保持同一偏向：**文档研究**。
+ * explore 现在完全由 `systemAgentDefinitions.BUILTIN_AGENT_DEFINITIONS` 提供，不再落盘。
+ * 此处保留 tools/instructions 偏向文档研究，作为 resolver 返回空时的兜底。
  */
 function createExploreSubAgent(model: LanguageModelV3): ToolLoopAgent {
   const instructions = [

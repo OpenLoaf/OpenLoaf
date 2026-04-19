@@ -972,9 +972,8 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
             </TooltipContent>
           </Tooltip>
           <Button
-            variant="ghost"
             size="sm"
-            className="rounded-3xl bg-foreground text-background hover:bg-foreground/90"
+            className="rounded-3xl bg-foreground text-background shadow-none hover:bg-foreground hover:text-background hover:opacity-90"
             onClick={openAddDialog}
           >
             <Plus className="mr-1.5 h-4 w-4" />

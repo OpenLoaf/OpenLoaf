@@ -33,7 +33,8 @@ import { readBasicConf } from "@/modules/settings/openloafConfStore";
 import { migrateLegacyServerData } from "@openloaf/config";
 import { ensureDefaultAgentCleanup } from "@/ai/shared/agentCleanup";
 import { migrateGlobalDataToTempStorage } from "@/ai/shared/migrateGlobalDataToTempStorage";
-import { seedDefaultGlobalAgents } from "@/ai/shared/seedDefaultAgents";
+import { cleanupBuiltinAgentFiles } from "@/ai/shared/systemAgentDefinitions";
+import { resolveGlobalAgentsPath } from "@/routers/settingsHelpers";
 import { initDatabase } from "@openloaf/db";
 import { runPendingMigrations } from "@openloaf/db/migrationRunner";
 import { embeddedMigrations } from "@openloaf/db/migrations.generated";
@@ -73,9 +74,14 @@ ensureDefaultAgentCleanup();
 // 必须在 setResolvedTempStorageDir() 之后调用。skills/* 不在迁移范围。
 migrateGlobalDataToTempStorage();
 
-// 种子化默认全局 Agent（general-purpose / explore），让"专家中心"初始有内容可见可编辑。
-// 幂等：已存在目录则跳过，不覆盖用户手改。必须在 migrateGlobalDataToTempStorage 之后。
-seedDefaultGlobalAgents();
+// 注：general-purpose / explore 等内嵌系统 Agent 现在完全由代码常量提供
+// （见 systemAgentDefinitions.BUILTIN_AGENT_DEFINITIONS），不再种子化磁盘文件。
+// 启动时清理历史种子化遗留的 builtin agent 目录，避免磁盘残影与代码版本产生分歧。
+try {
+  cleanupBuiltinAgentFiles(resolveGlobalAgentsPath());
+} catch {
+  // 静默忽略，不影响启动。
+}
 
 // 数据库迁移：检查并应用所有待执行的 schema 迁移。
 // 必须在 initDatabase() 之前完成，确保表结构就绪。

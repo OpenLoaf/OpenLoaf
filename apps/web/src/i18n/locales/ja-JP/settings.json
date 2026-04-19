@@ -789,6 +789,81 @@
     "webNotSupported": "Webモードではファイルマネージャーの起動に対応していません",
     "openDirFailed": "ファイルマネージャーを開けません",
     "confirmDelete": "スキル「{{name}}」を削除しますか？この操作は取り消せません。",
+    "scopeBuiltin": "組み込みスキル",
+    "builtinBadge": "システムスキル",
+    "builtinLockedTooltip": "システム組み込みスキルは常に有効で、無効化できません",
+    "builtinLockedAria": "{{name}}（システムスキル、常に有効）",
+    "viewSkillContent": "内容を表示",
+    "builtin": {
+      "email-ops-skill": {
+        "name": "メール操作",
+        "description": "実際のメールボックスの送受信・返信・検索・アーカイブ・削除"
+      },
+      "calendar-ops-skill": {
+        "name": "カレンダー操作",
+        "description": "予定や会議の検索・作成・変更・削除"
+      },
+      "schedule-ops-skill": {
+        "name": "定期タスク",
+        "description": "バックグラウンド実行、cron 定期タスク、ボードタスクの承認"
+      },
+      "canvas-ops-skill": {
+        "name": "キャンバス管理",
+        "description": "OpenLoaf キャンバスとホワイトボードの作成・複製・削除"
+      },
+      "project-ops-skill": {
+        "name": "プロジェクト管理",
+        "description": "プロジェクトとサブプロジェクトの作成・切替・移動・改名"
+      },
+      "workbench-ops-skill": {
+        "name": "ワークベンチ ウィジェット",
+        "description": "デスクトップ ウィジェットの作成・変更・表示・削除"
+      },
+      "settings-guide-skill": {
+        "name": "設定ガイド",
+        "description": "API キー・モデル・テーマ・言語・ショートカット等の設定案内"
+      },
+      "agent-orchestration-skill": {
+        "name": "エージェント オーケストレーション",
+        "description": "browser / coder / designer などのサブエージェントに委任"
+      },
+      "browser-ops-skill": {
+        "name": "ブラウザー操作",
+        "description": "ログイン・フォーム入力・クリック・スクレイピング・スクリーンショット"
+      },
+      "pdf-skill": {
+        "name": "PDF ツール",
+        "description": "PDF の読み書き・変換・OCR、要約・フォーム入力・結合・透かし"
+      },
+      "docx-skill": {
+        "name": "Word 文書",
+        "description": ".docx / .doc の生成・編集・要約・変換"
+      },
+      "xlsx-skill": {
+        "name": "Excel スプレッドシート",
+        "description": "スプレッドシートと CSV の読取・分析・編集・生成"
+      },
+      "pptx-skill": {
+        "name": "PowerPoint プレゼン",
+        "description": "PPT スライドの要約・編集・生成"
+      },
+      "media-ops-skill": {
+        "name": "メディア処理",
+        "description": "画像 / 動画 / 音声の処理とオンライン動画のダウンロード"
+      },
+      "visualization-ops-skill": {
+        "name": "データ可視化",
+        "description": "チャートや動的 JSX、構造化レイアウトの生成"
+      },
+      "skill-creator-skill": {
+        "name": "スキル作成",
+        "description": "カスタム Skill の作成・デバッグ・最適化"
+      },
+      "cloud-media-skill": {
+        "name": "クラウドメディア生成",
+        "description": "AI による画像・音声・動画の生成（クラウド有料機能）"
+      }
+    },
     "scopeGlobal": "グローバルスキル",
     "scopeProject": "プロジェクトスキル",
     "scopeProjectSpace": "プロジェクトスペーススキル",
@@ -1009,6 +1084,14 @@
     "email": {
       "name": "メールアシスタント",
       "description": "メールの検索と操作"
+    },
+    "explore": {
+      "name": "ドキュメント調査員",
+      "description": "ローカルファイル、Office文書、PDF、Webページから情報を検索・整理する読み取り専用アシスタント"
+    },
+    "general-purpose": {
+      "name": "汎用タスクアシスタント",
+      "description": "マルチステップの調査・検索・総合推論。境界が曖昧な複雑タスクに最適"
     },
     "master": {
       "name": "デフォルトエージェント",

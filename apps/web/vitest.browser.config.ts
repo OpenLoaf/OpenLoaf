@@ -597,6 +597,32 @@ import { readTestCaseSpec } from './src/test/browser/test-case-spec.mjs'
 const TEST_CASES_DIR_ABS = resolve(root, '../../.agents/skills/ai-browser-test/test-cases')
 
 /**
+ * 把 dom.html 里所有 <style>...</style> 块抽到共享目录 shared-styles/<sha1>.css，
+ * 原位换成 <link rel="stylesheet" href="../../shared-styles/<sha1>.css">。
+ *
+ * - dom.html 落在 browser-test-runs/<seq>/data/，相对路径 ../../shared-styles/ 正好回到 browser-test-runs/
+ * - 内容相同的 style 块 hash 一致 → 跨 run 自动 dedup（覆盖写无害）
+ * - <style scoped> / <style media="..."> 的属性也保留到 <link>，避免改变样式作用域
+ */
+function externalizeStyles(html: string, sharedDir: string): string {
+  return html.replace(/<style([^>]*)>([\s\S]*?)<\/style>/gi, (_full, attrs: string, content: string) => {
+    if (!content || !content.trim()) return `<style${attrs}></style>`
+    const hash = createHash('sha1').update(content).digest('hex').slice(0, 16)
+    const file = join(sharedDir, `${hash}.css`)
+    if (!existsSync(file)) {
+      try { writeFileSync(file, content, 'utf-8') } catch { /* ignore: best-effort */ }
+    }
+    // 保留 media / scoped / nonce 属性（移除 type/style 自身关键词），不丢失原作用域。
+    const passThrough = String(attrs ?? '')
+      .replace(/\s+type\s*=\s*"[^"]*"/gi, '')
+      .replace(/\s+type\s*=\s*'[^']*'/gi, '')
+      .trim()
+    const extra = passThrough ? ` ${passThrough}` : ''
+    return `<link rel="stylesheet" href="../../shared-styles/${hash}.css"${extra}>`
+  })
+}
+
+/**
  * 把 server 端持久化到 messages.jsonl 的 metadata 合并回 probe result 的 messages。
  *
  * Why：useChat 在浏览器端的 messages 对象不带 message.metadata（SSE 流的
@@ -694,7 +720,12 @@ const saveTestData: BrowserCommand<[{
   // probe-helpers.waitForProbeResult 把 `window.__probeDomSnapshot` 注入成
   // `result._domSnapshot`。outerHTML 通常 100KB-1MB，留在 result.json 里会让
   // 报告生成 / 数据后处理都变慢；抽到 sibling .dom.html 后 generate-report 用
-  // sandboxed iframe 内嵌即可。
+  // iframe `src=` 加载即可。
+  //
+  // 同时把 dom.html 里的所有 <style>...</style> 块按 sha1 hash 抽到共享目录
+  // browser-test-runs/shared-styles/<hash>.css，原位用 <link> 引用。Tailwind
+  // 一块就 3.5MB（占 dom.html 93%），跨 run 内容稳定，外部化后所有 dom.html
+  // 共享同一份缓存。
   const rawResult = (input.result ?? {}) as Record<string, unknown>
   const domSnapshot =
     typeof rawResult._domSnapshot === 'string' && rawResult._domSnapshot.length > 0
@@ -702,11 +733,32 @@ const saveTestData: BrowserCommand<[{
       : null
   if (domSnapshot) {
     try {
-      writeFileSync(join(dataDir, `${fileName}.dom.html`), domSnapshot, 'utf-8')
+      const sharedStylesDir = resolve(root, 'browser-test-runs/shared-styles')
+      mkdirSync(sharedStylesDir, { recursive: true })
+      const externalized = externalizeStyles(domSnapshot, sharedStylesDir)
+      writeFileSync(join(dataDir, `${fileName}.dom.html`), externalized, 'utf-8')
     } catch {
       // ignore: snapshot is best-effort, never block the test
     }
     delete rawResult._domSnapshot
+  }
+
+  // blob: URL 抽出来的 (filename → base64) map，这里解码写盘到 data/assets/。
+  // dom.html 里的 src="assets/<filename>" 是相对路径，iframe load 时浏览器自然解析。
+  const blobAssets = rawResult._blobAssets
+  if (blobAssets && typeof blobAssets === 'object') {
+    try {
+      const assetsDir = join(dataDir, 'assets')
+      mkdirSync(assetsDir, { recursive: true })
+      for (const [filename, base64] of Object.entries(blobAssets as Record<string, string>)) {
+        if (typeof base64 !== 'string' || !filename) continue
+        try { writeFileSync(join(assetsDir, filename), Buffer.from(base64, 'base64')) }
+        catch { /* ignore single-file failure */ }
+      }
+    } catch {
+      // ignore: assets are best-effort
+    }
+    delete rawResult._blobAssets
   }
 
   // 从 messages.jsonl 补回 metadata（useChat 不向前端暴露 message.metadata）

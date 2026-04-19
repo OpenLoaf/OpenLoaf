@@ -16,7 +16,9 @@ type AnyPart = {
   errorText?: unknown;
 };
 
-const HIDDEN_TOOL_NAMES = new Set<string>();
+// LoadSkill / ToolSearch 都是模型自己装载技能、加载 deferred tool schema 的内部机制，
+// 对用户没有参考价值；默认隐藏，只有出错时或用户开启「显示所有工具调用结果」时才展示。
+const HIDDEN_TOOL_NAMES = new Set<string>(["loadskill", "toolsearch"]);
 
 /** Resolve normalized tool name from a message part. */
 function resolveToolName(part: AnyPart): string {

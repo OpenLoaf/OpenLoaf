@@ -789,6 +789,81 @@
     "webNotSupported": "网页版不支持打开文件管理器",
     "openDirFailed": "无法打开文件管理器",
     "confirmDelete": "确认删除技能「{{name}}」？此操作不可撤销。",
+    "scopeBuiltin": "内嵌技能",
+    "builtinBadge": "系统技能",
+    "builtinLockedTooltip": "系统内嵌技能，始终启用，无法关闭",
+    "builtinLockedAria": "{{name}}（系统技能，始终启用）",
+    "viewSkillContent": "查看内容",
+    "builtin": {
+      "email-ops-skill": {
+        "name": "邮件操作",
+        "description": "管理真实邮箱：收发、回复、转发、搜索、归档与删除"
+      },
+      "calendar-ops-skill": {
+        "name": "日历操作",
+        "description": "查询、新建、修改、删除日程与会议"
+      },
+      "schedule-ops-skill": {
+        "name": "定时任务",
+        "description": "后台异步执行、cron 周期任务与看板任务审批"
+      },
+      "canvas-ops-skill": {
+        "name": "画布管理",
+        "description": "新建、打开、复制、删除 OpenLoaf 画布与白板"
+      },
+      "project-ops-skill": {
+        "name": "项目管理",
+        "description": "创建、打开、切换、移动、改名项目与子项目"
+      },
+      "workbench-ops-skill": {
+        "name": "工作台组件",
+        "description": "管理桌面 Widget：新增、修改、查看、删除"
+      },
+      "settings-guide-skill": {
+        "name": "设置指南",
+        "description": "API Key、模型、主题、语言、快捷键等配置导航"
+      },
+      "agent-orchestration-skill": {
+        "name": "智能体编排",
+        "description": "把子任务委派给 browser / coder / designer 等子代理"
+      },
+      "browser-ops-skill": {
+        "name": "浏览器操作",
+        "description": "登录、填表、点击、抓取、截图等网页自动化"
+      },
+      "pdf-skill": {
+        "name": "PDF 工具",
+        "description": "PDF 读 / 写 / 转 / OCR：总结、填表、合并、加水印"
+      },
+      "docx-skill": {
+        "name": "Word 文档",
+        "description": "生成、修改、总结、转换 .docx / .doc 文档"
+      },
+      "xlsx-skill": {
+        "name": "Excel 表格",
+        "description": "读取、统计、修改、生成电子表格与 CSV"
+      },
+      "pptx-skill": {
+        "name": "PowerPoint 演示",
+        "description": "总结、修改、生成 PPT 幻灯片"
+      },
+      "media-ops-skill": {
+        "name": "音视频处理",
+        "description": "图片 / 视频 / 音频处理与网络视频下载"
+      },
+      "visualization-ops-skill": {
+        "name": "数据可视化",
+        "description": "生成图表、动态 JSX 与结构化展示"
+      },
+      "skill-creator-skill": {
+        "name": "技能开发",
+        "description": "创建、调试、优化自定义 Skill"
+      },
+      "cloud-media-skill": {
+        "name": "云端媒体生成",
+        "description": "AI 生成图片、音频、视频（云端付费能力）"
+      }
+    },
     "scopeGlobal": "全局技能",
     "scopeProject": "项目技能",
     "scopeProjectSpace": "项目空间技能",
@@ -1032,6 +1107,14 @@
     "email": {
       "name": "邮件助手",
       "description": "邮件查询和操作"
+    },
+    "explore": {
+      "name": "文档研究员",
+      "description": "从本地文件、Office 文档、PDF 和网页中查找整理信息，只读不改"
+    },
+    "general-purpose": {
+      "name": "通用任务助手",
+      "description": "多步研究、搜索、综合推理，适合边界不明的复杂任务"
     },
     "master": {
       "name": "默认智能体",

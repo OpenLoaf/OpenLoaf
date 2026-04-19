@@ -236,6 +236,18 @@ export const settingSchemas = {
     }),
     output: z.object({ ok: z.boolean() }),
   },
+  /** Read a skill's SKILL.md content (supports builtin://name and on-disk paths). */
+  readSkillContent: {
+    input: z.object({
+      /** Skill SKILL.md path — `builtin://<name>` or absolute file path. */
+      skillPath: z.string(),
+      /** Preferred language code for translated content (e.g. "zh-CN"). */
+      preferredLanguage: z.string().optional(),
+    }),
+    output: z.object({
+      content: z.string(),
+    }),
+  },
   /** Set skill color index (saved to openloaf.json). */
   setSkillColor: {
     input: z.object({
@@ -831,6 +843,12 @@ export abstract class BaseSettingRouter {
         .input(settingSchemas.resetSkill.input)
         .output(settingSchemas.resetSkill.output)
         .mutation(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      readSkillContent: shieldedProcedure
+        .input(settingSchemas.readSkillContent.input)
+        .output(settingSchemas.readSkillContent.output)
+        .query(async () => {
           throw new Error("Not implemented in base class");
         }),
       translateSkillTitle: shieldedProcedure

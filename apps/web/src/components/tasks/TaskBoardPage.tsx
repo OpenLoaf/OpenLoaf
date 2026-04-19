@@ -99,6 +99,7 @@ type TaskConfig = {
     reason?: string
     actor: string
   }>
+  projectId?: string
   [key: string]: unknown
 }
 
@@ -506,10 +507,10 @@ function KanbanColumn({
       <div className="mb-3 flex items-center gap-2 px-1">
         <Icon className={cn('h-4 w-4', colors.icon)} />
         <span className="text-sm font-medium">{label}</span>
-        {headerExtra}
         <Badge variant="secondary" className={cn('ml-auto border-0 text-[10px]', colors.badge)}>
           {tasks.length}
         </Badge>
+        {headerExtra ? <div className="flex items-center gap-0.5">{headerExtra}</div> : null}
       </div>
       <div
         ref={setNodeRef}
@@ -758,6 +759,13 @@ export default function TaskBoardPage({
   )
 
   const [isClearingDone, setIsClearingDone] = useState(false)
+  const [isClearingTodo, setIsClearingTodo] = useState(false)
+  const [isCancellingRunning, setIsCancellingRunning] = useState(false)
+
+  const resolveTaskProjectId = useCallback(
+    (task: TaskConfig): string | undefined => task.projectId ?? projectId,
+    [projectId],
+  )
 
   const handleClearDone = useCallback(async () => {
     const doneTasks = (tasks as TaskConfig[]).filter(
@@ -767,12 +775,42 @@ export default function TaskBoardPage({
     setIsClearingDone(true)
     try {
       for (const task of doneTasks) {
-        await deleteMutation.mutateAsync({ id: task.id, projectId })
+        await deleteMutation.mutateAsync({ id: task.id, projectId: resolveTaskProjectId(task) })
       }
     } finally {
       setIsClearingDone(false)
     }
-  }, [tasks, deleteMutation, projectId])
+  }, [tasks, deleteMutation, resolveTaskProjectId])
+
+  const handleClearTodo = useCallback(async () => {
+    const todoTasks = (tasks as TaskConfig[]).filter((t) => t.status === 'todo')
+    if (todoTasks.length === 0) return
+    setIsClearingTodo(true)
+    try {
+      for (const task of todoTasks) {
+        await deleteMutation.mutateAsync({ id: task.id, projectId: resolveTaskProjectId(task) })
+      }
+    } finally {
+      setIsClearingTodo(false)
+    }
+  }, [tasks, deleteMutation, resolveTaskProjectId])
+
+  const handleCancelRunning = useCallback(async () => {
+    const runningTasks = (tasks as TaskConfig[]).filter((t) => t.status === 'running')
+    if (runningTasks.length === 0) return
+    setIsCancellingRunning(true)
+    try {
+      for (const task of runningTasks) {
+        await cancelMutation.mutateAsync({
+          id: task.id,
+          status: 'cancelled',
+          projectId: resolveTaskProjectId(task),
+        })
+      }
+    } finally {
+      setIsCancellingRunning(false)
+    }
+  }, [tasks, cancelMutation, resolveTaskProjectId])
 
   // DnD sensors
   const mouseSensor = useSensor(MouseSensor, {
@@ -904,22 +942,6 @@ export default function TaskBoardPage({
           >
             <RefreshCw className={cn('h-3.5 w-3.5', isRefreshing && 'animate-spin')} />
           </Button>
-          {(groupedTasks.done.length > 0 || groupedTasks.cancelled.length > 0) && (
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-7 rounded-3xl px-2.5 text-xs font-medium text-muted-foreground shadow-none transition-colors duration-150 hover:bg-accent hover:text-destructive"
-              onClick={handleClearDone}
-              disabled={isClearingDone}
-            >
-              {isClearingDone ? (
-                <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Trash2 className="mr-1 h-3.5 w-3.5" />
-              )}
-              {t('messages.clearDone')}
-            </Button>
-          )}
           <div className="flex gap-0.5 rounded-3xl bg-secondary p-0.5">
             <button
               type="button"
@@ -986,6 +1008,8 @@ export default function TaskBoardPage({
                   const finalStatus = showCancelled ? 'cancelled' : 'done'
                   const finalLabel = showCancelled ? t('status.cancelled') : label
                   const FinalIcon = showCancelled ? XCircle : icon
+                  const hasClearable =
+                    groupedTasks.done.length > 0 || groupedTasks.cancelled.length > 0
                   return (
                     <KanbanColumn
                       key="done-cancelled"
@@ -997,14 +1021,31 @@ export default function TaskBoardPage({
                       onCancel={onCancel}
                       onOpenDetail={onOpenDetail}
                       headerExtra={
-                        <button
-                          type="button"
-                          className="rounded-3xl p-0.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                          onClick={() => setShowCancelled((v) => !v)}
-                          title={showCancelled ? t('status.done') : t('status.cancelled')}
-                        >
-                          <ArrowLeftRight className="h-3 w-3" />
-                        </button>
+                        <>
+                          <button
+                            type="button"
+                            className="rounded-3xl p-0.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                            onClick={() => setShowCancelled((v) => !v)}
+                            title={showCancelled ? t('status.done') : t('status.cancelled')}
+                          >
+                            <ArrowLeftRight className="h-3 w-3" />
+                          </button>
+                          {hasClearable && (
+                            <button
+                              type="button"
+                              className="rounded-3xl p-0.5 text-muted-foreground transition-colors hover:bg-accent hover:text-destructive disabled:cursor-not-allowed disabled:opacity-50"
+                              onClick={handleClearDone}
+                              disabled={isClearingDone}
+                              title={t('messages.clearDone')}
+                            >
+                              {isClearingDone ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <Trash2 className="h-3 w-3" />
+                              )}
+                            </button>
+                          )}
+                        </>
                       }
                     />
                   )
@@ -1019,6 +1060,37 @@ export default function TaskBoardPage({
                     onResolveReview={onResolveReview}
                     onCancel={onCancel}
                     onOpenDetail={onOpenDetail}
+                    headerExtra={
+                      status === 'todo' && groupedTasks.todo.length > 0 ? (
+                        <button
+                          type="button"
+                          className="rounded-3xl p-0.5 text-muted-foreground transition-colors hover:bg-accent hover:text-destructive disabled:cursor-not-allowed disabled:opacity-50"
+                          onClick={handleClearTodo}
+                          disabled={isClearingTodo}
+                          title={t('messages.clearTodo')}
+                        >
+                          {isClearingTodo ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-3 w-3" />
+                          )}
+                        </button>
+                      ) : status === 'running' && groupedTasks.running.length > 0 ? (
+                        <button
+                          type="button"
+                          className="rounded-3xl p-0.5 text-muted-foreground transition-colors hover:bg-accent hover:text-destructive disabled:cursor-not-allowed disabled:opacity-50"
+                          onClick={handleCancelRunning}
+                          disabled={isCancellingRunning}
+                          title={t('messages.cancelRunning')}
+                        >
+                          {isCancellingRunning ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <XCircle className="h-3 w-3" />
+                          )}
+                        </button>
+                      ) : undefined
+                    }
                   />
                 )
               })}
