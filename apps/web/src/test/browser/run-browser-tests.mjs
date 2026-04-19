@@ -105,12 +105,26 @@ if (promptLangOverride) {
   console.log(`[prompt-lang] 强制 promptLanguage="${promptLangOverride}"（覆盖默认的 'en'）`)
 }
 
-// batch 通过环境变量传给 vitest.browser.config.ts（写进 run-meta.json.batch）
+// batch 通过环境变量传给 vitest.browser.config.ts（写进 run-meta.json.batch）。
+// 强制要求设置：没有 batch 标签的 run 在主页索引里没法分组归档，等于裸跑。
+// CLI `--batch <name>` 或环境变量 `BROWSER_TEST_BATCH` 二选一，否则直接报错退出。
 if (batch) {
   process.env.BROWSER_TEST_BATCH = batch
   console.log(`[batch] 本次 run 归入批次: "${batch}"`)
 } else if (process.env.BROWSER_TEST_BATCH) {
   console.log(`[batch] 从环境变量继承批次: "${process.env.BROWSER_TEST_BATCH}"`)
+} else {
+  console.error(`
+ERROR: 必须指定 batch（分组标签）。所有 run 都需要归入一个批次，否则主页无法分组。
+
+请使用以下任一方式：
+  pnpm test:browser:run --batch <name> <pattern...>
+  BROWSER_TEST_BATCH=<name> pnpm test:browser:run <pattern...>
+
+约定：batch 名建议用语义化标签（如 "regression-2026-04" / "qwen-flash" / "feature-x"），
+便于后续在主页按批次回看。
+`)
+  process.exit(1)
 }
 
 const testsRoot = resolve(root, '__tests__')

@@ -110,22 +110,8 @@ function lookupDomSnapshot(testCase) {
   return domHtmlByTestCase.get(sanitized) ?? domHtmlByTestCase.get(testCase) ?? null
 }
 
-const screenshotsDir = join(runDir, 'screenshots')
-const screenshotsByPrefix = new Map()
-if (existsSync(screenshotsDir)) {
-  // 按 mtime 升序（时间顺序）插入 Map，后续 computeShotsByIdx 分组遍历会继承此顺序。
-  // 文件名前缀（如 "038-before-approval" / "038-after-approval"）字母序跟时间序常常相反，
-  // 按时间排更符合"先发生在前"的阅读直觉。
-  const entries = readdirSync(screenshotsDir)
-    .filter(f => f.endsWith('.png'))
-    .map(f => ({ f, mtimeMs: statSync(join(screenshotsDir, f)).mtimeMs }))
-    .sort((a, b) => a.mtimeMs - b.mtimeMs)
-  for (const { f } of entries) {
-    const buf = readFileSync(join(screenshotsDir, f))
-    const dataUrl = `data:image/png;base64,${buf.toString('base64')}`
-    screenshotsByPrefix.set(f.replace(/\.png$/, ''), { name: f, dataUrl })
-  }
-}
+// screenshots/*.png 不再被报告消费 —— DOM 快照取代了 PNG。
+// takeProbeScreenshot 仍可继续落盘 PNG 供其它工具使用，但 generate-report 不读它。
 
 // 评审扫描：优先新格式 review.json（aggregate + evaluators[]），否则降级老格式 <critic>-critic.json
 const evalsByTestCase = new Map()
@@ -309,17 +295,9 @@ function findProbe(fullName, itName, filePath) {
   }
   return null
 }
-function extractTokens(s) {
-  return String(s ?? '').toLowerCase()
-    .split(/[\s\-—·_/,.;:()（）"'`’]+/)
-    .map(t => t.trim())
-    .filter(t => t.length >= 2)
-}
-function tokenMatch(testName, stem) {
-  const testTokens = new Set(extractTokens(testName))
-  if (!testTokens.size) return false
-  return extractTokens(stem).some(t => testTokens.has(t))
-}
+// extractTokens / tokenMatch 已移除：原本是给 computeShotsByIdx 做截图按测试名兜底
+// 匹配的，DOM 快照取代截图后没有其它消费方。
+
 function aggregateScore(evals) {
   if (!evals?.length) return null
   const scores = evals.map(e => Number(e.data.score)).filter(n => !Number.isNaN(n))
@@ -377,66 +355,10 @@ function readLocalAsDataUrl(absPath) {
  *   - output.attachments[]
  *   - output.audioFile / output.videoFile
  */
-function extractAttachmentsFromOutput(output) {
-  let obj = output
-  if (typeof obj === 'string') {
-    try { obj = JSON.parse(obj) } catch { return [] }
-  }
-  if (!obj || typeof obj !== 'object') return []
-  const out = []
-  const push = (raw) => {
-    if (!raw) return
-    if (typeof raw === 'string') {
-      const kind = mediaKind(raw)
-      if (kind) out.push({ url: raw, name: raw.split('/').pop() ?? raw, kind })
-      return
-    }
-    if (typeof raw !== 'object') return
-    const url = raw.sourceUrl ?? raw.url ?? raw.absolutePath ?? raw.filePath ?? ''
-    const name = raw.fileName ?? raw.name ?? (typeof url === 'string' ? url.split('/').pop() : '') ?? 'file'
-    const kind = mediaKind(url) ?? mediaKind(name)
-    out.push({
-      url: String(url),
-      name: String(name),
-      kind,
-      absolutePath: raw.absolutePath ?? null,
-      sourceUrl: raw.sourceUrl ?? null,
-      fileSize: typeof raw.fileSize === 'number' ? raw.fileSize : null,
-    })
-  }
-  if (Array.isArray(obj.files)) obj.files.forEach(push)
-  if (Array.isArray(obj.attachments)) obj.attachments.forEach(push)
-  if (obj.audioFile) push(obj.audioFile)
-  if (obj.videoFile) push(obj.videoFile)
-  if (obj.url && !obj.files && !obj.attachments) push(obj)
-  return out
-}
-
-function renderAttachment(att) {
-  const kind = att.kind
-  // 优先用 sourceUrl（云端 CDN），次选本地 absolutePath 内嵌
-  const remote = att.sourceUrl && /^https?:\/\//.test(att.sourceUrl) ? att.sourceUrl : null
-  let src = remote ?? (att.url && /^https?:\/\//.test(att.url) ? att.url : null)
-  if (!src && att.absolutePath) src = readLocalAsDataUrl(att.absolutePath)
-  if (!src && att.url && !att.url.startsWith('http')) src = readLocalAsDataUrl(att.url)
-
-  const sizeLbl = att.fileSize ? ` · ${Math.round(att.fileSize / 1024)}KB` : ''
-  const nameLabel = `<span class="att-name">${esc(att.name)}${sizeLbl}</span>`
-
-  if (!src) {
-    return `<div class="att att-link">📎 ${nameLabel}<code class="att-path">${esc(att.url || att.absolutePath || '')}</code></div>`
-  }
-  if (kind === 'image') {
-    return `<figure class="att att-img"><img src="${esc(src)}" data-lightbox data-caption="${esc(att.name)}"/><figcaption>${nameLabel}</figcaption></figure>`
-  }
-  if (kind === 'audio') {
-    return `<div class="att att-audio">🔊 ${nameLabel}<audio controls preload="none" src="${esc(src)}"></audio></div>`
-  }
-  if (kind === 'video') {
-    return `<div class="att att-video">🎬 ${nameLabel}<video controls preload="none" src="${esc(src)}"></video></div>`
-  }
-  return `<div class="att att-link">📎 ${nameLabel}<a href="${esc(src)}" target="_blank">打开</a></div>`
-}
+// extractAttachmentsFromOutput / renderAttachment 已移除 —— 它们只服务于消息时间线
+// 里的 tool output 缩略图。DOM 快照取代时间线后，这两个函数失去消费方。
+// inline `<system-tag attachment/>` 缩略图（renderInlineAttachment 一族）仍由
+// markdownWithAttachments / escWithAttachments 在 prompt / spec purpose 渲染处使用，保留。
 
 // ── <system-tag type="attachment" path="..." /> inline 缩略图 ──
 // path 支持 `${CURRENT_CHAT_DIR}/xxx.jpg` 占位符；占位符下的同名文件在
@@ -510,83 +432,7 @@ function markdownWithAttachments(text) {
   return String(html).replace(/@@OLATT(\d+)@@/g, (_, i) => renderInlineAttachment(tokens[Number(i)]))
 }
 
-function truncateJson(obj, max = 2000) {
-  let s
-  try { s = typeof obj === 'string' ? obj : JSON.stringify(obj, null, 2) } catch { s = String(obj) }
-  if (s.length <= max) return s
-  return s.slice(0, max) + `\n…（截断，剩余 ${s.length - max} 字节）`
-}
-
-function toolStateBadge(state) {
-  if (!state) return ''
-  const cls = state === 'output-available' ? 'b-ok'
-    : state === 'output-error' ? 'b-err'
-    : state.includes('approval') ? 'b-warn'
-    : ''
-  return `<span class="b ${cls}">${esc(state)}</span>`
-}
-
-/** 渲染单条 part。附件在 tool output 渲染块内内嵌。 */
-function renderPart(part) {
-  const type = part?.type ?? ''
-  if (type === 'step-start') return ''
-  if (type === 'text') {
-    const text = part?.text ?? ''
-    if (!text.trim()) return ''
-    return `<div class="tl-text">${escWithAttachments(text)}</div>`
-  }
-  if (type === 'reasoning') {
-    const text = part?.text ?? ''
-    if (!text) return ''
-    return `<details class="tl-reasoning"><summary>💭 思考 · ${text.length} 字</summary><div class="tl-reasoning-body">${esc(text)}</div></details>`
-  }
-  if (type === 'source-url' || type === 'source') {
-    const url = part?.url ?? part?.source?.url ?? ''
-    const title = part?.title ?? part?.source?.title ?? url
-    return `<div class="tl-source">🔗 <a href="${esc(url)}" target="_blank">${esc(title)}</a></div>`
-  }
-  if (type.startsWith('tool-')) {
-    const name = type.slice(5)
-    const state = part?.state ?? ''
-    const input = part?.input
-    const output = part?.output
-    const errorText = part?.errorText ?? ''
-    const attachments = extractAttachmentsFromOutput(output)
-    const hasErr = state === 'output-error' || !!errorText
-    const stateHtml = toolStateBadge(state)
-    const attHtml = attachments.length
-      ? `<div class="tl-atts">${attachments.map(renderAttachment).join('')}</div>`
-      : ''
-    const inputHtml = input != null
-      ? `<details class="tl-io"><summary>input</summary><pre>${esc(truncateJson(input))}</pre></details>`
-      : ''
-    const outputHtml = output != null
-      ? `<details class="tl-io"${attachments.length ? '' : ' open'}><summary>output</summary><pre>${esc(truncateJson(output, 3000))}</pre></details>`
-      : ''
-    const errHtml = errorText
-      ? `<div class="tl-tool-err">❌ ${esc(errorText)}</div>`
-      : ''
-    return `<div class="tl-tool ${hasErr ? 'tl-tool-err-state' : ''}">
-      <div class="tl-tool-head"><span class="tl-tool-name">🔧 ${esc(name)}</span>${stateHtml}</div>
-      ${errHtml}${inputHtml}${outputHtml}${attHtml}
-    </div>`
-  }
-  // file 附件（模型原生多模态）
-  if (type === 'file') {
-    const mt = part?.mediaType ?? part?.mimeType ?? ''
-    const url = part?.url ?? ''
-    const name = part?.filename ?? url.split('/').pop() ?? 'file'
-    const att = {
-      url, name,
-      kind: mt.startsWith('image/') ? 'image' : mt.startsWith('audio/') ? 'audio' : mt.startsWith('video/') ? 'video' : null,
-      sourceUrl: url.startsWith('http') ? url : null,
-      absolutePath: !url.startsWith('http') && !url.startsWith('data:') ? url : null,
-    }
-    return `<div class="tl-file">📎 file part · ${esc(mt)}${renderAttachment(att)}</div>`
-  }
-  // fallback：未知 part 类型，展示一下 JSON
-  return `<details class="tl-unknown"><summary>part · ${esc(type)}</summary><pre>${esc(truncateJson(part, 1000))}</pre></details>`
-}
+// truncateJson / toolStateBadge 已移除：消息时间线被 DOM 快照取代后没有其它消费方。
 
 /** 从 message.metadata 提取后端打到 openloaf / totalUsage 的成本相关字段 */
 function extractMessageCost(msg) {
@@ -605,62 +451,13 @@ function extractMessageCost(msg) {
   return { credits, elapsedMs, inputTokens, outputTokens, totalTokens, cachedInputTokens, reasoningTokens }
 }
 
-function renderMessageCostBadges(cost) {
-  if (!cost) return ''
-  const parts = []
-  if (cost.credits != null && cost.credits > 0) {
-    parts.push(`<span class="tl-cost tl-cost-credits" title="SaaS 积分消耗">💎 ${cost.credits.toFixed(2)}</span>`)
-  }
-  if (cost.totalTokens != null && cost.totalTokens > 0) {
-    const tipParts = []
-    if (cost.inputTokens != null) tipParts.push(`in ${cost.inputTokens}`)
-    if (cost.outputTokens != null) tipParts.push(`out ${cost.outputTokens}`)
-    if (cost.reasoningTokens != null && cost.reasoningTokens > 0) tipParts.push(`reason ${cost.reasoningTokens}`)
-    if (cost.cachedInputTokens != null && cost.cachedInputTokens > 0) tipParts.push(`cached ${cost.cachedInputTokens}`)
-    const tip = `total ${cost.totalTokens}${tipParts.length ? ` · ${tipParts.join(' · ')}` : ''}`
-    parts.push(`<span class="tl-cost tl-cost-tokens" title="${esc(tip)}">🔢 ${cost.totalTokens} tk</span>`)
-  } else if (cost.outputTokens != null || cost.inputTokens != null) {
-    const parts2 = []
-    if (cost.inputTokens != null) parts2.push(`in ${cost.inputTokens}`)
-    if (cost.outputTokens != null) parts2.push(`out ${cost.outputTokens}`)
-    parts.push(`<span class="tl-cost tl-cost-tokens">🔢 ${parts2.join('/')}</span>`)
-  }
-  if (cost.elapsedMs != null && cost.elapsedMs > 0) {
-    parts.push(`<span class="tl-cost tl-cost-dur" title="assistantElapsedMs">⏱ ${fmtMs(cost.elapsedMs)}</span>`)
-  }
-  return parts.join('')
-}
+// renderPart / renderMessageCostBadges / renderMessageTimeline 已移除：
+// DOM 快照（onComplete 时刻的 outerHTML）已经覆盖了"看完整对话"这一需求，
+// 自维护的时间线 UI 是多余的可视化层。`extractMessageCost` 仍由 panel-header 的
+// 总成本聚合使用，保留。
 
-function renderMessageTimeline(messages) {
-  if (!Array.isArray(messages) || !messages.length) return ''
-  const items = []
-  let turn = -1
-  for (let idx = 0; idx < messages.length; idx++) {
-    const msg = messages[idx]
-    const role = msg?.role ?? 'unknown'
-    if (role === 'user') turn += 1
-    const icon = role === 'user' ? '👤' : role === 'assistant' ? '🤖' : role === 'system' ? '⚙️' : '•'
-    const parts = Array.isArray(msg?.parts) ? msg.parts : []
-    const partsHtml = parts.map(renderPart).filter(Boolean).join('')
-    if (!partsHtml) continue
-    const costBadges = role === 'assistant' ? renderMessageCostBadges(extractMessageCost(msg)) : ''
-    items.push(`<section class="tl-msg tl-role-${esc(role)}">
-      <header class="tl-msg-head">
-        <span class="tl-msg-icon">${icon}</span>
-        <span class="tl-msg-role">${esc(role)}</span>
-        ${turn >= 0 ? `<span class="tl-msg-turn">turn ${turn}</span>` : ''}
-        <span class="tl-msg-idx">#${idx}</span>
-        ${costBadges ? `<span class="tl-costs">${costBadges}</span>` : ''}
-      </header>
-      <div class="tl-msg-body">${partsHtml}</div>
-    </section>`)
-  }
-  if (!items.length) return ''
-  return `<details open class="sec"><summary>📜 消息时间线（${messages.length} 条消息）</summary><div class="sec-body"><div class="timeline">${items.join('')}</div></div></details>`
-}
-
-// ── 渲染单用例：拆成 sidebar nav + detail panel（中内容 + 右截图） ──
-function renderTestSplit(test, idx, shotsByIdx) {
+// ── 渲染单用例：sidebar nav + detail panel ──
+function renderTestSplit(test, idx) {
   const icon = test.status === 'passed' ? '✓' : test.status === 'failed' ? '✗' : '?'
   const cls = test.status === 'passed' ? 'pass' : test.status === 'failed' ? 'fail' : 'skip'
   const dur = test.duration != null ? fmtMs(test.duration) : ''
@@ -675,7 +472,7 @@ function renderTestSplit(test, idx, shotsByIdx) {
   // 新格式 review.json 直接带 aggregate；老格式降级用 aggregateScore 合成
   const agg = (probeKey ? aggByTestCase.get(probeKey) : null) ?? aggregateScore(evals)
 
-  const pngs = shotsByIdx.get(idx) ?? []
+  // pngs / shotsByIdx 已移除：DOM 快照取代 PNG 截图，nav-sub 不再显示 📸 计数。
 
   const toolCallDetails = probe?.result?.toolCallDetails ?? run?.toolCallDetails ?? []
   const textPreview = probe?.result?.textPreview ?? run?.textPreview ?? ''
@@ -722,7 +519,6 @@ function renderTestSplit(test, idx, shotsByIdx) {
   if (dur) navSubParts.push(`⏱ ${esc(dur)}`)
   if (hasCredits) navSubParts.push(`💎 ${credits.toFixed(2)}`)
   if (totalCalls) navSubParts.push(`🔧 ${totalCalls - failedCalls}/${totalCalls}${failedCalls ? ` <span class="nav-fail-mark">✗${failedCalls}</span>` : ''}`)
-  if (pngs.length) navSubParts.push(`📸 ${pngs.length}`)
   const nav = `<button class="nav-item nav-${cls}" data-idx="${idx}" data-status="${esc(test.status)}">
     <span class="nav-icon">${icon}</span>
     <span class="nav-text">
@@ -794,7 +590,7 @@ function renderTestSplit(test, idx, shotsByIdx) {
 
   // 评审不再放主 body —— 搬到右侧 aside 下半区（evalsAsideHtml，见下）
 
-  // 💬 Prompt / 回复摘要放在消息时间线之前，让用户先看到输入输出总览。
+  // 💬 Prompt / 回复摘要——快速看输入和最终回复。完整对话在 DOM 快照里看。
   // prompt 同样 fallback 到 yaml（失败用例 probe.prompt 往往缺失）。
   const promptFallback = probe?.prompt ?? yamlDoc?.prompt ?? ''
   if (promptFallback || textPreview) {
@@ -808,8 +604,7 @@ function renderTestSplit(test, idx, shotsByIdx) {
     body += `</div></details>`
   }
 
-  const messages = probe?.result?.messages
-  body += renderMessageTimeline(messages)
+  // 消息时间线已被 DOM 快照取代（DOM 里能看到完整渲染过的消息列表，更直观）。
 
   if (toolCallDetails.length) {
     body += `<details class="sec"><summary>🔧 工具调用明细（${toolCallDetails.length}）</summary><div class="sec-body">`
@@ -860,10 +655,9 @@ function renderTestSplit(test, idx, shotsByIdx) {
     body += `</table></div></details>`
   }
 
-  // ── 右侧 aside：上半截图，下半评审 ──
-  const shotsHtml = pngs.length
-    ? pngs.map(s => `<figure class="shot-item"><img src="${s.dataUrl}" data-lightbox data-caption="${esc(s.name)}"/><figcaption class="shot-name">${esc(s.name)}</figcaption></figure>`).join('')
-    : '<div class="shot-empty">没有截图</div>'
+  // 截图区已移除：DOM 快照（onComplete 时刻的 outerHTML）已经覆盖了"看完成时刻页面"
+  // 这一需求，单独的 PNG 截图变成多余的可视化层。screenshots/*.png 仍由
+  // takeProbeScreenshot 落盘（测试代码可能依赖该 helper），但 report 不再渲染。
 
   // 评审区 ── 无评审时给 CTA 提示，有则每个 critic 一张卡（verdict badge + score + summary + pros/cons 折叠）
   let evalsAsideInner = ''
@@ -964,11 +758,7 @@ function renderTestSplit(test, idx, shotsByIdx) {
     <div class="panel-body">
       <div class="panel-content">${contentHtml}</div>
       <aside class="panel-aside">
-        <section class="aside-half aside-shots">
-          <div class="aside-head">📸 截图（${pngs.length}）</div>
-          <div class="aside-body panel-shots-list" data-lightbox-group>${shotsHtml}</div>
-        </section>
-        <section class="aside-half aside-evals">
+        <section class="aside-full aside-evals">
           <div class="aside-head">🎯 评审（${evalsCountLabel}）</div>
           <div class="aside-body aside-evals-body">${evalsAsideInner}</div>
         </section>
@@ -979,35 +769,9 @@ function renderTestSplit(test, idx, shotsByIdx) {
   return { nav, panel }
 }
 
-// ── 截图归属预计算：probeKey 严格匹配 → 未归属的截图按测试名 token 兜底 ──
-function computeShotsByIdx(tests) {
-  const map = new Map()
-  const used = new Set()
-  // 先走 probeKey 前缀匹配
-  tests.forEach((test, idx) => {
-    // vitest JSON reporter 只有 title/fullName，test.name 是 undefined；用 undefined 让
-    // findProbe 的 `itName ?? fullName` 正确 fallback（空串不触发 ?? 链，会导致 prefix 匹配全军覆没）。
-    const pm = findProbe(test.fullName, test.name, test.__filePath)
-    if (!pm?.key) return
-    const stems = []
-    for (const stem of screenshotsByPrefix.keys()) {
-      if (stem.startsWith(pm.key)) { stems.push(stem); used.add(stem) }
-    }
-    if (stems.length) map.set(idx, stems.map(s => screenshotsByPrefix.get(s)))
-  })
-  // 剩余截图用 test 名 token 匹配（跳过已归属），避免重复分配
-  tests.forEach((test, idx) => {
-    if (map.has(idx)) return
-    const name = `${test.fullName ?? ''} ${test.name ?? ''}`
-    const stems = []
-    for (const stem of screenshotsByPrefix.keys()) {
-      if (used.has(stem)) continue
-      if (tokenMatch(name, stem)) { stems.push(stem); used.add(stem) }
-    }
-    if (stems.length) map.set(idx, stems.map(s => screenshotsByPrefix.get(s)))
-  })
-  return map
-}
+// 截图分配函数已移除：DOM 快照取代 PNG 截图后，aside-shots 区不再渲染。
+// screenshots/*.png 仍由 takeProbeScreenshot 落盘（测试代码可能依赖该 helper），
+// 但 report 不再消费它们。
 
 // ── 渲染单 run 报告 ──
 const allTests = []
@@ -1080,12 +844,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .panel-body{flex:1;display:grid;grid-template-columns:1fr 380px;overflow:hidden;min-height:0}
 .panel-content{overflow-y:auto;padding:16px 20px}
 .panel-aside{border-left:1px solid #e5e7eb;background:#fff;display:flex;flex-direction:column;min-height:0;overflow:hidden}
-.aside-half{display:flex;flex-direction:column;min-height:0;overflow:hidden}
-.aside-shots{flex:0 1 auto;max-height:55%}
-.aside-evals{flex:1 1 auto;border-top:2px solid #e5e7eb;min-height:200px}
+.aside-full{display:flex;flex-direction:column;min-height:0;overflow:hidden;flex:1 1 auto}
+.aside-evals{flex:1 1 auto;min-height:200px}
 .aside-head{padding:8px 12px;border-bottom:1px solid #f0f0f0;font-size:11px;font-weight:600;color:#475569;background:#fafafa;flex-shrink:0;display:flex;align-items:center;gap:6px}
 .aside-body{overflow-y:auto;flex:1;min-height:0}
-.panel-shots-list{padding:10px;display:flex;flex-direction:column;gap:10px}
 .aside-evals-body{padding:10px;display:flex;flex-direction:column;gap:8px}
 .eval-agg{display:flex;align-items:center;gap:6px;padding:6px 10px;background:#f1f5f9;border-radius:6px;font-size:11px;margin-bottom:2px}
 .eval-agg-label{color:#64748b;font-weight:500}
@@ -1120,10 +882,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .eval-empty-title{font-size:12px;font-weight:500;margin-bottom:6px}
 .eval-empty-hint{font-size:11px;line-height:1.5;color:#94a3b8}
 .eval-empty-hint code{background:#f1f5f9;padding:1px 4px;border-radius:2px;font-size:10px;color:#475569}
-.shot-item{margin:0}
-.shot-item img{width:100%;display:block;border:1px solid #e5e7eb;border-radius:6px;background:#fff;cursor:zoom-in;transition:transform 0.15s}
-.shot-name{font-size:10px;color:#94a3b8;font-family:Menlo,Monaco,monospace;margin-top:4px;word-break:break-all}
-.shot-empty{padding:20px 12px;color:#94a3b8;font-size:11px;text-align:center}
 .panel-empty{padding:40px 20px;color:#94a3b8;text-align:center;font-size:13px;line-height:1.6}
 .panel-empty small{font-size:11px;color:#cbd5e1}
 .panel-history{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:12px;padding:8px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;font-size:11px;color:#475569}
@@ -1212,10 +970,6 @@ table th{background:#f8fafc;color:#475569;font-weight:500;font-size:10px;text-tr
 .issues ul{list-style:none;padding-left:0}
 .issue-error{color:#991b1b;margin:4px 0}
 .issue-warning{color:#92400e;margin:4px 0}
-.ss-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:8px}
-.ss{border:1px solid #e5e7eb;border-radius:6px;overflow:hidden;background:#fff;cursor:pointer}
-.ss img{width:100%;display:block;cursor:zoom-in;transition:transform 0.2s}
-.ss figcaption{padding:4px 8px;font-size:10px;color:#888;border-top:1px solid #f0f0f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .log{background:#1a1a1a;color:#e5e7eb;padding:10px;border-radius:6px;font-family:Menlo,Monaco,'Courier New',monospace;font-size:11px;line-height:1.5;max-height:300px;overflow:auto;white-space:pre-wrap}
 .lvl{font-weight:500;margin-right:4px}
 .lvl-error{color:#f87171}
@@ -1224,57 +978,7 @@ table th{background:#f8fafc;color:#475569;font-weight:500;font-size:10px;text-tr
 .lvl-log{color:#9ca3af}
 .url{font-family:Menlo,Monaco,monospace;font-size:10px;word-break:break-all;max-width:500px}
 .err{background:#1a1a1a;color:#f87171;padding:8px 10px;border-radius:6px;font-size:11px;line-height:1.5;white-space:pre-wrap;word-break:break-word;overflow:auto;max-height:400px}
-/* ── Message timeline ── */
-.timeline{display:flex;flex-direction:column;gap:10px}
-.tl-msg{border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;background:#fff}
-.tl-msg.tl-role-user{border-left:3px solid #2563eb;background:#f0f7ff}
-.tl-msg.tl-role-assistant{border-left:3px solid #16a34a}
-.tl-msg.tl-role-system{border-left:3px solid #9ca3af}
-.tl-msg-head{padding:6px 12px;background:#fafafa;border-bottom:1px solid #f0f0f0;display:flex;gap:8px;align-items:center;font-size:11px;color:#475569;flex-wrap:wrap}
-.tl-costs{margin-left:auto;display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap}
-.tl-cost{display:inline-flex;align-items:center;gap:3px;padding:1px 7px;border-radius:10px;font-size:10.5px;font-variant-numeric:tabular-nums;white-space:nowrap;border:1px solid transparent}
-.tl-cost-credits{background:#fef3c7;color:#92400e;border-color:#fde68a}
-.tl-cost-tokens{background:#ede9fe;color:#5b21b6;border-color:#ddd6fe}
-.tl-cost-dur{background:#f1f5f9;color:#475569;border-color:#e2e8f0}
-.tl-role-user .tl-msg-head{background:#e0f0ff}
-.tl-msg-icon{font-size:13px}
-.tl-msg-role{font-weight:600;text-transform:uppercase;letter-spacing:0.3px}
-.tl-msg-turn{background:#f1f5f9;color:#475569;padding:1px 7px;border-radius:10px;font-size:10px}
-.tl-msg-idx{margin-left:auto;color:#94a3b8;font-variant-numeric:tabular-nums;font-family:Menlo,monospace}
-.tl-msg-body{padding:10px 12px;display:flex;flex-direction:column;gap:8px}
-.tl-text{white-space:pre-wrap;word-break:break-word;font-size:12.5px;line-height:1.55;color:#1a1a1a}
-.tl-reasoning{border:1px dashed #cbd5e1;border-radius:6px;background:#f8fafc}
-.tl-reasoning > summary{padding:5px 10px;font-size:11px;color:#64748b;cursor:pointer;list-style:none}
-.tl-reasoning > summary::-webkit-details-marker{display:none}
-.tl-reasoning > summary:before{content:'▸ ';color:#94a3b8}
-.tl-reasoning[open] > summary:before{content:'▾ '}
-.tl-reasoning-body{padding:8px 12px;font-size:11px;line-height:1.55;color:#475569;white-space:pre-wrap;word-break:break-word;max-height:400px;overflow-y:auto;border-top:1px dashed #cbd5e1}
-.tl-tool{border:1px solid #e2e8f0;border-radius:6px;background:#fafafa;padding:8px 10px}
-.tl-tool.tl-tool-err-state{border-color:#fecaca;background:#fef2f2}
-.tl-tool-head{display:flex;gap:8px;align-items:center;font-size:11px}
-.tl-tool-name{font-weight:600;color:#334155;font-family:Menlo,monospace}
-.tl-tool-err{margin-top:6px;padding:6px 8px;background:#1a1a1a;color:#f87171;border-radius:4px;font-size:11px;white-space:pre-wrap;word-break:break-word}
-.tl-io{margin-top:6px}
-.tl-io > summary{cursor:pointer;font-size:10px;color:#64748b;padding:3px 0;list-style:none}
-.tl-io > summary::-webkit-details-marker{display:none}
-.tl-io > summary:before{content:'▸ ';color:#94a3b8}
-.tl-io[open] > summary:before{content:'▾ '}
-.tl-io pre{background:#f1f5f9;border-radius:4px;padding:6px 8px;font-size:10.5px;line-height:1.5;white-space:pre-wrap;word-break:break-word;max-height:260px;overflow-y:auto;font-family:Menlo,Monaco,monospace}
-.tl-atts{margin-top:8px;display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px}
-.att{border:1px solid #e5e7eb;border-radius:6px;background:#fff;overflow:hidden;display:flex;flex-direction:column;font-size:11px}
-.att-img img{width:100%;display:block;max-height:220px;object-fit:cover;cursor:zoom-in;transition:transform 0.15s}
-.att-img figcaption{padding:4px 8px;color:#64748b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-top:1px solid #f0f0f0}
-.att-audio,.att-video,.att-link{padding:8px;gap:6px}
-.att-audio audio,.att-video video{width:100%;max-height:180px}
-.att-name{font-weight:500;color:#334155;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.att-path{display:block;margin-top:4px;font-family:Menlo,Monaco,monospace;font-size:10px;color:#94a3b8;word-break:break-all;background:#f8fafc;padding:3px 5px;border-radius:3px}
-.tl-source{font-size:11px;color:#2563eb}
-.tl-source a{color:#2563eb;text-decoration:none}
-.tl-source a:hover{text-decoration:underline}
-.tl-file{font-size:11px;color:#64748b}
-.tl-unknown > summary{cursor:pointer;font-size:10px;color:#94a3b8}
-.tl-unknown pre{background:#f8fafc;padding:6px 8px;font-size:10px;border-radius:4px;max-height:160px;overflow:auto;margin-top:4px}
-/* Lightbox (图片预览) */
+/* Lightbox (图片预览，仅 inline-att 缩略图使用) */
 .lightbox{position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:9999;display:flex;align-items:center;justify-content:center;user-select:none}
 .lightbox[hidden]{display:none}
 .lightbox-stage{position:relative;width:100%;height:100%;display:flex;align-items:center;justify-content:center}
@@ -1291,8 +995,7 @@ table th{background:#f8fafc;color:#475569;font-weight:500;font-size:10px;text-tr
 .lightbox-single .lightbox-prev,.lightbox-single .lightbox-next,.lightbox-single .lightbox-counter{display:none}
 `
 
-const shotsByIdx = computeShotsByIdx(allTests)
-const split = allTests.map((t, i) => renderTestSplit(t, i, shotsByIdx))
+const split = allTests.map((t, i) => renderTestSplit(t, i))
 const navHtml = split.map(s => s.nav).join('')
 const panelsHtml = split.map(s => s.panel).join('')
 
@@ -1311,7 +1014,7 @@ const runHtml = `<!DOCTYPE html>
       <h1>测试报告</h1>
       <div class="meta">
         ${fmtTs(runTs)}<br>
-        ${total} tests${screenshotsByPrefix.size ? ` · ${screenshotsByPrefix.size} 截图` : ''}
+        ${total} tests${domHtmlByTestCase.size ? ` · ${domHtmlByTestCase.size} DOM 快照` : ''}
         ${totalCredits > 0 ? `<br>💎 ${totalCredits.toFixed(2)} credits` : ''}
         ${gitCommit ? `<br><code>${esc(gitBranch)}@${esc(gitCommit)}</code>` : ''}
       </div>
