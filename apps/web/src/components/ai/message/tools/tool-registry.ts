@@ -117,7 +117,7 @@ export const TOOL_REGISTRY: ToolRegistryEntry[] = [
   { match: 'Agent', component: SubAgentPanel as ComponentType<ToolComponentProps> },
   { match: 'SendMessage', component: SendMessageTool as ComponentType<ToolComponentProps> },
   { match: 'ChartRender', component: ChartTool as ComponentType<ToolComponentProps> },
-  { match: 'ExcelMutate', component: ExcelTool as ComponentType<ToolComponentProps> },
+  { match: ['ExcelInspect', 'ExcelMutate'], component: ExcelTool as ComponentType<ToolComponentProps> },
   { match: 'WordMutate', component: WordTool as ComponentType<ToolComponentProps> },
   { match: 'PptxMutate', component: PptxTool as ComponentType<ToolComponentProps> },
   { match: ['PdfMutate', 'PdfInspect'], component: PdfTool as ComponentType<ToolComponentProps> },

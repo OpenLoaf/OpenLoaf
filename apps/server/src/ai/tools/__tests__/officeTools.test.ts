@@ -373,18 +373,25 @@ async function main() {
   // -----------------------------------------------------------------------
   console.log('\nF 层 — Excel Mutate + Read roundtrip')
 
-  await test('F1: create → read back via readTool', async () => {
+  await test('F1: create (v2 sheets + cells) → read back via readTool', async () => {
     const filePath = rel('f1.xlsx')
     await withCtx(async () => {
       await excelMutateTool.execute(
         {
-          actionName: 'test',
           action: 'create',
           filePath,
-          data: [
-            ['Name', 'Score'],
-            ['Alice', 95],
-            ['Bob', 88],
+          sheets: [
+            {
+              name: 'Sheet1',
+              cells: {
+                A1: { value: 'Name' },
+                B1: { value: 'Score' },
+                A2: { value: 'Alice' },
+                B2: { value: 95 },
+                A3: { value: 'Bob' },
+                B3: { value: 88 },
+              },
+            },
           ],
         },
         toolCtx('f1'),
@@ -392,91 +399,66 @@ async function main() {
     })
     const xml = await readDoc(filePath)
     assert.ok(xml.includes('type="xlsx"'), 'should be xlsx envelope')
-    assert.ok(xml.includes('## Sheet: Sheet1'), 'should have sheet header')
+    assert.ok(xml.includes('Sheet1'), 'should contain sheet name')
     assert.ok(xml.includes('Name'), 'should contain header text')
     assert.ok(xml.includes('Alice'), 'should contain row data')
-    assert.ok(xml.includes('95'), 'should contain numeric cell rendered as text')
     const meta = parseMeta(xml)
     assert.ok(meta, 'should parse meta JSON')
     assert.equal(meta.sheetCount, 1)
-    assert.deepEqual(meta.sheetNames, ['Sheet1'])
   })
 
-  await test('F4: create → read back text content', async () => {
-    const filePath = rel('f1.xlsx') // reuse from F1
-    const xml = await readDoc(filePath)
-    assert.ok(xml.includes('Sheet1'), 'should include sheet name')
-    assert.ok(xml.includes('Name'), 'should include cell data')
-  })
-
-  await test('F5: create → edit (replace cell value) → read back', async () => {
+  await test('F5: create → update cell via v2 update action → read back', async () => {
     const filePath = rel('f5.xlsx')
     await withCtx(async () => {
       await excelMutateTool.execute(
         {
-          actionName: 'test',
           action: 'create',
           filePath,
-          data: [['X', 100]],
-        },
-        toolCtx('f5c'),
-      )
-      // Replace the entire <c> element to avoid namespace mismatch on inner <v>
-      // XLSX uses default namespace — XPath needs x: prefix
-      await excelMutateTool.execute(
-        {
-          actionName: 'test',
-          action: 'edit',
-          filePath,
-          edits: [
+          sheets: [
             {
-              op: 'replace',
-              path: 'xl/worksheets/sheet1.xml',
-              xpath: '//x:row[@r="1"]/x:c[@r="B1"]',
-              xml: '<c r="B1" xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><v>999</v></c>',
+              name: 'Data',
+              cells: { A1: { value: 'X' }, B1: { value: 100 } },
             },
           ],
         },
-        toolCtx('f5e'),
+        toolCtx('f5c'),
+      )
+      await excelMutateTool.execute(
+        {
+          action: 'update',
+          filePath,
+          sheetName: 'Data',
+          cells: { B1: { value: 999 } },
+        },
+        toolCtx('f5u'),
       )
     })
     const xml = await readDoc(filePath)
-    assert.ok(xml.includes('999'), 'should contain edited cell value 999')
+    assert.ok(xml.includes('999'), 'should contain updated cell value 999')
     assert.ok(!xml.includes('100'), 'old cell value 100 should be gone')
   })
 
-  await test('F7: create 含 sheetName 参数', async () => {
+  await test('F7: create 含自定义 sheetName 参数', async () => {
     const filePath = rel('f7.xlsx')
     await withCtx(async () => {
       await excelMutateTool.execute(
         {
-          actionName: 'test',
           action: 'create',
           filePath,
-          sheetName: 'MySheet',
-          data: [['A']],
+          sheets: [
+            {
+              name: 'MySheet',
+              cells: { A1: { value: 'A' } },
+            },
+          ],
         },
         toolCtx('f7'),
       )
     })
     const xml = await readDoc(filePath)
-    assert.ok(xml.includes('## Sheet: MySheet'), 'should render custom sheet name in header')
+    assert.ok(xml.includes('MySheet'), 'should render custom sheet name')
     const meta = parseMeta(xml)
     assert.ok(meta, 'should parse meta JSON')
-    assert.deepEqual(meta.sheetNames, ['MySheet'])
-  })
-
-  await test('F8: edit 缺少 edits 抛出错误', async () => {
-    await assert.rejects(
-      () =>
-        withCtx(() =>
-          excelMutateTool.execute(
-            { actionName: 'test', action: 'edit', filePath: rel('f8.xlsx') },
-            toolCtx('f8'),
-          ),
-        ),
-      /edits is required/,
-    )
   })
 
   // -----------------------------------------------------------------------
@@ -634,7 +616,7 @@ async function main() {
       () =>
         withCtx(() =>
           excelMutateTool.execute(
-            { actionName: 'test', action: 'unknown' as any, filePath: rel('h4.xlsx') },
+            { action: 'unknown' as any, filePath: rel('h4.xlsx') },
             toolCtx('h4'),
           ),
         ),

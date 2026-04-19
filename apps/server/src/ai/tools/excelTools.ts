@@ -271,9 +271,10 @@ export const excelMutateTool = tool({
       // engine writes to the right place.
       const engineInput = { ...i, filePath: absPath } as ExcelMutateInput
       const out = await applyMutate(engineInput)
+      const engineData = (out.data ?? {}) as Record<string, unknown>
       return {
         ok: true as const,
-        data: { action: i.action, filePath: absPath, ...(out.data ?? {}) },
+        data: { ...engineData, action: i.action, filePath: absPath },
         ...(out.meta ? { meta: out.meta } : {}),
       }
     } catch (err) {

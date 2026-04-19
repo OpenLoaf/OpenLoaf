@@ -18,7 +18,7 @@ import { calendarQueryToolDef, calendarMutateToolDef } from "./calendar";
 import { projectQueryToolDef, projectMutateToolDef } from "./db";
 import { boardQueryToolDef, boardMutateToolDef } from "./board";
 import { emailQueryToolDef, emailMutateToolDef } from "./email";
-import { excelMutateToolDef } from "./excel";
+import { excelInspectToolDef, excelMutateToolDef } from "./excel";
 import { wordMutateToolDef, wordInspectToolDef } from "./word";
 import { pptxMutateToolDef } from "./pptx";
 import { pdfMutateToolDef, pdfInspectToolDef } from "./pdf";
@@ -112,6 +112,7 @@ const TOOL_DEFS: ToolDefLike[] = [
   emailMutateToolDef,
   calendarQueryToolDef,
   calendarMutateToolDef,
+  excelInspectToolDef,
   excelMutateToolDef,
   wordInspectToolDef,
   wordMutateToolDef,
@@ -210,7 +211,8 @@ const TOOL_KEYWORDS: Record<string, { keywords: string[]; group: string }> = {
   'Jobs': { keywords: ['background', 'bg', 'list', 'process', 'running', 'shell', 'agent'], group: 'background' },
   'Kill': { keywords: ['background', 'bg', 'kill', 'terminate', 'cancel', 'stop', 'process'], group: 'background' },
   'Sleep': { keywords: ['sleep', 'wait', 'pause', 'delay', 'idle', 'yield', 'background', 'notification'], group: 'background' },
-  'ExcelMutate': { keywords: ['excel', 'spreadsheet', 'xlsx', 'create', 'write', 'formula'], group: 'office' },
+  'ExcelInspect': { keywords: ['excel', 'spreadsheet', 'xlsx', 'csv', 'read', 'inspect', 'analyze', 'summary', 'rows', 'formulas', 'errors', 'tables', 'pivot'], group: 'office' },
+  'ExcelMutate': { keywords: ['excel', 'spreadsheet', 'xlsx', 'csv', 'create', 'write', 'edit', 'formula', 'chart', 'recalc', 'layout', 'freeze', 'sort', 'filter'], group: 'office' },
   'WordInspect': { keywords: ['word', 'docx', 'read', 'inspect', 'analyze', 'text', 'outline', 'tables', 'comments', 'tracked', 'styles', 'xml', 'render', 'summary'], group: 'office' },
   'WordMutate': { keywords: ['word', 'docx', 'document', 'create', 'write', 'edit', 'replace', 'comment', 'tracked', 'toc', 'header', 'footer', 'xml'], group: 'office' },
   'PptxMutate': { keywords: ['pptx', 'ppt', 'powerpoint', 'slide', 'presentation', 'create', 'edit'], group: 'office' },
