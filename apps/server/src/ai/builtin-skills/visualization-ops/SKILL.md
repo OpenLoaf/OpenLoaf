@@ -167,7 +167,7 @@ Message, MessageContent, Panel, Snippet, SnippetAddon, SnippetText, SnippetInput
 - 校验失败仍会写入文件，错误信息包含 path，用 `Edit` 修正后刷新预览
 - 失败后必须用 `Edit` 修正，不要重新调用 JsxCreate
 
-**写入位置**：`[<sessionId>]/jsx/<messageId>.jsx`
+**写入位置**：`[<sessionId>]/asset/jsx/<messageId>.jsx`（在 session 的 asset 目录下，可直接用 `Edit` 局部修改）
 
 **交互式表单**：需要收集用户输入时用 `AskUserQuestion`，JsxCreate 仅负责展示。
 

@@ -38,6 +38,7 @@ export const CORE_TOOL_IDS = [
   'Write',
   'AskUserQuestion',
   'MemorySave',
+  'WebSearch',
 ] as const
 
 /** Full core tool set for master agents (adds Agent for subagent delegation). */

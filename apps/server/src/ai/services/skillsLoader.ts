@@ -25,8 +25,10 @@ type SkillSummary = {
   name: string;
   /** Original skill name from SKILL.md front-matter (used for matching/loading). */
   originalName: string;
-  /** Skill description from front matter. */
+  /** Skill description from front matter (default/Chinese fallback). */
   description: string;
+  /** English skill description (from `description_en` front-matter key; optional). */
+  descriptionEn?: string;
   /** Absolute path to SKILL.md. */
   path: string;
   /** Skill folder name (parent directory of SKILL.md). */
@@ -77,6 +79,7 @@ export function loadSkillSummaries(input: {
       name: builtin.name,
       originalName: builtin.name,
       description: builtin.description,
+      descriptionEn: builtin.descriptionEn,
       path: `builtin://${builtin.name}`,
       folderName: builtin.name,
       scope: "builtin",
@@ -203,6 +206,7 @@ export function readSkillSummaryFromPath(filePath: string, scope: SkillScope): S
       name: builtin.name,
       originalName: builtin.name,
       description: builtin.description,
+      descriptionEn: builtin.descriptionEn,
       path: filePath,
       folderName: builtin.name,
       scope: "builtin",
@@ -220,6 +224,9 @@ export function readSkillSummaryFromPath(filePath: string, scope: SkillScope): S
     if (!originalName) return null;
     let name = originalName;
     let description = normalizeDescription(frontMatter.description);
+    // 非内置 skill 的英文描述来自兄弟目录 `{skillFolder}/en/SKILL.md`（若存在），
+    // 与 readSkillContentFromPath 的语言优先路径保持一致。
+    let descriptionEn = readSiblingLangDescription(filePath, 'en');
     const folderName = path.basename(path.dirname(filePath)) || fallbackName;
 
     // Override name/description/colorIndex/icon from openloaf.json if present
@@ -240,6 +247,7 @@ export function readSkillSummaryFromPath(filePath: string, scope: SkillScope): S
       name,
       originalName,
       description,
+      descriptionEn,
       path: filePath,
       folderName,
       scope,
@@ -298,7 +306,10 @@ export function readSkillContentFromPath(filePath: string, preferredLanguage?: s
   if (filePath.startsWith("builtin://")) {
     const name = filePath.replace("builtin://", "");
     const builtin = BUILTIN_SKILLS.find((s) => s.name === name);
-    return builtin?.content ?? "";
+    if (!builtin) return "";
+    // 英文优先：内置 skill 的翻译版来自独立的 `en/SKILL.md`，已在 build 时装配到 contentEn。
+    if (preferredLanguage === "en" && builtin.contentEn) return builtin.contentEn;
+    return builtin.content;
   }
 
   if (preferredLanguage) {
@@ -325,6 +336,27 @@ export function readSkillContentFromPath(filePath: string, preferredLanguage?: s
 
 /** Alias for shared stripFrontMatter. */
 const stripSkillFrontMatter = stripFrontMatterShared;
+
+/**
+ * Read description from a sibling language directory (e.g. `{folder}/en/SKILL.md`).
+ *
+ * 对齐 readSkillContentFromPath 的 `preferredLanguage` 查找规则：把同名文件
+ * 挪到语言子目录作为翻译版本。这样非内置 skill 也能走「独立英文文件」方案。
+ */
+function readSiblingLangDescription(filePath: string, lang: string): string | undefined {
+  try {
+    const skillFolder = path.dirname(filePath)
+    const fileName = path.basename(filePath)
+    const translatedPath = path.join(skillFolder, lang, fileName)
+    if (!existsSync(translatedPath)) return undefined
+    const raw = readFileSync(translatedPath, 'utf8')
+    const fm = parseFrontMatter(raw)
+    const trimmed = fm.description?.trim()
+    return trimmed || undefined
+  } catch {
+    return undefined
+  }
+}
 
 /** Parse marketplace metadata from openloaf.json. */
 function parseMarketplaceMeta(

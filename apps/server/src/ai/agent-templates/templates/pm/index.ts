@@ -30,7 +30,6 @@ export const PM_AGENT_TOOL_IDS = [
   'SendMessage',
   // web
   'OpenUrl',
-  'WebSearch',
   'WebFetch',
   // project (query only)
   'ProjectQuery',

@@ -157,7 +157,7 @@ Step 4  汇总各页文本，必要时 Write 到 .md / .txt
 ```json
 {
   "action": "create",
-  "filePath": "${CURRENT_CHAT_DIR}/invoice.pdf",
+  "filePath": "invoice.pdf",
   "content": [
     { "type": "heading", "text": "发票 #20260415", "level": 1 },
     { "type": "paragraph", "text": "收件方：ACME Corp", "bold": true },

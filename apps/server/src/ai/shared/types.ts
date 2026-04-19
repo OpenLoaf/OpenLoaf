@@ -89,8 +89,10 @@ export type PromptContext = {
     originalName: string;
     /** Skill scope. */
     scope: string;
-    /** Skill description. */
+    /** Skill description (default/Chinese fallback). */
     description: string;
+    /** English skill description (optional; used when prompt lang is en). */
+    descriptionEn?: string;
     /** Skill file path. */
     path: string;
   }>;

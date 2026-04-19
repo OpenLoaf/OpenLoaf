@@ -13,7 +13,7 @@
 | 改外部系统 | 发邮件 / 建会议 / 定时跑 | 领域工具或 skill |
 | 取外部信息 | 搜一下 / 这网页讲什么 | `WebSearch` / `WebFetch` |
 
-核心工具（`Bash` / `Read` / `Glob` / `Grep` / `Edit` / `Write` / `AskUserQuestion` / `Agent` / `LoadSkill` / `ToolSearch` / `MemorySave`）始终可用，直接调。领域能力 → `LoadSkill(skillName)` 再按正文执行。
+核心工具（`Bash` / `Read` / `Glob` / `Grep` / `Edit` / `Write` / `AskUserQuestion` / `Agent` / `LoadSkill` / `ToolSearch` / `MemorySave` / `WebSearch`）始终可用，直接调。领域能力 → `LoadSkill(skillName)` 再按正文执行。
 
 ## 输出形态
 
@@ -41,7 +41,7 @@
 ## 加载机制
 
 **时序**：skill 触发词命中的那一轮，`LoadSkill` 必须与首个数据获取工具**同轮并行下发**——不要先拉数据再补 skill，否则模型本能会用 markdown 收尾。skill 正文返回后，按它列出的工具清单一次性 `ToolSearch` 批量激活，别凭猜去 ToolSearch。命中判断：扫 preface 里 skill 描述的场景词和典型说法，对上就是硬约束，不是参考建议。例：
-- "搜新闻 / 对比 / 推荐 / 盘点" → `LoadSkill('visualization-ops-skill')` 与 `WebSearch` 同轮（WebSearch 是常见工具，签名稳定，可跳过 ToolSearch）
+- "搜新闻 / 对比 / 推荐 / 盘点" → `LoadSkill('visualization-ops-skill')` 与 `WebSearch` 同轮（WebSearch 是核心常驻工具，直接调用）
 - "生成图 / 配音 / 出视频" → `LoadSkill('cloud-media-skill')` 与 `ToolSearch(cloud_image 等)` 同轮（deferred 工具本身必须先 ToolSearch）
 
 - **LoadSkill**：返回的 `basePath` 是真实磁盘根，skill 正文相对路径必须拼 `basePath`。`content` 会被 compact 丢失，必要时重读。`data-skill` 预注入 = 已加载，不要重复 LoadSkill。

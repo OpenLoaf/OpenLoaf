@@ -53,7 +53,6 @@ export const masterTemplate: AgentTemplate = {
     'FileInfo',
     // web
     'OpenUrl',
-    'WebSearch',
     'WebFetch',
     // browser automation
     'BrowserSnapshot',

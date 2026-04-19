@@ -161,6 +161,8 @@ export const cloudMediaSkill: BuiltinSkill = {
   name: 'cloud-media-skill',
   description:
     '当用户要求生成或处理云端 AI 媒体（图片/视频/语音），或理解媒体内容（OCR/图片理解/语音转写）时触发。典型："画一张"、"生成视频"、"合成语音"、"识别文字"、"语音转文字"、"看看这张图"。不用于：翻译（对话模型免费）、已粘贴的短文本处理（对话模型直接处理）、以及**当前模型已经原生能看/听该媒体**的情况（按每条消息末尾 `<system-tag type="msg-context">` 的 `native-inputs` 判断，已在 native-inputs 里就直接观察消息中的媒体 part，不必绕到 CloudImageUnderstand/CloudSpeechRecognize）。',
+  descriptionEn:
+    'Trigger when the user asks to generate or process cloud AI media (image/video/voice), or to understand media content (OCR / image caption / speech recognition). Typical: "draw a picture", "generate a video", "synthesize voice", "recognize this text", "speech to text", "look at this image". Not for: translation (chat model handles free), short pasted text processing (chat model handles directly), and **cases where the current model can already natively see/hear the media** — check each message\'s trailing `<system-tag type="msg-context">` `native-inputs`; if the modality is already listed there, observe the media part in the message directly instead of detouring through CloudImageUnderstand/CloudSpeechRecognize.',
   icon: '☁️',
   colorIndex: 2,
   content: renderMediaContent(), // initial placeholder content (before first refresh)

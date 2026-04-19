@@ -450,7 +450,7 @@ function buildBuiltinSkillsSystemBlock(
 ): string {
   const builtinSkills = summaries.filter((s) => s.scope === "builtin");
   if (builtinSkills.length === 0) return "";
-  const content = buildSkillsSummarySection(builtinSkills);
+  const content = buildSkillsSummarySection(builtinSkills, lang);
   if (!content) return "";
   const desc =
     lang === "zh"
@@ -472,6 +472,7 @@ export function buildBuiltinSkillsText(lang?: PromptLang): string {
     name: skill.name,
     originalName: skill.name,
     description: skill.description,
+    descriptionEn: skill.descriptionEn,
     path: `builtin://${skill.name}`,
     folderName: skill.name,
     scope: "builtin",
@@ -503,7 +504,7 @@ function buildUserProjectSkillsBlocks(
       : "Project skills, load on demand via `LoadSkill(skillName: '...')`";
 
   if (globalSkills.length > 0) {
-    const content = buildSkillsSummarySection(globalSkills);
+    const content = buildSkillsSummarySection(globalSkills, lang);
     if (content) {
       blocks.push(
         `<system-tag type="user-skills" desc="${userDesc}">\n${content}\n</system-tag>`,
@@ -511,7 +512,7 @@ function buildUserProjectSkillsBlocks(
     }
   }
   if (projectSkills.length > 0) {
-    const content = buildSkillsSummarySection(projectSkills);
+    const content = buildSkillsSummarySection(projectSkills, lang);
     if (content) {
       blocks.push(
         `<system-tag type="project-skills" desc="${projectDesc}">\n${content}\n</system-tag>`,

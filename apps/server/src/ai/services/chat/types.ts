@@ -97,6 +97,11 @@ export type AiExecuteRequest = {
   temperature?: number;
   /** 显式指定会话标题（跳过自动提取）。 */
   title?: string;
+  /**
+   * 请求级覆盖系统提示词语言（'zh' | 'en'）。优先级高于 basicConf.promptLanguage。
+   * ai-browser-test 默认走 'en' 提高测试稳定性；生产前端不传时回退用户设置。
+   */
+  promptLanguage?: "zh" | "en";
 };
 
 export type AiCommandContext = {

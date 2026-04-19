@@ -116,6 +116,10 @@ function parseAiExecuteRequest(body: unknown): { request?: AiExecuteRequest; err
       pageContext: normalizePageContext(raw.pageContext),
       temperature,
       title: toText(raw.title) || undefined,
+      promptLanguage:
+        raw.promptLanguage === "zh" || raw.promptLanguage === "en"
+          ? raw.promptLanguage
+          : undefined,
     },
   };
 }

@@ -182,6 +182,10 @@ function parseAsyncRequest(body: unknown): { request?: AiExecuteRequest; error?:
       desktopVersion: toText(raw.desktopVersion) || undefined,
       messageIdChain: normalizeMessageIdChain(raw.messageIdChain),
       autoApproveTools: raw.autoApproveTools === true ? true : undefined,
+      promptLanguage:
+        raw.promptLanguage === 'zh' || raw.promptLanguage === 'en'
+          ? raw.promptLanguage
+          : undefined,
     },
   }
 }

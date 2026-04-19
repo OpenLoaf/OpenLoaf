@@ -16,14 +16,27 @@ import { getBoardId, getProjectId } from '@/ai/shared/context/requestContext'
 const NOT_LOGGED_IN_ZH = '未登录'
 const NOT_LOGGED_IN_EN = 'not logged in'
 
-/** Build skills summary section — each skill as a <skill> tag with description inside. */
+/** Build skills summary section — each skill as a <skill> tag with description inside.
+ *
+ * When `lang === 'en'` and a skill provides `descriptionEn`, use it; otherwise
+ * fall back to `description`. Keeps non-builtin skills working even without an
+ * explicit English translation.
+ */
 export function buildSkillsSummarySection(
   summaries: PromptContext['skillSummaries'],
+  lang?: PromptLang,
 ): string {
   if (summaries.length === 0) return ''
 
+  const pickDescription = (s: PromptContext['skillSummaries'][number]): string => {
+    if (lang === 'en' && s.descriptionEn && s.descriptionEn.trim()) {
+      return s.descriptionEn
+    }
+    return s.description
+  }
+
   return summaries
-    .map((s) => `\t<skill name="${s.originalName}">\n\t\t${s.description}\n\t</skill>`)
+    .map((s) => `\t<skill name="${s.originalName}">\n\t\t${pickDescription(s)}\n\t</skill>`)
     .join('\n')
 }
 
