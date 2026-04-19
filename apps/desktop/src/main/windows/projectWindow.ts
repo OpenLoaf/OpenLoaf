@@ -1,5 +1,5 @@
 import { app, BrowserWindow, screen, shell } from "electron";
-import { resolveWindowIconPath } from "../resolveWindowIcon";
+import { resolveWindowIconForBrowser } from "../resolveWindowIcon";
 import { WEBPACK_ENTRIES } from "../webpackEntries";
 import type { Logger } from "../logging/startupLogger";
 
@@ -100,7 +100,8 @@ export function createProjectWindow(args: CreateProjectWindowArgs) {
   const { width, height } = getDefaultWindowSize();
   const isMac = process.platform === "darwin";
   const isWindows = process.platform === "win32";
-  const windowIcon = resolveWindowIconPath();
+  const isLinux = process.platform === "linux";
+  const windowIcon = resolveWindowIconForBrowser();
 
   const win = new BrowserWindow({
     width,
@@ -122,6 +123,7 @@ export function createProjectWindow(args: CreateProjectWindowArgs) {
           titleBarOverlay: { color: "rgba(0, 0, 0, 0)" },
         }
       : {}),
+    ...(isLinux ? { titleBarStyle: "hidden" as const } : {}),
     webPreferences: {
       preload: WEBPACK_ENTRIES.mainPreload,
       contextIsolation: true,

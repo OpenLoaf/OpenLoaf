@@ -421,6 +421,13 @@ jobs:
         working-directory: apps/desktop
         run: pnpm run dist:linux:ci
 
+      # 用 type2-runtime 静态 runtime 替换 electron-builder 默认 runtime，消除对 libfuse2 的依赖
+      # （Ubuntu 22.04+/Debian 12+ 默认不再预装 libfuse2，不修复用户双击运行会报 FUSE 错误）
+      # 必须在 publish-update.mjs --upload-only 之前完成，由 publish-update.mjs 重新计算 sha512
+      - name: Patch AppImage with FUSE-less static runtime
+        working-directory: apps/desktop
+        run: node scripts/patchAppImageRuntime.mjs
+
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v7
         with:

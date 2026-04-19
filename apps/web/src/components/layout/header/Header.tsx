@@ -22,6 +22,7 @@ import { Button } from "@openloaf/ui/button";
 
 import { PageTitle } from "./PageTitle";
 import { HeaderCreditsBadge } from "./HeaderCreditsBadge";
+import { WindowControls } from "./WindowControls";
 
 import { Search as SearchDialog } from "@/components/search/Search";
 
@@ -74,6 +75,11 @@ export const Header = () => {
   const isMac =
     typeof navigator !== "undefined" &&
     (navigator.platform.includes("Mac") || navigator.userAgent.includes("Mac"));
+  const isLinux =
+    typeof navigator !== "undefined" &&
+    navigator.userAgent.includes("Linux") &&
+    !navigator.userAgent.includes("Android");
+  const showWindowControls = isElectron && isLinux;
   const trafficLightsWidth = isElectron && isMac ? "72px" : "0px";
 
 
@@ -89,14 +95,19 @@ export const Header = () => {
         } as CSSProperties
       }
     >
-      <div
-        className="flex shrink-0 h-(--header-height) items-center px-1"
-        style={
-          {
-            width: `calc(var(--sidebar-width) - var(--macos-traffic-lights-width))`,
-          } as CSSProperties
-        }
-      />
+      {/* 左占位仅 Mac 需要——用于对齐 header 下方的 sidebar；非 Mac 下 sidebar 已脱离 header 成独立左列。 */}
+      {isMac ? (
+        <div
+          className="flex shrink-0 h-(--header-height) items-center px-1"
+          style={
+            {
+              width: `calc(var(--sidebar-width) - var(--macos-traffic-lights-width))`,
+            } as CSSProperties
+          }
+        />
+      ) : (
+        <div className="shrink-0" />
+      )}
       <div className="flex min-w-0 items-center gap-2 overflow-hidden pl-1">
         <div className="min-w-0 shrink-0">
           <PageTitle />
@@ -144,6 +155,7 @@ export const Header = () => {
             AI
           </TooltipContent>
         </Tooltip>
+        {showWindowControls && <WindowControls />}
       </div>
       <SearchDialog open={searchOpen} onOpenChange={setSearchOpen} />
     </header>

@@ -8,7 +8,7 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import { app, BrowserWindow, ipcMain, screen, shell } from 'electron';
-import { resolveWindowIconPath } from '../resolveWindowIcon';
+import { resolveWindowIconForBrowser } from '../resolveWindowIcon';
 import { getMinimizeToTray, setMinimizeToTray } from '../updateConfig';
 import type { Logger } from '../logging/startupLogger';
 import type { ServerCrashInfo, ServiceManager } from '../services/serviceManager';
@@ -201,15 +201,17 @@ export async function createMainWindow(args: {
   const { width, height } = getDefaultWindowSize();
   const isMac = process.platform === 'darwin';
   const isWindows = process.platform === 'win32';
-  const windowIcon = resolveWindowIconPath();
+  const isLinux = process.platform === 'linux';
+  const windowIcon = resolveWindowIconForBrowser();
 
   const mainWindow = new BrowserWindow({
     height,
     width,
     minWidth: 800,
     minHeight: 640,
-    // 生产模式下避免协议加载期间白屏闪烁（与 loading.html 背景一致）。
-    backgroundColor: '#0f1115',
+    // Linux 为了能做 CSS 圆角需要让窗口背景透明；其他平台保留不透明背景以避免加载期闪白。
+    backgroundColor: isLinux ? '#00000000' : '#0f1115',
+    ...(isLinux ? { transparent: true, frame: false, hasShadow: true } : {}),
     ...(windowIcon ? { icon: windowIcon } : {}),
     ...(isMac
       ? {

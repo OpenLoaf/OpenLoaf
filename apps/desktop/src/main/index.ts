@@ -29,6 +29,15 @@ if (app.isPackaged) {
 // 参见 https://github.com/electron/electron/issues/18277
 app.commandLine.appendSwitch('disable-accelerated-video-decode');
 
+// Linux AppImage: chrome-sandbox 在挂载点上无法获得 SUID root。
+// 退回 kernel unprivileged userns 沙箱（需 kernel.unprivileged_userns_clone=1，
+// Ubuntu 24.04+ 默认开启）。相比完全 --no-sandbox 更安全。
+if (process.platform === 'linux') {
+  app.commandLine.appendSwitch('disable-setuid-sandbox');
+  // Wayland 下 Ozone 的 Vulkan 路径可能崩溃 GPU 进程，强制走 X11/XWayland。
+  app.commandLine.appendSwitch('ozone-platform', 'x11');
+}
+
 // 打包后原生模块（sharp、@libsql 等）位于 Resources/node_modules 目录。
 // Node.js 标准解析会从 asar 向上查找到 Resources/node_modules/，
 // globalPaths 作为额外保障。

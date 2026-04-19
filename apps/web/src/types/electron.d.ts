@@ -229,6 +229,14 @@ declare global {
       setTitleBarOverlayHeight?: (payload: {
         height: number;
       }) => Promise<{ ok: true } | { ok: false; reason?: string }>;
+      /** Minimize the current window (Linux/frameless). */
+      minimizeWindow?: () => Promise<{ ok: true } | { ok: false; reason?: string }>;
+      /** Toggle maximize/restore on the current window. */
+      toggleMaximizeWindow?: () => Promise<
+        { ok: true; maximized: boolean } | { ok: false; reason?: string }
+      >;
+      /** Close the current window. */
+      closeWindow?: () => Promise<{ ok: true } | { ok: false; reason?: string }>;
       /** Open the app logs folder (userData) in system file manager. */
       openLogsFolder?: () => Promise<{ ok: true } | { ok: false; reason?: string }>;
       /** Read startup.log content for crash feedback. */

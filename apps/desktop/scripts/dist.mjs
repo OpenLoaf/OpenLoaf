@@ -46,7 +46,11 @@ if (fs.existsSync(dotenvPath)) {
 // --arch=x64 支持：覆盖宿主架构，用于在 Apple Silicon 上交叉编译 x64 版本
 const archArg = process.argv.find((a) => a.startsWith('--arch='))
 const arch = archArg ? archArg.split('=')[1] : os.arch()
-const mainPath = `.webpack/${arch}/main/index.js`
+const archedMain = `.webpack/${arch}/main/index.js`
+const plainMain = `.webpack/main/index.js`
+const mainPath = fs.existsSync(path.resolve(archedMain))
+  ? archedMain
+  : plainMain
 
 // --beta[=N] 支持：临时将版本号改为 x.y.z-beta.N 进行打包（用于本地测试自动更新）
 // 例：node scripts/dist.mjs --mac --beta     → x.y.z-beta.1

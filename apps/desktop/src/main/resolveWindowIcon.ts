@@ -24,6 +24,28 @@ export function resolveWindowIconPath(): string | undefined {
 }
 
 /**
+ * 中文注释：Linux X11 对单次请求有 ~16MB 上限，
+ * 解码后超大图标（例如 3072×3072 RGBA ≈ 36MB）会让 X11 请求体越界，
+ * 触发 "Cannot send request of length …" 进而拖垮 GPU 进程。
+ * 在 Linux 上改为返回 resize 过的 NativeImage，避免把原图直接交给 Chromium。
+ * 其他平台继续走路径，保持高 DPI icns/ico 的原生渲染质量。
+ */
+export function resolveWindowIconForBrowser():
+  | string
+  | Electron.NativeImage
+  | undefined {
+  if (process.platform !== 'linux') {
+    return resolveWindowIconPath();
+  }
+  const info = resolveWindowIconInfo();
+  if (!info) return undefined;
+  const { width, height } = info.image.getSize();
+  const max = Math.max(width, height);
+  if (max <= 256) return info.image;
+  return info.image.resize({ width: 256, height: 256, quality: 'best' });
+}
+
+/**
  * Resolve the best icon image for Dock / Cmd+Tab usage.
  */
 export function resolveWindowIconImage(): Electron.NativeImage | undefined {

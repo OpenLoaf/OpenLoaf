@@ -67,7 +67,6 @@ export function AppBootstrap() {
 
     // First launch with no saved state: create a default AI assistant view.
     navigate({
-      title: DEFAULT_TAB_INFO.titleKey,
       icon: DEFAULT_TAB_INFO.icon,
       leftWidthPercent: 0,
       rightChatCollapsed: false,

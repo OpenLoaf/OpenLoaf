@@ -128,6 +128,14 @@ body {
   user-select: none;
 }
 
+/* Linux 窗口透明化：让 html/body 背景透明，这样根节点的圆角不会被不透明底色覆盖。 */
+html[data-ol-linux-rounded] {
+  background: transparent !important;
+}
+html[data-ol-linux-rounded] body {
+  background: transparent !important;
+}
+
 .electron .electron-drag [data-no-drag="true"],
 .electron .electron-drag button,
 .electron .electron-drag a,
