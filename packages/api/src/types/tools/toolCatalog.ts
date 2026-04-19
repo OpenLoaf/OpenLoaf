@@ -19,7 +19,7 @@ import { projectQueryToolDef, projectMutateToolDef } from "./db";
 import { boardQueryToolDef, boardMutateToolDef } from "./board";
 import { emailQueryToolDef, emailMutateToolDef } from "./email";
 import { excelMutateToolDef } from "./excel";
-import { wordMutateToolDef } from "./word";
+import { wordMutateToolDef, wordInspectToolDef } from "./word";
 import { pptxMutateToolDef } from "./pptx";
 import { pdfMutateToolDef, pdfInspectToolDef } from "./pdf";
 import { docPreviewToolDef } from "./docPreview";
@@ -113,6 +113,7 @@ const TOOL_DEFS: ToolDefLike[] = [
   calendarQueryToolDef,
   calendarMutateToolDef,
   excelMutateToolDef,
+  wordInspectToolDef,
   wordMutateToolDef,
   pptxMutateToolDef,
   pdfMutateToolDef,
@@ -210,7 +211,8 @@ const TOOL_KEYWORDS: Record<string, { keywords: string[]; group: string }> = {
   'Kill': { keywords: ['background', 'bg', 'kill', 'terminate', 'cancel', 'stop', 'process'], group: 'background' },
   'Sleep': { keywords: ['sleep', 'wait', 'pause', 'delay', 'idle', 'yield', 'background', 'notification'], group: 'background' },
   'ExcelMutate': { keywords: ['excel', 'spreadsheet', 'xlsx', 'create', 'write', 'formula'], group: 'office' },
-  'WordMutate': { keywords: ['word', 'docx', 'document', 'create', 'write', 'edit', 'xml'], group: 'office' },
+  'WordInspect': { keywords: ['word', 'docx', 'read', 'inspect', 'analyze', 'text', 'outline', 'tables', 'comments', 'tracked', 'styles', 'xml', 'render', 'summary'], group: 'office' },
+  'WordMutate': { keywords: ['word', 'docx', 'document', 'create', 'write', 'edit', 'replace', 'comment', 'tracked', 'toc', 'header', 'footer', 'xml'], group: 'office' },
   'PptxMutate': { keywords: ['pptx', 'ppt', 'powerpoint', 'slide', 'presentation', 'create', 'edit'], group: 'office' },
   'PdfMutate': { keywords: ['pdf', 'document', 'create', 'fill', 'merge', 'write', 'form'], group: 'office' },
   'PdfInspect': { keywords: ['pdf', 'read', 'inspect', 'analyze', 'text', 'form', 'fields', 'metadata', 'render', 'scanned', 'ocr', 'image', 'annotation'], group: 'office' },

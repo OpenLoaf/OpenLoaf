@@ -340,13 +340,14 @@ const officeParts: ToolShowcasePart[] = [
     toolName: 'WordMutate',
     state: 'output-available',
     input: {
-      action: 'edit',
+      action: 'replace-text',
       filePath: '/project-root/meeting-notes.docx',
-      edits: [{ type: 'append', content: '议题二：Q2 计划' }],
+      find: 'Q1 复盘',
+      replace: 'Q1 成果回顾',
     },
     output: {
       ok: true,
-      data: { action: 'edit', editCount: 1, filePath: '/project-root/meeting-notes.docx' },
+      data: { action: 'replace-text', replacedCount: 1, filePath: '/project-root/meeting-notes.docx' },
     },
   },
   {

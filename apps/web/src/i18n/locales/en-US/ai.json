@@ -554,7 +554,29 @@
       "legacyHint": "This is a legacy .doc file",
       "table": "Table {{index}}",
       "header": "Header",
-      "footer": "Footer"
+      "footer": "Footer",
+      "inspectAction": {
+        "summary": "Document summary",
+        "outline": "Heading outline",
+        "text": "Extract text",
+        "tables": "Extract tables",
+        "images": "List images",
+        "comments": "List comments",
+        "tracked-changes": "List tracked changes",
+        "xml": "Raw OOXML",
+        "render": "Render pages"
+      },
+      "mutateAction": {
+        "create": "Create document",
+        "replace-text": "Replace text",
+        "add-image": "Insert image",
+        "update-toc": "Update table of contents",
+        "set-page-settings": "Update page settings",
+        "comment": "Add comment",
+        "add-tracked-change": "Add tracked change",
+        "resolve-changes": "Resolve tracked changes",
+        "edit": "Edit (XPath)"
+      }
     },
     "pptx": {
       "slideCount": "{{count}} slides",

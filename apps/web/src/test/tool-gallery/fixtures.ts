@@ -610,6 +610,73 @@ const officeFixtures: ToolFixture[] = [
     }),
   },
   {
+    id: 'word-mutate-replace',
+    title: 'Word 替换正文',
+    toolKind: 'WordMutate',
+    part: makePart({
+      toolKind: 'WordMutate',
+      suffix: 'replace',
+      input: {
+        action: 'replace-text',
+        file_path: '/tmp/contract.docx',
+        find: 'A 公司',
+        replace: 'B 公司',
+      },
+      output: JSON.stringify({ ok: true, action: 'replace-text', replacedCount: 7 }),
+    }),
+  },
+  {
+    id: 'word-mutate-tracked-change',
+    title: 'Word 添加修订',
+    toolKind: 'WordMutate',
+    part: makePart({
+      toolKind: 'WordMutate',
+      suffix: 'tracked',
+      input: {
+        action: 'add-tracked-change',
+        file_path: '/tmp/contract.docx',
+        changeType: 'replace',
+        changeText: '原文案',
+        changeReplace: '新文案',
+        changeAuthor: 'Reviewer',
+        anchor: { xpath: '//w:p[3]', position: 'before' },
+      },
+      output: JSON.stringify({ ok: true, action: 'add-tracked-change' }),
+    }),
+  },
+  {
+    id: 'word-mutate-comment',
+    title: 'Word 添加评论',
+    toolKind: 'WordMutate',
+    part: makePart({
+      toolKind: 'WordMutate',
+      suffix: 'comment',
+      input: {
+        action: 'comment',
+        file_path: '/tmp/report.docx',
+        commentText: '这里的数据来源需要引用',
+        commentAuthor: 'Reviewer',
+        anchor: { xpath: '//w:p[5]', position: 'after' },
+      },
+      output: JSON.stringify({ ok: true, action: 'comment' }),
+    }),
+  },
+  {
+    id: 'word-mutate-resolve',
+    title: 'Word 处理修订',
+    toolKind: 'WordMutate',
+    part: makePart({
+      toolKind: 'WordMutate',
+      suffix: 'resolve',
+      input: {
+        action: 'resolve-changes',
+        file_path: '/tmp/contract.docx',
+        decision: 'accept',
+      },
+      output: JSON.stringify({ ok: true, action: 'resolve-changes', decision: 'accept' }),
+    }),
+  },
+  {
     id: 'pptx-mutate',
     title: 'PPT 生成',
     toolKind: 'PptxMutate',

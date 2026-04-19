@@ -554,7 +554,29 @@
       "legacyHint": "これはレガシー .doc ファイルです",
       "table": "テーブル {{index}}",
       "header": "ヘッダー",
-      "footer": "フッター"
+      "footer": "フッター",
+      "inspectAction": {
+        "summary": "ドキュメント概要",
+        "outline": "見出しアウトライン",
+        "text": "本文抽出",
+        "tables": "表の抽出",
+        "images": "画像一覧",
+        "comments": "コメント一覧",
+        "tracked-changes": "変更履歴一覧",
+        "xml": "生の OOXML",
+        "render": "ページをレンダリング"
+      },
+      "mutateAction": {
+        "create": "ドキュメント作成",
+        "replace-text": "本文置換",
+        "add-image": "画像挿入",
+        "update-toc": "目次更新",
+        "set-page-settings": "ページ設定変更",
+        "comment": "コメント追加",
+        "add-tracked-change": "変更履歴追加",
+        "resolve-changes": "変更履歴の処理",
+        "edit": "XPath 編集"
+      }
     },
     "pptx": {
       "slideCount": "{{count}} スライド",

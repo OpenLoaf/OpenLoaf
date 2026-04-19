@@ -253,6 +253,14 @@ export default function WordTool({
       {(ctx) => {
         const { data, input, mode, isPending, isDone, t } = ctx
 
+        // Resolve localized action label (falls back to raw action id)
+        const localizeAction = (action: string): string => {
+          if (!action) return ''
+          const key = isMutate ? `tool.word.mutateAction.${action}` : `tool.word.inspectAction.${action}`
+          const localized = t(key, { defaultValue: '' })
+          return localized && localized !== key ? localized : action
+        }
+
         // Mutate pending: show preview from input
         if (isMutate && isPending && input) {
           const action = typeof input.action === 'string' ? input.action : ''
@@ -264,7 +272,7 @@ export default function WordTool({
           }
           const entries: ResultEntry[] = []
           if (typeof input.filePath === 'string') entries.push({ label: t('tool.office.file'), fileLink: input.filePath as string })
-          if (action) entries.push({ label: t('tool.office.action'), value: action })
+          if (action) entries.push({ label: t('tool.office.action'), value: localizeAction(action) })
           return <MutateResultEntries entries={entries} />
         }
 
@@ -275,6 +283,7 @@ export default function WordTool({
             const entries: ResultEntry[] = []
             const resultFilePath = (typeof input?.filePath === 'string' ? input.filePath : data.filePath) as string | undefined
             if (typeof resultFilePath === 'string') entries.push({ label: t('tool.office.file'), fileLink: resultFilePath })
+            if (action) entries.push({ label: t('tool.office.action'), value: localizeAction(action) })
             if (action === 'create' && typeof data.elementCount === 'number') {
               entries.push({ label: t('tool.word.elementCount'), value: String(data.elementCount) })
             }
