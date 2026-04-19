@@ -156,6 +156,14 @@ contextBridge.exposeInMainWorld('openloafElectron', {
     height: number;
   }): Promise<{ ok: true } | { ok: false; reason?: string }> =>
     ipcRenderer.invoke('openloaf:window:set-titlebar-overlay-height', payload),
+  // Linux/无原生标题栏时的窗口控制（最小化/最大化/关闭）。
+  minimizeWindow: (): Promise<{ ok: true } | { ok: false; reason?: string }> =>
+    ipcRenderer.invoke('openloaf:window:minimize'),
+  toggleMaximizeWindow: (): Promise<
+    { ok: true; maximized: boolean } | { ok: false; reason?: string }
+  > => ipcRenderer.invoke('openloaf:window:toggle-maximize'),
+  closeWindow: (): Promise<{ ok: true } | { ok: false; reason?: string }> =>
+    ipcRenderer.invoke('openloaf:window:close'),
   // 使用系统文件管理器打开应用日志目录。
   openLogsFolder: (): Promise<{ ok: true } | { ok: false; reason?: string }> =>
     ipcRenderer.invoke('openloaf:open-logs-folder'),

@@ -75,7 +75,7 @@ export const useAppView = create<AppViewState>()(
       chatParams: {},
       chatLoadHistory: false,
       projectShell: null,
-      title: DEFAULT_TAB_INFO.titleKey,
+      title: "",
       icon: DEFAULT_TAB_INFO.icon,
       initialized: false,
 
@@ -110,7 +110,7 @@ export const useAppView = create<AppViewState>()(
           chatParams: resolvedChatParams,
           chatLoadHistory: createdChatLoadHistory,
           projectShell: projectShell ?? null,
-          title: title ?? DEFAULT_TAB_INFO.titleKey,
+          title: title ?? "",
           icon: icon ?? DEFAULT_TAB_INFO.icon,
           initialized: true,
         })
@@ -167,10 +167,16 @@ export const useAppView = create<AppViewState>()(
         icon: state.icon,
         initialized: state.initialized,
       }),
-      merge: (persisted, current) => ({
-        ...current,
-        ...(persisted as Partial<AppViewState>),
-      }),
+      merge: (persisted, current) => {
+        const merged = {
+          ...current,
+          ...(persisted as Partial<AppViewState>),
+        }
+        if (typeof merged.title === "string" && /^[a-z]+:[a-zA-Z0-9._-]+$/.test(merged.title)) {
+          merged.title = ""
+        }
+        return merged
+      },
     },
   ),
 )

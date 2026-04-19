@@ -284,9 +284,25 @@ export const AppSidebar = ({
 
   if (isNarrow || isProjectWindowMode() || isBoardWindowMode()) return null;
 
+  // 非 Mac 上 sidebar 贴顶（无红绿灯占位），Mac 下仍在 header 之下。
+  const isMacPlatform =
+    typeof navigator !== "undefined" &&
+    (navigator.platform.includes("Mac") || navigator.userAgent.includes("Mac"));
+  // Linux 的 frameless 窗口整体带圆角，sidebar 用 fixed 定位脱离了根节点 overflow，所以左边两角要手动圆。
+  const isLinuxPlatform =
+    typeof navigator !== "undefined" &&
+    navigator.userAgent.includes("Linux") &&
+    !navigator.userAgent.includes("Android");
+
+  const sidebarClassName = isMacPlatform
+    ? "top-(--header-height) h-[calc(100svh-var(--header-height))]! border-r-0!"
+    : isLinuxPlatform
+      ? "top-0 h-svh! border-r-0! rounded-l-xl overflow-hidden"
+      : "top-0 h-svh! border-r-0!";
+
   return (
     <Sidebar
-      className="top-(--header-height) h-[calc(100svh-var(--header-height))]! border-r-0!"
+      className={sidebarClassName}
       {...props}
     >
       <SidebarHeader className="items-center px-0 pt-2 pb-3">

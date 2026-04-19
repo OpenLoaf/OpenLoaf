@@ -96,7 +96,8 @@
       "macos-alias",
       "ds-store",
       "appdmg",
-      "fs-xattr"
+      "fs-xattr",
+      "node-pty"
     ],
     "supportedArchitectures": {
       "os": [

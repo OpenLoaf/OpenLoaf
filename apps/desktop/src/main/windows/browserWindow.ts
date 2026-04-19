@@ -9,7 +9,7 @@
  */
 import { BrowserWindow, ipcMain, nativeTheme, WebContentsView } from 'electron';
 import { randomUUID } from 'node:crypto';
-import { resolveWindowIconPath } from '../resolveWindowIcon';
+import { resolveWindowIconForBrowser } from '../resolveWindowIcon';
 import { WEBPACK_ENTRIES } from '../webpackEntries';
 import { getChromeUserAgent, normalizeExternalUrl, safeDisposeWebContents } from '../ipc/webContentsViews';
 import { getCdpTargetId } from '../ipc/cdpUtils';
@@ -142,7 +142,8 @@ function ensureBrowserWindow(): BrowserWindow {
 
   const isMac = process.platform === 'darwin';
   const isWindows = process.platform === 'win32';
-  const windowIcon = resolveWindowIconPath();
+  const isLinux = process.platform === 'linux';
+  const windowIcon = resolveWindowIconForBrowser();
 
   const win = new BrowserWindow({
     width: 1200,
@@ -167,6 +168,7 @@ function ensureBrowserWindow(): BrowserWindow {
           },
         }
       : {}),
+    ...(isLinux ? { titleBarStyle: 'hidden' as const } : {}),
     webPreferences: {
       preload: WEBPACK_ENTRIES.browserTabBarPreload,
       contextIsolation: true,

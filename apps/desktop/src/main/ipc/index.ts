@@ -302,6 +302,29 @@ export function registerIpcHandlers(args: { log: Logger }) {
     }
   );
 
+  // Linux/Windows frameless 窗口下的自定义最小化/最大化/关闭。
+  ipcMain.handle('openloaf:window:minimize', async (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (!win) return { ok: false as const, reason: 'No window for sender' };
+    win.minimize();
+    return { ok: true as const };
+  });
+
+  ipcMain.handle('openloaf:window:toggle-maximize', async (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (!win) return { ok: false as const, reason: 'No window for sender' };
+    if (win.isMaximized()) win.unmaximize();
+    else win.maximize();
+    return { ok: true as const, maximized: win.isMaximized() };
+  });
+
+  ipcMain.handle('openloaf:window:close', async (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (!win) return { ok: false as const, reason: 'No window for sender' };
+    win.close();
+    return { ok: true as const };
+  });
+
   // 在标签浏览器窗口中打开 URL（单例窗口，多标签页管理）。
   ipcMain.handle('openloaf:open-browser-window', async (_event, payload: { url: string }) => {
     return openUrlInBrowserWindow(payload?.url ?? '');
