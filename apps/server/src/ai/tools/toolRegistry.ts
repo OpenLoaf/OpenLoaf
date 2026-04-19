@@ -33,7 +33,7 @@ import { boardQueryTool, boardMutateTool } from "@/ai/tools/boardTools";
 import { calendarMutateTool, calendarQueryTool } from "@/ai/tools/calendarTools";
 import { emailMutateTool, emailQueryTool } from "@/ai/tools/emailTools";
 import { excelMutateTool } from "@/ai/tools/excelTools";
-import { wordMutateTool } from "@/ai/tools/wordTools";
+import { wordMutateTool, wordInspectTool } from "@/ai/tools/wordTools";
 import { pptxMutateTool } from "@/ai/tools/pptxTools";
 import { pdfMutateTool, pdfInspectTool } from "@/ai/tools/pdfTools";
 import { imageProcessTool } from "@/ai/tools/imageProcessTools";
@@ -88,7 +88,7 @@ import {
   emailQueryToolDef,
 } from "@openloaf/api/types/tools/email";
 import { excelMutateToolDef } from "@openloaf/api/types/tools/excel";
-import { wordMutateToolDef } from "@openloaf/api/types/tools/word";
+import { wordMutateToolDef, wordInspectToolDef } from "@openloaf/api/types/tools/word";
 import { pptxMutateToolDef } from "@openloaf/api/types/tools/pptx";
 import { pdfMutateToolDef, pdfInspectToolDef } from "@openloaf/api/types/tools/pdf";
 import { imageProcessToolDef } from "@openloaf/api/types/tools/imageProcess";
@@ -292,6 +292,9 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
   [excelMutateToolDef.id]: {
     tool: excelMutateTool,
   },
+  [wordInspectToolDef.id]: {
+    tool: wordInspectTool,
+  },
   [wordMutateToolDef.id]: {
     tool: wordMutateTool,
   },
@@ -439,6 +442,7 @@ const TOOL_DEF_REGISTRY: Record<string, { parameters?: any }> = {
   [emailQueryToolDef.id]: emailQueryToolDef,
   [emailMutateToolDef.id]: emailMutateToolDef,
   [excelMutateToolDef.id]: excelMutateToolDef,
+  [wordInspectToolDef.id]: wordInspectToolDef,
   [wordMutateToolDef.id]: wordMutateToolDef,
   [pptxMutateToolDef.id]: pptxMutateToolDef,
   [pdfMutateToolDef.id]: pdfMutateToolDef,

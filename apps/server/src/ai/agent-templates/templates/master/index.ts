@@ -83,6 +83,7 @@ export const masterTemplate: AgentTemplate = {
     'ExcelQuery',
     'ExcelMutate',
     'WordQuery',
+    'WordInspect',
     'WordMutate',
     'PptxQuery',
     'PptxMutate',

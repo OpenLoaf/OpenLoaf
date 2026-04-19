@@ -554,7 +554,29 @@
       "legacyHint": "該檔案為舊版 .doc 格式",
       "table": "表格 {{index}}",
       "header": "頁首",
-      "footer": "頁尾"
+      "footer": "頁尾",
+      "inspectAction": {
+        "summary": "文件摘要",
+        "outline": "標題大綱",
+        "text": "擷取內文",
+        "tables": "擷取表格",
+        "images": "圖片清單",
+        "comments": "評論清單",
+        "tracked-changes": "修訂清單",
+        "xml": "原始 OOXML",
+        "render": "渲染頁面"
+      },
+      "mutateAction": {
+        "create": "建立文件",
+        "replace-text": "取代內文",
+        "add-image": "插入圖片",
+        "update-toc": "更新目錄",
+        "set-page-settings": "修改頁面設定",
+        "comment": "新增評論",
+        "add-tracked-change": "新增修訂",
+        "resolve-changes": "處理修訂",
+        "edit": "XPath 編輯"
+      }
     },
     "pptx": {
       "slideCount": "{{count}} 張投影片",

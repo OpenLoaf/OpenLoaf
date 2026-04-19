@@ -554,7 +554,29 @@
       "legacyHint": "该文件为旧版 .doc 格式",
       "table": "表格 {{index}}",
       "header": "页眉",
-      "footer": "页脚"
+      "footer": "页脚",
+      "inspectAction": {
+        "summary": "文档摘要",
+        "outline": "标题大纲",
+        "text": "抽取正文",
+        "tables": "抽取表格",
+        "images": "图片列表",
+        "comments": "评论列表",
+        "tracked-changes": "修订列表",
+        "xml": "原始 OOXML",
+        "render": "渲染页面"
+      },
+      "mutateAction": {
+        "create": "创建文档",
+        "replace-text": "替换正文",
+        "add-image": "插入图片",
+        "update-toc": "更新目录",
+        "set-page-settings": "修改页面设置",
+        "comment": "添加评论",
+        "add-tracked-change": "添加修订",
+        "resolve-changes": "处理修订",
+        "edit": "XPath 编辑"
+      }
     },
     "pptx": {
       "slideCount": "{{count}} 张幻灯片",
