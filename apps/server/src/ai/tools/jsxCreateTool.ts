@@ -88,10 +88,11 @@ export const jsxCreateTool = tool({
     // 的空 object literal（那是合法 JSX）。
     const jsx = input.content.replace(/\{\s*\/\*[\s\S]*?\*\/\s*\}/g, '')
 
-    // 逻辑：根据 session 目录写入 jsx 文件，文件名固定为 messageId.jsx。
+    // 逻辑：写入 session asset 目录下的 jsx/ 子目录（<sessionDir>/asset/jsx/），
+    // 与其它 asset 工件同根，Edit 工具的 writable-root 检查天然通过，无需特例。
     const messagesPath = await resolveMessagesJsonlPath(sessionId)
     const sessionDir = path.dirname(messagesPath)
-    const jsxDir = path.join(sessionDir, 'jsx')
+    const jsxDir = path.join(sessionDir, 'asset', 'jsx')
     await fs.mkdir(jsxDir, { recursive: true })
     const absPath = path.join(jsxDir, `${messageId}.jsx`)
     await fs.writeFile(absPath, jsx, 'utf-8')

@@ -9,7 +9,7 @@
  */
 import { tool, zodSchema } from 'ai'
 import { pptxMutateToolDef } from '@openloaf/api/types/tools/pptx'
-import { resolveToolPath } from '@/ai/tools/toolScope'
+import { resolveCreateTargetPath, resolveToolPath } from '@/ai/tools/toolScope'
 import {
   resolveOfficeFile,
   editZip,
@@ -210,7 +210,11 @@ export const pptxMutateTool = tool({
       edits?: OfficeEdit[]
     }
 
-    const { absPath } = resolveToolPath({ target: filePath })
+    // `create` writes a brand-new file → pin it to project root / session asset
+    // dir; `edit` mutates an existing file wherever it already lives.
+    const { absPath } = action === 'create'
+      ? await resolveCreateTargetPath(filePath)
+      : resolveToolPath({ target: filePath })
 
     switch (action) {
       case 'create': {

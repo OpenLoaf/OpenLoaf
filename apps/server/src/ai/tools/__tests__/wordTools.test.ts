@@ -65,7 +65,7 @@ import yazl from 'yazl'
 import { runWithContext } from '@/ai/shared/context/requestContext'
 import { setupE2eTestEnv } from '@/ai/__tests__/helpers/testEnv'
 import { wordInspectTool, wordMutateTool } from '@/ai/tools/wordTools'
-import { resolveToolPath } from '@/ai/tools/toolScope'
+import { ensureWritableRoot, resolveToolPath } from '@/ai/tools/toolScope'
 import { listZipEntries, readZipEntryText } from '@/ai/tools/office/streamingZip'
 
 // ---------------------------------------------------------------------------
@@ -110,7 +110,10 @@ let projectRoot = ''
 let testSubDir = ''
 
 async function setupTestDir() {
-  projectRoot = await withCtx(() => resolveToolPath({ target: '.' }).absPath)
+  // WordMutate.create pins new files to the session asset dir (or project root
+  // when bound) — so tests must allocate their sandbox inside that root, not
+  // under the generic temp dir. resolveToolPath kept for inspect-side abs().
+  projectRoot = await withCtx(async () => (await ensureWritableRoot()).rootPath)
   testSubDir = `_word_test_${Date.now()}`
   await fs.mkdir(path.join(projectRoot, testSubDir), { recursive: true })
 }
@@ -122,11 +125,14 @@ async function cleanupTestDir() {
 }
 
 function rel(filename: string): string {
-  return `${testSubDir}/${filename}`
+  // Return the absolute path directly so every resolver (resolveToolPath for
+  // inspect/mutate side actions, resolveCreateTargetPath for create) observes
+  // the same target — no ambiguity between session asset dir / temp dir.
+  return path.join(projectRoot, testSubDir, filename)
 }
 
 async function abs(filename: string): Promise<string> {
-  return withCtx(() => resolveToolPath({ target: rel(filename) }).absPath)
+  return rel(filename)
 }
 
 // ---------------------------------------------------------------------------

@@ -24,7 +24,7 @@ import { runWithContext } from '@/ai/shared/context/requestContext'
 import { setupE2eTestEnv } from '@/ai/__tests__/helpers/testEnv'
 import { pdfMutateTool, pdfInspectTool } from '@/ai/tools/pdfTools'
 import { readTool } from '@/ai/tools/fileTools'
-import { resolveToolPath } from '@/ai/tools/toolScope'
+import { ensureWritableRoot, resolveToolPath } from '@/ai/tools/toolScope'
 import { parseComplexPageRanges } from '@/ai/tools/office/pdfEngine'
 import { docConvertTool } from '@/ai/tools/docConvertTools'
 
@@ -67,7 +67,10 @@ let testSubDir = ''
 let hasRealPdf = false
 
 async function setupTestDir() {
-  projectRoot = await withCtx(() => resolveToolPath({ target: '.' }).absPath)
+  // PdfMutate.create / merge pin new files to the session asset dir (or
+  // project root when bound) — align the test sandbox with that root so
+  // create-side writes and inspect-side reads land on the same absolute paths.
+  projectRoot = await withCtx(async () => (await ensureWritableRoot()).rootPath)
   testSubDir = `_pdf_test_${Date.now()}`
   await fs.mkdir(path.join(projectRoot, testSubDir), { recursive: true })
 
@@ -86,7 +89,9 @@ async function cleanupTestDir() {
 }
 
 function rel(filename: string): string {
-  return `${testSubDir}/${filename}`
+  // Absolute path so both resolveToolPath and resolveCreateTargetPath converge
+  // on the same file regardless of which one the tool uses internally.
+  return path.join(projectRoot, testSubDir, filename)
 }
 
 const toolCtx = { toolCallId: 'test', messages: [], abortSignal: AbortSignal.abort() }

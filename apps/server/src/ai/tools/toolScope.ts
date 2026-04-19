@@ -243,3 +243,54 @@ export async function ensureWritableRoot(): Promise<{
   const assetDir = await resolveSessionAssetDir(sessionId);
   return { projectId: null, rootPath: path.resolve(assetDir) };
 }
+
+/**
+ * Resolve the target path for create-style tool actions (WordMutate.create,
+ * PdfMutate.create/merge, ExcelMutate.create, PptxMutate.create, Write, EditDocument, ...).
+ *
+ * Unlike `resolveToolPath` (which freely allows any absolute path inside the
+ * global OpenLoaf root), this one pins the write root:
+ *   - Project-bound session → project root
+ *   - Temp session         → `<chat-history>/<sessionId>/asset/`
+ * Absolute paths must stay inside that root — otherwise we throw.
+ *
+ * This prevents the agent from dropping freshly-created office documents into
+ * `~/OpenLoafData/foo.docx` by mistake; those must land under the session's
+ * asset dir so they're discoverable alongside the chat that produced them.
+ */
+export async function resolveCreateTargetPath(
+  targetPath: string,
+): Promise<{ absPath: string; rootPath: string }> {
+  const projectId = getProjectId();
+  let rootPath: string;
+  if (projectId) {
+    const projRoot = getProjectRootPath(projectId);
+    if (!projRoot) throw new Error("Project not found.");
+    rootPath = projRoot;
+  } else {
+    const writable = await ensureWritableRoot();
+    rootPath = writable.rootPath;
+  }
+
+  const expanded = expandPathTemplateVars(targetPath);
+  const trimmed = expanded.trim();
+  if (!trimmed) throw new Error("filePath is required.");
+  if (trimmed.startsWith("file:")) throw new Error("file:// URIs are not allowed.");
+
+  const normalized = stripAttachmentTagWrapper(trimmed);
+  if (normalized.startsWith("[")) throw new Error("Project-scoped paths are not allowed.");
+  if (!normalized.trim()) throw new Error("filePath is required.");
+
+  const resolvedRoot = path.resolve(rootPath);
+  const absPath = path.isAbsolute(normalized)
+    ? path.resolve(normalized)
+    : path.resolve(resolvedRoot, normalized);
+  if (!isPathInside(resolvedRoot, absPath)) {
+    throw new Error(
+      `filePath is outside the writable scope (${resolvedRoot}). ` +
+        "Use a bare filename (e.g. \"report.docx\") or a path relative to the session asset dir / project root. " +
+        "Absolute paths must stay under that root.",
+    );
+  }
+  return { absPath, rootPath: resolvedRoot };
+}

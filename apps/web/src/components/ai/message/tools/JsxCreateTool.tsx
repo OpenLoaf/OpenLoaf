@@ -79,7 +79,7 @@ export default function JsxCreateTool({
           : ''
   const jsxUri =
     sessionId && messageId
-      ? `${CHAT_SESSION_DIR_URI}/jsx/${messageId}.jsx`
+      ? `${CHAT_SESSION_DIR_URI}/asset/jsx/${messageId}.jsx`
       : ''
   // 逻辑：流式期间 JSX 文件尚未落盘，跳过查询避免 404。
   const readFileOptions = React.useMemo(

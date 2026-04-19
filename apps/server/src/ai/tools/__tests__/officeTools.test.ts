@@ -36,7 +36,7 @@ import { wordMutateTool } from '@/ai/tools/wordTools'
 import { excelMutateTool } from '@/ai/tools/excelTools'
 import { pptxMutateTool } from '@/ai/tools/pptxTools'
 import { readTool } from '@/ai/tools/fileTools'
-import { resolveToolPath } from '@/ai/tools/toolScope'
+import { ensureWritableRoot, resolveToolPath } from '@/ai/tools/toolScope'
 
 // ---------------------------------------------------------------------------
 // Test runner
@@ -75,7 +75,9 @@ let projectRoot = ''
 let testSubDir = ''
 
 async function setupTestDir() {
-  projectRoot = await withCtx(() => resolveToolPath({ target: '.' }).absPath)
+  // *Mutate.create pins new files to the session asset dir (or project root).
+  // Align the test sandbox so create-side writes and readback paths converge.
+  projectRoot = await withCtx(async () => (await ensureWritableRoot()).rootPath)
   testSubDir = `_office_test_${Date.now()}`
   await fs.mkdir(path.join(projectRoot, testSubDir), { recursive: true })
 }
@@ -84,9 +86,9 @@ async function cleanupTestDir() {
   await fs.rm(path.join(projectRoot, testSubDir), { recursive: true, force: true }).catch(() => {})
 }
 
-/** Relative path within project for tool invocation. */
+/** Absolute path within the writable root (session asset dir / project). */
 function rel(filename: string): string {
-  return `${testSubDir}/${filename}`
+  return path.join(projectRoot, testSubDir, filename)
 }
 
 const toolCtx = (id: string) => ({

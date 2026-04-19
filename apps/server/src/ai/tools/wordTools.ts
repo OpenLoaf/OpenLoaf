@@ -24,7 +24,7 @@ import {
 import { createZip, resolveOfficeFile } from '@/ai/tools/office/streamingZip'
 import { getSessionId } from '@/ai/shared/context/requestContext'
 import { resolveSessionAssetDir } from '@openloaf/api/services/chatSessionPaths'
-import { resolveToolPath } from '@/ai/tools/toolScope'
+import { resolveCreateTargetPath, resolveToolPath } from '@/ai/tools/toolScope'
 import {
   inspectSummary,
   inspectOutline,
@@ -407,9 +407,13 @@ export const wordMutateTool = tool({
     const i = input as MutateInput
     const { action, filePath } = i
 
-    // Every action writes to a session-relative filePath; resolve for
-    // sandbox check (raises outside-scope errors for J4).
-    const { absPath } = resolveToolPath({ target: filePath })
+    // `create` writes a brand-new file → pin it to the project root / session
+    // asset dir (otherwise the model drops files in ~/OpenLoafData). Other
+    // actions mutate an existing file in place, so the generic resolver is
+    // correct there (the file is wherever the user asked us to open it).
+    const { absPath } = action === 'create'
+      ? await resolveCreateTargetPath(filePath)
+      : resolveToolPath({ target: filePath })
 
     try {
       switch (action) {

@@ -16,7 +16,12 @@ import {
   editToolDef,
   writeToolDef,
 } from '@openloaf/api/types/tools/runtime'
-import { resolveToolPath, ensureWritableRoot, expandPathTemplateVars } from '@/ai/tools/toolScope'
+import {
+  resolveToolPath,
+  ensureWritableRoot,
+  expandPathTemplateVars,
+  resolveCreateTargetPath,
+} from '@/ai/tools/toolScope'
 import { resolveCommandSandboxDirs } from '@/ai/tools/commandSandbox'
 import { resolveSecretTokens } from '@/ai/tools/secretStore'
 import { getProjectId, getSessionId } from '@/ai/shared/context/requestContext'
@@ -239,40 +244,8 @@ function isPathInside(root: string, target: string): boolean {
   return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative))
 }
 
-/** 解析写入目标路径，确保在项目 scope 内。未绑定项目时使用会话 asset 目录。 */
-export async function resolveWriteTargetPath(targetPath: string): Promise<{ absPath: string; rootPath: string }> {
-  const projectId = getProjectId()
-  let rootPath: string
-  if (projectId) {
-    const projRoot = getProjectRootPath(projectId)
-    if (!projRoot) throw new Error('Project not found.')
-    rootPath = projRoot
-  } else {
-    // 未绑定项目 → 回退到会话 asset 目录
-    const writable = await ensureWritableRoot()
-    rootPath = writable.rootPath
-  }
-
-  // 展开路径模板变量（${CURRENT_CHAT_DIR} 等），与 Read/Glob/Grep 保持一致
-  const expanded = expandPathTemplateVars(targetPath)
-  const trimmed = expanded.trim()
-  if (!trimmed) throw new Error('file_path is required.')
-  if (trimmed.startsWith('file:')) throw new Error('file:// URIs are not allowed.')
-
-  // 剥离 attachment-tag 包装
-  const normalized = stripAttachmentTagWrapper(trimmed)
-  if (normalized.startsWith('[')) throw new Error('Project-scoped paths are not allowed.')
-  if (!normalized.trim()) throw new Error('file_path is required.')
-
-  const resolvedRoot = path.resolve(rootPath)
-  const absPath = path.isAbsolute(normalized)
-    ? path.resolve(normalized)
-    : path.resolve(resolvedRoot, normalized)
-  if (!isPathInside(resolvedRoot, absPath)) {
-    throw new Error('Path is outside the current project scope.')
-  }
-  return { absPath, rootPath: resolvedRoot }
-}
+/** 兼容旧名：resolveWriteTargetPath 与 toolScope.resolveCreateTargetPath 是同一逻辑（项目/session asset 强制 scope）。 */
+export const resolveWriteTargetPath = resolveCreateTargetPath
 
 /** UTF-8 边界裁剪，避免多字节字符被截断。 */
 function clampUtf8End(buffer: Buffer, index: number): number {

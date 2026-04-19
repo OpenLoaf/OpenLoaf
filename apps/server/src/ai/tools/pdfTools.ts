@@ -13,7 +13,7 @@ import {
   pdfMutateToolDef,
   pdfInspectToolDef,
 } from '@openloaf/api/types/tools/pdf'
-import { resolveToolPath } from '@/ai/tools/toolScope'
+import { resolveCreateTargetPath, resolveToolPath } from '@/ai/tools/toolScope'
 import { resolveOfficeFile } from '@/ai/tools/office/streamingZip'
 import {
   createPdf,
@@ -127,7 +127,7 @@ export const pdfMutateTool = tool({
           if (!i.content || i.content.length === 0) {
             throw new Error('content is required for create.')
           }
-          const { absPath } = resolveToolPath({ target: i.filePath })
+          const { absPath } = await resolveCreateTargetPath(i.filePath)
           const r = await createPdf(absPath, i.content)
           return { ok: true, data: { action: 'create', filePath: absPath, ...r } }
         }
@@ -176,7 +176,8 @@ export const pdfMutateTool = tool({
           if (!i.sourcePaths || i.sourcePaths.length === 0) {
             throw new Error('sourcePaths is required for merge.')
           }
-          const { absPath } = resolveToolPath({ target: i.filePath })
+          // `merge` writes a brand-new output PDF → pin it to scope.
+          const { absPath } = await resolveCreateTargetPath(i.filePath)
           const resolved: string[] = []
           for (const src of i.sourcePaths) {
             resolved.push(await resolveOfficeFile(src, ['.pdf']))
