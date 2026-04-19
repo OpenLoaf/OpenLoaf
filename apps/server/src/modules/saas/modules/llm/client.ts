@@ -36,6 +36,8 @@ type ModelListPayload = {
       provider: string;
       displayName: string;
       tags: string[];
+      /** Reasoning capability: "none" | "always" | "optional"；缺失视为 "none"。 */
+      reasoning?: "none" | "always" | "optional";
       /** Model capabilities. */
       capabilities?: Record<string, unknown>;
     }>;
@@ -104,6 +106,7 @@ function adaptV3ChatCapabilities(
     provider: string;
     displayName: string;
     tags: string[];
+    reasoning?: "none" | "always" | "optional";
     capabilities?: Record<string, unknown>;
   }> = [];
   for (const feature of response.data.features) {
@@ -112,11 +115,19 @@ function adaptV3ChatCapabilities(
       // 既能触发 PROVIDER_ICON_MAP 图标查找，也能让同家族的 variant 落入同一
       // ProviderSettingEntry。familyId 缺失时回退到 variant id。
       const family = variant.familyId?.trim() || variant.id;
+      // `reasoning` was added to v3VariantSchema in SDK 0.2.3; the locally
+      // resolved SDK typings may still be 0.2.2 (nested pnpm copy) where the
+      // field is absent from the type. The runtime payload from SaaS carries
+      // it regardless, so read through a narrow structural view to stay
+      // forward-compatible without a blanket `any` cast.
+      const reasoning = (variant as { reasoning?: "none" | "always" | "optional" })
+        .reasoning;
       items.push({
         id: variant.id,
         provider: family.toLowerCase(),
         displayName: variant.featureTabName,
         tags: deriveTagsFromSlots(variant.inputSlots),
+        reasoning,
       });
     }
   }

@@ -17,7 +17,12 @@ import { createOpenAI } from "@ai-sdk/openai";
 import type { LanguageModelV3 } from "@ai-sdk/provider";
 import { createVercel } from "@ai-sdk/vercel";
 import { createXai } from "@ai-sdk/xai";
-import type { ModelDefinition, ProviderDefinition } from "@openloaf/api/common";
+import { defaultSettingsMiddleware, wrapLanguageModel } from "ai";
+import type {
+  ModelDefinition,
+  ModelReasoningCapability,
+  ProviderDefinition,
+} from "@openloaf/api/common";
 import { cliAdapter } from "@/ai/models/cli/cliAdapter";
 import { CODEX_CLI_PROVIDER_ID, CLAUDE_CODE_CLI_PROVIDER_ID } from "@/ai/models/cli/cliShared";
 import { qwenAdapter } from "@/ai/models/qwen/qwenAdapter";
@@ -104,6 +109,40 @@ function resolveBedrockRegion(apiUrl: string): string {
   }
 }
 
+type SaasFactoryOpts = {
+  baseURL: string;
+  apiKey: string;
+  fetch?: typeof fetch;
+  /** 模型的 reasoning 能力（v3 capabilities），用于选择性启用 thinking 协议。 */
+  reasoning?: ModelReasoningCapability;
+};
+
+/**
+ * Moonshot 系模型按 v3 reasoning 字段注入 providerOptions。
+ *
+ * - `always`：模型固定开启思考，请求需带 thinking + reasoningHistory='interleaved'，
+ *   否则多轮 tool call 会被 "reasoning_content is missing" 400 拒绝。
+ * - `optional`：支持思考但我们当前不消费 reasoning_content 持久化链路，
+ *   统一 reasoningHistory='disabled' 关掉协议，避免二轮 400。
+ * - `none` / 缺失：不注入，沿用 SDK 默认（无思考）。
+ */
+function wrapMoonshotWithReasoning(
+  model: LanguageModelV3,
+  reasoning: ModelReasoningCapability | undefined,
+): LanguageModelV3 {
+  if (reasoning !== "always" && reasoning !== "optional") return model;
+  const moonshotOpts =
+    reasoning === "always"
+      ? { thinking: { type: "enabled" }, reasoningHistory: "interleaved" }
+      : { reasoningHistory: "disabled" };
+  return wrapLanguageModel({
+    model,
+    middleware: defaultSettingsMiddleware({
+      settings: { providerOptions: { moonshotai: moonshotOpts } },
+    }),
+  }) as unknown as LanguageModelV3;
+}
+
 /**
  * SaaS provider → AI SDK model factory 映射。
  * 根据模型的原始 provider 字段选择对应的 @ai-sdk/* SDK，
@@ -111,12 +150,25 @@ function resolveBedrockRegion(apiUrl: string): string {
  */
 const SAAS_PROVIDER_FACTORIES: Record<
   string,
-  (opts: { baseURL: string; apiKey: string; fetch?: typeof fetch }) => (modelId: string) => LanguageModelV3
+  (opts: SaasFactoryOpts) => (modelId: string) => LanguageModelV3
 > = {
   anthropic: ({ baseURL, apiKey, fetch }) => createAnthropic({ baseURL, apiKey, fetch }),
-  moonshot: ({ baseURL, apiKey, fetch }) => createMoonshotAI({ baseURL, apiKey, fetch }),
-  moonshotai: ({ baseURL, apiKey, fetch }) => createMoonshotAI({ baseURL, apiKey, fetch }),
-  "moonshotai-cn": ({ baseURL, apiKey, fetch }) => createMoonshotAI({ baseURL, apiKey, fetch }),
+  moonshot: ({ baseURL, apiKey, fetch, reasoning }) => {
+    const provider = createMoonshotAI({ baseURL, apiKey, fetch });
+    return (modelId) => wrapMoonshotWithReasoning(provider(modelId), reasoning);
+  },
+  moonshotai: ({ baseURL, apiKey, fetch, reasoning }) => {
+    const provider = createMoonshotAI({ baseURL, apiKey, fetch });
+    return (modelId) => wrapMoonshotWithReasoning(provider(modelId), reasoning);
+  },
+  "moonshotai-cn": ({ baseURL, apiKey, fetch, reasoning }) => {
+    const provider = createMoonshotAI({ baseURL, apiKey, fetch });
+    return (modelId) => wrapMoonshotWithReasoning(provider(modelId), reasoning);
+  },
+  kimi: ({ baseURL, apiKey, fetch, reasoning }) => {
+    const provider = createMoonshotAI({ baseURL, apiKey, fetch });
+    return (modelId) => wrapMoonshotWithReasoning(provider(modelId), reasoning);
+  },
   deepseek: ({ baseURL, apiKey, fetch }) => createDeepSeek({ baseURL, apiKey, fetch }),
   google: ({ baseURL, apiKey, fetch }) => createGoogleGenerativeAI({ baseURL, apiKey, fetch }),
   xai: ({ baseURL, apiKey, fetch }) => createXai({ baseURL, apiKey, fetch }),
@@ -158,7 +210,7 @@ function buildSaasFetch(): typeof fetch {
 function buildSaasAdapter(): ProviderAdapter {
   return {
     id: SAAS_ADAPTER_ID,
-    buildAiSdkModel: ({ provider, modelId }) => {
+    buildAiSdkModel: ({ provider, modelId, modelDefinition }) => {
       const apiKey = readApiKey(provider.authConfig);
       const resolvedApiUrl = provider.apiUrl.trim();
       const saasFetch = buildSaasFetch();
@@ -167,7 +219,12 @@ function buildSaasAdapter(): ProviderAdapter {
       // 根据 provider.id（SaaS 模型的原始 provider，如 "moonshot"）选择对应 SDK。
       const factory = SAAS_PROVIDER_FACTORIES[provider.id];
       if (factory) {
-        return factory({ baseURL, apiKey, fetch: saasFetch })(modelId);
+        return factory({
+          baseURL,
+          apiKey,
+          fetch: saasFetch,
+          reasoning: modelDefinition?.reasoning,
+        })(modelId);
       }
       // 未匹配的 provider 回退到 OpenAI chat completions。
       const openaiProvider = createOpenAI({ baseURL, apiKey, fetch: saasFetch });

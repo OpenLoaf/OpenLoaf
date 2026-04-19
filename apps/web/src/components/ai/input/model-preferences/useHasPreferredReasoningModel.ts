@@ -51,10 +51,12 @@ export function useHasPreferredReasoningModel(): boolean {
       .filter(Boolean)
 
     if (selected.length === 0) {
-      return chatModels.some((m) => m.tags?.includes('reasoning'))
+      return chatModels.some((m) => m.reasoning && m.reasoning !== 'none')
     }
 
-    return selected.some((model) => model?.tags?.includes('reasoning'))
+    return selected.some(
+      (model) => model?.reasoning && model.reasoning !== 'none',
+    )
   }, [
     chatModelSource,
     cloudModels,

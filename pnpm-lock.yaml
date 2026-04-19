@@ -36,8 +36,8 @@ importers:
         specifier: ^5.31.0
         version: 5.34.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@openloaf-saas/sdk':
-        specifier: 0.1.46
-        version: 0.1.46(@trpc/server@11.11.0(typescript@5.9.3))(typescript@5.9.3)
+        specifier: ^0.2.3
+        version: 0.2.3(@trpc/server@11.11.0(typescript@5.9.3))(typescript@5.9.3)
       dotenv:
         specifier: ^17.2.3
         version: 17.3.1
@@ -241,8 +241,8 @@ importers:
         specifier: npm:noop3@1000.0.0
         version: noop3@1000.0.0
       '@openloaf-saas/sdk':
-        specifier: ^0.2.2
-        version: 0.2.2(@trpc/server@11.11.0(typescript@5.9.3))(typescript@5.9.3)
+        specifier: ^0.2.3
+        version: 0.2.3(@trpc/server@11.11.0(typescript@5.9.3))(typescript@5.9.3)
       '@openloaf/api':
         specifier: workspace:*
         version: link:../../packages/api
@@ -458,8 +458,8 @@ importers:
         specifier: ^4.7.0
         version: 4.7.0(monaco-editor@0.52.2)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@openloaf-saas/sdk':
-        specifier: ^0.2.2
-        version: 0.2.2(@trpc/server@11.11.0(typescript@5.9.3))(typescript@5.9.3)
+        specifier: ^0.2.3
+        version: 0.2.3(@trpc/server@11.11.0(typescript@5.9.3))(typescript@5.9.3)
       '@openloaf/api':
         specifier: workspace:*
         version: link:../../packages/api
@@ -864,8 +864,8 @@ importers:
         specifier: ^3.0.37
         version: 3.0.37(zod@4.3.6)
       '@openloaf-saas/sdk':
-        specifier: ^0.1.34
-        version: 0.1.34(@trpc/server@11.11.0(typescript@5.9.3))(typescript@5.9.3)
+        specifier: ^0.2.3
+        version: 0.2.3(@trpc/server@11.11.0(typescript@5.9.3))(typescript@5.9.3)
       '@openloaf/db':
         specifier: workspace:*
         version: link:../db
@@ -3694,14 +3694,8 @@ packages:
   '@opencode-ai/sdk@1.2.15':
     resolution: {integrity: sha512-NUJNlyBCdZ4R0EBLjJziEQOp2XbRPJosaMcTcWSWO5XJPKGUpz0u8ql+5cR8K+v2RJ+hp2NobtNwpjEYfe6BRQ==}
 
-  '@openloaf-saas/sdk@0.1.34':
-    resolution: {integrity: sha512-Um7+JTx7mLEuHJ1yZjgbRsFkHwlXpwxRcFhaXbNcGWeVS2bW/4nI0Q+/oOEMZoNqsdz0W2di3uKynd1+IUrhiw==}
-
-  '@openloaf-saas/sdk@0.1.46':
-    resolution: {integrity: sha512-9FY/Wp4c69L4G7fYcG29ehaNLOlaiaGRkssHDW0DOHyjd0cRyAlvo+I8d2XPIaRKGJuuYloGt08bo/ijsJrgzQ==}
-
-  '@openloaf-saas/sdk@0.2.2':
-    resolution: {integrity: sha512-eiccIXHrDl9e+5sCvNZtiViR0sWbjy3nRduIQS0FzUsOv05dB4TOAl4qYcMJt4XAtnBtH+Gw4EqVoIlGesgqOw==}
+  '@openloaf-saas/sdk@0.2.3':
+    resolution: {integrity: sha512-yJqa44zkynLDklsTWu3IuB1rI7Lb4Vzs1lJDzWiyzFVr0QrMj5It5oLPgIzcaL9tYVvVrbpLuN7A5EprHnRhXg==}
 
   '@opentelemetry/api-logs@0.212.0':
     resolution: {integrity: sha512-TEEVrLbNROUkYY51sBJGk7lO/OLjuepch8+hmpM6ffMJQ2z/KVCjdHuCFX6fJj8OkJP2zckPjrJzQtXU3IAsFg==}
@@ -21670,23 +21664,7 @@ snapshots:
 
   '@opencode-ai/sdk@1.2.15': {}
 
-  '@openloaf-saas/sdk@0.1.34(@trpc/server@11.11.0(typescript@5.9.3))(typescript@5.9.3)':
-    dependencies:
-      '@trpc/client': 11.11.0(@trpc/server@11.11.0(typescript@5.9.3))(typescript@5.9.3)
-      zod: 4.3.6
-    transitivePeerDependencies:
-      - '@trpc/server'
-      - typescript
-
-  '@openloaf-saas/sdk@0.1.46(@trpc/server@11.11.0(typescript@5.9.3))(typescript@5.9.3)':
-    dependencies:
-      '@trpc/client': 11.11.0(@trpc/server@11.11.0(typescript@5.9.3))(typescript@5.9.3)
-      zod: 4.3.6
-    transitivePeerDependencies:
-      - '@trpc/server'
-      - typescript
-
-  '@openloaf-saas/sdk@0.2.2(@trpc/server@11.11.0(typescript@5.9.3))(typescript@5.9.3)':
+  '@openloaf-saas/sdk@0.2.3(@trpc/server@11.11.0(typescript@5.9.3))(typescript@5.9.3)':
     dependencies:
       '@trpc/client': 11.11.0(@trpc/server@11.11.0(typescript@5.9.3))(typescript@5.9.3)
       zod: 4.3.6

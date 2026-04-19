@@ -9,7 +9,12 @@
  */
 "use client";
 
-import type { ChatModelSource, ModelDefinition, ModelTag } from "@openloaf/api/common";
+import type {
+  ChatModelSource,
+  ModelDefinition,
+  ModelReasoningCapability,
+  ModelTag,
+} from "@openloaf/api/common";
 import { getProviderDefinition, getProviderDefinitions } from "@/lib/model-registry";
 
 type ProviderKeyEntry = {
@@ -36,6 +41,8 @@ export type ProviderModelOption = {
   providerName: string;
   /** Tags for filtering. */
   tags?: ModelTag[];
+  /** Reasoning capability mirrored from ModelDefinition. */
+  reasoning?: ModelReasoningCapability;
   /** Model definition from registry. */
   modelDefinition?: ModelDefinition;
 };
@@ -69,6 +76,7 @@ export function buildCliModelOptions(
         providerId: provider.id,
         providerName,
         tags: model.tags,
+        reasoning: model.reasoning,
         modelDefinition: { ...model, providerId: provider.id },
       });
     }
@@ -108,6 +116,7 @@ export function buildProviderModelOptions(
         providerId: entry.providerId,
         providerName,
         tags: modelDefinition?.tags,
+        reasoning: modelDefinition?.reasoning,
         modelDefinition,
       });
     }
@@ -129,6 +138,7 @@ export function buildCloudModelOptions(models: ModelDefinition[]): ProviderModel
       providerId: model.providerId,
       providerName,
       tags: model.tags,
+      reasoning: model.reasoning,
       modelDefinition: model,
     });
   }

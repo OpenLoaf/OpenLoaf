@@ -11,8 +11,15 @@ import {
   MODEL_TAGS,
   type ModelCapabilities,
   type ModelDefinition,
+  type ModelReasoningCapability,
   type ModelTag,
 } from "@openloaf/api/common";
+
+const REASONING_VALUES: ReadonlySet<ModelReasoningCapability> = new Set([
+  "none",
+  "always",
+  "optional",
+]);
 
 const PROVIDER_ICON_MAP: Record<string, string> = {
   anthropic: "Claude",
@@ -50,6 +57,8 @@ export type CloudChatModelItem = {
   familyId?: string;
   /** Raw tags from SaaS. */
   tags: string[];
+  /** Reasoning capability state from SaaS (v3)。缺失视为 "none"。 */
+  reasoning?: ModelReasoningCapability;
   /** Raw capabilities from SaaS. */
   capabilities?: ModelCapabilities;
 };
@@ -94,6 +103,10 @@ export function mapCloudChatModels(items: CloudChatModelItem[]): ModelDefinition
       providerId: item.provider,
       // 中文注释：仅保留系统支持的标签，避免未知标签污染筛选。
       tags: normalizeTags(Array.isArray(item.tags) ? item.tags : []),
+      // 中文注释：reasoning 字段由 v3 capabilities 独立声明，未知取值时退为 "none"。
+      reasoning: REASONING_VALUES.has(item.reasoning as ModelReasoningCapability)
+        ? item.reasoning
+        : undefined,
       // 中文注释：能力字段直接透传 SaaS 定义，避免本地推断。
       capabilities: item.capabilities,
     }));

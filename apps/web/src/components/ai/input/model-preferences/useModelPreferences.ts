@@ -139,7 +139,9 @@ export function useModelPreferences() {
     () =>
       chatModels.some(
         (m) =>
-          preferredChatIds.includes(m.id) && m.tags?.includes('reasoning'),
+          preferredChatIds.includes(m.id) &&
+          m.reasoning &&
+          m.reasoning !== 'none',
       ),
     [chatModels, preferredChatIds],
   )

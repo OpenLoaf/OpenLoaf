@@ -447,15 +447,17 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
       new Set(activeModelIds.map((id) => id.trim()).filter(Boolean)),
     )
     if (normalized.length === 0) {
-      return chatModels.some((m) => m.tags?.includes('reasoning'))
+      return chatModels.some((m) => m.reasoning && m.reasoning !== 'none')
     }
     const selected = normalized
       .map((id) => chatModels.find((m) => m.id === id))
       .filter(Boolean)
     if (selected.length === 0) {
-      return chatModels.some((m) => m.tags?.includes('reasoning'))
+      return chatModels.some((m) => m.reasoning && m.reasoning !== 'none')
     }
-    return selected.some((model) => model?.tags?.includes('reasoning'))
+    return selected.some(
+      (model) => model?.reasoning && model.reasoning !== 'none',
+    )
   }, [activeModelIds, chatModels])
 
   const getSavedSnapshot = useCallback(() => {

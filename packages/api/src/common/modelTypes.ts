@@ -26,13 +26,14 @@ export const MODEL_TAGS = [
   "video_analysis",
   "audio_analysis",
   // Chat-side behavioral tags.
-  "chat",
   "code",
   "tool_call",
-  "reasoning",
 ] as const;
 
 export type ModelTag = (typeof MODEL_TAGS)[number];
+
+/** Reasoning (deep-thinking) capability — v3 capabilities 独立字段，取代旧的 'reasoning' tag。 */
+export type ModelReasoningCapability = "none" | "always" | "optional";
 
 export type ModelCapabilityCommon = {
   maxContextK?: number;
@@ -87,6 +88,8 @@ export type ModelDefinition = {
   providerId?: string;
   /** Model tags. */
   tags?: ModelTag[];
+  /** Reasoning (deep-thinking) capability state. 缺失视为 "none"。 */
+  reasoning?: ModelReasoningCapability;
   /** Model capabilities. */
   capabilities?: ModelCapabilities;
   /** Allow extra fields from SaaS. */
