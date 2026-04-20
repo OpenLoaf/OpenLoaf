@@ -608,6 +608,7 @@ const requestAiDecision: BrowserCommand<[{
 // ── saveTestData command ──
 // 将每个测试的 ProbeResult 保存到运行目录，供报告生成器使用
 import { readTestCaseSpec } from './src/test/browser/test-case-spec.mjs'
+import { extractCaseSummary } from './src/test/browser/lib/case-summary.mjs'
 const TEST_CASES_DIR_ABS = resolve(root, '../../.agents/skills/ai-browser-test/test-cases')
 
 /**
@@ -803,7 +804,8 @@ const saveTestData: BrowserCommand<[{
     ? (input.result as any).chatModelId as string
     : null
   const effectiveModel = input.model ?? resultModel ?? null
-  writeFileSync(filePath, JSON.stringify({
+  const savedAt = new Date().toISOString()
+  const fullData = {
     testCase: input.testCase,
     prompt: input.prompt,
     model: effectiveModel,
@@ -815,8 +817,25 @@ const saveTestData: BrowserCommand<[{
     purpose: spec.purpose,
     specDescription: spec.description,
     result: enrichedResult,
-    savedAt: new Date().toISOString(),
-  }, null, 2), 'utf-8')
+    savedAt,
+  }
+  writeFileSync(filePath, JSON.stringify(fullData, null, 2), 'utf-8')
+
+  // Stage 1：同步写小摘要到 _case-summaries/<case>.json，供主页 / computeRunInfo 秒开。
+  // 摘要约 2KB，写盘成本忽略；失败不影响主流程（fallback 时 computeRunInfo 仍能扫 data/）。
+  try {
+    const summary = extractCaseSummary(fullData)
+    if (summary) {
+      const summaryDir = join(targetDir, '_case-summaries')
+      if (!existsSync(summaryDir)) mkdirSync(summaryDir, { recursive: true })
+      writeFileSync(
+        join(summaryDir, `${fileName}.json`),
+        JSON.stringify(summary, null, 2),
+        'utf-8',
+      )
+    }
+  } catch { /* best-effort */ }
+
   return { filePath }
 }
 
@@ -956,7 +975,7 @@ export default defineConfig({
     // 系统提示词语言：默认 'en'（测试稳定性更高）；可通过 runner `--prompt-lang zh`
     // 或 env `BROWSER_TEST_PROMPT_LANG_OVERRIDE=zh` 切回中文。显式传 "" 视为未设置。
     '__BROWSER_TEST_PROMPT_LANG_OVERRIDE__': JSON.stringify(
-      process.env.BROWSER_TEST_PROMPT_LANG_OVERRIDE ?? 'en'
+      process.env.BROWSER_TEST_PROMPT_LANG_OVERRIDE ?? ''
     ),
   },
   resolve: {

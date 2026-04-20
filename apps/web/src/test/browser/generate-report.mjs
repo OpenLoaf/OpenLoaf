@@ -13,13 +13,14 @@
  *   - browser-test-runs/<ts>/evaluations/<testCase>/*.json (critic 子 agent 填的评审)
  *   - .agents/skills/ai-browser-test/runs.jsonl (跨 run 的事实日志)
  */
-import { readFileSync, writeFileSync, readdirSync, existsSync, statSync } from 'node:fs'
+import { readFileSync, writeFileSync, readdirSync, existsSync, statSync, mkdirSync } from 'node:fs'
 import { join, resolve, dirname, basename } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { marked } from 'marked'
 import YAML from 'yaml'
 import { SUITES, resolveSuite, collectAllYamls } from './test-case-paths.mjs'
 import { buildDiagnosePromptText } from './lib/build-diagnose-prompt.mjs'
+import { extractCaseSummary, SUMMARY_SCHEMA_VERSION } from './lib/case-summary.mjs'
 
 const root = dirname(fileURLToPath(import.meta.url))
 const webRoot = resolve(root, '../../..')
@@ -2107,6 +2108,185 @@ const runHtml = `<!DOCTYPE html>
 writeFileSync(join(runDir, 'index.html'), runHtml, 'utf-8')
 
 // ── 主页索引：所有 run ──
+// computeRunInfo: 提取单个 run 的概览数据（passed/failed/credits/tokens/models/testItems）。
+//
+// 三级缓存策略（Stage 1 重构）：
+//   ① _run-summary.json   ← 整 run 聚合好的小 JSON（~10KB），命中直接返回
+//   ② _case-summaries/*   ← 每个 case 的小摘要（~2KB）。saveTestData 落盘时同步写
+//   ③ data/*.json         ← 慢路径回退。老 run（无 summary）走这里，再写回 ① ②
+//
+// run 一旦完成不再变更，所以 _run-summary.json 命中即用，不做 mtime 校验。
+// schemaVersion 不匹配时无视 cache 走重算。
+function loadRunSummaryCache(ts) {
+  const p = join(runsRoot, ts, '_run-summary.json')
+  if (!existsSync(p)) return null
+  const cached = safeJson(readFileSync(p, 'utf-8'))
+  if (!cached || cached.schemaVersion !== SUMMARY_SCHEMA_VERSION) return null
+  return cached
+}
+
+function readCaseSummariesDir(ts) {
+  const dir = join(runsRoot, ts, '_case-summaries')
+  if (!existsSync(dir)) return null
+  const out = []
+  for (const f of readdirSync(dir)) {
+    if (!f.endsWith('.json')) continue
+    const s = safeJson(readFileSync(join(dir, f), 'utf-8'))
+    if (s && s.testCase && s.schemaVersion === SUMMARY_SCHEMA_VERSION) out.push(s)
+  }
+  return out.length ? out : null
+}
+
+function readSummariesFromDataDir(ts) {
+  const dir = join(runsRoot, ts, 'data')
+  if (!existsSync(dir)) return []
+  const out = []
+  // 慢路径：每个 data/*.json 都是 MB 级（含 messages 合并内容），尽量只在老 run 走
+  for (const f of readdirSync(dir).filter(f => f.endsWith('.json'))) {
+    const d = safeJson(readFileSync(join(dir, f), 'utf-8'))
+    const s = extractCaseSummary(d)
+    if (s) out.push(s)
+  }
+  return out
+}
+
+function computeRunInfo(ts) {
+  // ① 整 run cache 命中 → 直接返回
+  const cached = loadRunSummaryCache(ts)
+  if (cached?.payload) return cached.payload
+
+  const rj = safeJson(
+    existsSync(join(runsRoot, ts, 'results.json'))
+      ? readFileSync(join(runsRoot, ts, 'results.json'), 'utf-8')
+      : '{}',
+    {},
+  )
+  let batch = null
+  let modelOverride = null
+  const metaPath = join(runsRoot, ts, 'run-meta.json')
+  if (existsSync(metaPath)) {
+    const meta = safeJson(readFileSync(metaPath, 'utf-8'))
+    const b = meta?.batch
+    if (typeof b === 'string' && b.trim()) batch = b.trim()
+    const mo = meta?.modelOverride
+    if (typeof mo === 'string' && mo.trim()) modelOverride = mo.trim()
+  }
+  const passed = rj.numPassedTests ?? 0
+  const failed = rj.numFailedTests ?? 0
+  const total = rj.numTotalTests ?? 0
+
+  // ② 优先 _case-summaries/*；③ 回退扫 data/*.json + 写回 _case-summaries
+  let summaries = readCaseSummariesDir(ts)
+  if (!summaries) {
+    summaries = readSummariesFromDataDir(ts)
+    // 老 run backfill：把刚算出的 summary 写到 _case-summaries/，下次免扫 data
+    if (summaries.length > 0) {
+      try {
+        const dir = join(runsRoot, ts, '_case-summaries')
+        if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
+        for (const s of summaries) {
+          const fn = String(s.testCase).replace(/[^a-zA-Z0-9_-]/g, '_') + '.json'
+          writeFileSync(join(dir, fn), JSON.stringify(s, null, 2), 'utf-8')
+        }
+      } catch { /* best-effort */ }
+    }
+  }
+
+  const probeByTestCase = new Map()
+  const probeByPrefix = new Map()
+  let totalCredits = 0
+  let hasCredits = false
+  let totalTokensSum = 0
+  let hasTokens = false
+  const modelSet = new Set()
+  for (const s of summaries) {
+    const info = { testCase: s.testCase, description: s.description ?? '', model: s.model ?? null }
+    probeByTestCase.set(s.testCase, info)
+    const digitOnly = s.testCase.match(/^(\d{3})/)
+    if (digitOnly && !probeByPrefix.has(digitOnly[1])) probeByPrefix.set(digitOnly[1], info)
+    const namedDigit = s.testCase.match(/^([a-z][a-z0-9-]*?-\d{3})/i)
+    if (namedDigit && !probeByPrefix.has(namedDigit[1])) probeByPrefix.set(namedDigit[1], info)
+    if (typeof s.credits === 'number' && s.credits > 0) {
+      totalCredits += s.credits
+      hasCredits = true
+    }
+    if (typeof s.totalTokens === 'number' && s.totalTokens > 0) {
+      totalTokensSum += s.totalTokens
+      hasTokens = true
+    }
+    if (s.model) modelSet.add(s.model)
+  }
+  const models = [...modelSet].sort()
+
+  function deriveSlugFromFile(filePath) {
+    if (!filePath) return null
+    const m = filePath.match(/__tests__\/(.+)\.browser\.tsx?$/)
+    if (!m) return null
+    return m[1].replace(/\//g, '-')
+  }
+
+  let totalElapsedMs = null
+  const resultsForTime = Array.isArray(rj?.testResults) ? rj.testResults : []
+  if (resultsForTime.length) {
+    let minStart = Infinity
+    let maxEnd = -Infinity
+    for (const r of resultsForTime) {
+      if (Number.isFinite(r?.startTime) && r.startTime < minStart) minStart = r.startTime
+      if (Number.isFinite(r?.endTime) && r.endTime > maxEnd) maxEnd = r.endTime
+    }
+    if (Number.isFinite(minStart) && Number.isFinite(maxEnd) && maxEnd >= minStart) {
+      totalElapsedMs = maxEnd - minStart
+    }
+  }
+
+  const testItems = []
+  for (const file of rj.testResults ?? []) {
+    const fileSlug = deriveSlugFromFile(file.name)
+    for (const t of file.assertionResults ?? []) {
+      const tTitle = t.title ?? t.fullName ?? t.name ?? ''
+      const tOk = t.status === 'passed'
+      let probe = null
+      if (fileSlug && probeByTestCase.has(fileSlug)) {
+        probe = probeByTestCase.get(fileSlug)
+      }
+      if (!probe && fileSlug) {
+        const prefixFromFile = fileSlug.match(/^([a-z][a-z0-9-]*?-\d{3})/i)
+        if (prefixFromFile) probe = probeByPrefix.get(prefixFromFile[1]) ?? null
+      }
+      if (!probe) {
+        const digitPrefix = tTitle.match(/(\d{3})/)
+        if (digitPrefix) probe = probeByPrefix.get(digitPrefix[1]) ?? null
+      }
+      const caseName = probe?.testCase ?? tTitle
+      const description = probe?.description ?? ''
+      const model = probe?.model ?? null
+      testItems.push({ caseName, title: tTitle, description, model, ok: tOk, status: t.status, hasProbe: !!probe })
+    }
+  }
+  const payload = {
+    passed, failed, total,
+    testItems, batch,
+    totalCredits: hasCredits ? totalCredits : null,
+    totalTokens: hasTokens ? totalTokensSum : null,
+    totalElapsedMs, models, modelOverride,
+  }
+
+  // 整 run cache 写回，供下次主页 rebuild 直接吃
+  try {
+    writeFileSync(
+      join(runsRoot, ts, '_run-summary.json'),
+      JSON.stringify({
+        schemaVersion: SUMMARY_SCHEMA_VERSION,
+        computedAt: new Date().toISOString(),
+        payload,
+      }, null, 2),
+      'utf-8',
+    )
+  } catch { /* best-effort */ }
+
+  return payload
+}
+
 function rebuildHomeIndex() {
   if (!existsSync(runsRoot)) return
   // 主页也过滤空壳目录：没 results.json 的 run 没意义
@@ -2114,168 +2294,11 @@ function rebuildHomeIndex() {
 
   // 每个 run 的结构化数据（共享给两个 tab）
   const runInfos = dirs.map(ts => {
-    const rj = safeJson(
-      existsSync(join(runsRoot, ts, 'results.json'))
-        ? readFileSync(join(runsRoot, ts, 'results.json'), 'utf-8')
-        : '{}',
-      {},
-    )
-    // run-meta.json.batch 是可选批次标签（由 --batch / BROWSER_TEST_BATCH 注入）
-    // modelOverride 是可选的 runner --model 覆盖标记
-    let batch = null
-    let modelOverride = null
-    const metaPath = join(runsRoot, ts, 'run-meta.json')
-    if (existsSync(metaPath)) {
-      const meta = safeJson(readFileSync(metaPath, 'utf-8'))
-      const b = meta?.batch
-      if (typeof b === 'string' && b.trim()) batch = b.trim()
-      const mo = meta?.modelOverride
-      if (typeof mo === 'string' && mo.trim()) modelOverride = mo.trim()
-    }
-    const passed = rj.numPassedTests ?? 0
-    const failed = rj.numFailedTests ?? 0
-    const total = rj.numTotalTests ?? 0
+    const computed = computeRunInfo(ts)
     const hasReport = existsSync(join(runsRoot, ts, 'index.html'))
-    const statusCls = failed > 0 ? 'fail' : 'pass'
+    const statusCls = computed.failed > 0 ? 'fail' : 'pass'
     const link = hasReport ? `./${ts}/index.html` : '#'
-
-    // 扫描此 run 的 probe data；按三种路径建索引以尽量命中用例 pill：
-    //   1. testCase 完整 slug（如 `skill-market-001-list-loads`）
-    //   2. 三位数字纯前缀（如 `001` -> 001-read-tool-text）
-    //   3. 非数字前缀 + 数字（如 `memory-001` / `skill-market-001`）
-    // 配合下方按 vitest 文件路径推导的候选 slug，覆盖 __tests__/<子目录>/<NNN>-*.browser.tsx 这类命名
-    // 同时聚合 creditsConsumed 作为 run 级别成本
-    const probeByTestCase = new Map()
-    const probeByPrefix = new Map()
-    const runDataDir = join(runsRoot, ts, 'data')
-    let totalCredits = 0
-    let hasCredits = false
-    let totalTokensSum = 0
-    let hasTokens = false
-    // model 集合：聚合本 run 所有用例的 `model` 字段。
-    // 大多数 run 是单模型（Set 大小 = 1），混合 run 会显示所有出现过的 id。
-    // modelOverride 独立显示（来自 run-meta.json），不进这个集合 — 它覆盖的是运行时实际发给 server 的 model，
-    // 而这里聚合的是测试声明的"设计意图"，两者语义不同。
-    const modelSet = new Set()
-    if (existsSync(runDataDir)) {
-      for (const f of readdirSync(runDataDir).filter(f => f.endsWith('.json'))) {
-        const d = safeJson(readFileSync(join(runDataDir, f), 'utf-8'))
-        if (!d?.testCase) continue
-        const info = { testCase: d.testCase, description: d.description ?? '', model: null }
-        probeByTestCase.set(d.testCase, info)
-        const digitOnly = d.testCase.match(/^(\d{3})/)
-        if (digitOnly && !probeByPrefix.has(digitOnly[1])) probeByPrefix.set(digitOnly[1], info)
-        const namedDigit = d.testCase.match(/^([a-z][a-z0-9-]*?-\d{3})/i)
-        if (namedDigit && !probeByPrefix.has(namedDigit[1])) probeByPrefix.set(namedDigit[1], info)
-        const c = d?.result?.creditsConsumed
-        if (typeof c === 'number' && Number.isFinite(c)) {
-          totalCredits += c
-          hasCredits = true
-        }
-        const u = d?.result?.tokenUsage
-        if (u && typeof u === 'object') {
-          const tt = Number(u.totalTokens)
-          const inT = Number(u.inputTokens)
-          const outT = Number(u.outputTokens)
-          const v = Number.isFinite(tt) && tt > 0
-            ? tt
-            : ((Number.isFinite(inT) ? inT : 0) + (Number.isFinite(outT) ? outT : 0))
-          if (v > 0) {
-            totalTokensSum += v
-            hasTokens = true
-          }
-        }
-        // 用例级模型：主页每行展示"🤖 <友好名>"，和 testItem 关联。友好名优先 messages.agent.model.name（"Qwen Flash"），
-        // 元数据缺失时退回到 d.model（测试声明 id，如"qwen:OL-TX-008"）。modelSet 保留用于 modelOverride 的对比 tip。
-        let friendlyName = null
-        let fallbackId = null
-        const msgs = Array.isArray(d?.result?.messages) ? d.result.messages : []
-        for (const m of msgs) {
-          if (m?.role !== 'assistant') continue
-          const ag = m?.metadata?.agent
-          if (!ag) continue
-          if (ag?.model?.name) friendlyName = String(ag.model.name)
-          if (ag?.chatModelId) fallbackId = String(ag.chatModelId)
-          else if (ag?.model?.modelId) fallbackId = String(ag.model.modelId)
-          if (friendlyName || fallbackId) break
-        }
-        const caseDisplay = friendlyName || fallbackId || (typeof d?.model === 'string' && d.model.trim() ? d.model.trim() : null)
-        if (caseDisplay) {
-          info.model = caseDisplay
-          modelSet.add(caseDisplay)
-        }
-      }
-    }
-    const models = [...modelSet].sort()
-
-    // 由 vitest results.json 的 file path 反推候选 slug：
-    //   `__tests__/skill-market/001-list-loads.browser.tsx` -> `skill-market-001-list-loads`
-    //   `__tests__/memory/001-natural-preference.browser.tsx` -> `memory-001-natural-preference`
-    //   `__tests__/011-pdf-create.browser.tsx` -> `011-pdf-create`
-    // 同时产出一个 prefix 候选用于命名不一致（如 memory-001 测试里 probe 名写成 memory-001-dietary-preference）。
-    function deriveSlugFromFile(filePath) {
-      if (!filePath) return null
-      const m = filePath.match(/__tests__\/(.+)\.browser\.tsx?$/)
-      if (!m) return null
-      return m[1].replace(/\//g, '-')
-    }
-
-    // 总用时：results.json 里 testResults 的 max(endTime) - min(startTime)（墙钟时长）
-    let totalElapsedMs = null
-    const resultsForTime = Array.isArray(rj?.testResults) ? rj.testResults : []
-    if (resultsForTime.length) {
-      let minStart = Infinity
-      let maxEnd = -Infinity
-      for (const r of resultsForTime) {
-        if (Number.isFinite(r?.startTime) && r.startTime < minStart) minStart = r.startTime
-        if (Number.isFinite(r?.endTime) && r.endTime > maxEnd) maxEnd = r.endTime
-      }
-      if (Number.isFinite(minStart) && Number.isFinite(maxEnd) && maxEnd >= minStart) {
-        totalElapsedMs = maxEnd - minStart
-      }
-    }
-
-    const testItems = []
-    for (const file of rj.testResults ?? []) {
-      const fileSlug = deriveSlugFromFile(file.name)
-      for (const t of file.assertionResults ?? []) {
-        const tTitle = t.title ?? t.fullName ?? t.name ?? ''
-        const tOk = t.status === 'passed'
-        // 命中顺序：文件派生 slug → 文件前缀（memory-001-* / skill-market-001-*）→ title 里的三位数字前缀
-        let probe = null
-        if (fileSlug && probeByTestCase.has(fileSlug)) {
-          probe = probeByTestCase.get(fileSlug)
-        }
-        if (!probe && fileSlug) {
-          const prefixFromFile = fileSlug.match(/^([a-z][a-z0-9-]*?-\d{3})/i)
-          if (prefixFromFile) probe = probeByPrefix.get(prefixFromFile[1]) ?? null
-        }
-        if (!probe) {
-          const digitPrefix = tTitle.match(/(\d{3})/)
-          if (digitPrefix) probe = probeByPrefix.get(digitPrefix[1]) ?? null
-        }
-        const caseName = probe?.testCase ?? tTitle
-        const description = probe?.description ?? ''
-        const model = probe?.model ?? null
-        testItems.push({ caseName, title: tTitle, description, model, ok: tOk, status: t.status, hasProbe: !!probe })
-      }
-    }
-    return {
-      ts,
-      passed,
-      failed,
-      total,
-      hasReport,
-      statusCls,
-      link,
-      testItems,
-      batch,
-      totalCredits: hasCredits ? totalCredits : null,
-      totalTokens: hasTokens ? totalTokensSum : null,
-      totalElapsedMs,
-      models,
-      modelOverride,
-    }
+    return { ts, hasReport, statusCls, link, ...computed }
   })
 
   // ── Tab 1: 按批次分组（无 batch 的归到末尾"未分组"）──

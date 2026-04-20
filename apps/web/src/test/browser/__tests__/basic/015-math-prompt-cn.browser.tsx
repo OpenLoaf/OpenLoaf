@@ -18,7 +18,12 @@ it('basic-015 — 1+1 中文提示词 token 基线', async () => {
   const prompt = '计算 1+1 等于几？只回答数字。'
 
   render(
-    <ChatProbeHarness serverUrl={SERVER_URL} prompt={prompt} approvalStrategy="approve-all" />,
+    <ChatProbeHarness
+      serverUrl={SERVER_URL}
+      prompt={prompt}
+      approvalStrategy="approve-all"
+      chatPromptLanguage="zh"
+    />,
   )
 
   await waitForMessageCount(2, 30_000)

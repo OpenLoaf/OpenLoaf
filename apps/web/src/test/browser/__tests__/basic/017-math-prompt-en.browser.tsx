@@ -18,7 +18,12 @@ it('basic-017 — 1+1 英文提示词 token 基线', async () => {
   const prompt = 'What is 1+1? Reply with only the number.'
 
   render(
-    <ChatProbeHarness serverUrl={SERVER_URL} prompt={prompt} approvalStrategy="approve-all" />,
+    <ChatProbeHarness
+      serverUrl={SERVER_URL}
+      prompt={prompt}
+      approvalStrategy="approve-all"
+      chatPromptLanguage="en"
+    />,
   )
 
   await waitForMessageCount(2, 30_000)
