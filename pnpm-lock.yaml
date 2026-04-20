@@ -173,6 +173,8 @@ importers:
         specifier: 'catalog:'
         version: 5.9.3
 
+  apps/openloaf-office-plugins: {}
+
   apps/server:
     dependencies:
       '@ai-sdk/alibaba':
