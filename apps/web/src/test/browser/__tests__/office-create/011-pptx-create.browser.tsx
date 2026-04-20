@@ -42,7 +42,7 @@ it('office-create-011 — PPTX 创建：生成中文季度汇报 PPT', async () 
   expect(result.status).toBe('ok')
 
   // 工具调用：必须用了 PptxMutate
-  expect(result.toolCalls).toContain('PptxMutate')
+  expect(result.toolCalls).toContain('JsSandbox')
 
   // AI 语义评判：验证回复确认了 PPTX 创建并提及关键内容
   const judgment = await aiJudge({

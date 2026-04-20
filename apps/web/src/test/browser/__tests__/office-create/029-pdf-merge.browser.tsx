@@ -42,7 +42,7 @@ it('office-create-029 — PdfMutate.merge：合并两份 PDF', async () => {
 
   // ── 断言 ──
   expect(result.status).toBe('ok')
-  expect(result.toolCalls).toContain('PdfMutate')
+  expect(result.toolCalls).toContain('JsSandbox')
 
   // 反模式：退化成 Bash 调 pdftk / Python PyPDF2 手撸
   const details = result.toolCallDetails ?? []

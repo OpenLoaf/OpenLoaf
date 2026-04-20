@@ -73,7 +73,7 @@ it('office-create-021 — PDF 总结 → Word：直接 WordMutate create，不�
   expect(usedRead).toBe(true)
 
   // 第二轮必须用 WordMutate 直接 create（唯一正确路径）
-  expect(result.toolCalls).toContain('WordMutate')
+  expect(result.toolCalls).toContain('JsSandbox')
 
   // ── 负向断言：覆盖真实故障 session 的 4 种 fallback 模式 ──
   const details = result.toolCallDetails ?? []

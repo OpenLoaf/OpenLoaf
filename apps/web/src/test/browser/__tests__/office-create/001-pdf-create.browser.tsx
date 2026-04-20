@@ -41,7 +41,7 @@ it('office-create-001 — PDF 创建：生成英文发票 PDF', async () => {
   expect(result.status).toBe('ok')
 
   // 工具调用：必须用了 PdfMutate
-  expect(result.toolCalls).toContain('PdfMutate')
+  expect(result.toolCalls).toContain('JsSandbox')
 
   // 工具链效率：理想 3 步（LoadSkill + ToolSearch(PdfMutate) + PdfMutate），允许 ≤ 4 次容差
   const callCount = result.toolCallDetails?.length ?? result.toolCalls.length

@@ -62,7 +62,7 @@ it('office-create-005 — 多轮 PDF 工作流：先读后改', async () => {
 
   // 工具调用：至少用了读取工具（Read/DocPreview/PdfInspect）和写入工具（PdfMutate）
   const usedRead = result.toolCalls.some(t => t === 'Read' || t === 'DocPreview' || t === 'PdfInspect')
-  const usedMutate = result.toolCalls.includes('PdfMutate')
+  const usedMutate = result.toolCalls.includes('JsSandbox')
   expect(usedRead).toBe(true)
   expect(usedMutate).toBe(true)
 

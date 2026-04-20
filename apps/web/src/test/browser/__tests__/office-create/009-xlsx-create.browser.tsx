@@ -40,7 +40,7 @@ it('office-create-009 — XLSX 创建：生成中文销售数据表', async () =
   expect(result.status).toBe('ok')
 
   // 工具调用：必须用了 ExcelMutate
-  expect(result.toolCalls).toContain('ExcelMutate')
+  expect(result.toolCalls).toContain('JsSandbox')
 
   // AI 语义评判：验证回复确认了 XLSX 创建并提及关键内容
   const judgment = await aiJudge({

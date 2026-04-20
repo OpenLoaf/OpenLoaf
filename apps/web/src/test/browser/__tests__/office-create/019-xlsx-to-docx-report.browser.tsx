@@ -86,9 +86,9 @@ it('office-create-019 — XLSX → DOCX 分析报告（四轮：翻译/配色/lo
 
   // 工具调用
   const usedRead = result.toolCalls.some(t => t === 'Read' || t === 'DocPreview')
-  const wordMutateCount = result.toolCalls.filter(t => t === 'WordMutate').length
+  const wordMutateCount = result.toolCalls.filter(t => t === 'JsSandbox').length
   // 第四轮："xlsx 导出" 允许走 ExcelMutate.create 或 DocConvert 两条路
-  const usedXlsxExport = result.toolCalls.some(t => t === 'ExcelMutate' || t === 'DocConvert')
+  const usedXlsxExport = result.toolCalls.some(t => t === 'JsSandbox' || t === 'DocConvert')
   expect(usedRead).toBe(true)
   expect(wordMutateCount).toBeGreaterThanOrEqual(1)
   expect(usedXlsxExport).toBe(true)

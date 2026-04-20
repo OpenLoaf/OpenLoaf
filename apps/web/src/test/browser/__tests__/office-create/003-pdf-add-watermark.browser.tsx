@@ -43,7 +43,7 @@ it('office-create-003 — PDF 水印：在现有 PDF 上添加 CONFIDENTIAL 水�
   expect(result.status).toBe('ok')
 
   // 核心断言：必须用了 PdfMutate（说明水印操作被执行了）
-  expect(result.toolCalls).toContain('PdfMutate')
+  expect(result.toolCalls).toContain('JsSandbox')
 
   // AI 语义评判：验证水印操作的完成确认
   // AI 有时只输出工具调用不带文字总结，加入 toolCalls 供辅助模型综合判断

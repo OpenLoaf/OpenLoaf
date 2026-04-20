@@ -41,7 +41,7 @@ it('office-create-031 — PdfMutate.extract-pages：只抽第 1 和第 3 页', a
 
   // ── 断言 ──
   expect(result.status).toBe('ok')
-  expect(result.toolCalls).toContain('PdfMutate')
+  expect(result.toolCalls).toContain('JsSandbox')
 
   // 反模式：不该退化到 Python/pdftk 等 shell 命令
   const details = result.toolCallDetails ?? []

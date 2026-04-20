@@ -36,17 +36,11 @@ import path from 'node:path'
 import { tool, zodSchema } from 'ai'
 import {
   excelInspectToolDef,
-  excelMutateToolDef,
   type ExcelInspectInput,
-  type ExcelMutateInput,
 } from '@openloaf/api/types/tools/excel'
-import { resolveCreateTargetPath, resolveToolPath } from '@/ai/tools/toolScope'
+import { resolveToolPath } from '@/ai/tools/toolScope'
 import { getSessionId } from '@/ai/shared/context/requestContext'
 import { resolveSessionAssetDir } from '@openloaf/api/services/chatSessionPaths'
-import {
-  applyMutate,
-  ExcelMutateError,
-} from '@/ai/tools/office/excelEngine'
 import {
   inspectSummary,
   inspectRead,
@@ -55,10 +49,6 @@ import {
   inspectRender,
   ExcelLibreOfficeUnavailableError,
 } from '@/ai/tools/office/excelInspectEngine'
-import {
-  recalc,
-  ExcelRecalcError,
-} from '@/ai/tools/office/excelRecalc'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -217,77 +207,6 @@ export const excelInspectTool = tool({
   },
 })
 
-// ---------------------------------------------------------------------------
-// ExcelMutate
-// ---------------------------------------------------------------------------
-
-export const excelMutateTool = tool({
-  description: excelMutateToolDef.description,
-  inputSchema: zodSchema(excelMutateToolDef.parameters),
-  execute: async (input) => {
-    const i = input as ExcelMutateInput
-
-    // `create` goes to session asset dir / project root; every other action
-    // mutates an existing file wherever it lives under the writable scope.
-    const { absPath } =
-      i.action === 'create'
-        ? await resolveCreateTargetPath(i.filePath)
-        : resolveToolPath({ target: i.filePath })
-
-    // Dispatch: recalc → excelRecalc.recalc(), everything else → applyMutate.
-    try {
-      if (i.action === 'recalc') {
-        const result = await recalc(absPath, i.mode ?? 'auto')
-        if (!result.ok) {
-          return {
-            ok: false as const,
-            code: 'FORMULA_ERRORS_FOUND',
-            message: `Recalc reported ${result.errorCount} formula error(s)`,
-            hint: 'Fix the listed errors and retry.',
-            data: {
-              action: 'recalc',
-              filePath: absPath,
-              mode: result.mode,
-              errorCount: result.errorCount,
-              errors: result.errors,
-              warnings: result.warnings,
-            },
-          }
-        }
-        return {
-          ok: true as const,
-          data: {
-            action: 'recalc',
-            filePath: absPath,
-            mode: result.mode,
-            errorCount: result.errorCount,
-            errors: result.errors,
-            warnings: result.warnings,
-          },
-        }
-      }
-
-      // Re-point filePath on the input to the resolved absolute path so the
-      // engine writes to the right place.
-      const engineInput = { ...i, filePath: absPath } as ExcelMutateInput
-      const out = await applyMutate(engineInput)
-      const engineData = (out.data ?? {}) as Record<string, unknown>
-      return {
-        ok: true as const,
-        data: { ...engineData, action: i.action, filePath: absPath },
-        ...(out.meta ? { meta: out.meta } : {}),
-      }
-    } catch (err) {
-      if (err instanceof ExcelMutateError) {
-        return failure(err.code, err.message, absPath, err.hint)
-      }
-      if (err instanceof ExcelRecalcError) {
-        return failure(err.code, err.message, absPath)
-      }
-      if (err instanceof ExcelLibreOfficeUnavailableError) {
-        return failure('LIBREOFFICE_UNAVAILABLE', err.message, absPath)
-      }
-      throw err
-    }
-  },
-})
+// ExcelMutate was removed — Excel write operations now go through JsSandbox
+// using the preinstalled `exceljs` / `xlsx` packages. See builtin-skills/xlsx
+// for demo scripts.

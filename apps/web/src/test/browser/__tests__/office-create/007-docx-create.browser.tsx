@@ -40,7 +40,7 @@ it('office-create-007 — DOCX 创建：生成中文会议纪要', async () => {
   expect(result.status).toBe('ok')
 
   // 工具调用：必须用了 WordMutate
-  expect(result.toolCalls).toContain('WordMutate')
+  expect(result.toolCalls).toContain('JsSandbox')
 
   // AI 语义评判：验证回复确认了 DOCX 创建并提及关键内容
   const judgment = await aiJudge({

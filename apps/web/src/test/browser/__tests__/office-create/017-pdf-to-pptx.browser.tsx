@@ -65,7 +65,7 @@ it('office-create-017 — PDF → PPTX：读分镜脚本后生成汇报 PPT', as
 
   // 工具调用：读取了 PDF + 生成了 PPTX
   const usedRead = result.toolCalls.some(t => t === 'Read' || t === 'DocPreview')
-  const usedPptxMutate = result.toolCalls.includes('PptxMutate')
+  const usedPptxMutate = result.toolCalls.includes('JsSandbox')
   expect(usedRead).toBe(true)
   expect(usedPptxMutate).toBe(true)
 

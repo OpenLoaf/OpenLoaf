@@ -41,7 +41,7 @@ it('office-create-033 — PdfMutate.rotate：第 1 页顺时针旋转 90 度', a
 
   // ── 断言 ──
   expect(result.status).toBe('ok')
-  expect(result.toolCalls).toContain('PdfMutate')
+  expect(result.toolCalls).toContain('JsSandbox')
 
   // 工具链效率：理想 ≤4 步（LoadSkill + PdfMutate.rotate）
   const callCount = result.toolCallDetails?.length ?? result.toolCalls.length
