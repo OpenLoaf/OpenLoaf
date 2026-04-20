@@ -197,5 +197,6 @@ DocConvert(from="docx", to="pdf", sourcePath="…")   # Word → PDF 分发
 | `pdf-lib` 加载报 `EncryptedPDFError` | 文件加密 | `PDFDocument.load(buf, { password: '…' })` |
 | 水印覆盖不均 | PDF 页面大小不同 | 循环 `page.getSize()` 按页算 x/y |
 | 合并后字体变样 | 原 PDF 嵌字体不完整 | 用 `pdf-lib` 的 `useObjectStreams: false` 重写 |
+| `TypeError: Cannot read properties of undefined (reading 'save')` | `pdfkit` 没有 `doc.save()` / `doc.restore()`（那是 Canvas 2D API） | 颜色/字号状态直接用 `doc.fillColor()` / `doc.fontSize()` 切换即可，不需要保存-恢复栈。最终文档落盘用 `doc.pipe(fs.createWriteStream(...)); doc.end()` |
 
 修脚本：`JsSandbox(action="edit-and-run", scriptPath=<上次的>, edits=[{find,replace}])` 只传改动点。

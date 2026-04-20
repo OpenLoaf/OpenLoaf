@@ -197,5 +197,6 @@ DocConvert(from="docx", to="pdf", sourcePath="…")   # Word → PDF for distrib
 | `pdf-lib` throws `EncryptedPDFError` on load | File is encrypted | `PDFDocument.load(buf, { password: '…' })` |
 | Watermark uneven across pages | Pages have different sizes | Loop `page.getSize()` and compute x/y per page |
 | Merged PDF has font rendering differences | Source PDFs have incomplete embedded fonts | Rewrite with `pdf-lib`'s `useObjectStreams: false` |
+| `TypeError: Cannot read properties of undefined (reading 'save')` | `pdfkit` has no `doc.save()` / `doc.restore()` (those are Canvas 2D APIs) | Switch colors / sizes directly via `doc.fillColor()` / `doc.fontSize()` — no save/restore stack needed. Finish the document with `doc.pipe(fs.createWriteStream(...)); doc.end()` |
 
 To patch a script: `JsSandbox(action="edit-and-run", scriptPath=<previous path>, edits=[{find,replace}])` — only pass the diff.
