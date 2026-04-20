@@ -19,7 +19,11 @@ This skill provides 2 tools, organized as **read → write**:
 >
 > 🚨 **LoadSkill must be immediately followed by ToolSearch**: LoadSkill only brings in the doc, **no tool is activated by it**. LoadSkill → ToolSearch → call — all three steps are mandatory.
 >
-> `Read` / `DocPreview` on .xlsx only return a Markdown-level text view (losing formulas / styles / merges / validations / charts / conditional formatting). **Any "analyze / summarize / edit / create .xlsx" request must go through `ExcelInspect` / `ExcelMutate`. Do NOT fall back to `Read` for spreadsheets.**
+> **Tool choice by intent**:
+> - **Simple read / preview / format conversion** (e.g. "show me this sheet", "convert xlsx to csv", "summarize the table"): start with `DocPreview` or `Read`. For xlsx → csv / txt / md / pdf / docx conversion use `DocConvert`. These are fastest and sufficient for read-only / format-only work.
+> - **Structured analysis / cell-level editing / creation** (formulas, styles, merges, validations, charts, conditional formatting, multi-sheet): use `ExcelInspect` / `ExcelMutate`. A plain `Read` loses formulas and styles.
+>
+> 🚫 **Never use `Bash` with `openpyxl` / `pandas` / `xlrd` / `openpyxl` / Python / Node scripts to read or write spreadsheets.** The registered tools above cover every supported case. Falling back to Bash bypasses the approval gate, preview UI, and session asset-dir resolution.
 
 ---
 
@@ -360,7 +364,7 @@ When building "financial model / sales model / budget sheet" workbooks, enforce:
 7. **structure args must match op**: insert/delete need `at`; rename needs `from` + `to`; `target: "sheet"` ignores `sheetName`. Missing args throw `STRUCTURE_OP_INVALID`.
 8. **recalc simple mode has a shape limit**: only understands `=FN(range|args)`. Cross-sheet / nested / complex AST → use `mode: "libreoffice"` (requires soffice), or tell the user "press F9 in Excel".
 9. **CSV upgrade changes the path**: once formulas / multi-sheet / charts sneak in, `.csv` becomes `.xlsx`. **You MUST tell the user the new `filePath`** — otherwise they won't find the file next time.
-10. **Use relative paths / bare filenames for `filePath`**: `"report.xlsx"` not `/Users/.../OpenLoafData/...`; runtime resolves to session asset dir (or project root). Out-of-scope paths throw "filePath is outside the writable scope".
+10. **Prefer relative paths / bare filenames for `filePath`**: `"report.xlsx"` resolves to the session asset dir (or project root) and is easier for the user to find. Absolute paths are allowed but count as out-of-scope writes, which trigger the approval gate for user confirmation.
 11. **Large reads must paginate**: `ExcelInspect(read)` defaults to `limit: 500`; overflow sets `truncated: true`. Don't `all: true` on a 100k-row sheet — context will blow up. Use `summary` + a targeted `range`.
 12. **Formula cell `computed` is cached**: exceljs doesn't recalc; after writing a new formula `computed` is `null`. Call `ExcelMutate(recalc)` to get fresh values.
 

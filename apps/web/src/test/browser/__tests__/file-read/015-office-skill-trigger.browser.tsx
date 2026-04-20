@@ -10,7 +10,7 @@ import { waitForChatComplete, waitForProbeResult, takeProbeScreenshot, aiJudge }
 
 const SERVER_URL = process.env.PROBE_SERVER_URL ?? 'http://127.0.0.1:23333'
 
-it('008 — xlsx-skill 无关键词触发，回复包含分析结果', async () => {
+it('file-read-015-office-skill-trigger — xlsx-skill 无关键词触发，回复包含分析结果', async () => {
   const sessionId = `chat_probe_008_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
   const userPrompt = '帮我分析一下这份报价表，找出单价最高的前 3 项，算一下总金额。'
 

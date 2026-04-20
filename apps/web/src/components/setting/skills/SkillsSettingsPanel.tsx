@@ -90,6 +90,7 @@ type SkillSummary = {
   colorIndex?: number | null;
   hasMeta?: boolean;
   icon?: string;
+  tools?: string[];
 };
 
 type SkillsSettingsPanelProps = {
@@ -610,15 +611,20 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
           >
             {/* Gradient header strip */}
             <div className={cn("px-3.5 pt-3 pb-2 bg-gradient-to-r", CARD_GRADIENTS[colorIdx])}>
-              {/* Header: name + switch */}
+              {/* Header: name + badge/switch */}
               <div className="flex min-w-0 items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5 truncate text-sm font-medium text-foreground">
+                  <div className="flex items-center gap-1.5 text-sm font-medium text-foreground">
                     {skill.icon ? <span className="text-sm leading-none shrink-0">{skill.icon}</span> : null}
                     <span className="truncate">{skill.name}</span>
                   </div>
                 </div>
-                {isBuiltin ? null : (
+                {isBuiltin ? (
+                  <span className="shrink-0 inline-flex items-center gap-0.5 rounded-full bg-background/50 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-muted-foreground/70 border border-border/40">
+                    <Package className="h-2.5 w-2.5" />
+                    {t('skills.builtinBadge', { defaultValue: '系统技能' })}
+                  </span>
+                ) : (
                   <Switch
                     checked={skill.isEnabled}
                     onCheckedChange={(checked) => handleToggleSkill(skill, checked)}
@@ -634,30 +640,29 @@ export function SkillsSettingsPanel({ projectId }: SkillsSettingsPanelProps) {
             {/* Body */}
             <div className="flex flex-1 flex-col px-3.5 pb-3 pt-1.5 bg-background/50 dark:bg-background/30">
               {/* Description */}
-              <p className="min-w-0 flex-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+              <p className="min-w-0 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
                 {skill.description?.trim() ? skill.description : skill.name}
               </p>
 
               {/* Footer: folder name + use button */}
-              <div className="mt-2 flex min-w-0 items-center justify-between gap-2">
-                {isBuiltin ? (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-muted/60 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                    <Package className="h-3 w-3" />
-                    {t('skills.builtinBadge', { defaultValue: '系统技能' })}
-                  </span>
-                ) : (
-                  <span className="truncate text-[11px] text-muted-foreground/60">{skill.folderName}</span>
-                )}
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  className="h-7 w-7 flex-none rounded-3xl opacity-0 transition-opacity group-hover:opacity-100 hover:bg-accent text-foreground"
-                  onClick={(e) => { e.stopPropagation(); handleInsertSkillCommand(skill) }}
-                  aria-label={t('skills.useSkillAriaLabel', { name: skill.name })}
-                >
-                  <ArrowRight className="h-3.5 w-3.5" />
-                </Button>
+              <div className="mt-auto">
+                <div className="mt-2 flex min-w-0 items-center justify-between gap-2">
+                  {isBuiltin ? (
+                    <span />
+                  ) : (
+                    <span className="truncate text-[11px] text-muted-foreground/60">{skill.folderName}</span>
+                  )}
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    className="h-7 w-7 flex-none rounded-3xl opacity-0 transition-opacity group-hover:opacity-100 hover:bg-accent text-foreground"
+                    onClick={(e) => { e.stopPropagation(); handleInsertSkillCommand(skill) }}
+                    aria-label={t('skills.useSkillAriaLabel', { name: skill.name })}
+                  >
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
               </div>
             </div>
           </div>

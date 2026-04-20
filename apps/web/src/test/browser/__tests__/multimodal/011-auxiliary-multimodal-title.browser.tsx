@@ -19,11 +19,11 @@ import { waitForChatComplete, waitForProbeResult, takeProbeScreenshot } from '..
 
 const SERVER_URL = process.env.PROBE_SERVER_URL ?? 'http://127.0.0.1:23333'
 // Qwen Flash — image + video + audio 全模态（来源：/api/ai/v3/capabilities/chat）
-const MODEL_ID = 'qwen:OL-TX-006'
+const MODEL_ID = 'qwen:OL-TX-008'
 const MODEL_SOURCE = 'cloud' as const
 const DEFAULT_PLACEHOLDER_TITLES = new Set(['', 'New chat', 'New Chat', '新对话', '新聊天'])
 
-it('036 — 辅助模型带图生成标题：autoTitle 走原生 vision', async () => {
+it('multimodal-011-auxiliary-multimodal-title — 辅助模型带图生成标题：autoTitle 走原生 vision', async () => {
   const sessionId = `chat_probe_036_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
   const userPrompt = '帮我看看这张图里是什么。'
 

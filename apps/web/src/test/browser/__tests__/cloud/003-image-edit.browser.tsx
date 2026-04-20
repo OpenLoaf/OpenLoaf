@@ -14,7 +14,7 @@ import { waitForChatComplete, waitForProbeResult, takeProbeScreenshot, aiJudge }
 
 const SERVER_URL = process.env.PROBE_SERVER_URL ?? 'http://127.0.0.1:23333'
 
-it('026 — 图片生成+编辑：先画再改', async () => {
+it('cloud-003-image-edit — 图片生成+编辑：先画再改', async () => {
   const prompt = '给我画一只橘猫趴在窗台上晒太阳'
   const followUp = '不错，但是背景太单调了，帮我把窗外的背景改成下雪的场景'
 

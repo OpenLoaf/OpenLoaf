@@ -3,6 +3,7 @@ name: agent-orchestration-skill
 description: >
   当主 Agent 面临多步骤复杂任务并正在判断要不要 / 怎样把子任务外包给内置子代理（browser / doc-editor / data-analyst / extractor / canvas-designer / coder 等）时触发。**不用于**：单步问答 / 读取 / 简单副作用（主 Agent 直接做）、已经明确要用 `Agent` 且知道 subagent_type 的场景。
 version: 5.0.0
+tools: [Agent]
 ---
 
 # 子代理委派与 Agent 工具

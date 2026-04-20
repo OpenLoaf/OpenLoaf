@@ -10,7 +10,7 @@ import { waitForChatComplete, waitForProbeResult, takeProbeScreenshot } from '..
 
 const SERVER_URL = process.env.PROBE_SERVER_URL ?? 'http://127.0.0.1:23333'
 
-it('006 — 音频读取，回复有实质内容', async () => {
+it('file-read-011-read-audio-suggest-skill — 音频读取，回复有实质内容', async () => {
   const sessionId = `chat_probe_006_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
   const userPrompt = '这段录音说了什么？'
 

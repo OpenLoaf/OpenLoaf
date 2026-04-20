@@ -10,7 +10,7 @@ import { waitForChatComplete, waitForProbeResult, takeProbeScreenshot, aiJudge }
 
 const SERVER_URL = process.env.PROBE_SERVER_URL ?? 'http://127.0.0.1:23333'
 
-it('003 — DOCX 读取，回复描述文档内容', async () => {
+it('file-read-005-read-docx — DOCX 读取，回复描述文档内容', async () => {
   const sessionId = `chat_probe_003_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
   const userPrompt = '这份 Word 文档在讲什么？大概多长？'
 

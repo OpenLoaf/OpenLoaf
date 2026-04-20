@@ -15,10 +15,10 @@ import { waitForChatComplete, waitForProbeResult, takeProbeScreenshot } from '..
 
 const SERVER_URL = process.env.PROBE_SERVER_URL ?? 'http://127.0.0.1:23333'
 // Qwen Flash — image + video + audio 全模态（来源：/api/ai/v3/capabilities/chat）
-const MODEL_ID = 'qwen:OL-TX-006'
+const MODEL_ID = 'qwen:OL-TX-008'
 const MODEL_SOURCE = 'cloud' as const
 
-it('030 — 原生 vision 读图：不走 Read 直接用视觉能力', async () => {
+it('multimodal-001-native-vision-image — 原生 vision 读图：不走 Read 直接用视觉能力', async () => {
   const sessionId = `chat_probe_030_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
   const userPrompt = '这张图里有什么？简短描述即可。'
 

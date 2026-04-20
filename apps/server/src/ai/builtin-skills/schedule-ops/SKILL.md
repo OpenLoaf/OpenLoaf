@@ -2,6 +2,7 @@
 name: schedule-ops-skill
 description: >
   当用户要把任务交给后台异步执行、按 cron / 周期性重复、委派给项目 Agent 长时间跑，或查看/审批/取消看板任务时触发。典型说法"每天 9 点帮我 X"、"让 coder agent 跑这个"、"有哪些待审批"。**不用于**：一次性即时答复（→直接用工具）、真实日历会议 / 约会（→calendar-ops-skill）、一次性计划审批（→`SubmitPlan`）。
+tools: [ScheduledTaskManage, ScheduledTaskStatus, ScheduledTaskWait]
 ---
 
 # 任务操作技能

@@ -4,8 +4,20 @@
  * 提供等待完成、截图、查询消息、读取结果等工具方法，
  * 供 *.browser.tsx 测试文件使用。
  */
+import { getCurrentTest } from '@vitest/runner'
 import { page } from '@vitest/browser/context'
 import type { ProbeResult } from './ChatProbeHarness'
+
+/**
+ * 从当前 vitest 测试名中解析 testCase slug。
+ *
+ * 约定：it() 标题格式为 `<slug> — <描述>`，slug 是 `—` 之前的部分。
+ * 这样 testCase 只需在 it() 里写一次，测试体内调用此函数获取。
+ */
+export function currentTestCase(): string {
+  const name = getCurrentTest()?.name ?? ''
+  return name.split(/\s+—\s+/)[0].trim()
+}
 
 /**
  * 等待 chat probe 进入指定状态。

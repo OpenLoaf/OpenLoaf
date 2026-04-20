@@ -155,7 +155,7 @@ export function resolveToolPath(input: {
   target: string;
 }): { absPath: string; rootLabel: "project" | "external" } {
   const projectId = getProjectId();
-  const { projectRoot } = resolveToolRoots();
+  const { projectRoot, chatAssetRoot } = resolveToolRoots();
 
   // Template variables (${CURRENT_CHAT_DIR}, ${CURRENT_PROJECT_ROOT}, etc.)
   // are expanded up-front so downstream layers see plain absolute paths.
@@ -164,10 +164,27 @@ export function resolveToolPath(input: {
   // Strip attachment-tag user-mention wrapper (emitted by ChatInput drop handler).
   const stripped = stripAttachmentTagWrapper(raw);
 
+  // Bare filename / relative path fast path: when a chat session is active and
+  // the file exists under the session asset dir, prefer that. Attachments are
+  // staged there, so this matches what the LLM sees as "EMS_Quotation.xlsx"
+  // without requiring an explicit ${CURRENT_CHAT_DIR} prefix.
+  const isRelative =
+    !path.isAbsolute(stripped) &&
+    !stripped.startsWith("~") &&
+    !stripped.startsWith("file:") &&
+    !stripped.startsWith("@");
+  if (isRelative && chatAssetRoot) {
+    const candidate = path.resolve(chatAssetRoot, stripped);
+    if (fsSync.existsSync(candidate)) {
+      const insideProject = projectRoot ? isPathInside(projectRoot, candidate) : false;
+      return { absPath: candidate, rootLabel: insideProject ? "project" : "external" };
+    }
+  }
+
   let absPath: string;
   if (!projectId && getSessionId()) {
     // 临时会话（无 projectId 有 sessionId）：相对路径解析基于 tempDir
-    if (!path.isAbsolute(stripped) && !stripped.startsWith("~") && !stripped.startsWith("file:")) {
+    if (isRelative) {
       absPath = path.resolve(getResolvedTempStorageDir(), stripped);
     } else {
       absPath = path.resolve(resolveScopedPath({ projectId, target: stripped }));
@@ -248,15 +265,13 @@ export async function ensureWritableRoot(): Promise<{
  * Resolve the target path for create-style tool actions (WordMutate.create,
  * PdfMutate.create/merge, ExcelMutate.create, PptxMutate.create, Write, EditDocument, ...).
  *
- * Unlike `resolveToolPath` (which freely allows any absolute path inside the
- * global OpenLoaf root), this one pins the write root:
+ * Relative paths are pinned to the write root:
  *   - Project-bound session → project root
  *   - Temp session         → `<chat-history>/<sessionId>/asset/`
- * Absolute paths must stay inside that root — otherwise we throw.
  *
- * This prevents the agent from dropping freshly-created office documents into
- * `~/OpenLoafData/foo.docx` by mistake; those must land under the session's
- * asset dir so they're discoverable alongside the chat that produced them.
+ * Absolute paths are allowed anywhere — out-of-scope writes are gated by the
+ * approval system (see `isTargetOutsideScope`), which asks the user before
+ * each external-write proceeds.
  */
 export async function resolveCreateTargetPath(
   targetPath: string,
@@ -285,12 +300,5 @@ export async function resolveCreateTargetPath(
   const absPath = path.isAbsolute(normalized)
     ? path.resolve(normalized)
     : path.resolve(resolvedRoot, normalized);
-  if (!isPathInside(resolvedRoot, absPath)) {
-    throw new Error(
-      `filePath is outside the writable scope (${resolvedRoot}). ` +
-        "Use a bare filename (e.g. \"report.docx\") or a path relative to the session asset dir / project root. " +
-        "Absolute paths must stay under that root.",
-    );
-  }
   return { absPath, rootPath: resolvedRoot };
 }

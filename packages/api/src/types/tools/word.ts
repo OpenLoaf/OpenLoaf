@@ -8,7 +8,12 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import { z } from 'zod'
-import { jsonArrayPreprocess, officeEditSchema } from './office'
+import { jsonArrayPreprocess, officeEditSchema, stringBoolPreprocess, stringNumberPreprocess } from './office'
+
+/** Wrap a zod schema so LLM-stringified booleans ("true"/"false"/"0"/"1") are auto-coerced. */
+const zb = <T extends z.ZodTypeAny>(inner: T) => z.preprocess(stringBoolPreprocess, inner)
+/** Wrap a zod schema so LLM-stringified numbers ("123"/"1.5") are auto-coerced. */
+const zn = <T extends z.ZodTypeAny>(inner: T) => z.preprocess(stringNumberPreprocess, inner)
 
 // ---------------------------------------------------------------------------
 // Sub-schemas
@@ -21,30 +26,25 @@ import { jsonArrayPreprocess, officeEditSchema } from './office'
  */
 const textRunSchema = z.object({
   text: z.string().describe('The literal text of this run. Required.'),
-  bold: z.boolean().optional().describe('w:b. Default false.'),
-  italic: z.boolean().optional().describe('w:i. Default false.'),
-  underline: z
-    .boolean()
+  bold: zb(z.boolean()).optional().describe('w:b. Default false.'),
+  italic: zb(z.boolean()).optional().describe('w:i. Default false.'),
+  underline: zb(z.boolean())
     .optional()
     .describe('w:u single line. Default false.'),
-  strike: z
-    .boolean()
+  strike: zb(z.boolean())
     .optional()
     .describe('w:strike. Default false. Use for tracked-change visual hints only when NOT using add-tracked-change.'),
-  superscript: z
-    .boolean()
+  superscript: zb(z.boolean())
     .optional()
     .describe('w:vertAlign="superscript". Do NOT use Unicode ² / ³ — always go through this flag.'),
-  subscript: z
-    .boolean()
+  subscript: zb(z.boolean())
     .optional()
     .describe('w:vertAlign="subscript". Do NOT use Unicode subscript characters.'),
   font: z
     .string()
     .optional()
     .describe('w:rFonts ascii / hAnsi. e.g. "Calibri", "Times New Roman". CJK auto-injects eastAsia — no need to specify for Chinese/Japanese/Korean.'),
-  size: z
-    .number()
+  size: zn(z.number())
     .optional()
     .describe('Font size in half-points (w:sz). e.g. 22 = 11pt, 28 = 14pt. Default inherits from style.'),
   color: z
@@ -66,17 +66,17 @@ const textRunSchema = z.object({
 })
 
 const paragraphSpacingSchema = z.object({
-  before: z.number().optional().describe('Space before in twentieths of a point (e.g. 240 = 12pt).'),
-  after: z.number().optional().describe('Space after in twentieths of a point.'),
-  line: z.number().optional().describe('Line spacing in twentieths of a point. 240 = single, 360 = 1.5x, 480 = double.'),
+  before: zn(z.number()).optional().describe('Space before in twentieths of a point (e.g. 240 = 12pt).'),
+  after: zn(z.number()).optional().describe('Space after in twentieths of a point.'),
+  line: zn(z.number()).optional().describe('Line spacing in twentieths of a point. 240 = single, 360 = 1.5x, 480 = double.'),
   lineRule: z.enum(['auto', 'exact', 'atLeast']).optional().describe('How `line` is interpreted. Default "auto".'),
 })
 
 const paragraphIndentSchema = z.object({
-  left: z.number().optional().describe('Left indent in twips (1/1440 inch). 720 = 0.5 inch.'),
-  right: z.number().optional().describe('Right indent in twips.'),
-  firstLine: z.number().optional().describe('First-line indent in twips. Mutually exclusive with hanging.'),
-  hanging: z.number().optional().describe('Hanging indent in twips. Mutually exclusive with firstLine.'),
+  left: zn(z.number()).optional().describe('Left indent in twips (1/1440 inch). 720 = 0.5 inch.'),
+  right: zn(z.number()).optional().describe('Right indent in twips.'),
+  firstLine: zn(z.number()).optional().describe('First-line indent in twips. Mutually exclusive with hanging.'),
+  hanging: zn(z.number()).optional().describe('Hanging indent in twips. Mutually exclusive with firstLine.'),
 })
 
 const tableBorderSchema = z.object({
@@ -84,7 +84,7 @@ const tableBorderSchema = z.object({
     .enum(['single', 'double', 'dashed', 'dotted', 'thick', 'none'])
     .optional()
     .describe('Border line style. Default "single".'),
-  size: z.number().optional().describe('Border width in eighths of a point. Default 4 (0.5pt).'),
+  size: zn(z.number()).optional().describe('Border width in eighths of a point. Default 4 (0.5pt).'),
   color: z.string().optional().describe('Hex RGB, e.g. "000000" for black.'),
 })
 
@@ -97,8 +97,7 @@ const tableCellSchema = z.object({
     .string()
     .optional()
     .describe('Shorthand for a single plain-text run. Prefer `runs` when formatting is needed.'),
-  width: z
-    .number()
+  width: zn(z.number())
     .optional()
     .describe('Cell width in twips. Should be consistent with table.columnWidths[colIndex].'),
   shading: z
@@ -116,23 +115,19 @@ const tableCellSchema = z.object({
     .describe('Per-edge overrides. Omit to inherit from table-level borders.'),
   padding: z
     .object({
-      top: z.number().optional(),
-      bottom: z.number().optional(),
-      left: z.number().optional(),
-      right: z.number().optional(),
+      top: zn(z.number()).optional(),
+      bottom: zn(z.number()).optional(),
+      left: zn(z.number()).optional(),
+      right: zn(z.number()).optional(),
     })
     .optional()
     .describe('Cell margins in twips. Default matches Word defaults.'),
   merge: z
     .object({
-      rowSpan: z
-        .number()
-        .min(1)
+      rowSpan: zn(z.number().min(1))
         .optional()
         .describe('Vertical span (w:vMerge). 1 = no span. Cells covered by a span must still appear in the row array as empty cells.'),
-      colSpan: z
-        .number()
-        .min(1)
+      colSpan: zn(z.number().min(1))
         .optional()
         .describe('Horizontal span (w:gridSpan). 1 = no span.'),
     })
@@ -154,11 +149,7 @@ const contentItemSchema = z.discriminatedUnion('type', [
     text: z
       .string()
       .describe('Plain-text heading. For mixed formatting, use a paragraph with `style` referencing Heading1/2/... instead.'),
-    level: z
-      .number()
-      .int()
-      .min(1)
-      .max(6)
+    level: zn(z.number().int().min(1).max(6))
       .optional()
       .describe('1-6, default 1. Maps to built-in Heading1..Heading6 styles.'),
     alignment: z
@@ -167,9 +158,8 @@ const contentItemSchema = z.discriminatedUnion('type', [
       .describe('w:jc. Default inherits from style.'),
     color: z.string().optional().describe('Override heading color (hex RGB without #).'),
     font: z.string().optional().describe('Override heading font family.'),
-    size: z.number().optional().describe('Override heading size in half-points.'),
-    pageBreakBefore: z
-      .boolean()
+    size: zn(z.number()).optional().describe('Override heading size in half-points.'),
+    pageBreakBefore: zb(z.boolean())
       .optional()
       .describe('Start this heading on a new page (w:pageBreakBefore).'),
   }),
@@ -187,8 +177,7 @@ const contentItemSchema = z.discriminatedUnion('type', [
       .describe('Paragraph alignment (w:jc). Default inherits from style.'),
     spacing: paragraphSpacingSchema.optional().describe('Line / before / after spacing.'),
     indent: paragraphIndentSchema.optional().describe('Indentation settings.'),
-    pageBreakBefore: z
-      .boolean()
+    pageBreakBefore: zb(z.boolean())
       .optional()
       .describe('Start this paragraph on a new page.'),
     style: z
@@ -201,7 +190,7 @@ const contentItemSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('table'),
     columnWidths: z
-      .array(z.number())
+      .array(zn(z.number()))
       .optional()
       .describe('Column widths in twips, e.g. [2000, 4000, 3000] for a 3-col table. Length should match row cell count; cell.width should agree.'),
     borders: z
@@ -221,10 +210,10 @@ const contentItemSchema = z.discriminatedUnion('type', [
       .describe('Default cell background hex RGB. Per-cell shading overrides.'),
     cellPadding: z
       .object({
-        top: z.number().optional(),
-        bottom: z.number().optional(),
-        left: z.number().optional(),
-        right: z.number().optional(),
+        top: zn(z.number()).optional(),
+        bottom: zn(z.number()).optional(),
+        left: zn(z.number()).optional(),
+        right: zn(z.number()).optional(),
       })
       .optional()
       .describe('Default cell padding in twips. Per-cell padding overrides.'),
@@ -255,11 +244,7 @@ const contentItemSchema = z.discriminatedUnion('type', [
                 .array(textRunSchema)
                 .min(1)
                 .describe('Rich bullet: TextRuns for mixed formatting.'),
-              level: z
-                .number()
-                .int()
-                .min(0)
-                .max(8)
+              level: zn(z.number().int().min(0).max(8))
                 .optional()
                 .describe('Nesting level (0-indexed). 0 = top-level bullet, 1 = sub-bullet, up to 8. Default 0.'),
             })
@@ -279,11 +264,7 @@ const contentItemSchema = z.discriminatedUnion('type', [
           z
             .object({
               runs: z.array(textRunSchema).min(1),
-              level: z
-                .number()
-                .int()
-                .min(0)
-                .max(8)
+              level: zn(z.number().int().min(0).max(8))
                 .optional()
                 .describe('Nesting level (0-indexed). Default 0.'),
             }),
@@ -298,12 +279,11 @@ const contentItemSchema = z.discriminatedUnion('type', [
     source: z
       .string()
       .describe('Local file path or http(s) URL to a PNG/JPEG/GIF. The engine embeds the bytes into word/media/ and registers the rels entry.'),
-    width: z
-      .number()
+    width: zn(z.number())
       .optional()
       .describe('Display width in EMUs (1 inch = 914400). For px, the engine converts automatically when `widthPx` is used.'),
-    widthPx: z.number().optional().describe('Display width in pixels (96 DPI assumption).'),
-    heightPx: z.number().optional().describe('Display height in pixels. Omit to preserve aspect ratio.'),
+    widthPx: zn(z.number()).optional().describe('Display width in pixels (96 DPI assumption).'),
+    heightPx: zn(z.number()).optional().describe('Display height in pixels. Omit to preserve aspect ratio.'),
     alt: z.string().optional().describe('Alt text (w:docPr descr).'),
     alignment: z
       .enum(['left', 'center', 'right'])
@@ -320,18 +300,10 @@ const contentItemSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('toc'),
     title: z.string().optional().describe('Optional heading line above the TOC (e.g. "Table of Contents").'),
-    minLevel: z
-      .number()
-      .int()
-      .min(1)
-      .max(6)
+    minLevel: zn(z.number().int().min(1).max(6))
       .optional()
       .describe('Lowest heading level to include. Default 1.'),
-    maxLevel: z
-      .number()
-      .int()
-      .min(1)
-      .max(6)
+    maxLevel: zn(z.number().int().min(1).max(6))
       .optional()
       .describe('Highest heading level to include. Default 3.'),
   }),
@@ -370,25 +342,23 @@ const pageSettingsSchema = z.object({
     .describe('Default "portrait".'),
   margins: z
     .object({
-      top: z.number().optional(),
-      bottom: z.number().optional(),
-      left: z.number().optional(),
-      right: z.number().optional(),
-      header: z.number().optional().describe('Distance from top of page to header (twips).'),
-      footer: z.number().optional().describe('Distance from bottom of page to footer (twips).'),
+      top: zn(z.number()).optional(),
+      bottom: zn(z.number()).optional(),
+      left: zn(z.number()).optional(),
+      right: zn(z.number()).optional(),
+      header: zn(z.number()).optional().describe('Distance from top of page to header (twips).'),
+      footer: zn(z.number()).optional().describe('Distance from bottom of page to footer (twips).'),
     })
     .optional()
     .describe('Margins in twips. Default 1440 (1 inch) on all sides.'),
 })
 
 const columnsSettingsSchema = z.object({
-  count: z.number().int().min(1).max(6).describe('Column count. Default 1.'),
-  space: z
-    .number()
+  count: zn(z.number().int().min(1).max(6)).describe('Column count. Default 1.'),
+  space: zn(z.number())
     .optional()
     .describe('Space between columns in twips. Default 720 (0.5 inch).'),
-  separator: z
-    .boolean()
+  separator: zb(z.boolean())
     .optional()
     .describe('Draw vertical separator lines between columns.'),
 })
@@ -398,8 +368,7 @@ const headerFooterContentSchema = z.object({
     .array(textRunSchema)
     .optional()
     .describe('TextRuns for the header/footer paragraph.'),
-  includePageNumber: z
-    .boolean()
+  includePageNumber: zb(z.boolean())
     .optional()
     .describe('Append a page-number field (w:fldChar PAGE) at the end of the line.'),
   alignment: z
@@ -418,7 +387,7 @@ const documentSettingsSchema = z.object({
   defaultFont: z
     .object({
       family: z.string().optional().describe('Default font family for the whole document. Default "Calibri".'),
-      size: z.number().optional().describe('Default font size in half-points. Default 22 (11pt).'),
+      size: zn(z.number()).optional().describe('Default font size in half-points. Default 22 (11pt).'),
     })
     .optional()
     .describe('Document-wide font defaults. OMIT unless overriding Calibri 11pt.'),
@@ -476,32 +445,23 @@ Conventions:
       .describe(
         'e.g. "1-5" or "3". Defaults: summary samples first pages; text/tables span all pages; render requires it.',
       ),
-    withCoords: z
-      .boolean()
+    withCoords: zb(z.boolean())
       .optional()
       .describe('For action=text: include per-paragraph section/page hint alongside plain text. Default false.'),
-    extractImages: z
-      .boolean()
+    extractImages: zb(z.boolean())
       .optional()
       .describe('For action=images: when true, write PNGs to the session asset dir and return URLs; default false (metadata only).'),
     partName: z
       .string()
       .optional()
       .describe('For action=xml: ZIP entry path. Default "word/document.xml". Examples: "word/comments.xml", "word/styles.xml", "word/header1.xml".'),
-    scale: z
-      .number()
-      .min(0.5)
-      .max(6)
+    scale: zn(z.number().min(0.5).max(6))
       .optional()
       .describe('For action=render: scale factor (≈ 72*scale DPI). Default 2 (≈144 DPI).'),
-    withRender: z
-      .boolean()
+    withRender: zb(z.boolean())
       .optional()
       .describe('For action=summary / outline / tables: also render the first (or requested) page and return PNG URLs alongside, so you can visually verify the structured result in one round-trip.'),
-    sampleSize: z
-      .number()
-      .min(1)
-      .max(20)
+    sampleSize: zn(z.number().min(1).max(20))
       .optional()
       .describe('For action=summary: number of pages to sample for detail counting. Default 3.'),
   }),
@@ -519,6 +479,8 @@ export const wordMutateToolDef = {
   name: 'Mutate Word',
   description:
     `Write operations on DOCX — 9 actions. Pick the one that matches the user's intent:
+
+🚨 PARAMETER FORMAT: array-valued params (\`content\`, \`ids\`, \`ops\`, \`runs\`) MUST be native JSON arrays — \`"content": [{...}]\`, NOT \`"content": "[{...}]"\`. Stringified JSON is auto-recovered with a warning but wastes a retry. \`filePath\` is always required (including \`action: "create"\`).
 
 GENERATION
 - \`create\` — build a new DOCX from structured \`content\` (heading / paragraph / table / bullet-list / numbered-list / image / page-break / toc / footnote-ref / hyperlink) plus optional top-level \`documentSettings\` (page size / orientation / margins / columns / default font / header / footer). CJK works natively (eastAsia font auto-injected). NO Unicode sub/superscript — use TextRun \`superscript\` / \`subscript\` flags.
@@ -582,16 +544,13 @@ Conventions:
       .string()
       .optional()
       .describe('For replace-text: replacement text. Supports $1, $2 backrefs when regex=true.'),
-    regex: z
-      .boolean()
+    regex: zb(z.boolean())
       .optional()
       .describe('For replace-text: interpret `find` as a regex. Default false.'),
-    matchCase: z
-      .boolean()
+    matchCase: zb(z.boolean())
       .optional()
       .describe('For replace-text: case-sensitive match. Default true.'),
-    wholeWord: z
-      .boolean()
+    wholeWord: zb(z.boolean())
       .optional()
       .describe('For replace-text: word-boundary match. Default false.'),
 
@@ -600,12 +559,10 @@ Conventions:
       .string()
       .optional()
       .describe('For add-image: local path or http(s) URL. The engine embeds bytes into word/media/ and registers rels.'),
-    imageWidthPx: z
-      .number()
+    imageWidthPx: zn(z.number())
       .optional()
       .describe('For add-image: display width in pixels (96 DPI). Omit to use natural size.'),
-    imageHeightPx: z
-      .number()
+    imageHeightPx: zn(z.number())
       .optional()
       .describe('For add-image: display height in pixels. Omit to preserve aspect ratio.'),
     imageAlt: z

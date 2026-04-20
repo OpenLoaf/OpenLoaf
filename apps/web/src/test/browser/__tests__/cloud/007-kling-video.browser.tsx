@@ -13,7 +13,7 @@ import { waitForChatComplete, waitForProbeResult, takeProbeScreenshot, aiJudge }
 
 const SERVER_URL = process.env.PROBE_SERVER_URL ?? 'http://127.0.0.1:23333'
 
-it('022 — Kling 视频生成：图生视频', async () => {
+it('cloud-007-kling-video — Kling 视频生成：图生视频', async () => {
   const prompt =
     '我想用 Kling 模型生成一段视频。先帮我生成一张海边日落的图片，然后把它做成一段 5 秒的视频，要有海浪涌动的效果'
 

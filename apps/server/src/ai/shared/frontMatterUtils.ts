@@ -74,9 +74,10 @@ export function stripFrontMatter(content: string): string {
 export type SkillFrontMatter = {
   name?: string
   description?: string
+  tools?: string[]
 }
 
-/** Parse YAML front matter from SKILL.md content, extracting name and description. */
+/** Parse YAML front matter from SKILL.md content, extracting name, description, and tools. */
 export function parseFrontMatter(content: string): SkillFrontMatter {
   const lines = content.split(/\r?\n/u)
   if (lines.length === 0) return {}
@@ -87,6 +88,8 @@ export function parseFrontMatter(content: string): SkillFrontMatter {
   let currentKey: 'name' | 'description' | null = null
   let blockMode: 'literal' | 'folded' | null = null
   let buffer: string[] = []
+  let inToolsList = false
+  const toolsBuffer: string[] = []
 
   const flushBlock = () => {
     if (!currentKey) return
@@ -107,6 +110,17 @@ export function parseFrontMatter(content: string): SkillFrontMatter {
       break
     }
 
+    // Handle block-style tools list items (`  - ToolName`)
+    if (inToolsList) {
+      const listItem = /^\s+-\s+(.+)$/u.exec(line)
+      if (listItem) {
+        const name = normalizeScalar(listItem[1] ?? '')
+        if (name) toolsBuffer.push(name)
+        continue
+      }
+      inToolsList = false
+    }
+
     if (currentKey && (line.startsWith(' ') || line.startsWith('\t') || line.trim() === '')) {
       buffer.push(line.replace(/^\s*/u, ''))
       continue
@@ -120,6 +134,19 @@ export function parseFrontMatter(content: string): SkillFrontMatter {
     if (!match) continue
     const key = match[1]
     const rawValue = (match[2] ?? '').trim()
+
+    if (key === 'tools') {
+      // Inline list: tools: [Foo, Bar]
+      const inline = /^\[(.+)\]$/u.exec(rawValue)
+      if (inline) {
+        result.tools = (inline[1] ?? '').split(',').map((s) => normalizeScalar(s)).filter(Boolean)
+      } else if (!rawValue) {
+        // Block list follows
+        inToolsList = true
+        result.tools = toolsBuffer
+      }
+      continue
+    }
 
     if (key !== 'name' && key !== 'description') continue
 

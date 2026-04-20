@@ -19,7 +19,7 @@ const SERVER_URL = process.env.PROBE_SERVER_URL ?? 'http://127.0.0.1:23333'
 const MODEL_ID = 'deepseek:OL-TX-003'
 const MODEL_SOURCE = 'cloud' as const
 
-it('035 — 非 vision 模型收到图片：降级走 Read', async () => {
+it('multimodal-009-non-vision-model-fallback — 非 vision 模型收到图片：降级走 Read', async () => {
   const sessionId = `chat_probe_035_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
   const userPrompt = '这张图是什么？尽量描述。'
 

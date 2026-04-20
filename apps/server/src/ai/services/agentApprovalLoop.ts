@@ -279,6 +279,12 @@ export async function runAgentStreamWithApproval(
       await appendToAgentHistory(agent, lastMsg)
     }
 
+    // 逻辑：用户拒绝时直接结束本轮，不再启动 LLM。
+    // AI 不应该在用户明确拒绝后用替代方式继续执行。
+    if (!approved) {
+      break
+    }
+
     // 重置输出并继续执行
     agent.outputText = ''
     agent.responseParts = []

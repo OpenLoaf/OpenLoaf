@@ -16,6 +16,7 @@ import { execSync } from 'node:child_process'
 import { homedir } from 'node:os'
 import { createHash } from 'node:crypto'
 import type { BrowserCommand } from 'vitest/node'
+import { getYamlPath } from './src/test/browser/test-case-paths.mjs'
 
 const root = dirname(fileURLToPath(import.meta.url))
 
@@ -225,7 +226,11 @@ const recordProbeRun: BrowserCommand<[any]> = async (_ctx, input) => {
 
   if (testCase) {
     if (!existsSync(TEST_CASES_DIR)) mkdirSync(TEST_CASES_DIR, { recursive: true })
-    const yamlPath = join(TEST_CASES_DIR, `${testCase}.yaml`)
+    // 走 getYamlPath：按 slug 前缀归入 test-cases/<suite>/ 子目录，suite 无法解析时抛错
+    // （禁止静默兜底到扁平根目录，避免产生孤儿 yaml）。
+    const yamlPath = getYamlPath(TEST_CASES_DIR, testCase)
+    const yamlDir = dirname(yamlPath)
+    if (!existsSync(yamlDir)) mkdirSync(yamlDir, { recursive: true })
     if (!existsSync(yamlPath)) {
       writeFileSync(yamlPath, [
         `name: ${testCase}`,
@@ -748,7 +753,8 @@ const saveTestData: BrowserCommand<[{
   if (!existsSync(dataDir)) mkdirSync(dataDir, { recursive: true })
   const fileName = (input.testCase || 'unknown').replace(/[^a-zA-Z0-9_-]/g, '_')
   const filePath = join(dataDir, `${fileName}.json`)
-  const yamlPath = join(TEST_CASES_DIR_ABS, `${input.testCase}.yaml`)
+  // 同 recordProbeRun：按 suite 子目录解析，避免读到扁平孤儿路径。
+  const yamlPath = getYamlPath(TEST_CASES_DIR_ABS, input.testCase)
   const spec = readTestCaseSpec(yamlPath) as { description: string | null; purpose: string | null }
 
   // ── DOM 快照单独落盘（不进 result.json）──
@@ -957,6 +963,10 @@ const WINDOW_W = Number(process.env.BROWSER_TEST_WINDOW_WIDTH) || 1600
 const WINDOW_H = Number(process.env.BROWSER_TEST_WINDOW_HEIGHT) || VIEWPORT_H + 90
 // Vitest Browser API port（默认 63315），storageState origin 需要用到
 const VITEST_BROWSER_API_PORT = Number(process.env.VITEST_BROWSER_API_PORT) || 63315
+// 是否走 headless 并行模式。headed 模式 vitest 一次只能展示 1 个窗口，跨文件必然串行；
+// headless 下单 instance 可以同时开多个浏览器 context 真并行（实测 ~3.5x 提速）。
+// 默认 headless（快），需要看 UI 调试时 export BROWSER_TEST_HEADLESS=0 切回 headed。
+const HEADLESS = process.env.BROWSER_TEST_HEADLESS !== '0'
 
 // ── Config ──
 
@@ -1003,8 +1013,6 @@ export default defineConfig({
       provider: 'playwright',
       instances: [{
         browser: 'chromium',
-        // 窗口尺寸 = viewport + Chromium toolbar（约 90px 高），让窗口贴合 viewport
-        // 不留空白。--ash-host-window-bounds 强制 ash 窗口尺寸（macOS Chromium）。
         viewport: { width: VIEWPORT_W, height: VIEWPORT_H },
         launch: {
           args: [
@@ -1033,7 +1041,7 @@ export default defineConfig({
         },
       }],
       viewport: { width: VIEWPORT_W, height: VIEWPORT_H },
-      headless: process.env.CI === 'true',
+      headless: HEADLESS,
       // 保留 Vitest runner UI（左侧测试列表），方便交互选测试
       screenshotDirectory: `${runDirAbs}/screenshots`,
       commands: {

@@ -69,6 +69,7 @@ function buildSkill(override: BuiltinSkillOverride): BuiltinSkill {
     contentEn: stripFrontMatter(override.mdEn) || undefined,
     icon: override.icon,
     colorIndex: override.colorIndex,
+    tools: fm.tools,
   }
 }
 

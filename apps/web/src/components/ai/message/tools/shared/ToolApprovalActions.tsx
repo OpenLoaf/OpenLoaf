@@ -277,16 +277,11 @@ export default function ToolApprovalActions({ approvalId, size = "sm" }: ToolApp
           // 中文注释：子代理审批走前端 ack 回传，阻塞子代理工具继续执行。
           await postSubAgentApprovalAck(false, subAgentToolCallId);
         } else {
+          // 中文注释：用户明确拒绝 → 本轮对话直接结束，不触发 LLM 续发。
+          // AI 不应在用户拒绝后换用替代工具继续执行。
+          // 只需把拒绝态落库，不调用 continueAfterToolApprovals。
           await addToolApprovalResponse({ id: approvalId, approved: false });
-          // 中文注释：必须先 queue {approved:false} 再 continue —— 后端才能把
-          // approval-requested tool part 原地改写成 output-available(output={approved:false})
-          // 喂给 LLM，让 LLM 感知"用户拒绝"并作出响应（否则整段 tool part 被删，
-          // 表现为"点拒绝没反应"）。
-          queueToolApprovalPayload(toolCallId, { approved: false });
-          await continueAfterToolApprovals();
-          clearToolApprovalPayload(toolCallId);
           if (approvalUpdate) {
-            // 中文注释：拒绝审批后立即落库，避免刷新后仍显示“待审批”。
             try {
               await updateApprovalMutation.mutateAsync({
                 sessionId,
@@ -294,7 +289,7 @@ export default function ToolApprovalActions({ approvalId, size = "sm" }: ToolApp
                 parts: approvalUpdate.nextParts as any,
               });
             } catch {
-              // 中文注释：落库失败时保留本地状态，避免阻断拒绝流程。
+              // 落库失败时保留本地状态
             }
           }
         }
@@ -313,10 +308,6 @@ export default function ToolApprovalActions({ approvalId, size = "sm" }: ToolApp
       updateApprovalMutation,
       postSubAgentApprovalAck,
       toolSnapshot?.subAgentToolCallId,
-      queueToolApprovalPayload,
-      clearToolApprovalPayload,
-      continueAfterToolApprovals,
-      toolCallId,
     ],
   );
 

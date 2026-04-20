@@ -2,6 +2,7 @@
 name: calendar-ops-skill
 description: >
   当用户要对真实日历数据做查询或增删改时触发：看今天/本周安排、查冲突、建会议、改时间、删日程。典型说法"我明天几点开会"、"帮我约 xx"、"schedule a meeting"。**不用于**：对话里口头提到时间或倒计时（→直接回答）、周期性后台任务如"每天 9 点跑脚本"（→schedule-ops-skill）。
+tools: [CalendarQuery, CalendarMutate]
 ---
 
 # 日历操作技能

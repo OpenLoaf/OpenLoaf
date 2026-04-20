@@ -206,7 +206,14 @@
     "ScheduledTaskManage": "Scheduled Task Manage",
     "ScheduledTaskStatus": "Scheduled Task Status",
     "ScheduledTaskWait": "Wait for Scheduled Task",
-    "SubmitPlan": "Submit Plan"
+    "SubmitPlan": "Submit Plan",
+    "WordInspect": "Word Inspect",
+    "ExcelInspect": "Excel Inspect",
+    "CloudImageGenerate": "Cloud Image Generate",
+    "CloudImageEdit": "Cloud Image Edit",
+    "CloudVideoGenerate": "Cloud Video Generate",
+    "CloudImageUnderstand": "Cloud Image Understand",
+    "CloudSpeechRecognize": "Cloud Speech Recognize"
   },
   "bgNotification": {
     "taskCompleted": "Background task completed",

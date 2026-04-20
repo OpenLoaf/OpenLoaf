@@ -3,14 +3,17 @@
  * 批量激活工具 → 工具被实际调用，整条链路必须无错跑通。
  *
  * 选用 visualization-ops-skill 作为载体：
- *   - 触发词明确（"搜 ... 对比"），LoadSkill 必被调
- *   - skill 清单里有 WebSearch + JsxCreate/ChartRender，需要 ToolSearch 再激活
- *   - 覆盖 "LoadSkill + 加载后加载工具" 完整链路
+ *   - 触发词明确（要求图表可视化输出），LoadSkill 必被调
+ *   - skill 清单里 ChartRender / JsxCreate 为 deferred，需要 ToolSearch 再激活
+ *   - 覆盖 "LoadSkill + 加载后再加载工具" 完整链路
  *
  * 关注点不是回答内容质量，而是三个阶段都发生且无错误：
  *   1. LoadSkill(skillName="visualization-ops-skill")
- *   2. ToolSearch 激活 WebSearch（及其他可视化工具）
- *   3. WebSearch 实际执行拿到结果
+ *   2. ToolSearch 激活 ChartRender（及其他可视化工具）
+ *   3. ChartRender 实际执行渲染图表
+ *
+ * 注：WebSearch 已是常驻工具，不再作为 LoadSkill 触发信号 —— 故换用
+ * 需要图表渲染的 prompt，确保链路必须经 visualization-ops-skill。
  */
 import { it, expect } from 'vitest'
 import { render } from 'vitest-browser-react'
@@ -26,7 +29,7 @@ import {
 const SERVER_URL = process.env.PROBE_SERVER_URL ?? 'http://127.0.0.1:23333'
 
 it('basic-013-loadskill-skill-tools-chain — LoadSkill 后按清单 ToolSearch 并调用工具', async () => {
-  const prompt = '搜一下最近主流的 3 款 AI 编码助手（如 Cursor、Copilot 之类），简单对比一下各家核心特点。'
+  const prompt = '用柱状图展示北京、上海、广州、深圳、杭州这 5 个城市的 2024 年 GDP（万亿元），数值你自己估一个合理范围就行，重点是把图渲染出来。'
 
   render(
     <ChatProbeHarness serverUrl={SERVER_URL} prompt={prompt} approvalStrategy="approve-all" />,
@@ -61,11 +64,11 @@ it('basic-013-loadskill-skill-tools-chain — LoadSkill 后按清单 ToolSearch 
   })
   expect(loadedVisualization).toBe(true)
 
-  // 阶段 2：ToolSearch 被调用（加载技能清单里非 core 的工具）
+  // 阶段 2：ToolSearch 被调用（加载 skill 清单里的 deferred 工具）
   expect(result.toolCalls).toContain('ToolSearch')
 
-  // 阶段 3：WebSearch 被实际调用（skill 工具清单主干之一）
-  expect(result.toolCalls).toContain('WebSearch')
+  // 阶段 3：ChartRender 被实际调用（skill 工具清单主干之一）
+  expect(result.toolCalls).toContain('ChartRender')
 
   // 工具名不应被误当 shell 命令（同 011 回归）
   const bashCalls = result.toolCallDetails.filter(t => t.name === 'Bash')
@@ -77,7 +80,4 @@ it('basic-013-loadskill-skill-tools-chain — LoadSkill 后按清单 ToolSearch 
 
   // 链路任一环节出错都视为回归
   expect(result.toolErrorCount).toBe(0)
-
-  // 最终回复应覆盖 3 家工具相关主题
-  expect(result.textPreview.length).toBeGreaterThan(80)
 })

@@ -14,7 +14,7 @@ import { waitForChatComplete, waitForProbeResult, takeProbeScreenshot, aiJudge }
 
 const SERVER_URL = process.env.PROBE_SERVER_URL ?? 'http://127.0.0.1:23333'
 
-it('007 — 大 PDF 分段读取：内容关键词和结构化分析', async () => {
+it('file-read-013-docpreview-pdf-paged — 大 PDF 分段读取：内容关键词和结构化分析', async () => {
   const sessionId = `chat_probe_007_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
   const userPrompt =
     '这份手册太长了，请先快速浏览一下，告诉我：1) 这本手册的主题是什么？2) 大概有哪些核心章节或部分？3) 这本手册面向什么样的读者？'

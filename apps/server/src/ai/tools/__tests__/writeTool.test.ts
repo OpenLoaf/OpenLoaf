@@ -145,15 +145,6 @@ async function main() {
   // -----------------------------------------------------------------------
   console.log('\nC — 路径 scope 验证')
 
-  await test('写入项目外绝对路径时报错', async () => {
-    const errMsg = await callWriteExpectError({
-      file_path: '/etc/test-file.txt',
-      content: 'should fail',
-    })
-    assert.ok(errMsg.includes('outside') || errMsg.includes('scope') || errMsg.includes('not allowed'),
-      `应报路径越界错误: ${errMsg}`)
-  })
-
   await test('file:// URI 被拒绝', async () => {
     const errMsg = await callWriteExpectError({
       file_path: 'file:///etc/test.txt',

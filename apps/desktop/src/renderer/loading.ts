@@ -19,17 +19,19 @@ logger.info("Loading screen active");
 
 // Initialize the loading logo and edition branding once the DOM is ready.
 document.addEventListener("DOMContentLoaded", () => {
-  // 标记平台：仅 Windows/Linux 显示自绘关闭按钮，Mac 依赖原生红绿灯。
-  document.body.dataset.platform = process.platform;
-
   const logo = document.getElementById("loading-logo") as HTMLImageElement | null;
   if (!logo) {
     logger.warn("Loading logo element missing");
-    return;
+  } else {
+    // 使用打包后的资源路径，避免开发态出现 404。
+    logo.src = logoUrl;
   }
 
-  // 使用打包后的资源路径，避免开发态出现 404。
-  logo.src = logoUrl;
+  // 标记平台：仅 Windows/Linux 显示自绘关闭按钮，Mac 依赖原生红绿灯。
+  // renderer 开了 contextIsolation，不能读 process.platform，改用 userAgent 推断。
+  const ua = navigator.userAgent.toLowerCase();
+  const platform = ua.includes("win") ? "win32" : ua.includes("linux") ? "linux" : "darwin";
+  document.body.dataset.platform = platform;
 
   // 根据 edition 更新页面标题和加载文本。
   const titleEl = document.getElementById("loading-title");

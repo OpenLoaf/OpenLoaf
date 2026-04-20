@@ -20,7 +20,7 @@ import {
 
 const SERVER_URL = process.env.PROBE_SERVER_URL ?? 'http://127.0.0.1:23333'
 
-it('010 — AI 介入式审批：Write 工具触发审批，逐个决策', async () => {
+it('approval-001-interactive-approval — AI 介入式审批：Write 工具触发审批，逐个决策', async () => {
   const prompt = '请用 Write 工具在 /tmp 目录下创建一个名为 probe_test_010.txt 的文件，内容写 "hello from probe test"。'
 
   render(

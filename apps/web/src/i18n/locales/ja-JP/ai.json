@@ -206,7 +206,14 @@
     "ScheduledTaskManage": "スケジュールタスク管理",
     "ScheduledTaskStatus": "スケジュールタスク状態",
     "ScheduledTaskWait": "スケジュールタスクを待機",
-    "SubmitPlan": "プランを提出"
+    "SubmitPlan": "プランを提出",
+    "WordInspect": "Word分析",
+    "ExcelInspect": "Excel分析",
+    "CloudImageGenerate": "クラウド画像生成",
+    "CloudImageEdit": "クラウド画像編集",
+    "CloudVideoGenerate": "クラウド動画生成",
+    "CloudImageUnderstand": "画像理解",
+    "CloudSpeechRecognize": "音声認識"
   },
   "bgNotification": {
     "taskCompleted": "バックグラウンドタスクが完了しました",

@@ -165,6 +165,7 @@ export const cloudMediaSkill: BuiltinSkill = {
     'Trigger when the user asks to generate or process cloud AI media (image/video/voice), or to understand media content (OCR / image caption / speech recognition). Typical: "draw a picture", "generate a video", "synthesize voice", "recognize this text", "speech to text", "look at this image". Not for: translation (chat model handles free), short pasted text processing (chat model handles directly), and **cases where the current model can already natively see/hear the media** — check each message\'s trailing `<system-tag type="msg-context">` `native-inputs`; if the modality is already listed there, observe the media part in the message directly instead of detouring through CloudImageUnderstand/CloudSpeechRecognize.',
   icon: '☁️',
   colorIndex: 2,
+  tools: ['CloudImageGenerate', 'CloudImageEdit', 'CloudVideoGenerate', 'CloudImageUnderstand', 'CloudSpeechRecognize'],
   content: renderMediaContent(), // initial placeholder content (before first refresh)
 }
 

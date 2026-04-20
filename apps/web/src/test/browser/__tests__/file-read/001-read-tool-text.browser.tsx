@@ -10,7 +10,7 @@ import { waitForChatComplete, waitForProbeResult, takeProbeScreenshot } from '..
 
 const SERVER_URL = process.env.PROBE_SERVER_URL ?? 'http://127.0.0.1:23333'
 
-it('001 — Read 纯文本，回复总结会议纪要', async () => {
+it('file-read-001-read-tool-text — Read 纯文本，回复总结会议纪要', async () => {
   const sessionId = `chat_probe_001_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
   const userPrompt = '请用 Read 工具读取附件里的文本文件，告诉我这份会议纪要主要讨论了什么内容，有哪些关键结论。'
 

@@ -305,10 +305,22 @@ for (const yamlPath of walkYamlPaths(testCasesDir)) {
   } catch { /* skip malformed yaml */ }
 }
 
-/** 按 probeKey（完整 slug）或测试名前缀查 yaml 档案，给 purpose/description 做兜底。 */
-function findTestCaseYaml(probeKey, testName, fullName) {
+/** 按 probeKey（完整 slug）/ 测试文件路径 / 测试名前缀 查 yaml 档案。
+ * 失败用例 probe 缺失时 probeKey=null，只能靠测试文件 basename（如 `001-interactive-approval`）
+ * 匹配 yaml 文件名，或者按 `NNN` 前缀在 suite 目录里兜底。 */
+function findTestCaseYaml(probeKey, testName, fullName, filePath) {
   if (probeKey && testCaseBySlug.has(probeKey)) return testCaseBySlug.get(probeKey)
-  // 按 `NNN` 前缀兜底（单数字段前缀下 test-cases 目录里通常唯一）
+  // 用 .browser.tsx 文件路径推导 suite-basename（同 saveTestData 的 testCase key 约定）
+  // 例 __tests__/approval/001-interactive-approval.browser.tsx → approval-001-interactive-approval
+  if (filePath) {
+    const m = String(filePath).match(/__tests__\/(.+)\.browser\.tsx?$/)
+    if (m) {
+      const fullSlug = m[1].replace(/\//g, '-')
+      if (testCaseBySlug.has(fullSlug)) return testCaseBySlug.get(fullSlug)
+    }
+    const base = String(filePath).split('/').pop()?.replace(/\.browser\.tsx?$/, '') ?? ''
+    if (base && testCaseBySlug.has(base)) return testCaseBySlug.get(base)
+  }
   const prefix = extractTestCasePrefix(testName ?? fullName)
   if (prefix && testCaseByPrefix.has(prefix)) return testCaseByPrefix.get(prefix)
   return null
@@ -346,7 +358,10 @@ function colorizeJson(raw) {
   if (raw === null || raw === undefined) return ''
   let s = String(raw).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   // 1) string（含 key 与 value）— key 后面紧跟 `:`，没跟则视为 value
-  s = s.replace(/"((?:\\u[a-fA-F0-9]{4}|\\.|[^"\\])*)"(\s*:)?/g, (_m, body, colon) => {
+  // 用经典线性"unrolled"模式：`[^"\\]*(?:\\.[^"\\]*)*` 不会 catastrophic backtracking。
+  // 之前用 `(?:\\u[a-fA-F0-9]{4}|\\.|[^"\\])*` 在不完整/截断的 JSON（含未闭合 `"` 的
+  // tool output）上会指数级回溯，单 case 卡死 10 分钟以上。
+  s = s.replace(/"([^"\\]*(?:\\.[^"\\]*)*)"(\s*:)?/g, (_m, body, colon) => {
     const cls = colon ? 'j-key' : 'j-str'
     return `<span class="${cls}">"${body}"</span>` + (colon || '')
   })
@@ -861,7 +876,7 @@ function renderTestSplit(test, idx) {
   // 测试目的 —— 从 yaml 的 purpose block scalar 读，既给 evaluator 也给人看。
   // 失败用例 probe/run 常缺失，fallback 到 test-cases/<slug>.yaml（含失败也一定能显示目的）。
   // 该区块不再渲染到主 body —— 已搬到右侧 aside 顶部（见 purposeAsideHtml）。
-  const yamlDoc = findTestCaseYaml(probeKey, test.name, fullName)
+  const yamlDoc = findTestCaseYaml(probeKey, test.name, fullName, test.__filePath)
   const purpose = probe?.purpose ?? run?.purpose ?? yamlDoc?.purpose
   const specDescription = probe?.specDescription ?? run?.specDescription ?? probe?.description ?? yamlDoc?.description
 
@@ -1297,7 +1312,19 @@ function renderTestSplit(test, idx) {
     ${historyTemplateHtml}
   </section>`
 
-  return { nav, panel }
+  // Stage 2：每个 case 单独写一份 HTML，slug 是文件名。优先级：
+  //   1) probeKey（saveTestData 写入的 testCase key）— 与 data/*.json / yaml 完全对齐
+  //   2) 测试文件路径派生的 suite-basename（失败用例 probe 缺失时唯一稳定 key）
+  //      例 __tests__/approval/001-interactive-approval.browser.tsx → approval-001-interactive-approval
+  //   3) 测试名 / idx 兜底
+  let slug = probeKey
+  if (!slug && test.__filePath) {
+    const m = String(test.__filePath).match(/__tests__\/(.+)\.browser\.tsx?$/)
+    if (m) slug = m[1].replace(/\//g, '-')
+  }
+  if (!slug) slug = fullName || `case-${idx}`
+  slug = String(slug).replace(/[^a-zA-Z0-9_-]/g, '_')
+  return { nav, panel, slug, idx, status: test.status }
 }
 
 // 截图分配函数已移除：DOM 快照取代 PNG 截图后，aside-shots 区不再渲染。
@@ -1748,22 +1775,94 @@ table th{background:#f8fafc;color:#475569;font-weight:500;font-size:10px;text-tr
 .lightbox-single .lightbox-prev,.lightbox-single .lightbox-next,.lightbox-single .lightbox-counter{display:none}
 `
 
-const split = allTests.map((t, i) => renderTestSplit(t, i))
-const navHtml = split.map(s => s.nav).join('')
-const panelsHtml = split.map(s => s.panel).join('')
+// Stage 2 流式：边渲染边落盘，让 51 case 的大 run 可以看到实时进度。
+// 之前 split.map 一次跑完 51 case 才进入写盘环节，没有任何中间产出。
+// 默认就开 progress 日志 —— 让 `pnpm test:browser:report` 跑起来用户能看到进度，
+// 不用再依赖环境变量；卡住时一眼能看出卡在哪个 case 上。
+const split = []
+for (let i = 0; i < allTests.length; i++) {
+  const t = allTests[i]
+  process.stdout.write(`[gen ${String(i + 1).padStart(2)}/${allTests.length}] ${(t.fullName ?? t.name ?? t.title ?? '?').slice(0, 60)}\n`)
+  const t0 = Date.now()
+  const s = renderTestSplit(t, i)
+  split.push(s)
+  const dt = Date.now() - t0
+  if (dt > 100) process.stdout.write(`             ↳ ${s.slug}  ${dt}ms\n`)
+}
 
-const runHtml = `<!DOCTYPE html>
+// Stage 2：把原本一个 button 的 nav 转成 anchor，指向 cases/<slug>.html。
+// 同 slug 在多个 nav item 中只取首个（理论上不会重复，但 fullName 兜底可能撞）。
+// activeSlug 命中的 anchor 加 active 类，让 case 页打开时左侧高亮当前 case。
+//
+// pageContext='index' → href = `cases/<slug>.html`
+// pageContext='case'  → href = `<slug>.html`（同目录兄弟链接）
+function buildNavHtml(pageContext, activeSlug) {
+  return split.map(s => {
+    const href = pageContext === 'case' ? `${s.slug}.html` : `cases/${s.slug}.html`
+    const isActive = activeSlug === s.slug
+    // 把 renderTestSplit 输出的 <button class="nav-item ..." data-idx data-status> ... </button>
+    // 整体替换 button → a，加 href / 可选 active 类。属性不破坏 data-idx/data-status，
+    // 历史 nav 脚本仍能用 data-status 找首个 failed。
+    return s.nav
+      .replace(/^<button class="(nav-item[^"]*)"/, `<a class="$1${isActive ? ' active' : ''}" href="${href}"`)
+      .replace(/<\/button>$/, '</a>')
+  }).join('')
+}
+
+// 主页 sidebar 的 back 链接：
+//   - 主 index.html 在 <runDir>/index.html → ../index.html
+//   - 单 case 在 <runDir>/cases/<slug>.html → ../../index.html
+function backHrefFor(pageContext) {
+  return pageContext === 'case' ? '../../index.html' : '../index.html'
+}
+
+// detail-host 内容：case 页放当前 panel（去掉 hidden），index 页放概览
+function buildOverviewMain() {
+  if (split.length === 0) return '<div class="detail-empty">没有测试数据</div>'
+  // 简单概览：列出所有 case 的标题 + 状态，提示用户从左侧 nav 点开
+  const items = split.map(s => {
+    const cls = s.status === 'passed' ? 'pass' : s.status === 'failed' ? 'fail' : 'skip'
+    const icon = s.status === 'passed' ? '✓' : s.status === 'failed' ? '✗' : '?'
+    return `<li class="ov-item ov-${cls}"><a href="cases/${s.slug}.html"><span class="ov-icon">${icon}</span><span class="ov-slug">${esc(s.slug)}</span></a></li>`
+  }).join('')
+  return `<div class="overview">
+    <div class="overview-head"><h2>📋 ${split.length} 个测试用例</h2><p class="overview-hint">点左侧 nav 或下方列表查看单个用例详情</p></div>
+    <ul class="overview-list">${items}</ul>
+  </div>`
+}
+
+const overviewStyles = `
+.overview{padding:20px 24px;max-width:780px}
+.overview-head{margin-bottom:16px}
+.overview-head h2{font-size:16px;font-weight:600;margin-bottom:4px}
+.overview-hint{font-size:12px;color:#64748b}
+.overview-list{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:4px}
+.ov-item a{display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid #e5e7eb;border-radius:6px;text-decoration:none;color:#1a1a1a;background:#fff}
+.ov-item a:hover{background:#f8fafc;border-color:#cbd5e1}
+.ov-item.ov-pass{border-left:3px solid #16a34a}
+.ov-item.ov-fail{border-left:3px solid #dc2626}
+.ov-item.ov-skip{border-left:3px solid #cbd5e1}
+.ov-icon{width:14px;font-weight:700;font-family:Menlo,Monaco,monospace}
+.ov-pass .ov-icon{color:#16a34a}
+.ov-fail .ov-icon{color:#dc2626}
+.ov-slug{font-family:Menlo,Monaco,monospace;font-size:12px}
+`
+
+function buildPage({ pageContext, activeSlug, mainHtml }) {
+  const navHtml = buildNavHtml(pageContext, activeSlug)
+  const back = backHrefFor(pageContext)
+  return `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
-<title>Test Report ${fmtTs(runTs)}</title>
-<style>${styles}</style>
+<title>Test Report ${fmtTs(runTs)}${activeSlug ? ' — ' + esc(activeSlug) : ''}</title>
+<style>${styles}${overviewStyles}</style>
 </head>
 <body>
 <div class="app">
   <aside class="sidebar">
     <div class="sidebar-head">
-      <a class="back" href="../index.html">← All Runs</a>
+      <a class="back" href="${back}">← All Runs</a>
       <div class="sidebar-title-row">
         <h1>测试报告</h1>
         <span class="summary ${statusCls}">${statusIcon} ${passed}/${total}${failed ? ` · ${failed} 失败` : ''}</span>
@@ -1793,7 +1892,7 @@ const runHtml = `<!DOCTYPE html>
     </section>
   </aside>
   <main class="detail-host" id="detail-host">
-    ${panelsHtml || '<div class="detail-empty">没有测试数据</div>'}
+    ${mainHtml || '<div class="detail-empty">没有测试数据</div>'}
   </main>
 </div>
 <div class="lightbox" id="lightbox" hidden>
@@ -1863,7 +1962,9 @@ const runHtml = `<!DOCTYPE html>
       if (items[i].dataset.status === 'failed') { initial = i; break }
     }
   }
-  if (items.length) select(initial)
+  // Stage 2：单 case 页只有 1 个 panel（已默认可见），跳过 select 防止把它意外隐藏。
+  // nav 现在是 <a>，点击直接跳转新 case 页，不依赖此处 toggle 逻辑。
+  if (items.length && panels.length > 1) select(initial)
 
   // Lightbox：图片点击预览 + 多张时左右切换
   var lb = document.getElementById('lightbox')
@@ -2104,8 +2205,36 @@ const runHtml = `<!DOCTYPE html>
 </script>
 </body>
 </html>`
+}
 
-writeFileSync(join(runDir, 'index.html'), runHtml, 'utf-8')
+// ── Stage 2 写盘：每 case 一个 cases/<slug>.html + 主 index.html 退化为概览 ──
+// 之前所有 panel 内联在 index.html 里 → 51 case 的 run 生成 10 分钟、HTML 几十 MB。
+// 现在每 case 独立成文件，主 index 只剩 nav + overview，大文件分摊到 51 个小文件。
+const casesDir = join(runDir, 'cases')
+if (!existsSync(casesDir)) mkdirSync(casesDir, { recursive: true })
+process.stdout.write(`[write] 写 ${split.length} 个 cases/<slug>.html\n`)
+for (let i = 0; i < split.length; i++) {
+  const s = split[i]
+  // panel 模板里带 hidden 属性（主 index 多 panel 切换用），单 case 页只有自己的
+  // panel，需要去掉 hidden 让默认可见。data-idx 保留供 select() 脚本兜底匹配。
+  // 同时 panel 里 iframe src="data/..." 和 img src="screenshots/..." 是相对 <runDir>/
+  // 的路径，case 页位于 <runDir>/cases/ 下要前缀 ../。dom.html 内部的 shared-styles
+  // 引用 ../../shared-styles/ 是相对 dom.html 自身位置，无需改。
+  const panelVisible = s.panel
+    .replace(/^<section class="detail-panel" data-idx="(\d+)" hidden>/, '<section class="detail-panel" data-idx="$1">')
+    .replace(/(\bsrc=")(data\/)/g, '$1../$2')
+    .replace(/(\bsrc=")(screenshots\/)/g, '$1../$2')
+  const t0 = Date.now()
+  const html = buildPage({ pageContext: 'case', activeSlug: s.slug, mainHtml: panelVisible })
+  writeFileSync(join(casesDir, `${s.slug}.html`), html, 'utf-8')
+  const dt = Date.now() - t0
+  if (dt > 200) {
+    process.stdout.write(`[write ${String(i + 1).padStart(2)}/${split.length}] ${s.slug}.html  ${(html.length / 1024).toFixed(0)}KB  ${dt}ms\n`)
+  }
+}
+process.stdout.write(`[write] 写主 index.html\n`)
+const indexHtml = buildPage({ pageContext: 'index', activeSlug: null, mainHtml: buildOverviewMain() })
+writeFileSync(join(runDir, 'index.html'), indexHtml, 'utf-8')
 
 // ── 主页索引：所有 run ──
 // computeRunInfo: 提取单个 run 的概览数据（passed/failed/credits/tokens/models/testItems）。
@@ -2443,11 +2572,20 @@ function rebuildHomeIndex() {
   ]
   const caseEntries = orderedSuites.flatMap(s => groupedCases.get(s) ?? [])
 
-  // suite 表头：展示 suite 名 + 该组案例数 + 汇总（pass / fail 次数）
+  // suite 表头：展示 suite 名 + 该组案例数 + 汇总（pass / fail 次数）+ 最新通过率
   const suiteHeaderHtml = (suite, entries) => {
     const totalRuns = entries.reduce((a, e) => a + e.runs.length, 0)
     const passRuns = entries.reduce((a, e) => a + e.runs.filter(r => r.ok).length, 0)
     const failRuns = entries.reduce((a, e) => a + e.runs.filter(r => r.status === 'failed').length, 0)
+    // 「最新通过率」：仅看每个有运行记录的 case 的最新一次（runs[0]，已按最新在前排序）
+    const entriesWithRuns = entries.filter(e => e.runs.length > 0)
+    const latestPass = entriesWithRuns.filter(e => e.runs[0].ok).length
+    const latestTotal = entriesWithRuns.length
+    const latestPct = latestTotal > 0 ? Math.round((latestPass / latestTotal) * 100) : null
+    const latestCls = latestPct === null ? 'gray' : latestPct === 100 ? 'c-pass' : latestPct >= 50 ? 'c-warn' : 'c-fail'
+    const latestHtml = latestPct === null
+      ? ''
+      : `<span class="suite-latest ${latestCls}" title="最新一次的通过率：${latestPass}/${latestTotal}">最新 ${latestPct}% (${latestPass}/${latestTotal})</span>`
     const label = suite === '__misc__' ? '未分组' : suite
     const summary = totalRuns === 0
       ? '<span class="gray">暂无运行</span>'
@@ -2455,7 +2593,7 @@ function rebuildHomeIndex() {
         ? `<span class="c-pass">${passRuns} pass</span> · <span class="c-fail">${failRuns} fail</span>`
         : `<span class="c-pass">${passRuns} pass</span>`
     return `<tr class="suite-header">
-      <td colspan="3"><strong>${esc(label)}</strong> <span class="suite-count">· ${entries.length} 个案例 · ${summary}</span></td>
+      <td colspan="3"><div class="suite-header-row"><span class="suite-header-left"><strong>${esc(label)}</strong> <span class="suite-count">· ${entries.length} 个案例 · ${summary}</span></span>${latestHtml}</div></td>
     </tr>`
   }
 
@@ -2473,8 +2611,12 @@ function rebuildHomeIndex() {
       const cls = r.ok ? 'tn-ok' : r.status === 'failed' ? 'tn-fail' : 'tn-skip'
       const icon = r.ok ? '✓' : r.status === 'failed' ? '✗' : '?'
       const tsLabel = fmtTs(r.ts)
-      const linkHtml = r.hasReport
-        ? `<a href="${r.link}">${esc(tsLabel)}</a>`
+      // 优先跳到 case 详情页（cases/<slug>.html），不存在再退回 run 概览 index.html
+      const caseHtmlExists = existsSync(join(runsRoot, r.ts, 'cases', `${entry.caseKey}.html`))
+      const targetLink = caseHtmlExists ? `./${r.ts}/cases/${entry.caseKey}.html` : r.link
+      const hasLink = caseHtmlExists || r.hasReport
+      const linkHtml = hasLink
+        ? `<a href="${targetLink}">${esc(tsLabel)}</a>`
         : `<span>${esc(tsLabel)}</span>`
       return `<li class="${cls}${extraCls ? ' ' + extraCls : ''}"><span class="tn-icon">${icon}</span>${linkHtml}</li>`
     }
@@ -2518,7 +2660,7 @@ function rebuildHomeIndex() {
 <title>Browser Test — All Runs</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#fafafa;color:#1a1a1a;padding:24px;max-width:1400px;margin:0 auto}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#fafafa;color:#1a1a1a;padding:24px;max-width:1920px;margin:0 auto}
 h1{font-size:22px;font-weight:600;margin-bottom:6px}
 .meta{font-size:13px;color:#666;margin-bottom:16px}
 .tabs{display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid #e5e7eb}
@@ -2552,6 +2694,9 @@ tr.batch-ungrouped td{background:#f8fafc;border-left:3px solid #cbd5e1;color:#64
 .c-summary-extra .c-model-mixed{color:#6d28d9;background:#ede9fe;border:1px solid #ddd6fe;padding:1px 6px;border-radius:3px}
 .c-pass{color:#16a34a}
 .c-fail{color:#dc2626}
+.c-warn{color:#d97706}
+.suite-header-row{display:flex;align-items:center;justify-content:space-between;gap:16px;width:100%}
+.suite-latest{font-weight:500;text-transform:none;letter-spacing:normal;font-variant-numeric:tabular-nums;white-space:nowrap}
 .c-tests{max-width:900px}
 .c-case{min-width:260px}
 .case-desc{font-size:12px;color:#64748b;margin-top:4px;line-height:1.4}

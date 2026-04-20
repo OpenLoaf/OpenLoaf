@@ -15,10 +15,14 @@ export const docPreviewToolDef = {
   name: "Document Preview",
   description: `Fast preview / full extraction for Office documents (PDF / DOCX / XLSX / PPTX).
 
+**Default first choice for any "read / view / summarize Office document" intent** — no LoadSkill needed, this tool is always available. Returns Markdown content directly. For pure reads and format-neutral summaries this is faster than ExcelInspect / WordInspect / PdfInspect and way preferred over \`Bash + openpyxl / pandas / python-docx / pdfplumber\` (🚫 never do that on Office files).
+
 - mode='preview' (default): cheap local-only preview — page count / sheet list / slide titles / first-page snippet, typically <2KB
 - mode='full': complete Markdown body + extracted images written to {basename}_asset/
 - Auto-detects format from file extension / MIME. Use Read for text files; Read delegates office preview here automatically.
-- pageRange (PDF only) and sheetName (XLSX only) apply to both modes.`,
+- pageRange (PDF only) and sheetName (XLSX only) apply to both modes.
+
+When to escalate to ExcelInspect / WordInspect / PdfInspect instead: you need structured analysis (cell-level formulas / styles / merges, docx XML edits, pdf form fields, chart data ranges). For plain reads, stay here.`,
   parameters: z.object({
     file_path: z
       .string()

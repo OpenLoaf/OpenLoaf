@@ -15,7 +15,7 @@ import { waitForChatComplete, waitForProbeResult, takeProbeScreenshot, aiJudge }
 
 const SERVER_URL = process.env.PROBE_SERVER_URL ?? 'http://127.0.0.1:23333'
 
-it('029 — 纯本地图片处理：查看信息+转格式+灰度', async () => {
+it('media-process-003-local-image-process — 纯本地图片处理：查看信息+转格式+灰度', async () => {
   const sessionId = `chat_probe_029_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
   const userPrompt = '这张图片是什么格式的？分辨率多少？'
   const followUp = '帮我把它转成 png 格式，再弄成黑白的'

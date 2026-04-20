@@ -13,11 +13,11 @@ import { waitForChatComplete, waitForProbeResult, takeProbeScreenshot } from '..
 
 const SERVER_URL = process.env.PROBE_SERVER_URL ?? 'http://127.0.0.1:23333'
 // Qwen Flash — image + video + audio 全模态（来源：/api/ai/v3/capabilities/chat）
-const MODEL_ID = 'qwen:OL-TX-006'
+const MODEL_ID = 'qwen:OL-TX-008'
 const MODEL_SOURCE = 'cloud' as const
 const OVER_LIMIT_BYTES = 21 * 1024 * 1024 // > VIDEO_SIZE_LIMIT_BYTES (20MB)
 
-it('034 — 大视频超限 fallback：原生路径关闭，走工具链兜底', async () => {
+it('multimodal-007-large-video-fallback — 大视频超限 fallback：原生路径关闭，走工具链兜底', async () => {
   const sessionId = `chat_probe_034_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
   const userPrompt = '这段视频里有什么？'
 

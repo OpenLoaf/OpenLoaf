@@ -2,6 +2,7 @@
 name: pdf-skill
 description: >
   PDF 读/写/转/OCR 一体化。触发场景：总结 PDF、读文本或表格、填 AcroForm 表单、填扫描件/非 AcroForm 表格、渲染页面为图（用于 OCR / 可视化定位）、合并、拆分、加水印/机密章、遮罩敏感内容、创建新 PDF（发票/报告/凭证）、PDF ↔ docx/md/txt 互转。典型说法：“总结这份 PDF”、“填一下这个 PDF 表单”、“把这几个 PDF 合一起”、“PDF 加水印”、“PDF 转 Word”、“扫描件 OCR”、“看看 PDF 第 3 页长什么样”。用户提到 .pdf 文件、要产出 PDF、或要对 PDF 做任何改动都加载本技能。
+tools: [PdfInspect, PdfMutate, DocConvert]
 ---
 
 # PDF 技能

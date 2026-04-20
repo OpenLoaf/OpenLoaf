@@ -17,7 +17,8 @@ import { createMasterAgentRunner, createPMAgentRunner } from "@/ai";
 import { getTemplate, isTemplateId } from "@/ai/agent-templates";
 import { resolveChatModel } from "@/ai/models/resolveChatModel";
 import { resolveCliChatModelId } from "@/ai/models/cli/cliProviderEntry";
-import { extractTextFromParts } from "@/ai/services/chat/chatStreamUtils";
+import { extractTextFromParts, toSseChunk } from "@/ai/services/chat/chatStreamUtils";
+import { UI_MESSAGE_STREAM_HEADERS } from "ai";
 import {
   setChatModel,
   setChatModelDefinition,
@@ -678,6 +679,22 @@ export async function runChatStream(input: {
   }
   const parentMessageId = assistantParentUserId;
   setAssistantParentMessageId(parentMessageId);
+
+  // 逻辑：用户拒绝工具审批时（所有 payload 均为 approved=false），
+  // 前端已通过 updateMessageParts 把 tool part 落库为 output-denied。
+  // Server 无需再跑 LLM —— 直接结束本轮，避免 AI 换用替代工具绕过拒绝。
+  // 注意：返回空 SSE finish 而不是 204，确保 useChat 能正确关闭 isLoading 状态。
+  const approvalPayloads = input.request.toolApprovalPayloads;
+  if (approvalPayloads && typeof approvalPayloads === 'object') {
+    const entries = Object.values(approvalPayloads);
+    if (
+      entries.length > 0 &&
+      entries.every((p) => (p as Record<string, unknown>)?.approved === false)
+    ) {
+      const body = toSseChunk({ type: 'finish', finishReason: 'stop' });
+      return new Response(body, { headers: UI_MESSAGE_STREAM_HEADERS });
+    }
+  }
 
   let agentMetadata: Record<string, unknown> = {};
   let masterAgent: ReturnType<typeof createMasterAgentRunner>;

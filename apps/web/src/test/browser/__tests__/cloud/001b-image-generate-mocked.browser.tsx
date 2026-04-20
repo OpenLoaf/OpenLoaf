@@ -17,7 +17,7 @@ import { waitForChatComplete, waitForProbeResult, takeProbeScreenshot, aiJudge }
 
 const SERVER_URL = process.env.PROBE_SERVER_URL ?? 'http://127.0.0.1:23333'
 
-it('021b — Cloud 图片生成 (mock 回放)', async () => {
+it('cloud-001b-image-generate-mocked — Cloud 图片生成 (mock 回放)', async () => {
   const prompt = '帮我生成一张猫的图片'
 
   render(

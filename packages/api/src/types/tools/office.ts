@@ -46,6 +46,32 @@ export const jsonArrayPreprocess = (
   }
 }
 
+/**
+ * Auto-coerce stringified booleans ("true" / "false" / "1" / "0") into real
+ * booleans. Some LLMs insist on serializing primitives as strings; without
+ * this the zod check rejects them with "expected boolean, got string" and
+ * wastes a retry.
+ */
+export const stringBoolPreprocess = (val: unknown): unknown => {
+  if (typeof val !== 'string') return val
+  const t = val.trim().toLowerCase()
+  if (t === 'true' || t === '1') return true
+  if (t === 'false' || t === '0') return false
+  return val
+}
+
+/**
+ * Auto-coerce stringified numbers ("500" / "1.5") into real numbers.
+ * Mirrors stringBoolPreprocess for the same LLM-stringification pitfall.
+ */
+export const stringNumberPreprocess = (val: unknown): unknown => {
+  if (typeof val !== 'string') return val
+  const t = val.trim()
+  if (t === '') return val
+  const n = Number(t)
+  return Number.isFinite(n) ? n : val
+}
+
 /** Shared edit operation schema for Office documents (DOCX/XLSX/PPTX). */
 export const officeEditSchema = z.discriminatedUnion('op', [
   z.object({

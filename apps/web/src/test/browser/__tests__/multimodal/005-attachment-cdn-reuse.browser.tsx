@@ -18,10 +18,10 @@ import { waitForChatComplete, waitForProbeResult, takeProbeScreenshot } from '..
 
 const SERVER_URL = process.env.PROBE_SERVER_URL ?? 'http://127.0.0.1:23333'
 // Qwen Flash — image + video + audio 全模态（来源：/api/ai/v3/capabilities/chat）
-const MODEL_ID = 'qwen:OL-TX-006'
+const MODEL_ID = 'qwen:OL-TX-008'
 const MODEL_SOURCE = 'cloud' as const
 
-it('033 — CDN 跨轮复用：两轮都用原生 vision，url 回填 jsonl', async () => {
+it('multimodal-005-attachment-cdn-reuse — CDN 跨轮复用：两轮都用原生 vision，url 回填 jsonl', async () => {
   const sessionId = `chat_probe_033_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
   const prompt = '图里画的是什么？'
   const followUp = '那主色调偏什么颜色？'

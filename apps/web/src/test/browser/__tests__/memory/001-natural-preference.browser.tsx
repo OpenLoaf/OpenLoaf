@@ -21,7 +21,7 @@ import {
 } from '../../probe-helpers'
 
 const SERVER_URL = process.env.PROBE_SERVER_URL ?? 'http://127.0.0.1:23334'
-const MODEL_ID = 'qwen:OL-TX-006'
+const MODEL_ID = 'qwen:OL-TX-008'
 const MODEL_SOURCE = 'cloud' as const
 
 let memorySnapshot: unknown = null

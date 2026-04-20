@@ -38,14 +38,11 @@ const TOOL_TIMEOUT_MAP: Record<string, number> = {
   // Office document tools — ZIP I/O + XML parsing can be slow for large files
   'WordMutate': 120_000,
   'ExcelMutate': 120_000,
+  'ExcelInspect': 60_000,
   'PptxMutate': 120_000,
   'PdfMutate': 120_000,
   'PdfInspect': 120_000,
   'WordInspect': 120_000,
-  'WordQuery': 60_000,
-  'ExcelQuery': 60_000,
-  'PptxQuery': 60_000,
-  'PdfQuery': 60_000,
 
   // Agent collaboration — delegates to sub-agents which have their own lifecycle
   'Agent': 310_000,        // 同步模式需覆盖子 agent 的 5min 超时

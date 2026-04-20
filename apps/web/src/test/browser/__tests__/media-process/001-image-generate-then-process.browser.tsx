@@ -14,7 +14,7 @@ import { waitForChatComplete, waitForProbeResult, takeProbeScreenshot, aiJudge }
 
 const SERVER_URL = process.env.PROBE_SERVER_URL ?? 'http://127.0.0.1:23333'
 
-it('028 — 云端生图+本地处理：生成后转格式缩放', async () => {
+it('media-process-001-image-generate-then-process — 云端生图+本地处理：生成后转格式缩放', async () => {
   const prompt = '帮我生成一张日式拉面的图片，我要用来做公众号配图'
   const followUp = '图不错！但公众号要求 webp 格式而且不能超过 500x500，帮我转一下格式顺便缩小尺寸'
 

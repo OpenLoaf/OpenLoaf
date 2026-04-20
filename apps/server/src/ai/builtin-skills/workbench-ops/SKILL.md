@@ -2,6 +2,7 @@
 name: workbench-ops-skill
 description: >
   当用户要在 OpenLoaf 工作台 / 桌面上新增、修改、查看、删除 widget（桌面组件 / 小组件 / 仪表盘卡片）时触发。典型说法"加个天气 widget"、"做个番茄钟组件"、"改下这个 widget 的颜色"。**不用于**：聊天消息里一次性展示图表（→visualization-ops-skill）、AI 生成图片（→cloud-media-skill）、对话里随口提到"时钟 / 倒计时"（→直接回答）。
+tools: [WidgetInit, WidgetList, WidgetGet, WidgetCheck, GenerateWidget]
 ---
 
 # 工作台 Widget 管理

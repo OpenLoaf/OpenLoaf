@@ -13,7 +13,7 @@ import { waitForChatComplete, waitForProbeResult, takeProbeScreenshot, aiJudge }
 
 const SERVER_URL = process.env.PROBE_SERVER_URL ?? 'http://127.0.0.1:23333'
 
-it('024 — Kling 视频生成：无图片输入', async () => {
+it('cloud-009-kling-video-no-image — Kling 视频生成：无图片输入', async () => {
   const prompt = '用 Kling 帮我生成一段猫咪在草地上奔跑的视频，大概 5 秒就行'
 
   render(

@@ -8,7 +8,12 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import { z } from 'zod'
-import { jsonArrayPreprocess } from './office'
+import { jsonArrayPreprocess, stringBoolPreprocess, stringNumberPreprocess } from './office'
+
+/** Wrap a zod schema so LLM-stringified booleans ("true"/"false"/"0"/"1") are auto-coerced. */
+const zb = <T extends z.ZodTypeAny>(inner: T) => z.preprocess(stringBoolPreprocess, inner)
+/** Wrap a zod schema so LLM-stringified numbers ("123"/"1.5") are auto-coerced. */
+const zn = <T extends z.ZodTypeAny>(inner: T) => z.preprocess(stringNumberPreprocess, inner)
 
 // ---------------------------------------------------------------------------
 // Sub-schemas
@@ -18,14 +23,14 @@ const pdfContentItemSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('heading'),
     text: z.string(),
-    level: z.number().min(1).max(6).optional(),
+    level: zn(z.number().min(1).max(6)).optional(),
   }),
   z.object({
     type: z.literal('paragraph'),
     text: z.string(),
-    bold: z.boolean().optional(),
-    italic: z.boolean().optional(),
-    fontSize: z.number().optional(),
+    bold: zb(z.boolean()).optional(),
+    italic: zb(z.boolean()).optional(),
+    fontSize: zn(z.number()).optional(),
   }),
   z.object({
     type: z.literal('table'),
@@ -46,48 +51,46 @@ const pdfContentItemSchema = z.discriminatedUnion('type', [
 ])
 
 const pdfTextOverlaySchema = z.object({
-  page: z.number().min(1).describe('1-based.'),
-  x: z.number().describe('PDF points, origin at bottom-left.'),
-  y: z.number().describe('PDF points, origin at bottom-left.'),
+  page: zn(z.number().min(1)).describe('1-based.'),
+  x: zn(z.number()).describe('PDF points, origin at bottom-left.'),
+  y: zn(z.number()).describe('PDF points, origin at bottom-left.'),
   text: z.string(),
-  fontSize: z.number().optional().describe('Default 12.'),
+  fontSize: zn(z.number()).optional().describe('Default 12.'),
   color: z.string().optional().describe('Hex, e.g. "#FF0000". Default black.'),
   background: z
     .object({
       color: z.string().describe('Hex, e.g. "#FFFFFF" for white masking.'),
-      padding: z.number().optional().describe('Default 2.'),
-      width: z.number().optional(),
-      height: z.number().optional(),
+      padding: zn(z.number()).optional().describe('Default 2.'),
+      width: zn(z.number()).optional(),
+      height: zn(z.number()).optional(),
     })
     .optional()
     .describe('Background rectangle to mask existing content (visual redaction only — underlying text remains extractable).'),
 })
 
 const pdfVisualFieldSchema = z.object({
-  page: z.number().min(1),
+  page: zn(z.number().min(1)),
   entryBoundingBox: z
-    .array(z.number())
+    .array(zn(z.number()))
     .length(4)
     .describe('[x0, y0, x1, y1] in the coordinate system indicated by `coordSystem`.'),
   text: z.string(),
-  fontSize: z.number().optional().describe('Default 10.'),
+  fontSize: zn(z.number()).optional().describe('Default 10.'),
   color: z.string().optional().describe('Hex, e.g. "#000000". Default black.'),
   coordSystem: z
     .enum(['pdf', 'image'])
     .optional()
     .describe('Default "pdf" (origin bottom-left, y up). Use "image" when bbox came from a rendered PNG (origin top-left, y down).'),
-  imageWidth: z
-    .number()
+  imageWidth: zn(z.number())
     .optional()
     .describe('Required when coordSystem="image". The PNG width in pixels that the bbox was measured against.'),
-  imageHeight: z
-    .number()
+  imageHeight: zn(z.number())
     .optional()
     .describe('Required when coordSystem="image".'),
 })
 
 const pdfRotationSchema = z.object({
-  page: z.number().min(1),
+  page: zn(z.number().min(1)),
   degrees: z.union([
     z.literal(90),
     z.literal(180),
@@ -99,9 +102,9 @@ const pdfRotationSchema = z.object({
 })
 
 const pdfCropSchema = z.object({
-  page: z.number().min(1),
+  page: zn(z.number().min(1)),
   mediaBox: z
-    .array(z.number())
+    .array(zn(z.number()))
     .length(4)
     .describe('[x, y, width, height] in PDF points, origin bottom-left.'),
 })
@@ -116,6 +119,8 @@ export const pdfMutateToolDef = {
   name: 'Mutate Pdf',
   description:
     `Write operations on PDFs — 12 actions. Pick the one that matches the user's intent:
+
+🚨 PARAMETER FORMAT: array-valued params (\`content\`, \`visualFields\`, \`overlays\`, \`sourcePaths\`, \`pages\`, \`rotations\`, \`crops\`) MUST be native JSON arrays — \`"content": [{...}]\`, NOT \`"content": "[{...}]"\`. Stringified JSON is auto-recovered with a warning but wastes a retry.
 
 GENERATION
 - \`create\` — from-scratch PDF (heading / paragraph / table / bullet-list / numbered-list / page-break). CJK works natively (Noto Sans SC auto-loaded). NO Unicode sub/superscript — use ASCII.
@@ -206,13 +211,11 @@ Conventions:
       .describe('Required for merge. PDFs are concatenated in array order.'),
 
     // split
-    groupSize: z
-      .number()
-      .min(1)
+    groupSize: zn(z.number().min(1))
       .optional()
       .describe('For split: pages per part. Mutually exclusive with splitAt.'),
     splitAt: z
-      .preprocess(jsonArrayPreprocess, z.array(z.number().min(1)).optional())
+      .preprocess(jsonArrayPreprocess, z.array(zn(z.number().min(1))).optional())
       .describe('For split: page numbers where each NEW part starts (e.g. [4, 8] → parts 1-3, 4-7, 8-end). Mutually exclusive with groupSize.'),
 
     // extract-pages
@@ -240,25 +243,21 @@ Conventions:
       .string()
       .optional()
       .describe('For watermark type=text.'),
-    watermarkFontSize: z.number().optional().describe('Default 48.'),
+    watermarkFontSize: zn(z.number()).optional().describe('Default 48.'),
     watermarkColor: z.string().optional().describe('Hex, default "#888888".'),
-    watermarkOpacity: z
-      .number()
-      .min(0)
-      .max(1)
+    watermarkOpacity: zn(z.number().min(0).max(1))
       .optional()
       .describe('0..1, default 0.3.'),
-    watermarkAngle: z.number().optional().describe('Degrees, default -30 (diagonal up-right).'),
+    watermarkAngle: zn(z.number()).optional().describe('Degrees, default -30 (diagonal up-right).'),
     watermarkPdfPath: z.string().optional().describe('For watermark type=pdf: source PDF to stamp.'),
-    watermarkPdfPage: z.number().min(1).optional().describe('1-based page in the watermark PDF. Default 1.'),
+    watermarkPdfPage: zn(z.number().min(1)).optional().describe('1-based page in the watermark PDF. Default 1.'),
     watermarkPageRange: z
       .string()
       .optional()
       .describe('Which pages of the target PDF to watermark (e.g. "1-5"). Default all pages.'),
 
     // optimize
-    linearize: z
-      .boolean()
+    linearize: zb(z.boolean())
       .optional()
       .describe('For optimize: produce a web-optimized (non-object-stream) layout.'),
   }),
@@ -313,28 +312,19 @@ Coordinate system: PDF points, origin at bottom-left (y increases upward).`,
       .describe(
         'Required if the PDF is encrypted. summary returns isEncrypted=true when missing.',
       ),
-    withCoords: z
-      .boolean()
+    withCoords: zb(z.boolean())
       .optional()
       .describe('For action=text: include per-item bbox { x, y, width, height, str } alongside plain text.'),
-    extractImages: z
-      .boolean()
+    extractImages: zb(z.boolean())
       .optional()
       .describe('For action=images: when true, write PNGs to the session asset dir and return URLs; default false (metadata only).'),
-    scale: z
-      .number()
-      .min(0.5)
-      .max(6)
+    scale: zn(z.number().min(0.5).max(6))
       .optional()
       .describe('For action=render: scale factor (≈ 72*scale DPI). Default 2 (≈144 DPI, suitable for OCR / vision).'),
-    withRender: z
-      .boolean()
+    withRender: zb(z.boolean())
       .optional()
       .describe('For action=form-fields / form-structure / tables: also render the target pages and return PNG URLs alongside, so you can visually verify the structured result in one round-trip.'),
-    sampleSize: z
-      .number()
-      .min(1)
-      .max(20)
+    sampleSize: zn(z.number().min(1).max(20))
       .optional()
       .describe('For action=summary: number of pages to sample for textType detection. Default 3.'),
   }),

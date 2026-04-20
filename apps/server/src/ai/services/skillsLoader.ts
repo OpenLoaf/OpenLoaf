@@ -41,6 +41,8 @@ type SkillSummary = {
   hasMeta?: boolean;
   /** Emoji icon for the skill (from openloaf.json). */
   icon?: string;
+  /** Tool IDs this skill depends on. */
+  tools?: string[];
   /** Marketplace installation metadata (only present for marketplace-installed skills). */
   marketplace?: {
     skillId: string
@@ -86,6 +88,7 @@ export function loadSkillSummaries(input: {
       colorIndex: builtin.colorIndex,
       hasMeta: true,
       icon: builtin.icon,
+      tools: builtin.tools,
     };
     orderedNames.push(summary.originalName);
     summaryByName.set(summary.originalName, summary);

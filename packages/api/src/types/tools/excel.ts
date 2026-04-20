@@ -30,6 +30,16 @@
  *   - CellSpec re-uses the same zod schema for both create and update paths.
  */
 import { z } from 'zod'
+import { jsonArrayPreprocess, stringBoolPreprocess, stringNumberPreprocess } from './office'
+
+/** boolean field that accepts "true"/"false"/"1"/"0" strings from LLMs. */
+const coercedBool = () => z.preprocess(stringBoolPreprocess, z.boolean())
+/** non-negative int that accepts stringified numbers. */
+const coercedNonNegInt = () => z.preprocess(stringNumberPreprocess, z.number().int().min(0))
+/** positive int that accepts stringified numbers. */
+const coercedPosInt = () => z.preprocess(stringNumberPreprocess, z.number().int().positive())
+/** positive number (can be decimal) that accepts stringified numbers. */
+const coercedPosNumber = () => z.preprocess(stringNumberPreprocess, z.number().positive())
 
 // ---------------------------------------------------------------------------
 // CellSpec — shared cell shape (create + update)
@@ -190,11 +200,11 @@ const sheetSpecSchema = z.object({
   merges: z.array(rangeSchema).optional(),
   freeze: z
     .object({
-      rows: z.number().int().min(0).optional(),
-      cols: z.number().int().min(0).optional(),
+      rows: coercedNonNegInt().optional(),
+      cols: coercedNonNegInt().optional(),
     })
     .optional(),
-  columnWidths: z.record(z.string(), z.number().positive()).optional(),
+  columnWidths: z.record(z.string(), coercedPosNumber()).optional(),
   conditionalFormats: z.array(conditionalFormatRuleSchema).optional(),
 })
 
@@ -210,8 +220,8 @@ const imageSpecSchema = z.object({
   sheetName: sheetNameSchema,
   source: z.string().min(1),
   anchor: cellRefSchema,
-  widthPx: z.number().positive().optional(),
-  heightPx: z.number().positive().optional(),
+  widthPx: coercedPosNumber().optional(),
+  heightPx: coercedPosNumber().optional(),
 })
 
 // ---------------------------------------------------------------------------
@@ -221,7 +231,7 @@ const imageSpecSchema = z.object({
 const inspectSummarySchema = z.object({
   action: z.literal('summary'),
   filePath: filePathSchema,
-  withRender: z.boolean().optional(),
+  withRender: coercedBool().optional(),
 })
 
 const inspectReadSchema = z
@@ -231,11 +241,11 @@ const inspectReadSchema = z
     scope: z.enum(['sheet', 'range', 'outline']),
     sheetName: sheetNameSchema.optional(),
     range: rangeSchema.optional(),
-    limit: z.number().int().positive().optional(),
-    offset: z.number().int().min(0).optional(),
-    all: z.boolean().optional(),
+    limit: coercedPosInt().optional(),
+    offset: coercedNonNegInt().optional(),
+    all: coercedBool().optional(),
     where: z.string().optional(),
-    groupBy: z.array(z.string()).optional(),
+    groupBy: z.preprocess(jsonArrayPreprocess, z.array(z.string()).optional()),
   })
   .refine(
     (v) => (v.scope === 'outline' ? true : !!v.sheetName),
@@ -255,7 +265,7 @@ const inspectTablesSchema = z.object({
 const inspectImagesSchema = z.object({
   action: z.literal('images'),
   filePath: filePathSchema,
-  extractImages: z.boolean().optional(),
+  extractImages: coercedBool().optional(),
 })
 
 const inspectRenderSchema = z.object({
@@ -263,7 +273,7 @@ const inspectRenderSchema = z.object({
   filePath: filePathSchema,
   sheetName: sheetNameSchema,
   range: rangeSchema.optional(),
-  scale: z.number().positive().max(6).optional(),
+  scale: z.preprocess(stringNumberPreprocess, z.number().positive().max(6).optional()),
 })
 
 export const ExcelInspectInputSchema = z.discriminatedUnion('action', [
@@ -283,9 +293,20 @@ export type ExcelInspectInput = z.infer<typeof ExcelInspectInputSchema>
 const mutateCreateSchema = z.object({
   action: z.literal('create'),
   filePath: filePathSchema,
-  sheets: z.array(sheetSpecSchema).min(1, 'create requires at least one sheet'),
-  charts: z.array(chartSpecSchema).optional(),
-  images: z.array(imageSpecSchema).optional(),
+  sheets: z
+    .preprocess(
+      jsonArrayPreprocess,
+      z.array(sheetSpecSchema).min(1, 'create requires at least one sheet'),
+    )
+    .describe(
+      'REQUIRED. Native JSON array of sheet specs — pass `[{...}, {...}]`, NOT a stringified `"[{...}]"`. Each sheet has { name, cells (A1-keyed bag), merges?, freeze?, columnWidths?, conditionalFormats? }.',
+    ),
+  charts: z
+    .preprocess(jsonArrayPreprocess, z.array(chartSpecSchema).optional())
+    .describe('Optional native JSON array of chart specs. Do NOT pass as a stringified JSON.'),
+  images: z
+    .preprocess(jsonArrayPreprocess, z.array(imageSpecSchema).optional())
+    .describe('Optional native JSON array of image specs. Do NOT pass as a stringified JSON.'),
 })
 
 const mutateUpdateSchema = z.object({
@@ -293,8 +314,8 @@ const mutateUpdateSchema = z.object({
   filePath: filePathSchema,
   sheetName: sheetNameSchema,
   cells: cellsBagSchema,
-  merges: z.array(rangeSchema).optional(),
-  unmerges: z.array(rangeSchema).optional(),
+  merges: z.preprocess(jsonArrayPreprocess, z.array(rangeSchema).optional()),
+  unmerges: z.preprocess(jsonArrayPreprocess, z.array(rangeSchema).optional()),
 })
 
 const structureOpSchema = z.enum(['insert', 'delete', 'rename'])
@@ -307,8 +328,8 @@ const mutateStructureSchema = z
     op: structureOpSchema,
     target: structureTargetSchema,
     sheetName: sheetNameSchema.optional(),
-    at: z.number().int().min(0).optional(),
-    count: z.number().int().positive().optional(),
+    at: coercedNonNegInt().optional(),
+    count: coercedPosInt().optional(),
     from: z.string().optional(),
     to: z.string().optional(),
   })
@@ -331,21 +352,24 @@ const mutateLayoutSchema = z.object({
   sheetName: sheetNameSchema,
   freeze: z
     .object({
-      rows: z.number().int().min(0).optional(),
-      cols: z.number().int().min(0).optional(),
+      rows: coercedNonNegInt().optional(),
+      cols: coercedNonNegInt().optional(),
     })
     .optional(),
   autoFilter: z.object({ range: rangeSchema }).optional(),
-  sort: z
-    .array(
-      z.object({
-        column: z.string().min(1),
-        order: z.enum(['asc', 'desc']),
-      }),
-    )
-    .optional(),
-  columnWidths: z.record(z.string(), z.number().positive()).optional(),
-  rowHeights: z.record(z.string(), z.number().positive()).optional(),
+  sort: z.preprocess(
+    jsonArrayPreprocess,
+    z
+      .array(
+        z.object({
+          column: z.string().min(1),
+          order: z.enum(['asc', 'desc']),
+        }),
+      )
+      .optional(),
+  ),
+  columnWidths: z.record(z.string(), coercedPosNumber()).optional(),
+  rowHeights: z.record(z.string(), coercedPosNumber()).optional(),
   printArea: rangeSchema.optional(),
 })
 
@@ -353,7 +377,7 @@ const mutateFormatRulesSchema = z.object({
   action: z.literal('format-rules'),
   filePath: filePathSchema,
   sheetName: sheetNameSchema,
-  rules: z.array(conditionalFormatRuleSchema),
+  rules: z.preprocess(jsonArrayPreprocess, z.array(conditionalFormatRuleSchema)),
 })
 
 const mutateAddChartSchema = z.object({
@@ -372,8 +396,8 @@ const mutateAddImageSchema = z.object({
   sheetName: sheetNameSchema,
   source: z.string().min(1),
   anchor: cellRefSchema,
-  widthPx: z.number().positive().optional(),
-  heightPx: z.number().positive().optional(),
+  widthPx: coercedPosNumber().optional(),
+  heightPx: coercedPosNumber().optional(),
 })
 
 const mutateRecalcSchema = z.object({
@@ -478,6 +502,8 @@ export const excelMutateToolDef = {
   name: 'Mutate Excel',
   description:
     `Write operations on XLSX / CSV — 8 actions. Pick the one that matches the user's intent:
+
+🚨 PARAMETER FORMAT: array-valued params (\`sheets\`, \`charts\`, \`images\`, \`merges\`, \`unmerges\`, \`rules\`, \`sort\`) MUST be native JSON arrays — \`"sheets": [{...}]\`, NOT \`"sheets": "[{...}]"\`. Stringified JSON is auto-recovered with a warning but wastes a retry.
 
 GENERATION
 - \`create\` — build a new workbook from \`sheets[]\` (each with cells bag keyed by A1 ref, merges, freeze, columnWidths, conditionalFormats) plus optional \`charts\` and \`images\`. CellSpec carries value OR formula (exclusive), style (preset or object), numberFormat, comment, validation — all in one cell entry.

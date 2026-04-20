@@ -52,7 +52,7 @@ for (let i = 0; i < args.length; i++) {
   } else if (arg === '--model') {
     modelOverride = args[++i]
     if (!modelOverride) {
-      console.error('--model requires an id (e.g. qwen:OL-TX-006)。列出可用模型请看 SKILL.md「列出可用 chat 模型」章节。')
+      console.error('--model requires an id (e.g. qwen:OL-TX-008)。列出可用模型请看 SKILL.md「列出可用 chat 模型」章节。')
       process.exit(1)
     }
   } else if (arg.startsWith('--model=')) {
@@ -278,6 +278,16 @@ if (!patterns.includes('__ALL__')) {
 }
 
 vitestArgs.push(...extraVitestArgs)
+
+// 只跑单个测试文件时，自动走 headed 模式（方便看 UI 调试）。
+// 多个文件才需要 headless 并行。用户显式设置 BROWSER_TEST_HEADLESS 时以用户为准。
+if (process.env.BROWSER_TEST_HEADLESS === undefined) {
+  const testFileCount = vitestArgs.filter(a => a.endsWith('.browser.tsx')).length
+  if (testFileCount === 1) {
+    process.env.BROWSER_TEST_HEADLESS = '0'
+    console.log('[headless] 单文件测试，自动走 headed 模式（BROWSER_TEST_HEADLESS=0）')
+  }
+}
 
 // ── browser-test-runs 保留策略：默认全量保留 ──
 // 历史上曾默认 `keep=10`，跑多了会悄悄删掉历史 run，失去回溯能力。

@@ -23,4 +23,6 @@ export type BuiltinSkill = {
   icon?: string
   /** colorIndex 0-7 */
   colorIndex?: number
+  /** Tool IDs this skill depends on. */
+  tools?: string[]
 }

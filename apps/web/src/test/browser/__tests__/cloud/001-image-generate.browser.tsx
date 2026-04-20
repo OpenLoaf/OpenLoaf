@@ -13,7 +13,7 @@ import { waitForChatComplete, waitForProbeResult, takeProbeScreenshot, aiJudge }
 
 const SERVER_URL = process.env.PROBE_SERVER_URL ?? 'http://127.0.0.1:23333'
 
-it('021 — Cloud 图片生成：赛博朋克城市', async () => {
+it('cloud-001-image-generate — Cloud 图片生成：赛博朋克城市', async () => {
   const prompt = '帮我生成一张猫的图片'
 
   render(

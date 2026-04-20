@@ -15,7 +15,7 @@ import { waitForChatComplete, waitForProbeResult, takeProbeScreenshot, aiJudge }
 
 const SERVER_URL = process.env.PROBE_SERVER_URL ?? 'http://127.0.0.1:23333'
 
-it('027 — 图片生成+理解+OCR：生成后分析', async () => {
+it('cloud-005-image-understand — 图片生成+理解+OCR：生成后分析', async () => {
   const prompt = '帮我画一张简约风的咖啡店促销海报，上面写着 "买一送一 限时三天"'
   const followUp1 = '这张海报画得怎么样？帮我分析一下画面构图和配色'
   const followUp2 = '顺便帮我识别一下图上写了哪些文字'

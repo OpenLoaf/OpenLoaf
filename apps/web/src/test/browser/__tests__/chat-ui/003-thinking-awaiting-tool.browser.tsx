@@ -31,7 +31,7 @@ const AWAITING_TOOL_CANDIDATES = [
   'ツールの結果を待機中',
 ]
 
-it('030 — Thinking shimmer switches to "awaiting tool" while Bash is blocking', async () => {
+it('chat-ui-003-thinking-awaiting-tool — Thinking shimmer switches to "awaiting tool" while Bash is blocking', async () => {
   // 严格要求模型调用一个长阻塞的 Bash，产生可观察的等待窗口。
   // 脚本：每秒输出一次百分比进度，10 秒后自动结束。
   const prompt = [

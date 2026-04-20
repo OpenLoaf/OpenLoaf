@@ -2,6 +2,7 @@
 name: xlsx-skill
 description: >
   Excel / CSV（.xlsx / .xlsm / .csv / .tsv）读/写/统计/重算/图表一体化。触发场景：阅读单元格、汇总分组、判断谁最高谁最低、总收入是多少、改单元格值或公式、加行列、加合计行、插入图表（bar/line/pie）、冻结首行、加筛选、条件格式（数据条 / 色阶 / 公式）、CSV ↔ XLSX 互转、新建花名册 / 销售表 / 财务模型、排查 #REF! / #DIV/0! 等公式错误、触发公式重算。典型说法："这表里谁销量最高"、"Q1 总收入"、"把 B2 改成 500"、"加一行合计"、"新建花名册"、"csv 转 xlsx"、"冻结首行"、"给 A 列的负数标红"、"有没有公式错误"。用户提到 .xlsx / .csv 文件，或最终产出是表格，都加载本技能。
+tools: [ExcelInspect, ExcelMutate]
 ---
 
 # XLSX 技能
@@ -19,7 +20,11 @@ description: >
 >
 > 🚨 **LoadSkill 后必须立刻 ToolSearch**：LoadSkill 只把文档拉进来，**没激活任何工具**。先 LoadSkill → ToolSearch → 再调用，三步缺一都算没干完。
 >
-> `Read` / `DocPreview` 对 .xlsx 只返回 Markdown 级别的文本视图（丢失公式 / 样式 / 合并 / 数据验证 / 图表 / 条件格式），**任何"分析 / 统计 / 改 / 创建 .xlsx"的需求一律走 `ExcelInspect` / `ExcelMutate`，不要靠 `Read` 交差**。
+> **按意图选工具**：
+> - **简单读 / 预览 / 格式转换**（例如"看下这个表"、"xlsx 转 csv"、"把表总结一下"）：优先 `DocPreview` 或 `Read`；xlsx → csv / txt / md / pdf / docx 的转换用 `DocConvert`。这些路径最快，且满足纯读 / 纯转格式的需求。
+> - **结构化分析 / 单元格级编辑 / 创建**（涉及公式、样式、合并、数据验证、图表、条件格式、多 sheet）：走 `ExcelInspect` / `ExcelMutate`。`Read` 会丢公式和样式。
+>
+> 🚫 **禁止用 `Bash` + `openpyxl` / `pandas` / `xlrd` / Python / Node 脚本读写电子表格**。上面注册的工具已经覆盖全部支持的场景。绕到 Bash 会跳过审批闸门、预览 UI，以及 session 资源目录解析。
 
 ---
 
@@ -360,7 +365,7 @@ description: >
 7. **structure 参数要匹配 op**：insert/delete 必须 `at`；rename 必须 `from` + `to`；sheet 操作的 `target: "sheet"` 不吃 `sheetName`。缺参抛 `STRUCTURE_OP_INVALID`。
 8. **recalc simple 模式有形状限制**：只懂 `=FN(range|args)` 这种浅层公式。跨 sheet / 嵌套 / 复杂 AST 请用 `mode: "libreoffice"`（需 soffice），或告诉用户"在 Excel 里按 F9 重算"。
 9. **CSV 升级路径变化**：引入公式 / 多 sheet / 图表后 `.csv` 自动变 `.xlsx`，**必须在回答里告知新的 `filePath`**，不然用户下次找不到文件。
-10. **`filePath` 用相对路径 / 裸文件名**：`"report.xlsx"` 而不是 `/Users/.../OpenLoafData/...`；运行时解析到 session asset 目录（或项目根）。写越界路径抛 "filePath is outside the writable scope"。
+10. **`filePath` 优先用相对路径 / 裸文件名**：`"report.xlsx"` 会解析到 session asset 目录（或项目根），用户也更容易找到。绝对路径允许但属于 out-of-scope 写入，会触发审批闸门让用户确认。
 11. **大文件读要分页**：`ExcelInspect(read)` 默认 `limit: 500` 行，超了 `truncated: true`。别一次性 `all: true` 读 10 万行——模型上下文扛不住，先用 `summary` + 有针对性的 `range`。
 12. **公式 cell 的 `computed` 是缓存值**：exceljs 不自己重算；写入新公式后 `computed` 是 `null`。要最新值必须 `ExcelMutate(recalc)`。
 

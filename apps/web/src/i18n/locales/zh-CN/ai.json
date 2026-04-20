@@ -206,7 +206,14 @@
     "ScheduledTaskManage": "计划任务管理",
     "ScheduledTaskStatus": "计划任务状态",
     "ScheduledTaskWait": "等待计划任务",
-    "SubmitPlan": "提交方案"
+    "SubmitPlan": "提交方案",
+    "WordInspect": "Word 分析",
+    "ExcelInspect": "Excel 分析",
+    "CloudImageGenerate": "云端图片生成",
+    "CloudImageEdit": "云端图片编辑",
+    "CloudVideoGenerate": "云端视频生成",
+    "CloudImageUnderstand": "图片理解",
+    "CloudSpeechRecognize": "语音识别"
   },
   "bgNotification": {
     "taskCompleted": "后台任务已完成",

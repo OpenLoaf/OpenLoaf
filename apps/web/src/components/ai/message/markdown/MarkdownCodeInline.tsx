@@ -86,14 +86,11 @@ export default React.memo(function MarkdownCodeInline({
 
   if (isBlock) {
     return (
-      <pre
-        className={cn(
-          "overflow-x-auto rounded-lg bg-muted p-3 font-mono text-[0.9em] text-foreground",
-          className,
-        )}
-      >
-        <code {...(props as any)}>{children as any}</code>
-      </pre>
+      <div className="not-prose my-3">
+        <pre className="overflow-x-auto rounded-xl bg-muted/60 px-4 py-3 font-mono text-[0.85em] leading-relaxed text-foreground">
+          <code>{children as React.ReactNode}</code>
+        </pre>
+      </div>
     );
   }
 

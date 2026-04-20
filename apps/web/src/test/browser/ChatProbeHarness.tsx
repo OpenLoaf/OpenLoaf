@@ -92,7 +92,7 @@ export type ChatProbeHarnessProps = {
    * - 传字符串：强制使用该值
    */
   title?: string | null
-  /** 指定模型 ID（如 qwen:OL-TX-006），格式 <providerId>:<modelId> */
+  /** 指定模型 ID（如 qwen:OL-TX-008），格式 <providerId>:<modelId> */
   chatModelId?: string
   /** 模型来源（local/cloud/saas），云端模型必须传 'cloud' */
   chatModelSource?: 'local' | 'cloud' | 'saas'
@@ -583,6 +583,9 @@ function ChatProbeInner({
           const approved = approvalStrategy === 'approve-all'
           setTimeout(() => {
             chat.addToolApprovalResponse({ id: approvalId, approved })
+            if (!approved) {
+              chat.stop()
+            }
           }, 100)
         }
       }
@@ -780,6 +783,9 @@ function ChatProbeInner({
       if (approval?.id && approval.approved === undefined) {
         const approved = approvalStrategy === 'approve-all'
         chat.addToolApprovalResponse({ id: approval.id, approved })
+        if (!approved) {
+          chatRef.current.stop()
+        }
       }
     }
   }, [chat.messages, approvalStrategy, chat.addToolApprovalResponse])
@@ -1035,6 +1041,10 @@ function ChatProbeInner({
                 data-probe-status={probeStatus}
                 data-probe-session-id={sessionId}
                 data-probe-message-count={chat.messages.length}
+                // 暴露初始 prompt 给 probe-setup.ts 的 afterEach auto-save：
+                // 失败路径下测试里 saveTestData 不一定能跑到，setup 层兜底保存时
+                // 需要从 DOM 读取 prompt。
+                data-probe-prompt={prompt}
                 style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw' }}
               >
                 {/* 状态栏 —— 仅为测试 helper（probe-helpers.ts 用 testid 读 probeStatus）保留，

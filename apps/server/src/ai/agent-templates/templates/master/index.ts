@@ -79,12 +79,10 @@ export const masterTemplate: AgentTemplate = {
     'EditDocument',
     // office
     'DocPreview',
-    'ExcelQuery',
+    'ExcelInspect',
     'ExcelMutate',
-    'WordQuery',
     'WordInspect',
     'WordMutate',
-    'PptxQuery',
     'PptxMutate',
     'PdfInspect',
     'PdfMutate',

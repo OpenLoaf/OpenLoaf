@@ -1,43 +1,45 @@
 ---
 name: media-ops-skill
 description: >
-  Triggered when the user already has image / video / audio files to process: resize, crop, apply filters, convert formats, compress, inspect metadata, extract audio tracks; also for downloading videos from URLs like YouTube / Bilibili. Typical phrasings include "convert to webp", "extract the audio", "download this Bilibili video". **Not for**: AI generating images / voiceovers / music from scratch (→cloud-media-skill), or rendering charts inline in the conversation (→visualization-ops-skill).
+  Process local image / video / audio files, or download videos from the web. Images: resize, crop, rotate, convert format (→webp/png/jpeg), apply filters, inspect dimensions. Video: convert format, extract audio, inspect metadata. Download: public videos from YouTube / Bilibili etc. Also the go-to skill for post-processing AI-generated images (format conversion, resizing). **Not for**: AI generating images/video/voice from scratch (→cloud-media-skill), or rendering charts inline (→visualization-ops-skill).
+tools: [ImageProcess, VideoConvert, VideoDownload]
 ---
 
-# Media Processing and Download
+# Image / Video / Audio Processing
 
-This skill covers the three media tools provided directly by the server agent. AI image/video **generation** has been migrated to the canvas v3 workflow — this skill is responsible for **processing existing files and downloading videos from the web**.
+This skill covers three local media tools. **Image processing is the primary capability**.
+
+> **⚡ Act immediately upon reading this** — do not stop to reply to the user. Right now, call `ToolSearch(names: "ImageProcess")` to activate the tool schema, then call `ImageProcess` to complete the operation. **All three steps must happen within the same response.**
 
 ## Tool Inventory
 
-| Tool | Responsibility | Read-only |
-|------|---------------|-----------|
-| `ImageProcess` | Processing existing images (resize / crop / rotate / flip / format conversion / grayscale / blur / sharpen / tint / metadata) | No |
-| `VideoConvert` | Video format conversion / audio extraction / metadata reading | No |
-| `VideoDownload` | Downloading videos from public URLs such as YouTube / Bilibili | No |
+| Tool | Responsibility |
+|------|---------------|
+| `ImageProcess` | Image processing: resize / crop / rotate / flip / format conversion / grayscale / blur / sharpen / tint / metadata |
+| `VideoConvert` | Video format conversion / audio extraction / metadata |
+| `VideoDownload` | Download public videos from YouTube / Bilibili etc. |
 
-> **Loading**: all are deferred tools; before calling, you must first run `ToolSearch(names: "ImageProcess,VideoConvert,VideoDownload")` to activate their schemas.
+> **Loading**: all are deferred tools; run `ToolSearch(names: "ImageProcess,VideoConvert,VideoDownload")` to activate their schemas before calling.
 
 ## Decision Tree
 
 ```text
 User needs a media operation
-├── Generate a brand-new image/video?
-│   └── Route to canvas v3 (the server agent does not generate directly)
-├── Process an existing file?
-│   ├── Image (resize/crop/rotate/convert/blur/sharpen/grayscale) → ImageProcess
-│   ├── Video format conversion / resolution change → VideoConvert (action: convert)
-│   └── Extract audio from video → VideoConvert (action: extract-audio)
+├── Process an image? (resize / crop / rotate / convert / filter / inspect)
+│   └── ImageProcess
+├── Process a video?
+│   ├── Format conversion / resolution change → VideoConvert (action: convert)
+│   └── Extract audio → VideoConvert (action: extract-audio)
 ├── Inspect file info?
-│   ├── Image metadata (dimensions/format/DPI) → ImageProcess (action: get-info)
-│   └── Video metadata (duration/resolution/codec) → VideoConvert (action: get-info)
+│   ├── Image (dimensions / format / DPI) → ImageProcess (action: get-info)
+│   └── Video (duration / resolution / codec) → VideoConvert (action: get-info)
 └── Download a video from the web?
     └── VideoDownload
 ```
 
 ## ImageProcess — Image Processing
 
-Powered by sharp; transforms existing images.
+Powered by sharp. **Also applies to AI-generated images**.
 
 | action | Purpose | Key parameters |
 |--------|---------|----------------|
@@ -49,9 +51,9 @@ Powered by sharp; transforms existing images.
 | `convert` | Format conversion | `format` (png/jpeg/webp/avif/tiff) |
 | `grayscale`/`blur`/`sharpen`/`tint` | Filter effects | Each has its own parameters |
 
-**Run get-info first before processing**: know the original dimensions and format to avoid blind operations — for example, if the user says "shrink by half", you need the original width and height to compute the target values.
+**Run get-info first**: know the original dimensions and format before operating — for example, if the user says "shrink by half", you need the original width/height to compute the target.
 
-**Output path decision**: by default, append a suffix (e.g. `photo_resized.jpg`). Overwriting the original file in place is risky — the user may still need the original for comparison or rollback. Exceptions apply only when the user explicitly asks to overwrite.
+**Output path**: by default, append a suffix (e.g. `photo_resized.jpg`). Overwriting in place is risky — the user may need the original for comparison or rollback. Only overwrite when explicitly requested.
 
 ## VideoConvert — Video/Audio Conversion
 
@@ -63,44 +65,51 @@ Powered by FFmpeg; handles format conversion and audio extraction on existing fi
 | `convert` | Video format conversion | `format`, `resolution` |
 | `extract-audio` | Extract audio from video | `audioFormat` (mp3/wav/aac/flac) |
 
-**Format selection guidelines**:
-- Universal compatibility: MP4 (H.264) — playable on virtually any device
-- High-quality compression: WebM (VP9) — smaller files but slightly weaker compatibility
-- Audio extraction: MP3 (universal), FLAC (lossless)
+**Format guidelines**:
+- Universal: MP4 (H.264) — plays on virtually any device
+- Efficient: WebM (VP9) — smaller files, slightly weaker compatibility
+- Audio: MP3 (universal), FLAC (lossless)
 
-**Large-file caveat**: video transcoding time scales linearly with file size. Converting files over 500 MB can take a while — warn the user about the expected wait up front.
+**Large files**: transcoding time scales with file size. Warn the user upfront for files over 500 MB.
 
 ## VideoDownload — Video Download
 
 Downloads public video URLs via yt-dlp.
 
-**Use when**: the user provides a public video link and needs it downloaded locally for further processing (editing, audio extraction, transcoding).
+**Use when**: the user provides a public video link and needs it locally for further processing.
 
-**Not applicable when**:
-- Generating a new video → canvas v3
-- Converting a locally-existing video → `VideoConvert`
-- Private / login-required videos → tell the user yt-dlp can only download public content
+**Not applicable**:
+- Generating a new video → cloud-media-skill
+- Converting an existing local video → `VideoConvert`
+- Private / login-required videos → tell the user yt-dlp only handles public content
 
-**Common follow-ups after download**: once the download finishes, users typically need further processing — extracting audio, converting format, cropping. Proactively ask whether any follow-up is needed instead of waiting for them to speak up.
+**Common follow-ups**: proactively ask whether the user needs audio extraction, format conversion, or trimming after download.
 
 ## Common Workflows
 
+### Post-processing AI-generated images
+
+```
+CloudImageGenerate(…) → get absolutePath
+ImageProcess(action: "get-info", filePath: "…")   # confirm original dimensions
+ImageProcess(action: "convert", filePath: "…", format: "webp", outputPath: "…")
+```
+
 ### Video download → audio extraction
+
 ```
 VideoDownload(url: "...") → get filePath
 VideoConvert(action: "extract-audio", filePath: "...", outputPath: "output.mp3")
 ```
 
 ### Batch image format conversion
-Call `ImageProcess(action: "convert", format: "webp")` for each image. WebP keeps visual quality while shrinking files to roughly 70% of JPEG size — ideal for web delivery.
 
-### Post-processing canvas output
-If an image generated by canvas v3 needs subsequent cropping, resizing, or format conversion, handle it with `ImageProcess`.
+Call `ImageProcess(action: "convert", format: "webp")` for each image. WebP maintains visual quality at roughly 70% of JPEG file size — ideal for web delivery.
 
 ## Common Pitfalls
 
-**Unsupported format** → check whether the file extension matches the actual encoding. The user may have named an `.mp4` file as `.avi`; confirm the real format with `get-info` first.
+**Unsupported format** → check whether the extension matches the actual encoding. Confirm the real format with `get-info` first.
 
-**Output path matches input path** → some operations don't support in-place overwrite. Use a different outputPath, and once done, notify the user if replacement is needed.
+**Output path matches input path** → some operations don't support in-place overwrite. Use a different outputPath and notify the user if replacement is needed afterward.
 
-**"Compress the image" is ambiguous** → it may mean: reduce dimensions (resize), lower quality (adjust quality during convert), or switch format (jpeg→webp). Clarify intent proactively.
+**"Compress the image" is ambiguous** → may mean: reduce dimensions (resize), lower quality (adjust quality in convert), or switch format (jpeg→webp). Clarify proactively.

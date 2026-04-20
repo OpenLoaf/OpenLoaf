@@ -969,20 +969,11 @@ export const writeTool = tool({
   }): Promise<string> => {
     const { absPath, rootPath } = await resolveWriteTargetPath(filePath)
 
-    // Read-before-Write guard: only enforced when overwriting an existing file.
-    // New file creation (ENOENT) is allowed without a prior Read.
-    if (!isPlanFilePath(filePath)) {
-      let existingMtimeMs: number | undefined
-      try {
-        const stat = await fs.stat(absPath)
-        existingMtimeMs = stat.mtimeMs
-      } catch (e: any) {
-        if (e?.code !== 'ENOENT') throw e
-      }
-      if (existingMtimeMs !== undefined) {
-        await assertReadBeforeModify(absPath, existingMtimeMs, 'write')
-      }
-    }
+    // Write 是整体覆盖（full rewrite），不保留旧内容。Read-before-Write guard 只
+    // 对 Edit 的局部修改有意义——模型必须先看过文件才能准确产生 old/new 片段。
+    // Write 的覆盖语义让"事先 Read"变成冗余：无论旧内容是什么，结果都由新 content
+    // 决定。对越界路径额外有审批闸门兜底用户授权，对项目内文件由 sandbox/approval
+    // 策略决定是否需要用户确认。因此 Write 始终放行：新文件、空文件、整体重写都通过。
 
     // 自动创建父目录
     await fs.mkdir(path.dirname(absPath), { recursive: true })

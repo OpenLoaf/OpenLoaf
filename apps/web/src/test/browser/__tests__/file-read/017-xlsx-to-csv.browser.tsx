@@ -16,7 +16,7 @@ import { waitForChatComplete, waitForProbeResult, takeProbeScreenshot, aiJudge }
 
 const SERVER_URL = process.env.PROBE_SERVER_URL ?? 'http://127.0.0.1:23333'
 
-it('037 — XLSX → CSV：把 Excel 报价表转成 CSV', async () => {
+it('file-read-017-xlsx-to-csv — XLSX → CSV：把 Excel 报价表转成 CSV', async () => {
   const sessionId = `chat_probe_037_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
   const userPrompt =
     '请把这份 Excel 报价表转换成 CSV 格式，我需要导入到另一个系统里。'
@@ -51,8 +51,10 @@ it('037 — XLSX → CSV：把 Excel 报价表转成 CSV', async () => {
   // ── 断言 ──
   expect(result.status).toBe('ok')
 
-  // 至少读过 Excel
-  const readExcel = result.toolCalls.some(t => t === 'Read' || t === 'DocPreview')
+  // 至少走了某条读/转 Excel 的路径（xlsx-skill 推荐 DocConvert 直转；其它：Read/DocPreview/ExcelInspect）
+  const readExcel = result.toolCalls.some(t =>
+    ['Read', 'DocPreview', 'DocConvert', 'ExcelInspect'].includes(t),
+  )
   expect(readExcel).toBe(true)
 
   // AI 语义评判：回复应明确给出 CSV 结果或确认完成

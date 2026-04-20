@@ -253,7 +253,7 @@ const TOOL_RESULT_IMPORTANCE: Record<string, ToolImportance> = {
   'ProjectMutate': 'drop',
   'CalendarMutate': 'drop',
   'EmailMutate': 'drop',
-  'ExcelQuery': 'summarize',
+  'ExcelInspect': 'summarize',
   'ExcelMutate': 'drop',
 }
 

@@ -21,6 +21,8 @@ Working directory persists between calls; shell state does not.
 
 Prefer dedicated tools over shell commands: Glob (instead of find/ls), Grep (instead of grep/rg), Read (instead of cat/head/tail), Edit (instead of sed/awk), Write (instead of echo >/heredoc).
 
+🚫 **Office/PDF files** (.xlsx / .xlsm / .csv / .docx / .pptx / .pdf): do NOT read or write them with \`python\` + \`openpyxl\` / \`pandas\` / \`xlrd\` / \`python-docx\` / \`pdfplumber\` / \`pypdf\` / \`python-pptx\`, nor with \`node\` + \`exceljs\` / \`xlsx\` / \`mammoth\`. Use the dedicated tools instead: \`DocPreview\` (read-only preview / full Markdown extraction, works on all four types), \`ExcelInspect\` / \`ExcelMutate\` (spreadsheets), \`WordInspect\` / \`WordMutate\` (docx), \`PdfInspect\` / \`PdfMutate\` (pdf), \`PptxMutate\` (pptx), \`DocConvert\` (format conversion). Bash scripts bypass the approval gate, preview UI, and session asset-dir resolution.
+
 Quote paths with spaces. Prefer absolute paths. Default timeout 120s, max 600s.`,
   parameters: z.object({
     command: z.string().min(1),
@@ -38,6 +40,8 @@ export const powerShellToolDef = {
   description: `Execute a PowerShell command (Windows equivalent of Bash). Use PowerShell cmdlet syntax — NOT Unix syntax.
 
 Prefer dedicated tools: Glob (not Get-ChildItem -Recurse), Grep (not Select-String), Read (not Get-Content), Edit / Write (not Set-Content / Out-File).
+
+🚫 **Office/PDF files**: same rule as Bash — do NOT invoke \`python\` / \`node\` with \`openpyxl\` / \`pandas\` / \`python-docx\` / \`pdfplumber\` / \`exceljs\` etc. to read or write \`.xlsx / .docx / .pptx / .pdf\` / \`.csv\`. Use \`DocPreview\` / \`ExcelInspect\`(or \`ExcelMutate\`) / \`WordInspect\`(or \`WordMutate\`) / \`PdfInspect\`(or \`PdfMutate\`) / \`PptxMutate\` / \`DocConvert\` instead.
 
 Syntax reminders: \`-and\` / \`-or\` not \`&&\` / \`||\` (PS 5.1 has no \`&&\`); single-quote paths with spaces or non-ASCII characters; prefer absolute paths. Default timeout 120s, max 600s.`,
   parameters: z.object({

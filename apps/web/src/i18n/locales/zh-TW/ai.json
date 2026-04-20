@@ -206,7 +206,14 @@
     "ScheduledTaskManage": "排程任務管理",
     "ScheduledTaskStatus": "排程任務狀態",
     "ScheduledTaskWait": "等待排程任務",
-    "SubmitPlan": "提交方案"
+    "SubmitPlan": "提交方案",
+    "WordInspect": "Word 分析",
+    "ExcelInspect": "Excel 分析",
+    "CloudImageGenerate": "雲端圖片生成",
+    "CloudImageEdit": "雲端圖片編輯",
+    "CloudVideoGenerate": "雲端影片生成",
+    "CloudImageUnderstand": "圖片理解",
+    "CloudSpeechRecognize": "語音辨識"
   },
   "bgNotification": {
     "taskCompleted": "背景工作已完成",

@@ -12,7 +12,7 @@ import { waitForChatComplete, waitForProbeResult, takeProbeScreenshot, aiJudge }
 
 const SERVER_URL = process.env.PROBE_SERVER_URL ?? 'http://127.0.0.1:23333'
 
-it('023 — Cloud TTS：文字转语音', async () => {
+it('cloud-011-tts — Cloud TTS：文字转语音', async () => {
   const prompt = '帮我把下面这段话转成语音：今天的天气特别好，适合出去散散步，呼吸一下新鲜空气。'
 
   render(

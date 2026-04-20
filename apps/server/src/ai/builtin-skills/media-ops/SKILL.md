@@ -1,20 +1,23 @@
 ---
 name: media-ops-skill
 description: >
-  当用户已有图片 / 视频 / 音频文件要做处理时触发：缩放、裁剪、加滤镜、格式转换、压缩、查看元信息、提取音轨；也用于从 YouTube / B 站等网址下载视频。典型说法"转成 webp"、"提取音频"、"下载这个 B 站视频"。**不用于**：AI 从零生成图片 / 配音 / 音乐（→cloud-media-skill）、在对话里渲染图表（→visualization-ops-skill）。
+  处理本地已有的图片 / 视频 / 音频文件，或下载网络视频。图片：缩放、裁剪、旋转、格式转换（→webp/png/jpeg）、滤镜、查看尺寸；视频：格式转换、提取音频、查看元信息；下载：YouTube / B 站等公开视频。也用于 AI 生成图片后的二次处理（转格式、缩放）。**不用于**：AI 从零生成图片/视频/语音（→cloud-media-skill）、在对话里渲染图表（→visualization-ops-skill）。
+tools: [ImageProcess, VideoConvert, VideoDownload]
 ---
 
-# 媒体处理与下载
+# 图片 / 视频 / 音频处理
 
-本 skill 覆盖 server agent 直接提供的三个媒体工具。AI 图片/视频**生成**已迁移到画布 v3 流程——本 skill 负责的是**已有文件的处理与网络视频下载**。
+本 skill 覆盖三个本地媒体工具，**图片处理是核心能力**。
+
+> **⚡ 读到此处立刻行动** — 不要停下来回复用户。紧接着执行 `ToolSearch(names: "ImageProcess")` 激活工具 schema，然后调用 `ImageProcess` 完成操作。**这三步必须在同一个 response 内完成。**
 
 ## 工具清单
 
-| 工具 | 职责 | 只读 |
-|------|------|------|
-| `ImageProcess` | 已有图片的处理（缩放 / 裁剪 / 旋转 / 翻转 / 格式转换 / 灰度 / 模糊 / 锐化 / 着色 / 元信息） | 否 |
-| `VideoConvert` | 视频格式转换 / 提取音频 / 读取元信息 | 否 |
-| `VideoDownload` | 从 YouTube / B 站等公开网址下载视频 | 否 |
+| 工具 | 职责 |
+|------|------|
+| `ImageProcess` | 图片处理：缩放 / 裁剪 / 旋转 / 翻转 / 格式转换 / 灰度 / 模糊 / 锐化 / 着色 / 查看元信息 |
+| `VideoConvert` | 视频格式转换 / 提取音频 / 查看元信息 |
+| `VideoDownload` | 从 YouTube / B 站等公开网址下载视频 |
 
 > **加载**：全部为 deferred 工具，调用前须先 `ToolSearch(names: "ImageProcess,VideoConvert,VideoDownload")` 激活 schema。
 
@@ -22,22 +25,21 @@ description: >
 
 ```text
 用户需要媒体操作
-├── 生成全新图片/视频？
-│   └── 引导到画布 v3（server agent 不直接生成）
-├── 处理已有文件？
-│   ├── 图片（缩放/裁剪/旋转/格式转换/模糊/锐化/灰度） → ImageProcess
-│   ├── 视频格式转换 / 调整分辨率 → VideoConvert (action: convert)
-│   └── 从视频提取音频 → VideoConvert (action: extract-audio)
+├── 处理图片？（缩放 / 裁剪 / 旋转 / 转格式 / 滤镜 / 查看尺寸）
+│   └── ImageProcess
+├── 处理视频？
+│   ├── 格式转换 / 调整分辨率 → VideoConvert (action: convert)
+│   └── 提取音频 → VideoConvert (action: extract-audio)
 ├── 查看文件信息？
-│   ├── 图片元数据（宽高/格式/DPI） → ImageProcess (action: get-info)
-│   └── 视频元数据（时长/分辨率/编码） → VideoConvert (action: get-info)
+│   ├── 图片（宽高 / 格式 / DPI） → ImageProcess (action: get-info)
+│   └── 视频（时长 / 分辨率 / 编码） → VideoConvert (action: get-info)
 └── 下载网络视频？
     └── VideoDownload
 ```
 
 ## ImageProcess — 图片处理
 
-基于 sharp，对已有图片进行变换。
+基于 sharp，对已有图片进行变换。**AI 生成的图片同样适用**。
 
 | action | 用途 | 关键参数 |
 |--------|------|---------|
@@ -77,25 +79,32 @@ description: >
 **适用**：用户给出公开视频链接，需要下载到本地继续处理（编辑、提取音频、转码）。
 
 **不适用**：
-- 生成新视频 → 画布 v3
+- 生成新视频 → cloud-media-skill
 - 转换本地已有视频 → `VideoConvert`
 - 私有/需登录的视频 → 告知用户 yt-dlp 只能下载公开内容
 
-**下载后常见后续**：下载完成后用户通常需要进一步处理——提取音频、转换格式、裁剪。主动询问是否需要后续操作，而不是等用户开口。
+**下载后常见后续**：下载完成后用户通常需要进一步处理——提取音频、转换格式、裁剪。主动询问是否需要后续操作。
 
 ## 常见工作流
 
+### AI 生成图片后转格式 / 缩放
+
+```
+CloudImageGenerate(…) → 拿到 absolutePath
+ImageProcess(action: "get-info", filePath: "…")   # 先确认原始尺寸
+ImageProcess(action: "convert", filePath: "…", format: "webp", outputPath: "…")
+```
+
 ### 视频下载 → 提取音频
+
 ```
 VideoDownload(url: "...") → 拿到 filePath
 VideoConvert(action: "extract-audio", filePath: "...", outputPath: "output.mp3")
 ```
 
 ### 批量图片格式转换
-对每张图片调用 `ImageProcess(action: "convert", format: "webp")`。WebP 格式在保持画质的同时文件体积约为 JPEG 的 70%，适合 Web 使用场景。
 
-### 画布生成后继续处理
-画布 v3 生成的图片如需后续裁剪、缩放、格式转换，用 `ImageProcess` 处理。
+对每张图片调用 `ImageProcess(action: "convert", format: "webp")`。WebP 格式在保持画质的同时文件体积约为 JPEG 的 70%，适合 Web 使用场景。
 
 ## 常见错误
 

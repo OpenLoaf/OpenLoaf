@@ -2,6 +2,7 @@
 name: docx-skill
 description: >
   Word 文档（.docx）读/写/转/评审一体化。触发场景：总结 docx、读段落 / 大纲 / 表格 / 图片 / 评论 / 修订、替换正文、插入图片、改页面设置、重建目录、加评论或回复、加修订（insert / delete / replace），以及接受/驳回修订、docx ↔ pdf/html/md/txt 互转。典型说法："帮我总结这份 Word"、"把第二段改成 XXX"、"这份合同里全部 'A 公司' 换成 'B 公司'"、"给第一段加一条修订批注"、"接受所有修订"、"docx 转 pdf"、"从这些要点生成销售报告"。用户提到 .docx / .doc 文件或以 Word 文档为产出目标都加载本技能。
+tools: [WordInspect, WordMutate, DocConvert]
 ---
 
 # DOCX 技能
@@ -390,7 +391,7 @@ Step 4  汇总 → WordMutate(create) 重建一份文字版 .docx
 8. **Image 必带 `alt`**：WCAG 可访问性 + Word 读屏依赖。`create` 里 `{ type:"image", ..., alt:"…" }`，`add-image` 里 `imageAlt:"…"`。
 9. **TOC 要求所有标题只用 HeadingLevel**：自定义 style 在 TOC 里会被忽略或抛 `TOC_STYLE_CONFLICT`。标题段一律 `type:"heading"` + `level:1..6`，不要 `type:"paragraph" + style:"Heading1"`。
 10. **`edit` 是最末位兜底**：用户让你"改某段正文 / 插图 / 改页面 / 加评论 / 加修订"，先看 4.1-4.7 的 7 个 action 有没有能匹配的；只有当需求真的是"修改某个 OOXML 节点的属性或裸 XML"才走 `edit`，并且先 `WordInspect(xml)`。
-11. **`create` 的 `filePath` 用裸文件名或相对路径**：`filePath: "meeting_notes.docx"` 或 `filePath: "reports/q1.docx"`，不要写 `/Users/.../OpenLoafData/xxx.docx` 这种全局根下的绝对路径——运行时会把它 resolve 到当前会话的 asset 目录 `<chat-history>/<sessionId>/asset/`（或有项目时的项目根），所以你**不需要**自己拼 `${CURRENT_CHAT_DIR}/` 前缀。写越界的绝对路径会直接抛 "filePath is outside the writable scope"。
+11. **`create` 的 `filePath` 优先用裸文件名或相对路径**：`filePath: "meeting_notes.docx"` 或 `filePath: "reports/q1.docx"` 会自动 resolve 到当前会话的 asset 目录 `<chat-history>/<sessionId>/asset/`（或项目根），你**不需要**自己拼 `${CURRENT_CHAT_DIR}/` 前缀。绝对路径允许但属于 out-of-scope 写入，会触发审批闸门让用户确认。
 
 ---
 

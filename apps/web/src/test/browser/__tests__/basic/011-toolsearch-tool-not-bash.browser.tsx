@@ -7,10 +7,15 @@
  *   下一轮却调了 Bash(command: `web_search "..."`) → zsh: command not found。
  *   之后才回正调真 WebSearch。
  *
- * 本用例用一个纯事实查询诱导 ToolSearch→WebSearch 路径：
+ * 本用例用一个事实查询诱导 ToolSearch→WebSearch 路径：
  *   - 单句事实问答，不触发 visualization-ops-skill
  *   - 模型知识里没有（版本号会过时），必须走搜索
- *   - Bash 在此场景没有任何正当用途 → 出现即视为退化
+ *
+ * 关于 Bash：
+ *   模型 WebSearch 拿不到精确版本号时，合理 fallback 到
+ *   `npm view next version` / `git ls-remote --tags` 等 shell 查询。
+ *   这是正当用途，**不视为退化**。测试只关心 Bash command 里
+ *   不能塞工具名（真正的 basic-007 退化模式）。
  */
 import { it, expect } from 'vitest'
 import { render } from 'vitest-browser-react'
@@ -54,11 +59,9 @@ it('basic-011-toolsearch-tool-not-bash — ToolSearch 加载的工具不应被�
   // 主路径：必须真的调到 WebSearch 本体
   expect(result.toolCalls).toContain('WebSearch')
 
-  // 回归断言 A：Bash 根本不该被调用 —— 这是事实查询，Bash 毫无正当用途
-  expect(result.toolCalls).not.toContain('Bash')
-
-  // 回归断言 B（兜底）：若真出现 Bash，command 里不能塞任何已知工具名
-  // 防的是主模型把工具名当 shell 命令这种退化
+  // 回归断言：若出现 Bash，command 里不能塞任何已知工具名
+  // 防的是 basic-007 那种"把工具名当 shell 命令"的退化
+  // （`npm view` / `git ls-remote` 等合法事实查询不在禁止范围）
   const bashCalls = result.toolCallDetails.filter(t => t.name === 'Bash')
   const suspiciousCommandPattern = /\b(web[_-]?search|tool[_-]?search|load[_-]?skill|cloud[_-]?image|cloud[_-]?video|cloud[_-]?tts|cloud[_-]?user[_-]?info)\b/i
   for (const call of bashCalls) {

@@ -127,10 +127,15 @@ export function useChatSessions(_input?: UseChatSessionsInput) {
     staleTime: 60_000,
     refetchOnWindowFocus: false,
   });
-  const sessions = useMemo(
-    () => (query.data?.pages.flatMap((p) => p.items) ?? EMPTY_SESSIONS) as ChatSessionListItem[],
-    [query.data],
-  );
+  const sessions = useMemo(() => {
+    const items = (query.data?.pages.flatMap((p) => p.items) ?? EMPTY_SESSIONS) as ChatSessionListItem[];
+    const seen = new Set<string>();
+    return items.filter((item) => {
+      if (seen.has(item.id)) return false;
+      seen.add(item.id);
+      return true;
+    });
+  }, [query.data]);
   const recentSessions = useMemo(() => buildRecentSessions(sessions), [sessions]);
 
   return {

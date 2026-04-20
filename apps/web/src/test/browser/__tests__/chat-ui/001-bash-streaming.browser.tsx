@@ -21,7 +21,7 @@ import {
 
 const SERVER_URL = process.env.PROBE_SERVER_URL ?? 'http://127.0.0.1:23333'
 
-it('009 — Bash 工具流式输出，进度文本实时渲染', async () => {
+it('chat-ui-001-bash-streaming — Bash 工具流式输出，进度文本实时渲染', async () => {
   // 用一个简单的 bash 命令：快速输出多行内容
   const prompt = '运行 bash 命令 echo -e "line1\\nline2\\nline3\\nline4\\nline5"，只运行这一个命令，不需要其他操作'
 

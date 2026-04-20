@@ -2,6 +2,7 @@
 name: visualization-ops-skill
 description: >
   **输出可视化，必加载**。当 prompt 涉及新闻/资讯/行情/排行/报告/总结/分析/对比/选型/推荐/盘点/复盘，或预计返回 3 条以上可结构化条目时，**必须先于（或同轮于）数据获取工具加载本 skill**。加载后**禁止用纯 markdown 文本收尾**——必须用 JsxCreate 或 ChartRender 渲染。典型："搜最新伊朗新闻"、"对比 Obsidian/Notion/Logseq"、"推荐几本书"、"最近股市怎么样"。**不用于**：单句事实问答、纯代码输出、在画布里增删节点（由画布子 Agent 处理）。
+tools: [JsxCreate, ChartRender]
 ---
 
 # 可视化渲染

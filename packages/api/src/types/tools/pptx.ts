@@ -21,7 +21,9 @@ export const pptxMutateToolDef = {
   readonly: false,
   name: 'Mutate Pptx',
   description:
-    'Create or edit .pptx files (new deck from structured slides or XPath+XML edits). See pdf-word-excel-pptx skill for usage.',
+    `Create or edit .pptx files (new deck from structured slides or XPath+XML edits). See pdf-word-excel-pptx skill for usage.
+
+🚨 PARAMETER FORMAT: array-valued params (\`slides\`, \`edits\`) MUST be native JSON arrays — \`"slides": [{...}]\`, NOT \`"slides": "[{...}]"\`. Stringified JSON is auto-recovered with a warning but wastes a retry.`,
   parameters: z.object({
     action: z.enum(['create', 'edit']),
     filePath: z.string().min(1),

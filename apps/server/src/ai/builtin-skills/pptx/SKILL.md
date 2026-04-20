@@ -2,6 +2,7 @@
 name: pptx-skill
 description: >
   当用户要求对 PowerPoint 幻灯片（.pptx）做任何操作时触发：总结 deck、提取每页要点、改标题或副标题、改正文或演讲者备注、插页 / 删页 / 换页、从零生成汇报 / 路演 / 培训 deck、把对话里讨论过的要点落成 PPT。典型说法："总结这份 PPT"、"这个 deck 在讲什么"、"把每页要点提出来"、"帮我做一份 Q4 汇报 PPT"、"改第 3 页标题"、"在 PPT 里加一页"、"把这些要点做成幻灯片"。用户提到 deck / slide / 幻灯片 / 汇报产出时都应加载本技能。
+tools: [Read, DocPreview, PptxMutate, DocConvert]
 ---
 
 # PowerPoint (PPTX) 技能

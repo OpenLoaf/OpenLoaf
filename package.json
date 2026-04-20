@@ -17,6 +17,7 @@
     "test:browser:run": "pnpm --filter web test:browser:run",
     "test:browser:report": "pnpm --filter web test:browser:report",
     "test:browser:audit": "pnpm --filter web test:browser:audit",
+    "test:browser:diagnose-prompt": "pnpm --filter web test:browser:diagnose-prompt",
     "db:push": "turbo -F @openloaf/db db:push",
     "db:studio": "turbo -F @openloaf/db db:studio",
     "db:generate": "turbo -F @openloaf/db db:generate",

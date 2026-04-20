@@ -1,5 +1,5 @@
 /**
- * 004: XLSX 全量读取。
+ * 007: XLSX 全量读取。
  * 断言：使用 DocPreview 或 Read，回复提到 sheet。
  */
 import { it, expect } from 'vitest'
@@ -10,8 +10,8 @@ import { waitForChatComplete, waitForProbeResult, takeProbeScreenshot, aiJudge }
 
 const SERVER_URL = process.env.PROBE_SERVER_URL ?? 'http://127.0.0.1:23333'
 
-it('004 — XLSX 全量，回复列出 sheet', async () => {
-  const sessionId = `chat_probe_004_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+it('file-read-007-docpreview-xlsx — XLSX 全量，回复列出 sheet', async () => {
+  const sessionId = `chat_probe_007_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
   const userPrompt = '把这份 Excel 的内容完整列出来，每个 sheet 都要看。'
 
   const { tags } = await (commands as any).stageAttachments({

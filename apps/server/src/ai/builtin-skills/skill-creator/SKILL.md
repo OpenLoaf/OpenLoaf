@@ -2,6 +2,7 @@
 name: skill-creator-skill
 description: >
   当用户想要创建、编辑、改进或调试 OpenLoaf 自定义技能（Skill）时触发。典型说法："帮我创建一个技能"、"做一个新 skill"、"把刚才的操作封装成技能"、"写一个能自动 XX 的技能"、"改一下这个 skill"、"这个 skill 为什么不触发"、"编辑我的自定义技能"、"加个全局技能"、"给当前项目加个技能"。任何涉及 `.openloaf/skills/` 目录下 `SKILL.md` 的创建 / 修改 / 调优请求都应加载本技能。也适用于用户想理解技能格式、排查触发问题、或把对话里的工作流固化成可复用能力的场景。不用于：内置技能（如 file-ops、email-ops 等）的修改——那些是平台随版本发布的只读能力。
+tools: [Read, Write, Edit, Grep]
 ---
 
 # 技能创建与优化指南

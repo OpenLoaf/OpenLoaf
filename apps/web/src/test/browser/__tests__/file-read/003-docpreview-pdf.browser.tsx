@@ -12,7 +12,7 @@ import { waitForChatComplete, waitForProbeResult, takeProbeScreenshot, aiJudge }
 
 const SERVER_URL = process.env.PROBE_SERVER_URL ?? 'http://127.0.0.1:23333'
 
-it('002 — PDF 内容深度理解：提取产品名称、页数、关键参数', async () => {
+it('file-read-003-docpreview-pdf — PDF 内容深度理解：提取产品名称、页数、关键参数', async () => {
   const sessionId = `chat_probe_002_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
   const userPrompt =
     '请仔细阅读这份 PDF 手册，告诉我：1) 这是什么产品的手册？具体型号是什么？2) 总共多少页？3) 手册的主要章节有哪些？请列出至少 5 个章节标题。'

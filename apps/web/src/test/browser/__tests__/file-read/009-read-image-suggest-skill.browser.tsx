@@ -10,7 +10,7 @@ import { waitForChatComplete, waitForProbeResult, takeProbeScreenshot } from '..
 
 const SERVER_URL = process.env.PROBE_SERVER_URL ?? 'http://127.0.0.1:23333'
 
-it('005 — 图片读取，回复描述图片', async () => {
+it('file-read-009-read-image-suggest-skill — 图片读取，回复描述图片', async () => {
   const sessionId = `chat_probe_005_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
   const userPrompt = '这张图片是什么？'
 

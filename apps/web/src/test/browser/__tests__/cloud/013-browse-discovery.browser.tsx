@@ -12,7 +12,7 @@ import { waitForChatComplete, waitForProbeResult, takeProbeScreenshot, aiJudge }
 
 const SERVER_URL = process.env.PROBE_SERVER_URL ?? 'http://127.0.0.1:23333'
 
-it('025 — Cloud 能力发现：查看可用生成能力', async () => {
+it('cloud-013-browse-discovery — Cloud 能力发现：查看可用生成能力', async () => {
   const prompt = '你能帮我生成哪些东西？图片视频音频什么的，有哪些模型可以用？'
 
   render(
