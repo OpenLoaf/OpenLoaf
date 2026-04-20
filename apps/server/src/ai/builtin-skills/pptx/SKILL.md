@@ -1,146 +1,226 @@
 ---
 name: pptx-skill
 description: >
-  当用户要求对 PowerPoint 幻灯片（.pptx）做任何操作时触发：总结 deck、提取每页要点、改标题或副标题、改正文或演讲者备注、插页 / 删页 / 换页、从零生成汇报 / 路演 / 培训 deck、把对话里讨论过的要点落成 PPT。典型说法："总结这份 PPT"、"这个 deck 在讲什么"、"把每页要点提出来"、"帮我做一份 Q4 汇报 PPT"、"改第 3 页标题"、"在 PPT 里加一页"、"把这些要点做成幻灯片"。用户提到 deck / slide / 幻灯片 / 汇报产出时都应加载本技能。
+  当用户要求对 PowerPoint 幻灯片（.pptx）做任何操作时触发：总结 deck、提取每页要点、改标题或副标题、改正文或演讲者备注、插页/删页/换页、从零生成汇报/路演/培训 deck、把讨论过的要点落成 PPT。典型说法："总结这份 PPT"、"这个 deck 在讲什么"、"把每页要点提出来"、"帮我做一份 Q4 汇报 PPT"、"改第 3 页标题"、"PPT 加一页"、"把这些要点做成幻灯片"。用户提到 deck / slide / 幻灯片 / 汇报产出时都加载本技能。
 ---
 
-# PowerPoint (PPTX) 技能
+# PPTX 技能
 
-本技能涉及 4 个工具，按**读 → 写 → 转**组织：
+**创建 PPT 用 `JsSandbox` + `pptxgenjs`**（API 最友好）；读 / 分析 deck 内容目前通过 `DocConvert(from="pptx", to="md")` → `Read` 看 markdown；格式互转用 `DocConvert`。
 
-| 工具 | 职责 | 只读 |
+## 工具清单
+
+| 工具 | 做什么 | 只读 |
 |------|------|------|
-| `Read` | 读 PPTX 时的默认入口。返回每页标题 + 正文摘要 | 是 |
-| `DocPreview` | 两种模式：`preview`（每页标题 + 摘要）/ `full`（完整每页文本） | 是 |
-| `PptxMutate` | 唯一写入工具。2 个 action：`create` / `edit` | 否 |
-| `DocConvert` | 格式互转：pptx → pdf 等 | 否 |
+| `JsSandbox` | **所有写 & 读**：创建 deck / 改页 / 插页，统一用 `pptxgenjs` 生成；要分析老 deck 就用 `adm-zip` + XML 解析 | 否 |
+| `DocConvert` | pptx ↔ pdf / html；老 deck 转 md 再读 | 否 |
 
-> **工具按需加载**：`DocPreview`、`PptxMutate`、`DocConvert` 调用前须先 `ToolSearch(names: "工具名")` 加载 schema。`Read` 始终可用。
-
----
-
-## 1. 读取 PPTX
-
-### 1.1 用 `Read` 快速了解
-
-直接 `Read(file_path)` 即可。返回每页标题 + 正文摘要。适合快速了解 deck 内容。
-
-### 1.2 用 `DocPreview` 做精细读取
-
-| 参数 | 说明 |
-|------|------|
-| `mode: 'preview'` | 每页标题 + 正文摘要（默认值） |
-| `mode: 'full'` | 完整展开每页所有文本 |
-
-> **Read / DocPreview 返回的是 Markdown，不是 OOXML**。要做 XPath 编辑必须先 `Bash unzip -p file.pptx ppt/slides/slide1.xml` 查看原始 XML 结构。
+> **加载（两步）**：
+> 1. `LoadSkill pptx-skill`
+> 2. `ToolSearch(query: "select:JsSandbox,DocConvert")`
 
 ---
 
-## 2. PptxMutate — 写入 PPTX
+## 1. 读：先用 `DocConvert(pptx→md)` 看内容，再按需 JsSandbox 深挖
 
-通过 `action` 字段区分 2 种操作。`needsApproval: true`——调用后弹出审批对话框。
+简单场景：
 
-### 2.1 create — 从零创建
+```
+DocConvert(from="pptx", to="md", sourcePath="deck.pptx")  // 输出 deck.md
+Read(file_path="<asset>/deck.md")                         // 正文 + 页边界
+```
 
-`slides` 是一个数组，每个元素：
+若需精确结构（形状坐标 / 主题色 / notes 演讲者备注）再跑 JsSandbox 解 XML：
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| `title` | string? | 幻灯片标题 |
-| `textBlocks` | string[]? | 正文文本块数组，每个元素一段 |
-| `notes` | string? | 演讲者备注（不显示在正文，适合放详细数据和演讲提示） |
+```js
+import AdmZip from 'adm-zip'
+import fs from 'node:fs/promises'
 
-CJK 完全支持。
+const zip = new AdmZip(await fs.readFile('deck.pptx'))
+const slides = zip.getEntries()
+  .filter(e => e.entryName.startsWith('ppt/slides/slide'))
+  .sort((a, b) => a.entryName.localeCompare(b.entryName))
 
-```json
-{
-  "action": "create",
-  "filePath": "/work/2026Q1_汇报.pptx",
-  "slides": [
-    {
-      "title": "2026 Q1 业务汇报",
-      "textBlocks": ["汇报人：张三", "日期：2026-04-15"],
-      "notes": "开场问候，介绍今日议程"
-    },
-    {
-      "title": "核心指标",
-      "textBlocks": ["营收同比 +32%", "新增付费用户 1.2 万", "NPS 从 42 提升到 51"],
-      "notes": "NPS 提升来自客服响应优化：首响时间从 4h 降到 35min"
-    },
-    {
-      "title": "下季度重点",
-      "textBlocks": ["扩张东南亚市场", "上线企业版", "完成 B 轮融资"]
-    },
-    { "title": "Q&A", "textBlocks": ["谢谢聆听"] }
-  ]
+for (const e of slides) {
+  const xml = e.getData().toString('utf-8')
+  const texts = [...xml.matchAll(/<a:t>([^<]*)<\/a:t>/g)].map(m => m[1])
+  console.log(`=== ${e.entryName} ===`)
+  console.log(texts.join('\n'))
 }
 ```
 
-**内容设计经验**：
-- 每页标题 ≤ 10 字，textBlock 每块 3-5 行、每行 ≤ 20 字
-- 详细数据和补充解释放 `notes`，正文保持简洁
-- `create` 只支持文本和标题布局，不支持图表/自定义形状/SmartArt
+---
 
-### 2.2 edit — 修改已有文件
+## 2. 写：`JsSandbox` + `pptxgenjs`
 
-PPTX 本质是 ZIP 包。关键内部路径：
+### 2.1 Demo：生成中文季度汇报 PPT
 
-| ZIP 路径 | 内容 |
-|---------|------|
-| `ppt/slides/slide1.xml` | 第 1 页正文 OOXML |
-| `ppt/presentation.xml` | 全局索引，含 `sldIdLst`（决定页面顺序） |
-| `ppt/slides/_rels/slide1.xml.rels` | slide1 的引用关系（图片/超链接） |
-| `ppt/media/image1.png` | 嵌入的媒体文件 |
+```js
+import pptxgen from 'pptxgenjs'
 
-**编辑前必须先看原始 XML**：
-```bash
-unzip -p /work/deck.pptx ppt/slides/slide2.xml
+const pres = new pptxgen()
+pres.layout = 'LAYOUT_16x9'
+pres.defineSlideMaster({
+  title: 'MAIN',
+  background: { color: 'FFFFFF' },
+  objects: [
+    { rect: { x: 0, y: 7.0, w: 13.33, h: 0.5, fill: { color: '1F3A8A' } } },
+    { text: {
+      text: 'OpenLoaf · 2026 Q1 业务回顾',
+      options: { x: 0.5, y: 7.05, w: 12, h: 0.4, fontSize: 10, color: 'FFFFFF' },
+    }},
+  ],
+})
+
+// 封面
+const s1 = pres.addSlide({ masterName: 'MAIN' })
+s1.addText('2026 Q1 业务回顾', {
+  x: 0.5, y: 2.2, w: 12.3, h: 1.5,
+  fontSize: 44, bold: true, color: '1F3A8A',
+  fontFace: 'Microsoft YaHei',          // CJK 必设
+})
+s1.addText('产品部 · 张三   2026-04-20', {
+  x: 0.5, y: 4.0, w: 12.3, h: 0.6,
+  fontSize: 18, color: '475569', fontFace: 'Microsoft YaHei',
+})
+
+// 核心指标
+const s2 = pres.addSlide({ masterName: 'MAIN' })
+s2.addText('核心指标', {
+  x: 0.5, y: 0.4, w: 12.3, h: 0.8,
+  fontSize: 28, bold: true, color: '1F3A8A', fontFace: 'Microsoft YaHei',
+})
+const kpis = [
+  { label: '营收',   value: '+32%', color: '16A34A' },
+  { label: '付费用户', value: '1.2 万', color: '2563EB' },
+  { label: 'NPS',    value: '42 → 51', color: '9333EA' },
+]
+kpis.forEach((k, i) => {
+  const x = 0.5 + i * 4.3
+  s2.addShape(pres.ShapeType.roundRect, {
+    x, y: 2.0, w: 4.0, h: 3.0, fill: { color: 'F1F5F9' }, line: { color: 'CBD5E1' },
+  })
+  s2.addText(k.value, {
+    x, y: 2.4, w: 4.0, h: 1.0, align: 'center',
+    fontSize: 40, bold: true, color: k.color, fontFace: 'Microsoft YaHei',
+  })
+  s2.addText(k.label, {
+    x, y: 3.6, w: 4.0, h: 0.6, align: 'center',
+    fontSize: 18, color: '475569', fontFace: 'Microsoft YaHei',
+  })
+})
+s2.addNotes('Q1 三大核心指标均显著超预期。付费用户环比 +46%。')
+
+// 带柱状图
+const s3 = pres.addSlide({ masterName: 'MAIN' })
+s3.addText('月度营收', {
+  x: 0.5, y: 0.4, w: 12.3, h: 0.8,
+  fontSize: 28, bold: true, color: '1F3A8A', fontFace: 'Microsoft YaHei',
+})
+s3.addChart(pres.ChartType.bar, [{
+  name: '营收（万元）',
+  labels: ['1月', '2月', '3月'],
+  values: [820, 1050, 1340],
+}], {
+  x: 1.0, y: 1.5, w: 11.3, h: 5.5,
+  showTitle: false, showLegend: true, showValue: true,
+  catAxisLabelFontFace: 'Microsoft YaHei',
+  valAxisLabelFontFace: 'Microsoft YaHei',
+})
+
+// 结尾 Q&A
+const s4 = pres.addSlide({ masterName: 'MAIN' })
+s4.addText('Q & A', {
+  x: 0.5, y: 3.0, w: 12.3, h: 1.5, align: 'center',
+  fontSize: 60, bold: true, color: '1F3A8A', fontFace: 'Microsoft YaHei',
+})
+
+await pres.writeFile({ fileName: 'q1_review.pptx' })
+console.log('q1_review.pptx written')
 ```
 
-`edits` 数组，每个元素：
+> **关键点**：
+> - `pptxgenjs` 的 API 签名全是 **对象形式**（`{x, y, w, h, fontSize, ...}`），不用拼 JSON 字符串。
+> - **CJK 必给 `fontFace`**（如 `'Microsoft YaHei'` / `'Noto Sans CJK SC'`），否则默认英文字体渲染中文时可能被替换或字距异常。
+> - `addChart` 原生支持 bar / line / pie / doughnut；如果模板要的是"图片感"图表，也可以用 `chartjs-node-canvas` 画 PNG 再 `addImage`。
 
-| op | 用途 | 必填字段 |
-|----|------|---------|
-| `replace` | 替换 xpath 命中的节点 | `path`, `xpath`, `xml` |
-| `insert` | 在 xpath 节点前/后插入 | `path`, `xpath`, `xml`, `position`（`before`/`after`） |
-| `remove` | 删除 xpath 命中的节点 | `path`, `xpath` |
-| `write` | 向 ZIP 写入新文件（如图片） | `path`, `source`（文件路径或 URL） |
-| `delete` | 删除 ZIP 内某个文件 | `path` |
+### 2.2 Demo：基于数据做 N 页（每条数据一页）
 
-替换文字示例：
-```json
-{
-  "action": "edit",
-  "filePath": "/work/deck.pptx",
-  "edits": [{
-    "op": "replace",
-    "path": "ppt/slides/slide2.xml",
-    "xpath": "//a:t[text()='旧标题']",
-    "xml": "<a:t xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\">新标题</a:t>"
-  }]
-}
+```js
+import pptxgen from 'pptxgenjs'
+
+const items = [
+  { title: '镜头 1：外观亮相', desc: '城市航拍开场 → V6 多角度路跑快切 → 驶入批发市场' },
+  { title: '镜头 2：装载实力', desc: '店主迎接 → 开箱满载 → 后备箱 87% 开启率 1831mm' },
+  { title: '镜头 3：超级底盘', desc: '离地间距 186mm + 座椅放倒装货 + 固定带锚点' },
+]
+
+const pres = new pptxgen()
+pres.layout = 'LAYOUT_16x9'
+
+// 封面
+const cover = pres.addSlide()
+cover.addText('向上 V6 PV 分镜汇报', {
+  x: 0.5, y: 2.8, w: 12.3, h: 1.3, align: 'center',
+  fontSize: 40, bold: true, color: '0F172A', fontFace: 'Microsoft YaHei',
+})
+
+// 每个关键镜头一页
+items.forEach((it, i) => {
+  const s = pres.addSlide()
+  s.addText(`${i + 1}. ${it.title}`, {
+    x: 0.5, y: 0.5, w: 12.3, h: 0.8,
+    fontSize: 26, bold: true, color: '1F3A8A', fontFace: 'Microsoft YaHei',
+  })
+  s.addText(it.desc, {
+    x: 0.5, y: 1.7, w: 12.3, h: 3.5,
+    fontSize: 20, color: '334155', fontFace: 'Microsoft YaHei',
+    valign: 'top',
+  })
+})
+
+await pres.writeFile({ fileName: 'storyboard.pptx' })
+console.log(`storyboard.pptx — ${items.length + 1} slides`)
 ```
 
-PPTX 文本节点结构：`p:sp → p:txBody → a:p → a:r → a:t`。命名空间 `a:` = `http://schemas.openxmlformats.org/drawingml/2006/main`。
+### 2.3 Demo：改已有 deck 第 N 页的标题
+
+`pptxgenjs` 只做生成不读老文件。改老 deck → `adm-zip` 改 XML：
+
+```js
+import AdmZip from 'adm-zip'
+import fs from 'node:fs/promises'
+
+const zip = new AdmZip(await fs.readFile('deck.pptx'))
+const target = 'ppt/slides/slide3.xml'
+let xml = zip.readAsText(target)
+// 简单替换第一个 a:t 文本
+xml = xml.replace(/<a:t>[^<]*<\/a:t>/, '<a:t>新标题</a:t>')
+zip.updateFile(target, Buffer.from(xml, 'utf-8'))
+await fs.writeFile('deck.pptx', zip.toBuffer())
+console.log('slide 3 title updated')
+```
+
+> 这是硬改 XML 的做法，遇到 run 被拆会失效。稳妥做法是整份 `pptxgenjs` 重新生成。
 
 ---
 
-## 3. DocConvert — 格式转换
+## 3. 格式互转
 
-```json
-{ "filePath": "/work/deck.pptx", "outputPath": "/work/deck.pdf", "outputFormat": "pdf" }
 ```
-
-支持的 outputFormat：`pdf`, `docx`, `html`, `md`, `txt`, `csv`, `xls`, `xlsx`, `json`
+DocConvert(from="pptx", to="pdf", sourcePath="…")    // 给甲方分发
+DocConvert(from="pptx", to="md",  sourcePath="…")    // 提炼正文 / 做总结
+```
 
 ---
 
-## 4. 关键约束
+## 4. 常见陷阱
 
-1. **编辑前必须 `unzip -p` 看 XML**。Read/DocPreview 返回的 Markdown 看不到真实节点结构，盲写 XPath = 静默无效。
-2. **文本运行可能被拆分**。一行可见文字可能由多个 `<a:r>` 组成（字体/格式不同就拆段），`//a:t[text()='完整一句']` 可能匹配不到。先看 XML 确认 run 切分，或用 `contains()` 分段匹配。
-3. **页面顺序不看文件名**。`slide5.xml` 不一定是第 5 页。真正顺序由 `ppt/presentation.xml` 里的 `<p:sldIdLst>` 决定。
-4. **媒体引用走 rels**。slide 里的 `r:embed="rId3"` 映射在 `_rels/slideN.xml.rels` 里。替换图片需同时更新 rels 条目并用 `write` op 写入新文件。
-5. **大改用 create，小改用 edit**。改动超过 30% 内容时直接重新 create 比打 XPath 补丁可靠。
-6. **一次调用合并所有 edits**。减少审批弹窗和中间状态。
-7. **create 会覆盖同名文件**。建议使用新文件名或先与用户确认。
+| 症状 | 原因 | 处理 |
+|---|---|---|
+| 中文显示方块 / 全变字母 | 未设 `fontFace` | 每个 addText / addChart 传 `fontFace: 'Microsoft YaHei'` |
+| 图表轴标签英文 | `catAxisLabelFontFace` 未设 | 中英混排 chart 都要加这个 |
+| `writeFile` 产物打不开 | 路径穿越 / 权限 | 写相对路径就落到 cwd (session asset dir) |
+| 生成几十页很慢 | 每页重复 addText | `defineSlideMaster` 把公共元素放 master，slide 里只放差异内容 |
+
+修脚本：`JsSandbox(action="edit-and-run", scriptPath=…, edits=[…])` 少传 token。

@@ -32,10 +32,10 @@ import { projectMutateTool, projectQueryTool } from "@/ai/tools/projectTools";
 import { boardQueryTool, boardMutateTool } from "@/ai/tools/boardTools";
 import { calendarMutateTool, calendarQueryTool } from "@/ai/tools/calendarTools";
 import { emailMutateTool, emailQueryTool } from "@/ai/tools/emailTools";
-import { excelInspectTool, excelMutateTool } from "@/ai/tools/excelTools";
-import { wordMutateTool, wordInspectTool } from "@/ai/tools/wordTools";
-import { pptxMutateTool } from "@/ai/tools/pptxTools";
-import { pdfMutateTool, pdfInspectTool } from "@/ai/tools/pdfTools";
+import { excelInspectTool } from "@/ai/tools/excelTools";
+import { wordInspectTool } from "@/ai/tools/wordTools";
+import { pdfInspectTool } from "@/ai/tools/pdfTools";
+import { jsSandboxTool } from "@/ai/tools/jsSandboxTool";
 import { imageProcessTool } from "@/ai/tools/imageProcessTools";
 import { videoConvertTool } from "@/ai/tools/videoConvertTools";
 import { videoDownloadTool } from "@/ai/tools/videoDownloadTool";
@@ -87,10 +87,10 @@ import {
   emailMutateToolDef,
   emailQueryToolDef,
 } from "@openloaf/api/types/tools/email";
-import { excelInspectToolDef, excelMutateToolDef } from "@openloaf/api/types/tools/excel";
-import { wordMutateToolDef, wordInspectToolDef } from "@openloaf/api/types/tools/word";
-import { pptxMutateToolDef } from "@openloaf/api/types/tools/pptx";
-import { pdfMutateToolDef, pdfInspectToolDef } from "@openloaf/api/types/tools/pdf";
+import { excelInspectToolDef } from "@openloaf/api/types/tools/excel";
+import { wordInspectToolDef } from "@openloaf/api/types/tools/word";
+import { pdfInspectToolDef } from "@openloaf/api/types/tools/pdf";
+import { jsSandboxToolDef } from "@openloaf/api/types/tools/jsSandbox";
 import { imageProcessToolDef } from "@openloaf/api/types/tools/imageProcess";
 import { videoConvertToolDef } from "@openloaf/api/types/tools/videoConvert";
 import { videoDownloadToolDef } from "@openloaf/api/types/tools/videoDownload";
@@ -292,23 +292,14 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
   [excelInspectToolDef.id]: {
     tool: excelInspectTool,
   },
-  [excelMutateToolDef.id]: {
-    tool: excelMutateTool,
-  },
   [wordInspectToolDef.id]: {
     tool: wordInspectTool,
   },
-  [wordMutateToolDef.id]: {
-    tool: wordMutateTool,
-  },
-  [pptxMutateToolDef.id]: {
-    tool: pptxMutateTool,
-  },
-  [pdfMutateToolDef.id]: {
-    tool: pdfMutateTool,
-  },
   [pdfInspectToolDef.id]: {
     tool: pdfInspectTool,
+  },
+  [jsSandboxToolDef.id]: {
+    tool: jsSandboxTool,
   },
   [generateWidgetToolDef.id]: {
     tool: generateWidgetTool,
@@ -445,12 +436,9 @@ const TOOL_DEF_REGISTRY: Record<string, { parameters?: any }> = {
   [emailQueryToolDef.id]: emailQueryToolDef,
   [emailMutateToolDef.id]: emailMutateToolDef,
   [excelInspectToolDef.id]: excelInspectToolDef,
-  [excelMutateToolDef.id]: excelMutateToolDef,
   [wordInspectToolDef.id]: wordInspectToolDef,
-  [wordMutateToolDef.id]: wordMutateToolDef,
-  [pptxMutateToolDef.id]: pptxMutateToolDef,
-  [pdfMutateToolDef.id]: pdfMutateToolDef,
   [pdfInspectToolDef.id]: pdfInspectToolDef,
+  [jsSandboxToolDef.id]: jsSandboxToolDef,
   [generateWidgetToolDef.id]: generateWidgetToolDef,
   [widgetInitToolDef.id]: widgetInitToolDef,
   [widgetListToolDef.id]: widgetListToolDef,

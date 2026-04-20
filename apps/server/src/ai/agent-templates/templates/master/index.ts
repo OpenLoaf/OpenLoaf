@@ -79,15 +79,13 @@ export const masterTemplate: AgentTemplate = {
     'EditDocument',
     // office
     'DocPreview',
-    'ExcelQuery',
-    'ExcelMutate',
-    'WordQuery',
+    'ExcelInspect',
     'WordInspect',
-    'WordMutate',
-    'PptxQuery',
-    'PptxMutate',
     'PdfInspect',
-    'PdfMutate',
+    // JsSandbox replaces all Office/PDF Mutate tools: AI writes a short Node
+    // script using preinstalled libs (pptxgenjs / docx / xlsx / pdf-lib / ...)
+    // and the subprocess executes it in the session asset dir.
+    'JsSandbox',
     // convert
     'ImageProcess',
     'VideoConvert',
