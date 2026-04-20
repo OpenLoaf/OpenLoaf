@@ -2,8 +2,8 @@
  * office-create/003: PDF 水印。
  *
  * 附件一个现有 PDF，要求 AI 在上面加水印文字。
- * 新架构下 PDF 水印有独立 watermark action（区别于 add-text 的定位单段文字）；
- * AI 应走 PdfMutate.watermark。断言：调用了 PdfMutate 工具并完成操作。
+ * 新架构下 AI 通过 JsSandbox（pdf-lib）完成水印操作。
+ * 断言：调用了 JsSandbox 工具并完成操作。
  */
 import { it, expect } from 'vitest'
 import { render } from 'vitest-browser-react'
@@ -33,8 +33,8 @@ it('office-create-003 — PDF 水印：在现有 PDF 上添加 CONFIDENTIAL 水�
   await takeProbeScreenshot('office-create-003-pdf-add-watermark')
   const meta = {
     testCase: 'office-create-003-pdf-add-watermark', prompt, result,
-    description: 'PdfMutate.watermark 给 PDF 加红色 CONFIDENTIAL 水印',
-    tags: ['pdfmutate', 'watermark', 'pdf'],
+    description: 'JsSandbox 给 PDF 加红色 CONFIDENTIAL 水印',
+    tags: ['jssandbox', 'watermark', 'pdf'],
   }
   await (commands as any).saveTestData(meta)
   await (commands as any).recordProbeRun(meta)
@@ -42,7 +42,7 @@ it('office-create-003 — PDF 水印：在现有 PDF 上添加 CONFIDENTIAL 水�
   // ── 断言 ──
   expect(result.status).toBe('ok')
 
-  // 核心断言：必须用了 PdfMutate（说明水印操作被执行了）
+  // 核心断言：必须用了 JsSandbox（说明水印操作被执行了）
   expect(result.toolCalls).toContain('JsSandbox')
 
   // AI 语义评判：验证水印操作的完成确认
@@ -54,7 +54,7 @@ it('office-create-003 — PDF 水印：在现有 PDF 上添加 CONFIDENTIAL 水�
       '判断 AI 是否成功完成了在 PDF 上添加 "CONFIDENTIAL" 红色水印的任务。' +
       '满足以下任一条件即通过：' +
       '1) 回复文字提到了已添加/已完成/水印/文字/红色/CONFIDENTIAL 等相关内容；' +
-      '2) 回复文字较短或被截断但工具调用包含 PdfMutate（说明操作已执行）',
+      '2) 回复文字较短或被截断但工具调用包含 JsSandbox（说明操作已执行）',
     aiResponse: result.textPreview.trim(),
     toolCalls: result.toolCalls,
     userPrompt,

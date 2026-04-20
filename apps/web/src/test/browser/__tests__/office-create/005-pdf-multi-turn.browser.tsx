@@ -2,11 +2,11 @@
  * office-create/005: 多轮 PDF 工作流。
  *
  * 第一轮：读 inside.pdf（视频分镜脚本）— Read/DocPreview 或 PdfInspect.text
- * 第二轮：基于第一轮，要求 AI 在 PDF 上加一段文字 — PdfMutate.add-text
+ * 第二轮：基于第一轮，要求 AI 在 PDF 上加一段文字 — JsSandbox（pdf-lib）
  *
  * 验证：
  * 1) 多轮连贯性（AI 记住第一轮内容）
- * 2) 读路径（Read/DocPreview/PdfInspect）+ 写路径（PdfMutate）都被使用
+ * 2) 读路径（Read/DocPreview/PdfInspect）+ 写路径（JsSandbox）都被使用
  * 3) 第二轮确认添加完成
  */
 import { it, expect } from 'vitest'
@@ -48,8 +48,8 @@ it('office-create-005 — 多轮 PDF 工作流：先读后改', async () => {
   await takeProbeScreenshot('office-create-005-pdf-multi-turn')
   const meta = {
     testCase: 'office-create-005-pdf-multi-turn', prompt: `${prompt} → ${followUp}`, result,
-    description: '多轮 PDF：先读内容，第二轮用 PdfMutate.add-text 加文字',
-    tags: ['multi-turn', 'docpreview', 'pdfmutate', 'add-text', 'pdf'],
+    description: '多轮 PDF：先读内容，第二轮用 JsSandbox 加文字',
+    tags: ['multi-turn', 'docpreview', 'jssandbox', 'add-text', 'pdf'],
   }
   await (commands as any).saveTestData(meta)
   await (commands as any).recordProbeRun(meta)
@@ -60,7 +60,7 @@ it('office-create-005 — 多轮 PDF 工作流：先读后改', async () => {
   // 多轮验证：totalTurns 应该是 2
   expect(result.totalTurns).toBe(2)
 
-  // 工具调用：至少用了读取工具（Read/DocPreview/PdfInspect）和写入工具（PdfMutate）
+  // 工具调用：至少用了读取工具（Read/DocPreview/PdfInspect）和写入工具（JsSandbox）
   const usedRead = result.toolCalls.some(t => t === 'Read' || t === 'DocPreview' || t === 'PdfInspect')
   const usedMutate = result.toolCalls.includes('JsSandbox')
   expect(usedRead).toBe(true)
@@ -74,10 +74,10 @@ it('office-create-005 — 多轮 PDF 工作流：先读后改', async () => {
     testCase: 'office-create-005-pdf-multi-turn',
     serverUrl: SERVER_URL,
     criteria:
-      '这是多轮 PDF 对话的第二轮回复。AI 应通过 PdfMutate.add-text 在 PDF 第 1 页添加 "APPROVED - 2026/04/16" 文字。' +
+      '这是多轮 PDF 对话的第二轮回复。AI 应通过 JsSandbox（pdf-lib）在 PDF 第 1 页添加 "APPROVED - 2026/04/16" 文字。' +
       '满足以下任一条件即通过：' +
       '1) 回复提到已添加文字/APPROVED；' +
-      '2) 回复为空但工具调用包含 PdfMutate（操作已执行）',
+      '2) 回复为空但工具调用包含 JsSandbox（操作已执行）',
     aiResponse: result.textPreview.trim(),
     toolCalls: result.toolCalls,
     userPrompt: followUp,

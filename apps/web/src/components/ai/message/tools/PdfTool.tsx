@@ -34,12 +34,9 @@ import {
   getDisplayPath,
   getToolKind,
   isToolStreaming,
-  getApprovalId,
-  isApprovalPending,
   type AnyToolPart,
 } from './shared/tool-utils'
 import { parseOutput, parseInput, getMode, EmptyView, FilePathLink } from './shared/office-tool-utils'
-import ToolApprovalActions from './shared/ToolApprovalActions'
 import type { TFunction } from 'i18next'
 
 const MAX_PREVIEW_CHARS = 2000
@@ -235,130 +232,6 @@ function PdfScreenshotView({
   )
 }
 
-function ContentSummaryView({
-  content,
-  t,
-}: {
-  content: Record<string, unknown>[]
-  t: TFunction
-}) {
-  const counts: Record<string, number> = {}
-  for (const item of content) {
-    const type = typeof item.type === 'string' ? item.type : 'unknown'
-    counts[type] = (counts[type] ?? 0) + 1
-  }
-  const parts = Object.entries(counts).map(([type, count]) => `${count} ${type}`)
-  return (
-    <div className="text-xs text-muted-foreground">
-      {t('tool.word.contentPreview')}: {parts.join(', ')}
-    </div>
-  )
-}
-
-function FillFormPreview({
-  fields,
-  t,
-}: {
-  fields: Record<string, string>
-  t: TFunction
-}) {
-  const entries = Object.entries(fields)
-  if (entries.length === 0) return <EmptyView />
-  return (
-    <div className="space-y-0.5">
-      <div className="text-[10px] text-muted-foreground">{t('tool.pdf.fillForm')}</div>
-      {entries.slice(0, 15).map(([name, value]) => (
-        <div key={name} className="flex items-baseline gap-2 text-xs">
-          <span className="shrink-0 font-mono text-muted-foreground">{name}</span>
-          <span className="text-muted-foreground">→</span>
-          <span className="min-w-0 truncate font-mono">{value}</span>
-        </div>
-      ))}
-      {entries.length > 15 && (
-        <div className="text-[10px] text-muted-foreground">{t('tool.office.more', { count: entries.length - 15 })}</div>
-      )}
-    </div>
-  )
-}
-
-function MergePreview({
-  sourcePaths,
-  t,
-}: {
-  sourcePaths: string[]
-  t: TFunction
-}) {
-  return (
-    <div className="space-y-0.5">
-      <div className="text-[10px] text-muted-foreground">{t('tool.pdf.mergePdfs')}</div>
-      {sourcePaths.map((p, i) => (
-        <div key={i} className="text-xs">
-          <FilePathLink filePath={p} />
-        </div>
-      ))}
-    </div>
-  )
-}
-
-function AddTextPreview({
-  overlays,
-  t,
-}: {
-  overlays: Record<string, unknown>[]
-  t: TFunction
-}) {
-  return (
-    <div className="space-y-0.5">
-      <div className="text-[10px] text-muted-foreground">{t('tool.pdf.addText')}</div>
-      {overlays.slice(0, 10).map((o, i) => {
-        const page = typeof o.page === 'number' ? o.page : '?'
-        const text = typeof o.text === 'string' ? o.text : ''
-        const x = typeof o.x === 'number' ? o.x : 0
-        const y = typeof o.y === 'number' ? o.y : 0
-        return (
-          <div key={i} className="flex items-center gap-2 text-xs">
-            <span className="shrink-0 text-[10px] text-muted-foreground">
-              p{page} ({x},{y})
-            </span>
-            <span className="min-w-0 truncate font-mono">{text}</span>
-          </div>
-        )
-      })}
-      {overlays.length > 10 && (
-        <div className="text-[10px] text-muted-foreground">{t('tool.office.more', { count: overlays.length - 10 })}</div>
-      )}
-    </div>
-  )
-}
-
-function EditOperationsPreview({
-  edits,
-  t,
-}: {
-  edits: Record<string, unknown>[]
-  t: TFunction
-}) {
-  return (
-    <div className="space-y-0.5">
-      {edits.slice(0, 10).map((edit, i) => {
-        const op = typeof edit.op === 'string' ? edit.op : '?'
-        const editPath = typeof edit.path === 'string' ? edit.path : ''
-        return (
-          <div key={i} className="flex items-center gap-2 text-xs">
-            <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-              {op}
-            </span>
-            <span className="min-w-0 truncate font-mono text-muted-foreground">{editPath}</span>
-          </div>
-        )
-      })}
-      {edits.length > 10 && (
-        <div className="text-[10px] text-muted-foreground">{t('tool.office.more', { count: edits.length - 10 })}</div>
-      )}
-    </div>
-  )
-}
-
 type ResultEntry = { label: string; value?: string; fileLink?: string }
 
 function MutateResultEntries({ entries }: { entries: ResultEntry[] }) {
@@ -392,7 +265,6 @@ export default function PdfTool({
 }) {
   const { t } = useTranslation('ai')
   const toolKind = getToolKind(part)
-  const isMutate = toolKind === 'PdfMutate'
   const isInspect = toolKind === 'PdfInspect'
 
   const streaming = isToolStreaming(part)
@@ -400,9 +272,6 @@ export default function PdfTool({
   const isDone = state === 'output-available'
   const isError = state === 'output-error'
   const hasError = isError || state === 'output-denied'
-
-  const approvalId = getApprovalId(part)
-  const isPending = isApprovalPending(part)
 
   const { ok, data, error: outputError } = parseOutput(part)
   const input = parseInput(part)
@@ -444,79 +313,8 @@ export default function PdfTool({
       return <ToolOutputError message={displayError} />
     }
 
-    // Mutate pending: show preview from input
-    if (isMutate && isPending && input) {
-      const action = typeof input.action === 'string' ? input.action : ''
-      if (action === 'create' && Array.isArray(input.content)) {
-        return <ContentSummaryView content={input.content as Record<string, unknown>[]} t={t} />
-      }
-      if (action === 'fill-form' && typeof input.fields === 'object' && input.fields != null) {
-        return <FillFormPreview fields={input.fields as Record<string, string>} t={t} />
-      }
-      if (action === 'merge' && Array.isArray(input.sourcePaths)) {
-        return <MergePreview sourcePaths={input.sourcePaths as string[]} t={t} />
-      }
-      if (action === 'add-text' && Array.isArray(input.overlays)) {
-        return <AddTextPreview overlays={input.overlays as Record<string, unknown>[]} t={t} />
-      }
-      if (action === 'edit' && Array.isArray(input.edits)) {
-        return <EditOperationsPreview edits={input.edits as Record<string, unknown>[]} t={t} />
-      }
-      const entries: ResultEntry[] = []
-      if (typeof input.filePath === 'string') entries.push({ label: t('tool.office.file'), fileLink: input.filePath as string })
-      if (action) entries.push({ label: t('tool.office.action'), value: action })
-      return <MutateResultEntries entries={entries} />
-    }
-
     // Done with output data
     if (data) {
-      if (isMutate && isDone) {
-        const action = typeof data.action === 'string' ? data.action : ''
-        const entries: ResultEntry[] = []
-        const resultFilePath = (typeof input?.filePath === 'string' ? input.filePath : data.filePath) as string | undefined
-        if (typeof resultFilePath === 'string') entries.push({ label: t('tool.office.file'), fileLink: resultFilePath })
-        if (action === 'create') {
-          if (typeof data.pageCount === 'number') entries.push({ label: t('tool.pdf.pageCount', { count: data.pageCount as number }), value: '' })
-          if (typeof data.elementCount === 'number') entries.push({ label: t('tool.pdf.elementCount'), value: String(data.elementCount) })
-        }
-        if (action === 'fill-form' && typeof data.filledCount === 'number') {
-          entries.push({ label: t('tool.pdf.filledCount'), value: String(data.filledCount) })
-          if (Array.isArray(data.skippedFields) && (data.skippedFields as string[]).length > 0) {
-            entries.push({ label: t('tool.pdf.skipped'), value: (data.skippedFields as string[]).join(', ') })
-          }
-        }
-        if (action === 'fill-visual' && typeof data.filledCount === 'number') {
-          entries.push({ label: t('tool.pdf.filledCount'), value: String(data.filledCount) })
-        }
-        if (action === 'merge') {
-          if (typeof data.pageCount === 'number') entries.push({ label: t('tool.pdf.pageCount', { count: data.pageCount as number }), value: '' })
-          if (typeof data.sourceCount === 'number') entries.push({ label: t('tool.pdf.sourceCount'), value: String(data.sourceCount) })
-        }
-        // New action summaries (stage 2): show the most useful scalar fields.
-        if (action === 'rotate' && typeof data.rotatedCount === 'number') {
-          entries.push({ label: 'rotated', value: String(data.rotatedCount) })
-        }
-        if (action === 'crop' && typeof data.croppedCount === 'number') {
-          entries.push({ label: 'cropped', value: String(data.croppedCount) })
-        }
-        if (action === 'split' && Array.isArray(data.parts)) {
-          entries.push({ label: 'parts', value: String((data.parts as unknown[]).length) })
-        }
-        if (action === 'extract-pages' && typeof data.pageCount === 'number') {
-          entries.push({ label: t('tool.pdf.pageCount', { count: data.pageCount as number }), value: '' })
-        }
-        if (action === 'watermark' && typeof data.pagesWatermarked === 'number') {
-          entries.push({ label: 'watermarked', value: String(data.pagesWatermarked) })
-        }
-        if (action === 'decrypt' && typeof data.pageCount === 'number') {
-          entries.push({ label: t('tool.pdf.pageCount', { count: data.pageCount as number }), value: '' })
-        }
-        if (action === 'optimize' && typeof data.afterBytes === 'number') {
-          entries.push({ label: 'after', value: `${(data.afterBytes as number)} bytes` })
-        }
-        return <MutateResultEntries entries={entries} />
-      }
-
       // PdfInspect — unified summary of whatever action returned.
       if (isInspect && isDone) {
         const action = typeof data.action === 'string' ? data.action : ''
@@ -616,15 +414,6 @@ export default function PdfTool({
       <ToolOutputContent>
         {renderContent()}
 
-        {/* Approval footer */}
-        {isMutate && isPending && approvalId ? (
-          <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5 pt-2">
-            <span className="shrink-0 text-[10px] text-muted-foreground">
-              {t('tool.office.confirmAction')}
-            </span>
-            <ToolApprovalActions approvalId={approvalId} size="sm" />
-          </div>
-        ) : null}
       </ToolOutputContent>
     </Collapsible>
   )

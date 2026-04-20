@@ -9,13 +9,12 @@
  */
 
 /**
- * ExcelInspect + ExcelMutate — v2 tool surface.
+ * ExcelInspect — v2 read-only tool surface.
  *
  * Architecture:
  *   - Schemas + tool defs live in `@openloaf/api/types/tools/excel`.
  *   - Read-side logic lives in `office/excelInspectEngine.ts`.
- *   - Write-side logic lives in `office/excelEngine.ts::applyMutate` plus
- *     `office/excelRecalc.ts::recalc` for the `recalc` action.
+ *   - Write operations (formerly ExcelMutate) now go through JsSandbox.
  *   - This module is a thin dispatcher: resolve file path → validate input →
  *     call engine → map engine errors to `{ ok:false, code, message, hint? }`.
  *

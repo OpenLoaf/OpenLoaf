@@ -586,119 +586,7 @@ const chartFixtures: ToolFixture[] = [
   },
 ]
 
-const officeFixtures: ToolFixture[] = [
-  {
-    id: 'excel-mutate',
-    title: 'Excel 生成',
-    toolKind: 'ExcelMutate',
-    part: makePart({
-      toolKind: 'ExcelMutate',
-      suffix: 'gen',
-      input: { action: 'create', file_path: '/tmp/sales.xlsx' },
-      output: JSON.stringify({ ok: true, path: '/tmp/sales.xlsx', rows: 128 }),
-    }),
-  },
-  {
-    id: 'word-mutate',
-    title: 'Word 生成',
-    toolKind: 'WordMutate',
-    part: makePart({
-      toolKind: 'WordMutate',
-      suffix: 'gen',
-      input: { action: 'create', file_path: '/tmp/report.docx' },
-      output: JSON.stringify({ ok: true, path: '/tmp/report.docx' }),
-    }),
-  },
-  {
-    id: 'word-mutate-replace',
-    title: 'Word 替换正文',
-    toolKind: 'WordMutate',
-    part: makePart({
-      toolKind: 'WordMutate',
-      suffix: 'replace',
-      input: {
-        action: 'replace-text',
-        file_path: '/tmp/contract.docx',
-        find: 'A 公司',
-        replace: 'B 公司',
-      },
-      output: JSON.stringify({ ok: true, action: 'replace-text', replacedCount: 7 }),
-    }),
-  },
-  {
-    id: 'word-mutate-tracked-change',
-    title: 'Word 添加修订',
-    toolKind: 'WordMutate',
-    part: makePart({
-      toolKind: 'WordMutate',
-      suffix: 'tracked',
-      input: {
-        action: 'add-tracked-change',
-        file_path: '/tmp/contract.docx',
-        changeType: 'replace',
-        changeText: '原文案',
-        changeReplace: '新文案',
-        changeAuthor: 'Reviewer',
-        anchor: { xpath: '//w:p[3]', position: 'before' },
-      },
-      output: JSON.stringify({ ok: true, action: 'add-tracked-change' }),
-    }),
-  },
-  {
-    id: 'word-mutate-comment',
-    title: 'Word 添加评论',
-    toolKind: 'WordMutate',
-    part: makePart({
-      toolKind: 'WordMutate',
-      suffix: 'comment',
-      input: {
-        action: 'comment',
-        file_path: '/tmp/report.docx',
-        commentText: '这里的数据来源需要引用',
-        commentAuthor: 'Reviewer',
-        anchor: { xpath: '//w:p[5]', position: 'after' },
-      },
-      output: JSON.stringify({ ok: true, action: 'comment' }),
-    }),
-  },
-  {
-    id: 'word-mutate-resolve',
-    title: 'Word 处理修订',
-    toolKind: 'WordMutate',
-    part: makePart({
-      toolKind: 'WordMutate',
-      suffix: 'resolve',
-      input: {
-        action: 'resolve-changes',
-        file_path: '/tmp/contract.docx',
-        decision: 'accept',
-      },
-      output: JSON.stringify({ ok: true, action: 'resolve-changes', decision: 'accept' }),
-    }),
-  },
-  {
-    id: 'pptx-mutate',
-    title: 'PPT 生成',
-    toolKind: 'PptxMutate',
-    part: makePart({
-      toolKind: 'PptxMutate',
-      suffix: 'gen',
-      input: { action: 'create', file_path: '/tmp/deck.pptx' },
-      output: JSON.stringify({ ok: true, path: '/tmp/deck.pptx', slides: 12 }),
-    }),
-  },
-  {
-    id: 'pdf-mutate',
-    title: 'PDF 生成',
-    toolKind: 'PdfMutate',
-    part: makePart({
-      toolKind: 'PdfMutate',
-      suffix: 'gen',
-      input: { action: 'create', file_path: '/tmp/report.pdf' },
-      output: JSON.stringify({ ok: true, path: '/tmp/report.pdf' }),
-    }),
-  },
-]
+const officeFixtures: ToolFixture[] = []
 
 const imageProcessFixtures: ToolFixture[] = [
   {
@@ -923,7 +811,7 @@ const toolSearchFixtures: ToolFixture[] = [
       input: { query: 'pdf merge' },
       output: JSON.stringify({
         tools: [
-          { name: 'PdfMutate', description: '创建、合并、拆分、加水印 PDF' },
+          { name: 'JsSandbox', description: '运行 Node.js 代码创建、合并、拆分 PDF / Office 文件' },
         ],
       }),
     }),

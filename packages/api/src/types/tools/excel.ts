@@ -13,12 +13,10 @@
  * Design overview:
  *   - `ExcelInspect` (readonly, no approval) with 5 actions:
  *       summary | read | tables | images | render
- *   - `ExcelMutate`  (write, needsApproval=true) with 7 actions:
- *       create | update | structure | layout | format-rules | add-chart |
- *       add-image | recalc
- *   - `CellSpec` is a SHARED cell shape consumed by both `create` (under
- *     `sheets[].cells`) and `update` (under `cells`). The same CellSpec object
- *     is valid in both contexts — this is enforced by tests.
+ *   - ExcelMutate has been removed. Excel write/create operations now go through
+ *     `JsSandbox` using the preinstalled `exceljs` / `xlsx` packages.
+ *   - `CellSpec` is a SHARED cell shape — kept for reference / tests that
+ *     validate the inspect-side shape.
  *
  * The `edit` action from excel v1 is intentionally dropped. Any attempt to
  * pass `action: "edit"` MUST be rejected by zod (covered by tests).

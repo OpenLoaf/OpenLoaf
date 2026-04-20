@@ -1,8 +1,8 @@
 /**
  * 015: XLSX 创建。
  *
- * 要求 AI 用 ExcelMutate create 生成一份中文 Excel 销售表。
- * 断言：调用了 ExcelMutate 工具，AI 语义评判确认文件已创建。
+ * 要求 AI 用 JsSandbox（exceljs）生成一份中文 Excel 销售表。
+ * 断言：调用了 JsSandbox 工具，AI 语义评判确认文件已创建。
  */
 import { it, expect } from 'vitest'
 import { render } from 'vitest-browser-react'
@@ -30,8 +30,8 @@ it('office-create-009 — XLSX 创建：生成中文销售数据表', async () =
   await takeProbeScreenshot('office-create-009-xlsx-create')
   const meta = {
     testCase: 'office-create-009-xlsx-create', prompt, result,
-    description: 'ExcelMutate 生成中文销售表 XLSX',
-    tags: ['excelmutate', 'create', 'xlsx'],
+    description: 'JsSandbox 生成中文销售表 XLSX',
+    tags: ['jssandbox', 'create', 'xlsx'],
   }
   await (commands as any).saveTestData(meta)
   await (commands as any).recordProbeRun(meta)
@@ -39,7 +39,7 @@ it('office-create-009 — XLSX 创建：生成中文销售数据表', async () =
   // ── 断言 ──
   expect(result.status).toBe('ok')
 
-  // 工具调用：必须用了 ExcelMutate
+  // 工具调用：必须用了 JsSandbox
   expect(result.toolCalls).toContain('JsSandbox')
 
   // AI 语义评判：验证回复确认了 XLSX 创建并提及关键内容

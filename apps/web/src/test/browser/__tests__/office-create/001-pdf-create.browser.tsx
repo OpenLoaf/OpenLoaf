@@ -1,8 +1,8 @@
 /**
  * office-create/001: PDF 创建。
  *
- * 要求 AI 用 PdfMutate.create action 生成一份英文 PDF 发票。
- * 断言：调用了 PdfMutate 工具，回复确认文件已创建。
+ * 要求 AI 用 JsSandbox（pdf-lib）生成一份英文 PDF 发票。
+ * 断言：调用了 JsSandbox 工具，回复确认文件已创建。
  *
  * CJK 内容现已支持（Noto Sans SC 自动加载），CJK 回归由
  * pdfTools.test.ts 的 J10 层单测保证；本浏览器层只验证端到端工具链路径。
@@ -31,8 +31,8 @@ it('office-create-001 — PDF 创建：生成英文发票 PDF', async () => {
   await takeProbeScreenshot('office-create-001-pdf-create')
   const meta = {
     testCase: 'office-create-001-pdf-create', prompt, result,
-    description: 'PdfMutate 生成英文发票 PDF',
-    tags: ['pdfmutate', 'create', 'pdf'],
+    description: 'JsSandbox 生成英文发票 PDF',
+    tags: ['jssandbox', 'create', 'pdf'],
   }
   await (commands as any).saveTestData(meta)
   await (commands as any).recordProbeRun(meta)
@@ -40,14 +40,14 @@ it('office-create-001 — PDF 创建：生成英文发票 PDF', async () => {
   // ── 断言 ──
   expect(result.status).toBe('ok')
 
-  // 工具调用：必须用了 PdfMutate
+  // 工具调用：必须用了 JsSandbox
   expect(result.toolCalls).toContain('JsSandbox')
 
-  // 工具链效率：理想 3 步（LoadSkill + ToolSearch(PdfMutate) + PdfMutate），允许 ≤ 4 次容差
+  // 工具链效率：理想 3 步（LoadSkill + ToolSearch(JsSandbox) + JsSandbox），允许 ≤ 4 次容差
   const callCount = result.toolCallDetails?.length ?? result.toolCalls.length
   expect(
     callCount,
-    `工具调用次数 ${callCount} 超标；prompt 已经很明确，理想链路是 LoadSkill → ToolSearch(PdfMutate) → PdfMutate（3 步），不应出现猜错工具名（如 PdfCreate）的多余 ToolSearch 或无意义的 Bash 探测。`,
+    `工具调用次数 ${callCount} 超标；prompt 已经很明确，理想链路是 LoadSkill → ToolSearch(JsSandbox) → JsSandbox（3 步），不应出现多余 ToolSearch 或无意义的 Bash 探测。`,
   ).toBeLessThanOrEqual(4)
 
   // AI 语义评判：聚焦"PDF 是否被正确创建"。回复啰嗦属于 prompt 层面的横切问题，

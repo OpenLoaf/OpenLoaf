@@ -5,12 +5,12 @@
  * 再导出成 Excel 方便数据层二次利用。
  *
  * 第一轮：读取 Excel 并分析数据（Read/DocPreview）
- * 第二轮：生成中文 Word 报告 ems_analysis_018.docx（WordMutate.create）
+ * 第二轮：生成中文 Word 报告 ems_analysis_018.docx（JsSandbox/docx）
  * 第三轮：翻译为英文 + 橙色主题 + 插入 logo + 把"报价来源"移到文档末尾
- * 第四轮：把英文稿导出为 Excel（ExcelMutate.create 或 DocConvert）
+ * 第四轮：把英文稿导出为 Excel（JsSandbox/exceljs 或 DocConvert）
  *
  * 允许中途 ToolError（部分模型会在 Read 路径上多复制一次 session id 触发
- * ENOENT，但会自行纠错 —— 只要最终 WordMutate / XlsxMutate 成功即可）。
+ * ENOENT，但会自行纠错 —— 只要最终 JsSandbox 成功即可）。
  */
 import { it, expect } from 'vitest'
 import { render } from 'vitest-browser-react'
@@ -72,7 +72,7 @@ it('office-create-019 — XLSX → DOCX 分析报告（四轮：翻译/配色/lo
     prompt: `${prompt} → ${followUp1} → ${followUp2} → ${followUp3}`,
     result,
     description: '四轮：读 XLSX → 中文 DOCX → 英文橙色 + logo + 重排版 → 再导出 XLSX',
-    tags: ['multi-turn', 'xlsx', 'docx', 'wordmutate', 'cross-format', 'translate', 'image-insert', 'xlsx-export'],
+    tags: ['multi-turn', 'xlsx', 'docx', 'jssandbox', 'cross-format', 'translate', 'image-insert', 'xlsx-export'],
   }
   await (commands as any).saveTestData(meta)
   await (commands as any).recordProbeRun(meta)
@@ -87,7 +87,7 @@ it('office-create-019 — XLSX → DOCX 分析报告（四轮：翻译/配色/lo
   // 工具调用
   const usedRead = result.toolCalls.some(t => t === 'Read' || t === 'DocPreview')
   const wordMutateCount = result.toolCalls.filter(t => t === 'JsSandbox').length
-  // 第四轮："xlsx 导出" 允许走 ExcelMutate.create 或 DocConvert 两条路
+  // 第四轮："xlsx 导出" 允许走 JsSandbox 或 DocConvert 两条路
   const usedXlsxExport = result.toolCalls.some(t => t === 'JsSandbox' || t === 'DocConvert')
   expect(usedRead).toBe(true)
   expect(wordMutateCount).toBeGreaterThanOrEqual(1)
@@ -101,7 +101,7 @@ it('office-create-019 — XLSX → DOCX 分析报告（四轮：翻译/配色/lo
       '这是多轮对话的第四轮回复。AI 应已把前一轮的英文 Word 报告里的产品清单表格导出为 Excel。' +
       '满足以下任一即通过：1) 回复提到 Excel/xlsx/表格 + 已生成/已导出；' +
       '2) 提到文件名（含 xlsx 后缀或 ems_analysis_018_en）；' +
-      '3) 工具调用包含 ExcelMutate 或 DocConvert 且回复不为空。',
+      '3) 工具调用包含 JsSandbox 或 DocConvert 且回复不为空。',
     aiResponse: result.textPreview.trim(),
     toolCalls: result.toolCalls,
     userPrompt: followUp3,

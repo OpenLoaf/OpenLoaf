@@ -7,7 +7,7 @@
  *
  * 验证：
  * 1) 读取了 PDF（Read/DocPreview）
- * 2) 生成了 PPTX（PptxMutate）
+ * 2) 生成了 PPTX（JsSandbox）
  * 3) 多轮对话连贯
  */
 import { it, expect } from 'vitest'
@@ -51,7 +51,7 @@ it('office-create-017 — PDF → PPTX：读分镜脚本后生成汇报 PPT', as
   const meta = {
     testCase: 'office-create-017-pdf-to-pptx', prompt: `${prompt} → ${followUp}`, result,
     description: '多轮：读 PDF 分镜后生成 PPTX',
-    tags: ['multi-turn', 'pdf', 'pptx', 'pptxmutate', 'cross-format'],
+    tags: ['multi-turn', 'pdf', 'pptx', 'jssandbox', 'cross-format'],
   }
   await (commands as any).saveTestData(meta)
   await (commands as any).recordProbeRun(meta)
@@ -65,11 +65,11 @@ it('office-create-017 — PDF → PPTX：读分镜脚本后生成汇报 PPT', as
 
   // 工具调用：读取了 PDF + 生成了 PPTX
   const usedRead = result.toolCalls.some(t => t === 'Read' || t === 'DocPreview')
-  const usedPptxMutate = result.toolCalls.includes('JsSandbox')
+  const usedJsSandbox = result.toolCalls.includes('JsSandbox')
   expect(usedRead).toBe(true)
-  expect(usedPptxMutate).toBe(true)
+  expect(usedJsSandbox).toBe(true)
 
-  // 不再跑 aiJudge 对回复文本做语义校验 —— PptxMutate 已成功调用 + 无 tool error 即说明
+  // 不再跑 aiJudge 对回复文本做语义校验 —— JsSandbox 已成功调用 + 无 tool error 即说明
   // PPT 已落盘，AI 用任何表达确认结果都算合格。aiJudge 在此场景下容易因"回复是总结
   // PDF 内容而非明确说'已生成 PPT'"给低分，属于过严的 TEST_SPEC 噪音。
 })

@@ -3,7 +3,7 @@
  *
  * 用户场景：把中文 Word 文档转成 PDF 方便分享。
  * DocConvert 的 textToPdf 不支持 CJK（StandardFonts 限制），
- * AI 应该识别到这个限制并采取正确的替代方案（如 WordMutate + DocConvert，或告知用户限制）。
+ * AI 应该识别到这个限制并采取正确的替代方案（如 JsSandbox + DocConvert，或告知用户限制）。
  *
  * 断言：AI 最终完成了任务或给出了合理的替代方案说明。
  */
@@ -51,7 +51,7 @@ it('office-create-013 — 中文 DOCX → PDF：处理 CJK 编码限制', async 
     criteria:
       '用户要求将中文 DOCX 转为 PDF。由于 DocConvert 的 PDF 输出不支持 CJK 字符，AI 应以下列方式之一处理：' +
       '1) 成功完成转换（可能通过 Bash 调用外部工具如 pandoc/LibreOffice）；' +
-      '2) 使用替代方案（如 WordMutate 创建新文档再转换）；' +
+      '2) 使用替代方案（如 JsSandbox 创建新文档再转换）；' +
       '3) 明确告知用户 CJK 编码限制并建议替代方案。' +
       '只要 AI 没有静默失败或给出无关回复，都应通过。',
     aiResponse: result.textPreview.trim() || '(无文字回复)',

@@ -10,9 +10,9 @@
  *   4. pip install python-docx + 写 326 行 Python 脚本 + 4 次 Edit 修 API bug
  *   最终累计 4 轮重试 / 15 步 / 680KB 错产出，用户才勉强拿到 40KB 残缺 DOCX。
  *
- * 正确路径：直接 WordMutate(action='create', content=[结构化块])，一次产出 DOCX。
+ * 正确路径：直接 JsSandbox（docx，content=[结构化块]），一次产出 DOCX。
  *
- * 正向断言：第一轮读 PDF + 第二轮 WordMutate create
+ * 正向断言：第一轮读 PDF + 第二轮 JsSandbox create
  * 负向断言：禁止 md/html→docx 转换尝试；禁止 Python 脚本手撸；禁止 Agent 子代理 fallback
  */
 import { it, expect } from 'vitest'
@@ -25,7 +25,7 @@ const SERVER_URL = process.env.PROBE_SERVER_URL ?? 'http://127.0.0.1:23333'
 // 与真实故障 session 一致：Qwen Flash（小模型更容易退化为 Python 脚本 fallback）
 const MODEL_ID = 'qwen:OL-TX-008'
 
-it('office-create-021 — PDF 总结 → Word：直接 WordMutate create，不走 MD 中转', async () => {
+it('office-create-021 — PDF 总结 → Word：直接 JsSandbox create，不走 MD 中转', async () => {
   const sessionId = `chat_probe_039_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
   const userPrompt = '分析一下里面的内容'
   const followUp = '输出总结到 Word 文档'
@@ -58,7 +58,7 @@ it('office-create-021 — PDF 总结 → Word：直接 WordMutate create，不�
     model: MODEL_ID,
     result,
     description: '多轮：读 PDF 后总结输出到 Word，禁止 MD 中转 / Python 手撸 fallback',
-    tags: ['multi-turn', 'pdf', 'docx', 'wordmutate', 'regression'],
+    tags: ['multi-turn', 'pdf', 'docx', 'jssandbox', 'regression'],
   }
   await (commands as any).saveTestData(meta)
   await (commands as any).recordProbeRun(meta)
@@ -72,7 +72,7 @@ it('office-create-021 — PDF 总结 → Word：直接 WordMutate create，不�
   const usedRead = result.toolCalls.some(t => t === 'Read' || t === 'DocPreview')
   expect(usedRead).toBe(true)
 
-  // 第二轮必须用 WordMutate 直接 create（唯一正确路径）
+  // 第二轮必须用 JsSandbox 直接 create（唯一正确路径）
   expect(result.toolCalls).toContain('JsSandbox')
 
   // ── 负向断言：覆盖真实故障 session 的 4 种 fallback 模式 ──
@@ -88,7 +88,7 @@ it('office-create-021 — PDF 总结 → Word：直接 WordMutate create，不�
     const p = (d.input as Record<string, unknown> | undefined)?.file_path
     return typeof p === 'string' && p.endsWith('.py')
   })
-  expect(wroteAnyPy, 'AI 退化到写 Python 脚本手撸 DOCX（应直接用 WordMutate create）').toBe(false)
+  expect(wroteAnyPy, 'AI 退化到写 Python 脚本手撸 DOCX（应直接用 JsSandbox create）').toBe(false)
 
   // 3) DocConvert 不支持 md/html → docx：模型若尝试即视为走错路径
   const triedMdOrHtmlToDocx = details.some(d => {
@@ -102,7 +102,7 @@ it('office-create-021 — PDF 总结 → Word：直接 WordMutate create，不�
   })
   expect(
     triedMdOrHtmlToDocx,
-    'AI 试图用 DocConvert 把 md/html 转 docx（DocConvert 不支持，应直接 WordMutate create）',
+    'AI 试图用 DocConvert 把 md/html 转 docx（DocConvert 不支持，应直接 JsSandbox create）',
   ).toBe(false)
 
   // 4) Agent 子代理 fallback（session 里是"绝望"退路）
@@ -115,7 +115,7 @@ it('office-create-021 — PDF 总结 → Word：直接 WordMutate create，不�
     criteria:
       '这是多轮对话的第二轮回复。AI 应确认已生成一份总结原 PDF 内容的 Word 文档。' +
       '满足以下任一即通过：1) 提到 Word / DOCX 文件已创建/生成/保存；' +
-      '2) 工具调用包含 WordMutate 且回复不为空',
+      '2) 工具调用包含 JsSandbox 且回复不为空',
     aiResponse: result.textPreview.trim(),
     toolCalls: result.toolCalls,
     userPrompt: followUp,

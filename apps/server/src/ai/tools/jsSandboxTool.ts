@@ -7,9 +7,9 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  *
- * JsSandbox — run an ESM script inside a Node subprocess. Replaces the
- * structured Mutate tools (PptxMutate / WordMutate / ExcelMutate / PdfMutate)
- * for file-creation/edit workflows. The AI writes the transformation as code;
+ * JsSandbox — run an ESM script inside a Node subprocess. Unified entry point
+ * for Office/PDF file creation and editing (formerly handled by the now-removed
+ * structured Mutate tools). The AI writes the transformation as code;
  * we pipe stdout/stderr back and observe cwd for new/modified files.
  */
 import { tool, zodSchema } from 'ai'

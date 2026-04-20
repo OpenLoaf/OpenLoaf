@@ -38,7 +38,7 @@ export const jsSandboxToolDef = {
   description: `Run Node.js (ESM) code in an isolated subprocess to create / edit binary files (PDF / DOCX / XLSX / PPTX / images / zips) or to do any computation Office-native tools can't express cleanly.
 
 **When to use**
-- **创建或修改** PDF / DOCX / XLSX / PPTX（本工具取代了原来的 PdfMutate / WordMutate / ExcelMutate / PptxMutate）
+- **创建或修改** PDF / DOCX / XLSX / PPTX（Office/PDF 写操作的统一入口）
 - 批处理图片 / 压缩解压 / 精确格式转换
 - 任何需要 "写几行代码就行" 的自定义逻辑
 

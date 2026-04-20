@@ -296,23 +296,6 @@ const officeParts: ToolShowcasePart[] = [
     },
   },
   {
-    type: 'tool-ExcelMutate',
-    toolCallId: callId(),
-    toolName: 'ExcelMutate',
-    state: 'output-available',
-    input: {
-      action: 'write-cells',
-      filePath: '/project-root/budget.xlsx',
-      sheetName: 'Q1 Budget',
-      range: 'B6:D6',
-      data: [[90000, 95000, 88000]],
-    },
-    output: {
-      ok: true,
-      data: { cellsWritten: 3, filePath: '/project-root/budget.xlsx' },
-    },
-  },
-  {
     type: 'tool-WordQuery',
     toolCallId: callId(),
     toolName: 'WordQuery',
@@ -335,22 +318,6 @@ const officeParts: ToolShowcasePart[] = [
     },
   },
   {
-    type: 'tool-WordMutate',
-    toolCallId: callId(),
-    toolName: 'WordMutate',
-    state: 'output-available',
-    input: {
-      action: 'replace-text',
-      filePath: '/project-root/meeting-notes.docx',
-      find: 'Q1 复盘',
-      replace: 'Q1 成果回顾',
-    },
-    output: {
-      ok: true,
-      data: { action: 'replace-text', replacedCount: 1, filePath: '/project-root/meeting-notes.docx' },
-    },
-  },
-  {
     type: 'tool-PptxQuery',
     toolCallId: callId(),
     toolName: 'PptxQuery',
@@ -369,21 +336,6 @@ const officeParts: ToolShowcasePart[] = [
     },
   },
   {
-    type: 'tool-PptxMutate',
-    toolCallId: callId(),
-    toolName: 'PptxMutate',
-    state: 'output-available',
-    input: {
-      action: 'edit',
-      filePath: '/project-root/presentation.pptx',
-      edits: [{ slideIndex: 2, type: 'add-text', text: '性能优化' }],
-    },
-    output: {
-      ok: true,
-      data: { action: 'edit', slideCount: 3, editCount: 1 },
-    },
-  },
-  {
     type: 'tool-PdfQuery',
     toolCallId: callId(),
     toolName: 'PdfQuery',
@@ -398,21 +350,6 @@ const officeParts: ToolShowcasePart[] = [
         formFieldCount: 8,
         metadata: { title: 'Invoice #2026-0309', author: 'OpenLoaf', creator: 'PDF Generator' },
       },
-    },
-  },
-  {
-    type: 'tool-PdfMutate',
-    toolCallId: callId(),
-    toolName: 'PdfMutate',
-    state: 'output-available',
-    input: {
-      action: 'fill-form',
-      filePath: '/project-root/invoice.pdf',
-      fields: { company: 'OpenLoaf Inc.', amount: '$15,000', date: '2026-03-09' },
-    },
-    output: {
-      ok: true,
-      data: { pageCount: 2, filledCount: 3, skippedFields: [] },
     },
   },
 ]

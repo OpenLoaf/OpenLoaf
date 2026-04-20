@@ -1,9 +1,9 @@
 /**
- * office-create/031: PdfMutate.extract-pages — 提取指定页。
+ * office-create/031: PDF 页面提取 — 提取指定页。
  *
  * 附件一份多页 PDF，让 AI 只保留指定页输出为新 PDF。正确路径是
- * PdfMutate.extract-pages 或 split（配 pages 参数），一步完成。
- * 断言：调用了 PdfMutate，回复确认提取完成。
+ * JsSandbox（pdf-lib extract-pages），一步完成。
+ * 断言：调用了 JsSandbox，回复确认提取完成。
  */
 import { it, expect } from 'vitest'
 import { render } from 'vitest-browser-react'
@@ -13,7 +13,7 @@ import { waitForChatComplete, waitForProbeResult, takeProbeScreenshot, aiJudge }
 
 const SERVER_URL = process.env.PROBE_SERVER_URL ?? 'http://127.0.0.1:23333'
 
-it('office-create-031 — PdfMutate.extract-pages：只抽第 1 和第 3 页', async () => {
+it('office-create-031 — PDF 提取页面：JsSandbox 只抽第 1 和第 3 页', async () => {
   const sessionId = `chat_probe_office_create_031_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
   const userPrompt =
     '请从这份 PDF 里只提取第 1 页和第 3 页，输出成新的 PDF 文件，保存为 extracted_office_create_031.pdf。'
@@ -33,8 +33,8 @@ it('office-create-031 — PdfMutate.extract-pages：只抽第 1 和第 3 页', a
   await takeProbeScreenshot('office-create-031-pdf-extract-pages')
   const meta = {
     testCase: 'office-create-031-pdf-extract-pages', prompt, result,
-    description: 'PdfMutate.extract-pages 抽取指定页输出新 PDF',
-    tags: ['pdfmutate', 'extract-pages', 'pdf'],
+    description: 'JsSandbox 抽取指定页输出新 PDF',
+    tags: ['jssandbox', 'extract-pages', 'pdf'],
   }
   await (commands as any).saveTestData(meta)
   await (commands as any).recordProbeRun(meta)
@@ -50,7 +50,7 @@ it('office-create-031 — PdfMutate.extract-pages：只抽第 1 和第 3 页', a
     const p = (d.input as Record<string, unknown> | undefined)?.file_path
     return typeof p === 'string' && p.endsWith('.py')
   })
-  expect(wroteAnyPy, 'AI 退化到写 Python 脚本抽页（应直接 PdfMutate.extract-pages）').toBe(false)
+  expect(wroteAnyPy, 'AI 退化到写 Python 脚本抽页（应直接 JsSandbox pdf-lib extract-pages）').toBe(false)
 
   const judgment = await aiJudge({
     testCase: 'office-create-031-pdf-extract-pages',
@@ -58,7 +58,7 @@ it('office-create-031 — PdfMutate.extract-pages：只抽第 1 和第 3 页', a
     criteria:
       '判断 AI 是否成功从 PDF 抽取了第 1 页和第 3 页。满足以下任一即通过：' +
       '1) 回复提到已提取 / 已输出 extracted_office_create_031.pdf（或其路径）；' +
-      '2) 回复为空但工具调用包含 PdfMutate（extract-pages 已执行）。',
+      '2) 回复为空但工具调用包含 JsSandbox（extract-pages 已执行）。',
     aiResponse: result.textPreview.trim(),
     toolCalls: result.toolCalls,
     userPrompt,

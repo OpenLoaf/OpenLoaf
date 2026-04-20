@@ -1,146 +1,224 @@
 ---
 name: pptx-skill
 description: >
-  Triggers whenever the user asks to do anything with PowerPoint slides (.pptx): summarize a deck, extract key points per slide, change titles or subtitles, edit body text or speaker notes, insert / remove / reorder slides, generate a report / pitch / training deck from scratch, or turn points discussed in the conversation into slides. Typical phrasings: "summarize this PPT", "what is this deck about", "pull out the key points of each slide", "make me a Q4 report deck", "change the title of slide 3", "add a slide to the PPT", "turn these points into slides". Load this skill whenever the user mentions a deck / slide / presentation / reporting deliverable.
+  Triggers whenever the user asks to do anything with PowerPoint slides (.pptx): summarize a deck, extract key points per slide, change titles or subtitles, edit body text or speaker notes, insert / remove / reorder slides, generate a report / pitch / training deck from scratch, or turn bullet points discussed in the conversation into slides. Typical phrasings: "summarize this PPT", "what is this deck about", "pull out the key points of each slide", "make me a Q4 report deck", "change the title of slide 3", "add a slide to the PPT", "turn these points into slides". Load this skill whenever the user mentions a deck / slide / presentation / reporting deliverable.
 ---
 
-# PowerPoint (PPTX) Skill
+# PPTX Skill
 
-This skill involves 4 tools, organized as **read → write → convert**:
+**Create PPT with `JsSandbox` + `pptxgenjs`** (most friendly API); read / analyze existing deck content via `DocConvert(from="pptx", to="md")` → `Read` the markdown; format conversion uses `DocConvert`.
+
+## Tool List
 
 | Tool | Responsibility | Read-only |
 |------|----------------|-----------|
-| `Read` | Default entry point for reading a PPTX. Returns per-slide title + body summary | Yes |
-| `DocPreview` | Two modes: `preview` (per-slide title + summary) / `full` (full text of every slide) | Yes |
-| `PptxMutate` | The only write tool. 2 actions: `create` / `edit` | No |
-| `DocConvert` | Format conversion: pptx → pdf, etc. | No |
+| `JsSandbox` | **All write & read**: create decks / edit slides / insert slides — all via `pptxgenjs`; use `adm-zip` + XML parsing to analyze an existing deck | No |
+| `DocConvert` | pptx ↔ pdf / html; convert old deck to md for reading | No |
 
-> **Tools are loaded on demand**: `DocPreview`, `PptxMutate`, and `DocConvert` must be loaded via `ToolSearch(names: "tool name")` before calling. `Read` is always available.
-
----
-
-## 1. Reading a PPTX
-
-### 1.1 Quick overview with `Read`
-
-Just `Read(file_path)`. Returns per-slide title + body summary. Good for getting a fast sense of the deck.
-
-### 1.2 Fine-grained reading with `DocPreview`
-
-| Parameter | Description |
-|-----------|-------------|
-| `mode: 'preview'` | Per-slide title + body summary (default) |
-| `mode: 'full'` | Fully expanded text of every slide |
-
-> **Read / DocPreview return Markdown, not OOXML**. To do XPath edits you must first run `Bash unzip -p file.pptx ppt/slides/slide1.xml` to inspect the raw XML structure.
+> **Loading (two steps)**:
+> 1. `LoadSkill pptx-skill`
+> 2. `ToolSearch(query: "select:JsSandbox,DocConvert")`
 
 ---
 
-## 2. PptxMutate — Writing to a PPTX
+## 1. Read: Convert to markdown first, then deep-dive with JsSandbox if needed
 
-The `action` field distinguishes the 2 operations. `needsApproval: true` — an approval dialog pops up when called.
+Simple case:
 
-### 2.1 create — Build from scratch
+```
+DocConvert(from="pptx", to="md", sourcePath="deck.pptx")  // outputs deck.md
+Read(file_path="<asset>/deck.md")                          // body text + page boundaries
+```
 
-`slides` is an array; each element has:
+When you need precise structure (shape coordinates / theme colors / speaker notes), parse the XML with JsSandbox:
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `title` | string? | Slide title |
-| `textBlocks` | string[]? | Array of body text blocks; each element is one paragraph |
-| `notes` | string? | Speaker notes (not shown on the slide; good for detailed data and presentation cues) |
+```js
+import AdmZip from 'adm-zip'
+import fs from 'node:fs/promises'
 
-Full CJK support.
+const zip = new AdmZip(await fs.readFile('deck.pptx'))
+const slides = zip.getEntries()
+  .filter(e => e.entryName.startsWith('ppt/slides/slide'))
+  .sort((a, b) => a.entryName.localeCompare(b.entryName))
 
-```json
-{
-  "action": "create",
-  "filePath": "/work/2026Q1_report.pptx",
-  "slides": [
-    {
-      "title": "2026 Q1 Business Review",
-      "textBlocks": ["Presenter: Zhang San", "Date: 2026-04-15"],
-      "notes": "Opening greeting, introduce today's agenda"
-    },
-    {
-      "title": "Key Metrics",
-      "textBlocks": ["Revenue +32% YoY", "12k new paying users", "NPS up from 42 to 51"],
-      "notes": "NPS gain comes from support response optimization: first-response time dropped from 4h to 35min"
-    },
-    {
-      "title": "Next Quarter Priorities",
-      "textBlocks": ["Expand into Southeast Asia", "Launch enterprise edition", "Close Series B"]
-    },
-    { "title": "Q&A", "textBlocks": ["Thank you"] }
-  ]
+for (const e of slides) {
+  const xml = e.getData().toString('utf-8')
+  const texts = [...xml.matchAll(/<a:t>([^<]*)<\/a:t>/g)].map(m => m[1])
+  console.log(`=== ${e.entryName} ===`)
+  console.log(texts.join('\n'))
 }
 ```
 
-**Content design tips**:
-- Keep each title ≤ 10 words; each textBlock 3-5 lines with ≤ 20 words per line
-- Put detailed data and supplementary explanations in `notes`, keep the body concise
-- `create` supports only text and title layouts — no charts, custom shapes, or SmartArt
+---
 
-### 2.2 edit — Modify an existing file
+## 2. Write: `JsSandbox` + `pptxgenjs`
 
-A PPTX is essentially a ZIP package. Key internal paths:
+### 2.1 Demo: Generate a quarterly business review deck
 
-| ZIP path | Content |
-|----------|---------|
-| `ppt/slides/slide1.xml` | OOXML body of slide 1 |
-| `ppt/presentation.xml` | Global index, includes `sldIdLst` (determines slide order) |
-| `ppt/slides/_rels/slide1.xml.rels` | Reference relations for slide1 (images / hyperlinks) |
-| `ppt/media/image1.png` | Embedded media file |
+```js
+import pptxgen from 'pptxgenjs'
 
-**You must inspect the raw XML before editing**:
-```bash
-unzip -p /work/deck.pptx ppt/slides/slide2.xml
+const pres = new pptxgen()
+pres.layout = 'LAYOUT_16x9'
+pres.defineSlideMaster({
+  title: 'MAIN',
+  background: { color: 'FFFFFF' },
+  objects: [
+    { rect: { x: 0, y: 7.0, w: 13.33, h: 0.5, fill: { color: '1F3A8A' } } },
+    { text: {
+      text: 'OpenLoaf · 2026 Q1 Business Review',
+      options: { x: 0.5, y: 7.05, w: 12, h: 0.4, fontSize: 10, color: 'FFFFFF' },
+    }},
+  ],
+})
+
+// Cover slide
+const s1 = pres.addSlide({ masterName: 'MAIN' })
+s1.addText('2026 Q1 Business Review', {
+  x: 0.5, y: 2.2, w: 12.3, h: 1.5,
+  fontSize: 44, bold: true, color: '1F3A8A',
+  fontFace: 'Calibri',
+})
+s1.addText('Product Team · John Smith   2026-04-20', {
+  x: 0.5, y: 4.0, w: 12.3, h: 0.6,
+  fontSize: 18, color: '475569', fontFace: 'Calibri',
+})
+
+// Key metrics
+const s2 = pres.addSlide({ masterName: 'MAIN' })
+s2.addText('Key Metrics', {
+  x: 0.5, y: 0.4, w: 12.3, h: 0.8,
+  fontSize: 28, bold: true, color: '1F3A8A', fontFace: 'Calibri',
+})
+const kpis = [
+  { label: 'Revenue',      value: '+32%',   color: '16A34A' },
+  { label: 'Paying Users', value: '12k',    color: '2563EB' },
+  { label: 'NPS',          value: '42→51',  color: '9333EA' },
+]
+kpis.forEach((k, i) => {
+  const x = 0.5 + i * 4.3
+  s2.addShape(pres.ShapeType.roundRect, {
+    x, y: 2.0, w: 4.0, h: 3.0, fill: { color: 'F1F5F9' }, line: { color: 'CBD5E1' },
+  })
+  s2.addText(k.value, {
+    x, y: 2.4, w: 4.0, h: 1.0, align: 'center',
+    fontSize: 40, bold: true, color: k.color, fontFace: 'Calibri',
+  })
+  s2.addText(k.label, {
+    x, y: 3.6, w: 4.0, h: 0.6, align: 'center',
+    fontSize: 18, color: '475569', fontFace: 'Calibri',
+  })
+})
+s2.addNotes('All three Q1 KPIs significantly exceeded targets. Paying users up 46% QoQ.')
+
+// Bar chart slide
+const s3 = pres.addSlide({ masterName: 'MAIN' })
+s3.addText('Monthly Revenue', {
+  x: 0.5, y: 0.4, w: 12.3, h: 0.8,
+  fontSize: 28, bold: true, color: '1F3A8A', fontFace: 'Calibri',
+})
+s3.addChart(pres.ChartType.bar, [{
+  name: 'Revenue ($k)',
+  labels: ['Jan', 'Feb', 'Mar'],
+  values: [820, 1050, 1340],
+}], {
+  x: 1.0, y: 1.5, w: 11.3, h: 5.5,
+  showTitle: false, showLegend: true, showValue: true,
+})
+
+// Q&A slide
+const s4 = pres.addSlide({ masterName: 'MAIN' })
+s4.addText('Q & A', {
+  x: 0.5, y: 3.0, w: 12.3, h: 1.5, align: 'center',
+  fontSize: 60, bold: true, color: '1F3A8A', fontFace: 'Calibri',
+})
+
+await pres.writeFile({ fileName: 'q1_review.pptx' })
+console.log('q1_review.pptx written')
 ```
 
-`edits` array; each element:
+> **Key points**:
+> - `pptxgenjs` API is fully **object-based** (`{x, y, w, h, fontSize, ...}`) — no JSON string concatenation needed.
+> - **CJK requires `fontFace`** (e.g. `'Microsoft YaHei'` / `'Noto Sans CJK SC'`), otherwise the default English font may substitute or mangle CJK characters.
+> - `addChart` natively supports bar / line / pie / doughnut; for "image-feel" charts, use `chartjs-node-canvas` to render a PNG and `addImage` it.
 
-| op | Purpose | Required fields |
-|----|---------|-----------------|
-| `replace` | Replace nodes matched by xpath | `path`, `xpath`, `xml` |
-| `insert` | Insert before/after the xpath node | `path`, `xpath`, `xml`, `position` (`before`/`after`) |
-| `remove` | Remove nodes matched by xpath | `path`, `xpath` |
-| `write` | Write a new file into the ZIP (e.g. an image) | `path`, `source` (file path or URL) |
-| `delete` | Delete a file inside the ZIP | `path` |
+### 2.2 Demo: Generate N slides from a data array (one item per slide)
 
-Text replacement example:
-```json
-{
-  "action": "edit",
-  "filePath": "/work/deck.pptx",
-  "edits": [{
-    "op": "replace",
-    "path": "ppt/slides/slide2.xml",
-    "xpath": "//a:t[text()='Old Title']",
-    "xml": "<a:t xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\">New Title</a:t>"
-  }]
-}
+```js
+import pptxgen from 'pptxgenjs'
+
+const items = [
+  { title: 'Scene 1: The Arrival', desc: 'City aerial opening → multi-angle road shots → pull into market' },
+  { title: 'Scene 2: Loading Power', desc: 'Owner greeting → full-load unboxing → trunk 87% opening rate 1831mm' },
+  { title: 'Scene 3: Superior Chassis', desc: '186mm ground clearance + fold-flat cargo + fixed tie-down anchors' },
+]
+
+const pres = new pptxgen()
+pres.layout = 'LAYOUT_16x9'
+
+// Cover
+const cover = pres.addSlide()
+cover.addText('V6 Commercial — Shot List', {
+  x: 0.5, y: 2.8, w: 12.3, h: 1.3, align: 'center',
+  fontSize: 40, bold: true, color: '0F172A', fontFace: 'Calibri',
+})
+
+// One slide per scene
+items.forEach((it, i) => {
+  const s = pres.addSlide()
+  s.addText(`${i + 1}. ${it.title}`, {
+    x: 0.5, y: 0.5, w: 12.3, h: 0.8,
+    fontSize: 26, bold: true, color: '1F3A8A', fontFace: 'Calibri',
+  })
+  s.addText(it.desc, {
+    x: 0.5, y: 1.7, w: 12.3, h: 3.5,
+    fontSize: 20, color: '334155', fontFace: 'Calibri',
+    valign: 'top',
+  })
+})
+
+await pres.writeFile({ fileName: 'storyboard.pptx' })
+console.log(`storyboard.pptx — ${items.length + 1} slides`)
 ```
 
-PPTX text node structure: `p:sp → p:txBody → a:p → a:r → a:t`. Namespace `a:` = `http://schemas.openxmlformats.org/drawingml/2006/main`.
+### 2.3 Demo: Edit the title of slide N in an existing deck
+
+`pptxgenjs` is generation-only; it cannot read existing files. To edit an old deck, use `adm-zip` to patch the XML:
+
+```js
+import AdmZip from 'adm-zip'
+import fs from 'node:fs/promises'
+
+const zip = new AdmZip(await fs.readFile('deck.pptx'))
+const target = 'ppt/slides/slide3.xml'
+let xml = zip.readAsText(target)
+// Simple replacement of the first a:t text node
+xml = xml.replace(/<a:t>[^<]*<\/a:t>/, '<a:t>New Title</a:t>')
+zip.updateFile(target, Buffer.from(xml, 'utf-8'))
+await fs.writeFile('deck.pptx', zip.toBuffer())
+console.log('slide 3 title updated')
+```
+
+> This is a hard XML patch; it fails when runs are split. The robust approach is to regenerate the whole deck with `pptxgenjs`.
 
 ---
 
-## 3. DocConvert — Format Conversion
+## 3. Format Conversion
 
-```json
-{ "filePath": "/work/deck.pptx", "outputPath": "/work/deck.pdf", "outputFormat": "pdf" }
 ```
-
-Supported outputFormat: `pdf`, `docx`, `html`, `md`, `txt`, `csv`, `xls`, `xlsx`, `json`
+DocConvert(from="pptx", to="pdf", sourcePath="…")    // for external distribution
+DocConvert(from="pptx", to="md",  sourcePath="…")    // extract body text / summarize
+```
 
 ---
 
-## 4. Key Constraints
+## 4. Common Pitfalls
 
-1. **Always `unzip -p` and inspect XML before editing**. The Markdown returned by Read/DocPreview hides the real node structure — blind XPath writes = silently no-op.
-2. **Text runs may be split**. A single visible line of text may be composed of multiple `<a:r>` elements (any font/formatting change splits the run), so `//a:t[text()='the whole sentence']` may not match. Inspect the XML first to confirm run splitting, or use `contains()` with partial matches.
-3. **Slide order is not determined by filename**. `slide5.xml` is not necessarily the 5th slide. The true order is defined by `<p:sldIdLst>` inside `ppt/presentation.xml`.
-4. **Media references go through rels**. A slide's `r:embed="rId3"` maps to an entry in `_rels/slideN.xml.rels`. Replacing an image requires updating the rels entry and writing the new file with a `write` op.
-5. **Use create for big changes, edit for small ones**. When changes exceed ~30% of the content, re-creating is more reliable than patching with XPath.
-6. **Merge all edits into a single call**. Reduces approval dialogs and intermediate states.
-7. **create overwrites files with the same name**. Prefer a new filename or confirm with the user first.
+| Symptom | Cause | Fix |
+|---|---|---|
+| CJK shows as squares / replaced by letters | `fontFace` not set | Pass `fontFace: 'Microsoft YaHei'` on every `addText` / `addChart` |
+| Chart axis labels appear in wrong font | `catAxisLabelFontFace` not set | Always add this for mixed-language charts |
+| `writeFile` output can't be opened | Path traversal / permission issue | Use a relative path — files land in the session cwd (asset dir) |
+| Generating many slides is slow | Repeated `addText` calls per slide | Put common elements in `defineSlideMaster`; only put differences on each slide |
+
+To patch a script: `JsSandbox(action="edit-and-run", scriptPath=…, edits=[…])` — fewer tokens transferred.
