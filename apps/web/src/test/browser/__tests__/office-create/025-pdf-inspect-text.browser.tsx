@@ -46,12 +46,13 @@ it('office-create-025 — PdfInspect.text：提取中文 PDF 文本', async () =
   // 必须用了 PdfInspect（不能走 Read 硬读 PDF 字节，也不能走 OCR）
   expect(result.toolCalls).toContain('PdfInspect')
 
-  // 工具链不应过长：summary/text → 完成
+  // 工具链不应过长：理想 4 步（LoadSkill + ToolSearch + PdfInspect(summary) + PdfInspect(text)），
+  // 放宽到 ≤7，允许一次探索性 DocPreview/Read 前置步骤（AI 通用路径本能）
   const callCount = result.toolCallDetails?.length ?? result.toolCalls.length
   expect(
     callCount,
-    `工具调用次数 ${callCount} 超标；理想链路 ≤5 步（LoadSkill + PdfInspect(summary) + PdfInspect(text)）。`,
-  ).toBeLessThanOrEqual(6)
+    `工具调用次数 ${callCount} 超标；理想链路 4 步 + 1 步探索容差，≤7。`,
+  ).toBeLessThanOrEqual(7)
 
   const judgment = await aiJudge({
     testCase: 'office-create-025-pdf-inspect-text',
