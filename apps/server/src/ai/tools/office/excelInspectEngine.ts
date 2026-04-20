@@ -318,9 +318,9 @@ export async function inspectSummary(opts: { filePath: string }): Promise<Inspec
   })
 
   const suggestedNextTool = (() => {
-    if (errorCount > 0) return 'ExcelMutate(recalc) — resolve formula errors before export'
+    if (errorCount > 0) return 'JsSandbox + exceljs — resolve formula errors before export'
     if (hasFormulas) return 'ExcelInspect(read, scope=range) to inspect formulas in detail'
-    if (sheets.length === 0) return 'ExcelMutate(create) — workbook is empty'
+    if (sheets.length === 0) return 'JsSandbox + exceljs — workbook is empty, create it from scratch'
     return 'ExcelInspect(read, scope=sheet) to inspect data'
   })()
 

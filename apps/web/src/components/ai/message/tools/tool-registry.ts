@@ -31,7 +31,6 @@ import WidgetCheckTool from './WidgetCheckTool'
 import JsxCreateTool from './JsxCreateTool'
 import SubAgentPanel from './SubAgentPanel'
 import ChartTool from './ChartTool'
-import PptxTool from './PptxTool'
 import PdfTool from './PdfTool'
 import ImageProcessTool from './ImageProcessTool'
 import BrowserSnapshotTool from './BrowserSnapshotTool'
@@ -115,8 +114,7 @@ export const TOOL_REGISTRY: ToolRegistryEntry[] = [
   { match: 'Agent', component: SubAgentPanel as ComponentType<ToolComponentProps> },
   { match: 'SendMessage', component: SendMessageTool as ComponentType<ToolComponentProps> },
   { match: 'ChartRender', component: ChartTool as ComponentType<ToolComponentProps> },
-  { match: 'PptxMutate', component: PptxTool as ComponentType<ToolComponentProps> },
-  { match: ['PdfMutate', 'PdfInspect'], component: PdfTool as ComponentType<ToolComponentProps> },
+  { match: 'PdfInspect', component: PdfTool as ComponentType<ToolComponentProps> },
   { match: 'ImageProcess', component: ImageProcessTool as ComponentType<ToolComponentProps> },
   { match: 'VideoDownload', component: VideoDownloadTool as ComponentType<ToolComponentProps> },
   { match: 'OpenUrl', component: OpenUrlTool as ComponentType<ToolComponentProps> },

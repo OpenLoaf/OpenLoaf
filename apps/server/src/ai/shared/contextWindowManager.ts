@@ -254,7 +254,7 @@ const TOOL_RESULT_IMPORTANCE: Record<string, ToolImportance> = {
   'CalendarMutate': 'drop',
   'EmailMutate': 'drop',
   'ExcelInspect': 'summarize',
-  'ExcelMutate': 'drop',
+  'JsSandbox': 'summarize',
 }
 
 /** 按工具类型获取结果的截断长度。 */

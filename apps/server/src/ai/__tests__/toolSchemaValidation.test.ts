@@ -34,8 +34,7 @@ import { calendarQueryToolDef, calendarMutateToolDef } from "@openloaf/api/types
 import { projectQueryToolDef, projectMutateToolDef } from "@openloaf/api/types/tools/db";
 import { emailQueryToolDef, emailMutateToolDef } from "@openloaf/api/types/tools/email";
 import { videoDownloadToolDef } from "@openloaf/api/types/tools/videoDownload";
-import { excelMutateToolDef } from "@openloaf/api/types/tools/excel";
-import { wordMutateToolDef } from "@openloaf/api/types/tools/word";
+import { jsSandboxToolDef } from "@openloaf/api/types/tools/jsSandbox";
 import {
   agentToolDef,
   sendMessageToolDef,
@@ -87,8 +86,7 @@ const ALL_TOOL_DEFS: ToolDefLike[] = [
   emailMutateToolDef,
   calendarQueryToolDef,
   calendarMutateToolDef,
-  excelMutateToolDef,
-  wordMutateToolDef,
+  jsSandboxToolDef,
   videoDownloadToolDef,
   widgetInitToolDef,
   widgetListToolDef,

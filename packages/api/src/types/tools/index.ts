@@ -19,7 +19,6 @@ export * from "./email";
 export * from "./office";
 export * from "./excel";
 export * from "./word";
-export * from "./pptx";
 export * from "./pdf";
 export * from "./jsxCreate";
 export * from "./toolCatalog";

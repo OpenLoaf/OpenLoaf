@@ -96,10 +96,10 @@ const DOC_MIME_BY_KIND: Record<DocKind, string> = {
 }
 
 const MUTATE_TOOL_BY_KIND: Record<DocKind, string> = {
-  pdf: 'PdfMutate',
-  docx: 'WordMutate',
-  xlsx: 'ExcelMutate',
-  pptx: 'PptxMutate',
+  pdf: 'JsSandbox',
+  docx: 'JsSandbox',
+  xlsx: 'JsSandbox',
+  pptx: 'JsSandbox',
 }
 
 function classifyDocKind(absPath: string): DocKind {

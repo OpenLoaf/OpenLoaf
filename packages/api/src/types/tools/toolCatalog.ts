@@ -18,10 +18,10 @@ import { calendarQueryToolDef, calendarMutateToolDef } from "./calendar";
 import { projectQueryToolDef, projectMutateToolDef } from "./db";
 import { boardQueryToolDef, boardMutateToolDef } from "./board";
 import { emailQueryToolDef, emailMutateToolDef } from "./email";
-import { excelInspectToolDef, excelMutateToolDef } from "./excel";
-import { wordMutateToolDef, wordInspectToolDef } from "./word";
-import { pptxMutateToolDef } from "./pptx";
-import { pdfMutateToolDef, pdfInspectToolDef } from "./pdf";
+import { excelInspectToolDef } from "./excel";
+import { wordInspectToolDef } from "./word";
+import { pdfInspectToolDef } from "./pdf";
+import { jsSandboxToolDef } from "./jsSandbox";
 import { docPreviewToolDef } from "./docPreview";
 import {
   agentToolDef,
@@ -113,12 +113,9 @@ const TOOL_DEFS: ToolDefLike[] = [
   calendarQueryToolDef,
   calendarMutateToolDef,
   excelInspectToolDef,
-  excelMutateToolDef,
   wordInspectToolDef,
-  wordMutateToolDef,
-  pptxMutateToolDef,
-  pdfMutateToolDef,
   pdfInspectToolDef,
+  jsSandboxToolDef,
   widgetInitToolDef,
   widgetListToolDef,
   widgetGetToolDef,
@@ -212,12 +209,9 @@ const TOOL_KEYWORDS: Record<string, { keywords: string[]; group: string }> = {
   'Kill': { keywords: ['background', 'bg', 'kill', 'terminate', 'cancel', 'stop', 'process'], group: 'background' },
   'Sleep': { keywords: ['sleep', 'wait', 'pause', 'delay', 'idle', 'yield', 'background', 'notification'], group: 'background' },
   'ExcelInspect': { keywords: ['excel', 'spreadsheet', 'xlsx', 'csv', 'read', 'inspect', 'analyze', 'summary', 'rows', 'formulas', 'errors', 'tables', 'pivot'], group: 'office' },
-  'ExcelMutate': { keywords: ['excel', 'spreadsheet', 'xlsx', 'csv', 'create', 'write', 'edit', 'formula', 'chart', 'recalc', 'layout', 'freeze', 'sort', 'filter'], group: 'office' },
   'WordInspect': { keywords: ['word', 'docx', 'read', 'inspect', 'analyze', 'text', 'outline', 'tables', 'comments', 'tracked', 'styles', 'xml', 'render', 'summary'], group: 'office' },
-  'WordMutate': { keywords: ['word', 'docx', 'document', 'create', 'write', 'edit', 'replace', 'comment', 'tracked', 'toc', 'header', 'footer', 'xml'], group: 'office' },
-  'PptxMutate': { keywords: ['pptx', 'ppt', 'powerpoint', 'slide', 'presentation', 'create', 'edit'], group: 'office' },
-  'PdfMutate': { keywords: ['pdf', 'document', 'create', 'fill', 'merge', 'write', 'form'], group: 'office' },
   'PdfInspect': { keywords: ['pdf', 'read', 'inspect', 'analyze', 'text', 'form', 'fields', 'metadata', 'render', 'scanned', 'ocr', 'image', 'annotation'], group: 'office' },
+  'JsSandbox': { keywords: ['js', 'javascript', 'sandbox', 'node', 'script', 'run', 'execute', 'pdf', 'docx', 'xlsx', 'pptx', 'office', 'pdf-lib', 'pptxgenjs', 'exceljs', 'docx', 'generate', 'create', 'edit'], group: 'office' },
   'GenerateWidget': { keywords: ['widget', 'generate', 'create', 'component', 'ui'], group: 'ui' },
   'WidgetInit': { keywords: ['widget', 'init', 'initialize', 'setup'], group: 'ui' },
   'WidgetList': { keywords: ['widget', 'list', 'available', 'browse'], group: 'ui' },

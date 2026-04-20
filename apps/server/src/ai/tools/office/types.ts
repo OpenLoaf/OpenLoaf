@@ -146,7 +146,7 @@ export type PdfSuggestedNext =
   | { tool: 'PdfInspect'; action: 'render'; reason: string }
   | { tool: 'PdfInspect'; action: 'form-fields'; reason: string }
   | { tool: 'CloudImageUnderstand'; reason: string; precedingAction?: 'render' }
-  | { tool: 'PdfMutate'; action: 'decrypt'; reason: string }
+  | { tool: 'JsSandbox'; action: 'decrypt'; reason: string }
 
 export type PdfSummaryResult = {
   fileName: string
@@ -229,7 +229,7 @@ export type PdfFormFieldsResult = {
 
 /**
  * Non-AcroForm structural clues — text labels + horizontal lines + small
- * square rectangles that are likely checkboxes. Feed into PdfMutate(add-text)
+ * square rectangles that are likely checkboxes. Feed into JsSandbox + pdf-lib
  * to fill a scanned / static form visually.
  */
 export type PdfFormStructureResult = {

@@ -193,9 +193,9 @@ export async function inspectSummary(
       annotationCount: 0,
       metadata: metadataDefault,
       suggestedNextTool: {
-        tool: 'PdfMutate',
+        tool: 'JsSandbox',
         action: 'decrypt',
-        reason: 'PDF is encrypted. Call PdfInspect again with `password`, or call PdfMutate(decrypt) to produce an unlocked copy.',
+        reason: "PDF is encrypted. Call PdfInspect again with `password`, or use JsSandbox with pdf-lib: `await PDFDocument.load(buf, { password: '...' })` → `await pdf.save()` → write to a new file.",
       },
     }
   }
@@ -278,7 +278,7 @@ export async function inspectSummary(
     suggestedNextTool = {
       tool: 'PdfInspect',
       action: 'form-fields',
-      reason: 'This PDF has AcroForm fields. Call PdfInspect(form-fields) to get the exact checkedValue / option values before PdfMutate(fill-form).',
+      reason: 'This PDF has AcroForm fields. Call PdfInspect(form-fields) to get the exact checkedValue / option values before filling the form via JsSandbox + pdf-lib.',
     }
   } else {
     suggestedNextTool = {

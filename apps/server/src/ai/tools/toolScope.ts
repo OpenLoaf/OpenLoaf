@@ -262,8 +262,8 @@ export async function ensureWritableRoot(): Promise<{
 }
 
 /**
- * Resolve the target path for create-style tool actions (WordMutate.create,
- * PdfMutate.create/merge, ExcelMutate.create, PptxMutate.create, Write, EditDocument, ...).
+ * Resolve the target path for create-style tool actions (JsSandbox-generated
+ * Office documents, Write, EditDocument, ...).
  *
  * Relative paths are pinned to the write root:
  *   - Project-bound session → project root
