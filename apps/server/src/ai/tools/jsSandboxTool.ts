@@ -14,6 +14,7 @@
  */
 import { tool, zodSchema } from 'ai'
 import { spawn } from 'node:child_process'
+import { createRequire } from 'node:module'
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -21,6 +22,64 @@ import { jsSandboxToolDef } from '@openloaf/api/types/tools/jsSandbox'
 import { resolveCreateTargetPath } from '@/ai/tools/toolScope'
 import { createToolProgress } from '@/ai/tools/toolProgress'
 import { logger } from '@/common/logger'
+
+/**
+ * Locate the node_modules directory that houses the server's preinstalled
+ * sandbox dependencies. pnpm may hoist to workspace root or keep them under
+ * apps/server/node_modules — we resolve a known package (pdf-lib) and walk
+ * up to its parent `node_modules` dir.
+ */
+let cachedNodeModulesDir: string | null = null
+function serverNodeModulesDir(): string {
+  if (cachedNodeModulesDir) return cachedNodeModulesDir
+  try {
+    const req = createRequire(import.meta.url)
+    const pdfLibEntry = req.resolve('pdf-lib')
+    let dir = path.dirname(pdfLibEntry)
+    while (dir !== path.dirname(dir)) {
+      if (path.basename(dir) === 'node_modules') {
+        cachedNodeModulesDir = dir
+        return dir
+      }
+      dir = path.dirname(dir)
+    }
+  } catch {
+    /* ignore */
+  }
+  const here = fileURLToPath(new URL('.', import.meta.url))
+  cachedNodeModulesDir = path.resolve(here, '..', '..', '..', '..', 'node_modules')
+  return cachedNodeModulesDir
+}
+
+/**
+ * Ensure `<scriptsDir>/node_modules` is a symlink to the server's node_modules,
+ * so ESM `import 'pdf-lib'` in user code resolves by walking up from the
+ * saved script. Cheap + idempotent per JsSandbox call.
+ */
+async function ensureNodeModulesLink(scriptsDir: string): Promise<void> {
+  const target = serverNodeModulesDir()
+  const link = path.join(scriptsDir, 'node_modules')
+  try {
+    const st = await fs.lstat(link)
+    if (st.isSymbolicLink()) {
+      const current = await fs.readlink(link)
+      if (path.resolve(scriptsDir, current) === target) return
+      await fs.unlink(link)
+    } else {
+      return
+    }
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') return
+  }
+  try {
+    await fs.symlink(target, link, 'dir')
+  } catch (err) {
+    logger.warn(
+      { err, scriptsDir, target },
+      '[jssandbox] failed to create node_modules symlink',
+    )
+  }
+}
 
 const DEFAULT_TIMEOUT_MS = 30_000
 const MAX_STDOUT = 8_000
@@ -221,6 +280,7 @@ export const jsSandboxTool = tool({
 
     const scriptsDir = path.join(rootPath, 'scripts')
     await fs.mkdir(scriptsDir, { recursive: true })
+    await ensureNodeModulesLink(scriptsDir)
 
     // Resolve / synthesize script contents per action.
     let scriptPath = ''

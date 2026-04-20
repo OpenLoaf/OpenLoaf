@@ -1629,7 +1629,7 @@ section.sec.sec-always > .sec-head-row{display:flex;align-items:center;gap:10px}
 .judge-list{display:flex;flex-direction:column;gap:8px}
 /* DOM 快照专属 sec-body：去掉所有 padding，让 iframe 紧贴 sec-head */
 section.sec.sec-dom-snapshot > .sec-body{padding:0}
-.dom-snapshot-wrap{position:relative;width:100%;height:690px;background:#fff;border-top:1px solid #e5e7eb}
+.dom-snapshot-wrap{position:relative;width:100%;min-height:200px;max-height:600px;height:500px;background:#fff;border-top:1px solid #e5e7eb;overflow:hidden}
 .dom-snapshot-frame{position:absolute;inset:0;width:100%;height:100%;border:0;background:#fff;display:block;opacity:0;transition:opacity 0.25s ease-out;z-index:1}
 .dom-snapshot-wrap.loaded .dom-snapshot-frame{opacity:1}
 /* loading 必须高于 iframe（z-index:2），否则 iframe 在 DOM 顺序后会盖住 loading 视觉层 */
@@ -2036,7 +2036,12 @@ function buildPage({ pageContext, activeSlug, mainHtml }) {
   // 已经在缓存里的 iframe（已完成）直接补一次状态。
   function markIframeLoaded(iframe){
     var wrap = iframe.closest('.dom-snapshot-wrap')
-    if (wrap) wrap.classList.add('loaded')
+    if (!wrap) return
+    try {
+      var contentH = iframe.contentDocument.documentElement.scrollHeight
+      if (contentH > 0) wrap.style.height = Math.max(200, Math.min(600, contentH)) + 'px'
+    } catch(e){}
+    wrap.classList.add('loaded')
   }
   document.addEventListener('load', function(e){
     var t = e.target

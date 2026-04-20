@@ -39,6 +39,7 @@ it('approval-001-interactive-approval — AI 介入式审批：Write 工具触�
     const state = await waitForInteraction(90_000)
 
     if (state.hasPendingApproval) {
+      await takeProbeScreenshot(`approval-001-round-${round}-pending`)
       await approveCurrentTool()
       approvedCount++
       await takeProbeScreenshot(`approval-001-round-${round}-approved`)

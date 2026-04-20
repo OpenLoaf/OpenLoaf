@@ -584,6 +584,21 @@ function ChatProbeInner({
           setTimeout(() => {
             chat.addToolApprovalResponse({ id: approvalId, approved })
             if (!approved) {
+              // 更新消息 state 为 output-denied，清除 hasPendingToolExecution 阻塞
+              chatRef.current.setMessages((prev: any) =>
+                prev.map((m: any) => {
+                  if (!Array.isArray(m?.parts)) return m
+                  let hit = false
+                  const nextParts = m.parts.map((p: any) => {
+                    if (p?.approval?.id !== approvalId) return p
+                    hit = true
+                    return { ...p, state: 'output-denied', approval: { ...(p.approval ?? {}), approved: false } }
+                  })
+                  return hit ? { ...m, parts: nextParts } : m
+                }),
+              )
+              // 标记 stream 已结束，让 useEffect 能触发 tryReportComplete
+              finishFiredRef.current = true
               chat.stop()
             }
           }, 100)
@@ -784,6 +799,20 @@ function ChatProbeInner({
         const approved = approvalStrategy === 'approve-all'
         chat.addToolApprovalResponse({ id: approval.id, approved })
         if (!approved) {
+          const rejectedId = approval.id
+          chatRef.current.setMessages((prev: any) =>
+            prev.map((m: any) => {
+              if (!Array.isArray(m?.parts)) return m
+              let hit = false
+              const nextParts = m.parts.map((p: any) => {
+                if (p?.approval?.id !== rejectedId) return p
+                hit = true
+                return { ...p, state: 'output-denied', approval: { ...(p.approval ?? {}), approved: false } }
+              })
+              return hit ? { ...m, parts: nextParts } : m
+            }),
+          )
+          finishFiredRef.current = true
           chatRef.current.stop()
         }
       }
