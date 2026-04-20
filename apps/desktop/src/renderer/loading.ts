@@ -19,6 +19,9 @@ logger.info("Loading screen active");
 
 // Initialize the loading logo and edition branding once the DOM is ready.
 document.addEventListener("DOMContentLoaded", () => {
+  // 标记平台：仅 Windows/Linux 显示自绘关闭按钮，Mac 依赖原生红绿灯。
+  document.body.dataset.platform = process.platform;
+
   const logo = document.getElementById("loading-logo") as HTMLImageElement | null;
   if (!logo) {
     logger.warn("Loading logo element missing");
@@ -34,4 +37,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const textEl = document.getElementById("loading-text");
   if (textEl) textEl.textContent = `${APP_NAME}正在启动中`;
+
+  // 关闭按钮：启动阶段服务可能一直失败，提供一个可见的退出出口。
+  const closeBtn = document.getElementById("loading-close-btn");
+  closeBtn?.addEventListener("click", () => {
+    const api = (window as unknown as {
+      openloafElectron?: { closeWindow?: () => Promise<unknown> };
+    }).openloafElectron;
+    api?.closeWindow?.().catch(() => {
+      // 兜底：IPC 不可用时退出渲染进程，主进程会随之关闭窗口。
+      window.close();
+    });
+  });
 });

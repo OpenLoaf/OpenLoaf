@@ -45,6 +45,37 @@
         -webkit-app-region: drag;
       }
 
+      .close-btn {
+        display: none;
+        position: fixed;
+        top: 10px;
+        right: 10px;
+        width: 28px;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: none;
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.06);
+        color: var(--text-muted);
+        font-size: 16px;
+        line-height: 1;
+        cursor: pointer;
+        -webkit-app-region: no-drag;
+        z-index: 10;
+        transition: background 0.15s ease, color 0.15s ease;
+      }
+      .close-btn:hover {
+        background: rgba(239, 68, 68, 0.9);
+        color: #fff;
+      }
+      /* Windows / Linux 没有原生红绿灯，才需要自绘的关闭按钮。 */
+      body[data-platform="win32"] .close-btn,
+      body[data-platform="linux"] .close-btn {
+        display: flex;
+      }
+
       .loader-container {
         display: flex;
         flex-direction: column;
@@ -106,6 +137,14 @@
   </head>
   <body>
     <div class="drag-region"></div>
+    <button
+      class="close-btn"
+      id="loading-close-btn"
+      aria-label="Close"
+      title="Close"
+    >
+      ×
+    </button>
 
     <div class="loader-container">
       <div class="logo" aria-label="OpenLoaf logo">

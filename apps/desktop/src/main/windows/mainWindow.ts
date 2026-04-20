@@ -281,6 +281,9 @@ export async function createMainWindow(args: {
 
   let allowClose = false;
   let closeConfirming = false;
+  // 启动阶段（loading 页 / 崩溃错误页）Web 端不在线，无法响应关闭确认 IPC。
+  // 此标记为 true 时，关闭请求直接退出，跳过 confirmCloseAction。
+  let isStartupPhase = true;
   let forceExitTimer: ReturnType<typeof setTimeout> | null = null;
   const scheduleForceExit = () => {
     if (forceExitTimer) return;
@@ -356,7 +359,8 @@ export async function createMainWindow(args: {
 
   const requestClose = async () => {
     if (allowClose) return;
-    if (_skipQuitConfirm) {
+    if (_skipQuitConfirm || isStartupPhase) {
+      // 启动阶段 Web 未就绪，不能依赖 Web 确认框；直接退出。
       allowClose = true;
       scheduleForceExit();
       app.quit();
@@ -426,6 +430,8 @@ export async function createMainWindow(args: {
     const targetUrl = `${webUrl}/`;
     args.log(`[prod] Loading web directly: ${targetUrl}`);
     await mainWindow.loadURL(targetUrl);
+    // Web 已加载，恢复"关闭需确认"行为。
+    isStartupPhase = false;
 
     // 监听 server 崩溃，通过 IPC 通知 web 端显示错误。订阅在 start() 之前注册，
     // 这样即便 spawn 失败导致同步 emitCrash，也不会丢事件。
@@ -504,6 +510,8 @@ export async function createMainWindow(args: {
       }
       args.log(`Server health ok. Loading ${targetUrl}...`);
       await mainWindow.loadURL(targetUrl);
+      // Web 已加载，恢复"关闭需确认"行为。
+      isStartupPhase = false;
       return { win: mainWindow, serverUrl, webUrl };
     }
 
