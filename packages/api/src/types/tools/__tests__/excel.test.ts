@@ -31,7 +31,7 @@ import {
   ExcelMutateInputSchema,
   excelInspectToolDef,
   excelMutateToolDef,
-} from '@openloaf/api/types/tools/excel'
+} from '../excel'
 
 let passed = 0
 let failed = 0
