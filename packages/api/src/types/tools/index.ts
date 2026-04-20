@@ -33,3 +33,4 @@ export * from "./docConvert";
 export * from "./fileInfo";
 export * from "./webSearch";
 export * from "./webFetch";
+export * from "./jsSandbox";

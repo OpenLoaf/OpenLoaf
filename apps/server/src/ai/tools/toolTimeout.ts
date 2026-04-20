@@ -36,13 +36,12 @@ const TOOL_TIMEOUT_MAP: Record<string, number> = {
   'VideoDownload': 600_000,
 
   // Office document tools — ZIP I/O + XML parsing can be slow for large files
-  'WordMutate': 120_000,
-  'ExcelMutate': 120_000,
-  'ExcelInspect': 60_000,
-  'PptxMutate': 120_000,
-  'PdfMutate': 120_000,
   'PdfInspect': 120_000,
   'WordInspect': 120_000,
+  'ExcelInspect': 120_000,
+  // JsSandbox runs user-supplied Node scripts; 130s leaves headroom for the
+  // tool's own 120s inner cap + subprocess spawn/teardown.
+  'JsSandbox': 130_000,
 
   // Agent collaboration — delegates to sub-agents which have their own lifecycle
   'Agent': 310_000,        // 同步模式需覆盖子 agent 的 5min 超时

@@ -155,10 +155,10 @@ const ARCHIVE_EXTS = new Set(['.zip'])
  * re-pack via Bash or a future ArchiveMutate tool).
  */
 const DERIVED_MUTATE_TOOL: Partial<Record<FileKind, string>> = {
-  pdf: 'PdfMutate',
-  docx: 'WordMutate',
-  xlsx: 'ExcelMutate',
-  pptx: 'PptxMutate',
+  pdf: 'JsSandbox',
+  docx: 'JsSandbox',
+  xlsx: 'JsSandbox',
+  pptx: 'JsSandbox',
 }
 
 const MIME_BY_EXT: Record<string, string> = {
@@ -345,7 +345,7 @@ async function assertReadBeforeModify(
   if (entry.readMode === 'derived') {
     const hint = entry.mutateTool
       ? `Use \`${entry.mutateTool}\` to modify the source file.`
-      : 'Use the format-specific mutate tool (PdfMutate / WordMutate / ExcelMutate / PptxMutate).'
+      : 'Use `JsSandbox` to write a short Node script that edits the source file with the preinstalled libs (pdf-lib / docx / xlsx / pptxgenjs / ...).'
     throw new Error(
       `"${path.basename(absPath)}" was read in derived mode (extracted / rendered view). ` +
         `Edit/Write cannot modify the source file. ${hint} ` +
