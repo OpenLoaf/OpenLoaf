@@ -1,53 +1,54 @@
 ---
 name: pptx-skill
 description: >
-  Triggers whenever the user asks to do anything with PowerPoint slides (.pptx): summarize a deck, extract key points per slide, change titles or subtitles, edit body text or speaker notes, insert / remove / reorder slides, generate a report / pitch / training deck from scratch, or turn bullet points discussed in the conversation into slides. Typical phrasings: "summarize this PPT", "what is this deck about", "pull out the key points of each slide", "make me a Q4 report deck", "change the title of slide 3", "add a slide to the PPT", "turn these points into slides". Load this skill whenever the user mentions a deck / slide / presentation / reporting deliverable.
+  Triggers whenever the user asks to do anything with PowerPoint slides (.pptx): read, summarize, extract, edit, create, or convert. Key insight: PPTX files are visually structured — charts, diagrams, and layouts cannot be reliably captured by text extraction alone. The correct approach for understanding slide content is to render the target slide(s) as PNG images (via PptxInspect render) and pass them to a vision model (CloudImageUnderstand), not to rely solely on text/outline extraction. Use text tools (outline / text / shapes) only as supplementary context. Typical phrasings: "summarize this PPT", "what is this deck about", "what's on slide 3", "describe page 5", "make me a Q4 report deck", "change the title of slide 3". Load this skill whenever the user mentions a .pptx file, deck, slides, or presentation.
 ---
 
 # PPTX Skill
 
-**Create PPT with `JsSandbox` + `pptxgenjs`** (most friendly API); read / analyze existing deck content via `DocConvert(from="pptx", to="md")` → `Read` the markdown; format conversion uses `DocConvert`.
+Read with `PptxInspect`; **write / edit / create with `JsSandbox`** running Node scripts (preferred library: `pptxgenjs`); format conversion with `DocConvert`; visual OCR with `CloudImageUnderstand`.
 
 ## Tool List
 
 | Tool | Responsibility | Read-only |
 |------|----------------|-----------|
-| `JsSandbox` | **All write & read**: create decks / edit slides / insert slides — all via `pptxgenjs`; use `adm-zip` + XML parsing to analyze an existing deck | No |
-| `DocConvert` | pptx ↔ pdf / html; convert old deck to md for reading | No |
+| `PptxInspect` | Read: summary / outline / text / notes / tables / shapes / images / xml / render | Yes |
+| `JsSandbox` | **All write**: create / edit / generate from scratch — use `pptxgenjs` for new decks, `adm-zip` to patch existing XML | No |
+| `DocConvert` | pptx ↔ pdf / html / md | No |
+| `CloudImageUnderstand` | OCR / chart understanding on rendered slides | No |
 
 > **Loading (two steps)**:
 > 1. `LoadSkill pptx-skill`
-> 2. `ToolSearch(query: "select:JsSandbox,DocConvert")`
+> 2. `ToolSearch(query: "select:PptxInspect,JsSandbox,DocConvert")`
+>
+> `Read` / `DocPreview` on a .pptx return only Markdown-level body text (losing shape coordinates, speaker notes, table structure, and XML detail). **Any task that involves analyzing, summarizing, editing, or reviewing a deck goes through `PptxInspect` + `JsSandbox`.**
 
 ---
 
-## 1. Read: Convert to markdown first, then deep-dive with JsSandbox if needed
-
-Simple case:
+## 1. Read: Start with `PptxInspect(summary)`
 
 ```
-DocConvert(from="pptx", to="md", sourcePath="deck.pptx")  // outputs deck.md
-Read(file_path="<asset>/deck.md")                          // body text + page boundaries
+PptxInspect { action: "summary", filePath: "…" }
 ```
 
-When you need precise structure (shape coordinates / theme colors / speaker notes), parse the XML with JsSandbox:
+Returns `slideCount / layoutCount / masterCount / hasNotes / hasCharts / hasSmartArt / creator / modifiedAt / fileSize` plus a `suggestedNextTool` hint. Decision table:
 
-```js
-import AdmZip from 'adm-zip'
-import fs from 'node:fs/promises'
+| Situation | Next step |
+|---|---|
+| Don't know the deck's shape | `summary` → `outline` to scan titles |
+| Need slide content | `text` (body text) / `notes` (speaker notes) |
+| Need to locate anomalous visuals | `shapes` to get the shape tree, then `render` on suspicious slides |
+| Need visual verification | `render` with `slideNumbers` filter |
+| Need to export embedded images | `images` with `extractImages=true` |
+| Need to plan XML-level edits | `xml` with `partName` for the target part |
 
-const zip = new AdmZip(await fs.readFile('deck.pptx'))
-const slides = zip.getEntries()
-  .filter(e => e.entryName.startsWith('ppt/slides/slide'))
-  .sort((a, b) => a.entryName.localeCompare(b.entryName))
+### 1.1 Render notes
 
-for (const e of slides) {
-  const xml = e.getData().toString('utf-8')
-  const texts = [...xml.matchAll(/<a:t>([^<]*)<\/a:t>/g)].map(m => m[1])
-  console.log(`=== ${e.entryName} ===`)
-  console.log(texts.join('\n'))
-}
-```
+`render` uses **node-pptx-png** (skia-canvas-based, pure Node) — **no LibreOffice dependency**.
+
+Known limitations:
+- SmartArt, custom DrawingML charts (non-OpenXML), and WMF/EMF vector backgrounds may degrade.
+- When fidelity matters: fallback to `DocConvert(from="pptx", to="pdf")` + `PdfInspect(render)` (LibreOffice rendering chain), or use `render` + `CloudImageUnderstand` for OCR.
 
 ---
 
@@ -138,9 +139,9 @@ console.log('q1_review.pptx written')
 ```
 
 > **Key points**:
-> - `pptxgenjs` API is fully **object-based** (`{x, y, w, h, fontSize, ...}`) — no JSON string concatenation needed.
-> - **CJK requires `fontFace`** (e.g. `'Microsoft YaHei'` / `'Noto Sans CJK SC'`), otherwise the default English font may substitute or mangle CJK characters.
-> - `addChart` natively supports bar / line / pie / doughnut; for "image-feel" charts, use `chartjs-node-canvas` to render a PNG and `addImage` it.
+> - `pptxgenjs` API is fully **object-based** (`{x, y, w, h, fontSize, ...}`) — no JSON string concatenation.
+> - **CJK content requires `fontFace`** (e.g. `'Microsoft YaHei'` / `'Noto Sans CJK SC'`); without it, the default Latin font may substitute or corrupt CJK characters.
+> - `addChart` natively supports bar / line / pie / doughnut; for "image-feel" charts, render a PNG with `chartjs-node-canvas` then `addImage` it.
 
 ### 2.2 Demo: Generate N slides from a data array (one item per slide)
 
@@ -156,14 +157,12 @@ const items = [
 const pres = new pptxgen()
 pres.layout = 'LAYOUT_16x9'
 
-// Cover
 const cover = pres.addSlide()
 cover.addText('V6 Commercial — Shot List', {
   x: 0.5, y: 2.8, w: 12.3, h: 1.3, align: 'center',
   fontSize: 40, bold: true, color: '0F172A', fontFace: 'Calibri',
 })
 
-// One slide per scene
 items.forEach((it, i) => {
   const s = pres.addSlide()
   s.addText(`${i + 1}. ${it.title}`, {
@@ -183,7 +182,7 @@ console.log(`storyboard.pptx — ${items.length + 1} slides`)
 
 ### 2.3 Demo: Edit the title of slide N in an existing deck
 
-`pptxgenjs` is generation-only; it cannot read existing files. To edit an old deck, use `adm-zip` to patch the XML:
+`pptxgenjs` is generation-only and cannot read existing files. To edit an old deck, patch the XML with `adm-zip`:
 
 ```js
 import AdmZip from 'adm-zip'
@@ -199,25 +198,46 @@ await fs.writeFile('deck.pptx', zip.toBuffer())
 console.log('slide 3 title updated')
 ```
 
-> This is a hard XML patch; it fails when runs are split. The robust approach is to regenerate the whole deck with `pptxgenjs`.
+> This is a hard XML patch and will fail if the run is split across multiple `a:r` elements. The reliable approach is to regenerate the whole deck with `pptxgenjs`.
+
+---
+
+## 2.4 Per-slide Visual Understanding (render → CloudImageUnderstand)
+
+When the user asks "what's on slide N?" / "what does this chart mean?" / "how does slide 5 look?" — anything that needs **visual comprehension** — render the target slide(s) to PNG and feed the image to the vision model:
+
+```
+PptxInspect { action: "render", filePath: "…", slideNumbers: [5], scale: 1.5 }
+  → result.data.pages[0].imagePath = "haikesen-energy-deck_asset/slide5-scale1.5.png"
+CloudImageUnderstand { image: { path: "<pages[0].imagePath>" }, prompt: "Describe this slide in detail: title, bullet points, chart data, layout" }
+  → vision model returns a structured description
+```
+
+When to use:
+- SmartArt / custom charts / WMF vector art — text extraction (`text`) loses the semantics
+- User wants to see the "look" of a slide
+- Training decks with screenshots / diagrams embedded as images
+
+Batch (visual summary of a whole deck): omit `slideNumbers` to render all PNGs, then loop `CloudImageUnderstand`. Watch credit consumption — for decks >20 slides, run `outline` first and confirm with the user before rendering.
 
 ---
 
 ## 3. Format Conversion
 
 ```
-DocConvert(from="pptx", to="pdf", sourcePath="…")    // for external distribution
-DocConvert(from="pptx", to="md",  sourcePath="…")    // extract body text / summarize
+DocConvert(from="pptx", to="pdf", sourcePath="…")    // for distribution / high-fidelity rendering via LibreOffice
+DocConvert(from="pptx", to="md",  sourcePath="…")    // extract body text / generate summaries
 ```
 
 ---
 
-## 4. Common Pitfalls
+## 4. Common Error Recovery
 
 | Symptom | Cause | Fix |
 |---|---|---|
+| `PPT_LEGACY_FORMAT` | Binary `.ppt` format | `DocConvert(from="ppt", to="pptx")` to convert first |
 | CJK shows as squares / replaced by letters | `fontFace` not set | Pass `fontFace: 'Microsoft YaHei'` on every `addText` / `addChart` |
-| Chart axis labels appear in wrong font | `catAxisLabelFontFace` not set | Always add this for mixed-language charts |
+| `render` result: SmartArt distorted | node-pptx-png does not support SmartArt | Fallback to `DocConvert(to="pdf")` + `PdfInspect(render)` |
 | `writeFile` output can't be opened | Path traversal / permission issue | Use a relative path — files land in the session cwd (asset dir) |
 | Generating many slides is slow | Repeated `addText` calls per slide | Put common elements in `defineSlideMaster`; only put differences on each slide |
 

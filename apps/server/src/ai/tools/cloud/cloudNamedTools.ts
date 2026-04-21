@@ -41,6 +41,7 @@ import {
 import { runV3GenerateAndSave, runV3TextGenerate } from '@/ai/tools/cloud/cloudTools'
 import type { ToolProgressEmitter } from '@/ai/tools/toolProgress'
 import { getSessionId } from '@/ai/shared/context/requestContext'
+import { resolveToolPath } from '@/ai/tools/toolScope'
 import {
   maybeServeCloudMock,
   maybeCaptureCloudFixture,
@@ -126,7 +127,7 @@ const CLOUD_SLOT_MAPS: Record<string, Record<string, readonly string[]>> = {
   },
   CloudImageUnderstand: {
     image: ['source', 'image', 'input'],
-    question: ['question', 'prompt', 'text'],
+    prompt: ['prompt', 'question', 'text'],
   },
 }
 
@@ -283,7 +284,8 @@ function coerceMediaInput(value: unknown): unknown | undefined {
         const parsed = JSON.parse(trimmed)
         if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
           const obj = parsed as Record<string, unknown>
-          if (typeof obj.url === 'string' || typeof obj.path === 'string') return obj
+          if (typeof obj.path === 'string') return { path: resolveToolPath({ target: obj.path }).absPath }
+          if (typeof obj.url === 'string') return obj
         }
       } catch { /* not JSON, fall through */ }
     }
@@ -291,7 +293,8 @@ function coerceMediaInput(value: unknown): unknown | undefined {
   }
   if (value && typeof value === 'object' && !Array.isArray(value)) {
     const obj = value as Record<string, unknown>
-    if (typeof obj.url === 'string' || typeof obj.path === 'string') return obj
+    if (typeof obj.path === 'string') return { path: resolveToolPath({ target: obj.path }).absPath }
+    if (typeof obj.url === 'string') return obj
   }
   return undefined
 }
@@ -653,9 +656,9 @@ export const cloudImageUnderstandTool = tool({
     const mocked = await tryServeMock('CloudImageUnderstand', progress)
     if (mocked !== undefined) return mocked
 
-    const { image, question, modelHint } = input as {
+    const { image, prompt, modelHint } = input as {
       image: unknown
-      question?: string
+      prompt?: string
       modelHint?: string
     }
 
@@ -680,7 +683,7 @@ export const cloudImageUnderstandTool = tool({
     }
 
     const inputs: Record<string, unknown> = { image: coercedImage }
-    if (question) inputs.question = question
+    if (prompt) inputs.prompt = prompt
 
     const result = await runV3TextGenerate({
       feature: picked.featureId,

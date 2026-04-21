@@ -72,7 +72,7 @@ const VIDEO_EXTS = new Set(['.mp4', '.avi', '.mkv', '.mov', '.webm', '.flv', '.w
 const AUDIO_EXTS = new Set(['.mp3', '.wav', '.aac', '.flac', '.ogg', '.m4a', '.wma'])
 const PDF_EXTS = new Set(['.pdf'])
 const SPREADSHEET_EXTS = new Set(['.xlsx', '.xls', '.csv'])
-const DOC_EXTS = new Set(['.docx', '.doc'])
+const DOC_EXTS = new Set(['.docx', '.doc', '.pptx', '.ppt'])
 
 type FileType = 'image' | 'video' | 'audio' | 'pdf' | 'spreadsheet' | 'document' | 'other'
 
@@ -250,7 +250,11 @@ export const fileInfoTool = tool({
         }
 
         case 'document': {
-          details = { hint: '使用 WordInspect 或 DocPreview 工具获取文档详细内容。' }
+          if (ext === '.pptx' || ext === '.ppt') {
+            details = { hint: '使用 PptxInspect 工具获取幻灯片详细内容（summary / outline / text / render 等 action）。' }
+          } else {
+            details = { hint: '使用 WordInspect 或 DocPreview 工具获取文档详细内容。' }
+          }
           break
         }
 

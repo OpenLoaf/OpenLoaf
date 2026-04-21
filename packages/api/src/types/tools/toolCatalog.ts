@@ -21,6 +21,7 @@ import { emailQueryToolDef, emailMutateToolDef } from "./email";
 import { excelInspectToolDef } from "./excel";
 import { wordInspectToolDef } from "./word";
 import { pdfInspectToolDef } from "./pdf";
+import { pptxInspectToolDef } from "./pptx";
 import { jsSandboxToolDef } from "./jsSandbox";
 import { docPreviewToolDef } from "./docPreview";
 import {
@@ -115,6 +116,7 @@ const TOOL_DEFS: ToolDefLike[] = [
   excelInspectToolDef,
   wordInspectToolDef,
   pdfInspectToolDef,
+  pptxInspectToolDef,
   jsSandboxToolDef,
   widgetInitToolDef,
   widgetListToolDef,
@@ -211,6 +213,7 @@ const TOOL_KEYWORDS: Record<string, { keywords: string[]; group: string }> = {
   'ExcelInspect': { keywords: ['excel', 'spreadsheet', 'xlsx', 'csv', 'read', 'inspect', 'analyze', 'summary', 'rows', 'formulas', 'errors', 'tables', 'pivot'], group: 'office' },
   'WordInspect': { keywords: ['word', 'docx', 'read', 'inspect', 'analyze', 'text', 'outline', 'tables', 'comments', 'tracked', 'styles', 'xml', 'render', 'summary'], group: 'office' },
   'PdfInspect': { keywords: ['pdf', 'read', 'inspect', 'analyze', 'text', 'form', 'fields', 'metadata', 'render', 'scanned', 'ocr', 'image', 'annotation'], group: 'office' },
+  'PptxInspect': { keywords: ['ppt', 'pptx', 'slide', 'deck', 'presentation', '幻灯片', '演示文稿', '母版', 'read', 'inspect', 'analyze', 'outline', 'notes', 'shapes', 'tables', 'render', 'summary'], group: 'office' },
   'JsSandbox': { keywords: ['js', 'javascript', 'sandbox', 'node', 'script', 'run', 'execute', 'pdf', 'docx', 'xlsx', 'pptx', 'office', 'pdf-lib', 'pptxgenjs', 'exceljs', 'docx', 'generate', 'create', 'edit'], group: 'office' },
   'GenerateWidget': { keywords: ['widget', 'generate', 'create', 'component', 'ui'], group: 'ui' },
   'WidgetInit': { keywords: ['widget', 'init', 'initialize', 'setup'], group: 'ui' },

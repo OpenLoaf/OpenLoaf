@@ -35,6 +35,7 @@ import { emailMutateTool, emailQueryTool } from "@/ai/tools/emailTools";
 import { excelInspectTool } from "@/ai/tools/excelTools";
 import { wordInspectTool } from "@/ai/tools/wordTools";
 import { pdfInspectTool } from "@/ai/tools/pdfTools";
+import { pptxInspectTool } from "@/ai/tools/pptxTools";
 import { jsSandboxTool } from "@/ai/tools/jsSandboxTool";
 import { imageProcessTool } from "@/ai/tools/imageProcessTools";
 import { videoConvertTool } from "@/ai/tools/videoConvertTools";
@@ -90,6 +91,7 @@ import {
 import { excelInspectToolDef } from "@openloaf/api/types/tools/excel";
 import { wordInspectToolDef } from "@openloaf/api/types/tools/word";
 import { pdfInspectToolDef } from "@openloaf/api/types/tools/pdf";
+import { pptxInspectToolDef } from "@openloaf/api/types/tools/pptx";
 import { jsSandboxToolDef } from "@openloaf/api/types/tools/jsSandbox";
 import { imageProcessToolDef } from "@openloaf/api/types/tools/imageProcess";
 import { videoConvertToolDef } from "@openloaf/api/types/tools/videoConvert";
@@ -298,6 +300,9 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
   [pdfInspectToolDef.id]: {
     tool: pdfInspectTool,
   },
+  [pptxInspectToolDef.id]: {
+    tool: pptxInspectTool,
+  },
   [jsSandboxToolDef.id]: {
     tool: jsSandboxTool,
   },
@@ -438,6 +443,7 @@ const TOOL_DEF_REGISTRY: Record<string, { parameters?: any }> = {
   [excelInspectToolDef.id]: excelInspectToolDef,
   [wordInspectToolDef.id]: wordInspectToolDef,
   [pdfInspectToolDef.id]: pdfInspectToolDef,
+  [pptxInspectToolDef.id]: pptxInspectToolDef,
   [jsSandboxToolDef.id]: jsSandboxToolDef,
   [generateWidgetToolDef.id]: generateWidgetToolDef,
   [widgetInitToolDef.id]: widgetInitToolDef,

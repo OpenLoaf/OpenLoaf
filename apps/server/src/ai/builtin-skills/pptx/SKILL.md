@@ -1,53 +1,54 @@
 ---
 name: pptx-skill
 description: >
-  当用户要求对 PowerPoint 幻灯片（.pptx）做任何操作时触发：总结 deck、提取每页要点、改标题或副标题、改正文或演讲者备注、插页/删页/换页、从零生成汇报/路演/培训 deck、把讨论过的要点落成 PPT。典型说法："总结这份 PPT"、"这个 deck 在讲什么"、"把每页要点提出来"、"帮我做一份 Q4 汇报 PPT"、"改第 3 页标题"、"PPT 加一页"、"把这些要点做成幻灯片"。用户提到 deck / slide / 幻灯片 / 汇报产出时都加载本技能。
+  当用户要求对 PowerPoint 幻灯片（.pptx）做任何操作时触发：阅读、总结、提取、编辑、创建、格式转换均适用。核心认知：PPTX 是视觉结构化文件——图表、排版、示意图等内容靠纯文字抽取无法可靠还原。理解幻灯片内容的正确路径是：用 PptxInspect render 把目标页渲染成 PNG，再交给视觉模型（CloudImageUnderstand）理解，而不是仅靠 text/outline 文字提取。文字工具仅作补充上下文使用。典型说法："总结这份 PPT"、"这个 deck 在讲什么"、"第 3 页讲什么"、"描述第 5 页内容"、"帮我做一份 Q4 汇报 PPT"、"改第 3 页标题"。用户提到 .pptx 文件、deck、幻灯片、演示文稿时都加载本技能。
 ---
 
 # PPTX 技能
 
-**创建 PPT 用 `JsSandbox` + `pptxgenjs`**（API 最友好）；读 / 分析 deck 内容目前通过 `DocConvert(from="pptx", to="md")` → `Read` 看 markdown；格式互转用 `DocConvert`。
+读用 `PptxInspect`；**写 / 改 / 创建用 `JsSandbox`** 跑 Node 脚本（库首选 `pptxgenjs`）；格式互转用 `DocConvert`；看图 / OCR 用 `CloudImageUnderstand`。
 
 ## 工具清单
 
 | 工具 | 做什么 | 只读 |
 |------|------|------|
-| `JsSandbox` | **所有写 & 读**：创建 deck / 改页 / 插页，统一用 `pptxgenjs` 生成；要分析老 deck 就用 `adm-zip` + XML 解析 | 否 |
-| `DocConvert` | pptx ↔ pdf / html；老 deck 转 md 再读 | 否 |
+| `PptxInspect` | 读：summary / outline / text / notes / tables / shapes / images / xml / render | 是 |
+| `JsSandbox` | **所有写**：create / edit / 从零生成；用 `pptxgenjs` 创建新 deck，用 `adm-zip` 改现有 XML | 否 |
+| `DocConvert` | pptx ↔ pdf / html / md | 否 |
+| `CloudImageUnderstand` | 渲染后的幻灯片 OCR / 图表理解 | 否 |
 
 > **加载（两步）**：
 > 1. `LoadSkill pptx-skill`
-> 2. `ToolSearch(query: "select:JsSandbox,DocConvert")`
+> 2. `ToolSearch(query: "select:PptxInspect,JsSandbox,DocConvert")`
+>
+> `Read` / `DocPreview` 对 .pptx 只返回 Markdown 级正文（丢形状坐标 / 备注 / 表格结构）；**任何"分析/总结/改/评审 PPT"都走 `PptxInspect` + `JsSandbox`**。
 
 ---
 
-## 1. 读：先用 `DocConvert(pptx→md)` 看内容，再按需 JsSandbox 深挖
-
-简单场景：
+## 1. 读：`PptxInspect(summary)` 先行
 
 ```
-DocConvert(from="pptx", to="md", sourcePath="deck.pptx")  // 输出 deck.md
-Read(file_path="<asset>/deck.md")                         // 正文 + 页边界
+PptxInspect { action: "summary", filePath: "…" }
 ```
 
-若需精确结构（形状坐标 / 主题色 / notes 演讲者备注）再跑 JsSandbox 解 XML：
+返回 `slideCount / layoutCount / masterCount / hasNotes / hasCharts / hasSmartArt / creator / modifiedAt / fileSize`，并给出 `suggestedNextTool`，按特征分派：
 
-```js
-import AdmZip from 'adm-zip'
-import fs from 'node:fs/promises'
+| 特征 | 下一步 |
+|---|---|
+| 不知道 deck 形状 | `summary` → `outline` 扫标题 |
+| 需要看幻灯片内容 | `text`（正文）/ `notes`（演讲者备注） |
+| 需要定位异常 | `shapes` 拿形状树，再 `render` 可疑页 |
+| 需要视觉验证 | `render`（slideNumbers 过滤） |
+| 有嵌入图片要导出 | `images`（extractImages=true） |
+| 需要改 XML 结构 | `xml`（partName 指定部件）|
 
-const zip = new AdmZip(await fs.readFile('deck.pptx'))
-const slides = zip.getEntries()
-  .filter(e => e.entryName.startsWith('ppt/slides/slide'))
-  .sort((a, b) => a.entryName.localeCompare(b.entryName))
+### 1.1 render 说明
 
-for (const e of slides) {
-  const xml = e.getData().toString('utf-8')
-  const texts = [...xml.matchAll(/<a:t>([^<]*)<\/a:t>/g)].map(m => m[1])
-  console.log(`=== ${e.entryName} ===`)
-  console.log(texts.join('\n'))
-}
-```
+`render` 使用 **node-pptx-png**（skia-canvas，纯 Node），**不依赖 LibreOffice**。
+
+已知局限：
+- SmartArt、自定义 DrawingML 图表（非 OpenXML chart）、WMF/EMF 矢量底图可能失真
+- 失真时 fallback → `DocConvert(from="pptx", to="pdf")` + `PdfInspect(render)` （走 LibreOffice 渲染链），或直接 `render` + `CloudImageUnderstand` 做 OCR
 
 ---
 
@@ -158,14 +159,12 @@ const items = [
 const pres = new pptxgen()
 pres.layout = 'LAYOUT_16x9'
 
-// 封面
 const cover = pres.addSlide()
 cover.addText('向上 V6 PV 分镜汇报', {
   x: 0.5, y: 2.8, w: 12.3, h: 1.3, align: 'center',
   fontSize: 40, bold: true, color: '0F172A', fontFace: 'Microsoft YaHei',
 })
 
-// 每个关键镜头一页
 items.forEach((it, i) => {
   const s = pres.addSlide()
   s.addText(`${i + 1}. ${it.title}`, {
@@ -205,21 +204,42 @@ console.log('slide 3 title updated')
 
 ---
 
+## 2.4 单页视觉识图（render → CloudImageUnderstand）
+
+当用户问"第 N 页讲了什么" / "这页图表是什么数据" / "看看第 5 页排版" 等**需要视觉理解**的问题时，先渲染目标页为 PNG，再把图丢给视觉模型：
+
+```
+PptxInspect { action: "render", filePath: "…", slideNumbers: [5], scale: 1.5 }
+  → result.data.pages[0].imagePath = "haikesen-energy-deck_asset/slide5-scale1.5.png"
+CloudImageUnderstand { image: { path: "<pages[0].imagePath>" }, prompt: "请详细描述这页幻灯片：标题、正文要点、图表数据、排版布局" }
+  → 视觉模型返回结构化描述
+```
+
+适用场景：
+- SmartArt / 自定义图表 / WMF 矢量底图 —— 纯文本抽取（`text`）拿不到语义
+- 用户要看"排版效果"或"这页长啥样"
+- 含截图 / 示意图的培训 deck
+
+批量识图（整份 deck 视觉总结）：`render` 不传 `slideNumbers` 拿全部 PNG，循环调 `CloudImageUnderstand`。注意积分消耗，超过 20 页建议先 `outline` 给用户确认再渲染。
+
+---
+
 ## 3. 格式互转
 
 ```
-DocConvert(from="pptx", to="pdf", sourcePath="…")    // 给甲方分发
+DocConvert(from="pptx", to="pdf", sourcePath="…")    // 给甲方分发 / LibreOffice 高保真渲染
 DocConvert(from="pptx", to="md",  sourcePath="…")    // 提炼正文 / 做总结
 ```
 
 ---
 
-## 4. 常见陷阱
+## 4. 常见错误兜底
 
 | 症状 | 原因 | 处理 |
 |---|---|---|
+| `PPT_LEGACY_FORMAT` | `.ppt` 二进制格式 | `DocConvert(from="ppt", to="pptx")` 先转换 |
 | 中文显示方块 / 全变字母 | 未设 `fontFace` | 每个 addText / addChart 传 `fontFace: 'Microsoft YaHei'` |
-| 图表轴标签英文 | `catAxisLabelFontFace` 未设 | 中英混排 chart 都要加这个 |
+| render 结果 SmartArt 变形 | node-pptx-png 不支持 SmartArt | fallback → `DocConvert(to="pdf")` + `PdfInspect(render)` |
 | `writeFile` 产物打不开 | 路径穿越 / 权限 | 写相对路径就落到 cwd (session asset dir) |
 | 生成几十页很慢 | 每页重复 addText | `defineSlideMaster` 把公共元素放 master，slide 里只放差异内容 |
 

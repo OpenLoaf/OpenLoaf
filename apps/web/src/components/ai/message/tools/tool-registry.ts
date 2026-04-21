@@ -58,6 +58,7 @@ import JobsTool from './JobsTool'
 import SleepTool from './SleepTool'
 import LoadSkillTool from './LoadSkillTool'
 import CloudModelGenerateTool from './CloudModelGenerateTool'
+import CloudImageUnderstandTool from './CloudImageUnderstandTool'
 import CloudLoginTool from './CloudLoginTool'
 import CloudUserInfoTool from './CloudUserInfoTool'
 
@@ -137,8 +138,7 @@ export const TOOL_REGISTRY: ToolRegistryEntry[] = [
   // CloudVideoGenerate / CloudTTS) all share the same output shape via
   // runV3GenerateAndSave, so they reuse CloudModelGenerateTool for the
   // files[] / pendingUrls[] preview grid.
-  // CloudImageUnderstand / CloudSpeechRecognize return plain text and fall
-  // through to UnifiedTool — the JSON output reads fine as-is.
+  { match: 'CloudImageUnderstand', component: CloudImageUnderstandTool as ComponentType<ToolComponentProps> },
   {
     match: ['CloudImageGenerate', 'CloudImageEdit', 'CloudVideoGenerate', 'CloudTTS'],
     component: CloudModelGenerateTool as ComponentType<ToolComponentProps>,

@@ -44,6 +44,7 @@ const COMPACTABLE_TOOLS = new Set([
   'ExcelInspect',
   'WordInspect',
   'PdfInspect',
+  'PptxInspect',
 ])
 
 /** Placeholder text that replaces cleared tool results. */

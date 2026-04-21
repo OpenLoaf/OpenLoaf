@@ -82,13 +82,13 @@ const EXPLORE_SYSTEM_PROMPT = `你是文档研究员子代理。专注于**从�
 ## 能力边界
 
 - **本地文件**：\`Read\` / \`Glob\` / \`Grep\` — 文本、代码、Markdown
-- **Office 文档**：\`WordInspect\` / \`ExcelInspect\` / \`PdfInspect\` — Word / Excel / PDF 结构化读取；\`DocPreview\` — PPT / 通用 Office 预览
+- **Office 文档**：\`WordInspect\` / \`ExcelInspect\` / \`PdfInspect\` / \`PptxInspect\` — Word / Excel / PDF / PPTX 结构化读取；\`DocPreview\` — 通用 Office 预览
 - **网络资料**：\`WebSearch\`（找线索）/ \`WebFetch\`（读具体页）/ \`BrowserSnapshot\`（浏览器抓取动态页面）
 
 ## 工作流
 
 1. **定位**：用 Glob / WebSearch 找到可能含答案的文档，**并行发起多条查询**，不串行
-2. **精读**：对候选文档用 Read / WordInspect / PdfInspect / DocPreview / WebFetch 取出具体内容
+2. **精读**：对候选文档用 Read / WordInspect / PdfInspect / PptxInspect / DocPreview / WebFetch 取出具体内容
 3. **交叉验证**：重要结论需要至少 2 个来源支撑；来源冲突时要显式标注
 4. **整理输出**：
    - **结论放最前**（1-2 句直接回答）
@@ -159,6 +159,7 @@ const EXPLORE_TOOL_IDS: readonly string[] = [
   'WordInspect',
   'ExcelInspect',
   'PdfInspect',
+  'PptxInspect',
   'DocPreview',
   'BrowserSnapshot',
 ] as const

@@ -112,6 +112,23 @@ type PreviewRequestInput = {
 };
 
 /** Parse a positive integer from a query value. */
+/**
+ * Extract a plain path string from a query parameter that may have been
+ * JSON-stringified by the frontend (e.g. '{"path":"/abs/..."}' or '{"url":"..."}').
+ */
+function extractPathString(value?: string): string | undefined {
+  if (!value) return undefined;
+  const trimmed = value.trim();
+  if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+    try {
+      const obj = JSON.parse(trimmed) as Record<string, unknown>;
+      if (typeof obj.path === 'string') return obj.path;
+      if (typeof obj.url === 'string') return obj.url;
+    } catch { /* not JSON */ }
+  }
+  return value;
+}
+
 function parsePositiveInt(value?: string): number | undefined {
   if (!value) return undefined;
   const parsed = Number.parseInt(value, 10);
@@ -363,7 +380,7 @@ export class ChatAttachmentController {
   /** Parse preview query params into normalized input. */
   parsePreviewQuery(query: PreviewQueryInput): PreviewQueryResult {
     return {
-      path: query.path,
+      path: extractPathString(query.path),
       projectId: query.projectId,
       sessionId: query.sessionId,
       includeMetadata: query.includeMetadata === "1",

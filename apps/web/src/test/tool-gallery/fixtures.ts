@@ -820,6 +820,31 @@ const toolSearchFixtures: ToolFixture[] = [
 
 // Cloud ---------------------------------------------------------------
 
+const cloudImageUnderstandFixtures: ToolFixture[] = [
+  {
+    id: 'cloud-image-understand',
+    title: '云端图像理解',
+    toolKind: 'CloudImageUnderstand',
+    part: makePart({
+      toolKind: 'CloudImageUnderstand',
+      suffix: 'vqa',
+      input: { image: { url: SAMPLE_IMAGE }, question: '这张图片里有什么？' },
+      output: '图片展示了一片宁静的山间湖泊，四周被翠绿的森林环绕，湖面倒映着蓝天白云，远处有连绵的山峰。',
+    }),
+  },
+  {
+    id: 'cloud-image-understand-ocr',
+    title: '云端 OCR',
+    toolKind: 'CloudImageUnderstand',
+    part: makePart({
+      toolKind: 'CloudImageUnderstand',
+      suffix: 'ocr',
+      input: { image: { url: SAMPLE_IMAGE } },
+      output: 'OpenLoaf\n版本 2.0\n© 2024 Hex',
+    }),
+  },
+]
+
 const cloudGenerateFixtures: ToolFixture[] = [
   {
     id: 'cloud-image-generate',
@@ -980,6 +1005,6 @@ export const TOOL_FIXTURE_GROUPS: ToolFixtureGroup[] = [
   {
     key: 'cloud',
     label: 'Cloud',
-    fixtures: [...cloudGenerateFixtures, ...cloudLoginFixtures, ...cloudUserInfoFixtures],
+    fixtures: [...cloudImageUnderstandFixtures, ...cloudGenerateFixtures, ...cloudLoginFixtures, ...cloudUserInfoFixtures],
   },
 ]

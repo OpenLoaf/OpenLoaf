@@ -65,6 +65,7 @@ import {
   scheduledTaskStatusToolDef,
   scheduledTaskWaitToolDef,
 } from "@openloaf/api/types/tools/scheduledTask";
+import { pptxInspectToolDef } from "@openloaf/api/types/tools/pptx";
 
 type ToolDefLike = { id: string; parameters: any };
 
@@ -104,6 +105,7 @@ const ALL_TOOL_DEFS: ToolDefLike[] = [
   scheduledTaskManageToolDef,
   scheduledTaskStatusToolDef,
   scheduledTaskWaitToolDef,
+  pptxInspectToolDef,
 ];
 
 function main() {

@@ -98,7 +98,8 @@
       "ds-store",
       "appdmg",
       "fs-xattr",
-      "node-pty"
+      "node-pty",
+      "skia-canvas"
     ],
     "supportedArchitectures": {
       "os": [

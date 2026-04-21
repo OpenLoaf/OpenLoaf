@@ -143,6 +143,7 @@
     "PptxQuery": "PPTX Query",
     "PdfQuery": "PDF Query",
     "PdfInspect": "PDF Inspect",
+    "PptxInspect": "PPTX Inspect",
     "DocPreview": "Document Preview",
     "Bash": "Bash",
     "shell-command": "Bash",

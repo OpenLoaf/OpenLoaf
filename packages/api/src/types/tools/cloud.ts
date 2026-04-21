@@ -248,17 +248,16 @@ export const cloudImageUnderstandToolDef = {
 Returns the text result directly in the tool output. Use the returned answer in your reply to the user.
 
 - \`image\` (required): the image to analyze. Accepts URL string, \`{ url }\` object, or \`{ path }\` local path. Local files auto-upload.
-- \`question\` (optional): specific question to ask about the image (e.g. "What color is the car?"). When omitted the model returns a general description / OCR dump depending on the variant.
-- \`modelHint\` (optional): variant id or substring to override the default picker.
-- Internally selects the lowest-credit accessible variant under feature \`imageCaption\`.`,
+- \`prompt\` (optional): custom question or instruction for the image (e.g. "描述这张幻灯片的标题、要点和图表" / "What color is the car?"). When provided, overrides the default caption style and the model answers your specific question. When omitted, returns a general image description.
+- \`modelHint\` (optional): variant id or substring to override the default picker.`,
   parameters: z.object({
     image: z
       .unknown()
       .describe("Image to analyze: URL string, { url }, or { path }. Required."),
-    question: z
+    prompt: z
       .string()
       .optional()
-      .describe("Optional VQA question. Omit for a general description / OCR dump."),
+      .describe("Custom question or instruction. When set, the model answers it instead of returning a generic caption."),
     modelHint: z
       .string()
       .optional()

@@ -39,6 +39,9 @@ const TOOL_TIMEOUT_MAP: Record<string, number> = {
   'PdfInspect': 120_000,
   'WordInspect': 120_000,
   'ExcelInspect': 120_000,
+  // PptxInspect render uses node-pptx-png (skia-canvas) which can be slow for
+  // many slides at high resolution; 120s matches the other render-capable tools.
+  'PptxInspect': 120_000,
   // JsSandbox runs user-supplied Node scripts; 130s leaves headroom for the
   // tool's own 120s inner cap + subprocess spawn/teardown.
   'JsSandbox': 130_000,

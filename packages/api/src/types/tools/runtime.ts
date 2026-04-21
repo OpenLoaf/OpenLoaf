@@ -21,7 +21,7 @@ Working directory persists between calls; shell state does not.
 
 Prefer dedicated tools over shell commands: Glob (instead of find/ls), Grep (instead of grep/rg), Read (instead of cat/head/tail), Edit (instead of sed/awk), Write (instead of echo >/heredoc).
 
-🚫 **Office/PDF files** (.xlsx / .xlsm / .csv / .docx / .pptx / .pdf): do NOT read or write them with \`python\` + \`openpyxl\` / \`pandas\` / \`xlrd\` / \`python-docx\` / \`pdfplumber\` / \`pypdf\` / \`python-pptx\`, nor with \`node\` + \`exceljs\` / \`xlsx\` / \`mammoth\`. Use the dedicated tools instead: \`DocPreview\` (read-only preview / full Markdown extraction, works on all four types), \`ExcelInspect\` (spreadsheets, read-only), \`WordInspect\` (docx, read-only), \`PdfInspect\` (pdf, read-only), \`DocConvert\` (format conversion), \`JsSandbox\` (create / edit / generate any Office or PDF file). Bash scripts bypass the approval gate, preview UI, and session asset-dir resolution.
+🚫 **Office/PDF files** (.xlsx / .xlsm / .csv / .docx / .pptx / .pdf): do NOT read or write them with \`python\` + \`openpyxl\` / \`pandas\` / \`xlrd\` / \`python-docx\` / \`pdfplumber\` / \`pypdf\` / \`python-pptx\`, nor with \`node\` + \`exceljs\` / \`xlsx\` / \`mammoth\`. Use the dedicated tools instead: \`DocPreview\` (read-only preview / full Markdown extraction, works on all four types), \`ExcelInspect\` (spreadsheets, read-only), \`WordInspect\` (docx, read-only), \`PdfInspect\` (pdf, read-only), \`PptxInspect\` (pptx, read-only), \`DocConvert\` (format conversion), \`JsSandbox\` (create / edit / generate any Office or PDF file). Bash scripts bypass the approval gate, preview UI, and session asset-dir resolution.
 
 Quote paths with spaces. Prefer absolute paths. Default timeout 120s, max 600s.`,
   parameters: z.object({
@@ -41,7 +41,7 @@ export const powerShellToolDef = {
 
 Prefer dedicated tools: Glob (not Get-ChildItem -Recurse), Grep (not Select-String), Read (not Get-Content), Edit / Write (not Set-Content / Out-File).
 
-🚫 **Office/PDF files**: same rule as Bash — do NOT invoke \`python\` / \`node\` with \`openpyxl\` / \`pandas\` / \`python-docx\` / \`pdfplumber\` / \`exceljs\` etc. to read or write \`.xlsx / .docx / .pptx / .pdf\` / \`.csv\`. Use \`DocPreview\` / \`ExcelInspect\` / \`WordInspect\` / \`PdfInspect\` / \`DocConvert\` (read-only / conversion) or \`JsSandbox\` (create / edit / generate) instead.
+🚫 **Office/PDF files**: same rule as Bash — do NOT invoke \`python\` / \`node\` with \`openpyxl\` / \`pandas\` / \`python-docx\` / \`pdfplumber\` / \`exceljs\` etc. to read or write \`.xlsx / .docx / .pptx / .pdf\` / \`.csv\`. Use \`DocPreview\` / \`ExcelInspect\` / \`WordInspect\` / \`PdfInspect\` / \`PptxInspect\` / \`DocConvert\` (read-only / conversion) or \`JsSandbox\` (create / edit / generate) instead.
 
 Syntax reminders: \`-and\` / \`-or\` not \`&&\` / \`||\` (PS 5.1 has no \`&&\`); single-quote paths with spaces or non-ASCII characters; prefer absolute paths. Default timeout 120s, max 600s.`,
   parameters: z.object({

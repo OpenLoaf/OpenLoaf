@@ -143,6 +143,7 @@
     "PptxQuery": "PPTX 查询",
     "PdfQuery": "PDF 查询",
     "PdfInspect": "PDF 分析",
+    "PptxInspect": "PPTX 分析",
     "DocPreview": "文档预览",
     "Bash": "终端命令",
     "shell-command": "终端命令",

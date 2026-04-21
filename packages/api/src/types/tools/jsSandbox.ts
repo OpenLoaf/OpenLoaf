@@ -43,7 +43,7 @@ export const jsSandboxToolDef = {
 - 任何需要 "写几行代码就行" 的自定义逻辑
 
 **When NOT to use**
-- 只是想读 PDF / DOCX / XLSX 的内容 / 元数据 → 用 \`PdfInspect\` / \`WordInspect\` / \`ExcelInspect\`（更快、返回结构化）
+- 只是想读 PDF / DOCX / XLSX / PPTX 的内容 / 元数据 → 用 \`PdfInspect\` / \`WordInspect\` / \`ExcelInspect\` / \`PptxInspect\`（更快、返回结构化）
 - docx ↔ pdf / html / md 互转 → 用 \`DocConvert\`
 - 调用云服务（图像理解 / 生成 / TTS）→ 用对应 Cloud* 工具
 - 读 / 改项目里的源代码 → 用 Read / Edit / Write

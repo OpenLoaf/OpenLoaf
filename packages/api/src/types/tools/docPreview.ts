@@ -22,7 +22,7 @@ export const docPreviewToolDef = {
 - Auto-detects format from file extension / MIME. Use Read for text files; Read delegates office preview here automatically.
 - pageRange (PDF only) and sheetName (XLSX only) apply to both modes.
 
-When to escalate to ExcelInspect / WordInspect / PdfInspect instead: you need structured analysis (cell-level formulas / styles / merges, docx XML edits, pdf form fields, chart data ranges). For plain reads, stay here.`,
+When to escalate to ExcelInspect / WordInspect / PdfInspect / PptxInspect instead: you need structured analysis (cell-level formulas / styles / merges, docx XML edits, pdf form fields, pptx shapes / notes / render, chart data ranges). For plain reads, stay here.`,
   parameters: z.object({
     file_path: z
       .string()
