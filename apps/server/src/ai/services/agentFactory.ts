@@ -65,6 +65,7 @@ function resolvePromptLang(override?: string | PromptLang): PromptLang {
 }
 import { tryAutoCompact } from '@/ai/shared/autoCompact'
 import { microcompactMessages, extractLastAssistantTimestamp } from '@/ai/shared/microCompact'
+import { expandToolResultAttachmentTagsInCoreMessages } from '@/ai/shared/attachmentTagExpander'
 import { ContextCollapseManager, type CollapseResult } from '@/ai/shared/contextCollapse'
 import { buildToolSearchGuidance } from '@/ai/shared/toolSearchGuidance'
 import { applyToolResultInterception } from '@/ai/tools/toolResultInterceptor'
@@ -311,6 +312,19 @@ function createToolSearchPrepareStep(
         // No collapse manager — use legacy auto-compact
         finalMessages = await tryAutoCompact(finalMessages, options?.modelId, model as any)
       }
+    }
+
+    // 5. Expand attachment tags in tool results for vision-capable models.
+    //    Transforms { type: 'text', value: '...<system-tag type="attachment".../>...' }
+    //    into { type: 'content', value: [...text, image-data/file-url] } so the model
+    //    natively sees images rendered by PptxInspect/Read at the next step.
+    const ctx = getRequestContext()
+    const modelDef = ctx?.chatModelDefinition
+    if (modelDef) {
+      finalMessages = await expandToolResultAttachmentTagsInCoreMessages(
+        finalMessages as unknown[],
+        modelDef,
+      ) as typeof finalMessages
     }
 
     return { activeTools, messages: finalMessages }

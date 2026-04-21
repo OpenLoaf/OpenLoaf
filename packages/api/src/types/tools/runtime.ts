@@ -64,7 +64,10 @@ Output is XML-tagged: <system-tag type="fileInfo" toolName="Read"> carries <file
 Format handling:
 - Text / code / config (.ts/.md/.json/.yaml/...) → numbered lines; use offset/limit for ranges
 - PDF / DOCX / XLSX / PPTX → fast local preview only (page count / sheet list / slide titles / first-page snippet). For the full Markdown body + extracted images use the DocPreview tool with mode='full'.
-- Image / Video / Audio → local metadata only (dimensions / bytes). Read will NOT call any paid SaaS understanding — the response includes a <suggest skill="cloud-media-skill"> hint; to OCR / transcribe / caption media, SkillLoad cloud-media-skill and follow its playbook.
+- Image → behavior depends on model capability:
+    • Vision-capable model (native-inputs includes "image"): Read returns a <system-tag type="attachment" path="..." media-type="..."/> tag. At the very next step the image is automatically embedded into the model context — you will see it natively without any extra tool call. This is the preferred path for inspecting rendered slides (PptxInspect render → imagePath → Read).
+    • Non-vision model: Read returns local metadata only (dimensions / format) plus a <suggest skill="cloud-media-skill"> hint; to OCR / caption the image call CloudImageUnderstand instead.
+- Video / Audio → local metadata only (bytes / format). To transcribe / caption, SkillLoad cloud-media-skill and follow its playbook.
 - Directories → not supported; use Glob or Bash ls
 
 Large-file caution: default returns the first 2000 lines — excess is silently truncated (you see incomplete content but think it is complete). For large files, Grep to locate the target line first, then Read with offset/limit to fetch only the relevant slice.

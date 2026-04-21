@@ -204,15 +204,24 @@ console.log('slide 3 title updated')
 
 ---
 
-## 2.4 单页视觉识图（render → CloudImageUnderstand）
+## 2.4 单页视觉识图（render → Read）
 
-当用户问"第 N 页讲了什么" / "这页图表是什么数据" / "看看第 5 页排版" 等**需要视觉理解**的问题时，先渲染目标页为 PNG，再把图丢给视觉模型：
+当用户问"第 N 页讲了什么" / "这页图表是什么数据" / "看看第 5 页排版" 等**需要视觉理解**的问题时：
+
+**若当前模型具备原生图片输入能力（`native-inputs` 含 `image`）**：渲染后直接 `Read` 图片路径，系统自动将图片嵌入下一步的上下文中，模型可直接看到图片内容。
 
 ```
 PptxInspect { action: "render", filePath: "…", slideNumbers: [5], scale: 1.5 }
-  → result.data.pages[0].imagePath = "haikesen-energy-deck_asset/slide5-scale1.5.png"
+  → result.data.pages[0].imagePath = "<asset_dir>/slide5-scale1.5.png"
+Read { file_path: "<pages[0].imagePath>" }
+  → 返回 <system-tag type="attachment" .../> 标签，下一步模型原生看到图片
+（然后用自然语言描述图片内容即可）
+```
+
+**若当前模型不具备原生图片能力**：改用 `CloudImageUnderstand`（需 SkillLoad cloud-media-skill）：
+
+```
 CloudImageUnderstand { image: { path: "<pages[0].imagePath>" }, prompt: "请详细描述这页幻灯片：标题、正文要点、图表数据、排版布局" }
-  → 视觉模型返回结构化描述
 ```
 
 适用场景：
@@ -220,7 +229,7 @@ CloudImageUnderstand { image: { path: "<pages[0].imagePath>" }, prompt: "请详�
 - 用户要看"排版效果"或"这页长啥样"
 - 含截图 / 示意图的培训 deck
 
-批量识图（整份 deck 视觉总结）：`render` 不传 `slideNumbers` 拿全部 PNG，循环调 `CloudImageUnderstand`。注意积分消耗，超过 20 页建议先 `outline` 给用户确认再渲染。
+批量识图（整份 deck 视觉总结）：`render` 不传 `slideNumbers` 拿全部 PNG，逐页 `Read` 或 `CloudImageUnderstand`。超过 20 页建议先 `outline` 给用户确认再渲染。
 
 ---
 

@@ -24,7 +24,7 @@ import {
 } from '@/ai/tools/toolScope'
 import { resolveCommandSandboxDirs } from '@/ai/tools/commandSandbox'
 import { resolveSecretTokens } from '@/ai/tools/secretStore'
-import { getProjectId, getSessionId } from '@/ai/shared/context/requestContext'
+import { getProjectId, getSessionId, getChatModelDefinition } from '@/ai/shared/context/requestContext'
 import { getProjectRootPath } from '@openloaf/api/services/vfsService'
 import {
   recordRead,
@@ -509,10 +509,15 @@ export const readTool = tool({
           progress.delta('Building PPTX preview (slide titles + first slide text)...\n')
           result = await previewPptx(absPath)
           break
-        case 'image':
-          result = await readImageFile(absPath, fileName, progress)
-          suggestSkill = CLOUD_MEDIA_SUGGEST
+        case 'image': {
+          const modelDef = getChatModelDefinition()
+          const hasNativeVision = Boolean(
+            modelDef?.tags?.includes('image_input') || modelDef?.tags?.includes('image_analysis'),
+          )
+          result = await readImageFile(absPath, fileName, progress, hasNativeVision, mimeType)
+          if (!hasNativeVision) suggestSkill = CLOUD_MEDIA_SUGGEST
           break
+        }
         case 'video':
           result = await readVideoFile(absPath, fileName, bytes, progress)
           suggestSkill = CLOUD_MEDIA_SUGGEST
@@ -779,15 +784,29 @@ async function readTextFile(
 }
 
 /**
- * Image reader — local metadata only (width/height/format via sharp).
- * Read does NOT call any SaaS understanding; to OCR / caption, SkillLoad
- * cloud-media-skill and follow its instructions.
+ * Image reader. When the current model has native vision (`image_input` tag),
+ * returns an attachment system-tag so the next step can inline the image.
+ * Otherwise returns local metadata only (width/height/format via sharp) with
+ * a cloud-media-skill suggestion.
  */
 async function readImageFile(
   absPath: string,
   fileName: string,
   progress: ToolProgressEmitter,
+  hasNativeVision = false,
+  mimeType = 'image/png',
 ): Promise<FileContentResult> {
+  if (hasNativeVision) {
+    progress.delta('Vision model detected — embedding attachment tag for native rendering.\n')
+    return {
+      type: 'image',
+      fileName,
+      content: `<system-tag type="attachment" path="${absPath}" media-type="${mimeType}"/>`,
+      meta: {},
+      images: [],
+    }
+  }
+
   progress.delta('Probing image metadata via sharp...\n')
   const sharp = (await import('sharp')).default
   let width = 0
@@ -799,8 +818,8 @@ async function readImageFile(
     height = m.height ?? 0
     format = m.format
   } catch {
-    // Unsupported container — surface zero dims rather than throwing so the
-    // model still gets file bytes + the cloud-media-skill hint.
+    // Unsupported container — surface zero dims so the model still gets
+    // the cloud-media-skill hint.
   }
 
   const meta: Record<string, unknown> = { width, height }

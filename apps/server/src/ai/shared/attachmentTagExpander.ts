@@ -450,3 +450,109 @@ async function loadAsBase64FilePart(
     return null
   }
 }
+
+// ---------------------------------------------------------------------------
+// CoreMessage tool-result expansion
+// ---------------------------------------------------------------------------
+
+/**
+ * Expand attachment tags found in tool-result text outputs inside CoreMessages
+ * (the `messages` array passed to `prepareStep`). When the current model has
+ * native image vision, any `<system-tag type="attachment" .../>` inside a
+ * `role: 'tool'` message is resolved (CDN-upload or base64) and replaced with
+ * an `image-data` / `file-url` content part so the model sees the actual
+ * image at the next step.
+ *
+ * This enables the pattern:
+ *   PptxInspect(render) → imagePath
+ *   Read(imagePath)     → tool-result contains attachment tag
+ *   next step           → model receives native image block
+ */
+export async function expandToolResultAttachmentTagsInCoreMessages(
+  messages: unknown[],
+  modelDefinition: ModelDefinition | undefined,
+): Promise<unknown[]> {
+  const caps = resolveMediaCaps(modelDefinition?.tags)
+  if (!caps.image) return messages
+
+  const result: unknown[] = []
+  for (const msg of messages as Record<string, unknown>[]) {
+    if (msg.role !== 'tool') {
+      result.push(msg)
+      continue
+    }
+
+    const content = Array.isArray(msg.content) ? msg.content : []
+    let changed = false
+    const newContent: unknown[] = []
+
+    for (const part of content as Record<string, unknown>[]) {
+      if (part.type !== 'tool-result') {
+        newContent.push(part)
+        continue
+      }
+
+      // AI SDK wraps string tool results as { type: 'text', value: string }
+      const output = part.output as Record<string, unknown> | undefined
+      const text: string | null =
+        output?.type === 'text' && typeof output.value === 'string' ? output.value
+        : typeof output === 'string' ? output as string
+        : null
+
+      if (!text || !text.includes('<system-tag')) {
+        newContent.push(part)
+        continue
+      }
+
+      ATTACHMENT_TAG_REGEX.lastIndex = 0
+      const hasTag = ATTACHMENT_TAG_REGEX.test(text)
+      ATTACHMENT_TAG_REGEX.lastIndex = 0
+      if (!hasTag) {
+        newContent.push(part)
+        continue
+      }
+
+      // Reuse tokenizeTextWithTags (handles CDN upload + base64 fallback)
+      const tokens = await tokenizeTextWithTags(text, caps)
+      const contentValue = tokensToToolResultContent(tokens)
+
+      changed = true
+      newContent.push({ ...part, output: { type: 'content', value: contentValue } })
+    }
+
+    result.push(changed ? { ...msg, content: newContent } : msg)
+  }
+
+  return result
+}
+
+/** Convert token stream to ToolResultOutput.content value array. */
+function tokensToToolResultContent(tokens: Token[]): unknown[] {
+  const parts: unknown[] = []
+
+  for (const token of tokens) {
+    if (token.kind === 'text') {
+      if (token.value) parts.push({ type: 'text', text: token.value })
+    } else if (token.kind === 'keep') {
+      parts.push({ type: 'text', text: token.tag })
+    } else {
+      // file token: convert filePart.url to image-data or file-url
+      const { url } = token.filePart
+      if (url.startsWith('data:')) {
+        // data:<mimeType>;base64,<data>
+        const semi = url.indexOf(';base64,')
+        if (semi !== -1) {
+          parts.push({
+            type: 'image-data',
+            data: url.slice(semi + 8),
+            mediaType: url.slice(5, semi),
+          })
+        }
+      } else {
+        parts.push({ type: 'file-url', url })
+      }
+    }
+  }
+
+  return parts
+}

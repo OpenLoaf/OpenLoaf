@@ -202,15 +202,24 @@ console.log('slide 3 title updated')
 
 ---
 
-## 2.4 Per-slide Visual Understanding (render → CloudImageUnderstand)
+## 2.4 Per-slide Visual Understanding (render → Read)
 
-When the user asks "what's on slide N?" / "what does this chart mean?" / "how does slide 5 look?" — anything that needs **visual comprehension** — render the target slide(s) to PNG and feed the image to the vision model:
+When the user asks "what's on slide N?" / "what does this chart mean?" / "how does slide 5 look?" — anything that needs **visual comprehension**:
+
+**If the current model has native image input (`native-inputs` includes `image`)**: render to PNG, then call `Read` on the image path. The system automatically inlines the image into the model context at the next step.
 
 ```
 PptxInspect { action: "render", filePath: "…", slideNumbers: [5], scale: 1.5 }
-  → result.data.pages[0].imagePath = "haikesen-energy-deck_asset/slide5-scale1.5.png"
+  → result.data.pages[0].imagePath = "<asset_dir>/slide5-scale1.5.png"
+Read { file_path: "<pages[0].imagePath>" }
+  → returns <system-tag type="attachment" .../> — next step the model sees the image natively
+(then describe what you see directly)
+```
+
+**If the current model lacks native image capability**: use `CloudImageUnderstand` instead (requires `LoadSkill cloud-media-skill`):
+
+```
 CloudImageUnderstand { image: { path: "<pages[0].imagePath>" }, prompt: "Describe this slide in detail: title, bullet points, chart data, layout" }
-  → vision model returns a structured description
 ```
 
 When to use:
@@ -218,7 +227,7 @@ When to use:
 - User wants to see the "look" of a slide
 - Training decks with screenshots / diagrams embedded as images
 
-Batch (visual summary of a whole deck): omit `slideNumbers` to render all PNGs, then loop `CloudImageUnderstand`. Watch credit consumption — for decks >20 slides, run `outline` first and confirm with the user before rendering.
+Batch (visual summary of a whole deck): omit `slideNumbers` to render all PNGs, then loop `Read` or `CloudImageUnderstand` per slide. For decks >20 slides, run `outline` first and confirm with the user before rendering.
 
 ---
 

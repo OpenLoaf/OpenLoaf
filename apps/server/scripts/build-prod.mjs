@@ -50,6 +50,7 @@ await build({
   external: [
     "playwright-core",
     "sharp",
+    "skia-canvas",
     "@anthropic-ai/claude-agent-sdk",
     "@ffmpeg-installer/ffmpeg",
     "@ffprobe-installer/ffprobe",
