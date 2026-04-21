@@ -127,3 +127,7 @@ apps/openloaf-office-plugins
 .openloaf
 .superpowers/
 .plans
+
+# Browser/chat test scratch artifacts
+snapshot-chat.txt
+snapshot-*.txt
