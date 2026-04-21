@@ -204,32 +204,31 @@ console.log('slide 3 title updated')
 
 ---
 
-## 2.4 单页视觉识图（render → Read）
+## 2.4 单页视觉识图（按模型能力分支）
 
-当用户问"第 N 页讲了什么" / "这页图表是什么数据" / "看看第 5 页排版" 等**需要视觉理解**的问题时：
+当用户问"第 N 页讲了什么" / "这页图表是什么数据" / "看看第 5 页排版" 等**需要视觉理解**的问题时，按**当前模型的 `native-inputs`（见每条用户消息末尾的 `<system-tag type="msg-context">`）**分支：
 
-**若当前模型具备原生图片输入能力（`native-inputs` 含 `image`）**：渲染后直接 `Read` 图片路径，系统自动将图片嵌入下一步的上下文中，模型可直接看到图片内容。
+**分支 A — 视觉模型（`native-inputs` 含 `image`）**：渲染后 `Read` 图片路径，运行时会在下一步以"紧跟其后的 user 消息"形式把图片原生注入，你能直接看到像素。
 
 ```
 PptxInspect { action: "render", filePath: "…", slideNumbers: [5], scale: 1.5 }
   → result.data.pages[0].imagePath = "<asset_dir>/slide5-scale1.5.png"
 Read { file_path: "<pages[0].imagePath>" }
-  → 返回 <system-tag type="attachment" .../> 标签，下一步模型原生看到图片
-（然后用自然语言描述图片内容即可）
+  → 运行时把图片作为 user-role image part 注入下一步；直接描述你看到的内容
 ```
 
-**若当前模型不具备原生图片能力**：改用 `CloudImageUnderstand`（需 SkillLoad cloud-media-skill）：
+**分支 B — 非视觉模型（`native-inputs` 不含 `image`）**：走 `CloudImageUnderstand`（需 `LoadSkill cloud-media-skill`）。
 
 ```
-CloudImageUnderstand { image: { path: "<pages[0].imagePath>" }, prompt: "请详细描述这页幻灯片：标题、正文要点、图表数据、排版布局" }
+CloudImageUnderstand {
+  image: { path: "<pages[0].imagePath>" },
+  prompt: "请详细描述这页幻灯片：标题、正文要点、图表数据（如有）、排版布局；若页面上没有图表或数据表格，请明确写'本页无数据图表'"
+}
 ```
 
-适用场景：
-- SmartArt / 自定义图表 / WMF 矢量底图 —— 纯文本抽取（`text`）拿不到语义
-- 用户要看"排版效果"或"这页长啥样"
-- 含截图 / 示意图的培训 deck
+> ⚠️ **反幻觉硬规则（两个分支都适用）**：准备输出前，问自己"我描述的每一个数字、地区、人名、轴刻度，是否真的来自真正的视觉通道？" —— 分支 A 必须来自运行时刚刚注入的图像 part，分支 B 必须来自 `CloudImageUnderstand` 返回。两者都没提供可观察的内容时，**禁止**从文件名、幻灯片标题或上下文"脑补"图片里有什么，只能回复"未能获取图像内容，请确认"或重新走一遍正确分支。
 
-批量识图（整份 deck 视觉总结）：`render` 不传 `slideNumbers` 拿全部 PNG，逐页 `Read` 或 `CloudImageUnderstand`。超过 20 页建议先 `outline` 给用户确认再渲染。
+批量识图（整份 deck 视觉总结）：`render` 不传 `slideNumbers` 拿全部 PNG，按同样的分支逐页处理。超过 20 页建议先 `outline` 给用户确认再渲染。
 
 ---
 

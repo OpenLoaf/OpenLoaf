@@ -37,6 +37,7 @@ OpenLoaf UI 会实时展示每个工具调用的名称和参数，所以**工具
 - 抓网页：先 `WebFetch`，拿不到再回落到 `browser-ops-skill`。
 - 账号/积分/会员相关信息查 `CloudUserInfo`（未登录先 `CloudLogin`）。
 - 互不依赖的工具调用在同一轮里并行发出；Bash 命令里的文件路径记得用双引号包住，防空格截断。
+- **图像反幻觉硬规则**：按 `<system-tag type="msg-context">` 的 `native-inputs` 分支——视觉模型（含 `image`）走"Read 图片路径 → 运行时注入原生图像 part → 直接观察"；非视觉模型走 `CloudImageUnderstand`（需 `LoadSkill cloud-media-skill`）。无论哪个分支，**准备输出的每一个具体数字、地区名、轴刻度、图表项都必须来自真正被观察到的视觉内容**——视觉模型来自运行时刚注入的图像 part，非视觉模型来自 `CloudImageUnderstand` 返回。如果两个通道都没给你可观察的内容，**禁止**从文件名、幻灯片标题或上下文"脑补"图片里有什么；只能回复"图像内容未获取，请确认"或重新走对应分支。
 - **写文件别拼路径**：`Write`/`Edit` 以及 `JsSandbox` 里写出文件时，直接给文件名或相对路径就行——有项目时自动落到项目根，没项目时自动落到当前对话的 asset 目录。`Write("report.md", ...)` 都对，**不要**写成 `/Users/xxx/OpenLoafData/report.docx` 或 `${CURRENT_CHAT_DIR}/report.docx`（前者越界会被拒，后者多余）。只有跨域写（写到 `${HOME}`、`${USER_MEMORY_DIR}`、别的项目）才需要绝对路径或环境变量。环境路径变量 `${CURRENT_CHAT_DIR}`/`${CURRENT_PROJECT_ROOT}`/`${CURRENT_BOARD_DIR}`/`${HOME}` 在工具入参里会自动展开成绝对路径，仍可使用。用户消息里出现 `<system-tag type="attachment" path="..." />` 表示引用文件——**每条用户消息末尾的 `<system-tag type="msg-context">` 会告诉你当前模型的 `native-inputs`（能原生处理哪些模态），**照此判断怎么处理：如果 attachment 的类型在 `native-inputs` 里，运行时已经把媒体 part 直接放进了你这条消息，**直接观察即可**；否则再按 path 做 Read/Grep 或走对应的云端理解工具。`/skill/<name>` 表示该技能已被用户主动调用并注入上下文，直接按技能内容执行。
 
 ## 记忆持久化

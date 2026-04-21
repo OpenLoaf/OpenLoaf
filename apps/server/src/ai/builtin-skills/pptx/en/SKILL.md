@@ -202,32 +202,31 @@ console.log('slide 3 title updated')
 
 ---
 
-## 2.4 Per-slide Visual Understanding (render → Read)
+## 2.4 Per-slide Visual Understanding (branch by model capability)
 
-When the user asks "what's on slide N?" / "what does this chart mean?" / "how does slide 5 look?" — anything that needs **visual comprehension**:
+When the user asks "what's on slide N?" / "what does this chart mean?" / "how does slide 5 look?" — anything that needs **visual comprehension** — branch on the **current model's `native-inputs`** (see the `<system-tag type="msg-context">` at the end of each user turn):
 
-**If the current model has native image input (`native-inputs` includes `image`)**: render to PNG, then call `Read` on the image path. The system automatically inlines the image into the model context at the next step.
+**Branch A — vision-capable model (`native-inputs` includes `image`)**: render to PNG, then `Read` the image path. The runtime injects the image as a native part via a follow-up user message at the next step, so you observe the pixels directly.
 
 ```
 PptxInspect { action: "render", filePath: "…", slideNumbers: [5], scale: 1.5 }
   → result.data.pages[0].imagePath = "<asset_dir>/slide5-scale1.5.png"
 Read { file_path: "<pages[0].imagePath>" }
-  → returns <system-tag type="attachment" .../> — next step the model sees the image natively
-(then describe what you see directly)
+  → runtime injects the image as a user-role image part; describe what you see
 ```
 
-**If the current model lacks native image capability**: use `CloudImageUnderstand` instead (requires `LoadSkill cloud-media-skill`):
+**Branch B — non-vision model (`native-inputs` does not include `image`)**: use `CloudImageUnderstand` (requires `LoadSkill cloud-media-skill`).
 
 ```
-CloudImageUnderstand { image: { path: "<pages[0].imagePath>" }, prompt: "Describe this slide in detail: title, bullet points, chart data, layout" }
+CloudImageUnderstand {
+  image: { path: "<pages[0].imagePath>" },
+  prompt: "Describe this slide in detail: title, bullet points, chart data (if any), layout. If the page has no chart or data table, say 'no data chart on this page' explicitly."
+}
 ```
 
-When to use:
-- SmartArt / custom charts / WMF vector art — text extraction (`text`) loses the semantics
-- User wants to see the "look" of a slide
-- Training decks with screenshots / diagrams embedded as images
+> ⚠️ **Anti-hallucination hard rule (both branches)**: before writing your reply, ask "does every number, region, name, or axis value I'm about to mention come from an actual visual channel?" — Branch A requires the image part the runtime just injected; Branch B requires a `CloudImageUnderstand` response. When neither produced observable content, do NOT invent anything from the filename, slide title, or surrounding text — reply "image content not retrieved, please confirm" or re-dispatch through the correct branch.
 
-Batch (visual summary of a whole deck): omit `slideNumbers` to render all PNGs, then loop `Read` or `CloudImageUnderstand` per slide. For decks >20 slides, run `outline` first and confirm with the user before rendering.
+Batch (visual summary of a whole deck): omit `slideNumbers` to render all PNGs, then loop the matching branch per slide. For decks >20 slides, run `outline` first and confirm with the user before rendering.
 
 ---
 
