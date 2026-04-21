@@ -358,6 +358,17 @@ export function buildStackItemForEntry(input: {
           __customHeader: true,
         },
       };
+    case "pptx":
+      return {
+        id: input.entry.uri,
+        component: "pptx-viewer",
+        title: input.entry.name,
+        params: {
+          ...baseParams,
+          rootUri: input.rootUri,
+          projectId: input.projectId,
+        },
+      };
     case "file":
       return {
         id: input.entry.uri,

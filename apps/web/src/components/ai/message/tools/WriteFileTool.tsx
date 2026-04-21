@@ -22,6 +22,8 @@ import { TrafficLights } from '@openloaf/ui/traffic-lights'
 import { useChatSession, useChatTools } from '../../context'
 import { useLayoutState } from '@/hooks/use-layout-state'
 import { useChatRuntime } from '@/hooks/use-chat-runtime'
+import { openFilePreview } from '@/components/file/lib/open-file'
+import { resolveFileViewerTarget } from '@/components/file/lib/file-viewer-target'
 import {
   asPlainObject,
   getApprovalId,
@@ -113,7 +115,7 @@ export default function WriteFileTool({
   className?: string
 }) {
   const { t } = useTranslation('ai')
-  const { tabId, projectId } = useChatSession()
+  const { tabId, projectId, sessionId } = useChatSession()
   const { toolParts } = useChatTools()
   const pushStackItem = useLayoutState((s) => s.pushStackItem)
   /** Track refresh emission to avoid duplicates. */
@@ -225,6 +227,24 @@ export default function WriteFileTool({
     if (existingItem) {
       pushStackItem(existingItem)
       return
+    }
+
+    // 逻辑：非代码文件（pptx/docx/pdf 等）走 openFilePreview 路由到正确 viewer，
+    // 避免 streaming-code-viewer 显示二进制乱码。
+    const filePath = firstPath || writeFilePath
+    if (filePath) {
+      const ext = filePath.split('.').pop()?.toLowerCase() ?? ''
+      const entry = { uri: filePath, name: fileName, kind: 'file' as const, ext: ext || undefined }
+      const target = resolveFileViewerTarget(entry)
+      if (target && target.viewer !== 'code' && target.viewer !== 'markdown') {
+        openFilePreview({
+          entry,
+          tabId,
+          projectId,
+          sessionId,
+        })
+        return
+      }
     }
 
     const toolCallIds = [toolCallId]

@@ -11,9 +11,11 @@
 
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
-import { CheckCircle2Icon, FileTextIcon, LoaderCircleIcon, XCircleIcon } from 'lucide-react'
+import { CheckCircle2Icon, FileTextIcon, LoaderCircleIcon, Music2Icon, XCircleIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useChatSession } from '@/components/ai/context'
+import { getPreviewEndpoint } from '@/lib/image/uri'
+import { useLayoutState } from '@/hooks/use-layout-state'
 import { createFileEntryFromUri, openFile } from '@/components/file/lib/open-file'
 import { useProject } from '@/hooks/use-project'
 import {
@@ -23,6 +25,7 @@ import {
 } from '@openloaf/ui/tooltip'
 import {
   Collapsible,
+  CollapsibleContent,
   CollapsibleTrigger,
 } from '@openloaf/ui/collapsible'
 import {
@@ -91,6 +94,105 @@ function guessLanguage(filePath: string): any {
   return map[ext] ?? 'json'
 }
 
+interface MediaAttachment {
+  path: string
+  mediaType: string
+}
+
+function parseMediaAttachments(output: string): MediaAttachment[] {
+  const result: MediaAttachment[] = []
+  const regex = /<system-tag\s+type="attachment"\s+([^>]*?)\s*\/>/g
+  let match: RegExpExecArray | null
+  while ((match = regex.exec(output)) !== null) {
+    const rawAttrs = match[1] ?? ''
+    const attrs: Record<string, string> = {}
+    const attrRe = /([\w-]+)="([^"]*)"/g
+    let attrMatch: RegExpExecArray | null
+    while ((attrMatch = attrRe.exec(rawAttrs)) !== null) {
+      attrs[attrMatch[1]] = attrMatch[2]
+    }
+    const path = attrs.path
+    const mediaType = attrs.mediaType ?? attrs['media-type'] ?? ''
+    if (
+      path &&
+      (mediaType.startsWith('image/') ||
+        mediaType.startsWith('video/') ||
+        mediaType.startsWith('audio/'))
+    ) {
+      result.push({ path, mediaType })
+    }
+  }
+  return result
+}
+
+function stripSystemTags(output: string): string {
+  return output
+    .replace(/<system-tag\s+type="fileInfo"[^>]*>[\s\S]*?<\/system-tag>/g, '')
+    .replace(/<system-tag\s+type="attachment"[^>]*?\/>/g, '')
+    .trim()
+}
+
+function ReadToolMediaPreview({
+  attachment,
+  projectId,
+  sessionId,
+}: {
+  attachment: MediaAttachment
+  projectId?: string
+  sessionId?: string
+}) {
+  const { mediaType, path } = attachment
+  const previewUrl = getPreviewEndpoint(path, { projectId, sessionId })
+  const fileName = path.split('/').filter(Boolean).pop() ?? path
+  const pushStackItem = useLayoutState((s) => s.pushStackItem)
+
+  if (mediaType.startsWith('image/')) {
+    return (
+      <button
+        type="button"
+        className="w-full overflow-hidden rounded-xl"
+        onClick={() =>
+          pushStackItem({
+            id: `read-image:${path}`,
+            component: 'image-viewer',
+            title: fileName,
+            params: { uri: previewUrl, name: fileName },
+          })
+        }
+      >
+        <img
+          src={previewUrl}
+          alt={fileName}
+          className="max-h-80 w-full object-contain"
+          loading="lazy"
+        />
+      </button>
+    )
+  }
+
+  if (mediaType.startsWith('video/')) {
+    return (
+      <video
+        src={previewUrl}
+        controls
+        className="max-h-80 w-full rounded-xl"
+        preload="metadata"
+      />
+    )
+  }
+
+  if (mediaType.startsWith('audio/')) {
+    return (
+      <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/30 px-3 py-2">
+        <Music2Icon className="size-4 shrink-0 text-muted-foreground" />
+        <audio src={previewUrl} controls className="h-8 flex-1" preload="metadata" />
+      </div>
+    )
+  }
+
+  return null
+}
+
 export default function ReadTool({
   part,
   className,
@@ -134,6 +236,14 @@ export default function ReadTool({
     typeof part.output === 'string' ? part.output : safeStringify(part.output)
   const output = stripCatNPrefix(rawOutput)
   const hasOutput = output.trim().length > 0
+
+  const mediaAttachments = React.useMemo(() => parseMediaAttachments(output), [output])
+  const hasMedia = mediaAttachments.length > 0
+  const displayOutput = React.useMemo(
+    () => (hasMedia ? stripSystemTags(output) : output),
+    [output, hasMedia],
+  )
+  const hasDisplayOutput = displayOutput.trim().length > 0
   const errorText =
     typeof part.errorText === 'string' && part.errorText.trim()
       ? part.errorText
@@ -141,7 +251,7 @@ export default function ReadTool({
   const language = guessLanguage(filePath)
 
   return (
-    <Collapsible className={cn('min-w-0 text-xs', className)}>
+    <Collapsible defaultOpen={hasMedia} className={cn('min-w-0 text-xs', className)}>
       <Tooltip>
         <TooltipTrigger asChild>
           <CollapsibleTrigger
@@ -188,7 +298,19 @@ export default function ReadTool({
         ) : null}
       </Tooltip>
       <ToolOutputContent>
-        {hasOutput ? (
+        {hasMedia ? (
+          <>
+            {mediaAttachments.map((att) => (
+              <ReadToolMediaPreview
+                key={att.path}
+                attachment={att}
+                projectId={projectId ?? undefined}
+                sessionId={sessionId}
+              />
+            ))}
+            {hasDisplayOutput && <ToolOutputCode code={displayOutput} language={language} />}
+          </>
+        ) : hasOutput ? (
           <ToolOutputCode code={output} language={language} />
         ) : errorText ? (
           <ToolOutputError message={errorText} />

@@ -104,6 +104,7 @@ export function isTextFallbackExt(ext?: string): boolean {
   if (PDF_EXTS.has(normalized)) return false;
   if (DOC_EXTS.has(normalized)) return false;
   if (SPREADSHEET_EXTS.has(normalized)) return false;
+  if (PPTX_EXTS.has(normalized)) return false;
   return true;
 }
 
