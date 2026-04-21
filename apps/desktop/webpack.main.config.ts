@@ -25,6 +25,8 @@ export const mainConfig: Configuration = {
     {
       sharp: 'commonjs2 sharp',
       libsql: 'commonjs2 libsql',
+      'skia-canvas': 'commonjs2 skia-canvas',
+      'node-pptx-png-v2': 'commonjs2 node-pptx-png-v2',
     },
     // 中文注释：libsql 使用动态加载的原生包，交给 Node 运行时解析 @libsql/*。
     ({ request }, callback) => {
