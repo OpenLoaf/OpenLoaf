@@ -92,6 +92,19 @@ export const aiSchemas = {
       fileName: z.string().optional(),
     }),
   },
+  // 用户手动取消一条正在跑的异步云任务（CloudVideoGenerate 等）。
+  // 服务端根据 toolCallId 查 PendingCloudTask → 调 SaaS v3CancelTask
+  // → 标记为 cancelled → patch 对应消息的 tool part。
+  cancelCloudTask: {
+    input: z.object({
+      toolCallId: z.string().min(1),
+    }),
+    output: z.object({
+      ok: z.boolean(),
+      status: z.enum(["cancelled", "not_found", "already_done"]).optional(),
+      message: z.string().optional(),
+    }),
+  },
 };
 
 export abstract class BaseAiRouter {
@@ -141,6 +154,12 @@ export abstract class BaseAiRouter {
       videoGenerateResult: shieldedProcedure
         .input(aiSchemas.videoGenerateResult.input)
         .output(aiSchemas.videoGenerateResult.output)
+        .mutation(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      cancelCloudTask: shieldedProcedure
+        .input(aiSchemas.cancelCloudTask.input)
+        .output(aiSchemas.cancelCloudTask.output)
         .mutation(async () => {
           throw new Error("Not implemented in base class");
         }),

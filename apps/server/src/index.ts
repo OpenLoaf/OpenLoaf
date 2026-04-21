@@ -129,6 +129,21 @@ void (async () => {
   }
 })();
 
+// Cloud 异步任务续查：扫 PendingCloudTask 表里 status='pending' 的行，
+// 续 poll → 写回对应 message 的 tool part。非阻塞：不影响启动速度。
+// 失败静默 — 单条任务出错不影响整个 server。
+void (async () => {
+  try {
+    const mod = await import("@/ai/tools/cloud/pendingCloudTaskResumer");
+    await mod.resumePendingCloudTasks();
+  } catch (err) {
+    console.warn(
+      "[pending-cloud-task-resumer] bootstrap skipped:",
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+})();
+
 // 响应 SIGINT/SIGTERM，退出前先刷盘画布文档，防止热重载丢失未持久化的 Yjs 数据。
 async function gracefulShutdown() {
   // Shutdown MCP connections (kills stdio child processes)

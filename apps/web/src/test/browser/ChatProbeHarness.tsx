@@ -124,6 +124,17 @@ export type ChatProbeHarnessProps = {
     mode?: 'auto' | 'capture' | 'mock' | 'off'
     fixtureId?: string
   }
+  /**
+   * macOS control helper mock — only used by the macos-control suite.
+   * Server must be started with `OPENLOAF_MACOS_HELPER_MOCK=1`. Setting this
+   * prop POSTs `/debug/macos-helper-mock` with the scenario name before
+   * sendMessage so the helper returns canned fixture responses instead of
+   * touching the real desktop. Unset → server falls back to the "default"
+   * scenario automatically.
+   */
+  macosHelperMock?: {
+    scenario: 'default' | 'permissionsMissing' | string
+  }
 }
 
 export type ToolCallDetail = {
@@ -249,6 +260,11 @@ function hasPendingToolExecution(messages: any[]): boolean {
       if (state === 'approval-requested' && !part?.output) return true
       if (state === 'approval-responded' && !part?.output) return true
       if (state === 'call' && !part?.output && !part?.approval) return true
+      // AI SDK v5/v6: tool 提交执行中、等 output-available 时 state='input-available'。
+      // 典型例子：CloudVideoGenerate 60-120s 异步任务，textPreview 已经流完"正在生成..."
+      // 但 tool output 尚未回来。没这条 → probe 误判 complete → 视频数据缺失 →
+      // 断言 toolCallDetails 时只拿到 state=input-available 的半成品。
+      if (state === 'input-available' && !part?.output) return true
     }
   }
   return false
@@ -304,6 +320,7 @@ function ChatProbeInner({
   onComplete,
   className,
   cloudMock,
+  macosHelperMock,
 }: ChatProbeHarnessProps) {
   // runner --model 的覆盖优先级最高：写了就盖掉测试文件里硬编码的 prop。
   // 覆盖只作用于运行时发给 server 的 chatModelId，不改测试 recordProbeRun 里
@@ -692,6 +709,32 @@ function ChatProbeInner({
           console.warn('[cloudMock] setup failed:', err)
         }
       }
+      if (macosHelperMock?.scenario) {
+        try {
+          const ping = await fetch(`${serverUrl}/debug/macos-helper-mock/ping`, { method: 'GET' })
+          if (!ping.ok) {
+            console.warn(
+              `[macosHelperMock] /debug/macos-helper-mock not registered (status=${ping.status}). Restart server with OPENLOAF_MACOS_HELPER_MOCK=1.`,
+            )
+          } else {
+            const r = await fetch(`${serverUrl}/debug/macos-helper-mock`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'X-OpenLoaf-Client': '1' },
+              body: JSON.stringify({
+                action: 'set-scenario',
+                sessionId: sessionIdSnap,
+                scenario: macosHelperMock.scenario,
+              }),
+            })
+            if (!r.ok) {
+              throw new Error(`set-scenario failed: ${r.status} ${await r.text()}`)
+            }
+            console.log(`[macosHelperMock] session=${sessionIdSnap} → scenario ${macosHelperMock.scenario}`)
+          }
+        } catch (err) {
+          console.warn('[macosHelperMock] setup failed:', err)
+        }
+      }
       requestAnimationFrame(() => {
         chatRef.current.sendMessage({
           parts: [{ type: 'text' as const, text: prompt }],
@@ -713,8 +756,15 @@ function ChatProbeInner({
           body: JSON.stringify({ action: 'clear', sessionId: sessionIdSnap }),
         }).catch(() => {})
       }
+      if (macosHelperMock?.scenario) {
+        fetch(`${serverUrl}/debug/macos-helper-mock`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-OpenLoaf-Client': '1' },
+          body: JSON.stringify({ action: 'clear', sessionId: sessionIdSnap }),
+        }).catch(() => {})
+      }
     }
-  }, [prompt, serverUrl, sessionId, cloudMock])
+  }, [prompt, serverUrl, sessionId, cloudMock, macosHelperMock])
 
   // ── Handle error state → auto-retry network errors via UI Retry button ──
   React.useEffect(() => {

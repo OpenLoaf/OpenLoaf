@@ -287,7 +287,13 @@ function coerceMediaInput(value: unknown): unknown | undefined {
           if (typeof obj.path === 'string') return { path: resolveToolPath({ target: obj.path }).absPath }
           if (typeof obj.url === 'string') return obj
         }
-      } catch { /* not JSON, fall through */ }
+      } catch { /* not JSON, fall through to JS-literal regex */ }
+      // LLM 也会把 object 写成 JS 对象字面量（key 无引号），如 `{path: "xxx"}`、
+      // `{url: 'xxx'}`；JSON.parse 认不出。用 regex 容错提取 path/url，避免 SaaS 400。
+      const pathMatch = /[{,]\s*['"]?path['"]?\s*:\s*['"]([^'"]+)['"]/.exec(trimmed)
+      if (pathMatch?.[1]) return { path: resolveToolPath({ target: pathMatch[1] }).absPath }
+      const urlMatch = /[{,]\s*['"]?url['"]?\s*:\s*['"]([^'"]+)['"]/.exec(trimmed)
+      if (urlMatch?.[1]) return { url: urlMatch[1] }
     }
     return value
   }
@@ -396,6 +402,7 @@ export const cloudImageGenerateTool = tool({
       waitForCompletion: true,
       progress,
       toolName: 'CloudImageGenerate',
+      toolCallId,
     })
     await captureAfterRun('CloudImageGenerate', input, result)
     return result
@@ -461,6 +468,7 @@ export const cloudImageEditTool = tool({
       waitForCompletion: true,
       progress,
       toolName: 'CloudImageEdit',
+      toolCallId,
     })
     await captureAfterRun('CloudImageEdit', input, result)
     return result
@@ -529,6 +537,7 @@ export const cloudVideoGenerateTool = tool({
       waitForCompletion: true,
       progress,
       toolName: 'CloudVideoGenerate',
+      toolCallId,
     })
     await captureAfterRun('CloudVideoGenerate', input, result)
     return result
@@ -578,6 +587,7 @@ export const cloudTTSTool = tool({
       waitForCompletion: true,
       progress,
       toolName: 'CloudTTS',
+      toolCallId,
     })
     await captureAfterRun('CloudTTS', input, result)
     return result

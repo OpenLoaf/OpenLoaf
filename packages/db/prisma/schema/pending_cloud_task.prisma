@@ -1,0 +1,33 @@
+/// 异步云任务的续查状态表。
+/// 每一行代表一次 SaaS v3Generate 提交后还未拿到终态的任务。
+/// 断线/重启后由 pendingCloudTaskResumer 扫描 status='pending' 行续查。
+model PendingCloudTask {
+  /// AI SDK 工具调用 id，同时是前端 tool part 的定位 key。
+  toolCallId   String   @id
+  /// SaaS 侧任务 id，用于 v3Task / v3CancelTask。
+  taskId       String
+  /// 发起该任务的 chat session id（用于 patch message）。
+  sessionId    String?
+  /// assistant message id（用于 patch message）。
+  messageId    String?
+  /// 工具名，如 CloudVideoGenerate。
+  toolName     String
+  /// SaaS capability feature（如 video-generation）。
+  feature      String
+  /// SaaS capability variant（如 OL-VG-010）。
+  variant      String
+  /// pending | done | failed | cancelled
+  status       String
+  /// 终态时写入：完成后的 SaaS 结果 JSON（含 files / resultText 等）。
+  resultJson   String?
+  /// 失败时的错误信息。
+  errorMessage String?
+  /// 资源 scope（可选）。
+  boardId      String?
+  projectId    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([status])
+  @@index([sessionId])
+}

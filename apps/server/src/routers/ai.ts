@@ -10,6 +10,7 @@
 import { BaseAiRouter, aiSchemas, t, shieldedProcedure } from "@openloaf/api";
 import { storeSecret } from "@/ai/tools/secretStore";
 import { resolvePendingCliQuestion } from "@/ai/models/cli/claudeCode/pendingCliQuestions";
+import { cancelPendingCloudTask } from "@/ai/tools/cloud/cancelCloudTask";
 
 /** Deprecated message for local AI media routes. */
 const DEPRECATED_MESSAGE = "已迁移到 SaaS 媒体接口，请使用 /ai/image /ai/video";
@@ -68,6 +69,12 @@ class AiRouterImpl extends BaseAiRouter {
         .output(aiSchemas.videoGenerateResult.output)
         .mutation(async () => {
           throwDeprecated();
+        }),
+      cancelCloudTask: shieldedProcedure
+        .input(aiSchemas.cancelCloudTask.input)
+        .output(aiSchemas.cancelCloudTask.output)
+        .mutation(async ({ input }) => {
+          return await cancelPendingCloudTask(input.toolCallId);
         }),
     });
   }

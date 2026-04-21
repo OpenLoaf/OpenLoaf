@@ -35,6 +35,16 @@ const TOOL_TIMEOUT_MAP: Record<string, number> = {
   // Media download — network-dependent
   'VideoDownload': 600_000,
 
+  // Cloud media generation — SaaS async tasks. Variant estimatedDurationMs
+  // is 50-70s for image (Kling/Jimeng/Bailian), 5-15s for TTS; video tools
+  // describe themselves as "sync wait tops out at 10 minutes" → honor that.
+  'CloudVideoGenerate': 600_000,
+  'CloudImageGenerate': 180_000,
+  'CloudImageEdit': 180_000,
+  'CloudTTS': 120_000,
+  'CloudSpeechToText': 180_000,
+  'CloudImageCaption': 120_000,
+
   // Office document tools — ZIP I/O + XML parsing can be slow for large files
   'PdfInspect': 120_000,
   'WordInspect': 120_000,

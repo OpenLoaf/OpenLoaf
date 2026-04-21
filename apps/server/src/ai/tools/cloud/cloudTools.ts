@@ -41,7 +41,13 @@ import {
   getBoardId,
   getProjectId,
   getSessionId,
+  getAssistantMessageId,
 } from '@/ai/shared/context/requestContext'
+import {
+  insertPending as insertPendingCloudTask,
+  markFailed as markPendingCloudTaskFailed,
+  deleteRow as deletePendingCloudTaskRow,
+} from '@/ai/tools/cloud/pendingCloudTaskStore'
 import { resolveSessionAssetDir } from '@openloaf/api/services/chatSessionPaths'
 import {
   lookupBoardRecord,
@@ -176,9 +182,13 @@ type StorageTarget = {
 }
 
 /** Resolve where to save cloud output files — board asset dir if bound, else chat asset dir. */
-async function resolveStorageTarget(): Promise<StorageTarget | null> {
-  let projectId = getProjectId()
-  const boardId = getBoardId()
+async function resolveStorageTarget(explicit?: {
+  sessionId?: string | null
+  boardId?: string | null
+  projectId?: string | null
+}): Promise<StorageTarget | null> {
+  let projectId = explicit?.projectId ?? getProjectId()
+  const boardId = explicit?.boardId ?? getBoardId()
 
   if (boardId) {
     if (!projectId) {
@@ -195,7 +205,7 @@ async function resolveStorageTarget(): Promise<StorageTarget | null> {
     }
   }
 
-  const sessionId = getSessionId()
+  const sessionId = explicit?.sessionId ?? getSessionId()
   if (!sessionId) return null
   const assetDir = await resolveSessionAssetDir(sessionId)
   return {
@@ -308,13 +318,22 @@ async function autoSaveResultUrls(input: {
   resultUrls: string[]
   variantId: string
   progress: ToolProgressEmitter
+  /**
+   * 明确指定存储 scope（resumer 场景用，无 RequestContext 时的兜底）。
+   * 未传时从 getSessionId/getBoardId/getProjectId 推断。
+   */
+  explicitScope?: {
+    sessionId?: string | null
+    boardId?: string | null
+    projectId?: string | null
+  }
 }): Promise<{ files: SavedFile[]; pending: string[]; target: StorageTarget | null }> {
-  const { resultUrls, variantId, progress } = input
+  const { resultUrls, variantId, progress, explicitScope } = input
   if (!Array.isArray(resultUrls) || resultUrls.length === 0) {
     return { files: [], pending: [], target: null }
   }
 
-  const target = await resolveStorageTarget()
+  const target = await resolveStorageTarget(explicitScope)
   if (!target) {
     progress.delta('no session/board context — skipping auto-save\n')
     return { files: [], pending: [...resultUrls], target: null }
@@ -524,6 +543,16 @@ async function normalizeCloudInputs(args: {
   return out
 }
 
+/**
+ * Resumer-facing helpers re-exported under descriptive names.
+ * pendingCloudTaskResumer lives in a sibling module and needs access to
+ * the same polling + download pipeline without round-tripping the main
+ * execute() path.
+ */
+export { autoSaveResultUrls as autoSaveCloudResultUrls }
+export { pollTaskUntilDone as pollCloudTaskUntilDone }
+export { PollTaskTimeoutError as CloudPollTaskTimeoutError }
+
 // biome-ignore lint/suspicious/noExplicitAny: SaaSClient type is internal to SDK
 async function pollTaskUntilDone(client: any, taskId: string, progress: ToolProgressEmitter) {
   const deadline = Date.now() + POLL_MAX_DURATION_MS
@@ -561,6 +590,11 @@ export async function runV3GenerateAndSave(args: {
   progress: ToolProgressEmitter
   /** Tool name shown in error messages (defaults to the feature id). */
   toolName?: string
+  /**
+   * AI SDK 工具调用 id。传入后会在任务提交成功的一刻将 taskId 持久化到
+   * PendingCloudTask 表；断线/重启后由 pendingCloudTaskResumer 续 poll。
+   */
+  toolCallId?: string
 }): Promise<string> {
   const {
     feature,
@@ -570,6 +604,7 @@ export async function runV3GenerateAndSave(args: {
     waitForCompletion = true,
     progress,
     toolName = 'CloudGenerate',
+    toolCallId,
   } = args
   const token = await requireToken()
   if (typeof token !== 'string') {
@@ -603,6 +638,22 @@ export async function runV3GenerateAndSave(args: {
     const taskId = createRes.data.taskId
     progress.delta(`task ${taskId} submitted\n`)
 
+    // 持久化 taskId，供断线/重启后续 poll 使用。messageId / boardId / projectId
+    // 可能没有（非 chat 上下文），字段允许 null。
+    if (toolCallId) {
+      await insertPendingCloudTask({
+        toolCallId,
+        taskId,
+        sessionId: getSessionId() ?? null,
+        messageId: getAssistantMessageId() ?? null,
+        toolName,
+        feature,
+        variant,
+        boardId: getBoardId() ?? null,
+        projectId: getProjectId() ?? null,
+      })
+    }
+
     if (!waitForCompletion) {
       progress.done(`task ${taskId} queued (async)`)
       return JSON.stringify({
@@ -626,7 +677,7 @@ export async function runV3GenerateAndSave(args: {
       addCreditsConsumed(result.creditsConsumed)
     }
     progress.done(`done (${result.creditsConsumed ?? 0} credits)`)
-    return JSON.stringify({
+    const payload = JSON.stringify({
       ok: true,
       mode: 'sync',
       feature,
@@ -648,9 +699,15 @@ export async function runV3GenerateAndSave(args: {
             ? 'Auto-save failed. The raw cloud URLs are in `pendingUrls` but they may expire — present them to the user quickly or retry. DO NOT Read the URLs.'
             : 'Task completed without result URLs.',
     })
+    // 同步跑完的任务：工具直接把结果返回给 LLM 走持久化链路，
+    // PendingCloudTask 里的行就不再需要了，直接删除。
+    if (toolCallId) await deletePendingCloudTaskRow(toolCallId)
+    return payload
   } catch (err) {
     if (err instanceof PollTaskTimeoutError) {
       progress.done(`timeout — task ${err.taskId} still running`)
+      // 10 分钟轮询超时：任务还在云端跑，保留 pending 行让 resumer 续 poll，
+      // 不清理。
       return JSON.stringify({
         ok: true,
         mode: 'timeout',
@@ -663,6 +720,7 @@ export async function runV3GenerateAndSave(args: {
     }
     const message = err instanceof Error ? err.message : String(err)
     progress.error(message)
+    if (toolCallId) await markPendingCloudTaskFailed(toolCallId, message)
     return errorString(`${toolName}(${feature}/${variant})`, err)
   }
 }
