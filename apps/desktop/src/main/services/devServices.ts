@@ -382,6 +382,26 @@ export async function ensureDevServices(args: {
       OPENLOAF_CERT_DIR: path.join(repoRoot, '.certs'),
       // 允许 web dev server 作为 Origin 访问后端。
       CORS_ORIGIN: `${webUrl},${envBase.CORS_ORIGIN ?? ''}`,
+      // Mark the server as running under the desktop supervisor (dev mirror of prodServices).
+      OPENLOAF_RUNTIME: 'desktop',
+      // macOS helper built by `swift build -c release` in apps/desktop/native/macos-control.
+      // Dev-time developers run the build once — prod path is injected separately in prodServices.
+      ...(process.platform === 'darwin'
+        ? {
+            OPENLOAF_MACOS_HELPER_PATH:
+              envBase.OPENLOAF_MACOS_HELPER_PATH ??
+              path.join(
+                repoRoot,
+                'apps',
+                'desktop',
+                'native',
+                'macos-control',
+                '.build',
+                'release',
+                'macos-control',
+              ),
+          }
+        : {}),
     };
     if (sanitizedNodeOptions) {
       serverEnv.NODE_OPTIONS = sanitizedNodeOptions;

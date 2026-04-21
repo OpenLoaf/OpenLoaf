@@ -118,6 +118,11 @@ export const masterTemplate: AgentTemplate = {
     'CloudTaskCancel',
     'CloudUserInfo',
     'CloudLogin',
+    // macOS desktop control — only registered in TOOL_REGISTRY when OPENLOAF_RUNTIME=desktop
+    // (Electron supervisor sets the env). Listing the ids here is safe on other platforms:
+    // buildToolset() silently skips ids whose implementation is absent.
+    'MacosObserve',
+    'MacosAct',
   ],
   allowSubAgents: true,
   maxDepth: 2,

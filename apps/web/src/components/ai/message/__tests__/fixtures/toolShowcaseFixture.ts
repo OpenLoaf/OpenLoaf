@@ -698,6 +698,36 @@ const uiWidgetParts: ToolShowcasePart[] = [
   },
 ]
 
+// ─── Group N: macOS 桌面控制（仅桌面端注册）──────────────────────────
+const macosControlParts: ToolShowcasePart[] = [
+  {
+    type: 'tool-MacosObserve',
+    toolCallId: callId(),
+    toolName: 'MacosObserve',
+    state: 'output-available',
+    input: { actionName: '观察当前 App', appFilter: 'Finder', maxNodes: 800 },
+    output: {
+      ok: true,
+      data: {
+        app: { name: 'Finder', bundleId: 'com.apple.finder', pid: 482 },
+        nodeCount: 137,
+        truncated: false,
+        screenshotPath: '/tmp/macos-call_showcase_sample.png',
+        screenshotWidth: 2880,
+        screenshotHeight: 1800,
+      },
+    },
+  },
+  {
+    type: 'tool-MacosAct',
+    toolCallId: callId(),
+    toolName: 'MacosAct',
+    state: 'output-available',
+    input: { actionName: '点击下载目录', action: { type: 'ax_action', ref: { identifier: 'sidebar.downloads' }, action: 'AXPress' } },
+    output: { ok: true, data: { action: 'ax_action', name: 'AXPress' } },
+  },
+]
+
 // ─── Export all groups ────────────────────────────────────────────────
 
 export const TOOL_SHOWCASE_GROUPS: ToolShowcaseGroup[] = [
@@ -709,6 +739,7 @@ export const TOOL_SHOWCASE_GROUPS: ToolShowcaseGroup[] = [
   { label: '媒体/转换工具', parts: mediaParts },
   { label: '项目/任务/邮件/日历工具', parts: projectTaskEmailParts },
   { label: 'UI/Widget 工具', parts: uiWidgetParts },
+  { label: 'macOS 控制工具', parts: macosControlParts },
 ]
 
 /** Flat list of all tool parts for iteration. */

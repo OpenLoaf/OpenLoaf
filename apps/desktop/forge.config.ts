@@ -282,6 +282,18 @@ const config: ForgeConfig = {
       // yt-dlp 二进制由 predesktop 的 prefetch:ytdlp 脚本下载（带重试），
       // 原 ytdlp-nodejs postinstall 没重试，CDN 一抖就让 pnpm install 挂掉。
       '../../apps/desktop/resources/bin',
+      // macOS-only: Swift helper for MacosObserve/MacosAct AI tools. Built by
+      // `swift build -c release` in apps/desktop/native/macos-control. Skipped on
+      // other platforms — extraResource requires the path to exist at pack time.
+      ...(process.platform === 'darwin' &&
+      fs.existsSync(
+        path.resolve(
+          __dirname,
+          '../../apps/desktop/native/macos-control/.build/release/macos-control',
+        ),
+      )
+        ? ['../../apps/desktop/native/macos-control/.build/release/macos-control']
+        : []),
       '../../apps/desktop/resources/runtime.env',
       '../../apps/desktop/resources/icon.icns',
       '../../apps/desktop/resources/icon.ico',

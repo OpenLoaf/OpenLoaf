@@ -310,6 +310,21 @@ export async function startProductionServices(args: {
     OPENLOAF_CERT_DIR: path.join(getOpenLoafRootDir(), 'certs'),
     // 中文注释：强制对齐 Electron 与 Server 的 CDP 端口，避免运行时不一致。
     OPENLOAF_REMOTE_DEBUGGING_PORT: String(args.cdpPort),
+    // Mark the server child as running under the desktop supervisor. Gate for
+    // desktop-only tool registration (see apps/server/src/runtime/desktopRuntime.ts).
+    OPENLOAF_RUNTIME: 'desktop',
+    // macOS control helper binary (Swift). Packaged via electron-builder extraResources
+    // into process.resourcesPath. Darwin-only; absent on Windows/Linux so the helper
+    // client returns null and the MacosObserve/MacosAct tools become no-ops.
+    ...(process.platform === 'darwin'
+      ? {
+          OPENLOAF_MACOS_HELPER_PATH:
+            process.env.OPENLOAF_MACOS_HELPER_PATH ??
+            userEnv.OPENLOAF_MACOS_HELPER_PATH ??
+            packagedEnv.OPENLOAF_MACOS_HELPER_PATH ??
+            path.join(resourcesPath, 'macos-control'),
+        }
+      : {}),
   };
 
   const ctx: ProdServerContext = {
