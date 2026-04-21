@@ -97,7 +97,18 @@ export default function OfficeToolShell({
   const input = parseInput(part)
   const mode = getMode(data, input)
 
-  const displayError = errorText || outputError || (!ok && isDone ? t(`${i18nPrefix}.operationFailed`) : '')
+  // 取消态：payload 里 status/mode === 'cancelled' 时优先展示翻译后的取消文案，
+  // 而不是把后端返回的原始英文 error 字段（例如 "task cancelled by user"）直接贴给用户。
+  const isCancelled =
+    (typeof (data as Record<string, unknown> | null)?.status === 'string' &&
+      (data as Record<string, unknown>).status === 'cancelled') ||
+    (typeof (data as Record<string, unknown> | null)?.mode === 'string' &&
+      (data as Record<string, unknown>).mode === 'cancelled')
+  const cancelledText = isCancelled
+    ? t(`${i18nPrefix}.cancelled`, { defaultValue: t(`${i18nPrefix}.operationFailed`) })
+    : ''
+  const displayError =
+    cancelledText || errorText || outputError || (!ok && isDone ? t(`${i18nPrefix}.operationFailed`) : '')
 
   const windowState = isError || displayError
     ? ('error' as const)

@@ -10,6 +10,7 @@
 
 import type { BuiltinSkill } from './types'
 import { parseFrontMatter, stripFrontMatter } from '@/ai/shared/frontMatterUtils'
+import { macosHelperMockEnabled } from '@/desktop/macosHelperMockStore'
 
 // 静态导入所有 SKILL.md（esbuild/tsdown .md: "text" 内联）
 // 中文为默认版，`en/SKILL.md` 为独立英文版；两边的 frontmatter 各自提供
@@ -46,6 +47,8 @@ import visualizationOpsMd from './visualization-ops/SKILL.md'
 import visualizationOpsEnMd from './visualization-ops/en/SKILL.md'
 import skillCreatorMd from './skill-creator/SKILL.md'
 import skillCreatorEnMd from './skill-creator/en/SKILL.md'
+import macosControlMd from './macos-control/SKILL.md'
+import macosControlEnMd from './macos-control/en/SKILL.md'
 // Dynamic (content re-rendered on cloud capability refresh)
 import { cloudMediaSkill } from './cloud-skills'
 
@@ -90,6 +93,17 @@ export const BUILTIN_SKILLS: BuiltinSkill[] = [
   buildSkill({ md: mediaOpsMd, mdEn: mediaOpsEnMd, icon: '🎬', colorIndex: 6 }),
   buildSkill({ md: visualizationOpsMd, mdEn: visualizationOpsEnMd, icon: '📈', colorIndex: 7 }),
   buildSkill({ md: skillCreatorMd, mdEn: skillCreatorEnMd, icon: '🧠', colorIndex: 1 }),
+  // macOS desktop control — only surfaced when running inside the Electron desktop
+  // supervisor on darwin; otherwise the MacosObserve/MacosAct tools aren't registered
+  // and advertising the skill just misleads the model.
+  // Surface the macOS control skill when either the real runtime (desktop
+  // supervisor on darwin) is active, OR the mock endpoint is reachable (dev /
+  // test — so ai-browser-test scenarios exercise the skill without needing
+  // a real Mac).
+  ...((process.env.OPENLOAF_RUNTIME === 'desktop' && process.platform === 'darwin') ||
+  macosHelperMockEnabled()
+    ? [buildSkill({ md: macosControlMd, mdEn: macosControlEnMd, icon: '🖥️', colorIndex: 3 })]
+    : []),
   // Dynamic cloud skill — content re-rendered when ai.capabilitiesOverview refreshes.
   // Iterated per-request so mutating `.content` post-boot propagates to callers.
   cloudMediaSkill,

@@ -209,6 +209,7 @@
     "CloudImageGenerate": "Cloud Image Generate",
     "CloudImageEdit": "Cloud Image Edit",
     "CloudVideoGenerate": "Cloud Video Generate",
+    "CloudTTS": "Cloud Text-to-Speech",
     "CloudImageUnderstand": "Cloud Image Understand",
     "CloudSpeechRecognize": "Cloud Speech Recognize"
   },
@@ -511,7 +512,8 @@
       "loading": "Loading...",
       "prompt": "Prompt",
       "pendingUrlsWarning": "Remote URLs — may expire; save locally ASAP",
-      "saveAs": "Save as..."
+      "saveAs": "Save as...",
+      "cancelled": "Task cancelled"
     },
     "cloudLogin": {
       "processing": "Signing in...",
@@ -664,7 +666,11 @@
     "copyLog": "Copy log",
     "retry": "Retry",
     "continue": "Continue",
-    "continuePrompt": "Continue"
+    "continuePrompt": "Continue",
+    "network": "Network error, please check your connection and try again",
+    "timeout": "Request timed out, please try again later",
+    "aborted": "Request cancelled",
+    "serverUnavailable": "Service temporarily unavailable, please try again later"
   },
   "scheduleRunLog": {
     "title": "Run Logs",

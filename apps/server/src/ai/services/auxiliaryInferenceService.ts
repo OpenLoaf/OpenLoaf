@@ -15,6 +15,17 @@ import { readAuxiliaryModelConf } from '@/modules/settings/auxiliaryModelConfSto
 import { ensureServerAccessToken } from '@/modules/auth/tokenStore'
 import { getSaasClient } from '@/modules/saas/client'
 import { buildModelMessages } from '@/ai/shared/messageConverter'
+import { expandAttachmentTagsForModel } from '@/ai/shared/attachmentTagExpander'
+import type { ModelDefinition } from '@openloaf/api/common'
+
+// SaaS 辅助模型由后端按能力路由，本地不持有 ModelDefinition。
+// 用一个全模态能力声明驱动 expandAttachmentTagsForModel，
+// 确保 attachment tag 升级为 file part（CDN URL 优先，降级 base64），
+// 而不是以 XML 文本形式送到 SaaS，导致 auxiliary 模型只能看到文件名。
+const SAAS_AUX_PERMISSIVE_MODEL_DEF: ModelDefinition = {
+  id: 'saas-aux-permissive',
+  tags: ['image_input', 'image_analysis', 'video_analysis', 'audio_analysis'],
+}
 import {
   flattenMessagesToContext,
   messagesCacheSeed,
@@ -168,11 +179,14 @@ export async function auxiliaryInfer<T extends z.ZodType>({
       const token = (await ensureServerAccessToken()) ?? ''
       if (!token) throw new Error('未登录云端账号，请先登录')
       const saasClient = getSaasClient(token)
+      const saasExpanded = useMessages
+        ? (await expandAttachmentTagsForModel(messages!, SAAS_AUX_PERMISSIVE_MODEL_DEF)).messages
+        : null
       const payload = useMessages
         ? {
             capabilityKey,
             systemPrompt,
-            messages: toSaasMessages(messages!),
+            messages: toSaasMessages(saasExpanded!),
             outputMode: 'structured' as const,
             schema: capability.outputSchema,
           }

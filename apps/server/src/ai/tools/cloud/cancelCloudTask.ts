@@ -16,7 +16,6 @@
 import { getSaasClient } from '@/modules/saas/client'
 import { logger } from '@/common/logger'
 import {
-  deleteRow as deletePendingCloudTaskRow,
   getByToolCallId,
   markCancelled as markPendingCloudTaskCancelled,
   patchMessageToolPart,
@@ -54,7 +53,10 @@ export async function cancelPendingCloudTask(
       })
     }
 
-    await deletePendingCloudTaskRow(toolCallId)
+    // 保留行（status='cancelled'）给 in-flight executor 的 runV3GenerateAndSave 读
+    // —— 它 pollTaskUntilDone 返回后会查行状态，若 cancelled 则返回结构化取消 payload
+    // 而不是走成功路径，避免覆盖 patchMessageToolPart。由 executor 最后删行；resumer
+    // 路径不会看到这种行（resumer 只读 status='pending'）。
     return { ok: true, status: 'cancelled', message: res.message ?? 'cancel requested' }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)

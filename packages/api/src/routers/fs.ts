@@ -127,6 +127,15 @@ const fsFolderThumbnailSchema = fsScopeSchema.extend({
   includeHidden: z.boolean().optional(),
 });
 
+/** Schema for pptx slide metadata requests (slide count + dimensions). */
+const fsPptxSlideMetaSchema = fsUriSchema;
+
+/** Schema for pptx single-slide image requests. */
+const fsPptxSlideImageSchema = fsUriSchema.extend({
+  slide: z.number().int().min(1),
+  scale: z.number().min(0.25).max(3).optional(),
+});
+
 /** Build a file node for UI consumption. */
 type FsFileNode = {
   uri: string;
@@ -511,6 +520,67 @@ async function resolveFolderEmptyState(fullPath: string, includeHidden: boolean)
     return entries.every((entry) => entry.name.startsWith("."));
   } catch {
     return false;
+  }
+}
+
+type PptxCacheState = { cacheDir: string; total: number };
+
+/** In-flight 渲染任务去重，避免同一 pptx 并发触发多次 renderPresentation。 */
+const pptxCacheInflight = new Map<string, Promise<PptxCacheState>>();
+
+/**
+ * Ensure pptx is rendered and cached on disk; return {cacheDir, total}.
+ * 缓存 key = sha1(absPath + mtimeMs + size)；落在 pptx 同目录的 .openloaf-cache/pptx-slides/ 下。
+ * 用 renderPresentation（唯一不踩 v2 await bug 的入口）一次性把所有页渲染落盘，
+ * 页数写入 .done-s{scale}.json 标记；下次命中直接读标记 + 读文件。
+ */
+async function ensurePptxCache(fullPath: string, scale = 1): Promise<PptxCacheState> {
+  const stat = await fs.stat(fullPath);
+  const cacheKey = createHash("sha1")
+    .update(`${fullPath}:${stat.mtimeMs}:${stat.size}`)
+    .digest("hex")
+    .slice(0, 16);
+  const cacheDir = path.join(path.dirname(fullPath), ".openloaf-cache", "pptx-slides", cacheKey);
+  const doneMarker = path.join(cacheDir, `.done-s${scale}.json`);
+
+  const existing = await fs
+    .readFile(doneMarker, "utf-8")
+    .then((raw) => JSON.parse(raw) as { total: number })
+    .catch(() => null);
+  if (existing && typeof existing.total === "number") {
+    return { cacheDir, total: existing.total };
+  }
+
+  const lockKey = `${cacheDir}:s${scale}`;
+  const inflight = pptxCacheInflight.get(lockKey);
+  if (inflight) return inflight;
+
+  const task = (async (): Promise<PptxCacheState> => {
+    const { PptxImageRenderer } = await import("node-pptx-png-v2");
+    const pptxBuf = await fs.readFile(fullPath);
+    const targetWidth = Math.round(1280 * scale);
+    const renderer = new PptxImageRenderer({ logLevel: "warn" });
+    const all = await renderer.renderPresentation(pptxBuf, {
+      width: targetWidth,
+      format: "png",
+      logLevel: "warn",
+    });
+
+    await fs.mkdir(cacheDir, { recursive: true });
+    for (const slide of all.slides) {
+      if (!slide.success || !slide.imageData || slide.imageData.length === 0) continue;
+      const outFile = path.join(cacheDir, `slide-${slide.slideNumber}-s${scale}.png`);
+      await fs.writeFile(outFile, slide.imageData);
+    }
+    await fs.writeFile(doneMarker, JSON.stringify({ total: all.totalSlides, scale }), "utf-8");
+    return { cacheDir, total: all.totalSlides };
+  })();
+
+  pptxCacheInflight.set(lockKey, task);
+  try {
+    return await task;
+  } finally {
+    pptxCacheInflight.delete(lockKey);
   }
 }
 
@@ -1115,6 +1185,65 @@ export const fsRouter = t.router({
 
       return { results };
     }),
+
+  /**
+   * Get pptx slide count.
+   *
+   * node-pptx-png-v2 的 PptxImageRenderer.getSlideCount / renderSlide 都漏写了关键 await，
+   * finally 中的 parser.close() 会在 promise 解析前清空 zip，导致 "No PPTX file is open"。
+   * 只有 renderPresentation 因为在返回前把所有 await 跑完才是可靠入口。
+   *
+   * 所以这里复用 pptxSlideImage 的"一次性全量渲染 + 磁盘缓存"流水线，首次取
+   * 元信息会顺带把缓存 warm 起来；后续翻页就只读磁盘。
+   */
+  pptxSlideMeta: shieldedProcedure.input(fsPptxSlideMetaSchema).query(async ({ input }) => {
+    const resolvedScope = await resolveFsReadScopeAsync(input, input.uri);
+    if (!resolvedScope) {
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: `fs.pptxSlideMeta: 无法解析文件 (uri=${input.uri})`,
+      });
+    }
+    const state = await ensurePptxCache(resolvedScope.fullPath);
+    return { total: state.total };
+  }),
+
+  /**
+   * Render a single pptx slide to PNG and return base64 bytes.
+   * 首次命中任意页会触发全量渲染并落盘缓存；后续请求直接读磁盘。
+   * 缓存 key = sha1(absPath + mtimeMs + size)，pptx 改过就换目录。
+   */
+  pptxSlideImage: shieldedProcedure.input(fsPptxSlideImageSchema).query(async ({ input }) => {
+    const resolvedScope = await resolveFsReadScopeAsync(input, input.uri);
+    if (!resolvedScope) {
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: `fs.pptxSlideImage: 无法解析文件 (uri=${input.uri})`,
+      });
+    }
+    const scale = input.scale ?? 1;
+    const state = await ensurePptxCache(resolvedScope.fullPath, scale);
+    if (input.slide < 1 || input.slide > state.total) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: `fs.pptxSlideImage: slide ${input.slide} 超出范围 (1-${state.total})`,
+      });
+    }
+    const cacheFile = path.join(state.cacheDir, `slide-${input.slide}-s${scale}.png`);
+    const buf = await fs.readFile(cacheFile).catch(() => null);
+    if (!buf) {
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: `fs.pptxSlideImage: 缓存文件缺失 ${cacheFile}`,
+      });
+    }
+    const meta = await sharp(buf).metadata().catch(() => null);
+    return {
+      contentBase64: buf.toString("base64"),
+      width: meta?.width ?? 0,
+      height: meta?.height ?? 0,
+    };
+  }),
 });
 
 export type FsRouter = typeof fsRouter;

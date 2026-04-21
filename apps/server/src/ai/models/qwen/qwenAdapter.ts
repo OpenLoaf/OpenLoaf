@@ -8,8 +8,13 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import { createOpenAI } from "@ai-sdk/openai";
+import { wrapLanguageModel } from "ai";
 import type { ProviderAdapter } from "@/ai/models/providerAdapters";
 import { buildAiDebugFetch, ensureOpenAiCompatibleBaseUrl, readApiKey } from "@/ai/shared/util";
+import {
+  createQwenMultimodalMiddleware,
+  wrapQwenMultimodalFetch,
+} from "@/ai/models/qwen/qwenMultimodalMiddleware";
 
 /** Qwen provider adapter (chat only). */
 export const qwenAdapter: ProviderAdapter = {
@@ -25,8 +30,14 @@ export const qwenAdapter: ProviderAdapter = {
     const openaiProvider = createOpenAI({
       baseURL: ensureOpenAiCompatibleBaseUrl(resolvedApiUrl),
       apiKey,
-      fetch: debugFetch,
+      // 中文注释：Qwen /chat/completions 支持 video_url / input_audio，
+      // 但 @ai-sdk/openai 的 messages 转换器不生成这两种 type；用 middleware +
+      // fetch 后处理在 HTTP body 层补齐。
+      fetch: wrapQwenMultimodalFetch(debugFetch),
     });
-    return openaiProvider.chat(modelId);
+    return wrapLanguageModel({
+      model: openaiProvider.chat(modelId),
+      middleware: createQwenMultimodalMiddleware(),
+    });
   },
 };

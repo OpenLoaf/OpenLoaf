@@ -47,6 +47,7 @@ import {
   insertPending as insertPendingCloudTask,
   markFailed as markPendingCloudTaskFailed,
   deleteRow as deletePendingCloudTaskRow,
+  getByToolCallId as getPendingCloudTaskByToolCallId,
 } from '@/ai/tools/cloud/pendingCloudTaskStore'
 import { resolveSessionAssetDir } from '@openloaf/api/services/chatSessionPaths'
 import {
@@ -665,6 +666,29 @@ export async function runV3GenerateAndSave(args: {
     }
 
     const result = await pollTaskUntilDone(client, taskId, progress)
+
+    // 用户在 poll 期间手动取消：cancelPendingCloudTask 已经调了 SaaS v3CancelTask
+    // 并把 PendingCloudTask 行标 'cancelled'。此时不能继续走成功路径（否则会覆盖
+    // patchMessageToolPart 写的 output-error，模型还会看到"成功"的 payload 幻称图已生成）。
+    // 读一次行状态，若是 cancelled 直接返回结构化取消 payload，让 AI SDK 写回 output-available
+    // 也是 `status: 'cancelled'`，模型看到后会告诉用户已取消。
+    if (toolCallId) {
+      const row = await getPendingCloudTaskByToolCallId(toolCallId)
+      if (row?.status === 'cancelled') {
+        progress.done('cancelled by user')
+        await deletePendingCloudTaskRow(toolCallId)
+        return JSON.stringify({
+          ok: false,
+          mode: 'cancelled',
+          feature,
+          variant,
+          taskId,
+          status: 'cancelled',
+          error: 'task cancelled by user',
+          hint: 'The user cancelled this task. Acknowledge the cancellation in one short line and stop. Do NOT retry or regenerate unless the user explicitly asks.',
+        })
+      }
+    }
 
     const urls = Array.isArray(result.resultUrls) ? result.resultUrls : []
     const { files, pending, target } = await autoSaveResultUrls({

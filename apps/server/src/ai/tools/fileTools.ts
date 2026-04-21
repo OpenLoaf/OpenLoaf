@@ -515,7 +515,8 @@ export const readTool = tool({
             modelDef?.tags?.includes('image_input') || modelDef?.tags?.includes('image_analysis'),
           )
           result = await readImageFile(absPath, fileName, progress, hasNativeVision, mimeType)
-          if (!hasNativeVision) suggestSkill = CLOUD_MEDIA_SUGGEST
+          // 非 vision 模型读图：只返回文本元信息 + OCR，不再自动引导到 CloudImageUnderstand。
+          // 用户显式要求"用云端视觉分析"时再由模型主动加载 cloud-media-skill。
           break
         }
         case 'video':

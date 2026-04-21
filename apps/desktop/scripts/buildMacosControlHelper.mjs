@@ -15,7 +15,7 @@
  * Skipped on non-darwin hosts.
  */
 import { spawnSync } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -40,11 +40,24 @@ function main() {
     throw new Error(`macos-control Package.swift not found at ${packageDir}`)
   }
   run('swift', ['build', '-c', 'release', '--arch', 'arm64', '--arch', 'x86_64'])
-  const out = join(packageDir, '.build', 'release', 'macos-control')
+  // Universal (multi-arch) builds land under .build/apple/Products/Release,
+  // while single-arch releases land under .build/release. Downstream configs
+  // (forge.config.ts extraResource, OPENLOAF_MACOS_HELPER_PATH in
+  // devServices/prodServices) all point at .build/release/macos-control —
+  // copy the universal binary there to keep a single stable path.
+  const universal = join(packageDir, '.build', 'apple', 'Products', 'Release', 'macos-control')
+  const singleArch = join(packageDir, '.build', 'release', 'macos-control')
+  const out = existsSync(universal) ? universal : singleArch
   if (!existsSync(out)) {
-    throw new Error(`Build succeeded but binary missing at ${out}`)
+    throw new Error(
+      `Build succeeded but binary missing at ${universal} (universal) or ${singleArch} (single-arch)`,
+    )
   }
-  console.log(`[macos-control] Built: ${out}`)
+  if (out === universal) {
+    mkdirSync(dirname(singleArch), { recursive: true })
+    copyFileSync(universal, singleArch)
+  }
+  console.log(`[macos-control] Built: ${singleArch}`)
 }
 
 main()

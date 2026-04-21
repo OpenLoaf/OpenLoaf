@@ -209,6 +209,7 @@
     "CloudImageGenerate": "雲端圖片生成",
     "CloudImageEdit": "雲端圖片編輯",
     "CloudVideoGenerate": "雲端影片生成",
+    "CloudTTS": "雲端語音合成",
     "CloudImageUnderstand": "圖片理解",
     "CloudSpeechRecognize": "語音辨識"
   },
@@ -511,7 +512,8 @@
       "loading": "載入中…",
       "prompt": "提示詞",
       "pendingUrlsWarning": "遠端連結——可能過期，請盡快儲存到本機",
-      "saveAs": "另存為…"
+      "saveAs": "另存為…",
+      "cancelled": "任務已取消"
     },
     "cloudLogin": {
       "processing": "登入中…",

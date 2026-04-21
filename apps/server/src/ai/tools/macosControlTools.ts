@@ -10,6 +10,7 @@
  * error telling the LLM the user isn't running OpenLoaf Desktop.
  */
 import path from 'node:path'
+import { spawn } from 'node:child_process'
 import { tool, zodSchema } from 'ai'
 import {
   macosActToolDef,
@@ -22,6 +23,34 @@ import { createToolProgress } from '@/ai/tools/toolProgress'
 
 const DESKTOP_ONLY_ERROR =
   "MacOS control is only available in OpenLoaf Desktop app on macOS. Tell the user to switch to the desktop app, or to pick a different approach."
+
+const SETTINGS_URL: Record<string, string> = {
+  screen:
+    'x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture',
+  accessibility:
+    'x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility',
+}
+
+/**
+ * Best-effort: pop the relevant System Settings pane so the user can grant the
+ * permission without having to navigate there manually. Non-blocking and
+ * silent on failure — we never want to crash the tool because `open` misfired.
+ */
+function openSettingsPanes(missing: string[]): string[] {
+  if (process.platform !== 'darwin') return []
+  const opened: string[] = []
+  for (const key of missing) {
+    const url = SETTINGS_URL[key]
+    if (!url) continue
+    try {
+      spawn('open', [url], { stdio: 'ignore', detached: true }).unref()
+      opened.push(key)
+    } catch {
+      // swallow — best effort
+    }
+  }
+  return opened
+}
 
 function permissionsHint(missing: string[]): string {
   const lines: string[] = []
@@ -87,23 +116,35 @@ export const macosObserveTool = tool({
     const pngPath = path.join(assetDir, `macos-${toolCallId}.png`)
 
     try {
-      const res = await helper.request('observe', {
-        screenshotPath: pngPath,
-        appFilter,
-        maxNodes,
-        maxDepth,
-        includeScreenshot,
-      })
+      const res = await helper.request(
+        'observe',
+        {
+          screenshotPath: pngPath,
+          appFilter,
+          maxNodes,
+          maxDepth,
+          includeScreenshot,
+        },
+        { sessionId },
+      )
 
       if (!res.ok) {
         const missing = res.permissionsMissing ?? []
         progress.error(res.error ?? 'observe failed')
         if (missing.length > 0) {
+          const opened = openSettingsPanes(missing)
+          const openedLine =
+            opened.length > 0
+              ? `System Settings panes have been opened for: ${opened.join(', ')}.`
+              : ''
           return [
             `macOS permission missing: ${missing.join(', ')}.`,
+            openedLine,
             permissionsHint(missing),
-            'After granting, ask the user to retry.',
-          ].join('\n')
+            'Tell the user to enable OpenLoaf there, then wait for their confirmation before retrying. Do not retry on your own.',
+          ]
+            .filter(Boolean)
+            .join('\n')
         }
         return `MacosObserve failed: ${res.error ?? 'unknown error'}`
       }
@@ -155,16 +196,27 @@ export const macosActTool = tool({
       return DESKTOP_ONLY_ERROR
     }
 
+    const sessionId = getSessionId()
+
     try {
-      const res = await helper.request('act', { action })
+      const res = await helper.request('act', { action }, { sessionId })
       if (!res.ok) {
         const missing = res.permissionsMissing ?? []
         progress.error(res.error ?? 'act failed')
         if (missing.length > 0) {
+          const opened = openSettingsPanes(missing)
+          const openedLine =
+            opened.length > 0
+              ? `System Settings panes have been opened for: ${opened.join(', ')}.`
+              : ''
           return [
             `macOS permission missing: ${missing.join(', ')}.`,
+            openedLine,
             permissionsHint(missing),
-          ].join('\n')
+            'Tell the user to enable OpenLoaf there, then wait for their confirmation before retrying.',
+          ]
+            .filter(Boolean)
+            .join('\n')
         }
         return `MacosAct failed: ${res.error ?? 'unknown error'}`
       }

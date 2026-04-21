@@ -72,6 +72,7 @@ import {
   macosActTool,
 } from "@/ai/tools/macosControlTools";
 import { isDesktopRuntime } from "@/runtime/desktopRuntime";
+import { macosHelperMockEnabled } from "@/desktop/macosHelperMockStore";
 import { openUrlToolDef } from "@openloaf/api/types/tools/browser";
 import {
   browserActToolDef,
@@ -415,7 +416,7 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
   // Desktop-only macOS control tools. Registration is gated on OPENLOAF_RUNTIME=desktop —
   // the server process env set by the Electron supervisor. Off-desktop these entries are
   // simply absent so the model never sees them in tool lists.
-  ...(isDesktopRuntime()
+  ...((isDesktopRuntime() || macosHelperMockEnabled())
     ? {
         [macosObserveToolDef.id]: { tool: macosObserveTool },
         [macosActToolDef.id]: { tool: macosActTool },
@@ -494,7 +495,7 @@ const TOOL_DEF_REGISTRY: Record<string, { parameters?: any }> = {
   [cloudTTSToolDef.id]: cloudTTSToolDef,
   [cloudSpeechRecognizeToolDef.id]: cloudSpeechRecognizeToolDef,
   [cloudImageUnderstandToolDef.id]: cloudImageUnderstandToolDef,
-  ...(isDesktopRuntime()
+  ...((isDesktopRuntime() || macosHelperMockEnabled())
     ? {
         [macosObserveToolDef.id]: macosObserveToolDef,
         [macosActToolDef.id]: macosActToolDef,

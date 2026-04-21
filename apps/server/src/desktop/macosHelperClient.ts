@@ -18,11 +18,17 @@
  * surface that list to the user/UI — we do not throw.
  */
 import { ChildProcess, spawn } from 'node:child_process'
+import { promises as fs } from 'node:fs'
 import path from 'node:path'
 import {
   getMacosHelperPath,
   isDesktopRuntime,
 } from '@/runtime/desktopRuntime'
+import {
+  getMockResponse,
+  hasMockScenario,
+  macosHelperMockEnabled,
+} from '@/desktop/macosHelperMockStore'
 
 export type HelperResponse = {
   id: string
@@ -30,6 +36,15 @@ export type HelperResponse = {
   error?: string
   permissionsMissing?: string[]
   [key: string]: unknown
+}
+
+export interface MacosHelperInterface {
+  request(
+    op: string,
+    payload?: Record<string, unknown>,
+    ctx?: { sessionId?: string },
+  ): Promise<HelperResponse>
+  abort(): void
 }
 
 type Pending = {
@@ -40,7 +55,78 @@ type Pending = {
 
 const REQUEST_TIMEOUT_MS = 15_000
 
-class MacosHelper {
+/**
+ * Hybrid helper — per-request, checks whether the caller's session has a
+ * registered mock scenario. If yes, returns canned fixture responses; if no,
+ * delegates to the real Swift helper (ProcessMacosHelper).
+ *
+ * This lets a single server serve regular dev chat (real helper when desktop
+ * runtime, null otherwise) AND browser-test sessions that explicitly opted
+ * into mocking via POST /debug/macos-helper-mock — no process-wide switch,
+ * no restart required.
+ */
+class HybridMacosHelper implements MacosHelperInterface {
+  constructor(private readonly real: MacosHelperInterface | null) {}
+
+  async request(
+    op: string,
+    payload: Record<string, unknown> = {},
+    ctx: { sessionId?: string } = {},
+  ): Promise<HelperResponse> {
+    if (hasMockScenario(ctx.sessionId)) {
+      return this.servemock(op, payload, ctx)
+    }
+    if (!this.real) {
+      // No mock registered and no real helper available (e.g. non-desktop dev).
+      return {
+        id: 'mock',
+        ok: false,
+        error:
+          'macos-control: no helper available. Start with desktop runtime, or register a mock scenario via POST /debug/macos-helper-mock.',
+      }
+    }
+    return this.real.request(op, payload, ctx)
+  }
+
+  abort(): void {
+    this.real?.abort()
+  }
+
+  /**
+   * Observe requests demand an actual PNG at screenshotPath; materialize a
+   * 1×1 placeholder so the attachment tag expander downstream has a real
+   * file to reference.
+   */
+  private async servemock(
+    op: string,
+    payload: Record<string, unknown>,
+    ctx: { sessionId?: string },
+  ): Promise<HelperResponse> {
+    const resp = getMockResponse(ctx.sessionId, op) ?? {
+      ok: false,
+      error: `macos-control mock: no scenario for op=${op}`,
+    }
+    if (op === 'observe' && resp.ok && resp.screenshotPath === '__AUTO__') {
+      const target = String(payload.screenshotPath ?? '')
+      if (target) {
+        try {
+          const png = Buffer.from(
+            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgAAIAAAUAAeImBZsAAAAASUVORK5CYII=',
+            'base64',
+          )
+          await fs.writeFile(target, png)
+        } catch {
+          // best effort — test will surface as assertion failure if missing
+        }
+        return { id: 'mock', ok: true, ...resp, screenshotPath: target } as HelperResponse
+      }
+    }
+    const ok = Boolean((resp as { ok?: unknown }).ok)
+    return { id: 'mock', ok, ...resp } as HelperResponse
+  }
+}
+
+class MacosHelper implements MacosHelperInterface {
   private child: ChildProcess | null = null
   private buffer = ''
   private pending = new Map<string, Pending>()
@@ -94,7 +180,11 @@ class MacosHelper {
     }
   }
 
-  async request(op: string, payload: Record<string, unknown> = {}): Promise<HelperResponse> {
+  async request(
+    op: string,
+    payload: Record<string, unknown> = {},
+    _ctx: { sessionId?: string } = {},
+  ): Promise<HelperResponse> {
     if (this.aborted) {
       this.aborted = false
       throw new Error('macos-control aborted by user')
@@ -135,14 +225,29 @@ class MacosHelper {
   }
 }
 
-let singleton: MacosHelper | null = null
+let realSingleton: MacosHelper | null = null
+let hybridSingleton: HybridMacosHelper | null = null
 
-/** Returns the helper singleton, or null when this server isn't running under the desktop app. */
-export function getMacosHelper(): MacosHelper | null {
+function getRealHelper(): MacosHelper | null {
   if (!isDesktopRuntime()) return null
-  if (singleton) return singleton
+  if (realSingleton) return realSingleton
   const bin = getMacosHelperPath()
   if (!bin) return null
-  singleton = new MacosHelper(path.resolve(bin))
-  return singleton
+  realSingleton = new MacosHelper(path.resolve(bin))
+  return realSingleton
+}
+
+/**
+ * Returns the helper. Null only when neither the real helper (desktop runtime)
+ * nor the mock (dev/test) is available — i.e. in production non-desktop.
+ *
+ * The returned helper is a thin wrapper: per request it checks whether the
+ * caller's session has a registered mock scenario, and routes accordingly.
+ * Callers should pass the sessionId via the `ctx` argument to `request()`.
+ */
+export function getMacosHelper(): MacosHelperInterface | null {
+  const real = getRealHelper()
+  if (!real && !macosHelperMockEnabled()) return null
+  if (!hybridSingleton) hybridSingleton = new HybridMacosHelper(real)
+  return hybridSingleton
 }

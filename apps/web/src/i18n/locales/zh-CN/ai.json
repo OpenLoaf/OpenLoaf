@@ -209,6 +209,7 @@
     "CloudImageGenerate": "云端图片生成",
     "CloudImageEdit": "云端图片编辑",
     "CloudVideoGenerate": "云端视频生成",
+    "CloudTTS": "云端语音合成",
     "CloudImageUnderstand": "图片理解",
     "CloudSpeechRecognize": "语音识别"
   },
@@ -511,7 +512,8 @@
       "loading": "加载中…",
       "prompt": "提示词",
       "pendingUrlsWarning": "远程链接——可能过期，请尽快保存到本地",
-      "saveAs": "另存为…"
+      "saveAs": "另存为…",
+      "cancelled": "任务已取消"
     },
     "cloudLogin": {
       "processing": "登录中…",
@@ -664,7 +666,11 @@
     "copyLog": "复制日志",
     "retry": "重试",
     "continue": "继续",
-    "continuePrompt": "继续"
+    "continuePrompt": "继续",
+    "network": "网络异常，请检查连接后重试",
+    "timeout": "请求超时，请稍后重试",
+    "aborted": "请求已取消",
+    "serverUnavailable": "服务暂时不可用，请稍后重试"
   },
   "scheduleRunLog": {
     "title": "执行日志",

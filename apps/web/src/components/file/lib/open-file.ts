@@ -367,6 +367,7 @@ export function buildStackItemForEntry(input: {
           ...baseParams,
           rootUri: input.rootUri,
           projectId: input.projectId,
+          __customHeader: true,
         },
       };
     case "file":

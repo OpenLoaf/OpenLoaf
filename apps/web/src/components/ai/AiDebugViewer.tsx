@@ -23,7 +23,7 @@ function hasTextSelection(): boolean {
 }
 
 
-import { Copy, FolderOpen, RefreshCw, ChevronsDownUp, ChevronsUpDown, Bug } from 'lucide-react'
+import { ClipboardCopy, Copy, FolderOpen, RefreshCw, ChevronsDownUp, ChevronsUpDown, Bug } from 'lucide-react'
 import { Button } from '@openloaf/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@openloaf/ui/dialog'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@openloaf/ui/tooltip'
@@ -2241,7 +2241,7 @@ export default function AiDebugViewer({
                   aria-label={t('debug.copyLogPath')}
                   title={t('debug.copyLogPath')}
                 >
-                  <Copy className="h-4 w-4" />
+                  <ClipboardCopy className="h-4 w-4" />
                 </Button>
                 <Button
                   variant="ghost"

@@ -10,7 +10,7 @@
 "use client";
 
 import * as React from "react";
-import { Copy, ExternalLink, Minus, RotateCw, X } from "lucide-react";
+import { AppWindow, ClipboardCopy, Minus, RotateCw, X } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
@@ -128,7 +128,7 @@ export function StackHeader({
                   aria-label={t('openInSystem')}
                   onClick={handleOpenExternal}
                 >
-                  <ExternalLink className="h-4 w-4" />
+                  <AppWindow className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="bottom">{t('openInSystem')}</TooltipContent>
@@ -144,7 +144,7 @@ export function StackHeader({
                   aria-label={t('copyPath')}
                   onClick={handleCopyPath}
                 >
-                  <Copy className="h-4 w-4" />
+                  <ClipboardCopy className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="bottom">{t('copyPath')}</TooltipContent>

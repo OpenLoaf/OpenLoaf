@@ -27,6 +27,10 @@ import { cliAdapter } from "@/ai/models/cli/cliAdapter";
 import { CODEX_CLI_PROVIDER_ID, CLAUDE_CODE_CLI_PROVIDER_ID } from "@/ai/models/cli/cliShared";
 import { qwenAdapter } from "@/ai/models/qwen/qwenAdapter";
 import {
+  createQwenMultimodalMiddleware,
+  wrapQwenMultimodalFetch,
+} from "@/ai/models/qwen/qwenMultimodalMiddleware";
+import {
   buildAiDebugFetch,
   ensureOpenAiCompatibleBaseUrl,
   readApiKey,
@@ -144,6 +148,20 @@ function wrapMoonshotWithReasoning(
 }
 
 /**
+ * Qwen / 阿里百炼系模型：在 SDK 默认 messages 转换器不支持 video/audio 的场景下，
+ * 用 transformParams middleware 把 video/audio file part 改成占位文本，
+ * 再用自定义 fetch 在 HTTP body 层把占位还原成 video_url / input_audio。
+ *
+ * 命中模型：任何 providerId ∈ { qwen, dashscope, alibaba } 的 SaaS 或直连模型。
+ */
+function wrapAlibabaFactory({ baseURL, apiKey, fetch }: SaasFactoryOpts) {
+  const realFetch = fetch ?? (globalThis.fetch as typeof globalThis.fetch);
+  const provider = createAlibaba({ baseURL, apiKey, fetch: wrapQwenMultimodalFetch(realFetch) });
+  return (modelId: string): LanguageModelV3 =>
+    wrapLanguageModel({ model: provider(modelId), middleware: createQwenMultimodalMiddleware() });
+}
+
+/**
  * SaaS provider → AI SDK model factory 映射。
  * 根据模型的原始 provider 字段选择对应的 @ai-sdk/* SDK，
  * 确保各 provider 特有的消息格式（如 reasoning_content）被正确处理。
@@ -173,9 +191,9 @@ const SAAS_PROVIDER_FACTORIES: Record<
   google: ({ baseURL, apiKey, fetch }) => createGoogleGenerativeAI({ baseURL, apiKey, fetch }),
   xai: ({ baseURL, apiKey, fetch }) => createXai({ baseURL, apiKey, fetch }),
   grok: ({ baseURL, apiKey, fetch }) => createXai({ baseURL, apiKey, fetch }),
-  alibaba: ({ baseURL, apiKey, fetch }) => createAlibaba({ baseURL, apiKey, fetch }),
-  dashscope: ({ baseURL, apiKey, fetch }) => createAlibaba({ baseURL, apiKey, fetch }),
-  qwen: ({ baseURL, apiKey, fetch }) => createAlibaba({ baseURL, apiKey, fetch }),
+  alibaba: wrapAlibabaFactory,
+  dashscope: wrapAlibabaFactory,
+  qwen: wrapAlibabaFactory,
 };
 
 /**

@@ -50,25 +50,52 @@ function tryExtractJsonErrorMessage(text: string): string | undefined {
   }
 }
 
-/**
- * 直接展示原始错误信息，不做友好化映射。
- */
-function resolveDisplayMessage(rawMessage: string, unknownError: string): string {
+type FriendlyMap = {
+  network: string;
+  timeout: string;
+  aborted: string;
+  serverUnavailable: string;
+  unknown: string;
+};
+
+function resolveDisplayMessage(rawMessage: string, friendly: FriendlyMap): string {
   const trimmed = rawMessage.trim();
-  if (!trimmed) return unknownError;
+  if (!trimmed) return friendly.unknown;
+  const lower = trimmed.toLowerCase();
+  if (
+    lower === "failed to fetch" ||
+    lower === "load failed" ||
+    lower.includes("networkerror") ||
+    lower.includes("network request failed") ||
+    lower.includes("err_network") ||
+    lower.includes("err_internet_disconnected") ||
+    lower.includes("err_name_not_resolved") ||
+    lower.includes("err_connection_refused")
+  ) {
+    return friendly.network;
+  }
+  if (lower.includes("timeout") || lower.includes("timed out") || lower.includes("etimedout")) {
+    return friendly.timeout;
+  }
+  if (lower === "aborted" || lower.includes("aborterror") || lower.includes("the operation was aborted")) {
+    return friendly.aborted;
+  }
+  if (/\b(502|503|504)\b/.test(trimmed) || lower.includes("bad gateway") || lower.includes("service unavailable") || lower.includes("gateway timeout")) {
+    return friendly.serverUnavailable;
+  }
   return trimmed;
 }
 
-function parseChatError(error: unknown, title: string, unknownError: string): ParsedError {
+function parseChatError(error: unknown, title: string, friendly: FriendlyMap): ParsedError {
   if (error instanceof Error) {
     const extracted = tryExtractJsonErrorMessage(error.message);
     const message = extracted ?? error.message ?? String(error);
-    return { title, message, displayMessage: resolveDisplayMessage(message, unknownError) };
+    return { title, message, displayMessage: resolveDisplayMessage(message, friendly) };
   }
 
   if (typeof error === "string") {
     const message = tryExtractJsonErrorMessage(error) ?? error;
-    return { title, message, displayMessage: resolveDisplayMessage(message, unknownError) };
+    return { title, message, displayMessage: resolveDisplayMessage(message, friendly) };
   }
 
   if (isRecord(error)) {
@@ -80,12 +107,12 @@ function parseChatError(error: unknown, title: string, unknownError: string): Pa
           : undefined;
     const message =
       (rawMessage ? tryExtractJsonErrorMessage(rawMessage) ?? rawMessage : undefined) ??
-      unknownError;
-    return { title, message, displayMessage: resolveDisplayMessage(message, unknownError) };
+      friendly.unknown;
+    return { title, message, displayMessage: resolveDisplayMessage(message, friendly) };
   }
 
   const message = String(error);
-  return { title, message, displayMessage: resolveDisplayMessage(message, unknownError) };
+  return { title, message, displayMessage: resolveDisplayMessage(message, friendly) };
 }
 
 export default function MessageError({ error }: MessageErrorProps) {
@@ -94,7 +121,13 @@ export default function MessageError({ error }: MessageErrorProps) {
   const { regenerate, clearError, continueAssistantTurn } = useChatActions();
   const { status } = useChatStatus();
   const { messages } = useChatMessages();
-  const parsed = parseChatError(error, t('error.title'), t('error.unknown'));
+  const parsed = parseChatError(error, t('error.title'), {
+    network: t('error.network'),
+    timeout: t('error.timeout'),
+    aborted: t('error.aborted'),
+    serverUnavailable: t('error.serverUnavailable'),
+    unknown: t('error.unknown'),
+  });
   const [copied, setCopied] = useState(false);
   const timerRef = useRef<number>(0);
 
@@ -153,7 +186,7 @@ export default function MessageError({ error }: MessageErrorProps) {
         {/* 第二行：错误信息（始终显示） */}
         <div className="px-3.5 pb-2.5">
           <p className="whitespace-pre-wrap break-words text-[12px] leading-relaxed text-ol-red dark:text-red-300">
-            {parsed.message}
+            {parsed.displayMessage}
           </p>
         </div>
 
