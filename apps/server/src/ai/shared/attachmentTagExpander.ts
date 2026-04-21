@@ -457,16 +457,26 @@ async function loadAsBase64FilePart(
 
 /**
  * Expand attachment tags found in tool-result text outputs inside CoreMessages
- * (the `messages` array passed to `prepareStep`). When the current model has
- * native image vision, any `<system-tag type="attachment" .../>` inside a
- * `role: 'tool'` message is resolved (CDN-upload or base64) and replaced with
- * an `image-data` / `file-url` content part so the model sees the actual
- * image at the next step.
+ * (the `messages` array passed to `prepareStep`).
  *
- * This enables the pattern:
- *   PptxInspect(render) → imagePath
- *   Read(imagePath)     → tool-result contains attachment tag
- *   next step           → model receives native image block
+ * Previously we inlined the image directly into the tool-result content. That
+ * broke on OpenAI-compat providers (Qwen DashScope, DeepSeek, ...) whose
+ * `role: "tool"` content spec only accepts strings — any image part inside
+ * tool-result is silently dropped, and the model is left with only the
+ * filename/metadata text, producing fabricated "visual descriptions".
+ *
+ * Fix: keep the tool-result as a plain-text breadcrumb and inject a separate
+ * `role: "user"` message immediately after it carrying the image as a native
+ * file part (`{type:'file', data: url|base64, mediaType}`). User-role
+ * multimodal content is universally supported across providers.
+ *
+ * Final chain:
+ *   PptxInspect(render)                          → imagePath
+ *   Read(imagePath)                              → tool-result text contains <system-tag attachment/>
+ *   [this function]                              → rewrites to:
+ *     tool:  tool-result text = "[media attached: <name>, see following user message]"
+ *     user:  content = [text breadcrumb, file part with the actual image]
+ *   next LLM step                                → model observes the image natively
  */
 export async function expandToolResultAttachmentTagsInCoreMessages(
   messages: unknown[],
@@ -485,6 +495,7 @@ export async function expandToolResultAttachmentTagsInCoreMessages(
     const content = Array.isArray(msg.content) ? msg.content : []
     let changed = false
     const newContent: unknown[] = []
+    const collectedMedia: Array<{ url: string; mediaType: string }> = []
 
     for (const part of content as Record<string, unknown>[]) {
       if (part.type !== 'tool-result') {
@@ -514,45 +525,76 @@ export async function expandToolResultAttachmentTagsInCoreMessages(
 
       // Reuse tokenizeTextWithTags (handles CDN upload + base64 fallback)
       const tokens = await tokenizeTextWithTags(text, caps)
-      const contentValue = tokensToToolResultContent(tokens)
+      const { newText, mediaParts } = splitTokensForToolResult(tokens)
+
+      if (mediaParts.length === 0) {
+        newContent.push(part)
+        continue
+      }
 
       changed = true
-      newContent.push({ ...part, output: { type: 'content', value: contentValue } })
+      newContent.push({ ...part, output: { type: 'text', value: newText } })
+      for (const m of mediaParts) collectedMedia.push(m)
     }
 
     result.push(changed ? { ...msg, content: newContent } : msg)
+
+    if (collectedMedia.length > 0) {
+      const userContent: unknown[] = [
+        {
+          type: 'text',
+          text:
+            'The preceding tool call returned the following media. Observe the visual content below directly — it is the ground truth for any subsequent description. Do NOT describe numbers, labels, or chart items that cannot be visually confirmed here.',
+        },
+        ...collectedMedia.map((m) => ({
+          type: 'file',
+          data: m.url,
+          mediaType: m.mediaType,
+        })),
+      ]
+      result.push({ role: 'user', content: userContent })
+    }
   }
 
   return result
 }
 
-/** Convert token stream to ToolResultOutput.content value array. */
-function tokensToToolResultContent(tokens: Token[]): unknown[] {
-  const parts: unknown[] = []
-
+/**
+ * Split tokens for tool-result: produces a plain-text breadcrumb string
+ * (ready to become the new tool-result `output.value`) and a list of
+ * `{url, mediaType}` pairs to inject as file parts in a follow-up user
+ * message.
+ */
+function splitTokensForToolResult(tokens: Token[]): {
+  newText: string
+  mediaParts: Array<{ url: string; mediaType: string }>
+} {
+  let newText = ''
+  const mediaParts: Array<{ url: string; mediaType: string }> = []
   for (const token of tokens) {
     if (token.kind === 'text') {
-      if (token.value) parts.push({ type: 'text', text: token.value })
+      newText += token.value
     } else if (token.kind === 'keep') {
-      parts.push({ type: 'text', text: token.tag })
+      newText += token.tag
     } else {
-      // file token: convert filePart.url to image-data or file-url
-      const { url } = token.filePart
-      if (url.startsWith('data:')) {
-        // data:<mimeType>;base64,<data>
-        const semi = url.indexOf(';base64,')
-        if (semi !== -1) {
-          parts.push({
-            type: 'image-data',
-            data: url.slice(semi + 8),
-            mediaType: url.slice(5, semi),
-          })
-        }
-      } else {
-        parts.push({ type: 'file-url', url })
-      }
+      const { url, mediaType } = token.filePart
+      const label = extractFilenameFromUrl(url) ?? mediaType
+      newText += `[media attached: ${label} (${mediaType}); view it in the following user message]`
+      mediaParts.push({ url, mediaType })
     }
   }
+  return { newText, mediaParts }
+}
 
-  return parts
+/** Best-effort filename extraction from a url or data URI for the breadcrumb label. */
+function extractFilenameFromUrl(url: string): string | null {
+  if (url.startsWith('data:')) return null
+  try {
+    const u = new URL(url)
+    const last = u.pathname.split('/').filter(Boolean).pop()
+    return last ? decodeURIComponent(last) : null
+  } catch {
+    const tail = url.split(/[/?#]/).filter(Boolean).pop()
+    return tail ?? null
+  }
 }

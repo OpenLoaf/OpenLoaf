@@ -32,7 +32,10 @@ vi.mock('@/ai/services/image/attachmentResolver', () => ({
 }))
 
 import { uploadFileToSaasCdn } from '@/ai/shared/saasUploader'
-import { expandAttachmentTagsForModel } from '@/ai/shared/attachmentTagExpander'
+import {
+  expandAttachmentTagsForModel,
+  expandToolResultAttachmentTagsInCoreMessages,
+} from '@/ai/shared/attachmentTagExpander'
 
 const mockedUpload = vi.mocked(uploadFileToSaasCdn)
 
@@ -236,6 +239,131 @@ describe('expandAttachmentTagsForModel', () => {
       expect(mockedUpload).not.toHaveBeenCalled()
       const parts = (out.messages[0] as any).parts
       expect(parts[0].text).toContain(tag)
+    })
+  })
+
+  describe('tool-result expansion (follow-up user message)', () => {
+    // Reset the mock queue before each test — mockResolvedValueOnce values
+    // persist across tests otherwise and contaminate other tests' runs.
+    beforeEach(() => {
+      mockedUpload.mockReset()
+    })
+
+    function toolMessage(toolCallId: string, text: string) {
+      return {
+        role: 'tool' as const,
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId,
+            toolName: 'Read',
+            output: { type: 'text', value: text },
+          },
+        ],
+      }
+    }
+
+    it('short-circuits when model lacks image capability', async () => {
+      const msg = toolMessage('c1', `pre ${makeTag(imagePath)} post`)
+      const out = await expandToolResultAttachmentTagsInCoreMessages(
+        [msg],
+        visionModel(['chat']),
+      )
+      expect(out).toEqual([msg])
+      expect(mockedUpload).not.toHaveBeenCalled()
+    })
+
+    it('leaves non-tool messages untouched', async () => {
+      const tag = makeTag(imagePath)
+      const userMsg = { role: 'user' as const, content: [{ type: 'text', text: `u ${tag}` }] }
+      const out = await expandToolResultAttachmentTagsInCoreMessages(
+        [userMsg],
+        visionModel(['image_input']),
+      )
+      expect(out).toEqual([userMsg])
+      expect(mockedUpload).not.toHaveBeenCalled()
+    })
+
+    it('injects follow-up user message with file part and keeps tool-result as text breadcrumb', async () => {
+      mockedUpload.mockResolvedValueOnce({ url: 'https://cdn/slide3.png', mediaType: 'image/png' })
+      const tag = makeTag(imagePath)
+      const msg = toolMessage('c1', `File info: ${tag} (done)`)
+      const out = await expandToolResultAttachmentTagsInCoreMessages(
+        [msg],
+        visionModel(['image_input']),
+      )
+
+      expect(out).toHaveLength(2)
+
+      // 1) tool message: output is plain text, attachment tag replaced by breadcrumb
+      const toolOut: any = (out[0] as any).content[0]
+      expect(toolOut.output.type).toBe('text')
+      expect(typeof toolOut.output.value).toBe('string')
+      expect(toolOut.output.value).not.toContain('<system-tag')
+      expect(toolOut.output.value).toMatch(/\[media attached:/)
+      expect(toolOut.output.value).toContain('following user message')
+
+      // 2) injected follow-up user message carries a file part
+      const followUp: any = out[1]
+      expect(followUp.role).toBe('user')
+      expect(Array.isArray(followUp.content)).toBe(true)
+      const textPart = followUp.content[0]
+      const filePart = followUp.content[1]
+      expect(textPart.type).toBe('text')
+      expect(filePart).toEqual({
+        type: 'file',
+        data: 'https://cdn/slide3.png',
+        mediaType: 'image/png',
+      })
+    })
+
+    it('falls back to base64 data URI in file part when CDN upload fails', async () => {
+      mockedUpload.mockResolvedValueOnce(null)
+      const msg = toolMessage('c1', makeTag(imagePath))
+      const out = await expandToolResultAttachmentTagsInCoreMessages(
+        [msg],
+        visionModel(['image_input']),
+      )
+
+      expect(out).toHaveLength(2)
+      const filePart: any = (out[1] as any).content[1]
+      expect(filePart.type).toBe('file')
+      expect(filePart.mediaType).toBe('image/jpeg')
+      expect(String(filePart.data)).toMatch(/^data:image\/jpeg;base64,/)
+    })
+
+    it('leaves message untouched when no media parts could be resolved', async () => {
+      // Unsupported kind (video tag, model only supports image) → tag kept, no media collected
+      const msg = toolMessage('c1', `metadata ${makeTag(videoPath)}`)
+      const out = await expandToolResultAttachmentTagsInCoreMessages(
+        [msg],
+        visionModel(['image_input']),
+      )
+      expect(out).toEqual([msg])
+    })
+
+    it('handles multiple attachments in one tool-result (all go into one follow-up user message)', async () => {
+      mockedUpload
+        .mockResolvedValueOnce({ url: 'https://cdn/a.png', mediaType: 'image/png' })
+        .mockResolvedValueOnce({ url: 'https://cdn/b.png', mediaType: 'image/png' })
+      const img2 = nodePath.join(tmpDir, 'pic2.jpg')
+      await fs.writeFile(img2, 'fake')
+      const msg = toolMessage(
+        'c1',
+        `one ${makeTag(imagePath)} and another ${makeTag(img2)}`,
+      )
+      const out = await expandToolResultAttachmentTagsInCoreMessages(
+        [msg],
+        visionModel(['image_input']),
+      )
+
+      expect(out).toHaveLength(2)
+      const followUp: any = out[1]
+      const fileParts = followUp.content.filter((p: any) => p.type === 'file')
+      expect(fileParts.map((p: any) => p.data)).toEqual([
+        'https://cdn/a.png',
+        'https://cdn/b.png',
+      ])
     })
   })
 

@@ -64,9 +64,10 @@ Output is XML-tagged: <system-tag type="fileInfo" toolName="Read"> carries <file
 Format handling:
 - Text / code / config (.ts/.md/.json/.yaml/...) → numbered lines; use offset/limit for ranges
 - PDF / DOCX / XLSX / PPTX → fast local preview only (page count / sheet list / slide titles / first-page snippet). For the full Markdown body + extracted images use the DocPreview tool with mode='full'.
-- Image → behavior depends on model capability:
-    • Vision-capable model (native-inputs includes "image"): Read returns a <system-tag type="attachment" path="..." media-type="..."/> tag. At the very next step the image is automatically embedded into the model context — you will see it natively without any extra tool call. This is the preferred path for inspecting rendered slides (PptxInspect render → imagePath → Read).
+- Image (PNG/JPG/WebP/...) → behavior depends on model capability (check the trailing <system-tag type="msg-context"> native-inputs):
+    • Vision-capable model (native-inputs includes "image"): Read returns a <system-tag type="attachment" path="..." media-type="..."/> tag. At the very next step the runtime injects the image as a native part via a follow-up user message so you see it directly. This is the preferred path for inspecting rendered slides (PptxInspect render → imagePath → Read).
     • Non-vision model: Read returns local metadata only (dimensions / format) plus a <suggest skill="cloud-media-skill"> hint; to OCR / caption the image call CloudImageUnderstand instead.
+    • HARD RULE — anti-hallucination: after Read on an image, the only valid visual claims are those you can confirm from the native image part the runtime just injected (vision model) or from a CloudImageUnderstand response (non-vision model). If neither channel produced content you can observe, STOP. Do NOT emit specific numbers, labels, region names, axis values, or chart data. Either say "I cannot see the image content" or re-dispatch through the correct channel — NEVER infer visual content from the filename, slide title, or surrounding text.
 - Video / Audio → local metadata only (bytes / format). To transcribe / caption, SkillLoad cloud-media-skill and follow its playbook.
 - Directories → not supported; use Glob or Bash ls
 
