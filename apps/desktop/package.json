@@ -92,7 +92,8 @@
     ]
   },
   "scripts": {
-    "predesktop": "node scripts/fixElectronInstall.mjs && pnpm run build:speech-helper && pnpm run build:calendar-helper && pnpm run build:docx-sfdt-helper && pnpm run prefetch:ytdlp",
+    "predesktop": "node scripts/fixElectronInstall.mjs && pnpm run build:speech-helper && pnpm run build:calendar-helper && pnpm run build:docx-sfdt-helper && pnpm run build:macos-control-helper && pnpm run prefetch:ytdlp",
+    "build:macos-control-helper": "node scripts/buildMacosControlHelper.mjs",
     "prefetch:ytdlp": "node scripts/prefetchYtdlp.mjs",
     "desktop": "node scripts/startDev.mjs",
     "build:speech-helper": "node scripts/buildSpeechHelper.mjs",

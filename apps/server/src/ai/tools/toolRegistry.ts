@@ -67,6 +67,11 @@ import {
   cloudImageUnderstandTool,
   enhanceCloudNamedToolDescription,
 } from "@/ai/tools/cloud/cloudNamedTools";
+import {
+  macosObserveTool,
+  macosActTool,
+} from "@/ai/tools/macosControlTools";
+import { isDesktopRuntime } from "@/runtime/desktopRuntime";
 import { openUrlToolDef } from "@openloaf/api/types/tools/browser";
 import {
   browserActToolDef,
@@ -138,6 +143,8 @@ import {
   editDocumentToolDef,
   submitPlanToolDef,
   savePlanDraftToolDef,
+  macosObserveToolDef,
+  macosActToolDef,
 } from "@openloaf/api/types/tools/runtime";
 import { docPreviewToolDef } from "@openloaf/api/types/tools/docPreview";
 import { generateWidgetToolDef } from "@openloaf/api/types/tools/widget";
@@ -405,6 +412,15 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
   [cloudImageUnderstandToolDef.id]: {
     tool: cloudImageUnderstandTool,
   },
+  // Desktop-only macOS control tools. Registration is gated on OPENLOAF_RUNTIME=desktop —
+  // the server process env set by the Electron supervisor. Off-desktop these entries are
+  // simply absent so the model never sees them in tool lists.
+  ...(isDesktopRuntime()
+    ? {
+        [macosObserveToolDef.id]: { tool: macosObserveTool },
+        [macosActToolDef.id]: { tool: macosActTool },
+      }
+    : {}),
 };
 
 
@@ -478,6 +494,12 @@ const TOOL_DEF_REGISTRY: Record<string, { parameters?: any }> = {
   [cloudTTSToolDef.id]: cloudTTSToolDef,
   [cloudSpeechRecognizeToolDef.id]: cloudSpeechRecognizeToolDef,
   [cloudImageUnderstandToolDef.id]: cloudImageUnderstandToolDef,
+  ...(isDesktopRuntime()
+    ? {
+        [macosObserveToolDef.id]: macosObserveToolDef,
+        [macosActToolDef.id]: macosActToolDef,
+      }
+    : {}),
 };
 
 /**

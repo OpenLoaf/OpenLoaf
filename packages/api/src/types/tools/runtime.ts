@@ -231,3 +231,121 @@ export type PlanItem = {
   step: string;
   status: "pending" | "in_progress" | "completed" | "failed";
 };
+
+// ───────── macOS Control Tools ─────────
+
+/** Reference to an AX UI element, either by path-from-root or by AX identifier. */
+const axRefSchema = z.union([
+  z.object({
+    app: z.string().min(1).describe("App name or bundle id (e.g. 'Finder', 'com.apple.finder')."),
+    path: z
+      .array(z.number().int().nonnegative())
+      .describe("Child-index chain from the app root — read this from a previous MacosObserve response."),
+  }),
+  z.object({
+    identifier: z.string().min(1).describe("AX identifier (AXIdentifier) — stable across window moves."),
+  }),
+]);
+
+const pointSchema = z.object({
+  x: z.number(),
+  y: z.number(),
+});
+
+export const macosObserveToolDef = {
+  id: "MacosObserve",
+  readonly: true,
+  name: "Observe macOS",
+  description: `Take a screenshot of the main display AND dump the Accessibility tree of the target app.
+
+Use this as the first step in any macOS control loop, and after every MacosAct call, so you can re-observe the UI state before your next action.
+
+Output: an attachment tag pointing at the PNG (vision-capable models will see the image natively) plus a JSON summary of the AX tree. Each AX node has:
+  - role / subrole / title / value / identifier / frame {x,y,w,h}
+  - actions[] (e.g. ["AXPress", "AXShowMenu"])
+  - path: child-index chain from the app root — pass this back as AxRef when calling MacosAct
+
+Requires Screen Recording + Accessibility permissions. If either is missing, the tool returns a structured error; relay the message to the user and ask them to grant access in System Settings → Privacy & Security.`,
+  parameters: z.object({
+    appFilter: z
+      .string()
+      .optional()
+      .describe("App name or bundle id. Omit to observe the frontmost app."),
+    maxNodes: z
+      .number()
+      .int()
+      .min(50)
+      .max(5000)
+      .optional()
+      .describe("Cap on AX tree node count. Default 1500."),
+    maxDepth: z
+      .number()
+      .int()
+      .min(1)
+      .max(12)
+      .optional()
+      .describe("AX tree depth cap. Default 6."),
+    includeScreenshot: z
+      .boolean()
+      .optional()
+      .describe("Set false to skip the PNG (AX tree only). Default true."),
+  }),
+  component: null,
+} as const;
+
+export const macosActToolDef = {
+  id: "MacosAct",
+  readonly: false,
+  name: "Act on macOS",
+  description: `Execute ONE synthetic UI action on the user's Mac. Always call MacosObserve again afterwards to see the result before deciding the next action — do not chain blind.
+
+Actions:
+  - click   → click at an AxRef or raw {x,y}; use ax_action AXPress when possible (robust to window moves)
+  - type    → type arbitrary Unicode text (CJK supported) at the current focus
+  - key     → press a key chord, e.g. keys: ["cmd","space"]
+  - scroll  → scroll at a point by {dx,dy} pixels
+  - drag    → drag from {x,y} to {x,y}
+  - wait    → sleep ms (max 10000)
+  - ax_action → call AXUIElementPerformAction with a named AX action on a ref
+
+Requires Accessibility permission. Blocked apps (password managers, banking) are refused. Each call auto-settles 150ms before returning so observations that follow see post-reaction UI.`,
+  parameters: z.object({
+    action: z.discriminatedUnion("type", [
+      z.object({
+        type: z.literal("click"),
+        ref: axRefSchema.optional(),
+        point: pointSchema.optional(),
+        button: z.enum(["left", "right"]).optional(),
+        clicks: z.number().int().min(1).max(3).optional(),
+      }),
+      z.object({ type: z.literal("type"), text: z.string() }),
+      z.object({
+        type: z.literal("key"),
+        keys: z.array(z.string()).min(1).describe(
+          'Modifier + key names, e.g. ["cmd","space"], ["cmd","shift","p"], ["return"].',
+        ),
+      }),
+      z.object({
+        type: z.literal("scroll"),
+        point: pointSchema,
+        dy: z.number(),
+        dx: z.number().optional(),
+      }),
+      z.object({
+        type: z.literal("drag"),
+        from: pointSchema,
+        to: pointSchema,
+      }),
+      z.object({ type: z.literal("wait"), ms: z.number().int().min(0).max(10000) }),
+      z.object({
+        type: z.literal("ax_action"),
+        ref: axRefSchema,
+        action: z.string().describe("AX action name, e.g. AXPress, AXShowMenu, AXRaise."),
+      }),
+    ]),
+  }),
+  component: null,
+} as const;
+
+export type MacosObserveArgs = z.infer<typeof macosObserveToolDef.parameters>;
+export type MacosActArgs = z.infer<typeof macosActToolDef.parameters>;
