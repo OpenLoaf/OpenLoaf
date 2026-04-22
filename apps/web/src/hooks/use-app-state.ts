@@ -16,9 +16,6 @@ import { useLayoutState, type LayoutState } from "./use-layout-state"
 /** Combined app state (replaces useTabView). */
 export type AppState = Pick<
   AppViewState,
-  | "chatSessionId"
-  | "chatParams"
-  | "chatLoadHistory"
   | "projectShell"
   | "title"
   | "icon"
@@ -40,9 +37,6 @@ export function getAppState(): AppState {
   const view = useAppView.getState()
   const layout = useLayoutState.getState()
   return {
-    chatSessionId: view.chatSessionId,
-    chatParams: view.chatParams,
-    chatLoadHistory: view.chatLoadHistory,
     projectShell: view.projectShell,
     title: view.title,
     icon: view.icon,
@@ -59,9 +53,6 @@ export function getAppState(): AppState {
 
 /** Hook to get combined app state (replaces useTabView). */
 export function useAppState(): AppState {
-  const chatSessionId = useAppView((s) => s.chatSessionId)
-  const chatParams = useAppView((s) => s.chatParams)
-  const chatLoadHistory = useAppView((s) => s.chatLoadHistory)
   const projectShell = useAppView((s) => s.projectShell)
   const title = useAppView((s) => s.title)
   const icon = useAppView((s) => s.icon)
@@ -76,9 +67,6 @@ export function useAppState(): AppState {
 
   return useMemo(
     () => ({
-      chatSessionId,
-      chatParams,
-      chatLoadHistory,
       projectShell,
       title,
       icon,
@@ -92,9 +80,6 @@ export function useAppState(): AppState {
       activeStackItemId,
     }),
     [
-      chatSessionId,
-      chatParams,
-      chatLoadHistory,
       projectShell,
       title,
       icon,

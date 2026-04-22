@@ -47,19 +47,43 @@ vi.mock('@/hooks/use-project', () => ({
 
 vi.mock('@/hooks/use-app-view', () => {
   const state = {
-    chatSessionId: 'session-1',
-    chatParams: {},
     projectShell: null,
     title: 'Test',
     icon: '',
     navigate: vi.fn(),
-    setChatSession: vi.fn(),
-    setChatParams: vi.fn(),
   }
   const useAppView = (selector?: any) => (typeof selector === 'function' ? selector(state) : state)
   useAppView.getState = () => state
   useAppView.subscribe = vi.fn(() => vi.fn())
   return { useAppView }
+})
+
+vi.mock('@/hooks/use-chat-view', () => {
+  const state = {
+    sessions: { __global__: { activeSessionId: 'session-1' } },
+    chatOnlineSearchEnabled: false,
+    setActiveSession: vi.fn(),
+    clearActiveSession: vi.fn(),
+    setChatOnlineSearchEnabled: vi.fn(),
+    getActiveSessionId: (_scope: string) => 'session-1',
+  }
+  const useChatView = (selector?: any) => (typeof selector === 'function' ? selector(state) : state)
+  useChatView.getState = () => state
+  useChatView.subscribe = vi.fn(() => vi.fn())
+  return { useChatView, GLOBAL_CHAT_SCOPE: '__global__' }
+})
+
+vi.mock('@/lib/chat-scope', () => {
+  const scope = {
+    scope: '__global__',
+    projectId: null,
+    boardId: null,
+    pageContext: { scope: 'global', page: 'ai-chat' },
+  }
+  return {
+    getChatScope: () => scope,
+    useChatScope: () => scope,
+  }
 })
 
 vi.mock('@/hooks/use-layout-state', () => {

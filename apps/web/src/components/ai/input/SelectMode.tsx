@@ -18,7 +18,8 @@ import { useModelPreferences } from './model-preferences/useModelPreferences'
 import { ModelPreferencesPanel } from './model-preferences/ModelPreferencesPanel'
 
 import { useOptionalChatSession } from '../context'
-import { useAppView } from '@/hooks/use-app-view'
+import { useChatView } from '@/hooks/use-chat-view'
+import { useChatScope } from '@/lib/chat-scope'
 import { PromptInputButton } from '@/components/ai-elements/prompt-input'
 import {
   Popover,
@@ -52,8 +53,9 @@ function SelectModeInner({
   const [loginOpen, setLoginOpen] = useState(false)
   const prefs = useModelPreferences()
   const chatSession = useOptionalChatSession()
-  const chatSessionId = useAppView((s) => s.chatSessionId)
-  const tabId = chatSession?.tabId ?? chatSessionId
+  const scope = useChatScope()
+  const activeSessionId = useChatView((s) => s.sessions[scope.scope]?.activeSessionId ?? "")
+  const tabId = chatSession?.tabId ?? activeSessionId
   const isIconTrigger = triggerVariant === 'icon'
 
   // CLI 模式下不显示工具 icon（codeModelIds 已移除）

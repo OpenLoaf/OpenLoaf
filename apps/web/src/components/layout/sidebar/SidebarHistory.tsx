@@ -9,6 +9,8 @@ import { useIsInView } from "@/hooks/use-is-in-view";
 import { useSidebarNavigation } from "@/hooks/use-sidebar-navigation";
 import { useAppView } from "@/hooks/use-app-view";
 import { useLayoutState } from "@/hooks/use-layout-state";
+import { useChatView } from "@/hooks/use-chat-view";
+import { useChatScope } from "@/lib/chat-scope";
 import { trpc } from "@/utils/trpc";
 import {
   SidebarGroup,
@@ -177,9 +179,12 @@ export function SidebarHistory({ projectId }: SidebarHistoryProps) {
     void historyQuery.fetchNextPage();
   }, [hasMore, historyQuery, isFetchingNextPage, isLoadMoreInView]);
 
-  const chatSessionId = useAppView((state) => state.chatSessionId);
   const projectShell = useAppView((state) => state.projectShell);
   const activeBase = useLayoutState((state) => state.base);
+  const scope = useChatScope();
+  const chatSessionId = useChatView(
+    (s) => s.sessions[scope.scope]?.activeSessionId ?? "",
+  );
 
   const isItemActive = useCallback(
     (item: SidebarHistoryItem) => {

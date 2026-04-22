@@ -37,6 +37,8 @@ import { Textarea } from "@openloaf/ui/textarea";
 import { useGlobalOverlay } from "@/lib/globalShortcuts";
 import { useAppView } from "@/hooks/use-app-view";
 import { useLayoutState } from "@/hooks/use-layout-state";
+import { useChatView } from "@/hooks/use-chat-view";
+import { useChatScope } from "@/lib/chat-scope";
 import { useSaasAuth } from "@/hooks/use-saas-auth";
 import { resolveSaasBaseUrl } from "@/lib/saas-auth";
 import { resolveServerUrl } from "@/utils/server-url";
@@ -80,7 +82,10 @@ export function FeedbackDialog() {
   const open = useGlobalOverlay((s) => s.feedbackOpen);
   const setFeedbackOpen = useGlobalOverlay((s) => s.setFeedbackOpen);
   const appViewState = useAppView();
-  const chatSessionId = useAppView((s) => s.chatSessionId);
+  const scope = useChatScope();
+  const chatSessionId = useChatView(
+    (s) => s.sessions[scope.scope]?.activeSessionId ?? "",
+  );
   const layoutState = useLayoutState();
   const { loggedIn: authLoggedIn } = useSaasAuth();
 

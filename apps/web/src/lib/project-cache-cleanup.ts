@@ -25,8 +25,12 @@ export function cleanupProjectCache(projectId: string): void {
   const patchedSnapshots = { ...snapshotState.snapshots }
   let snapshotChanged = false
   for (const [key, snapshot] of Object.entries(patchedSnapshots)) {
+    const baseProjectId =
+      typeof snapshot?.layout?.base?.params?.projectId === "string"
+        ? (snapshot.layout.base.params.projectId as string)
+        : null
     if (
-      snapshot?.chatParams?.projectId === projectId ||
+      baseProjectId === projectId ||
       snapshot?.projectShell?.projectId === projectId
     ) {
       delete patchedSnapshots[key as keyof typeof patchedSnapshots]
@@ -37,17 +41,10 @@ export function cleanupProjectCache(projectId: string): void {
     useSectionSnapshot.setState({ snapshots: patchedSnapshots })
   }
 
-  // 3. app-view: if current view references this project, clear the reference
+  // 3. app-view: if current projectShell references this project, clear it
   const appView = useAppView.getState()
-  if (
-    appView.chatParams?.projectId === projectId ||
-    appView.projectShell?.projectId === projectId
-  ) {
-    const { projectId: _, ...restParams } = appView.chatParams as Record<string, unknown>
-    useAppView.setState({
-      chatParams: restParams,
-      projectShell: null,
-    })
+  if (appView.projectShell?.projectId === projectId) {
+    useAppView.setState({ projectShell: null })
   }
 
   // 4. recent-open: remove project entries from global list and project bucket

@@ -26,7 +26,6 @@ import { Popover, PopoverContent, PopoverTrigger } from "@openloaf/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@openloaf/ui/command";
 import { buildBoardFolderUri, buildFileUriFromRoot } from "@/components/project/filesystem/utils/file-system-utils";
 import { BOARD_INDEX_FILE_NAME } from "@/lib/file-name";
-import { buildBoardChatTabState } from "./utils/board-chat-tab";
 import { ColorPickerSubMenu } from "@/components/shared/ColorPickerSubMenu";
 import { useSaasAuth } from "@/hooks/use-saas-auth";
 import { SaasLoginDialog } from "@/components/auth/SaasLoginDialog";
@@ -761,7 +760,6 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
       navigate({
         title: board.title || t("canvasList.untitled"),
         icon: "🎨",
-        ...buildBoardChatTabState(board.id, board.projectId ?? currentProjectShell?.projectId),
         leftWidthPercent: 100,
         // Preserve project context when opening a canvas from within a project
         ...(currentProjectShell ? { projectShell: currentProjectShell } : {}),

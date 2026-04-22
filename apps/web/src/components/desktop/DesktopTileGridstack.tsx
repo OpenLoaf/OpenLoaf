@@ -75,7 +75,7 @@ export default function DesktopTileGridstack({
   const pointerStartRef = React.useRef<{ id: number; x: number; y: number } | null>(null);
   const { basic } = useBasicConfig();
   const projectStorageRootUri = useProjectStorageRootUri();
-  const chatParams = useAppView((state) => state.chatParams);
+  const projectShell = useAppView((state) => state.projectShell);
   const layoutBase = useLayoutState((state) => state.base);
   // 逻辑：Flip Clock 默认展示秒数。
   const showSeconds =
@@ -95,8 +95,8 @@ export default function DesktopTileGridstack({
   const projectId =
     typeof baseParams?.projectId === "string"
       ? String(baseParams.projectId)
-      : typeof chatParams?.projectId === "string"
-        ? String(chatParams.projectId)
+      : projectShell?.projectId
+        ? String(projectShell.projectId)
         : undefined;
   const projectRootUri =
     typeof baseParams?.rootUri === "string" ? String(baseParams.rootUri) : undefined;

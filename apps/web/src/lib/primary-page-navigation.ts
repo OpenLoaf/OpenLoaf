@@ -35,9 +35,6 @@ export type PreviousViewSnapshot = {
   title: string;
   icon: string;
   projectShell: ProjectShellState | null;
-  chatSessionId: string;
-  chatParams: Record<string, unknown>;
-  chatLoadHistory: boolean;
   layout: PrimaryPageLayoutSnapshot;
 };
 
@@ -59,9 +56,6 @@ export function captureCurrentViewSnapshot(): PreviousViewSnapshot {
     title: state.title,
     icon: state.icon,
     projectShell: state.projectShell,
-    chatSessionId: state.chatSessionId,
-    chatParams: state.chatParams,
-    chatLoadHistory: state.chatLoadHistory,
     layout: {
       base: state.base,
       stack: state.stack,
@@ -85,9 +79,6 @@ export function resolvePreviousViewSnapshot(base?: DockItem): PreviousViewSnapsh
 /** Restore a view snapshot directly (used by section navigation and back-button). */
 export function restoreViewSnapshot(snapshot: PreviousViewSnapshot) {
   useAppView.setState({
-    chatSessionId: snapshot.chatSessionId,
-    chatParams: snapshot.chatParams,
-    chatLoadHistory: snapshot.chatLoadHistory,
     projectShell: snapshot.projectShell,
     title: snapshot.title,
     icon: snapshot.icon,
@@ -140,8 +131,6 @@ export function openPrimaryPage(
   view.setTitle(input.title);
   view.setIcon(input.icon);
   view.setProjectShell(null);
-  // 中文注释：退出项目/画布语义时同步清理聊天上下文，避免全局页沿用旧 projectId/boardId。
-  view.setChatParams({ projectId: undefined, boardId: undefined });
 
   layout.setBase({
     id: input.baseId,

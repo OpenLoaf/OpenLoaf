@@ -49,9 +49,6 @@ function resolvePreviousViewLabel(
     ...snapshot.layout,
     projectShell: snapshot.projectShell,
     title: snapshot.title,
-    chatSessionId: snapshot.chatSessionId,
-    chatLoadHistory: snapshot.chatLoadHistory,
-    chatParams: snapshot.chatParams,
   });
 
   if (snapshot.projectShell?.title?.trim()) {

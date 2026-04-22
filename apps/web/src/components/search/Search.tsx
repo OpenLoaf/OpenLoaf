@@ -119,17 +119,13 @@ export function Search({
   }, [scopedProjectId]);
   /** 当前激活 Tab 的面板参数。 */
   const activeBaseParams = activeTab?.base?.params as Record<string, unknown> | undefined;
-  /** 当前激活 Tab 的聊天参数。 */
-  const activeChatParams = activeTab?.chatParams as Record<string, unknown> | undefined;
   const activeProjectId = React.useMemo(() => {
     const shellProjectId =
       typeof activeProjectShell?.projectId === "string" ? activeProjectShell.projectId : null;
     const baseProjectId =
       typeof activeBaseParams?.projectId === "string" ? activeBaseParams.projectId : null;
-    const chatProjectId =
-      typeof activeChatParams?.projectId === "string" ? activeChatParams.projectId : null;
-    return shellProjectId ?? baseProjectId ?? chatProjectId ?? null;
-  }, [activeBaseParams, activeChatParams, activeProjectShell?.projectId]);
+    return shellProjectId ?? baseProjectId ?? null;
+  }, [activeBaseParams, activeProjectShell?.projectId]);
   const scopedProjectTitle = React.useMemo(() => {
     if (!scopedProjectId) return null;
     return projectHierarchy.projectById.get(scopedProjectId)?.title;

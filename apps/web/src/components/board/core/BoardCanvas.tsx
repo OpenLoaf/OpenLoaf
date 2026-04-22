@@ -43,7 +43,6 @@ import {
 } from "@openloaf/ui/select";
 import { useAppView } from "@/hooks/use-app-view";
 import { useLayoutState } from "@/hooks/use-layout-state";
-import { buildBoardChatTabState } from "../utils/board-chat-tab";
 import { BoardProvider, type ImagePreviewPayload } from "./BoardProvider";
 import { CanvasEngine } from "../engine/CanvasEngine";
 import type { CanvasElement, CanvasNodeDefinition } from "../engine/types";
@@ -350,7 +349,6 @@ export function BoardCanvas({
       navigate({
         title: newBoard.title,
         icon: "🎨",
-        ...buildBoardChatTabState(newBoard.id, projectId),
         leftWidthPercent: 100,
         ...(currentProjectShell && currentProjectShell.projectId === projectId
           ? { projectShell: currentProjectShell }

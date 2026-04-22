@@ -27,6 +27,8 @@ import {
 import { useProjectLayout } from "@/hooks/use-project-layout"
 import { useRecordEntityVisit } from "@/hooks/use-record-entity-visit"
 import { useChatSessions } from "@/hooks/use-chat-sessions"
+import { useChatView } from "@/hooks/use-chat-view"
+import { useChatScope } from "@/lib/chat-scope"
 import { LeftDock } from "./LeftDock"
 import { TabActiveProvider, useTabActive } from "./TabActiveContext"
 
@@ -75,8 +77,8 @@ class PanelErrorBoundary extends React.Component<
 // switch sessions and create new ones regardless of which board is open.
 function RightChatPanel() {
   const isActive = useTabActive()
-  const activeSessionId = useAppView((s) => s.chatSessionId)
-  const chatParams = useAppView((s) => s.chatParams)
+  const scope = useChatScope()
+  const activeSessionId = useChatView((s) => s.sessions[scope.scope]?.activeSessionId ?? "")
   const layout = useLayoutState()
   const { recordEntityVisit } = useRecordEntityVisit()
   const { sessions: remoteSessions } = useChatSessions({ enabled: isActive })
@@ -85,12 +87,6 @@ function RightChatPanel() {
     if (!activeSessionId) return false
     return remoteSessions.some((session) => session.id === activeSessionId)
   }, [activeSessionId, remoteSessions])
-
-  const currentProjectId = React.useMemo(() => {
-    const params = chatParams as Record<string, unknown> | undefined
-    const pid = params?.projectId
-    return typeof pid === "string" ? pid.trim() : ""
-  }, [chatParams])
 
   // Record entity visit
   const prevVisitRef = React.useRef<{
@@ -104,7 +100,7 @@ function RightChatPanel() {
   React.useEffect(() => {
     const prev = prevVisitRef.current
     const nextSessionId = activeSessionId ?? null
-    const nextProjectId = currentProjectId || null
+    const nextProjectId = scope.projectId
     const sessionChanged = prev.sessionId !== nextSessionId
     const projectChanged = prev.projectId !== nextProjectId
 
@@ -124,7 +120,7 @@ function RightChatPanel() {
     })
   }, [
     activeSessionId,
-    currentProjectId,
+    scope.projectId,
     hasRemoteActiveSession,
     recordEntityVisit,
   ])
@@ -137,16 +133,19 @@ function RightChatPanel() {
       <div className="flex min-h-0 flex-1 flex-col">
         <div className="relative flex min-h-0 flex-1 flex-col rounded-3xl bg-background overflow-hidden">
           <Chat
+            key={scope.scope}
             className="flex-1 min-h-0"
             fullPage={!layout.base}
             panelKey="chat:main"
             sessionId={activeSessionId}
             loadHistory={true}
             tabId="main"
-            {...(chatParams ?? {})}
+            projectId={scope.projectId ?? undefined}
+            boardId={scope.boardId ?? undefined}
+            pageContext={scope.pageContext}
             active={isActive}
-            onSessionChange={(sessionId, options) => {
-              useAppView.getState().setChatSession(sessionId, options?.loadHistory)
+            onSessionChange={(sessionId) => {
+              useChatView.getState().setActiveSession(scope.scope, sessionId)
             }}
           />
         </div>
@@ -165,7 +164,6 @@ export function TabLayout() {
   const rightChatCollapsed = useLayoutState((s) => s.rightChatCollapsed)
   const activeStackItemId = useLayoutState((s) => s.activeStackItemId)
   const stackHidden = Boolean(useLayoutState((s) => s.stackHidden))
-  const chatParams = useAppView((s) => s.chatParams)
   const projectShell = useAppView((s) => s.projectShell)
   const { recordEntityVisit } = useRecordEntityVisit()
   const reduceMotion = useReducedMotion()
@@ -428,12 +426,12 @@ export function TabLayout() {
     layout.setLeftWidthPercent(Math.round(nextPercent * 10) / 10)
   }
 
-  // Sync layout preferences to per-project cache
+  // Sync layout preferences to per-project cache — derive projectId from base/projectShell.
   const activeProjectId = React.useMemo(() => {
-    const params = chatParams as Record<string, unknown> | undefined
-    const pid = params?.projectId
-    return typeof pid === "string" ? pid.trim() : ""
-  }, [chatParams])
+    if (projectShell?.projectId) return projectShell.projectId
+    const baseProjectId = activeBaseParams.projectId
+    return typeof baseProjectId === "string" ? baseProjectId.trim() : ""
+  }, [projectShell?.projectId, activeBaseParams])
 
   React.useEffect(() => {
     if (!activeProjectId) return

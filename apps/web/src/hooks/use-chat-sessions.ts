@@ -14,6 +14,7 @@ import { skipToken, useInfiniteQuery, type QueryClient } from "@tanstack/react-q
 import type { AutoTestVerdict } from "@openloaf/api";
 import { trpc } from "@/utils/trpc";
 import { useAppState } from "@/hooks/use-app-state";
+import { useChatScope } from "@/lib/chat-scope";
 
 /** Session list item used by chat UI. */
 export type ChatSessionListItem = {
@@ -86,16 +87,16 @@ function buildRecentSessions(sessions: ChatSessionListItem[]): ChatSessionListIt
 /** Fetch chat sessions for list + header + recent usage. */
 export function useChatSessions(_input?: UseChatSessionsInput) {
   const tab = useAppState();
+  const chatScope = useChatScope();
   const boardBaseParams =
     tab?.base?.component === "board-viewer"
       ? (tab.base.params as Record<string, unknown> | undefined)
       : undefined;
   const scopedBoardId = normalizeOptionalId(boardBaseParams?.boardId)
-    ?? normalizeOptionalId((tab?.chatParams as Record<string, unknown> | undefined)?.boardId);
-  // 有 chatParams.projectId 的 tab（项目聊天、plant-page 等）按项目范围过滤会话。
+    ?? normalizeOptionalId(chatScope.boardId);
+  // 根据 chat scope（派生自 base/projectShell）过滤会话。
   const scopedProjectId = normalizeOptionalId(
-    boardBaseParams?.projectId
-      ?? (tab?.chatParams as Record<string, unknown> | undefined)?.projectId,
+    boardBaseParams?.projectId ?? chatScope.projectId,
   );
   const trimmedQuery = (_input?.query ?? "").trim();
   const listInput = useMemo(() => {

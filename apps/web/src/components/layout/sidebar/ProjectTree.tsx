@@ -63,7 +63,6 @@ import {
   getBoardDisplayName,
   getDisplayFileName,
 } from "@/lib/file-name";
-import { buildBoardChatTabState } from "@/components/board/utils/board-chat-tab";
 import { Switch } from "@openloaf/ui/switch";
 import { buildChildUri } from "@/components/project/filesystem/utils/file-system-utils";
 import { cn } from "@/lib/utils";
@@ -129,12 +128,12 @@ export const PageTreeMenu = ({
   const activeProjectId = useMemo(() => {
     const projectId = activeTabParams.projectId;
     if (typeof projectId === "string" && projectId.trim()) return projectId;
-    // 聊天标签页没有 base.params，回退到 chatParams.projectId
-    const chatProjectId = appState.chatParams?.projectId;
-    return typeof chatProjectId === "string" && chatProjectId.trim()
-      ? chatProjectId
+    // 中文注释：base 无 projectId 时回退到 projectShell（聊天 scope 由 projectShell 推导）。
+    const shellProjectId = appState.projectShell?.projectId;
+    return typeof shellProjectId === "string" && shellProjectId.trim()
+      ? shellProjectId
       : null;
-  }, [activeTabParams, appState.chatParams]);
+  }, [activeTabParams, appState.projectShell?.projectId]);
 
   const setExpanded = (uri: string, isExpanded: boolean) => {
     setExpandedNodes((prev) => ({
@@ -177,7 +176,7 @@ export const PageTreeMenu = ({
   useEffect(() => {
     // 逻辑：激活带 projectId 的标签时，自动展开祖先与当前项目，刷新后也能看到最新子项目。
     const params = appState.base?.params as any;
-    const projectId = params?.projectId ?? appState.chatParams?.projectId;
+    const projectId = params?.projectId ?? appState.projectShell?.projectId;
     if (!projectId) return;
     const ancestorNodeKeys = ancestorNodeKeysByProjectId.get(projectId) ?? [];
     const rootUri = projectRootById.get(projectId);
@@ -195,7 +194,7 @@ export const PageTreeMenu = ({
     });
   }, [
     appState.base,
-    appState.chatParams,
+    appState.projectShell?.projectId,
     ancestorNodeKeysByProjectId,
     projectRootById,
     setExpandedNodes,
@@ -221,7 +220,6 @@ export const PageTreeMenu = ({
     projectRootById,
   });
 
-  const setChatSession = useAppView((s) => s.setChatSession);
   const openProjectTab = (project: ProjectInfo) => {
     // 中文注释：项目树打开项目统一走 project-shell，避免旁路导航丢失项目上下文。
     openProjectShell({
@@ -246,7 +244,6 @@ export const PageTreeMenu = ({
       navigate({
         title: displayName,
         icon: "📄",
-        ...buildBoardChatTabState(boardId, node.projectId),
         leftWidthPercent: 70,
         ...(currentProjectShell && currentProjectShell.projectId === node.projectId
           ? { projectShell: currentProjectShell }
@@ -265,7 +262,6 @@ export const PageTreeMenu = ({
             __previousBase: appState.base ?? null,
           },
         },
-        chatParams: { projectId: node.projectId },
       });
       return;
     }
@@ -290,7 +286,6 @@ export const PageTreeMenu = ({
         component: stackItem.component,
         params: stackItem.params,
       },
-      chatParams: { projectId: node.projectId },
     });
   };
 

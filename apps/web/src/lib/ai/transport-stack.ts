@@ -8,7 +8,7 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import { useLayoutState } from "@/hooks/use-layout-state"
-import { useAppView } from "@/hooks/use-app-view"
+import { getChatScope } from "@/lib/chat-scope"
 import type { ChatPageContext, ChatPageStackItem } from "@openloaf/api/types/message"
 
 /** Allowlist of stack item params keys to forward to AI (keep payload small). */
@@ -22,21 +22,14 @@ const FORWARDED_PARAM_KEYS = new Set(["filePath", "uri", "boardFolderUri", "boar
  */
 export function snapshotPageContext<T extends Record<string, unknown>>(payload: T): T {
   const layout = useLayoutState.getState()
-  const chatParams = (useAppView.getState().chatParams ?? {}) as Record<string, unknown>
-  const existing = (payload.pageContext ?? chatParams.pageContext) as ChatPageContext | undefined
+  const chatScope = getChatScope()
+  const existing = (payload.pageContext ?? chatScope.pageContext) as ChatPageContext | undefined
 
   const base = layout.base
-  const baseParams = (base?.params ?? {}) as Record<string, unknown>
   const page = base?.component ?? existing?.page ?? 'unknown'
   const pageTitle = base?.title ?? existing?.pageTitle
-  const projectId =
-    existing?.projectId ??
-    (typeof baseParams.projectId === 'string' ? (baseParams.projectId as string) : undefined) ??
-    (typeof chatParams.projectId === 'string' ? (chatParams.projectId as string) : undefined)
-  const boardId =
-    existing?.boardId ??
-    (typeof baseParams.boardId === 'string' ? (baseParams.boardId as string) : undefined) ??
-    (typeof chatParams.boardId === 'string' ? (chatParams.boardId as string) : undefined)
+  const projectId = existing?.projectId ?? chatScope.projectId ?? undefined
+  const boardId = existing?.boardId ?? chatScope.boardId ?? undefined
   const scope: 'global' | 'project' = projectId ? 'project' : 'global'
 
   const rawStack = layout.stack ?? []
