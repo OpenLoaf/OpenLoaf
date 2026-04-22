@@ -14,6 +14,7 @@ import { DEFAULT_TAB_INFO } from "@openloaf/api/common"
 import { openProjectShell } from "@/lib/project-shell"
 import { getProjectWindowBootstrapPayload, getBoardWindowBootstrapPayload } from "@/lib/window-mode"
 import { useAppView } from "@/hooks/use-app-view"
+import { useLayoutState } from "@/hooks/use-layout-state"
 import { useProjectStorageRootQuery } from "@/hooks/use-project-storage-root-uri"
 
 /**
@@ -43,11 +44,11 @@ export function AppBootstrap() {
     const boardWindowPayload = getBoardWindowBootstrapPayload()
     if (boardWindowPayload) {
       const baseId = `board:${boardWindowPayload.boardFolderUri}`
+      useLayoutState.getState().setRightChatCollapsed(true)
       navigate({
         title: boardWindowPayload.title || "Canvas",
         icon: "🎨",
         leftWidthPercent: 100,
-        rightChatCollapsed: true,
         base: {
           id: baseId,
           component: "board-viewer",
@@ -63,11 +64,12 @@ export function AppBootstrap() {
       return
     }
 
-    // First launch with no saved state: create a default AI assistant view.
+    // First launch with no saved state: create a default AI assistant view
+    // with the chat panel open.
+    useLayoutState.getState().setRightChatCollapsed(false)
     navigate({
       icon: DEFAULT_TAB_INFO.icon,
       leftWidthPercent: 0,
-      rightChatCollapsed: false,
     })
   }, [isLoading, initialized, navigate])
 

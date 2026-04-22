@@ -25,8 +25,6 @@ type PrimaryPageLayoutSnapshot = Pick<
   | "stack"
   | "leftWidthPercent"
   | "minLeftWidth"
-  | "rightChatCollapsed"
-  | "rightChatCollapsedSnapshot"
   | "stackHidden"
   | "activeStackItemId"
 >;
@@ -61,8 +59,6 @@ export function captureCurrentViewSnapshot(): PreviousViewSnapshot {
       stack: state.stack,
       leftWidthPercent: state.leftWidthPercent,
       minLeftWidth: state.minLeftWidth,
-      rightChatCollapsed: state.rightChatCollapsed,
-      rightChatCollapsedSnapshot: state.rightChatCollapsedSnapshot,
       stackHidden: state.stackHidden,
       activeStackItemId: state.activeStackItemId,
     },
@@ -138,5 +134,4 @@ export function openPrimaryPage(
     ...(Object.keys(nextBaseParams).length > 0 ? { params: nextBaseParams } : {}),
   });
   layout.clearStack();
-  layout.setRightChatCollapsed(true);
 }

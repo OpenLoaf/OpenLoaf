@@ -115,7 +115,6 @@ export function useSidebarNavigation() {
       navigate({
         title: input.title,
         icon: '🎨',
-        leftWidthPercent: 100,
         ...(preservedProjectShell ? { projectShell: preservedProjectShell } : {}),
         base: {
           id: baseId,
@@ -148,8 +147,6 @@ export function useSidebarNavigation() {
     navigate({
       title: tabTitle,
       icon: TEMP_CHAT_TAB_INPUT.icon,
-      leftWidthPercent: 0,
-      rightChatCollapsed: false,
     })
   }, [navigate])
 

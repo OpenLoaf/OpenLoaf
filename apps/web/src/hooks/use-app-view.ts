@@ -24,7 +24,6 @@ export type NavigateInput = {
   icon?: string
   base?: DockItem
   leftWidthPercent?: number
-  rightChatCollapsed?: boolean
   projectShell?: ProjectShellState
 }
 
@@ -68,7 +67,6 @@ export const useAppView = create<AppViewState>()(
           title,
           icon,
           leftWidthPercent,
-          rightChatCollapsed,
           projectShell,
         } = input
 
@@ -81,11 +79,12 @@ export const useAppView = create<AppViewState>()(
           initialized: true,
         })
 
-        // Set up layout state in a single update
+        // Set up layout state in a single update. Right chat state is
+        // preserved across navigation — it's user-controlled, not driven by
+        // which sidebar menu was clicked.
         useLayoutState.getState().applyNavigation({
           base: normalizedBase,
           leftWidthPercent,
-          rightChatCollapsed,
         })
       },
 

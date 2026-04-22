@@ -393,21 +393,21 @@ export const AppSidebar = ({
             label={t("connectionsShort")}
 
             isActive={!isInProject && isConnectionsActive}
-            onClick={() => openPrimaryPageTab({ ...CONNECTIONS_TAB_INPUT, preserveCurrentView: true })}
+            onClick={() => openPrimaryPageTab({ ...CONNECTIONS_TAB_INPUT })}
           />
           <IconNavItem
             icon={Bot}
             label={t("agentsShort")}
 
             isActive={!isInProject && isAgentsActive}
-            onClick={() => openPrimaryPageTab({ ...AGENTS_TAB_INPUT, preserveCurrentView: true })}
+            onClick={() => openPrimaryPageTab({ ...AGENTS_TAB_INPUT })}
           />
           <IconNavItem
             icon={Wand2}
             label={t("skillsShort")}
 
             isActive={!isInProject && isSkillsActive}
-            onClick={() => openPrimaryPageTab({ ...SKILLS_TAB_INPUT, preserveCurrentView: true })}
+            onClick={() => openPrimaryPageTab({ ...SKILLS_TAB_INPUT })}
           />
           <IconNavItem
             icon={Settings}
@@ -423,7 +423,6 @@ export const AppSidebar = ({
                 component: "settings-page",
                 titleKey: "nav:settings",
                 icon: "⚙️",
-                preserveCurrentView: true,
               });
             }}
           />

@@ -229,7 +229,6 @@ export function openProjectShell(input: ProjectShellInput) {
     icon: input.icon ?? undefined,
     base,
     leftWidthPercent,
-    rightChatCollapsed: base ? savedLayout?.rightChatCollapsed ?? true : false,
     projectShell: resolved,
   });
   return "main";

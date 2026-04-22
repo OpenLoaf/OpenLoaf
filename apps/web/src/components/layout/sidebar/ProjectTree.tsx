@@ -244,8 +244,7 @@ export const PageTreeMenu = ({
       navigate({
         title: displayName,
         icon: "📄",
-        leftWidthPercent: 70,
-        ...(currentProjectShell && currentProjectShell.projectId === node.projectId
+          ...(currentProjectShell && currentProjectShell.projectId === node.projectId
           ? { projectShell: currentProjectShell }
           : {}),
         base: {
@@ -280,7 +279,6 @@ export const PageTreeMenu = ({
     navigate({
       title: displayName,
       icon: "📄",
-      leftWidthPercent: 70,
       base: {
         id: baseId,
         component: stackItem.component,

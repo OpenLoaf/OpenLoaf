@@ -81,7 +81,7 @@ export type LayoutStateActions = LayoutState & {
   /** Restore one captured layout snapshot in a single update. */
   restoreLayout: (layout: LayoutState) => void
   /** Reset and apply navigation layout in a single update. */
-  applyNavigation: (input: { base?: DockItem; leftWidthPercent?: number; rightChatCollapsed?: boolean }) => void
+  applyNavigation: (input: { base?: DockItem; leftWidthPercent?: number }) => void
 }
 
 const DEFAULT_STATE: LayoutState = {
@@ -108,13 +108,13 @@ function normalize(input?: Partial<LayoutState>): LayoutState {
   const base = input?.base
   const stack = Array.isArray(input?.stack) ? input!.stack : []
   const hasLeftContent = Boolean(base) || stack.length > 0
-  const leftWidthPercent = hasLeftContent
-    ? clampPercent(
-        Number.isFinite(input?.leftWidthPercent) && (input?.leftWidthPercent ?? 0) > 0
-          ? (input?.leftWidthPercent as number)
-          : LEFT_DOCK_DEFAULT_PERCENT,
-      )
-    : 0
+  // Left width is a persistent user preference — never reset based on whether
+  // left content is currently visible. Rendering gates on hasLeftContent.
+  const leftWidthPercent = clampPercent(
+    Number.isFinite(input?.leftWidthPercent) && (input?.leftWidthPercent ?? 0) > 0
+      ? (input?.leftWidthPercent as number)
+      : LEFT_DOCK_DEFAULT_PERCENT,
+  )
   const minLeftWidth = Number.isFinite(input?.minLeftWidth)
     ? (input?.minLeftWidth as number)
     : undefined
@@ -165,8 +165,14 @@ export const useLayoutState = create<LayoutStateActions>()(
 
       setBase: (base) => {
         set((state) => {
-          const next = normalize({ ...state, base })
-          return next
+          // Transitioning from a base-less (chat-only) view — where the right
+          // chat is always rendered visible — to a base view should carry the
+          // "visible" state over, so the chat panel doesn't appear to vanish.
+          const prevHadBase = Boolean(state.base)
+          const nextHasBase = Boolean(base)
+          const rightChatCollapsed =
+            !prevHadBase && nextHasBase ? false : state.rightChatCollapsed
+          return normalize({ ...state, base, rightChatCollapsed })
         })
       },
 
@@ -187,11 +193,9 @@ export const useLayoutState = create<LayoutStateActions>()(
       },
 
       setLeftWidthPercent: (percent) => {
-        set((state) => {
-          const hasLeftContent = Boolean(state.base) || state.stack.length > 0
-          const nextPercent = hasLeftContent ? clampPercent(percent) : 0
-          return normalize({ ...state, leftWidthPercent: nextPercent })
-        })
+        set((state) =>
+          normalize({ ...state, leftWidthPercent: clampPercent(percent) }),
+        )
       },
 
       setMinLeftWidth: (minWidth) => {
@@ -482,19 +486,37 @@ export const useLayoutState = create<LayoutStateActions>()(
       },
 
       restoreLayout: (layout) => {
-        set(normalize({
+        set((state) => normalize({
           ...DEFAULT_STATE,
           ...layout,
+          // Right chat visibility is not part of the layout snapshot — it
+          // persists across section/view restoration as a user preference.
+          rightChatCollapsed: state.rightChatCollapsed,
+          rightChatCollapsedSnapshot: state.rightChatCollapsedSnapshot,
         }))
       },
 
       applyNavigation: (input) => {
-        set(normalize({
-          ...DEFAULT_STATE,
-          base: input.base,
-          leftWidthPercent: input.leftWidthPercent ?? (input.base ? LEFT_DOCK_DEFAULT_PERCENT : 0),
-          rightChatCollapsed: input.rightChatCollapsed ?? true,
-        }))
+        set((state) => {
+          const prevHadBase = Boolean(state.base)
+          const nextHasBase = Boolean(input.base)
+          // When moving from a base-less (chat-only) view to a base view, the
+          // right chat was always rendering visible — carry that over so the
+          // panel doesn't disappear on navigation.
+          const rightChatCollapsed =
+            !prevHadBase && nextHasBase ? false : state.rightChatCollapsed
+          return normalize({
+            ...DEFAULT_STATE,
+            base: input.base,
+            // Preserve user-controlled panel preferences across navigation.
+            // Rendering gates the left dock on hasLeftContent, so persisting a
+            // non-zero leftWidthPercent while on a chat-only view is safe — and
+            // avoids width jumps when returning to a view with left content.
+            leftWidthPercent: input.leftWidthPercent ?? state.leftWidthPercent,
+            rightChatCollapsed,
+            rightChatCollapsedSnapshot: state.rightChatCollapsedSnapshot,
+          })
+        })
       },
     }),
     {

@@ -502,7 +502,6 @@ export function BoardCanvas({
               icon: CANVAS_LIST_TAB_INPUT.icon,
               base: previousBase as any,
               leftWidthPercent: useLayoutState.getState().leftWidthPercent,
-              rightChatCollapsed: useLayoutState.getState().rightChatCollapsed,
             });
             return;
           }
@@ -511,7 +510,6 @@ export function BoardCanvas({
             title: i18next.t("nav:smartCanvas"),
             icon: CANVAS_LIST_TAB_INPUT.icon,
             leftWidthPercent: 100,
-            rightChatCollapsed: true,
             base: {
               id: CANVAS_LIST_TAB_INPUT.baseId,
               component: CANVAS_LIST_TAB_INPUT.component,
