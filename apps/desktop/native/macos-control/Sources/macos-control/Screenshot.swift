@@ -6,9 +6,15 @@ import ScreenCaptureKit
 enum Screenshot {
   // Sync wrapper around SCScreenshotManager — blocks the caller thread via a semaphore.
   // Helper process is single-threaded request/response so this is safe.
-  static func captureMainDisplayPNG(to path: String) throws -> (width: Int, height: Int) {
+  //
+  // Returns the screenshot's source region in *logical screen coordinates* (the
+  // same space CGEvent uses for click/scroll). Server-side coordinate
+  // conversion (screenshot pixels → screen coords) relies on this being
+  // authoritative — we capture it from SCK's CGRect directly rather than
+  // letting downstream infer scale from pixel dimensions.
+  static func captureMainDisplayPNG(to path: String) throws -> (width: Int, height: Int, frame: CGRect) {
     let sem = DispatchSemaphore(value: 0)
-    var result: Result<(CGImage, Int, Int), Error> = .failure(HelperError.runtime("uninitialized"))
+    var result: Result<(CGImage, Int, Int, CGRect), Error> = .failure(HelperError.runtime("uninitialized"))
 
     Task.detached {
       do {
@@ -23,7 +29,7 @@ enum Screenshot {
         cfg.height = display.height * 2
         cfg.showsCursor = true
         let cgImage = try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: cfg)
-        result = .success((cgImage, cgImage.width, cgImage.height))
+        result = .success((cgImage, cgImage.width, cgImage.height, display.frame))
       } catch {
         result = .failure(error)
       }
@@ -31,17 +37,19 @@ enum Screenshot {
     }
     sem.wait()
 
-    let (cgImage, w, h) = try result.get()
+    let (cgImage, w, h, frame) = try result.get()
     try writePNG(cgImage, to: path)
-    return (w, h)
+    return (w, h, frame)
   }
 
   /// Capture only the frontmost on-screen window owned by `pid`.
   /// Returns nil when no suitable window is found (hidden, minimized, or off-screen);
-  /// callers should fall back to a full-display capture.
-  static func captureAppWindowPNG(pid: pid_t, to path: String) throws -> (width: Int, height: Int)? {
+  /// callers should fall back to a full-display capture. The returned `frame`
+  /// is `SCWindow.frame` — logical screen coords — authoritative for server
+  /// coordinate conversion (no AX-tree reverse engineering needed).
+  static func captureAppWindowPNG(pid: pid_t, to path: String) throws -> (width: Int, height: Int, frame: CGRect)? {
     let sem = DispatchSemaphore(value: 0)
-    var result: Result<(CGImage, Int, Int)?, Error> = .success(nil)
+    var result: Result<(CGImage, Int, Int, CGRect)?, Error> = .success(nil)
 
     Task.detached {
       do {
@@ -71,7 +79,7 @@ enum Screenshot {
         cfg.showsCursor = false
         cfg.capturesAudio = false
         let cgImage = try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: cfg)
-        result = .success((cgImage, cgImage.width, cgImage.height))
+        result = .success((cgImage, cgImage.width, cgImage.height, win.frame))
       } catch {
         result = .failure(error)
       }
@@ -81,7 +89,7 @@ enum Screenshot {
 
     guard let hit = try result.get() else { return nil }
     try writePNG(hit.0, to: path)
-    return (hit.1, hit.2)
+    return (hit.1, hit.2, hit.3)
   }
 
   private static func writePNG(_ cgImage: CGImage, to path: String) throws {

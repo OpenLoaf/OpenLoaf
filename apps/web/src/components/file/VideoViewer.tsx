@@ -163,6 +163,13 @@ export default function VideoViewer({
           title={displayTitle}
           openUri={openUri}
           openRootUri={rootUri}
+          saveAsOptions={uri && name ? {
+            uri,
+            name,
+            projectId: projectIdProp,
+            sessionId,
+            filters: [{ name: "Video", extensions: ["mp4", "webm", "mov", "avi"] }],
+          } : undefined}
           onClose={
             canClose
               ? () => {

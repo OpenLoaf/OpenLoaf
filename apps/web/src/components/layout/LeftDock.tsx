@@ -153,6 +153,17 @@ function PanelFrame({
   const openUri = ((item.params as any)?.openUri ?? (item.params as any)?.rootUri) as string | undefined;
   const openRootUri = (item.params as any)?.rootUri as string | undefined;
 
+  const saveAsUri = (item.params as any)?.uri as string | undefined;
+  const saveAsName = (item.params as any)?.name as string | undefined;
+  const saveAsProjectId = (item.params as any)?.projectId as string | undefined;
+  const saveAsSessionId = (item.params as any)?.sessionId as string | undefined;
+  const saveAsOptions = saveAsUri && saveAsName && !customHeader ? {
+    uri: saveAsUri,
+    name: saveAsName,
+    projectId: saveAsProjectId,
+    sessionId: saveAsSessionId,
+  } : undefined;
+
   const handleClose = React.useCallback(() => {
     if (slot?.onBeforeClose && !slot.onBeforeClose()) return;
     onClose();
@@ -192,6 +203,7 @@ function PanelFrame({
               title={title}
               openUri={openUri}
               openRootUri={openRootUri}
+              saveAsOptions={saveAsOptions}
               onRefresh={() => setRefreshKey((k) => k + 1)}
               rightSlot={
                 <BoardPanelHeaderActions

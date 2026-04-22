@@ -126,6 +126,13 @@ export default function AudioViewer({
           title={displayTitle}
           openUri={openUri}
           openRootUri={rootUri}
+          saveAsOptions={uri && name ? {
+            uri,
+            name,
+            projectId: projectIdProp,
+            sessionId,
+            filters: [{ name: "Audio", extensions: ["mp3", "wav", "ogg", "m4a"] }],
+          } : undefined}
           onClose={
             canClose
               ? () => {

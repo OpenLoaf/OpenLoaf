@@ -92,6 +92,7 @@ func dispatch(_ line: Data) {
         let path = req.screenshotPath ?? NSTemporaryDirectory() + "macos-control-\(req.id).png"
         var shotKind = "display"
         var dims: (Int, Int)? = nil
+        var shotFrame: CGRect? = nil
 
         // When an app filter is set, try to capture just that app's frontmost
         // window. Falls back to full-display capture when no suitable window
@@ -99,18 +100,32 @@ func dispatch(_ line: Data) {
         if req.appFilter != nil, let appInfo = tree["app"] as? [String: Any],
            let pid = appInfo["pid"] as? Int, pid > 0 {
           if let d = try Screenshot.captureAppWindowPNG(pid: pid_t(pid), to: path) {
-            dims = d
+            dims = (d.width, d.height)
+            shotFrame = d.frame
             shotKind = "window"
           }
         }
         if dims == nil {
-          dims = try Screenshot.captureMainDisplayPNG(to: path)
+          let d = try Screenshot.captureMainDisplayPNG(to: path)
+          dims = (d.width, d.height)
+          shotFrame = d.frame
         }
         let (w, h) = dims!
         payload["screenshotPath"] = path
         payload["screenshotWidth"] = w
         payload["screenshotHeight"] = h
         payload["screenshotKind"] = shotKind
+        // Authoritative logical-screen coords of the captured region — lets the
+        // server convert screenshot pixels → screen coords without AX-tree
+        // inference or retina-scale guesses.
+        if let f = shotFrame {
+          payload["screenshotFrame"] = [
+            "x": f.origin.x,
+            "y": f.origin.y,
+            "w": f.size.width,
+            "h": f.size.height,
+          ]
+        }
       }
 
       sendOk(id: env.id, payload: payload)

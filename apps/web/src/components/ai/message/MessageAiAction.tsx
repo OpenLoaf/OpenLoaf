@@ -48,6 +48,8 @@ const TOKEN_K = 1000;
 const TOKEN_M = 1000 * 1000;
 const MESSAGE_ACTION_CLASSNAME =
   "h-6 w-6 text-muted-foreground hover:text-foreground transition-all duration-200 hover:scale-105 active:scale-95";
+const MESSAGE_STAT_CLASSNAME =
+  "ml-1 inline-flex select-none items-center gap-1 text-xs text-muted-foreground/60 tabular-nums opacity-0 transition-opacity group-hover:opacity-100";
 
 /**
  * Format token count into a compact K/M notation.
@@ -121,6 +123,31 @@ function extractTokenUsage(metadata: unknown): NormalizedTokenUsage | undefined 
 
   if (Object.values(usage).every((v) => v === undefined)) return;
   return usage;
+}
+
+/**
+ * Resolve a compact token total for inline message stats.
+ */
+function resolveTokenDisplayTotal(usage?: NormalizedTokenUsage): number | undefined {
+  if (!usage) return;
+  if (typeof usage.totalTokens === "number" && Number.isFinite(usage.totalTokens)) {
+    return usage.totalTokens;
+  }
+  if (
+    typeof usage.inputTokens === "number"
+    && Number.isFinite(usage.inputTokens)
+    && typeof usage.outputTokens === "number"
+    && Number.isFinite(usage.outputTokens)
+  ) {
+    return usage.inputTokens + usage.outputTokens;
+  }
+  if (typeof usage.outputTokens === "number" && Number.isFinite(usage.outputTokens)) {
+    return usage.outputTokens;
+  }
+  if (typeof usage.inputTokens === "number" && Number.isFinite(usage.inputTokens)) {
+    return usage.inputTokens;
+  }
+  return;
 }
 
 /**
@@ -229,6 +256,7 @@ export default function MessageAiAction({
   const canCompact = message.role === "assistant" && isLeafMessage && messageKind !== "compact_summary";
 
   const usage = extractTokenUsage(message.metadata);
+  const tokenDisplayTotal = resolveTokenDisplayTotal(usage);
   const assistantElapsedMs = extractAssistantElapsedMs(message.metadata);
   const creditsConsumed = extractCreditsConsumed(message.metadata);
 
@@ -237,6 +265,7 @@ export default function MessageAiAction({
     | undefined;
   const agentModel = agentInfo?.model as { provider?: string; modelId?: string } | undefined;
   const isSaasModel = agentModel?.provider === "openloaf-saas";
+  const shouldShowTokenUsage = Boolean(usage) || !isSaasModel;
 
   const isCliMessage = agentModel?.provider?.includes("cli");
 
@@ -393,18 +422,30 @@ export default function MessageAiAction({
         </ModelSelector>
       ) : null}
 
-      {!isSaasModel ? (
+      {shouldShowTokenUsage ? (
         <PromptInputHoverCard openDelay={120} closeDelay={120}>
           <PromptInputHoverCardTrigger asChild>
-            <MessageAction
-              disabled={!usage}
-              className={MESSAGE_ACTION_CLASSNAME}
-              label={t("ai:message.tokenUsage")}
-              aria-label={t("ai:message.tokenUsage")}
-              title={t("ai:message.tokenUsage")}
-            >
-              <BarChart3 className="size-3" />
-            </MessageAction>
+            {typeof tokenDisplayTotal === "number" ? (
+              <button
+                type="button"
+                className={cn(MESSAGE_STAT_CLASSNAME, "cursor-help hover:text-foreground/80")}
+                aria-label={t("ai:message.tokenUsage")}
+                title={t("ai:message.tokenUsage")}
+              >
+                <BarChart3 className="size-3" />
+                {formatTokenCount(tokenDisplayTotal)}
+              </button>
+            ) : (
+              <MessageAction
+                disabled={!usage}
+                className={MESSAGE_ACTION_CLASSNAME}
+                label={t("ai:message.tokenUsage")}
+                aria-label={t("ai:message.tokenUsage")}
+                title={t("ai:message.tokenUsage")}
+              >
+                <BarChart3 className="size-3" />
+              </MessageAction>
+            )}
           </PromptInputHoverCardTrigger>
           <PromptInputHoverCardContent className="max-w-[200px] p-2">
             {usage ? (
@@ -464,14 +505,14 @@ export default function MessageAiAction({
       <MessageBranchNav messageId={message.id} />
 
       {typeof assistantElapsedMs === "number" ? (
-        <span className="ml-1 inline-flex select-none items-center gap-1 text-xs text-muted-foreground/60 tabular-nums opacity-0 transition-opacity group-hover:opacity-100">
+        <span className={MESSAGE_STAT_CLASSNAME}>
           <Clock3 className="size-3" />
           {formatDurationMs(assistantElapsedMs)}
         </span>
       ) : null}
 
       {typeof creditsConsumed === "number" ? (
-        <span className="ml-1 inline-flex select-none items-center gap-1 text-xs text-muted-foreground/60 tabular-nums opacity-0 transition-opacity group-hover:opacity-100">
+        <span className={MESSAGE_STAT_CLASSNAME}>
           <Sparkles className="size-3" />
           {Math.floor(creditsConsumed)}
         </span>

@@ -12,6 +12,9 @@
 import { skipToken, useQuery } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 import { ViewerGuard } from "@/components/file/lib/viewer-guard";
+import { Download } from "lucide-react";
+import { Button } from "@openloaf/ui/button";
+import { useSaveAs } from "@/hooks/use-save-as";
 
 interface FileViewerProps {
   uri?: string;
@@ -149,6 +152,7 @@ function looksLikeBinary(sample: string): boolean {
 
 /** Render a simple file preview panel. */
 export default function FileViewer({ uri, name, ext, projectId, sessionId, rootUri }: FileViewerProps) {
+  const { handleSaveAs } = useSaveAs();
   const resolvedExt = ext ?? name?.split(".").pop();
   // 逻辑：二进制文件不走文本读取，直接提示使用系统程序或下载查看。
   const isBinaryFallback = shouldUseBinaryFallback(resolvedExt);
@@ -195,11 +199,29 @@ export default function FileViewer({ uri, name, ext, projectId, sessionId, rootU
   }
 
   return (
-    <div className="h-full w-full p-4 overflow-auto">
-      <div className="mb-3 text-sm text-muted-foreground truncate">
-        {name ?? uri}
+    <div className="flex h-full w-full flex-col overflow-hidden">
+      <div className="flex h-12 items-center justify-between border-b border-border/60 bg-background px-4">
+        <div className="truncate text-sm font-medium text-foreground">
+          {name ?? uri}
+        </div>
+        <div className="flex items-center gap-1">
+          {uri && name ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-8"
+              onClick={() => handleSaveAs({ uri, name, projectId, sessionId })}
+            >
+              <Download className="h-4 w-4" />
+              <span className="ml-1">另存为</span>
+            </Button>
+          ) : null}
+        </div>
       </div>
-      <pre className="whitespace-pre-wrap text-sm leading-6">{content}</pre>
+      <div className="flex-1 overflow-auto p-4">
+        <pre className="whitespace-pre-wrap text-sm leading-6">{content}</pre>
+      </div>
     </div>
   );
 }

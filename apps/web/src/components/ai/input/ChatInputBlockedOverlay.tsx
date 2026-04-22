@@ -14,7 +14,7 @@ import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 
 interface ChatInputBlockedOverlayProps {
-  blockedReason?: 'cloud-login' | 'local-empty' | 'unconfigured';
+  blockedReason?: 'cloud-login' | 'local-empty' | 'unconfigured' | 'wechat-readonly';
   blockedCompact?: boolean;
   onRequestLogin?: () => void;
   onRequestLocalConfig?: () => void;
@@ -31,6 +31,25 @@ export function ChatInputBlockedOverlay({
   onRequestSwitchCloud,
 }: ChatInputBlockedOverlayProps) {
   const { t } = useTranslation('ai');
+
+  if (blockedReason === 'wechat-readonly') {
+    return (
+      <div
+        data-testid="chat-input-wechat-readonly"
+        className={cn(
+          "flex flex-col items-center justify-center gap-1 px-5 py-4 text-center",
+          blockedCompact && "min-h-[104px]",
+        )}
+      >
+        <p className="text-[13px] font-medium text-foreground">
+          {t('blocked.titleWechatReadonly')}
+        </p>
+        <p className="text-[11px] text-muted-foreground">
+          {t('blocked.descWechatReadonly')}
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className={cn("flex flex-col items-center justify-center gap-2.5 px-5 py-4", blockedCompact && "min-h-[104px]")}>

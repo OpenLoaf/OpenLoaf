@@ -10,7 +10,7 @@
 "use client";
 
 import * as React from "react";
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, X } from "lucide-react";
 import { Button } from "@openloaf/ui/button";
 import {
   Dialog,
@@ -20,6 +20,7 @@ import {
   DialogTitle,
 } from "@openloaf/ui/dialog";
 import dynamic from "next/dynamic";
+import { useSaveAs } from "@/hooks/use-save-as";
 
 const ImageViewer = dynamic(() => import("@/components/file/ImageViewer"), { ssr: false });
 const MarkdownViewer = dynamic(() => import("@/components/file/MarkdownViewer"), { ssr: false });
@@ -78,6 +79,7 @@ export default function FilePreviewDialog() {
   const [videoDialogSize, setVideoDialogSize] = React.useState<
     { width: number; height: number } | null
   >(null);
+  const { handleSaveAs } = useSaveAs();
 
   React.useEffect(() => {
     if (!payload || !currentItem?.uri) {
@@ -171,14 +173,34 @@ export default function FilePreviewDialog() {
         }
         showCloseButton={false}
         overlaySlot={
-          <button
-            type="button"
-            className="fixed right-5 top-5 z-[60] inline-flex h-10 w-10 items-center justify-center rounded-3xl bg-background/80 text-foreground shadow-none ring-1 ring-border/60 backdrop-blur hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-            aria-label="关闭"
-            onClick={() => closeFilePreview()}
-          >
-            <X className="h-5 w-5" />
-          </button>
+          <div className="fixed right-5 top-5 z-[60] flex items-center gap-2">
+            {!isImage && currentItem?.uri && (currentItem.name || currentItem.title) ? (
+              <button
+                type="button"
+                className="inline-flex h-10 items-center gap-1.5 rounded-3xl bg-background/80 px-3 text-sm text-foreground shadow-none ring-1 ring-border/60 backdrop-blur hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                aria-label="另存为"
+                onClick={() => {
+                  handleSaveAs({
+                    uri: currentItem.uri,
+                    name: currentItem.name ?? currentItem.title ?? "file",
+                    projectId: currentItem.projectId,
+                    sessionId: currentItem.sessionId,
+                  });
+                }}
+              >
+                <Download className="h-4 w-4" />
+                <span>另存为</span>
+              </button>
+            ) : null}
+            <button
+              type="button"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-3xl bg-background/80 text-foreground shadow-none ring-1 ring-border/60 backdrop-blur hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+              aria-label="关闭"
+              onClick={() => closeFilePreview()}
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
         }
       >
         <DialogTitle className="sr-only">文件预览</DialogTitle>

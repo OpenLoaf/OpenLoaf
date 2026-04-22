@@ -657,6 +657,26 @@ const browserFixtures: ToolFixture[] = [
       output: 'Clicked element',
     }),
   },
+  {
+    id: 'macos-observe',
+    title: 'macOS 观测（截图 + AX 树）',
+    toolKind: 'MacosObserve',
+    part: makePart({
+      toolKind: 'MacosObserve',
+      suffix: 'observe',
+      input: { appFilter: 'WeChat' },
+      output: [
+        `<system-tag type="attachment" path="${SAMPLE_IMAGE}" media-type="image/jpeg"/>`,
+        '',
+        'App: WeChat (com.tencent.xinWeChat)',
+        'Screenshot: window (2120×1718)',
+        'AX tree: 15 nodes',
+        '```json',
+        '{"app":{"name":"WeChat"},"tree":{"role":"AXApplication"}}',
+        '```',
+      ].join('\n'),
+    }),
+  },
 ]
 
 const jobsFixtures: ToolFixture[] = [

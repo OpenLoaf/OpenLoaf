@@ -66,19 +66,26 @@ A single `MacosObserve` returns:
 
 ## Prefer AX ref Over Coordinates
 
-**Iron rule**: if `ref` works, don't use `point`. A moved window breaks coordinates; `ref` re-resolves against the current AX path / identifier.
+**Iron rule**: if `ref` works, don't use `point`. A moved window breaks cached coordinates; `ref` re-resolves against the current AX path / identifier.
 
 ```json
 // Good
 { "type": "click", "ref": { "app": "Finder", "path": ["AXWindow[0]", "AXSplitGroup", "AXList", "AXRow[2]"] } }
 
-// Fallback
+// Fallback (AX tree doesn't expose the target — e.g. WeChat sidebar avatars are custom-drawn Canvas, invisible to AX)
 { "type": "click", "point": { "x": 120, "y": 340 } }
 ```
 
 `ref` takes two forms:
 - `{ app, path: [...] }`: path from root to target, each segment `role` or `role[index]`
 - `{ identifier: "..." }`: most stable when the node exposes an AX identifier
+
+### Coordinate space (when falling back to `point`)
+
+**`point.{x,y}` is the screenshot pixel coordinate from MacosObserve** — read the pixel you see on the image and hand it to `click/scroll/drag` as-is. The tool converts pixels → logical screen coords for you; do not adjust for retina scale, window offset, or multi-monitor layout.
+
+- The `Screenshot: window 2120×1718 px` number in the observe output is the valid coord range
+- You must have called `MacosObserve` at least once this session before coordinate actions will work; otherwise the tool refuses and asks you to observe first
 
 ## Core Workflows
 

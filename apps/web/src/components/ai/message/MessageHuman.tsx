@@ -205,8 +205,8 @@ export default function MessageHuman({
       onClose: () => setPreviewUrl(null),
       items: previewItems,
       activeIndex: previewIndex,
-      showSave: false,
-      enableEdit: false,
+      showSave: true,
+      enableEdit: true,
       onActiveIndexChange: handlePreviewIndexChange,
     });
   }, [

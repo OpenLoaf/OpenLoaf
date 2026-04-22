@@ -76,19 +76,26 @@ MacosObserve → 分析 AX 树 → MacosAct → MacosObserve → ...
 
 ## AX ref 优先于坐标
 
-**铁律**：能用 `ref` 就不用 `point`。窗口一旦移动，坐标失效，而 `ref` 根据 AX path / identifier 重新解析。
+**铁律**：能用 `ref` 就不用 `point`。窗口移动后 `ref` 会根据 AX path / identifier 重新解析；坐标则需要重新 observe。
 
 ```json
 // 好
 { "type": "click", "ref": { "app": "Finder", "path": ["AXWindow[0]", "AXSplitGroup", "AXList", "AXRow[2]"] } }
 
-// 退化
+// 退化（AX 树里没有目标时，例如微信左栏头像是自绘 Canvas，AX 看不到）
 { "type": "click", "point": { "x": 120, "y": 340 } }
 ```
 
 `ref` 两种形式：
 - `{ app, path: [...] }`：从根到目标的路径，`role` 或 `role[index]`
 - `{ identifier: "..." }`：当节点有 AX identifier 时最稳
+
+### 坐标空间（退化到 point 时）
+
+**`point.{x,y}` 就是 MacosObserve 截图上的像素坐标**——你在图上看到目标大概在哪个像素，就把那个像素塞给 `click/scroll/drag`。工具内部会自动换算成屏幕坐标，你不用关心 retina 缩放、窗口偏移或多显示器。
+
+- observe 返回里 `Screenshot: window 2120×1718 px` 的那个数字，就是坐标范围
+- 必须先至少调用过一次 `MacosObserve` 才能用坐标动作；否则工具会拒绝并提示先 observe
 
 ## 核心工作流
 

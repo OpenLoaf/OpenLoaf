@@ -135,7 +135,7 @@ export interface ChatInputBoxProps {
   /** Whether input should be blocked and replaced by action buttons. */
   blocked?: boolean;
   /** Blocked reason hint for overlay wording. */
-  blockedReason?: 'cloud-login' | 'local-empty' | 'unconfigured';
+  blockedReason?: 'cloud-login' | 'local-empty' | 'unconfigured' | 'wechat-readonly';
   /** When true, hides icon/title/subtitle in blocked state (used in centered layout). */
   blockedCompact?: boolean;
   /** Open SaaS login dialog when input is blocked. */
@@ -808,6 +808,16 @@ function ChatInputInner({
   const { projectId, tabId, sessionId } = useChatSession();
   const hasReasoningModel = useHasPreferredReasoningModel();
 
+  // WeChat sessions are driven by the phone — local input is disabled so
+  // users don't accidentally send here expecting it to sync to WeChat.
+  const sessionMetaQuery = useQuery({
+    ...trpc.chat.getSession.queryOptions({ sessionId }),
+    enabled: Boolean(sessionId),
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+  });
+  const isWechatReadonly = (sessionMetaQuery.data as any)?.kind === 'wechat';
+
   /** 上传文件到 session files 目录，返回可持久化的相对路径。 */
   const uploadFileToSession = useCallback(
     async (file: File): Promise<string | null> => {
@@ -1185,8 +1195,16 @@ function ChatInputInner({
         large={large}
         isLoading={isLoading}
         isStreaming={isStreaming}
-        blocked={isUnconfigured}
-        blockedReason={needsCloudLogin ? 'cloud-login' : needsLocalConfig ? 'local-empty' : 'unconfigured'}
+        blocked={isUnconfigured || isWechatReadonly}
+        blockedReason={
+          isWechatReadonly
+            ? 'wechat-readonly'
+            : needsCloudLogin
+              ? 'cloud-login'
+              : needsLocalConfig
+                ? 'local-empty'
+                : 'unconfigured'
+        }
         onRequestLogin={handleOpenLogin}
         onRequestLocalConfig={handleOpenProviderSettings}
         onRequestSwitchLocal={hasConfiguredProviders ? handleSwitchToLocal : undefined}
@@ -1194,6 +1212,7 @@ function ChatInputInner({
         submitDisabled={
           isHistoryLoading ||
           isUnconfigured ||
+          isWechatReadonly ||
           (status !== "ready" && status !== "error") ||
           hasPendingAttachments
         }

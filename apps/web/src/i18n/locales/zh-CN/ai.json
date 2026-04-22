@@ -9,7 +9,9 @@
     "btnSwitchCloud": "云端",
     "btnLoginCloud": "登录云端",
     "btnSwitchLocal": "本地",
-    "btnConfigLocal": "配置本地"
+    "btnConfigLocal": "配置本地",
+    "titleWechatReadonly": "微信会话（只读）",
+    "descWechatReadonly": "此会话由微信驱动，请在微信客户端回复。AI 回复已自动接管。"
   },
   "chat": {
     "newChat": "新对话",

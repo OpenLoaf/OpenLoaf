@@ -169,6 +169,13 @@ export default function PdfViewer({
       title={displayTitle}
       openUri={openUri}
       openRootUri={rootUri}
+      saveAsOptions={uri && name ? {
+        uri,
+        name,
+        projectId,
+        sessionId,
+        filters: [{ name: "PDF", extensions: ["pdf"] }],
+      } : undefined}
       rightSlot={
         status === "ready" ? (
           <div className="flex items-center gap-1">

@@ -303,9 +303,11 @@ export const macosActToolDef = {
   name: "Act on macOS",
   description: `Execute ONE synthetic UI action on the user's Mac. Always call MacosObserve again afterwards to see the result before deciding the next action — do not chain blind.
 
+Coordinate space: all {x,y} points (click.point, scroll.point, drag.from/to) are **screenshot pixels from the most recent MacosObserve** — read them straight off the image. The tool converts pixels → logical screen coords for you. Do NOT try to offset for window position or divide by retina scale; the conversion is automatic. If you have not called MacosObserve yet in this session, coordinate-based actions will fail until you do.
+
 Actions:
   - launch_app → open an app by name or bundle id via \`open -a\`. Prefer this over cmd+space/Spotlight for launching — it's one call, deterministic, and doesn't depend on IME focus. Example: {type:"launch_app", app:"WeChat"} or {type:"launch_app", app:"com.tencent.xinWeChat"}
-  - click   → click at an AxRef or raw {x,y}; PREFERRED for standard clicks (simple and reliable)
+  - click   → click at an AxRef or screenshot-pixel {x,y}; PREFERRED for standard clicks (simple and reliable)
   - type    → type arbitrary Unicode text (CJK supported) at the current focus
   - key     → press a key chord, e.g. keys: ["cmd","space"]
   - scroll  → scroll at a point by {dx,dy} pixels

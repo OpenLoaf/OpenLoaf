@@ -38,6 +38,7 @@ import { registerLocalAuthRoutes } from "@/modules/local-auth/localAuthRoutes";
 import { registerOfficeAddinRoutes } from "@/modules/office/officeAddinRoutes";
 import { registerCloudMockRoutes } from "@/ai/interface/routes/cloudMockRoutes";
 import { registerMacosHelperMockRoutes } from "@/ai/interface/routes/macosHelperMockRoutes";
+import { registerWeChatMockRoutes } from "@/ai/interface/routes/wechatMockRoutes";
 import { localAuthGuard } from "@/modules/local-auth/localAuthGuard";
 import { aiRouteGuard } from "@/middleware/aiRouteGuard";
 import { strictClientGuard } from "@/middleware/strictClientGuard";
@@ -150,6 +151,7 @@ export function createApp() {
   registerOfficeAddinRoutes(app);
   registerCloudMockRoutes(app);
   registerMacosHelperMockRoutes(app);
+  registerWeChatMockRoutes(app);
 
   app.use(
     "/trpc/*",

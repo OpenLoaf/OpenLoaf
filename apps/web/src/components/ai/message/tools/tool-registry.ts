@@ -35,6 +35,7 @@ import PdfTool from './PdfTool'
 import ImageProcessTool from './ImageProcessTool'
 import BrowserSnapshotTool from './BrowserSnapshotTool'
 import BrowserActionTool from './BrowserActionTool'
+import MacosObserveTool from './MacosObserveTool'
 import OpenUrlTool from './OpenUrlTool'
 import VideoDownloadTool from './VideoDownloadTool'
 import ScheduledTaskTool from './ScheduledTaskTool'
@@ -121,6 +122,7 @@ export const TOOL_REGISTRY: ToolRegistryEntry[] = [
   { match: 'OpenUrl', component: OpenUrlTool as ComponentType<ToolComponentProps> },
   { match: ['BrowserSnapshot', 'BrowserObserve', 'BrowserScreenshot'], component: BrowserSnapshotTool as ComponentType<ToolComponentProps> },  // BrowserObserve/BrowserScreenshot kept for backward compat with old messages
   { match: ['BrowserWait', 'BrowserAct', 'BrowserExtract', 'BrowserDownloadImage'], component: BrowserActionTool as ComponentType<ToolComponentProps> },  // BrowserExtract kept for backward compat with old messages
+  { match: 'MacosObserve', component: MacosObserveTool as ComponentType<ToolComponentProps> },
   { match: ['Jobs'], component: JobsTool as ComponentType<ToolComponentProps> },
   { match: ['Kill'], component: JobsTool as ComponentType<ToolComponentProps> },
   { match: ['Sleep'], component: SleepTool as ComponentType<ToolComponentProps> },

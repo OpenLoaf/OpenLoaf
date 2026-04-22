@@ -579,6 +579,13 @@ export default function MarkdownViewer({
           title={displayTitle}
           openUri={hasInlineContent ? undefined : openUri ?? uri}
           openRootUri={rootUri}
+          saveAsOptions={hasInlineContent ? undefined : uri && name ? {
+            uri,
+            name,
+            projectId,
+            sessionId,
+            filters: [{ name: "Markdown", extensions: ["md", "markdown"] }],
+          } : undefined}
           rightSlot={
             <div className="flex items-center gap-1">
               {canEdit && isEditMode ? (

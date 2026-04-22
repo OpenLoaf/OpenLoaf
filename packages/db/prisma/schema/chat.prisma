@@ -15,15 +15,13 @@ model ChatSession {
   hasAssets    Boolean       @default(false) /// 当前会话是否存在 asset/ 资源；由写入端同步 + 读取端自愈。
 
   kind             String? /// Session 来源：null=普通 AI chat，"wechat"=微信外部消息通道
-  wechatAccountId  String? /// 当 kind="wechat" 时指向 WeChatAccount.id
-  wechatPeerId     String? /// 当 kind="wechat" 时对方 user_id（私聊）或 group_id（群）
+  wechatAccountId  String? /// 当 kind="wechat" 时指向 WeChatAccount.id。iLink Bot 一对一，每账号唯一 session。
 
   @@index([deletedAt])
   @@index([deletedAt, createdAt])
   @@index([isPin, updatedAt])
   @@index([projectId])
   @@index([projectId, deletedAt, createdAt])
-  @@index([kind, wechatAccountId])
   @@unique([cliId])
-  @@unique([kind, wechatAccountId, wechatPeerId])
+  @@unique([kind, wechatAccountId])
 }

@@ -616,6 +616,7 @@ export const chatRouter = t.router({
           errorMessage: true,
           projectId: true,
           messageCount: true,
+          kind: true,
         },
       })
 

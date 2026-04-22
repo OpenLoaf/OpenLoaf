@@ -99,6 +99,20 @@ await initDatabase();
 
 const { app } = startServer();
 
+// MCP 自动连接：启动后非阻塞地连接所有已启用的 MCP 服务器，
+// 避免用户首次发消息时才触发连接导致延迟。
+void (async () => {
+  try {
+    const { mcpClientManager } = await import("@/ai/services/mcpClientManager");
+    await mcpClientManager.ensureEnabledServersConnected();
+  } catch (err) {
+    console.warn(
+      "[mcp-autoconnect] bootstrap skipped:",
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+})();
+
 // Cloud 动态 skill：启动后非阻塞地拉一次 capabilitiesOverview，把可用 category
 // 注入到 cloud-media-skill 内容里，然后每 30 min 后台刷新。
 // 失败静默 — skill 会保留上一轮快照或初始的 "probing" 占位内容。

@@ -9,7 +9,9 @@
     "btnSwitchCloud": "使用雲端模型",
     "btnLoginCloud": "登入 OpenLoaf 雲端",
     "btnSwitchLocal": "切換到本地模型",
-    "btnConfigLocal": "自訂AI服務商"
+    "btnConfigLocal": "自訂AI服務商",
+    "titleWechatReadonly": "微信會話（唯讀）",
+    "descWechatReadonly": "此會話由微信驅動，請在微信客戶端回覆。AI 回覆已自動接管。"
   },
   "chat": {
     "newChat": "新對話",

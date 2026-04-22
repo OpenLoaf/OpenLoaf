@@ -12,12 +12,12 @@
  * WeChat Message Service
  *
  * Persists inbound iLink Bot messages as ChatSession + messages.jsonl entries.
- * One ChatSession per (accountId, peerId) pair — a peer is either another WeChat
- * user (私聊) or a group (群). Session id is derived from a stable hash so the
- * same peer always lands in the same thread across restarts.
+ * iLink Bot is strictly 1:1 — each bound WeChat account maps to exactly one
+ * session (the conversation with the binding user). sessionId is deterministic
+ * (`wx-<accountId>`) so a bound account always lands in the same thread.
  */
 
-import { createHash, randomBytes } from 'node:crypto'
+import { randomBytes } from 'node:crypto'
 import { prisma } from '@openloaf/db'
 import type { WeixinMessage, MessageItem } from 'wechat-ilink-client'
 import { appendMessage } from '@/ai/services/chat/repositories/chatFileStore'
@@ -26,33 +26,32 @@ import { logger } from '@/common/logger'
 
 export const WECHAT_SESSION_KIND = 'wechat'
 
-function deriveSessionId(accountId: string, peerId: string): string {
-  const hash = createHash('sha256').update(`${accountId}\0${peerId}`).digest('hex')
-  return `wx-${hash.slice(0, 16)}`
+/** Derive the deterministic per-account sessionId. */
+export function deriveWeChatSessionId(accountId: string): string {
+  return `wx-${accountId}`
 }
 
-/** Ensure a ChatSession row exists for the given (account, peer). Returns sessionId. */
+/** Ensure a ChatSession row exists for the given account. Returns sessionId. */
 export async function ensureWeChatSession(input: {
   accountId: string
-  peerId: string
-  peerDisplayName?: string
+  /** Optional initial title (usually the bot's friendly name). Ignored on subsequent calls. */
+  title?: string
 }): Promise<string> {
-  const { accountId, peerId } = input
-  const sessionId = deriveSessionId(accountId, peerId)
-  const title = input.peerDisplayName || peerId.split('@')[0] || peerId
+  const { accountId } = input
+  const sessionId = deriveWeChatSessionId(accountId)
+  const title = input.title?.trim() || 'WeChat'
 
   await prisma.chatSession.upsert({
     where: { id: sessionId },
     update: {
-      // Do NOT overwrite title if the user has renamed the session.
-      // isUserRename defaults false; once true we leave title alone.
+      // Do NOT overwrite title — either the first message auto-titled it or
+      // the user renamed manually (isUserRename guard in appendInboundMessage).
     },
     create: {
       id: sessionId,
       title,
       kind: WECHAT_SESSION_KIND,
       wechatAccountId: accountId,
-      wechatPeerId: peerId,
     },
   })
 
@@ -60,7 +59,7 @@ export async function ensureWeChatSession(input: {
 }
 
 /** Extract a best-effort text representation from an iLink item_list. */
-function extractText(items: MessageItem[] | undefined): string {
+export function extractText(items: MessageItem[] | undefined): string {
   if (!items || items.length === 0) return ''
   const parts: string[] = []
   for (const item of items) {
@@ -90,7 +89,6 @@ function newMessageId(): string {
 export async function appendInboundMessage(input: {
   sessionId: string
   accountId: string
-  peerId: string
   msg: WeixinMessage
 }): Promise<void> {
   const { sessionId, msg } = input
@@ -112,7 +110,7 @@ export async function appendInboundMessage(input: {
     metadata: {
       wechat: {
         accountId: input.accountId,
-        peerId: input.peerId,
+        direction: 'inbound',
         messageId: msg.message_id,
         fromUserId: msg.from_user_id,
         contextToken: msg.context_token,
@@ -125,7 +123,6 @@ export async function appendInboundMessage(input: {
 
   await appendMessage({ sessionId, message: stored })
 
-  // Pull current row to decide: is this the first message? Should we rename?
   const current = await prisma.chatSession.findUnique({
     where: { id: sessionId },
     select: { messageCount: true, isUserRename: true },
@@ -134,9 +131,8 @@ export async function appendInboundMessage(input: {
   const shouldSetTitleFromFirstMessage =
     current != null && current.messageCount === 0 && !current.isUserRename
 
-  // Bump updatedAt + messageCount so the sidebar can sort by recency. On the
-  // very first inbound message (and while the user hasn't manually renamed),
-  // overwrite the placeholder peerId title with a short preview of the text.
+  // On the very first inbound message (and while the user hasn't manually
+  // renamed), overwrite the placeholder title with a short preview of the text.
   await prisma.chatSession.update({
     where: { id: sessionId },
     data: {

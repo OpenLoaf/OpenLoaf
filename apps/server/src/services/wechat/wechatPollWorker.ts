@@ -19,7 +19,8 @@
  * and outbound replies are deferred to later PRs.
  */
 
-import { ApiClient, type WeixinMessage, type GetUpdatesResp } from 'wechat-ilink-client'
+import type { WeixinMessage, GetUpdatesResp } from 'wechat-ilink-client'
+import { createAccountApiClient } from './apiClientFactory'
 import { logger } from '@/common/logger'
 import {
   getAccount,
@@ -28,7 +29,8 @@ import {
   updateAccountStatus,
   type WeChatAccount,
 } from './wechatAccountStore'
-import { ensureWeChatSession, appendInboundMessage } from './wechatMessageService'
+import { ensureWeChatSession, appendInboundMessage, extractText } from './wechatMessageService'
+import { scheduleAiReply } from './wechatAiBridge'
 
 const LONG_POLL_TIMEOUT_MS = 30_000
 const ERROR_BACKOFF_MS = 5_000
@@ -66,6 +68,12 @@ async function processBatch(
   account: WeChatAccount,
 ): Promise<void> {
   const msgs = resp.msgs ?? []
+  // iLink Bot is 1:1: one account → one session (`wx-<accountId>`). No peer
+  // routing needed.
+  const sessionId = await ensureWeChatSession({
+    accountId: account.id,
+    title: account.displayName,
+  })
   for (const msg of msgs) {
     if (!shouldHandle(msg, account)) {
       logger.info(
@@ -88,19 +96,21 @@ async function processBatch(
       continue
     }
     try {
-      const peerId = msg.from_user_id!
-      const peerDisplayName = peerId.split('@')[0] || peerId
-      const sessionId = await ensureWeChatSession({
-        accountId: account.id,
-        peerId,
-        peerDisplayName,
-      })
       await appendInboundMessage({
         sessionId,
         accountId: account.id,
-        peerId,
         msg,
       })
+      const text = extractText(msg.item_list)
+      if (text && msg.context_token) {
+        scheduleAiReply({
+          sessionId,
+          accountId: account.id,
+          text,
+          createTimeMs: msg.create_time_ms ?? Date.now(),
+          contextToken: msg.context_token,
+        })
+      }
     } catch (err) {
       logger.warn(
         { err: String(err), accountId: account.id, messageId: msg.message_id },
@@ -126,7 +136,7 @@ async function runLoop(accountId: string, signal: AbortSignal): Promise<void> {
       return
     }
 
-    const api = new ApiClient({ baseUrl: account.baseUrl, token: account.botToken })
+    const api = createAccountApiClient(account)
 
     let resp: GetUpdatesResp
     try {

@@ -352,6 +352,13 @@ export default function DocViewer({
           title={displayTitle}
           openUri={openUri ?? uri}
           openRootUri={rootUri}
+          saveAsOptions={uri && name ? {
+            uri,
+            name,
+            projectId,
+            sessionId,
+            filters: [{ name: "Word Document", extensions: ["docx"] }],
+          } : undefined}
           rightSlot={
             canEdit ? (
               <div className="flex items-center gap-1">

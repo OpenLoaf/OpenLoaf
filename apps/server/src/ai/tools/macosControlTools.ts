@@ -178,13 +178,16 @@ function buildPermissionReply(missing: string[]): string {
  */
 async function compressScreenshot(
   pngPath: string,
-): Promise<{ path: string; mediaType: string } | null> {
+): Promise<{ path: string; mediaType: string; width: number; height: number } | null> {
   try {
     const jpgPath = pngPath.replace(/\.png$/i, '.jpg')
-    await sharp(pngPath)
+    const info = await sharp(pngPath)
       .rotate()
-      .resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true })
-      .jpeg({ quality: 78, mozjpeg: true })
+      // Cap long edge at 2400 (was 1600) and bump quality to 88 (was 78) so
+      // in-app text on dense retina windows stays legible without ballooning
+      // file size — a WeChat chat list sits around 300–500 KB at these params.
+      .resize({ width: 2400, height: 2400, fit: 'inside', withoutEnlargement: true })
+      .jpeg({ quality: 88, mozjpeg: true })
       .toFile(jpgPath)
     if (jpgPath !== pngPath) {
       try {
@@ -193,7 +196,7 @@ async function compressScreenshot(
         // best effort
       }
     }
-    return { path: jpgPath, mediaType: 'image/jpeg' }
+    return { path: jpgPath, mediaType: 'image/jpeg', width: info.width, height: info.height }
   } catch {
     return null
   }
@@ -282,6 +285,137 @@ function slimAxTree(tree: unknown): unknown {
   return root ?? tree
 }
 
+/**
+ * Coordinate-space bridge: MacosAct receives screenshot-pixel coordinates (the
+ * pixel the model read off the image), this cache converts them back to the
+ * macOS logical-screen coordinates CGEvent needs.
+ *
+ * Why: retina + window-offset math is error-prone for the model. Before this,
+ * the model would see a WeChat avatar at screenshot pixel (50,170), call
+ * click{point:{x:50,y:170}}, and end up clicking the top-left of the physical
+ * display (World Clock widget on desktop) instead of the avatar inside a window
+ * that started at logical (1385,153). Now the tool does the math.
+ *
+ * Populated by MacosObserve on each successful capture, consumed by MacosAct.
+ * Keyed by sessionId — the observe-act-observe loop keeps the entry fresh.
+ * Missing entry means "no recent observe in this session": the tool rejects
+ * coordinate-based actions rather than silently passing raw pixels through.
+ */
+type ObserveMeta = {
+  /**
+   * Logical-screen coords of the captured region, straight from the Swift
+   * helper (`SCWindow.frame` for window captures, `SCDisplay.frame` for
+   * display captures). This is the same coord space CGEvent uses for clicks —
+   * no AX-tree inference, no retina-scale guessing.
+   */
+  screenshotFrame: { x: number; y: number; w: number; h: number }
+  /** pixel dimensions of the JPEG the model actually received (post-compress) */
+  presentedW: number
+  presentedH: number
+}
+const observeMetaBySession = new Map<string, ObserveMeta>()
+
+/**
+ * Convert a screenshot-pixel point (what the model sees) to logical-screen
+ * coordinates (what CGEvent takes). Returns null when there's no usable meta —
+ * caller must refuse the action with a clear "call MacosObserve first" message.
+ */
+function screenshotPointToScreen(
+  meta: ObserveMeta | undefined,
+  point: { x: number; y: number },
+): { x: number; y: number } | null {
+  if (!meta) return null
+  if (meta.presentedW <= 0 || meta.presentedH <= 0) return null
+  const f = meta.screenshotFrame
+  return {
+    x: Math.round(f.x + point.x * (f.w / meta.presentedW)),
+    y: Math.round(f.y + point.y * (f.h / meta.presentedH)),
+  }
+}
+
+/** Convert a scroll delta (dx/dy) from screenshot-pixel space to logical-screen space. */
+function screenshotDeltaToScreen(
+  meta: ObserveMeta | undefined,
+  delta: { dx?: number; dy?: number },
+): { dx: number; dy: number } | null {
+  if (!meta) return null
+  if (meta.presentedW <= 0 || meta.presentedH <= 0) return null
+  const f = meta.screenshotFrame
+  return {
+    dx: Math.round((delta.dx ?? 0) * (f.w / meta.presentedW)),
+    dy: Math.round((delta.dy ?? 0) * (f.h / meta.presentedH)),
+  }
+}
+
+/**
+ * Apply screenshotPointToScreen to every point field inside a MacosAct action.
+ * Returns the converted clone, or a string describing why the conversion
+ * failed (which the caller turns into the tool's error reply).
+ */
+function convertActionPoints(
+  sessionId: string | undefined,
+  action: Record<string, unknown>,
+  lang: Lang,
+): Record<string, unknown> | string {
+  const type = String(action.type ?? '')
+  const needsPoint =
+    (type === 'click' && action.point && !action.ref) ||
+    type === 'scroll' ||
+    type === 'drag'
+  if (!needsPoint) return action
+  const meta = sessionId ? observeMetaBySession.get(sessionId) : undefined
+  if (!meta) {
+    return lang === 'zh'
+      ? '坐标动作需要先调用 MacosObserve 才能建立坐标基准，请先观察再执行。'
+      : 'Coordinate actions require a prior MacosObserve to establish the coordinate baseline. Call MacosObserve first.'
+  }
+  const fail = (p: unknown, field: string): string =>
+    lang === 'zh'
+      ? `坐标字段 ${field} 无效：${JSON.stringify(p)}`
+      : `Invalid coordinate field ${field}: ${JSON.stringify(p)}`
+  const convert = (p: unknown, field: string): { x: number; y: number } | string => {
+    if (!p || typeof p !== 'object') return fail(p, field)
+    const pt = p as { x?: unknown; y?: unknown }
+    if (typeof pt.x !== 'number' || typeof pt.y !== 'number') return fail(p, field)
+    const screen = screenshotPointToScreen(meta, { x: pt.x, y: pt.y })
+    if (!screen) {
+      return lang === 'zh'
+        ? '最近一次 MacosObserve 没有拿到可用的坐标基准（没有窗口 frame 或显示器尺寸）。'
+        : 'The latest MacosObserve did not yield a usable coordinate baseline (no window frame or display bounds).'
+    }
+    return screen
+  }
+  const out: Record<string, unknown> = { ...action }
+  if (type === 'click') {
+    const c = convert(action.point, 'point')
+    if (typeof c === 'string') return c
+    out.point = c
+  } else if (type === 'scroll') {
+    const c = convert(action.point, 'point')
+    if (typeof c === 'string') return c
+    out.point = c
+    // Scroll deltas are also screenshot-pixel deltas; scale them the same way
+    // as the anchor point. Otherwise a long-list scroll will under/over-shoot
+    // by the retina + compression ratio (often 2-3×).
+    const d = screenshotDeltaToScreen(observeMetaBySession.get(sessionId!), {
+      dx: (action as { dx?: number }).dx,
+      dy: (action as { dy?: number }).dy,
+    })
+    if (d) {
+      if (typeof (action as { dx?: number }).dx === 'number') out.dx = d.dx
+      out.dy = d.dy
+    }
+  } else if (type === 'drag') {
+    const f = convert(action.from, 'from')
+    if (typeof f === 'string') return f
+    const t = convert(action.to, 'to')
+    if (typeof t === 'string') return t
+    out.from = f
+    out.to = t
+  }
+  return out
+}
+
 function summarizeAction(action: Record<string, unknown>): string {
   const t = String(action.type ?? 'unknown')
   switch (t) {
@@ -362,15 +496,45 @@ export const macosObserveTool = tool({
 
       let shotMediaType = 'image/png'
       let shotPath = typeof res.screenshotPath === 'string' ? res.screenshotPath : ''
+      let presentedW = typeof res.screenshotWidth === 'number' ? res.screenshotWidth : 0
+      let presentedH = typeof res.screenshotHeight === 'number' ? res.screenshotHeight : 0
       if (includeScreenshot !== false && shotPath) {
         const compressed = await compressScreenshot(shotPath)
         if (compressed) {
           shotPath = compressed.path
           shotMediaType = compressed.mediaType
+          presentedW = compressed.width
+          presentedH = compressed.height
         }
       }
 
       const shotKind = typeof res.screenshotKind === 'string' ? res.screenshotKind : 'display'
+
+      // Update the session's coordinate-conversion baseline so the next MacosAct
+      // can translate screenshot pixels → logical screen coords. The helper
+      // returns the authoritative frame (SCWindow.frame / SCDisplay.frame),
+      // which is already in the logical-screen coord space CGEvent uses —
+      // no inference, no retina guessing.
+      const rawFrame = res.screenshotFrame as
+        | { x?: unknown; y?: unknown; w?: unknown; h?: unknown }
+        | undefined
+      if (
+        presentedW > 0 &&
+        presentedH > 0 &&
+        rawFrame &&
+        typeof rawFrame.x === 'number' &&
+        typeof rawFrame.y === 'number' &&
+        typeof rawFrame.w === 'number' &&
+        typeof rawFrame.h === 'number' &&
+        rawFrame.w > 0 &&
+        rawFrame.h > 0
+      ) {
+        observeMetaBySession.set(sessionId, {
+          screenshotFrame: { x: rawFrame.x, y: rawFrame.y, w: rawFrame.w, h: rawFrame.h },
+          presentedW,
+          presentedH,
+        })
+      }
       progress.done(
         `${shotKind === 'window' ? '窗口截图' : '屏幕截图'} ${res.screenshotWidth ?? '?'}×${res.screenshotHeight ?? '?'} · ${nodeCount} nodes`,
       )
@@ -384,7 +548,9 @@ export const macosObserveTool = tool({
         parts.push('')
       }
       parts.push(`App: ${app?.name ?? '?'} (${app?.bundleId ?? ''})`)
-      parts.push(`Screenshot: ${shotKind} (${res.screenshotWidth ?? '?'}×${res.screenshotHeight ?? '?'})`)
+      parts.push(
+        `Screenshot: ${shotKind} ${presentedW || res.screenshotWidth || '?'}×${presentedH || res.screenshotHeight || '?'} px — pass these pixel coords straight to MacosAct (click/scroll/drag); the tool converts to screen coords for you.`,
+      )
       parts.push(`AX tree: ${nodeCount} nodes${truncated}`)
       parts.push('```json')
       parts.push(treeJson)
@@ -441,8 +607,17 @@ export const macosActTool = tool({
       }
     }
 
+    // Model feeds us screenshot-pixel coords; translate to logical screen
+    // coords here so CGEvent lands on the actual element the model saw.
+    const converted = convertActionPoints(sessionId, action as Record<string, unknown>, lang)
+    if (typeof converted === 'string') {
+      progress.error(converted)
+      return T.actFail(lang, converted)
+    }
+    const effectiveAction = converted
+
     try {
-      const res = await helper.request('act', { action }, { sessionId })
+      const res = await helper.request('act', { action: effectiveAction }, { sessionId })
       if (!res.ok) {
         const missing = res.permissionsMissing ?? []
         progress.error(res.error ?? 'act failed')

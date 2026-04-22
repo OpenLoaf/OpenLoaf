@@ -181,6 +181,13 @@ export default function PptxViewer({
         title={displayTitle}
         openUri={openUri}
         openRootUri={rootUri}
+        saveAsOptions={uri && name ? {
+          uri,
+          name,
+          projectId,
+          sessionId,
+          filters: [{ name: "PowerPoint", extensions: ["pptx"] }],
+        } : undefined}
         showMinimize={canMinimize}
         onMinimize={canMinimize ? () => requestStackMinimize(tabId!) : undefined}
         onClose={canClose ? () => removeStackItem(panelKey!) : undefined}

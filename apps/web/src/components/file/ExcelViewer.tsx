@@ -404,6 +404,13 @@ export default function ExcelViewer({
         title={displayTitle}
         openUri={openUri}
         openRootUri={rootUri}
+        saveAsOptions={uri && name ? {
+          uri,
+          name,
+          projectId,
+          sessionId,
+          filters: [{ name: "Excel Spreadsheet", extensions: ["xlsx", "xls"] }],
+        } : undefined}
         rightSlot={
           canEdit ? (
             <div className="flex items-center gap-1">

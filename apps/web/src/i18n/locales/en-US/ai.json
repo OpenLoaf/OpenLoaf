@@ -9,7 +9,9 @@
     "btnSwitchCloud": "Cloud",
     "btnLoginCloud": "Cloud sign in",
     "btnSwitchLocal": "Local",
-    "btnConfigLocal": "Local setup"
+    "btnConfigLocal": "Local setup",
+    "titleWechatReadonly": "WeChat session (read-only)",
+    "descWechatReadonly": "This conversation is driven by WeChat. Reply from your phone — AI auto-reply is already active."
   },
   "chat": {
     "newChat": "New Chat",

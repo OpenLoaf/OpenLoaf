@@ -9,7 +9,9 @@
     "btnSwitchCloud": "クラウドモデルを使用",
     "btnLoginCloud": "OpenLoaf Cloudにサインイン",
     "btnSwitchLocal": "ローカルモデルに切り替え",
-    "btnConfigLocal": "カスタムAIプロバイダー"
+    "btnConfigLocal": "カスタムAIプロバイダー",
+    "titleWechatReadonly": "WeChat 会話（読み取り専用）",
+    "descWechatReadonly": "この会話は WeChat 側から駆動されています。返信はスマホの WeChat からどうぞ。AI 自動返信が有効です。"
   },
   "chat": {
     "newChat": "新規チャット",

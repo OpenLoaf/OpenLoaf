@@ -11,12 +11,11 @@
 
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { queryClient, trpc } from '@/utils/trpc'
 import { cn } from '@/lib/utils'
-import { toast } from 'sonner'
 import { Button } from '@openloaf/ui/button'
-import { Blocks, Check, Loader2, PlugZap, Settings2 } from 'lucide-react'
+import { Blocks, Check, PlugZap, Settings2 } from 'lucide-react'
 import type { IntegrationDefinition } from '@openloaf/api/types/integrations'
 import { openSettingsTab } from '@/lib/globalShortcuts'
 import { InstallIntegrationDialog } from './InstallIntegrationDialog'
@@ -71,29 +70,12 @@ export function ConnectionsMarketPage() {
     })
   }
 
-  const uninstallMutation = useMutation(
-    trpc.integrations.uninstallIntegration.mutationOptions({
-      onSuccess: (_, variables) => {
-        const def = integrations.find((i) => i.id === variables.integrationId)
-        toast.success(t('connections:uninstallSuccess', { name: def?.name ?? '' }))
-        invalidate()
-      },
-      onError: (err) => toast.error(err.message),
-    }),
-  )
-
   const handleAction = (integration: IntegrationDefinition) => {
-    // WeChat: always open the account-management dialog (bind / list / unbind)
-    // regardless of whether any account is already bound.
     if (integration.id === WECHAT_INTEGRATION_ID) {
       setWechatDialogOpen(true)
       return
     }
-    if (integration.installed) {
-      uninstallMutation.mutate({ integrationId: integration.id })
-    } else {
-      setDialogIntegration(integration)
-    }
+    setDialogIntegration(integration)
   }
 
   return (
@@ -133,7 +115,7 @@ export function ConnectionsMarketPage() {
         {integrationsQuery.isLoading ? (
           <div className="grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-4">
             {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="h-[160px] animate-pulse rounded-3xl bg-muted/40" />
+              <div key={i} className="h-[180px] animate-pulse rounded-3xl bg-muted/40" />
             ))}
           </div>
         ) : integrations.length === 0 ? (
@@ -147,9 +129,6 @@ export function ConnectionsMarketPage() {
           <div className="grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-4">
             {integrations.map((integration) => {
               const isInstalled = integration.installed
-              const pendingUninstall =
-                uninstallMutation.isPending &&
-                uninstallMutation.variables?.integrationId === integration.id
               const gradient =
                 CATEGORY_GRADIENTS[integration.category] ??
                 CATEGORY_GRADIENTS.productivity
@@ -172,7 +151,7 @@ export function ConnectionsMarketPage() {
                   {/* Top strip */}
                   <div
                     className={cn(
-                      'flex items-start justify-between gap-3 bg-gradient-to-br px-5 pt-4 pb-4',
+                      'flex items-start justify-between gap-3 bg-gradient-to-br px-5 pt-5 pb-5',
                       gradient,
                     )}
                   >
@@ -235,15 +214,12 @@ export function ConnectionsMarketPage() {
                           ? 'bg-secondary text-secondary-foreground hover:bg-accent'
                           : 'bg-foreground text-background hover:bg-foreground/85',
                       )}
-                      disabled={pendingUninstall}
                       onClick={(e) => {
                         e.stopPropagation()
                         handleAction(integration)
                       }}
                     >
-                      {pendingUninstall ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                      ) : isInstalled ? (
+                      {isInstalled ? (
                         <>
                           <Check className="mr-1 h-3 w-3" />
                           {t('connections:uninstall')}
@@ -255,8 +231,8 @@ export function ConnectionsMarketPage() {
                   </div>
 
                   {/* Body */}
-                  <div className="flex flex-1 flex-col px-5 pb-4 pt-3.5">
-                    <p className="line-clamp-3 text-xs leading-relaxed text-muted-foreground">
+                  <div className="flex flex-1 flex-col px-5 pb-5 pt-4">
+                    <p className="line-clamp-3 text-sm leading-relaxed text-muted-foreground">
                       {t(`connections:integrations.${integration.id}.description`, {
                         defaultValue: integration.description,
                       })}
@@ -274,6 +250,9 @@ export function ConnectionsMarketPage() {
         integration={dialogIntegration}
         onClose={() => setDialogIntegration(null)}
         onInstalled={() => {
+          invalidate()
+        }}
+        onUninstalled={() => {
           invalidate()
         }}
       />

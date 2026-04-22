@@ -108,7 +108,7 @@ export const ChatImageAttachments = React.forwardRef<
       onClose: () => setPreviewAttachmentId(null),
       items: previewItems,
       activeIndex: 0,
-      showSave: false,
+      showSave: true,
       enableEdit,
       onApplyMask: (input) => {
         if (!previewAttachment || !onReplaceMaskedAttachment) return;

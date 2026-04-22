@@ -326,7 +326,7 @@ async function main() {
   })
 
   // ----- Screenshot: per-window capture works -----
-  await test('observe: per-window screenshot + kind=window', async () => {
+  await test('observe: per-window screenshot + kind=window + screenshotFrame', async () => {
     const obs = await helper.request('observe', {
       appFilter: HARNESS_BUNDLE,
       includeScreenshot: true,
@@ -341,6 +341,134 @@ async function main() {
       'screenshot width missing',
     )
     assert(existsSync(String(obs.screenshotPath)), 'screenshot file not written')
+
+    // V2: helper must report the captured region in logical-screen coords so
+    // server-side px→screen conversion has an authoritative source.
+    const frame = obs.screenshotFrame as
+      | { x: number; y: number; w: number; h: number }
+      | undefined
+    assert(
+      frame && typeof frame.x === 'number' && typeof frame.y === 'number' &&
+        frame.w > 0 && frame.h > 0,
+      `screenshotFrame missing or invalid: ${JSON.stringify(frame)}`,
+    )
+    // AX window root frame should agree with helper's screenshotFrame (within
+    // a few pixels — AX and SCK round differently).
+    const treeRoot = obs.tree as AxNode
+    let axWinFrame: { x: number; y: number; w: number; h: number } | undefined
+    for (const c of treeRoot.children ?? []) {
+      if (c.role === 'AXWindow' && c.frame) {
+        axWinFrame = c.frame
+        break
+      }
+    }
+    if (axWinFrame) {
+      const dx = Math.abs(axWinFrame.x - frame!.x)
+      const dy = Math.abs(axWinFrame.y - frame!.y)
+      assert(
+        dx <= 4 && dy <= 4,
+        `screenshotFrame (${frame!.x},${frame!.y}) diverges from AX window frame (${axWinFrame.x},${axWinFrame.y}) — origin must be authoritative`,
+      )
+    }
+  })
+
+  // ----- V2 coord conversion: screenshot-pixel click hits the right button -----
+  // This is the regression test for the WeChat-avatar bug: the model reports
+  // a pixel from the screenshot, the server must convert it to a screen coord
+  // that lands on the intended element. We don't run the server tool here —
+  // we replicate its math (screenshotPointToScreen) against the helper's
+  // authoritative frame, click via helper, and verify the counter advanced.
+  await test('v2 coord conversion: click by screenshot-pixel hits btn-increment', async () => {
+    // Prior tests may have switched to another tab — ensure we're on basic.
+    let obs = await helper.request('observe', {
+      appFilter: HARNESS_BUNDLE,
+      includeScreenshot: false,
+    })
+    const basicTab = findByIdentifier(obs.tree as AxNode, 'tab-basic')
+    assert(basicTab, 'tab-basic not found')
+    await helper.request('act', {
+      action: {
+        type: 'ax_action',
+        ref: { app: HARNESS_BUNDLE, path: basicTab!.path! },
+        action: 'AXPress',
+      },
+    })
+    await sleep(250)
+
+    obs = await helper.request('observe', {
+      appFilter: HARNESS_BUNDLE,
+      includeScreenshot: false,
+    })
+    // Reset counter to 0 via AXPress-reset so the test is deterministic.
+    const resetBtn = findByIdentifier(obs.tree as AxNode, 'btn-reset')
+    assert(resetBtn, 'btn-reset not found')
+    await helper.request('act', {
+      action: {
+        type: 'ax_action',
+        ref: { app: HARNESS_BUNDLE, path: resetBtn!.path! },
+        action: 'AXPress',
+      },
+    })
+    await sleep(200)
+
+    // Activate the harness so click goes to the right window.
+    activateHarness()
+    await sleep(200)
+
+    // Observe with screenshot to pick up screenshotFrame + pixel dims.
+    obs = await helper.request('observe', {
+      appFilter: HARNESS_BUNDLE,
+      includeScreenshot: true,
+    })
+    assert(obs.ok, `observe failed: ${obs.error}`)
+    const frame = obs.screenshotFrame as { x: number; y: number; w: number; h: number }
+    const presentedW = obs.screenshotWidth as number
+    const presentedH = obs.screenshotHeight as number
+    assert(frame && presentedW > 0 && presentedH > 0, 'screenshotFrame/dims missing')
+
+    const btn = findByIdentifier(obs.tree as AxNode, 'btn-increment')
+    assert(btn && btn.frame, 'btn-increment frame missing from AX tree')
+    const btnCenterScreen = {
+      x: btn!.frame!.x + btn!.frame!.w / 2,
+      y: btn!.frame!.y + btn!.frame!.h / 2,
+    }
+
+    // Inverse of the server's screenshotPointToScreen: given a screen point,
+    // what pixel would the model see? This is what the model would derive by
+    // "eyeballing" the screenshot at the button's position.
+    const pixelX = ((btnCenterScreen.x - frame.x) * presentedW) / frame.w
+    const pixelY = ((btnCenterScreen.y - frame.y) * presentedH) / frame.h
+
+    // Forward conversion (same math as server's screenshotPointToScreen).
+    // A correct implementation round-trips back to btnCenterScreen.
+    const screenX = Math.round(frame.x + pixelX * (frame.w / presentedW))
+    const screenY = Math.round(frame.y + pixelY * (frame.h / presentedH))
+    const roundTripDx = Math.abs(screenX - btnCenterScreen.x)
+    const roundTripDy = Math.abs(screenY - btnCenterScreen.y)
+    assert(
+      roundTripDx <= 2 && roundTripDy <= 2,
+      `round-trip coord conversion drifted: pixel=(${pixelX.toFixed(1)},${pixelY.toFixed(1)}) screen=(${screenX},${screenY}) expected~(${btnCenterScreen.x},${btnCenterScreen.y})`,
+    )
+
+    // Actually click at the converted screen coord and verify the click
+    // landed on btn-increment (counter goes from 0 → 1).
+    const actRes = await helper.request('act', {
+      action: { type: 'click', point: { x: screenX, y: screenY } },
+    })
+    assert(actRes.ok, `click failed: ${actRes.error}`)
+    await sleep(250)
+
+    const obs2 = await helper.request('observe', {
+      appFilter: HARNESS_BUNDLE,
+      includeScreenshot: false,
+    })
+    const lbl = findByIdentifier(obs2.tree as AxNode, 'lbl-count')
+    assert(lbl, 'lbl-count missing after click')
+    const text = collectText(lbl!).join(' ')
+    assert(
+      /Counter:\s*1/.test(text),
+      `pixel-derived click did not hit btn-increment (counter text: ${text})`,
+    )
   })
 
   // ----- Cleanup -----

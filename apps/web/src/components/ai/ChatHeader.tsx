@@ -124,7 +124,6 @@ function ChatHeaderInner({
     [sessionsQuery.data],
   );
   const refetchSessions = sessionsQuery.refetch;
-  const setTitle = useAppView((s) => s.setTitle);
   const pushStackItem = useLayoutState((s) => s.pushStackItem);
   const { basic } = useBasicConfig();
   const { loggedIn: saasLoggedIn } = useSaasAuth();
@@ -583,10 +582,6 @@ function ChatHeaderInner({
                         where: { id: session.id, isUserRename: false },
                         data: { title: tabTitle },
                       } as any);
-                    }
-                    {
-                      const nextTitle = session.name.trim() || tAi("dock.aiAssistant");
-                      setTitle(nextTitle);
                     }
                     selectSession(session.id);
                   }}
