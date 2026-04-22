@@ -20,9 +20,8 @@ import { TEMP_CHAT_TAB_INPUT, TEMP_CANVAS_TAB_INPUT } from '@openloaf/api/common
 import { buildBoardFolderUri } from '@/components/project/filesystem/utils/file-system-utils'
 import { BOARD_INDEX_FILE_NAME } from '@/lib/file-name'
 import { resolveProjectModeProjectShell } from '@/lib/project-mode'
-import { buildBoardChatTabState } from '@/components/board/utils/board-chat-tab'
-import type { ChatPageContext } from '@openloaf/api/types/message'
 import { captureCurrentViewSnapshot } from '@/lib/primary-page-navigation'
+import { useChatView, GLOBAL_CHAT_SCOPE } from '@/hooks/use-chat-view'
 
 function findProjectRootUri(nodes: ProjectNode[] | undefined, projectId: string): string {
   if (!projectId || !nodes?.length) return ''
@@ -36,8 +35,6 @@ function findProjectRootUri(nodes: ProjectNode[] | undefined, projectId: string)
 
 export function useSidebarNavigation() {
   const navigate = useAppView((s) => s.navigate)
-  const setChatSession = useAppView((s) => s.setChatSession)
-  const setChatParams = useAppView((s) => s.setChatParams)
   const projectShell = useAppView((s) => s.projectShell)
   const openProjectWithPreference = useProjectOpen()
   const { data: projects } = useProjects()
@@ -45,14 +42,13 @@ export function useSidebarNavigation() {
   const activeProjectId = activeProjectShell?.projectId
 
   const openChat = useCallback(
-    (chatId: string, chatTitle: string, input?: { projectId?: string | null }) => {
+    (chatId: string, _chatTitle: string, input?: { projectId?: string | null }) => {
       const projectId = input?.projectId?.trim() || activeProjectId
       const currentBase = useLayoutState.getState().base
 
-      // Single-view: just set the chat session directly
+      // If a project is specified, make sure the middle panel is on the project's plant-page
+      // (which is what derives the chat scope). Chat session id is stored per-scope.
       if (projectId) {
-        const pageContext: ChatPageContext = { scope: 'project', page: 'project-index', projectId }
-        setChatParams({ projectId, boardId: undefined, pageContext })
         if (currentBase?.component === 'plant-page') {
           const currentParams = (currentBase.params ?? {}) as Record<string, unknown>
           const currentProjectId =
@@ -69,14 +65,12 @@ export function useSidebarNavigation() {
             })
           }
         }
+        useChatView.getState().setActiveSession(projectId, chatId)
       } else {
-        // Clear stale board/project params when switching to global chat
-        const pageContext: ChatPageContext = { scope: 'global', page: 'ai-chat' }
-        setChatParams({ projectId: undefined, boardId: undefined, pageContext })
+        useChatView.getState().setActiveSession(GLOBAL_CHAT_SCOPE, chatId)
       }
-      setChatSession(chatId, true)
     },
-    [activeProjectId, projects, setChatSession, setChatParams],
+    [activeProjectId, projects],
   )
 
   const openProject = useCallback(
@@ -113,17 +107,14 @@ export function useSidebarNavigation() {
           ? activeProjectShell
           : undefined
 
-      // Check if current view already has this board as base
+      // If the board is already the current base, this is a no-op — chat scope derives from base.
       if (currentBase?.id === baseId) {
-        const boardChatState = buildBoardChatTabState(input.boardId, resolvedProjectId)
-        setChatParams(boardChatState.chatParams)
         return
       }
 
       navigate({
         title: input.title,
-        icon: '\uD83C\uDFA8',
-        ...buildBoardChatTabState(input.boardId, resolvedProjectId),
+        icon: '🎨',
         leftWidthPercent: 100,
         ...(preservedProjectShell ? { projectShell: preservedProjectShell } : {}),
         base: {
@@ -141,24 +132,16 @@ export function useSidebarNavigation() {
         },
       })
     },
-    [
-      activeProjectId,
-      activeProjectShell,
-      navigate,
-      setChatSession,
-      setChatParams,
-    ],
+    [activeProjectId, activeProjectShell, navigate],
   )
 
   const openTempChat = useCallback(() => {
     const tabTitle = i18next.t(TEMP_CHAT_TAB_INPUT.titleKey)
 
-    // In single-view mode, check if the current view is already a temp chat
+    // Already on temp chat? No-op — global scope chat session is preserved.
     const layout = useLayoutState.getState()
     const view = useAppView.getState()
     if (!layout.base && view.title === tabTitle) {
-      // Already on temp chat, just normalize any leaked scoped chat params.
-      setChatParams({ projectId: undefined, boardId: undefined, pageContext: { scope: 'global', page: 'ai-chat' } })
       return
     }
 
@@ -168,7 +151,7 @@ export function useSidebarNavigation() {
       leftWidthPercent: 0,
       rightChatCollapsed: false,
     })
-  }, [navigate, setChatParams])
+  }, [navigate])
 
   const openTempCanvas = useCallback(() => {
     const tabTitle = i18next.t(TEMP_CANVAS_TAB_INPUT.titleKey)
@@ -182,7 +165,6 @@ export function useSidebarNavigation() {
       title: tabTitle,
       icon: TEMP_CANVAS_TAB_INPUT.icon,
       leftWidthPercent: 100,
-      chatParams: { pageContext: { scope: 'global', page: 'temp-canvas' } as ChatPageContext },
       base: {
         id: `board:${boardFolderUri}`,
         component: 'board-viewer',

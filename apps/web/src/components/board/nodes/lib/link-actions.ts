@@ -8,7 +8,8 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import { BROWSER_WINDOW_COMPONENT, BROWSER_WINDOW_PANEL_ID } from "@openloaf/api/common";
-import { useAppView } from "@/hooks/use-app-view";
+import { useChatView } from "@/hooks/use-chat-view";
+import { getChatScope } from "@/lib/chat-scope";
 import { useLayoutState } from "@/hooks/use-layout-state";
 import { createBrowserTabId } from "@/hooks/tab-id";
 
@@ -42,8 +43,8 @@ export function openLinkInStack({ url, title }: OpenLinkInput) {
   const trimmedUrl = url.trim();
   if (!trimmedUrl) return;
   const resolvedTitle = resolveLinkTitle(trimmedUrl, title);
-  const appViewState = useAppView.getState();
-  const chatSessionId = appViewState.chatSessionId ?? "unknown";
+  const chatSessionId =
+    useChatView.getState().getActiveSessionId(getChatScope().scope) || "unknown";
 
   const viewKey = buildBrowserViewKey({
     chatSessionId,

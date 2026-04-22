@@ -23,7 +23,8 @@ import { openFilePreview } from "@/components/file/lib/open-file";
 import { FileSystemGrid } from "@/components/project/filesystem/components/FileSystemGrid";
 import { Calendar } from "@openloaf/ui/date-picker";
 import { useChatSessions, type ChatSessionListItem } from "@/hooks/use-chat-sessions";
-import { useAppView } from "@/hooks/use-app-view";
+import { useChatView } from "@/hooks/use-chat-view";
+import { useChatScope } from "@/lib/chat-scope";
 import { cn } from "@/lib/utils";
 import { trpc } from "@/utils/trpc";
 import { type FileSystemEntry } from "@/components/project/filesystem/utils/file-system-utils";
@@ -110,8 +111,9 @@ const ProjectHistory = memo(function ProjectHistory({
   const { t } = useTranslation("project");
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const { sessions, isLoading: isSessionsLoading, scopeProjectId } = useChatSessions();
-  const activeChatSessionId = useAppView((s) => s.chatSessionId);
-  const setChatSession = useAppView((s) => s.setChatSession);
+  const scope = useChatScope();
+  const activeChatSessionId = useChatView((s) => s.sessions[scope.scope]?.activeSessionId ?? "");
+  const setActiveSession = useChatView((s) => s.setActiveSession);
 
   const { sessionsByDay, sessionDates } = useMemo(() => {
     const map = new Map<string, ChatSessionListItem[]>();
@@ -204,10 +206,10 @@ const ProjectHistory = memo(function ProjectHistory({
   const handleSessionSelect = useCallback(
     (sessionId: string) => {
       if (activeChatSessionId === sessionId) return;
-      // 中文注释：点击历史会话后切换右侧聊天并加载历史记录。
-      setChatSession(sessionId, true);
+      // 中文注释：点击历史会话后切换当前 scope 下右侧聊天并加载历史记录。
+      setActiveSession(scope.scope, sessionId);
     },
-    [activeChatSessionId, setChatSession]
+    [activeChatSessionId, scope.scope, setActiveSession]
   );
 
   /** Open a markdown file from file changes. */

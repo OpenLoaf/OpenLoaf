@@ -13,7 +13,8 @@ import * as React from "react";
 import { GlobeIcon, ExternalLinkIcon } from "lucide-react";
 import { BROWSER_WINDOW_COMPONENT, BROWSER_WINDOW_PANEL_ID } from "@openloaf/api/common";
 import { cn } from "@/lib/utils";
-import { useAppView } from "@/hooks/use-app-view";
+import { useChatView } from "@/hooks/use-chat-view";
+import { getChatScope } from "@/lib/chat-scope";
 import { useLayoutState } from "@/hooks/use-layout-state";
 import { createBrowserTabId } from "@/hooks/tab-id";
 import { isElectronEnv } from "@/utils/is-electron-env";
@@ -67,8 +68,7 @@ export default function OpenUrlTool({
       window.open(url, '_blank', 'noopener,noreferrer')
       return
     }
-    const appView = useAppView.getState();
-    const chatSessionId = appView.chatSessionId;
+    const chatSessionId = useChatView.getState().getActiveSessionId(getChatScope().scope);
     const baseKey = `browser:${chatSessionId}`;
     const viewKey = `${baseKey}:${createBrowserTabId()}`;
     useLayoutState.getState().pushStackItem(

@@ -18,6 +18,7 @@ import { useChatActions, useChatSession, useChatStatus, useChatMessageMeta } fro
 import { skipToken, useInfiniteQuery, useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient, trpc, trpcClient } from "@/utils/trpc";
 import { useAppView } from "@/hooks/use-app-view";
+import { useChatScope } from "@/lib/chat-scope";
 import { invalidateChatSessions } from "@/hooks/use-chat-sessions";
 import { useLayoutState } from "@/hooks/use-layout-state";
 import { useTabActive } from "@/components/layout/TabActiveContext";
@@ -124,7 +125,6 @@ function ChatHeaderInner({
   );
   const refetchSessions = sessionsQuery.refetch;
   const setTitle = useAppView((s) => s.setTitle);
-  const setChatParams = useAppView((s) => s.setChatParams);
   const pushStackItem = useLayoutState((s) => s.pushStackItem);
   const { basic } = useBasicConfig();
   const { loggedIn: saasLoggedIn } = useSaasAuth();
@@ -158,17 +158,10 @@ function ChatHeaderInner({
   });
   const autoTestAggregate = autoTestEvalQuery.data?.aggregate;
 
-  // Quick launch: derive project context from tab chatParams.
-  const quickLaunchProjectId = React.useMemo(() => {
-    const params = appState?.chatParams as Record<string, unknown> | undefined;
-    const pid = params?.projectId;
-    return typeof pid === "string" ? pid.trim() : "";
-  }, [appState?.chatParams]);
-  const currentBoardId = React.useMemo(() => {
-    const params = appState?.chatParams as Record<string, unknown> | undefined;
-    const boardId = params?.boardId;
-    return typeof boardId === "string" ? boardId.trim() : "";
-  }, [appState?.chatParams]);
+  // Quick launch: derive project/board context from chat scope (layout-driven).
+  const chatScope = useChatScope();
+  const quickLaunchProjectId = chatScope.projectId ?? "";
+  const currentBoardId = chatScope.boardId ?? "";
   const projectQuery = useProject(quickLaunchProjectId || undefined);
   const globalRootUri = useProjectStorageRootUri();
   const tempRootUri = useTempStorageRootUri();
@@ -595,10 +588,6 @@ function ChatHeaderInner({
                       const nextTitle = session.name.trim() || tAi("dock.aiAssistant");
                       setTitle(nextTitle);
                     }
-                    setChatParams({
-                      projectId: selectedSessionMeta?.projectId ?? undefined,
-                      boardId: undefined,
-                    });
                     selectSession(session.id);
                   }}
                 />

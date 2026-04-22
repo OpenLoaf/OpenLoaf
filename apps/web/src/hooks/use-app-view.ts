@@ -13,7 +13,6 @@ import { create } from "zustand"
 import { createJSONStorage, persist } from "zustand/middleware"
 import type { DockItem } from "@openloaf/api/common"
 import { DEFAULT_TAB_INFO } from "@openloaf/api/common"
-import { createChatSessionId } from "@/lib/chat-session-id"
 import { isDedicatedWindowMode } from "@/lib/window-mode"
 import type { ProjectShellState } from "@/lib/project-shell"
 import { useLayoutState } from "./use-layout-state"
@@ -26,19 +25,10 @@ export type NavigateInput = {
   base?: DockItem
   leftWidthPercent?: number
   rightChatCollapsed?: boolean
-  chatSessionId?: string
-  chatParams?: Record<string, unknown>
-  chatLoadHistory?: boolean
   projectShell?: ProjectShellState
 }
 
 export interface AppViewState {
-  /** Current chat session id. */
-  chatSessionId: string
-  /** Chat parameters (e.g. projectId). */
-  chatParams: Record<string, unknown>
-  /** Whether to load chat history. */
-  chatLoadHistory: boolean
   /** Project-shell metadata. */
   projectShell: ProjectShellState | null
   /** Display title. */
@@ -48,12 +38,8 @@ export interface AppViewState {
   /** Whether the view has been initialized. */
   initialized: boolean
 
-  /** Navigate to a new view (replaces addTab). */
+  /** Navigate to a new view (replaces addTab). Chat state is handled by useChatView. */
   navigate: (input: NavigateInput) => void
-  /** Set chat session. */
-  setChatSession: (id: string, loadHistory?: boolean) => void
-  /** Merge chat params. */
-  setChatParams: (patch: Record<string, unknown>) => void
   /** Set or clear project-shell state. */
   setProjectShell: (shell: ProjectShellState | null) => void
   /** Set display title. */
@@ -70,10 +56,7 @@ function resolveStorage() {
 
 export const useAppView = create<AppViewState>()(
   persist(
-    (set, get): AppViewState => ({
-      chatSessionId: "",
-      chatParams: {},
-      chatLoadHistory: false,
+    (set): AppViewState => ({
       projectShell: null,
       title: "",
       icon: DEFAULT_TAB_INFO.icon,
@@ -86,29 +69,12 @@ export const useAppView = create<AppViewState>()(
           icon,
           leftWidthPercent,
           rightChatCollapsed,
-          chatSessionId: requestedChatSessionId,
-          chatParams,
-          chatLoadHistory,
           projectShell,
         } = input
 
         const normalizedBase = base?.component === "ai-chat" ? undefined : base
-        const createdChatSessionId = requestedChatSessionId ?? createChatSessionId()
-        const createdChatLoadHistory = chatLoadHistory ?? Boolean(requestedChatSessionId)
-        const resolvedChatParams =
-          typeof chatParams === "object" && chatParams
-            ? { ...(chatParams as Record<string, unknown>) }
-            : {}
-
-        // If projectShell is provided and chatParams doesn't have projectId, inject it
-        if (projectShell && !resolvedChatParams.projectId) {
-          resolvedChatParams.projectId = projectShell.projectId
-        }
 
         set({
-          chatSessionId: createdChatSessionId,
-          chatParams: resolvedChatParams,
-          chatLoadHistory: createdChatLoadHistory,
           projectShell: projectShell ?? null,
           title: title ?? "",
           icon: icon ?? DEFAULT_TAB_INFO.icon,
@@ -120,25 +86,6 @@ export const useAppView = create<AppViewState>()(
           base: normalizedBase,
           leftWidthPercent,
           rightChatCollapsed,
-        })
-      },
-
-      setChatSession: (id, loadHistory) => {
-        set({
-          chatSessionId: id,
-          chatLoadHistory: loadHistory ?? true,
-        })
-      },
-
-      setChatParams: (patch) => {
-        set((state) => {
-          const currentParams = state.chatParams
-          const nextParams = { ...currentParams, ...patch }
-          const same =
-            Object.keys(nextParams).length === Object.keys(currentParams).length &&
-            Object.entries(nextParams).every(([key, value]) => currentParams[key] === value)
-          if (same) return state
-          return { chatParams: nextParams }
         })
       },
 
@@ -157,11 +104,8 @@ export const useAppView = create<AppViewState>()(
     {
       name: APP_VIEW_STORAGE_KEY,
       storage: createJSONStorage(resolveStorage),
-      version: 1,
+      version: 2,
       partialize: (state) => ({
-        chatSessionId: state.chatSessionId,
-        chatParams: state.chatParams,
-        chatLoadHistory: state.chatLoadHistory,
         projectShell: state.projectShell,
         title: state.title,
         icon: state.icon,

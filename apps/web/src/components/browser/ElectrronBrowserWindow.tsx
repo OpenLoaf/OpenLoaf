@@ -14,7 +14,8 @@ import { motion } from "motion/react";
 import { cn } from "@/lib/utils";
 import { useTabActive } from "@/components/layout/TabActiveContext";
 import { BROWSER_WINDOW_PANEL_ID, type BrowserTab } from "@openloaf/api/common";
-import { useAppView } from "@/hooks/use-app-view";
+import { useChatView } from "@/hooks/use-chat-view";
+import { getChatScope } from "@/lib/chat-scope";
 import { useLayoutState } from "@/hooks/use-layout-state";
 import { requestStackMinimize } from "@/lib/stack-dock-animation";
 import { upsertTabSnapshotNow } from "@/lib/tab-snapshot";
@@ -158,7 +159,8 @@ export default function ElectrronBrowserWindow({
 
   const buildViewKey = (browserTabId: string) => {
     if (!safeTabId) return `${BROWSER_WINDOW_PANEL_ID}:${browserTabId}`;
-    const chatSessionId = useAppView.getState().chatSessionId ?? "unknown";
+    const chatSessionId =
+      useChatView.getState().getActiveSessionId(getChatScope().scope) || "unknown";
     return `browser:${safeTabId}:${chatSessionId}:${browserTabId}`;
   };
 
@@ -252,7 +254,7 @@ export default function ElectrronBrowserWindow({
       );
       updateBrowserState(nextTabs, activeId);
 
-      const sessionId = useAppView.getState().chatSessionId;
+      const sessionId = useChatView.getState().getActiveSessionId(getChatScope().scope);
       if (sessionId) void upsertTabSnapshotNow({ sessionId, tabId: safeTabId });
     })();
 

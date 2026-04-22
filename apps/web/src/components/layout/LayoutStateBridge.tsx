@@ -7,6 +7,7 @@ import { useNavigation } from "@/hooks/use-navigation";
 import { useAppView } from "@/hooks/use-app-view";
 import { useLayoutState } from "@/hooks/use-layout-state";
 import { buildProjectShellStateFromBase } from "@/lib/project-shell";
+import { useChatView, GLOBAL_CHAT_SCOPE } from "@/hooks/use-chat-view";
 
 /** Keep layout-derived navigation state and project-shell metadata aligned. */
 export function LayoutStateBridge() {
@@ -23,6 +24,9 @@ export function LayoutStateBridge() {
     () => buildProjectShellStateFromBase({ base, title, icon }),
     [base, title, icon],
   );
+  const globalChatSessionId = useChatView(
+    (s) => s.sessions[GLOBAL_CHAT_SCOPE]?.activeSessionId ?? null,
+  );
 
   useEffect(() => {
     if (projectShell || !derivedProjectShell) return;
@@ -36,10 +40,10 @@ export function LayoutStateBridge() {
       projectId:
         resolvedView.viewType === "project" ? resolvedView.projectId : null,
       globalChatSessionId:
-        resolvedView.viewType === "global-chat" ? appState.chatSessionId : null,
+        resolvedView.viewType === "global-chat" ? globalChatSessionId : null,
     });
   }, [
-    appState.chatSessionId,
+    globalChatSessionId,
     resolvedView.projectId,
     resolvedView.viewType,
     syncDerivedView,

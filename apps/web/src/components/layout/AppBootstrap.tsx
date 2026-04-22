@@ -13,7 +13,6 @@ import { useEffect } from "react"
 import { DEFAULT_TAB_INFO } from "@openloaf/api/common"
 import { openProjectShell } from "@/lib/project-shell"
 import { getProjectWindowBootstrapPayload, getBoardWindowBootstrapPayload } from "@/lib/window-mode"
-import { buildBoardChatTabState } from "@/components/board/utils/board-chat-tab"
 import { useAppView } from "@/hooks/use-app-view"
 import { useProjectStorageRootQuery } from "@/hooks/use-project-storage-root-uri"
 
@@ -47,7 +46,6 @@ export function AppBootstrap() {
       navigate({
         title: boardWindowPayload.title || "Canvas",
         icon: "🎨",
-        ...buildBoardChatTabState(boardWindowPayload.boardId, boardWindowPayload.projectId),
         leftWidthPercent: 100,
         rightChatCollapsed: true,
         base: {

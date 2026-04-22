@@ -61,9 +61,6 @@ export type LayoutSnapshot = {
 
 export type LayoutViewSnapshot = LayoutSnapshot & {
   title?: string
-  chatSessionId?: string
-  chatLoadHistory?: boolean
-  chatParams?: Record<string, unknown>
 }
 
 export type ResolvedRightChatState = {
@@ -120,11 +117,9 @@ export function resolveLayoutViewState(
   const foregroundComponent = getLayoutForegroundComponent(snapshot) ?? ""
   const projectShell = resolveProjectModeProjectShell(snapshot?.projectShell)
   const baseParams = (snapshot?.base?.params ?? {}) as Record<string, unknown>
-  const chatParams = (snapshot?.chatParams ?? {}) as Record<string, unknown>
   const baseProjectId = readStringValue(baseParams.projectId)
-  const chatProjectId = readStringValue(chatParams.projectId)
   const projectId =
-    projectShell?.projectId || baseProjectId || chatProjectId || null
+    projectShell?.projectId || baseProjectId || null
   const isProjectPage =
     foregroundComponent === "plant-page" ||
     foregroundComponent === "project-settings-page"
@@ -221,17 +216,13 @@ export function resolveLayoutViewState(
   }
 
   if (!foregroundComponent) {
-    const hasNamedSession = readStringValue(snapshot?.chatSessionId)
     const hasCustomTitle =
       readStringValue(snapshot?.title) &&
       snapshot?.title !== DEFAULT_TAB_INFO.titleKey
 
     return {
       foregroundComponent,
-      viewType:
-        hasNamedSession && (Boolean(snapshot?.chatLoadHistory) || Boolean(hasCustomTitle))
-          ? "global-chat"
-          : "ai-assistant",
+      viewType: hasCustomTitle ? "global-chat" : "ai-assistant",
       projectId: null,
       isProjectContext: false,
       isSettingsPage: false,

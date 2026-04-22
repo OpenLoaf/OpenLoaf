@@ -15,7 +15,8 @@ import { resolveServerUrl } from "@/utils/server-url";
 import { isElectronEnv } from "@/utils/is-electron-env";
 import { queryClient } from "@/utils/trpc";
 import { getProjectsQueryKey } from "@/hooks/use-projects";
-import { useAppView } from "@/hooks/use-app-view";
+import { getChatScope } from "@/lib/chat-scope";
+import { useChatView } from "@/hooks/use-chat-view";
 import { buildProjectHierarchyIndex } from "@/lib/project-tree";
 import { getRelativePathFromUri } from "@/components/project/filesystem/utils/file-system-utils";
 import { createFileEntryFromUri } from "@/components/file/lib/open-file";
@@ -76,9 +77,7 @@ function resolveFileEntryFromUrl(input: {
 }): { entry: FileSystemEntry; projectId: string } | null {
   if (!input.url.startsWith("file://")) return null;
 
-  const appView = useAppView.getState();
-  const projectId =
-    typeof appView.chatParams?.projectId === "string" ? appView.chatParams.projectId : null;
+  const projectId = getChatScope().projectId;
   if (!projectId) return null;
 
   const projects =
@@ -342,8 +341,8 @@ export function registerDefaultFrontendToolHandlers(executor: FrontendToolExecut
         "@openloaf/api/common"
       );
 
-      const appView = useAppView.getState();
-      const chatSessionId = appView.chatSessionId;
+      const chatScope = getChatScope();
+      const chatSessionId = useChatView.getState().getActiveSessionId(chatScope.scope);
       const viewKey = `browser:${chatSessionId}:${createBrowserTabId()}`;
 
       // 先推入布局栈展示浏览器面板。

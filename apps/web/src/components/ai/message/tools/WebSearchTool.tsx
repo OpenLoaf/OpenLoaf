@@ -20,7 +20,8 @@ import {
 } from 'lucide-react'
 import { BROWSER_WINDOW_COMPONENT, BROWSER_WINDOW_PANEL_ID } from '@openloaf/api/common'
 import { cn } from '@/lib/utils'
-import { useAppView } from '@/hooks/use-app-view'
+import { useChatView } from '@/hooks/use-chat-view'
+import { getChatScope } from '@/lib/chat-scope'
 import { useLayoutState } from '@/hooks/use-layout-state'
 import { createBrowserTabId } from '@/hooks/tab-id'
 import { isElectronEnv } from '@/utils/is-electron-env'
@@ -163,7 +164,7 @@ function openUrl(url: string, title?: string) {
     window.open(normalized, '_blank', 'noopener,noreferrer')
     return
   }
-  const chatSessionId = useAppView.getState().chatSessionId
+  const chatSessionId = useChatView.getState().getActiveSessionId(getChatScope().scope)
   const baseKey = `browser:${chatSessionId}`
   const viewKey = `${baseKey}:${createBrowserTabId()}`
   useLayoutState.getState().pushStackItem(

@@ -17,7 +17,8 @@ import { Calendar } from "@openloaf/ui/date-picker";
 import { Button } from "@openloaf/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@openloaf/ui/popover";
 import { cn } from "@/lib/utils";
-import { useAppView } from "@/hooks/use-app-view";
+import { useChatView } from "@/hooks/use-chat-view";
+import { useChatScope } from "@/lib/chat-scope";
 import { useChatSessions } from "@/hooks/use-chat-sessions";
 
 /** Build date key for grouping chat sessions. */
@@ -41,8 +42,9 @@ function formatDateLabel(date: Date): string {
 const ChatHistoryWidget = memo(function ChatHistoryWidget() {
   const { t } = useTranslation('desktop');
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
-  const activeChatSessionId = useAppView((s) => s.chatSessionId);
-  const setChatSession = useAppView((s) => s.setChatSession);
+  const scope = useChatScope();
+  const activeChatSessionId = useChatView((s) => s.sessions[scope.scope]?.activeSessionId ?? "");
+  const setActiveSession = useChatView((s) => s.setActiveSession);
   const { sessions, isLoading } = useChatSessions();
 
   const { sessionsByDay, sessionDates } = useMemo(() => {
@@ -87,10 +89,10 @@ const ChatHistoryWidget = memo(function ChatHistoryWidget() {
   const handleSessionSelect = useCallback(
     (sessionId: string) => {
       if (activeChatSessionId === sessionId) return;
-      // 中文注释：点击历史会话后切换右侧聊天并加载历史记录。
-      setChatSession(sessionId, true);
+      // 中文注释：点击历史会话后切换当前 scope 下右侧聊天并加载历史记录。
+      setActiveSession(scope.scope, sessionId);
     },
-    [activeChatSessionId, setChatSession]
+    [activeChatSessionId, scope.scope, setActiveSession]
   );
 
   return (

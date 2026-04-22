@@ -49,6 +49,7 @@ import { ChatProjectSelector } from "./ChatProjectSelector";
 import { ChatInputBlockedOverlay } from "./ChatInputBlockedOverlay";
 import { useChatInputDrop } from "./useChatInputDrop";
 import { useAppView } from "@/hooks/use-app-view";
+import { useChatView } from "@/hooks/use-chat-view";
 import { useChatRuntime } from "@/hooks/use-chat-runtime";
 import { useLayoutState } from "@/hooks/use-layout-state";
 import { useBasicConfig } from "@/hooks/use-basic-config";
@@ -827,26 +828,13 @@ function ChatInputInner({
     },
     [sessionId, projectId]
   );
-  const setChatParams = useAppView((state) => state.setChatParams);
   const projectShell = useAppView((state) => state.projectShell);
-  const tabOnlineSearchEnabled = useAppView((state) => {
-    const value = (state.chatParams as Record<string, unknown> | undefined)
-      ?.chatOnlineSearchEnabled;
-    return typeof value === "boolean" ? value : undefined;
-  });
+  const tabOnlineSearchEnabled = useChatView((s) => s.chatOnlineSearchEnabled);
+  const setChatOnlineSearchEnabled = useChatView((s) => s.setChatOnlineSearchEnabled);
   const activeBase = useLayoutState((state) => state.base);
   const fallbackProjectLabel = t('projectSelector.projectSpace');
-  // 中文注释：仅独立的全局 AI 聊天页允许切换项目，避免项目页/看板页右侧输入区重复出现该入口。
-  const showProjectSelector = !projectShell && !activeBase;
-  /** Switch project scope from the project selector. */
-  const handleProjectChange = useCallback(
-    (nextProjectId: string | undefined) => {
-      if (!sessionId) return;
-      // 更新 chatParams 的 projectId
-      setChatParams({ projectId: nextProjectId ?? "" });
-    },
-    [sessionId, setChatParams],
-  );
+  // 逻辑：projectId 完全由中间面板（base / projectShell）派生，Chat 输入区不再提供手动切换入口。
+  const showProjectSelector = false;
   const { providerItems, loaded: settingsLoaded } = useSettingsValues();
   const { loggedIn: authLoggedIn, loading: authLoading } = useSaasAuth();
   const pushStackItem = useLayoutState((s) => s.pushStackItem);
@@ -977,15 +965,13 @@ function ChatInputInner({
       }
       setGlobalOnlineSearchEnabled(nextValue);
     } else {
-      setChatParams({
-        chatOnlineSearchEnabled: globalOnlineSearchEnabled,
-      });
+      setChatOnlineSearchEnabled(globalOnlineSearchEnabled);
     }
     onlineSearchScopeRef.current = onlineSearchMemoryScope;
   }, [
     globalOnlineSearchEnabled,
     onlineSearchMemoryScope,
-    setChatParams,
+    setChatOnlineSearchEnabled,
     tabOnlineSearchEnabled,
   ]);
 
@@ -1002,9 +988,9 @@ function ChatInputInner({
         setGlobalOnlineSearchEnabled(enabled);
         return;
       }
-      setChatParams({ chatOnlineSearchEnabled: enabled });
+      setChatOnlineSearchEnabled(enabled);
     },
-    [onlineSearchMemoryScope, setChatParams]
+    [onlineSearchMemoryScope, setChatOnlineSearchEnabled]
   );
   const handleApprovalModeChange = useCallback(
     (mode: ApprovalMode) => {
@@ -1242,8 +1228,8 @@ function ChatInputInner({
         uploadFileToSession={uploadFileToSession}
         onAgentSelect={setSelectedAgent}
         fallbackProjectLabel={fallbackProjectLabel}
-        onProjectChange={showProjectSelector ? handleProjectChange : undefined}
-        projectSelectorDisabled={showProjectSelector ? conversationStarted : false}
+        onProjectChange={undefined}
+        projectSelectorDisabled={false}
         afterProjectSelector={
           !isUnconfigured && (showCodexModelSelector || showClaudeCodeModelSelector) ? (
             showCodexModelSelector ? (

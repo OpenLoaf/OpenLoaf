@@ -38,8 +38,6 @@ const useInfiniteQueryMock = vi.fn();
 const useIsInViewMock = vi.fn();
 
 const appViewState = {
-  chatSessionId: "",
-  chatParams: {},
   projectShell: null,
 };
 
@@ -96,6 +94,34 @@ vi.mock("@/hooks/use-app-view", () => ({
 
 vi.mock("@/hooks/use-layout-state", () => ({
   useLayoutState: (selector: (state: typeof layoutState) => unknown) => selector(layoutState),
+}));
+
+type ChatViewMockState = {
+  sessions: Record<string, { activeSessionId: string }>;
+  chatOnlineSearchEnabled: boolean;
+};
+const chatViewState: ChatViewMockState = {
+  sessions: {},
+  chatOnlineSearchEnabled: false,
+};
+vi.mock("@/hooks/use-chat-view", () => ({
+  useChatView: (selector: (state: ChatViewMockState) => unknown) => selector(chatViewState),
+  GLOBAL_CHAT_SCOPE: "__global__",
+}));
+
+vi.mock("@/lib/chat-scope", () => ({
+  useChatScope: () => ({
+    scope: "__global__",
+    projectId: null,
+    boardId: null,
+    pageContext: { scope: "global", page: "ai-chat" },
+  }),
+  getChatScope: () => ({
+    scope: "__global__",
+    projectId: null,
+    boardId: null,
+    pageContext: { scope: "global", page: "ai-chat" },
+  }),
 }));
 
 vi.mock("@openloaf/ui/sidebar", () => ({
