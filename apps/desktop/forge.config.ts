@@ -200,7 +200,14 @@ const postPackageHook: ForgeConfig['hooks'] = {
           fs.mkdirSync(path.join(destNmDir, pkg.split('/')[0]), { recursive: true });
         }
 
-        fs.cpSync(src, dest, { recursive: true });
+        // macOS codesign 拒绝指向 bundle 外（或不存在目标）的符号链接；
+        // node_modules/.bin/* 是 pnpm 生成的 CLI shim 符号链接，运行时用不到，
+        // 且目标多半是未打包的 dev 依赖（如 cargo-cp-artifact、nopt），必须过滤。
+        fs.cpSync(src, dest, {
+          recursive: true,
+          filter: (srcPath) => !srcPath.includes(`${path.sep}node_modules${path.sep}.bin${path.sep}`)
+            && !srcPath.endsWith(`${path.sep}node_modules${path.sep}.bin`),
+        });
         console.log(`[postPackage]   + ${pkg}`);
       }
 
