@@ -21,7 +21,7 @@ import { promises as fs } from 'node:fs'
 import path from 'node:path'
 import { logger } from '@/common/logger'
 import { resolveSessionDir } from '@openloaf/api/services/chatSessionPaths'
-import { TRUNCATED_OUTPUT_TAG } from '@/ai/shared/contextWindowManager'
+import { buildTruncatedOutputBlock } from '@/ai/shared/truncatedOutput'
 
 // ---------------------------------------------------------------------------
 // Thresholds
@@ -141,21 +141,14 @@ export async function interceptToolResult(
     return { content: text, truncated: false, originalLength }
   }
 
-  // Build truncated preview
-  const preview = text.slice(0, PREVIEW_LENGTH)
-  const pathAttr = persistedPath ? ` path="${persistedPath}"` : ''
-  // Non-negative guidance: tell the model exactly what it has, where the rest
-  // lives, and how to get more — without using "truncated"/"lost" language
-  // that triggers repeated-retry loops. The preview frequently already
-  // contains the information needed; the model should try extracting from it
-  // first before issuing a follow-up Read.
-  const guidance = persistedPath
-    ? `[Preview: first ${preview.length} of ${originalLength} chars. Full output saved to ${persistedPath} — use Read(file_path="${persistedPath}", offset, limit) to view other sections if the preview below is not enough. Often the preview already contains what you need.]`
-    : `[Preview: first ${preview.length} of ${originalLength} chars. Often the preview already contains what you need; only request more if the answer is clearly not present.]`
-  const content = `<${TRUNCATED_OUTPUT_TAG}${pathAttr} original-length="${originalLength}">\n${guidance}\n\n${preview}\n</${TRUNCATED_OUTPUT_TAG}>`
+  const block = buildTruncatedOutputBlock({
+    fullText: text,
+    previewLength: PREVIEW_LENGTH,
+    persistedPath,
+  })
 
   return {
-    content,
+    content: block.content,
     truncated: true,
     persistedPath,
     originalLength,

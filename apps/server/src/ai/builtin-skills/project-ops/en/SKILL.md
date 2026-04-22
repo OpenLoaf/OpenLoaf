@@ -1,7 +1,7 @@
 ---
 name: project-ops-skill
 description: >
-  Triggered when the user wants to create, open, switch, move, delete, rename, or add a sub-project to OpenLoaf's "project" entity. Typical phrasings: "new project", "add ~/code/foo", "list all projects". **Not for**: reading/writing files inside a project (→ use Read/Edit/Write directly), discussing "project planning / requirement docs" (→ answer directly), routine Git operations (→ `Bash`).
+  Triggered when the user wants to create, open, switch, move, delete, or rename OpenLoaf's "project" entity. Typical phrasings: "new project", "add ~/code/foo", "list all projects". **Not for**: reading/writing files inside a project (→ use Read/Edit/Write directly), discussing "project planning / requirement docs" (→ answer directly), routine Git operations (→ `Bash`).
 ---
 
 # Project Operations Guide
@@ -42,18 +42,9 @@ User wants to operate on files
 ProjectMutate { action: "create", title: "Q2 Marketing", folderName: "q2-marketing", icon: "📊", enableVersionControl: true }
 ```
 
-**Pointing to an existing directory** — When the user provides a bare path, you must convert it to a `file://` protocol URI:
+**Pointing to an existing directory** — When user provides a bare path, you must convert it to a `file://` protocol URI:
 - User says `/Users/user/code/repo` → you pass `rootUri: "file:///Users/user/code/repo"`
 - User says `~/my-project` → first expand `~`, then build `file:///Users/user/my-project`
-
-**Creating a sub-project** — `ProjectMutate { action: "create", title: "Submodule", parentProjectId: "parent-id" }`
-or under the current project: `{ action: "create", title: "Submodule", createAsChild: true }`
-
-### When to Create Top-Level vs Sub-Project
-
-- Independent repository, independent business line → **top-level project**
-- Sub-package in a monorepo, auxiliary module of a parent project → **sub-project** (pass `parentProjectId`)
-- User says "create under the current project" → use `createAsChild: true`
 
 ### folderName Decision
 

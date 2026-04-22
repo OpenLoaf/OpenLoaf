@@ -352,7 +352,7 @@ function compressMessages(messages: any[]): any[] {
 // ---------------------------------------------------------------------------
 
 /** XML tag name used to wrap truncated tool output in the message stream. */
-export const TRUNCATED_OUTPUT_TAG = 'truncated-output'
+export { TRUNCATED_OUTPUT_TAG } from './truncatedOutput'
 
 /** Placeholder text for cleared (micro-compacted) old tool results. */
 export const TOOL_RESULT_CLEARED_MESSAGE = '[旧工具结果已清除]'

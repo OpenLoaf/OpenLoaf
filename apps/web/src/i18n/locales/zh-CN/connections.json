@@ -1,9 +1,9 @@
 {
   "title": "快速连接",
-  "subtitle": "一键接入第三方服务。OpenLoaf 会自动完成后台配置，无需手动配置 MCP。",
-  "totalCount": "{{count}} 个可用",
-  "advancedMcp": "高级配置",
-  "emptyTitle": "暂无可用集成",
+  "subtitle": "让 AI 使用你的外部工具和服务，如微信、Notion 等，一步即可连接。",
+  "totalCount": "{{count}} 个服务",
+  "advancedMcp": "更多设置",
+  "emptyTitle": "暂无可用的连接服务",
   "install": "添加",
   "uninstall": "已添加",
   "installSuccess": "{{name}} 已连接",
@@ -13,7 +13,7 @@
   "integrations": {
     "notion": {
       "name": "Notion",
-      "description": "在对话中访问 Notion 页面、创建与编辑内容，管理你的工作区。",
+      "description": "让 AI 读取你的 Notion 笔记、创建页面和编辑内容。",
       "guide": {
         "0": {
           "title": "在 Notion 创建内部集成",
@@ -38,7 +38,7 @@
     },
     "wechat": {
       "name": "微信",
-      "description": "通过 iLink Bot API 绑定一个或多个微信账号，使用要连接的微信扫码即可。"
+      "description": "让 AI 发送微信消息、查看聊天记录，支持多账号。"
     }
   },
   "category": {
@@ -50,7 +50,7 @@
   },
   "wechat": {
     "dialogTitle": "微信账号",
-    "dialogDescription": "通过 iLink Bot 绑定微信账号，支持多账号并行。",
+    "dialogDescription": "通过微信的 ClawBot 发送和接收消息，支持多账号。",
     "emptyAccounts": "尚未绑定任何微信账号",
     "addAccount": "添加微信账号",
     "refreshQr": "重新获取二维码",

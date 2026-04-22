@@ -25,6 +25,7 @@ import {
 } from 'node:fs'
 import path from 'node:path'
 import { memorySaveToolDef } from '@openloaf/api/types/tools/memory'
+import { getProjectRootPath } from '@openloaf/api/services/vfsService'
 import { getRequestContext } from '@/ai/shared/context/requestContext'
 import {
   resolveAgentMemoryDir,
@@ -49,10 +50,19 @@ function resolveWriteDir(scope: 'user' | 'project' | 'agent'): string | null {
   }
 
   if (scope === 'project') {
+    // 先用祖先项目列表（子 agent 在父项目上下文下继承）
     const roots = ctx?.parentProjectRootPaths
     const projectRoot = roots?.[roots.length - 1]
     if (projectRoot) {
       return resolveMemoryDir(projectRoot)
+    }
+    // fallback: 当前会话绑定的项目根（parentProjectRootPaths 排除自身，
+    // 无父项目时为空，这里补回自身项目根，对应 harness-v5 里
+    // ${PROJECT_MEMORY_DIR} = "当前项目专属记忆"的语义）
+    const currentProjectId = ctx?.projectId
+    if (currentProjectId) {
+      const currentRoot = getProjectRootPath(currentProjectId)
+      if (currentRoot) return resolveMemoryDir(currentRoot)
     }
     return null
   }

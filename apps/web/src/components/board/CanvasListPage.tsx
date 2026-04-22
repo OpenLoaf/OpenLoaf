@@ -996,9 +996,8 @@ export default function CanvasListPage({ tabId, projectId }: CanvasListPageProps
             <TooltipContent>{t("canvasList.groupByTime")}</TooltipContent>
           </Tooltip>
           <Button
-            variant="ghost"
             size="sm"
-            className="rounded-3xl bg-foreground text-background hover:bg-foreground/90"
+            className="rounded-3xl bg-foreground text-background shadow-none hover:bg-foreground hover:text-background hover:opacity-90"
             onClick={handleCreate}
             disabled={!canCreateBoard || createMutation.isPending}
           >

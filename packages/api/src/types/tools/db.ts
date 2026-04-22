@@ -30,7 +30,7 @@ export const projectMutateToolDef = {
   readonly: false,
   name: "Mutate Project",
   description:
-    "Mutate the project tree: create / update / move / remove. Note: remove only unlinks from the list, it does not delete files on disk. See project-ops skill for usage.",
+    "Mutate project tree: create / update / move / remove. Note: remove only unlinks from the list, it does not delete files on disk. See project-ops skill for usage.",
   parameters: z.object({
     action: z.enum(["create", "update", "move", "remove"]),
     projectId: z
@@ -45,10 +45,6 @@ export const projectMutateToolDef = {
       .optional()
       .describe("file://... URI for create."),
     parentProjectId: z.string().optional().describe("For create."),
-    createAsChild: z
-      .boolean()
-      .optional()
-      .describe("On create without parentProjectId, use current context project as parent."),
     enableVersionControl: z
       .boolean()
       .optional()

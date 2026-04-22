@@ -201,6 +201,7 @@ export default function SessionList({
       projectIcon: s.projectIcon ?? undefined,
       createdAt: s.createdAt,
       pinned: s.isPin,
+      kind: s.kind ?? null,
       hasAssets: s.hasAssets ?? false,
       autoTest: s.autoTest ?? false,
       autoTestScore: s.autoTestScore ?? null,

@@ -14,7 +14,7 @@ export const docConvertToolDef = {
   readonly: false,
   name: 'Convert Document',
   description:
-    'Convert a document between formats (docx / pdf / xlsx / csv / html / md / txt / json). See pdf-word-excel-pptx skill for usage.',
+    'Convert a document between formats (docx / pdf / xlsx / csv / html / md / txt / json). ⚠️ PDF output does not reliably support CJK (Chinese/Japanese/Korean) characters — for CJK docs → PDF, use JsSandbox with pdfkit instead. See pdf-word-excel-pptx skill for usage.',
   parameters: z.object({
     filePath: z
       .string()

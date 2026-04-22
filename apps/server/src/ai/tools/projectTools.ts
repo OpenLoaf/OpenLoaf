@@ -167,8 +167,6 @@ type ProjectMutateInput = {
   rootUri?: string;
   /** Parent project id (optional). */
   parentProjectId?: string | null;
-  /** Whether to create as child under current project. */
-  createAsChild?: boolean;
   /** Enable version control (optional). */
   enableVersionControl?: boolean;
   /** Target parent project id (null for root). */
@@ -207,17 +205,9 @@ function resolveProjectId(input?: string): string {
 /** Resolve parent project id for create tool. */
 function resolveParentProjectId(input: {
   parentProjectId?: string | null;
-  createAsChild?: boolean;
 }): string | null {
   const normalizedParent = normalizeOptionalId(input.parentProjectId ?? null);
   if (normalizedParent) return normalizedParent;
-  if (input.createAsChild) {
-    const ctxProjectId = getProjectId();
-    if (!ctxProjectId) {
-      throw new Error("parent projectId is required.");
-    }
-    return ctxProjectId;
-  }
   return null;
 }
 
@@ -267,7 +257,6 @@ async function executeProjectGet(projectId?: string) {
 async function executeProjectCreate(input: ProjectMutateInput) {
   const parentProjectId = resolveParentProjectId({
     parentProjectId: input.parentProjectId ?? null,
-    createAsChild: input.createAsChild,
   });
 
   // AI-created projects default to temp — stored under ~/.openloaf/temp/

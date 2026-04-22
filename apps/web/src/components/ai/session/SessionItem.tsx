@@ -49,6 +49,8 @@ export interface Session {
   createdAt: string | Date;
   /** Whether the session is pinned. */
   pinned?: boolean;
+  /** Session 来源：null=普通 AI chat；"wechat"=微信外部消息通道。 */
+  kind?: string | null;
   /** Whether the session has layer history. */
   hasLayers?: boolean;
   /** 会话目录下是否存在附件资源（asset/）。 */
@@ -213,7 +215,15 @@ function SessionItem({
                   <span className="inline-block size-1.5 shrink-0 rounded-full bg-foreground" />
                 )}
                 <span className="shrink-0 text-sm leading-none">
-                  {session.projectIcon ? (
+                  {session.kind === 'wechat' ? (
+                    <img
+                      src="/icons/wechat.svg"
+                      alt=""
+                      width={14}
+                      height={14}
+                      aria-hidden="true"
+                    />
+                  ) : session.projectIcon ? (
                     session.projectIcon
                   ) : (
                     <MessageSquare size={14} className="text-muted-foreground" />

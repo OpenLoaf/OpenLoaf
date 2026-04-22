@@ -60,7 +60,10 @@ Known limitations:
 import pptxgen from 'pptxgenjs'
 
 const pres = new pptxgen()
-pres.layout = 'LAYOUT_16x9'
+// Standard PowerPoint widescreen is 13.333 × 7.5 inches; in pptxgenjs that is LAYOUT_WIDE.
+// Do not pair 13.33-based coordinates with LAYOUT_16x9 (10 × 5.625 inches),
+// or shapes/text will be placed outside the slide bounds.
+pres.layout = 'LAYOUT_WIDE'
 pres.defineSlideMaster({
   title: 'MAIN',
   background: { color: 'FFFFFF' },
@@ -140,6 +143,7 @@ console.log('q1_review.pptx written')
 
 > **Key points**:
 > - `pptxgenjs` API is fully **object-based** (`{x, y, w, h, fontSize, ...}`) — no JSON string concatenation.
+> - **Lock the slide coordinate system before placing objects**: `LAYOUT_WIDE` = `13.333 × 7.5` (standard widescreen); `LAYOUT_16x9` = `10 × 5.625`. If your coordinates assume `13.33`, use `LAYOUT_WIDE` or a custom layout with that exact size.
 > - **CJK content requires `fontFace`** (e.g. `'Microsoft YaHei'` / `'Noto Sans CJK SC'`); without it, the default Latin font may substitute or corrupt CJK characters.
 > - `addChart` natively supports bar / line / pie / doughnut; for "image-feel" charts, render a PNG with `chartjs-node-canvas` then `addImage` it.
 
@@ -155,7 +159,7 @@ const items = [
 ]
 
 const pres = new pptxgen()
-pres.layout = 'LAYOUT_16x9'
+pres.layout = 'LAYOUT_WIDE'
 
 const cover = pres.addSlide()
 cover.addText('V6 Commercial — Shot List', {

@@ -18,6 +18,7 @@ import { attachBoardCollabWebSocket } from "@/modules/board/boardCollabWebSocket
 import { startEmailIdleManager } from "@/modules/email/emailIdleManager";
 import { scheduleTimerRegistry } from "@/services/scheduleTimerRegistry";
 import { scheduleOrchestrator } from "@/services/scheduleOrchestrator";
+import { startAllWorkers as startAllWeChatWorkers } from "@/services/wechat/wechatPollWorker";
 
 /**
  * 启动 HTTP/2（默认）或 HTTP/1.1（降级）server。
@@ -98,6 +99,7 @@ export function startServer() {
       void startEmailIdleManager();
       void scheduleTimerRegistry.start();
       scheduleOrchestrator.start();
+      startAllWeChatWorkers();
     });
   } else {
     httpServer.listen(port, hostname, () => {
@@ -114,6 +116,7 @@ export function startServer() {
       void startEmailIdleManager();
       void scheduleTimerRegistry.start();
       scheduleOrchestrator.start();
+      startAllWeChatWorkers();
     });
   }
 

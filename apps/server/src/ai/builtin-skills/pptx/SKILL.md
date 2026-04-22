@@ -60,7 +60,9 @@ PptxInspect { action: "summary", filePath: "…" }
 import pptxgen from 'pptxgenjs'
 
 const pres = new pptxgen()
-pres.layout = 'LAYOUT_16x9'
+// 标准 PowerPoint 宽屏是 13.333 × 7.5 英寸；pptxgenjs 里用 LAYOUT_WIDE。
+// 不要把 13.33 这套坐标和 LAYOUT_16x9（10 × 5.625 英寸）混用，否则元素会画到页外。
+pres.layout = 'LAYOUT_WIDE'
 pres.defineSlideMaster({
   title: 'MAIN',
   background: { color: 'FFFFFF' },
@@ -142,6 +144,7 @@ console.log('q1_review.pptx written')
 
 > **关键点**：
 > - `pptxgenjs` 的 API 签名全是 **对象形式**（`{x, y, w, h, fontSize, ...}`），不用拼 JSON 字符串。
+> - **先定页面坐标系再摆元素**：`LAYOUT_WIDE` = `13.333 × 7.5`（标准宽屏）；`LAYOUT_16x9` = `10 × 5.625`。如果坐标按 `13.33` 写，就必须用 `LAYOUT_WIDE` 或自定义同尺寸 layout。
 > - **CJK 必给 `fontFace`**（如 `'Microsoft YaHei'` / `'Noto Sans CJK SC'`），否则默认英文字体渲染中文时可能被替换或字距异常。
 > - `addChart` 原生支持 bar / line / pie / doughnut；如果模板要的是"图片感"图表，也可以用 `chartjs-node-canvas` 画 PNG 再 `addImage`。
 
@@ -157,7 +160,7 @@ const items = [
 ]
 
 const pres = new pptxgen()
-pres.layout = 'LAYOUT_16x9'
+pres.layout = 'LAYOUT_WIDE'
 
 const cover = pres.addSlide()
 cover.addText('向上 V6 PV 分镜汇报', {

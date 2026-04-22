@@ -74,6 +74,8 @@ export type ChatSessionSummary = {
   projectIcon: string | null
   /** Session message count. */
   messageCount: number
+  /** Session 来源：null=普通 AI chat；"wechat"=微信外部消息通道。 */
+  kind: string | null
   /** 会话目录下是否有附件资源（asset/）；由写入端同步。 */
   hasAssets: boolean
   /** 由外部探针（ai-browser-test 等）写入 session.json 的自动化测试标记。 */
@@ -331,6 +333,7 @@ export const chatRouter = t.router({
           projectId: true,
           messageCount: true,
           hasAssets: true,
+          kind: true,
         },
       })
 

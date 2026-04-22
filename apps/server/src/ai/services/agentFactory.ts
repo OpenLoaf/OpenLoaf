@@ -64,6 +64,7 @@ function resolvePromptLang(override?: string | PromptLang): PromptLang {
   return readBasicConf().promptLanguage === 'zh' ? 'zh' : 'en'
 }
 import { tryAutoCompact } from '@/ai/shared/autoCompact'
+import { maybeInjectStepBudgetReminder } from '@/ai/services/stepBudgetSoftLanding'
 import { microcompactMessages, extractLastAssistantTimestamp } from '@/ai/shared/microCompact'
 import { expandToolResultAttachmentTagsInCoreMessages } from '@/ai/shared/attachmentTagExpander'
 import { ContextCollapseManager, type CollapseResult } from '@/ai/shared/contextCollapse'
@@ -221,6 +222,10 @@ function applyActivationGuard(
  * 2. Prunes historical reasoning & old tool calls to reduce token overhead
  * 3. Microcompacts old tool results after idle gaps (step 0 only)
  * 4. Auto-compacts long conversations via LLM summarization (step 0 only)
+ * 5. Injects a soft-landing reminder when the effective step cap is near —
+ *    inspired by Claude Code's compaction_reminder, but for step budgets.
+ *    The agent sees a system-reminder telling it to wrap up with whatever it
+ *    has, rather than being silently hard-stopped by `stopWhen`.
  */
 function createToolSearchPrepareStep(
   allToolIds: readonly string[],
@@ -229,6 +234,8 @@ function createToolSearchPrepareStep(
     modelId?: string
     lastAssistantTimestamp?: number | null
     collapseManager?: ContextCollapseManager
+    /** Hard maxSteps for this agent — used to compute the soft-landing trigger. */
+    maxSteps?: number
   },
 ): PrepareStepFunction {
   return async ({ messages, stepNumber, model }) => {
@@ -313,6 +320,15 @@ function createToolSearchPrepareStep(
         finalMessages = await tryAutoCompact(finalMessages, options?.modelId, model as any)
       }
     }
+
+    // 4.5 Step-budget soft landing — inject a system-reminder when we're
+    //     about to hit the hard cap. Give the model a fair chance to deliver
+    //     a partial answer instead of being silently cut by stopWhen.
+    finalMessages = maybeInjectStepBudgetReminder(
+      finalMessages as Array<{ role?: string; content?: unknown }>,
+      stepNumber,
+      options?.maxSteps,
+    ) as typeof finalMessages
 
     // 5. Expand attachment tags in tool results for vision-capable models.
     //    Transforms { type: 'text', value: '...<system-tag type="attachment".../>...' }
@@ -502,6 +518,7 @@ export function createMasterAgent(input: CreateMasterAgentInput) {
       modelId: input.model.modelId,
       lastAssistantTimestamp,
       collapseManager,
+      maxSteps: MASTER_HARD_MAX_STEPS,
     }),
   })
 
@@ -580,6 +597,7 @@ export function createPMAgent(input: CreatePMAgentInput) {
       collapseManager: new ContextCollapseManager({
         modelId: input.model.modelId,
       }),
+      maxSteps: PM_AGENT_MAX_STEPS,
     }),
     ...buildResponsesApiProviderOptions(input.model),
   })
@@ -697,6 +715,7 @@ function createGeneralPurposeSubAgent(model: LanguageModelV3): ToolLoopAgent {
     experimental_repairToolCall: createToolCallRepair(),
     prepareStep: createToolSearchPrepareStep(allToolIds, activatedSet, {
       modelId: model.modelId,
+      maxSteps: SUB_AGENT_MAX_STEPS,
     }),
   })
 }

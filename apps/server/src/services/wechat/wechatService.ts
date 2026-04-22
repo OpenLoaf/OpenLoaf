@@ -39,6 +39,10 @@ import {
   findAccountByBotId,
   type WeChatAccount,
 } from './wechatAccountStore'
+import {
+  startWorkerForAccount,
+  stopWorkerForAccount,
+} from './wechatPollWorker'
 
 export interface PublicWeChatAccount {
   id: string
@@ -167,6 +171,7 @@ export async function pollBindStatus(sessionId: string): Promise<PollBindStatusR
       }
 
   const saved = upsertAccount(account)
+  startWorkerForAccount(saved)
   updateSession(sessionId, {
     status: 'confirmed',
     result: {
@@ -187,6 +192,7 @@ export function cancelBind(sessionId: string): { ok: boolean } {
 }
 
 export function unbindAccount(accountId: string): { ok: boolean } {
+  stopWorkerForAccount(accountId)
   const removed = storeRemoveAccount(accountId)
   if (removed) logger.info({ accountId }, '[wechat] account unbound')
   return { ok: removed }

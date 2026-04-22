@@ -230,10 +230,27 @@ type AxNode = {
 
 function slimAxTree(tree: unknown): unknown {
   if (!tree || typeof tree !== 'object') return tree
-  const slim = (node: AxNode): AxNode | null => {
+  const slim = (node: AxNode, depth: number): AxNode | null => {
+    // Prune: zero-size nodes and their descendants. Collapsed menus, hidden
+    // popups and off-screen widgets all report frame.w === 0 or h === 0 (often
+    // at y = 1440, a sentinel AppKit uses for "unrendered"). They can't be
+    // targeted without first opening the parent, so shipping them to the model
+    // is pure bloat — typically 60–80% of the raw AX tree for app-menu-heavy
+    // apps like WeChat. Don't apply at the root (depth 0) since the app itself
+    // has no frame.
+    const frame = node.frame
+    if (
+      depth > 0 &&
+      frame &&
+      ((typeof frame.w === 'number' && frame.w <= 0) ||
+        (typeof frame.h === 'number' && frame.h <= 0))
+    ) {
+      return null
+    }
+
     const children = Array.isArray(node.children) ? node.children : []
     const slimmedChildren = children
-      .map((c) => slim(c as AxNode))
+      .map((c) => slim(c as AxNode, depth + 1))
       .filter((c): c is AxNode => c !== null)
 
     const hasActions = Array.isArray(node.actions) && node.actions.length > 0
@@ -261,7 +278,7 @@ function slimAxTree(tree: unknown): unknown {
     else delete out.children
     return out
   }
-  const root = slim(tree as AxNode)
+  const root = slim(tree as AxNode, 0)
   return root ?? tree
 }
 

@@ -12,7 +12,7 @@ import {
   copyFileSync, statSync, unlinkSync,
 } from 'node:fs'
 import { join, basename, isAbsolute } from 'node:path'
-import { execSync } from 'node:child_process'
+import { execSync, execFileSync } from 'node:child_process'
 import { homedir } from 'node:os'
 import { createHash } from 'node:crypto'
 import type { BrowserCommand } from 'vitest/node'
@@ -458,6 +458,46 @@ const stageAttachments: BrowserCommand<[{
     tags.push(`<system-tag type="attachment" path="\${CURRENT_CHAT_DIR}/${name}" />`)
   }
   return { tags, copied }
+}
+
+// ── inspectPptxLayout command ──
+// 直接读取生成产物里的 ppt/presentation.xml，拿页面尺寸与 slide 数量。
+// 用于回归测试"pptx 页面坐标系与布局尺寸是否匹配"这类问题，避免只看 AI 文本。
+const inspectPptxLayout: BrowserCommand<[{
+  filePath: string
+}]> = async (_ctx, { filePath }) => {
+  if (!filePath) return { ok: false, error: 'inspectPptxLayout: filePath is required' }
+  if (!existsSync(filePath)) return { ok: false, error: `inspectPptxLayout: file not found: ${filePath}` }
+  if (!statSync(filePath).isFile()) return { ok: false, error: `inspectPptxLayout: not a file: ${filePath}` }
+
+  try {
+    const xml = execFileSync('unzip', ['-p', filePath, 'ppt/presentation.xml'], {
+      encoding: 'utf-8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    const sizeMatch = xml.match(/<p:sldSz[^>]*cx="(\d+)"[^>]*cy="(\d+)"/)
+    if (!sizeMatch) {
+      return { ok: false, error: 'inspectPptxLayout: <p:sldSz> not found in ppt/presentation.xml' }
+    }
+
+    const widthEmu = Number(sizeMatch[1])
+    const heightEmu = Number(sizeMatch[2])
+    const slideCount = (xml.match(/<p:sldId\b/g) || []).length
+    const emuPerInch = 914400
+
+    return {
+      ok: true,
+      filePath,
+      widthEmu,
+      heightEmu,
+      slideCount,
+      widthInches: Number((widthEmu / emuPerInch).toFixed(3)),
+      heightInches: Number((heightEmu / emuPerInch).toFixed(3)),
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    return { ok: false, error: `inspectPptxLayout failed: ${message}` }
+  }
 }
 
 // ── readSessionUserTags command ──
@@ -1102,6 +1142,7 @@ export default defineConfig({
       screenshotDirectory: `${runDirAbs}/screenshots`,
       commands: {
         recordProbeRun, stageAttachments, requestAiDecision, saveTestData, appendAiJudge,
+        inspectPptxLayout,
         readSessionUserTags, fetchAutoTitle,
         getCloudFingerprint, listCloudFixtures, resolveCloudMockDirs,
         snapshotMemory, restoreMemory,

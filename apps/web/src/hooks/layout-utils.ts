@@ -274,26 +274,6 @@ export function shouldDisableRightChat(layout?: LayoutSnapshot) {
   return RIGHT_CHAT_DISABLED_PROJECT_TABS.has(projectTab)
 }
 
-/** Return true when the active board stack is in full mode. */
-export function isBoardStackFull(layout: LayoutSnapshot) {
-  const activeItem = getActiveStackItem(layout)
-  if (activeItem?.component !== BOARD_VIEWER_COMPONENT) return false
-  if (!layout.rightChatCollapsed) return false
-  const leftOpen = getLeftSidebarOpen()
-  return leftOpen === false
-}
-
-/** Return true when closing should exit board full mode. */
-export function shouldExitBoardFullOnClose(
-  layout: LayoutSnapshot,
-  itemId?: string,
-) {
-  const activeItem = getActiveStackItem(layout)
-  if (!activeItem || activeItem.component !== BOARD_VIEWER_COMPONENT) return false
-  if (itemId && activeItem.id !== itemId) return false
-  return isBoardStackFull(layout)
-}
-
 /** Clamp a percent value to [0, 100] with NaN/Infinity fallback. */
 export function clampPercent(value: number) {
   if (!Number.isFinite(value)) return 0

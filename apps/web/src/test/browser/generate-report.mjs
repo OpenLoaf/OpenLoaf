@@ -1629,7 +1629,7 @@ section.sec.sec-always > .sec-head-row{display:flex;align-items:center;gap:10px}
 .judge-list{display:flex;flex-direction:column;gap:8px}
 /* DOM 快照专属 sec-body：去掉所有 padding，让 iframe 紧贴 sec-head */
 section.sec.sec-dom-snapshot > .sec-body{padding:0}
-.dom-snapshot-wrap{position:relative;width:100%;min-height:200px;max-height:600px;height:500px;background:#fff;border-top:1px solid #e5e7eb;overflow:hidden}
+.dom-snapshot-wrap{position:relative;width:100%;min-height:200px;height:500px;background:#fff;border-top:1px solid #e5e7eb;overflow:hidden}
 .dom-snapshot-frame{position:absolute;inset:0;width:100%;height:100%;border:0;background:#fff;display:block;opacity:0;transition:opacity 0.25s ease-out;z-index:1}
 .dom-snapshot-wrap.loaded .dom-snapshot-frame{opacity:1}
 /* loading 必须高于 iframe（z-index:2），否则 iframe 在 DOM 顺序后会盖住 loading 视觉层 */
@@ -1851,6 +1851,7 @@ const overviewStyles = `
 function buildPage({ pageContext, activeSlug, mainHtml }) {
   const navHtml = buildNavHtml(pageContext, activeSlug)
   const back = backHrefFor(pageContext)
+  const defaultCaseHref = pageContext === 'index' && split[0] ? `cases/${split[0].slug}.html` : ''
   return `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -1920,6 +1921,22 @@ function buildPage({ pageContext, activeSlug, mainHtml }) {
 </div>
 <script>
 (function(){
+  // run 入口页默认直接进入第一个测试项；需要看概览时可加 #overview 或 ?overview=1。
+  var defaultCaseHref = ${JSON.stringify(defaultCaseHref)}
+  if (defaultCaseHref) {
+    var hash = (location.hash || '').replace(/^#/, '')
+    var stayOnOverview = hash === 'overview'
+    try {
+      if (!stayOnOverview) {
+        var params = new URLSearchParams(location.search || '')
+        stayOnOverview = params.get('overview') === '1'
+      }
+    } catch {}
+    if (!stayOnOverview) {
+      location.replace(defaultCaseHref)
+      return
+    }
+  }
   var items = document.querySelectorAll('.nav-item')
   var panels = document.querySelectorAll('.detail-panel')
   // 同 testCase 历史 nav 区（左侧 sidebar 底部）：select(idx) 时找对应 panel 内的
@@ -2039,7 +2056,7 @@ function buildPage({ pageContext, activeSlug, mainHtml }) {
     if (!wrap) return
     try {
       var contentH = iframe.contentDocument.documentElement.scrollHeight
-      if (contentH > 0) wrap.style.height = Math.max(200, Math.min(600, contentH)) + 'px'
+      if (contentH > 0) wrap.style.height = Math.max(200, contentH) + 'px'
     } catch(e){}
     wrap.classList.add('loaded')
   }
@@ -2527,9 +2544,14 @@ function rebuildHomeIndex() {
   }
 
   // runInfos 已按 seq 降序；runs push 顺序即 "最新在前"
+  const normalizeCaseKey = (caseName) => {
+    const sep = ' — '
+    const idx = caseName.indexOf(sep)
+    return idx !== -1 ? caseName.slice(0, idx) : caseName
+  }
   for (const info of runInfos) {
     for (const item of info.testItems) {
-      const key = item.caseName
+      const key = normalizeCaseKey(item.caseName)
       let entry = casesIndex.get(key)
       if (!entry) {
         entry = { caseKey: key, description: item.description, hasYaml: false, runs: [] }

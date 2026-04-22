@@ -56,9 +56,9 @@ function IconNavItem({
   onClick?: () => void;
 }) {
   return (
-    <SidebarMenuItem>
+    <SidebarMenuItem className="w-full">
       <SidebarMenuButton
-        className="relative flex flex-col items-center justify-center w-full h-11 min-h-0! rounded-lg px-0 py-0 gap-0.5 transition-colors duration-150 hover:bg-transparent active:bg-transparent data-[active=true]:bg-transparent"
+        className="relative flex flex-col items-center justify-center w-full h-11 min-h-0! rounded-lg px-0 py-0 gap-0.5 transition-colors duration-150 hover:bg-transparent active:bg-transparent data-[active=true]:bg-transparent group-data-[collapsible=icon]:size-auto! group-data-[collapsible=icon]:p-0!"
         isActive={isActive}
         onClick={onClick}
         type="button"
@@ -309,8 +309,8 @@ export const AppSidebar = ({
         <CompactUserAvatar />
       </SidebarHeader>
 
-      <SidebarContent className="items-center px-0 overflow-visible">
-        <SidebarMenu ref={contentMenuRef} className="relative items-center gap-1 px-0">
+      <SidebarContent className="px-0 overflow-visible">
+        <SidebarMenu ref={contentMenuRef} className="relative gap-1 px-0">
           <SlidingIndicator activeIdx={activeContentIdx} containerRef={contentMenuRef} />
           {/* Core */}
           <IconNavItem
@@ -379,8 +379,8 @@ export const AppSidebar = ({
         </SidebarMenu>
       </SidebarContent>
 
-      <SidebarFooter className="items-center px-0 pt-1 pb-5 gap-0">
-        <SidebarMenu ref={footerMenuRef} className="relative items-center gap-1 px-0">
+      <SidebarFooter className="px-0 pt-1 pb-5 gap-0">
+        <SidebarMenu ref={footerMenuRef} className="relative gap-1 px-0">
           <SlidingIndicator activeIdx={activeFooterIdx} containerRef={footerMenuRef} />
           <IconNavItem
             icon={Search}

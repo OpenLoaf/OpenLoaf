@@ -22,6 +22,7 @@ import { jsSandboxToolDef } from '@openloaf/api/types/tools/jsSandbox'
 import { resolveCreateTargetPath } from '@/ai/tools/toolScope'
 import { createToolProgress } from '@/ai/tools/toolProgress'
 import { logger } from '@/common/logger'
+import { formatTruncationTrailer } from '@/ai/shared/truncatedOutput'
 
 /**
  * Locate the node_modules directory that houses the server's preinstalled
@@ -112,7 +113,7 @@ function sandboxEntryPath(): string {
 
 function truncate(s: string, max: number): string {
   if (s.length <= max) return s
-  return s.slice(0, max) + `\n…[truncated ${s.length - max} chars]`
+  return s.slice(0, max) + '\n' + formatTruncationTrailer({ remaining: s.length - max })
 }
 
 async function collectWrittenFiles(

@@ -27,7 +27,6 @@ export type AppState = Pick<
     | "leftWidthPercent"
     | "minLeftWidth"
     | "rightChatCollapsed"
-    | "rightChatCollapsedSnapshot"
     | "stackHidden"
     | "activeStackItemId"
   >
@@ -45,7 +44,6 @@ export function getAppState(): AppState {
     leftWidthPercent: layout.leftWidthPercent,
     minLeftWidth: layout.minLeftWidth,
     rightChatCollapsed: layout.rightChatCollapsed,
-    rightChatCollapsedSnapshot: layout.rightChatCollapsedSnapshot,
     stackHidden: layout.stackHidden,
     activeStackItemId: layout.activeStackItemId,
   }
@@ -61,7 +59,6 @@ export function useAppState(): AppState {
   const leftWidthPercent = useLayoutState((s) => s.leftWidthPercent)
   const minLeftWidth = useLayoutState((s) => s.minLeftWidth)
   const rightChatCollapsed = useLayoutState((s) => s.rightChatCollapsed)
-  const rightChatCollapsedSnapshot = useLayoutState((s) => s.rightChatCollapsedSnapshot)
   const stackHidden = useLayoutState((s) => s.stackHidden)
   const activeStackItemId = useLayoutState((s) => s.activeStackItemId)
 
@@ -75,7 +72,6 @@ export function useAppState(): AppState {
       leftWidthPercent,
       minLeftWidth,
       rightChatCollapsed,
-      rightChatCollapsedSnapshot,
       stackHidden,
       activeStackItemId,
     }),
@@ -88,7 +84,6 @@ export function useAppState(): AppState {
       leftWidthPercent,
       minLeftWidth,
       rightChatCollapsed,
-      rightChatCollapsedSnapshot,
       stackHidden,
       activeStackItemId,
     ],

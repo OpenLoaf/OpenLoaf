@@ -1,7 +1,7 @@
 ---
 name: project-ops-skill
 description: >
-  当用户要对 OpenLoaf 的"项目"这一实体做创建、打开、切换、移动、删除、改名、建子项目时触发。典型说法"新建项目"、"把 ~/code/foo 加进来"、"列出所有项目"。**不用于**：项目内文件读写（→直接用 Read/Edit/Write）、讨论"项目规划 / 需求文档"（→直接回答）、纯 Git 日常操作（→`Bash`）。
+  当用户要对 OpenLoaf 的"项目"这一实体做创建、打开、切换、移动、删除、改名时触发。典型说法"新建项目"、"把 ~/code/foo 加进来"、"列出所有项目"。**不用于**：项目内文件读写（→直接用 Read/Edit/Write）、讨论"项目规划 / 需求文档"（→直接回答）、纯 Git 日常操作（→`Bash`）。
 tools: [ProjectQuery, ProjectMutate]
 ---
 
@@ -46,15 +46,6 @@ ProjectMutate { action: "create", title: "Q2 Marketing", folderName: "q2-marketi
 **指向已有目录** — 用户给出裸路径时，你必须转换为 `file://` 协议 URI：
 - 用户说 `/Users/user/code/repo` → 你传 `rootUri: "file:///Users/user/code/repo"`
 - 用户说 `~/my-project` → 先展开 `~`，再拼 `file:///Users/user/my-project`
-
-**创建子项目** — `ProjectMutate { action: "create", title: "子模块", parentProjectId: "parent-id" }`
-或在当前项目下：`{ action: "create", title: "子模块", createAsChild: true }`
-
-### 何时创建顶层 vs 子项目
-
-- 独立代码仓库、独立业务线 → **顶层项目**
-- monorepo 中的子包、主项目的附属模块 → **子项目**（传 `parentProjectId`）
-- 用户说"在当前项目下新建"→ 用 `createAsChild: true`
 
 ### folderName 决策
 

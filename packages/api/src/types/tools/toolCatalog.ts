@@ -36,6 +36,8 @@ import {
   globToolDef,
   grepToolDef,
   editDocumentToolDef,
+  macosObserveToolDef,
+  macosActToolDef,
 } from "./runtime";
 import { requestUserInputToolDef } from "./userInput";
 import { jsxCreateToolDef } from "./jsxCreate";
@@ -109,6 +111,8 @@ const TOOL_DEFS: ToolDefLike[] = [
   grepToolDef,
   editDocumentToolDef,
   bashToolDef,
+  macosObserveToolDef,
+  macosActToolDef,
   emailQueryToolDef,
   emailMutateToolDef,
   calendarQueryToolDef,
@@ -191,6 +195,8 @@ const TOOL_KEYWORDS: Record<string, { keywords: string[]; group: string }> = {
   'Grep': { keywords: ['grep', 'search', 'find', 'pattern', 'regex', 'match', 'text', 'content', 'ripgrep'], group: 'fileRead' },
   'EditDocument': { keywords: ['edit', 'document', 'modify', 'write', 'update', 'doc'], group: 'fileWrite' },
   'Bash': { keywords: ['shell', 'bash', 'command', 'terminal', 'execute', 'run', 'script'], group: 'shell' },
+  'MacosObserve': { keywords: ['macos', 'mac', 'observe', 'screen', 'screenshot', 'accessibility', 'ax', 'ui', 'desktop', 'read', 'capture', 'snapshot'], group: 'shell' },
+  'MacosAct': { keywords: ['macos', 'mac', 'act', 'click', 'type', 'key', 'launch', 'scroll', 'drag', 'wait', 'ui', 'desktop', 'automation', 'ax_action'], group: 'shell' },
   'OpenUrl': { keywords: ['url', 'link', 'browser', 'open', 'web', 'navigate', 'website'], group: 'web' },
   'BrowserSnapshot': { keywords: ['browser', 'screenshot', 'snapshot', 'capture', 'page', 'image', 'photo'], group: 'web' },
   'BrowserAct': { keywords: ['browser', 'click', 'type', 'interact', 'automate', 'action'], group: 'web' },

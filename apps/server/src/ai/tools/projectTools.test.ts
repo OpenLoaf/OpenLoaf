@@ -63,11 +63,10 @@ const listResult = await executeProjectQuery({
 assert.equal(listResult.data.mode, "list");
 assert.ok(listResult.data.projects.length >= 1);
 
-setToolContext({ projectId: parentProjectId });
 const childResult = await executeProjectMutate({
   action: "create",
   title: "Beta",
-  createAsChild: true,
+  parentProjectId: parentProjectId,
 });
 
 if (childResult.data.action !== "create") {

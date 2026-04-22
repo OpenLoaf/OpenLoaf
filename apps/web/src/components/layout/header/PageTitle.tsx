@@ -151,8 +151,7 @@ export const PageTitle = () => {
       // Board opened from within a project → restore previous base within project
       const shell = layoutView.projectShell ?? activeTab?.projectShell;
       if (previousBase && typeof previousBase === 'object') {
-        layout.setBase(previousBase);
-        layout.clearStack();
+        useLayoutState.getState().setBaseAndClearStack(previousBase);
         if (shell) {
           view.setTitle(shell.title);
           view.setIcon(shell.icon ?? undefined);
@@ -163,13 +162,11 @@ export const PageTitle = () => {
     } else {
       // Board opened from global canvas list → restore previous base or go to canvas list
       if (previousBase && typeof previousBase === 'object') {
-        layout.setBase(previousBase);
-        layout.clearStack();
+        useLayoutState.getState().setBaseAndClearStack(previousBase);
         view.setTitle(t('smartCanvas'));
         view.setIcon(CANVAS_LIST_TAB_INPUT.icon);
       } else {
-        layout.setBase({ id: CANVAS_LIST_TAB_INPUT.baseId, component: CANVAS_LIST_TAB_INPUT.component });
-        layout.clearStack();
+        useLayoutState.getState().setBaseAndClearStack({ id: CANVAS_LIST_TAB_INPUT.baseId, component: CANVAS_LIST_TAB_INPUT.component });
         view.setTitle(t('smartCanvas'));
         view.setIcon(CANVAS_LIST_TAB_INPUT.icon);
       }

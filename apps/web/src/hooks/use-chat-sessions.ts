@@ -40,6 +40,8 @@ export type ChatSessionListItem = {
   projectIcon: string | null;
   /** Session message count. */
   messageCount: number;
+  /** Session 来源：null=普通 AI chat，"wechat"=微信外部消息通道。 */
+  kind?: string | null;
   /** 会话目录下是否存在附件资源（asset/）。 */
   hasAssets?: boolean;
   /** ai-browser-test 自动测试标记，来自 session.json。 */

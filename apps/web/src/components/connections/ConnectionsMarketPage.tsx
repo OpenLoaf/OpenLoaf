@@ -133,7 +133,7 @@ export function ConnectionsMarketPage() {
         {integrationsQuery.isLoading ? (
           <div className="grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-4">
             {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="h-[148px] animate-pulse rounded-3xl bg-muted/40" />
+              <div key={i} className="h-[160px] animate-pulse rounded-3xl bg-muted/40" />
             ))}
           </div>
         ) : integrations.length === 0 ? (
@@ -172,33 +172,42 @@ export function ConnectionsMarketPage() {
                   {/* Top strip */}
                   <div
                     className={cn(
-                      'flex items-start justify-between gap-3 bg-gradient-to-br px-5 pt-4 pb-3.5',
+                      'flex items-start justify-between gap-3 bg-gradient-to-br px-5 pt-4 pb-4',
                       gradient,
                     )}
                   >
                     <div className="flex min-w-0 items-center gap-3">
                       <div
-                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-background/80 text-foreground shadow-sm ring-1 ring-border/40"
+                        className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-background/80 text-foreground shadow-sm ring-1 ring-border/40"
                         style={
-                          integration.brandColor
-                            ? {
-                                backgroundColor: integration.brandColor,
-                                color: '#ffffff',
-                              }
-                            : undefined
+                          integration.iconUrl
+                            ? undefined
+                            : integration.brandColor
+                              ? {
+                                  backgroundColor: integration.brandColor,
+                                  color: '#ffffff',
+                                }
+                              : undefined
                         }
                       >
-                        {integration.iconSvgPath ? (
+                        {integration.iconUrl ? (
+                          <img
+                            src={integration.iconUrl}
+                            alt=""
+                            className="h-full w-full object-cover"
+                            aria-hidden="true"
+                          />
+                        ) : integration.iconSvgPath ? (
                           <svg
                             viewBox="0 0 24 24"
-                            className="h-[22px] w-[22px]"
+                            className="h-[26px] w-[26px]"
                             fill="currentColor"
                             aria-hidden="true"
                           >
                             <path d={integration.iconSvgPath} />
                           </svg>
                         ) : (
-                          <span className="text-sm font-semibold">
+                          <span className="text-base font-semibold">
                             {integration.name.charAt(0)}
                           </span>
                         )}
@@ -246,7 +255,7 @@ export function ConnectionsMarketPage() {
                   </div>
 
                   {/* Body */}
-                  <div className="flex flex-1 flex-col px-5 pb-4 pt-3">
+                  <div className="flex flex-1 flex-col px-5 pb-4 pt-3.5">
                     <p className="line-clamp-3 text-xs leading-relaxed text-muted-foreground">
                       {t(`connections:integrations.${integration.id}.description`, {
                         defaultValue: integration.description,

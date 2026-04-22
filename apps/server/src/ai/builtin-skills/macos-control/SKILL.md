@@ -19,9 +19,18 @@ tools: [MacosObserve, MacosAct]
 
 ## 核心心智模型
 
-桌面控制 = **observe-act-verify** 循环，每次 `MacosAct` 后必须再 `MacosObserve` 一次，因为 UI 是有状态的：点击可能触发弹窗、页面切换、焦点变化，你无法预测结果。盲目连续 act 是最常见的失败原因。
+- 桌面控制 = **observe-act-verify** 循环，每次 `MacosAct` 后必须再 `MacosObserve` 一次，因为 UI 是有状态的：点击可能触发弹窗、页面切换、焦点变化，你无法预测结果。盲目连续 act 是最常见的失败原因。
 
 ```
+MacosObserve → 分析 AX 树 → MacosAct → MacosObserve → ...
+```
+
+**铁律**：这个循环是强制性的，必须严格遵守，没有任何例外：
+- 每次 `MacosAct`（包括 `wait`、`scroll` 等非点击动作）后，必须立即调用 `MacosObserve` 验证结果
+- 不论你是否认为任务已完成、不需要再观察、或者 wait 后可以结束 —— **都不行**，必须调用 `MacosObserve`
+- 只有在用户明确确认任务完成，或者你确定最后一个动作后无需验证的情况下，才可以跳过最后的 `MacosObserve`
+- 不要因为想节省步数或时间而违反此规则
+
 MacosObserve → 分析 AX 树 → MacosAct → MacosObserve → ...
 ```
 

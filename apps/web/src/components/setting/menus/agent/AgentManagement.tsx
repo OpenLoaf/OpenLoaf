@@ -520,7 +520,7 @@ function GlobalAgentView() {
       {/* Agent grid */}
       <div className="min-h-0 flex-1 overflow-y-auto p-5">
         {filteredAgents.length > 0 ? (
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-4">
             {filteredAgents.map((agent) => {
               const canOpen = Boolean(resolveAgentFolderUri(agent.path));
               const colorIdx = simpleHash(agent.name) % CARD_COLOR_PALETTE.length;

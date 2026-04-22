@@ -305,13 +305,13 @@ export const macosActToolDef = {
 
 Actions:
   - launch_app → open an app by name or bundle id via \`open -a\`. Prefer this over cmd+space/Spotlight for launching — it's one call, deterministic, and doesn't depend on IME focus. Example: {type:"launch_app", app:"WeChat"} or {type:"launch_app", app:"com.tencent.xinWeChat"}
-  - click   → click at an AxRef or raw {x,y}; use ax_action AXPress when possible (robust to window moves)
+  - click   → click at an AxRef or raw {x,y}; PREFERRED for standard clicks (simple and reliable)
   - type    → type arbitrary Unicode text (CJK supported) at the current focus
   - key     → press a key chord, e.g. keys: ["cmd","space"]
   - scroll  → scroll at a point by {dx,dy} pixels
   - drag    → drag from {x,y} to {x,y}
   - wait    → sleep ms (max 10000)
-  - ax_action → call AXUIElementPerformAction with a named AX action on a ref
+  - ax_action → call AXUIElementPerformAction with a named AX action on a ref; ONLY use for non-standard actions (AXShowMenu, AXRaise, etc.)
 
 Requires Accessibility permission. Blocked apps (password managers, banking) are refused. Each call auto-settles 150ms before returning so observations that follow see post-reaction UI.`,
   parameters: z.object({

@@ -56,6 +56,12 @@ export const integrationDefinitionSchema = z.object({
    * When present, rendered as a monochrome brand glyph driven by `currentColor`.
    */
   iconSvgPath: z.string().optional(),
+  /**
+   * Absolute or root-relative URL of a square brand icon (SVG/PNG). When
+   * present, preferred over `iconSvgPath` so full-color marks are preserved
+   * rather than rendered as a monochrome glyph.
+   */
+  iconUrl: z.string().optional(),
   homepage: z.string().optional(),
   guide: z.array(integrationGuideStepSchema),
   credentials: z.array(credentialFieldSchema),

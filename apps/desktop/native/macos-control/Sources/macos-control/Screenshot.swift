@@ -61,10 +61,13 @@ enum Screenshot {
         let filter = SCContentFilter(desktopIndependentWindow: win)
         let cfg = SCStreamConfiguration()
         // 2× for retina parity with full-display capture. Clamp to reasonable
-        // maxima so gigantic windows don't OOM.
+        // maxima so gigantic windows don't OOM. scalesToFit=true ensures
+        // non-retina windows (Qt/Electron with 1× backing) fill the buffer
+        // instead of leaving the right/bottom 3/4 as black padding.
         let scale = 2
         cfg.width = min(Int(win.frame.width) * scale, 6000)
         cfg.height = min(Int(win.frame.height) * scale, 6000)
+        cfg.scalesToFit = true
         cfg.showsCursor = false
         cfg.capturesAudio = false
         let cgImage = try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: cfg)

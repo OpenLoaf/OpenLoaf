@@ -41,8 +41,6 @@ export type LayoutState = {
   minLeftWidth?: number
   /** Whether right chat is collapsed. */
   rightChatCollapsed?: boolean
-  /** Snapshot of right chat collapsed state before opening a board. */
-  rightChatCollapsedSnapshot?: boolean
   /** Whether the stack is hidden (minimized). */
   stackHidden?: boolean
   /** Active stack item id. */
@@ -64,6 +62,8 @@ export type LayoutStateActions = LayoutState & {
   setStackHidden: (hidden: boolean) => void
   /** Update active stack item id. */
   setActiveStackItemId: (itemId: string) => void
+  /** Set base and clear stack in one atomic update. */
+  setBaseAndClearStack: (base: DockItem | undefined) => void
   /** Push or upsert a stack item. When `skipActivation` is true, the active stack item is not changed. */
   pushStackItem: (item: DockItem, percent?: number, skipActivation?: boolean) => void
   /** Remove a stack item. */
@@ -87,8 +87,7 @@ export type LayoutStateActions = LayoutState & {
 const DEFAULT_STATE: LayoutState = {
   stack: [],
   leftWidthPercent: 0,
-  rightChatCollapsed: true,
-  rightChatCollapsedSnapshot: undefined,
+  rightChatCollapsed: false,
   stackHidden: false,
   activeStackItemId: "",
 }
@@ -97,11 +96,6 @@ const DEFAULT_STATE: LayoutState = {
 function resolveStorage() {
   if (typeof window === "undefined") return localStorage
   return isDedicatedWindowMode() ? window.sessionStorage : window.localStorage
-}
-
-/** Return true when the stack contains a board viewer item. */
-function hasBoardStackItem(stack?: DockItem[]) {
-  return (stack ?? []).some((item) => item.component === BOARD_VIEWER_COMPONENT)
 }
 
 function normalize(input?: Partial<LayoutState>): LayoutState {
@@ -118,19 +112,13 @@ function normalize(input?: Partial<LayoutState>): LayoutState {
   const minLeftWidth = Number.isFinite(input?.minLeftWidth)
     ? (input?.minLeftWidth as number)
     : undefined
-  const hasBoard = hasBoardStackItem(stack)
-  const rightChatCollapsedSnapshot =
-    hasBoard && typeof input?.rightChatCollapsedSnapshot === "boolean"
-      ? input.rightChatCollapsedSnapshot
-      : undefined
 
   return {
     base,
     stack,
     leftWidthPercent,
     minLeftWidth,
-    rightChatCollapsed: base ? (input?.rightChatCollapsed ?? true) : true,
-    rightChatCollapsedSnapshot,
+    rightChatCollapsed: base ? (input?.rightChatCollapsed ?? false) : false,
     stackHidden: Boolean(input?.stackHidden),
     activeStackItemId:
       typeof input?.activeStackItemId === "string" ? input.activeStackItemId : "",
@@ -143,21 +131,6 @@ function getActiveStackItemFromState(state: LayoutState) {
   return stack.find((item) => item.id === activeId) ?? stack.at(-1)
 }
 
-function isBoardStackFullInternal(state: LayoutState) {
-  const activeItem = getActiveStackItemFromState(state)
-  if (activeItem?.component !== BOARD_VIEWER_COMPONENT) return false
-  if (!state.rightChatCollapsed) return false
-  const leftOpen = getLeftSidebarOpen()
-  return leftOpen === false
-}
-
-function shouldExitBoardFullOnCloseInternal(state: LayoutState, itemId?: string) {
-  const activeItem = getActiveStackItemFromState(state)
-  if (!activeItem || activeItem.component !== BOARD_VIEWER_COMPONENT) return false
-  if (itemId && activeItem.id !== itemId) return false
-  return isBoardStackFullInternal(state)
-}
-
 export const useLayoutState = create<LayoutStateActions>()(
   persist(
     (set, get) => ({
@@ -165,14 +138,12 @@ export const useLayoutState = create<LayoutStateActions>()(
 
       setBase: (base) => {
         set((state) => {
-          // Transitioning from a base-less (chat-only) view — where the right
-          // chat is always rendered visible — to a base view should carry the
-          // "visible" state over, so the chat panel doesn't appear to vanish.
-          const prevHadBase = Boolean(state.base)
-          const nextHasBase = Boolean(base)
-          const rightChatCollapsed =
-            !prevHadBase && nextHasBase ? false : state.rightChatCollapsed
-          return normalize({ ...state, base, rightChatCollapsed })
+          return normalize({
+            ...state,
+            base,
+            rightChatCollapsed: state.rightChatCollapsed,
+            leftWidthPercent: state.leftWidthPercent,
+          })
         })
       },
 
@@ -225,20 +196,8 @@ export const useLayoutState = create<LayoutStateActions>()(
       },
 
       pushStackItem: (item, percent, skipActivation) => {
-        let shouldRestoreFull = false
         set((state) => {
-          const wasBoardOpen = hasBoardStackItem(state.stack)
-          const isBoardItem = item.component === BOARD_VIEWER_COMPONENT
-          const shouldCaptureSnapshot = isBoardItem && !wasBoardOpen
           const wasHidden = Boolean(state.stackHidden)
-          shouldRestoreFull =
-            wasHidden &&
-            item.component === BOARD_VIEWER_COMPONENT &&
-            Boolean((item.params as any)?.__boardFull)
-          const nextRightChatCollapsedSnapshot = shouldCaptureSnapshot
-            ? Boolean(state.rightChatCollapsed)
-            : state.rightChatCollapsedSnapshot
-
           const nextItem = wasHidden
             ? {
                 ...item,
@@ -325,28 +284,15 @@ export const useLayoutState = create<LayoutStateActions>()(
                   ? state.leftWidthPercent
                   : STACK_DEFAULT_PERCENT,
             ),
-            rightChatCollapsed: shouldRestoreFull
-              ? true
-              : isBoardItem
-                ? true
-                : state.rightChatCollapsed,
-            rightChatCollapsedSnapshot: nextRightChatCollapsedSnapshot,
+            rightChatCollapsed: state.rightChatCollapsed,
           })
         })
-        if (shouldRestoreFull) {
-          emitSidebarOpenRequest(false)
-        }
       },
 
       removeStackItem: (itemId) => {
-        let shouldExitFull = false
         set((state) => {
-          shouldExitFull = shouldExitBoardFullOnCloseInternal(state, itemId)
           const targetItem = state.stack.find((item) => item.id === itemId)
           const nextStack = state.stack.filter((item) => item.id !== itemId)
-          const hasBoardAfter = hasBoardStackItem(nextStack)
-          const shouldRestoreRight =
-            !hasBoardAfter && typeof state.rightChatCollapsedSnapshot === "boolean"
           const shouldRestoreHidden = Boolean(
             (targetItem?.params as any)?.__restoreStackHidden,
           )
@@ -366,43 +312,35 @@ export const useLayoutState = create<LayoutStateActions>()(
                 : shouldRestoreHidden
                   ? true
                   : state.stackHidden,
-            rightChatCollapsed: shouldRestoreRight
-              ? state.rightChatCollapsedSnapshot
-              : shouldExitFull
-                ? false
-                : state.rightChatCollapsed,
-            rightChatCollapsedSnapshot: hasBoardAfter
-              ? state.rightChatCollapsedSnapshot
-              : undefined,
+            rightChatCollapsed: state.rightChatCollapsed,
           })
         })
-        if (shouldExitFull) {
-          emitSidebarOpenRequest(true)
-        }
       },
 
       clearStack: () => {
-        let shouldExitFull = false
         set((state) => {
-          shouldExitFull = shouldExitBoardFullOnCloseInternal(state)
-          const shouldRestoreRight =
-            typeof state.rightChatCollapsedSnapshot === "boolean"
           return normalize({
             ...state,
             stack: [],
             activeStackItemId: "",
             stackHidden: false,
-            rightChatCollapsed: shouldRestoreRight
-              ? state.rightChatCollapsedSnapshot
-              : shouldExitFull
-                ? false
-                : state.rightChatCollapsed,
-            rightChatCollapsedSnapshot: undefined,
+            rightChatCollapsed: state.rightChatCollapsed,
           })
         })
-        if (shouldExitFull) {
-          emitSidebarOpenRequest(true)
-        }
+      },
+
+      setBaseAndClearStack: (base) => {
+        set((state) => {
+          return normalize({
+            ...state,
+            base,
+            stack: [],
+            activeStackItemId: "",
+            stackHidden: false,
+            rightChatCollapsed: state.rightChatCollapsed,
+            leftWidthPercent: state.leftWidthPercent,
+          })
+        })
       },
 
       setStackItemParams: (itemId, params) => {
@@ -489,22 +427,19 @@ export const useLayoutState = create<LayoutStateActions>()(
         set((state) => normalize({
           ...DEFAULT_STATE,
           ...layout,
-          // Right chat visibility is not part of the layout snapshot — it
-          // persists across section/view restoration as a user preference.
+          // Right chat visibility + left dock width are persistent user
+          // preferences, not part of per-section snapshots. Preserve the
+          // current values so switching sidebar sections (chat / canvas /
+          // project) doesn't jolt the split — matches the behavior of
+          // non-section pages (workbench, tasks, calendar) that never restore
+          // a snapshot.
+          leftWidthPercent: state.leftWidthPercent,
           rightChatCollapsed: state.rightChatCollapsed,
-          rightChatCollapsedSnapshot: state.rightChatCollapsedSnapshot,
         }))
       },
 
       applyNavigation: (input) => {
         set((state) => {
-          const prevHadBase = Boolean(state.base)
-          const nextHasBase = Boolean(input.base)
-          // When moving from a base-less (chat-only) view to a base view, the
-          // right chat was always rendering visible — carry that over so the
-          // panel doesn't disappear on navigation.
-          const rightChatCollapsed =
-            !prevHadBase && nextHasBase ? false : state.rightChatCollapsed
           return normalize({
             ...DEFAULT_STATE,
             base: input.base,
@@ -513,8 +448,7 @@ export const useLayoutState = create<LayoutStateActions>()(
             // non-zero leftWidthPercent while on a chat-only view is safe — and
             // avoids width jumps when returning to a view with left content.
             leftWidthPercent: input.leftWidthPercent ?? state.leftWidthPercent,
-            rightChatCollapsed,
-            rightChatCollapsedSnapshot: state.rightChatCollapsedSnapshot,
+            rightChatCollapsed: state.rightChatCollapsed,
           })
         })
       },
@@ -529,7 +463,6 @@ export const useLayoutState = create<LayoutStateActions>()(
         leftWidthPercent: state.leftWidthPercent,
         minLeftWidth: state.minLeftWidth,
         rightChatCollapsed: state.rightChatCollapsed,
-        rightChatCollapsedSnapshot: state.rightChatCollapsedSnapshot,
         stackHidden: state.stackHidden,
         activeStackItemId: state.activeStackItemId,
       }),
