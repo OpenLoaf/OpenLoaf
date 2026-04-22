@@ -52,15 +52,30 @@ export default function MessageTool({
     : undefined;
   // 逻辑：tool streaming 状态以 toolParts 为准，覆盖 message part。
   let resolvedPart: AnyToolPart = safeSnapshot ? { ...part, ...safeSnapshot } : part;
-  if (
-    status === "ready" &&
-    (resolvedPart.state === "input-streaming" || resolvedPart.state === "output-streaming")
-  ) {
-    // 逻辑：会话已结束但数据库残留 streaming 状态时，强制终止流式显示。
-    resolvedPart = {
-      ...resolvedPart,
-      state: resolvedPart.state === "input-streaming" ? "input-available" : "output-available",
-    };
+  if (status === "ready") {
+    const state = resolvedPart.state;
+    const hasOutputPayload =
+      resolvedPart.output != null ||
+      (typeof resolvedPart.errorText === "string" && resolvedPart.errorText.trim().length > 0);
+    // 逻辑：会话已结束（status=ready）但工具仍停在非终态时，视为被中止，
+    // 统一标记为 output-error + errorText="会话已中止"，避免 spinner 永久转圈。
+    // approval-requested 例外 —— 该状态等待用户决策，本身不应被"中止"标记。
+    // output-streaming 如果已有 output 数据，转成 output-available（原有逻辑）。
+    if (
+      (state === "input-streaming" ||
+        state === "input-available" ||
+        state === "output-streaming" ||
+        state === "approval-responded") &&
+      !hasOutputPayload
+    ) {
+      resolvedPart = {
+        ...resolvedPart,
+        state: "output-error",
+        errorText: t("tool.aborted", "会话已中止，工具未返回结果"),
+      };
+    } else if (state === "output-streaming" && hasOutputPayload) {
+      resolvedPart = { ...resolvedPart, state: "output-available" };
+    }
   }
 
   if (resolvedPart.variant === "cli-thinking") {

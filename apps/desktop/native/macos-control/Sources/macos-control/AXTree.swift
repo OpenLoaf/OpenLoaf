@@ -12,7 +12,7 @@ enum AXTree {
     let axApp = AXUIElementCreateApplication(pid)
 
     var budget = Budget(nodes: maxNodes)
-    let root = walk(axApp, depth: 0, maxDepth: maxDepth, path: [], budget: &budget)
+    let root = walk(axApp, depth: 0, maxDepth: maxDepth, path: [String](), budget: &budget)
 
     return [
       "app": [
@@ -51,7 +51,7 @@ enum AXTree {
   }
 
   private static func walk(_ el: AXUIElement, depth: Int, maxDepth: Int,
-                           path: [Int], budget: inout Budget) -> [String: Any]? {
+                           path: [String], budget: inout Budget) -> [String: Any]? {
     guard budget.take() else { return nil }
 
     var node: [String: Any] = [:]
@@ -71,7 +71,7 @@ enum AXTree {
     if let children = axChildren(el) {
       var kids: [[String: Any]] = []
       for (i, child) in children.enumerated() {
-        if let k = walk(child, depth: depth + 1, maxDepth: maxDepth, path: path + [i], budget: &budget) {
+        if let k = walk(child, depth: depth + 1, maxDepth: maxDepth, path: path + [String(i)], budget: &budget) {
           kids.append(k)
         }
         if budget.count >= budget.nodes { break }

@@ -40,23 +40,26 @@ MacosObserve → 分析 AX 树 → MacosAct → MacosObserve → ...
 
 单次 `MacosObserve` 返回：
 
-- **截图 attachment**：当前前台屏幕 PNG（自动作为多模态图片注入，你能直接"看"）
+- **截图 attachment**：`appFilter` 未传 → 整屏截图；`appFilter` 已传 → 只截该 App 的 frontmost window（更小、更聚焦、没有别的窗口干扰）
 - **前台 App 信息**：`name`、`bundleId`
-- **AX 树（JSON）**：每个节点含 `role` / `title` / `value` / `identifier` / `frame: {x,y,w,h}` / `path: [...]` / `children`
-- **预算**：默认 `maxNodes: 1500`、`maxDepth: 4`；超出截断，响应里带 `truncated: true`
+- **AX 树（JSON）**：每个节点含 `role` / `title` / `value` / `identifier` / `frame: {x,y,w,h}` / 可选 `path: [...]` / `children`
+- **预算**：默认 `maxNodes: 500`、`maxDepth: 6`；超出截断，响应里带 `truncated: true`
 
 **参数**：
-- `appFilter`（可选）：按 App 名字过滤，未指定则读前台 App
+- `appFilter`（可选）：按 App 名字或 bundle id 过滤。同时影响 AX 树和截图——指定后两者都只看这个 App。未指定则读前台 App + 整屏
 - `maxNodes` / `maxDepth`：收缩预算以压缩 token
 - `includeScreenshot: false`：只要 AX 树不要图（极少用）
+
+> 想聚焦某个 App 时直接传 `appFilter: "WeChat"`，比整屏截图更省 token 也更清晰。窗口隐藏/最小化/离屏时自动回退到整屏。
 
 ## MacosAct 动作集
 
 | type | 用法 | 何时用 |
 |------|------|--------|
+| `launch_app` | 通过 `open -a` 启动 App（名字或 bundle id） | **启动 App 首选** — 一步到位，比 Spotlight 稳 |
 | `click` | 点击。优先 `ref`（AX 引用），退化到 `point: {x,y}` | 绝大多数交互 |
 | `type` | 在当前焦点输入文本 | 已 focus 输入框后 |
-| `key` | 发组合键（`cmd+space`、`return`、`escape`...） | 快捷键、提交、取消 |
+| `key` | 发组合键（`return`、`escape`、`cmd+w`...） | 快捷键、提交、取消（**启动 App 用 `launch_app`，不要 cmd+space**） |
 | `scroll` | 在 `point` 处滚动 `dx/dy` | 内容在视口外 |
 | `drag` | 从 `from` 拖到 `to` | 拖拽、选区 |
 | `wait` | 等待 `ms` 毫秒（≤10000） | 极少用，通常下一个 observe 就够 |
@@ -82,11 +85,12 @@ MacosObserve → 分析 AX 树 → MacosAct → MacosObserve → ...
 
 ### 工作流 1：打开 App 并操作
 
-1. `MacosAct { key: ["cmd","space"] }` 打开 Spotlight
-2. `MacosAct { type: "Finder" }` / `MacosAct { key: ["return"] }`
-3. `MacosObserve` 确认 Finder 已起 + 拿到 AX 树
-4. 定位目标节点 → `MacosAct { ax_action: "AXPress", ref: ... }`
-5. `MacosObserve` 验证
+1. `MacosAct { launch_app: "Finder" }` — 一步起 App（也可用 bundle id，如 `com.tencent.xinWeChat`）
+2. `MacosObserve` 确认 App 已起 + 拿到 AX 树
+3. 定位目标节点 → `MacosAct { ax_action: "AXPress", ref: ... }`
+4. `MacosObserve` 验证
+
+> 不要用 `cmd+space → type → return` 的 Spotlight 路径来启动 App——需要 3-4 个 tool 调用，还可能被中文输入法、焦点丢失、Spotlight 弹出状态打断。`launch_app` 是唯一正确入口。
 
 ### 工作流 2：读当前屏幕内容
 

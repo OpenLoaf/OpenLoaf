@@ -53,14 +53,21 @@ export function InstallIntegrationDialog({ integration, onClose, onInstalled }: 
     (field) => field.required === false || credentials[field.key]?.trim(),
   )
 
+  const tr = (subKey: string, fallback: string) =>
+    t(`connections:integrations.${integration.id}.${subKey}`, {
+      defaultValue: fallback,
+    })
+
+  const localizedName = tr('name', integration.name)
+
   return (
     <FormDialog
       open={Boolean(integration)}
       onOpenChange={(open) => {
         if (!open) onClose()
       }}
-      title={t('connections:installDialogTitle', { name: integration.name })}
-      description={integration.description}
+      title={t('connections:installDialogTitle', { name: localizedName })}
+      description={tr('description', integration.description)}
       submitLabel={t('connections:install')}
       submitting={installMutation.isPending}
       submitDisabled={!isValid}
@@ -87,10 +94,10 @@ export function InstallIntegrationDialog({ integration, onClose, onInstalled }: 
                 </span>
                 <div className="flex-1">
                   <div className="text-sm font-medium text-foreground">
-                    {step.title}
+                    {tr(`guide.${idx}.title`, step.title)}
                   </div>
                   <div className="mt-0.5 text-xs text-muted-foreground">
-                    {step.description}
+                    {tr(`guide.${idx}.description`, step.description)}
                   </div>
                   {step.link ? (
                     <a
@@ -99,7 +106,7 @@ export function InstallIntegrationDialog({ integration, onClose, onInstalled }: 
                       rel="noreferrer"
                       className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
                     >
-                      {step.link.label}
+                      {tr(`guide.${idx}.linkLabel`, step.link.label)}
                       <ExternalLink className="h-3 w-3" />
                     </a>
                   ) : null}
@@ -119,7 +126,7 @@ export function InstallIntegrationDialog({ integration, onClose, onInstalled }: 
                 htmlFor={`integration-field-${field.key}`}
                 className="text-xs font-medium text-foreground"
               >
-                {field.label}
+                {tr(`credentials.${field.key}.label`, field.label)}
                 {field.required !== false ? (
                   <span className="text-destructive"> *</span>
                 ) : null}
@@ -133,7 +140,11 @@ export function InstallIntegrationDialog({ integration, onClose, onInstalled }: 
                       ? 'url'
                       : 'text'
                 }
-                placeholder={field.placeholder}
+                placeholder={
+                  field.placeholder
+                    ? tr(`credentials.${field.key}.placeholder`, field.placeholder)
+                    : undefined
+                }
                 value={credentials[field.key] ?? ''}
                 onChange={(e) =>
                   setCredentials((prev) => ({
@@ -145,7 +156,9 @@ export function InstallIntegrationDialog({ integration, onClose, onInstalled }: 
                 autoComplete="off"
               />
               {field.helpText ? (
-                <p className="text-[11px] text-muted-foreground/80">{field.helpText}</p>
+                <p className="text-[11px] text-muted-foreground/80">
+                  {tr(`credentials.${field.key}.helpText`, field.helpText)}
+                </p>
               ) : null}
             </div>
           ))}

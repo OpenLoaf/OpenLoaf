@@ -976,6 +976,14 @@ function LoadedToolsSection({
   tools: ResolvedToolMeta[]
 }) {
   if (tools.length === 0) return null
+  // 去重：同一 tool id 可能因 ToolSearch 多次加载 / core + dynamic 合并而重复，
+  // 直接 map 会触发 React duplicate-key 警告。
+  const seen = new Set<string>()
+  const dedupedTools = tools.filter((tool) => {
+    if (seen.has(tool.id)) return false
+    seen.add(tool.id)
+    return true
+  })
   return (
     <div
       className="py-1.5 px-4 border-b border-border/50 flex items-start gap-2 flex-wrap"
@@ -985,10 +993,10 @@ function LoadedToolsSection({
         {label}
       </span>
       <span className="text-[10px] text-muted-foreground/60 tabular-nums shrink-0 mt-1">
-        {tools.length}
+        {dedupedTools.length}
       </span>
       <div className="flex flex-wrap gap-1 min-w-0">
-        {tools.map((tool) => (
+        {dedupedTools.map((tool) => (
           <Tooltip key={tool.id}>
             <TooltipTrigger asChild>
               <span className="rounded-full bg-violet-500/10 text-violet-700 dark:text-violet-300 px-2 py-0.5 text-[10px] font-mono cursor-help hover:bg-violet-500/20 transition-colors">

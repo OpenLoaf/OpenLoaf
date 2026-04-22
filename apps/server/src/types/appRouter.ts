@@ -22,6 +22,7 @@ import { dynamicWidgetRouterImplementation } from "@/routers/dynamicWidget";
 import { scheduledTaskRouterImplementation } from "@/routers/scheduledTask";
 import { mcpRouterImplementation } from "@/routers/mcp";
 import { integrationsRouterImplementation } from "@/routers/integrations";
+import { wechatRouterImplementation } from "@/routers/wechat";
 
 /**
  * Server-side AppRouter with all implementations
@@ -43,6 +44,7 @@ export const serverAppRouter = t.router({
   scheduledTask: scheduledTaskRouterImplementation,
   mcp: mcpRouterImplementation,
   integrations: integrationsRouterImplementation,
+  wechat: wechatRouterImplementation,
 });
 
 export type ServerAppRouter = typeof serverAppRouter;

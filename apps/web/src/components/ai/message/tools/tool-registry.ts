@@ -103,7 +103,7 @@ export const TOOL_REGISTRY: ToolRegistryEntry[] = [
   { match: 'AskUserQuestion', component: RequestUserInputTool as ComponentType<ToolComponentProps> },
   { match: ['JsxCreate', 'jsx-preview'], component: JsxCreateTool as ComponentType<ToolComponentProps> },
   { match: ['Edit', 'apply-patch'], component: WriteFileTool as ComponentType<ToolComponentProps> },
-  { match: ['Bash', 'shell-command'], component: ShellTool as ComponentType<ToolComponentProps> },
+  { match: ['Bash', 'shell-command', 'PowerShell'], component: ShellTool as ComponentType<ToolComponentProps> },
   { match: ['Read', 'read-file'], component: ReadTool as ComponentType<ToolComponentProps> },
   { match: 'DocPreview', component: DocPreviewTool as ComponentType<ToolComponentProps> },
   { match: ['Grep', 'grep-files'], component: GrepTool as ComponentType<ToolComponentProps> },

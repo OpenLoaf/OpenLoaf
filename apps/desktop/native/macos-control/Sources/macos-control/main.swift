@@ -1,4 +1,13 @@
 import Foundation
+import AppKit
+
+// When spawned from a non-GUI parent (e.g. plain Terminal for integration
+// tests), the CoreGraphics server isn't auto-initialized and
+// ScreenCaptureKit / CGWindowList APIs will hit
+//   `Assertion failed: (did_initialize), function CGS_REQUIRE_INIT`
+// and hang. NSApplicationLoad() wires up the CG connection without forcing
+// us into a real run loop. No-op when already initialized (Electron path).
+_ = NSApplication.shared
 
 // Line-delimited JSON request/response over stdio.
 // Every request is one JSON object on one line; response is one JSON object on one line.
@@ -70,14 +79,7 @@ func dispatch(_ line: Data) {
       let req = try decoder.decode(ObserveRequest.self, from: line)
       var payload: [String: Any] = [:]
 
-      if req.includeScreenshot ?? true {
-        let path = req.screenshotPath ?? NSTemporaryDirectory() + "macos-control-\(req.id).png"
-        let (w, h) = try Screenshot.captureMainDisplayPNG(to: path)
-        payload["screenshotPath"] = path
-        payload["screenshotWidth"] = w
-        payload["screenshotHeight"] = h
-      }
-
+      // Dump AX tree first — we need the resolved pid for per-window capture.
       let maxNodes = req.maxNodes ?? 1500
       let maxDepth = req.maxDepth ?? 6
       let tree = try AXTree.dump(appFilter: req.appFilter, maxNodes: maxNodes, maxDepth: maxDepth)
@@ -85,6 +87,32 @@ func dispatch(_ line: Data) {
       payload["app"] = tree["app"]!
       payload["truncated"] = tree["truncated"]!
       payload["nodeCount"] = tree["nodeCount"]!
+
+      if req.includeScreenshot ?? true {
+        let path = req.screenshotPath ?? NSTemporaryDirectory() + "macos-control-\(req.id).png"
+        var shotKind = "display"
+        var dims: (Int, Int)? = nil
+
+        // When an app filter is set, try to capture just that app's frontmost
+        // window. Falls back to full-display capture when no suitable window
+        // (hidden, minimized, off-screen) — never surface an empty image.
+        if req.appFilter != nil, let appInfo = tree["app"] as? [String: Any],
+           let pid = appInfo["pid"] as? Int, pid > 0 {
+          if let d = try Screenshot.captureAppWindowPNG(pid: pid_t(pid), to: path) {
+            dims = d
+            shotKind = "window"
+          }
+        }
+        if dims == nil {
+          dims = try Screenshot.captureMainDisplayPNG(to: path)
+        }
+        let (w, h) = dims!
+        payload["screenshotPath"] = path
+        payload["screenshotWidth"] = w
+        payload["screenshotHeight"] = h
+        payload["screenshotKind"] = shotKind
+      }
+
       sendOk(id: env.id, payload: payload)
 
     case "act":

@@ -110,8 +110,10 @@ class HybridMacosHelper implements MacosHelperInterface {
       const target = String(payload.screenshotPath ?? '')
       if (target) {
         try {
+          // 16×16 white PNG; must be ≥10×10 or Qwen-VL rejects with
+          // "height:1 or width:1 must be larger than 10".
           const png = Buffer.from(
-            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgAAIAAAUAAeImBZsAAAAASUVORK5CYII=',
+            'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAFElEQVR42mP4TyJgGNUwqmH4agAAr639H23ooMoAAAAASUVORK5CYII=',
             'base64',
           )
           await fs.writeFile(target, png)

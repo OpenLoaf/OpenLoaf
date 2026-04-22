@@ -221,11 +221,22 @@ export default function UnifiedTool({
   const derivedName = toolType === "dynamic-tool" ? toolKind : (toolType ?? "").split("-").slice(1).join("-");
   const toolId = title && derivedName && title !== derivedName ? derivedName : undefined;
 
+  const pendingApproval = isApprovalRequested && !!approvalId;
+  const [userOpen, setUserOpen] = React.useState<boolean>(pendingApproval);
+  const open = pendingApproval || userOpen;
+
   return (
     <Tool
-      defaultOpen={isApprovalRequested && !!approvalId}
-      onOpenChange={(open) => {
-        if (open) void fetchToolOutput();
+      open={open}
+      onOpenChange={(nextOpen) => {
+        // 中文注释：审批挂起时强制展开，避免按钮被折叠起来（defaultOpen 非受控
+        // 会在状态切到 approval-requested 之后仍保持 closed）。
+        if (pendingApproval) {
+          if (nextOpen) void fetchToolOutput();
+          return;
+        }
+        setUserOpen(nextOpen);
+        if (nextOpen) void fetchToolOutput();
       }}
       className={className}
     >

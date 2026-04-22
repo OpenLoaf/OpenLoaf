@@ -20,6 +20,11 @@ import { Blocks, Check, Loader2, PlugZap, Settings2 } from 'lucide-react'
 import type { IntegrationDefinition } from '@openloaf/api/types/integrations'
 import { openSettingsTab } from '@/lib/globalShortcuts'
 import { InstallIntegrationDialog } from './InstallIntegrationDialog'
+import { WeChatConnectionDialog } from './WeChatConnectionDialog'
+import {
+  WECHAT_INTEGRATION_ID,
+  buildWeChatIntegrationDefinition,
+} from './wechatIntegrationMeta'
 
 // Category-driven ambient gradients for the card header strip.
 const CATEGORY_GRADIENTS: Record<string, string> = {
@@ -38,11 +43,21 @@ export function ConnectionsMarketPage() {
   const [dialogIntegration, setDialogIntegration] = useState<IntegrationDefinition | null>(
     null,
   )
+  const [wechatDialogOpen, setWechatDialogOpen] = useState(false)
 
   const integrationsQuery = useQuery(
     trpc.integrations.listIntegrations.queryOptions(),
   )
-  const integrations = integrationsQuery.data ?? []
+  const wechatAccountsQuery = useQuery(trpc.wechat.listAccounts.queryOptions())
+
+  // Merge MCP-backed integrations with first-class modules (e.g. WeChat).
+  // Kept client-side because custom modules live outside the MCP registry.
+  const mcpIntegrations = integrationsQuery.data ?? []
+  const wechatInstalled = (wechatAccountsQuery.data?.length ?? 0) > 0
+  const integrations: IntegrationDefinition[] = [
+    ...mcpIntegrations,
+    buildWeChatIntegrationDefinition(wechatInstalled),
+  ]
 
   const invalidate = () => {
     queryClient.invalidateQueries({
@@ -68,6 +83,12 @@ export function ConnectionsMarketPage() {
   )
 
   const handleAction = (integration: IntegrationDefinition) => {
+    // WeChat: always open the account-management dialog (bind / list / unbind)
+    // regardless of whether any account is already bound.
+    if (integration.id === WECHAT_INTEGRATION_ID) {
+      setWechatDialogOpen(true)
+      return
+    }
     if (integration.installed) {
       uninstallMutation.mutate({ integrationId: integration.id })
     } else {
@@ -135,7 +156,18 @@ export function ConnectionsMarketPage() {
               return (
                 <div
                   key={integration.id}
-                  className="group relative flex flex-col overflow-hidden rounded-3xl border border-border/60 bg-card shadow-none transition-all duration-150 hover:border-foreground/30"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => handleAction(integration)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      handleAction(integration)
+                    }
+                  }}
+                  className={cn(
+                    'group relative flex cursor-pointer flex-col overflow-hidden rounded-3xl border border-border/60 bg-card shadow-none transition-all duration-150 hover:border-foreground/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/30',
+                  )}
                 >
                   {/* Top strip */}
                   <div
@@ -173,7 +205,9 @@ export function ConnectionsMarketPage() {
                       </div>
                       <div className="min-w-0">
                         <div className="truncate text-sm font-semibold text-foreground">
-                          {integration.name}
+                          {t(`connections:integrations.${integration.id}.name`, {
+                            defaultValue: integration.name,
+                          })}
                         </div>
                         <div className="mt-0.5 text-[10px] uppercase tracking-wider text-muted-foreground/70">
                           {t(`connections:category.${integration.category}`, {
@@ -193,7 +227,10 @@ export function ConnectionsMarketPage() {
                           : 'bg-foreground text-background hover:bg-foreground/85',
                       )}
                       disabled={pendingUninstall}
-                      onClick={() => handleAction(integration)}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleAction(integration)
+                      }}
                     >
                       {pendingUninstall ? (
                         <Loader2 className="h-3 w-3 animate-spin" />
@@ -211,7 +248,9 @@ export function ConnectionsMarketPage() {
                   {/* Body */}
                   <div className="flex flex-1 flex-col px-5 pb-4 pt-3">
                     <p className="line-clamp-3 text-xs leading-relaxed text-muted-foreground">
-                      {integration.description}
+                      {t(`connections:integrations.${integration.id}.description`, {
+                        defaultValue: integration.description,
+                      })}
                     </p>
                   </div>
                 </div>
@@ -221,13 +260,19 @@ export function ConnectionsMarketPage() {
         )}
       </div>
 
-      {/* Install dialog */}
+      {/* Install dialog (generic MCP-backed integrations) */}
       <InstallIntegrationDialog
         integration={dialogIntegration}
         onClose={() => setDialogIntegration(null)}
         onInstalled={() => {
           invalidate()
         }}
+      />
+
+      {/* WeChat: first-class module with its own binding flow */}
+      <WeChatConnectionDialog
+        open={wechatDialogOpen}
+        onOpenChange={setWechatDialogOpen}
       />
     </div>
   )

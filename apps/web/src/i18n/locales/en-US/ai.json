@@ -473,6 +473,7 @@
     "outputLoading": "Loading output…",
     "autoHiddenHint": "This tool call is hidden by default — enable “Show All Tool Results” in settings to view",
     "executing": "Executing…",
+    "aborted": "Session aborted before the tool returned a result",
     "confirmExec": "Confirm executing this command?",
     "approve": "Allow",
     "alwaysAllow": "Always Allow",

@@ -18,6 +18,8 @@ import MessageTool from "./tools/MessageTool";
 import MessageFile from "./tools/MessageFile";
 import { isToolPart } from "@/lib/chat/message-parts";
 import { shouldShowToolPart } from "@/lib/chat/tool-visibility";
+import { resolveToolDisplayName } from "@/lib/chat/tool-name";
+import { CheckCircle2Icon, LoaderCircleIcon, WrenchIcon, XCircleIcon } from "lucide-react";
 import type React from "react";
 import { MessageResponse } from "@/components/ai-elements/message";
 import {
@@ -32,6 +34,7 @@ import i18next from "i18next";
 
 type AnyMessagePart = {
   type?: string;
+  state?: string;
   text?: string;
   toolCallId?: string;
   toolName?: string;
@@ -87,6 +90,51 @@ function normalizeSourcePart(part: AnyMessagePart): MessageSource | null {
 /** Check whether a message part is transient. */
 function isTransientPart(part: AnyMessagePart) {
   return part?.isTransient === true;
+}
+
+/**
+ * 把一批「被自动隐藏」的工具 parts 压缩成一行 pill 列表。
+ * 用于整条消息内容全部被过滤掉时，避免消息凭空消失。
+ */
+function renderHiddenToolsFallback(
+  parts: AnyMessagePart[],
+  motionProps?: React.ComponentProps<typeof motion.div>,
+): React.ReactNode {
+  const items = parts.map((part, idx) => {
+    const state = typeof part?.state === "string" ? part.state : "";
+    const hasError = state === "output-error" || state === "output-denied";
+    const completed = state === "output-available";
+    const name = resolveToolDisplayName({
+      toolName: typeof part?.toolName === "string" ? part.toolName : undefined,
+      type: typeof part?.type === "string" ? part.type : undefined,
+    });
+    const Icon = hasError ? XCircleIcon : completed ? CheckCircle2Icon : LoaderCircleIcon;
+    return (
+      <span
+        key={(part as any)?.toolCallId ?? `${name}:${idx}`}
+        className={cn(
+          "inline-flex items-center gap-1 rounded-full border border-border/50 px-2 py-0.5 text-[10px]",
+          hasError ? "text-destructive/80" : "text-muted-foreground/70",
+        )}
+      >
+        <Icon
+          className={cn(
+            "size-2.5",
+            hasError ? "text-destructive/80" : completed ? "" : "animate-spin",
+          )}
+        />
+        <span className="truncate max-w-[160px]">{name}</span>
+      </span>
+    );
+  });
+  return (
+    <motion.div key="hidden-tools-fallback" {...(motionProps ?? {})}>
+      <div className="flex flex-wrap items-center gap-1.5 text-muted-foreground/70">
+        <WrenchIcon className="size-3 shrink-0" />
+        {items}
+      </div>
+    </motion.div>
+  );
 }
 
 /** Render a status bar for transient parts. */
@@ -338,6 +386,17 @@ export function renderMessageParts(
 
   if (renderTools && transientParts.length > 0) {
     nodes.push(renderTransientStatusBar(motionProps));
+  }
+
+  // 兜底：整条消息被全部过滤空但确实调过工具时，渲染一行 pill 占位，
+  // 否则 MessageAi 的 empty:hidden 会让整条消息凭空消失，用户不知道发生过什么。
+  if (renderTools && nodes.length === 0) {
+    const hiddenTools = list.filter(
+      (part) => isToolPart(part) && !isPartVisible(part),
+    );
+    if (hiddenTools.length > 0) {
+      nodes.push(renderHiddenToolsFallback(hiddenTools, motionProps));
+    }
   }
 
   return nodes;

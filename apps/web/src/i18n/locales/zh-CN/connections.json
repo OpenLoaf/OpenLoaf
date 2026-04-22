@@ -10,11 +10,66 @@
   "uninstallSuccess": "{{name}} 已移除",
   "installDialogTitle": "连接 {{name}}",
   "setupSteps": "配置步骤",
+  "integrations": {
+    "notion": {
+      "name": "Notion",
+      "description": "在对话中访问 Notion 页面、创建与编辑内容，管理你的工作区。",
+      "guide": {
+        "0": {
+          "title": "在 Notion 创建内部集成",
+          "description": "打开 Notion Integrations 页面并点击「New integration」，命名为「OpenLoaf」或任意名称。",
+          "linkLabel": "打开 Notion Integrations"
+        },
+        "1": {
+          "title": "复制集成密钥",
+          "description": "创建完成后展开并复制 Internal Integration Secret（以「ntn_」或「secret_」开头）。"
+        },
+        "2": {
+          "title": "将页面分享给集成",
+          "description": "逐个打开要开放的 Notion 页面，点击「…」→「Connections」→ 选择你的集成。"
+        }
+      },
+      "credentials": {
+        "token": {
+          "label": "Notion 集成 Token",
+          "helpText": "来自 notion.so/profile/integrations 的内部集成密钥"
+        }
+      }
+    },
+    "wechat": {
+      "name": "微信",
+      "description": "通过 iLink Bot API 绑定一个或多个微信账号，使用要连接的微信扫码即可。"
+    }
+  },
   "category": {
     "productivity": "生产力",
     "communication": "沟通协作",
     "storage": "云盘存储",
     "dev": "开发工具",
     "ai": "AI 能力"
+  },
+  "wechat": {
+    "dialogTitle": "微信账号",
+    "dialogDescription": "通过 iLink Bot 绑定微信账号，支持多账号并行。",
+    "emptyAccounts": "尚未绑定任何微信账号",
+    "addAccount": "添加微信账号",
+    "refreshQr": "重新获取二维码",
+    "unbindSuccess": "微信账号已移除",
+    "bindSuccess": "{{name}} 绑定成功",
+    "qrExpired": "二维码已过期",
+    "qrExpiredHint": "请点击下方按钮重新获取",
+    "scanHint": "请使用要绑定的微信扫描二维码",
+    "confirmHint": "已扫描，请在手机上确认登录",
+    "scanStatus": {
+      "wait": "等待扫描",
+      "scaned": "已扫描",
+      "confirmed": "绑定成功",
+      "expired": "已过期"
+    },
+    "status": {
+      "connected": "已连接",
+      "expired": "登录已过期",
+      "disconnected": "未连接"
+    }
   }
 }

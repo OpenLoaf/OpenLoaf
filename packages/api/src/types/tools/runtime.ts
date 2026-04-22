@@ -239,8 +239,10 @@ const axRefSchema = z.union([
   z.object({
     app: z.string().min(1).describe("App name or bundle id (e.g. 'Finder', 'com.apple.finder')."),
     path: z
-      .array(z.number().int().nonnegative())
-      .describe("Child-index chain from the app root — read this from a previous MacosObserve response."),
+      .array(z.union([z.string(), z.number().int().nonnegative()]))
+      .describe(
+        "Child-index chain from the app root — copy verbatim from a previous MacosObserve response. Accepts strings (as emitted by observe, e.g. [\"0\",\"3\",\"0\"]) or numbers; the Swift helper parses either.",
+      ),
   }),
   z.object({
     identifier: z.string().min(1).describe("AX identifier (AXIdentifier) — stable across window moves."),
@@ -260,24 +262,26 @@ export const macosObserveToolDef = {
 
 Use this as the first step in any macOS control loop, and after every MacosAct call, so you can re-observe the UI state before your next action.
 
-Output: an attachment tag pointing at the PNG (vision-capable models will see the image natively) plus a JSON summary of the AX tree. Each AX node has:
+Output: an attachment tag pointing at the PNG (vision-capable models will see the image natively) plus a compact JSON AX tree. Each AX node has:
   - role / subrole / title / value / identifier / frame {x,y,w,h}
-  - actions[] (e.g. ["AXPress", "AXShowMenu"])
-  - path: child-index chain from the app root — pass this back as AxRef when calling MacosAct
+  - actions[] (e.g. ["AXPress", "AXShowMenu"]) — only present on interactable nodes
+  - path: child-index chain from the app root — pass this back as AxRef when calling MacosAct. Only emitted on nodes with actions or identifier to keep the tree small; intermediate groups are unreferenceable by design (reach their actionable descendants instead).
 
 Requires Screen Recording + Accessibility permissions. If either is missing, the tool returns a structured error; relay the message to the user and ask them to grant access in System Settings → Privacy & Security.`,
   parameters: z.object({
     appFilter: z
       .string()
       .optional()
-      .describe("App name or bundle id. Omit to observe the frontmost app."),
+      .describe(
+        "App name or bundle id. When set, both the AX tree AND the screenshot are scoped to that app's frontmost window (smaller image, less noise, no other windows). Omit to observe the frontmost app with a full-display screenshot.",
+      ),
     maxNodes: z
       .number()
       .int()
       .min(50)
       .max(5000)
       .optional()
-      .describe("Cap on AX tree node count. Default 1500."),
+      .describe("Cap on AX tree node count. Default 500."),
     maxDepth: z
       .number()
       .int()
@@ -300,6 +304,7 @@ export const macosActToolDef = {
   description: `Execute ONE synthetic UI action on the user's Mac. Always call MacosObserve again afterwards to see the result before deciding the next action — do not chain blind.
 
 Actions:
+  - launch_app → open an app by name or bundle id via \`open -a\`. Prefer this over cmd+space/Spotlight for launching — it's one call, deterministic, and doesn't depend on IME focus. Example: {type:"launch_app", app:"WeChat"} or {type:"launch_app", app:"com.tencent.xinWeChat"}
   - click   → click at an AxRef or raw {x,y}; use ax_action AXPress when possible (robust to window moves)
   - type    → type arbitrary Unicode text (CJK supported) at the current focus
   - key     → press a key chord, e.g. keys: ["cmd","space"]
@@ -310,7 +315,24 @@ Actions:
 
 Requires Accessibility permission. Blocked apps (password managers, banking) are refused. Each call auto-settles 150ms before returning so observations that follow see post-reaction UI.`,
   parameters: z.object({
-    action: z.discriminatedUnion("type", [
+    action: z.preprocess(
+      // Some providers (notably Qwen) serialize nested object tool-args as JSON
+      // strings. Accept both shapes transparently.
+      (v) => {
+        if (typeof v !== "string") return v;
+        try {
+          return JSON.parse(v);
+        } catch {
+          return v;
+        }
+      },
+      z.discriminatedUnion("type", [
+      z.object({
+        type: z.literal("launch_app"),
+        app: z.string().min(1).describe(
+          "App display name (e.g. 'WeChat', 'Finder') or bundle id (e.g. 'com.tencent.xinWeChat'). Resolved by macOS `open -a`.",
+        ),
+      }),
       z.object({
         type: z.literal("click"),
         ref: axRefSchema.optional(),
@@ -342,7 +364,8 @@ Requires Accessibility permission. Blocked apps (password managers, banking) are
         ref: axRefSchema,
         action: z.string().describe("AX action name, e.g. AXPress, AXShowMenu, AXRaise."),
       }),
-    ]),
+      ]),
+    ),
   }),
   component: null,
 } as const;

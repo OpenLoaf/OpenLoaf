@@ -473,6 +473,7 @@
     "outputLoading": "輸出載入中…",
     "autoHiddenHint": "此工具呼叫預設自動隱藏，可在設定中開啟「顯示所有工具調用結果」查看",
     "executing": "執行中…",
+    "aborted": "會話已中止，工具未返回結果",
     "confirmExec": "確認執行此命令？",
     "approve": "允許",
     "alwaysAllow": "始終允許",

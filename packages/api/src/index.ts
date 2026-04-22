@@ -63,6 +63,11 @@ import {
   BaseIntegrationsRouter,
   integrationSchemas,
 } from "./routers/integrations";
+import {
+  wechatRouter,
+  BaseWeChatRouter,
+  wechatSchemas,
+} from "./routers/wechat";
 
 export const appRouterDefine = {
   ...internalAppRouter._def.procedures,
@@ -84,6 +89,7 @@ export const appRouterDefine = {
   visit: visitRouter,
   mcp: mcpRouter,
   integrations: integrationsRouter,
+  wechat: wechatRouter,
 };
 
 export const appRouter = t.router({
@@ -157,6 +163,14 @@ export { BaseMcpRouter, mcpSchemas };
 // Export integrations router components
 export { BaseIntegrationsRouter, integrationSchemas };
 export * from "./types/integrations";
+
+// Export WeChat router components
+export { BaseWeChatRouter, wechatSchemas };
+export type {
+  WeChatAccountDto,
+  WeChatBindStatusDto,
+  WeChatAccountStatusDto,
+} from "./routers/wechat";
 
 // export const t = initTRPC.context<Context>().create({
 // });

@@ -35,6 +35,7 @@ import {
   asPlainObject,
   formatCommand,
   getApprovalId,
+  getToolName,
   isApprovalPending,
   isToolStreaming,
   normalizeToolInput,
@@ -173,6 +174,7 @@ export default function ShellTool({
   const { tabId } = useChatSession()
   const toolCallId = typeof part.toolCallId === 'string' ? part.toolCallId : ''
   const command = resolveCommand(part)
+  const displayName = getToolName(part)
   const streaming = isToolStreaming(part)
   const hasErrorText =
     typeof part.errorText === 'string' && part.errorText.trim().length > 0
@@ -237,7 +239,7 @@ export default function ShellTool({
         ) : (
           <div className="flex items-center gap-1.5 px-3 py-2 text-xs text-muted-foreground">
             <TerminalIcon className="size-3.5" />
-            <span>{t('toolNames.Bash')}</span>
+            <span>{displayName}</span>
           </div>
         )}
         <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5 border-t border-border/30 px-3 py-2">
@@ -263,7 +265,7 @@ export default function ShellTool({
             )}
           >
             <TerminalIcon className="size-3.5 shrink-0 text-muted-foreground" />
-            <span className="shrink-0 text-xs font-medium text-muted-foreground">{t('toolNames.Bash')}</span>
+            <span className="shrink-0 text-xs font-medium text-muted-foreground">{displayName}</span>
             {command ? (
               <span className="min-w-0 truncate font-mono text-xs text-muted-foreground/50">
                 {command}

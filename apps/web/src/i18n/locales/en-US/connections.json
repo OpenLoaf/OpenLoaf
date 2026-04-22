@@ -10,11 +10,66 @@
   "uninstallSuccess": "{{name}} removed",
   "installDialogTitle": "Connect {{name}}",
   "setupSteps": "Setup steps",
+  "integrations": {
+    "notion": {
+      "name": "Notion",
+      "description": "Access your Notion pages, create and edit content, and manage your workspace from chat.",
+      "guide": {
+        "0": {
+          "title": "Create an internal integration in Notion",
+          "description": "Open Notion Integrations page and click \"New integration\". Name it \"OpenLoaf\" (or anything you like).",
+          "linkLabel": "Open Notion Integrations"
+        },
+        "1": {
+          "title": "Copy the integration secret",
+          "description": "After creation, reveal and copy the Internal Integration Secret (starts with \"ntn_\" or \"secret_\")."
+        },
+        "2": {
+          "title": "Share pages with your integration",
+          "description": "Open each Notion page you want to expose, click \"...\" → \"Connections\" → select your integration."
+        }
+      },
+      "credentials": {
+        "token": {
+          "label": "Notion Integration Token",
+          "helpText": "Your internal integration secret from notion.so/profile/integrations"
+        }
+      }
+    },
+    "wechat": {
+      "name": "WeChat",
+      "description": "Bind one or more WeChat accounts via iLink Bot API. Scan the QR code with the WeChat account you want to connect."
+    }
+  },
   "category": {
     "productivity": "Productivity",
     "communication": "Communication",
     "storage": "Storage",
     "dev": "Development",
     "ai": "AI"
+  },
+  "wechat": {
+    "dialogTitle": "WeChat accounts",
+    "dialogDescription": "Bind WeChat accounts via the iLink Bot protocol. Multiple accounts supported.",
+    "emptyAccounts": "No WeChat accounts bound yet",
+    "addAccount": "Add WeChat account",
+    "refreshQr": "Get a new QR code",
+    "unbindSuccess": "WeChat account removed",
+    "bindSuccess": "{{name}} connected",
+    "qrExpired": "QR code expired",
+    "qrExpiredHint": "Tap the button below to get a new one",
+    "scanHint": "Scan the QR code with the WeChat account you want to bind",
+    "confirmHint": "Scanned — please confirm on your phone",
+    "scanStatus": {
+      "wait": "Waiting for scan",
+      "scaned": "Scanned",
+      "confirmed": "Bound",
+      "expired": "Expired"
+    },
+    "status": {
+      "connected": "Connected",
+      "expired": "Session expired",
+      "disconnected": "Disconnected"
+    }
   }
 }

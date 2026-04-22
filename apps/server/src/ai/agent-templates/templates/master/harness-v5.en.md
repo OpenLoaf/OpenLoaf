@@ -46,6 +46,6 @@ Memory lives in two places: `${USER_MEMORY_DIR}` holds cross-project global memo
 
 The memory index is already injected into the preface as `<system-tag type="*-memory" dir="...">`, where each `- file.md — summary` line represents one existing memory's title and summary. **Don't `Read MEMORY.md`** — scan the preface to locate entries, and only `Read <dir>/<file.md>` when you need the full text of a specific one.
 
-- **Save proactively** (don't wait for the user to say "remember"): a stated preference or way of working, a correction to your behavior, role/project context, any rule that will apply again. Upsert if present.
+- **Save proactively** (don't wait for the user to say "remember"): a stated preference or way of working, a correction to your behavior, role/project context, any rule that will apply again. **Stable objective attributes the user volunteers (location, timezone, regular work hours, primary tools, professional role) count as role context** — save them even without an explicit "from now on..." instruction. Upsert if present. Saying "noted" / "got it" must be paired with an actual `MemorySave` call, not just a promise in prose.
 - **Recall**: locate candidates by `key`/summary in the preface's `<memory>` child tags, then `Read` for full content.
 - **Don't save**: ephemeral state, one-off task details, unverified speculation, facts readable from code / Git.

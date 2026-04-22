@@ -17,6 +17,7 @@ import {
   getGlobalRootPath,
   getDefaultProjectStoragePath,
   getDefaultProjectStorageRootUri,
+  getResolvedTempStorageDir,
 } from "./appConfigService";
 import {
   getProjectRegistryEntries,
@@ -255,6 +256,16 @@ export function resolveScopedPath(input: {
     }
     return path.resolve(projectRootPath, raw);
   }
-  const globalRootPath = getGlobalRootPath();
-  return path.resolve(globalRootPath, normalizeGlobalScopedPath(raw));
+  const normalizedGlobal = normalizeGlobalScopedPath(raw);
+  // 全局 chat-history 实际写在 temp storage dir 下（见 chatSessionPaths.ts
+  // computeChatSessionDirByConvention），与 config 目录 ~/.openloaf 分离。无
+  // projectId 的 chat-history/... 路径必须解析到 temp storage dir，否则 fs.stat
+  // 会命中不存在的 ~/.openloaf/chat-history/。
+  if (
+    normalizedGlobal === "chat-history" ||
+    normalizedGlobal.startsWith("chat-history/")
+  ) {
+    return path.resolve(getResolvedTempStorageDir(), normalizedGlobal);
+  }
+  return path.resolve(getGlobalRootPath(), normalizedGlobal);
 }

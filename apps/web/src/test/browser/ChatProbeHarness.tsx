@@ -135,6 +135,12 @@ export type ChatProbeHarnessProps = {
   macosHelperMock?: {
     scenario: 'default' | 'permissionsMissing' | string
   }
+  /**
+   * Project context — when set, chat session runs under this project so
+   * `${PROJECT_MEMORY_DIR}` resolves and `MemorySave({scope:"project"})` writes
+   * to that project's `.openloaf/memory/`. Used by memory project-scope tests.
+   */
+  projectId?: string
 }
 
 export type ToolCallDetail = {
@@ -321,6 +327,7 @@ function ChatProbeInner({
   className,
   cloudMock,
   macosHelperMock,
+  projectId: projectIdProp,
 }: ChatProbeHarnessProps) {
   // runner --model 的覆盖优先级最高：写了就盖掉测试文件里硬编码的 prop。
   // 覆盖只作用于运行时发给 server 的 chatModelId，不改测试 recordProbeRun 里
@@ -411,6 +418,7 @@ function ChatProbeInner({
             messages: lastWithParent ? [lastWithParent] : [],
             ...(chatModelId ? { chatModelId } : {}),
             ...(chatModelSource ? { chatModelSource } : {}),
+            ...(projectIdProp ? { projectId: projectIdProp } : {}),
             promptLanguage: chatPromptLanguage,
             ...(approvalStrategy === 'approve-all' ? { autoApproveTools: true } : {}),
           },
@@ -418,7 +426,7 @@ function ChatProbeInner({
         }
       },
     })
-  }, [serverUrl, chatModelId, chatModelSource])
+  }, [serverUrl, chatModelId, chatModelSource, projectIdProp])
 
   // ── Install console / fetch observers (idempotent) ──
   // 必须在第一次 sendMessage 之前装上，才能抓到 cloudMock 握手之前的日志。

@@ -571,6 +571,62 @@ const restoreMemory: BrowserCommand<[MemorySnapshot]> = async (_ctx, snap) => {
   }
 }
 
+// ── snapshotProjectMemory / restoreProjectMemory commands ──
+// Project-scope memory lives at <projectRoot>/.openloaf/memory/. Snapshot before
+// the test, restore after, so MemorySave({scope:"project"}) calls can be
+// verified without polluting the dev's real project memory across runs.
+//
+// projectId is resolved to its filesystem path via ~/OpenLoafData/<title>.
+// We accept the project root path directly to keep the command stateless and
+// avoid coupling with the project DB.
+
+const snapshotProjectMemory: BrowserCommand<[{ projectRoot: string }]> = async (
+  _ctx, { projectRoot },
+): Promise<MemorySnapshot> => {
+  const dir = join(projectRoot, '.openloaf', 'memory')
+  const snap: MemorySnapshot = { dir, indexContent: null, files: {} }
+  if (!existsSync(dir)) return snap
+  try {
+    const indexPath = join(dir, 'MEMORY.md')
+    if (existsSync(indexPath)) snap.indexContent = readFileSync(indexPath, 'utf-8')
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      if (!e.isFile() || e.name === 'MEMORY.md') continue
+      snap.files[e.name] = readFileSync(join(dir, e.name), 'utf-8')
+    }
+  } catch (err) {
+    console.warn('[snapshotProjectMemory] failed:', err instanceof Error ? err.message : err)
+  }
+  return snap
+}
+
+const restoreProjectMemory: BrowserCommand<[MemorySnapshot]> = async (_ctx, snap) => {
+  if (!snap || typeof snap !== 'object' || !snap.dir) {
+    return { ok: false, reason: 'invalid snapshot' }
+  }
+  const dir = snap.dir
+  const removed: string[] = []
+  const restoredIndex = snap.indexContent !== null
+  try {
+    if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      if (!e.isFile() || e.name === 'MEMORY.md') continue
+      if (!(e.name in snap.files)) {
+        unlinkSync(join(dir, e.name))
+        removed.push(e.name)
+      }
+    }
+    const indexPath = join(dir, 'MEMORY.md')
+    if (snap.indexContent !== null) {
+      writeFileSync(indexPath, snap.indexContent, 'utf-8')
+    } else if (existsSync(indexPath)) {
+      unlinkSync(indexPath)
+    }
+    return { ok: true, removed, restoredIndex }
+  } catch (err) {
+    return { ok: false, reason: err instanceof Error ? err.message : String(err) }
+  }
+}
+
 // ── requestAiDecision command ──
 // 文件握手协议：浏览器测试写 pending-decision.json，轮询 decision-response.json。
 // AI agent（Claude Code）在后台读取 pending，思考后写 response，测试继续。
@@ -1049,6 +1105,7 @@ export default defineConfig({
         readSessionUserTags, fetchAutoTitle,
         getCloudFingerprint, listCloudFixtures, resolveCloudMockDirs,
         snapshotMemory, restoreMemory,
+        snapshotProjectMemory, restoreProjectMemory,
       },
     },
   },

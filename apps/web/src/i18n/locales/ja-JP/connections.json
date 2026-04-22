@@ -10,11 +10,66 @@
   "uninstallSuccess": "{{name}} を削除しました",
   "installDialogTitle": "{{name}} に接続",
   "setupSteps": "設定手順",
+  "integrations": {
+    "notion": {
+      "name": "Notion",
+      "description": "チャットから Notion ページへアクセスし、コンテンツを作成・編集してワークスペースを管理します。",
+      "guide": {
+        "0": {
+          "title": "Notion で内部インテグレーションを作成",
+          "description": "Notion Integrations ページを開き「New integration」をクリック。名前は「OpenLoaf」など任意で構いません。",
+          "linkLabel": "Notion Integrations を開く"
+        },
+        "1": {
+          "title": "インテグレーションシークレットをコピー",
+          "description": "作成後、Internal Integration Secret（「ntn_」または「secret_」で始まる文字列）を表示してコピーします。"
+        },
+        "2": {
+          "title": "ページをインテグレーションに共有",
+          "description": "公開したい Notion ページを開き、「…」→「Connections」→ 作成したインテグレーションを選択します。"
+        }
+      },
+      "credentials": {
+        "token": {
+          "label": "Notion インテグレーション Token",
+          "helpText": "notion.so/profile/integrations で取得した内部インテグレーションシークレット"
+        }
+      }
+    },
+    "wechat": {
+      "name": "WeChat",
+      "description": "iLink Bot API 経由で 1 つ以上の WeChat アカウントをバインドします。接続したい WeChat で QR コードをスキャンしてください。"
+    }
+  },
   "category": {
     "productivity": "生産性",
     "communication": "コミュニケーション",
     "storage": "ストレージ",
     "dev": "開発ツール",
     "ai": "AI"
+  },
+  "wechat": {
+    "dialogTitle": "WeChat アカウント",
+    "dialogDescription": "iLink Bot プロトコル経由で WeChat アカウントを接続します。複数アカウントに対応しています。",
+    "emptyAccounts": "バインド済みの WeChat アカウントはありません",
+    "addAccount": "WeChat アカウントを追加",
+    "refreshQr": "QR コードを再取得",
+    "unbindSuccess": "WeChat アカウントを削除しました",
+    "bindSuccess": "{{name}} の接続に成功しました",
+    "qrExpired": "QR コードの有効期限が切れました",
+    "qrExpiredHint": "下のボタンをタップして再取得してください",
+    "scanHint": "接続する WeChat アカウントで QR コードをスキャンしてください",
+    "confirmHint": "スキャン済み — スマートフォンで確認してください",
+    "scanStatus": {
+      "wait": "スキャン待ち",
+      "scaned": "スキャン済み",
+      "confirmed": "接続済み",
+      "expired": "期限切れ"
+    },
+    "status": {
+      "connected": "接続済み",
+      "expired": "セッション期限切れ",
+      "disconnected": "未接続"
+    }
   }
 }

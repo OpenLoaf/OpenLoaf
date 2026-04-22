@@ -39,23 +39,26 @@ First call will likely report missing permissions. **When the tool returns `macO
 
 A single `MacosObserve` returns:
 
-- **Screenshot attachment**: PNG of the foreground screen, automatically injected as a multimodal image — you can "see" it directly
+- **Screenshot attachment**: when `appFilter` is unset → full-display screenshot; when set → only the frontmost window of that app (smaller, focused, no distracting windows)
 - **Foreground app info**: `name`, `bundleId`
-- **AX tree (JSON)**: each node includes `role` / `title` / `value` / `identifier` / `frame: {x,y,w,h}` / `path: [...]` / `children`
-- **Budget**: defaults to `maxNodes: 1500`, `maxDepth: 4`; on overflow the response carries `truncated: true`
+- **AX tree (JSON)**: each node includes `role` / `title` / `value` / `identifier` / `frame: {x,y,w,h}` / optional `path: [...]` / `children`
+- **Budget**: defaults to `maxNodes: 500`, `maxDepth: 6`; on overflow the response carries `truncated: true`
 
 **Parameters**:
-- `appFilter` (optional): filter by app name; omitted → foreground app
+- `appFilter` (optional): filter by app name or bundle id. Scopes BOTH the AX tree AND the screenshot to that app. Omitted → frontmost app + full-display screenshot
 - `maxNodes` / `maxDepth`: shrink budget to save tokens
 - `includeScreenshot: false`: AX tree only, no image (rarely needed)
+
+> To focus on one app, just pass `appFilter: "WeChat"` — smaller image, fewer tokens, clearer signal. Falls back to full-display if the window is hidden/minimized/off-screen.
 
 ## MacosAct Action Set
 
 | type | Usage | When |
 |------|-------|------|
+| `launch_app` | Launch an app via `open -a` (name or bundle id) | **Preferred for launching** — one call, beats Spotlight |
 | `click` | Click. Prefer `ref` (AX reference); fall back to `point: {x,y}` | Most interactions |
 | `type` | Type text at current focus | After focusing an input |
-| `key` | Send a key combo (`cmd+space`, `return`, `escape`, …) | Shortcuts, submit, cancel |
+| `key` | Send a key combo (`return`, `escape`, `cmd+w`, …) | Shortcuts, submit, cancel (**use `launch_app` — never `cmd+space` — to open apps**) |
 | `scroll` | Scroll `dx/dy` at `point` | Content off-viewport |
 | `drag` | Drag from `from` to `to` | Drag-drop, selection |
 | `wait` | Sleep `ms` milliseconds (≤10000) | Rarely — next observe usually suffices |
@@ -81,11 +84,12 @@ A single `MacosObserve` returns:
 
 ### Workflow 1: Open an App and Operate
 
-1. `MacosAct { key: ["cmd","space"] }` to open Spotlight
-2. `MacosAct { type: "Finder" }` / `MacosAct { key: ["return"] }`
-3. `MacosObserve` to confirm Finder is up + capture AX tree
-4. Locate target node → `MacosAct { ax_action: "AXPress", ref: ... }`
-5. `MacosObserve` to verify
+1. `MacosAct { launch_app: "Finder" }` — one-shot launch (bundle id also works, e.g. `com.tencent.xinWeChat`)
+2. `MacosObserve` to confirm the app is up + capture AX tree
+3. Locate target node → `MacosAct { ax_action: "AXPress", ref: ... }`
+4. `MacosObserve` to verify
+
+> Never launch apps via `cmd+space → type → return` — it needs 3-4 tool calls and breaks on IME state, lost focus, or Spotlight already-open edge cases. `launch_app` is the only correct entry point.
 
 ### Workflow 2: Read Current Screen Content
 
