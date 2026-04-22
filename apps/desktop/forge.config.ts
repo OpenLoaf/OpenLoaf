@@ -46,6 +46,8 @@ const NATIVE_DEP_ROOTS = [
   '@anthropic-ai/claude-agent-sdk', // Claude Code SDK（含 cli.js + .wasm，依赖 import.meta.url 定位，不可打包）
   '@ffmpeg-installer', // ffmpeg 静态二进制（scope → 枚举平台子包 @ffmpeg-installer/{platform}-{arch}）
   '@ffprobe-installer', // ffprobe 静态二进制（scope → 枚举平台子包 @ffprobe-installer/{platform}-{arch}）
+  'skia-canvas', // PPTX 渲染原生模块（server esbuild / main webpack external），含 .node 二进制
+  'node-pptx-png-v2', // PPTX → PNG 渲染引擎（server esbuild / main webpack external），依赖 skia-canvas
 ];
 
 /**
