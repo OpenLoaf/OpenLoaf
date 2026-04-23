@@ -12,6 +12,18 @@
   "availableTools": "Available tools",
   "remove": "Remove",
   "reconnect": "Reconnect",
+  "authorizeAndConnect": "Authorize and connect",
+  "oauthReadyHint": "OpenLoaf will open Notion's official authorization page. After you finish, this dialog will refresh automatically.",
+  "oauthPendingHint": "The authorization window is open. Close it after finishing and OpenLoaf will verify the connection automatically.",
+  "oauthPopupBlocked": "Unable to open the authorization window. Please check your popup settings.",
+  "probeLoading": "Loading workspace info…",
+  "probeMore": "{{count}} more items",
+  "probeFields": {
+    "workspace": "Workspace: {{value}}",
+    "workspaceId": "Workspace ID: {{value}}",
+    "bot": "Bot: {{value}}",
+    "owner": "Owner: {{value}}"
+  },
   "serverStatus": {
     "connected": "Connected",
     "connecting": "Connecting",
@@ -30,23 +42,16 @@
       "description": "Access your Notion pages, create and edit content, and manage your workspace from chat.",
       "guide": {
         "0": {
-          "title": "Create an internal integration in Notion",
-          "description": "Open Notion Integrations page and click \"New integration\". Name it \"OpenLoaf\" (or anything you like).",
-          "linkLabel": "Open Notion Integrations"
+          "title": "Authorize your Notion workspace",
+          "description": "Click the button below and Notion will open OpenLoaf's official authorization page."
         },
         "1": {
-          "title": "Copy the integration secret",
-          "description": "After creation, reveal and copy the Internal Integration Secret (starts with \"ntn_\" or \"secret_\")."
+          "title": "Choose the pages to share",
+          "description": "During authorization, pick the pages or databases that OpenLoaf can access. You can adjust them later in Notion."
         },
         "2": {
-          "title": "Share pages with your integration",
-          "description": "Open each Notion page you want to expose, click \"...\" → \"Connections\" → select your integration."
-        }
-      },
-      "credentials": {
-        "token": {
-          "label": "Notion Integration Token",
-          "helpText": "Your internal integration secret from notion.so/profile/integrations"
+          "title": "Return to OpenLoaf",
+          "description": "When authorization finishes, OpenLoaf will connect the official Notion remote MCP and show your current workspace details."
         }
       }
     },

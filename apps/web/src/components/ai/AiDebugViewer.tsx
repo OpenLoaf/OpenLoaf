@@ -9,7 +9,7 @@
  */
 'use client'
 
-import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { StackHeader } from '@/components/layout/StackHeader'
 import { useLayoutState } from '@/hooks/use-layout-state'
@@ -27,7 +27,7 @@ import { ClipboardCopy, Copy, FolderOpen, RefreshCw, ChevronsDownUp, ChevronsUpD
 import { Button } from '@openloaf/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@openloaf/ui/dialog'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@openloaf/ui/tooltip'
-import { resolveToolCatalogItem } from '@openloaf/api/types/tools/toolCatalog'
+import { resolveToolCatalogItem, TOOL_DEFS } from '@openloaf/api/types/tools/toolCatalog'
 import { toast } from 'sonner'
 import { AutoTestEvaluationSection } from './autoTest/AutoTestEvaluationSection'
 import { trpc } from '@/utils/trpc'
@@ -808,6 +808,14 @@ function MetadataSection({ metadata }: { metadata: Record<string, unknown> }) {
   // Collect keys handled by structured rendering
   // `activatedToolIds` is rendered separately by LoadedToolsSection (pill list),
   // not here — exclude it to avoid a JSON dump in the generic remaining area.
+  const compressLog = metadata.compressLog as Array<{
+    stepNumber: number
+    method: string
+    tokensBefore: number
+    tokensAfter: number
+    tokensSaved: number
+  }> | undefined
+
   const handledKeys = new Set([
     'totalUsage',
     'openloaf',
@@ -815,6 +823,8 @@ function MetadataSection({ metadata }: { metadata: Record<string, unknown> }) {
     'webSearch',
     'reasoning',
     'activatedToolIds',
+    'compressLog',
+    'cliSummary',
   ])
   const remainingEntries = Object.entries(metadata).filter(([k]) => !handledKeys.has(k))
 
@@ -862,6 +872,12 @@ function MetadataSection({ metadata }: { metadata: Record<string, unknown> }) {
 
   if (webSearch) rows.push({ label: t('debug.meta.webSearch'), value: webSearch.enabled ? t('debug.meta.enabled') : t('debug.meta.disabled') })
   if (reasoning) rows.push({ label: t('debug.meta.reasoningMode'), value: String(reasoning.mode ?? 'default') })
+
+  if (compressLog && compressLog.length > 0) {
+    const totalSaved = compressLog.reduce((sum, e) => sum + e.tokensSaved, 0)
+    const detail = compressLog.map((e) => `step ${e.stepNumber}: ${e.method} -${e.tokensSaved.toLocaleString()}`).join('  ·  ')
+    rows.push({ label: 'Compress', value: `saved ${totalSaved.toLocaleString()} tokens  ·  ${detail}` })
+  }
 
   for (const [k, v] of remainingEntries) {
     rows.push({ label: k, value: typeof v === 'object' ? JSON.stringify(v) : String(v) })
@@ -964,16 +980,87 @@ function resolveToolMeta(id: string, chainIndex: Map<string, ResolvedToolMeta>):
 }
 
 /**
- * Pill list of tools with hover tooltip showing the description. Used by
+ * Display the full tool schema JSON in a dialog.
+ * Fetches schema from server via tRPC — same pipeline used to generate schemas for LLM.
+ */
+function ToolSchemaContent({ toolMeta }: { toolMeta: ResolvedToolMeta }) {
+  const { data: schemas, isLoading, error } = useQuery({
+    queryKey: ['toolSchema', toolMeta.id],
+    queryFn: () => trpcClient.chat.getToolSchemas.query({ toolIds: [toolMeta.id] }),
+    staleTime: Infinity,
+  })
+
+  const toolName = toolMeta.label
+  const toolDescription = toolMeta.description ?? ''
+  const schema = schemas?.[toolMeta.id] as Record<string, unknown> | undefined
+  const schemaJson = schema ? JSON.stringify(schema, null, 2) : null
+  const jsonCharCount = schemaJson?.length ?? 0
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Tool info header */}
+      <div className="p-4 border-b bg-muted/30 space-y-3">
+        <div className="space-y-2">
+          <div className="flex items-start gap-2">
+            <span className="text-[11px] text-muted-foreground font-medium">Tool Name</span>
+            <span className="text-sm font-semibold text-foreground">{toolName}</span>
+          </div>
+          <div className="flex items-start justify-between gap-2">
+            <span className="text-[11px] text-muted-foreground font-medium">Description</span>
+            <span className="text-[10px] text-muted-foreground tabular-nums">{toolDescription.length} chars</span>
+          </div>
+          <div className="mt-2">
+            <p className="text-sm text-foreground/80 whitespace-pre-wrap">{toolDescription}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* JSON Schema or info message */}
+      {isLoading ? (
+        <div className="flex-1 min-h-0 flex items-center justify-center">
+          <span className="text-[11px] text-muted-foreground">Loading schema...</span>
+        </div>
+      ) : error ? (
+        <div className="flex-1 min-h-0 flex items-center justify-center">
+          <span className="text-[11px] text-destructive">Failed to load schema: {error.message}</span>
+        </div>
+      ) : schemaJson ? (
+        <div className="flex-1 min-h-0 overflow-y-auto ![scrollbar-width:thin] relative">
+          <div className="sticky top-0 flex justify-end items-center gap-2 px-3 py-2 z-10 bg-background/95 backdrop-blur-sm border-b">
+            <span className="text-[10px] text-muted-foreground tabular-nums">{jsonCharCount} chars</span>
+          </div>
+          <pre className="px-4 py-2 text-[11px] leading-[1.6] whitespace-pre-wrap break-all font-mono text-foreground/70">
+            {highlightJson(schemaJson)}
+          </pre>
+        </div>
+      ) : (
+        <div className="flex-1 min-h-0 flex items-center justify-center">
+          <div className="text-center space-y-2 px-6">
+            <p className="text-sm text-muted-foreground max-w-md">
+              此工具没有参数定义（parameters schema）。
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Pill list of tools with click to show schema. Used by
  * MessageRow to render two groups on user messages (core + dynamic) and
  * the per-turn ToolSearch loads on assistant messages.
  */
 function LoadedToolsSection({
   label,
   tools,
+  toolDefs,
+  onToolClick,
 }: {
   label: string
   tools: ResolvedToolMeta[]
+  toolDefs?: Record<string, any>
+  onToolClick?: (toolMeta: ResolvedToolMeta) => void
 }) {
   if (tools.length === 0) return null
   // 去重：同一 tool id 可能因 ToolSearch 多次加载 / core + dynamic 合并而重复，
@@ -999,7 +1086,10 @@ function LoadedToolsSection({
         {dedupedTools.map((tool) => (
           <Tooltip key={tool.id}>
             <TooltipTrigger asChild>
-              <span className="rounded-full bg-violet-500/10 text-violet-700 dark:text-violet-300 px-2 py-0.5 text-[10px] font-mono cursor-help hover:bg-violet-500/20 transition-colors">
+              <span
+                className="rounded-full bg-violet-500/10 text-violet-700 dark:text-violet-300 px-2 py-0.5 text-[10px] font-mono cursor-pointer hover:bg-violet-500/20 transition-colors"
+                onClick={() => onToolClick && onToolClick(tool)}
+              >
                 {tool.id}
               </span>
             </TooltipTrigger>
@@ -1437,9 +1527,27 @@ function SubAgentViewer({ parentSessionId, agentId }: { parentSessionId: string;
       ) : (
         <div>
           {(() => {
-            const idToIndex = new Map(messages.map((m, i) => [m.id, i]))
-            const toolMetaIndex = buildToolMetaIndexFromChain(messages)
-            return messages.map((msg, idx) => (
+          const idToIndex = new Map(messages.map((m, i) => [m.id, i]))
+          const toolMetaIndex = buildToolMetaIndexFromChain(messages)
+
+          // Build tool defs map from ToolSearch outputs and static catalog
+          const toolDefs: Record<string, any> = {}
+          // Add static tool defs
+          for (const toolDef of TOOL_DEFS) {
+            toolDefs[toolDef.id] = toolDef
+          }
+          // Add dynamic tools from ToolSearch outputs
+          for (const toolMeta of toolMetaIndex.values()) {
+            if (!(toolMeta.id in toolDefs)) {
+              toolDefs[toolMeta.id] = {
+                id: toolMeta.id,
+                name: toolMeta.label,
+                description: toolMeta.description,
+              }
+            }
+          }
+
+          return messages.map((msg, idx) => (
               <MessageRow
                 key={msg.id}
                 msg={msg}
@@ -1725,7 +1833,7 @@ function DebugStepsSection({ sessionId, messageId, parentSessionId, isAgentSessi
   )
 }
 
-function MessageRow({ msg, idx, expanded, onToggle, idToIndex, sessionId, parentSessionId, isAgentSession, toolMetaIndex }: { msg: StoredMessageView; idx: number; expanded: boolean; onToggle: () => void; idToIndex: Map<string, number>; sessionId: string; parentSessionId?: string; isAgentSession?: boolean; toolMetaIndex: Map<string, ResolvedToolMeta> }) {
+function MessageRow({ msg, idx, expanded, onToggle, idToIndex, sessionId, parentSessionId, isAgentSession, toolMetaIndex, toolDefs, onToolClick }: { msg: StoredMessageView; idx: number; expanded: boolean; onToggle: () => void; idToIndex: Map<string, number>; sessionId: string; parentSessionId?: string; isAgentSession?: boolean; toolMetaIndex: Map<string, ResolvedToolMeta>; toolDefs?: Record<string, any>; onToolClick?: (toolMeta: ResolvedToolMeta) => void }) {
   const { t } = useTranslation('ai')
   const colors = ROLE_COLORS[msg.role] ?? DEFAULT_ROLE_COLOR
   const usage = msg.metadata?.totalUsage as Record<string, number> | undefined
@@ -1801,6 +1909,16 @@ function MessageRow({ msg, idx, expanded, onToggle, idToIndex, sessionId, parent
             {usage.outputTokens != null ? ` / ${usage.outputTokens}` : ''}
           </span>
         )}
+        {(() => {
+          const cl = (msg.metadata as any)?.compressLog as Array<{ tokensSaved: number }> | undefined
+          if (!cl?.length) return null
+          const total = cl.reduce((s, e) => s + e.tokensSaved, 0)
+          return (
+            <span className="text-[11px] text-amber-600 dark:text-amber-400 shrink-0 tabular-nums font-medium" title={`Context compressed: saved ${total.toLocaleString()} tokens in ${cl.length} step(s)`}>
+              ⚡-{total.toLocaleString()}
+            </span>
+          )
+        })()}
         <span className="text-[11px] text-muted-foreground/60 shrink-0 tabular-nums">
           {formatTimestamp(msg.createdAt)}
         </span>
@@ -1818,16 +1936,20 @@ function MessageRow({ msg, idx, expanded, onToggle, idToIndex, sessionId, parent
               <MetadataSection metadata={msg.metadata} />
             </div>
           )}
-          {/* User: two groups — core (always-on) + dynamic (loaded via ToolSearch) */}
+           {/* User: two groups — core (always-on) + dynamic (loaded via ToolSearch) */}
           {msg.role === 'user' && (
             <>
               <LoadedToolsSection
                 label={t('debug.tools.coreTools', '常驻工具')}
                 tools={coreToolMetas}
+                toolDefs={toolDefs}
+                onToolClick={onToolClick ?? undefined}
               />
               <LoadedToolsSection
                 label={t('debug.tools.dynamicSnapshot', '动态加载工具')}
                 tools={activatedToolMetas}
+                toolDefs={toolDefs}
+                onToolClick={onToolClick ?? undefined}
               />
             </>
           )}
@@ -1836,6 +1958,8 @@ function MessageRow({ msg, idx, expanded, onToggle, idToIndex, sessionId, parent
             <LoadedToolsSection
               label={t('debug.tools.dynamicLoaded', '本轮新加载工具')}
               tools={dynamicLoadedMetas}
+              toolDefs={toolDefs}
+              onToolClick={onToolClick ?? undefined}
             />
           )}
           {/* Two-column: part list | detail with tabs */}
@@ -1976,13 +2100,13 @@ function MessageRow({ msg, idx, expanded, onToggle, idToIndex, sessionId, parent
         </Dialog>
       )}
     </div>
-  )
+   )
 }
 
 /**
- * Insert a zero-width space after every `<` so the markdown renderer
- * treats angle brackets as literal text, not HTML. Visually identical
- * to the original but prevents tag parsing/swallowing.
+ * Pill list of tools with click to show schema. Used by
+ * MessageRow to render two groups on user messages (core + dynamic) and
+ * the per-turn ToolSearch loads on assistant messages.
  */
 function escapeAngleBrackets(text: string): string {
   return text
@@ -2068,6 +2192,11 @@ function MessagesPanel({ sessionId, promptContent, prefaceContent }: { sessionId
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
+  const [selectedToolForSchema, setSelectedToolForSchema] = useState<ResolvedToolMeta | null>(null)
+
+  const handleToolClick = useCallback((toolMeta: ResolvedToolMeta) => {
+    setSelectedToolForSchema(toolMeta)
+  }, [])
 
   const fetchMessages = useCallback(() => {
     setLoading(true)
@@ -2101,6 +2230,30 @@ function MessagesPanel({ sessionId, promptContent, prefaceContent }: { sessionId
   }, [])
 
   const allExpanded = messages != null && messages.length > 0 && expandedIds.size === messages.length
+
+  // Build tool defs map from static catalog and dynamic ToolSearch outputs
+  const toolDefs = useMemo(() => {
+    const defs: Record<string, any> = {}
+    // Add static tool defs
+    for (const toolDef of TOOL_DEFS) {
+      defs[toolDef.id] = toolDef
+    }
+    // Add dynamic tools from ToolSearch outputs
+    if (messages) {
+      const toolMetaIndex = buildToolMetaIndexFromChain(messages)
+      for (const toolMeta of toolMetaIndex.values()) {
+        if (!(toolMeta.id in defs)) {
+          defs[toolMeta.id] = {
+            id: toolMeta.id,
+            name: toolMeta.label,
+            description: toolMeta.description,
+            parameters: undefined, // No parameters available for dynamic tools
+          }
+        }
+      }
+    }
+    return defs
+  }, [messages])
 
   const handleExpandCollapseAll = useCallback(() => {
     if (!messages) return
@@ -2174,6 +2327,7 @@ function MessagesPanel({ sessionId, promptContent, prefaceContent }: { sessionId
         {(() => {
           const idToIndex = new Map(messages.map((m, i) => [m.id, i]))
           const toolMetaIndex = buildToolMetaIndexFromChain(messages)
+
           return messages.map((msg, idx) => (
             <MessageRow
               key={msg.id}
@@ -2184,10 +2338,31 @@ function MessagesPanel({ sessionId, promptContent, prefaceContent }: { sessionId
               idToIndex={idToIndex}
               sessionId={sessionId}
               toolMetaIndex={toolMetaIndex}
+              toolDefs={toolDefs}
+              onToolClick={handleToolClick}
             />
           ))
         })()}
       </div>
+
+          {/* Tool Schema Dialog */}
+      <Dialog open={!!selectedToolForSchema} onOpenChange={(open) => !open && setSelectedToolForSchema(null)}>
+        <DialogContent className="max-w-[70vw] w-[70vw] max-h-[70vh] h-[70vh] p-0 gap-0 overflow-hidden flex flex-col rounded-xl sm:max-w-[70vw] allow-text-select" showCloseButton>
+          <DialogHeader className="px-4 py-3 border-b shrink-0">
+            <DialogTitle className="text-sm font-medium flex items-center gap-2">
+              <span className="inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold bg-violet-500/15 text-violet-700 dark:text-violet-300">
+                {selectedToolForSchema?.label}
+              </span>
+              <span className="font-mono text-muted-foreground text-xs">{selectedToolForSchema?.id}</span>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 min-h-0 overflow-y-auto ![scrollbar-width:thin]">
+            {selectedToolForSchema ? (
+              <ToolSchemaContent toolMeta={selectedToolForSchema!} />
+            ) : null}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

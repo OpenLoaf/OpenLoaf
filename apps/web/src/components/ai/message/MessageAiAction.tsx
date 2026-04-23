@@ -23,6 +23,7 @@ import {
   Minimize2,
   RotateCcw,
   Trash2,
+  Zap,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useChatActions, useChatSession, useChatStatus } from "../context";
@@ -494,6 +495,29 @@ export default function MessageAiAction({
                     {formatTokenCount(usage.totalTokens)}
                   </div>
                 </div>
+                {(message.metadata as any)?.compressLog?.length > 0 && (
+                  <div className="mt-1.5 border-t pt-1.5">
+                    <div className="font-medium text-xs text-amber-600 dark:text-amber-400">
+                      Context Compressed
+                    </div>
+                    <div className="space-y-0.5 text-[11px]">
+                      {((message.metadata as any).compressLog as Array<{
+                        stepNumber: number
+                        method: string
+                        tokensBefore: number
+                        tokensAfter: number
+                        tokensSaved: number
+                      }>).map((entry, idx) => (
+                        <div key={idx} className="grid grid-cols-[auto_1fr] gap-x-1.5 text-muted-foreground">
+                          <span className="tabular-nums">step {entry.stepNumber}</span>
+                          <span>
+                            {entry.method} -{formatTokenCount(entry.tokensSaved)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="text-xs text-muted-foreground">{t("ai:message.tokenNoInfo")}</div>
@@ -517,6 +541,36 @@ export default function MessageAiAction({
           {Math.floor(creditsConsumed)}
         </span>
       ) : null}
+
+      {(message.metadata as any)?.compressLog?.length > 0 ? (() => {
+        const log = (message.metadata as any).compressLog as Array<{ stepNumber: number; method: string; tokensSaved: number }>
+        const totalSaved = log.reduce((sum, e) => sum + e.tokensSaved, 0)
+        return (
+          <PromptInputHoverCard openDelay={120} closeDelay={120}>
+            <PromptInputHoverCardTrigger asChild>
+              <span className={cn(MESSAGE_STAT_CLASSNAME, "text-amber-600 dark:text-amber-400 cursor-help")}>
+                <Zap className="size-3" />
+                {formatTokenCount(totalSaved)}
+              </span>
+            </PromptInputHoverCardTrigger>
+            <PromptInputHoverCardContent className="max-w-[200px] p-2">
+              <div className="text-xs">
+                <div className="font-medium text-amber-600 dark:text-amber-400">Context Compressed</div>
+                <div className="mt-0.5 text-muted-foreground">
+                  Total saved: {formatTokenCount(totalSaved)} tokens
+                </div>
+                <div className="mt-1 space-y-0.5">
+                  {log.map((entry, idx) => (
+                    <div key={idx} className="text-[11px] text-muted-foreground">
+                      step {entry.stepNumber}: {entry.method} -{formatTokenCount(entry.tokensSaved)}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </PromptInputHoverCardContent>
+          </PromptInputHoverCard>
+        )
+      })() : null}
         </MessageActions>
       </TooltipProvider>
 

@@ -38,6 +38,18 @@ export const integrationSchemas = {
       ok: z.boolean(),
     }),
   },
+  beginOAuthIntegrationInstall: {
+    input: z.object({
+      integrationId: z.string(),
+      serverOrigin: z.string().url(),
+    }),
+    output: z.object({
+      ok: z.boolean(),
+      completed: z.boolean(),
+      mcpServerId: z.string().optional(),
+      authorizationUrl: z.string().url().optional(),
+    }),
+  },
 }
 
 // ---------------------------------------------------------------------------
@@ -65,6 +77,13 @@ export abstract class BaseIntegrationsRouter {
       uninstallIntegration: shieldedProcedure
         .input(integrationSchemas.uninstallIntegration.input)
         .output(integrationSchemas.uninstallIntegration.output)
+        .mutation(async () => {
+          throw new Error('Not implemented in base class')
+        }),
+
+      beginOAuthIntegrationInstall: shieldedProcedure
+        .input(integrationSchemas.beginOAuthIntegrationInstall.input)
+        .output(integrationSchemas.beginOAuthIntegrationInstall.output)
         .mutation(async () => {
           throw new Error('Not implemented in base class')
         }),

@@ -17,15 +17,18 @@
 'use client'
 
 import * as React from 'react'
+import { ImageIcon, Loader2Icon, XCircleIcon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import type { AnyToolPart } from './shared/tool-utils'
-import OfficeToolShell from './shared/OfficeToolShell'
-import { getToolKind, EmptyView, parseInput } from './shared/office-tool-utils'
+import { isToolStreaming } from './shared/tool-utils'
+import { parseInput } from './shared/office-tool-utils'
 import { fetchBlobFromUri } from '@/lib/image/uri'
 import { useChatSession } from '@/components/ai/context'
 import { useProject } from '@/hooks/use-project'
 import { createFileEntryFromUri, openFile } from '@/components/file/lib/open-file'
+import { applyChatImageDrag } from '@/lib/image/drag'
+import { ChatImageActions } from './shared/ChatImageActions'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -83,6 +86,8 @@ function ImagePreview({ image }: { image: unknown }) {
   const src = resolveImageSrc(image)
   const srcKind = src?.kind
   const srcValue = src?.value
+  const dragUrl = srcValue ?? ''
+  const dragName = srcValue ? srcValue.split('/').pop() : undefined
 
   React.useEffect(() => {
     if (!srcKind || !srcValue) return
@@ -128,20 +133,36 @@ function ImagePreview({ image }: { image: unknown }) {
 
   if (!objectUrl) {
     return (
-      <div className="flex h-[80px] items-center justify-center rounded-lg bg-muted/30 text-xs text-muted-foreground">
+      <div className="flex h-[80px] items-center justify-center rounded-3xl bg-muted/30 text-xs text-muted-foreground">
         {t('tool.cloud.loading')}
       </div>
     )
   }
 
   return (
-    <img
-      src={objectUrl}
-      alt="input"
-      className="max-h-[180px] max-w-full cursor-pointer rounded-lg object-contain"
-      draggable={false}
+    <div
+      className="group/image relative inline-block cursor-pointer overflow-hidden rounded-3xl"
+      draggable
+      onDragStart={(event) => {
+        if (!dragUrl) return
+        applyChatImageDrag(event, {
+          url: dragUrl,
+          name: dragName,
+          thumbnailUrl: objectUrl,
+        })
+      }}
       onClick={handleClick}
-    />
+    >
+      <img
+        src={objectUrl}
+        alt="input"
+        className="block max-h-[240px] max-w-full object-contain"
+        draggable={false}
+      />
+      {dragUrl ? (
+        <ChatImageActions url={dragUrl} name={dragName} objectUrl={objectUrl} />
+      ) : null}
+    </div>
   )
 }
 
@@ -194,13 +215,14 @@ export default function CloudImageUnderstandTool({
   part: AnyToolPart
   className?: string
 }) {
-  const toolKind = getToolKind(part)
+  const { t } = useTranslation('ai')
   const input = parseInput(part)
+  const streaming = isToolStreaming(part)
+  const hasError = part.state === 'output-error' || part.state === 'output-denied'
 
-  // Success: show only the image; hover over the image reveals the result as an overlay.
+  // Success: just the image with hover-reveal result overlay.
   if (part.state === 'output-available') {
     const resultText = extractResultText(part.output)
-
     return (
       <ImagePreviewWithOverlay
         image={input?.image}
@@ -210,20 +232,28 @@ export default function CloudImageUnderstandTool({
     )
   }
 
-  // Pending / streaming / error: show image with shell for error/approval handling.
+  // Pending / streaming / error: minimal inline layout — image preview + small status pill.
   return (
-    <OfficeToolShell
-      part={part}
-      className={cn('max-w-xl', className)}
-      toolKind={toolKind}
-      isMutate={false}
-      i18nPrefix="tool.cloud"
-      defaultOpen
-    >
-      {(ctx) => {
-        if (!ctx.input) return <EmptyView />
-        return <ImagePreview image={ctx.input.image} />
-      }}
-    </OfficeToolShell>
+    <div className={cn('inline-flex flex-col items-start gap-1.5', className)}>
+      {input?.image ? (
+        <ImagePreview image={input.image} />
+      ) : null}
+      <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+        {streaming ? (
+          <Loader2Icon className="size-3 animate-spin" />
+        ) : hasError ? (
+          <XCircleIcon className="size-3 text-destructive" />
+        ) : (
+          <ImageIcon className="size-3" />
+        )}
+        <span>
+          {hasError
+            ? t('tool.cloud.error')
+            : streaming
+              ? t('tool.cloud.loading')
+              : t('toolNames.cloudImageUnderstand', { defaultValue: '图片理解' })}
+        </span>
+      </div>
+    </div>
   )
 }

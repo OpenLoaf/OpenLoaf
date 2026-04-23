@@ -1073,6 +1073,10 @@
       "name": "行事曆助手",
       "description": "行事曆事件管理"
     },
+    "channel": {
+      "name": "IM 助手",
+      "description": "微信 / Slack / Telegram 等即時通訊通道專用——純文字輸出、文字確認審批、保留桌面/瀏覽器遠端控制"
+    },
     "coder": {
       "name": "程式設計助手",
       "description": "使用 AI CLI 工具進行程式開發"
@@ -1115,6 +1119,7 @@
     }
   },
   "capabilityGroups": {
+    "desktop-control": "桌面遠端控制",
     "browser": "瀏覽器操作",
     "file-read": "檔案讀取",
     "file-write": "檔案寫入",

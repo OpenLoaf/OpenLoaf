@@ -33,6 +33,7 @@ import { registerVideoDownloadRoutes } from "@/modules/media/videoDownloadRoutes
 import { registerVideoStreamRoutes } from "@/modules/media/videoStreamRoutes";
 import { registerUrlDownloadRoutes } from "@/modules/media/urlDownloadRoutes";
 import { registerEmailOAuthRoutes } from "@/modules/email/oauth/emailOAuthRoutes";
+import { registerIntegrationOAuthRoutes } from "@/modules/integrations/oauth/integrationOAuthRoutes";
 import { registerEmailAttachmentRoutes } from "@/modules/email/emailAttachmentRoutes";
 import { registerLocalAuthRoutes } from "@/modules/local-auth/localAuthRoutes";
 import { registerOfficeAddinRoutes } from "@/modules/office/officeAddinRoutes";
@@ -147,6 +148,7 @@ export function createApp() {
   registerVideoStreamRoutes(app);
   registerUrlDownloadRoutes(app);
   registerEmailOAuthRoutes(app);
+  registerIntegrationOAuthRoutes(app);
   registerEmailAttachmentRoutes(app);
   registerOfficeAddinRoutes(app);
   registerCloudMockRoutes(app);

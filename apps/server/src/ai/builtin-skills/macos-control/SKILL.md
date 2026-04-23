@@ -66,13 +66,25 @@ MacosObserve → 分析 AX 树 → MacosAct → MacosObserve → ...
 | type | 用法 | 何时用 |
 |------|------|--------|
 | `launch_app` | 通过 `open -a` 启动 App（名字或 bundle id） | **启动 App 首选** — 一步到位，比 Spotlight 稳 |
-| `click` | 点击。优先 `ref`（AX 引用），退化到 `point: {x,y}` | 绝大多数交互 |
+| `menu_click` | 走 App 菜单栏点菜单项（`{app, menuPath:["视图","朋友圈"]}`） | **App 内跳页首选** — 鼠标不动、成功率接近 100%，且对自绘 UI（微信/QQ/飞书）照样有效 |
+| `applescript` | 跑一段 AppleScript（`osascript -e`） | Finder、Mail、Calendar、Safari、Chrome、Notes、Reminders、Messages、Music、Terminal、iTerm、Keynote 等 scriptable App 的**真后台**通道；不抢焦点、不动鼠标、能拿返回值 |
+| `key` | 发组合键（`return`、`cmd+2`、`cmd+w`...） | 快捷键优先于点击 — 不动鼠标、不依赖坐标（**启动 App 用 `launch_app`，不要 cmd+space**） |
+| `click` | 点击。优先 `ref`（AX 引用），退化到 `point: {x,y}` | **最后手段**：menu_click / key / ax_action 都不适用时才用 |
 | `type` | 在当前焦点输入文本 | 已 focus 输入框后 |
-| `key` | 发组合键（`return`、`escape`、`cmd+w`...） | 快捷键、提交、取消（**启动 App 用 `launch_app`，不要 cmd+space**） |
 | `scroll` | 在 `point` 处滚动 `dx/dy` | 内容在视口外 |
 | `drag` | 从 `from` 拖到 `to` | 拖拽、选区 |
 | `wait` | 等待 `ms` 毫秒（≤10000） | 极少用，通常下一个 observe 就够 |
-| `ax_action` | 对 AX 节点执行命名动作（`AXPress`、`AXShowMenu` 等） | AX 节点明确支持时首选，比坐标点击稳 |
+| `ax_action` | 对 AX 节点执行命名动作（`AXPress`、`AXShowMenu` 等） | AX 节点明确支持时；标准 AXPress 优先用 `menu_click` |
+
+## 优先级铁律（跳页/触发动作）
+
+**扁平化的决策顺序：`menu_click` → `applescript` → `key` → `ax_action` → `click`**。一路往下退，能用前面的就不走后面的。
+
+- 跳到 App 内某个页面（朋友圈、收藏、日历今天视图、Finder 新窗口……）→ 先试 `menu_click`
+- Finder/Mail/Calendar/Safari/Chrome/Notes/Reminders/Messages/Music/Terminal 等 → 直接上 `applescript`，真后台
+- 有公开快捷键 → `key`
+- AX 树里有 `actions: ["AXPress"]` 的节点 → `ax_action`
+- 都不行才 `click` 坐标
 
 ## AX ref 优先于坐标
 
@@ -143,3 +155,5 @@ MacosObserve → 分析 AX 树 → MacosAct → MacosObserve → ...
 4. **敏感 App（密码管理器 / 银行）前台时停止**
 5. **读屏一次够用就别多截**
 6. **非桌面端立即返回 desktop-only，改用浏览器工具或交回用户**
+7. **连续 2 次坐标点击后 AX 树 / 截图没有可观察到的变化 → 停止点击**，如实告诉用户"定位失败，可能是自绘 UI（微信、QQ、飞书等）AX 不暴露控件"，并：① 优先改走菜单栏（`cmd+?` 或 App 顶部菜单里找同名项）或快捷键；② 请用户指认图标位置。**禁止**继续按 +30/+50 像素的步长盲试，**禁止**在没有可观察证据的情况下宣告任务成功
+8. **自绘 UI 识别**：微信/QQ/飞书/钉钉/企业微信等 App 的主窗口 AX 树通常只有 AXWindow 加几个按钮，没有内容区控件。这类情况下坐标点击成功率极低，应当直接走菜单栏 / 快捷键 / 交回用户，而不是猜坐标

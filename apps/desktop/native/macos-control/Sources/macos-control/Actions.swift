@@ -16,6 +16,7 @@ enum Actions {
     case "drag":     return try drag(action)
     case "wait":     return try wait(action)
     case "ax_action":return try axAction(action)
+    case "menu_click":return try menuClick(action)
     default:
       throw HelperError.badRequest("Unknown action type: \(action.type)")
     }
@@ -147,6 +148,89 @@ enum Actions {
     }
     settle()
     return ["action": "ax_action", "name": name]
+  }
+
+  // ---- menu_click ----
+  // Walks the target app's AXMenuBar and AXPresses the matching menu item
+  // without synthesizing mouse/keyboard events. Cursor never moves. Works
+  // even when the app's main window is custom-drawn (WeChat/QQ/Feishu)
+  // because the menu bar is always AX-exposed by AppKit.
+  private static func menuClick(_ a: ActionPayload) throws -> [String: Any] {
+    guard let appName = a.app, !appName.isEmpty else {
+      throw HelperError.badRequest("menu_click requires app (name or bundleId)")
+    }
+    guard let path = a.menuPath, !path.isEmpty else {
+      throw HelperError.badRequest("menu_click requires menuPath (e.g. [\"View\",\"Moments\"])")
+    }
+    let apps = NSWorkspace.shared.runningApplications
+    guard let app = apps.first(where: {
+      $0.localizedName == appName || $0.bundleIdentifier == appName
+    }) else {
+      throw HelperError.runtime("App not running: \(appName)")
+    }
+    // Bring app forward — some menu commands only route to the frontmost app.
+    app.activate(options: [])
+    Thread.sleep(forTimeInterval: 0.08)
+
+    let axApp = AXUIElementCreateApplication(app.processIdentifier)
+    var menuBarRef: CFTypeRef?
+    let mbErr = AXUIElementCopyAttributeValue(axApp, kAXMenuBarAttribute as CFString, &menuBarRef)
+    guard mbErr == .success, let cf = menuBarRef else {
+      throw HelperError.runtime("App has no AXMenuBar: \(appName)")
+    }
+    let menuBar = cf as! AXUIElement
+
+    // BFS over the menu tree, matching path segments by title. At each level
+    // we consider the current element's AXChildren, and also descend into
+    // AXMenu wrappers (AXMenuBarItem → AXMenu → AXMenuItem). Submenu items
+    // typically need the parent opened to populate children; we try a cheap
+    // AXPress of the parent on miss, then re-read children.
+    var current: AXUIElement = menuBar
+    for (i, segment) in path.enumerated() {
+      guard let match = findMenuChild(current, title: segment) else {
+        // Try expanding the parent (works for submenus whose children are
+        // lazy-populated). Only meaningful past the menu bar level.
+        if i > 0 {
+          AXUIElementPerformAction(current, kAXPressAction as CFString)
+          Thread.sleep(forTimeInterval: 0.05)
+          if let retry = findMenuChild(current, title: segment) {
+            current = retry
+            continue
+          }
+        }
+        throw HelperError.runtime("Menu item not found: \(path.prefix(i + 1).joined(separator: " > "))")
+      }
+      current = match
+    }
+    let err = AXUIElementPerformAction(current, kAXPressAction as CFString)
+    if err != .success {
+      throw HelperError.runtime("AXPress on menu item failed: \(err.rawValue)")
+    }
+    settle()
+    return ["action": "menu_click", "app": appName, "menuPath": path]
+  }
+
+  // Recursively search for a child (or grandchild via AXMenu wrapper) whose
+  // AXTitle matches `title`. Returns the matching menu item (AXMenuItem or
+  // AXMenuBarItem), which is the element to AXPress.
+  private static func findMenuChild(_ parent: AXUIElement, title: String) -> AXUIElement? {
+    var childrenRef: CFTypeRef?
+    AXUIElementCopyAttributeValue(parent, kAXChildrenAttribute as CFString, &childrenRef)
+    guard let children = childrenRef as? [AXUIElement] else { return nil }
+    for child in children {
+      var titleRef: CFTypeRef?
+      AXUIElementCopyAttributeValue(child, kAXTitleAttribute as CFString, &titleRef)
+      let t = (titleRef as? String) ?? ""
+      if t == title { return child }
+      // Descend into AXMenu wrappers without recursing into sibling menus,
+      // so "View > Moments" doesn't accidentally match "File > Export...".
+      var roleRef: CFTypeRef?
+      AXUIElementCopyAttributeValue(child, kAXRoleAttribute as CFString, &roleRef)
+      if let r = roleRef as? String, r == "AXMenu" {
+        if let hit = findMenuChild(child, title: title) { return hit }
+      }
+    }
+    return nil
   }
 
   // ---- helpers ----

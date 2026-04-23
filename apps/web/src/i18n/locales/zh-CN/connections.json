@@ -12,6 +12,18 @@
   "availableTools": "可用工具",
   "remove": "移除",
   "reconnect": "重新连接",
+  "authorizeAndConnect": "授权并连接",
+  "oauthReadyHint": "OpenLoaf 将打开 Notion 官方授权页。完成授权后，这个窗口会自动刷新连接状态。",
+  "oauthPendingHint": "授权窗口已打开。完成后关闭弹窗，OpenLoaf 会自动检查连接结果。",
+  "oauthPopupBlocked": "无法打开授权窗口，请检查浏览器弹窗设置。",
+  "probeLoading": "正在获取工作区信息…",
+  "probeMore": "还有 {{count}} 项",
+  "probeFields": {
+    "workspace": "工作区：{{value}}",
+    "workspaceId": "工作区 ID：{{value}}",
+    "bot": "Bot：{{value}}",
+    "owner": "所有者：{{value}}"
+  },
   "serverStatus": {
     "connected": "已连接",
     "connecting": "连接中",
@@ -30,23 +42,16 @@
       "description": "让 AI 读取你的 Notion 笔记、创建页面和编辑内容。",
       "guide": {
         "0": {
-          "title": "在 Notion 创建内部集成",
-          "description": "打开 Notion Integrations 页面并点击「New integration」，命名为「OpenLoaf」或任意名称。",
-          "linkLabel": "打开 Notion Integrations"
+          "title": "授权你的 Notion 工作区",
+          "description": "点击下方按钮后，Notion 会打开 OpenLoaf 的官方授权页。"
         },
         "1": {
-          "title": "复制集成密钥",
-          "description": "创建完成后展开并复制 Internal Integration Secret（以「ntn_」或「secret_」开头）。"
+          "title": "选择允许访问的页面",
+          "description": "在授权流程中选择要开放给 OpenLoaf 的页面或数据库，之后仍可在 Notion 中调整。"
         },
         "2": {
-          "title": "将页面分享给集成",
-          "description": "逐个打开要开放的 Notion 页面，点击「…」→「Connections」→ 选择你的集成。"
-        }
-      },
-      "credentials": {
-        "token": {
-          "label": "Notion 集成 Token",
-          "helpText": "来自 notion.so/profile/integrations 的内部集成密钥"
+          "title": "返回 OpenLoaf",
+          "description": "授权完成后，OpenLoaf 会自动连接官方 Notion remote MCP，并显示当前工作区信息。"
         }
       }
     },

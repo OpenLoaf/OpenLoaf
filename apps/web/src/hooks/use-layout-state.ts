@@ -92,6 +92,10 @@ const DEFAULT_STATE: LayoutState = {
   activeStackItemId: "",
 }
 
+// 中文注释：从纯聊天页切到带左栏内容的页面时，不要把 chat-only 的 30% 占位值
+// 当成真实用户偏好；否则右侧聊天面板会显得过宽。
+const LEFT_DOCK_NAVIGATION_DEFAULT_PERCENT = 70
+
 /** Resolve storage by renderer mode to isolate project windows. */
 function resolveStorage() {
   if (typeof window === "undefined") return localStorage
@@ -440,6 +444,13 @@ export const useLayoutState = create<LayoutStateActions>()(
 
       applyNavigation: (input) => {
         set((state) => {
+          const hasCurrentLeftContent = Boolean(state.base) || (state.stack?.length ?? 0) > 0
+          const shouldUseNavigationDefault =
+            Boolean(input.base) &&
+            !hasCurrentLeftContent &&
+            !Number.isFinite(input.leftWidthPercent) &&
+            state.leftWidthPercent === LEFT_DOCK_DEFAULT_PERCENT
+
           return normalize({
             ...DEFAULT_STATE,
             base: input.base,
@@ -447,7 +458,11 @@ export const useLayoutState = create<LayoutStateActions>()(
             // Rendering gates the left dock on hasLeftContent, so persisting a
             // non-zero leftWidthPercent while on a chat-only view is safe — and
             // avoids width jumps when returning to a view with left content.
-            leftWidthPercent: input.leftWidthPercent ?? state.leftWidthPercent,
+            leftWidthPercent:
+              input.leftWidthPercent
+              ?? (shouldUseNavigationDefault
+                ? LEFT_DOCK_NAVIGATION_DEFAULT_PERCENT
+                : state.leftWidthPercent),
             rightChatCollapsed: state.rightChatCollapsed,
           })
         })

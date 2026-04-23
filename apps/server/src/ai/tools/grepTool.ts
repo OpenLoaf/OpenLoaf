@@ -165,14 +165,16 @@ export const grepTool = tool({
     }
 
     // 预校验路径存在（与 Claude Code 对齐：对 ENOENT 给出清晰报错）。
+    let pathStat: import('node:fs').Stats
     try {
-      statSync(resolvedPath)
+      pathStat = statSync(resolvedPath)
     } catch (e: any) {
       if (e?.code === 'ENOENT') {
         return `Path does not exist: ${searchPath ?? resolvedPath}`
       }
       throw e
     }
+    const isSingleFile = pathStat.isFile()
 
     const rgBin = getRgBin()
     if (!rgBin) {
@@ -277,7 +279,17 @@ export const grepTool = tool({
             return
           }
 
-          const baseForRelative = projectRoot ?? chatAssetRoot ?? resolvedPath
+          // 基准目录：用于把绝对路径转成相对路径以节省 token。
+          // 当搜索目标在 projectRoot 子树内时，用 projectRoot 做基准（路径最短）；
+          // 当目标在 projectRoot 外（如 chat asset 目录），用目标自身所在目录做基准，
+          // 避免生成 ../../../../... 这种跨分支长路径。
+          const baseForRelative = (() => {
+            const primary = projectRoot ?? chatAssetRoot
+            if (!primary) return isSingleFile ? path.dirname(resolvedPath) : resolvedPath
+            const rel = path.relative(primary, resolvedPath)
+            if (!rel.startsWith('..') && !path.isAbsolute(rel)) return primary
+            return isSingleFile ? path.dirname(resolvedPath) : resolvedPath
+          })()
 
           // -------------------------------------------------------------
           // files_with_matches：按 mtime 排序 → 截断 → 转相对路径
@@ -319,7 +331,7 @@ export const grepTool = tool({
           }
 
           // -------------------------------------------------------------
-          // content / count：先分页再转相对路径
+          // content / count：先分页再格式化
           // -------------------------------------------------------------
           const { items, appliedLimit, total } = applyHeadLimit(
             rawLines,
@@ -332,6 +344,37 @@ export const grepTool = tool({
             return
           }
 
+          const limitInfo = formatLimitInfo(appliedLimit, offset)
+
+          // 单文件搜索优化：rg 对单文件默认不输出路径前缀，
+          // 所以只需在 header 显示一次文件名，内容行原样输出即可。
+          if (isSingleFile) {
+            const displayPath = toRelativeFrom(baseForRelative, resolvedPath)
+            const fileHeader = `File: ${displayPath}`
+
+            if (outputMode === 'count') {
+              // 单文件时 rg 直接输出数字，不带 file:count 前缀
+              let totalMatches = 0
+              for (const line of items) {
+                const n = parseInt(line.trim(), 10)
+                if (!Number.isNaN(n)) totalMatches += n
+              }
+              const summary = `Found ${totalMatches} total ${totalMatches === 1 ? 'occurrence' : 'occurrences'}${limitInfo ? ` with pagination = ${limitInfo}` : ''}`
+              resolve(`${fileHeader}\n${totalMatches}\n\n${summary}`)
+              return
+            }
+
+            // content 模式：行已是 行号:内容 格式，无需剥离路径
+            const content = items.join('\n')
+            if (limitInfo) {
+              resolve(`${fileHeader}\n${content}\n\n[Showing results with pagination = ${limitInfo}]`)
+            } else {
+              resolve(`${fileHeader}\n${content}`)
+            }
+            return
+          }
+
+          // 多文件搜索：每行带路径（原逻辑）
           const relativeLines = items.map((line) => {
             const sp = splitPathPrefix(line)
             if (!sp) return line
@@ -339,7 +382,6 @@ export const grepTool = tool({
           })
 
           const content = relativeLines.join('\n')
-          const limitInfo = formatLimitInfo(appliedLimit, offset)
 
           if (outputMode === 'count') {
             let totalMatches = 0

@@ -28,6 +28,7 @@ import {
   uninstallIntegration,
   getIntegrationMcpServerId,
 } from '@/services/integrationService'
+import { beginIntegrationOAuthInstall } from '@/modules/integrations/oauth/integrationOAuthService'
 import { getMcpServerById } from '@/services/mcpConfigService'
 import { mcpClientManager } from '@/ai/services/mcpClientManager'
 import { logger } from '@/common/logger'
@@ -74,6 +75,22 @@ class IntegrationsRouterImpl extends BaseIntegrationsRouter {
           }
           const { ok } = uninstallIntegration(input.integrationId)
           return { ok }
+        }),
+
+      beginOAuthIntegrationInstall: shieldedProcedure
+        .input(integrationSchemas.beginOAuthIntegrationInstall.input)
+        .output(integrationSchemas.beginOAuthIntegrationInstall.output)
+        .mutation(async ({ input }) => {
+          const result = await beginIntegrationOAuthInstall(
+            input.integrationId,
+            input.serverOrigin,
+          )
+          return {
+            ok: true,
+            completed: result.completed,
+            mcpServerId: result.mcpServerId,
+            authorizationUrl: result.authorizationUrl,
+          }
         }),
     })
   }

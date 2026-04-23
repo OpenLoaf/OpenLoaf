@@ -14,6 +14,8 @@ import type { UIMessage } from "@ai-sdk/react";
 import { useMutation } from "@tanstack/react-query";
 import { trpc } from "@/utils/trpc";
 import { useChatRuntime, type ToolPartSnapshot } from "@/hooks/use-chat-runtime";
+import { resolveServerUrl } from "@/utils/server-url";
+import { CLIENT_HEADERS } from "@/lib/client-headers";
 import {
   findLastAssistantMessage,
   mapToolPartsFromMessage,
@@ -211,11 +213,23 @@ export function useChatApproval({
 
   /** Stop generating and reject pending approvals. */
   const stopGenerating = React.useCallback(() => {
+    // 先通知后端按 sessionId 显式中止 — 不依赖 HTTP 连接 close 检测，
+    // 确保 provider 层（含 CLI 直连）能立即收到 abortSignal。
+    if (sessionId) {
+      void fetch(`${resolveServerUrl()}/ai/chat/abort`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json", ...CLIENT_HEADERS },
+        body: JSON.stringify({ sessionId }),
+      }).catch(() => {
+        // 后端不可达时忽略，本地 chat.stop() 仍会清理前端状态。
+      });
+    }
     chatRef.current!.stop();
     setStepThinking(false);
     void rejectPendingToolApprovals();
     abortSubAgentStreams?.();
-  }, [rejectPendingToolApprovals, setStepThinking, abortSubAgentStreams]);
+  }, [sessionId, chatRef, rejectPendingToolApprovals, setStepThinking, abortSubAgentStreams]);
 
   return {
     queueToolApprovalPayload,

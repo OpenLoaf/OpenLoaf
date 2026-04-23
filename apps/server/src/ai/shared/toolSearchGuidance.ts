@@ -84,7 +84,7 @@ export function buildToolSearchGuidance(
 
   return `# 工具与技能（两条独立通道）
 
-**核心工具**（Bash、Read、Glob、Grep、Edit、Write、AskUserQuestion、Agent、ToolSearch、LoadSkill、MemorySave、WebSearch 等）始终可用，直接调用。
+**核心工具**（Bash、Read、Glob、Grep、Edit、Write、Agent、ToolSearch、LoadSkill、MemorySave、WebSearch 等）始终可用，直接调用。
 
 **工作流加载 — LoadSkill**：\`LoadSkill(skillName: "<name>")\` 是加载 skill 的唯一途径。可用 skill 列表见 system 中的 \`<system-tag type="skills">\` 块。不要用 ToolSearch 加载 skill。
 

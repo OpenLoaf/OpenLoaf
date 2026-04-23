@@ -520,7 +520,12 @@ export default function ChatCoreProvider({
     prevSessionIdRef.current = sessionId;
     stopAndResetSession(true);
     clearCachedView();
-  }, [sessionId, stopAndResetSession, clearCachedView]);
+    // 逻辑：session 切换时清除旧的 fs.readFile 缓存，避免 JsxCreateTool 等组件
+    // 用新 sessionId + 旧 messageId 构造的 jsxUri 发起 404 请求。
+    queryClient.removeQueries({
+      queryKey: trpc.fs.readFile.queryKey(),
+    });
+  }, [sessionId, stopAndResetSession, clearCachedView, queryClient]);
 
   // ── History load ──
   React.useEffect(() => {

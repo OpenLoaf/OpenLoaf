@@ -23,6 +23,8 @@ export type ModelProviderValue = {
   options?: {
     /** Whether to enable OpenAI Responses API. */
     enableResponsesApi?: boolean;
+    /** Whether apiUrl is the final endpoint URL (no path appending). */
+    finalApiUrl?: boolean;
   };
 };
 

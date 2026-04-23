@@ -41,7 +41,7 @@ All list modes support `cursor` + `pageSize` (1-50) pagination.
 2. list-unified (all-inboxes)   → scan inbox overview
 3. get-message (messageId)      → read the full content of the message you need to reply to
 4. Draft the reply
-5. ⚠️ AskUserQuestion           → show the draft to the user for confirmation
+5. ⚠️ Show the draft (recipient / subject / body) in plain text and explicitly ask "send?" — wait for the user to confirm
 6. send (with inReplyTo + references) → only send after the user confirms
 ```
 
@@ -54,7 +54,7 @@ All list modes support `cursor` + `pageSize` (1-50) pagination.
 ```
 1. list-accounts                → confirm which account to send from
 2. Draft the email based on user intent
-3. ⚠️ AskUserQuestion           → show the complete email for user confirmation
+3. ⚠️ Show the complete email (recipient / subject / body) in plain text and explicitly ask "send?" — wait for the user to confirm
 4. send                         → send after confirmation
 ```
 
@@ -87,7 +87,7 @@ There is no standalone `forward` action — forwarding is implemented via `send`
 
 1. `get-message` to retrieve the full original content
 2. Compose a new message: set `to` to the forwarding target, prefix `subject` with `Fwd:`, and include the original content in `bodyText` (add an "---------- Forwarded message ----------" separator along with the original sender / date / subject)
-3. Confirm with the user via `AskUserQuestion`, then `send`
+3. Show the full forward in plain text and wait for the user to confirm before `send`
 
 ## Attachments
 
@@ -101,7 +101,7 @@ The `bodyText` parameter of the `send` action is **plain text only** — HTML is
 
 ## Common Mistakes — You Must Avoid These
 
-1. **Sending without calling `AskUserQuestion` first**: This is the most serious mistake. Never send an email on your own authority.
+1. **Sending without a plain-text confirmation step first**: This is the most serious mistake. Never send an email on your own authority — always show the full draft and wait for the user to reply "send".
 2. **Replying without setting `inReplyTo`**: The thread breaks, and the recipient sees an orphan new message.
 3. **Calling tools blindly without knowing `accountEmail`**: Many actions require `accountEmail`. When unsure, call `list-accounts` first.
 4. **Putting passwords, keys, or credentials in the body**: Never do this.

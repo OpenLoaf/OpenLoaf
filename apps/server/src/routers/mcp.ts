@@ -138,6 +138,18 @@ class McpRouterImpl extends BaseMcpRouter {
           const ok = trustMcpServer(input.id, input.projectRoot)
           return { ok }
         }),
+
+      callMcpTool: shieldedProcedure
+        .input(mcpSchemas.callMcpTool.input)
+        .output(mcpSchemas.callMcpTool.output)
+        .mutation(async ({ input }) => {
+          try {
+            const data = await mcpClientManager.callTool(input.serverId, input.toolName, input.args ?? {})
+            return { ok: true, data }
+          } catch (err) {
+            return { ok: false, error: err instanceof Error ? err.message : String(err) }
+          }
+        }),
     })
   }
 }

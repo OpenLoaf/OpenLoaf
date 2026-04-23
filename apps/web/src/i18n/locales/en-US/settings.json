@@ -10,6 +10,7 @@
     "namePlaceholder": "e.g.: OPENAI",
     "apiUrl": "API URL",
     "apiUrlPlaceholder": "e.g.: https://api.openai.com/v1",
+    "finalApiUrlLabel": "This URL is the final endpoint (no /chat/completions path appending)",
     "authentication": "Authentication",
     "accessKeyId": "AccessKeyID",
     "accessKeyIdPlaceholder": "Enter AccessKeyID",
@@ -1096,6 +1097,10 @@
       "name": "Calendar Assistant",
       "description": "Calendar event management"
     },
+    "channel": {
+      "name": "IM Assistant",
+      "description": "Built for IM channels (WeChat / Slack / Telegram) — plain-text output, text-based approval, retains desktop/browser remote control"
+    },
     "coder": {
       "name": "Coding Assistant",
       "description": "Code development using AI CLI tools"
@@ -1138,6 +1143,7 @@
     }
   },
   "capabilityGroups": {
+    "desktop-control": "Desktop Remote Control",
     "browser": "Browser",
     "file-read": "File Read",
     "file-write": "File Write",

@@ -11,6 +11,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@openloaf/ui/button";
 import { Input } from "@openloaf/ui/input";
 import { FormDialog } from "@/components/ui/FormDialog";
+import { Checkbox } from "@openloaf/ui/checkbox";
 import { Switch } from "@openloaf/ui/switch";
 import {
   DropdownMenu,
@@ -20,7 +21,7 @@ import {
   DropdownMenuTrigger,
 } from "@openloaf/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { Eye, EyeOff, ChevronDown, Plus, Copy, Check, Pencil } from "lucide-react";
+import { Eye, EyeOff, ChevronDown, Plus, Copy, Check, Pencil, Link } from "lucide-react";
 import { getModelLabel } from "@/lib/model-registry";
 import { ModelIcon } from "@/components/setting/menus/provider/ModelIcon";
 import {
@@ -60,6 +61,8 @@ type ProviderDialogProps = {
   draftSecretAccessKey: string;
   /** Draft responses API toggle. */
   draftEnableResponsesApi: boolean;
+  /** Draft final API URL toggle. */
+  draftFinalApiUrl: boolean;
   /** Show auth toggle. */
   showAuth: boolean;
   /** Show access key toggle. */
@@ -96,6 +99,8 @@ type ProviderDialogProps = {
   onDraftSecretAccessKeyChange: (value: string) => void;
   /** Update responses API toggle. */
   onDraftEnableResponsesApiChange: (value: boolean) => void;
+  /** Update final API URL toggle. */
+  onDraftFinalApiUrlChange: (value: boolean) => void;
   /** Toggle show auth. */
   onShowAuthChange: (value: boolean) => void;
   /** Toggle show secret access key. */
@@ -173,6 +178,7 @@ export function ProviderDialog({
   draftAccessKeyId,
   draftSecretAccessKey,
   draftEnableResponsesApi,
+  draftFinalApiUrl,
   showAuth,
   showSecretAccessKey,
   draftModelIds,
@@ -191,6 +197,7 @@ export function ProviderDialog({
   onDraftAccessKeyIdChange,
   onDraftSecretAccessKeyChange,
   onDraftEnableResponsesApiChange,
+  onDraftFinalApiUrlChange,
   onShowAuthChange,
   onShowSecretAccessKeyChange,
   onDraftModelIdsChange,
@@ -300,6 +307,16 @@ export function ProviderDialog({
                 placeholder={t('provider.apiUrlPlaceholder')}
                 onChange={(event) => onDraftApiUrlChange(event.target.value)}
               />
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="finalApiUrl"
+                  checked={draftFinalApiUrl}
+                  onCheckedChange={(checked) => onDraftFinalApiUrlChange(checked === true)}
+                />
+                <label htmlFor="finalApiUrl" className="text-xs text-muted-foreground cursor-pointer select-none">
+                  {t('provider.finalApiUrlLabel')}
+                </label>
+              </div>
             </div>
 
             <div className="space-y-2">

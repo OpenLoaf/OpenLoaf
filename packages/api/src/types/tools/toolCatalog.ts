@@ -39,7 +39,6 @@ import {
   macosObserveToolDef,
   macosActToolDef,
 } from "./runtime";
-import { requestUserInputToolDef } from "./userInput";
 import { jsxCreateToolDef } from "./jsxCreate";
 import { chartRenderToolDef } from "./chart";
 import {
@@ -94,7 +93,7 @@ export type ToolCatalogExtendedItem = ToolCatalogItem & {
   group: string;
 };
 
-type ToolDefLike = { id: string; name?: string; description?: string };
+type ToolDefLike = { id: string; name?: string; description?: string; parameters?: unknown };
 
 const TOOL_DEFS: ToolDefLike[] = [
   toolSearchToolDef,
@@ -133,7 +132,6 @@ const TOOL_DEFS: ToolDefLike[] = [
   boardMutateToolDef,
   agentToolDef,
   sendMessageToolDef,
-  requestUserInputToolDef,
   jsxCreateToolDef,
   subAgentToolDef,
   chartRenderToolDef,
@@ -164,6 +162,8 @@ const TOOL_DEFS: ToolDefLike[] = [
   cloudImageUnderstandToolDef,
 ];
 
+export { TOOL_DEFS };
+
 // 逻辑：统一生成工具元数据，避免前端重复维护名称与描述。
 export const TOOL_CATALOG: ToolCatalogItem[] = TOOL_DEFS.map((def) => ({
   id: def.id,
@@ -183,7 +183,6 @@ export function resolveToolCatalogItem(id: string): ToolCatalogItem {
 /** Extended tool catalog with keywords and groups for ToolSearch. */
 const TOOL_KEYWORDS: Record<string, { keywords: string[]; group: string }> = {
   'ToolSearch': { keywords: ['search', 'find', 'discover', 'load', 'tool'], group: 'core' },
-  'AskUserQuestion': { keywords: ['ask', 'input', 'confirm', 'choice', 'question', 'user', 'approval'], group: 'core' },
   'JsxCreate': { keywords: ['jsx', 'component', 'ui', 'render', 'display', 'card', 'layout'], group: 'ui' },
   'Agent': { keywords: ['agent', 'spawn', 'delegate', 'sub', 'dispatch', 'create', 'background'], group: 'agent' },
   'SendMessage': { keywords: ['send', 'message', 'agent', 'communicate', 'resume', 'continue'], group: 'agent' },

@@ -24,3 +24,10 @@ export { getMasterPrompt } from './templates/master'
 
 // Export PM agent prompt and tool IDs
 export { getPMPrompt, PM_AGENT_TOOL_IDS } from './templates/pm'
+
+// Export channel agent prompt and tool IDs (for IM channels: WeChat / Slack / Telegram...)
+export {
+  getChannelPrompt,
+  CHANNEL_AGENT_TOOL_IDS,
+  CHANNEL_EXCLUDED_SKILL_NAMES,
+} from './templates/channel'

@@ -13,7 +13,7 @@
 | 改外部系统 | 发邮件 / 建会议 / 定时跑 | 领域工具或 skill |
 | 取外部信息 | 搜一下 / 这网页讲什么 | `WebSearch` / `WebFetch` |
 
-核心工具（`Bash` / `Read` / `Glob` / `Grep` / `Edit` / `Write` / `AskUserQuestion` / `Agent` / `LoadSkill` / `ToolSearch` / `MemorySave` / `WebSearch`）始终可用，直接调。领域能力 → `LoadSkill(skillName)` 再按正文执行。
+核心工具（`Bash` / `Read` / `Glob` / `Grep` / `Edit` / `Write` / `Agent` / `LoadSkill` / `ToolSearch` / `MemorySave` / `WebSearch`）始终可用，直接调。领域能力 → `LoadSkill(skillName)` 再按正文执行。
 
 ## 输出形态
 

@@ -18,6 +18,17 @@ import { z } from 'zod'
 export const mcpTransportSchema = z.enum(['stdio', 'http', 'sse'])
 export type MCPTransport = z.infer<typeof mcpTransportSchema>
 
+/** OAuth metadata for MCP servers that require delegated authorization. */
+export const mcpServerAuthSchema = z.object({
+  /** Authentication strategy kind. */
+  type: z.literal('oauth'),
+  /** Provider identifier (for provider-specific token storage/refresh). */
+  provider: z.string().min(1),
+  /** Optional integration id that owns this OAuth session. */
+  integrationId: z.string().optional(),
+})
+export type MCPServerAuth = z.infer<typeof mcpServerAuthSchema>
+
 /** MCP server configuration stored in mcp-servers.json. */
 export const mcpServerConfigSchema = z.object({
   /** Unique identifier (nanoid). */
@@ -44,6 +55,8 @@ export const mcpServerConfigSchema = z.object({
   url: z.string().optional(),
   /** HTTP headers (e.g. Authorization). */
   headers: z.record(z.string(), z.string()).optional(),
+  /** Optional auth strategy used by remote MCP servers. */
+  auth: mcpServerAuthSchema.optional(),
 
   /** Whether this server is enabled. */
   enabled: z.boolean().default(true),

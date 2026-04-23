@@ -170,7 +170,7 @@ Using bordered components such as Message/Panel/Snippet as outer containers is n
 
 **Write location**: `[<sessionId>]/asset/jsx/<messageId>.jsx` (inside the session's asset directory; `Edit` can patch it in place).
 
-**Interactive forms**: when you need to collect user input, use `AskUserQuestion`. JsxCreate is for display only.
+**Interactive forms**: when you need to collect user input, ask the user directly in plain text and wait for a reply. JsxCreate is for display only.
 
 ## When to use ChartRender vs JsxCreate
 

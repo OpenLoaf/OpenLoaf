@@ -95,9 +95,10 @@ function MessageHumanTextPart(props: {
   text: string;
   className?: string;
   projectId?: string;
+  sessionId?: string;
 }) {
-  const { text, className, projectId } = props;
-  return <ChatMessageText value={text} className={className} projectId={projectId} />;
+  const { text, className, projectId, sessionId } = props;
+  return <ChatMessageText value={text} className={className} projectId={projectId} sessionId={sessionId} />;
 }
 
 export default function MessageHuman({
@@ -356,6 +357,7 @@ export default function MessageHuman({
               text={text}
               className={cn(USER_MESSAGE_TEXT_CLASS, "text-[12px] leading-4 break-words")}
               projectId={projectId}
+              sessionId={sessionId}
             />
           ))}
       </MessageContent>

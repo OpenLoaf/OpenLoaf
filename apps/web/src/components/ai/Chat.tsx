@@ -348,6 +348,7 @@ function ChatFullPageLayout({
   canImageEdit,
   isCodexProvider,
   onDropHandled,
+  dragOverlay,
   handleDragEnter,
   handleDragOver,
   handleDragLeave,
@@ -370,6 +371,7 @@ function ChatFullPageLayout({
   canImageEdit: boolean
   isCodexProvider: boolean
   onDropHandled: () => void
+  dragOverlay?: React.ReactNode
   handleDragEnter: (e: React.DragEvent) => void
   handleDragOver: (e: React.DragEvent) => void
   handleDragLeave: (e: React.DragEvent) => void
@@ -436,6 +438,7 @@ function ChatFullPageLayout({
             canImageEdit={canImageEdit}
             isCodexProvider={isCodexProvider}
             onDropHandled={onDropHandled}
+            overlay={dragOverlay}
             blockedCompact
           />
           <div className="flex justify-center mt-4 mb-2">
@@ -468,6 +471,7 @@ function ChatFullPageLayout({
           canImageEdit={canImageEdit}
           isCodexProvider={isCodexProvider}
           onDropHandled={onDropHandled}
+          overlay={dragOverlay}
         />
         </>
       )}
@@ -1179,6 +1183,50 @@ export function Chat({
     resetDragState,
   ]);
 
+  // 拖拽遮罩仅覆盖 ChatInput：先铺一层实底把底部按钮/文本盖掉，再叠 DragDropOverlay。
+  const dragOverlayNode = (
+    <>
+      {isDragActive ? (
+        <div
+          className="pointer-events-none absolute inset-0 z-40 rounded-[inherit] bg-background"
+          aria-hidden="true"
+        />
+      ) : null}
+    <DragDropOverlay
+      open={isDragActive}
+      icon={
+        dragMode === "deny"
+          ? <Ban className="h-8 w-8" />
+          : dragHint === "image"
+            ? <ImagePlus className="h-8 w-8" />
+            : <Upload className="h-8 w-8" />
+      }
+      title={
+        dragMode === "deny"
+          ? dragHint === "image"
+            ? t('drag.denyImage')
+            : t('drag.denyFile')
+          : dragHint === "image"
+            ? t('drag.allowImage')
+            : t('drag.allowFile')
+      }
+      variant={dragMode === "deny" ? "warning" : "default"}
+      radiusClassName="rounded-3xl"
+      description={
+        dragMode === "deny" ? (
+          dragHint === "image"
+            ? t('drag.denyImageDesc')
+            : t('drag.denyFileDesc')
+        ) : dragHint === "image" ? (
+          t('drag.allowImageDesc', { max: formatFileSize(CHAT_ATTACHMENT_MAX_FILE_SIZE_BYTES) })
+        ) : (
+          t('drag.allowFileDesc')
+        )
+      }
+    />
+    </>
+  );
+
   // 渲染单个会话内容（活跃状态）
   const renderActiveSession = () => (
     <ChatCoreProvider
@@ -1196,6 +1244,7 @@ export function Chat({
           onCloseSession={onCloseSession}
           projectId={projectId}
           {...sharedInputProps}
+          dragOverlay={dragOverlayNode}
           handleDragEnter={handleDragEnter}
           handleDragOver={handleDragOver}
           handleDragLeave={handleDragLeave}
@@ -1222,6 +1271,7 @@ export function Chat({
           <ChatInput
             className="mx-2 mb-2"
             {...sharedInputProps}
+            overlay={dragOverlayNode}
           />
         </div>
       )}
@@ -1247,38 +1297,6 @@ export function Chat({
         aria-hidden="true"
       />
 
-      <DragDropOverlay
-        open={isDragActive}
-        icon={
-          dragMode === "deny"
-            ? <Ban className="h-8 w-8" />
-            : dragHint === "image"
-              ? <ImagePlus className="h-8 w-8" />
-              : <Upload className="h-8 w-8" />
-        }
-        title={
-          dragMode === "deny"
-            ? dragHint === "image"
-              ? t('drag.denyImage')
-              : t('drag.denyFile')
-            : dragHint === "image"
-              ? t('drag.allowImage')
-              : t('drag.allowFile')
-        }
-        variant={dragMode === "deny" ? "warning" : "default"}
-        radiusClassName="rounded-3xl"
-        description={
-          dragMode === "deny" ? (
-            dragHint === "image"
-              ? t('drag.denyImageDesc')
-              : t('drag.denyFileDesc')
-          ) : dragHint === "image" ? (
-            t('drag.allowImageDesc', { max: formatFileSize(CHAT_ATTACHMENT_MAX_FILE_SIZE_BYTES) })
-          ) : (
-            t('drag.allowFileDesc')
-          )
-        }
-      />
     </div>
   );
 }

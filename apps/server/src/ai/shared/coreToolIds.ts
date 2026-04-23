@@ -36,7 +36,6 @@ export const CORE_TOOL_IDS = [
   'Grep',
   'Edit',
   'Write',
-  'AskUserQuestion',
   'MemorySave',
   'WebSearch',
 ] as const
@@ -61,3 +60,10 @@ export const PM_CORE_TOOL_IDS = [
 
 /** Core tool set for general-purpose sub-agents — no agent collaboration tools. */
 export const SUB_AGENT_CORE_TOOL_IDS = CORE_TOOL_IDS
+
+/**
+ * Core tool set for channel agents (WeChat / Slack / Telegram / 等 IM 通道).
+ *
+ * 与 CORE_TOOL_IDS 当前一致；保留为独立常量，便于未来按 channel 场景裁剪。
+ */
+export const CHANNEL_CORE_TOOL_IDS = CORE_TOOL_IDS

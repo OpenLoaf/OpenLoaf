@@ -277,6 +277,31 @@ export function ensureOpenAiCompatibleBaseUrl(baseUrl: string): string {
   return trimmed.endsWith("/v1") ? trimmed : `${trimmed}/v1`;
 }
 
+/**
+ * 包装 fetch，将 SDK 拼接的路径重写为最终 URL。
+ * 当 finalApiUrl 开启时，SDK 仍会拼接 /chat/completions 等路径，
+ * 此函数拦截请求并将 URL 还原为用户配置的最终地址。
+ */
+export function buildFinalUrlFetch(finalUrl: string, baseFetch: typeof fetch): typeof fetch {
+  return async (input, init) => {
+    if (typeof input === "string" && input.includes("/chat/completions")) {
+      return baseFetch(finalUrl, init);
+    }
+    if (typeof input === "string" && input.includes("/responses")) {
+      return baseFetch(finalUrl, init);
+    }
+    if (input instanceof Request && input.url.includes("/chat/completions")) {
+      const newReq = new Request(finalUrl, input);
+      return baseFetch(newReq, init);
+    }
+    if (input instanceof Request && input.url.includes("/responses")) {
+      const newReq = new Request(finalUrl, input);
+      return baseFetch(newReq, init);
+    }
+    return baseFetch(input, init);
+  };
+}
+
 /** Resolve parent project root paths from database. */
 export async function resolveParentProjectRootPaths(projectId?: string): Promise<string[]> {
   const normalizedId = projectId?.trim() ?? "";

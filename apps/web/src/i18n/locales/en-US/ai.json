@@ -176,6 +176,7 @@
     "FileInfo": "File Info",
     "WebFetch": "Fetch Web Content",
     "WebSearch": "Web Search",
+    "WebSearchImage": "Image Search",
     "Jobs": "Background Tasks",
     "Kill": "Kill Background Task",
     "Sleep": "Wait for Background",
@@ -658,6 +659,13 @@
       "resultCount": "{{count}} results",
       "searching": "Searching...",
       "searchFailed": "Search failed",
+      "loading": "Loading...",
+      "noResults": "No results"
+    },
+    "webSearchImage": {
+      "resultCount": "{{count}} images",
+      "searching": "Searching images...",
+      "searchFailed": "Image search failed",
       "loading": "Loading...",
       "noResults": "No results"
     }

@@ -295,6 +295,48 @@ async function main() {
   })
 
   // -----------------------------------------------------------------------
+  // I. 单文件搜索优化
+  // -----------------------------------------------------------------------
+  console.log('\nI — 单文件搜索优化')
+
+  await test('单文件 content 模式：路径只显示一次', async () => {
+    const singleFile = path.join(testDir, 'grep-src', 'main.ts')
+    const result = await callGrep({
+      pattern: 'TODO',
+      path: singleFile,
+      output_mode: 'content',
+    })
+    assert.ok(result.startsWith('File:'), `单文件应以 File: 开头: ${result}`)
+    const lines = result.split('\n').filter(Boolean)
+    // File: header + 每行结果（不应重复文件路径）
+    for (let i = 1; i < lines.length; i++) {
+      assert.ok(!lines[i]!.includes('main.ts'), `第 ${i} 行不应重复文件路径: ${lines[i]}`)
+    }
+  })
+
+  await test('单文件 content 模式：行号和内容正确', async () => {
+    const singleFile = path.join(testDir, 'grep-src', 'main.ts')
+    const result = await callGrep({
+      pattern: 'TODO',
+      path: singleFile,
+      output_mode: 'content',
+    })
+    assert.ok(result.includes('implement feature'), `应包含匹配内容: ${result}`)
+    assert.ok(result.includes('fix bug'), `应包含匹配内容: ${result}`)
+  })
+
+  await test('单文件 count 模式：路径只显示一次', async () => {
+    const singleFile = path.join(testDir, 'grep-src', 'main.ts')
+    const result = await callGrep({
+      pattern: 'TODO',
+      path: singleFile,
+      output_mode: 'count',
+    })
+    assert.ok(result.startsWith('File:'), `单文件 count 应以 File: 开头: ${result}`)
+    assert.ok(result.includes('2 total occurrences'), `应计数 2 次 TODO: ${result}`)
+  })
+
+  // -----------------------------------------------------------------------
   // Summary
   // -----------------------------------------------------------------------
   console.log(`\n${passed + failed} tests: ${passed} passed, ${failed} failed`)

@@ -438,9 +438,51 @@ function summarizeAction(action: Record<string, unknown>): string {
       return `wait ${(action as { ms?: number }).ms ?? 0}ms`
     case 'ax_action':
       return `ax_action ${String((action as { action?: string }).action ?? '')}`
+    case 'menu_click':
+      return `menu ${String((action as { app?: string }).app ?? '')} > ${((action as { menuPath?: string[] }).menuPath ?? []).join(' > ')}`
+    case 'applescript':
+      return `applescript (${String((action as { code?: string }).code ?? '').slice(0, 40).replace(/\s+/g, ' ')}…)`
     default:
       return t
   }
+}
+
+/**
+ * Run AppleScript via `/usr/bin/osascript -e <code>`. Resolves with stdout
+ * (trimmed) on exit code 0; rejects with stderr / non-zero message otherwise.
+ * Kills the child on timeout so a hung UI doesn't stall the tool.
+ */
+function runAppleScript(code: string, timeoutMs: number): Promise<string> {
+  return new Promise((resolve, reject) => {
+    if (process.platform !== 'darwin') {
+      reject(new Error('applescript requires macOS'))
+      return
+    }
+    const child = spawn('/usr/bin/osascript', ['-e', code], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    let stdout = ''
+    let stderr = ''
+    child.stdout?.on('data', (c) => {
+      stdout += c.toString('utf8')
+    })
+    child.stderr?.on('data', (c) => {
+      stderr += c.toString('utf8')
+    })
+    const timer = setTimeout(() => {
+      child.kill('SIGKILL')
+      reject(new Error(`applescript timed out after ${timeoutMs}ms`))
+    }, timeoutMs)
+    child.on('error', (err) => {
+      clearTimeout(timer)
+      reject(err)
+    })
+    child.on('exit', (code) => {
+      clearTimeout(timer)
+      if (code === 0) resolve(stdout.trim())
+      else reject(new Error(stderr.trim() || `osascript exited with code ${code}`))
+    })
+  })
 }
 
 export const macosObserveTool = tool({
@@ -584,6 +626,35 @@ export const macosActTool = tool({
     }
 
     const sessionId = getSessionId()
+
+    // TS-side shortcut: `applescript` is just osascript. Runs in background,
+    // no focus change, no cursor movement — ideal for scriptable apps (Finder,
+    // Mail, Calendar, Safari, etc.). Returns stdout to the model.
+    if ((action as { type?: string })?.type === 'applescript') {
+      const code = String((action as { code?: string }).code ?? '').trim()
+      if (!code) {
+        progress.error('applescript missing code')
+        return T.actFail(lang, lang === 'zh' ? 'applescript 缺少 code 参数' : 'applescript missing code parameter')
+      }
+      const timeoutMs = Math.min(
+        Math.max(Number((action as { timeoutMs?: number }).timeoutMs ?? 10000), 100),
+        30000,
+      )
+      try {
+        const out = await runAppleScript(code, timeoutMs)
+        progress.done(T.progressDone(lang, label))
+        const body = out
+          ? lang === 'zh'
+            ? `AppleScript 完成。输出：\n${out}`
+            : `AppleScript done. Output:\n${out}`
+          : T.actDone(lang, label)
+        return body
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        progress.error(msg)
+        return T.actFail(lang, msg)
+      }
+    }
 
     // TS-side shortcut: `launch_app` doesn't need AX / CGEvent, just shell out
     // to macOS `open -a`. Avoids a native rebuild and lets the model replace a

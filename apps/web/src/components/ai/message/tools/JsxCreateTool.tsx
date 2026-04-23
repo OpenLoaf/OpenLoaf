@@ -82,13 +82,19 @@ export default function JsxCreateTool({
       ? `${CHAT_SESSION_DIR_URI}/asset/jsx/${messageId}.jsx`
       : ''
   // 逻辑：流式期间 JSX 文件尚未落盘，跳过查询避免 404。
+  // suppressToast：会话切换瞬间（新建对话 / 切换历史会话）存在短暂的中间渲染
+  // ——messages 还残留旧 messageId，sessionId 已切到新会话——会用"新 sessionId +
+  // 旧 messageId"发一发必然 404 的请求。组件本身有 fallback 到 inputJsx，
+  // 不影响渲染，唯一副作用是全局 QueryCache.onError 弹 toast，抑制即可。
   const readFileOptions = React.useMemo(
-    () =>
-      trpc.fs.readFile.queryOptions(
+    () => ({
+      ...trpc.fs.readFile.queryOptions(
         jsxUri && !isStreaming
           ? { projectId, sessionId, uri: jsxUri }
           : skipToken,
       ),
+      meta: { suppressToast: true },
+    }),
     [jsxUri, projectId, sessionId, isStreaming],
   )
   const fileQuery = useQuery(readFileOptions)

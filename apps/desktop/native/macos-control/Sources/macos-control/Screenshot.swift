@@ -27,6 +27,10 @@ enum Screenshot {
         let cfg = SCStreamConfiguration()
         cfg.width = display.width * 2
         cfg.height = display.height * 2
+        // Without scalesToFit the source renders 1:1 top-left and leaves the
+        // rest of the oversized buffer black — model sees only 1/4 of the
+        // screen and clicks blind.
+        cfg.scalesToFit = true
         cfg.showsCursor = true
         let cgImage = try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: cfg)
         result = .success((cgImage, cgImage.width, cgImage.height, display.frame))

@@ -30,6 +30,12 @@ export type CapabilityGroup = {
 
 const RAW_CAPABILITY_GROUPS = [
   {
+    id: 'desktop-control',
+    label: '桌面远控',
+    description: 'macOS 桌面观察与控制——截屏、定位、点击、键入（IM 通道远程遥控电脑的核心）',
+    toolIds: ['MacosObserve', 'MacosAct'],
+  },
+  {
     id: 'browser',
     label: '浏览器操作',
     description: '网页浏览、数据抓取和浏览器自动化',

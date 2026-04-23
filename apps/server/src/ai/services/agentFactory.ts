@@ -29,7 +29,7 @@ import type {
   LanguageModelV3,
 } from '@ai-sdk/provider'
 import type { PrepareStepFunction, StopCondition } from 'ai'
-import { getRequestContext, getSessionId, getPlanUpdate, type AgentFrame } from '@/ai/shared/context/requestContext'
+import { getRequestContext, getSessionId, getPlanUpdate, appendCompressLog, type AgentFrame } from '@/ai/shared/context/requestContext'
 import {
   buildToolset,
   getToolJsonSchemas,
@@ -46,6 +46,8 @@ import {
   getMasterPrompt,
   getPMPrompt,
   PM_AGENT_TOOL_IDS,
+  getChannelPrompt,
+  CHANNEL_AGENT_TOOL_IDS,
 } from '@/ai/agent-templates'
 import { getBuiltinAgentDefinition } from '@/ai/shared/systemAgentDefinitions'
 import { logger } from '@/common/logger'
@@ -68,12 +70,14 @@ import { maybeInjectStepBudgetReminder } from '@/ai/services/stepBudgetSoftLandi
 import { microcompactMessages, extractLastAssistantTimestamp } from '@/ai/shared/microCompact'
 import { expandToolResultAttachmentTagsInCoreMessages } from '@/ai/shared/attachmentTagExpander'
 import { ContextCollapseManager, type CollapseResult } from '@/ai/shared/contextCollapse'
+import { trimToContextWindow, estimateMessagesTokens } from '@/ai/shared/contextWindowManager'
 import { buildToolSearchGuidance } from '@/ai/shared/toolSearchGuidance'
 import { applyToolResultInterception } from '@/ai/tools/toolResultInterceptor'
 import {
   MASTER_CORE_TOOL_IDS,
   PM_CORE_TOOL_IDS,
   SUB_AGENT_CORE_TOOL_IDS,
+  CHANNEL_CORE_TOOL_IDS,
 } from '@/ai/shared/coreToolIds'
 
 // ---------------------------------------------------------------------------
@@ -295,11 +299,18 @@ function createToolSearchPrepareStep(
       }
     }
 
-    // Step 0 only: microcompact + context collapse (or auto-compact fallback)
+    // Step 0: microcompact + context collapse (or auto-compact fallback)
+    // Step > 0: lightweight trimToContextWindow safety net
     let finalMessages = prunedWithPlan
+    const tokensBeforeStep = estimateMessagesTokens(prunedWithPlan)
+
     if (stepNumber === 0) {
       // 3. Microcompact — clear old tool results after idle gap
       const mcResult = microcompactMessages(prunedWithPlan, options?.lastAssistantTimestamp)
+      if (mcResult.messages !== prunedWithPlan) {
+        const saved = tokensBeforeStep - estimateMessagesTokens(mcResult.messages)
+        if (saved > 0) appendCompressLog({ stepNumber, method: 'microcompact', tokensBefore: tokensBeforeStep, tokensAfter: estimateMessagesTokens(mcResult.messages), tokensSaved: saved })
+      }
       finalMessages = mcResult.messages
 
       // 4. Context Collapse — non-destructive incremental summarization
@@ -310,15 +321,37 @@ function createToolSearchPrepareStep(
           model as any,
         )
         if (collapseResult.collapsed) {
+          appendCompressLog({ stepNumber, method: 'collapse', tokensBefore: tokensBeforeStep, tokensAfter: estimateMessagesTokens(collapseResult.messages), tokensSaved: collapseResult.tokensSaved })
           finalMessages = collapseResult.messages
         } else {
           // Collapse didn't trigger — fall back to auto-compact as safety net
+          const beforeCompact = estimateMessagesTokens(finalMessages)
           finalMessages = await tryAutoCompact(finalMessages, options?.modelId, model as any)
+          const afterCompact = estimateMessagesTokens(finalMessages)
+          if (afterCompact < beforeCompact) {
+            appendCompressLog({ stepNumber, method: 'compact', tokensBefore: beforeCompact, tokensAfter: afterCompact, tokensSaved: beforeCompact - afterCompact })
+          }
         }
       } else {
         // No collapse manager — use legacy auto-compact
+        const beforeCompact = estimateMessagesTokens(finalMessages)
         finalMessages = await tryAutoCompact(finalMessages, options?.modelId, model as any)
+        const afterCompact = estimateMessagesTokens(finalMessages)
+        if (afterCompact < beforeCompact) {
+          appendCompressLog({ stepNumber, method: 'compact', tokensBefore: beforeCompact, tokensAfter: afterCompact, tokensSaved: beforeCompact - afterCompact })
+        }
       }
+    } else {
+      // step > 0: 轻量安全兜底 — 仅 trimToContextWindow（不跑 LLM 摘要）
+      const trimmed = trimToContextWindow(finalMessages, { modelId: options?.modelId }) as typeof finalMessages
+      if (trimmed !== finalMessages) {
+        const saved = tokensBeforeStep - estimateMessagesTokens(trimmed)
+        if (saved > 0) {
+          appendCompressLog({ stepNumber, method: 'trim', tokensBefore: tokensBeforeStep, tokensAfter: estimateMessagesTokens(trimmed), tokensSaved: saved })
+          logger.info({ stepNumber, tokensBefore: tokensBeforeStep, tokensAfter: estimateMessagesTokens(trimmed), saved }, '[prepareStep] mid-turn trim applied')
+        }
+      }
+      finalMessages = trimmed
     }
 
     // 4.5 Step-budget soft landing — inject a system-reminder when we're
@@ -620,6 +653,93 @@ export function createPMAgentFrame(input: {
     model: input.model,
     taskId: input.taskId,
     projectId: input.projectId,
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Channel Agent (for IM channels: WeChat / Slack / Telegram / etc.)
+// ---------------------------------------------------------------------------
+
+/** Channel agent display name. */
+const CHANNEL_AGENT_NAME = 'ChannelAgent'
+/** Channel agent id prefix. */
+const CHANNEL_AGENT_ID_PREFIX = 'channel-agent'
+/** Channel agent step limit (same as master). */
+const CHANNEL_AGENT_MAX_STEPS = MASTER_HARD_MAX_STEPS
+
+export type CreateChannelAgentInput = {
+  model: LanguageModelV3
+  /** Optional language override for prompt selection. */
+  lang?: string
+  /** Optional instructions override. */
+  instructions?: string
+}
+
+/**
+ * Creates a channel agent instance for IM channels (WeChat / Slack / Telegram).
+ *
+ * Differs from master:
+ *  - No JSX / chart / widget / DocPreview tools
+ *  - No OpenLoaf app-internal objects (project / board / calendar / email)
+ *  - Keeps desktop / browser control (core value: remote-control via IM)
+ *  - Tier-based text-confirmation approval protocol (baked into prompt)
+ */
+export function createChannelAgent(input: CreateChannelAgentInput) {
+  const instructions = input.instructions || getChannelPrompt(input.lang)
+  const wrappedModel = wrapModelWithExamples(input.model)
+
+  const ctx = getRequestContext()
+  const coreToolIds = [...CHANNEL_CORE_TOOL_IDS] as string[]
+
+  const deferredToolIds = filterToolIdsByPlatform(
+    CHANNEL_AGENT_TOOL_IDS.filter((id) => !coreToolIds.includes(id)) as string[],
+    ctx?.clientPlatform,
+  )
+
+  const mcpToolIds = getMcpToolIds()
+  const allToolIds = [...new Set([...coreToolIds, ...deferredToolIds, ...mcpToolIds])]
+
+  const tools = buildToolset(allToolIds)
+  const activatedSet = new ActivatedToolSet(coreToolIds)
+  tools['ToolSearch'] = createToolSearchTool(activatedSet, new Set(allToolIds), getToolJsonSchemas)
+  applyActivationGuard(tools, activatedSet, coreToolIds)
+  applyToolResultInterception(tools, getSessionId)
+
+  const hardRules = buildHardRules(resolvePromptLang(input.lang))
+  const toolSearchGuidance = buildToolSearchGuidance(ctx?.clientPlatform, deferredToolIds)
+  const finalInstructions = `${instructions}\n\n${hardRules}\n\n${toolSearchGuidance}`
+
+  return new ToolLoopAgent({
+    model: wrappedModel,
+    instructions: finalInstructions,
+    tools,
+    stopWhen: [stepCountIs(CHANNEL_AGENT_MAX_STEPS), dynamicStepLimit()] as StopCondition<any>[],
+    experimental_repairToolCall: createToolCallRepair(),
+    prepareStep: createToolSearchPrepareStep(allToolIds, activatedSet, {
+      modelId: input.model.modelId,
+      collapseManager: new ContextCollapseManager({
+        modelId: input.model.modelId,
+      }),
+      maxSteps: CHANNEL_AGENT_MAX_STEPS,
+    }),
+    ...buildResponsesApiProviderOptions(input.model),
+  })
+}
+
+/** Creates the frame metadata for a channel agent. */
+export function createChannelAgentFrame(input: {
+  model: MasterAgentModelInfo
+  sessionId?: string
+}): AgentFrame {
+  const agentId = input.sessionId
+    ? `${CHANNEL_AGENT_ID_PREFIX}-${input.sessionId}`
+    : `${CHANNEL_AGENT_ID_PREFIX}-${Date.now()}`
+  return {
+    kind: 'channel',
+    name: CHANNEL_AGENT_NAME,
+    agentId,
+    path: [CHANNEL_AGENT_NAME],
+    model: input.model,
   }
 }
 

@@ -57,12 +57,25 @@ A single `MacosObserve` returns:
 |------|-------|------|
 | `launch_app` | Launch an app via `open -a` (name or bundle id) | **Preferred for launching** — one call, beats Spotlight |
 | `click` | Click. Prefer `ref` (AX reference); fall back to `point: {x,y}` | Most interactions |
+| `menu_click` | Click a menu-bar item via AX (`{app, menuPath:["View","Moments"]}`) | **Preferred for in-app navigation** — cursor doesn't move, ≈100% success even on custom-drawn UIs (WeChat/QQ/Feishu) because the menu bar is always AX-exposed |
+| `applescript` | Run an AppleScript via `osascript -e` | **Real background channel** for scriptable apps (Finder, Mail, Calendar, Safari, Chrome, Notes, Reminders, Messages, Music, Terminal, iTerm, Keynote). No focus grab, no cursor, can return data |
+| `key` | Send a key combo (`return`, `cmd+2`, `cmd+w`, …) | Shortcuts beat clicks — no cursor motion, no pixel guessing (**use `launch_app` — never `cmd+space` — to open apps**) |
+| `click` | Click at AxRef or screenshot pixel `{x,y}` | **Last resort** — only when menu_click / key / ax_action don't apply |
 | `type` | Type text at current focus | After focusing an input |
-| `key` | Send a key combo (`return`, `escape`, `cmd+w`, …) | Shortcuts, submit, cancel (**use `launch_app` — never `cmd+space` — to open apps**) |
 | `scroll` | Scroll `dx/dy` at `point` | Content off-viewport |
 | `drag` | Drag from `from` to `to` | Drag-drop, selection |
 | `wait` | Sleep `ms` milliseconds (≤10000) | Rarely — next observe usually suffices |
-| `ax_action` | Execute a named AX action on a node (`AXPress`, `AXShowMenu`, …) | Prefer when the AX node supports it — more robust than coordinate click |
+| `ax_action` | Execute a named AX action on a node (`AXPress`, `AXShowMenu`, …) | For standard AXPress prefer `menu_click` |
+
+## Decision Order (Navigation / Triggering Actions)
+
+**Flat priority: `menu_click` → `applescript` → `key` → `ax_action` → `click`.** Cascade downward — only fall through when the earlier option doesn't fit.
+
+- Jump to an in-app page (Moments, favorites, today view, new Finder window, …) → try `menu_click` first
+- Finder / Mail / Calendar / Safari / Chrome / Notes / Reminders / Messages / Music / Terminal → reach for `applescript` directly for true background
+- Well-known keyboard shortcut exists → `key`
+- AX node has `actions: ["AXPress"]` → `ax_action`
+- Only when none of the above work → coordinate `click`
 
 ## Prefer AX ref Over Coordinates
 
@@ -133,3 +146,5 @@ User asks "what's on my screen", "what does the xx field in current app say": a 
 4. **Stop when a sensitive app (password manager, banking) is in foreground**
 5. **A single observe is usually enough — don't over-screenshot**
 6. **On non-desktop, return desktop-only at once; switch to browser tools or hand back to user**
+7. **After 2 consecutive coordinate clicks with no observable change in the AX tree / screenshot → stop clicking.** Tell the user plainly: "I couldn't locate the target — the app likely uses a custom-drawn UI (WeChat / QQ / Feishu etc.) that doesn't expose controls via Accessibility." Then: ① try the menu bar (top-of-screen menu items or keyboard shortcuts); ② ask the user to point out the icon. **Do not** keep nudging coordinates by +30/+50 pixels, and **never** claim success without observable evidence.
+8. **Custom-drawn UI detection**: WeChat / QQ / Feishu / DingTalk / WeCom and similar apps usually expose only an AXWindow plus a few buttons in their AX tree — no content-area controls. Coordinate-clicking these is near-hopeless; go through the menu bar / shortcut / hand back to the user instead of guessing pixels.

@@ -43,7 +43,6 @@ const SKIP_PERSISTENCE_TOOLS = new Set([
   'ToolSearch',       // Tool search results are metadata
   'Agent',             // Sub-agent results already compressed
   'SendMessage',
-  'AskUserQuestion',
   'LoadSkill',
 ])
 

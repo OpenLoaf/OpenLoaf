@@ -26,6 +26,7 @@ import {
 } from "@/ai/services/chat/repositories/messageStore";
 import type { ChatImageRequestResult } from "@/ai/services/image/types";
 import { replaceRelativeFileParts } from "@/ai/services/image/attachmentResolver";
+import { registerChatAbort } from "@/ai/services/chat/chatAbortRegistry";
 
 /** Format invalid request errors for client display. */
 export function formatInvalidRequestMessage(message: string): string {
@@ -165,9 +166,21 @@ export function initRequestContext(input: {
   });
 
   const abortController = new AbortController();
-  input.requestSignal.addEventListener("abort", () => {
+  // 若 HTTP 请求信号已中止，直接同步中止（addEventListener 对已中止 signal 不再触发）。
+  if (input.requestSignal.aborted) {
     abortController.abort();
-  });
+  } else {
+    input.requestSignal.addEventListener(
+      "abort",
+      () => {
+        abortController.abort();
+      },
+      { once: true },
+    );
+  }
+  // 登记到 sessionId → AbortController 注册表，供 /ai/chat/abort 显式中止使用。
+  // 不依赖 HTTP 连接 close 事件，避免 provider 忽略 signal 或 HTTP/2 下 close 时序不稳。
+  registerChatAbort(input.sessionId, abortController);
 
   const requestStartAt = new Date();
   const assistantMessageId =

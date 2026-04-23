@@ -29,6 +29,7 @@ import { sendWeChatText } from './wechatSendService'
 import { logger } from '@/common/logger'
 
 const DEBOUNCE_MS = 3_000
+const ACK_TEXT = '🤖 收到消息，OpenLoaf 正在处理...'
 
 interface PendingItem {
   text: string
@@ -54,6 +55,7 @@ export function scheduleAiReply(input: {
   const { sessionId, accountId, text, createTimeMs, contextToken } = input
 
   const arr = pending.get(sessionId) ?? []
+  const isFirstOfBurst = arr.length === 0
   arr.push({ text, createTimeMs, contextToken })
   pending.set(sessionId, arr)
 
@@ -71,6 +73,14 @@ export function scheduleAiReply(input: {
     void runAiTurn(sessionId, accountId)
   }, DEBOUNCE_MS)
   states.set(sessionId, state)
+
+  // burst 首条即刻回执（让用户知道消息已收到，AI 正在工作）。
+  // burst 内后续消息不重复 ack，避免刷屏。
+  if (isFirstOfBurst && contextToken) {
+    void sendWeChatText({ accountId, text: ACK_TEXT, contextToken }).catch((err) => {
+      logger.warn({ err: String(err), sessionId }, '[wechat-ai] ack sendText failed')
+    })
+  }
 }
 
 async function runAiTurn(sessionId: string, accountId: string): Promise<void> {
@@ -97,6 +107,7 @@ async function runAiTurn(sessionId: string, accountId: string): Promise<void> {
         sessionId,
         messages: [userMessage as any],
         trigger: 'submit-message',
+        agentType: 'channel',
       } as any,
       cookies: {},
       requestSignal: ac.signal,
@@ -157,12 +168,15 @@ function buildUserMessage(batch: PendingItem[]) {
             return `[${hh}:${mm}] ${it.text}`
           }),
         ].join('\n')
+  // Deliberately omit parentMessageId — saveLastMessageAndResolveParent treats
+  // `undefined` as "auto-resolve to rightmost leaf", which chains this turn's
+  // synthesized user message onto the latest stored inbound wx-msg / assistant
+  // reply. Forcing null would park it at the tree root.
   return {
     id: randomUUID(),
     role: 'user' as const,
     parts: [{ type: 'text' as const, text }],
     createdAt: new Date(),
-    parentMessageId: null,
   }
 }
 
@@ -184,4 +198,15 @@ export function __resetBridgeStateForTests(): void {
   }
   states.clear()
   pending.clear()
+}
+
+/** Per-session variant — used by parallel browser tests. */
+export function __resetBridgeStateForSession(sessionId: string): void {
+  const state = states.get(sessionId)
+  if (state) {
+    if (state.timer) clearTimeout(state.timer)
+    if (state.activeAbort) state.activeAbort.abort()
+    states.delete(sessionId)
+  }
+  pending.delete(sessionId)
 }

@@ -176,6 +176,7 @@
     "FileInfo": "ファイル情報",
     "WebFetch": "ウェブコンテンツを取得",
     "WebSearch": "ウェブ検索",
+    "WebSearchImage": "画像検索",
     "Jobs": "バックグラウンドタスク一覧",
     "Kill": "バックグラウンドタスクを終了",
     "Sleep": "バックグラウンド待機",
@@ -658,6 +659,13 @@
       "resultCount": "{{count}} 件",
       "searching": "検索中...",
       "searchFailed": "検索に失敗しました",
+      "loading": "読み込み中...",
+      "noResults": "結果なし"
+    },
+    "webSearchImage": {
+      "resultCount": "{{count}} 枚",
+      "searching": "画像を検索中...",
+      "searchFailed": "画像検索に失敗しました",
       "loading": "読み込み中...",
       "noResults": "結果なし"
     }

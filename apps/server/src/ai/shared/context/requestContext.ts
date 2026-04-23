@@ -23,7 +23,17 @@ export type PlanUpdate = {
   plan: string[];
 };
 
-export type AgentKind = "master" | "secretary" | "pm" | "specialist";
+export type CompressMethod = 'collapse' | 'compact' | 'trim' | 'microcompact'
+
+export type CompressLogEntry = {
+  stepNumber: number
+  method: CompressMethod
+  tokensBefore: number
+  tokensAfter: number
+  tokensSaved: number
+}
+
+export type AgentKind = "master" | "secretary" | "pm" | "specialist" | "channel";
 
 export type AgentFrame = {
   kind: AgentKind;
@@ -114,6 +124,8 @@ export type RequestContext = {
   desktopVersion?: string;
   /** Page context for AI agent skill auto-loading. */
   pageContext?: ChatPageContext;
+  /** 压缩日志 — 每次 prepareStep 触发压缩时追加，onFinish 时读出写入 message metadata */
+  compressLog?: CompressLogEntry[];
 };
 
 const storage = new AsyncLocalStorage<RequestContext>();
@@ -394,6 +406,23 @@ export function getCreditsConsumed(): number | undefined {
 /** Get page context for skill auto-loading. */
 export function getPageContext(): ChatPageContext | undefined {
   return getRequestContext()?.pageContext;
+}
+
+/** Append a compress log entry to the request context. */
+export function appendCompressLog(entry: CompressLogEntry): void {
+  const ctx = getRequestContext()
+  if (!ctx) return
+  if (!ctx.compressLog) ctx.compressLog = []
+  ctx.compressLog.push(entry)
+}
+
+/** Consume and clear the compress log (call once in onFinish). */
+export function consumeCompressLog(): CompressLogEntry[] | undefined {
+  const ctx = getRequestContext()
+  if (!ctx?.compressLog?.length) return undefined
+  const log = ctx.compressLog
+  ctx.compressLog = []
+  return log
 }
 
 /** Check if current Agent frame is the Master Agent (stack depth 1 = top-level master). */

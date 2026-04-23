@@ -29,6 +29,7 @@ export function buildWeChatIntegrationDefinition(
     description:
       'Bind one or more WeChat accounts via iLink Bot API. Scan the QR code with the WeChat account you want to connect.',
     category: 'communication',
+    authType: 'credentials',
     iconUrl: '/icons/wechat.svg',
     homepage: 'https://www.wechatbot.dev',
     guide: [],

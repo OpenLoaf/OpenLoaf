@@ -100,6 +100,8 @@ interface ChatInputProps {
   canImageEdit?: boolean;
   isCodexProvider?: boolean;
   onDropHandled?: () => void;
+  /** Overlay rendered inside the rounded input container (e.g. drag-drop mask). */
+  overlay?: ReactNode;
   /** When true, hides icon/title/subtitle in blocked state (used in centered layout). */
   blockedCompact?: boolean;
 }
@@ -151,6 +153,8 @@ export interface ChatInputBoxProps {
   defaultProjectId?: string;
   /** Active chat tab id for mention inserts. */
   tabId?: string;
+  /** Current session id — enables ${CURRENT_CHAT_DIR} template resolution for attachment preview. */
+  sessionId?: string;
   /** Whether to show slash command menu. */
   commandMenuEnabled?: boolean;
   /** Use larger editor text and height (for full-page centered layout). */
@@ -193,6 +197,8 @@ export interface ChatInputBoxProps {
   uploadFileToSession?: (file: File) => Promise<string | null>;
   /** Callback when an @agents/ mention is selected or cleared. */
   onAgentSelect?: (agent: SelectedAgent | null) => void;
+  /** Overlay rendered inside the rounded input container. */
+  overlay?: ReactNode;
 }
 
 export function ChatInputBox({
@@ -229,6 +235,7 @@ export function ChatInputBox({
   onDropHandled,
   defaultProjectId,
   tabId,
+  sessionId,
   commandMenuEnabled = false,
   large,
   dictationLanguage,
@@ -249,6 +256,7 @@ export function ChatInputBox({
   projectSelectorDisabled = false,
   afterProjectSelector,
   onAgentSelect,
+  overlay,
 }: ChatInputBoxProps) {
   const { t } = useTranslation(['ai', 'common']);
   const resolvedSubmitLabel = submitLabel ?? t('chat.send');
@@ -273,6 +281,7 @@ export function ChatInputBox({
     handleChipClick,
     handleSelectFileRefs,
     handleDrop,
+    handleProjectFileRefsInsert,
     normalizeFileRef,
     insertFileMention,
   } = useChatInputDrop({
@@ -450,15 +459,15 @@ export function ChatInputBox({
     const handleInsertMention = (event: Event) => {
       const detail = (event as CustomEvent<{ value?: string; keepSelection?: boolean }>).detail;
       const value = detail?.value ?? "";
-      const normalizedRef = normalizeFileRef(value);
-      if (!normalizedRef) return;
-      insertFileMention(normalizedRef, { skipFocus: detail?.keepSelection });
+      if (!value) return;
+      // 复用 drop 流程：完整 attachment tag（含 name / http URL）保留原样，scoped path 规范化。
+      void handleProjectFileRefsInsert([value]);
     };
     window.addEventListener("openloaf:chat-insert-mention", handleInsertMention);
     return () => {
       window.removeEventListener("openloaf:chat-insert-mention", handleInsertMention);
     };
-  }, [insertFileMention, normalizeFileRef]);
+  }, [handleProjectFileRefsInsert]);
 
   // 监听从 Chat 容器转发的系统文件拖拽事件，上传并插入 mention。
   useEffect(() => {
@@ -521,6 +530,7 @@ export function ChatInputBox({
           void handleDrop(event);
         }}
       >
+      {overlay}
       {commandMenuEnabled && !isBlocked ? (
         <ChatCommandMenu
           ref={commandMenuRef}
@@ -624,6 +634,8 @@ export function ChatInputBox({
                 } : undefined}
                 placeholder={resolvedPlaceholder}
                 large={large}
+                projectId={defaultProjectId}
+                sessionId={sessionId}
                 className={cn(isOverLimit && "text-destructive")}
               />
             </div>
@@ -798,6 +810,7 @@ function ChatInputInner({
   canImageEdit,
   isCodexProvider,
   onDropHandled,
+  overlay,
 }: ChatInputProps) {
   const { t } = useTranslation('ai');
   const { sendMessage, stopGenerating, clearError, setPendingCloudMessage } = useChatActions();
@@ -1229,6 +1242,7 @@ function ChatInputInner({
         commandMenuEnabled
         defaultProjectId={projectId}
         tabId={tabId}
+        sessionId={sessionId}
         dictationLanguage={dictationLanguage}
         dictationSoundEnabled={dictationSoundEnabled}
         onDictationListeningChange={(isListening) => {
@@ -1244,6 +1258,7 @@ function ChatInputInner({
         assistantMessageCount={assistantMessageCount}
         cliToolLabel={cliToolLabel}
         blockedCompact={blockedCompact}
+        overlay={overlay}
         uploadFileToSession={uploadFileToSession}
         onAgentSelect={setSelectedAgent}
         fallbackProjectLabel={fallbackProjectLabel}

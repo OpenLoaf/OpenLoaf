@@ -35,6 +35,8 @@ type ProviderSettingValue = {
   options?: {
     /** Whether to enable OpenAI Responses API. */
     enableResponsesApi?: boolean;
+    /** Whether apiUrl is the final endpoint URL (no path appending). */
+    finalApiUrl?: boolean;
   };
 };
 
@@ -497,6 +499,7 @@ export function useProviderManagement() {
   const [draftAccessKeyId, setDraftAccessKeyId] = useState("");
   const [draftSecretAccessKey, setDraftSecretAccessKey] = useState("");
   const [draftEnableResponsesApi, setDraftEnableResponsesApi] = useState(false);
+  const [draftFinalApiUrl, setDraftFinalApiUrl] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
   const [showSecretAccessKey, setShowSecretAccessKey] = useState(false);
   const [draftModelIds, setDraftModelIds] = useState<string[]>([]);
@@ -551,6 +554,7 @@ export function useProviderManagement() {
     setDraftAccessKeyId(authFields.accessKeyId);
     setDraftSecretAccessKey(authFields.secretAccessKey);
     setDraftEnableResponsesApi(Boolean(entry?.options?.enableResponsesApi));
+    setDraftFinalApiUrl(Boolean(entry?.options?.finalApiUrl));
     setShowAuth(false);
     setShowSecretAccessKey(false);
     setDraftCustomModels(customModels);
@@ -634,10 +638,12 @@ export function useProviderManagement() {
       apiUrl,
       authConfig,
       models,
-      options:
-        draftProvider === "custom"
+      options: {
+        ...(draftProvider === "custom"
           ? { enableResponsesApi: draftEnableResponsesApi }
-          : undefined,
+          : {}),
+        ...(draftFinalApiUrl ? { finalApiUrl: true } : {}),
+      },
     };
 
     if (!editingKey) {
@@ -948,6 +954,8 @@ export function useProviderManagement() {
     setDraftSecretAccessKey,
     draftEnableResponsesApi,
     setDraftEnableResponsesApi,
+    draftFinalApiUrl,
+    setDraftFinalApiUrl,
     showAuth,
     setShowAuth,
     showSecretAccessKey,

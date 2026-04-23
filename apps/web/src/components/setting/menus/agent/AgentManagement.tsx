@@ -526,14 +526,17 @@ function GlobalAgentView() {
               const colorIdx = simpleHash(agent.name) % CARD_COLOR_PALETTE.length;
               const palette = CARD_COLOR_PALETTE[colorIdx]!;
               const agentGroups = resolveAgentGroups(agent.toolIds);
-              const primaryGroup = agentGroups[0];
-              const tagLabel = primaryGroup
-                ? t(`settings:capabilityGroups.${primaryGroup.id}`, {
-                    defaultValue: primaryGroup.label || primaryGroup.id,
-                  })
-                : agent.scope === "project"
-                  ? t("settings:agent.badgeProject")
-                  : t("settings:agent.scopeGlobal");
+              const tagLabels: string[] = agentGroups.length
+                ? agentGroups.map((g) =>
+                    t(`settings:capabilityGroups.${g.id}`, {
+                      defaultValue: g.label || g.id,
+                    }),
+                  )
+                : [
+                    agent.scope === "project"
+                      ? t("settings:agent.badgeProject")
+                      : t("settings:agent.scopeGlobal"),
+                  ];
               // 逻辑：无论是否系统 Agent，都尝试查 agentTemplates.{folderName} 翻译，
               // 找不到就回退到 AGENT.md 自带的原始 name / description。
               // 这让种子化的内置 Agent（general-purpose / explore 等）也能在列表自动国际化显示。
@@ -589,12 +592,45 @@ function GlobalAgentView() {
                         {displayName}
                       </span>
 
-                      {/* Tag badge */}
-                      <span
-                        className={`rounded-full border border-dashed px-3 py-0.5 text-xs font-medium ${palette.tag} ${palette.tagBorder}`}
-                      >
-                        {tagLabel}
-                      </span>
+                      {/* Capability tags — cap at MAX_VISIBLE_TAGS per card so rows stay
+                          uniform; overflow collapses into a +N pill with full list in tooltip. */}
+                      {(() => {
+                        const MAX_VISIBLE_TAGS = 3;
+                        const visible = tagLabels.slice(0, MAX_VISIBLE_TAGS);
+                        const hiddenCount = tagLabels.length - visible.length;
+                        return (
+                          <div className="flex w-full flex-wrap justify-center gap-1">
+                            {visible.map((label, i) => (
+                              <span
+                                key={`${label}-${i}`}
+                                className={`rounded-full border border-dashed px-2.5 py-0.5 text-[11px] font-medium ${palette.tag} ${palette.tagBorder}`}
+                              >
+                                {label}
+                              </span>
+                            ))}
+                            {hiddenCount > 0 ? (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span
+                                    className={`cursor-default rounded-full border border-dashed px-2.5 py-0.5 text-[11px] font-medium ${palette.tag} ${palette.tagBorder}`}
+                                  >
+                                    +{hiddenCount}
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent side="bottom" sideOffset={6}>
+                                  <div className="flex max-w-[240px] flex-wrap gap-1">
+                                    {tagLabels.slice(MAX_VISIBLE_TAGS).map((label, i) => (
+                                      <span key={`more-${label}-${i}`} className="text-xs">
+                                        {label}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </TooltipContent>
+                              </Tooltip>
+                            ) : null}
+                          </div>
+                        );
+                      })()}
 
                       {/* Description */}
                       {displayDesc?.trim() ? (

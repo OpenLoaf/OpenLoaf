@@ -40,55 +40,45 @@ const NOTION: ServerIntegrationDefinition = {
   description:
     'Access your Notion pages, create and edit content, and manage your workspace from chat.',
   category: 'productivity',
+  authType: 'oauth',
   brandColor: '#000000',
   iconSvgPath: NOTION_ICON_PATH,
   homepage: 'https://www.notion.so',
   guide: [
     {
-      title: 'Create an internal integration in Notion',
+      title: 'Authorize your Notion workspace',
       description:
-        'Open Notion Integrations page and click "New integration". Name it "OpenLoaf" (or anything you like).',
-      link: {
-        href: 'https://www.notion.so/profile/integrations',
-        label: 'Open Notion Integrations',
-      },
+        'Click the connect button below. Notion will open an official authorization page for OpenLoaf.',
     },
     {
-      title: 'Copy the integration secret',
+      title: 'Choose which pages to share',
       description:
-        'After creation, reveal and copy the Internal Integration Secret (starts with "ntn_" or "secret_").',
+        'During authorization, choose the pages or databases that OpenLoaf can access. You can adjust the selection again later in Notion.',
     },
     {
-      title: 'Share pages with your integration',
+      title: 'Return to OpenLoaf',
       description:
-        'Open each Notion page you want to expose, click "..." → "Connections" → select your integration.',
+        'After Notion closes the authorization flow, OpenLoaf will automatically connect the official remote MCP service and load your workspace tools.',
     },
   ],
-  credentials: [
-    {
-      key: 'token',
-      label: 'Notion Integration Token',
-      type: 'password',
-      placeholder: 'ntn_...',
-      helpText: 'Your internal integration secret from notion.so/profile/integrations',
-      required: true,
-    },
-  ],
-  buildMcpConfig: (credentials) => ({
+  credentials: [],
+  buildMcpConfig: () => ({
     name: 'Notion',
-    description: 'Notion workspace (managed by OpenLoaf Connections)',
-    transport: 'stdio',
-    command: 'npx',
-    args: ['-y', '@notionhq/notion-mcp-server'],
-    env: {
-      OPENAPI_MCP_HEADERS: JSON.stringify({
-        Authorization: `Bearer ${credentials.token ?? ''}`,
-        'Notion-Version': '2022-06-28',
-      }),
+    description: 'Notion workspace (official remote MCP via OpenLoaf Connections)',
+    transport: 'http',
+    url: 'https://mcp.notion.com/mcp',
+    auth: {
+      type: 'oauth',
+      provider: 'notion',
+      integrationId: 'notion',
     },
     enabled: true,
     scope: 'global',
   }),
+  probeTool: {
+    toolName: 'notion-get-self',
+    label: '工作区信息',
+  },
 }
 
 // ---------------------------------------------------------------------------

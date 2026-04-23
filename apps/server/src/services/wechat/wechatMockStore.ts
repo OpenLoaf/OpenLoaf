@@ -58,6 +58,14 @@ export function resetAllMocks(): void {
   accountStates.clear()
 }
 
+/**
+ * Reset only one account's mock state — used by parallel browser tests so
+ * one test's reset doesn't wipe other concurrent tests' inboxes/outboxes.
+ */
+export function resetMockAccount(accountId: string): void {
+  accountStates.delete(accountId)
+}
+
 export function setMockMode(accountId: string, mode: MockMode): void {
   const s = accountStates.get(accountId)
   if (!s) throw new Error(`account ${accountId} not registered in mock`)

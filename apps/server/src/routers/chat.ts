@@ -686,6 +686,7 @@ class ChatRouterImpl extends BaseChatRouter {
               errorMessage: true,
               projectId: true,
               messageCount: true,
+              kind: true,
             },
           })
 
@@ -871,6 +872,13 @@ class ChatRouterImpl extends BaseChatRouter {
             }
           }
           return null
+        }),
+
+      getToolSchemas: shieldedProcedure
+        .input(z.object({ toolIds: z.array(z.string()) }))
+        .query(async ({ input }) => {
+          const { getToolJsonSchemas } = await import('@/ai/tools/toolRegistry')
+          return getToolJsonSchemas(input.toolIds)
         }),
 
       updateSession: shieldedProcedure

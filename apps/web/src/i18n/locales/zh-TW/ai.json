@@ -176,6 +176,7 @@
     "FileInfo": "檔案資訊",
     "WebFetch": "取得網頁內容",
     "WebSearch": "網頁搜尋",
+    "WebSearchImage": "圖片搜尋",
     "Jobs": "背景工作列表",
     "Kill": "終止背景工作",
     "Sleep": "等待背景工作",
@@ -658,6 +659,13 @@
       "resultCount": "{{count}} 筆",
       "searching": "搜尋中...",
       "searchFailed": "搜尋失敗",
+      "loading": "載入中...",
+      "noResults": "無結果"
+    },
+    "webSearchImage": {
+      "resultCount": "{{count}} 張",
+      "searching": "搜尋圖片中...",
+      "searchFailed": "圖片搜尋失敗",
       "loading": "載入中...",
       "noResults": "無結果"
     }

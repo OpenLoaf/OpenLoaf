@@ -19,7 +19,11 @@ import {
 } from "react";
 import { unescapeAttachmentPath } from "@openloaf/api/common";
 import { cn } from "@/lib/utils";
+import { getPreviewEndpoint } from "@/lib/image/uri";
 import { getFileLabel } from "./chat-input-utils";
+
+const IMAGE_EXT_RE = /\.(png|jpe?g|gif|webp|svg|bmp|avif|heic|heif)$/i;
+const HTTP_URL_RE = /^https?:\/\//i;
 
 // ─── Constants ──────────────────────────────────────────────────────
 const CHIP_CLASS = "ol-mention-chip";
@@ -40,18 +44,23 @@ const AGENT_ICON_SVG =
   'style="flex-shrink:0;display:inline-block"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>' +
   '<circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>';
 
-const CHIP_BASE_STYLES = "display:inline-flex;align-items:center;gap:3px;padding:1px 6px;margin:0 1px;border-radius:4px;font-size:12px;font-weight:500;line-height:18px;vertical-align:baseline;cursor:pointer;user-select:none;white-space:nowrap;max-width:320px;transition:background-color .15s";
+// 高度锁定 18px（总高 = padding 1+1 + line-height 16 = 18），略小于编辑器 leading-5 (20px)，
+// 避免 chip 比行盒高，导致 caret 在 chip 左右侧高度不一致。
+// vertical-align:middle 让 chip 在 CJK 文本中视觉居中，取代默认 baseline。
+// vertical-align 不用 middle —— 实测 middle 会让 chip 比 CJK 字符下沉约 1.1px。
+// 用负 em 手动把 chip 上移，使其视觉中线对齐 13px CJK 文本的几何中线。
+const CHIP_BASE_STYLES = "display:inline-flex;align-items:center;gap:3px;padding:1px 6px;margin:0 1px;border-radius:4px;font-size:12px;font-weight:500;line-height:16px;vertical-align:-0.2em;cursor:pointer;user-select:none;white-space:nowrap;max-width:320px;transition:background-color .15s;border:0";
 
 const CHIP_STYLES = `
-.${CHIP_CLASS}{${CHIP_BASE_STYLES};background:var(--ol-blue-bg);color:var(--ol-blue);border:1px solid transparent}
+.${CHIP_CLASS}{${CHIP_BASE_STYLES};background:var(--ol-blue-bg);color:var(--ol-blue)}
 .${CHIP_CLASS}:hover{background:var(--ol-blue-bg-hover)}
 .${CHIP_CLASS}>span{overflow:hidden;text-overflow:ellipsis}
-.${SKILL_CHIP_CLASS}{${CHIP_BASE_STYLES};background:var(--ol-skill-chip-bg);color:var(--ol-skill-chip-text);border:1px solid transparent}
+.${SKILL_CHIP_CLASS}{${CHIP_BASE_STYLES};background:var(--ol-skill-chip-bg);color:var(--ol-skill-chip-text)}
 .${SKILL_CHIP_CLASS}:hover{background:var(--ol-skill-chip-bg-hover)}
 .${SKILL_CHIP_CLASS}[data-builtin="true"]{cursor:default}
 .${SKILL_CHIP_CLASS}[data-builtin="true"]:hover{background:var(--ol-skill-chip-bg)}
 .${SKILL_CHIP_CLASS}>span{overflow:hidden;text-overflow:ellipsis}
-.${AGENT_CHIP_CLASS}{${CHIP_BASE_STYLES};background:var(--ol-amber-bg);color:var(--ol-amber);border:1px solid transparent}
+.${AGENT_CHIP_CLASS}{${CHIP_BASE_STYLES};background:var(--ol-amber-bg);color:var(--ol-amber)}
 .${AGENT_CHIP_CLASS}:hover{background:var(--ol-amber-bg-hover)}
 .${AGENT_CHIP_CLASS}>span{overflow:hidden;text-overflow:ellipsis}
 `;
@@ -98,16 +107,16 @@ function valueToHtml(value: string, builtinSkillNames?: ReadonlySet<string>): st
   // Match <system-tag type="attachment" path="..." /> file mentions,
   // /skill/[xxx|yyy] or /skill/[xxx] skill commands (new format), legacy /skill/xxx
   // skill commands, and @agents/.../pm agent mentions.
-  const re = /<system-tag\s+type="attachment"\s+path="([^"]*)"\s*\/>|\/skill\/\[([\w-]+)(?:\|([^\]]*))?\]|\/skill\/([\w-]+)(?=\s|[^\x00-\x7F])|@agents\/([^/\s]+)\/pm(?=\s|$)/g;
+  const re = /<system-tag\s+type="attachment"\s+([^>]*?)\s*\/>|\/skill\/\[([\w-]+)(?:\|([^\]]*))?\]|\/skill\/([\w-]+)(?=\s|[^\x00-\x7F])|@agents\/([^/\s]+)\/pm(?=\s|$)/g;
   let match: RegExpExecArray | null;
   // biome-ignore lint/suspicious/noAssignInExpressions: intentional loop pattern
   while ((match = re.exec(value)) !== null) {
     html += escapeHtml(value.slice(lastIndex, match.index));
     const token = match[0];
     if (match[1] !== undefined) {
-      // File mention: <system-tag type="attachment" path="..." />
-      const innerPath = unescapeAttachmentPath(match[1]);
-      const label = getFileLabel(innerPath);
+      // File mention: <system-tag type="attachment" path="..." [name="..."] ... />
+      const parsed = parseAttachmentToken(token);
+      const label = parsed?.name || getFileLabel(parsed?.path ?? "");
       html +=
         `<span class="${CHIP_CLASS}" data-token="${escapeAttr(token)}" contenteditable="false">` +
         `${FILE_ICON_SVG}<span>${escapeHtml(label)}</span>` +
@@ -184,11 +193,28 @@ function domToValue(node: Node): string {
   return result;
 }
 
+/** Parse a full attachment tag; return path + optional name (friendly label). */
+function parseAttachmentToken(token: string): { path: string; name?: string } | null {
+  const m = token.match(/^<system-tag\s+type="attachment"\s+([^>]*?)\s*\/>$/);
+  if (!m) return null;
+  const attrs = m[1] ?? "";
+  const attrRe = /(\w+)="([^"]*)"/g;
+  let path = "";
+  let name: string | undefined;
+  let it: RegExpExecArray | null;
+  // biome-ignore lint/suspicious/noAssignInExpressions: regex iteration idiom
+  while ((it = attrRe.exec(attrs)) !== null) {
+    if (it[1] === "path") path = unescapeAttachmentPath(it[2] ?? "");
+    else if (it[1] === "name") name = unescapeAttachmentPath(it[2] ?? "");
+  }
+  if (!path) return null;
+  return name ? { path, name } : { path };
+}
+
 /** Create a chip DOM element from a mention token. */
 function createChipElement(token: string): HTMLSpanElement {
-  const tagMatch = token.match(/^<system-tag\s+type="attachment"\s+path="([^"]*)"\s*\/>$/);
-  const ref = tagMatch ? unescapeAttachmentPath(tagMatch[1] ?? "") : token;
-  const label = getFileLabel(ref);
+  const parsed = parseAttachmentToken(token);
+  const label = parsed?.name || getFileLabel(parsed?.path ?? token);
   const span = document.createElement("span");
   span.className = CHIP_CLASS;
   span.dataset.token = token;
@@ -249,6 +275,10 @@ interface ChatInputEditorProps {
   className?: string;
   /** Use larger text and height (for full-page centered layout). */
   large?: boolean;
+  /** Project id for attachment preview resolution. */
+  projectId?: string;
+  /** Session id for ${CURRENT_CHAT_DIR} template resolution in attachment previews. */
+  sessionId?: string;
   ref?: RefObject<ChatInputEditorHandle | null>;
 }
 
@@ -264,12 +294,16 @@ export function ChatInputEditor({
   placeholder,
   className,
   large,
+  projectId,
+  sessionId,
   ref,
 }: ChatInputEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const valueRef = useRef(value);
   const composingRef = useRef(false);
   const suppressSyncRef = useRef(false);
+  const [preview, setPreview] = useState<{ src: string; left: number; top: number } | null>(null);
+  const [previewLoaded, setPreviewLoaded] = useState(false);
 
   useEffect(() => {
     ensureStyles();
@@ -351,7 +385,8 @@ export function ChatInputEditor({
       const chip = createChipElement(token);
       range.insertNode(chip);
 
-      const trailing = document.createTextNode(options?.ensureTrailingSpace ? " " : "\u200B");
+      // 只用 ZWSP 作为 caret 锚点，不再根据 ensureTrailingSpace 附加可见空格（历史代码债）。
+      const trailing = document.createTextNode("\u200B");
       range.setStartAfter(chip);
       range.insertNode(trailing);
       range.setStartAfter(trailing);
@@ -424,6 +459,43 @@ export function ChatInputEditor({
     updateDomEmpty();
   }, [triggerChange, updateDomEmpty]);
 
+  // ── Hover handler (image attachment preview) ──
+  const handleMouseOver = useCallback(
+    (e: React.MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const chip = target.closest(`.${CHIP_CLASS}`) as HTMLElement | null;
+      if (!chip?.dataset.token) {
+        setPreview(null);
+        return;
+      }
+      const parsed = parseAttachmentToken(chip.dataset.token);
+      if (!parsed) {
+        setPreview(null);
+        return;
+      }
+      const pathOnly = parsed.path.split("?")[0] ?? "";
+      if (!IMAGE_EXT_RE.test(pathOnly)) {
+        setPreview(null);
+        return;
+      }
+      const src = HTTP_URL_RE.test(parsed.path)
+        ? parsed.path
+        : getPreviewEndpoint(parsed.path, { projectId, sessionId });
+      const rect = chip.getBoundingClientRect();
+      setPreview((prev) => {
+        if (prev?.src !== src) setPreviewLoaded(false);
+        return { src, left: rect.left, top: rect.top };
+      });
+    },
+    [projectId, sessionId],
+  );
+  const handleMouseOut = useCallback((e: React.MouseEvent) => {
+    const related = e.relatedTarget as Node | null;
+    const chip = (e.target as HTMLElement).closest(`.${CHIP_CLASS}`);
+    if (chip && related && chip.contains(related)) return;
+    setPreview(null);
+  }, []);
+
   // ── Click handler (chip clicks) ──
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
@@ -431,7 +503,10 @@ export function ChatInputEditor({
       const chip = target.closest(`.${CHIP_CLASS}`) as HTMLElement | null;
       if (chip?.dataset.token && onChipClick) {
         e.preventDefault();
-        const tokenRef = chip.dataset.token.slice(2, -1);
+        const token = chip.dataset.token;
+        // 新格式 system-tag：用 path 属性；兼容旧 @[...] 格式走 slice 回退。
+        const parsed = parseAttachmentToken(token);
+        const tokenRef = parsed ? parsed.path : token.slice(2, -1);
         onChipClick(tokenRef);
         return;
       }
@@ -592,9 +667,36 @@ export function ChatInputEditor({
         onClick={handleClick}
         onKeyDown={handleKeyDown}
         onPaste={handlePaste}
+        onMouseOver={handleMouseOver}
+        onMouseOut={handleMouseOut}
         onCompositionStart={handleCompositionStart}
         onCompositionEnd={handleCompositionEnd}
       />
+      {preview && (
+        <div
+          className="fixed z-[9999] pointer-events-none rounded-md border border-border bg-popover shadow-lg p-1 -translate-y-full"
+          style={{ left: preview.left, top: preview.top - 6 }}
+        >
+          <div className="relative min-w-[80px] min-h-[80px] flex items-center justify-center">
+            {!previewLoaded && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-5 h-5 rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground animate-spin" />
+              </div>
+            )}
+            {/** biome-ignore lint/performance/noImgElement: hover preview */}
+            <img
+              src={preview.src}
+              alt=""
+              className={cn(
+                "block max-w-[160px] max-h-[160px] object-contain rounded-sm transition-opacity duration-150",
+                previewLoaded ? "opacity-100" : "opacity-0",
+              )}
+              onLoad={() => setPreviewLoaded(true)}
+              onError={() => setPreview(null)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

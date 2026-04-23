@@ -37,6 +37,8 @@ export type AttachmentTagAttrs = {
   mediaType?: string
   /** ISO timestamp of last successful upload; used to judge TTL freshness. */
   uploadedAt?: string
+  /** Friendly display label (e.g. image alt/title from the source message). */
+  name?: string
 }
 
 /**
@@ -89,6 +91,7 @@ export function parseAttachmentTagAttrs(rawAttrs: string): AttachmentTagAttrs | 
   if (attrs.url) out.url = attrs.url
   if (attrs.mediaType) out.mediaType = attrs.mediaType
   if (attrs.uploadedAt) out.uploadedAt = attrs.uploadedAt
+  if (attrs.name) out.name = attrs.name
   return out
 }
 
@@ -106,6 +109,7 @@ export function formatAttachmentTag(input: string | AttachmentTagAttrs): string 
   if (input.url) parts.push(`url="${escapeAttachmentPath(input.url)}"`)
   if (input.mediaType) parts.push(`mediaType="${escapeAttachmentPath(input.mediaType)}"`)
   if (input.uploadedAt) parts.push(`uploadedAt="${escapeAttachmentPath(input.uploadedAt)}"`)
+  if (input.name) parts.push(`name="${escapeAttachmentPath(input.name)}"`)
   return `${parts.join(' ')} />`
 }
 

@@ -18,6 +18,7 @@ import {
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { logger } from "@/common/logger";
+import { unregisterChatAbort } from "@/ai/services/chat/chatAbortRegistry";
 import type { ChatMessageKind, OpenLoafUIMessage, TokenUsage } from "@openloaf/api";
 import { readBasicConf } from "@/modules/settings/openloafConfStore";
 import { resolveMessagesJsonlPath } from "@/ai/services/chat/repositories/chatFileStore";
@@ -50,6 +51,7 @@ import {
 } from "@/ai/services/chat/repositories/messageStore";
 import { buildBranchLogMessages } from "@/ai/services/chat/chatHistoryLogMessageBuilder";
 import { buildTokenUsageMetadata, buildTimingMetadata, mergeAbortMetadata } from "./metadataBuilder";
+import { consumeCompressLog } from "@/ai/shared/context/requestContext";
 import { APICallError } from "@ai-sdk/provider";
 
 /** 从 AI SDK 错误中提取用户可读的错误信息（优先使用 responseBody 中的详情）。 */
@@ -537,6 +539,10 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
               if (cliSummary) {
                 mergedMetadata.cliSummary = cliSummary;
               }
+              const compressLog = consumeCompressLog();
+              if (compressLog && compressLog.length > 0) {
+                mergedMetadata.compressLog = compressLog;
+              }
               // 检测 approval-requested 的 SubmitPlan 工具调用。
               const pendingPlanPart = (responseMessage.parts ?? []).find(
                 (p: any) =>
@@ -792,6 +798,9 @@ export async function createChatStreamResponse(input: ChatStreamResponseInput): 
           );
         }
         throw err;
+      } finally {
+        // 无论正常结束 / 异常 / 中止，都要清理 sessionId → AbortController 注册。
+        unregisterChatAbort(input.sessionId, input.abortController);
       }
     },
   });

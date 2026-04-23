@@ -18,7 +18,9 @@
     "test:browser:run": "node src/test/browser/run-browser-tests.mjs",
     "test:browser:report": "node src/test/browser/generate-report.mjs",
     "test:browser:audit": "node src/test/browser/audit-tests.mjs",
-    "test:browser:diagnose-prompt": "node src/test/browser/build-diagnose-prompt.mjs"
+    "test:browser:diagnose-prompt": "node src/test/browser/build-diagnose-prompt.mjs",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build"
   },
   "dependencies": {
     "@ai-sdk/react": "^3.0.170",
@@ -148,6 +150,11 @@
   },
   "devDependencies": {
     "@openloaf/config": "workspace:*",
+    "@storybook/addon-a11y": "^10.3.5",
+    "@storybook/addon-docs": "^10.3.5",
+    "@storybook/addon-vitest": "^10.3.5",
+    "@storybook/nextjs-vite": "^10.3.5",
+    "@storybook/test": "^8.6.15",
     "@tailwindcss/postcss": "^4.1.18",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.0",
@@ -160,6 +167,7 @@
     "jsdom": "^26.1.0",
     "playwright": "^1.59.1",
     "postcss": "^8.4.41",
+    "storybook": "^10.3.5",
     "tailwindcss": "^4.1.18",
     "typescript": "^5.9.3",
     "vitest": "^3.2.4",

@@ -42,7 +42,7 @@ export const normalizeFileMentionSpacing = (value: string) => {
   ATTACHMENT_TAG_REGEX.lastIndex = 0;
   if (!ATTACHMENT_TAG_REGEX.test(value)) return value;
   ATTACHMENT_TAG_REGEX.lastIndex = 0;
-  const tokenPattern = /<system-tag\s+type="attachment"\s+path="[^"]*"\s*\/>/g;
+  const tokenPattern = /<system-tag\s+type="attachment"\s+[^>]*?\/>/g;
   const withLeadingSpace = value.replace(
     new RegExp(`(\\S)(${tokenPattern.source})`, "g"),
     (_match, lead, token) => `${lead} ${token}`,

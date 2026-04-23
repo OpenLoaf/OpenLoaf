@@ -170,7 +170,7 @@ Message, MessageContent, Panel, Snippet, SnippetAddon, SnippetText, SnippetInput
 
 **写入位置**：`[<sessionId>]/asset/jsx/<messageId>.jsx`（在 session 的 asset 目录下，可直接用 `Edit` 局部修改）
 
-**交互式表单**：需要收集用户输入时用 `AskUserQuestion`，JsxCreate 仅负责展示。
+**交互式表单**：需要收集用户输入时直接用文字向用户提问并等待回复，JsxCreate 仅负责展示。
 
 ## 何时用 ChartRender vs JsxCreate
 

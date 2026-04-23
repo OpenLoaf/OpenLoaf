@@ -65,6 +65,9 @@ struct ActionPayload: Decodable {
   let to: PointDTO?
   let ms: Int?
   let action: String?
+  // menu_click
+  let app: String?
+  let menuPath: [String]?
 }
 
 struct ActRequest: Decodable {

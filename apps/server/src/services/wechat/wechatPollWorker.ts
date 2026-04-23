@@ -19,8 +19,10 @@
  * and outbound replies are deferred to later PRs.
  */
 
-import type { WeixinMessage, GetUpdatesResp } from 'wechat-ilink-client'
-import { createAccountApiClient } from './apiClientFactory'
+import path from 'node:path'
+import fs from 'node:fs/promises'
+import type { WeixinMessage, GetUpdatesResp, MessageItem } from 'wechat-ilink-client'
+import { createAccountApiClient, type AccountApiClient } from './apiClientFactory'
 import { logger } from '@/common/logger'
 import {
   getAccount,
@@ -29,8 +31,10 @@ import {
   updateAccountStatus,
   type WeChatAccount,
 } from './wechatAccountStore'
-import { ensureWeChatSession, appendInboundMessage, extractText } from './wechatMessageService'
+import { ensureWeChatSession, appendInboundMessage } from './wechatMessageService'
 import { scheduleAiReply } from './wechatAiBridge'
+import { resolveSessionAssetDir } from '@openloaf/api/services/chatSessionPaths'
+import { formatAttachmentTag } from '@openloaf/api/common/attachmentTag'
 
 const LONG_POLL_TIMEOUT_MS = 30_000
 const ERROR_BACKOFF_MS = 5_000
@@ -57,15 +61,132 @@ function shouldHandle(msg: WeixinMessage, account: WeChatAccount): boolean {
   // ONLY inbound messages we care about. Echoes are from=botId.
   if (msg.from_user_id === account.botId) return false
   if (!msg.from_user_id) return false
-  // V1: require at least one text item. Other media types are ignored for now.
+  // Require at least one payload item (text / image / voice / file / video).
   const items = msg.item_list ?? []
-  if (!items.some((i) => i.text_item?.text)) return false
-  return true
+  if (items.length === 0) return false
+  return items.some(
+    (i) =>
+      i.text_item?.text ||
+      i.image_item ||
+      i.voice_item ||
+      i.file_item ||
+      i.video_item,
+  )
+}
+
+/** File extension heuristic per media kind. */
+function extFor(kind: 'image' | 'voice' | 'video' | 'file', fileName?: string): string {
+  if (fileName) {
+    const ext = path.extname(fileName)
+    if (ext) return ext
+  }
+  if (kind === 'image') return '.jpg'
+  if (kind === 'voice') return '.amr'
+  if (kind === 'video') return '.mp4'
+  return '.bin'
+}
+
+/** Best-effort MIME type for attachment tag metadata. */
+function mediaTypeFor(kind: 'image' | 'voice' | 'video' | 'file', ext: string): string {
+  const e = ext.toLowerCase()
+  if (kind === 'image') {
+    if (e === '.png') return 'image/png'
+    if (e === '.gif') return 'image/gif'
+    if (e === '.webp') return 'image/webp'
+    return 'image/jpeg'
+  }
+  if (kind === 'voice') return e === '.mp3' ? 'audio/mpeg' : 'audio/amr'
+  if (kind === 'video') return 'video/mp4'
+  return 'application/octet-stream'
+}
+
+/**
+ * Download a single media item to the session's asset/ dir and return the
+ * attachment tag + a short inline label (eg "[图片]"). Returns null if this
+ * item has no downloadable media or download failed.
+ */
+async function persistMediaItem(input: {
+  api: AccountApiClient
+  sessionId: string
+  item: MessageItem
+}): Promise<{ inlineLabel: string; tag: string } | null> {
+  const { api, sessionId, item } = input
+
+  let kind: 'image' | 'voice' | 'video' | 'file' | null = null
+  let inlineLabel = ''
+  if (item.image_item) { kind = 'image'; inlineLabel = '[图片]' }
+  else if (item.voice_item) { kind = 'voice'; inlineLabel = '[语音]' }
+  else if (item.video_item) { kind = 'video'; inlineLabel = '[视频]' }
+  else if (item.file_item) { kind = 'file'; inlineLabel = '[文件]' }
+  if (!kind) return null
+
+  let downloaded: Awaited<ReturnType<AccountApiClient['downloadMedia']>>
+  try {
+    downloaded = await api.downloadMedia(item)
+  } catch (err) {
+    logger.warn({ err: String(err), sessionId, kind }, '[wechat-poll] downloadMedia failed')
+    return null
+  }
+  if (!downloaded) return null
+
+  const assetDir = await resolveSessionAssetDir(sessionId)
+  const origName = kind === 'file' ? downloaded.fileName : undefined
+  const ext = extFor(kind, origName)
+  const stem = origName
+    ? path.basename(origName, path.extname(origName))
+    : `wx-${kind}-${Date.now()}`
+  let fileName = `${stem}${ext}`
+  let absPath = path.join(assetDir, fileName)
+  // Avoid collisions.
+  let n = 1
+  while (true) {
+    try {
+      await fs.access(absPath)
+      fileName = `${stem}-${n}${ext}`
+      absPath = path.join(assetDir, fileName)
+      n += 1
+    } catch {
+      break
+    }
+  }
+  await fs.writeFile(absPath, downloaded.data)
+
+  const tag = formatAttachmentTag({
+    path: `\${CURRENT_CHAT_DIR}/${fileName}`,
+    mediaType: mediaTypeFor(kind, ext),
+  })
+  return { inlineLabel, tag }
+}
+
+/**
+ * Build the canonical inbound text for a WeChat message:
+ * text items inline + one attachment tag per media item (downloaded + saved).
+ */
+async function buildInboundText(input: {
+  api: AccountApiClient
+  sessionId: string
+  msg: WeixinMessage
+}): Promise<string> {
+  const { api, sessionId, msg } = input
+  const items = msg.item_list ?? []
+  const parts: string[] = []
+  for (const item of items) {
+    if (item.text_item?.text) {
+      parts.push(item.text_item.text)
+      continue
+    }
+    const persisted = await persistMediaItem({ api, sessionId, item })
+    if (persisted) {
+      parts.push(`${persisted.inlineLabel}\n${persisted.tag}`)
+    }
+  }
+  return parts.join('\n').trim()
 }
 
 async function processBatch(
   resp: GetUpdatesResp,
   account: WeChatAccount,
+  api: AccountApiClient,
 ): Promise<void> {
   const msgs = resp.msgs ?? []
   // iLink Bot is 1:1: one account → one session (`wx-<accountId>`). No peer
@@ -96,13 +217,21 @@ async function processBatch(
       continue
     }
     try {
+      // Build the canonical text once (downloads any inbound media into
+      // <sessionDir>/asset/ and inlines an attachment tag per item) so the
+      // persisted message and the AI bridge see the same content.
+      const text = await buildInboundText({ api, sessionId, msg })
+      if (!text) {
+        logger.debug({ messageId: msg.message_id }, '[wechat-poll] empty after build')
+        continue
+      }
       await appendInboundMessage({
         sessionId,
         accountId: account.id,
         msg,
+        text,
       })
-      const text = extractText(msg.item_list)
-      if (text && msg.context_token) {
+      if (msg.context_token) {
         scheduleAiReply({
           sessionId,
           accountId: account.id,
@@ -183,7 +312,7 @@ async function runLoop(accountId: string, signal: AbortSignal): Promise<void> {
       logger.debug({ accountId }, '[wechat-poll] empty poll tick')
     }
 
-    await processBatch(resp, account)
+    await processBatch(resp, account, api)
 
     if (resp.get_updates_buf && resp.get_updates_buf !== account.syncBuf) {
       updateAccountSyncBuf(accountId, resp.get_updates_buf)

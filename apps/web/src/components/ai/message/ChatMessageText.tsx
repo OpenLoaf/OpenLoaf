@@ -22,11 +22,16 @@ import {
 } from "./text-tokenizer";
 import { getFileLabel } from "@/components/ai/input/chat-input-utils";
 import { openSkillInStack } from "@/components/setting/skills/skill-utils";
+import { getPreviewEndpoint } from "@/lib/image/uri";
+
+const IMAGE_EXT_RE = /\.(png|jpe?g|gif|webp|svg|bmp|avif|heic|heif)$/i;
+const HTTP_URL_RE = /^https?:\/\//i;
 
 interface ChatMessageTextProps {
   value: string;
   className?: string;
   projectId?: string;
+  sessionId?: string;
 }
 
 const MESSAGE_TOKEN_CHIP_BASE_CLASS = cn(
@@ -50,7 +55,9 @@ const MENTION_TOKEN_CHIP_CLASS = cn(
   "bg-[var(--ol-blue-bg)] text-[var(--ol-blue)] hover:bg-[var(--ol-blue-bg-hover)]",
 );
 
-export default function ChatMessageText({ value, className, projectId }: ChatMessageTextProps) {
+export default function ChatMessageText({ value, className, projectId, sessionId }: ChatMessageTextProps) {
+  const [preview, setPreview] = React.useState<{ src: string; left: number; top: number } | null>(null);
+  const [previewLoaded, setPreviewLoaded] = React.useState(false);
   const normalizedValue = React.useMemo(() => preprocessChatText(value), [value]);
   const segments = React.useMemo(() => parseChatTextTokens(normalizedValue), [normalizedValue]);
   const hasSpecialTokens = React.useMemo(
@@ -125,6 +132,13 @@ export default function ChatMessageText({ value, className, projectId }: ChatMes
       // 真实内容由点击后打开的 viewer 负责展示。内联缩略图容易让用户误以为
       // 已嵌入图片附件，反而混淆模型与用户对消息体的认知。
       const label = getFileLabel(segment.value);
+      const path = segment.value;
+      const isImage = IMAGE_EXT_RE.test(path.split("?")[0] ?? "");
+      const previewSrc = isImage
+        ? HTTP_URL_RE.test(path)
+          ? path
+          : getPreviewEndpoint(path, { projectId, sessionId })
+        : null;
       return (
         <span
           key={`mention-${index}`}
@@ -132,6 +146,18 @@ export default function ChatMessageText({ value, className, projectId }: ChatMes
           data-mention-value={segment.value}
           data-slate-value={segment.value}
           className={MENTION_TOKEN_CHIP_CLASS}
+          onMouseEnter={
+            previewSrc
+              ? (e) => {
+                  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                  setPreview((prev) => {
+                    if (prev?.src !== previewSrc) setPreviewLoaded(false);
+                    return { src: previewSrc, left: rect.left, top: rect.top };
+                  });
+                }
+              : undefined
+          }
+          onMouseLeave={previewSrc ? () => setPreview(null) : undefined}
         >
           <FileText className="size-3 shrink-0 text-current" />
           <span className="min-w-0 overflow-hidden text-ellipsis">{label}</span>
@@ -143,11 +169,38 @@ export default function ChatMessageText({ value, className, projectId }: ChatMes
   };
 
   return (
-    <div
-      className={cn("text-[13px] leading-5 break-words whitespace-pre-wrap", className)}
-      data-openloaf-chat-message="true"
-    >
-      {segments.map(renderToken)}
-    </div>
+    <>
+      <div
+        className={cn("text-[13px] leading-5 break-words whitespace-pre-wrap", className)}
+        data-openloaf-chat-message="true"
+      >
+        {segments.map(renderToken)}
+      </div>
+      {preview && (
+        <div
+          className="fixed z-[9999] pointer-events-none rounded-md border border-border bg-popover shadow-lg p-1 -translate-y-full"
+          style={{ left: preview.left, top: preview.top - 6 }}
+        >
+          <div className="relative min-w-[80px] min-h-[80px] flex items-center justify-center">
+            {!previewLoaded && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-5 h-5 rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground animate-spin" />
+              </div>
+            )}
+            {/** biome-ignore lint/performance/noImgElement: hover preview, sized & disposable */}
+            <img
+              src={preview.src}
+              alt=""
+              className={cn(
+                "block max-w-[160px] max-h-[160px] object-contain rounded-sm transition-opacity duration-150",
+                previewLoaded ? "opacity-100" : "opacity-0",
+              )}
+              onLoad={() => setPreviewLoaded(true)}
+              onError={() => setPreview(null)}
+            />
+          </div>
+        </div>
+      )}
+    </>
   );
 }

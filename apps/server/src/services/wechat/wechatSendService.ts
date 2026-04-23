@@ -9,7 +9,6 @@
 import { prisma } from '@openloaf/db'
 import { createAccountApiClient } from './apiClientFactory'
 import { getAccount } from './wechatAccountStore'
-import { deriveWeChatSessionId } from './wechatMessageService'
 import { logger } from '@/common/logger'
 
 export async function sendWeChatText(input: {
@@ -38,8 +37,9 @@ export async function sendWeChatText(input: {
   } catch (err) {
     logger.warn({ err: String(err), accountId: input.accountId }, '[wechat-send] failed')
     try {
+      // Update by compound key — works regardless of legacy session id.
       await prisma.chatSession.update({
-        where: { id: deriveWeChatSessionId(input.accountId) },
+        where: { kind_wechatAccountId: { kind: 'wechat', wechatAccountId: input.accountId } },
         data: { errorMessage: `微信发送失败：${String(err)}` },
       })
     } catch {

@@ -10,6 +10,7 @@
     "namePlaceholder": "例如：OPENAI",
     "apiUrl": "API URL",
     "apiUrlPlaceholder": "例如：https://api.openai.com/v1",
+    "finalApiUrlLabel": "此 URL 为最终接口地址（不再拼接 /chat/completions 等路径）",
     "authentication": "认证信息",
     "accessKeyId": "AccessKeyID",
     "accessKeyIdPlaceholder": "输入 AccessKeyID",
@@ -1096,6 +1097,10 @@
       "name": "日历助手",
       "description": "日历事件管理"
     },
+    "channel": {
+      "name": "IM 助手",
+      "description": "微信 / Slack / Telegram 等即时通讯通道专用——纯文本输出、文字确认审批、保留桌面/浏览器远程控制"
+    },
     "coder": {
       "name": "编码助手",
       "description": "使用 AI CLI 工具进行代码开发"
@@ -1138,6 +1143,7 @@
     }
   },
   "capabilityGroups": {
+    "desktop-control": "桌面远控",
     "browser": "浏览器操作",
     "file-read": "文件读取",
     "file-write": "文件写入",

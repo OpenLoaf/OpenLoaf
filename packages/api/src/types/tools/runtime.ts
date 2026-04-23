@@ -183,8 +183,7 @@ export const submitPlanToolDef = {
   description: `Submit a plan file for user approval.
 
 - The plan subagent writes PLAN_N.md via SavePlanDraft and returns the path — pass that exact path here. Do NOT write PLAN files yourself with Write.
-- Only use this when the task requires planning code-writing steps. Do NOT use for research/exploration tasks — just execute directly.
-- Do NOT use AskUserQuestion to ask "is this plan okay?" — SubmitPlan already requests approval.`,
+- Only use this when the task requires planning code-writing steps. Do NOT use for research/exploration tasks — just execute directly.`,
   parameters: z.object({
     planFilePath: z
       .string()
@@ -305,15 +304,17 @@ export const macosActToolDef = {
 
 Coordinate space: all {x,y} points (click.point, scroll.point, drag.from/to) are **screenshot pixels from the most recent MacosObserve** — read them straight off the image. The tool converts pixels → logical screen coords for you. Do NOT try to offset for window position or divide by retina scale; the conversion is automatic. If you have not called MacosObserve yet in this session, coordinate-based actions will fail until you do.
 
-Actions:
+Actions (preferred order for in-app navigation: menu_click → key → ax_action → click):
   - launch_app → open an app by name or bundle id via \`open -a\`. Prefer this over cmd+space/Spotlight for launching — it's one call, deterministic, and doesn't depend on IME focus. Example: {type:"launch_app", app:"WeChat"} or {type:"launch_app", app:"com.tencent.xinWeChat"}
-  - click   → click at an AxRef or screenshot-pixel {x,y}; PREFERRED for standard clicks (simple and reliable)
+  - menu_click → **PREFERRED for in-app navigation.** Walks the target app's menu bar via Accessibility and triggers the menu item without moving the mouse or synthesizing clicks. Works even for apps with custom-drawn main UI (WeChat/QQ/Feishu/DingTalk/WeCom) because the menu bar is always AX-exposed. Example: {type:"menu_click", app:"WeChat", menuPath:["视图","朋友圈"]}. Try this BEFORE coordinate clicks — it has near-100% success rate when the target item exists.
+  - applescript → run AppleScript via \`osascript -e\`. Best for scriptable apps (Finder, Mail, Calendar, Safari, Chrome, Notes, Reminders, Messages, Music, Terminal, iTerm, Keynote). Runs fully in background — no window focus change, no cursor movement. Example: {type:"applescript", code:"tell application \\"Finder\\" to activate"}. Returns stdout; use for data queries too.
+  - click   → click at an AxRef or screenshot-pixel {x,y}. Coordinate clicks are LAST RESORT — prefer menu_click / key / ax_action first, especially for custom-drawn UIs where AX trees are empty.
   - type    → type arbitrary Unicode text (CJK supported) at the current focus
-  - key     → press a key chord, e.g. keys: ["cmd","space"]
+  - key     → press a key chord, e.g. keys: ["cmd","2"]. For in-app navigation this is often more reliable than clicking: it doesn't move the cursor and doesn't depend on pixel coords.
   - scroll  → scroll at a point by {dx,dy} pixels
   - drag    → drag from {x,y} to {x,y}
   - wait    → sleep ms (max 10000)
-  - ax_action → call AXUIElementPerformAction with a named AX action on a ref; ONLY use for non-standard actions (AXShowMenu, AXRaise, etc.)
+  - ax_action → call AXUIElementPerformAction with a named AX action on a ref; for standard AXPress consider menu_click instead.
 
 Requires Accessibility permission. Blocked apps (password managers, banking) are refused. Each call auto-settles 150ms before returning so observations that follow see post-reaction UI.`,
   parameters: z.object({
@@ -365,6 +366,24 @@ Requires Accessibility permission. Blocked apps (password managers, banking) are
         type: z.literal("ax_action"),
         ref: axRefSchema,
         action: z.string().describe("AX action name, e.g. AXPress, AXShowMenu, AXRaise."),
+      }),
+      z.object({
+        type: z.literal("menu_click"),
+        app: z.string().min(1).describe(
+          "App display name (e.g. 'WeChat') or bundle id (e.g. 'com.tencent.xinWeChat').",
+        ),
+        menuPath: z.array(z.string()).min(1).describe(
+          'Menu path from the menu bar down, e.g. ["View","Moments"] or ["视图","朋友圈"]. Use the titles the app actually displays in its current locale.',
+        ),
+      }),
+      z.object({
+        type: z.literal("applescript"),
+        code: z.string().min(1).describe(
+          'AppleScript source, e.g. \'tell application "Finder" to activate\'. Runs via osascript -e. Stdout is returned to you.',
+        ),
+        timeoutMs: z.number().int().min(100).max(30000).optional().describe(
+          "Max runtime in ms (default 10000). Long AppleScripts that wait for UI should pick a realistic ceiling.",
+        ),
       }),
       ]),
     ),

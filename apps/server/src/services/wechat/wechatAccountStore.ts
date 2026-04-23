@@ -81,25 +81,48 @@ export function generateAccountId(): string {
   return `openloaf-wx-${randomBytes(3).toString('hex')}`
 }
 
+/**
+ * In-memory overlay for ephemeral test accounts (browser test mocks). Reads
+ * unify disk+memory; writes go to disk only when not ephemeral. This prevents
+ * mock account spam from polluting wechat-accounts.json across runs.
+ */
+const ephemeralAccounts = new Map<string, WeChatAccount>()
+
 export function listAccounts(): WeChatAccount[] {
-  return readStore().accounts
+  const disk = readStore().accounts
+  if (ephemeralAccounts.size === 0) return disk
+  const map = new Map(disk.map((a) => [a.id, a]))
+  for (const [id, a] of ephemeralAccounts) map.set(id, a)
+  return [...map.values()]
 }
 
 export function getAccount(id: string): WeChatAccount | undefined {
-  return readStore().accounts.find((a) => a.id === id)
+  return ephemeralAccounts.get(id) ?? readStore().accounts.find((a) => a.id === id)
 }
 
 export function findAccountByBotId(botId: string): WeChatAccount | undefined {
+  for (const a of ephemeralAccounts.values()) if (a.botId === botId) return a
   return readStore().accounts.find((a) => a.botId === botId)
 }
 
-export function upsertAccount(account: WeChatAccount): WeChatAccount {
+export function upsertAccount(
+  account: WeChatAccount,
+  opts?: { ephemeral?: boolean },
+): WeChatAccount {
+  if (opts?.ephemeral) {
+    ephemeralAccounts.set(account.id, account)
+    return account
+  }
   const store = readStore()
   const idx = store.accounts.findIndex((a) => a.id === account.id)
   if (idx >= 0) store.accounts[idx] = account
   else store.accounts.push(account)
   writeStore(store)
   return account
+}
+
+export function removeEphemeralAccount(id: string): void {
+  ephemeralAccounts.delete(id)
 }
 
 export function removeAccount(id: string): boolean {

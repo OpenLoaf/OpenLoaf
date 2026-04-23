@@ -42,7 +42,7 @@ tools: [EmailQuery, EmailMutate]
 2. list-unified (all-inboxes)   → 看收件箱概览
 3. get-message (messageId)      → 读取需要回复的那封邮件完整内容
 4. 草拟回复
-5. ⚠️ AskUserQuestion        → 把草稿展示给用户确认
+5. ⚠️ 用纯文本把草稿（收件人 / 主题 / 正文）展示给用户，并明确询问"是否发送"，等用户回复确认
 6. send (带 inReplyTo + references) → 用户确认后才发送
 ```
 
@@ -55,7 +55,7 @@ tools: [EmailQuery, EmailMutate]
 ```
 1. list-accounts                → 确认从哪个账户发
 2. 根据用户意图草拟邮件
-3. ⚠️ AskUserQuestion        → 展示完整邮件让用户确认
+3. ⚠️ 用纯文本展示完整邮件（收件人 / 主题 / 正文）并明确询问"是否发送"，等用户回复确认
 4. send                         → 确认后发送
 ```
 
@@ -88,7 +88,7 @@ tools: [EmailQuery, EmailMutate]
 
 1. `get-message` 获取原邮件完整内容
 2. 构造新邮件：`to` 填转发目标，`subject` 加 `Fwd:` 前缀，`bodyText` 包含原邮件内容（添加 "---------- Forwarded message ----------" 分隔头和原始发件人/日期/主题信息）
-3. 通过 `AskUserQuestion` 让用户确认后 `send`
+3. 用纯文本展示完整转发邮件让用户确认后 `send`
 
 ## 附件说明
 
@@ -102,7 +102,7 @@ tools: [EmailQuery, EmailMutate]
 
 ## 常见错误——你必须避免
 
-1. **发邮件前没调 `AskUserQuestion`**：这是最严重的错误。永远不要自作主张发送邮件。
+1. **发邮件前没让用户文字确认**：这是最严重的错误。永远不要自作主张发送邮件，必须先在回复里展示完整草稿并等待用户回复"发送"。
 2. **回复邮件没设 `inReplyTo`**：线程会断裂，收件人看到的是孤立的新邮件。
 3. **不知道 `accountEmail` 就瞎调**：很多操作需要 `accountEmail`。如果不确定，先 `list-accounts`。
 4. **把密码、密钥、凭证写进邮件正文**：永远不要这样做。

@@ -4,6 +4,32 @@
   "totalCount": "{{count}} 件利用可能",
   "advancedMcp": "詳細設定",
   "emptyTitle": "利用可能な連携はまだありません",
+  "statusConnected": "接続済み",
+  "connectedToolCount": "{{count}} 個のツールを読み込みました",
+  "connectingHint": "サービスに接続しています…",
+  "errorHint": "接続に失敗しました。設定を確認してもう一度お試しください。",
+  "disconnectedHint": "サービスはオフラインです。アプリを再起動すると再接続されます。",
+  "availableTools": "利用可能なツール",
+  "remove": "削除",
+  "reconnect": "再接続",
+  "authorizeAndConnect": "認証して接続",
+  "oauthReadyHint": "OpenLoaf が Notion の公式認可ページを開きます。完了すると、このダイアログは自動的に状態を更新します。",
+  "oauthPendingHint": "認可ウィンドウが開いています。完了後に閉じると、OpenLoaf が自動で接続結果を確認します。",
+  "oauthPopupBlocked": "認可ウィンドウを開けませんでした。ポップアップ設定を確認してください。",
+  "probeLoading": "ワークスペース情報を読み込み中…",
+  "probeMore": "他に {{count}} 件",
+  "probeFields": {
+    "workspace": "ワークスペース: {{value}}",
+    "workspaceId": "ワークスペース ID: {{value}}",
+    "bot": "Bot: {{value}}",
+    "owner": "所有者: {{value}}"
+  },
+  "serverStatus": {
+    "connected": "接続済み",
+    "connecting": "接続中",
+    "disconnected": "未接続",
+    "error": "接続失敗"
+  },
   "install": "追加",
   "uninstall": "追加済み",
   "installSuccess": "{{name}} を接続しました",
@@ -16,23 +42,16 @@
       "description": "チャットから Notion ページへアクセスし、コンテンツを作成・編集してワークスペースを管理します。",
       "guide": {
         "0": {
-          "title": "Notion で内部インテグレーションを作成",
-          "description": "Notion Integrations ページを開き「New integration」をクリック。名前は「OpenLoaf」など任意で構いません。",
-          "linkLabel": "Notion Integrations を開く"
+          "title": "Notion ワークスペースを認可",
+          "description": "下のボタンを押すと、Notion で OpenLoaf の公式認可ページが開きます。"
         },
         "1": {
-          "title": "インテグレーションシークレットをコピー",
-          "description": "作成後、Internal Integration Secret（「ntn_」または「secret_」で始まる文字列）を表示してコピーします。"
+          "title": "共有するページを選択",
+          "description": "認可フロー中に、OpenLoaf がアクセスできるページやデータベースを選択します。後で Notion 側で変更することもできます。"
         },
         "2": {
-          "title": "ページをインテグレーションに共有",
-          "description": "公開したい Notion ページを開き、「…」→「Connections」→ 作成したインテグレーションを選択します。"
-        }
-      },
-      "credentials": {
-        "token": {
-          "label": "Notion インテグレーション Token",
-          "helpText": "notion.so/profile/integrations で取得した内部インテグレーションシークレット"
+          "title": "OpenLoaf に戻る",
+          "description": "認可が完了すると、OpenLoaf が公式 Notion remote MCP に接続し、現在のワークスペース情報を表示します。"
         }
       }
     },

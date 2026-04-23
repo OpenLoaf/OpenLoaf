@@ -42,23 +42,36 @@ export function OpenLoafMentionElement(
   const mounted = useMounted();
   const readOnly = useReadOnly();
   const rawValue = element.value ?? "";
+  // Parse tag attributes — path (primary) and optional name (friendly label).
   const tagMatch = rawValue.match(
-    /^<system-tag\s+type="attachment"\s+path="([^"]*)"\s*\/>$/,
+    /^<system-tag\s+type="attachment"\s+([^>]*?)\s*\/>$/,
   );
-  const normalizedValue = tagMatch
-    ? (tagMatch[1] ?? "")
-        .replace(/&quot;/g, '"')
-        .replace(/&lt;/g, "<")
-        .replace(/&gt;/g, ">")
-        .replace(/&amp;/g, "&")
-    : rawValue;
+  const unescape = (v: string) =>
+    v
+      .replace(/&quot;/g, '"')
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&amp;/g, "&");
+  let tagPath = "";
+  let tagName = "";
+  if (tagMatch) {
+    const attrRe = /(\w+)="([^"]*)"/g;
+    let m: RegExpExecArray | null;
+    // biome-ignore lint/suspicious/noAssignInExpressions: regex iteration idiom
+    while ((m = attrRe.exec(tagMatch[1] ?? "")) !== null) {
+      if (m[1] === "path") tagPath = unescape(m[2] ?? "");
+      else if (m[1] === "name") tagName = unescape(m[2] ?? "");
+    }
+  }
+  const normalizedValue = tagMatch ? tagPath : rawValue;
   const match = normalizedValue.match(/^(.*?)(?::(\d+)-(\d+))?$/);
   const baseValue = match?.[1] ?? normalizedValue;
   const lineStart = match?.[2];
   const lineEnd = match?.[3];
   const parsed = parseScopedProjectPath(baseValue);
   const labelBase = parsed?.relativePath ?? baseValue;
-  const label = labelBase.split("/").pop() || labelBase;
+  const defaultLabel = labelBase.split("/").pop() || labelBase;
+  const label = tagName || defaultLabel;
   const labelWithLines =
     lineStart && lineEnd ? `${label} ${lineStart}:${lineEnd}` : label;
   const isFileReference = Boolean(parsed);

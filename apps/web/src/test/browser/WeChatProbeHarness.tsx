@@ -76,7 +76,8 @@ function buildApi(serverUrl: string, accountId: string): WeChatProbeApi {
       })
     },
     async reset() {
-      await post('/debug/wechat/reset', {})
+      // Per-account scope — concurrent tests must not wipe each other's mock state.
+      await post('/debug/wechat/reset', { accountId })
     },
     async inject(msgs) {
       await post('/debug/wechat/inject', { accountId, msgs })

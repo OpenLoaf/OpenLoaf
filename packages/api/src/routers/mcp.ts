@@ -120,6 +120,20 @@ export const mcpSchemas = {
     }),
     output: z.object({ ok: z.boolean() }),
   },
+
+  /** Call a tool on a connected MCP server and return raw result. */
+  callMcpTool: {
+    input: z.object({
+      serverId: z.string(),
+      toolName: z.string(),
+      args: z.record(z.string(), z.unknown()).optional(),
+    }),
+    output: z.object({
+      ok: z.boolean(),
+      data: z.unknown().optional(),
+      error: z.string().optional(),
+    }),
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -175,6 +189,12 @@ export abstract class BaseMcpRouter {
       trustMcpServer: shieldedProcedure
         .input(mcpSchemas.trustMcpServer.input)
         .output(mcpSchemas.trustMcpServer.output)
+        .mutation(async () => {
+          throw new Error("Not implemented in base class");
+        }),
+      callMcpTool: shieldedProcedure
+        .input(mcpSchemas.callMcpTool.input)
+        .output(mcpSchemas.callMcpTool.output)
         .mutation(async () => {
           throw new Error("Not implemented in base class");
         }),

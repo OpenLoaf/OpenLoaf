@@ -32,6 +32,7 @@ import {
 } from "@/ai/models/qwen/qwenMultimodalMiddleware";
 import {
   buildAiDebugFetch,
+  buildFinalUrlFetch,
   ensureOpenAiCompatibleBaseUrl,
   readApiKey,
 } from "@/ai/shared/util";
@@ -80,9 +81,11 @@ function buildAiSdkAdapter(
       const apiKey = readApiKey(provider.authConfig);
       const resolvedApiUrl = provider.apiUrl.trim() || providerDefinition?.apiUrl?.trim() || "";
       const debugFetch = buildAiDebugFetch();
-      // auth 或 apiUrl 缺失时直接返回 null，交由上层判定失败。
       if (!apiKey || !resolvedApiUrl) return null;
-      return factory({ apiUrl: resolvedApiUrl, apiKey, fetch: debugFetch })(modelId);
+      const useFinalUrl = provider.options?.finalApiUrl === true;
+      const finalFetch = useFinalUrl ? buildFinalUrlFetch(resolvedApiUrl, debugFetch) : debugFetch;
+      const baseUrl = useFinalUrl ? resolvedApiUrl : resolvedApiUrl;
+      return factory({ apiUrl: baseUrl, apiKey, fetch: finalFetch })(modelId);
     },
   };
 }
@@ -233,19 +236,19 @@ function buildSaasAdapter(): ProviderAdapter {
       const resolvedApiUrl = provider.apiUrl.trim();
       const saasFetch = buildSaasFetch();
       if (!apiKey || !resolvedApiUrl) return null;
-      const baseURL = ensureOpenAiCompatibleBaseUrl(resolvedApiUrl);
-      // 根据 provider.id（SaaS 模型的原始 provider，如 "moonshot"）选择对应 SDK。
+      const useFinalUrl = provider.options?.finalApiUrl === true;
+      const baseURL = useFinalUrl ? resolvedApiUrl : ensureOpenAiCompatibleBaseUrl(resolvedApiUrl);
+      const finalFetch = useFinalUrl ? buildFinalUrlFetch(resolvedApiUrl, saasFetch) : saasFetch;
       const factory = SAAS_PROVIDER_FACTORIES[provider.id];
       if (factory) {
         return factory({
           baseURL,
           apiKey,
-          fetch: saasFetch,
+          fetch: finalFetch,
           reasoning: modelDefinition?.reasoning,
         })(modelId);
       }
-      // 未匹配的 provider 回退到 OpenAI chat completions。
-      const openaiProvider = createOpenAI({ baseURL, apiKey, fetch: saasFetch });
+      const openaiProvider = createOpenAI({ baseURL, apiKey, fetch: finalFetch });
       return openaiProvider.chat(modelId);
     },
   };
@@ -288,17 +291,20 @@ function buildOpenAiAdapter(id: string): ProviderAdapter {
       const resolvedApiUrl = provider.apiUrl.trim() || providerDefinition?.apiUrl?.trim() || "";
       const debugFetch = buildAiDebugFetch();
       if (!apiKey || !resolvedApiUrl) return null;
-      const baseURL = provider.providerId === "custom"
+      const useFinalUrl = provider.options?.finalApiUrl === true;
+      const baseURL = useFinalUrl
         ? resolvedApiUrl.replace(/\/+$/, "")
-        : ensureOpenAiCompatibleBaseUrl(resolvedApiUrl);
+        : provider.providerId === "custom"
+          ? resolvedApiUrl.replace(/\/+$/, "")
+          : ensureOpenAiCompatibleBaseUrl(resolvedApiUrl);
+      const finalFetch = useFinalUrl ? buildFinalUrlFetch(resolvedApiUrl, debugFetch) : debugFetch;
       const openaiProvider = createOpenAI({
         baseURL,
         apiKey,
-        fetch: debugFetch,
+        fetch: finalFetch,
       });
       const enableResponsesApi =
         provider.options?.enableResponsesApi ?? provider.providerId !== "custom";
-      // 自定义服务商默认走 chat completions，启用时才使用 /responses。
       return enableResponsesApi ? openaiProvider(modelId) : openaiProvider.chat(modelId);
     },
   };

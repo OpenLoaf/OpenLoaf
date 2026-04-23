@@ -10,7 +10,7 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import { wrapLanguageModel } from "ai";
 import type { ProviderAdapter } from "@/ai/models/providerAdapters";
-import { buildAiDebugFetch, ensureOpenAiCompatibleBaseUrl, readApiKey } from "@/ai/shared/util";
+import { buildAiDebugFetch, buildFinalUrlFetch, ensureOpenAiCompatibleBaseUrl, readApiKey } from "@/ai/shared/util";
 import {
   createQwenMultimodalMiddleware,
   wrapQwenMultimodalFetch,
@@ -25,15 +25,16 @@ export const qwenAdapter: ProviderAdapter = {
     const apiKey = readApiKey(provider.authConfig);
     const resolvedApiUrl = provider.apiUrl.trim() || providerDefinition?.apiUrl?.trim() || "";
     const debugFetch = buildAiDebugFetch();
-    // 中文注释：仅支持聊天模型，缺少配置直接返回 null。
     if (!apiKey || !resolvedApiUrl) return null;
+    const useFinalUrl = provider.options?.finalApiUrl === true;
+    const baseURL = useFinalUrl ? resolvedApiUrl : ensureOpenAiCompatibleBaseUrl(resolvedApiUrl);
+    const finalFetch = useFinalUrl
+      ? wrapQwenMultimodalFetch(buildFinalUrlFetch(resolvedApiUrl, debugFetch))
+      : wrapQwenMultimodalFetch(debugFetch);
     const openaiProvider = createOpenAI({
-      baseURL: ensureOpenAiCompatibleBaseUrl(resolvedApiUrl),
+      baseURL,
       apiKey,
-      // 中文注释：Qwen /chat/completions 支持 video_url / input_audio，
-      // 但 @ai-sdk/openai 的 messages 转换器不生成这两种 type；用 middleware +
-      // fetch 后处理在 HTTP body 层补齐。
-      fetch: wrapQwenMultimodalFetch(debugFetch),
+      fetch: finalFetch,
     });
     return wrapLanguageModel({
       model: openaiProvider.chat(modelId),

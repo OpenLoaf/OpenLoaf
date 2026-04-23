@@ -36,7 +36,6 @@ const PLATFORM_EXCLUDED_TOOLS: Record<ClientPlatform, ReadonlySet<string>> = {
     'WidgetGet',
     'WidgetCheck',
     // Frontend interaction
-    'AskUserQuestion',
     'OpenUrl',
     'EditDocument',
     // Browser automation

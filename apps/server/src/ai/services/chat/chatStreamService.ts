@@ -13,7 +13,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { prisma } from "@openloaf/db";
 import type { OpenLoafUIMessage } from "@openloaf/api/types/message";
-import { createMasterAgentRunner, createPMAgentRunner } from "@/ai";
+import { createMasterAgentRunner, createPMAgentRunner, createChannelAgentRunner } from "@/ai";
 import { getTemplate, isTemplateId } from "@/ai/agent-templates";
 import { resolveChatModel } from "@/ai/models/resolveChatModel";
 import { resolveCliChatModelId } from "@/ai/models/cli/cliProviderEntry";
@@ -426,6 +426,15 @@ export async function runChatStream(input: {
   // 逻辑：首条消息 / compact 时重建 preface 并落库；其余请求复用 DB 中的 preface。
   const parentProjectRootPaths = await resolveParentProjectRootPaths(projectId);
   const resolvedProjectId = getProjectId() ?? projectId ?? undefined;
+  // 前端 transport 将 params 展平到顶层，scheduleExecutor 则放在 params 下。
+  // 这里提前解析，preface 组装需要据此过滤 channel 专属不适用的内置技能。
+  const requestAgentType = input.request.agentType ?? input.request.params?.agentType;
+  const agentKind: 'channel' | 'pm' | 'master' =
+    requestAgentType === 'channel'
+      ? 'channel'
+      : requestAgentType === 'pm'
+        ? 'pm'
+        : 'master';
   // 提示词语言：整条请求链路共用，preface/hardRules/agent instructions 保持一致。
   // 请求级覆盖 > 全局配置。ai-browser-test 默认走 'en'（测试稳定性更高）；
   // 生产前端不传 promptLanguage 时回退到用户在设置里选的语言。
@@ -449,6 +458,7 @@ export async function runChatStream(input: {
       timezone,
       clientPlatform: input.request.clientPlatform,
       lang: promptLang,
+      agentKind,
     });
     prefaceText = result.prefaceText;
     builtinSkillsText = result.builtinSkillsText;
@@ -461,7 +471,7 @@ export async function runChatStream(input: {
     });
   } else {
     prefaceText = existingPreface;
-    builtinSkillsText = buildBuiltinSkillsText(promptLang);
+    builtinSkillsText = buildBuiltinSkillsText(promptLang, agentKind);
   }
 
   let leafMessageId = "";
@@ -733,18 +743,28 @@ export async function runChatStream(input: {
         instructions,
       });
     } else {
-      // agentType: 'pm' — 使用专用 Agent
-      // 前端 transport 将 params 展平到顶层，scheduleExecutor 则放在 params 下——两处都要读取。
-      const agentType = input.request.agentType ?? input.request.params?.agentType;
+      // agentType 已在 preface 组装前解析（见 requestAgentType / agentKind）。
+      const agentType = requestAgentType;
       const rawTaskId = input.request.taskId ?? input.request.params?.taskId;
       const taskId = typeof rawTaskId === 'string' ? rawTaskId : undefined;
       if (agentType === 'pm') {
+        const { getPMPrompt } = await import("@/ai/agent-templates");
+        instructions = getPMPrompt(promptLang);
         masterAgent = createPMAgentRunner({
           model: resolved.model,
           modelInfo: resolved.modelInfo,
           taskId,
           projectId: input.request.projectId,
           lang: promptLang,
+        });
+      } else if (agentType === 'channel') {
+        const { getChannelPrompt } = await import("@/ai/agent-templates");
+        instructions = getChannelPrompt(promptLang);
+        masterAgent = createChannelAgentRunner({
+          model: resolved.model,
+          modelInfo: resolved.modelInfo,
+          lang: promptLang,
+          sessionId,
         });
       } else {
         // 逻辑：组装默认 agent instructions（template.systemPrompt）。

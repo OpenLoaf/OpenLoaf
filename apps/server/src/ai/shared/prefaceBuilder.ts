@@ -39,6 +39,7 @@ import { mcpClientManager } from "@/ai/services/mcpClientManager";
 import { getEnabledMcpServers } from "@/services/mcpConfigService";
 
 import { BUILTIN_SKILLS } from '@/ai/builtin-skills'
+import { CHANNEL_EXCLUDED_SKILL_NAMES } from '@/ai/agent-templates/templates/channel'
 import { resolveEffectiveTier } from '@/ai/builtin-skills/cloud-skills'
 import { UNKNOWN_VALUE } from '@/ai/shared/constants'
 /** Sentinel value for project rules when AGENTS.md is absent. */
@@ -436,6 +437,13 @@ function resolveAppVersionsSnapshot(): PromptContext["appVersions"] {
 }
 
 /**
+ * Agent 类别影响 preface 组装：channel（IM 通道）会剔除掉纯 app 内嵌 / 桌面
+ * 遥控 / 设置 / 技能创建类内置技能，避免在 IM 场景里把用户无法使用的能力
+ * 列进提示词，增加误触发和无效等待。
+ */
+export type AgentKind = 'master' | 'pm' | 'channel'
+
+/**
  * Build builtin skills block for system prompt injection.
  *
  * Every builtin skill is listed with its full description — AI needs the
@@ -447,8 +455,15 @@ function resolveAppVersionsSnapshot(): PromptContext["appVersions"] {
 function buildBuiltinSkillsSystemBlock(
   summaries: PromptContext["skillSummaries"],
   lang?: PromptLang,
+  agentKind?: AgentKind,
 ): string {
-  const builtinSkills = summaries.filter((s) => s.scope === "builtin");
+  let builtinSkills = summaries.filter((s) => s.scope === "builtin");
+  if (agentKind === 'channel') {
+    const excluded = new Set<string>(CHANNEL_EXCLUDED_SKILL_NAMES);
+    builtinSkills = builtinSkills.filter(
+      (s) => !excluded.has(s.name) && !excluded.has(s.originalName),
+    );
+  }
   if (builtinSkills.length === 0) return "";
   const content = buildSkillsSummarySection(builtinSkills, lang);
   if (!content) return "";
@@ -467,7 +482,10 @@ function buildBuiltinSkillsSystemBlock(
  * keep the system-prompt suffix fresh without re-running the full session
  * preface pipeline.
  */
-export function buildBuiltinSkillsText(lang?: PromptLang): string {
+export function buildBuiltinSkillsText(
+  lang?: PromptLang,
+  agentKind?: AgentKind,
+): string {
   const summaries: SkillSummary[] = BUILTIN_SKILLS.map((skill) => ({
     name: skill.name,
     originalName: skill.name,
@@ -480,7 +498,7 @@ export function buildBuiltinSkillsText(lang?: PromptLang): string {
     hasMeta: true,
     icon: skill.icon,
   }));
-  return buildBuiltinSkillsSystemBlock(summaries, lang);
+  return buildBuiltinSkillsSystemBlock(summaries, lang, agentKind);
 }
 
 /**
@@ -595,6 +613,8 @@ export async function buildSessionPrefaceText(input: {
   clientPlatform?: ClientPlatform;
   /** AI prompt language (en/zh); defaults to user's BasicConfig.promptLanguage. */
   lang?: PromptLang;
+  /** Agent 类别 —— channel 会过滤掉 IM 场景不适用的内置技能。 */
+  agentKind?: AgentKind;
 }): Promise<SessionPrefaceResult> {
   const lang: PromptLang =
     input.lang ?? (readBasicConf().promptLanguage === "zh" ? "zh" : "en");
@@ -612,7 +632,11 @@ export async function buildSessionPrefaceText(input: {
   });
 
   // ★ 内置 skills → system prompt（instructions 末尾）
-  const builtinSkillsText = buildBuiltinSkillsSystemBlock(context.skillSummaries, lang);
+  const builtinSkillsText = buildBuiltinSkillsSystemBlock(
+    context.skillSummaries,
+    lang,
+    input.agentKind,
+  );
 
   // ★ 用户/项目 skills → preface（user message）
   const skillsBlocks = buildUserProjectSkillsBlocks(context.skillSummaries, lang);

@@ -11,7 +11,15 @@
  * because QR flow isn't covered by the mock layer.
  */
 
-import { ApiClient, sendText as ilinkSendText, type GetUpdatesResp, type WeixinMessage } from 'wechat-ilink-client'
+import {
+  ApiClient,
+  sendText as ilinkSendText,
+  downloadMediaFromItem,
+  type GetUpdatesResp,
+  type WeixinMessage,
+  type MessageItem,
+  type DownloadedMedia,
+} from 'wechat-ilink-client'
 import type { WeChatAccount } from './wechatAccountStore'
 import {
   hasMockAccount,
@@ -25,6 +33,8 @@ export interface AccountApiClient {
   getUpdates(buf: string, timeoutMs?: number): Promise<GetUpdatesResp>
   /** contextToken is required by iLink protocol (echoed from getUpdates). */
   sendText(to: string, text: string, contextToken: string): Promise<string>
+  /** Download + decrypt a single media item from an inbound message. */
+  downloadMedia(item: MessageItem): Promise<DownloadedMedia | null>
 }
 
 class RealApiClient implements AccountApiClient {
@@ -37,6 +47,9 @@ class RealApiClient implements AccountApiClient {
   }
   sendText(to: string, text: string, contextToken: string): Promise<string> {
     return ilinkSendText(this.api, to, text, contextToken)
+  }
+  downloadMedia(item: MessageItem): Promise<DownloadedMedia | null> {
+    return downloadMediaFromItem(item, this.api.cdnBaseUrl)
   }
 }
 
@@ -62,6 +75,11 @@ class MockApiClient implements AccountApiClient {
     const messageId = `mock-out-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`
     recordOutbound(this.accountId, { to, text, contextToken, at: Date.now(), messageId })
     return messageId
+  }
+
+  async downloadMedia(_item: MessageItem): Promise<DownloadedMedia | null> {
+    // Mock path: no CDN to hit. Tests that need media can extend mockStore later.
+    return null
   }
 }
 

@@ -13,6 +13,7 @@ import { memo, useEffect, useMemo, useState } from 'react'
 import { Cloud, HardDrive } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
+import { ModelIcon } from '@/components/setting/menus/provider/ModelIcon'
 import { SaasLoginDialog } from '@/components/auth/SaasLoginDialog'
 import { useModelPreferences } from './model-preferences/useModelPreferences'
 import { ModelPreferencesPanel } from './model-preferences/ModelPreferencesPanel'
@@ -58,8 +59,26 @@ function SelectModeInner({
   const tabId = chatSession?.tabId ?? activeSessionId
   const isIconTrigger = triggerVariant === 'icon'
 
-  // CLI 模式下不显示工具 icon（codeModelIds 已移除）
-  const AgentIcon = prefs.isCloudSource ? Cloud : HardDrive
+  // 选中模型的 provider + modelId 用于渲染品牌图标；未选中时回退 Cloud / HardDrive。
+  const selectedModel = useMemo(() => {
+    const id = prefs.preferredChatIds[0]
+    if (!id) return undefined
+    return prefs.chatModels.find((m) => m.id === id)
+  }, [prefs.chatModels, prefs.preferredChatIds])
+
+  const FallbackIcon = prefs.isCloudSource ? Cloud : HardDrive
+
+  const renderAgentIcon = (pxSize: number, cls?: string) =>
+    selectedModel ? (
+      <ModelIcon
+        icon={selectedModel.providerId}
+        model={selectedModel.modelId}
+        size={pxSize}
+        className={cls}
+      />
+    ) : (
+      <FallbackIcon className={cls} style={{ width: pxSize, height: pxSize }} />
+    )
 
   // 逻辑：Popover 打开时刷新配置和云端模型
   useEffect(() => {
@@ -120,7 +139,7 @@ function SelectModeInner({
       )}
       aria-label={t('mode.customizeSettings')}
     >
-      <AgentIcon className="h-4 w-4" />
+      {renderAgentIcon(16)}
     </PromptInputButton>
   ) : (
     <PromptInputButton
@@ -134,7 +153,7 @@ function SelectModeInner({
         className,
       )}
     >
-      <AgentIcon className="h-3.5 w-3.5" />
+      {renderAgentIcon(14)}
       <span className="truncate">{t('mode.customizeSettings')}</span>
     </PromptInputButton>
   )
@@ -155,7 +174,7 @@ function SelectModeInner({
         )}
         aria-label={t('mode.customizeSettings')}
       >
-        <AgentIcon className="h-4 w-4" />
+        {renderAgentIcon(16)}
       </PromptInputButton>
     ) : (
       <PromptInputButton
@@ -170,7 +189,7 @@ function SelectModeInner({
           className,
         )}
       >
-        <AgentIcon className="h-3.5 w-3.5" />
+        {renderAgentIcon(14)}
         <span className="truncate">{t('mode.customizeSettings')}</span>
       </PromptInputButton>
     )

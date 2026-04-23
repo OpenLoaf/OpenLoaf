@@ -1073,6 +1073,10 @@
       "name": "カレンダーアシスタント",
       "description": "カレンダーイベントの管理"
     },
+    "channel": {
+      "name": "IM アシスタント",
+      "description": "WeChat / Slack / Telegram などの IM チャネル専用——プレーンテキスト出力、テキスト確認による承認、デスクトップ/ブラウザのリモート操作を維持"
+    },
     "coder": {
       "name": "コーディングアシスタント",
       "description": "AI CLIツールを使用したコード開発"
@@ -1115,6 +1119,7 @@
     }
   },
   "capabilityGroups": {
+    "desktop-control": "デスクトップ遠隔操作",
     "browser": "ブラウザ",
     "file-read": "ファイル読み取り",
     "file-write": "ファイル書き込み",

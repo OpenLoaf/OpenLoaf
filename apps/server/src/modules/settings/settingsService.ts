@@ -60,6 +60,8 @@ export type ProviderSettingEntry = {
   options?: {
     /** Whether to enable OpenAI Responses API. */
     enableResponsesApi?: boolean;
+    /** Whether apiUrl is the final endpoint URL (no path appending). */
+    finalApiUrl?: boolean;
   };
   /** Last update time. */
   updatedAt: Date;
@@ -149,13 +151,18 @@ function normalizeModelProviderValue(value: unknown): ModelProviderValue | null 
     typeof optionsRaw?.enableResponsesApi === "boolean"
       ? optionsRaw.enableResponsesApi
       : undefined;
+  const finalApiUrl =
+    typeof optionsRaw?.finalApiUrl === "boolean"
+      ? optionsRaw.finalApiUrl
+      : undefined;
   if (!providerId || !apiUrl || !authConfig || !models) return null;
+  const hasOptions = enableResponsesApi !== undefined || finalApiUrl !== undefined;
   return {
     providerId,
     apiUrl,
     authConfig,
     models,
-    options: enableResponsesApi === undefined ? undefined : { enableResponsesApi },
+    options: hasOptions ? { enableResponsesApi, finalApiUrl } : undefined,
   };
 }
 

@@ -15,6 +15,7 @@ import type { ChatPageContext } from "@openloaf/api/types/message";
 import { bootstrapAi } from "@/ai/bootstrap";
 import { logger } from "@/common/logger";
 import { toText } from "@/routers/route-utils";
+import { abortChatBySessionId } from "@/ai/services/chat/chatAbortRegistry";
 
 const { aiExecuteController: controller } = bootstrapAi();
 
@@ -50,6 +51,21 @@ export function registerAiExecuteRoutes(app: Hono) {
 
   // 中文注释：统一使用 /ai/chat 作为 AI 入口。
   app.post("/ai/chat", handleExecute);
+
+  // 显式中止：前端 stop 时按 sessionId 强制 abort 正在运行的流。
+  // 不依赖 HTTP 连接 close 事件检测，绕过 provider 忽略 signal 等问题。
+  app.post("/ai/chat/abort", async (c) => {
+    let body: unknown;
+    try {
+      body = await c.req.json();
+    } catch {
+      return c.json({ error: "Invalid JSON body" }, 400);
+    }
+    const sessionId = toText((body as Record<string, unknown> | null)?.sessionId);
+    if (!sessionId) return c.json({ error: "sessionId is required" }, 400);
+    const hit = abortChatBySessionId(sessionId);
+    return c.json({ ok: true, hit });
+  });
 }
 
 /** Parse request payload into typed input. */

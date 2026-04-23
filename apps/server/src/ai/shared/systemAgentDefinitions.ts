@@ -23,6 +23,7 @@
 import { existsSync, rmSync } from 'node:fs'
 import path from 'node:path'
 import { masterTemplate } from '@/ai/agent-templates/templates/master'
+import { CHANNEL_AGENT_TOOL_IDS } from '@/ai/agent-templates/templates/channel'
 
 /** Builtin agent 的虚拟路径前缀。 */
 export const BUILTIN_AGENT_PATH_PREFIX = 'builtin://agent/'
@@ -149,6 +150,39 @@ const EXPLORE_SKILLS: readonly string[] = [
   'browser-ops',
 ] as const
 
+const CHANNEL_SYSTEM_PROMPT = `你是 Channel Agent — 通过 IM 通道（微信 / Slack / Telegram 等）回复用户的助手。
+
+> 本 Agent 由系统自动管理。Channel 通道接入时（如微信 bridge）路由 \`agentType: 'channel'\` 命中此 Agent，运行时会注入完整的 channel identity + approval prompt + 通用 harness。
+> 此 Markdown 主要用于在「专家中心」展示 Agent 概览——编辑正文**不会**覆盖运行时行为。
+
+## 何时使用
+
+- 用户**不在** OpenLoaf 客户端，通过 IM 与 AI 对话
+- 输出会作为一条 IM 消息发送到用户手机（纯文本，无 markdown 渲染）
+
+## 关键约束
+
+- 单条回复 ≤500 字，纯文本优先（禁止表格 / 代码块围栏 / 标题语法）
+- 有副作用工具（写文件 / 执行脚本 / UI 操作 / 生成媒体）必须**先发文字确认**问 yes/no，本轮结束等待用户回复
+- 不能主动反问澄清，按最合理假设执行并在回复里说明假设
+- 不加载 \`JsxCreate\` / 图表 / widget / 项目 / 画布 / 邮件 / 日历类工具
+
+## 通道核心价值
+
+保留桌面（macOS）/ 浏览器 / shell / 文件系统 / 云生成（图像 / 视频 / TTS）能力——"用微信远程遥控电脑"。
+`
+
+/** Channel agent 的技能白名单（与 IM 通道场景相关的子集）。 */
+const CHANNEL_SKILLS: readonly string[] = [
+  'browser-ops',
+  'media-ops',
+  'schedule-ops',
+  'pdf',
+  'docx',
+  'xlsx',
+  'pptx',
+] as const
+
 /** explore 的只读工具集（本地文件 / Office 文档 / 网络资料 / 浏览器抓取）。 */
 const EXPLORE_TOOL_IDS: readonly string[] = [
   'Read',
@@ -198,6 +232,18 @@ export const BUILTIN_AGENT_DEFINITIONS: readonly BuiltinAgentDefinition[] = [
     maxDepth: 1,
     systemPrompt: EXPLORE_SYSTEM_PROMPT,
   },
+  {
+    folderName: 'channel',
+    name: 'IM 助手',
+    description:
+      'IM 通道助手——专为微信 / Slack / Telegram 等即时通讯通道设计。纯文本输出、文字确认审批、保留桌面/浏览器远程控制能力。',
+    icon: 'message-circle',
+    toolIds: [...CHANNEL_AGENT_TOOL_IDS],
+    skills: [...CHANNEL_SKILLS],
+    allowSubAgents: true,
+    maxDepth: 1,
+    systemPrompt: CHANNEL_SYSTEM_PROMPT,
+  },
 ] as const
 
 /** Builtin agent folderName → 定义 的映射。 */
@@ -224,6 +270,7 @@ export function isBuiltinAgentId(folderName: string): boolean {
 export const SYSTEM_AGENT_ORDER: readonly string[] = [
   'general-purpose',
   'explore',
+  'channel',
   'master',
 ] as const
 

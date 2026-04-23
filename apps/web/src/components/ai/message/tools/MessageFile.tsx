@@ -11,10 +11,6 @@
 
 import React from "react";
 import { toast } from "sonner";
-import {
-  extractAttachmentTagPath,
-  formatAttachmentTag,
-} from "@openloaf/api/common";
 import { cn } from "@/lib/utils";
 import { useChatSession } from "@/components/ai/context";
 import {
@@ -32,13 +28,13 @@ import {
   resolveFileName,
 } from "@/lib/image/uri";
 import { createFileEntryFromUri, openFilePreview } from "@/components/file/lib/open-file";
-import { setImageDragPayload } from "@/lib/image/drag";
+import { applyChatImageDrag } from "@/lib/image/drag";
+import { ChatImageActions } from "./shared/ChatImageActions";
 import {
   formatSize,
   resolveFileUriFromRoot,
 } from "@/components/project/filesystem/utils/file-system-utils";
 import { resolveMediaTypeFromPath } from "@/lib/format-utils";
-import { FILE_DRAG_REF_MIME } from "@/components/project/filesystem/utils/file-system-utils";
 
 interface MessageFileProps {
   /** File URL to render. */
@@ -72,21 +68,11 @@ function isRelativePath(value: string) {
   return !/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(value);
 }
 
-/** Build a file reference string for drag payload. */
-function buildFileRefText(value: string) {
-  const trimmed = value.trim();
-  if (!trimmed) return "";
-  if (extractAttachmentTagPath(trimmed) !== null) return trimmed;
-  if (!isRelativePath(trimmed)) return "";
-  return formatAttachmentTag(trimmed);
-}
-
 /** Render file part for AI messages. */
 export default function MessageFile({ url, mediaType, title, className }: MessageFileProps) {
   const [preview, setPreview] = React.useState<PreviewState | null>(null);
   const isImage = isImageMediaType(mediaType);
   const shouldFetchPreview = isImage && isRelativePath(url);
-  const fileRefText = React.useMemo(() => buildFileRefText(url), [url]);
   const { projectId, sessionId } = useChatSession();
   const projectQuery = useProject(projectId);
   const projectRootUri = projectQuery.data?.project?.rootUri;
@@ -201,8 +187,8 @@ export default function MessageFile({ url, mediaType, title, className }: Messag
     <Attachments
       variant={variant}
       className={cn(
-        isImage ? "max-w-xs" : "max-w-full",
         className,
+        isImage ? "max-w-[560px]" : "max-w-full",
       )}
     >
       <Attachment
@@ -217,7 +203,9 @@ export default function MessageFile({ url, mediaType, title, className }: Messag
         }
         className={cn(
           "cursor-pointer",
-          isImage ? "!size-auto overflow-hidden rounded-3xl border border-border/60" : undefined,
+          isImage
+            ? "!size-auto max-h-[70vh] max-w-full overflow-hidden rounded-3xl [&_img]:!size-auto [&_img]:max-h-[70vh] [&_img]:max-w-full [&_img]:w-auto [&_img]:h-auto [&_img]:block [&_img]:object-contain"
+            : undefined,
         )}
         onClick={() => {
           if (!entry) return;
@@ -226,29 +214,27 @@ export default function MessageFile({ url, mediaType, title, className }: Messag
             projectId,
             sessionId,
             rootUri: projectRootUri,
-            mode: "modal",
-            modal: {
-              showSave: true,
-              enableEdit: true,
-              saveDefaultDir: projectRootUri,
-            },
+            mode: "stack",
           });
         }}
         draggable
         onDragStart={(event) => {
-          // 允许将消息内图片拖入输入框，复用当前图片来源。
-          event.dataTransfer.effectAllowed = "copy";
-          const fallbackName = title?.trim() || resolveFileName(url, mediaType);
-          setImageDragPayload(event.dataTransfer, { baseUri: url, fileName: fallbackName });
-          // 中文注释：拖拽到输入框时附带文件引用，便于插入 @path 并在末尾补空格。
-          if (fileRefText) {
-            event.dataTransfer.setData(FILE_DRAG_REF_MIME, fileRefText);
-            event.dataTransfer.setData("text/plain", `${fileRefText} `);
-          }
+          applyChatImageDrag(event, {
+            url,
+            name: title?.trim() || undefined,
+            thumbnailUrl: resolvedSrc || undefined,
+          });
         }}
       >
         <AttachmentPreview className={cn(isImage ? "!h-auto !w-auto bg-transparent" : undefined)} />
         {!isImage ? <AttachmentInfo showMediaType /> : null}
+        {isImage ? (
+          <ChatImageActions
+            url={url}
+            name={resolvedName}
+            objectUrl={shouldFetchPreview ? resolvedSrc || undefined : undefined}
+          />
+        ) : null}
       </Attachment>
     </Attachments>
   );

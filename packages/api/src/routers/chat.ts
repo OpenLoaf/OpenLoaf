@@ -737,6 +737,12 @@ export const chatRouter = t.router({
     } | null> => {
       throw new Error('Not implemented in base router')
     }),
+  /** Return tool JSON schemas keyed by tool id — implementation in server. */
+  getToolSchemas: shieldedProcedure
+    .input(z.object({ toolIds: z.array(z.string()) }))
+    .query(async (): Promise<Record<string, unknown>> => {
+      throw new Error('Not implemented in base router')
+    }),
 })
 
 export type ChatRouter = typeof chatRouter

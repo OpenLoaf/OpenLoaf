@@ -17,6 +17,7 @@
 // feedback_tool_ui_gallery_sync。
 
 import type { AnyToolPart } from '@/components/ai/message/tools/shared/tool-utils'
+import webSearchImageCarsFixture from './__fixtures__/web-search-image-cars.json'
 
 export type ToolFixture = {
   id: string
@@ -803,6 +804,9 @@ const webSearchFixtures: ToolFixture[] = [
       }),
     }),
   },
+]
+
+const webSearchImageFixtures: ToolFixture[] = [
   {
     id: 'web-search-image',
     title: 'WebSearchImage',
@@ -816,6 +820,18 @@ const webSearchFixtures: ToolFixture[] = [
           { url: SAMPLE_IMAGE, thumbnailUrl: SAMPLE_IMAGE, title: 'Coffee shop ambient' },
         ],
       }),
+    }),
+  },
+  {
+    // Captured from real session chat_20260423_120137_fgw52kmw — 28 个真实结果
+    id: 'web-search-image-real-cars',
+    title: 'WebSearchImage · 真实数据（汽车 28 张）',
+    toolKind: 'WebSearchImage',
+    part: makePart({
+      toolKind: 'WebSearchImage',
+      suffix: 'real-cars',
+      input: webSearchImageCarsFixture.input as Record<string, unknown>,
+      output: webSearchImageCarsFixture.output,
     }),
   },
 ]
@@ -953,11 +969,13 @@ const cloudUserInfoFixtures: ToolFixture[] = [
 
 // Groups --------------------------------------------------------------
 
+// 分组逻辑：对齐 apps/server/src/ai/builtin-skills/ 的 skill 边界。
+// 不属于任何 skill 的基础能力归入 core-* / interaction / account 三个"非 skill"组。
 export const TOOL_FIXTURE_GROUPS: ToolFixtureGroup[] = [
   {
-    key: 'cli',
-    label: 'Claude Code CLI 工具',
-    description: 'providerExecuted=true，由内置 Claude Code runtime 执行',
+    key: 'claude-code',
+    label: 'Claude Code CLI',
+    description: 'providerExecuted=true，由内置 Claude Code runtime 执行（独立于 skill 体系）',
     fixtures: [
       ...cliBashFixtures,
       ...cliReadFixtures,
@@ -970,61 +988,98 @@ export const TOOL_FIXTURE_GROUPS: ToolFixtureGroup[] = [
     ],
   },
   {
-    key: 'approval',
-    label: '审批 / 交互类',
-    fixtures: [...planFixtures, ...askUserFixtures],
-  },
-  {
-    key: 'shell',
-    label: 'Shell / 文件系统',
+    key: 'core-tools',
+    label: '核心基础工具',
+    description: 'master harness 默认挂载，不依赖任何 skill（文件系统 / 读写 / 网络 / 元工具）',
     fixtures: [
       ...shellFixtures,
       ...readFileFixtures,
+      ...writeFileFixtures,
       ...grepFixtures,
       ...globFixtures,
-      ...writeFileFixtures,
       ...fileInfoFixtures,
       ...docPreviewFixtures,
-    ],
-  },
-  {
-    key: 'widget',
-    label: 'Widget',
-    fixtures: widgetFixtures,
-  },
-  {
-    key: 'agent',
-    label: 'Agent / Message',
-    fixtures: [...agentFixtures, ...sendMessageFixtures],
-  },
-  {
-    key: 'office',
-    label: 'Office / 图表',
-    fixtures: [...chartFixtures, ...officeFixtures],
-  },
-  {
-    key: 'media',
-    label: '图片 / 视频 / URL / 浏览器',
-    fixtures: [...imageProcessFixtures, ...videoFixtures, ...openUrlFixtures, ...browserFixtures],
-  },
-  {
-    key: 'jobs',
-    label: 'Jobs / Sleep / Skill / Scheduled',
-    fixtures: [...jobsFixtures, ...sleepFixtures, ...loadSkillFixtures, ...scheduledFixtures],
-  },
-  {
-    key: 'project',
-    label: 'Project / Search',
-    fixtures: [
-      ...projectFixtures,
       ...webFetchFixtures,
       ...webSearchFixtures,
       ...toolSearchFixtures,
+      ...sleepFixtures,
+      ...loadSkillFixtures,
     ],
   },
   {
-    key: 'cloud',
-    label: 'Cloud',
-    fixtures: [...cloudImageUnderstandFixtures, ...cloudGenerateFixtures, ...cloudLoginFixtures, ...cloudUserInfoFixtures],
+    key: 'interaction',
+    label: '审批 / 用户交互',
+    description: 'master 级的审批闸门（SubmitPlan / AskUserQuestion）',
+    fixtures: [...planFixtures, ...askUserFixtures],
+  },
+  {
+    key: 'skill-agent-orchestration',
+    label: 'Skill · 子代理委派',
+    description: 'agent-orchestration-skill：Agent 工具 + 子代理间消息',
+    fixtures: [...agentFixtures, ...sendMessageFixtures, ...jobsFixtures],
+  },
+  {
+    key: 'skill-browser-ops',
+    label: 'Skill · 浏览器操作',
+    description: 'browser-ops-skill：OpenUrl / BrowserSnapshot / BrowserAct',
+    fixtures: [...openUrlFixtures, ...browserFixtures],
+  },
+  {
+    key: 'skill-project-ops',
+    label: 'Skill · 项目管理',
+    description: 'project-ops-skill：ProjectQuery / ProjectMutate',
+    fixtures: projectFixtures,
+  },
+  {
+    key: 'skill-workbench-ops',
+    label: 'Skill · 工作台 Widget',
+    description: 'workbench-ops-skill：WidgetInit / WidgetCheck / GenerateWidget',
+    fixtures: widgetFixtures,
+  },
+  {
+    key: 'skill-schedule-ops',
+    label: 'Skill · 定时任务',
+    description: 'schedule-ops-skill：ScheduledTaskManage / Status / Wait',
+    fixtures: scheduledFixtures,
+  },
+  {
+    key: 'skill-visualization-ops',
+    label: 'Skill · 可视化渲染',
+    description: 'visualization-ops-skill：JsxCreate / ChartRender',
+    fixtures: chartFixtures,
+  },
+  {
+    key: 'skill-media-ops',
+    label: 'Skill · 本地媒体处理',
+    description: 'media-ops-skill：ImageProcess / VideoConvert / VideoDownload',
+    fixtures: [...imageProcessFixtures, ...videoFixtures],
+  },
+  {
+    key: 'skill-office',
+    label: 'Skill · Office 文档（docx / pdf / xlsx / pptx）',
+    description: 'docx-skill / pdf-skill / xlsx-skill / pptx-skill：文档读写与格式互转（当前 fixture 待补）',
+    fixtures: officeFixtures,
+  },
+  {
+    key: 'skill-cloud-media',
+    label: 'Skill · 云端媒体生成',
+    description: 'cloud-media-skill：AI 图片 / 视频 / TTS / 图片理解 / 图片搜索',
+    fixtures: [
+      ...cloudImageUnderstandFixtures,
+      ...cloudGenerateFixtures,
+      ...webSearchImageFixtures,
+    ],
+  },
+  {
+    key: 'skill-macos-control',
+    label: 'Skill · macOS 桌面控制',
+    description: 'macos-control-skill：MacosObserve / MacosAct（仅 desktop + darwin）',
+    fixtures: [],
+  },
+  {
+    key: 'account',
+    label: 'SaaS 账号',
+    description: '非 skill：CloudLogin / CloudUserInfo（登录与配额）',
+    fixtures: [...cloudLoginFixtures, ...cloudUserInfoFixtures],
   },
 ]

@@ -107,6 +107,7 @@ const renderAttachmentImage = (
       height={96}
       src={url}
       width={96}
+      draggable={false}
     />
   ) : (
     <img
@@ -115,6 +116,7 @@ const renderAttachmentImage = (
       height={20}
       src={url}
       width={20}
+      draggable={false}
     />
   );
 
@@ -213,7 +215,7 @@ export const Attachment = ({
     <AttachmentContext.Provider value={contextValue}>
       <div
         className={cn(
-          "group relative",
+          "group/image relative",
           variant === "grid" && "size-24 overflow-hidden rounded-3xl",
           variant === "inline" && [
             "flex h-8 cursor-pointer select-none items-center gap-1.5",
@@ -352,13 +354,13 @@ export const AttachmentRemove = ({
         variant === "grid" && [
           "absolute top-2 right-2 size-6 rounded-full p-0",
           "ol-glass-float",
-          "opacity-0 transition-opacity group-hover:opacity-100",
+          "opacity-0 transition-opacity group-hover/image:opacity-100",
           "hover:bg-background",
           "[&>svg]:size-3",
         ],
         variant === "inline" && [
           "size-5 rounded p-0",
-          "opacity-0 transition-opacity group-hover:opacity-100",
+          "opacity-0 transition-opacity group-hover/image:opacity-100",
           "[&>svg]:size-2.5",
         ],
         variant === "list" && ["size-8 shrink-0 rounded p-0", "[&>svg]:size-4"],

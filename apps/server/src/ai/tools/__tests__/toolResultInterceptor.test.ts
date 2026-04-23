@@ -185,7 +185,6 @@ async function main() {
     'ToolSearch',
     'Agent',
     'SendMessage',
-    'AskUserQuestion',
     'LoadSkill',
   ]
 

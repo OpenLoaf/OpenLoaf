@@ -4,6 +4,32 @@
   "totalCount": "{{count}} 個可用",
   "advancedMcp": "進階設定",
   "emptyTitle": "暫無可用整合",
+  "statusConnected": "已連接",
+  "connectedToolCount": "已載入 {{count}} 個工具",
+  "connectingHint": "正在連接服務…",
+  "errorHint": "連接失敗，請檢查設定後重試。",
+  "disconnectedHint": "服務未連線，重新啟動應用後會自動重連。",
+  "availableTools": "可用工具",
+  "remove": "移除",
+  "reconnect": "重新連接",
+  "authorizeAndConnect": "授權並連接",
+  "oauthReadyHint": "OpenLoaf 會開啟 Notion 官方授權頁。完成後，這個視窗會自動刷新連線狀態。",
+  "oauthPendingHint": "授權視窗已開啟。完成後關閉彈窗，OpenLoaf 會自動檢查連線結果。",
+  "oauthPopupBlocked": "無法開啟授權視窗，請檢查瀏覽器彈窗設定。",
+  "probeLoading": "正在取得工作區資訊…",
+  "probeMore": "還有 {{count}} 項",
+  "probeFields": {
+    "workspace": "工作區：{{value}}",
+    "workspaceId": "工作區 ID：{{value}}",
+    "bot": "Bot：{{value}}",
+    "owner": "擁有者：{{value}}"
+  },
+  "serverStatus": {
+    "connected": "已連接",
+    "connecting": "連接中",
+    "disconnected": "未連接",
+    "error": "連接失敗"
+  },
   "install": "新增",
   "uninstall": "已新增",
   "installSuccess": "{{name}} 已連接",
@@ -16,23 +42,16 @@
       "description": "在對話中存取 Notion 頁面、建立與編輯內容，管理你的工作區。",
       "guide": {
         "0": {
-          "title": "在 Notion 建立內部整合",
-          "description": "開啟 Notion Integrations 頁面並點擊「New integration」，命名為「OpenLoaf」或任意名稱。",
-          "linkLabel": "開啟 Notion Integrations"
+          "title": "授權你的 Notion 工作區",
+          "description": "點擊下方按鈕後，Notion 會開啟 OpenLoaf 的官方授權頁。"
         },
         "1": {
-          "title": "複製整合密鑰",
-          "description": "建立完成後展開並複製 Internal Integration Secret（以「ntn_」或「secret_」開頭）。"
+          "title": "選擇允許存取的頁面",
+          "description": "在授權流程中選擇要開放給 OpenLoaf 的頁面或資料庫，之後仍可在 Notion 中調整。"
         },
         "2": {
-          "title": "將頁面分享給整合",
-          "description": "逐個開啟要開放的 Notion 頁面，點擊「…」→「Connections」→ 選擇你的整合。"
-        }
-      },
-      "credentials": {
-        "token": {
-          "label": "Notion 整合 Token",
-          "helpText": "來自 notion.so/profile/integrations 的內部整合密鑰"
+          "title": "回到 OpenLoaf",
+          "description": "授權完成後，OpenLoaf 會自動連接官方 Notion remote MCP，並顯示目前工作區資訊。"
         }
       }
     },

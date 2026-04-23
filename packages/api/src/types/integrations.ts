@@ -23,6 +23,9 @@ export const integrationCategorySchema = z.enum([
 ])
 export type IntegrationCategory = z.infer<typeof integrationCategorySchema>
 
+export const integrationAuthTypeSchema = z.enum(['credentials', 'oauth'])
+export type IntegrationAuthType = z.infer<typeof integrationAuthTypeSchema>
+
 export const credentialFieldSchema = z.object({
   key: z.string(),
   label: z.string(),
@@ -50,22 +53,26 @@ export const integrationDefinitionSchema = z.object({
   name: z.string(),
   description: z.string(),
   category: integrationCategorySchema,
+  authType: integrationAuthTypeSchema.default('credentials'),
   brandColor: z.string().optional(),
-  /**
-   * Raw SVG path `d` attribute (rendered inside `<svg viewBox="0 0 24 24">`).
-   * When present, rendered as a monochrome brand glyph driven by `currentColor`.
-   */
   iconSvgPath: z.string().optional(),
-  /**
-   * Absolute or root-relative URL of a square brand icon (SVG/PNG). When
-   * present, preferred over `iconSvgPath` so full-color marks are preserved
-   * rather than rendered as a monochrome glyph.
-   */
   iconUrl: z.string().optional(),
   homepage: z.string().optional(),
   guide: z.array(integrationGuideStepSchema),
   credentials: z.array(credentialFieldSchema),
   installed: z.boolean().default(false),
   mcpServerId: z.string().optional(),
+  /**
+   * 连接成功后自动调用的探测工具，用于展示"基本信息"。
+   * 格式：{ toolName, args, label }
+   * - toolName: MCP 工具名（不含 mcp__server__ 前缀）
+   * - args: 传给工具的参数
+   * - label: UI 展示时的标题（如"搜索结果"）
+   */
+  probeTool: z.object({
+    toolName: z.string(),
+    args: z.record(z.string(), z.unknown()).optional(),
+    label: z.string(),
+  }).optional(),
 })
 export type IntegrationDefinition = z.infer<typeof integrationDefinitionSchema>

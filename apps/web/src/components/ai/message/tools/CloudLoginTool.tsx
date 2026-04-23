@@ -22,9 +22,8 @@ import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import { useSaasAuth } from '@/hooks/use-saas-auth'
 import { SaasLoginDialog } from '@/components/auth/SaasLoginDialog'
-import OfficeToolShell from './shared/OfficeToolShell'
-import { getToolKind } from './shared/office-tool-utils'
-import type { AnyToolPart } from './shared/tool-utils'
+import { parseOutput } from './shared/office-tool-utils'
+import { isToolStreaming, type AnyToolPart } from './shared/tool-utils'
 
 type LoginToolData = {
   ok?: boolean
@@ -111,28 +110,32 @@ export default function CloudLoginTool({
   part: AnyToolPart
   className?: string
 }) {
-  const toolKind = getToolKind(part)
+  const { t } = useTranslation('ai')
+  const { ok, data, error } = parseOutput(part)
+  const state = typeof part.state === 'string' ? part.state : ''
+  const isDone = state === 'output-available'
+  const isStreaming = isToolStreaming(part)
+  const errorText =
+    typeof part.errorText === 'string' && part.errorText.trim()
+      ? part.errorText
+      : error
 
   return (
-    <OfficeToolShell
-      part={part}
-      className={cn('max-w-xl', className)}
-      toolKind={toolKind}
-      isMutate={false}
-      i18nPrefix="tool.cloudLogin"
-      defaultOpen
-    >
-      {(ctx) => {
-        const { data, isDone, ok } = ctx
-        if (!isDone || !ok || !data) {
-          return <PromptSignInCard />
-        }
-        const d = data as LoginToolData
-        if (d.alreadyLoggedIn) {
-          return <AlreadySignedInCard data={d} />
-        }
-        return <PromptSignInCard />
-      }}
-    </OfficeToolShell>
+    <div className={cn('max-w-xl', className)}>
+      {isStreaming ? (
+        <div className="flex items-center gap-2 py-2 text-xs text-muted-foreground">
+          <div className="size-3 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
+          {t('tool.cloudLogin.processing')}
+        </div>
+      ) : errorText ? (
+        <div className="py-2 text-xs text-destructive">{errorText}</div>
+      ) : !isDone || !ok || !data ? (
+        <PromptSignInCard />
+      ) : (data as LoginToolData).alreadyLoggedIn ? (
+        <AlreadySignedInCard data={data as LoginToolData} />
+      ) : (
+        <PromptSignInCard />
+      )}
+    </div>
   )
 }

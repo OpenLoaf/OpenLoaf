@@ -21,6 +21,10 @@ import { dirname } from 'node:path'
 import { resolveOpenLoafPath } from '@openloaf/config'
 import type { IntegrationDefinition } from '@openloaf/api/types/integrations'
 import { INTEGRATION_REGISTRY, findIntegration } from '@/ai/integrations/registry'
+import {
+  hasIntegrationOAuthTokens,
+  invalidateIntegrationOAuthCredentials,
+} from '@/modules/integrations/oauth/integrationOAuthStore'
 import { addMcpServer, getMcpServers, removeMcpServer } from '@/services/mcpConfigService'
 import { logger } from '@/common/logger'
 
@@ -121,6 +125,10 @@ export function installIntegration(
   const def = findIntegration(integrationId)
   if (!def) throw new Error(`Unknown integration: ${integrationId}`)
 
+  if (def.authType === 'oauth' && !hasIntegrationOAuthTokens(integrationId)) {
+    throw new Error(`Integration "${integrationId}" is not authorized yet`)
+  }
+
   for (const field of def.credentials) {
     const required = field.required !== false
     if (required && !credentials[field.key]?.trim()) {
@@ -155,13 +163,24 @@ export function installIntegration(
 export function uninstallIntegration(
   integrationId: string,
 ): { ok: boolean; previousMcpServerId?: string } {
+  const def = findIntegration(integrationId)
   const map = readMap()
   const entry = map.installs[integrationId]
-  if (!entry) return { ok: false }
+
+  if (!entry) {
+    if (def?.authType === 'oauth') {
+      invalidateIntegrationOAuthCredentials(integrationId, 'all')
+    }
+    return { ok: false }
+  }
 
   removeMcpServer(entry.mcpServerId)
   delete map.installs[integrationId]
   writeMap(map)
+
+  if (def?.authType === 'oauth') {
+    invalidateIntegrationOAuthCredentials(integrationId, 'all')
+  }
 
   logger.info({ integrationId }, '[integrations] uninstalled')
   return { ok: true, previousMcpServerId: entry.mcpServerId }

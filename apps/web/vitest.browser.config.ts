@@ -460,6 +460,48 @@ const stageAttachments: BrowserCommand<[{
   return { tags, copied }
 }
 
+// ── warmStartSession command ──
+// 把 fixture 目录整体拷贝到 chat-history/<newSessionId>/，rewrite 所有文本文件
+// 中的旧 sessionId 为新 sessionId。用于跳过多轮积累，直接测试上下文压缩等功能。
+const warmStartSession: BrowserCommand<[{
+  sessionId: string
+  fixture: string
+  /** fixture 目录中的原始 sessionId（用于路径 rewrite） */
+  originalSessionId: string
+}]> = async (_ctx, { sessionId, fixture, originalSessionId }) => {
+  const fixtureAbs = isAbsolute(fixture) ? fixture : join(FIXTURES_DIR, fixture.replace(/^fixtures\//, ''))
+  if (!existsSync(fixtureAbs)) throw new Error(`warmStartSession: fixture not found: ${fixtureAbs}`)
+
+  const sessionDir = join(CHAT_HISTORY_ROOT, sessionId)
+  if (existsSync(sessionDir)) throw new Error(`warmStartSession: target session dir already exists: ${sessionDir}`)
+
+  execSync(`cp -r ${JSON.stringify(fixtureAbs)} ${JSON.stringify(sessionDir)}`)
+
+  const textFilesToRewrite = ['messages.jsonl', 'session.json', 'PROMPT.md', 'PREFACE.md']
+  for (const fname of textFilesToRewrite) {
+    const fpath = join(sessionDir, fname)
+    if (!existsSync(fpath)) continue
+    let content = readFileSync(fpath, 'utf8')
+    content = content.replaceAll(originalSessionId, sessionId)
+    writeFileSync(fpath, content)
+  }
+
+  const toolResultsDir = join(sessionDir, 'asset', 'tool-results')
+  if (existsSync(toolResultsDir)) {
+    for (const fname of readdirSync(toolResultsDir)) {
+      const fpath = join(toolResultsDir, fname)
+      if (!statSync(fpath).isFile()) continue
+      let content = readFileSync(fpath, 'utf8')
+      if (content.includes(originalSessionId)) {
+        content = content.replaceAll(originalSessionId, sessionId)
+        writeFileSync(fpath, content)
+      }
+    }
+  }
+
+  return { ok: true, sessionDir }
+}
+
 // ── inspectPptxLayout command ──
 // 直接读取生成产物里的 ppt/presentation.xml，拿页面尺寸与 slide 数量。
 // 用于回归测试"pptx 页面坐标系与布局尺寸是否匹配"这类问题，避免只看 AI 文本。
@@ -1142,7 +1184,7 @@ export default defineConfig({
       screenshotDirectory: `${runDirAbs}/screenshots`,
       commands: {
         recordProbeRun, stageAttachments, requestAiDecision, saveTestData, appendAiJudge,
-        inspectPptxLayout,
+        inspectPptxLayout, warmStartSession,
         readSessionUserTags, fetchAutoTitle,
         getCloudFingerprint, listCloudFixtures, resolveCloudMockDirs,
         snapshotMemory, restoreMemory,

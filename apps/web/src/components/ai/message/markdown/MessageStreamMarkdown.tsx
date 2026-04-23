@@ -26,8 +26,8 @@ export const MESSAGE_STREAM_MARKDOWN_CLASSNAME = cn(
   "prose-blockquote:not-italic prose-blockquote:border-l-primary/50 prose-blockquote:text-muted-foreground",
   "prose-a:break-all prose-a:text-primary prose-a:no-underline hover:prose-a:underline",
   "prose-table:block prose-table:max-w-full prose-table:overflow-x-auto",
-  // Ensure media never overflows the chat width.
-  "prose-img:max-w-full prose-img:h-auto",
+  // Ensure media never overflows the chat width. prose-img:my-0 清掉 Typography 插件对 img 默认加的 2em 上下外边距。
+  "prose-img:max-w-full prose-img:h-auto prose-img:my-0",
 );
 
 /** Streamdown plugins — code highlighting via Shiki. */
@@ -69,6 +69,8 @@ function MessageStreamMarkdownInner(
       <Streamdown
         className={cn(
           "size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
+          // 混排图片 + 文本时，浏览器会把 <p><div/></p> 拆成空 <p>，避免它继承 prose-p 的 my-2。
+          "[&_p:empty]:hidden [&_p:empty]:!m-0",
           contentClassName,
         )}
         components={markdownComponents}

@@ -90,7 +90,7 @@ function getExtensionFromPath(source?: string) {
   try {
     const parsed = source.includes("://") ? new URL(source) : null;
     const pathname = parsed ? parsed.pathname : source;
-    const match = pathname.match(/\\.([a-zA-Z0-9]+)$/);
+    const match = pathname.match(/\.([a-zA-Z0-9]+)$/);
     return match?.[1]?.toLowerCase() ?? "";
   } catch {
     return "";
@@ -142,9 +142,9 @@ function resolveFileName(input: {
   const extFromName = getExtensionFromPath(input.name);
   const extFromUri = getExtensionFromPath(input.uri);
   const extFromDataUrl = input.dataUrl ? getExtensionFromMediaType(getMediaTypeFromDataUrl(input.dataUrl)) : "";
-  const normalizedExt = input.ext ? input.ext.replace(/^\\./, "") : "";
+  const normalizedExt = input.ext ? input.ext.replace(/^\./, "") : "";
   const ext = normalizedExt || extFromMedia || extFromName || extFromUri || extFromDataUrl || "png";
-  const normalizedBase = base.replace(/\\.[a-zA-Z0-9]+$/, "");
+  const normalizedBase = base.replace(/\.[a-zA-Z0-9]+$/, "");
   return `${normalizedBase}.${ext}`;
 }
 

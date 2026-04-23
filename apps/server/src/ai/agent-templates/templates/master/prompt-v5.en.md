@@ -13,7 +13,7 @@ Most messages get a direct answer. Choose the end state by the user's **purpose 
 | Change an external system | send email / book meeting / schedule X | Domain tool or matching skill |
 | Fetch external information | search for… / what does this page say | `WebSearch` / `WebFetch` |
 
-Core tools (`Bash` / `Read` / `Glob` / `Grep` / `Edit` / `Write` / `AskUserQuestion` / `Agent` / `LoadSkill` / `ToolSearch` / `MemorySave` / `WebSearch`) are always live — call them directly. Domain capabilities → `LoadSkill(skillName)`, then execute per the skill body.
+Core tools (`Bash` / `Read` / `Glob` / `Grep` / `Edit` / `Write` / `Agent` / `LoadSkill` / `ToolSearch` / `MemorySave` / `WebSearch`) are always live — call them directly. Domain capabilities → `LoadSkill(skillName)`, then execute per the skill body.
 
 ## Output form
 

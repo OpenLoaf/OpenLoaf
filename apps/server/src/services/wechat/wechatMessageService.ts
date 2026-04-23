@@ -22,6 +22,7 @@ import { prisma } from '@openloaf/db'
 import type { WeixinMessage, MessageItem } from 'wechat-ilink-client'
 import { appendMessage } from '@/ai/services/chat/repositories/chatFileStore'
 import type { StoredMessage } from '@/ai/services/chat/repositories/chatFileStore'
+import { resolveRightmostLeafId } from '@/ai/services/chat/repositories/messageStore'
 import { logger } from '@/common/logger'
 
 export const WECHAT_SESSION_KIND = 'wechat'
@@ -41,13 +42,17 @@ export async function ensureWeChatSession(input: {
   const sessionId = deriveWeChatSessionId(accountId)
   const title = input.title?.trim() || 'WeChat'
 
-  await prisma.chatSession.upsert({
-    where: { id: sessionId },
-    update: {
-      // Do NOT overwrite title — either the first message auto-titled it or
-      // the user renamed manually (isUserRename guard in appendInboundMessage).
-    },
-    create: {
+  // Look up by (kind, wechatAccountId) compound key first — handles legacy rows
+  // where the session id doesn't match the current `wx-<accountId>` convention.
+  // Only create a fresh row if no wechat session for this account exists yet.
+  const existing = await prisma.chatSession.findUnique({
+    where: { kind_wechatAccountId: { kind: WECHAT_SESSION_KIND, wechatAccountId: accountId } },
+    select: { id: true },
+  })
+  if (existing) return existing.id
+
+  await prisma.chatSession.create({
+    data: {
       id: sessionId,
       title,
       kind: WECHAT_SESSION_KIND,
@@ -90,9 +95,16 @@ export async function appendInboundMessage(input: {
   sessionId: string
   accountId: string
   msg: WeixinMessage
+  /**
+   * Pre-rendered text body for the message. Callers build this (typically
+   * combining text items + `<system-tag type="attachment" ... />` for any
+   * downloaded media) so persistence and AI routing share one canonical form.
+   * Fallback: derive from text items only.
+   */
+  text?: string
 }): Promise<void> {
   const { sessionId, msg } = input
-  const text = extractText(msg.item_list)
+  const text = input.text ?? extractText(msg.item_list)
   if (!text) {
     logger.debug(
       { sessionId, messageId: msg.message_id },
@@ -101,9 +113,14 @@ export async function appendInboundMessage(input: {
     return
   }
 
+  // Chain into the existing message tree so inbound messages don't all sit at
+  // the root with parent=null (which breaks the chat-history viewer's thread
+  // reconstruction).
+  const parentLeafId = await resolveRightmostLeafId(sessionId)
+
   const stored: StoredMessage = {
     id: newMessageId(),
-    parentMessageId: null,
+    parentMessageId: parentLeafId,
     role: 'user',
     messageKind: 'normal',
     parts: [{ type: 'text', text }],

@@ -23,9 +23,12 @@
 import { createMCPClient, type MCPClient } from '@ai-sdk/mcp'
 import { Experimental_StdioMCPTransport } from '@ai-sdk/mcp/mcp-stdio'
 import { logger } from '@/common/logger'
+import { createIntegrationOAuthClientProvider } from '@/modules/integrations/oauth/integrationOAuthProvider'
+import { hasIntegrationOAuthTokens } from '@/modules/integrations/oauth/integrationOAuthStore'
 import {
   registerMcpTool,
   unregisterMcpToolsByServer,
+  MCP_TOOL_REGISTRY,
 } from '@/ai/tools/toolRegistry'
 import {
   registerMcpCatalogEntry,
@@ -157,6 +160,31 @@ class MCPClientManagerImpl {
   /** Get status of a specific server. */
   getServerStatus(serverId: string): MCPServerStatus {
     return this.entries.get(serverId)?.status ?? 'disconnected'
+  }
+
+  /**
+   * 调用指定 MCP server 上的工具并返回结果。
+   * 用于 UI 展示"基本信息"等场景（如 Notion 搜索）。
+   */
+  async callTool(serverId: string, toolName: string, args: Record<string, unknown> = {}): Promise<unknown> {
+    const entry = this.entries.get(serverId)
+    if (!entry?.client || entry.status !== 'connected') {
+      throw new Error(`MCP server "${serverId}" is not connected`)
+    }
+
+    const toolId = `mcp__${entry.config.name}__${toolName}`
+    const mcpEntry = MCP_TOOL_REGISTRY.get(toolId)
+    if (!mcpEntry?.tool?.execute) {
+      throw new Error(`Tool "${toolName}" not found on server "${entry.config.name}"`)
+    }
+
+    entry.lastUsedAt = Date.now()
+    const result = await mcpEntry.tool.execute(args, {
+      toolCallId: `integration-probe-${Date.now()}`,
+      messages: [],
+      abortSignal: AbortSignal.timeout(30_000),
+    })
+    return result
   }
 
   /** Mark a tool as recently used (resets idle timer). */
@@ -336,6 +364,8 @@ class MCPClientManagerImpl {
   // -----------------------------------------------------------------------
 
   private createTransport(config: MCPServerConfig) {
+    const authProvider = this.createAuthProvider(config)
+
     switch (config.transport) {
       case 'stdio':
         if (!config.command) {
@@ -359,6 +389,7 @@ class MCPClientManagerImpl {
           type: 'http' as const,
           url: config.url,
           headers: config.headers,
+          authProvider,
         }
 
       case 'sse':
@@ -369,10 +400,36 @@ class MCPClientManagerImpl {
           type: 'sse' as const,
           url: config.url,
           headers: config.headers,
+          authProvider,
         }
 
       default:
         throw new Error(`MCP server "${config.name}": unknown transport "${config.transport}"`)
+    }
+  }
+
+  /** Build an auth provider for remote MCP servers that use delegated OAuth. */
+  private createAuthProvider(config: MCPServerConfig) {
+    if (config.auth?.type !== 'oauth') return undefined
+
+    const integrationId = config.auth.integrationId
+    if (!integrationId) {
+      throw new Error(`MCP server "${config.name}": OAuth config requires integrationId`)
+    }
+
+    if (!hasIntegrationOAuthTokens(integrationId)) {
+      throw new Error(`MCP server "${config.name}": OAuth authorization required`)
+    }
+
+    switch (config.auth.provider) {
+      case 'notion':
+        return createIntegrationOAuthClientProvider({
+          integrationId,
+          // 逻辑：正常情况下 redirectUrl 已在首次授权时持久化；这里的值只作为兜底。
+          redirectUrl: 'http://localhost/oauth/integrations/notion/callback',
+        })
+      default:
+        throw new Error(`MCP server "${config.name}": unsupported OAuth provider "${config.auth.provider}"`)
     }
   }
 

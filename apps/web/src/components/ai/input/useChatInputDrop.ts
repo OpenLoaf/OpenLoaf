@@ -115,7 +115,7 @@ export function useChatInputDrop({
         ensureTrailingSpace: options?.ensureTrailingSpace,
       };
       // Single mention token → insert as chip
-      if (/^<system-tag\s+type="attachment"\s+path="[^"]*"\s*\/>$/.test(rawText.trim())) {
+      if (/^<system-tag\s+type="attachment"\s+[^>]*?\/>$/.test(rawText.trim())) {
         handle.insertMention(rawText.trim(), insertOpts);
         return;
       }
@@ -192,8 +192,14 @@ export function useChatInputDrop({
       let projectId: string | undefined;
       let rootUri: string | undefined;
 
-      if (clean.startsWith("/")) {
+      if (/^https?:\/\//i.test(clean)) {
+        uri = clean;
+      } else if (clean.startsWith("/")) {
         uri = `file://${clean}`;
+      } else if (clean.startsWith("${CURRENT_CHAT_DIR}")) {
+        // ${CURRENT_CHAT_DIR} 模板交给 viewer 用 sessionId 展开；chip 自身没有 sessionId 上下文，
+        // 但 FilePreviewDialog 在 ChatSessionProvider 外层能取到 props 穿透。
+        uri = clean;
       } else {
         const parsed = parseScopedProjectPath(clean);
         if (parsed?.projectId) {
@@ -227,27 +233,44 @@ export function useChatInputDrop({
   /** Insert file references using the same logic as drag-and-drop. */
   const handleProjectFileRefsInsert = useCallback(
     async (fileRefs: string[]) => {
-      const mentionRefs: string[] = [];
-      const normalizedRefs = Array.from(
-        new Set(
-          fileRefs
-            .map((v) => normalizeFileRef(v))
-            .filter(Boolean)
-        )
-      );
-      for (const fileRef of normalizedRefs) {
-        const match = fileRef.match(/^(.*?)(?::(\d+)-(\d+))?$/);
-        const baseValue = match?.[1] ?? fileRef;
+      // 每一项要么已经是完整 attachment tag（保留原样避免丢属性），要么是 raw path
+      // 由我们再 formatAttachmentTag 包装。
+      const tokens: string[] = [];
+      const seen = new Set<string>();
+      for (const rawRef of fileRefs) {
+        const trimmed = rawRef.trim();
+        if (!trimmed) continue;
+        // 1a) 完整 attachment tag（含 name/url/mediaType 等）：保留原样。
+        if (/^<system-tag\s+type="attachment"\s+[^>]*?\/>$/.test(trimmed)) {
+          if (seen.has(trimmed)) continue;
+          seen.add(trimmed);
+          tokens.push(trimmed);
+          continue;
+        }
+        // 1b) http(s) URL：直接 path 包一层。
+        if (/^https?:\/\//i.test(trimmed)) {
+          const key = `url:${trimmed}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          tokens.push(formatAttachmentTag(trimmed));
+          continue;
+        }
+        // 2) scoped project path。
+        const normalized = normalizeFileRef(trimmed);
+        if (!normalized) continue;
+        const key = `path:${normalized}`;
+        if (seen.has(key)) continue;
+        const match = normalized.match(/^(.*?)(?::(\d+)-(\d+))?$/);
+        const baseValue = match?.[1] ?? normalized;
         const parsed = parseScopedProjectPath(baseValue);
         const pId = parsed?.projectId ?? defaultProjectId ?? "";
         const relativePath = parsed?.relativePath ?? "";
         if (!pId || !relativePath) continue;
-        // 所有文件统一以 @[path] mention 插入（包括图片）。
-        mentionRefs.push(fileRef);
+        seen.add(key);
+        tokens.push(formatAttachmentTag(normalized));
       }
-      if (mentionRefs.length > 0) {
-        const mentionText = mentionRefs.map((item) => formatAttachmentTag(item)).join(" ");
-        insertTextAtSelection(mentionText, {
+      if (tokens.length > 0) {
+        insertTextAtSelection(tokens.join(" "), {
           ensureLeadingSpace: true,
           ensureTrailingSpace: true,
         });
@@ -282,15 +305,21 @@ export function useChatInputDrop({
       clearProjectFileDragSession("chat-drop");
       return;
     }
+    // 最高优先：DataTransfer 显式带 FILE_DRAG_REF_MIME（消息内图片：相对路径 / http(s) URL /
+    // 完整 attachment tag）。直接插 mention，避免被后续 imagePayload 路径的 parseScopedProjectPath
+    // 或 isRelativePath 拒掉。
+    const rawExplicitRef = event.dataTransfer.getData(FILE_DRAG_REF_MIME).trim();
+    if (rawExplicitRef) {
+      await handleProjectFileRefsInsert([rawExplicitRef]);
+      return;
+    }
     const imagePayload = readImageDragPayload(event.dataTransfer);
     if (imagePayload) {
       const payloadFileName = imagePayload.fileName || resolveFileName(imagePayload.baseUri);
       const isPayloadImage = Boolean(imagePayload.maskUri) || isImageFileName(payloadFileName);
       // 非图片文件统一以 mention 插入，不受 canAttachAll 限制。
       if (!isPayloadImage) {
-        const fileRef =
-          normalizeFileRef(event.dataTransfer.getData(FILE_DRAG_REF_MIME)) ||
-          (isRelativePath(imagePayload.baseUri) ? imagePayload.baseUri : "");
+        const fileRef = isRelativePath(imagePayload.baseUri) ? imagePayload.baseUri : "";
         if (fileRef) {
           await handleProjectFileRefsInsert([fileRef]);
         }
@@ -390,6 +419,7 @@ export function useChatInputDrop({
     handleChipClick,
     handleSelectFileRefs,
     handleDrop,
+    handleProjectFileRefsInsert,
     normalizeFileRef,
     insertFileMention,
   };

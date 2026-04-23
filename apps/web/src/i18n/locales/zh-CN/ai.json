@@ -176,6 +176,7 @@
     "FileInfo": "文件信息",
     "WebFetch": "获取网页内容",
     "WebSearch": "网页搜索",
+    "WebSearchImage": "图片搜索",
     "Jobs": "后台任务列表",
     "Kill": "终止后台任务",
     "Sleep": "等待后台任务",
@@ -658,6 +659,13 @@
       "resultCount": "{{count}} 条",
       "searching": "搜索中...",
       "searchFailed": "搜索失败",
+      "loading": "加载中...",
+      "noResults": "无结果"
+    },
+    "webSearchImage": {
+      "resultCount": "{{count}} 张",
+      "searching": "搜索图片中...",
+      "searchFailed": "图片搜索失败",
       "loading": "加载中...",
       "noResults": "无结果"
     }

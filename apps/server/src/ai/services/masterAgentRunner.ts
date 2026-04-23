@@ -14,6 +14,8 @@ import {
   createMasterAgentFrame,
   createPMAgent,
   createPMAgentFrame,
+  createChannelAgent,
+  createChannelAgentFrame,
   type MasterAgentModelInfo,
 } from '@/ai/services/agentFactory'
 
@@ -91,6 +93,43 @@ export function createPMAgentRunner(input: PMAgentRunnerInput): PMAgentRunner {
       model: input.modelInfo,
       taskId: input.taskId,
       projectId: input.projectId,
+    }),
+  }
+}
+
+type ChannelAgentRunnerInput = {
+  /** Model instance for the agent. */
+  model: LanguageModelV3
+  /** Model metadata for the agent frame. */
+  modelInfo: MasterAgentModelInfo
+  /** Optional instructions override. */
+  instructions?: string
+  /** Optional language for prompt selection. */
+  lang?: string
+  /** Session id for frame identification. */
+  sessionId?: string
+}
+
+export type ChannelAgentRunner = {
+  /** ToolLoopAgent instance. */
+  agent: ReturnType<typeof createChannelAgent>
+  /** Frame metadata for the agent. */
+  frame: AgentFrame
+}
+
+/**
+ * Creates a channel agent runner for IM channels (WeChat / Slack / Telegram).
+ */
+export function createChannelAgentRunner(input: ChannelAgentRunnerInput): ChannelAgentRunner {
+  return {
+    agent: createChannelAgent({
+      model: input.model,
+      instructions: input.instructions,
+      lang: input.lang,
+    }),
+    frame: createChannelAgentFrame({
+      model: input.modelInfo,
+      sessionId: input.sessionId,
     }),
   }
 }

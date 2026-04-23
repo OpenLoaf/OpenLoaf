@@ -16,8 +16,11 @@ import {
   LoaderCircleIcon,
   XCircleIcon,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { BROWSER_WINDOW_COMPONENT, BROWSER_WINDOW_PANEL_ID } from '@openloaf/api/common'
 import { cn } from '@/lib/utils'
+import { applyChatImageDrag } from '@/lib/image/drag'
+import { ChatImageActions } from './shared/ChatImageActions'
 import { useChatView } from '@/hooks/use-chat-view'
 import { getChatScope } from '@/lib/chat-scope'
 import { useLayoutState } from '@/hooks/use-layout-state'
@@ -138,6 +141,7 @@ export default function WebSearchImageTool({
   part: AnyToolPart
   className?: string
 }) {
+  const { t } = useTranslation('ai')
   const inputObj = asPlainObject(normalizeToolInput(part.input))
   const query = inputObj
     ? typeof inputObj.source === 'string'
@@ -170,8 +174,8 @@ export default function WebSearchImageTool({
 
   return (
     <Collapsible
+      open
       className={cn('min-w-0 text-xs', className)}
-      defaultOpen={progressActive || count > 0}
     >
       <Tooltip>
         <TooltipTrigger asChild>
@@ -183,7 +187,7 @@ export default function WebSearchImageTool({
           >
             <ImageIcon className="size-3.5 shrink-0 text-muted-foreground" />
             <span className="shrink-0 text-xs font-medium text-muted-foreground">
-              WebSearchImage
+              {t('toolNames.WebSearchImage')}
             </span>
             {query ? (
               <span className="min-w-0 truncate font-mono text-xs text-muted-foreground/50">
@@ -194,7 +198,7 @@ export default function WebSearchImageTool({
             )}
             {count > 0 ? (
               <span className="shrink-0 text-[10px] text-muted-foreground/60">
-                {count} 张
+                {t('tool.webSearchImage.resultCount', { count })}
               </span>
             ) : null}
             {showSpinner ? (
@@ -214,50 +218,59 @@ export default function WebSearchImageTool({
       </Tooltip>
       <ToolOutputContent>
         {count > 0 ? (
-          <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-5 md:grid-cols-6">
+          <div className="grid max-h-[420px] grid-cols-[repeat(auto-fill,minmax(88px,1fr))] gap-1.5 overflow-y-auto pr-1">
             {items.map((item, idx) => (
-              <button
-                key={`${idx}-${item.imageUrl}`}
-                type="button"
-                onClick={() => openUrl(item.sourceUrl || item.imageUrl, item.title)}
-                className={cn(
-                  'group relative block aspect-square overflow-hidden rounded-md bg-muted/50',
-                  'transition-opacity duration-150 hover:opacity-90',
-                )}
-                title={item.title || hostnameOf(item.sourceUrl || item.imageUrl)}
-              >
-                {/* biome-ignore lint/performance/noImgElement: external remote URLs */}
-                <img
-                  src={item.imageUrl}
-                  alt={item.title || ''}
-                  loading="lazy"
-                  referrerPolicy="no-referrer"
-                  className="h-full w-full object-cover"
-                  onError={(e) => {
-                    ;(e.currentTarget as HTMLImageElement).style.display = 'none'
-                  }}
-                />
-                {item.source ? (
-                  <div
+              <Tooltip key={`${idx}-${item.imageUrl}`}>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={() => openUrl(item.imageUrl, item.title)}
                     className={cn(
-                      'pointer-events-none absolute inset-x-0 bottom-0 truncate bg-black/50 px-1 py-0.5 text-[9px] text-white/90',
-                      'opacity-0 transition-opacity duration-150 group-hover:opacity-100',
+                      'group/image relative block aspect-square overflow-hidden rounded-md bg-muted/50',
+                      'transition-opacity duration-150 hover:opacity-90',
                     )}
+                    aria-label={item.title || hostnameOf(item.imageUrl)}
+                    draggable
+                    onDragStart={(event) => {
+                      applyChatImageDrag(event, {
+                        url: item.imageUrl,
+                        name: item.title?.trim() || undefined,
+                      })
+                    }}
                   >
-                    {item.source}
-                  </div>
+                    {/* biome-ignore lint/performance/noImgElement: external remote URLs */}
+                    <img
+                      src={item.imageUrl}
+                      alt={item.title || ''}
+                      loading="lazy"
+                      referrerPolicy="no-referrer"
+                      draggable={false}
+                      className="h-full w-full object-cover"
+                      onError={(e) => {
+                        ;(e.currentTarget as HTMLImageElement).style.display = 'none'
+                      }}
+                    />
+                    <ChatImageActions url={item.imageUrl} name={item.title?.trim() || undefined} />
+                  </button>
+                </TooltipTrigger>
+                {item.title ? (
+                  <TooltipContent side="right" className="max-w-xs break-words text-xs">
+                    {item.title}
+                  </TooltipContent>
                 ) : null}
-              </button>
+              </Tooltip>
             ))}
           </div>
         ) : progressActive ? (
-          <ToolOutputLoading label={tp?.label || '搜索图片中...'} />
+          <ToolOutputLoading label={tp?.label || t('tool.webSearchImage.searching')} />
         ) : errorText || hasError || progressError ? (
-          <ToolOutputError message={errorText || '图片搜索失败'} />
+          <ToolOutputError message={errorText || t('tool.webSearchImage.searchFailed')} />
         ) : streaming ? (
-          <ToolOutputLoading label="加载中..." />
+          <ToolOutputLoading label={t('tool.webSearchImage.loading')} />
         ) : (
-          <div className="py-0.5 text-[11px] text-muted-foreground/60">无结果</div>
+          <div className="py-0.5 text-[11px] text-muted-foreground/60">
+            {t('tool.webSearchImage.noResults')}
+          </div>
         )}
       </ToolOutputContent>
     </Collapsible>

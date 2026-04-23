@@ -21,12 +21,17 @@ import {
   injectInbound,
   getOutbound,
   resetAllMocks,
+  resetMockAccount,
   setMockMode,
   type MockMode,
 } from '@/services/wechat/wechatMockStore'
-import { upsertAccount } from '@/services/wechat/wechatAccountStore'
+import { upsertAccount, removeEphemeralAccount } from '@/services/wechat/wechatAccountStore'
 import { startWorkerForAccount, stopWorkerForAccount } from '@/services/wechat/wechatPollWorker'
-import { __resetBridgeStateForTests } from '@/services/wechat/wechatAiBridge'
+import {
+  __resetBridgeStateForTests,
+  __resetBridgeStateForSession,
+} from '@/services/wechat/wechatAiBridge'
+import { deriveWeChatSessionId } from '@/services/wechat/wechatMessageService'
 import { logger } from '@/common/logger'
 
 function isLocalhostRequest(c: any): boolean {
@@ -71,11 +76,25 @@ export function registerWeChatMockRoutes(app: Hono) {
     return
   }
 
-  app.post('/debug/wechat/reset', (c) => {
+  app.post('/debug/wechat/reset', async (c) => {
     if (!isLocalhostRequest(c)) return c.json({ ok: false, error: 'localhost only' }, 403)
+    let body: any = null
+    try { body = await c.req.json() } catch { /* allow empty body */ }
+    const accountId = typeof body?.accountId === 'string' && body.accountId ? body.accountId : null
+    if (accountId) {
+      // Per-account reset — required for parallel browser tests so one
+      // test's reset doesn't wipe other concurrent accounts' inbox/outbox.
+      // Also stop the poll worker so leftover workers from previous runs
+      // don't keep tying up the AI runtime.
+      stopWorkerForAccount(accountId)
+      resetMockAccount(accountId)
+      removeEphemeralAccount(accountId)
+      __resetBridgeStateForSession(deriveWeChatSessionId(accountId))
+      return c.json({ ok: true, scope: 'account', accountId })
+    }
     resetAllMocks()
     __resetBridgeStateForTests()
-    return c.json({ ok: true })
+    return c.json({ ok: true, scope: 'global' })
   })
 
   app.post('/debug/wechat/createAccount', async (c) => {
@@ -87,17 +106,20 @@ export function registerWeChatMockRoutes(app: Hono) {
     const { accountId, botId, ownerUserId, displayName, mode, startWorker } = parsed.data
 
     registerMockAccount(accountId, mode as MockMode)
-    upsertAccount({
-      id: accountId,
-      botId,
-      displayName: displayName ?? botId,
-      botToken: 'mock-token',
-      baseUrl: 'https://mock.ilink.local',
-      ownerUserId,
-      syncBuf: '',
-      status: 'connected',
-      boundAt: new Date().toISOString(),
-    })
+    upsertAccount(
+      {
+        id: accountId,
+        botId,
+        displayName: displayName ?? botId,
+        botToken: 'mock-token',
+        baseUrl: 'https://mock.ilink.local',
+        ownerUserId,
+        syncBuf: '',
+        status: 'connected',
+        boundAt: new Date().toISOString(),
+      },
+      { ephemeral: true },
+    )
     if (startWorker) {
       const { getAccount } = await import('@/services/wechat/wechatAccountStore')
       const acc = getAccount(accountId)

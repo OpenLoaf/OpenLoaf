@@ -45,7 +45,6 @@ import { fileInfoTool } from "@/ai/tools/fileInfoTool";
 import { webSearchTool, isWebSearchConfigured } from "@/ai/tools/webSearchTool";
 import { webFetchTool } from "@/ai/tools/webFetchTool";
 import { loadSkillTool } from "@/ai/tools/loadSkillTool";
-import { requestUserInputTool } from "@/ai/tools/requestUserInputTool";
 import { jsxCreateTool } from "@/ai/tools/jsxCreateTool";
 import { chartRenderTool } from "@/ai/tools/chartTools";
 import { scheduledTaskManageTool, scheduledTaskStatusTool, scheduledTaskWaitTool } from "@/ai/tools/scheduleTools";
@@ -107,7 +106,6 @@ import { fileInfoToolDef } from "@openloaf/api/types/tools/fileInfo";
 import { webSearchToolDef } from "@openloaf/api/types/tools/webSearch";
 import { webFetchToolDef } from "@openloaf/api/types/tools/webFetch";
 import { loadSkillToolDef } from "@openloaf/api/types/tools/skill";
-import { requestUserInputToolDef } from "@openloaf/api/types/tools/userInput";
 import { jsxCreateToolDef } from "@openloaf/api/types/tools/jsxCreate";
 import { chartRenderToolDef } from "@openloaf/api/types/tools/chart";
 import {
@@ -186,7 +184,7 @@ type ToolEntry = {
  * Native tools remain in the static TOOL_REGISTRY; MCP tools live here so
  * they can be registered / unregistered as MCP servers connect & disconnect.
  */
-const MCP_TOOL_REGISTRY = new Map<string, ToolEntry>()
+export const MCP_TOOL_REGISTRY = new Map<string, ToolEntry>()
 
 /** Register an MCP tool at runtime (called by MCPClientManager on connect). */
 export function registerMcpTool(toolId: string, toolInstance: any): void {
@@ -329,9 +327,6 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
   [widgetCheckToolDef.id]: {
     tool: widgetCheckTool,
   },
-  [requestUserInputToolDef.id]: {
-    tool: requestUserInputTool,
-  },
   [jsxCreateToolDef.id]: {
     tool: jsxCreateTool,
   },
@@ -467,7 +462,6 @@ const TOOL_DEF_REGISTRY: Record<string, { parameters?: any }> = {
   [widgetListToolDef.id]: widgetListToolDef,
   [widgetGetToolDef.id]: widgetGetToolDef,
   [widgetCheckToolDef.id]: widgetCheckToolDef,
-  [requestUserInputToolDef.id]: requestUserInputToolDef,
   [jsxCreateToolDef.id]: jsxCreateToolDef,
   [chartRenderToolDef.id]: chartRenderToolDef,
   [scheduledTaskManageToolDef.id]: scheduledTaskManageToolDef,
@@ -536,12 +530,8 @@ export function getRuntimeCloudToolIds(): string[] {
   return getCloudToolIds()
 }
 
-/** Tool IDs excluded from auto-approval (complex/interactive). */
-const AUTO_APPROVE_EXCLUDED_TOOLS = new Set(["AskUserQuestion"]);
-
 /** Wrap tool to skip needsApproval when autoApproveTools is enabled. */
-function wrapToolWithAutoApproval(toolId: string, tool: any): any {
-  if (AUTO_APPROVE_EXCLUDED_TOOLS.has(toolId)) return tool;
+function wrapToolWithAutoApproval(_toolId: string, tool: any): any {
   const original = tool.needsApproval;
   if (original === undefined || original === false) return tool;
   return {
@@ -572,7 +562,6 @@ function wrapToolWithAutoApproval(toolId: string, tool: any): any {
  *   - unmatched → defer to original needsApproval (tool's built-in policy)
  */
 function wrapToolWithUserRules(toolId: string, tool: any): any {
-  if (AUTO_APPROVE_EXCLUDED_TOOLS.has(toolId)) return tool;
   const original = tool.needsApproval;
   return {
     ...tool,
