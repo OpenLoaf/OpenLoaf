@@ -154,29 +154,11 @@ export const aiProcedures = {
   /** Get auxiliary model config. */
   getAuxiliaryModelConfig: shieldedProcedure
     .output(settingSchemas.getAuxiliaryModelConfig.output)
-    .query(async ({ ctx }) => {
+    .query(async () => {
       const { readAuxiliaryModelConf } = await import(
         "@/modules/settings/auxiliaryModelConfStore"
       )
-      const conf = readAuxiliaryModelConf()
-      // When SaaS source is selected, fetch quota from SaaS backend.
-      if (conf.modelSource === "saas") {
-        try {
-          const { ensureServerAccessToken } = await import(
-            "@/modules/auth/tokenStore"
-          )
-          const token = await ensureServerAccessToken()
-          if (token) {
-            const { getSaasClient } = await import("@/modules/saas/client")
-            const saasClient = getSaasClient(token)
-            const quotaRes = await saasClient.auxiliary.getQuota()
-            return { ...conf, quota: quotaRes.quota }
-          }
-        } catch {
-          // Quota fetch failure is non-critical.
-        }
-      }
-      return conf
+      return readAuxiliaryModelConf()
     }),
   /** Save auxiliary model config. */
   saveAuxiliaryModelConfig: shieldedProcedure
@@ -189,7 +171,6 @@ export const aiProcedures = {
       const merged = {
         modelSource: input.modelSource ?? current.modelSource,
         localModelIds: input.localModelIds ?? current.localModelIds,
-        cloudModelIds: input.cloudModelIds ?? current.cloudModelIds,
         capabilities: {
           ...current.capabilities,
           ...(input.capabilities ?? {}),
@@ -197,21 +178,6 @@ export const aiProcedures = {
       }
       writeAuxiliaryModelConf(merged)
       return { ok: true }
-    }),
-  /** Get SaaS auxiliary quota. */
-  getAuxiliaryQuota: shieldedProcedure
-    .output(settingSchemas.getAuxiliaryQuota.output)
-    .query(async ({ ctx }) => {
-      const { ensureServerAccessToken } = await import(
-        "@/modules/auth/tokenStore"
-      )
-      const token = await ensureServerAccessToken()
-      if (!token) {
-        throw new Error(getErrorMessage('NOT_LOGGED_IN_CLOUD', ctx.lang))
-      }
-      const { getSaasClient } = await import("@/modules/saas/client")
-      const saasClient = getSaasClient(token)
-      return saasClient.auxiliary.getQuota()
     }),
   /** Get auxiliary capabilities list. */
   getAuxiliaryCapabilities: shieldedProcedure
@@ -258,6 +224,9 @@ export const aiProcedures = {
         const { resolveChatModel } = await import(
           "@/ai/models/resolveChatModel"
         )
+        const { resolveSaasFastChatModelId } = await import(
+          "@/ai/models/saasFastChatModel"
+        )
         const { readAuxiliaryModelConf } = await import(
           "@/modules/settings/auxiliaryModelConfStore"
         )
@@ -273,68 +242,37 @@ export const aiProcedures = {
               ? savedCustom
               : cap.defaultPrompt
 
-        // SaaS branch — delegate test to SaaS backend
+        // Resolve chat model: SaaS → isFast variant；Local → user-selected modelId.
+        let chatModelId: string | undefined
+        let chatModelSource: "local" | "cloud"
         if (conf.modelSource === "saas") {
-          const { ensureServerAccessToken } = await import(
-            "@/modules/auth/tokenStore"
-          )
-          const token = await ensureServerAccessToken()
-          if (!token) {
+          try {
+            chatModelId = await resolveSaasFastChatModelId()
+            chatModelSource = "cloud"
+          } catch (err) {
             return {
               ok: false,
               result: null,
-              error: getErrorMessage('NOT_LOGGED_IN_CLOUD', ctx.lang),
+              error: err instanceof Error ? err.message : String(err),
               durationMs: Date.now() - start,
             }
           }
-          const { getSaasClient } = await import("@/modules/saas/client")
-          const saasClient = getSaasClient(token)
-          const res = await saasClient.auxiliary.infer({
-            capabilityKey: input.capabilityKey,
-            systemPrompt,
-            context: input.context,
-            outputMode: cap.outputMode === "text" ? "text" : "structured",
-          })
-          if (!res.ok) {
+        } else {
+          chatModelId = conf.localModelIds[0]?.trim() || undefined
+          chatModelSource = "local"
+          if (!chatModelId) {
             return {
               ok: false,
               result: null,
-              error: res.message,
+              error: getErrorMessage('AUXILIARY_MODEL_NOT_CONFIGURED', ctx.lang),
               durationMs: Date.now() - start,
             }
-          }
-          return {
-            ok: true,
-            result: res.result,
-            durationMs: Date.now() - start,
-            usage: {
-              inputTokens: res.usage.inputTokens,
-              cachedInputTokens: 0,
-              outputTokens: res.usage.outputTokens,
-              totalTokens: res.usage.inputTokens + res.usage.outputTokens,
-            },
-          }
-        }
-
-        // Local/Cloud branch
-        const modelIds =
-          conf.modelSource === "cloud"
-            ? conf.cloudModelIds
-            : conf.localModelIds
-        const chatModelId = modelIds[0]?.trim() || undefined
-
-        if (!chatModelId) {
-          return {
-            ok: false,
-            result: null,
-            error: getErrorMessage('AUXILIARY_MODEL_NOT_CONFIGURED', ctx.lang),
-            durationMs: Date.now() - start,
           }
         }
 
         const resolved = await resolveChatModel({
           chatModelId,
-          chatModelSource: conf.modelSource,
+          chatModelSource,
         })
 
         if (cap.outputMode === "text") {

@@ -21,9 +21,10 @@ import {
   DialogTitle,
 } from '@openloaf/ui/dialog'
 import { Button } from '@openloaf/ui/button'
-import { Loader2, Plus, RefreshCw, Trash2 } from 'lucide-react'
+import { Loader2, Plus, RefreshCw } from 'lucide-react'
 import { queryClient, trpc } from '@/utils/trpc'
 import { cn } from '@/lib/utils'
+import { ConnectionAccountRow } from './ConnectionAccountRow'
 
 type Props = {
   open: boolean
@@ -207,52 +208,22 @@ export function WeChatConnectionDialog({ open, onOpenChange }: Props) {
         ) : mode === 'list' ? (
           <div className="space-y-4">
             <ul className="space-y-1.5">
-              {accounts.map((acc) => (
-                <li
-                  key={acc.id}
-                  className="flex items-center justify-between gap-3 rounded-2xl border border-border/60 bg-card px-3 py-2.5"
-                >
-                  <div className="flex min-w-0 items-center gap-2.5">
-                    <span
-                      className={cn(
-                        'h-2 w-2 shrink-0 rounded-full',
-                        acc.status === 'connected'
-                          ? 'bg-emerald-500'
-                          : acc.status === 'expired'
-                            ? 'bg-amber-500'
-                            : 'bg-muted-foreground/40',
-                      )}
-                      aria-hidden
+              {accounts.map((acc) => {
+                const isRemovingThis =
+                  unbindMutation.isPending
+                  && unbindMutation.variables?.accountId === acc.id
+                return (
+                  <li key={acc.id}>
+                    <ConnectionAccountRow
+                      status={acc.status as 'connected' | 'expired' | 'disconnected'}
+                      title={acc.displayName}
+                      subtitle={t(`connections:wechat.status.${acc.status}`)}
+                      onRemove={() => unbindMutation.mutate({ accountId: acc.id })}
+                      removing={isRemovingThis}
                     />
-                    <div className="min-w-0">
-                      <div className="truncate text-sm font-medium text-foreground">
-                        {acc.displayName}
-                      </div>
-                      <div className="truncate text-[11px] text-muted-foreground">
-                        {t(`connections:wechat.status.${acc.status}`)}
-                      </div>
-                    </div>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 rounded-full px-2 text-xs text-muted-foreground hover:text-destructive"
-                    disabled={
-                      unbindMutation.isPending &&
-                      unbindMutation.variables?.accountId === acc.id
-                    }
-                    onClick={() => unbindMutation.mutate({ accountId: acc.id })}
-                  >
-                    {unbindMutation.isPending &&
-                    unbindMutation.variables?.accountId === acc.id ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Trash2 className="h-3.5 w-3.5" />
-                    )}
-                  </Button>
-                </li>
-              ))}
+                  </li>
+                )
+              })}
             </ul>
 
             <Button

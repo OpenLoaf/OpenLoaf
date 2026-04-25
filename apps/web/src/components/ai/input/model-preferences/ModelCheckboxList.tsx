@@ -55,7 +55,8 @@ export function ChatModelCheckboxList({
             }
             modelId={option.modelId}
             label={label}
-            tags={option.tags}
+            inputAccepts={option.capabilities?.inputAccepts}
+            maxContextK={option.modelDefinition?.capabilities?.common?.maxContextK}
             checked={preferredIds.includes(option.id)}
             disabled={disabled}
             onToggle={() => onToggle(option.id)}
@@ -93,19 +94,28 @@ export function MediaModelCheckboxList({
   }
   return (
     <div className="max-h-[min(28rem,40vh)] space-y-0.5 overflow-y-auto show-scrollbar-thin">
-      {models.map((model) => (
-        <ModelCheckboxItem
-          key={`${model.providerId ?? 'unknown'}-${model.id}`}
-          icon={model.familyId ?? model.providerId ?? model.id}
-          modelId={model.id}
-          label={model.name ?? model.id}
-          tags={model.tags as import('@openloaf/api/common').ModelTag[] | undefined}
-          checked={preferredIds.includes(model.id)}
-          disabled={disabled}
-          onToggle={() => onToggle(model.id)}
-          selectionType="single"
-        />
-      ))}
+      {models.map((model) => {
+        const caps = (model as {
+          capabilities?: {
+            common?: { maxContextK?: number }
+            inputAccepts?: import('@openloaf/api/common').ModelInputAccept[]
+          }
+        }).capabilities
+        return (
+          <ModelCheckboxItem
+            key={`${model.providerId ?? 'unknown'}-${model.id}`}
+            icon={model.familyId ?? model.providerId ?? model.id}
+            modelId={model.id}
+            label={model.name ?? model.id}
+            inputAccepts={caps?.inputAccepts}
+            maxContextK={caps?.common?.maxContextK}
+            checked={preferredIds.includes(model.id)}
+            disabled={disabled}
+            onToggle={() => onToggle(model.id)}
+            selectionType="single"
+          />
+        )
+      })}
     </div>
   )
 }

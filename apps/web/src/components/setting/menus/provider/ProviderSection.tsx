@@ -50,17 +50,20 @@ type ProviderSectionProps = {
 };
 
 /**
- * Render model tags for a model.
+ * Render model input accept badges for a model.
  */
-function renderModelTagsCompact(tags: string[] | undefined, getTagLabel: (tag: string) => string) {
+function renderInputAcceptsCompact(
+  accepts: string[] | undefined,
+  getAcceptLabel: (kind: string) => string,
+) {
   return (
     <div className="flex flex-wrap gap-1">
-      {(tags ?? []).map((tag) => (
+      {(accepts ?? []).map((kind) => (
         <span
-          key={tag}
+          key={kind}
           className="inline-flex items-center rounded-3xl border border-border bg-muted px-1.5 py-0.5 text-[10px] leading-none text-muted-foreground"
         >
-          {getTagLabel(tag)}
+          {getAcceptLabel(kind)}
         </span>
       ))}
     </div>
@@ -82,7 +85,7 @@ export function ProviderSection({
 }: ProviderSectionProps) {
   const { t } = useTranslation('settings');
   const { t: tAi } = useTranslation('ai');
-  const getTagLabel = (tag: string) => tAi(`modelTags.${tag}`, { defaultValue: tag, nsSeparator: false });
+  const getAcceptLabel = (kind: string) => tAi(`modelCapabilities.${kind}`, { defaultValue: kind, nsSeparator: false });
   return (
     <>
       <OpenLoafSettingsGroup
@@ -141,7 +144,7 @@ export function ProviderSection({
                       </div>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {capabilities.length > 0 ? renderModelTagsCompact(capabilities, getTagLabel) : "-"}
+                      {capabilities.length > 0 ? renderInputAcceptsCompact(capabilities, getAcceptLabel) : "-"}
                     </TableCell>
                     <TableCell>
                       <div className="min-w-0 flex items-center gap-2">
@@ -210,7 +213,7 @@ export function ProviderSection({
                                       </div>
                                     </div>
                                   </div>
-                                  <div>{renderModelTagsCompact(modelDefinition.tags, getTagLabel)}</div>
+                                  <div>{renderInputAcceptsCompact(modelDefinition.capabilities?.inputAccepts, getAcceptLabel)}</div>
                                   <div className="flex items-center justify-end gap-1">
                                     <Button
                                       size="icon"

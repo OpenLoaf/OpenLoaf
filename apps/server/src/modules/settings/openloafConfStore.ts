@@ -548,6 +548,49 @@ export function writeAuthRefreshToken(token: string): void {
   });
 }
 
+// 逻辑：仅在非生产环境持久化 access token — 方便本地脚本 / 工具直接复用正在跑的
+// dev server 的登录态，避免各自重复走 refresh 流程。prod 下 read 返回 undefined、
+// write 跳过，保持原有纯内存的安全模型。
+function isDevAuthPersistEnabled(): boolean {
+  return process.env.NODE_ENV !== "production";
+}
+
+/** Read persisted SaaS access token (dev only). */
+export function readAuthAccessToken(): { token: string; expiresAt?: number } | undefined {
+  if (!isDevAuthPersistEnabled()) return undefined;
+  const conf = readJsonSafely<AuthFile>(getAuthPath(), {});
+  const token = conf.auth?.accessToken;
+  if (!token) return undefined;
+  return { token, expiresAt: conf.auth?.accessTokenExpiresAt };
+}
+
+/** Persist SaaS access token (dev only). */
+export function writeAuthAccessToken(token: string, expiresAt?: number): void {
+  if (!isDevAuthPersistEnabled()) return;
+  const conf = readJsonSafely<AuthFile>(getAuthPath(), {});
+  writeJson(getAuthPath(), {
+    ...conf,
+    auth: {
+      ...(conf.auth ?? {}),
+      accessToken: token,
+      accessTokenExpiresAt: expiresAt,
+      updatedAt: new Date().toISOString(),
+    },
+  });
+}
+
+/** Clear persisted SaaS access token (dev only). */
+export function clearAuthAccessToken(): void {
+  if (!isDevAuthPersistEnabled()) return;
+  const conf = readJsonSafely<AuthFile>(getAuthPath(), {});
+  if (!conf.auth) return;
+  const { accessToken: _at, accessTokenExpiresAt: _exp, ...rest } = conf.auth;
+  writeJson(getAuthPath(), {
+    ...conf,
+    auth: { ...rest, updatedAt: new Date().toISOString() },
+  });
+}
+
 // ─── Tool Approval Rules ──────────────────────────────────────────────────
 
 type ToolApprovalFile = {

@@ -36,8 +36,8 @@ importers:
         specifier: ^5.31.0
         version: 5.34.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@openloaf-saas/sdk':
-        specifier: ^0.2.3
-        version: 0.2.3(@trpc/server@11.11.0(typescript@5.9.3))(typescript@5.9.3)
+        specifier: ^0.2.4
+        version: 0.2.4(@trpc/server@11.16.0(typescript@5.9.3))(typescript@5.9.3)
       dotenv:
         specifier: ^17.2.3
         version: 17.3.1
@@ -244,8 +244,8 @@ importers:
         specifier: npm:noop3@1000.0.0
         version: noop3@1000.0.0
       '@openloaf-saas/sdk':
-        specifier: ^0.2.3
-        version: 0.2.3(@trpc/server@11.11.0(typescript@5.9.3))(typescript@5.9.3)
+        specifier: ^0.2.4
+        version: 0.2.4(@trpc/server@11.11.0(typescript@5.9.3))(typescript@5.9.3)
       '@openloaf/api':
         specifier: workspace:*
         version: link:../../packages/api
@@ -512,8 +512,8 @@ importers:
         specifier: ^4.7.0
         version: 4.7.0(monaco-editor@0.52.2)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@openloaf-saas/sdk':
-        specifier: ^0.2.3
-        version: 0.2.3(@trpc/server@11.11.0(typescript@5.9.3))(typescript@5.9.3)
+        specifier: ^0.2.4
+        version: 0.2.4(@trpc/server@11.11.0(typescript@5.9.3))(typescript@5.9.3)
       '@openloaf/api':
         specifier: workspace:*
         version: link:../../packages/api
@@ -939,8 +939,8 @@ importers:
         specifier: ^3.0.53
         version: 3.0.53(zod@4.3.6)
       '@openloaf-saas/sdk':
-        specifier: ^0.2.3
-        version: 0.2.3(@trpc/server@11.11.0(typescript@5.9.3))(typescript@5.9.3)
+        specifier: ^0.2.4
+        version: 0.2.4(@trpc/server@11.11.0(typescript@5.9.3))(typescript@5.9.3)
       '@openloaf/db':
         specifier: workspace:*
         version: link:../db
@@ -3898,8 +3898,8 @@ packages:
   '@opencode-ai/sdk@1.2.15':
     resolution: {integrity: sha512-NUJNlyBCdZ4R0EBLjJziEQOp2XbRPJosaMcTcWSWO5XJPKGUpz0u8ql+5cR8K+v2RJ+hp2NobtNwpjEYfe6BRQ==}
 
-  '@openloaf-saas/sdk@0.2.3':
-    resolution: {integrity: sha512-yJqa44zkynLDklsTWu3IuB1rI7Lb4Vzs1lJDzWiyzFVr0QrMj5It5oLPgIzcaL9tYVvVrbpLuN7A5EprHnRhXg==}
+  '@openloaf-saas/sdk@0.2.4':
+    resolution: {integrity: sha512-//1mO9jqeuxmtmRAdveW7Z1w2jkxbzXeNdKsIyZnlkIqo7qYK2R/sasBDyNTqASgs16xdwgA28gHLlZsYTDSxg==}
 
   '@opentelemetry/api-logs@0.212.0':
     resolution: {integrity: sha512-TEEVrLbNROUkYY51sBJGk7lO/OLjuepch8+hmpM6ffMJQ2z/KVCjdHuCFX6fJj8OkJP2zckPjrJzQtXU3IAsFg==}
@@ -5779,8 +5779,8 @@ packages:
       react: '>=16.9.0'
       react-dom: '>=16.9.0'
 
-  '@rc-component/overflow@1.0.0':
-    resolution: {integrity: sha512-GSlBeoE0XTBi5cf3zl8Qh7Uqhn7v8RrlJ8ajeVpEkNe94HWy5l5BQ0Mwn2TVUq9gdgbfEMUmTX7tJFAg7mz0Rw==}
+  '@rc-component/overflow@1.0.1':
+    resolution: {integrity: sha512-syfmgAABaHCnCDzPwHZ/2tuvIcpOO3jefYZMmfkN+pmo8HKTzsfhS57vxo4ksPdN0By+uWVJhJWNFozNBxi2eA==}
     peerDependencies:
       react: '>=16.9.0'
       react-dom: '>=16.9.0'
@@ -7738,8 +7738,21 @@ packages:
       '@trpc/server': 11.11.0
       typescript: '>=5.7.2'
 
+  '@trpc/client@11.16.0':
+    resolution: {integrity: sha512-TxIzm7OoK3baKZ0XCbuMUbI3GhgjcbKHIc4nWVKaRpCRnbSh0T31BT6fTPYwtnA/Nur8pBCGqC2B4J5hEPiPFQ==}
+    hasBin: true
+    peerDependencies:
+      '@trpc/server': 11.16.0
+      typescript: '>=5.7.2'
+
   '@trpc/server@11.11.0':
     resolution: {integrity: sha512-5CBK5Oit8qv2k2zgIHrUsa12tnCIVpZIJLvMa4n2tejuWz/d7Qb1B1v9zZioapr7y8sEvnk8zPcNnxcT2LlQxg==}
+    peerDependencies:
+      typescript: '>=5.7.2'
+
+  '@trpc/server@11.16.0':
+    resolution: {integrity: sha512-XgGuUMddrUTd04+za/WE5GFuZ1/YU9XQG0t3VL5WOIu2JspkOlq6k4RYEiqS6HSJt+S0RXaPdIoE2anIP/BBRQ==}
+    hasBin: true
     peerDependencies:
       typescript: '>=5.7.2'
 
@@ -11041,8 +11054,8 @@ packages:
   es-toolkit@1.44.0:
     resolution: {integrity: sha512-6penXeZalaV88MM3cGkFZZfOoLGWshWWfdy0tWw/RlVVyhvMaWSBTOvXNeiW3e5FwdS5ePW0LGEu17zT139ktg==}
 
-  es-toolkit@1.45.1:
-    resolution: {integrity: sha512-/jhoOj/Fx+A+IIyDNOvO3TItGmlMKhtX8ISAHKE90c4b/k1tqaqEZ+uUqfpU8DMnW5cgNJv606zS55jGvza0Xw==}
+  es-toolkit@1.46.0:
+    resolution: {integrity: sha512-IToJ6ct9OLl5zz6WsC/1vZEwfSZ7Myil+ygl5Tf30Xjn9AEkzNB4kqp2G7VUJKF1DtTx/ra5M5KLlXvzOg51BA==}
 
   es6-error@4.1.1:
     resolution: {integrity: sha512-Um/+FxMr9CISWh0bi5Zv0iOD+4cFh5qLeks1qhAopKVAJw3drgKbKySikp7wGhDL0HPeaja0P5ULZrxLkniUVg==}
@@ -17086,6 +17099,9 @@ packages:
   stylis@4.3.6:
     resolution: {integrity: sha512-yQ3rwFWRfwNUY7H5vpU0wfdkNSnvnJinhF9830Swlaxl03zsOjCfmX0ugac+3LtK0lYSgwL/KXc8oYL3mG4YFQ==}
 
+  stylis@4.4.0:
+    resolution: {integrity: sha512-5Z9ZpRzfuH6l/UAvCPAPUo3665Nk2wLaZU3x+TLHKVzIz33+sbJqbtrYoC3KD4/uVOr2Zp+L0LySezP9OHV9yA==}
+
   stylus-lookup@6.1.0:
     resolution: {integrity: sha512-5QSwgxAzXPMN+yugy61C60PhoANdItfdjSEZR8siFwz7yL9jTmV0UBKDCfn3K8GkGB4g0Y9py7vTCX8rFu4/pQ==}
     engines: {node: '>=18'}
@@ -18909,7 +18925,7 @@ snapshots:
       csstype: 3.2.3
       react: 19.2.3
       react-dom: 19.2.3(react@19.2.3)
-      stylis: 4.3.6
+      stylis: 4.4.0
 
   '@ant-design/fast-color@3.0.1': {}
 
@@ -22355,7 +22371,7 @@ snapshots:
       '@lobehub/emojilib': 1.0.0
       antd-style: 4.1.0(@types/react@19.2.3)(antd@6.3.1(date-fns@4.1.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       emoji-regex: 10.6.0
-      es-toolkit: 1.45.1
+      es-toolkit: 1.46.0
       lucide-react: 0.562.0(react@19.2.3)
       react: 19.2.3
       react-dom: 19.2.3(react@19.2.3)
@@ -22852,9 +22868,17 @@ snapshots:
 
   '@opencode-ai/sdk@1.2.15': {}
 
-  '@openloaf-saas/sdk@0.2.3(@trpc/server@11.11.0(typescript@5.9.3))(typescript@5.9.3)':
+  '@openloaf-saas/sdk@0.2.4(@trpc/server@11.11.0(typescript@5.9.3))(typescript@5.9.3)':
     dependencies:
-      '@trpc/client': 11.11.0(@trpc/server@11.11.0(typescript@5.9.3))(typescript@5.9.3)
+      '@trpc/client': 11.16.0(@trpc/server@11.11.0(typescript@5.9.3))(typescript@5.9.3)
+      zod: 4.3.6
+    transitivePeerDependencies:
+      - '@trpc/server'
+      - typescript
+
+  '@openloaf-saas/sdk@0.2.4(@trpc/server@11.16.0(typescript@5.9.3))(typescript@5.9.3)':
+    dependencies:
+      '@trpc/client': 11.16.0(@trpc/server@11.16.0(typescript@5.9.3))(typescript@5.9.3)
       zod: 4.3.6
     transitivePeerDependencies:
       - '@trpc/server'
@@ -23271,7 +23295,7 @@ snapshots:
       react-compiler-runtime: 1.0.0(react@19.2.3)
       react-dom: 19.2.3(react@19.2.3)
       slate: 0.120.0
-      slate-dom: 0.119.0(slate@0.123.0)
+      slate-dom: 0.119.0(slate@0.120.0)
       slate-hyperscript: 0.100.0(slate@0.120.0)
       slate-react: 0.120.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(slate-dom@0.119.0(slate@0.120.0))(slate@0.120.0)
       use-deep-compare: 1.3.0(react@19.2.3)
@@ -25966,7 +25990,7 @@ snapshots:
   '@rc-component/menu@1.2.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
     dependencies:
       '@rc-component/motion': 1.3.2(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      '@rc-component/overflow': 1.0.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      '@rc-component/overflow': 1.0.1(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@rc-component/trigger': 3.9.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@rc-component/util': 1.10.1(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       clsx: 2.1.1
@@ -26002,7 +26026,7 @@ snapshots:
       react: 19.2.3
       react-dom: 19.2.3(react@19.2.3)
 
-  '@rc-component/overflow@1.0.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
+  '@rc-component/overflow@1.0.1(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
     dependencies:
       '@babel/runtime': 7.29.2
       '@rc-component/resize-observer': 1.1.2(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -26020,7 +26044,7 @@ snapshots:
 
   '@rc-component/picker@1.9.1(date-fns@4.1.0)(dayjs@1.11.20)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
     dependencies:
-      '@rc-component/overflow': 1.0.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      '@rc-component/overflow': 1.0.1(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@rc-component/resize-observer': 1.1.2(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@rc-component/trigger': 3.9.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@rc-component/util': 1.10.1(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -26083,7 +26107,7 @@ snapshots:
 
   '@rc-component/select@1.6.15(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
     dependencies:
-      '@rc-component/overflow': 1.0.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      '@rc-component/overflow': 1.0.1(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@rc-component/trigger': 3.9.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@rc-component/util': 1.10.1(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@rc-component/virtual-list': 1.0.2(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -28601,7 +28625,21 @@ snapshots:
       '@trpc/server': 11.11.0(typescript@5.9.3)
       typescript: 5.9.3
 
+  '@trpc/client@11.16.0(@trpc/server@11.11.0(typescript@5.9.3))(typescript@5.9.3)':
+    dependencies:
+      '@trpc/server': 11.11.0(typescript@5.9.3)
+      typescript: 5.9.3
+
+  '@trpc/client@11.16.0(@trpc/server@11.16.0(typescript@5.9.3))(typescript@5.9.3)':
+    dependencies:
+      '@trpc/server': 11.16.0(typescript@5.9.3)
+      typescript: 5.9.3
+
   '@trpc/server@11.11.0(typescript@5.9.3)':
+    dependencies:
+      typescript: 5.9.3
+
+  '@trpc/server@11.16.0(typescript@5.9.3)':
     dependencies:
       typescript: 5.9.3
 
@@ -32792,7 +32830,7 @@ snapshots:
 
   es-toolkit@1.44.0: {}
 
-  es-toolkit@1.45.1: {}
+  es-toolkit@1.46.0: {}
 
   es6-error@4.1.1:
     optional: true
@@ -40512,17 +40550,6 @@ snapshots:
       slate: 0.120.0
       tiny-invariant: 1.3.1
 
-  slate-dom@0.119.0(slate@0.123.0):
-    dependencies:
-      '@juggle/resize-observer': 3.4.0
-      direction: 1.0.4
-      is-hotkey: 0.2.0
-      is-plain-object: 5.0.0
-      lodash: 4.17.23
-      scroll-into-view-if-needed: 3.1.0
-      slate: 0.123.0
-      tiny-invariant: 1.3.1
-
   slate-hyperscript@0.100.0(slate@0.120.0):
     dependencies:
       is-plain-object: 5.0.0
@@ -40538,7 +40565,7 @@ snapshots:
       react-dom: 19.2.3(react@19.2.3)
       scroll-into-view-if-needed: 3.1.0
       slate: 0.120.0
-      slate-dom: 0.119.0(slate@0.123.0)
+      slate-dom: 0.119.0(slate@0.120.0)
       tiny-invariant: 1.3.1
 
   slate-react@0.120.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(slate-dom@0.119.0(slate@0.120.0))(slate@0.120.0):
@@ -41087,6 +41114,8 @@ snapshots:
   stylis@4.2.0: {}
 
   stylis@4.3.6: {}
+
+  stylis@4.4.0: {}
 
   stylus-lookup@6.1.0:
     dependencies:

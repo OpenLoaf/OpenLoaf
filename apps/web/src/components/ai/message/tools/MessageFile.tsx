@@ -10,6 +10,7 @@
 "use client";
 
 import React from "react";
+import { ImageOffIcon } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useChatSession } from "@/components/ai/context";
@@ -175,7 +176,62 @@ export default function MessageFile({ url, mediaType, title, className }: Messag
         </div>
       );
     }
-    return <div className={cn("text-xs text-muted-foreground", className)}>图片加载失败</div>;
+    return (
+      <div
+        className={cn(
+          "flex max-w-[560px] items-start gap-2 rounded-3xl border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground",
+          className,
+        )}
+      >
+        <ImageOffIcon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground/70" />
+        <div className="min-w-0 flex-1">
+          <div className="font-medium text-foreground/80">图片加载失败</div>
+          <div className="truncate text-[11px] text-muted-foreground/70">
+            {resolveFileName(url, mediaType)}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 对非相对路径（http/data）图片做一次加载探测，失败时展示统一的占位卡片，避免浏览器原生碎图。
+  const [remoteImgFailed, setRemoteImgFailed] = React.useState(false);
+  React.useEffect(() => {
+    setRemoteImgFailed(false);
+    if (!isImage || shouldFetchPreview || !resolvedSrc) return;
+    let aborted = false;
+    const probe = new Image();
+    probe.onload = () => {
+      if (!aborted) setRemoteImgFailed(false);
+    };
+    probe.onerror = () => {
+      if (!aborted) setRemoteImgFailed(true);
+    };
+    probe.src = resolvedSrc;
+    return () => {
+      aborted = true;
+      probe.onload = null;
+      probe.onerror = null;
+    };
+  }, [isImage, shouldFetchPreview, resolvedSrc]);
+
+  if (isImage && remoteImgFailed) {
+    return (
+      <div
+        className={cn(
+          "flex max-w-[560px] items-start gap-2 rounded-3xl border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground",
+          className,
+        )}
+      >
+        <ImageOffIcon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground/70" />
+        <div className="min-w-0 flex-1">
+          <div className="font-medium text-foreground/80">图片加载失败</div>
+          <div className="truncate text-[11px] text-muted-foreground/70">
+            {resolvedName || url}
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (isImage && !resolvedSrc) return null;

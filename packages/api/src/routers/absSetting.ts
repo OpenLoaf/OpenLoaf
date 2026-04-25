@@ -60,7 +60,6 @@ const officeInfoSchema = z.object({
 const cliModelSchema = z.object({
   id: z.string(),
   name: z.string(),
-  tags: z.array(z.string()).optional(),
 });
 
 /** Skill / Agent scope enum (includes builtin for read-only display). */
@@ -122,6 +121,8 @@ const capabilityGroupSchema = z.object({
   id: z.string(),
   label: z.string(),
   description: z.string(),
+  /** lucide-react 图标名（kebab-case）。前端按名字动态加载，新增能力组无需改前端。 */
+  icon: z.string(),
   toolIds: z.array(z.string()),
   tools: z.array(capabilityToolSchema),
 });
@@ -316,6 +317,8 @@ export const settingSchemas = {
       /** @deprecated Model selection moved to basic config. */
       codeModelIds: z.array(z.string()),
       toolIds: z.array(z.string()),
+      /** Subset of toolIds that are truly always-loaded at runtime (core). Others are deferred / lazy-loaded via ToolSearch. */
+      coreToolIds: z.array(z.string()),
       skills: z.array(z.string()),
       allowSubAgents: z.boolean(),
       maxDepth: z.number(),
@@ -472,30 +475,21 @@ export const settingSchemas = {
   /** Get auxiliary model config. */
   getAuxiliaryModelConfig: {
     output: z.object({
-      modelSource: z.enum(["local", "cloud", "saas"]),
+      modelSource: z.enum(["local", "saas"]),
       localModelIds: z.array(z.string()),
-      cloudModelIds: z.array(z.string()),
       capabilities: z.record(
         z.string(),
         z.object({
           customPrompt: z.string().nullable().optional(),
         }),
       ),
-      /** SaaS quota info (only present when modelSource is "saas"). */
-      quota: z.object({
-        used: z.number(),
-        limit: z.number(),
-        remaining: z.number(),
-        resetsAt: z.string(),
-      }).optional(),
     }),
   },
   /** Save auxiliary model config. */
   saveAuxiliaryModelConfig: {
     input: z.object({
-      modelSource: z.enum(["local", "cloud", "saas"]).optional(),
+      modelSource: z.enum(["local", "saas"]).optional(),
       localModelIds: z.array(z.string()).optional(),
-      cloudModelIds: z.array(z.string()).optional(),
       capabilities: z
         .record(
           z.string(),
@@ -506,17 +500,6 @@ export const settingSchemas = {
         .optional(),
     }),
     output: z.object({ ok: z.boolean() }),
-  },
-  /** Get SaaS auxiliary quota. */
-  getAuxiliaryQuota: {
-    output: z.object({
-      quota: z.object({
-        used: z.number(),
-        limit: z.number(),
-        remaining: z.number(),
-        resetsAt: z.string(),
-      }),
-    }),
   },
   /** Get auxiliary capability definitions. */
   getAuxiliaryCapabilities: {
@@ -979,11 +962,6 @@ export abstract class BaseSettingRouter {
         .input(settingSchemas.saveAuxiliaryModelConfig.input)
         .output(settingSchemas.saveAuxiliaryModelConfig.output)
         .mutation(async () => {
-          throw new Error("Not implemented in base class");
-        }),
-      getAuxiliaryQuota: shieldedProcedure
-        .output(settingSchemas.getAuxiliaryQuota.output)
-        .query(async () => {
           throw new Error("Not implemented in base class");
         }),
       getAuxiliaryCapabilities: shieldedProcedure

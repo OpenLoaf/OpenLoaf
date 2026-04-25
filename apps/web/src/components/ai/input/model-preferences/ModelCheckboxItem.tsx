@@ -12,57 +12,48 @@
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import { ModelIcon } from '@/components/setting/menus/provider/ModelIcon'
-import type { ModelTag } from '@openloaf/api/common'
+import type { ModelInputAccept } from '@openloaf/api/common'
 import { Check } from 'lucide-react'
 
-const TAG_COLOR_CLASSES: Record<string, string> = {
-  // 对话类
-  chat: 'bg-secondary text-foreground',
-  code: 'bg-secondary text-foreground',
-  tool_call: 'bg-secondary text-foreground',
-  reasoning: 'bg-secondary text-foreground',
-  // 图像类 —— 蓝色系
-  image_generation:
-    'bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300',
-  image_input:
-    'bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300',
-  image_multi_input:
-    'bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300',
-  image_multi_generation:
-    'bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300',
-  image_edit:
-    'bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300',
-  image_analysis:
-    'bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300',
-  // 视频类 —— 紫色系
-  video_generation:
-    'bg-violet-50 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300',
-  video_analysis:
-    'bg-violet-50 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300',
-  // 音频类 —— 琥珀色系
-  audio_analysis:
-    'bg-amber-50 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300',
-  audio_tts:
-    'bg-amber-50 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300',
-  default: 'bg-foreground/5 text-muted-foreground dark:bg-foreground/10',
+// inputAccept → 视觉徽章配色：图像蓝、视频紫、音频琥珀、文件灰、文本中性。
+const ACCEPT_COLOR_CLASSES: Record<ModelInputAccept, string> = {
+  text: 'bg-secondary text-foreground',
+  image: 'bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300',
+  video: 'bg-violet-50 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300',
+  audio: 'bg-amber-50 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300',
+  file: 'bg-foreground/5 text-muted-foreground dark:bg-foreground/10',
 }
+
+// 仅在选项行内 inline 显示的"媒体型"输入：图像/视频/音频。
+const MEDIA_ACCEPTS = new Set<ModelInputAccept>(['image', 'video', 'audio'])
 
 interface ModelCheckboxItemProps {
   icon: string | undefined
   modelId?: string
   label: string
-  tags?: ModelTag[]
+  inputAccepts?: ModelInputAccept[]
+  maxContextK?: number
   checked: boolean
   disabled?: boolean
   onToggle: () => void
   selectionType?: 'multiple' | 'single'
 }
 
+function formatContextK(k?: number): string | null {
+  if (!k || !Number.isFinite(k) || k <= 0) return null
+  if (k >= 1000) {
+    const m = k / 1000
+    return m % 1 === 0 ? `${m}M` : `${m.toFixed(1)}M`
+  }
+  return `${k}K`
+}
+
 export function ModelCheckboxItem({
   icon,
   modelId,
   label,
-  tags,
+  inputAccepts,
+  maxContextK,
   checked,
   disabled,
   onToggle,
@@ -70,24 +61,12 @@ export function ModelCheckboxItem({
 }: ModelCheckboxItemProps) {
   const { t } = useTranslation('ai')
   const isSingleSelection = selectionType === 'single'
-  const MEDIA_TAG_KEYS = new Set(['image_input', 'video_analysis', 'audio_analysis'])
-  const tagLabels =
-    tags && tags.length > 0
-      ? tags.map((tag) => ({
-          key: tag,
-          label: t(`modelTags.${tag}`, { defaultValue: tag, nsSeparator: false }),
-        }))
-      : []
-  const mediaTags =
-    tags && tags.length > 0
-      ? tags
-          .filter((tag) => MEDIA_TAG_KEYS.has(tag))
-          .map((tag) => ({
-            key: tag,
-            label: t(`modelTagsShort.${tag}`, { defaultValue: tag, nsSeparator: false }),
-          }))
-      : []
-  const restTagLabels = tagLabels.filter((tag) => !MEDIA_TAG_KEYS.has(tag.key))
+  const mediaAccepts = (inputAccepts ?? []).filter((kind) => MEDIA_ACCEPTS.has(kind))
+  const mediaBadges = mediaAccepts.map((kind) => ({
+    key: kind,
+    label: t(`modelCapabilities.${kind}`, { defaultValue: kind, nsSeparator: false }),
+  }))
+  const contextLabel = formatContextK(maxContextK)
 
   return (
     <div
@@ -127,37 +106,30 @@ export function ModelCheckboxItem({
             className="h-3.5 w-3.5 shrink-0"
           />
           <span className="truncate">{label}</span>
-          {mediaTags.length > 0 && (
+          {contextLabel && (
+            <span
+              className="inline-flex shrink-0 items-center rounded-3xl border border-border/70 px-1.5 py-0.5 text-[9px] font-mono font-normal leading-none text-muted-foreground"
+              title={t('mode.maxContext', { defaultValue: 'Max context' })}
+            >
+              {contextLabel}
+            </span>
+          )}
+          {mediaBadges.length > 0 && (
             <span className="flex shrink-0 items-center gap-1">
-              {mediaTags.map((tag) => (
+              {mediaBadges.map((badge) => (
                 <span
-                  key={tag.key}
+                  key={badge.key}
                   className={cn(
                     'inline-flex items-center rounded-3xl px-1.5 py-0.5 text-[9px] font-normal leading-none',
-                    TAG_COLOR_CLASSES[tag.key] ?? TAG_COLOR_CLASSES.default,
+                    ACCEPT_COLOR_CLASSES[badge.key],
                   )}
                 >
-                  {tag.label}
+                  {badge.label}
                 </span>
               ))}
             </span>
           )}
         </div>
-        {restTagLabels.length > 0 && (
-          <div className="mt-1 flex flex-wrap items-center gap-1.5 pl-5.5">
-            {restTagLabels.map((tag) => (
-              <span
-                key={tag.key}
-                className={cn(
-                  'inline-flex items-center rounded-3xl px-2 py-0.5 text-[9px] leading-none',
-                  TAG_COLOR_CLASSES[tag.key] ?? TAG_COLOR_CLASSES.default,
-                )}
-              >
-                {tag.label}
-              </span>
-            ))}
-          </div>
-        )}
       </div>
       {!disabled && (
         <span

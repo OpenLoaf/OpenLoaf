@@ -200,6 +200,7 @@
     "BuiltinSkill_media-ops-skill": "Media Ops",
     "BuiltinSkill_visualization-ops-skill": "Visualization Ops",
     "BuiltinSkill_cloud-media-skill": "Cloud Media Generation",
+    "SendChannelReply": "Send IM Reply",
     "MemorySave": "Save Memory",
     "MemorySearch": "Search Memory",
     "MemoryGet": "Get Memory",
@@ -429,39 +430,12 @@
     "suggestion2": "Analyze the current project's code quality",
     "suggestion3": "Generate a weekly work report"
   },
-  "modelTags": {
-    "chat": "Chat",
-    "code": "Code",
-    "tool_call": "Tool Call",
-    "reasoning": "Reasoning",
-    "image_generation": "Image Generation",
-    "image_input": "Image Input",
-    "image_multi_input": "Multi-Image Input",
-    "image_multi_generation": "Multi-Image Generation",
-    "image_edit": "Image Edit",
-    "image_analysis": "Image Analysis",
-    "video_generation": "Video Generation",
-    "video_analysis": "Video Analysis",
-    "audio_analysis": "Audio Analysis",
-    "audio_tts": "Text-to-Speech",
-    "media:imageGenerate": "AI Image Generation",
-    "media:poster": "Poster Generation",
-    "media:imageEdit": "AI Image Edit",
-    "media:upscale": "Image Upscale",
-    "media:outpaint": "Image Outpaint",
-    "media:matting": "Image Matting",
-    "media:videoGenerate": "AI Video Generation",
-    "media:videoEdit": "AI Video Edit",
-    "media:digitalHuman": "Digital Human",
-    "media:motionTransfer": "Motion Transfer",
-    "media:tts": "Text-to-Speech",
-    "media:music": "AI Music",
-    "media:sfx": "Sound Effects"
-  },
-  "modelTagsShort": {
-    "image_input": "See Image",
-    "video_analysis": "Watch Video",
-    "audio_analysis": "Hear Audio"
+  "modelCapabilities": {
+    "text": "Text",
+    "image": "Image",
+    "video": "Video",
+    "audio": "Audio",
+    "file": "File"
   },
   "tool": {
     "writeFile": "Write File",

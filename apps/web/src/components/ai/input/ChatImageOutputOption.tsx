@@ -11,7 +11,7 @@
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import type { ModelTag } from "@openloaf/api/common";
+import type { ModelCapabilities } from "@openloaf/api/common";
 import type { ImageGenerateOptions } from "@openloaf/api/types/image";
 import { mergeImageOptions } from "@/lib/chat/image-options";
 import { useChatOptions } from "../context";
@@ -28,8 +28,8 @@ export type ChatImageOutputTarget = {
   id?: string;
   /** Provider id. */
   providerId?: string;
-  /** Model tags. */
-  tags?: ModelTag[];
+  /** Model capabilities (含 inputAccepts)。 */
+  capabilities?: ModelCapabilities;
 };
 
 interface ChatImageOutputOptionProps {

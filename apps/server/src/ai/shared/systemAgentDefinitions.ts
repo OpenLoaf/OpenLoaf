@@ -181,6 +181,9 @@ const CHANNEL_SKILLS: readonly string[] = [
   'docx',
   'xlsx',
   'pptx',
+  // 桌面（macOS）远程控制 —— "用微信遥控电脑"是 IM 通道的核心价值；
+  // builtin-skills/index.ts 在非 macOS desktop runtime 下不注册，UI 展示亦会自动过滤
+  'macos-control',
 ] as const
 
 /** explore 的只读工具集（本地文件 / Office 文档 / 网络资料 / 浏览器抓取）。 */

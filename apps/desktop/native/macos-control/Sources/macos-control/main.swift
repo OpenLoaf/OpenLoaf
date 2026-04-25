@@ -12,10 +12,12 @@ _ = NSApplication.shared
 // Line-delimited JSON request/response over stdio.
 // Every request is one JSON object on one line; response is one JSON object on one line.
 // Ops:
-//   observe → { tree, screenshotPath?, nodeCount, truncated, permissionsMissing[] }
-//   act     → { action, ...opSpecific, permissionsMissing[] }
-//   permissions → { missing:[...] }
-//   ping    → { pong:true }
+//   observe        → { tree, app, windows[], screenshotPath?, screenshotFrame?, ... }
+//   list_windows   → { windows:[{windowID,title,bounds,isOnScreen,layer,ownerPID,ownerName,ownerBundleID}] }
+//   capture_window → { screenshotPath, screenshotWidth, screenshotHeight, screenshotFrame }
+//   act            → { action, ...opSpecific, permissionsMissing[] }
+//   permissions    → { missing:[...] }
+//   ping           → { pong:true }
 
 let stdout = FileHandle.standardOutput
 let stderr = FileHandle.standardError
@@ -36,15 +38,34 @@ func sendOk(id: String, payload: [String: Any]) {
   }
 }
 
-func sendErr(id: String, message: String, missing: [String] = []) {
+func sendErr(id: String, message: String, missing: [String] = [], errorCode: String? = nil) {
   var payload: [String: Any] = ["error": message]
   if !missing.isEmpty { payload["permissionsMissing"] = missing }
+  if let code = errorCode { payload["errorCode"] = code }
   let r = Response(id: id, ok: false, payload: payload)
   do {
     writeLine(try r.serialize())
   } catch {
     stderr.write("serialize error: \(error)\n".data(using: .utf8)!)
   }
+}
+
+func serializeWindow(_ w: Screenshot.WindowInfo) -> [String: Any] {
+  return [
+    "windowID": Int(w.windowID),
+    "title": w.title,
+    "bounds": [
+      "x": w.bounds.origin.x,
+      "y": w.bounds.origin.y,
+      "w": w.bounds.size.width,
+      "h": w.bounds.size.height,
+    ],
+    "isOnScreen": w.isOnScreen,
+    "layer": w.layer,
+    "ownerPID": Int(w.ownerPID),
+    "ownerName": w.ownerName,
+    "ownerBundleID": w.ownerBundleID ?? NSNull(),
+  ]
 }
 
 func dispatch(_ line: Data) {
@@ -56,7 +77,8 @@ func dispatch(_ line: Data) {
   }
 
   // Permission preflight for any op that needs system access.
-  if env.op == "observe" || env.op == "act" {
+  let needsTCC: Set<String> = ["observe", "act", "list_windows", "capture_window"]
+  if needsTCC.contains(env.op) {
     let missing = Permissions.missing()
     if !missing.isEmpty {
       // Trigger the TCC prompt so the user at least sees the system dialog once.
@@ -87,6 +109,18 @@ func dispatch(_ line: Data) {
       payload["app"] = tree["app"]!
       payload["truncated"] = tree["truncated"]!
       payload["nodeCount"] = tree["nodeCount"]!
+      if let r = tree["axRichness"] { payload["axRichness"] = r }
+      if let roles = tree["windowChildRoles"] { payload["windowChildRoles"] = roles }
+
+      // Window list: always included by default. Shows all renderable windows
+      // for the target app (or all apps when appFilter is nil). The model uses
+      // this to notice e.g. "WeChat has a main window AND an image preview"
+      // and can call `capture_window` per-windowID instead of being stuck with
+      // the frontmost-only screenshot.
+      if req.includeWindows ?? true {
+        let windows = (try? Screenshot.listWindows(appFilter: req.appFilter)) ?? []
+        payload["windows"] = windows.map(serializeWindow)
+      }
 
       if req.includeScreenshot ?? true {
         let path = req.screenshotPath ?? NSTemporaryDirectory() + "macos-control-\(req.id).png"
@@ -135,6 +169,30 @@ func dispatch(_ line: Data) {
       let result = try Actions.execute(req.action)
       sendOk(id: env.id, payload: result)
 
+    case "list_windows":
+      let req = try decoder.decode(ListWindowsRequest.self, from: line)
+      let windows = try Screenshot.listWindows(appFilter: req.appFilter)
+      sendOk(id: env.id, payload: ["windows": windows.map(serializeWindow)])
+
+    case "capture_window":
+      let req = try decoder.decode(CaptureWindowRequest.self, from: line)
+      let path = req.screenshotPath ?? NSTemporaryDirectory() + "macos-control-\(req.id).png"
+      guard let hit = try Screenshot.captureWindow(windowID: CGWindowID(req.windowID), to: path) else {
+        sendErr(id: env.id, message: "window_not_found: \(req.windowID)")
+        return
+      }
+      sendOk(id: env.id, payload: [
+        "screenshotPath": path,
+        "screenshotWidth": hit.width,
+        "screenshotHeight": hit.height,
+        "screenshotFrame": [
+          "x": hit.frame.origin.x,
+          "y": hit.frame.origin.y,
+          "w": hit.frame.size.width,
+          "h": hit.frame.size.height,
+        ],
+      ])
+
     default:
       sendErr(id: env.id, message: "Unknown op: \(env.op)")
     }
@@ -146,6 +204,8 @@ func dispatch(_ line: Data) {
       sendErr(id: env.id, message: "runtime: \(m)")
     case .permissionMissing(let list):
       sendErr(id: env.id, message: "permission_missing", missing: list)
+    case .blocked(let code, let m):
+      sendErr(id: env.id, message: m, errorCode: code)
     }
   } catch {
     sendErr(id: env.id, message: "error: \(error)")

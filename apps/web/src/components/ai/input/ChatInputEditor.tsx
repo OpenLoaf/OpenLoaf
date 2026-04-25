@@ -44,12 +44,10 @@ const AGENT_ICON_SVG =
   'style="flex-shrink:0;display:inline-block"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>' +
   '<circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>';
 
-// 高度锁定 18px（总高 = padding 1+1 + line-height 16 = 18），略小于编辑器 leading-5 (20px)，
-// 避免 chip 比行盒高，导致 caret 在 chip 左右侧高度不一致。
-// vertical-align:middle 让 chip 在 CJK 文本中视觉居中，取代默认 baseline。
-// vertical-align 不用 middle —— 实测 middle 会让 chip 比 CJK 字符下沉约 1.1px。
-// 用负 em 手动把 chip 上移，使其视觉中线对齐 13px CJK 文本的几何中线。
-const CHIP_BASE_STYLES = "display:inline-flex;align-items:center;gap:3px;padding:1px 6px;margin:0 1px;border-radius:4px;font-size:12px;font-weight:500;line-height:16px;vertical-align:-0.2em;cursor:pointer;user-select:none;white-space:nowrap;max-width:320px;transition:background-color .15s;border:0";
+// chip 外高锁 18px（padding 1+1 + line-height 16，无 border），小于编辑器 leading-5 (20px)，
+// 保证 caret 在 chip 左右高度一致。`vertical-align:middle` 在 13px CJK 文字中会下沉约 1px，
+// 再用 translateY(-1px) 把中线手动校正到和文字一致。
+const CHIP_BASE_STYLES = "display:inline-flex;align-items:center;gap:3px;padding:1px 6px;margin:0 1px;border-radius:4px;font-size:12px;font-weight:500;line-height:16px;vertical-align:middle;transform:translateY(-1px);cursor:pointer;user-select:none;white-space:nowrap;max-width:320px;transition:background-color .15s;border:0";
 
 const CHIP_STYLES = `
 .${CHIP_CLASS}{${CHIP_BASE_STYLES};background:var(--ol-blue-bg);color:var(--ol-blue)}
@@ -385,7 +383,7 @@ export function ChatInputEditor({
       const chip = createChipElement(token);
       range.insertNode(chip);
 
-      // 只用 ZWSP 作为 caret 锚点，不再根据 ensureTrailingSpace 附加可见空格（历史代码债）。
+      // 历史代码债：chip 插入后不再追加可见空格，只用 ZWSP 作为 caret 锚点。
       const trailing = document.createTextNode("\u200B");
       range.setStartAfter(chip);
       range.insertNode(trailing);
@@ -503,10 +501,7 @@ export function ChatInputEditor({
       const chip = target.closest(`.${CHIP_CLASS}`) as HTMLElement | null;
       if (chip?.dataset.token && onChipClick) {
         e.preventDefault();
-        const token = chip.dataset.token;
-        // 新格式 system-tag：用 path 属性；兼容旧 @[...] 格式走 slice 回退。
-        const parsed = parseAttachmentToken(token);
-        const tokenRef = parsed ? parsed.path : token.slice(2, -1);
+        const tokenRef = chip.dataset.token.slice(2, -1);
         onChipClick(tokenRef);
         return;
       }

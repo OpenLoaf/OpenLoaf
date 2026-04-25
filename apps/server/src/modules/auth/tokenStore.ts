@@ -7,7 +7,14 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import { clearAuthRefreshToken, readAuthRefreshToken, writeAuthRefreshToken } from "@/modules/settings/openloafConfStore";
+import {
+  clearAuthAccessToken,
+  clearAuthRefreshToken,
+  readAuthAccessToken,
+  readAuthRefreshToken,
+  writeAuthAccessToken,
+  writeAuthRefreshToken,
+} from "@/modules/settings/openloafConfStore";
 import { refreshAccessToken as refreshAccessTokenViaSaas } from "@/modules/saas/modules/auth/client";
 import { logger } from "@/common/logger";
 
@@ -46,6 +53,8 @@ type AuthSessionSnapshot = {
 const sessionState: AuthSessionState = {};
 // 逻辑：避免重复读取配置文件。
 let refreshTokenLoaded = false;
+// 逻辑：access token 跨进程共享（仅 dev）— 首次按需从 auth.dev.json 加载。
+let accessTokenLoaded = false;
 // 逻辑：提前 60 秒触发刷新，避免 token 过期。
 const REFRESH_BUFFER_MS = 60 * 1000;
 
@@ -60,6 +69,8 @@ export function applyTokenExchangeResult(input: {
 }): void {
   sessionState.accessToken = input.accessToken;
   sessionState.accessTokenExpiresAt = resolveExpiresAt(input.accessToken, input.expiresIn);
+  accessTokenLoaded = true;
+  writeAuthAccessToken(input.accessToken, sessionState.accessTokenExpiresAt);
   if (input.refreshToken) {
     setRefreshToken(input.refreshToken);
   }
@@ -82,7 +93,10 @@ export function getAuthSessionSnapshot(): AuthSessionSnapshot {
  * Get the access token if it is still valid.
  */
 export function getAccessToken(): string | undefined {
-  return isAccessTokenValid() ? sessionState.accessToken : undefined;
+  loadAccessTokenIfNeeded();
+  if (!isAccessTokenValid()) return undefined;
+  mirrorAccessTokenToDiskIfStale();
+  return sessionState.accessToken;
 }
 
 /**
@@ -93,6 +107,40 @@ function isAccessTokenValid(): boolean {
   if (!sessionState.accessTokenExpiresAt) return true;
   // 逻辑：预留缓冲区，避免即将过期的 token 被继续使用。
   return Date.now() + REFRESH_BUFFER_MS < sessionState.accessTokenExpiresAt;
+}
+
+/**
+ * Restore access token from auth.dev.json on first access — lets other
+ * dev-mode processes (e.g. bench scripts) reuse the running server's login.
+ * Prod always returns undefined from readAuthAccessToken(), so this is a
+ * no-op there.
+ */
+function loadAccessTokenIfNeeded(): void {
+  if (accessTokenLoaded) return;
+  accessTokenLoaded = true;
+  if (sessionState.accessToken) return;
+  const stored = readAuthAccessToken();
+  if (!stored) return;
+  sessionState.accessToken = stored.token;
+  sessionState.accessTokenExpiresAt = stored.expiresAt;
+}
+
+// 逻辑：dev 环境下，若磁盘拷贝缺失或过期，顺手把当前 in-memory token 写回。
+// 这样即使某次 applyTokenExchangeResult 早于持久化逻辑发生（例如升级前就已登录），
+// 第一次 getAccessToken() 成功调用也能把磁盘补齐，供 bench / 本地脚本跨进程复用。
+let lastMirroredAccessToken: string | undefined;
+function mirrorAccessTokenToDiskIfStale(): void {
+  if (process.env.NODE_ENV === "production") return;
+  const token = sessionState.accessToken;
+  if (!token) return;
+  if (lastMirroredAccessToken === token) return;
+  const stored = readAuthAccessToken();
+  if (stored && stored.token === token) {
+    lastMirroredAccessToken = token;
+    return;
+  }
+  writeAuthAccessToken(token, sessionState.accessTokenExpiresAt);
+  lastMirroredAccessToken = token;
 }
 
 /**
@@ -125,7 +173,9 @@ export function clearAuthSession(): void {
   sessionState.user = undefined;
   sessionState.refreshToken = undefined;
   refreshTokenLoaded = true;
+  accessTokenLoaded = true;
   clearAuthRefreshToken();
+  clearAuthAccessToken();
 }
 
 /**

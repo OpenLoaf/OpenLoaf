@@ -1,10 +1,12 @@
 /**
- * wechat/001 — single inbound message triggers AI reply and sendText.
+ * wechat/001 — single inbound message triggers AI reply via bridge V2.
  *
  * Drives the mock iLink via /debug/wechat: injects a single "你好", waits
- * for the AI turn (debounce 3s + runChatStream completes), then verifies
- * one outbound sendText was recorded and the session now has user +
- * assistant bubbles in messages.jsonl.
+ * for the AI turn (bridge V2: 0ms debounce + fast/full race), then verifies
+ * 1-2 outbound sendText calls were recorded (fast wins → 2 bubbles; full
+ * wins → 1 bubble) and the session now has user + assistant bubbles in
+ * messages.jsonl. `assistantCount === 1` because only the full agent
+ * writes to chat history; fast agent runs independently via generateText.
  */
 import { describe, it, expect } from 'vitest'
 import { render } from 'vitest-browser-react'
@@ -26,7 +28,7 @@ describe('wechat/001 — single inbound → AI → sendText', () => {
         scenario={async (api) => {
           await api.createAccount({ mode: 'normal', ownerUserId: 'mock-owner-001' })
           await api.inject([{ ...helloMsg, context_token: `ctx-${accountId}` }])
-          // Debounce 3s + runChatStream reasonable budget = 20s
+          // Bridge V2: fast ack ~1s + full turn ~3-8s. Budget 30s generous.
           const outbound = await api.waitForOutbound(1, 30_000)
           const session = await api.getSession()
           return {
@@ -64,7 +66,9 @@ describe('wechat/001 — single inbound → AI → sendText', () => {
     await (commands as any).recordProbeRun(meta)
 
     expect(result.status).toBe('ready')
-    expect(result.payload?.outboundLen).toBe(1)
+    // Bridge V2 race: fast wins → 2 outbound (ack + full); full wins → 1 outbound.
+    expect(result.payload?.outboundLen).toBeGreaterThanOrEqual(1)
+    expect(result.payload?.outboundLen).toBeLessThanOrEqual(2)
     expect(typeof result.payload?.outboundText).toBe('string')
     expect((result.payload?.outboundText as string).length).toBeGreaterThan(0)
     expect(result.payload?.sessionKind).toBe('wechat')

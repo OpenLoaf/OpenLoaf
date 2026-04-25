@@ -68,6 +68,7 @@ type CapabilityGroup = {
   id: string;
   label: string;
   description: string;
+  icon: string;
   toolIds: string[];
   tools: CapabilityTool[];
 };

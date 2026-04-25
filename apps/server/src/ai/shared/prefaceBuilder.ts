@@ -37,6 +37,10 @@ import { getMcpCatalogEntries } from "@openloaf/api/types/tools/toolCatalog";
 import { mcpClientManager } from "@/ai/services/mcpClientManager";
 // import { collectAvailableAgents, buildSubAgentListSection } from "@/ai/shared/subAgentPrefaceBuilder";
 import { getEnabledMcpServers } from "@/services/mcpConfigService";
+import {
+  findIntegrationByMcpServerName,
+  getIntegrationBundleName,
+} from "@/ai/integrations/registry";
 
 import { BUILTIN_SKILLS } from '@/ai/builtin-skills'
 import { CHANNEL_EXCLUDED_SKILL_NAMES } from '@/ai/agent-templates/templates/channel'
@@ -667,33 +671,75 @@ export async function buildSessionPrefaceText(input: {
 }
 
 /**
- * Build MCP tools blocks, split by scope (global → type="user-mcp", project → type="project-mcp").
- * Each MCP tool entry uses its own XML tag for consistency.
+ * Build MCP tools blocks.
+ *
+ * Three output shapes coexist:
+ * - Deferred bundles (integrations with `deferredLoad: true`, e.g. Notion):
+ *   advertised based on **config** (mcp-servers.json) regardless of live
+ *   connection state — so the model always sees the bundle option even when
+ *   the OAuth token is stale or the server is disconnected. Actual connection
+ *   is triggered lazily inside `ToolSearch` on first use.
+ * - Non-deferred MCP tools: full per-tool listing split by scope
+ *   (global → `user-mcp`, project → `project-mcp`), based on live tools in
+ *   MCP_TOOL_REGISTRY. Unchanged from before.
  */
 function buildMcpToolsBlocks(projectRoot?: string, lang?: PromptLang): string[] {
   const mcpToolIds = getMcpToolIds();
-  if (mcpToolIds.length === 0) return [];
   const isZh = lang === "zh";
 
   const mcpEntries = getMcpCatalogEntries();
 
-  // Build server name → scope map from config
-  let serverScopeMap: Map<string, 'global' | 'project'>;
+  // Load configured servers — source of truth for deferred bundle advertisement.
+  let configuredServers: Array<{ name: string; scope: 'global' | 'project' }>;
   try {
-    const servers = getEnabledMcpServers(projectRoot);
-    serverScopeMap = new Map(servers.map((s) => [s.name, s.scope]));
+    configuredServers = getEnabledMcpServers(projectRoot).map((s) => ({
+      name: s.name,
+      scope: s.scope,
+    }));
   } catch {
-    serverScopeMap = new Map();
+    configuredServers = [];
   }
+  const serverScopeMap = new Map(configuredServers.map((s) => [s.name, s.scope]));
+
+  // Deferred bundles: driven by config, not by live registry. Tool count is
+  // best-effort (0 means "not yet connected, ToolSearch will connect on demand").
+  type DeferredBundle = {
+    serverName: string;
+    bundleName: string;
+    description: string;
+    toolCount: number;
+  };
+  const deferredBundles: DeferredBundle[] = [];
+  const deferredServerNames = new Set<string>();
+  for (const server of configuredServers) {
+    const integration = findIntegrationByMcpServerName(server.name);
+    if (integration?.deferredLoad) {
+      const toolCount = mcpToolIds.filter((id) =>
+        id.startsWith(`mcp__${server.name}__`),
+      ).length;
+      deferredBundles.push({
+        serverName: server.name,
+        bundleName: getIntegrationBundleName(integration),
+        description: integration.description,
+        toolCount,
+      });
+      deferredServerNames.add(server.name);
+    }
+  }
+
+  // Early exit when there's neither live MCP tools nor deferred bundles.
+  if (mcpToolIds.length === 0 && deferredBundles.length === 0) return [];
 
   // Group by server name, then split by scope
   type ToolEntry = { id: string; label: string; description: string };
-  const globalTools = new Map<string, ToolEntry[]>();
-  const projectTools = new Map<string, ToolEntry[]>();
+  type ServerBucket = { toolCount: number; tools: ToolEntry[] };
+  const globalTools = new Map<string, ServerBucket>();
+  const projectTools = new Map<string, ServerBucket>();
 
   for (const id of mcpToolIds) {
     const parts = id.split('__');
     const serverName = parts[1] ?? 'unknown';
+    if (deferredServerNames.has(serverName)) continue;
     const entry = mcpEntries.find((e) => e.id === id);
     const toolEntry: ToolEntry = {
       id,
@@ -702,8 +748,10 @@ function buildMcpToolsBlocks(projectRoot?: string, lang?: PromptLang): string[] 
     };
     const scope = serverScopeMap.get(serverName) ?? 'global';
     const target = scope === 'project' ? projectTools : globalTools;
-    if (!target.has(serverName)) target.set(serverName, []);
-    target.get(serverName)!.push(toolEntry);
+    if (!target.has(serverName)) target.set(serverName, { toolCount: 0, tools: [] });
+    const bucket = target.get(serverName)!;
+    bucket.toolCount += 1;
+    bucket.tools.push(toolEntry);
   }
 
   const header = isZh ? '# MCP 外部工具' : '# MCP External Tools';
@@ -714,18 +762,37 @@ function buildMcpToolsBlocks(projectRoot?: string, lang?: PromptLang): string[] 
   const buildBlock = (
     type: string,
     desc: string,
-    toolsByServer: Map<string, ToolEntry[]>,
+    toolsByServer: Map<string, ServerBucket>,
   ): string => {
     const lines: string[] = [header, headerHint, ''];
-    for (const [serverName, tools] of toolsByServer) {
+    for (const [serverName, bucket] of toolsByServer) {
       lines.push(`## ${serverName}`);
-      for (const t of tools) {
+      for (const t of bucket.tools) {
         const toolDesc = t.description ? ` — ${t.description}` : '';
         lines.push(`\t<${t.id}>${t.label}${toolDesc}</${t.id}>`);
       }
       lines.push('');
     }
     return `<system-tag type="${type}" desc="${desc}">\n${lines.join('\n').trim()}\n</system-tag>`;
+  };
+
+  const buildBundleBlock = (bundles: DeferredBundle[]): string => {
+    const desc = isZh
+      ? '可按需加载的 MCP 工具包；通过 ToolSearch 调用其 bundle 名即可一次性加载该 MCP 的所有工具（若尚未建立 MCP 连接，ToolSearch 会自动在加载时完成连接）'
+      : 'MCP tool bundles available on demand; call ToolSearch with the bundle name to load every tool from that MCP in one step (ToolSearch will lazily connect if the MCP server is not yet online)';
+    const hint = isZh
+      ? '使用时向 ToolSearch 传入下方 bundle 名（例如 `ToolSearch({ names: "notion-mcp" })`），可一次性加载该 MCP 的全部工具。ToolSearch 内部会在需要时阻塞等待 MCP 建立连接（带超时），连接失败会原样返回错误给你。'
+      : 'Pass a bundle name below to ToolSearch (e.g. `ToolSearch({ names: "notion-mcp" })`) to load every tool from that MCP at once. ToolSearch will block to establish the MCP connection if needed (with a timeout); any failure is surfaced back to you.';
+    const lines: string[] = [hint, ''];
+    for (const b of bundles) {
+      const countLabel =
+        b.toolCount > 0
+          ? isZh ? `（${b.toolCount} 个工具）` : `(${b.toolCount} tools)`
+          : isZh ? '（按需连接）' : '(connect on demand)';
+      const descSuffix = b.description ? ` — ${b.description}` : '';
+      lines.push(`- \`${b.bundleName}\` ${countLabel}${descSuffix}`);
+    }
+    return `<system-tag type="available-mcp" desc="${desc}">\n${lines.join('\n').trim()}\n</system-tag>`;
   };
 
   const userMcpDesc = isZh ? '用户全局 MCP 工具' : 'User-global MCP tools';
@@ -736,6 +803,9 @@ function buildMcpToolsBlocks(projectRoot?: string, lang?: PromptLang): string[] 
   }
   if (projectTools.size > 0) {
     blocks.push(buildBlock('project-mcp', projectMcpDesc, projectTools));
+  }
+  if (deferredBundles.length > 0) {
+    blocks.push(buildBundleBlock(deferredBundles));
   }
   return blocks;
 }

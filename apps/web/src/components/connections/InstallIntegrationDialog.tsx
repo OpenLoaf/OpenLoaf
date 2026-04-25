@@ -9,11 +9,12 @@
  */
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { queryClient, trpc } from '@/utils/trpc'
+import { openExternalUrl } from '@/lib/saas-auth'
 import { FormDialog } from '@/components/ui/FormDialog'
 import {
   Dialog,
@@ -24,7 +25,8 @@ import {
 } from '@openloaf/ui/dialog'
 import { Button } from '@openloaf/ui/button'
 import { Input } from '@openloaf/ui/input'
-import { Check, ExternalLink, FileText, Loader2, RefreshCw, Trash2 } from 'lucide-react'
+import { ExternalLink, FileText, Loader2, RefreshCw, Table } from 'lucide-react'
+import { ConnectionAccountRow } from './ConnectionAccountRow'
 import { cn } from '@/lib/utils'
 import type { IntegrationDefinition } from '@openloaf/api/types/integrations'
 import { resolveServerUrl } from '@/utils/server-url'
@@ -255,6 +257,166 @@ export function InstallIntegrationDialog({ integration, onClose, onInstalled, on
   )
 }
 
+/** 5-minute ceiling aligned with the server-side status TTL (10 min). */
+const OAUTH_POLL_TIMEOUT_MS = 5 * 60 * 1000
+const OAUTH_POLL_INTERVAL_MS = 1000
+
+/**
+ * Shared OAuth begin/poll lifecycle for integrations.
+ *
+ * Used by both first-time install (`OAuthInstallView`) and post-install
+ * re-authorization (`InstalledView` when the saved OAuth token has expired).
+ * The server side is idempotent — `beginOAuthIntegrationInstall` will create
+ * or reuse the MCP server config, so calling it twice on the same integration
+ * is safe; the second call replaces the stale token and triggers a fresh MCP
+ * connect via `finalizeAuthorizedIntegrationInstall`.
+ */
+function useOAuthAuthorizeFlow(params: {
+  integration: IntegrationDefinition
+  localizedName: string
+  /** Called after a successful authorize + connect cycle. Host view decides
+   *  whether to close the dialog (first-time install) or stay open to reflect
+   *  the refreshed connected state (re-auth). */
+  onCompleted: () => void | Promise<void>
+}) {
+  const { integration, localizedName, onCompleted } = params
+  const { t } = useTranslation(['connections', 'common'])
+  const [oauthState, setOauthState] = useState<string | null>(null)
+  const pollTimerRef = useRef<number | null>(null)
+  const timeoutTimerRef = useRef<number | null>(null)
+
+  const beginOauthMutation = useMutation(
+    trpc.integrations.beginOAuthIntegrationInstall.mutationOptions({
+      onError: (err) => {
+        toast.error(err.message)
+      },
+    }),
+  )
+  const cancelOauthMutation = useMutation(
+    trpc.integrations.cancelOAuthIntegrationInstall.mutationOptions(),
+  )
+
+  const stopPolling = useCallback(() => {
+    if (pollTimerRef.current !== null) {
+      window.clearInterval(pollTimerRef.current)
+      pollTimerRef.current = null
+    }
+    if (timeoutTimerRef.current !== null) {
+      window.clearTimeout(timeoutTimerRef.current)
+      timeoutTimerRef.current = null
+    }
+  }, [])
+
+  useEffect(() => () => stopPolling(), [stopPolling])
+
+  const awaiting = oauthState !== null
+  const busy = awaiting || beginOauthMutation.isPending
+
+  const handleSuccess = useCallback(async () => {
+    stopPolling()
+    setOauthState(null)
+    await invalidateConnectionQueries()
+    toast.success(t('connections:installSuccess', { name: localizedName }))
+    await onCompleted()
+  }, [localizedName, onCompleted, stopPolling, t])
+
+  const handleFailure = useCallback(
+    (message: string) => {
+      stopPolling()
+      setOauthState(null)
+      toast.error(message)
+    },
+    [stopPolling],
+  )
+
+  const cancel = useCallback(() => {
+    const currentState = oauthState
+    stopPolling()
+    setOauthState(null)
+    if (currentState) {
+      cancelOauthMutation.mutate({ state: currentState })
+    }
+  }, [cancelOauthMutation, oauthState, stopPolling])
+
+  const authorize = useCallback(async () => {
+    let result: Awaited<ReturnType<typeof beginOauthMutation.mutateAsync>>
+    try {
+      result = await beginOauthMutation.mutateAsync({
+        integrationId: integration.id,
+        serverOrigin: resolveServerUrl(),
+      })
+    } catch {
+      return
+    }
+
+    if (result.completed) {
+      await handleSuccess()
+      return
+    }
+
+    if (!result.authorizationUrl || !result.state) {
+      toast.error(t('connections:errorHint'))
+      return
+    }
+
+    const pendingState = result.state
+    setOauthState(pendingState)
+
+    try {
+      await openExternalUrl(result.authorizationUrl)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : t('connections:oauthOpenFailed')
+      handleFailure(message)
+      return
+    }
+
+    pollTimerRef.current = window.setInterval(async () => {
+      try {
+        const status = await queryClient.fetchQuery(
+          trpc.integrations.pollOAuthIntegrationInstall.queryOptions({
+            state: pendingState,
+          }),
+        )
+        if (status.status === 'completed') {
+          await handleSuccess()
+        } else if (status.status === 'error') {
+          handleFailure(status.error ?? t('connections:errorHint'))
+        } else if (status.status === 'expired') {
+          handleFailure(t('connections:oauthExpiredHint'))
+        }
+        // pending: keep polling
+      } catch {
+        // transient fetch errors: keep polling until deadline
+      }
+    }, OAUTH_POLL_INTERVAL_MS)
+
+    timeoutTimerRef.current = window.setTimeout(() => {
+      stopPolling()
+      setOauthState(null)
+      cancelOauthMutation.mutate({ state: pendingState })
+      toast.error(t('connections:oauthTimeoutHint'))
+    }, OAUTH_POLL_TIMEOUT_MS)
+  }, [
+    beginOauthMutation,
+    cancelOauthMutation,
+    handleFailure,
+    handleSuccess,
+    integration.id,
+    stopPolling,
+    t,
+  ])
+
+  return {
+    awaiting,
+    busy,
+    isPreparing: beginOauthMutation.isPending,
+    oauthState,
+    authorize,
+    cancel,
+    stopPolling,
+  }
+}
+
 function OAuthInstallView({
   integration,
   localizedName,
@@ -268,93 +430,41 @@ function OAuthInstallView({
   onClose: () => void
   onInstalled: () => void
 }) {
-  const { t } = useTranslation(['connections'])
-  const [authorizing, setAuthorizing] = useState(false)
-  const popupTimerRef = useRef<number | null>(null)
+  const { t } = useTranslation(['connections', 'common'])
 
-  const beginOauthMutation = useMutation(
-    trpc.integrations.beginOAuthIntegrationInstall.mutationOptions({
-      onError: (err) => {
-        setAuthorizing(false)
-        toast.error(err.message)
-      },
-    }),
-  )
+  const handleCompleted = useCallback(async () => {
+    onInstalled()
+    onClose()
+  }, [onClose, onInstalled])
 
-  useEffect(() => {
-    return () => {
-      if (popupTimerRef.current !== null) {
-        window.clearInterval(popupTimerRef.current)
-      }
-    }
-  }, [])
+  const {
+    awaiting,
+    busy,
+    isPreparing: beginOauthPending,
+    authorize,
+    cancel,
+  } = useOAuthAuthorizeFlow({
+    integration,
+    localizedName,
+    onCompleted: handleCompleted,
+  })
 
-  const handleAuthorize = async () => {
-    setAuthorizing(true)
-    let result: Awaited<ReturnType<typeof beginOauthMutation.mutateAsync>>
-    try {
-      result = await beginOauthMutation.mutateAsync({
-        integrationId: integration.id,
-        serverOrigin: resolveServerUrl(),
-      })
-    } catch {
-      return
-    }
-
-    if (result.completed) {
-      await invalidateConnectionQueries()
-      toast.success(t('connections:installSuccess', { name: localizedName }))
-      onInstalled()
-      onClose()
-      setAuthorizing(false)
-      return
-    }
-
-    if (!result.authorizationUrl) {
-      setAuthorizing(false)
-      toast.error(t('connections:errorHint'))
-      return
-    }
-
-    const popup = window.open(
-      result.authorizationUrl,
-      'integration-oauth',
-      'width=620,height=760',
-    )
-
-    if (!popup) {
-      setAuthorizing(false)
-      toast.error(t('connections:oauthPopupBlocked'))
-      return
-    }
-
-    popupTimerRef.current = window.setInterval(async () => {
-      if (!popup.closed) return
-
-      if (popupTimerRef.current !== null) {
-        window.clearInterval(popupTimerRef.current)
-        popupTimerRef.current = null
-      }
-
-      await invalidateConnectionQueries()
-      const integrations = await queryClient.fetchQuery(
-        trpc.integrations.listIntegrations.queryOptions(),
-      )
-      const installed = integrations.find((item) => item.id === integration.id)?.installed
-
-      setAuthorizing(false)
-
-      if (installed) {
-        toast.success(t('connections:installSuccess', { name: localizedName }))
-        onInstalled()
-        onClose()
-      }
-    }, 500)
-  }
+  const handleCancel = cancel
+  const handleAuthorize = authorize
+  const beginOauthMutation = { isPending: beginOauthPending } as { isPending: boolean }
 
   return (
-    <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
-      <DialogContent className="sm:max-w-lg">
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (open) return
+        // cancel() already stops polling + clears oauthState + cancels any
+        // pending server-side begin session. Safe to call even when idle.
+        cancel()
+        onClose()
+      }}
+    >
+      <DialogContent className="sm:max-w-lg [&>*]:min-w-0">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2.5">
             <IntegrationIcon integration={integration} />
@@ -394,22 +504,45 @@ function OAuthInstallView({
           )}
 
           <div className="rounded-3xl border border-border/60 bg-secondary/30 px-4 py-3 text-xs leading-6 text-muted-foreground">
-            {authorizing
-              ? t('connections:oauthPendingHint')
-              : t('connections:oauthReadyHint')}
+            {beginOauthMutation.isPending
+              ? t('connections:oauthPreparingHint')
+              : awaiting
+                ? t('connections:oauthPendingHint')
+                : t('connections:oauthReadyHint')}
           </div>
 
-          <Button
-            type="button"
-            className="w-full rounded-full"
-            disabled={authorizing || beginOauthMutation.isPending}
-            onClick={handleAuthorize}
-          >
-            {authorizing || beginOauthMutation.isPending ? (
-              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-            ) : null}
-            {t('connections:authorizeAndConnect')}
-          </Button>
+          {awaiting || beginOauthMutation.isPending ? (
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                disabled
+                className="flex-1 rounded-full"
+              >
+                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                {beginOauthMutation.isPending
+                  ? t('connections:oauthPreparing')
+                  : t('connections:oauthWaiting')}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                className="rounded-full"
+                onClick={handleCancel}
+                disabled={beginOauthMutation.isPending}
+              >
+                {t('common:cancel')}
+              </Button>
+            </div>
+          ) : (
+            <Button
+              type="button"
+              className="w-full rounded-full"
+              disabled={busy}
+              onClick={handleAuthorize}
+            >
+              {t('connections:authorizeAndConnect')}
+            </Button>
+          )}
         </div>
       </DialogContent>
     </Dialog>
@@ -456,6 +589,25 @@ function InstalledView({
     }),
   )
 
+  // OAuth re-authorize flow for when the saved token has expired. For
+  // OAuth integrations, `testMcpConnection` is a dead end — it just re-runs
+  // the MCP handshake with the same stale token and fails again the same
+  // way. The only recovery is to open the provider's consent screen in a
+  // browser and let the user refresh the token.
+  const handleReauthComplete = useCallback(async () => {
+    await statusQuery.refetch()
+  }, [statusQuery])
+  const {
+    awaiting: reauthAwaiting,
+    busy: reauthBusy,
+    authorize: reauthorize,
+    cancel: cancelReauth,
+  } = useOAuthAuthorizeFlow({
+    integration,
+    localizedName,
+    onCompleted: handleReauthComplete,
+  })
+
   const serverInfo = useMemo(() => {
     if (!integration.mcpServerId) return null
     return (statusQuery.data ?? []).find((s) => s.id === integration.mcpServerId) ?? null
@@ -464,12 +616,66 @@ function InstalledView({
   const status = serverInfo?.status ?? 'disconnected'
   const errorMsg = serverInfo?.error
   const isReconnecting = status === 'connecting' || reconnectMutation.isPending
-
   const isConnected = status === 'connected'
+
+  const probeTool = integration.probeTool
+  const identityQuery = useQuery({
+    ...trpc.integrations.getIntegrationIdentity.queryOptions({
+      integrationId: integration.id,
+    }),
+    // Light polling only while the cache is still empty — stops as soon as
+    // the backend's MCP-connect listener writes a value.
+    refetchInterval: (query) => {
+      if (!isConnected || !probeTool) return false
+      return query.state.data?.identity ? false : 1000
+    },
+    refetchIntervalInBackground: false,
+    enabled: Boolean(isConnected && probeTool),
+    staleTime: 60_000,
+  })
+  const identity = identityQuery.data?.identity ?? null
+  const identityLoading =
+    isConnected
+    && Boolean(probeTool)
+    && !identity
+    && (identityQuery.isPending || identityQuery.isFetching)
+
+  const workspaceName = isConnected ? identity?.workspaceName : undefined
+  const ownerDisplayName = isConnected ? identity?.ownerName : undefined
+  const ownerEmail = isConnected ? identity?.ownerEmail : undefined
+  const primaryIdentity = workspaceName ?? ownerDisplayName
+  const hasDetailItems = Boolean(
+    isConnected && identity && (identity.workspaceId || identity.botName),
+  )
+
+  const primaryLabel = primaryIdentity
+    ?? (isReconnecting
+      ? t('connections:serverStatus.connecting')
+      : t(`connections:serverStatus.${status}`))
+
+  const secondaryLabel = (() => {
+    if (isReconnecting) return t('connections:connectingHint')
+    if (status === 'error') return errorMsg ?? t('connections:errorHint')
+    if (status === 'disconnected') return t('connections:disconnectedHint')
+    if (isConnected) {
+      if (workspaceName) {
+        return ownerDisplayName
+          ? t('connections:workspaceOwnedBy', { name: ownerDisplayName })
+          : t('connections:serverStatus.connected')
+      }
+      if (ownerDisplayName) {
+        // No workspace name available (Notion MCP doesn't expose it) — show
+        // the authorising user's email underneath their name instead.
+        return ownerEmail ?? t('connections:serverStatus.connected')
+      }
+      if (identityLoading) return t('connections:probeLoading')
+    }
+    return null
+  })()
 
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md [&>*]:min-w-0">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2.5">
             <IntegrationIcon integration={integration} />
@@ -478,134 +684,99 @@ function InstalledView({
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-3">
-          <div className="flex items-center gap-3 rounded-2xl border border-border/60 bg-card px-4 py-3">
-            <div className={cn(
-              'flex h-8 w-8 shrink-0 items-center justify-center rounded-full',
-              isConnected && 'bg-emerald-500/10',
-              isReconnecting && 'bg-sky-500/10',
-              status === 'error' && 'bg-destructive/10',
-              status === 'disconnected' && 'bg-muted/40',
-            )}>
-              {isConnected && <Check className="h-4 w-4 text-emerald-500" />}
-              {isReconnecting && <Loader2 className="h-4 w-4 animate-spin text-sky-500" />}
-              {status === 'error' && <span className="h-2 w-2 rounded-full bg-destructive" />}
-              {status === 'disconnected' && <span className="h-2 w-2 rounded-full bg-muted-foreground/40" />}
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="text-sm font-medium text-foreground">
-                {isReconnecting
-                  ? t('connections:serverStatus.connecting')
-                  : t(`connections:serverStatus.${status}`)}
-              </div>
-              <div className="text-[11px] text-muted-foreground">
-                {isReconnecting && t('connections:connectingHint')}
-                {status === 'error' && (errorMsg ?? t('connections:errorHint'))}
-                {status === 'disconnected' && t('connections:disconnectedHint')}
-              </div>
-            </div>
-            {!isConnected && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-7 shrink-0 rounded-full px-2.5 text-xs text-muted-foreground hover:text-foreground"
-                disabled={reconnectMutation.isPending}
-                onClick={() => {
-                  if (integration.mcpServerId) {
-                    reconnectMutation.mutate({ id: integration.mcpServerId })
-                  }
-                }}
-              >
-                <RefreshCw className={cn('h-3.5 w-3.5', reconnectMutation.isPending && 'animate-spin')} />
-              </Button>
-            )}
-          </div>
+        <div className="min-w-0 space-y-3">
+          <ConnectionAccountRow
+            status={
+              isReconnecting
+                ? 'connecting'
+                : status === 'connected'
+                  ? 'connected'
+                  : status === 'error'
+                    ? 'error'
+                    : 'disconnected'
+            }
+            title={primaryLabel}
+            subtitle={secondaryLabel ?? undefined}
+            onRemove={onUninstall}
+            removing={uninstalling}
+          />
 
-          {isConnected && integration.probeTool && (
-            <ProbeResult
-              serverId={integration.mcpServerId!}
-              probeTool={integration.probeTool}
-            />
+          {hasDetailItems && identity && (
+            <div className="rounded-2xl border border-border/60 bg-card px-4 py-3">
+              <div className="space-y-1 text-xs text-muted-foreground">
+                {identity.workspaceId && (
+                  <div className="truncate">
+                    {t('connections:probeFields.workspaceId', { value: identity.workspaceId })}
+                  </div>
+                )}
+                {identity.botName && (
+                  <div className="truncate">
+                    {t('connections:probeFields.bot', { value: identity.botName })}
+                  </div>
+                )}
+              </div>
+            </div>
           )}
 
-          <Button
-            type="button"
-            variant="ghost"
-            className="w-full rounded-full text-muted-foreground hover:text-destructive"
-            disabled={uninstalling}
-            onClick={onUninstall}
-          >
-            {uninstalling ? (
-              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+          {isConnected && identity?.accessiblePages && identity.accessiblePages.length > 0 && (
+            <AccessiblePagesCard pages={identity.accessiblePages} />
+          )}
+
+          {!isConnected && integration.mcpServerId && (
+            integration.authType === 'oauth' ? (
+              // Expired-token recovery: a plain "test connection" loops forever
+              // with the same OAuth error, so offer the real fix — reopen the
+              // provider's consent screen in a browser and swap in a fresh
+              // token. Falls back to an in-flight cancel button while awaiting
+              // the callback.
+              reauthAwaiting || reauthBusy ? (
+                <div className="flex gap-2">
+                  <Button type="button" disabled className="flex-1 rounded-full">
+                    <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                    {reauthAwaiting
+                      ? t('connections:oauthWaiting')
+                      : t('connections:oauthPreparing')}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="rounded-full"
+                    onClick={cancelReauth}
+                  >
+                    {t('common:cancel')}
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  type="button"
+                  className="w-full rounded-full"
+                  onClick={() => void reauthorize()}
+                >
+                  {t('connections:authorizeAndConnect')}
+                </Button>
+              )
             ) : (
-              <Trash2 className="mr-1.5 h-3.5 w-3.5" />
-            )}
-            {t('connections:remove')}
-          </Button>
+              !isReconnecting && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="w-full rounded-full text-xs text-muted-foreground"
+                  disabled={reconnectMutation.isPending}
+                  onClick={() => {
+                    if (integration.mcpServerId) {
+                      reconnectMutation.mutate({ id: integration.mcpServerId })
+                    }
+                  }}
+                >
+                  <RefreshCw className={cn('mr-1.5 h-3.5 w-3.5', reconnectMutation.isPending && 'animate-spin')} />
+                  {t('connections:reconnect')}
+                </Button>
+              )
+            )
+          )}
         </div>
       </DialogContent>
     </Dialog>
-  )
-}
-
-function ProbeResult({
-  serverId,
-  probeTool,
-}: {
-  serverId: string
-  probeTool: NonNullable<IntegrationDefinition['probeTool']>
-}) {
-  const { t } = useTranslation(['connections'])
-
-  const probeMutation = useMutation(
-    trpc.mcp.callMcpTool.mutationOptions(),
-  )
-
-  useEffect(() => {
-    probeMutation.mutate({ serverId, toolName: probeTool.toolName, args: probeTool.args })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [serverId, probeTool.toolName, JSON.stringify(probeTool.args ?? {})])
-
-  const items = useMemo(() => {
-    if (!probeMutation.data?.ok || !probeMutation.data.data) return []
-    return extractProbeItems(probeMutation.data.data, t)
-  }, [probeMutation.data, t])
-
-  if (probeMutation.isPending) {
-    return (
-      <div className="rounded-2xl border border-border/60 bg-card px-4 py-3">
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <Loader2 className="h-3 w-3 animate-spin" />
-          {t('connections:probeLoading')}
-        </div>
-      </div>
-    )
-  }
-
-  if (probeMutation.isError || items.length === 0) {
-    return null
-  }
-
-  return (
-    <div className="rounded-2xl border border-border/60 bg-card px-4 py-3">
-      <div className="mb-2 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-        <FileText className="h-3 w-3" />
-        {probeTool.label}
-      </div>
-      <div className="space-y-1.5">
-        {items.slice(0, 5).map((item, idx) => (
-          <div key={idx} className="text-sm text-foreground truncate">
-            {item}
-          </div>
-        ))}
-        {items.length > 5 && (
-          <div className="text-[11px] text-muted-foreground">
-            {t('connections:probeMore', { count: items.length - 5 })}
-          </div>
-        )}
-      </div>
-    </div>
   )
 }
 
@@ -623,93 +794,129 @@ async function invalidateConnectionQueries(): Promise<void> {
   ])
 }
 
-function extractProbeItems(
-  data: unknown,
-  t: (key: string, options?: Record<string, unknown>) => string,
-): string[] {
-  if (!data || typeof data !== 'object') return []
-  const result = data as Record<string, unknown>
+type AccessiblePage = {
+  id: string
+  title: string
+  type?: string
+  timestamp?: string
+}
 
-  // Notion search result: { results: [{ object, id, properties: { title/title_plain_text }}] }
-  if (Array.isArray(result.results)) {
-    return (result.results as Array<Record<string, unknown>>).map((item) => {
-      const props = item.properties as Record<string, unknown> | undefined
-      if (!props) return String(item.id ?? item.title ?? '')
-      const titleProp = (Object.values(props) as Array<Record<string, unknown>>).find(
-        (p) => p.type === 'title',
-      )
-      if (titleProp?.title && Array.isArray(titleProp.title)) {
-        return (titleProp.title as Array<Record<string, string>>)
-          .map((t) => t.plain_text ?? '')
-          .join('')
+function AccessiblePagesCard({ pages }: { pages: AccessiblePage[] }) {
+  const { t, i18n } = useTranslation(['connections'])
+
+  const handleOpen = async (page: AccessiblePage) => {
+    const bareId = page.id.replace(/-/g, '')
+    const url = `https://www.notion.so/${bareId}`
+    try {
+      if (window.openloafElectron?.openExternal) {
+        await window.openloafElectron.openExternal(url)
+      } else {
+        window.open(url, '_blank', 'noopener,noreferrer')
       }
-      return String(item.id ?? '')
-    })
+    } catch {
+      window.open(url, '_blank', 'noopener,noreferrer')
+    }
   }
 
-  // Generic array of strings/objects
-  if (Array.isArray(data)) {
-    return (data as unknown[]).map((item) =>
-      typeof item === 'string' ? item : JSON.stringify(item),
-    )
-  }
+  // Split by type so users see the shape of their authorised scope at a
+  // glance ("1 database + N pages") instead of a homogeneous list. Within
+  // each group we sort by last-edit time, descending.
+  const groups = [
+    {
+      key: 'database' as const,
+      label: t('connections:pageTypes.database'),
+      items: pages
+        .filter((p) => p.type === 'database')
+        .slice()
+        .sort((a, b) => (b.timestamp ?? '').localeCompare(a.timestamp ?? '')),
+    },
+    {
+      key: 'page' as const,
+      label: t('connections:pageTypes.page'),
+      items: pages
+        .filter((p) => p.type === 'page')
+        .slice()
+        .sort((a, b) => (b.timestamp ?? '').localeCompare(a.timestamp ?? '')),
+    },
+    {
+      key: 'other' as const,
+      label: t('connections:pageTypes.other'),
+      items: pages
+        .filter((p) => p.type !== 'database' && p.type !== 'page')
+        .slice()
+        .sort((a, b) => (b.timestamp ?? '').localeCompare(a.timestamp ?? '')),
+    },
+  ].filter((g) => g.items.length > 0)
 
-  const notionSelfItems = extractNotionSelfProbeItems(result, t)
-  if (notionSelfItems.length > 0) {
-    return notionSelfItems
-  }
-
-  return Object.entries(result)
-    .slice(0, 5)
-    .map(([key, value]) => `${formatProbeKey(key)}: ${formatProbeValue(value)}`)
+  return (
+    <div className="min-w-0 rounded-2xl border border-border/60 bg-card px-4 py-3">
+      <div className="mb-2 flex items-center justify-between">
+        <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">
+          {t('connections:accessiblePages')}
+        </div>
+        <div className="text-[11px] text-muted-foreground/70">
+          {t('connections:accessiblePagesCount', { count: pages.length })}
+        </div>
+      </div>
+      <div className="max-h-60 space-y-3 overflow-y-auto pr-1">
+        {groups.map((group) => (
+          <div key={group.key} className="min-w-0">
+            <div className="mb-1 flex items-center justify-between px-1.5">
+              <span className="text-[11px] font-medium text-muted-foreground/70">
+                {group.label}
+              </span>
+              <span className="text-[11px] text-muted-foreground/50">
+                {group.items.length}
+              </span>
+            </div>
+            <ul className="space-y-0.5">
+              {group.items.map((page) => {
+                const Icon = page.type === 'database' ? Table : FileText
+                const rel = formatRelativeTime(page.timestamp, i18n.language)
+                return (
+                  <li key={page.id} className="min-w-0">
+                    <button
+                      type="button"
+                      onClick={() => void handleOpen(page)}
+                      className="flex w-full min-w-0 items-center gap-2 rounded-lg px-1.5 py-1 text-left text-sm transition-colors hover:bg-secondary/40"
+                    >
+                      <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                      <span className="min-w-0 flex-1 truncate text-foreground/90">
+                        {page.title}
+                      </span>
+                      {rel && (
+                        <span className="shrink-0 text-[11px] text-muted-foreground/60">
+                          {rel}
+                        </span>
+                      )}
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
 }
 
-function extractNotionSelfProbeItems(
-  result: Record<string, unknown>,
-  t: (key: string, options?: Record<string, unknown>) => string,
-): string[] {
-  const bot = asRecord(result.bot)
-  const owner = asRecord(bot?.owner ?? result.owner)
-  const items: string[] = []
-
-  const workspaceName = readString(bot?.workspace_name ?? result.workspace_name)
-  const workspaceId = readString(bot?.workspace_id ?? result.workspace_id)
-  const botName = readString(result.name ?? bot?.name)
-  const ownerType = readString(owner?.type)
-
-  if (workspaceName) {
-    items.push(t('connections:probeFields.workspace', { value: workspaceName }))
-  }
-  if (workspaceId) {
-    items.push(t('connections:probeFields.workspaceId', { value: workspaceId }))
-  }
-  if (botName) {
-    items.push(t('connections:probeFields.bot', { value: botName }))
-  }
-  if (ownerType) {
-    items.push(t('connections:probeFields.owner', { value: ownerType }))
-  }
-
-  return items
+/**
+ * Format an ISO timestamp as "3 days ago" / "3 天前", using the browser's
+ * `Intl.RelativeTimeFormat` so we inherit the user's current i18n locale.
+ */
+function formatRelativeTime(iso: string | undefined, locale: string): string | null {
+  if (!iso) return null
+  const ts = Date.parse(iso)
+  if (Number.isNaN(ts)) return null
+  const diffSec = Math.round((ts - Date.now()) / 1000)
+  const abs = Math.abs(diffSec)
+  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' })
+  if (abs < 60) return rtf.format(diffSec, 'second')
+  if (abs < 3600) return rtf.format(Math.round(diffSec / 60), 'minute')
+  if (abs < 86400) return rtf.format(Math.round(diffSec / 3600), 'hour')
+  if (abs < 30 * 86400) return rtf.format(Math.round(diffSec / 86400), 'day')
+  if (abs < 365 * 86400) return rtf.format(Math.round(diffSec / (30 * 86400)), 'month')
+  return rtf.format(Math.round(diffSec / (365 * 86400)), 'year')
 }
 
-function formatProbeKey(raw: string): string {
-  return raw.replace(/[_-]/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())
-}
-
-function formatProbeValue(value: unknown): string {
-  if (typeof value === 'string') return value
-  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
-  if (Array.isArray(value)) return value.map((item) => formatProbeValue(item)).join(', ')
-  if (value && typeof value === 'object') return JSON.stringify(value)
-  return ''
-}
-
-function asRecord(value: unknown): Record<string, unknown> | undefined {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
-  return value as Record<string, unknown>
-}
-
-function readString(value: unknown): string | undefined {
-  return typeof value === 'string' && value.trim() ? value.trim() : undefined
-}

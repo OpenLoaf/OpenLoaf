@@ -23,13 +23,13 @@ export function printModelInfo(info: {
   provider: string
   modelId: string
   chatModelId: string
-  tags?: string[]
+  inputAccepts?: string[]
 }) {
   console.log(`  provider:     ${info.provider}`)
   console.log(`  modelId:      ${info.modelId}`)
   console.log(`  chatModelId:  ${info.chatModelId}`)
-  if (info.tags?.length) {
-    console.log(`  tags:         ${info.tags.join(', ')}`)
+  if (info.inputAccepts?.length) {
+    console.log(`  inputAccepts: ${info.inputAccepts.join(', ')}`)
   }
 }
 

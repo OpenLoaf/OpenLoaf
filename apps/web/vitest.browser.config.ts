@@ -1125,6 +1125,10 @@ export default defineConfig({
     '__BROWSER_TEST_PROMPT_LANG_OVERRIDE__': JSON.stringify(
       process.env.BROWSER_TEST_PROMPT_LANG_OVERRIDE ?? ''
     ),
+    // Repo root absolute path — lets wechat outbound-forward tests cite a fixture
+    // file via a real FS path the server can open (SendWeChatMedia.source).
+    // `root` is `apps/web`, so repo root is two levels up.
+    '__REPO_ROOT__': JSON.stringify(resolve(root, '../..')),
   },
   resolve: {
     alias: {

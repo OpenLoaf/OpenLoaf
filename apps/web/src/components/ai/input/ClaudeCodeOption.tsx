@@ -174,7 +174,6 @@ export default function ClaudeCodeOption({
       modelId: model.id,
       providerId: "claude-code-cli",
       providerName: "Claude Code",
-      tags: model.tags,
       modelDefinition: { ...model, providerId: "claude-code-cli" },
     }));
   }, [claudeCodeModelsQuery.data]);

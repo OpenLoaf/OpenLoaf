@@ -8,11 +8,9 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import {
-  MODEL_TAGS,
   type ModelCapabilities,
   type ModelDefinition,
   type ModelReasoningCapability,
-  type ModelTag,
 } from "@openloaf/api/common";
 
 const REASONING_VALUES: ReadonlySet<ModelReasoningCapability> = new Set([
@@ -55,11 +53,12 @@ export type CloudChatModelItem = {
   displayName: string;
   /** Model family id from SaaS (e.g. "Qwen", "Claude"). */
   familyId?: string;
-  /** Raw tags from SaaS. */
-  tags: string[];
   /** Reasoning capability state from SaaS (v3)。缺失视为 "none"。 */
   reasoning?: ModelReasoningCapability;
-  /** Raw capabilities from SaaS. */
+  /** Fast-variant marker from SaaS (v3Variant.isFast, SDK v0.2.4+)。标记低延迟
+   * variant，供 channel bridge 的 fast-ack / 超时 summarizer 选小模型。 */
+  isFast?: boolean;
+  /** Raw capabilities from SaaS (含 inputAccepts 派生自 v3 inputSlots[].accept)。 */
   capabilities?: ModelCapabilities;
 };
 
@@ -82,10 +81,6 @@ export type CloudChatModelsResponse = {
 
 /** Map SaaS chat models to local ModelDefinition. */
 export function mapCloudChatModels(items: CloudChatModelItem[]): ModelDefinition[] {
-  const tagSet = new Set<ModelTag>(MODEL_TAGS);
-  const normalizeTags = (tags: string[]): ModelTag[] =>
-    tags.filter((tag): tag is ModelTag => tagSet.has(tag as ModelTag));
-
   return (Array.isArray(items) ? items : [])
     // 中文注释：过滤缺少关键字段的记录，避免构建无效模型。
     .filter(
@@ -101,12 +96,12 @@ export function mapCloudChatModels(items: CloudChatModelItem[]): ModelDefinition
       name: item.displayName,
       familyId: item.familyId?.trim() || resolveCloudFamilyId(item),
       providerId: item.provider,
-      // 中文注释：仅保留系统支持的标签，避免未知标签污染筛选。
-      tags: normalizeTags(Array.isArray(item.tags) ? item.tags : []),
       // 中文注释：reasoning 字段由 v3 capabilities 独立声明，未知取值时退为 "none"。
       reasoning: REASONING_VALUES.has(item.reasoning as ModelReasoningCapability)
         ? item.reasoning
         : undefined,
+      // 中文注释：isFast 直接透传（SDK v0.2.4+），供 channel bridge 筛快速 variant。
+      isFast: typeof item.isFast === "boolean" ? item.isFast : undefined,
       // 中文注释：能力字段直接透传 SaaS 定义，避免本地推断。
       capabilities: item.capabilities,
     }));

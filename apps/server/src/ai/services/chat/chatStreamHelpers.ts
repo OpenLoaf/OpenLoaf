@@ -575,6 +575,8 @@ export async function loadAndPrepareMessageChain(input: {
   includeCompactPrompt?: boolean;
   /** Formatter for chain errors. */
   formatError: (message: string) => string;
+  /** Agent kind — 'channel' triggers the IM-projection (drop tool parts, strip system prefix). */
+  agentKind?: 'channel' | 'pm' | 'master';
 }): Promise<LoadMessageChainResult> {
   const messages = await loadMessageChain({
     sessionId: input.sessionId,
@@ -590,10 +592,13 @@ export async function loadAndPrepareMessageChain(input: {
     "[chat] load message chain",
   );
 
-  const modelChain = buildModelChain(messages as UIMessage[], {
+  let modelChain = buildModelChain(messages as UIMessage[], {
     includeCompactPrompt: input.includeCompactPrompt,
     sessionPrefaceText,
   });
+  if (input.agentKind === 'channel') {
+    modelChain = projectChannelHistoryForModel(modelChain as UIMessage[]);
+  }
   const modelMessages = await replaceRelativeFileParts(modelChain as UIMessage[]);
   if (messages.length === 0) {
     return { ok: false, errorText: input.formatError("历史消息不存在。") };
@@ -637,13 +642,13 @@ export async function loadAndPrepareMessageChainFromIds(input: {
   return { ok: true, messages: messages as UIMessage[], modelMessages };
 }
 
-/** Resolve per-media-kind support from declared tags. */
+/** Resolve per-media-kind support from declared input accepts. */
 function resolveMediaTagSupport(modelDefinition: ModelDefinition | undefined) {
-  const tags = modelDefinition?.tags ?? [];
+  const accepts = new Set(modelDefinition?.capabilities?.inputAccepts ?? []);
   return {
-    image: tags.includes("image_input") || tags.includes("image_analysis" as any),
-    video: tags.includes("video_analysis" as any),
-    audio: tags.includes("audio_analysis" as any),
+    image: accepts.has("image"),
+    video: accepts.has("video"),
+    audio: accepts.has("audio"),
   };
 }
 
@@ -665,6 +670,70 @@ function classifyFilePartKind(mediaType: string): "image" | "video" | "audio" | 
  * (expandAttachmentTagsForModel) already checks caps, so in normal flow this
  * function is a no-op. It catches file parts introduced by other code paths.
  */
+/**
+ * Channel-agent history projection: strip everything the user can't see.
+ *
+ * The wechat / IM channel only ever shows plain text + media bubbles to the
+ * end user. Everything else in messages.jsonl — tool calls, tool results,
+ * `__droppedUnloaded` hints, ToolSearch metadata, `[会话上下文：...]` system
+ * prefixes — is purely internal noise that bloats LLM context and confuses
+ * the model in subsequent turns (it sees its own past tool plumbing as if
+ * it were dialogue).
+ *
+ * Rules:
+ *   - `assistant` messages: keep only text parts; drop tool-* parts. If no
+ *     text part remains, drop the whole message.
+ *   - `user` messages: keep text parts; strip the `[会话上下文：...]` system
+ *     prefix line. Preserve the `[以下是对方连续发来的 N 条消息]` merge marker
+ *     since it's meaningful context for the next reply.
+ *   - other roles (system, etc.): pass through.
+ *
+ * jsonl persistence is unaffected — full parts are still written for debug
+ * mode and the web UI to render. This projection only shapes what the next
+ * LLM call sees.
+ */
+const SESSION_CONTEXT_PREFIX_RE =
+  /^\[会话上下文：[^\]]*\]\s*\n?/m;
+
+export function projectChannelHistoryForModel(
+  messages: UIMessage[],
+): UIMessage[] {
+  const next: UIMessage[] = [];
+  for (const message of messages) {
+    const role = (message as { role?: string }).role;
+    const parts = Array.isArray((message as { parts?: unknown[] }).parts)
+      ? ((message as { parts: unknown[] }).parts as Array<Record<string, unknown>>)
+      : [];
+
+    if (role === 'assistant') {
+      // Keep only text parts; drop everything tool-related.
+      const textParts = parts.filter((p) => p?.type === 'text' && typeof p.text === 'string' && (p.text as string).length > 0);
+      if (textParts.length === 0) continue;
+      next.push({ ...message, parts: textParts } as UIMessage);
+      continue;
+    }
+
+    if (role === 'user') {
+      const cleaned: Array<Record<string, unknown>> = [];
+      for (const p of parts) {
+        if (p?.type !== 'text') {
+          cleaned.push(p);
+          continue;
+        }
+        const stripped = (p.text as string).replace(SESSION_CONTEXT_PREFIX_RE, '');
+        if (stripped.length === 0) continue;
+        cleaned.push({ ...p, text: stripped });
+      }
+      if (cleaned.length === 0) continue;
+      next.push({ ...message, parts: cleaned } as UIMessage);
+      continue;
+    }
+
+    next.push(message);
+  }
+  return next;
+}
+
 export function stripUnsupportedMediaPartsForModel(
   messages: UIMessage[],
   modelDefinition: ModelDefinition | undefined,

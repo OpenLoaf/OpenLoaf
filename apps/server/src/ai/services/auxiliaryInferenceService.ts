@@ -11,26 +11,14 @@ import { generateText, Output, type UIMessage } from 'ai'
 import { createHash } from 'node:crypto'
 import type { z } from 'zod'
 import { resolveChatModel } from '@/ai/models/resolveChatModel'
+import { resolveSaasFastChatModelId } from '@/ai/models/saasFastChatModel'
 import { readAuxiliaryModelConf } from '@/modules/settings/auxiliaryModelConfStore'
-import { ensureServerAccessToken } from '@/modules/auth/tokenStore'
-import { getSaasClient } from '@/modules/saas/client'
 import { buildModelMessages } from '@/ai/shared/messageConverter'
-import { expandAttachmentTagsForModel } from '@/ai/shared/attachmentTagExpander'
-import type { ModelDefinition } from '@openloaf/api/common'
-
-// SaaS 辅助模型由后端按能力路由，本地不持有 ModelDefinition。
-// 用一个全模态能力声明驱动 expandAttachmentTagsForModel，
-// 确保 attachment tag 升级为 file part（CDN URL 优先，降级 base64），
-// 而不是以 XML 文本形式送到 SaaS，导致 auxiliary 模型只能看到文件名。
-const SAAS_AUX_PERMISSIVE_MODEL_DEF: ModelDefinition = {
-  id: 'saas-aux-permissive',
-  tags: ['image_input', 'image_analysis', 'video_analysis', 'audio_analysis'],
-}
+import type { ChatModelSource } from '@openloaf/api/common'
 import {
   flattenMessagesToContext,
   messagesCacheSeed,
   modelHasMediaCapability,
-  toSaasMessages,
 } from './auxiliaryMessageUtils'
 import {
   AUXILIARY_CAPABILITIES,
@@ -100,7 +88,7 @@ type AuxiliaryInferInput<T extends z.ZodType> = {
   noCache?: boolean
   /** Override the system prompt (used by test UI). */
   promptOverride?: string
-  /** Max output tokens for the model response. Applied to local/cloud calls only. */
+  /** Max output tokens for the model response. */
   maxTokens?: number
 }
 
@@ -110,6 +98,9 @@ type AuxiliaryInferInput<T extends z.ZodType> = {
  * Reads config from auxiliary-model.json, resolves the model,
  * calls generateText with Output.object() for the capability prompt + user context,
  * and returns the structured result.
+ *
+ * modelSource === 'saas' 时会自动挑 SaaS 上 `isFast === true` 的快速 chat
+ * variant（SDK v0.2.4+）；'local' 时使用用户手动选中的本地模型。
  *
  * On any error, silently returns the provided fallback.
  */
@@ -174,51 +165,18 @@ export async function auxiliaryInfer<T extends z.ZodType>({
       `${LOG_PREFIX} [${capabilityKey}] 模型来源: ${conf.modelSource}`,
     )
 
-    // SaaS branch — delegate to SaaS backend
+    // Resolve chat model: SaaS → isFast variant；Local → user-selected modelId.
+    let chatModelId: string | undefined
+    let chatModelSource: ChatModelSource
     if (conf.modelSource === 'saas') {
-      const token = (await ensureServerAccessToken()) ?? ''
-      if (!token) throw new Error('未登录云端账号，请先登录')
-      const saasClient = getSaasClient(token)
-      const saasExpanded = useMessages
-        ? (await expandAttachmentTagsForModel(messages!, SAAS_AUX_PERMISSIVE_MODEL_DEF)).messages
-        : null
-      const payload = useMessages
-        ? {
-            capabilityKey,
-            systemPrompt,
-            messages: toSaasMessages(saasExpanded!),
-            outputMode: 'structured' as const,
-            schema: capability.outputSchema,
-          }
-        : {
-            capabilityKey,
-            systemPrompt,
-            context: context ?? '',
-            outputMode: 'structured' as const,
-            schema: capability.outputSchema,
-          }
-      const res = await saasClient.auxiliary.infer(payload)
-      if (!res.ok) throw new Error(res.message)
-      const value = schema.parse(res.result) as z.infer<T>
-      if (!noCache) setCache(key, value)
-      console.log(
-        `${LOG_PREFIX} [${capabilityKey}] SaaS 推理完成`,
-        `| 输出:`,
-        value,
-      )
-      return value
+      chatModelId = await resolveSaasFastChatModelId()
+      chatModelSource = 'cloud'
+    } else {
+      chatModelId = conf.localModelIds[0]?.trim() || undefined
+      chatModelSource = 'local'
     }
 
-    // Local/Cloud branch
-    const modelIds =
-      conf.modelSource === 'cloud' ? conf.cloudModelIds : conf.localModelIds
-    const chatModelId = modelIds[0]?.trim() || undefined
-
-    // Resolve model
-    const resolved = await resolveChatModel({
-      chatModelId,
-      chatModelSource: conf.modelSource,
-    })
+    const resolved = await resolveChatModel({ chatModelId, chatModelSource })
 
     // Call with 10s timeout
     const abortController = new AbortController()
@@ -251,7 +209,7 @@ export async function auxiliaryInfer<T extends z.ZodType>({
       const value = result.output as z.infer<T>
       if (!noCache) setCache(key, value)
       console.log(
-        `${LOG_PREFIX} [${capabilityKey}] 本地/云端推理完成`,
+        `${LOG_PREFIX} [${capabilityKey}] 推理完成`,
         `| 输出:`,
         value,
       )

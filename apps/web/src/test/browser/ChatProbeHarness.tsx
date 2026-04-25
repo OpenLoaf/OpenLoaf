@@ -136,6 +136,17 @@ export type ChatProbeHarnessProps = {
     scenario: 'default' | 'permissionsMissing' | string
   }
   /**
+   * MCP mock — drives tests that need a "connected" MCP server (e.g. Notion)
+   * without real OAuth. Setting `{ preset: 'notion' }` POSTs `/debug/mcp-mock`
+   * to register a canned set of fake Notion tools before sendMessage, so the
+   * preface's deferred-bundle path and ToolSearch resolution can be exercised
+   * end-to-end. Tools are unregistered on unmount. Localhost + non-production
+   * only.
+   */
+  mcpMock?: {
+    preset: 'notion' | string
+  }
+  /**
    * Project context — when set, chat session runs under this project so
    * `${PROJECT_MEMORY_DIR}` resolves and `MemorySave({scope:"project"})` writes
    * to that project's `.openloaf/memory/`. Used by memory project-scope tests.
@@ -327,6 +338,7 @@ function ChatProbeInner({
   className,
   cloudMock,
   macosHelperMock,
+  mcpMock,
   projectId: projectIdProp,
 }: ChatProbeHarnessProps) {
   // runner --model 的覆盖优先级最高：写了就盖掉测试文件里硬编码的 prop。
@@ -743,6 +755,31 @@ function ChatProbeInner({
           console.warn('[macosHelperMock] setup failed:', err)
         }
       }
+      if (mcpMock?.preset) {
+        try {
+          const ping = await fetch(`${serverUrl}/debug/mcp-mock/ping`, { method: 'GET' })
+          if (!ping.ok) {
+            console.warn(
+              `[mcpMock] /debug/mcp-mock not registered (status=${ping.status}). Check OPENLOAF_MCP_MOCK / NODE_ENV.`,
+            )
+          } else {
+            const r = await fetch(`${serverUrl}/debug/mcp-mock`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'X-OpenLoaf-Client': '1' },
+              body: JSON.stringify({ action: 'register', preset: mcpMock.preset }),
+            })
+            if (!r.ok) {
+              throw new Error(`register failed: ${r.status} ${await r.text()}`)
+            }
+            const body = (await r.json()) as { toolIds?: string[] }
+            console.log(
+              `[mcpMock] preset=${mcpMock.preset} registered (${body.toolIds?.length ?? '?'} tools)`,
+            )
+          }
+        } catch (err) {
+          console.warn('[mcpMock] setup failed:', err)
+        }
+      }
       requestAnimationFrame(() => {
         chatRef.current.sendMessage({
           parts: [{ type: 'text' as const, text: prompt }],
@@ -771,8 +808,15 @@ function ChatProbeInner({
           body: JSON.stringify({ action: 'clear', sessionId: sessionIdSnap }),
         }).catch(() => {})
       }
+      if (mcpMock?.preset) {
+        fetch(`${serverUrl}/debug/mcp-mock`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-OpenLoaf-Client': '1' },
+          body: JSON.stringify({ action: 'clear', preset: mcpMock.preset }),
+        }).catch(() => {})
+      }
     }
-  }, [prompt, serverUrl, sessionId, cloudMock, macosHelperMock])
+  }, [prompt, serverUrl, sessionId, cloudMock, macosHelperMock, mcpMock])
 
   // ── Handle error state → auto-retry network errors via UI Retry button ──
   React.useEffect(() => {
@@ -1434,7 +1478,7 @@ function mimeToExt(mime: string): string {
   return map[m] || ''
 }
 
-async function captureDomSnapshotToWindow() {
+export async function captureDomSnapshotToWindow() {
   try {
     if (typeof window === 'undefined' || typeof document === 'undefined') return
     const root = document.documentElement

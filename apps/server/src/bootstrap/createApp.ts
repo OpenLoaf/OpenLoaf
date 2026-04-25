@@ -34,11 +34,13 @@ import { registerVideoStreamRoutes } from "@/modules/media/videoStreamRoutes";
 import { registerUrlDownloadRoutes } from "@/modules/media/urlDownloadRoutes";
 import { registerEmailOAuthRoutes } from "@/modules/email/oauth/emailOAuthRoutes";
 import { registerIntegrationOAuthRoutes } from "@/modules/integrations/oauth/integrationOAuthRoutes";
+import { registerIntegrationIdentityListeners } from "@/modules/integrations/identity/integrationIdentityBoot";
 import { registerEmailAttachmentRoutes } from "@/modules/email/emailAttachmentRoutes";
 import { registerLocalAuthRoutes } from "@/modules/local-auth/localAuthRoutes";
 import { registerOfficeAddinRoutes } from "@/modules/office/officeAddinRoutes";
 import { registerCloudMockRoutes } from "@/ai/interface/routes/cloudMockRoutes";
 import { registerMacosHelperMockRoutes } from "@/ai/interface/routes/macosHelperMockRoutes";
+import { registerMcpMockRoutes } from "@/ai/interface/routes/mcpMockRoutes";
 import { registerWeChatMockRoutes } from "@/ai/interface/routes/wechatMockRoutes";
 import { localAuthGuard } from "@/modules/local-auth/localAuthGuard";
 import { aiRouteGuard } from "@/middleware/aiRouteGuard";
@@ -149,10 +151,12 @@ export function createApp() {
   registerUrlDownloadRoutes(app);
   registerEmailOAuthRoutes(app);
   registerIntegrationOAuthRoutes(app);
+  registerIntegrationIdentityListeners();
   registerEmailAttachmentRoutes(app);
   registerOfficeAddinRoutes(app);
   registerCloudMockRoutes(app);
   registerMacosHelperMockRoutes(app);
+  registerMcpMockRoutes(app);
   registerWeChatMockRoutes(app);
 
   app.use(

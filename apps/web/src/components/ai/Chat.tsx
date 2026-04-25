@@ -340,7 +340,6 @@ function ChatFullPageLayout({
   onRemoveAttachment,
   onClearAttachments,
   onReplaceMaskedAttachment,
-  canAttachAll,
   canAttachImage,
   model,
   isAutoModel,
@@ -363,7 +362,6 @@ function ChatFullPageLayout({
   onRemoveAttachment: (id: string) => void
   onClearAttachments: () => void
   onReplaceMaskedAttachment: (id: string, input: MaskedAttachmentInput) => void
-  canAttachAll: boolean
   canAttachImage: boolean
   model: any
   isAutoModel: boolean
@@ -430,7 +428,6 @@ function ChatFullPageLayout({
             onRemoveAttachment={onRemoveAttachment}
             onClearAttachments={onClearAttachments}
             onReplaceMaskedAttachment={onReplaceMaskedAttachment}
-            canAttachAll={canAttachAll}
             canAttachImage={canAttachImage}
             model={model}
             isAutoModel={isAutoModel}
@@ -463,7 +460,6 @@ function ChatFullPageLayout({
           onRemoveAttachment={onRemoveAttachment}
           onClearAttachments={onClearAttachments}
           onReplaceMaskedAttachment={onReplaceMaskedAttachment}
-          canAttachAll={canAttachAll}
           canAttachImage={canAttachImage}
           model={model}
           isAutoModel={isAutoModel}
@@ -559,7 +555,6 @@ export function Chat({
     selectedModelId,
     selectedModel,
     isAutoModel,
-    canAttachAll,
     canAttachImage,
     canImageGeneration,
     canImageEdit,
@@ -957,7 +952,7 @@ export function Chat({
       (Boolean(fileRef || fileName) && isImageFileRef(fileRef || fileName));
     const wantsImage = hasImageUpload || hasOpenLoafImage || isFileRefImage;
     // 系统文件（hasFiles）现在通过 /chat/files 端点统一处理，无需 deny。
-    // 非图片文件引用统一以 @[path] mention 插入，不依赖 canAttachAll。
+    // 非图片文件引用统一以 @[path] mention 插入。
     const shouldDeny = wantsImage && !canAttachImage && !hasFiles;
     if (shouldDeny) {
       event.preventDefault();
@@ -988,7 +983,7 @@ export function Chat({
       hasOpenLoafImage ||
       (Boolean(fileRef || fileName) && isImageFileRef(fileRef || fileName));
     const wantsImage = hasImageUpload || hasOpenLoafImage || isFileRefImage;
-    // 非图片文件引用统一以 @[path] mention 插入，不依赖 canAttachAll。
+    // 非图片文件引用统一以 @[path] mention 插入。
     const shouldDeny = wantsImage && !canAttachImage && !hasFiles;
     event.preventDefault();
     if (shouldDeny) {
@@ -1059,7 +1054,7 @@ export function Chat({
         const isPayloadImage =
           Boolean(imagePayload.maskUri) || IMAGE_FILE_NAME_REGEX.test(payloadFileName);
         if (!isPayloadImage) {
-          // 非图片文件统一以 @[path] mention 插入，不依赖 canAttachAll。
+          // 非图片文件统一以 @[path] mention 插入。
           const resolvedFileRef =
             fileRef || (isRelativePath(imagePayload.baseUri) ? imagePayload.baseUri : "");
           if (resolvedFileRef && isRelativePath(resolvedFileRef)) {
@@ -1159,7 +1154,6 @@ export function Chat({
     onRemoveAttachment: removeAttachment,
     onClearAttachments: clearAttachments,
     onReplaceMaskedAttachment: replaceMaskedAttachment,
-    canAttachAll,
     canAttachImage,
     model: selectedModel,
     isAutoModel,
@@ -1173,7 +1167,6 @@ export function Chat({
     removeAttachment,
     clearAttachments,
     replaceMaskedAttachment,
-    canAttachAll,
     canAttachImage,
     selectedModel,
     isAutoModel,

@@ -35,6 +35,7 @@ import {
   buildFinalUrlFetch,
   ensureOpenAiCompatibleBaseUrl,
   readApiKey,
+  withUserAgentFetch,
 } from "@/ai/shared/util";
 import { getSessionId, getClientId, getRequestContext } from "@/ai/shared/context/requestContext";
 import type { ProviderSettingEntry } from "@/modules/settings/settingsService";
@@ -80,12 +81,12 @@ function buildAiSdkAdapter(
     buildAiSdkModel: ({ provider, modelId, providerDefinition }) => {
       const apiKey = readApiKey(provider.authConfig);
       const resolvedApiUrl = provider.apiUrl.trim() || providerDefinition?.apiUrl?.trim() || "";
-      const debugFetch = buildAiDebugFetch();
+      let debugFetch = buildAiDebugFetch();
       if (!apiKey || !resolvedApiUrl) return null;
       const useFinalUrl = provider.options?.finalApiUrl === true;
+      debugFetch = withUserAgentFetch(debugFetch, provider.options?.customUserAgent);
       const finalFetch = useFinalUrl ? buildFinalUrlFetch(resolvedApiUrl, debugFetch) : debugFetch;
-      const baseUrl = useFinalUrl ? resolvedApiUrl : resolvedApiUrl;
-      return factory({ apiUrl: baseUrl, apiKey, fetch: finalFetch })(modelId);
+      return factory({ apiUrl: resolvedApiUrl, apiKey, fetch: finalFetch })(modelId);
     },
   };
 }
@@ -234,10 +235,11 @@ function buildSaasAdapter(): ProviderAdapter {
     buildAiSdkModel: ({ provider, modelId, modelDefinition }) => {
       const apiKey = readApiKey(provider.authConfig);
       const resolvedApiUrl = provider.apiUrl.trim();
-      const saasFetch = buildSaasFetch();
+      let saasFetch: typeof fetch = buildSaasFetch();
       if (!apiKey || !resolvedApiUrl) return null;
       const useFinalUrl = provider.options?.finalApiUrl === true;
       const baseURL = useFinalUrl ? resolvedApiUrl : ensureOpenAiCompatibleBaseUrl(resolvedApiUrl);
+      saasFetch = withUserAgentFetch(saasFetch, provider.options?.customUserAgent);
       const finalFetch = useFinalUrl ? buildFinalUrlFetch(resolvedApiUrl, saasFetch) : saasFetch;
       const factory = SAAS_PROVIDER_FACTORIES[provider.id];
       if (factory) {
@@ -263,9 +265,8 @@ function buildBedrockAdapter(): ProviderAdapter {
       const { apiKey, accessKeyId, secretAccessKey, sessionToken } = readBedrockAuth(
         provider.authConfig,
       );
-      const debugFetch = buildAiDebugFetch();
+      const debugFetch = withUserAgentFetch(buildAiDebugFetch(), provider.options?.customUserAgent);
       const region = resolveBedrockRegion(resolvedApiUrl);
-      // 逻辑：Bedrock 必须提供 apiUrl，且需要 apiKey 或 AK/SK。
       if (!resolvedApiUrl) return null;
       if (!apiKey && (!accessKeyId || !secretAccessKey)) return null;
       const bedrockProvider = createAmazonBedrock({
@@ -289,8 +290,9 @@ function buildOpenAiAdapter(id: string): ProviderAdapter {
     buildAiSdkModel: ({ provider, modelId, providerDefinition }) => {
       const apiKey = readApiKey(provider.authConfig);
       const resolvedApiUrl = provider.apiUrl.trim() || providerDefinition?.apiUrl?.trim() || "";
-      const debugFetch = buildAiDebugFetch();
+      let debugFetch = buildAiDebugFetch();
       if (!apiKey || !resolvedApiUrl) return null;
+      debugFetch = withUserAgentFetch(debugFetch, provider.options?.customUserAgent);
       const useFinalUrl = provider.options?.finalApiUrl === true;
       const baseURL = useFinalUrl
         ? resolvedApiUrl.replace(/\/+$/, "")

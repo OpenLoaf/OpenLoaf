@@ -265,6 +265,9 @@ Output: an attachment tag pointing at the PNG (vision-capable models will see th
   - role / subrole / title / value / identifier / frame {x,y,w,h}
   - actions[] (e.g. ["AXPress", "AXShowMenu"]) — only present on interactable nodes
   - path: child-index chain from the app root — pass this back as AxRef when calling MacosAct. Only emitted on nodes with actions or identifier to keep the tree small; intermediate groups are unreferenceable by design (reach their actionable descendants instead).
+  - shortcut (AXMenuItem nodes only) — pre-rendered key combo like "⌘N" / "⇧⌘Q" / "⌃⌥⌘O". Prefer this over OCR or guessing: if you need "New Tab" in Safari, read the shortcut from the File menu and send it via MacosAct key instead of clicking pixels.
+
+Windows: the tool also returns a \`windows\` list (one entry per renderable window for the target app — each has windowID, title, bounds, isOnScreen, ownerPID). The main screenshot defaults to the frontmost window, but when an app has multiple windows (e.g. WeChat main chat + image preview), OR the main window is covered by another one and the screenshot looks wrong, use MacosCaptureWindow(windowID) to grab each window individually — Window Server preserves composition buffers for covered / off-screen windows, so z-order does not matter.
 
 Requires Screen Recording + Accessibility permissions. If either is missing, the tool returns a structured error; relay the message to the user and ask them to grant access in System Settings → Privacy & Security.`,
   parameters: z.object({
@@ -292,6 +295,86 @@ Requires Screen Recording + Accessibility permissions. If either is missing, the
       .boolean()
       .optional()
       .describe("Set false to skip the PNG (AX tree only). Default true."),
+    includeWindows: z
+      .boolean()
+      .optional()
+      .describe("Set false to skip the window list. Default true."),
+  }),
+  component: null,
+} as const;
+
+export const macosListWindowsToolDef = {
+  id: "MacosListWindows",
+  readonly: true,
+  name: "List macOS windows",
+  description: `Enumerate renderable windows for an app (or the whole system).
+
+Use this when you need to pick a specific window — e.g. an app has multiple windows open (WeChat main + preview, Finder 3 folders, Chrome many tabs), the main window is covered by another one and a full-screen shot would miss it, or you need to figure out which windowID to hand to MacosCaptureWindow.
+
+Returns an array where each entry has: windowID (stable handle), title, bounds {x,y,w,h} in logical screen coords, isOnScreen (false means minimized or covered — still capturable via MacosCaptureWindow), layer (0 = normal app window), ownerPID / ownerName / ownerBundleID.
+
+Faster than MacosObserve when you only need the window list — skips AX traversal and screenshotting.`,
+  parameters: z.object({
+    appFilter: z
+      .string()
+      .optional()
+      .describe(
+        "App display name or bundle id. Omit to list windows across all apps.",
+      ),
+  }),
+  component: null,
+} as const;
+
+export const macosSurveyToolDef = {
+  id: "MacosSurvey",
+  readonly: true,
+  name: "Survey macOS app",
+  description: `Build a mental model of a macOS app BEFORE you try to drive it. Call this first whenever the user asks you to do something in a desktop app — especially an app you haven't touched yet in this session.
+
+Why this exists: opening an app and immediately clicking is how you end up pressing the red close button on WeChat. MacosObserve shows you the *current* UI state, but it doesn't tell you what the app is *for* or which paths are safe. MacosSurvey answers:
+  - what known intents does the registry cover for this app? (e.g. WeChat → open_moments, open_chats)
+  - is the AX tree rich (AppKit app, AX path clicks work) or thin (self-drawn UI like WeChat / Figma, AX path clicks will misfire)?
+  - what's the menu bar structure, with keyboard shortcuts?
+  - what windows are open?
+  - what's the recommended execution path for this app?
+
+Output is a text report with sections: \`App\`, \`AX profile\` (richness / verdict), \`Known intents\`, \`Menu bar\`, \`Windows\`, \`Recommended path order\`. Use the Known intents first (call MacosAct type="intent"); fall back to menu_click; use coordinate click / AX path click only when the survey says AX is rich and the target is not a window chrome button.
+
+Cached per session × app for 5 minutes — cheap to call repeatedly; expensive only the first time for a given app.`,
+  parameters: z.object({
+    app: z
+      .string()
+      .min(1)
+      .describe(
+        "App display name (e.g. 'WeChat', 'Safari', '微信') or bundle id (e.g. 'com.tencent.xinWeChat'). Resolved against running apps.",
+      ),
+    refresh: z
+      .boolean()
+      .optional()
+      .describe(
+        "Set true to bypass the 5-minute cache and rebuild the survey (e.g. after the app's locale / layout changed mid-session).",
+      ),
+  }),
+  component: null,
+} as const;
+
+export const macosCaptureWindowToolDef = {
+  id: "MacosCaptureWindow",
+  readonly: true,
+  name: "Capture macOS window",
+  description: `Screenshot a specific window by windowID, bypassing z-order.
+
+Use this after MacosObserve / MacosListWindows has revealed a windowID you want to see in isolation. Unlike a full-screen grab, this pulls the Window Server's composition buffer for the target window directly — covered, partially-occluded, or off-screen (minimized) windows still capture cleanly.
+
+Returns an attachment tag pointing at the PNG plus the window's frame metadata. Coordinate baseline for subsequent MacosAct calls: the captured image uses the window's own coord space (top-left = window origin), so clicks are converted correctly for you.`,
+  parameters: z.object({
+    windowID: z
+      .number()
+      .int()
+      .min(0)
+      .describe(
+        "CGWindowID from a prior MacosObserve / MacosListWindows response. Stable across calls until the window is closed.",
+      ),
   }),
   component: null,
 } as const;
@@ -304,11 +387,12 @@ export const macosActToolDef = {
 
 Coordinate space: all {x,y} points (click.point, scroll.point, drag.from/to) are **screenshot pixels from the most recent MacosObserve** — read them straight off the image. The tool converts pixels → logical screen coords for you. Do NOT try to offset for window position or divide by retina scale; the conversion is automatic. If you have not called MacosObserve yet in this session, coordinate-based actions will fail until you do.
 
-Actions (preferred order for in-app navigation: menu_click → key → ax_action → click):
+Actions (preferred order: intent → menu_click → key → applescript → click):
+  - intent → **HIGHEST CONFIDENCE.** Invoke a known intent from the registry (surfaced by MacosSurvey under "Known intents"). Example: {type:"intent", app:"WeChat", intent:"open_moments"}. The server routes it to the right underlying action (menu_click / applescript / URL). Use this first whenever MacosSurvey lists the intent you want — zero guessing, no pixels.
   - launch_app → open an app by name or bundle id via \`open -a\`. Prefer this over cmd+space/Spotlight for launching — it's one call, deterministic, and doesn't depend on IME focus. Example: {type:"launch_app", app:"WeChat"} or {type:"launch_app", app:"com.tencent.xinWeChat"}
-  - menu_click → **PREFERRED for in-app navigation.** Walks the target app's menu bar via Accessibility and triggers the menu item without moving the mouse or synthesizing clicks. Works even for apps with custom-drawn main UI (WeChat/QQ/Feishu/DingTalk/WeCom) because the menu bar is always AX-exposed. Example: {type:"menu_click", app:"WeChat", menuPath:["视图","朋友圈"]}. Try this BEFORE coordinate clicks — it has near-100% success rate when the target item exists.
+  - menu_click → **PREFERRED for in-app navigation when no intent matches.** Walks the target app's menu bar via Accessibility and triggers the menu item without moving the mouse or synthesizing clicks. Works even for apps with custom-drawn main UI (WeChat/QQ/Feishu/DingTalk/WeCom) because the menu bar is always AX-exposed. Example: {type:"menu_click", app:"WeChat", menuPath:["视图","朋友圈"]}. Try this BEFORE coordinate clicks — it has near-100% success rate when the target item exists.
   - applescript → run AppleScript via \`osascript -e\`. Best for scriptable apps (Finder, Mail, Calendar, Safari, Chrome, Notes, Reminders, Messages, Music, Terminal, iTerm, Keynote). Runs fully in background — no window focus change, no cursor movement. Example: {type:"applescript", code:"tell application \\"Finder\\" to activate"}. Returns stdout; use for data queries too.
-  - click   → click at an AxRef or screenshot-pixel {x,y}. Coordinate clicks are LAST RESORT — prefer menu_click / key / ax_action first, especially for custom-drawn UIs where AX trees are empty.
+  - click   → click at an AxRef or screenshot-pixel {x,y}. Coordinate clicks are LAST RESORT — prefer intent / menu_click / key first, especially for self-drawn UIs. AX path clicks on window chrome buttons (AXCloseButton etc.) are refused — you'll get a WINDOW_CHROME_BLOCKED error pointing you at safer paths.
   - type    → type arbitrary Unicode text (CJK supported) at the current focus
   - key     → press a key chord, e.g. keys: ["cmd","2"]. For in-app navigation this is often more reliable than clicking: it doesn't move the cursor and doesn't depend on pixel coords.
   - scroll  → scroll at a point by {dx,dy} pixels
@@ -331,6 +415,18 @@ Requires Accessibility permission. Blocked apps (password managers, banking) are
       },
       z.discriminatedUnion("type", [
       z.object({
+        type: z.literal("intent"),
+        app: z.string().min(1).describe(
+          "App display name or bundle id matching a MacosSurvey 'Known intents' entry.",
+        ),
+        intent: z.string().min(1).describe(
+          "Intent id from MacosSurvey output, e.g. 'open_moments', 'new_tab'.",
+        ),
+        args: z.record(z.string(), z.string()).optional().describe(
+          "Args required by the intent (see args:[] in the intent definition).",
+        ),
+      }),
+      z.object({
         type: z.literal("launch_app"),
         app: z.string().min(1).describe(
           "App display name (e.g. 'WeChat', 'Finder') or bundle id (e.g. 'com.tencent.xinWeChat'). Resolved by macOS `open -a`.",
@@ -342,6 +438,9 @@ Requires Accessibility permission. Blocked apps (password managers, banking) are
         point: pointSchema.optional(),
         button: z.enum(["left", "right"]).optional(),
         clicks: z.number().int().min(1).max(3).optional(),
+        confirmWindowChrome: z.boolean().optional().describe(
+          "Set true to bypass the safety check that refuses ref-based clicks on window chrome buttons (AXCloseButton / AXMinimizeButton / AXZoomButton / AXFullScreenButton). Only use when you genuinely want to close / minimize / zoom the window.",
+        ),
       }),
       z.object({ type: z.literal("type"), text: z.string() }),
       z.object({
@@ -393,3 +492,6 @@ Requires Accessibility permission. Blocked apps (password managers, banking) are
 
 export type MacosObserveArgs = z.infer<typeof macosObserveToolDef.parameters>;
 export type MacosActArgs = z.infer<typeof macosActToolDef.parameters>;
+export type MacosListWindowsArgs = z.infer<typeof macosListWindowsToolDef.parameters>;
+export type MacosCaptureWindowArgs = z.infer<typeof macosCaptureWindowToolDef.parameters>;
+export type MacosSurveyArgs = z.infer<typeof macosSurveyToolDef.parameters>;

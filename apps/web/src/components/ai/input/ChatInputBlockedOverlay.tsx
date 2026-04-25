@@ -37,16 +37,24 @@ export function ChatInputBlockedOverlay({
       <div
         data-testid="chat-input-wechat-readonly"
         className={cn(
-          "flex flex-col items-center justify-center gap-1 px-5 py-4 text-center",
+          "flex items-center gap-3 px-4 py-3.5",
           blockedCompact && "min-h-[104px]",
         )}
       >
-        <p className="text-[13px] font-medium text-foreground">
-          {t('blocked.titleWechatReadonly')}
-        </p>
-        <p className="text-[11px] text-muted-foreground">
-          {t('blocked.descWechatReadonly')}
-        </p>
+        <img
+          src="/icons/wechat.svg"
+          alt=""
+          aria-hidden="true"
+          className="size-9 shrink-0"
+        />
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <p className="text-[13px] font-medium text-foreground">
+            {t('blocked.titleWechatReadonly')}
+          </p>
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            {t('blocked.descWechatReadonly')}
+          </p>
+        </div>
       </div>
     );
   }

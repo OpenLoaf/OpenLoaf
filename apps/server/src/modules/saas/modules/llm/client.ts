@@ -35,10 +35,12 @@ type ModelListPayload = {
       id: string;
       provider: string;
       displayName: string;
-      tags: string[];
       /** Reasoning capability: "none" | "always" | "optional"；缺失视为 "none"。 */
       reasoning?: "none" | "always" | "optional";
-      /** Model capabilities. */
+      /** Fast model marker (SDK v0.2.4+ v3Variant.isFast)。标记低延迟 variant，供 channel
+       * bridge 的 fast-ack / 超时 summarizer 选小模型，供首 token 延迟敏感场景。 */
+      isFast?: boolean;
+      /** Model capabilities (v3 capabilities + 本地扩展 inputAccepts)。 */
       capabilities?: Record<string, unknown>;
     }>;
     updatedAt?: string;
@@ -72,21 +74,14 @@ type FetchModelListOptions = {
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const cached = new Map<string, { updatedAt: number; payload: ModelListPayload }>();
 
-// inputSlot role → ModelTag mapping. Only media inputs are tagged; text/prompt
-// slots are omitted because every chat variant has them.
-const SLOT_ROLE_TO_TAG: Record<string, string> = {
-  image: "image_input",
-  video: "video_analysis",
-  audio: "audio_analysis",
-};
-
-/** Derive media capability tags from v3 inputSlots. */
-function deriveTagsFromSlots(slots: readonly ChatInputSlot[] | undefined): string[] {
+/** Collect distinct accept types from v3 inputSlots, preserving v3 schema fidelity. */
+function deriveInputAcceptsFromSlots(
+  slots: readonly ChatInputSlot[] | undefined,
+): string[] {
   if (!Array.isArray(slots) || slots.length === 0) return [];
   const seen = new Set<string>();
   for (const slot of slots) {
-    const tag = slot.role ? SLOT_ROLE_TO_TAG[slot.role] : undefined;
-    if (tag) seen.add(tag);
+    if (slot.accept) seen.add(slot.accept);
   }
   return Array.from(seen);
 }
@@ -105,8 +100,8 @@ function adaptV3ChatCapabilities(
     id: string;
     provider: string;
     displayName: string;
-    tags: string[];
     reasoning?: "none" | "always" | "optional";
+    isFast?: boolean;
     capabilities?: Record<string, unknown>;
   }> = [];
   for (const feature of response.data.features) {
@@ -115,19 +110,35 @@ function adaptV3ChatCapabilities(
       // 既能触发 PROVIDER_ICON_MAP 图标查找，也能让同家族的 variant 落入同一
       // ProviderSettingEntry。familyId 缺失时回退到 variant id。
       const family = variant.familyId?.trim() || variant.id;
-      // `reasoning` was added to v3VariantSchema in SDK 0.2.3; the locally
-      // resolved SDK typings may still be 0.2.2 (nested pnpm copy) where the
-      // field is absent from the type. The runtime payload from SaaS carries
-      // it regardless, so read through a narrow structural view to stay
-      // forward-compatible without a blanket `any` cast.
+      // `reasoning` / `isFast` were added to v3VariantSchema across SDK 0.2.3–0.2.4;
+      // the locally resolved SDK typings may still be older (nested pnpm copy) where
+      // a field is absent from the type. The runtime payload carries them regardless,
+      // so read through a narrow structural view to stay forward-compatible without a
+      // blanket `any` cast.
       const reasoning = (variant as { reasoning?: "none" | "always" | "optional" })
         .reasoning;
+      const isFast = (variant as { isFast?: boolean }).isFast;
+      // v3 variant carries raw contextWindow (token count). Convert to
+      // capabilities.common.maxContextK (thousand-token unit) so the frontend
+      // model selector can render "128K" / "1M" badges like local providers do.
+      const contextWindow = (variant as { contextWindow?: number }).contextWindow;
+      const maxContextK =
+        typeof contextWindow === "number" &&
+        Number.isFinite(contextWindow) &&
+        contextWindow > 0
+          ? Math.round(contextWindow / 1000)
+          : undefined;
+      const inputAccepts = deriveInputAcceptsFromSlots(variant.inputSlots);
+      const capabilities: Record<string, unknown> = {};
+      if (maxContextK !== undefined) capabilities.common = { maxContextK };
+      if (inputAccepts.length > 0) capabilities.inputAccepts = inputAccepts;
       items.push({
         id: variant.id,
         provider: family.toLowerCase(),
         displayName: variant.featureTabName,
-        tags: deriveTagsFromSlots(variant.inputSlots),
         reasoning,
+        isFast,
+        capabilities: Object.keys(capabilities).length > 0 ? capabilities : undefined,
       });
     }
   }

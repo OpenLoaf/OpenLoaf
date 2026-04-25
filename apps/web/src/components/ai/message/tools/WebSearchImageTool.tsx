@@ -222,11 +222,18 @@ export default function WebSearchImageTool({
             {items.map((item, idx) => (
               <Tooltip key={`${idx}-${item.imageUrl}`}>
                 <TooltipTrigger asChild>
-                  <button
-                    type="button"
+                  <div
+                    role="button"
+                    tabIndex={0}
                     onClick={() => openUrl(item.imageUrl, item.title)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault()
+                        openUrl(item.imageUrl, item.title)
+                      }
+                    }}
                     className={cn(
-                      'group/image relative block aspect-square overflow-hidden rounded-md bg-muted/50',
+                      'group/image relative block aspect-square cursor-pointer overflow-hidden rounded-md bg-muted/50',
                       'transition-opacity duration-150 hover:opacity-90',
                     )}
                     aria-label={item.title || hostnameOf(item.imageUrl)}
@@ -251,7 +258,7 @@ export default function WebSearchImageTool({
                       }}
                     />
                     <ChatImageActions url={item.imageUrl} name={item.title?.trim() || undefined} />
-                  </button>
+                  </div>
                 </TooltipTrigger>
                 {item.title ? (
                   <TooltipContent side="right" className="max-w-xs break-words text-xs">

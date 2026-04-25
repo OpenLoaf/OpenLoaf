@@ -24,6 +24,20 @@ export interface ServerIntegrationDefinition
   extends Omit<IntegrationDefinition, 'installed' | 'mcpServerId'> {
   /** Translate user-supplied credentials into an MCP server config. */
   buildMcpConfig: (credentials: Record<string, string>) => AddMCPServerInput
+  /**
+   * Defer exposing this integration's individual MCP tools to the LLM.
+   *
+   * When true, the session preface only advertises a single bundle entry
+   * (e.g. `notion-mcp`) instead of listing every tool. The model then calls
+   * ToolSearch with that bundle name to pull all real tools in one shot.
+   * Keeps the system prompt short for integrations that ship 10+ tools.
+   */
+  deferredLoad?: boolean
+  /**
+   * Bundle name advertised in the preface and accepted by ToolSearch.
+   * Defaults to `<id>-mcp` (e.g. `notion-mcp`) when `deferredLoad` is true.
+   */
+  bundleName?: string
 }
 
 // ---------------------------------------------------------------------------
@@ -76,9 +90,15 @@ const NOTION: ServerIntegrationDefinition = {
     scope: 'global',
   }),
   probeTool: {
-    toolName: 'notion-get-self',
-    label: '工作区信息',
+    // `notion-get-self` is documented but is not exposed to every Notion plan.
+    // `notion-get-users` with `user_id: "self"` is universally available and
+    // returns the authorizing user / bot identity.
+    toolName: 'notion-get-users',
+    args: { user_id: 'self' },
+    label: '授权用户信息',
   },
+  deferredLoad: true,
+  bundleName: 'notion-mcp',
 }
 
 // ---------------------------------------------------------------------------
@@ -88,4 +108,42 @@ export const INTEGRATION_REGISTRY: ServerIntegrationDefinition[] = [NOTION]
 
 export function findIntegration(id: string): ServerIntegrationDefinition | undefined {
   return INTEGRATION_REGISTRY.find((entry) => entry.id === id)
+}
+
+/**
+ * Resolve the MCP server name that `buildMcpConfig()` would produce for an
+ * integration. Used by preface and ToolSearch to check whether a live MCP
+ * server (keyed by `config.name`, e.g. `Notion`) belongs to a deferred-load
+ * integration.
+ *
+ * We call the factory with an empty credentials bag — `name` is always a
+ * static field and never depends on user input.
+ */
+export function getIntegrationMcpServerName(
+  integration: ServerIntegrationDefinition,
+): string {
+  return integration.buildMcpConfig({}).name
+}
+
+/**
+ * Find the integration whose MCP server name matches the given live server
+ * name. Returns undefined when the MCP server is a user-custom MCP that
+ * doesn't correspond to any registered integration.
+ */
+export function findIntegrationByMcpServerName(
+  serverName: string,
+): ServerIntegrationDefinition | undefined {
+  return INTEGRATION_REGISTRY.find(
+    (entry) => getIntegrationMcpServerName(entry) === serverName,
+  )
+}
+
+/**
+ * Effective bundle name an integration advertises via the preface. Falls
+ * back to `<id>-mcp` when not explicitly set.
+ */
+export function getIntegrationBundleName(
+  integration: ServerIntegrationDefinition,
+): string {
+  return integration.bundleName ?? `${integration.id}-mcp`
 }

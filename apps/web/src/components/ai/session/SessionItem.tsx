@@ -47,6 +47,8 @@ export interface Session {
   projectIcon?: string;
   /** Session created time. */
   createdAt: string | Date;
+  /** Session last updated time. */
+  updatedAt: string | Date;
   /** Whether the session is pinned. */
   pinned?: boolean;
   /** Session 来源：null=普通 AI chat；"wechat"=微信外部消息通道。 */

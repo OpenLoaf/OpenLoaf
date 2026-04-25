@@ -11,29 +11,19 @@ import type { AiModelCapabilities } from "@openloaf-saas/sdk";
 
 export type ChatModelSource = "local" | "cloud" | "saas";
 
-/**
- * Canonical model capability tags for OpenLoaf.
- *
- * Previously split between SDK-provided media tags and OpenLoaf-local chat tags.
- * Since @openloaf-saas/sdk v0.2.0 dropped AI_MODEL_TAGS and variant.tags, all
- * tags are now owned locally; variants coming from SaaS are translated via
- * cloudModelMapper (inputSlots + capabilities → tags).
- */
-export const MODEL_TAGS = [
-  // Media input/analysis tags used by attachmentTagExpander and model-capabilities.
-  "image_input",
-  "image_analysis",
-  "video_analysis",
-  "audio_analysis",
-  // Chat-side behavioral tags.
-  "code",
-  "tool_call",
+/** Reasoning (deep-thinking) capability — v3 capabilities 独立字段。 */
+export type ModelReasoningCapability = "none" | "always" | "optional";
+
+/** Input slot data type — directly mirrors v3 inputSlot.accept. */
+export const MODEL_INPUT_ACCEPTS = [
+  "text",
+  "image",
+  "video",
+  "audio",
+  "file",
 ] as const;
 
-export type ModelTag = (typeof MODEL_TAGS)[number];
-
-/** Reasoning (deep-thinking) capability — v3 capabilities 独立字段，取代旧的 'reasoning' tag。 */
-export type ModelReasoningCapability = "none" | "always" | "optional";
+export type ModelInputAccept = (typeof MODEL_INPUT_ACCEPTS)[number];
 
 export type ModelCapabilityCommon = {
   maxContextK?: number;
@@ -73,6 +63,8 @@ export type ModelCapabilityParams = {
 export type ModelCapabilities = AiModelCapabilities & {
   common?: ModelCapabilityCommon;
   params?: ModelCapabilityParams;
+  /** Accepted input data types — derived from v3 variant.inputSlots[].accept. */
+  inputAccepts?: ModelInputAccept[];
 };
 
 export type ModelDefinition = {
@@ -86,8 +78,6 @@ export type ModelDefinition = {
   familyId?: string;
   /** Provider id. */
   providerId?: string;
-  /** Model tags. */
-  tags?: ModelTag[];
   /** Reasoning (deep-thinking) capability state. 缺失视为 "none"。 */
   reasoning?: ModelReasoningCapability;
   /** Model capabilities. */

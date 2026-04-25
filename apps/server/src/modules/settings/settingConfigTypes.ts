@@ -21,10 +21,9 @@ export type ModelProviderValue = {
   models: Record<string, ModelDefinition>;
   /** Optional provider options. */
   options?: {
-    /** Whether to enable OpenAI Responses API. */
     enableResponsesApi?: boolean;
-    /** Whether apiUrl is the final endpoint URL (no path appending). */
     finalApiUrl?: boolean;
+    customUserAgent?: string;
   };
 };
 
@@ -72,6 +71,10 @@ export type BasicConf = BasicConfig;
 export type AuthConf = {
   /** Stored SaaS refresh token. */
   refreshToken?: string;
+  /** Stored SaaS access token (dev-only; never written in production). */
+  accessToken?: string;
+  /** Access token expiry timestamp (ms since epoch). */
+  accessTokenExpiresAt?: number;
   /** Last update timestamp. */
   updatedAt?: string;
 };

@@ -8,6 +8,9 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import { Buffer } from "node:buffer";
+import { existsSync, readFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import type { HeadersInit } from "undici";
 import { getEnvString } from "@openloaf/config";
 import { prisma } from "@openloaf/db";
@@ -17,6 +20,33 @@ import { addCreditsConsumed } from "@/ai/shared/context/requestContext";
 import { logger } from "@/common/logger";
 
 const DATA_URL_PREFIX = "data:";
+
+let cachedServerVersion: string | undefined;
+function readServerVersion(): string {
+  if (cachedServerVersion !== undefined) return cachedServerVersion || "0.0.0";
+  try {
+    let dir = path.dirname(fileURLToPath(import.meta.url));
+    for (let i = 0; i < 8; i++) {
+      const pkgPath = path.join(dir, "package.json");
+      if (existsSync(pkgPath)) {
+        const pkg = JSON.parse(readFileSync(pkgPath, "utf8")) as { name?: string; version?: string };
+        if (pkg.name?.includes("server") || i > 0) {
+          cachedServerVersion = pkg.version ?? "";
+          return cachedServerVersion || "0.0.0";
+        }
+      }
+      const parent = path.dirname(dir);
+      if (parent === dir) break;
+      dir = parent;
+    }
+    cachedServerVersion = "";
+  } catch {
+    cachedServerVersion = "";
+  }
+  return cachedServerVersion || "0.0.0";
+}
+
+const DEFAULT_USER_AGENT = `openloaf/${readServerVersion()}`;
 
 /** Check whether parsed object includes chat chunk payload fields. */
 function hasChatChunkPayload(value: Record<string, unknown>): boolean {
@@ -302,7 +332,22 @@ export function buildFinalUrlFetch(finalUrl: string, baseFetch: typeof fetch): t
   };
 }
 
-/** Resolve parent project root paths from database. */
+/**
+ * 包装 fetch，注入 User-Agent 请求头。
+ * customAgent 非空时覆盖默认值，否则使用 DEFAULT_USER_AGENT。
+ */
+export function withUserAgentFetch(baseFetch: typeof fetch, customAgent?: string): typeof fetch {
+  const ua = customAgent?.trim() || DEFAULT_USER_AGENT;
+  return async (input, init) => {
+    const baseHeaders = init?.headers ?? (input instanceof Request ? input.headers : undefined);
+    const headers = new Headers(baseHeaders as any);
+    headers.set("user-agent", ua);
+    if (input instanceof Request) {
+      return baseFetch(new Request(input, { headers }), { ...init, headers });
+    }
+    return baseFetch(input, { ...init, headers });
+  };
+}
 export async function resolveParentProjectRootPaths(projectId?: string): Promise<string[]> {
   const normalizedId = projectId?.trim() ?? "";
   if (!normalizedId) return [];

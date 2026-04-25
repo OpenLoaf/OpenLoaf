@@ -1,9 +1,11 @@
 /**
- * wechat/003 — new inbound mid-AI-run aborts and restarts.
+ * wechat/003 — new inbound mid-AI-run aborts and restarts (bridge V2).
  *
- * Inject A, wait until debounce fires (~3.2s) and AI run starts, then inject
- * B. Expect activeAbort to fire, debounce to reset, and exactly 1 final
- * outbound (the merged A+B reply). Timing-sensitive — generous budgets.
+ * Inject A, wait until race A is mid-flight, then inject B. Expect race A's
+ * fast+full to be aborted, race B to start with the merged pending queue,
+ * final outbound is 1-2 messages (race B's fast+full, or just full if it
+ * wins first). Race A's unsent text is discarded via stateRaceCtxChanged.
+ * Timing-sensitive — generous budgets.
  */
 import { describe, it, expect } from 'vitest'
 import { render } from 'vitest-browser-react'
@@ -34,8 +36,9 @@ describe('wechat/003 — abort in-flight AI run on new inbound', () => {
               item_list: [{ text_item: { text: '第一条 在吗' } }],
             },
           ])
-          // Wait for debounce (3s) + a bit so AI run is mid-flight
-          await new Promise((r) => setTimeout(r, 3_500))
+          // Bridge V2: race starts at T0 — wait ~1.5s so race A's fast has likely
+          // already sent (or about to send) and full is mid-stream; then inject B.
+          await new Promise((r) => setTimeout(r, 1_500))
           await api.inject([
             {
               ...helloMsg,
@@ -46,8 +49,8 @@ describe('wechat/003 — abort in-flight AI run on new inbound', () => {
             },
           ])
           const outbound = await api.waitForOutbound(1, 35_000)
-          // Settle window — assert no 2nd send
-          await new Promise((r) => setTimeout(r, 1_500))
+          // Settle window — allow race B's final turn to complete sending.
+          await new Promise((r) => setTimeout(r, 3_000))
           const finalOutbound = await api.getOutbound()
           return {
             outboundLen: finalOutbound.length,
@@ -75,13 +78,15 @@ describe('wechat/003 — abort in-flight AI run on new inbound', () => {
         startedAt: result.startedAt,
         payload: result.payload,
       },
-      description: '消息 A 触发 AI → 中途消息 B 进入 → abort + 重跑 → 最终 1 条回复',
-      tags: ['wechat', 'abort'],
+      description: '消息 A 触发 race A → 中途消息 B 进入 → abort race A + 启动 race B → 最终 1-2 条回复',
+      tags: ['wechat', 'race-abort'],
     }
     await (commands as any).saveTestData(meta)
     await (commands as any).recordProbeRun(meta)
 
     expect(result.status).toBe('ready')
-    expect(result.payload?.outboundLen).toBe(1)
+    // Bridge V2: fast wins → 2 outbound; full wins → 1 outbound.
+    expect(result.payload?.outboundLen).toBeGreaterThanOrEqual(1)
+    expect(result.payload?.outboundLen).toBeLessThanOrEqual(2)
   })
 })

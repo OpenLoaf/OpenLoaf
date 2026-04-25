@@ -7,10 +7,18 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
+type AuthCallbackStatus = "success" | "error" | "pending";
+
 type AuthCallbackPageOptions = {
   message: string;
   returnUrl?: string;
   saasUrl?: string;
+  /**
+   * Explicit status for the hero area. When omitted, the renderer falls back
+   * to inferring from the Chinese keywords in `message` (kept for backwards
+   * compat with the existing login callback caller).
+   */
+  status?: AuthCallbackStatus;
 };
 
 // 中文注释：默认回到桌面端协议地址。
@@ -43,7 +51,15 @@ export function renderAuthCallbackPage(options: AuthCallbackPageOptions): string
   const returnUrl = (options.returnUrl ?? DEFAULT_RETURN_URL).trim() || DEFAULT_RETURN_URL;
   const safeReturnUrl = escapeHtml(returnUrl);
   const saasUrl = options.saasUrl ? escapeHtml(options.saasUrl.trim().replace(/\/$/, "")) : "";
-  const isSuccess = rawMessage.includes("成功");
+  const resolvedStatus: AuthCallbackStatus =
+    options.status
+    ?? (rawMessage.includes("成功")
+      ? "success"
+      : rawMessage.includes("失败")
+        ? "error"
+        : "pending");
+  const isSuccess = resolvedStatus === "success";
+  const isError = resolvedStatus === "error";
 
   return `<!doctype html>
 <html lang="zh-CN">
@@ -237,8 +253,8 @@ export function renderAuthCallbackPage(options: AuthCallbackPageOptions): string
 
     <div class="container">
       <div class="badge">
-        <span class="badge-dot${isSuccess ? " success" : ""}${!isSuccess && rawMessage.includes("失败") ? " error" : ""}"></span>
-        ${isSuccess ? "COMPLETE" : rawMessage.includes("失败") ? "ERROR" : "AUTHENTICATING"}
+        <span class="badge-dot${isSuccess ? " success" : isError ? " error" : ""}"></span>
+        ${isSuccess ? "COMPLETE" : isError ? "ERROR" : "AUTHENTICATING"}
       </div>
 
       <h1 class="title">Open<span class="accent">Loaf</span></h1>

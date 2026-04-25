@@ -244,7 +244,6 @@ export default function CodexOption({
       modelId: model.id,
       providerId: "codex-cli",
       providerName: "Codex CLI",
-      tags: model.tags,
       modelDefinition: { ...model, providerId: "codex-cli" },
     }));
   }, [codexModelsQuery.data]);

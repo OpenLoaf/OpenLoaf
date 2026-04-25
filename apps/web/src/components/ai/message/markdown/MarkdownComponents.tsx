@@ -121,8 +121,9 @@ const IMG: Components["img"] = React.memo(function IMG({
   if (!src || isIncomplete) return null;
   const url = typeof src === "string" ? src : "";
   if (!url) return null;
-  // ml-0 覆盖 Attachments grid 的 ml-auto，避免图片被推到右边。
-  return <MessageFile url={url} title={alt || undefined} mediaType="image/*" className="my-0 ml-0" />;
+  // ml-0 覆盖 Attachments grid 的 ml-auto（避免图片被推到右边）；
+  // my-3 给图片之间留统一上下间距。之前写 my-0 会把 Streamdown 根的 space-y-4 也盖掉，导致多张图贴在一起。
+  return <MessageFile url={url} title={alt || undefined} mediaType="image/*" className="my-3 ml-0" />;
 });
 
 /** 判断节点是否仅空白文本。 */

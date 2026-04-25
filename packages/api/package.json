@@ -22,7 +22,7 @@
   "dependencies": {
     "@ai-sdk/deepseek": "^2.0.29",
     "@ai-sdk/openai": "^3.0.53",
-    "@openloaf-saas/sdk": "^0.2.3",
+    "@openloaf-saas/sdk": "^0.2.4",
     "@openloaf/db": "workspace:*",
     "@platejs/markdown": "^52.1.0",
     "@trpc/client": "catalog:",

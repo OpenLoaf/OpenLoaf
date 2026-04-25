@@ -58,10 +58,9 @@ export type ProviderSettingEntry = {
   models: Record<string, ModelDefinition>;
   /** Provider options. */
   options?: {
-    /** Whether to enable OpenAI Responses API. */
     enableResponsesApi?: boolean;
-    /** Whether apiUrl is the final endpoint URL (no path appending). */
     finalApiUrl?: boolean;
+    customUserAgent?: string;
   };
   /** Last update time. */
   updatedAt: Date;
@@ -155,14 +154,22 @@ function normalizeModelProviderValue(value: unknown): ModelProviderValue | null 
     typeof optionsRaw?.finalApiUrl === "boolean"
       ? optionsRaw.finalApiUrl
       : undefined;
+  const customUserAgent =
+    typeof optionsRaw?.customUserAgent === "string" && optionsRaw.customUserAgent.trim()
+      ? optionsRaw.customUserAgent.trim()
+      : undefined;
   if (!providerId || !apiUrl || !authConfig || !models) return null;
-  const hasOptions = enableResponsesApi !== undefined || finalApiUrl !== undefined;
+  const optionsValue = {
+    ...(enableResponsesApi !== undefined ? { enableResponsesApi } : {}),
+    ...(finalApiUrl !== undefined ? { finalApiUrl } : {}),
+    ...(customUserAgent !== undefined ? { customUserAgent } : {}),
+  };
   return {
     providerId,
     apiUrl,
     authConfig,
     models,
-    options: hasOptions ? { enableResponsesApi, finalApiUrl } : undefined,
+    options: Object.keys(optionsValue).length > 0 ? optionsValue : undefined,
   };
 }
 

@@ -19,7 +19,6 @@ import { existsSync } from 'node:fs'
 import type { ChatModelSource } from '@openloaf/api/common'
 import { readAgentJson, resolveAgentDir } from '@/ai/shared/defaultAgentResolver'
 import { readAgentConfigFromPath } from '@/ai/services/agentConfigService'
-import { getTemplate } from '@/ai/agent-templates'
 import { resolveEffectiveAgentName } from '@/ai/services/agentFactory'
 import { isSystemAgentId } from '@/ai/shared/systemAgentDefinitions'
 import { resolveAgentByName } from '@/ai/tools/AgentSelector'
@@ -33,7 +32,6 @@ export type AgentModelIds = {
   chatModelId?: string
   chatModelSource?: ChatModelSource
   codeModelIds?: string[]
-  requiredModelTags?: string[]
 }
 
 /** 取列表的首个有效 ID，失败返回 undefined。 */
@@ -49,40 +47,29 @@ function normalizeCodeModelIds(ids: unknown): string[] | undefined {
   return filtered.length > 0 ? filtered : undefined
 }
 
-/** 过滤空白 tag，空数组返回 undefined（用于回退到 templateTags）。 */
-function normalizeRequiredTags(tags: unknown): string[] | undefined {
-  if (!Array.isArray(tags)) return undefined
-  const filtered = tags.filter((s): s is string => typeof s === 'string' && s.trim().length > 0)
-  return filtered.length > 0 ? filtered : undefined
-}
-
 type DescriptorShape = {
   modelCloudIds?: unknown
   modelLocalIds?: unknown
   codeModelIds?: unknown
-  requiredModelTags?: unknown
 }
 
-/** 从 descriptor 构建 AgentModelIds，统一 chatModelId/codeModelIds/requiredModelTags 派生逻辑。 */
+/** 从 descriptor 构建 AgentModelIds，统一 chatModelId/codeModelIds 派生逻辑。 */
 function buildModelIdsFromDescriptor(
   descriptor: DescriptorShape,
   chatModelSource: ChatModelSource,
-  templateTags: string[] | undefined,
 ): AgentModelIds {
   const chatModelId = firstModelId(
     chatModelSource === 'cloud' ? descriptor.modelCloudIds : descriptor.modelLocalIds,
   )
   const codeModelIds = normalizeCodeModelIds(descriptor.codeModelIds)
-  const requiredModelTags =
-    normalizeRequiredTags(descriptor.requiredModelTags) ?? templateTags
-  return { chatModelId, chatModelSource, codeModelIds, requiredModelTags }
+  return { chatModelId, chatModelSource, codeModelIds }
 }
 
 /**
  * 从指定 agent 的配置读取模型 ID。
  *
  * 注意：master agent 的模型 ID 已迁移到 basic config（chatModelId / chatSource），
- * 此函数仅用于 sub-agent 的 requiredModelTags 和 codeModelIds 读取。
+ * 此函数仅用于 sub-agent 的 codeModelIds 读取。
  * master 的 chatModelId 直接从请求体获取。
  */
 export function resolveAgentModelIdsFromConfig(input: {
@@ -96,14 +83,12 @@ export function resolveAgentModelIdsFromConfig(input: {
     basicConf.chatSource === 'cloud' ? 'cloud' : 'local'
 
   const effectiveName = resolveEffectiveAgentName(input.agentName)
-  const templateTags = getTemplate(effectiveName)?.requiredModelTags as string[] | undefined
 
   // 逻辑：master agent — 模型 ID 从 basic config 读取。
   if (effectiveName === 'master') {
     return {
       chatModelId: basicConf.chatModelId?.trim() || undefined,
       chatModelSource,
-      requiredModelTags: templateTags,
     }
   }
 
@@ -119,21 +104,21 @@ export function resolveAgentModelIdsFromConfig(input: {
     for (const rootPath of roots) {
       const descriptor = readAgentJson(resolveAgentDir(rootPath, effectiveName))
       if (!descriptor) continue
-      return buildModelIdsFromDescriptor(descriptor, chatModelSource, templateTags)
+      return buildModelIdsFromDescriptor(descriptor, chatModelSource)
     }
 
     // 全局 fallback：搜索 <tempStorage>/agents/<name>/（agent.json 或 AGENT.md）。
     const globalAgentDir = path.join(resolveGlobalAgentsPath(), effectiveName)
     const globalDescriptor = readAgentJson(globalAgentDir)
     if (globalDescriptor) {
-      return buildModelIdsFromDescriptor(globalDescriptor, chatModelSource, templateTags)
+      return buildModelIdsFromDescriptor(globalDescriptor, chatModelSource)
     }
     // 兼容旧 AGENT.md 格式。
     const agentMdPath = path.join(globalAgentDir, 'AGENT.md')
     if (existsSync(agentMdPath)) {
       const mdConfig = readAgentConfigFromPath(agentMdPath, 'global')
       if (mdConfig) {
-        return buildModelIdsFromDescriptor(mdConfig, chatModelSource, templateTags)
+        return buildModelIdsFromDescriptor(mdConfig, chatModelSource)
       }
     }
   }
@@ -147,9 +132,8 @@ export function resolveAgentModelIdsFromConfig(input: {
     parentRoots: input.parentRoots,
   })
   if (match?.config) {
-    return buildModelIdsFromDescriptor(match.config, chatModelSource, templateTags)
+    return buildModelIdsFromDescriptor(match.config, chatModelSource)
   }
 
-  // 无 config 匹配，仍尝试从 template 读取 requiredModelTags。
-  return { chatModelSource, requiredModelTags: templateTags }
+  return { chatModelSource }
 }

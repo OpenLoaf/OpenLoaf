@@ -52,7 +52,27 @@ export async function waitForPageResult(timeout = 30_000): Promise<PageProbeResu
   const start = Date.now()
   while (Date.now() - start < timeout) {
     const result = getPageProbeResult()
-    if (result && result.status !== 'loading') return result
+    if (result && result.status !== 'loading') {
+      // 把 harness 在 reportReady/reportError 前抓到的 DOM 快照粘到 result 上。
+      // `_domSnapshot` 是隐藏字段——saveTestData 在 Node 端抽出来落到
+      // `data/<testCase>.dom.html`，再从 result.json 里删掉，避免 100KB-1MB
+      // 的 outerHTML 污染 result.json。chat 版在 probe-helpers.waitForProbeResult
+      // 里做同样的事；page 版这里做一遍，所有 PageProbe 系列测试都能在报告里
+      // 看到 DOM 快照 iframe。
+      try {
+        const snap = typeof window !== 'undefined' ? window.__probeDomSnapshot : undefined
+        if (typeof snap === 'string' && snap.length > 0) {
+          ;(result as PageProbeResult & { _domSnapshot?: string })._domSnapshot = snap
+        }
+        const assets = typeof window !== 'undefined' ? window.__probeBlobAssets : undefined
+        if (assets && typeof assets === 'object' && Object.keys(assets).length > 0) {
+          ;(result as PageProbeResult & { _blobAssets?: Record<string, string> })._blobAssets = assets
+        }
+      } catch {
+        // best-effort observability，抓不到不影响 result 返回
+      }
+      return result
+    }
     await new Promise((r) => setTimeout(r, 200))
   }
   throw new Error('Timeout waiting for PageProbeResult')

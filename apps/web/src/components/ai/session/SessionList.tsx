@@ -62,7 +62,7 @@ function groupSessions(sessions: Session[]) {
   const oneDay = 24 * 60 * 60 * 1000;
 
   const sorted = [...sessions].sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
   );
 
   const pinned: Session[] = [];
@@ -77,7 +77,7 @@ function groupSessions(sessions: Session[]) {
       pinned.push(s);
       continue;
     }
-    const t = new Date(s.createdAt);
+    const t = new Date(s.updatedAt);
     const diffDays = Math.floor(
       (todayStart - startOfDay(t).getTime()) / oneDay
     );
@@ -200,6 +200,7 @@ export default function SessionList({
         : undefined,
       projectIcon: s.projectIcon ?? undefined,
       createdAt: s.createdAt,
+      updatedAt: s.updatedAt,
       pinned: s.isPin,
       kind: s.kind ?? null,
       hasAssets: s.hasAssets ?? false,

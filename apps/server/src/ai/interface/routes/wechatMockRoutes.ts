@@ -23,6 +23,8 @@ import {
   resetAllMocks,
   resetMockAccount,
   setMockMode,
+  registerMockMediaBuffer,
+  setFakeLoggedOut,
   type MockMode,
 } from '@/services/wechat/wechatMockStore'
 import { upsertAccount, removeEphemeralAccount } from '@/services/wechat/wechatAccountStore'
@@ -30,6 +32,7 @@ import { startWorkerForAccount, stopWorkerForAccount } from '@/services/wechat/w
 import {
   __resetBridgeStateForTests,
   __resetBridgeStateForSession,
+  __debugFastAgentPing,
 } from '@/services/wechat/wechatAiBridge'
 import { deriveWeChatSessionId } from '@/services/wechat/wechatMessageService'
 import { logger } from '@/common/logger'
@@ -68,6 +71,19 @@ const injectSchema = z.object({
 const setModeSchema = z.object({
   accountId: z.string().min(1),
   mode: z.enum(['normal', 'sendFails']),
+})
+
+const registerMockMediaSchema = z.object({
+  accountId: z.string().min(1),
+  lookupKey: z.string().min(1),
+  dataB64: z.string().min(1),
+  kind: z.enum(['image', 'voice', 'video', 'file']),
+  fileName: z.string().optional(),
+})
+
+const setFakeLoggedOutSchema = z.object({
+  accountId: z.string().min(1),
+  value: z.boolean(),
 })
 
 export function registerWeChatMockRoutes(app: Hono) {
@@ -173,7 +189,55 @@ export function registerWeChatMockRoutes(app: Hono) {
     return c.json({ ok: true })
   })
 
+  app.post('/debug/wechat/registerMockMedia', async (c) => {
+    if (!isLocalhostRequest(c)) return c.json({ ok: false, error: 'localhost only' }, 403)
+    let body: unknown
+    try { body = await c.req.json() } catch { return c.json({ ok: false, error: 'Invalid JSON' }, 400) }
+    const parsed = registerMockMediaSchema.safeParse(body)
+    if (!parsed.success) return c.json({ ok: false, issues: parsed.error.issues }, 400)
+    try {
+      const data = Buffer.from(parsed.data.dataB64, 'base64')
+      registerMockMediaBuffer(parsed.data.accountId, parsed.data.lookupKey, {
+        data,
+        kind: parsed.data.kind,
+        fileName: parsed.data.fileName,
+      })
+      return c.json({ ok: true, size: data.length })
+    } catch (err) {
+      return c.json({ ok: false, error: String(err) }, 400)
+    }
+  })
+
+  app.post('/debug/wechat/setFakeLoggedOut', async (c) => {
+    if (!isLocalhostRequest(c)) return c.json({ ok: false, error: 'localhost only' }, 403)
+    let body: unknown
+    try { body = await c.req.json() } catch { return c.json({ ok: false, error: 'Invalid JSON' }, 400) }
+    const parsed = setFakeLoggedOutSchema.safeParse(body)
+    if (!parsed.success) return c.json({ ok: false, issues: parsed.error.issues }, 400)
+    try {
+      setFakeLoggedOut(parsed.data.accountId, parsed.data.value)
+      return c.json({ ok: true })
+    } catch (err) {
+      return c.json({ ok: false, error: String(err) }, 400)
+    }
+  })
+
   app.get('/debug/wechat/ping', (c) => c.json({ ok: true, enabled: true }))
+
+  // Stand-alone fast-agent ping — runs the fast path once with a canned
+  // prompt, returns the latency breakdown. Useful to isolate "why is the fast
+  // agent slow" from race-mode noise.
+  //   GET /debug/wechat/fast-ping?text=你好
+  app.get('/debug/wechat/fast-ping', async (c) => {
+    if (!isLocalhostRequest(c)) return c.json({ ok: false, error: 'localhost only' }, 403)
+    const text = c.req.query('text') ?? '你好'
+    try {
+      const result = await __debugFastAgentPing(text)
+      return c.json({ ok: true, ...result })
+    } catch (err) {
+      return c.json({ ok: false, error: String(err) }, 500)
+    }
+  })
 
   logger.info('[wechat-mock] /debug/wechat endpoints registered')
 }

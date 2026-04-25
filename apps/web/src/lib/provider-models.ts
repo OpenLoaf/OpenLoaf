@@ -11,9 +11,9 @@
 
 import type {
   ChatModelSource,
+  ModelCapabilities,
   ModelDefinition,
   ModelReasoningCapability,
-  ModelTag,
 } from "@openloaf/api/common";
 import { getProviderDefinition, getProviderDefinitions } from "@/lib/model-registry";
 
@@ -39,8 +39,8 @@ export type ProviderModelOption = {
   providerId: string;
   /** Provider display name. */
   providerName: string;
-  /** Tags for filtering. */
-  tags?: ModelTag[];
+  /** Capabilities mirrored from ModelDefinition (含 inputAccepts)。 */
+  capabilities?: ModelCapabilities;
   /** Reasoning capability mirrored from ModelDefinition. */
   reasoning?: ModelReasoningCapability;
   /** Model definition from registry. */
@@ -75,7 +75,7 @@ export function buildCliModelOptions(
         providerSettingsId: provider.id,
         providerId: provider.id,
         providerName,
-        tags: model.tags,
+        capabilities: model.capabilities,
         reasoning: model.reasoning,
         modelDefinition: { ...model, providerId: provider.id },
       });
@@ -115,7 +115,7 @@ export function buildProviderModelOptions(
         providerSettingsId: item.id,
         providerId: entry.providerId,
         providerName,
-        tags: modelDefinition?.tags,
+        capabilities: modelDefinition?.capabilities,
         reasoning: modelDefinition?.reasoning,
         modelDefinition,
       });
@@ -137,7 +137,7 @@ export function buildCloudModelOptions(models: ModelDefinition[]): ProviderModel
       modelId: model.id,
       providerId: model.providerId,
       providerName,
-      tags: model.tags,
+      capabilities: model.capabilities,
       reasoning: model.reasoning,
       modelDefinition: model,
     });

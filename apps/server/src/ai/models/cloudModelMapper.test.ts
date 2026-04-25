@@ -9,19 +9,23 @@
  */
 import assert from "node:assert/strict";
 
-import { mapCloudChatModels, normalizeCloudChatModels } from "./cloudModelMapper";
+import {
+  mapCloudChatModels,
+  normalizeCloudChatModels,
+  type CloudChatModelItem,
+} from "./cloudModelMapper";
 
-// 上游 llm/client.ts 把 v3 inputSlots 派生为 media tags（image_input/
-// video_analysis/audio_analysis）后再交给 mapCloudChatModels；此测试验证
-// 过滤逻辑在真实数据流下仍然剔除未知 tag 并保留合法 tag。
-const rawItems = [
+// 上游 llm/client.ts 把 v3 inputSlots 派生为 capabilities.inputAccepts
+// (image/video/audio/text/file) 后再交给 mapCloudChatModels；此测试验证
+// 透传逻辑保留 capabilities 完整结构，并正确处理 reasoning / isFast。
+const rawItems: CloudChatModelItem[] = [
   {
     id: "OL-TX-006",
     provider: "openai",
     displayName: "GPT-4o",
-    tags: ["image_input", "video_analysis", "unknown_tag"],
     capabilities: {
       common: { maxContextK: 128 },
+      inputAccepts: ["image", "video"],
     },
   },
 ];
@@ -32,8 +36,10 @@ assert.equal(mapped[0]?.id, "OL-TX-006");
 assert.equal(mapped[0]?.name, "GPT-4o");
 assert.equal(mapped[0]?.providerId, "openai");
 assert.equal(mapped[0]?.familyId, "OpenAI");
-assert.deepEqual(mapped[0]?.tags, ["image_input", "video_analysis"]);
-assert.deepEqual(mapped[0]?.capabilities, { common: { maxContextK: 128 } });
+assert.deepEqual(mapped[0]?.capabilities, {
+  common: { maxContextK: 128 },
+  inputAccepts: ["image", "video"],
+});
 
 const normalized = normalizeCloudChatModels({
   success: true,

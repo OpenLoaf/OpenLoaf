@@ -16,7 +16,7 @@ import {
   parseAttachmentTagAttrs,
   type AttachmentTagAttrs,
 } from '@openloaf/api/common'
-import type { ModelDefinition, ModelTag } from '@openloaf/api/common'
+import type { ModelDefinition, ModelInputAccept } from '@openloaf/api/common'
 import { expandPathTemplateVars } from '@/ai/tools/toolScope'
 import {
   loadProjectImageBuffer,
@@ -76,7 +76,7 @@ export async function expandAttachmentTagsForModel(
   messages: UIMessage[],
   modelDefinition: ModelDefinition | undefined,
 ): Promise<AttachmentExpansionResult> {
-  const caps = resolveMediaCaps(modelDefinition?.tags)
+  const caps = resolveMediaCaps(modelDefinition?.capabilities?.inputAccepts)
   if (!caps.anySupported) return { messages, mutations: [] }
 
   const mutations: AttachmentExpansionMutation[] = []
@@ -119,17 +119,13 @@ export async function expandAttachmentTagsForModel(
 // Capability resolution
 // ---------------------------------------------------------------------------
 
-/** Check whether the declared tags include any of the given candidates. */
-function hasTag(tags: readonly ModelTag[] | undefined, ...wanted: ModelTag[]): boolean {
-  if (!tags) return false
-  for (const t of wanted) if (tags.includes(t)) return true
-  return false
-}
-
-function resolveMediaCaps(tags: readonly ModelTag[] | undefined): MediaCaps {
-  const image = hasTag(tags, 'image_input', 'image_analysis')
-  const video = hasTag(tags, 'video_analysis')
-  const audio = hasTag(tags, 'audio_analysis')
+function resolveMediaCaps(
+  accepts: readonly ModelInputAccept[] | undefined,
+): MediaCaps {
+  const set = accepts ? new Set(accepts) : null
+  const image = set?.has('image') === true
+  const video = set?.has('video') === true
+  const audio = set?.has('audio') === true
   return { image, video, audio, anySupported: image || video || audio }
 }
 
@@ -482,7 +478,7 @@ export async function expandToolResultAttachmentTagsInCoreMessages(
   messages: unknown[],
   modelDefinition: ModelDefinition | undefined,
 ): Promise<unknown[]> {
-  const caps = resolveMediaCaps(modelDefinition?.tags)
+  const caps = resolveMediaCaps(modelDefinition?.capabilities?.inputAccepts)
   if (!caps.image) return messages
 
   const result: unknown[] = []

@@ -25,6 +25,7 @@ import {
   hasIntegrationOAuthTokens,
   invalidateIntegrationOAuthCredentials,
 } from '@/modules/integrations/oauth/integrationOAuthStore'
+import { clearIntegrationIdentity } from '@/modules/integrations/identity/integrationIdentityStore'
 import { addMcpServer, getMcpServers, removeMcpServer } from '@/services/mcpConfigService'
 import { logger } from '@/common/logger'
 
@@ -113,6 +114,15 @@ export function getIntegrationMcpServerId(integrationId: string): string | undef
   return mcpServerIds.has(entry.mcpServerId) ? entry.mcpServerId : undefined
 }
 
+/** Reverse lookup: which integration, if any, is backed by this MCP server. */
+export function findIntegrationIdByMcpServerId(mcpServerId: string): string | undefined {
+  const map = readMap()
+  for (const [integrationId, entry] of Object.entries(map.installs)) {
+    if (entry.mcpServerId === mcpServerId) return integrationId
+  }
+  return undefined
+}
+
 /**
  * Install an integration by materialising its MCP config and writing it
  * through the MCP config service. If the integration was already installed,
@@ -181,6 +191,7 @@ export function uninstallIntegration(
   if (def?.authType === 'oauth') {
     invalidateIntegrationOAuthCredentials(integrationId, 'all')
   }
+  clearIntegrationIdentity(integrationId)
 
   logger.info({ integrationId }, '[integrations] uninstalled')
   return { ok: true, previousMcpServerId: entry.mcpServerId }

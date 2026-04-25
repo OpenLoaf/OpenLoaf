@@ -58,7 +58,7 @@ async function main() {
       provider: resolved.modelInfo.provider,
       modelId: resolved.modelInfo.modelId,
       chatModelId: resolved.chatModelId,
-      tags: resolved.modelDefinition?.tags,
+      inputAccepts: resolved.modelDefinition?.capabilities?.inputAccepts,
     })
     if (!resolved.model) throw new Error('model 为空')
     printPass('resolveChatModel')

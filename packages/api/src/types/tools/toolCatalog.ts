@@ -38,6 +38,9 @@ import {
   editDocumentToolDef,
   macosObserveToolDef,
   macosActToolDef,
+  macosListWindowsToolDef,
+  macosCaptureWindowToolDef,
+  macosSurveyToolDef,
 } from "./runtime";
 import { jsxCreateToolDef } from "./jsxCreate";
 import { chartRenderToolDef } from "./chart";
@@ -110,8 +113,11 @@ const TOOL_DEFS: ToolDefLike[] = [
   grepToolDef,
   editDocumentToolDef,
   bashToolDef,
+  macosSurveyToolDef,
   macosObserveToolDef,
   macosActToolDef,
+  macosListWindowsToolDef,
+  macosCaptureWindowToolDef,
   emailQueryToolDef,
   emailMutateToolDef,
   calendarQueryToolDef,

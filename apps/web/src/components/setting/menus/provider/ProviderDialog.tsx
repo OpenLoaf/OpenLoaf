@@ -63,6 +63,10 @@ type ProviderDialogProps = {
   draftEnableResponsesApi: boolean;
   /** Draft final API URL toggle. */
   draftFinalApiUrl: boolean;
+  /** Draft custom User-Agent override. */
+  draftCustomUserAgent: string;
+  /** Server version for default UA display. */
+  serverVersion: string;
   /** Show auth toggle. */
   showAuth: boolean;
   /** Show access key toggle. */
@@ -101,6 +105,8 @@ type ProviderDialogProps = {
   onDraftEnableResponsesApiChange: (value: boolean) => void;
   /** Update final API URL toggle. */
   onDraftFinalApiUrlChange: (value: boolean) => void;
+  /** Update custom User-Agent. */
+  onDraftCustomUserAgentChange: (value: string) => void;
   /** Toggle show auth. */
   onShowAuthChange: (value: boolean) => void;
   /** Toggle show secret access key. */
@@ -122,17 +128,20 @@ type ProviderDialogProps = {
 };
 
 /**
- * Render model tags for a model.
+ * Render model input accept badges for a model.
  */
-function renderModelTags(tags: string[] | undefined, getTagLabel: (tag: string) => string) {
+function renderInputAccepts(
+  accepts: string[] | undefined,
+  getAcceptLabel: (kind: string) => string,
+) {
   return (
     <div className="flex flex-wrap gap-1">
-      {(tags ?? []).map((tag) => (
+      {(accepts ?? []).map((kind) => (
         <span
-          key={tag}
+          key={kind}
           className="inline-flex items-center rounded-3xl border border-border bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground"
         >
-          {getTagLabel(tag)}
+          {getAcceptLabel(kind)}
         </span>
       ))}
     </div>
@@ -140,26 +149,29 @@ function renderModelTags(tags: string[] | undefined, getTagLabel: (tag: string) 
 }
 
 /**
- * Render compact model tags.
+ * Render compact input accept badges.
  */
-function renderModelTagsCompact(tags: string[] | undefined, getTagLabel: (tag: string) => string) {
+function renderInputAcceptsCompact(
+  accepts: string[] | undefined,
+  getAcceptLabel: (kind: string) => string,
+) {
   return (
     <div className="flex flex-wrap gap-1">
-      {(tags ?? []).map((tag) => (
+      {(accepts ?? []).map((kind) => (
         <span
-          key={tag}
+          key={kind}
           className="inline-flex items-center rounded-3xl border border-border bg-muted px-1.5 py-0.5 text-[10px] leading-none text-muted-foreground"
         >
-          {getTagLabel(tag)}
+          {getAcceptLabel(kind)}
         </span>
       ))}
     </div>
   );
 }
 
-/** Resolve tag list for display. */
-function resolveDisplayTags(model?: ModelDefinition | null) {
-  return model?.tags ?? [];
+/** Resolve input-accept list for display. */
+function resolveDisplayInputAccepts(model?: ModelDefinition | null) {
+  return model?.capabilities?.inputAccepts ?? [];
 }
 
 /**
@@ -179,6 +191,8 @@ export function ProviderDialog({
   draftSecretAccessKey,
   draftEnableResponsesApi,
   draftFinalApiUrl,
+  draftCustomUserAgent,
+  serverVersion,
   showAuth,
   showSecretAccessKey,
   draftModelIds,
@@ -198,6 +212,7 @@ export function ProviderDialog({
   onDraftSecretAccessKeyChange,
   onDraftEnableResponsesApiChange,
   onDraftFinalApiUrlChange,
+  onDraftCustomUserAgentChange,
   onShowAuthChange,
   onShowSecretAccessKeyChange,
   onDraftModelIdsChange,
@@ -210,7 +225,7 @@ export function ProviderDialog({
 }: ProviderDialogProps) {
   const { t } = useTranslation('settings');
   const { t: tAi } = useTranslation('ai');
-  const getTagLabel = (tag: string) => tAi(`modelTags.${tag}`, { defaultValue: tag, nsSeparator: false });
+  const getAcceptLabel = (kind: string) => tAi(`modelCapabilities.${kind}`, { defaultValue: kind, nsSeparator: false });
   const [copiedModelId, setCopiedModelId] = useState<string | null>(null);
   const showResponsesToggle = draftProvider === "custom";
   const canEditFocusedModel = Boolean(
@@ -320,6 +335,18 @@ export function ProviderDialog({
             </div>
 
             <div className="space-y-2">
+              <div className="text-sm font-medium">{t('provider.customUserAgent')}</div>
+              <Input
+                value={draftCustomUserAgent}
+                placeholder={t('provider.customUserAgentPlaceholder')}
+                onChange={(event) => onDraftCustomUserAgentChange(event.target.value)}
+              />
+              <div className="text-xs text-muted-foreground">
+                {t('provider.customUserAgentDesc', { defaultValue: `openloaf/${serverVersion || '—'}` })}
+              </div>
+            </div>
+
+            <div className="space-y-2">
               <div className="text-sm font-medium">{t('provider.authentication')}</div>
               {draftAuthMode === "accessKey" ? (
                 <div className="space-y-3">
@@ -407,10 +434,10 @@ export function ProviderDialog({
                 <Plus className="h-2.5 w-2.5" />
               </Button>
             </div>
-            <div className="flex-1 min-h-[360px] rounded-3xl border border-border">
-              <div className="grid h-full min-h-[360px] grid-cols-[0.9fr_1fr] gap-3 p-3">
+            <div className="flex-1 min-h-0 max-h-[50vh] rounded-3xl border border-border">
+              <div className="grid h-full min-h-[360px] max-h-[50vh] grid-cols-[0.9fr_1fr] gap-3 p-3">
                 <div className="flex min-h-0 flex-col gap-2 pr-1">
-                  <div className="flex-1 min-h-0 overflow-auto space-y-1">
+                  <div className="show-scrollbar flex-1 min-h-0 overflow-auto space-y-1">
                     {filteredModelOptions.length === 0 ? (
                       <div className="px-2 py-1.5 text-sm text-muted-foreground">{t('provider.noAvailableModels')}</div>
                     ) : (
@@ -431,7 +458,7 @@ export function ProviderDialog({
                               <div className="text-foreground">{getModelLabel(model)}</div>
                             </div>
                             <div className="mt-1">
-                              {renderModelTagsCompact(resolveDisplayTags(model), getTagLabel)}
+                              {renderInputAcceptsCompact(resolveDisplayInputAccepts(model), getAcceptLabel)}
                             </div>
                           </div>
                           <Switch
@@ -448,7 +475,7 @@ export function ProviderDialog({
                     )}
                   </div>
                 </div>
-                <div className="min-h-0 overflow-auto rounded-3xl border border-border bg-muted/20 p-3 text-sm">
+                <div className="show-scrollbar min-h-0 overflow-auto rounded-3xl border border-border bg-muted/20 p-3 text-sm">
                   {focusedModel ? (
                     <div className="space-y-4">
                       <div className="flex items-start justify-between gap-2">
@@ -509,7 +536,7 @@ export function ProviderDialog({
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-muted-foreground shrink-0 whitespace-nowrap">{t('provider.capabilities')}</span>
                           <div className="min-w-0 flex-1">
-                            {renderModelTags(resolveDisplayTags(focusedModel), getTagLabel)}
+                            {renderInputAccepts(resolveDisplayInputAccepts(focusedModel), getAcceptLabel)}
                           </div>
                         </div>
                       </div>

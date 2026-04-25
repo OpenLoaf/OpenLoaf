@@ -41,7 +41,6 @@ import {
   useProviderManagement,
   type ProviderEntry,
 } from "@/components/setting/menus/provider/use-provider-management";
-import { WebSearchSettings } from "@/components/setting/menus/WebSearchSettings";
 import { trpc } from "@/utils/trpc";
 
 const TOKEN_K = 1000;
@@ -121,6 +120,8 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
     setDraftEnableResponsesApi,
     draftFinalApiUrl,
     setDraftFinalApiUrl,
+    draftCustomUserAgent,
+    setDraftCustomUserAgent,
     showAuth,
     setShowAuth,
     showSecretAccessKey,
@@ -137,8 +138,8 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
     setDraftModelId,
     draftModelName,
     setDraftModelName,
-    draftModelTags,
-    setDraftModelTags,
+    draftModelInputAccepts,
+    setDraftModelInputAccepts,
     draftModelContextK,
     setDraftModelContextK,
     error,
@@ -158,11 +159,12 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
     submitModelDraft,
     deleteProviderModel,
     PROVIDER_OPTIONS,
+    serverVersion,
   } = useProviderManagement();
 
   const wrapperClassName = panelKey
-    ? "h-full min-h-0 overflow-auto space-y-3"
-    : "space-y-3";
+    ? "h-full min-h-0 flex flex-col gap-3 overflow-hidden"
+    : "flex flex-col gap-3";
   const sessionCount = statsQuery.data?.sessionCount;
   const usage = statsQuery.data?.usageTotals;
 
@@ -184,7 +186,7 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
       <OpenLoafSettingsGroup
         title={t('provider.preferencesTitle')}
         subtitle={t('provider.preferencesSubtitle')}
-        className="pb-4"
+        className="shrink-0 pb-4"
       >
         <div className="divide-y divide-border/40">
           <div className="flex flex-wrap items-center gap-2 py-3">
@@ -306,54 +308,23 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
         </div>
       </OpenLoafSettingsGroup>
 
-      <OpenLoafSettingsGroup title={tProject("settings.chatData")}>
-        <div className="divide-y divide-border/40">
-          <div className="flex flex-wrap items-center gap-2 py-3">
-            <SettingIcon icon={MessageSquare} bg="bg-secondary" fg="text-foreground" />
-            <div className="text-sm font-medium">{tProject("settings.totalSessions")}</div>
-            <OpenLoafSettingsField className="text-right text-xs text-muted-foreground">
-              {typeof sessionCount === "number" ? sessionCount : "—"}
-            </OpenLoafSettingsField>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 py-3">
-            <SettingIcon icon={Sparkles} bg="bg-secondary" fg="text-foreground" />
-            <div className="text-sm font-medium">{tProject("settings.totalTokens")}</div>
-            <OpenLoafSettingsField className="text-right text-xs text-muted-foreground">
-              {usage ? formatTokenCount(usage.totalTokens) : "—"}
-            </OpenLoafSettingsField>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 py-3">
-            <SettingIcon icon={BarChart3} bg="bg-secondary" fg="text-foreground" />
-            <div className="text-sm font-medium">{tProject("settings.tokenUsage")}</div>
-            <OpenLoafSettingsField className="text-right text-xs text-muted-foreground">
-              {usage
-                ? tProject("settings.tokenBreakdown", {
-                    input: formatTokenCount(usage.inputTokens),
-                    inputRaw: formatTokenCount(Math.max(0, usage.inputTokens - usage.cachedInputTokens)),
-                    cached: formatTokenCount(usage.cachedInputTokens),
-                    output: formatTokenCount(usage.outputTokens),
-                  })
-                : "—"}
-            </OpenLoafSettingsField>
-          </div>
-        </div>
-      </OpenLoafSettingsGroup>
-
-      <ProviderSection
-        entries={entries}
-        expandedProviders={expandedProviders}
-        onAdd={() => openEditor()}
-        onEdit={(entry) => openEditor(entry)}
-        onDelete={(key) => setConfirmDeleteId(key)}
-        onToggleExpand={(key) =>
-          setExpandedProviders((prev) => ({
-            ...prev,
-            [key]: !prev[key],
-          }))
-        }
-        onModelEdit={(entry, model) => openProviderModelEditDialog(entry, model)}
-        onModelDelete={(entry, modelId) => void handleDeleteProviderModel(entry, modelId)}
-      />
+      <div className="show-scrollbar flex-1 min-h-0 overflow-auto">
+        <ProviderSection
+          entries={entries}
+          expandedProviders={expandedProviders}
+          onAdd={() => openEditor()}
+          onEdit={(entry) => openEditor(entry)}
+          onDelete={(key) => setConfirmDeleteId(key)}
+          onToggleExpand={(key) =>
+            setExpandedProviders((prev) => ({
+              ...prev,
+              [key]: !prev[key],
+            }))
+          }
+          onModelEdit={(entry, model) => openProviderModelEditDialog(entry, model)}
+          onModelDelete={(entry, modelId) => void handleDeleteProviderModel(entry, modelId)}
+        />
+      </div>
 
       <ProviderDialog
         open={dialogOpen}
@@ -369,6 +340,7 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
         draftSecretAccessKey={draftSecretAccessKey}
         draftEnableResponsesApi={draftEnableResponsesApi}
         draftFinalApiUrl={draftFinalApiUrl}
+        draftCustomUserAgent={draftCustomUserAgent}
         showAuth={showAuth}
         showSecretAccessKey={showSecretAccessKey}
         draftModelIds={draftModelIds}
@@ -388,6 +360,8 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
         onDraftSecretAccessKeyChange={setDraftSecretAccessKey}
         onDraftEnableResponsesApiChange={setDraftEnableResponsesApi}
         onDraftFinalApiUrlChange={setDraftFinalApiUrl}
+        onDraftCustomUserAgentChange={setDraftCustomUserAgent}
+        serverVersion={serverVersion}
         onShowAuthChange={setShowAuth}
         onShowSecretAccessKeyChange={setShowSecretAccessKey}
         onDraftModelIdsChange={setDraftModelIds}
@@ -404,13 +378,13 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
         editingModelId={editingModelId}
         draftModelId={draftModelId}
         draftModelName={draftModelName}
-        draftModelTags={draftModelTags}
+        draftModelInputAccepts={draftModelInputAccepts}
         draftModelContextK={draftModelContextK}
         modelError={modelError}
         onOpenChange={setModelDialogOpen}
         onDraftModelIdChange={setDraftModelId}
         onDraftModelNameChange={setDraftModelName}
-        onDraftModelTagsChange={setDraftModelTags}
+        onDraftModelInputAcceptsChange={setDraftModelInputAccepts}
         onDraftModelContextKChange={setDraftModelContextK}
         onSubmit={submitModelDraft}
       />
@@ -427,7 +401,38 @@ export function ProviderManagement({ panelKey }: ProviderManagementProps) {
         }}
       />
 
-      <WebSearchSettings />
+      <OpenLoafSettingsGroup title={tProject("settings.chatData")} className="shrink-0">
+        <div className="divide-y divide-border/40">
+          <div className="flex flex-wrap items-center gap-2 py-3">
+            <SettingIcon icon={MessageSquare} bg="bg-secondary" fg="text-foreground" />
+            <div className="text-sm font-medium">{tProject("settings.localProviderTotalSessions")}</div>
+            <OpenLoafSettingsField className="text-right text-xs text-muted-foreground">
+              {typeof sessionCount === "number" ? sessionCount : "—"}
+            </OpenLoafSettingsField>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 py-3">
+            <SettingIcon icon={Sparkles} bg="bg-secondary" fg="text-foreground" />
+            <div className="text-sm font-medium">{tProject("settings.localProviderTotalTokens")}</div>
+            <OpenLoafSettingsField className="text-right text-xs text-muted-foreground">
+              {usage ? formatTokenCount(usage.totalTokens) : "—"}
+            </OpenLoafSettingsField>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 py-3">
+            <SettingIcon icon={BarChart3} bg="bg-secondary" fg="text-foreground" />
+            <div className="text-sm font-medium">{tProject("settings.localProviderTokenUsage")}</div>
+            <OpenLoafSettingsField className="text-right text-xs text-muted-foreground">
+              {usage
+                ? tProject("settings.tokenBreakdown", {
+                    input: formatTokenCount(usage.inputTokens),
+                    inputRaw: formatTokenCount(Math.max(0, usage.inputTokens - usage.cachedInputTokens)),
+                    cached: formatTokenCount(usage.cachedInputTokens),
+                    output: formatTokenCount(usage.outputTokens),
+                  })
+                : "—"}
+            </OpenLoafSettingsField>
+          </div>
+        </div>
+      </OpenLoafSettingsGroup>
 
     </div>
   );

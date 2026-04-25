@@ -69,12 +69,44 @@ const MAX_CONCURRENT_CONNECTIONS = 10
 // Singleton Manager
 // ---------------------------------------------------------------------------
 
+type ServerConnectedListener = (serverId: string) => void | Promise<void>
+
 class MCPClientManagerImpl {
   private entries = new Map<string, MCPClientEntry>()
   private cleanupTimer: ReturnType<typeof setInterval> | null = null
+  private connectedListeners: ServerConnectedListener[] = []
 
   constructor() {
     this.startCleanupSweep()
+  }
+
+  /**
+   * Subscribe to "server connected" events. Listeners fire right after an MCP
+   * server's tool registration finishes. Returns an unsubscribe function.
+   */
+  onServerConnected(listener: ServerConnectedListener): () => void {
+    this.connectedListeners.push(listener)
+    return () => {
+      this.connectedListeners = this.connectedListeners.filter((l) => l !== listener)
+    }
+  }
+
+  private emitConnected(serverId: string): void {
+    for (const listener of this.connectedListeners) {
+      try {
+        void Promise.resolve(listener(serverId)).catch((err) => {
+          logger.warn(
+            { serverId, err: String(err) },
+            '[mcp-manager] connected-listener threw (async)',
+          )
+        })
+      } catch (err) {
+        logger.warn(
+          { serverId, err: String(err) },
+          '[mcp-manager] connected-listener threw',
+        )
+      }
+    }
   }
 
   // -----------------------------------------------------------------------
@@ -172,8 +204,31 @@ class MCPClientManagerImpl {
       throw new Error(`MCP server "${serverId}" is not connected`)
     }
 
-    const toolId = `mcp__${entry.config.name}__${toolName}`
-    const mcpEntry = MCP_TOOL_REGISTRY.get(toolId)
+    // AI SDK normalises MCP tool names (e.g. dashes → underscores). Try the
+    // caller's spelling first, then common normalisations, then any toolId
+    // whose trailing segment matches case-insensitively.
+    const prefix = `mcp__${entry.config.name}__`
+    const candidates = [
+      toolName,
+      toolName.replace(/-/g, '_'),
+      toolName.replace(/_/g, '-'),
+    ]
+    let mcpEntry: ReturnType<typeof MCP_TOOL_REGISTRY.get> = undefined
+    for (const candidate of candidates) {
+      const hit = MCP_TOOL_REGISTRY.get(`${prefix}${candidate}`)
+      if (hit?.tool?.execute) {
+        mcpEntry = hit
+        break
+      }
+    }
+    if (!mcpEntry?.tool?.execute) {
+      const wanted = toolName.toLowerCase().replace(/[-_]/g, '')
+      const match = entry.toolIds.find((id) => {
+        const name = id.slice(prefix.length).toLowerCase().replace(/[-_]/g, '')
+        return name === wanted
+      })
+      if (match) mcpEntry = MCP_TOOL_REGISTRY.get(match)
+    }
     if (!mcpEntry?.tool?.execute) {
       throw new Error(`Tool "${toolName}" not found on server "${entry.config.name}"`)
     }
@@ -299,9 +354,14 @@ class MCPClientManagerImpl {
 
       entry.toolIds = toolIds
       logger.info(
-        { serverId: config.id, toolCount: toolIds.length },
+        {
+          serverId: config.id,
+          toolCount: toolIds.length,
+          toolNames: Object.keys(tools),
+        },
         '[mcp-manager] MCP server connected, tools registered',
       )
+      this.emitConnected(config.id)
     } catch (err) {
       entry.status = 'error'
       entry.error = err instanceof Error ? err.message : String(err)

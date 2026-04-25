@@ -7,43 +7,33 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import type { ModelCapabilities, ModelTag } from "@openloaf/api/common";
+import type { ModelCapabilities, ModelInputAccept } from "@openloaf/api/common";
 
-type ModelWithTags = {
-  /** Model tags declared by the provider. */
-  tags?: readonly ModelTag[] | null;
+type ModelWithCapabilities = {
   /** Model capabilities resolved from provider. */
   capabilities?: ModelCapabilities | null;
 };
 
-/** Return true when the model declares the given tag. */
-function hasTag(model: ModelWithTags | null | undefined, tag: ModelTag) {
-  // 中文注释：能力标签仍以 tags 为准。
-  return Boolean(model?.tags?.includes(tag));
+/** Return true when the model declares the given input accept type. */
+function accepts(
+  model: ModelWithCapabilities | null | undefined,
+  kind: ModelInputAccept,
+) {
+  return Boolean(model?.capabilities?.inputAccepts?.includes(kind));
 }
 
-/** Return true when the model supports image input (understanding or analysis). */
-export function supportsImageInput(model: ModelWithTags | null | undefined) {
-  return hasTag(model, "image_input") || hasTag(model, "image_analysis");
+/** Return true when the model supports native image input. */
+export function supportsImageInput(model: ModelWithCapabilities | null | undefined) {
+  return accepts(model, "image");
 }
 
-/** Return true when the model supports video input for analysis. */
-export function supportsVideoInput(model: ModelWithTags | null | undefined) {
-  return hasTag(model, "video_analysis");
+/** Return true when the model supports native video input. */
+export function supportsVideoInput(model: ModelWithCapabilities | null | undefined) {
+  return accepts(model, "video");
 }
 
-/** Return true when the model supports audio input for analysis. */
-export function supportsAudioInput(model: ModelWithTags | null | undefined) {
-  return hasTag(model, "audio_analysis");
-}
-
-/** Return true when the model supports tool calling. */
-export function supportsToolCall(model: ModelWithTags | null | undefined) {
-  return hasTag(model, "tool_call");
-}
-
-/** Return true when the model supports code generation. */
-export function supportsCode(model: ModelWithTags | null | undefined) {
-  return hasTag(model, "code");
+/** Return true when the model supports native audio input. */
+export function supportsAudioInput(model: ModelWithCapabilities | null | undefined) {
+  return accepts(model, "audio");
 }
 

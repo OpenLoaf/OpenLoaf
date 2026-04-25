@@ -10,7 +10,6 @@
 import type {
   ProviderDefinition,
   ModelDefinition,
-  ModelTag,
 } from "@openloaf/api/common";
 
 type SaasProviderTemplate = {
@@ -24,7 +23,6 @@ type SaasProviderTemplate = {
   models: Array<{
     id: string;
     displayName?: string | null;
-    tags?: string[];
     [key: string]: unknown;
   }>;
   [key: string]: unknown;
@@ -73,7 +71,6 @@ function toProviderDefinition(
         ...model,
         // 逻辑：SaaS 返回 displayName 为空时回退 model id，避免 name 出现 null。
         name: model.displayName ?? model.id,
-        tags: model.tags as ModelTag[],
         providerId: template.id,
       }),
     ),

@@ -11,7 +11,6 @@ import {
   flattenMessagesToContext,
   messagesCacheSeed,
   modelHasMediaCapability,
-  toSaasMessages,
 } from '../auxiliaryMessageUtils'
 
 function msg(role: 'user' | 'assistant' | 'system', parts: any[]): UIMessage {
@@ -19,71 +18,35 @@ function msg(role: 'user' | 'assistant' | 'system', parts: any[]): UIMessage {
 }
 
 describe('modelHasMediaCapability', () => {
-  it('returns false when tags are missing or empty', () => {
+  it('returns false when capabilities are missing or empty', () => {
     expect(modelHasMediaCapability(undefined)).toBe(false)
     expect(modelHasMediaCapability({ id: 'm' } as ModelDefinition)).toBe(false)
-    expect(modelHasMediaCapability({ id: 'm', tags: [] } as ModelDefinition)).toBe(false)
+    expect(
+      modelHasMediaCapability({
+        id: 'm',
+        capabilities: { inputAccepts: [] },
+      } as ModelDefinition),
+    ).toBe(false)
   })
 
-  it('returns true for any of the media tags', () => {
-    for (const tag of ['image_input', 'image_analysis', 'video_analysis', 'audio_analysis']) {
+  it('returns true for any of the media accept types', () => {
+    for (const accept of ['image', 'video', 'audio'] as const) {
       expect(
-        modelHasMediaCapability({ id: 'm', tags: [tag] as any } as ModelDefinition),
+        modelHasMediaCapability({
+          id: 'm',
+          capabilities: { inputAccepts: [accept] },
+        } as ModelDefinition),
       ).toBe(true)
     }
   })
 
-  it('returns false for non-media tags only', () => {
+  it('returns false when only text/file accepts are present', () => {
     expect(
       modelHasMediaCapability({
         id: 'm',
-        tags: ['chat', 'reasoning', 'tool_call'] as any,
+        capabilities: { inputAccepts: ['text', 'file'] },
       } as ModelDefinition),
     ).toBe(false)
-  })
-})
-
-describe('toSaasMessages', () => {
-  it('converts text parts and skips empty messages', () => {
-    const out = toSaasMessages([
-      msg('user', [{ type: 'text', text: 'hi' }]),
-      msg('assistant', []),
-    ])
-    expect(out).toEqual([{ role: 'user', content: [{ type: 'text', text: 'hi' }] }])
-  })
-
-  it('maps file parts from url to data, defaults mediaType', () => {
-    const out = toSaasMessages([
-      msg('user', [
-        { type: 'file', url: 'https://cdn/a.jpg', mediaType: 'image/jpeg' },
-        { type: 'file', url: 'data:image/png;base64,abc' }, // missing mediaType
-      ]),
-    ])
-    expect(out[0]?.content).toEqual([
-      { type: 'file', data: 'https://cdn/a.jpg', mediaType: 'image/jpeg' },
-      { type: 'file', data: 'data:image/png;base64,abc', mediaType: 'application/octet-stream' },
-    ])
-  })
-
-  it('drops unknown part types silently', () => {
-    const out = toSaasMessages([
-      msg('user', [
-        { type: 'text', text: 'a' },
-        { type: 'tool-call', toolName: 'x' } as any,
-        { type: 'reasoning', text: 'y' } as any,
-      ]),
-    ])
-    expect(out[0]?.content).toEqual([{ type: 'text', text: 'a' }])
-  })
-
-  it('preserves user/assistant/system roles; drops other roles', () => {
-    const out = toSaasMessages([
-      msg('user', [{ type: 'text', text: 'u' }]),
-      msg('assistant', [{ type: 'text', text: 'a' }]),
-      msg('system', [{ type: 'text', text: 's' }]),
-      { id: 'x', role: 'subagent', parts: [{ type: 'text', text: 'sub' }] } as any,
-    ])
-    expect(out.map((m) => m.role)).toEqual(['user', 'assistant', 'system'])
   })
 })
 

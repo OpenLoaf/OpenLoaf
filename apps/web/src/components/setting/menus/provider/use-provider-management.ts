@@ -7,9 +7,10 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useSettingsValues } from "@/hooks/use-settings";
+import { getServerVersion } from "@/lib/app-version";
 import {
   getProviderDefinition,
   getProviderModels,
@@ -17,9 +18,8 @@ import {
   isModelRegistryReady,
 } from "@/lib/model-registry";
 import {
-  type ModelCapabilityParams,
   type ModelDefinition,
-  type ModelTag,
+  type ModelInputAccept,
 } from "@openloaf/api/common";
 
 type ProviderSettingValue = {
@@ -33,10 +33,9 @@ type ProviderSettingValue = {
   models: Record<string, ModelDefinition>;
   /** Provider options. */
   options?: {
-    /** Whether to enable OpenAI Responses API. */
     enableResponsesApi?: boolean;
-    /** Whether apiUrl is the final endpoint URL (no path appending). */
     finalApiUrl?: boolean;
+    customUserAgent?: string;
   };
 };
 
@@ -274,14 +273,18 @@ function toggleSelection<T>(list: T[], value: T) {
   return list.includes(value) ? list.filter((item) => item !== value) : [...list, value];
 }
 
-function getProviderCapabilities(providerId: string, customModels: ModelDefinition[]): ModelTag[] {
+function getProviderCapabilities(
+  providerId: string,
+  customModels: ModelDefinition[],
+): ModelInputAccept[] {
   const models = mergeProviderModels(providerId, customModels);
-  const uniqueTags = new Set<ModelTag>();
+  const uniqueAccepts = new Set<ModelInputAccept>();
   models.forEach((model) => {
-    // 兼容配置缺失 tags 的情况，避免渲染报错。
-    (model.tags ?? []).forEach((tag) => uniqueTags.add(tag));
+    (model.capabilities?.inputAccepts ?? []).forEach((accept) =>
+      uniqueAccepts.add(accept),
+    );
   });
-  return Array.from(uniqueTags);
+  return Array.from(uniqueAccepts);
 }
 
 /**
@@ -500,6 +503,7 @@ export function useProviderManagement() {
   const [draftSecretAccessKey, setDraftSecretAccessKey] = useState("");
   const [draftEnableResponsesApi, setDraftEnableResponsesApi] = useState(false);
   const [draftFinalApiUrl, setDraftFinalApiUrl] = useState(false);
+  const [draftCustomUserAgent, setDraftCustomUserAgent] = useState("");
   const [showAuth, setShowAuth] = useState(false);
   const [showSecretAccessKey, setShowSecretAccessKey] = useState(false);
   const [draftModelIds, setDraftModelIds] = useState<string[]>([]);
@@ -521,8 +525,8 @@ export function useProviderManagement() {
   const [draftModelId, setDraftModelId] = useState("");
   /** Track draft model name. */
   const [draftModelName, setDraftModelName] = useState("");
-  /** Track draft model tags. */
-  const [draftModelTags, setDraftModelTags] = useState<ModelTag[]>([]);
+  /** Track draft model input accepts. */
+  const [draftModelInputAccepts, setDraftModelInputAccepts] = useState<ModelInputAccept[]>([]);
   /** Track draft model context window. */
   const [draftModelContextK, setDraftModelContextK] = useState("0");
   /** Track draft model validation errors. */
@@ -555,6 +559,7 @@ export function useProviderManagement() {
     setDraftSecretAccessKey(authFields.secretAccessKey);
     setDraftEnableResponsesApi(Boolean(entry?.options?.enableResponsesApi));
     setDraftFinalApiUrl(Boolean(entry?.options?.finalApiUrl));
+    setDraftCustomUserAgent(entry?.options?.customUserAgent ?? "");
     setShowAuth(false);
     setShowSecretAccessKey(false);
     setDraftCustomModels(customModels);
@@ -643,6 +648,7 @@ export function useProviderManagement() {
           ? { enableResponsesApi: draftEnableResponsesApi }
           : {}),
         ...(draftFinalApiUrl ? { finalApiUrl: true } : {}),
+        ...(draftCustomUserAgent.trim() ? { customUserAgent: draftCustomUserAgent.trim() } : {}),
       },
     };
 
@@ -674,7 +680,7 @@ export function useProviderManagement() {
     setEditingModelEntry(null);
     setDraftModelId("");
     setDraftModelName("");
-    setDraftModelTags([]);
+    setDraftModelInputAccepts([]);
     setDraftModelContextK("0");
     setModelDialogOpen(true);
   }
@@ -689,7 +695,7 @@ export function useProviderManagement() {
     setEditingModelSnapshot(model);
     setDraftModelId(model.id);
     setDraftModelName(model.name ?? "");
-    setDraftModelTags(model.tags ?? []);
+    setDraftModelInputAccepts(model.capabilities?.inputAccepts ?? []);
     const maxContextK = model.capabilities?.common?.maxContextK;
     setDraftModelContextK(Number.isFinite(maxContextK) ? String(maxContextK) : "0");
     setModelDialogOpen(true);
@@ -724,7 +730,7 @@ export function useProviderManagement() {
       setModelError(msg);
       throw new Error(msg);
     }
-    if (draftModelTags.length === 0) {
+    if (draftModelInputAccepts.length === 0) {
       const msg = t('provider.errorSelectCapability');
       setModelError(msg);
       throw new Error(msg);
@@ -750,13 +756,13 @@ export function useProviderManagement() {
       name: modelName || undefined,
       familyId: modelId,
       providerId: draftProvider,
-      tags: draftModelTags,
       capabilities: {
         ...baseCapabilities,
         common: {
           ...baseCapabilities.common,
           maxContextK,
         },
+        inputAccepts: draftModelInputAccepts,
       },
     };
     if (editingModelEntry) {
@@ -920,6 +926,11 @@ export function useProviderManagement() {
     modelOptions[0] ||
     null;
 
+  const [serverVersion, setServerVersion] = useState("");
+  useEffect(() => {
+    getServerVersion().then((v) => setServerVersion(v ?? ""));
+  }, []);
+
   return {
     entries,
     s3Entries,
@@ -956,6 +967,8 @@ export function useProviderManagement() {
     setDraftEnableResponsesApi,
     draftFinalApiUrl,
     setDraftFinalApiUrl,
+    draftCustomUserAgent,
+    setDraftCustomUserAgent,
     showAuth,
     setShowAuth,
     showSecretAccessKey,
@@ -972,8 +985,8 @@ export function useProviderManagement() {
     setDraftModelId,
     draftModelName,
     setDraftModelName,
-    draftModelTags,
-    setDraftModelTags,
+    draftModelInputAccepts,
+    setDraftModelInputAccepts,
     draftModelContextK,
     setDraftModelContextK,
     draftS3ProviderId,
@@ -1019,6 +1032,7 @@ export function useProviderManagement() {
     S3_PROVIDER_LABEL_BY_ID,
     S3_PROVIDER_OPTIONS,
     PROVIDER_OPTIONS,
+    serverVersion,
   };
 }
 

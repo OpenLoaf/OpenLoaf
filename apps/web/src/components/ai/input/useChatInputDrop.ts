@@ -77,7 +77,6 @@ interface UseChatInputDropOptions {
   valueRef: RefObject<string>;
   defaultProjectId?: string;
   tabId?: string;
-  canAttachAll: boolean;
   canAttachImage: boolean;
   onAddAttachments?: (files: FileList | ChatAttachmentInput[]) => void;
   onAddMaskedAttachment?: (input: MaskedAttachmentInput) => void;
@@ -90,7 +89,6 @@ export function useChatInputDrop({
   valueRef,
   defaultProjectId,
   tabId,
-  canAttachAll,
   canAttachImage,
   onAddAttachments,
   onAddMaskedAttachment,
@@ -317,7 +315,7 @@ export function useChatInputDrop({
     if (imagePayload) {
       const payloadFileName = imagePayload.fileName || resolveFileName(imagePayload.baseUri);
       const isPayloadImage = Boolean(imagePayload.maskUri) || isImageFileName(payloadFileName);
-      // 非图片文件统一以 mention 插入，不受 canAttachAll 限制。
+      // 非图片文件统一以 mention 插入。
       if (!isPayloadImage) {
         const fileRef = isRelativePath(imagePayload.baseUri) ? imagePayload.baseUri : "";
         if (fileRef) {
@@ -386,16 +384,12 @@ export function useChatInputDrop({
       }
       // 无 uploadFileToSession 时回退到原有附件逻辑（兼容外部使用）。
       if (!onAddAttachments) return;
-      if (!canAttachAll && !canAttachImage) return;
-      if (canAttachAll) {
-        onAddAttachments(files);
-      } else {
-        const imageFiles = files.filter(
-          (file) => file.type.startsWith("image/") || isImageFileName(file.name)
-        );
-        if (imageFiles.length === 0) return;
-        onAddAttachments(imageFiles);
-      }
+      if (!canAttachImage) return;
+      const imageFiles = files.filter(
+        (file) => file.type.startsWith("image/") || isImageFileName(file.name)
+      );
+      if (imageFiles.length === 0) return;
+      onAddAttachments(imageFiles);
       return;
     }
     const fileRef = normalizeFileRef(event.dataTransfer.getData(FILE_DRAG_REF_MIME));

@@ -262,7 +262,16 @@ export function SidebarUserAccount() {
         <SaasLoginDialog open={loginOpen} onOpenChange={setLoginOpen} />
         <PricingDialog open={pricingOpen} onOpenChange={setPricingOpen} />
 
-        <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
+        <DropdownMenu
+          open={dropdownOpen}
+          onOpenChange={(open) => {
+            if (open && !authLoggedIn) {
+              setLoginOpen(true)
+              return
+            }
+            setDropdownOpen(open)
+          }}
+        >
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton
               size="default"
@@ -584,7 +593,16 @@ export function CompactUserAvatar() {
     <>
       <SaasLoginDialog open={loginOpen} onOpenChange={setLoginOpen} />
       <PricingDialog open={pricingOpen} onOpenChange={setPricingOpen} />
-      <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
+      <DropdownMenu
+        open={dropdownOpen}
+        onOpenChange={(open) => {
+          if (open && !authLoggedIn) {
+            setLoginOpen(true)
+            return
+          }
+          setDropdownOpen(open)
+        }}
+      >
         <DropdownMenuTrigger asChild>
           <button
             type="button"

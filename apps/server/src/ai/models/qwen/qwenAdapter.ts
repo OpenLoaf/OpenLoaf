@@ -10,7 +10,7 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import { wrapLanguageModel } from "ai";
 import type { ProviderAdapter } from "@/ai/models/providerAdapters";
-import { buildAiDebugFetch, buildFinalUrlFetch, ensureOpenAiCompatibleBaseUrl, readApiKey } from "@/ai/shared/util";
+import { buildAiDebugFetch, buildFinalUrlFetch, ensureOpenAiCompatibleBaseUrl, readApiKey, withUserAgentFetch } from "@/ai/shared/util";
 import {
   createQwenMultimodalMiddleware,
   wrapQwenMultimodalFetch,
@@ -24,8 +24,9 @@ export const qwenAdapter: ProviderAdapter = {
   buildAiSdkModel: ({ provider, modelId, providerDefinition }) => {
     const apiKey = readApiKey(provider.authConfig);
     const resolvedApiUrl = provider.apiUrl.trim() || providerDefinition?.apiUrl?.trim() || "";
-    const debugFetch = buildAiDebugFetch();
+    let debugFetch = buildAiDebugFetch();
     if (!apiKey || !resolvedApiUrl) return null;
+    debugFetch = withUserAgentFetch(debugFetch, provider.options?.customUserAgent);
     const useFinalUrl = provider.options?.finalApiUrl === true;
     const baseURL = useFinalUrl ? resolvedApiUrl : ensureOpenAiCompatibleBaseUrl(resolvedApiUrl);
     const finalFetch = useFinalUrl

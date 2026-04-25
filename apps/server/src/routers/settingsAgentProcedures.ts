@@ -32,6 +32,7 @@ import {
   isHiddenAgentId,
   isSystemAgentId,
 } from "@/ai/shared/systemAgentDefinitions"
+import { resolveAgentCoreToolIds } from "@/ai/shared/coreToolIds"
 import {
   buildGlobalIgnoreKey,
   buildProjectIgnoreKey,
@@ -288,6 +289,7 @@ export const agentProcedures = {
         id: group.id,
         label: group.label,
         description: group.description,
+        icon: group.icon,
         toolIds: [...group.toolIds],
         tools: group.tools,
       }))
@@ -315,6 +317,7 @@ export const agentProcedures = {
           auxiliaryModelCloudIds: [],
           codeModelIds: [],
           toolIds: def.toolIds,
+          coreToolIds: resolveAgentCoreToolIds(def.folderName, def.toolIds),
           skills: def.skills,
           allowSubAgents: def.allowSubAgents,
           maxDepth: def.maxDepth,
@@ -350,6 +353,8 @@ export const agentProcedures = {
             systemPrompt = template.systemPrompt
           }
         }
+        const descFolderName = path.basename(agentDir)
+        const descToolIds = descriptor.toolIds || []
         return {
           name: descriptor.name,
           description: descriptor.description || "未提供",
@@ -360,13 +365,14 @@ export const agentProcedures = {
           auxiliaryModelLocalIds: [],
           auxiliaryModelCloudIds: [],
           codeModelIds: [],
-          toolIds: descriptor.toolIds || [],
+          toolIds: descToolIds,
+          coreToolIds: resolveAgentCoreToolIds(descFolderName, descToolIds),
           skills: descriptor.skills || [],
           allowSubAgents: descriptor.allowSubAgents ?? false,
           maxDepth: descriptor.maxDepth ?? 1,
           systemPrompt,
           path: input.agentPath,
-          folderName: path.basename(agentDir),
+          folderName: descFolderName,
           scope: input.scope,
         }
       }
@@ -385,6 +391,7 @@ export const agentProcedures = {
         auxiliaryModelCloudIds: [],
         codeModelIds: [],
         toolIds: config.toolIds,
+        coreToolIds: resolveAgentCoreToolIds(config.folderName, config.toolIds),
         skills: config.skills,
         allowSubAgents: config.allowSubAgents,
         maxDepth: config.maxDepth,

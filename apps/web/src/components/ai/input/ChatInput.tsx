@@ -92,7 +92,6 @@ interface ChatInputProps {
   onRemoveAttachment?: (attachmentId: string) => void;
   onClearAttachments?: () => void;
   onReplaceMaskedAttachment?: (attachmentId: string, input: MaskedAttachmentInput) => void;
-  canAttachAll?: boolean;
   canAttachImage?: boolean;
   model?: ChatImageOutputTarget | null;
   isAutoModel?: boolean;
@@ -128,8 +127,6 @@ export interface ChatInputBoxProps {
   onRemoveAttachment?: (attachmentId: string) => void;
   onReplaceMaskedAttachment?: (attachmentId: string, input: MaskedAttachmentInput) => void;
   attachmentEditEnabled?: boolean;
-  /** Whether all file types can be attached via drag. */
-  canAttachAll?: boolean;
   /** Whether image files can be attached via drag. */
   canAttachImage?: boolean;
   /** Optional header content above the input form. */
@@ -223,7 +220,6 @@ export function ChatInputBox({
   onRemoveAttachment,
   onReplaceMaskedAttachment,
   attachmentEditEnabled = true,
-  canAttachAll = false,
   canAttachImage = false,
   header,
   blocked = false,
@@ -290,7 +286,6 @@ export function ChatInputBox({
     valueRef,
     defaultProjectId,
     tabId,
-    canAttachAll,
     canAttachImage,
     onAddAttachments,
     onAddMaskedAttachment,
@@ -515,7 +510,7 @@ export function ChatInputBox({
           // 修复：dragover 阶段 files 始终为空，改用 items 检测。
           const hasFiles = (event.dataTransfer.items?.length ?? 0) > 0;
           if (!hasImageDrag && !hasFileRef && !hasFiles) return;
-          if (!canAttachAll && !canAttachImage && !uploadFileToSession) return;
+          if (!canAttachImage && !uploadFileToSession) return;
           event.preventDefault();
         }}
         onDropCapture={(event) => {
@@ -653,7 +648,7 @@ export function ChatInputBox({
                       size="icon-sm"
                       className="rounded-3xl w-8 h-8 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                       onClick={() => setFilePickerOpen(true)}
-                      disabled={!canAttachAll && !canAttachImage}
+                      disabled={!canAttachImage}
                       aria-label={t('input.addAttachment')}
                     >
                       <Paperclip className="w-4 h-4" />
@@ -801,7 +796,6 @@ function ChatInputInner({
   onRemoveAttachment,
   onClearAttachments,
   onReplaceMaskedAttachment,
-  canAttachAll,
   canAttachImage,
   model,
   isAutoModel,
@@ -1065,8 +1059,7 @@ function ChatInputInner({
     resolvedIsCodexProvider || (chatMode === "cli" && activeCliProvider === "codex-cli");
   // 模型声明图片生成时显示图片输出选项。
   const showImageOutputOptions = resolvedCanImageGeneration;
-  const allowAll = Boolean(canAttachAll);
-  const allowImage = typeof canAttachImage === "boolean" ? canAttachImage : allowAll;
+  const allowImage = Boolean(canAttachImage);
   const handleAddAttachments = allowImage ? onAddAttachments : undefined;
   const composeMessage = useChatMessageComposer({
     canImageGeneration: resolvedCanImageGeneration,
@@ -1236,7 +1229,6 @@ function ChatInputInner({
         onAddMaskedAttachment={addMaskedAttachment}
         onRemoveAttachment={onRemoveAttachment}
         onReplaceMaskedAttachment={onReplaceMaskedAttachment}
-        canAttachAll={allowAll}
         canAttachImage={allowImage}
         onDropHandled={onDropHandled}
         commandMenuEnabled

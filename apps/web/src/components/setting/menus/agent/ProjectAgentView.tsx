@@ -42,8 +42,7 @@ import {
   Search, Trash2, X, Plus, Pencil,
   Bot, Sparkles, FileText, Terminal, Globe, Mail, Calendar,
   LayoutGrid, FolderKanban, Blocks, ArrowRight,
-  Copy, FileSearch, FilePen, Code, Link, Users, Settings,
-  Image, Video,
+  Copy,
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import dynamicIconImports from "lucide-react/dynamicIconImports"
@@ -82,42 +81,9 @@ type CapabilityGroup = {
   id: string
   label: string
   description: string
+  icon: string
   toolIds: string[]
   tools: CapabilityTool[]
-}
-
-const CAP_ICON_MAP: Record<string, { icon: LucideIcon; className: string }> = {
-  browser: { icon: Globe, className: "text-foreground" },
-  "file-read": { icon: FileSearch, className: "text-foreground" },
-  "file-write": { icon: FilePen, className: "text-foreground" },
-  shell: { icon: Terminal, className: "text-muted-foreground" },
-  email: { icon: Mail, className: "text-foreground" },
-  calendar: { icon: Calendar, className: "text-foreground" },
-  "image-generate": { icon: Image, className: "text-foreground" },
-  "video-generate": { icon: Video, className: "text-foreground" },
-  widget: { icon: LayoutGrid, className: "text-foreground" },
-  project: { icon: FolderKanban, className: "text-foreground" },
-  web: { icon: Link, className: "text-foreground" },
-  agent: { icon: Users, className: "text-foreground" },
-  "code-interpreter": { icon: Code, className: "text-foreground" },
-  system: { icon: Settings, className: "text-muted-foreground" },
-}
-
-const CAP_BG_MAP: Record<string, string> = {
-  browser: "bg-secondary",
-  "file-read": "bg-secondary",
-  "file-write": "bg-secondary",
-  shell: "bg-secondary",
-  email: "bg-secondary",
-  calendar: "bg-secondary",
-  "image-generate": "bg-secondary",
-  "video-generate": "bg-secondary",
-  widget: "bg-secondary",
-  project: "bg-secondary",
-  web: "bg-secondary",
-  agent: "bg-secondary",
-  "code-interpreter": "bg-secondary",
-  system: "bg-secondary",
 }
 
 /**
@@ -645,13 +611,10 @@ export function ProjectAgentView({ projectId }: { projectId: string }) {
                       {agent.toolIds.length > 0 ? (
                         <div className="flex flex-wrap gap-1.5">
                           {resolveAgentGroups(agent.toolIds).map((group) => {
-                            const capMeta = CAP_ICON_MAP[group.id]
-                            const CapIcon = capMeta?.icon ?? Blocks
-                            const iconClass = capMeta?.className ?? "text-muted-foreground"
-                            const bgClass = CAP_BG_MAP[group.id] ?? "bg-muted/30"
+                            const CapIcon = resolveLucideIcon(group.icon) ?? Blocks
                             return (
-                              <span key={group.id} className={`inline-flex items-center gap-1 rounded-3xl px-1.5 py-0.5 text-[10px] ${bgClass}`}>
-                                <CapIcon className={`h-3 w-3 ${iconClass}`} />
+                              <span key={group.id} className="inline-flex items-center gap-1 rounded-3xl bg-secondary px-1.5 py-0.5 text-[10px]">
+                                <CapIcon className="h-3 w-3 text-foreground" />
                                 {group.label || group.id}
                               </span>
                             )

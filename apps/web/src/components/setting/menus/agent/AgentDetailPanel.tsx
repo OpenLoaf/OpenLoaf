@@ -10,7 +10,9 @@
 'use client'
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import dynamic from 'next/dynamic'
 import { useMutation, useQuery } from '@tanstack/react-query'
+import dynamicIconImports from 'lucide-react/dynamicIconImports'
 import { queryClient, trpc } from '@/utils/trpc'
 import { useStackPanelSlot } from '@/hooks/use-stack-panel-slot'
 import { Button } from '@openloaf/ui/button'
@@ -21,6 +23,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@openloaf/ui/tabs'
 import { OpenLoafSettingsCard } from '@openloaf/ui/openloaf/OpenLoafSettingsCard'
 import { FilterTab } from '@openloaf/ui/filter-tab'
 import {
+  Blocks,
   Bot,
   Edit3,
   Eye,
@@ -35,6 +38,7 @@ import {
   Trash2,
   Wand2,
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { Streamdown, defaultRemarkPlugins, type StreamdownProps } from 'streamdown'
 import { code } from '@streamdown/code'
 import { toast } from 'sonner'
@@ -91,6 +95,8 @@ type SkillSummary = {
   ownerProjectTitle?: string
   colorIndex?: number | null
   icon?: string
+  /** Tool IDs declared in SKILL.md frontmatter — 目前仅声明，不参与运行时 toolset。 */
+  tools?: string[]
 }
 
 const REMOVED_MEDIA_TOOL_IDS = new Set([
@@ -98,6 +104,32 @@ const REMOVED_MEDIA_TOOL_IDS = new Set([
   'video-generate',
   'list-media-models',
 ])
+
+type CapabilityTool = { id: string; label: string; description: string }
+type CapabilityGroup = {
+  id: string
+  label: string
+  description: string
+  icon: string
+  toolIds: string[]
+  tools: CapabilityTool[]
+}
+
+// 逻辑：按 lucide-react 的 kebab-case 名字动态解析图标。能力组 icon 由后端下发，
+// 前端不再维护硬编码映射——新增能力组只需要后端加一条数据即可。
+const LUCIDE_ICON_CACHE = new Map<string, LucideIcon>()
+function resolveLucideIcon(name: string): LucideIcon | null {
+  if (!name) return null
+  const cached = LUCIDE_ICON_CACHE.get(name)
+  if (cached) return cached
+  const importer = (
+    dynamicIconImports as Record<string, () => Promise<{ default: LucideIcon }>>
+  )[name]
+  if (!importer) return null
+  const Component = dynamic(importer, { ssr: false }) as unknown as LucideIcon
+  LUCIDE_ICON_CACHE.set(name, Component)
+  return Component
+}
 
 function normalizeAgentToolIds(value: string[]): string[] {
   const normalized = value.map((id) => id.trim()).filter(Boolean)
@@ -168,7 +200,8 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
   isSystem = false,
 }: AgentDetailPanelProps) {
   // 系统 Agent 整体只读：名称/描述/技能/提示词全部禁止修改，stack header 不渲染保存/删除按钮。
-  const { t } = useTranslation(['settings', 'common'])
+  // 额外加载 ai 命名空间以解析 core tool 的中文标签（ai:toolNames.Bash → "终端命令"）。
+  const { t } = useTranslation(['settings', 'common', 'ai'])
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [icon, setIcon] = useState('bot')
@@ -271,6 +304,65 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
     () => (skillsQuery.data ?? []) as SkillSummary[],
     [skillsQuery.data],
   )
+
+  // 逻辑：加载能力组，用于把 agent 的 toolIds 汇总展示为能力徽章（与智能体卡片一致）。
+  const capGroupsQuery = useQuery(trpc.settings.getCapabilityGroups.queryOptions())
+  const capGroups = useMemo(
+    () => (capGroupsQuery.data ?? []) as CapabilityGroup[],
+    [capGroupsQuery.data],
+  )
+  // 逻辑：工具 ID → 人类可读 label 映射。capability group 里已带 label，拍平成字典，
+  // 给 core 单兵工具（如 ToolSearch / LoadSkill）的 chip 展示用。
+  const toolLabelMap = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const group of capGroups) {
+      for (const tool of group.tools ?? []) {
+        map.set(tool.id, tool.label || tool.id)
+      }
+    }
+    return map
+  }, [capGroups])
+
+  // 逻辑：core 与 deferred 切分——
+  // coreToolIds 由后端按 folderName 给出（master/channel/general-purpose/explore 各自一套 XXX_CORE_TOOL_IDS），
+  // 它是 Agent 运行时恒定加载的工具集，跟 agent.toolIds 是否显式列出 core 无关——
+  // builtin Agent 的 toolIds 里只存 deferred 清单，core 是 factory 层隐式追加的。
+  // 所以 "已加载工具" = coreToolIds 全量，"懒加载工具" = agent.toolIds \ coreToolIds。
+  const runtimeCoreToolIds = useMemo(
+    () => (detailQuery.data?.coreToolIds ?? []) as string[],
+    [detailQuery.data?.coreToolIds],
+  )
+  const coreToolIdSet = useMemo(() => new Set(runtimeCoreToolIds), [runtimeCoreToolIds])
+  const deferredToolIds = useMemo(
+    () => toolIds.filter((id) => !coreToolIdSet.has(id)),
+    [toolIds, coreToolIdSet],
+  )
+
+  // 逻辑：core 工具通常是单兵、低粒度（Read/Edit/Bash/ToolSearch...），用 per-tool chip 展示更直观。
+  // label lookup 优先级：ai:toolNames.<id> i18n → capGroups 里的 tool.label → 原始 id。
+  // 这样能覆盖 capGroups 之外的系统工具（ToolSearch / LoadSkill / MemorySave 等）。
+  const coreToolsForDisplay = useMemo(
+    () =>
+      runtimeCoreToolIds.map((id) => ({
+        id,
+        label: t(`ai:toolNames.${id}`, { defaultValue: toolLabelMap.get(id) ?? id }),
+      })),
+    [runtimeCoreToolIds, toolLabelMap, t],
+  )
+
+  // 逻辑：deferred 工具按 capability group 汇总——tooltip 展示该组里真正被当前 agent 懒加载的工具。
+  const deferredGroups = useMemo(() => {
+    if (!deferredToolIds.length || capGroups.length === 0) return []
+    const deferredSet = new Set(deferredToolIds)
+    return capGroups
+      .map((group) => {
+        const ids = group.tools?.length ? group.tools.map((t) => t.id) : group.toolIds
+        const loaded = (group.tools ?? []).filter((t) => deferredSet.has(t.id))
+        const hit = ids.some((id) => deferredSet.has(id))
+        return hit ? { group, loadedTools: loaded } : null
+      })
+      .filter((x): x is { group: CapabilityGroup; loadedTools: CapabilityTool[] } => !!x)
+  }, [capGroups, deferredToolIds])
 
   // 逻辑：按 scope 分组并排序 — project 在前（包含 ownerProject 子分组），然后 global，最后 builtin。
   const skillGroups = useMemo((): SkillGroup[] => {
@@ -780,6 +872,66 @@ export const AgentDetailPanel = memo(function AgentDetailPanel({
               </div>
             )}
           </OpenLoafSettingsCard>
+
+          {/* 已加载工具 — Agent 真正常驻的 core 工具（单兵 chip，含 ToolSearch / LoadSkill / MemorySave 等系统工具） */}
+          {coreToolsForDisplay.length > 0 ? (
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <Blocks className="h-4 w-4 text-foreground" />
+                {t('settings:agent.panel.toolsLabel', { defaultValue: '已加载工具' })}
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {coreToolsForDisplay.map((tool) => (
+                  <span
+                    key={tool.id}
+                    className="inline-flex items-center gap-1 rounded-3xl bg-secondary px-2 py-0.5 text-[11px] cursor-default"
+                    title={tool.id}
+                  >
+                    <Blocks className="h-3 w-3 text-foreground" />
+                    {tool.label}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          {/* 懒加载工具组 — agent.toolIds 里 core 之外的部分，按 capability group 展示（ToolSearch pull mode 运行时按需激活） */}
+          {deferredGroups.length > 0 ? (
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <Sparkles className="h-4 w-4 text-foreground" />
+                {t('settings:agent.panel.lazyToolsLabel', {
+                  defaultValue: '懒加载工具组',
+                })}
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {deferredGroups.map(({ group, loadedTools }) => {
+                  const CapIcon = resolveLucideIcon(group.icon) ?? Blocks
+                  return (
+                    <Tooltip key={group.id}>
+                      <TooltipTrigger asChild>
+                        <span className="inline-flex items-center gap-1 rounded-3xl bg-secondary px-2 py-0.5 text-[11px] cursor-default">
+                          <CapIcon className="h-3 w-3 text-foreground" />
+                          {group.label || group.id}
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="max-w-[280px]">
+                        {loadedTools.length > 0 ? (
+                          <ul className="space-y-0.5 text-xs">
+                            {loadedTools.map((tool) => (
+                              <li key={tool.id}>{tool.label || tool.id}</li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <span className="text-xs">{group.label || group.id}</span>
+                        )}
+                      </TooltipContent>
+                    </Tooltip>
+                  )
+                })}
+              </div>
+            </div>
+          ) : null}
 
           {/* Tabs: 技能 / 提示词 */}
           <Tabs value={activeConfigTab} onValueChange={setActiveConfigTab}>

@@ -10,6 +10,7 @@
 export * from "./browser";
 export * from "./browserAutomation";
 export * from "./db";
+export * from "./wechat";
 export * from "./subAgent";
 export * from "./system";
 export * from "./runtime";

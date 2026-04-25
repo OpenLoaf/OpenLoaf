@@ -9,37 +9,45 @@
  */
 import { useTranslation } from "react-i18next";
 import { Input } from "@openloaf/ui/input";
-import type { ModelTag } from "@openloaf/api/common";
+import type { ModelInputAccept } from "@openloaf/api/common";
 import { cn } from "@/lib/utils";
 import { FormDialog } from "@/components/ui/FormDialog";
 import {
   toggleSelection,
 } from "@/components/setting/menus/provider/use-provider-management";
 
-// 能力标签仅保留媒体输入三件套 —— 与聊天模型选择器 (ModelCheckboxItem)
-// 展示口径统一。chat/reasoning/tool_call 等元能力由对话时自动识别。
-const SELECTABLE_MODEL_TAGS: readonly ModelTag[] = [
-  "image_input",
-  "video_analysis",
-  "audio_analysis",
+// 仅允许编辑媒体类输入能力，与聊天模型选择器 (ModelCheckboxItem) 展示口径统一。
+// text/file 不暴露：text 永远存在，file 由前端按 mime 推断。
+const SELECTABLE_INPUT_ACCEPTS: readonly ModelInputAccept[] = [
+  "image",
+  "video",
+  "audio",
 ];
 
-// 选中态用饱和色，未选中态用淡色底 —— 与 ModelCheckboxItem 的色系对齐
+// 选中态饱和色，未选中态淡色 —— 与 ModelCheckboxItem 的色系对齐
 // （图片蓝 / 视频紫 / 音频琥珀），light + dark 两套。
-const TAG_TONE_CLASSES: Record<string, { selected: string; unselected: string }> = {
-  image_input: {
+const ACCEPT_TONE_CLASSES: Record<ModelInputAccept, { selected: string; unselected: string }> = {
+  text: {
+    selected: "bg-secondary text-foreground border-transparent",
+    unselected: "bg-secondary text-foreground border-transparent",
+  },
+  file: {
+    selected: "bg-foreground/10 text-foreground border-foreground/20",
+    unselected: "bg-foreground/5 text-muted-foreground border-foreground/10",
+  },
+  image: {
     selected:
       "bg-blue-600 text-white border-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:border-blue-500 dark:hover:bg-blue-600",
     unselected:
       "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 dark:bg-blue-500/15 dark:text-blue-300 dark:border-blue-500/30 dark:hover:bg-blue-500/25",
   },
-  video_analysis: {
+  video: {
     selected:
       "bg-violet-600 text-white border-violet-600 hover:bg-violet-700 dark:bg-violet-500 dark:border-violet-500 dark:hover:bg-violet-600",
     unselected:
       "bg-violet-50 text-violet-700 border-violet-200 hover:bg-violet-100 dark:bg-violet-500/15 dark:text-violet-300 dark:border-violet-500/30 dark:hover:bg-violet-500/25",
   },
-  audio_analysis: {
+  audio: {
     selected:
       "bg-amber-500 text-white border-amber-500 hover:bg-amber-600 dark:bg-amber-500 dark:border-amber-500 dark:hover:bg-amber-600",
     unselected:
@@ -56,8 +64,8 @@ export type ModelDialogProps = {
   draftModelId: string;
   /** Draft model name. */
   draftModelName: string;
-  /** Draft tag list. */
-  draftModelTags: ModelTag[];
+  /** Draft input accept list. */
+  draftModelInputAccepts: ModelInputAccept[];
   /** Draft context size. */
   draftModelContextK: string;
   /** Validation error. */
@@ -68,8 +76,8 @@ export type ModelDialogProps = {
   onDraftModelIdChange: (value: string) => void;
   /** Update draft model name. */
   onDraftModelNameChange: (value: string) => void;
-  /** Update draft model tags. */
-  onDraftModelTagsChange: (value: ModelTag[]) => void;
+  /** Update draft model input accepts. */
+  onDraftModelInputAcceptsChange: (value: ModelInputAccept[]) => void;
   /** Update context size. */
   onDraftModelContextKChange: (value: string) => void;
   /** Submit callback. */
@@ -84,21 +92,21 @@ export function ModelDialog({
   editingModelId,
   draftModelId,
   draftModelName,
-  draftModelTags,
+  draftModelInputAccepts,
   draftModelContextK,
   modelError,
   onOpenChange,
   onDraftModelIdChange,
   onDraftModelNameChange,
-  onDraftModelTagsChange,
+  onDraftModelInputAcceptsChange,
   onDraftModelContextKChange,
   onSubmit,
 }: ModelDialogProps) {
   const { t } = useTranslation('settings');
   const { t: tAi } = useTranslation('ai');
-  const modelTagOptions = SELECTABLE_MODEL_TAGS.map((value) => ({
+  const acceptOptions = SELECTABLE_INPUT_ACCEPTS.map((value) => ({
     value,
-    label: tAi(`modelTagsShort.${value}`, { defaultValue: value, nsSeparator: false }),
+    label: tAi(`modelCapabilities.${value}`, { defaultValue: value, nsSeparator: false }),
   }));
   const isEditing = Boolean(editingModelId);
 
@@ -134,19 +142,19 @@ export function ModelDialog({
         <div className="space-y-2 md:col-span-2">
           <div className="text-sm font-medium">{t('provider.capabilityTags')}</div>
           <div className="flex flex-wrap gap-2">
-            {modelTagOptions.map((option) => {
-              const selected = draftModelTags.includes(option.value);
-              const tone = TAG_TONE_CLASSES[option.value];
+            {acceptOptions.map((option) => {
+              const selected = draftModelInputAccepts.includes(option.value);
+              const tone = ACCEPT_TONE_CLASSES[option.value];
               return (
                 <button
                   key={option.value}
                   type="button"
                   onClick={() =>
-                    onDraftModelTagsChange(toggleSelection(draftModelTags, option.value))
+                    onDraftModelInputAcceptsChange(toggleSelection(draftModelInputAccepts, option.value))
                   }
                   className={cn(
                     "inline-flex h-8 items-center rounded-full border px-3 text-xs font-medium transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-foreground/20",
-                    tone ? (selected ? tone.selected : tone.unselected) : "bg-secondary text-foreground border-transparent",
+                    selected ? tone.selected : tone.unselected,
                   )}
                 >
                   {option.label}

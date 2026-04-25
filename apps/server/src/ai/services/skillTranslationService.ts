@@ -163,15 +163,13 @@ async function detectLanguage(
     if (!res.ok) throw new Error(res.message || '云端翻译服务暂时不可用，请稍后重试')
     responseText = String(res.result)
   } else {
-    const modelIds =
-      conf.modelSource === 'cloud' ? conf.cloudModelIds : conf.localModelIds
-    const chatModelId = modelIds[0]?.trim() || undefined
+    const chatModelId = conf.localModelIds[0]?.trim() || undefined
 
     let resolved: Awaited<ReturnType<typeof resolveChatModel>>
     try {
       resolved = await resolveChatModel({
         chatModelId,
-        chatModelSource: conf.modelSource,
+        chatModelSource: 'local',
       })
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
@@ -531,16 +529,14 @@ async function callTranslation(
     return String(res.result)
   }
 
-  // Local/Cloud branch — pre-check model configuration
-  const modelIds =
-    conf.modelSource === 'cloud' ? conf.cloudModelIds : conf.localModelIds
-  const chatModelId = modelIds[0]?.trim() || undefined
+  // Local branch — pre-check model configuration
+  const chatModelId = conf.localModelIds[0]?.trim() || undefined
 
   let resolved: Awaited<ReturnType<typeof resolveChatModel>>
   try {
     resolved = await resolveChatModel({
       chatModelId,
-      chatModelSource: conf.modelSource,
+      chatModelSource: 'local',
     })
   } catch (err) {
     // Wrap model resolution errors with friendly messages
@@ -718,7 +714,7 @@ const FRIENDLY_ERROR_PATTERNS: [RegExp, string][] = [
   [/模型未在服务商配置中启用/, '所选模型未启用，请在设置 → 辅助模型中检查模型配置'],
   [/模型构建失败/, '模型初始化失败，请检查辅助模型的 API 地址和密钥配置'],
   [/模型服务商配置不完整/, '模型配置不完整，请在设置 → 辅助模型中补全 API 地址和密钥'],
-  [/云端模型列表获取失败/, '云端模型列表获取失败，请检查网络连接或重新登录'],
+  [/云端模型列表获取失败|暂时无法获取云端模型列表/, '暂时无法获取云端模型列表，请检查网络或重新登录账号'],
   [/reconnect/i, 'AI 模型连接失败，请检查模型配置或网络连接'],
   [/ECONNREFUSED/i, 'AI 模型服务未启动，请先启动本地模型'],
   [/ECONNRESET|EPIPE/i, 'AI 模型连接中断，请稍后重试'],

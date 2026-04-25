@@ -133,12 +133,12 @@ class SettingRouterImpl extends BaseSettingRouter {
       getCodexModels: shieldedProcedure
         .output(settingSchemas.getCodexModels.output)
         .query(() => {
-          return getCodexCliModels().map((m) => ({ id: m.id, name: m.name ?? m.id, tags: m.tags }))
+          return getCodexCliModels().map((m) => ({ id: m.id, name: m.name ?? m.id }))
         }),
       getClaudeCodeModels: shieldedProcedure
         .output(settingSchemas.getClaudeCodeModels.output)
         .query(() => {
-          return getClaudeCodeCliModels().map((m) => ({ id: m.id, name: m.name ?? m.id, tags: m.tags }))
+          return getClaudeCodeCliModels().map((m) => ({ id: m.id, name: m.name ?? m.id }))
         }),
       installCliTool: shieldedProcedure
         .input(settingSchemas.installCliTool.input)

@@ -98,7 +98,6 @@ async function buildCloudProviderEntries(input: {
       ...model,
       // 中文注释：模型定义改写为 SaaS adapter，避免解析时回退到真实 provider。
       providerId: input.adapterId,
-      tags: Array.isArray(model.tags) ? model.tags : [],
     };
   }
 
@@ -209,17 +208,17 @@ async function resolveCloudChatModel(input: {
 }): Promise<ResolvedChatModel> {
   const accessToken = (await ensureServerAccessToken()) ?? "";
   if (!accessToken) {
-    throw new Error("未登录云端账号");
+    throw new Error("尚未登录云端账号，请先在设置中完成登录");
   }
   let saasBaseUrl: string;
   try {
     saasBaseUrl = getSaasBaseUrl();
   } catch {
-    throw new Error("云端地址未配置");
+    throw new Error("云端服务地址未配置，请检查应用设置");
   }
   const payload = (await fetchModelList(accessToken)) as CloudChatModelsResponse | null;
   if (!payload || payload.success !== true || !Array.isArray(payload.data?.data)) {
-    throw new Error("云端模型列表获取失败");
+    throw new Error("暂时无法获取云端模型列表，请检查网络或稍后重试");
   }
   const models = mapCloudChatModels(payload.data.data);
   const providers = await buildCloudProviderEntries({

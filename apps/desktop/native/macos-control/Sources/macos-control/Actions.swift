@@ -22,8 +22,54 @@ enum Actions {
     }
   }
 
+  // Safety preflight for ref-based clicks. Window chrome buttons
+  // (close/minimize/zoom) are near-guaranteed to destroy the current context —
+  // and on self-drawn apps (WeChat / QQ / Feishu) they are the *only* AX
+  // children the model can see, which is a classic "AI guesses path ['0','0']
+  // and closes the window" trap. Refuse these clicks unless the caller
+  // explicitly sets confirm_window_chrome=true. Coordinate clicks are not
+  // checked — those require the model to have read the pixel from a
+  // screenshot, which is a much higher bar than guessing a path.
+  private static let destructiveChromeSubroles: Set<String> = [
+    "AXCloseButton",
+    "AXMinimizeButton",
+    "AXZoomButton",
+    "AXFullScreenButton",
+  ]
+
+  private static func axStringAttr(_ el: AXUIElement, _ attr: String) -> String? {
+    var value: CFTypeRef?
+    guard AXUIElementCopyAttributeValue(el, attr as CFString, &value) == .success else { return nil }
+    return value as? String
+  }
+
+  private static func preflightClick(_ a: ActionPayload) throws {
+    guard let ref = a.ref else { return }
+    if a.confirmWindowChrome == true { return }
+    let el: AXUIElement
+    do {
+      el = try AXTree.resolve(ref: ref)
+    } catch {
+      // Let the downstream resolvePoint surface the resolve error — don't mask
+      // it behind a preflight failure.
+      return
+    }
+    let subrole = axStringAttr(el, kAXSubroleAttribute) ?? ""
+    guard destructiveChromeSubroles.contains(subrole) else { return }
+    let role = axStringAttr(el, kAXRoleAttribute) ?? ""
+    let title = axStringAttr(el, kAXTitleAttribute) ?? ""
+    throw HelperError.blocked(
+      code: "WINDOW_CHROME_BLOCKED",
+      message: "Refusing to AXPress window-chrome button " +
+               "(role=\(role) subrole=\(subrole) title=\"\(title)\"). " +
+               "Clicking this will close/minimize/zoom the window and lose " +
+               "the current context. To force anyway, retry with " +
+               "confirm_window_chrome=true.")
+  }
+
   // ---- click ----
   private static func click(_ a: ActionPayload) throws -> [String: Any] {
+    try preflightClick(a)
     let pt = try resolvePoint(ref: a.ref, point: a.point)
     let button: CGMouseButton = (a.button == "right") ? .right : .left
     let downType: CGEventType = (button == .right) ? .rightMouseDown : .leftMouseDown

@@ -8,57 +8,19 @@
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
 import type { UIMessage } from 'ai'
-import type { AuxiliaryInferMessage } from '@openloaf-saas/sdk'
 import type { ModelDefinition } from '@openloaf/api/common'
 import { replaceFileTokensWithNames } from '@/common/chatTitle'
 
 /** Tags that mean the aux model can ingest media natively. */
-const MEDIA_TAGS = new Set([
-  'image_input',
-  'image_analysis',
-  'video_analysis',
-  'audio_analysis',
-])
+const MEDIA_ACCEPTS = new Set(['image', 'video', 'audio'])
 
-/** Whether the aux model has any media input/analysis tag. */
+/** Whether the aux model declares any media input accept type. */
 export function modelHasMediaCapability(
   modelDef: ModelDefinition | undefined,
 ): boolean {
-  const tags = modelDef?.tags
-  if (!Array.isArray(tags)) return false
-  return tags.some((t) => MEDIA_TAGS.has(t as string))
-}
-
-/**
- * Convert OpenLoaf UIMessage[] into the SaaS auxiliary.infer messages shape.
- * UIMessage file parts use `url` (post-attachment-upgrade CDN URL or data URI);
- * the SaaS schema reads the same payload under `data`. Parts of unknown types
- * are dropped silently.
- */
-export function toSaasMessages(messages: UIMessage[]): AuxiliaryInferMessage[] {
-  const out: AuxiliaryInferMessage[] = []
-  for (const msg of messages) {
-    if (msg.role !== 'user' && msg.role !== 'assistant' && msg.role !== 'system') continue
-    const parts = Array.isArray(msg.parts) ? msg.parts : []
-    const content: AuxiliaryInferMessage['content'] = []
-    for (const part of parts as any[]) {
-      if (part?.type === 'text' && typeof part.text === 'string') {
-        content.push({ type: 'text', text: part.text })
-      } else if (part?.type === 'file' && typeof part.url === 'string') {
-        content.push({
-          type: 'file',
-          data: part.url,
-          mediaType:
-            typeof part.mediaType === 'string'
-              ? part.mediaType
-              : 'application/octet-stream',
-        })
-      }
-    }
-    if (content.length === 0) continue
-    out.push({ role: msg.role, content })
-  }
-  return out
+  const accepts = modelDef?.capabilities?.inputAccepts
+  if (!Array.isArray(accepts)) return false
+  return accepts.some((kind) => MEDIA_ACCEPTS.has(kind))
 }
 
 /**

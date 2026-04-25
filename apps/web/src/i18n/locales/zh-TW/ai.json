@@ -200,6 +200,7 @@
     "BuiltinSkill_media-ops-skill": "媒體生成",
     "BuiltinSkill_visualization-ops-skill": "圖表視覺化",
     "BuiltinSkill_cloud-media-skill": "雲端媒體生成",
+    "SendChannelReply": "傳送 IM 回覆",
     "MemorySave": "儲存記憶",
     "MemorySearch": "搜尋記憶",
     "MemoryGet": "讀取記憶",
@@ -429,39 +430,12 @@
     "suggestion2": "分析目前專案的程式碼品質",
     "suggestion3": "產生一份本週工作週報"
   },
-  "modelTags": {
-    "chat": "對話",
-    "code": "程式碼",
-    "tool_call": "工具呼叫",
-    "reasoning": "推理",
-    "image_generation": "圖像生成",
-    "image_input": "圖片理解",
-    "image_multi_input": "多圖輸入",
-    "image_multi_generation": "多圖生成",
-    "image_edit": "圖像編輯",
-    "image_analysis": "圖像分析",
-    "video_generation": "影片生成",
-    "video_analysis": "影片理解",
-    "audio_analysis": "音訊分析",
-    "audio_tts": "語音合成",
-    "media:imageGenerate": "AI繪圖",
-    "media:poster": "海報生成",
-    "media:imageEdit": "AI圖像編輯",
-    "media:upscale": "圖像放大",
-    "media:outpaint": "圖像擴展",
-    "media:matting": "智慧去背",
-    "media:videoGenerate": "AI影片生成",
-    "media:videoEdit": "AI影片編輯",
-    "media:digitalHuman": "數位人",
-    "media:motionTransfer": "動作遷移",
-    "media:tts": "文字轉語音",
-    "media:music": "AI音樂",
-    "media:sfx": "音效生成"
-  },
-  "modelTagsShort": {
-    "image_input": "看圖",
-    "video_analysis": "看影片",
-    "audio_analysis": "聽音訊"
+  "modelCapabilities": {
+    "text": "文字",
+    "image": "圖片",
+    "video": "影片",
+    "audio": "音訊",
+    "file": "檔案"
   },
   "tool": {
     "writeFile": "寫入檔案",

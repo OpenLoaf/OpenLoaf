@@ -16,6 +16,24 @@ struct ObserveRequest: Decodable {
   let maxNodes: Int?
   let maxDepth: Int?
   let includeScreenshot: Bool?
+  // When true, observe returns a `windows` array alongside the AX tree so the
+  // model can see all renderable windows for the target app and request per-
+  // window captures via `capture_window` without re-observing. Defaults to
+  // true so existing callers get the extra context for free.
+  let includeWindows: Bool?
+}
+
+struct ListWindowsRequest: Decodable {
+  let id: String
+  let op: String
+  let appFilter: String?
+}
+
+struct CaptureWindowRequest: Decodable {
+  let id: String
+  let op: String
+  let windowID: UInt32
+  let screenshotPath: String?
 }
 
 struct PointDTO: Codable {
@@ -68,6 +86,10 @@ struct ActionPayload: Decodable {
   // menu_click
   let app: String?
   let menuPath: [String]?
+  // Escape hatch for destructive click preflight (WINDOW_CHROME_BLOCKED):
+  // when true, we skip the chrome-button safety check and dispatch the click
+  // anyway. Must be set explicitly per action — there is no global bypass.
+  let confirmWindowChrome: Bool?
 }
 
 struct ActRequest: Decodable {
@@ -93,4 +115,9 @@ enum HelperError: Error {
   case badRequest(String)
   case runtime(String)
   case permissionMissing([String])
+  // Structured refusal: tool-layer safety rule rejected the action before it
+  // touched the system. `code` is a machine-readable tag (e.g.
+  // "WINDOW_CHROME_BLOCKED") the TS layer can map to model guidance; `message`
+  // is free-form context for logs.
+  case blocked(code: String, message: String)
 }

@@ -37,7 +37,6 @@ import {
 import { toast } from 'sonner'
 import { useSaasAuth } from '@/hooks/use-saas-auth'
 import { useSettingsValues } from '@/hooks/use-settings'
-import { useBasicConfig } from '@/hooks/use-basic-config'
 import { useCloudModels } from '@/hooks/use-cloud-models'
 import { useInstalledCliProviderIds } from '@/hooks/use-cli-tools-installed'
 import {
@@ -110,7 +109,6 @@ const DEFAULT_TEST_CONTEXT: Record<string, string> = {
 
 export function AuxiliaryModelSettings() {
   const { t } = useTranslation('settings')
-  const { basic } = useBasicConfig()
   const { providerItems } = useSettingsValues()
   const { models: cloudModels } = useCloudModels()
   const authLoggedIn = useSaasAuth((s) => s.loggedIn)
@@ -135,7 +133,7 @@ export function AuxiliaryModelSettings() {
   useEffect(() => {
     if (!configQuery.data) return
     const d = configQuery.data
-    setModelSource(d.modelSource === 'cloud' ? 'local' : d.modelSource)
+    setModelSource(d.modelSource)
     setLocalModelIds(d.localModelIds)
     const prompts: Record<string, string | null> = {}
     for (const [key, val] of Object.entries(d.capabilities)) {
@@ -162,9 +160,6 @@ export function AuxiliaryModelSettings() {
 
   const activeModelIds = localModelIds
 
-  // SaaS quota from config query
-  const saasQuota = configQuery.data?.quota
-
   const saveMutation = useMutation(
     trpc.settings.saveAuxiliaryModelConfig.mutationOptions({
       onSuccess: () => {
@@ -189,7 +184,6 @@ export function AuxiliaryModelSettings() {
     saveMutation.mutate({
       modelSource,
       localModelIds,
-      cloudModelIds: [],
       capabilities,
     })
   }, [modelSource, localModelIds, customPrompts, saveMutation])
@@ -304,18 +298,13 @@ export function AuxiliaryModelSettings() {
                   </Button>
                 </div>
               ) : (
-                /* Logged in — show SaaS info + quota */
-                <div className="flex flex-col gap-2.5">
-                  <div className="flex items-center gap-3 rounded-3xl border border-border bg-secondary/50 px-4 py-3">
-                    <Sparkles className="h-4 w-4 shrink-0 text-foreground" />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-foreground">{t('auxiliaryModel.saasProvided')}</p>
-                      <p className="text-xs text-muted-foreground">{t('auxiliaryModel.saasProvidedHint')}</p>
-                    </div>
+                /* Logged in — show SaaS info */
+                <div className="flex items-center gap-3 rounded-3xl border border-border bg-secondary/50 px-4 py-3">
+                  <Sparkles className="h-4 w-4 shrink-0 text-foreground" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-foreground">{t('auxiliaryModel.saasProvided')}</p>
+                    <p className="text-xs text-muted-foreground">{t('auxiliaryModel.saasProvidedHint')}</p>
                   </div>
-                  {saasQuota && (
-                    <SaasQuotaBar quota={saasQuota} />
-                  )}
                 </div>
               )}
             </div>
@@ -818,46 +807,3 @@ function ModelSelector({
   )
 }
 
-/** SaaS daily quota progress bar. */
-function SaasQuotaBar({ quota }: { quota: { used: number; limit: number; remaining: number; resetsAt: string } }) {
-  const { t } = useTranslation('settings')
-  const pct = quota.limit > 0 ? (quota.used / quota.limit) * 100 : 0
-  const isWarning = pct >= 90
-  const isExhausted = quota.remaining <= 0
-
-  const barColor = isExhausted
-    ? 'bg-destructive'
-    : isWarning
-      ? 'bg-foreground/60'
-      : 'bg-foreground'
-
-  const textColor = isExhausted
-    ? 'text-destructive'
-    : isWarning
-      ? 'text-foreground'
-      : 'text-muted-foreground'
-
-  return (
-    <div className="flex flex-col gap-1.5 rounded-3xl border border-border/40 bg-muted/20 px-3.5 py-2.5">
-      <div className="flex items-center justify-between">
-        <span className={cn('text-xs font-medium', textColor)}>
-          {t('auxiliaryModel.quotaUsed', { used: quota.used, limit: quota.limit })}
-        </span>
-        <span className="text-[10px] text-muted-foreground/60">
-          {t('auxiliaryModel.quotaRemaining', { remaining: quota.remaining })}
-        </span>
-      </div>
-      <div className="h-1.5 w-full overflow-hidden rounded-full bg-border/30">
-        <div
-          className={cn('h-full rounded-full transition-all duration-300', barColor)}
-          style={{ width: `${Math.min(pct, 100)}%` }}
-        />
-      </div>
-      {isExhausted && (
-        <p className="text-[11px] text-destructive">
-          {t('auxiliaryModel.quotaExhausted')}
-        </p>
-      )}
-    </div>
-  )
-}

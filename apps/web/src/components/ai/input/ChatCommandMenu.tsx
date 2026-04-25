@@ -73,10 +73,16 @@ type ChatCommandMenuProps = {
 
 /** Slash trigger for the last token. */
 const SLASH_TRIGGER_REGEX = /(^|\s)(\/\S*)$/u;
+/** 剥掉完整 system-tag 和 ZWSP，避免 tag 内的 `/>` 被 slash 正则误匹。 */
+const SYSTEM_TAG_REGEX = /<system-tag\s+[^>]*?\/>/g;
+const ZWSP_REGEX = /​/g;
+function stripNonSlashNoise(value: string): string {
+  return value.replace(SYSTEM_TAG_REGEX, "").replace(ZWSP_REGEX, "");
+}
 
 /** Resolve slash query from current input value. */
 function resolveSlashQuery(value: string): string | null {
-  const match = SLASH_TRIGGER_REGEX.exec(value);
+  const match = SLASH_TRIGGER_REGEX.exec(stripNonSlashNoise(value));
   if (!match) return null;
   const token = match[2] ?? "";
   if (!token.startsWith("/")) return null;

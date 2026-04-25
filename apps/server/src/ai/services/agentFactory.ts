@@ -49,6 +49,10 @@ import {
   getChannelPrompt,
   CHANNEL_AGENT_TOOL_IDS,
 } from '@/ai/agent-templates'
+import {
+  overrideChannelToolDescription,
+  appendChannelNextStepHint,
+} from '@/ai/agent-templates/templates/channel/toolDescriptionOverrides'
 import { getBuiltinAgentDefinition } from '@/ai/shared/systemAgentDefinitions'
 import { logger } from '@/common/logger'
 import {
@@ -244,8 +248,16 @@ function createToolSearchPrepareStep(
 ): PrepareStepFunction {
   return async ({ messages, stepNumber, model }) => {
     // 1. ToolSearch pull — dynamic tool visibility
+    //
+    // Merge fresh MCP tool IDs on every step so late-registered tools (e.g.
+    // Notion connecting on demand from inside a ToolSearch bundle call)
+    // become visible to AI SDK's activeTools list for subsequent turns.
+    // Without this, late MCP tools would sit in MCP_TOOL_REGISTRY but the
+    // static `allToolIds` snapshot captured at agent creation would filter
+    // them out of activeTools forever.
     const activeToolIds = activatedSet.getActiveToolIds()
-    const activeTools = allToolIds.filter((id) => activeToolIds.includes(id))
+    const liveAllIds = Array.from(new Set([...allToolIds, ...getMcpToolIds()]))
+    const activeTools = liveAllIds.filter((id) => activeToolIds.includes(id))
     if (!activeTools.includes('ToolSearch')) activeTools.push('ToolSearch')
 
     // 2. Prune stale content — runs every step.
@@ -507,8 +519,18 @@ export function createMasterAgent(input: CreateMasterAgentInput) {
     ActivatedToolSet.rehydrateFromMessages(activatedSet, input.messages, allToolIdSet)
   }
 
-  // Inject ToolSearch (dynamically created, closes over activatedSet)
-  tools['ToolSearch'] = createToolSearchTool(activatedSet, allToolIdSet, getToolJsonSchemas)
+  // Inject ToolSearch (dynamically created, closes over activatedSet).
+  // availableToolIds is a getter so lazy-connected MCP bundles (e.g. Notion)
+  // become visible within the same turn; liveSink lets ToolSearch splice
+  // newly-registered tools into `tools` + `allToolIds` so AI SDK can invoke
+  // them on subsequent steps.
+  tools['ToolSearch'] = createToolSearchTool(
+    activatedSet,
+    () => new Set([...allToolIds, ...getMcpToolIds()]),
+    getToolJsonSchemas,
+    undefined,
+    { tools, allToolIds },
+  )
 
   // ★ Activation guard — block unloaded tool calls with clear error
   applyActivationGuard(tools, activatedSet, coreToolIds)
@@ -611,7 +633,13 @@ export function createPMAgent(input: CreatePMAgentInput) {
 
   const tools = buildToolset(allToolIds)
   const activatedSet = new ActivatedToolSet(coreToolIds)
-  tools['ToolSearch'] = createToolSearchTool(activatedSet, new Set(allToolIds), getToolJsonSchemas)
+  tools['ToolSearch'] = createToolSearchTool(
+    activatedSet,
+    () => new Set([...allToolIds, ...getMcpToolIds()]),
+    getToolJsonSchemas,
+    undefined,
+    { tools, allToolIds },
+  )
   applyActivationGuard(tools, activatedSet, coreToolIds)
   applyToolResultInterception(tools, getSessionId)
 
@@ -701,9 +729,50 @@ export function createChannelAgent(input: CreateChannelAgentInput) {
 
   const tools = buildToolset(allToolIds)
   const activatedSet = new ActivatedToolSet(coreToolIds)
-  tools['ToolSearch'] = createToolSearchTool(activatedSet, new Set(allToolIds), getToolJsonSchemas)
+  // Channel-scoped ToolSearch: rewrite returned tool descriptions through the
+  // channel override so the model never sees the base "renders inline in
+  // chat UI" text. Without this, qwen flash stops after CloudImageGenerate
+  // thinking the image was delivered automatically.
+  tools['ToolSearch'] = createToolSearchTool(
+    activatedSet,
+    () => new Set([...allToolIds, ...getMcpToolIds()]),
+    getToolJsonSchemas,
+    (id, desc) => overrideChannelToolDescription(id, desc) ?? desc,
+    { tools, allToolIds },
+  )
   applyActivationGuard(tools, activatedSet, coreToolIds)
   applyToolResultInterception(tools, getSessionId)
+
+  // Channel-view description overrides: replace or append notes for tools
+  // whose base description makes UI-rendering assumptions that break in IM
+  // channels (CloudImageGenerate, CloudTTS, JsSandbox, MacosAct, ...). Base
+  // description stays intact for other agents.
+  //
+  // Also wrap `execute` for generation tools so their OUTPUT carries an
+  // explicit "next step: call SendWeChatMedia" line. qwen flash ignores
+  // description-level coaching and treats `{ok:true, files:[...]}` as job done;
+  // the output-level hint lands in the model's working context at exactly the
+  // point it's deciding what to do next, which is much stronger.
+  for (const id of Object.keys(tools)) {
+    const tool = tools[id]
+    if (!tool) continue
+    const override = overrideChannelToolDescription(id, (tool as { description?: string }).description)
+    const origExecute = (tool as { execute?: Function }).execute
+    const needsHintWrap = typeof origExecute === 'function'
+    let nextTool = tool
+    if (override) {
+      nextTool = { ...nextTool, description: override } as typeof tool
+    }
+    if (needsHintWrap) {
+      const wrappedExecute = async (...args: unknown[]) => {
+        const out = await (origExecute as Function).apply(tool, args)
+        if (typeof out !== 'string') return out
+        return appendChannelNextStepHint(id, out)
+      }
+      nextTool = { ...nextTool, execute: wrappedExecute } as typeof tool
+    }
+    if (nextTool !== tool) tools[id] = nextTool
+  }
 
   const hardRules = buildHardRules(resolvePromptLang(input.lang))
   const toolSearchGuidance = buildToolSearchGuidance(ctx?.clientPlatform, deferredToolIds)
@@ -814,7 +883,13 @@ function createGeneralPurposeSubAgent(model: LanguageModelV3): ToolLoopAgent {
 
   const tools = buildToolset(allToolIds)
   const activatedSet = new ActivatedToolSet(coreToolIds)
-  tools['ToolSearch'] = createToolSearchTool(activatedSet, new Set(allToolIds), getToolJsonSchemas)
+  tools['ToolSearch'] = createToolSearchTool(
+    activatedSet,
+    () => new Set([...allToolIds, ...getMcpToolIds()]),
+    getToolJsonSchemas,
+    undefined,
+    { tools, allToolIds },
+  )
   applyActivationGuard(tools, activatedSet, coreToolIds)
   applyToolResultInterception(tools, getSessionId)
 

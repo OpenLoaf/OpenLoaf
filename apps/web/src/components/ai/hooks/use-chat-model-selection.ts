@@ -15,11 +15,7 @@ import { useBasicConfig } from "@/hooks/use-basic-config";
 import { useCloudModels } from "@/hooks/use-cloud-models";
 import { useInstalledCliProviderIds } from "@/hooks/use-cli-tools-installed";
 import { buildChatModelOptions, normalizeChatModelSource } from "@/lib/provider-models";
-import {
-  supportsCode,
-  supportsImageInput,
-  supportsToolCall,
-} from "@/lib/model-capabilities";
+import { supportsImageInput } from "@/lib/model-capabilities";
 
 /**
  * Resolve model selection state for chat.
@@ -65,8 +61,6 @@ export function useChatModelSelection() {
   }, [isStaleId, selectedModelId, setBasic]);
 
   const isAutoModel = !selectedModel;
-  const isCodeModel = supportsCode(selectedModel);
-  const canAttachAll = isAutoModel || supportsToolCall(selectedModel) || isCodeModel;
   // 始终允许图片上传：非视觉模型由后端剥离图片并委派 vision SubAgent 处理。
   const canAttachImage = true;
   const canImageGeneration = false;
@@ -79,8 +73,6 @@ export function useChatModelSelection() {
     selectedModel,
     selectedModelId,
     isAutoModel,
-    isCodeModel,
-    canAttachAll,
     canAttachImage,
     canImageGeneration,
     canImageEdit,

@@ -512,7 +512,7 @@ export const readTool = tool({
         case 'image': {
           const modelDef = getChatModelDefinition()
           const hasNativeVision = Boolean(
-            modelDef?.tags?.includes('image_input') || modelDef?.tags?.includes('image_analysis'),
+            modelDef?.capabilities?.inputAccepts?.includes('image'),
           )
           result = await readImageFile(absPath, fileName, progress, hasNativeVision, mimeType)
           // 非 vision 模型读图：只返回文本元信息 + OCR，不再自动引导到 CloudImageUnderstand。

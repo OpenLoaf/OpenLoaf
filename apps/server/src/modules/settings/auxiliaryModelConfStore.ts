@@ -18,16 +18,14 @@ export type CapabilityOverride = {
 
 /** Shape of ~/.openloaf/auxiliary-model.json */
 export type AuxiliaryModelConf = {
-  modelSource: 'local' | 'cloud' | 'saas'
+  modelSource: 'local' | 'saas'
   localModelIds: string[]
-  cloudModelIds: string[]
   capabilities: Record<string, CapabilityOverride>
 }
 
 const DEFAULT_CONF: AuxiliaryModelConf = {
   modelSource: 'saas',
   localModelIds: [],
-  cloudModelIds: [],
   capabilities: {},
 }
 
@@ -53,15 +51,10 @@ function writeJson(filePath: string, payload: unknown): void {
 function normalize(raw: unknown): AuxiliaryModelConf {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { ...DEFAULT_CONF }
   const src = raw as Record<string, unknown>
-  const modelSource =
-    src.modelSource === 'cloud' ? 'cloud' as const
-    : src.modelSource === 'saas' ? 'saas' as const
-    : 'local' as const
+  // 历史兼容：旧版磁盘可能写入 "cloud"，统一当作 "local" 处理。
+  const modelSource = src.modelSource === 'saas' ? 'saas' as const : 'local' as const
   const localModelIds = Array.isArray(src.localModelIds)
     ? src.localModelIds.filter((v): v is string => typeof v === 'string')
-    : []
-  const cloudModelIds = Array.isArray(src.cloudModelIds)
-    ? src.cloudModelIds.filter((v): v is string => typeof v === 'string')
     : []
   const rawCaps = src.capabilities && typeof src.capabilities === 'object' && !Array.isArray(src.capabilities)
     ? (src.capabilities as Record<string, unknown>)
@@ -76,7 +69,7 @@ function normalize(raw: unknown): AuxiliaryModelConf {
         cap.customPrompt === null ? null : undefined,
     }
   }
-  return { modelSource, localModelIds, cloudModelIds, capabilities }
+  return { modelSource, localModelIds, capabilities }
 }
 
 /** Read auxiliary model config from ~/.openloaf/auxiliary-model.json */

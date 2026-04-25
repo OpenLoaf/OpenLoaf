@@ -23,11 +23,14 @@ import {
   hasIntegrationOAuthTokens,
   invalidateIntegrationOAuthCredentials,
 } from './integrationOAuthStore'
+import { registerOAuthInstallPending } from './oauthInstallStatusStore'
 
 type BeginIntegrationOAuthInstallResult = {
   completed: boolean
   mcpServerId?: string
   authorizationUrl?: string
+  /** OAuth `state` param — the web UI uses this to poll install status. */
+  state?: string
 }
 
 /** Build the local callback URL used by integration OAuth flows. */
@@ -59,6 +62,21 @@ export async function beginIntegrationOAuthInstall(
   const serverUrl = getOAuthIntegrationServerUrl(definition)
   let authorizationUrl: string | undefined
 
+  // Re-auth recovery: if this integration is already "installed" (i.e. we
+  // previously stored tokens for it), those tokens may be the reason the
+  // caller is retrying — the MCP handshake just failed with
+  // `OAuth authorization required`. The SDK's `auth(provider)` short-circuits
+  // to `AUTHORIZED` whenever tokens exist in the provider, even if they've
+  // been revoked server-side. Wipe them here so `auth()` is forced to open
+  // the consent screen and mint a fresh token pair.
+  if (getIntegrationMcpServerId(integrationId) && hasStoredIntegrationOAuthTokens(integrationId)) {
+    logger.info(
+      { integrationId },
+      '[integrations-oauth] clearing stale tokens before re-authorize',
+    )
+    clearIntegrationOAuthCredentials(integrationId)
+  }
+
   const provider = createIntegrationOAuthClientProvider({
     integrationId,
     redirectUrl,
@@ -80,9 +98,21 @@ export async function beginIntegrationOAuthInstall(
     throw new Error('OAuth authorization URL was not generated')
   }
 
+  const state = extractStateFromAuthorizationUrl(authorizationUrl)
+  if (state) registerOAuthInstallPending(state, integrationId)
+
   return {
     completed: false,
     authorizationUrl,
+    state,
+  }
+}
+
+function extractStateFromAuthorizationUrl(url: string): string | undefined {
+  try {
+    return new URL(url).searchParams.get('state') ?? undefined
+  } catch {
+    return undefined
   }
 }
 
@@ -118,15 +148,30 @@ export async function completeIntegrationOAuthInstall(
 async function finalizeAuthorizedIntegrationInstall(
   integrationId: string,
 ): Promise<{ mcpServerId: string }> {
+  // MCP disconnect/connect does an HTTP round-trip to the remote server and
+  // can take several seconds. We don't want that latency to block the OAuth
+  // callback response (and by extension the frontend poll), so fire the MCP
+  // side effects in the background and let the status-query machinery surface
+  // any connection errors.
   const previousServerId = getIntegrationMcpServerId(integrationId)
   if (previousServerId) {
-    await mcpClientManager.disconnect(previousServerId)
+    void mcpClientManager.disconnect(previousServerId).catch((err) => {
+      logger.warn(
+        { integrationId, previousServerId, err: String(err) },
+        '[integrations-oauth] background disconnect failed',
+      )
+    })
   }
 
   const result = installIntegration(integrationId, {})
   const server = getMcpServerById(result.mcpServerId)
   if (server?.enabled) {
-    await mcpClientManager.connect(server)
+    void mcpClientManager.connect(server).catch((err) => {
+      logger.warn(
+        { integrationId, mcpServerId: result.mcpServerId, err: String(err) },
+        '[integrations-oauth] background connect failed',
+      )
+    })
   }
 
   logger.info(

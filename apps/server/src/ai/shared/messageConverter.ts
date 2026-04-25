@@ -14,7 +14,7 @@ import {
   type UIMessage,
   type ToolSet,
 } from "ai";
-import type { ModelDefinition, ModelTag } from "@openloaf/api/common";
+import type { ModelDefinition, ModelInputAccept } from "@openloaf/api/common";
 import { trimToContextWindow } from "@/ai/shared/contextWindowManager";
 import {
   expandAttachmentTagsForModel,
@@ -187,14 +187,15 @@ function deriveModelCapability(
   modelDefinition: ModelDefinition | undefined,
 ): ModelCapabilityInline | null {
   if (!modelDefinition) return null;
-  const tagList: ModelTag[] = Array.isArray(modelDefinition.tags)
-    ? (modelDefinition.tags as ModelTag[])
-    : [];
-  const tags = new Set<ModelTag>(tagList);
+  const accepts = new Set<ModelInputAccept>(
+    Array.isArray(modelDefinition.capabilities?.inputAccepts)
+      ? modelDefinition.capabilities.inputAccepts
+      : [],
+  );
   const inputs: string[] = ["text"];
-  if (tags.has("image_input") || tags.has("image_analysis")) inputs.push("image");
-  if (tags.has("audio_analysis")) inputs.push("audio");
-  if (tags.has("video_analysis")) inputs.push("video");
+  if (accepts.has("image")) inputs.push("image");
+  if (accepts.has("audio")) inputs.push("audio");
+  if (accepts.has("video")) inputs.push("video");
   const name = typeof modelDefinition.name === "string" && modelDefinition.name.trim()
     ? modelDefinition.name.trim()
     : undefined;

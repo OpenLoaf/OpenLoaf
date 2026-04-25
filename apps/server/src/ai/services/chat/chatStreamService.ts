@@ -153,16 +153,16 @@ async function resolveDefaultCloudChatModelId(sessionId: string): Promise<string
   logger.info({ sessionId }, '[chat] chatModelId empty, fetching default from SaaS model list')
   const accessToken = (await ensureServerAccessToken()) ?? ''
   if (!accessToken) {
-    throw new Error('未登录云端账号，无法自动获取默认模型')
+    throw new Error('尚未登录云端账号，请先在设置中完成登录')
   }
   const payload = await fetchModelList(accessToken)
   if (payload.success !== true || !Array.isArray(payload.data?.data) || payload.data.data.length === 0) {
-    throw new Error('云端模型列表为空，无法自动选择默认模型')
+    throw new Error('云端暂无可用模型，请稍后重试')
   }
   const models = mapCloudChatModels(payload.data.data)
   const first = models[0]
   if (!first) {
-    throw new Error('云端模型列表解析后为空，无法自动选择默认模型')
+    throw new Error('无法解析云端模型列表，请稍后重试')
   }
   // chatModelId 格式：providerId:modelId（与 resolveChatModelFromProviders 中的 parseChatModelId 一致）
   const chatModelId = `${first.providerId}:${first.id}`
@@ -642,6 +642,7 @@ export async function runChatStream(input: {
         assistantParentUserId,
         includeCompactPrompt,
         formatError: (message) => `请求失败：${message}`,
+        agentKind,
       });
       if (!chainResult.ok) {
         return createErrorStreamResponse({

@@ -69,7 +69,11 @@ import {
 import {
   macosObserveTool,
   macosActTool,
+  macosListWindowsTool,
+  macosCaptureWindowTool,
 } from "@/ai/tools/macosControlTools";
+import { sendWeChatMediaTool } from "@/ai/tools/wechat/sendWeChatMediaTool";
+import { macosSurveyTool } from "@/ai/tools/macosSurveyTool";
 import { isDesktopRuntime } from "@/runtime/desktopRuntime";
 import { macosHelperMockEnabled } from "@/desktop/macosHelperMockStore";
 import { openUrlToolDef } from "@openloaf/api/types/tools/browser";
@@ -144,8 +148,12 @@ import {
   savePlanDraftToolDef,
   macosObserveToolDef,
   macosActToolDef,
+  macosListWindowsToolDef,
+  macosCaptureWindowToolDef,
+  macosSurveyToolDef,
 } from "@openloaf/api/types/tools/runtime";
 import { docPreviewToolDef } from "@openloaf/api/types/tools/docPreview";
+import { sendWeChatMediaToolDef } from "@openloaf/api/types/tools/wechat";
 import { generateWidgetToolDef } from "@openloaf/api/types/tools/widget";
 import {
   widgetCheckToolDef,
@@ -408,13 +416,19 @@ const TOOL_REGISTRY: Record<string, ToolEntry> = {
   [cloudImageUnderstandToolDef.id]: {
     tool: cloudImageUnderstandTool,
   },
+  [sendWeChatMediaToolDef.id]: {
+    tool: sendWeChatMediaTool,
+  },
   // Desktop-only macOS control tools. Registration is gated on OPENLOAF_RUNTIME=desktop —
   // the server process env set by the Electron supervisor. Off-desktop these entries are
   // simply absent so the model never sees them in tool lists.
   ...((isDesktopRuntime() || macosHelperMockEnabled())
     ? {
+        [macosSurveyToolDef.id]: { tool: macosSurveyTool },
         [macosObserveToolDef.id]: { tool: macosObserveTool },
         [macosActToolDef.id]: { tool: macosActTool },
+        [macosListWindowsToolDef.id]: { tool: macosListWindowsTool },
+        [macosCaptureWindowToolDef.id]: { tool: macosCaptureWindowTool },
       }
     : {}),
 };
@@ -489,10 +503,14 @@ const TOOL_DEF_REGISTRY: Record<string, { parameters?: any }> = {
   [cloudTTSToolDef.id]: cloudTTSToolDef,
   [cloudSpeechRecognizeToolDef.id]: cloudSpeechRecognizeToolDef,
   [cloudImageUnderstandToolDef.id]: cloudImageUnderstandToolDef,
+  [sendWeChatMediaToolDef.id]: sendWeChatMediaToolDef,
   ...((isDesktopRuntime() || macosHelperMockEnabled())
     ? {
+        [macosSurveyToolDef.id]: macosSurveyToolDef,
         [macosObserveToolDef.id]: macosObserveToolDef,
         [macosActToolDef.id]: macosActToolDef,
+        [macosListWindowsToolDef.id]: macosListWindowsToolDef,
+        [macosCaptureWindowToolDef.id]: macosCaptureWindowToolDef,
       }
     : {}),
 };

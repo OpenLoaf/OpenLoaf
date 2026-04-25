@@ -5,9 +5,16 @@
  * LICENSE file in the root directory of this source tree.
  *
  * macOS control tools — screenshot + Accessibility tree observation, and
- * synthetic UI actions. Both tools are no-ops outside the desktop app:
+ * synthetic UI actions. All tools no-op outside the desktop app:
  * getMacosHelper() returns null off-desktop and the tool returns a friendly
  * error telling the LLM the user isn't running OpenLoaf Desktop.
+ *
+ * Peer files (same folder, same feature):
+ *   - macosCommon.ts        shared types (Lang, WindowSummary) + i18n + perm plumbing
+ *   - macosIntentRegistry.ts built-in registry of known (app × intent) → strategies
+ *   - macosIntentRouter.ts  resolves MacosAct type="intent" into a concrete action
+ *   - macosSurveyTool.ts    MacosSurvey implementation (the "understand first" step)
+ *   - macosChromeGuard.ts   WINDOW_CHROME_BLOCKED reply helper
  */
 import path from 'node:path'
 import { promises as fs } from 'node:fs'
@@ -17,91 +24,24 @@ import { tool, zodSchema } from 'ai'
 import {
   macosActToolDef,
   macosObserveToolDef,
+  macosListWindowsToolDef,
+  macosCaptureWindowToolDef,
 } from '@openloaf/api/types/tools/runtime'
 import { resolveSessionAssetDir } from '@openloaf/api/services/chatSessionPaths'
 import { getSessionId } from '@/ai/shared/context/requestContext'
 import { getMacosHelper } from '@/desktop/macosHelperClient'
 import { createToolProgress } from '@/ai/tools/toolProgress'
-import { readBasicConf } from '@/modules/settings/openloafConfStore'
+import {
+  DESKTOP_ONLY_ERROR,
+  T,
+  buildPermissionReply,
+  getLang,
+  type Lang,
+  type WindowSummary,
+} from '@/ai/tools/macosCommon'
+import { resolveIntent } from '@/ai/tools/macosIntentRouter'
+import { buildWindowChromeBlockedReply } from '@/ai/tools/macosChromeGuard'
 
-type Lang = 'zh' | 'en'
-function getLang(): Lang {
-  return readBasicConf().promptLanguage === 'zh' ? 'zh' : 'en'
-}
-
-const DESKTOP_ONLY_ERROR: Record<Lang, string> = {
-  en: "MacOS control is only available in OpenLoaf Desktop app on macOS. Tell the user to switch to the desktop app, or to pick a different approach.",
-  zh: "macOS 桌面控制仅在 macOS 上的 OpenLoaf Desktop 应用中可用。请提示用户切换到桌面端，或改用其他方式。",
-}
-
-const SETTINGS_URL: Record<string, string> = {
-  screen:
-    'x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture',
-  accessibility:
-    'x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility',
-}
-
-const PERMISSION_LABEL: Record<Lang, Record<string, string>> = {
-  en: { screen: 'Screen Recording', accessibility: 'Accessibility' },
-  zh: { screen: '屏幕录制', accessibility: '辅助功能' },
-}
-
-const T = {
-  permMissingHeader: (lang: Lang, missing: string[]) => {
-    const labels = missing.map((k) => PERMISSION_LABEL[lang][k] ?? k).join('、')
-    return lang === 'zh'
-      ? `macOS 权限缺失：${labels}。`
-      : `macOS permission missing: ${missing.join(', ')}.`
-  },
-  openedLine: (lang: Lang, opened: string[]) => {
-    const labels = opened.map((k) => PERMISSION_LABEL[lang][k] ?? k).join('、')
-    return lang === 'zh'
-      ? `系统设置面板已自动打开：${labels}。`
-      : `System Settings panes have been opened for: ${opened.join(', ')}.`
-  },
-  hintLine: (lang: Lang, key: 'screen' | 'accessibility') => {
-    if (lang === 'zh') {
-      if (key === 'screen')
-        return '- 屏幕录制：系统设置 → 隐私与安全性 → 屏幕录制 → 启用 OpenLoaf'
-      return '- 辅助功能：系统设置 → 隐私与安全性 → 辅助功能 → 启用 OpenLoaf'
-    }
-    if (key === 'screen')
-      return '- Screen Recording: System Settings → Privacy & Security → Screen Recording → enable OpenLoaf'
-    return '- Accessibility: System Settings → Privacy & Security → Accessibility → enable OpenLoaf'
-  },
-  waitForUserHint: (lang: Lang) =>
-    lang === 'zh'
-      ? '请用自然语言提示用户去上述面板启用 OpenLoaf，等用户确认后再重试。不要自己反复重试。'
-      : 'Tell the user to enable OpenLoaf there, then wait for their confirmation before retrying. Do not retry on your own.',
-  observeFail: (lang: Lang, msg: string) =>
-    lang === 'zh' ? `MacosObserve 失败：${msg}` : `MacosObserve failed: ${msg}`,
-  observeError: (lang: Lang, msg: string) =>
-    lang === 'zh' ? `MacosObserve 异常：${msg}` : `MacosObserve error: ${msg}`,
-  actFail: (lang: Lang, msg: string) =>
-    lang === 'zh' ? `MacosAct 失败：${msg}` : `MacosAct failed: ${msg}`,
-  actError: (lang: Lang, msg: string) =>
-    lang === 'zh' ? `MacosAct 异常：${msg}` : `MacosAct error: ${msg}`,
-  actDone: (lang: Lang, label: string) =>
-    lang === 'zh'
-      ? `动作完成：${label}。下一步请调用 MacosObserve 查看当前 UI 状态再继续。`
-      : `Action done: ${label}. Call MacosObserve next to verify the UI state before continuing.`,
-  observeNeedsSession: (lang: Lang) =>
-    lang === 'zh'
-      ? 'MacosObserve 需要一个活跃的聊天会话。'
-      : 'MacosObserve requires an active chat session.',
-  progressObserveStart: (lang: Lang) =>
-    lang === 'zh' ? '截屏并读取 UI 树' : 'Capturing screen and reading AX tree',
-  progressActStart: (lang: Lang, label: string) =>
-    lang === 'zh' ? `执行 ${label}` : `Executing ${label}`,
-  progressDone: (lang: Lang, label: string) =>
-    lang === 'zh' ? `完成 ${label}` : `Done ${label}`,
-}
-
-/**
- * Best-effort: pop the relevant System Settings pane so the user can grant the
- * permission without having to navigate there manually. Non-blocking and
- * silent on failure — we never want to crash the tool because `open` misfired.
- */
 /**
  * Shell out to `/usr/bin/open -a <appName>` and wait for exit. Rejects on
  * non-zero — `open` exits 1 with "Unable to find application named '...'"
@@ -127,43 +67,6 @@ function runOpenCommand(appName: string): Promise<void> {
       else reject(new Error(stderr.trim() || `open -a exited with code ${code}`))
     })
   })
-}
-
-function openSettingsPanes(missing: string[]): string[] {
-  if (process.platform !== 'darwin') return []
-  const opened: string[] = []
-  for (const key of missing) {
-    const url = SETTINGS_URL[key]
-    if (!url) continue
-    try {
-      spawn('open', [url], { stdio: 'ignore', detached: true }).unref()
-      opened.push(key)
-    } catch {
-      // swallow — best effort
-    }
-  }
-  return opened
-}
-
-function permissionsHint(lang: Lang, missing: string[]): string {
-  const lines: string[] = []
-  if (missing.includes('screen')) lines.push(T.hintLine(lang, 'screen'))
-  if (missing.includes('accessibility'))
-    lines.push(T.hintLine(lang, 'accessibility'))
-  return lines.join('\n')
-}
-
-function buildPermissionReply(missing: string[]): string {
-  const lang = getLang()
-  const opened = openSettingsPanes(missing)
-  return [
-    T.permMissingHeader(lang, missing),
-    opened.length > 0 ? T.openedLine(lang, opened) : '',
-    permissionsHint(lang, missing),
-    T.waitForUserHint(lang),
-  ]
-    .filter(Boolean)
-    .join('\n')
 }
 
 /**
@@ -490,7 +393,7 @@ export const macosObserveTool = tool({
   inputSchema: zodSchema(macosObserveToolDef.parameters),
   needsApproval: false,
   execute: async (
-    { appFilter, maxNodes, maxDepth, includeScreenshot },
+    { appFilter, maxNodes, maxDepth, includeScreenshot, includeWindows },
     { toolCallId }: { toolCallId: string },
   ): Promise<string> => {
     const lang = getLang()
@@ -520,6 +423,7 @@ export const macosObserveTool = tool({
           maxNodes: maxNodes ?? 500,
           maxDepth,
           includeScreenshot,
+          includeWindows,
         },
         { sessionId },
       )
@@ -593,6 +497,23 @@ export const macosObserveTool = tool({
       parts.push(
         `Screenshot: ${shotKind} ${presentedW || res.screenshotWidth || '?'}×${presentedH || res.screenshotHeight || '?'} px — pass these pixel coords straight to MacosAct (click/scroll/drag); the tool converts to screen coords for you.`,
       )
+
+      // Windows list — compact rendering keeps token cost low. If the model
+      // wants full detail it can call MacosListWindows directly.
+      const windows = Array.isArray(res.windows) ? (res.windows as WindowSummary[]) : []
+      if (windows.length > 0) {
+        parts.push(`Windows (${windows.length}) — call MacosCaptureWindow(windowID) for any window that is not the frontmost or looks wrong in the main screenshot:`)
+        for (const w of windows.slice(0, 30)) {
+          const b = w.bounds
+          const size = b ? `${Math.round(b.w)}×${Math.round(b.h)}` : '?'
+          const onScreen = w.isOnScreen ? 'visible' : 'hidden'
+          parts.push(
+            `  - windowID=${w.windowID} ${onScreen} ${size} "${w.title ?? ''}" app="${w.ownerName ?? ''}"`,
+          )
+        }
+        if (windows.length > 30) parts.push(`  ... (${windows.length - 30} more)`)
+      }
+
       parts.push(`AX tree: ${nodeCount} nodes${truncated}`)
       parts.push('```json')
       parts.push(treeJson)
@@ -626,6 +547,45 @@ export const macosActTool = tool({
     }
 
     const sessionId = getSessionId()
+
+    // Intent routing (server-side). The model asks for a registered intent by
+    // id; we swap it for the right underlying action before it touches the
+    // helper. Keeps the model out of "which strategy should I use" decisions.
+    if ((action as { type?: string })?.type === 'intent') {
+      const intentAction = action as {
+        app?: string
+        intent?: string
+        args?: Record<string, string>
+      }
+      if (!intentAction.app || !intentAction.intent) {
+        progress.error('intent missing app/intent')
+        return T.actFail(
+          lang,
+          lang === 'zh'
+            ? 'intent 需要 app 和 intent 两个参数'
+            : 'intent action requires both app and intent parameters',
+        )
+      }
+      const resolved = await resolveIntent(
+        { app: intentAction.app, intent: intentAction.intent, args: intentAction.args },
+        lang,
+      )
+      if (!resolved.ok) {
+        progress.error(resolved.error)
+        return T.actFail(lang, resolved.error)
+      }
+      // Re-label the progress hint to the chosen strategy so debug traces
+      // show "Executing menu_click (...) [via intent open_moments]".
+      progress.start(
+        lang === 'zh'
+          ? `intent ${intentAction.intent} → ${resolved.strategyKind}`
+          : `intent ${intentAction.intent} → ${resolved.strategyKind}`,
+      )
+      // Rewrite action and fall through to the existing dispatch logic —
+      // everything below (menu_click / applescript handling, helper.request)
+      // just works on the rewritten payload.
+      ;(action as Record<string, unknown>) = resolved.rewritten as Record<string, unknown>
+    }
 
     // TS-side shortcut: `applescript` is just osascript. Runs in background,
     // no focus change, no cursor movement — ideal for scriptable apps (Finder,
@@ -693,6 +653,9 @@ export const macosActTool = tool({
         const missing = res.permissionsMissing ?? []
         progress.error(res.error ?? 'act failed')
         if (missing.length > 0) return buildPermissionReply(missing)
+        if (res.errorCode === 'WINDOW_CHROME_BLOCKED') {
+          return buildWindowChromeBlockedReply(lang, res.error ?? '')
+        }
         return T.actFail(lang, res.error ?? (lang === 'zh' ? '未知错误' : 'unknown error'))
       }
       progress.done(T.progressDone(lang, label))
@@ -704,3 +667,156 @@ export const macosActTool = tool({
     }
   },
 })
+
+export const macosListWindowsTool = tool({
+  description: macosListWindowsToolDef.description,
+  inputSchema: zodSchema(macosListWindowsToolDef.parameters),
+  needsApproval: false,
+  execute: async (
+    { appFilter },
+    { toolCallId }: { toolCallId: string },
+  ): Promise<string> => {
+    const lang = getLang()
+    const progress = createToolProgress(toolCallId, 'MacosListWindows')
+    progress.start(lang === 'zh' ? '枚举窗口' : 'Listing windows')
+
+    const helper = getMacosHelper()
+    if (!helper) {
+      progress.error('desktop-only')
+      return DESKTOP_ONLY_ERROR[lang]
+    }
+    const sessionId = getSessionId() ?? 'no-session'
+    try {
+      const res = await helper.request('list_windows', { appFilter }, { sessionId })
+      if (!res.ok) {
+        const missing = res.permissionsMissing ?? []
+        progress.error(res.error ?? 'list_windows failed')
+        if (missing.length > 0) return buildPermissionReply(missing)
+        return lang === 'zh'
+          ? `MacosListWindows 失败：${res.error ?? '未知错误'}`
+          : `MacosListWindows failed: ${res.error ?? 'unknown error'}`
+      }
+      const windows = Array.isArray(res.windows) ? (res.windows as WindowSummary[]) : []
+      progress.done(`${windows.length} ${lang === 'zh' ? '个窗口' : 'windows'}`)
+      return JSON.stringify({ windows }, null, 2)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      progress.error(msg)
+      return lang === 'zh'
+        ? `MacosListWindows 异常：${msg}`
+        : `MacosListWindows error: ${msg}`
+    }
+  },
+})
+
+export const macosCaptureWindowTool = tool({
+  description: macosCaptureWindowToolDef.description,
+  inputSchema: zodSchema(macosCaptureWindowToolDef.parameters),
+  needsApproval: false,
+  execute: async (
+    { windowID },
+    { toolCallId }: { toolCallId: string },
+  ): Promise<string> => {
+    const lang = getLang()
+    const progress = createToolProgress(toolCallId, 'MacosCaptureWindow')
+    progress.start(lang === 'zh' ? `截图窗口 ${windowID}` : `Capturing window ${windowID}`)
+
+    const helper = getMacosHelper()
+    if (!helper) {
+      progress.error('desktop-only')
+      return DESKTOP_ONLY_ERROR[lang]
+    }
+    const sessionId = getSessionId()
+    if (!sessionId) {
+      progress.error('no session')
+      return lang === 'zh'
+        ? 'MacosCaptureWindow 需要活跃的聊天会话。'
+        : 'MacosCaptureWindow requires an active chat session.'
+    }
+    const assetDir = await resolveSessionAssetDir(sessionId)
+    const pngPath = path.join(assetDir, `macos-window-${windowID}-${toolCallId}.png`)
+
+    try {
+      const res = await helper.request(
+        'capture_window',
+        { windowID, screenshotPath: pngPath },
+        { sessionId },
+      )
+      if (!res.ok) {
+        const missing = res.permissionsMissing ?? []
+        progress.error(res.error ?? 'capture_window failed')
+        if (missing.length > 0) return buildPermissionReply(missing)
+        return lang === 'zh'
+          ? `MacosCaptureWindow 失败：${res.error ?? '未知错误'}`
+          : `MacosCaptureWindow failed: ${res.error ?? 'unknown error'}`
+      }
+      let shotPath = typeof res.screenshotPath === 'string' ? res.screenshotPath : ''
+      let shotMediaType = 'image/png'
+      let presentedW = typeof res.screenshotWidth === 'number' ? res.screenshotWidth : 0
+      let presentedH = typeof res.screenshotHeight === 'number' ? res.screenshotHeight : 0
+      if (shotPath) {
+        const compressed = await compressScreenshot(shotPath)
+        if (compressed) {
+          shotPath = compressed.path
+          shotMediaType = compressed.mediaType
+          presentedW = compressed.width
+          presentedH = compressed.height
+        }
+      }
+      // Per-window capture also updates the session's coord baseline so the
+      // next MacosAct point is interpreted in this window's image space.
+      const rawFrame = res.screenshotFrame as
+        | { x?: unknown; y?: unknown; w?: unknown; h?: unknown }
+        | undefined
+      if (
+        presentedW > 0 &&
+        presentedH > 0 &&
+        rawFrame &&
+        typeof rawFrame.x === 'number' &&
+        typeof rawFrame.y === 'number' &&
+        typeof rawFrame.w === 'number' &&
+        typeof rawFrame.h === 'number' &&
+        rawFrame.w > 0 &&
+        rawFrame.h > 0
+      ) {
+        observeMetaBySession.set(sessionId, {
+          screenshotFrame: { x: rawFrame.x, y: rawFrame.y, w: rawFrame.w, h: rawFrame.h },
+          presentedW,
+          presentedH,
+        })
+      }
+      progress.done(
+        `${presentedW || res.screenshotWidth || '?'}×${presentedH || res.screenshotHeight || '?'}`,
+      )
+
+      const parts: string[] = []
+      if (shotPath) {
+        parts.push(
+          `<system-tag type="attachment" path="${shotPath}" media-type="${shotMediaType}"/>`,
+        )
+        parts.push('')
+      }
+      parts.push(
+        `Window ${windowID} screenshot: ${presentedW || res.screenshotWidth || '?'}×${presentedH || res.screenshotHeight || '?'} px.`,
+      )
+      if (rawFrame) {
+        parts.push(
+          `Frame (logical screen coords): x=${rawFrame.x} y=${rawFrame.y} w=${rawFrame.w} h=${rawFrame.h}`,
+        )
+      }
+      parts.push(
+        lang === 'zh'
+          ? '坐标基准已更新为该窗口——后续 MacosAct click/scroll/drag 的 {x,y} 按本图解释。'
+          : 'Coordinate baseline is now this window — MacosAct points (click/scroll/drag) are interpreted in this image space.',
+      )
+      return parts.join('\n')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      progress.error(msg)
+      return lang === 'zh'
+        ? `MacosCaptureWindow 异常：${msg}`
+        : `MacosCaptureWindow error: ${msg}`
+    }
+  },
+})
+

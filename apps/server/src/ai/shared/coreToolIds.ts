@@ -64,6 +64,34 @@ export const SUB_AGENT_CORE_TOOL_IDS = CORE_TOOL_IDS
 /**
  * Core tool set for channel agents (WeChat / Slack / Telegram / 等 IM 通道).
  *
- * 与 CORE_TOOL_IDS 当前一致；保留为独立常量，便于未来按 channel 场景裁剪。
+ * 与 base CORE_TOOL_IDS 一致——IM 通道的 ack / 超时兜底全部由 bridge 的独立 LLM
+ * 路径（fastAgent / progress summarizer）直接发送，不经过 channel agent。分层清晰：
+ * bridge = 首条回执 + 等待播报；channel agent = 真正的业务工作。
  */
 export const CHANNEL_CORE_TOOL_IDS = CORE_TOOL_IDS
+
+/**
+ * 按 folderName 返回该 Agent 运行时真正"常驻"的 core 工具集。
+ * UI 展示用——让 "已加载工具" 与 "懒加载工具" 能正确切分 agent.toolIds。
+ *
+ * - master / general-purpose / channel / explore → 对应 XXX_CORE_TOOL_IDS
+ * - explore：没有 ToolSearch 懒加载机制（固定工具集全部 eager），core = 全部 toolIds
+ * - 其他用户 Agent：保守返回 CORE_TOOL_IDS（最小常驻集合）
+ */
+export function resolveAgentCoreToolIds(
+  folderName: string,
+  allToolIds: readonly string[],
+): string[] {
+  switch (folderName) {
+    case 'master':
+      return [...MASTER_CORE_TOOL_IDS]
+    case 'general-purpose':
+      return [...SUB_AGENT_CORE_TOOL_IDS]
+    case 'channel':
+      return [...CHANNEL_CORE_TOOL_IDS]
+    case 'explore':
+      return [...allToolIds]
+    default:
+      return [...CORE_TOOL_IDS]
+  }
+}

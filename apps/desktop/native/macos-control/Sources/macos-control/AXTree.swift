@@ -14,6 +14,25 @@ enum AXTree {
     var budget = Budget(nodes: maxNodes)
     let root = walk(axApp, depth: 0, maxDepth: maxDepth, path: [String](), budget: &budget)
 
+    // axRichness = share of nodes the model could plausibly target (has
+    // actions / identifier / title). Note this counts the whole tree including
+    // the menu bar, so WeChat (≈3 chrome buttons in the window + rich menu
+    // bar) still shows high richness. Whether the business UI is AX-reachable
+    // vs self-drawn is a stronger judgement that needs window-tree structure
+    // — the Survey tool makes that call. We emit only the raw number here.
+    let richness: Double
+    if budget.count > 0 {
+      richness = Double(budget.actionableCount) / Double(budget.count)
+    } else {
+      richness = 0
+    }
+
+    // windowChildRoles: the direct children roles of the app's first AXWindow.
+    // If it's nothing but chrome buttons (Close/Minimize/Zoom/FullScreen +
+    // maybe AXToolbar), the real business UI is painted, not AX — the caller
+    // should not try AX path clicks for navigation.
+    let windowChildRoles = collectFirstWindowChildRoles(axApp)
+
     return [
       "app": [
         "name": runningApp.localizedName ?? "",
@@ -23,7 +42,30 @@ enum AXTree {
       "tree": root ?? NSNull(),
       "truncated": budget.truncated,
       "nodeCount": budget.count,
+      "axRichness": richness,
+      "windowChildRoles": windowChildRoles,
     ]
+  }
+
+  // Return the direct-child roles of the app's frontmost AXWindow, for
+  // self-drawn-UI detection. e.g. WeChat → ["AXButton","AXButton","AXButton"]
+  // with all three being chrome. Finder → many roles including AXOutline,
+  // AXGroup, AXScrollArea, AXToolbar etc. Empty array when no window is
+  // reachable (app not fully launched, all windows minimized).
+  private static func collectFirstWindowChildRoles(_ axApp: AXUIElement) -> [String] {
+    guard let appChildren = axChildren(axApp) else { return [] }
+    for child in appChildren {
+      guard let role = axString(child, kAXRoleAttribute), role == "AXWindow" else { continue }
+      guard let winChildren = axChildren(child) else { return [] }
+      return winChildren.compactMap { el -> String? in
+        let r = axString(el, kAXRoleAttribute) ?? ""
+        let sub = axString(el, kAXSubroleAttribute) ?? ""
+        // Use subrole when present (AXCloseButton is more informative than
+        // AXButton); otherwise fall back to role.
+        return sub.isEmpty ? r : sub
+      }
+    }
+    return []
   }
 
   private static func resolveTargetApp(filter: String?) throws -> NSRunningApplication {
@@ -43,10 +85,18 @@ enum AXTree {
     var nodes: Int
     var count: Int = 0
     var truncated: Bool = false
+    // Counts nodes the model can "grab" — has actions, identifier, or
+    // non-empty title. Divide by `count` for an AX richness ratio used to
+    // tell the model "this app's AX tree is a chrome-only shell, don't try
+    // to AXPress by path — go menu_click or coord click instead".
+    var actionableCount: Int = 0
     mutating func take() -> Bool {
       if count >= nodes { truncated = true; return false }
       count += 1
       return true
+    }
+    mutating func creditActionable() {
+      actionableCount += 1
     }
   }
 
@@ -56,14 +106,40 @@ enum AXTree {
 
     var node: [String: Any] = [:]
     node["path"] = path
-    if let s = axString(el, kAXRoleAttribute) { node["role"] = s }
+    let role = axString(el, kAXRoleAttribute)
+    if let s = role { node["role"] = s }
     if let s = axString(el, kAXSubroleAttribute) { node["subrole"] = s }
-    if let s = axString(el, kAXTitleAttribute), !s.isEmpty { node["title"] = s }
+    let titleValue = axString(el, kAXTitleAttribute)
+    if let s = titleValue, !s.isEmpty { node["title"] = s }
     if let s = axString(el, kAXValueAttribute), !s.isEmpty { node["value"] = s }
     if let s = axString(el, kAXDescriptionAttribute), !s.isEmpty { node["description"] = s }
-    if let s = axString(el, kAXIdentifierAttribute), !s.isEmpty { node["identifier"] = s }
+    let identifierValue = axString(el, kAXIdentifierAttribute)
+    if let s = identifierValue, !s.isEmpty { node["identifier"] = s }
     if let frame = axFrame(el) { node["frame"] = frame }
-    if let actions = axActions(el), !actions.isEmpty { node["actions"] = actions }
+    let actionsValue = axActions(el)
+    if let actions = actionsValue, !actions.isEmpty { node["actions"] = actions }
+
+    // Credit this node as "actionable" if the model could plausibly target it:
+    // has AX actions, a stable identifier, or a non-empty title. Pure
+    // containers (AXGroup / AXSplitGroup with no id / no title) don't count.
+    // The ratio becomes axRichness, used to decide whether AX path clicks
+    // make sense at all.
+    let hasActions = (actionsValue?.isEmpty == false)
+    let hasIdentifier = (identifierValue?.isEmpty == false)
+    let hasTitle = (titleValue?.isEmpty == false)
+    if hasActions || hasIdentifier || hasTitle {
+      budget.creditActionable()
+    }
+
+    // For menu items, surface the keyboard shortcut so the model doesn't need
+    // to OCR menus or guess. Adapted from Peekaboo MenuService+List.swift
+    // extractKeyboardShortcut (MIT). Phase 1 reads CmdChar + CmdModifiers only
+    // — covers ~90% of real shortcuts. AXMenuItemCmdVirtualKey (arrows / Fn
+    // keys) and AXMenuItemCmdGlyph (special glyphs) left for later.
+    if role == "AXMenuItem", let cmdChar = axString(el, "AXMenuItemCmdChar"), !cmdChar.isEmpty {
+      let mods = axInt(el, "AXMenuItemCmdModifiers") ?? 0
+      node["shortcut"] = formatShortcut(cmdChar: cmdChar, modifiers: mods)
+    }
 
     if depth >= maxDepth {
       return node
@@ -127,6 +203,31 @@ enum AXTree {
     var value: CFTypeRef?
     guard AXUIElementCopyAttributeValue(el, attr as CFString, &value) == .success else { return nil }
     return value as? String
+  }
+
+  private static func axInt(_ el: AXUIElement, _ attr: String) -> Int? {
+    var value: CFTypeRef?
+    guard AXUIElementCopyAttributeValue(el, attr as CFString, &value) == .success else { return nil }
+    return value as? Int
+  }
+
+  // Format an AXMenuItem shortcut into a readable "⌃⌥⇧⌘C" string.
+  // Bit layout follows Apple's official kAXMenuItemModifier* constants:
+  //   bit 0 = ⇧ shift
+  //   bit 1 = ⌥ option
+  //   bit 2 = ⌃ control
+  //   bit 3 = kAXMenuItemModifierNoCommand — inverted: 1 means "no ⌘"
+  //     (so modifiers == 0 is the most common "⌘+char" case, e.g. ⌘N).
+  // Order follows macOS convention ⌃⌥⇧⌘key. Virtual keys / Cmd glyphs for
+  // arrows and Fn keys are Phase 2.
+  private static func formatShortcut(cmdChar: String, modifiers: Int) -> String {
+    var parts: [String] = []
+    if modifiers & (1 << 2) != 0 { parts.append("⌃") }
+    if modifiers & (1 << 1) != 0 { parts.append("⌥") }
+    if modifiers & (1 << 0) != 0 { parts.append("⇧") }
+    if modifiers & (1 << 3) == 0 { parts.append("⌘") }
+    parts.append(cmdChar.uppercased())
+    return parts.joined()
   }
 
   private static func axChildren(_ el: AXUIElement) -> [AXUIElement]? {
