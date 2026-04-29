@@ -124,7 +124,7 @@ export function registerAuthRoutes(app: Hono): void {
     }
     try {
       const result = await exchangeLoginCodeViaSaas(loginCode);
-      applyTokenExchangeResult({
+      await applyTokenExchangeResult({
         accessToken: result.accessToken,
         refreshToken: result.refreshToken,
         user: result.user,
@@ -163,11 +163,11 @@ export function registerAuthRoutes(app: Hono): void {
   // 逻辑：Web 注销时调此端点，Server 负责向 SaaS 撤销 refresh token
   // 并清理本地 auth.json + 内存。撤销失败不阻塞本地清理。
   app.post("/auth/logout", async (c) => {
-    const refreshToken = getRefreshToken();
+    const refreshToken = await getRefreshToken();
     if (refreshToken) {
       await revokeRefreshTokenViaSaas(refreshToken);
     }
-    clearAuthSession();
+    await clearAuthSession();
     return c.json({ success: true as const });
   });
 

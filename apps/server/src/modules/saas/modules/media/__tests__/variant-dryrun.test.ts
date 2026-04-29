@@ -67,7 +67,7 @@ async function resolveAccessToken(): Promise<string> {
     )
     const token = getAccessToken()
     if (token) return token
-    const refreshToken = getRefreshToken()
+    const refreshToken = await getRefreshToken()
     if (refreshToken) {
       const tempClient = new SaaSClient({ baseUrl: SAAS_URL! })
       const result = await tempClient.auth.refresh(refreshToken) as { accessToken: string }

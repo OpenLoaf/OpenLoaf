@@ -61,18 +61,18 @@ const REFRESH_BUFFER_MS = 60 * 1000;
 /**
  * Apply token exchange results into memory and config.
  */
-export function applyTokenExchangeResult(input: {
+export async function applyTokenExchangeResult(input: {
   accessToken: string;
   refreshToken?: string;
   expiresIn?: number;
   user?: AuthUser;
-}): void {
+}): Promise<void> {
   sessionState.accessToken = input.accessToken;
   sessionState.accessTokenExpiresAt = resolveExpiresAt(input.accessToken, input.expiresIn);
   accessTokenLoaded = true;
   writeAuthAccessToken(input.accessToken, sessionState.accessTokenExpiresAt);
   if (input.refreshToken) {
-    setRefreshToken(input.refreshToken);
+    await setRefreshToken(input.refreshToken);
   }
   if (input.user) {
     sessionState.user = input.user;
@@ -146,10 +146,10 @@ function mirrorAccessTokenToDiskIfStale(): void {
 /**
  * Load refresh token from config when needed.
  */
-function loadRefreshTokenIfNeeded(): string | undefined {
+async function loadRefreshTokenIfNeeded(): Promise<string | undefined> {
   if (!refreshTokenLoaded) {
     refreshTokenLoaded = true;
-    const stored = readAuthRefreshToken();
+    const stored = await readAuthRefreshToken();
     if (stored) sessionState.refreshToken = stored;
   }
   return sessionState.refreshToken;
@@ -158,30 +158,30 @@ function loadRefreshTokenIfNeeded(): string | undefined {
 /**
  * Persist refresh token to config and memory.
  */
-function setRefreshToken(refreshToken: string): void {
+async function setRefreshToken(refreshToken: string): Promise<void> {
   sessionState.refreshToken = refreshToken;
   refreshTokenLoaded = true;
-  writeAuthRefreshToken(refreshToken);
+  await writeAuthRefreshToken(refreshToken);
 }
 
 /**
  * Clear auth session and persisted refresh token.
  */
-export function clearAuthSession(): void {
+export async function clearAuthSession(): Promise<void> {
   sessionState.accessToken = undefined;
   sessionState.accessTokenExpiresAt = undefined;
   sessionState.user = undefined;
   sessionState.refreshToken = undefined;
   refreshTokenLoaded = true;
   accessTokenLoaded = true;
-  clearAuthRefreshToken();
+  await clearAuthRefreshToken();
   clearAuthAccessToken();
 }
 
 /**
  * Get refresh token from memory/config.
  */
-export function getRefreshToken(): string | undefined {
+export async function getRefreshToken(): Promise<string | undefined> {
   return loadRefreshTokenIfNeeded();
 }
 
@@ -200,7 +200,7 @@ export async function ensureServerAccessToken(): Promise<string | undefined> {
 
   if (pendingRefresh) return pendingRefresh;
 
-  const refreshToken = getRefreshToken();
+  const refreshToken = await getRefreshToken();
   if (!refreshToken) return undefined;
 
   pendingRefresh = (async () => {
@@ -210,7 +210,7 @@ export async function ensureServerAccessToken(): Promise<string | undefined> {
         logger.warn({ msg: result.message }, "[auth] refresh rejected by SaaS");
         return undefined;
       }
-      applyTokenExchangeResult({
+      await applyTokenExchangeResult({
         accessToken: result.accessToken,
         refreshToken: result.refreshToken,
         user: result.user,

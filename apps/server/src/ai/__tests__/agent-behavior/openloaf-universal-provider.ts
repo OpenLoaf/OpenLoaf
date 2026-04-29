@@ -75,13 +75,13 @@ async function resolveSaasAccessToken(): Promise<string | undefined> {
   const envToken = process.env.OPENLOAF_SAAS_ACCESS_TOKEN?.trim()
   if (envToken) return envToken
 
-  const rt = getRefreshToken()
+  const rt = await getRefreshToken()
   if (!rt) return undefined
 
   try {
     const result = await refreshAccessToken(rt)
     if ('message' in result) return undefined
-    applyTokenExchangeResult({
+    await applyTokenExchangeResult({
       accessToken: result.accessToken,
       refreshToken: result.refreshToken,
       user: result.user,

@@ -7,9 +7,42 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import type { AuthRefreshResponse } from "@openloaf-saas/sdk";
+import { existsSync, readFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import type { AuthClientInfo, AuthRefreshResponse } from "@openloaf-saas/sdk";
 import { getSaasClient } from "../../client";
 import { logger } from "../../../../common/logger";
+
+let cachedClientInfo: AuthClientInfo | undefined;
+function buildClientInfo(): AuthClientInfo {
+  if (cachedClientInfo) return cachedClientInfo;
+  let appVersion: string | undefined;
+  try {
+    let dir = path.dirname(fileURLToPath(import.meta.url));
+    for (let i = 0; i < 8; i++) {
+      const pkgPath = path.join(dir, "package.json");
+      if (existsSync(pkgPath)) {
+        const pkg = JSON.parse(readFileSync(pkgPath, "utf8")) as { name?: string; version?: string };
+        if (pkg.name === "server") {
+          appVersion = pkg.version;
+          break;
+        }
+      }
+      const parent = path.dirname(dir);
+      if (parent === dir) break;
+      dir = parent;
+    }
+  } catch {
+    // 逻辑：读不到 package.json 时静默兜底，clientInfo.appVersion 留空。
+  }
+  cachedClientInfo = {
+    appId: "openloaf-server",
+    platform: process.platform,
+    ...(appVersion ? { appVersion } : {}),
+  };
+  return cachedClientInfo;
+}
 
 /** Token exchange / refresh user shape from SaaS SDK. */
 export type SaasAuthSdkUser = {
@@ -41,7 +74,7 @@ export async function refreshAccessToken(
   // 逻辑：统一走 SDK 并复用缓存 client。
   const client = getSaasClient();
   try {
-    const result = await client.auth.refresh(refreshToken);
+    const result = await client.auth.refresh(refreshToken, buildClientInfo());
     logger.info("[auth] access token refreshed successfully");
     return result;
   } catch (error) {
@@ -57,7 +90,7 @@ export async function exchangeLoginCodeViaSaas(
   logger.info("[auth] exchanging login code via SaaS SDK");
   const client = getSaasClient();
   try {
-    const result = await client.auth.exchange(loginCode);
+    const result = await client.auth.exchange(loginCode, buildClientInfo());
     logger.info({ email: result.user?.email }, "[auth] login code exchanged successfully");
     return result;
   } catch (error) {

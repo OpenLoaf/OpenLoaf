@@ -7,7 +7,7 @@
  * Project: OpenLoaf
  * Repository: https://github.com/OpenLoaf/OpenLoaf
  */
-import { generateText, Output, type UIMessage } from 'ai'
+import { generateText, type UIMessage } from 'ai'
 import { createHash } from 'node:crypto'
 import type { z } from 'zod'
 import { resolveChatModel } from '@/ai/models/resolveChatModel'
@@ -24,6 +24,10 @@ import {
   AUXILIARY_CAPABILITIES,
   type CapabilityKey,
 } from './auxiliaryCapabilities'
+import {
+  describeSchemaForPrompt,
+  parseJsonByZod,
+} from './jsonExtract'
 
 /** In-memory TTL cache for auxiliary inference results. */
 const cache = new Map<string, { value: unknown; expiresAt: number }>()
@@ -196,17 +200,22 @@ export async function auxiliaryInfer<T extends z.ZodType>({
         ? flattenMessagesToContext(messages!)
         : (context ?? '')
 
+    // 不走 AI SDK 的 Output.object（会编码为 response_format=json_schema，
+    // 但 dashscope 需要 messages 含 'json'、deepseek 不支持 json_schema、kimi 直接无视，
+    // 各家行为不一致；改成纯文本生成 + 自己抽 JSON + zod 校验，跨 provider 统一可用。）
+    const schemaHint = describeSchemaForPrompt(schema)
+    const finalSystem = `${systemPrompt}\n\nReturn ONLY a JSON object that matches this schema (no markdown, no commentary):\n${schemaHint}`
+
     try {
       const result = await generateText({
         model: resolved.model,
-        output: Output.object({ schema }),
-        system: systemPrompt,
+        system: finalSystem,
         ...(modelMessages ? { messages: modelMessages } : { prompt: effectivePrompt }),
         abortSignal: abortController.signal,
         ...(maxTokens ? { maxTokens } : {}),
       })
 
-      const value = result.output as z.infer<T>
+      const value = parseJsonByZod(result.text, schema)
       if (!noCache) setCache(key, value)
       console.log(
         `${LOG_PREFIX} [${capabilityKey}] 推理完成`,

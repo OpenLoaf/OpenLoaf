@@ -528,14 +528,47 @@ export function writeBasicConf(next: BasicConf): void {
   writeJson(getSettingsPath(), { ...conf, basic: normalizeBasicConf(next) });
 }
 
-/** Read SaaS refresh token from auth.json. */
-export function readAuthRefreshToken(): string | undefined {
+// 逻辑：prod 把 SaaS refresh token 写入系统 keychain（macOS Keychain /
+// Win Credential Manager / Linux libsecret），dev 仍写 auth.dev.json，方便
+// 本地脚本跨进程复用。keytar 模块按需懒加载，dev 路径完全不触碰它。
+const KEYCHAIN_SERVICE = "ai.openloaf.server";
+const KEYCHAIN_ACCOUNT = "refresh-token";
+let keytarPromise: Promise<typeof import("keytar")> | null = null;
+async function loadKeytar(): Promise<typeof import("keytar")> {
+  if (!keytarPromise) {
+    keytarPromise = import("keytar").catch((err) => {
+      keytarPromise = null;
+      const hint =
+        process.platform === "linux"
+          ? "Linux 需要先安装 libsecret-1-dev 和 gnome-keyring"
+          : "请检查 keytar native binding 是否打包正确";
+      throw new Error(`[auth] keytar 加载失败：${err instanceof Error ? err.message : String(err)}（${hint}）`);
+    });
+  }
+  return keytarPromise;
+}
+function isProdAuthStore(): boolean {
+  return process.env.NODE_ENV === "production";
+}
+
+/** Read SaaS refresh token (prod: keychain；dev: auth.dev.json). */
+export async function readAuthRefreshToken(): Promise<string | undefined> {
+  if (isProdAuthStore()) {
+    const keytar = await loadKeytar();
+    const value = await keytar.getPassword(KEYCHAIN_SERVICE, KEYCHAIN_ACCOUNT);
+    return value ?? undefined;
+  }
   const conf = readJsonSafely<AuthFile>(getAuthPath(), {});
   return conf.auth?.refreshToken;
 }
 
-/** Persist SaaS refresh token into auth.json. */
-export function writeAuthRefreshToken(token: string): void {
+/** Persist SaaS refresh token (prod: keychain；dev: auth.dev.json). */
+export async function writeAuthRefreshToken(token: string): Promise<void> {
+  if (isProdAuthStore()) {
+    const keytar = await loadKeytar();
+    await keytar.setPassword(KEYCHAIN_SERVICE, KEYCHAIN_ACCOUNT, token);
+    return;
+  }
   const conf = readJsonSafely<AuthFile>(getAuthPath(), {});
   // 逻辑：刷新 token 时同步更新时间，便于排查。
   writeJson(getAuthPath(), {
@@ -663,8 +696,13 @@ export function removeToolApprovalRuleAtomic(
   return next
 }
 
-/** Clear SaaS refresh token from auth.json. */
-export function clearAuthRefreshToken(): void {
+/** Clear SaaS refresh token (prod: keychain；dev: auth.dev.json). */
+export async function clearAuthRefreshToken(): Promise<void> {
+  if (isProdAuthStore()) {
+    const keytar = await loadKeytar();
+    await keytar.deletePassword(KEYCHAIN_SERVICE, KEYCHAIN_ACCOUNT).catch(() => {});
+    return;
+  }
   const conf = readJsonSafely<AuthFile>(getAuthPath(), {});
   writeJson(getAuthPath(), {
     ...conf,
