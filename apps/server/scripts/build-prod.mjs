@@ -54,6 +54,7 @@ await build({
     "@anthropic-ai/claude-agent-sdk",
     "@ffmpeg-installer/ffmpeg",
     "@ffprobe-installer/ffprobe",
+    "keytar",
   ],
   alias: {
     "@trpc/client": path.resolve(repoRoot, "node_modules", "@trpc", "client"),

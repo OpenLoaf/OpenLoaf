@@ -48,6 +48,7 @@ const NATIVE_DEP_ROOTS = [
   '@ffprobe-installer', // ffprobe 静态二进制（scope → 枚举平台子包 @ffprobe-installer/{platform}-{arch}）
   'skia-canvas', // PPTX 渲染原生模块（server esbuild / main webpack external），含 .node 二进制
   'node-pptx-png-v2', // PPTX → PNG 渲染引擎（server esbuild / main webpack external），依赖 skia-canvas
+  'keytar', // OS 钥匙串（macOS Keychain / Win Credential Manager / Linux libsecret），含 .node 二进制
 ];
 
 /**
