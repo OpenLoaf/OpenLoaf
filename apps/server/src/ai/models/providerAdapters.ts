@@ -31,6 +31,10 @@ import {
   wrapQwenMultimodalFetch,
 } from "@/ai/models/qwen/qwenMultimodalMiddleware";
 import {
+  createDeepseekReasoningMiddleware,
+  wrapDeepseekReasoningFetch,
+} from "@/ai/models/deepseek/deepseekReasoningMiddleware";
+import {
   buildAiDebugFetch,
   buildFinalUrlFetch,
   ensureOpenAiCompatibleBaseUrl,
@@ -152,6 +156,29 @@ function wrapMoonshotWithReasoning(
 }
 
 /**
+ * DeepSeek 思考模式（OL-TX-012/013 等 V3.1+/V4 hybrid，capability `reasoning='always'|'optional'`）：
+ * `@ai-sdk/deepseek` 的默认 messages 转换器会剥光历史 assistant.reasoning，
+ * 与 DeepSeek 服务端"reasoning_content 必须回传"硬约束冲突 → 多轮 + 工具调用 400。
+ * 详细背景见 `deepseekReasoningMiddleware.ts` 顶部注释。
+ *
+ * 触发条件：仅 reasoning ∈ {always, optional}。其他 deepseek 模型（如 reasoning='none'
+ * 的非思考变体）走原 createDeepSeek 路径，零行为变化。
+ */
+function wrapDeepSeekFactory({ baseURL, apiKey, fetch, reasoning }: SaasFactoryOpts) {
+  if (reasoning !== "always" && reasoning !== "optional") {
+    return (modelId: string): LanguageModelV3 => createDeepSeek({ baseURL, apiKey, fetch })(modelId);
+  }
+  const realFetch = fetch ?? (globalThis.fetch as typeof globalThis.fetch);
+  const wrappedFetch = wrapDeepseekReasoningFetch(realFetch);
+  const provider = createDeepSeek({ baseURL, apiKey, fetch: wrappedFetch });
+  return (modelId: string): LanguageModelV3 =>
+    wrapLanguageModel({
+      model: provider(modelId),
+      middleware: createDeepseekReasoningMiddleware(),
+    }) as unknown as LanguageModelV3;
+}
+
+/**
  * Qwen / 阿里百炼系模型：在 SDK 默认 messages 转换器不支持 video/audio 的场景下，
  * 用 transformParams middleware 把 video/audio file part 改成占位文本，
  * 再用自定义 fetch 在 HTTP body 层把占位还原成 video_url / input_audio。
@@ -191,7 +218,7 @@ const SAAS_PROVIDER_FACTORIES: Record<
     const provider = createMoonshotAI({ baseURL, apiKey, fetch });
     return (modelId) => wrapMoonshotWithReasoning(provider(modelId), reasoning);
   },
-  deepseek: ({ baseURL, apiKey, fetch }) => createDeepSeek({ baseURL, apiKey, fetch }),
+  deepseek: wrapDeepSeekFactory,
   google: ({ baseURL, apiKey, fetch }) => createGoogleGenerativeAI({ baseURL, apiKey, fetch }),
   xai: ({ baseURL, apiKey, fetch }) => createXai({ baseURL, apiKey, fetch }),
   grok: ({ baseURL, apiKey, fetch }) => createXai({ baseURL, apiKey, fetch }),
@@ -252,6 +279,38 @@ function buildSaasAdapter(): ProviderAdapter {
       }
       const openaiProvider = createOpenAI({ baseURL, apiKey, fetch: finalFetch });
       return openaiProvider.chat(modelId);
+    },
+  };
+}
+
+/**
+ * Build direct-path DeepSeek adapter — 与 SaaS 路径同样按 `modelDefinition.reasoning`
+ * 决定是否注入 reasoning_content 回填，避免直连 DeepSeek 思考模型时被 400。
+ */
+function buildDeepseekAdapter(): ProviderAdapter {
+  return {
+    id: "deepseek",
+    buildAiSdkModel: ({ provider, modelId, modelDefinition, providerDefinition }) => {
+      const apiKey = readApiKey(provider.authConfig);
+      const resolvedApiUrl = provider.apiUrl.trim() || providerDefinition?.apiUrl?.trim() || "";
+      if (!apiKey || !resolvedApiUrl) return null;
+      let debugFetch = buildAiDebugFetch();
+      debugFetch = withUserAgentFetch(debugFetch, provider.options?.customUserAgent);
+      const useFinalUrl = provider.options?.finalApiUrl === true;
+      const baseURL = useFinalUrl
+        ? resolvedApiUrl.replace(/\/+$/, "")
+        : ensureOpenAiCompatibleBaseUrl(resolvedApiUrl);
+      const finalFetch = useFinalUrl ? buildFinalUrlFetch(resolvedApiUrl, debugFetch) : debugFetch;
+      const reasoning = modelDefinition?.reasoning;
+      if (reasoning !== "always" && reasoning !== "optional") {
+        return createDeepSeek({ baseURL, apiKey, fetch: finalFetch })(modelId);
+      }
+      const wrappedFetch = wrapDeepseekReasoningFetch(finalFetch);
+      const dsProvider = createDeepSeek({ baseURL, apiKey, fetch: wrappedFetch });
+      return wrapLanguageModel({
+        model: dsProvider(modelId),
+        middleware: createDeepseekReasoningMiddleware(),
+      }) as unknown as LanguageModelV3;
     },
   };
 }
@@ -328,9 +387,7 @@ export const PROVIDER_ADAPTERS: Record<string, ProviderAdapter> = {
   google: buildAiSdkAdapter("google", ({ apiUrl, apiKey, fetch }) =>
     createGoogleGenerativeAI({ baseURL: apiUrl, apiKey, fetch }),
   ),
-  deepseek: buildAiSdkAdapter("deepseek", ({ apiUrl, apiKey, fetch }) =>
-    createDeepSeek({ baseURL: ensureOpenAiCompatibleBaseUrl(apiUrl), apiKey, fetch }),
-  ),
+  deepseek: buildDeepseekAdapter(),
   xai: buildAiSdkAdapter("xai", ({ apiUrl, apiKey, fetch }) =>
     createXai({ baseURL: ensureOpenAiCompatibleBaseUrl(apiUrl), apiKey, fetch }),
   ),
