@@ -536,14 +536,18 @@ const KEYCHAIN_ACCOUNT = "refresh-token";
 let keytarPromise: Promise<typeof import("keytar")> | null = null;
 async function loadKeytar(): Promise<typeof import("keytar")> {
   if (!keytarPromise) {
-    keytarPromise = import("keytar").catch((err) => {
-      keytarPromise = null;
-      const hint =
-        process.platform === "linux"
-          ? "Linux 需要先安装 libsecret-1-dev 和 gnome-keyring"
-          : "请检查 keytar native binding 是否打包正确";
-      throw new Error(`[auth] keytar 加载失败：${err instanceof Error ? err.message : String(err)}（${hint}）`);
-    });
+    // keytar 是 CJS 包，被 ESM bundle 通过 await import() 加载时 named exports
+    // 不会被提到顶层，setPassword 等会落在 .default 上 — 必须显式取 default。
+    keytarPromise = import("keytar")
+      .then((m) => ((m as { default?: typeof import("keytar") }).default ?? m) as typeof import("keytar"))
+      .catch((err) => {
+        keytarPromise = null;
+        const hint =
+          process.platform === "linux"
+            ? "Linux 需要先安装 libsecret-1-dev 和 gnome-keyring"
+            : "请检查 keytar native binding 是否打包正确";
+        throw new Error(`[auth] keytar 加载失败：${err instanceof Error ? err.message : String(err)}（${hint}）`);
+      });
   }
   return keytarPromise;
 }
