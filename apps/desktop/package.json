@@ -1,7 +1,7 @@
 {
   "name": "desktop",
   "productName": "OpenLoaf",
-  "version": "0.2.5-beta.70",
+  "version": "0.2.5-beta.71",
   "description": "OpenLoaf desktop app",
   "main": ".webpack/main",
   "build": {
@@ -43,7 +43,7 @@
       "target": [
         "AppImage"
       ],
-      "artifactName": "${productName}-${version}-Linux.${ext}"
+      "artifactName": "${productName}-${version}-Linux-${arch}.${ext}"
     },
     "win": {
       "icon": "resources/icon.ico",
@@ -56,7 +56,7 @@
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
       "shortcutName": "OpenLoaf",
-      "artifactName": "${productName}-${version}-Windows-Installer.${ext}"
+      "artifactName": "${productName}-${version}-Windows-${arch}.${ext}"
     },
     "files": [
       ".webpack/**/*",
@@ -104,6 +104,8 @@
     "package:ci": "pnpm run predesktop && electron-forge package",
     "package:x64": "pnpm run predesktop && pnpm --filter server run build:prod && pnpm --filter web run build --webpack && electron-forge package --arch=x64",
     "package:x64:ci": "pnpm run predesktop && electron-forge package --arch=x64",
+    "package:arm64": "pnpm run predesktop && pnpm --filter server run build:prod && pnpm --filter web run build --webpack && electron-forge package --arch=arm64",
+    "package:arm64:ci": "pnpm run predesktop && electron-forge package --arch=arm64",
     "dist:mac": "pnpm run package && node scripts/dist.mjs --mac",
     "dist:mac:ci": "pnpm run package:ci && node scripts/dist.mjs --mac",
     "dist:mac:x64": "pnpm run package:x64 && node scripts/dist.mjs --mac --x64 --arch=x64",
@@ -112,8 +114,12 @@
     "dist:mac:dev": "pnpm run package && node scripts/dist.mjs --mac --config.mac.identity=null --config.mac.target=dmg",
     "dist:win": "pnpm run package && node scripts/dist.mjs --win --config.npmRebuild=false",
     "dist:win:ci": "pnpm run package:ci && node scripts/dist.mjs --win --config.npmRebuild=false",
+    "dist:win:arm64": "pnpm run package:arm64 && node scripts/dist.mjs --win --arm64 --arch=arm64 --config.npmRebuild=false",
+    "dist:win:arm64:ci": "pnpm run package:arm64:ci && node scripts/dist.mjs --win --arm64 --arch=arm64 --config.npmRebuild=false",
     "dist:linux": "pnpm run package && node scripts/dist.mjs --linux",
     "dist:linux:ci": "pnpm run package:ci && node scripts/dist.mjs --linux",
+    "dist:linux:arm64": "pnpm run package:arm64 && node scripts/dist.mjs --linux --arm64 --arch=arm64",
+    "dist:linux:arm64:ci": "pnpm run package:arm64:ci && node scripts/dist.mjs --linux --arm64 --arch=arm64",
     "dist:linux:dev": "pnpm run package && node scripts/dist.mjs --linux --config.mac.identity=null",
     "dist:resign": "node scripts/dist.mjs",
     "publish-update:mac": "node scripts/publish-update.mjs",

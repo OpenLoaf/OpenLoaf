@@ -36,24 +36,25 @@ function assert(condition, message) {
 // ─── 从 publish-update.mjs 中提取的纯函数（不依赖 S3/R2） ─────────────────
 
 function inferPlatform(filename) {
-  if ((filename.includes('-arm64') || filename.includes('_arm64')) &&
-      (filename.endsWith('.dmg') || filename.endsWith('.zip'))) {
-    return 'mac-arm64'
+  const isArm64 = /[-_]arm64[-_.]/.test(filename)
+
+  if (filename.endsWith('.dmg') || filename.endsWith('.zip')) {
+    if (isArm64) return 'mac-arm64'
+    if (/[-_]x64[-_.]/.test(filename) || filename.includes('-MacOS-x64')) return 'mac-x64'
+    return null
   }
-  if ((filename.includes('-x64') || filename.includes('_x64') || filename.includes('-MacOS-x64')) &&
-      (filename.endsWith('.dmg') || filename.endsWith('.zip'))) {
-    return 'mac-x64'
-  }
-  if (filename.endsWith('.exe')) return 'win-x64'
-  if (filename.endsWith('.AppImage')) return 'linux-x64'
+  if (filename.endsWith('.exe')) return isArm64 ? 'win-arm64' : 'win-x64'
+  if (filename.endsWith('.AppImage')) return isArm64 ? 'linux-arm64' : 'linux-x64'
   return null
 }
 
 const YML_PLATFORM_MAP = {
-  'mac-arm64':  { yml: 'latest-mac-arm64.yml', ext: '.zip' },
-  'mac-x64':    { yml: 'latest-mac-x64.yml',   ext: '.zip' },
-  'win-x64':    { yml: 'latest.yml',           ext: '.exe' },
-  'linux-x64':  { yml: 'latest-linux.yml',     ext: '.AppImage' },
+  'mac-arm64':   { yml: 'latest-mac-arm64.yml',   ext: '.zip' },
+  'mac-x64':     { yml: 'latest-mac-x64.yml',     ext: '.zip' },
+  'win-x64':     { yml: 'latest.yml',             ext: '.exe' },
+  'win-arm64':   { yml: 'latest-arm64.yml',       ext: '.exe' },
+  'linux-x64':   { yml: 'latest-linux.yml',       ext: '.AppImage' },
+  'linux-arm64': { yml: 'latest-linux-arm64.yml', ext: '.AppImage' },
 }
 
 // fetchRemoteYml 的 yml 解析逻辑
