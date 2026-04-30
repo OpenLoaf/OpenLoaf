@@ -32,6 +32,7 @@ on:
 
 permissions:
   contents: read
+  actions: write   # 允许 build job 在失败时调 `gh run cancel` 提前停掉整个 workflow
 
 concurrency:
   group: desktop-publish-${{ github.ref }}
@@ -130,7 +131,11 @@ jobs:
     needs: [determine-mode, build-prerequisites]
     if: github.event_name == 'push' || inputs.build_mac
     strategy:
-      fail-fast: false
+      # fail-fast: matrix 内部 arm64 / x64 任一失败立即取消另一个；同时下面的
+      # "Cancel workflow on failure" step 会把整个 workflow 也 cancel 掉
+      # （包括 build-windows / build-linux 两条独立 job）。这样发版只要有一个
+      # 平台失败就立即停止，避免继续浪费配额做无用功。
+      fail-fast: true
       matrix:
         include:
           - arch: arm64
@@ -252,12 +257,31 @@ jobs:
           name: openloaf-platform-meta-mac-${{ matrix.arch }}
           path: apps/desktop/dist/platform-meta-${{ matrix.publish_platform }}.json
 
+      # 任一平台失败立即取消整个 workflow（含其他 build job + finalize）。
+      # GitHub Actions 没有跨 job 的原生 fail-fast，所以每个 build job 末尾各放一个。
+      - name: Cancel workflow on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh run cancel ${{ github.run_id }} --repo ${{ github.repository }}
+
   # ---------------------------------------------------------------------------
-  # Windows
+  # Windows（x64 + arm64 matrix，同一 windows-latest runner，arm64 走交叉编译）
   # ---------------------------------------------------------------------------
   build-windows:
     needs: [determine-mode, build-prerequisites]
     if: github.event_name == 'push' || inputs.build_windows
+    strategy:
+      # 任一架构失败立即取消另一个 + 整个 workflow（见 build-mac 注释）
+      fail-fast: true
+      matrix:
+        include:
+          - arch: x64
+            publish_platform: win-x64
+            build_script: dist:win:ci
+          - arch: arm64
+            publish_platform: win-arm64
+            build_script: dist:win:arm64:ci
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v6
@@ -278,9 +302,9 @@ jobs:
         uses: actions/cache@v5
         with:
           path: ${{ env.STORE_PATH }}
-          key: pnpm-store-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
+          key: pnpm-store-${{ runner.os }}-${{ matrix.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
           restore-keys: |
-            pnpm-store-${{ runner.os }}-${{ runner.arch }}-
+            pnpm-store-${{ runner.os }}-${{ matrix.arch }}-
 
       - name: Cache Electron
         uses: actions/cache@v5
@@ -288,9 +312,9 @@ jobs:
           path: |
             ${{ github.workspace }}/.cache/electron
             ${{ github.workspace }}/.cache/electron-builder
-          key: electron-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('apps/desktop/package.json') }}
+          key: electron-${{ runner.os }}-${{ matrix.arch }}-${{ hashFiles('apps/desktop/package.json') }}
           restore-keys: |
-            electron-${{ runner.os }}-${{ runner.arch }}-
+            electron-${{ runner.os }}-${{ matrix.arch }}-
 
       - name: Use HTTPS for git dependencies
         run: git config --global url."https://github.com/".insteadOf "git@github.com:"
@@ -320,18 +344,18 @@ jobs:
           ' "$TAG_VERSION"
           echo "Set desktop version to $TAG_VERSION"
 
-      - name: Build and package desktop (Windows)
+      - name: Build and package desktop (Windows ${{ matrix.arch }})
         working-directory: apps/desktop
-        run: pnpm run dist:win:ci
+        run: pnpm run ${{ matrix.build_script }}
 
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: openloaf-desktop-windows
+          name: openloaf-desktop-windows-${{ matrix.arch }}
           path: |
             apps/desktop/dist/*.exe
             apps/desktop/dist/*.exe.blockmap
-            apps/desktop/dist/latest.yml
+            apps/desktop/dist/latest*.yml
 
       # 构建完成后立即上传到 R2（不等待其他平台）
       - name: Install publish dependencies
@@ -353,20 +377,37 @@ jobs:
           TENCENT_COS_REGION: ${{ secrets.TENCENT_COS_REGION }}
           TENCENT_SECRET_ID: ${{ secrets.TENCENT_SECRET_ID }}
           TENCENT_SECRET_KEY: ${{ secrets.TENCENT_SECRET_KEY }}
-        run: node apps/desktop/scripts/publish-update.mjs --skip-build --upload-only --platform=win-x64
+        run: node apps/desktop/scripts/publish-update.mjs --skip-build --upload-only --platform=${{ matrix.publish_platform }}
 
       - name: Upload platform metadata artifact
         uses: actions/upload-artifact@v7
         with:
-          name: openloaf-platform-meta-win
-          path: apps/desktop/dist/platform-meta-win-x64.json
+          name: openloaf-platform-meta-win-${{ matrix.arch }}
+          path: apps/desktop/dist/platform-meta-${{ matrix.publish_platform }}.json
+
+      - name: Cancel workflow on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh run cancel ${{ github.run_id }} --repo ${{ github.repository }}
 
   # ---------------------------------------------------------------------------
-  # Linux
+  # Linux（x64 + arm64 matrix，arm64 走 electron-builder 交叉编译）
   # ---------------------------------------------------------------------------
   build-linux:
     needs: [determine-mode, build-prerequisites]
     if: github.event_name == 'push' || inputs.build_linux
+    strategy:
+      # 任一架构失败立即取消另一个 + 整个 workflow（见 build-mac 注释）
+      fail-fast: true
+      matrix:
+        include:
+          - arch: x64
+            publish_platform: linux-x64
+            build_script: dist:linux:ci
+          - arch: arm64
+            publish_platform: linux-arm64
+            build_script: dist:linux:arm64:ci
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -387,9 +428,9 @@ jobs:
         uses: actions/cache@v5
         with:
           path: ${{ env.STORE_PATH }}
-          key: pnpm-store-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
+          key: pnpm-store-${{ runner.os }}-${{ matrix.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
           restore-keys: |
-            pnpm-store-${{ runner.os }}-${{ runner.arch }}-
+            pnpm-store-${{ runner.os }}-${{ matrix.arch }}-
 
       - name: Cache Electron
         uses: actions/cache@v5
@@ -397,9 +438,9 @@ jobs:
           path: |
             ${{ github.workspace }}/.cache/electron
             ${{ github.workspace }}/.cache/electron-builder
-          key: electron-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('apps/desktop/package.json') }}
+          key: electron-${{ runner.os }}-${{ matrix.arch }}-${{ hashFiles('apps/desktop/package.json') }}
           restore-keys: |
-            electron-${{ runner.os }}-${{ runner.arch }}-
+            electron-${{ runner.os }}-${{ matrix.arch }}-
 
       - name: Use HTTPS for git dependencies
         run: git config --global url."https://github.com/".insteadOf "git@github.com:"
@@ -429,9 +470,9 @@ jobs:
           ' "$TAG_VERSION"
           echo "Set desktop version to $TAG_VERSION"
 
-      - name: Build and package desktop (Linux)
+      - name: Build and package desktop (Linux ${{ matrix.arch }})
         working-directory: apps/desktop
-        run: pnpm run dist:linux:ci
+        run: pnpm run ${{ matrix.build_script }}
 
       # 用 type2-runtime 静态 runtime 替换 electron-builder 默认 runtime，消除对 libfuse2 的依赖
       # （Ubuntu 22.04+/Debian 12+ 默认不再预装 libfuse2，不修复用户双击运行会报 FUSE 错误）
@@ -443,10 +484,10 @@ jobs:
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: openloaf-desktop-linux
+          name: openloaf-desktop-linux-${{ matrix.arch }}
           path: |
             apps/desktop/dist/*.AppImage
-            apps/desktop/dist/latest-linux.yml
+            apps/desktop/dist/latest-linux*.yml
 
       # 构建完成后立即上传到 R2（不等待其他平台）
       - name: Install publish dependencies
@@ -468,13 +509,19 @@ jobs:
           TENCENT_COS_REGION: ${{ secrets.TENCENT_COS_REGION }}
           TENCENT_SECRET_ID: ${{ secrets.TENCENT_SECRET_ID }}
           TENCENT_SECRET_KEY: ${{ secrets.TENCENT_SECRET_KEY }}
-        run: node apps/desktop/scripts/publish-update.mjs --skip-build --upload-only --platform=linux-x64
+        run: node apps/desktop/scripts/publish-update.mjs --skip-build --upload-only --platform=${{ matrix.publish_platform }}
 
       - name: Upload platform metadata artifact
         uses: actions/upload-artifact@v7
         with:
-          name: openloaf-platform-meta-linux
-          path: apps/desktop/dist/platform-meta-linux-x64.json
+          name: openloaf-platform-meta-linux-${{ matrix.arch }}
+          path: apps/desktop/dist/platform-meta-${{ matrix.publish_platform }}.json
+
+      - name: Cancel workflow on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh run cancel ${{ github.run_id }} --repo ${{ github.repository }}
 
   # ---------------------------------------------------------------------------
   # 收尾步骤：上传 changelogs + 清理旧版本（各平台已各自写 manifest）
