@@ -493,6 +493,27 @@ async function writeDownloadIndex({ channel, versionManifest, channelManifest })
   const key = `download-${channel}.json`
   await uploadJsonToAll(key, downloadIndex)
   console.log(`📥 Download index: ${cosBase ?? r2Base}/${key}`)
+
+  // 聚合入口 download.json：stable 优先，没 stable 才回退到 beta。
+  // 这样官网永远 fetch `/download.json` 拿到"应该推给普通用户"的版本，发 stable
+  // 之后再发的 beta 不会把官网首页的稳定版拉回 beta。
+  let shouldWriteAggregate = false
+  if (channel === 'stable') {
+    shouldWriteAggregate = true
+  } else {
+    try {
+      await downloadJson(s3, r2Config.bucket, 'download-stable.json')
+      // 存在：保留 stable 作为聚合入口，本次 beta 不覆盖
+      console.log('   download.json: stable channel exists, keeping it as aggregate')
+    } catch {
+      // 不存在：当前还没发过 stable，让 beta 暂代聚合入口
+      shouldWriteAggregate = true
+    }
+  }
+  if (shouldWriteAggregate) {
+    await uploadJsonToAll('download.json', downloadIndex)
+    console.log(`📥 Aggregate index: ${cosBase ?? r2Base}/download.json (channel=${channel})`)
+  }
 }
 
 // ---------------------------------------------------------------------------
