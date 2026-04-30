@@ -31,7 +31,7 @@
     "@lobehub/icons": "^4.2.0",
     "@lobehub/ui": "^4.35.0",
     "@monaco-editor/react": "^4.7.0",
-    "@openloaf-saas/sdk": "^0.3.2",
+    "@openloaf-saas/sdk": "^0.3.9",
     "@openloaf/api": "workspace:*",
     "@openloaf/ui": "workspace:*",
     "@openloaf/widget-sdk": "workspace:*",

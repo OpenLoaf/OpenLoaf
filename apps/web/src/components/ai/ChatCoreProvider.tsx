@@ -369,7 +369,7 @@ export default function ChatCoreProvider({
     refreshSnapshot,
   } = useChatBranchState({
     sessionId,
-    enabled: isTabActive && shouldLoadHistory && chat.messages.length === 0,
+    enabled: Boolean(sessionId) && isTabActive && shouldLoadHistory && chat.messages.length === 0,
     localMessageCount: chat.messages.length,
     branchSnapshot,
   });

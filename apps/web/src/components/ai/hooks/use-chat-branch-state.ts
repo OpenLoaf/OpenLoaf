@@ -191,7 +191,7 @@ export function useChatBranchState(input: UseChatBranchQueryInput) {
       window: { limit: 50 },
       includeToolOutput: true,
     }),
-    enabled: input.enabled,
+    enabled: input.enabled && Boolean(input.sessionId),
     staleTime: Number.POSITIVE_INFINITY,
     refetchOnWindowFocus: false,
   });
