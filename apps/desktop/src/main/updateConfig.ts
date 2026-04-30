@@ -15,7 +15,7 @@ import { getOpenLoafRootDir } from '@openloaf/config'
 // 常量
 // ---------------------------------------------------------------------------
 
-const DEFAULT_UPDATE_BASE_URL = 'https://openloaf-update.hexems.com'
+const DEFAULT_UPDATE_BASE_URL = 'https://openloaf-1329813561.cos.accelerate.myqcloud.com'
 const SETTINGS_FILE_NAME = '.settings.json'
 
 // ---------------------------------------------------------------------------
