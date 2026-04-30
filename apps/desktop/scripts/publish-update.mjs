@@ -426,6 +426,76 @@ async function uploadJsonToAll(key, data) {
 }
 
 // ---------------------------------------------------------------------------
+// 官网下载清单（download-{channel}.json）
+// ---------------------------------------------------------------------------
+
+const PLATFORM_INSTALLER_EXT = {
+  'mac-arm64': 'dmg',
+  'mac-x64': 'dmg',
+  'win-x64': 'exe',
+  'linux-x64': 'AppImage',
+}
+
+function deriveInstallerUrl(updaterUrl, platformKey) {
+  const ext = PLATFORM_INSTALLER_EXT[platformKey]
+  if (!ext) return updaterUrl
+  return updaterUrl.replace(/\.(zip|AppImage|exe)$/, `.${ext}`)
+}
+
+function swapHost(url, fromBase, toBase) {
+  if (!fromBase || !toBase || !url.startsWith(fromBase)) return url
+  return toBase + url.slice(fromBase.length)
+}
+
+async function writeDownloadIndex({ channel, versionManifest, channelManifest }) {
+  const r2Base = r2Config.publicUrl
+  const cosBase = cosConfig?.publicUrl ?? null
+  const desktopVersion = versionManifest.version
+  const downloads = {}
+
+  for (const [platformKey, meta] of Object.entries(versionManifest.platforms || {})) {
+    if (!meta?.url) continue
+    const r2Url = swapHost(meta.url, cosBase, r2Base) // manifest may have been written with cos url; normalize to r2
+    const installerR2 = deriveInstallerUrl(r2Url, platformKey)
+    const installerCos = cosBase ? swapHost(installerR2, r2Base, cosBase) : null
+    downloads[platformKey] = {
+      ext: PLATFORM_INSTALLER_EXT[platformKey],
+      url: installerCos ?? installerR2, // 默认 URL 走 COS 国内加速；无 COS 配置时退回 R2
+      sha256: null, // dmg/exe/AppImage 的 sha 不在 updater manifest 里；electron-updater 校验走 sha512+blockmap
+      size: meta.size ?? null,
+      mirrors: {
+        ...(installerCos ? { cos: installerCos } : {}),
+        r2: installerR2,
+      },
+    }
+  }
+
+  const downloadIndex = {
+    channel,
+    updatedAt: new Date().toISOString(),
+    desktop: {
+      version: desktopVersion,
+      publishedAt: versionManifest.publishedAt,
+      bundledVersions: versionManifest.bundledVersions ?? null,
+      downloads,
+      githubReleaseUrl: `https://github.com/OpenLoaf/OpenLoaf/releases/tag/desktop@${desktopVersion}`,
+      versionManifestUrl: `${cosBase ?? r2Base}/desktop/${desktopVersion}/manifest.json`,
+    },
+    web: channelManifest.web ?? null,
+    server: channelManifest.server ?? null,
+    mirrors: {
+      ...(cosBase ? { cos: cosBase } : {}),
+      r2: r2Base,
+      github: 'https://github.com/OpenLoaf/OpenLoaf/releases',
+    },
+  }
+
+  const key = `download-${channel}.json`
+  await uploadJsonToAll(key, downloadIndex)
+  console.log(`📥 Download index: ${cosBase ?? r2Base}/${key}`)
+}
+
+// ---------------------------------------------------------------------------
 // 主流程
 // ---------------------------------------------------------------------------
 
@@ -535,6 +605,15 @@ async function main() {
         versionDirPrefix: `desktop/${version}`,
       })
     }
+
+    // 写一份对官网友好的下载清单：download-{channel}.json
+    // 把 manifest 里的 electron-updater zip URL 派生成用户可直接下载的 dmg/exe/AppImage，
+    // 并补上 R2 / COS 双镜像 URL + GitHub Release 链接，官网 fetch 一次即可铺满下载页。
+    await writeDownloadIndex({
+      channel,
+      versionManifest,
+      channelManifest,
+    })
 
     // 清理旧版本（保留最近 3 个）
     await cleanupOldVersions({ s3, bucket: r2Config.bucket, prefix: 'desktop/', keep: 3 })
