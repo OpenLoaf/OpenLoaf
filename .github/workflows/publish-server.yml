@@ -71,12 +71,18 @@ jobs:
             fi
           fi
 
-      - name: Build and publish to R2
+      - name: Build and publish to R2 + COS
         env:
           R2_BUCKET: ${{ secrets.R2_BUCKET }}
           R2_PUBLIC_URL: ${{ secrets.R2_PUBLIC_URL }}
           R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
           R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          TENCENT_COS_BUCKET: ${{ secrets.TENCENT_COS_BUCKET }}
+          TENCENT_COS_PUBLIC_URL: ${{ secrets.TENCENT_COS_PUBLIC_URL }}
+          TENCENT_COS_ENDPOINT: ${{ secrets.TENCENT_COS_ENDPOINT }}
+          TENCENT_COS_REGION: ${{ secrets.TENCENT_COS_REGION }}
+          TENCENT_SECRET_ID: ${{ secrets.TENCENT_SECRET_ID }}
+          TENCENT_SECRET_KEY: ${{ secrets.TENCENT_SECRET_KEY }}
         run: node apps/server/scripts/publish-update.mjs --channel=${{ steps.channel.outputs.channel }}
 

@@ -74,7 +74,7 @@ jobs:
             fi
           fi
 
-      - name: Build and publish to R2
+      - name: Build and publish to R2 + COS
         env:
           NEXT_PUBLIC_SERVER_URL: http://127.0.0.1:23333
           NEXT_PUBLIC_OPENLOAF_SAAS_URL: https://openloaf.hexems.com
@@ -85,5 +85,11 @@ jobs:
           R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
           R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          TENCENT_COS_BUCKET: ${{ secrets.TENCENT_COS_BUCKET }}
+          TENCENT_COS_PUBLIC_URL: ${{ secrets.TENCENT_COS_PUBLIC_URL }}
+          TENCENT_COS_ENDPOINT: ${{ secrets.TENCENT_COS_ENDPOINT }}
+          TENCENT_COS_REGION: ${{ secrets.TENCENT_COS_REGION }}
+          TENCENT_SECRET_ID: ${{ secrets.TENCENT_SECRET_ID }}
+          TENCENT_SECRET_KEY: ${{ secrets.TENCENT_SECRET_KEY }}
         run: node apps/web/scripts/publish-update.mjs --channel=${{ steps.channel.outputs.channel }}
 

@@ -75,8 +75,8 @@ const r2 = createS3Client(r2Config)
 
 const cosConfig = validateCosConfig()
 if (!cosConfig) {
-  console.error('❌ COS 配置不完整，请在 apps/desktop/.env.prod 中设置 COS_* 变量：')
-  console.error('   COS_BUCKET, COS_ENDPOINT, COS_REGION, COS_SECRET_ID, COS_SECRET_KEY')
+  console.error('❌ COS 配置不完整，请在 apps/desktop/.env.prod 中设置 TENCENT_* 变量：')
+  console.error('   TENCENT_COS_BUCKET, TENCENT_COS_ENDPOINT, TENCENT_COS_REGION, TENCENT_SECRET_ID, TENCENT_SECRET_KEY')
   process.exit(1)
 }
 const cos = createCosS3Client(cosConfig)
