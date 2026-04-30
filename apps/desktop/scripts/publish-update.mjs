@@ -27,10 +27,14 @@
  *       latest-mac.yml              ← macOS 合并更新清单（包含 arm64 + x64 entries，electron-updater generic provider 始终读取此文件）
  *       latest-mac-arm64.yml        ← macOS arm64 独立更新清单（兼容/调试用）
  *       latest-mac-x64.yml          ← macOS x64 独立更新清单（兼容/调试用）
- *       latest.yml
- *       latest-linux.yml
+ *       latest.yml                  ← Windows x64
+ *       latest-arm64.yml            ← Windows arm64
+ *       latest-linux.yml            ← Linux x64
+ *       latest-linux-arm64.yml      ← Linux arm64
  *     latest.yml
+ *     latest-arm64.yml
  *     latest-linux.yml
+ *     latest-linux-arm64.yml
  *     0.1.1-beta.1/
  *       manifest.json               ← 完整版本信息（sha256、url、size、platforms）
  *       CHANGELOG.md                ← 本版本更新记录
@@ -40,8 +44,10 @@
  *       latest-mac.yml              ← electron-updater 合并清单（arm64 + x64）
  *       latest-mac-arm64.yml        ← arm64 独立清单
  *       latest-mac-x64.yml          ← x64 独立清单
- *       latest.yml
- *       latest-linux.yml
+ *       latest.yml                  ← Windows x64
+ *       latest-arm64.yml            ← Windows arm64
+ *       latest-linux.yml            ← Linux x64
+ *       latest-linux-arm64.yml      ← Linux arm64
  *
  * 配置来自 apps/desktop/.env.prod（自动加载，命令行环境变量优先）
  */
@@ -95,7 +101,11 @@ if (cosConfig) {
 // 全平台产物匹配规则
 // ---------------------------------------------------------------------------
 
-const AUTO_UPDATE_YMLS = ['latest-mac.yml', 'latest-mac-arm64.yml', 'latest-mac-x64.yml', 'latest.yml', 'latest-linux.yml']
+const AUTO_UPDATE_YMLS = [
+  'latest-mac.yml', 'latest-mac-arm64.yml', 'latest-mac-x64.yml',
+  'latest.yml', 'latest-arm64.yml',
+  'latest-linux.yml', 'latest-linux-arm64.yml',
+]
 
 function isAutoUpdateYml(filename) {
   return AUTO_UPDATE_YMLS.includes(filename)
@@ -130,12 +140,24 @@ const PLATFORM_FILTERS = {
     ymls: ['latest-mac-x64.yml'],  // per-arch yml; combined latest-mac.yml 由 generateCombinedMacYml 生成
   },
   'win-x64': {
-    installerFilter: (f) => f.endsWith('.exe') || f.endsWith('.exe.blockmap'),
+    installerFilter: (f) =>
+      (f.endsWith('.exe') || f.endsWith('.exe.blockmap')) && !/[-_]arm64[-_.]/.test(f),
     ymls: ['latest.yml'],
   },
+  'win-arm64': {
+    installerFilter: (f) =>
+      (f.endsWith('.exe') || f.endsWith('.exe.blockmap')) && /[-_]arm64[-_.]/.test(f),
+    ymls: ['latest-arm64.yml'],
+  },
   'linux-x64': {
-    installerFilter: (f) => f.endsWith('.AppImage') || f.endsWith('.AppImage.blockmap'),
+    installerFilter: (f) =>
+      (f.endsWith('.AppImage') || f.endsWith('.AppImage.blockmap')) && !/[-_]arm64[-_.]/.test(f),
     ymls: ['latest-linux.yml'],
+  },
+  'linux-arm64': {
+    installerFilter: (f) =>
+      (f.endsWith('.AppImage') || f.endsWith('.AppImage.blockmap')) && /[-_]arm64[-_.]/.test(f),
+    ymls: ['latest-linux-arm64.yml'],
   },
 }
 
@@ -143,16 +165,15 @@ const PLATFORM_FILTERS = {
  * 从文件名推断 platform key（用于 versionManifest.platforms）。
  */
 function inferPlatform(filename) {
-  if ((filename.includes('-arm64') || filename.includes('_arm64')) &&
-      (filename.endsWith('.dmg') || filename.endsWith('.zip'))) {
-    return 'mac-arm64'
+  const isArm64 = /[-_]arm64[-_.]/.test(filename)
+
+  if (filename.endsWith('.dmg') || filename.endsWith('.zip')) {
+    if (isArm64) return 'mac-arm64'
+    if (/[-_]x64[-_.]/.test(filename) || filename.includes('-MacOS-x64')) return 'mac-x64'
+    return null
   }
-  if ((filename.includes('-x64') || filename.includes('_x64') || filename.includes('-MacOS-x64')) &&
-      (filename.endsWith('.dmg') || filename.endsWith('.zip'))) {
-    return 'mac-x64'
-  }
-  if (filename.endsWith('.exe')) return 'win-x64'
-  if (filename.endsWith('.AppImage')) return 'linux-x64'
+  if (filename.endsWith('.exe')) return isArm64 ? 'win-arm64' : 'win-x64'
+  if (filename.endsWith('.AppImage')) return isArm64 ? 'linux-arm64' : 'linux-x64'
   return null
 }
 
@@ -210,10 +231,12 @@ function computeSha512Base64(filePath) {
  * 从上传的安装包列表中，按平台生成 electron-updater 格式的 yml 文件。
  *
  * 平台 → 独立 yml 文件名映射（用于各架构单独的 yml）：
- * - mac-arm64 → latest-mac-arm64.yml（仅 arm64 entries）
- * - mac-x64   → latest-mac-x64.yml（仅 x64 entries，内部使用）
- * - win-x64   → latest.yml（使用 .exe）
- * - linux-x64 → latest-linux.yml（使用 .AppImage）
+ * - mac-arm64   → latest-mac-arm64.yml（仅 arm64 entries）
+ * - mac-x64     → latest-mac-x64.yml（仅 x64 entries，内部使用）
+ * - win-x64     → latest.yml（electron-updater Windows x64 默认读取）
+ * - win-arm64   → latest-arm64.yml（electron-updater Windows arm64 默认读取）
+ * - linux-x64   → latest-linux.yml
+ * - linux-arm64 → latest-linux-arm64.yml
  *
  * 注意：electron-updater generic provider 在 macOS 上始终读取 latest-mac.yml，
  * 不会读取 latest-mac-arm64.yml！latest-mac.yml 必须包含所有架构的 entries，
@@ -221,10 +244,12 @@ function computeSha512Base64(filePath) {
  * 因此，每个 mac 平台构建完成后，都会调用 generateCombinedMacYml() 合并生成 latest-mac.yml。
  */
 const YML_PLATFORM_MAP = {
-  'mac-arm64':  { yml: 'latest-mac-arm64.yml', ext: '.zip' },
-  'mac-x64':    { yml: 'latest-mac-x64.yml',   ext: '.zip' },
-  'win-x64':    { yml: 'latest.yml',           ext: '.exe' },
-  'linux-x64':  { yml: 'latest-linux.yml',     ext: '.AppImage' },
+  'mac-arm64':   { yml: 'latest-mac-arm64.yml',   ext: '.zip' },
+  'mac-x64':     { yml: 'latest-mac-x64.yml',     ext: '.zip' },
+  'win-x64':     { yml: 'latest.yml',             ext: '.exe' },
+  'win-arm64':   { yml: 'latest-arm64.yml',       ext: '.exe' },
+  'linux-x64':   { yml: 'latest-linux.yml',       ext: '.AppImage' },
+  'linux-arm64': { yml: 'latest-linux-arm64.yml', ext: '.AppImage' },
 }
 
 async function generateAndUploadYmls(version, channel, installerFiles, distDir, publicUrl = r2Config.publicUrl) {
@@ -433,7 +458,9 @@ const PLATFORM_INSTALLER_EXT = {
   'mac-arm64': 'dmg',
   'mac-x64': 'dmg',
   'win-x64': 'exe',
+  'win-arm64': 'exe',
   'linux-x64': 'AppImage',
+  'linux-arm64': 'AppImage',
 }
 
 function deriveInstallerUrl(updaterUrl, platformKey) {

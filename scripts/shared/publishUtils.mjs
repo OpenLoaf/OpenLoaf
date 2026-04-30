@@ -6,7 +6,7 @@
 import { createHash } from 'node:crypto'
 import { createReadStream, readFileSync, existsSync, readdirSync } from 'node:fs'
 import path from 'node:path'
-import { S3Client, PutObjectCommand, GetObjectCommand, HeadObjectCommand, ListObjectsV2Command, DeleteObjectsCommand } from '@aws-sdk/client-s3'
+import { S3Client, PutObjectCommand, GetObjectCommand, HeadObjectCommand, ListObjectsV2Command, DeleteObjectCommand } from '@aws-sdk/client-s3'
 
 // ---------------------------------------------------------------------------
 // env 文件加载
@@ -420,17 +420,21 @@ async function listAllKeys(s3, bucket, prefix) {
 }
 
 /**
- * 批量删除 R2 对象（每批最多 1000 个）。
+ * 删除一组对象 key。
+ *
+ * 历史：早期用 DeleteObjectsCommand 批量删，单批 1000 个，对 R2/AWS S3 没问题。
+ * 切到腾讯 COS 后报 `InvalidRequest: Missing required header for this request:
+ * Content-MD5` —— COS 按旧版 S3 协议要求批量删带 Content-MD5，AWS SDK v3 已经
+ * 把校验头切换到 x-amz-sdk-checksum-algorithm（CRC32），不再自动加 MD5，COS
+ * 不识别。改成逐个 DeleteObjectCommand（不要求 Content-MD5），并发 8，兼容
+ * R2 / COS / 原生 S3，一组几百个 key 也只多花几秒。
  */
 async function deleteKeys(s3, bucket, keys) {
-  const batchSize = 1000
-  for (let i = 0; i < keys.length; i += batchSize) {
-    const batch = keys.slice(i, i + batchSize)
-    await s3.send(
-      new DeleteObjectsCommand({
-        Bucket: bucket,
-        Delete: { Objects: batch.map((Key) => ({ Key })) },
-      })
+  const concurrency = 8
+  for (let i = 0; i < keys.length; i += concurrency) {
+    const batch = keys.slice(i, i + concurrency)
+    await Promise.all(
+      batch.map((Key) => s3.send(new DeleteObjectCommand({ Bucket: bucket, Key }))),
     )
   }
 }
