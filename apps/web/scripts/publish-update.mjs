@@ -23,9 +23,7 @@ import { execSync } from 'node:child_process'
 import {
   loadEnvFile,
   validateR2Config,
-  validateCosConfig,
   createS3Client,
-  createCosS3Client,
   uploadFile,
   downloadJson,
   uploadJson,
@@ -52,31 +50,14 @@ loadEnvFile(path.join(webRoot, '.env.prod'))
 const r2Config = validateR2Config()
 const s3 = createS3Client(r2Config)
 
-const cosConfig = validateCosConfig()
-const cos = cosConfig ? createCosS3Client(cosConfig) : null
-
-if (cosConfig) {
-  console.log(`☁️  COS sync enabled: ${cosConfig.bucket}`)
-} else {
-  console.log('   COS sync disabled (TENCENT_* env vars not set)')
-}
-
 async function uploadFileToAll(key, filePath) {
   await uploadFile(s3, r2Config.bucket, key, filePath)
   console.log(`   [R2]  ${key}`)
-  if (cos && cosConfig) {
-    await uploadFile(cos, cosConfig.bucket, key, filePath)
-    console.log(`   [COS] ${key}`)
-  }
 }
 
 async function uploadJsonToAll(key, data) {
   await uploadJson(s3, r2Config.bucket, key, data)
   console.log(`   [R2]  ${key}`)
-  if (cos && cosConfig) {
-    await uploadJson(cos, cosConfig.bucket, key, data)
-    console.log(`   [COS] ${key}`)
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -121,7 +102,7 @@ async function main() {
   console.log(`✅ SHA-256: ${sha256}`)
   console.log(`✅ Size: ${(size / 1024 / 1024).toFixed(2)} MB`)
 
-  // 5. 上传到 R2 + COS（共享构件池，不分渠道）
+  // 5. 上传到 R2（共享构件池，不分渠道）
   const r2Key = `web/${version}/web.tar.gz`
   console.log(`☁️  Uploading: ${r2Key}`)
   await uploadFileToAll(r2Key, tarPath)
@@ -149,7 +130,7 @@ async function main() {
 
   await uploadJsonToAll(manifestKey, manifest)
 
-  // 上传 changelogs（R2 + COS 双写）
+  // 上传 changelogs
   const changelogsDir = path.join(webRoot, 'changelogs')
   await uploadChangelogs({
     s3,
@@ -159,16 +140,6 @@ async function main() {
     publicUrl: r2Config.publicUrl,
     versionDirPrefix: `web/${version}`,
   })
-  if (cos && cosConfig) {
-    await uploadChangelogs({
-      s3: cos,
-      bucket: cosConfig.bucket,
-      component: 'web',
-      changelogsDir,
-      publicUrl: cosConfig.publicUrl,
-      versionDirPrefix: `web/${version}`,
-    })
-  }
 
   console.log(`\n/**
  * Copyright (c) OpenLoaf. All rights reserved.

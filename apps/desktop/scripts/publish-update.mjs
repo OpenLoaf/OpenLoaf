@@ -60,9 +60,7 @@ import { execSync } from 'node:child_process'
 import {
   loadEnvFile,
   validateR2Config,
-  validateCosConfig,
   createS3Client,
-  createCosS3Client,
   uploadFile,
   uploadJson,
   downloadJson,
@@ -88,14 +86,8 @@ loadEnvFile(path.join(electronRoot, '.env.prod'))
 const r2Config = validateR2Config()
 const s3 = createS3Client(r2Config)
 
-const cosConfig = validateCosConfig()
-const cos = cosConfig ? createCosS3Client(cosConfig) : null
-
-if (cosConfig) {
-  console.log(`☁️  COS sync enabled: ${cosConfig.bucket}`)
-} else {
-  console.log('   COS sync disabled (COS_* env vars not set)')
-}
+// 国内 CDN 回源 R2 的加速域名；写入 manifest 顶层 baseUrls，由客户端按地区拼下载 URL。
+const CN_CDN_URL = (process.env.CN_CDN_URL ?? 'https://openloaf-cdn.hexems.com').replace(/\/+$/, '')
 
 // ---------------------------------------------------------------------------
 // 全平台产物匹配规则
@@ -426,27 +418,24 @@ async function generateCombinedMacYml(version, channel, distDir, publicUrl = r2C
 }
 
 // ---------------------------------------------------------------------------
-// 上传文件（R2 + COS 同步）
+// 上传文件（仅写 R2，国内访问通过 CDN 回源）
 // ---------------------------------------------------------------------------
 
 async function uploadToAll(key, filePath) {
-  const uploads = [
-    uploadFile(s3, r2Config.bucket, key, filePath).then(() => console.log(`   [R2]  ${key}`)),
-  ]
-  if (cos && cosConfig) {
-    uploads.push(
-      uploadFile(cos, cosConfig.bucket, key, filePath).then(() => console.log(`   [COS] ${key}`)),
-    )
-  }
-  await Promise.all(uploads)
+  await uploadFile(s3, r2Config.bucket, key, filePath)
+  console.log(`   [R2]  ${key}`)
 }
 
 async function uploadJsonToAll(key, data) {
   await uploadJson(s3, r2Config.bucket, key, data)
   console.log(`   [R2]  ${key}`)
-  if (cos && cosConfig) {
-    await uploadJson(cos, cosConfig.bucket, key, data)
-    console.log(`   [COS] ${key}`)
+}
+
+/** manifest 顶层 baseUrls：客户端按地区选择域名，与 platforms[*].url 的相对路径拼接。 */
+function buildBaseUrls() {
+  return {
+    cn: CN_CDN_URL,
+    global: r2Config.publicUrl,
   }
 }
 
@@ -463,36 +452,31 @@ const PLATFORM_INSTALLER_EXT = {
   'linux-arm64': 'AppImage',
 }
 
-function deriveInstallerUrl(updaterUrl, platformKey) {
+function deriveInstallerRelative(updaterRelativePath, platformKey) {
   const ext = PLATFORM_INSTALLER_EXT[platformKey]
-  if (!ext) return updaterUrl
-  return updaterUrl.replace(/\.(zip|AppImage|exe)$/, `.${ext}`)
-}
-
-function swapHost(url, fromBase, toBase) {
-  if (!fromBase || !toBase || !url.startsWith(fromBase)) return url
-  return toBase + url.slice(fromBase.length)
+  if (!ext) return updaterRelativePath
+  return updaterRelativePath.replace(/\.(zip|AppImage|exe)$/, `.${ext}`)
 }
 
 async function writeDownloadIndex({ channel, versionManifest, channelManifest }) {
-  const r2Base = r2Config.publicUrl
-  const cosBase = cosConfig?.publicUrl ?? null
+  const baseUrls = versionManifest.baseUrls ?? buildBaseUrls()
+  const r2Base = baseUrls.global
+  const cnBase = baseUrls.cn
   const desktopVersion = versionManifest.version
   const downloads = {}
 
   for (const [platformKey, meta] of Object.entries(versionManifest.platforms || {})) {
     if (!meta?.url) continue
-    const r2Url = swapHost(meta.url, cosBase, r2Base) // manifest may have been written with cos url; normalize to r2
-    const installerR2 = deriveInstallerUrl(r2Url, platformKey)
-    const installerCos = cosBase ? swapHost(installerR2, r2Base, cosBase) : null
+    const installerRel = deriveInstallerRelative(meta.url, platformKey)
     downloads[platformKey] = {
       ext: PLATFORM_INSTALLER_EXT[platformKey],
-      url: installerCos ?? installerR2, // 默认 URL 走 COS 国内加速；无 COS 配置时退回 R2
+      // 默认 URL 用国内 CDN（官网下载页主流量在国内）；海外站点可读 mirrors.r2 切换。
+      url: `${cnBase}/${installerRel}`,
       sha256: null, // dmg/exe/AppImage 的 sha 不在 updater manifest 里；electron-updater 校验走 sha512+blockmap
       size: meta.size ?? null,
       mirrors: {
-        ...(installerCos ? { cos: installerCos } : {}),
-        r2: installerR2,
+        cn: `${cnBase}/${installerRel}`,
+        r2: `${r2Base}/${installerRel}`,
       },
     }
   }
@@ -500,18 +484,19 @@ async function writeDownloadIndex({ channel, versionManifest, channelManifest })
   const downloadIndex = {
     channel,
     updatedAt: new Date().toISOString(),
+    baseUrls,
     desktop: {
       version: desktopVersion,
       publishedAt: versionManifest.publishedAt,
       bundledVersions: versionManifest.bundledVersions ?? null,
       downloads,
       githubReleaseUrl: `https://github.com/OpenLoaf/OpenLoaf/releases/tag/desktop@${desktopVersion}`,
-      versionManifestUrl: `${cosBase ?? r2Base}/desktop/${desktopVersion}/manifest.json`,
+      versionManifestUrl: `${cnBase}/desktop/${desktopVersion}/manifest.json`,
     },
     web: channelManifest.web ?? null,
     server: channelManifest.server ?? null,
     mirrors: {
-      ...(cosBase ? { cos: cosBase } : {}),
+      cn: cnBase,
       r2: r2Base,
       github: 'https://github.com/OpenLoaf/OpenLoaf/releases',
     },
@@ -519,7 +504,7 @@ async function writeDownloadIndex({ channel, versionManifest, channelManifest })
 
   const key = `download-${channel}.json`
   await uploadJsonToAll(key, downloadIndex)
-  console.log(`📥 Download index: ${cosBase ?? r2Base}/${key}`)
+  console.log(`📥 Download index: ${cnBase}/${key}`)
 
   // 聚合入口 download.json：stable 优先，没 stable 才回退到 beta。
   // 这样官网永远 fetch `/download.json` 拿到"应该推给普通用户"的版本，发 stable
@@ -539,7 +524,7 @@ async function writeDownloadIndex({ channel, versionManifest, channelManifest })
   }
   if (shouldWriteAggregate) {
     await uploadJsonToAll('download.json', downloadIndex)
-    console.log(`📥 Aggregate index: ${cosBase ?? r2Base}/download.json (channel=${channel})`)
+    console.log(`📥 Aggregate index: ${cnBase}/download.json (channel=${channel})`)
   }
 }
 
@@ -615,6 +600,7 @@ async function main() {
       bundledVersions,
       publishedAt: new Date().toISOString(),
       channel,
+      baseUrls: buildBaseUrls(),
       platforms: mergedPlatforms,
     }
     await uploadJsonToAll(versionManifestKey, versionManifest)
@@ -628,6 +614,7 @@ async function main() {
     } catch {
       // 首次创建
     }
+    channelManifest.baseUrls = buildBaseUrls()
     channelManifest.desktop = { version }
     await uploadJsonToAll(channelManifestKey, channelManifest)
     console.log(`✅ Updated ${channelManifestKey}: desktop.version = "${version}"`)
@@ -643,20 +630,10 @@ async function main() {
       publicUrl: r2Config.publicUrl,
       versionDirPrefix: `desktop/${version}`,
     })
-    if (cos && cosConfig) {
-      await uploadChangelogs({
-        s3: cos,
-        bucket: cosConfig.bucket,
-        component: 'desktop',
-        changelogsDir,
-        publicUrl: cosConfig.publicUrl,
-        versionDirPrefix: `desktop/${version}`,
-      })
-    }
 
     // 写一份对官网友好的下载清单：download-{channel}.json
     // 把 manifest 里的 electron-updater zip URL 派生成用户可直接下载的 dmg/exe/AppImage，
-    // 并补上 R2 / COS 双镜像 URL + GitHub Release 链接，官网 fetch 一次即可铺满下载页。
+    // 并补上 CN CDN / R2 双镜像 URL + GitHub Release 链接，官网 fetch 一次即可铺满下载页。
     await writeDownloadIndex({
       channel,
       versionManifest,
@@ -665,9 +642,6 @@ async function main() {
 
     // 清理旧版本（保留最近 3 个）
     await cleanupOldVersions({ s3, bucket: r2Config.bucket, prefix: 'desktop/', keep: 3 })
-    if (cos && cosConfig) {
-      await cleanupOldVersions({ s3: cos, bucket: cosConfig.bucket, prefix: 'desktop/', keep: 3 })
-    }
 
     console.log(`\n🎉 Finalized v${version} (${channel} channel)`)
     return
@@ -733,13 +707,14 @@ async function main() {
 
     await uploadToAll(key, filePath)
 
-    // 收集平台信息（仅对主安装包，跳过 blockmap 等）
+    // 收集平台信息（仅对主安装包，跳过 blockmap 等）；url 写相对路径，
+    // 由客户端拼接 manifest.baseUrls.{cn|global}。
     if (!file.endsWith('.blockmap')) {
       const platform = inferPlatform(file)
       if (platform) {
         const sha256 = await computeSha256(filePath)
         platforms[platform] = {
-          url: `${r2Config.publicUrl}/desktop/${version}/${file}`,
+          url: `desktop/${version}/${file}`,
           sha256,
           size: fileSize,
         }
@@ -794,6 +769,7 @@ async function main() {
       bundledVersions,
       publishedAt: new Date().toISOString(),
       channel,
+      baseUrls: buildBaseUrls(),
       platforms: mergedPlatforms,
     }
     await uploadJsonToAll(versionManifestKey, versionManifest)
@@ -807,6 +783,7 @@ async function main() {
     } catch {
       // 首次创建
     }
+    channelManifest.baseUrls = buildBaseUrls()
     channelManifest.desktop = { version }
     await uploadJsonToAll(channelManifestKey, channelManifest)
     console.log(`✅ Updated ${channelManifestKey}: desktop.version = "${version}"`)
@@ -836,6 +813,7 @@ async function main() {
     bundledVersions,
     publishedAt: new Date().toISOString(),
     channel,
+    baseUrls: buildBaseUrls(),
     platforms,
   }
   const versionManifestKey = `desktop/${version}/manifest.json`
@@ -850,6 +828,7 @@ async function main() {
   } catch {
     // 首次创建
   }
+  channelManifest.baseUrls = buildBaseUrls()
   channelManifest.desktop = { version }
   await uploadJsonToAll(channelManifestKey, channelManifest)
   console.log(`✅ Updated ${channelManifestKey}: desktop.version = "${version}"`)
@@ -876,27 +855,14 @@ async function main() {
     publicUrl: r2Config.publicUrl,
     versionDirPrefix: `desktop/${version}`,
   })
-  if (cos && cosConfig) {
-    await uploadChangelogs({
-      s3: cos,
-      bucket: cosConfig.bucket,
-      component: 'desktop',
-      changelogsDir,
-      publicUrl: cosConfig.publicUrl,
-      versionDirPrefix: `desktop/${version}`,
-    })
-  }
 
   // 清理旧版本（保留最近 3 个）
   await cleanupOldVersions({ s3, bucket: r2Config.bucket, prefix: 'desktop/', keep: 3 })
-  if (cos && cosConfig) {
-    await cleanupOldVersions({ s3: cos, bucket: cosConfig.bucket, prefix: 'desktop/', keep: 3 })
-  }
 
   console.log(`\n🎉 Electron v${version} published to ${channel} channel!`)
-  console.log(`   R2:  ${r2Config.publicUrl}/desktop/${version}/`)
-  if (cosConfig) console.log(`   COS: ${cosConfig.publicUrl}/desktop/${version}/`)
-  console.log(`\n📥 Download URLs:`)
+  console.log(`   R2 (海外):  ${r2Config.publicUrl}/desktop/${version}/`)
+  console.log(`   CDN (国内): ${CN_CDN_URL}/desktop/${version}/`)
+  console.log(`\n📥 Download URLs (relative paths in manifest):`)
   for (const [platform, info] of Object.entries(platforms)) {
     console.log(`   [${platform}] ${info.url}`)
   }

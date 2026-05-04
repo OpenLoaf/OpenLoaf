@@ -53,50 +53,6 @@ export function createS3Client({ endpoint, accessKeyId, secretAccessKey }) {
 }
 
 /**
- * 创建腾讯 COS S3 兼容客户端。
- *
- * TENCENT_COS_ENDPOINT 必须**不含 bucket 名**（如 https://cos.accelerate.myqcloud.com 或
- * https://cos.{region}.myqcloud.com）。S3 SDK 在 forcePathStyle=false 下会自动把 bucket
- * 拼成单层 host 前缀，得到 https://{bucket}.cos.accelerate.myqcloud.com。
- * 若 endpoint 已含 bucket，SDK 会再叠一层导致 TLS ERR_TLS_CERT_ALTNAME_INVALID
- * （证书通配符 *.cos.accelerate.myqcloud.com 只匹配单层）。
- */
-export function createCosS3Client({ endpoint, region, accessKeyId, secretAccessKey }) {
-  return new S3Client({
-    region,
-    endpoint,
-    credentials: { accessKeyId, secretAccessKey },
-    forcePathStyle: false,
-  })
-}
-
-/**
- * 读取 COS 环境变量，配置不完整时返回 null（不强制退出，COS 为可选目标）。
- * 变量命名跟 OpenSpeech 仓库对齐，便于跨项目复用一套腾讯云 secrets。
- */
-export function validateCosConfig() {
-  const bucket = process.env.TENCENT_COS_BUCKET
-  const publicUrl = process.env.TENCENT_COS_PUBLIC_URL
-  const endpoint = process.env.TENCENT_COS_ENDPOINT
-  const region = process.env.TENCENT_COS_REGION
-  const secretId = process.env.TENCENT_SECRET_ID
-  const secretKey = process.env.TENCENT_SECRET_KEY
-
-  if (!bucket || !endpoint || !region || !secretId || !secretKey) {
-    return null
-  }
-
-  return {
-    bucket,
-    publicUrl: (publicUrl ?? '').trim().replace(/\/$/, ''),
-    endpoint,
-    region,
-    accessKeyId: secretId,
-    secretAccessKey: secretKey,
-  }
-}
-
-/**
  * 校验必要的 R2 环境变量并返回配置对象。
  * 缺少时直接 process.exit(1)。
  */
@@ -419,16 +375,7 @@ async function listAllKeys(s3, bucket, prefix) {
   return keys
 }
 
-/**
- * 删除一组对象 key。
- *
- * 历史：早期用 DeleteObjectsCommand 批量删，单批 1000 个，对 R2/AWS S3 没问题。
- * 切到腾讯 COS 后报 `InvalidRequest: Missing required header for this request:
- * Content-MD5` —— COS 按旧版 S3 协议要求批量删带 Content-MD5，AWS SDK v3 已经
- * 把校验头切换到 x-amz-sdk-checksum-algorithm（CRC32），不再自动加 MD5，COS
- * 不识别。改成逐个 DeleteObjectCommand（不要求 Content-MD5），并发 8，兼容
- * R2 / COS / 原生 S3，一组几百个 key 也只多花几秒。
- */
+/** 并发逐个删除对象（避免某些 S3 兼容实现对 DeleteObjectsCommand 的额外要求）。 */
 async function deleteKeys(s3, bucket, keys) {
   const concurrency = 8
   for (let i = 0; i < keys.length; i += concurrency) {

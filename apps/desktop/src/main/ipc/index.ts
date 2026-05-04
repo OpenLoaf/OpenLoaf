@@ -977,7 +977,8 @@ export function registerIpcHandlers(args: { log: Logger }) {
       const desktopVersion = channelManifest?.desktop?.version;
       if (!desktopVersion) return { ok: false as const, reason: 'no-desktop-version' };
 
-      // 2. 读取版本 manifest → 获取平台下载 URL
+      // 2. 读取版本 manifest → 获取平台下载 URL（platforms[*].url 是相对路径，
+      //    拼上 baseUrls.{cn|global} 之一；resolveUpdateBaseUrl() 已按地区返回正确 base）
       const versionManifest = (await resolveDesktopVersionManifest(baseUrl, desktopVersion)) as {
         platforms?: Record<string, { url?: string }>;
       };
@@ -989,7 +990,9 @@ export function registerIpcHandlers(args: { log: Logger }) {
       const platformInfo = platforms[platformKey];
       if (!platformInfo?.url) return { ok: false as const, reason: 'no-platform-match' };
 
-      return { ok: true as const, url: platformInfo.url, version: desktopVersion };
+      const relative = platformInfo.url.replace(/^\/+/, '');
+      const fullUrl = /^https?:\/\//.test(relative) ? relative : `${baseUrl}/${relative}`;
+      return { ok: true as const, url: fullUrl, version: desktopVersion };
     } catch (error) {
       return { ok: false as const, reason: String(error) };
     }

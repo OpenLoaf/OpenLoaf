@@ -9,13 +9,17 @@
  */
 import fs from 'node:fs'
 import path from 'node:path'
+import { app } from 'electron'
 import { getOpenLoafRootDir } from '@openloaf/config'
 
 // ---------------------------------------------------------------------------
 // 常量
 // ---------------------------------------------------------------------------
 
-const DEFAULT_UPDATE_BASE_URL = 'https://openloaf-1329813561.cos.accelerate.myqcloud.com'
+/** 海外用户走 R2 自定义域名。 */
+const R2_BASE_URL = 'https://openloaf-r2.hexems.com'
+/** 国内用户走腾讯云 CDN（回源 R2）。 */
+const CN_CDN_BASE_URL = 'https://openloaf-cdn.hexems.com'
 const SETTINGS_FILE_NAME = '.settings.json'
 
 // ---------------------------------------------------------------------------
@@ -35,45 +39,67 @@ type SettingsJson = {
 // ---------------------------------------------------------------------------
 
 /**
- * 从 process.env 或 runtime.env 中读取 OPENLOAF_UPDATE_URL，
- * 兼容旧的 OPENLOAF_UPDATE_MANIFEST_URL / OPENLOAF_ELECTRON_UPDATE_URL。
+ * 检测当前运行时是否属于"国内"，用于在 R2/CDN 之间分流。
+ * 优先 app.getLocale()（zh-* 视为国内），再退回 IANA 时区匹配 (Asia/Shanghai 等)。
+ */
+function isCnRuntime(): boolean {
+  try {
+    const locale = app.getLocale()?.toLowerCase()
+    if (locale && locale.startsWith('zh')) return true
+  } catch {
+    // app 未 ready 或 locale 不可用时跳过 — 走时区兜底
+  }
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
+    if (tz === 'Asia/Shanghai' || tz === 'Asia/Chongqing' || tz === 'Asia/Urumqi') return true
+  } catch {
+    // 不支持 Intl 时降级为海外
+  }
+  return false
+}
+
+/** 默认 base URL：按地区分流（国内 CDN，海外 R2）。 */
+function defaultBaseUrlByRegion(): string {
+  return isCnRuntime() ? CN_CDN_BASE_URL : R2_BASE_URL
+}
+
+/**
+ * 决定 Electron / 增量更新读取 manifest 的 base URL。
+ * 显式 OPENLOAF_UPDATE_URL 强制覆盖（process.env > runtime.env），否则按地区分流。
  */
 export function resolveUpdateBaseUrl(): string {
-  // 1. 新变量优先
   const fromEnv = process.env.OPENLOAF_UPDATE_URL?.trim()
   if (fromEnv) return fromEnv.replace(/\/+$/, '')
 
-  // 2. 尝试从 runtime.env 读取
   try {
     const runtimeEnvPath = path.join(process.resourcesPath, 'runtime.env')
     if (fs.existsSync(runtimeEnvPath)) {
       const raw = fs.readFileSync(runtimeEnvPath, 'utf-8')
       const vars = parseEnvFile(raw)
-
-      // 新变量
       if (vars.OPENLOAF_UPDATE_URL) {
         return vars.OPENLOAF_UPDATE_URL.replace(/\/+$/, '')
       }
-
-      // 向后兼容：从旧变量推导 base URL
-      const oldManifest = vars.OPENLOAF_UPDATE_MANIFEST_URL
-      if (oldManifest) {
-        // 例如 https://openloaf-update.hexems.com/manifest.json → https://openloaf-update.hexems.com
-        const url = new URL(oldManifest)
-        return `${url.protocol}//${url.host}`
-      }
-
-      const oldElectron = vars.OPENLOAF_ELECTRON_UPDATE_URL
-      if (oldElectron) {
-        // 例如 https://openloaf-update.hexems.com/desktop → https://openloaf-update.hexems.com
-        return oldElectron.replace(/\/(?:electron|desktop)\/?$/, '')
-      }
     }
   } catch {
-    // 读取 runtime.env 失败时忽略，继续使用默认地址。
+    // 读取 runtime.env 失败时忽略，继续走地区分流默认。
   }
 
-  return DEFAULT_UPDATE_BASE_URL
+  return defaultBaseUrlByRegion()
+}
+
+/**
+ * 把 manifest 里写死的 R2 绝对 URL 重写成当前地区的 base URL（国内换成 CDN）。
+ * 用于 server / web 增量包下载、electron-updater yml 里的 `path` 字段等场景；
+ * 已知 host = openloaf-r2.hexems.com 时才替换，其它 host 原样返回（避免误改）。
+ */
+export function localizeUpdateUrl(absoluteUrl: string): string {
+  if (!absoluteUrl || typeof absoluteUrl !== 'string') return absoluteUrl
+  const region = resolveUpdateBaseUrl()
+  if (region === R2_BASE_URL) return absoluteUrl
+  if (absoluteUrl.startsWith(`${R2_BASE_URL}/`) || absoluteUrl === R2_BASE_URL) {
+    return region + absoluteUrl.slice(R2_BASE_URL.length)
+  }
+  return absoluteUrl
 }
 
 // ---------------------------------------------------------------------------

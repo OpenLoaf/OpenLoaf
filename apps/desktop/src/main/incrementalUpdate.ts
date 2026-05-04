@@ -22,7 +22,7 @@ const execFileAsync = promisify(execFile)
 import type { Logger } from './logging/startupLogger'
 import { getAutoUpdateStatus, registerPreDownloadHook } from './autoUpdate'
 import { getUpdatesRoot } from './incrementalUpdatePaths'
-import { resolveUpdateBaseUrl, resolveUpdateChannel } from './updateConfig'
+import { localizeUpdateUrl, resolveUpdateBaseUrl, resolveUpdateChannel } from './updateConfig'
 import {
   compareVersions,
   gateBetaManifest,
@@ -581,7 +581,8 @@ async function updateComponent(
     progress: { component, percent: 0 },
   })
 
-  const downloadUrl = withCacheBust(manifest.url, manifest.sha256)
+  // manifest.url 由 publish 脚本写入 R2 绝对 URL；国内运行时换成 CDN host，避免直连 R2。
+  const downloadUrl = withCacheBust(localizeUpdateUrl(manifest.url), manifest.sha256)
   await downloadFile(downloadUrl, downloadPath, manifest.size, (percent) => {
     emitStatus({
       state: 'downloading',

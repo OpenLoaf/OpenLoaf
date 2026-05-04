@@ -64,7 +64,7 @@
     ],
     "publish": {
       "provider": "generic",
-      "url": "https://r2-openloaf-update.hexems.com/desktop"
+      "url": "https://openloaf-r2.hexems.com/desktop"
     },
     "extraResources": [
       {

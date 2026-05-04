@@ -183,7 +183,7 @@ function generateCombinedMacYml(version, localMacFiles, remoteYmls, publicUrl) {
 // ─── 测试数据 ─────────────────────────────────────────────────────────────────
 
 const VERSION = '0.2.5-beta.25'
-const PUBLIC_URL = 'https://openloaf-update.hexems.com'
+const PUBLIC_URL = 'https://openloaf-r2.hexems.com'
 
 const arm64Zip = {
   name: 'OpenLoaf-0.2.5-beta.25-MacOS-arm64.zip',
@@ -215,11 +215,11 @@ console.log('\n═══ 测试 1：parseYml 解析正确性 ═══')
 
 const sampleYml = `version: 0.2.5-beta.25
 files:
-  - url: https://openloaf-update.hexems.com/desktop/0.2.5-beta.25/OpenLoaf-0.2.5-beta.25-MacOS-arm64.zip
+  - url: https://openloaf-r2.hexems.com/desktop/0.2.5-beta.25/OpenLoaf-0.2.5-beta.25-MacOS-arm64.zip
     sha512: 4WHVCq0C9yL7CWLfFOaEC7b84rFRP4/6dtj+l9vIrV5kMzx38NH9gti1jLhVzSQfVviiGMQa4nf5/mrESIz3Wg==
     size: 297251567
     blockMapSize: 309608
-path: https://openloaf-update.hexems.com/desktop/0.2.5-beta.25/OpenLoaf-0.2.5-beta.25-MacOS-arm64.zip
+path: https://openloaf-r2.hexems.com/desktop/0.2.5-beta.25/OpenLoaf-0.2.5-beta.25-MacOS-arm64.zip
 sha512: 4WHVCq0C9yL7CWLfFOaEC7b84rFRP4/6dtj+l9vIrV5kMzx38NH9gti1jLhVzSQfVviiGMQa4nf5/mrESIz3Wg==
 releaseDate: '2026-03-20T19:12:39.338Z'`
 
@@ -338,10 +338,10 @@ console.log('\n═══ 测试 5：旧版 Bug 复现 ═══')
 // 旧版 latest-mac.yml 只有 x64
 const oldBrokenYml = `version: 0.2.5-beta.25
 files:
-  - url: https://openloaf-update.hexems.com/desktop/0.2.5-beta.25/OpenLoaf-0.2.5-beta.25-MacOS-x64.zip
+  - url: https://openloaf-r2.hexems.com/desktop/0.2.5-beta.25/OpenLoaf-0.2.5-beta.25-MacOS-x64.zip
     sha512: x64sha512==
     size: 298127458
-path: https://openloaf-update.hexems.com/desktop/0.2.5-beta.25/OpenLoaf-0.2.5-beta.25-MacOS-x64.zip
+path: https://openloaf-r2.hexems.com/desktop/0.2.5-beta.25/OpenLoaf-0.2.5-beta.25-MacOS-x64.zip
 sha512: x64sha512==
 releaseDate: '2026-03-20T19:22:04.845Z'`
 
@@ -408,7 +408,7 @@ assert(parsedOldRemote.files[0].url.includes('x64'), '只保留当前版本的 x
 console.log('\n═══ 测试 8：线上 R2 yml 解析验证 ═══')
 
 try {
-  const arm64Resp = await fetch('https://openloaf-update.hexems.com/desktop/beta/latest-mac-arm64.yml')
+  const arm64Resp = await fetch('https://openloaf-r2.hexems.com/desktop/beta/latest-mac-arm64.yml')
   if (arm64Resp.ok) {
     const arm64Text = await arm64Resp.text()
     const arm64RemoteParsed = parseYml(arm64Text)
@@ -419,7 +419,7 @@ try {
     console.log('  ⚠️  线上 latest-mac-arm64.yml 无法访问，跳过')
   }
 
-  const macResp = await fetch('https://openloaf-update.hexems.com/desktop/beta/latest-mac.yml')
+  const macResp = await fetch('https://openloaf-r2.hexems.com/desktop/beta/latest-mac.yml')
   if (macResp.ok) {
     const macText = await macResp.text()
     const macRemoteParsed = parseYml(macText)
