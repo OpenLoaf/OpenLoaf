@@ -545,8 +545,8 @@ export function Chat({
   const rootRef = React.useRef<HTMLDivElement | null>(null);
   const dragCounterRef = React.useRef(0);
   const attachmentsRef = React.useRef<ChatAttachment[]>([]);
-  const sessionIdRef = React.useRef<string>(sessionId ?? createChatSessionId());
-  const effectiveSessionId = sessionId ?? sessionIdRef.current;
+  const sessionIdRef = React.useRef<string>(sessionId || createChatSessionId());
+  const effectiveSessionId = sessionId || sessionIdRef.current;
   const effectiveLoadHistory = loadHistory ?? Boolean(sessionId);
   const projectId =
     typeof rawParams.projectId === "string" ? rawParams.projectId.trim() : "";
