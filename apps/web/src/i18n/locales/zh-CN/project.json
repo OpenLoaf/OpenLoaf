@@ -61,6 +61,7 @@
     "checkingUpdate": "正在检查更新...",
     "downloadingUpdate": "正在下载更新",
     "isLatest": "当前已是最新版本",
+    "updateReady": "更新已就绪",
     "restartToApply": "新版本已下载完成，重启应用后生效",
     "relaunchNow": "立即重启",
     "devNotice": "当前软件处于开发阶段，暂不支持充值。积分用完后请点击「反馈意见」通知我们手动赋予积分。",

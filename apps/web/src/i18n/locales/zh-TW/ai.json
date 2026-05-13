@@ -488,6 +488,7 @@
       "operationFailed": "生成失敗",
       "confirmAction": "確認執行此操作？",
       "loading": "載入中…",
+      "error": "處理失敗",
       "prompt": "提示詞",
       "pendingUrlsWarning": "遠端連結——可能過期，請盡快儲存到本機",
       "saveAs": "另存為…",

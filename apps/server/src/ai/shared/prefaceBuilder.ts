@@ -46,6 +46,7 @@ import { BUILTIN_SKILLS } from '@/ai/builtin-skills'
 import { CHANNEL_EXCLUDED_SKILL_NAMES } from '@/ai/agent-templates/templates/channel'
 import { resolveEffectiveTier } from '@/ai/builtin-skills/cloud-skills'
 import { UNKNOWN_VALUE } from '@/ai/shared/constants'
+import { resolveTimezone } from '@/ai/shared/timezone'
 /** Sentinel value for project rules when AGENTS.md is absent. */
 const PROJECT_RULES_NOT_FOUND = "__NOT_FOUND__";
 /** Project metadata folder name. */
@@ -297,15 +298,6 @@ function resolveResponseLanguage(): string {
   } catch {
     return UNKNOWN_VALUE;
   }
-}
-
-/** Resolve timezone string for prompt injection. */
-function resolveTimezone(value?: string): string {
-  const trimmed = typeof value === "string" ? value.trim() : "";
-  if (trimmed) return trimmed;
-  const resolved = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  // 逻辑：未传入时区时回退到服务器时区。
-  return resolved || process.env.TZ || "UTC";
 }
 
 /** Resolve Python runtime snapshot. */

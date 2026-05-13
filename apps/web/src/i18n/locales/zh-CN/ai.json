@@ -488,6 +488,7 @@
       "operationFailed": "生成失败",
       "confirmAction": "确认执行此操作？",
       "loading": "加载中…",
+      "error": "处理失败",
       "prompt": "提示词",
       "pendingUrlsWarning": "远程链接——可能过期，请尽快保存到本地",
       "saveAs": "另存为…",

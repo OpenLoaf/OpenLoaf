@@ -17,6 +17,7 @@ import { startChatStreamAsync } from '@/ai/services/chat/async/chatStreamAsyncSe
 import { bootstrapAi } from '@/ai/bootstrap'
 import { logger } from '@/common/logger'
 import { toText } from '@/routers/route-utils'
+import { resolveTimezone } from '@/ai/shared/timezone'
 
 const { aiExecuteController: controller } = bootstrapAi()
 
@@ -197,14 +198,6 @@ function normalizeResponseLanguage(value: unknown): string | undefined {
   const trimmed = value.trim()
   if (!trimmed || trimmed.length > 35) return undefined
   return /^[A-Za-z0-9-]+$/.test(trimmed) ? trimmed : undefined
-}
-
-/** Resolve timezone from request payload or server default. */
-function resolveTimezone(value: unknown): string {
-  const trimmed = toText(value)
-  if (trimmed) return trimmed
-  const resolved = Intl.DateTimeFormat().resolvedOptions().timeZone
-  return resolved || process.env.TZ || 'UTC'
 }
 
 /** Normalize tool approval payloads input. */

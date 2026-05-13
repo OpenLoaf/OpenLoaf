@@ -61,6 +61,7 @@
     "checkingUpdate": "Checking for updates...",
     "downloadingUpdate": "Downloading update",
     "isLatest": "You're on the latest version",
+    "updateReady": "Update Ready",
     "restartToApply": "New version downloaded. Restart to apply.",
     "relaunchNow": "Restart Now",
     "devNotice": "This software is in early development and does not support top-ups yet. When your credits run out, please click \"Feedback\" to let us know and we'll add credits manually.",

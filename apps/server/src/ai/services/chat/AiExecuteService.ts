@@ -20,6 +20,7 @@ import {
 } from "@openloaf/api/services/vfsService";
 import { getOpenLoafRootDir } from "@openloaf/config";
 import { resolveParentProjectRootPaths } from "@/ai/shared/util";
+import { resolveTimezone } from "@/ai/shared/timezone";
 import { CommandParser } from "@/ai/tools/CommandParser";
 import { SkillSelector, type SkillMatch } from "@/ai/tools/SkillSelector";
 import { resolveAutoSkillsByPageContext } from "@/ai/services/chat/pageContextSkillMap";
@@ -103,7 +104,9 @@ export class AiExecuteService {
 
     // 逻辑：为用户消息注入 data-msg-context（结构化，持久化到 JSONL）。
     if (enrichedLastMessage.role === "user") {
-      const tz = request.timezone || "UTC";
+      // 调用方未传 timezone（如 channel agent / wechat 桥）时回退到 server 默认时区，
+      // 避免裸 UTC 让模型把"下午 2 点"误读成"早上 6 点"。
+      const tz = resolveTimezone(request.timezone);
       const now = new Date();
       const timeStr = formatMsgTime(now, tz);
       const pc = request.pageContext;
@@ -291,12 +294,13 @@ async function getSessionLoadedSkillNames(sessionId: string): Promise<Set<string
   return names;
 }
 
-/** Format a Date to a readable string in the given timezone. */
+/** Format a Date to a readable string in the given timezone, with the IANA zone appended. */
 function formatMsgTime(date: Date, tz: string): string {
   try {
-    return date.toLocaleString("sv-SE", { timeZone: tz }).replace("T", " ");
+    const local = date.toLocaleString("sv-SE", { timeZone: tz }).replace("T", " ");
+    return `${local} ${tz}`;
   } catch {
-    return date.toISOString().slice(0, 19).replace("T", " ");
+    return `${date.toISOString().slice(0, 19).replace("T", " ")} UTC`;
   }
 }
 

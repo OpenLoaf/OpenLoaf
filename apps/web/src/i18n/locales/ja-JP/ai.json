@@ -488,6 +488,7 @@
       "operationFailed": "生成に失敗しました",
       "confirmAction": "この操作を実行しますか？",
       "loading": "読み込み中...",
+      "error": "処理失敗",
       "prompt": "プロンプト",
       "pendingUrlsWarning": "リモートURL——期限切れの可能性、早めにローカル保存してください",
       "saveAs": "名前を付けて保存…",

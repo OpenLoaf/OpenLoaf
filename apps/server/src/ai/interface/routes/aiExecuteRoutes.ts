@@ -16,6 +16,7 @@ import { bootstrapAi } from "@/ai/bootstrap";
 import { logger } from "@/common/logger";
 import { toText } from "@/routers/route-utils";
 import { abortChatBySessionId } from "@/ai/services/chat/chatAbortRegistry";
+import { resolveTimezone } from "@/ai/shared/timezone";
 
 const { aiExecuteController: controller } = bootstrapAi();
 
@@ -247,17 +248,3 @@ function normalizeResponseMode(value: unknown): AiResponseMode | undefined {
   return value === "stream" || value === "json" ? value : undefined;
 }
 
-/** Resolve timezone from request payload or server default. */
-function resolveTimezone(value: unknown): string {
-  const trimmed = toText(value);
-  if (trimmed) return trimmed;
-  return resolveServerTimezone();
-}
-
-/** Resolve server timezone (IANA) with fallback. */
-function resolveServerTimezone(): string {
-  const resolved = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  if (resolved) return resolved;
-  // 逻辑：Intl 缺失时回退到进程 TZ，再不行回退 UTC。
-  return process.env.TZ ?? "UTC";
-}

@@ -27,6 +27,7 @@ import {
 import type { ChatImageRequestResult } from "@/ai/services/image/types";
 import { replaceRelativeFileParts } from "@/ai/services/image/attachmentResolver";
 import { registerChatAbort } from "@/ai/services/chat/chatAbortRegistry";
+import { resolveTimezone } from "@/ai/shared/timezone";
 
 /** Format invalid request errors for client display. */
 export function formatInvalidRequestMessage(message: string): string {
@@ -316,7 +317,7 @@ export function buildModelChain(
  */
 function injectUserMessageTimestamps(messages: UIMessage[]): UIMessage[] {
   const ctx = getRequestContext();
-  const tz = ctx?.timezone || 'UTC';
+  const tz = resolveTimezone(ctx?.timezone);
   return messages.map((msg) => {
     if (msg.role !== 'user') return msg;
     // 已有 data-msg-context 的消息跳过。
@@ -400,12 +401,13 @@ function splitUserMessageParts(messages: UIMessage[]): UIMessage[] {
   return result;
 }
 
-/** Format a Date to a readable string in the given timezone. */
+/** Format a Date to a readable string in the given timezone, with the IANA zone appended. */
 function formatDateForTimezone(date: Date, tz: string): string {
   try {
-    return date.toLocaleString('sv-SE', { timeZone: tz }).replace('T', ' ');
+    const local = date.toLocaleString('sv-SE', { timeZone: tz }).replace('T', ' ');
+    return `${local} ${tz}`;
   } catch {
-    return date.toISOString().slice(0, 19).replace('T', ' ');
+    return `${date.toISOString().slice(0, 19).replace('T', ' ')} UTC`;
   }
 }
 

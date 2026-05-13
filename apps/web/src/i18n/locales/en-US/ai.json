@@ -488,6 +488,7 @@
       "operationFailed": "Generation failed",
       "confirmAction": "Confirm this operation?",
       "loading": "Loading...",
+      "error": "Failed",
       "prompt": "Prompt",
       "pendingUrlsWarning": "Remote URLs — may expire; save locally ASAP",
       "saveAs": "Save as...",

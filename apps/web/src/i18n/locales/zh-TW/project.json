@@ -61,6 +61,7 @@
     "checkingUpdate": "正在檢查更新...",
     "downloadingUpdate": "正在下載更新",
     "isLatest": "目前已是最新版本",
+    "updateReady": "更新已就緒",
     "restartToApply": "新版本已下載完成，重新啟動應用程式後生效",
     "relaunchNow": "立即重新啟動",
     "devNotice": "目前軟體處於開發階段，暫不支援儲值。點數用完後請點擊「意見回饋」通知我們手動賦予點數。",
