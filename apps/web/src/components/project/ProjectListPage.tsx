@@ -44,7 +44,7 @@ import { ColorPickerSubMenu } from "@/components/shared/ColorPickerSubMenu";
 import { useLayoutState } from "@/hooks/use-layout-state";
 import { useProjectOpen } from "@/hooks/use-project-open";
 import { useProjectStorageRootQuery } from "@/hooks/use-project-storage-root-uri";
-import { getDisplayPathFromUri } from "@/components/project/filesystem/utils/file-system-utils";
+import { getDisplayPathFromUri, buildFileUriFromRoot } from "@/components/project/filesystem/utils/file-system-utils";
 import type { ProjectListItem } from "@openloaf/api/services/projectTreeService";
 import { Button } from "@openloaf/ui/button";
 import { Checkbox } from "@openloaf/ui/checkbox";
@@ -380,18 +380,13 @@ export default function ProjectListPage({ tabId }: ProjectListPageProps) {
     return null;
   };
 
-  /** Compute the resolved folder path for auto-create mode (uses committedTitle to avoid IME pinyin). */
-  const autoCreatePath = useMemo(() => {
-    if (!committedTitle.trim()) return "";
-    const tempUri = storageRootQuery.data?.tempRootUri;
-    if (!tempUri) return "";
-    try {
-      const basePath = decodeURIComponent(new URL(tempUri).pathname);
-      return `${basePath}/${committedTitle.trim()}`;
-    } catch {
-      return "";
-    }
-  }, [committedTitle, storageRootQuery.data?.tempRootUri]);
+/** Compute the resolved folder path for auto-create mode (uses committedTitle to avoid IME pinyin). */
+const autoCreatePath = useMemo(() => {
+  if (!committedTitle.trim()) return "";
+  const tempUri = storageRootQuery.data?.tempRootUri;
+  if (!tempUri) return "";
+  return buildFileUriFromRoot(tempUri, committedTitle.trim());
+}, [committedTitle, storageRootQuery.data?.tempRootUri]);
 
   /** Submit handler for creating a project at the selected folder. */
   const handleCreateProject = useCallback(async () => {
