@@ -45,6 +45,10 @@ export function createChatTransport({
   // 中文注释：新版聊天统一走 /ai/chat。
   const apiBase = `${resolveServerUrl()}/ai/chat`;
 
+  const isValidSessionId = (id: string): boolean => {
+    return typeof id === 'string' && id.trim().length > 0;
+  };
+
   return new DefaultChatTransport({
     api: apiBase,
     credentials: "include",
@@ -74,6 +78,11 @@ export function createChatTransport({
       // 关键：优先使用 sessionIdRef（来自 ChatCoreProvider 的最新 sessionId），
       // 避免 AI SDK Chat 实例的 id 在 session 切换时因 React 渲染时序未及时更新而发送旧 sessionId。
       const resolvedSessionId = sessionIdRef?.current ?? id;
+
+      if (!isValidSessionId(resolvedSessionId)) {
+        throw new Error('Invalid sessionId: cannot send chat message without a valid session ID');
+      }
+
       const payloadBase: ChatRequestBody = {
         ...basePayload,
         sessionId: resolvedSessionId,

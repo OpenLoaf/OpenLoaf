@@ -75,7 +75,7 @@ function parseAiExecuteRequest(body: unknown): { request?: AiExecuteRequest; err
   const raw = body as Record<string, unknown>;
 
   const sessionId = toText(raw.sessionId);
-  if (!sessionId) return { error: "sessionId is required" };
+  if (!sessionId || sessionId.trim().length === 0) return { error: "sessionId is required and cannot be empty" };
 
   const messages = Array.isArray(raw.messages) ? (raw.messages as AiExecuteRequest["messages"]) : [];
   if (!Array.isArray(raw.messages)) return { error: "messages is required" };

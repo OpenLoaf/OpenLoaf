@@ -545,8 +545,26 @@ export function Chat({
   const rootRef = React.useRef<HTMLDivElement | null>(null);
   const dragCounterRef = React.useRef(0);
   const attachmentsRef = React.useRef<ChatAttachment[]>([]);
-  const sessionIdRef = React.useRef<string>(sessionId || createChatSessionId());
-  const effectiveSessionId = sessionId || sessionIdRef.current;
+  const isValidSessionId = (id: string | undefined): id is string => {
+    return typeof id === 'string' && id.trim().length > 0;
+  };
+
+  // Initialize sessionIdRef with a valid ID, ignoring empty string
+  const initialSessionId = React.useMemo((): string => {
+    if (isValidSessionId(sessionId)) {
+      return sessionId;
+    }
+    return createChatSessionId();
+  }, []);
+  const sessionIdRef = React.useRef<string>(initialSessionId);
+
+  // effectiveSessionId: use prop if valid, otherwise use ref
+  const effectiveSessionId = React.useMemo((): string => {
+    if (isValidSessionId(sessionId)) {
+      return sessionId;
+    }
+    return sessionIdRef.current;
+  }, [sessionId]);
   const effectiveLoadHistory = loadHistory ?? Boolean(sessionId);
   const projectId =
     typeof rawParams.projectId === "string" ? rawParams.projectId.trim() : "";
@@ -590,9 +608,9 @@ export function Chat({
   }, [attachments]);
 
   React.useEffect(() => {
-    if (sessionId) return;
+    if (isValidSessionId(sessionId)) return;
     onSessionChange?.(effectiveSessionId, { loadHistory: false });
-  }, [sessionId, effectiveSessionId, onSessionChange]);
+  }, [sessionId, effectiveSessionId, onSessionChange, isValidSessionId]);
 
   React.useEffect(() => {
     /**

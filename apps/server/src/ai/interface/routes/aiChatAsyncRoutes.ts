@@ -145,7 +145,7 @@ function parseAsyncRequest(body: unknown): { request?: AiExecuteRequest; error?:
   const raw = body as Record<string, unknown>
 
   const sessionId = toText(raw.sessionId)
-  if (!sessionId) return { error: 'sessionId is required' }
+  if (!sessionId || sessionId.trim().length === 0) return { error: 'sessionId is required and cannot be empty' }
 
   if (!Array.isArray(raw.messages)) return { error: 'messages is required' }
 

@@ -131,6 +131,15 @@ export default function ChatCoreProvider({
     onSuccess: () => { invalidateChatSessions(queryClient) },
   });
 
+  const isValidSessionId = (id: string): boolean => {
+    return typeof id === 'string' && id.trim().length > 0;
+  };
+
+  // Early return if sessionId is invalid
+  if (!isValidSessionId(sessionId)) {
+    return null;
+  }
+
   // ── Sub-agent streams ──
   const {
     enqueueSubAgentChunk,
@@ -226,7 +235,7 @@ export default function ChatCoreProvider({
       if (needsBranchMetaRefreshRef.current) {
         const shouldRefreshBranchMeta = !branchSnapshotReceivedRef.current;
         needsBranchMetaRefreshRef.current = false;
-        if (shouldRefreshBranchMeta) {
+        if (shouldRefreshBranchMeta && assistantId) {
           void refreshBranchMeta(assistantId);
         }
       }
@@ -236,7 +245,7 @@ export default function ChatCoreProvider({
         invalidateChatSessions(queryClient);
       }
       assistantReplyCountRef.current += 1;
-      if (assistantReplyCountRef.current % 5 === 0 && !autoTitleMutation.isPending) {
+      if (isValidSessionId(sessionId) && assistantReplyCountRef.current % 5 === 0 && !autoTitleMutation.isPending) {
         autoTitleMutation.mutate({ sessionId } as any);
       }
       setStepThinking(false);
